@@ -2,11 +2,10 @@
 
 import Link from "next/link";
 import { useUser, useClerk } from "@clerk/nextjs";
-import { Globe, Thermometer, Info, Shield, Users, LogOut, Sun, Moon, Monitor } from "lucide-react";
+import { Globe, Thermometer, Info, Shield, Users, Hash, LogOut, Sun, Moon, Monitor } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useTimePreference } from "@/components/providers/time-preference-provider";
-import { useUnitsPreference, type TempUnit } from "@/components/providers/units-preference-provider";
-import type { TimeDisplayPref } from "@/generated/prisma/client";
+import { useUnitsPreference } from "@/components/providers/units-preference-provider";
 import { FeedbackDialog } from "@/components/feedback/FeedbackDialog";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
@@ -45,6 +44,10 @@ export function MobileMoreSheet({ open, onClose }: MobileMoreSheetProps) {
 
         {/* Navigation links */}
         <nav className="space-y-1">
+          <Link href="/kennels" onClick={onClose} className={navLinkClass}>
+            <Hash className="h-4 w-4 text-muted-foreground" />
+            Kennels
+          </Link>
           <Link href={user ? "/misman" : "/for-misman"} onClick={onClose} className={navLinkClass}>
             <Users className="h-4 w-4 text-muted-foreground" />
             Misman

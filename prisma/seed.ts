@@ -5,6 +5,7 @@ import { KENNELS } from "./seed-data/kennels";
 import type { KennelSeed } from "./seed-data/kennels";
 import { KENNEL_ALIASES } from "./seed-data/aliases";
 import { SOURCES } from "./seed-data/sources";
+import { runScheduleRuleBackfill } from "../scripts/backfill-schedule-rules";
 
 /** JSON.stringify with sorted keys — prevents false diffs from key ordering differences between seed objects and DB-returned JSON. */
 function stableStringify(obj: unknown): string {
@@ -625,6 +626,15 @@ async function main() {
   const prisma = new PrismaClient({ adapter });
 
   await seedKennels(prisma, KENNELS, KENNEL_ALIASES, SOURCES, toSlug);
+
+  console.log("\n━━━ Seeding ScheduleRules for Travel Mode ━━━");
+  const { created, updated, errored } = await runScheduleRuleBackfill(prisma);
+  console.log(`  ✓ Created: ${created}, Updated: ${updated}${errored ? `, Errored: ${errored}` : ""}`);
+  if (errored > 0) {
+    throw new Error(
+      `ScheduleRule backfill had ${errored} upsert error(s) — investigate before considering seed successful.`,
+    );
+  }
 
   console.log("\nSeed complete!");
   await prisma.$disconnect();

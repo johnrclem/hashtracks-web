@@ -20,6 +20,7 @@ import {
 
 const navLinks = [
   { href: "/hareline", label: "Hareline" },
+  { href: "/travel", label: "Travel" },
   { href: "/logbook", label: "Logbook" },
   { href: "/kennels", label: "Kennels" },
   { href: "/profile", label: "Profile" },

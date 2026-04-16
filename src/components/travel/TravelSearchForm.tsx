@@ -1,0 +1,363 @@
+"use client";
+
+import { useEffect, useState, useCallback, useTransition, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { MapPin, Calendar, Compass, Search, Pencil } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { formatDateCompact, daysBetween } from "@/lib/travel/format";
+import { capture } from "@/lib/analytics";
+import { resolveRefCode } from "@/lib/travel/iata";
+import { DestinationInput } from "./DestinationInput";
+
+interface TravelSearchFormProps {
+  variant: "hero" | "compact";
+  initialValues?: {
+    destination: string;
+    latitude: number;
+    longitude: number;
+    startDate: string;
+    endDate: string;
+    radiusKm: number;
+    timezone?: string;
+  };
+}
+
+const RADIUS_OPTIONS = [
+  { value: 10, label: "Close", description: "~6 mi" },
+  { value: 25, label: "Metro", description: "~15 mi" },
+  { value: 50, label: "Region", description: "~30 mi" },
+  { value: 100, label: "Far", description: "~60 mi" },
+] as const;
+
+function snapRadiusToTier(value: number): number {
+  const tiers = RADIUS_OPTIONS.map((o) => o.value);
+  if (tiers.includes(value as (typeof tiers)[number])) return value;
+  return tiers.reduce((nearest, tier) =>
+    Math.abs(tier - value) < Math.abs(nearest - value) ? tier : nearest,
+  );
+}
+
+export function TravelSearchForm({ variant, initialValues }: Readonly<TravelSearchFormProps>) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+
+  const [destination, setDestination] = useState(initialValues?.destination ?? "");
+  const [latitude, setLatitude] = useState(initialValues?.latitude ?? 0);
+  const [longitude, setLongitude] = useState(initialValues?.longitude ?? 0);
+  const [startDate, setStartDate] = useState(initialValues?.startDate ?? "");
+  const [endDate, setEndDate] = useState(initialValues?.endDate ?? "");
+  const [radiusKm, setRadiusKm] = useState(
+    snapRadiusToTier(initialValues?.radiusKm ?? 50),
+  );
+  const didSnapRadiusRef = useRef(false);
+  const [timezone, setTimezone] = useState(initialValues?.timezone ?? "");
+  const [isExpanded, setIsExpanded] = useState(variant === "hero");
+
+  // Tracks whether DestinationInput has reported a resolved coordinate
+  // pair. Distinct from `latitude !== 0` because (0, 0) is a valid coord
+  // — equatorial Atlantic destinations exist. Flips true when
+  // DestinationInput.onChange fires; resets when the user clears.
+  const [coordsResolved, setCoordsResolved] = useState(
+    initialValues?.latitude !== undefined && initialValues?.longitude !== undefined,
+  );
+
+  // Per-field invalid flags — drive the REQUIRED rubber stamps. Flipped
+  // true on attempted-submit-while-empty; cleared the moment the user
+  // provides that field. Starts false so landing form is pristine.
+  const [destInvalid, setDestInvalid] = useState(false);
+  const [datesInvalid, setDatesInvalid] = useState(false);
+
+  // Inverted ranges (endDate before startDate) are caught at the server
+  // boundary, but allowing them through the form yields a negative
+  // "N nights" display + negative analytics. Surface as invalid here.
+  const datesValid = Boolean(startDate && endDate && startDate <= endDate);
+  const canSubmit = destination && datesValid && coordsResolved;
+
+  // Ref-guarded so StrictMode's double-fire produces a single replace.
+  useEffect(() => {
+    if (didSnapRadiusRef.current) return;
+    didSnapRadiusRef.current = true;
+    if (variant !== "compact") return;
+    const requested = initialValues?.radiusKm;
+    if (requested == null) return;
+    const snapped = snapRadiusToTier(requested);
+    if (snapped === requested) return;
+    const here = new URL(window.location.href);
+    here.searchParams.set("r", snapped.toString());
+    router.replace(here.pathname + here.search);
+  }, [initialValues?.radiusKm, router, variant]);
+
+  const handleSubmit = useCallback(() => {
+    if (!canSubmit) {
+      // Boarding-pass aesthetic: the form visibly refuses, not silently.
+      // Stamp REQUIRED next to the missing section's margin label.
+      setDestInvalid(!destination || !coordsResolved);
+      setDatesInvalid(!datesValid);
+      return;
+    }
+    capture("travel_search_submitted", {
+      destination,
+      radiusKm,
+      dateRangeDays: daysBetween(startDate, endDate),
+    });
+    const params = new URLSearchParams({
+      lat: latitude.toString(),
+      lng: longitude.toString(),
+      from: startDate,
+      to: endDate,
+      r: radiusKm.toString(),
+      q: destination,
+    });
+    if (timezone) params.set("tz", timezone);
+    startTransition(() => {
+      router.push(`/travel?${params.toString()}`);
+    });
+    if (variant === "compact") setIsExpanded(false);
+  }, [canSubmit, coordsResolved, datesValid, latitude, longitude, startDate, endDate, radiusKm, destination, timezone, router, variant]);
+
+  // ── Compact variant: single-row pill ──
+  if (variant === "compact" && !isExpanded) {
+    return (
+      <button
+        onClick={() => { setIsExpanded(true); }}
+        className="
+          flex w-full items-center gap-3 rounded-full border border-border
+          bg-card px-6 py-3 text-left transition-colors hover:bg-accent
+          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring
+        "
+        aria-label="Edit travel search"
+      >
+        <MapPin className="h-4 w-4 text-muted-foreground" />
+        <span className="font-medium">{destination || "Search"}</span>
+        <span className="text-muted-foreground">·</span>
+        <Calendar className="h-4 w-4 text-muted-foreground" />
+        <span className="font-mono text-sm text-muted-foreground">
+          {startDate && endDate
+            ? `${formatDateCompact(startDate, { withWeekday: true })} → ${formatDateCompact(endDate, { withWeekday: true })}`
+            : "Dates"}
+        </span>
+        <span className="text-muted-foreground">·</span>
+        <Compass className="h-4 w-4 text-muted-foreground" />
+        <span className="font-mono text-sm text-muted-foreground">{radiusKm} km</span>
+        <span className="ml-auto flex items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 text-xs text-muted-foreground">
+          <Pencil className="h-3 w-3" />
+          Edit
+        </span>
+      </button>
+    );
+  }
+
+  // ── Hero / Expanded variant: boarding pass form ──
+  return (
+    <div className="travel-animate">
+      {/* Margin labels above the card border. REQUIRED stamps flip on when
+          submit is attempted with an empty field — diegetic to the
+          boarding-pass metaphor (the form visibly refuses) rather than
+          a generic toast. Clears when the user fills the field. */}
+      <div className="mb-2 grid grid-cols-3 gap-0 px-1 md:grid-cols-[2.4fr_1.4fr_1fr_auto]">
+        <div className="flex items-center gap-2 pl-5 text-[10px] font-medium uppercase tracking-[0.15em] text-muted-foreground/70">
+          <MapPin className="h-3 w-3" />
+          Destination
+          {destInvalid && <RequiredStamp />}
+        </div>
+        <div className="hidden items-center gap-2 text-[10px] font-medium uppercase tracking-[0.15em] text-muted-foreground/70 md:flex">
+          <Calendar className="h-3 w-3" />
+          Dates
+          {datesInvalid && <RequiredStamp />}
+        </div>
+        <div className="hidden items-center gap-2 text-[10px] font-medium uppercase tracking-[0.15em] text-muted-foreground/70 md:flex">
+          <Compass className="h-3 w-3" />
+          Radius
+        </div>
+      </div>
+
+      {/* The boarding pass card */}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleSubmit();
+        }}
+        className="
+          travel-grain relative rounded-xl border-[1.5px] border-border
+          bg-card shadow-lg transition-all duration-300
+          focus-within:border-ring focus-within:shadow-xl
+          md:-rotate-[0.5deg] md:focus-within:rotate-0
+        "
+        style={{ "--travel-grain-opacity": "0.04" } as React.CSSProperties}
+        role="search"
+        aria-label="Travel search"
+      >
+        <div className="grid grid-cols-1 md:grid-cols-[2.4fr_1.4fr_1fr_auto]">
+          {/* Destination section */}
+          <fieldset className="border-b border-dashed border-border p-5 md:border-b-0 md:border-r">
+            <legend className="sr-only">Destination</legend>
+            <DestinationInput
+              value={destination}
+              autoFocus={variant === "hero"}
+              onChange={(place) => {
+                setDestination(place.label);
+                setLatitude(place.latitude);
+                setLongitude(place.longitude);
+                setCoordsResolved(true);
+                // Always reset timezone before applying any new value —
+                // otherwise the prior selection's tz lingers when the new
+                // place's async tz lookup fails or hasn't returned yet
+                // (Codex). DestinationInput's currentSelectionRef guards
+                // against late callbacks; this guards against stale state.
+                setTimezone(place.timezone ?? "");
+                setDestInvalid(false);
+              }}
+              onClear={() => {
+                setDestination("");
+                setLatitude(0);
+                setLongitude(0);
+                setCoordsResolved(false);
+                setTimezone("");
+              }}
+            />
+            {timezone && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {destination.split(",").slice(-1)[0]?.trim()} · {timezone.split("/").pop()?.replaceAll("_", " ")}
+              </p>
+            )}
+          </fieldset>
+
+          {/* Dates section */}
+          <fieldset className="border-b border-dashed border-border p-5 md:border-b-0 md:border-r">
+            <legend className="sr-only">Dates</legend>
+            <div className="flex gap-2">
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setStartDate(next);
+                  // Only clear the invalid flag when the resulting range
+                  // is actually valid (both fields filled AND start <= end).
+                  // Inverted ranges otherwise slip past with the stamp gone.
+                  if (next && endDate && next <= endDate) setDatesInvalid(false);
+                }}
+                aria-label="Start date"
+                className="w-full bg-transparent font-mono text-sm focus:outline-none"
+              />
+              <span className="text-muted-foreground">→</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setEndDate(next);
+                  if (startDate && next && startDate <= next) setDatesInvalid(false);
+                }}
+                aria-label="End date"
+                className="w-full bg-transparent font-mono text-sm focus:outline-none"
+              />
+            </div>
+            {startDate && endDate && startDate <= endDate && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {daysBetween(startDate, endDate)} nights
+              </p>
+            )}
+          </fieldset>
+
+          {/* Radius section */}
+          <fieldset className="border-b border-dashed border-border p-5 md:border-b-0 md:border-r">
+            <legend className="sr-only">Radius</legend>
+            <div className="flex flex-wrap gap-1.5">
+              {RADIUS_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => { setRadiusKm(opt.value); }}
+                  aria-pressed={radiusKm === opt.value}
+                  className={`
+                    rounded-md px-2.5 py-1 text-xs font-medium transition-colors
+                    ${
+                      radiusKm === opt.value
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground hover:bg-accent"
+                    }
+                  `}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <p className="mt-1.5 font-mono text-xs text-muted-foreground">
+              {radiusKm} km · ~{Math.round(radiusKm * 0.621)} mi
+            </p>
+          </fieldset>
+
+          {/* Submit section with barcode decoration */}
+          <div className="flex flex-col items-end justify-between gap-3 p-5">
+            {/* Decorative barcode */}
+            <div className="hidden items-end gap-px opacity-40 md:flex" aria-hidden="true">
+              {[60, 100, 70, 90, 50, 100, 65, 80, 45, 95, 70, 100].map((h, i) => (
+                <span
+                  key={i}
+                  className="block bg-muted-foreground"
+                  style={{ width: i % 3 === 1 ? 2 : 1, height: `${h * 0.22}px` }}
+                />
+              ))}
+            </div>
+            <Button
+              type="submit"
+              disabled={isPending}
+              className="
+                group gap-2 rounded-lg px-6 uppercase tracking-wider
+                transition-colors
+              "
+            >
+              {isPending ? "Searching…" : "Search"}
+              <Search className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+            </Button>
+          </div>
+        </div>
+      </form>
+
+      {/* ISSUED microlabel — `new Date()` mismatches between SSR and
+          client hydration on day boundaries. The whole row is
+          aria-hidden so the mismatch is purely cosmetic; suppress the
+          hydration warning rather than wire up a useEffect just for the
+          decoration. */}
+      <div className="mt-2 flex justify-between px-2 font-mono text-[9px] uppercase tracking-[0.12em] text-muted-foreground/40" aria-hidden="true">
+        <span suppressHydrationWarning>
+          ISSUED {new Date().toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "2-digit" }).toUpperCase()} · HASHTRACKS
+        </span>
+        <span>REF HT-{resolveRefCode(destination)}</span>
+      </div>
+
+      {/* Collapse button when in expanded compact mode */}
+      {variant === "compact" && isExpanded && (
+        <div className="mt-3 text-center">
+          <button
+            type="button"
+            onClick={() => { setIsExpanded(false); }}
+            className="text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
+          >
+            Collapse
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Rubber-stamp "REQUIRED" marker that appears next to a field's margin
+ * label when a user attempts submit while that field is empty. Rotated,
+ * red, monospace — reads as a gate-stamp on a physical boarding pass.
+ * Fades in via the globals.css `travel-stamp-required` keyframe.
+ */
+function RequiredStamp() {
+  return (
+    <span
+      role="status"
+      aria-live="polite"
+      className="travel-stamp-required ml-2 inline-flex items-center rounded-sm border border-red-600/60 px-1 py-[1px] font-mono text-[9px] font-bold uppercase tracking-wider text-red-600"
+    >
+      Required
+    </span>
+  );
+}
+

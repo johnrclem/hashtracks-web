@@ -49,7 +49,7 @@ function makeSource(overrides?: Partial<Source>): Source {
   } as Source;
 }
 
-function mockFetchResponse(html: string) {
+function _mockFetchResponse(html: string) {
   mockedSafeFetch.mockResolvedValue({
     ok: true,
     status: 200,

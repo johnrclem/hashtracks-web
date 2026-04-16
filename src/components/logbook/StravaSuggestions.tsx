@@ -235,7 +235,7 @@ export function StravaSuggestions({
     });
   }
 
-  function handleDismissAllSuggestions() {
+  function _handleDismissAllSuggestions() {
     startTransition(async () => {
       const ids = filteredSuggestions.map((s) => s.stravaActivityDbId);
       const result = await dismissAllStravaMatches(ids);

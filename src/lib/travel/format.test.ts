@@ -1,0 +1,172 @@
+import { describe, it, expect } from "vitest";
+import {
+  formatDateCompact,
+  daysBetween,
+  daysBetweenIsoDates,
+  getKennelInitials,
+  formatDistanceWithWalk,
+  formatDriveTime,
+  formatDayHeader,
+  startOfUtcDay,
+} from "./format";
+
+describe("formatDateCompact", () => {
+  it("formats without weekday by default", () => {
+    expect(formatDateCompact("2026-04-14")).toBe("Apr 14");
+  });
+
+  it("prepends weekday when withWeekday is true", () => {
+    // 2026-04-12 is a Sunday, 2026-04-13 is a Monday
+    expect(formatDateCompact("2026-04-12", { withWeekday: true })).toBe("Sun, Apr 12");
+    expect(formatDateCompact("2026-04-13", { withWeekday: true })).toBe("Mon, Apr 13");
+  });
+
+  it("uses UTC timezone so the DOW doesn't drift for non-UTC clients", () => {
+    // Regression: a client in US Pacific would see "Sat, Apr 11" for this
+    // date without timeZone: "UTC", because the Date object would be
+    // interpreted at local midnight. UTC-noon keeps the day stable.
+    expect(formatDateCompact("2026-04-12", { withWeekday: true })).toBe("Sun, Apr 12");
+  });
+
+  it("accepts ISO-8601 timestamps without producing Invalid Date", () => {
+    // Regression: TravelResultFilters chip tooltips pass full ISO timestamps
+    // from datesByDay. Without the defensive slice the helper appended
+    // "T12:00:00Z" twice and rendered "Invalid Date" in tooltips/aria-labels.
+    expect(formatDateCompact("2026-04-14T12:00:00.000Z")).toBe("Apr 14");
+    expect(
+      formatDateCompact("2026-04-14T12:00:00.000Z", { withWeekday: true }),
+    ).toBe("Tue, Apr 14");
+  });
+});
+
+describe("startOfUtcDay", () => {
+  it("zeroes out hours/minutes/seconds/ms in UTC", () => {
+    const noon = new Date("2026-04-14T17:30:42.123Z");
+    const out = startOfUtcDay(noon);
+    expect(out.toISOString()).toBe("2026-04-14T00:00:00.000Z");
+  });
+
+  it("does not mutate the input Date", () => {
+    const original = new Date("2026-04-14T17:30:42.123Z");
+    const originalIso = original.toISOString();
+    startOfUtcDay(original);
+    expect(original.toISOString()).toBe(originalIso);
+  });
+
+  it("defaults to today when called with no argument", () => {
+    const out = startOfUtcDay();
+    expect(out.getUTCHours()).toBe(0);
+    expect(out.getUTCMinutes()).toBe(0);
+  });
+});
+
+describe("daysBetween", () => {
+  it("returns the date span in days", () => {
+    expect(daysBetween("2026-04-12", "2026-04-26")).toBe(14);
+  });
+
+  it("returns at least 1 for same-day ranges", () => {
+    expect(daysBetween("2026-04-12", "2026-04-12")).toBe(1);
+  });
+});
+
+describe("formatDistanceWithWalk", () => {
+  it("shows minutes for short walks", () => {
+    expect(formatDistanceWithWalk(1.2)).toBe("1.2 km · ~14 min walk");
+    expect(formatDistanceWithWalk(2.5)).toBe("2.5 km · ~30 min walk");
+  });
+
+  it("shows hours for longer walks (≤ 90 min)", () => {
+    expect(formatDistanceWithWalk(5.5)).toBe("5.5 km · ~1 h walk");
+    expect(formatDistanceWithWalk(7)).toBe("7.0 km · ~1 h walk");
+  });
+
+  it("falls back to 'short drive' past 90 min walking (7.5–25 km)", () => {
+    expect(formatDistanceWithWalk(12)).toBe("12.0 km · short drive");
+    expect(formatDistanceWithWalk(20)).toBe("20.0 km · short drive");
+  });
+
+  it("switches to an explicit drive-time estimate at 25+ km", () => {
+    // QA regression: Buffalo H3 at 94 km + Flour City at 153 km both read
+    // "short drive" pre-fix — implying a trivial detour. 25 km cutoff is
+    // where "short drive" stops being honest.
+    expect(formatDistanceWithWalk(31)).toBe("31.0 km · ~25 min drive");
+    expect(formatDistanceWithWalk(94)).toBe("94.0 km · ~1h 10m drive");
+    expect(formatDistanceWithWalk(153)).toBe("153.0 km · ~1h 55m drive");
+  });
+
+  it("renders <1 km label and never reports 0 minutes", () => {
+    // 0.5 km / 5 km/h = 6 min — but anything sub-1km gets the "<1 km" label.
+    expect(formatDistanceWithWalk(0.5)).toBe("<1 km · ~6 min walk");
+    // Exact 0 still reports 1 min minimum (defensive — caller typically has > 0).
+    expect(formatDistanceWithWalk(0)).toBe("<1 km · ~1 min walk");
+  });
+});
+
+describe("formatDriveTime", () => {
+  it("rounds minutes to the nearest 5 and reports sub-hour drives", () => {
+    // 31 km / 80 km/h = 23.25 min → rounds to 25
+    expect(formatDriveTime(31)).toBe("~25 min drive");
+    // 25 km / 80 km/h = 18.75 min → rounds to 20
+    expect(formatDriveTime(25)).toBe("~20 min drive");
+  });
+
+  it("reports hours + minutes past 60 min", () => {
+    // 94 km / 80 km/h = 70.5 min → rounds to 70 → 1h 10m
+    expect(formatDriveTime(94)).toBe("~1h 10m drive");
+    // 153 km / 80 km/h = 114.75 min → rounds to 115 → 1h 55m
+    expect(formatDriveTime(153)).toBe("~1h 55m drive");
+  });
+
+  it("omits the minute component when it's exactly 0", () => {
+    // 160 km / 80 km/h = 120 min exactly → 2h, no minutes
+    expect(formatDriveTime(160)).toBe("~2h drive");
+  });
+
+  it("clamps to a 5 min floor so we never emit '~0 min drive'", () => {
+    // 1 km / 80 km/h = 0.75 min → rounds to 0 pre-clamp, 5 after.
+    // Realistic callers route this through formatDistanceWithWalk which
+    // short-circuits below 25 km; this guards direct calls.
+    expect(formatDriveTime(1)).toBe("~5 min drive");
+  });
+});
+
+describe("formatDayHeader", () => {
+  it("renders long-form day headers in UTC", () => {
+    expect(formatDayHeader("2026-04-14")).toBe("Tuesday, April 14");
+    expect(formatDayHeader("2026-04-12T12:00:00.000Z")).toBe("Sunday, April 12");
+  });
+});
+
+describe("daysBetweenIsoDates", () => {
+  it("returns 0 for the same date", () => {
+    expect(daysBetweenIsoDates("2026-04-14", "2026-04-14")).toBe(0);
+  });
+
+  it("returns positive when end is after start", () => {
+    expect(daysBetweenIsoDates("2026-04-14", "2026-04-21")).toBe(7);
+  });
+
+  it("returns negative when end is before start", () => {
+    expect(daysBetweenIsoDates("2026-04-21", "2026-04-14")).toBe(-7);
+  });
+
+  it("handles month boundaries correctly", () => {
+    expect(daysBetweenIsoDates("2026-04-30", "2026-05-01")).toBe(1);
+  });
+});
+
+describe("getKennelInitials", () => {
+  it("extracts first letters of first two words", () => {
+    expect(getKennelInitials("Brooklyn Hash")).toBe("BH");
+    expect(getKennelInitials("New York City Hash")).toBe("NY");
+  });
+
+  it("handles single-word names", () => {
+    expect(getKennelInitials("Larrikins")).toBe("L");
+  });
+
+  it("uppercases initials", () => {
+    expect(getKennelInitials("aces of spades")).toBe("AO");
+  });
+});

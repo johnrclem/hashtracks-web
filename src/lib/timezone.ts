@@ -87,6 +87,25 @@ export function getTimezoneAbbreviation(date: Date, timezone: string): string {
 }
 
 /**
+ * Returns "today" as YYYY-MM-DD in the given IANA timezone. Used for trip
+ * status comparisons (isPast / isSoon) so a Hawaii trip ending 2026-04-14
+ * stays "active" while it's still 2026-04-14 in Honolulu, even after UTC
+ * has rolled into 2026-04-15.
+ *
+ * en-CA + 2-digit components yields YYYY-MM-DD reliably across modern Node
+ * and browsers. Falls back to the UTC date if the tz is invalid.
+ */
+export function todayInTimezone(timezone: string | null | undefined): string {
+    const tz = timezone && isValidTimezone(timezone) ? timezone : "UTC";
+    return new Intl.DateTimeFormat("en-CA", {
+        timeZone: tz,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+    }).format(new Date());
+}
+
+/**
  * Validates whether a provided string is a valid IANA timezone.
  */
 export function isValidTimezone(timezone: string): boolean {

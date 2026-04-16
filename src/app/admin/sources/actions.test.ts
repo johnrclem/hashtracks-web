@@ -41,7 +41,7 @@ const mockSKCreate = vi.mocked(prisma.sourceKennel.create);
 const mockResolveKennelTag = vi.mocked(resolveKennelTag);
 const mockSourceFindUnique = vi.mocked(prisma.source.findUnique);
 const mockSKUpdate = vi.mocked(prisma.sourceKennel.update);
-const mockSKDelete = vi.mocked(prisma.sourceKennel.delete);
+const _mockSKDelete = vi.mocked(prisma.sourceKennel.delete);
 const mockAlertFindMany = vi.mocked(prisma.alert.findMany);
 
 beforeEach(() => {

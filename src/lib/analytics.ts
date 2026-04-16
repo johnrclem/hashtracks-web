@@ -98,6 +98,63 @@ interface MapColocatedKennelPopoverProps {
   kennelCount: number;
 }
 
+// ── Travel Mode ──────────────────────────────────────────────────────
+
+interface TravelSearchSubmittedProps {
+  destination: string;
+  radiusKm: number;
+  dateRangeDays: number;
+}
+
+interface TravelSearchResultsViewedProps {
+  destination: string;
+  confirmedCount: number;
+  likelyCount: number;
+  possibleCount: number;
+}
+
+interface TravelResultClickedProps {
+  resultType: "confirmed" | "likely" | "possible";
+  kennelSlug: string;
+}
+
+interface TravelSourceLinkClickedProps {
+  kennelSlug: string;
+  linkType: string;
+}
+
+interface TravelSaveClickedProps {
+  isAuthenticated: boolean;
+}
+
+interface TravelSavedSearchCreatedProps {
+  destination: string;
+  dateRangeDays: number;
+}
+
+interface TravelSavedSearchViewedProps {
+  searchId: string;
+  daysSinceCreated: number;
+}
+
+interface TravelShareClickedProps {
+  destination: string;
+}
+
+interface TravelCalendarExportedProps {
+  destination: string;
+  eventCount: number;
+}
+
+interface TravelPopularDestinationClickedProps {
+  destinationSlug: string;
+}
+
+interface TravelFilterAppliedProps {
+  filterType: "confidence" | "distance" | "dow" | "include_possible";
+  value: string;
+}
+
 // ── Event Map ────────────────────────────────────────────────────────
 
 interface AnalyticsEventMap {
@@ -125,6 +182,23 @@ interface AnalyticsEventMap {
   location_prompt_action: LocationPromptActionProps;
   map_colocated_popover: MapColocatedPopoverProps;
   map_colocated_kennel_popover: MapColocatedKennelPopoverProps;
+  // Travel Mode
+  travel_search_submitted: TravelSearchSubmittedProps;
+  travel_search_results_viewed: TravelSearchResultsViewedProps;
+  travel_result_clicked: TravelResultClickedProps;
+  travel_source_link_clicked: TravelSourceLinkClickedProps;
+  travel_save_clicked: TravelSaveClickedProps;
+  travel_auth_prompt_shown: Record<string, never>;
+  travel_saved_search_created: TravelSavedSearchCreatedProps;
+  travel_saved_search_viewed: TravelSavedSearchViewedProps;
+  travel_saved_search_updated: Record<string, never>;
+  travel_saved_search_removed: Record<string, never>;
+  travel_possible_section_expanded: Record<string, never>;
+  travel_share_clicked: TravelShareClickedProps;
+  travel_calendar_exported: TravelCalendarExportedProps;
+  travel_near_me_clicked: Record<string, never>;
+  travel_popular_destination_clicked: TravelPopularDestinationClickedProps;
+  travel_filter_applied: TravelFilterAppliedProps;
 }
 
 /**

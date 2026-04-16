@@ -1,7 +1,7 @@
 import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import {
-  fetchEventTitle,
+  fetchEventTitle as _fetchEventTitle,
   buildMonthFormData,
   parseEventFromItem,
   PhoenixHHHAdapter,

@@ -419,7 +419,7 @@ export class ICalAdapter implements SourceAdapter {
 
   async fetch(
     source: Source,
-    options?: { days?: number },
+    _options?: { days?: number },
   ): Promise<ScrapeResult> {
     // Fixed 90-day lookback for historical events; use source.scrapeDays for
     // forward window — iCal feeds often publish events 6+ months in advance.

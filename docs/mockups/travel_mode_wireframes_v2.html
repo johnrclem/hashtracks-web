@@ -1,0 +1,2013 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Travel Mode v2 — HashTracks</title>
+
+  <!-- Google Fonts: Sora (display), Outfit (sans), JetBrains Mono (data) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <style>
+    /* ============================================================
+       CSS Variables — mirrors real app's OKLCH tokens.
+       Light theme is default (matches app's :root). Dark theme via
+       [data-theme="dark"] attribute on <html>, matching the app's
+       `.dark` class convention.
+       ============================================================ */
+    :root {
+      /* ── LIGHT THEME (default) ── */
+      --bg-base: oklch(1 0 0);
+      --bg-card: oklch(1 0 0);
+      --bg-card-hover: oklch(0.97 0.001 286);
+      --bg-muted: oklch(0.967 0.001 286.375);
+      --border: oklch(0.92 0.004 286.32);
+      --border-strong: oklch(0.88 0.005 286);
+      --ring: oklch(0.705 0.015 286.067);
+
+      /* Text */
+      --text-main: oklch(0.141 0.005 285.823);
+      --text-muted: oklch(0.48 0.015 286);
+      --text-faint: oklch(0.62 0.012 286);
+
+      /* Tier colors — slightly darker on light bg for contrast */
+      --tier-confirmed:     oklch(0.55 0.16 163);       /* emerald-600 */
+      --tier-confirmed-bg:  oklch(0.55 0.16 163 / 0.07);
+      --tier-confirmed-bd:  oklch(0.55 0.16 163 / 0.28);
+
+      --tier-high:          oklch(0.56 0.165 235);      /* sky-600 */
+      --tier-high-bg:       oklch(0.56 0.165 235 / 0.07);
+      --tier-high-bd:       oklch(0.56 0.165 235 / 0.28);
+
+      --tier-medium:        oklch(0.66 0.16 70);        /* amber-600 */
+      --tier-medium-bg:     oklch(0.66 0.16 70 / 0.07);
+      --tier-medium-bd:     oklch(0.66 0.16 70 / 0.28);
+
+      --tier-possible:      oklch(0.55 0.015 286);
+      --tier-possible-bd:   oklch(0.55 0.015 286 / 0.28);
+
+      /* Shadows (softer on light bg) */
+      --shadow-card: 0 1px 2px oklch(0 0 0 / 0.04), 0 4px 16px oklch(0 0 0 / 0.06);
+      --shadow-lift: 0 12px 32px oklch(0 0 0 / 0.12);
+      --shadow-boardingpass: 0 24px 48px oklch(0 0 0 / 0.14), 0 2px 0 oklch(0 0 0 / 0.03) inset;
+      --shadow-boardingpass-focus: 0 28px 56px oklch(0 0 0 / 0.18), 0 0 0 4px oklch(0.705 0.015 286 / 0.18), 0 2px 0 oklch(0 0 0 / 0.03) inset;
+
+      /* Noise opacity (lower on light bg so it doesn't dirty the surface) */
+      --noise-body: 0.03;
+      --noise-card: 0.025;
+
+      /* Fonts */
+      --font-display: 'Sora', -apple-system, sans-serif;
+      --font-sans: 'Outfit', -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+      /* Example destination region pin color (Georgia) */
+      --destination-pin: oklch(0.65 0.18 42);
+
+      /* Scroll-driven custom property (for parallax) */
+      --scroll-y: 0;
+    }
+
+    /* ── DARK THEME ── */
+    [data-theme="dark"] {
+      --bg-base: oklch(0.141 0.005 285.823);
+      --bg-card: oklch(0.21 0.006 285.885);
+      --bg-card-hover: oklch(0.25 0.006 285.885);
+      --bg-muted: oklch(0.274 0.006 286.033);
+      --border: oklch(1 0 0 / 10%);
+      --border-strong: oklch(1 0 0 / 18%);
+      --ring: oklch(0.552 0.016 285.938);
+
+      --text-main: oklch(0.985 0 0);
+      --text-muted: oklch(0.705 0.015 286.067);
+      --text-faint: oklch(0.552 0.016 285.938);
+
+      /* Tier colors — brighter on dark bg */
+      --tier-confirmed:     oklch(0.765 0.177 163);
+      --tier-confirmed-bg:  oklch(0.765 0.177 163 / 0.08);
+      --tier-confirmed-bd:  oklch(0.765 0.177 163 / 0.28);
+
+      --tier-high:          oklch(0.785 0.135 230);
+      --tier-high-bg:       oklch(0.785 0.135 230 / 0.08);
+      --tier-high-bd:       oklch(0.785 0.135 230 / 0.28);
+
+      --tier-medium:        oklch(0.81 0.16 82);
+      --tier-medium-bg:     oklch(0.81 0.16 82 / 0.08);
+      --tier-medium-bd:     oklch(0.81 0.16 82 / 0.28);
+
+      --tier-possible:      oklch(0.65 0.015 286);
+      --tier-possible-bd:   oklch(0.65 0.015 286 / 0.28);
+
+      /* Shadows (heavier on dark bg) */
+      --shadow-card: 0 1px 2px oklch(0 0 0 / 0.3), 0 8px 24px oklch(0 0 0 / 0.35);
+      --shadow-lift: 0 12px 32px oklch(0 0 0 / 0.45);
+      --shadow-boardingpass: 0 24px 48px oklch(0 0 0 / 0.4), 0 2px 0 oklch(1 0 0 / 0.04) inset;
+      --shadow-boardingpass-focus: 0 28px 56px oklch(0 0 0 / 0.5), 0 0 0 4px oklch(0.552 0.016 285.938 / 0.15), 0 2px 0 oklch(1 0 0 / 0.06) inset;
+
+      /* Noise can be a bit stronger on dark */
+      --noise-body: 0.02;
+      --noise-card: 0.04;
+
+      --destination-pin: oklch(0.78 0.16 42);
+    }
+
+    /* ============================================================
+       Reset & base
+       ============================================================ */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    *:focus { outline: none; }
+    *:focus-visible {
+      outline: 2px solid var(--ring);
+      outline-offset: 2px;
+      border-radius: 4px;
+    }
+
+    html, body {
+      background: var(--bg-base);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      font-size: 16px;
+      line-height: 1.5;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      font-feature-settings: "ss01", "cv11";
+    }
+
+    /* Subtle noise texture overlay — applied to body */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1;
+      opacity: var(--noise-body);
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+    }
+
+    a { color: inherit; text-decoration: none; }
+    button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
+
+    /* ============================================================
+       Reduced motion
+       ============================================================ */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    /* ============================================================
+       Keyframes
+       ============================================================ */
+    @keyframes word-reveal {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes card-enter {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    @keyframes timeline-glow {
+      0%, 100% { filter: none; }
+      50% { filter: drop-shadow(0 0 3px currentColor); }
+    }
+    @keyframes meter-pulse {
+      0%, 100% { opacity: 0.9; }
+      50% { opacity: 1; transform: scaleY(1.1); }
+    }
+
+    /* ============================================================
+       "Site chrome stand-in" — represents where the real
+       app header/footer will live. Zero-height, just a note for
+       the reviewer so the layout isn't floating.
+       ============================================================ */
+    .site-chrome-note {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 16px 40px 0;
+      font-family: var(--font-mono);
+      font-size: 0.66rem;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: var(--text-faint);
+      opacity: 0.4;
+    }
+    .site-chrome-note::before { content: '↑ existing site header renders above this point ↑'; }
+
+    /* ============================================================
+       Dev utility: view + theme toggles (top-right, floating)
+       ============================================================ */
+    .dev-controls {
+      position: fixed;
+      top: 20px;
+      right: 24px;
+      z-index: 100;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .view-switcher, .theme-switcher {
+      display: flex;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 4px;
+      box-shadow: var(--shadow-card);
+    }
+    .view-switcher button, .theme-switcher button {
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-family: var(--font-mono);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      transition: all 150ms ease-out;
+    }
+    .theme-switcher button {
+      padding: 8px 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .theme-switcher button svg {
+      width: 14px;
+      height: 14px;
+      stroke: currentColor;
+      stroke-width: 2;
+      fill: none;
+    }
+    .view-switcher button.active, .theme-switcher button.active {
+      background: var(--bg-muted);
+      color: var(--text-main);
+    }
+
+    /* ============================================================
+       HERO (landing state)
+       ============================================================ */
+    .hero {
+      position: relative;
+      min-height: calc(100vh - 68px);
+      padding: 80px 40px 120px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+    }
+    .hero-backdrop {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: var(--hero-backdrop-opacity, 0.18);
+      transform: translateY(calc(var(--scroll-y) * -0.3));
+      will-change: transform;
+    }
+    [data-theme="dark"] { --hero-backdrop-opacity: 0.28; }
+    .hero-backdrop svg {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .hero-map-lines {
+      stroke: var(--text-faint);
+      stroke-width: 0.8;
+      fill: none;
+      opacity: 0.6;
+    }
+    .hero-map-pin {
+      fill: var(--tier-high);
+      opacity: 0.7;
+    }
+    .hero-map-pin.confirmed { fill: var(--tier-confirmed); }
+    .hero-map-pin.medium { fill: var(--tier-medium); }
+
+    /* Compass rose in bottom-right of hero */
+    .compass-rose {
+      position: absolute;
+      bottom: 40px;
+      right: 40px;
+      width: 64px;
+      height: 64px;
+      opacity: 0.3;
+      pointer-events: none;
+    }
+
+    .hero-headline {
+      font-family: var(--font-display);
+      font-size: clamp(2.5rem, 7vw, 4.5rem);
+      font-weight: 500;
+      letter-spacing: -0.03em;
+      line-height: 1.05;
+      text-align: center;
+      max-width: 900px;
+      margin-top: 40px;
+      position: relative;
+      z-index: 2;
+    }
+    .hero-headline .word {
+      display: inline-block;
+      margin-right: 0.2em;
+      opacity: 0;
+      animation: word-reveal 500ms cubic-bezier(0.2, 0.9, 0.3, 1.1) forwards;
+      animation-delay: calc(var(--i) * 60ms);
+    }
+    .hero-headline .accent {
+      font-style: italic;
+      font-weight: 400;
+      background: linear-gradient(135deg, var(--tier-confirmed), var(--tier-high));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .hero-subhead {
+      margin-top: 20px;
+      font-family: var(--font-sans);
+      font-size: 1.1rem;
+      color: var(--text-muted);
+      max-width: 640px;
+      text-align: center;
+      position: relative;
+      z-index: 2;
+      opacity: 0;
+      animation: word-reveal 500ms ease-out forwards;
+      animation-delay: 500ms;
+    }
+
+    /* ============================================================
+       BOARDING PASS FORM — the centerpiece
+       ============================================================ */
+    .boarding-pass-wrap {
+      margin-top: 56px;
+      position: relative;
+      z-index: 2;
+      opacity: 0;
+      animation: card-enter 600ms ease-out forwards;
+      animation-delay: 700ms;
+    }
+
+    /* Margin labels (outside the card border) */
+    .bp-margin-labels {
+      display: grid;
+      grid-template-columns: 1.8fr 1.4fr 1fr;
+      gap: 0;
+      padding: 0 4px;
+      margin-bottom: 8px;
+    }
+    .bp-margin-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--font-sans);
+      font-size: 10px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: var(--text-muted);
+      opacity: 0.7;
+      padding-left: 20px;
+    }
+    .bp-margin-label svg {
+      width: 12px;
+      height: 12px;
+      stroke: var(--text-muted);
+      stroke-width: 1.5;
+      fill: none;
+    }
+
+    /* The pass itself */
+    .boarding-pass {
+      position: relative;
+      display: grid;
+      grid-template-columns: 1.8fr 1.4fr 1fr auto;
+      background: var(--bg-card);
+      border: 1.5px solid var(--border-strong);
+      border-radius: 14px;
+      padding: 0;
+      transform: rotate(-0.5deg);
+      transition: transform 400ms cubic-bezier(0.2, 0.9, 0.3, 1.1), box-shadow 400ms ease-out, border-color 250ms ease-out;
+      box-shadow: var(--shadow-boardingpass);
+      overflow: hidden;
+      min-width: 840px;
+    }
+    .boarding-pass:focus-within {
+      transform: rotate(0deg);
+      border-color: var(--ring);
+      box-shadow: var(--shadow-boardingpass-focus);
+    }
+    /* Grain overlay on the pass itself */
+    .boarding-pass::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: var(--noise-card);
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n2'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/></filter><rect width='100%' height='100%' filter='url(%23n2)'/></svg>");
+    }
+
+    .bp-section {
+      padding: 24px 28px;
+      position: relative;
+    }
+    /* Perforated divider between sections */
+    .bp-section + .bp-section {
+      border-left: 1px dashed var(--border-strong);
+    }
+    .bp-value {
+      font-family: var(--font-display);
+      font-size: 1.2rem;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      color: var(--text-main);
+      line-height: 1.2;
+    }
+    .bp-value-mono {
+      font-family: var(--font-mono);
+      font-size: 1rem;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      color: var(--text-main);
+    }
+    .bp-sub {
+      margin-top: 6px;
+      font-family: var(--font-sans);
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .bp-sub-dot {
+      width: 3px; height: 3px;
+      background: var(--text-faint);
+      border-radius: 50%;
+    }
+
+    /* Search button column */
+    .bp-submit-col {
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 16px;
+      border-left: 1px dashed var(--border-strong);
+      min-width: 160px;
+    }
+    .bp-barcode {
+      display: flex;
+      align-items: flex-end;
+      gap: 2px;
+      height: 22px;
+      opacity: 0.45;
+    }
+    .bp-barcode span {
+      display: block;
+      width: 1px;
+      background: var(--text-muted);
+    }
+    /* Varying bar heights for barcode look */
+    .bp-barcode span:nth-child(1)  { height: 60%; }
+    .bp-barcode span:nth-child(2)  { height: 100%; width: 2px; }
+    .bp-barcode span:nth-child(3)  { height: 70%; }
+    .bp-barcode span:nth-child(4)  { height: 90%; width: 2px; }
+    .bp-barcode span:nth-child(5)  { height: 50%; }
+    .bp-barcode span:nth-child(6)  { height: 100%; }
+    .bp-barcode span:nth-child(7)  { height: 65%; width: 2px; }
+    .bp-barcode span:nth-child(8)  { height: 80%; }
+    .bp-barcode span:nth-child(9)  { height: 45%; }
+    .bp-barcode span:nth-child(10) { height: 95%; width: 2px; }
+    .bp-barcode span:nth-child(11) { height: 70%; }
+    .bp-barcode span:nth-child(12) { height: 100%; }
+
+    .bp-submit-btn {
+      background: var(--text-main);
+      color: var(--bg-base);
+      padding: 14px 24px;
+      border-radius: 10px;
+      font-family: var(--font-sans);
+      font-weight: 600;
+      font-size: 0.9rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      transition: all 200ms ease-out;
+    }
+    .bp-submit-btn:hover {
+      background: var(--tier-confirmed);
+      color: white;
+      transform: translateY(-1px);
+      box-shadow: 0 8px 24px var(--tier-confirmed-bd);
+    }
+    .bp-submit-btn svg {
+      width: 16px;
+      height: 16px;
+      transition: transform 200ms ease-out;
+    }
+    .bp-submit-btn:hover svg {
+      transform: translateX(4px);
+    }
+
+    /* ISSUED microlabel below the pass, outside border */
+    .bp-issued {
+      margin-top: 10px;
+      padding: 0 8px;
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 0.56rem;
+      color: var(--text-faint);
+      opacity: 0.5;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+
+    /* Near-me shortcut below the form */
+    .near-me-shortcut {
+      margin-top: 28px;
+      text-align: center;
+      position: relative;
+      z-index: 2;
+      opacity: 0;
+      animation: card-enter 500ms ease-out forwards;
+      animation-delay: 900ms;
+    }
+    .near-me-shortcut a {
+      font-family: var(--font-sans);
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      transition: all 200ms ease-out;
+    }
+    .near-me-shortcut a:hover {
+      color: var(--text-main);
+      border-color: var(--text-faint);
+      background: var(--bg-card);
+    }
+    .last-trip-ghost {
+      margin-top: 12px;
+      font-family: var(--font-sans);
+      font-style: italic;
+      font-size: 0.8rem;
+      color: var(--text-faint);
+      opacity: 0.55;
+    }
+    .last-trip-ghost a { text-decoration: underline; text-underline-offset: 3px; }
+
+    /* ============================================================
+       POPULAR DESTINATIONS (below hero)
+       ============================================================ */
+    .popular-section {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 120px 40px 60px;
+    }
+    .popular-heading {
+      font-family: var(--font-display);
+      font-size: 1.2rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      color: var(--text-muted);
+      margin-bottom: 32px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    .popular-heading::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+    .popular-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+    .dest-card {
+      position: relative;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px 22px 22px 26px;
+      transition: all 250ms cubic-bezier(0.2, 0.9, 0.3, 1.1);
+      cursor: pointer;
+      overflow: hidden;
+    }
+    .dest-card::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      background: var(--pin-color, var(--text-faint));
+      transition: width 200ms ease-out;
+    }
+    .dest-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--border-strong);
+      box-shadow: var(--shadow-lift);
+    }
+    .dest-card:hover::before { width: 5px; }
+    .dest-city {
+      font-family: var(--font-display);
+      font-size: 1.15rem;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+    }
+    .dest-count {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      margin-top: 4px;
+    }
+    .dest-teaser {
+      margin-top: 12px;
+      font-family: var(--font-sans);
+      font-size: 0.85rem;
+      color: var(--text-faint);
+      line-height: 1.45;
+    }
+
+    /* ============================================================
+       RESULTS VIEW — hidden by default
+       ============================================================ */
+    .results-view { display: none; }
+    .results-view.active { display: block; }
+    .landing-view.hidden { display: none; }
+
+    /* Compact form (shown on results page) */
+    .compact-form-wrap {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px 40px 0;
+    }
+    .compact-form {
+      display: flex;
+      align-items: center;
+      background: var(--bg-card);
+      border: 1px solid var(--border-strong);
+      border-radius: 999px;
+      padding: 8px 8px 8px 24px;
+      transition: all 200ms ease-out;
+      cursor: pointer;
+    }
+    .compact-form:hover {
+      border-color: var(--text-faint);
+      background: var(--bg-card-hover);
+    }
+    .cf-section {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 18px;
+      border-right: 1px dashed var(--border-strong);
+    }
+    .cf-section:last-of-type { border-right: none; }
+    .cf-section svg {
+      width: 14px;
+      height: 14px;
+      stroke: var(--text-muted);
+      stroke-width: 1.5;
+      fill: none;
+    }
+    .cf-val {
+      font-family: var(--font-sans);
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+    .cf-val.mono {
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+    }
+    .cf-edit {
+      margin-left: auto;
+      padding: 10px 16px;
+      background: var(--bg-muted);
+      border-radius: 999px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 150ms ease-out;
+    }
+    .cf-edit:hover { background: var(--border-strong); color: var(--text-main); }
+
+    /* ============================================================
+       TRIP SUMMARY STRIPE
+       ============================================================ */
+    .trip-summary {
+      max-width: 1200px;
+      margin: 40px auto 0;
+      padding: 0 40px;
+    }
+    .ts-card {
+      position: relative;
+      padding: 40px 0 32px;
+      border-bottom: 1px solid var(--border);
+    }
+    .ts-city {
+      font-family: var(--font-display);
+      font-size: 3rem;
+      font-weight: 500;
+      letter-spacing: -0.03em;
+      line-height: 1;
+    }
+    .ts-rule {
+      display: block;
+      margin-top: 16px;
+      width: 120px;
+      height: 2px;
+      background: var(--destination-pin);
+      border-radius: 1px;
+    }
+    .ts-sentence {
+      margin-top: 24px;
+      font-family: var(--font-sans);
+      font-size: 1.25rem;
+      line-height: 1.5;
+      max-width: 640px;
+      color: var(--text-muted);
+    }
+    .ts-sentence strong {
+      font-family: var(--font-display);
+      font-weight: 600;
+      color: var(--text-main);
+    }
+    .ts-dates {
+      margin-top: 20px;
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .ts-actions {
+      margin-top: 28px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+    .ts-btn {
+      padding: 12px 20px;
+      border-radius: 10px;
+      font-family: var(--font-sans);
+      font-weight: 500;
+      font-size: 0.9rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      transition: all 200ms ease-out;
+    }
+    .ts-btn-primary {
+      background: var(--text-main);
+      color: var(--bg-base);
+    }
+    .ts-btn-primary:hover {
+      background: var(--tier-confirmed);
+      transform: translateY(-1px);
+    }
+    .ts-btn-ghost {
+      border: 1px solid var(--border-strong);
+      color: var(--text-muted);
+    }
+    .ts-btn-ghost:hover {
+      border-color: var(--text-faint);
+      color: var(--text-main);
+      background: var(--bg-card);
+    }
+    .ts-btn svg { width: 16px; height: 16px; stroke: currentColor; stroke-width: 2; fill: none; }
+
+    /* ============================================================
+       RESULTS GRID (with accent rail)
+       ============================================================ */
+    .results-shell {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 40px 120px;
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      gap: 48px;
+      margin-top: 48px;
+    }
+
+    /* Filter sidebar */
+    .filter-rail {
+      position: sticky;
+      top: 108px;
+      align-self: start;
+      padding-right: 16px;
+      border-right: 1px solid var(--border);
+    }
+    .fr-heading {
+      font-family: var(--font-sans);
+      font-size: 0.68rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      color: var(--text-faint);
+      margin-bottom: 16px;
+    }
+    .fr-group { margin-bottom: 28px; }
+    .fr-group-label {
+      font-family: var(--font-sans);
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+    .fr-check {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 0;
+      font-family: var(--font-sans);
+      font-size: 0.85rem;
+      color: var(--text-main);
+      cursor: pointer;
+    }
+    .fr-check input {
+      width: 14px;
+      height: 14px;
+      accent-color: var(--tier-high);
+    }
+    .fr-check .count {
+      margin-left: auto;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+    .fr-check.dimmed { color: var(--text-faint); }
+
+    /* Results column with accent rail */
+    .results-col {
+      padding-left: 32px;
+      border-left: 1px solid var(--destination-pin);
+      position: relative;
+    }
+
+    /* Tier section header */
+    .tier-header {
+      display: flex;
+      align-items: baseline;
+      gap: 16px;
+      margin: 40px 0 20px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .tier-header:first-child { margin-top: 0; }
+    .tier-title {
+      font-family: var(--font-display);
+      font-size: 1.1rem;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      color: var(--text-main);
+    }
+    .tier-count {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    /* ============================================================
+       RESULT CARDS
+       ============================================================ */
+    .cards-list {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .card {
+      position: relative;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px 22px;
+      transition: all 250ms cubic-bezier(0.2, 0.9, 0.3, 1.1);
+      overflow: hidden;
+      opacity: 0;
+      transform: translateY(8px);
+      animation: card-enter 400ms ease-out forwards;
+    }
+    .card:nth-child(1) { animation-delay: 0ms; }
+    .card:nth-child(2) { animation-delay: 50ms; }
+    .card:nth-child(3) { animation-delay: 100ms; }
+    .card:nth-child(4) { animation-delay: 150ms; }
+    .card:nth-child(5) { animation-delay: 200ms; }
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      border-radius: 12px 12px 0 0;
+      background: transparent;
+    }
+    .card:hover {
+      transform: translateY(-2px);
+      border-color: var(--border-strong);
+      box-shadow: var(--shadow-lift);
+    }
+    .card:hover .kennel-insignia {
+      transform: rotate(3deg);
+    }
+
+    /* Tier accents */
+    .card.confirmed::before { background: var(--tier-confirmed); }
+    .card.likely-high::before { background: var(--tier-high); }
+    .card.likely-medium::before { background: var(--tier-medium); }
+
+    /* Confirmed card layout */
+    .card-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+    }
+    .kennel-insignia {
+      flex-shrink: 0;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font-family: var(--font-display);
+      font-weight: 600;
+      font-size: 0.78rem;
+      color: white;
+      letter-spacing: -0.02em;
+      text-transform: uppercase;
+      transition: transform 250ms cubic-bezier(0.2, 0.9, 0.3, 1.1);
+      flex-shrink: 0;
+    }
+    .insignia-orange { background: oklch(0.78 0.16 42); }
+    .insignia-violet { background: oklch(0.6 0.2 290); }
+    .insignia-green  { background: oklch(0.7 0.15 150); }
+    .insignia-pink   { background: oklch(0.72 0.18 8); }
+
+    .card-body { flex: 1; min-width: 0; }
+    .card-title-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .card-title {
+      font-family: var(--font-display);
+      font-size: 1.05rem;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      line-height: 1.3;
+    }
+    .card-meta {
+      margin-top: 6px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-family: var(--font-sans);
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    .card-meta .mono {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+    }
+
+    /* Weather emoji corner (confirmed cards) */
+    .weather-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background: var(--bg-muted);
+      border-radius: 999px;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+
+    /* Tier badges */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 11px;
+      border-radius: 999px;
+      font-family: var(--font-sans);
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      white-space: nowrap;
+    }
+    .badge svg {
+      width: 12px;
+      height: 12px;
+      stroke: currentColor;
+      stroke-width: 2.2;
+      fill: none;
+    }
+    .badge-confirmed {
+      background: var(--tier-confirmed-bg);
+      color: var(--tier-confirmed);
+      border: 1px solid var(--tier-confirmed-bd);
+    }
+    .badge-high {
+      background: var(--tier-high-bg);
+      color: var(--tier-high);
+      border: 1px solid var(--tier-high-bd);
+    }
+    .badge-medium {
+      background: var(--tier-medium-bg);
+      color: var(--tier-medium);
+      border: 1px solid var(--tier-medium-bd);
+    }
+
+    /* ============================================================
+       CONFIDENCE METER — 3 signal-strength bars
+       ============================================================ */
+    .confidence-meter {
+      display: inline-flex;
+      align-items: flex-end;
+      gap: 3px;
+      height: 14px;
+    }
+    .cm-bar {
+      width: 4px;
+      background: var(--tier-high);
+      border-radius: 1px;
+      transition: transform 150ms ease-out;
+    }
+    .cm-bar.bar-1 { height: 50%; }
+    .cm-bar.bar-2 { height: 75%; }
+    .cm-bar.bar-3 { height: 100%; }
+    .cm-bar.off { background: var(--border-strong); }
+    .card.likely-medium .cm-bar:not(.off) { background: var(--tier-medium); }
+    .card:hover .cm-bar:not(.off) {
+      animation: meter-pulse 1.2s ease-in-out infinite;
+    }
+    .card:hover .cm-bar:nth-child(1) { animation-delay: 0ms; }
+    .card:hover .cm-bar:nth-child(2) { animation-delay: 100ms; }
+    .card:hover .cm-bar:nth-child(3) { animation-delay: 200ms; }
+
+    /* ============================================================
+       EVIDENCE TIMELINE — the distinctive element
+       ============================================================ */
+    .evidence-timeline {
+      margin-top: 18px;
+      padding: 16px;
+      background: var(--bg-muted);
+      border-radius: 10px;
+      border-left: 2px solid var(--tier-high);
+    }
+    .card.likely-medium .evidence-timeline { border-left-color: var(--tier-medium); }
+    .et-label {
+      font-family: var(--font-sans);
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-faint);
+      margin-bottom: 10px;
+    }
+    .et-dots-row {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 0;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .et-group {
+      display: flex;
+      gap: 6px;
+      padding: 0 10px;
+      position: relative;
+    }
+    .et-group:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      right: 0;
+      top: 50%;
+      width: 1px;
+      height: 8px;
+      background: var(--border);
+      transform: translateY(-50%);
+    }
+    .et-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--tier-high);
+      opacity: 0.9;
+      transition: all 150ms ease-out;
+    }
+    .et-dot.empty {
+      background: transparent;
+      border: 1px solid var(--border-strong);
+    }
+    .card.likely-medium .et-dot { background: var(--tier-medium); }
+    .et-dot.current {
+      position: relative;
+      width: 12px;
+      height: 12px;
+      outline: 1px solid currentColor;
+      outline-offset: 3px;
+      border-radius: 50%;
+      color: var(--tier-high);
+    }
+    .card:hover .et-dot:not(.empty):not(.current) {
+      animation: timeline-glow 1.5s ease-in-out infinite;
+    }
+    .card:hover .et-dot:nth-child(1) { animation-delay: 0ms; }
+    .card:hover .et-dot:nth-child(2) { animation-delay: 60ms; }
+    .card:hover .et-dot:nth-child(3) { animation-delay: 120ms; }
+    .card:hover .et-dot:nth-child(4) { animation-delay: 180ms; }
+    .et-caption {
+      margin-top: 10px;
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      color: var(--text-muted);
+    }
+
+    /* Explanation box */
+    .explanation {
+      margin-top: 14px;
+      padding: 12px 14px;
+      background: var(--bg-muted);
+      border-radius: 8px;
+      border-left: 2px solid var(--tier-high);
+      font-family: var(--font-sans);
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+    .card.likely-medium .explanation { border-left-color: var(--tier-medium); }
+    .explanation strong {
+      display: block;
+      color: var(--text-main);
+      font-weight: 600;
+      margin-bottom: 4px;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .explanation em {
+      font-style: italic;
+      color: var(--text-faint);
+    }
+
+    /* Source links row */
+    .source-links {
+      margin-top: 14px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .source-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 7px 12px;
+      border-radius: 8px;
+      background: var(--bg-muted);
+      font-family: var(--font-sans);
+      font-size: 0.76rem;
+      color: var(--text-main);
+      transition: all 150ms ease-out;
+    }
+    .source-link:hover {
+      background: var(--border-strong);
+      transform: translateY(-1px);
+    }
+    .source-link svg {
+      width: 12px;
+      height: 12px;
+      stroke: currentColor;
+      stroke-width: 2;
+      fill: none;
+    }
+
+    /* ============================================================
+       POSSIBLE SECTION (collapsed by default)
+       ============================================================ */
+    .possible-wrap {
+      margin-top: 40px;
+      border-left: 2px dashed var(--border-strong);
+      padding-left: 24px;
+    }
+    .possible-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 0;
+      cursor: pointer;
+      color: var(--text-muted);
+    }
+    .possible-header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-family: var(--font-sans);
+      font-size: 0.88rem;
+      font-weight: 500;
+    }
+    .possible-header-left svg {
+      width: 14px;
+      height: 14px;
+      stroke: currentColor;
+      stroke-width: 2;
+      fill: none;
+      transition: transform 200ms ease-out;
+    }
+    .possible-wrap.open .possible-header-left svg { transform: rotate(180deg); }
+    .possible-header-right {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--text-faint);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+    .possible-list {
+      display: none;
+      padding: 10px 0 20px;
+    }
+    .possible-wrap.open .possible-list { display: block; }
+    .possible-row {
+      padding: 14px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .possible-row:last-child { border-bottom: none; }
+    .possible-row-title {
+      font-family: var(--font-sans);
+      font-size: 0.95rem;
+      font-weight: 500;
+      color: var(--text-muted);
+    }
+    .possible-row-meta {
+      margin-top: 4px;
+      font-family: var(--font-sans);
+      font-size: 0.78rem;
+      color: var(--text-faint);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .possible-row-note {
+      margin-top: 6px;
+      font-family: var(--font-sans);
+      font-size: 0.78rem;
+      font-style: italic;
+      color: var(--text-faint);
+    }
+    .possible-row-note a {
+      color: var(--text-muted);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    /* ============================================================
+       Responsive guards
+       ============================================================ */
+    @media (max-width: 1100px) {
+      .results-shell { grid-template-columns: 1fr; gap: 24px; }
+      .filter-rail { position: static; border: none; padding: 0; }
+      .popular-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 840px) {
+      .boarding-pass { min-width: 0; width: 100%; grid-template-columns: 1fr; }
+      .bp-section + .bp-section, .bp-submit-col { border-left: none; border-top: 1px dashed var(--border-strong); }
+      .bp-margin-labels { display: none; }
+      .hero { padding: 60px 20px 80px; }
+      .ts-city { font-size: 2.2rem; }
+      .results-col { padding-left: 20px; }
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px; height: 1px;
+      padding: 0; margin: -1px;
+      overflow: hidden;
+      clip: rect(0,0,0,0);
+      border: 0;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- NOTE: The real app's existing site header + footer will wrap this
+       content. This mockup focuses on the Travel Mode route content only. -->
+  <div class="site-chrome-note" aria-hidden="true"></div>
+
+  <!-- Dev utility: view + theme toggles (not part of real UI) -->
+  <div class="dev-controls">
+    <div class="view-switcher" role="group" aria-label="Demo views">
+      <button id="btn-landing" class="active">Landing</button>
+      <button id="btn-results">Results</button>
+    </div>
+    <div class="theme-switcher" role="group" aria-label="Theme">
+      <button id="btn-light" class="active" aria-label="Light theme">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        Light
+      </button>
+      <button id="btn-dark" aria-label="Dark theme">
+        <svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        Dark
+      </button>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       LANDING VIEW
+       ============================================================ -->
+  <main class="landing-view" id="landing-view">
+
+    <section class="hero">
+      <!-- Parallax backdrop (low-opacity world map) -->
+      <div class="hero-backdrop" aria-hidden="true">
+        <svg viewBox="0 0 1400 700" preserveAspectRatio="xMidYMid slice">
+          <!-- Decorative continent-like strokes -->
+          <g class="hero-map-lines">
+            <path d="M180 200 Q260 180 340 210 T500 230 Q580 240 640 220 L700 240 L760 230 Q820 250 880 240 T1020 260 Q1100 270 1180 260"/>
+            <path d="M150 340 Q220 320 290 330 T440 350 Q520 360 580 350 Q640 340 720 360 T890 380 Q960 390 1040 380 L1120 370"/>
+            <path d="M200 460 Q270 450 340 470 T490 490 Q560 500 620 480 T780 500 Q850 490 920 480"/>
+            <path d="M250 560 Q320 550 400 570 T550 580 Q620 590 700 580"/>
+          </g>
+          <!-- Kennel pins at scattered locations -->
+          <g>
+            <circle class="hero-map-pin confirmed" cx="380" cy="230" r="5"/>
+            <circle class="hero-map-pin" cx="540" cy="250" r="5"/>
+            <circle class="hero-map-pin medium" cx="720" cy="220" r="5"/>
+            <circle class="hero-map-pin" cx="880" cy="280" r="5"/>
+            <circle class="hero-map-pin confirmed" cx="1050" cy="260" r="5"/>
+            <circle class="hero-map-pin" cx="290" cy="360" r="5"/>
+            <circle class="hero-map-pin confirmed" cx="480" cy="390" r="5"/>
+            <circle class="hero-map-pin medium" cx="640" cy="380" r="5"/>
+            <circle class="hero-map-pin" cx="820" cy="410" r="5"/>
+            <circle class="hero-map-pin" cx="990" cy="400" r="5"/>
+            <circle class="hero-map-pin" cx="350" cy="490" r="5"/>
+            <circle class="hero-map-pin confirmed" cx="540" cy="510" r="5"/>
+            <circle class="hero-map-pin" cx="720" cy="490" r="5"/>
+            <circle class="hero-map-pin medium" cx="890" cy="480" r="5"/>
+          </g>
+        </svg>
+      </div>
+
+      <!-- Compass rose (personal touch) -->
+      <svg class="compass-rose" viewBox="0 0 64 64" aria-hidden="true">
+        <circle cx="32" cy="32" r="28" fill="none" stroke="currentColor" stroke-width="0.8" opacity="0.5"/>
+        <circle cx="32" cy="32" r="20" fill="none" stroke="currentColor" stroke-width="0.5" opacity="0.3"/>
+        <path d="M32 4 L36 32 L32 28 L28 32 Z" fill="currentColor" opacity="0.8"/>
+        <path d="M32 60 L28 32 L32 36 L36 32 Z" fill="currentColor" opacity="0.3"/>
+        <path d="M4 32 L32 28 L28 32 L32 36 Z" fill="currentColor" opacity="0.3"/>
+        <path d="M60 32 L32 36 L36 32 L32 28 Z" fill="currentColor" opacity="0.3"/>
+        <text x="32" y="3" text-anchor="middle" font-family="JetBrains Mono" font-size="4" fill="currentColor" opacity="0.7">N</text>
+      </svg>
+
+      <!-- Headline -->
+      <h1 class="hero-headline">
+        <span class="word" style="--i:0">Find</span>
+        <span class="word" style="--i:1">your</span>
+        <span class="word accent" style="--i:2">trail,</span>
+        <br>
+        <span class="word" style="--i:3">wherever</span>
+        <span class="word" style="--i:4">you</span>
+        <span class="word accent" style="--i:5">roam.</span>
+      </h1>
+
+      <p class="hero-subhead">
+        Confirmed events, likely trails, and a few possibilities from HashTracks' coverage
+        across 500+ kennels worldwide.
+      </p>
+
+      <!-- Boarding pass form -->
+      <div class="boarding-pass-wrap">
+
+        <!-- Margin labels (outside the border) -->
+        <div class="bp-margin-labels" aria-hidden="true">
+          <div class="bp-margin-label">
+            <svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            Destination
+          </div>
+          <div class="bp-margin-label">
+            <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            Dates
+          </div>
+          <div class="bp-margin-label">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
+            Radius
+          </div>
+        </div>
+
+        <form class="boarding-pass" role="search" aria-label="Travel search">
+
+          <fieldset class="bp-section" style="border: none; padding: 24px 28px;">
+            <legend class="sr-only">Destination</legend>
+            <div class="bp-value">Atlanta, GA</div>
+            <div class="bp-sub">
+              Georgia <span class="bp-sub-dot"></span> EST (UTC-5)
+            </div>
+          </fieldset>
+
+          <fieldset class="bp-section" style="border: none;">
+            <legend class="sr-only">Dates</legend>
+            <div class="bp-value-mono">APR 14 → APR 21</div>
+            <div class="bp-sub">7 nights · Sun → Sun</div>
+          </fieldset>
+
+          <fieldset class="bp-section" style="border: none;">
+            <legend class="sr-only">Radius</legend>
+            <div class="bp-value-mono">50 km · 30 mi</div>
+            <div class="bp-sub">12 kennels in range</div>
+          </fieldset>
+
+          <div class="bp-submit-col">
+            <div class="bp-barcode" aria-hidden="true">
+              <span></span><span></span><span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span><span></span><span></span>
+            </div>
+            <button type="submit" class="bp-submit-btn" aria-label="Search for trails">
+              Search
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </button>
+          </div>
+
+        </form>
+
+        <div class="bp-issued" aria-hidden="true">
+          <span>ISSUED 11.APR.26 · HASHTRACKS</span>
+          <span>REF HT-ATL-0414</span>
+        </div>
+      </div>
+
+      <div class="near-me-shortcut">
+        <a href="#" aria-label="Hash near me right now">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="2" x2="12" y2="6"/>
+            <line x1="12" y1="18" x2="12" y2="22"/>
+            <line x1="2" y1="12" x2="6" y2="12"/>
+            <line x1="18" y1="12" x2="22" y2="12"/>
+          </svg>
+          Or hash near me right now →
+        </a>
+        <div class="last-trip-ghost">
+          <em>Last trip: <a href="#">Atlanta, GA · APR 14–21</a> →</em>
+        </div>
+      </div>
+    </section>
+
+    <!-- Popular destinations -->
+    <section class="popular-section">
+      <div class="popular-heading">Start from somewhere</div>
+      <div class="popular-grid">
+        <div class="dest-card" style="--pin-color: oklch(0.78 0.16 42);">
+          <div class="dest-city">Atlanta, GA</div>
+          <div class="dest-count">12 kennels</div>
+          <div class="dest-teaser">Weekly Saturday AM runs, dozens of special events a year.</div>
+        </div>
+        <div class="dest-card" style="--pin-color: oklch(0.58 0.22 270);">
+          <div class="dest-city">London, UK</div>
+          <div class="dest-count">31 kennels</div>
+          <div class="dest-teaser">Dense hash network — something running almost every night.</div>
+        </div>
+        <div class="dest-card" style="--pin-color: oklch(0.72 0.18 8);">
+          <div class="dest-city">Bangkok, TH</div>
+          <div class="dest-count">8 kennels</div>
+          <div class="dest-teaser">Home to some of the oldest hashes in Asia.</div>
+        </div>
+        <div class="dest-card" style="--pin-color: oklch(0.7 0.15 150);">
+          <div class="dest-city">Singapore</div>
+          <div class="dest-count">7 kennels</div>
+          <div class="dest-teaser">Father Hash — second hash kennel founded on earth.</div>
+        </div>
+        <div class="dest-card" style="--pin-color: oklch(0.78 0.14 90);">
+          <div class="dest-city">Tokyo, JP</div>
+          <div class="dest-count">4 kennels</div>
+          <div class="dest-teaser">Wednesday urban trails and full-moon specials.</div>
+        </div>
+        <div class="dest-card" style="--pin-color: oklch(0.68 0.18 220);">
+          <div class="dest-city">San Francisco, CA</div>
+          <div class="dest-count">13 kennels</div>
+          <div class="dest-teaser">The SFH3 MultiHash aggregator — always something running.</div>
+        </div>
+        <div class="dest-card" style="--pin-color: oklch(0.55 0.2 40);">
+          <div class="dest-city">Berlin, DE</div>
+          <div class="dest-count">2 kennels</div>
+          <div class="dest-teaser">Founded 1980 — the oldest hash in continental Europe.</div>
+        </div>
+        <div class="dest-card" style="--pin-color: oklch(0.6 0.2 290);">
+          <div class="dest-city">New York, NY</div>
+          <div class="dest-count">11 kennels</div>
+          <div class="dest-teaser">Five boroughs, half a dozen kennels a week.</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ============================================================
+       RESULTS VIEW
+       ============================================================ -->
+  <main class="results-view" id="results-view">
+
+    <!-- Compact form above results -->
+    <div class="compact-form-wrap">
+      <button class="compact-form" aria-label="Edit search">
+        <div class="cf-section">
+          <svg viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <span class="cf-val">Atlanta, GA</span>
+        </div>
+        <div class="cf-section">
+          <svg viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18"/></svg>
+          <span class="cf-val mono">APR 14 → APR 21</span>
+        </div>
+        <div class="cf-section">
+          <svg viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><circle cx="12" cy="12" r="10"/></svg>
+          <span class="cf-val mono">50 km</span>
+        </div>
+        <span class="cf-edit">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+          Edit
+        </span>
+      </button>
+    </div>
+
+    <!-- Trip summary -->
+    <section class="trip-summary">
+      <div class="ts-card">
+        <h1 class="ts-city">Atlanta, GA</h1>
+        <span class="ts-rule" aria-hidden="true"></span>
+        <p class="ts-sentence">
+          You'll catch <strong>3 confirmed trails</strong> and <strong>2 likely ones</strong>
+          across 4 kennels over 7 days.
+        </p>
+        <div class="ts-dates">
+          <span>APR 14 → APR 21</span>
+          <span>·</span>
+          <span>EST (UTC-5)</span>
+        </div>
+        <div class="ts-actions">
+          <button class="ts-btn ts-btn-primary">
+            <svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
+            Save Trip
+          </button>
+          <button class="ts-btn ts-btn-ghost">
+            <svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            Share
+          </button>
+          <button class="ts-btn ts-btn-ghost">
+            <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><polyline points="9 17 12 20 15 17"/><line x1="12" y1="12" x2="12" y2="20"/></svg>
+            Export Calendar
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Results grid -->
+    <div class="results-shell">
+
+      <!-- Filter rail -->
+      <aside class="filter-rail" aria-label="Result filters">
+        <div class="fr-heading">Filters</div>
+
+        <div class="fr-group">
+          <div class="fr-group-label">Confidence</div>
+          <label class="fr-check">
+            <input type="checkbox" checked>
+            <span>Confirmed</span>
+            <span class="count">3</span>
+          </label>
+          <label class="fr-check">
+            <input type="checkbox" checked>
+            <span>High</span>
+            <span class="count">1</span>
+          </label>
+          <label class="fr-check">
+            <input type="checkbox" checked>
+            <span>Medium</span>
+            <span class="count">1</span>
+          </label>
+          <label class="fr-check dimmed">
+            <input type="checkbox">
+            <span>Low</span>
+            <span class="count">2</span>
+          </label>
+        </div>
+
+        <div class="fr-group">
+          <div class="fr-group-label">Distance</div>
+          <label class="fr-check">
+            <input type="checkbox" checked>
+            <span>Nearby</span>
+            <span class="count">2</span>
+          </label>
+          <label class="fr-check">
+            <input type="checkbox" checked>
+            <span>In area</span>
+            <span class="count">2</span>
+          </label>
+          <label class="fr-check dimmed">
+            <input type="checkbox">
+            <span>Drive</span>
+            <span class="count">1</span>
+          </label>
+        </div>
+
+        <div class="fr-group">
+          <div class="fr-group-label">Day</div>
+          <label class="fr-check">
+            <input type="checkbox" checked>
+            <span>Sat</span>
+            <span class="count">2</span>
+          </label>
+          <label class="fr-check">
+            <input type="checkbox" checked>
+            <span>Sun</span>
+            <span class="count">1</span>
+          </label>
+          <label class="fr-check">
+            <input type="checkbox" checked>
+            <span>Mon</span>
+            <span class="count">1</span>
+          </label>
+          <label class="fr-check">
+            <input type="checkbox" checked>
+            <span>Thu</span>
+            <span class="count">1</span>
+          </label>
+        </div>
+      </aside>
+
+      <!-- Results column with accent rail -->
+      <div class="results-col">
+
+        <!-- Nearby tier -->
+        <div class="tier-header">
+          <div class="tier-title">Walking distance</div>
+          <div class="tier-count">2 trails · ≤ 10 km</div>
+        </div>
+
+        <div class="cards-list">
+
+          <!-- Confirmed card (compact) -->
+          <article class="card confirmed" tabindex="0">
+            <div class="card-row">
+              <div class="kennel-insignia insignia-orange" aria-hidden="true">AH</div>
+              <div class="card-body">
+                <div class="card-title-row">
+                  <div>
+                    <div class="card-title">Atlanta H3 · Run #1142</div>
+                    <div class="card-meta">
+                      <span>Sat, Apr 14</span>
+                      <span>·</span>
+                      <span>2:00 PM</span>
+                      <span>·</span>
+                      <span class="mono">2.1 mi</span>
+                    </div>
+                  </div>
+                  <div style="display: flex; gap: 10px; align-items: center;">
+                    <span class="weather-pill">☀ 72°</span>
+                    <span class="badge badge-confirmed">
+                      <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                      Confirmed
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <!-- Likely HIGH card -->
+          <article class="card likely-high" tabindex="0">
+            <div class="card-row">
+              <div class="kennel-insignia insignia-violet" aria-hidden="true">FM</div>
+              <div class="card-body">
+                <div class="card-title-row">
+                  <div>
+                    <div class="card-title">Full Moon H3 (Atlanta)</div>
+                    <div class="card-meta">
+                      <span>Expected Mon, Apr 16</span>
+                      <span>·</span>
+                      <span>7:00 PM</span>
+                      <span>·</span>
+                      <span class="mono">3.5 mi</span>
+                    </div>
+                  </div>
+                  <div style="display: flex; gap: 10px; align-items: center;">
+                    <div class="confidence-meter" role="img" aria-label="High confidence — strong historical activity">
+                      <div class="cm-bar bar-1"></div>
+                      <div class="cm-bar bar-2"></div>
+                      <div class="cm-bar bar-3"></div>
+                    </div>
+                    <span class="badge badge-high">
+                      <!-- SignalHigh icon (Lucide) — three bars -->
+                      <svg viewBox="0 0 24 24"><path d="M2 20h.01"/><path d="M7 20v-4"/><path d="M12 20v-8"/><path d="M17 20V8"/><path d="M22 4v16"/></svg>
+                      High confidence
+                    </span>
+                  </div>
+                </div>
+
+                <div class="evidence-timeline" role="img" aria-label="14 confirmed events in the last 12 weeks. Activity in weeks 1, 2, 3, 4, 6, 7, 8, 9, 11, 12.">
+                  <div class="et-label">Evidence · last 12 weeks</div>
+                  <div class="et-dots-row">
+                    <div class="et-group">
+                      <div class="et-dot"></div>
+                      <div class="et-dot"></div>
+                      <div class="et-dot"></div>
+                      <div class="et-dot"></div>
+                    </div>
+                    <div class="et-group">
+                      <div class="et-dot empty"></div>
+                      <div class="et-dot"></div>
+                      <div class="et-dot"></div>
+                      <div class="et-dot"></div>
+                    </div>
+                    <div class="et-group">
+                      <div class="et-dot"></div>
+                      <div class="et-dot empty"></div>
+                      <div class="et-dot"></div>
+                      <div class="et-dot current"></div>
+                    </div>
+                  </div>
+                  <div class="et-caption">14 runs in the last 12 weeks</div>
+                </div>
+
+                <div class="explanation">
+                  <strong>Why am I seeing this?</strong>
+                  This kennel usually runs on the Monday closest to the full moon, based on strong historical activity. Exact details are unconfirmed — <em>verify closer to your trip.</em>
+                </div>
+
+                <div class="source-links">
+                  <a href="#" class="source-link">
+                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                    Kennel Website
+                  </a>
+                  <a href="#" class="source-link">
+                    <svg viewBox="0 0 24 24"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
+                    Facebook Group
+                  </a>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <!-- Area tier -->
+        <div class="tier-header">
+          <div class="tier-title">Across town</div>
+          <div class="tier-count">2 trails · 10–25 km</div>
+        </div>
+
+        <div class="cards-list">
+
+          <!-- Confirmed card -->
+          <article class="card confirmed" tabindex="0">
+            <div class="card-row">
+              <div class="kennel-insignia insignia-green" aria-hidden="true">SC</div>
+              <div class="card-body">
+                <div class="card-title-row">
+                  <div>
+                    <div class="card-title">Stone Mountain H3 · Run #418</div>
+                    <div class="card-meta">
+                      <span>Sun, Apr 15</span>
+                      <span>·</span>
+                      <span>1:00 PM</span>
+                      <span>·</span>
+                      <span class="mono">12.3 mi</span>
+                    </div>
+                  </div>
+                  <div style="display: flex; gap: 10px; align-items: center;">
+                    <span class="weather-pill">⛅ 68°</span>
+                    <span class="badge badge-confirmed">
+                      <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                      Confirmed
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <!-- Likely MEDIUM card -->
+          <article class="card likely-medium" tabindex="0">
+            <div class="card-row">
+              <div class="kennel-insignia insignia-pink" aria-hidden="true">DH</div>
+              <div class="card-body">
+                <div class="card-title-row">
+                  <div>
+                    <div class="card-title">Decatur H3</div>
+                    <div class="card-meta">
+                      <span>Expected Thu, Apr 18</span>
+                      <span>·</span>
+                      <span>6:30 PM</span>
+                      <span>·</span>
+                      <span class="mono">8.4 mi</span>
+                    </div>
+                  </div>
+                  <div style="display: flex; gap: 10px; align-items: center;">
+                    <div class="confidence-meter" role="img" aria-label="Medium confidence — recurring pattern with some variability">
+                      <div class="cm-bar bar-1"></div>
+                      <div class="cm-bar bar-2"></div>
+                      <div class="cm-bar bar-3 off"></div>
+                    </div>
+                    <span class="badge badge-medium">
+                      <!-- SignalMedium — two bars -->
+                      <svg viewBox="0 0 24 24"><path d="M2 20h.01"/><path d="M7 20v-4"/><path d="M12 20v-8"/><path d="M17 20V8" opacity="0.3"/><path d="M22 4v16" opacity="0.3"/></svg>
+                      Medium confidence
+                    </span>
+                  </div>
+                </div>
+
+                <div class="evidence-timeline" role="img" aria-label="8 confirmed events in the last 12 weeks. Activity in weeks 1, 3, 5, 7, 9, 11.">
+                  <div class="et-label">Evidence · last 12 weeks</div>
+                  <div class="et-dots-row">
+                    <div class="et-group">
+                      <div class="et-dot"></div>
+                      <div class="et-dot empty"></div>
+                      <div class="et-dot"></div>
+                      <div class="et-dot empty"></div>
+                    </div>
+                    <div class="et-group">
+                      <div class="et-dot"></div>
+                      <div class="et-dot empty"></div>
+                      <div class="et-dot"></div>
+                      <div class="et-dot empty"></div>
+                    </div>
+                    <div class="et-group">
+                      <div class="et-dot"></div>
+                      <div class="et-dot empty"></div>
+                      <div class="et-dot"></div>
+                      <div class="et-dot current"></div>
+                    </div>
+                  </div>
+                  <div class="et-caption">8 runs in the last 12 weeks</div>
+                </div>
+
+                <div class="explanation">
+                  <strong>Why am I seeing this?</strong>
+                  Typically hosts a trail on alternating Thursdays. Pattern observed recently, but check closer to your trip — <em>schedule drifts around holidays.</em>
+                </div>
+
+                <div class="source-links">
+                  <a href="#" class="source-link">
+                    <svg viewBox="0 0 24 24"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
+                    Facebook Group
+                  </a>
+                  <a href="#" class="source-link">
+                    <svg viewBox="0 0 24 24"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+                    HashRego
+                  </a>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <!-- Possible section (collapsed) -->
+        <div class="possible-wrap" id="possible-section">
+          <button class="possible-header" type="button" aria-expanded="false" aria-controls="possible-list">
+            <div class="possible-header-left">
+              <svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+              Possible activity · 2 more kennels
+            </div>
+            <div class="possible-header-right">Lower confidence</div>
+          </button>
+          <div class="possible-list" id="possible-list">
+            <div class="possible-row">
+              <div class="possible-row-title">Southside H3</div>
+              <div class="possible-row-meta">
+                <span>Loose cadence</span>
+                <span>·</span>
+                <span>12.4 mi</span>
+              </div>
+              <div class="possible-row-note">
+                <em>— often runs this week of the month, check their <a href="#">Facebook</a> closer to your trip.</em>
+              </div>
+            </div>
+            <div class="possible-row">
+              <div class="possible-row-title">Marietta Misfits H3</div>
+              <div class="possible-row-meta">
+                <span>Timing unclear</span>
+                <span>·</span>
+                <span>18.1 mi</span>
+              </div>
+              <div class="possible-row-note">
+                <em>— monthly but the week shifts, verify on <a href="#">HashRego</a>.</em>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <!-- ============================================================
+       Scripts
+       ============================================================ -->
+  <script>
+    // Theme switcher (defaults to light, supports prefers-color-scheme on first visit)
+    const btnLight = document.getElementById('btn-light');
+    const btnDark = document.getElementById('btn-dark');
+
+    function setTheme(theme) {
+      if (theme === 'dark') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        btnDark.classList.add('active');
+        btnLight.classList.remove('active');
+      } else {
+        document.documentElement.removeAttribute('data-theme');
+        btnLight.classList.add('active');
+        btnDark.classList.remove('active');
+      }
+      try { localStorage.setItem('travel-mockup-theme', theme); } catch (e) {}
+    }
+    btnLight.addEventListener('click', () => setTheme('light'));
+    btnDark.addEventListener('click', () => setTheme('dark'));
+
+    // Initial theme from localStorage or system preference
+    (function initTheme() {
+      let initial = 'light';
+      try {
+        const stored = localStorage.getItem('travel-mockup-theme');
+        if (stored === 'light' || stored === 'dark') {
+          initial = stored;
+        } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+          initial = 'dark';
+        }
+      } catch (e) {}
+      setTheme(initial);
+    })();
+
+    // View switcher
+    const btnLanding = document.getElementById('btn-landing');
+    const btnResults = document.getElementById('btn-results');
+    const landingView = document.getElementById('landing-view');
+    const resultsView = document.getElementById('results-view');
+
+    function setView(view) {
+      if (view === 'landing') {
+        landingView.classList.remove('hidden');
+        resultsView.classList.remove('active');
+        btnLanding.classList.add('active');
+        btnResults.classList.remove('active');
+      } else {
+        landingView.classList.add('hidden');
+        resultsView.classList.add('active');
+        btnLanding.classList.remove('active');
+        btnResults.classList.add('active');
+      }
+      window.scrollTo(0, 0);
+    }
+    btnLanding.addEventListener('click', () => setView('landing'));
+    btnResults.addEventListener('click', () => setView('results'));
+
+    // Possible section toggle
+    const possibleSection = document.getElementById('possible-section');
+    const possibleHeader = possibleSection.querySelector('.possible-header');
+    possibleHeader.addEventListener('click', () => {
+      const isOpen = possibleSection.classList.toggle('open');
+      possibleHeader.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    });
+
+    // Parallax: update --scroll-y on the body
+    let ticking = false;
+    window.addEventListener('scroll', () => {
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          document.body.style.setProperty('--scroll-y', window.scrollY);
+          ticking = false;
+        });
+        ticking = true;
+      }
+    }, { passive: true });
+  </script>
+</body>
+</html>
