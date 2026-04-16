@@ -30,12 +30,15 @@ export function TravelResultFilters({
   dayCounts,
   datesByDay,
   possibleCount,
-}: TravelResultFiltersProps) {
+}: Readonly<TravelResultFiltersProps>) {
   // Sort chips by trip chronology (first matching date ascending), not
   // by calendar weekday. For a Tue→Mon trip, the chips read left-to-right
   // as the trip unfolds: Tue 4/14, Wed 4/15, ..., Mon 4/20. Calendar order
   // (Sun first) would put the trip's last two days at the front of the row.
   // ISO YYYY-MM-DD strings lex-sort chronologically, so no Date allocation.
+  // Safe: a/b come from `availableDays` which is typed as Set<DayCode>
+  // (string-union). Codacy flags any dynamic bracket access without
+  // checking that the index is provably bounded by the Record's keys.
   const dayChips = [...availableDays].sort((a, b) => {
     const aFirst = datesByDay[a]?.[0] ?? "";
     const bFirst = datesByDay[b]?.[0] ?? "";
@@ -70,6 +73,7 @@ export function TravelResultFilters({
           </span>
           {dayChips.map((day) => {
             const selected = selectedDays.has(day);
+            // Safe: `day` typed as DayCode string-union (see above).
             const count = dayCounts[day] ?? 0;
             const dates = datesByDay[day] ?? [];
             // Show the first matching date on the chip itself ("Tue 4/14");

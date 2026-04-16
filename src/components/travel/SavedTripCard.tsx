@@ -58,7 +58,7 @@ export function SavedTripCard({
   destination,
   status,
   counts,
-}: SavedTripCardProps) {
+}: Readonly<SavedTripCardProps>) {
   const router = useRouter();
   const [isDeleting, startDelete] = useTransition();
   const [open, setOpen] = useState(false);
@@ -87,6 +87,9 @@ export function SavedTripCard({
     });
   };
 
+  // Safe: `status` is typed as the SavedTripStatus union, not arbitrary
+  // string. Codacy's "Generic Object Injection Sink" pattern-matches any
+  // dynamic bracket access without checking the index type.
   const meta = STATUS_META[status];
 
   return (

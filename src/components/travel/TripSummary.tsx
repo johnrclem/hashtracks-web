@@ -76,7 +76,7 @@ export function TripSummary({
   likelyCount,
   possibleCount,
   confirmedEvents,
-}: TripSummaryProps) {
+}: Readonly<TripSummaryProps>) {
   const router = useRouter();
   const [isSaving, startSave] = useTransition();
   const [isMutating, startMutation] = useTransition();
@@ -376,10 +376,15 @@ function SavedStateButton({
 }
 
 function slugifyForFilename(s: string): string {
+  // Two anchored single-direction trims instead of `/^-+|-+$/g` — SonarCloud
+  // flagged the alternation as super-linear-backtracking-prone (a low-risk
+  // ReDoS hotspot since input is the user's destination string, but worth
+  // closing). The replacement preserves the same output for all inputs.
   return s
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
+    .replace(/^-+/, "")
+    .replace(/-+$/, "")
     .slice(0, 60)
     || "travel-trip";
 }

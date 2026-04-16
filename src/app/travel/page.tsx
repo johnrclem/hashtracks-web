@@ -70,11 +70,11 @@ export default async function TravelPage({ searchParams }: TravelPageProps) {
   }
 
   // Has search params → execute search and show results
-  const latitude = parseFloat(lat);
-  const longitude = parseFloat(lng);
-  const radiusKm = r ? parseInt(r, 10) : 50;
+  const latitude = Number.parseFloat(lat);
+  const longitude = Number.parseFloat(lng);
+  const radiusKm = r ? Number.parseInt(r, 10) : 50;
 
-  if (!isFinite(latitude) || !isFinite(longitude)) {
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
     return (
       <div className="mx-auto max-w-5xl px-4 py-16">
         <EmptyStates variant="error" />

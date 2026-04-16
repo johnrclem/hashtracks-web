@@ -93,7 +93,7 @@ describe("parseFrequencyDay", () => {
   it("Biweekly (1st & 3rd Saturdays) → two monthly nth rules", () => {
     const rules = parseFrequencyDay("Biweekly (1st & 3rd Saturdays)", "Saturday");
     expect(rules).toHaveLength(2);
-    const rrules = rules.map((r) => r.rrule).sort();
+    const rrules = rules.map((r) => r.rrule).sort((a, b) => a.localeCompare(b));
     expect(rrules).toEqual(["FREQ=MONTHLY;BYDAY=1SA", "FREQ=MONTHLY;BYDAY=3SA"]);
     expect(rules.every((r) => r.confidence === "MEDIUM")).toBe(true);
   });
@@ -101,7 +101,7 @@ describe("parseFrequencyDay", () => {
   it("multiple days via slash separator → multiple rules", () => {
     const rules = parseFrequencyDay("Weekly", "Sunday / Monday");
     expect(rules).toHaveLength(2);
-    const days = rules.map((r) => r.rrule).sort();
+    const days = rules.map((r) => r.rrule).sort((a, b) => a.localeCompare(b));
     expect(days).toEqual(["FREQ=WEEKLY;BYDAY=MO", "FREQ=WEEKLY;BYDAY=SU"]);
   });
 
@@ -109,7 +109,7 @@ describe("parseFrequencyDay", () => {
     // "Every Wednesday and Saturday." should produce both WE and SA
     const rules = parseFrequencyDay("Every Wednesday and Saturday.", null);
     expect(rules).toHaveLength(2);
-    const days = rules.map((r) => r.rrule).sort();
+    const days = rules.map((r) => r.rrule).sort((a, b) => a.localeCompare(b));
     expect(days).toEqual(["FREQ=WEEKLY;BYDAY=SA", "FREQ=WEEKLY;BYDAY=WE"]);
   });
 

@@ -29,7 +29,7 @@ const RADIUS_OPTIONS = [
   { value: 100, label: "Far", description: "~60 mi" },
 ] as const;
 
-export function TravelSearchForm({ variant, initialValues }: TravelSearchFormProps) {
+export function TravelSearchForm({ variant, initialValues }: Readonly<TravelSearchFormProps>) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 

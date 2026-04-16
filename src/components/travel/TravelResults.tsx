@@ -99,7 +99,7 @@ const TIER_LABELS: Record<DistanceTier, { title: string; description: string }> 
   drive: { title: "Day trip material", description: "25+ km" },
 };
 
-export function TravelResults({ destination, results }: TravelResultsProps) {
+export function TravelResults({ destination, results }: Readonly<TravelResultsProps>) {
   const { confirmed, likely, possible } = results;
 
   const [includePossible, setIncludePossible] = useState(false);
@@ -224,6 +224,7 @@ export function TravelResults({ destination, results }: TravelResultsProps) {
       <div className="mt-6">
         {renderedTiers.map(({ tier, confirmed: tc, likely: tl, shownPossible }) => {
           const total = tc.length + tl.length + shownPossible.length;
+          // Safe: `tier` is typed as the DistanceTier string-union (TIERS).
           const label = TIER_LABELS[tier];
           const dayGroups = groupTierByDay(tc, tl, shownPossible);
 

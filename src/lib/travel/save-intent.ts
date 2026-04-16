@@ -14,7 +14,11 @@
  * mismatch → auto-save skipped, URL cleaned up.
  */
 
-const INTENT_KEY = "hashtracks:travel-save-intent";
+// NOSONAR + Codacy false positive: this is a sessionStorage namespace
+// constant ("hashtracks:travel-save-intent"), not a credential. Both
+// scanners pattern-match `KEY = "..."` for hardcoded passwords.
+// eslint-disable-next-line sonarjs/no-hardcoded-credentials
+const INTENT_KEY = "hashtracks:travel-save-intent"; // NOSONAR
 const INTENT_TTL_MS = 10 * 60 * 1000; // 10 minutes — covers typical sign-in flows
 
 export interface SaveIntentParams {

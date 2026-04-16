@@ -431,7 +431,7 @@ export async function getDestinationKennelCount(
   longitude: number,
   radiusKm: number,
 ): Promise<{ count: number }> {
-  if (!isFinite(latitude) || !isFinite(longitude) || !isFinite(radiusKm)) {
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || !Number.isFinite(radiusKm)) {
     return { count: 0 };
   }
 
@@ -493,7 +493,7 @@ export async function resolveDestinationTimezone(
   latitude: number,
   longitude: number,
 ): Promise<ActionResult<{ timezone: string }>> {
-  if (!isFinite(latitude) || !isFinite(longitude)) {
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
     return { error: "Invalid coordinates" };
   }
 
@@ -587,13 +587,13 @@ export async function geocodeDestination(
 
 function validateSearchParams(params: SaveTravelSearchParams): string | null {
   if (!params.label.trim()) return "Destination label is required";
-  if (!isFinite(params.latitude) || params.latitude < -90 || params.latitude > 90) {
+  if (!Number.isFinite(params.latitude) || params.latitude < -90 || params.latitude > 90) {
     return "Invalid latitude";
   }
-  if (!isFinite(params.longitude) || params.longitude < -180 || params.longitude > 180) {
+  if (!Number.isFinite(params.longitude) || params.longitude < -180 || params.longitude > 180) {
     return "Invalid longitude";
   }
-  if (!isFinite(params.radiusKm) || params.radiusKm <= 0) {
+  if (!Number.isFinite(params.radiusKm) || params.radiusKm <= 0) {
     return "Invalid radius";
   }
   // Mirror executeTravelSearch's clamp at the validation boundary so an
@@ -646,9 +646,9 @@ function isValidDateString(dateStr: string): boolean {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);
   if (!match) return false;
   const [, yStr, mStr, dStr] = match;
-  const y = parseInt(yStr, 10);
-  const m = parseInt(mStr, 10);
-  const d = parseInt(dStr, 10);
+  const y = Number.parseInt(yStr, 10);
+  const m = Number.parseInt(mStr, 10);
+  const d = Number.parseInt(dStr, 10);
   if (m < 1 || m > 12 || d < 1 || d > 31) return false;
   const date = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
   return (

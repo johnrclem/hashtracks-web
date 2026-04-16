@@ -237,7 +237,7 @@ function parseDays(
     }
   }
 
-  return [...days].sort();
+  return [...days].sort((a, b) => a.localeCompare(b));
 }
 
 /**
