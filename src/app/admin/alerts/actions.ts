@@ -185,14 +185,19 @@ export async function resolveAllForSource(sourceId: string) {
 
 // ── Repair Actions ──
 
-export async function rescrapeFromAlert(alertId: string, force = false) {
+export async function rescrapeFromAlert(alertId: string, force = false, days?: number) {
   const admin = await getAdminUser();
   if (!admin) return { error: "Unauthorized" };
+
+  // Clamp days to the same range the cron endpoint enforces — 1..1825.
+  const clampedDays = days != null
+    ? Math.max(1, Math.min(1825, Math.floor(days)))
+    : undefined;
 
   const alert = await prisma.alert.findUnique({ where: { id: alertId } });
   if (!alert) return { error: "Alert not found" };
 
-  const result = await scrapeSource(alert.sourceId, { force });
+  const result = await scrapeSource(alert.sourceId, { force, days: clampedDays });
 
   await prisma.alert.update({
     where: { id: alertId },
@@ -200,7 +205,12 @@ export async function rescrapeFromAlert(alertId: string, force = false) {
       repairLog: appendRepairLog(alert.repairLog,
         buildRepairEntry(
           "rescrape", admin.id,
-          { forced: force, eventsFound: result.eventsFound, created: result.created },
+          {
+            forced: force,
+            eventsFound: result.eventsFound,
+            created: result.created,
+            ...(clampedDays != null ? { days: clampedDays } : {}),
+          },
           result.success ? "success" : "error",
           result.errors.length > 0 ? result.errors.slice(0, 3).join("; ") : undefined,
         ),

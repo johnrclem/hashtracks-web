@@ -146,14 +146,15 @@ export function AlertCard({ alert, allKennels, suggestions }: AlertCardProps) {
     });
   }
 
-  function handleRescrape() {
+  function handleRescrape(days?: number) {
     startTransition(async () => {
-      const result = await rescrapeFromAlert(alert.id);
+      const result = await rescrapeFromAlert(alert.id, false, days);
       if ("error" in result) {
         toast.error(result.error);
       } else {
+        const windowLabel = days ? ` (${days}d window)` : "";
         toast.success(
-          `Re-scraped: ${result.eventsFound} found, ${result.created} created, ${result.updated} updated`,
+          `Re-scraped${windowLabel}: ${result.eventsFound} found, ${result.created} created, ${result.updated} updated`,
         );
       }
       router.refresh();
@@ -295,12 +296,26 @@ export function AlertCard({ alert, allKennels, suggestions }: AlertCardProps) {
                 variant="outline"
                 className="h-7 text-xs"
                 disabled={isPending}
-                onClick={handleRescrape}
+                onClick={() => handleRescrape()}
               >
                 {isPending ? "..." : "Re-scrape"}
               </Button>
             </TooltipTrigger>
             <TooltipContent>Try fetching this source again — good first step for transient errors</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs"
+                disabled={isPending}
+                onClick={() => handleRescrape(365)}
+              >
+                {isPending ? "..." : "Wide re-scrape (365d)"}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Force a 365-day window scrape — catches events the default window missed</TooltipContent>
           </Tooltip>
           {alert.status === "OPEN" && (
             <Tooltip>
