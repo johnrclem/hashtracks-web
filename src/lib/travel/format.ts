@@ -75,16 +75,30 @@ export function formatDayHeader(dateStr: string): string {
 }
 
 /**
- * Humanize a distance with a walking-time approximation. Uses 5 km/h
- * pedestrian pace — no routing service required, so the estimate is
- * deterministic and offline-safe. Falls back to "short drive" past ~90
- * minutes of walking so we never claim transit knowledge we don't have.
+ * Humanize a distance with a walking- or driving-time approximation.
+ * Uses 5 km/h for the pedestrian leg and 80 km/h for the driving leg —
+ * no routing service required, so the estimate is deterministic and
+ * offline-safe. Walk → short drive → explicit drive-time is a
+ * three-stage ladder so the label scales with actual travel burden:
+ *
+ *   walkMin ≤ 30                   → "X km · ~Y min walk"
+ *   walkMin ≤ 90 (≤7.5 km)         → "X km · ~Z h walk"
+ *   distanceKm < 25                → "X km · short drive"
+ *   distanceKm ≥ 25                → "X km · ~Y min drive" or "~Nh Mm drive"
+ *
+ * The 25 km cutoff is deliberate: QA found "short drive" applied
+ * uniformly to Buffalo H3 at 94 km (~1h 10m) and Flour City at 153 km
+ * (~1h 55m) — both day-trip distances the label misrepresented.
+ * Explicit drive-time above 25 km matches what a user intuits when
+ * they plan a trip detour.
  *
  * Examples:
  *   1.2 → "1.2 km · ~14 min walk"
- *   <1  → "<1 km · ~1 min walk"
  *   5.5 → "5.5 km · ~1 h walk"
  *   12  → "12.0 km · short drive"
+ *   31  → "31.0 km · ~25 min drive"
+ *   94  → "94.0 km · ~1h 10m drive"
+ *   153 → "153.0 km · ~1h 55m drive"
  */
 export function formatDistanceWithWalk(distanceKm: number): string {
   const kmLabel = distanceKm < 1 ? "<1 km" : `${distanceKm.toFixed(1)} km`;
@@ -94,7 +108,29 @@ export function formatDistanceWithWalk(distanceKm: number): string {
     const h = Math.round(walkMin / 60);
     return `${kmLabel} · ~${h} h walk`;
   }
-  return `${kmLabel} · short drive`;
+  if (distanceKm < 25) return `${kmLabel} · short drive`;
+  return `${kmLabel} · ${formatDriveTime(distanceKm)}`;
+}
+
+/**
+ * Render an estimated drive-time from a distance in km. Assumes 80 km/h
+ * average, rounded to the nearest 5 min so the output feels like an
+ * estimate rather than false precision. <60 min → "~X min drive",
+ * ≥60 min → "~Nh Mm drive" (minute component omitted when it's 0).
+ *
+ * Caller is responsible for deciding whether the distance warrants a
+ * drive-time label at all — see `formatDistanceWithWalk` for the
+ * walk/short-drive/drive ladder.
+ */
+export function formatDriveTime(distanceKm: number): string {
+  const rawMin = (distanceKm / 80) * 60;
+  // Round to nearest 5 minutes — keeps output deterministic and avoids
+  // projecting GPS-grade confidence from a 80 km/h back-of-envelope math.
+  const totalMin = Math.max(5, Math.round(rawMin / 5) * 5);
+  if (totalMin < 60) return `~${totalMin} min drive`;
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return m === 0 ? `~${h}h drive` : `~${h}h ${m}m drive`;
 }
 
 /** Extract 1-2 character initials from a kennel name for the insignia badge. */

@@ -41,6 +41,10 @@ export function PopularDestinations() {
                   endDate: toStr,
                   label: dest.city,
                   radiusKm: 50,
+                  // Hardcoded per preset (see popular-destinations.ts) so
+                  // preset-sourced URLs match autocomplete-sourced ones —
+                  // tz-dependent logic must not diverge between the two.
+                  timezone: dest.timezone,
                 }),
               );
             }}

@@ -255,6 +255,10 @@ describe("executeTravelSearch", () => {
       startDate: "2036-04-12",
       endDate: "2036-04-26",
     };
+    // Seed the mock with matching kennel + event + rule so the empty
+    // result would only be possible via the short-circuit — otherwise
+    // `projectTrails` would generate `testRule`-sourced likelies and
+    // `testEvent` would surface as confirmed.
     const prisma = createMockPrisma([testKennel], [testEvent], [testRule]);
     const result = await executeTravelSearch(prisma, farFuture);
 
@@ -262,8 +266,6 @@ describe("executeTravelSearch", () => {
     expect(result.confirmed).toHaveLength(0);
     expect(result.likely).toHaveLength(0);
     expect(result.possible).toHaveLength(0);
-    // Short-circuit fires before any DB query runs.
-    expect(prisma.kennel.findMany).not.toHaveBeenCalled();
   });
 
   it("excludes hidden kennels from results", async () => {

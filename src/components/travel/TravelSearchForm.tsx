@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useTransition } from "react";
+import { useEffect, useState, useCallback, useTransition, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { MapPin, Calendar, Compass, Search, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,19 @@ const RADIUS_OPTIONS = [
   { value: 100, label: "Far", description: "~60 mi" },
 ] as const;
 
+/**
+ * Snap an arbitrary radius value to the nearest tier. Returns the input
+ * unchanged if it's already a tier — lets the caller detect a no-op
+ * without re-comparing.
+ */
+function snapRadiusToTier(value: number): number {
+  const tiers = RADIUS_OPTIONS.map((o) => o.value);
+  if (tiers.includes(value as (typeof tiers)[number])) return value;
+  return tiers.reduce((nearest, tier) =>
+    Math.abs(tier - value) < Math.abs(nearest - value) ? tier : nearest,
+  );
+}
+
 export function TravelSearchForm({ variant, initialValues }: Readonly<TravelSearchFormProps>) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -38,7 +51,14 @@ export function TravelSearchForm({ variant, initialValues }: Readonly<TravelSear
   const [longitude, setLongitude] = useState(initialValues?.longitude ?? 0);
   const [startDate, setStartDate] = useState(initialValues?.startDate ?? "");
   const [endDate, setEndDate] = useState(initialValues?.endDate ?? "");
-  const [radiusKm, setRadiusKm] = useState(initialValues?.radiusKm ?? 50);
+  // Snap on init: a crafted/shared URL with ?r=200 (or any non-tier value)
+  // would otherwise land with no pill selected and leave the user unable
+  // to tell which bucket their search actually ran in. Tier is a closed
+  // enum; the URL has to match.
+  const [radiusKm, setRadiusKm] = useState(
+    snapRadiusToTier(initialValues?.radiusKm ?? 50),
+  );
+  const didSnapRadiusRef = useRef(false);
   const [timezone, setTimezone] = useState(initialValues?.timezone ?? "");
   const [isExpanded, setIsExpanded] = useState(variant === "hero");
 
@@ -61,6 +81,22 @@ export function TravelSearchForm({ variant, initialValues }: Readonly<TravelSear
   // "N nights" display + negative analytics. Surface as invalid here.
   const datesValid = Boolean(startDate && endDate && startDate <= endDate);
   const canSubmit = destination && datesValid && coordsResolved;
+
+  // Mirror the snap back to the URL. Guarded by a ref so a single
+  // off-tier landing → exactly one `router.replace` per mount; subsequent
+  // pill changes handle their own URL updates via handleSubmit.
+  useEffect(() => {
+    if (didSnapRadiusRef.current) return;
+    didSnapRadiusRef.current = true;
+    if (variant !== "compact") return;
+    const requested = initialValues?.radiusKm;
+    if (requested == null) return;
+    const snapped = snapRadiusToTier(requested);
+    if (snapped === requested) return;
+    const here = new URL(window.location.href);
+    here.searchParams.set("r", snapped.toString());
+    router.replace(here.pathname + here.search);
+  }, [initialValues?.radiusKm, router, variant]);
 
   const handleSubmit = useCallback(() => {
     if (!canSubmit) {

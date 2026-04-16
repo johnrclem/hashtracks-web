@@ -9,6 +9,13 @@ export interface PopularDestination {
   country: string;
   latitude: number;
   longitude: number;
+  /**
+   * IANA timezone for this city. Hardcoded per preset rather than inferred
+   * from lat/lng so preset-sourced URLs stay identical to autocomplete-
+   * sourced ones — downstream tz-dependent logic (trip-window boundaries,
+   * event display times) must not diverge between the two entry paths.
+   */
+  timezone: string;
   kennelCount: number;
   teaser: string;
   pinColor: string;
@@ -21,6 +28,7 @@ export const POPULAR_DESTINATIONS: PopularDestination[] = [
     country: "USA",
     latitude: 38.907,
     longitude: -77.037,
+    timezone: "America/New_York",
     kennelCount: 10,
     teaser: "EWH3, DCH4, and a packed weekly calendar year-round.",
     pinColor: "#2563eb",
@@ -31,6 +39,7 @@ export const POPULAR_DESTINATIONS: PopularDestination[] = [
     country: "UK",
     latitude: 51.507,
     longitude: -0.128,
+    timezone: "Europe/London",
     kennelCount: 31,
     teaser: "Dense hash network — something running almost every night.",
     pinColor: "#7c3aed",
@@ -41,6 +50,7 @@ export const POPULAR_DESTINATIONS: PopularDestination[] = [
     country: "USA",
     latitude: 40.713,
     longitude: -74.006,
+    timezone: "America/New_York",
     kennelCount: 11,
     teaser: "Five boroughs, half a dozen kennels a week.",
     pinColor: "#6366f1",
@@ -51,6 +61,7 @@ export const POPULAR_DESTINATIONS: PopularDestination[] = [
     country: "USA",
     latitude: 37.775,
     longitude: -122.418,
+    timezone: "America/Los_Angeles",
     kennelCount: 13,
     teaser: "Bay Area trails from the city to the coast, every week.",
     pinColor: "#0ea5e9",
@@ -61,6 +72,7 @@ export const POPULAR_DESTINATIONS: PopularDestination[] = [
     country: "SG",
     latitude: 1.352,
     longitude: 103.82,
+    timezone: "Asia/Singapore",
     kennelCount: 7,
     teaser: "Father Hash — second hash kennel founded on earth.",
     pinColor: "#10b981",
@@ -71,6 +83,7 @@ export const POPULAR_DESTINATIONS: PopularDestination[] = [
     country: "JP",
     latitude: 35.682,
     longitude: 139.692,
+    timezone: "Asia/Tokyo",
     kennelCount: 4,
     teaser: "Wednesday urban trails and full-moon specials.",
     pinColor: "#eab308",
@@ -81,6 +94,7 @@ export const POPULAR_DESTINATIONS: PopularDestination[] = [
     country: "DE",
     latitude: 52.52,
     longitude: 13.405,
+    timezone: "Europe/Berlin",
     kennelCount: 2,
     teaser: "Founded 1980 — the oldest hash in continental Europe.",
     pinColor: "#ef4444",
@@ -91,6 +105,7 @@ export const POPULAR_DESTINATIONS: PopularDestination[] = [
     country: "TH",
     latitude: 13.756,
     longitude: 100.502,
+    timezone: "Asia/Bangkok",
     kennelCount: 8,
     teaser: "Home to some of the oldest hashes in Asia.",
     pinColor: "#ec4899",

@@ -5,6 +5,7 @@ import {
   daysBetweenIsoDates,
   getKennelInitials,
   formatDistanceWithWalk,
+  formatDriveTime,
   formatDayHeader,
   startOfUtcDay,
 } from "./format";
@@ -80,9 +81,18 @@ describe("formatDistanceWithWalk", () => {
     expect(formatDistanceWithWalk(7)).toBe("7.0 km · ~1 h walk");
   });
 
-  it("falls back to 'short drive' past 90 min walking", () => {
+  it("falls back to 'short drive' past 90 min walking (7.5–25 km)", () => {
     expect(formatDistanceWithWalk(12)).toBe("12.0 km · short drive");
     expect(formatDistanceWithWalk(20)).toBe("20.0 km · short drive");
+  });
+
+  it("switches to an explicit drive-time estimate at 25+ km", () => {
+    // QA regression: Buffalo H3 at 94 km + Flour City at 153 km both read
+    // "short drive" pre-fix — implying a trivial detour. 25 km cutoff is
+    // where "short drive" stops being honest.
+    expect(formatDistanceWithWalk(31)).toBe("31.0 km · ~25 min drive");
+    expect(formatDistanceWithWalk(94)).toBe("94.0 km · ~1h 10m drive");
+    expect(formatDistanceWithWalk(153)).toBe("153.0 km · ~1h 55m drive");
   });
 
   it("renders <1 km label and never reports 0 minutes", () => {
@@ -90,6 +100,34 @@ describe("formatDistanceWithWalk", () => {
     expect(formatDistanceWithWalk(0.5)).toBe("<1 km · ~6 min walk");
     // Exact 0 still reports 1 min minimum (defensive — caller typically has > 0).
     expect(formatDistanceWithWalk(0)).toBe("<1 km · ~1 min walk");
+  });
+});
+
+describe("formatDriveTime", () => {
+  it("rounds minutes to the nearest 5 and reports sub-hour drives", () => {
+    // 31 km / 80 km/h = 23.25 min → rounds to 25
+    expect(formatDriveTime(31)).toBe("~25 min drive");
+    // 25 km / 80 km/h = 18.75 min → rounds to 20
+    expect(formatDriveTime(25)).toBe("~20 min drive");
+  });
+
+  it("reports hours + minutes past 60 min", () => {
+    // 94 km / 80 km/h = 70.5 min → rounds to 70 → 1h 10m
+    expect(formatDriveTime(94)).toBe("~1h 10m drive");
+    // 153 km / 80 km/h = 114.75 min → rounds to 115 → 1h 55m
+    expect(formatDriveTime(153)).toBe("~1h 55m drive");
+  });
+
+  it("omits the minute component when it's exactly 0", () => {
+    // 160 km / 80 km/h = 120 min exactly → 2h, no minutes
+    expect(formatDriveTime(160)).toBe("~2h drive");
+  });
+
+  it("clamps to a 5 min floor so we never emit '~0 min drive'", () => {
+    // 1 km / 80 km/h = 0.75 min → rounds to 0 pre-clamp, 5 after.
+    // Realistic callers route this through formatDistanceWithWalk which
+    // short-circuits below 25 km; this guards direct calls.
+    expect(formatDriveTime(1)).toBe("~5 min drive");
   });
 });
 
