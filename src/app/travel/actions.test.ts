@@ -20,6 +20,8 @@ vi.mock("@/lib/db", () => {
   };
   const travelDestination = {
     deleteMany: vi.fn(),
+    updateMany: vi.fn(),
+    create: vi.fn(),
   };
   const kennel = {
     findMany: vi.fn().mockResolvedValue([]),
@@ -79,6 +81,7 @@ describe("saveTravelSearch", () => {
       createdAt: new Date(),
       updatedAt: new Date(),
     });
+    vi.mocked(prisma.travelDestination.create).mockResolvedValue({} as never);
 
     const result = await saveTravelSearch(validParams);
     expect("error" in result).toBe(false);
@@ -94,11 +97,13 @@ describe("saveTravelSearch", () => {
         }),
       }),
     );
-    // Denormalized userId must be propagated to the nested destination so
-    // the new dedup unique index has something to enforce on.
-    const createCall = vi.mocked(prisma.travelSearch.create).mock.calls[0][0];
-    expect(createCall?.data?.destinations).toMatchObject({
-      create: expect.objectContaining({ userId: "user-1" }),
+    // Compound FK requires a separate destination create with the
+    // denormalized userId + status that the partial-unique index keys on.
+    const destCall = vi.mocked(prisma.travelDestination.create).mock.calls[0][0];
+    expect(destCall?.data).toMatchObject({
+      travelSearchId: "ts-1",
+      userId: "user-1",
+      status: "ACTIVE",
     });
   });
 
@@ -203,20 +208,50 @@ describe("updateTravelSearch", () => {
       userId: "user-1",
     } as never);
     vi.mocked(prisma.travelSearch.update).mockResolvedValue({} as never);
+    vi.mocked(prisma.travelDestination.deleteMany).mockResolvedValue({
+      count: 1,
+    } as never);
+    vi.mocked(prisma.travelDestination.create).mockResolvedValue({} as never);
 
     const result = await updateTravelSearch("ts-1", validParams);
     expect("error" in result).toBe(false);
     expect("id" in result && result.id).toBe("ts-1");
 
-    // update() called on the parent with nested destinations deleteMany+create
-    const call = vi.mocked(prisma.travelSearch.update).mock.calls[0][0];
-    expect(call?.where).toEqual({ id: "ts-1" });
-    expect(call?.data?.destinations).toMatchObject({
-      deleteMany: {},
-      create: expect.objectContaining({ label: validParams.label }),
+    // Three coordinated writes: delete old destination, refresh parent,
+    // create new destination with the denormalized userId + ACTIVE status.
+    expect(prisma.travelDestination.deleteMany).toHaveBeenCalledWith({
+      where: { travelSearchId: "ts-1" },
+    });
+    expect(prisma.travelSearch.update).toHaveBeenCalledWith({
+      where: { id: "ts-1" },
+      data: { name: expect.stringContaining("Atlanta, GA"), status: "ACTIVE" },
+    });
+    const createCall = vi.mocked(prisma.travelDestination.create).mock.calls[0][0];
+    expect(createCall?.data).toMatchObject({
+      travelSearchId: "ts-1",
+      userId: "user-1",
+      status: "ACTIVE",
+      label: validParams.label,
     });
     // No new TravelSearch row created — dashboard position preserved.
     expect(prisma.travelSearch.create).not.toHaveBeenCalled();
+  });
+
+  it("returns a clear error when params collide with another active trip (P2002)", async () => {
+    // Codex flagged that updateTravelSearch had no P2002 handling; the
+    // partial-unique index throws if the new params match another active
+    // trip the same user already saved.
+    vi.mocked(prisma.travelSearch.findUnique).mockResolvedValue({
+      userId: "user-1",
+    } as never);
+    const p2002 = new Prisma.PrismaClientKnownRequestError(
+      "Unique constraint failed on TravelDestination_user_dedup_active",
+      { code: "P2002", clientVersion: "test" },
+    );
+    vi.mocked(prisma.$transaction).mockRejectedValueOnce(p2002);
+
+    const result = await updateTravelSearch("ts-1", validParams);
+    expect("error" in result && result.error).toContain("Another saved trip");
   });
 
   it("returns error for wrong owner", async () => {
@@ -255,21 +290,23 @@ describe("updateTravelSearch", () => {
 describe("deleteTravelSearch", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("archives the search and deletes its destination row", async () => {
-    // Archive must do BOTH things in the same transaction so re-saving the
-    // same trip after archive succeeds (the unique slot is freed).
+  it("flips both parent and destination to ARCHIVED in one transaction", async () => {
+    // Archive must update BOTH so the partial-unique index (WHERE
+    // status='ACTIVE') stops counting the destination — re-saving the
+    // same trip after archive then succeeds.
     vi.mocked(prisma.travelSearch.findUnique).mockResolvedValue({
       userId: "user-1",
     } as never);
     vi.mocked(prisma.travelSearch.update).mockResolvedValue({} as never);
-    vi.mocked(prisma.travelDestination.deleteMany).mockResolvedValue({
+    vi.mocked(prisma.travelDestination.updateMany).mockResolvedValue({
       count: 1,
     } as never);
 
     const result = await deleteTravelSearch("ts-1");
     expect("error" in result).toBe(false);
-    expect(prisma.travelDestination.deleteMany).toHaveBeenCalledWith({
+    expect(prisma.travelDestination.updateMany).toHaveBeenCalledWith({
       where: { travelSearchId: "ts-1" },
+      data: { status: "ARCHIVED" },
     });
     expect(prisma.travelSearch.update).toHaveBeenCalledWith({
       where: { id: "ts-1" },

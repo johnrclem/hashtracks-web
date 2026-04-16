@@ -115,19 +115,22 @@ export async function saveTravelSearch(
   const endDate = parseUtcNoonDate(params.endDate);
   const name = formatTripName(params.label, startDate, endDate);
 
-  // Atomic dedup. Three layers of defense against a user ending up with
-  // duplicate active TravelSearches for the same trip (Codex flagged the
-  // race when this PR was first opened):
+  // Atomic dedup. Three layers of defense against duplicate active rows
+  // for the same trip (Codex flagged the original findFirst+create race):
   //
-  //   1. Read-then-write inside a single Prisma transaction (Read Committed
-  //      isolation by default — same snapshot for findFirst + create).
-  //   2. DB-level partial-unique-equivalent: a UNIQUE INDEX on
-  //      TravelDestination(userId, lat, lng, radius, dates). Archive
-  //      deletes the destination row, freeing the slot. So a UNIQUE
-  //      collision = "another concurrent caller already saved this trip."
-  //   3. P2002 catch path: re-fetch the winning row and return its id, so
-  //      the loser of the race sees the same outcome as the winner
-  //      (idempotent semantics from the user's perspective).
+  //   1. Read-then-write inside a single Prisma transaction.
+  //   2. DB-enforced partial-unique on TravelDestination
+  //      (userId, lat, lng, radius, dates) WHERE status = 'ACTIVE'. The
+  //      partial filter means archived rows don't hold the slot — re-saving
+  //      after archive works without depending on the application path
+  //      cleaning up the destination row.
+  //   3. P2002 catch path: re-fetch the winning row and return its id so
+  //      the race loser sees the same outcome as the winner (idempotent).
+  //
+  // The destination row is created in a separate insert (not nested) because
+  // TravelDestination uses a compound FK back to TravelSearch(id, userId)
+  // for tenant-isolation safety — Prisma's nested-create input excludes
+  // the userId column for compound FKs.
   const matchFilter = {
     userId: user.id,
     status: "ACTIVE" as TravelSearchStatus,
@@ -151,29 +154,26 @@ export async function saveTravelSearch(
       if (existing) return { success: true as const, id: existing.id };
 
       const search = await tx.travelSearch.create({
+        data: { userId: user.id, name },
+      });
+      await tx.travelDestination.create({
         data: {
+          travelSearchId: search.id,
           userId: user.id,
-          name,
-          destinations: {
-            create: {
-              label: params.label,
-              placeId: params.placeId ?? null,
-              userId: user.id,
-              latitude: params.latitude,
-              longitude: params.longitude,
-              timezone: params.timezone ?? null,
-              radiusKm: params.radiusKm,
-              startDate,
-              endDate,
-            },
-          },
+          status: "ACTIVE",
+          label: params.label,
+          placeId: params.placeId ?? null,
+          latitude: params.latitude,
+          longitude: params.longitude,
+          timezone: params.timezone ?? null,
+          radiusKm: params.radiusKm,
+          startDate,
+          endDate,
         },
       });
       return { success: true as const, id: search.id };
     });
   } catch (err) {
-    // P2002 = unique constraint violation. A concurrent caller (or an
-    // unlikely reader-skip-create) won the race; surface their winning row.
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
       const winner = await prisma.travelSearch.findFirst({
         where: matchFilter,
@@ -196,10 +196,13 @@ export async function saveTravelSearch(
  * destination label for an already-saved trip and wants to keep the same
  * TravelSearch id (so dashboard ordering and `lastViewedAt` are stable).
  *
- * TravelDestination.travelSearchId is `@unique`, so the update is a
- * replace-in-place: delete the existing destination row, create a new one
- * under the same parent. The parent's `name` is refreshed to reflect the
- * new params.
+ * Replaces the destination row in a transaction. The compound FK on
+ * TravelDestination requires explicit child writes (not nested-create)
+ * since Prisma's nested-create input excludes the userId column.
+ *
+ * If the new params would collide with another active trip the same user
+ * already saved (the partial-unique index), returns a clear error rather
+ * than throwing P2002 to the user as a 500.
  */
 export async function updateTravelSearch(
   id: string,
@@ -222,16 +225,20 @@ export async function updateTravelSearch(
   const endDate = parseUtcNoonDate(params.endDate);
   const name = formatTripName(params.label, startDate, endDate);
 
-  await prisma.travelSearch.update({
-    where: { id },
-    data: {
-      name,
-      destinations: {
-        deleteMany: {},
-        create: {
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.travelDestination.deleteMany({ where: { travelSearchId: id } });
+      await tx.travelSearch.update({
+        where: { id },
+        data: { name, status: "ACTIVE" },
+      });
+      await tx.travelDestination.create({
+        data: {
+          travelSearchId: id,
+          userId: user.id,
+          status: "ACTIVE",
           label: params.label,
           placeId: params.placeId ?? null,
-          userId: user.id,
           latitude: params.latitude,
           longitude: params.longitude,
           timezone: params.timezone ?? null,
@@ -239,9 +246,14 @@ export async function updateTravelSearch(
           startDate,
           endDate,
         },
-      },
-    },
-  });
+      });
+    });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      return { error: "Another saved trip already has these dates and location" };
+    }
+    throw err;
+  }
 
   return { success: true, id };
 }
@@ -251,15 +263,19 @@ export async function updateTravelSearch(
 // ============================================================================
 
 /**
- * Archive a saved trip. Two side effects in one transaction:
+ * Archive a saved trip. Two coordinated writes in one transaction:
  *   1. Set TravelSearch.status = ARCHIVED (preserves the parent row for
  *      lastViewedAt / createdAt history).
- *   2. Delete the TravelDestination row so the dedup unique index slot is
- *      freed — re-saving the same trip after archive must work.
+ *   2. Set TravelDestination.status = ARCHIVED so the partial-unique
+ *      index (WHERE status='ACTIVE') stops counting this row, freeing
+ *      the dedup slot for re-saving the same trip.
  *
- * Archived rows are intentionally destination-less. /travel/saved only
- * lists active rows, and viewTravelSearch's "destination ?? null" branch
- * handles URL-crafted access to an archived id gracefully.
+ * Note: the partial unique now does the heavy lifting — even if a future
+ * code path leaves an ARCHIVED parent with an ACTIVE destination, dedup
+ * still recovers because the constraint is gated on the destination's
+ * own status. Earlier behavior deleted the destination row outright;
+ * setting status preserves history (label, placeId, timezone) without
+ * cluttering the dashboard since /travel/saved filters on parent status.
  */
 export async function deleteTravelSearch(
   id: string,
@@ -275,7 +291,10 @@ export async function deleteTravelSearch(
   if (search.userId !== user.id) return { error: "Not authorized" };
 
   await prisma.$transaction([
-    prisma.travelDestination.deleteMany({ where: { travelSearchId: id } }),
+    prisma.travelDestination.updateMany({
+      where: { travelSearchId: id },
+      data: { status: "ARCHIVED" },
+    }),
     prisma.travelSearch.update({ where: { id }, data: { status: "ARCHIVED" } }),
   ]);
 

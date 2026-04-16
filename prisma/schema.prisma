@@ -1000,37 +1000,49 @@ model TravelSearch {
   createdAt    DateTime            @default(now())
   updatedAt    DateTime            @updatedAt
 
+  // Compound key target for TravelDestination's compound FK. Guarantees
+  // the destination's denormalized userId can never drift from its
+  // parent's userId — codex flagged the prior single-FK design as a
+  // tenant-isolation hazard.
+  @@unique([id, userId], name: "TravelSearch_id_userId")
   @@index([userId, status])
   @@index([userId, lastViewedAt])
 }
 
 model TravelDestination {
-  id             String       @id @default(cuid())
-  travelSearchId String       @unique // MVP enforces exactly one destination per saved search — writers must update-in-place, not insert-new
-  // Denormalized from TravelSearch.userId so the dedup unique index can
-  // sit on this table (partial-unique can't reference a parent table's
-  // status column). Archive deletes this row to free the unique slot.
+  id             String             @id @default(cuid())
+  travelSearchId String             @unique // MVP enforces exactly one destination per saved search
+  // Denormalized from TravelSearch.userId. Consistency guaranteed at the
+  // DB layer by a compound FK back to TravelSearch(id, userId) — see the
+  // @relation below — so the two userIds can never disagree.
   userId         String
+  // Denormalized from TravelSearch.status so the dedup partial-unique
+  // index (WHERE status = 'ACTIVE', defined in raw SQL since Prisma can't
+  // express partial uniques) lives on the same table as the indexed
+  // columns. Archive sets BOTH the parent and this row to ARCHIVED.
+  status         TravelSearchStatus @default(ACTIVE)
   label          String // Display string: "San Diego, CA, USA"
   placeId        String? // Google Places ID (optional — free-text searches may not have one)
   latitude       Float
   longitude      Float
   timezone       String? // IANA: "America/Los_Angeles" — from resolveDestinationTimezone()
-  radiusKm       Int          @default(50)
+  radiusKm       Int                @default(50)
   startDate      DateTime // UTC noon per date convention
   endDate        DateTime // UTC noon per date convention
-  travelSearch   TravelSearch @relation(fields: [travelSearchId], references: [id], onDelete: Cascade)
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt      DateTime     @default(now())
+  // Compound FK guarantees TravelDestination.userId == TravelSearch.userId.
+  // Cascade delete propagates from the parent.
+  travelSearch   TravelSearch       @relation(fields: [travelSearchId, userId], references: [id, userId], onDelete: Cascade)
+  user           User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt      DateTime           @default(now())
 
-  // Active-trip dedup: a user can't have two active TravelSearches for the
-  // same coords + radius + date window. Uniqueness is enforced at the DB
-  // layer so the saveTravelSearch race (double-click, manual + auto-save,
-  // cross-tab) cannot insert duplicate rows. deleteTravelSearch deletes the
-  // destination row when archiving the parent so re-saving the same trip
-  // works after archive.
-  @@unique([userId, latitude, longitude, radiusKm, startDate, endDate], name: "TravelDestination_user_dedup")
+  // Active-trip dedup. The actual constraint is a partial unique index
+  // declared in raw SQL because Prisma can't express WHERE clauses on
+  // unique indexes. See migration travel_dedup_partial_unique_and_compound_fk.
+  // The Prisma-level @@unique below is intentionally absent so the client
+  // doesn't try to maintain a non-partial constraint that would conflict
+  // with the partial DB index.
   @@index([userId])
+  @@index([userId, status])
 
   // Date range invariant: endDate >= startDate. Enforced via CHECK constraint
   // in migration SQL since Prisma can't express CHECK constraints in schema.prisma.
