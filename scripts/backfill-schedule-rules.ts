@@ -51,8 +51,12 @@ import {
 } from "@/generated/prisma/client";
 import { createScriptPool } from "./lib/db-pool";
 
-const dryRun = !process.argv.includes("--apply");
-const verbose = process.argv.includes("--verbose");
+/**
+ * Module-level flags set by main() from process.argv before calling the
+ * pass functions. Seed-time callers use runScheduleRuleBackfill(), which
+ * accepts verbose as a parameter and never reads argv.
+ */
+let verbose = false;
 
 // ============================================================================
 // Parsing helpers
@@ -400,7 +404,7 @@ function processSourceKennel(
   return true;
 }
 
-async function runStaticSchedulePass(
+export async function runStaticSchedulePass(
   prisma: PrismaClientLike,
   planned: PlannedRule[],
 ): Promise<{ count: number; skipped: number }> {
@@ -447,7 +451,7 @@ async function runStaticSchedulePass(
  * Pass 2 of the backfill: derive MEDIUM/LOW rules from per-kennel display
  * strings (Kennel.scheduleDayOfWeek/Frequency). Mutates `planned` in place.
  */
-async function runKennelDisplayPass(
+export async function runKennelDisplayPass(
   prisma: PrismaClientLike,
   planned: PlannedRule[],
 ): Promise<{ count: number; skipped: number; total: number }> {
@@ -544,7 +548,7 @@ function printPlanSummary(planned: PlannedRule[]): void {
  * source). Returns counts for the run summary; main() keys off `errored`
  * for the cleanup gate.
  */
-async function applyUpserts(
+export async function applyUpserts(
   prisma: PrismaClientLike,
   planned: PlannedRule[],
 ): Promise<{ created: number; updated: number; errored: number }> {
@@ -653,7 +657,30 @@ async function deactivateStaleRules(
   console.log("");
 }
 
+/**
+ * Seed-friendly entrypoint. Runs both passes + applyUpserts against an
+ * already-wired Prisma client. Skips printPlanSummary + deactivateStaleRules
+ * — a fresh seed has no stale rules to retire and its log output is too
+ * verbose for the seed console.
+ *
+ * Called from `prisma/seed.ts` after kennel/source/alias seeding so every
+ * fresh DB ships with schedule_rules populated (fixes PR #739 QA P0 #1:
+ * likely/possible cards previously never surfaced because the projection
+ * engine had no rules to project against).
+ */
+export async function runScheduleRuleBackfill(
+  prisma: PrismaClientLike,
+): Promise<{ created: number; updated: number; errored: number }> {
+  const planned: PlannedRule[] = [];
+  await runStaticSchedulePass(prisma, planned);
+  await runKennelDisplayPass(prisma, planned);
+  return applyUpserts(prisma, planned);
+}
+
 async function main() {
+  const dryRun = !process.argv.includes("--apply");
+  verbose = process.argv.includes("--verbose");
+
   const pool = createScriptPool();
   const adapter = new PrismaPg(pool);
   const prisma = new PrismaClient({ adapter } as never) as PrismaClientLike;

@@ -5,6 +5,7 @@ import { KENNELS } from "./seed-data/kennels";
 import type { KennelSeed } from "./seed-data/kennels";
 import { KENNEL_ALIASES } from "./seed-data/aliases";
 import { SOURCES } from "./seed-data/sources";
+import { runScheduleRuleBackfill } from "../scripts/backfill-schedule-rules";
 
 /** JSON.stringify with sorted keys — prevents false diffs from key ordering differences between seed objects and DB-returned JSON. */
 function stableStringify(obj: unknown): string {
@@ -614,6 +615,16 @@ async function main() {
   const prisma = new PrismaClient({ adapter });
 
   await seedKennels(prisma, KENNELS, KENNEL_ALIASES, SOURCES, toSlug);
+
+  // Travel Mode projection engine needs ScheduleRule populated to surface
+  // "likely"/"possible" cards on the results page. Seeding it here — rather
+  // than relying on the standalone `scripts/backfill-schedule-rules.ts
+  // --apply` being run manually — means every fresh DB ships with
+  // projection coverage. Fresh-seed path has no stale rules to retire so
+  // the wrapper skips deactivateStaleRules (standalone CLI path keeps it).
+  console.log("\n━━━ Seeding ScheduleRules for Travel Mode ━━━");
+  const { created, updated, errored } = await runScheduleRuleBackfill(prisma);
+  console.log(`  ✓ Created: ${created}, Updated: ${updated}${errored ? `, Errored: ${errored}` : ""}`);
 
   console.log("\nSeed complete!");
   await prisma.$disconnect();
