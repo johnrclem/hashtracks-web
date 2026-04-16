@@ -6,7 +6,7 @@ import type {
   ErrorDetails,
 } from "../types";
 import { hasAnyErrors } from "../types";
-import { applyDateWindow } from "../utils";
+import { applyDateWindow, isPlaceholder } from "../utils";
 import { fetchTribeEvents } from "../tribe-events";
 
 /**
@@ -45,6 +45,38 @@ export function extractLvRunNumber(title: string): number | undefined {
   return m ? Number.parseInt(m[1], 10) : undefined;
 }
 
+/**
+ * Pub-crawl events on lvh3.org encode the start venue in the description body
+ * rather than the Tribe Venue widget (e.g. "Start location: Modest Brewing Company…").
+ * Used as a fallback when `location` / `venue` aren't populated.
+ */
+export function extractLocationFromDescription(
+  description: string | undefined,
+): string | undefined {
+  if (!description) return undefined;
+  const m = /(?:^|\n)\s*Start(?:ing)?\s*location:\s*([^\n]+)/im.exec(description);
+  if (!m?.[1]) return undefined;
+  // Strip trailing "@ <digit>…" time markers only — '@' inside a venue name survives.
+  const trimmed = m[1].trim().replace(/\s+@\s*\d.*$/, "");
+  return trimmed || undefined;
+}
+
+/**
+ * Tribe's `organizer` field is empty for lvh3.org ASSH3 events, but descriptions
+ * contain free text like "Hares- DIMA, Just Rosa" or "Hares: Symphomaniac".
+ * Placeholder-only values (e.g. "???", "TBD") are dropped.
+ */
+export function extractHaresFromDescription(
+  description: string | undefined,
+): string | undefined {
+  if (!description) return undefined;
+  const m = /(?:^|\n)\s*Hares?\s*[-:]\s*([^\n]+)/im.exec(description);
+  if (!m?.[1]) return undefined;
+  const value = m[1].trim().replace(/\s*\(IYKYK\)\s*$/i, "").trim();
+  if (!value || value.length >= 200 || isPlaceholder(value)) return undefined;
+  return value;
+}
+
 export class LVH3Adapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
 
@@ -59,12 +91,12 @@ export class LVH3Adapter implements SourceAdapter {
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
 
-    // Pass a startDate far enough back to include historical events
-    // within the adapter's date window. The window filter (applyDateWindow)
-    // handles the actual bound — this just ensures the API returns enough.
+    // Ask the API to go back as far as the adapter's date window;
+    // applyDateWindow enforces the final bound.
     const days = options?.days ?? source.scrapeDays ?? 365;
-    const startMs = Date.now() - days * 24 * 60 * 60 * 1000;
-    const startDate = new Date(startMs).toISOString().slice(0, 10);
+    const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
     const result = await fetchTribeEvents(baseUrl, { perPage: 50, maxEvents: 500, startDate });
     if (result.error) {
       errorDetails.fetch = [
@@ -92,7 +124,11 @@ export class LVH3Adapter implements SourceAdapter {
         title: e.title,
         runNumber: extractLvRunNumber(e.title ?? ""),
         description: e.description,
-        location: e.location || e.venue,
+        location: e.location || e.venue || extractLocationFromDescription(e.description),
+        // Only extract hares for ASS H3 — lv-h3 events have never stored a
+        // `hares` field, so adding one globally would re-fingerprint existing
+        // LVHHH RawEvents and create duplicates on the next scrape.
+        hares: kennelTag === "ass-h3" ? extractHaresFromDescription(e.description) : undefined,
         sourceUrl: e.url ?? baseUrl,
       });
     }
