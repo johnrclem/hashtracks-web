@@ -19,6 +19,15 @@ export interface RawEventData {
   sourceUrl?: string;
   externalLinks?: { url: string; label: string }[]; // Additional links (creates EventLink records)
   seriesId?: string; // Groups multi-day events (e.g., Hash Rego event slug)
+  /**
+   * ISO-2 country code override used for geocoding region bias.
+   * Set by adapters when a single event runs outside the kennel's home country
+   * (e.g. an annual "overseas" trip). The merge pipeline prefers this over
+   * the kennel's country when resolving coordinates. Empty string is a sentinel
+   * meaning "no bias" — use it when the destination country is unknown but we
+   * want Google to search globally instead of snapping to the kennel's country.
+   */
+  countryOverride?: string;
 }
 
 /** Structured parse error with row-level context (Phase 2A) */

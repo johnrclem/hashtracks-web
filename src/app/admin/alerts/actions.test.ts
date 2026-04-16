@@ -294,7 +294,7 @@ describe("rescrapeFromAlert", () => {
       created: 3,
       updated: 2,
     });
-    expect(mockScrape).toHaveBeenCalledWith("src_1", { force: false });
+    expect(mockScrape).toHaveBeenCalledWith("src_1", { force: false, days: undefined });
 
     const updateCall = mockAlertUpdate.mock.calls[0][0];
     const repairLog = updateCall.data.repairLog as unknown[];
@@ -316,7 +316,58 @@ describe("rescrapeFromAlert", () => {
 
     await rescrapeFromAlert("alert_1", true);
 
-    expect(mockScrape).toHaveBeenCalledWith("src_1", { force: true });
+    expect(mockScrape).toHaveBeenCalledWith("src_1", { force: true, days: undefined });
+  });
+
+  it("passes a custom days window through to scrapeSource (#700)", async () => {
+    mockAlertFind.mockResolvedValueOnce(baseAlert() as never);
+    mockScrape.mockResolvedValueOnce({
+      success: true,
+      eventsFound: 5,
+      created: 1,
+      updated: 0,
+      errors: [],
+    } as never);
+    mockAlertUpdate.mockResolvedValueOnce({} as never);
+
+    await rescrapeFromAlert("alert_1", false, 365);
+
+    expect(mockScrape).toHaveBeenCalledWith("src_1", { force: false, days: 365 });
+    const updateCall = mockAlertUpdate.mock.calls[0][0];
+    const entry = (updateCall.data.repairLog as Record<string, unknown>[])[0];
+    expect((entry.details as Record<string, unknown>).days).toBe(365);
+  });
+
+  it("clamps the days window to [1, 1825]", async () => {
+    mockAlertFind.mockResolvedValueOnce(baseAlert() as never);
+    mockScrape.mockResolvedValueOnce({
+      success: true,
+      eventsFound: 0,
+      created: 0,
+      updated: 0,
+      errors: [],
+    } as never);
+    mockAlertUpdate.mockResolvedValueOnce({} as never);
+
+    await rescrapeFromAlert("alert_1", false, 9999);
+
+    expect(mockScrape).toHaveBeenCalledWith("src_1", { force: false, days: 1825 });
+  });
+
+  it("rejects non-finite days (NaN, Infinity) and falls back to default", async () => {
+    mockAlertFind.mockResolvedValueOnce(baseAlert() as never);
+    mockScrape.mockResolvedValueOnce({
+      success: true,
+      eventsFound: 0,
+      created: 0,
+      updated: 0,
+      errors: [],
+    } as never);
+    mockAlertUpdate.mockResolvedValueOnce({} as never);
+
+    await rescrapeFromAlert("alert_1", false, Number.NaN);
+
+    expect(mockScrape).toHaveBeenCalledWith("src_1", { force: false, days: undefined });
   });
 });
 

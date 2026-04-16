@@ -50,6 +50,7 @@ export const KNOWN_AUDIT_RULES = [
   "title-time-only",
   "location-url",
   "location-duplicate-segments",
+  "location-phone-number",
   "event-improbable-time",
   "description-dropped",
 ] as const;
@@ -110,6 +111,15 @@ const TITLE_HTML_ENTITIES_PATTERN =
 const TITLE_TIME_ONLY_PATTERN =
   /^(?:\d{1,2}(?::\d{2})?\s*(?:am|pm)|\d{1,2}:\d{2})$/i;
 
+/**
+ * Phone-number detector for haresText and locationName. Catches both the
+ * classic separated form `(415) 555-1212` / `415.555.1212` / `415-555-1212`
+ * and the unseparated 10-digit run `4155551212`. Anchored with non-digit
+ * boundaries to avoid matching inside longer numeric strings.
+ */
+const PHONE_NUMBER_RE =
+  /(?:(?<!\d)\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}(?!\d)|(?<!\d)\d{10}(?!\d))/;
+
 const CTA_PATTERN =
   /^(?:tbd|tba|tbc|n\/a|sign[\s\u00A0]*up!?|volunteer|needed|required)$/i;
 /**
@@ -151,8 +161,13 @@ export function checkTitleQuality(event: AuditEventRow): AuditFinding[] {
     ];
   }
 
-  // 2. title-cta-text (warning)
-  if (TITLE_CTA_PATTERN.test(title)) {
+  // 2. title-cta-text (warning). Covers explicit CTA phrases in TITLE_CTA_PATTERN
+  // ("sign up", "wanna hare", etc.) plus the shared CTA_EMBEDDED_PATTERNS list
+  // ("hare wanted/needed/required/volunteer…") reused from the hare check.
+  const titleCtaHit =
+    TITLE_CTA_PATTERN.test(title) ||
+    CTA_EMBEDDED_PATTERNS.some((re) => re.test(title));
+  if (titleCtaHit) {
     return [
       finding(event, {
         category: "title",
@@ -280,6 +295,22 @@ export function checkLocationQuality(events: LocationEventRow[]): AuditFinding[]
       }
     }
 
+    // 3. location-phone-number: locationName contains a phone number
+    // (separated or bare 10-digit run). Venues named with contact CTAs
+    // like "Casa De Assover (text 919-332-2615 for address)" degrade
+    // geocoding precision and should move the contact to the description.
+    if (PHONE_NUMBER_RE.test(locationName)) {
+      findings.push(
+        finding(event, {
+          category: "location",
+          field: "locationName",
+          currentValue: locationName,
+          rule: "location-phone-number",
+          severity: "warning",
+        })
+      );
+      continue;
+    }
   }
 
   return findings;
@@ -404,8 +435,8 @@ export function checkHareQuality(event: AuditEventRow): AuditFinding[] {
     ];
   }
 
-  // 5. hare-phone-number (warning): contains phone pattern
-  if (/\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}/.test(haresText)) {
+  // 5. hare-phone-number (warning): contains phone pattern (separated or bare 10-digit run)
+  if (PHONE_NUMBER_RE.test(haresText)) {
     return [
       finding(event, {
         category: "hares",

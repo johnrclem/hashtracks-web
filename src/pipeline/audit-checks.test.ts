@@ -171,6 +171,30 @@ describe("checkHareQuality", () => {
     expect(findings[0].rule).toBe("hare-phone-number");
   });
 
+  it("flags hare-phone-number for bare 10-digit run (unseparated, #742)", () => {
+    const event = makeEvent({
+      haresText: "Any Cock'll Do Me, 2406185563 CALL for same day service",
+    });
+    const findings = checkHareQuality(event);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe("hare-phone-number");
+  });
+
+  it("does not flag hare-phone-number for shorter digit runs", () => {
+    // 9 digits bounded by non-digits — below the 10-digit phone threshold
+    const event = makeEvent({ haresText: "Runner #123456789" });
+    const findings = checkHareQuality(event);
+    expect(findings).toHaveLength(0);
+  });
+
+  it("does not flag hare-phone-number inside a longer digit run", () => {
+    // Both branches anchored with (?<!\d)/(?!\d) so a formatted phone wedged
+    // inside a longer digit run (e.g., a tracking code) doesn't false-positive.
+    const event = makeEvent({ haresText: "ID9202-555-12345" });
+    const findings = checkHareQuality(event);
+    expect(findings).toHaveLength(0);
+  });
+
   it("flags hare-boilerplate-leak when haresText contains 'WHAT TIME'", () => {
     const event = makeEvent({
       haresText: "WHAT TIME: 6:30 PM WHERE: Central Park",
@@ -257,6 +281,22 @@ describe("checkTitleQuality", () => {
     expect(findings).toHaveLength(1);
     expect(findings[0].rule).toBe("title-cta-text");
     expect(findings[0].severity).toBe("warning");
+  });
+
+  it("flags title-cta-text for 'Hare wanted' recruitment prefix (#740)", () => {
+    const event = makeEvent({
+      title: "SH3 #880 Hare wanted - get in touch with Anni Tua",
+    });
+    const findings = checkTitleQuality(event);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe("title-cta-text");
+  });
+
+  it("flags title-cta-text for 'Hares needed' wording", () => {
+    const event = makeEvent({ title: "Spring Trail — hares needed!" });
+    const findings = checkTitleQuality(event);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe("title-cta-text");
   });
 
   it("flags title-schedule-description as warning for schedule language", () => {
@@ -367,6 +407,34 @@ describe("checkLocationQuality", () => {
     expect(findings).toHaveLength(0);
   });
 
+  it("flags location-phone-number for separated phone in locationName (#743)", () => {
+    const event = makeEvent({
+      locationName: "Casa De Assover – Raleigh, NC (text Assover at 919-332-2615 for address)",
+    });
+    const findings = checkLocationQuality([event]);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe("location-phone-number");
+    expect(findings[0].severity).toBe("warning");
+    expect(findings[0].category).toBe("location");
+    expect(findings[0].field).toBe("locationName");
+  });
+
+  it("flags location-phone-number for bare 10-digit run in locationName", () => {
+    const event = makeEvent({
+      locationName: "Private home, call 9193326661 for address",
+    });
+    const findings = checkLocationQuality([event]);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe("location-phone-number");
+  });
+
+  it("does not flag location-phone-number for street numbers or ZIP codes", () => {
+    const event = makeEvent({
+      locationName: "15001 Health Center Dr, Bowie, MD 20716",
+    });
+    const findings = checkLocationQuality([event]);
+    expect(findings).toHaveLength(0);
+  });
 });
 
 describe("checkEventQuality", () => {

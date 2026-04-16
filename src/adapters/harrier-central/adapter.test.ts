@@ -103,7 +103,9 @@ describe("HarrierCentralAdapter", () => {
       expect(evt.location).toBe("Yamanote, Tozai lines. Waseda exit");
       expect(evt.latitude).toBeCloseTo(35.713, 2);
       expect(evt.longitude).toBeCloseTo(139.704, 2);
-      expect(evt.sourceUrl).toContain(hcEvent.publicEventId);
+      // sourceUrl is intentionally omitted — hashruns.org/#/event/... links
+      // no longer resolve in the Flutter UI (#706, #725).
+      expect(evt.sourceUrl).toBeUndefined();
     });
 
     it("skips invisible events", async () => {
