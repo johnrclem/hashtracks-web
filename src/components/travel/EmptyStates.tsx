@@ -1,9 +1,9 @@
-import { Globe, CalendarX, Compass, AlertTriangle } from "lucide-react";
+import { Globe, CalendarX, Compass, AlertTriangle, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
 interface EmptyStatesProps {
-  variant: "no_coverage" | "no_confirmed" | "no_nearby" | "error";
+  variant: "no_coverage" | "no_confirmed" | "no_nearby" | "out_of_horizon" | "error";
   radiusKm?: number;
   broaderRadiusKm?: number;
 }
@@ -37,6 +37,13 @@ const STATES: Record<
     headline: "Nothing within range — but the region is active.",
     body: (props) =>
       `We expanded the search to ${props.broaderRadiusKm ?? "a wider"} km. Worth a drive?`,
+  },
+  out_of_horizon: {
+    icon: Clock,
+    headline: "Beyond our routing horizon.",
+    body: () =>
+      "We project trails 90 days ahead — your dates are further out. The hashes are real, the schedules just aren't published yet. Bookmark and check back closer to your trip.",
+    cta: { label: "Try dates within 90 days", href: "/travel" },
   },
   error: {
     icon: AlertTriangle,

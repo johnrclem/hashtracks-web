@@ -242,6 +242,30 @@ describe("executeTravelSearch", () => {
     expect(apr18Likely).toHaveLength(0);
   });
 
+  it("short-circuits to out_of_horizon when startDate is beyond the 90-day projection window", async () => {
+    // Before commit S, dates past the 90-day horizon fell through to the
+    // main pipeline and returned an empty result with emptyState="no_confirmed"
+    // — which the UI then rendered as "No results match the active filters"
+    // even though no filters were active. Distinct variant lets EmptyStates
+    // tell the truth ("Beyond our routing horizon").
+    const farFuture: TravelSearchParams = {
+      ...baseParams,
+      // Far enough out that any reasonable test-runner clock is beyond the
+      // 90-day horizon — ten years ahead of the fixture dates.
+      startDate: "2036-04-12",
+      endDate: "2036-04-26",
+    };
+    const prisma = createMockPrisma([testKennel], [testEvent], [testRule]);
+    const result = await executeTravelSearch(prisma, farFuture);
+
+    expect(result.emptyState).toBe("out_of_horizon");
+    expect(result.confirmed).toHaveLength(0);
+    expect(result.likely).toHaveLength(0);
+    expect(result.possible).toHaveLength(0);
+    // Short-circuit fires before any DB query runs.
+    expect(prisma.kennel.findMany).not.toHaveBeenCalled();
+  });
+
   it("excludes hidden kennels from results", async () => {
     const hiddenKennel: MockKennel = {
       ...testKennel,

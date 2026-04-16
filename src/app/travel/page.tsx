@@ -242,6 +242,11 @@ async function TravelResultsServer({
       latitude,
       longitude,
       radiusKm,
+      // When the service expanded to a broader region, surface the
+      // larger radius so the hero count + summary can stop lying about
+      // which radius the trails are actually within.
+      effectiveRadiusKm: results.meta.broaderRadiusKm ?? results.meta.radiusKm,
+      noCoverage: results.emptyState === "no_coverage",
       timezone,
       isAuthenticated,
       initialSavedId,

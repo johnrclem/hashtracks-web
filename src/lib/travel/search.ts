@@ -120,7 +120,7 @@ export interface TravelSearchResults {
     likely: LikelyResult[];
     possible: PossibleResult[];
   };
-  emptyState: "none" | "no_confirmed" | "no_nearby" | "no_coverage";
+  emptyState: "none" | "no_confirmed" | "no_nearby" | "no_coverage" | "out_of_horizon";
   meta: {
     kennelsSearched: number;
     radiusKm: number;
@@ -207,6 +207,22 @@ export async function executeTravelSearch(
   const startDate = parseUtcNoonDate(params.startDate);
   const rawEndDate = parseUtcNoonDate(params.endDate);
   const endDate = clampToProjectionHorizon(rawEndDate, now);
+
+  // Step 1b: Short-circuit if the entire requested window is past our
+  // 90-day projection horizon. Without this branch, the EmptyStates
+  // component falls through to "no_confirmed" or worse — to the
+  // filter-induced "no results match" copy — both of which lie about
+  // why nothing came back.
+  const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000;
+  if (startDate.getTime() > now.getTime() + NINETY_DAYS_MS) {
+    return {
+      confirmed: [],
+      likely: [],
+      possible: [],
+      emptyState: "out_of_horizon",
+      meta: { kennelsSearched: 0, radiusKm },
+    };
+  }
 
   // Step 2: Find nearby kennels — TWO passes
   const allKennels = await fetchAllVisibleKennels(prisma);

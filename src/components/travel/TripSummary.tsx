@@ -21,6 +21,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { formatDateCompact, daysBetween } from "@/lib/travel/format";
 import { buildMultiEventIcs } from "@/lib/calendar";
 import { capture } from "@/lib/analytics";
@@ -50,7 +56,15 @@ interface TripSummaryProps {
   endDate: string;
   latitude: number;
   longitude: number;
+  /** What the user requested in the URL — shown struck-through when expanded. */
   radiusKm: number;
+  /**
+   * Effective radius after the broader-region fallback. Equal to radiusKm
+   * unless the service expanded (no_nearby branch). When set and larger
+   * than radiusKm, the hero renders the ROUTING REVISED badge so the
+   * count + summary stop lying about which radius the trails are within.
+   */
+  effectiveRadiusKm?: number;
   timezone?: string;
   isAuthenticated: boolean;
   /** SSR-computed: id of an existing saved trip matching these params, or null. */
@@ -58,6 +72,12 @@ interface TripSummaryProps {
   confirmedCount: number;
   likelyCount: number;
   possibleCount: number;
+  /**
+   * True when the result is a coverage gap (no kennels at any radius).
+   * Disables Save with a contribution-funnel tooltip; Share stays enabled
+   * so a community-aware friend can suggest a kennel via the URL.
+   */
+  noCoverage?: boolean;
   /** Confirmed events in the current result set — used for Export Calendar .ics generation. */
   confirmedEvents: ExportableConfirmedEvent[];
 }
@@ -69,12 +89,14 @@ export function TripSummary({
   latitude,
   longitude,
   radiusKm,
+  effectiveRadiusKm,
   timezone,
   isAuthenticated,
   initialSavedId,
   confirmedCount,
   likelyCount,
   possibleCount,
+  noCoverage,
   confirmedEvents,
 }: Readonly<TripSummaryProps>) {
   const router = useRouter();
@@ -85,6 +107,16 @@ export function TripSummary({
   const startFormatted = formatDateCompact(startDate, { withWeekday: true });
   const endFormatted = formatDateCompact(endDate, { withWeekday: true });
   const days = daysBetween(startDate, endDate);
+  const totalCount = confirmedCount + likelyCount + possibleCount;
+  const routingRevised =
+    effectiveRadiusKm != null && effectiveRadiusKm > radiusKm;
+  const radiusToShow = effectiveRadiusKm ?? radiusKm;
+  // Only surface the "schedule patterns not indexed" hint when we have
+  // confirmed events but the projection engine returned nothing — that's
+  // the case that'd otherwise look like the data pipeline broke. When
+  // totalCount === 0 the <EmptyStates> component owns the copy.
+  const showProjectionGapHint =
+    confirmedCount > 0 && likelyCount === 0 && possibleCount === 0;
 
   const handleSave = () => {
     capture("travel_save_clicked", { isAuthenticated });
@@ -226,6 +258,15 @@ export function TripSummary({
 
   return (
     <section className="mt-8 border-b border-border pb-8">
+      {routingRevised && (
+        <p
+          className="mb-2 font-mono text-[11px] uppercase tracking-[0.18em] text-amber-600 dark:text-amber-400"
+          aria-label="Search radius was automatically expanded"
+        >
+          ◆ Routing revised
+        </p>
+      )}
+
       <h1 className="font-display text-3xl font-medium tracking-tight sm:text-4xl lg:text-5xl">
         {destination}
       </h1>
@@ -235,38 +276,44 @@ export function TripSummary({
         aria-hidden="true"
       />
 
-      <p className="mt-5 max-w-xl text-lg leading-relaxed text-muted-foreground">
-        {confirmedCount + likelyCount + possibleCount === 0 ? (
-          "Searching for trails during your stay…"
-        ) : (
-          <>
-            You&apos;ll catch{" "}
-            <strong className="font-display font-semibold text-foreground">
-              {confirmedCount} confirmed trail{confirmedCount !== 1 ? "s" : ""}
-            </strong>
-            {likelyCount > 0 && (
-              <>
-                {" "}
-                and{" "}
-                <strong className="font-display font-semibold text-foreground">
-                  {likelyCount} likely
-                </strong>
-              </>
-            )}
-            {" "}over {days} day{days !== 1 ? "s" : ""}.
-          </>
-        )}
-      </p>
+      {totalCount > 0 && (
+        <p className="mt-5 max-w-xl text-lg leading-relaxed text-muted-foreground">
+          You&apos;ll catch{" "}
+          <strong className="font-display font-semibold text-foreground">
+            {confirmedCount} confirmed trail{confirmedCount !== 1 ? "s" : ""}
+          </strong>
+          {likelyCount > 0 && (
+            <>
+              {" "}
+              and{" "}
+              <strong className="font-display font-semibold text-foreground">
+                {likelyCount} likely
+              </strong>
+            </>
+          )}
+          {" "}within a {radiusToShow} km radius, over {days} day
+          {days !== 1 ? "s" : ""}.
+        </p>
+      )}
+
+      {showProjectionGapHint && (
+        <p className="mt-2 max-w-xl text-sm italic leading-relaxed text-muted-foreground/70">
+          No schedule patterns indexed for these kennels yet — only posted
+          events shown.
+        </p>
+      )}
 
       <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-xs uppercase tracking-wider text-muted-foreground">
         <span>{startFormatted} → {endFormatted}</span>
         <span>·</span>
         <span>{days} night{days !== 1 ? "s" : ""}</span>
-        {destination && (
-          <>
-            <span>·</span>
-            <span>{destination}</span>
-          </>
+        <span>·</span>
+        {routingRevised ? (
+          <span>
+            <s className="opacity-50">{radiusKm} km</s> → {effectiveRadiusKm} km
+          </span>
+        ) : (
+          <span>{radiusKm} km</span>
         )}
       </div>
 
@@ -278,16 +325,11 @@ export function TripSummary({
             onRemove={handleRemove}
           />
         ) : (
-          <Button
-            variant="default"
-            size="sm"
-            className="gap-2"
-            onClick={handleSave}
-            disabled={isSaving}
-          >
-            <Heart className="h-4 w-4" />
-            {isSaving ? "Saving…" : "Save Trip"}
-          </Button>
+          <SaveButton
+            isSaving={isSaving}
+            noCoverage={noCoverage === true}
+            onSave={handleSave}
+          />
         )}
         <Button variant="outline" size="sm" className="gap-2" onClick={handleShare}>
           <Share2 className="h-4 w-4" />
@@ -305,6 +347,52 @@ export function TripSummary({
         </Button>
       </div>
     </section>
+  );
+}
+
+/**
+ * Save button that disables itself with a contribution-funnel tooltip on
+ * no-coverage results — saving an empty trip clutters the user's dashboard
+ * with no recoverable signal. Tooltip steers toward the kennel-suggestion
+ * flow so community members can close the gap for the next traveler.
+ */
+function SaveButton({
+  isSaving,
+  noCoverage,
+  onSave,
+}: {
+  isSaving: boolean;
+  noCoverage: boolean;
+  onSave: () => void;
+}) {
+  const button = (
+    <Button
+      variant="default"
+      size="sm"
+      className="gap-2"
+      onClick={onSave}
+      disabled={isSaving || noCoverage}
+    >
+      <Heart className="h-4 w-4" />
+      {isSaving ? "Saving…" : "Save Trip"}
+    </Button>
+  );
+
+  if (!noCoverage) return button;
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        {/* span wrapper: disabled buttons don't fire pointer events, so the
+            Tooltip's hover detection needs a non-disabled host element. */}
+        <TooltipTrigger asChild>
+          <span className="inline-flex">{button}</span>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="max-w-xs text-center">
+          Nothing to save yet. Suggest a kennel here and we&apos;ll add coverage.
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 
