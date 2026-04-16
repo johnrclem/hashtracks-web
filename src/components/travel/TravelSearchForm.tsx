@@ -42,19 +42,27 @@ export function TravelSearchForm({ variant, initialValues }: TravelSearchFormPro
   const [timezone, setTimezone] = useState(initialValues?.timezone ?? "");
   const [isExpanded, setIsExpanded] = useState(variant === "hero");
 
+  // Tracks whether DestinationInput has reported a resolved coordinate
+  // pair. Distinct from `latitude !== 0` because (0, 0) is a valid coord
+  // — equatorial Atlantic destinations exist. Flips true when
+  // DestinationInput.onChange fires; resets when the user clears.
+  const [coordsResolved, setCoordsResolved] = useState(
+    initialValues?.latitude !== undefined && initialValues?.longitude !== undefined,
+  );
+
   // Per-field invalid flags — drive the REQUIRED rubber stamps. Flipped
   // true on attempted-submit-while-empty; cleared the moment the user
   // provides that field. Starts false so landing form is pristine.
   const [destInvalid, setDestInvalid] = useState(false);
   const [datesInvalid, setDatesInvalid] = useState(false);
 
-  const canSubmit = destination && startDate && endDate && latitude !== 0;
+  const canSubmit = destination && startDate && endDate && coordsResolved;
 
   const handleSubmit = useCallback(() => {
     if (!canSubmit) {
       // Boarding-pass aesthetic: the form visibly refuses, not silently.
       // Stamp REQUIRED next to the missing section's margin label.
-      setDestInvalid(!destination || latitude === 0);
+      setDestInvalid(!destination || !coordsResolved);
       setDatesInvalid(!startDate || !endDate);
       return;
     }
@@ -76,7 +84,7 @@ export function TravelSearchForm({ variant, initialValues }: TravelSearchFormPro
       router.push(`/travel?${params.toString()}`);
     });
     if (variant === "compact") setIsExpanded(false);
-  }, [canSubmit, latitude, longitude, startDate, endDate, radiusKm, destination, timezone, router, variant]);
+  }, [canSubmit, coordsResolved, latitude, longitude, startDate, endDate, radiusKm, destination, timezone, router, variant]);
 
   // ── Compact variant: single-row pill ──
   if (variant === "compact" && !isExpanded) {
@@ -161,6 +169,7 @@ export function TravelSearchForm({ variant, initialValues }: TravelSearchFormPro
                 setDestination(place.label);
                 setLatitude(place.latitude);
                 setLongitude(place.longitude);
+                setCoordsResolved(true);
                 if (place.timezone) setTimezone(place.timezone);
                 setDestInvalid(false);
               }}
@@ -168,6 +177,7 @@ export function TravelSearchForm({ variant, initialValues }: TravelSearchFormPro
                 setDestination("");
                 setLatitude(0);
                 setLongitude(0);
+                setCoordsResolved(false);
                 setTimezone("");
               }}
             />

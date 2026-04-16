@@ -12,11 +12,21 @@
  * - resolveDestinationTimezone: Google Time Zone API lookup
  */
 
+import { Prisma, type TravelSearchStatus } from "@/generated/prisma/client";
+
 import { getOrCreateUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { haversineDistance, geocodeAddress } from "@/lib/geo";
 import { parseUtcNoonDate } from "@/lib/date";
 import type { ActionResult } from "@/lib/actions";
+
+/**
+ * Maximum number of saved trips returned by listSavedSearches. Keeps the
+ * /travel/saved dashboard's per-trip weather fan-out from spiking under
+ * a malicious account creating many trips. Also a sensible UX cap — at
+ * the practical user limit any individual trip is hard to find anyway.
+ */
+const MAX_SAVED_TRIPS = 50;
 
 // ============================================================================
 // Types
@@ -67,7 +77,7 @@ export async function findExistingSavedSearch(
     const match = await prisma.travelSearch.findFirst({
       where: {
         userId: user.id,
-        status: "active",
+        status: "ACTIVE",
         destinations: {
           some: {
             latitude: params.latitude,
@@ -103,52 +113,77 @@ export async function saveTravelSearch(
 
   const startDate = parseUtcNoonDate(params.startDate);
   const endDate = parseUtcNoonDate(params.endDate);
-
-  // Idempotency: if this user already has an active saved search matching
-  // the same coords + radius + date window, return its id instead of
-  // creating a duplicate. Covers double-clicks, post-sign-in auto-save
-  // retries, and any caller that didn't first call findExistingSavedSearch.
-  const existing = await prisma.travelSearch.findFirst({
-    where: {
-      userId: user.id,
-      status: "active",
-      destinations: {
-        some: {
-          latitude: params.latitude,
-          longitude: params.longitude,
-          radiusKm: params.radiusKm,
-          startDate,
-          endDate,
-        },
-      },
-    },
-    select: { id: true },
-  });
-  if (existing) return { success: true, id: existing.id };
-
-  // Auto-generate name: "Atlanta, GA · Apr 14–21"
   const name = formatTripName(params.label, startDate, endDate);
 
-  const search = await prisma.travelSearch.create({
-    data: {
-      userId: user.id,
-      name,
-      destinations: {
-        create: {
-          label: params.label,
-          placeId: params.placeId ?? null,
-          latitude: params.latitude,
-          longitude: params.longitude,
-          timezone: params.timezone ?? null,
-          radiusKm: params.radiusKm,
-          startDate,
-          endDate,
-        },
+  // Atomic dedup. Three layers of defense against a user ending up with
+  // duplicate active TravelSearches for the same trip (Codex flagged the
+  // race when this PR was first opened):
+  //
+  //   1. Read-then-write inside a single Prisma transaction (Read Committed
+  //      isolation by default — same snapshot for findFirst + create).
+  //   2. DB-level partial-unique-equivalent: a UNIQUE INDEX on
+  //      TravelDestination(userId, lat, lng, radius, dates). Archive
+  //      deletes the destination row, freeing the slot. So a UNIQUE
+  //      collision = "another concurrent caller already saved this trip."
+  //   3. P2002 catch path: re-fetch the winning row and return its id, so
+  //      the loser of the race sees the same outcome as the winner
+  //      (idempotent semantics from the user's perspective).
+  const matchFilter = {
+    userId: user.id,
+    status: "ACTIVE" as TravelSearchStatus,
+    destinations: {
+      some: {
+        latitude: params.latitude,
+        longitude: params.longitude,
+        radiusKm: params.radiusKm,
+        startDate,
+        endDate,
       },
     },
-  });
+  };
 
-  return { success: true, id: search.id };
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const existing = await tx.travelSearch.findFirst({
+        where: matchFilter,
+        select: { id: true },
+      });
+      if (existing) return { success: true as const, id: existing.id };
+
+      const search = await tx.travelSearch.create({
+        data: {
+          userId: user.id,
+          name,
+          destinations: {
+            create: {
+              label: params.label,
+              placeId: params.placeId ?? null,
+              userId: user.id,
+              latitude: params.latitude,
+              longitude: params.longitude,
+              timezone: params.timezone ?? null,
+              radiusKm: params.radiusKm,
+              startDate,
+              endDate,
+            },
+          },
+        },
+      });
+      return { success: true as const, id: search.id };
+    });
+  } catch (err) {
+    // P2002 = unique constraint violation. A concurrent caller (or an
+    // unlikely reader-skip-create) won the race; surface their winning row.
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      const winner = await prisma.travelSearch.findFirst({
+        where: matchFilter,
+        select: { id: true },
+      });
+      if (winner) return { success: true, id: winner.id };
+      return { error: "Could not save trip — please try again" };
+    }
+    throw err;
+  }
 }
 
 // ============================================================================
@@ -196,6 +231,7 @@ export async function updateTravelSearch(
         create: {
           label: params.label,
           placeId: params.placeId ?? null,
+          userId: user.id,
           latitude: params.latitude,
           longitude: params.longitude,
           timezone: params.timezone ?? null,
@@ -214,6 +250,17 @@ export async function updateTravelSearch(
 // deleteTravelSearch
 // ============================================================================
 
+/**
+ * Archive a saved trip. Two side effects in one transaction:
+ *   1. Set TravelSearch.status = ARCHIVED (preserves the parent row for
+ *      lastViewedAt / createdAt history).
+ *   2. Delete the TravelDestination row so the dedup unique index slot is
+ *      freed — re-saving the same trip after archive must work.
+ *
+ * Archived rows are intentionally destination-less. /travel/saved only
+ * lists active rows, and viewTravelSearch's "destination ?? null" branch
+ * handles URL-crafted access to an archived id gracefully.
+ */
 export async function deleteTravelSearch(
   id: string,
 ): Promise<ActionResult> {
@@ -227,10 +274,10 @@ export async function deleteTravelSearch(
   if (!search) return { error: "Search not found" };
   if (search.userId !== user.id) return { error: "Not authorized" };
 
-  await prisma.travelSearch.update({
-    where: { id },
-    data: { status: "archived" },
-  });
+  await prisma.$transaction([
+    prisma.travelDestination.deleteMany({ where: { travelSearchId: id } }),
+    prisma.travelSearch.update({ where: { id }, data: { status: "ARCHIVED" } }),
+  ]);
 
   return { success: true };
 }
@@ -242,7 +289,7 @@ export async function deleteTravelSearch(
 export interface SavedSearchSummary {
   id: string;
   name: string | null;
-  status: string;
+  status: TravelSearchStatus;
   lastViewedAt: Date | null;
   createdAt: Date;
   destination: {
@@ -265,7 +312,7 @@ export async function listSavedSearches(): Promise<
   const searches = await prisma.travelSearch.findMany({
     where: {
       userId: user.id,
-      status: "active",
+      status: "ACTIVE",
     },
     include: {
       destinations: {
@@ -284,6 +331,7 @@ export async function listSavedSearches(): Promise<
       { lastViewedAt: { sort: "desc", nulls: "last" } },
       { createdAt: "desc" },
     ],
+    take: MAX_SAVED_TRIPS,
   });
 
   return {
@@ -547,6 +595,12 @@ function validateSearchParams(params: SaveTravelSearchParams): string | null {
   }
   if (!isFinite(params.radiusKm) || params.radiusKm <= 0) {
     return "Invalid radius";
+  }
+  // Mirror executeTravelSearch's clamp at the validation boundary so an
+  // adversary can't persist a TravelSearch with a radius that's far
+  // larger than the search would ever respect at runtime.
+  if (params.radiusKm > MAX_RADIUS_KM) {
+    return `Radius too large (max ${MAX_RADIUS_KM} km)`;
   }
 
   // Validate date strings

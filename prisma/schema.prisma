@@ -38,6 +38,7 @@ model User {
   kennelRequests      KennelRequest[]
   // Travel Mode saved searches
   travelSearches      TravelSearch[]
+  travelDestinations  TravelDestination[]
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
 }
@@ -983,11 +984,16 @@ model ScheduleRule {
   @@index([isActive, confidence])
 }
 
+enum TravelSearchStatus {
+  ACTIVE
+  ARCHIVED
+}
+
 model TravelSearch {
   id           String              @id @default(cuid())
   userId       String
   name         String? // Auto-generated or user-provided label
-  status       String              @default("active") // "active" | "archived"
+  status       TravelSearchStatus  @default(ACTIVE)
   lastViewedAt DateTime? // Updated on revisit for sort order + "Fresh" status detection
   user         User                @relation(fields: [userId], references: [id])
   destinations TravelDestination[]
@@ -1001,6 +1007,10 @@ model TravelSearch {
 model TravelDestination {
   id             String       @id @default(cuid())
   travelSearchId String       @unique // MVP enforces exactly one destination per saved search — writers must update-in-place, not insert-new
+  // Denormalized from TravelSearch.userId so the dedup unique index can
+  // sit on this table (partial-unique can't reference a parent table's
+  // status column). Archive deletes this row to free the unique slot.
+  userId         String
   label          String // Display string: "San Diego, CA, USA"
   placeId        String? // Google Places ID (optional — free-text searches may not have one)
   latitude       Float
@@ -1010,7 +1020,17 @@ model TravelDestination {
   startDate      DateTime // UTC noon per date convention
   endDate        DateTime // UTC noon per date convention
   travelSearch   TravelSearch @relation(fields: [travelSearchId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt      DateTime     @default(now())
+
+  // Active-trip dedup: a user can't have two active TravelSearches for the
+  // same coords + radius + date window. Uniqueness is enforced at the DB
+  // layer so the saveTravelSearch race (double-click, manual + auto-save,
+  // cross-tab) cannot insert duplicate rows. deleteTravelSearch deletes the
+  // destination row when archiving the parent so re-saving the same trip
+  // works after archive.
+  @@unique([userId, latitude, longitude, radiusKm, startDate, endDate], name: "TravelDestination_user_dedup")
+  @@index([userId])
 
   // Date range invariant: endDate >= startDate. Enforced via CHECK constraint
   // in migration SQL since Prisma can't express CHECK constraints in schema.prisma.

@@ -59,6 +59,12 @@ function DestinationAutocomplete({
   const [isResolved, setIsResolved] = useState(!!value);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  // Stale-callback guard for the async timezone fetch in selectPlace /
+  // fallbackGeocode. If the user picks place A then B before A's tz
+  // resolves, A's late callback would otherwise overwrite B's
+  // coords/timezone in the parent form. Ref stores `${lat},${lng}` of the
+  // most recent selection; the late callback bails when it doesn't match.
+  const currentSelectionRef = useRef<string>("");
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -135,13 +141,22 @@ function DestinationAutocomplete({
         setIsResolved(true);
 
         // Report place immediately so the form enables Search, then
-        // resolve timezone async and update when it arrives
+        // resolve timezone async and update when it arrives. The ref
+        // fingerprint guards against late callbacks overwriting a newer
+        // selection.
+        const selectionKey = `${lat},${lng}`;
+        currentSelectionRef.current = selectionKey;
         onChange({ label, latitude: lat, longitude: lng, placeId: suggestion.placeId });
-        resolveDestinationTimezone(lat, lng).then((tzResult) => {
-          if ("timezone" in tzResult) {
-            onChange({ label, latitude: lat, longitude: lng, placeId: suggestion.placeId, timezone: tzResult.timezone });
-          }
-        });
+        resolveDestinationTimezone(lat, lng)
+          .then((tzResult) => {
+            if (currentSelectionRef.current !== selectionKey) return;
+            if ("timezone" in tzResult) {
+              onChange({ label, latitude: lat, longitude: lng, placeId: suggestion.placeId, timezone: tzResult.timezone });
+            }
+          })
+          .catch((err) => {
+            console.error("[travel] timezone lookup failed", err);
+          });
       } catch {
         // Place details failed — fall back to server-side geocoding
         await fallbackGeocode(suggestion.description);
@@ -167,11 +182,23 @@ function DestinationAutocomplete({
       setInputValue(geoResult.label);
       setIsResolved(true);
 
-      let timezone: string | undefined;
-      const tzResult = await resolveDestinationTimezone(geoResult.latitude, geoResult.longitude);
-      if ("timezone" in tzResult) timezone = tzResult.timezone;
+      // Mirror selectPlace's stale-callback guard: if the user picks a
+      // different place between this geocode and the await resolving,
+      // bail before reporting the now-outdated selection.
+      const selectionKey = `${geoResult.latitude},${geoResult.longitude}`;
+      currentSelectionRef.current = selectionKey;
 
-      onChange({ label: geoResult.label, latitude: geoResult.latitude, longitude: geoResult.longitude, timezone });
+      let timezone: string | undefined;
+      try {
+        const tzResult = await resolveDestinationTimezone(geoResult.latitude, geoResult.longitude);
+        if ("timezone" in tzResult) timezone = tzResult.timezone;
+      } catch (err) {
+        console.error("[travel] timezone lookup failed", err);
+      }
+
+      if (currentSelectionRef.current === selectionKey) {
+        onChange({ label: geoResult.label, latitude: geoResult.latitude, longitude: geoResult.longitude, timezone });
+      }
       setIsLoading(false);
     },
     [onChange],
@@ -212,6 +239,7 @@ function DestinationAutocomplete({
             setInputValue(val);
             if (isResolved) {
               setIsResolved(false);
+              currentSelectionRef.current = "";
               onClear();
             }
             debouncedFetch(val);
@@ -245,6 +273,7 @@ function DestinationAutocomplete({
               setSuggestions([]);
               setShowDropdown(false);
               setIsResolved(false);
+              currentSelectionRef.current = "";
               onClear();
               inputRef.current?.focus();
             }}

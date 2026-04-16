@@ -69,6 +69,19 @@ const DAY_MAP: Record<string, string> = {
 };
 
 /**
+ * Day-name word-boundary regexes precompiled at module scope. The previous
+ * implementation called `new RegExp(\`\\b${name}\\b\`, "i")` inside the
+ * frequency-prose scan loop, which Codacy and SonarCloud flagged as a ReDoS
+ * candidate (and rebuilt the same regex on every kennel). Hoisting the
+ * compilation removes both the scanner warning and per-iteration cost.
+ * Inputs are hardcoded English day names — there's no untrusted text in
+ * the regex source — but the precompiled form documents that intent.
+ */
+const DAY_REGEXES: ReadonlyArray<{ token: string; re: RegExp }> = Object.entries(
+  DAY_MAP,
+).map(([name, token]) => ({ token, re: new RegExp(String.raw`\b${name}\b`, "i") }));
+
+/**
  * Parse a scheduleTime display string into HH:MM 24-hour format.
  *
  * Accepts "7:00 PM", "12:00 Noon", "12:00 Midnight", "19:30".
@@ -215,9 +228,11 @@ function parseDays(
   }
 
   // Secondary: check frequency prose for explicit day names (e.g.
-  // "Every Wednesday and Saturday")
-  for (const [name, token] of Object.entries(DAY_MAP)) {
-    if (new RegExp(`\\b${name}\\b`, "i").test(frequency)) {
+  // "Every Wednesday and Saturday"). Uses precompiled DAY_REGEXES to
+  // avoid per-iteration RegExp construction (the previous form was a
+  // ReDoS scanner trip even though the inputs are hardcoded).
+  for (const { token, re } of DAY_REGEXES) {
+    if (re.test(frequency)) {
       days.add(token);
     }
   }

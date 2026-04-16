@@ -18,14 +18,32 @@ vi.mock("@/lib/db", () => {
     findMany: vi.fn(),
     update: vi.fn(),
   };
+  const travelDestination = {
+    deleteMany: vi.fn(),
+  };
   const kennel = {
     findMany: vi.fn().mockResolvedValue([]),
   };
+  // saveTravelSearch + deleteTravelSearch wrap their writes in
+  // prisma.$transaction. The callback form passes a `tx` argument that
+  // proxies the same model methods, so we hand it the same mock objects.
+  // The array form (used by deleteTravelSearch) just runs each promise.
+  const $transaction = vi.fn(async (arg: unknown) => {
+    if (typeof arg === "function") {
+      return (arg as (tx: unknown) => Promise<unknown>)({
+        travelSearch,
+        travelDestination,
+        kennel,
+      });
+    }
+    return Promise.all(arg as Promise<unknown>[]);
+  });
   return {
-    prisma: { travelSearch, kennel },
+    prisma: { travelSearch, travelDestination, kennel, $transaction },
   };
 });
 
+import { Prisma } from "@/generated/prisma/client";
 import { getOrCreateUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import {
@@ -56,7 +74,7 @@ describe("saveTravelSearch", () => {
       id: "ts-1",
       userId: "user-1",
       name: "Atlanta, GA · Apr 14–21",
-      status: "active",
+      status: "ACTIVE",
       lastViewedAt: null,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -66,6 +84,8 @@ describe("saveTravelSearch", () => {
     expect("error" in result).toBe(false);
     expect("id" in result && result.id).toBe("ts-1");
 
+    // Atomic dedup: must run inside a transaction.
+    expect(prisma.$transaction).toHaveBeenCalled();
     expect(prisma.travelSearch.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -74,6 +94,12 @@ describe("saveTravelSearch", () => {
         }),
       }),
     );
+    // Denormalized userId must be propagated to the nested destination so
+    // the new dedup unique index has something to enforce on.
+    const createCall = vi.mocked(prisma.travelSearch.create).mock.calls[0][0];
+    expect(createCall?.data?.destinations).toMatchObject({
+      create: expect.objectContaining({ userId: "user-1" }),
+    });
   });
 
   it("returns error when not authenticated", async () => {
@@ -131,9 +157,8 @@ describe("saveTravelSearch", () => {
   });
 
   it("is idempotent — returns existing id without creating when coord+dates match", async () => {
-    // Codex flagged that `saveTravelSearch` always called `create`, so the
-    // post-sign-in auto-save path (plus any double-click) could accumulate
-    // duplicate active rows for the same trip. Guard: findFirst short-circuits.
+    // Inside the transaction the findFirst short-circuit returns the
+    // existing row; no create runs.
     vi.mocked(prisma.travelSearch.findFirst).mockResolvedValueOnce({
       id: "ts-existing",
     } as never);
@@ -142,6 +167,31 @@ describe("saveTravelSearch", () => {
     expect("error" in result).toBe(false);
     expect("id" in result && result.id).toBe("ts-existing");
     expect(prisma.travelSearch.create).not.toHaveBeenCalled();
+  });
+
+  it("recovers from a P2002 race by returning the winner's id", async () => {
+    // Codex #1: a concurrent caller could insert a duplicate active row
+    // before our findFirst saw it. The new dedup unique index turns that
+    // race into a P2002 — we catch it, refetch the winning row, and
+    // return its id so the loser sees idempotent semantics.
+    const p2002 = new Prisma.PrismaClientKnownRequestError(
+      "Unique constraint failed on TravelDestination_user_dedup",
+      { code: "P2002", clientVersion: "test" },
+    );
+    vi.mocked(prisma.$transaction).mockRejectedValueOnce(p2002);
+    vi.mocked(prisma.travelSearch.findFirst).mockResolvedValueOnce({
+      id: "ts-winner",
+    } as never);
+
+    const result = await saveTravelSearch(validParams);
+    expect("error" in result).toBe(false);
+    expect("id" in result && result.id).toBe("ts-winner");
+  });
+
+  it("rejects radiusKm above the 250km clamp", async () => {
+    const result = await saveTravelSearch({ ...validParams, radiusKm: 99999 });
+    expect("error" in result && result.error).toContain("Radius too large");
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 });
 
@@ -205,17 +255,25 @@ describe("updateTravelSearch", () => {
 describe("deleteTravelSearch", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("archives the search on delete", async () => {
+  it("archives the search and deletes its destination row", async () => {
+    // Archive must do BOTH things in the same transaction so re-saving the
+    // same trip after archive succeeds (the unique slot is freed).
     vi.mocked(prisma.travelSearch.findUnique).mockResolvedValue({
       userId: "user-1",
     } as never);
     vi.mocked(prisma.travelSearch.update).mockResolvedValue({} as never);
+    vi.mocked(prisma.travelDestination.deleteMany).mockResolvedValue({
+      count: 1,
+    } as never);
 
     const result = await deleteTravelSearch("ts-1");
     expect("error" in result).toBe(false);
+    expect(prisma.travelDestination.deleteMany).toHaveBeenCalledWith({
+      where: { travelSearchId: "ts-1" },
+    });
     expect(prisma.travelSearch.update).toHaveBeenCalledWith({
       where: { id: "ts-1" },
-      data: { status: "archived" },
+      data: { status: "ARCHIVED" },
     });
   });
 
@@ -241,6 +299,17 @@ describe("deleteTravelSearch", () => {
   });
 });
 
+describe("listSavedSearches cap", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("caps the dashboard at 50 trips to limit weather API fan-out", async () => {
+    vi.mocked(prisma.travelSearch.findMany).mockResolvedValue([] as never);
+    await listSavedSearches();
+    const call = vi.mocked(prisma.travelSearch.findMany).mock.calls[0][0];
+    expect(call?.take).toBe(50);
+  });
+});
+
 describe("listSavedSearches", () => {
   beforeEach(() => vi.clearAllMocks());
 
@@ -249,7 +318,7 @@ describe("listSavedSearches", () => {
       {
         id: "ts-1",
         name: "Atlanta · Apr 14–21",
-        status: "active",
+        status: "ACTIVE",
         lastViewedAt: new Date(),
         createdAt: new Date(),
         destinations: [
@@ -355,7 +424,7 @@ describe("findExistingSavedSearch", () => {
     const call = vi.mocked(prisma.travelSearch.findFirst).mock.calls[0][0];
     expect(call?.where).toMatchObject({
       userId: "user-1",
-      status: "active",
+      status: "ACTIVE",
     });
   });
 
