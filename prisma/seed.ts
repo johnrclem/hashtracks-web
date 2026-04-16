@@ -616,12 +616,6 @@ async function main() {
 
   await seedKennels(prisma, KENNELS, KENNEL_ALIASES, SOURCES, toSlug);
 
-  // Travel Mode projection engine needs ScheduleRule populated to surface
-  // "likely"/"possible" cards on the results page. Seeding it here — rather
-  // than relying on the standalone `scripts/backfill-schedule-rules.ts
-  // --apply` being run manually — means every fresh DB ships with
-  // projection coverage. Fresh-seed path has no stale rules to retire so
-  // the wrapper skips deactivateStaleRules (standalone CLI path keeps it).
   console.log("\n━━━ Seeding ScheduleRules for Travel Mode ━━━");
   const { created, updated, errored } = await runScheduleRuleBackfill(prisma);
   console.log(`  ✓ Created: ${created}, Updated: ${updated}${errored ? `, Errored: ${errored}` : ""}`);

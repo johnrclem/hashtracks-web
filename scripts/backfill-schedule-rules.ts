@@ -662,11 +662,6 @@ async function deactivateStaleRules(
  * already-wired Prisma client. Skips printPlanSummary + deactivateStaleRules
  * — a fresh seed has no stale rules to retire and its log output is too
  * verbose for the seed console.
- *
- * Called from `prisma/seed.ts` after kennel/source/alias seeding so every
- * fresh DB ships with schedule_rules populated (fixes PR #739 QA P0 #1:
- * likely/possible cards previously never surfaced because the projection
- * engine had no rules to project against).
  */
 export async function runScheduleRuleBackfill(
   prisma: PrismaClientLike,

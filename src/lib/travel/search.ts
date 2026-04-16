@@ -133,6 +133,7 @@ export interface TravelSearchResults {
 // ============================================================================
 
 const TWELVE_WEEKS_MS = 12 * 7 * 24 * 60 * 60 * 1000;
+const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000;
 
 // ============================================================================
 // Internal types
@@ -208,12 +209,6 @@ export async function executeTravelSearch(
   const rawEndDate = parseUtcNoonDate(params.endDate);
   const endDate = clampToProjectionHorizon(rawEndDate, now);
 
-  // Step 1b: Short-circuit if the entire requested window is past our
-  // 90-day projection horizon. Without this branch, the EmptyStates
-  // component falls through to "no_confirmed" or worse — to the
-  // filter-induced "no results match" copy — both of which lie about
-  // why nothing came back.
-  const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000;
   if (startDate.getTime() > now.getTime() + NINETY_DAYS_MS) {
     return {
       confirmed: [],

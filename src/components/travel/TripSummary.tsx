@@ -56,29 +56,17 @@ interface TripSummaryProps {
   endDate: string;
   latitude: number;
   longitude: number;
-  /** What the user requested in the URL — shown struck-through when expanded. */
   radiusKm: number;
-  /**
-   * Effective radius after the broader-region fallback. Equal to radiusKm
-   * unless the service expanded (no_nearby branch). When set and larger
-   * than radiusKm, the hero renders the ROUTING REVISED badge so the
-   * count + summary stop lying about which radius the trails are within.
-   */
+  /** Effective radius after the broader-region fallback; triggers the revised-routing badge when larger than radiusKm. */
   effectiveRadiusKm?: number;
   timezone?: string;
   isAuthenticated: boolean;
-  /** SSR-computed: id of an existing saved trip matching these params, or null. */
   initialSavedId: string | null;
   confirmedCount: number;
   likelyCount: number;
   possibleCount: number;
-  /**
-   * True when the result is a coverage gap (no kennels at any radius).
-   * Disables Save with a contribution-funnel tooltip; Share stays enabled
-   * so a community-aware friend can suggest a kennel via the URL.
-   */
+  /** True when the result is a coverage gap; disables Save. */
   noCoverage?: boolean;
-  /** Confirmed events in the current result set — used for Export Calendar .ics generation. */
   confirmedEvents: ExportableConfirmedEvent[];
 }
 
@@ -111,10 +99,6 @@ export function TripSummary({
   const routingRevised =
     effectiveRadiusKm != null && effectiveRadiusKm > radiusKm;
   const radiusToShow = effectiveRadiusKm ?? radiusKm;
-  // Only surface the "schedule patterns not indexed" hint when we have
-  // confirmed events but the projection engine returned nothing — that's
-  // the case that'd otherwise look like the data pipeline broke. When
-  // totalCount === 0 the <EmptyStates> component owns the copy.
   const showProjectionGapHint =
     confirmedCount > 0 && likelyCount === 0 && possibleCount === 0;
 
@@ -350,12 +334,6 @@ export function TripSummary({
   );
 }
 
-/**
- * Save button that disables itself with a contribution-funnel tooltip on
- * no-coverage results — saving an empty trip clutters the user's dashboard
- * with no recoverable signal. Tooltip steers toward the kennel-suggestion
- * flow so community members can close the gap for the next traveler.
- */
 function SaveButton({
   isSaving,
   noCoverage,
@@ -383,8 +361,6 @@ function SaveButton({
   return (
     <TooltipProvider>
       <Tooltip>
-        {/* span wrapper: disabled buttons don't fire pointer events, so the
-            Tooltip's hover detection needs a non-disabled host element. */}
         <TooltipTrigger asChild>
           <span className="inline-flex">{button}</span>
         </TooltipTrigger>

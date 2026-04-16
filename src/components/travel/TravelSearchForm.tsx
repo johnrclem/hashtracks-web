@@ -29,11 +29,6 @@ const RADIUS_OPTIONS = [
   { value: 100, label: "Far", description: "~60 mi" },
 ] as const;
 
-/**
- * Snap an arbitrary radius value to the nearest tier. Returns the input
- * unchanged if it's already a tier — lets the caller detect a no-op
- * without re-comparing.
- */
 function snapRadiusToTier(value: number): number {
   const tiers = RADIUS_OPTIONS.map((o) => o.value);
   if (tiers.includes(value as (typeof tiers)[number])) return value;
@@ -51,10 +46,6 @@ export function TravelSearchForm({ variant, initialValues }: Readonly<TravelSear
   const [longitude, setLongitude] = useState(initialValues?.longitude ?? 0);
   const [startDate, setStartDate] = useState(initialValues?.startDate ?? "");
   const [endDate, setEndDate] = useState(initialValues?.endDate ?? "");
-  // Snap on init: a crafted/shared URL with ?r=200 (or any non-tier value)
-  // would otherwise land with no pill selected and leave the user unable
-  // to tell which bucket their search actually ran in. Tier is a closed
-  // enum; the URL has to match.
   const [radiusKm, setRadiusKm] = useState(
     snapRadiusToTier(initialValues?.radiusKm ?? 50),
   );
@@ -82,9 +73,7 @@ export function TravelSearchForm({ variant, initialValues }: Readonly<TravelSear
   const datesValid = Boolean(startDate && endDate && startDate <= endDate);
   const canSubmit = destination && datesValid && coordsResolved;
 
-  // Mirror the snap back to the URL. Guarded by a ref so a single
-  // off-tier landing → exactly one `router.replace` per mount; subsequent
-  // pill changes handle their own URL updates via handleSubmit.
+  // Ref-guarded so StrictMode's double-fire produces a single replace.
   useEffect(() => {
     if (didSnapRadiusRef.current) return;
     didSnapRadiusRef.current = true;
