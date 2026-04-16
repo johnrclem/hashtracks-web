@@ -187,6 +187,14 @@ describe("checkHareQuality", () => {
     expect(findings).toHaveLength(0);
   });
 
+  it("does not flag hare-phone-number inside a longer digit run", () => {
+    // Both branches anchored with (?<!\d)/(?!\d) so a formatted phone wedged
+    // inside a longer digit run (e.g., a tracking code) doesn't false-positive.
+    const event = makeEvent({ haresText: "ID9202-555-12345" });
+    const findings = checkHareQuality(event);
+    expect(findings).toHaveLength(0);
+  });
+
   it("flags hare-boilerplate-leak when haresText contains 'WHAT TIME'", () => {
     const event = makeEvent({
       haresText: "WHAT TIME: 6:30 PM WHERE: Central Park",

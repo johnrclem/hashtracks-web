@@ -118,7 +118,7 @@ const TITLE_TIME_ONLY_PATTERN =
  * boundaries to avoid matching inside longer numeric strings.
  */
 const PHONE_NUMBER_RE =
-  /(?:\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}|(?<!\d)\d{10}(?!\d))/;
+  /(?:(?<!\d)\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}(?!\d)|(?<!\d)\d{10}(?!\d))/;
 
 const CTA_PATTERN =
   /^(?:tbd|tba|tbc|n\/a|sign[\s\u00A0]*up!?|volunteer|needed|required)$/i;
