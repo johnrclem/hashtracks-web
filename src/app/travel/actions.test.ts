@@ -161,14 +161,26 @@ describe("saveTravelSearch", () => {
     expect("error" in result && result.error).toContain("date");
   });
 
-  it("is idempotent — recovers via P2002 catch when an active trip already matches", async () => {
-    // The DB partial-unique index on TravelDestination
-    // (userId, lat, lng, radius, dates) WHERE status='ACTIVE' is the
-    // sole dedup mechanism. saveTravelSearch attempts the insert, the
-    // unique throws P2002 on collision, and we refetch the winner so
-    // the user sees the existing id (idempotent semantics from their POV).
-    // Covers double-clicks, post-sign-in auto-save retries, and concurrent
-    // cross-tab saves uniformly.
+  it("is idempotent — short-circuits via in-transaction findFirst when a trip already exists", async () => {
+    // The cheap path: the in-transaction findFirst returns the existing
+    // row without writing. TravelAutoSave + double-clicks + page refreshes
+    // all go through this path. Codex flagged earlier that an
+    // exception-driven write path here was needless write amplification.
+    vi.mocked(prisma.travelSearch.findFirst).mockResolvedValueOnce({
+      id: "ts-existing",
+    } as never);
+
+    const result = await saveTravelSearch(validParams);
+    expect("error" in result).toBe(false);
+    expect("id" in result && result.id).toBe("ts-existing");
+    expect(prisma.travelSearch.create).not.toHaveBeenCalled();
+  });
+
+  it("recovers from a concurrent-insert P2002 race by returning the winner's id", async () => {
+    // The fallback path: a concurrent caller (cross-tab, parallel
+    // request) inserts between our findFirst and our create. The DB
+    // partial-unique throws P2002; we refetch the winner so the loser
+    // sees the same idempotent semantics as if it had won.
     const p2002 = new Prisma.PrismaClientKnownRequestError(
       "Unique constraint failed on TravelDestination_user_dedup_active",
       { code: "P2002", clientVersion: "test" },

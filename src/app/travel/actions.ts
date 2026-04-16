@@ -72,6 +72,37 @@ interface FindExistingSearchParams {
  * failure (auth, db, etc.) so the page renders the unsaved state as a
  * safe fallback — the Save button still works.
  */
+/**
+ * Build the where-clause for "this user's ACTIVE saved trip matching these
+ * coords + radius + date window." Used by every dedup query path so the
+ * partial-unique-equivalent semantics (parent ACTIVE AND destination
+ * ACTIVE) stay consistent — codex flagged that filtering only on parent
+ * status leaves a drift hole if the denormalized child status diverges.
+ */
+function activeTripMatchFilter(
+  userId: string,
+  latitude: number,
+  longitude: number,
+  radiusKm: number,
+  startDate: Date,
+  endDate: Date,
+) {
+  return {
+    userId,
+    status: TravelSearchStatus.ACTIVE,
+    destinations: {
+      some: {
+        status: TravelSearchStatus.ACTIVE,
+        latitude,
+        longitude,
+        radiusKm,
+        startDate,
+        endDate,
+      },
+    },
+  };
+}
+
 export async function findExistingSavedSearch(
   params: FindExistingSearchParams,
 ): Promise<string | null> {
@@ -81,19 +112,14 @@ export async function findExistingSavedSearch(
     const startDate = parseUtcNoonDate(params.startDate);
     const endDate = parseUtcNoonDate(params.endDate);
     const match = await prisma.travelSearch.findFirst({
-      where: {
-        userId: user.id,
-        status: TravelSearchStatus.ACTIVE,
-        destinations: {
-          some: {
-            latitude: params.latitude,
-            longitude: params.longitude,
-            radiusKm: params.radiusKm,
-            startDate,
-            endDate,
-          },
-        },
-      },
+      where: activeTripMatchFilter(
+        user.id,
+        params.latitude,
+        params.longitude,
+        params.radiusKm,
+        startDate,
+        endDate,
+      ),
       select: { id: true },
     });
     return match?.id ?? null;
@@ -121,18 +147,31 @@ export async function saveTravelSearch(
   const endDate = parseUtcNoonDate(params.endDate);
   const name = formatTripName(params.label, startDate, endDate);
 
-  // Atomic dedup via the DB partial-unique on TravelDestination
-  // (userId, lat, lng, radius, dates) WHERE status='ACTIVE'. We attempt
-  // the insert directly — on collision (concurrent caller, double-click,
-  // refresh-after-save) P2002 fires, we refetch the winner, and return
-  // its id so the race loser sees idempotent semantics. Two writes on
-  // the happy path; happy path of an already-saved trip costs 1 read.
+  // Dedup has two layers of defense:
+  //   1. In-transaction findFirst short-circuit — TravelAutoSave fires on
+  //      every post-sign-in mount and double-click is a real (if rare) UX,
+  //      so the common "trip already saved" path returns its id without
+  //      writing. Cheap read, no rollback.
+  //   2. DB partial-unique on TravelDestination (userId, lat, lng, radius,
+  //      dates) WHERE status='ACTIVE'. Catches the race window between the
+  //      findFirst and the create (concurrent caller across tabs/processes).
+  //      P2002 → refetch the winner → return its id (idempotent for the loser).
   //
   // Destination is a separate insert (not nested) because TravelDestination
   // uses a compound FK to TravelSearch(id, userId) for tenant isolation —
   // Prisma's nested-create input excludes the userId column.
+  const matchFilter = activeTripMatchFilter(
+    user.id, params.latitude, params.longitude, params.radiusKm, startDate, endDate,
+  );
+
   try {
     return await prisma.$transaction(async (tx) => {
+      const existing = await tx.travelSearch.findFirst({
+        where: matchFilter,
+        select: { id: true },
+      });
+      if (existing) return { success: true as const, id: existing.id };
+
       const search = await tx.travelSearch.create({
         data: { userId: user.id, name },
       });
@@ -144,19 +183,7 @@ export async function saveTravelSearch(
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
       const winner = await prisma.travelSearch.findFirst({
-        where: {
-          userId: user.id,
-          status: TravelSearchStatus.ACTIVE,
-          destinations: {
-            some: {
-              latitude: params.latitude,
-              longitude: params.longitude,
-              radiusKm: params.radiusKm,
-              startDate,
-              endDate,
-            },
-          },
-        },
+        where: matchFilter,
         select: { id: true },
       });
       if (winner) return { success: true, id: winner.id };
@@ -310,6 +337,11 @@ export async function listSavedSearches(): Promise<
     },
     include: {
       destinations: {
+        // Defense against parent/child status drift: only surface ACTIVE
+        // child rows even when the parent is ACTIVE. Without this, a
+        // destination that got stuck ARCHIVED while its parent stayed
+        // ACTIVE would render as a destinationless dashboard card.
+        where: { status: TravelSearchStatus.ACTIVE },
         select: {
           label: true,
           latitude: true,
@@ -370,6 +402,11 @@ export async function viewTravelSearch(
     where: { id },
     include: {
       destinations: {
+        // Only return ACTIVE child rows. Archived parents intentionally
+        // come back destinationless (the existing `?? null` branch
+        // handles that gracefully); this also defends against the
+        // parent/child status drift that codex flagged.
+        where: { status: TravelSearchStatus.ACTIVE },
         select: {
           label: true,
           placeId: true,
