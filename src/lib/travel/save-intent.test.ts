@@ -113,4 +113,31 @@ describe("stashSaveIntent + consumeSaveIntent", () => {
     expect(consumeSaveIntent(EXAMPLE)).toBe(true);
     expect(consumeSaveIntent(EXAMPLE)).toBe(false);
   });
+
+  it("rejects payloads with non-numeric timestamp (shape validation)", () => {
+    // CodeRabbit flagged JSON.parse(raw) as StoredIntent as an unchecked
+    // cast. Without runtime validation, a corrupted/tampered value with
+    // string timestamp would pass through (and fail TTL via NaN > X
+    // = false). isStoredIntent catches it explicitly.
+    const store = installSessionStorage();
+    store.set("hashtracks:travel-save-intent", JSON.stringify({
+      signature: signatureForIntent(EXAMPLE),
+      timestamp: "not a number",
+    }));
+    expect(consumeSaveIntent(EXAMPLE)).toBe(false);
+  });
+
+  it("rejects payloads missing the signature field", () => {
+    const store = installSessionStorage();
+    store.set("hashtracks:travel-save-intent", JSON.stringify({
+      timestamp: Date.now(),
+    }));
+    expect(consumeSaveIntent(EXAMPLE)).toBe(false);
+  });
+
+  it("rejects non-object JSON values", () => {
+    const store = installSessionStorage();
+    store.set("hashtracks:travel-save-intent", JSON.stringify("plain string"));
+    expect(consumeSaveIntent(EXAMPLE)).toBe(false);
+  });
 });

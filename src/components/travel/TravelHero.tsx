@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { TravelSearchForm } from "./TravelSearchForm";
 import { NearMeShortcut } from "./NearMeShortcut";
 
@@ -28,17 +28,6 @@ export function TravelHero() {
     }
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
-  // Last-trip ghost from sessionStorage
-  const [lastTrip, setLastTrip] = useState<{ label: string; url: string } | null>(null);
-  useEffect(() => {
-    try {
-      const raw = sessionStorage.getItem("hashtracks:lastTravelSearch");
-      if (raw) setLastTrip(JSON.parse(raw));
-    } catch {
-      // No stored trip
-    }
   }, []);
 
   // Two-line headline structure prevents "roam." orphaning on its own line
@@ -167,18 +156,6 @@ export function TravelHero() {
         </div>
 
         <NearMeShortcut />
-
-        {/* Last-trip ghost */}
-        {lastTrip && (
-          <div className="mt-3 text-center">
-            <a
-              href={lastTrip.url}
-              className="text-xs italic text-muted-foreground/40 underline underline-offset-4 transition-colors hover:text-muted-foreground"
-            >
-              Last trip: {lastTrip.label} →
-            </a>
-          </div>
-        )}
 
         {/* Discoverability link to /travel/saved. Always rendered — the page
             redirects unauth users to sign-in, so it doubles as a "sign in to

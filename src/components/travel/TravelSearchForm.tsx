@@ -56,14 +56,18 @@ export function TravelSearchForm({ variant, initialValues }: Readonly<TravelSear
   const [destInvalid, setDestInvalid] = useState(false);
   const [datesInvalid, setDatesInvalid] = useState(false);
 
-  const canSubmit = destination && startDate && endDate && coordsResolved;
+  // Inverted ranges (endDate before startDate) are caught at the server
+  // boundary, but allowing them through the form yields a negative
+  // "N nights" display + negative analytics. Surface as invalid here.
+  const datesValid = Boolean(startDate && endDate && startDate <= endDate);
+  const canSubmit = destination && datesValid && coordsResolved;
 
   const handleSubmit = useCallback(() => {
     if (!canSubmit) {
       // Boarding-pass aesthetic: the form visibly refuses, not silently.
       // Stamp REQUIRED next to the missing section's margin label.
       setDestInvalid(!destination || !coordsResolved);
-      setDatesInvalid(!startDate || !endDate);
+      setDatesInvalid(!datesValid);
       return;
     }
     capture("travel_search_submitted", {
@@ -84,7 +88,7 @@ export function TravelSearchForm({ variant, initialValues }: Readonly<TravelSear
       router.push(`/travel?${params.toString()}`);
     });
     if (variant === "compact") setIsExpanded(false);
-  }, [canSubmit, coordsResolved, latitude, longitude, startDate, endDate, radiusKm, destination, timezone, router, variant]);
+  }, [canSubmit, coordsResolved, datesValid, latitude, longitude, startDate, endDate, radiusKm, destination, timezone, router, variant]);
 
   // ── Compact variant: single-row pill ──
   if (variant === "compact" && !isExpanded) {
@@ -281,9 +285,13 @@ export function TravelSearchForm({ variant, initialValues }: Readonly<TravelSear
         </div>
       </form>
 
-      {/* ISSUED microlabel */}
+      {/* ISSUED microlabel — `new Date()` mismatches between SSR and
+          client hydration on day boundaries. The whole row is
+          aria-hidden so the mismatch is purely cosmetic; suppress the
+          hydration warning rather than wire up a useEffect just for the
+          decoration. */}
       <div className="mt-2 flex justify-between px-2 font-mono text-[9px] uppercase tracking-[0.12em] text-muted-foreground/40" aria-hidden="true">
-        <span>
+        <span suppressHydrationWarning>
           ISSUED {new Date().toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "2-digit" }).toUpperCase()} · HASHTRACKS
         </span>
         <span>REF HT-{resolveRefCode(destination)}</span>

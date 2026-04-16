@@ -194,7 +194,13 @@ export async function executeTravelSearch(
   prisma: PrismaClient,
   params: TravelSearchParams,
 ): Promise<TravelSearchResults> {
-  const { latitude, longitude, radiusKm } = params;
+  const { latitude, longitude } = params;
+  // Defense in depth: clamp the request radius at the service boundary.
+  // page.tsx and validateSearchParams both clamp upstream, but this is
+  // also called from the saved-trips dashboard with persisted values
+  // and any future caller could bypass the upstream gates. Floor at 1
+  // so an accidental zero/negative doesn't yield an empty result set.
+  const radiusKm = Math.max(1, Math.min(MAX_RADIUS_KM, params.radiusKm));
   const now = new Date();
 
   // Step 1: Parse + clamp dates

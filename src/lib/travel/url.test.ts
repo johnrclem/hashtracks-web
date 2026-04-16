@@ -64,6 +64,25 @@ describe("buildTravelSearchUrl", () => {
     });
     expect(new URL(url, "https://x").searchParams.has("tz")).toBe(false);
   });
+
+  it("preserves the LOCAL calendar day when given a Date near midnight", () => {
+    // Codex/Bot finding: the previous toYmd went through toISOString()
+    // which converts to UTC, shifting the day for callers east of UTC at
+    // late-evening local time. NearMeShortcut + PopularDestinations both
+    // pass `new Date()` for the trip start — must read as today, not tomorrow.
+    // Constructed in local time (any tz) at 11:30 PM:
+    const lateNight = new Date(2026, 3, 14, 23, 30, 0); // 2026-04-14T23:30 local
+    const url = buildTravelSearchUrl({
+      latitude: 0,
+      longitude: 0,
+      startDate: lateNight,
+      endDate: lateNight,
+      label: "x",
+    });
+    const parsed = new URL(url, "https://x");
+    expect(parsed.searchParams.get("from")).toBe("2026-04-14");
+    expect(parsed.searchParams.get("to")).toBe("2026-04-14");
+  });
 });
 
 describe("withConcurrency", () => {

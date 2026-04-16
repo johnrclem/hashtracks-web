@@ -81,11 +81,26 @@ export function consumeSaveIntent(params: SaveIntentParams): boolean {
   }
   if (!raw) return false;
   try {
-    const intent = JSON.parse(raw) as StoredIntent;
-    if (intent.signature !== signatureForIntent(params)) return false;
-    if (Date.now() - intent.timestamp > INTENT_TTL_MS) return false;
+    const parsed: unknown = JSON.parse(raw);
+    if (!isStoredIntent(parsed)) return false;
+    if (parsed.signature !== signatureForIntent(params)) return false;
+    if (Date.now() - parsed.timestamp > INTENT_TTL_MS) return false;
     return true;
   } catch {
     return false;
   }
+}
+
+/**
+ * Runtime shape guard for the parsed sessionStorage value. The previous
+ * `JSON.parse(raw) as StoredIntent` cast bypassed validation — a stored
+ * value with a non-numeric `timestamp` would make `Date.now() - NaN`
+ * evaluate to `NaN`, which fails the TTL gate (NaN comparisons are
+ * always false), but only by accident. Explicit narrowing makes the
+ * defense intentional and rejects malformed payloads up front.
+ */
+function isStoredIntent(value: unknown): value is StoredIntent {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return typeof v.signature === "string" && typeof v.timestamp === "number";
 }

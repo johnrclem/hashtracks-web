@@ -29,8 +29,22 @@ export function buildTravelSearchUrl(p: TravelSearchUrlParams): string {
   return `/travel?${params.toString()}`;
 }
 
+/**
+ * Convert a Date or pre-formatted YYYY-MM-DD string to YYYY-MM-DD,
+ * preserving the LOCAL calendar day. The previous implementation went
+ * through `toISOString()` which converts to UTC and shifts the day for
+ * any caller that's east-of-UTC at late-evening local time (e.g.,
+ * `new Date()` at 11:30 PM EST returned tomorrow's date). Travel UX
+ * callers (NearMeShortcut, PopularDestinations) want the user's local
+ * calendar day — picking the trip-start window from that vantage point.
+ * Pre-formatted strings pass through unchanged.
+ */
 function toYmd(d: string | Date): string {
-  return (d instanceof Date ? d.toISOString() : d).slice(0, 10);
+  if (typeof d === "string") return d.slice(0, 10);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 export interface TravelContext {

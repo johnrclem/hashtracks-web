@@ -365,7 +365,21 @@ function DestinationInputFallback({
     setIsLoading(true);
     const result = await geocodeDestination(inputValue);
     if (!("error" in result)) {
-      onChange({ label: result.label, latitude: result.latitude, longitude: result.longitude });
+      // Mirror the autocomplete path: also resolve timezone so trip
+      // start times render in the destination's local zone, not UTC.
+      let timezone: string | undefined;
+      try {
+        const tzResult = await resolveDestinationTimezone(result.latitude, result.longitude);
+        if ("timezone" in tzResult) timezone = tzResult.timezone;
+      } catch (err) {
+        console.error("[travel] timezone lookup failed", err);
+      }
+      onChange({
+        label: result.label,
+        latitude: result.latitude,
+        longitude: result.longitude,
+        timezone,
+      });
     }
     setIsLoading(false);
   };
