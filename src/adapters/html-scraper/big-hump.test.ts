@@ -65,6 +65,25 @@ describe("parseEventTitle", () => {
     expect(result.location).toBeUndefined();
   });
 
+  it("#754: strips trailing ' @ ???' from title when location is TBD", () => {
+    const result = parseEventTitle("Whiney @ ???");
+    expect(result.title).toBe("Whiney");
+  });
+
+  it("#754: keeps full 'Hare @ Venue' as title when location is a real venue", () => {
+    const result = parseEventTitle("Whiney @ Forest Park");
+    expect(result.title).toBe("Whiney @ Forest Park");
+    expect(result.location).toBe("Forest Park");
+  });
+
+  it("#754: treats 'TBD' / 'TBA' / 'N/A' as TBD placeholders (not just ???)", () => {
+    for (const tbd of ["TBD", "TBA", "tbd", "N/A", "?"]) {
+      const result = parseEventTitle(`Whiney @ ${tbd}`);
+      expect(result.title).toBe("Whiney");
+      expect(result.location).toBeUndefined();
+    }
+  });
+
   it("handles multiple @ signs — splits on last one", () => {
     const result = parseEventTitle(
       "Disco's Hashers Not Trashers Mini-TrashBash & Hash @ South City",

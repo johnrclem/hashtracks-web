@@ -28,7 +28,7 @@ import type {
   ErrorDetails,
 } from "../types";
 import { hasAnyErrors } from "../types";
-import { fetchHTMLPage, buildDateWindow, stripHtmlTags } from "../utils";
+import { fetchHTMLPage, buildDateWindow, stripHtmlTags, isPlaceholder } from "../utils";
 
 /** Config stored in source.config JSON */
 interface BigHumpConfig {
@@ -82,17 +82,20 @@ export function parseEventTitle(h4Text: string): {
 
   const harePart = h4Text.slice(0, atIdx).trim();
   const locationPart = h4Text.slice(atIdx + 3).trim();
+  const locationIsTbd = !locationPart || isPlaceholder(locationPart);
 
   // The hare part is typically "HareName's Trail Name" or just "HareName"
   // Use it as the title; the hare is the portion before "'s" if present
   const possessiveMatch = /^(.+?)(?:['\u2018\u2019\u201B]s?\s+.+)$/i.exec(harePart);
   const hares = possessiveMatch ? possessiveMatch[1].trim() : harePart;
 
-  // Location: "???" means TBD
-  const location =
-    locationPart && locationPart !== "???" ? locationPart : undefined;
+  // #754: drop " @ ???" from the title when location is TBD — a trailing TBD
+  // placeholder is noise, not a meaningful subtitle. When location IS set,
+  // the full "Hare @ Venue" string stays as the title.
+  const title = locationIsTbd ? harePart : h4Text.trim();
+  const location = locationIsTbd ? undefined : locationPart;
 
-  return { title: h4Text.trim(), hares, location };
+  return { title, hares, location };
 }
 
 /**
