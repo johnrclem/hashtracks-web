@@ -199,7 +199,15 @@ describe("executeTravelSearch", () => {
   });
 
   it("returns likely projections from schedule rules", async () => {
-    const prisma = createMockPrisma([testKennel], [], [testRule]);
+    // Post-scoreConfidence-gate: Medium requires ≥1 evidence event in the
+    // 12-week window. Provide one historical confirmed event so the rule
+    // survives as `likely` instead of being downgraded to `possible`.
+    const evidenceEvent: MockEvent = {
+      ...testEvent,
+      id: "e-evidence",
+      date: utcNoon("2026-02-21"), // 2 months before baseParams window — within 12-week evidence lookback
+    };
+    const prisma = createMockPrisma([testKennel], [evidenceEvent], [testRule]);
     const result = await executeTravelSearch(prisma, baseParams);
 
     expect(result.likely.length).toBeGreaterThan(0);

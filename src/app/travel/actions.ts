@@ -52,7 +52,14 @@ interface SaveTravelSearchParams {
 interface FindExistingSearchParams {
   latitude: number;
   longitude: number;
-  radiusKm: number;
+  /**
+   * Accept a single radius or a list to match across. Callers pass an
+   * array to tolerate legacy saved-trip rows whose persisted radius is
+   * outside the closed tier enum {10,25,50,100} — e.g. an older build
+   * or an admin-side save where the current URL has been snapped to a
+   * different tier by server + client sync.
+   */
+  radiusKm: number | number[];
   startDate: string; // YYYY-MM-DD
   endDate: string;   // YYYY-MM-DD
 }
@@ -83,10 +90,13 @@ function activeTripMatchFilter(
   userId: string,
   latitude: number,
   longitude: number,
-  radiusKm: number,
+  radiusKm: number | number[],
   startDate: Date,
   endDate: Date,
 ) {
+  const radiusFilter = Array.isArray(radiusKm)
+    ? { in: Array.from(new Set(radiusKm)) }
+    : radiusKm;
   return {
     userId,
     status: TravelSearchStatus.ACTIVE,
@@ -95,7 +105,7 @@ function activeTripMatchFilter(
         status: TravelSearchStatus.ACTIVE,
         latitude,
         longitude,
-        radiusKm,
+        radiusKm: radiusFilter,
         startDate,
         endDate,
       },
@@ -301,6 +311,51 @@ export async function deleteTravelSearch(
   ]);
 
   return { success: true };
+}
+
+/**
+ * Un-archive a previously soft-deleted trip. Exists so the results-page
+ * Undo affordance can restore the same row the user just removed —
+ * preserving id, createdAt, lastViewedAt, and the trip's persisted radius
+ * (which may differ from the snapped radius if the row was saved via an
+ * earlier build or an admin path).
+ *
+ * Fails closed if an ACTIVE trip would collide with the partial-unique
+ * index (same lat/lng/radius/dates) — that situation means the user saved
+ * a duplicate between the delete and the undo; refuse to clobber it.
+ */
+export async function restoreTravelSearch(
+  id: string,
+): Promise<ActionResult<{ id: string }>> {
+  const user = await getOrCreateUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const search = await prisma.travelSearch.findUnique({
+    where: { id },
+    select: { userId: true, status: true },
+  });
+  if (!search) return { error: "Search not found" };
+  if (search.userId !== user.id) return { error: "Not authorized" };
+  if (search.status === TravelSearchStatus.ACTIVE) return { success: true, id };
+
+  try {
+    await prisma.$transaction([
+      prisma.travelDestination.updateMany({
+        where: { travelSearchId: id },
+        data: { status: TravelSearchStatus.ACTIVE },
+      }),
+      prisma.travelSearch.update({
+        where: { id },
+        data: { status: TravelSearchStatus.ACTIVE },
+      }),
+    ]);
+    return { success: true, id };
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      return { error: "A duplicate trip was saved in the meantime." };
+    }
+    throw err;
+  }
 }
 
 // ============================================================================

@@ -52,6 +52,7 @@ import {
   saveTravelSearch,
   updateTravelSearch,
   deleteTravelSearch,
+  restoreTravelSearch,
   findExistingSavedSearch,
   listSavedSearches,
   viewTravelSearch,
@@ -346,6 +347,86 @@ describe("deleteTravelSearch", () => {
   });
 });
 
+describe("restoreTravelSearch", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("flips both parent and destination back to ACTIVE in one transaction", async () => {
+    vi.mocked(prisma.travelSearch.findUnique).mockResolvedValue({
+      userId: "user-1",
+      status: "ARCHIVED",
+    } as never);
+    vi.mocked(prisma.travelSearch.update).mockResolvedValue({} as never);
+    vi.mocked(prisma.travelDestination.updateMany).mockResolvedValue({
+      count: 1,
+    } as never);
+
+    const result = await restoreTravelSearch("ts-1");
+    expect("success" in result && result.success).toBe(true);
+    expect(prisma.travelDestination.updateMany).toHaveBeenCalledWith({
+      where: { travelSearchId: "ts-1" },
+      data: { status: "ACTIVE" },
+    });
+    expect(prisma.travelSearch.update).toHaveBeenCalledWith({
+      where: { id: "ts-1" },
+      data: { status: "ACTIVE" },
+    });
+  });
+
+  it("returns the trip id on success so the caller can re-adopt it", async () => {
+    vi.mocked(prisma.travelSearch.findUnique).mockResolvedValue({
+      userId: "user-1",
+      status: "ARCHIVED",
+    } as never);
+    vi.mocked(prisma.travelSearch.update).mockResolvedValue({} as never);
+    vi.mocked(prisma.travelDestination.updateMany).mockResolvedValue({
+      count: 1,
+    } as never);
+
+    const result = await restoreTravelSearch("ts-1");
+    expect(result).toMatchObject({ success: true, id: "ts-1" });
+  });
+
+  it("returns a friendly error on P2002 partial-unique collision", async () => {
+    // Between the archive and the undo, the user saved a fresh duplicate.
+    // Refusing to clobber is safer than letting the restore succeed and
+    // leaving two ACTIVE rows for the same (user, lat, lng, radius, dates).
+    vi.mocked(prisma.travelSearch.findUnique).mockResolvedValue({
+      userId: "user-1",
+      status: "ARCHIVED",
+    } as never);
+    const p2002 = new Prisma.PrismaClientKnownRequestError(
+      "unique violation",
+      { code: "P2002", clientVersion: "test" },
+    );
+    vi.mocked(prisma.$transaction).mockRejectedValueOnce(p2002);
+
+    const result = await restoreTravelSearch("ts-1");
+    expect("error" in result && result.error).toMatch(/duplicate/i);
+  });
+
+  it("returns error for wrong owner", async () => {
+    vi.mocked(prisma.travelSearch.findUnique).mockResolvedValue({
+      userId: "other-user",
+      status: "ARCHIVED",
+    } as never);
+
+    const result = await restoreTravelSearch("ts-1");
+    expect("error" in result && result.error).toBe("Not authorized");
+  });
+
+  it("returns error for non-existent search", async () => {
+    vi.mocked(prisma.travelSearch.findUnique).mockResolvedValue(null);
+    const result = await restoreTravelSearch("ts-nonexistent");
+    expect("error" in result && result.error).toBe("Search not found");
+  });
+
+  it("returns error when not authenticated", async () => {
+    vi.mocked(getOrCreateUser).mockResolvedValueOnce(null);
+    const result = await restoreTravelSearch("ts-1");
+    expect("error" in result && result.error).toBe("Not authenticated");
+  });
+});
+
 describe("listSavedSearches cap", () => {
   beforeEach(() => vi.clearAllMocks());
 
@@ -484,6 +565,26 @@ describe("findExistingSavedSearch", () => {
       longitude: BASE.longitude,
       radiusKm: BASE.radiusKm,
     });
+  });
+
+  it("accepts an array radiusKm to match either a snapped or legacy persisted value", async () => {
+    // Legacy compat: a user opens /travel?r=137 (pre-tier-snap era saved
+    // trip). Page-side snap resolves to 100, but the persisted row is at
+    // 137. Caller passes [100, 137] so the lookup finds the legacy row.
+    vi.mocked(prisma.travelSearch.findFirst).mockResolvedValueOnce({
+      id: "ts-legacy",
+    } as never);
+    const result = await findExistingSavedSearch({ ...BASE, radiusKm: [100, 137] });
+    expect(result).toBe("ts-legacy");
+    const call = vi.mocked(prisma.travelSearch.findFirst).mock.calls[0][0];
+    expect(call?.where?.destinations?.some?.radiusKm).toEqual({ in: [100, 137] });
+  });
+
+  it("de-duplicates an array radiusKm when both entries are equal", async () => {
+    vi.mocked(prisma.travelSearch.findFirst).mockResolvedValueOnce(null);
+    await findExistingSavedSearch({ ...BASE, radiusKm: [50, 50] });
+    const call = vi.mocked(prisma.travelSearch.findFirst).mock.calls[0][0];
+    expect(call?.where?.destinations?.some?.radiusKm).toEqual({ in: [50] });
   });
 
   it("returns null for unauthenticated users", async () => {

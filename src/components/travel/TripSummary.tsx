@@ -1,26 +1,15 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import {
   Heart,
   Share2,
   Calendar as CalendarIcon,
   BadgeCheck,
-  ArrowRight,
-  ChevronDown,
-  RefreshCw,
-  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Tooltip,
   TooltipContent,
@@ -33,8 +22,8 @@ import { capture } from "@/lib/analytics";
 import { stashSaveIntent } from "@/lib/travel/save-intent";
 import {
   deleteTravelSearch,
+  restoreTravelSearch,
   saveTravelSearch,
-  updateTravelSearch,
 } from "@/app/travel/actions";
 
 /** Minimal shape required to build a VEVENT from a confirmed search result. */
@@ -57,7 +46,9 @@ interface TripSummaryProps {
   latitude: number;
   longitude: number;
   radiusKm: number;
-  /** Effective radius after the broader-region fallback; triggers the revised-routing badge when larger than radiusKm. */
+  /** What the user typed in the URL before the closed-tier snap; triggers the RADIUS ADJUSTED badge when it differs from radiusKm. */
+  requestedRadiusKm?: number;
+  /** Effective radius after the broader-region fallback; triggers the ROUTING REVISED badge when larger than radiusKm. */
   effectiveRadiusKm?: number;
   timezone?: string;
   isAuthenticated: boolean;
@@ -77,6 +68,7 @@ export function TripSummary({
   latitude,
   longitude,
   radiusKm,
+  requestedRadiusKm,
   effectiveRadiusKm,
   timezone,
   isAuthenticated,
@@ -91,12 +83,29 @@ export function TripSummary({
   const [isSaving, startSave] = useTransition();
   const [isMutating, startMutation] = useTransition();
   const [savedId, setSavedId] = useState<string | null>(initialSavedId);
+  // Tracks the active Undo toast so we can dismiss it if the user navigates
+  // to a different search before clicking Undo (stale closure guard).
+  const undoToastIdRef = useRef<string | number | null>(null);
+
+  // Sync on prop change — initialSavedId can change as URL params change.
+  // Also dismiss any pending Undo toast: an Undo from trip A must not
+  // restore trip A's id onto trip B's card after navigation.
+  useEffect(() => {
+    setSavedId(initialSavedId);
+    if (undoToastIdRef.current != null) {
+      toast.dismiss(undoToastIdRef.current);
+      undoToastIdRef.current = null;
+    }
+  }, [initialSavedId]);
 
   const startFormatted = formatDateCompact(startDate, { withWeekday: true });
   const endFormatted = formatDateCompact(endDate, { withWeekday: true });
   const days = daysBetween(startDate, endDate);
   const totalCount = confirmedCount + likelyCount + possibleCount;
-  const routingRevised =
+  // broaderExpanded wins visually over radiusSnapped when both fire.
+  const radiusSnapped =
+    requestedRadiusKm != null && requestedRadiusKm !== radiusKm;
+  const broaderExpanded =
     effectiveRadiusKm != null && effectiveRadiusKm > radiusKm;
   const radiusToShow = effectiveRadiusKm ?? radiusKm;
   const showProjectionGapHint =
@@ -154,42 +163,36 @@ export function TripSummary({
     });
   };
 
-  const handleUpdate = () => {
-    if (!savedId) return;
-    startMutation(async () => {
-      // Route through the explicit update-by-id path so the existing
-      // TravelSearch row is mutated in-place — preserves its id,
-      // createdAt, and dashboard position rather than creating a duplicate.
-      const result = await updateTravelSearch(savedId, {
-        label: destination,
-        latitude,
-        longitude,
-        radiusKm,
-        startDate,
-        endDate,
-        timezone,
-      });
-      if ("success" in result && result.success) {
-        capture("travel_saved_search_updated", {});
-        toast.success("Trip updated", {
-          description: "This trip is saved with the latest search params.",
-        });
-      } else {
-        toast.error("Couldn't update this trip", {
-          description: "error" in result ? result.error : "Please try again.",
-        });
-      }
-    });
-  };
-
   const handleRemove = () => {
     if (!savedId) return;
+    // Capture the id being archived so Undo restores the exact same row
+    // (preserves original id, createdAt, lastViewedAt, and the persisted
+    // radius — critical for legacy trips whose radius isn't on the tier
+    // enum). setSavedId(null) fires immediately on success but this
+    // closure keeps a reference for the toast action.
+    const archivedId = savedId;
     startMutation(async () => {
-      const result = await deleteTravelSearch(savedId);
+      const result = await deleteTravelSearch(archivedId);
       if ("success" in result && result.success) {
         setSavedId(null);
         capture("travel_saved_search_removed", {});
-        toast.success("Removed from saved trips");
+        undoToastIdRef.current = toast.success("Removed from saved trips", {
+          action: {
+            label: "Undo",
+            onClick: () => {
+              startMutation(async () => {
+                const undo = await restoreTravelSearch(archivedId);
+                if ("success" in undo && undo.success) {
+                  setSavedId(archivedId);
+                } else {
+                  toast.error("Couldn't undo — save the trip again to preserve it.", {
+                    description: "error" in undo ? undo.error : undefined,
+                  });
+                }
+              });
+            },
+          },
+        });
       } else {
         toast.error("Couldn't remove this trip", {
           description: "error" in result ? result.error : "Please try again.",
@@ -242,14 +245,21 @@ export function TripSummary({
 
   return (
     <section className="mt-8 border-b border-border pb-8">
-      {routingRevised && (
+      {broaderExpanded ? (
         <p
           className="mb-2 font-mono text-[11px] uppercase tracking-[0.18em] text-amber-600 dark:text-amber-400"
-          aria-label="Search radius was automatically expanded"
+          aria-label="Search radius was automatically expanded to find results"
         >
           ◆ Routing revised
         </p>
-      )}
+      ) : radiusSnapped ? (
+        <p
+          className="mb-2 font-mono text-[11px] uppercase tracking-[0.18em] text-amber-600 dark:text-amber-400"
+          aria-label="Requested radius was adjusted to the nearest supported tier"
+        >
+          ◇ Radius adjusted
+        </p>
+      ) : null}
 
       <h1 className="font-display text-3xl font-medium tracking-tight sm:text-4xl lg:text-5xl">
         {destination}
@@ -292,22 +302,28 @@ export function TripSummary({
         <span>·</span>
         <span>{days} night{days !== 1 ? "s" : ""}</span>
         <span>·</span>
-        {routingRevised ? (
-          <span>
-            <s className="opacity-50">{radiusKm} km</s> → {effectiveRadiusKm} km
-          </span>
-        ) : (
-          <span>{radiusKm} km</span>
-        )}
+        <span>
+          {radiusSnapped && (
+            <>
+              <s className="opacity-50">{requestedRadiusKm} km</s>
+              {" → "}
+            </>
+          )}
+          {broaderExpanded ? (
+            <>
+              <s className="opacity-50">{radiusKm} km</s>
+              {" → "}
+              {effectiveRadiusKm} km
+            </>
+          ) : (
+            <>{radiusKm} km</>
+          )}
+        </span>
       </div>
 
       <div className="mt-6 flex flex-wrap gap-3">
         {savedId ? (
-          <SavedStateButton
-            isMutating={isMutating}
-            onUpdate={handleUpdate}
-            onRemove={handleRemove}
-          />
+          <SavedBadge isMutating={isMutating} onRemove={handleRemove} />
         ) : (
           <SaveButton
             isSaving={isSaving}
@@ -338,11 +354,11 @@ function SaveButton({
   isSaving,
   noCoverage,
   onSave,
-}: {
+}: Readonly<{
   isSaving: boolean;
   noCoverage: boolean;
   onSave: () => void;
-}) {
+}>) {
   const button = (
     <Button
       variant="default"
@@ -372,70 +388,30 @@ function SaveButton({
   );
 }
 
-/**
- * Split button for the Saved state: outlined-badge primary reads as status,
- * chevron trigger reveals Update/Remove actions. Distinct from the filled
- * primary "Save Trip" CTA so a user scanning the card can tell at a glance
- * whether this trip is already saved.
- */
-function SavedStateButton({
+function SavedBadge({
   isMutating,
-  onUpdate,
   onRemove,
-}: {
+}: Readonly<{
   isMutating: boolean;
-  onUpdate: () => void;
   onRemove: () => void;
-}) {
+}>) {
   return (
-    <div className="inline-flex items-stretch rounded-md border border-emerald-500/40 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300">
-      <Link
-        href="/travel/saved"
-        className="
-          inline-flex items-center gap-2 rounded-l-md pl-3 pr-2.5
-          text-sm font-medium transition-colors
-          hover:bg-emerald-500/10
-          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:z-10
-        "
-      >
-        <BadgeCheck className="h-4 w-4" />
-        <span>
-          Saved <span className="text-muted-foreground/60">·</span> Your trips
-        </span>
-        <ArrowRight className="h-3 w-3" />
-      </Link>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            aria-label="Saved trip actions"
-            disabled={isMutating}
-            className="
-              flex items-center justify-center rounded-r-md border-l border-emerald-500/30
-              px-2 transition-colors hover:bg-emerald-500/10
-              focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:z-10
-              disabled:opacity-50
-            "
-          >
-            <ChevronDown className="h-3.5 w-3.5" />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={onUpdate} disabled={isMutating}>
-            <RefreshCw className="h-3.5 w-3.5" />
-            Update with current params
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={onRemove}
-            disabled={isMutating}
-            className="text-destructive focus:text-destructive"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-            Remove from saved
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={onRemove}
+      disabled={isMutating}
+      aria-label="Remove from saved trips"
+      className="
+        gap-2 border-emerald-500/40 bg-emerald-500/5 text-emerald-700
+        hover:bg-emerald-500/10 hover:text-emerald-700
+        dark:text-emerald-300 dark:hover:text-emerald-300
+        disabled:opacity-50
+      "
+    >
+      <BadgeCheck className="h-4 w-4" />
+      Saved
+    </Button>
   );
 }
 

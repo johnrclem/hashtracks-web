@@ -205,10 +205,26 @@ export function SavedTripCard({
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>Delete this saved trip?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Removes &ldquo;{destination.label}&rdquo; from your saved
-                  trips. The events themselves stay on HashTracks — you can
-                  search for them again any time.
+                <AlertDialogDescription asChild>
+                  <div className="space-y-3">
+                    <div className="rounded-md border border-border/60 bg-muted/30 px-4 py-3">
+                      <div className="font-display text-base font-medium tracking-tight text-foreground">
+                        {destination.label}
+                      </div>
+                      <div className="mt-1 font-mono text-xs uppercase tracking-wider text-muted-foreground">
+                        {formatDateCompact(startStr, { withWeekday: true })}
+                        {" → "}
+                        {formatDateCompact(endStr, { withWeekday: true })}
+                        {" · "}
+                        {destination.radiusKm} km
+                      </div>
+                    </div>
+                    <p>
+                      Removes this trip from your saved list. The events
+                      themselves stay on HashTracks — you can search for
+                      them again any time.
+                    </p>
+                  </div>
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -218,7 +234,7 @@ export function SavedTripCard({
                   disabled={isDeleting}
                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 >
-                  {isDeleting ? "Deleting…" : "Delete"}
+                  {isDeleting ? "Deleting…" : "Delete trip"}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>

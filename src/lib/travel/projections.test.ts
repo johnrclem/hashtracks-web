@@ -238,6 +238,15 @@ describe("scoreConfidence", () => {
     expect(scoreConfidence("medium", inactiveKennel, 0, null)).toBe("low");
   });
 
+  it("MEDIUM degrades to LOW with zero events even when kennel is recently active", () => {
+    // PRD §Confidence Model: Medium requires ≥1 recent run within the
+    // evidence window. Pre-fix, a recently-active kennel could emit
+    // Medium with zero events because the inactive-kennel guard didn't
+    // fire — producing the "Medium · 0 runs in last 12 weeks" trust bug.
+    const recentValidation = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
+    expect(scoreConfidence("medium", kennel, 0, recentValidation)).toBe("low");
+  });
+
   it("HIGH stays HIGH with recent events and validation", () => {
     const recentValidation = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000);
     expect(scoreConfidence("high", kennel, 10, recentValidation)).toBe("high");

@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState, useCallback, useTransition, useRef } from "react";
+import { useState, useCallback, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { MapPin, Calendar, Compass, Search, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatDateCompact, daysBetween } from "@/lib/travel/format";
+import { RADIUS_TIERS, snapRadiusToTier } from "@/lib/travel/limits";
 import { capture } from "@/lib/analytics";
 import { resolveRefCode } from "@/lib/travel/iata";
 import { DestinationInput } from "./DestinationInput";
@@ -22,20 +23,13 @@ interface TravelSearchFormProps {
   };
 }
 
-const RADIUS_OPTIONS = [
-  { value: 10, label: "Close", description: "~6 mi" },
-  { value: 25, label: "Metro", description: "~15 mi" },
-  { value: 50, label: "Region", description: "~30 mi" },
-  { value: 100, label: "Far", description: "~60 mi" },
-] as const;
-
-function snapRadiusToTier(value: number): number {
-  const tiers = RADIUS_OPTIONS.map((o) => o.value);
-  if (tiers.includes(value as (typeof tiers)[number])) return value;
-  return tiers.reduce((nearest, tier) =>
-    Math.abs(tier - value) < Math.abs(nearest - value) ? tier : nearest,
-  );
-}
+const RADIUS_META: Record<(typeof RADIUS_TIERS)[number], { label: string; description: string }> = {
+  10: { label: "Close", description: "~6 mi" },
+  25: { label: "Metro", description: "~15 mi" },
+  50: { label: "Region", description: "~30 mi" },
+  100: { label: "Far", description: "~60 mi" },
+};
+const RADIUS_OPTIONS = RADIUS_TIERS.map((value) => ({ value, ...RADIUS_META[value] }));
 
 export function TravelSearchForm({ variant, initialValues }: Readonly<TravelSearchFormProps>) {
   const router = useRouter();
@@ -49,7 +43,6 @@ export function TravelSearchForm({ variant, initialValues }: Readonly<TravelSear
   const [radiusKm, setRadiusKm] = useState(
     snapRadiusToTier(initialValues?.radiusKm ?? 50),
   );
-  const didSnapRadiusRef = useRef(false);
   const [timezone, setTimezone] = useState(initialValues?.timezone ?? "");
   const [isExpanded, setIsExpanded] = useState(variant === "hero");
 
@@ -72,20 +65,6 @@ export function TravelSearchForm({ variant, initialValues }: Readonly<TravelSear
   // "N nights" display + negative analytics. Surface as invalid here.
   const datesValid = Boolean(startDate && endDate && startDate <= endDate);
   const canSubmit = destination && datesValid && coordsResolved;
-
-  // Ref-guarded so StrictMode's double-fire produces a single replace.
-  useEffect(() => {
-    if (didSnapRadiusRef.current) return;
-    didSnapRadiusRef.current = true;
-    if (variant !== "compact") return;
-    const requested = initialValues?.radiusKm;
-    if (requested == null) return;
-    const snapped = snapRadiusToTier(requested);
-    if (snapped === requested) return;
-    const here = new URL(window.location.href);
-    here.searchParams.set("r", snapped.toString());
-    router.replace(here.pathname + here.search);
-  }, [initialValues?.radiusKm, router, variant]);
 
   const handleSubmit = useCallback(() => {
     if (!canSubmit) {
