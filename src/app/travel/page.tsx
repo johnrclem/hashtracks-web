@@ -85,10 +85,7 @@ export default async function TravelPage({ searchParams }: TravelPageProps) {
     1,
     Math.min(MAX_RADIUS_KM, (r ? Number.parseInt(r, 10) : 50) || 50),
   );
-  // Snap server-side to the closed pill enum so SSR fires the RADIUS
-  // ADJUSTED treatment in TripSummary on first paint, before the client
-  // form's mount-time snap useEffect runs router.replace to normalize
-  // the URL.
+  // Snap server-side so SSR and the post-mount client snap agree.
   const radiusKm = snapRadiusToTier(requestedRadius);
 
   // YYYY-MM-DD shape check + chronological order. Without this a crafted

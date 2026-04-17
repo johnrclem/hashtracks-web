@@ -212,9 +212,9 @@ export function SavedTripCard({
                         {destination.label}
                       </div>
                       <div className="mt-1 font-mono text-xs uppercase tracking-wider text-muted-foreground">
-                        {formatDateCompact(utcYmd(destination.startDate), { withWeekday: true })}
+                        {formatDateCompact(startStr, { withWeekday: true })}
                         {" → "}
-                        {formatDateCompact(utcYmd(destination.endDate), { withWeekday: true })}
+                        {formatDateCompact(endStr, { withWeekday: true })}
                         {" · "}
                         {destination.radiusKm} km
                       </div>

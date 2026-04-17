@@ -83,11 +83,7 @@ export function TripSummary({
   const [isMutating, startMutation] = useTransition();
   const [savedId, setSavedId] = useState<string | null>(initialSavedId);
 
-  // SSR re-runs findExistingSavedSearch on URL change and passes a new
-  // initialSavedId, but useState's initializer only fires on mount. Without
-  // this sync the chip stays "Saved" after the user edits dates, surfacing
-  // a stale match-state to a chip that's now lying about which trip it's
-  // tied to.
+  // Sync on prop change — initialSavedId can change as URL params change.
   useEffect(() => {
     setSavedId(initialSavedId);
   }, [initialSavedId]);
@@ -96,11 +92,7 @@ export function TripSummary({
   const endFormatted = formatDateCompact(endDate, { withWeekday: true });
   const days = daysBetween(startDate, endDate);
   const totalCount = confirmedCount + likelyCount + possibleCount;
-  // Two distinct revisions: the requested radius was clamped to the closed
-  // tier enum (snap-down), and/or the broader-region fallback expanded
-  // beyond the input radius (expand-up). Per design, ROUTING REVISED wins
-  // visually when both fire because the broader-region change is the more
-  // user-impactful one.
+  // broaderExpanded wins visually over radiusSnapped when both fire.
   const radiusSnapped =
     requestedRadiusKm != null && requestedRadiusKm !== radiusKm;
   const broaderExpanded =
@@ -168,11 +160,7 @@ export function TripSummary({
       if ("success" in result && result.success) {
         setSavedId(null);
         capture("travel_saved_search_removed", {});
-        // Undo re-saves with current params — creates a fresh TravelSearch
-        // row (new id, new createdAt) since the soft-deleted row isn't
-        // restored. Dashboards sort by lastViewedAt, so the new row lands
-        // where users expect it. Trade-off accepted vs adding a dedicated
-        // restoreTravelSearch action just for this affordance.
+        // Undo re-saves with current params (new row); no restore action.
         toast.success("Removed from saved trips", {
           action: {
             label: "Undo",
@@ -374,12 +362,6 @@ function SaveButton({
   );
 }
 
-/**
- * Single-toggle Saved state. Click unsaves with a sonner Undo affordance —
- * one affordance, one decision, mirroring Spotify/Twitter's heart pattern.
- * Trip-management (rename, edit dates, etc.) lives on /travel/saved; this
- * chip is purely a save-state indicator on the results page.
- */
 function SavedBadge({
   isMutating,
   onRemove,

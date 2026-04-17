@@ -269,14 +269,9 @@ export function scoreConfidence(
   // Degrade if kennel appears inactive
   if (kennel.lastEventDate && now - kennel.lastEventDate.getTime() > NINETY_DAYS_MS) {
     if (score === "high") score = "medium";
-    if (score === "medium" && confirmedEventCount === 0) score = "low";
   }
 
-  // PRD §Confidence Model: Medium requires ≥1 recent run within the
-  // evidence window. Without this gate a kennel active <90 days ago can
-  // emit Medium with zero evidence in the 12-week scoring window — the
-  // card then displays "Medium confidence · 0 runs in last 12 weeks"
-  // which directly contradicts the model.
+  // PRD §Confidence Model: Medium requires ≥1 evidence event.
   if (score === "medium" && confirmedEventCount === 0) score = "low";
 
   return score;

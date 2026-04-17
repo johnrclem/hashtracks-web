@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { MapPin, Calendar, Compass, Search, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatDateCompact, daysBetween } from "@/lib/travel/format";
-import { snapRadiusToTier } from "@/lib/travel/limits";
+import { RADIUS_TIERS, snapRadiusToTier } from "@/lib/travel/limits";
 import { capture } from "@/lib/analytics";
 import { resolveRefCode } from "@/lib/travel/iata";
 import { DestinationInput } from "./DestinationInput";
@@ -23,12 +23,13 @@ interface TravelSearchFormProps {
   };
 }
 
-const RADIUS_OPTIONS = [
-  { value: 10, label: "Close", description: "~6 mi" },
-  { value: 25, label: "Metro", description: "~15 mi" },
-  { value: 50, label: "Region", description: "~30 mi" },
-  { value: 100, label: "Far", description: "~60 mi" },
-] as const;
+const RADIUS_META: Record<(typeof RADIUS_TIERS)[number], { label: string; description: string }> = {
+  10: { label: "Close", description: "~6 mi" },
+  25: { label: "Metro", description: "~15 mi" },
+  50: { label: "Region", description: "~30 mi" },
+  100: { label: "Far", description: "~60 mi" },
+};
+const RADIUS_OPTIONS = RADIUS_TIERS.map((value) => ({ value, ...RADIUS_META[value] }));
 
 export function TravelSearchForm({ variant, initialValues }: Readonly<TravelSearchFormProps>) {
   const router = useRouter();
