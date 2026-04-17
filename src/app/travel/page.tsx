@@ -83,7 +83,7 @@ export default async function TravelPage({ searchParams }: TravelPageProps) {
   // Floor to a whole number — Prisma's Int column rejects fractions.
   const requestedRadius = Math.max(
     1,
-    Math.min(MAX_RADIUS_KM, (r ? Number.parseInt(r, 10) : 50) || 50),
+    Math.min(MAX_RADIUS_KM, Number.parseInt(r ?? "50", 10) || 50),
   );
   // Snap server-side so SSR and the post-mount client snap agree.
   const radiusKm = snapRadiusToTier(requestedRadius);

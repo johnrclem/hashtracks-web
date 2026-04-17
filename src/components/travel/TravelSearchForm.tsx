@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useTransition, useRef } from "react";
+import { useState, useCallback, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { MapPin, Calendar, Compass, Search, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -43,7 +43,6 @@ export function TravelSearchForm({ variant, initialValues }: Readonly<TravelSear
   const [radiusKm, setRadiusKm] = useState(
     snapRadiusToTier(initialValues?.radiusKm ?? 50),
   );
-  const didSnapRadiusRef = useRef(false);
   const [timezone, setTimezone] = useState(initialValues?.timezone ?? "");
   const [isExpanded, setIsExpanded] = useState(variant === "hero");
 
@@ -66,20 +65,6 @@ export function TravelSearchForm({ variant, initialValues }: Readonly<TravelSear
   // "N nights" display + negative analytics. Surface as invalid here.
   const datesValid = Boolean(startDate && endDate && startDate <= endDate);
   const canSubmit = destination && datesValid && coordsResolved;
-
-  // Ref-guarded so StrictMode's double-fire produces a single replace.
-  useEffect(() => {
-    if (didSnapRadiusRef.current) return;
-    didSnapRadiusRef.current = true;
-    if (variant !== "compact") return;
-    const requested = initialValues?.radiusKm;
-    if (requested == null) return;
-    const snapped = snapRadiusToTier(requested);
-    if (snapped === requested) return;
-    const here = new URL(window.location.href);
-    here.searchParams.set("r", snapped.toString());
-    router.replace(here.pathname + here.search);
-  }, [initialValues?.radiusKm, router, variant]);
 
   const handleSubmit = useCallback(() => {
     if (!canSubmit) {

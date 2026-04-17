@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   Heart,
@@ -83,10 +83,19 @@ export function TripSummary({
   const [isSaving, startSave] = useTransition();
   const [isMutating, startMutation] = useTransition();
   const [savedId, setSavedId] = useState<string | null>(initialSavedId);
+  // Tracks the active Undo toast so we can dismiss it if the user navigates
+  // to a different search before clicking Undo (stale closure guard).
+  const undoToastIdRef = useRef<string | number | null>(null);
 
   // Sync on prop change — initialSavedId can change as URL params change.
+  // Also dismiss any pending Undo toast: an Undo from trip A must not
+  // restore trip A's id onto trip B's card after navigation.
   useEffect(() => {
     setSavedId(initialSavedId);
+    if (undoToastIdRef.current != null) {
+      toast.dismiss(undoToastIdRef.current);
+      undoToastIdRef.current = null;
+    }
   }, [initialSavedId]);
 
   const startFormatted = formatDateCompact(startDate, { withWeekday: true });
@@ -158,16 +167,16 @@ export function TripSummary({
     if (!savedId) return;
     // Capture the id being archived so Undo restores the exact same row
     // (preserves original id, createdAt, lastViewedAt, and the persisted
-     // radius — critical for legacy trips whose radius isn't on the tier
-     // enum). setSavedId(null) fires immediately on success but this
-     // closure keeps a reference for the toast action.
+    // radius — critical for legacy trips whose radius isn't on the tier
+    // enum). setSavedId(null) fires immediately on success but this
+    // closure keeps a reference for the toast action.
     const archivedId = savedId;
     startMutation(async () => {
       const result = await deleteTravelSearch(archivedId);
       if ("success" in result && result.success) {
         setSavedId(null);
         capture("travel_saved_search_removed", {});
-        toast.success("Removed from saved trips", {
+        undoToastIdRef.current = toast.success("Removed from saved trips", {
           action: {
             label: "Undo",
             onClick: () => {
@@ -345,11 +354,11 @@ function SaveButton({
   isSaving,
   noCoverage,
   onSave,
-}: {
+}: Readonly<{
   isSaving: boolean;
   noCoverage: boolean;
   onSave: () => void;
-}) {
+}>) {
   const button = (
     <Button
       variant="default"
@@ -382,10 +391,10 @@ function SaveButton({
 function SavedBadge({
   isMutating,
   onRemove,
-}: {
+}: Readonly<{
   isMutating: boolean;
   onRemove: () => void;
-}) {
+}>) {
   return (
     <Button
       variant="outline"

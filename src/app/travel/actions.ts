@@ -336,6 +336,7 @@ export async function restoreTravelSearch(
   });
   if (!search) return { error: "Search not found" };
   if (search.userId !== user.id) return { error: "Not authorized" };
+  if (search.status === TravelSearchStatus.ACTIVE) return { success: true, id };
 
   try {
     await prisma.$transaction([
