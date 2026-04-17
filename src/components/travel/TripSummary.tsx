@@ -189,13 +189,25 @@ export function TripSummary({
             // to no-op silently. Going straight to the action keeps the
             // control path obvious and the restore deterministic.
             onClick: async () => {
-              const undo = await restoreTravelSearch(archivedId);
-              if ("success" in undo && undo.success) {
-                setSavedId(archivedId);
-              } else {
-                toast.error("Couldn't undo — save the trip again to preserve it.", {
-                  description: "error" in undo ? undo.error : undefined,
-                });
+              const toastId = undoToastIdRef.current;
+              try {
+                const undo = await restoreTravelSearch(archivedId);
+                // Guard: user navigated to a different search while the
+                // restore was in flight — don't clobber the new trip's state.
+                if (undoToastIdRef.current !== toastId) return;
+                if (toastId != null) toast.dismiss(toastId);
+                if ("success" in undo && undo.success) {
+                  setSavedId(archivedId);
+                  capture("travel_saved_search_restored", {});
+                } else {
+                  toast.error("Couldn't undo — save the trip again to preserve it.", {
+                    description: "error" in undo ? undo.error : undefined,
+                  });
+                }
+              } catch {
+                if (undoToastIdRef.current !== toastId) return;
+                if (toastId != null) toast.dismiss(toastId);
+                toast.error("Couldn't undo — save the trip again to preserve it.");
               }
             },
           },
