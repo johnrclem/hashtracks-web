@@ -6,10 +6,11 @@ vi.mock("@/lib/db", () => ({
     source: { findUnique: vi.fn(), update: vi.fn() },
     sourceKennel: { findMany: vi.fn() },
     rawEvent: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
-    event: { findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn() },
+    event: { findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     eventLink: { upsert: vi.fn() },
     kennel: { findUnique: vi.fn() },
     $executeRaw: vi.fn().mockResolvedValue(0),
+    $transaction: vi.fn(),
   },
 }));
 
@@ -38,7 +39,7 @@ vi.mock("@/lib/geo", async (importOriginal) => {
 import { prisma } from "@/lib/db";
 import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag } from "./kennel-resolver";
-import { processRawEvents, sanitizeTitle, sanitizeLocation, sanitizeHares, friendlyKennelName, rewriteStaleDefaultTitle, suppressRedundantCity, NON_ENGLISH_GEO_RE } from "./merge";
+import { processRawEvents, sanitizeTitle, sanitizeLocation, sanitizeHares, friendlyKennelName, rewriteStaleDefaultTitle, suppressRedundantCity, NON_ENGLISH_GEO_RE, completenessScore, pickCanonicalEventId } from "./merge";
 
 const mockSourceFind = vi.mocked(prisma.source.findUnique);
 const _mockSourceUpdate = vi.mocked(prisma.source.update);
@@ -60,6 +61,13 @@ beforeEach(() => {
   mockRawEventUpdate.mockResolvedValue({} as never);
   vi.mocked(prisma.eventLink.upsert).mockResolvedValue({} as never);
   mockResolve.mockResolvedValue({ kennelId: "kennel_1", matched: true });
+  // recomputeCanonical calls findMany once per successful upsert AFTER the
+  // existing disambiguation findMany. Tests queue responses for the first
+  // call via mockResolvedValueOnce; default fallthrough returns [] so
+  // recomputeCanonical early-exits on length 0 and doesn't consume the
+  // next test's queued response.
+  mockEventFindMany.mockResolvedValue([] as never);
+  vi.mocked(prisma.$transaction).mockResolvedValue([] as never);
 });
 
 describe("processRawEvents", () => {
@@ -1604,5 +1612,167 @@ describe("suppressRedundantCity", () => {
 
   it("returns city when locationName is null", () => {
     expect(suppressRedundantCity(null, "Akron, OH")).toBe("Akron, OH");
+  });
+});
+
+// ============================================================================
+// canonical-row selection: when two sources produce rows for the same
+// (kennelId, date) and the upsert disambiguation can't collapse them, pick
+// exactly one row for display paths.
+// ============================================================================
+
+const EMPTY_DISPLAY_FIELDS = {
+  title: null,
+  haresText: null,
+  locationName: null,
+  locationStreet: null,
+  locationCity: null,
+  locationAddress: null,
+  latitude: null,
+  longitude: null,
+  startTime: null,
+  endTime: null,
+  cost: null,
+  sourceUrl: null,
+  runNumber: null,
+  description: null,
+};
+
+type Candidate = Parameters<typeof pickCanonicalEventId>[0][number];
+
+function candidate(overrides: Partial<Candidate> & { id: string }): Candidate {
+  return {
+    trustLevel: 5,
+    createdAt: new Date("2026-01-01T00:00:00Z"),
+    ...EMPTY_DISPLAY_FIELDS,
+    ...overrides,
+  };
+}
+
+describe("completenessScore", () => {
+  it("returns 0 for a row with no populated display fields", () => {
+    expect(completenessScore(EMPTY_DISPLAY_FIELDS)).toBe(0);
+  });
+
+  it("counts each populated field exactly once", () => {
+    expect(
+      completenessScore({
+        ...EMPTY_DISPLAY_FIELDS,
+        title: "Run #42",
+        startTime: "14:00",
+        latitude: 33.75,
+      }),
+    ).toBe(3);
+  });
+
+  it("treats empty strings as not-populated", () => {
+    expect(
+      completenessScore({
+        ...EMPTY_DISPLAY_FIELDS,
+        title: "",
+        haresText: "",
+        startTime: "",
+      }),
+    ).toBe(0);
+  });
+
+  it("counts lat and lng independently", () => {
+    expect(
+      completenessScore({ ...EMPTY_DISPLAY_FIELDS, latitude: 33.75, longitude: null }),
+    ).toBe(1);
+    expect(
+      completenessScore({ ...EMPTY_DISPLAY_FIELDS, latitude: 33.75, longitude: -84.39 }),
+    ).toBe(2);
+  });
+});
+
+describe("pickCanonicalEventId", () => {
+  it("returns null for an empty input", () => {
+    expect(pickCanonicalEventId([])).toBeNull();
+  });
+
+  it("returns the single id when there's no competition", () => {
+    expect(pickCanonicalEventId([candidate({ id: "e1" })])).toBe("e1");
+  });
+
+  it("picks the row with the higher trustLevel", () => {
+    const winner = candidate({ id: "e1", trustLevel: 8, title: "sparse" });
+    const loser = candidate({
+      id: "e2",
+      trustLevel: 5,
+      title: "rich title",
+      haresText: "Full field set",
+      locationName: "Piedmont Park",
+      startTime: "14:00",
+    });
+    expect(pickCanonicalEventId([loser, winner])).toBe("e1");
+  });
+
+  it("picks the more-populated row when trustLevels tie", () => {
+    const sparse = candidate({ id: "e1", trustLevel: 5, title: "only title" });
+    const rich = candidate({
+      id: "e2",
+      trustLevel: 5,
+      title: "title",
+      haresText: "hares",
+      locationName: "park",
+      startTime: "14:00",
+    });
+    expect(pickCanonicalEventId([sparse, rich])).toBe("e2");
+  });
+
+  it("picks the older row when trust and completeness both tie", () => {
+    const older = candidate({
+      id: "e1",
+      trustLevel: 5,
+      title: "t",
+      createdAt: new Date("2026-01-01T00:00:00Z"),
+    });
+    const newer = candidate({
+      id: "e2",
+      trustLevel: 5,
+      title: "t",
+      createdAt: new Date("2026-03-01T00:00:00Z"),
+    });
+    expect(pickCanonicalEventId([newer, older])).toBe("e1");
+  });
+
+  it("trust wins over completeness", () => {
+    // Prod audit case: a high-trust source with just title + startTime
+    // must beat a low-trust source that guessed 10 fields.
+    const highTrust = candidate({
+      id: "e1",
+      trustLevel: 9,
+      title: "Official",
+      startTime: "14:00",
+    });
+    const lowTrust = candidate({
+      id: "e2",
+      trustLevel: 3,
+      title: "Scraped guess",
+      haresText: "Maybe?",
+      locationName: "Some park",
+      locationStreet: "123 Some St",
+      locationCity: "Atlanta",
+      latitude: 33.75,
+      longitude: -84.39,
+      startTime: "14:00",
+      sourceUrl: "https://example.com",
+      description: "long description",
+    });
+    expect(pickCanonicalEventId([lowTrust, highTrust])).toBe("e1");
+  });
+
+  it("handles three-way groups correctly", () => {
+    const a = candidate({ id: "a", trustLevel: 5, title: "a" });
+    const b = candidate({
+      id: "b",
+      trustLevel: 7,
+      title: "b",
+      haresText: "hares",
+      startTime: "14:00",
+    });
+    const c = candidate({ id: "c", trustLevel: 6, title: "c" });
+    expect(pickCanonicalEventId([a, b, c])).toBe("b");
   });
 });

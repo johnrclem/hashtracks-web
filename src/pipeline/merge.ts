@@ -908,6 +908,7 @@ async function upsertCanonicalEvent(
     });
 
     targetEventId = newEvent.id;
+    sameDayEvents.push(newEvent); // keep finalCandidates consistent for recomputeCanonical
 
     // Link RawEvent to new Event
     await prisma.rawEvent.update({
@@ -923,6 +924,13 @@ async function upsertCanonicalEvent(
   const matched = ctx.batchMatchedEvents.get(batchKey) ?? new Set<string>();
   matched.add(targetEventId);
   ctx.batchMatchedEvents.set(batchKey, matched);
+
+  // Reconcile isCanonical across rows we already have in hand for this
+  // (kennelId, date) slot. sameDayEvents was fetched at the top with all
+  // fields; the CREATE branch pushes the just-inserted row. Update-path
+  // field values may be slightly stale but trustLevel + createdAt (the
+  // dominant sort keys) are immutable.
+  await recomputeCanonical(sameDayEvents);
 
   return targetEventId;
 }
@@ -1025,6 +1033,104 @@ async function processNewRawEvent(
   `;
 
   return targetEventId;
+}
+
+/**
+ * Fields that carry user-facing value on an Event row. Counted to pick a
+ * canonical row when two sources disagree on a (kennelId, date) — the row
+ * with more populated display fields wins tiebreakers on trustLevel ties.
+ */
+type CanonicalCandidate = {
+  id: string;
+  trustLevel: number;
+  createdAt: Date;
+  title: string | null;
+  haresText: string | null;
+  locationName: string | null;
+  locationStreet: string | null;
+  locationCity: string | null;
+  locationAddress: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  startTime: string | null;
+  endTime: string | null;
+  cost: string | null;
+  sourceUrl: string | null;
+  runNumber: number | null;
+  description: string | null;
+};
+
+export function completenessScore(e: Omit<CanonicalCandidate, "id" | "trustLevel" | "createdAt">): number {
+  let score = 0;
+  if (e.title) score++;
+  if (e.haresText) score++;
+  if (e.locationName) score++;
+  if (e.locationStreet) score++;
+  if (e.locationCity) score++;
+  if (e.locationAddress) score++;
+  if (e.latitude != null) score++;
+  if (e.longitude != null) score++;
+  if (e.startTime) score++;
+  if (e.endTime) score++;
+  if (e.cost) score++;
+  if (e.sourceUrl) score++;
+  if (e.runNumber != null) score++;
+  if (e.description) score++;
+  return score;
+}
+
+/**
+ * Pick the canonical row id from a group of Events sharing (kennelId, date).
+ * Ordering: trustLevel DESC, completeness DESC, createdAt ASC (stable).
+ * Pure function — no DB access; input is whatever the caller has in hand.
+ */
+export function pickCanonicalEventId(events: CanonicalCandidate[]): string | null {
+  if (events.length === 0) return null;
+  if (events.length === 1) return events[0].id;
+
+  let best = events[0];
+  let bestScore = completenessScore(best);
+  for (const e of events.slice(1)) {
+    const score = completenessScore(e);
+    if (
+      e.trustLevel > best.trustLevel ||
+      (e.trustLevel === best.trustLevel && score > bestScore) ||
+      (e.trustLevel === best.trustLevel && score === bestScore &&
+        e.createdAt.getTime() < best.createdAt.getTime())
+    ) {
+      best = e;
+      bestScore = score;
+    }
+  }
+  return best.id;
+}
+
+/**
+ * Recompute `isCanonical` across Event rows the caller already has in hand
+ * for one (kennelId, date). No DB read — upsertCanonicalEvent already
+ * fetched sameDayEvents, so we use that list plus the just-upserted row.
+ * No-op when the slot has 1 row — the default-true column already reflects
+ * "canonical."
+ */
+async function recomputeCanonical(
+  candidates: CanonicalCandidate[],
+): Promise<void> {
+  if (candidates.length <= 1) return;
+
+  const canonicalId = pickCanonicalEventId(candidates);
+  if (canonicalId == null) return;
+
+  const nonCanonicalIds = candidates.map(e => e.id).filter(id => id !== canonicalId);
+  await prisma.$transaction([
+    prisma.event.update({
+      where: { id: canonicalId },
+      data: { isCanonical: true },
+    }),
+    prisma.event.updateMany({
+      where: { id: { in: nonCanonicalIds } },
+      data: { isCanonical: false },
+    }),
+  ]);
 }
 
 /** Record a merge error in the result context. */

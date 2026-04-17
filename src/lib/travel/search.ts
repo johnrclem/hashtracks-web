@@ -255,6 +255,7 @@ export async function executeTravelSearch(
         kennelId: { in: nearbyIds },
         date: { gte: startDate, lte: endDate },
         status: "CONFIRMED",
+        isCanonical: true,
       },
       include: {
         eventLinks: { select: { url: true, label: true } },
@@ -273,6 +274,7 @@ export async function executeTravelSearch(
       where: {
         kennelId: { in: nearbyIds },
         status: "CONFIRMED",
+        isCanonical: true,
         date: { gte: twelveWeeksAgo, lte: now },
       },
       select: { kennelId: true, date: true },
