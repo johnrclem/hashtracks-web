@@ -1,7 +1,7 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
-import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, HARE_BOILERPLATE_RE, EVENT_FIELD_LABEL_RE, appendDescriptionSuffix, isPlaceholder, parse12HourTime, stripNonEnglishCountry } from "../utils";
+import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, HARE_BOILERPLATE_RE, EVENT_FIELD_LABEL_RE, CTA_EMBEDDED_PATTERNS, appendDescriptionSuffix, isPlaceholder, parse12HourTime, stripNonEnglishCountry } from "../utils";
 
 // Kennel patterns derived from actual Boston Hash Calendar event data.
 // Longer/more-specific patterns first to avoid false matches.
@@ -299,8 +299,8 @@ export function extractTimeFromDescription(description: string): string | undefi
 
 /** Default hare extraction patterns for Google Calendar descriptions. */
 const DEFAULT_HARE_PATTERNS = [
-  /(?:^|\n)[ \t]*H{1,3}are(?:\s*&\s*Co-Hares?)?\(?s?\)?:[ \t]*(.+)/im,  // Hare:, Hares:, HHHares: (Asheville's "HHH" = Hash House Harriers convention)
-  /(?:^|\n)[ \t]*Who\s*\(?(?:hares?)?\)?:[ \t]*(.+)/im,  // Who:, WHO (hares):, Who(hare):
+  /(?:^|\n)[ \t]*H{1,3}are(?:\s*&\s*Co-Hares?)?\(?s?\)?:[ \t]*(.*)/im,  // Hare:, Hares:, HHHares: (Asheville's "HHH" = Hash House Harriers convention)
+  /(?:^|\n)[ \t]*Who\s*\(?(?:hares?)?\)?:[ \t]*(.*)/im,  // Who:, WHO (hares):, Who(hare):
   /(?:^|\n)[ \t]*Hare[ \t]+([A-Z*].+)/im,  // "Hare C*ck Swap" (no colon, name starts uppercase/special)
 ];
 
@@ -328,10 +328,39 @@ export function extractHares(description: string, customPatterns?: string[] | Re
 
   for (const pattern of patterns) {
     const match = pattern.exec(normalized);
-    if (match?.[1]) {
-      let hares = match[1].trim();
+    if (match) {
+      let hares = (match[1] ?? "").trim();
       // Clean up trailing punctuation/whitespace
       hares = hares.split("\n")[0].trim();
+      // Multi-line continuation: when the label line has NO inline content
+      // (e.g., "Hares:\nAlice\nBob"), walk forward and concatenate names until
+      // a blank line, next field label, URL, or boilerplate marker. Restricted
+      // to label-only headers — text after an inline hare is almost always
+      // free-form description, not a co-hare. Additional safeguards against
+      // sweeping prose: cap line count, per-line length, and reject lines that
+      // look like sentences rather than hash names.
+      if (!hares) {
+        const MAX_CONTINUATION_LINES = 6;
+        const MAX_LINE_LEN = 80;
+        const matchEnd = (match.index ?? 0) + match[0].length;
+        const continuation = normalized.slice(matchEnd).split("\n");
+        const startIdx = continuation[0] === "" ? 1 : 0;
+        let added = 0;
+        for (let i = startIdx; i < continuation.length && added < MAX_CONTINUATION_LINES; i++) {
+          const line = continuation[i].trim();
+          if (!line) break;
+          if (EVENT_FIELD_LABEL_RE.test(line)) break;
+          if (HARE_BOILERPLATE_RE.test(line)) break;
+          if (/^https?:\/\//i.test(line)) break;
+          // Reject obviously non-name lines: colons (unrecognized field labels),
+          // sentence-ending punctuation, or overly long lines.
+          if (line.length > MAX_LINE_LEN) break;
+          if (/[:.!?]\s/.test(line) || /[.!?]$/.test(line)) break;
+          if (line.includes(":")) break;
+          hares = hares ? `${hares}, ${line}` : line;
+          added++;
+        }
+      }
       // Truncate at asterisk separators (e.g., "Denny's Sucks *** could use a co-hare")
       hares = hares.replace(/\s*\*{2,}\s*.*$/, "").trim();
       // Strip trailing co-hare commentary (e.g., "could use a co-hare", "need a co-hare")
@@ -414,6 +443,8 @@ interface GCalEvent {
   end?: { dateTime?: string; date?: string };
   htmlLink?: string;
   status?: string;
+  organizer?: { email?: string; displayName?: string };
+  creator?: { email?: string };
 }
 
 interface GCalListResponse {
@@ -506,6 +537,18 @@ export function buildRawEventFromGCalItem(
     for (const re of compiledSkipPatterns) {
       if (re.test(summary)) return null;
     }
+  }
+  // Skip placeholder recruitment events whose title is a CTA ("Hares needed",
+  // "Hare wanted", etc.) — never real trails. Mirrors the `title-cta-text`
+  // audit rule so placeholders never reach ingestion.
+  for (const re of CTA_EMBEDDED_PATTERNS) {
+    if (re.test(summary)) return null;
+  }
+  // Skip events from Google's imported holiday calendars (organizer.email has
+  // the form `…holiday…@group.v.calendar.google.com`).
+  const organizerEmail = item.organizer?.email ?? item.creator?.email;
+  if (organizerEmail && /holiday.*@group\.v\.calendar\.google\.com$/i.test(organizerEmail)) {
+    return null;
   }
   const { rawDescription, description } = normalizeGCalDescription(item.description);
   let hares = rawDescription ? extractHares(rawDescription, compiledHarePatterns) : undefined;

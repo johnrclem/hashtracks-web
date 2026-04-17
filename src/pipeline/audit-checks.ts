@@ -1,4 +1,4 @@
-import { HARE_BOILERPLATE_RE } from "@/adapters/utils";
+import { HARE_BOILERPLATE_RE, CTA_EMBEDDED_PATTERNS } from "@/adapters/utils";
 
 export interface AuditEventRow {
   id: string;
@@ -122,18 +122,6 @@ const PHONE_NUMBER_RE =
 
 const CTA_PATTERN =
   /^(?:tbd|tba|tbc|n\/a|sign[\s\u00A0]*up!?|volunteer|needed|required)$/i;
-/**
- * Embedded CTA phrases inside a longer sentence. Catches cases like
- * "Hares needed for Friday evening." that the exact-match CTA_PATTERN misses
- * because the whole-string anchor rejects anything with extra words.
- * Split into small named patterns for readability — adding a new CTA shape
- * means appending one line instead of extending a mega-regex. See #522.
- */
-const CTA_EMBEDDED_PATTERNS = [
-  /\bhares?\s+(?:needed|wanted|required|volunteer\w*)\b/i,
-  /\bneed(?:ed)?\s+(?:a\s+)?hares?\b/i,
-  /\blooking\s+for\s+(?:a\s+)?hares?\b/i,
-] as const;
 
 export function checkTitleQuality(event: AuditEventRow): AuditFinding[] {
   const { title, kennelCode, kennelShortName } = event;
