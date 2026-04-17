@@ -6,6 +6,7 @@ import {
   buildEvidenceTimeline,
   generateExplanationFromRule,
   clampToProjectionHorizon,
+  projectionHorizonForStart,
   type ScheduleRuleInput,
   type ConfirmedEventRef,
 } from "./projections";
@@ -440,24 +441,45 @@ describe("generateExplanationFromRule", () => {
 describe("clampToProjectionHorizon", () => {
   const refDate = utcNoon("2026-04-12");
 
-  it("clamps dates beyond 90 days from reference", () => {
-    const farFuture = utcNoon("2027-01-01");
+  it("clamps dates beyond 365 days from reference", () => {
+    const farFuture = utcNoon("2028-01-01");
     const clamped = clampToProjectionHorizon(farFuture, refDate);
     expect(clamped.getTime()).toBeLessThan(farFuture.getTime());
-    // Should be roughly 90 days from refDate
     const diffDays = (clamped.getTime() - refDate.getTime()) / (24 * 60 * 60 * 1000);
-    expect(diffDays).toBeCloseTo(90, 0);
+    expect(diffDays).toBeCloseTo(365, 0);
   });
 
-  it("does not clamp dates within 90 days", () => {
-    const nearFuture = utcNoon("2026-05-01");
-    const clamped = clampToProjectionHorizon(nearFuture, refDate);
-    expect(clamped.getTime()).toBe(nearFuture.getTime());
+  it("does not clamp dates within 365 days", () => {
+    const withinYear = utcNoon("2027-01-01"); // ~264 days out
+    const clamped = clampToProjectionHorizon(withinYear, refDate);
+    expect(clamped.getTime()).toBe(withinYear.getTime());
   });
 
-  it("handles exact boundary (90 days out)", () => {
-    const exactly90 = new Date(refDate.getTime() + 90 * 24 * 60 * 60 * 1000);
-    const clamped = clampToProjectionHorizon(exactly90, refDate);
-    expect(clamped.getTime()).toBe(exactly90.getTime());
+  it("handles exact boundary (365 days out)", () => {
+    const exactly365 = new Date(refDate.getTime() + 365 * 24 * 60 * 60 * 1000);
+    const clamped = clampToProjectionHorizon(exactly365, refDate);
+    expect(clamped.getTime()).toBe(exactly365.getTime());
+  });
+});
+
+describe("projectionHorizonForStart", () => {
+  const now = utcNoon("2026-04-12");
+
+  it("returns 'all' for dates within 180 days", () => {
+    expect(projectionHorizonForStart(utcNoon("2026-05-01"), now)).toBe("all");
+    expect(
+      projectionHorizonForStart(new Date(now.getTime() + 180 * 24 * 60 * 60 * 1000), now),
+    ).toBe("all");
+  });
+
+  it("returns 'high' for dates between 181 and 365 days", () => {
+    expect(projectionHorizonForStart(utcNoon("2026-12-01"), now)).toBe("high");
+    expect(
+      projectionHorizonForStart(new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000), now),
+    ).toBe("high");
+  });
+
+  it("returns 'none' past 365 days", () => {
+    expect(projectionHorizonForStart(utcNoon("2028-01-01"), now)).toBe("none");
   });
 });

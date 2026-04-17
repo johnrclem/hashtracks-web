@@ -250,27 +250,18 @@ describe("executeTravelSearch", () => {
     expect(apr18Likely).toHaveLength(0);
   });
 
-  it("short-circuits to out_of_horizon when startDate is beyond the 90-day projection window", async () => {
-    // Before commit S, dates past the 90-day horizon fell through to the
-    // main pipeline and returned an empty result with emptyState="no_confirmed"
-    // — which the UI then rendered as "No results match the active filters"
-    // even though no filters were active. Distinct variant lets EmptyStates
-    // tell the truth ("Beyond our routing horizon").
+  it("short-circuits to out_of_horizon when startDate is beyond the 365-day projection window", async () => {
     const farFuture: TravelSearchParams = {
       ...baseParams,
-      // Far enough out that any reasonable test-runner clock is beyond the
-      // 90-day horizon — ten years ahead of the fixture dates.
+      // Ten years out — well beyond the outer 365-day HIGH horizon.
       startDate: "2036-04-12",
       endDate: "2036-04-26",
     };
-    // Seed the mock with matching kennel + event + rule so the empty
-    // result would only be possible via the short-circuit — otherwise
-    // `projectTrails` would generate `testRule`-sourced likelies and
-    // `testEvent` would surface as confirmed.
     const prisma = createMockPrisma([testKennel], [testEvent], [testRule]);
     const result = await executeTravelSearch(prisma, farFuture);
 
     expect(result.emptyState).toBe("out_of_horizon");
+    expect(result.meta.horizonTier).toBe("none");
     expect(result.confirmed).toHaveLength(0);
     expect(result.likely).toHaveLength(0);
     expect(result.possible).toHaveLength(0);
@@ -416,18 +407,17 @@ describe("executeTravelSearch", () => {
     expect(filtered.confirmed).toHaveLength(0);
   });
 
-  it("clamps end date to 90-day horizon", async () => {
+  it("clamps end date to the 365-day HIGH horizon", async () => {
     const prisma = createMockPrisma([testKennel], [], [testRule]);
     const result = await executeTravelSearch(prisma, {
       ...baseParams,
-      endDate: "2027-01-01", // Way beyond 90 days
+      endDate: "2028-01-01", // Way beyond 365 days
     });
 
-    // Should still return results but only within 90 days
     if (result.likely.length > 0) {
       const latestDate = result.likely[result.likely.length - 1].date;
-      const ninetyDaysFromNow = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
-      expect(latestDate.getTime()).toBeLessThanOrEqual(ninetyDaysFromNow.getTime() + 24 * 60 * 60 * 1000);
+      const yearFromNow = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+      expect(latestDate.getTime()).toBeLessThanOrEqual(yearFromNow.getTime() + 24 * 60 * 60 * 1000);
     }
   });
 });

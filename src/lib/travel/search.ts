@@ -21,7 +21,10 @@ import {
   deduplicateAgainstConfirmed,
   buildEvidenceTimeline,
   clampToProjectionHorizon,
+  projectionHorizonForStart,
+  PROJECTION_HORIZON_HIGH_DAYS,
   type ProjectedTrail,
+  type ProjectionHorizonTier,
   type ScheduleRuleInput,
   type KennelContext,
   type EvidenceTimeline,
@@ -126,6 +129,15 @@ export interface TravelSearchResults {
     kennelsSearched: number;
     radiusKm: number;
     broaderRadiusKm?: number;
+    /**
+     * Which projection tier the search's start date falls into:
+     *   "all" — within 180d, MEDIUM + HIGH projections both render
+     *   "high" — 181-365d, only HIGH-confidence RRULE projections render
+     *   "none" — past 365d, confirmed events only
+     * UI surfaces this so TripSummary can explain why Likely looks sparse
+     * for far-out searches.
+     */
+    horizonTier: ProjectionHorizonTier;
   };
 }
 
@@ -134,7 +146,7 @@ export interface TravelSearchResults {
 // ============================================================================
 
 const TWELVE_WEEKS_MS = 12 * 7 * 24 * 60 * 60 * 1000;
-const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000;
+const PROJECTION_HORIZON_HIGH_MS = PROJECTION_HORIZON_HIGH_DAYS * 24 * 60 * 60 * 1000;
 
 // ============================================================================
 // Internal types
@@ -209,14 +221,15 @@ export async function executeTravelSearch(
   const startDate = parseUtcNoonDate(params.startDate);
   const rawEndDate = parseUtcNoonDate(params.endDate);
   const endDate = clampToProjectionHorizon(rawEndDate, now);
+  const horizonTier = projectionHorizonForStart(startDate, now);
 
-  if (startDate.getTime() > now.getTime() + NINETY_DAYS_MS) {
+  if (startDate.getTime() > now.getTime() + PROJECTION_HORIZON_HIGH_MS) {
     return {
       confirmed: [],
       likely: [],
       possible: [],
       emptyState: "out_of_horizon",
-      meta: { kennelsSearched: 0, radiusKm },
+      meta: { kennelsSearched: 0, radiusKm, horizonTier },
     };
   }
 
@@ -241,7 +254,7 @@ export async function executeTravelSearch(
       likely: [],
       possible: [],
       emptyState: "no_coverage",
-      meta: { kennelsSearched: 0, radiusKm, broaderRadiusKm },
+      meta: { kennelsSearched: 0, radiusKm, broaderRadiusKm, horizonTier },
     };
   }
 
@@ -307,12 +320,23 @@ export async function executeTravelSearch(
   }));
   const dedupedProjections = deduplicateAgainstConfirmed(scoredProjections, confirmedRefs);
 
+  // Horizon-tier filter: past 180 days, only HIGH-confidence RRULE
+  // projections remain in the Likely bucket. Past 365 days, all
+  // projections drop (confirmed events continue to render if they exist
+  // that far out). LOW-confidence "possible activity" has no date and
+  // doesn't decay with distance.
+  const horizonFilteredProjections = dedupedProjections.filter((p) => {
+    if (horizonTier === "all") return true;
+    if (horizonTier === "high") return p.confidence === "high" || p.confidence === "low";
+    return p.confidence === "low"; // horizonTier === "none"
+  });
+
   // Step 10: Classify into likely vs possible
-  const likelyProjections = dedupedProjections.filter(
+  const likelyProjections = horizonFilteredProjections.filter(
     (p): p is ProjectedTrail & { date: Date; confidence: "high" | "medium" } =>
       p.date !== null && (p.confidence === "high" || p.confidence === "medium"),
   );
-  const possibleProjections = dedupedProjections.filter(
+  const possibleProjections = horizonFilteredProjections.filter(
     (p) => p.confidence === "low" || p.date === null,
   );
 
@@ -453,6 +477,7 @@ export async function executeTravelSearch(
       kennelsSearched: nearbyKennels.length,
       radiusKm,
       broaderRadiusKm,
+      horizonTier,
     },
   };
 }

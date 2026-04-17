@@ -41,10 +41,10 @@ const STATES: Record<
   },
   out_of_horizon: {
     icon: Clock,
-    headline: "Beyond our routing horizon.",
+    headline: "More than a year out.",
     body: () =>
-      "We project trails 90 days ahead — your dates are further out. The hashes are real, the schedules just aren't published yet. Bookmark and check back closer to your trip.",
-    cta: { label: "Try dates within 90 days", href: "/travel" },
+      "We surface projections up to 12 months ahead — your dates are further than that. The hashes are real, the schedules just aren't published yet. Bookmark and check back closer to your trip.",
+    cta: { label: "Try dates within 12 months", href: "/travel" },
   },
   error: {
     icon: AlertTriangle,

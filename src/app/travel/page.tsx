@@ -274,6 +274,7 @@ async function TravelResultsServer({
       // which radius the trails are actually within.
       effectiveRadiusKm: results.meta.broaderRadiusKm ?? results.meta.radiusKm,
       noCoverage: results.emptyState === "no_coverage",
+      horizonTier: results.meta.horizonTier,
       timezone,
       isAuthenticated,
       initialSavedId,

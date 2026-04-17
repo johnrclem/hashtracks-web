@@ -58,6 +58,13 @@ interface TripSummaryProps {
   possibleCount: number;
   /** True when the result is a coverage gap; disables Save. */
   noCoverage?: boolean;
+  /**
+   * Which projection tier the search fell into:
+   *   "all"  — within 180d, all projection tiers render (default)
+   *   "high" — 181–365d, only HIGH-confidence Likely; explain via banner
+   *   "none" — past 365d, confirmed events only; explain via banner
+   */
+  horizonTier?: "all" | "high" | "none";
   confirmedEvents: ExportableConfirmedEvent[];
 }
 
@@ -77,6 +84,7 @@ export function TripSummary({
   likelyCount,
   possibleCount,
   noCoverage,
+  horizonTier,
   confirmedEvents,
 }: Readonly<TripSummaryProps>) {
   const router = useRouter();
@@ -313,6 +321,21 @@ export function TripSummary({
         <p className="mt-2 max-w-xl text-sm italic leading-relaxed text-muted-foreground/70">
           No schedule patterns indexed for these kennels yet — only posted
           events shown.
+        </p>
+      )}
+
+      {horizonTier === "high" && (
+        <p className="mt-2 max-w-xl text-sm italic leading-relaxed text-muted-foreground/70">
+          Past the 6-month mark — showing only kennels with fixed schedules
+          (weekly / fortnightly / monthly patterns). Kennels with looser
+          cadences reappear on shorter searches.
+        </p>
+      )}
+
+      {horizonTier === "none" && (
+        <p className="mt-2 max-w-xl text-sm italic leading-relaxed text-muted-foreground/70">
+          Past the 1-year mark — showing posted events only. Projected
+          trails resume on searches within the next 12 months.
         </p>
       )}
 

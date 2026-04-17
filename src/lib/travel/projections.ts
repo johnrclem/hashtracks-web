@@ -474,18 +474,43 @@ function ordinal(n: number): string {
 }
 
 /**
- * Clamp a date range end to today + 90 days (the projection horizon per PRD §10.1).
- * Returns a new Date clamped to the horizon, or the original if already within it.
+ * Projection horizon tiers — how far ahead each confidence level can be
+ * reliably projected. Confirmed events ignore these bounds entirely
+ * (a real event planned 2 years out is still real).
+ */
+export const PROJECTION_HORIZON_ALL_DAYS = 180;
+export const PROJECTION_HORIZON_HIGH_DAYS = 365;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Which confidence levels can still project at `startDate`. Horizon gates:
+ *   0–180d: MEDIUM + HIGH projections + LOW possible (all)
+ *   181–365d: HIGH projections + LOW possible (high)
+ *   365+d: no projections; confirmed events still render (none)
+ */
+export type ProjectionHorizonTier = "all" | "high" | "none";
+
+export function projectionHorizonForStart(
+  startDate: Date,
+  referenceDate: Date = new Date(),
+): ProjectionHorizonTier {
+  const daysOut = (startDate.getTime() - referenceDate.getTime()) / DAY_MS;
+  if (daysOut <= PROJECTION_HORIZON_ALL_DAYS) return "all";
+  if (daysOut <= PROJECTION_HORIZON_HIGH_DAYS) return "high";
+  return "none";
+}
+
+/**
+ * Clamp a date range end to the outer HIGH horizon so projection loops
+ * don't run unboundedly on Jan-2028 trips. Confirmed-event queries can
+ * bypass this — a real posted event past the horizon is still displayable.
  */
 export function clampToProjectionHorizon(
   endDate: Date,
   referenceDate: Date = new Date(),
 ): Date {
-  const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000;
-  const horizonRaw = new Date(referenceDate.getTime() + NINETY_DAYS_MS);
-  // Normalize to UTC noon so the horizon aligns with the repo's date convention.
-  // Without this, a search running before 12:00 UTC would exclude events stored
-  // at the standard YYYY-MM-DDT12:00:00Z on the boundary day.
+  const horizonRaw = new Date(referenceDate.getTime() + PROJECTION_HORIZON_HIGH_DAYS * DAY_MS);
   const horizon = new Date(Date.UTC(
     horizonRaw.getUTCFullYear(),
     horizonRaw.getUTCMonth(),
