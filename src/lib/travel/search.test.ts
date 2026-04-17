@@ -250,30 +250,136 @@ describe("executeTravelSearch", () => {
     expect(apr18Likely).toHaveLength(0);
   });
 
-  it("short-circuits to out_of_horizon when startDate is beyond the 90-day projection window", async () => {
-    // Before commit S, dates past the 90-day horizon fell through to the
-    // main pipeline and returned an empty result with emptyState="no_confirmed"
-    // — which the UI then rendered as "No results match the active filters"
-    // even though no filters were active. Distinct variant lets EmptyStates
-    // tell the truth ("Beyond our routing horizon").
+  it("emits out_of_horizon when startDate is past 365d AND no confirmed events in window", async () => {
     const farFuture: TravelSearchParams = {
       ...baseParams,
-      // Far enough out that any reasonable test-runner clock is beyond the
-      // 90-day horizon — ten years ahead of the fixture dates.
       startDate: "2036-04-12",
       endDate: "2036-04-26",
     };
-    // Seed the mock with matching kennel + event + rule so the empty
-    // result would only be possible via the short-circuit — otherwise
-    // `projectTrails` would generate `testRule`-sourced likelies and
-    // `testEvent` would surface as confirmed.
+    // testEvent is at 2026-04-18, far before the 2036 window, so the
+    // confirmed query legitimately returns nothing. Rule projections are
+    // filtered out by horizonTier="none" too.
     const prisma = createMockPrisma([testKennel], [testEvent], [testRule]);
     const result = await executeTravelSearch(prisma, farFuture);
 
     expect(result.emptyState).toBe("out_of_horizon");
+    expect(result.meta.horizonTier).toBe("none");
     expect(result.confirmed).toHaveLength(0);
     expect(result.likely).toHaveLength(0);
     expect(result.possible).toHaveLength(0);
+  });
+
+  it("drops LOW-confidence Possible projections past the 365d horizon (tier 3)", async () => {
+    // QA regression: a LOW CADENCE rule was leaking into tier-3 Possible
+    // and flipping the empty-state arbiter off `out_of_horizon` back to
+    // `no_confirmed`, rendering a stray SLH3-style row instead of the
+    // "More than a year out" copy.
+    const lowRule: MockScheduleRule = {
+      ...testRule,
+      id: "r-low",
+      rrule: "CADENCE=MONTHLY;BYDAY=SA",
+      confidence: "LOW",
+      notes: "Monthly — specific week unknown",
+    };
+    const prisma = createMockPrisma([testKennel], [], [lowRule]);
+    const result = await executeTravelSearch(prisma, {
+      ...baseParams,
+      startDate: "2036-04-12",
+      endDate: "2036-04-26",
+    });
+
+    expect(result.meta.horizonTier).toBe("none");
+    expect(result.possible).toHaveLength(0);
+    expect(result.emptyState).toBe("out_of_horizon");
+  });
+
+  it("still surfaces confirmed events past the 365d projection horizon", async () => {
+    // Codex regression: a real event posted ~18 months out must render
+    // even though projections give up at 365d. 550 days is inside the
+    // 730-day confirmed-event horizon (CONFIRMED_EVENT_HORIZON_DAYS)
+    // but past the projection tier boundary.
+    const farFuture = new Date(Date.now() + 550 * 24 * 60 * 60 * 1000);
+    const farFutureISO = farFuture.toISOString().slice(0, 10);
+    const farFutureStart = new Date(farFuture.getTime() - 5 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+    const farFutureEnd = new Date(farFuture.getTime() + 5 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+
+    const farFutureEvent: MockEvent = {
+      ...testEvent,
+      id: "e-farfuture",
+      date: utcNoon(farFutureISO),
+    };
+    const prisma = createMockPrisma([testKennel], [farFutureEvent], []);
+    const result = await executeTravelSearch(prisma, {
+      ...baseParams,
+      startDate: farFutureStart,
+      endDate: farFutureEnd,
+    });
+
+    expect(result.emptyState).toBe("none");
+    expect(result.meta.horizonTier).toBe("none");
+    expect(result.confirmed).toHaveLength(1);
+    expect(result.confirmed[0].eventId).toBe("e-farfuture");
+    // Projections still suppressed past 365d.
+    expect(result.likely).toHaveLength(0);
+  });
+
+  it("clamps confirmed-event query to CONFIRMED_EVENT_HORIZON_DAYS (2 years)", async () => {
+    // PR #792 hotfix: a URL-crafted 5-year window previously fanned out
+    // the confirmed-event findMany unboundedly → Vercel function timeout
+    // → "Something went wrong" error card. Events past 2 years must be
+    // excluded from the query regardless of what end-date the caller
+    // supplies.
+    const threeYearsOut = new Date(Date.now() + 3 * 365 * 24 * 60 * 60 * 1000);
+    const threeYearsEnd = threeYearsOut.toISOString().slice(0, 10);
+    const threeYearsISO = threeYearsOut.toISOString().slice(0, 10);
+
+    const pathologicalEvent: MockEvent = {
+      ...testEvent,
+      id: "e-3yr",
+      date: utcNoon(threeYearsISO),
+    };
+    // Start date stays near-term so the search actually runs (horizonTier
+    // would short-circuit a far-future start before hitting the query).
+    const prisma = createMockPrisma([testKennel], [pathologicalEvent], []);
+    const result = await executeTravelSearch(prisma, {
+      ...baseParams,
+      startDate: baseParams.startDate,
+      endDate: threeYearsEnd,
+    });
+
+    // Event at +3yr is past the 730-day cap → excluded.
+    expect(result.confirmed).toHaveLength(0);
+  });
+
+  it("handles a window that straddles the 365d boundary", async () => {
+    // Search spans ~350d → 375d. Confirmed events inside the full
+    // window should all render (no clamp); projections for the far end
+    // drop because start > 365d → horizonTier "none".
+    const nearBoundary: MockEvent = {
+      ...testEvent,
+      id: "e-near-boundary",
+      date: utcNoon("2027-04-01"), // ~350 days out from baseParams' "now"
+    };
+    const pastBoundary: MockEvent = {
+      ...testEvent,
+      id: "e-past-boundary",
+      date: utcNoon("2027-04-25"), // ~374 days out
+    };
+    const prisma = createMockPrisma([testKennel], [nearBoundary, pastBoundary], []);
+    const result = await executeTravelSearch(prisma, {
+      ...baseParams,
+      startDate: "2027-03-28",
+      endDate: "2027-04-26",
+    });
+
+    expect(result.confirmed.length).toBeGreaterThanOrEqual(2);
+    const ids = result.confirmed.map(r => r.eventId);
+    expect(ids).toContain("e-near-boundary");
+    expect(ids).toContain("e-past-boundary");
   });
 
   it("excludes hidden kennels from results", async () => {
@@ -416,18 +522,17 @@ describe("executeTravelSearch", () => {
     expect(filtered.confirmed).toHaveLength(0);
   });
 
-  it("clamps end date to 90-day horizon", async () => {
+  it("clamps end date to the 365-day HIGH horizon", async () => {
     const prisma = createMockPrisma([testKennel], [], [testRule]);
     const result = await executeTravelSearch(prisma, {
       ...baseParams,
-      endDate: "2027-01-01", // Way beyond 90 days
+      endDate: "2028-01-01", // Way beyond 365 days
     });
 
-    // Should still return results but only within 90 days
     if (result.likely.length > 0) {
       const latestDate = result.likely[result.likely.length - 1].date;
-      const ninetyDaysFromNow = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
-      expect(latestDate.getTime()).toBeLessThanOrEqual(ninetyDaysFromNow.getTime() + 24 * 60 * 60 * 1000);
+      const yearFromNow = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+      expect(latestDate.getTime()).toBeLessThanOrEqual(yearFromNow.getTime() + 24 * 60 * 60 * 1000);
     }
   });
 });

@@ -474,18 +474,69 @@ function ordinal(n: number): string {
 }
 
 /**
- * Clamp a date range end to today + 90 days (the projection horizon per PRD §10.1).
- * Returns a new Date clamped to the horizon, or the original if already within it.
+ * Projection horizon tiers — how far ahead each confidence level can be
+ * reliably projected. Confirmed events ignore these bounds entirely
+ * (a real event planned 2 years out is still real).
+ */
+export const PROJECTION_HORIZON_ALL_DAYS = 180;
+export const PROJECTION_HORIZON_HIGH_DAYS = 365;
+
+/**
+ * Outer bound for the confirmed-event query. Confirmed events can render
+ * past the 365-day projection horizon (a real NYE run 18 months out is
+ * still real), but a URL-crafted or saved-trip end-date decades out must
+ * not fan out Event.findMany unboundedly. 2 years comfortably covers every
+ * realistic trip plan without letting the query walk the full Event table.
+ */
+export const CONFIRMED_EVENT_HORIZON_DAYS = 730;
+
+export const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Which confidence levels can still project at `startDate`. Horizon gates:
+ *   0–180d: MEDIUM + HIGH projections + LOW possible (all)
+ *   181–365d: HIGH projections + LOW possible (high)
+ *   365+d: no projections; confirmed events still render (none)
+ */
+export type ProjectionHorizonTier = "all" | "high" | "none";
+
+export function projectionHorizonForStart(
+  startDate: Date,
+  referenceDate: Date = new Date(),
+): ProjectionHorizonTier {
+  const daysOut = (startDate.getTime() - referenceDate.getTime()) / DAY_MS;
+  if (daysOut <= PROJECTION_HORIZON_ALL_DAYS) return "all";
+  if (daysOut <= PROJECTION_HORIZON_HIGH_DAYS) return "high";
+  return "none";
+}
+
+/**
+ * Strip projections whose confidence exceeds what's allowed at this tier.
+ * At tier "none" (start > 365d) nothing projects — the user sees confirmed
+ * events only and the out_of_horizon empty state when those are also empty.
+ * Fast-paths the common `"all"` case to skip allocating a filtered copy.
+ */
+export function filterProjectionsByHorizon<T extends { confidence: "high" | "medium" | "low" }>(
+  projections: T[],
+  tier: ProjectionHorizonTier,
+): T[] {
+  if (tier === "all") return projections;
+  if (tier === "high") {
+    return projections.filter(p => p.confidence === "high" || p.confidence === "low");
+  }
+  return [];
+}
+
+/**
+ * Clamp a date range end to the outer HIGH horizon so projection loops
+ * don't run unboundedly on Jan-2028 trips. Confirmed-event queries can
+ * bypass this — a real posted event past the horizon is still displayable.
  */
 export function clampToProjectionHorizon(
   endDate: Date,
   referenceDate: Date = new Date(),
 ): Date {
-  const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000;
-  const horizonRaw = new Date(referenceDate.getTime() + NINETY_DAYS_MS);
-  // Normalize to UTC noon so the horizon aligns with the repo's date convention.
-  // Without this, a search running before 12:00 UTC would exclude events stored
-  // at the standard YYYY-MM-DDT12:00:00Z on the boundary day.
+  const horizonRaw = new Date(referenceDate.getTime() + PROJECTION_HORIZON_HIGH_DAYS * DAY_MS);
   const horizon = new Date(Date.UTC(
     horizonRaw.getUTCFullYear(),
     horizonRaw.getUTCMonth(),

@@ -21,7 +21,12 @@ import {
   deduplicateAgainstConfirmed,
   buildEvidenceTimeline,
   clampToProjectionHorizon,
+  projectionHorizonForStart,
+  filterProjectionsByHorizon,
+  CONFIRMED_EVENT_HORIZON_DAYS,
+  DAY_MS,
   type ProjectedTrail,
+  type ProjectionHorizonTier,
   type ScheduleRuleInput,
   type KennelContext,
   type EvidenceTimeline,
@@ -126,6 +131,15 @@ export interface TravelSearchResults {
     kennelsSearched: number;
     radiusKm: number;
     broaderRadiusKm?: number;
+    /**
+     * Which projection tier the search's start date falls into:
+     *   "all" — within 180d, MEDIUM + HIGH projections both render
+     *   "high" — 181-365d, only HIGH-confidence RRULE projections render
+     *   "none" — past 365d, confirmed events only
+     * UI surfaces this so TripSummary can explain why Likely looks sparse
+     * for far-out searches.
+     */
+    horizonTier: ProjectionHorizonTier;
   };
 }
 
@@ -133,8 +147,15 @@ export interface TravelSearchResults {
 // Constants
 // ============================================================================
 
-const TWELVE_WEEKS_MS = 12 * 7 * 24 * 60 * 60 * 1000;
-const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000;
+const TWELVE_WEEKS_MS = 12 * 7 * DAY_MS;
+
+/**
+ * Safety-net row cap for the confirmed-event query. A traveler viewing
+ * ~50 kennels × ~7 days averages well under 100 rows; hitting this cap
+ * means the caller passed a pathologically wide window and we prefer
+ * truncation over a function timeout or RSC serialization blow-up.
+ */
+const CONFIRMED_EVENT_ROW_CAP = 500;
 
 // ============================================================================
 // Internal types
@@ -206,19 +227,23 @@ export async function executeTravelSearch(
   const now = new Date();
 
   // Step 1: Parse + clamp dates
+  // rawEndDate is the user's requested end — uncapped, so we can tell
+  // downstream that this was the intent. Two separate derived bounds:
+  //   - confirmedEndDate: bounds the confirmed-event DB query. Past the
+  //     projection horizon but capped at CONFIRMED_EVENT_HORIZON_DAYS so
+  //     a 5-year URL doesn't fan out Event.findMany across every kennel.
+  //   - projectionEndDate: bounds the RRULE loop so it doesn't iterate
+  //     unboundedly on far-future trips.
   const startDate = parseUtcNoonDate(params.startDate);
   const rawEndDate = parseUtcNoonDate(params.endDate);
-  const endDate = clampToProjectionHorizon(rawEndDate, now);
-
-  if (startDate.getTime() > now.getTime() + NINETY_DAYS_MS) {
-    return {
-      confirmed: [],
-      likely: [],
-      possible: [],
-      emptyState: "out_of_horizon",
-      meta: { kennelsSearched: 0, radiusKm },
-    };
-  }
+  const confirmedHorizonMax = new Date(
+    now.getTime() + CONFIRMED_EVENT_HORIZON_DAYS * DAY_MS,
+  );
+  const confirmedEndDate = rawEndDate.getTime() < confirmedHorizonMax.getTime()
+    ? rawEndDate
+    : confirmedHorizonMax;
+  const projectionEndDate = clampToProjectionHorizon(rawEndDate, now);
+  const horizonTier = projectionHorizonForStart(startDate, now);
 
   // Step 2: Find nearby kennels — TWO passes
   const allKennels = await fetchAllVisibleKennels(prisma);
@@ -241,7 +266,7 @@ export async function executeTravelSearch(
       likely: [],
       possible: [],
       emptyState: "no_coverage",
-      meta: { kennelsSearched: 0, radiusKm, broaderRadiusKm },
+      meta: { kennelsSearched: 0, radiusKm, broaderRadiusKm, horizonTier },
     };
   }
 
@@ -250,18 +275,22 @@ export async function executeTravelSearch(
   // Steps 3–5 + 8: Three independent DB queries run in parallel (saves ~2 round-trips)
   const twelveWeeksAgo = new Date(now.getTime() - TWELVE_WEEKS_MS);
   const [confirmedEvents, scheduleRules, evidenceEvents] = await Promise.all([
-    // Step 3: Confirmed events in date window
+    // Step 3: Confirmed events in date window. Allowed past the 365-day
+    // projection horizon (real NYE events 18mo out still render) but
+    // bounded by CONFIRMED_EVENT_HORIZON_DAYS + a row cap so a pathological
+    // date range can't time out the function or bust the RSC payload limit.
     prisma.event.findMany({
       where: {
         ...CANONICAL_EVENT_WHERE,
         kennelId: { in: nearbyIds },
-        date: { gte: startDate, lte: endDate },
+        date: { gte: startDate, lte: confirmedEndDate },
         status: "CONFIRMED",
       },
       include: {
         eventLinks: { select: { url: true, label: true } },
       },
       orderBy: { date: "asc" },
+      take: CONFIRMED_EVENT_ROW_CAP,
     }),
     // Step 5: Active schedule rules
     prisma.scheduleRule.findMany({
@@ -293,7 +322,7 @@ export async function executeTravelSearch(
     confidence: r.confidence,
     notes: r.notes,
   }));
-  const projections = projectTrails(ruleInputs, startDate, endDate);
+  const projections = projectTrails(ruleInputs, startDate, projectionEndDate);
 
   // Step 7: Score confidence using evidence events (last ~12 weeks ≈ 84 days,
   // close to the 90-day window the scoring function expects)
@@ -306,13 +335,14 @@ export async function executeTravelSearch(
     startTime: e.startTime,
   }));
   const dedupedProjections = deduplicateAgainstConfirmed(scoredProjections, confirmedRefs);
+  const horizonFilteredProjections = filterProjectionsByHorizon(dedupedProjections, horizonTier);
 
   // Step 10: Classify into likely vs possible
-  const likelyProjections = dedupedProjections.filter(
+  const likelyProjections = horizonFilteredProjections.filter(
     (p): p is ProjectedTrail & { date: Date; confidence: "high" | "medium" } =>
       p.date !== null && (p.confidence === "high" || p.confidence === "medium"),
   );
-  const possibleProjections = dedupedProjections.filter(
+  const possibleProjections = horizonFilteredProjections.filter(
     (p) => p.confidence === "low" || p.date === null,
   );
 
@@ -426,6 +456,9 @@ export async function executeTravelSearch(
   let emptyState: TravelSearchResults["emptyState"] = "none";
   let broaderResultsObj: TravelSearchResults["broaderResults"];
 
+  const totalResults =
+    filtered.confirmed.length + filtered.likely.length + filtered.possible.length;
+
   if (primary.length === 0 && broader.length > 0) {
     // Primary radius empty, broader found kennels → show broader as fallback
     emptyState = "no_nearby";
@@ -436,6 +469,11 @@ export async function executeTravelSearch(
     };
   } else if (primary.length === 0 && broader.length === 0) {
     emptyState = "no_coverage";
+  } else if (totalResults === 0 && horizonTier === "none") {
+    // Past the 365-day projection horizon and nobody posted an event that
+    // far out. Differentiate from "no_confirmed" so EmptyStates copy can
+    // explain the situation instead of implying the filter is the issue.
+    emptyState = "out_of_horizon";
   } else if (filtered.confirmed.length === 0 && (filtered.likely.length > 0 || filtered.possible.length > 0)) {
     emptyState = "no_confirmed";
   }
@@ -453,6 +491,7 @@ export async function executeTravelSearch(
       kennelsSearched: nearbyKennels.length,
       radiusKm,
       broaderRadiusKm,
+      horizonTier,
     },
   };
 }
