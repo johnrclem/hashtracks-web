@@ -226,6 +226,7 @@ export const SOURCES = [
       scrapeDays: 365,
       config: {
         defaultKennelTag: "ewh3",
+        includeAllDayEvents: true,
       },
       kennelCodes: ["ewh3"],
     },
