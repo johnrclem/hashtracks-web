@@ -1946,3 +1946,154 @@ describe("normalizeGCalDescription", () => {
     expect(result.description).toContain("Trail notes");
   });
 });
+
+describe("buildRawEventFromGCalItem — trailing dash + defaultTitle (#756 Moooouston)", () => {
+  it("strips trailing dash and applies defaultTitle when the result equals the kennelTag", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "Moooouston H3 -" }),
+      {
+        kennelPatterns: [["Moooouston", "moooouston-h3"]],
+        defaultTitle: "Moooouston H3 Trail",
+      },
+    );
+    expect(result?.title).toBe("Moooouston H3 Trail");
+  });
+
+  it("strips trailing en-dash and em-dash too", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "Moooouston H3 —" }),
+      {
+        kennelPatterns: [["Moooouston", "moooouston-h3"]],
+        defaultTitle: "Moooouston H3 Trail",
+      },
+    );
+    expect(result?.title).toBe("Moooouston H3 Trail");
+  });
+
+  it("defaultTitles map scopes fallback per-kennel on aggregator calendars", () => {
+    const config = {
+      kennelPatterns: [
+        ["Moooouston", "moooouston-h3"],
+        ["Mosquito", "mosquito-h3"],
+      ] as [string, string][],
+      defaultTitles: { "moooouston-h3": "Moooouston H3 Trail" },
+    };
+    const moo = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "Moooouston H3 -" }),
+      config,
+    );
+    const skeeter = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "Mosquito" }),
+      config,
+    );
+    expect(moo?.title).toBe("Moooouston H3 Trail");
+    // Mosquito has no entry in defaultTitles — no fallback, title stays as kennel tag slug
+    expect(skeeter?.title).toBe("Mosquito");
+  });
+});
+
+describe("buildRawEventFromGCalItem — strictKennelRouting (#753 WA Hash)", () => {
+  const config = {
+    kennelPatterns: [["Seattle H3|\\bSH3\\b", "seattle-h3"]] as [string, string][],
+    strictKennelRouting: true,
+  };
+
+  it("drops events whose summary matches no kennel pattern under strict routing", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "Lexi's surgery" }),
+      config,
+    );
+    expect(result).toBeNull();
+  });
+
+  it("retains events that match a kennel pattern under strict routing", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "Seattle H3 #500" }),
+      config,
+    );
+    expect(result?.kennelTag).toBe("seattle-h3");
+  });
+
+  it("falls back to defaultKennelTag when strictKennelRouting is not set", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "Random Event" }),
+      {
+        kennelPatterns: [["Seattle H3|\\bSH3\\b", "seattle-h3"]],
+        defaultKennelTag: "wa-hash",
+      },
+    );
+    expect(result?.kennelTag).toBe("wa-hash");
+  });
+});
+
+describe("buildRawEventFromGCalItem — location sanitization (#743 SWH3)", () => {
+  it("strips trailing phone number from GCal location field", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        summary: "SWH3 Run",
+        location: "123 Main St, Raleigh NC 919-555-1234",
+      }),
+      { defaultKennelTag: "swh3" },
+    );
+    expect(result?.location).toBe("123 Main St, Raleigh NC");
+  });
+
+  it("strips trailing parenthetical contact CTA from location", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        summary: "SWH3 Run",
+        location: "Raleigh Beer Garden (text for details)",
+      }),
+      { defaultKennelTag: "swh3" },
+    );
+    expect(result?.location).toBe("Raleigh Beer Garden");
+  });
+
+  it("strips both phone and contact CTA together", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        summary: "SWH3 Run",
+        location: "Raleigh Beer Garden 919-555-1234 (call for details)",
+      }),
+      { defaultKennelTag: "swh3" },
+    );
+    expect(result?.location).toBe("Raleigh Beer Garden");
+  });
+
+  it("#743: does not shred mid-string phone-like fragments (e.g. '1 800' suite number)", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        summary: "SWH3 Run",
+        location: "Suite 1 800 555 1234 Main St",
+      }),
+      { defaultKennelTag: "swh3" },
+    );
+    // Trailing-only strip: the digits are preserved as part of the address.
+    expect(result?.location).toBe("Suite 1 800 555 1234 Main St");
+  });
+});
+
+describe("extractHares — bare 10-digit phone strip (#742 BAH3)", () => {
+  it("strips bare 10-digit phone suffix from hares", () => {
+    const desc = "Hares: Slick Willy 2406185563";
+    const hares = extractHares(desc);
+    expect(hares).toBe("Slick Willy");
+  });
+
+  it("strips formatted phone suffix from hares (existing behavior)", () => {
+    const desc = "Hares: Slick Willy 240-618-5563";
+    const hares = extractHares(desc);
+    expect(hares).toBe("Slick Willy");
+  });
+});
+
+describe("extractLocationFromDescription — hash-vernacular labels (#742)", () => {
+  it.each([
+    ["De'erections", "De'erections: 123 Main St"],
+    ["Deerections", "Deerections: 123 Main St"],
+    ["Direcshits", "Direcshits: 123 Main St"],
+    ["Where to gather", "Where to gather: 123 Main St"],
+  ])("extracts location from %s label", (_label, desc) => {
+    expect(extractLocationFromDescription(desc)).toBe("123 Main St");
+  });
+});

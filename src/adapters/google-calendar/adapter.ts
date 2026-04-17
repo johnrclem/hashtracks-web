@@ -2,6 +2,7 @@ import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
 import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, HARE_BOILERPLATE_RE, EVENT_FIELD_LABEL_RE, CTA_EMBEDDED_PATTERNS, appendDescriptionSuffix, isPlaceholder, parse12HourTime, stripNonEnglishCountry } from "../utils";
+import { PHONE_NUMBER_RE } from "@/pipeline/audit-checks";
 
 // Kennel patterns derived from actual Boston Hash Calendar event data.
 // Longer/more-specific patterns first to avoid false matches.
@@ -121,8 +122,17 @@ const TITLE_PURE_TIME_RE = /^\d{1,2}:\d{2}\s*[ap]m$/i;
 // Schedule-line pattern: "Label: time" or "Label & Label: time" — skip as title candidates
 const TITLE_SCHEDULE_LINE_RE = /:\s*\d{1,2}:\d{2}\s*(?:am|pm)/i;
 
+// Trailing-phone strip used by both hares (#742 "Slug 2406185563") and
+// locationName (#743 "123 Main St 555-123-4567"). End-of-string only — a
+// global strip would eat "800" out of address fragments like "Suite 1 800".
+// Hash-vernacular CTAs we strip from locationName (#743): parenthetical
+// suffixes like "(text for details)" that creep in via Google Calendar.
+const PHONE_TRAILING_RE = new RegExp(`\\s*(?:${PHONE_NUMBER_RE.source})\\s*$`);
+const LOCATION_TRAILING_CTA_RE = /\s*\((?:text|call|contact|ping)[^)]*\)\s*$/i;
+
 // Pre-compiled regexes for extractLocationFromDescription
-const LOCATION_LABEL_RE = /(?:^|\n)\s*(?:WHERE|Location|On[\s-]Start|Start\s+Address|Address|Meet(?:ing)?\s*(?:spot|point|at)?)\s*:\s*(.+)/im;
+// #742: hash-vernacular labels (De'erections, Direcshits, Where to gather) are synonyms for "Location".
+const LOCATION_LABEL_RE = /(?:^|\n)\s*(?:WHERE|Location|On[\s-]Start|Start\s+Address|Address|Meet(?:ing)?\s*(?:spot|point|at)?|De'?erections|Direcshits|Where\s+to\s+gather)\s*:\s*(.+)/im;
 // Fallback: bare label (no colon) with value on subsequent line, optionally after a URL line
 const LOCATION_BARE_LABEL_RE = /(?:^|\n)\s*(?:WHERE|LOCATION)\s*\n(?:\s*https?:\/\/\S+\s*\n)?\s*(.+)/im;
 // Secondary fallback: "Start:" as location label (lower priority — often contains time, not location)
@@ -177,7 +187,8 @@ export function extractWhatFieldFromDescription(description: string): string | u
 }
 
 /** Collapse whitespace + lowercase, used for stale-default title detection. */
-const normalizeForCompare = (s: string) => s.replaceAll(/\s+/g, "").toLowerCase();
+// Whitespace- AND hyphen-insensitive: "Moooouston H3" matches kennelTag "moooouston-h3".
+const normalizeForCompare = (s: string) => s.replaceAll(/[\s-]+/g, "").toLowerCase();
 
 /** Whitespace + case insensitive: `"4X2 H4"` matches `"4x2h4"`. */
 function titleMatchesKennelTag(title: string, kennelTag: string): boolean {
@@ -371,8 +382,9 @@ export function extractHares(description: string, customPatterns?: string[] | Re
       // (e.g., "AmazonWhat: A beautiful trail …" → "Amazon"). The \b word boundary
       // in EVENT_FIELD_LABEL_RE prevents matching tokens inside other words.
       hares = hares.replace(EVENT_FIELD_LABEL_RE, "").trim();
-      // Strip trailing US phone numbers (e.g., "719-360-3805", "(555) 123-4567")
-      hares = hares.replace(/\s*\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}\s*$/, "").trim();
+      // Strip trailing US phone numbers — both formatted ("(555) 123-4567",
+      // "719-360-3805") and bare 10-digit runs ("2406185563" — see #742).
+      hares = hares.replace(PHONE_TRAILING_RE, "").trim();
       // Skip generic/non-hare "Who:" answers
       if (/^(?:that be you|your|all|everyone)/i.test(hares)) continue;
       // Filter hare strings starting with common prepositions/verbs (description text, not names)
@@ -401,6 +413,14 @@ function isNonAddressText(text: string): boolean {
 interface CalendarSourceConfig {
   kennelPatterns?: [string, string][];  // [[regex, kennelTag], ...]
   defaultKennelTag?: string;            // fallback for unrecognized events
+  /**
+   * When true on a multi-kennel calendar (one with `kennelPatterns`), a summary
+   * that matches NO pattern is dropped rather than routed to `defaultKennelTag`
+   * / boston fallback. Prevents cross-kennel noise (e.g. non-hash "Lexi's
+   * surgery" posts on WA Hash) from being ingested under an arbitrary kennel.
+   * See issue #753.
+   */
+  strictKennelRouting?: boolean;
   skipPatterns?: string[];              // regex strings — skip events whose summary matches
   harePatterns?: string[];              // regex strings to extract hares from descriptions
   runNumberPatterns?: string[];         // regex strings to extract run numbers from descriptions
@@ -409,6 +429,7 @@ interface CalendarSourceConfig {
   includeAllDayEvents?: boolean;        // if true, don't skip all-day events (some calendars use them for real runs)
   defaultStartTime?: string;            // "HH:MM" fallback when neither the calendar item nor the description yields a start time (paired with includeAllDayEvents)
   defaultTitle?: string;                // human-readable fallback title when event summary is just a kennel slug
+  defaultTitles?: Record<string, string>; // per-kennelTag fallback titles (aggregator calendars)
   // Some calendars only populate the soonest-upcoming event's description, which
   // carries an inline schedule listing future dates and hares. After the scrape
   // finishes, back-fill `hares` on other events for the same kennelTag by
@@ -488,15 +509,20 @@ export function normalizeGCalDescription(rawDesc: string | undefined): { rawDesc
   return { rawDescription, description };
 }
 
-/** Resolve kennel tag from event summary using config patterns or Boston fallback. */
+/**
+ * Resolve kennel tag from event summary using config patterns or Boston fallback.
+ * Returns null when `strictKennelRouting` is enabled and no pattern matches —
+ * caller should drop the event (see issue #753).
+ */
 function resolveKennelTagFromSummary(
   summary: string,
   sourceConfig: CalendarSourceConfig | null,
-): { kennelTag: string; useFullTitle: boolean } {
+): { kennelTag: string; useFullTitle: boolean } | null {
   if (sourceConfig?.kennelPatterns) {
-    const kennelTag = matchConfigPatterns(summary, sourceConfig.kennelPatterns)
-      ?? sourceConfig.defaultKennelTag
-      ?? extractKennelTag(summary);
+    const matched = matchConfigPatterns(summary, sourceConfig.kennelPatterns);
+    if (matched) return { kennelTag: matched, useFullTitle: true };
+    if (sourceConfig.strictKennelRouting) return null;
+    const kennelTag = sourceConfig.defaultKennelTag ?? extractKennelTag(summary);
     return { kennelTag, useFullTitle: true };
   }
   if (sourceConfig?.defaultKennelTag) {
@@ -561,9 +587,20 @@ export function buildRawEventFromGCalItem(
       haresFromTitle = !!hares;
     }
   }
-  const { kennelTag, useFullTitle } = resolveKennelTagFromSummary(summary, sourceConfig);
-  // Location: prefer item.location (unless placeholder or instruction text), fall back to description extraction
+  const resolved = resolveKennelTagFromSummary(summary, sourceConfig);
+  if (!resolved) return null;
+  const { kennelTag, useFullTitle } = resolved;
+  // Location: prefer item.location (unless placeholder or instruction text), fall back to description extraction.
+  // #743: strip trailing phone numbers and contact-CTA parentheticals from the
+  // raw GCal location field. Trailing only — a bare "1 800 ..." in the middle
+  // of a street fragment would otherwise be shredded.
   let location = item.location ? stripNonEnglishCountry(decodeEntities(item.location).trim()) : undefined;
+  if (location) {
+    location = location
+      .replace(LOCATION_TRAILING_CTA_RE, "")
+      .replace(PHONE_TRAILING_RE, "")
+      .trim() || undefined;
+  }
   if (location && (isPlaceholder(location) || isNonAddressText(location))) location = undefined;
   if (!location && rawDescription) {
     location = extractLocationFromDescription(rawDescription);
@@ -572,6 +609,10 @@ export function buildRawEventFromGCalItem(
   // Determine title: if title matches kennel tag, try description fallback
   let title = useFullTitle ? summary : extractTitle(summary);
   title = stripDatePrefix(title);
+  // Strip a trailing dash/delimiter (#756 "Moooouston H3 Trail -"). The
+  // subsequent defaultTitle path replaces an empty string with a configured
+  // fallback; without this strip the title shipped to users as "… -".
+  title = title.replace(/\s*[-–—]\s*$/, "").trim();
   // Stale-default detection: equality is whitespace-insensitive so a SUMMARY
   // of "4X2 H4" still matches kennelTag "4x2h4".
   if (titleMatchesKennelTag(title, kennelTag) && rawDescription) {
@@ -682,9 +723,11 @@ export function buildRawEventFromGCalItem(
     title = kennelTag;
   }
 
-  // defaultTitle fallback runs last, after all branches that may reset title to kennelTag
-  if (titleMatchesKennelTag(title, kennelTag) && sourceConfig?.defaultTitle) {
-    title = sourceConfig.defaultTitle;
+  // defaultTitle fallback runs last, after all branches that may reset title to kennelTag.
+  // Also fires when title collapsed to empty after trailing-dash strip (#756).
+  const fallback = sourceConfig?.defaultTitles?.[kennelTag] ?? sourceConfig?.defaultTitle;
+  if ((!title || titleMatchesKennelTag(title, kennelTag)) && fallback) {
+    title = fallback;
   }
 
   // Start time: prefer dateTime-derived time, then description extraction,
