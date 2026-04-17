@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/auth";
 import { executeTravelSearch } from "@/lib/travel/search";
 import { findExistingSavedSearch } from "@/app/travel/actions";
-import { MAX_RADIUS_KM } from "@/lib/travel/limits";
+import { MAX_RADIUS_KM, snapRadiusToTier } from "@/lib/travel/limits";
 import { TravelSearchForm } from "@/components/travel/TravelSearchForm";
 import { TravelResults } from "@/components/travel/TravelResults";
 import { TravelResultsSkeleton } from "@/components/travel/TravelResultsSkeleton";
@@ -81,8 +81,15 @@ export default async function TravelPage({ searchParams }: TravelPageProps) {
   // Clamp at the page boundary so a URL like ?r=99999 cannot turn the
   // primary kennel pass into an effectively-global scan (CodeRabbit).
   // Floor to a whole number — Prisma's Int column rejects fractions.
-  const requestedRadius = r ? Number.parseInt(r, 10) : 50;
-  const radiusKm = Math.max(1, Math.min(MAX_RADIUS_KM, requestedRadius || 50));
+  const requestedRadius = Math.max(
+    1,
+    Math.min(MAX_RADIUS_KM, (r ? Number.parseInt(r, 10) : 50) || 50),
+  );
+  // Snap server-side to the closed pill enum so SSR fires the RADIUS
+  // ADJUSTED treatment in TripSummary on first paint, before the client
+  // form's mount-time snap useEffect runs router.replace to normalize
+  // the URL.
+  const radiusKm = snapRadiusToTier(requestedRadius);
 
   // YYYY-MM-DD shape check + chronological order. Without this a crafted
   // ?from=foo URL falls through to parseUtcNoonDate and produces NaN-typed
@@ -124,6 +131,7 @@ export default async function TravelPage({ searchParams }: TravelPageProps) {
           latitude={latitude}
           longitude={longitude}
           radiusKm={radiusKm}
+          requestedRadiusKm={requestedRadius}
           startDate={from}
           endDate={to}
           destination={q ?? ""}
@@ -145,6 +153,7 @@ async function TravelResultsServer({
   latitude,
   longitude,
   radiusKm,
+  requestedRadiusKm,
   startDate,
   endDate,
   destination,
@@ -155,6 +164,7 @@ async function TravelResultsServer({
   latitude: number;
   longitude: number;
   radiusKm: number;
+  requestedRadiusKm: number;
   startDate: string;
   endDate: string;
   destination: string;
@@ -255,6 +265,7 @@ async function TravelResultsServer({
       latitude,
       longitude,
       radiusKm,
+      requestedRadiusKm,
       // When the service expanded to a broader region, surface the
       // larger radius so the hero count + summary can stop lying about
       // which radius the trails are actually within.

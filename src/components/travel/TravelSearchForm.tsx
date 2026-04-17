@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { MapPin, Calendar, Compass, Search, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatDateCompact, daysBetween } from "@/lib/travel/format";
+import { snapRadiusToTier } from "@/lib/travel/limits";
 import { capture } from "@/lib/analytics";
 import { resolveRefCode } from "@/lib/travel/iata";
 import { DestinationInput } from "./DestinationInput";
@@ -28,14 +29,6 @@ const RADIUS_OPTIONS = [
   { value: 50, label: "Region", description: "~30 mi" },
   { value: 100, label: "Far", description: "~60 mi" },
 ] as const;
-
-function snapRadiusToTier(value: number): number {
-  const tiers = RADIUS_OPTIONS.map((o) => o.value);
-  if (tiers.includes(value as (typeof tiers)[number])) return value;
-  return tiers.reduce((nearest, tier) =>
-    Math.abs(tier - value) < Math.abs(nearest - value) ? tier : nearest,
-  );
-}
 
 export function TravelSearchForm({ variant, initialValues }: Readonly<TravelSearchFormProps>) {
   const router = useRouter();
