@@ -1775,4 +1775,39 @@ describe("pickCanonicalEventId", () => {
     const c = candidate({ id: "c", trustLevel: 6, title: "c" });
     expect(pickCanonicalEventId([a, b, c])).toBe("b");
   });
+
+  it("flips the winner when equal-trust completeness shifts after an update", () => {
+    // Regression: the update path in upsertCanonicalEvent enriches fields
+    // on the target row. If recomputeCanonical scores pre-update state, a
+    // sibling with higher pre-update completeness wins even though the
+    // updated row would beat it now. Splicing the fresh row into
+    // sameDayEvents is what guarantees the selector sees the post-update
+    // score.
+    const preUpdate = candidate({
+      id: "updating",
+      trustLevel: 5,
+      title: "thin",
+      createdAt: new Date("2026-03-01T00:00:00Z"),
+    });
+    const sibling = candidate({
+      id: "sibling",
+      trustLevel: 5,
+      title: "sibling",
+      haresText: "hares",
+      locationName: "park",
+      createdAt: new Date("2026-03-02T00:00:00Z"),
+    });
+    expect(pickCanonicalEventId([preUpdate, sibling])).toBe("sibling");
+
+    const postUpdate = {
+      ...preUpdate,
+      haresText: "hares",
+      locationName: "park",
+      startTime: "14:00",
+      latitude: 33.75,
+      longitude: -84.39,
+    };
+    // Completeness 5 > 3 → updated row wins.
+    expect(pickCanonicalEventId([postUpdate, sibling])).toBe("updating");
+  });
 });

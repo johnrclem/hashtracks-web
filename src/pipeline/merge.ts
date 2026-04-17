@@ -773,7 +773,7 @@ async function upsertCanonicalEvent(
         locationCity = null;
       }
 
-      await prisma.event.update({
+      const updated = await prisma.event.update({
         where: { id: existingEvent.id },
         data: {
           ...(shouldRestore ? { status: "CONFIRMED" as const } : {}),
@@ -824,6 +824,12 @@ async function upsertCanonicalEvent(
           ...(locationCity !== undefined ? { locationCity } : {}),
         },
       });
+      // Splice the fresh row into sameDayEvents so recomputeCanonical scores
+      // post-update completeness, not pre-update (real regression path:
+      // equal-trust sibling was winning on stale numbers before the update
+      // added fields that would flip the pick).
+      const idx = sameDayEvents.findIndex(e => e.id === existingEvent.id);
+      if (idx !== -1) sameDayEvents[idx] = updated;
     }
 
     // Lower-trust enrichment: fill NULL fields without overwriting non-null
@@ -849,10 +855,12 @@ async function upsertCanonicalEvent(
         enrichData.startTime = event.startTime;
       }
       if (Object.keys(enrichData).length > 0) {
-        await prisma.event.update({
+        const enriched = await prisma.event.update({
           where: { id: existingEvent.id },
           data: enrichData,
         });
+        const idx = sameDayEvents.findIndex(e => e.id === existingEvent.id);
+        if (idx !== -1) sameDayEvents[idx] = enriched;
       }
     }
 
