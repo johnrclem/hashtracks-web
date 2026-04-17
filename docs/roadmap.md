@@ -915,6 +915,12 @@ Surfaced by browser audits + adversarial reviews during the Travel Mode build. C
 - [x] **WordPress REST API** (`WORDPRESS_API`): Shared utility for blog-based sources (EWH3, DCH4)
 - [ ] **RSS/Atom adapter** (`RSS_FEED`): For kennels with blog-style event posts (WordPress blog scrapers already cover some of this)
 - [ ] **Facebook Events adapter** (`FACEBOOK_EVENTS`): Scrape public Facebook page events via NAS headless browser with authenticated session. Would unlock dozens of Facebook-only kennels (e.g., CT: SBH3, Rotten Groton; many small-market kennels). Requires: cookie/session persistence in browser render service, anti-detection measures, periodic re-auth. High-value capability — many kennels have no web presence outside Facebook.
+  - **Kennels blocked on this (audit references — confirm current list via `gh issue list --search "facebook group" --label audit --state all` before implementation):**
+    - ASS H3 — Las Vegas; lvh3.org category is sparse (18-month gap), FB group is primary (#734)
+    - B2BH3 — #656 (closed as deferred)
+    - BCH3 — #697 (closed as deferred)
+    - Atlanta H4 — #635 (FB link died)
+    - AUGH3 — #645 (FB source broken)
 - [ ] **hashnj.com HTML scraper**: Similar to hashnyc.com, different HTML structure
 - [ ] **Gemini AI parsing**: For complex multi-day event narrative text (campout descriptions with per-day schedules)
 
