@@ -103,10 +103,12 @@ export function TripSummary({
   const days = daysBetween(startDate, endDate);
   const totalCount = confirmedCount + likelyCount + possibleCount;
   // broaderExpanded wins visually over radiusSnapped when both fire.
+  // Suppressed on no_coverage: the EmptyStates copy takes over and a
+  // revision badge would misleadingly imply we found something out there.
   const radiusSnapped =
-    requestedRadiusKm != null && requestedRadiusKm !== radiusKm;
+    !noCoverage && requestedRadiusKm != null && requestedRadiusKm !== radiusKm;
   const broaderExpanded =
-    effectiveRadiusKm != null && effectiveRadiusKm > radiusKm;
+    !noCoverage && effectiveRadiusKm != null && effectiveRadiusKm > radiusKm;
   const radiusToShow = effectiveRadiusKm ?? radiusKm;
   const showProjectionGapHint =
     confirmedCount > 0 && likelyCount === 0 && possibleCount === 0;
@@ -179,17 +181,22 @@ export function TripSummary({
         undoToastIdRef.current = toast.success("Removed from saved trips", {
           action: {
             label: "Undo",
-            onClick: () => {
-              startMutation(async () => {
-                const undo = await restoreTravelSearch(archivedId);
-                if ("success" in undo && undo.success) {
-                  setSavedId(archivedId);
-                } else {
-                  toast.error("Couldn't undo — save the trip again to preserve it.", {
-                    description: "error" in undo ? undo.error : undefined,
-                  });
-                }
-              });
+            // Direct async (no startMutation wrapper): Sonner's action
+            // button renders through its own portal, so the click is a
+            // native DOM event rather than a React synthetic event. Async
+            // transitions kicked off from that boundary don't schedule
+            // reliably — the QA symptom was the server action appearing
+            // to no-op silently. Going straight to the action keeps the
+            // control path obvious and the restore deterministic.
+            onClick: async () => {
+              const undo = await restoreTravelSearch(archivedId);
+              if ("success" in undo && undo.success) {
+                setSavedId(archivedId);
+              } else {
+                toast.error("Couldn't undo — save the trip again to preserve it.", {
+                  description: "error" in undo ? undo.error : undefined,
+                });
+              }
             },
           },
         });
