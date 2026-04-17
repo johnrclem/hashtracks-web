@@ -270,20 +270,29 @@ describe("executeTravelSearch", () => {
   });
 
   it("still surfaces confirmed events past the 365d projection horizon", async () => {
-    // Codex regression: a real event posted 18 months out must render
-    // even though projections give up at 365d. Confirmed-event query
-    // uses rawEndDate (never clamped); the short-circuit only fires when
-    // the slot is ALSO empty of confirmed events.
+    // Codex regression: a real event posted ~18 months out must render
+    // even though projections give up at 365d. 550 days is inside the
+    // 730-day confirmed-event horizon (CONFIRMED_EVENT_HORIZON_DAYS)
+    // but past the projection tier boundary.
+    const farFuture = new Date(Date.now() + 550 * 24 * 60 * 60 * 1000);
+    const farFutureISO = farFuture.toISOString().slice(0, 10);
+    const farFutureStart = new Date(farFuture.getTime() - 5 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+    const farFutureEnd = new Date(farFuture.getTime() + 5 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+
     const farFutureEvent: MockEvent = {
       ...testEvent,
       id: "e-farfuture",
-      date: utcNoon("2028-04-18"),
+      date: utcNoon(farFutureISO),
     };
     const prisma = createMockPrisma([testKennel], [farFutureEvent], []);
     const result = await executeTravelSearch(prisma, {
       ...baseParams,
-      startDate: "2028-04-12",
-      endDate: "2028-04-26",
+      startDate: farFutureStart,
+      endDate: farFutureEnd,
     });
 
     expect(result.emptyState).toBe("none");
@@ -292,6 +301,34 @@ describe("executeTravelSearch", () => {
     expect(result.confirmed[0].eventId).toBe("e-farfuture");
     // Projections still suppressed past 365d.
     expect(result.likely).toHaveLength(0);
+  });
+
+  it("clamps confirmed-event query to CONFIRMED_EVENT_HORIZON_DAYS (2 years)", async () => {
+    // PR #792 hotfix: a URL-crafted 5-year window previously fanned out
+    // the confirmed-event findMany unboundedly → Vercel function timeout
+    // → "Something went wrong" error card. Events past 2 years must be
+    // excluded from the query regardless of what end-date the caller
+    // supplies.
+    const threeYearsOut = new Date(Date.now() + 3 * 365 * 24 * 60 * 60 * 1000);
+    const threeYearsEnd = threeYearsOut.toISOString().slice(0, 10);
+    const threeYearsISO = threeYearsOut.toISOString().slice(0, 10);
+
+    const pathologicalEvent: MockEvent = {
+      ...testEvent,
+      id: "e-3yr",
+      date: utcNoon(threeYearsISO),
+    };
+    // Start date stays near-term so the search actually runs (horizonTier
+    // would short-circuit a far-future start before hitting the query).
+    const prisma = createMockPrisma([testKennel], [pathologicalEvent], []);
+    const result = await executeTravelSearch(prisma, {
+      ...baseParams,
+      startDate: baseParams.startDate,
+      endDate: threeYearsEnd,
+    });
+
+    // Event at +3yr is past the 730-day cap → excluded.
+    expect(result.confirmed).toHaveLength(0);
   });
 
   it("handles a window that straddles the 365d boundary", async () => {

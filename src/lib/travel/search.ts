@@ -23,6 +23,7 @@ import {
   clampToProjectionHorizon,
   projectionHorizonForStart,
   filterProjectionsByHorizon,
+  CONFIRMED_EVENT_HORIZON_DAYS,
   DAY_MS,
   type ProjectedTrail,
   type ProjectionHorizonTier,
@@ -148,6 +149,14 @@ export interface TravelSearchResults {
 
 const TWELVE_WEEKS_MS = 12 * 7 * DAY_MS;
 
+/**
+ * Safety-net row cap for the confirmed-event query. A traveler viewing
+ * ~50 kennels × ~7 days averages well under 100 rows; hitting this cap
+ * means the caller passed a pathologically wide window and we prefer
+ * truncation over a function timeout or RSC serialization blow-up.
+ */
+const CONFIRMED_EVENT_ROW_CAP = 500;
+
 // ============================================================================
 // Internal types
 // ============================================================================
@@ -218,12 +227,21 @@ export async function executeTravelSearch(
   const now = new Date();
 
   // Step 1: Parse + clamp dates
-  // rawEndDate feeds the confirmed-event query — a real event 18 months
-  // out must still display even though projections give up at 365 days.
-  // projectionEndDate (clamped) bounds the RRULE loop so it doesn't iterate
-  // unboundedly on far-future trips.
+  // rawEndDate is the user's requested end — uncapped, so we can tell
+  // downstream that this was the intent. Two separate derived bounds:
+  //   - confirmedEndDate: bounds the confirmed-event DB query. Past the
+  //     projection horizon but capped at CONFIRMED_EVENT_HORIZON_DAYS so
+  //     a 5-year URL doesn't fan out Event.findMany across every kennel.
+  //   - projectionEndDate: bounds the RRULE loop so it doesn't iterate
+  //     unboundedly on far-future trips.
   const startDate = parseUtcNoonDate(params.startDate);
   const rawEndDate = parseUtcNoonDate(params.endDate);
+  const confirmedHorizonMax = new Date(
+    now.getTime() + CONFIRMED_EVENT_HORIZON_DAYS * DAY_MS,
+  );
+  const confirmedEndDate = rawEndDate.getTime() < confirmedHorizonMax.getTime()
+    ? rawEndDate
+    : confirmedHorizonMax;
   const projectionEndDate = clampToProjectionHorizon(rawEndDate, now);
   const horizonTier = projectionHorizonForStart(startDate, now);
 
@@ -257,18 +275,22 @@ export async function executeTravelSearch(
   // Steps 3–5 + 8: Three independent DB queries run in parallel (saves ~2 round-trips)
   const twelveWeeksAgo = new Date(now.getTime() - TWELVE_WEEKS_MS);
   const [confirmedEvents, scheduleRules, evidenceEvents] = await Promise.all([
-    // Step 3: Confirmed events in date window (raw — never horizon-clamped).
+    // Step 3: Confirmed events in date window. Allowed past the 365-day
+    // projection horizon (real NYE events 18mo out still render) but
+    // bounded by CONFIRMED_EVENT_HORIZON_DAYS + a row cap so a pathological
+    // date range can't time out the function or bust the RSC payload limit.
     prisma.event.findMany({
       where: {
         ...CANONICAL_EVENT_WHERE,
         kennelId: { in: nearbyIds },
-        date: { gte: startDate, lte: rawEndDate },
+        date: { gte: startDate, lte: confirmedEndDate },
         status: "CONFIRMED",
       },
       include: {
         eventLinks: { select: { url: true, label: true } },
       },
       orderBy: { date: "asc" },
+      take: CONFIRMED_EVENT_ROW_CAP,
     }),
     // Step 5: Active schedule rules
     prisma.scheduleRule.findMany({

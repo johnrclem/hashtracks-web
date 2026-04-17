@@ -481,6 +481,15 @@ function ordinal(n: number): string {
 export const PROJECTION_HORIZON_ALL_DAYS = 180;
 export const PROJECTION_HORIZON_HIGH_DAYS = 365;
 
+/**
+ * Outer bound for the confirmed-event query. Confirmed events can render
+ * past the 365-day projection horizon (a real NYE run 18 months out is
+ * still real), but a URL-crafted or saved-trip end-date decades out must
+ * not fan out Event.findMany unboundedly. 2 years comfortably covers every
+ * realistic trip plan without letting the query walk the full Event table.
+ */
+export const CONFIRMED_EVENT_HORIZON_DAYS = 730;
+
 export const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
