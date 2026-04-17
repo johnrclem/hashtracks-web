@@ -57,7 +57,7 @@ export default async function KennelsPage() {
       },
     }),
     prisma.event.findMany({
-      where: { date: { gte: todayUtc }, status: "CONFIRMED", kennel: { isHidden: false } },
+      where: { date: { gte: todayUtc }, status: "CONFIRMED", isCanonical: true, kennel: { isHidden: false } },
       orderBy: { date: "asc" },
       select: { kennelId: true, date: true, title: true },
     }),

@@ -10,6 +10,7 @@
 
 import type { PrismaClient } from "@/generated/prisma/client";
 import { MAX_RADIUS_KM } from "@/lib/travel/limits";
+import { CANONICAL_EVENT_WHERE } from "@/lib/event-filters";
 import { haversineDistance } from "@/lib/geo";
 import { parseUtcNoonDate } from "@/lib/date";
 import { safeUrl } from "@/lib/safe-url";
@@ -252,6 +253,7 @@ export async function executeTravelSearch(
     // Step 3: Confirmed events in date window
     prisma.event.findMany({
       where: {
+        ...CANONICAL_EVENT_WHERE,
         kennelId: { in: nearbyIds },
         date: { gte: startDate, lte: endDate },
         status: "CONFIRMED",
@@ -271,6 +273,7 @@ export async function executeTravelSearch(
     // Step 8: Evidence data for timelines (last 12 weeks, batched — no N+1)
     prisma.event.findMany({
       where: {
+        ...CANONICAL_EVENT_WHERE,
         kennelId: { in: nearbyIds },
         status: "CONFIRMED",
         date: { gte: twelveWeeksAgo, lte: now },

@@ -29,6 +29,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       where: {
         date: { gte: now },
         status: { not: "CANCELLED" },
+        isCanonical: true,
         parentEventId: null,
         kennel: { isHidden: false },
       },

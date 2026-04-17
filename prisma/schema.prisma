@@ -325,6 +325,12 @@ model Event {
   isManualEntry     Boolean     @default(false)
   submittedByUserId String?
   submittedBy       User?       @relation("SubmittedEvents", fields: [submittedByUserId], references: [id])
+  /// When two sources disagree on (kennelId, date) and the merge pipeline
+  /// can't collapse them into one row, every row persists for audit
+  /// fidelity but only ONE is canonical — display paths filter on
+  /// isCanonical: true. Selector: highest trustLevel, then highest
+  /// completeness score, then oldest createdAt (stable).
+  isCanonical       Boolean     @default(true)
 
   kennel            Kennel             @relation(fields: [kennelId], references: [id])
   parentEvent       Event?             @relation("EventSeries", fields: [parentEventId], references: [id])
@@ -339,8 +345,10 @@ model Event {
   updatedAt         DateTime           @updatedAt
 
   @@index([date])
-  @@index([kennelId, date])
   @@index([parentEventId])
+  // Covers the former `[kennelId, date]` index as a prefix; prefix lookups
+  // still hit it without needing a separate entry.
+  @@index([kennelId, date, isCanonical])
 }
 
 model EventLink {

@@ -471,6 +471,7 @@ export async function searchEvents(params: {
     const commonFilters = {
       status: { not: "CANCELLED" as const },
       isManualEntry: { not: true },
+      isCanonical: true,
       kennel: { isHidden: false },
     };
 

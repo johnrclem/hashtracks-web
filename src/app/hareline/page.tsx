@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { prisma } from "@/lib/db";
+import { DISPLAY_EVENT_WHERE } from "@/lib/event-filters";
 import { getWeatherForEvents } from "@/lib/weather";
 import { getOrCreateUser } from "@/lib/auth";
 import { regionAbbrev } from "@/lib/region";
@@ -31,7 +32,7 @@ export async function generateMetadata({
 export default async function HarelinePage() {
   const [events, user] = await Promise.all([
     prisma.event.findMany({
-      where: { status: { not: "CANCELLED" }, isManualEntry: { not: true }, kennel: { isHidden: false } },
+      where: DISPLAY_EVENT_WHERE,
       include: {
         kennel: {
           select: { id: true, shortName: true, fullName: true, slug: true, region: true, country: true },
