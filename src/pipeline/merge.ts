@@ -1076,8 +1076,8 @@ export function completenessScore(e: Omit<CanonicalCandidate, "id" | "trustLevel
   if (e.locationStreet) score++;
   if (e.locationCity) score++;
   if (e.locationAddress) score++;
-  if (e.latitude != null) score++;
-  if (e.longitude != null) score++;
+  // Coords count as one unit — half a pair is useless for display.
+  if (e.latitude != null && e.longitude != null) score++;
   if (e.startTime) score++;
   if (e.endTime) score++;
   if (e.cost) score++;
@@ -1088,29 +1088,68 @@ export function completenessScore(e: Omit<CanonicalCandidate, "id" | "trustLevel
 }
 
 /**
- * Pick the canonical row id from a group of Events sharing (kennelId, date).
- * Ordering: trustLevel DESC, completeness DESC, createdAt ASC (stable).
+ * Signature for grouping duplicate rows within a (kennelId, date) slot.
+ * Rows that share a signature are cross-source dupes of the same real-world
+ * run; rows with distinct signatures are genuine double-headers (e.g., a
+ * kennel running both a morning and evening trail on the same day, which
+ * upsertCanonicalEvent intentionally preserves as separate rows).
+ */
+function eventSignature(e: CanonicalCandidate): string {
+  const time = e.startTime?.trim() || "";
+  const url = e.sourceUrl?.trim() || "";
+  const title = e.title?.trim() || "";
+  return `${time}::${url}::${title}`;
+}
+
+/**
+ * Pick the canonical row id(s) across a (kennelId, date) group. Rows get
+ * grouped by signature first — distinct signatures are genuine multi-event
+ * days that must each keep a canonical. Within each signature group,
+ * ordering is: trustLevel DESC, completeness DESC, createdAt ASC (stable).
  * Pure function — no DB access; input is whatever the caller has in hand.
+ */
+export function pickCanonicalEventIds(events: CanonicalCandidate[]): Set<string> {
+  const canonical = new Set<string>();
+  if (events.length === 0) return canonical;
+
+  const bySignature = new Map<string, CanonicalCandidate[]>();
+  for (const e of events) {
+    const sig = eventSignature(e);
+    const group = bySignature.get(sig) ?? [];
+    group.push(e);
+    bySignature.set(sig, group);
+  }
+
+  for (const group of bySignature.values()) {
+    let best = group[0];
+    let bestScore = completenessScore(best);
+    for (const e of group.slice(1)) {
+      const score = completenessScore(e);
+      if (
+        e.trustLevel > best.trustLevel ||
+        (e.trustLevel === best.trustLevel && score > bestScore) ||
+        (e.trustLevel === best.trustLevel && score === bestScore &&
+          e.createdAt.getTime() < best.createdAt.getTime())
+      ) {
+        best = e;
+        bestScore = score;
+      }
+    }
+    canonical.add(best.id);
+  }
+  return canonical;
+}
+
+/**
+ * Single-winner variant for callers that only handle one signature group
+ * (tests exercising dup-drift scenarios). Returns null on empty input,
+ * the one id for a single-row slot, and the first canonical id from the
+ * selector for multi-row groups sharing a signature.
  */
 export function pickCanonicalEventId(events: CanonicalCandidate[]): string | null {
   if (events.length === 0) return null;
-  if (events.length === 1) return events[0].id;
-
-  let best = events[0];
-  let bestScore = completenessScore(best);
-  for (const e of events.slice(1)) {
-    const score = completenessScore(e);
-    if (
-      e.trustLevel > best.trustLevel ||
-      (e.trustLevel === best.trustLevel && score > bestScore) ||
-      (e.trustLevel === best.trustLevel && score === bestScore &&
-        e.createdAt.getTime() < best.createdAt.getTime())
-    ) {
-      best = e;
-      bestScore = score;
-    }
-  }
-  return best.id;
+  const canonicalIds = pickCanonicalEventIds(events);
+  return canonicalIds.values().next().value ?? null;
 }
 
 interface CandidateWithCanonicalState extends CanonicalCandidate {
@@ -1129,27 +1168,37 @@ async function recomputeCanonical(
 ): Promise<void> {
   if (candidates.length <= 1) return;
 
-  const canonicalId = pickCanonicalEventId(candidates);
-  if (canonicalId == null) return;
+  const canonicalIds = pickCanonicalEventIds(candidates);
+  if (canonicalIds.size === 0) return;
 
-  const alreadyCanonical = candidates
-    .filter(e => e.isCanonical)
+  // Only touch rows whose flag needs to flip — skip writes that would be
+  // no-ops (row is already canonical or already non-canonical as intended).
+  const toPromote = candidates
+    .filter(e => canonicalIds.has(e.id) && !e.isCanonical)
     .map(e => e.id);
-  if (alreadyCanonical.length === 1 && alreadyCanonical[0] === canonicalId) {
-    return;
-  }
+  const toDemote = candidates
+    .filter(e => !canonicalIds.has(e.id) && e.isCanonical)
+    .map(e => e.id);
+  if (toPromote.length === 0 && toDemote.length === 0) return;
 
-  const nonCanonicalIds = candidates.map(e => e.id).filter(id => id !== canonicalId);
-  await prisma.$transaction([
-    prisma.event.update({
-      where: { id: canonicalId },
-      data: { isCanonical: true },
-    }),
-    prisma.event.updateMany({
-      where: { id: { in: nonCanonicalIds } },
-      data: { isCanonical: false },
-    }),
-  ]);
+  const ops = [];
+  if (toPromote.length > 0) {
+    ops.push(
+      prisma.event.updateMany({
+        where: { id: { in: toPromote } },
+        data: { isCanonical: true },
+      }),
+    );
+  }
+  if (toDemote.length > 0) {
+    ops.push(
+      prisma.event.updateMany({
+        where: { id: { in: toDemote } },
+        data: { isCanonical: false },
+      }),
+    );
+  }
+  await prisma.$transaction(ops);
 }
 
 /** Record a merge error in the result context. */

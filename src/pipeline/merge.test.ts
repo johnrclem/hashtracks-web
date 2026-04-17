@@ -39,7 +39,7 @@ vi.mock("@/lib/geo", async (importOriginal) => {
 import { prisma } from "@/lib/db";
 import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag } from "./kennel-resolver";
-import { processRawEvents, sanitizeTitle, sanitizeLocation, sanitizeHares, friendlyKennelName, rewriteStaleDefaultTitle, suppressRedundantCity, NON_ENGLISH_GEO_RE, completenessScore, pickCanonicalEventId } from "./merge";
+import { processRawEvents, sanitizeTitle, sanitizeLocation, sanitizeHares, friendlyKennelName, rewriteStaleDefaultTitle, suppressRedundantCity, NON_ENGLISH_GEO_RE, completenessScore, pickCanonicalEventId, pickCanonicalEventIds } from "./merge";
 
 const mockSourceFind = vi.mocked(prisma.source.findUnique);
 const _mockSourceUpdate = vi.mocked(prisma.source.update);
@@ -1661,6 +1661,7 @@ describe("completenessScore", () => {
         title: "Run #42",
         startTime: "14:00",
         latitude: 33.75,
+        longitude: -84.39,
       }),
     ).toBe(3);
   });
@@ -1676,13 +1677,13 @@ describe("completenessScore", () => {
     ).toBe(0);
   });
 
-  it("counts lat and lng independently", () => {
+  it("counts lat+lng as a single unit (half a pair is useless)", () => {
     expect(
       completenessScore({ ...EMPTY_DISPLAY_FIELDS, latitude: 33.75, longitude: null }),
-    ).toBe(1);
+    ).toBe(0);
     expect(
       completenessScore({ ...EMPTY_DISPLAY_FIELDS, latitude: 33.75, longitude: -84.39 }),
-    ).toBe(2);
+    ).toBe(1);
   });
 });
 
@@ -1695,28 +1696,34 @@ describe("pickCanonicalEventId", () => {
     expect(pickCanonicalEventId([candidate({ id: "e1" })])).toBe("e1");
   });
 
+  // Rows in a single signature group (dup-drift scenarios): share
+  // startTime + sourceUrl + title so they collapse to one canonical.
+  const DUP_SIG = {
+    title: "Run #42",
+    startTime: "14:00",
+    sourceUrl: "https://example.com/42",
+  } as const;
+
   it("picks the row with the higher trustLevel", () => {
-    const winner = candidate({ id: "e1", trustLevel: 8, title: "sparse" });
+    const winner = candidate({ id: "e1", ...DUP_SIG, trustLevel: 8 });
     const loser = candidate({
       id: "e2",
+      ...DUP_SIG,
       trustLevel: 5,
-      title: "rich title",
       haresText: "Full field set",
       locationName: "Piedmont Park",
-      startTime: "14:00",
     });
     expect(pickCanonicalEventId([loser, winner])).toBe("e1");
   });
 
   it("picks the more-populated row when trustLevels tie", () => {
-    const sparse = candidate({ id: "e1", trustLevel: 5, title: "only title" });
+    const sparse = candidate({ id: "e1", ...DUP_SIG, trustLevel: 5 });
     const rich = candidate({
       id: "e2",
+      ...DUP_SIG,
       trustLevel: 5,
-      title: "title",
       haresText: "hares",
       locationName: "park",
-      startTime: "14:00",
     });
     expect(pickCanonicalEventId([sparse, rich])).toBe("e2");
   });
@@ -1724,14 +1731,14 @@ describe("pickCanonicalEventId", () => {
   it("picks the older row when trust and completeness both tie", () => {
     const older = candidate({
       id: "e1",
+      ...DUP_SIG,
       trustLevel: 5,
-      title: "t",
       createdAt: new Date("2026-01-01T00:00:00Z"),
     });
     const newer = candidate({
       id: "e2",
+      ...DUP_SIG,
       trustLevel: 5,
-      title: "t",
       createdAt: new Date("2026-03-01T00:00:00Z"),
     });
     expect(pickCanonicalEventId([newer, older])).toBe("e1");
@@ -1742,38 +1749,102 @@ describe("pickCanonicalEventId", () => {
     // must beat a low-trust source that guessed 10 fields.
     const highTrust = candidate({
       id: "e1",
+      ...DUP_SIG,
       trustLevel: 9,
-      title: "Official",
-      startTime: "14:00",
     });
     const lowTrust = candidate({
       id: "e2",
+      ...DUP_SIG,
       trustLevel: 3,
-      title: "Scraped guess",
       haresText: "Maybe?",
       locationName: "Some park",
       locationStreet: "123 Some St",
       locationCity: "Atlanta",
       latitude: 33.75,
       longitude: -84.39,
-      startTime: "14:00",
-      sourceUrl: "https://example.com",
       description: "long description",
     });
     expect(pickCanonicalEventId([lowTrust, highTrust])).toBe("e1");
   });
 
-  it("handles three-way groups correctly", () => {
-    const a = candidate({ id: "a", trustLevel: 5, title: "a" });
+  it("handles three-way dup-drift groups correctly", () => {
+    const a = candidate({ id: "a", ...DUP_SIG, trustLevel: 5 });
     const b = candidate({
       id: "b",
+      ...DUP_SIG,
       trustLevel: 7,
-      title: "b",
       haresText: "hares",
-      startTime: "14:00",
     });
-    const c = candidate({ id: "c", trustLevel: 6, title: "c" });
+    const c = candidate({ id: "c", ...DUP_SIG, trustLevel: 6 });
     expect(pickCanonicalEventId([a, b, c])).toBe("b");
+  });
+
+  it("preserves multiple canonicals for genuine double-headers (distinct startTime)", () => {
+    // Regression: a single-winner selector would demote morning OR evening
+    // trail, making one invisible in all display paths that filter on
+    // isCanonical: true. Grouping by (startTime, sourceUrl, title)
+    // signature keeps both — upsertCanonicalEvent intentionally creates
+    // these two rows because batchMatchedEvents detected a same-day,
+    // different-time entry.
+    const morning = candidate({
+      id: "morning",
+      trustLevel: 5,
+      title: "Morning Trail",
+      startTime: "09:00",
+      sourceUrl: "https://example.com/morning",
+    });
+    const evening = candidate({
+      id: "evening",
+      trustLevel: 5,
+      title: "Evening Trail",
+      startTime: "18:00",
+      sourceUrl: "https://example.com/evening",
+    });
+    const canonicals = pickCanonicalEventIds([morning, evening]);
+    expect(canonicals.has("morning")).toBe(true);
+    expect(canonicals.has("evening")).toBe(true);
+    expect(canonicals.size).toBe(2);
+  });
+
+  it("collapses cross-source dupes that share a signature", () => {
+    // Same startTime + same title + same sourceUrl → one real run, two
+    // database rows. Only one survives as canonical.
+    const rowA = candidate({
+      id: "a",
+      trustLevel: 5,
+      title: "Run #42",
+      startTime: "14:00",
+      sourceUrl: "https://example.com/42",
+    });
+    const rowB = candidate({
+      id: "b",
+      trustLevel: 7,
+      title: "Run #42",
+      startTime: "14:00",
+      sourceUrl: "https://example.com/42",
+    });
+    const canonicals = pickCanonicalEventIds([rowA, rowB]);
+    expect(canonicals.size).toBe(1);
+    expect(canonicals.has("b")).toBe(true);
+  });
+
+  it("handles mixed double-header + dup-drift in one (kennelId, date) slot", () => {
+    // Morning trail has two dup rows (same signature) + an evening trail
+    // (different signature). Expect exactly 2 canonicals: one from the
+    // morning group, the evening trail.
+    const morningA = candidate({
+      id: "morning-a", trustLevel: 5, title: "AM", startTime: "09:00",
+    });
+    const morningB = candidate({
+      id: "morning-b", trustLevel: 8, title: "AM", startTime: "09:00",
+    });
+    const evening = candidate({
+      id: "evening", trustLevel: 5, title: "PM", startTime: "18:00",
+    });
+    const canonicals = pickCanonicalEventIds([morningA, morningB, evening]);
+    expect(canonicals.size).toBe(2);
+    expect(canonicals.has("morning-b")).toBe(true); // higher trust wins within sig
+    expect(canonicals.has("evening")).toBe(true);
   });
 
   it("flips the winner when equal-trust completeness shifts after an update", () => {
@@ -1785,14 +1856,14 @@ describe("pickCanonicalEventId", () => {
     // score.
     const preUpdate = candidate({
       id: "updating",
+      ...DUP_SIG,
       trustLevel: 5,
-      title: "thin",
       createdAt: new Date("2026-03-01T00:00:00Z"),
     });
     const sibling = candidate({
       id: "sibling",
+      ...DUP_SIG,
       trustLevel: 5,
-      title: "sibling",
       haresText: "hares",
       locationName: "park",
       createdAt: new Date("2026-03-02T00:00:00Z"),
@@ -1803,11 +1874,11 @@ describe("pickCanonicalEventId", () => {
       ...preUpdate,
       haresText: "hares",
       locationName: "park",
-      startTime: "14:00",
+      locationStreet: "123 Piedmont Ave",
       latitude: 33.75,
       longitude: -84.39,
     };
-    // Completeness 5 > 3 → updated row wins.
+    // Completeness now beats the sibling (4 vs 2).
     expect(pickCanonicalEventId([postUpdate, sibling])).toBe("updating");
   });
 });

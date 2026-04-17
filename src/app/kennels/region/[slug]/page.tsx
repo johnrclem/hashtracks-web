@@ -101,6 +101,7 @@ export default async function RegionPage({
       where: {
         date: { gte: todayUtc },
         status: "CONFIRMED",
+        isCanonical: true,
         kennel: { region: region.name, isHidden: false },
       },
       orderBy: { date: "asc" },

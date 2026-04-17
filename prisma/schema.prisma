@@ -345,8 +345,9 @@ model Event {
   updatedAt         DateTime           @updatedAt
 
   @@index([date])
-  @@index([kennelId, date])
   @@index([parentEventId])
+  // Covers the former `[kennelId, date]` index as a prefix; prefix lookups
+  // still hit it without needing a separate entry.
   @@index([kennelId, date, isCanonical])
 }
 

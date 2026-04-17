@@ -11,7 +11,7 @@ import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
 import { createScriptPool } from "./lib/db-pool";
-import { pickCanonicalEventId } from "@/pipeline/merge";
+import { pickCanonicalEventIds } from "@/pipeline/merge";
 
 const dryRun = !process.argv.includes("--apply");
 
@@ -51,37 +51,45 @@ async function main() {
       },
     });
 
-    const canonicalId = pickCanonicalEventId(events);
-    if (canonicalId == null) continue;
+    const canonicalIds = pickCanonicalEventIds(events);
+    if (canonicalIds.size === 0) continue;
 
-    const toDemote = events.filter(e => e.id !== canonicalId && e.isCanonical);
-    const toPromote = events.find(e => e.id === canonicalId && !e.isCanonical);
+    const toDemote = events.filter(e => !canonicalIds.has(e.id) && e.isCanonical);
+    const toPromote = events.filter(e => canonicalIds.has(e.id) && !e.isCanonical);
 
-    if (toDemote.length === 0 && !toPromote) {
+    if (toDemote.length === 0 && toPromote.length === 0) {
       unchanged++;
       continue;
     }
 
     if (!dryRun) {
-      await prisma.$transaction([
-        prisma.event.update({
-          where: { id: canonicalId },
-          data: { isCanonical: true },
-        }),
-        prisma.event.updateMany({
-          where: { id: { in: toDemote.map(e => e.id) } },
-          data: { isCanonical: false },
-        }),
-      ]);
+      const ops = [];
+      if (toPromote.length > 0) {
+        ops.push(
+          prisma.event.updateMany({
+            where: { id: { in: toPromote.map(e => e.id) } },
+            data: { isCanonical: true },
+          }),
+        );
+      }
+      if (toDemote.length > 0) {
+        ops.push(
+          prisma.event.updateMany({
+            where: { id: { in: toDemote.map(e => e.id) } },
+            data: { isCanonical: false },
+          }),
+        );
+      }
+      await prisma.$transaction(ops);
     }
-    flipped += toDemote.length + (toPromote ? 1 : 0);
+    flipped += toDemote.length + toPromote.length;
     console.log(
-      `  ${dryRun ? "would" : "did"} flip ${toDemote.length} row(s) → non-canonical ` +
-      `(canonical=${canonicalId.slice(0, 8)}…, kennel=${group.kennelId.slice(0, 8)}…, date=${group.date.toISOString().slice(0, 10)})`,
+      `  ${dryRun ? "would" : "did"} flip ${toDemote.length} → non-canonical, ${toPromote.length} → canonical ` +
+      `(kennel=${group.kennelId.slice(0, 8)}…, date=${group.date.toISOString().slice(0, 10)}, canonical-count=${canonicalIds.size})`,
     );
   }
 
-  console.log(`\n✓ ${flipped} row flag(s) ${dryRun ? "would be" : ""} updated across ${dupGroups.length} dup slots (${unchanged} already correct).`);
+  console.log(`\n✓ ${flipped} row flag(s) ${dryRun ? "would be" : "were"} updated across ${dupGroups.length} dup slots (${unchanged} already correct).`);
 
   await prisma.$disconnect();
   await pool.end();
