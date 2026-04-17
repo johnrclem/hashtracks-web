@@ -288,7 +288,10 @@ export function TravelResults({ destination, results }: Readonly<TravelResultsPr
       </div>
 
       {!includePossible && filteredPossibleAll.length > 0 && (
-        <PossibleSection results={filteredPossibleAll} />
+        <PossibleSection
+          results={filteredPossibleAll}
+          confirmedCount={renderedTiers.reduce((n, t) => n + t.confirmed.length, 0)}
+        />
       )}
     </div>
   );

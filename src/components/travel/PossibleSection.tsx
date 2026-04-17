@@ -11,10 +11,17 @@ interface PossibleResult extends PossibleRowData {
 
 interface PossibleSectionProps {
   results: PossibleResult[];
+  /**
+   * Post-filter confirmed count from the same search. When zero, the
+   * section auto-expands so the user sees *something* actionable instead
+   * of an empty page with a tiny collapsed disclosure. Parent passes the
+   * filtered count, not the raw count, so filter changes can re-expand.
+   */
+  confirmedCount: number;
 }
 
-export function PossibleSection({ results }: PossibleSectionProps) {
-  const [isOpen, setIsOpen] = useState(false);
+export function PossibleSection({ results, confirmedCount }: PossibleSectionProps) {
+  const [isOpen, setIsOpen] = useState(confirmedCount === 0);
 
   if (results.length === 0) return null;
 

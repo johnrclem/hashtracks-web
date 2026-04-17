@@ -196,6 +196,50 @@ describe("saveTravelSearch", () => {
     expect("id" in result && result.id).toBe("ts-winner");
   });
 
+  it("uses placeId as dedup key when provided (#784)", async () => {
+    // Codex finding: two provider paths (Places autocomplete vs server-side
+    // geocode) can emit coords that differ by 0.0001° for the same place,
+    // missing coord-based dedup → duplicate saved trips. When placeId is
+    // present, the match filter should key on it instead of lat/lng.
+    vi.mocked(prisma.travelSearch.findFirst).mockResolvedValueOnce({
+      id: "ts-placeid",
+    } as never);
+
+    const result = await saveTravelSearch({
+      ...validParams,
+      placeId: "ChIJplace123",
+    });
+    expect("id" in result && result.id).toBe("ts-placeid");
+
+    // Confirm the findFirst query filtered on destinations.some.placeId
+    // rather than latitude/longitude.
+    const call = vi.mocked(prisma.travelSearch.findFirst).mock.calls[0][0];
+    const destFilter = (call as { where?: { destinations?: { some?: Record<string, unknown> } } })
+      ?.where?.destinations?.some ?? {};
+    expect(destFilter).toHaveProperty("placeId", "ChIJplace123");
+    expect(destFilter).not.toHaveProperty("latitude");
+    expect(destFilter).not.toHaveProperty("longitude");
+  });
+
+  it("falls back to lat/lng dedup when placeId is absent", async () => {
+    // Legacy behavior: URL-based SSR dedup still has no placeId, so the
+    // coord match must keep working. Regression check — lint/type systems
+    // wouldn't catch accidentally dropping the fallback.
+    vi.mocked(prisma.travelSearch.findFirst).mockResolvedValueOnce({
+      id: "ts-coords",
+    } as never);
+
+    const result = await saveTravelSearch(validParams);
+    expect("id" in result && result.id).toBe("ts-coords");
+
+    const call = vi.mocked(prisma.travelSearch.findFirst).mock.calls[0][0];
+    const destFilter = (call as { where?: { destinations?: { some?: Record<string, unknown> } } })
+      ?.where?.destinations?.some ?? {};
+    expect(destFilter).toHaveProperty("latitude", validParams.latitude);
+    expect(destFilter).toHaveProperty("longitude", validParams.longitude);
+    expect(destFilter).not.toHaveProperty("placeId");
+  });
+
   it("rejects radiusKm above the 250km clamp", async () => {
     const result = await saveTravelSearch({ ...validParams, radiusKm: 99999 });
     expect("error" in result && result.error).toContain("Radius too large");

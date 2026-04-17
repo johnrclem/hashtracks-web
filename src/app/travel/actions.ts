@@ -93,18 +93,27 @@ function activeTripMatchFilter(
   radiusKm: number | number[],
   startDate: Date,
   endDate: Date,
+  placeId?: string | null,
 ) {
   const radiusFilter = Array.isArray(radiusKm)
     ? { in: Array.from(new Set(radiusKm)) }
     : radiusKm;
+  // Prefer placeId as the place-identity key when provided (#784): the
+  // Places autocomplete and server-side geocode paths can return coords
+  // that differ by 0.0001°, which the coord-based match missed and caused
+  // duplicate saved trips. Falls back to lat/lng when the caller doesn't
+  // have a placeId (legacy URLs, SSR lookup where the query param is
+  // absent) so the dedup still works on older data.
+  const placeMatch = placeId
+    ? { placeId }
+    : { latitude, longitude };
   return {
     userId,
     status: TravelSearchStatus.ACTIVE,
     destinations: {
       some: {
         status: TravelSearchStatus.ACTIVE,
-        latitude,
-        longitude,
+        ...placeMatch,
         radiusKm: radiusFilter,
         startDate,
         endDate,
@@ -171,7 +180,7 @@ export async function saveTravelSearch(
   // uses a compound FK to TravelSearch(id, userId) for tenant isolation —
   // Prisma's nested-create input excludes the userId column.
   const matchFilter = activeTripMatchFilter(
-    user.id, params.latitude, params.longitude, params.radiusKm, startDate, endDate,
+    user.id, params.latitude, params.longitude, params.radiusKm, startDate, endDate, params.placeId,
   );
 
   try {
