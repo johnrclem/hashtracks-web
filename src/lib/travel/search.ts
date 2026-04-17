@@ -115,12 +115,7 @@ export interface PossibleResult {
   distanceTier: DistanceTier;
   explanation: string;
   sourceLinks: SourceLink[];
-  /**
-   * Most recent confirmed event for this kennel in the 12-week evidence
-   * window, if any. Rendered as "Last posted {date}" so the card gives
-   * users a concrete "was this kennel active recently?" signal instead
-   * of just a cadence string.
-   */
+  /** Most recent confirmed event in the 12-week evidence window, or null. */
   lastConfirmedAt: Date | null;
 }
 
@@ -252,11 +247,9 @@ export async function executeTravelSearch(
   const projectionEndDate = clampToProjectionHorizon(rawEndDate, now);
   const horizonTier = projectionHorizonForStart(startDate, now);
 
-  // Step 2: Find nearby kennels — primary pass always; broader pass fires
-  // EITHER when primary is empty (no kennels in radius) OR when primary has
-  // kennels but the full pipeline returns zero results (dormant-kennel case
-  // — Codex finding from PR #739 review). `computeBroader` is lazy so we
-  // only pay the second pipeline if the first truly came up empty.
+  // Broader pass fires either when primary has no kennels in radius or when
+  // primary had kennels but no unfiltered results (dormant-kennel case).
+  // Broader excludes primary IDs so results are strictly additional.
   const allKennels = await fetchAllVisibleKennels(prisma);
   const primary = filterByRadius(allKennels, latitude, longitude, radiusKm);
   const broaderRadiusKm = Math.min(radiusKm * 3, MAX_RADIUS_KM);
@@ -266,9 +259,6 @@ export async function executeTravelSearch(
       .filter((k) => !primaryIds.has(k.id));
   };
 
-  // Case A: zero kennels even at the primary radius. Try broader upfront.
-  // If broader is also empty → no_coverage; otherwise fall through with
-  // broader kennels as the pipeline's input.
   let broader: NearbyKennel[] = [];
   if (primary.length === 0) {
     broader = computeBroader();
@@ -283,10 +273,6 @@ export async function executeTravelSearch(
     }
   }
 
-  // Steps 3-15 wrapped in a closure so we can run the full pipeline a second
-  // time against a broader kennel set if primary comes back empty post-filter.
-  // Closes over prisma + date bounds + filters from the outer executeTravelSearch
-  // scope so the call-site stays short.
   const runPipelineFor = async (kennels: NearbyKennel[]) => {
     const nearbyIds = kennels.map((k) => k.id);
     const kennelMap = new Map(kennels.map((k) => [k.id, k]));
@@ -443,10 +429,6 @@ export async function executeTravelSearch(
   const possibleResults: PossibleResult[] = possibleProjections.map((proj) => {
     const kennel = kennelMap.get(proj.kennelId);
     const evidence = evidenceByKennel.get(proj.kennelId) ?? [];
-    // Most recent confirmed event in the 12-week evidence window powers
-    // the "Last posted …" metadata line on the Possible card. Null when
-    // the kennel hasn't posted a run in the last ~84 days — we hide the
-    // line rather than render "Last posted never".
     const lastConfirmedAt = evidence.length > 0
       ? new Date(Math.max(...evidence.map((e) => e.date.getTime())))
       : null;
@@ -467,51 +449,42 @@ export async function executeTravelSearch(
     };
   });
 
-    // Step 14: Apply filters
+    const unfilteredTotal =
+      confirmedResults.length + likelyResults.length + possibleResults.length;
     const filtered = applyFilters(confirmedResults, likelyResults, possibleResults, params.filters);
 
-    // Step 15: Rank confirmed + likely by date → startTime → distance.
     filtered.confirmed.sort(byDateTimeDistance);
     filtered.likely.sort(byDateTimeDistance);
     filtered.possible.sort((a, b) => a.distanceKm - b.distanceKm);
 
-    // Possible rows don't carry dates in the display ("Timing varies" is the
-    // only meaningful content), so multiple cadence hits in the window for
-    // the same kennel should collapse to one row. Sort-then-dedup keeps the
-    // closest occurrence — matches the distance-ascending ordering users see.
+    // Possible rows display only "Timing varies" + distance, so multiple
+    // cadence hits for the same kennel (weekly rule firing twice in a
+    // 14-day window) collapse to one row. Sort-then-dedup keeps the
+    // closest distance tier.
     filtered.possible = dedupePossibleByKennel(filtered.possible);
 
-    return filtered;
+    return { filtered, unfilteredTotal };
   };
 
-  // Run the pipeline against primary (or upfront-broader when primary had
-  // zero kennels). If primary had kennels but the pipeline returned nothing
-  // actionable, expand the kennel set and try again — this is the Codex
-  // dormant-kennel case (#783): a single kennel in the radius with no events
-  // and no rules used to suppress the broader pass entirely.
   const firstPassKennels = primary.length > 0 ? primary : broader;
-  let filtered = await runPipelineFor(firstPassKennels);
+  const firstPass = await runPipelineFor(firstPassKennels);
+  let filtered = firstPass.filtered;
   let nearbyKennels = firstPassKennels;
-  // Treats "primary kennels exist but yielded no results after broader
-  // fallback" the same as "primary had no kennels at all" downstream — both
-  // are the no_nearby empty state with broader promoted to broaderResults.
   let primaryEffectivelyEmpty = primary.length === 0;
 
-  const totalFirstPass =
-    filtered.confirmed.length + filtered.likely.length + filtered.possible.length;
+  // Retry broader only when primary had kennels but produced NO unfiltered
+  // results — i.e. the radius is genuinely dormant. If the primary had
+  // results that the user's active filters excluded, a broader pass would
+  // hit the same filter and waste 3 DB round-trips.
   const shouldRetryBroader =
-    primary.length > 0 && totalFirstPass === 0 && horizonTier !== "none";
+    primary.length > 0 && firstPass.unfilteredTotal === 0 && horizonTier !== "none";
 
   if (shouldRetryBroader) {
     broader = computeBroader();
     if (broader.length > 0) {
-      const broaderFiltered = await runPipelineFor(broader);
-      const totalBroader =
-        broaderFiltered.confirmed.length +
-        broaderFiltered.likely.length +
-        broaderFiltered.possible.length;
-      if (totalBroader > 0) {
-        filtered = broaderFiltered;
+      const broaderPass = await runPipelineFor(broader);
+      if (broaderPass.unfilteredTotal > 0) {
+        filtered = broaderPass.filtered;
         nearbyKennels = broader;
         primaryEffectivelyEmpty = true;
       }
@@ -531,8 +504,6 @@ export async function executeTravelSearch(
     filtered.confirmed.length + filtered.likely.length + filtered.possible.length;
 
   if (primaryEffectivelyEmpty && broader.length > 0) {
-    // Primary radius empty (literally, or pipeline yielded nothing and broader
-    // filled in), broader found kennels → show broader as fallback.
     emptyState = "no_nearby";
     broaderResultsObj = {
       confirmed: filtered.confirmed,
@@ -789,13 +760,7 @@ function applyFilters(
   return { confirmed: fc, likely: fl, possible: fp };
 }
 
-/**
- * Collapse Possible rows to one per kennel, keeping the first occurrence.
- * Call AFTER distance sort so we keep the closest distance-tier card per
- * kennel. Two cadence rules on the same kennel (or one rule firing twice
- * inside the window) would otherwise show up as duplicate rows — QA flagged
- * this on London + Tokyo in PR #792 verification.
- */
+/** Keep the first row per kennel. Call AFTER distance sort to keep the closest tier. */
 function dedupePossibleByKennel(rows: PossibleResult[]): PossibleResult[] {
   const seen = new Set<string>();
   const out: PossibleResult[] = [];

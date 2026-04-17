@@ -1,7 +1,6 @@
 import { ExternalLink } from "lucide-react";
 import { KennelNameTooltip } from "@/components/shared/KennelNameTooltip";
-import { formatDistanceShort } from "@/lib/travel/format";
-import { formatDateShort } from "@/lib/format";
+import { formatDistanceShort, formatDateCompact } from "@/lib/travel/format";
 
 export interface PossibleRowData {
   kennelId: string;
@@ -10,10 +9,7 @@ export interface PossibleRowData {
   distanceKm: number;
   explanation: string;
   sourceLinks: { url: string; label: string; type: string }[];
-  /**
-   * ISO date string for the most recent confirmed event for this kennel in
-   * the last 12 weeks, if any. Serialized by RSC → string on the client.
-   */
+  /** Most recent confirmed event in the last 12 weeks, or null/undefined. */
   lastConfirmedAt?: string | null;
 }
 
@@ -48,7 +44,7 @@ export function PossibleRow({ result }: { result: PossibleRowData }) {
         {result.lastConfirmedAt && (
           <>
             <span>·</span>
-            <span>Last posted {formatDateShort(result.lastConfirmedAt)}</span>
+            <span>Last posted {formatDateCompact(result.lastConfirmedAt)}</span>
           </>
         )}
       </div>

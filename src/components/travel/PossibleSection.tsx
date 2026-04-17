@@ -11,12 +11,7 @@ interface PossibleResult extends PossibleRowData {
 
 interface PossibleSectionProps {
   results: PossibleResult[];
-  /**
-   * Post-filter confirmed count from the same search. When zero, the
-   * section auto-expands so the user sees *something* actionable instead
-   * of an empty page with a tiny collapsed disclosure. Parent passes the
-   * filtered count, not the raw count, so filter changes can re-expand.
-   */
+  /** Post-filter confirmed count; section auto-expands when zero. */
   confirmedCount: number;
 }
 

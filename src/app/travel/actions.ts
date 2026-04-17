@@ -98,12 +98,10 @@ function activeTripMatchFilter(
   const radiusFilter = Array.isArray(radiusKm)
     ? { in: Array.from(new Set(radiusKm)) }
     : radiusKm;
-  // Prefer placeId as the place-identity key when provided (#784): the
-  // Places autocomplete and server-side geocode paths can return coords
-  // that differ by 0.0001°, which the coord-based match missed and caused
-  // duplicate saved trips. Falls back to lat/lng when the caller doesn't
-  // have a placeId (legacy URLs, SSR lookup where the query param is
-  // absent) so the dedup still works on older data.
+  // Places autocomplete and server-side geocode can emit coords that
+  // differ by ~0.0001° for the same place — placeId is the stable
+  // identity when we have it. Falls back to coords when absent (SSR URL
+  // lookup doesn't carry placeId).
   const placeMatch = placeId
     ? { placeId }
     : { latitude, longitude };

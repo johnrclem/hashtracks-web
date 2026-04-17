@@ -85,11 +85,7 @@ export function formatDayHeader(dateStr: string): string {
  *   distanceKm < 25                → "X km · short drive"
  *   distanceKm ≥ 25                → "X km · ~Y min drive" or "~Nh Mm drive"
  */
-/**
- * Short distance label — "<1 km" below a minimum threshold, one-decimal km
- * otherwise. Exported for terse contexts (Possible rows) that don't want
- * the full walk/drive metadata formatDistanceWithWalk appends.
- */
+/** "<1 km" below 1, otherwise "X.X km". Terser than formatDistanceWithWalk. */
 export function formatDistanceShort(distanceKm: number): string {
   return distanceKm < 1 ? "<1 km" : `${distanceKm.toFixed(1)} km`;
 }
