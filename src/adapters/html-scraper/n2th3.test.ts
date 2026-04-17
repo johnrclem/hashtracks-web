@@ -88,6 +88,40 @@ describe("parseN2th3Post", () => {
     expect(result!.hares).toBeUndefined();
   });
 
+  it("#723: falls back to title en-dash segment when body has no Location field", () => {
+    const post = buildPost({
+      title: "Run announcement 2276 &#8211; 15th April 2026 &#8211; Fanling",
+      content: `
+        <p><img src="https://example.com/flyer.jpg" alt="flyer"></p>
+      `,
+      date: "2026-04-14T10:00:00+08:00",
+    });
+    const result = parseN2th3Post(post);
+    expect(result).not.toBeNull();
+    expect(result!.location).toBe("Fanling");
+    expect(result!.locationUrl).toContain("google.com/maps");
+  });
+
+  it("#723: multi-word title location survives", () => {
+    const post = buildPost({
+      title: "Run announcement 2274 &#8211; 1st April 2026 &#8211; Tseung Kwan O waterfront",
+      content: "<p><img src='x.jpg'></p>",
+      date: "2026-03-31T10:00:00+08:00",
+    });
+    const result = parseN2th3Post(post);
+    expect(result?.location).toBe("Tseung Kwan O waterfront");
+  });
+
+  it("#723: trailing noise segment does not pollute location", () => {
+    const post = buildPost({
+      title: "Run announcement 2280 &#8211; 15th May 2026 &#8211; Fanling &#8211; bring torch",
+      content: "<p><img src='x.jpg'></p>",
+      date: "2026-05-14T10:00:00+08:00",
+    });
+    const result = parseN2th3Post(post);
+    expect(result?.location).toBe("Fanling");
+  });
+
   it("handles map URL as plain text (no anchor tag)", () => {
     const post = buildPost({
       content: `

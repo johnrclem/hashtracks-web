@@ -103,8 +103,19 @@ export function parseN2th3Post(
   // Parse run number from title
   const runNumber = parseRunNumber(title);
 
-  // Location and map URL
-  const location = locationField?.text || undefined;
+  // Location and map URL.
+  // Fallback: when body has no `Location:` field (newer posts are primarily
+  // `<img>` blocks), take the third en-dash segment from the title —
+  // "[Birthday] [Run] announcement <N> – <date> – <location>".
+  let location = locationField?.text || undefined;
+  if (!location) {
+    const segments = title.split(/\s+[–—-]\s+/).map(s => s.trim()).filter(Boolean);
+    // Only the third segment is the venue; later segments (e.g. "bring torch")
+    // are descriptive noise, not location.
+    if (segments.length >= 3 && /announcement/i.test(segments[0])) {
+      location = segments[2];
+    }
+  }
   let locationUrl: string | undefined;
   if (mapField?.href) {
     locationUrl = mapField.href;
