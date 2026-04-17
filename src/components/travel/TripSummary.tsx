@@ -22,6 +22,7 @@ import { capture } from "@/lib/analytics";
 import { stashSaveIntent } from "@/lib/travel/save-intent";
 import {
   deleteTravelSearch,
+  restoreTravelSearch,
   saveTravelSearch,
 } from "@/app/travel/actions";
 
@@ -155,16 +156,32 @@ export function TripSummary({
 
   const handleRemove = () => {
     if (!savedId) return;
+    // Capture the id being archived so Undo restores the exact same row
+    // (preserves original id, createdAt, lastViewedAt, and the persisted
+     // radius — critical for legacy trips whose radius isn't on the tier
+     // enum). setSavedId(null) fires immediately on success but this
+     // closure keeps a reference for the toast action.
+    const archivedId = savedId;
     startMutation(async () => {
-      const result = await deleteTravelSearch(savedId);
+      const result = await deleteTravelSearch(archivedId);
       if ("success" in result && result.success) {
         setSavedId(null);
         capture("travel_saved_search_removed", {});
-        // Undo re-saves with current params (new row); no restore action.
         toast.success("Removed from saved trips", {
           action: {
             label: "Undo",
-            onClick: handleSave,
+            onClick: () => {
+              startMutation(async () => {
+                const undo = await restoreTravelSearch(archivedId);
+                if ("success" in undo && undo.success) {
+                  setSavedId(archivedId);
+                } else {
+                  toast.error("Couldn't undo — save the trip again to preserve it.", {
+                    description: "error" in undo ? undo.error : undefined,
+                  });
+                }
+              });
+            },
           },
         });
       } else {

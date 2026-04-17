@@ -195,11 +195,17 @@ async function TravelResultsServer({
     // SSR check: has this user already saved a trip with these exact search
     // params? Coords-based match so label variation doesn't false-negative.
     // Runs only when authed; null for guests (the "unsaved" default).
+    // Match on both the snapped and the original URL radius so legacy
+     // saved trips with non-tier radii (e.g. r=137 from an API path or a
+     // pre-tier build) still match when the user navigates to their
+     // original URL.
     const initialSavedId = isAuthenticated
       ? await findExistingSavedSearch({
           latitude,
           longitude,
-          radiusKm,
+          radiusKm: radiusKm === requestedRadiusKm
+            ? radiusKm
+            : [radiusKm, requestedRadiusKm],
           startDate,
           endDate,
         })
