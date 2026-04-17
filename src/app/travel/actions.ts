@@ -99,24 +99,22 @@ function activeTripMatchFilter(
     ? { in: Array.from(new Set(radiusKm)) }
     : radiusKm;
   // Places autocomplete and server-side geocode can emit coords that
-  // differ by ~0.0001° for the same place — placeId is the stable
-  // identity when we have it. Falls back to coords when absent (SSR URL
-  // lookup doesn't carry placeId).
-  const placeMatch = placeId
-    ? { placeId }
-    : { latitude, longitude };
+  // differ by ~0.0001° for the same place, so prefer placeId identity
+  // when available. Must also match legacy coord-only rows (partial
+  // unique index is still on lat/lng) or P2002 recovery would loop.
+  const baseDestFilter = {
+    status: TravelSearchStatus.ACTIVE,
+    radiusKm: radiusFilter,
+    startDate,
+    endDate,
+  };
+  const destSome = placeId
+    ? { ...baseDestFilter, OR: [{ placeId }, { latitude, longitude }] }
+    : { ...baseDestFilter, latitude, longitude };
   return {
     userId,
     status: TravelSearchStatus.ACTIVE,
-    destinations: {
-      some: {
-        status: TravelSearchStatus.ACTIVE,
-        ...placeMatch,
-        radiusKm: radiusFilter,
-        startDate,
-        endDate,
-      },
-    },
+    destinations: { some: destSome },
   };
 }
 

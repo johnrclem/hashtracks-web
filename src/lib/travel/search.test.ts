@@ -196,6 +196,9 @@ describe("executeTravelSearch", () => {
     expect(result.confirmed[0].kennelName).toBe("Atlanta H3");
     expect(result.confirmed[0].distanceTier).toBe("nearby");
     expect(result.emptyState).toBe("none"); // has confirmed results
+    // broaderRadiusKm must be undefined on primary-only searches or
+    // TripSummary will render the "routing revised" expanded-radius UI.
+    expect(result.meta.broaderRadiusKm).toBeUndefined();
   });
 
   it("returns likely projections from schedule rules", async () => {

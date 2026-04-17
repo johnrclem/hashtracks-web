@@ -196,11 +196,13 @@ describe("saveTravelSearch", () => {
     expect("id" in result && result.id).toBe("ts-winner");
   });
 
-  it("uses placeId as dedup key when provided (#784)", async () => {
-    // Codex finding: two provider paths (Places autocomplete vs server-side
-    // geocode) can emit coords that differ by 0.0001° for the same place,
-    // missing coord-based dedup → duplicate saved trips. When placeId is
-    // present, the match filter should key on it instead of lat/lng.
+  it("matches placeId OR coords when placeId is provided (#784)", async () => {
+    // When placeId is present, match on placeId (handles autocomplete vs
+    // server-geocode coord drift) AND also include the coord branch so
+    // legacy trips saved before placeId was threaded through still dedup.
+    // Dropping the coord branch breaks P2002 recovery: DB uniqueness is
+    // still on coords, so a legacy row would create → collide → refetch
+    // by placeId → miss → user-visible "could not save" error.
     vi.mocked(prisma.travelSearch.findFirst).mockResolvedValueOnce({
       id: "ts-placeid",
     } as never);
@@ -211,14 +213,16 @@ describe("saveTravelSearch", () => {
     });
     expect("id" in result && result.id).toBe("ts-placeid");
 
-    // Confirm the findFirst query filtered on destinations.some.placeId
-    // rather than latitude/longitude.
     const call = vi.mocked(prisma.travelSearch.findFirst).mock.calls[0][0];
-    const destFilter = (call as { where?: { destinations?: { some?: Record<string, unknown> } } })
-      ?.where?.destinations?.some ?? {};
-    expect(destFilter).toHaveProperty("placeId", "ChIJplace123");
-    expect(destFilter).not.toHaveProperty("latitude");
-    expect(destFilter).not.toHaveProperty("longitude");
+    const destFilter = (call as {
+      where?: { destinations?: { some?: Record<string, unknown> } };
+    })?.where?.destinations?.some ?? {};
+    const orBranches = destFilter.OR as Array<Record<string, unknown>> | undefined;
+    expect(orBranches).toBeDefined();
+    expect(orBranches!.some((b) => b.placeId === "ChIJplace123")).toBe(true);
+    expect(orBranches!.some((b) =>
+      b.latitude === validParams.latitude && b.longitude === validParams.longitude,
+    )).toBe(true);
   });
 
   it("falls back to lat/lng dedup when placeId is absent", async () => {

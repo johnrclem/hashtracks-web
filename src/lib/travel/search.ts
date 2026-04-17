@@ -528,7 +528,10 @@ export async function executeTravelSearch(
     meta: {
       kennelsSearched: nearbyKennels.length,
       radiusKm,
-      broaderRadiusKm,
+      // Only emit when the broader pass actually ran and was adopted —
+      // TripSummary reads this as the "effective" radius and would otherwise
+      // label every primary-only search as expanded.
+      broaderRadiusKm: primaryEffectivelyEmpty ? broaderRadiusKm : undefined,
       horizonTier,
     },
   };
