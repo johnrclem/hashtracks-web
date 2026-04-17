@@ -24,7 +24,6 @@ import {
   projectionHorizonForStart,
   filterProjectionsByHorizon,
   DAY_MS,
-  PROJECTION_HORIZON_HIGH_DAYS,
   type ProjectedTrail,
   type ProjectionHorizonTier,
   type ScheduleRuleInput,
@@ -148,7 +147,6 @@ export interface TravelSearchResults {
 // ============================================================================
 
 const TWELVE_WEEKS_MS = 12 * 7 * DAY_MS;
-const PROJECTION_HORIZON_HIGH_MS = PROJECTION_HORIZON_HIGH_DAYS * DAY_MS;
 
 // ============================================================================
 // Internal types
@@ -220,20 +218,14 @@ export async function executeTravelSearch(
   const now = new Date();
 
   // Step 1: Parse + clamp dates
+  // rawEndDate feeds the confirmed-event query — a real event 18 months
+  // out must still display even though projections give up at 365 days.
+  // projectionEndDate (clamped) bounds the RRULE loop so it doesn't iterate
+  // unboundedly on far-future trips.
   const startDate = parseUtcNoonDate(params.startDate);
   const rawEndDate = parseUtcNoonDate(params.endDate);
-  const endDate = clampToProjectionHorizon(rawEndDate, now);
+  const projectionEndDate = clampToProjectionHorizon(rawEndDate, now);
   const horizonTier = projectionHorizonForStart(startDate, now);
-
-  if (startDate.getTime() > now.getTime() + PROJECTION_HORIZON_HIGH_MS) {
-    return {
-      confirmed: [],
-      likely: [],
-      possible: [],
-      emptyState: "out_of_horizon",
-      meta: { kennelsSearched: 0, radiusKm, horizonTier },
-    };
-  }
 
   // Step 2: Find nearby kennels — TWO passes
   const allKennels = await fetchAllVisibleKennels(prisma);
@@ -265,12 +257,12 @@ export async function executeTravelSearch(
   // Steps 3–5 + 8: Three independent DB queries run in parallel (saves ~2 round-trips)
   const twelveWeeksAgo = new Date(now.getTime() - TWELVE_WEEKS_MS);
   const [confirmedEvents, scheduleRules, evidenceEvents] = await Promise.all([
-    // Step 3: Confirmed events in date window
+    // Step 3: Confirmed events in date window (raw — never horizon-clamped).
     prisma.event.findMany({
       where: {
         ...CANONICAL_EVENT_WHERE,
         kennelId: { in: nearbyIds },
-        date: { gte: startDate, lte: endDate },
+        date: { gte: startDate, lte: rawEndDate },
         status: "CONFIRMED",
       },
       include: {
@@ -308,7 +300,7 @@ export async function executeTravelSearch(
     confidence: r.confidence,
     notes: r.notes,
   }));
-  const projections = projectTrails(ruleInputs, startDate, endDate);
+  const projections = projectTrails(ruleInputs, startDate, projectionEndDate);
 
   // Step 7: Score confidence using evidence events (last ~12 weeks ≈ 84 days,
   // close to the 90-day window the scoring function expects)
@@ -442,6 +434,9 @@ export async function executeTravelSearch(
   let emptyState: TravelSearchResults["emptyState"] = "none";
   let broaderResultsObj: TravelSearchResults["broaderResults"];
 
+  const totalResults =
+    filtered.confirmed.length + filtered.likely.length + filtered.possible.length;
+
   if (primary.length === 0 && broader.length > 0) {
     // Primary radius empty, broader found kennels → show broader as fallback
     emptyState = "no_nearby";
@@ -452,6 +447,11 @@ export async function executeTravelSearch(
     };
   } else if (primary.length === 0 && broader.length === 0) {
     emptyState = "no_coverage";
+  } else if (totalResults === 0 && horizonTier === "none") {
+    // Past the 365-day projection horizon and nobody posted an event that
+    // far out. Differentiate from "no_confirmed" so EmptyStates copy can
+    // explain the situation instead of implying the filter is the issue.
+    emptyState = "out_of_horizon";
   } else if (filtered.confirmed.length === 0 && (filtered.likely.length > 0 || filtered.possible.length > 0)) {
     emptyState = "no_confirmed";
   }
