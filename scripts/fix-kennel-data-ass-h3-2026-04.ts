@@ -39,9 +39,15 @@ async function main() {
   console.log("Updated ASS H3:", assh3);
 }
 
-main()
-  .catch((e) => {
+async function run() {
+  try {
+    await main();
+  } catch (e) {
     console.error(e);
-    process.exit(1);
-  })
-  .finally(() => Promise.all([prisma.$disconnect(), pool.end()]));
+    process.exitCode = 1;
+  } finally {
+    await Promise.allSettled([prisma.$disconnect(), pool.end()]);
+  }
+}
+
+void run();

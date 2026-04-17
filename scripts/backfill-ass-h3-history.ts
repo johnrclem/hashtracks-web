@@ -23,16 +23,12 @@ import { PrismaClient, type Prisma } from "@/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { createScriptPool } from "./lib/db-pool";
 import { fetchTribeEvents } from "@/adapters/tribe-events";
-import {
-  extractLvRunNumber,
-  extractLocationFromDescription,
-  extractHaresFromDescription,
-} from "@/adapters/html-scraper/lvh3";
+import { buildLvh3RawEvent } from "@/adapters/html-scraper/lvh3";
 import { generateFingerprint } from "@/pipeline/fingerprint";
 import type { RawEventData } from "@/adapters/types";
 
 const KENNEL_CODE = "ass-h3";
-const SOURCE_NAME = "LVH3 Events";
+const SOURCE_NAME = "Las Vegas H3 Events";
 const CATEGORY_SLUG = "assh3";
 const START_DATE = "2023-01-01";
 const END_DATE_EXCLUSIVE = "2024-04-01";
@@ -53,17 +49,7 @@ async function main() {
   const allEvents: RawEventData[] = result.events
     .filter((e) => e.categorySlugs.map((c) => c.toLowerCase()).includes(CATEGORY_SLUG))
     .filter((e) => e.date >= START_DATE && e.date < END_DATE_EXCLUSIVE)
-    .map((e) => ({
-      date: e.date,
-      startTime: e.allDay ? undefined : e.startTime,
-      kennelTag: KENNEL_CODE,
-      title: e.title,
-      runNumber: extractLvRunNumber(e.title ?? ""),
-      description: e.description,
-      location: e.location || e.venue || extractLocationFromDescription(e.description),
-      hares: extractHaresFromDescription(e.description),
-      sourceUrl: e.url ?? BASE_URL,
-    }))
+    .map((e) => buildLvh3RawEvent(e, KENNEL_CODE, BASE_URL))
     .sort((a, b) => a.date.localeCompare(b.date));
 
   console.log(
@@ -93,42 +79,48 @@ async function main() {
 
   const pool = createScriptPool();
   const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
+  try {
+    const source = await prisma.source.findFirst({ where: { name: SOURCE_NAME } });
+    if (!source) throw new Error(`Source "${SOURCE_NAME}" not found. Run prisma db seed first.`);
 
-  const source = await prisma.source.findFirst({ where: { name: SOURCE_NAME } });
-  if (!source) throw new Error(`Source "${SOURCE_NAME}" not found. Run prisma db seed first.`);
+    const allFingerprints = allEvents.map((event) => ({
+      event,
+      fingerprint: generateFingerprint(event),
+    }));
+    const existingRows = await prisma.rawEvent.findMany({
+      where: {
+        sourceId: source.id,
+        fingerprint: { in: allFingerprints.map((x) => x.fingerprint) },
+      },
+      select: { fingerprint: true },
+    });
+    const existingSet = new Set(existingRows.map((r) => r.fingerprint));
+    const toInsert = allFingerprints.filter(({ fingerprint }) => !existingSet.has(fingerprint));
+    console.log(
+      `\nPre-existing rows: ${existingSet.size}. New rows to insert: ${toInsert.length}.`,
+    );
 
-  const allFingerprints = allEvents.map((event) => ({
-    event,
-    fingerprint: generateFingerprint(event),
-  }));
-  const existingRows = await prisma.rawEvent.findMany({
-    where: { sourceId: source.id, fingerprint: { in: allFingerprints.map((x) => x.fingerprint) } },
-    select: { fingerprint: true },
-  });
-  const existingSet = new Set(existingRows.map((r) => r.fingerprint));
-  const toInsert = allFingerprints.filter(({ fingerprint }) => !existingSet.has(fingerprint));
-  console.log(`\nPre-existing rows: ${existingSet.size}. New rows to insert: ${toInsert.length}.`);
+    if (toInsert.length === 0) {
+      console.log("Nothing new to insert. Exiting.");
+      return;
+    }
 
-  if (toInsert.length === 0) {
-    console.log("Nothing new to insert. Exiting.");
-    await prisma.$disconnect();
-    return;
+    await prisma.rawEvent.createMany({
+      data: toInsert.map(({ event, fingerprint }) => ({
+        sourceId: source.id,
+        rawData: event as unknown as Prisma.InputJsonValue,
+        fingerprint,
+        processed: false,
+      })),
+    });
+
+    console.log(`\nDone. Inserted ${toInsert.length} new RawEvents for ${KENNEL_CODE}.`);
+  } finally {
+    await Promise.allSettled([prisma.$disconnect(), pool.end()]);
   }
-
-  await prisma.rawEvent.createMany({
-    data: toInsert.map(({ event, fingerprint }) => ({
-      sourceId: source.id,
-      rawData: event as unknown as Prisma.InputJsonValue,
-      fingerprint,
-      processed: false,
-    })),
-  });
-
-  console.log(`\nDone. Inserted ${toInsert.length} new RawEvents for ${KENNEL_CODE}.`);
-  await prisma.$disconnect();
 }
 
 main().catch((err) => {
   console.error(err);
-  process.exit(1);
+  process.exitCode = 1;
 });

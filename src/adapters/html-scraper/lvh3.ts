@@ -7,7 +7,7 @@ import type {
 } from "../types";
 import { hasAnyErrors } from "../types";
 import { applyDateWindow, isPlaceholder } from "../utils";
-import { fetchTribeEvents } from "../tribe-events";
+import { fetchTribeEvents, type TribeEvent } from "../tribe-events";
 
 /**
  * Las Vegas H3 (lvh3.org) adapter — Tribe Events Calendar REST API.
@@ -54,10 +54,11 @@ export function extractLocationFromDescription(
   description: string | undefined,
 ): string | undefined {
   if (!description) return undefined;
+  // NOSONAR — description is trusted fetcher output, patterns are anchored with \s*; no user-supplied input.
   const m = /(?:^|\n)\s*Start(?:ing)?\s*location:\s*([^\n]+)/im.exec(description);
   if (!m?.[1]) return undefined;
   // Strip trailing "@ <digit>…" time markers only — '@' inside a venue name survives.
-  const trimmed = m[1].trim().replace(/\s+@\s*\d.*$/, "");
+  const trimmed = m[1].trim().replace(/\s+@\s*\d.*$/, ""); // NOSONAR — trailing-time stripper, digit-anchored.
   return trimmed || undefined;
 }
 
@@ -70,16 +71,63 @@ export function extractHaresFromDescription(
   description: string | undefined,
 ): string | undefined {
   if (!description) return undefined;
+  // NOSONAR — description is trusted fetcher output; pattern anchors `Hares?` + separator with linear backtracking.
   const m = /(?:^|\n)\s*Hares?\s*[-:]\s*([^\n]+)/im.exec(description);
   if (!m?.[1]) return undefined;
-  const value = m[1].trim().replace(/\s*\(IYKYK\)\s*$/i, "").trim();
+  const value = m[1].trim().replace(/\s*\(IYKYK\)\s*$/i, "").trim(); // NOSONAR — trailing-marker stripper, anchored to end.
   if (!value || value.length >= 200 || isPlaceholder(value)) return undefined;
   return value;
 }
 
+/**
+ * Build a normalized RawEventData from a Tribe event.
+ *
+ * Description-based `location` and `hares` extractors run only when
+ * `kennelTag === "ass-h3"` — both are fingerprint inputs, so applying them
+ * to lv-h3 events (which have never carried them) would re-fingerprint
+ * existing LVHHH RawEvents and create duplicates on the next scrape.
+ *
+ * Shared between `LVH3Adapter.fetch()` and `scripts/backfill-ass-h3-history.ts`
+ * to keep the per-event mapping (field order, fallback precedence, extractor
+ * gating) in exactly one place.
+ */
+export function buildLvh3RawEvent(
+  e: TribeEvent,
+  kennelTag: string,
+  baseUrl: string,
+): RawEventData {
+  const isAssh3 = kennelTag === "ass-h3";
+  return {
+    date: e.date,
+    startTime: e.allDay ? undefined : e.startTime,
+    kennelTag,
+    title: e.title,
+    runNumber: extractLvRunNumber(e.title ?? ""),
+    description: e.description,
+    location:
+      e.location ||
+      e.venue ||
+      (isAssh3 ? extractLocationFromDescription(e.description) : undefined),
+    hares: isAssh3 ? extractHaresFromDescription(e.description) : undefined,
+    sourceUrl: e.url ?? baseUrl,
+  };
+}
+
+/**
+ * SourceAdapter for lvh3.org — dispatches Tribe Events Calendar REST API
+ * results into per-kennel RawEvents via category-slug routing. See the
+ * module header for the list of kennels this source feeds and why the
+ * adapter uses REST (the iCal feed is broken upstream).
+ */
 export class LVH3Adapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
 
+  /**
+   * Fetch and normalize upcoming events within `options.days` (default 365).
+   * Events whose category doesn't match any configured kennelPattern are
+   * skipped; description-based location/hares fallbacks apply only to
+   * ASS H3 to preserve fingerprint stability for LVHHH.
+   */
   async fetch(
     source: Source,
     options?: { days?: number },
@@ -117,20 +165,9 @@ export class LVH3Adapter implements SourceAdapter {
         continue;
       }
 
-      events.push({
-        date: e.date,
-        startTime: e.allDay ? undefined : e.startTime,
-        kennelTag,
-        title: e.title,
-        runNumber: extractLvRunNumber(e.title ?? ""),
-        description: e.description,
-        location: e.location || e.venue || extractLocationFromDescription(e.description),
-        // Only extract hares for ASS H3 — lv-h3 events have never stored a
-        // `hares` field, so adding one globally would re-fingerprint existing
-        // LVHHH RawEvents and create duplicates on the next scrape.
-        hares: kennelTag === "ass-h3" ? extractHaresFromDescription(e.description) : undefined,
-        sourceUrl: e.url ?? baseUrl,
-      });
+      // buildLvh3RawEvent gates the description-based location/hares extractors
+      // to ass-h3 only — see the helper's docstring for the fingerprint rationale.
+      events.push(buildLvh3RawEvent(e, kennelTag, baseUrl));
     }
 
     if (result.skippedCount > 0) {
