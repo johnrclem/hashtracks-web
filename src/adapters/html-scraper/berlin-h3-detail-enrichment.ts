@@ -41,7 +41,16 @@ function isBerlinEventUrl(url: string): boolean {
     const host = parsed.hostname.toLowerCase();
     if (host !== "berlin-h3.eu" && host !== "www.berlin-h3.eu") return false;
     if (parsed.pathname.startsWith("/event/")) return true;
-    if (parsed.pathname === "/" && parsed.searchParams.get("post_type") === "event_listing") return true;
+    // The query-string permalink form is `?post_type=event_listing&p=<id>` — both
+    // params must be present. `post_type` alone would match arbitrary WordPress
+    // taxonomy URLs that can't be parsed as event pages.
+    if (
+      parsed.pathname === "/" &&
+      parsed.searchParams.get("post_type") === "event_listing" &&
+      parsed.searchParams.has("p")
+    ) {
+      return true;
+    }
     return false;
   } catch {
     return false;
@@ -63,10 +72,13 @@ export function parseBerlinH3DetailPage(html: string): BerlinH3Detail {
     // Match "Hares -", "Hare -", "Hare(s) -" (trailing dash/colon optional, case-insensitive)
     if (!/^hares?(?:\(s\))?\s*[-:]?\s*$/i.test(labelText)) return;
     // Grab the paragraph text, subtract the strong label to get the value.
+    // Allow optional whitespace before the separator: the separator may sit
+    // inside the <strong> (e.g. "Hares -") OR after it (e.g. "Hares</strong> -"),
+    // which leaves a leading space in the remainder after slicing.
     const fullText = decodeEntities(stripHtmlTags($p.html() ?? ""))
       .replace(/\s+/g, " ")
       .trim();
-    const value = fullText.slice(labelText.length).replace(/^[-:]\s*/, "").trim();
+    const value = fullText.slice(labelText.length).replace(/^\s*[-:]\s*/, "").trim();
     if (value && value.length < 200) hares = value;
   });
 
@@ -96,9 +108,12 @@ export async function enrichBerlinH3Events(
     !!e.sourceUrl && !e.hares && isBerlinEventUrl(e.sourceUrl);
 
   const referenceTime = options.now?.getTime() ?? Date.now();
-  const todayIso = new Date(referenceTime - 86_400_000).toISOString().split("T")[0];
+  // Cutoff is one day behind `now` so events from the past 24h are still
+  // eligible for enrichment (a.k.a. "run was last night, detail page may
+  // now list the hares"). Keep separate from `todayIso` semantics.
+  const cutoffIso = new Date(referenceTime - 86_400_000).toISOString().split("T")[0];
   const toEnrich = events
-    .filter((e) => e.date >= todayIso)
+    .filter((e) => e.date >= cutoffIso)
     .filter(isEnrichable)
     .sort((a, b) => a.date.localeCompare(b.date))
     .slice(0, MAX_ENRICH_PER_SCRAPE);

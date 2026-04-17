@@ -29,6 +29,15 @@ describe("parseBerlinH3DetailPage", () => {
     expect(parseBerlinH3DetailPage(html).hares).toBe("Captain Hash");
   });
 
+  it("handles separator outside the <strong> tag", () => {
+    // Some wp-event-manager templates render the separator after the closing
+    // </strong>, leaving a leading space in the remainder after the label slice.
+    const html = `
+      <p class="wpem-additional-info-block-title"><strong>Hares</strong> - Symphomaniac</p>
+    `;
+    expect(parseBerlinH3DetailPage(html).hares).toBe("Symphomaniac");
+  });
+
   it("ignores unrelated additional-info paragraphs", () => {
     const html = `
       <p class="wpem-additional-info-block-title"><strong>Cost -</strong> 5 EUR</p>
@@ -140,6 +149,22 @@ describe("enrichBerlinH3Events", () => {
       buildEvent({ sourceUrl: "https://www.berlin-h3.eu/" }),
       buildEvent({ sourceUrl: "https://www.berlin-h3.eu/wp-admin/" }),
       buildEvent({ sourceUrl: "https://www.berlin-h3.eu/wp-content/uploads/logo.png" }),
+    ];
+
+    const result = await enrichBerlinH3Events(events, { now });
+
+    expect(result.enriched).toBe(0);
+    expect(fetchSpy).not.toHaveBeenCalled();
+    vi.restoreAllMocks();
+  });
+
+  it("rejects post_type=event_listing query form without a `p` id", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const events = [
+      buildEvent({
+        // Valid-looking post_type but no event id — not an event detail page.
+        sourceUrl: "https://www.berlin-h3.eu/?post_type=event_listing",
+      }),
     ];
 
     const result = await enrichBerlinH3Events(events, { now });
