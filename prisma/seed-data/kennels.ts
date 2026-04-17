@@ -1208,6 +1208,14 @@ export const KENNELS: KennelSeed[] = [
       description: "Weekly runs in San Antonio. Schedule switches seasonally between Friday evenings and Sunday afternoons.",
       latitude: 29.42, longitude: -98.49,
     },
+    // --- El Paso ---
+    {
+      kennelCode: "bjh3", shortName: "BJH3", fullName: "Border Jumpers Hash House Harriers", region: "El Paso, TX",
+      contactEmail: "borderjumpersh3@gmail.com",
+      scheduleFrequency: "Weekly",
+      description: "El Paso / border-region hash kennel.",
+      latitude: 31.76, longitude: -106.49,
+    },
     // --- Corpus Christi ---
     {
       kennelCode: "c2h3", shortName: "C2H3", fullName: "Corpus Christi Hash House Harriers", region: "Corpus Christi, TX",
@@ -2019,6 +2027,12 @@ export const KENNELS: KennelSeed[] = [
       scheduleDayOfWeek: "Tuesday", scheduleTime: "5:45 PM", scheduleFrequency: "Weekly",
       description: "Honolulu weekly Tuesday evening hash.",
       latitude: 21.31, longitude: -157.86,
+    },
+    {
+      kennelCode: "phh-hi", shortName: "PHH", fullName: "Pearl Harbor Hash", region: "Honolulu, HI",
+      scheduleDayOfWeek: "Saturday", scheduleFrequency: "Monthly",
+      description: "Pearl Harbor-area hash kennel. Events cross-posted on Aloha H3's shared calendar.",
+      latitude: 21.35, longitude: -157.95,
     },
     // ===== OHIO =====
     // --- Dayton ---

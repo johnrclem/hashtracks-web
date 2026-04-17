@@ -341,6 +341,72 @@ describe("extractHares", () => {
       "March Madness!\nRilea's Pub 5672 N Union Blvd\nHare: Dr Sh!t Yeah! 719-360-3805\nBring: whistle";
     expect(extractHares(description)).toBe("Dr Sh!t Yeah!");
   });
+
+  // Multi-line hare continuation: some calendars put each hare on its own line
+  // beneath the "Hares:" label.
+
+  it("joins continuation lines under 'Hares:' label (two names)", () => {
+    const desc = "Hares:\nIvanna Hairy Buttchug\nIndiana Bones and the Temple of Poon";
+    expect(extractHares(desc)).toBe("Ivanna Hairy Buttchug, Indiana Bones and the Temple of Poon");
+  });
+
+  it("joins continuation lines under 'Hares:' label (three names)", () => {
+    const desc = "Hares:\nAlice\nBob\nCarol";
+    expect(extractHares(desc)).toBe("Alice, Bob, Carol");
+  });
+
+  it("stops multi-line hares at blank line", () => {
+    const desc = "Hares:\nAlice\nBob\n\nSome other paragraph";
+    expect(extractHares(desc)).toBe("Alice, Bob");
+  });
+
+  it("stops multi-line hares at next field label", () => {
+    const desc = "Hares:\nAlice\nBob\nWhere: Some Pub";
+    expect(extractHares(desc)).toBe("Alice, Bob");
+  });
+
+  it("stops multi-line hares at URL continuation", () => {
+    const desc = "Hares:\nAlice\nhttps://example.com/trail-map";
+    expect(extractHares(desc)).toBe("Alice");
+  });
+
+  it("stops multi-line hares at boilerplate marker", () => {
+    const desc = "Hares:\nAlice\nHash Cash: $5";
+    expect(extractHares(desc)).toBe("Alice");
+  });
+
+  it("inline hare on label line does NOT sweep in continuation prose", () => {
+    // Continuation only triggers for label-only headers; an inline hare is
+    // assumed complete (following prose is description, not co-hares).
+    const desc = "Hares: Alice\nBob the Hare did a thing yesterday\nWhere: Park";
+    expect(extractHares(desc)).toBe("Alice");
+  });
+
+  it("single-line hare behavior unchanged (regression)", () => {
+    expect(extractHares("Hare: Mudflap\nON-IN: Some Bar")).toBe("Mudflap");
+  });
+
+  it("single-line hare with immediate next-label unchanged", () => {
+    expect(extractHares("Hares: Alice & Bob\nWhere: Park")).toBe("Alice & Bob");
+  });
+
+  // Adversarial: label-only "Hares:" followed by prose/instructions must not
+  // sweep description text into hare names.
+  it("does not ingest sentence-like prose after label-only header", () => {
+    const desc = "Hares:\nBring a flashlight.\nMeet at the park.";
+    expect(extractHares(desc)).toBeUndefined();
+  });
+
+  it("does not ingest lines containing colons (unrecognized field labels)", () => {
+    const desc = "Hares:\nNote: see FB for details\nDistance: 5k";
+    expect(extractHares(desc)).toBeUndefined();
+  });
+
+  it("stops at overly long continuation line (prose, not a name)", () => {
+    const longLine = "This is a long paragraph describing the trail that goes on for many words in a row";
+    const desc = `Hares:\nAlice\n${longLine}`;
+    expect(extractHares(desc)).toBe("Alice");
+  });
 });
 
 // ── Test helper for buildRawEventFromGCalItem ──
@@ -354,6 +420,77 @@ function testGCalEvent(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
 }
+
+describe("CTA placeholder event skip", () => {
+  it.each([
+    "Hares needed!",
+    "Hare wanted",
+    "Hares Required",
+    "Looking for a hare",
+    "Need a hare for Friday",
+    "Hare volunteers needed",
+  ])("skips event with CTA-only title: %s", (summary) => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary }),
+      { defaultKennelTag: "ewh3" },
+    );
+    expect(result).toBeNull();
+  });
+
+  it("preserves legitimate run titles that happen to mention hares", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "EWH3 Run #1234 - Hare: Fluffy" }),
+      { defaultKennelTag: "ewh3" },
+    );
+    expect(result).not.toBeNull();
+  });
+});
+
+describe("Google holiday calendar filter", () => {
+  it("skips events from Google's imported US holiday calendar", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        summary: "Thanksgiving",
+        organizer: { email: "en.usa#holiday@group.v.calendar.google.com" },
+      }),
+      { defaultKennelTag: "bjh3" },
+    );
+    expect(result).toBeNull();
+  });
+
+  it("skips events where organizer.email points at any holiday calendar domain", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        summary: "Veterans Day",
+        organizer: { email: "en.usa.holidays@group.v.calendar.google.com" },
+      }),
+      { defaultKennelTag: "bjh3" },
+    );
+    expect(result).toBeNull();
+  });
+
+  it("falls back to creator.email when organizer is missing", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        summary: "Christmas",
+        creator: { email: "en.usa#holiday@group.v.calendar.google.com" },
+      }),
+      { defaultKennelTag: "bjh3" },
+    );
+    expect(result).toBeNull();
+  });
+
+  it("preserves events from the kennel's own calendar", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        summary: "BJH3 Run #500",
+        organizer: { email: "borderjumpersh3@gmail.com" },
+      }),
+      { defaultKennelTag: "bjh3" },
+    );
+    expect(result).not.toBeNull();
+  });
+});
 
 // ── non-address location fallback ──
 
@@ -1365,7 +1502,7 @@ describe("buildRawEventFromGCalItem — dash-separated hare/location extraction"
     expect(event!.location).toBe("11385 Pioneer Road, Tustin, CA");
   });
 
-  it("replaces email-in-title with kennel tag", () => {
+  it("skips CTA placeholder events (title is 'Hares needed')", () => {
     const item = {
       summary: "Hares needed! Email the Hare Razor <ewh3harerazor@gmail.com>!",
       start: { dateTime: "2026-04-23T18:30:00-04:00" },
@@ -1373,8 +1510,7 @@ describe("buildRawEventFromGCalItem — dash-separated hare/location extraction"
     };
     const config = { defaultKennelTag: "EWH3" };
     const event = buildRawEventFromGCalItem(item, config);
-    expect(event).not.toBeNull();
-    expect(event!.title).toBe("EWH3");
+    expect(event).toBeNull();
   });
 
   it("strips known location suffix from title", () => {

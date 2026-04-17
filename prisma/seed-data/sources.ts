@@ -120,6 +120,9 @@ export const SOURCES = [
           ["BFM|Ben Franklin|BFMH3", "bfm"],
         ],
         defaultKennelTag: "bfm",
+        // Philly H3 Saturday events bleed into BFM's calendar as organizer-level
+        // pollution; filter them so BFM's hareline isn't swamped with non-BFM trails.
+        skipPatterns: [String.raw`^Philly Hash\b`, String.raw`^Philly H3\b`],
       },
       kennelCodes: ["bfm"],
     },
@@ -660,6 +663,40 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 90,
       kennelCodes: ["dh3-tx", "duhhh", "noduhhh", "fwh3"],
+    },
+    // --- El Paso (1 Google Calendar) ---
+    {
+      name: "BJH3 Google Calendar",
+      url: "borderjumpersh3@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "every_6h",
+      scrapeDays: 365,
+      config: {
+        defaultKennelTag: "bjh3",
+        // BJH3's calendar imports US federal holidays as if they were trail events.
+        // The adapter's organizer-email filter handles Google's imported holiday
+        // calendars; this title list is a stopgap for holidays copied directly
+        // into the BJH3 calendar (no holiday-calendar organizer to detect).
+        skipPatterns: [
+          String.raw`^Thanksgiving\b`,
+          String.raw`^Veterans\s+Day\b`,
+          String.raw`^Halloween\b`,
+          String.raw`^Indigenous\s+Peoples?'?s?\s+Day\b`,
+          String.raw`Daylight\s+Saving`,
+          String.raw`^Independence\s+Day\b`,
+          String.raw`^Memorial\s+Day\b`,
+          String.raw`^Labor\s+Day\b`,
+          String.raw`^Christmas\b`,
+          String.raw`^New\s+Year`,
+          String.raw`^Martin\s+Luther\s+King`,
+          String.raw`^Columbus\s+Day\b`,
+          String.raw`^Presidents?'?s?\s+Day\b`,
+          String.raw`^Easter\b`,
+          String.raw`^Juneteenth\b`,
+        ],
+      },
+      kennelCodes: ["bjh3"],
     },
     // --- Corpus Christi (1 Google Calendar) ---
     {
@@ -2125,6 +2162,10 @@ export const SOURCES = [
       scrapeDays: 365,
       config: {
         kennelPatterns: [
+          // PHH must come before H5 (kennelPatterns resolve first-match-wins).
+          // Match only the kennel tag PHH — not "Pearl Harbor" as a location,
+          // since an AH3 run at Pearl Harbor would otherwise be misrouted.
+          [String.raw`\bPHH\b`, "phh-hi"],
           ["\\bH5\\b|Honolulu H[45]", "h5-hi"],
         ],
         defaultKennelTag: "ah3-hi",
@@ -2137,7 +2178,7 @@ export const SOURCES = [
         // Closes #575.
         titleHarePattern: "^AH3\\s*#\\d+.*-\\s+(.+)$",
       },
-      kennelCodes: ["ah3-hi", "h5-hi"],
+      kennelCodes: ["ah3-hi", "h5-hi", "phh-hi"],
     },
     {
       name: "Honolulu H5 Google Calendar",

@@ -487,6 +487,17 @@ export async function fetchHTMLPage(url: string): Promise<FetchHTMLResult> {
  */
 export const HARE_BOILERPLATE_RE = /\s*\b(?:WHAT TIME|WHAT TO WEAR|WHERE|Location|HASH CASH|Cost|Price|Length|Distance|Directions|Trail Type|Trail is|Start|Meet at|Registration|WHAT IS THE COST|On-On|On On|Hares?\s+Needed|Question|Call\s|Lost\?)[:\s].*|\s*\(\d{3}\)\s*\d{3}.*/i;
 
+/**
+ * Embedded CTA phrases like "Hares needed for Friday evening." Used by both the
+ * pipeline audit (`checkTitleQuality`) and the Google Calendar adapter to filter
+ * placeholder recruitment events out of ingestion. See #755, #758, #759.
+ */
+export const CTA_EMBEDDED_PATTERNS = [
+  /\bhares?\s+(?:needed|wanted|required|volunteer\w*)\b/i,
+  /\bneed(?:ed)?\s+(?:a\s+)?hares?\b/i,
+  /\blooking\s+for\s+(?:a\s+)?hares?\b/i,
+] as const;
+
 // ---------------------------------------------------------------------------
 // Non-English country name normalization
 // ---------------------------------------------------------------------------
