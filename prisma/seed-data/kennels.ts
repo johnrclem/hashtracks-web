@@ -15,6 +15,7 @@ export interface KennelSeed {
   instagramHandle?: string;
   twitterHandle?: string;
   discordUrl?: string;
+  mailingListUrl?: string;
   contactEmail?: string;
   foundedYear?: number;
   description?: string;
@@ -865,7 +866,11 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "bh3fm", shortName: "Berlin Full Moon", fullName: "Berlin Full Moon Hash House Harriers", region: "Berlin", country: "Germany",
       website: "https://www.berlin-h3.eu",
       scheduleFrequency: "Monthly", scheduleNotes: "Full moon evening",
-      description: "Berlin monthly full moon hash.",
+      hashCash: "€5", foundedYear: 1979,
+      facebookUrl: "https://de-de.facebook.com/BerlinHashHouseHarriers/",
+      mailingListUrl: "https://list.berlin-h3.eu/subscription/form",
+      logoUrl: "https://www.berlin-h3.eu/wp-content/uploads/2020/05/bh3Logo.png",
+      description: "Berlin's monthly full moon hash. A drinking club with a running problem — since 1979.",
       latitude: 52.52, longitude: 13.41,
     },
     // Stuttgart

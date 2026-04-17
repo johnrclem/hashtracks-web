@@ -250,6 +250,40 @@ describe("validateSourceConfig", () => {
   });
 
   // ---------------------------------------------------------------------------
+  // costPatterns validation
+  // ---------------------------------------------------------------------------
+
+  describe("costPatterns validation", () => {
+    it("accepts valid costPatterns", () => {
+      const config = {
+        costPatterns: [String.raw`(?:^|\n)\s*Hash\s*Cash:\s*([^\n]+)`],
+        defaultKennelTag: "berlinh3",
+      };
+      expect(validateSourceConfig("ICAL_FEED", config)).toEqual([]);
+    });
+
+    it("rejects non-array costPatterns", () => {
+      const errors = validateSourceConfig("ICAL_FEED", {
+        costPatterns: "not an array",
+      });
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toContain("must be an array");
+    });
+
+    it.each([
+      [["[broken("], "invalid regex"],
+      [[123], "must be a string"],
+      [["(x+x+)+y"], "catastrophic backtracking"],
+    ])("rejects invalid cost pattern: %s", (patterns, expectedMsg) => {
+      const errors = validateSourceConfig("ICAL_FEED", {
+        costPatterns: patterns,
+      });
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toContain(expectedMsg);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // GOOGLE_SHEETS required fields
   // ---------------------------------------------------------------------------
 
