@@ -7,6 +7,7 @@ import {
   generateExplanationFromRule,
   clampToProjectionHorizon,
   projectionHorizonForStart,
+  filterProjectionsByHorizon,
   type ScheduleRuleInput,
   type ConfirmedEventRef,
 } from "./projections";
@@ -481,5 +482,31 @@ describe("projectionHorizonForStart", () => {
 
   it("returns 'none' past 365 days", () => {
     expect(projectionHorizonForStart(utcNoon("2028-01-01"), now)).toBe("none");
+  });
+});
+
+describe("filterProjectionsByHorizon", () => {
+  const mixed = [
+    { confidence: "high" as const, id: "h1" },
+    { confidence: "medium" as const, id: "m1" },
+    { confidence: "low" as const, id: "l1" },
+  ];
+
+  it("returns all projections at tier 'all'", () => {
+    expect(filterProjectionsByHorizon(mixed, "all")).toHaveLength(3);
+  });
+
+  it("keeps HIGH + LOW but drops MEDIUM at tier 'high'", () => {
+    const out = filterProjectionsByHorizon(mixed, "high");
+    expect(out.map((p) => p.id).sort()).toEqual(["h1", "l1"]);
+  });
+
+  it("returns [] at tier 'none' — projections drop entirely past 365d", () => {
+    // Regression: tier-3 empty state arbiter relies on this. A LOW
+    // projection surviving past the 365d horizon flips the UI off the
+    // "More than a year out" path and back to the tier-2 "No posted
+    // trails" copy with a stray Possible row.
+    expect(filterProjectionsByHorizon(mixed, "none")).toEqual([]);
+    expect(filterProjectionsByHorizon([{ confidence: "low" as const }], "none")).toEqual([]);
   });
 });

@@ -512,9 +512,9 @@ export function projectionHorizonForStart(
 
 /**
  * Strip projections whose confidence exceeds what's allowed at this tier.
- * LOW-confidence "possible activity" has no date and doesn't decay with
- * distance — it survives every tier. Fast-paths the common `"all"` case
- * to skip allocating a filtered copy.
+ * At tier "none" (start > 365d) nothing projects — the user sees confirmed
+ * events only and the out_of_horizon empty state when those are also empty.
+ * Fast-paths the common `"all"` case to skip allocating a filtered copy.
  */
 export function filterProjectionsByHorizon<T extends { confidence: "high" | "medium" | "low" }>(
   projections: T[],
@@ -524,7 +524,7 @@ export function filterProjectionsByHorizon<T extends { confidence: "high" | "med
   if (tier === "high") {
     return projections.filter(p => p.confidence === "high" || p.confidence === "low");
   }
-  return projections.filter(p => p.confidence === "low");
+  return [];
 }
 
 /**

@@ -269,6 +269,30 @@ describe("executeTravelSearch", () => {
     expect(result.possible).toHaveLength(0);
   });
 
+  it("drops LOW-confidence Possible projections past the 365d horizon (tier 3)", async () => {
+    // QA regression: a LOW CADENCE rule was leaking into tier-3 Possible
+    // and flipping the empty-state arbiter off `out_of_horizon` back to
+    // `no_confirmed`, rendering a stray SLH3-style row instead of the
+    // "More than a year out" copy.
+    const lowRule: MockScheduleRule = {
+      ...testRule,
+      id: "r-low",
+      rrule: "CADENCE=MONTHLY;BYDAY=SA",
+      confidence: "LOW",
+      notes: "Monthly — specific week unknown",
+    };
+    const prisma = createMockPrisma([testKennel], [], [lowRule]);
+    const result = await executeTravelSearch(prisma, {
+      ...baseParams,
+      startDate: "2036-04-12",
+      endDate: "2036-04-26",
+    });
+
+    expect(result.meta.horizonTier).toBe("none");
+    expect(result.possible).toHaveLength(0);
+    expect(result.emptyState).toBe("out_of_horizon");
+  });
+
   it("still surfaces confirmed events past the 365d projection horizon", async () => {
     // Codex regression: a real event posted ~18 months out must render
     // even though projections give up at 365d. 550 days is inside the
