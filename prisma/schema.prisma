@@ -324,13 +324,13 @@ model Event {
   status            EventStatus @default(CONFIRMED)
   isManualEntry     Boolean     @default(false)
   submittedByUserId String?
-  /// When two sources disagree on a (kennelId, date) and the merge pipeline
-  /// can't collapse them into one row, every row is kept for audit fidelity
-  /// but only ONE is canonical — display paths (Travel, Hareline) filter on
+  submittedBy       User?       @relation("SubmittedEvents", fields: [submittedByUserId], references: [id])
+  /// When two sources disagree on (kennelId, date) and the merge pipeline
+  /// can't collapse them into one row, every row persists for audit
+  /// fidelity but only ONE is canonical — display paths filter on
   /// isCanonical: true. Selector: highest trustLevel, then highest
   /// completeness score, then oldest createdAt (stable).
   isCanonical       Boolean     @default(true)
-  submittedBy       User?       @relation("SubmittedEvents", fields: [submittedByUserId], references: [id])
 
   kennel            Kennel             @relation(fields: [kennelId], references: [id])
   parentEvent       Event?             @relation("EventSeries", fields: [parentEventId], references: [id])

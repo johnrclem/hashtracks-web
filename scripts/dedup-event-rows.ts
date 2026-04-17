@@ -1,11 +1,7 @@
 /**
- * Recompute Event.isCanonical across the existing row set.
- *
- * Needed once when the isCanonical flag ships: all prior rows default to
- * true, including duplicates that should be non-canonical. This script
- * walks every (kennelId, date) with more than one row, picks the winner
- * via the same pickCanonicalEventId selector the merge pipeline uses, and
- * flips the losers to isCanonical=false.
+ * Recompute Event.isCanonical for any (kennelId, date) with >1 row.
+ * Uses the same pickCanonicalEventId selector as the merge pipeline so
+ * re-runs and re-scrapes converge on identical flags.
  *
  * Usage:
  *   npx tsx scripts/dedup-event-rows.ts            # dry run (default)

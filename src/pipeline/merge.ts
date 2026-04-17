@@ -1105,20 +1105,31 @@ export function pickCanonicalEventId(events: CanonicalCandidate[]): string | nul
   return best.id;
 }
 
+interface CandidateWithCanonicalState extends CanonicalCandidate {
+  isCanonical: boolean;
+}
+
 /**
- * Recompute `isCanonical` across Event rows the caller already has in hand
- * for one (kennelId, date). No DB read — upsertCanonicalEvent already
- * fetched sameDayEvents, so we use that list plus the just-upserted row.
- * No-op when the slot has 1 row — the default-true column already reflects
- * "canonical."
+ * Reconcile `isCanonical` across a set of rows for one (kennelId, date).
+ * Caller provides the full set of rows. No-op for single-row slots and
+ * for slots where the flags already match the selector's pick — the
+ * early-out matters on chronic-dup kennels where a ~1000-event scrape
+ * would otherwise fire a transaction per incoming event.
  */
 async function recomputeCanonical(
-  candidates: CanonicalCandidate[],
+  candidates: CandidateWithCanonicalState[],
 ): Promise<void> {
   if (candidates.length <= 1) return;
 
   const canonicalId = pickCanonicalEventId(candidates);
   if (canonicalId == null) return;
+
+  const alreadyCanonical = candidates
+    .filter(e => e.isCanonical)
+    .map(e => e.id);
+  if (alreadyCanonical.length === 1 && alreadyCanonical[0] === canonicalId) {
+    return;
+  }
 
   const nonCanonicalIds = candidates.map(e => e.id).filter(id => id !== canonicalId);
   await prisma.$transaction([
