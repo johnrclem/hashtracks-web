@@ -1,3 +1,4 @@
+import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type { ErrorDetails, RawEventData, ScrapeResult, SourceAdapter } from "../types";
 import { safeFetch } from "../safe-fetch";
@@ -32,6 +33,8 @@ import { applyDateWindow, isPlaceholder, normalizeHaresField } from "../utils";
 
 const KENNEL_TAG = "ah3-au";
 const SOURCE_URL_DEFAULT = "https://ah3.com.au/wp-admin/admin-ajax.php";
+const DETAIL_FETCH_CAP = 12;
+const DETAIL_FETCH_DELAY_MS = 250;
 
 interface AdelaideEventRow {
   id?: string | number;
@@ -88,6 +91,74 @@ export function parseAdelaideEvent(
     sourceUrl,
   };
 }
+
+interface AdelaideEventDetail {
+  location?: string;
+  locationStreet?: string;
+  description?: string;
+  locationUrl?: string;
+}
+
+/**
+ * Parse the HTML content returned by `action=get_event`.
+ * Shape: `.description`, `.location > span:nth-child(1|2)`, `a.maplink[href]`.
+ * Exported for unit testing.
+ */
+export function parseAdelaideDetail(contentHtml: string): AdelaideEventDetail {
+  const $ = cheerio.load(contentHtml);
+  const spans = $(".location span");
+  const venue = spans.eq(0).text().trim();
+  const address = spans.eq(1).text().trim();
+  const description = $(".description").first().text().trim();
+  const mapHref = $("a.maplink").first().attr("href")?.trim();
+  return {
+    location: venue || undefined,
+    locationStreet: address || undefined,
+    description: description || undefined,
+    locationUrl: mapHref || undefined,
+  };
+}
+
+async function fetchAdelaideDetail(
+  baseUrl: string,
+  id: string | number,
+  startIso: string,
+  endIso: string,
+): Promise<AdelaideEventDetail | null> {
+  const toUnix = (iso: string): number | null => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{2}):(\d{2}):(\d{2}))?$/.exec(iso);
+    if (!m) return null;
+    const d = new Date(Date.UTC(
+      Number(m[1]), Number(m[2]) - 1, Number(m[3]),
+      Number(m[4] ?? "0"), Number(m[5] ?? "0"), Number(m[6] ?? "0"),
+    ));
+    return Math.floor(d.getTime() / 1000);
+  };
+  const start = toUnix(startIso);
+  const end = toUnix(endIso);
+  if (start == null || end == null) return null;
+
+  const body = `action=get_event&id=${encodeURIComponent(String(id))}&start=${start}&end=${end}`;
+  try {
+    const res = await safeFetch(baseUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Accept: "application/json",
+        "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)",
+      },
+      body,
+    });
+    if (!res.ok) return null;
+    const payload = (await res.json()) as { content?: string };
+    if (typeof payload?.content !== "string") return null;
+    return parseAdelaideDetail(payload.content);
+  } catch {
+    return null;
+  }
+}
+
+const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
 
 export class AdelaideH3Adapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
@@ -146,11 +217,33 @@ export class AdelaideH3Adapter implements SourceAdapter {
     }
 
     const events: RawEventData[] = [];
+    const detailTargets: { event: RawEventData; row: AdelaideEventRow }[] = [];
     let skipped = 0;
     for (const row of payload as AdelaideEventRow[]) {
       const event = parseAdelaideEvent(row, url);
-      if (event) events.push(event);
-      else skipped++;
+      if (event) {
+        events.push(event);
+        detailTargets.push({ event, row });
+      } else {
+        skipped++;
+      }
+    }
+
+    // Per-event detail enrichment: the list endpoint omits venue/address. The
+    // FullCalendar widget fetches each cell's detail via `action=get_event`.
+    // Cap at DETAIL_FETCH_CAP and space requests by DETAIL_FETCH_DELAY_MS.
+    let detailsFetched = 0;
+    for (const { event, row } of detailTargets.slice(0, DETAIL_FETCH_CAP)) {
+      if (!row.id || !row.start || !row.end) continue;
+      const detail = await fetchAdelaideDetail(url, row.id, row.start, row.end);
+      if (detail) {
+        if (detail.location) event.location = detail.location;
+        if (detail.locationStreet) event.locationStreet = detail.locationStreet;
+        if (detail.description) event.description = detail.description;
+        if (detail.locationUrl) event.locationUrl = detail.locationUrl;
+        detailsFetched++;
+      }
+      await sleep(DETAIL_FETCH_DELAY_MS);
     }
 
     const errors: string[] = [];
@@ -171,6 +264,7 @@ export class AdelaideH3Adapter implements SourceAdapter {
           rowsFetched: payload.length,
           eventsParsed: events.length,
           skippedRows: skipped,
+          detailsFetched,
           fetchDurationMs: Date.now() - fetchStart,
         },
       },
