@@ -481,7 +481,7 @@ function ordinal(n: number): string {
 export const PROJECTION_HORIZON_ALL_DAYS = 180;
 export const PROJECTION_HORIZON_HIGH_DAYS = 365;
 
-const DAY_MS = 24 * 60 * 60 * 1000;
+export const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Which confidence levels can still project at `startDate`. Horizon gates:
@@ -499,6 +499,23 @@ export function projectionHorizonForStart(
   if (daysOut <= PROJECTION_HORIZON_ALL_DAYS) return "all";
   if (daysOut <= PROJECTION_HORIZON_HIGH_DAYS) return "high";
   return "none";
+}
+
+/**
+ * Strip projections whose confidence exceeds what's allowed at this tier.
+ * LOW-confidence "possible activity" has no date and doesn't decay with
+ * distance — it survives every tier. Fast-paths the common `"all"` case
+ * to skip allocating a filtered copy.
+ */
+export function filterProjectionsByHorizon<T extends { confidence: "high" | "medium" | "low" }>(
+  projections: T[],
+  tier: ProjectionHorizonTier,
+): T[] {
+  if (tier === "all") return projections;
+  if (tier === "high") {
+    return projections.filter(p => p.confidence === "high" || p.confidence === "low");
+  }
+  return projections.filter(p => p.confidence === "low");
 }
 
 /**

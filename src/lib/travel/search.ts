@@ -22,6 +22,8 @@ import {
   buildEvidenceTimeline,
   clampToProjectionHorizon,
   projectionHorizonForStart,
+  filterProjectionsByHorizon,
+  DAY_MS,
   PROJECTION_HORIZON_HIGH_DAYS,
   type ProjectedTrail,
   type ProjectionHorizonTier,
@@ -145,8 +147,8 @@ export interface TravelSearchResults {
 // Constants
 // ============================================================================
 
-const TWELVE_WEEKS_MS = 12 * 7 * 24 * 60 * 60 * 1000;
-const PROJECTION_HORIZON_HIGH_MS = PROJECTION_HORIZON_HIGH_DAYS * 24 * 60 * 60 * 1000;
+const TWELVE_WEEKS_MS = 12 * 7 * DAY_MS;
+const PROJECTION_HORIZON_HIGH_MS = PROJECTION_HORIZON_HIGH_DAYS * DAY_MS;
 
 // ============================================================================
 // Internal types
@@ -319,17 +321,7 @@ export async function executeTravelSearch(
     startTime: e.startTime,
   }));
   const dedupedProjections = deduplicateAgainstConfirmed(scoredProjections, confirmedRefs);
-
-  // Horizon-tier filter: past 180 days, only HIGH-confidence RRULE
-  // projections remain in the Likely bucket. Past 365 days, all
-  // projections drop (confirmed events continue to render if they exist
-  // that far out). LOW-confidence "possible activity" has no date and
-  // doesn't decay with distance.
-  const horizonFilteredProjections = dedupedProjections.filter((p) => {
-    if (horizonTier === "all") return true;
-    if (horizonTier === "high") return p.confidence === "high" || p.confidence === "low";
-    return p.confidence === "low"; // horizonTier === "none"
-  });
+  const horizonFilteredProjections = filterProjectionsByHorizon(dedupedProjections, horizonTier);
 
   // Step 10: Classify into likely vs possible
   const likelyProjections = horizonFilteredProjections.filter(
