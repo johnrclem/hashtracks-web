@@ -85,8 +85,13 @@ export function formatDayHeader(dateStr: string): string {
  *   distanceKm < 25                → "X km · short drive"
  *   distanceKm ≥ 25                → "X km · ~Y min drive" or "~Nh Mm drive"
  */
+/** "<1 km" below 1, otherwise "X.X km". Terser than formatDistanceWithWalk. */
+export function formatDistanceShort(distanceKm: number): string {
+  return distanceKm < 1 ? "<1 km" : `${distanceKm.toFixed(1)} km`;
+}
+
 export function formatDistanceWithWalk(distanceKm: number): string {
-  const kmLabel = distanceKm < 1 ? "<1 km" : `${distanceKm.toFixed(1)} km`;
+  const kmLabel = formatDistanceShort(distanceKm);
   const walkMin = Math.round((distanceKm / 5) * 60);
   if (walkMin <= 30) return `${kmLabel} · ~${Math.max(1, walkMin)} min walk`;
   if (walkMin <= 90) {

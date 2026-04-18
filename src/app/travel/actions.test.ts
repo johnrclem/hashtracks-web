@@ -196,6 +196,54 @@ describe("saveTravelSearch", () => {
     expect("id" in result && result.id).toBe("ts-winner");
   });
 
+  it("matches placeId OR coords when placeId is provided (#784)", async () => {
+    // When placeId is present, match on placeId (handles autocomplete vs
+    // server-geocode coord drift) AND also include the coord branch so
+    // legacy trips saved before placeId was threaded through still dedup.
+    // Dropping the coord branch breaks P2002 recovery: DB uniqueness is
+    // still on coords, so a legacy row would create → collide → refetch
+    // by placeId → miss → user-visible "could not save" error.
+    vi.mocked(prisma.travelSearch.findFirst).mockResolvedValueOnce({
+      id: "ts-placeid",
+    } as never);
+
+    const result = await saveTravelSearch({
+      ...validParams,
+      placeId: "ChIJplace123",
+    });
+    expect("id" in result && result.id).toBe("ts-placeid");
+
+    const call = vi.mocked(prisma.travelSearch.findFirst).mock.calls[0][0];
+    const destFilter = (call as {
+      where?: { destinations?: { some?: Record<string, unknown> } };
+    })?.where?.destinations?.some ?? {};
+    const orBranches = destFilter.OR as Array<Record<string, unknown>> | undefined;
+    expect(orBranches).toBeDefined();
+    expect(orBranches!.some((b) => b.placeId === "ChIJplace123")).toBe(true);
+    expect(orBranches!.some((b) =>
+      b.latitude === validParams.latitude && b.longitude === validParams.longitude,
+    )).toBe(true);
+  });
+
+  it("falls back to lat/lng dedup when placeId is absent", async () => {
+    // Legacy behavior: URL-based SSR dedup still has no placeId, so the
+    // coord match must keep working. Regression check — lint/type systems
+    // wouldn't catch accidentally dropping the fallback.
+    vi.mocked(prisma.travelSearch.findFirst).mockResolvedValueOnce({
+      id: "ts-coords",
+    } as never);
+
+    const result = await saveTravelSearch(validParams);
+    expect("id" in result && result.id).toBe("ts-coords");
+
+    const call = vi.mocked(prisma.travelSearch.findFirst).mock.calls[0][0];
+    const destFilter = (call as { where?: { destinations?: { some?: Record<string, unknown> } } })
+      ?.where?.destinations?.some ?? {};
+    expect(destFilter).toHaveProperty("latitude", validParams.latitude);
+    expect(destFilter).toHaveProperty("longitude", validParams.longitude);
+    expect(destFilter).not.toHaveProperty("placeId");
+  });
+
   it("rejects radiusKm above the 250km clamp", async () => {
     const result = await saveTravelSearch({ ...validParams, radiusKm: 99999 });
     expect("error" in result && result.error).toContain("Radius too large");

@@ -82,6 +82,7 @@ interface SerializedPossible {
   distanceTier: "nearby" | "area" | "drive";
   explanation: string;
   sourceLinks: SourceLink[];
+  lastConfirmedAt: string | null;
 }
 
 interface TravelResultsProps {
@@ -288,7 +289,10 @@ export function TravelResults({ destination, results }: Readonly<TravelResultsPr
       </div>
 
       {!includePossible && filteredPossibleAll.length > 0 && (
-        <PossibleSection results={filteredPossibleAll} />
+        <PossibleSection
+          results={filteredPossibleAll}
+          confirmedCount={renderedTiers.reduce((sum, t) => sum + t.confirmed.length, 0)}
+        />
       )}
     </div>
   );

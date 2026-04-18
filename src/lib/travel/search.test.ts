@@ -196,6 +196,9 @@ describe("executeTravelSearch", () => {
     expect(result.confirmed[0].kennelName).toBe("Atlanta H3");
     expect(result.confirmed[0].distanceTier).toBe("nearby");
     expect(result.emptyState).toBe("none"); // has confirmed results
+    // broaderRadiusKm must be undefined on primary-only searches or
+    // TripSummary will render the "routing revised" expanded-radius UI.
+    expect(result.meta.broaderRadiusKm).toBeUndefined();
   });
 
   it("returns likely projections from schedule rules", async () => {
@@ -444,6 +447,112 @@ describe("executeTravelSearch", () => {
     expect(result.broaderResults).toBeDefined();
     expect(result.broaderResults!.confirmed.length).toBeGreaterThanOrEqual(1);
     expect(result.meta.broaderRadiusKm).toBe(150);
+  });
+
+  it("falls back to broader when primary has a dormant kennel (#783)", async () => {
+    // Codex regression: a single kennel in the primary radius with no
+    // events and no schedule rules used to suppress the broader pass.
+    // User saw an empty "no_confirmed" page instead of useful results
+    // from a wider search.
+    const dormantKennel: MockKennel = {
+      ...testKennel,
+      id: "k-dormant",
+      // ~5km from Atlanta — well inside primary 50km
+    };
+    const activeDistantKennel: MockKennel = {
+      ...testKennel,
+      id: "k-active-distant",
+      slug: "distant-h3",
+      shortName: "Distant H3",
+      latitude: 34.3, // ~60km north — only in broader radius
+      longitude: -84.39,
+    };
+    const distantEvent: MockEvent = {
+      ...testEvent,
+      id: "e-distant",
+      kennelId: "k-active-distant",
+    };
+    // Primary has the dormant kennel (no events, no rules).
+    // Broader adds the active kennel with a real event.
+    const prisma = createMockPrisma(
+      [dormantKennel, activeDistantKennel],
+      [distantEvent],
+      [],
+    );
+    const result = await executeTravelSearch(prisma, baseParams);
+
+    expect(result.emptyState).toBe("no_nearby");
+    expect(result.broaderResults).toBeDefined();
+    expect(result.broaderResults!.confirmed.length).toBe(1);
+    expect(result.broaderResults!.confirmed[0].eventId).toBe("e-distant");
+    expect(result.meta.broaderRadiusKm).toBe(150);
+  });
+
+  it("collapses Possible rows to one per kennel (#793)", async () => {
+    // Weekly CADENCE rule fires multiple times in a 14-day window, and
+    // scoreConfidence downgrades it to LOW when there's no evidence.
+    // Previously each cadence hit produced a separate row → QA saw
+    // "West London H3" twice on the London preview.
+    const weeklyLowRule: MockScheduleRule = {
+      ...testRule,
+      id: "r-weekly-low",
+      rrule: "FREQ=WEEKLY;BYDAY=SA", // fires twice in 14-day window
+      confidence: "LOW",
+    };
+    const twoWeekParams: TravelSearchParams = {
+      ...baseParams,
+      startDate: "2026-04-12",
+      endDate: "2026-04-26",
+    };
+    const prisma = createMockPrisma([testKennel], [], [weeklyLowRule]);
+    const result = await executeTravelSearch(prisma, twoWeekParams);
+
+    const atlPossibles = result.possible.filter((p) => p.kennelId === "k-atl");
+    expect(atlPossibles).toHaveLength(1);
+  });
+
+  it("populates lastConfirmedAt from the 12-week evidence window (#769)", async () => {
+    // Evidence event 3 weeks ago → Possible card shows "Last posted …".
+    // UTC noon to match the project-wide date convention and keep the
+    // getTime() assertion stable across timezones and time-of-day.
+    const now = new Date();
+    const recentEvidence = new Date(Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate() - 21,
+      12, 0, 0,
+    ));
+    const evidenceEvent: MockEvent = {
+      ...testEvent,
+      id: "e-evidence",
+      date: recentEvidence,
+    };
+    const lowRule: MockScheduleRule = {
+      ...testRule,
+      id: "r-low",
+      rrule: "CADENCE=MONTHLY",
+      confidence: "LOW",
+    };
+    const prisma = createMockPrisma([testKennel], [evidenceEvent], [lowRule]);
+    const result = await executeTravelSearch(prisma, baseParams);
+
+    expect(result.possible).toHaveLength(1);
+    expect(result.possible[0].lastConfirmedAt).toBeInstanceOf(Date);
+    expect(result.possible[0].lastConfirmedAt!.getTime()).toBe(recentEvidence.getTime());
+  });
+
+  it("leaves lastConfirmedAt null when no evidence in the 12-week window", async () => {
+    const lowRule: MockScheduleRule = {
+      ...testRule,
+      id: "r-low",
+      rrule: "CADENCE=MONTHLY",
+      confidence: "LOW",
+    };
+    const prisma = createMockPrisma([testKennel], [], [lowRule]);
+    const result = await executeTravelSearch(prisma, baseParams);
+
+    expect(result.possible).toHaveLength(1);
+    expect(result.possible[0].lastConfirmedAt).toBeNull();
   });
 
   it("builds source links from kennel social fields + event links", async () => {

@@ -11,10 +11,12 @@ interface PossibleResult extends PossibleRowData {
 
 interface PossibleSectionProps {
   results: PossibleResult[];
+  /** Post-filter confirmed count; section auto-expands when zero. */
+  confirmedCount: number;
 }
 
-export function PossibleSection({ results }: PossibleSectionProps) {
-  const [isOpen, setIsOpen] = useState(false);
+export function PossibleSection({ results, confirmedCount }: Readonly<PossibleSectionProps>) {
+  const [isOpen, setIsOpen] = useState(confirmedCount === 0);
 
   if (results.length === 0) return null;
 

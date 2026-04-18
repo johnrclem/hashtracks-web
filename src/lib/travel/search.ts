@@ -115,6 +115,8 @@ export interface PossibleResult {
   distanceTier: DistanceTier;
   explanation: string;
   sourceLinks: SourceLink[];
+  /** Most recent confirmed event in the 12-week evidence window, or null. */
+  lastConfirmedAt: Date | null;
 }
 
 export interface TravelSearchResults {
@@ -245,36 +247,39 @@ export async function executeTravelSearch(
   const projectionEndDate = clampToProjectionHorizon(rawEndDate, now);
   const horizonTier = projectionHorizonForStart(startDate, now);
 
-  // Step 2: Find nearby kennels — TWO passes
+  // Broader pass fires either when primary has no kennels in radius or when
+  // primary had kennels but no unfiltered results (dormant-kennel case).
+  // Broader excludes primary IDs so results are strictly additional.
   const allKennels = await fetchAllVisibleKennels(prisma);
   const primary = filterByRadius(allKennels, latitude, longitude, radiusKm);
+  const broaderRadiusKm = Math.min(radiusKm * 3, MAX_RADIUS_KM);
+  const computeBroader = () => {
+    const primaryIds = new Set(primary.map((k) => k.id));
+    return filterByRadius(allKennels, latitude, longitude, broaderRadiusKm)
+      .filter((k) => !primaryIds.has(k.id));
+  };
 
   let broader: NearbyKennel[] = [];
-  let broaderRadiusKm: number | undefined;
   if (primary.length === 0) {
-    broaderRadiusKm = Math.min(radiusKm * 3, MAX_RADIUS_KM);
-    broader = filterByRadius(allKennels, latitude, longitude, broaderRadiusKm);
+    broader = computeBroader();
+    if (broader.length === 0) {
+      return {
+        confirmed: [],
+        likely: [],
+        possible: [],
+        emptyState: "no_coverage",
+        meta: { kennelsSearched: 0, radiusKm, broaderRadiusKm, horizonTier },
+      };
+    }
   }
 
-  const nearbyKennels = primary.length > 0 ? primary : broader;
-  const nearbyIds = nearbyKennels.map((k) => k.id);
+  const runPipelineFor = async (kennels: NearbyKennel[]) => {
+    const nearbyIds = kennels.map((k) => k.id);
+    const kennelMap = new Map(kennels.map((k) => [k.id, k]));
 
-  // No kennels found even in broader pass → no_coverage
-  if (nearbyKennels.length === 0) {
-    return {
-      confirmed: [],
-      likely: [],
-      possible: [],
-      emptyState: "no_coverage",
-      meta: { kennelsSearched: 0, radiusKm, broaderRadiusKm, horizonTier },
-    };
-  }
-
-  const kennelMap = new Map(nearbyKennels.map((k) => [k.id, k]));
-
-  // Steps 3–5 + 8: Three independent DB queries run in parallel (saves ~2 round-trips)
-  const twelveWeeksAgo = new Date(now.getTime() - TWELVE_WEEKS_MS);
-  const [confirmedEvents, scheduleRules, evidenceEvents] = await Promise.all([
+    // Steps 3–5 + 8: Three independent DB queries run in parallel (saves ~2 round-trips)
+    const twelveWeeksAgo = new Date(now.getTime() - TWELVE_WEEKS_MS);
+    const [confirmedEvents, scheduleRules, evidenceEvents] = await Promise.all([
     // Step 3: Confirmed events in date window. Allowed past the 365-day
     // projection horizon (real NYE events 18mo out still render) but
     // bounded by CONFIRMED_EVENT_HORIZON_DAYS + a row cap so a pathological
@@ -423,6 +428,10 @@ export async function executeTravelSearch(
 
   const possibleResults: PossibleResult[] = possibleProjections.map((proj) => {
     const kennel = kennelMap.get(proj.kennelId);
+    const evidence = evidenceByKennel.get(proj.kennelId) ?? [];
+    const lastConfirmedAt = evidence.length > 0
+      ? new Date(evidence.reduce((max, e) => Math.max(max, e.date.getTime()), 0))
+      : null;
     return {
       type: "possible" as const,
       kennelId: proj.kennelId,
@@ -436,16 +445,51 @@ export async function executeTravelSearch(
       distanceTier: distanceTier(kennel?.distanceKm ?? 0),
       explanation: proj.explanation,
       sourceLinks: buildSourceLinks(kennel),
+      lastConfirmedAt,
     };
   });
 
-  // Step 14: Apply filters
-  const filtered = applyFilters(confirmedResults, likelyResults, possibleResults, params.filters);
+    const unfilteredTotal =
+      confirmedResults.length + likelyResults.length + possibleResults.length;
+    const filtered = applyFilters(confirmedResults, likelyResults, possibleResults, params.filters);
 
-  // Step 15: Rank confirmed + likely by date → startTime → distance.
-  filtered.confirmed.sort(byDateTimeDistance);
-  filtered.likely.sort(byDateTimeDistance);
-  filtered.possible.sort((a, b) => a.distanceKm - b.distanceKm);
+    filtered.confirmed.sort(byDateTimeDistance);
+    filtered.likely.sort(byDateTimeDistance);
+    filtered.possible.sort((a, b) => a.distanceKm - b.distanceKm);
+
+    // Possible rows display only "Timing varies" + distance, so multiple
+    // cadence hits for the same kennel (weekly rule firing twice in a
+    // 14-day window) collapse to one row. Sort-then-dedup keeps the
+    // closest distance tier.
+    filtered.possible = dedupePossibleByKennel(filtered.possible);
+
+    return { filtered, unfilteredTotal };
+  };
+
+  const firstPassKennels = primary.length > 0 ? primary : broader;
+  const firstPass = await runPipelineFor(firstPassKennels);
+  let filtered = firstPass.filtered;
+  let nearbyKennels = firstPassKennels;
+  let primaryEffectivelyEmpty = primary.length === 0;
+
+  // Retry broader only when primary had kennels but produced NO unfiltered
+  // results — i.e. the radius is genuinely dormant. If the primary had
+  // results that the user's active filters excluded, a broader pass would
+  // hit the same filter and waste 3 DB round-trips.
+  const shouldRetryBroader =
+    primary.length > 0 && firstPass.unfilteredTotal === 0 && horizonTier !== "none";
+
+  if (shouldRetryBroader) {
+    broader = computeBroader();
+    if (broader.length > 0) {
+      const broaderPass = await runPipelineFor(broader);
+      if (broaderPass.unfilteredTotal > 0) {
+        filtered = broaderPass.filtered;
+        nearbyKennels = broader;
+        primaryEffectivelyEmpty = true;
+      }
+    }
+  }
 
   // Step 16: Determine empty state
   // The empty state reflects what the user should see, independent of filters:
@@ -459,16 +503,13 @@ export async function executeTravelSearch(
   const totalResults =
     filtered.confirmed.length + filtered.likely.length + filtered.possible.length;
 
-  if (primary.length === 0 && broader.length > 0) {
-    // Primary radius empty, broader found kennels → show broader as fallback
+  if (primaryEffectivelyEmpty && broader.length > 0) {
     emptyState = "no_nearby";
     broaderResultsObj = {
       confirmed: filtered.confirmed,
       likely: filtered.likely,
       possible: filtered.possible,
     };
-  } else if (primary.length === 0 && broader.length === 0) {
-    emptyState = "no_coverage";
   } else if (totalResults === 0 && horizonTier === "none") {
     // Past the 365-day projection horizon and nobody posted an event that
     // far out. Differentiate from "no_confirmed" so EmptyStates copy can
@@ -478,19 +519,19 @@ export async function executeTravelSearch(
     emptyState = "no_confirmed";
   }
 
-  // When emptyState is no_nearby, main result arrays are empty — results live in broaderResults
-  const isPrimaryEmpty = primary.length === 0;
-
   return {
-    confirmed: isPrimaryEmpty ? [] : filtered.confirmed,
-    likely: isPrimaryEmpty ? [] : filtered.likely,
-    possible: isPrimaryEmpty ? [] : filtered.possible,
+    confirmed: primaryEffectivelyEmpty ? [] : filtered.confirmed,
+    likely: primaryEffectivelyEmpty ? [] : filtered.likely,
+    possible: primaryEffectivelyEmpty ? [] : filtered.possible,
     broaderResults: broaderResultsObj,
     emptyState,
     meta: {
       kennelsSearched: nearbyKennels.length,
       radiusKm,
-      broaderRadiusKm,
+      // Only emit when the broader pass actually ran and was adopted —
+      // TripSummary reads this as the "effective" radius and would otherwise
+      // label every primary-only search as expanded.
+      broaderRadiusKm: primaryEffectivelyEmpty ? broaderRadiusKm : undefined,
       horizonTier,
     },
   };
@@ -720,6 +761,18 @@ function applyFilters(
   }
 
   return { confirmed: fc, likely: fl, possible: fp };
+}
+
+/** Keep the first row per kennel. Call AFTER distance sort to keep the closest tier. */
+function dedupePossibleByKennel(rows: PossibleResult[]): PossibleResult[] {
+  const seen = new Set<string>();
+  const out: PossibleResult[] = [];
+  for (const r of rows) {
+    if (seen.has(r.kennelId)) continue;
+    seen.add(r.kennelId);
+    out.push(r);
+  }
+  return out;
 }
 
 /** Group array elements by a key function. Polyfill-safe alternative to Map.groupBy. */
