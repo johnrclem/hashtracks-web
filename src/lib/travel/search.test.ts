@@ -513,8 +513,15 @@ describe("executeTravelSearch", () => {
 
   it("populates lastConfirmedAt from the 12-week evidence window (#769)", async () => {
     // Evidence event 3 weeks ago → Possible card shows "Last posted …".
-    const recentEvidence = new Date();
-    recentEvidence.setUTCDate(recentEvidence.getUTCDate() - 21);
+    // UTC noon to match the project-wide date convention and keep the
+    // getTime() assertion stable across timezones and time-of-day.
+    const now = new Date();
+    const recentEvidence = new Date(Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate() - 21,
+      12, 0, 0,
+    ));
     const evidenceEvent: MockEvent = {
       ...testEvent,
       id: "e-evidence",

@@ -15,7 +15,7 @@ interface PossibleSectionProps {
   confirmedCount: number;
 }
 
-export function PossibleSection({ results, confirmedCount }: PossibleSectionProps) {
+export function PossibleSection({ results, confirmedCount }: Readonly<PossibleSectionProps>) {
   const [isOpen, setIsOpen] = useState(confirmedCount === 0);
 
   if (results.length === 0) return null;

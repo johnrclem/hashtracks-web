@@ -233,6 +233,7 @@ async function TravelResultsServer({
       possible: results.possible.map((r) => ({
         ...r,
         date: r.date?.toISOString() ?? null,
+        lastConfirmedAt: r.lastConfirmedAt?.toISOString() ?? null,
       })),
       broaderResults: results.broaderResults
         ? {
@@ -248,6 +249,7 @@ async function TravelResultsServer({
             possible: results.broaderResults.possible.map((r) => ({
               ...r,
               date: r.date?.toISOString() ?? null,
+              lastConfirmedAt: r.lastConfirmedAt?.toISOString() ?? null,
             })),
           }
         : undefined,

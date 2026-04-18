@@ -430,7 +430,7 @@ export async function executeTravelSearch(
     const kennel = kennelMap.get(proj.kennelId);
     const evidence = evidenceByKennel.get(proj.kennelId) ?? [];
     const lastConfirmedAt = evidence.length > 0
-      ? new Date(Math.max(...evidence.map((e) => e.date.getTime())))
+      ? new Date(evidence.reduce((max, e) => Math.max(max, e.date.getTime()), 0))
       : null;
     return {
       type: "possible" as const,
