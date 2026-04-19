@@ -419,6 +419,9 @@ interface CalendarSourceConfig {
    * / boston fallback. Prevents cross-kennel noise (e.g. non-hash "Lexi's
    * surgery" posts on WA Hash) from being ingested under an arbitrary kennel.
    * See issue #753.
+   *
+   * No-op without `kennelPatterns` — single-kennel calendars use
+   * `defaultKennelTag` directly and never enter the pattern-matching branch.
    */
   strictKennelRouting?: boolean;
   skipPatterns?: string[];              // regex strings — skip events whose summary matches
@@ -595,7 +598,9 @@ export function buildRawEventFromGCalItem(
   // raw GCal location field. Trailing only — a bare "1 800 ..." in the middle
   // of a street fragment would otherwise be shredded.
   let location = item.location ? stripNonEnglishCountry(decodeEntities(item.location).trim()) : undefined;
-  if (location) {
+  // Skip phone/CTA strip when the field is a bare URL — Maps place IDs end in digit runs
+  // that PHONE_TRAILING_RE would mangle.
+  if (location && !/^https?:\/\//i.test(location)) {
     location = location
       .replace(LOCATION_TRAILING_CTA_RE, "")
       .replace(PHONE_TRAILING_RE, "")

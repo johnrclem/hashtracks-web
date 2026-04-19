@@ -1959,9 +1959,12 @@ describe("buildRawEventFromGCalItem — trailing dash + defaultTitle (#756 Moooo
     expect(result?.title).toBe("Moooouston H3 Trail");
   });
 
-  it("strips trailing en-dash and em-dash too", () => {
+  it.each([
+    ["en-dash", "–"],
+    ["em-dash", "—"],
+  ])("strips trailing %s too", (_label, dash) => {
     const result = buildRawEventFromGCalItem(
-      testGCalEvent({ summary: "Moooouston H3 —" }),
+      testGCalEvent({ summary: `Moooouston H3 ${dash}` }),
       {
         kennelPatterns: [["Moooouston", "moooouston-h3"]],
         defaultTitle: "Moooouston H3 Trail",
@@ -1993,8 +1996,11 @@ describe("buildRawEventFromGCalItem — trailing dash + defaultTitle (#756 Moooo
 });
 
 describe("buildRawEventFromGCalItem — strictKennelRouting (#753 WA Hash)", () => {
+  // `defaultKennelTag` is set alongside strict routing to prove the strict flag
+  // actually short-circuits the fallback, not merely that no fallback exists.
   const config = {
-    kennelPatterns: [["Seattle H3|\\bSH3\\b", "seattle-h3"]] as [string, string][],
+    kennelPatterns: [[String.raw`Seattle H3|\bSH3\b`, "seattle-h3"]] as [string, string][],
+    defaultKennelTag: "wa-hash",
     strictKennelRouting: true,
   };
 
@@ -2018,7 +2024,7 @@ describe("buildRawEventFromGCalItem — strictKennelRouting (#753 WA Hash)", () 
     const result = buildRawEventFromGCalItem(
       testGCalEvent({ summary: "Random Event" }),
       {
-        kennelPatterns: [["Seattle H3|\\bSH3\\b", "seattle-h3"]],
+        kennelPatterns: [[String.raw`Seattle H3|\bSH3\b`, "seattle-h3"]],
         defaultKennelTag: "wa-hash",
       },
     );

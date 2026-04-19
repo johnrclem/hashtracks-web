@@ -1,4 +1,6 @@
 import * as cheerio from "cheerio";
+import { tz } from "@date-fns/tz";
+import { parse } from "date-fns";
 import type { Source } from "@/generated/prisma/client";
 import type { ErrorDetails, RawEventData, ScrapeResult, SourceAdapter } from "../types";
 import { safeFetch } from "../safe-fetch";
@@ -119,23 +121,38 @@ export function parseAdelaideDetail(contentHtml: string): AdelaideEventDetail {
   };
 }
 
+/**
+ * Parse the list-endpoint wall-clock string ("2026-04-13 19:00:00") as
+ * Adelaide-local (Australia/Adelaide handles ACST/ACDT transitions) and
+ * return unix seconds. Treating the string as UTC would drift the epoch
+ * by 9.5–10.5 hours.
+ */
+export function adelaideWallClockToUnix(iso: string): number | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{2}):(\d{2}):(\d{2}))?$/.exec(iso);
+  if (!m) return null;
+  const [, y, mo, d, h = "00", mi = "00", s = "00"] = m;
+  try {
+    const zoned = parse(
+      `${y}-${mo}-${d} ${h}:${mi}:${s}`,
+      "yyyy-MM-dd HH:mm:ss",
+      new Date(),
+      { in: tz("Australia/Adelaide") },
+    );
+    const epoch = zoned.getTime();
+    return Number.isNaN(epoch) ? null : Math.floor(epoch / 1000);
+  } catch {
+    return null;
+  }
+}
+
 async function fetchAdelaideDetail(
   baseUrl: string,
   id: string | number,
   startIso: string,
   endIso: string,
 ): Promise<AdelaideEventDetail | null> {
-  const toUnix = (iso: string): number | null => {
-    const m = /^(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{2}):(\d{2}):(\d{2}))?$/.exec(iso);
-    if (!m) return null;
-    const d = new Date(Date.UTC(
-      Number(m[1]), Number(m[2]) - 1, Number(m[3]),
-      Number(m[4] ?? "0"), Number(m[5] ?? "0"), Number(m[6] ?? "0"),
-    ));
-    return Math.floor(d.getTime() / 1000);
-  };
-  const start = toUnix(startIso);
-  const end = toUnix(endIso);
+  const start = adelaideWallClockToUnix(startIso);
+  const end = adelaideWallClockToUnix(endIso);
   if (start == null || end == null) return null;
 
   const body = `action=get_event&id=${encodeURIComponent(String(id))}&start=${start}&end=${end}`;
@@ -153,7 +170,8 @@ async function fetchAdelaideDetail(
     const payload = (await res.json()) as { content?: string };
     if (typeof payload?.content !== "string") return null;
     return parseAdelaideDetail(payload.content);
-  } catch {
+  } catch (err) {
+    console.error(`[adelaide-h3] detail fetch failed for id ${id}:`, err);
     return null;
   }
 }
@@ -233,7 +251,10 @@ export class AdelaideH3Adapter implements SourceAdapter {
     // FullCalendar widget fetches each cell's detail via `action=get_event`.
     // Cap at DETAIL_FETCH_CAP and space requests by DETAIL_FETCH_DELAY_MS.
     let detailsFetched = 0;
-    for (const { event, row } of detailTargets.slice(0, DETAIL_FETCH_CAP)) {
+    let detailsFailed = 0;
+    const targets = detailTargets.slice(0, DETAIL_FETCH_CAP);
+    for (let i = 0; i < targets.length; i++) {
+      const { event, row } = targets[i];
       if (!row.id || !row.start || !row.end) continue;
       const detail = await fetchAdelaideDetail(url, row.id, row.start, row.end);
       if (detail) {
@@ -242,8 +263,11 @@ export class AdelaideH3Adapter implements SourceAdapter {
         if (detail.description) event.description = detail.description;
         if (detail.locationUrl) event.locationUrl = detail.locationUrl;
         detailsFetched++;
+      } else {
+        detailsFailed++;
       }
-      await sleep(DETAIL_FETCH_DELAY_MS);
+      // Skip delay after the last iteration — final sleep is wasted time.
+      if (i < targets.length - 1) await sleep(DETAIL_FETCH_DELAY_MS);
     }
 
     const errors: string[] = [];
@@ -265,6 +289,7 @@ export class AdelaideH3Adapter implements SourceAdapter {
           eventsParsed: events.length,
           skippedRows: skipped,
           detailsFetched,
+          detailsFailed,
           fetchDurationMs: Date.now() - fetchStart,
         },
       },
