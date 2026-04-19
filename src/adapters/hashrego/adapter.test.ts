@@ -595,6 +595,23 @@ Castle of Princess Shadow.
     expect(parsed.locationAddress).toBe("9405 Alpine Ct, Norfolk, VA 23503");
   });
 
+  it("extracts inline labeled address (same-line label)", () => {
+    // Covers reviewer concern: the labeled regex previously required a
+    // newline after the label, so `Location: 123 Main St` on one line fell
+    // through to the fallback and picked the first (potentially wrong)
+    // address in the description.
+    const html = `<html><body>
+      <meta property="og:description" content='Prelube at the usual spot.
+
+Parking:
+999 Wrong Pl, Norfolk, VA 23503
+
+Location of event: 9405 Alpine Ct, Norfolk, VA 23503' />
+    </body></html>`;
+    const parsed = parseEventDetail(html, "inline-label-test");
+    expect(parsed.locationAddress).toBe("9405 Alpine Ct, Norfolk, VA 23503");
+  });
+
   it("cleans description by removing extracted fields", () => {
     const parsed = parseEventDetail(SINGLE_DAY_HTML, "bfmh3-agm-2026", BFMH3_INDEX_ENTRY);
     expect(parsed.description).toBeDefined();

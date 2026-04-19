@@ -345,8 +345,11 @@ const ADDRESS_RE = new RegExp(
   `(\\d+\\s+[\\w\\s]+(?:${STREET_SUFFIXES})[^,]*,\\s*\\w[\\w\\s]*,?\\s*[A-Z]{2}\\s*\\d{5})`,
   "i",
 );
+// Line-bound label so we don't match "Parking Location:" mid-prose, but
+// allows the address on the same line after the colon (inline) OR on the
+// next line. Strip the `[\r\n]`-required version missed `Location: 123 Main`.
 const LOCATION_LABEL_RE =
-  /(?:Location\s+of\s+event|On-?On|Location|Where|Start\s+Location)\s*:?\s*[\r\n]/i;
+  /(?:^|[\r\n])\s*(?:Location\s+of\s+event|On-?On|Location|Where|Start\s+Location)\s*:?\s*/i;
 
 function extractAddressFromDescription(text: string): string | undefined {
   // Prefer the address under a "Location of event" / "Location" / "On-On" /

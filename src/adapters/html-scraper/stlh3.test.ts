@@ -106,6 +106,19 @@ describe("cleanPostTitle (#808)", () => {
       "Upcumming Hash: Next Thursday",
     );
   });
+
+  it("preserves date-plus-extra suffixes (no over-strip)", () => {
+    // A date token mid-suffix must not trigger a strip of meaningful text.
+    expect(cleanPostTitle("Upcumming Hash: Apr 19 2026 Halloween Edition")).toBe(
+      "Upcumming Hash: Apr 19 2026 Halloween Edition",
+    );
+  });
+
+  it("strips from the last colon on multi-colon titles", () => {
+    expect(
+      cleanPostTitle("A: B: Sunday Apr 19th 2026"),
+    ).toBe("A: B");
+  });
 });
 
 describe("parseTitleDate", () => {

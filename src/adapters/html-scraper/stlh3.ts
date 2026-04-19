@@ -123,28 +123,36 @@ export function parseTitleDate(title: string): string | null {
  * "{label}: {date}" (e.g. "Upcumming Hash: Sunday Apr 19th 2026"). The date
  * is redundant on hareline cards since we already parse it separately. #808.
  */
-// Three independent shapes for "absolute" calendar dates. Kept as separate
-// patterns to stay under SonarCloud's regex-complexity budget and to let
-// each shape be understood on its own.
+// Three independent shapes for "absolute" calendar dates, anchored so the
+// *entire* post-colon suffix must be date-shaped before we strip it. Split
+// across three patterns to stay under SonarCloud's regex-complexity budget
+// and to let each shape be understood on its own.
+const WEEKDAY_PREFIX_RE =
+  /^(?:sunday|monday|tuesday|wednesday|thursday|friday|saturday|sun|mon|tue|wed|thu|fri|sat),?\s+/i;
 const MONTH_DAY_YEAR_RE =
-  /\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\s+\d{1,2}(?:st|nd|rd|th)?\s*,?\s*\d{4}\b/i;
-const ISO_DATE_RE = /\b\d{4}-\d{1,2}-\d{1,2}\b/;
-const SLASH_DATE_RE = /\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/;
+  /^(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\s+\d{1,2}(?:st|nd|rd|th)?\s*,?\s*\d{4}$/i;
+const ISO_DATE_RE = /^\d{4}-\d{1,2}-\d{1,2}$/;
+const SLASH_DATE_RE = /^\d{1,2}\/\d{1,2}\/\d{2,4}$/;
 
-function hasAbsoluteDate(s: string): boolean {
+function isDateOnlySuffix(s: string): boolean {
+  const stripped = s.trim().replace(WEEKDAY_PREFIX_RE, "");
   return (
-    MONTH_DAY_YEAR_RE.test(s) || ISO_DATE_RE.test(s) || SLASH_DATE_RE.test(s)
+    MONTH_DAY_YEAR_RE.test(stripped) ||
+    ISO_DATE_RE.test(stripped) ||
+    SLASH_DATE_RE.test(stripped)
   );
 }
 
 export function cleanPostTitle(title: string): string {
-  const colonIdx = title.indexOf(":");
+  // Split on the *last* colon so multi-colon titles like
+  // "A: B: Sunday Apr 19 2026" strip only the trailing date segment.
+  const colonIdx = title.lastIndexOf(":");
   if (colonIdx === -1) return title;
   const afterColon = title.slice(colonIdx + 1).trim();
-  // Require an absolute-date token AND a successful chrono parse. Avoids
-  // stripping meaningful subtitles like "Halloween Edition" or ambiguous
-  // relative phrases like "Next Thursday". #808.
-  if (!hasAbsoluteDate(afterColon)) return title;
+  // Require the *whole* suffix to be date-shaped (optionally weekday-prefixed).
+  // Prevents over-stripping "Apr 19 2026 Halloween Edition" where a date token
+  // exists inside a larger meaningful suffix. #808.
+  if (!isDateOnlySuffix(afterColon)) return title;
   const parsedDate = chronoParseDate(afterColon, "en-US", undefined, {
     forwardDate: true,
   });
