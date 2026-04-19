@@ -82,6 +82,26 @@ describe("parseIndyCard", () => {
     expect(event?.hares).toBe("Shaggy");
   });
 
+  it("#752: preserves multi-hare comma-separated string", () => {
+    const html = `
+      <div class="ht-upcoming-card">
+        <h3>Hash #1122: Untrimmed Bush THICC Moon Trail</h3>
+        <div><strong>📅 Date:</strong> Friday, April 17, 2026</div>
+        <div><strong>⏰ Time:</strong> 7:00 PM</div>
+        <div><strong>🐇 Hares:</strong> Never Comes, Did We Fuck?</div>
+      </div>
+    `;
+    const $ = cheerio.load(html);
+    const event = parseIndyCard(
+      $(".ht-upcoming-card").first() as cheerio.Cheerio<never>,
+      $,
+      [[/THICC/i, "thicch3"]],
+      "indyh3",
+      "https://indyhhh.com",
+    );
+    expect(event?.hares).toBe("Never Comes, Did We Fuck?");
+  });
+
   it("returns null when date is missing", () => {
     const html = `
       <div class="ht-upcoming-card">

@@ -55,6 +55,32 @@ function parseRunNumber(title: string): number | undefined {
 }
 
 /**
+ * Body `Location:` field, with a title fallback: "[Birthday] [Run] announcement
+ * <N> – <date> – <location>". Later segments (e.g. "bring torch") are
+ * descriptive noise — only the third segment is the venue.
+ */
+function resolveN2th3Location(
+  title: string,
+  locationField: { text: string } | null,
+): string | undefined {
+  if (locationField?.text) return locationField.text;
+  const segments = title.split(/\s+[–—-]\s+/).map(s => s.trim()).filter(Boolean);
+  if (segments.length >= 3 && /announcement/i.test(segments[0])) {
+    return segments[2];
+  }
+  return undefined;
+}
+
+function resolveN2th3MapUrl(
+  mapField: { text: string; href?: string } | null,
+  location: string | undefined,
+): string | undefined {
+  if (mapField?.href) return mapField.href;
+  if (mapField?.text && /^https?:\/\//.test(mapField.text)) return mapField.text;
+  return location ? googleMapsSearchUrl(location) : undefined;
+}
+
+/**
  * Parse a single N2TH3 WordPress.com blog post into RawEventData.
  * Tries body fields first (richer data), falls back to title parsing.
  *
@@ -69,8 +95,6 @@ export function parseN2th3Post(
   if (!/announcement/i.test(title) && !/\brun\b/i.test(title)) return null;
 
   const $ = cheerio.load(post.content);
-
-  // Extract body fields
   const dateField = extractLabeledField($, /^date$/i);
   const timeField = extractLabeledField($, /^time$/i);
   const locationField = extractLabeledField($, /^location$/i);
@@ -78,47 +102,24 @@ export function parseN2th3Post(
   const hareField = extractLabeledField($, /^hares?$/i);
   const descField = extractLabeledField($, /^hare\s+says$/i);
 
-  // Parse date — try body date field first, then title
   // Use the actual post publish date as chrono reference so year-less dates
   // around New Year resolve correctly (e.g., Dec post about Jan run).
   const refDate = new Date(post.date);
-  let date: string | null = null;
-
-  if (dateField?.text) {
-    date = chronoParseDate(dateField.text, "en-GB", refDate);
-  }
-  if (!date) {
-    // Try title: "Run announcement 2226 – 9 April – Cornwall Street Park"
-    date = chronoParseDate(title, "en-GB", refDate);
-  }
+  const date =
+    (dateField?.text && chronoParseDate(dateField.text, "en-GB", refDate)) ||
+    chronoParseDate(title, "en-GB", refDate);
   if (!date) return null;
 
-  // Parse time
   let startTime = DEFAULT_START_TIME;
   if (timeField?.text) {
     const parsed = parse12HourTime(timeField.text.replace(/\./g, ""));
     if (parsed) startTime = parsed;
   }
 
-  // Parse run number from title
   const runNumber = parseRunNumber(title);
-
-  // Location and map URL
-  const location = locationField?.text || undefined;
-  let locationUrl: string | undefined;
-  if (mapField?.href) {
-    locationUrl = mapField.href;
-  } else if (mapField?.text && /^https?:\/\//.test(mapField.text)) {
-    locationUrl = mapField.text;
-  } else if (location) {
-    locationUrl = googleMapsSearchUrl(location);
-  }
-
-  // Hares
+  const location = resolveN2th3Location(title, locationField);
+  const locationUrl = resolveN2th3MapUrl(mapField, location);
   const hares = hareField?.text && !isPlaceholder(hareField.text) ? hareField.text : undefined;
-
-  // Description
-  const description = descField?.text || undefined;
 
   return {
     date,
@@ -129,7 +130,7 @@ export function parseN2th3Post(
     location,
     locationUrl,
     startTime,
-    description,
+    description: descField?.text || undefined,
     sourceUrl: post.URL,
   };
 }

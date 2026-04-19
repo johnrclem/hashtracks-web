@@ -117,7 +117,7 @@ const TITLE_TIME_ONLY_PATTERN =
  * and the unseparated 10-digit run `4155551212`. Anchored with non-digit
  * boundaries to avoid matching inside longer numeric strings.
  */
-const PHONE_NUMBER_RE =
+export const PHONE_NUMBER_RE =
   /(?:(?<!\d)\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}(?!\d)|(?<!\d)\d{10}(?!\d))/;
 
 const CTA_PATTERN =
