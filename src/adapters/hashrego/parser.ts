@@ -230,17 +230,11 @@ function extractHostKennelName($: cheerio.CheerioAPI): string | undefined {
     .filter((_, el) => /host\s+kennel/i.test($(el).text()))
     .first();
   if (heading.length === 0) return undefined;
-  let name: string | undefined;
-  heading.nextAll().each((_, sibling) => {
-    const link = $(sibling).find('a[href^="/kennels/"]').first();
-    const text = link.text().trim();
-    if (text.length > 0) {
-      name = text;
-      return false;
-    }
-    return undefined;
-  });
-  return name;
+  for (const sibling of heading.nextAll().toArray()) {
+    const text = $(sibling).find('a[href^="/kennels/"]').first().text().trim();
+    if (text.length > 0) return text;
+  }
+  return undefined;
 }
 
 /**
