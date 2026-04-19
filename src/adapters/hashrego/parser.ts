@@ -342,7 +342,7 @@ function extractLocationFromDescription(text: string): string | undefined {
  *  label heading, then apply ADDRESS_RE to the slice after it. */
 const STREET_SUFFIXES = "St|Ave|Rd|Blvd|Dr|Ln|Way|Pl|Ct|Pkwy|Hwy|Cir";
 const ADDRESS_RE = new RegExp(
-  `(\\d+\\s+[\\w\\s]+(?:${STREET_SUFFIXES})[^,]*,\\s*\\w[\\w\\s]*,?\\s*[A-Z]{2}\\s*\\d{5})`,
+  String.raw`(\d+\s+[\w\s]+(?:${STREET_SUFFIXES})[^,]*,\s*\w[\w\s]*,?\s*[A-Z]{2}\s*\d{5})`,
   "i",
 );
 // Line-bound label so we don't match "Parking Location:" mid-prose, but
