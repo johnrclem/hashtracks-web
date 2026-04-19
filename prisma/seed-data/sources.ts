@@ -470,6 +470,12 @@ export const SOURCES = [
           ["^SUPER\\b", "super-h3"],
         ],
         defaultKennelTag: "sh3-de",
+        // SH3 titles embed hare + (optional) neighborhood: "SH3 #880 Hare:
+        // Kiss Me- Degerloch" or "SH3 # 874 Hare: Kiss Me". Capture the hare
+        // name after "Hare:" up to the neighborhood delimiter or end of
+        // string. Middle-match: the full `Hare: X-` span is stripped from
+        // the title so it reads "SH3 #880 - Degerloch". #807.
+        titleHarePattern: "Hare:?\\s+(.+?)(?:(?=[-\u2013\u2014]\\s*\\S)|\\s*$)",
       },
       kennelCodes: ["sh3-de", "dst-h3", "fm-stgt", "super-h3"],
     },

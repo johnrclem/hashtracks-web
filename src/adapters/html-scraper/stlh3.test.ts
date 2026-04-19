@@ -3,6 +3,7 @@ import {
   parseSubtitleTime,
   extractLocationFromMapsUrl,
   parseTitleDate,
+  cleanPostTitle,
   StlH3Adapter,
 } from "./stlh3";
 import * as safeFetchModule from "../safe-fetch";
@@ -72,6 +73,51 @@ describe("extractLocationFromMapsUrl", () => {
   it("returns undefined for short link text", () => {
     const html = `<a href="https://www.google.com/maps?q=x">Map</a>`;
     expect(extractLocationFromMapsUrl(html)).toBeUndefined();
+  });
+});
+
+describe("cleanPostTitle (#808)", () => {
+  it("strips date suffix after colon", () => {
+    expect(cleanPostTitle("Upcumming Hash: Sunday Apr 19th 2026")).toBe(
+      "Upcumming Hash",
+    );
+  });
+
+  it("strips date with ordinal + year", () => {
+    expect(cleanPostTitle("Upcumming Hash: Saturday Mar 22nd 2026")).toBe(
+      "Upcumming Hash",
+    );
+  });
+
+  it("preserves non-date suffixes", () => {
+    expect(cleanPostTitle("Upcumming Hash: Halloween Edition")).toBe(
+      "Upcumming Hash: Halloween Edition",
+    );
+  });
+
+  it("leaves titles without a colon alone", () => {
+    expect(cleanPostTitle("Weekly Announcement")).toBe("Weekly Announcement");
+  });
+
+  it("preserves relative date phrases that lack a full date", () => {
+    // "Next Thursday" parses as a date in chrono but isn't the explicit
+    // calendar suffix we expect — leave the title intact.
+    expect(cleanPostTitle("Upcumming Hash: Next Thursday")).toBe(
+      "Upcumming Hash: Next Thursday",
+    );
+  });
+
+  it("preserves date-plus-extra suffixes (no over-strip)", () => {
+    // A date token mid-suffix must not trigger a strip of meaningful text.
+    expect(cleanPostTitle("Upcumming Hash: Apr 19 2026 Halloween Edition")).toBe(
+      "Upcumming Hash: Apr 19 2026 Halloween Edition",
+    );
+  });
+
+  it("strips from the last colon on multi-colon titles", () => {
+    expect(
+      cleanPostTitle("A: B: Sunday Apr 19th 2026"),
+    ).toBe("A: B");
   });
 });
 
@@ -256,6 +302,6 @@ describe("StlH3Adapter", () => {
     const result = await adapter.fetch(mockSource);
     // Only the "Upcumming Hash" post should be processed, not "Photo Gallery"
     expect(result.events).toHaveLength(1);
-    expect(result.events[0].title).toContain("Upcumming Hash");
+    expect(result.events[0].title).toBe("Upcumming Hash");
   });
 });
