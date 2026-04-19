@@ -475,7 +475,7 @@ export const SOURCES = [
         // name after "Hare:" up to the neighborhood delimiter or end of
         // string. Middle-match: the full `Hare: X-` span is stripped from
         // the title so it reads "SH3 #880 - Degerloch". #807.
-        titleHarePattern: "Hare:?\\s+(.+?)(?:(?=-\\s+\\S)|\\s*$)",
+        titleHarePattern: "Hare:?\\s+(.+?)(?:(?=[-\u2013\u2014]\\s*\\S)|\\s*$)",
       },
       kennelCodes: ["sh3-de", "dst-h3", "fm-stgt", "super-h3"],
     },

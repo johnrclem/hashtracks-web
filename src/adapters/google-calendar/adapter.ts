@@ -674,30 +674,32 @@ export function buildRawEventFromGCalItem(
       const hareText = titleMatch[1];
       const start = titleMatch.index;
       const end = start + titleMatch[0].length;
-      // Determine where the capture group sits in the title. Prior code used
-      // lastIndexOf which breaks when the hare text appears twice (e.g.
-      // "Alice - Event with Alice").
-      const isPrefixCapture = title.startsWith(hareText);
-      const isSuffixCapture = title.endsWith(hareText);
-      // When the regex anchors both ends of the title (e.g. Aloha
-      // `^AH3\s*#\d+.*-\s+(.+)$`), stripping `titleMatch[0]` wipes the entire
-      // title. Fall back to a capture-group-only strip in that case so the
-      // non-hare prefix survives.
+      // Position-based classification. Content-based (startsWith/endsWith)
+      // misfires when the hare name coincidentally equals the title's
+      // leading/trailing substring — e.g. hareText="AH3" in
+      // "AH3 #880 Hare: AH3".
       const spansEntireTitle = start === 0 && end === title.length;
+      const captureStart = start + titleMatch[0].lastIndexOf(hareText);
       let cleaned: string;
-      if (isPrefixCapture) {
-        // Prefix wins when hare text appears at both ends (e.g. "Alice AH3 #2269 - Event with Alice")
+      if (spansEntireTitle) {
+        // Regex anchors entire title (Aloha `^AH3\s*#\d+.*-\s+(.+)$`):
+        // strip only the capture group so the non-hare prefix survives.
+        cleaned = title
+          .slice(0, captureStart)
+          .replace(/\s*[-–—]\s*$/, "")
+          .trim();
+      } else if (start === 0 && captureStart === 0) {
+        // Pure prefix capture (e.g. "Alice AH3 #2269"): strip the hare
+        // text from the start, preserve the match's trailing delimiter.
         cleaned = title.slice(hareText.length).trimStart();
-      } else if (isSuffixCapture && spansEntireTitle) {
-        cleaned = title.slice(0, -hareText.length).replace(/\s*[-–—]\s*$/, "").trim();
       } else {
-        // Match is a proper substring — strip the full regex span (label +
-        // name) and collapse leftover adjacent delimiters. E.g.
-        // "SH3 #880 Hare: Kiss Me- Degerloch" with pattern
-        // `Hare:\s+(.+?)(?=-\s+\S)` → "SH3 #880 - Degerloch" (#807).
+        // Mid- or partial-suffix match: strip the full regex span (label
+        // + name) and collapse leftover delimiters. Handles Stuttgart
+        // "SH3 #880 Hare: Kiss Me- Degerloch" → "SH3 #880 - Degerloch".
         cleaned = (title.slice(0, start) + title.slice(end))
           .replace(/\s*[-–—]\s*[-–—]\s*/g, " - ")
           .replace(/\s{2,}/g, " ")
+          .replace(/^\s*[-–—]\s*|\s*[-–—]\s*$/g, "")
           .trim();
       }
       if (cleaned) title = cleaned;

@@ -230,7 +230,10 @@ function extractHostKennelName($: cheerio.CheerioAPI): string | undefined {
     .filter((_, el) => /host\s+kennel/i.test($(el).text()))
     .first();
   if (heading.length === 0) return undefined;
+  // Scan forward until the next heading (h1–h6) so a DOM reshuffle can't
+  // bind an unrelated kennel link further down the page.
   for (const sibling of heading.nextAll().toArray()) {
+    if (/^h[1-6]$/i.test(sibling.tagName ?? "")) break;
     const text = $(sibling).find('a[href^="/kennels/"]').first().text().trim();
     if (text.length > 0) return text;
   }

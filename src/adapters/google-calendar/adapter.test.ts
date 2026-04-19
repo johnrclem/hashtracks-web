@@ -645,6 +645,50 @@ describe("titleHarePattern — hare extraction from summary", () => {
     expect(result!.title).toBe("SH3 #880 - Degerloch");
   });
 
+  it("handles en/em dash neighborhood delimiter in Stuttgart pattern", () => {
+    // Production source pattern widened to accept [-–—] — otherwise an
+    // em-dash title would capture "Kiss Me — Degerloch" as the hare.
+    const pattern = /Hare:?\s+(.+?)(?:(?=[-\u2013\u2014]\s*\S)|\s*$)/i;
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        summary: "SH3 #881 Hare: Kiss Me — Degerloch",
+        start: { dateTime: "2026-04-26T12:00:00+02:00" },
+      }),
+      {
+        defaultKennelTag: "sh3-de",
+        titleHarePattern: String.raw`Hare:?\s+(.+?)(?:(?=[-\u2013\u2014]\s*\S)|\s*$)`,
+      },
+      undefined, undefined, undefined,
+      pattern,
+    );
+    expect(result).not.toBeNull();
+    expect(result!.hares).toBe("Kiss Me");
+    expect(result!.title).toBe("SH3 #881 — Degerloch");
+  });
+
+  it("classifies by match position, not hare-text coincidence", () => {
+    // Regression: if hareText coincidentally equals a leading substring
+    // of the title, content-based startsWith() would misroute to the
+    // prefix branch and leave the "Hare:" label behind. Position-based
+    // classification (start === 0) routes to the mid-match branch.
+    const pattern = /Hare:\s+(.+?)(?:\s*$)/i;
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        summary: "AH3 #880 Hare: AH3",
+        start: { dateTime: "2026-05-01T12:00:00-10:00" },
+      }),
+      {
+        defaultKennelTag: "ah3-hi",
+        titleHarePattern: String.raw`Hare:\s+(.+?)(?:\s*$)`,
+      },
+      undefined, undefined, undefined,
+      pattern,
+    );
+    expect(result).not.toBeNull();
+    expect(result!.hares).toBe("AH3");
+    expect(result!.title).toBe("AH3 #880");
+  });
+
   it("description hares take priority over title hares", () => {
     const result = buildRawEventFromGCalItem(
       testGCalEvent({

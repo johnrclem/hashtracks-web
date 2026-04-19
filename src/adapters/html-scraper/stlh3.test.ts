@@ -98,6 +98,14 @@ describe("cleanPostTitle (#808)", () => {
   it("leaves titles without a colon alone", () => {
     expect(cleanPostTitle("Weekly Announcement")).toBe("Weekly Announcement");
   });
+
+  it("preserves relative date phrases that lack a full date", () => {
+    // "Next Thursday" parses as a date in chrono but isn't the explicit
+    // calendar suffix we expect — leave the title intact.
+    expect(cleanPostTitle("Upcumming Hash: Next Thursday")).toBe(
+      "Upcumming Hash: Next Thursday",
+    );
+  });
 });
 
 describe("parseTitleDate", () => {
