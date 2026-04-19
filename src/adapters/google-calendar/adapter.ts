@@ -770,11 +770,9 @@ export function buildRawEventFromGCalItem(
     const prefix = bareKennelRunMatch?.[1];
     const prefixMatchesKennel = !!prefix && (
       titleMatchesKennelTag(prefix, kennelTag)
-      || !!sourceConfig?.kennelPatterns?.some(([pattern, tag]) => {
-        if (tag !== kennelTag) return false;
-        try { return new RegExp(`^(?:${pattern})$`, "i").test(prefix); }
-        catch { return false; }
-      })
+      || (sourceConfig?.kennelPatterns
+        ? matchConfigPatterns(prefix, sourceConfig.kennelPatterns) === kennelTag
+        : false)
     );
     if (bareKennelRunMatch && prefixMatchesKennel) {
       title = `${fallback} #${bareKennelRunMatch[2]}`;
