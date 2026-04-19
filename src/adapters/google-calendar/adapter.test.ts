@@ -626,6 +626,25 @@ describe("titleHarePattern — hare extraction from summary", () => {
     expect(result!.title).toBe("AH3 #2269 - Event with Alice");
   });
 
+  it("handles MID-title titleHarePattern (Stuttgart SH3 style) (#807)", () => {
+    // Format: "SH3 #N Hare: {hare}- {neighborhood}". The hare is labeled
+    // in the middle; both label and name must be stripped so the title
+    // reads "SH3 #N - Neighborhood".
+    const midRE = /Hare:\s+(.+?)(?=-\s+\S)/i;
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        summary: "SH3 #880 Hare: Kiss Me- Degerloch",
+        start: { dateTime: "2026-04-19T12:00:00+02:00" },
+      }),
+      { defaultKennelTag: "sh3-de", titleHarePattern: String.raw`Hare:\s+(.+?)(?=-\s+\S)` },
+      undefined, undefined, undefined,
+      midRE,
+    );
+    expect(result).not.toBeNull();
+    expect(result!.hares).toBe("Kiss Me");
+    expect(result!.title).toBe("SH3 #880 - Degerloch");
+  });
+
   it("description hares take priority over title hares", () => {
     const result = buildRawEventFromGCalItem(
       testGCalEvent({
@@ -2122,6 +2141,24 @@ describe("extractHares — bare 10-digit phone strip (#742 BAH3)", () => {
 
   it("strips formatted phone suffix from hares (existing behavior)", () => {
     const desc = "Hares: Slick Willy 240-618-5563";
+    const hares = extractHares(desc);
+    expect(hares).toBe("Slick Willy");
+  });
+
+  it("truncates mid-string phone + trailing commentary (#809)", () => {
+    const desc = "Hares: Any Cock'll Do Me, 2406185563 CALL for same day service";
+    const hares = extractHares(desc);
+    expect(hares).toBe("Any Cock'll Do Me");
+  });
+
+  it("truncates at formatted mid-string phone (#809)", () => {
+    const desc = "Hares: Slick Willy 240-618-5563 text for address";
+    const hares = extractHares(desc);
+    expect(hares).toBe("Slick Willy");
+  });
+
+  it("truncates at phone with 'Phone:' label (#809)", () => {
+    const desc = "Hares: Slick Willy, phone: 2406185563 for details";
     const hares = extractHares(desc);
     expect(hares).toBe("Slick Willy");
   });

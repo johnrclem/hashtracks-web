@@ -404,6 +404,17 @@ export function extractHares(description: string, customPatterns?: string[] | Re
       // Strip trailing US phone numbers — both formatted ("(555) 123-4567",
       // "719-360-3805") and bare 10-digit runs ("2406185563" — see #742).
       hares = hares.replace(PHONE_TRAILING_RE, "").trim();
+      // Truncate at mid-string phone numbers with trailing commentary (e.g.,
+      // "Name, 2406185563 CALL for same day service" — #809). Real names
+      // don't contain 10-digit runs.
+      const phoneIdx = hares.search(PHONE_NUMBER_RE);
+      if (phoneIdx >= 0) {
+        hares = hares
+          .slice(0, phoneIdx)
+          .replace(/[,:;\s-]*(?:phone|tel|mobile|cell)\b\s*:?\s*$/i, "")
+          .replace(/[,:;\s-]+$/, "")
+          .trim();
+      }
       // Skip generic/non-hare "Who:" answers
       if (/^(?:that be you|your|all|everyone)/i.test(hares)) continue;
       // Filter hare strings starting with common prepositions/verbs (description text, not names)
@@ -661,20 +672,33 @@ export function buildRawEventFromGCalItem(
     const titleMatch = compiledTitleHarePattern.exec(title);
     if (titleMatch && titleMatch[1]) {
       const hareText = titleMatch[1];
-      // Determine whether the capture group sits at the start or end of the
-      // title using exact boundary checks. Prior code used lastIndexOf which
-      // breaks when the hare text appears twice (e.g. "Alice - Event with Alice").
+      const start = titleMatch.index;
+      const end = start + titleMatch[0].length;
+      // Determine where the capture group sits in the title. Prior code used
+      // lastIndexOf which breaks when the hare text appears twice (e.g.
+      // "Alice - Event with Alice").
       const isPrefixCapture = title.startsWith(hareText);
       const isSuffixCapture = title.endsWith(hareText);
+      // When the regex anchors both ends of the title (e.g. Aloha
+      // `^AH3\s*#\d+.*-\s+(.+)$`), stripping `titleMatch[0]` wipes the entire
+      // title. Fall back to a capture-group-only strip in that case so the
+      // non-hare prefix survives.
+      const spansEntireTitle = start === 0 && end === title.length;
       let cleaned: string;
       if (isPrefixCapture) {
         // Prefix wins when hare text appears at both ends (e.g. "Alice AH3 #2269 - Event with Alice")
         cleaned = title.slice(hareText.length).trimStart();
-      } else if (isSuffixCapture) {
+      } else if (isSuffixCapture && spansEntireTitle) {
         cleaned = title.slice(0, -hareText.length).replace(/\s*[-–—]\s*$/, "").trim();
       } else {
-        // Capture is mid-title — don't mangle; leave the title as-is.
-        cleaned = title;
+        // Match is a proper substring — strip the full regex span (label +
+        // name) and collapse leftover adjacent delimiters. E.g.
+        // "SH3 #880 Hare: Kiss Me- Degerloch" with pattern
+        // `Hare:\s+(.+?)(?=-\s+\S)` → "SH3 #880 - Degerloch" (#807).
+        cleaned = (title.slice(0, start) + title.slice(end))
+          .replace(/\s*[-–—]\s*[-–—]\s*/g, " - ")
+          .replace(/\s{2,}/g, " ")
+          .trim();
       }
       if (cleaned) title = cleaned;
     }
