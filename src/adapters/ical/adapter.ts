@@ -174,6 +174,29 @@ export function extractLocationFromDescription(description: string, customPatter
   });
 }
 
+// #801 Reading H3 format: "...On On: 6:15p Lower Access lot at Monocacy Hill Hares: ..."
+// Captures everything after "On On:" up to " Hares:" / " Hash Cash:" / newline / end,
+// then strips a leading time token if present.
+const ON_ON_VENUE_RE = /On[-\s]?On\s*:\s*([^\n]+?)(?=\s*Hares?:|\s*Hash\s*Cash:|\n|$)/i;
+const LEADING_TIME_RE = /^\d{1,2}(?::\d{2})?\s*[ap]\.?m?\.?\s+/i;
+
+/**
+ * Fallback for iCal DESCRIPTION bodies that embed the venue inline via
+ * "On On: {time} {venue} Hares: ..." — common in Localendar-hosted feeds
+ * (Reading H3 #801).
+ */
+export function extractOnOnVenueFromDescription(description: string): string | undefined {
+  const normalized = normalizeIcsDescription(description);
+  const match = ON_ON_VENUE_RE.exec(normalized);
+  if (!match) return undefined;
+  let venue = match[1].replace(LEADING_TIME_RE, "").trim();
+  venue = venue.replaceAll("\\;", ";").replaceAll("\\,", ",");
+  if (venue.length < 3 || venue.length > 300) return undefined;
+  // Reject captures that are nothing but a time or a stray punctuation fragment.
+  if (LEADING_TIME_RE.test(venue + " ")) return undefined;
+  return venue;
+}
+
 /**
  * Extract a cost/hash-cash value from an iCal DESCRIPTION field.
  * Accepts pre-compiled RegExp[] for custom patterns; falls back to default COST_PATTERNS.
@@ -395,7 +418,8 @@ function buildRawEventFromVEvent(
   }
 
   if (!location && description) {
-    location = extractLocationFromDescription(description, compiledLocationPatterns);
+    location = extractLocationFromDescription(description, compiledLocationPatterns)
+      ?? extractOnOnVenueFromDescription(description);
   }
 
   const locationUrl = resolveLocationUrl(vevent.geo, location, description);
