@@ -252,7 +252,7 @@ function extractHaresFromDom($: cheerio.CheerioAPI): string | undefined {
   if (label.length === 0) return undefined;
   const labelP = label.closest("p");
   const valueP = labelP.nextAll("p").first();
-  const text = valueP.text().replace(/\s+/g, " ").trim();
+  const text = valueP.text().replaceAll(/\s+/g, " ").trim();
   return text.length > 0 ? text : undefined;
 }
 
@@ -336,19 +336,29 @@ function extractLocationFromDescription(text: string): string | undefined {
   return extractField(text, "Where");
 }
 
-/** Extract address from description (Google Maps URL or address line) */
-const ADDRESS_RE =
-  /(\d+\s+[\w\s]+(?:St|Ave|Rd|Blvd|Dr|Ln|Way|Pl|Ct|Pkwy|Hwy|Cir)[^,]*,\s*\w[\w\s]*,?\s*[A-Z]{2}\s*\d{5})/i;
+/** Extract address from description (Google Maps URL or address line).
+ *  Built dynamically from a suffix list + a simpler label regex to stay
+ *  under SonarCloud's regex-complexity budget (S5843). Two-pass: find the
+ *  label heading, then apply ADDRESS_RE to the slice after it. */
+const STREET_SUFFIXES = "St|Ave|Rd|Blvd|Dr|Ln|Way|Pl|Ct|Pkwy|Hwy|Cir";
+const ADDRESS_RE = new RegExp(
+  `(\\d+\\s+[\\w\\s]+(?:${STREET_SUFFIXES})[^,]*,\\s*\\w[\\w\\s]*,?\\s*[A-Z]{2}\\s*\\d{5})`,
+  "i",
+);
+const LOCATION_LABEL_RE =
+  /(?:Location\s+of\s+event|On-?On|Location|Where|Start\s+Location)\s*:?\s*[\r\n]/i;
 
 function extractAddressFromDescription(text: string): string | undefined {
   // Prefer the address under a "Location of event" / "Location" / "On-On" /
   // "Where" heading so multi-address descriptions (e.g. a Parking block +
   // the actual start location — #806) don't pick the wrong one.
-  const labeled = text.match(
-    /(?:Location\s+of\s+event|On-?On|Location|Where|Start\s+Location)\s*:?\s*[\r\n][^]*?(\d+\s+[\w\s]+(?:St|Ave|Rd|Blvd|Dr|Ln|Way|Pl|Ct|Pkwy|Hwy|Cir)[^,]*,\s*\w[\w\s]*,?\s*[A-Z]{2}\s*\d{5})/i,
-  );
-  if (labeled) return labeled[1].trim();
-  const addressMatch = text.match(ADDRESS_RE);
+  const labelMatch = LOCATION_LABEL_RE.exec(text);
+  if (labelMatch) {
+    const afterLabel = text.slice(labelMatch.index + labelMatch[0].length);
+    const labeledAddr = ADDRESS_RE.exec(afterLabel);
+    if (labeledAddr) return labeledAddr[1].trim();
+  }
+  const addressMatch = ADDRESS_RE.exec(text);
   return addressMatch ? addressMatch[1].trim() : undefined;
 }
 

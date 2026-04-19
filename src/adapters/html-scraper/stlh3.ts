@@ -123,12 +123,19 @@ export function parseTitleDate(title: string): string | null {
  * "{label}: {date}" (e.g. "Upcumming Hash: Sunday Apr 19th 2026"). The date
  * is redundant on hareline cards since we already parse it separately. #808.
  */
-// Require an explicit calendar shape before stripping: month name + day +
-// 4-digit year (e.g. "Sunday Apr 19th 2026"), numeric YYYY-MM-DD, or
-// M/D/YYYY. Prevents accidental stripping of ambiguous relative phrases
-// like "Next Thursday" that chrono would still parse as a date.
-const ABSOLUTE_DATE_RE =
-  /\b(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\s+\d{1,2}(?:st|nd|rd|th)?\s*,?\s*\d{4}|\d{4}-\d{1,2}-\d{1,2}|\d{1,2}\/\d{1,2}\/\d{2,4})\b/i;
+// Three independent shapes for "absolute" calendar dates. Kept as separate
+// patterns to stay under SonarCloud's regex-complexity budget and to let
+// each shape be understood on its own.
+const MONTH_DAY_YEAR_RE =
+  /\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\s+\d{1,2}(?:st|nd|rd|th)?\s*,?\s*\d{4}\b/i;
+const ISO_DATE_RE = /\b\d{4}-\d{1,2}-\d{1,2}\b/;
+const SLASH_DATE_RE = /\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/;
+
+function hasAbsoluteDate(s: string): boolean {
+  return (
+    MONTH_DAY_YEAR_RE.test(s) || ISO_DATE_RE.test(s) || SLASH_DATE_RE.test(s)
+  );
+}
 
 export function cleanPostTitle(title: string): string {
   const colonIdx = title.indexOf(":");
@@ -137,7 +144,7 @@ export function cleanPostTitle(title: string): string {
   // Require an absolute-date token AND a successful chrono parse. Avoids
   // stripping meaningful subtitles like "Halloween Edition" or ambiguous
   // relative phrases like "Next Thursday". #808.
-  if (!ABSOLUTE_DATE_RE.test(afterColon)) return title;
+  if (!hasAbsoluteDate(afterColon)) return title;
   const parsedDate = chronoParseDate(afterColon, "en-US", undefined, {
     forwardDate: true,
   });

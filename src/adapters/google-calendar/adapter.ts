@@ -697,9 +697,9 @@ export function buildRawEventFromGCalItem(
         // + name) and collapse leftover delimiters. Handles Stuttgart
         // "SH3 #880 Hare: Kiss Me- Degerloch" → "SH3 #880 - Degerloch".
         cleaned = (title.slice(0, start) + title.slice(end))
-          .replace(/\s*[-–—]\s*[-–—]\s*/g, " - ")
-          .replace(/\s{2,}/g, " ")
-          .replace(/^\s*[-–—]\s*|\s*[-–—]\s*$/g, "")
+          .replaceAll(/\s*[-–—]\s*[-–—]\s*/g, " - ")
+          .replaceAll(/\s{2,}/g, " ")
+          .replaceAll(/^\s*[-–—]\s*|\s*[-–—]\s*$/g, "")
           .trim();
       }
       if (cleaned) title = cleaned;
