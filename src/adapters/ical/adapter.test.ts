@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { ICalAdapter, parseICalSummary, extractHaresFromDescription, extractRunNumberFromDescription, extractLocationFromDescription, extractCostFromDescription, extractMapsUrlFromDescription, paramValue } from "./adapter";
+import { ICalAdapter, parseICalSummary, extractHaresFromDescription, extractRunNumberFromDescription, extractLocationFromDescription, extractOnOnVenueFromDescription, extractCostFromDescription, extractMapsUrlFromDescription, paramValue } from "./adapter";
 import type { Source } from "@/generated/prisma/client";
 import type { ParameterValue } from "node-ical";
 
@@ -331,6 +331,55 @@ describe("extractLocationFromDescription", () => {
   it("handles multiline description with location in the middle", () => {
     const desc = String.raw`Hare: Captain Hash\n\nWhere: Fells Point\n\nBring $5`;
     expect(extractLocationFromDescription(desc)).toBe("Fells Point");
+  });
+});
+
+describe("extractOnOnVenueFromDescription (#801 Reading H3)", () => {
+  it("captures venue after 'On On: {time} …' before 'Hares:'", () => {
+    // Fixture from Reading H3 Localendar feed (#801 issue body).
+    const desc = "Run #1234 On On: 6:15p Lower Access lot at Monocacy Hill Hares: Cowboy";
+    expect(extractOnOnVenueFromDescription(desc)).toBe("Lower Access lot at Monocacy Hill");
+  });
+
+  it("handles ICS-escaped commas and semicolons", () => {
+    const desc = String.raw`Run #1234 On On: 6:15pm 404 New London Road\, Newark\, DE Hares: Cowboy`;
+    expect(extractOnOnVenueFromDescription(desc)).toBe("404 New London Road, Newark, DE");
+  });
+
+  it("stops at 'Hash Cash:' sibling label", () => {
+    const desc = String.raw`On On: Main Park Hash Cash: $5`;
+    expect(extractOnOnVenueFromDescription(desc)).toBe("Main Park");
+  });
+
+  it("returns undefined when no 'On On:' label", () => {
+    expect(extractOnOnVenueFromDescription("Hares: Cowboy")).toBeUndefined();
+  });
+
+  it("rejects captures that are just a time fragment", () => {
+    const desc = "On On: 6:15p";
+    expect(extractOnOnVenueFromDescription(desc)).toBeUndefined();
+  });
+
+  it("rejects captures shorter than 3 chars", () => {
+    const desc = "On On: X";
+    expect(extractOnOnVenueFromDescription(desc)).toBeUndefined();
+  });
+
+  it("stops at 'Hares:' even when no whitespace precedes it", () => {
+    // Guards against typo'd feeds where 'Hares:' is adjacent to the venue.
+    const desc = "On On: Lower Access lotHares: Cowboy";
+    expect(extractOnOnVenueFromDescription(desc)).toBe("Lower Access lot");
+  });
+
+  it("ignores 'On On On:' after-run shorthand", () => {
+    // "On On On:" names the *after-run* pub, not the trail start — skip it.
+    const desc = "Hares: Cowboy On On On: Cozy Car";
+    expect(extractOnOnVenueFromDescription(desc)).toBeUndefined();
+  });
+
+  it("strips 24-hour leading time too", () => {
+    const desc = "On On: 18:30 Main Park Hares: Cowboy";
+    expect(extractOnOnVenueFromDescription(desc)).toBe("Main Park");
   });
 });
 

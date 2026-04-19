@@ -2,7 +2,7 @@ import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
 import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, HARE_BOILERPLATE_RE, EVENT_FIELD_LABEL_RE, CTA_EMBEDDED_PATTERNS, appendDescriptionSuffix, isPlaceholder, parse12HourTime, stripNonEnglishCountry } from "../utils";
-import { PHONE_NUMBER_RE } from "@/pipeline/audit-checks";
+import { PHONE_NUMBER_RE, LOCATION_EMAIL_CTA_RE } from "@/pipeline/audit-checks";
 
 // Kennel patterns derived from actual Boston Hash Calendar event data.
 // Longer/more-specific patterns first to avoid false matches.
@@ -129,6 +129,10 @@ const TITLE_SCHEDULE_LINE_RE = /:\s*\d{1,2}:\d{2}\s*(?:am|pm)/i;
 // suffixes like "(text for details)" that creep in via Google Calendar.
 const PHONE_TRAILING_RE = new RegExp(String.raw`\s*(?:${PHONE_NUMBER_RE.source})\s*$`);
 const LOCATION_TRAILING_CTA_RE = /\s*\((?:text|call|contact|ping)[^)]*\)\s*$/i;
+// #798 ABQ: bare-email fallback for locationName (e.g. "abqh3misman@gmail.com"
+// on its own). The broader "Inquire for location: …@…" form is shared with
+// the audit-checks rule and imported above.
+const LOCATION_BARE_EMAIL_RE = /^\s*\S+@\S+\.\S+\s*$/;
 
 // Pre-compiled regexes for extractLocationFromDescription.
 // #742: hash-vernacular labels (De'erections, Direcshits, Where to gather) are synonyms for "Location".
@@ -621,6 +625,10 @@ export function buildRawEventFromGCalItem(
       .replace(PHONE_TRAILING_RE, "")
       .trim() || undefined;
   }
+  // #798: drop email-CTA-as-location values outright — no address to preserve.
+  if (location && (LOCATION_EMAIL_CTA_RE.test(location) || LOCATION_BARE_EMAIL_RE.test(location))) {
+    location = undefined;
+  }
   if (location && (isPlaceholder(location) || isNonAddressText(location))) location = undefined;
   if (!location && rawDescription) {
     location = extractLocationFromDescription(rawDescription);
@@ -688,6 +696,11 @@ export function buildRawEventFromGCalItem(
     }
   }
 
+  // #799 Pedal Files: trailing "- tbd" / "- tba" placeholder after a delimiter
+  // ("Bash - tbd" → "Bash"). Runs *after* w/ extraction so we don't consume the
+  // " - TBA" tail of "Title w/ TBD - TBA" before the pattern can strip it.
+  title = title.replace(/\s*[-–—]\s*(?:tbd|tba|tbc)\.?\s*$/i, "").trim();
+
   // Trailing "(Hare Name)" parenthetical (common in Boston/many kennels).
   // When hares are already set from description, the parenthetical is left in the title
   // since it may be a subtitle rather than a hare name.
@@ -746,8 +759,26 @@ export function buildRawEventFromGCalItem(
   // defaultTitle fallback runs last, after all branches that may reset title to kennelTag.
   // Also fires when title collapsed to empty after trailing-dash strip (#756).
   const fallback = sourceConfig?.defaultTitles?.[kennelTag] ?? sourceConfig?.defaultTitle;
-  if ((!title || titleMatchesKennelTag(title, kennelTag)) && fallback) {
-    title = fallback;
+  if (fallback) {
+    // #796 #800: titles like "wasatch #1144" or "DH3 #1663" are raw kennel-code
+    // + run-number pairs, not real event names. Substitute the configured
+    // default and preserve the run number so users see a readable trail name.
+    // Guard: require the prefix to match either the resolved kennelTag or one
+    // of the configured kennelPatterns — otherwise legit titles like
+    // "Picnic 2026" get rewritten to "{defaultTitle} #2026".
+    const bareKennelRunMatch = /^([A-Za-z][A-Za-z0-9-]{0,19})\s*#?\s*(\d+)$/.exec(title);
+    const prefix = bareKennelRunMatch?.[1];
+    const prefixMatchesKennel = !!prefix && (
+      titleMatchesKennelTag(prefix, kennelTag)
+      || (sourceConfig?.kennelPatterns
+        ? matchConfigPatterns(prefix, sourceConfig.kennelPatterns) === kennelTag
+        : false)
+    );
+    if (bareKennelRunMatch && prefixMatchesKennel) {
+      title = `${fallback} #${bareKennelRunMatch[2]}`;
+    } else if (!title || titleMatchesKennelTag(title, kennelTag)) {
+      title = fallback;
+    }
   }
 
   // Start time: prefer dateTime-derived time, then description extraction,

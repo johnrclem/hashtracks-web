@@ -2384,6 +2384,10 @@ export const SOURCES = [
       scrapeDays: 365,
       config: {
         defaultKennelTag: "dh4",
+        // #800: calendar emits legacy "DH3 #N" titles despite the kennel
+        // having been recoded to dh4. Adapter substitutes this fallback when
+        // the summary is a bare {kennel-code} #N pattern.
+        defaultTitle: "Dayton H4 Trail",
       },
       kennelCodes: ["dh4"],
     },
@@ -4035,6 +4039,12 @@ export const SOURCES = [
         // null default — unmatched events are skipped rather than
         // silently misrouted to wasatch-h3
         defaultKennelTag: null,
+        // #796: Wasatch titles arrive as bare "wasatch #1144" — substitute a
+        // readable trail name when the adapter matches the kennel-code-only
+        // pattern. Per-kennel keys so lds/slosh/slut keep pattern routing.
+        defaultTitles: {
+          "wasatch-h3": "Wasatch H3 Trail",
+        },
       },
       kennelCodes: ["wasatch-h3", "lds-h3", "slosh-h3", "slut-h3"],
     },

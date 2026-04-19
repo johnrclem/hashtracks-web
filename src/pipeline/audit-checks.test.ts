@@ -407,32 +407,24 @@ describe("checkLocationQuality", () => {
     expect(findings).toHaveLength(0);
   });
 
-  it("flags location-phone-number for separated phone in locationName (#743)", () => {
-    const event = makeEvent({
-      locationName: "Casa De Assover – Raleigh, NC (text Assover at 919-332-2615 for address)",
-    });
-    const findings = checkLocationQuality([event]);
+  it.each([
+    ["location-phone-number for separated phone in locationName (#743)", "Casa De Assover – Raleigh, NC (text Assover at 919-332-2615 for address)", "location-phone-number"],
+    ["location-phone-number for bare 10-digit run in locationName", "Private home, call 9193326661 for address", "location-phone-number"],
+    ["location-email-cta for 'Inquire for location: …@…' (#798 ABQ)", "Inquire for location: abqh3misman@gmail.com", "location-email-cta"],
+  ])("flags %s", (_name, locationName, rule) => {
+    const findings = checkLocationQuality([makeEvent({ locationName })]);
     expect(findings).toHaveLength(1);
-    expect(findings[0].rule).toBe("location-phone-number");
+    expect(findings[0].rule).toBe(rule);
     expect(findings[0].severity).toBe("warning");
     expect(findings[0].category).toBe("location");
     expect(findings[0].field).toBe("locationName");
   });
 
-  it("flags location-phone-number for bare 10-digit run in locationName", () => {
-    const event = makeEvent({
-      locationName: "Private home, call 9193326661 for address",
-    });
-    const findings = checkLocationQuality([event]);
-    expect(findings).toHaveLength(1);
-    expect(findings[0].rule).toBe("location-phone-number");
-  });
-
-  it("does not flag location-phone-number for street numbers or ZIP codes", () => {
-    const event = makeEvent({
-      locationName: "15001 Health Center Dr, Bowie, MD 20716",
-    });
-    const findings = checkLocationQuality([event]);
+  it.each([
+    ["street numbers or ZIP codes (location-phone-number)", "15001 Health Center Dr, Bowie, MD 20716"],
+    ["real address that happens to contain an @-like token", "Apt @ 123 Main Street, Newark, DE"],
+  ])("does not flag %s", (_name, locationName) => {
+    const findings = checkLocationQuality([makeEvent({ locationName })]);
     expect(findings).toHaveLength(0);
   });
 });

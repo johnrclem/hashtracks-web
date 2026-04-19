@@ -3,7 +3,8 @@ import { parseHockessinEvent } from "./hockessin";
 
 describe("HockessinAdapter", () => {
   describe("parseHockessinEvent", () => {
-    it("parses a standard event with title, date, time, and location", () => {
+    it("parses a standard event with title, date, time, hares, and location", () => {
+      // #797: post-colon header text is the hare name, not the event title.
       const header = "Hash #1656: Green Dress Hash";
       const detail = "SATURDAY, March 14, 2026, 3:00pm, (Prelube at 2:30PM, pack off 3:15), 404 New London Road, Newark, DE";
 
@@ -11,7 +12,8 @@ describe("HockessinAdapter", () => {
 
       expect(event).not.toBeNull();
       expect(event!.runNumber).toBe(1656);
-      expect(event!.title).toBe("Green Dress Hash");
+      expect(event!.title).toBe("Hockessin H3 Trail #1656");
+      expect(event!.hares).toBe("Green Dress Hash");
       expect(event!.date).toBe("2026-03-14");
       expect(event!.startTime).toBe("15:00");
       expect(event!.kennelTag).toBe("hockessin");
@@ -28,10 +30,37 @@ describe("HockessinAdapter", () => {
 
       expect(event).not.toBeNull();
       expect(event!.runNumber).toBe(1650);
-      expect(event!.title).toBe("January Thaw");
+      expect(event!.title).toBe("Hockessin H3 Trail #1650");
+      expect(event!.hares).toBe("January Thaw");
       expect(event!.date).toBe("2026-01-10");
       expect(event!.startTime).toBe("15:00");
       expect(event!.location).toContain("123 Main Street");
+    });
+
+    it("live-format fixture from #797: '715 Art Lane, Newark, DE'", () => {
+      // Verbatim from hockessinhash.org on 2026-04-19.
+      const header = "Hash #1661: Asshopper";
+      const detail = "SATURDAY, April 18, 2026, 3:00pm,  715 Art Lane, Newark, DE";
+
+      const event = parseHockessinEvent(header, detail, "https://www.hockessinhash.org/");
+
+      expect(event).not.toBeNull();
+      expect(event!.runNumber).toBe(1661);
+      expect(event!.title).toBe("Hockessin H3 Trail #1661");
+      expect(event!.hares).toBe("Asshopper");
+      expect(event!.date).toBe("2026-04-18");
+      expect(event!.startTime).toBe("15:00");
+      expect(event!.location).toBe("715 Art Lane, Newark, DE");
+    });
+
+    it("rejects TBA/TBD placeholder locations", () => {
+      const header = "Hash #1670: Placeholder Event";
+      const detail = "SATURDAY, July 4, 2026, 3:00pm, TBA";
+
+      const event = parseHockessinEvent(header, detail, "https://www.hockessinhash.org/");
+
+      expect(event).not.toBeNull();
+      expect(event!.location).toBeUndefined();
     });
 
     it("returns null for non-matching header", () => {
@@ -84,14 +113,17 @@ describe("HockessinAdapter", () => {
       expect(event!.runNumber).toBe(999);
     });
 
-    it("uses title from header and falls back for missing title", () => {
+    it("emits empty hares when the header has no post-colon text", () => {
+      // Title is always synthesized from the run number (#797); a missing
+      // post-colon segment just leaves hares undefined.
       const header = "Hash #1700: ";
       const detail = "SATURDAY, May 2, 2026, 3:00pm, Test Location";
 
       const event = parseHockessinEvent(header, detail, "https://www.hockessinhash.org/");
 
       expect(event).not.toBeNull();
-      expect(event!.title).toBe("Hockessin #1700");
+      expect(event!.title).toBe("Hockessin H3 Trail #1700");
+      expect(event!.hares).toBeUndefined();
     });
   });
 });

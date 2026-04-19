@@ -93,7 +93,11 @@ export function parseNextRunArticle(
     ? startTimeRaw
     : defaultTime;
 
-  const hare = grab("Hares?");
+  // #802: the labeled `Hares:` field sometimes carries filler like "On On Q"
+  // instead of a real name. Mirror the API-path boilerplate guard so we don't
+  // ship "On On Q" as a hare name.
+  const hareRaw = grab("Hares?");
+  const hare = hareRaw && !HARE_BOILERPLATE_RE.test(hareRaw) ? hareRaw : undefined;
   const station = grab("Station");
   const runSite = grab("Run\\s*Site");
   const restaurant = grab("Restaurant");

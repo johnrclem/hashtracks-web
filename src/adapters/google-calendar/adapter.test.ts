@@ -1995,6 +1995,40 @@ describe("buildRawEventFromGCalItem — trailing dash + defaultTitle (#756 Moooo
   });
 });
 
+describe("buildRawEventFromGCalItem — audit Round 2 (#796 #798 #799 #800)", () => {
+  const pedal = { kennelPatterns: [["Bash", "pedal-files"]] as [string, string][], defaultTitle: "Bash" };
+  const wasatch = { kennelPatterns: [["wasatch", "wasatch-h3"]] as [string, string][], defaultTitles: { "wasatch-h3": "Wasatch H3 Trail" } };
+  const dayton = { kennelPatterns: [["DH[34]", "dh4"]] as [string, string][], defaultTitle: "Dayton H4 Trail" };
+  const april = { kennelPatterns: [["April", "wasatch-h3"]] as [string, string][], defaultTitle: "Wasatch H3 Trail" };
+  const numeric = { kennelPatterns: [["1144", "wasatch-h3"]] as [string, string][], defaultTitles: { "wasatch-h3": "Wasatch H3 Trail" } };
+
+  it.each([
+    ["strips trailing '- tbd' placeholder then applies defaultTitle (#799 Pedal Files)", "Bash - tbd", pedal, "Bash"],
+    ["strips trailing '- TBA' placeholder too (#799)", "Bash - TBA", pedal, "Bash"],
+    ["strips trailing '- TBC' placeholder too (#799)", "Bash - TBC", pedal, "Bash"],
+    ["substitutes defaultTitle for bare '{kennelCode} #N' (#796 Wasatch)", "wasatch #1144", wasatch, "Wasatch H3 Trail #1144"],
+    ["substitutes defaultTitle for '{kennelCode}#N' no-space variant (#800 Dayton)", "DH3#1663", dayton, "Dayton H4 Trail #1663"],
+    ["substitutes defaultTitle for '{kennelCode} #N' with space (#800 Dayton)", "DH3 #1663", dayton, "Dayton H4 Trail #1663"],
+    ["leaves multi-word titles alone even with defaultTitle set (#796 guard)", "April Hash", april, "April Hash"],
+    ["leaves already-canonical 'DefaultTitle #N' titles unchanged (#796 guard)", "Wasatch H3 Trail #1144", wasatch, "Wasatch H3 Trail #1144"],
+    ["leaves bare-number-only titles alone (#796 guard — no letter prefix)", "1144", numeric, "1144"],
+  ] as const)("%s", (_name, summary, config, expected) => {
+    const result = buildRawEventFromGCalItem(testGCalEvent({ summary }), config);
+    expect(result?.title).toBe(expected);
+  });
+
+  it.each([
+    ["drops location when it's an 'inquire for location' email CTA (#798 ABQ)", "Inquire for location: abqh3misman@gmail.com"],
+    ["drops location when it's a bare email address (#798)", "abqh3misman@gmail.com"],
+  ])("%s", (_name, location) => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "ABQ Hash #42", location }),
+      { defaultKennelTag: "abq-h3" },
+    );
+    expect(result?.location).toBeUndefined();
+  });
+});
+
 describe("buildRawEventFromGCalItem — strictKennelRouting (#753 WA Hash)", () => {
   // `defaultKennelTag` is set alongside strict routing to prove the strict flag
   // actually short-circuits the fallback, not merely that no fallback exists.

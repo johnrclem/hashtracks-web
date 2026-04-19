@@ -174,6 +174,43 @@ export function extractLocationFromDescription(description: string, customPatter
   });
 }
 
+// #801 Reading H3 format: "...On On: 6:15p Lower Access lot at Monocacy Hill Hares: ..."
+// Two-pass extraction (single regex trips SonarCloud complexity cap):
+//   1. Find the 'On On:' label.
+//   2. Slice to the first sibling label (Hares:/Hash Cash:) or newline.
+const ON_ON_LABEL_RE = /On[-\s]?On\s*:\s*/i;
+const ON_ON_TERMINATOR_RE = /\s*Hares?:|\s*Hash\s*Cash:|\n/i;
+// Guards against "On On On: Cozy Car" (after-run shorthand) false-positive.
+const PRECEDING_ON_RE = /\bOn[-\s]$/i;
+// Accepts 12-hour ("6:15p", "6:15 pm") and 24-hour ("18:30") leading times.
+const LEADING_TIME_RE = /^(?:\d{1,2}(?::\d{2})?\s*[ap]\.?m?\.?|\d{1,2}:\d{2})\s+/i;
+const TIME_ONLY_RE = /^(?:\d{1,2}(?::\d{2})?\s*[ap]\.?m?\.?|\d{1,2}:\d{2})$/i;
+
+/**
+ * Fallback for iCal DESCRIPTION bodies that embed the venue inline via
+ * "On On: {time} {venue} Hares: ..." — common in Localendar-hosted feeds
+ * (Reading H3 #801).
+ */
+export function extractOnOnVenueFromDescription(description: string): string | undefined {
+  const normalized = normalizeIcsDescription(description);
+  const labelMatch = ON_ON_LABEL_RE.exec(normalized);
+  if (!labelMatch) return undefined;
+  // Reject after-run "On On On:" shorthand — the leading "On " makes the
+  // trailing "On On:" match the label even though it's not the start-point.
+  if (labelMatch.index > 0 && PRECEDING_ON_RE.test(normalized.slice(0, labelMatch.index))) {
+    return undefined;
+  }
+  const afterLabel = normalized.slice(labelMatch.index + labelMatch[0].length);
+  const termMatch = ON_ON_TERMINATOR_RE.exec(afterLabel);
+  const rawVenue = termMatch ? afterLabel.slice(0, termMatch.index) : afterLabel;
+  let venue = rawVenue.replace(LEADING_TIME_RE, "").trim();
+  venue = venue.replaceAll(String.raw`\;`, ";").replaceAll(String.raw`\,`, ",");
+  if (venue.length < 3 || venue.length > 300) return undefined;
+  // Reject captures that are nothing but a time or a stray punctuation fragment.
+  if (TIME_ONLY_RE.test(venue)) return undefined;
+  return venue;
+}
+
 /**
  * Extract a cost/hash-cash value from an iCal DESCRIPTION field.
  * Accepts pre-compiled RegExp[] for custom patterns; falls back to default COST_PATTERNS.
@@ -395,7 +432,8 @@ function buildRawEventFromVEvent(
   }
 
   if (!location && description) {
-    location = extractLocationFromDescription(description, compiledLocationPatterns);
+    location = extractLocationFromDescription(description, compiledLocationPatterns)
+      ?? extractOnOnVenueFromDescription(description);
   }
 
   const locationUrl = resolveLocationUrl(vevent.geo, location, description);
