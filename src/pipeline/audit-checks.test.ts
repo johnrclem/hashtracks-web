@@ -435,6 +435,26 @@ describe("checkLocationQuality", () => {
     const findings = checkLocationQuality([event]);
     expect(findings).toHaveLength(0);
   });
+
+  it("flags location-email-cta for 'Inquire for location: …@…' (#798 ABQ)", () => {
+    const event = makeEvent({
+      locationName: "Inquire for location: abqh3misman@gmail.com",
+    });
+    const findings = checkLocationQuality([event]);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe("location-email-cta");
+    expect(findings[0].severity).toBe("warning");
+    expect(findings[0].category).toBe("location");
+    expect(findings[0].field).toBe("locationName");
+  });
+
+  it("does not flag real address that happens to contain an @-like token", () => {
+    const event = makeEvent({
+      locationName: "Apt @ 123 Main Street, Newark, DE",
+    });
+    const findings = checkLocationQuality([event]);
+    expect(findings).toHaveLength(0);
+  });
 });
 
 describe("checkEventQuality", () => {

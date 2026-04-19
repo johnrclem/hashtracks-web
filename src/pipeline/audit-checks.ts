@@ -51,6 +51,7 @@ export const KNOWN_AUDIT_RULES = [
   "location-url",
   "location-duplicate-segments",
   "location-phone-number",
+  "location-email-cta",
   "event-improbable-time",
   "description-dropped",
 ] as const;
@@ -119,6 +120,14 @@ const TITLE_TIME_ONLY_PATTERN =
  */
 export const PHONE_NUMBER_RE =
   /(?:(?<!\d)\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}(?!\d)|(?<!\d)\d{10}(?!\d))/;
+
+/**
+ * Email-CTA-as-location detector (#798 ABQ H3). Flags locationName values
+ * like "Inquire for location: abqh3misman@gmail.com" — no geocodable address
+ * in the field, same failure mode as a phone CTA.
+ */
+export const LOCATION_EMAIL_CTA_RE =
+  /^\s*(?:inquire|email|contact|ping|message|msg|dm)\b.*?\S+@\S+\.\S+.*$/i;
 
 const CTA_PATTERN =
   /^(?:tbd|tba|tbc|n\/a|sign[\s\u00A0]*up!?|volunteer|needed|required)$/i;
@@ -294,6 +303,22 @@ export function checkLocationQuality(events: LocationEventRow[]): AuditFinding[]
           field: "locationName",
           currentValue: locationName,
           rule: "location-phone-number",
+          severity: "warning",
+        })
+      );
+      continue;
+    }
+
+    // 4. location-email-cta: locationName is an email-based "inquire for
+    // location" CTA (#798 ABQ H3). Same downside as the phone variant —
+    // no geocodable address in the field.
+    if (LOCATION_EMAIL_CTA_RE.test(locationName)) {
+      findings.push(
+        finding(event, {
+          category: "location",
+          field: "locationName",
+          currentValue: locationName,
+          rule: "location-email-cta",
           severity: "warning",
         })
       );
