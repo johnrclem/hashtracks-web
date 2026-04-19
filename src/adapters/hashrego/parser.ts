@@ -26,6 +26,11 @@ export interface ParsedEvent {
   description?: string;
   cost?: string;
   kennelSlug: string;
+  /** Display name of the host kennel from the detail page (e.g. "Tidewater H3").
+   * Preferred over `kennelSlug` for resolver matching: hashrego slugs like
+   * "TH3" collide across regions (Chicago Thirstday kennelCode=th3 vs
+   * Tidewater H3 — hashrego #806). The display name is unambiguous. */
+  hostKennelName?: string;
   isMultiDay: boolean;
 }
 
@@ -160,11 +165,21 @@ export function parseEventDetail(
   const kennelMatch = kennelHref.match(/\/kennels\/([^/]+)/);
   const kennelSlug = kennelMatch?.[1] || indexEntry?.kennelSlug || "";
 
+  // Host Kennel display name (#806): hashrego slugs like "TH3" collide across
+  // regions. The "Host Kennel:" heading is followed by an <a> to the kennel
+  // profile whose link text is the display name ("Tidewater H3"). Preferring
+  // this over the slug makes the resolver match the correct kennel.
+  const hostKennelName = extractHostKennelName($);
+
   // Description from og:description meta tag
   const rawDescription = $('meta[property="og:description"]').attr("content") || "";
 
   // Parse structured fields from the description text
-  const hares = extractField(rawDescription, "Hare(s)") || extractField(rawDescription, "Hares");
+  const haresFromDescription = extractField(rawDescription, "Hare(s)") || extractField(rawDescription, "Hares");
+  // Fallback: extract hares from DOM when og:description doesn't carry them
+  // (#806). Detail page renders `<p><strong>Hare(s):</strong></p>` followed
+  // by a sibling `<p>` with the comma/&-joined hare names.
+  const hares = haresFromDescription || extractHaresFromDom($);
   const cost = extractField(rawDescription, "Cost") || indexEntry?.cost;
   const location = extractLocationFromDescription(rawDescription);
   const locationAddress = extractAddressFromDescription(rawDescription);
@@ -192,8 +207,56 @@ export function parseEventDetail(
     description,
     cost,
     kennelSlug,
+    hostKennelName,
     isMultiDay,
   };
+}
+
+/**
+ * Extract the Host Kennel display name from the "Host Kennel:" block.
+ *
+ * Layout (profile-box):
+ *   <h4>Host Kennel:</h4>
+ *   <div class="half-size pull-left"><a href="/kennels/SLUG/"><img/></a></div>
+ *   <div class="half-size pull-right">
+ *     <p><strong><a href="/kennels/SLUG/">Display Name</a></strong></p>
+ *
+ * Walks forward from the heading through following siblings, returning the
+ * first non-empty kennel-link text. Skips the image-wrapping `<a>` whose
+ * text is empty.
+ */
+function extractHostKennelName($: cheerio.CheerioAPI): string | undefined {
+  const heading = $("h4")
+    .filter((_, el) => /host\s+kennel/i.test($(el).text()))
+    .first();
+  if (heading.length === 0) return undefined;
+  let name: string | undefined;
+  heading.nextAll().each((_, sibling) => {
+    const link = $(sibling).find('a[href^="/kennels/"]').first();
+    const text = link.text().trim();
+    if (text.length > 0) {
+      name = text;
+      return false;
+    }
+    return undefined;
+  });
+  return name;
+}
+
+/**
+ * Extract hares from the detail-page DOM when `Hare(s):` is missing from
+ * og:description. Layout: `<strong>Hare(s):</strong>` inside a `<p>`,
+ * followed by a sibling `<p>` with the comma/&-joined names. See #806.
+ */
+function extractHaresFromDom($: cheerio.CheerioAPI): string | undefined {
+  const label = $("strong")
+    .filter((_, el) => /^\s*hare\(?s\)?:?\s*$/i.test($(el).text()))
+    .first();
+  if (label.length === 0) return undefined;
+  const labelP = label.closest("p");
+  const valueP = labelP.nextAll("p").first();
+  const text = valueP.text().replace(/\s+/g, " ").trim();
+  return text.length > 0 ? text : undefined;
 }
 
 /**
@@ -216,7 +279,7 @@ export function splitToRawEvents(
     return [
       {
         date,
-        kennelTag: parsed.kennelSlug,
+        kennelTag: parsed.hostKennelName || parsed.kennelSlug,
         title: parsed.title,
         description: parsed.description,
         hares: parsed.hares,
@@ -236,7 +299,7 @@ export function splitToRawEvents(
       i === 0 ? "Day 1" : i === parsed.dates.length - 1 ? `Day ${i + 1}` : `Day ${i + 1}`;
     return {
       date,
-      kennelTag: parsed.kennelSlug,
+      kennelTag: parsed.hostKennelName || parsed.kennelSlug,
       title: `${parsed.title} (${dayLabel})`,
       description: parsed.description,
       hares: parsed.hares,
@@ -277,11 +340,18 @@ function extractLocationFromDescription(text: string): string | undefined {
 }
 
 /** Extract address from description (Google Maps URL or address line) */
+const ADDRESS_RE =
+  /(\d+\s+[\w\s]+(?:St|Ave|Rd|Blvd|Dr|Ln|Way|Pl|Ct|Pkwy|Hwy|Cir)[^,]*,\s*\w[\w\s]*,?\s*[A-Z]{2}\s*\d{5})/i;
+
 function extractAddressFromDescription(text: string): string | undefined {
-  // Look for address pattern after maps link or "Where" field
-  const addressMatch = text.match(
-    /(\d+\s+[\w\s]+(?:St|Ave|Rd|Blvd|Dr|Ln|Way|Pl|Ct|Pkwy|Hwy|Cir)[^,]*,\s*\w[\w\s]*,?\s*[A-Z]{2}\s*\d{5})/i,
+  // Prefer the address under a "Location of event" / "Location" / "On-On" /
+  // "Where" heading so multi-address descriptions (e.g. a Parking block +
+  // the actual start location — #806) don't pick the wrong one.
+  const labeled = text.match(
+    /(?:Location\s+of\s+event|On-?On|Location|Where|Start\s+Location)\s*:?\s*[\r\n][^]*?(\d+\s+[\w\s]+(?:St|Ave|Rd|Blvd|Dr|Ln|Way|Pl|Ct|Pkwy|Hwy|Cir)[^,]*,\s*\w[\w\s]*,?\s*[A-Z]{2}\s*\d{5})/i,
   );
+  if (labeled) return labeled[1].trim();
+  const addressMatch = text.match(ADDRESS_RE);
   return addressMatch ? addressMatch[1].trim() : undefined;
 }
 

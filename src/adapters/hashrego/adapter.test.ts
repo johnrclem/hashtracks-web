@@ -549,6 +549,52 @@ describe("parseEventDetail", () => {
     expect(parsed.dates[0]).toBe("2026-02-05");
   });
 
+  it("#806: extracts Host Kennel display name from 'Host Kennel:' block", () => {
+    const html = `<html><body>
+      <h4>Host Kennel:</h4>
+      <div class="half-size pull-left"><a href="/kennels/TH3/"><img alt="logo"></a></div>
+      <div class="half-size pull-right"><p><strong><a href="/kennels/TH3/">Tidewater H3</a></strong></p></div>
+      <meta property="og:description" content="Some event" />
+    </body></html>`;
+    const parsed = parseEventDetail(html, "th3-agm-2026-pool-party", {
+      slug: "th3-agm-2026-pool-party",
+      kennelSlug: "TH3",
+      title: "TH3 AGM",
+      startDate: "04/19/26",
+      startTime: "1:30 PM",
+      type: "Trail",
+      cost: "$10",
+    });
+    expect(parsed.hostKennelName).toBe("Tidewater H3");
+    expect(parsed.kennelSlug).toBe("TH3");
+  });
+
+  it("#806: extracts hares from DOM when og:description lacks Hare(s) field", () => {
+    const html = `<html><body>
+      <meta property="og:description" content='Some event description without a labeled hares field.' />
+      <p class="text-center"><strong>Hare(s):</strong></p>
+      <p class="text-center">Always Needs Ample Lube &amp; Shart Tank</p>
+    </body></html>`;
+    const parsed = parseEventDetail(html, "th3-agm-2026-pool-party");
+    expect(parsed.hares).toBe("Always Needs Ample Lube & Shart Tank");
+  });
+
+  it("#806: prefers 'Location of event:' address over 'Parking:' block", () => {
+    const html = `<html><body>
+      <meta property="og:description" content='Cum celebrate AGM 2026.
+
+Parking:
+Bayview Elementary School.
+1434 E Bayview Blvd, Norfolk, VA 23503
+
+Location of event:
+Castle of Princess Shadow.
+9405 Alpine Ct, Norfolk, VA 23503' />
+    </body></html>`;
+    const parsed = parseEventDetail(html, "th3-agm-2026-pool-party");
+    expect(parsed.locationAddress).toBe("9405 Alpine Ct, Norfolk, VA 23503");
+  });
+
   it("cleans description by removing extracted fields", () => {
     const parsed = parseEventDetail(SINGLE_DAY_HTML, "bfmh3-agm-2026", BFMH3_INDEX_ENTRY);
     expect(parsed.description).toBeDefined();
