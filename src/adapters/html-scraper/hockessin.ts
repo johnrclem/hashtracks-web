@@ -14,10 +14,12 @@ import { fetchHTMLPage, parse12HourTime, chronoParseDate } from "../utils";
  *
  * The site uses 90s-era HTML with `<font>` and `<b>` tags, no CSS classes.
  * Each event has:
- *   <font color="..."><b>Hash #1656: Green Dress Hash</b></font> <br>
- *   SATURDAY, March 14, 2026, 3:00pm, (Prelube at 2:30PM, pack off 3:15), 404 New London Road, Newark, DE <br>
+ *   <font color="..."><b>Hash #1661: Asshopper</b></font> <br>
+ *   SATURDAY, April 18, 2026, 3:00pm, 715 Art Lane, Newark, DE <br>
  *
- * @param headerText - The text from the <b> tag (e.g., "Hash #1656: Green Dress Hash")
+ * The post-colon header text is the hare name(s) — NOT the event title (#797).
+ *
+ * @param headerText - The text from the <b> tag (e.g., "Hash #1661: Asshopper")
  * @param detailText - The raw text node after the header (date, time, location info)
  * @param sourceUrl  - Source URL for fallback
  */
@@ -26,45 +28,40 @@ export function parseHockessinEvent(
   detailText: string,
   sourceUrl: string,
 ): RawEventData | null {
-  // Extract run number and title from header
   const headerMatch = /Hash\s*#(\d+)\s*:\s*(.+)/i.exec(headerText);
   if (!headerMatch) return null;
 
   const runNumber = Number.parseInt(headerMatch[1], 10);
-  const title = headerMatch[2].trim();
+  const hares = headerMatch[2].trim() || undefined;
 
-  // Clean up detail text — remove leading/trailing whitespace and BRs
   const cleaned = detailText.replace(/\s+/g, " ").trim();
   if (!cleaned) return null;
 
-  // Parse date using chrono (handles "SATURDAY, March 14, 2026" etc.)
   const date = chronoParseDate(cleaned, "en-US", undefined, { forwardDate: true });
   if (!date) return null;
 
-  // Extract time — find the first HH:MM am/pm pattern
   const startTime = parse12HourTime(cleaned);
 
-  // Extract location — everything after the time in the detail string
-  let location: string | undefined;
-
-  // Remove parenthetical notes like "(Prelube at 2:30PM, pack off 3:15)"
+  // Strip parenthetical notes like "(Prelube at 2:30PM, pack off 3:15)" before
+  // locating the post-time address segment.
   const withoutParens = cleaned.replace(/\([^)]*\)/g, "");
+  const timeMatch = /\d{1,2}:\d{2}\s*(?:am|pm)/i.exec(withoutParens);
 
-  // Find the time to locate where the location details start
-  const timeRegex = /(\d{1,2}:\d{2}\s*(?:am|pm))/i;
-  const timeMatch = timeRegex.exec(withoutParens);
-
+  let location: string | undefined;
   if (timeMatch) {
-    const locationPart = withoutParens.substring(timeMatch.index + timeMatch[0].length);
-    location = locationPart.replace(/^,?\s*/, "").trim();
-    if (!location) location = undefined;
+    const after = withoutParens.substring(timeMatch.index + timeMatch[0].length).replace(/^,?\s*/, "").trim();
+    // Reject placeholders like "TBA" / "TBD" so the kennel centroid fallback wins.
+    if (after && !/^(?:tba|tbd|tbc)\.?$/i.test(after)) {
+      location = after;
+    }
   }
 
   return {
     date,
     kennelTag: "hockessin",
     runNumber: !Number.isNaN(runNumber) ? runNumber : undefined,
-    title: title || `Hockessin #${runNumber}`,
+    title: `Hockessin H3 Trail #${runNumber}`,
+    hares,
     location,
     startTime,
     sourceUrl,
