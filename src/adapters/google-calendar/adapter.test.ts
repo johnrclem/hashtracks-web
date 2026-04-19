@@ -1995,6 +1995,113 @@ describe("buildRawEventFromGCalItem — trailing dash + defaultTitle (#756 Moooo
   });
 });
 
+describe("buildRawEventFromGCalItem — audit Round 2 (#796 #798 #799 #800)", () => {
+  it("strips trailing '- tbd' placeholder then applies defaultTitle (#799 Pedal Files)", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "Bash - tbd" }),
+      {
+        kennelPatterns: [["Bash", "pedal-files"]],
+        defaultTitle: "Bash",
+      },
+    );
+    expect(result?.title).toBe("Bash");
+  });
+
+  it("strips trailing '- TBA' / '- TBC' placeholder too (#799)", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "Bash - TBA" }),
+      {
+        kennelPatterns: [["Bash", "pedal-files"]],
+        defaultTitle: "Bash",
+      },
+    );
+    expect(result?.title).toBe("Bash");
+  });
+
+  it("substitutes defaultTitle for bare '{kennelCode} #N' (#796 Wasatch)", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "wasatch #1144" }),
+      {
+        kennelPatterns: [["wasatch", "wasatch-h3"]],
+        defaultTitles: { "wasatch-h3": "Wasatch H3 Trail" },
+      },
+    );
+    expect(result?.title).toBe("Wasatch H3 Trail #1144");
+  });
+
+  it("substitutes defaultTitle for '{kennelCode}#N' no-space variant (#800 Dayton)", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "DH3 #1663" }),
+      {
+        kennelPatterns: [["DH[34]", "dh4"]],
+        defaultTitle: "Dayton H4 Trail",
+      },
+    );
+    expect(result?.title).toBe("Dayton H4 Trail #1663");
+  });
+
+  it("leaves multi-word titles alone even with defaultTitle set (#796 guard)", () => {
+    // "April Hash" should not be treated as "{kennelCode} #N" just because
+    // a defaultTitle happens to be configured.
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "April Hash" }),
+      {
+        kennelPatterns: [["April", "wasatch-h3"]],
+        defaultTitle: "Wasatch H3 Trail",
+      },
+    );
+    expect(result?.title).toBe("April Hash");
+  });
+
+  it("leaves already-canonical 'DefaultTitle #N' titles unchanged (#796 guard)", () => {
+    // The bare-kennel rewrite must NOT fire when the title is already in the
+    // canonical '{defaultTitle} #N' shape — otherwise we'd churn fingerprints.
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "Wasatch H3 Trail #1144" }),
+      {
+        kennelPatterns: [["wasatch", "wasatch-h3"]],
+        defaultTitles: { "wasatch-h3": "Wasatch H3 Trail" },
+      },
+    );
+    expect(result?.title).toBe("Wasatch H3 Trail #1144");
+  });
+
+  it("leaves bare-number-only titles alone (#796 guard — no letter prefix)", () => {
+    // "1144" alone has no kennel prefix; must not be rewritten to
+    // "Wasatch H3 Trail #1144" out of thin air.
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "1144" }),
+      {
+        kennelPatterns: [["1144", "wasatch-h3"]],
+        defaultTitles: { "wasatch-h3": "Wasatch H3 Trail" },
+      },
+    );
+    expect(result?.title).toBe("1144");
+  });
+
+  it("drops location when it's an 'inquire for location' email CTA (#798 ABQ)", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        summary: "ABQ Hash #42",
+        location: "Inquire for location: abqh3misman@gmail.com",
+      }),
+      { defaultKennelTag: "abq-h3" },
+    );
+    expect(result?.location).toBeUndefined();
+  });
+
+  it("drops location when it's a bare email address (#798)", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        summary: "ABQ Hash #43",
+        location: "abqh3misman@gmail.com",
+      }),
+      { defaultKennelTag: "abq-h3" },
+    );
+    expect(result?.location).toBeUndefined();
+  });
+});
+
 describe("buildRawEventFromGCalItem — strictKennelRouting (#753 WA Hash)", () => {
   // `defaultKennelTag` is set alongside strict routing to prove the strict flag
   // actually short-circuits the fallback, not merely that no fallback exists.
