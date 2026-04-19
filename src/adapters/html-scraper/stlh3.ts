@@ -119,6 +119,24 @@ export function parseTitleDate(title: string): string | null {
 }
 
 /**
+ * Strip the Substack post date suffix from the title. Format is
+ * "{label}: {date}" (e.g. "Upcumming Hash: Sunday Apr 19th 2026"). The date
+ * is redundant on hareline cards since we already parse it separately. #808.
+ */
+export function cleanPostTitle(title: string): string {
+  const colonIdx = title.indexOf(":");
+  if (colonIdx === -1) return title;
+  const afterColon = title.slice(colonIdx + 1).trim();
+  // Only strip when the suffix is a parseable date — avoids accidentally
+  // trimming meaningful subtitles like "Upcumming Hash: Halloween Edition".
+  const parsedDate = chronoParseDate(afterColon, "en-US", undefined, {
+    forwardDate: true,
+  });
+  if (!parsedDate) return title;
+  return title.slice(0, colonIdx).trim();
+}
+
+/**
  * STL H3 Substack Scraper
  *
  * Fetches the Substack archive listing, then fetches detail pages for each
@@ -225,7 +243,7 @@ export class StlH3Adapter implements SourceAdapter {
         events.push({
           date,
           kennelTag: "stlh3",
-          title: post.title,
+          title: cleanPostTitle(post.title),
           location,
           startTime,
           sourceUrl: post.canonical_url || `${baseUrl}/p/${post.slug}`,
