@@ -178,6 +178,105 @@ async function fetchAdelaideDetail(
 
 const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
 
+type DetailTarget = { event: RawEventData; row: AdelaideEventRow };
+
+/**
+ * POST the admin-ajax list endpoint and normalize the response into either
+ * a rows array or a pre-built error ScrapeResult. Splitting this off keeps
+ * the main `fetch()` orchestration below SonarCloud's cognitive-complexity
+ * ceiling (S3776).
+ */
+async function fetchAdelaideList(
+  url: string,
+  nowSec: number,
+  endSec: number,
+): Promise<{ rows: AdelaideEventRow[]; error?: ScrapeResult }> {
+  const body = `action=get_events&start=${nowSec}&end=${endSec}`;
+  try {
+    const res = await safeFetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Accept: "application/json",
+        "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)",
+      },
+      body,
+    });
+    if (!res.ok) {
+      const message = `Adelaide H3 admin-ajax HTTP ${res.status}`;
+      return {
+        rows: [],
+        error: {
+          events: [],
+          errors: [message],
+          errorDetails: { fetch: [{ url, status: res.status, message }] },
+        },
+      };
+    }
+    const payload = (await res.json()) as unknown;
+    // The endpoint returns either an array of rows or some kind of error
+    // envelope. Treat anything non-array as a hard parse failure so the
+    // reconciler does not cancel live events.
+    if (!Array.isArray(payload)) {
+      const message = "Adelaide H3 admin-ajax returned a non-array payload";
+      return {
+        rows: [],
+        error: {
+          events: [],
+          errors: [message],
+          errorDetails: { parse: [{ row: 0, error: message }] },
+        },
+      };
+    }
+    return { rows: payload as AdelaideEventRow[] };
+  } catch (err) {
+    const message = `Adelaide H3 fetch failed: ${err instanceof Error ? err.message : String(err)}`;
+    return {
+      rows: [],
+      error: {
+        events: [],
+        errors: [message],
+        errorDetails: { fetch: [{ url, message }] },
+      },
+    };
+  }
+}
+
+function applyAdelaideDetail(event: RawEventData, detail: AdelaideEventDetail): void {
+  if (detail.location) event.location = detail.location;
+  if (detail.locationStreet) event.locationStreet = detail.locationStreet;
+  if (detail.description) event.description = detail.description;
+  if (detail.locationUrl) event.locationUrl = detail.locationUrl;
+}
+
+/**
+ * Per-event detail enrichment: the list endpoint omits venue/address. The
+ * FullCalendar widget fetches each cell's detail via `action=get_event`.
+ * Cap at DETAIL_FETCH_CAP and space requests by DETAIL_FETCH_DELAY_MS.
+ */
+async function enrichAdelaideEvents(
+  url: string,
+  detailTargets: DetailTarget[],
+): Promise<{ detailsFetched: number; detailsFailed: number }> {
+  let detailsFetched = 0;
+  let detailsFailed = 0;
+  const targets = detailTargets.slice(0, DETAIL_FETCH_CAP);
+  for (let i = 0; i < targets.length; i++) {
+    const { event, row } = targets[i];
+    if (!row.id || !row.start || !row.end) continue;
+    const detail = await fetchAdelaideDetail(url, row.id, row.start, row.end);
+    if (detail) {
+      applyAdelaideDetail(event, detail);
+      detailsFetched++;
+    } else {
+      detailsFailed++;
+    }
+    // Skip delay after the last iteration — final sleep is wasted time.
+    if (i < targets.length - 1) await sleep(DETAIL_FETCH_DELAY_MS);
+  }
+  return { detailsFetched, detailsFailed };
+}
+
 export class AdelaideH3Adapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
 
@@ -190,54 +289,15 @@ export class AdelaideH3Adapter implements SourceAdapter {
 
     const nowSec = Math.floor(Date.now() / 1000);
     const endSec = nowSec + days * 86400;
-    const body = `action=get_events&start=${nowSec}&end=${endSec}`;
-
     const fetchStart = Date.now();
-    let payload: unknown;
-    try {
-      const res = await safeFetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          Accept: "application/json",
-          "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)",
-        },
-        body,
-      });
-      if (!res.ok) {
-        const message = `Adelaide H3 admin-ajax HTTP ${res.status}`;
-        return {
-          events: [],
-          errors: [message],
-          errorDetails: { fetch: [{ url, status: res.status, message }] },
-        };
-      }
-      payload = await res.json();
-    } catch (err) {
-      const message = `Adelaide H3 fetch failed: ${err instanceof Error ? err.message : String(err)}`;
-      return {
-        events: [],
-        errors: [message],
-        errorDetails: { fetch: [{ url, message }] },
-      };
-    }
 
-    // Runtime validation — the endpoint returns either an array of rows
-    // or some kind of error envelope. Treat anything non-array as a hard
-    // parse failure so the reconciler does not cancel live events.
-    if (!Array.isArray(payload)) {
-      const message = "Adelaide H3 admin-ajax returned a non-array payload";
-      return {
-        events: [],
-        errors: [message],
-        errorDetails: { parse: [{ row: 0, error: message }] },
-      };
-    }
+    const { rows, error } = await fetchAdelaideList(url, nowSec, endSec);
+    if (error) return error;
 
     const events: RawEventData[] = [];
-    const detailTargets: { event: RawEventData; row: AdelaideEventRow }[] = [];
+    const detailTargets: DetailTarget[] = [];
     let skipped = 0;
-    for (const row of payload as AdelaideEventRow[]) {
+    for (const row of rows) {
       const event = parseAdelaideEvent(row, url);
       if (event) {
         events.push(event);
@@ -247,28 +307,7 @@ export class AdelaideH3Adapter implements SourceAdapter {
       }
     }
 
-    // Per-event detail enrichment: the list endpoint omits venue/address. The
-    // FullCalendar widget fetches each cell's detail via `action=get_event`.
-    // Cap at DETAIL_FETCH_CAP and space requests by DETAIL_FETCH_DELAY_MS.
-    let detailsFetched = 0;
-    let detailsFailed = 0;
-    const targets = detailTargets.slice(0, DETAIL_FETCH_CAP);
-    for (let i = 0; i < targets.length; i++) {
-      const { event, row } = targets[i];
-      if (!row.id || !row.start || !row.end) continue;
-      const detail = await fetchAdelaideDetail(url, row.id, row.start, row.end);
-      if (detail) {
-        if (detail.location) event.location = detail.location;
-        if (detail.locationStreet) event.locationStreet = detail.locationStreet;
-        if (detail.description) event.description = detail.description;
-        if (detail.locationUrl) event.locationUrl = detail.locationUrl;
-        detailsFetched++;
-      } else {
-        detailsFailed++;
-      }
-      // Skip delay after the last iteration — final sleep is wasted time.
-      if (i < targets.length - 1) await sleep(DETAIL_FETCH_DELAY_MS);
-    }
+    const { detailsFetched, detailsFailed } = await enrichAdelaideEvents(url, detailTargets);
 
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
@@ -285,7 +324,7 @@ export class AdelaideH3Adapter implements SourceAdapter {
         errorDetails: errors.length > 0 ? errorDetails : undefined,
         diagnosticContext: {
           fetchMethod: "wp-admin-ajax",
-          rowsFetched: payload.length,
+          rowsFetched: rows.length,
           eventsParsed: events.length,
           skippedRows: skipped,
           detailsFetched,

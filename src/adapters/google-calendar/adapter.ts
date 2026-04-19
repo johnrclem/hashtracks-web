@@ -127,12 +127,27 @@ const TITLE_SCHEDULE_LINE_RE = /:\s*\d{1,2}:\d{2}\s*(?:am|pm)/i;
 // global strip would eat "800" out of address fragments like "Suite 1 800".
 // Hash-vernacular CTAs we strip from locationName (#743): parenthetical
 // suffixes like "(text for details)" that creep in via Google Calendar.
-const PHONE_TRAILING_RE = new RegExp(`\\s*(?:${PHONE_NUMBER_RE.source})\\s*$`);
+const PHONE_TRAILING_RE = new RegExp(String.raw`\s*(?:${PHONE_NUMBER_RE.source})\s*$`);
 const LOCATION_TRAILING_CTA_RE = /\s*\((?:text|call|contact|ping)[^)]*\)\s*$/i;
 
-// Pre-compiled regexes for extractLocationFromDescription
+// Pre-compiled regexes for extractLocationFromDescription.
 // #742: hash-vernacular labels (De'erections, Direcshits, Where to gather) are synonyms for "Location".
-const LOCATION_LABEL_RE = /(?:^|\n)\s*(?:WHERE|Location|On[\s-]Start|Start\s+Address|Address|Meet(?:ing)?\s*(?:spot|point|at)?|De'?erections|Direcshits|Where\s+to\s+gather)\s*:\s*(.+)/im;
+// Assembled from a list to keep the alternation readable and below SonarCloud's regex-complexity limit.
+const LOCATION_LABEL_TOKENS = [
+  String.raw`WHERE`,
+  String.raw`Location`,
+  String.raw`On[\s-]Start`,
+  String.raw`Start\s+Address`,
+  String.raw`Address`,
+  String.raw`Meet(?:ing)?\s*(?:spot|point|at)?`,
+  String.raw`De'?erections`,
+  String.raw`Direcshits`,
+  String.raw`Where\s+to\s+gather`,
+];
+const LOCATION_LABEL_RE = new RegExp(
+  String.raw`(?:^|\n)\s*(?:${LOCATION_LABEL_TOKENS.join("|")})\s*:\s*(.+)`,
+  "im",
+);
 // Fallback: bare label (no colon) with value on subsequent line, optionally after a URL line
 const LOCATION_BARE_LABEL_RE = /(?:^|\n)\s*(?:WHERE|LOCATION)\s*\n(?:\s*https?:\/\/\S+\s*\n)?\s*(.+)/im;
 // Secondary fallback: "Start:" as location label (lower priority — often contains time, not location)
