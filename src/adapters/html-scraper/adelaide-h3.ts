@@ -1,10 +1,9 @@
 import * as cheerio from "cheerio";
-import { tz } from "@date-fns/tz";
-import { parse } from "date-fns";
 import type { Source } from "@/generated/prisma/client";
 import type { ErrorDetails, RawEventData, ScrapeResult, SourceAdapter } from "../types";
 import { safeFetch } from "../safe-fetch";
 import { applyDateWindow, isPlaceholder, normalizeHaresField } from "../utils";
+import { composeUtcStart } from "@/lib/timezone";
 
 /**
  * Adelaide H3 — ah3.com.au
@@ -35,7 +34,11 @@ import { applyDateWindow, isPlaceholder, normalizeHaresField } from "../utils";
 
 const KENNEL_TAG = "ah3-au";
 const SOURCE_URL_DEFAULT = "https://ah3.com.au/wp-admin/admin-ajax.php";
-const DETAIL_FETCH_CAP = 12;
+const ADELAIDE_TZ = "Australia/Adelaide";
+// A 180-day window returns ~26 future runs. Cap at 50 to cover the typical
+// scrape window with headroom, keeping the per-scrape budget bounded
+// (50 × 250ms = ~12.5s) while tracking drop-offs via `detailsSkippedByCap`.
+const DETAIL_FETCH_CAP = 50;
 const DETAIL_FETCH_DELAY_MS = 250;
 
 interface AdelaideEventRow {
@@ -125,24 +128,18 @@ export function parseAdelaideDetail(contentHtml: string): AdelaideEventDetail {
  * Parse the list-endpoint wall-clock string ("2026-04-13 19:00:00") as
  * Adelaide-local (Australia/Adelaide handles ACST/ACDT transitions) and
  * return unix seconds. Treating the string as UTC would drift the epoch
- * by 9.5–10.5 hours.
+ * by 9.5–10.5 hours. Delegates to `composeUtcStart` — the shared helper
+ * already handles DST transitions correctly via date-fns `{ in: tz(...) }`.
  */
 export function adelaideWallClockToUnix(iso: string): number | null {
-  const m = /^(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{2}):(\d{2}):(\d{2}))?$/.exec(iso);
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{2}):(\d{2})(?::\d{2})?)?$/.exec(iso);
   if (!m) return null;
-  const [, y, mo, d, h = "00", mi = "00", s = "00"] = m;
-  try {
-    const zoned = parse(
-      `${y}-${mo}-${d} ${h}:${mi}:${s}`,
-      "yyyy-MM-dd HH:mm:ss",
-      new Date(),
-      { in: tz("Australia/Adelaide") },
-    );
-    const epoch = zoned.getTime();
-    return Number.isNaN(epoch) ? null : Math.floor(epoch / 1000);
-  } catch {
-    return null;
-  }
+  const [, y, mo, d, h = "00", mi = "00"] = m;
+  const dateUtcNoon = new Date(Date.UTC(Number(y), Number(mo) - 1, Number(d), 12));
+  const zoned = composeUtcStart(dateUtcNoon, `${h}:${mi}`, ADELAIDE_TZ);
+  if (!zoned) return null;
+  const epoch = zoned.getTime();
+  return Number.isNaN(epoch) ? null : Math.floor(epoch / 1000);
 }
 
 async function fetchAdelaideDetail(
@@ -252,19 +249,44 @@ function applyAdelaideDetail(event: RawEventData, detail: AdelaideEventDetail): 
 /**
  * Per-event detail enrichment: the list endpoint omits venue/address. The
  * FullCalendar widget fetches each cell's detail via `action=get_event`.
- * Cap at DETAIL_FETCH_CAP and space requests by DETAIL_FETCH_DELAY_MS.
+ *
+ * Order-of-operations matters:
+ *  1. Drop rows missing id/start/end (they can't be enriched, and shouldn't
+ *     consume cap slots or pollute the `detailsFailed` counter).
+ *  2. Sort by `row.start` ascending so nearest-future events are enriched
+ *     first — those are the ones users are most likely to look at.
+ *  3. Slice to DETAIL_FETCH_CAP; surface the drop count as
+ *     `detailsSkippedByCap` so we notice silently-missed enrichment.
+ *  4. Space requests by DETAIL_FETCH_DELAY_MS to avoid hammering the host.
  */
 async function enrichAdelaideEvents(
   url: string,
   detailTargets: DetailTarget[],
-): Promise<{ detailsFetched: number; detailsFailed: number }> {
+): Promise<{
+  detailsFetched: number;
+  detailsFailed: number;
+  detailsSkippedMissingFields: number;
+  detailsSkippedByCap: number;
+}> {
+  const enrichable: DetailTarget[] = [];
+  let detailsSkippedMissingFields = 0;
+  for (const target of detailTargets) {
+    const { row } = target;
+    if (!row.id || !row.start || !row.end) {
+      detailsSkippedMissingFields++;
+    } else {
+      enrichable.push(target);
+    }
+  }
+  enrichable.sort((a, b) => (a.row.start ?? "").localeCompare(b.row.start ?? ""));
+  const targets = enrichable.slice(0, DETAIL_FETCH_CAP);
+  const detailsSkippedByCap = Math.max(0, enrichable.length - targets.length);
+
   let detailsFetched = 0;
   let detailsFailed = 0;
-  const targets = detailTargets.slice(0, DETAIL_FETCH_CAP);
   for (let i = 0; i < targets.length; i++) {
     const { event, row } = targets[i];
-    if (!row.id || !row.start || !row.end) continue;
-    const detail = await fetchAdelaideDetail(url, row.id, row.start, row.end);
+    const detail = await fetchAdelaideDetail(url, row.id!, row.start!, row.end!);
     if (detail) {
       applyAdelaideDetail(event, detail);
       detailsFetched++;
@@ -274,7 +296,7 @@ async function enrichAdelaideEvents(
     // Skip delay after the last iteration — final sleep is wasted time.
     if (i < targets.length - 1) await sleep(DETAIL_FETCH_DELAY_MS);
   }
-  return { detailsFetched, detailsFailed };
+  return { detailsFetched, detailsFailed, detailsSkippedMissingFields, detailsSkippedByCap };
 }
 
 export class AdelaideH3Adapter implements SourceAdapter {
@@ -307,7 +329,12 @@ export class AdelaideH3Adapter implements SourceAdapter {
       }
     }
 
-    const { detailsFetched, detailsFailed } = await enrichAdelaideEvents(url, detailTargets);
+    const {
+      detailsFetched,
+      detailsFailed,
+      detailsSkippedMissingFields,
+      detailsSkippedByCap,
+    } = await enrichAdelaideEvents(url, detailTargets);
 
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
@@ -329,6 +356,8 @@ export class AdelaideH3Adapter implements SourceAdapter {
           skippedRows: skipped,
           detailsFetched,
           detailsFailed,
+          detailsSkippedMissingFields,
+          detailsSkippedByCap,
           fetchDurationMs: Date.now() - fetchStart,
         },
       },

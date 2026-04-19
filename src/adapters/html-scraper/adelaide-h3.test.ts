@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseAdelaideEvent, parseAdelaideDetail } from "./adelaide-h3";
+import { parseAdelaideEvent, parseAdelaideDetail, adelaideWallClockToUnix } from "./adelaide-h3";
 
 const URL = "https://ah3.com.au/wp-admin/admin-ajax.php";
 
@@ -81,5 +81,44 @@ describe("adelaide-h3 parseAdelaideDetail (#705)", () => {
     expect(d.locationStreet).toBeUndefined();
     expect(d.description).toBeUndefined();
     expect(d.locationUrl).toBeUndefined();
+  });
+});
+
+describe("adelaide-h3 adelaideWallClockToUnix", () => {
+  // Adelaide DST: ACST (UTC+9:30) ↔ ACDT (UTC+10:30). Transitions happen at
+  // 02:00 local on the first Sunday of April (→ ACST) and October (→ ACDT).
+  //
+  // A 19:00 wall-clock run therefore has different UTC epochs depending on
+  // which side of the transition it falls on. The helper must honor that.
+
+  it("treats pre-April-transition date as ACDT (UTC+10:30)", () => {
+    // 2026-04-04 19:00 local = ACDT = 2026-04-04 08:30 UTC = 1775550600
+    const unix = adelaideWallClockToUnix("2026-04-04 19:00:00");
+    expect(unix).toBe(Math.floor(Date.UTC(2026, 3, 4, 8, 30) / 1000));
+  });
+
+  it("treats post-April-transition date as ACST (UTC+9:30)", () => {
+    // First Sunday of April 2026 = the 5th; 19:00 on the 6th is already ACST
+    // 2026-04-06 19:00 local = ACST = 2026-04-06 09:30 UTC
+    const unix = adelaideWallClockToUnix("2026-04-06 19:00:00");
+    expect(unix).toBe(Math.floor(Date.UTC(2026, 3, 6, 9, 30) / 1000));
+  });
+
+  it("treats pre-October-transition date as ACST (UTC+9:30)", () => {
+    // First Sunday of October 2026 = the 4th; 19:00 on the 3rd is still ACST
+    // 2026-10-03 19:00 local = ACST = 2026-10-03 09:30 UTC
+    const unix = adelaideWallClockToUnix("2026-10-03 19:00:00");
+    expect(unix).toBe(Math.floor(Date.UTC(2026, 9, 3, 9, 30) / 1000));
+  });
+
+  it("treats post-October-transition date as ACDT (UTC+10:30)", () => {
+    // 2026-10-05 19:00 local = ACDT = 2026-10-05 08:30 UTC
+    const unix = adelaideWallClockToUnix("2026-10-05 19:00:00");
+    expect(unix).toBe(Math.floor(Date.UTC(2026, 9, 5, 8, 30) / 1000));
+  });
+
+  it("returns null for malformed input", () => {
+    expect(adelaideWallClockToUnix("not-a-date")).toBeNull();
+    expect(adelaideWallClockToUnix("")).toBeNull();
   });
 });
