@@ -69,6 +69,22 @@ describe("parseNextRunArticle", () => {
     const event = parseNextRunArticle("<div></div>", "bth3", "18:30", "https://example.com");
     expect(event).toBeNull();
   });
+
+  it("filters boilerplate 'On On Q' out of Hares field (#802 BFMH3)", () => {
+    // From BFMH3 (Bangkok Full Moon) next-run article — the labeled
+    // `Hares:` row carries "On On Q" filler instead of a real name.
+    const html = `
+<div class="item-content">
+  <p><strong>Date</strong>: 22-Apr-2026<br>
+  <strong>Start Time</strong>: 18:30<br>
+  <strong>Hares</strong>: On On Q<br>
+  <strong>Station</strong>: BTS Asok<br>
+  <strong>Run Site</strong>: Lumpini Park</p>
+</div>`;
+    const event = parseNextRunArticle(html, "bfmh3", "18:30", "https://www.bangkokhash.com/fullmoon/index.php");
+    expect(event).not.toBeNull();
+    expect(event!.hares).toBeUndefined();
+  });
 });
 
 describe("parseHarelineApiHtml", () => {
