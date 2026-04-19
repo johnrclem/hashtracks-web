@@ -2130,81 +2130,31 @@ describe("buildRawEventFromGCalItem — strictKennelRouting (#753 WA Hash)", () 
 });
 
 describe("buildRawEventFromGCalItem — location sanitization (#743 SWH3)", () => {
-  it("strips trailing phone number from GCal location field", () => {
+  // Trailing-only strip: mid-string digits (e.g. "Suite 1 800 555 1234 Main St")
+  // are preserved verbatim as the address.
+  it.each([
+    ["trailing phone", "123 Main St, Raleigh NC 919-555-1234", "123 Main St, Raleigh NC"],
+    ["parenthetical CTA", "Raleigh Beer Garden (text for details)", "Raleigh Beer Garden"],
+    ["phone + CTA together", "Raleigh Beer Garden 919-555-1234 (call for details)", "Raleigh Beer Garden"],
+    ["mid-string digits preserved", "Suite 1 800 555 1234 Main St", "Suite 1 800 555 1234 Main St"],
+  ])("%s", (_label, location, expected) => {
     const result = buildRawEventFromGCalItem(
-      testGCalEvent({
-        summary: "SWH3 Run",
-        location: "123 Main St, Raleigh NC 919-555-1234",
-      }),
+      testGCalEvent({ summary: "SWH3 Run", location }),
       { defaultKennelTag: "swh3" },
     );
-    expect(result?.location).toBe("123 Main St, Raleigh NC");
-  });
-
-  it("strips trailing parenthetical contact CTA from location", () => {
-    const result = buildRawEventFromGCalItem(
-      testGCalEvent({
-        summary: "SWH3 Run",
-        location: "Raleigh Beer Garden (text for details)",
-      }),
-      { defaultKennelTag: "swh3" },
-    );
-    expect(result?.location).toBe("Raleigh Beer Garden");
-  });
-
-  it("strips both phone and contact CTA together", () => {
-    const result = buildRawEventFromGCalItem(
-      testGCalEvent({
-        summary: "SWH3 Run",
-        location: "Raleigh Beer Garden 919-555-1234 (call for details)",
-      }),
-      { defaultKennelTag: "swh3" },
-    );
-    expect(result?.location).toBe("Raleigh Beer Garden");
-  });
-
-  it("#743: does not shred mid-string phone-like fragments (e.g. '1 800' suite number)", () => {
-    const result = buildRawEventFromGCalItem(
-      testGCalEvent({
-        summary: "SWH3 Run",
-        location: "Suite 1 800 555 1234 Main St",
-      }),
-      { defaultKennelTag: "swh3" },
-    );
-    // Trailing-only strip: the digits are preserved as part of the address.
-    expect(result?.location).toBe("Suite 1 800 555 1234 Main St");
+    expect(result?.location).toBe(expected);
   });
 });
 
-describe("extractHares — bare 10-digit phone strip (#742 BAH3)", () => {
-  it("strips bare 10-digit phone suffix from hares", () => {
-    const desc = "Hares: Slick Willy 2406185563";
-    const hares = extractHares(desc);
-    expect(hares).toBe("Slick Willy");
-  });
-
-  it("strips formatted phone suffix from hares (existing behavior)", () => {
-    const desc = "Hares: Slick Willy 240-618-5563";
-    const hares = extractHares(desc);
-    expect(hares).toBe("Slick Willy");
-  });
-
-  it("truncates mid-string phone + trailing commentary (#809)", () => {
-    const desc = "Hares: Any Cock'll Do Me, 2406185563 CALL for same day service";
-    const hares = extractHares(desc);
-    expect(hares).toBe("Any Cock'll Do Me");
-  });
-
-  it("truncates at formatted mid-string phone (#809)", () => {
-    const desc = "Hares: Slick Willy 240-618-5563 text for address";
-    const hares = extractHares(desc);
-    expect(hares).toBe("Slick Willy");
-  });
-
-  it("truncates at phone with 'Phone:' label (#809)", () => {
-    const desc = "Hares: Slick Willy, phone: 2406185563 for details";
-    const hares = extractHares(desc);
-    expect(hares).toBe("Slick Willy");
+describe("extractHares — bare 10-digit phone strip (#742 BAH3, #809)", () => {
+  it.each([
+    ["bare 10-digit suffix", "Hares: Slick Willy 2406185563", "Slick Willy"],
+    ["formatted phone suffix", "Hares: Slick Willy 240-618-5563", "Slick Willy"],
+    ["mid-string phone + commentary", "Hares: Any Cock'll Do Me, 2406185563 CALL for same day service", "Any Cock'll Do Me"],
+    ["mid-string formatted phone", "Hares: Slick Willy 240-618-5563 text for address", "Slick Willy"],
+    ["phone with 'Phone:' label", "Hares: Slick Willy, phone: 2406185563 for details", "Slick Willy"],
+  ])("%s", (_label, desc, expected) => {
+    expect(extractHares(desc)).toBe(expected);
   });
 });
 
