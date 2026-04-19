@@ -29,7 +29,10 @@ async function runOne(
   return { events: result.events, errors: result.errors };
 }
 
+let hasFailures = false;
+
 function print(label: string, pass: boolean, detail: string) {
+  hasFailures ||= !pass;
   const icon = pass ? "OK" : "FAIL";
   console.log(`[${icon}] ${label} — ${detail}`);
 }
@@ -108,6 +111,7 @@ async function main() {
   }
 
   await prisma.$disconnect();
+  if (hasFailures) process.exit(1);
 }
 
 main().catch(async err => {

@@ -699,7 +699,7 @@ export function buildRawEventFromGCalItem(
   // #799 Pedal Files: trailing "- tbd" / "- tba" placeholder after a delimiter
   // ("Bash - tbd" → "Bash"). Runs *after* w/ extraction so we don't consume the
   // " - TBA" tail of "Title w/ TBD - TBA" before the pattern can strip it.
-  title = title.replace(/\s*[-–—]\s*(?:tbd|tba|tbc)\s*$/i, "").trim();
+  title = title.replace(/\s*[-–—]\s*(?:tbd|tba|tbc)\.?\s*$/i, "").trim();
 
   // Trailing "(Hare Name)" parenthetical (common in Boston/many kennels).
   // When hares are already set from description, the parenthetical is left in the title

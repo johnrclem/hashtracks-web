@@ -28,11 +28,12 @@ export function parseHockessinEvent(
   detailText: string,
   sourceUrl: string,
 ): RawEventData | null {
-  const headerMatch = /Hash\s*#(\d+)\s*:\s*(.+)/i.exec(headerText);
+  // Optional post-colon group so "Hash #1700:" (no trailing whitespace) still parses.
+  const headerMatch = /Hash\s*#(\d+)(?:\s*:\s*(.*))?/i.exec(headerText);
   if (!headerMatch) return null;
 
   const runNumber = Number.parseInt(headerMatch[1], 10);
-  const hares = headerMatch[2].trim() || undefined;
+  const hares = headerMatch[2]?.trim() || undefined;
 
   const cleaned = detailText.replace(/\s+/g, " ").trim();
   if (!cleaned) return null;

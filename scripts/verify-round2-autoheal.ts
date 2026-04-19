@@ -24,12 +24,15 @@ function sample(events: { title?: string; hares?: string; location?: string; sou
 }
 
 async function main() {
+  let failed = false;
+
   // #799 Pedal Files
   console.log("\n=== #799 Pedal Files ===");
   const pedal = await runOne("Pedal Files Bash Google Calendar");
   console.log(`events=${pedal.events.length} errors=${pedal.errors.length}`);
   const dashArtifacts = sample(pedal.events, e => !!e.title && /\s-\s*(?:tbd)?\s*$/i.test(e.title));
   console.log(`trailing-dash titles:`, dashArtifacts.length, dashArtifacts.map(e => e.title));
+  failed ||= dashArtifacts.length > 0;
 
   // #803 BAH3 — calendar is the Baltimore/Annapolis Hash, phone "2406185563"
   console.log("\n=== #803 BAH3 ===");
@@ -37,6 +40,7 @@ async function main() {
   console.log(`events=${bah3.events.length} errors=${bah3.errors.length}`);
   const phoneHares = sample(bah3.events, e => !!e.hares && /\b2406185563\b/.test(e.hares));
   console.log(`phone-in-hares:`, phoneHares.length, phoneHares.map(e => ({ hares: e.hares, runNumber: e.runNumber })));
+  failed ||= phoneHares.length > 0;
   const allHares = bah3.events.filter(e => !!e.hares).slice(0, 5);
   console.log(`sample hares:`, allHares.map(e => e.hares));
 
@@ -46,10 +50,12 @@ async function main() {
   console.log(`events=${swh3.events.length} errors=${swh3.errors.length}`);
   const ctaLocs = sample(swh3.events, e => !!e.location && /\btext\b.*\bfor\s+address\b/i.test(e.location));
   console.log(`cta-locations:`, ctaLocs.length, ctaLocs.map(e => e.location));
+  failed ||= ctaLocs.length > 0;
   const sampleLocs = swh3.events.filter(e => !!e.location).slice(0, 5);
   console.log(`sample locations:`, sampleLocs.map(e => e.location));
 
   await prisma.$disconnect();
+  if (failed) process.exit(1);
 }
 
 main().catch(async err => {
