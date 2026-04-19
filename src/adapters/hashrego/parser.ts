@@ -337,14 +337,11 @@ function extractLocationFromDescription(text: string): string | undefined {
 }
 
 /** Extract address from description (Google Maps URL or address line).
- *  Built dynamically from a suffix list + a simpler label regex to stay
- *  under SonarCloud's regex-complexity budget (S5843). Two-pass: find the
- *  label heading, then apply ADDRESS_RE to the slice after it. */
-const STREET_SUFFIXES = "St|Ave|Rd|Blvd|Dr|Ln|Way|Pl|Ct|Pkwy|Hwy|Cir";
-const ADDRESS_RE = new RegExp(
-  String.raw`(\d+\s+[\w\s]+(?:${STREET_SUFFIXES})[^,]*,\s*\w[\w\s]*,?\s*[A-Z]{2}\s*\d{5})`,
-  "i",
-);
+ *  Two-pass: find the label heading, then apply ADDRESS_RE to the slice
+ *  after it. Gated by a leading street number and a trailing `STATE ZIP`
+ *  pair — the street-suffix whitelist was a loose heuristic that both
+ *  SonarCloud (S5843 complexity) and Codacy (non-literal RegExp) rejected. */
+const ADDRESS_RE = /(\d+\s+[\w\s.,]+?\s+[A-Z]{2}\s*\d{5})/i;
 // Line-bound label so we don't match "Parking Location:" mid-prose, but
 // allows the address on the same line after the colon (inline) OR on the
 // next line. Strip the `[\r\n]`-required version missed `Location: 123 Main`.
