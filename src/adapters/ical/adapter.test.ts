@@ -370,6 +370,17 @@ describe("extractOnOnVenueFromDescription (#801 Reading H3)", () => {
     const desc = "On On: Lower Access lotHares: Cowboy";
     expect(extractOnOnVenueFromDescription(desc)).toBe("Lower Access lot");
   });
+
+  it("ignores 'On On On:' after-run shorthand", () => {
+    // "On On On:" names the *after-run* pub, not the trail start — skip it.
+    const desc = "Hares: Cowboy On On On: Cozy Car";
+    expect(extractOnOnVenueFromDescription(desc)).toBeUndefined();
+  });
+
+  it("strips 24-hour leading time too", () => {
+    const desc = "On On: 18:30 Main Park Hares: Cowboy";
+    expect(extractOnOnVenueFromDescription(desc)).toBe("Main Park");
+  });
 });
 
 describe("extractCostFromDescription", () => {

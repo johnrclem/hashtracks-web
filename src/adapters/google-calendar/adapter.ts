@@ -763,9 +763,21 @@ export function buildRawEventFromGCalItem(
     // #796 #800: titles like "wasatch #1144" or "DH3 #1663" are raw kennel-code
     // + run-number pairs, not real event names. Substitute the configured
     // default and preserve the run number so users see a readable trail name.
-    const bareKennelRunMatch = /^[A-Za-z][A-Za-z0-9-]{0,19}\s*#?\s*(\d+)$/.exec(title);
-    if (bareKennelRunMatch) {
-      title = `${fallback} #${bareKennelRunMatch[1]}`;
+    // Guard: require the prefix to match either the resolved kennelTag or one
+    // of the configured kennelPatterns — otherwise legit titles like
+    // "Picnic 2026" get rewritten to "{defaultTitle} #2026".
+    const bareKennelRunMatch = /^([A-Za-z][A-Za-z0-9-]{0,19})\s*#?\s*(\d+)$/.exec(title);
+    const prefix = bareKennelRunMatch?.[1];
+    const prefixMatchesKennel = !!prefix && (
+      titleMatchesKennelTag(prefix, kennelTag)
+      || !!sourceConfig?.kennelPatterns?.some(([pattern, tag]) => {
+        if (tag !== kennelTag) return false;
+        try { return new RegExp(`^(?:${pattern})$`, "i").test(prefix); }
+        catch { return false; }
+      })
+    );
+    if (bareKennelRunMatch && prefixMatchesKennel) {
+      title = `${fallback} #${bareKennelRunMatch[2]}`;
     } else if (!title || titleMatchesKennelTag(title, kennelTag)) {
       title = fallback;
     }
