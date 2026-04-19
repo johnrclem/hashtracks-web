@@ -94,8 +94,9 @@ async function main() {
     const { events } = await runOne("Hockessin H3 Website");
     const malformed = events.filter(e => !e.title || !/^Hockessin H3 Trail #\d+$/.test(e.title));
     const withHares = events.filter(e => e.hares);
+    const sample = events.slice(0, 3).map(e => `${e.title} / hares=${e.hares ?? "—"}`).join(" | ");
     print("#797 Hockessin title normalization", malformed.length === 0,
-      `events=${events.length} malformed=${malformed.length} with-hares=${withHares.length} sample=${events.slice(0, 3).map(e => `${e.title} / hares=${e.hares ?? "—"}`).join(" | ")}`);
+      `events=${events.length} malformed=${malformed.length} with-hares=${withHares.length} sample=${sample}`);
   }
 
   // #802 Bangkok Full Moon — Hares field does not contain "On On" boilerplate

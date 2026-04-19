@@ -175,9 +175,11 @@ export function extractLocationFromDescription(description: string, customPatter
 }
 
 // #801 Reading H3 format: "...On On: 6:15p Lower Access lot at Monocacy Hill Hares: ..."
-// Captures everything after "On On:" up to " Hares:" / " Hash Cash:" / newline / end,
-// then strips a leading time token if present.
-const ON_ON_VENUE_RE = /On[-\s]?On\s*:\s*([^\n]+?)(?=\s*Hares?:|\s*Hash\s*Cash:|\n|$)/i;
+// Two-pass extraction (single regex trips SonarCloud complexity cap):
+//   1. Find the 'On On:' label.
+//   2. Slice to the first sibling label (Hares:/Hash Cash:) or newline.
+const ON_ON_LABEL_RE = /On[-\s]?On\s*:\s*/i;
+const ON_ON_TERMINATOR_RE = /\s*Hares?:|\s*Hash\s*Cash:|\n/i;
 const LEADING_TIME_RE = /^\d{1,2}(?::\d{2})?\s*[ap]\.?m?\.?\s+/i;
 
 /**
@@ -187,10 +189,13 @@ const LEADING_TIME_RE = /^\d{1,2}(?::\d{2})?\s*[ap]\.?m?\.?\s+/i;
  */
 export function extractOnOnVenueFromDescription(description: string): string | undefined {
   const normalized = normalizeIcsDescription(description);
-  const match = ON_ON_VENUE_RE.exec(normalized);
-  if (!match) return undefined;
-  let venue = match[1].replace(LEADING_TIME_RE, "").trim();
-  venue = venue.replaceAll("\\;", ";").replaceAll("\\,", ",");
+  const labelMatch = ON_ON_LABEL_RE.exec(normalized);
+  if (!labelMatch) return undefined;
+  const afterLabel = normalized.slice(labelMatch.index + labelMatch[0].length);
+  const termMatch = ON_ON_TERMINATOR_RE.exec(afterLabel);
+  const rawVenue = termMatch ? afterLabel.slice(0, termMatch.index) : afterLabel;
+  let venue = rawVenue.replace(LEADING_TIME_RE, "").trim();
+  venue = venue.replaceAll(String.raw`\;`, ";").replaceAll(String.raw`\,`, ",");
   if (venue.length < 3 || venue.length > 300) return undefined;
   // Reject captures that are nothing but a time or a stray punctuation fragment.
   if (LEADING_TIME_RE.test(venue + " ")) return undefined;
