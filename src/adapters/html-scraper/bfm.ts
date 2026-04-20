@@ -171,8 +171,10 @@ function scrapeUpcomingHares(
 
   // Split on month-day lookahead. No `\b` anchor — entries sometimes run
   // together ("...EnergeticMay 7th – ...") with no word boundary present.
+  // Match 3-letter month prefix + optional suffix so "May", "Jan", "Jan.",
+  // "September", "Sept" all hit with a single alternation set.
   const ENTRY_ANCHOR =
-    /(?=(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\s+\d{1,2}(?:st|nd|rd|th)?\s*[–—-])/g;
+    /(?=(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2}(?:st|nd|rd|th)?\s*[–—-])/g;
   const segments = sectionText
     .split(ENTRY_ANCHOR)
     .map((s) => s.trim())

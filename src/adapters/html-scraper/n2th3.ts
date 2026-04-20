@@ -21,6 +21,33 @@ const DEFAULT_START_TIME = "19:00";
  * value into this one. Instead, iterate `<strong>` tags and collect sibling
  * nodes *until the next `<strong>`* so each label gets exactly its own value.
  */
+/**
+ * Walk sibling nodes after `startNode` until the next `<strong>` tag,
+ * accumulating text content and the first `<a>` href found (direct or nested).
+ */
+function collectSiblingValue(
+  $: cheerio.CheerioAPI,
+  startNode: { nextSibling: unknown },
+): { text: string; href?: string } {
+  let text = "";
+  let href: string | undefined;
+  let node = startNode.nextSibling as { type?: string; nextSibling: unknown; name?: string; data?: string } | null;
+  while (node) {
+    if (node.type === "tag") {
+      if (node.name === "strong") break;
+      if (!href) {
+        const directHref = node.name === "a" ? $(node as never).attr("href") : undefined;
+        href = directHref || $(node as never).find("a").first().attr("href") || undefined;
+      }
+      text += $(node as never).text();
+    } else if (node.type === "text") {
+      text += node.data ?? "";
+    }
+    node = node.nextSibling as typeof node;
+  }
+  return { text, href };
+}
+
 function extractLabeledField(
   $: cheerio.CheerioAPI,
   label: RegExp,
@@ -30,25 +57,8 @@ function extractLabeledField(
     const strongText = $(strong).text().trim().replace(/:?\s*$/, "");
     if (!label.test(strongText)) continue;
 
-    let text = "";
-    let href: string | undefined;
-    let node: typeof strong.nextSibling = strong.nextSibling;
-    while (node) {
-      if (node.type === "tag") {
-        const tagName = (node as { name: string }).name;
-        if (tagName === "strong") break;
-        if (!href) {
-          // Check direct tag first, then nested descendants (e.g. <span><a/></span>)
-          const directHref = tagName === "a" ? $(node).attr("href") : undefined;
-          href = directHref || $(node).find("a").first().attr("href") || undefined;
-        }
-        text += $(node).text();
-      } else if (node.type === "text") {
-        text += (node as { data?: string }).data ?? "";
-      }
-      node = node.nextSibling;
-    }
-    const trimmed = text.replace(/^[:\s]+/, "").replace(/\s+/g, " ").trim();
+    const { text, href } = collectSiblingValue($, strong);
+    const trimmed = text.replace(/^[:\s]+/, "").replaceAll(/\s+/g, " ").trim();
     if (trimmed) return { text: trimmed, href };
   }
   return null;
