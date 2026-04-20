@@ -82,10 +82,14 @@ export function sanitizeHares(hares: string | undefined | null): string | null {
   // Truncate at trailing logistics clauses (e.g., ", we are still taking applications...")
   h = h.replace(/,\s*(?:and we |we |still |also |please |but )\b.*/i, "").trim();
 
-  // Truncate at boilerplate markers (description text leaked into hares)
+  // Truncate at boilerplate markers (description text leaked into hares).
+  // If the whole value matches (idx === 0), drop it entirely — e.g. "On On Q"
+  // #819 — rather than storing an empty string that would pass through merge.
   const boilerplateIdx = h.search(HARE_BOILERPLATE_RE);
+  if (boilerplateIdx === 0) return null;
   if (boilerplateIdx > 0) {
     h = h.slice(0, boilerplateIdx).trim();
+    if (!h) return null;
   }
 
   // Cap at 200 chars with smart truncation at last delimiter

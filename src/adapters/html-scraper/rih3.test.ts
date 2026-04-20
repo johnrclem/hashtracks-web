@@ -336,6 +336,37 @@ Basket says, "Check out the Receding Hareline..."
     expect(result?.description).toContain("Basket says");
   });
 
+  it("truncates long prose bleed from h2 to first segment (#816)", () => {
+    // Real-world: h2 has the run name followed by <br/> and a long sentence
+    // of prose. The joined text exceeds 80 chars, so we keep only the first
+    // segment ("The 420 Hash") as the title.
+    const dirHtml = `
+      <h2><strong>The 420 Hash<br/>It's been a while since Cracker Jackoff and Blue Job Lips Laid Flour for the RIH3</strong></h2>
+      <a href="https://www.google.com/maps/place/Quonset+Point">
+        <font>Park Here for a smokin' good time</font>
+      </a>
+    `;
+    const cells = ["Mon April 20", "6:30 PM", "2095"];
+    const result = parseHarelineRow(cells, HARE_SINGLE, dirHtml, SOURCE_URL);
+    expect(result?.title).toBe("The 420 Hash");
+  });
+
+  it("rejects lowercase location phrases (#816)", () => {
+    // "Park Here for a smokin' good time" — "Park Here " prefix is stripped,
+    // leaving "for a smokin' good time" which starts lowercase and is not a
+    // real venue name.
+    const dirHtml = `
+      <h2>The 420 Hash</h2>
+      <a href="https://www.google.com/maps/place/Quonset+Point">
+        <font>Park Here for a smokin' good time</font>
+      </a>
+    `;
+    const cells = ["Mon April 20", "6:30 PM", "2095"];
+    const result = parseHarelineRow(cells, HARE_SINGLE, dirHtml, SOURCE_URL);
+    expect(result?.location).toBeUndefined();
+    expect(result?.locationUrl).toContain("google.com/maps");
+  });
+
   it("resolves same-day date to current year, not next year (Bug #1)", () => {
     // Simulate scrape running at 2:30 PM on March 23, 2026
     const midDayRef = new Date(2026, 2, 23, 14, 30, 0);

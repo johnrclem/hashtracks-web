@@ -1227,6 +1227,15 @@ describe("sanitizeHares", () => {
     expect(sanitizeHares("Captain Hash On-On: The Pub")).toBe("Captain Hash");
   });
 
+  it("returns null when the whole value is boilerplate (#819)", () => {
+    // Stale "On On Q" canonical value was surviving because the old impl only
+    // truncated when the marker was mid-string (idx > 0), leaving idx===0 as
+    // a pass-through. See bangkokhash hare-boilerplate-leak audit.
+    expect(sanitizeHares("On On Q")).toBeNull();
+    expect(sanitizeHares("On-On The Pub")).toBeNull();
+    expect(sanitizeHares("On On: 6:30 at The Pub")).toBeNull();
+  });
+
   // Fix 2: URL rejection
   it("rejects bare URL as hare value", () => {
     expect(sanitizeHares("https://maps.app.goo.gl/cqc9yN889CTN23vLA")).toBeNull();
