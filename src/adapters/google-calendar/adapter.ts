@@ -1,7 +1,7 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
-import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, HARE_BOILERPLATE_RE, EVENT_FIELD_LABEL_RE, CTA_EMBEDDED_PATTERNS, appendDescriptionSuffix, isPlaceholder, parse12HourTime, stripNonEnglishCountry } from "../utils";
+import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, HARE_BOILERPLATE_RE, EVENT_FIELD_LABEL_RE, EVENT_FIELD_LABEL_UPPERCASE_RE, CTA_EMBEDDED_PATTERNS, appendDescriptionSuffix, isPlaceholder, parse12HourTime, stripNonEnglishCountry } from "../utils";
 import { PHONE_NUMBER_RE, LOCATION_EMAIL_CTA_RE } from "@/pipeline/audit-checks";
 
 // Kennel patterns derived from actual Boston Hash Calendar event data.
@@ -354,7 +354,7 @@ export function extractCostFromDescription(description: string): string | undefi
   const match = COST_LABEL_RE.exec(description);
   if (!match?.[1]) return undefined;
   let value = match[1].trim();
-  value = value.replace(EVENT_FIELD_LABEL_RE, "").trim();
+  value = value.replace(EVENT_FIELD_LABEL_RE, "").replace(EVENT_FIELD_LABEL_UPPERCASE_RE, "").trim();
   if (!value || isPlaceholder(value)) return undefined;
   if (/^\d+(?:\.\d{1,2})?$/.test(value)) return `$${value}`;
   return value;
@@ -405,7 +405,7 @@ export function extractHares(description: string, customPatterns?: string[] | Re
         for (let i = startIdx; i < continuation.length && added < MAX_CONTINUATION_LINES; i++) {
           const line = continuation[i].trim();
           if (!line) break;
-          if (EVENT_FIELD_LABEL_RE.test(line)) break;
+          if (EVENT_FIELD_LABEL_RE.test(line) || EVENT_FIELD_LABEL_UPPERCASE_RE.test(line)) break;
           if (HARE_BOILERPLATE_RE.test(line)) break;
           if (/^https?:\/\//i.test(line)) break;
           // Reject obviously non-name lines: colons (unrecognized field labels),
@@ -426,7 +426,7 @@ export function extractHares(description: string, customPatterns?: string[] | Re
       // Truncate at next embedded field label when HTML stripping collapsed fields
       // (e.g., "AmazonWhat: A beautiful trail …" → "Amazon"). The \b word boundary
       // in EVENT_FIELD_LABEL_RE prevents matching tokens inside other words.
-      hares = hares.replace(EVENT_FIELD_LABEL_RE, "").trim();
+      hares = hares.replace(EVENT_FIELD_LABEL_RE, "").replace(EVENT_FIELD_LABEL_UPPERCASE_RE, "").trim();
       // Strip trailing US phone numbers — both formatted ("(555) 123-4567",
       // "719-360-3805") and bare 10-digit runs ("2406185563" — see #742).
       hares = hares.replace(PHONE_TRAILING_RE, "").trim();

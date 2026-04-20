@@ -171,10 +171,11 @@ function scrapeUpcomingHares(
 
   // Split on month-day lookahead. No `\b` anchor — entries sometimes run
   // together ("...EnergeticMay 7th – ...") with no word boundary present.
-  // Match 3-letter month prefix + optional suffix so "May", "Jan", "Jan.",
-  // "September", "Sept" all hit with a single alternation set.
+  // Shape-based match: capitalized word ≥3 chars + day + dash. Covers every
+  // month spelling ("May", "Jan.", "September", "Sept") without a 12-way
+  // alternation (keeps SonarCloud regex complexity under budget).
   const ENTRY_ANCHOR =
-    /(?=(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2}(?:st|nd|rd|th)?\s*[–—-])/g;
+    /(?=[A-Z][a-z]{2,}\.?\s+\d{1,2}(?:st|nd|rd|th)?\s*[–—-])/g;
   const segments = sectionText
     .split(ENTRY_ANCHOR)
     .map((s) => s.trim())
