@@ -1,4 +1,3 @@
-import { describe, it, expect } from "vitest";
 import { SOURCES } from "./sources";
 
 describe("SOURCES seed data invariants (#817 regression guard)", () => {

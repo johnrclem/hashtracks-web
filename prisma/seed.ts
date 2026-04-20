@@ -357,10 +357,17 @@ async function ensureSources(prisma: any, sources: any[], kennelRecords: Map<str
   for (const source of sources) {
     const { kennelCodes, kennelSlugMap, ...sourceData } = source;
 
-    const existingSource = await prisma.source.findFirst({
+    const matchingSources = await prisma.source.findMany({
       where: { name: sourceData.name, type: sourceData.type },
       orderBy: { createdAt: "asc" },
+      take: 2,
     });
+    if (matchingSources.length > 1) {
+      throw new Error(
+        `Duplicate Source rows for identity ${sourceData.name}::${sourceData.type} — seed cannot disambiguate. Resolve in DB before re-seeding.`,
+      );
+    }
+    const existingSource = matchingSources[0] ?? null;
 
     let activeSource;
     try {

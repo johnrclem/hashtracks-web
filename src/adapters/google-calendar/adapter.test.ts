@@ -74,52 +74,20 @@ describe("Boston Hash Calendar multi-kennel routing (#789)", () => {
   if (!bostonSource?.config) throw new Error("Boston Hash Calendar seed config missing");
   const config = bostonSource.config as { kennelPatterns: [string, string][]; defaultKennelTag: string };
 
-  it("routes 'Boston Moom' typo to bos-moon (failure mode A from the issue)", () => {
+  it.each([
+    // [summary, expected kennelTag, description]
+    ["Boston Moom", "bos-moon", "failure mode A: 'Boston Moom' typo (not 'Boston Moon')"],
+    ["Taco Marathon Pre-Pre-Pre-Prelube", "pink-taco", "failure mode A: 'Taco' without 'Pink' prefix"],
+    ["Moon Marathon Pre-Pre Lube", "bos-moon", "failure mode A: 'Moon' as solo token"],
+    ["Beantown #276", "beantown", "failure mode B: Beantown no longer dropped"],
+    ["BH3 #2781", "boh3", "plain Boston H3 run"],
+    ["AGM Planning Meeting", "boh3", "defaultKennelTag fallback for unmatched titles"],
+  ])("routes %j → %s (%s)", (summary, expectedTag) => {
     const result = buildRawEventFromGCalItem(
-      { summary: "Boston Moom", start: { dateTime: "2026-03-20T19:00:00-04:00" }, status: "confirmed" },
+      { summary, start: { dateTime: "2026-04-15T19:00:00-04:00" }, status: "confirmed" },
       config,
     );
-    expect(result?.kennelTag).toBe("bos-moon");
-  });
-
-  it("routes 'Taco Marathon Pre-Pre-Pre-Prelube' to pink-taco (failure mode A)", () => {
-    const result = buildRawEventFromGCalItem(
-      { summary: "Taco Marathon Pre-Pre-Pre-Prelube", start: { dateTime: "2026-04-14T19:00:00-04:00" }, status: "confirmed" },
-      config,
-    );
-    expect(result?.kennelTag).toBe("pink-taco");
-  });
-
-  it("routes 'Moon Marathon Pre-Pre Lube' to bos-moon (failure mode A)", () => {
-    const result = buildRawEventFromGCalItem(
-      { summary: "Moon Marathon Pre-Pre Lube", start: { dateTime: "2026-04-16T19:00:00-04:00" }, status: "confirmed" },
-      config,
-    );
-    expect(result?.kennelTag).toBe("bos-moon");
-  });
-
-  it("routes 'Beantown #276' to beantown (failure mode B — no longer dropped)", () => {
-    const result = buildRawEventFromGCalItem(
-      { summary: "Beantown #276", start: { dateTime: "2026-04-01T19:00:00-04:00" }, status: "confirmed" },
-      config,
-    );
-    expect(result?.kennelTag).toBe("beantown");
-  });
-
-  it("routes a plain Boston H3 run to boh3", () => {
-    const result = buildRawEventFromGCalItem(
-      { summary: "BH3 #2781", start: { dateTime: "2026-03-22T14:00:00-04:00" }, status: "confirmed" },
-      config,
-    );
-    expect(result?.kennelTag).toBe("boh3");
-  });
-
-  it("falls back to boh3 for unmatched titles (socials, meetings)", () => {
-    const result = buildRawEventFromGCalItem(
-      { summary: "AGM Planning Meeting", start: { dateTime: "2026-05-01T19:00:00-04:00" }, status: "confirmed" },
-      config,
-    );
-    expect(result?.kennelTag).toBe("boh3");
+    expect(result?.kennelTag).toBe(expectedTag);
   });
 });
 
