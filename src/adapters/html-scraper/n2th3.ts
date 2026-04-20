@@ -11,32 +11,45 @@ const DEFAULT_START_TIME = "19:00";
 
 /**
  * Extract a labeled field value from post body HTML.
- * Looks for `<strong>Label:</strong> Value` patterns in `<p>` elements.
- * Returns the text after the label, trimmed.
+ *
+ * N2TH3 posts often collapse multiple labels into a single `<p>` separated
+ * by `<br>`, e.g.:
+ *   <p><strong>Hares:</strong><br>Golden Balls
+ *      <br><br><strong>Location:</strong><br>Fanling Recreation Ground</p>
+ *
+ * Walking `<p>.text()` after the first `<strong>` leaks the next label's
+ * value into this one. Instead, iterate `<strong>` tags and collect sibling
+ * nodes *until the next `<strong>`* so each label gets exactly its own value.
  */
-function extractLabeledField($: cheerio.CheerioAPI, label: RegExp): { text: string; href?: string } | null {
-  const paragraphs = $("p").toArray();
-  for (const p of paragraphs) {
-    const $p = $(p);
-    const strong = $p.find("strong").first();
-    if (!strong.length) continue;
-
-    const strongText = strong.text().trim().replace(/:?\s*$/, "");
+function extractLabeledField(
+  $: cheerio.CheerioAPI,
+  label: RegExp,
+): { text: string; href?: string } | null {
+  const strongs = $("p strong").toArray();
+  for (const strong of strongs) {
+    const strongText = $(strong).text().trim().replace(/:?\s*$/, "");
     if (!label.test(strongText)) continue;
 
-    // Get text after the strong tag — could be in same <p> or the strong itself
-    // Clone the paragraph, remove the strong, get remaining text
-    const fullText = $p.text().trim();
-    const labelText = strong.text().trim();
-    const afterLabel = fullText.slice(fullText.indexOf(labelText) + labelText.length).replace(/^[:\s]+/, "").trim();
-
-    if (!afterLabel) continue;
-
-    // Check for a link in the same paragraph
-    const link = $p.find("a").first();
-    const href = link.length ? link.attr("href") : undefined;
-
-    return { text: afterLabel, href };
+    let text = "";
+    let href: string | undefined;
+    let node: typeof strong.nextSibling = strong.nextSibling;
+    while (node) {
+      if (node.type === "tag") {
+        const tagName = (node as { name: string }).name;
+        if (tagName === "strong") break;
+        if (!href) {
+          // Check direct tag first, then nested descendants (e.g. <span><a/></span>)
+          const directHref = tagName === "a" ? $(node).attr("href") : undefined;
+          href = directHref || $(node).find("a").first().attr("href") || undefined;
+        }
+        text += $(node).text();
+      } else if (node.type === "text") {
+        text += (node as { data?: string }).data ?? "";
+      }
+      node = node.nextSibling;
+    }
+    const trimmed = text.replace(/^[:\s]+/, "").replace(/\s+/g, " ").trim();
+    if (trimmed) return { text: trimmed, href };
   }
   return null;
 }

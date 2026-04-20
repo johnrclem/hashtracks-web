@@ -122,6 +122,29 @@ describe("parseN2th3Post", () => {
     expect(result?.location).toBe("Fanling");
   });
 
+  it("#723: splits multiple labels sharing one <p> block", () => {
+    // Live N2TH3 posts often collapse Hares + Location into one paragraph
+    // separated only by <br>. The fix must pick each label's own value and
+    // not leak the next label's text into the prior field.
+    const post = buildPost({
+      title: "Run announcement 2276 &#8211; 15th April 2026 &#8211; Fanling",
+      content: `
+        <p><strong>Hares:</strong> <br>Golden Balls   <br><br><strong>Location: </strong><br>Fanling Recreation Ground</p>
+        <p><strong>Map:</strong> <a href="https://maps.app.goo.gl/Ub3s32Scit81gjnM8">link</a></p>
+        <p><strong>Hare says:</strong> Come along!</p>
+      `,
+      date: "2026-04-14T10:00:00+08:00",
+    });
+    const result = parseN2th3Post(post);
+    expect(result).not.toBeNull();
+    expect(result!.hares).toBe("Golden Balls");
+    expect(result!.location).toBe("Fanling Recreation Ground");
+    expect(result!.locationUrl).toBe(
+      "https://maps.app.goo.gl/Ub3s32Scit81gjnM8",
+    );
+    expect(result!.description).toBe("Come along!");
+  });
+
   it("handles map URL as plain text (no anchor tag)", () => {
     const post = buildPost({
       content: `
