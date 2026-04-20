@@ -116,11 +116,17 @@ export function parseAdelaideDetail(contentHtml: string): AdelaideEventDetail {
   const address = spans.eq(1).text().trim();
   const description = $(".description").first().text().trim();
   const mapHref = $("a.maplink").first().attr("href")?.trim();
+  // Drop placeholder venue/street ("TBA", "TBD") so the pipeline doesn't store
+  // "TBA" as a location or build a junk `?q=TBA` Maps URL.
+  const locationClean = venue && !isPlaceholder(venue) ? venue : undefined;
+  const streetClean = address && !isPlaceholder(address) ? address : undefined;
+  const mapClean =
+    mapHref && !locationClean && !streetClean ? undefined : mapHref || undefined;
   return {
-    location: venue || undefined,
-    locationStreet: address || undefined,
+    location: locationClean,
+    locationStreet: streetClean,
     description: description || undefined,
-    locationUrl: mapHref || undefined,
+    locationUrl: mapClean,
   };
 }
 
