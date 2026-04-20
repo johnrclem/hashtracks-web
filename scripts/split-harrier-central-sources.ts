@@ -60,20 +60,18 @@ async function main() {
     for (const r of hcRows) console.log(`  • ${r.id}  ${r.name}`);
     console.log();
 
-    const byName = new Map(hcRows.map((r) => [r.name, r]));
-
-    // Preload all kennels referenced by HC seeds, plus all SourceKennel rows on
-    // HC sources — drives the plan + idempotency check with O(1) lookups.
-    const allCodes = Array.from(new Set(hcSeeds.flatMap((s) => s.kennelCodes)));
-    const kennels = await prisma.kennel.findMany({
-      where: { kennelCode: { in: allCodes } },
-      select: { id: true, kennelCode: true },
-    });
-    const kennelsByCode = new Map(kennels.map((k) => [k.kennelCode, k]));
-    const missingKennelRecords = allCodes.filter((c) => !kennelsByCode.has(c));
-    if (missingKennelRecords.length > 0) {
-      console.error(`❌ Missing kennels in DB for kennelCodes: ${missingKennelRecords.join(", ")}`);
-      console.error("   Seed kennels first, then re-run this script.");
+    // Since this repair enforces (name, type) as identity, bail out loudly if
+    // the prod table already violates that invariant — operating on an
+    // arbitrarily-chosen row would move links non-deterministically.
+    const byName = new Map<string, { id: string; name: string }>();
+    const dupeNames: string[] = [];
+    for (const row of hcRows) {
+      if (byName.has(row.name)) dupeNames.push(row.name);
+      else byName.set(row.name, row);
+    }
+    if (dupeNames.length > 0) {
+      console.error(`❌ Duplicate HARRIER_CENTRAL Source rows with same name: ${Array.from(new Set(dupeNames)).join(", ")}`);
+      console.error("   Resolve manually in DB (pick which row to keep) before running this script.");
       process.exit(1);
     }
 
@@ -81,6 +79,28 @@ async function main() {
       where: { source: { type: "HARRIER_CENTRAL" } },
       select: { sourceId: true, kennelId: true },
     });
+
+    // Load kennels referenced by HC seeds AND by existing SourceKennel links.
+    // The link-side load ensures orphan detection can see links that point at
+    // kennels no longer in any current seed (residue from the collapse).
+    const allSeedCodes = Array.from(new Set(hcSeeds.flatMap((s) => s.kennelCodes)));
+    const linkedKennelIds = Array.from(new Set(existingLinks.map((l) => l.kennelId)));
+    const kennels = await prisma.kennel.findMany({
+      where: {
+        OR: [
+          { kennelCode: { in: allSeedCodes } },
+          { id: { in: linkedKennelIds } },
+        ],
+      },
+      select: { id: true, kennelCode: true },
+    });
+    const kennelsByCode = new Map(kennels.map((k) => [k.kennelCode, k]));
+    const missingSeedKennels = allSeedCodes.filter((c) => !kennelsByCode.has(c));
+    if (missingSeedKennels.length > 0) {
+      console.error(`❌ Missing kennels in DB for kennelCodes: ${missingSeedKennels.join(", ")}`);
+      console.error("   Seed kennels first, then re-run this script.");
+      process.exit(1);
+    }
     const linkKey = (sourceId: string, kennelId: string) => `${sourceId}:${kennelId}`;
     const existingLinkSet = new Set(existingLinks.map((l) => linkKey(l.sourceId, l.kennelId)));
 
@@ -101,16 +121,23 @@ async function main() {
     // a kennel NOT in that source's seed kennelCodes. These are residue from
     // the collapse and must be removed so the collapsed source no longer
     // claims ownership over kennels that now belong to a new source row.
+    // Also treated as orphans: links on HC source rows that have no matching
+    // seed by name at all (the collapsed row whose seed has been superseded
+    // by distinct per-city rows).
     const seedByName = new Map(hcSeeds.map((s) => [s.name, s]));
+    const rowsById = new Map(hcRows.map((r) => [r.id, r]));
     const kennelIdToCode = new Map(kennels.map((k) => [k.id, k.kennelCode]));
     const orphans: OrphanLink[] = [];
     for (const link of existingLinks) {
-      const row = hcRows.find((r) => r.id === link.sourceId);
-      if (!row) continue;
+      const row = rowsById.get(link.sourceId);
+      if (!row) continue; // defensive — FK should guarantee this
+      const kennelCode = kennelIdToCode.get(link.kennelId) ?? "<unknown>";
       const seed = seedByName.get(row.name);
-      const kennelCode = kennelIdToCode.get(link.kennelId);
-      if (!seed || !kennelCode) continue;
-      if (!seed.kennelCodes.includes(kennelCode)) {
+      // If the source row has no matching seed, every link on it is orphaned
+      // (collapsed row whose name doesn't match any current seed).
+      // Otherwise, only links to kennels outside its kennelCodes are orphans.
+      const isOrphan = !seed || !seed.kennelCodes.includes(kennelCode);
+      if (isOrphan) {
         orphans.push({ sourceId: link.sourceId, sourceName: row.name, kennelId: link.kennelId, kennelCode });
       }
     }
