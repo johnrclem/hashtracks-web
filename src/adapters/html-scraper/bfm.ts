@@ -159,7 +159,9 @@ function scrapeUpcomingHares(
   baseUrl: string,
 ): RawEventData[] {
   const events: RawEventData[] = [];
-  const headerMatch = /Upcoming\s+Ha(?:re|sh)s?[:\s]*/i.exec(bodyText);
+  // Site uses "Upcumming Hashes:" (intentional pun) — accept standard and
+  // pun spellings: Upcoming / Upcomming / Upcumming.
+  const headerMatch = /Upc[uo]m{1,2}ing\s+Ha(?:re|sh)s?[:\s]*/i.exec(bodyText);
   if (!headerMatch) return events;
   const sectionStart = headerMatch.index + headerMatch[0].length;
   const specialIdx = bodyText.slice(sectionStart).search(/Special\s+Events|Mayor/i);
@@ -167,14 +169,25 @@ function scrapeUpcomingHares(
     ? bodyText.slice(sectionStart, sectionStart + specialIdx)
     : bodyText.slice(sectionStart);
 
-  const lines = sectionText.split("\n").filter((l) => l.trim());
-  for (const line of lines) {
-    const lineMatch = /^([^–—-]+?)\s*[–—-]\s*(.+)$/.exec(line);
+  // Split on month-day lookahead. No `\b` anchor — entries sometimes run
+  // together ("...EnergeticMay 7th – ...") with no word boundary present.
+  // Shape-based match: capitalized word ≥3 chars + day + dash. Covers every
+  // month spelling ("May", "Jan.", "September", "Sept") without a 12-way
+  // alternation (keeps SonarCloud regex complexity under budget).
+  const ENTRY_ANCHOR =
+    /(?=[A-Z][a-z]{2,}\.?\s+\d{1,2}[a-z]{0,2}\s*[–—-])/g;
+  const segments = sectionText
+    .split(ENTRY_ANCHOR)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  for (const segment of segments) {
+    const lineMatch = /^([^–—-]+?)\s*[–—-]\s*([^\n]+)/.exec(segment);
     if (!lineMatch) continue;
 
     const datePart = lineMatch[1].trim();
     const harePart = lineMatch[2].trim();
-    if (/could be you/i.test(harePart)) continue;
+    if (!harePart || /could be you/i.test(harePart)) continue;
 
     const dateStr = parseBfmDate(datePart, currentYear);
     if (!dateStr) continue;

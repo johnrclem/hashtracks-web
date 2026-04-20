@@ -536,10 +536,17 @@ const PLACEHOLDER_RE =
  * insensitive regex). A `\b` word-boundary doesn't help here because "AmazonWhat" has
  * no word break — both characters are word chars.
  *
+ * All-caps variants live in {@link EVENT_FIELD_LABEL_UPPERCASE_RE} so each regex stays
+ * under SonarCloud's complexity budget and callers can apply both passes.
+ *
  * Single source of truth used by both google-calendar and html-scraper adapters.
  */
 export const EVENT_FIELD_LABEL_RE =
   /(?:What|Where|When|Why|How|Time|Start|Location|Hash\s*Cash|Cost|Price|Registration|On[\s-]After|Directions|Pack\s*Meet|Circle|Chalk\s*Talk)\s*:.*$/;
+
+/** All-caps counterpart of {@link EVENT_FIELD_LABEL_RE} for BJH3/BMPH3-style descriptions. */
+export const EVENT_FIELD_LABEL_UPPERCASE_RE =
+  /(?:WHAT|WHERE|WHEN|WHY|HOW|WHO|TIME|START|LOCATION|HASH\s*CASH|COST|PRICE)\s*:.*$/;
 
 /**
  * Check if a value is a common placeholder (TBD, TBA, TBC, N/A, ?, ??, needed, required).

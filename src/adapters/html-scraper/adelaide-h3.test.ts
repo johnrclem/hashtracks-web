@@ -82,6 +82,20 @@ describe("adelaide-h3 parseAdelaideDetail (#705)", () => {
     expect(d.description).toBeUndefined();
     expect(d.locationUrl).toBeUndefined();
   });
+
+  it("drops placeholder TBA venue/street + stale map URL (#705 polish)", () => {
+    // Source leaves "TBA" in both spans when a location hasn't been set. The
+    // associated `maplink` href is a bare `?q=TBA` — useless to the pipeline.
+    const tbaContent = `<a href='http://maps.google.com/?q=TBA' class='maplink'>View Map</a>
+<div class='location'>
+<span>TBA</span>
+<span>TBA</span>
+</div>`;
+    const d = parseAdelaideDetail(tbaContent);
+    expect(d.location).toBeUndefined();
+    expect(d.locationStreet).toBeUndefined();
+    expect(d.locationUrl).toBeUndefined();
+  });
 });
 
 describe("adelaide-h3 adelaideWallClockToUnix", () => {

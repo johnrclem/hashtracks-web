@@ -181,6 +181,40 @@ describe("BFMAdapter.fetch", () => {
     expect(result).toContain("New? Come join us");
   });
 
+  it("#763: parses 'Upcumming Hashes' with collapsed whitespace between entries", async () => {
+    // Live benfranklinmob.com renders entries as text like:
+    //   "Upcumming Hashes: April 30th – EnergeticMay 7th – Just Mike..."
+    // with the header using the pun spelling and entries joined without newlines.
+    const html = `
+      <html><body>
+      <h2>Trail #1157: Test Trail</h2>
+      <p>When: Thursday, 4/23 at 7:00 PM gather</p>
+      <p>Where: Cherry Street Tavern</p>
+      <p>Hares: 60k9</p>
+      <p>Upcumming Hashes: April 30th – EnergeticMay 7th – Just Mike (Virgin Lay!) and Where's My D?May 14th – Bananass</p>
+      </body></html>
+    `;
+
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(html, { status: 200 }))
+      .mockResolvedValueOnce(new Response("<html><body></body></html>", { status: 200 }));
+
+    const adapter = new BFMAdapter();
+    const result = await adapter.fetch({
+      id: "test",
+      url: "https://benfranklinmob.com",
+    } as never);
+
+    const upcoming = result.events.filter((e) => !e.runNumber);
+    const apr30 = upcoming.find((e) => e.date === "2026-04-30");
+    const may7 = upcoming.find((e) => e.date === "2026-05-07");
+    const may14 = upcoming.find((e) => e.date === "2026-05-14");
+
+    expect(apr30?.hares).toBe("Energetic");
+    expect(may7?.hares).toBe("Just Mike (Virgin Lay!) and Where's My D?");
+    expect(may14?.hares).toBe("Bananass");
+  });
+
   it("returns error on HTTP error status", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       new Response("Forbidden", { status: 403, statusText: "Forbidden" }),

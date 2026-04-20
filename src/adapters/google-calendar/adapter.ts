@@ -1,7 +1,7 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
-import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, HARE_BOILERPLATE_RE, EVENT_FIELD_LABEL_RE, CTA_EMBEDDED_PATTERNS, appendDescriptionSuffix, isPlaceholder, parse12HourTime, stripNonEnglishCountry } from "../utils";
+import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, HARE_BOILERPLATE_RE, EVENT_FIELD_LABEL_RE, EVENT_FIELD_LABEL_UPPERCASE_RE, CTA_EMBEDDED_PATTERNS, appendDescriptionSuffix, isPlaceholder, parse12HourTime, stripNonEnglishCountry } from "../utils";
 import { PHONE_NUMBER_RE, LOCATION_EMAIL_CTA_RE } from "@/pipeline/audit-checks";
 
 // Kennel patterns derived from actual Boston Hash Calendar event data.
@@ -133,6 +133,11 @@ const LOCATION_TRAILING_CTA_RE = /\s*\((?:text|call|contact|ping)[^)]*\)\s*$/i;
 // on its own). The broader "Inquire for location: …@…" form is shared with
 // the audit-checks rule and imported above.
 const LOCATION_BARE_EMAIL_RE = /^\s*\S+@\S+\.\S+\s*$/;
+// Some GCal sources put "lat, lng" in item.location and the readable venue in
+// the description. Coord-only values are discarded so description extraction
+// surfaces the address; parsed coords flow to the pipeline as structured
+// lat/lng.
+const LOCATION_COORDS_ONLY_RE = /^\s*(-?\d{1,3}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)\s*$/;
 
 // Pre-compiled regexes for extractLocationFromDescription.
 // #742: hash-vernacular labels (De'erections, Direcshits, Where to gather) are synonyms for "Location".
@@ -330,9 +335,30 @@ export function extractTimeFromDescription(description: string): string | undefi
 /** Default hare extraction patterns for Google Calendar descriptions. */
 const DEFAULT_HARE_PATTERNS = [
   /(?:^|\n)[ \t]*H{1,3}are(?:\s*&\s*Co-Hares?)?\(?s?\)?:[ \t]*(.*)/im,  // Hare:, Hares:, HHHares: (Asheville's "HHH" = Hash House Harriers convention)
+  // "WHO ARE THE HARES:" template variant — must match before the generic
+  // "Who:" pattern so the full label prefix is consumed.
+  /(?:^|\n)[ \t]*WHO\s+ARE\s+THE\s+HARES?\s*:[ \t]*(.*)/im,
   /(?:^|\n)[ \t]*Who\s*\(?(?:hares?)?\)?:[ \t]*(.*)/im,  // Who:, WHO (hares):, Who(hare):
   /(?:^|\n)[ \t]*Hare[ \t]+([A-Z*].+)/im,  // "Hare C*ck Swap" (no colon, name starts uppercase/special)
 ];
+
+const COST_LABEL_RE =
+  /(?:^|\n)[ \t]*(?:Hash\s+Cash|WHAT\s+IS\s+THE\s+COST|Cost|Price)\s*:[ \t]*([^\n]+)/im;
+
+/**
+ * Extract a cost value from a calendar description. Bare integers get a `$`
+ * prefix to match the HashRego/OFH3 normalized format; values that already
+ * carry a currency symbol, unit, or word ("Free") pass through verbatim.
+ */
+export function extractCostFromDescription(description: string): string | undefined {
+  const match = COST_LABEL_RE.exec(description);
+  if (!match?.[1]) return undefined;
+  let value = match[1].trim();
+  value = value.replace(EVENT_FIELD_LABEL_RE, "").replace(EVENT_FIELD_LABEL_UPPERCASE_RE, "").trim();
+  if (!value || isPlaceholder(value)) return undefined;
+  if (/^\d+(?:\.\d{1,2})?$/.test(value)) return `$${value}`;
+  return value;
+}
 
 /**
  * Extract hare names from the event description.
@@ -379,7 +405,7 @@ export function extractHares(description: string, customPatterns?: string[] | Re
         for (let i = startIdx; i < continuation.length && added < MAX_CONTINUATION_LINES; i++) {
           const line = continuation[i].trim();
           if (!line) break;
-          if (EVENT_FIELD_LABEL_RE.test(line)) break;
+          if (EVENT_FIELD_LABEL_RE.test(line) || EVENT_FIELD_LABEL_UPPERCASE_RE.test(line)) break;
           if (HARE_BOILERPLATE_RE.test(line)) break;
           if (/^https?:\/\//i.test(line)) break;
           // Reject obviously non-name lines: colons (unrecognized field labels),
@@ -400,7 +426,7 @@ export function extractHares(description: string, customPatterns?: string[] | Re
       // Truncate at next embedded field label when HTML stripping collapsed fields
       // (e.g., "AmazonWhat: A beautiful trail …" → "Amazon"). The \b word boundary
       // in EVENT_FIELD_LABEL_RE prevents matching tokens inside other words.
-      hares = hares.replace(EVENT_FIELD_LABEL_RE, "").trim();
+      hares = hares.replace(EVENT_FIELD_LABEL_RE, "").replace(EVENT_FIELD_LABEL_UPPERCASE_RE, "").trim();
       // Strip trailing US phone numbers — both formatted ("(555) 123-4567",
       // "719-360-3805") and bare 10-digit runs ("2406185563" — see #742).
       hares = hares.replace(PHONE_TRAILING_RE, "").trim();
@@ -628,6 +654,26 @@ export function buildRawEventFromGCalItem(
   // raw GCal location field. Trailing only — a bare "1 800 ..." in the middle
   // of a street fragment would otherwise be shredded.
   let location = item.location ? stripNonEnglishCountry(decodeEntities(item.location).trim()) : undefined;
+  let latitude: number | undefined;
+  let longitude: number | undefined;
+  if (location) {
+    const coordsMatch = LOCATION_COORDS_ONLY_RE.exec(location);
+    if (coordsMatch) {
+      const lat = Number.parseFloat(coordsMatch[1]);
+      const lng = Number.parseFloat(coordsMatch[2]);
+      if (
+        Number.isFinite(lat) &&
+        Number.isFinite(lng) &&
+        Math.abs(lat) <= 90 &&
+        Math.abs(lng) <= 180 &&
+        (lat !== 0 || lng !== 0)
+      ) {
+        latitude = lat;
+        longitude = lng;
+      }
+      location = undefined;
+    }
+  }
   // Skip phone/CTA strip when the field is a bare URL — Maps place IDs end in digit runs
   // that PHONE_TRAILING_RE would mangle.
   if (location && !/^https?:\/\//i.test(location)) {
@@ -824,6 +870,7 @@ export function buildRawEventFromGCalItem(
   // Any URL as location (Maps or otherwise) gets routed to locationUrl for geocoding,
   // not stored as display location. resolveCoords handles URL → address resolution.
   const locationIsUrl = location && /^https?:\/\//i.test(location);
+  const cost = rawDescription ? extractCostFromDescription(rawDescription) : undefined;
   return {
     date: dateISO,
     kennelTag,
@@ -833,9 +880,12 @@ export function buildRawEventFromGCalItem(
     hares,
     location: locationIsUrl ? undefined : location,
     locationUrl: location ? (locationIsUrl ? location : mapsUrl(location)) : undefined,
+    latitude,
+    longitude,
     startTime: resolvedStartTime,
     // endTime is HH:MM only, so cross-date end timestamps (overnight runs) are dropped.
     endTime: endParts && endParts.dateISO === dateISO ? endParts.startTime : undefined,
+    cost,
     sourceUrl: item.htmlLink,
   };
 }

@@ -11,32 +11,71 @@ const DEFAULT_START_TIME = "19:00";
 
 /**
  * Extract a labeled field value from post body HTML.
- * Looks for `<strong>Label:</strong> Value` patterns in `<p>` elements.
- * Returns the text after the label, trimmed.
+ *
+ * N2TH3 posts often collapse multiple labels into a single `<p>` separated
+ * by `<br>`, e.g.:
+ *   <p><strong>Hares:</strong><br>Golden Balls
+ *      <br><br><strong>Location:</strong><br>Fanling Recreation Ground</p>
+ *
+ * Walking `<p>.text()` after the first `<strong>` leaks the next label's
+ * value into this one. Instead, iterate `<strong>` tags and collect sibling
+ * nodes *until the next `<strong>`* so each label gets exactly its own value.
  */
-function extractLabeledField($: cheerio.CheerioAPI, label: RegExp): { text: string; href?: string } | null {
-  const paragraphs = $("p").toArray();
-  for (const p of paragraphs) {
-    const $p = $(p);
-    const strong = $p.find("strong").first();
-    if (!strong.length) continue;
+type SibNode = { type?: string; nextSibling: unknown; name?: string; data?: string };
 
-    const strongText = strong.text().trim().replace(/:?\s*$/, "");
+/** Find the first `<a>` href reachable from a tag node (direct or nested). */
+function firstHref($: cheerio.CheerioAPI, node: SibNode): string | undefined {
+  const direct = node.name === "a" ? $(node as never).attr("href") : undefined;
+  return direct || $(node as never).find("a").first().attr("href") || undefined;
+}
+
+/**
+ * Visible text contributed by a sibling tag. `<br>` has empty `.text()`, so
+ * emit an explicit space to keep adjacent values (e.g. location + map URL)
+ * from concatenating across line breaks.
+ */
+function tagText($: cheerio.CheerioAPI, node: SibNode): string {
+  return node.name === "br" ? " " : $(node as never).text();
+}
+
+/**
+ * Walk sibling nodes after `startNode` until the next `<strong>` tag,
+ * accumulating text content and the first `<a>` href found (direct or nested).
+ */
+function collectSiblingValue(
+  $: cheerio.CheerioAPI,
+  startNode: { nextSibling: unknown },
+): { text: string; href?: string } {
+  let text = "";
+  let href: string | undefined;
+  let node = startNode.nextSibling as SibNode | null;
+  while (node) {
+    if (node.type === "tag") {
+      if (node.name === "strong") break;
+      if (!href) href = firstHref($, node);
+      text += tagText($, node);
+    } else if (node.type === "text") {
+      text += node.data ?? "";
+    }
+    node = node.nextSibling as typeof node;
+  }
+  return { text, href };
+}
+
+function extractLabeledField(
+  $: cheerio.CheerioAPI,
+  label: RegExp,
+): { text: string; href?: string } | null {
+  const strongs = $("p strong").toArray();
+  for (const strong of strongs) {
+    const strongText = $(strong).text().trim().replace(/:?\s*$/, "");
     if (!label.test(strongText)) continue;
 
-    // Get text after the strong tag — could be in same <p> or the strong itself
-    // Clone the paragraph, remove the strong, get remaining text
-    const fullText = $p.text().trim();
-    const labelText = strong.text().trim();
-    const afterLabel = fullText.slice(fullText.indexOf(labelText) + labelText.length).replace(/^[:\s]+/, "").trim();
-
-    if (!afterLabel) continue;
-
-    // Check for a link in the same paragraph
-    const link = $p.find("a").first();
-    const href = link.length ? link.attr("href") : undefined;
-
-    return { text: afterLabel, href };
+    const { text, href } = collectSiblingValue($, strong);
+    const trimmed = text.replace(/^[:\s]+/, "").replaceAll(/\s+/g, " ").trim();
+    // Return href-only fields too: an icon/image-only map link has empty
+    // visible text but a valid href we want to preserve.
+    if (trimmed || href) return { text: trimmed, href };
   }
   return null;
 }
