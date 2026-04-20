@@ -105,6 +105,17 @@ interface AdelaideEventDetail {
 }
 
 /**
+ * Check whether a maps URL's `?q=` parameter is a placeholder like `TBA`/`TBD`.
+ * Uses a lenient regex (not `new URL`) because the source sometimes emits
+ * unescaped `+` in the query and we only need the raw token.
+ */
+function isPlaceholderMapQuery(href: string): boolean {
+  const q = /[?&]q=([^&#]*)/.exec(href);
+  if (!q?.[1]) return false;
+  return isPlaceholder(decodeURIComponent(q[1].replace(/\+/g, " ")));
+}
+
+/**
  * Parse the HTML content returned by `action=get_event`.
  * Shape: `.description`, `.location > span:nth-child(1|2)`, `a.maplink[href]`.
  * Exported for unit testing.
@@ -120,8 +131,9 @@ export function parseAdelaideDetail(contentHtml: string): AdelaideEventDetail {
   // "TBA" as a location or build a junk `?q=TBA` Maps URL.
   const locationClean = venue && !isPlaceholder(venue) ? venue : undefined;
   const streetClean = address && !isPlaceholder(address) ? address : undefined;
-  const mapClean =
-    mapHref && !locationClean && !streetClean ? undefined : mapHref || undefined;
+  // Map URL is independent of venue/street: only suppress when the map's own
+  // `?q=` query is a placeholder (e.g. `?q=TBA`).
+  const mapClean = mapHref && isPlaceholderMapQuery(mapHref) ? undefined : mapHref || undefined;
   return {
     location: locationClean,
     locationStreet: streetClean,

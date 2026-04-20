@@ -35,11 +35,17 @@ function collectSiblingValue(
   while (node) {
     if (node.type === "tag") {
       if (node.name === "strong") break;
-      if (!href) {
-        const directHref = node.name === "a" ? $(node as never).attr("href") : undefined;
-        href = directHref || $(node as never).find("a").first().attr("href") || undefined;
+      if (node.name === "br") {
+        // `<br>` has empty .text(); add an explicit space so adjacent values
+        // don't concatenate (e.g. line-break between location and map URL).
+        text += " ";
+      } else {
+        if (!href) {
+          const directHref = node.name === "a" ? $(node as never).attr("href") : undefined;
+          href = directHref || $(node as never).find("a").first().attr("href") || undefined;
+        }
+        text += $(node as never).text();
       }
-      text += $(node as never).text();
     } else if (node.type === "text") {
       text += node.data ?? "";
     }
@@ -59,7 +65,9 @@ function extractLabeledField(
 
     const { text, href } = collectSiblingValue($, strong);
     const trimmed = text.replace(/^[:\s]+/, "").replaceAll(/\s+/g, " ").trim();
-    if (trimmed) return { text: trimmed, href };
+    // Return href-only fields too: an icon/image-only map link has empty
+    // visible text but a valid href we want to preserve.
+    if (trimmed || href) return { text: trimmed, href };
   }
   return null;
 }
