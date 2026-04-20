@@ -536,10 +536,14 @@ const PLACEHOLDER_RE =
  * insensitive regex). A `\b` word-boundary doesn't help here because "AmazonWhat" has
  * no word break — both characters are word chars.
  *
+ * Uppercase variants (WHAT, WHERE, WHO…) are listed explicitly rather than using
+ * /i so we catch all-caps BJH3/BMPH3-style labels without triggering the
+ * "Somewhere:" regression.
+ *
  * Single source of truth used by both google-calendar and html-scraper adapters.
  */
 export const EVENT_FIELD_LABEL_RE =
-  /(?:What|Where|When|Why|How|Time|Start|Location|Hash\s*Cash|Cost|Price|Registration|On[\s-]After|Directions|Pack\s*Meet|Circle|Chalk\s*Talk)\s*:.*$/i;
+  /(?:What|Where|When|Why|How|Who|Time|Start|Location|Hash\s*Cash|Cost|Price|Registration|On[\s-]After|Directions|Pack\s*Meet|Circle|Chalk\s*Talk|WHAT|WHERE|WHEN|WHY|HOW|WHO|TIME|START|LOCATION|HASH\s*CASH|COST|PRICE)\s*:.*$/;
 
 /**
  * Check if a value is a common placeholder (TBD, TBA, TBC, N/A, ?, ??, needed, required).

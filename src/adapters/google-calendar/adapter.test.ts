@@ -2233,7 +2233,7 @@ describe("buildRawEventFromGCalItem — coord-only item.location (#779 BMPH3)", 
     expect(event!.location).toBe("Rue de la Gare, 1332 Genval");
   });
 
-  it("rejects out-of-range coord strings (keeps text field intact)", () => {
+  it("discards out-of-range coord strings (description fallback takes over)", () => {
     const item = {
       summary: "BMPH3 Trail",
       description: "Hares: Tester",
