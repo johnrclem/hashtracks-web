@@ -345,30 +345,29 @@ async function ensureAliases(prisma: any, kennelAliases: Record<string, string[]
 async function ensureSources(prisma: any, sources: any[], kennelRecords: Map<string, { id: string }>) {
   console.log("Seeding sources...");
   let created = 0;
-  // Track which (name+type) pairs are still in the seed so we can soft-disable
-  // any DB rows that were removed from SOURCES (e.g. retired dead-upstream sources).
-  // Soft-disable (not delete) preserves RawEvents / ScrapeLogs for audit; operators
-  // can manually delete stale rows after confirming nothing depends on them.
-  // Caveat: renaming a seed entry (same type, new name) will make the old row
-  // appear stale for one reconciliation pass, even though the name gets updated
-  // via the url/name OR-match above. Operators can safely skip reconcile during
-  // rename seeds, or rename via a two-step: alias first, then seed.
+  // Identity is (name, type), not url — config-driven adapters
+  // (HARRIER_CENTRAL, MEETUP, some GOOGLE_CALENDAR aggregators) legitimately
+  // share a url across multiple sources. Matching by url collapsed all three
+  // HARRIER_CENTRAL sources into a single DB row (#817). Renames are a
+  // two-step: alias first, then seed. Sources dropped from SOURCES are
+  // soft-disabled (not deleted) below so their RawEvents / ScrapeLogs survive.
   const seededKeys = new Set<string>(
     sources.map((s) => `${s.name}::${s.type}`),
   );
   for (const source of sources) {
     const { kennelCodes, kennelSlugMap, ...sourceData } = source;
 
-    // Check if source already exists by URL or name+type
-    const existingSource = await prisma.source.findFirst({
-      where: {
-        OR: [
-          { url: sourceData.url, type: sourceData.type },
-          { name: sourceData.name, type: sourceData.type },
-        ],
-      },
+    const matchingSources = await prisma.source.findMany({
+      where: { name: sourceData.name, type: sourceData.type },
       orderBy: { createdAt: "asc" },
+      take: 2,
     });
+    if (matchingSources.length > 1) {
+      throw new Error(
+        `Duplicate Source rows for identity ${sourceData.name}::${sourceData.type} — seed cannot disambiguate. Resolve in DB before re-seeding.`,
+      );
+    }
+    const existingSource = matchingSources[0] ?? null;
 
     let activeSource;
     try {

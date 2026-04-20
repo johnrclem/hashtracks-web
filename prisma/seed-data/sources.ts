@@ -56,6 +56,17 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "every_6h",
       scrapeDays: 365,
+      // Shared Boston-area calendar — order matters, first match wins.
+      config: {
+        kennelPatterns: [
+          ["Boston Ball\\s*Buster|\\bBall\\s*Buster\\b|BoBBH3|B3H4|BBH3", "bobbh3"],
+          ["Beantown", "beantown"],
+          ["Pink Taco|PT2H3|\\bTaco\\b", "pink-taco"],
+          ["Boston Moo[mn]|Full Moon|\\bMoo[mn]\\b", "bos-moon"],
+          ["Boston H3|Boston Hash|BoH3|BH3", "boh3"],
+        ],
+        defaultKennelTag: "boh3",
+      },
       kennelCodes: ["boh3", "bobbh3", "beantown", "bos-moon", "pink-taco"],
     },
     {
