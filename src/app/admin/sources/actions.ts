@@ -9,23 +9,7 @@ import { resolveKennelTag, clearResolverCache } from "@/pipeline/kennel-resolver
 import { scrapeSource } from "@/pipeline/scrape";
 import { validateSourceConfig } from "./config-validation";
 import { buildKennelIdentifiers, createKennelRecord } from "@/lib/kennel-utils";
-
-/**
- * Friendly message when a write violates the `(name, type)` unique constraint.
- * The DB enforces seed upsert identity — see prisma/schema.prisma Source and #817.
- */
-function nameTypeConflictError(err: unknown): string | null {
-  if (
-    err instanceof Prisma.PrismaClientKnownRequestError &&
-    err.code === "P2002" &&
-    Array.isArray(err.meta?.target) &&
-    (err.meta.target as string[]).includes("name") &&
-    (err.meta.target as string[]).includes("type")
-  ) {
-    return "A source with that name and type already exists.";
-  }
-  return null;
-}
+import { nameTypeConflictError } from "@/app/admin/shared/source-errors";
 
 /** Parse and validate config JSON from form input. Returns the parsed value or an error. */
 function parseConfigJson(
@@ -114,31 +98,31 @@ export async function createSource(formData: FormData) {
     }
   }
 
-  let source;
+  const ids = kennelIds.split(",").map(id => id.trim()).filter(Boolean);
+
   try {
-    source = await prisma.source.create({
-      data: {
-        name,
-        url,
-        type: type as SourceType,
-        trustLevel,
-        scrapeFreq,
-        scrapeDays: isNaN(scrapeDays) ? 90 : scrapeDays,
-        ...(config !== undefined ? { config } : {}),
-      },
+    await prisma.$transaction(async (tx) => {
+      const source = await tx.source.create({
+        data: {
+          name,
+          url,
+          type: type as SourceType,
+          trustLevel,
+          scrapeFreq,
+          scrapeDays: isNaN(scrapeDays) ? 90 : scrapeDays,
+          ...(config !== undefined ? { config } : {}),
+        },
+      });
+      for (const kennelId of ids) {
+        await tx.sourceKennel.create({
+          data: { sourceId: source.id, kennelId },
+        });
+      }
     });
   } catch (err) {
     const msg = nameTypeConflictError(err);
     if (msg) return { error: msg };
     throw err;
-  }
-
-  // Create SourceKennel links
-  const ids = kennelIds.split(",").map(id => id.trim()).filter(Boolean);
-  for (const kennelId of ids) {
-    await prisma.sourceKennel.create({
-      data: { sourceId: source.id, kennelId },
-    });
   }
 
   revalidatePath("/admin/sources");
