@@ -993,6 +993,8 @@ model ScheduleRule {
 }
 
 enum TravelSearchStatus {
+  DRAFT    // Multi-dest trips auto-save as DRAFT once the user adds leg 2. Invisible
+           // from /travel/saved; reachable by URL; converts to ACTIVE on explicit Save.
   ACTIVE
   ARCHIVED
 }
@@ -1003,6 +1005,12 @@ model TravelSearch {
   name         String? // Auto-generated or user-provided label
   status       TravelSearchStatus  @default(ACTIVE)
   lastViewedAt DateTime? // Updated on revisit for sort order + "Fresh" status detection
+  // SHA-256 of the ordered itinerary tuple (placeId-or-coords, dates, radius,
+  // position per stop). Powers O(1) dedup across multi-stop trips. Partial
+  // unique on (userId, itinerarySignature) WHERE status='ACTIVE' is declared
+  // in raw SQL (Prisma can't express WHERE on unique indexes). NOT NULL at
+  // the DB layer; the multi-destination migration backfilled existing rows.
+  itinerarySignature String             @db.VarChar(64)
   user         User                @relation(fields: [userId], references: [id])
   destinations TravelDestination[]
   createdAt    DateTime            @default(now())
@@ -1019,7 +1027,11 @@ model TravelSearch {
 
 model TravelDestination {
   id             String             @id @default(cuid())
-  travelSearchId String             @unique // MVP enforces exactly one destination per saved search
+  // Multi-stop support: the 1:1 @unique was lifted in the multi-destination
+  // migration; position on the parent itinerary (0..2) now scopes uniqueness
+  // via the @@unique below. FK lookups still need this column indexed.
+  travelSearchId String
+  position       Int                // 0-indexed; v1 caps at 0..2 (3 stops max)
   // Denormalized from TravelSearch.userId. Consistency guaranteed at the
   // DB layer by a compound FK back to TravelSearch(id, userId) — see the
   // @relation below — so the two userIds can never disagree.
@@ -1043,12 +1055,9 @@ model TravelDestination {
   user           User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt      DateTime           @default(now())
 
-  // Active-trip dedup. The actual constraint is a partial unique index
-  // declared in raw SQL because Prisma can't express WHERE clauses on
-  // unique indexes. See migration travel_dedup_partial_unique_and_compound_fk.
-  // The Prisma-level @@unique below is intentionally absent so the client
-  // doesn't try to maintain a non-partial constraint that would conflict
-  // with the partial DB index.
+  // Ordering guarantee within a trip: each position slot fills exactly once.
+  @@unique([travelSearchId, position])
+  @@index([travelSearchId])
   @@index([userId])
   @@index([userId, status])
 

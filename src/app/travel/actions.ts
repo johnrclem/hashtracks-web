@@ -12,6 +12,8 @@
  * - resolveDestinationTimezone: Google Time Zone API lookup
  */
 
+import { createHash } from "node:crypto";
+
 import { Prisma, TravelSearchStatus } from "@/generated/prisma/client";
 
 import { getOrCreateUser } from "@/lib/auth";
@@ -20,6 +22,7 @@ import { haversineDistance, geocodeAddress } from "@/lib/geo";
 import { parseUtcNoonDate } from "@/lib/date";
 import type { ActionResult } from "@/lib/actions";
 import { MAX_RADIUS_KM } from "@/lib/travel/limits";
+import { formatDateCompact } from "@/lib/travel/format";
 
 // Don't re-export MAX_RADIUS_KM here — Next.js's `"use server"` boundary
 // rejects any non-async export ("A 'use server' file can only export
@@ -34,11 +37,18 @@ import { MAX_RADIUS_KM } from "@/lib/travel/limits";
  */
 const MAX_SAVED_TRIPS = 50;
 
+export const MAX_STOPS_PER_TRIP = 3;
+
 // ============================================================================
 // Types
 // ============================================================================
 
-interface SaveTravelSearchParams {
+/**
+ * Per-stop save payload. A trip is 1..MAX_STOPS_PER_TRIP of these.
+ * Callers using the legacy flat shape (label + latitude + ...) are
+ * normalized into a single-element array internally.
+ */
+export interface SaveDestinationParams {
   label: string;
   placeId?: string;
   latitude: number;
@@ -49,9 +59,26 @@ interface SaveTravelSearchParams {
   endDate: string;   // YYYY-MM-DD
 }
 
+/**
+ * saveTravelSearch accepts either a flat single-destination shape (for
+ * backward-compat with existing callers — TravelAutoSave, TripSummary)
+ * or an explicit `destinations` array for multi-stop trips. Internally
+ * both paths normalize to `SaveDestinationParams[]`.
+ */
+export type SaveTravelSearchParams =
+  | SaveDestinationParams
+  | { destinations: SaveDestinationParams[] };
+
 interface FindExistingSearchParams {
   latitude: number;
   longitude: number;
+  /**
+   * Optional Google Places ID. When present, the lookup tries both
+   * placeId-first and coord-fallback signatures so a trip saved via
+   * autocomplete (placeId recorded) still matches a URL-derived lookup
+   * that only carries lat/lng.
+   */
+  placeId?: string;
   /**
    * Accept a single radius or a list to match across. Callers pass an
    * array to tolerate legacy saved-trip rows whose persisted radius is
@@ -80,61 +107,101 @@ interface FindExistingSearchParams {
  * safe fallback — the Save button still works.
  */
 /**
- * Build the where-clause for "this user's ACTIVE saved trip matching these
- * coords + radius + date window." Used by every dedup query path so the
- * partial-unique-equivalent semantics (parent ACTIVE AND destination
- * ACTIVE) stay consistent — codex flagged that filtering only on parent
- * status leaves a drift hole if the denormalized child status diverges.
+ * Canonical JSON representation of one stop used in the itinerary signature.
+ * Keys are emitted in a fixed insertion order so `JSON.stringify` produces
+ * output that matches the SQL backfill in the multi-destination migration.
+ * When placeId is set we omit coords — two provider paths (autocomplete vs.
+ * server-side geocode) can emit coords that differ by ~0.0001° for the same
+ * place, so the placeId-only form is the stable identity.
  */
-function activeTripMatchFilter(
-  userId: string,
-  latitude: number,
-  longitude: number,
-  radiusKm: number | number[],
-  startDate: Date,
-  endDate: Date,
-  placeId?: string | null,
-) {
-  const radiusFilter = Array.isArray(radiusKm)
-    ? { in: Array.from(new Set(radiusKm)) }
-    : radiusKm;
-  // Places autocomplete and server-side geocode can emit coords that
-  // differ by ~0.0001° for the same place, so prefer placeId identity
-  // when available. Must also match legacy coord-only rows (partial
-  // unique index is still on lat/lng) or P2002 recovery would loop.
-  const baseDestFilter = {
-    status: TravelSearchStatus.ACTIVE,
-    radiusKm: radiusFilter,
-    startDate,
-    endDate,
-  };
-  const destSome = placeId
-    ? { ...baseDestFilter, OR: [{ placeId }, { latitude, longitude }] }
-    : { ...baseDestFilter, latitude, longitude };
+function canonicalStop(stop: SaveDestinationParams, position: number) {
+  if (stop.placeId) {
+    return {
+      position,
+      placeId: stop.placeId,
+      radiusKm: stop.radiusKm,
+      startDate: stop.startDate,
+      endDate: stop.endDate,
+    };
+  }
   return {
-    userId,
-    status: TravelSearchStatus.ACTIVE,
-    destinations: { some: destSome },
+    position,
+    placeId: null,
+    latitude: stop.latitude,
+    longitude: stop.longitude,
+    radiusKm: stop.radiusKm,
+    startDate: stop.startDate,
+    endDate: stop.endDate,
   };
 }
 
+/**
+ * SHA-256 hex digest of the ordered itinerary tuple. This is the trip-level
+ * dedup key: partial-unique-indexed on (userId, itinerarySignature) WHERE
+ * status='ACTIVE'. Same place in different positions or with different
+ * dates → different signature → distinct trip.
+ */
+export function computeItinerarySignature(stops: SaveDestinationParams[]): string {
+  const canonical = JSON.stringify(stops.map((s, i) => canonicalStop(s, i)));
+  return createHash("sha256").update(canonical).digest("hex");
+}
+
+/**
+ * Normalize the legacy flat-shape saveTravelSearch payload into the
+ * array form used internally. Callers using `{ destinations: [...] }`
+ * pass through; callers using `{ label, latitude, ... }` get wrapped in
+ * a single-element array.
+ */
+function normalizeDestinations(params: SaveTravelSearchParams): SaveDestinationParams[] {
+  if ("destinations" in params) return params.destinations;
+  return [params];
+}
+
+/**
+ * findExistingSavedSearch builds candidate signatures (coord-based always,
+ * plus placeId-based when available) and matches either. A trip saved via
+ * autocomplete (placeId present) should still match when looked up via URL
+ * params that lack the placeId.
+ *
+ * Accepts an array of radii so legacy rows persisting a radius outside the
+ * closed tier enum {10,25,50,100} still resolve.
+ */
 export async function findExistingSavedSearch(
   params: FindExistingSearchParams,
 ): Promise<string | null> {
   try {
     const user = await getOrCreateUser();
     if (!user) return null;
-    const startDate = parseUtcNoonDate(params.startDate);
-    const endDate = parseUtcNoonDate(params.endDate);
+    const { startDate, endDate, placeId, latitude, longitude } = params;
+    const radii = Array.isArray(params.radiusKm)
+      ? Array.from(new Set(params.radiusKm))
+      : [params.radiusKm];
+
+    const buildSig = (radiusKm: number, withPlaceId: boolean) =>
+      computeItinerarySignature([
+        {
+          label: "",
+          ...(withPlaceId && placeId ? { placeId } : {}),
+          latitude,
+          longitude,
+          radiusKm,
+          startDate,
+          endDate,
+        },
+      ]);
+
+    const signatures: string[] = [];
+    for (const radiusKm of radii) {
+      signatures.push(buildSig(radiusKm, false));
+      if (placeId) signatures.push(buildSig(radiusKm, true));
+    }
+
     const match = await prisma.travelSearch.findFirst({
-      where: activeTripMatchFilter(
-        user.id,
-        params.latitude,
-        params.longitude,
-        params.radiusKm,
-        startDate,
-        endDate,
-      ),
+      where: {
+        userId: user.id,
+        status: TravelSearchStatus.ACTIVE,
+        itinerarySignature: { in: Array.from(new Set(signatures)) },
+      },
       select: { id: true },
     });
     return match?.id ?? null;
@@ -154,51 +221,53 @@ export async function saveTravelSearch(
   const user = await getOrCreateUser();
   if (!user) return { error: "Not authenticated" };
 
-  // Validate inputs
-  const validation = validateSearchParams(params);
+  const stops = normalizeDestinations(params);
+  const validation = validateSearchParams(stops);
   if (validation) return { error: validation };
 
-  const startDate = parseUtcNoonDate(params.startDate);
-  const endDate = parseUtcNoonDate(params.endDate);
-  const name = formatTripName(params.label, startDate, endDate);
+  const signature = computeItinerarySignature(stops);
+  const name = formatItineraryName(stops);
+  const matchWhere = {
+    userId: user.id,
+    status: TravelSearchStatus.ACTIVE,
+    itinerarySignature: signature,
+  } as const;
 
   // Dedup has two layers of defense:
-  //   1. In-transaction findFirst short-circuit — TravelAutoSave fires on
-  //      every post-sign-in mount and double-click is a real (if rare) UX,
-  //      so the common "trip already saved" path returns its id without
-  //      writing. Cheap read, no rollback.
-  //   2. DB partial-unique on TravelDestination (userId, lat, lng, radius,
-  //      dates) WHERE status='ACTIVE'. Catches the race window between the
-  //      findFirst and the create (concurrent caller across tabs/processes).
-  //      P2002 → refetch the winner → return its id (idempotent for the loser).
-  //
-  // Destination is a separate insert (not nested) because TravelDestination
-  // uses a compound FK to TravelSearch(id, userId) for tenant isolation —
-  // Prisma's nested-create input excludes the userId column.
-  const matchFilter = activeTripMatchFilter(
-    user.id, params.latitude, params.longitude, params.radiusKm, startDate, endDate, params.placeId,
-  );
-
+  //   1. In-transaction findFirst by (userId, itinerarySignature) —
+  //      TravelAutoSave fires on every post-sign-in mount and double-
+  //      click is a real (if rare) UX, so the common "trip already
+  //      saved" path returns its id without writing.
+  //   2. DB partial-unique on TravelSearch (userId, itinerarySignature)
+  //      WHERE status='ACTIVE'. Catches the race between the findFirst
+  //      and the create. P2002 → refetch the winner → return its id.
   try {
     return await prisma.$transaction(async (tx) => {
       const existing = await tx.travelSearch.findFirst({
-        where: matchFilter,
+        where: matchWhere,
         select: { id: true },
       });
       if (existing) return { success: true as const, id: existing.id };
 
       const search = await tx.travelSearch.create({
-        data: { userId: user.id, name },
+        data: {
+          userId: user.id,
+          name,
+          status: TravelSearchStatus.ACTIVE,
+          itinerarySignature: signature,
+        },
       });
-      await tx.travelDestination.create({
-        data: buildDestinationData(search.id, user.id, params, startDate, endDate),
+      // Compound FK requires explicit userId on the child insert — Prisma's
+      // nested-create would omit it. createMany for the 1..3 destinations.
+      await tx.travelDestination.createMany({
+        data: stops.map((stop, i) => buildDestinationData(search.id, user.id, stop, i)),
       });
       return { success: true as const, id: search.id };
     });
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
       const winner = await prisma.travelSearch.findFirst({
-        where: matchFilter,
+        where: matchWhere,
         select: { id: true },
       });
       if (winner) return { success: true, id: winner.id };
@@ -233,7 +302,8 @@ export async function updateTravelSearch(
   const user = await getOrCreateUser();
   if (!user) return { error: "Not authenticated" };
 
-  const validation = validateSearchParams(params);
+  const stops = normalizeDestinations(params);
+  const validation = validateSearchParams(stops);
   if (validation) return { error: validation };
 
   const search = await prisma.travelSearch.findUnique({
@@ -243,26 +313,22 @@ export async function updateTravelSearch(
   if (!search) return { error: "Search not found" };
   if (search.userId !== user.id) return { error: "Not authorized" };
 
-  const startDate = parseUtcNoonDate(params.startDate);
-  const endDate = parseUtcNoonDate(params.endDate);
-  const name = formatTripName(params.label, startDate, endDate);
+  const signature = computeItinerarySignature(stops);
+  const name = formatItineraryName(stops);
 
   try {
     await prisma.$transaction(async (tx) => {
-      // deleteMany on the destination and update on the parent are
-      // independent (different rows, no FK dep). Run them in parallel
-      // before the create — which must follow because the partial-unique
-      // index would reject the new destination while the old one was
-      // still ACTIVE.
-      await Promise.all([
-        tx.travelDestination.deleteMany({ where: { travelSearchId: id } }),
-        tx.travelSearch.update({
-          where: { id },
-          data: { name, status: TravelSearchStatus.ACTIVE },
-        }),
-      ]);
-      await tx.travelDestination.create({
-        data: buildDestinationData(id, user.id, params, startDate, endDate),
+      await tx.travelDestination.deleteMany({ where: { travelSearchId: id } });
+      await tx.travelSearch.update({
+        where: { id },
+        data: {
+          name,
+          status: TravelSearchStatus.ACTIVE,
+          itinerarySignature: signature,
+        },
+      });
+      await tx.travelDestination.createMany({
+        data: stops.map((stop, i) => buildDestinationData(id, user.id, stop, i)),
       });
     });
   } catch (err) {
@@ -367,21 +433,26 @@ export async function restoreTravelSearch(
 // listSavedSearches
 // ============================================================================
 
+export interface SavedSearchSummaryDestination {
+  label: string;
+  latitude: number;
+  longitude: number;
+  timezone: string | null;
+  radiusKm: number;
+  startDate: Date;
+  endDate: Date;
+}
+
 export interface SavedSearchSummary {
   id: string;
   name: string | null;
   status: TravelSearchStatus;
   lastViewedAt: Date | null;
   createdAt: Date;
-  destination: {
-    label: string;
-    latitude: number;
-    longitude: number;
-    timezone: string | null;
-    radiusKm: number;
-    startDate: Date;
-    endDate: Date;
-  } | null;
+  /** All legs of the trip, ordered by position (0..N-1). */
+  destinations: SavedSearchSummaryDestination[];
+  /** Legacy alias — first leg. */
+  destination: SavedSearchSummaryDestination | null;
 }
 
 export async function listSavedSearches(): Promise<
@@ -402,6 +473,7 @@ export async function listSavedSearches(): Promise<
         // destination that got stuck ARCHIVED while its parent stayed
         // ACTIVE would render as a destinationless dashboard card.
         where: { status: TravelSearchStatus.ACTIVE },
+        orderBy: { position: "asc" },
         select: {
           label: true,
           latitude: true,
@@ -428,6 +500,7 @@ export async function listSavedSearches(): Promise<
       status: s.status,
       lastViewedAt: s.lastViewedAt,
       createdAt: s.createdAt,
+      destinations: s.destinations,
       destination: s.destinations[0] ?? null,
     })),
   };
@@ -437,19 +510,23 @@ export async function listSavedSearches(): Promise<
 // viewTravelSearch
 // ============================================================================
 
+export interface SavedSearchDetailDestination {
+  label: string;
+  placeId: string | null;
+  latitude: number;
+  longitude: number;
+  timezone: string | null;
+  radiusKm: number;
+  startDate: Date;
+  endDate: Date;
+}
+
 export interface SavedSearchDetail {
   id: string;
   name: string | null;
-  destination: {
-    label: string;
-    placeId: string | null;
-    latitude: number;
-    longitude: number;
-    timezone: string | null;
-    radiusKm: number;
-    startDate: Date;
-    endDate: Date;
-  } | null;
+  destinations: SavedSearchDetailDestination[];
+  /** Legacy alias — first leg. */
+  destination: SavedSearchDetailDestination | null;
 }
 
 export async function viewTravelSearch(
@@ -464,9 +541,10 @@ export async function viewTravelSearch(
       destinations: {
         // Only return ACTIVE child rows. Archived parents intentionally
         // come back destinationless (the existing `?? null` branch
-        // handles that gracefully); this also defends against the
-        // parent/child status drift that codex flagged.
+        // handles that gracefully); this also defends against parent/
+        // child status drift.
         where: { status: TravelSearchStatus.ACTIVE },
+        orderBy: { position: "asc" },
         select: {
           label: true,
           placeId: true,
@@ -492,6 +570,7 @@ export async function viewTravelSearch(
     success: true,
     id: search.id,
     name: search.name,
+    destinations: search.destinations,
     destination: search.destinations[0] ?? null,
   };
 }
@@ -675,39 +754,64 @@ export async function geocodeDestination(
 // Helpers
 // ============================================================================
 
-function validateSearchParams(params: SaveTravelSearchParams): string | null {
-  if (!params.label.trim()) return "Destination label is required";
-  if (!Number.isFinite(params.latitude) || params.latitude < -90 || params.latitude > 90) {
+/**
+ * Validate the stops array. Accepts either a single-stop or a multi-stop
+ * itinerary (1..MAX_STOPS_PER_TRIP). Each stop is validated individually;
+ * additionally, consecutive stops must satisfy startDate(i) ≥ startDate(i-1)
+ * (sequential ordering — shared boundary dates are allowed).
+ */
+function validateSearchParams(stops: SaveDestinationParams[]): string | null {
+  if (stops.length < 1) return "At least one destination is required";
+  if (stops.length > MAX_STOPS_PER_TRIP) {
+    return `At most ${MAX_STOPS_PER_TRIP} stops per trip`;
+  }
+
+  for (const stop of stops) {
+    const err = validateDestination(stop);
+    if (err) return err;
+  }
+
+  for (let i = 1; i < stops.length; i++) {
+    const prev = parseUtcNoonDate(stops[i - 1].startDate);
+    const curr = parseUtcNoonDate(stops[i].startDate);
+    if (curr < prev) {
+      return `Leg ${i + 1} must start on or after leg ${i}`;
+    }
+  }
+
+  return null;
+}
+
+function validateDestination(stop: SaveDestinationParams): string | null {
+  if (!stop.label.trim()) return "Destination label is required";
+  if (!Number.isFinite(stop.latitude) || stop.latitude < -90 || stop.latitude > 90) {
     return "Invalid latitude";
   }
-  if (!Number.isFinite(params.longitude) || params.longitude < -180 || params.longitude > 180) {
+  if (!Number.isFinite(stop.longitude) || stop.longitude < -180 || stop.longitude > 180) {
     return "Invalid longitude";
   }
-  if (!Number.isFinite(params.radiusKm) || params.radiusKm <= 0) {
+  if (!Number.isFinite(stop.radiusKm) || stop.radiusKm <= 0) {
     return "Invalid radius";
   }
   // Mirror executeTravelSearch's clamp at the validation boundary so an
   // adversary can't persist a TravelSearch with a radius that's far
   // larger than the search would ever respect at runtime.
-  if (params.radiusKm > MAX_RADIUS_KM) {
+  if (stop.radiusKm > MAX_RADIUS_KM) {
     return `Radius too large (max ${MAX_RADIUS_KM} km)`;
   }
   // Prisma's Int column rejects fractions at write time — surfaces as a
   // 500 instead of a user-facing error message. Catch the shape here.
-  if (!Number.isInteger(params.radiusKm)) {
+  if (!Number.isInteger(stop.radiusKm)) {
     return "Radius must be a whole number";
   }
 
-  // Validate date strings
   // Strict YYYY-MM-DD validation: parse components and round-trip to reject
   // impossible dates like 2026-02-31 (JS silently normalizes to March 3)
-  const startValid = isValidDateString(params.startDate);
-  if (!startValid) return "Invalid start date";
-  const endValid = isValidDateString(params.endDate);
-  if (!endValid) return "Invalid end date";
+  if (!isValidDateString(stop.startDate)) return "Invalid start date";
+  if (!isValidDateString(stop.endDate)) return "Invalid end date";
 
-  const startDate = parseUtcNoonDate(params.startDate);
-  const endDate = parseUtcNoonDate(params.endDate);
+  const startDate = parseUtcNoonDate(stop.startDate);
+  const endDate = parseUtcNoonDate(stop.endDate);
   if (endDate < startDate) return "End date must be on or after start date";
 
   return null;
@@ -715,49 +819,51 @@ function validateSearchParams(params: SaveTravelSearchParams): string | null {
 
 /**
  * Shared shape for the TravelDestination create payload. Used by both
- * saveTravelSearch (new trip) and updateTravelSearch (replace destination
- * on edit) — keeping the create data in one place means a future field
- * addition can't drift between the two sites.
+ * saveTravelSearch and updateTravelSearch — keeping the create data in
+ * one place means a future field addition can't drift between the two
+ * sites. `position` is explicit so the compound `@@unique([travelSearchId,
+ * position])` constraint is satisfied.
  */
 function buildDestinationData(
   travelSearchId: string,
   userId: string,
-  params: SaveTravelSearchParams,
-  startDate: Date,
-  endDate: Date,
+  stop: SaveDestinationParams,
+  position: number,
 ) {
   return {
     travelSearchId,
     userId,
+    position,
     status: TravelSearchStatus.ACTIVE,
-    label: params.label,
-    placeId: params.placeId ?? null,
-    latitude: params.latitude,
-    longitude: params.longitude,
-    timezone: params.timezone ?? null,
-    radiusKm: params.radiusKm,
-    startDate,
-    endDate,
+    label: stop.label,
+    placeId: stop.placeId ?? null,
+    latitude: stop.latitude,
+    longitude: stop.longitude,
+    timezone: stop.timezone ?? null,
+    radiusKm: stop.radiusKm,
+    startDate: parseUtcNoonDate(stop.startDate),
+    endDate: parseUtcNoonDate(stop.endDate),
   };
 }
 
-/** Format a trip name like "Atlanta, GA · Apr 14–21" */
-function formatTripName(label: string, startDate: Date, endDate: Date): string {
-  const startStr = startDate.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  });
-
+/**
+ * Derive a trip name from the itinerary. Single-stop trips get the
+ * existing "Label · Apr 14–21" shape. Multi-stop trips get "LabelA →
+ * LabelB · Apr 14–21" spanning first-start to last-end.
+ */
+function formatItineraryName(stops: SaveDestinationParams[]): string {
+  const labels = stops.map((s) => s.label).join(" → ");
+  const startStr = stops[0].startDate;
+  const endStr = stops[stops.length - 1].endDate;
+  const start = parseUtcNoonDate(startStr);
+  const end = parseUtcNoonDate(endStr);
   const sameMonth =
-    startDate.getUTCMonth() === endDate.getUTCMonth() &&
-    startDate.getUTCFullYear() === endDate.getUTCFullYear();
-
-  const endStr = sameMonth
-    ? endDate.toLocaleDateString("en-US", { day: "numeric", timeZone: "UTC" })
-    : endDate.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
-
-  return `${label} · ${startStr}–${endStr}`;
+    start.getUTCMonth() === end.getUTCMonth() &&
+    start.getUTCFullYear() === end.getUTCFullYear();
+  const endFormatted = sameMonth
+    ? end.toLocaleDateString("en-US", { day: "numeric", timeZone: "UTC" })
+    : formatDateCompact(endStr);
+  return `${labels} · ${formatDateCompact(startStr)}–${endFormatted}`;
 }
 
 /**

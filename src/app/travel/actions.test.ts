@@ -22,6 +22,7 @@ vi.mock("@/lib/db", () => {
     deleteMany: vi.fn(),
     updateMany: vi.fn(),
     create: vi.fn(),
+    createMany: vi.fn(),
   };
   const kennel = {
     findMany: vi.fn().mockResolvedValue([]),
@@ -79,10 +80,11 @@ describe("saveTravelSearch", () => {
       name: "Atlanta, GA · Apr 14–21",
       status: "ACTIVE",
       lastViewedAt: null,
+      itinerarySignature: "deadbeef",
       createdAt: new Date(),
       updatedAt: new Date(),
     });
-    vi.mocked(prisma.travelDestination.create).mockResolvedValue({} as never);
+    vi.mocked(prisma.travelDestination.createMany).mockResolvedValue({ count: 1 } as never);
 
     const result = await saveTravelSearch(validParams);
     expect("error" in result).toBe(false);
@@ -95,15 +97,19 @@ describe("saveTravelSearch", () => {
         data: expect.objectContaining({
           userId: "user-1",
           name: expect.stringContaining("Atlanta, GA"),
+          itinerarySignature: expect.any(String),
         }),
       }),
     );
-    // Compound FK requires a separate destination create with the
-    // denormalized userId + status that the partial-unique index keys on.
-    const destCall = vi.mocked(prisma.travelDestination.create).mock.calls[0][0];
-    expect(destCall?.data).toMatchObject({
+    // Compound FK requires denormalized userId + explicit position on the
+    // child insert. createMany takes the full array even for single-dest.
+    const createManyCall = vi.mocked(prisma.travelDestination.createMany).mock.calls[0][0];
+    const rows = createManyCall?.data as Array<Record<string, unknown>>;
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
       travelSearchId: "ts-1",
       userId: "user-1",
+      position: 0,
       status: "ACTIVE",
     });
   });
@@ -196,13 +202,12 @@ describe("saveTravelSearch", () => {
     expect("id" in result && result.id).toBe("ts-winner");
   });
 
-  it("matches placeId OR coords when placeId is provided (#784)", async () => {
-    // When placeId is present, match on placeId (handles autocomplete vs
-    // server-geocode coord drift) AND also include the coord branch so
-    // legacy trips saved before placeId was threaded through still dedup.
-    // Dropping the coord branch breaks P2002 recovery: DB uniqueness is
-    // still on coords, so a legacy row would create → collide → refetch
-    // by placeId → miss → user-visible "could not save" error.
+  it("dedups by itinerarySignature keyed on placeId when present (#784)", async () => {
+    // With multi-stop support the dedup key is a SHA-256 of the canonical
+    // itinerary JSON. When a stop carries placeId, the canonical form omits
+    // lat/lng, so the same place across provider paths (autocomplete vs
+    // server-side geocode, coords differ by ~0.0001°) produces the same
+    // signature and the findFirst short-circuits.
     vi.mocked(prisma.travelSearch.findFirst).mockResolvedValueOnce({
       id: "ts-placeid",
     } as never);
@@ -214,21 +219,15 @@ describe("saveTravelSearch", () => {
     expect("id" in result && result.id).toBe("ts-placeid");
 
     const call = vi.mocked(prisma.travelSearch.findFirst).mock.calls[0][0];
-    const destFilter = (call as {
-      where?: { destinations?: { some?: Record<string, unknown> } };
-    })?.where?.destinations?.some ?? {};
-    const orBranches = destFilter.OR as Array<Record<string, unknown>> | undefined;
-    expect(orBranches).toBeDefined();
-    expect(orBranches!.some((b) => b.placeId === "ChIJplace123")).toBe(true);
-    expect(orBranches!.some((b) =>
-      b.latitude === validParams.latitude && b.longitude === validParams.longitude,
-    )).toBe(true);
+    const where = (call as { where?: Record<string, unknown> })?.where ?? {};
+    expect(where).toMatchObject({
+      userId: "user-1",
+      status: "ACTIVE",
+      itinerarySignature: expect.any(String),
+    });
   });
 
-  it("falls back to lat/lng dedup when placeId is absent", async () => {
-    // Legacy behavior: URL-based SSR dedup still has no placeId, so the
-    // coord match must keep working. Regression check — lint/type systems
-    // wouldn't catch accidentally dropping the fallback.
+  it("dedups by coord-based signature when placeId is absent", async () => {
     vi.mocked(prisma.travelSearch.findFirst).mockResolvedValueOnce({
       id: "ts-coords",
     } as never);
@@ -237,11 +236,104 @@ describe("saveTravelSearch", () => {
     expect("id" in result && result.id).toBe("ts-coords");
 
     const call = vi.mocked(prisma.travelSearch.findFirst).mock.calls[0][0];
-    const destFilter = (call as { where?: { destinations?: { some?: Record<string, unknown> } } })
-      ?.where?.destinations?.some ?? {};
-    expect(destFilter).toHaveProperty("latitude", validParams.latitude);
-    expect(destFilter).toHaveProperty("longitude", validParams.longitude);
-    expect(destFilter).not.toHaveProperty("placeId");
+    const where = (call as { where?: Record<string, unknown> })?.where ?? {};
+    expect(where).toMatchObject({
+      userId: "user-1",
+      status: "ACTIVE",
+      itinerarySignature: expect.any(String),
+    });
+  });
+
+  it("saves a 3-stop itinerary with positions 0..2 (#multi-dest)", async () => {
+    vi.mocked(prisma.travelSearch.create).mockResolvedValue({
+      id: "ts-multi",
+      userId: "user-1",
+      name: "London → Paris → Berlin · Apr 14–26",
+      status: "ACTIVE",
+      lastViewedAt: null,
+      itinerarySignature: "abc",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    vi.mocked(prisma.travelDestination.createMany).mockResolvedValue({ count: 3 } as never);
+
+    const result = await saveTravelSearch({
+      destinations: [
+        { label: "London", latitude: 51.5, longitude: -0.12, radiusKm: 50, startDate: "2026-04-14", endDate: "2026-04-18" },
+        { label: "Paris",  latitude: 48.8, longitude:  2.35, radiusKm: 50, startDate: "2026-04-18", endDate: "2026-04-22" },
+        { label: "Berlin", latitude: 52.5, longitude: 13.4,  radiusKm: 50, startDate: "2026-04-22", endDate: "2026-04-26" },
+      ],
+    });
+    expect("id" in result && result.id).toBe("ts-multi");
+
+    const createManyCall = vi.mocked(prisma.travelDestination.createMany).mock.calls[0][0];
+    const rows = createManyCall?.data as Array<Record<string, unknown>>;
+    expect(rows).toHaveLength(3);
+    expect(rows.map((r) => r.position)).toEqual([0, 1, 2]);
+    expect(rows.map((r) => r.label)).toEqual(["London", "Paris", "Berlin"]);
+  });
+
+  it("rejects > 3 stops", async () => {
+    const stops = Array.from({ length: 4 }, (_, i) => ({
+      label: `Stop ${i}`,
+      latitude: 33.749,
+      longitude: -84.388,
+      radiusKm: 50,
+      startDate: `2026-04-${String(14 + i).padStart(2, "0")}`,
+      endDate: `2026-04-${String(15 + i).padStart(2, "0")}`,
+    }));
+    const result = await saveTravelSearch({ destinations: stops });
+    expect("error" in result && result.error).toContain("At most 3");
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("rejects destinations whose startDates regress (non-sequential legs)", async () => {
+    const result = await saveTravelSearch({
+      destinations: [
+        { label: "A", latitude: 1, longitude: 1, radiusKm: 50, startDate: "2026-04-20", endDate: "2026-04-23" },
+        { label: "B", latitude: 2, longitude: 2, radiusKm: 50, startDate: "2026-04-19", endDate: "2026-04-22" },
+      ],
+    });
+    expect("error" in result && result.error).toContain("Leg 2 must start on or after leg 1");
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("allows legs to share a boundary date (overlap day)", async () => {
+    vi.mocked(prisma.travelSearch.create).mockResolvedValue({
+      id: "ts-overlap",
+      userId: "user-1",
+      name: "London → Paris · Apr 20–26",
+      status: "ACTIVE",
+      lastViewedAt: null,
+      itinerarySignature: "xyz",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    vi.mocked(prisma.travelDestination.createMany).mockResolvedValue({ count: 2 } as never);
+
+    const result = await saveTravelSearch({
+      destinations: [
+        { label: "London", latitude: 51.5, longitude: -0.12, radiusKm: 50, startDate: "2026-04-20", endDate: "2026-04-23" },
+        { label: "Paris",  latitude: 48.8, longitude:  2.35, radiusKm: 50, startDate: "2026-04-23", endDate: "2026-04-26" },
+      ],
+    });
+    expect("error" in result).toBe(false);
+    expect("id" in result && result.id).toBe("ts-overlap");
+  });
+
+  it("same itinerary in different orders produces different signatures", async () => {
+    // Direct computeItinerarySignature check — imported from actions.
+    // London → Paris should NOT dedup with Paris → London.
+    const { computeItinerarySignature } = await import("./actions");
+    const lonToPar = computeItinerarySignature([
+      { label: "London", latitude: 51.5, longitude: -0.12, radiusKm: 50, startDate: "2026-04-20", endDate: "2026-04-23" },
+      { label: "Paris",  latitude: 48.8, longitude:  2.35, radiusKm: 50, startDate: "2026-04-23", endDate: "2026-04-26" },
+    ]);
+    const parToLon = computeItinerarySignature([
+      { label: "Paris",  latitude: 48.8, longitude:  2.35, radiusKm: 50, startDate: "2026-04-20", endDate: "2026-04-23" },
+      { label: "London", latitude: 51.5, longitude: -0.12, radiusKm: 50, startDate: "2026-04-23", endDate: "2026-04-26" },
+    ]);
+    expect(lonToPar).not.toEqual(parToLon);
   });
 
   it("rejects radiusKm above the 250km clamp", async () => {
@@ -270,25 +362,32 @@ describe("updateTravelSearch", () => {
     vi.mocked(prisma.travelDestination.deleteMany).mockResolvedValue({
       count: 1,
     } as never);
-    vi.mocked(prisma.travelDestination.create).mockResolvedValue({} as never);
+    vi.mocked(prisma.travelDestination.createMany).mockResolvedValue({ count: 1 } as never);
 
     const result = await updateTravelSearch("ts-1", validParams);
     expect("error" in result).toBe(false);
     expect("id" in result && result.id).toBe("ts-1");
 
-    // Three coordinated writes: delete old destination, refresh parent,
-    // create new destination with the denormalized userId + ACTIVE status.
+    // Three coordinated writes: delete old destinations, refresh parent
+    // name + itinerarySignature, createMany new destinations with positions.
     expect(prisma.travelDestination.deleteMany).toHaveBeenCalledWith({
       where: { travelSearchId: "ts-1" },
     });
     expect(prisma.travelSearch.update).toHaveBeenCalledWith({
       where: { id: "ts-1" },
-      data: { name: expect.stringContaining("Atlanta, GA"), status: "ACTIVE" },
+      data: {
+        name: expect.stringContaining("Atlanta, GA"),
+        status: "ACTIVE",
+        itinerarySignature: expect.any(String),
+      },
     });
-    const createCall = vi.mocked(prisma.travelDestination.create).mock.calls[0][0];
-    expect(createCall?.data).toMatchObject({
+    const createManyCall = vi.mocked(prisma.travelDestination.createMany).mock.calls[0][0];
+    const rows = createManyCall?.data as Array<Record<string, unknown>>;
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
       travelSearchId: "ts-1",
       userId: "user-1",
+      position: 0,
       status: "ACTIVE",
       label: validParams.label,
     });
@@ -604,35 +703,44 @@ describe("findExistingSavedSearch", () => {
     });
   });
 
-  it("matches on coords + radius + dates via destinations.some", async () => {
+  it("matches on the itinerarySignature computed from coords + radius + dates", async () => {
     vi.mocked(prisma.travelSearch.findFirst).mockResolvedValueOnce(null);
     await findExistingSavedSearch(BASE);
     const call = vi.mocked(prisma.travelSearch.findFirst).mock.calls[0][0];
-    expect(call?.where?.destinations?.some).toMatchObject({
-      latitude: BASE.latitude,
-      longitude: BASE.longitude,
-      radiusKm: BASE.radiusKm,
-    });
+    const sigIn = (
+      call?.where?.itinerarySignature as { in?: string[] } | undefined
+    )?.in;
+    expect(sigIn).toBeDefined();
+    expect(sigIn!.length).toBeGreaterThanOrEqual(1);
+    expect(sigIn!.every((s) => /^[a-f0-9]{64}$/.test(s))).toBe(true);
   });
 
-  it("accepts an array radiusKm to match either a snapped or legacy persisted value", async () => {
+  it("accepts an array radiusKm and builds one signature per radius", async () => {
     // Legacy compat: a user opens /travel?r=137 (pre-tier-snap era saved
     // trip). Page-side snap resolves to 100, but the persisted row is at
     // 137. Caller passes [100, 137] so the lookup finds the legacy row.
+    // Since dedup is now signature-based, the lookup builds one signature
+    // per distinct radius and matches any of them.
     vi.mocked(prisma.travelSearch.findFirst).mockResolvedValueOnce({
       id: "ts-legacy",
     } as never);
     const result = await findExistingSavedSearch({ ...BASE, radiusKm: [100, 137] });
     expect(result).toBe("ts-legacy");
     const call = vi.mocked(prisma.travelSearch.findFirst).mock.calls[0][0];
-    expect(call?.where?.destinations?.some?.radiusKm).toEqual({ in: [100, 137] });
+    const sigIn = (
+      call?.where?.itinerarySignature as { in?: string[] } | undefined
+    )?.in;
+    expect(sigIn).toHaveLength(2);
   });
 
   it("de-duplicates an array radiusKm when both entries are equal", async () => {
     vi.mocked(prisma.travelSearch.findFirst).mockResolvedValueOnce(null);
     await findExistingSavedSearch({ ...BASE, radiusKm: [50, 50] });
     const call = vi.mocked(prisma.travelSearch.findFirst).mock.calls[0][0];
-    expect(call?.where?.destinations?.some?.radiusKm).toEqual({ in: [50] });
+    const sigIn = (
+      call?.where?.itinerarySignature as { in?: string[] } | undefined
+    )?.in;
+    expect(sigIn).toHaveLength(1);
   });
 
   it("returns null for unauthenticated users", async () => {
