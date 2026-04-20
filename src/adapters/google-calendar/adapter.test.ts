@@ -11,6 +11,7 @@ import {
   applyInlineHarelineBackfill,
   extractLocationFromDescription,
   extractTimeFromDescription,
+  extractCostFromDescription,
   buildRawEventFromGCalItem,
   normalizeGCalDescription,
 } from "./adapter";
@@ -2166,5 +2167,114 @@ describe("extractLocationFromDescription — hash-vernacular labels (#742)", () 
     ["Where to gather", "Where to gather: 123 Main St"],
   ])("extracts location from %s label", (_label, desc) => {
     expect(extractLocationFromDescription(desc)).toBe("123 Main St");
+  });
+});
+
+// ── Audit Round 3 — #774 BJH3 cost + WHO ARE THE HARES + #779 BMPH3 coord-only location ──
+
+describe("extractCostFromDescription (#774)", () => {
+  it.each([
+    ["bare integer gets $ prefix", "Hash Cash: 5", "$5"],
+    ["WHAT IS THE COST template variant", "WHAT IS THE COST: $7", "$7"],
+    ["Cost: Free passes through", "Cost: Free", "Free"],
+    ["decimal bare number", "Price: 10.50", "$10.50"],
+    ["already prefixed $ kept verbatim", "Hash Cash: $10 cash", "$10 cash"],
+    ["non-USD currency preserved", "Cost: €10", "€10"],
+  ])("%s", (_label, desc, expected) => {
+    expect(extractCostFromDescription(desc)).toBe(expected);
+  });
+
+  it("returns undefined when no cost label present", () => {
+    expect(extractCostFromDescription("Hares: Slick Willy\nLocation: 123 Main")).toBeUndefined();
+  });
+
+  it("returns undefined for placeholder values", () => {
+    expect(extractCostFromDescription("Hash Cash: TBD")).toBeUndefined();
+  });
+
+  it("truncates at embedded next-field label (HTML-collapsed)", () => {
+    // When HTML stripping collapses fields onto one line, EVENT_FIELD_LABEL_RE
+    // truncates at the next recognized label so the value doesn't leak.
+    expect(extractCostFromDescription("Hash Cash: $5 When: 6pm")).toBe("$5");
+  });
+});
+
+describe("extractHares — WHO ARE THE HARES template (#774 BJH3)", () => {
+  it("captures hare name from WHO ARE THE HARES: label", () => {
+    expect(extractHares("WHO ARE THE HARES: Leeroy")).toBe("Leeroy");
+  });
+
+  it("captures multiple hares from WHO ARE THE HARES: label", () => {
+    expect(extractHares("WHO ARE THE HARES: Leeroy & Jenkins")).toBe(
+      "Leeroy & Jenkins",
+    );
+  });
+
+  it("matches case-insensitively", () => {
+    expect(extractHares("Who Are The Hares: Leeroy")).toBe("Leeroy");
+  });
+});
+
+describe("buildRawEventFromGCalItem — coord-only item.location (#779 BMPH3)", () => {
+  it("clears coord-only location and populates lat/lng from item.location", () => {
+    const item = {
+      summary: "BMPH3 Trail",
+      description: "Start: Rue de la Gare, 1332 Genval\nHares: Tester",
+      location: "50.7234, 4.5123",
+      start: { dateTime: "2026-04-05T14:00:00+02:00" },
+      status: "confirmed",
+    };
+    const config = { defaultKennelTag: "bmph3-be" };
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event).not.toBeNull();
+    expect(event!.latitude).toBe(50.7234);
+    expect(event!.longitude).toBe(4.5123);
+    // Coord-only text cleared → description fallback surfaces the real address
+    expect(event!.location).toBe("Rue de la Gare, 1332 Genval");
+  });
+
+  it("rejects out-of-range coord strings (keeps text field intact)", () => {
+    const item = {
+      summary: "BMPH3 Trail",
+      description: "Hares: Tester",
+      location: "999.0, 4.5123",
+      start: { dateTime: "2026-04-05T14:00:00+02:00" },
+      status: "confirmed",
+    };
+    const config = { defaultKennelTag: "bmph3-be" };
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event).not.toBeNull();
+    expect(event!.latitude).toBeUndefined();
+    expect(event!.longitude).toBeUndefined();
+  });
+
+  it("leaves real address item.location alone", () => {
+    const item = {
+      summary: "Trail",
+      description: "Hares: Tester",
+      location: "123 Main St, Philadelphia, PA",
+      start: { dateTime: "2026-04-05T14:00:00-04:00" },
+      status: "confirmed",
+    };
+    const config = { defaultKennelTag: "bmph3-be" };
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event).not.toBeNull();
+    expect(event!.latitude).toBeUndefined();
+    expect(event!.longitude).toBeUndefined();
+    expect(event!.location).toBe("123 Main St, Philadelphia, PA");
+  });
+
+  it("populates cost from description when label present", () => {
+    const item = {
+      summary: "BJ Invasion",
+      description: "WHO ARE THE HARES: Leeroy\nHash Cash: 5",
+      start: { dateTime: "2026-04-05T14:00:00-04:00" },
+      status: "confirmed",
+    };
+    const config = { defaultKennelTag: "bjh3" };
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event).not.toBeNull();
+    expect(event!.cost).toBe("$5");
+    expect(event!.hares).toBe("Leeroy");
   });
 });

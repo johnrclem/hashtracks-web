@@ -539,7 +539,7 @@ const PLACEHOLDER_RE =
  * Single source of truth used by both google-calendar and html-scraper adapters.
  */
 export const EVENT_FIELD_LABEL_RE =
-  /(?:What|Where|When|Why|How|Time|Start|Location|Hash\s*Cash|Cost|Price|Registration|On[\s-]After|Directions|Pack\s*Meet|Circle|Chalk\s*Talk)\s*:.*$/;
+  /(?:What|Where|When|Why|How|Time|Start|Location|Hash\s*Cash|Cost|Price|Registration|On[\s-]After|Directions|Pack\s*Meet|Circle|Chalk\s*Talk)\s*:.*$/i;
 
 /**
  * Check if a value is a common placeholder (TBD, TBA, TBC, N/A, ?, ??, needed, required).
