@@ -175,7 +175,7 @@ function scrapeUpcomingHares(
   // month spelling ("May", "Jan.", "September", "Sept") without a 12-way
   // alternation (keeps SonarCloud regex complexity under budget).
   const ENTRY_ANCHOR =
-    /(?=[A-Z][a-z]{2,}\.?\s+\d{1,2}(?:st|nd|rd|th)?\s*[–—-])/g;
+    /(?=[A-Z][a-z]{2,}\.?\s+\d{1,2}[a-z]{0,2}\s*[–—-])/g;
   const segments = sectionText
     .split(ENTRY_ANCHOR)
     .map((s) => s.trim())

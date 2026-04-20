@@ -21,6 +21,23 @@ const DEFAULT_START_TIME = "19:00";
  * value into this one. Instead, iterate `<strong>` tags and collect sibling
  * nodes *until the next `<strong>`* so each label gets exactly its own value.
  */
+type SibNode = { type?: string; nextSibling: unknown; name?: string; data?: string };
+
+/** Find the first `<a>` href reachable from a tag node (direct or nested). */
+function firstHref($: cheerio.CheerioAPI, node: SibNode): string | undefined {
+  const direct = node.name === "a" ? $(node as never).attr("href") : undefined;
+  return direct || $(node as never).find("a").first().attr("href") || undefined;
+}
+
+/**
+ * Visible text contributed by a sibling tag. `<br>` has empty `.text()`, so
+ * emit an explicit space to keep adjacent values (e.g. location + map URL)
+ * from concatenating across line breaks.
+ */
+function tagText($: cheerio.CheerioAPI, node: SibNode): string {
+  return node.name === "br" ? " " : $(node as never).text();
+}
+
 /**
  * Walk sibling nodes after `startNode` until the next `<strong>` tag,
  * accumulating text content and the first `<a>` href found (direct or nested).
@@ -31,21 +48,12 @@ function collectSiblingValue(
 ): { text: string; href?: string } {
   let text = "";
   let href: string | undefined;
-  let node = startNode.nextSibling as { type?: string; nextSibling: unknown; name?: string; data?: string } | null;
+  let node = startNode.nextSibling as SibNode | null;
   while (node) {
     if (node.type === "tag") {
       if (node.name === "strong") break;
-      if (node.name === "br") {
-        // `<br>` has empty .text(); add an explicit space so adjacent values
-        // don't concatenate (e.g. line-break between location and map URL).
-        text += " ";
-      } else {
-        if (!href) {
-          const directHref = node.name === "a" ? $(node as never).attr("href") : undefined;
-          href = directHref || $(node as never).find("a").first().attr("href") || undefined;
-        }
-        text += $(node as never).text();
-      }
+      if (!href) href = firstHref($, node);
+      text += tagText($, node);
     } else if (node.type === "text") {
       text += node.data ?? "";
     }

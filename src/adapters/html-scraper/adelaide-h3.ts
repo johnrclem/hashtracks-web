@@ -112,7 +112,7 @@ interface AdelaideEventDetail {
 function isPlaceholderMapQuery(href: string): boolean {
   const q = /[?&]q=([^&#]*)/.exec(href);
   if (!q?.[1]) return false;
-  return isPlaceholder(decodeURIComponent(q[1].replace(/\+/g, " ")));
+  return isPlaceholder(decodeURIComponent(q[1].replaceAll("+", " ")));
 }
 
 /**
