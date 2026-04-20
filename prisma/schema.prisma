@@ -205,6 +205,10 @@ model Source {
   eventLinks    EventLink[]
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
+
+  // (name, type) is the seed upsert identity — see prisma/seed.ts ensureSources
+  // and #817 for the HARRIER_CENTRAL collapse that motivated this constraint.
+  @@unique([name, type])
 }
 
 enum SourceType {

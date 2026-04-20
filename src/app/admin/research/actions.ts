@@ -12,6 +12,7 @@ import { analyzeUrlForProposal, refineAnalysis } from "@/pipeline/html-analysis"
 import { regionSlug, inferCountry, buildAbbrev } from "@/lib/region";
 import { clearResolverCache } from "@/pipeline/kennel-resolver";
 import { createKennelFromDiscovery } from "@/app/admin/shared/kennel-creation";
+import { nameTypeConflictError } from "@/app/admin/shared/source-errors";
 
 /**
  * Trigger research for a region.
@@ -270,6 +271,8 @@ export async function approveProposal(
     revalidatePath("/admin/sources");
     return { success: true, sourceId };
   } catch (err) {
+    const msg = nameTypeConflictError(err);
+    if (msg) return { error: msg };
     return { error: err instanceof Error ? err.message : String(err) };
   }
 }
