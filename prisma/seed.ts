@@ -345,23 +345,18 @@ async function ensureAliases(prisma: any, kennelAliases: Record<string, string[]
 async function ensureSources(prisma: any, sources: any[], kennelRecords: Map<string, { id: string }>) {
   console.log("Seeding sources...");
   let created = 0;
-  // Track which (name+type) pairs are still in the seed so we can soft-disable
-  // any DB rows that were removed from SOURCES (e.g. retired dead-upstream sources).
-  // Soft-disable (not delete) preserves RawEvents / ScrapeLogs for audit; operators
-  // can manually delete stale rows after confirming nothing depends on them.
-  // Renames are a two-step: alias first, then seed — the identity key is
-  // (name, type), not url, because config-driven adapters (HARRIER_CENTRAL,
-  // MEETUP, some GOOGLE_CALENDAR aggregators) legitimately share a URL across
-  // multiple sources that differ only in their `config`. Matching by url here
-  // collapsed the 3 HARRIER_CENTRAL sources into a single DB row — see #817.
+  // Identity is (name, type), not url — config-driven adapters
+  // (HARRIER_CENTRAL, MEETUP, some GOOGLE_CALENDAR aggregators) legitimately
+  // share a url across multiple sources. Matching by url collapsed all three
+  // HARRIER_CENTRAL sources into a single DB row (#817). Renames are a
+  // two-step: alias first, then seed. Sources dropped from SOURCES are
+  // soft-disabled (not deleted) below so their RawEvents / ScrapeLogs survive.
   const seededKeys = new Set<string>(
     sources.map((s) => `${s.name}::${s.type}`),
   );
   for (const source of sources) {
     const { kennelCodes, kennelSlugMap, ...sourceData } = source;
 
-    // Identity is (name, type). Url is synced below via the scalar-field loop
-    // if it changes on an existing row.
     const existingSource = await prisma.source.findFirst({
       where: { name: sourceData.name, type: sourceData.type },
       orderBy: { createdAt: "asc" },

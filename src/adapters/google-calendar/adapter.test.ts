@@ -66,25 +66,13 @@ describe("extractKennelTag", () => {
 });
 
 // ── Boston Hash Calendar multi-kennel routing via seed config (#789) ──
-//
-// The Boston source config lives in prisma/seed-data/sources.ts. These
-// patterns are mirrored here so a copy-paste drift between seed and test
-// gets caught. If you edit either side, update both. Order matters —
-// matchConfigPatterns returns the first hit (adapter.ts:506).
 
-const BOSTON_SEED_KENNEL_PATTERNS: [string, string][] = [
-  ["Boston Ball\\s*Buster|\\bBall\\s*Buster\\b|BoBBH3|B3H4|BBH3", "bobbh3"],
-  ["Beantown", "beantown"],
-  ["Pink Taco|PT2H3|\\bTaco\\b", "pink-taco"],
-  ["Boston Moo[mn]|Full Moon|\\bMoo[mn]\\b", "bos-moon"],
-  ["Boston H3|Boston Hash|BoH3|BH3", "boh3"],
-];
+import { SOURCES } from "../../../prisma/seed-data/sources";
 
 describe("Boston Hash Calendar multi-kennel routing (#789)", () => {
-  const config = {
-    kennelPatterns: BOSTON_SEED_KENNEL_PATTERNS,
-    defaultKennelTag: "boh3",
-  };
+  const bostonSource = SOURCES.find((s) => s.name === "Boston Hash Calendar");
+  if (!bostonSource?.config) throw new Error("Boston Hash Calendar seed config missing");
+  const config = bostonSource.config as { kennelPatterns: [string, string][]; defaultKennelTag: string };
 
   it("routes 'Boston Moom' typo to bos-moon (failure mode A from the issue)", () => {
     const result = buildRawEventFromGCalItem(

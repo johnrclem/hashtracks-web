@@ -1,29 +1,14 @@
 /**
- * One-shot fix for #817: the 3 HARRIER_CENTRAL sources (Tokyo H3, Morgantown
- * H3, Singapore Sunday H3) were collapsed into a single Source row by the
- * `(url, type)` branch of the seed's findFirst at prisma/seed.ts:363-371. All
- * 3 share the identical base API URL, so each subsequent seed run overwrote
- * the previous row's name + config. The surviving row depends on seed order;
- * the issue observed it as "Singapore Sunday H3 Harrier Central".
- *
- * The seed fix (restrict identity to `(name, type)`) prevents recurrence but
- * cannot heal the already-merged prod row. This script does the data repair:
- *
- *   1. Find every Source with type=HARRIER_CENTRAL.
- *   2. For each seed entry NOT yet represented in the DB, create the missing
- *      row (copying name, url, config, etc. from the seed definition).
- *   3. Re-parent SourceKennel rows: `tokyo-h3` → Tokyo source,
- *      `mh3-wv` → Morgantown source, `sh3-sg` → Singapore source.
- *   4. Leave existing RawEvents on the surviving row untouched — they were
- *      scraped while the config was SH3-SG, so they belong with the SG source.
- *      Tokyo + Morgantown will pick up fresh RawEvents on the next scrape.
+ * One-shot prod repair for #817: splits a Source row that collapsed multiple
+ * HARRIER_CENTRAL seed entries into one (via the old `(url, type)` seed
+ * identity) back into one row per seed entry, and re-parents SourceKennel
+ * links. Leaves existing RawEvents on the surviving row — next scrape
+ * repopulates the new rows.
  *
  * Usage:
- *   npx tsx scripts/split-harrier-central-sources.ts           # dry run
- *   npx tsx scripts/split-harrier-central-sources.ts --apply   # apply
- *
- * Load env first (tsx does not auto-load .env):
  *   set -a && source .env && set +a
+ *   npx tsx scripts/split-harrier-central-sources.ts            # dry run
+ *   npx tsx scripts/split-harrier-central-sources.ts --apply    # apply
  */
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
@@ -103,8 +88,9 @@ async function main() {
   }
 
   for (const c of toCreate) {
-    const { kennelCodes: _kc, kennelSlugMap: _ksm, ...data } = c.seed as unknown as Record<string, unknown>;
-    const newSource = await prisma.source.create({ data: data as never });
+    const seed = c.seed as SeedSource & { kennelSlugMap?: Record<string, string> };
+    const { kennelCodes: _kc, kennelSlugMap: _ksm, ...data } = seed;
+    const newSource = await prisma.source.create({ data });
     console.log(`  ✓ Created Source ${newSource.id}  ${newSource.name}`);
 
     for (const code of c.kennelCodes) {
