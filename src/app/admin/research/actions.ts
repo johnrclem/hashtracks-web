@@ -270,6 +270,15 @@ export async function approveProposal(
     revalidatePath("/admin/sources");
     return { success: true, sourceId };
   } catch (err) {
+    if (
+      err instanceof Prisma.PrismaClientKnownRequestError &&
+      err.code === "P2002" &&
+      Array.isArray(err.meta?.target) &&
+      (err.meta.target as string[]).includes("name") &&
+      (err.meta.target as string[]).includes("type")
+    ) {
+      return { error: "A source with that name and type already exists." };
+    }
     return { error: err instanceof Error ? err.message : String(err) };
   }
 }

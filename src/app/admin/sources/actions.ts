@@ -10,6 +10,23 @@ import { scrapeSource } from "@/pipeline/scrape";
 import { validateSourceConfig } from "./config-validation";
 import { buildKennelIdentifiers, createKennelRecord } from "@/lib/kennel-utils";
 
+/**
+ * Friendly message when a write violates the `(name, type)` unique constraint.
+ * The DB enforces seed upsert identity — see prisma/schema.prisma Source and #817.
+ */
+function nameTypeConflictError(err: unknown): string | null {
+  if (
+    err instanceof Prisma.PrismaClientKnownRequestError &&
+    err.code === "P2002" &&
+    Array.isArray(err.meta?.target) &&
+    (err.meta.target as string[]).includes("name") &&
+    (err.meta.target as string[]).includes("type")
+  ) {
+    return "A source with that name and type already exists.";
+  }
+  return null;
+}
+
 /** Parse and validate config JSON from form input. Returns the parsed value or an error. */
 function parseConfigJson(
   configRaw: string,
@@ -97,17 +114,24 @@ export async function createSource(formData: FormData) {
     }
   }
 
-  const source = await prisma.source.create({
-    data: {
-      name,
-      url,
-      type: type as SourceType,
-      trustLevel,
-      scrapeFreq,
-      scrapeDays: isNaN(scrapeDays) ? 90 : scrapeDays,
-      ...(config !== undefined ? { config } : {}),
-    },
-  });
+  let source;
+  try {
+    source = await prisma.source.create({
+      data: {
+        name,
+        url,
+        type: type as SourceType,
+        trustLevel,
+        scrapeFreq,
+        scrapeDays: isNaN(scrapeDays) ? 90 : scrapeDays,
+        ...(config !== undefined ? { config } : {}),
+      },
+    });
+  } catch (err) {
+    const msg = nameTypeConflictError(err);
+    if (msg) return { error: msg };
+    throw err;
+  }
 
   // Create SourceKennel links
   const ids = kennelIds.split(",").map(id => id.trim()).filter(Boolean);
@@ -142,24 +166,30 @@ export async function updateSource(sourceId: string, formData: FormData) {
 
   const ids = kennelIds.split(",").map(id => id.trim()).filter(Boolean);
 
-  await prisma.$transaction([
-    prisma.sourceKennel.deleteMany({ where: { sourceId } }),
-    prisma.source.update({
-      where: { id: sourceId },
-      data: {
-        name,
-        url,
-        type: type as SourceType,
-        trustLevel,
-        scrapeFreq,
-        scrapeDays: isNaN(scrapeDays) ? 90 : scrapeDays,
-        config,
-        kennels: {
-          create: ids.map((kennelId) => ({ kennelId })),
+  try {
+    await prisma.$transaction([
+      prisma.sourceKennel.deleteMany({ where: { sourceId } }),
+      prisma.source.update({
+        where: { id: sourceId },
+        data: {
+          name,
+          url,
+          type: type as SourceType,
+          trustLevel,
+          scrapeFreq,
+          scrapeDays: isNaN(scrapeDays) ? 90 : scrapeDays,
+          config,
+          kennels: {
+            create: ids.map((kennelId) => ({ kennelId })),
+          },
         },
-      },
-    }),
-  ]);
+      }),
+    ]);
+  } catch (err) {
+    const msg = nameTypeConflictError(err);
+    if (msg) return { error: msg };
+    throw err;
+  }
 
   revalidatePath("/admin/sources");
   return { success: true };
