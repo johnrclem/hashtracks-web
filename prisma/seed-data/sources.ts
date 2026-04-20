@@ -56,6 +56,23 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "every_6h",
       scrapeDays: 365,
+      // Shared Boston-area calendar. Patterns were previously hardcoded in
+      // google-calendar/adapter.ts (BOSTON_KENNEL_PATTERNS); moving them into
+      // source config lets us extend without touching adapter code. Order
+      // matters — matchConfigPatterns returns the first match (adapter.ts:506),
+      // so more specific patterns come first. See #789.
+      //   - "Bos\s*Moo[mn]" catches the observed "Boston Moom" typo
+      //   - "\bTaco\b" catches "Taco Marathon" variants without "Pink"
+      config: {
+        kennelPatterns: [
+          ["Boston Ball\\s*Buster|\\bBall\\s*Buster\\b|BoBBH3|B3H4|BBH3", "bobbh3"],
+          ["Beantown", "beantown"],
+          ["Pink Taco|PT2H3|\\bTaco\\b", "pink-taco"],
+          ["Boston Moo[mn]|Full Moon|\\bMoo[mn]\\b", "bos-moon"],
+          ["Boston H3|Boston Hash|BoH3|BH3", "boh3"],
+        ],
+        defaultKennelTag: "boh3",
+      },
       kennelCodes: ["boh3", "bobbh3", "beantown", "bos-moon", "pink-taco"],
     },
     {

@@ -349,24 +349,21 @@ async function ensureSources(prisma: any, sources: any[], kennelRecords: Map<str
   // any DB rows that were removed from SOURCES (e.g. retired dead-upstream sources).
   // Soft-disable (not delete) preserves RawEvents / ScrapeLogs for audit; operators
   // can manually delete stale rows after confirming nothing depends on them.
-  // Caveat: renaming a seed entry (same type, new name) will make the old row
-  // appear stale for one reconciliation pass, even though the name gets updated
-  // via the url/name OR-match above. Operators can safely skip reconcile during
-  // rename seeds, or rename via a two-step: alias first, then seed.
+  // Renames are a two-step: alias first, then seed — the identity key is
+  // (name, type), not url, because config-driven adapters (HARRIER_CENTRAL,
+  // MEETUP, some GOOGLE_CALENDAR aggregators) legitimately share a URL across
+  // multiple sources that differ only in their `config`. Matching by url here
+  // collapsed the 3 HARRIER_CENTRAL sources into a single DB row — see #817.
   const seededKeys = new Set<string>(
     sources.map((s) => `${s.name}::${s.type}`),
   );
   for (const source of sources) {
     const { kennelCodes, kennelSlugMap, ...sourceData } = source;
 
-    // Check if source already exists by URL or name+type
+    // Identity is (name, type). Url is synced below via the scalar-field loop
+    // if it changes on an existing row.
     const existingSource = await prisma.source.findFirst({
-      where: {
-        OR: [
-          { url: sourceData.url, type: sourceData.type },
-          { name: sourceData.name, type: sourceData.type },
-        ],
-      },
+      where: { name: sourceData.name, type: sourceData.type },
       orderBy: { createdAt: "asc" },
     });
 
