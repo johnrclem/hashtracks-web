@@ -42,15 +42,23 @@ export async function reconcileStaleEvents(
     kennelsInScope: 0, totalLinkedKennels: 0,
   };
 
-  // Build set of (kennelId, date) keys from the scrape results
-  const scrapedKeys = new Set<string>();
+  // Resolve kennelId for every scraped event up front so we can bucket them by
+  // (kennelId, date) slot below. Slot membership drives the orphan decision
+  // after we query canonical candidates from the DB.
   const resolutions = await Promise.all(
     scrapedEvents.map((event) => resolveKennelTag(event.kennelTag, sourceId)),
   );
+  const scrapedBySlot = new Map<string, RawEventData[]>();
   for (const [i, event] of scrapedEvents.entries()) {
     const { kennelId, matched } = resolutions[i];
     if (matched && kennelId) {
-      scrapedKeys.add(`${kennelId}:${event.date}:${event.sourceUrl ?? ""}`);
+      const key = `${kennelId}:${event.date}`;
+      let list = scrapedBySlot.get(key);
+      if (!list) {
+        list = [];
+        scrapedBySlot.set(key, list);
+      }
+      list.push(event);
     }
   }
 
@@ -90,27 +98,98 @@ export async function reconcileStaleEvents(
     : new Date(now.getTime() - days * 86_400_000);
   const timeMax = new Date(now.getTime() + days * 86_400_000);
 
-  // Find CONFIRMED events in the window for this source's kennels
+  // Find CONFIRMED canonical events in the window for this source's kennels.
+  // Non-canonical audit rows (merge conflicts kept for fidelity — see
+  // prisma/schema.prisma isCanonical docs) are never displayed and must not be
+  // counted as double-header peers, or single-canonical slots with shadow rows
+  // would incorrectly fall into the multi-candidate cancellation path.
+  //
+  // Tradeoff: if a scrape row binds (via merge semantics) to a non-canonical
+  // shadow rather than the displayed canonical, reconcile here sees only the
+  // canonical and preserves it on any slot hit. That can leave a truly-stale
+  // canonical CONFIRMED until the next merge run re-promotes the shadow. We
+  // accept this because the alternative (including shadows as peers and then
+  // cancelling the canonical when a shadow matches) causes user-visible
+  // disappearances of displayed events for a rare merge-conflict state.
   const candidates = await prisma.event.findMany({
     where: {
       kennelId: { in: linkedKennelIds },
       date: { gte: timeMin, lte: timeMax },
       status: "CONFIRMED",
+      isCanonical: true,
     },
     select: {
       id: true,
       kennelId: true,
       date: true,
       sourceUrl: true,
+      startTime: true,
+      title: true,
     },
   });
 
-  // Filter to events NOT in the scraped set
-  const orphaned = candidates.filter((event) => {
+  // Group candidates by (kennelId, date) slot. Single-candidate slots tolerate
+  // sourceUrl drift (many adapters emit the same run with different URLs across
+  // upcoming/past/detail pages — the "sourceUrl drift" false-cancellation bug).
+  // Multi-candidate slots are genuine double-headers and must disambiguate
+  // using the same cascade the merge pipeline uses to pick an update target
+  // (sourceUrl → startTime → title — see src/pipeline/merge.ts upsertCanonicalEvent).
+  const candidatesByKey = new Map<string, typeof candidates>();
+  for (const event of candidates) {
     const dateStr = event.date.toISOString().split("T")[0];
-    const key = `${event.kennelId}:${dateStr}:${event.sourceUrl ?? ""}`;
-    return !scrapedKeys.has(key);
-  });
+    const key = `${event.kennelId}:${dateStr}`;
+    let list = candidatesByKey.get(key);
+    if (!list) {
+      list = [];
+      candidatesByKey.set(key, list);
+    }
+    list.push(event);
+  }
+
+  // For each scraped event, mark which canonical Event (if any) it would
+  // bind to under merge semantics. Unmatched candidates are orphaned.
+  const matchedCandidateIds = new Set<string>();
+  for (const [key, slotCandidates] of candidatesByKey) {
+    const scrapedForSlot = scrapedBySlot.get(key);
+    if (!scrapedForSlot || scrapedForSlot.length === 0) continue;
+    if (slotCandidates.length === 1) {
+      // Single canonical in the slot — any scrape hit preserves it.
+      matchedCandidateIds.add(slotCandidates[0].id);
+      continue;
+    }
+    // Double-header: mirror merge's URL → startTime → title cascade. Each
+    // scraped event binds to at most one canonical; once a candidate is
+    // claimed in this slot, later scraped events fall through to the next
+    // tier (so two scraped rows without distinguishing fields can't both
+    // claim the same canonical and leave another one looking orphaned).
+    //
+    // This is intentionally stricter than merge's length>1 branch (which has
+    // no claim tracking and can bind two rows to the same canonical): reconcile
+    // errs toward preserving canonicals on ambiguous matches because a false
+    // cancellation is user-visible damage, whereas leaving a truly-stale row
+    // CONFIRMED is self-healing on the next full scrape.
+    const claimed = new Set<string>();
+    for (const scraped of scrapedForSlot) {
+      const pick = (predicate: (c: (typeof slotCandidates)[number]) => boolean) =>
+        slotCandidates.find((c) => !claimed.has(c.id) && predicate(c));
+      let match: (typeof slotCandidates)[number] | undefined;
+      if (scraped.sourceUrl) {
+        match = pick((c) => c.sourceUrl === scraped.sourceUrl);
+      }
+      if (!match && scraped.startTime) {
+        match = pick((c) => c.startTime === scraped.startTime);
+      }
+      if (!match && scraped.title) {
+        match = pick((c) => c.title === scraped.title);
+      }
+      if (match) {
+        claimed.add(match.id);
+        matchedCandidateIds.add(match.id);
+      }
+    }
+  }
+
+  const orphaned = candidates.filter((c) => !matchedCandidateIds.has(c.id));
 
   const baseDiag = {
     candidatesExamined: candidates.length,
