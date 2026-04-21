@@ -203,7 +203,8 @@ const CITY_IATA: Record<string, string> = {
   austin: "AUS",
   miami: "MIA",
   philadelphia: "PHL",
-  "washington, d.c.": "DCA",
+  // Matches both "Washington, D.C." and "Washington, DC" because the
+  // lookup splits on the first comma; keep only the one-word key.
   washington: "DCA",
   baltimore: "BWI",
   pittsburgh: "PIT",
@@ -227,6 +228,7 @@ const CITY_IATA: Record<string, string> = {
   bangkok: "BKK",
   "kuala lumpur": "KUL",
   "ho chi minh": "SGN",
+  "ho chi minh city": "SGN",
   hanoi: "HAN",
   mumbai: "BOM",
   delhi: "DEL",

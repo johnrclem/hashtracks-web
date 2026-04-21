@@ -82,16 +82,20 @@ export default async function SavedTripsPage() {
         // exist, but render the row inertly if it does.
         return { search, status: "active", counts: null, isPast: false };
       }
-      // Past/soon is decided against the whole trip window: firstLeg start
-      // in the firstLeg's timezone for "soon"; lastLeg end for "past".
+      // Past/soon is decided against the whole trip window, but each
+      // boundary is evaluated in its own leg's timezone so a cross-
+      // timezone itinerary doesn't misclassify near local midnight
+      // (e.g. a Hawaii first leg + NYC last leg sharing a UTC-based
+      // "today" would mark the trip past ~5 hours before NYC midnight).
       const firstLeg = legs[0];
       const lastLeg = legs[legs.length - 1];
-      const today = todayInTimezone(firstLeg.timezone);
+      const todayAtStart = todayInTimezone(firstLeg.timezone);
+      const todayAtEnd = todayInTimezone(lastLeg.timezone);
       const tripStartStr = firstLeg.startDate.toISOString().slice(0, 10);
       const tripEndStr = lastLeg.endDate.toISOString().slice(0, 10);
 
-      const isPast = tripEndStr < today;
-      const dayDelta = daysBetweenIsoDates(today, tripStartStr);
+      const isPast = tripEndStr < todayAtEnd;
+      const dayDelta = daysBetweenIsoDates(todayAtStart, tripStartStr);
       const isSoon = !isPast && dayDelta >= 0 && dayDelta <= 7;
 
       let counts: EnrichedSearch["counts"] = null;
