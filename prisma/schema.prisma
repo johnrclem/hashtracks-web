@@ -1007,10 +1007,12 @@ model TravelSearch {
   lastViewedAt DateTime? // Updated on revisit for sort order + "Fresh" status detection
   // SHA-256 of the ordered itinerary tuple (placeId-or-coords, dates, radius,
   // position per stop). Powers O(1) dedup across multi-stop trips. Partial
-  // unique on (userId, itinerarySignature) WHERE status='ACTIVE' is declared
-  // in raw SQL (Prisma can't express WHERE on unique indexes). NOT NULL at
-  // the DB layer; the multi-destination migration backfilled existing rows.
-  itinerarySignature String             @db.VarChar(64)
+  // unique on (userId, itinerarySignature) WHERE status='ACTIVE' AND
+  // itinerarySignature IS NOT NULL is declared in raw SQL. Nullable so
+  // legacy pre-migration rows don't force a SQL-side backfill whose
+  // serializer may not byte-match computeItinerarySignature() — those rows
+  // stay NULL until the app rewrites them on next save/update.
+  itinerarySignature String?             @db.VarChar(64)
   user         User                @relation(fields: [userId], references: [id])
   destinations TravelDestination[]
   createdAt    DateTime            @default(now())

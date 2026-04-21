@@ -4,8 +4,14 @@
 --   1. Add DRAFT to TravelSearchStatus enum. Multi-dest trips auto-save as
 --      DRAFT on leg-2-add; invisible from /travel/saved; reachable by URL.
 --   2. Add TravelSearch.itinerarySignature (nullable, SHA-256 hex) for O(1)
---      trip-level dedup. Backfilled per existing single-dest row, then
---      partial-unique'd on (userId, itinerarySignature) WHERE status='ACTIVE'.
+--      trip-level dedup. Partial-unique'd on (userId, itinerarySignature)
+--      WHERE status='ACTIVE' AND itinerarySignature IS NOT NULL.
+--      Nullable because the SQL serializer and the JS serializer are not
+--      guaranteed byte-identical — backfilling in SQL would risk writing
+--      signatures that the application's computeItinerarySignature() can
+--      never reproduce, silently breaking dedup lookups. Instead, existing
+--      rows stay NULL and the next save/update through the application
+--      populates the column with a TS-computed signature.
 --   3. Replace TravelDestination.travelSearchId @unique with compound
 --      @@unique([travelSearchId, position]). position is 0-indexed; v1 caps
 --      at 0..2 via application-layer validation.
@@ -14,16 +20,12 @@
 --      level via itinerarySignature — a user can legitimately have the same
 --      destination coords+dates in two different multi-stop itineraries
 --      (e.g. London Mon-Thu solo AND London Mon-Thu + Paris Thu-Sun).
---
--- Feature is live in production with real saved trips, so the position
--- column and signature column both backfill in-place. Signature is
--- computed to match the actions.ts canonical format (see
--- computeItinerarySignature()).
 
 -- 1. Extend the enum with DRAFT.
 ALTER TYPE "TravelSearchStatus" ADD VALUE IF NOT EXISTS 'DRAFT' BEFORE 'ACTIVE';
 
--- 2. Add itinerarySignature column to TravelSearch (nullable for backfill).
+-- 2. Add itinerarySignature column to TravelSearch (nullable — populated by
+--    the application on next save/update; see header note).
 ALTER TABLE "TravelSearch"
   ADD COLUMN "itinerarySignature" VARCHAR(64);
 
@@ -56,82 +58,10 @@ CREATE INDEX "TravelDestination_travelSearchId_idx"
 --    allowed under the new model.
 DROP INDEX IF EXISTS "TravelDestination_user_dedup_active";
 
--- 8. Backfill itinerarySignature for existing rows. Each existing trip
---    has exactly one destination (the 1:1 invariant held until this
---    migration), so the signature is a SHA-256 of a canonical JSON
---    representation of that single stop. The format MUST match
---    computeItinerarySignature() in src/app/travel/actions.ts.
---
---    Canonical format (per stop, sorted key order):
---      {
---        "position": <int>,
---        "placeId": <string|null>,
---        "latitude": <float>,         // only when placeId is null
---        "longitude": <float>,        // only when placeId is null
---        "radiusKm": <int>,
---        "startDate": <ISO date>,
---        "endDate": <ISO date>
---      }
---    then JSON.stringify the array (position-ordered), SHA-256, hex-encode.
---
---    We can't easily compute SHA-256 in pure SQL without an extension, so
---    we use pgcrypto (already available on Railway's default Postgres).
---    If pgcrypto is not available, this will fail — in that case install
---    it first: CREATE EXTENSION IF NOT EXISTS pgcrypto;
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
-
-UPDATE "TravelSearch" ts
-SET "itinerarySignature" = ENCODE(
-  DIGEST(
-    -- Build a canonical JSON array with one stop object. Key ordering is
-    -- fixed to match the application's JSON.stringify of an object built
-    -- in the same order. The omit-coords-when-placeId-exists rule is
-    -- reproduced inline.
-    '[' || (
-      CASE
-        WHEN td."placeId" IS NOT NULL AND td."placeId" <> '' THEN
-          json_build_object(
-            'position', td."position",
-            'placeId', td."placeId",
-            'radiusKm', td."radiusKm",
-            'startDate', to_char(td."startDate" AT TIME ZONE 'UTC', 'YYYY-MM-DD'),
-            'endDate', to_char(td."endDate" AT TIME ZONE 'UTC', 'YYYY-MM-DD')
-          )::text
-        ELSE
-          json_build_object(
-            'position', td."position",
-            'placeId', NULL,
-            'latitude', td."latitude",
-            'longitude', td."longitude",
-            'radiusKm', td."radiusKm",
-            'startDate', to_char(td."startDate" AT TIME ZONE 'UTC', 'YYYY-MM-DD'),
-            'endDate', to_char(td."endDate" AT TIME ZONE 'UTC', 'YYYY-MM-DD')
-          )::text
-      END
-    ) || ']',
-    'sha256'
-  ),
-  'hex'
-)
-FROM "TravelDestination" td
-WHERE td."travelSearchId" = ts."id";
-
--- 9. Trips that somehow have zero destinations (shouldn't exist, but
---    defend anyway) get an empty-array signature so the NOT NULL below
---    holds. These rows won't collide with anything since no real save
---    path creates empty itineraries.
-UPDATE "TravelSearch"
-SET "itinerarySignature" = ENCODE(DIGEST('[]', 'sha256'), 'hex')
-WHERE "itinerarySignature" IS NULL;
-
--- 10. Make itinerarySignature NOT NULL now that every row is filled.
-ALTER TABLE "TravelSearch"
-  ALTER COLUMN "itinerarySignature" SET NOT NULL;
-
--- 11. Partial unique — the trip-level dedup. Only ACTIVE trips participate;
---     DRAFT and ARCHIVED are free to collide. ARCHIVED rows can sit
---     indefinitely; DRAFT rows are expected to collide when a user
---     iterates on the same itinerary and get GC'd by a future cron.
+-- 8. Partial unique — the trip-level dedup. Only ACTIVE trips with a
+--    populated signature participate. Legacy rows with NULL signatures
+--    sit outside the index until the application rewrites them on next
+--    save/update via computeItinerarySignature().
 CREATE UNIQUE INDEX "TravelSearch_user_itinerary_active"
   ON "TravelSearch"("userId", "itinerarySignature")
-  WHERE "status" = 'ACTIVE';
+  WHERE "status" = 'ACTIVE' AND "itinerarySignature" IS NOT NULL;
