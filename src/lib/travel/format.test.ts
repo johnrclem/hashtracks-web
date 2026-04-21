@@ -8,6 +8,7 @@ import {
   formatDriveTime,
   formatDayHeader,
   startOfUtcDay,
+  cityToIata,
 } from "./format";
 
 describe("formatDateCompact", () => {
@@ -168,5 +169,45 @@ describe("getKennelInitials", () => {
 
   it("uppercases initials", () => {
     expect(getKennelInitials("aces of spades")).toBe("AO");
+  });
+});
+
+describe("cityToIata", () => {
+  it.each([
+    ["London, UK", "LHR"],
+    ["Paris, France", "CDG"],
+    ["Berlin, Germany", "BER"],
+    ["New York, NY", "JFK"],
+    ["New York City, NY, USA", "JFK"],
+    ["Washington, D.C.", "DCA"],
+    ["Los Angeles, CA", "LAX"],
+    ["Tokyo, Japan", "HND"],
+    ["San Francisco, CA", "SFO"],
+  ])("resolves known city %s to real IATA %s", (label, expected) => {
+    expect(cityToIata(label)).toBe(expected);
+  });
+
+  it("is case-insensitive on the city name", () => {
+    expect(cityToIata("LONDON, UK")).toBe("LHR");
+    expect(cityToIata("london, uk")).toBe("LHR");
+    expect(cityToIata("London")).toBe("LHR");
+  });
+
+  it("falls back to first three consonants for unknown cities", () => {
+    expect(cityToIata("Belgrade, Serbia")).toBe("BLG");
+    expect(cityToIata("Katowice, Poland")).toBe("KTW");
+  });
+
+  it("always returns exactly three uppercase letters", () => {
+    const vals = [
+      cityToIata("Ix"),
+      cityToIata("Oz"),
+      cityToIata("Paris"),
+      cityToIata("   "),
+      cityToIata("Xylophone City"),
+    ];
+    for (const v of vals) {
+      expect(v).toMatch(/^[A-Z]{3}$/);
+    }
   });
 });

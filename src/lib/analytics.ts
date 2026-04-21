@@ -135,6 +135,8 @@ interface TravelSavedSearchCreatedProps {
 interface TravelSavedSearchViewedProps {
   searchId: string;
   daysSinceCreated: number;
+  /** Number of legs in the saved trip (1 for single-dest, 2–3 for multi-stop). */
+  legCount: number;
 }
 
 interface TravelShareClickedProps {
