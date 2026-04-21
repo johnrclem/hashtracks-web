@@ -100,20 +100,21 @@ export default async function SavedTripsPage() {
       if (!isPast) {
         try {
           const out = await executeTravelSearch(prisma, {
-            latitude: dest.latitude,
-            longitude: dest.longitude,
-            radiusKm: dest.radiusKm,
-            startDate: startStr,
-            endDate: endStr,
-            timezone: dest.timezone ?? undefined,
+            destinations: [{
+              latitude: dest.latitude,
+              longitude: dest.longitude,
+              radiusKm: dest.radiusKm,
+              startDate: startStr,
+              endDate: endStr,
+              timezone: dest.timezone ?? undefined,
+            }],
           });
           // Honor the search service's empty-state contract: when the primary
-          // radius came up empty, real results live in `broaderResults`.
+          // radius came up empty, real results live in `destinations[0].broaderResults`.
           // Reading top-level arrays only would underreport counts as zero.
+          const broader = out.destinations[0]?.broaderResults;
           const effective =
-            out.emptyState === "no_nearby" && out.broaderResults
-              ? out.broaderResults
-              : out;
+            out.emptyState === "no_nearby" && broader ? broader : out;
           counts = {
             confirmed: effective.confirmed.length,
             likely: effective.likely.length,

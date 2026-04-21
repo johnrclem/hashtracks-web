@@ -39,13 +39,24 @@ export type { DistanceTier };
 // Types
 // ============================================================================
 
-export interface TravelSearchParams {
+/**
+ * Per-stop params for a single destination in a multi-stop trip. 1..3 stops
+ * per search (the cap is enforced at the save boundary in actions.ts — here
+ * we accept whatever the caller passes and fan out over all of them).
+ */
+export interface DestinationParams {
   latitude: number;
   longitude: number;
   radiusKm: number;
   startDate: string;       // YYYY-MM-DD
   endDate: string;         // YYYY-MM-DD
   timezone?: string;
+  /** User-visible label (city name). Used to tag result rows for UI grouping. */
+  label?: string;
+}
+
+export interface TravelSearchParams {
+  destinations: DestinationParams[];
   filters?: {
     confidence?: ("high" | "medium" | "low")[];
     distanceTier?: DistanceTier[];
@@ -58,7 +69,21 @@ export interface SourceLink {
   type: "website" | "facebook" | "hashrego" | "instagram" | "meetup" | "other";
 }
 
-export interface ConfirmedResult {
+/**
+ * Multi-stop tag carried on every result row. `destinationIndex` is the
+ * stop's 0-indexed position in the input `destinations` array; PR 3's UI
+ * uses it to group rows into LEG sub-bands on overlap days. A row with
+ * `destinationIndex: 1` means "this event is in range of stop #2."
+ *
+ * Single-stop searches produce rows all tagged `{ destinationIndex: 0 }`,
+ * which existing consumers can safely ignore.
+ */
+interface DestinationTag {
+  destinationIndex: number;
+  destinationLabel: string | null;
+}
+
+export interface ConfirmedResult extends DestinationTag {
   type: "confirmed";
   eventId: string;
   kennelId: string;
@@ -83,7 +108,7 @@ export interface ConfirmedResult {
   weather: DailyWeather | null;
 }
 
-export interface LikelyResult {
+export interface LikelyResult extends DestinationTag {
   type: "likely";
   kennelId: string;
   kennelSlug: string;
@@ -102,7 +127,7 @@ export interface LikelyResult {
   sourceLinks: SourceLink[];
 }
 
-export interface PossibleResult {
+export interface PossibleResult extends DestinationTag {
   type: "possible";
   kennelId: string;
   kennelSlug: string;
@@ -119,28 +144,63 @@ export interface PossibleResult {
   lastConfirmedAt: Date | null;
 }
 
-export interface TravelSearchResults {
-  confirmed: ConfirmedResult[];
-  likely: LikelyResult[];
-  possible: PossibleResult[];
+export type EmptyStateKind =
+  | "none"
+  | "no_confirmed"
+  | "no_nearby"
+  | "no_coverage"
+  | "out_of_horizon";
+
+/**
+ * Per-stop summary. Every stop gets one of these, even if it had zero
+ * results, so the UI can render per-stop hints ("Paris: out of horizon")
+ * without collapsing to a single aggregate message.
+ *
+ * Broader-pass results live here, scoped to this stop only — a stop whose
+ * primary radius was dormant triggers its own broader fallback without
+ * affecting other stops.
+ */
+export interface DestinationResult {
+  index: number;
+  label: string | null;
+  startDate: Date;
+  endDate: Date;
+  horizonTier: ProjectionHorizonTier;
+  radiusKm: number;
+  kennelsSearched: number;
+  emptyState: EmptyStateKind;
+  /** Only set when this stop's broader-radius fallback actually fired. */
+  broaderRadiusKm?: number;
+  /** Broader-pass results for this stop, or undefined when no fallback ran. */
   broaderResults?: {
     confirmed: ConfirmedResult[];
     likely: LikelyResult[];
     possible: PossibleResult[];
   };
-  emptyState: "none" | "no_confirmed" | "no_nearby" | "no_coverage" | "out_of_horizon";
+}
+
+export interface TravelSearchResults {
+  /** Flattened primary-pass results across all stops, each tagged with destinationIndex. */
+  confirmed: ConfirmedResult[];
+  likely: LikelyResult[];
+  possible: PossibleResult[];
+  /** Per-stop breakdown — horizon, empty-state, broader-pass details. */
+  destinations: DestinationResult[];
+  /**
+   * Aggregate empty state for the full-page banner. Rule:
+   *   - Every stop `no_coverage` → `no_coverage`
+   *   - Every stop `out_of_horizon` → `out_of_horizon`
+   *   - Every stop empty with at least one `no_nearby` → `no_nearby`
+   *   - Every stop's confirmed empty but some likely/possible anywhere → `no_confirmed`
+   *   - Any stop has confirmed results → `none`
+   * Per-stop empty states still live on `destinations[i].emptyState` for
+   * local hints; this field only drives the full-page banner.
+   */
+  emptyState: EmptyStateKind;
   meta: {
+    /** Sum of kennels searched across all stops. */
     kennelsSearched: number;
-    radiusKm: number;
-    broaderRadiusKm?: number;
-    /**
-     * Which projection tier the search's start date falls into:
-     *   "all" — within 180d, MEDIUM + HIGH projections both render
-     *   "high" — 181-365d, only HIGH-confidence RRULE projections render
-     *   "none" — past 365d, confirmed events only
-     * UI surfaces this so TripSummary can explain why Likely looks sparse
-     * for far-out searches.
-     */
+    /** Worst-case horizon tier across stops (none > high > all). */
     horizonTier: ProjectionHorizonTier;
   };
 }
@@ -215,20 +275,110 @@ export function byDateTimeDistance<T extends { date: Date; startTime: string | n
 // Main search function
 // ============================================================================
 
+/**
+ * Orchestrator. Fans out over `params.destinations` (1..N stops), runs
+ * each stop's pipeline in parallel, tags every row with `destinationIndex`
+ * + `destinationLabel`, and returns both a flattened top-level result set
+ * and a per-stop breakdown for per-destination UI hints.
+ *
+ * `fetchAllVisibleKennels` runs once at the top — per-stop filtering is
+ * in-memory so the 3-stop case fans out DB-query-wise to 3 independent
+ * waves of 3 queries each (= 9 queries, all in flight concurrently via
+ * the outer Promise.all).
+ */
 export async function executeTravelSearch(
   prisma: PrismaClient,
   params: TravelSearchParams,
 ): Promise<TravelSearchResults> {
-  const { latitude, longitude } = params;
+  if (params.destinations.length === 0) {
+    throw new Error("executeTravelSearch requires at least one destination");
+  }
+
+  const now = new Date();
+  const allKennels = await fetchAllVisibleKennels(prisma);
+
+  const perStop = await Promise.all(
+    params.destinations.map((d, i) =>
+      runStopSearch(prisma, d, i, {
+        allKennels,
+        filters: params.filters,
+        now,
+      }),
+    ),
+  );
+
+  // Aggregate. Each stop returns `{ destination, primaryRows }` — its
+  // primary-pass rows already tagged with destinationIndex. broaderResults
+  // live on destination (not hoisted top-level) so per-stop fallbacks
+  // don't mix.
+  const confirmed: ConfirmedResult[] = [];
+  const likely: LikelyResult[] = [];
+  const possible: PossibleResult[] = [];
+  const destinations: DestinationResult[] = [];
+  let kennelsSearched = 0;
+
+  for (const stop of perStop) {
+    confirmed.push(...stop.primaryRows.confirmed);
+    likely.push(...stop.primaryRows.likely);
+    possible.push(...stop.primaryRows.possible);
+    destinations.push(stop.destination);
+    kennelsSearched += stop.destination.kennelsSearched;
+  }
+
+  confirmed.sort(byDateTimeDistance);
+  likely.sort(byDateTimeDistance);
+  possible.sort((a, b) => a.distanceKm - b.distanceKm);
+
+  return {
+    confirmed,
+    likely,
+    possible,
+    destinations,
+    emptyState: aggregateEmptyState(destinations),
+    meta: {
+      kennelsSearched,
+      horizonTier: worstHorizonTier(destinations.map((d) => d.horizonTier)),
+    },
+  };
+}
+
+// ============================================================================
+// Per-stop pipeline
+// ============================================================================
+
+interface StopContext {
+  allKennels: VisibleKennel[];
+  filters: TravelSearchParams["filters"];
+  now: Date;
+}
+
+interface StopOutcome {
+  destination: DestinationResult;
+  /** Rows from the primary pass, already tagged with destinationIndex. */
+  primaryRows: {
+    confirmed: ConfirmedResult[];
+    likely: LikelyResult[];
+    possible: PossibleResult[];
+  };
+}
+
+async function runStopSearch(
+  prisma: PrismaClient,
+  stop: DestinationParams,
+  index: number,
+  ctx: StopContext,
+): Promise<StopOutcome> {
+  const { latitude, longitude, label } = stop;
+  const destinationLabel = label ?? null;
   // Defense in depth: clamp the request radius at the service boundary.
   // page.tsx and validateSearchParams both clamp upstream, but this is
   // also called from the saved-trips dashboard with persisted values
   // and any future caller could bypass the upstream gates. Floor at 1
   // so an accidental zero/negative doesn't yield an empty result set.
-  const radiusKm = Math.max(1, Math.min(MAX_RADIUS_KM, params.radiusKm));
-  const now = new Date();
+  const radiusKm = Math.max(1, Math.min(MAX_RADIUS_KM, stop.radiusKm));
+  const now = ctx.now;
 
-  // Step 1: Parse + clamp dates
+  // Step 1: Parse + clamp dates.
   // rawEndDate is the user's requested end — uncapped, so we can tell
   // downstream that this was the intent. Two separate derived bounds:
   //   - confirmedEndDate: bounds the confirmed-event DB query. Past the
@@ -236,8 +386,8 @@ export async function executeTravelSearch(
   //     a 5-year URL doesn't fan out Event.findMany across every kennel.
   //   - projectionEndDate: bounds the RRULE loop so it doesn't iterate
   //     unboundedly on far-future trips.
-  const startDate = parseUtcNoonDate(params.startDate);
-  const rawEndDate = parseUtcNoonDate(params.endDate);
+  const startDate = parseUtcNoonDate(stop.startDate);
+  const rawEndDate = parseUtcNoonDate(stop.endDate);
   const confirmedHorizonMax = new Date(
     now.getTime() + CONFIRMED_EVENT_HORIZON_DAYS * DAY_MS,
   );
@@ -250,12 +400,11 @@ export async function executeTravelSearch(
   // Broader pass fires either when primary has no kennels in radius or when
   // primary had kennels but no unfiltered results (dormant-kennel case).
   // Broader excludes primary IDs so results are strictly additional.
-  const allKennels = await fetchAllVisibleKennels(prisma);
-  const primary = filterByRadius(allKennels, latitude, longitude, radiusKm);
+  const primary = filterByRadius(ctx.allKennels, latitude, longitude, radiusKm);
   const broaderRadiusKm = Math.min(radiusKm * 3, MAX_RADIUS_KM);
   const computeBroader = () => {
     const primaryIds = new Set(primary.map((k) => k.id));
-    return filterByRadius(allKennels, latitude, longitude, broaderRadiusKm)
+    return filterByRadius(ctx.allKennels, latitude, longitude, broaderRadiusKm)
       .filter((k) => !primaryIds.has(k.id));
   };
 
@@ -264,11 +413,18 @@ export async function executeTravelSearch(
     broader = computeBroader();
     if (broader.length === 0) {
       return {
-        confirmed: [],
-        likely: [],
-        possible: [],
-        emptyState: "no_coverage",
-        meta: { kennelsSearched: 0, radiusKm, broaderRadiusKm, horizonTier },
+        destination: {
+          index,
+          label: destinationLabel,
+          startDate,
+          endDate: rawEndDate,
+          horizonTier,
+          radiusKm,
+          kennelsSearched: 0,
+          emptyState: "no_coverage",
+          broaderRadiusKm,
+        },
+        primaryRows: { confirmed: [], likely: [], possible: [] },
       };
     }
   }
@@ -377,6 +533,8 @@ export async function executeTravelSearch(
 
     return {
       type: "confirmed" as const,
+      destinationIndex: index,
+      destinationLabel,
       eventId: event.id,
       kennelId: event.kennelId,
       kennelSlug: kennel?.slug ?? "",
@@ -405,6 +563,8 @@ export async function executeTravelSearch(
     const kennel = kennelMap.get(proj.kennelId);
     return {
       type: "likely" as const,
+      destinationIndex: index,
+      destinationLabel,
       kennelId: proj.kennelId,
       kennelSlug: kennel?.slug ?? "",
       kennelName: kennel?.shortName ?? "",
@@ -434,6 +594,8 @@ export async function executeTravelSearch(
       : null;
     return {
       type: "possible" as const,
+      destinationIndex: index,
+      destinationLabel,
       kennelId: proj.kennelId,
       kennelSlug: kennel?.slug ?? "",
       kennelName: kennel?.shortName ?? "",
@@ -451,7 +613,7 @@ export async function executeTravelSearch(
 
     const unfilteredTotal =
       confirmedResults.length + likelyResults.length + possibleResults.length;
-    const filtered = applyFilters(confirmedResults, likelyResults, possibleResults, params.filters);
+    const filtered = applyFilters(confirmedResults, likelyResults, possibleResults, ctx.filters);
 
     filtered.confirmed.sort(byDateTimeDistance);
     filtered.likely.sort(byDateTimeDistance);
@@ -491,14 +653,15 @@ export async function executeTravelSearch(
     }
   }
 
-  // Step 16: Determine empty state
+  // Step 16: Determine empty state.
   // The empty state reflects what the user should see, independent of filters:
   // - no_coverage: zero kennels found even in broader pass
   // - no_nearby: primary radius had zero kennels, but broader pass found some
   // - no_confirmed: confirmed events empty, but likely/possible exist
+  // - out_of_horizon: nothing in range past the 365-day projection horizon
   // - none: has results in the primary radius
-  let emptyState: TravelSearchResults["emptyState"] = "none";
-  let broaderResultsObj: TravelSearchResults["broaderResults"];
+  let emptyState: EmptyStateKind = "none";
+  let broaderResultsObj: DestinationResult["broaderResults"];
 
   const totalResults =
     filtered.confirmed.length + filtered.likely.length + filtered.possible.length;
@@ -520,19 +683,25 @@ export async function executeTravelSearch(
   }
 
   return {
-    confirmed: primaryEffectivelyEmpty ? [] : filtered.confirmed,
-    likely: primaryEffectivelyEmpty ? [] : filtered.likely,
-    possible: primaryEffectivelyEmpty ? [] : filtered.possible,
-    broaderResults: broaderResultsObj,
-    emptyState,
-    meta: {
-      kennelsSearched: nearbyKennels.length,
+    destination: {
+      index,
+      label: destinationLabel,
+      startDate,
+      endDate: rawEndDate,
+      horizonTier,
       radiusKm,
+      kennelsSearched: nearbyKennels.length,
+      emptyState,
       // Only emit when the broader pass actually ran and was adopted —
       // TripSummary reads this as the "effective" radius and would otherwise
       // label every primary-only search as expanded.
       broaderRadiusKm: primaryEffectivelyEmpty ? broaderRadiusKm : undefined,
-      horizonTier,
+      broaderResults: broaderResultsObj,
+    },
+    primaryRows: {
+      confirmed: primaryEffectivelyEmpty ? [] : filtered.confirmed,
+      likely: primaryEffectivelyEmpty ? [] : filtered.likely,
+      possible: primaryEffectivelyEmpty ? [] : filtered.possible,
     },
   };
 }
@@ -540,6 +709,36 @@ export async function executeTravelSearch(
 // ============================================================================
 // Helpers
 // ============================================================================
+
+/**
+ * Aggregate per-stop empty states into a single top-level banner state.
+ * Rule: if any stop has confirmed results, show nothing. Otherwise surface
+ * the most "explanatory" state across stops — coverage > horizon > nearby >
+ * confirmed. Per-stop states still live on `destinations[i].emptyState`
+ * for inline hints.
+ */
+function aggregateEmptyState(stops: DestinationResult[]): EmptyStateKind {
+  if (stops.length === 0) return "no_coverage";
+  // "none" wins if any stop has confirmed results — the UI shouldn't
+  // suppress a good result from stop 0 because stop 2 is out of horizon.
+  const anyNone = stops.some((s) => s.emptyState === "none");
+  if (anyNone) return "none";
+  if (stops.every((s) => s.emptyState === "no_coverage")) return "no_coverage";
+  if (stops.every((s) => s.emptyState === "out_of_horizon")) return "out_of_horizon";
+  if (stops.some((s) => s.emptyState === "no_nearby")) return "no_nearby";
+  // Mixed empties that aren't uniform coverage/horizon — most common when
+  // every stop has likely/possible but no confirmed. Fall back to
+  // no_confirmed so the UI surfaces projections instead of the harsher
+  // out-of-horizon / no-coverage copy.
+  return "no_confirmed";
+}
+
+/** Worst-case horizon across stops: "none" > "high" > "all". */
+function worstHorizonTier(tiers: ProjectionHorizonTier[]): ProjectionHorizonTier {
+  if (tiers.includes("none")) return "none";
+  if (tiers.includes("high")) return "high";
+  return "all";
+}
 
 /** Fetch all non-hidden kennels with their coordinates and region data. */
 async function fetchAllVisibleKennels(prisma: PrismaClient) {
