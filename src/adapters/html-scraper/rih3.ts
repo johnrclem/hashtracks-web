@@ -31,9 +31,11 @@ import {
 
 const DAY_PREFIX_RE = /^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\.?\s+/i;
 
-/** Reject a locationText that starts with a preposition/conjunction — those
- *  are sentence fragments bleeding through the strip cascade, not venues. #816. */
-const PROSE_LEAD_RE = /^(?:for|in|on|to|with|and|but|so|of|it['’]s|we['’]?re)\b/i;
+/** Reject a locationText that starts with a lowercase preposition/conjunction —
+ *  those are sentence fragments bleeding through the strip cascade, not venues.
+ *  Case-sensitive to preserve Title-Case venues like "On Tap Sports Bar" or
+ *  "In-N-Out Burger". #816. */
+const PROSE_LEAD_RE = /^(?:for|in|on|to|at|with|from|near|and|but|so|of|it['’]s|we['’]?re)\b/;
 
 /** Max h2 length before we assume prose has bled into the title and keep
  *  only the first <br>-delimited segment. Motivated by rih3 #2095. #816. */
@@ -124,7 +126,9 @@ export function parseHarelineRow(
   // Title from <h2>. If h2 has multiple <br>-separated segments and the full
   // joined text runs long (prose bleed from unstructured authoring), fall back
   // to the first segment only. #816.
-  const h2Html = dir$("h2").first().html() ?? "";
+  // Normalize raw CRLF/LF in the HTML source to spaces so formatting line
+  // wraps don't get mistaken for <br>-delimited segments. CodeRabbit PR #824.
+  const h2Html = (dir$("h2").first().html() ?? "").replace(/\r?\n/g, " ");
   const h2Segments = stripHtmlTags(h2Html, "\n")
     .split("\n")
     .map((s) => s.trim())

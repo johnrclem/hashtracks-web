@@ -367,6 +367,33 @@ Basket says, "Check out the Receding Hareline..."
     expect(result?.locationUrl).toContain("google.com/maps");
   });
 
+  it("preserves Title-Case venue names starting with 'On'/'In' (#824 review)", () => {
+    // PROSE_LEAD_RE must be case-sensitive so Title-Case venues survive.
+    const dirHtml = `
+      <h2>Pub Run</h2>
+      <a href="https://www.google.com/maps/place/On+Tap+Sports+Bar">
+        <font>On Tap Sports Bar</font>
+      </a>
+    `;
+    const cells = ["Mon April 20", "6:30 PM", "2096"];
+    const result = parseHarelineRow(cells, HARE_SINGLE, dirHtml, SOURCE_URL);
+    expect(result?.location).toBe("On Tap Sports Bar");
+  });
+
+  it("normalizes source newlines inside <h2> so formatting wraps don't fake segments (#824 review)", () => {
+    // Source HTML has an actual CRLF inside the <h2> between tags — without
+    // normalization, stripHtmlTags would treat it as a segment boundary and
+    // truncate to "The 420".
+    const dirHtml = `
+      <h2><strong>The 420
+Hash</strong></h2>
+      <a href="https://www.google.com/maps/place/Quonset+Point">Quonset Point</a>
+    `;
+    const cells = ["Mon April 20", "6:30 PM", "2097"];
+    const result = parseHarelineRow(cells, HARE_SINGLE, dirHtml, SOURCE_URL);
+    expect(result?.title).toBe("The 420 Hash");
+  });
+
   it("resolves same-day date to current year, not next year (Bug #1)", () => {
     // Simulate scrape running at 2:30 PM on March 23, 2026
     const midDayRef = new Date(2026, 2, 23, 14, 30, 0);
