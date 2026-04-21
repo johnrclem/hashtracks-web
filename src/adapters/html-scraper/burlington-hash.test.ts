@@ -144,6 +144,20 @@ describe("parseCalendarLink", () => {
 
     expect(result?.hares).toBe("Penis Colada");
   });
+
+  it("strips 'Length:' and 'Shiggy Scale:' trail metadata from hares field (#825)", () => {
+    // BurlyH3 concatenates trail metadata inline with hares. Source-of-truth
+    // content: "Hares: 20 Gallons of Piss & Redtail SwallowsLength: TBDShiggy Scale: 4"
+    const href =
+      "https://calendar.google.com/calendar/render?action=TEMPLATE" +
+      "&text=BTVH3+%23850%3A+Shiggy+Fest" +
+      "&dates=20260508T223000Z/20260508T233000Z" +
+      "&details=Hares%3A+20+Gallons+of+Piss+%26+Redtail+SwallowsLength%3A+TBDShiggy+Scale%3A+4";
+
+    const result = parseCalendarLink(href, SOURCE_URL);
+
+    expect(result?.hares).toBe("20 Gallons of Piss & Redtail Swallows");
+  });
 });
 
 describe("BurlingtonHashAdapter", () => {

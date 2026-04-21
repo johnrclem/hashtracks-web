@@ -2085,6 +2085,23 @@ describe("buildRawEventFromGCalItem — trailing dash + defaultTitle (#756 Moooo
   });
 });
 
+describe("buildRawEventFromGCalItem — trailing dash after titleFromDescription (#815 GyNO)", () => {
+  it("scrubs trailing ' -' when a What: field pulled from description carries the delimiter", () => {
+    // Repro: GCal summary is bare kennel tag, so title is replaced by the
+    // `What:` field from the description. If that value ends with ' -' the
+    // earlier trailing-dash strip (runs before the substitution) misses it.
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        summary: "GyNO",
+        description:
+          "What: GyNO H3 4/20 Trail -\nLocation: Belvedere Park, 672 S. Belvedere Blvd., Memphis, TN 38104",
+      }),
+      { kennelPatterns: [["GyNO", "gynoh3"]] },
+    );
+    expect(result?.title).toBe("GyNO H3 4/20 Trail");
+  });
+});
+
 describe("buildRawEventFromGCalItem — audit Round 2 (#796 #798 #799 #800)", () => {
   const pedal = { kennelPatterns: [["Bash", "pedal-files"]] as [string, string][], defaultTitle: "Bash" };
   const wasatch = { kennelPatterns: [["wasatch", "wasatch-h3"]] as [string, string][], defaultTitles: { "wasatch-h3": "Wasatch H3 Trail" } };

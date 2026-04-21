@@ -397,7 +397,7 @@ export class BigHumpAdapter implements SourceAdapter {
           const h4Text = h4.text().trim();
           if (!h4Text) return;
 
-          const { title, hares: titleHares, location: titleLocation } =
+          const { hares: titleHares, location: titleLocation } =
             parseEventTitle(h4Text);
 
           // Preserve paragraph breaks so the labeled-field regexes below can
@@ -409,13 +409,26 @@ export class BigHumpAdapter implements SourceAdapter {
           const descLocation = parseLocationFromDescription(descText);
           const descHares = parseHaresFromDescription(descText);
 
+          const hares = descHares || titleHares;
+          const location = descLocation || titleLocation;
+
+          // #828: "Open @ ???" placeholder rows — skip. Key off raw h4Text so
+          // a real hasher literally named "Open" still gets ingested if their
+          // venue is known.
+          if (/^open\s*@\s*(?:\?+|tbd|tba|n\/a)\s*$/i.test(h4Text)) return;
+
+          // #828: h4 is "Hare @ Venue" — rebuild as "BH4 #N @ Venue" so hares don't double as title.
+          const title = runNumber
+            ? `BH4 #${runNumber}${location ? ` @ ${location}` : ""}`
+            : h4Text;
+
           harelineEvents.push({
             date,
             kennelTag: "bh4",
             runNumber,
             title,
-            hares: descHares || titleHares,
-            location: descLocation || titleLocation,
+            hares,
+            location,
             startTime: descTime,
             sourceUrl: harelineUrl,
             description: descText || undefined,

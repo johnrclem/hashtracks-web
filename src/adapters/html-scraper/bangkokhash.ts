@@ -57,6 +57,12 @@ const SITE_CONFIGS: Record<string, BangkokHashConfig> = {
   siamsunday: { subSite: "siamsunday", hashClub: "S2H3", apiBase: "/H220j", kennelTag: "s2h3", defaultTime: "16:30" },
 };
 
+// #827: guard against label strings leaking as field values when the source
+// emits an empty slot (e.g. "Run Site: Run Site:" → captures "Run Site:").
+// Label grammar mirrors the `grab()` calls below so a leaked "Google Maps Link:"
+// is caught the same as "Google Map:".
+const FIELD_LABEL_LEAK_RE = /^(Run\s*Site|Station|Restaurant|Location|Hares?|Date|Start\s*Time|Google\s*(?:maps?|Map)\s*(?:Link)?)\s*:?$/i;
+
 /**
  * Parse the Joomla next-run article. This has labeled fields in
  * `<strong>Label</strong>: Value` format within `.item-content`.
@@ -79,8 +85,9 @@ export function parseNextRunArticle(
     const re = new RegExp(`${label}\\s*:\\s*(.+?)(?:\\n|$)`, "i");
     const m = re.exec(text);
     const val = m?.[1]?.trim();
-    // Skip empty/placeholder values
-    return val && val.length > 0 ? val : undefined;
+    if (!val) return undefined;
+    if (FIELD_LABEL_LEAK_RE.test(val)) return undefined;
+    return val;
   };
 
   const dateRaw = grab("Date");

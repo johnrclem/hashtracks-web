@@ -542,6 +542,86 @@ describe("BigHumpAdapter", () => {
     expect(result.errors).toContain("HTTP 500");
   });
 
+  it("#828: constructs 'BH4 #NNNN @ Venue' title from hareline '<Hare> @ <Venue>' h4", async () => {
+    const html = `
+      <html><body>
+        <div class="w3-card">
+          <header class="w3-container w3-green">
+            <h3>Wednesday 04/22/2026 <span class="w3-text-amber">#1995</span></h3>
+          </header>
+          <div class="w3-row"><div class="w3-col w3-container m9 l10">
+            <h4>Headlights and Mr. Headlights @ The Loop</h4>
+            <span class="w3-small">Circle up: 6:45 p.m.</span>
+          </div></div>
+        </div>
+      </body></html>
+    `;
+    vi.mocked(utils.fetchHTMLPage).mockResolvedValueOnce({
+      ok: true as const,
+      html,
+      $: cheerio.load(html),
+      structureHash: "title-test",
+      fetchDurationMs: 50,
+    });
+
+    const mockSource = {
+      id: "test-bh4",
+      url: "http://www.big-hump.com/hareline.php",
+      config: null,
+    } as never;
+    const result = await adapter.fetch(mockSource, { days: 36500 });
+
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].title).toBe("BH4 #1995 @ The Loop");
+    expect(result.events[0].location).toBe("The Loop");
+    expect(result.events[0].hares).toBe("Headlights and Mr. Headlights");
+  });
+
+  it("#828: skips 'Open @ ???' placeholder rows with no venue", async () => {
+    const html = `
+      <html><body>
+        <div class="w3-card">
+          <header class="w3-container w3-green">
+            <h3>Wednesday 05/06/2026 <span class="w3-text-amber">#1998</span></h3>
+          </header>
+          <div class="w3-row"><div class="w3-col w3-container m9 l10">
+            <h4>Open @ ???</h4>
+            <span class="w3-small"></span>
+          </div></div>
+        </div>
+        <div class="w3-card">
+          <header class="w3-container w3-green">
+            <h3>Wednesday 05/13/2026 <span class="w3-text-amber">#1999</span></h3>
+          </header>
+          <div class="w3-row"><div class="w3-col w3-container m9 l10">
+            <h4>Hammock @ ???</h4>
+            <span class="w3-small"></span>
+          </div></div>
+        </div>
+      </body></html>
+    `;
+    vi.mocked(utils.fetchHTMLPage).mockResolvedValueOnce({
+      ok: true as const,
+      html,
+      $: cheerio.load(html),
+      structureHash: "skip-test",
+      fetchDurationMs: 50,
+    });
+
+    const mockSource = {
+      id: "test-bh4",
+      url: "http://www.big-hump.com/hareline.php",
+      config: null,
+    } as never;
+    const result = await adapter.fetch(mockSource, { days: 36500 });
+
+    // "Open @ ???" skipped (no hare named yet, no venue);
+    // "Hammock @ ???" kept (hare is committed, venue just TBD).
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].runNumber).toBe(1999);
+    expect(result.events[0].hares).toBe("Hammock");
+  });
+
   it("does not leak description text into hares when 'hares' appears mid-sentence (#519)", async () => {
     // Reproduces Run #1992: the description body has no labeled Hare: line,
     // but mentions "hares" in the middle of a sentence. The old regex matched

@@ -816,6 +816,9 @@ export function buildRawEventFromGCalItem(
   if (location && title.toLowerCase().endsWith(` - ${location.toLowerCase()}`)) {
     title = title.slice(0, -(` - ${location}`).length).trim();
   }
+  // #815 GyNO: the endsWith strip above only fires on exact-location suffixes;
+  // a normalized-variant location can leave a bare trailing delimiter behind.
+  title = title.replace(/\s*[-–—]\s*$/, "").trim();
 
   // Address-as-title: move to location, use kennel tag as title
   if (ADDRESS_AS_TITLE_RE.test(title)) {
