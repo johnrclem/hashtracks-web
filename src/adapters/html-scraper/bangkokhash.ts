@@ -68,7 +68,7 @@ const FIELD_LABELS = new Set([
 ]);
 
 function isFieldLabel(val: string): boolean {
-  const normalized = val.toLowerCase().replace(/:\s*$/, "").replace(/\s+/g, " ").trim();
+  const normalized = val.toLowerCase().replace(/:\s*$/, "").replaceAll(/\s+/g, " ").trim();
   return FIELD_LABELS.has(normalized);
 }
 
