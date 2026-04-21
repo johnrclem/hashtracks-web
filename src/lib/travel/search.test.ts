@@ -798,6 +798,43 @@ describe("executeTravelSearch multi-destination", () => {
     expect(result.confirmed).toHaveLength(0);
   });
 
+  it("aggregates mixed hard empties to no_coverage (not no_confirmed)", async () => {
+    // Gemini regression on PR #835: one stop with no kennels + one stop
+    // past the 365d horizon used to fall through every/every/some checks
+    // to "no_confirmed", misleading the UI into implying projections
+    // exist when neither stop produced any.
+    // London: no kennels at all → no_coverage.
+    // Paris future: kennel exists but startDate past horizon → out_of_horizon.
+    const futureParisStop: DestinationParams = {
+      ...parisStop,
+      startDate: "2028-04-23",
+      endDate: "2028-04-26",
+    };
+    const prisma = createMockPrisma([parisKennel], [], []);
+    const result = await executeTravelSearch(prisma, {
+      destinations: [londonStop, futureParisStop],
+    });
+
+    expect(result.destinations[0].emptyState).toBe("no_coverage");
+    expect(result.destinations[1].emptyState).toBe("out_of_horizon");
+    // no_coverage beats out_of_horizon in the aggregate: a missing-data
+    // region is more useful to flag than a date the user can't change.
+    expect(result.emptyState).toBe("no_coverage");
+  });
+
+  it("aggregates emptyState to out_of_horizon when every stop is past the horizon", async () => {
+    const prisma = createMockPrisma([londonKennel, parisKennel], [], []);
+    const result = await executeTravelSearch(prisma, {
+      destinations: [
+        { ...londonStop, startDate: "2028-04-20", endDate: "2028-04-23" },
+        { ...parisStop, startDate: "2028-04-23", endDate: "2028-04-26" },
+      ],
+    });
+
+    expect(result.destinations.every((d) => d.emptyState === "out_of_horizon")).toBe(true);
+    expect(result.emptyState).toBe("out_of_horizon");
+  });
+
   it("aggregates horizonTier to worst-case across stops", async () => {
     // One stop near-term ("all"), one stop 2 years out ("none"). Aggregate
     // must surface the "none" so UI copy explains why Likely is sparse.

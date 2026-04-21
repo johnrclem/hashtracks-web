@@ -760,25 +760,25 @@ async function runStopSearch(
 
 /**
  * Aggregate per-stop empty states into a single top-level banner state.
- * Rule: if any stop has confirmed results, show nothing. Otherwise surface
- * the most "explanatory" state across stops — coverage > horizon > nearby >
- * confirmed. Per-stop states still live on `destinations[i].emptyState`
- * for inline hints.
+ *
+ * Priority: surface the most optimistic (actionable) state first. If any
+ * stop has real results (`none`), suppress the banner entirely. Otherwise
+ * prefer projection-bearing states (`no_nearby`, `no_confirmed`) over
+ * hard empties (`no_coverage`, `out_of_horizon`), since the former means
+ * the user has something to act on. Among hard empties, `no_coverage`
+ * beats `out_of_horizon` — a missing-data region is more useful to flag
+ * than a future date the user can't change.
+ *
+ * Per-stop states still live on `destinations[i].emptyState` for per-leg
+ * inline hints; this field only drives the full-page banner.
  */
 function aggregateEmptyState(stops: DestinationResult[]): EmptyStateKind {
   if (stops.length === 0) return "no_coverage";
-  // "none" wins if any stop has confirmed results — the UI shouldn't
-  // suppress a good result from stop 0 because stop 2 is out of horizon.
-  const anyNone = stops.some((s) => s.emptyState === "none");
-  if (anyNone) return "none";
-  if (stops.every((s) => s.emptyState === "no_coverage")) return "no_coverage";
-  if (stops.every((s) => s.emptyState === "out_of_horizon")) return "out_of_horizon";
+  if (stops.some((s) => s.emptyState === "none")) return "none";
   if (stops.some((s) => s.emptyState === "no_nearby")) return "no_nearby";
-  // Mixed empties that aren't uniform coverage/horizon — most common when
-  // every stop has likely/possible but no confirmed. Fall back to
-  // no_confirmed so the UI surfaces projections instead of the harsher
-  // out-of-horizon / no-coverage copy.
-  return "no_confirmed";
+  if (stops.some((s) => s.emptyState === "no_confirmed")) return "no_confirmed";
+  if (stops.some((s) => s.emptyState === "no_coverage")) return "no_coverage";
+  return "out_of_horizon";
 }
 
 /** Worst-case horizon across stops: "none" > "high" > "all". */
