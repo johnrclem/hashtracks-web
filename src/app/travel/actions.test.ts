@@ -144,27 +144,12 @@ describe("saveTravelSearch", () => {
     expect("error" in result && result.error).toContain("End date");
   });
 
-  it("returns error for invalid date strings", async () => {
-    const result = await saveTravelSearch({
-      ...validParams,
-      startDate: "not-a-date",
-    });
-    expect("error" in result && result.error).toContain("date");
-  });
-
-  it("rejects impossible calendar dates like Feb 31", async () => {
-    const result = await saveTravelSearch({
-      ...validParams,
-      startDate: "2026-02-31",
-    });
-    expect("error" in result && result.error).toContain("date");
-  });
-
-  it("rejects month 13", async () => {
-    const result = await saveTravelSearch({
-      ...validParams,
-      startDate: "2026-13-01",
-    });
+  it.each([
+    ["invalid date strings", "not-a-date"],
+    ["impossible calendar dates like Feb 31", "2026-02-31"],
+    ["month 13", "2026-13-01"],
+  ])("rejects %s", async (_label, startDate) => {
+    const result = await saveTravelSearch({ ...validParams, startDate });
     expect("error" in result && result.error).toContain("date");
   });
 
@@ -202,38 +187,19 @@ describe("saveTravelSearch", () => {
     expect("id" in result && result.id).toBe("ts-winner");
   });
 
-  it("dedups by itinerarySignature keyed on placeId when present (#784)", async () => {
-    // With multi-stop support the dedup key is a SHA-256 of the canonical
-    // itinerary JSON. When a stop carries placeId, the canonical form omits
-    // lat/lng, so the same place across provider paths (autocomplete vs
-    // server-side geocode, coords differ by ~0.0001°) produces the same
-    // signature and the findFirst short-circuits.
-    vi.mocked(prisma.travelSearch.findFirst).mockResolvedValueOnce({
-      id: "ts-placeid",
-    } as never);
+  // With multi-stop support the dedup key is a SHA-256 of the canonical
+  // itinerary JSON. When a stop carries placeId, the canonical form omits
+  // lat/lng so the same place across provider paths (autocomplete vs
+  // server-side geocode, coords differ by ~0.0001°) still produces the
+  // same signature. Without placeId the signature falls back to coords.
+  it.each([
+    ["placeId", "ts-placeid", { ...validParams, placeId: "ChIJplace123" }],
+    ["coords",  "ts-coords",  validParams],
+  ])("dedups by itinerarySignature keyed on %s", async (_label, id, params) => {
+    vi.mocked(prisma.travelSearch.findFirst).mockResolvedValueOnce({ id } as never);
 
-    const result = await saveTravelSearch({
-      ...validParams,
-      placeId: "ChIJplace123",
-    });
-    expect("id" in result && result.id).toBe("ts-placeid");
-
-    const call = vi.mocked(prisma.travelSearch.findFirst).mock.calls[0][0];
-    const where = (call as { where?: Record<string, unknown> })?.where ?? {};
-    expect(where).toMatchObject({
-      userId: "user-1",
-      status: "ACTIVE",
-      itinerarySignature: expect.any(String),
-    });
-  });
-
-  it("dedups by coord-based signature when placeId is absent", async () => {
-    vi.mocked(prisma.travelSearch.findFirst).mockResolvedValueOnce({
-      id: "ts-coords",
-    } as never);
-
-    const result = await saveTravelSearch(validParams);
-    expect("id" in result && result.id).toBe("ts-coords");
+    const result = await saveTravelSearch(params);
+    expect("id" in result && result.id).toBe(id);
 
     const call = vi.mocked(prisma.travelSearch.findFirst).mock.calls[0][0];
     const where = (call as { where?: Record<string, unknown> })?.where ?? {};
