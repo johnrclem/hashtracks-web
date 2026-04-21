@@ -70,10 +70,15 @@ export function parseChiangMaiLine(
   const runNumberRaw = Number.parseInt(runMatch[1], 10);
   const runNumber = Number.isNaN(runNumberRaw) ? undefined : runNumberRaw;
 
-  // Extract hare name: everything after the last " – " or after the run number
+  // Extract hare name: everything after the last " – " or after the run number.
+  // CGH3 pages prefix the name with a "Hare." label (e.g. "Hare. HRA") — strip
+  // it so only the name survives. #814.
   let hares: string | undefined;
   const afterRun = cleaned.slice(runMatch.index + runMatch[0].length);
-  const harePart = afterRun.replace(/^\s*[-–—]\s*/, "").trim();
+  const harePart = afterRun
+    .replace(/^\s*[-–—]\s*/, "")
+    .replace(/^Hares?\s*[.:]\s*/i, "")
+    .trim();
   if (harePart && !/^HARE NEEDED$/i.test(harePart) && !/^\?+$/.test(harePart)) {
     hares = normalizeHaresField(harePart);
   }

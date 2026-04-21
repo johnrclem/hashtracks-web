@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { Source } from "@/generated/prisma/client";
 import { parseHarelineRow, extractHares, RIH3Adapter } from "./rih3";
 
@@ -155,6 +155,17 @@ describe("extractHares", () => {
 });
 
 describe("parseHarelineRow", () => {
+  // Pin system time so year-less dates like "Mon April 21" resolve to 2026
+  // regardless of when the test runs (chrono's forwardDate would otherwise
+  // push them to next year once "today" has passed them).
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(Date.UTC(2026, 0, 15, 12)));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("parses standard event with all fields", () => {
     const cells = ["Mon April 21", "6:30 PM", "2043"];
     // Fixed reference date so year inference is deterministic regardless
@@ -336,6 +347,64 @@ Basket says, "Check out the Receding Hareline..."
     expect(result?.description).toContain("Basket says");
   });
 
+  it("truncates long prose bleed from h2 to first segment (#816)", () => {
+    // Real-world: h2 has the run name followed by <br/> and a long sentence
+    // of prose. The joined text exceeds 80 chars, so we keep only the first
+    // segment ("The 420 Hash") as the title.
+    const dirHtml = `
+      <h2><strong>The 420 Hash<br/>It's been a while since Cracker Jackoff and Blue Job Lips Laid Flour for the RIH3</strong></h2>
+      <a href="https://www.google.com/maps/place/Quonset+Point">
+        <font>Park Here for a smokin' good time</font>
+      </a>
+    `;
+    const cells = ["Mon April 20", "6:30 PM", "2095"];
+    const result = parseHarelineRow(cells, HARE_SINGLE, dirHtml, SOURCE_URL);
+    expect(result?.title).toBe("The 420 Hash");
+  });
+
+  it("rejects lowercase location phrases (#816)", () => {
+    // "Park Here for a smokin' good time" — "Park Here " prefix is stripped,
+    // leaving "for a smokin' good time" which starts lowercase and is not a
+    // real venue name.
+    const dirHtml = `
+      <h2>The 420 Hash</h2>
+      <a href="https://www.google.com/maps/place/Quonset+Point">
+        <font>Park Here for a smokin' good time</font>
+      </a>
+    `;
+    const cells = ["Mon April 20", "6:30 PM", "2095"];
+    const result = parseHarelineRow(cells, HARE_SINGLE, dirHtml, SOURCE_URL);
+    expect(result?.location).toBeUndefined();
+    expect(result?.locationUrl).toContain("google.com/maps");
+  });
+
+  it("preserves Title-Case venue names starting with 'On'/'In' (#824 review)", () => {
+    // PROSE_LEAD_RE must be case-sensitive so Title-Case venues survive.
+    const dirHtml = `
+      <h2>Pub Run</h2>
+      <a href="https://www.google.com/maps/place/On+Tap+Sports+Bar">
+        <font>On Tap Sports Bar</font>
+      </a>
+    `;
+    const cells = ["Mon April 20", "6:30 PM", "2096"];
+    const result = parseHarelineRow(cells, HARE_SINGLE, dirHtml, SOURCE_URL);
+    expect(result?.location).toBe("On Tap Sports Bar");
+  });
+
+  it("normalizes source newlines inside <h2> so formatting wraps don't fake segments (#824 review)", () => {
+    // Source HTML has an actual CRLF inside the <h2> between tags — without
+    // normalization, stripHtmlTags would treat it as a segment boundary and
+    // truncate to "The 420".
+    const dirHtml = `
+      <h2><strong>The 420
+Hash</strong></h2>
+      <a href="https://www.google.com/maps/place/Quonset+Point">Quonset Point</a>
+    `;
+    const cells = ["Mon April 20", "6:30 PM", "2097"];
+    const result = parseHarelineRow(cells, HARE_SINGLE, dirHtml, SOURCE_URL);
+    expect(result?.title).toBe("The 420 Hash");
+  });
+
   it("resolves same-day date to current year, not next year (Bug #1)", () => {
     // Simulate scrape running at 2:30 PM on March 23, 2026
     const midDayRef = new Date(2026, 2, 23, 14, 30, 0);
@@ -374,6 +443,11 @@ describe("RIH3Adapter", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(Date.UTC(2026, 0, 15, 12)));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("has correct type", () => {

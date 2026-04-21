@@ -26,9 +26,20 @@ import {
   chronoParseDate,
   parse12HourTime,
   isPlaceholder,
+  stripHtmlTags,
 } from "../utils";
 
 const DAY_PREFIX_RE = /^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\.?\s+/i;
+
+/** Reject a locationText that starts with a lowercase preposition/conjunction —
+ *  those are sentence fragments bleeding through the strip cascade, not venues.
+ *  Case-sensitive to preserve Title-Case venues like "On Tap Sports Bar" or
+ *  "In-N-Out Burger". #816. */
+const PROSE_LEAD_RE = /^(?:for|in|on|to|at|with|from|near|and|but|so|of|it['’]s|we['’]?re)\b/;
+
+/** Max h2 length before we assume prose has bled into the title and keep
+ *  only the first <br>-delimited segment. Motivated by rih3 #2095. #816. */
+const MAX_H2_TITLE_LEN = 80;
 
 /** Days to backdate the chrono reference so `forwardDate: true` doesn't push
  *  recent year-less dates (e.g., "March 23") into the next year when scraping
@@ -112,13 +123,21 @@ export function parseHarelineRow(
   // --- Directions cell: title, location, description ---
   const dir$ = cheerio.load(directionHtml);
 
-  // Title from <h2>
-  dir$("h2").find("br").replaceWith(" ");
-  const h2Text = dir$("h2")
-    .first()
-    .text()
-    .trim()
-    .replace(/\s+/g, " ");
+  // Title from <h2>. If h2 has multiple <br>-separated segments and the full
+  // joined text runs long (prose bleed from unstructured authoring), fall back
+  // to the first segment only. #816.
+  // Normalize raw CRLF/LF in the HTML source to spaces so formatting line
+  // wraps don't get mistaken for <br>-delimited segments. CodeRabbit PR #824.
+  const h2Html = (dir$("h2").first().html() ?? "").replace(/\r?\n/g, " ");
+  const h2Segments = stripHtmlTags(h2Html, "\n")
+    .split("\n")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const h2Joined = h2Segments.join(" ");
+  const h2Text =
+    h2Joined.length > MAX_H2_TITLE_LEN && h2Segments[0]
+      ? h2Segments[0]
+      : h2Joined;
   const title =
     h2Text ||
     (runNumber ? `RIH3 #${runNumber}` : "RIH3 Monday Trail");
@@ -139,7 +158,9 @@ export function parseHarelineRow(
       .trim()
     : undefined;
   const location =
-    locationText && locationText.length > 3 ? locationText : undefined;
+    locationText && locationText.length > 3 && !PROSE_LEAD_RE.test(locationText)
+      ? locationText
+      : undefined;
 
   // Description: body text minus title and song links; preserve Facebook link
   const descRoot = dir$("body").clone();
