@@ -8,6 +8,8 @@ import {
   formatDriveTime,
   formatDayHeader,
   startOfUtcDay,
+  cityToIata,
+  formatLegDateRange,
 } from "./format";
 
 describe("formatDateCompact", () => {
@@ -168,5 +170,70 @@ describe("getKennelInitials", () => {
 
   it("uppercases initials", () => {
     expect(getKennelInitials("aces of spades")).toBe("AO");
+  });
+});
+
+describe("cityToIata", () => {
+  it.each([
+    ["London, UK", "LHR"],
+    ["Paris, France", "CDG"],
+    ["Berlin, Germany", "BER"],
+    ["New York, NY", "JFK"],
+    ["New York City, NY, USA", "JFK"],
+    ["Washington, D.C.", "DCA"],
+    ["Los Angeles, CA", "LAX"],
+    ["Tokyo, Japan", "HND"],
+    ["San Francisco, CA", "SFO"],
+  ])("resolves known city %s to real IATA %s", (label, expected) => {
+    expect(cityToIata(label)).toBe(expected);
+  });
+
+  it("is case-insensitive on the city name", () => {
+    expect(cityToIata("LONDON, UK")).toBe("LHR");
+    expect(cityToIata("london, uk")).toBe("LHR");
+    expect(cityToIata("London")).toBe("LHR");
+  });
+
+  it("falls back to first three consonants for unknown cities", () => {
+    expect(cityToIata("Belgrade, Serbia")).toBe("BLG");
+    expect(cityToIata("Katowice, Poland")).toBe("KTW");
+  });
+
+  it("falls back to real IATA for São Paulo (already special-cased)", () => {
+    expect(cityToIata("São Paulo, Brazil")).toBe("GRU");
+    expect(cityToIata("Sao Paulo")).toBe("GRU");
+  });
+
+  it("always returns exactly three uppercase letters", () => {
+    const vals = [
+      cityToIata("Ix"),
+      cityToIata("Oz"),
+      cityToIata("Paris"),
+      cityToIata("   "),
+      cityToIata("Xylophone City"),
+    ];
+    for (const v of vals) {
+      expect(v).toMatch(/^[A-Z]{3}$/);
+    }
+  });
+});
+
+describe("formatLegDateRange", () => {
+  it("collapses to 'Apr 20–23' when both dates share a month", () => {
+    expect(formatLegDateRange("2026-04-20", "2026-04-23")).toBe("Apr 20–23");
+  });
+
+  it("keeps the end month when the leg spans two months (gemini PR #853 regression)", () => {
+    // Apr 30 → May 2 must NOT render as "Apr 30–2"; users would read
+    // the 2 as April 2 and the window as going backwards.
+    expect(formatLegDateRange("2026-04-30", "2026-05-02")).toBe("Apr 30–May 2");
+  });
+
+  it("keeps the end month when the leg crosses a year boundary", () => {
+    expect(formatLegDateRange("2026-12-29", "2027-01-02")).toBe("Dec 29–Jan 2");
+  });
+
+  it("renders a same-day leg as 'Apr 20–20'", () => {
+    expect(formatLegDateRange("2026-04-20", "2026-04-20")).toBe("Apr 20–20");
   });
 });

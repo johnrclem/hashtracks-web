@@ -131,3 +131,156 @@ export function getKennelInitials(name: string): string {
     .join("")
     .toUpperCase();
 }
+
+/**
+ * Per-leg date range for the SavedTripCard's multi-leg list. When the
+ * start and end share a month+year, collapse to "Apr 20–23"; otherwise
+ * render the full end ("Apr 30–May 2") so cross-month legs aren't
+ * mis-read as same-month. Inputs are YYYY-MM-DD.
+ */
+export function formatLegDateRange(legStart: string, legEnd: string): string {
+  const startFmt = formatDateCompact(legStart);
+  const sameMonth = legStart.slice(0, 7) === legEnd.slice(0, 7);
+  if (sameMonth) {
+    return `${startFmt}–${formatDateCompact(legEnd).replace(/^[A-Z][a-z]+ /, "")}`;
+  }
+  return `${startFmt}–${formatDateCompact(legEnd)}`;
+}
+
+/**
+ * Real IATA airport codes for the cities travelers most commonly land in.
+ * Keyed on lowercased city name matched against the first comma-separated
+ * segment of the destination label (e.g. "London, UK" → "london").
+ *
+ * Intentionally small — the long tail of cities falls back to a
+ * deterministic pseudo-IATA (first three consonants, uppercase) so every
+ * destination still gets a three-letter stamp on the boarding-pass
+ * header. This matches the fake-IATA pattern already in use on kennel
+ * cards elsewhere in the app.
+ */
+const CITY_IATA: Record<string, string> = {
+  // Europe
+  london: "LHR",
+  paris: "CDG",
+  berlin: "BER",
+  munich: "MUC",
+  frankfurt: "FRA",
+  stuttgart: "STR",
+  amsterdam: "AMS",
+  brussels: "BRU",
+  madrid: "MAD",
+  barcelona: "BCN",
+  rome: "FCO",
+  milan: "MXP",
+  zurich: "ZRH",
+  vienna: "VIE",
+  copenhagen: "CPH",
+  stockholm: "ARN",
+  oslo: "OSL",
+  helsinki: "HEL",
+  dublin: "DUB",
+  edinburgh: "EDI",
+  glasgow: "GLA",
+  manchester: "MAN",
+  lisbon: "LIS",
+  athens: "ATH",
+  istanbul: "IST",
+  prague: "PRG",
+  warsaw: "WAW",
+  // North America
+  "new york": "JFK",
+  "new york city": "JFK",
+  boston: "BOS",
+  chicago: "ORD",
+  atlanta: "ATL",
+  "los angeles": "LAX",
+  "san francisco": "SFO",
+  "san diego": "SAN",
+  seattle: "SEA",
+  denver: "DEN",
+  dallas: "DFW",
+  houston: "IAH",
+  austin: "AUS",
+  miami: "MIA",
+  philadelphia: "PHL",
+  // Matches both "Washington, D.C." and "Washington, DC" because the
+  // lookup splits on the first comma; keep only the one-word key.
+  washington: "DCA",
+  baltimore: "BWI",
+  pittsburgh: "PIT",
+  charlotte: "CLT",
+  phoenix: "PHX",
+  "las vegas": "LAS",
+  minneapolis: "MSP",
+  detroit: "DTW",
+  orlando: "MCO",
+  toronto: "YYZ",
+  montreal: "YUL",
+  vancouver: "YVR",
+  "mexico city": "MEX",
+  // Asia
+  tokyo: "HND",
+  osaka: "KIX",
+  kyoto: "KIX",
+  "hong kong": "HKG",
+  singapore: "SIN",
+  seoul: "ICN",
+  bangkok: "BKK",
+  "kuala lumpur": "KUL",
+  "ho chi minh": "SGN",
+  "ho chi minh city": "SGN",
+  hanoi: "HAN",
+  mumbai: "BOM",
+  delhi: "DEL",
+  bangalore: "BLR",
+  // Oceania
+  sydney: "SYD",
+  melbourne: "MEL",
+  brisbane: "BNE",
+  perth: "PER",
+  adelaide: "ADL",
+  auckland: "AKL",
+  // Middle East / Africa
+  dubai: "DXB",
+  "abu dhabi": "AUH",
+  doha: "DOH",
+  "tel aviv": "TLV",
+  "cape town": "CPT",
+  johannesburg: "JNB",
+  cairo: "CAI",
+  nairobi: "NBO",
+  // South America
+  "buenos aires": "EZE",
+  "são paulo": "GRU",
+  "sao paulo": "GRU",
+  "rio de janeiro": "GIG",
+  lima: "LIM",
+  bogotá: "BOG",
+  bogota: "BOG",
+  santiago: "SCL",
+};
+
+/**
+ * Resolve a destination label to a three-letter code for the boarding-pass
+ * route stamp (LHR → CDG → BER). Prefers real IATA airport codes for known
+ * cities; falls back to the first three consonants of the city name. Always
+ * returns exactly three uppercase letters so trip-summary arrows line up.
+ *
+ * Matching is case-insensitive on the first comma-separated segment, so
+ * "London, UK" and "london" both resolve to LHR. Non-alphabetic characters
+ * are stripped before the consonant fallback, so "São Paulo" → "SPL"
+ * (instead of, say, "PLO") after the accented S survives the lowercasing.
+ */
+export function cityToIata(label: string): string {
+  const firstSegment = label.split(",")[0]?.trim().toLowerCase() ?? "";
+  const hit = CITY_IATA[firstSegment];
+  if (hit) return hit;
+
+  // Fallback: first three consonants of the first segment, uppercase.
+  // If fewer than three consonants exist (e.g. "Ai"), pad with the first
+  // vowels to guarantee a three-letter stamp.
+  const letters = firstSegment.replace(/[^a-z]/g, "");
+  const consonants = letters.replace(/[aeiou]/g, "");
+  const candidate = (consonants + letters).toUpperCase();
+  return candidate.slice(0, 3).padEnd(3, "X");
+}

@@ -76,54 +76,62 @@ export default async function SavedTripsPage() {
     searches,
     MAX_PARALLEL_TRIP_SEARCHES,
     async (search) => {
-      const dest = search.destination;
-      if (!dest) {
+      const legs = search.destinations;
+      if (legs.length === 0) {
         // Defensive: a TravelSearch without any TravelDestination shouldn't
         // exist, but render the row inertly if it does.
         return { search, status: "active", counts: null, isPast: false };
       }
+      // Past/soon is decided against the whole trip window, but each
+      // boundary is evaluated in its own leg's timezone so a cross-
+      // timezone itinerary doesn't misclassify near local midnight
+      // (e.g. a Hawaii first leg + NYC last leg sharing a UTC-based
+      // "today" would mark the trip past ~5 hours before NYC midnight).
+      const firstLeg = legs[0];
+      const lastLeg = legs[legs.length - 1];
+      const todayAtStart = todayInTimezone(firstLeg.timezone);
+      const todayAtEnd = todayInTimezone(lastLeg.timezone);
+      const tripStartStr = firstLeg.startDate.toISOString().slice(0, 10);
+      const tripEndStr = lastLeg.endDate.toISOString().slice(0, 10);
 
-      // Compute past/soon in the destination's local day. UTC comparisons
-      // would mark a Hawaii trip ending 2026-04-14 as past at 2026-04-15
-      // 00:00 UTC — roughly 14 hours before local midnight at the
-      // destination. YYYY-MM-DD string comparison is exact for this since
-      // dates are stored at UTC noon (the date portion is unambiguous).
-      const today = todayInTimezone(dest.timezone);
-      const startStr = dest.startDate.toISOString().slice(0, 10);
-      const endStr = dest.endDate.toISOString().slice(0, 10);
-
-      const isPast = endStr < today;
-      const dayDelta = daysBetweenIsoDates(today, startStr);
+      const isPast = tripEndStr < todayAtEnd;
+      const dayDelta = daysBetweenIsoDates(todayAtStart, tripStartStr);
       const isSoon = !isPast && dayDelta >= 0 && dayDelta <= 7;
 
       let counts: EnrichedSearch["counts"] = null;
       if (!isPast) {
         try {
           const out = await executeTravelSearch(prisma, {
-            destinations: [{
-              latitude: dest.latitude,
-              longitude: dest.longitude,
-              radiusKm: dest.radiusKm,
-              startDate: startStr,
-              endDate: endStr,
-              timezone: dest.timezone ?? undefined,
-            }],
+            // Fan out across every leg so the count badges reflect the
+            // whole itinerary, not just leg 01. PR 3a change.
+            destinations: legs.map((leg) => ({
+              latitude: leg.latitude,
+              longitude: leg.longitude,
+              radiusKm: leg.radiusKm,
+              startDate: leg.startDate.toISOString().slice(0, 10),
+              endDate: leg.endDate.toISOString().slice(0, 10),
+              timezone: leg.timezone ?? undefined,
+            })),
             // Dashboard only reads .length from the returned arrays for the
             // summary badges; fetching weather N× per saved trip is
             // unbounded dashboard-time cost that never renders.
             skipWeather: true,
           });
-          // Honor the search service's empty-state contract: when the primary
-          // radius came up empty, real results live in `destinations[0].broaderResults`.
-          // Reading top-level arrays only would underreport counts as zero.
-          const broader = out.destinations[0]?.broaderResults;
-          const effective =
-            out.emptyState === "no_nearby" && broader ? broader : out;
-          counts = {
-            confirmed: effective.confirmed.length,
-            likely: effective.likely.length,
-            possible: effective.possible.length,
-          };
+          // Honor the search service's empty-state contract: when a leg's
+          // primary radius came up empty, real results live in its
+          // broaderResults. Sum primary + per-leg broader for the
+          // aggregate dashboard count badges.
+          let confirmed = out.confirmed.length;
+          let likely = out.likely.length;
+          let possible = out.possible.length;
+          for (const d of out.destinations) {
+            if (d.broaderResults) {
+              confirmed += d.broaderResults.confirmed.length;
+              likely += d.broaderResults.likely.length;
+              possible += d.broaderResults.possible.length;
+            }
+          }
+          counts = { confirmed, likely, possible };
         } catch (err) {
           console.error(`[saved trips] Search failed for ${search.id}`, err);
         }
@@ -194,12 +202,12 @@ function Section({
       </h2>
       <div className="grid gap-4 sm:grid-cols-2">
         {entries.map((entry) =>
-          entry.search.destination ? (
+          entry.search.destinations.length > 0 ? (
             <SavedTripCard
               key={entry.search.id}
               id={entry.search.id}
               createdAt={entry.search.createdAt}
-              destination={entry.search.destination}
+              destinations={entry.search.destinations}
               status={entry.status}
               counts={entry.counts}
             />
