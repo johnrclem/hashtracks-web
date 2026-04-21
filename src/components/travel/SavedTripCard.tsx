@@ -16,7 +16,12 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { formatDateCompact, daysBetween, cityToIata } from "@/lib/travel/format";
+import {
+  formatDateCompact,
+  daysBetween,
+  cityToIata,
+  formatLegDateRange,
+} from "@/lib/travel/format";
 import { buildTravelSearchUrl, utcYmd } from "@/lib/travel/url";
 import { capture } from "@/lib/analytics";
 import { deleteTravelSearch, viewTravelSearch } from "@/app/travel/actions";
@@ -176,7 +181,7 @@ export function SavedTripCard({
                     {cityToIata(leg.label)}
                   </span>
                   <span className="font-mono text-xs text-muted-foreground">
-                    {formatDateCompact(legStart)}–{formatDateCompact(legEnd).replace(/^[A-Z][a-z]+ /, "")}
+                    {formatLegDateRange(legStart, legEnd)}
                   </span>
                   <span className="font-mono text-xs text-muted-foreground">
                     {leg.radiusKm} km

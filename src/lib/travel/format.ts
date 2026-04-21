@@ -133,6 +133,21 @@ export function getKennelInitials(name: string): string {
 }
 
 /**
+ * Per-leg date range for the SavedTripCard's multi-leg list. When the
+ * start and end share a month+year, collapse to "Apr 20–23"; otherwise
+ * render the full end ("Apr 30–May 2") so cross-month legs aren't
+ * mis-read as same-month. Inputs are YYYY-MM-DD.
+ */
+export function formatLegDateRange(legStart: string, legEnd: string): string {
+  const startFmt = formatDateCompact(legStart);
+  const sameMonth = legStart.slice(0, 7) === legEnd.slice(0, 7);
+  if (sameMonth) {
+    return `${startFmt}–${formatDateCompact(legEnd).replace(/^[A-Z][a-z]+ /, "")}`;
+  }
+  return `${startFmt}–${formatDateCompact(legEnd)}`;
+}
+
+/**
  * Real IATA airport codes for the cities travelers most commonly land in.
  * Keyed on lowercased city name matched against the first comma-separated
  * segment of the destination label (e.g. "London, UK" → "london").
