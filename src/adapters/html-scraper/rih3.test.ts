@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { Source } from "@/generated/prisma/client";
 import { parseHarelineRow, extractHares, RIH3Adapter } from "./rih3";
 
@@ -155,6 +155,17 @@ describe("extractHares", () => {
 });
 
 describe("parseHarelineRow", () => {
+  // Pin system time so year-less dates like "Mon April 21" resolve to 2026
+  // regardless of when the test runs (chrono's forwardDate would otherwise
+  // push them to next year once "today" has passed them).
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(Date.UTC(2026, 0, 15, 12)));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("parses standard event with all fields", () => {
     const cells = ["Mon April 21", "6:30 PM", "2043"];
     // Fixed reference date so year inference is deterministic regardless
@@ -432,6 +443,11 @@ describe("RIH3Adapter", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(Date.UTC(2026, 0, 15, 12)));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("has correct type", () => {
