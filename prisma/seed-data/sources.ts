@@ -298,6 +298,7 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
+      config: { upcomingOnly: true },
       kennelCodes: ["wlh3"],
     },
     {
@@ -307,6 +308,7 @@ export const SOURCES = [
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 90,
+      config: { upcomingOnly: true },
       kennelCodes: ["lh3"],
     },
     {
@@ -325,6 +327,7 @@ export const SOURCES = [
       trustLevel: 6,
       scrapeFreq: "daily",
       scrapeDays: 90,
+      config: { upcomingOnly: true },
       kennelCodes: ["och3"],
     },
     {
@@ -374,6 +377,7 @@ export const SOURCES = [
         },
         defaultKennelTag: "glasgowh3",
         dateLocale: "en-GB",
+        upcomingOnly: true,
       },
       kennelCodes: ["glasgowh3"],
     },
@@ -384,7 +388,7 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      config: {},
+      config: { upcomingOnly: true },
       kennelCodes: ["edinburghh3"],
     },
     // ===== UK — NORFOLK =====
@@ -395,7 +399,7 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      config: {},
+      config: { upcomingOnly: true },
       kennelCodes: ["norfolkh3"],
     },
     // ===== UK — LIVERPOOL =====
@@ -776,7 +780,7 @@ export const SOURCES = [
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 180,
-      config: { defaultKennelTag: "ih3" },
+      config: { defaultKennelTag: "ih3", upcomingOnly: true },
       kennelCodes: ["ih3"],
     },
     // --- Buffalo (Google Calendar) ---
@@ -882,7 +886,7 @@ export const SOURCES = [
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      config: { defaultKennelTag: "hockessin" },
+      config: { defaultKennelTag: "hockessin", upcomingOnly: true },
       kennelCodes: ["hockessin"],
     },
     // ===== VIRGINIA (outside DC metro) =====
@@ -1085,7 +1089,7 @@ export const SOURCES = [
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 180,
-      config: { defaultKennelTag: "cfh3" },
+      config: { defaultKennelTag: "cfh3", upcomingOnly: true },
       kennelCodes: ["cfh3"],
     },
     // --- Fayetteville (Meetup) ---
@@ -1665,6 +1669,7 @@ export const SOURCES = [
       trustLevel: 6,
       scrapeFreq: "daily",
       scrapeDays: 365,
+      config: { upcomingOnly: true },
       kennelCodes: ["burlyh3"],
     },
     // ===== RHODE ISLAND =====
