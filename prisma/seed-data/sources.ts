@@ -399,7 +399,7 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      config: {},
+      config: { upcomingOnly: true },
       kennelCodes: ["norfolkh3"],
     },
     // ===== UK — LIVERPOOL =====
