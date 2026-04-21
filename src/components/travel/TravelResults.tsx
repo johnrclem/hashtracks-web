@@ -6,19 +6,31 @@ import { capture } from "@/lib/analytics";
 import {
   computeDayCounts,
   groupResultsByTier,
+  passesDayFilter,
+  getDayCode,
   toggleDay as toggleDayInSet,
   TIERS,
   type DayCode,
   type DistanceTier,
 } from "@/lib/travel/filters";
-import { formatDayHeader } from "@/lib/travel/format";
+import { formatDayHeader, cityToIata } from "@/lib/travel/format";
+import type { MultiDestView } from "@/lib/travel/multi-destination";
 import { ConfirmedCard } from "./ConfirmedCard";
 import { LikelyCard } from "./LikelyCard";
 import { PossibleSection } from "./PossibleSection";
 import { PossibleRow } from "./PossibleRow";
 import { TravelResultFilters } from "./TravelResultFilters";
 
-interface SerializedConfirmed {
+/** Per-row multi-destination tag. Every result is tagged with the 0-indexed
+ * stop it belongs to, letting the UI render LEG sub-bands on overlap days
+ * (where two stops share a calendar date). Single-destination searches
+ * produce rows all tagged `{ destinationIndex: 0 }`. */
+interface DestinationTag {
+  destinationIndex: number;
+  destinationLabel: string | null;
+}
+
+interface SerializedConfirmed extends DestinationTag {
   type: "confirmed";
   eventId: string;
   kennelId: string;
@@ -50,7 +62,7 @@ interface SerializedConfirmed {
   attendance: { status: string; participationLevel: string } | null;
 }
 
-interface SerializedLikely {
+interface SerializedLikely extends DestinationTag {
   type: "likely";
   kennelId: string;
   kennelSlug: string;
@@ -69,7 +81,7 @@ interface SerializedLikely {
   sourceLinks: SourceLink[];
 }
 
-interface SerializedPossible {
+interface SerializedPossible extends DestinationTag {
   type: "possible";
   kennelId: string;
   kennelSlug: string;
@@ -85,6 +97,17 @@ interface SerializedPossible {
   lastConfirmedAt: string | null;
 }
 
+/** Serialized per-stop summary, threaded through from search.ts. Dates are
+ * ISO strings because the props cross the RSC boundary. */
+export interface SerializedDestination {
+  index: number;
+  label: string | null;
+  startDate: string;
+  endDate: string;
+  radiusKm: number;
+  broaderRadiusKm?: number;
+}
+
 interface TravelResultsProps {
   destination: string;
   results: {
@@ -92,6 +115,9 @@ interface TravelResultsProps {
     likely: SerializedLikely[];
     possible: SerializedPossible[];
   };
+  /** Per-stop metadata. When length > 1 the multi-destination view
+   * toggle renders; otherwise the distance-tier view takes over. */
+  destinations?: SerializedDestination[];
 }
 
 const TIER_LABELS: Record<DistanceTier, { title: string; description: string }> = {
@@ -100,11 +126,19 @@ const TIER_LABELS: Record<DistanceTier, { title: string; description: string }> 
   drive: { title: "Day trip material", description: "25+ km" },
 };
 
-export function TravelResults({ destination, results }: Readonly<TravelResultsProps>) {
+export function TravelResults({
+  destination,
+  results,
+  destinations,
+}: Readonly<TravelResultsProps>) {
   const { confirmed, likely, possible } = results;
+  const isMultiStop = (destinations?.length ?? 0) > 1;
 
   const [includePossible, setIncludePossible] = useState(false);
   const [selectedDays, setSelectedDays] = useState<Set<DayCode>>(new Set());
+  // Multi-stop view axis; single-stop trips keep the distance-tier render
+  // below and ignore this state.
+  const [viewMode, setViewMode] = useState<MultiDestView>("day-by-day");
 
   // Fire once per unique search result set. The string key captures every
   // distinct result shape (destination + counts), and the useEffect only
@@ -153,6 +187,28 @@ export function TravelResults({ destination, results }: Readonly<TravelResultsPr
     [confirmed, likely, possible, selectedDays],
   );
 
+  // Day-filtered rows shared by both multi-destination views. Computed
+  // once per change of the underlying arrays or the DOW filter so the
+  // view toggle itself doesn't re-filter. Only meaningful when
+  // `isMultiStop`; cheap to compute regardless (the flat arrays usually
+  // fit the page's confirmed-event cap of 500).
+  const filteredForMultiStop = useMemo(() => {
+    if (!isMultiStop) return null;
+    return {
+      confirmed: confirmed.filter((r) =>
+        passesDayFilter(getDayCode(r.date), selectedDays),
+      ),
+      likely: likely.filter((r) =>
+        passesDayFilter(getDayCode(r.date), selectedDays),
+      ),
+      possible: includePossible
+        ? possible.filter((r) =>
+            passesDayFilter(r.date ? getDayCode(r.date) : null, selectedDays),
+          )
+        : [],
+    };
+  }, [isMultiStop, confirmed, likely, possible, includePossible, selectedDays]);
+
   const renderedTiers = TIERS.map((tier) => ({
     tier,
     ...grouped[tier],
@@ -199,6 +255,16 @@ export function TravelResults({ destination, results }: Readonly<TravelResultsPr
         </p>
       )}
 
+      {isMultiStop && (
+        <ViewToggle
+          viewMode={viewMode}
+          onChange={(next) => {
+            capture("travel_multidest_view_changed", { view: next });
+            setViewMode(next);
+          }}
+        />
+      )}
+
       {/*
         Only show the "no matches" banner when the filter has truly hidden
         everything — including the collapsed PossibleSection below. Without
@@ -222,6 +288,18 @@ export function TravelResults({ destination, results }: Readonly<TravelResultsPr
         </div>
       )}
 
+      {isMultiStop && filteredForMultiStop && viewMode === "day-by-day" && (
+        <MultiDestDayView rows={filteredForMultiStop} />
+      )}
+      {isMultiStop && filteredForMultiStop && viewMode === "by-destination" && (
+        <MultiDestDestinationView
+          rows={filteredForMultiStop}
+          destinations={destinations ?? []}
+        />
+      )}
+
+      {!isMultiStop && (
+      <>
       <div className="mt-6">
         {renderedTiers.map(({ tier, confirmed: tc, likely: tl, shownPossible }) => {
           const total = tc.length + tl.length + shownPossible.length;
@@ -293,6 +371,315 @@ export function TravelResults({ destination, results }: Readonly<TravelResultsPr
           results={filteredPossibleAll}
           confirmedCount={renderedTiers.reduce((sum, t) => sum + t.confirmed.length, 0)}
         />
+      )}
+      </>
+      )}
+    </div>
+  );
+}
+
+/** Day-by-day / by-destination segmented control — appears only when multi-stop. */
+function ViewToggle({
+  viewMode,
+  onChange,
+}: {
+  viewMode: MultiDestView;
+  onChange: (next: MultiDestView) => void;
+}) {
+  return (
+    <div
+      role="tablist"
+      aria-label="Results view"
+      className="mt-4 inline-flex rounded-full border border-border bg-card p-0.5"
+    >
+      <button
+        type="button"
+        role="tab"
+        aria-selected={viewMode === "day-by-day"}
+        onClick={() => onChange("day-by-day")}
+        className={`rounded-full px-4 py-1.5 font-mono text-[11px] uppercase tracking-[0.18em] transition ${
+          viewMode === "day-by-day"
+            ? "bg-foreground text-background"
+            : "text-muted-foreground hover:text-foreground"
+        }`}
+      >
+        Day-by-day
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={viewMode === "by-destination"}
+        onClick={() => onChange("by-destination")}
+        className={`rounded-full px-4 py-1.5 font-mono text-[11px] uppercase tracking-[0.18em] transition ${
+          viewMode === "by-destination"
+            ? "bg-foreground text-background"
+            : "text-muted-foreground hover:text-foreground"
+        }`}
+      >
+        By destination
+      </button>
+    </div>
+  );
+}
+
+interface MultiDestRows {
+  confirmed: SerializedConfirmed[];
+  likely: SerializedLikely[];
+  possible: SerializedPossible[];
+}
+
+interface DayStopBand {
+  label: string | null;
+  confirmed: SerializedConfirmed[];
+  likely: SerializedLikely[];
+  possible: SerializedPossible[];
+}
+
+interface DayBucket {
+  dateKey: string | null;
+  bandsByStop: Map<number, DayStopBand>;
+}
+
+/** Build per-day Map<stopIndex, bands> in one pass over each row kind.
+ *  O(rows) instead of per-day per-stop triple `.find()` lookups. */
+function bucketDays(rows: MultiDestRows): DayBucket[] {
+  const byDay = new Map<string | null, Map<number, DayStopBand>>();
+  const touch = (dateKey: string | null, stop: number, label: string | null) => {
+    let forDay = byDay.get(dateKey);
+    if (!forDay) {
+      forDay = new Map();
+      byDay.set(dateKey, forDay);
+    }
+    let band = forDay.get(stop);
+    if (!band) {
+      band = { label, confirmed: [], likely: [], possible: [] };
+      forDay.set(stop, band);
+    } else if (band.label === null && label !== null) {
+      band.label = label;
+    }
+    return band;
+  };
+  for (const r of rows.confirmed) {
+    touch(r.date.slice(0, 10), r.destinationIndex, r.destinationLabel).confirmed.push(r);
+  }
+  for (const r of rows.likely) {
+    touch(r.date.slice(0, 10), r.destinationIndex, r.destinationLabel).likely.push(r);
+  }
+  for (const r of rows.possible) {
+    const key = r.date ? r.date.slice(0, 10) : null;
+    touch(key, r.destinationIndex, r.destinationLabel).possible.push(r);
+  }
+  return [...byDay.entries()]
+    .map(([dateKey, bandsByStop]) => ({ dateKey, bandsByStop }))
+    .sort((a, b) => {
+      if (a.dateKey === null) return 1;
+      if (b.dateKey === null) return -1;
+      return a.dateKey.localeCompare(b.dateKey);
+    });
+}
+
+/**
+ * Day-by-day layout with LEG sub-bands on overlap days. Days sort
+ * chronologically; overlap days (2+ legs share a date) split by
+ * destinationIndex with a hairline ✈ perforation between bands.
+ * Non-overlap days render flat.
+ */
+function MultiDestDayView({ rows }: { rows: MultiDestRows }) {
+  const buckets = useMemo(() => bucketDays(rows), [rows]);
+
+  if (buckets.length === 0) {
+    return (
+      <p className="mt-10 text-center text-sm text-muted-foreground">
+        No results on any day.
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-6 flex flex-col gap-10">
+      {buckets.map((bucket) => {
+        const orderedStops = [...bucket.bandsByStop.keys()].sort((a, b) => a - b);
+        const hasOverlap = orderedStops.length > 1;
+        return (
+          <section key={bucket.dateKey ?? "cadence"} className="flex flex-col gap-4">
+            <h2 className="font-display text-xl font-medium tracking-tight border-b border-border pb-2">
+              {bucket.dateKey ? formatDayHeader(bucket.dateKey) : "Cadence-based"}
+            </h2>
+            {orderedStops.map((stopIndex, bandIdx) => {
+              const band = bucket.bandsByStop.get(stopIndex)!;
+              return (
+                <div key={stopIndex} className="flex flex-col gap-3">
+                  {hasOverlap && (
+                    <>
+                      {bandIdx > 0 && <Perforation />}
+                      <LegSubHeader
+                        destinationIndex={stopIndex}
+                        destinationLabel={band.label}
+                      />
+                    </>
+                  )}
+                  <DayRows
+                    confirmed={band.confirmed}
+                    likely={band.likely}
+                    possible={band.possible}
+                  />
+                </div>
+              );
+            })}
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
+interface StopBucket {
+  confirmed: SerializedConfirmed[];
+  likely: SerializedLikely[];
+  possible: SerializedPossible[];
+}
+
+/** Partition rows into a Map keyed by destinationIndex in one pass. */
+function bucketStops(rows: MultiDestRows): Map<number, StopBucket> {
+  const byStop = new Map<number, StopBucket>();
+  const touch = (idx: number): StopBucket => {
+    let b = byStop.get(idx);
+    if (!b) {
+      b = { confirmed: [], likely: [], possible: [] };
+      byStop.set(idx, b);
+    }
+    return b;
+  };
+  for (const r of rows.confirmed) touch(r.destinationIndex).confirmed.push(r);
+  for (const r of rows.likely) touch(r.destinationIndex).likely.push(r);
+  for (const r of rows.possible) touch(r.destinationIndex).possible.push(r);
+  return byStop;
+}
+
+/**
+ * By-destination layout — one boarding-pass panel per stop (1–3 column
+ * grid). Stops with zero rows still render as an empty placeholder so
+ * users can see which leg didn't land anything.
+ */
+function MultiDestDestinationView({
+  rows,
+  destinations,
+}: {
+  rows: MultiDestRows;
+  destinations: SerializedDestination[];
+}) {
+  const stops = useMemo(() => bucketStops(rows), [rows]);
+
+  return (
+    <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+      {destinations.map((dest) => {
+        const bucket = stops.get(dest.index);
+        const total =
+          (bucket?.confirmed.length ?? 0) +
+          (bucket?.likely.length ?? 0) +
+          (bucket?.possible.length ?? 0);
+
+        return (
+          <article
+            key={dest.index}
+            className="flex flex-col gap-4 rounded-xl border border-border bg-card p-5"
+          >
+            <header className="border-b border-dashed border-border pb-3">
+              <div className="flex items-baseline justify-between gap-2">
+                <LegSubHeader
+                  destinationIndex={dest.index}
+                  destinationLabel={dest.label}
+                />
+                <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+                  {dest.radiusKm} km
+                </span>
+              </div>
+              <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                {dest.startDate.slice(0, 10)} → {dest.endDate.slice(0, 10)}
+              </p>
+            </header>
+
+            {total === 0 ? (
+              <p className="text-sm italic text-muted-foreground">
+                No trails on this leg.
+              </p>
+            ) : (
+              <DayRows
+                confirmed={bucket!.confirmed}
+                likely={bucket!.likely}
+                possible={bucket!.possible}
+              />
+            )}
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
+/** LEG stamp header — sequence number + IATA. */
+function LegSubHeader({
+  destinationIndex,
+  destinationLabel,
+}: {
+  destinationIndex: number;
+  destinationLabel: string | null;
+}) {
+  const seq = String(destinationIndex + 1).padStart(2, "0");
+  const iata = destinationLabel ? cityToIata(destinationLabel) : "—";
+  const cityShort = destinationLabel
+    ? (destinationLabel.split(",")[0]?.trim() ?? destinationLabel)
+    : "Stop";
+  return (
+    <div className="flex items-center gap-3">
+      <span className="inline-flex items-center justify-center rounded-sm border-[1.5px] border-red-600/70 px-1.5 py-[1px] font-mono text-[10px] font-bold uppercase tracking-wider text-red-600 dark:border-red-400/70 dark:text-red-400">
+        LEG {seq} · {iata}
+      </span>
+      <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+        {cityShort}
+      </span>
+    </div>
+  );
+}
+
+/** Hairline ticket perforation with a rotated ✈ glyph. Renders between
+ *  LEG sub-bands on overlap days so the split reads as a tear-strip. */
+function Perforation() {
+  return (
+    <div className="relative my-2 h-px w-full bg-[length:6px_1px] bg-repeat-x bg-muted-foreground/35" aria-hidden="true">
+      <span
+        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rotate-[-8deg] bg-background px-2.5 text-sm text-muted-foreground/80"
+      >
+        ✈
+      </span>
+    </div>
+  );
+}
+
+/** Shared row render — confirmed + likely cards stacked; possibles dashed-indented. */
+function DayRows({
+  confirmed,
+  likely,
+  possible,
+}: {
+  confirmed: SerializedConfirmed[];
+  likely: SerializedLikely[];
+  possible: SerializedPossible[];
+}) {
+  return (
+    <div className="flex flex-col gap-4">
+      {confirmed.map((r) => (
+        <ConfirmedCard key={r.eventId} result={r} />
+      ))}
+      {likely.map((r) => (
+        <LikelyCard key={`${r.kennelId}-${r.date}`} result={r} />
+      ))}
+      {possible.length > 0 && (
+        <div className="flex flex-col border-l-2 border-dashed border-border/60 pl-3">
+          {possible.map((r, i) => (
+            <PossibleRow key={`${r.kennelId}-${r.date ?? "cadence"}-${i}`} result={r} />
+          ))}
+        </div>
       )}
     </div>
   );

@@ -223,6 +223,16 @@ async function TravelResultsServer({
     const serializedResults = {
       emptyState: results.emptyState,
       meta: results.meta,
+      // Per-stop metadata. Dates toISOString so the RSC boundary
+      // serializes cleanly.
+      destinations: results.destinations.map((d) => ({
+        index: d.index,
+        label: d.label,
+        startDate: d.startDate.toISOString(),
+        endDate: d.endDate.toISOString(),
+        radiusKm: d.radiusKm,
+        broaderRadiusKm: d.broaderRadiusKm,
+      })),
       confirmed: results.confirmed.map((r) => ({
         ...r,
         date: r.date.toISOString(),
@@ -331,7 +341,11 @@ async function TravelResultsServer({
             broaderRadiusKm={stop?.broaderRadiusKm}
           />
           {resultsToRender && (
-            <TravelResults destination={destination} results={resultsToRender} />
+            <TravelResults
+              destination={destination}
+              results={resultsToRender}
+              destinations={serializedResults.destinations}
+            />
           )}
         </>
       );
@@ -340,7 +354,11 @@ async function TravelResultsServer({
     return (
       <>
         {tripHeader}
-        <TravelResults destination={destination} results={serializedResults} />
+        <TravelResults
+          destination={destination}
+          results={serializedResults}
+          destinations={serializedResults.destinations}
+        />
       </>
     );
   } catch (err) {
