@@ -414,8 +414,14 @@ export class BigHumpAdapter implements SourceAdapter {
 
           // #828: "Open @ ???" placeholder rows — skip. Key off raw h4Text so
           // a real hasher literally named "Open" still gets ingested if their
-          // venue is known.
-          if (/^open\s*@\s*(?:\?+|tbd|tba|n\/a)\s*$/i.test(h4Text)) return;
+          // venue is known. String split avoids a ReDoS-flagged regex with
+          // multiple \s* quantifiers + alternation (SonarCloud S5852).
+          const [h4Hare, ...h4Rest] = h4Text.trim().split("@");
+          const h4Venue = h4Rest.join("@").trim().toLowerCase();
+          const placeholderVenues = new Set(["", "tbd", "tba", "n/a"]);
+          const allQuestionMarks = h4Venue.length > 0 && [...h4Venue].every((c) => c === "?");
+          const isUnknownVenue = placeholderVenues.has(h4Venue) || allQuestionMarks;
+          if (h4Hare.trim().toLowerCase() === "open" && isUnknownVenue) return;
 
           // #828: h4 is "Hare @ Venue" — rebuild as "BH4 #N @ Venue" so hares don't double as title.
           let title = titleFromH4;
