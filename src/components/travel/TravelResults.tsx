@@ -14,7 +14,11 @@ import {
   type DistanceTier,
 } from "@/lib/travel/filters";
 import { formatDayHeader, cityToIata } from "@/lib/travel/format";
-import type { MultiDestView } from "@/lib/travel/multi-destination";
+import {
+  bucketDays,
+  bucketStops,
+  type MultiDestView,
+} from "@/lib/travel/multi-destination";
 import { ConfirmedCard } from "./ConfirmedCard";
 import { LikelyCard } from "./LikelyCard";
 import { PossibleSection } from "./PossibleSection";
@@ -187,11 +191,11 @@ export function TravelResults({
     [confirmed, likely, possible, selectedDays],
   );
 
-  // Day-filtered rows shared by both multi-destination views. Computed
-  // once per change of the underlying arrays or the DOW filter so the
-  // view toggle itself doesn't re-filter. Only meaningful when
-  // `isMultiStop`; cheap to compute regardless (the flat arrays usually
-  // fit the page's confirmed-event cap of 500).
+  // Day-filtered rows shared by both multi-destination views. Multi-stop
+  // views always include possibles (unlike the single-stop distance-tier
+  // layout, which tucks them into a collapsed PossibleSection below). The
+  // includePossible toggle is a single-stop-only affordance; multi-stop
+  // shows per-stop "No trails on this leg" placeholders instead.
   const filteredForMultiStop = useMemo(() => {
     if (!isMultiStop) return null;
     return {
@@ -201,13 +205,11 @@ export function TravelResults({
       likely: likely.filter((r) =>
         passesDayFilter(getDayCode(r.date), selectedDays),
       ),
-      possible: includePossible
-        ? possible.filter((r) =>
-            passesDayFilter(r.date ? getDayCode(r.date) : null, selectedDays),
-          )
-        : [],
+      possible: possible.filter((r) =>
+        passesDayFilter(r.date ? getDayCode(r.date) : null, selectedDays),
+      ),
     };
-  }, [isMultiStop, confirmed, likely, possible, includePossible, selectedDays]);
+  }, [isMultiStop, confirmed, likely, possible, selectedDays]);
 
   const renderedTiers = TIERS.map((tier) => ({
     tier,
@@ -291,10 +293,10 @@ export function TravelResults({
       {isMultiStop && filteredForMultiStop && viewMode === "day-by-day" && (
         <MultiDestDayView rows={filteredForMultiStop} />
       )}
-      {isMultiStop && filteredForMultiStop && viewMode === "by-destination" && (
+      {isMultiStop && filteredForMultiStop && viewMode === "by-destination" && destinations && (
         <MultiDestDestinationView
           rows={filteredForMultiStop}
-          destinations={destinations ?? []}
+          destinations={destinations}
         />
       )}
 
@@ -428,56 +430,6 @@ interface MultiDestRows {
   possible: SerializedPossible[];
 }
 
-interface DayStopBand {
-  label: string | null;
-  confirmed: SerializedConfirmed[];
-  likely: SerializedLikely[];
-  possible: SerializedPossible[];
-}
-
-interface DayBucket {
-  dateKey: string | null;
-  bandsByStop: Map<number, DayStopBand>;
-}
-
-/** Build per-day Map<stopIndex, bands> in one pass over each row kind.
- *  O(rows) instead of per-day per-stop triple `.find()` lookups. */
-function bucketDays(rows: MultiDestRows): DayBucket[] {
-  const byDay = new Map<string | null, Map<number, DayStopBand>>();
-  const touch = (dateKey: string | null, stop: number, label: string | null) => {
-    let forDay = byDay.get(dateKey);
-    if (!forDay) {
-      forDay = new Map();
-      byDay.set(dateKey, forDay);
-    }
-    let band = forDay.get(stop);
-    if (!band) {
-      band = { label, confirmed: [], likely: [], possible: [] };
-      forDay.set(stop, band);
-    } else if (band.label === null && label !== null) {
-      band.label = label;
-    }
-    return band;
-  };
-  for (const r of rows.confirmed) {
-    touch(r.date.slice(0, 10), r.destinationIndex, r.destinationLabel).confirmed.push(r);
-  }
-  for (const r of rows.likely) {
-    touch(r.date.slice(0, 10), r.destinationIndex, r.destinationLabel).likely.push(r);
-  }
-  for (const r of rows.possible) {
-    const key = r.date ? r.date.slice(0, 10) : null;
-    touch(key, r.destinationIndex, r.destinationLabel).possible.push(r);
-  }
-  return [...byDay.entries()]
-    .map(([dateKey, bandsByStop]) => ({ dateKey, bandsByStop }))
-    .sort((a, b) => {
-      if (a.dateKey === null) return 1;
-      if (b.dateKey === null) return -1;
-      return a.dateKey.localeCompare(b.dateKey);
-    });
-}
-
 /**
  * Day-by-day layout with LEG sub-bands on overlap days. Days sort
  * chronologically; overlap days (2+ legs share a date) split by
@@ -531,29 +483,6 @@ function MultiDestDayView({ rows }: { rows: MultiDestRows }) {
       })}
     </div>
   );
-}
-
-interface StopBucket {
-  confirmed: SerializedConfirmed[];
-  likely: SerializedLikely[];
-  possible: SerializedPossible[];
-}
-
-/** Partition rows into a Map keyed by destinationIndex in one pass. */
-function bucketStops(rows: MultiDestRows): Map<number, StopBucket> {
-  const byStop = new Map<number, StopBucket>();
-  const touch = (idx: number): StopBucket => {
-    let b = byStop.get(idx);
-    if (!b) {
-      b = { confirmed: [], likely: [], possible: [] };
-      byStop.set(idx, b);
-    }
-    return b;
-  };
-  for (const r of rows.confirmed) touch(r.destinationIndex).confirmed.push(r);
-  for (const r of rows.likely) touch(r.destinationIndex).likely.push(r);
-  for (const r of rows.possible) touch(r.destinationIndex).possible.push(r);
-  return byStop;
 }
 
 /**
@@ -671,8 +600,8 @@ function DayRows({
       {confirmed.map((r) => (
         <ConfirmedCard key={r.eventId} result={r} />
       ))}
-      {likely.map((r) => (
-        <LikelyCard key={`${r.kennelId}-${r.date}`} result={r} />
+      {likely.map((r, i) => (
+        <LikelyCard key={`${r.kennelId}-${r.date}-${i}`} result={r} />
       ))}
       {possible.length > 0 && (
         <div className="flex flex-col border-l-2 border-dashed border-border/60 pl-3">

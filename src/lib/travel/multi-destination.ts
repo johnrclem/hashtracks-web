@@ -1,5 +1,5 @@
 /**
- * Multi-destination view grouping helpers for Travel Mode results.
+ * Multi-destination view bucketing helpers for Travel Mode results.
  *
  * Two views:
  *   - Day-by-day: days as the top-level axis; overlap days split into
@@ -19,98 +19,98 @@ interface TaggedRow {
   date: string | null;
 }
 
-export interface LegBand<T extends TaggedRow> {
-  destinationIndex: number;
-  destinationLabel: string | null;
-  rows: T[];
+export interface DayStopBand<C, L, P> {
+  label: string | null;
+  confirmed: C[];
+  likely: L[];
+  possible: P[];
 }
 
-export interface DayGroupWithLegs<T extends TaggedRow> {
-  /** YYYY-MM-DD or null for cadence-based (undated) rows. */
+export interface DayBucket<C, L, P> {
   dateKey: string | null;
-  /** True when the day contains rows from 2+ stops — UI renders LEG sub-bands + ✈ perforation. */
-  hasOverlap: boolean;
-  /** One band per distinct `destinationIndex`, position-ordered. Length 1 on non-overlap days. */
-  legs: LegBand<T>[];
+  bandsByStop: Map<number, DayStopBand<C, L, P>>;
+}
+
+interface RowBundle<C extends TaggedRow, L extends TaggedRow, P extends TaggedRow> {
+  confirmed: C[];
+  likely: L[];
+  possible: P[];
 }
 
 /**
- * Group rows by calendar day. For each day, split rows by
- * `destinationIndex` into leg-bands (position-ordered). A day with
- * 2+ distinct stop indexes is marked `hasOverlap: true` so the UI
- * can render LEG sub-bands with a ✈ perforation; single-stop days
- * render flat.
+ * Bucket rows into `Map<dateKey, Map<stopIndex, band>>` in one pass per
+ * row kind. Each band collects confirmed + likely + possible for that
+ * (day, stop) cell. Day-by-day rendering reads these directly — no
+ * per-cell `.find()` lookups.
  *
- * Rows with `date === null` (cadence-based possibles with no fixed
- * date) collapse into a single `dateKey: null` group sorted last.
+ * Date keys are YYYY-MM-DD (sliced from ISO timestamps so event rows
+ * and cadence-null possibles collapse correctly). Days sort
+ * chronologically; cadence-based rows (`date === null`) sort last.
  */
-export function groupByDayWithLegs<T extends TaggedRow>(rows: T[]): DayGroupWithLegs<T>[] {
-  const byDay = new Map<string | null, Map<number, LegBand<T>>>();
-
-  for (const row of rows) {
-    const dayKey = row.date ? row.date.slice(0, 10) : null;
-    let legsForDay = byDay.get(dayKey);
-    if (!legsForDay) {
-      legsForDay = new Map();
-      byDay.set(dayKey, legsForDay);
+export function bucketDays<C extends TaggedRow, L extends TaggedRow, P extends TaggedRow>(
+  rows: RowBundle<C, L, P>,
+): DayBucket<C, L, P>[] {
+  const byDay = new Map<string | null, Map<number, DayStopBand<C, L, P>>>();
+  const touch = (dateKey: string | null, stop: number, label: string | null) => {
+    let forDay = byDay.get(dateKey);
+    if (!forDay) {
+      forDay = new Map();
+      byDay.set(dateKey, forDay);
     }
-    let band = legsForDay.get(row.destinationIndex);
+    let band = forDay.get(stop);
     if (!band) {
-      band = {
-        destinationIndex: row.destinationIndex,
-        destinationLabel: row.destinationLabel,
-        rows: [],
-      };
-      legsForDay.set(row.destinationIndex, band);
+      band = { label, confirmed: [], likely: [], possible: [] };
+      forDay.set(stop, band);
+    } else if (band.label === null && label !== null) {
+      band.label = label;
     }
-    band.rows.push(row);
+    return band;
+  };
+  for (const r of rows.confirmed) {
+    touch(r.date?.slice(0, 10) ?? null, r.destinationIndex, r.destinationLabel).confirmed.push(r);
   }
-
-  const groups: DayGroupWithLegs<T>[] = [];
-  for (const [dateKey, legsMap] of byDay.entries()) {
-    const legs = [...legsMap.values()].sort(
-      (a, b) => a.destinationIndex - b.destinationIndex,
-    );
-    groups.push({ dateKey, hasOverlap: legs.length > 1, legs });
+  for (const r of rows.likely) {
+    touch(r.date?.slice(0, 10) ?? null, r.destinationIndex, r.destinationLabel).likely.push(r);
   }
-
-  return groups.sort((a, b) => {
-    if (a.dateKey === null) return 1;
-    if (b.dateKey === null) return -1;
-    return a.dateKey.localeCompare(b.dateKey);
-  });
+  for (const r of rows.possible) {
+    const key = r.date ? r.date.slice(0, 10) : null;
+    touch(key, r.destinationIndex, r.destinationLabel).possible.push(r);
+  }
+  return [...byDay.entries()]
+    .map(([dateKey, bandsByStop]) => ({ dateKey, bandsByStop }))
+    .sort((a, b) => {
+      if (a.dateKey === null) return 1;
+      if (b.dateKey === null) return -1;
+      return a.dateKey.localeCompare(b.dateKey);
+    });
 }
 
-export interface DestinationSection<T extends TaggedRow> {
-  destinationIndex: number;
-  destinationLabel: string | null;
-  rows: T[];
+export interface StopBucket<C, L, P> {
+  confirmed: C[];
+  likely: L[];
+  possible: P[];
 }
 
 /**
- * Partition rows by `destinationIndex` for the by-destination view.
- * Returns one section per distinct stop the rows touched,
- * position-ordered. Stops with zero rows are omitted so the UI
- * doesn't render empty columns — the caller supplies the per-stop
- * emptyState separately if it wants to render a placeholder.
+ * Partition rows by `destinationIndex` in one pass per row kind. Caller
+ * supplies stops to render (typically `results.destinations`) so the map
+ * is keyed for O(1) `.get(index)` lookup — no per-stop linear scan.
+ * Stops with zero rows have no entry in the map.
  */
-export function groupByDestination<T extends TaggedRow>(
-  rows: T[],
-): DestinationSection<T>[] {
-  const byStop = new Map<number, DestinationSection<T>>();
-  for (const row of rows) {
-    let section = byStop.get(row.destinationIndex);
-    if (!section) {
-      section = {
-        destinationIndex: row.destinationIndex,
-        destinationLabel: row.destinationLabel,
-        rows: [],
-      };
-      byStop.set(row.destinationIndex, section);
+export function bucketStops<C extends TaggedRow, L extends TaggedRow, P extends TaggedRow>(
+  rows: RowBundle<C, L, P>,
+): Map<number, StopBucket<C, L, P>> {
+  const byStop = new Map<number, StopBucket<C, L, P>>();
+  const touch = (idx: number): StopBucket<C, L, P> => {
+    let b = byStop.get(idx);
+    if (!b) {
+      b = { confirmed: [], likely: [], possible: [] };
+      byStop.set(idx, b);
     }
-    section.rows.push(row);
-  }
-  return [...byStop.values()].sort(
-    (a, b) => a.destinationIndex - b.destinationIndex,
-  );
+    return b;
+  };
+  for (const r of rows.confirmed) touch(r.destinationIndex).confirmed.push(r);
+  for (const r of rows.likely) touch(r.destinationIndex).likely.push(r);
+  for (const r of rows.possible) touch(r.destinationIndex).possible.push(r);
+  return byStop;
 }
