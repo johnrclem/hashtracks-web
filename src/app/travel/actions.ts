@@ -813,7 +813,7 @@ function buildDestinationData(
 function formatItineraryName(stops: SaveDestinationParams[]): string {
   const labels = stops.map((s) => s.label).join(" → ");
   const startStr = stops[0].startDate;
-  const endStr = stops[stops.length - 1].endDate;
+  const endStr = stops.at(-1)!.endDate;
   const start = parseUtcNoonDate(startStr);
   const end = parseUtcNoonDate(endStr);
   const sameMonth =
