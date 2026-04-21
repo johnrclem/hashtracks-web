@@ -82,10 +82,14 @@ export function parseCalendarLink(
   // Parse details — strip HTML and extract hares
   const detailText = cheerio.load(details).text().trim();
   let hares: string | undefined;
-  const haresMatch = /Hares?:\s*(.+?)(?=Location:|Cost:|HASH CASH|On-On|On On|Length:|Shiggy\s*Scale:|\n|$)/i.exec(detailText);
+  const haresMatch = /Hares?:\s*(.+?)(?=Location:|Cost:|HASH CASH|On-On|On On|\n|$)/i.exec(detailText);
   if (haresMatch) {
     hares = haresMatch[1].trim();
-    // Clean up trailing punctuation or "Cost:" etc.
+    // #825: BurlyH3 inlines "Length: TBD" and "Shiggy Scale: 4" directly after
+    // the hares list with no separator (e.g. "...SwallowsLength: TBDShiggy..."),
+    // so HARE_BOILERPLATE_RE's \b word boundary can't catch them. Strip each
+    // suffix with a dedicated simple regex first, then apply general cleanup.
+    hares = hares.replace(/Length:.*$/i, "").replace(/Shiggy\s*Scale:.*$/i, "").trim();
     hares = hares.replace(HARE_BOILERPLATE_RE, "").trim();
   }
 
