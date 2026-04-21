@@ -397,7 +397,7 @@ export class BigHumpAdapter implements SourceAdapter {
           const h4Text = h4.text().trim();
           if (!h4Text) return;
 
-          const { hares: titleHares, location: titleLocation } =
+          const { title: titleFromH4, hares: titleHares, location: titleLocation } =
             parseEventTitle(h4Text);
 
           // Preserve paragraph breaks so the labeled-field regexes below can
@@ -418,9 +418,10 @@ export class BigHumpAdapter implements SourceAdapter {
           if (/^open\s*@\s*(?:\?+|tbd|tba|n\/a)\s*$/i.test(h4Text)) return;
 
           // #828: h4 is "Hare @ Venue" — rebuild as "BH4 #N @ Venue" so hares don't double as title.
-          const title = runNumber
-            ? `BH4 #${runNumber}${location ? ` @ ${location}` : ""}`
-            : h4Text;
+          let title = titleFromH4;
+          if (runNumber) {
+            title = location ? `BH4 #${runNumber} @ ${location}` : `BH4 #${runNumber}`;
+          }
 
           harelineEvents.push({
             date,
