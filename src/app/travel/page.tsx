@@ -181,7 +181,6 @@ async function TravelResultsServer({
         distanceTier: distanceFilter,
       },
     });
-    // Single-stop read — PR 3 generalizes to multi-stop.
     const stop = results.destinations[0];
     const broaderResults = stop?.broaderResults;
 
@@ -221,7 +220,6 @@ async function TravelResultsServer({
     // Serialize Date objects for client components. Explicit field list
     // (rather than `...results`) so the multi-destination `destinations`
     // array's Date fields don't silently cross the RSC boundary unserialized.
-    // PR 3 will serialize destinations when the UI actually reads them.
     const serializedResults = {
       emptyState: results.emptyState,
       meta: results.meta,

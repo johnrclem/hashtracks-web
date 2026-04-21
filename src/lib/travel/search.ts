@@ -61,6 +61,13 @@ export interface TravelSearchParams {
     confidence?: ("high" | "medium" | "low")[];
     distanceTier?: DistanceTier[];
   };
+  /**
+   * Skip the weather batch entirely. The `/travel/saved` dashboard needs
+   * only the counts for its summary badges; fetching weather for N saved
+   * trips × up to 15 upstream calls each is unbounded dashboard-time cost
+   * that never renders a pill.
+   */
+  skipWeather?: boolean;
 }
 
 export interface SourceLink {
@@ -276,15 +283,13 @@ export function byDateTimeDistance<T extends { date: Date; startTime: string | n
 // ============================================================================
 
 /**
- * Orchestrator. Fans out over `params.destinations` (1..N stops), runs
- * each stop's pipeline in parallel, tags every row with `destinationIndex`
- * + `destinationLabel`, and returns both a flattened top-level result set
+ * Orchestrator. Fans out over `params.destinations`, runs each stop's
+ * pipeline in parallel, tags every row with `destinationIndex` +
+ * `destinationLabel`, and returns both a flattened top-level result set
  * and a per-stop breakdown for per-destination UI hints.
  *
- * `fetchAllVisibleKennels` runs once at the top — per-stop filtering is
- * in-memory so the 3-stop case fans out DB-query-wise to 3 independent
- * waves of 3 queries each (= 9 queries, all in flight concurrently via
- * the outer Promise.all).
+ * `fetchAllVisibleKennels` runs once at the top; per-stop kennel filtering
+ * is in-memory so no DB query amplification beyond the per-stop pipeline.
  */
 export async function executeTravelSearch(
   prisma: PrismaClient,
@@ -331,18 +336,16 @@ export async function executeTravelSearch(
   // location key internally, so two stops sharing a metro share an upstream
   // call, and the MAX_WEATHER_API_CALLS (15) cap applies to the entire
   // search instead of N× that for N stops.
-  const weatherRecord = await loadConfirmedWeather(weatherInputs);
-
-  // Patch weather onto primary rows (in-place — rows are plain objects,
-  // the orchestrator owns them). Broader-pass rows live on each
-  // destination.broaderResults and also need patching.
-  for (const row of confirmed) {
-    row.weather = weatherRecord[row.eventId] ?? null;
-  }
-  for (const dest of destinations) {
-    if (dest.broaderResults) {
-      for (const row of dest.broaderResults.confirmed) {
-        row.weather = weatherRecord[row.eventId] ?? null;
+  if (!params.skipWeather) {
+    const weatherRecord = await loadConfirmedWeather(weatherInputs);
+    for (const row of confirmed) {
+      row.weather = weatherRecord[row.eventId] ?? null;
+    }
+    for (const dest of destinations) {
+      if (dest.broaderResults) {
+        for (const row of dest.broaderResults.confirmed) {
+          row.weather = weatherRecord[row.eventId] ?? null;
+        }
       }
     }
   }
@@ -552,10 +555,8 @@ async function runStopSearch(
   // directly (loaded at step 4); likely/possible results have no event so
   // they continue to get the kennel's own social links only.
 
-  // Step 12 (used to fetch weather per-stop here). Weather fetching is now
-  // hoisted to the orchestrator so multi-stop searches share ONE bounded
-  // batch instead of burning `MAX_WEATHER_API_CALLS` per stop. Each row's
-  // `weather` starts null and is patched post-hoc by the orchestrator.
+  // Weather inputs are collected here and hoisted to the orchestrator so a
+  // multi-stop search shares one bounded MAX_WEATHER_API_CALLS batch.
   const weatherInputs: WeatherInput[] = [];
 
   // Step 13: Assign distance tiers + build result objects
@@ -599,7 +600,6 @@ async function runStopSearch(
       distanceKm,
       distanceTier: distanceTier(distanceKm),
       sourceLinks: buildSourceLinks(kennel, event.eventLinks, event.sourceUrl),
-      // Patched post-hoc by the orchestrator's single weather batch.
       weather: null,
     };
   });

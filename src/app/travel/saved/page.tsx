@@ -108,6 +108,10 @@ export default async function SavedTripsPage() {
               endDate: endStr,
               timezone: dest.timezone ?? undefined,
             }],
+            // Dashboard only reads .length from the returned arrays for the
+            // summary badges; fetching weather N× per saved trip is
+            // unbounded dashboard-time cost that never renders.
+            skipWeather: true,
           });
           // Honor the search service's empty-state contract: when the primary
           // radius came up empty, real results live in `destinations[0].broaderResults`.
