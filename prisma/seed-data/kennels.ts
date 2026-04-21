@@ -1225,7 +1225,7 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "bjh3", shortName: "BJH3", fullName: "Border Jumpers Hash House Harriers", region: "El Paso, TX",
       website: "https://bjhash.carrd.co",
-      logoUrl: "https://bjhash.carrd.co/assets/images/card.jpg?v=973f6174",
+      logoUrl: "/kennel-logos/bjh3.jpg",
       facebookUrl: "https://www.facebook.com/groups/bjhash",
       contactEmail: "borderjumpersh3@gmail.com",
       scheduleFrequency: "Weekly",
@@ -2289,7 +2289,7 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "bmph3-be", shortName: "BMPH3", fullName: "Brussels Manneke Piss Hash House Harriers", region: "Brussels", country: "Belgium",
       website: "https://www.bmph3.com",
-      logoUrl: "https://849188c654.clvaw-cdnwnd.com/b9b6803aa978688b7e3451537949947c/200000396-5225252254/700/image-crop-200000394.jpeg?ph=849188c654",
+      logoUrl: "/kennel-logos/bmph3.jpg",
       facebookUrl: "https://www.facebook.com/groups/BMPH3",
       contactEmail: "bmph3.onon@gmail.com",
       scheduleDayOfWeek: "Sunday", scheduleTime: "3:00 PM", scheduleFrequency: "Weekly",
