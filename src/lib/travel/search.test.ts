@@ -9,6 +9,7 @@ vi.mock("@/lib/weather", () => ({
   getWeatherForEvents: vi.fn().mockResolvedValue({}),
 }));
 
+import { getWeatherForEvents } from "@/lib/weather";
 import {
   executeTravelSearch,
   byDateTimeDistance,
@@ -829,6 +830,38 @@ describe("executeTravelSearch multi-destination", () => {
     await expect(
       executeTravelSearch(prisma, { destinations: [] }),
     ).rejects.toThrow(/at least one destination/i);
+  });
+
+  it("batches weather ONCE across all stops (cap applies per-search, not per-stop)", async () => {
+    // Regression guard for codex PR #835 review: weather fetching used to
+    // run inside runStopSearch, so a 3-stop trip could burn
+    // MAX_WEATHER_API_CALLS × 3. Hoisting to the orchestrator makes the
+    // cap apply to the whole search. Assertion: one batch call regardless
+    // of stop count, and the batch receives inputs for all stops' events.
+    const londonEvent: MockEvent = { ...testEvent, id: "e-london", kennelId: "k-london", date: utcNoon("2026-04-21") };
+    const parisEvent: MockEvent = { ...testEvent, id: "e-paris", kennelId: "k-paris", date: utcNoon("2026-04-24") };
+    const atlEvent: MockEvent = { ...testEvent, id: "e-atl", kennelId: "k-atl", date: utcNoon("2026-04-28") };
+    const prisma = createMockPrisma(
+      [londonKennel, parisKennel, testKennel],
+      [londonEvent, parisEvent, atlEvent],
+      [],
+    );
+
+    const mockedWeather = vi.mocked(getWeatherForEvents);
+    mockedWeather.mockClear();
+
+    await executeTravelSearch(prisma, {
+      destinations: [
+        londonStop,
+        parisStop,
+        { ...baseDestination, startDate: "2026-04-26", endDate: "2026-04-29", label: "Atlanta" },
+      ],
+    });
+
+    expect(mockedWeather).toHaveBeenCalledTimes(1);
+    const batchInput = mockedWeather.mock.calls[0][0];
+    expect(batchInput).toHaveLength(3);
+    expect(batchInput.map((e) => e.id).sort()).toEqual(["e-atl", "e-london", "e-paris"]);
   });
 });
 

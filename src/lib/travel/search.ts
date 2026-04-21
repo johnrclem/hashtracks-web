@@ -317,12 +317,34 @@ export async function executeTravelSearch(
   const destinations: DestinationResult[] = [];
   let kennelsSearched = 0;
 
+  const weatherInputs: WeatherInput[] = [];
   for (const stop of perStop) {
     confirmed.push(...stop.primaryRows.confirmed);
     likely.push(...stop.primaryRows.likely);
     possible.push(...stop.primaryRows.possible);
     destinations.push(stop.destination);
     kennelsSearched += stop.destination.kennelsSearched;
+    weatherInputs.push(...stop.weatherInputs);
+  }
+
+  // Single weather batch across all stops. `getWeatherForEvents` dedupes by
+  // location key internally, so two stops sharing a metro share an upstream
+  // call, and the MAX_WEATHER_API_CALLS (15) cap applies to the entire
+  // search instead of N× that for N stops.
+  const weatherRecord = await loadConfirmedWeather(weatherInputs);
+
+  // Patch weather onto primary rows (in-place — rows are plain objects,
+  // the orchestrator owns them). Broader-pass rows live on each
+  // destination.broaderResults and also need patching.
+  for (const row of confirmed) {
+    row.weather = weatherRecord[row.eventId] ?? null;
+  }
+  for (const dest of destinations) {
+    if (dest.broaderResults) {
+      for (const row of dest.broaderResults.confirmed) {
+        row.weather = weatherRecord[row.eventId] ?? null;
+      }
+    }
   }
 
   confirmed.sort(byDateTimeDistance);
@@ -352,6 +374,14 @@ interface StopContext {
   now: Date;
 }
 
+interface WeatherInput {
+  id: string;
+  date: Date;
+  latitude: number | null;
+  longitude: number | null;
+  kennel: { region: string };
+}
+
 interface StopOutcome {
   destination: DestinationResult;
   /** Rows from the primary pass, already tagged with destinationIndex. */
@@ -360,6 +390,13 @@ interface StopOutcome {
     likely: LikelyResult[];
     possible: PossibleResult[];
   };
+  /**
+   * Weather batch inputs for every confirmed row the stop produced (primary
+   * + broader). Hoisted so the orchestrator can batch weather once across
+   * all stops — multi-stop searches sharing a metro then share the upstream
+   * Google Weather call instead of blowing through the per-stop 15-call cap.
+   */
+  weatherInputs: WeatherInput[];
 }
 
 async function runStopSearch(
@@ -425,6 +462,7 @@ async function runStopSearch(
           broaderRadiusKm,
         },
         primaryRows: { confirmed: [], likely: [], possible: [] },
+        weatherInputs: [],
       };
     }
   }
@@ -514,13 +552,11 @@ async function runStopSearch(
   // directly (loaded at step 4); likely/possible results have no event so
   // they continue to get the kennel's own social links only.
 
-  // Step 12: Fetch weather. Reuses the deduping/capped batch from
-  // src/lib/weather.ts: kennels in the same metro share one Google Weather
-  // API call (one call returns 10 days), and total calls are capped at
-  // MAX_WEATHER_API_CALLS (15). Earlier per-event Promise.all path could
-  // burst 20+ concurrent upstream requests for a dense trip after the
-  // 5→10 day window expansion; this avoids that.
-  const weatherRecord = await loadConfirmedWeather(confirmedEvents, kennelMap);
+  // Step 12 (used to fetch weather per-stop here). Weather fetching is now
+  // hoisted to the orchestrator so multi-stop searches share ONE bounded
+  // batch instead of burning `MAX_WEATHER_API_CALLS` per stop. Each row's
+  // `weather` starts null and is patched post-hoc by the orchestrator.
+  const weatherInputs: WeatherInput[] = [];
 
   // Step 13: Assign distance tiers + build result objects
   const confirmedResults: ConfirmedResult[] = confirmedEvents.map((event) => {
@@ -530,6 +566,14 @@ async function runStopSearch(
     const distanceKm = eventLat != null && eventLng != null
       ? haversineDistance(latitude, longitude, eventLat, eventLng)
       : kennel?.distanceKm ?? 0;
+
+    weatherInputs.push({
+      id: event.id,
+      date: event.date,
+      latitude: eventLat ?? null,
+      longitude: eventLng ?? null,
+      kennel: { region: kennel?.region ?? "" },
+    });
 
     return {
       type: "confirmed" as const,
@@ -555,7 +599,8 @@ async function runStopSearch(
       distanceKm,
       distanceTier: distanceTier(distanceKm),
       sourceLinks: buildSourceLinks(kennel, event.eventLinks, event.sourceUrl),
-      weather: weatherRecord[event.id] ?? null,
+      // Patched post-hoc by the orchestrator's single weather batch.
+      weather: null,
     };
   });
 
@@ -625,12 +670,13 @@ async function runStopSearch(
     // closest distance tier.
     filtered.possible = dedupePossibleByKennel(filtered.possible);
 
-    return { filtered, unfilteredTotal };
+    return { filtered, unfilteredTotal, weatherInputs };
   };
 
   const firstPassKennels = primary.length > 0 ? primary : broader;
   const firstPass = await runPipelineFor(firstPassKennels);
   let filtered = firstPass.filtered;
+  let passWeatherInputs = firstPass.weatherInputs;
   let nearbyKennels = firstPassKennels;
   let primaryEffectivelyEmpty = primary.length === 0;
 
@@ -647,6 +693,7 @@ async function runStopSearch(
       const broaderPass = await runPipelineFor(broader);
       if (broaderPass.unfilteredTotal > 0) {
         filtered = broaderPass.filtered;
+        passWeatherInputs = broaderPass.weatherInputs;
         nearbyKennels = broader;
         primaryEffectivelyEmpty = true;
       }
@@ -703,6 +750,7 @@ async function runStopSearch(
       likely: primaryEffectivelyEmpty ? [] : filtered.likely,
       possible: primaryEffectivelyEmpty ? [] : filtered.possible,
     },
+    weatherInputs: passWeatherInputs,
   };
 }
 
@@ -904,22 +952,11 @@ function inferLinkType(url: string, label?: string): SourceLink["type"] {
  * pills disappear gracefully without breaking the search.
  */
 async function loadConfirmedWeather(
-  events: { id: string; kennelId: string; date: Date; latitude: number | null; longitude: number | null }[],
-  kennelMap: Map<string, NearbyKennel>,
+  inputs: WeatherInput[],
 ): Promise<Record<string, DailyWeather>> {
-  if (events.length === 0) return {};
-  const enriched = events.map((e) => {
-    const kennel = kennelMap.get(e.kennelId);
-    return {
-      id: e.id,
-      date: e.date,
-      latitude: e.latitude ?? kennel?.latitude ?? null,
-      longitude: e.longitude ?? kennel?.longitude ?? null,
-      kennel: { region: kennel?.region ?? "" },
-    };
-  });
+  if (inputs.length === 0) return {};
   try {
-    return await getWeatherForEvents(enriched);
+    return await getWeatherForEvents(inputs);
   } catch (err) {
     console.error("[travel] Weather batch failed; rendering without weather", err);
     return {};
