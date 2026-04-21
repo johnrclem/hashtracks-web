@@ -157,11 +157,15 @@ describe("extractHares", () => {
 describe("parseHarelineRow", () => {
   it("parses standard event with all fields", () => {
     const cells = ["Mon April 21", "6:30 PM", "2043"];
+    // Fixed reference date so year inference is deterministic regardless
+    // of when CI runs. Without this, chrono's forwardDate: true rolls
+    // "April 21" to next year when CI happens to run on April 21 itself.
     const result = parseHarelineRow(
       cells,
       HARE_TWO_SPANS,
       DIRECTION_WITH_MAPS,
       SOURCE_URL,
+      new Date("2026-04-01T12:00:00Z"),
     );
 
     expect(result).toMatchObject({
