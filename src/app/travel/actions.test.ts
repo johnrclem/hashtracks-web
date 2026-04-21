@@ -322,16 +322,15 @@ describe("saveTravelSearch", () => {
   });
 
   it("same itinerary in different orders produces different signatures", async () => {
-    // Direct computeItinerarySignature check — imported from actions.
     // London → Paris should NOT dedup with Paris → London.
-    const { computeItinerarySignature } = await import("./actions");
+    const { computeItinerarySignature } = await import("@/lib/travel/limits");
     const lonToPar = computeItinerarySignature([
-      { label: "London", latitude: 51.5, longitude: -0.12, radiusKm: 50, startDate: "2026-04-20", endDate: "2026-04-23" },
-      { label: "Paris",  latitude: 48.8, longitude:  2.35, radiusKm: 50, startDate: "2026-04-23", endDate: "2026-04-26" },
+      { latitude: 51.5, longitude: -0.12, radiusKm: 50, startDate: "2026-04-20", endDate: "2026-04-23" },
+      { latitude: 48.8, longitude:  2.35, radiusKm: 50, startDate: "2026-04-23", endDate: "2026-04-26" },
     ]);
     const parToLon = computeItinerarySignature([
-      { label: "Paris",  latitude: 48.8, longitude:  2.35, radiusKm: 50, startDate: "2026-04-20", endDate: "2026-04-23" },
-      { label: "London", latitude: 51.5, longitude: -0.12, radiusKm: 50, startDate: "2026-04-23", endDate: "2026-04-26" },
+      { latitude: 48.8, longitude:  2.35, radiusKm: 50, startDate: "2026-04-20", endDate: "2026-04-23" },
+      { latitude: 51.5, longitude: -0.12, radiusKm: 50, startDate: "2026-04-23", endDate: "2026-04-26" },
     ]);
     expect(lonToPar).not.toEqual(parToLon);
   });

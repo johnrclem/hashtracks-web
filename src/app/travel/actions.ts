@@ -12,8 +12,6 @@
  * - resolveDestinationTimezone: Google Time Zone API lookup
  */
 
-import { createHash } from "node:crypto";
-
 import { Prisma, TravelSearchStatus } from "@/generated/prisma/client";
 
 import { getOrCreateUser } from "@/lib/auth";
@@ -21,7 +19,11 @@ import { prisma } from "@/lib/db";
 import { haversineDistance, geocodeAddress } from "@/lib/geo";
 import { parseUtcNoonDate } from "@/lib/date";
 import type { ActionResult } from "@/lib/actions";
-import { MAX_RADIUS_KM } from "@/lib/travel/limits";
+import {
+  MAX_RADIUS_KM,
+  MAX_STOPS_PER_TRIP,
+  computeItinerarySignature,
+} from "@/lib/travel/limits";
 import { formatDateCompact } from "@/lib/travel/format";
 
 // Don't re-export MAX_RADIUS_KM here — Next.js's `"use server"` boundary
@@ -36,8 +38,6 @@ import { formatDateCompact } from "@/lib/travel/format";
  * the practical user limit any individual trip is hard to find anyway.
  */
 const MAX_SAVED_TRIPS = 50;
-
-export const MAX_STOPS_PER_TRIP = 3;
 
 // ============================================================================
 // Types
@@ -107,46 +107,6 @@ interface FindExistingSearchParams {
  * safe fallback — the Save button still works.
  */
 /**
- * Canonical JSON representation of one stop used in the itinerary signature.
- * Keys are emitted in a fixed insertion order so `JSON.stringify` produces
- * output that matches the SQL backfill in the multi-destination migration.
- * When placeId is set we omit coords — two provider paths (autocomplete vs.
- * server-side geocode) can emit coords that differ by ~0.0001° for the same
- * place, so the placeId-only form is the stable identity.
- */
-function canonicalStop(stop: SaveDestinationParams, position: number) {
-  if (stop.placeId) {
-    return {
-      position,
-      placeId: stop.placeId,
-      radiusKm: stop.radiusKm,
-      startDate: stop.startDate,
-      endDate: stop.endDate,
-    };
-  }
-  return {
-    position,
-    placeId: null,
-    latitude: stop.latitude,
-    longitude: stop.longitude,
-    radiusKm: stop.radiusKm,
-    startDate: stop.startDate,
-    endDate: stop.endDate,
-  };
-}
-
-/**
- * SHA-256 hex digest of the ordered itinerary tuple. This is the trip-level
- * dedup key: partial-unique-indexed on (userId, itinerarySignature) WHERE
- * status='ACTIVE'. Same place in different positions or with different
- * dates → different signature → distinct trip.
- */
-export function computeItinerarySignature(stops: SaveDestinationParams[]): string {
-  const canonical = JSON.stringify(stops.map((s, i) => canonicalStop(s, i)));
-  return createHash("sha256").update(canonical).digest("hex");
-}
-
-/**
  * Normalize the legacy flat-shape saveTravelSearch payload into the
  * array form used internally. Callers using `{ destinations: [...] }`
  * pass through; callers using `{ label, latitude, ... }` get wrapped in
@@ -180,7 +140,6 @@ export async function findExistingSavedSearch(
     const buildSig = (radiusKm: number, withPlaceId: boolean) =>
       computeItinerarySignature([
         {
-          label: "",
           ...(withPlaceId && placeId ? { placeId } : {}),
           latitude,
           longitude,
