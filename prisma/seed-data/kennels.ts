@@ -29,13 +29,17 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "nych3", shortName: "NYCH3", fullName: "New York City Hash House Harriers", region: "New York City, NY",
       website: "https://hashnyc.com",
+      logoUrl: "/kennel-logos/nych3.png",
       scheduleDayOfWeek: "Wednesday", scheduleTime: "7:00 PM", scheduleFrequency: "Weekly",
       hashCash: "$3",
       facebookUrl: "https://www.facebook.com/groups/nychash",
+      instagramHandle: "nychashhouse",
     },
     {
       kennelCode: "brh3", shortName: "Brooklyn H3", fullName: "Brooklyn Hash House Harriers", region: "New York City, NY",
+      logoUrl: "/kennel-logos/brh3.png",
       scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Weekly",
+      instagramHandle: "nychashhouse",
     },
     {
       kennelCode: "nah3", shortName: "NAH3", fullName: "New Amsterdam Hash House Harriers", region: "New York City, NY",
@@ -128,8 +132,10 @@ export const KENNELS: KennelSeed[] = [
     // Boston area (Google Calendar source)
     {
       kennelCode: "boh3", shortName: "Boston H3", fullName: "Boston Hash House Harriers", region: "Boston, MA",
+      website: "https://bostonhash.com",
       scheduleDayOfWeek: "Sunday", scheduleTime: "2:30 PM", scheduleFrequency: "Weekly",
       logoUrl: "https://www.bostonhash.com/images/hash-logo.jpg",
+      contactEmail: "bostonhash@gmail.com",
     },
     {
       kennelCode: "bobbh3", shortName: "B3H4", fullName: "Boston Ballbuster Hardcore Hash House Harriers", region: "Boston, MA",
@@ -262,7 +268,14 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "bfm", shortName: "BFM", fullName: "Ben Franklin Mob H3", region: "Philadelphia, PA",
       website: "https://benfranklinmob.com",
-      scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Biweekly",
+      scheduleDayOfWeek: "Thursday", scheduleTime: "7:00 PM", scheduleFrequency: "Weekly",
+      hashCash: "$10",
+      foundedYear: 2004,
+      logoUrl: "https://benfranklinmob.com/wp-content/uploads/2024/03/cropped-bencircle.png",
+      instagramHandle: "benfranklinmob",
+      facebookUrl: "https://www.facebook.com/groups/bfmh3",
+      contactEmail: "bfmhash@gmail.com",
+      description: "The Ben Franklin Mob Hash House Harriers (BFMH3) is a Philadelphia-based chapter of the Hash House Harriers.",
     },
     {
       kennelCode: "philly-h3", shortName: "Philly H3", fullName: "Philly Hash House Harriers", region: "Philadelphia, PA",
@@ -1211,9 +1224,12 @@ export const KENNELS: KennelSeed[] = [
     // --- El Paso ---
     {
       kennelCode: "bjh3", shortName: "BJH3", fullName: "Border Jumpers Hash House Harriers", region: "El Paso, TX",
+      website: "https://bjhash.carrd.co",
+      logoUrl: "/kennel-logos/bjh3.jpg",
+      facebookUrl: "https://www.facebook.com/groups/bjhash",
       contactEmail: "borderjumpersh3@gmail.com",
       scheduleFrequency: "Weekly",
-      description: "El Paso / border-region hash kennel.",
+      description: "A Drinking Club With a Running Problem — Border Jumpers Style!",
       latitude: 31.76, longitude: -106.49,
     },
     // --- Corpus Christi ---
@@ -2273,6 +2289,9 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "bmph3-be", shortName: "BMPH3", fullName: "Brussels Manneke Piss Hash House Harriers", region: "Brussels", country: "Belgium",
       website: "https://www.bmph3.com",
+      logoUrl: "/kennel-logos/bmph3.jpg",
+      facebookUrl: "https://www.facebook.com/groups/BMPH3",
+      contactEmail: "bmph3.onon@gmail.com",
       scheduleDayOfWeek: "Sunday", scheduleTime: "3:00 PM", scheduleFrequency: "Weekly",
       scheduleNotes: "14:00 winter / 15:00 summer",
       foundedYear: 1980,
