@@ -798,6 +798,20 @@ describe("executeTravelSearch multi-destination", () => {
     expect(result.confirmed).toHaveLength(0);
   });
 
+  it("leaves broaderRadiusKm undefined when broader pass also found zero kennels", async () => {
+    // Claude review on PR #835: a stop with zero kennels in primary AND
+    // broader used to emit broaderRadiusKm anyway, and page.tsx's
+    // effectiveRadiusKm read would surface a misleading "within 150 km"
+    // on a Antarctica-grade search.
+    const prisma = createMockPrisma([], [], []);
+    const result = await executeTravelSearch(prisma, {
+      destinations: [londonStop],
+    });
+
+    expect(result.destinations[0].emptyState).toBe("no_coverage");
+    expect(result.destinations[0].broaderRadiusKm).toBeUndefined();
+  });
+
   it("aggregates mixed hard empties to no_coverage (not no_confirmed)", async () => {
     // Gemini regression on PR #835: one stop with no kennels + one stop
     // past the 365d horizon used to fall through every/every/some checks

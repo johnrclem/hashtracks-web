@@ -462,7 +462,10 @@ async function runStopSearch(
           radiusKm,
           kennelsSearched: 0,
           emptyState: "no_coverage",
-          broaderRadiusKm,
+          // Broader pass found no kennels either — don't surface an
+          // "effective" radius that would imply coverage at a wider
+          // search (TripSummary reads this field).
+          broaderRadiusKm: undefined,
         },
         primaryRows: { confirmed: [], likely: [], possible: [] },
         weatherInputs: [],
@@ -888,8 +891,7 @@ function scoreProjections(
   });
 }
 
-/** Build source links for a kennel from its social fields + event links. */
-/** Build source links, sanitizing all URLs to http/https only (XSS defense). */
+/** Build source links for a kennel from its social fields + event links. Sanitizes URLs to http/https only (XSS defense). */
 function buildSourceLinks(
   kennel?: NearbyKennel | null,
   eventLinks?: { url: string; label: string }[],
