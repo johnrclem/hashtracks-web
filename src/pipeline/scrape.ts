@@ -421,7 +421,15 @@ export async function scrapeSource(
       kennelPageErrors === 0 &&
       !kennelPagesIncomplete
     ) {
-      const reconciled = await reconcileStaleEvents(sourceId, scrapeResult.events, days, scrapedKennelIds);
+      const upcomingOnly =
+        (source.config as Record<string, unknown> | null)?.upcomingOnly === true;
+      const reconciled = await reconcileStaleEvents(
+        sourceId,
+        scrapeResult.events,
+        days,
+        scrapedKennelIds,
+        upcomingOnly,
+      );
       const { cancelledEventIds: _, ...reconDiag } = reconciled;
       cancelledCount = reconciled.cancelled;
       reconcileContext = reconDiag;

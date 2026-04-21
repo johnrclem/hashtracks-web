@@ -367,6 +367,44 @@ describe("reconcileStaleEvents", () => {
     expect(result.totalLinkedKennels).toBe(2);
   });
 
+  it("preserves the days-wide past window by default", async () => {
+    vi.useFakeTimers();
+    try {
+      const now = new Date("2026-04-21T12:00:00Z");
+      vi.setSystemTime(now);
+      mockEventFindMany.mockResolvedValueOnce([] as never);
+
+      await reconcileStaleEvents("src_1", [buildRawEvent()], 90);
+
+      const call = mockEventFindMany.mock.calls[0][0] as {
+        where: { date: { gte: Date; lte: Date } };
+      };
+      expect(call.where.date.gte).toEqual(new Date(now.getTime() - 90 * 86_400_000));
+      expect(call.where.date.lte).toEqual(new Date(now.getTime() + 90 * 86_400_000));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("restricts the past side to now when upcomingOnly is true", async () => {
+    vi.useFakeTimers();
+    try {
+      const now = new Date("2026-04-21T12:00:00Z");
+      vi.setSystemTime(now);
+      mockEventFindMany.mockResolvedValueOnce([] as never);
+
+      await reconcileStaleEvents("src_1", [buildRawEvent()], 90, undefined, true);
+
+      const call = mockEventFindMany.mock.calls[0][0] as {
+        where: { date: { gte: Date; lte: Date } };
+      };
+      expect(call.where.date.gte).toEqual(now);
+      expect(call.where.date.lte).toEqual(new Date(now.getTime() + 90 * 86_400_000));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("returns empty result when scrapedKennelIds has no overlap with linked kennels", async () => {
     mockSourceKennelFind.mockResolvedValueOnce([
       { kennelId: "kennel_1" },

@@ -3496,6 +3496,9 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 180,
+      config: {
+        upcomingOnly: true,
+      },
       kennelCodes: ["sh3-au"],
     },
     {
