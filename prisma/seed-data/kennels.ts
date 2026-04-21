@@ -1229,7 +1229,7 @@ export const KENNELS: KennelSeed[] = [
       facebookUrl: "https://www.facebook.com/groups/bjhash",
       contactEmail: "borderjumpersh3@gmail.com",
       scheduleFrequency: "Weekly",
-      description: "A Drinking Club With a Running Problem — Border Jumpers Style! El Paso / border-region hash kennel.",
+      description: "A Drinking Club With a Running Problem — Border Jumpers Style!",
       latitude: 31.76, longitude: -106.49,
     },
     // --- Corpus Christi ---
