@@ -9,7 +9,13 @@ vi.mock("@/lib/weather", () => ({
   getWeatherForEvents: vi.fn().mockResolvedValue({}),
 }));
 
-import { executeTravelSearch, byDateTimeDistance, type TravelSearchParams } from "./search";
+import { getWeatherForEvents } from "@/lib/weather";
+import {
+  executeTravelSearch,
+  byDateTimeDistance,
+  type TravelSearchParams,
+  type DestinationParams,
+} from "./search";
 
 // ============================================================================
 // Mock Prisma client factory
@@ -170,12 +176,16 @@ const testRule: MockScheduleRule = {
   lastValidatedAt: new Date(),
 };
 
-const baseParams: TravelSearchParams = {
+const baseDestination: DestinationParams = {
   latitude: ATLANTA.lat,
   longitude: ATLANTA.lng,
   radiusKm: 50,
   startDate: "2026-04-12",
   endDate: "2026-04-26",
+};
+
+const baseParams: TravelSearchParams = {
+  destinations: [baseDestination],
 };
 
 // ============================================================================
@@ -198,7 +208,7 @@ describe("executeTravelSearch", () => {
     expect(result.emptyState).toBe("none"); // has confirmed results
     // broaderRadiusKm must be undefined on primary-only searches or
     // TripSummary will render the "routing revised" expanded-radius UI.
-    expect(result.meta.broaderRadiusKm).toBeUndefined();
+    expect(result.destinations[0].broaderRadiusKm).toBeUndefined();
   });
 
   it("returns likely projections from schedule rules", async () => {
@@ -255,9 +265,7 @@ describe("executeTravelSearch", () => {
 
   it("emits out_of_horizon when startDate is past 365d AND no confirmed events in window", async () => {
     const farFuture: TravelSearchParams = {
-      ...baseParams,
-      startDate: "2036-04-12",
-      endDate: "2036-04-26",
+      destinations: [{ ...baseDestination, startDate: "2036-04-12", endDate: "2036-04-26" }],
     };
     // testEvent is at 2026-04-18, far before the 2036 window, so the
     // confirmed query legitimately returns nothing. Rule projections are
@@ -286,9 +294,7 @@ describe("executeTravelSearch", () => {
     };
     const prisma = createMockPrisma([testKennel], [], [lowRule]);
     const result = await executeTravelSearch(prisma, {
-      ...baseParams,
-      startDate: "2036-04-12",
-      endDate: "2036-04-26",
+      destinations: [{ ...baseDestination, startDate: "2036-04-12", endDate: "2036-04-26" }],
     });
 
     expect(result.meta.horizonTier).toBe("none");
@@ -317,9 +323,7 @@ describe("executeTravelSearch", () => {
     };
     const prisma = createMockPrisma([testKennel], [farFutureEvent], []);
     const result = await executeTravelSearch(prisma, {
-      ...baseParams,
-      startDate: farFutureStart,
-      endDate: farFutureEnd,
+      destinations: [{ ...baseDestination, startDate: farFutureStart, endDate: farFutureEnd }],
     });
 
     expect(result.emptyState).toBe("none");
@@ -349,9 +353,7 @@ describe("executeTravelSearch", () => {
     // would short-circuit a far-future start before hitting the query).
     const prisma = createMockPrisma([testKennel], [pathologicalEvent], []);
     const result = await executeTravelSearch(prisma, {
-      ...baseParams,
-      startDate: baseParams.startDate,
-      endDate: threeYearsEnd,
+      destinations: [{ ...baseDestination, endDate: threeYearsEnd }],
     });
 
     // Event at +3yr is past the 730-day cap → excluded.
@@ -374,9 +376,7 @@ describe("executeTravelSearch", () => {
     };
     const prisma = createMockPrisma([testKennel], [nearBoundary, pastBoundary], []);
     const result = await executeTravelSearch(prisma, {
-      ...baseParams,
-      startDate: "2027-03-28",
-      endDate: "2027-04-26",
+      destinations: [{ ...baseDestination, startDate: "2027-03-28", endDate: "2027-04-26" }],
     });
 
     expect(result.confirmed.length).toBeGreaterThanOrEqual(2);
@@ -444,9 +444,9 @@ describe("executeTravelSearch", () => {
     const result = await executeTravelSearch(prisma, baseParams);
 
     expect(result.emptyState).toBe("no_nearby");
-    expect(result.broaderResults).toBeDefined();
-    expect(result.broaderResults!.confirmed.length).toBeGreaterThanOrEqual(1);
-    expect(result.meta.broaderRadiusKm).toBe(150);
+    expect(result.destinations[0].broaderResults).toBeDefined();
+    expect(result.destinations[0].broaderResults!.confirmed.length).toBeGreaterThanOrEqual(1);
+    expect(result.destinations[0].broaderRadiusKm).toBe(150);
   });
 
   it("falls back to broader when primary has a dormant kennel (#783)", async () => {
@@ -482,10 +482,10 @@ describe("executeTravelSearch", () => {
     const result = await executeTravelSearch(prisma, baseParams);
 
     expect(result.emptyState).toBe("no_nearby");
-    expect(result.broaderResults).toBeDefined();
-    expect(result.broaderResults!.confirmed.length).toBe(1);
-    expect(result.broaderResults!.confirmed[0].eventId).toBe("e-distant");
-    expect(result.meta.broaderRadiusKm).toBe(150);
+    expect(result.destinations[0].broaderResults).toBeDefined();
+    expect(result.destinations[0].broaderResults!.confirmed.length).toBe(1);
+    expect(result.destinations[0].broaderResults!.confirmed[0].eventId).toBe("e-distant");
+    expect(result.destinations[0].broaderRadiusKm).toBe(150);
   });
 
   it("collapses Possible rows to one per kennel (#793)", async () => {
@@ -500,9 +500,7 @@ describe("executeTravelSearch", () => {
       confidence: "LOW",
     };
     const twoWeekParams: TravelSearchParams = {
-      ...baseParams,
-      startDate: "2026-04-12",
-      endDate: "2026-04-26",
+      destinations: [{ ...baseDestination, startDate: "2026-04-12", endDate: "2026-04-26" }],
     };
     const prisma = createMockPrisma([testKennel], [], [weeklyLowRule]);
     const result = await executeTravelSearch(prisma, twoWeekParams);
@@ -634,8 +632,7 @@ describe("executeTravelSearch", () => {
   it("clamps end date to the 365-day HIGH horizon", async () => {
     const prisma = createMockPrisma([testKennel], [], [testRule]);
     const result = await executeTravelSearch(prisma, {
-      ...baseParams,
-      endDate: "2028-01-01", // Way beyond 365 days
+      destinations: [{ ...baseDestination, endDate: "2028-01-01" }], // way beyond 365 days
     });
 
     if (result.likely.length > 0) {
@@ -643,6 +640,279 @@ describe("executeTravelSearch", () => {
       const yearFromNow = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
       expect(latestDate.getTime()).toBeLessThanOrEqual(yearFromNow.getTime() + 24 * 60 * 60 * 1000);
     }
+  });
+});
+
+// ============================================================================
+// Multi-destination fan-out (Phase 6 PR 2)
+// ============================================================================
+
+describe("executeTravelSearch multi-destination", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const LONDON = { lat: 51.5074, lng: -0.1278 };
+  const PARIS = { lat: 48.8566, lng: 2.3522 };
+
+  const londonKennel: MockKennel = {
+    ...testKennel,
+    id: "k-london",
+    slug: "lh3",
+    shortName: "London H3",
+    latitude: LONDON.lat,
+    longitude: LONDON.lng,
+  };
+  const parisKennel: MockKennel = {
+    ...testKennel,
+    id: "k-paris",
+    slug: "paris-h3",
+    shortName: "Paris H3",
+    latitude: PARIS.lat,
+    longitude: PARIS.lng,
+  };
+
+  const londonStop: DestinationParams = {
+    latitude: LONDON.lat,
+    longitude: LONDON.lng,
+    radiusKm: 50,
+    startDate: "2026-04-20",
+    endDate: "2026-04-23",
+    label: "London",
+  };
+  const parisStop: DestinationParams = {
+    latitude: PARIS.lat,
+    longitude: PARIS.lng,
+    radiusKm: 50,
+    startDate: "2026-04-23",
+    endDate: "2026-04-26",
+    label: "Paris",
+  };
+
+  it("fans out over 3 stops and tags each result with destinationIndex", async () => {
+    const londonEvent: MockEvent = { ...testEvent, id: "e-london", kennelId: "k-london", date: utcNoon("2026-04-21") };
+    const parisEvent: MockEvent = { ...testEvent, id: "e-paris", kennelId: "k-paris", date: utcNoon("2026-04-24") };
+    const atlEvent: MockEvent = { ...testEvent, id: "e-atl", kennelId: "k-atl", date: utcNoon("2026-04-28") };
+    const prisma = createMockPrisma(
+      [londonKennel, parisKennel, testKennel],
+      [londonEvent, parisEvent, atlEvent],
+      [],
+    );
+
+    const result = await executeTravelSearch(prisma, {
+      destinations: [
+        londonStop,
+        parisStop,
+        { ...baseDestination, startDate: "2026-04-26", endDate: "2026-04-29", label: "Atlanta" },
+      ],
+    });
+
+    expect(result.destinations).toHaveLength(3);
+    expect(result.destinations.map((d) => d.label)).toEqual(["London", "Paris", "Atlanta"]);
+    expect(result.confirmed).toHaveLength(3);
+
+    // Tags match the stop index of each event's city.
+    const byEventId = new Map(result.confirmed.map((r) => [r.eventId, r]));
+    expect(byEventId.get("e-london")?.destinationIndex).toBe(0);
+    expect(byEventId.get("e-london")?.destinationLabel).toBe("London");
+    expect(byEventId.get("e-paris")?.destinationIndex).toBe(1);
+    expect(byEventId.get("e-atl")?.destinationIndex).toBe(2);
+  });
+
+  it("renders overlap-day events twice, one per stop (no cross-stop dedup)", async () => {
+    // Shared Thursday: user is in London AM, Paris PM. Both cities'
+    // events on that day must appear independently so the LEG sub-band
+    // UI can render them side-by-side.
+    const thursday = utcNoon("2026-04-23");
+    const londonThurs: MockEvent = { ...testEvent, id: "e-london-thurs", kennelId: "k-london", date: thursday };
+    const parisThurs: MockEvent = { ...testEvent, id: "e-paris-thurs", kennelId: "k-paris", date: thursday };
+    const prisma = createMockPrisma(
+      [londonKennel, parisKennel],
+      [londonThurs, parisThurs],
+      [],
+    );
+
+    const result = await executeTravelSearch(prisma, {
+      destinations: [londonStop, parisStop],
+    });
+
+    expect(result.confirmed).toHaveLength(2);
+    const thursRows = result.confirmed.filter((r) => r.date.getTime() === thursday.getTime());
+    expect(thursRows).toHaveLength(2);
+    expect(new Set(thursRows.map((r) => r.destinationIndex))).toEqual(new Set([0, 1]));
+  });
+
+  it("isolates per-stop broader fallback — one stop's dormant radius doesn't affect others", async () => {
+    // London has a kennel with an event (primary pass succeeds).
+    // Paris is configured at a coordinate with no nearby kennel; its
+    // broader pass adds a distant kennel.
+    const londonEvent: MockEvent = { ...testEvent, id: "e-london", kennelId: "k-london", date: utcNoon("2026-04-21") };
+    const distantParis: MockKennel = {
+      ...testKennel,
+      id: "k-distant-paris",
+      slug: "distant-paris",
+      shortName: "Distant Paris H3",
+      // ~120km south — only in Paris broader (150km) radius, not primary (50km).
+      latitude: PARIS.lat - 1.1,
+      longitude: PARIS.lng,
+    };
+    const distantParisEvent: MockEvent = {
+      ...testEvent,
+      id: "e-distant-paris",
+      kennelId: "k-distant-paris",
+      date: utcNoon("2026-04-24"),
+    };
+    const prisma = createMockPrisma(
+      [londonKennel, distantParis],
+      [londonEvent, distantParisEvent],
+      [],
+    );
+
+    const result = await executeTravelSearch(prisma, {
+      destinations: [londonStop, parisStop],
+    });
+
+    // London's stop has primary results; Paris's stop triggered broader.
+    expect(result.destinations[0].emptyState).toBe("none");
+    expect(result.destinations[0].broaderRadiusKm).toBeUndefined();
+    expect(result.destinations[1].emptyState).toBe("no_nearby");
+    expect(result.destinations[1].broaderRadiusKm).toBe(150);
+    expect(result.destinations[1].broaderResults?.confirmed).toHaveLength(1);
+
+    // Top-level confirmed holds only the PRIMARY rows — London's.
+    expect(result.confirmed).toHaveLength(1);
+    expect(result.confirmed[0].eventId).toBe("e-london");
+    // Aggregate emptyState: "none" because at least one stop has results.
+    expect(result.emptyState).toBe("none");
+  });
+
+  it("aggregates emptyState to no_coverage when every stop has no kennels", async () => {
+    // Empty kennel list — every stop returns no_coverage.
+    const prisma = createMockPrisma([], [], []);
+    const result = await executeTravelSearch(prisma, {
+      destinations: [londonStop, parisStop],
+    });
+
+    expect(result.destinations.every((d) => d.emptyState === "no_coverage")).toBe(true);
+    expect(result.emptyState).toBe("no_coverage");
+    expect(result.confirmed).toHaveLength(0);
+  });
+
+  it("leaves broaderRadiusKm undefined when broader pass also found zero kennels", async () => {
+    // Claude review on PR #835: a stop with zero kennels in primary AND
+    // broader used to emit broaderRadiusKm anyway, and page.tsx's
+    // effectiveRadiusKm read would surface a misleading "within 150 km"
+    // on a Antarctica-grade search.
+    const prisma = createMockPrisma([], [], []);
+    const result = await executeTravelSearch(prisma, {
+      destinations: [londonStop],
+    });
+
+    expect(result.destinations[0].emptyState).toBe("no_coverage");
+    expect(result.destinations[0].broaderRadiusKm).toBeUndefined();
+  });
+
+  it("aggregates mixed hard empties to no_coverage (not no_confirmed)", async () => {
+    // Gemini regression on PR #835: one stop with no kennels + one stop
+    // past the 365d horizon used to fall through every/every/some checks
+    // to "no_confirmed", misleading the UI into implying projections
+    // exist when neither stop produced any.
+    // London: no kennels at all → no_coverage.
+    // Paris future: kennel exists but startDate past horizon → out_of_horizon.
+    const futureParisStop: DestinationParams = {
+      ...parisStop,
+      startDate: "2028-04-23",
+      endDate: "2028-04-26",
+    };
+    const prisma = createMockPrisma([parisKennel], [], []);
+    const result = await executeTravelSearch(prisma, {
+      destinations: [londonStop, futureParisStop],
+    });
+
+    expect(result.destinations[0].emptyState).toBe("no_coverage");
+    expect(result.destinations[1].emptyState).toBe("out_of_horizon");
+    // no_coverage beats out_of_horizon in the aggregate: a missing-data
+    // region is more useful to flag than a date the user can't change.
+    expect(result.emptyState).toBe("no_coverage");
+  });
+
+  it("aggregates emptyState to out_of_horizon when every stop is past the horizon", async () => {
+    const prisma = createMockPrisma([londonKennel, parisKennel], [], []);
+    const result = await executeTravelSearch(prisma, {
+      destinations: [
+        { ...londonStop, startDate: "2028-04-20", endDate: "2028-04-23" },
+        { ...parisStop, startDate: "2028-04-23", endDate: "2028-04-26" },
+      ],
+    });
+
+    expect(result.destinations.every((d) => d.emptyState === "out_of_horizon")).toBe(true);
+    expect(result.emptyState).toBe("out_of_horizon");
+  });
+
+  it("aggregates horizonTier to worst-case across stops", async () => {
+    // One stop near-term ("all"), one stop 2 years out ("none"). Aggregate
+    // must surface the "none" so UI copy explains why Likely is sparse.
+    const prisma = createMockPrisma([londonKennel, parisKennel], [], []);
+    const result = await executeTravelSearch(prisma, {
+      destinations: [
+        londonStop,
+        { ...parisStop, startDate: "2028-04-23", endDate: "2028-04-26" },
+      ],
+    });
+
+    expect(result.destinations[0].horizonTier).toBe("all");
+    expect(result.destinations[1].horizonTier).toBe("none");
+    expect(result.meta.horizonTier).toBe("none");
+  });
+
+  it("sums kennelsSearched across stops in meta", async () => {
+    const prisma = createMockPrisma([londonKennel, parisKennel], [], []);
+    const result = await executeTravelSearch(prisma, {
+      destinations: [londonStop, parisStop],
+    });
+
+    expect(result.destinations[0].kennelsSearched).toBe(1);
+    expect(result.destinations[1].kennelsSearched).toBe(1);
+    expect(result.meta.kennelsSearched).toBe(2);
+  });
+
+  it("throws when destinations array is empty", async () => {
+    const prisma = createMockPrisma([], [], []);
+    await expect(
+      executeTravelSearch(prisma, { destinations: [] }),
+    ).rejects.toThrow(/at least one destination/i);
+  });
+
+  it("batches weather ONCE across all stops (cap applies per-search, not per-stop)", async () => {
+    // Regression guard for codex PR #835 review: weather fetching used to
+    // run inside runStopSearch, so a 3-stop trip could burn
+    // MAX_WEATHER_API_CALLS × 3. Hoisting to the orchestrator makes the
+    // cap apply to the whole search. Assertion: one batch call regardless
+    // of stop count, and the batch receives inputs for all stops' events.
+    const londonEvent: MockEvent = { ...testEvent, id: "e-london", kennelId: "k-london", date: utcNoon("2026-04-21") };
+    const parisEvent: MockEvent = { ...testEvent, id: "e-paris", kennelId: "k-paris", date: utcNoon("2026-04-24") };
+    const atlEvent: MockEvent = { ...testEvent, id: "e-atl", kennelId: "k-atl", date: utcNoon("2026-04-28") };
+    const prisma = createMockPrisma(
+      [londonKennel, parisKennel, testKennel],
+      [londonEvent, parisEvent, atlEvent],
+      [],
+    );
+
+    const mockedWeather = vi.mocked(getWeatherForEvents);
+    mockedWeather.mockClear();
+
+    await executeTravelSearch(prisma, {
+      destinations: [
+        londonStop,
+        parisStop,
+        { ...baseDestination, startDate: "2026-04-26", endDate: "2026-04-29", label: "Atlanta" },
+      ],
+    });
+
+    expect(mockedWeather).toHaveBeenCalledTimes(1);
+    const batchInput = mockedWeather.mock.calls[0][0];
+    expect(batchInput).toHaveLength(3);
+    expect(batchInput.map((e) => e.id).sort()).toEqual(["e-atl", "e-london", "e-paris"]);
   });
 });
 

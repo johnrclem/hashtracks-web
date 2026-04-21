@@ -173,17 +173,16 @@ async function TravelResultsServer({
 
   try {
     const results = await executeTravelSearch(prisma, {
-      latitude,
-      longitude,
-      radiusKm,
-      startDate,
-      endDate,
-      timezone,
+      destinations: [
+        { latitude, longitude, radiusKm, startDate, endDate, timezone },
+      ],
       filters: {
         confidence: confidenceFilter,
         distanceTier: distanceFilter,
       },
     });
+    const stop = results.destinations[0];
+    const broaderResults = stop?.broaderResults;
 
     // Auth is optional — failures inside getOrCreateUser() (Clerk outages,
     // analytics side-effects, non-P2002 Prisma errors) must NOT blank the
@@ -213,14 +212,17 @@ async function TravelResultsServer({
 
     const confirmedEventIds = [
       ...results.confirmed,
-      ...(results.broaderResults?.confirmed ?? []),
+      ...(broaderResults?.confirmed ?? []),
     ].map((r) => r.eventId);
 
     const attendanceMap = await loadAttendanceMap(user, confirmedEventIds);
 
-    // Serialize Date objects for client components
+    // Serialize Date objects for client components. Explicit field list
+    // (rather than `...results`) so the multi-destination `destinations`
+    // array's Date fields don't silently cross the RSC boundary unserialized.
     const serializedResults = {
-      ...results,
+      emptyState: results.emptyState,
+      meta: results.meta,
       confirmed: results.confirmed.map((r) => ({
         ...r,
         date: r.date.toISOString(),
@@ -235,18 +237,18 @@ async function TravelResultsServer({
         date: r.date?.toISOString() ?? null,
         lastConfirmedAt: r.lastConfirmedAt?.toISOString() ?? null,
       })),
-      broaderResults: results.broaderResults
+      broaderResults: broaderResults
         ? {
-            confirmed: results.broaderResults.confirmed.map((r) => ({
+            confirmed: broaderResults.confirmed.map((r) => ({
               ...r,
               date: r.date.toISOString(),
               attendance: attendanceMap[r.eventId] ?? null,
             })),
-            likely: results.broaderResults.likely.map((r) => ({
+            likely: broaderResults.likely.map((r) => ({
               ...r,
               date: r.date.toISOString(),
             })),
-            possible: results.broaderResults.possible.map((r) => ({
+            possible: broaderResults.possible.map((r) => ({
               ...r,
               date: r.date?.toISOString() ?? null,
               lastConfirmedAt: r.lastConfirmedAt?.toISOString() ?? null,
@@ -274,15 +276,15 @@ async function TravelResultsServer({
       // When the service expanded to a broader region, surface the
       // larger radius so the hero count + summary can stop lying about
       // which radius the trails are actually within.
-      effectiveRadiusKm: results.meta.broaderRadiusKm ?? results.meta.radiusKm,
+      effectiveRadiusKm: stop?.broaderRadiusKm ?? stop?.radiusKm ?? radiusKm,
       noCoverage: results.emptyState === "no_coverage",
       horizonTier: results.meta.horizonTier,
       timezone,
       isAuthenticated,
       initialSavedId,
       confirmedCount: exportableConfirmed.length,
-      likelyCount: results.likely.length + (results.broaderResults?.likely.length ?? 0),
-      possibleCount: results.possible.length + (results.broaderResults?.possible.length ?? 0),
+      likelyCount: results.likely.length + (broaderResults?.likely.length ?? 0),
+      possibleCount: results.possible.length + (broaderResults?.possible.length ?? 0),
       confirmedEvents: exportableConfirmed.map((r) => ({
         date: r.date,
         startTime: r.startTime,
@@ -326,7 +328,7 @@ async function TravelResultsServer({
           {tripHeader}
           <EmptyStates
             variant={results.emptyState}
-            broaderRadiusKm={results.meta.broaderRadiusKm}
+            broaderRadiusKm={stop?.broaderRadiusKm}
           />
           {resultsToRender && (
             <TravelResults destination={destination} results={resultsToRender} />
