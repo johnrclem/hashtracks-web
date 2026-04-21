@@ -34,6 +34,7 @@ export async function reconcileStaleEvents(
   scrapedEvents: RawEventData[],
   days: number,
   scrapedKennelIds?: string[],
+  upcomingOnly?: boolean,
 ): Promise<ReconcileResult> {
   const emptyResult: ReconcileResult = {
     cancelled: 0, cancelledEventIds: [],
@@ -80,9 +81,13 @@ export async function reconcileStaleEvents(
     return { ...emptyResult, totalLinkedKennels: allLinkedKennelIds.length };
   }
 
-  // Compute the scrape time window (same as adapter)
+  // Upcoming-only sources (e.g. sh3.link) drop runs the moment they happen —
+  // a past-dated event missing from a scrape is not a cancellation signal, so
+  // restrict the reconcile window to future dates for those sources.
   const now = new Date();
-  const timeMin = new Date(now.getTime() - days * 86_400_000);
+  const timeMin = upcomingOnly
+    ? now
+    : new Date(now.getTime() - days * 86_400_000);
   const timeMax = new Date(now.getTime() + days * 86_400_000);
 
   // Find CONFIRMED events in the window for this source's kennels
