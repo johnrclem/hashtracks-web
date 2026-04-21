@@ -277,7 +277,9 @@ export async function updateTravelSearch(
 
   try {
     await prisma.$transaction(async (tx) => {
-      await tx.travelDestination.deleteMany({ where: { travelSearchId: id } });
+      await tx.travelDestination.deleteMany({
+        where: { travelSearchId: id, userId: user.id },
+      });
       await tx.travelSearch.update({
         where: { id },
         data: {

@@ -370,7 +370,7 @@ describe("updateTravelSearch", () => {
     // Three coordinated writes: delete old destinations, refresh parent
     // name + itinerarySignature, createMany new destinations with positions.
     expect(prisma.travelDestination.deleteMany).toHaveBeenCalledWith({
-      where: { travelSearchId: "ts-1" },
+      where: { travelSearchId: "ts-1", userId: "user-1" },
     });
     expect(prisma.travelSearch.update).toHaveBeenCalledWith({
       where: { id: "ts-1" },
