@@ -168,6 +168,18 @@ export async function reconcileStaleEvents(
     // errs toward preserving canonicals on ambiguous matches because a false
     // cancellation is user-visible damage, whereas leaving a truly-stale row
     // CONFIRMED is self-healing on the next full scrape.
+    //
+    // Bare-row guard: a scraped row with no sourceUrl, startTime, or title
+    // cannot bind to any specific canonical in a double-header slot. Rather
+    // than orphan every canonical in the slot, preserve all of them — the
+    // scrape proves *some* run happened that day, we just can't tell which.
+    const hasBareScrape = scrapedForSlot.some(
+      (s) => !s.sourceUrl && !s.startTime && !s.title,
+    );
+    if (hasBareScrape) {
+      for (const c of slotCandidates) matchedCandidateIds.add(c.id);
+      continue;
+    }
     const claimed = new Set<string>();
     for (const scraped of scrapedForSlot) {
       const pick = (predicate: (c: (typeof slotCandidates)[number]) => boolean) =>
