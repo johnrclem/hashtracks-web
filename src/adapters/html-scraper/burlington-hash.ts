@@ -85,7 +85,17 @@ export function parseCalendarLink(
   const haresMatch = /Hares?:\s*(.+?)(?=Location:|Cost:|HASH CASH|On-On|On On|\n|$)/i.exec(detailText);
   if (haresMatch) {
     hares = haresMatch[1].trim();
-    // Clean up trailing punctuation or "Cost:" etc.
+    // #825: BurlyH3 inlines "Length: TBD" and "Shiggy Scale: 4" directly after
+    // the hares list with no separator (e.g. "...SwallowsLength: TBDShiggy..."),
+    // so HARE_BOILERPLATE_RE's \b word boundary can't catch them. Truncate at
+    // the first marker via indexOf (avoids a new S5852-flagged regex line).
+    const lower = hares.toLowerCase();
+    let cutIdx = -1;
+    for (const marker of ["length:", "shiggy scale:", "shiggyscale:"]) {
+      const idx = lower.indexOf(marker);
+      if (idx >= 0 && (cutIdx === -1 || idx < cutIdx)) cutIdx = idx;
+    }
+    if (cutIdx >= 0) hares = hares.slice(0, cutIdx);
     hares = hares.replace(HARE_BOILERPLATE_RE, "").trim();
   }
 

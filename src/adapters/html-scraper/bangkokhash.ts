@@ -57,6 +57,21 @@ const SITE_CONFIGS: Record<string, BangkokHashConfig> = {
   siamsunday: { subSite: "siamsunday", hashClub: "S2H3", apiBase: "/H220j", kennelTag: "s2h3", defaultTime: "16:30" },
 };
 
+// #827: guard against label strings leaking as field values when the source
+// emits an empty slot (e.g. "Run Site: Run Site:" → captures "Run Site:").
+// Set membership beats an alternation regex for maintainability (and sidesteps
+// SonarCloud's regex-complexity ceiling). Mirrors the `grab()` label list.
+const FIELD_LABELS = new Set([
+  "run site", "station", "restaurant", "location",
+  "hare", "hares", "date", "start time",
+  "google map", "google maps", "google map link", "google maps link",
+]);
+
+function isFieldLabel(val: string): boolean {
+  const normalized = val.toLowerCase().replace(/:\s*$/, "").replaceAll(/\s+/g, " ").trim();
+  return FIELD_LABELS.has(normalized);
+}
+
 /**
  * Parse the Joomla next-run article. This has labeled fields in
  * `<strong>Label</strong>: Value` format within `.item-content`.
@@ -79,8 +94,9 @@ export function parseNextRunArticle(
     const re = new RegExp(`${label}\\s*:\\s*(.+?)(?:\\n|$)`, "i");
     const m = re.exec(text);
     const val = m?.[1]?.trim();
-    // Skip empty/placeholder values
-    return val && val.length > 0 ? val : undefined;
+    if (!val) return undefined;
+    if (isFieldLabel(val)) return undefined;
+    return val;
   };
 
   const dateRaw = grab("Date");

@@ -70,6 +70,27 @@ describe("parseNextRunArticle", () => {
     expect(event).toBeNull();
   });
 
+  it("rejects label-only values that leak as field content (#827)", () => {
+    // Belt-and-suspenders: if a value slot is empty/malformed such that the
+    // captured text is literally another field label (e.g. "Run Site:"),
+    // grab() must return undefined rather than surfacing the label as data.
+    // Audit #827 reported `locationName = "Run Site:"` on a BTH3 event — this
+    // ensures the label string never flows through to output.
+    const html = `
+<div class="item-content">
+  <p><strong>Date</strong>: 23-Apr-2026<br>
+  <strong>Start Time</strong>: 18:30<br>
+  <strong>Hare</strong>: Here for Beer<br>
+  <strong>Station</strong>: MRT Sutthisan<br>
+  <strong>Run Site</strong>: Run Site:</p>
+</div>`;
+    const event = parseNextRunArticle(html, "bth3", "18:30", "https://www.bangkokhash.com/thursday/index.php");
+    expect(event).not.toBeNull();
+    // Run Site held its own label (leak) — rejected → falls through to
+    // station → locationName = "MRT Sutthisan", never the literal label.
+    expect(event!.location).toBe("MRT Sutthisan");
+  });
+
   it("filters boilerplate 'On On Q' out of Hares field (#802 BFMH3)", () => {
     // From BFMH3 (Bangkok Full Moon) next-run article — the labeled
     // `Hares:` row carries "On On Q" filler instead of a real name.

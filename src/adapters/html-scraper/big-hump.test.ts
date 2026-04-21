@@ -542,6 +542,50 @@ describe("BigHumpAdapter", () => {
     expect(result.errors).toContain("HTTP 500");
   });
 
+  // #828: fixtures for title-construction + placeholder-skip tests. Shared
+  // helper keeps both cases wiring-free.
+  const bh4Card = (date: string, run: number, h4: string, small = "") => `
+        <div class="w3-card">
+          <header class="w3-container w3-green">
+            <h3>Wednesday ${date} <span class="w3-text-amber">#${run}</span></h3>
+          </header>
+          <div class="w3-row"><div class="w3-col w3-container m9 l10">
+            <h4>${h4}</h4>
+            <span class="w3-small">${small}</span>
+          </div></div>
+        </div>`;
+  async function run828Fixture(cards: string) {
+    const html = `<html><body>${cards}</body></html>`;
+    vi.mocked(utils.fetchHTMLPage).mockResolvedValueOnce({
+      ok: true as const,
+      html,
+      $: cheerio.load(html),
+      structureHash: "828-test",
+      fetchDurationMs: 50,
+    });
+    const mockSource = { id: "test-bh4", url: "http://www.big-hump.com/hareline.php", config: null } as never;
+    return adapter.fetch(mockSource, { days: 36500 });
+  }
+
+  it("#828: constructs 'BH4 #NNNN @ Venue' title from hareline '<Hare> @ <Venue>' h4", async () => {
+    const result = await run828Fixture(bh4Card("04/22/2026", 1995, "Headlights and Mr. Headlights @ The Loop", "Circle up: 6:45 p.m."));
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].title).toBe("BH4 #1995 @ The Loop");
+    expect(result.events[0].location).toBe("The Loop");
+    expect(result.events[0].hares).toBe("Headlights and Mr. Headlights");
+  });
+
+  it("#828: skips 'Open @ ???' placeholder rows with no venue", async () => {
+    const result = await run828Fixture(
+      bh4Card("05/06/2026", 1998, "Open @ ???") + bh4Card("05/13/2026", 1999, "Hammock @ ???"),
+    );
+    // "Open @ ???" skipped (no hare named yet, no venue);
+    // "Hammock @ ???" kept (hare is committed, venue just TBD).
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].runNumber).toBe(1999);
+    expect(result.events[0].hares).toBe("Hammock");
+  });
+
   it("does not leak description text into hares when 'hares' appears mid-sentence (#519)", async () => {
     // Reproduces Run #1992: the description body has no labeled Hare: line,
     // but mentions "hares" in the middle of a sentence. The old regex matched
