@@ -43,6 +43,15 @@ export function daysBetween(start: string, end: string): number {
   return Math.max(1, Math.round((e.getTime() - s.getTime()) / (24 * 60 * 60 * 1000)));
 }
 
+/** Pluralize the trip-window night count: "1 night" / "3 nights". Four
+ *  UI sites (TravelSearchForm, SavedTripCard, TripSummary, compact pill)
+ *  repeat this; kept here next to `daysBetween` so callers share one
+ *  pluralization rule. */
+export function formatNights(start: string, end: string): string {
+  const n = daysBetween(start, end);
+  return `${n} night${n !== 1 ? "s" : ""}`;
+}
+
 /**
  * Signed day delta between two YYYY-MM-DD strings: `(end - start)` in days.
  * Returns 0 for same day, positive for end-after-start, negative otherwise.
