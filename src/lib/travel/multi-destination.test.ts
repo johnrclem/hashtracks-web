@@ -93,7 +93,7 @@ describe("bucketDays", () => {
       possible: emptyKind<TestRow>(),
     });
     expect(buckets[0].bandsByStop.size).toBe(3);
-    expect([...buckets[0].bandsByStop.keys()].sort()).toEqual([0, 1, 2]);
+    expect([...buckets[0].bandsByStop.keys()].sort((a, b) => a - b)).toEqual([0, 1, 2]);
   });
 
   it("returns empty array when no rows supplied", () => {
@@ -141,6 +141,6 @@ describe("bucketStops", () => {
       likely: emptyKind<TestRow>(),
       possible: [row("b", 2, null)],
     });
-    expect([...buckets.keys()].sort()).toEqual([0, 2]);
+    expect([...buckets.keys()].sort((a, b) => a - b)).toEqual([0, 2]);
   });
 });
