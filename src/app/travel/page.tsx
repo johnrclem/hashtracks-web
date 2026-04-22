@@ -210,9 +210,24 @@ async function TravelResultsServer({
         })
       : null;
 
+    const isMultiStop = results.destinations.length > 1;
+
+    // Multi-stop: every stop's broader pass rows need to reach the
+    // attendance map + serialized arrays. Single-stop's broader is
+    // already captured via `broaderResults` (== destinations[0].broaderResults).
+    const allBroaderConfirmed = isMultiStop
+      ? results.destinations.flatMap((d) => d.broaderResults?.confirmed ?? [])
+      : (broaderResults?.confirmed ?? []);
+    const allBroaderLikely = isMultiStop
+      ? results.destinations.flatMap((d) => d.broaderResults?.likely ?? [])
+      : (broaderResults?.likely ?? []);
+    const allBroaderPossible = isMultiStop
+      ? results.destinations.flatMap((d) => d.broaderResults?.possible ?? [])
+      : (broaderResults?.possible ?? []);
+
     const confirmedEventIds = [
       ...results.confirmed,
-      ...(broaderResults?.confirmed ?? []),
+      ...allBroaderConfirmed,
     ].map((r) => r.eventId);
 
     const attendanceMap = await loadAttendanceMap(user, confirmedEventIds);
@@ -223,16 +238,32 @@ async function TravelResultsServer({
     const serializedResults = {
       emptyState: results.emptyState,
       meta: results.meta,
-      confirmed: results.confirmed.map((r) => ({
+      // Per-stop metadata. Dates toISOString so the RSC boundary
+      // serializes cleanly.
+      destinations: results.destinations.map((d) => ({
+        index: d.index,
+        label: d.label,
+        startDate: d.startDate.toISOString(),
+        endDate: d.endDate.toISOString(),
+        radiusKm: d.radiusKm,
+        broaderRadiusKm: d.broaderRadiusKm,
+      })),
+      // Multi-stop: merge every stop's broader rows into the top-level
+      // flat arrays so the multi-destination renderer (which iterates
+      // the flat set tagged by destinationIndex) sees both primary and
+      // broader results across ALL stops. Single-stop keeps today's
+      // behavior — broader rows flow through `broaderResults` below and
+      // `selectResultsToRender` swaps them in on `no_nearby`.
+      confirmed: [...results.confirmed, ...(isMultiStop ? allBroaderConfirmed : [])].map((r) => ({
         ...r,
         date: r.date.toISOString(),
         attendance: attendanceMap[r.eventId] ?? null,
       })),
-      likely: results.likely.map((r) => ({
+      likely: [...results.likely, ...(isMultiStop ? allBroaderLikely : [])].map((r) => ({
         ...r,
         date: r.date.toISOString(),
       })),
-      possible: results.possible.map((r) => ({
+      possible: [...results.possible, ...(isMultiStop ? allBroaderPossible : [])].map((r) => ({
         ...r,
         date: r.date?.toISOString() ?? null,
         lastConfirmedAt: r.lastConfirmedAt?.toISOString() ?? null,
@@ -321,7 +352,12 @@ async function TravelResultsServer({
     );
 
     if (results.emptyState !== "none") {
-      const resultsToRender = selectResultsToRender(results.emptyState, serializedResults);
+      // Multi-stop: skip the broader-swap since top-level arrays already
+      // contain merged primary + all-stops-broader (see serialization above).
+      // Single-stop: swap broader arrays in place on `no_nearby`.
+      const resultsToRender = isMultiStop
+        ? serializedResults
+        : selectResultsToRender(results.emptyState, serializedResults);
 
       return (
         <>
@@ -331,7 +367,11 @@ async function TravelResultsServer({
             broaderRadiusKm={stop?.broaderRadiusKm}
           />
           {resultsToRender && (
-            <TravelResults destination={destination} results={resultsToRender} />
+            <TravelResults
+              destination={destination}
+              results={resultsToRender}
+              destinations={serializedResults.destinations}
+            />
           )}
         </>
       );
@@ -340,7 +380,11 @@ async function TravelResultsServer({
     return (
       <>
         {tripHeader}
-        <TravelResults destination={destination} results={serializedResults} />
+        <TravelResults
+          destination={destination}
+          results={serializedResults}
+          destinations={serializedResults.destinations}
+        />
       </>
     );
   } catch (err) {

@@ -157,6 +157,10 @@ interface TravelFilterAppliedProps {
   value: string;
 }
 
+interface TravelMultidestViewChangedProps {
+  view: "day-by-day" | "by-destination";
+}
+
 // ── Event Map ────────────────────────────────────────────────────────
 
 interface AnalyticsEventMap {
@@ -202,6 +206,7 @@ interface AnalyticsEventMap {
   travel_near_me_clicked: Record<string, never>;
   travel_popular_destination_clicked: TravelPopularDestinationClickedProps;
   travel_filter_applied: TravelFilterAppliedProps;
+  travel_multidest_view_changed: TravelMultidestViewChangedProps;
 }
 
 /**
