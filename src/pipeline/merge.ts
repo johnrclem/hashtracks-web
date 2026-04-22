@@ -8,6 +8,24 @@ import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag, clearResolverCache } from "./kennel-resolver";
 import { extractCoordsFromMapsUrl, geocodeAddress, resolveShortMapsUrl, reverseGeocode, haversineDistance, parseDMSFromLocation, stripDMSFromLocation } from "@/lib/geo";
 import { isPlaceholder, decodeEntities, HARE_BOILERPLATE_RE } from "@/adapters/utils";
+import { LOCATION_EMAIL_CTA_RE } from "./audit-checks";
+
+// Strip a trailing "(text/call/… for address)" parenthetical when its body
+// starts with a contact verb AND carries a contact-info signal (3+ digits, @,
+// or "for <noun>"). Legit parens like "(Call Center entrance)" or
+// "The Pub (upstairs)" survive — both gates must fire.
+const CTA_VERB_PREFIX_RE = /^(?:text|call|phone|ping|msg|message)\b/i;
+const CONTACT_SIGNAL_RE = /\d{3,}|@|\bfor\s+(?:address|info|directions|details|location)\b/i;
+
+function stripTrailingContactCtaParen(input: string): string {
+  const trimmed = input.trimEnd();
+  if (!trimmed.endsWith(")")) return input;
+  const openIdx = trimmed.lastIndexOf("(");
+  if (openIdx === -1) return input;
+  const inner = trimmed.slice(openIdx + 1, -1);
+  if (!CTA_VERB_PREFIX_RE.test(inner) || !CONTACT_SIGNAL_RE.test(inner)) return input;
+  return trimmed.slice(0, openIdx).trimEnd();
+}
 
 /** Map kennel country field to Google Geocoding ccTLD region bias code. */
 function countryToRegionBias(country?: string | null): string | undefined {
@@ -540,6 +558,9 @@ export function sanitizeLocation(location: string | undefined): string | null {
   if (/^registration\s*:/i.test(t)) return null;
   // Strip bare URLs (not useful as location names)
   if (/^https?:\/\/\S+$/.test(t)) return null;
+  // Strip trailing "(text/call/… for address)" CTA so geocoding stays clean (#831).
+  t = stripTrailingContactCtaParen(t);
+  if (!t) return null;
   // Strip "Maps, " prefix (Google Calendar link text bleed)
   // Strip common instruction prefixes ("Meet at", "Park at", "Start at", etc.)
   const stripped = t.replace(/^Maps,\s*/i, "")
@@ -553,6 +574,9 @@ export function sanitizeLocation(location: string | undefined): string | null {
     // Strip instruction suffixes after em-dash or period ("— check Facebook for details")
 .replace(/(\s*[—–]|\.)\s*(?:check|see|visit|call|contact|email|for)\b.*/i, "")
     .trim();
+  // Drop pure email-CTA locations ("Inquire for location: foo@bar.com") — not
+  // geocodable (#829). Applied after prefix strip so "Maps, Inquire..." hits too.
+  if (LOCATION_EMAIL_CTA_RE.test(stripped)) return null;
   // Clean up embedded URLs, double commas, extra whitespace, normalize state abbrev
   let cleaned = stripUrlsFromText(stripped)
     .replace(/,\s*,/g, ",")

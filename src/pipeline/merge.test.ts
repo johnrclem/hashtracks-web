@@ -1660,6 +1660,28 @@ describe("sanitizeLocation", () => {
     expect(sanitizeLocation("N Main St, North Main Street, Springfield, IL"))
       .toBe("North Main Street, Springfield, IL");
   });
+
+  // Contact-CTA stripping / nulling (#829 email, #831 phone).
+  // LOCATION_EMAIL_CTA_RE is anchored on a leading contact verb, so multi-
+  // segment addresses that merely mention an email aren't nulled. The paren-
+  // strip requires a CTA verb at the start AND a contact-info signal inside
+  // (digits/@/"for <noun>") so legitimate parens like "(Call Center entrance)"
+  // or "The Pub (upstairs)" survive.
+  it.each([
+    // input → expected (null = should return null)
+    ["Casa De Assover – Raleigh, NC (text Assover at 919-332-2615 for address)", "Casa De Assover – Raleigh, NC"], // #831
+    ["The Usual Spot (call 555-1212 for directions)", "The Usual Spot"],
+    ["Hideout Bar (message @hare for address)", "Hideout Bar"],
+    ["The Pub (upstairs), Boston, MA", "The Pub (upstairs), Boston, MA"],
+    ["The Conference Hall (Call Center entrance)", "The Conference Hall (Call Center entrance)"],
+    ["The Pub, 123 Main St, Boston, MA — see hi@x.com", "The Pub, 123 Main St, Boston, MA"],
+    ["Inquire for location: abqh3misman@gmail.com", null], // #829
+    ["Email venue@example.com for address", null],
+    ["Contact misman@example.org for address", null],
+    ["Maps, Inquire for location: foo@example.com", null],
+  ])("sanitizes contact-CTA locations: %s", (input, expected) => {
+    expect(sanitizeLocation(input)).toBe(expected);
+  });
 });
 
 // ── NON_ENGLISH_GEO_RE (French locale location normalization) ──
