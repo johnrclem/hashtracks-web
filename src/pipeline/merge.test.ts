@@ -2033,11 +2033,186 @@ describe("pickCanonicalEventId", () => {
       rowB: { id: "newer", ...DUP_SIG, trustLevel: 8, status: "CANCELLED" as const, createdAt: new Date("2026-03-01T00:00:00Z") },
       expectedCanonicals: ["newer"],
     },
+    {
+      // #866 cross-source race path: one source emits (runNumber, no URL),
+      // another emits (runNumber, URL). Pre-fix their signatures differ
+      // (`run#N::` vs `run#N::<url>`) and both survive as canonical.
+      name: "#866 URL-less + URL-bearing at same runNumber + compatible startTime collapses",
+      rowA: { id: "url-less", trustLevel: 5, runNumber: 1704, title: "Run #1704", startTime: "14:00", sourceUrl: null },
+      rowB: { id: "url-bearing", trustLevel: 5, runNumber: 1704, title: "Run #1704", startTime: "14:00", sourceUrl: "https://example.com/1704", haresText: "hares", locationName: "park" },
+      expectedCanonicals: ["url-bearing"],
+    },
+    {
+      name: "#866 collapse works when both sides have null startTime",
+      rowA: { id: "url-less", trustLevel: 5, runNumber: 42, title: "Run #42", sourceUrl: null },
+      rowB: { id: "url-bearing", trustLevel: 7, runNumber: 42, title: "Run #42", sourceUrl: "https://example.com/42" },
+      expectedCanonicals: ["url-bearing"],
+    },
+    {
+      // Safety: if the URL-less row claims a different time than the
+      // URL-bearing row, treat them as separate events (e.g. someone typo'd
+      // the runNumber into a different trail).
+      name: "#866 conflicting startTimes keep both canonicals",
+      rowA: { id: "url-less", trustLevel: 5, runNumber: 1704, title: "Run #1704", startTime: "09:00", sourceUrl: null },
+      rowB: { id: "url-bearing", trustLevel: 5, runNumber: 1704, title: "Run #1704", startTime: "18:00", sourceUrl: "https://example.com/1704" },
+      expectedCanonicals: ["url-less", "url-bearing"],
+    },
+    {
+      // AVLH3 multi-part preservation: two URL-bearing rows for the same
+      // runNumber at distinct URLs must still produce two canonicals
+      // because neither is URL-less (no race to collapse).
+      name: "AVLH3 multi-part still splits when neither side is URL-less",
+      rowA: { id: "a", runNumber: 786, title: "AVLH3 #786 Part B", sourceUrl: "https://meetup.com/events/299709371/" },
+      rowB: { id: "b", runNumber: 786, title: "AVLH3 #786 Part C", sourceUrl: "https://meetup.com/events/299709393/" },
+      expectedCanonicals: ["a", "b"],
+    },
   ])("$name", ({ rowA, rowB, expectedCanonicals }) => {
     const canonicals = pickCanonicalEventIds([candidate(rowA), candidate(rowB)]);
     expect([...canonicals].sort((a, b) => a.localeCompare(b))).toEqual(
       [...expectedCanonicals].sort((a, b) => a.localeCompare(b)),
     );
+  });
+
+  it("#866 two URL-less rows + one URL-bearing row collapse into one canonical", () => {
+    // The URL-less signature group buckets BOTH null-URL rows together
+    // (signature ignores startTime when runNumber is set). The helper must
+    // inspect every row's startTime, not just [0], or input order decides
+    // whether collapse happens.
+    const urlLessA = candidate({
+      id: "url-less-a",
+      runNumber: 1704,
+      title: "Run #1704",
+      startTime: null,
+      sourceUrl: null,
+    });
+    const urlLessB = candidate({
+      id: "url-less-b",
+      runNumber: 1704,
+      title: "Run #1704",
+      startTime: "14:00",
+      sourceUrl: null,
+    });
+    const urlBearing = candidate({
+      id: "url-bearing",
+      trustLevel: 8,
+      runNumber: 1704,
+      title: "Run #1704",
+      startTime: "14:00",
+      sourceUrl: "https://example.com/1704",
+    });
+    // Order should not matter: run both permutations.
+    for (const rows of [
+      [urlLessA, urlLessB, urlBearing],
+      [urlLessB, urlLessA, urlBearing],
+      [urlBearing, urlLessA, urlLessB],
+    ]) {
+      const canonicals = pickCanonicalEventIds(rows);
+      expect(canonicals.size).toBe(1);
+      expect(canonicals.has("url-bearing")).toBe(true);
+    }
+  });
+
+  it("#866 URL-less group with conflicting internal time blocks collapse", () => {
+    // If the URL-less group contains rows with two different concrete times,
+    // it can't be the same event as a single-time URL-bearing peer. Safety:
+    // keep both groups canonical rather than silently merging.
+    const urlLessMorning = candidate({
+      id: "url-less-morning",
+      runNumber: 42,
+      title: "Run #42",
+      startTime: "09:00",
+      sourceUrl: null,
+    });
+    const urlLessEvening = candidate({
+      id: "url-less-evening",
+      runNumber: 42,
+      title: "Run #42",
+      startTime: "18:00",
+      sourceUrl: null,
+    });
+    const urlBearing = candidate({
+      id: "url-bearing",
+      runNumber: 42,
+      title: "Run #42",
+      startTime: "18:00",
+      sourceUrl: "https://example.com/42",
+    });
+    const canonicals = pickCanonicalEventIds([
+      urlLessMorning,
+      urlLessEvening,
+      urlBearing,
+    ]);
+    // URL-less group stays (it's one signature group, one canonical winner
+    // by trust/completeness), URL-bearing stays — two canonicals total.
+    expect(canonicals.size).toBe(2);
+    expect(canonicals.has("url-bearing")).toBe(true);
+  });
+
+  it("#866 URL-less internally conflicted times + URL-bearing blank-time peer blocks collapse", () => {
+    // Codex review regression: URL-less group has {09:00, 18:00}, URL-bearing
+    // peer has null startTime. A blank peer cannot disambiguate which of the
+    // two URL-less rows it matches, so collapse must be blocked.
+    const urlLessMorning = candidate({
+      id: "url-less-morning",
+      runNumber: 99,
+      title: "Run #99",
+      startTime: "09:00",
+      sourceUrl: null,
+    });
+    const urlLessEvening = candidate({
+      id: "url-less-evening",
+      runNumber: 99,
+      title: "Run #99",
+      startTime: "18:00",
+      sourceUrl: null,
+    });
+    const urlBearingBlank = candidate({
+      id: "url-bearing-blank",
+      runNumber: 99,
+      title: "Run #99",
+      startTime: null,
+      sourceUrl: "https://example.com/99",
+    });
+    const canonicals = pickCanonicalEventIds([
+      urlLessMorning,
+      urlLessEvening,
+      urlBearingBlank,
+    ]);
+    expect(canonicals.size).toBe(2);
+    expect(canonicals.has("url-bearing-blank")).toBe(true);
+  });
+
+  it("#866 ambiguous URL-less + two URL-bearing peers preserves all groups", () => {
+    // Conservative fallback: if the URL-less row could belong to either of
+    // two URL-bearing multi-part rows, don't guess — keep all three
+    // canonicals. Reproducing #866 for this rare topology beats silently
+    // collapsing a genuine multi-part event.
+    const urlLess = candidate({
+      id: "url-less",
+      runNumber: 786,
+      title: "AVLH3 #786",
+      startTime: null,
+      sourceUrl: null,
+    });
+    const partB = candidate({
+      id: "part-b",
+      runNumber: 786,
+      title: "AVLH3 #786 Part B",
+      startTime: null,
+      sourceUrl: "https://meetup.com/events/299709371/",
+    });
+    const partC = candidate({
+      id: "part-c",
+      runNumber: 786,
+      title: "AVLH3 #786 Part C",
+      startTime: null,
+      sourceUrl: "https://meetup.com/events/299709393/",
+    });
+    const canonicals = pickCanonicalEventIds([urlLess, partB, partC]);
+    expect(canonicals.size).toBe(3);
+    expect(canonicals.has("url-less")).toBe(true);
+    expect(canonicals.has("part-b")).toBe(true);
+    expect(canonicals.has("part-c")).toBe(true);
   });
 
   it("flips the winner when equal-trust completeness shifts after an update", () => {

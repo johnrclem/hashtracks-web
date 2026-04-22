@@ -1149,6 +1149,87 @@ function eventSignature(e: CanonicalCandidate): string {
 }
 
 /**
+ * Collapse signature groups that share a runNumber when one group is
+ * URL-bearing and the other is URL-less, provided startTimes don't conflict.
+ *
+ * Covers the cross-source race path (#866): one source emits
+ * `(runNumber, no URL)` and another emits `(runNumber, URL)`. They produce
+ * distinct signatures (`run#N::` vs `run#N::<url>`) but are the same event.
+ *
+ * Preserves multi-part events: two URL-bearing groups with the same
+ * runNumber at distinct URLs (AVLH3 #786 Part B/C) stay split because
+ * neither is URL-less.
+ *
+ * Ambiguous cases — a URL-less group with two or more compatible URL-bearing
+ * peers — are left alone. Collapsing would incorrectly merge genuine
+ * multi-part events; reproducing #866 for that rare topology is safer.
+ *
+ * Compatibility is computed over every row in each group, not just the first:
+ * `eventSignature` ignores startTime when runNumber is set, so one URL-less
+ * group can contain rows with differing times. Collapse only when the two
+ * groups' non-blank startTime sets are either empty or equal.
+ */
+function collapseRunNumberRaces(groups: CanonicalCandidate[][]): CanonicalCandidate[][] {
+  const nonBlankTimes = (group: CanonicalCandidate[]): Set<string> => {
+    const set = new Set<string>();
+    for (const row of group) {
+      const t = row.startTime?.trim();
+      if (t) set.add(t);
+    }
+    return set;
+  };
+  const timesCompatible = (a: Set<string>, b: Set<string>): boolean => {
+    // A blank peer (size 0) can't disambiguate an internally time-conflicted
+    // group — if `a` has {09:00, 18:00} and `b` is all-null, collapsing
+    // would silently fold two distinct events into one. Only allow the
+    // empty-side shortcut when the other side has at most one concrete time.
+    if (a.size === 0) return b.size <= 1;
+    if (b.size === 0) return a.size <= 1;
+    if (a.size !== b.size) return false;
+    for (const t of a) if (!b.has(t)) return false;
+    return true;
+  };
+  const isUrlLess = (group: CanonicalCandidate[]): boolean =>
+    // Signature buckets by trimmed URL, so every row in a group shares the
+    // same URL presence — `[0]` is a safe proxy for the whole group here.
+    (group[0].sourceUrl?.trim() || "") === "";
+
+  const absorbed = new Set<number>();
+  for (let i = 0; i < groups.length; i++) {
+    if (absorbed.has(i)) continue;
+    const urlLess = groups[i];
+    const rep = urlLess[0];
+    if (rep.runNumber == null) continue;
+    if (!isUrlLess(urlLess)) continue;
+    const urlLessTimes = nonBlankTimes(urlLess);
+    const peers: number[] = [];
+    for (let j = 0; j < groups.length; j++) {
+      if (j === i || absorbed.has(j)) continue;
+      const peer = groups[j];
+      if (peer[0].runNumber !== rep.runNumber) continue;
+      if (isUrlLess(peer)) continue;
+      if (!timesCompatible(urlLessTimes, nonBlankTimes(peer))) continue;
+      peers.push(j);
+    }
+    if (peers.length === 1) {
+      // Replace the peer with a new concatenated array so we don't mutate
+      // the bucket still referenced by the outer signature map — easier to
+      // reason about even though nothing downstream reads it.
+      groups[peers[0]] = [...groups[peers[0]], ...urlLess];
+      absorbed.add(i);
+    }
+  }
+  // Footgun: `pickCanonicalEventIds` picks the winner by trustLevel then
+  // completeness. If a URL-less source has strictly higher trustLevel than
+  // the URL-bearing peer it gets absorbed into, the URL-less row wins
+  // canonical and `Event.sourceUrl` will be null despite a URL-bearing
+  // sibling existing in the group. No source combination produces this
+  // today (URL-bearing sources are trusted ≥ URL-less), but watch for it
+  // if trust levels are rebalanced.
+  return groups.filter((_, i) => !absorbed.has(i));
+}
+
+/**
  * Pick canonical row id(s) across a (kennelId, date) group. Rows group by
  * signature; distinct signatures each keep a canonical. Within a group:
  *   1. Prefer non-CANCELLED rows — every display path filters
@@ -1170,7 +1251,9 @@ export function pickCanonicalEventIds(events: CanonicalCandidate[]): Set<string>
     bySignature.set(sig, group);
   }
 
-  for (const group of bySignature.values()) {
+  const mergedGroups = collapseRunNumberRaces(Array.from(bySignature.values()));
+
+  for (const group of mergedGroups) {
     // Prefer live rows; if the whole group is cancelled, keep them all eligible
     // so reconcile has a stable canonical pointer to un-cancel later.
     const live = group.filter(e => e.status !== "CANCELLED");
