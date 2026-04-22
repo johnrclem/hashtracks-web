@@ -391,6 +391,121 @@ export async function restoreTravelSearch(
 }
 
 // ============================================================================
+// saveDraftSearch / updateDraftSearch
+// ============================================================================
+
+/**
+ * Create a DRAFT TravelSearch. Drafts are exempt from the ACTIVE
+ * dedup partial-unique (the index filters `WHERE status='ACTIVE'`)
+ * so two drafts with the same itinerary can coexist. Signature is
+ * populated so a later promotion to ACTIVE reuses the shared dedup.
+ */
+export async function saveDraftSearch(
+  params: SaveTravelSearchParams,
+): Promise<ActionResult<{ id: string }>> {
+  const user = await getOrCreateUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const stops = normalizeDestinations(params);
+  const validation = validateSearchParams(stops);
+  if (validation) return { error: validation };
+
+  const signature = computeItinerarySignature(stops);
+  const name = formatItineraryName(stops);
+
+  const search = await prisma.$transaction(async (tx) => {
+    const created = await tx.travelSearch.create({
+      data: {
+        userId: user.id,
+        name,
+        status: TravelSearchStatus.DRAFT,
+        itinerarySignature: signature,
+      },
+    });
+    await tx.travelDestination.createMany({
+      data: stops.map((stop, i) =>
+        buildDestinationData(created.id, user.id, stop, i, TravelSearchStatus.DRAFT),
+      ),
+    });
+    return created;
+  });
+
+  return { success: true, id: search.id };
+}
+
+/**
+ * Mutate an existing DRAFT in-place. Fails if the id is not the
+ * caller's own draft. An ACTIVE trip mutates via `updateTravelSearch`
+ * instead, which enforces the partial-unique dedup.
+ */
+export async function updateDraftSearch(
+  id: string,
+  params: SaveTravelSearchParams,
+): Promise<ActionResult<{ id: string }>> {
+  const user = await getOrCreateUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const stops = normalizeDestinations(params);
+  const validation = validateSearchParams(stops);
+  if (validation) return { error: validation };
+
+  const signature = computeItinerarySignature(stops);
+  const name = formatItineraryName(stops);
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      // Tx-scoped ownership + status guard. `updateMany` with a composite
+      // where atomically asserts "still DRAFT, still owned by this user".
+      const guarded = await tx.travelSearch.updateMany({
+        where: { id, userId: user.id, status: TravelSearchStatus.DRAFT },
+        data: { name, itinerarySignature: signature },
+      });
+      if (guarded.count === 0) {
+        throw new DraftGuardError();
+      }
+      await tx.travelDestination.deleteMany({
+        where: { travelSearchId: id, userId: user.id },
+      });
+      await tx.travelDestination.createMany({
+        data: stops.map((stop, i) =>
+          buildDestinationData(id, user.id, stop, i, TravelSearchStatus.DRAFT),
+        ),
+      });
+      // Re-assert at the tail of the tx. A concurrent deleteTravelSearch
+      // could archive the parent between the initial guard and this
+      // createMany — without the recheck we'd end up with an ARCHIVED
+      // parent holding freshly-created DRAFT children.
+      const stillDraft = await tx.travelSearch.updateMany({
+        where: { id, userId: user.id, status: TravelSearchStatus.DRAFT },
+        data: { updatedAt: new Date() },
+      });
+      if (stillDraft.count === 0) {
+        throw new DraftGuardError();
+      }
+    });
+  } catch (err) {
+    if (err instanceof DraftGuardError) {
+      const row = await prisma.travelSearch.findUnique({
+        where: { id },
+        select: { userId: true, status: true },
+      });
+      if (!row) return { error: "Draft not found" };
+      if (row.userId !== user.id) return { error: "Not authorized" };
+      return { error: "Search is not a draft" };
+    }
+    throw err;
+  }
+
+  return { success: true, id };
+}
+
+/** Sentinel thrown from inside the updateDraftSearch tx when the
+ *  composite where-clause didn't match. Lets the caller disambiguate
+ *  the three distinct failure modes (missing / not-owner / not-draft)
+ *  via a single post-hoc read outside the tx. */
+class DraftGuardError extends Error {}
+
+// ============================================================================
 // listSavedSearches
 // ============================================================================
 
@@ -790,12 +905,18 @@ function buildDestinationData(
   userId: string,
   stop: SaveDestinationParams,
   position: number,
+  // Child status must mirror the parent's status: DRAFT parent → DRAFT
+  // children, ACTIVE parent → ACTIVE children. Codex flagged the prior
+  // hardcoded ACTIVE as a shortcut that let DRAFT parents hold ACTIVE
+  // children, breaking the parent/child invariant the rest of the
+  // reader path (and the partial-unique dedup) relies on.
+  status: TravelSearchStatus = TravelSearchStatus.ACTIVE,
 ) {
   return {
     travelSearchId,
     userId,
     position,
-    status: TravelSearchStatus.ACTIVE,
+    status,
     label: stop.label,
     placeId: stop.placeId ?? null,
     latitude: stop.latitude,

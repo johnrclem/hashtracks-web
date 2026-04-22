@@ -17,6 +17,7 @@ vi.mock("@/lib/db", () => {
     findFirst: vi.fn(),
     findMany: vi.fn(),
     update: vi.fn(),
+    updateMany: vi.fn(),
   };
   const travelDestination = {
     deleteMany: vi.fn(),
@@ -54,6 +55,8 @@ import {
   updateTravelSearch,
   deleteTravelSearch,
   restoreTravelSearch,
+  saveDraftSearch,
+  updateDraftSearch,
   findExistingSavedSearch,
   listSavedSearches,
   viewTravelSearch,
@@ -784,6 +787,162 @@ describe("resolveDestinationTimezone", () => {
       expect("error" in result && result.error).toBe("Time Zone API not configured");
     } finally {
       if (originalKey) process.env.GOOGLE_CALENDAR_API_KEY = originalKey;
+    }
+  });
+});
+
+describe("saveDraftSearch", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("creates a DRAFT TravelSearch + destinations", async () => {
+    vi.mocked(prisma.travelSearch.create).mockResolvedValue({
+      id: "draft-1",
+      userId: "user-1",
+      name: "Atlanta, GA · Apr 14–21",
+      status: "DRAFT",
+      lastViewedAt: null,
+      itinerarySignature: "sig-abc",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    vi.mocked(prisma.travelDestination.createMany).mockResolvedValue({ count: 1 } as never);
+
+    const result = await saveDraftSearch(validParams);
+
+    expect("success" in result).toBe(true);
+    expect("id" in result && result.id).toBe("draft-1");
+
+    expect(prisma.travelSearch.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          userId: "user-1",
+          status: "DRAFT",
+          itinerarySignature: expect.any(String),
+        }),
+      }),
+    );
+  });
+
+  it("does NOT dedup — two drafts with the same itinerary coexist", async () => {
+    vi.mocked(prisma.travelSearch.create)
+      .mockResolvedValueOnce({ id: "draft-a" } as never)
+      .mockResolvedValueOnce({ id: "draft-b" } as never);
+    vi.mocked(prisma.travelDestination.createMany).mockResolvedValue({ count: 1 } as never);
+
+    const first = await saveDraftSearch(validParams);
+    const second = await saveDraftSearch(validParams);
+
+    expect("id" in first && first.id).toBe("draft-a");
+    expect("id" in second && second.id).toBe("draft-b");
+    expect(prisma.travelSearch.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("rejects invalid params (>3 stops, out-of-range radius, etc.)", async () => {
+    const result = await saveDraftSearch({
+      destinations: [validParams, validParams, validParams, validParams],
+    });
+    expect("error" in result && result.error).toMatch(/at most/i);
+  });
+
+  it("requires authentication", async () => {
+    vi.mocked(getOrCreateUser).mockResolvedValueOnce(null as never);
+    const result = await saveDraftSearch(validParams);
+    expect("error" in result && result.error).toBe("Not authenticated");
+  });
+
+  it("writes DRAFT child rows — not ACTIVE — to preserve the parent/child status invariant", async () => {
+    vi.mocked(prisma.travelSearch.create).mockResolvedValue({ id: "draft-2" } as never);
+    vi.mocked(prisma.travelDestination.createMany).mockResolvedValue({ count: 1 } as never);
+
+    await saveDraftSearch(validParams);
+
+    const createCall = vi.mocked(prisma.travelDestination.createMany).mock.calls[0][0];
+    const rows = (createCall as { data: Array<{ status: string }> }).data;
+    for (const row of rows) {
+      expect(row.status).toBe("DRAFT");
+    }
+  });
+});
+
+describe("updateDraftSearch", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // Default: composite where-clause matches (row exists, owned, still DRAFT).
+    vi.mocked(prisma.travelSearch.updateMany).mockResolvedValue({ count: 1 } as never);
+    vi.mocked(prisma.travelDestination.deleteMany).mockResolvedValue({ count: 1 } as never);
+    vi.mocked(prisma.travelDestination.createMany).mockResolvedValue({ count: 2 } as never);
+  });
+
+  it("updateMany payload never includes status — stays DRAFT", async () => {
+    const result = await updateDraftSearch("draft-1", {
+      destinations: [validParams, validParams],
+    });
+
+    expect("id" in result && result.id).toBe("draft-1");
+    const call = vi.mocked(prisma.travelSearch.updateMany).mock.calls[0][0];
+    expect(call.data).not.toHaveProperty("status");
+    // The where clause enforces the tx-scoped guard.
+    expect(call.where).toMatchObject({ id: "draft-1", userId: "user-1", status: "DRAFT" });
+  });
+
+  it("refuses to mutate non-DRAFT trips", async () => {
+    // Guard didn't match. Post-hoc read shows the row is ACTIVE.
+    vi.mocked(prisma.travelSearch.updateMany).mockResolvedValue({ count: 0 } as never);
+    vi.mocked(prisma.travelSearch.findUnique).mockResolvedValue({
+      userId: "user-1",
+      status: "ACTIVE",
+    } as never);
+
+    const result = await updateDraftSearch("active-1", validParams);
+    expect("error" in result && result.error).toBe("Search is not a draft");
+    expect(prisma.travelDestination.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("refuses to mutate another user's draft", async () => {
+    vi.mocked(prisma.travelSearch.updateMany).mockResolvedValue({ count: 0 } as never);
+    vi.mocked(prisma.travelSearch.findUnique).mockResolvedValue({
+      userId: "someone-else",
+      status: "DRAFT",
+    } as never);
+
+    const result = await updateDraftSearch("draft-1", validParams);
+    expect("error" in result && result.error).toBe("Not authorized");
+  });
+
+  it("returns Draft not found when id doesn't exist", async () => {
+    vi.mocked(prisma.travelSearch.updateMany).mockResolvedValue({ count: 0 } as never);
+    vi.mocked(prisma.travelSearch.findUnique).mockResolvedValue(null as never);
+
+    const result = await updateDraftSearch("ghost", validParams);
+    expect("error" in result && result.error).toBe("Draft not found");
+  });
+
+  it("rolls back when a concurrent archive races between the initial guard and the final recheck", async () => {
+    // First updateMany (initial guard) passes. The delete+create run.
+    // Then the final updateMany (tail recheck) returns count=0 — the
+    // parent was archived mid-flight. Expected: the whole tx throws,
+    // surfaces as Search is not a draft.
+    vi.mocked(prisma.travelSearch.updateMany)
+      .mockResolvedValueOnce({ count: 1 } as never)  // initial guard OK
+      .mockResolvedValueOnce({ count: 0 } as never); // tail recheck fails
+    vi.mocked(prisma.travelSearch.findUnique).mockResolvedValue({
+      userId: "user-1",
+      status: "ARCHIVED",
+    } as never);
+
+    const result = await updateDraftSearch("draft-1", validParams);
+    expect("error" in result && result.error).toBe("Search is not a draft");
+  });
+
+  it("writes DRAFT child rows on successful update (preserves parent/child invariant)", async () => {
+    vi.mocked(prisma.travelSearch.updateMany).mockResolvedValue({ count: 1 } as never);
+
+    await updateDraftSearch("draft-1", validParams);
+
+    const createCall = vi.mocked(prisma.travelDestination.createMany).mock.calls[0][0];
+    const rows = (createCall as { data: Array<{ status: string }> }).data;
+    for (const row of rows) {
+      expect(row.status).toBe("DRAFT");
     }
   });
 });

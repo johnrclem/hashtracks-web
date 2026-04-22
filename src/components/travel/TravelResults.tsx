@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { SourceLink } from "@/lib/travel/search";
 import { capture } from "@/lib/analytics";
 import {
   computeDayCounts,
@@ -24,93 +23,13 @@ import { LikelyCard } from "./LikelyCard";
 import { PossibleSection } from "./PossibleSection";
 import { PossibleRow } from "./PossibleRow";
 import { TravelResultFilters } from "./TravelResultFilters";
-
-/** Per-row multi-destination tag. Every result is tagged with the 0-indexed
- * stop it belongs to, letting the UI render LEG sub-bands on overlap days
- * (where two stops share a calendar date). Single-destination searches
- * produce rows all tagged `{ destinationIndex: 0 }`. */
-interface DestinationTag {
-  destinationIndex: number;
-  destinationLabel: string | null;
-}
-
-interface SerializedConfirmed extends DestinationTag {
-  type: "confirmed";
-  eventId: string;
-  kennelId: string;
-  kennelSlug: string;
-  kennelName: string;
-  kennelFullName: string;
-  kennelRegion: string;
-  kennelPinColor: string | null;
-  date: string;
-  startTime: string | null;
-  title: string | null;
-  runNumber: number | null;
-  haresText: string | null;
-  locationName: string | null;
-  locationStreet: string | null;
-  locationCity: string | null;
-  timezone: string | null;
-  sourceUrl: string | null;
-  distanceKm: number;
-  distanceTier: "nearby" | "area" | "drive";
-  sourceLinks: SourceLink[];
-  weather: {
-    highTempC: number;
-    lowTempC: number;
-    condition: string;
-    conditionType: string;
-    precipProbability: number;
-  } | null;
-  attendance: { status: string; participationLevel: string } | null;
-}
-
-interface SerializedLikely extends DestinationTag {
-  type: "likely";
-  kennelId: string;
-  kennelSlug: string;
-  kennelName: string;
-  kennelFullName: string;
-  kennelRegion: string;
-  kennelPinColor: string | null;
-  date: string;
-  startTime: string | null;
-  confidence: "high" | "medium";
-  distanceKm: number;
-  distanceTier: "nearby" | "area" | "drive";
-  explanation: string;
-  evidenceWindow: string;
-  evidenceTimeline: { weeks: boolean[]; totalEvents: number };
-  sourceLinks: SourceLink[];
-}
-
-interface SerializedPossible extends DestinationTag {
-  type: "possible";
-  kennelId: string;
-  kennelSlug: string;
-  kennelName: string;
-  kennelFullName: string;
-  kennelRegion: string;
-  date: string | null;
-  confidence: "low";
-  distanceKm: number;
-  distanceTier: "nearby" | "area" | "drive";
-  explanation: string;
-  sourceLinks: SourceLink[];
-  lastConfirmedAt: string | null;
-}
-
-/** Serialized per-stop summary, threaded through from search.ts. Dates are
- * ISO strings because the props cross the RSC boundary. */
-export interface SerializedDestination {
-  index: number;
-  label: string | null;
-  startDate: string;
-  endDate: string;
-  radiusKm: number;
-  broaderRadiusKm?: number;
-}
+import type {
+  SerializedConfirmed,
+  SerializedLikely,
+  SerializedPossible,
+  SerializedDestination,
+} from "@/lib/travel/serialize";
+export type { SerializedDestination };
 
 interface TravelResultsProps {
   destination: string;
