@@ -12,19 +12,19 @@ import { LOCATION_EMAIL_CTA_RE } from "./audit-checks";
 
 // Strip a trailing "(text/call/… for address)" parenthetical when its body
 // starts with a contact verb AND carries a contact-info signal (3+ digits, @,
-// or "for <noun>"). Split into two regexes so the gate composed complexity
-// stays under SonarCloud's threshold, and so legitimate parens like
-// "(Call Center entrance)" or "The Pub (upstairs)" survive.
-const TRAILING_PAREN_RE = /\s*\(([^)]*)\)\s*$/;
+// or "for <noun>"). Legit parens like "(Call Center entrance)" or
+// "The Pub (upstairs)" survive — both gates must fire.
 const CTA_VERB_PREFIX_RE = /^(?:text|call|phone|ping|msg|message)\b/i;
 const CONTACT_SIGNAL_RE = /\d{3,}|@|\bfor\s+(?:address|info|directions|details|location)\b/i;
 
 function stripTrailingContactCtaParen(input: string): string {
-  const m = TRAILING_PAREN_RE.exec(input);
-  if (!m) return input;
-  const inner = m[1];
+  const trimmed = input.trimEnd();
+  if (!trimmed.endsWith(")")) return input;
+  const openIdx = trimmed.lastIndexOf("(");
+  if (openIdx === -1) return input;
+  const inner = trimmed.slice(openIdx + 1, -1);
   if (!CTA_VERB_PREFIX_RE.test(inner) || !CONTACT_SIGNAL_RE.test(inner)) return input;
-  return input.slice(0, m.index).trim();
+  return trimmed.slice(0, openIdx).trimEnd();
 }
 
 /** Map kennel country field to Google Geocoding ccTLD region bias code. */
