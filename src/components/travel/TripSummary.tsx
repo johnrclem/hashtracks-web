@@ -111,14 +111,17 @@ export function TripSummary({
   // to a different search before clicking Undo (stale closure guard).
   const undoToastIdRef = useRef<string | number | null>(null);
 
-  // Fire once per page view when this is a multi-stop hero. Depend on
-  // legCount (a number) rather than `legs` (a fresh array reference
-  // every render) so same-trip re-renders don't re-capture.
+  // Fire once per multi-stop page view. Depends on scalar values
+  // rather than the `legs` array reference so same-trip re-renders
+  // don't re-capture — but `initialSavedId` is included so navigating
+  // between two different multi-stop saved trips with the same leg
+  // count still re-fires (client component stays mounted across
+  // App Router transitions).
   useEffect(() => {
     if (legCount > 1) {
       capture("travel_multi_stop_hero_viewed", { legCount });
     }
-  }, [legCount]);
+  }, [legCount, initialSavedId]);
 
   // Sync on prop change — initialSavedId can change as URL params change.
   // Also dismiss any pending Undo toast: an Undo from trip A must not
