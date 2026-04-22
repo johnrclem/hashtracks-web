@@ -531,21 +531,40 @@ async function SavedTripPage({
     );
   }
 
+  const isMultiStop = search.destinations.length > 1;
+  // Mirror TravelResultsServer's branch: when the primary radius came
+  // back empty (no_nearby), `selectResultsToRender` swaps in the broader
+  // arrays so single-stop saved trips still render meaningful results.
+  // Multi-stop saved trips already have broader merged into the flat
+  // arrays by `serializeTravelResults({ mergeBroader: true })`, so the
+  // swap is a no-op and we pass serializedResults through.
+  const resultsToRender = isMultiStop
+    ? serializedResults
+    : selectResultsToRender(serializedResults.emptyState, serializedResults);
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
       <header className="mb-6 border-b border-border pb-4">
         <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-red-600 dark:text-red-400">
-          ◆ Itinerary · {search.destinations.length} legs
+          ◆ Itinerary · {search.destinations.length} leg{search.destinations.length !== 1 ? "s" : ""}
         </p>
         <h1 className="mt-1 font-display text-3xl font-medium tracking-tight">
           {search.name ?? "Trip"}
         </h1>
       </header>
-      <TravelResults
-        destination={search.name ?? ""}
-        results={serializedResults}
-        destinations={serializedResults.destinations}
-      />
+      {serializedResults.emptyState !== "none" && (
+        <EmptyStates
+          variant={serializedResults.emptyState}
+          broaderRadiusKm={serializedResults.destinations[0]?.broaderRadiusKm}
+        />
+      )}
+      {resultsToRender && (
+        <TravelResults
+          destination={search.name ?? ""}
+          results={resultsToRender}
+          destinations={serializedResults.destinations}
+        />
+      )}
     </div>
   );
 }
@@ -573,5 +592,7 @@ async function buildSavedTripResults(args: {
     args.user,
     allConfirmed.map((r) => r.eventId),
   );
-  return serializeTravelResults(results, attendanceMap, { mergeBroader: true });
+  return serializeTravelResults(results, attendanceMap, {
+    mergeBroader: args.destinations.length > 1,
+  });
 }
