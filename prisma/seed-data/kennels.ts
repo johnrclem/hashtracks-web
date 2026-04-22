@@ -312,6 +312,7 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "bdh3", shortName: "Big Dogs H3", fullName: "Big Dogs Hash House Harriers", region: "Chicago, IL",
       facebookUrl: "https://www.facebook.com/groups/137255643022023/",
+      foundedYear: 2005,
       scheduleFrequency: "Monthly", scheduleNotes: "2nd Saturday afternoon",
       description: "Monthly 2nd Saturday afternoon hash. Off-the-beaten-path trails.",
     },
