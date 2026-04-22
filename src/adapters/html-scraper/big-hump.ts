@@ -63,6 +63,67 @@ export function parseEventHeader(headerText: string): {
 }
 
 /**
+ * Extract hare name(s) from a "Hare @ Location" title prefix.
+ *
+ * BH4 titles frequently embed theme text between the hare and the `@`:
+ *   - "Hare's Theme Trail"            (possessive)
+ *   - "Theme starring Hare"           (starring)
+ *   - "Theme with Hare"               (with)
+ *   - "Hare: Theme"                   (colon/dash prefix)
+ *   - "Hare Hashyversary"             (anniversary/birthday suffix)
+ *
+ * Falls through to `undefined` rather than leaking theme text when no rule
+ * applies — per #844, an empty hares field is safer than a wrong one.
+ */
+function extractHaresFromTitlePart(harePart: string): string | undefined {
+  if (!harePart) return undefined;
+
+  // Rule 1: "<theme> starring <hare>"
+  const starringMatch = /\s+starring\s+(.+)$/i.exec(harePart);
+  if (starringMatch) return starringMatch[1].trim();
+
+  // Rule 2: "<theme> with <hare>"
+  const withMatch = /\s+with\s+(.+)$/i.exec(harePart);
+  if (withMatch) return withMatch[1].trim();
+
+  // Rule 3: "<hare>'s <theme>" (straight + curly + reversed-9 apostrophes).
+  // Reject matches whose extracted hare contains digits or more apostrophes —
+  // those strings (e.g. "3rd An'al It's Gonna Be May") reproduce the #844
+  // truncation bug where the lazy `.+?` stops at an embedded apostrophe.
+  const possessiveMatch = /^(.+?)['\u2018\u2019\u201B]s?\s+.+$/i.exec(harePart);
+  if (possessiveMatch) {
+    const candidate = possessiveMatch[1].trim();
+    if (!/[0-9'\u2018\u2019\u201B]/.test(candidate)) return candidate;
+  }
+
+  // Rule 4: "<hare>: <theme>" or "<hare> - <theme>" / en-dash / em-dash
+  const colonMatch = /^(.+?)\s*[:–—]\s*.+$/.exec(harePart);
+  if (colonMatch) return colonMatch[1].trim();
+  const dashMatch = /^(.+?)\s+-\s+.+$/.exec(harePart);
+  if (dashMatch) return dashMatch[1].trim();
+
+  // Rule 5: "<hare> Hashyversary / Birthday / Bday / turns NN"
+  const anniversaryMatch = /^(.+?)\s+(?:Hashy?versary|B[iy]rthday|Bday|turns\s+\d+)\b/i.exec(
+    harePart,
+  );
+  if (anniversaryMatch) return anniversaryMatch[1].trim();
+
+  // Rule 6: clean short name — no digits, no colons, no emoji.
+  // Accept only explicit 1–2 word names or pair-joined forms ("X & Y",
+  // "X and Y"). Anything longer without a joiner is likely theme text
+  // ("Bungle in the Jungle") and falls through to undefined per #844.
+  const hasTroublesomeChar = /[:0-9\p{Extended_Pictographic}]/u.test(harePart);
+  if (!hasTroublesomeChar) {
+    const wordCount = harePart.split(/\s+/).length;
+    const hasPairJoiner = /\s(?:&|and)\s/i.test(harePart);
+    if (wordCount <= 2 || hasPairJoiner) return harePart;
+  }
+
+  // Rule 7: give up — do not guess.
+  return undefined;
+}
+
+/**
  * Parse h4 title text into hare(s) and location.
  *
  * Format: "Hare Name @ Location" — split on last " @ ".
@@ -84,10 +145,7 @@ export function parseEventTitle(h4Text: string): {
   const locationPart = h4Text.slice(atIdx + 3).trim();
   const locationIsTbd = !locationPart || isPlaceholder(locationPart);
 
-  // The hare part is typically "HareName's Trail Name" or just "HareName"
-  // Use it as the title; the hare is the portion before "'s" if present
-  const possessiveMatch = /^(.+?)(?:['\u2018\u2019\u201B]s?\s+.+)$/i.exec(harePart);
-  const hares = possessiveMatch ? possessiveMatch[1].trim() : harePart;
+  const hares = extractHaresFromTitlePart(harePart);
 
   // #754: drop " @ ???" from the title when location is TBD — a trailing TBD
   // placeholder is noise, not a meaningful subtitle. When location IS set,

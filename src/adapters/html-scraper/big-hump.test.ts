@@ -121,6 +121,84 @@ describe("parseEventTitle", () => {
     );
     expect(result.location).toBe("Steelville-the Cancun of Missouri");
   });
+
+  // ─── #844: theme-text patterns that used to leak into Hares ───
+
+  it("extracts hare after ' starring ' (#844)", () => {
+    const result = parseEventTitle(
+      "3rd An'al It's Gonna Be May starring Perp & Froggy @ ???",
+    );
+    expect(result.hares).toBe("Perp & Froggy");
+  });
+
+  it("extracts hare after ' with ' (#844)", () => {
+    const result = parseEventTitle("Chase the Pride 🌈 with Beaver @ ???");
+    expect(result.hares).toBe("Beaver");
+  });
+
+  it("extracts hare before colon-prefixed theme (#844)", () => {
+    const result = parseEventTitle(
+      "Locknut Monster: 23 Years of Hashing! @ ???",
+    );
+    expect(result.hares).toBe("Locknut Monster");
+  });
+
+  it("extracts hare before emoji colon-prefixed theme (#844)", () => {
+    const result = parseEventTitle(
+      "Beaver & Froggy: ✨🎄 Lightsmas Trail 🎄✨ @ ???",
+    );
+    expect(result.hares).toBe("Beaver & Froggy");
+  });
+
+  it("extracts hare before ' - ' dash-prefixed theme (#844)", () => {
+    const result = parseEventTitle(
+      "Ice Princess - World Naked Bike Ride @ ???",
+    );
+    expect(result.hares).toBe("Ice Princess");
+  });
+
+  it("extracts hare before Hashyversary suffix (#844)", () => {
+    const result = parseEventTitle("Whiney Bitch Hashyversary @ ???");
+    expect(result.hares).toBe("Whiney Bitch");
+  });
+
+  it("extracts hare before 'turns NN' suffix (#844)", () => {
+    const result = parseEventTitle("Frankie turns 25 @ ???");
+    expect(result.hares).toBe("Frankie");
+  });
+
+  it("returns ampersand-joined short hare pair as-is (#844)", () => {
+    const result = parseEventTitle("Dewey & Colorado @ ???");
+    expect(result.hares).toBe("Dewey & Colorado");
+  });
+
+  it("returns undefined for unstructured theme text (#844)", () => {
+    // Source: #1996 "Locknut Saturday is for South County Shiggy @ Deep South County".
+    // No recognizable delimiter — safer to leave hares null than leak theme text.
+    const result = parseEventTitle(
+      "Locknut Saturday is for South County Shiggy @ Deep South County",
+    );
+    expect(result.hares).toBeUndefined();
+    expect(result.location).toBe("Deep South County");
+  });
+
+  it("does NOT apostrophe-truncate multi-apostrophe theme titles (#844)", () => {
+    // Regression guard for the observed #1997 symptom: the old possessive
+    // regex matched at the first apostrophe and returned "3rd An'al It" as
+    // the hare. The new digit/apostrophe sanity check on Rule 3 rejects that
+    // candidate, and Rule 6 refuses to guess on a long digit-bearing phrase.
+    const result = parseEventTitle("3rd An'al It's Gonna Be May @ ???");
+    expect(result.hares).toBeUndefined();
+  });
+
+  it("returns undefined for long phrase without pair joiner (#844)", () => {
+    // Guards Rule 6 against mis-classifying theme text as a hare name.
+    const result = parseEventTitle(
+      "Bungle in the Jungle @ Steelville-the Cancun of Missouri",
+    );
+    expect(result.hares).toBeUndefined();
+    expect(result.location).toBe("Steelville-the Cancun of Missouri");
+  });
 });
 
 // ─── History page parsing ───────────────────────────────────────────────────

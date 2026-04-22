@@ -2394,8 +2394,10 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "bh4", shortName: "BH4", fullName: "Big Hump Hash House Harriers", region: "St. Louis, MO",
       website: "http://www.big-hump.com",
+      logoUrl: "/kennel-logos/bh4.gif",
+      contactEmail: "bh4hareraiser@big-hump.com",
       scheduleDayOfWeek: "Wednesday", scheduleFrequency: "Weekly",
-      scheduleNotes: "Wednesdays weekly + Saturdays approximately biweekly",
+      scheduleNotes: "Wednesdays weekly + 2nd & 4th Saturday of each month",
       foundedYear: 1999,
       description: "St. Louis' primary hash kennel since 1999. Weekly Wednesday + biweekly Saturday trails. ~1,990 runs and counting.",
       latitude: 38.63, longitude: -90.20,
