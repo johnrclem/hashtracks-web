@@ -206,6 +206,7 @@ interface AnalyticsEventMap {
   travel_save_clicked: TravelSaveClickedProps;
   travel_auth_prompt_shown: Record<string, never>;
   travel_auth_prompt_clicked: Record<string, never>;
+  travel_multi_stop_hero_viewed: { legCount: number };
   travel_saved_search_created: TravelSavedSearchCreatedProps;
   travel_saved_search_viewed: TravelSavedSearchViewedProps;
   travel_saved_search_updated: Record<string, never>;

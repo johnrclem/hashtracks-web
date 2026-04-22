@@ -13,4 +13,7 @@ describe("TripSummary", () => {
   it.todo("does not update state if user navigated away during Undo");
   it.todo("suppresses radiusSnapped badge when noCoverage is true");
   it.todo("suppresses broaderExpanded badge when noCoverage is true");
+  it.todo("renders ITINERARY route-stamp hero when legs.length > 1");
+  it.todo("renders single-city headline unchanged when legs is omitted");
+  it.todo("fires travel_multi_stop_hero_viewed once per multi-stop page view");
 });
