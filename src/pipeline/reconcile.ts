@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { toIsoDateString } from "@/lib/date";
 import type { RawEventData } from "@/adapters/types";
 import { resolveKennelTag } from "./kennel-resolver";
 
@@ -16,6 +17,14 @@ export interface ReconcileResult {
   kennelsInScope: number;
   /** Total number of kennels linked to this source (for partial-scrape detection). */
   totalLinkedKennels: number;
+  /**
+   * Kennel IDs excluded from cancellation decisions because at least one
+   * scraped row for that kennel had an unparseable date. Non-empty values are
+   * a degraded-state signal — operators should investigate persistent entries
+   * since stale CONFIRMED events in these kennels will not be cancelled until
+   * the upstream adapter emits valid dates again.
+   */
+  kennelsSuppressedForBadDate: string[];
 }
 
 /**
@@ -40,6 +49,7 @@ export async function reconcileStaleEvents(
     cancelled: 0, cancelledEventIds: [],
     candidatesExamined: 0, multiSourcePreserved: 0,
     kennelsInScope: 0, totalLinkedKennels: 0,
+    kennelsSuppressedForBadDate: [],
   };
 
   // Resolve kennelId for every scraped event up front so we can bucket them by
@@ -48,18 +58,37 @@ export async function reconcileStaleEvents(
   const resolutions = await Promise.all(
     scrapedEvents.map((event) => resolveKennelTag(event.kennelTag, sourceId)),
   );
+  // When a scraped row has an unparseable date we suppress the whole kennel,
+  // not just the row: dropping the row would leave its canonical orphaned and
+  // the cancellation phase would flip it to CANCELLED — strictly worse than
+  // the original slot-key mismatch this hardening prevents. A later successful
+  // scrape will reconcile that kennel cleanly.
   const scrapedBySlot = new Map<string, RawEventData[]>();
+  const kennelsWithUnparseableDates = new Set<string>();
   for (const [i, event] of scrapedEvents.entries()) {
     const { kennelId, matched } = resolutions[i];
-    if (matched && kennelId) {
-      const key = `${kennelId}:${event.date}`;
-      let list = scrapedBySlot.get(key);
-      if (!list) {
-        list = [];
-        scrapedBySlot.set(key, list);
+    if (!matched || !kennelId) continue;
+    let dateKey: string;
+    try {
+      dateKey = toIsoDateString(event.date);
+    } catch (err) {
+      // Warn once per kennel; repeat warns on every bad row would spam logs
+      // when one kennel has many malformed rows.
+      if (!kennelsWithUnparseableDates.has(kennelId)) {
+        console.warn(
+          `[reconcile] suppressing cancellations for kennel=${kennelId} on source=${sourceId} due to unparseable date: ${String(err)}`,
+        );
       }
-      list.push(event);
+      kennelsWithUnparseableDates.add(kennelId);
+      continue;
     }
+    const key = `${kennelId}:${dateKey}`;
+    let list = scrapedBySlot.get(key);
+    if (!list) {
+      list = [];
+      scrapedBySlot.set(key, list);
+    }
+    list.push(event);
   }
 
   // Get all kennel IDs linked to this source
@@ -85,8 +114,27 @@ export async function reconcileStaleEvents(
     linkedKennelIds = allLinkedKennelIds;
   }
 
+  // Fail-safe: kennels with any unparseable scraped date are excluded from
+  // cancellation decisions this run. See the scrapedBySlot loop above for rationale.
+  // Intersect with linkedKennelIds (pre-mutation) so the reported set only
+  // contains kennels that were actually in-scope for cancellation decisions —
+  // otherwise a resolved-but-unlinked kennel would show up as "suppressed"
+  // despite never being a reconcile candidate, adding noise for downstream alerts.
+  const suppressedKennels = linkedKennelIds.filter((id) =>
+    kennelsWithUnparseableDates.has(id),
+  );
+  if (suppressedKennels.length > 0) {
+    linkedKennelIds = linkedKennelIds.filter(
+      (id) => !kennelsWithUnparseableDates.has(id),
+    );
+  }
+
   if (linkedKennelIds.length === 0) {
-    return { ...emptyResult, totalLinkedKennels: allLinkedKennelIds.length };
+    return {
+      ...emptyResult,
+      totalLinkedKennels: allLinkedKennelIds.length,
+      kennelsSuppressedForBadDate: suppressedKennels,
+    };
   }
 
   // Upcoming-only sources (e.g. sh3.link) drop runs the moment they happen —
@@ -136,8 +184,7 @@ export async function reconcileStaleEvents(
   // (sourceUrl → startTime → title — see src/pipeline/merge.ts upsertCanonicalEvent).
   const candidatesByKey = new Map<string, typeof candidates>();
   for (const event of candidates) {
-    const dateStr = event.date.toISOString().split("T")[0];
-    const key = `${event.kennelId}:${dateStr}`;
+    const key = `${event.kennelId}:${toIsoDateString(event.date)}`;
     let list = candidatesByKey.get(key);
     if (!list) {
       list = [];
@@ -207,6 +254,7 @@ export async function reconcileStaleEvents(
     candidatesExamined: candidates.length,
     kennelsInScope: linkedKennelIds.length,
     totalLinkedKennels: allLinkedKennelIds.length,
+    kennelsSuppressedForBadDate: suppressedKennels,
   };
 
   if (orphaned.length === 0) {

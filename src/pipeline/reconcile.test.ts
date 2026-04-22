@@ -23,6 +23,30 @@ const mockEventUpdateMany = vi.mocked(prisma.event.updateMany);
 const mockRawEventGroupBy = vi.mocked(prisma.rawEvent.groupBy);
 const mockResolve = vi.mocked(resolveKennelTag);
 
+/**
+ * Build a minimal canonical Event shape for Prisma `findMany` mocks.
+ * Default `sourceUrl` matches the most common scraped URL in these tests;
+ * pass overrides to distinguish double-header slots or null-out fields.
+ */
+function mockEvent(
+  id: string,
+  kennelId: string,
+  dateStr: string,
+  overrides: {
+    sourceUrl?: string | null;
+    startTime?: string | null;
+    title?: string | null;
+  } = {},
+) {
+  return {
+    id,
+    kennelId,
+    date: new Date(`${dateStr}T12:00:00Z`),
+    sourceUrl: "https://hashnyc.com",
+    ...overrides,
+  };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   mockSourceKennelFind.mockResolvedValue([{ kennelId: "kennel_1" }] as never);
@@ -38,8 +62,8 @@ describe("reconcileStaleEvents", () => {
 
     // DB has two events for kennel_1, but scrape only returned one date
     mockEventFindMany.mockResolvedValueOnce([
-      { id: "evt_1", kennelId: "kennel_1", date: new Date("2026-02-14T12:00:00Z"), sourceUrl: "https://hashnyc.com", },
-      { id: "evt_2", kennelId: "kennel_1", date: new Date("2026-02-21T12:00:00Z"), sourceUrl: "https://hashnyc.com", },
+      mockEvent("evt_1", "kennel_1", "2026-02-14"),
+      mockEvent("evt_2", "kennel_1", "2026-02-21"),
     ] as never);
 
     // No orphaned events have RawEvents from other sources
@@ -61,8 +85,8 @@ describe("reconcileStaleEvents", () => {
     ];
 
     mockEventFindMany.mockResolvedValueOnce([
-      { id: "evt_1", kennelId: "kennel_1", date: new Date("2026-02-14T12:00:00Z"), sourceUrl: "https://hashnyc.com", },
-      { id: "evt_2", kennelId: "kennel_1", date: new Date("2026-02-21T12:00:00Z"), sourceUrl: "https://hashnyc.com", },
+      mockEvent("evt_1", "kennel_1", "2026-02-14"),
+      mockEvent("evt_2", "kennel_1", "2026-02-21"),
     ] as never);
 
     // evt_2 has RawEvents from another source
@@ -82,8 +106,8 @@ describe("reconcileStaleEvents", () => {
     ];
 
     mockEventFindMany.mockResolvedValueOnce([
-      { id: "evt_1", kennelId: "kennel_1", date: new Date("2026-02-14T12:00:00Z"), sourceUrl: "https://hashnyc.com", },
-      { id: "evt_2", kennelId: "kennel_1", date: new Date("2026-02-21T12:00:00Z"), sourceUrl: "https://hashnyc.com", },
+      mockEvent("evt_1", "kennel_1", "2026-02-14"),
+      mockEvent("evt_2", "kennel_1", "2026-02-21"),
     ] as never);
 
     const result = await reconcileStaleEvents("src_1", scrapedEvents, 90);
@@ -123,8 +147,8 @@ describe("reconcileStaleEvents", () => {
 
     // DB has both dates
     mockEventFindMany.mockResolvedValueOnce([
-      { id: "evt_1", kennelId: "kennel_1", date: new Date("2026-02-14T12:00:00Z"), sourceUrl: "https://hashnyc.com", },
-      { id: "evt_2", kennelId: "kennel_1", date: new Date("2026-02-21T12:00:00Z"), sourceUrl: "https://hashnyc.com", },
+      mockEvent("evt_1", "kennel_1", "2026-02-14"),
+      mockEvent("evt_2", "kennel_1", "2026-02-21"),
     ] as never);
 
     // evt_1 is orphaned because the unresolved tag didn't add "kennel_1:2026-02-14" to the set
@@ -154,9 +178,9 @@ describe("reconcileStaleEvents", () => {
 
     // DB has events for both kennels, plus an extra for kennel_2
     mockEventFindMany.mockResolvedValueOnce([
-      { id: "evt_1", kennelId: "kennel_1", date: new Date("2026-02-14T12:00:00Z"), sourceUrl: "https://hashnyc.com", },
-      { id: "evt_2", kennelId: "kennel_2", date: new Date("2026-02-14T12:00:00Z"), sourceUrl: "https://hashnyc.com", },
-      { id: "evt_3", kennelId: "kennel_2", date: new Date("2026-02-21T12:00:00Z"), sourceUrl: "https://hashnyc.com", },
+      mockEvent("evt_1", "kennel_1", "2026-02-14"),
+      mockEvent("evt_2", "kennel_2", "2026-02-14"),
+      mockEvent("evt_3", "kennel_2", "2026-02-21"),
     ] as never);
 
     // evt_3 has no other sources
@@ -184,12 +208,9 @@ describe("reconcileStaleEvents", () => {
     ];
 
     mockEventFindMany.mockResolvedValueOnce([
-      {
-        id: "evt_1",
-        kennelId: "kennel_1",
-        date: new Date("2026-02-14T12:00:00Z"),
+      mockEvent("evt_1", "kennel_1", "2026-02-14", {
         sourceUrl: "https://example.com/upcoming",
-      },
+      }),
     ] as never);
 
     const result = await reconcileStaleEvents("src_1", scrapedEvents, 90);
@@ -219,8 +240,8 @@ describe("reconcileStaleEvents", () => {
     ];
 
     mockEventFindMany.mockResolvedValueOnce([
-      { id: "evt_1", kennelId: "kennel_1", date: new Date("2026-03-08T12:00:00Z"), sourceUrl: "https://example.com/trail-a" },
-      { id: "evt_2", kennelId: "kennel_1", date: new Date("2026-03-08T12:00:00Z"), sourceUrl: "https://example.com/trail-b" },
+      mockEvent("evt_1", "kennel_1", "2026-03-08", { sourceUrl: "https://example.com/trail-a" }),
+      mockEvent("evt_2", "kennel_1", "2026-03-08", { sourceUrl: "https://example.com/trail-b" }),
     ] as never);
 
     // evt_2 has no RawEvents from other sources
@@ -256,8 +277,8 @@ describe("reconcileStaleEvents", () => {
     ];
 
     mockEventFindMany.mockResolvedValueOnce([
-      { id: "evt_1", kennelId: "kennel_1", date: new Date("2026-03-08T12:00:00Z"), sourceUrl: "https://example.com/trail-a", startTime: "10:30", title: "Morning Trail" },
-      { id: "evt_2", kennelId: "kennel_1", date: new Date("2026-03-08T12:00:00Z"), sourceUrl: "https://example.com/trail-b", startTime: "14:30", title: "Afternoon Trail" },
+      mockEvent("evt_1", "kennel_1", "2026-03-08", { sourceUrl: "https://example.com/trail-a", startTime: "10:30", title: "Morning Trail" }),
+      mockEvent("evt_2", "kennel_1", "2026-03-08", { sourceUrl: "https://example.com/trail-b", startTime: "14:30", title: "Afternoon Trail" }),
     ] as never);
 
     const result = await reconcileStaleEvents("src_1", scrapedEvents, 90);
@@ -266,6 +287,162 @@ describe("reconcileStaleEvents", () => {
     expect(result.cancelledEventIds).toEqual([]);
     expect(mockEventUpdateMany).not.toHaveBeenCalled();
     expect(mockRawEventGroupBy).not.toHaveBeenCalled();
+  });
+
+  it("matches when adapter emits ISO timestamp instead of YYYY-MM-DD (slot-key normalization)", async () => {
+    // Regression for GH #864. RawEventData.date is documented as "YYYY-MM-DD"
+    // but nothing enforced it at the reconcile key-build site. If an adapter
+    // (e.g. one layering over the WordPress REST API) leaked an ISO timestamp
+    // like "2026-02-14T15:00:00" here, the scraped-side key would no longer
+    // match the DB-side key (built from Event.date.toISOString().split("T")[0]),
+    // and the canonical would look orphaned and get cancelled.
+    const scrapedEvents = [
+      buildRawEvent({
+        // Cast through unknown because the type says YYYY-MM-DD — this is the
+        // adapter-bug scenario we're protecting against.
+        date: "2026-02-14T15:00:00Z" as unknown as string,
+        kennelTag: "BoBBH3",
+      }),
+    ];
+
+    mockEventFindMany.mockResolvedValueOnce([
+      mockEvent("evt_1", "kennel_1", "2026-02-14"),
+    ] as never);
+
+    const result = await reconcileStaleEvents("src_1", scrapedEvents, 90);
+
+    expect(result.cancelled).toBe(0);
+    expect(mockEventUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("accepts merge-compatible loose date forms without suppressing the kennel", async () => {
+    // Codex adversarial-review catch: an earlier cut of toIsoDateString rejected
+    // "2026-2-14" and "2026-02-14 15:00:00" via a strict regex gate. Merge
+    // (parseUtcNoonDate) still accepts those forms, so a strict reconcile would
+    // suppress the kennel and silently disable stale-event cleanup — strictly
+    // worse than the GH #864 mismatch this hardening was supposed to fix.
+    const scrapedEvents = [
+      buildRawEvent({
+        date: "2026-2-14 15:00:00" as unknown as string,
+        kennelTag: "BoBBH3",
+      }),
+    ];
+
+    mockEventFindMany.mockResolvedValueOnce([
+      mockEvent("evt_1", "kennel_1", "2026-02-14"),
+    ] as never);
+
+    const result = await reconcileStaleEvents("src_1", scrapedEvents, 90);
+
+    expect(result.cancelled).toBe(0);
+    expect(result.kennelsSuppressedForBadDate).toEqual([]);
+    expect(mockEventUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("uses literal-date semantics on offset timestamps (matches merge's parseUtcNoonDate)", async () => {
+    // Regression for GH #864. Merge's parseUtcNoonDate splits on "-" and
+    // parseInts the components, so "2026-02-14T23:30:00-05:00" binds the
+    // canonical to Feb 14 (not Feb 15, even though the offset rolls it into
+    // Feb 15 UTC). Reconcile must key the same way, or it would orphan the
+    // row merge just wrote — the exact bug this hardening prevents.
+    const scrapedEvents = [
+      buildRawEvent({
+        date: "2026-02-14T23:30:00-05:00" as unknown as string,
+        kennelTag: "BoBBH3",
+      }),
+    ];
+
+    mockEventFindMany.mockResolvedValueOnce([
+      mockEvent("evt_1", "kennel_1", "2026-02-14"),
+    ] as never);
+
+    const result = await reconcileStaleEvents("src_1", scrapedEvents, 90);
+
+    expect(result.cancelled).toBe(0);
+    expect(mockEventUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("suppresses cancellations for a kennel when any scraped row has an unparseable date", async () => {
+    // Reconcile runs AFTER merge has written canonicals. Naively skipping a
+    // malformed row from scrapedBySlot would leave its canonical orphaned and
+    // flip it to CANCELLED — strictly worse than the original mismatch bug.
+    // Fail-safe shape: if ANY scraped row for kennel K has a bad date, suppress
+    // cancellations for every canonical of K this run. Other kennels reconcile
+    // normally.
+    mockResolve.mockResolvedValueOnce({ kennelId: "kennel_1", matched: true });
+
+    const scrapedEvents = [
+      buildRawEvent({
+        // Sole scraped row for kennel_1; date is garbage. Without the safeguard,
+        // any canonical of kennel_1 would look orphaned and get cancelled.
+        date: "not-a-date" as unknown as string,
+        kennelTag: "BoBBH3",
+      }),
+    ];
+
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const result = await reconcileStaleEvents("src_1", scrapedEvents, 90);
+
+    expect(result.cancelled).toBe(0);
+    expect(mockEventUpdateMany).not.toHaveBeenCalled();
+    // kennel_1 was excluded from scope, so no candidates query was issued.
+    expect(mockEventFindMany).not.toHaveBeenCalled();
+    expect(result.candidatesExamined).toBe(0);
+    expect(result.totalLinkedKennels).toBe(1);
+    // The degraded state is surfaced in the return shape, not just console.
+    expect(result.kennelsSuppressedForBadDate).toEqual(["kennel_1"]);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("unparseable date"),
+    );
+    warnSpy.mockRestore();
+  });
+
+  it("still cancels stale events for unaffected kennels when a different kennel has an unparseable date", async () => {
+    // Blast-radius check: one kennel's parse failure must not suppress
+    // reconciliation for another kennel in the same scrape.
+    mockSourceKennelFind.mockResolvedValueOnce([
+      { kennelId: "kennel_1" },
+      { kennelId: "kennel_2" },
+    ] as never);
+    mockResolve
+      .mockResolvedValueOnce({ kennelId: "kennel_1", matched: true })  // bad date
+      .mockResolvedValueOnce({ kennelId: "kennel_2", matched: true }); // valid
+
+    const scrapedEvents = [
+      buildRawEvent({
+        date: "not-a-date" as unknown as string,
+        kennelTag: "BoBBH3",
+      }),
+      buildRawEvent({
+        date: "2026-02-14",
+        kennelTag: "Kennel2",
+      }),
+    ];
+
+    // Candidates query is scoped to unaffected kennels only (kennel_2).
+    // kennel_2's Feb 21 canonical has no scrape hit → should cancel.
+    mockEventFindMany.mockResolvedValueOnce([
+      mockEvent("evt_stale", "kennel_2", "2026-02-21"),
+    ] as never);
+
+    mockRawEventGroupBy.mockResolvedValueOnce([] as never);
+
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const result = await reconcileStaleEvents("src_1", scrapedEvents, 90);
+
+    // The candidates query should have excluded kennel_1 (the tainted one).
+    expect(mockEventFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          kennelId: { in: ["kennel_2"] },
+        }),
+      }),
+    );
+    expect(result.cancelled).toBe(1);
+    expect(result.cancelledEventIds).toEqual(["evt_stale"]);
+    // kennel_1 appears in the suppression list but kennel_2 still reconciled.
+    expect(result.kennelsSuppressedForBadDate).toEqual(["kennel_1"]);
+    warnSpy.mockRestore();
   });
 
   it("preserves double-header member when URL drifts but startTime still matches", async () => {
@@ -294,8 +471,8 @@ describe("reconcileStaleEvents", () => {
     ];
 
     mockEventFindMany.mockResolvedValueOnce([
-      { id: "evt_1", kennelId: "kennel_1", date: new Date("2026-03-08T12:00:00Z"), sourceUrl: "https://example.com/trail-a", startTime: "10:30", title: null },
-      { id: "evt_2", kennelId: "kennel_1", date: new Date("2026-03-08T12:00:00Z"), sourceUrl: "https://example.com/trail-b", startTime: "14:30", title: null },
+      mockEvent("evt_1", "kennel_1", "2026-03-08", { sourceUrl: "https://example.com/trail-a", startTime: "10:30", title: null }),
+      mockEvent("evt_2", "kennel_1", "2026-03-08", { sourceUrl: "https://example.com/trail-b", startTime: "14:30", title: null }),
     ] as never);
 
     const result = await reconcileStaleEvents("src_1", scrapedEvents, 90);
@@ -327,8 +504,8 @@ describe("reconcileStaleEvents", () => {
     ];
 
     mockEventFindMany.mockResolvedValueOnce([
-      { id: "evt_1", kennelId: "kennel_1", date: new Date("2026-03-08T12:00:00Z"), sourceUrl: "https://example.com/trail-a", },
-      { id: "evt_2", kennelId: "kennel_1", date: new Date("2026-03-08T12:00:00Z"), sourceUrl: "https://example.com/trail-b", },
+      mockEvent("evt_1", "kennel_1", "2026-03-08", { sourceUrl: "https://example.com/trail-a" }),
+      mockEvent("evt_2", "kennel_1", "2026-03-08", { sourceUrl: "https://example.com/trail-b" }),
     ] as never);
 
     const result = await reconcileStaleEvents("src_1", scrapedEvents, 90);
@@ -352,8 +529,8 @@ describe("reconcileStaleEvents", () => {
 
     // DB returns events for both kennels in the window (scoped to kennel_1 only)
     mockEventFindMany.mockResolvedValueOnce([
-      { id: "evt_1", kennelId: "kennel_1", date: new Date("2026-02-14T12:00:00Z"), sourceUrl: "https://hashnyc.com" },
-      { id: "evt_2", kennelId: "kennel_1", date: new Date("2026-02-21T12:00:00Z"), sourceUrl: "https://hashnyc.com" },
+      mockEvent("evt_1", "kennel_1", "2026-02-14"),
+      mockEvent("evt_2", "kennel_1", "2026-02-21"),
     ] as never);
 
     // evt_2 is orphaned and sole-source
@@ -384,9 +561,9 @@ describe("reconcileStaleEvents", () => {
     ];
 
     mockEventFindMany.mockResolvedValueOnce([
-      { id: "evt_1", kennelId: "kennel_1", date: new Date("2026-02-14T12:00:00Z"), sourceUrl: "https://hashnyc.com", },
-      { id: "evt_2", kennelId: "kennel_1", date: new Date("2026-02-21T12:00:00Z"), sourceUrl: "https://hashnyc.com", },
-      { id: "evt_3", kennelId: "kennel_1", date: new Date("2026-02-28T12:00:00Z"), sourceUrl: "https://hashnyc.com", },
+      mockEvent("evt_1", "kennel_1", "2026-02-14"),
+      mockEvent("evt_2", "kennel_1", "2026-02-21"),
+      mockEvent("evt_3", "kennel_1", "2026-02-28"),
     ] as never);
 
     // Both orphaned events are sole-source (no other sources)
@@ -418,7 +595,7 @@ describe("reconcileStaleEvents", () => {
     // DB has events for both kennels — kennel_2's event would be orphaned
     // if we reconciled all linked kennels, but we only scraped kennel_1
     mockEventFindMany.mockResolvedValueOnce([
-      { id: "evt_1", kennelId: "kennel_1", date: new Date("2026-02-14T12:00:00Z"), sourceUrl: "https://hashnyc.com" },
+      mockEvent("evt_1", "kennel_1", "2026-02-14"),
     ] as never);
 
     const result = await reconcileStaleEvents("src_1", scrapedEvents, 90, ["kennel_1"]);
@@ -502,9 +679,9 @@ describe("reconcileStaleEvents", () => {
     ];
 
     mockEventFindMany.mockResolvedValueOnce([
-      { id: "evt_1", kennelId: "kennel_1", date: new Date("2026-02-14T12:00:00Z"), sourceUrl: "https://hashnyc.com" },
-      { id: "evt_2", kennelId: "kennel_1", date: new Date("2026-02-21T12:00:00Z"), sourceUrl: "https://hashnyc.com" },
-      { id: "evt_3", kennelId: "kennel_2", date: new Date("2026-02-21T12:00:00Z"), sourceUrl: "https://hashnyc.com" },
+      mockEvent("evt_1", "kennel_1", "2026-02-14"),
+      mockEvent("evt_2", "kennel_1", "2026-02-21"),
+      mockEvent("evt_3", "kennel_2", "2026-02-21"),
     ] as never);
 
     // evt_3 has another source
