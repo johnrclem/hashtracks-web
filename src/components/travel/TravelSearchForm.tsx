@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useCallback, useState, useTransition } from "react";
+import { memo, useCallback, useId, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { MapPin, Calendar, Compass, Search, Pencil, Plus, X, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -28,16 +28,6 @@ interface TravelSearchFormProps {
   isAuthenticated?: boolean;
 }
 
-/** Stable per-leg id for the React key. Array index keys would reuse
- *  component instances across remove-leg operations, which would drift
- *  DestinationInput's local autocomplete state onto the wrong leg. */
-function newLegId(): string {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-  return `leg-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
-
 const RADIUS_META: Record<(typeof RADIUS_TIERS)[number], { label: string; description: string }> = {
   10: { label: "Close", description: "~6 mi" },
   25: { label: "Metro", description: "~15 mi" },
@@ -59,9 +49,9 @@ interface LegState {
   coordsResolved: boolean;
 }
 
-function makeEmptyLeg(): LegState {
+function makeEmptyLeg(id: string): LegState {
   return {
-    id: newLegId(),
+    id,
     destination: "",
     latitude: 0,
     longitude: 0,
@@ -74,11 +64,12 @@ function makeEmptyLeg(): LegState {
 }
 
 function makeLegFromInitial(
+  id: string,
   initial: TravelSearchFormProps["initialValues"],
 ): LegState {
-  if (!initial) return makeEmptyLeg();
+  if (!initial) return makeEmptyLeg(id);
   return {
-    id: newLegId(),
+    id,
     destination: initial.destination,
     latitude: initial.latitude,
     longitude: initial.longitude,
@@ -86,8 +77,9 @@ function makeLegFromInitial(
     startDate: initial.startDate,
     endDate: initial.endDate,
     radiusKm: snapRadiusToTier(initial.radiusKm),
-    coordsResolved:
-      initial.latitude !== undefined && initial.longitude !== undefined,
+    // Types mark latitude/longitude as required numbers; any LegState we
+    // build from initialValues is coord-resolved by construction.
+    coordsResolved: true,
   };
 }
 
@@ -120,7 +112,22 @@ export function TravelSearchForm({
 }: Readonly<TravelSearchFormProps>) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [legs, setLegs] = useState<LegState[]>(() => [makeLegFromInitial(initialValues)]);
+  // Deterministic per-leg ids. useId() is stable across SSR/hydration
+  // and the counter ref increments only on the client after mount, so
+  // the initial leg's key matches on both sides and subsequent adds
+  // produce unique, collision-free keys without crypto/randomness.
+  const baseLegId = useId();
+  // Counter starts at 1 because the initial leg (built below via
+  // lazy-init useState) always owns `${baseLegId}-leg-0`. Kept
+  // deterministic across SSR/hydration — no randomness, no Date.now.
+  const legCounter = useRef(1);
+  const makeLegId = useCallback(
+    () => `${baseLegId}-leg-${legCounter.current++}`,
+    [baseLegId],
+  );
+  const [legs, setLegs] = useState<LegState[]>(() => [
+    makeLegFromInitial(`${baseLegId}-leg-0`, initialValues),
+  ]);
   const [isExpanded, setIsExpanded] = useState(variant === "hero");
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
@@ -175,41 +182,30 @@ export function TravelSearchForm({
       return;
     }
     setSubmitError(null);
-    // Compute the new legs array synchronously — setLegs's functional
-    // updater runs synchronously so the captured `computed` is safe to
-    // read after. The initial [] is just a type anchor.
-    let computed: LegState[] = [];
-    setLegs((prev) => {
-      if (prev.length >= MAX_STOPS_PER_TRIP) {
-        computed = prev;
-        return prev;
-      }
-      const next = makeEmptyLeg();
-      const prevLeg = prev[prev.length - 1];
-      if (prevLeg?.endDate) next.startDate = prevLeg.endDate;
-      capture("travel_leg_added", { legCount: prev.length + 1 });
-      computed = [...prev, next];
-      return computed;
-    });
-    if (computed.length > 0 && computed.every(legReadyToSubmit)) {
-      await persistDraft(computed);
+    // Compute `nextLegs` in a stable closure over the current `legs`
+    // value, not inside the setLegs updater. React strict-mode invokes
+    // functional updaters twice; side effects (capture, persistDraft)
+    // must not piggyback on the updater body.
+    if (legs.length >= MAX_STOPS_PER_TRIP) return;
+    const next = makeEmptyLeg(makeLegId());
+    const prevLeg = legs.at(-1);
+    if (prevLeg?.endDate) next.startDate = prevLeg.endDate;
+    const nextLegs = [...legs, next];
+    setLegs(nextLegs);
+    capture("travel_leg_added", { legCount: nextLegs.length });
+    if (nextLegs.every(legReadyToSubmit)) {
+      await persistDraft(nextLegs);
     }
-  }, [isAuthenticated, persistDraft]);
+  }, [isAuthenticated, legs, makeLegId, persistDraft]);
 
   const removeLeg = useCallback(async (index: number) => {
-    let computed: LegState[] = [];
-    setLegs((prev) => {
-      if (prev.length <= 1) {
-        computed = prev;
-        return prev;
-      }
-      capture("travel_leg_removed", { legCount: prev.length - 1 });
-      computed = prev.filter((_, i) => i !== index);
-      return computed;
-    });
-    if (computed.length > 1 && draftId && computed.every(legReadyToSubmit)) {
+    if (legs.length <= 1) return;
+    const nextLegs = legs.filter((_, i) => i !== index);
+    setLegs(nextLegs);
+    capture("travel_leg_removed", { legCount: nextLegs.length });
+    if (nextLegs.length > 1 && draftId && nextLegs.every(legReadyToSubmit)) {
       const result = await updateDraftSearch(draftId, {
-        destinations: computed.map(legToDestParams),
+        destinations: nextLegs.map(legToDestParams),
       });
       if ("error" in result) {
         setSubmitError(result.error ?? "Could not update draft");
@@ -218,7 +214,7 @@ export function TravelSearchForm({
     // If remove leaves 1 leg, the draft is orphaned; cron GC sweeps
     // drafts older than a week. Not worth deleting eagerly — the user
     // might re-add another leg.
-  }, [draftId]);
+  }, [draftId, legs]);
 
   const canSubmit = legs.every(legReadyToSubmit);
 
@@ -250,17 +246,18 @@ export function TravelSearchForm({
       setHasAttemptedSubmit(true);
       return;
     }
+    const lastLeg = legs.at(-1)!;
     capture("travel_search_submitted", {
       destination: legs[0].destination,
       radiusKm: legs[0].radiusKm,
-      dateRangeDays: daysBetween(legs[0].startDate, legs[legs.length - 1].endDate),
+      dateRangeDays: daysBetween(legs[0].startDate, lastLeg.endDate),
       legCount: legs.length,
     });
-    startTransition(() => {
+    startTransition(async () => {
       if (legs.length === 1) {
         submitSingleLeg(legs[0]);
       } else {
-        void submitMultiLeg();
+        await submitMultiLeg();
       }
     });
   }, [canSubmit, legs, submitMultiLeg, submitSingleLeg]);
@@ -303,7 +300,6 @@ export function TravelSearchForm({
             <SignInToAddLegRow
               nextIndex={legs.length + 1}
               legs={legs}
-              variant={variant}
             />
           )
         )}
@@ -361,7 +357,7 @@ export function TravelSearchForm({
   );
 }
 
-function SubmitBarSummary({ legs }: { legs: LegState[] }) {
+function SubmitBarSummary({ legs }: Readonly<{ legs: LegState[] }>) {
   if (legs.length === 1) {
     const leg = legs[0];
     if (!leg.startDate || !leg.endDate) return <>Ready when you are</>;
@@ -372,7 +368,7 @@ function SubmitBarSummary({ legs }: { legs: LegState[] }) {
     );
   }
   const firstStart = legs[0].startDate;
-  const lastEnd = legs[legs.length - 1].endDate;
+  const lastEnd = legs.at(-1)!.endDate;
   if (!firstStart || !lastEnd) return <>{legs.length} legs · pending dates</>;
   return (
     <>
@@ -406,7 +402,7 @@ const LegRow = memo(function LegRow({
   showRequiredStamps,
   updateLeg,
   removeLeg,
-}: LegRowProps) {
+}: Readonly<LegRowProps>) {
   const legLabel = `LEG ${String(legIndex + 1).padStart(2, "0")}`;
   const destInvalid = showRequiredStamps && (!leg.destination || !leg.coordsResolved);
   const datesInvalid = showRequiredStamps && !legDatesValid(leg);
@@ -495,7 +491,7 @@ const LegRow = memo(function LegRow({
             />
             {leg.timezone && (
               <p className="mt-1 text-xs text-muted-foreground">
-                {leg.destination.split(",").slice(-1)[0]?.trim()} · {leg.timezone.split("/").pop()?.replaceAll("_", " ")}
+                {leg.destination.split(",").at(-1)?.trim()} · {leg.timezone.split("/").at(-1)?.replaceAll("_", " ")}
               </p>
             )}
           </fieldset>
@@ -552,7 +548,7 @@ const LegRow = memo(function LegRow({
   );
 });
 
-function RadiusPicker({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+function RadiusPicker({ value, onChange }: Readonly<{ value: number; onChange: (v: number) => void }>) {
   return (
     <div className="flex flex-wrap gap-1.5">
       {RADIUS_OPTIONS.map((opt) => (
@@ -586,10 +582,10 @@ function RadiusPicker({ value, onChange }: { value: number; onChange: (v: number
 function GhostLegRow({
   nextIndex,
   onClick,
-}: {
+}: Readonly<{
   nextIndex: number;
-  onClick: () => void | Promise<void>;
-}) {
+  onClick: () => Promise<void>;
+}>) {
   return (
     <button
       type="button"
@@ -622,12 +618,10 @@ function GhostLegRow({
 function SignInToAddLegRow({
   nextIndex,
   legs,
-  variant,
-}: {
+}: Readonly<{
   nextIndex: number;
   legs: LegState[];
-  variant: "hero" | "compact";
-}) {
+}>) {
   // Preserve the in-progress leg-1 params so the user lands back on
   // /travel with the same destination after signing in. Multi-leg
   // continuation post-signin happens via the form — not via URL —
@@ -646,12 +640,18 @@ function SignInToAddLegRow({
     if (leg.timezone) p.set("tz", leg.timezone);
     return `/travel?${p.toString()}`;
   })();
-  const signInHref = `/sign-in?redirect_url=${encodeURIComponent(returnTo)}`;
+  // SECURITY: only allow same-origin redirects (path-relative URLs).
+  // An attacker-crafted full URL in returnTo would redirect the user
+  // to an arbitrary host after sign-in (open-redirect → phishing).
+  const safeReturnTo = returnTo.startsWith("/") && !returnTo.startsWith("//")
+    ? returnTo
+    : "/travel";
+  const signInHref = `/sign-in?redirect_url=${encodeURIComponent(safeReturnTo)}`;
 
   return (
     <a
       href={signInHref}
-      onClick={() => capture("travel_auth_prompt_shown", {})}
+      onClick={() => capture("travel_auth_prompt_clicked", {})}
       className={`
         group flex w-full items-center gap-4 rounded-xl border-[1.5px]
         border-dashed border-muted-foreground/40 bg-card/40 p-5 text-left
@@ -659,7 +659,6 @@ function SignInToAddLegRow({
         hover:border-muted-foreground/70 hover:bg-card
       `}
       aria-label={`Sign in to add leg ${nextIndex}`}
-      data-variant={variant}
     >
       <BoardingStamp label={`LEG ${String(nextIndex).padStart(2, "0")}`} variant="ghost" />
       <span className="flex items-center gap-2 font-mono text-[12px] uppercase tracking-[0.18em] text-muted-foreground/70 group-hover:text-foreground">
@@ -673,10 +672,10 @@ function SignInToAddLegRow({
   );
 }
 
-function CompactPill({ legs, onExpand }: { legs: LegState[]; onExpand: () => void }) {
+function CompactPill({ legs, onExpand }: Readonly<{ legs: LegState[]; onExpand: () => void }>) {
   const isMulti = legs.length > 1;
   const firstStart = legs[0].startDate;
-  const lastEnd = legs[legs.length - 1].endDate;
+  const lastEnd = legs.at(-1)!.endDate;
   const summary =
     firstStart && lastEnd
       ? `${formatDateCompact(firstStart, { withWeekday: true })} → ${formatDateCompact(lastEnd, { withWeekday: true })}`
@@ -684,6 +683,7 @@ function CompactPill({ legs, onExpand }: { legs: LegState[]; onExpand: () => voi
 
   return (
     <button
+      type="button"
       onClick={onExpand}
       className="
         flex w-full items-center gap-3 rounded-full border border-border
@@ -725,11 +725,11 @@ type BoardingStampVariant = "leg" | "ghost" | "required";
 function BoardingStamp({
   label,
   variant,
-}: {
+}: Readonly<{
   label: string;
   variant: BoardingStampVariant;
-}) {
-  const baseClasses = "inline-flex items-center justify-center rounded-sm border-[1.5px] px-1.5 py-[1px] font-mono text-[10px] font-bold uppercase tracking-wider";
+}>) {
+  const baseClasses = "inline-flex -rotate-[1.5deg] items-center justify-center rounded-sm border-[1.5px] px-1.5 py-[1px] font-mono text-[10px] font-bold uppercase tracking-wider";
   const variantClasses: Record<BoardingStampVariant, string> = {
     leg: "border-red-600/70 text-red-600 dark:border-red-400/70 dark:text-red-400",
     ghost: "border-dashed border-muted-foreground/50 text-muted-foreground",
@@ -740,7 +740,6 @@ function BoardingStamp({
       role={variant === "required" ? "status" : undefined}
       aria-live={variant === "required" ? "polite" : undefined}
       className={`${baseClasses} ${variantClasses[variant]}`}
-      style={{ transform: "rotate(-1.5deg)" }}
     >
       {label}
     </span>

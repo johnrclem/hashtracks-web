@@ -49,7 +49,7 @@ export function daysBetween(start: string, end: string): number {
  *  pluralization rule. */
 export function formatNights(start: string, end: string): string {
   const n = daysBetween(start, end);
-  return `${n} night${n !== 1 ? "s" : ""}`;
+  return `${n} night${n === 1 ? "" : "s"}`;
 }
 
 /**

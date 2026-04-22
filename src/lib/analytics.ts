@@ -205,6 +205,7 @@ interface AnalyticsEventMap {
   travel_source_link_clicked: TravelSourceLinkClickedProps;
   travel_save_clicked: TravelSaveClickedProps;
   travel_auth_prompt_shown: Record<string, never>;
+  travel_auth_prompt_clicked: Record<string, never>;
   travel_saved_search_created: TravelSavedSearchCreatedProps;
   travel_saved_search_viewed: TravelSavedSearchViewedProps;
   travel_saved_search_updated: Record<string, never>;
