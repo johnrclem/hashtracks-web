@@ -199,6 +199,24 @@ describe("parseEventTitle", () => {
     expect(result.hares).toBeUndefined();
     expect(result.location).toBe("Steelville-the Cancun of Missouri");
   });
+
+  it("returns undefined for long 'and'-joined theme phrase (#844)", () => {
+    // Guards Rule 6 pair-joiner against leaking themes whose halves are
+    // longer than a hare name would be (CodeRabbit #872 review).
+    const result = parseEventTitle(
+      "Beer and Loathing in South County @ ???",
+    );
+    expect(result.hares).toBeUndefined();
+  });
+
+  it("keeps digit-bearing possessive names (#844)", () => {
+    // Rule 3 should only reject ordinal-prefixed candidates (from the
+    // "3rd An'al It" lazy-match bug); legitimate numeric hare names must
+    // still parse (Gemini #872 review).
+    const result = parseEventTitle("2FC's Trail @ Lemay");
+    expect(result.hares).toBe("2FC");
+    expect(result.location).toBe("Lemay");
+  });
 });
 
 // ─── History page parsing ───────────────────────────────────────────────────

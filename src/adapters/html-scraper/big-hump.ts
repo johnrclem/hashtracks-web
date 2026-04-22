@@ -77,6 +77,9 @@ export function parseEventHeader(headerText: string): {
  */
 function extractHaresFromTitlePart(harePart: string): string | undefined {
   if (!harePart) return undefined;
+  // Length cap to bound regex backtracking (SonarCloud S5852). Real BH4
+  // titles sit well under 200 chars; anything longer is not a hare line.
+  if (harePart.length > 300) return undefined;
 
   // Rule 1: "<theme> starring <hare>"
   const starringMatch = /\s+starring\s+(.+)$/i.exec(harePart);
@@ -87,13 +90,16 @@ function extractHaresFromTitlePart(harePart: string): string | undefined {
   if (withMatch) return withMatch[1].trim();
 
   // Rule 3: "<hare>'s <theme>" (straight + curly + reversed-9 apostrophes).
-  // Reject matches whose extracted hare contains digits or more apostrophes —
-  // those strings (e.g. "3rd An'al It's Gonna Be May") reproduce the #844
-  // truncation bug where the lazy `.+?` stops at an embedded apostrophe.
+  // Reject ordinal-prefixed candidates ("3rd An'al It" from lazy matching on
+  // "3rd An'al It's Gonna Be May" — the #844 symptom) and candidates that
+  // still contain an apostrophe (indicates lazy match stopped mid-theme).
+  // Digit-bearing names without an ordinal prefix (e.g. "2FC") are allowed.
   const possessiveMatch = /^(.+?)['\u2018\u2019\u201B]s?\s+.+$/i.exec(harePart);
   if (possessiveMatch) {
     const candidate = possessiveMatch[1].trim();
-    if (!/[0-9'\u2018\u2019\u201B]/.test(candidate)) return candidate;
+    const isOrdinalPrefix = /^\d+(?:st|nd|rd|th)\b/i.test(candidate);
+    const hasEmbeddedApostrophe = /['\u2018\u2019\u201B]/.test(candidate);
+    if (!isOrdinalPrefix && !hasEmbeddedApostrophe) return candidate;
   }
 
   // Rule 4: "<hare>: <theme>" or "<hare> - <theme>" / en-dash / em-dash
@@ -108,15 +114,17 @@ function extractHaresFromTitlePart(harePart: string): string | undefined {
   );
   if (anniversaryMatch) return anniversaryMatch[1].trim();
 
-  // Rule 6: clean short name — no digits, no colons, no emoji.
-  // Accept only explicit 1–2 word names or pair-joined forms ("X & Y",
-  // "X and Y"). Anything longer without a joiner is likely theme text
-  // ("Bungle in the Jungle") and falls through to undefined per #844.
-  const hasTroublesomeChar = /[:0-9\p{Extended_Pictographic}]/u.test(harePart);
+  // Rule 6: clean short name — no colons, no emoji.
+  // Accept 1–2 word names, or a pair-joined form ("X & Y", "X and Y") where
+  // each side is 1–2 words. Bounded sides prevent long theme phrases like
+  // "Beer and Loathing in South County" from leaking per #844.
+  const hasTroublesomeChar = /[:\p{Extended_Pictographic}]/u.test(harePart);
   if (!hasTroublesomeChar) {
     const wordCount = harePart.split(/\s+/).length;
-    const hasPairJoiner = /\s(?:&|and)\s/i.test(harePart);
-    if (wordCount <= 2 || hasPairJoiner) return harePart;
+    if (wordCount <= 2) return harePart;
+    const shortSide = String.raw`\S+(?:\s+\S+)?`;
+    const pairRegex = new RegExp(`^${shortSide}\\s+(?:&|and)\\s+${shortSide}$`, "i");
+    if (pairRegex.test(harePart)) return harePart;
   }
 
   // Rule 7: give up — do not guess.
