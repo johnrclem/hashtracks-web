@@ -90,8 +90,13 @@ export function parseNextRunArticle(
 
   const text = decodeEntities(stripHtmlTags(article.html() ?? "", "\n"));
 
+  // #846: the post-colon whitespace class MUST NOT include `\n`; a bare `\s*`
+  // consumes the newline after an empty slot and the capture group then bleeds
+  // into the next labelled line (e.g. "Restaurant:\nGooglemaps: ..." captures
+  // "Googlemaps: ..."). `[^\S\n]*` is horizontal whitespace only; `[^\n]+` in
+  // the capture ensures we never cross a line boundary either.
   const grab = (label: string): string | undefined => {
-    const re = new RegExp(`${label}\\s*:\\s*(.+?)(?:\\n|$)`, "i");
+    const re = new RegExp(`${label}\\s*:[^\\S\\n]*([^\\n]+)`, "i");
     const m = re.exec(text);
     const val = m?.[1]?.trim();
     if (!val) return undefined;
