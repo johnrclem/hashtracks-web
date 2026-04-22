@@ -580,6 +580,108 @@ describe("double-header support", () => {
       expect.objectContaining({ where: { id: "evt_2" } }),
     );
   });
+
+  it("multi-event fallback: URL-less incoming with unique runNumber matches that row", async () => {
+    // iCal feeds often have no URL. With two existing rows, runNumber
+    // disambiguates before startTime (which differs across source timezones).
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_1", trustLevel: 5, sourceUrl: "https://source-a.com/a", startTime: "10:30", runNumber: 100, title: "Trail A" },
+      { id: "evt_2", trustLevel: 5, sourceUrl: "https://source-a.com/b", startTime: "14:30", runNumber: 200, title: "Trail B" },
+    ] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    const result = await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-03-08", sourceUrl: undefined, startTime: "15:00", runNumber: 200 }),
+    ]);
+
+    expect(result.updated).toBe(1);
+    expect(mockEventUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "evt_2" } }),
+    );
+  });
+
+  it("multi-event fallback: ambiguous runNumber (two rows share it) skips the runNumber step", async () => {
+    // Multi-part event: two rows with same runNumber at distinct URLs
+    // (e.g. AVLH3 #786 Part B + Part C on different Meetup pages). A
+    // URL-less incoming with that runNumber must NOT silently merge into
+    // the first match — the selector keeps them split, so the matcher
+    // falls through to startTime/title for disambiguation.
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "part_b", trustLevel: 5, sourceUrl: "https://meetup.com/a", startTime: "10:00", runNumber: 786, title: "AVLH3 #786 Part B" },
+      { id: "part_c", trustLevel: 5, sourceUrl: "https://meetup.com/b", startTime: "18:00", runNumber: 786, title: "AVLH3 #786 Part C" },
+    ] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    const result = await processRawEvents("src_1", [
+      // Incoming matches Part C by startTime, not by ambiguous runNumber.
+      buildRawEvent({ date: "2026-03-08", sourceUrl: undefined, startTime: "18:00", runNumber: 786 }),
+    ]);
+
+    expect(result.updated).toBe(1);
+    expect(mockEventUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "part_c" } }),
+    );
+  });
+
+  it("multi-event fallback: ambiguous runNumber with no secondary discriminator creates a new row", async () => {
+    // Worst-case ambiguous path: runNumber matches >1 row, incoming has no
+    // URL, no startTime, no title. Matcher must NOT silently merge into
+    // whichever sibling is first — create a new row so the slot stays
+    // inspectable (dedup cleanup or operator review can sort it out).
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "part_b", trustLevel: 5, sourceUrl: "https://meetup.com/a", startTime: "10:00", runNumber: 786, title: "AVLH3 #786 Part B" },
+      { id: "part_c", trustLevel: 5, sourceUrl: "https://meetup.com/b", startTime: "18:00", runNumber: 786, title: "AVLH3 #786 Part C" },
+    ] as never);
+    mockEventCreate.mockResolvedValueOnce({ id: "evt_new" } as never);
+
+    const result = await processRawEvents("src_1", [
+      buildRawEvent({
+        date: "2026-03-08",
+        sourceUrl: undefined,
+        startTime: undefined,
+        title: undefined,
+        runNumber: 786,
+      }),
+    ]);
+
+    expect(result.created).toBe(1);
+    expect(result.updated).toBe(0);
+  });
+
+  it("lower-trust source restores a CANCELLED row and mirrors status in-memory", async () => {
+    // Regression guard for round-2 stale-after-restore: the lower-trust
+    // restore path at upsertCanonicalEvent updates DB status but must also
+    // mutate the in-memory `existingEvent.status` so recomputeCanonical's
+    // status-aware pool sees the row as live, not CANCELLED.
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      {
+        id: "evt_restored",
+        trustLevel: 9, // higher than ctx.trustLevel=5 → takes restore path only
+        status: "CANCELLED",
+        sourceUrl: "https://source-a.com/event",
+        startTime: "19:00",
+        title: "Trail",
+        runNumber: 42,
+      },
+    ] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    const result = await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-03-08", sourceUrl: "https://source-a.com/event", startTime: "19:00", runNumber: 42 }),
+    ]);
+
+    expect(result.restored).toBe(1);
+    expect(mockEventUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "evt_restored" },
+        data: { status: "CONFIRMED" },
+      }),
+    );
+  });
 });
 
 describe("empty event guard", () => {
@@ -1653,6 +1755,7 @@ function candidate(overrides: Partial<Candidate> & { id: string }): Candidate {
   return {
     trustLevel: 5,
     createdAt: new Date("2026-01-01T00:00:00Z"),
+    status: "CONFIRMED",
     ...EMPTY_DISPLAY_FIELDS,
     ...overrides,
   };
@@ -1854,6 +1957,63 @@ describe("pickCanonicalEventId", () => {
     expect(canonicals.size).toBe(2);
     expect(canonicals.has("morning-b")).toBe(true); // higher trust wins within sig
     expect(canonicals.has("evening")).toBe(true);
+  });
+
+  // Canonical-selection matrix: signature grouping (runNumber × sourceUrl)
+  // plus status-aware filtering. Prod cases referenced inline:
+  //   #826 SFH3 GPH3 #1704 — ICAL "GPH3 Run #1704" vs HTML "Almost Old
+  //     Enough to be a Museum Piece" at same sourceUrl (race dup → collapse)
+  //   AVLH3 2024-03-31 #786 — Part B + Part C at distinct Meetup URLs
+  //     (multi-part event → both canonical)
+  // Status-aware: display paths filter `status != CANCELLED AND
+  // isCanonical = true`, so a cancelled winner would hide the live sibling.
+  it.each([
+    {
+      name: "#826 cross-source title drift at same URL collapses",
+      rowA: { id: "a", trustLevel: 8, runNumber: 1704, title: "GPH3 Run #1704", sourceUrl: "https://www.sfh3.com/runs/6516" },
+      rowB: { id: "b", trustLevel: 7, runNumber: 1704, title: "Almost Old Enough to be a Museum Piece", sourceUrl: "https://www.sfh3.com/runs/6516" },
+      expectedCanonicals: ["a"],
+    },
+    {
+      name: "distinct runNumbers on same date stay as two canonicals",
+      rowA: { id: "a", runNumber: 500, title: "Charity Run", startTime: "09:00" },
+      rowB: { id: "b", runNumber: 1704, title: "Weekly Trail", startTime: "18:00" },
+      expectedCanonicals: ["a", "b"],
+    },
+    {
+      name: "no-runNumber rows fall back to title+time+url signature",
+      rowA: { id: "a", title: "AM Trail", startTime: "09:00" },
+      rowB: { id: "b", title: "PM Trail", startTime: "18:00" },
+      expectedCanonicals: ["a", "b"],
+    },
+    {
+      name: "same runNumber + URL collapses even when one row has no title",
+      rowA: { id: "a", trustLevel: 5, runNumber: 42, title: "Run #42", sourceUrl: "https://example.com/runs/42" },
+      rowB: { id: "b", trustLevel: 8, runNumber: 42, title: null, sourceUrl: "https://example.com/runs/42", haresText: "Slalom", locationName: "Piedmont Park" },
+      expectedCanonicals: ["b"],
+    },
+    {
+      name: "same runNumber at distinct URLs is a multi-part event (two canonicals)",
+      rowA: { id: "a", runNumber: 786, title: "AVLH3 #786 Part B", sourceUrl: "https://meetup.com/events/299709371/" },
+      rowB: { id: "b", runNumber: 786, title: "AVLH3 #786 Part C", sourceUrl: "https://meetup.com/events/299709393/" },
+      expectedCanonicals: ["a", "b"],
+    },
+    {
+      name: "CANCELLED row is excluded when a live sibling exists (even at lower trust)",
+      rowA: { id: "cancelled", ...DUP_SIG, trustLevel: 9, status: "CANCELLED" as const, haresText: "was-hares", locationName: "old venue" },
+      rowB: { id: "live", ...DUP_SIG, trustLevel: 5, status: "CONFIRMED" as const },
+      expectedCanonicals: ["live"],
+    },
+    {
+      name: "whole-group-CANCELLED falls through to normal trust/completeness ordering",
+      // Reconcile needs a stable canonical pointer to un-cancel later.
+      rowA: { id: "older", ...DUP_SIG, trustLevel: 5, status: "CANCELLED" as const, createdAt: new Date("2026-01-01T00:00:00Z") },
+      rowB: { id: "newer", ...DUP_SIG, trustLevel: 8, status: "CANCELLED" as const, createdAt: new Date("2026-03-01T00:00:00Z") },
+      expectedCanonicals: ["newer"],
+    },
+  ])("$name", ({ rowA, rowB, expectedCanonicals }) => {
+    const canonicals = pickCanonicalEventIds([candidate(rowA), candidate(rowB)]);
+    expect([...canonicals].sort()).toEqual(expectedCanonicals.sort());
   });
 
   it("flips the winner when equal-trust completeness shifts after an update", () => {
