@@ -2,10 +2,17 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import * as Sentry from "@sentry/nextjs";
 import { prisma } from "@/lib/db";
+import { TravelSearchStatus } from "@/generated/prisma/client";
 import { getOrCreateUser } from "@/lib/auth";
 import { executeTravelSearch } from "@/lib/travel/search";
 import { findExistingSavedSearch } from "@/app/travel/actions";
 import { MAX_RADIUS_KM, snapRadiusToTier } from "@/lib/travel/limits";
+import { utcYmd } from "@/lib/travel/url";
+import {
+  serializeTravelResults,
+  type AttendanceMap,
+  type SerializedTravelResults,
+} from "@/lib/travel/serialize";
 import { TravelSearchForm } from "@/components/travel/TravelSearchForm";
 import { TravelResults } from "@/components/travel/TravelResults";
 import { TravelResultsSkeleton } from "@/components/travel/TravelResultsSkeleton";
@@ -53,6 +60,11 @@ export async function generateMetadata({
 
 export default async function TravelPage({ searchParams }: TravelPageProps) {
   const params = await searchParams;
+
+  const savedTripId = getParam(params, "savedTripId");
+  if (savedTripId) {
+    return <SavedTripPage savedTripId={savedTripId} filterParams={params} />;
+  }
 
   const lat = getParam(params, "lat");
   const lng = getParam(params, "lng");
@@ -212,81 +224,26 @@ async function TravelResultsServer({
 
     const isMultiStop = results.destinations.length > 1;
 
-    // Multi-stop: every stop's broader pass rows need to reach the
-    // attendance map + serialized arrays. Single-stop's broader is
-    // already captured via `broaderResults` (== destinations[0].broaderResults).
-    const allBroaderConfirmed = isMultiStop
-      ? results.destinations.flatMap((d) => d.broaderResults?.confirmed ?? [])
-      : (broaderResults?.confirmed ?? []);
-    const allBroaderLikely = isMultiStop
-      ? results.destinations.flatMap((d) => d.broaderResults?.likely ?? [])
-      : (broaderResults?.likely ?? []);
-    const allBroaderPossible = isMultiStop
-      ? results.destinations.flatMap((d) => d.broaderResults?.possible ?? [])
-      : (broaderResults?.possible ?? []);
+    // Build the attendance map from every eventId the renderer might show —
+    // multi-stop surfaces all stops' broader via the merged arrays;
+    // single-stop uses destinations[0].broaderResults only.
+    const eventIds = isMultiStop
+      ? [
+          ...results.confirmed.map((r) => r.eventId),
+          ...results.destinations.flatMap((d) =>
+            (d.broaderResults?.confirmed ?? []).map((r) => r.eventId),
+          ),
+        ]
+      : [
+          ...results.confirmed.map((r) => r.eventId),
+          ...(broaderResults?.confirmed ?? []).map((r) => r.eventId),
+        ];
 
-    const confirmedEventIds = [
-      ...results.confirmed,
-      ...allBroaderConfirmed,
-    ].map((r) => r.eventId);
+    const attendanceMap = await loadAttendanceMap(user, eventIds);
 
-    const attendanceMap = await loadAttendanceMap(user, confirmedEventIds);
-
-    // Serialize Date objects for client components. Explicit field list
-    // (rather than `...results`) so the multi-destination `destinations`
-    // array's Date fields don't silently cross the RSC boundary unserialized.
-    const serializedResults = {
-      emptyState: results.emptyState,
-      meta: results.meta,
-      // Per-stop metadata. Dates toISOString so the RSC boundary
-      // serializes cleanly.
-      destinations: results.destinations.map((d) => ({
-        index: d.index,
-        label: d.label,
-        startDate: d.startDate.toISOString(),
-        endDate: d.endDate.toISOString(),
-        radiusKm: d.radiusKm,
-        broaderRadiusKm: d.broaderRadiusKm,
-      })),
-      // Multi-stop: merge every stop's broader rows into the top-level
-      // flat arrays so the multi-destination renderer (which iterates
-      // the flat set tagged by destinationIndex) sees both primary and
-      // broader results across ALL stops. Single-stop keeps today's
-      // behavior — broader rows flow through `broaderResults` below and
-      // `selectResultsToRender` swaps them in on `no_nearby`.
-      confirmed: [...results.confirmed, ...(isMultiStop ? allBroaderConfirmed : [])].map((r) => ({
-        ...r,
-        date: r.date.toISOString(),
-        attendance: attendanceMap[r.eventId] ?? null,
-      })),
-      likely: [...results.likely, ...(isMultiStop ? allBroaderLikely : [])].map((r) => ({
-        ...r,
-        date: r.date.toISOString(),
-      })),
-      possible: [...results.possible, ...(isMultiStop ? allBroaderPossible : [])].map((r) => ({
-        ...r,
-        date: r.date?.toISOString() ?? null,
-        lastConfirmedAt: r.lastConfirmedAt?.toISOString() ?? null,
-      })),
-      broaderResults: broaderResults
-        ? {
-            confirmed: broaderResults.confirmed.map((r) => ({
-              ...r,
-              date: r.date.toISOString(),
-              attendance: attendanceMap[r.eventId] ?? null,
-            })),
-            likely: broaderResults.likely.map((r) => ({
-              ...r,
-              date: r.date.toISOString(),
-            })),
-            possible: broaderResults.possible.map((r) => ({
-              ...r,
-              date: r.date?.toISOString() ?? null,
-              lastConfirmedAt: r.lastConfirmedAt?.toISOString() ?? null,
-            })),
-          }
-        : undefined,
-    };
+    const serializedResults = serializeTravelResults(results, attendanceMap, {
+      mergeBroader: isMultiStop,
+    });
 
     // Events exposed to TripSummary for Export Calendar .ics generation.
     // Use broaderResults when the primary radius came up empty — mirrors
@@ -496,4 +453,146 @@ function selectResultsToRender<T extends {
     };
   }
   return null;
+}
+
+/**
+ * Server component for `/travel?savedTripId=<id>`. Fetches the saved
+ * trip (DRAFT or ACTIVE), runs executeTravelSearch across all its
+ * destinations, and renders the multi-stop TravelResults branch. Only
+ * the owner can access — ownership is enforced server-side, and
+ * non-owners see a 404-style empty state.
+ *
+ * This is the URL-authoritative entry point for multi-stop trips
+ * (sharing + bookmarking round-trip cleanly). Single-stop trips
+ * continue to use the stateless `?q=&lat=&lng=&from=&to=&r=` shape.
+ */
+async function SavedTripPage({
+  savedTripId,
+  filterParams,
+}: {
+  savedTripId: string;
+  filterParams: SearchParamsRecord;
+}) {
+  const user = await getOrCreateUser().catch(() => null);
+  if (!user) {
+    return <EmptyStates variant="error" />;
+  }
+
+  const search = await prisma.travelSearch.findUnique({
+    where: { id: savedTripId },
+    include: {
+      // Destinations carry the same status as their parent (invariant
+      // enforced at save/update time). We've already rejected ARCHIVED
+      // parents above, so any surviving destinations are DRAFT or ACTIVE
+      // and belong to the rendered trip.
+      destinations: { orderBy: { position: "asc" } },
+    },
+  });
+
+  // Ownership check + reject ARCHIVED; DRAFT and ACTIVE both resolve.
+  if (
+    !search ||
+    search.userId !== user.id ||
+    search.status === TravelSearchStatus.ARCHIVED ||
+    search.destinations.length === 0
+  ) {
+    return (
+      <div className="mx-auto max-w-5xl px-4 py-16">
+        <EmptyStates variant="error" />
+      </div>
+    );
+  }
+
+  const { confidenceFilter, distanceFilter } = parseFilterParams(filterParams);
+  const destinations = search.destinations.map((d) => ({
+    latitude: d.latitude,
+    longitude: d.longitude,
+    radiusKm: d.radiusKm,
+    startDate: utcYmd(d.startDate),
+    endDate: utcYmd(d.endDate),
+    timezone: d.timezone ?? undefined,
+    label: d.label,
+  }));
+
+  let serializedResults: SerializedTravelResults;
+  try {
+    serializedResults = await buildSavedTripResults({
+      user,
+      destinations,
+      filters: { confidence: confidenceFilter, distanceTier: distanceFilter },
+    });
+  } catch (err) {
+    console.error("[travel] SavedTripPage threw", err);
+    Sentry.captureException(err);
+    return (
+      <div className="mx-auto max-w-5xl px-4 py-16">
+        <EmptyStates variant="error" />
+      </div>
+    );
+  }
+
+  const isMultiStop = search.destinations.length > 1;
+  // Mirror TravelResultsServer's branch: when the primary radius came
+  // back empty (no_nearby), `selectResultsToRender` swaps in the broader
+  // arrays so single-stop saved trips still render meaningful results.
+  // Multi-stop saved trips already have broader merged into the flat
+  // arrays by `serializeTravelResults({ mergeBroader: true })`, so the
+  // swap is a no-op and we pass serializedResults through.
+  const resultsToRender = isMultiStop
+    ? serializedResults
+    : selectResultsToRender(serializedResults.emptyState, serializedResults);
+
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-6">
+      <header className="mb-6 border-b border-border pb-4">
+        <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-red-600 dark:text-red-400">
+          ◆ Itinerary · {search.destinations.length} leg{search.destinations.length !== 1 ? "s" : ""}
+        </p>
+        <h1 className="mt-1 font-display text-3xl font-medium tracking-tight">
+          {search.name ?? "Trip"}
+        </h1>
+      </header>
+      {serializedResults.emptyState !== "none" && (
+        <EmptyStates
+          variant={serializedResults.emptyState}
+          broaderRadiusKm={serializedResults.destinations[0]?.broaderRadiusKm}
+        />
+      )}
+      {resultsToRender && (
+        <TravelResults
+          destination={search.name ?? ""}
+          results={resultsToRender}
+          destinations={serializedResults.destinations}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Extracted so the `SavedTripPage` render path stays outside the
+ * try/catch — `react-hooks/error-boundaries` forbids constructing
+ * JSX inside the catch path because it bypasses the route-level
+ * error boundary.
+ */
+async function buildSavedTripResults(args: {
+  user: Awaited<ReturnType<typeof getOrCreateUser>>;
+  destinations: Parameters<typeof executeTravelSearch>[1]["destinations"];
+  filters: Parameters<typeof executeTravelSearch>[1]["filters"];
+}): Promise<SerializedTravelResults> {
+  const results = await executeTravelSearch(prisma, {
+    destinations: args.destinations,
+    filters: args.filters,
+  });
+  const allConfirmed = [
+    ...results.confirmed,
+    ...results.destinations.flatMap((d) => d.broaderResults?.confirmed ?? []),
+  ];
+  const attendanceMap: AttendanceMap = await loadAttendanceMap(
+    args.user,
+    allConfirmed.map((r) => r.eventId),
+  );
+  return serializeTravelResults(results, attendanceMap, {
+    mergeBroader: args.destinations.length > 1,
+  });
 }
