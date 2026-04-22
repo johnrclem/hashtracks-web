@@ -8,20 +8,31 @@ import { formatDateCompact, formatNights, daysBetween } from "@/lib/travel/forma
 import { RADIUS_TIERS, snapRadiusToTier, MAX_STOPS_PER_TRIP } from "@/lib/travel/limits";
 import { capture } from "@/lib/analytics";
 import { resolveRefCode } from "@/lib/travel/iata";
-import { saveDraftSearch, updateDraftSearch } from "@/app/travel/actions";
+import { saveDraftSearch, updateDraftSearch, updateTravelSearch } from "@/app/travel/actions";
 import { DestinationInput } from "./DestinationInput";
+
+interface InitialLegValues {
+  destination: string;
+  latitude: number;
+  longitude: number;
+  startDate: string;
+  endDate: string;
+  radiusKm: number;
+  timezone?: string;
+}
 
 interface TravelSearchFormProps {
   variant: "hero" | "compact";
-  initialValues?: {
-    destination: string;
-    latitude: number;
-    longitude: number;
-    startDate: string;
-    endDate: string;
-    radiusKm: number;
-    timezone?: string;
-  };
+  initialValues?: InitialLegValues;
+  /** Position-ordered legs for hydrating a saved multi-stop trip. When
+   *  provided, overrides `initialValues` and seeds one LegState per
+   *  entry. Omit for the single-leg (or blank) default path. */
+  initialLegs?: InitialLegValues[];
+  /** When set, the form is editing an existing saved trip: submit
+   *  updates that row in place via `updateTravelSearch` instead of
+   *  creating a new draft + navigating away. Adding/removing legs
+   *  during an edit session still updates the same row. */
+  savedTripId?: string;
   /** Multi-leg adds require auth (drafts persist server-side). When
    *  `false`, the ghost-leg row renders as a sign-in gate instead of
    *  expanding. Single-leg flow stays anonymous. */
@@ -65,7 +76,7 @@ function makeEmptyLeg(id: string): LegState {
 
 function makeLegFromInitial(
   id: string,
-  initial: TravelSearchFormProps["initialValues"],
+  initial: InitialLegValues | undefined,
 ): LegState {
   if (!initial) return makeEmptyLeg(id);
   return {
@@ -108,26 +119,37 @@ function legReadyToSubmit(leg: LegState): boolean {
 export function TravelSearchForm({
   variant,
   initialValues,
+  initialLegs,
+  savedTripId,
   isAuthenticated = false,
 }: Readonly<TravelSearchFormProps>) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const isEditingSaved = Boolean(savedTripId);
   // Deterministic per-leg ids. useId() is stable across SSR/hydration
   // and the counter ref increments only on the client after mount, so
   // the initial leg's key matches on both sides and subsequent adds
   // produce unique, collision-free keys without crypto/randomness.
   const baseLegId = useId();
-  // Counter starts at 1 because the initial leg (built below via
-  // lazy-init useState) always owns `${baseLegId}-leg-0`. Kept
-  // deterministic across SSR/hydration — no randomness, no Date.now.
-  const legCounter = useRef(1);
+  // Counter starts after the initial-leg seed so addLeg can't collide.
+  // The initial seed uses ids 0..n-1 based on initialLegs length. `||`
+  // (not `??`) guards against `initialLegs = []` — an empty array would
+  // seed the counter at 0, but the useState initializer below falls
+  // back to one leg (id -leg-0), so the next addLeg would collide.
+  const initialLegSeeds = initialLegs?.length || 1;
+  const legCounter = useRef(initialLegSeeds);
   const makeLegId = useCallback(
     () => `${baseLegId}-leg-${legCounter.current++}`,
     [baseLegId],
   );
-  const [legs, setLegs] = useState<LegState[]>(() => [
-    makeLegFromInitial(`${baseLegId}-leg-0`, initialValues),
-  ]);
+  const [legs, setLegs] = useState<LegState[]>(() => {
+    if (initialLegs && initialLegs.length > 0) {
+      return initialLegs.map((leg, i) =>
+        makeLegFromInitial(`${baseLegId}-leg-${i}`, leg),
+      );
+    }
+    return [makeLegFromInitial(`${baseLegId}-leg-0`, initialValues)];
+  });
   const [isExpanded, setIsExpanded] = useState(variant === "hero");
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
@@ -193,17 +215,25 @@ export function TravelSearchForm({
     const nextLegs = [...legs, next];
     setLegs(nextLegs);
     capture("travel_leg_added", { legCount: nextLegs.length });
-    if (nextLegs.every(legReadyToSubmit)) {
+    // Skip draft auto-save when editing an existing saved trip —
+    // those changes persist via Search → updateTravelSearch, not by
+    // inserting a sibling draft.
+    if (!isEditingSaved && nextLegs.every(legReadyToSubmit)) {
       await persistDraft(nextLegs);
     }
-  }, [isAuthenticated, legs, makeLegId, persistDraft]);
+  }, [isAuthenticated, isEditingSaved, legs, makeLegId, persistDraft]);
 
   const removeLeg = useCallback(async (index: number) => {
     if (legs.length <= 1) return;
     const nextLegs = legs.filter((_, i) => i !== index);
     setLegs(nextLegs);
     capture("travel_leg_removed", { legCount: nextLegs.length });
-    if (nextLegs.length > 1 && draftId && nextLegs.every(legReadyToSubmit)) {
+    if (
+      !isEditingSaved &&
+      nextLegs.length > 1 &&
+      draftId &&
+      nextLegs.every(legReadyToSubmit)
+    ) {
       const result = await updateDraftSearch(draftId, {
         destinations: nextLegs.map(legToDestParams),
       });
@@ -214,7 +244,7 @@ export function TravelSearchForm({
     // If remove leaves 1 leg, the draft is orphaned; cron GC sweeps
     // drafts older than a week. Not worth deleting eagerly — the user
     // might re-add another leg.
-  }, [draftId, legs]);
+  }, [draftId, isEditingSaved, legs]);
 
   const canSubmit = legs.every(legReadyToSubmit);
 
@@ -224,6 +254,22 @@ export function TravelSearchForm({
     router.push(`/travel?savedTripId=${encodeURIComponent(id)}`);
     if (variant === "compact") setIsExpanded(false);
   }, [legs, router, variant, persistDraft]);
+
+  const submitEditSaved = useCallback(async () => {
+    if (!savedTripId) return;
+    const result = await updateTravelSearch(savedTripId, {
+      destinations: legs.map(legToDestParams),
+    });
+    if ("error" in result) {
+      setSubmitError(result.error ?? "Could not update trip");
+      return;
+    }
+    // Stay on the same ?savedTripId= URL — the saved row was updated
+    // in place. router.refresh() re-runs SavedTripPage's server
+    // fetches so the hero + results re-render with the new legs.
+    router.refresh();
+    if (variant === "compact") setIsExpanded(false);
+  }, [savedTripId, legs, router, variant]);
 
   const submitSingleLeg = useCallback((leg: LegState) => {
     const params = new URLSearchParams({
@@ -254,13 +300,15 @@ export function TravelSearchForm({
       legCount: legs.length,
     });
     startTransition(async () => {
-      if (legs.length === 1) {
+      if (isEditingSaved) {
+        await submitEditSaved();
+      } else if (legs.length === 1) {
         submitSingleLeg(legs[0]);
       } else {
         await submitMultiLeg();
       }
     });
-  }, [canSubmit, legs, submitMultiLeg, submitSingleLeg]);
+  }, [canSubmit, legs, submitMultiLeg, submitSingleLeg, submitEditSaved, isEditingSaved]);
 
   if (variant === "compact" && !isExpanded) {
     return <CompactPill legs={legs} onExpand={() => setIsExpanded(true)} />;

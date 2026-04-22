@@ -550,10 +550,22 @@ async function SavedTripPage({
 
   const firstLeg = search.destinations[0];
   const lastLeg = search.destinations.at(-1)!;
-  const heroLegs = search.destinations.map((d) => ({
-    label: d.label,
+  // Full per-leg shape the compact TravelSearchForm needs to hydrate
+  // an editable itinerary. `heroLegs` is derived from this so the two
+  // consumers stay in lockstep.
+  const formLegs = search.destinations.map((d) => ({
+    destination: d.label,
+    latitude: d.latitude,
+    longitude: d.longitude,
     startDate: utcYmd(d.startDate),
     endDate: utcYmd(d.endDate),
+    radiusKm: d.radiusKm,
+    timezone: d.timezone ?? undefined,
+  }));
+  const heroLegs = formLegs.map((l) => ({
+    label: l.destination,
+    startDate: l.startDate,
+    endDate: l.endDate,
   }));
   const tripWindowStart = utcYmd(firstLeg.startDate);
   const tripWindowEnd = utcYmd(lastLeg.endDate);
@@ -613,6 +625,20 @@ async function SavedTripPage({
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
+      {/*
+        `key={search.id}` forces a full remount when the user navigates
+        between two saved trips (?savedTripId=A → ?savedTripId=B). Without
+        it, the client component stays mounted and `legs`/`draftId` stay
+        pinned to trip A — pressing Search would then call
+        updateTravelSearch(B, tripA-legs) and clobber trip B.
+      */}
+      <TravelSearchForm
+        key={search.id}
+        variant="compact"
+        isAuthenticated={true}
+        initialLegs={formLegs}
+        savedTripId={search.id}
+      />
       <TripSummary {...tripSummaryProps} />
       {serializedResults.emptyState !== "none" && (
         <EmptyStates
