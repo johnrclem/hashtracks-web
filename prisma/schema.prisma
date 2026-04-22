@@ -473,6 +473,7 @@ enum AlertType {
   UNMATCHED_TAGS // New unmatched kennel tags appeared
   SOURCE_KENNEL_MISMATCH // Resolved kennel not linked to source
   EXCESSIVE_CANCELLATIONS // Too many events cancelled in one scrape
+  RECONCILE_SUPPRESSED // Reconcile skipped stale-event cancellation for kennel(s) due to unparseable dates
 }
 
 enum AlertSeverity {

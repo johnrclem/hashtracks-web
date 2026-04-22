@@ -26,6 +26,7 @@ const AUTO_FILE_ALERT_TYPES = new Set([
   "STRUCTURE_CHANGE",
   "FIELD_FILL_DROP",
   "UNMATCHED_TAGS",
+  "RECONCILE_SUPPRESSED",
 ]);
 
 /** Severities eligible for automatic issue filing. */
@@ -111,6 +112,9 @@ export function buildRelevantFiles(alertType: string, sourceType: string, source
     case "SOURCE_KENNEL_MISMATCH":
       files.push("src/pipeline/merge.ts", "src/pipeline/kennel-resolver.ts", "prisma/seed.ts");
       break;
+    case "RECONCILE_SUPPRESSED":
+      files.push("src/pipeline/reconcile.ts", "src/lib/date.ts");
+      break;
   }
 
   return [...new Set(files)]; // deduplicate
@@ -148,6 +152,11 @@ function buildContextSection(alertType: string, ctx: Record<string, unknown> | n
       const blockedList = (Array.isArray(ctx.tags) ? ctx.tags : []).map((t: string) => "- `" + t + "`").join("\n");
       return `### Blocked Tags\n${blockedList}\n\nThese tags resolved to valid kennels but those kennels are not linked to this source via SourceKennel.`;
     }
+    case "RECONCILE_SUPPRESSED": {
+      const kennels = Array.isArray(ctx.kennelsSuppressed) ? ctx.kennelsSuppressed : [];
+      const kennelList = kennels.map((k: string) => "- `" + k + "`").join("\n");
+      return `### Suppressed Kennels\n${kennelList}\n\nReconciliation skipped stale-event cancellation for these kennel IDs because the adapter emitted unparseable dates. Stale CONFIRMED events will not be cancelled until dates parse cleanly again.`;
+    }
     default:
       return "";
   }
@@ -181,6 +190,8 @@ function buildSuggestedApproach(alertType: string, ctx: Record<string, unknown> 
       return "Check source URL accessibility. Review error messages for network, auth, or parsing failures.";
     case "SOURCE_KENNEL_MISMATCH":
       return "Add the SourceKennel link if the source legitimately provides events for that kennel, or update the adapter to produce the correct tag.";
+    case "RECONCILE_SUPPRESSED":
+      return "Inspect adapter output for the listed kennels — the date field is failing `toIsoDateString`. Typical causes: unexpected date formats, timezone-only strings, or missing dates. Fix the parser so every emitted row has a valid UTC date.";
     default:
       return "Investigate the alert context and relevant files.";
   }
