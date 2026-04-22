@@ -40,6 +40,10 @@ interface AnalyzeInput {
   aiRecovery?: AiRecoveryContext;
   /** Number of events cancelled by reconciliation on this scrape. */
   cancelledCount?: number;
+  /** Whether reconciliation ran this scrape. Gates `RECONCILE_SUPPRESSED` from `checkedTypes` so a skipped reconcile doesn't false-resolve a prior open alert. */
+  reconcileEvaluated?: boolean;
+  /** Kennel IDs whose stale-event cancellation was suppressed because the adapter emitted unparseable dates. */
+  reconcileSuppressedKennels?: string[];
 }
 
 /** Type alias for the shape of recent scrape log rows used across checks. */
@@ -294,6 +298,40 @@ function checkExcessiveCancellations(
   };
 }
 
+/** Alert when reconciliation suppressed stale-event cancellation due to unparseable dates. */
+async function checkReconcileSuppressed(
+  input: AnalyzeInput,
+): Promise<AlertCandidate | null> {
+  const kennelIds = input.reconcileSuppressedKennels ?? [];
+  if (kennelIds.length === 0) return null;
+
+  // ShortName enrichment is best-effort — a lookup failure must not fail the scrape.
+  let shortNameById = new Map<string, string>();
+  try {
+    const kennels = await prisma.kennel.findMany({
+      where: { id: { in: kennelIds } },
+      select: { id: true, shortName: true },
+    });
+    shortNameById = new Map(kennels.map((k) => [k.id, k.shortName]));
+  } catch (err) {
+    console.warn(
+      `[health] RECONCILE_SUPPRESSED shortName lookup failed; falling back to raw IDs: ${String(err)}`,
+    );
+  }
+  const labels = kennelIds.map((id) => shortNameById.get(id) ?? id);
+  const suffix = kennelIds.length === 1 ? "" : "s";
+
+  return {
+    type: "RECONCILE_SUPPRESSED",
+    severity: "WARNING",
+    title: `Reconcile suppressed for ${kennelIds.length} kennel${suffix}`,
+    details:
+      `Stale-event cancellation skipped for ${labels.join(", ")} because the adapter emitted unparseable dates. ` +
+      "Stale CONFIRMED events in these kennels will remain until the adapter returns valid dates — investigate the source/adapter parse path.",
+    context: { kennelsSuppressed: kennelIds },
+  };
+}
+
 /** Alert if events resolved to valid kennels that are not linked to this source via SourceKennel. */
 function checkSourceKennelMismatches(
   input: AnalyzeInput,
@@ -389,6 +427,14 @@ export async function analyzeHealth(
   checkedTypes.add("EXCESSIVE_CANCELLATIONS");
   const cancellationAlert = checkExcessiveCancellations(input, recentSuccessful);
   if (cancellationAlert) alerts.push(cancellationAlert);
+
+  // 9. Reconcile suppressed. Gate on reconcileEvaluated so a skipped reconcile
+  // (scrape failed, partial coverage, etc.) doesn't false-resolve a prior alert.
+  if (input.reconcileEvaluated) {
+    checkedTypes.add("RECONCILE_SUPPRESSED");
+    const reconcileAlert = await checkReconcileSuppressed(input);
+    if (reconcileAlert) alerts.push(reconcileAlert);
+  }
 
   // Determine overall health status
   let healthStatus: SourceHealth;

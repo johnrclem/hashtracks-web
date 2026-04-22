@@ -410,6 +410,8 @@ export async function scrapeSource(
     // Reconcile stale events (scope to scraped kennels for partial-scrape adapters)
     let cancelledCount = 0;
     let reconcileContext: Record<string, unknown> | undefined;
+    let reconcileEvaluated = false;
+    let reconcileSuppressedKennels: string[] = [];
     const rawKennelPageErrors = scrapeResult.diagnosticContext?.kennelPageFetchErrors;
     const kennelPageErrors = typeof rawKennelPageErrors === "number" && Number.isFinite(rawKennelPageErrors) ? rawKennelPageErrors : 0;
     const kennelPagesStopReason = scrapeResult.diagnosticContext?.kennelPagesStopReason;
@@ -430,6 +432,7 @@ export async function scrapeSource(
         scrapedKennelIds,
         upcomingOnly,
       );
+      reconcileEvaluated = true;
       const { cancelledEventIds: _, ...reconDiag } = reconciled;
       cancelledCount = reconciled.cancelled;
       reconcileContext = reconDiag;
@@ -440,14 +443,13 @@ export async function scrapeSource(
           `Scope: ${reconciled.kennelsInScope}/${reconciled.totalLinkedKennels} kennels.`,
         );
       }
-      // Suppression disables stale-event cleanup for the listed kennels. Surface
-      // at scrape level (not just per-row in reconcile) — the operational symptom
-      // is quiet failure, so relying on high-cancellation noise won't catch it.
-      if (reconciled.kennelsSuppressedForBadDate.length > 0) {
-        console.warn(
-          `[scrape] Reconcile cancellations suppressed for ${reconciled.kennelsSuppressedForBadDate.length} kennel(s) ` +
+      // Operator-facing signal is the RECONCILE_SUPPRESSED health alert; log is a triage breadcrumb.
+      reconcileSuppressedKennels = reconciled.kennelsSuppressedForBadDate;
+      if (reconcileSuppressedKennels.length > 0) {
+        console.info(
+          `[scrape] Reconcile cancellations suppressed for ${reconcileSuppressedKennels.length} kennel(s) ` +
           `in source "${source.name}" (${sourceId}) due to unparseable dates: ` +
-          `${reconciled.kennelsSuppressedForBadDate.join(", ")}. ` +
+          `${reconcileSuppressedKennels.join(", ")}. ` +
           `Stale CONFIRMED events in these kennels will not be cancelled until the adapter emits valid dates.`,
         );
       }
@@ -479,6 +481,8 @@ export async function scrapeSource(
         ? { attempted: aiRecovery.attempted, succeeded: aiRecovery.succeeded, failed: aiRecovery.failed }
         : undefined,
       cancelledCount,
+      reconcileEvaluated,
+      reconcileSuppressedKennels,
     });
 
     // Run IndexNow ping after the response is sent, so the serverless function

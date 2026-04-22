@@ -4,6 +4,7 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     scrapeLog: { findMany: vi.fn() },
     alert: { findMany: vi.fn(), update: vi.fn() },
+    kennel: { findMany: vi.fn() },
   },
 }));
 
@@ -11,6 +12,7 @@ import { prisma } from "@/lib/db";
 import { analyzeHealth, autoResolveCleared } from "./health";
 
 const mockScrapeLogFind = vi.mocked(prisma.scrapeLog.findMany);
+const mockKennelFindMany = vi.mocked(prisma.kennel.findMany);
 
 const baseFillRates = { title: 100, location: 80, hares: 50, startTime: 90, runNumber: 70 };
 
@@ -43,6 +45,9 @@ beforeEach(() => {
   mockScrapeLogFind
     .mockResolvedValueOnce(baselineEntries as never)  // recentSuccessful
     .mockResolvedValueOnce([] as never);               // recentAll
+  // Default: no kennel lookups needed; tests that exercise RECONCILE_SUPPRESSED
+  // override this with their own mockResolvedValueOnce.
+  mockKennelFindMany.mockResolvedValue([] as never);
 });
 
 describe("analyzeHealth", () => {
@@ -88,6 +93,9 @@ describe("analyzeHealth", () => {
     expect(result.checkedTypes).toContain("STRUCTURE_CHANGE");
     expect(result.checkedTypes).toContain("UNMATCHED_TAGS");
     expect(result.checkedTypes).toContain("SOURCE_KENNEL_MISMATCH");
+    // RECONCILE_SUPPRESSED is only checked when reconcile actually ran —
+    // see the dedicated describe block below for gated behavior.
+    expect(result.checkedTypes).not.toContain("RECONCILE_SUPPRESSED");
   });
 
   it("omits trend check types from checkedTypes when no baseline", async () => {
@@ -176,6 +184,106 @@ describe("SOURCE_KENNEL_MISMATCH alerts", () => {
     const alert = result.alerts.find(a => a.type === "SOURCE_KENNEL_MISMATCH");
     expect(alert!.title).toContain("1 kennel tag blocked");
     expect(alert!.title).not.toContain("tags");
+  });
+});
+
+describe("RECONCILE_SUPPRESSED alerts", () => {
+  it("does not check or alert when reconcile did not run", async () => {
+    const result = await analyzeHealth("src_1", "log_1", baseInput({
+      reconcileSuppressedKennels: ["knl_1"],
+      // reconcileEvaluated omitted — simulates scrape where reconcile was skipped
+    }));
+    expect(result.alerts.find((a) => a.type === "RECONCILE_SUPPRESSED")).toBeUndefined();
+    expect(result.checkedTypes).not.toContain("RECONCILE_SUPPRESSED");
+    expect(mockKennelFindMany).not.toHaveBeenCalled();
+  });
+
+  it("registers check but skips alert when reconcile ran with no suppression", async () => {
+    const result = await analyzeHealth("src_1", "log_1", baseInput({
+      reconcileEvaluated: true,
+      reconcileSuppressedKennels: [],
+    }));
+    expect(result.alerts.find((a) => a.type === "RECONCILE_SUPPRESSED")).toBeUndefined();
+    expect(result.checkedTypes).toContain("RECONCILE_SUPPRESSED");
+    expect(mockKennelFindMany).not.toHaveBeenCalled();
+  });
+
+  it("registers check but skips alert when reconcile ran with undefined suppression", async () => {
+    const result = await analyzeHealth("src_1", "log_1", baseInput({
+      reconcileEvaluated: true,
+    }));
+    expect(result.alerts.find((a) => a.type === "RECONCILE_SUPPRESSED")).toBeUndefined();
+    expect(result.checkedTypes).toContain("RECONCILE_SUPPRESSED");
+    expect(mockKennelFindMany).not.toHaveBeenCalled();
+  });
+
+  it("generates one WARNING alert with resolved shortNames and kennelsSuppressed context", async () => {
+    mockKennelFindMany.mockReset();
+    mockKennelFindMany.mockResolvedValueOnce([
+      { id: "knl_1", shortName: "NYCH3" },
+      { id: "knl_2", shortName: "BFM" },
+    ] as never);
+
+    const result = await analyzeHealth("src_1", "log_1", baseInput({
+      reconcileEvaluated: true,
+      reconcileSuppressedKennels: ["knl_1", "knl_2"],
+    }));
+
+    const alert = result.alerts.find((a) => a.type === "RECONCILE_SUPPRESSED");
+    expect(alert).toBeDefined();
+    expect(alert!.severity).toBe("WARNING");
+    expect(alert!.title).toContain("2 kennels");
+    expect(alert!.details).toContain("NYCH3");
+    expect(alert!.details).toContain("BFM");
+    expect((alert!.context!.kennelsSuppressed as string[])).toEqual(["knl_1", "knl_2"]);
+    expect(result.healthStatus).toBe("DEGRADED");
+  });
+
+  it("uses singular grammar for one suppressed kennel", async () => {
+    mockKennelFindMany.mockReset();
+    mockKennelFindMany.mockResolvedValueOnce([
+      { id: "knl_1", shortName: "NYCH3" },
+    ] as never);
+
+    const result = await analyzeHealth("src_1", "log_1", baseInput({
+      reconcileEvaluated: true,
+      reconcileSuppressedKennels: ["knl_1"],
+    }));
+
+    const alert = result.alerts.find((a) => a.type === "RECONCILE_SUPPRESSED");
+    expect(alert!.title).toContain("1 kennel");
+    expect(alert!.title).not.toMatch(/\bkennels\b/);
+  });
+
+  it("falls back to raw kennel ID when shortName lookup misses", async () => {
+    mockKennelFindMany.mockReset();
+    mockKennelFindMany.mockResolvedValueOnce([] as never);
+
+    const result = await analyzeHealth("src_1", "log_1", baseInput({
+      reconcileEvaluated: true,
+      reconcileSuppressedKennels: ["knl_orphan"],
+    }));
+
+    const alert = result.alerts.find((a) => a.type === "RECONCILE_SUPPRESSED");
+    expect(alert).toBeDefined();
+    expect(alert!.details).toContain("knl_orphan");
+    expect((alert!.context!.kennelsSuppressed as string[])).toEqual(["knl_orphan"]);
+  });
+
+  it("falls back to raw IDs without rejecting when kennel lookup throws", async () => {
+    mockKennelFindMany.mockReset();
+    mockKennelFindMany.mockRejectedValueOnce(new Error("transient DB error") as never);
+
+    const result = await analyzeHealth("src_1", "log_1", baseInput({
+      reconcileEvaluated: true,
+      reconcileSuppressedKennels: ["knl_1", "knl_2"],
+    }));
+
+    const alert = result.alerts.find((a) => a.type === "RECONCILE_SUPPRESSED");
+    expect(alert).toBeDefined();
+    expect(alert!.details).toContain("knl_1");
+    expect(alert!.details).toContain("knl_2");
+    expect((alert!.context!.kennelsSuppressed as string[])).toEqual(["knl_1", "knl_2"]);
   });
 });
 
