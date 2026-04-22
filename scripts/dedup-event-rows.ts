@@ -43,7 +43,7 @@ async function main() {
     const events = await prisma.event.findMany({
       where: { kennelId: group.kennelId, date: group.date },
       select: {
-        id: true, trustLevel: true, createdAt: true, isCanonical: true,
+        id: true, trustLevel: true, createdAt: true, isCanonical: true, status: true,
         title: true, haresText: true, locationName: true, locationStreet: true,
         locationCity: true, locationAddress: true, latitude: true, longitude: true,
         startTime: true, endTime: true, cost: true, sourceUrl: true,
@@ -83,9 +83,11 @@ async function main() {
       await prisma.$transaction(ops);
     }
     flipped += toDemote.length + toPromote.length;
+    const statuses = new Set(events.map(e => e.status));
+    const mixed = statuses.size > 1 ? " [MIXED-STATUS]" : "";
     console.log(
       `  ${dryRun ? "would" : "did"} flip ${toDemote.length} → non-canonical, ${toPromote.length} → canonical ` +
-      `(kennel=${group.kennelId.slice(0, 8)}…, date=${group.date.toISOString().slice(0, 10)}, canonical-count=${canonicalIds.size})`,
+      `(kennel=${group.kennelId.slice(0, 8)}…, date=${group.date.toISOString().slice(0, 10)}, canonical-count=${canonicalIds.size})${mixed}`,
     );
   }
 

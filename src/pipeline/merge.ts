@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import type { Prisma, SourceType } from "@/generated/prisma/client";
+import type { EventStatus, Prisma, SourceType } from "@/generated/prisma/client";
 import type { RawEventData, MergeResult } from "@/adapters/types";
 import { parseUtcNoonDate } from "@/lib/date";
 import { regionTimezone, getLabelForUrl, stripUrlsFromText } from "@/lib/format";
@@ -681,20 +681,26 @@ async function upsertCanonicalEvent(
 ): Promise<string> {
   const eventDate = parseUtcNoonDate(event.date);
 
-  // Find existing canonical Events for this kennel+date
+  // Deterministic orderBy so the matcher's `.find()` picks a stable row on
+  // ties across retries or parallel scrapes.
   const sameDayEvents = await prisma.event.findMany({
     where: { kennelId, date: eventDate },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
   });
 
   // Match strategy:
-  // 1. Zero existing → create new (common case)
-  // 2. Exactly one → match unless already matched in this batch (double-header detection)
-  // 3. Multiple → disambiguate by sourceUrl, then startTime, then title (sequential fallback)
-  // 4. No disambiguation match → create new event
+  // 1. Zero existing → create new
+  // 2. Exactly one → match unless already matched in this batch (double-header)
+  // 3. Multiple → disambiguate by sourceUrl, runNumber, startTime, title
+  // 4. No disambiguation match → create new
+  //
+  // runNumber sits between sourceUrl and startTime for URL-less iCal feeds,
+  // aligning with eventSignature's (runNumber, sourceUrl) keying so matcher
+  // and selector converge on the same row.
   //
   // Per-batch tracking distinguishes double-headers from cross-source merges:
-  // - Same source, second event for kennel+date → already matched in batch → create new
-  // - Different source, same event → first match in batch → update + EventLink
+  // - Same source, second event for kennel+date → already matched → create new
+  // - Different source, same event → first match → update + EventLink
   const batchKey = `${kennelId}:${eventDate.toISOString()}`;
   let existingEvent: (typeof sameDayEvents)[number] | null = null;
   if (sameDayEvents.length === 1) {
@@ -714,6 +720,13 @@ async function upsertCanonicalEvent(
   } else if (sameDayEvents.length > 1) {
     if (event.sourceUrl) {
       existingEvent = sameDayEvents.find(e => e.sourceUrl === event.sourceUrl) ?? null;
+    }
+    if (!existingEvent && event.runNumber != null) {
+      // Only match when runNumber resolves to exactly one row. Ambiguous
+      // groups (same run # at distinct URLs) are genuine multi-part events
+      // that the selector keeps split via (runNumber, sourceUrl) keying.
+      const runMatches = sameDayEvents.filter(e => e.runNumber === event.runNumber);
+      if (runMatches.length === 1) existingEvent = runMatches[0];
     }
     if (!existingEvent && event.startTime) {
       existingEvent = sameDayEvents.find(e => e.startTime === event.startTime) ?? null;
@@ -744,6 +757,9 @@ async function upsertCanonicalEvent(
         where: { id: existingEvent.id },
         data: { status: "CONFIRMED" },
       });
+      // Mirror DB into the in-memory row so recomputeCanonical's status-aware
+      // pool sees the live state (existingEvent aliases a sameDayEvents entry).
+      existingEvent.status = "CONFIRMED";
     }
 
     // Update only if our source trust level >= existing; lower-trust
@@ -1056,6 +1072,7 @@ type CanonicalCandidate = {
   id: string;
   trustLevel: number;
   createdAt: Date;
+  status: EventStatus;
   title: string | null;
   haresText: string | null;
   locationName: string | null;
@@ -1072,7 +1089,7 @@ type CanonicalCandidate = {
   description: string | null;
 };
 
-export function completenessScore(e: Omit<CanonicalCandidate, "id" | "trustLevel" | "createdAt">): number {
+export function completenessScore(e: Omit<CanonicalCandidate, "id" | "trustLevel" | "createdAt" | "status">): number {
   let score = 0;
   if (e.title) score++;
   if (e.haresText) score++;
@@ -1092,25 +1109,30 @@ export function completenessScore(e: Omit<CanonicalCandidate, "id" | "trustLevel
 }
 
 /**
- * Signature for grouping duplicate rows within a (kennelId, date) slot.
- * Rows that share a signature are cross-source dupes of the same real-world
- * run; rows with distinct signatures are genuine double-headers (e.g., a
- * kennel running both a morning and evening trail on the same day, which
- * upsertCanonicalEvent intentionally preserves as separate rows).
+ * Signature for grouping dupes within a (kennelId, date) slot. Shared
+ * signature → collapse; distinct → genuine double-header.
+ *
+ * With runNumber: key on (runNumber, sourceUrl) so same-URL races collapse
+ * (#826) and multi-part events at distinct URLs stay split. Without:
+ * fall back to (time, url, title). The `run#` prefix prevents collisions.
  */
 function eventSignature(e: CanonicalCandidate): string {
-  const time = e.startTime?.trim() || "";
   const url = e.sourceUrl?.trim() || "";
+  if (e.runNumber != null) return `run#${e.runNumber}::${url}`;
+  const time = e.startTime?.trim() || "";
   const title = e.title?.trim() || "";
   return `${time}::${url}::${title}`;
 }
 
 /**
- * Pick the canonical row id(s) across a (kennelId, date) group. Rows get
- * grouped by signature first — distinct signatures are genuine multi-event
- * days that must each keep a canonical. Within each signature group,
- * ordering is: trustLevel DESC, completeness DESC, createdAt ASC (stable).
- * Pure function — no DB access; input is whatever the caller has in hand.
+ * Pick canonical row id(s) across a (kennelId, date) group. Rows group by
+ * signature; distinct signatures each keep a canonical. Within a group:
+ *   1. Prefer non-CANCELLED rows — every display path filters
+ *      `status != CANCELLED AND isCanonical = true`, so a cancelled winner
+ *      would hide the live sibling. Fall through to cancelled only when
+ *      the whole group is cancelled (keeps pointer stable for un-cancel).
+ *   2. Order: trustLevel DESC, completeness DESC, createdAt ASC.
+ * Pure function — no DB access.
  */
 export function pickCanonicalEventIds(events: CanonicalCandidate[]): Set<string> {
   const canonical = new Set<string>();
@@ -1125,9 +1147,13 @@ export function pickCanonicalEventIds(events: CanonicalCandidate[]): Set<string>
   }
 
   for (const group of bySignature.values()) {
-    let best = group[0];
+    // Prefer live rows; if the whole group is cancelled, keep them all eligible
+    // so reconcile has a stable canonical pointer to un-cancel later.
+    const live = group.filter(e => e.status !== "CANCELLED");
+    const pool = live.length > 0 ? live : group;
+    let best = pool[0];
     let bestScore = completenessScore(best);
-    for (const e of group.slice(1)) {
+    for (const e of pool.slice(1)) {
       const score = completenessScore(e);
       if (
         e.trustLevel > best.trustLevel ||
