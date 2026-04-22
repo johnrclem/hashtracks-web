@@ -343,7 +343,7 @@ const DEFAULT_HARE_PATTERNS = [
 ];
 
 const COST_LABEL_RE =
-  /(?:^|\n)[ \t]*(?:Hash\s+Cash|WHAT\s+IS\s+THE\s+COST|Cost|Price)\s*:[ \t]*([^\n]+)/im;
+  /(?:^|\n)[ \t]*(?:How\s+much|Hash\s+Cash|WHAT\s+IS\s+THE\s+COST|Cost|Price)\s*:[ \t]*([^\n]+)/im;
 
 /**
  * Extract a cost value from a calendar description. Bare integers get a `$`

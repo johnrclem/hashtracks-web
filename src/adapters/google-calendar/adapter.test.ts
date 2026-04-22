@@ -151,6 +151,24 @@ describe("extractRunNumber", () => {
       ]),
     ).toBe(2658);
   });
+
+  // #861 BDH3 — Chicagoland Hashes source config ships this pattern.
+  it("extracts BDH3 run number from 'What: Big Dogs HHH No. 258'", () => {
+    expect(
+      extractRunNumber("Weekly Run", "What: Big Dogs HHH No. 258\nWhere: Park", [
+        String.raw`What:\s*4x2\s*H4\s*No\.?\s*(\d+)`,
+        String.raw`What:\s*Big\s+Dogs(?:\s+HHH)?\s*No\.?\s*(\d+)`,
+      ]),
+    ).toBe(258);
+  });
+
+  it("extracts BDH3 run number from 'What: Big Dogs No. 259' without HHH suffix", () => {
+    expect(
+      extractRunNumber("Weekly Run", "What: Big Dogs No. 259", [
+        String.raw`What:\s*Big\s+Dogs(?:\s+HHH)?\s*No\.?\s*(\d+)`,
+      ]),
+    ).toBe(259);
+  });
 });
 
 // ── extractTitle ──
@@ -2223,6 +2241,9 @@ describe("extractCostFromDescription (#774)", () => {
     ["decimal bare number", "Price: 10.50", "$10.50"],
     ["already prefixed $ kept verbatim", "Hash Cash: $10 cash", "$10 cash"],
     ["non-USD currency preserved", "Cost: €10", "€10"],
+    // #861 BDH3 uses "How much: $6" phrasing — add to label alternation.
+    ["How much: $6 (BDH3 #861)", "How much: $6", "$6"],
+    ["How much: bare integer gets $ prefix", "How much: 7", "$7"],
   ])("%s", (_label, desc, expected) => {
     expect(extractCostFromDescription(desc)).toBe(expected);
   });

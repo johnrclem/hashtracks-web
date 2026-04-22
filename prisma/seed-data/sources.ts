@@ -199,9 +199,14 @@ export const SOURCES = [
           ["DLH3|Duneland|South Shore", "dlh3"],
         ],
         defaultKennelTag: "ch3",
-        // 4X2H4 events put the run number in `What: 4x2 H4 No. 124`. The pattern
-        // is specific enough that other Chicagoland kennels can't accidentally match.
-        runNumberPatterns: [String.raw`What:\s*4x2\s*H4\s*No\.?\s*(\d+)`],
+        // Per-kennel `What: <kennel> No. N` run-number patterns. Each entry is
+        // narrow enough that sibling Chicagoland kennels can't accidentally match.
+        // - 4X2H4: "What: 4x2 H4 No. 124"
+        // - BDH3 (#861): "What: Big Dogs HHH No. 258" (HHH suffix optional)
+        runNumberPatterns: [
+          String.raw`What:\s*4x2\s*H4\s*No\.?\s*(\d+)`,
+          String.raw`What:\s*Big\s+Dogs(?:\s+HHH)?\s*No\.?\s*(\d+)`,
+        ],
         // Only the soonest-upcoming 4X2H4 event has a populated description; it
         // carries an inline hareline block listing future dates → hares.
         // Back-fill matching events at scrape-post-pass time so each event
