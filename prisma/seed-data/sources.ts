@@ -57,17 +57,20 @@ export const SOURCES = [
       scrapeFreq: "every_6h",
       scrapeDays: 365,
       // Shared Boston-area calendar — order matters, first match wins.
+      // NB: no defaultKennelTag — unmatched titles surface as UNMATCHED_TAGS alerts
+      // instead of silently contaminating boh3 (issue #789).
       config: {
         kennelPatterns: [
           ["Boston Ball\\s*Buster|\\bBall\\s*Buster\\b|BoBBH3|B3H4|BBH3", "bobbh3"],
           ["Beantown", "beantown"],
           ["Pink Taco|PT2H3|\\bTaco\\b", "pink-taco"],
           ["Boston Moo[mn]|Full Moon|\\bMoo[mn]\\b", "bos-moon"],
+          ["\\bZigZag\\b|Zig Zag|ZZH3", "zigzag"],
+          ["\\bE4B\\b|Eager\\s*4\\s*Beaver", "e4b"],
           ["Boston H3|Boston Hash|BoH3|BH3", "boh3"],
         ],
-        defaultKennelTag: "boh3",
       },
-      kennelCodes: ["boh3", "bobbh3", "beantown", "bos-moon", "pink-taco"],
+      kennelCodes: ["boh3", "bobbh3", "beantown", "bos-moon", "pink-taco", "zigzag", "e4b"],
     },
     {
       name: "Summit H3 Spreadsheet",
@@ -2020,14 +2023,16 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "every_6h",
       scrapeDays: 90,
+      // NB: no defaultKennelTag — unmatched titles (CUM/BASH/Steamboat/DP/etc.) surface as
+      // UNMATCHED_TAGS alerts for admin triage instead of silently attributing to bh3-co (issue #850).
       config: {
         kennelPatterns: [
-          ["Boulder H3|^BH3", "bh3-co"],
-          ["MiHiHuHa|MiHiHUHa", "mihi-huha"],
+          ["Boulder H3|^BH3\\b", "bh3-co"],
+          ["MiHiHuHa|MiHiHUHa|Mile High Humpin", "mihi-huha"],
+          ["Denver H3|^DH3\\b", "dh3-co"],
         ],
-        defaultKennelTag: "bh3-co",
       },
-      kennelCodes: ["bh3-co", "mihi-huha"],
+      kennelCodes: ["bh3-co", "mihi-huha", "dh3-co"],
     },
     // --- Fort Collins H3 (Google Calendar) ---
     {

@@ -4,36 +4,6 @@ import { hasAnyErrors } from "../types";
 import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, HARE_BOILERPLATE_RE, EVENT_FIELD_LABEL_RE, EVENT_FIELD_LABEL_UPPERCASE_RE, CTA_EMBEDDED_PATTERNS, appendDescriptionSuffix, isPlaceholder, parse12HourTime, stripNonEnglishCountry } from "../utils";
 import { PHONE_NUMBER_RE, LOCATION_EMAIL_CTA_RE } from "@/pipeline/audit-checks";
 
-// Kennel patterns derived from actual Boston Hash Calendar event data.
-// Longer/more-specific patterns first to avoid false matches.
-// Output values are kennelCodes (immutable identifiers), not shortNames.
-const BOSTON_KENNEL_PATTERNS: [RegExp, string][] = [
-  [/Boston Ball\s*Buster/i, "bobbh3"],
-  [/Ball\s*Buster/i, "bobbh3"],
-  [/BoBBH3/i, "bobbh3"],
-  [/B3H4/i, "bobbh3"],
-  [/BBH3/i, "bobbh3"],
-  [/Beantown/i, "beantown"],
-  [/Pink Taco/i, "pink-taco"],
-  [/PT2H3/i, "pink-taco"],
-  [/Boston Moon/i, "bos-moon"],
-  [/Bos Moo[mn]/i, "bos-moon"],
-  [/Full Moon/i, "bos-moon"],
-  [/\bMoon\b/i, "bos-moon"],
-  [/Boston H3/i, "boh3"],
-  [/Boston Hash/i, "boh3"],
-  [/BoH3/i, "boh3"],
-  [/BH3/i, "boh3"],
-];
-
-/** Extract kennel tag from a Google Calendar event summary using Boston Hash kennel patterns. Falls back to "boh3". */
-export function extractKennelTag(summary: string): string {
-  for (const [pattern, tag] of BOSTON_KENNEL_PATTERNS) {
-    if (pattern.test(summary)) return tag;
-  }
-  return "boh3";
-}
-
 /** Default description patterns for run number extraction (Boston Hash Calendar format). */
 const DEFAULT_RUN_NUMBER_PATTERNS = [
   /BH3\s*#\s*(\d+)/i,
@@ -569,9 +539,11 @@ export function normalizeGCalDescription(rawDesc: string | undefined): { rawDesc
 }
 
 /**
- * Resolve kennel tag from event summary using config patterns or Boston fallback.
+ * Resolve kennel tag from event summary using config patterns.
  * Returns null when `strictKennelRouting` is enabled and no pattern matches —
  * caller should drop the event (see issue #753).
+ * Returns empty kennelTag when no pattern matches and no default — the merge
+ * pipeline records UNMATCHED_TAG samples which surface as UNMATCHED_TAGS alerts.
  */
 function resolveKennelTagFromSummary(
   summary: string,
@@ -581,13 +553,12 @@ function resolveKennelTagFromSummary(
     const matched = matchConfigPatterns(summary, sourceConfig.kennelPatterns);
     if (matched) return { kennelTag: matched, useFullTitle: true };
     if (sourceConfig.strictKennelRouting) return null;
-    const kennelTag = sourceConfig.defaultKennelTag ?? extractKennelTag(summary);
-    return { kennelTag, useFullTitle: true };
+    return { kennelTag: sourceConfig.defaultKennelTag ?? "", useFullTitle: true };
   }
   if (sourceConfig?.defaultKennelTag) {
     return { kennelTag: sourceConfig.defaultKennelTag, useFullTitle: true };
   }
-  return { kennelTag: extractKennelTag(summary), useFullTitle: false };
+  return { kennelTag: "", useFullTitle: false };
 }
 
 /** Parse source.config into CalendarSourceConfig or null. */
