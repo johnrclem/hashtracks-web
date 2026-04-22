@@ -1660,6 +1660,59 @@ describe("sanitizeLocation", () => {
     expect(sanitizeLocation("N Main St, North Main Street, Springfield, IL"))
       .toBe("North Main Street, Springfield, IL");
   });
+
+  // ── Trailing contact-CTA parenthetical (#831) ──
+
+  it("strips trailing phone-CTA parenthetical (#831)", () => {
+    expect(sanitizeLocation("Casa De Assover – Raleigh, NC (text Assover at 919-332-2615 for address)"))
+      .toBe("Casa De Assover – Raleigh, NC");
+  });
+
+  it("strips trailing call-CTA parenthetical", () => {
+    expect(sanitizeLocation("The Usual Spot (call 555-1212 for directions)"))
+      .toBe("The Usual Spot");
+  });
+
+  it("strips trailing message-CTA parenthetical", () => {
+    expect(sanitizeLocation("Hideout Bar (message @hare for address)"))
+      .toBe("Hideout Bar");
+  });
+
+  it("preserves legitimate non-CTA trailing parenthetical", () => {
+    expect(sanitizeLocation("The Pub (upstairs), Boston, MA"))
+      .toBe("The Pub (upstairs), Boston, MA");
+  });
+
+  // ── Email-CTA locations (#829) ──
+
+  it("returns null for pure email-CTA location (#829)", () => {
+    expect(sanitizeLocation("Inquire for location: abqh3misman@gmail.com")).toBeNull();
+  });
+
+  it("returns null for 'Email venue@x.com' CTA", () => {
+    expect(sanitizeLocation("Email venue@example.com for address")).toBeNull();
+  });
+
+  it("returns null for 'Contact … for address' email CTA", () => {
+    expect(sanitizeLocation("Contact misman@example.org for address")).toBeNull();
+  });
+
+  it("preserves richer locations with embedded (non-CTA-shaped) email", () => {
+    // LOCATION_EMAIL_CTA_RE is anchored to a leading contact verb, so multi-segment
+    // addresses that merely mention an email aren't nulled.
+    expect(sanitizeLocation("The Pub, 123 Main St, Boston, MA — see hi@x.com"))
+      .toBe("The Pub, 123 Main St, Boston, MA");
+  });
+
+  it("nulls email-CTA location hidden behind 'Maps,' prefix", () => {
+    expect(sanitizeLocation("Maps, Inquire for location: foo@example.com")).toBeNull();
+  });
+
+  it("preserves legitimate paren starting with a CTA verb but no contact info", () => {
+    // "Call Center" is a venue name, not a CTA — no digits/@/"for address" inside.
+    expect(sanitizeLocation("The Conference Hall (Call Center entrance)"))
+      .toBe("The Conference Hall (Call Center entrance)");
+  });
 });
 
 // ── NON_ENGLISH_GEO_RE (French locale location normalization) ──
