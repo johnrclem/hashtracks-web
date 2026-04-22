@@ -134,7 +134,7 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "boh3", shortName: "Boston H3", fullName: "Boston Hash House Harriers", region: "Boston, MA",
       website: "https://bostonhash.com",
       scheduleDayOfWeek: "Sunday", scheduleTime: "2:30 PM", scheduleFrequency: "Weekly",
-      logoUrl: "https://www.bostonhash.com/images/hash-logo.jpg",
+      logoUrl: "/kennel-logos/boh3.jpg",
       contactEmail: "bostonhash@gmail.com",
     },
     {
@@ -869,10 +869,13 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "berlinh3", shortName: "Berlin H3", fullName: "Berlin Hash House Harriers", region: "Berlin", country: "Germany",
       website: "https://www.berlin-h3.eu",
-      scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Weekly",
-      scheduleNotes: "13:45 meet, 14:00/14:45 start depending on season",
+      scheduleDayOfWeek: "Sunday", scheduleTime: "2:45 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Summer meetup 14:45, winter meetup 13:45. Check hareline for exact start and meet point.",
       hashCash: "€5", foundedYear: 1979,
-      description: "Berlin's flagship weekly Saturday hash. Drinking since 1979. Run #2329+ and counting.",
+      facebookUrl: "https://de-de.facebook.com/BerlinHashHouseHarriers/",
+      mailingListUrl: "https://list.berlin-h3.eu/subscription/form",
+      logoUrl: "/kennel-logos/berlinh3.png",
+      description: "Berlin's flagship weekly hash, running every Sunday afternoon since 1979. Run #2329+ and counting.",
       latitude: 52.52, longitude: 13.41,
     },
     {
@@ -996,8 +999,10 @@ export const KENNELS: KennelSeed[] = [
     },
     {
       kennelCode: "bibh3", shortName: "BIBH3", fullName: "Belle Isle Babes Hash House Harriers", region: "Richmond, VA",
+      website: "https://rh3.run/",
+      scheduleDayOfWeek: "Wednesday", scheduleTime: "6:30 PM", scheduleFrequency: "Biweekly",
       foundedYear: 2015,
-      description: "Richmond's Belle Isle Babes H3, est. 2015.",
+      description: "Richmond's women's hash, running from a rotating set of Richmond-area trailheads since 2015.",
       latitude: 37.54, longitude: -77.44,
     },
     {
@@ -2309,7 +2314,9 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "bruh3", shortName: "BruH3", fullName: "Brussels Hash House Harriers", region: "Brussels", country: "Belgium",
       website: "http://www.bruh3.eu",
       scheduleDayOfWeek: "Saturday", scheduleTime: "3:00 PM", scheduleFrequency: "Weekly",
-      description: "Brussels' original Saturday hash, running weekly at 15:00 from different locations in and around Brussels since the 1980s.",
+      foundedYear: 1980,
+      logoUrl: "/kennel-logos/bruh3.jpg",
+      description: "Brussels' original Saturday hash, running weekly at 15:00 from different locations in and around Brussels since 1980.",
       latitude: 50.85, longitude: 4.35,
     },
 
@@ -3220,7 +3227,9 @@ export const KENNELS: KennelSeed[] = [
       scheduleDayOfWeek: "Friday", scheduleFrequency: "Monthly",
       scheduleTime: "6:30 PM",
       scheduleNotes: "Monthly Friday closest to full moon. Bring a torch. Run fee 60 baht. Near BTS/MRT stations, BYO beer.",
-      description: "Bangkok's monthly full moon hash, running on the Friday nearest to each full moon. BYO beer. Part of the bangkokhash.com network.",
+      foundedYear: 2004,
+      logoUrl: "/kennel-logos/bfmh3.png",
+      description: "Bangkok's monthly full moon hash, running on the Friday nearest to each full moon since Run #1 on 31 May 2004. BYO beer. Part of the bangkokhash.com network.",
       latitude: 13.76, longitude: 100.5,
     },
     {
