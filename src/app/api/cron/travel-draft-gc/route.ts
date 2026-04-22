@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import * as Sentry from "@sentry/nextjs";
 import { verifyCronAuth } from "@/lib/cron-auth";
 import { runTravelDraftGc, DRAFT_GC_AGE_DAYS } from "@/pipeline/travel-draft-gc";
 
@@ -35,6 +36,7 @@ export async function POST(request: Request) {
     });
   } catch (err) {
     console.error("[travel-draft-gc] failed:", err);
+    Sentry.captureException(err);
     return NextResponse.json(
       { data: null, error: err instanceof Error ? err.message : "Unknown error" },
       { status: 500 },
