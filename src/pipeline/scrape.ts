@@ -440,6 +440,17 @@ export async function scrapeSource(
           `Scope: ${reconciled.kennelsInScope}/${reconciled.totalLinkedKennels} kennels.`,
         );
       }
+      // Suppression disables stale-event cleanup for the listed kennels. Surface
+      // at scrape level (not just per-row in reconcile) — the operational symptom
+      // is quiet failure, so relying on high-cancellation noise won't catch it.
+      if (reconciled.kennelsSuppressedForBadDate.length > 0) {
+        console.warn(
+          `[scrape] Reconcile cancellations suppressed for ${reconciled.kennelsSuppressedForBadDate.length} kennel(s) ` +
+          `in source "${source.name}" (${sourceId}) due to unparseable dates: ` +
+          `${reconciled.kennelsSuppressedForBadDate.join(", ")}. ` +
+          `Stale CONFIRMED events in these kennels will not be cancelled until the adapter emits valid dates.`,
+        );
+      }
     }
 
     const allErrors = [...scrapeResult.errors, ...mergeResult.eventErrorMessages];

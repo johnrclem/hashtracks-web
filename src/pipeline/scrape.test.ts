@@ -17,7 +17,15 @@ vi.mock("./merge", () => ({
 }));
 
 vi.mock("./reconcile", () => ({
-  reconcileStaleEvents: vi.fn(() => Promise.resolve({ cancelled: 0, cancelledEventIds: [] })),
+  reconcileStaleEvents: vi.fn(() => Promise.resolve({
+    cancelled: 0,
+    cancelledEventIds: [],
+    candidatesExamined: 0,
+    multiSourcePreserved: 0,
+    kennelsInScope: 0,
+    totalLinkedKennels: 0,
+    kennelsSuppressedForBadDate: [],
+  })),
 }));
 
 vi.mock("./fill-rates", () => ({
