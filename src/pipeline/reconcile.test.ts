@@ -23,6 +23,30 @@ const mockEventUpdateMany = vi.mocked(prisma.event.updateMany);
 const mockRawEventGroupBy = vi.mocked(prisma.rawEvent.groupBy);
 const mockResolve = vi.mocked(resolveKennelTag);
 
+/**
+ * Build a minimal canonical Event shape for Prisma `findMany` mocks.
+ * Default `sourceUrl` matches the most common scraped URL in these tests;
+ * pass overrides to distinguish double-header slots or null-out fields.
+ */
+function mockEvent(
+  id: string,
+  kennelId: string,
+  dateStr: string,
+  overrides: {
+    sourceUrl?: string | null;
+    startTime?: string | null;
+    title?: string | null;
+  } = {},
+) {
+  return {
+    id,
+    kennelId,
+    date: new Date(`${dateStr}T12:00:00Z`),
+    sourceUrl: "https://hashnyc.com",
+    ...overrides,
+  };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   mockSourceKennelFind.mockResolvedValue([{ kennelId: "kennel_1" }] as never);
@@ -38,8 +62,8 @@ describe("reconcileStaleEvents", () => {
 
     // DB has two events for kennel_1, but scrape only returned one date
     mockEventFindMany.mockResolvedValueOnce([
-      { id: "evt_1", kennelId: "kennel_1", date: new Date("2026-02-14T12:00:00Z"), sourceUrl: "https://hashnyc.com", },
-      { id: "evt_2", kennelId: "kennel_1", date: new Date("2026-02-21T12:00:00Z"), sourceUrl: "https://hashnyc.com", },
+      mockEvent("evt_1", "kennel_1", "2026-02-14"),
+      mockEvent("evt_2", "kennel_1", "2026-02-21"),
     ] as never);
 
     // No orphaned events have RawEvents from other sources
@@ -61,8 +85,8 @@ describe("reconcileStaleEvents", () => {
     ];
 
     mockEventFindMany.mockResolvedValueOnce([
-      { id: "evt_1", kennelId: "kennel_1", date: new Date("2026-02-14T12:00:00Z"), sourceUrl: "https://hashnyc.com", },
-      { id: "evt_2", kennelId: "kennel_1", date: new Date("2026-02-21T12:00:00Z"), sourceUrl: "https://hashnyc.com", },
+      mockEvent("evt_1", "kennel_1", "2026-02-14"),
+      mockEvent("evt_2", "kennel_1", "2026-02-21"),
     ] as never);
 
     // evt_2 has RawEvents from another source
@@ -82,8 +106,8 @@ describe("reconcileStaleEvents", () => {
     ];
 
     mockEventFindMany.mockResolvedValueOnce([
-      { id: "evt_1", kennelId: "kennel_1", date: new Date("2026-02-14T12:00:00Z"), sourceUrl: "https://hashnyc.com", },
-      { id: "evt_2", kennelId: "kennel_1", date: new Date("2026-02-21T12:00:00Z"), sourceUrl: "https://hashnyc.com", },
+      mockEvent("evt_1", "kennel_1", "2026-02-14"),
+      mockEvent("evt_2", "kennel_1", "2026-02-21"),
     ] as never);
 
     const result = await reconcileStaleEvents("src_1", scrapedEvents, 90);
@@ -123,8 +147,8 @@ describe("reconcileStaleEvents", () => {
 
     // DB has both dates
     mockEventFindMany.mockResolvedValueOnce([
-      { id: "evt_1", kennelId: "kennel_1", date: new Date("2026-02-14T12:00:00Z"), sourceUrl: "https://hashnyc.com", },
-      { id: "evt_2", kennelId: "kennel_1", date: new Date("2026-02-21T12:00:00Z"), sourceUrl: "https://hashnyc.com", },
+      mockEvent("evt_1", "kennel_1", "2026-02-14"),
+      mockEvent("evt_2", "kennel_1", "2026-02-21"),
     ] as never);
 
     // evt_1 is orphaned because the unresolved tag didn't add "kennel_1:2026-02-14" to the set
@@ -154,9 +178,9 @@ describe("reconcileStaleEvents", () => {
 
     // DB has events for both kennels, plus an extra for kennel_2
     mockEventFindMany.mockResolvedValueOnce([
-      { id: "evt_1", kennelId: "kennel_1", date: new Date("2026-02-14T12:00:00Z"), sourceUrl: "https://hashnyc.com", },
-      { id: "evt_2", kennelId: "kennel_2", date: new Date("2026-02-14T12:00:00Z"), sourceUrl: "https://hashnyc.com", },
-      { id: "evt_3", kennelId: "kennel_2", date: new Date("2026-02-21T12:00:00Z"), sourceUrl: "https://hashnyc.com", },
+      mockEvent("evt_1", "kennel_1", "2026-02-14"),
+      mockEvent("evt_2", "kennel_2", "2026-02-14"),
+      mockEvent("evt_3", "kennel_2", "2026-02-21"),
     ] as never);
 
     // evt_3 has no other sources
@@ -184,12 +208,9 @@ describe("reconcileStaleEvents", () => {
     ];
 
     mockEventFindMany.mockResolvedValueOnce([
-      {
-        id: "evt_1",
-        kennelId: "kennel_1",
-        date: new Date("2026-02-14T12:00:00Z"),
+      mockEvent("evt_1", "kennel_1", "2026-02-14", {
         sourceUrl: "https://example.com/upcoming",
-      },
+      }),
     ] as never);
 
     const result = await reconcileStaleEvents("src_1", scrapedEvents, 90);
@@ -219,8 +240,8 @@ describe("reconcileStaleEvents", () => {
     ];
 
     mockEventFindMany.mockResolvedValueOnce([
-      { id: "evt_1", kennelId: "kennel_1", date: new Date("2026-03-08T12:00:00Z"), sourceUrl: "https://example.com/trail-a" },
-      { id: "evt_2", kennelId: "kennel_1", date: new Date("2026-03-08T12:00:00Z"), sourceUrl: "https://example.com/trail-b" },
+      mockEvent("evt_1", "kennel_1", "2026-03-08", { sourceUrl: "https://example.com/trail-a" }),
+      mockEvent("evt_2", "kennel_1", "2026-03-08", { sourceUrl: "https://example.com/trail-b" }),
     ] as never);
 
     // evt_2 has no RawEvents from other sources
@@ -256,8 +277,8 @@ describe("reconcileStaleEvents", () => {
     ];
 
     mockEventFindMany.mockResolvedValueOnce([
-      { id: "evt_1", kennelId: "kennel_1", date: new Date("2026-03-08T12:00:00Z"), sourceUrl: "https://example.com/trail-a", startTime: "10:30", title: "Morning Trail" },
-      { id: "evt_2", kennelId: "kennel_1", date: new Date("2026-03-08T12:00:00Z"), sourceUrl: "https://example.com/trail-b", startTime: "14:30", title: "Afternoon Trail" },
+      mockEvent("evt_1", "kennel_1", "2026-03-08", { sourceUrl: "https://example.com/trail-a", startTime: "10:30", title: "Morning Trail" }),
+      mockEvent("evt_2", "kennel_1", "2026-03-08", { sourceUrl: "https://example.com/trail-b", startTime: "14:30", title: "Afternoon Trail" }),
     ] as never);
 
     const result = await reconcileStaleEvents("src_1", scrapedEvents, 90);
@@ -285,7 +306,7 @@ describe("reconcileStaleEvents", () => {
     ];
 
     mockEventFindMany.mockResolvedValueOnce([
-      { id: "evt_1", kennelId: "kennel_1", date: new Date("2026-02-14T12:00:00Z"), sourceUrl: "https://hashnyc.com" },
+      mockEvent("evt_1", "kennel_1", "2026-02-14"),
     ] as never);
 
     const result = await reconcileStaleEvents("src_1", scrapedEvents, 90);
@@ -308,7 +329,7 @@ describe("reconcileStaleEvents", () => {
     ];
 
     mockEventFindMany.mockResolvedValueOnce([
-      { id: "evt_1", kennelId: "kennel_1", date: new Date("2026-02-14T12:00:00Z"), sourceUrl: "https://hashnyc.com" },
+      mockEvent("evt_1", "kennel_1", "2026-02-14"),
     ] as never);
 
     const result = await reconcileStaleEvents("src_1", scrapedEvents, 90);
@@ -332,7 +353,7 @@ describe("reconcileStaleEvents", () => {
     ];
 
     mockEventFindMany.mockResolvedValueOnce([
-      { id: "evt_1", kennelId: "kennel_1", date: new Date("2026-02-14T12:00:00Z"), sourceUrl: "https://hashnyc.com" },
+      mockEvent("evt_1", "kennel_1", "2026-02-14"),
     ] as never);
 
     const result = await reconcileStaleEvents("src_1", scrapedEvents, 90);
@@ -401,7 +422,7 @@ describe("reconcileStaleEvents", () => {
     // Candidates query is scoped to unaffected kennels only (kennel_2).
     // kennel_2's Feb 21 canonical has no scrape hit → should cancel.
     mockEventFindMany.mockResolvedValueOnce([
-      { id: "evt_stale", kennelId: "kennel_2", date: new Date("2026-02-21T12:00:00Z"), sourceUrl: "https://hashnyc.com" },
+      mockEvent("evt_stale", "kennel_2", "2026-02-21"),
     ] as never);
 
     mockRawEventGroupBy.mockResolvedValueOnce([] as never);
@@ -450,8 +471,8 @@ describe("reconcileStaleEvents", () => {
     ];
 
     mockEventFindMany.mockResolvedValueOnce([
-      { id: "evt_1", kennelId: "kennel_1", date: new Date("2026-03-08T12:00:00Z"), sourceUrl: "https://example.com/trail-a", startTime: "10:30", title: null },
-      { id: "evt_2", kennelId: "kennel_1", date: new Date("2026-03-08T12:00:00Z"), sourceUrl: "https://example.com/trail-b", startTime: "14:30", title: null },
+      mockEvent("evt_1", "kennel_1", "2026-03-08", { sourceUrl: "https://example.com/trail-a", startTime: "10:30", title: null }),
+      mockEvent("evt_2", "kennel_1", "2026-03-08", { sourceUrl: "https://example.com/trail-b", startTime: "14:30", title: null }),
     ] as never);
 
     const result = await reconcileStaleEvents("src_1", scrapedEvents, 90);
@@ -483,8 +504,8 @@ describe("reconcileStaleEvents", () => {
     ];
 
     mockEventFindMany.mockResolvedValueOnce([
-      { id: "evt_1", kennelId: "kennel_1", date: new Date("2026-03-08T12:00:00Z"), sourceUrl: "https://example.com/trail-a", },
-      { id: "evt_2", kennelId: "kennel_1", date: new Date("2026-03-08T12:00:00Z"), sourceUrl: "https://example.com/trail-b", },
+      mockEvent("evt_1", "kennel_1", "2026-03-08", { sourceUrl: "https://example.com/trail-a" }),
+      mockEvent("evt_2", "kennel_1", "2026-03-08", { sourceUrl: "https://example.com/trail-b" }),
     ] as never);
 
     const result = await reconcileStaleEvents("src_1", scrapedEvents, 90);
@@ -508,8 +529,8 @@ describe("reconcileStaleEvents", () => {
 
     // DB returns events for both kennels in the window (scoped to kennel_1 only)
     mockEventFindMany.mockResolvedValueOnce([
-      { id: "evt_1", kennelId: "kennel_1", date: new Date("2026-02-14T12:00:00Z"), sourceUrl: "https://hashnyc.com" },
-      { id: "evt_2", kennelId: "kennel_1", date: new Date("2026-02-21T12:00:00Z"), sourceUrl: "https://hashnyc.com" },
+      mockEvent("evt_1", "kennel_1", "2026-02-14"),
+      mockEvent("evt_2", "kennel_1", "2026-02-21"),
     ] as never);
 
     // evt_2 is orphaned and sole-source
@@ -540,9 +561,9 @@ describe("reconcileStaleEvents", () => {
     ];
 
     mockEventFindMany.mockResolvedValueOnce([
-      { id: "evt_1", kennelId: "kennel_1", date: new Date("2026-02-14T12:00:00Z"), sourceUrl: "https://hashnyc.com", },
-      { id: "evt_2", kennelId: "kennel_1", date: new Date("2026-02-21T12:00:00Z"), sourceUrl: "https://hashnyc.com", },
-      { id: "evt_3", kennelId: "kennel_1", date: new Date("2026-02-28T12:00:00Z"), sourceUrl: "https://hashnyc.com", },
+      mockEvent("evt_1", "kennel_1", "2026-02-14"),
+      mockEvent("evt_2", "kennel_1", "2026-02-21"),
+      mockEvent("evt_3", "kennel_1", "2026-02-28"),
     ] as never);
 
     // Both orphaned events are sole-source (no other sources)
@@ -574,7 +595,7 @@ describe("reconcileStaleEvents", () => {
     // DB has events for both kennels — kennel_2's event would be orphaned
     // if we reconciled all linked kennels, but we only scraped kennel_1
     mockEventFindMany.mockResolvedValueOnce([
-      { id: "evt_1", kennelId: "kennel_1", date: new Date("2026-02-14T12:00:00Z"), sourceUrl: "https://hashnyc.com" },
+      mockEvent("evt_1", "kennel_1", "2026-02-14"),
     ] as never);
 
     const result = await reconcileStaleEvents("src_1", scrapedEvents, 90, ["kennel_1"]);
@@ -658,9 +679,9 @@ describe("reconcileStaleEvents", () => {
     ];
 
     mockEventFindMany.mockResolvedValueOnce([
-      { id: "evt_1", kennelId: "kennel_1", date: new Date("2026-02-14T12:00:00Z"), sourceUrl: "https://hashnyc.com" },
-      { id: "evt_2", kennelId: "kennel_1", date: new Date("2026-02-21T12:00:00Z"), sourceUrl: "https://hashnyc.com" },
-      { id: "evt_3", kennelId: "kennel_2", date: new Date("2026-02-21T12:00:00Z"), sourceUrl: "https://hashnyc.com" },
+      mockEvent("evt_1", "kennel_1", "2026-02-14"),
+      mockEvent("evt_2", "kennel_1", "2026-02-21"),
+      mockEvent("evt_3", "kennel_2", "2026-02-21"),
     ] as never);
 
     // evt_3 has another source

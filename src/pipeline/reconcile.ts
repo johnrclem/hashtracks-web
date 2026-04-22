@@ -116,7 +116,13 @@ export async function reconcileStaleEvents(
 
   // Fail-safe: kennels with any unparseable scraped date are excluded from
   // cancellation decisions this run. See the scrapedBySlot loop above for rationale.
-  const suppressedKennels = [...kennelsWithUnparseableDates];
+  // Intersect with linkedKennelIds (pre-mutation) so the reported set only
+  // contains kennels that were actually in-scope for cancellation decisions —
+  // otherwise a resolved-but-unlinked kennel would show up as "suppressed"
+  // despite never being a reconcile candidate, adding noise for downstream alerts.
+  const suppressedKennels = linkedKennelIds.filter((id) =>
+    kennelsWithUnparseableDates.has(id),
+  );
   if (suppressedKennels.length > 0) {
     linkedKennelIds = linkedKennelIds.filter(
       (id) => !kennelsWithUnparseableDates.has(id),
