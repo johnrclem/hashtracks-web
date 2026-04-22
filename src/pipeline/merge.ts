@@ -1179,7 +1179,12 @@ function collapseRunNumberRaces(groups: CanonicalCandidate[][]): CanonicalCandid
     return set;
   };
   const timesCompatible = (a: Set<string>, b: Set<string>): boolean => {
-    if (a.size === 0 || b.size === 0) return true;
+    // A blank peer (size 0) can't disambiguate an internally time-conflicted
+    // group — if `a` has {09:00, 18:00} and `b` is all-null, collapsing
+    // would silently fold two distinct events into one. Only allow the
+    // empty-side shortcut when the other side has at most one concrete time.
+    if (a.size === 0) return b.size <= 1;
+    if (b.size === 0) return a.size <= 1;
     if (a.size !== b.size) return false;
     for (const t of a) if (!b.has(t)) return false;
     return true;
@@ -1207,10 +1212,20 @@ function collapseRunNumberRaces(groups: CanonicalCandidate[][]): CanonicalCandid
       peers.push(j);
     }
     if (peers.length === 1) {
-      groups[peers[0]].push(...urlLess);
+      // Replace the peer with a new concatenated array so we don't mutate
+      // the bucket still referenced by the outer signature map — easier to
+      // reason about even though nothing downstream reads it.
+      groups[peers[0]] = [...groups[peers[0]], ...urlLess];
       absorbed.add(i);
     }
   }
+  // Footgun: `pickCanonicalEventIds` picks the winner by trustLevel then
+  // completeness. If a URL-less source has strictly higher trustLevel than
+  // the URL-bearing peer it gets absorbed into, the URL-less row wins
+  // canonical and `Event.sourceUrl` will be null despite a URL-bearing
+  // sibling existing in the group. No source combination produces this
+  // today (URL-bearing sources are trusted ≥ URL-less), but watch for it
+  // if trust levels are rebalanced.
   return groups.filter((_, i) => !absorbed.has(i));
 }
 

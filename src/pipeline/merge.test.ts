@@ -2148,6 +2148,40 @@ describe("pickCanonicalEventId", () => {
     expect(canonicals.has("url-bearing")).toBe(true);
   });
 
+  it("#866 URL-less internally conflicted times + URL-bearing blank-time peer blocks collapse", () => {
+    // Codex review regression: URL-less group has {09:00, 18:00}, URL-bearing
+    // peer has null startTime. A blank peer cannot disambiguate which of the
+    // two URL-less rows it matches, so collapse must be blocked.
+    const urlLessMorning = candidate({
+      id: "url-less-morning",
+      runNumber: 99,
+      title: "Run #99",
+      startTime: "09:00",
+      sourceUrl: null,
+    });
+    const urlLessEvening = candidate({
+      id: "url-less-evening",
+      runNumber: 99,
+      title: "Run #99",
+      startTime: "18:00",
+      sourceUrl: null,
+    });
+    const urlBearingBlank = candidate({
+      id: "url-bearing-blank",
+      runNumber: 99,
+      title: "Run #99",
+      startTime: null,
+      sourceUrl: "https://example.com/99",
+    });
+    const canonicals = pickCanonicalEventIds([
+      urlLessMorning,
+      urlLessEvening,
+      urlBearingBlank,
+    ]);
+    expect(canonicals.size).toBe(2);
+    expect(canonicals.has("url-bearing-blank")).toBe(true);
+  });
+
   it("#866 ambiguous URL-less + two URL-bearing peers preserves all groups", () => {
     // Conservative fallback: if the URL-less row could belong to either of
     // two URL-bearing multi-part rows, don't guess — keep all three
