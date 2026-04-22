@@ -16,7 +16,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { formatDateCompact, daysBetween } from "@/lib/travel/format";
+import { formatDateCompact, daysBetween, cityToIata } from "@/lib/travel/format";
 import { buildMultiEventIcs } from "@/lib/calendar";
 import { capture } from "@/lib/analytics";
 import { stashSaveIntent } from "@/lib/travel/save-intent";
@@ -37,6 +37,13 @@ export interface ExportableConfirmedEvent {
   locationName: string | null;
   sourceUrl: string | null;
   kennelName: string;
+}
+
+/** Per-leg shape used when rendering the multi-stop ITINERARY hero. */
+export interface TripSummaryLeg {
+  label: string;
+  startDate: string;
+  endDate: string;
 }
 
 interface TripSummaryProps {
@@ -66,6 +73,12 @@ interface TripSummaryProps {
    */
   horizonTier?: "all" | "high" | "none";
   confirmedEvents: ExportableConfirmedEvent[];
+  /**
+   * Position-ordered legs for multi-stop trips. Omit or pass a single
+   * entry to render today's single-city hero (zero regression). When
+   * length > 1 the ITINERARY route-stamp hero replaces the headline.
+   */
+  legs?: TripSummaryLeg[];
 }
 
 export function TripSummary({
@@ -86,7 +99,10 @@ export function TripSummary({
   noCoverage,
   horizonTier,
   confirmedEvents,
+  legs,
 }: Readonly<TripSummaryProps>) {
+  const legCount = legs?.length ?? 0;
+  const isMultiStop = legCount > 1;
   const router = useRouter();
   const [isSaving, startSave] = useTransition();
   const [isMutating, startMutation] = useTransition();
@@ -94,6 +110,18 @@ export function TripSummary({
   // Tracks the active Undo toast so we can dismiss it if the user navigates
   // to a different search before clicking Undo (stale closure guard).
   const undoToastIdRef = useRef<string | number | null>(null);
+
+  // Fire once per multi-stop page view. Depends on scalar values
+  // rather than the `legs` array reference so same-trip re-renders
+  // don't re-capture — but `initialSavedId` is included so navigating
+  // between two different multi-stop saved trips with the same leg
+  // count still re-fires (client component stays mounted across
+  // App Router transitions).
+  useEffect(() => {
+    if (legCount > 1) {
+      capture("travel_multi_stop_hero_viewed", { legCount });
+    }
+  }, [legCount, initialSavedId]);
 
   // Sync on prop change — initialSavedId can change as URL params change.
   // Also dismiss any pending Undo toast: an Undo from trip A must not
@@ -288,16 +316,20 @@ export function TripSummary({
         </p>
       ) : null}
 
-      <h1 className="font-display text-3xl font-medium tracking-tight sm:text-4xl lg:text-5xl">
-        {destination}
-      </h1>
+      {legs && legs.length > 1 ? (
+        <ItineraryHero legs={legs} />
+      ) : (
+        <h1 className="font-display text-3xl font-medium tracking-tight sm:text-4xl lg:text-5xl">
+          {destination}
+        </h1>
+      )}
 
       <span
         className="mt-4 block h-0.5 w-28 rounded-full bg-gradient-to-r from-emerald-500 to-sky-500"
         aria-hidden="true"
       />
 
-      {totalCount > 0 && (
+      {!isMultiStop && totalCount > 0 && (
         <p className="mt-5 max-w-xl text-lg leading-relaxed text-muted-foreground">
           You&apos;ll catch{" "}
           <strong className="font-display font-semibold text-foreground">
@@ -339,6 +371,7 @@ export function TripSummary({
         </p>
       )}
 
+      {!isMultiStop && (
       <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-xs uppercase tracking-wider text-muted-foreground">
         <span>{startFormatted} → {endFormatted}</span>
         <span>·</span>
@@ -362,6 +395,7 @@ export function TripSummary({
           )}
         </span>
       </div>
+      )}
 
       <div className="mt-6 flex flex-wrap gap-3">
         {savedId ? (
@@ -454,6 +488,56 @@ function SavedBadge({
       <BadgeCheck className="h-4 w-4" />
       Saved
     </Button>
+  );
+}
+
+/**
+ * Multi-stop boarding-pass hero: ◆ ITINERARY margin label, the route
+ * stamp (LHR → CDG → BER) as the display headline, a city subhead
+ * (LONDON · PARIS · BERLIN), and a stat line spanning the trip
+ * window. Mirrors `MultiStopHeader` in SavedTripCard.tsx at page
+ * scale.
+ */
+function ItineraryHero({ legs }: Readonly<{ legs: TripSummaryLeg[] }>) {
+  const iataCodes = legs.map((leg) => cityToIata(leg.label));
+  const cityNames = legs.map((leg) => {
+    const first = leg.label.split(",")[0]?.trim() ?? leg.label;
+    return first.toUpperCase();
+  });
+  const firstStart = legs[0].startDate;
+  const lastEnd = legs.at(-1)!.endDate;
+  const totalDays = daysBetween(firstStart, lastEnd);
+
+  return (
+    <div>
+      <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-red-600 dark:text-red-400">
+        ◆ Itinerary
+      </p>
+      <h1 className="mt-1 font-display text-3xl font-medium tracking-tight tabular-nums sm:text-4xl lg:text-5xl">
+        {iataCodes.map((code, i) => (
+          <span key={`${i}-${code}`}>
+            {i > 0 && (
+              <span className="px-2 text-muted-foreground/50" aria-hidden="true">
+                →
+              </span>
+            )}
+            {code}
+          </span>
+        ))}
+      </h1>
+      <p className="mt-2 font-mono text-xs uppercase tracking-[0.2em] text-muted-foreground">
+        {cityNames.join(" · ")}
+      </p>
+      <p className="mt-3 font-mono text-xs uppercase tracking-wider text-muted-foreground">
+        {formatDateCompact(firstStart, { withWeekday: true })}
+        {" → "}
+        {formatDateCompact(lastEnd, { withWeekday: true })}
+        {" · "}
+        {totalDays} night{totalDays === 1 ? "" : "s"}
+        {" · "}
+        {legs.length} legs
+      </p>
+    </div>
   );
 }
 

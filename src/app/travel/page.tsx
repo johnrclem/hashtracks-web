@@ -548,16 +548,72 @@ async function SavedTripPage({
     ? serializedResults
     : selectResultsToRender(serializedResults.emptyState, serializedResults);
 
+  const firstLeg = search.destinations[0];
+  const lastLeg = search.destinations.at(-1)!;
+  const heroLegs = search.destinations.map((d) => ({
+    label: d.label,
+    startDate: utcYmd(d.startDate),
+    endDate: utcYmd(d.endDate),
+  }));
+  const tripWindowStart = utcYmd(firstLeg.startDate);
+  const tripWindowEnd = utcYmd(lastLeg.endDate);
+
+  // Mirror TravelResultsServer's broader-swap for single-stop
+  // `no_nearby`: hero counts + Export must reflect whatever the list
+  // below is actually rendering. Multi-stop already has broader
+  // merged into `serializedResults.confirmed` by
+  // `serializeTravelResults({ mergeBroader: true })`, so this swap
+  // is a no-op there.
+  const exportableConfirmed =
+    serializedResults.emptyState === "no_nearby" && serializedResults.broaderResults
+      ? serializedResults.broaderResults.confirmed
+      : serializedResults.confirmed;
+
+  const stop0 = serializedResults.destinations[0];
+
+  const tripSummaryProps = {
+    // Single-stop fallback name. Multi-stop hero overrides this with
+    // ITINERARY route-stamp, so the `destination` string is only user-
+    // facing on single-leg saved trips.
+    destination: search.name ?? firstLeg.label,
+    startDate: tripWindowStart,
+    endDate: tripWindowEnd,
+    latitude: firstLeg.latitude,
+    longitude: firstLeg.longitude,
+    radiusKm: firstLeg.radiusKm,
+    // Restore the "Routing revised" badge on saved single-stop trips
+    // whose primary radius was expanded by the broader-region pass.
+    // Matches TravelResultsServer's resolution — without this the
+    // saved view silently drops the badge for searches that show it
+    // at `/travel?...`.
+    effectiveRadiusKm: stop0?.broaderRadiusKm ?? stop0?.radiusKm ?? firstLeg.radiusKm,
+    timezone: firstLeg.timezone ?? undefined,
+    isAuthenticated: true,
+    // SavedTripPage only renders saved trips; hydrate the Saved badge
+    // state from the row we just fetched.
+    initialSavedId: search.id,
+    confirmedCount: exportableConfirmed.length,
+    likelyCount: serializedResults.likely.length,
+    possibleCount: serializedResults.possible.length,
+    noCoverage: serializedResults.emptyState === "no_coverage",
+    horizonTier: serializedResults.meta.horizonTier,
+    confirmedEvents: exportableConfirmed.map((r) => ({
+      date: r.date,
+      startTime: r.startTime,
+      timezone: r.timezone,
+      title: r.title,
+      runNumber: r.runNumber,
+      haresText: r.haresText,
+      locationName: r.locationName,
+      sourceUrl: r.sourceUrl,
+      kennelName: r.kennelName,
+    })),
+    legs: isMultiStop ? heroLegs : undefined,
+  };
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
-      <header className="mb-6 border-b border-border pb-4">
-        <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-red-600 dark:text-red-400">
-          ◆ Itinerary · {search.destinations.length} leg{search.destinations.length !== 1 ? "s" : ""}
-        </p>
-        <h1 className="mt-1 font-display text-3xl font-medium tracking-tight">
-          {search.name ?? "Trip"}
-        </h1>
-      </header>
+      <TripSummary {...tripSummaryProps} />
       {serializedResults.emptyState !== "none" && (
         <EmptyStates
           variant={serializedResults.emptyState}
