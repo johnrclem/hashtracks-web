@@ -1661,57 +1661,26 @@ describe("sanitizeLocation", () => {
       .toBe("North Main Street, Springfield, IL");
   });
 
-  // ── Trailing contact-CTA parenthetical (#831) ──
-
-  it("strips trailing phone-CTA parenthetical (#831)", () => {
-    expect(sanitizeLocation("Casa De Assover – Raleigh, NC (text Assover at 919-332-2615 for address)"))
-      .toBe("Casa De Assover – Raleigh, NC");
-  });
-
-  it("strips trailing call-CTA parenthetical", () => {
-    expect(sanitizeLocation("The Usual Spot (call 555-1212 for directions)"))
-      .toBe("The Usual Spot");
-  });
-
-  it("strips trailing message-CTA parenthetical", () => {
-    expect(sanitizeLocation("Hideout Bar (message @hare for address)"))
-      .toBe("Hideout Bar");
-  });
-
-  it("preserves legitimate non-CTA trailing parenthetical", () => {
-    expect(sanitizeLocation("The Pub (upstairs), Boston, MA"))
-      .toBe("The Pub (upstairs), Boston, MA");
-  });
-
-  // ── Email-CTA locations (#829) ──
-
-  it("returns null for pure email-CTA location (#829)", () => {
-    expect(sanitizeLocation("Inquire for location: abqh3misman@gmail.com")).toBeNull();
-  });
-
-  it("returns null for 'Email venue@x.com' CTA", () => {
-    expect(sanitizeLocation("Email venue@example.com for address")).toBeNull();
-  });
-
-  it("returns null for 'Contact … for address' email CTA", () => {
-    expect(sanitizeLocation("Contact misman@example.org for address")).toBeNull();
-  });
-
-  it("preserves richer locations with embedded (non-CTA-shaped) email", () => {
-    // LOCATION_EMAIL_CTA_RE is anchored to a leading contact verb, so multi-segment
-    // addresses that merely mention an email aren't nulled.
-    expect(sanitizeLocation("The Pub, 123 Main St, Boston, MA — see hi@x.com"))
-      .toBe("The Pub, 123 Main St, Boston, MA");
-  });
-
-  it("nulls email-CTA location hidden behind 'Maps,' prefix", () => {
-    expect(sanitizeLocation("Maps, Inquire for location: foo@example.com")).toBeNull();
-  });
-
-  it("preserves legitimate paren starting with a CTA verb but no contact info", () => {
-    // "Call Center" is a venue name, not a CTA — no digits/@/"for address" inside.
-    expect(sanitizeLocation("The Conference Hall (Call Center entrance)"))
-      .toBe("The Conference Hall (Call Center entrance)");
+  // Contact-CTA stripping / nulling (#829 email, #831 phone).
+  // LOCATION_EMAIL_CTA_RE is anchored on a leading contact verb, so multi-
+  // segment addresses that merely mention an email aren't nulled. The paren-
+  // strip requires a CTA verb at the start AND a contact-info signal inside
+  // (digits/@/"for <noun>") so legitimate parens like "(Call Center entrance)"
+  // or "The Pub (upstairs)" survive.
+  it.each([
+    // input → expected (null = should return null)
+    ["Casa De Assover – Raleigh, NC (text Assover at 919-332-2615 for address)", "Casa De Assover – Raleigh, NC"], // #831
+    ["The Usual Spot (call 555-1212 for directions)", "The Usual Spot"],
+    ["Hideout Bar (message @hare for address)", "Hideout Bar"],
+    ["The Pub (upstairs), Boston, MA", "The Pub (upstairs), Boston, MA"],
+    ["The Conference Hall (Call Center entrance)", "The Conference Hall (Call Center entrance)"],
+    ["The Pub, 123 Main St, Boston, MA — see hi@x.com", "The Pub, 123 Main St, Boston, MA"],
+    ["Inquire for location: abqh3misman@gmail.com", null], // #829
+    ["Email venue@example.com for address", null],
+    ["Contact misman@example.org for address", null],
+    ["Maps, Inquire for location: foo@example.com", null],
+  ])("sanitizes contact-CTA locations: %s", (input, expected) => {
+    expect(sanitizeLocation(input)).toBe(expected);
   });
 });
 

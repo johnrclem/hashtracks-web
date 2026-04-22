@@ -10,11 +10,22 @@ import { extractCoordsFromMapsUrl, geocodeAddress, resolveShortMapsUrl, reverseG
 import { isPlaceholder, decodeEntities, HARE_BOILERPLATE_RE } from "@/adapters/utils";
 import { LOCATION_EMAIL_CTA_RE } from "./audit-checks";
 
-// Trailing "(text|call|… for address)" parenthetical — anchored to a contact
-// verb AND a contact-info signal (3+ digits, @, or "for <noun>") so legitimate
-// parens like "(Call Center entrance)" or "The Pub (upstairs)" survive.
-const TRAILING_CONTACT_CTA_PAREN_RE =
-  /\s*\((?:text|call|phone|ping|msg|message)\b[^)]*?(?:\d{3,}|@|\bfor\s+(?:address|info|directions|details|location))[^)]*\)\s*$/i;
+// Strip a trailing "(text/call/… for address)" parenthetical when its body
+// starts with a contact verb AND carries a contact-info signal (3+ digits, @,
+// or "for <noun>"). Split into two regexes so the gate composed complexity
+// stays under SonarCloud's threshold, and so legitimate parens like
+// "(Call Center entrance)" or "The Pub (upstairs)" survive.
+const TRAILING_PAREN_RE = /\s*\(([^)]*)\)\s*$/;
+const CTA_VERB_PREFIX_RE = /^(?:text|call|phone|ping|msg|message)\b/i;
+const CONTACT_SIGNAL_RE = /\d{3,}|@|\bfor\s+(?:address|info|directions|details|location)\b/i;
+
+function stripTrailingContactCtaParen(input: string): string {
+  const m = TRAILING_PAREN_RE.exec(input);
+  if (!m) return input;
+  const inner = m[1];
+  if (!CTA_VERB_PREFIX_RE.test(inner) || !CONTACT_SIGNAL_RE.test(inner)) return input;
+  return input.slice(0, m.index).trim();
+}
 
 /** Map kennel country field to Google Geocoding ccTLD region bias code. */
 function countryToRegionBias(country?: string | null): string | undefined {
@@ -548,7 +559,7 @@ export function sanitizeLocation(location: string | undefined): string | null {
   // Strip bare URLs (not useful as location names)
   if (/^https?:\/\/\S+$/.test(t)) return null;
   // Strip trailing "(text/call/… for address)" CTA so geocoding stays clean (#831).
-  t = t.replace(TRAILING_CONTACT_CTA_PAREN_RE, "").trim();
+  t = stripTrailingContactCtaParen(t);
   if (!t) return null;
   // Strip "Maps, " prefix (Google Calendar link text bleed)
   // Strip common instruction prefixes ("Meet at", "Park at", "Start at", etc.)
