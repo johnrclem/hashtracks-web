@@ -18,7 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import {
   formatDateCompact,
-  daysBetween,
+  formatNights,
   cityToIata,
   formatLegDateRange,
 } from "@/lib/travel/format";
@@ -85,7 +85,6 @@ export function SavedTripCard({
   // Trip-level window spans from earliest leg start to latest leg end.
   const tripStartStr = utcYmd(firstLeg.startDate);
   const tripEndStr = utcYmd(lastLeg.endDate);
-  const totalNights = daysBetween(tripStartStr, tripEndStr);
 
   // Multi-stop trips route through `?savedTripId=` (PR 3c); single-stop
   // keeps the stateless URL shape. For PR 3a the stateless URL still
@@ -142,9 +141,7 @@ export function SavedTripCard({
               <span>→</span>
               <span>{formatDateCompact(tripEndStr, { withWeekday: true })}</span>
               <span>·</span>
-              <span>
-                {totalNights} night{totalNights !== 1 ? "s" : ""}
-              </span>
+              <span>{formatNights(tripStartStr, tripEndStr)}</span>
               {isMultiStop && (
                 <>
                   <span>·</span>

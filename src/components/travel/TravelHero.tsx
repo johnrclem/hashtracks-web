@@ -4,11 +4,15 @@ import { useEffect, useRef } from "react";
 import { TravelSearchForm } from "./TravelSearchForm";
 import { NearMeShortcut } from "./NearMeShortcut";
 
+interface TravelHeroProps {
+  isAuthenticated?: boolean;
+}
+
 /**
  * Landing hero for /travel with no search params.
  * Client component for staggered word reveal animation + scroll parallax.
  */
-export function TravelHero() {
+export function TravelHero({ isAuthenticated = false }: Readonly<TravelHeroProps>) {
   const backdropRef = useRef<HTMLDivElement>(null);
 
   // Scroll parallax via direct DOM mutation — avoids re-rendering the
@@ -152,7 +156,7 @@ export function TravelHero() {
             animationDelay: "600ms",
           }}
         >
-          <TravelSearchForm variant="hero" />
+          <TravelSearchForm variant="hero" isAuthenticated={isAuthenticated} />
         </div>
 
         <NearMeShortcut />

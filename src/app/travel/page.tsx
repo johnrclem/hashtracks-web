@@ -77,11 +77,16 @@ export default async function TravelPage({ searchParams }: TravelPageProps) {
   const hasSearchParams =
     lat != null && lng != null && from != null && to != null;
 
+  // Auth status drives the multi-leg ghost-row gate: anonymous users
+  // see a sign-in prompt instead of the expand-into-new-leg interaction.
+  // Cached by Next.js so duplicate calls in TravelResultsServer are free.
+  const isAuthenticated = (await safeGetUser()) != null;
+
   // No search params → show landing state with hero + popular destinations
   if (!hasSearchParams) {
     return (
       <>
-        <TravelHero />
+        <TravelHero isAuthenticated={isAuthenticated} />
         <PopularDestinations />
       </>
     );
@@ -123,6 +128,7 @@ export default async function TravelPage({ searchParams }: TravelPageProps) {
       {/* Compact search form for editing */}
       <TravelSearchForm
         variant="compact"
+        isAuthenticated={isAuthenticated}
         initialValues={{
           destination: q ?? "",
           latitude,

@@ -101,9 +101,14 @@ interface MapColocatedKennelPopoverProps {
 // ── Travel Mode ──────────────────────────────────────────────────────
 
 interface TravelSearchSubmittedProps {
+  /** First-leg destination for multi-leg trips (preserves the single-dest contract). */
   destination: string;
+  /** First-leg radius. */
   radiusKm: number;
+  /** Days from first leg start to last leg end. */
   dateRangeDays: number;
+  /** Leg count: 1 for single-dest, 2–3 for multi-stop. */
+  legCount: number;
 }
 
 interface TravelSearchResultsViewedProps {
@@ -161,6 +166,11 @@ interface TravelMultidestViewChangedProps {
   view: "day-by-day" | "by-destination";
 }
 
+interface TravelLegCountChangedProps {
+  /** Leg count AFTER the add/remove. 1..MAX_STOPS_PER_TRIP. */
+  legCount: number;
+}
+
 // ── Event Map ────────────────────────────────────────────────────────
 
 interface AnalyticsEventMap {
@@ -195,6 +205,7 @@ interface AnalyticsEventMap {
   travel_source_link_clicked: TravelSourceLinkClickedProps;
   travel_save_clicked: TravelSaveClickedProps;
   travel_auth_prompt_shown: Record<string, never>;
+  travel_auth_prompt_clicked: Record<string, never>;
   travel_saved_search_created: TravelSavedSearchCreatedProps;
   travel_saved_search_viewed: TravelSavedSearchViewedProps;
   travel_saved_search_updated: Record<string, never>;
@@ -207,6 +218,8 @@ interface AnalyticsEventMap {
   travel_popular_destination_clicked: TravelPopularDestinationClickedProps;
   travel_filter_applied: TravelFilterAppliedProps;
   travel_multidest_view_changed: TravelMultidestViewChangedProps;
+  travel_leg_added: TravelLegCountChangedProps;
+  travel_leg_removed: TravelLegCountChangedProps;
 }
 
 /**
