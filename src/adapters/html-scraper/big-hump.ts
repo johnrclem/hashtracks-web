@@ -63,6 +63,75 @@ export function parseEventHeader(headerText: string): {
 }
 
 /**
+ * Extract hare name(s) from a "Hare @ Location" title prefix.
+ *
+ * BH4 titles frequently embed theme text between the hare and the `@`:
+ *   - "Hare's Theme Trail"            (possessive)
+ *   - "Theme starring Hare"           (starring)
+ *   - "Theme with Hare"               (with)
+ *   - "Hare: Theme"                   (colon/dash prefix)
+ *   - "Hare Hashyversary"             (anniversary/birthday suffix)
+ *
+ * Falls through to `undefined` rather than leaking theme text when no rule
+ * applies — per #844, an empty hares field is safer than a wrong one.
+ */
+function extractHaresFromTitlePart(harePart: string): string | undefined {
+  if (!harePart) return undefined;
+  // Length cap to bound regex backtracking (SonarCloud S5852). Real BH4
+  // titles sit well under 200 chars; anything longer is not a hare line.
+  if (harePart.length > 300) return undefined;
+
+  // Rule 1: "<theme> starring <hare>"
+  const starringMatch = /\s+starring\s+(.+)$/i.exec(harePart);
+  if (starringMatch) return starringMatch[1].trim();
+
+  // Rule 2: "<theme> with <hare>"
+  const withMatch = /\s+with\s+(.+)$/i.exec(harePart);
+  if (withMatch) return withMatch[1].trim();
+
+  // Rule 3: "<hare>'s <theme>" (straight + curly + reversed-9 apostrophes).
+  // Reject ordinal-prefixed candidates ("3rd An'al It" from lazy matching on
+  // "3rd An'al It's Gonna Be May" — the #844 symptom) and candidates that
+  // still contain an apostrophe (indicates lazy match stopped mid-theme).
+  // Digit-bearing names without an ordinal prefix (e.g. "2FC") are allowed.
+  const possessiveMatch = /^(.+?)['\u2018\u2019\u201B]s?\s+.+$/i.exec(harePart);
+  if (possessiveMatch) {
+    const candidate = possessiveMatch[1].trim();
+    const isOrdinalPrefix = /^\d+(?:st|nd|rd|th)\b/i.test(candidate);
+    const hasEmbeddedApostrophe = /['\u2018\u2019\u201B]/.test(candidate);
+    if (!isOrdinalPrefix && !hasEmbeddedApostrophe) return candidate;
+  }
+
+  // Rule 4: "<hare>: <theme>" or "<hare> - <theme>" / en-dash / em-dash
+  const colonMatch = /^(.+?)\s*[:–—]\s*.+$/.exec(harePart);
+  if (colonMatch) return colonMatch[1].trim();
+  const dashMatch = /^(.+?)\s+-\s+.+$/.exec(harePart);
+  if (dashMatch) return dashMatch[1].trim();
+
+  // Rule 5: "<hare> Hashyversary / Birthday / Bday / turns NN"
+  const anniversaryMatch = /^(.+?)\s+(?:Hashy?versary|B[iy]rthday|Bday|turns\s+\d+)\b/i.exec(
+    harePart,
+  );
+  if (anniversaryMatch) return anniversaryMatch[1].trim();
+
+  // Rule 6: clean short name — no colons, no emoji.
+  // Accept 1–2 word names, or a pair-joined form ("X & Y", "X and Y") where
+  // each side is 1–2 words. Bounded sides prevent long theme phrases like
+  // "Beer and Loathing in South County" from leaking per #844.
+  const hasTroublesomeChar = /[:\p{Extended_Pictographic}]/u.test(harePart);
+  if (!hasTroublesomeChar) {
+    const wordCount = harePart.split(/\s+/).length;
+    if (wordCount <= 2) return harePart;
+    const shortSide = String.raw`\S+(?:\s+\S+)?`;
+    const pairRegex = new RegExp(`^${shortSide}\\s+(?:&|and)\\s+${shortSide}$`, "i");
+    if (pairRegex.test(harePart)) return harePart;
+  }
+
+  // Rule 7: give up — do not guess.
+  return undefined;
+}
+
+/**
  * Parse h4 title text into hare(s) and location.
  *
  * Format: "Hare Name @ Location" — split on last " @ ".
@@ -84,10 +153,7 @@ export function parseEventTitle(h4Text: string): {
   const locationPart = h4Text.slice(atIdx + 3).trim();
   const locationIsTbd = !locationPart || isPlaceholder(locationPart);
 
-  // The hare part is typically "HareName's Trail Name" or just "HareName"
-  // Use it as the title; the hare is the portion before "'s" if present
-  const possessiveMatch = /^(.+?)(?:['\u2018\u2019\u201B]s?\s+.+)$/i.exec(harePart);
-  const hares = possessiveMatch ? possessiveMatch[1].trim() : harePart;
+  const hares = extractHaresFromTitlePart(harePart);
 
   // #754: drop " @ ???" from the title when location is TBD — a trailing TBD
   // placeholder is noise, not a meaningful subtitle. When location IS set,
