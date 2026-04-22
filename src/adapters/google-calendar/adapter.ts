@@ -542,8 +542,9 @@ export function normalizeGCalDescription(rawDesc: string | undefined): { rawDesc
  * Resolve kennel tag from event summary using config patterns.
  * Returns null when `strictKennelRouting` is enabled and no pattern matches —
  * caller should drop the event (see issue #753).
- * Returns empty kennelTag when no pattern matches and no default — the merge
- * pipeline records UNMATCHED_TAG samples which surface as UNMATCHED_TAGS alerts.
+ * When no pattern matches and no default is set, returns the summary as kennelTag
+ * so the merge pipeline records distinct UNMATCHED_TAG samples per unique title
+ * (empty strings would collapse every unmatched event into a single alert).
  */
 function resolveKennelTagFromSummary(
   summary: string,
@@ -553,12 +554,12 @@ function resolveKennelTagFromSummary(
     const matched = matchConfigPatterns(summary, sourceConfig.kennelPatterns);
     if (matched) return { kennelTag: matched, useFullTitle: true };
     if (sourceConfig.strictKennelRouting) return null;
-    return { kennelTag: sourceConfig.defaultKennelTag ?? "", useFullTitle: true };
+    return { kennelTag: sourceConfig.defaultKennelTag ?? summary, useFullTitle: true };
   }
   if (sourceConfig?.defaultKennelTag) {
     return { kennelTag: sourceConfig.defaultKennelTag, useFullTitle: true };
   }
-  return { kennelTag: "", useFullTitle: false };
+  return { kennelTag: summary, useFullTitle: true };
 }
 
 /** Parse source.config into CalendarSourceConfig or null. */

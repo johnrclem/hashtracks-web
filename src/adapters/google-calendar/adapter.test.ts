@@ -36,6 +36,7 @@ describe("Boston Hash Calendar multi-kennel routing (#789)", () => {
     ["B3H4 Run", "bobbh3", "B3H4 abbrev"],
     ["ZigZag #42", "zigzag", "ZigZag (issue #789 — previously absorbed by boh3)"],
     ["Zig Zag Trail", "zigzag", "Zig Zag spaced"],
+    ["ZigZag Full Moon Run", "zigzag", "ZigZag wins over Full Moon (ordering before bos-moon)"],
     ["E4B #22", "e4b", "E4B (issue #789 — previously absorbed by boh3)"],
     ["Eager 4 Beaver hash", "e4b", "Eager 4 Beaver full name"],
   ])("routes %j → %s (%s)", (summary, expectedTag) => {
@@ -46,12 +47,12 @@ describe("Boston Hash Calendar multi-kennel routing (#789)", () => {
     expect(result?.kennelTag).toBe(expectedTag);
   });
 
-  it("unmatched titles return empty tag (no silent contamination to boh3, #789)", () => {
+  it("unmatched titles pass summary through as kennelTag (distinct UNMATCHED_TAGS alerts, #789)", () => {
     const result = buildRawEventFromGCalItem(
       { summary: "AGM Planning Meeting", start: { dateTime: "2026-04-15T19:00:00-04:00" }, status: "confirmed" },
       config,
     );
-    expect(result?.kennelTag).toBe("");
+    expect(result?.kennelTag).toBe("AGM Planning Meeting");
   });
 });
 
@@ -83,24 +84,24 @@ describe("Colorado H3 Aggregator multi-kennel routing (#850)", () => {
     "BASH #50",
     "Steamboat Springs Skash 2026",
     "DP #69 at Cerebral Brewing",
-  ])("unmatched %j returns empty tag (no silent contamination to bh3-co, #850)", (summary) => {
+  ])("unmatched %j passes summary through (distinct UNMATCHED_TAGS alerts, #850)", (summary) => {
     const result = buildRawEventFromGCalItem(
       { summary, start: { dateTime: "2026-04-15T19:00:00-06:00" }, status: "confirmed" },
       config,
     );
-    expect(result?.kennelTag).toBe("");
+    expect(result?.kennelTag).toBe(summary);
   });
 });
 
 // ── GCal adapter with no config returns empty tag (no Boston fallback) ──
 
 describe("resolveKennelTagFromSummary with no config", () => {
-  it("returns empty kennelTag when source has no config (removed silent boh3 fallback)", () => {
+  it("passes summary through as kennelTag when source has no config (removed silent boh3 fallback)", () => {
     const result = buildRawEventFromGCalItem(
       { summary: "Some Random Event", start: { dateTime: "2026-04-15T19:00:00-04:00" }, status: "confirmed" },
       null,
     );
-    expect(result?.kennelTag).toBe("");
+    expect(result?.kennelTag).toBe("Some Random Event");
   });
 });
 
