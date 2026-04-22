@@ -94,9 +94,10 @@ export function parseNextRunArticle(
   // consumes the newline after an empty slot and the capture group then bleeds
   // into the next labelled line (e.g. "Restaurant:\nGooglemaps: ..." captures
   // "Googlemaps: ..."). `[^\S\n]*` is horizontal whitespace only; `[^\n]+` in
-  // the capture ensures we never cross a line boundary either.
+  // the capture ensures we never cross a line boundary either. Also anchor at
+  // start-of-line so "Date:" can't match inside a word like "Update:".
   const grab = (label: string): string | undefined => {
-    const re = new RegExp(`${label}\\s*:[^\\S\\n]*([^\\n]+)`, "i");
+    const re = new RegExp(`(?:^|\\n)\\s*${label}\\s*:[^\\S\\n]*([^\\n]+)`, "i");
     const m = re.exec(text);
     const val = m?.[1]?.trim();
     if (!val) return undefined;
