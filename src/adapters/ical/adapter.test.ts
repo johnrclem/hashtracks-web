@@ -250,6 +250,20 @@ describe("extractHaresFromDescription", () => {
       extractHaresFromDescription("Laid by: Speedy", ["[invalid(", String.raw`(?:^|\n)\s*Laid by:\s*(.+)`]),
     ).toBe("Speedy");
   });
+
+  it("extracts Berlin H3 'Who: Trail laid by X' hares with custom pattern (#838)", () => {
+    // Berlin H3 iCal descriptions have a multi-line Location/When/Who block.
+    // Runs #2331 and #2332 verbatim shape:
+    const desc2331 =
+      "Location: Bellevueallee 1\nWhen: 15:30\nWho: Trail laid by Silent P\nWhat to bring: beer";
+    const desc2332 =
+      "Location: Invalidenpark\nWhen: 15:30\nWho: Trail laid by Love Balls\nWhat to bring: headtorch";
+    const berlinPattern = [
+      String.raw`(?:^|\n)\s*Who:\s*Trail\s+laid\s+by\s+([^,\n]+)`,
+    ];
+    expect(extractHaresFromDescription(desc2331, berlinPattern)).toBe("Silent P");
+    expect(extractHaresFromDescription(desc2332, berlinPattern)).toBe("Love Balls");
+  });
 });
 
 describe("extractRunNumberFromDescription", () => {

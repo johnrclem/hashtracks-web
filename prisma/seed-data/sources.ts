@@ -462,11 +462,17 @@ export const SOURCES = [
       type: "ICAL_FEED" as const,
       trustLevel: 6,
       scrapeFreq: "daily",
-      scrapeDays: 90,
+      // #837: Neuglobsow and other annual specials land ~5mo out, past the
+      // 90-day window. Bump to a full year to cover them.
+      scrapeDays: 365,
       config: {
         kennelPatterns: [["Full Moon Run", "bh3fm"]],
         defaultKennelTag: "berlinh3",
         enrichBerlinH3Details: true,
+        // #838: Berlin H3 descriptions use a "Who: Trail laid by <hares>" row
+        // inside a multi-line "Location/When/Who/What to bring" block. The
+        // default HARE_PATTERNS miss this phrasing.
+        harePatterns: ["(?:^|\\n)\\s*Who:\\s*Trail\\s+laid\\s+by\\s+([^,\\n]+)"],
       },
       kennelCodes: ["berlinh3", "bh3fm"],
     },
