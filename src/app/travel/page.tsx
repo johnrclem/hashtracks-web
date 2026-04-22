@@ -509,6 +509,25 @@ async function SavedTripPage({
     );
   }
 
+  // Heartbeat: DRAFT trips are bookmarkable (the URL resolves them
+  // even without explicit Save), so the draft-GC cron must see real
+  // activity when the user reopens one. Bump `updatedAt` on read so
+  // the 7-day TTL in runTravelDraftGc only fires on truly abandoned
+  // drafts. updateMany is ownership+status-scoped; a concurrent
+  // DRAFT→ACTIVE transition inside saveTravelSearch's tx will skip
+  // this no-op. Fire-and-forget — a timestamp update failure is
+  // non-fatal and the GC will retry tomorrow.
+  if (search.status === TravelSearchStatus.DRAFT) {
+    void prisma.travelSearch
+      .updateMany({
+        where: { id: search.id, userId: user.id, status: TravelSearchStatus.DRAFT },
+        data: { updatedAt: new Date() },
+      })
+      .catch((err) => {
+        console.error("[travel] draft heartbeat failed", err);
+      });
+  }
+
   const { confidenceFilter, distanceFilter } = parseFilterParams(filterParams);
   const destinations = search.destinations.map((d) => ({
     latitude: d.latitude,
