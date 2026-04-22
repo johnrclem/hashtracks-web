@@ -625,7 +625,15 @@ async function SavedTripPage({
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
+      {/*
+        `key={search.id}` forces a full remount when the user navigates
+        between two saved trips (?savedTripId=A → ?savedTripId=B). Without
+        it, the client component stays mounted and `legs`/`draftId` stay
+        pinned to trip A — pressing Search would then call
+        updateTravelSearch(B, tripA-legs) and clobber trip B.
+      */}
       <TravelSearchForm
+        key={search.id}
         variant="compact"
         isAuthenticated={true}
         initialLegs={formLegs}

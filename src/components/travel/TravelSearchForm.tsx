@@ -132,8 +132,11 @@ export function TravelSearchForm({
   // produce unique, collision-free keys without crypto/randomness.
   const baseLegId = useId();
   // Counter starts after the initial-leg seed so addLeg can't collide.
-  // The initial seed uses ids 0..n-1 based on initialLegs length.
-  const initialLegSeeds = initialLegs?.length ?? 1;
+  // The initial seed uses ids 0..n-1 based on initialLegs length. `||`
+  // (not `??`) guards against `initialLegs = []` — an empty array would
+  // seed the counter at 0, but the useState initializer below falls
+  // back to one leg (id -leg-0), so the next addLeg would collide.
+  const initialLegSeeds = initialLegs?.length || 1;
   const legCounter = useRef(initialLegSeeds);
   const makeLegId = useCallback(
     () => `${baseLegId}-leg-${legCounter.current++}`,
