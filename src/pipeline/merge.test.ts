@@ -2013,7 +2013,9 @@ describe("pickCanonicalEventId", () => {
     },
   ])("$name", ({ rowA, rowB, expectedCanonicals }) => {
     const canonicals = pickCanonicalEventIds([candidate(rowA), candidate(rowB)]);
-    expect([...canonicals].sort()).toEqual(expectedCanonicals.sort());
+    expect([...canonicals].sort((a, b) => a.localeCompare(b))).toEqual(
+      [...expectedCanonicals].sort((a, b) => a.localeCompare(b)),
+    );
   });
 
   it("flips the winner when equal-trust completeness shifts after an update", () => {
