@@ -168,6 +168,158 @@ describe("reconcileStaleEvents", () => {
     expect(result.cancelledEventIds).toEqual(["evt_3"]);
   });
 
+  it("preserves events when scrape re-emits same (kennel,date) with different sourceUrl", async () => {
+    // Regression: some adapters emit upcoming rows under one URL and past rows
+    // under another (per-event detail pages, year archives, separate upcoming
+    // vs. past sections). When the canonical Event was created with the upcoming
+    // URL but the next scrape finds the same run under a different URL, the
+    // match key must still collapse on (kennelId, date) — merge pipeline
+    // identity — so the event is NOT orphaned.
+    const scrapedEvents = [
+      buildRawEvent({
+        date: "2026-02-14",
+        kennelTag: "BoBBH3",
+        sourceUrl: "https://example.com/past/detail?id=123",
+      }),
+    ];
+
+    mockEventFindMany.mockResolvedValueOnce([
+      {
+        id: "evt_1",
+        kennelId: "kennel_1",
+        date: new Date("2026-02-14T12:00:00Z"),
+        sourceUrl: "https://example.com/upcoming",
+      },
+    ] as never);
+
+    const result = await reconcileStaleEvents("src_1", scrapedEvents, 90);
+
+    expect(result.cancelled).toBe(0);
+    expect(result.cancelledEventIds).toEqual([]);
+    expect(mockEventUpdateMany).not.toHaveBeenCalled();
+    expect(mockRawEventGroupBy).not.toHaveBeenCalled();
+  });
+
+  it("cancels one half of a double-header when only the other is returned", async () => {
+    // Regression complement to the single-slot URL-drift fix: when a slot has
+    // TWO canonical Events (genuine double-header, distinguished by sourceUrl
+    // in the merge pipeline) and the scrape returns only one of them, the
+    // missing member must still be cancelled. Collapsing the reconcile key to
+    // (kennelId, date) alone would treat both as present because one URL hit
+    // the slot — disambiguation by sourceUrl is required when N>1.
+    mockResolve
+      .mockResolvedValueOnce({ kennelId: "kennel_1", matched: true });
+
+    const scrapedEvents = [
+      buildRawEvent({
+        date: "2026-03-08",
+        kennelTag: "BoH3",
+        sourceUrl: "https://example.com/trail-a",
+      }),
+    ];
+
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_1", kennelId: "kennel_1", date: new Date("2026-03-08T12:00:00Z"), sourceUrl: "https://example.com/trail-a" },
+      { id: "evt_2", kennelId: "kennel_1", date: new Date("2026-03-08T12:00:00Z"), sourceUrl: "https://example.com/trail-b" },
+    ] as never);
+
+    // evt_2 has no RawEvents from other sources
+    mockRawEventGroupBy.mockResolvedValueOnce([] as never);
+
+    const result = await reconcileStaleEvents("src_1", scrapedEvents, 90);
+
+    expect(result.cancelled).toBe(1);
+    expect(result.cancelledEventIds).toEqual(["evt_2"]);
+    expect(mockEventUpdateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["evt_2"] } },
+      data: { status: "CANCELLED" },
+    });
+  });
+
+  it("preserves all canonicals in a double-header slot when a scraped row has no distinguishing fields", async () => {
+    // Regression: if an adapter emits a bare (kennel, date) row with no
+    // sourceUrl/startTime/title into a double-header slot, the merge cascade
+    // has nothing to bind on. Rather than orphan both canonicals (which would
+    // cascade to a false double-cancellation), reconcile preserves the whole
+    // slot — the scrape proves *some* run happened that day, even if we can't
+    // tell which. Mirrors the "favor preservation on ambiguous matches" design.
+    mockResolve.mockResolvedValueOnce({ kennelId: "kennel_1", matched: true });
+
+    const scrapedEvents = [
+      buildRawEvent({
+        date: "2026-03-08",
+        kennelTag: "BoH3",
+        sourceUrl: undefined,
+        startTime: undefined,
+        title: undefined,
+      }),
+    ];
+
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_1", kennelId: "kennel_1", date: new Date("2026-03-08T12:00:00Z"), sourceUrl: "https://example.com/trail-a", startTime: "10:30", title: "Morning Trail" },
+      { id: "evt_2", kennelId: "kennel_1", date: new Date("2026-03-08T12:00:00Z"), sourceUrl: "https://example.com/trail-b", startTime: "14:30", title: "Afternoon Trail" },
+    ] as never);
+
+    const result = await reconcileStaleEvents("src_1", scrapedEvents, 90);
+
+    expect(result.cancelled).toBe(0);
+    expect(result.cancelledEventIds).toEqual([]);
+    expect(mockEventUpdateMany).not.toHaveBeenCalled();
+    expect(mockRawEventGroupBy).not.toHaveBeenCalled();
+  });
+
+  it("preserves double-header member when URL drifts but startTime still matches", async () => {
+    // Regression: merge's same-day cascade is URL → startTime → title. When an
+    // adapter re-emits an afternoon double-header member under a new URL but
+    // with the same startTime, merge updates the existing canonical. Reconcile
+    // must mirror that cascade so it doesn't orphan the row merge would touch.
+    mockResolve
+      .mockResolvedValueOnce({ kennelId: "kennel_1", matched: true })
+      .mockResolvedValueOnce({ kennelId: "kennel_1", matched: true });
+
+    const scrapedEvents = [
+      buildRawEvent({
+        date: "2026-03-08",
+        kennelTag: "BoH3",
+        sourceUrl: "https://example.com/trail-a",
+        startTime: "10:30",
+      }),
+      buildRawEvent({
+        date: "2026-03-08",
+        kennelTag: "BoH3",
+        // URL drifted from trail-b to a per-event detail page
+        sourceUrl: "https://example.com/detail?id=999",
+        startTime: "14:30",
+      }),
+    ];
+
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_1", kennelId: "kennel_1", date: new Date("2026-03-08T12:00:00Z"), sourceUrl: "https://example.com/trail-a", startTime: "10:30", title: null },
+      { id: "evt_2", kennelId: "kennel_1", date: new Date("2026-03-08T12:00:00Z"), sourceUrl: "https://example.com/trail-b", startTime: "14:30", title: null },
+    ] as never);
+
+    const result = await reconcileStaleEvents("src_1", scrapedEvents, 90);
+
+    expect(result.cancelled).toBe(0);
+    expect(mockEventUpdateMany).not.toHaveBeenCalled();
+    expect(mockRawEventGroupBy).not.toHaveBeenCalled();
+  });
+
+  it("restricts candidates to canonical rows only", async () => {
+    // Regression: non-canonical audit rows (merge-conflict shadows) must not
+    // be treated as double-header peers of the canonical row. Here the test
+    // just verifies the Prisma query includes `isCanonical: true`.
+    mockEventFindMany.mockResolvedValueOnce([] as never);
+
+    await reconcileStaleEvents("src_1", [buildRawEvent()], 90);
+
+    expect(mockEventFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ isCanonical: true }),
+      }),
+    );
+  });
+
   it("does not cancel same-day events when both present in scrape", async () => {
     const scrapedEvents = [
       buildRawEvent({ date: "2026-03-08", kennelTag: "BoH3", sourceUrl: "https://example.com/trail-a" }),
