@@ -143,10 +143,8 @@ export class HarrierCentralAdapter implements SourceAdapter {
       const timeMatch = hcEvent.eventStartDatetime.match(/T(\d{2}:\d{2})/);
       const startTime = timeMatch ? timeMatch[1] : undefined;
 
-      let hares = hcEvent.hares && hcEvent.hares !== "TBA" ? hcEvent.hares : undefined;
-      const location = hcEvent.locationOneLineDesc && hcEvent.locationOneLineDesc !== "TBA"
-        ? hcEvent.locationOneLineDesc
-        : undefined;
+      let hares = stripTba(hcEvent.hares);
+      const location = composeHcLocation(hcEvent.locationOneLineDesc, hcEvent.resolvableLocation);
 
       // Data-entry safety net: when a kennel user pastes the same text into
       // both the hare and location slots (observed on Tokyo H3 #2578, where
@@ -168,17 +166,11 @@ export class HarrierCentralAdapter implements SourceAdapter {
         date: dateStr,
         kennelTag,
         title: hcEvent.eventName || undefined,
-        // Socials / "drinking practices" come back as eventNumber=0 (the API
-        // types it as a number). ONLY the explicit 0 sentinel clears via null
-        // — absent/invalid values pass through as undefined so the merge UPDATE
-        // path preserves any existing runNumber instead of silently wiping it
-        // on a partial HC payload (#892).
-        runNumber:
-          hcEvent.eventNumber === 0
-            ? null
-            : hcEvent.eventNumber > 0
-              ? hcEvent.eventNumber
-              : undefined,
+        // Socials / "drinking practices" come back as eventNumber=0. Map that
+        // sentinel to null (explicit clear) and positive values to the number;
+        // anything else stays undefined so the merge UPDATE path preserves an
+        // existing runNumber on partial HC payloads (#892).
+        runNumber: normalizeHcEventNumber(hcEvent.eventNumber),
         startTime,
         hares,
         location,
@@ -200,6 +192,70 @@ export class HarrierCentralAdapter implements SourceAdapter {
       },
     };
   }
+}
+
+/**
+ * Trim input and drop padded/case-variant "TBA" placeholders. Must run BEFORE
+ * any merge-path comparison so " TBA ", "tba\n", etc. don't survive as a
+ * defined string and overwrite a valid existing value via the UPDATE path.
+ */
+function stripTba(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed && !/^tba$/i.test(trimmed) ? trimmed : undefined;
+}
+
+/**
+ * Map HC eventNumber to RawEvent.runNumber tri-state:
+ *   0        → null      (explicit clear: social / drinking practice)
+ *   positive → number    (normal run)
+ *   other    → undefined (preserve existing value through merge)
+ */
+function normalizeHcEventNumber(n: number | undefined | null): number | null | undefined {
+  if (n === 0) return null;
+  if (typeof n === "number" && n > 0) return n;
+  return undefined;
+}
+
+/**
+ * Compose a location string from HC's two location fields.
+ *
+ * `locationOneLineDesc` is typically the venue/place name ("Iron Horse Tavern").
+ * `resolvableLocation` is the full street address when set
+ * ("140 High Street, Morgantown, 26505-5413, WV, United States"), but for
+ * kennels without a geocoded venue it's either a bare coordinate pair
+ * ("35.713..., 139.704...") or a duplicate of the place name.
+ *
+ * Prefer "{place}, {full address}" when both fields carry real, distinct data
+ * so hashers get street-level context in addition to the venue name (#907).
+ */
+export function composeHcLocation(
+  placeName: string | undefined,
+  resolvable: string | undefined,
+): string | undefined {
+  const place = stripTba(placeName);
+  const full = stripTba(resolvable);
+
+  // resolvableLocation is a bare coordinate pair for venues Harrier Central
+  // couldn't geocode — not useful as user-facing text.
+  const coordsOnly = /^-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?$/;
+  const addressShaped = full && !coordsOnly.test(full) ? full : undefined;
+
+  if (!place && !addressShaped) return undefined;
+  if (!addressShaped) return place;
+  if (!place) return addressShaped;
+  if (place === addressShaped) return place;
+  // Drop place when it duplicates the address — either as a complete comma
+  // segment (e.g. place "Morgantown" inside "...Morgantown, WV") or as a
+  // leading prefix of the address (e.g. place "227 Spruce Street, Morgantown"
+  // inside the same fully-formed address). Avoids substring false positives
+  // like place "Iron Horse" being dropped because "Iron Horse Tavern Road"
+  // appears in the street segment.
+  const placeLc = place.toLowerCase();
+  const addressLc = addressShaped.toLowerCase();
+  const segments = addressLc.split(",").map((s) => s.trim());
+  if (segments.includes(placeLc)) return addressShaped;
+  if (addressLc.startsWith(`${placeLc},`)) return addressShaped;
+  return `${place}, ${addressShaped}`;
 }
 
 /** Resolve kennel tag from HC event using pre-compiled config patterns */
