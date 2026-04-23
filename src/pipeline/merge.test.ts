@@ -1776,6 +1776,73 @@ describe("suppressRedundantCity", () => {
   it("returns city when locationName is null", () => {
     expect(suppressRedundantCity(null, "Akron, OH")).toBe("Akron, OH");
   });
+
+  it("suppresses neighborhood for full US address ending in country (#906)", () => {
+    // N2H3 case: full address with zip + USA suffix shouldn't get a
+    // reverse-geocoded neighborhood ("Marlene Village") appended.
+    expect(
+      suppressRedundantCity(
+        "Greek Village, 301 NW Murray Blvd, Portland, OR 97229, USA",
+        "Marlene Village, OR",
+      ),
+    ).toBeNull();
+  });
+
+  it("preserves city when full US address contains the city (#906)", () => {
+    expect(
+      suppressRedundantCity(
+        "Greek Village, 301 NW Murray Blvd, Portland, OR 97229, USA",
+        "Portland, OR",
+      ),
+    ).toBe("Portland, OR");
+  });
+
+  it("preserves city for international address with no zip (#906)", () => {
+    expect(
+      suppressRedundantCity(
+        "Marina Green, San Francisco, California",
+        "San Francisco, CA",
+      ),
+    ).toBe("San Francisco, CA");
+  });
+
+  it("suppresses neighborhood for Google-formatted US address with ZIP before state (#906)", () => {
+    // Google Maps & Harrier Central both emit "...ZIP, ST, United States".
+    // Note: HARRIER_CENTRAL itself is in shouldSkipReverseGeocode so this path
+    // isn't reached for HC events today, but other sources emit the same shape.
+    expect(
+      suppressRedundantCity(
+        "Apothecary Ale House, 227 Spruce Street, Morgantown, 26505-7511, WV, United States",
+        "Marlene Village, WV",
+      ),
+    ).toBeNull();
+  });
+
+  it("preserves city when ZIP-before-state US address contains the city (#906)", () => {
+    expect(
+      suppressRedundantCity(
+        "Apothecary Ale House, 227 Spruce Street, Morgantown, 26505-7511, WV, United States",
+        "Morgantown, WV",
+      ),
+    ).toBe("Morgantown, WV");
+  });
+
+  it("preserves city for international address with 5-digit postal code (#906)", () => {
+    // German 5-digit postal code shouldn't trigger US zip suppression.
+    expect(
+      suppressRedundantCity(
+        "Hofbräuhaus, Platzl 9, 80331 München, Germany",
+        "Munich",
+      ),
+    ).toBe("Munich");
+    // French 5-digit postal code.
+    expect(
+      suppressRedundantCity(
+        "Tour Eiffel, 5 Avenue Anatole France, 75007 Paris, France",
+        "Paris",
+      ),
+    ).toBe("Paris");
+  });
 });
 
 // ============================================================================

@@ -606,11 +606,28 @@ export function sanitizeLocation(location: string | undefined): string | null {
 
 /**
  * Suppress reverse-geocoded locationCity when locationName already contains a full
- * address with state code and the city doesn't match (avoids "Hartville, OH, Akron, OH").
+ * US address and the city doesn't match (avoids "Hartville, OH, Akron, OH").
+ *
+ * Three US-specific patterns trigger the city/locationName comparison:
+ *   1. `…, ST` or `…, ST 12345`            (short-form trailing state code)
+ *   2. `ST 12345` anywhere in the string   (#906: catches `…, ST 12345, USA`
+ *      where Google's reverse geocoder returns a neighborhood like
+ *      "Marlene Village, OR" that shouldn't be appended to a fully-qualified
+ *      address.)
+ *   3. `12345, ST` anywhere in the string  (#906 + #907: Harrier Central and
+ *      Google Maps emit addresses like `…, 26505-7511, WV, United States`
+ *      with ZIP before state.)
+ *
+ * All three require a 2-letter US state code adjacent to a 5-digit ZIP —
+ * a bare 5-digit number is not enough, so international addresses with
+ * 5-digit postal codes (e.g. "80331 München, Germany") are left alone.
  */
 export function suppressRedundantCity(locationName: string | null, city: string | null): string | null {
   if (!city || !locationName) return city;
-  if (!/,\s*[A-Z]{2}(?:\s+\d{5})?$/.test(locationName)) return city;
+  const stateSuffix = /,\s*[A-Z]{2}(?:\s+\d{5})?$/.test(locationName);
+  const hasStateZip = /\b[A-Z]{2}\s+\d{5}(?:-\d{4})?\b/.test(locationName);
+  const hasZipState = /\b\d{5}(?:-\d{4})?,\s*[A-Z]{2}\b/.test(locationName);
+  if (!stateSuffix && !hasStateZip && !hasZipState) return city;
   // Require at least 3 segments (e.g., "Street, City, ST") — fewer suggests incomplete address
   if (locationName.split(",").length < 3) return city;
   const cityName = city.split(",")[0].trim();
