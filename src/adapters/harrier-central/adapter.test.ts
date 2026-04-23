@@ -240,13 +240,30 @@ describe("HarrierCentralAdapter", () => {
       expect(result.events[0].date).toBe("2026-04-15");
     });
 
-    it("preserves zero-value lat/lng and eventNumber", async () => {
+    it("preserves zero-value lat/lng (equator is valid) but drops runNumber=0 (#892)", async () => {
+      // eventNumber=0 is how HC flags social / "drinking practice" events that
+      // aren't part of the numbered run series. Storing it as runNumber=0 shows
+      // "#0" on the event card (Morgantown H3's "Hillbilly Drinking Practice"
+      // regression). Coordinates at 0,0 are genuinely the equator — keep them.
+      // Adapter emits `null` (not undefined) so the merge UPDATE path actively
+      // clears any stale runNumber stored before the fix shipped.
       mockApiResponse([buildHCEvent({ syncLat: 0, syncLong: 0, eventNumber: 0 })]);
       const result = await adapter.fetch(makeSource({ defaultKennelTag: "tokyo-h3" }));
       expect(result.events).toHaveLength(1);
       expect(result.events[0].latitude).toBe(0);
       expect(result.events[0].longitude).toBe(0);
-      expect(result.events[0].runNumber).toBe(0);
+      expect(result.events[0].runNumber).toBeNull();
+    });
+
+    it("preserves existing runNumber when eventNumber is absent/invalid (#892)", async () => {
+      // Only the explicit 0 sentinel clears; a negative or missing value
+      // must pass through as `undefined` so the merge UPDATE path leaves
+      // any existing canonical runNumber untouched. Otherwise a partial HC
+      // payload would silently wipe good data on re-scrape.
+      mockApiResponse([buildHCEvent({ eventNumber: -1 })]);
+      const result = await adapter.fetch(makeSource({ defaultKennelTag: "tokyo-h3" }));
+      expect(result.events).toHaveLength(1);
+      expect(result.events[0].runNumber).toBeUndefined();
     });
 
     it("includes diagnosticContext in result", async () => {

@@ -159,7 +159,7 @@ export async function previewSourceConfig(
       kennelTag: e.kennelTag === UNKNOWN_KENNEL_SENTINEL ? UNTAGGED_KENNEL_DISPLAY : e.kennelTag,
       title: e.title,
       description: e.description?.substring(0, 500) || undefined,
-      runNumber: e.runNumber,
+      runNumber: e.runNumber ?? undefined,
       location: e.location,
       hares: e.hares,
       startTime: e.startTime ?? undefined,

@@ -168,7 +168,17 @@ export class HarrierCentralAdapter implements SourceAdapter {
         date: dateStr,
         kennelTag,
         title: hcEvent.eventName || undefined,
-        runNumber: hcEvent.eventNumber != null ? hcEvent.eventNumber : undefined,
+        // Socials / "drinking practices" come back as eventNumber=0 (the API
+        // types it as a number). ONLY the explicit 0 sentinel clears via null
+        // — absent/invalid values pass through as undefined so the merge UPDATE
+        // path preserves any existing runNumber instead of silently wiping it
+        // on a partial HC payload (#892).
+        runNumber:
+          hcEvent.eventNumber === 0
+            ? null
+            : hcEvent.eventNumber > 0
+              ? hcEvent.eventNumber
+              : undefined,
         startTime,
         hares,
         location,
