@@ -90,24 +90,36 @@ export function parseCalendarLink(
     }
   }
 
-  // Parse details — strip HTML and extract hares
-  const detailText = cheerio.load(details).text().trim();
-  let hares: string | undefined;
-  const haresMatch = /Hares?:\s*(.+?)(?=Location:|Cost:|HASH CASH|On-On|On On|\n|$)/i.exec(detailText);
-  if (haresMatch) {
-    hares = haresMatch[1].trim();
-    // #825: BurlyH3 inlines "Length: TBD" and "Shiggy Scale: 4" directly after
-    // the hares list with no separator (e.g. "...SwallowsLength: TBDShiggy..."),
-    // so HARE_BOILERPLATE_RE's \b word boundary can't catch them. Truncate at
-    // the first marker via indexOf (avoids a new S5852-flagged regex line).
-    const lower = hares.toLowerCase();
-    let cutIdx = -1;
-    for (const marker of ["length:", "shiggy scale:", "shiggyscale:"]) {
-      const idx = lower.indexOf(marker);
-      if (idx >= 0 && (cutIdx === -1 || idx < cutIdx)) cutIdx = idx;
-    }
-    if (cutIdx >= 0) hares = hares.slice(0, cutIdx);
-    hares = hares.replace(HARE_BOILERPLATE_RE, "").trim();
+  // Parse details — strip HTML, then extract labeled fields and free-form prose.
+  // The live Wix payload uses `<br>` between labeled fields and before the
+  // free-form prose; convert those to `\n` purely so cheerio.text() preserves
+  // visual breaks. Field extraction relies on known label markers (not `\n`)
+  // as terminators, so an internal break inside a value doesn't truncate it.
+  const detailsWithBreaks = details.replace(/<br\s*\/?>/gi, "\n");
+  const detailText = cheerio.load(detailsWithBreaks).text().trim();
+
+  // Hares: slice from after "Hares:" to the next known field marker,
+  // paragraph break, or EOF. #825 inlines "Length:"/"Shiggy Scale:" with no
+  // whitespace so they're terminators alongside Location:/Cost:/HASH CASH/
+  // On-On. Using indexOf-based slicing (not a single regex with alternation
+  // in a lookahead) avoids catastrophic backtracking on long payloads.
+  const hares = extractHares(detailText);
+
+  // #887: extract cost (always formatted as "$X.XX" — Burly is USD-only).
+  let cost: string | undefined;
+  const costMatch = /Cost:\s*\$?([0-9]+(?:\.[0-9]{1,2})?)/i.exec(detailText);
+  if (costMatch) cost = `$${costMatch[1]}`;
+
+  // #887: extract free-form description. Wix puts `<br><br>` (a blank line
+  // after `<br>→\n` conversion) before the prose paragraph that follows the
+  // labeled fields. Anchoring on that paragraph break avoids treating any
+  // single-break continuation of a labeled value as the start of description.
+  // Newlines are preserved so the UI can render paragraph structure.
+  let description: string | undefined;
+  const paragraphBreak = detailText.search(/\n[\t ]*\n/);
+  if (paragraphBreak >= 0) {
+    const descText = detailText.slice(paragraphBreak).replace(/^\s+/, "").trim();
+    if (descText.length >= 10) description = descText;
   }
 
   return {
@@ -116,10 +128,25 @@ export function parseCalendarLink(
     runNumber,
     title,
     hares,
+    cost,
+    description,
     location: location.trim() || undefined,
     startTime,
     sourceUrl,
   };
+}
+
+const HARES_LABEL_RE = /Hares?:\s*/i;
+const HARES_TERMINATORS_RE = /Length\s*:|Shiggy\s*Scale\s*:|Location\s*:|Cost\s*:|HASH\s*CASH|On[\s-]*On|\n[\t ]*\n/i;
+
+function extractHares(detailText: string): string | undefined {
+  const labelMatch = HARES_LABEL_RE.exec(detailText);
+  if (!labelMatch) return undefined;
+  const rest = detailText.slice(labelMatch.index + labelMatch[0].length);
+  const termMatch = HARES_TERMINATORS_RE.exec(rest);
+  const value = termMatch ? rest.slice(0, termMatch.index) : rest;
+  const cleaned = value.replace(HARE_BOILERPLATE_RE, "").trim();
+  return cleaned || undefined;
 }
 
 /**

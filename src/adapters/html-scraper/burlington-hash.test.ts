@@ -184,6 +184,73 @@ describe("parseCalendarLink", () => {
     expect(result?.title).toBe("BurlyH3 #853");
   });
 
+  it("extracts cost and description from Wix <br>-separated details payload (#887)", () => {
+    // Live Girth Day #850 payload (Wix uses <br> between labeled fields and
+    // before the free-form prose). URL-encoded: "<br>" → %3Cbr%3E, "$" → %24.
+    const details =
+      "%3Cb%3EHares%3A%3C%2Fb%3E+20+Gallons+of+Piss+%26+Redtail+Swallows" +
+      "%3Cbr%3E%3Cb%3ELength%3A+%3C%2Fb%3E2.69" +
+      "%3Cbr%3E%3Cb%3EShiggy+Scale%3A+%3C%2Fb%3E4" +
+      "%3Cbr%3E%3Cb%3ECost%3A%3C%2Fb%3E+%246.90" +
+      "%3Cbr%3E%3Cbr%3ESince+it%27s+Earth+day%2C+we%27re+honoring+the+planet+by+stuffing+as+many+hashers+as+we+can+into+Mother+Nature%27s+sweet+Sunny+Hollow.";
+    const href =
+      "https://calendar.google.com/calendar/render?action=TEMPLATE" +
+      "&text=BTVH3+%23850%3A+Girth+Day" +
+      "&dates=20260422T223000Z/20260422T233000Z" +
+      `&details=${details}`;
+
+    const result = parseCalendarLink(href, SOURCE_URL);
+    expect(result?.runNumber).toBe(850);
+    expect(result?.hares).toBe("20 Gallons of Piss & Redtail Swallows");
+    expect(result?.cost).toBe("$6.90");
+    expect(result?.description).toContain("Earth day");
+    expect(result?.description).toContain("Sunny Hollow");
+  });
+
+  it("leaves cost undefined when the details payload has no 'Cost:' marker (#887)", () => {
+    const href =
+      "https://calendar.google.com/calendar/render?action=TEMPLATE" +
+      "&text=BTVH3+%23860%3A+No+Cost+Listed" +
+      "&dates=20260701T223000Z/20260701T233000Z" +
+      "&details=Hares%3A+Mystery";
+    const result = parseCalendarLink(href, SOURCE_URL);
+    expect(result?.cost).toBeUndefined();
+  });
+
+  it("leaves description undefined when details payload has only labeled fields (#887)", () => {
+    const href =
+      "https://calendar.google.com/calendar/render?action=TEMPLATE" +
+      "&text=BTVH3+%23861%3A+Labels+Only" +
+      "&dates=20260708T223000Z/20260708T233000Z" +
+      "&details=%3Cb%3EHares%3A%3C%2Fb%3E+X%3Cbr%3E%3Cb%3ECost%3A%3C%2Fb%3E+%246.90";
+    const result = parseCalendarLink(href, SOURCE_URL);
+    expect(result?.cost).toBe("$6.90");
+    expect(result?.description).toBeUndefined();
+  });
+
+  it("preserves hares value containing internal <br> breaks (no field-marker truncation)", () => {
+    // Defensive: if a Wix author injects a <br> inside the Hares value (e.g.
+    // multi-line co-hare list), the parser must not truncate at the break.
+    // Hares should keep going until the next labeled-field marker.
+    const details =
+      "%3Cb%3EHares%3A%3C%2Fb%3E+Alice%3Cbr%3E%26+Bob%3Cbr%3E%26+Carol" +
+      "%3Cbr%3E%3Cb%3ECost%3A%3C%2Fb%3E+%245.00";
+    const href =
+      "https://calendar.google.com/calendar/render?action=TEMPLATE" +
+      "&text=BTVH3+%23862%3A+Multi-line+Hares" +
+      "&dates=20260715T223000Z/20260715T233000Z" +
+      `&details=${details}`;
+
+    const result = parseCalendarLink(href, SOURCE_URL);
+
+    expect(result?.hares).toContain("Alice");
+    expect(result?.hares).toContain("Bob");
+    expect(result?.hares).toContain("Carol");
+    expect(result?.cost).toBe("$5.00");
+    // The continuation lines must NOT leak into description.
+    expect(result?.description).toBeUndefined();
+  });
+
   it("strips 'Length:' and 'Shiggy Scale:' trail metadata from hares field (#825)", () => {
     // BurlyH3 concatenates trail metadata inline with hares. Source-of-truth
     // content: "Hares: 20 Gallons of Piss & Redtail SwallowsLength: TBDShiggy Scale: 4"
