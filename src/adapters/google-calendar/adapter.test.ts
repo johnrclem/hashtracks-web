@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
 import {
-  extractKennelTag,
   extractRunNumber,
   extractTitle,
   stripDatePrefix,
@@ -16,78 +15,93 @@ import {
   normalizeGCalDescription,
 } from "./adapter";
 import type { RawEventData } from "../types";
-
-// ── extractKennelTag ──
-
-describe("extractKennelTag", () => {
-  it("matches Boston Ball Buster", () => {
-    expect(extractKennelTag("Boston Ball Buster #123")).toBe("bobbh3");
-  });
-
-  it("matches BoBBH3 abbreviation", () => {
-    expect(extractKennelTag("BoBBH3: Run Name")).toBe("bobbh3");
-  });
-
-  it("matches Beantown", () => {
-    expect(extractKennelTag("Beantown #255: Taste of Spring")).toBe("beantown");
-  });
-
-  it("matches Pink Taco", () => {
-    expect(extractKennelTag("Pink Taco: Ladies Night")).toBe("pink-taco");
-  });
-
-  it("matches PT2H3 → pink-taco", () => {
-    expect(extractKennelTag("PT2H3: Run")).toBe("pink-taco");
-  });
-
-  it("matches Boston Moon", () => {
-    expect(extractKennelTag("Boston Moon: Full Moon Run")).toBe("bos-moon");
-  });
-
-  it("matches Moon keyword", () => {
-    expect(extractKennelTag("Full Moon Hash")).toBe("bos-moon");
-  });
-
-  it("matches BoH3", () => {
-    expect(extractKennelTag("BoH3: Weekly Run")).toBe("boh3");
-  });
-
-  it("matches BH3", () => {
-    expect(extractKennelTag("BH3: Something")).toBe("boh3");
-  });
-
-  it("matches B3H4 → bobbh3", () => {
-    expect(extractKennelTag("B3H4 Run")).toBe("bobbh3");
-  });
-
-  it("falls back to boh3 for unknown", () => {
-    expect(extractKennelTag("Unknown Event Name")).toBe("boh3");
-  });
-});
+import { SOURCES } from "../../../prisma/seed-data/sources";
 
 // ── Boston Hash Calendar multi-kennel routing via seed config (#789) ──
-
-import { SOURCES } from "../../../prisma/seed-data/sources";
 
 describe("Boston Hash Calendar multi-kennel routing (#789)", () => {
   const bostonSource = SOURCES.find((s) => s.name === "Boston Hash Calendar");
   if (!bostonSource?.config) throw new Error("Boston Hash Calendar seed config missing");
-  const config = bostonSource.config as { kennelPatterns: [string, string][]; defaultKennelTag: string };
+  const config = bostonSource.config as { kennelPatterns: [string, string][] };
 
   it.each([
     // [summary, expected kennelTag, description]
-    ["Boston Moom", "bos-moon", "failure mode A: 'Boston Moom' typo (not 'Boston Moon')"],
-    ["Taco Marathon Pre-Pre-Pre-Prelube", "pink-taco", "failure mode A: 'Taco' without 'Pink' prefix"],
-    ["Moon Marathon Pre-Pre Lube", "bos-moon", "failure mode A: 'Moon' as solo token"],
-    ["Beantown #276", "beantown", "failure mode B: Beantown no longer dropped"],
+    ["Boston Moom", "bos-moon", "'Boston Moom' typo (not 'Boston Moon')"],
+    ["Taco Marathon Pre-Pre-Pre-Prelube", "pink-taco", "'Taco' without 'Pink' prefix"],
+    ["Moon Marathon Pre-Pre Lube", "bos-moon", "'Moon' as solo token"],
+    ["Beantown #276", "beantown", "Beantown"],
     ["BH3 #2781", "boh3", "plain Boston H3 run"],
-    ["AGM Planning Meeting", "boh3", "defaultKennelTag fallback for unmatched titles"],
+    ["Boston Ball Buster #123", "bobbh3", "Ball Buster"],
+    ["BoBBH3: Run Name", "bobbh3", "BoBBH3 abbrev"],
+    ["B3H4 Run", "bobbh3", "B3H4 abbrev"],
+    ["ZigZag #42", "zigzag", "ZigZag (issue #789 — previously absorbed by boh3)"],
+    ["Zig Zag Trail", "zigzag", "Zig Zag spaced"],
+    ["ZigZag Full Moon Run", "zigzag", "ZigZag wins over Full Moon (ordering before bos-moon)"],
+    ["E4B #22", "e4b", "E4B (issue #789 — previously absorbed by boh3)"],
+    ["Eager 4 Beaver hash", "e4b", "Eager 4 Beaver full name"],
   ])("routes %j → %s (%s)", (summary, expectedTag) => {
     const result = buildRawEventFromGCalItem(
       { summary, start: { dateTime: "2026-04-15T19:00:00-04:00" }, status: "confirmed" },
       config,
     );
     expect(result?.kennelTag).toBe(expectedTag);
+  });
+
+  it("unmatched titles pass summary through as kennelTag (distinct UNMATCHED_TAGS alerts, #789)", () => {
+    const result = buildRawEventFromGCalItem(
+      { summary: "AGM Planning Meeting", start: { dateTime: "2026-04-15T19:00:00-04:00" }, status: "confirmed" },
+      config,
+    );
+    expect(result?.kennelTag).toBe("AGM Planning Meeting");
+  });
+});
+
+// ── Colorado H3 Aggregator multi-kennel routing via seed config (#850) ──
+
+describe("Colorado H3 Aggregator multi-kennel routing (#850)", () => {
+  const coSource = SOURCES.find((s) => s.name === "Colorado H3 Aggregator Calendar");
+  if (!coSource?.config) throw new Error("Colorado H3 Aggregator seed config missing");
+  const config = coSource.config as { kennelPatterns: [string, string][] };
+
+  it.each([
+    ["Boulder H3 #968", "bh3-co", "Boulder H3 full name"],
+    ["BH3 Trail #123", "bh3-co", "BH3 abbrev"],
+    ["MiHiHuHa #341", "mihi-huha", "MiHiHuHa"],
+    ["MiHiHUHa #598: A Four Blondes Trail", "mihi-huha", "MiHiHUHa case variant"],
+    ["Mile High Humpin Hash", "mihi-huha", "full name variant"],
+    ["Denver H3 Trail #1109", "dh3-co", "Denver H3 full name"],
+    ["DH3 #456", "dh3-co", "DH3 abbrev"],
+  ])("routes %j → %s (%s)", (summary, expectedTag) => {
+    const result = buildRawEventFromGCalItem(
+      { summary, start: { dateTime: "2026-04-15T19:00:00-06:00" }, status: "confirmed" },
+      config,
+    );
+    expect(result?.kennelTag).toBe(expectedTag);
+  });
+
+  it.each([
+    "CUM presents DUMP",
+    "BASH #50",
+    "Steamboat Springs Skash 2026",
+    "DP #69 at Cerebral Brewing",
+  ])("unmatched %j passes summary through (distinct UNMATCHED_TAGS alerts, #850)", (summary) => {
+    const result = buildRawEventFromGCalItem(
+      { summary, start: { dateTime: "2026-04-15T19:00:00-06:00" }, status: "confirmed" },
+      config,
+    );
+    expect(result?.kennelTag).toBe(summary);
+  });
+});
+
+// ── GCal adapter with no config returns empty tag (no Boston fallback) ──
+
+describe("resolveKennelTagFromSummary with no config", () => {
+  it("passes summary through as kennelTag when source has no config (removed silent boh3 fallback)", () => {
+    const result = buildRawEventFromGCalItem(
+      { summary: "Some Random Event", start: { dateTime: "2026-04-15T19:00:00-04:00" }, status: "confirmed" },
+      null,
+    );
+    expect(result?.kennelTag).toBe("Some Random Event");
   });
 });
 
