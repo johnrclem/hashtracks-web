@@ -64,6 +64,7 @@ const SITE_CONFIGS: Record<string, BangkokHashConfig> = {
 const FIELD_LABELS = new Set([
   "run site", "station", "restaurant", "location",
   "hare", "hares", "date", "start time",
+  "when", "where",
   "google map", "google maps", "google map link", "google maps link",
 ]);
 
@@ -85,7 +86,9 @@ export function parseNextRunArticle(
   sourceUrl: string,
 ): RawEventData | null {
   const $ = cheerio.load(html);
-  const article = $(".item-content").first();
+  // `.item-content` is the homepage Next Run article; `.com-content-article__body`
+  // is the archive detail template. Same labeled fields, different wrapper class.
+  const article = $(".item-content, .com-content-article__body").first();
   if (!article.length) return null;
 
   const text = decodeEntities(stripHtmlTags(article.html() ?? "", "\n"));
@@ -105,8 +108,12 @@ export function parseNextRunArticle(
     return val;
   };
 
-  const dateRaw = grab("Date");
+  // Pre-2022 BFMH3 archive uses "When:"/"Where:" instead of "Date:"/"Station:".
+  const dateRaw = grab("Date") ?? grab("When");
   if (!dateRaw) return null;
+  // Reject dateless entries (e.g. "Friday, January 1st") — chrono would default
+  // to the current year and silently produce the wrong date.
+  if (!/\b(19|20)\d{2}\b/.test(dateRaw)) return null;
   const date = chronoParseDate(dateRaw, "en-GB");
   if (!date) return null;
 
@@ -123,7 +130,7 @@ export function parseNextRunArticle(
   const station = grab("Station");
   const runSite = grab("Run\\s*Site");
   const restaurant = grab("Restaurant");
-  const locationRaw = grab("Location");
+  const locationRaw = grab("Location") ?? grab("Where");
   const googleMap = grab("Google\\s*(?:maps?|Map)\\s*(?:Link)?");
 
   // Extract run number from the article title
