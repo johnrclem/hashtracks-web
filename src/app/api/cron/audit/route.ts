@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { verifyCronAuth } from "@/lib/cron-auth";
-import { runAudit, persistAuditLog, updateAuditLogIssuesFiled } from "@/pipeline/audit-runner";
+import {
+  runAudit,
+  persistAuditLog,
+  updateAuditLogIssuesFiled,
+  selfHealSanitizers,
+} from "@/pipeline/audit-runner";
 import { fileAuditIssues } from "@/pipeline/audit-issue";
 import { backfillLastEventDates } from "@/pipeline/backfill-last-event";
 
@@ -23,6 +28,21 @@ export async function POST(request: Request) {
       if (backfilled > 0) console.log(`[audit] lastEventDate backfill: ${backfilled} kennels updated`);
     } catch (err) {
       console.error("[audit] lastEventDate backfill failed:", err instanceof Error ? err.message : err);
+    }
+
+    // Re-apply merge sanitizers to any stale rows in the audit window before
+    // scanning, so the audit doesn't re-file issues for values the sanitizers
+    // already know how to clean. Non-blocking; failures logged but don't block
+    // the audit.
+    try {
+      const heal = await selfHealSanitizers();
+      if (heal.locationHealed + heal.haresHealed > 0) {
+        console.log(
+          `[audit] self-heal: ${heal.locationHealed} locations, ${heal.haresHealed} hares (scanned ${heal.scanned})`,
+        );
+      }
+    } catch (err) {
+      console.error("[audit] self-heal failed:", err instanceof Error ? err.message : err);
     }
 
     const result = await runAudit();
