@@ -145,6 +145,45 @@ describe("parseCalendarLink", () => {
     expect(result?.hares).toBe("Penis Colada");
   });
 
+  it("extracts run number when title uses 'ft.' instead of ':' (#889)", () => {
+    // Source-observed title: "BTVH3 #851 ft. Not Just the Tip and Skidmark"
+    const href =
+      "https://calendar.google.com/calendar/render?action=TEMPLATE" +
+      "&text=BTVH3+%23851+ft.+Not+Just+the+Tip+and+Skidmark" +
+      "&dates=20260429T223000Z/20260429T233000Z" +
+      "&details=Hares%3A+Skidmark";
+
+    const result = parseCalendarLink(href, SOURCE_URL);
+    expect(result?.runNumber).toBe(851);
+    // Preserve the "ft." prefix verbatim — reporter prefers this over
+    // stripping since it's a meaningful crediting convention.
+    expect(result?.title).toBe("ft. Not Just the Tip and Skidmark");
+  });
+
+  it("extracts run number when title uses 'feat.' instead of ':' (#889)", () => {
+    const href =
+      "https://calendar.google.com/calendar/render?action=TEMPLATE" +
+      "&text=BTVH3+%23852+feat.+Mystery+Guest" +
+      "&dates=20260506T223000Z/20260506T233000Z" +
+      "&details=Hares%3A+Mystery";
+
+    const result = parseCalendarLink(href, SOURCE_URL);
+    expect(result?.runNumber).toBe(852);
+    expect(result?.title).toBe("feat. Mystery Guest");
+  });
+
+  it("extracts run number from bare '#NNN' title with no subtitle (#889)", () => {
+    const href =
+      "https://calendar.google.com/calendar/render?action=TEMPLATE" +
+      "&text=BTVH3+%23853" +
+      "&dates=20260513T223000Z/20260513T233000Z" +
+      "&details=Hares%3A+TBD";
+
+    const result = parseCalendarLink(href, SOURCE_URL);
+    expect(result?.runNumber).toBe(853);
+    expect(result?.title).toBe("BurlyH3 #853");
+  });
+
   it("strips 'Length:' and 'Shiggy Scale:' trail metadata from hares field (#825)", () => {
     // BurlyH3 concatenates trail metadata inline with hares. Source-of-truth
     // content: "Hares: 20 Gallons of Piss & Redtail SwallowsLength: TBDShiggy Scale: 4"

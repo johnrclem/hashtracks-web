@@ -70,13 +70,24 @@ export function parseCalendarLink(
   const min = String(localDate.getMinutes()).padStart(2, "0");
   const startTime = `${hh}:${min}`;
 
-  // Parse title and run number: "BTVH3 #846: Season Premier"
+  // Parse title and run number. Three accepted forms (#889):
+  //   "BTVH3 #846: Season Premier"       → title "Season Premier"
+  //   "BTVH3 #851 ft. Not Just the Tip"  → title "ft. Not Just the Tip" (prefix kept)
+  //   "BTVH3 #852"                        → title "BurlyH3 #852"
   let title = text.trim();
   let runNumber: number | undefined;
-  const runMatch = /(?:BTVH3|BurlyH3|Burlington)\s*#(\d+)\s*[:\-–]\s*(.*)/i.exec(title);
-  if (runMatch) {
-    runNumber = parseInt(runMatch[1], 10);
-    title = runMatch[2].trim() || `BurlyH3 #${runNumber}`;
+  const colonMatch = /(?:BTVH3|BurlyH3|Burlington)\s*#(\d+)\s*[:\-–]\s*(.*)/i.exec(title);
+  if (colonMatch) {
+    runNumber = parseInt(colonMatch[1], 10);
+    title = colonMatch[2].trim() || `BurlyH3 #${runNumber}`;
+  } else {
+    const altMatch = /(?:BTVH3|BurlyH3|Burlington)\s*#(\d+)(?:\s+(ft\.|feat\.)\s+(.+)|\s*$)/i.exec(title);
+    if (altMatch) {
+      runNumber = parseInt(altMatch[1], 10);
+      const featSep = altMatch[2];
+      const rest = altMatch[3];
+      title = featSep ? `${featSep} ${rest}`.trim() : `BurlyH3 #${runNumber}`;
+    }
   }
 
   // Parse details — strip HTML and extract hares
