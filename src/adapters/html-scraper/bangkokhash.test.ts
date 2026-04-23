@@ -91,6 +91,30 @@ describe("parseNextRunArticle", () => {
     expect(event!.location).toBe("MRT Sutthisan");
   });
 
+  it("does not leak the next label when a slot is empty (#846 BFMH3)", () => {
+    // BFMH3 Run #255: the Station and Restaurant slots are empty — the source
+    // emits `Station:\nRestaurant:\nGooglemaps: https://...`. A grab() regex
+    // with `\s*:\s*(.+?)(?:\n|$)` consumes the newline after `Station:` and
+    // captures "Restaurant:", and `Restaurant:` then captures "Googlemaps:
+    // https://...". The fix makes grab() strictly single-line.
+    const html = `
+<div class="item-content">
+  <p><strong>Date</strong>: 03-May-2026<br>
+  <strong>Start Time</strong>: 18:30<br>
+  <strong>Hare</strong>: Jessticles<br>
+  <strong>Station</strong>: <br>
+  <strong>Restaurant</strong>: <br>
+  <strong>Googlemaps</strong>: https://maps.app.goo.gl/abc123</p>
+</div>`;
+    const event = parseNextRunArticle(html, "bfmh3", "18:30", "https://www.bangkokhash.com/fullmoon/index.php");
+    expect(event).not.toBeNull();
+    // With all three venue slots empty, there should be NO location value —
+    // not "Restaurant:" leaking from Station, not "Googlemaps: ..." leaking
+    // from Restaurant.
+    expect(event!.location).toBeUndefined();
+    expect(event!.locationUrl).toBe("https://maps.app.goo.gl/abc123");
+  });
+
   it("filters boilerplate 'On On Q' out of Hares field (#802 BFMH3)", () => {
     // From BFMH3 (Bangkok Full Moon) next-run article — the labeled
     // `Hares:` row carries "On On Q" filler instead of a real name.

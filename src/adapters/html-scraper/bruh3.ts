@@ -122,6 +122,16 @@ export function parseEventBlock(
     location = location.replace(/:\s*-?\d+\.\d+\s*,\s*-?\d+\.\d+\s*$/, "").trim();
   }
 
+  // #842: capture free-form description (transit tips, trail notes) that
+  // follows the "Start & après:" line. The location regex only captures to
+  // end-of-line; anything after that within the block is narrative prose.
+  let description: string | undefined;
+  if (locMatch) {
+    const after = text.slice(locMatch.index + locMatch[0].length);
+    const cleaned = after.replaceAll(/\s+/g, " ").trim();
+    if (cleaned.length > 0) description = cleaned;
+  }
+
   const title = eventName
     ? `BruH3 #${runNumber} — ${eventName}`
     : `BruH3 #${runNumber}`;
@@ -133,6 +143,7 @@ export function parseEventBlock(
     runNumber,
     hares,
     location,
+    description,
     startTime: DEFAULT_START_TIME,
     sourceUrl,
   };

@@ -176,6 +176,43 @@ Start and apres: Some parking lot, 1000 Brussels
     expect(parseEventBlock(block, SOURCE_URL)).toBeNull();
   });
 
+  it("captures free-form description after Start & après line (#842)", () => {
+    // BruH3 Hash 2343 verbatim shape: the narrative prose (transit tips,
+    // trail notes) lives AFTER the `Start & après:` line within the block.
+    // The location regex only consumes to end-of-line; anything after belongs
+    // on description.
+    const block = `
+Hash 2343:     25.04.26
+
+Hare:     Julian O. & Tony
+
+Start & après:    Rue Nisard 9/6 Watermael-Boisfort 1170
+
+Public transport: Bus 95 to Wiener from Grand-Place; Tram 8 to Wiener from Louise and Roodebeek (or Herrmann-Debroux metro), then a short walk. Other buses and train to Boitsfort Station also options but with a longer walk.
+    `.trim();
+
+    const event = parseEventBlock(block, SOURCE_URL);
+
+    expect(event).not.toBeNull();
+    expect(event!.location).toBe("Rue Nisard 9/6 Watermael-Boisfort 1170");
+    expect(event!.description).toContain("Public transport");
+    expect(event!.description).toContain("Boitsfort");
+  });
+
+  it("leaves description undefined when block has no trailing narrative (#842)", () => {
+    const block = `
+Hash 2341:     11.04.26
+Hare:     Ed
+Start & après: Bois de la Cambre
+    `.trim();
+
+    const event = parseEventBlock(block, SOURCE_URL);
+
+    expect(event).not.toBeNull();
+    expect(event!.location).toBe("Bois de la Cambre");
+    expect(event!.description).toBeUndefined();
+  });
+
   it("handles block with no location", () => {
     const block = `
 Hash 2340:     04.04.26

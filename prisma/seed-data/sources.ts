@@ -202,9 +202,14 @@ export const SOURCES = [
           ["DLH3|Duneland|South Shore", "dlh3"],
         ],
         defaultKennelTag: "ch3",
-        // 4X2H4 events put the run number in `What: 4x2 H4 No. 124`. The pattern
-        // is specific enough that other Chicagoland kennels can't accidentally match.
-        runNumberPatterns: [String.raw`What:\s*4x2\s*H4\s*No\.?\s*(\d+)`],
+        // Per-kennel `What: <kennel> No. N` run-number patterns. Each entry is
+        // narrow enough that sibling Chicagoland kennels can't accidentally match.
+        // - 4X2H4: "What: 4x2 H4 No. 124"
+        // - BDH3 (#861): "What: Big Dogs HHH No. 258" (HHH suffix optional)
+        runNumberPatterns: [
+          String.raw`What:\s*4x2\s*H4\s*No\.?\s*(\d+)`,
+          String.raw`What:\s*Big\s+Dogs(?:\s+HHH)?\s*No\.?\s*(\d+)`,
+        ],
         // Only the soonest-upcoming 4X2H4 event has a populated description; it
         // carries an inline hareline block listing future dates → hares.
         // Back-fill matching events at scrape-post-pass time so each event
@@ -465,11 +470,17 @@ export const SOURCES = [
       type: "ICAL_FEED" as const,
       trustLevel: 6,
       scrapeFreq: "daily",
-      scrapeDays: 90,
+      // #837: Neuglobsow and other annual specials land ~5mo out, past the
+      // 90-day window. Bump to a full year to cover them.
+      scrapeDays: 365,
       config: {
         kennelPatterns: [["Full Moon Run", "bh3fm"]],
         defaultKennelTag: "berlinh3",
         enrichBerlinH3Details: true,
+        // #838: Berlin H3 descriptions use a "Who: Trail laid by <hares>" row
+        // inside a multi-line "Location/When/Who/What to bring" block. The
+        // default HARE_PATTERNS miss this phrasing.
+        harePatterns: [String.raw`(?:^|\n)\s*Who:\s*Trail\s+laid\s+by\s+([^,\n]+)`],
       },
       kennelCodes: ["berlinh3", "bh3fm"],
     },
