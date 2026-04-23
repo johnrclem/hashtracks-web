@@ -27,8 +27,8 @@ describe("parseLswDate", () => {
 describe("parseLswRow", () => {
   const sourceUrl = "https://www.datadesignfactory.com/lsw/hareline.htm";
 
-  it("parses a complete row", () => {
-    const cells = ["09 Apr 25", "2402", "Indy and Inflatable", "Night Run"];
+  it("parses a complete row, mapping DESCRIPTION column to location (#873)", () => {
+    const cells = ["09 Apr 25", "2402", "Indy and Inflatable", "Chai Wan"];
     const result = parseLswRow(cells, sourceUrl);
 
     expect(result).not.toBeNull();
@@ -36,18 +36,23 @@ describe("parseLswRow", () => {
     expect(result!.kennelTag).toBe("lsw-h3");
     expect(result!.runNumber).toBe(2402);
     expect(result!.hares).toBe("Indy and Inflatable");
-    expect(result!.description).toBe("Night Run");
+    // Source calls this column "DESCRIPTION" but it always holds an HK
+    // district name — map to location, not description.
+    expect(result!.location).toBe("Chai Wan");
+    // Do NOT emit description: null — that would wipe descriptions contributed
+    // by other sources / manual edits on every scrape. Field is simply absent.
+    expect(result!.description).toBeUndefined();
     expect(result!.startTime).toBe("18:30");
     expect(result!.sourceUrl).toBe(sourceUrl);
   });
 
   it("handles missing hares", () => {
-    const cells = ["16 Apr 25", "2403", "", "Mystery Run"];
+    const cells = ["16 Apr 25", "2403", "", "Shek O"];
     const result = parseLswRow(cells, sourceUrl);
 
     expect(result).not.toBeNull();
     expect(result!.hares).toBeUndefined();
-    expect(result!.description).toBe("Mystery Run");
+    expect(result!.location).toBe("Shek O");
   });
 
   it("handles placeholder hares", () => {
@@ -58,11 +63,12 @@ describe("parseLswRow", () => {
     expect(result!.hares).toBeUndefined();
   });
 
-  it("handles missing description", () => {
+  it("handles missing location cell", () => {
     const cells = ["23 Apr 25", "2404", "Hash Flash"];
     const result = parseLswRow(cells, sourceUrl);
 
     expect(result).not.toBeNull();
+    expect(result!.location).toBeUndefined();
     expect(result!.description).toBeUndefined();
   });
 
