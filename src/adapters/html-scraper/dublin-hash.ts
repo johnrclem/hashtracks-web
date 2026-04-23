@@ -21,11 +21,18 @@ import type {
 import { hasAnyErrors } from "../types";
 import { chronoParseDate, fetchHTMLPage, buildDateWindow } from "../utils";
 
-/** Strip a trailing 1–2 letter postal-code fragment after a comma (e.g. "Dublin, D" → "Dublin"). */
+/**
+ * Strip a trailing 1–2 letter postal-code fragment after a comma
+ * (e.g. "Dublin, D" → "Dublin"). #905: also normalize nbsp → space so a
+ * trailing `, D\u00A0` (source row wrapping after "Dublin, ") is recognized
+ * by the regex's `$` anchor. Multi-digit suffixes like "D02" are real
+ * Eircodes and intentionally preserved.
+ */
 export function stripTruncatedPostalFragment(value: string | undefined): string | undefined {
   if (!value) return undefined;
-  const trimmed = value.replace(/,\s*[A-Z]{1,2}$/i, "").trim();
-  return trimmed || undefined;
+  const normalized = value.replace(/\u00A0/g, " ").trim();
+  const stripped = normalized.replace(/,\s*[A-Z]{1,2}$/i, "").trim();
+  return stripped || undefined;
 }
 
 /**

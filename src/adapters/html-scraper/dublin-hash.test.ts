@@ -60,6 +60,16 @@ describe("stripTruncatedPostalFragment", () => {
       "51 Bar, Haddington Rd, Dublin, D02",
     );
   });
+  it("strips fragment followed by trailing nbsp (#905)", () => {
+    expect(
+      stripTruncatedPostalFragment("51 Bar, Haddington Rd, Dublin, D\u00A0"),
+    ).toBe("51 Bar, Haddington Rd, Dublin");
+  });
+  it("normalizes interior nbsp to space before stripping (#905)", () => {
+    expect(
+      stripTruncatedPostalFragment("Dublin,\u00A0D"),
+    ).toBe("Dublin");
+  });
   it("returns undefined for empty input", () => {
     expect(stripTruncatedPostalFragment(undefined)).toBeUndefined();
     expect(stripTruncatedPostalFragment("")).toBeUndefined();
