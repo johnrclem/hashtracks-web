@@ -342,8 +342,13 @@ const DEFAULT_HARE_PATTERNS = [
   /(?:^|\n)[ \t]*Hare[ \t]+([A-Z*].+)/im,  // "Hare C*ck Swap" (no colon, name starts uppercase/special)
 ];
 
-const COST_LABEL_RE =
-  /(?:^|\n)[ \t]*(?:How\s+much|Hash\s+Cash|WHAT\s+IS\s+THE\s+COST|Cost|Price)\s*:[ \t]*([^\n]+)/im;
+const COST_LABELS = new Set([
+  "how much",
+  "hash cash",
+  "what is the cost",
+  "cost",
+  "price",
+]);
 
 /**
  * Extract a cost value from a calendar description. Bare integers get a `$`
@@ -351,13 +356,19 @@ const COST_LABEL_RE =
  * carry a currency symbol, unit, or word ("Free") pass through verbatim.
  */
 export function extractCostFromDescription(description: string): string | undefined {
-  const match = COST_LABEL_RE.exec(description);
-  if (!match?.[1]) return undefined;
-  let value = match[1].trim();
-  value = value.replace(EVENT_FIELD_LABEL_RE, "").replace(EVENT_FIELD_LABEL_UPPERCASE_RE, "").trim();
-  if (!value || isPlaceholder(value)) return undefined;
-  if (/^\d+(?:\.\d{1,2})?$/.test(value)) return `$${value}`;
-  return value;
+  for (const line of description.split("\n")) {
+    const trimmed = line.trim();
+    const colonIdx = trimmed.indexOf(":");
+    if (colonIdx <= 0) continue;
+    const label = trimmed.slice(0, colonIdx).toLowerCase().replace(/\s+/g, " ").trim();
+    if (!COST_LABELS.has(label)) continue;
+    let value = trimmed.slice(colonIdx + 1).trim();
+    value = value.replace(EVENT_FIELD_LABEL_RE, "").replace(EVENT_FIELD_LABEL_UPPERCASE_RE, "").trim();
+    if (!value || isPlaceholder(value)) return undefined;
+    if (/^\d+(?:\.\d{1,2})?$/.test(value)) return `$${value}`;
+    return value;
+  }
+  return undefined;
 }
 
 /**

@@ -477,7 +477,7 @@ export const SOURCES = [
         // #838: Berlin H3 descriptions use a "Who: Trail laid by <hares>" row
         // inside a multi-line "Location/When/Who/What to bring" block. The
         // default HARE_PATTERNS miss this phrasing.
-        harePatterns: ["(?:^|\\n)\\s*Who:\\s*Trail\\s+laid\\s+by\\s+([^,\\n]+)"],
+        harePatterns: [String.raw`(?:^|\n)\s*Who:\s*Trail\s+laid\s+by\s+([^,\n]+)`],
       },
       kennelCodes: ["berlinh3", "bh3fm"],
     },

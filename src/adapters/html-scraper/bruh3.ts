@@ -128,7 +128,7 @@ export function parseEventBlock(
   let description: string | undefined;
   if (locMatch) {
     const after = text.slice(locMatch.index + locMatch[0].length);
-    const cleaned = after.replace(/\s+/g, " ").trim();
+    const cleaned = after.replaceAll(/\s+/g, " ").trim();
     if (cleaned.length > 0) description = cleaned;
   }
 
