@@ -115,6 +115,61 @@ describe("parseNextRunArticle", () => {
     expect(event!.locationUrl).toBe("https://maps.app.goo.gl/abc123");
   });
 
+  it("parses archive detail pages using .com-content-article__body template", () => {
+    // Archive detail uses `.com-content-article__body` wrapper (not `.item-content`);
+    // the `Googlemaps:` label is one word on historical pages.
+    const html = `
+<div class="page-header"><h1>Run #254, BTS Asok</h1></div>
+<div class="com-content-article__body">
+  <p><strong>Date</strong>: 03-Apr-2026<br>
+  <strong>Start Time</strong>: 18:30<br>
+  <strong>Hare</strong>: Patpom<br>
+  <strong>Station</strong>: BTS Asok<br>
+  <strong>Restaurant</strong>: Little Hut House of Waffle<br>
+  <strong>Googlemaps</strong>: https://maps.app.goo.gl/v5yucg6jKmXALUf59</p>
+</div>`;
+    const event = parseNextRunArticle(html, "bfmh3", "18:30", "https://www.bangkokhash.com/fullmoon/index.php/run-archives-bfmh3/157-run-254");
+    expect(event).not.toBeNull();
+    expect(event!.date).toBe("2026-04-03");
+    expect(event!.kennelTag).toBe("bfmh3");
+    expect(event!.hares).toBe("Patpom");
+    expect(event!.location).toBe("BTS Asok");
+    expect(event!.locationUrl).toBe("https://maps.app.goo.gl/v5yucg6jKmXALUf59");
+    expect(event!.startTime).toBe("18:30");
+  });
+
+  it("parses pre-2022 BFMH3 archive pages using When/Where labels", () => {
+    // Older BFMH3 archive pages (#187-#197, ~2019-2021) use "When:" instead
+    // of "Date:" and "Where:" instead of "Station:"/"Run Site:". Date format
+    // also varies — chrono handles the natural-language variations.
+    const html = `
+<div class="com-content-article__body">
+  <p><strong>When</strong>: Friday, 10-Jan-2020<br>
+  <strong>Where</strong>: On Nut BTS, Car park behind Cheap Charlies<br>
+  <strong>Hare</strong>: Soi Squatter</p>
+</div>`;
+    const event = parseNextRunArticle(html, "bfmh3", "18:30", "https://www.bangkokhash.com/fullmoon/index.php/run-archives-bfmh3/73-run-187");
+    expect(event).not.toBeNull();
+    expect(event!.date).toBe("2020-01-10");
+    expect(event!.hares).toBe("Soi Squatter");
+    expect(event!.location).toBe("On Nut BTS, Car park behind Cheap Charlies");
+  });
+
+  it("returns null when the Date field lacks a 4-digit year", () => {
+    // chrono defaults yearless dates to the current year, which would
+    // silently misfile historical runs. The year-guard rejects them so we
+    // skip rather than corrupt. Real archive example: older BFMH3 pages
+    // occasionally published "Friday, January 1st" without a year.
+    const html = `
+<div class="com-content-article__body">
+  <p><strong>Date</strong>: Friday, January 1st<br>
+  <strong>Hare</strong>: Soi Squatter<br>
+  <strong>Station</strong>: On Nut BTS</p>
+</div>`;
+    const event = parseNextRunArticle(html, "bfmh3", "18:30", "https://www.bangkokhash.com/fullmoon/index.php/run-archives-bfmh3/73-run-187");
+    expect(event).toBeNull();
+  });
+
   it("filters boilerplate 'On On Q' out of Hares field (#802 BFMH3)", () => {
     // From BFMH3 (Bangkok Full Moon) next-run article — the labeled
     // `Hares:` row carries "On On Q" filler instead of a real name.
