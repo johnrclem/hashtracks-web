@@ -509,6 +509,36 @@ async function SavedTripPage({
     );
   }
 
+  // Heartbeat: DRAFT trips are bookmarkable (the URL resolves them
+  // even without explicit Save), so the draft-GC cron must see real
+  // activity when the user reopens one. Bump `updatedAt` on read so
+  // the 7-day TTL in runTravelDraftGc only fires on truly abandoned
+  // drafts. updateMany is ownership+status-scoped; a concurrent
+  // DRAFT→ACTIVE transition inside saveTravelSearch's tx will skip
+  // this no-op.
+  //
+  // Awaited (not fire-and-forget): serverless invocations can end
+  // before a background promise settles, which would leave
+  // `updatedAt` stale and risk a GC-driven data loss on the next
+  // cron run. Bounded throttle: skip when updatedAt was refreshed
+  // within the last 24h, so frequent page reloads don't hammer the
+  // DB (the 7-day TTL has plenty of headroom for a daily refresh).
+  const HEARTBEAT_THROTTLE_MS = 24 * 60 * 60 * 1000;
+  if (
+    search.status === TravelSearchStatus.DRAFT &&
+    Date.now() - search.updatedAt.getTime() > HEARTBEAT_THROTTLE_MS
+  ) {
+    try {
+      await prisma.travelSearch.updateMany({
+        where: { id: search.id, userId: user.id, status: TravelSearchStatus.DRAFT },
+        data: { updatedAt: new Date() },
+      });
+    } catch (err) {
+      console.error("[travel] draft heartbeat failed", err);
+      Sentry.captureException(err);
+    }
+  }
+
   const { confidenceFilter, distanceFilter } = parseFilterParams(filterParams);
   const destinations = search.destinations.map((d) => ({
     latitude: d.latitude,
