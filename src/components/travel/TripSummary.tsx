@@ -16,10 +16,22 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { formatDateCompact, daysBetween, cityToIata } from "@/lib/travel/format";
+import {
+  formatDateCompact,
+  daysBetween,
+  cityToIata,
+  extractCityName,
+} from "@/lib/travel/format";
 import { buildMultiEventIcs } from "@/lib/calendar";
 import { capture } from "@/lib/analytics";
 import { stashSaveIntent } from "@/lib/travel/save-intent";
+import type { ExportableConfirmedEvent } from "@/lib/travel/export";
+
+// Re-export so existing consumers that imported `ExportableConfirmedEvent`
+// from TripSummary keep working. The canonical definition + projection
+// helper now live at `@/lib/travel/export` so server components can
+// use them without crossing the `"use client"` boundary.
+export type { ExportableConfirmedEvent } from "@/lib/travel/export";
 import { sanitizeRedirectPath } from "@/lib/travel/url";
 import {
   deleteTravelSearch,
@@ -27,18 +39,6 @@ import {
   saveTravelSearch,
 } from "@/app/travel/actions";
 
-/** Minimal shape required to build a VEVENT from a confirmed search result. */
-export interface ExportableConfirmedEvent {
-  date: string;
-  startTime: string | null;
-  timezone: string | null;
-  title: string | null;
-  runNumber: number | null;
-  haresText: string | null;
-  locationName: string | null;
-  sourceUrl: string | null;
-  kennelName: string;
-}
 
 /** Per-leg shape used when rendering the multi-stop ITINERARY hero. */
 export interface TripSummaryLeg {
@@ -507,10 +507,7 @@ function SavedBadge({
  */
 function ItineraryHero({ legs }: Readonly<{ legs: TripSummaryLeg[] }>) {
   const iataCodes = legs.map((leg) => cityToIata(leg.label));
-  const cityNames = legs.map((leg) => {
-    const first = leg.label.split(",")[0]?.trim() ?? leg.label;
-    return first.toUpperCase();
-  });
+  const cityNames = legs.map((leg) => extractCityName(leg.label).toUpperCase());
   const firstStart = legs[0].startDate;
   const lastEnd = legs.at(-1)!.endDate;
   const totalDays = daysBetween(firstStart, lastEnd);
