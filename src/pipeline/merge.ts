@@ -840,7 +840,11 @@ async function upsertCanonicalEvent(
         where: { id: existingEvent.id },
         data: {
           ...(shouldRestore ? { status: "CONFIRMED" as const } : {}),
-          runNumber: event.runNumber ?? existingEvent.runNumber,
+          // Tri-state: undefined = preserve existing, null = explicit clear
+          // (e.g. HC eventNumber=0 socials), number = overwrite (#892).
+          ...(event.runNumber !== undefined
+            ? { runNumber: event.runNumber }
+            : {}),
           title: (() => {
             const nextTitle = sanitizeTitle(event.title) ?? existingEvent.title;
             return nextTitle ? rewriteStaleDefaultTitle(nextTitle, kennelData.kennelCode, kennelData.shortName, kennelData.fullName) : nextTitle;

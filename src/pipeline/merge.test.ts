@@ -225,6 +225,39 @@ describe("processRawEvents", () => {
     );
   });
 
+  it("clears existing runNumber when adapter emits null (HC social re-scrape #892)", async () => {
+    // Existing canonical event was previously stored with runNumber=2100 (a
+    // social that wrongly inherited a numbered-run value before #892). HC
+    // adapter now emits runNumber=null for eventNumber<=0; merge UPDATE must
+    // overwrite, not preserve, so the user-visible "#0/#2100" regression goes
+    // away on next scrape — not just for newly-created events.
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_social", trustLevel: 5, runNumber: 2100 },
+    ] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    await processRawEvents("src_1", [buildRawEvent({ runNumber: null })]);
+
+    const updateCall = mockEventUpdate.mock.calls[0]?.[0] as { data: Record<string, unknown> };
+    expect(updateCall.data.runNumber).toBeNull();
+  });
+
+  it("preserves existing runNumber when adapter omits the field (undefined)", async () => {
+    // Symmetric guard: many adapters never emit runNumber. They must not
+    // accidentally clear an existing value.
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_existing", trustLevel: 5, runNumber: 1234 },
+    ] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    await processRawEvents("src_1", [buildRawEvent({ runNumber: undefined })]);
+
+    const updateCall = mockEventUpdate.mock.calls[0]?.[0] as { data: Record<string, unknown> };
+    expect(updateCall.data).not.toHaveProperty("runNumber");
+  });
+
   it("preserves existing locationCity for HARRIER_CENTRAL sources on update (#471)", async () => {
     // On UPDATE we never touch locationCity for canonical-location sources. If a non-HC
     // source previously populated city for this canonical event (cross-source merge),
