@@ -40,7 +40,9 @@ export function parseLswDate(text: string): string | null {
 
 /**
  * Parse a single LSW hareline table row into RawEventData.
- * Expected columns: DATE, RUN NO., HARES, DESCRIPTION
+ * Expected columns: DATE, RUN NO., HARES, DESCRIPTION (source calls it
+ * "DESCRIPTION" but the content is always an HK district name —
+ * "Chai Wan", "Shek O" — so map it to `location`, not `description`).
  *
  * Exported for unit testing.
  */
@@ -50,7 +52,7 @@ export function parseLswRow(
 ): RawEventData | null {
   if (cells.length < 2) return null;
 
-  const [dateCell, runNoCell, haresCell, descCell] = cells;
+  const [dateCell, runNoCell, haresCell, locationCell] = cells;
   const date = parseLswDate(dateCell ?? "");
   if (!date) return null;
 
@@ -60,15 +62,20 @@ export function parseLswRow(
   const hares = haresCell?.trim();
   const validHares = hares && !isPlaceholder(hares) ? hares : undefined;
 
-  const description = descCell?.trim() || undefined;
+  const location = locationCell?.trim() || undefined;
 
   return {
     date,
     kennelTag: KENNEL_TAG,
     runNumber: runNumber && runNumber > 0 ? runNumber : undefined,
-    title: runNumber ? `LSW Run #${runNumber}` : description || undefined,
+    title: runNumber ? `LSW Run #${runNumber}` : location || undefined,
     hares: validHares,
-    description,
+    location,
+    // Do NOT emit description: null here — the merge UPDATE path treats that
+    // as an authoritative clear and would wipe descriptions contributed by
+    // other sources or manual edits on every scrape. Stale rows from the
+    // previous mis-mapping get cleaned up via a one-shot admin cleanup, not
+    // by silently nuking the column forever (#873).
     startTime: DEFAULT_START_TIME,
     sourceUrl,
   };

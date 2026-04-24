@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { HarrierCentralAdapter } from "./adapter";
+import { HarrierCentralAdapter, composeHcLocation } from "./adapter";
 import type { HCEvent } from "./adapter";
 import { generateAccessToken, PUBLIC_HASHER_ID } from "./token";
 import type { Source } from "@/generated/prisma/client";
@@ -52,6 +52,46 @@ function mockApiResponse(events: HCEvent[]) {
     json: async () => [events],
   } as never);
 }
+
+describe("composeHcLocation", () => {
+  it("returns undefined when both fields are missing or TBA", () => {
+    expect(composeHcLocation(undefined, undefined)).toBeUndefined();
+    expect(composeHcLocation("TBA", "TBA")).toBeUndefined();
+    expect(composeHcLocation("", "")).toBeUndefined();
+  });
+
+  it("treats padded/case-variant TBA as missing (prevents merge UPDATE from clearing good location)", () => {
+    // Without trimming-before-sentinel, " TBA " survives as a defined string
+    // and the merge path would overwrite existing canonical locationName with
+    // sanitizeLocation("TBA") = null on an equal-trust re-scrape.
+    expect(composeHcLocation(" TBA ", " TBA ")).toBeUndefined();
+    expect(composeHcLocation("tba", "TBA\n")).toBeUndefined();
+  });
+
+  it("returns place alone when resolvable is bare coordinates", () => {
+    expect(composeHcLocation("Waseda exit", "35.713, 139.704")).toBe("Waseda exit");
+  });
+
+  it("returns address alone when it already contains the place name", () => {
+    expect(
+      composeHcLocation("Morgantown", "227 Spruce Street, Morgantown, WV"),
+    ).toBe("227 Spruce Street, Morgantown, WV");
+  });
+
+  it("composes 'place, address' when both are distinct", () => {
+    expect(
+      composeHcLocation("Apothecary Ale House", "227 Spruce Street, Morgantown, WV"),
+    ).toBe("Apothecary Ale House, 227 Spruce Street, Morgantown, WV");
+  });
+
+  it("preserves venue when its name is a substring of an address token (not a full segment)", () => {
+    // "Iron Horse" appears inside "Iron Horse Tavern Road" but is NOT a complete
+    // comma segment — venue should be preserved, not silently dropped.
+    expect(
+      composeHcLocation("Iron Horse", "Iron Horse Tavern Road, Morgantown, WV"),
+    ).toBe("Iron Horse, Iron Horse Tavern Road, Morgantown, WV");
+  });
+});
 
 describe("generateAccessToken", () => {
   it("produces a 64-char hex string", () => {
@@ -240,13 +280,74 @@ describe("HarrierCentralAdapter", () => {
       expect(result.events[0].date).toBe("2026-04-15");
     });
 
-    it("preserves zero-value lat/lng and eventNumber", async () => {
+    it("preserves zero-value lat/lng (equator is valid) but drops runNumber=0 (#892)", async () => {
+      // eventNumber=0 is how HC flags social / "drinking practice" events that
+      // aren't part of the numbered run series. Storing it as runNumber=0 shows
+      // "#0" on the event card (Morgantown H3's "Hillbilly Drinking Practice"
+      // regression). Coordinates at 0,0 are genuinely the equator — keep them.
+      // Adapter emits `null` (not undefined) so the merge UPDATE path actively
+      // clears any stale runNumber stored before the fix shipped.
       mockApiResponse([buildHCEvent({ syncLat: 0, syncLong: 0, eventNumber: 0 })]);
       const result = await adapter.fetch(makeSource({ defaultKennelTag: "tokyo-h3" }));
       expect(result.events).toHaveLength(1);
       expect(result.events[0].latitude).toBe(0);
       expect(result.events[0].longitude).toBe(0);
-      expect(result.events[0].runNumber).toBe(0);
+      expect(result.events[0].runNumber).toBeNull();
+    });
+
+    it("preserves existing runNumber when eventNumber is absent/invalid (#892)", async () => {
+      // Only the explicit 0 sentinel clears; a negative or missing value
+      // must pass through as `undefined` so the merge UPDATE path leaves
+      // any existing canonical runNumber untouched. Otherwise a partial HC
+      // payload would silently wipe good data on re-scrape.
+      mockApiResponse([buildHCEvent({ eventNumber: -1 })]);
+      const result = await adapter.fetch(makeSource({ defaultKennelTag: "tokyo-h3" }));
+      expect(result.events).toHaveLength(1);
+      expect(result.events[0].runNumber).toBeUndefined();
+    });
+
+    it("composes locationName with street address when resolvableLocation is a real address (#907)", async () => {
+      // Morgantown MH3-US actual payload: locationOneLineDesc is the venue
+      // name, resolvableLocation is the full USPS-shaped address. Prefer the
+      // composed "{venue}, {address}" form so the event card shows street-level
+      // context, not just "Apothecary Ale House and Cafe".
+      mockApiResponse([
+        buildHCEvent({
+          locationOneLineDesc: "Apothecary Ale House and Cafe",
+          resolvableLocation: "227 Spruce Street, Morgantown, 26505-7511, WV, United States",
+        }),
+      ]);
+      const result = await adapter.fetch(makeSource({ defaultKennelTag: "mh3-wv" }));
+      expect(result.events[0].location).toBe(
+        "Apothecary Ale House and Cafe, 227 Spruce Street, Morgantown, 26505-7511, WV, United States",
+      );
+    });
+
+    it("falls back to locationOneLineDesc when resolvableLocation is bare coordinates", async () => {
+      // Tokyo H3 payload: HC couldn't geocode the meeting point so
+      // resolvableLocation is a lat/lng pair, which is useless as user-facing
+      // text. Use the one-line description alone.
+      mockApiResponse([
+        buildHCEvent({
+          locationOneLineDesc: "Yamanote, Tozai lines. Waseda exit",
+          resolvableLocation: "35.713482463621920, 139.704315846472870",
+        }),
+      ]);
+      const result = await adapter.fetch(makeSource({ defaultKennelTag: "tokyo-h3" }));
+      expect(result.events[0].location).toBe("Yamanote, Tozai lines. Waseda exit");
+    });
+
+    it("returns full address alone when locationOneLineDesc duplicates it", async () => {
+      mockApiResponse([
+        buildHCEvent({
+          locationOneLineDesc: "227 Spruce Street, Morgantown",
+          resolvableLocation: "227 Spruce Street, Morgantown, 26505-7511, WV, United States",
+        }),
+      ]);
+      const result = await adapter.fetch(makeSource({ defaultKennelTag: "mh3-wv" }));
+      expect(result.events[0].location).toBe(
+        "227 Spruce Street, Morgantown, 26505-7511, WV, United States",
+      );
     });
 
     it("includes diagnosticContext in result", async () => {
