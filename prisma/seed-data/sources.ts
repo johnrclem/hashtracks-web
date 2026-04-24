@@ -3028,15 +3028,10 @@ export const SOURCES = [
     },
 
     // 2. Petaling H3 — Yii Framework hareline, 1,160+ runs back to 2003
-    // DISABLED pending live verification: Malaysia-hosted origin was
-    // unreachable during the build window so the adapter was only
-    // exercised against captured HTML. Manually flip enabled=true after
-    // confirming the first scrape post-merge returns valid events.
     {
       name: "Petaling H3 Hareline",
       url: "https://ph3.org/index.php?r=site/hareline",
       type: "HTML_SCRAPER" as const,
-      enabled: false,
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 180,
@@ -3048,12 +3043,10 @@ export const SOURCES = [
     },
 
     // 3. KL Full Moon H3 — Yii Framework hareline (same shape as PH3)
-    // DISABLED pending live verification (same Malaysia origin outage).
     {
       name: "KL Full Moon H3 Hareline",
       url: "https://klfullmoonhash.com/index.php?r=site/hareline",
       type: "HTML_SCRAPER" as const,
-      enabled: false,
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 365,
@@ -3065,12 +3058,10 @@ export const SOURCES = [
     },
 
     // 4. KL Junior H3 — self-hosted WordPress REST API
-    // DISABLED pending live verification (same Malaysia origin outage).
     {
       name: "KL Junior H3 Website",
       url: "https://www.kljhhh.org",
       type: "HTML_SCRAPER" as const,
-      enabled: false,
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 365,

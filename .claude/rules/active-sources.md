@@ -218,9 +218,9 @@ globs:
 
 ## Malaysia (7 sources — Phase 1: KL + Penang founder pack)
 - **Mother Hash Website** -> HTML_SCRAPER (Google Sites, labeled-field parse) -> motherh3 (weekly Monday 18:00, **1938 — first hash kennel in the world**)
-- **Petaling H3 Hareline** -> HTML_SCRAPER (Yii GridView, shared adapter) -> ph3-my (weekly Saturday, 1977, 1160+ runs) — **gated `enabled:false` pending live verify post-merge**
-- **KL Full Moon H3 Hareline** -> HTML_SCRAPER (Yii GridView, shared adapter) -> klfmh3 (monthly full moon, 1992) — **gated `enabled:false` pending live verify post-merge**
-- **KL Junior H3 Website** -> HTML_SCRAPER (WordPress REST API, body regex) -> kljhhh (monthly 1st Sunday, 1982) — **gated `enabled:false` pending live verify post-merge**
+- **Petaling H3 Hareline** -> HTML_SCRAPER (Yii GridView, shared adapter) -> ph3-my (weekly Saturday, 1977, 1160+ runs)
+- **KL Full Moon H3 Hareline** -> HTML_SCRAPER (Yii GridView, shared adapter) -> klfmh3 (monthly full moon, 1992)
+- **KL Junior H3 Website** -> HTML_SCRAPER (WordPress REST API, body regex) -> kljhhh (monthly 1st Sunday, 1982)
 - **Penang H3 Hareline** -> HTML_SCRAPER (goHash.app SSR, shared adapter) -> penangh3 (weekly Monday 17:30, 1965 — 3rd-oldest kennel ever)
 - **HHH Penang Hareline** -> HTML_SCRAPER (goHash.app SSR, shared adapter) -> hhhpenang (weekly Thursday 17:30, 1972)
 - **Kelana Jaya Harimau Blog** -> HTML_SCRAPER (Blogger API with Run#: title filter + dedup) -> kj-harimau (weekly Tuesday 18:00, 1996)
