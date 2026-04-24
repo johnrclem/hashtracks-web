@@ -682,6 +682,36 @@ describe("double-header support", () => {
       }),
     );
   });
+
+  it("restores a CANCELLED row via refreshExistingEvent even when scraped row has no startTime (#874)", async () => {
+    // Dublin Nash Hash regression: the hareline row "3–5 July 2026" has no
+    // time, so composeUtcStart returns null. Without this fix, the early
+    // return in refreshExistingEvent bypassed the CANCELLED→CONFIRMED restore
+    // for processed=true fingerprint matches, leaving the event cancelled
+    // indefinitely once it had been cancelled by a prior reconcile cycle.
+    mockRawEventFind.mockResolvedValueOnce({
+      id: "raw_existing",
+      processed: true,
+      eventId: "evt_cancelled",
+    } as never);
+    vi.mocked(prisma.event.findUnique).mockResolvedValueOnce({
+      trustLevel: 5,
+      dateUtc: null,
+      timezone: "Europe/Dublin",
+      status: "CANCELLED",
+    } as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    const result = await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-07-03", startTime: undefined }),
+    ]);
+
+    expect(result.restored).toBe(1);
+    expect(mockEventUpdate).toHaveBeenCalledWith({
+      where: { id: "evt_cancelled" },
+      data: { status: "CONFIRMED" },
+    });
+  });
 });
 
 describe("empty event guard", () => {

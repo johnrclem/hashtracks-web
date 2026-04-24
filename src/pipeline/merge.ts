@@ -289,30 +289,32 @@ async function refreshExistingEvent(
   const timezone = regionTimezone(region);
   const eventDate = parseUtcNoonDate(event.date);
   const composedUtc = composeUtcStart(eventDate, event.startTime, timezone);
-  // No start time → can't update dateUtc/timezone; upsertCanonicalEvent handles restores for these
-  if (!composedUtc) return;
 
   const existingEvent = await prisma.event.findUnique({
     where: { id: existingEventId },
     select: { trustLevel: true, dateUtc: true, timezone: true, status: true },
   });
+  // Auto-restore cancelled events when source still returns them. Runs even
+  // when we can't compose a dateUtc (scraped row has no startTime) — otherwise
+  // processed=true duplicates for rows without startTime stay CANCELLED forever
+  // because upsertCanonicalEvent's restore path is unreachable here. (#874)
+  const shouldRestore = existingEvent?.status === "CANCELLED";
   const isHigherOrEqualTrust = !existingEvent || ctx.trustLevel >= existingEvent.trustLevel;
   const isAlreadyCurrent =
+    !!composedUtc &&
     existingEvent?.dateUtc?.getTime() === composedUtc.getTime() &&
     existingEvent?.timezone === timezone;
-  // Auto-restore cancelled events when source still returns them
-  const shouldRestore = existingEvent?.status === "CANCELLED";
-  const needsUpdate = (isHigherOrEqualTrust && !isAlreadyCurrent) || shouldRestore;
-  if (needsUpdate) {
-    await prisma.event.update({
-      where: { id: existingEventId },
-      data: {
-        ...(isHigherOrEqualTrust && !isAlreadyCurrent ? { dateUtc: composedUtc, timezone } : {}),
-        ...(shouldRestore ? { status: "CONFIRMED" as const } : {}),
-      },
-    });
-    if (shouldRestore) ctx.result.restored++;
-  }
+  const shouldRefreshDateUtc = !!composedUtc && isHigherOrEqualTrust && !isAlreadyCurrent;
+  if (!shouldRestore && !shouldRefreshDateUtc) return;
+
+  await prisma.event.update({
+    where: { id: existingEventId },
+    data: {
+      ...(shouldRefreshDateUtc ? { dateUtc: composedUtc, timezone } : {}),
+      ...(shouldRestore ? { status: "CONFIRMED" as const } : {}),
+    },
+  });
+  if (shouldRestore) ctx.result.restored++;
 }
 
 /**
