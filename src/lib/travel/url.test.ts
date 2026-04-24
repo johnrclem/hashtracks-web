@@ -234,9 +234,9 @@ describe("sanitizeRedirectPath", () => {
     expect(sanitizeRedirectPath("//evil.com/phish", "/travel")).toBe("/travel");
   });
 
-  it("rejects backslash-smuggled paths (Chrome normalizes \\ to / in some contexts)", () => {
-    // `/\\evil.com` → Chrome treats as `//evil.com` → cross-origin redirect
-    expect(sanitizeRedirectPath("/\\evil.com", "/travel")).toBe("/travel");
+  it(String.raw`rejects backslash-smuggled paths (Chrome normalizes \ to / in some contexts)`, () => {
+    // `/\evil.com` → Chrome treats as `//evil.com` → cross-origin redirect
+    expect(sanitizeRedirectPath(String.raw`/\evil.com`, "/travel")).toBe("/travel");
     // URL-encoded backslash variants the attacker can smuggle past naive decode
     expect(sanitizeRedirectPath("/%5Cevil.com", "/travel")).toBe("/travel");
     expect(sanitizeRedirectPath("/%5cevil.com", "/travel")).toBe("/travel");
