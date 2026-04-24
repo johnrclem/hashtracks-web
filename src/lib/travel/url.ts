@@ -63,9 +63,11 @@ export function utcYmd(d: Date): string {
 /**
  * Guard against open-redirect attacks at any `/sign-in?redirect_url=`
  * construction site. Only accepts path-relative, non-protocol-relative
- * URLs. An attacker-crafted absolute URL (`https://evil.com/...`) or
- * protocol-relative path (`//evil.com/...`) would otherwise redirect
- * the user to an arbitrary host post-auth.
+ * URLs. An attacker-crafted absolute URL (`https://evil.com/...`),
+ * protocol-relative path (`//evil.com/...`), or backslash-smuggled
+ * path (`/\evil.com` — Chrome normalizes `\` to `/` in some contexts,
+ * turning that into `//evil.com`) would otherwise redirect the user
+ * to an arbitrary host post-auth.
  *
  * Returns the input when safe, or `fallback` otherwise. Callers pick
  * the fallback that matches the surface (e.g. `/travel` for the form,
@@ -75,7 +77,13 @@ export function sanitizeRedirectPath(
   path: string,
   fallback: string = "/",
 ): string {
-  return path.startsWith("/") && !path.startsWith("//") ? path : fallback;
+  return path.startsWith("/") &&
+    !path.startsWith("//") &&
+    !path.startsWith("/\\") &&
+    !path.startsWith("/%5C") &&
+    !path.startsWith("/%5c")
+    ? path
+    : fallback;
 }
 
 /**
