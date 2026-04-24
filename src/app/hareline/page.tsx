@@ -32,9 +32,9 @@ export async function generateMetadata({
 
 export default async function HarelinePage({
   searchParams,
-}: {
+}: Readonly<{
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
-}) {
+}>) {
   const params = await searchParams;
   const timeParam = typeof params.time === "string" ? params.time : null;
   const initialTimeMode: TimeMode = timeParam === "past" ? "past" : "upcoming";
@@ -66,7 +66,7 @@ export default async function HarelinePage({
  * `?time=past` is in the URL, the server fetches past events up front
  * instead of shipping upcoming and relying on the client to swap.
  */
-async function HarelineData({ initialTimeMode }: { initialTimeMode: TimeMode }) {
+async function HarelineData({ initialTimeMode }: Readonly<{ initialTimeMode: TimeMode }>) {
   // Capture `now` before awaiting and thread it into `loadEventsForTimeMode`
   // so the server query boundary, the `serverNowMs` prop, and the client's
   // hydrated bucket split all derive from the same instant. Without a shared

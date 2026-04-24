@@ -51,10 +51,13 @@ const PAST_EVENTS_LIMIT = 200;
 /**
  * Fetch the slim event list for a time mode.
  *
- * Events are stored at UTC noon, so `>= yesterday 00:00 UTC` covers every
- * timezone's "today" (an SF user at 16:00 viewing a noon-UTC run that hasn't
- * happened locally yet) while `< today 00:00 UTC` covers "yesterday and
- * earlier" from every timezone's perspective.
+ * Events are stored at UTC noon. The single boundary used for both modes is
+ * `yesterday 00:00 UTC`: upcoming is `>= yesterdayUtc` (catches noon-UTC runs
+ * that haven't happened yet in any Western-Hemisphere timezone), past is
+ * `< yesterdayUtc` (events definitively in the past for every timezone). The
+ * client's `bucketBoundaryUtc` uses the same value, so server query and
+ * client filter agree — no wasted rows that the client would immediately
+ * hide against `take: PAST_EVENTS_LIMIT`.
  *
  * `nowMs` lets the initial-render path in `page.tsx` share a single clock
  * with the `serverNowMs` prop passed to the client — otherwise an HTTP
@@ -62,6 +65,10 @@ const PAST_EVENTS_LIMIT = 200;
  * boundary off one day and the client hydrate off the next. Omit for the
  * lazy client-driven tab switch, which recomputes fresh boundaries each
  * call.
+ *
+ * Uses `select` (not `include`) so heavy fields (description, sourceUrl,
+ * locationStreet, locationAddress, eventLinks) never leave Postgres — they
+ * stream lazily via `getEventDetail` when a card is expanded.
  */
 export async function loadEventsForTimeMode(
   mode: TimeMode,
@@ -75,9 +82,23 @@ export async function loadEventsForTimeMode(
   const events = await prisma.event.findMany({
     where: {
       ...DISPLAY_EVENT_WHERE,
-      date: isPast ? { lt: startOfTodayUtc } : { gte: yesterdayUtc },
+      date: isPast ? { lt: yesterdayUtc } : { gte: yesterdayUtc },
     },
-    include: {
+    select: {
+      id: true,
+      date: true,
+      dateUtc: true,
+      timezone: true,
+      kennelId: true,
+      runNumber: true,
+      title: true,
+      haresText: true,
+      startTime: true,
+      locationName: true,
+      locationCity: true,
+      status: true,
+      latitude: true,
+      longitude: true,
       kennel: {
         select: { id: true, shortName: true, fullName: true, slug: true, region: true, country: true },
       },
