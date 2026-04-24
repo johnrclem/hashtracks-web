@@ -21,6 +21,8 @@
 
 import "dotenv/config";
 import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import * as cheerio from "cheerio";
 import { insertRawEventsForSource } from "./lib/backfill-runner";
 import { safeFetch } from "@/adapters/safe-fetch";
@@ -39,7 +41,7 @@ const HARELINE_POST_JSON = `${API_BASE}/posts/339?fields=content`;
 const POSTS_JSON = (offset: number) =>
   `${API_BASE}/posts/?number=100&offset=${offset}&fields=ID,date,title,URL,content`;
 
-const CACHE_PATH = "/tmp/cfh3-receding-cleaned.json";
+const CACHE_PATH = path.join(os.tmpdir(), "cfh3-receding-cleaned.json");
 
 interface WpComPost {
   ID: number;
@@ -137,7 +139,7 @@ async function loadOrCleanReceding(harelineHtml: string): Promise<CleanedRow[]> 
 
 async function fetchAllBlogPosts(): Promise<WpComPost[]> {
   const posts: WpComPost[] = [];
-  for (let offset = 0; offset < 500; offset += 100) {
+  for (let offset = 0; offset < 2000; offset += 100) {
     const data = await fetchJson<{ posts?: WpComPost[] }>(
       POSTS_JSON(offset),
       `Posts fetch offset=${offset}`,
