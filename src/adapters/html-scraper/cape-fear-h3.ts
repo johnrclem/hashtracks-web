@@ -15,14 +15,17 @@ interface WpComPost {
   content: string;
 }
 
-/** Labels used as section delimiters in post body HTML. */
+// Labels used as section delimiters in post body HTML. Each regex tolerates a
+// trailing colon and whitespace because the author sometimes types the colon
+// inside the <strong> tag (→ strong text is "When:") and sometimes outside
+// (→ strong text is "When"). Issue #903 surfaced this on #516/#517.
 const LABEL_PATTERNS: Record<string, RegExp> = {
-  when: /^when$/i,
-  where: /^where$/i,
+  when: /^when[:\s]*$/i,
+  where: /^where[:\s]*$/i,
   hares: /^who\s*[–\-]\s*hares[:\s]*$/i,
   notes: /^notes[:\s]*$/i,
   onAfter: /^on[- ]?after[:\s]*$/i,
-  dogFriendly: /^dog\s+friendly\??$/i,
+  dogFriendly: /^dog\s+friendly\??[:\s]*$/i,
 };
 
 /**
