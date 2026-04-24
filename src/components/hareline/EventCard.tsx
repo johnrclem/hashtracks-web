@@ -21,6 +21,17 @@ import type { DailyWeather } from "@/lib/weather";
 import { getConditionEmoji, cToF } from "@/lib/weather-display";
 import { getDisplayTitle, getLocationDisplay } from "@/lib/event-display";
 
+/**
+ * Event shape consumed by EventCard (list rendering) and EventDetailPanel
+ * (expanded panel). The initial Hareline list payload only populates the
+ * "slim" fields above `status`; the heavy fields below (description,
+ * sourceUrl, full address, eventLinks) are filled in on demand via
+ * `getEventDetail` when the user opens the detail panel.
+ *
+ * Keeping the heavy fields optional (instead of always nullable) lets the
+ * list and detail views share a single type, and the detail panel can tell
+ * "not yet loaded" (undefined) apart from "loaded and empty" (null).
+ */
 export type HarelineEvent = {
   id: string;
   date: string; // ISO string
@@ -40,15 +51,16 @@ export type HarelineEvent = {
   haresText: string | null;
   startTime: string | null;
   locationName: string | null;
-  locationStreet: string | null;
   locationCity: string | null;
-  locationAddress: string | null;
-  description: string | null;
-  sourceUrl: string | null;
   status: string;
-  eventLinks?: { id: string; url: string; label: string }[];
   latitude?: number | null;
   longitude?: number | null;
+  // Heavy / on-demand fields — undefined until `getEventDetail` resolves.
+  locationStreet?: string | null;
+  locationAddress?: string | null;
+  description?: string | null;
+  sourceUrl?: string | null;
+  eventLinks?: { id: string; url: string; label: string }[];
 };
 
 function formatDate(iso: string): string {

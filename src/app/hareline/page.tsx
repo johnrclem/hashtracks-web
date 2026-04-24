@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { prisma } from "@/lib/db";
-import { DISPLAY_EVENT_WHERE } from "@/lib/event-filters";
 import { getWeatherForEvents } from "@/lib/weather";
 import { getOrCreateUser } from "@/lib/auth";
 import { regionAbbrev } from "@/lib/region";
 import { HarelineView } from "@/components/hareline/HarelineView";
+import HarelineLoading from "./loading";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { FadeInSection } from "@/components/home/HeroAnimations";
+import { loadEventsForTimeMode, type TimeMode } from "./actions";
 
 export async function generateMetadata({
   searchParams,
@@ -29,76 +30,14 @@ export async function generateMetadata({
   };
 }
 
-export default async function HarelinePage() {
-  const [events, user] = await Promise.all([
-    prisma.event.findMany({
-      where: DISPLAY_EVENT_WHERE,
-      include: {
-        kennel: {
-          select: { id: true, shortName: true, fullName: true, slug: true, region: true, country: true },
-        },
-      },
-      orderBy: { date: "asc" },
-    }),
-    getOrCreateUser(),
-  ]);
-  let subscribedKennelIds: string[] = [];
-  const attendanceMap: Record<string, { id: string; participationLevel: string; status: string; stravaUrl: string | null; notes: string | null }> = {};
-  if (user) {
-    const subscriptions = await prisma.userKennel.findMany({
-      where: { userId: user.id },
-      select: { kennelId: true },
-    });
-    subscribedKennelIds = subscriptions.map((s) => s.kennelId);
-
-    const attendances = await prisma.attendance.findMany({
-      where: { userId: user.id },
-      select: { eventId: true, id: true, participationLevel: true, status: true, stravaUrl: true, notes: true },
-    });
-    for (const a of attendances) {
-      attendanceMap[a.eventId] = {
-        id: a.id,
-        participationLevel: a.participationLevel as string,
-        status: a.status as string,
-        stravaUrl: a.stravaUrl,
-        notes: a.notes,
-      };
-    }
-  }
-
-  // Fetch weather for upcoming events within 10-day window
-  const weatherMap = await getWeatherForEvents(
-    events.map((e) => ({
-      id: e.id,
-      date: e.date,
-      latitude: e.latitude,
-      longitude: e.longitude,
-      kennel: { region: e.kennel.region },
-    })),
-  );
-
-  // Serialize dates for client component
-  const serializedEvents = events.map((e) => ({
-    id: e.id,
-    date: e.date.toISOString(),
-    dateUtc: e.dateUtc,
-    timezone: e.timezone,
-    kennelId: e.kennelId,
-    kennel: e.kennel,
-    runNumber: e.runNumber,
-    title: e.title,
-    haresText: e.haresText,
-    startTime: e.startTime,
-    locationName: e.locationName,
-    locationStreet: e.locationStreet,
-    locationCity: e.locationCity,
-    locationAddress: e.locationAddress,
-    description: e.description,
-    sourceUrl: e.sourceUrl,
-    status: e.status,
-    latitude: e.latitude ?? null,
-    longitude: e.longitude ?? null,
-  }));
+export default async function HarelinePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  const params = await searchParams;
+  const timeParam = typeof params.time === "string" ? params.time : null;
+  const initialTimeMode: TimeMode = timeParam === "past" ? "past" : "upcoming";
 
   return (
     <div>
@@ -110,16 +49,83 @@ export default async function HarelinePage() {
       </FadeInSection>
 
       <FadeInSection delay={100}>
-      <Suspense>
-        <HarelineView
-          events={serializedEvents}
-          subscribedKennelIds={subscribedKennelIds}
-          isAuthenticated={!!user}
-          attendanceMap={attendanceMap}
-          weatherMap={weatherMap}
-        />
-      </Suspense>
+        <Suspense fallback={<HarelineLoading />}>
+          <HarelineData initialTimeMode={initialTimeMode} />
+        </Suspense>
       </FadeInSection>
     </div>
+  );
+}
+
+/**
+ * All data fetching for the Hareline happens inside this Suspense
+ * boundary. The shell (header + skeleton) paints immediately; events +
+ * user data + weather stream together via Promise.all.
+ *
+ * `initialTimeMode` lets us avoid the "direct link to past" flash: when
+ * `?time=past` is in the URL, the server fetches past events up front
+ * instead of shipping upcoming and relying on the client to swap.
+ */
+async function HarelineData({ initialTimeMode }: { initialTimeMode: TimeMode }) {
+  // Capture `now` before awaiting and thread it into `loadEventsForTimeMode`
+  // so the server query boundary, the `serverNowMs` prop, and the client's
+  // hydrated bucket split all derive from the same instant. Without a shared
+  // clock, a request that straddles UTC midnight could have the DB query
+  // select from one day while the client computes its buckets from the next.
+  const now = new Date();
+  const nowMs = now.getTime();
+
+  const [events, user] = await Promise.all([
+    loadEventsForTimeMode(initialTimeMode, nowMs),
+    getOrCreateUser(),
+  ]);
+
+  let subscribedKennelIds: string[] = [];
+  const attendanceMap: Record<string, { id: string; participationLevel: string; status: string; stravaUrl: string | null; notes: string | null }> = {};
+  if (user) {
+    const [subscriptions, attendances] = await Promise.all([
+      prisma.userKennel.findMany({
+        where: { userId: user.id },
+        select: { kennelId: true },
+      }),
+      prisma.attendance.findMany({
+        where: { userId: user.id },
+        select: { eventId: true, id: true, participationLevel: true, status: true, stravaUrl: true, notes: true },
+      }),
+    ]);
+    subscribedKennelIds = subscriptions.map((s) => s.kennelId);
+    for (const a of attendances) {
+      attendanceMap[a.eventId] = {
+        id: a.id,
+        participationLevel: a.participationLevel as string,
+        status: a.status as string,
+        stravaUrl: a.stravaUrl,
+        notes: a.notes,
+      };
+    }
+  }
+
+  // Fetch weather for upcoming events within 10-day window. (No-op for
+  // past mode — getWeatherForEvents skips past dates internally.)
+  const weatherMap = await getWeatherForEvents(
+    events.map((e) => ({
+      id: e.id,
+      date: e.date,
+      latitude: e.latitude,
+      longitude: e.longitude,
+      kennel: { region: e.kennel?.region ?? "" },
+    })),
+  );
+
+  return (
+    <HarelineView
+      events={events}
+      initialTimeMode={initialTimeMode}
+      serverNowMs={nowMs}
+      subscribedKennelIds={subscribedKennelIds}
+      isAuthenticated={!!user}
+      attendanceMap={attendanceMap}
+      weatherMap={weatherMap}
+    />
   );
 }
