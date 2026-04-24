@@ -38,6 +38,22 @@ const POST_HTML_PHOTO = `
 <p class="wp-block-paragraph">Photo&#8217;s Spread</p>
 `;
 
+// Real post content from Run #517 "Impromptu Kayak Trail!" (April 18 trail).
+// The author typed the colon INSIDE the <strong> tag here (`<strong>When:</strong>`)
+// instead of after it, which broke the label match pre-#903.
+const POST_HTML_KAYAK_COLON_INSIDE = `
+<p class="wp-block-paragraph"><strong>When:</strong></p>
+<p class="wp-block-paragraph">Saturday, April 18th at<strong>\u00a02:00 p.m.</strong>\u00a0That\u2019s\u00a0<strong>1400</strong>\u00a0for you military types.</p>
+<p class="wp-block-paragraph"><strong>Where</strong>:</p>
+<p class="wp-block-paragraph"><a href="https://maps.app.goo.gl/At4SKNixJ5pynDWZ8">Davis Creek Park</a><br></p>
+<p class="wp-block-paragraph"><strong>Who \u2013 Hares:</strong></p>
+<p class="wp-block-paragraph">Bear Force &amp; Spongy</p>
+<p class="wp-block-paragraph"><strong>Dog Friendly?</strong></p>
+<p class="wp-block-paragraph">No\u2026 unless they can swimm\u2026</p>
+<p class="wp-block-paragraph"><strong>Notes</strong>:</p>
+<p class="wp-block-paragraph">Spring hath sprung, and nobody signed up to hare, so guess what? We\u2019re kayakin! Suckers!</p>
+`;
+
 describe("parseCfh3Post", () => {
   it("extracts event date from When field using publish year as reference", () => {
     const $ = cheerio.load(POST_HTML_MIS_MAN);
@@ -113,6 +129,23 @@ describe("parseCfh3Post", () => {
     const $ = cheerio.load(POST_HTML_MIS_MAN);
     const result = parseCfh3Post($, "2026-03-17T18:40:42-04:00");
     expect(result!.kennelTag).toBe("cfh3");
+  });
+
+  it("parses posts with the colon inside the <strong> tag (#903 regression)", () => {
+    // #517 "Impromptu Kayak Trail!" — `<strong>When:</strong>` instead of
+    // `<strong>When</strong>:`. Pre-fix, the When regex required an exact
+    // "when" match, so parseCfh3Post returned null and the blog-post
+    // upgrade (title / startTime / location / description) was skipped
+    // entirely, leaving the canonical Event with only the hareline row.
+    const $ = cheerio.load(POST_HTML_KAYAK_COLON_INSIDE);
+    const result = parseCfh3Post($, "2026-04-14T15:40:54-04:00");
+    expect(result).not.toBeNull();
+    expect(result!.date).toBe("2026-04-18");
+    expect(result!.startTime).toBe("14:00");
+    expect(result!.location).toBe("Davis Creek Park");
+    expect(result!.locationUrl).toContain("maps.app.goo.gl");
+    expect(result!.hares).toBe("Bear Force & Spongy");
+    expect(result!.description).toContain("Spring hath sprung");
   });
 });
 
