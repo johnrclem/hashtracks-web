@@ -13,6 +13,7 @@ import {
   type AuditEventRow,
   type AuditFinding,
 } from "./audit-checks";
+import { sanitizeHares, sanitizeLocation } from "./merge";
 
 /** A group of related findings (same kennel + same rule). */
 export interface AuditGroup {
@@ -96,6 +97,85 @@ export function computeSummary(findings: AuditFinding[]): Record<string, number>
   return summary;
 }
 
+/**
+ * The date window audited each run: rows whose `date` falls between
+ * 7 days before now and 90 days after. Shared between `selfHealSanitizers()`
+ * and `runAudit()` so the pre-pass heals exactly what the scan will inspect.
+ */
+export function getAuditWindow(): { cutoffDate: Date; futureDate: Date } {
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - 7);
+  const futureDate = new Date();
+  futureDate.setDate(futureDate.getDate() + 90);
+  return { cutoffDate, futureDate };
+}
+
+export interface SelfHealResult {
+  scanned: number;
+  locationHealed: number;
+  haresHealed: number;
+}
+
+/**
+ * Reconcile stale Event rows against the current merge sanitizers.
+ *
+ * The merge UPDATE path only rewrites `locationName`/`haresText` when the
+ * adapter re-emits `event.location`/`event.hares` on a scrape. Rows whose
+ * source field has since been removed (e.g. a Calendar owner moved a CTA into
+ * the description) can't be reached that way, so stale pre-sanitizer values
+ * persist and the daily audit re-files an issue for each of them.
+ *
+ * This pass re-applies `sanitizeLocation`/`sanitizeHares` across the same
+ * window the audit is about to scan, writing only when the sanitizer output
+ * differs from the stored value. Intended to run immediately before
+ * `runAudit()` so the scan sees a clean slate.
+ */
+export async function selfHealSanitizers(): Promise<SelfHealResult> {
+  const { cutoffDate, futureDate } = getAuditWindow();
+
+  const events = await prisma.event.findMany({
+    where: {
+      date: { gte: cutoffDate, lte: futureDate },
+      status: "CONFIRMED",
+      OR: [{ locationName: { not: null } }, { haresText: { not: null } }],
+    },
+    select: { id: true, locationName: true, haresText: true },
+  });
+
+  let locationHealed = 0;
+  let haresHealed = 0;
+
+  for (const e of events) {
+    const newLocation = e.locationName !== null ? sanitizeLocation(e.locationName) : e.locationName;
+    const newHares = e.haresText !== null ? sanitizeHares(e.haresText) : e.haresText;
+    const healLocation = newLocation !== e.locationName;
+    const healHares = newHares !== e.haresText;
+    if (!healLocation && !healHares) continue;
+
+    // Guard against concurrent merge writes: only heal if the field still
+    // holds the value we just read. If a scrape rewrote it in the interim,
+    // updateMany returns count=0 and we skip the stat bump.
+    const where: { id: string; locationName?: string | null; haresText?: string | null } = { id: e.id };
+    const data: { locationName?: string | null; haresText?: string | null } = {};
+    if (healLocation) {
+      where.locationName = e.locationName;
+      data.locationName = newLocation;
+    }
+    if (healHares) {
+      where.haresText = e.haresText;
+      data.haresText = newHares;
+    }
+
+    const { count } = await prisma.event.updateMany({ where, data });
+    if (count > 0) {
+      if (healLocation) locationHealed++;
+      if (healHares) haresHealed++;
+    }
+  }
+
+  return { scanned: events.length, locationHealed, haresHealed };
+}
+
 /** Run all audit checks on pre-queried rows. Returns raw findings (no grouping — caller groups after filtering). */
 export function runChecks(rows: AuditEventRow[]): AuditFinding[] {
   const findings: AuditFinding[] = [];
@@ -111,10 +191,7 @@ export function runChecks(rows: AuditEventRow[]): AuditFinding[] {
 }
 
 export async function runAudit(): Promise<AuditResult> {
-  const cutoffDate = new Date();
-  cutoffDate.setDate(cutoffDate.getDate() - 7);
-  const futureDate = new Date();
-  futureDate.setDate(futureDate.getDate() + 90);
+  const { cutoffDate, futureDate } = getAuditWindow();
 
   const events = await prisma.event.findMany({
     where: {
