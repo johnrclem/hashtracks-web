@@ -20,6 +20,7 @@ import { formatDateCompact, daysBetween, cityToIata } from "@/lib/travel/format"
 import { buildMultiEventIcs } from "@/lib/calendar";
 import { capture } from "@/lib/analytics";
 import { stashSaveIntent } from "@/lib/travel/save-intent";
+import { sanitizeRedirectPath } from "@/lib/travel/url";
 import {
   deleteTravelSearch,
   restoreTravelSearch,
@@ -167,7 +168,13 @@ export function TripSummary({
       });
       const here = new URL(window.location.href);
       here.searchParams.set("saved", "1");
-      const redirectUrl = here.pathname + here.search;
+      // Path-relative by construction (pathname + search), but route
+      // through the shared guard so the pattern stays consistent and
+      // a future refactor can't silently drop it.
+      const redirectUrl = sanitizeRedirectPath(
+        here.pathname + here.search,
+        "/travel",
+      );
       router.push(
         `/sign-in?redirect_url=${encodeURIComponent(redirectUrl)}`,
       );
