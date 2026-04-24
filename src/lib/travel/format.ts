@@ -291,7 +291,10 @@ const CITY_IATA: Record<string, string> = {
  * MultiStopHeader and TripSummary's ItineraryHero.
  */
 export function extractCityName(label: string): string {
-  return label.split(",")[0]?.trim() ?? label;
+  // `String.prototype.split` always returns at least one element, so
+  // the `[0]` access is non-nullable — no optional-chain or fallback
+  // needed.
+  return label.split(",")[0].trim();
 }
 
 export function cityToIata(label: string): string {
