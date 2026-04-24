@@ -23,10 +23,7 @@
  */
 
 import "dotenv/config";
-import { PrismaClient, type Prisma } from "@/generated/prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { createScriptPool } from "./lib/db-pool";
-import { generateFingerprint } from "@/pipeline/fingerprint";
+import { insertRawEventsForSource } from "./lib/backfill-runner";
 import type { RawEventData } from "@/adapters/types";
 
 const KENNEL_CODE = "bssh3";
@@ -89,50 +86,16 @@ async function main() {
     return;
   }
 
-  const pool = createScriptPool();
-  const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
-  try {
-    const sources = await prisma.source.findMany({
-      where: { name: SOURCE_NAME },
-      select: { id: true },
-    });
-    if (sources.length === 0) throw new Error(`Source "${SOURCE_NAME}" not found in DB. Run prisma db seed first.`);
-    if (sources.length > 1) throw new Error(`Multiple sources named "${SOURCE_NAME}" found (${sources.length}). Aborting to avoid writing to the wrong one.`);
-    const source = sources[0];
+  const { preExisting, inserted } = await insertRawEventsForSource(SOURCE_NAME, allEvents);
+  console.log(`\nPre-existing rows: ${preExisting}. New rows to insert: ${inserted}.`);
 
-    const withFingerprints = allEvents.map((event) => ({
-      event,
-      fingerprint: generateFingerprint(event),
-    }));
-    const fingerprintList = withFingerprints.map((x) => x.fingerprint);
-    const existingRows = await prisma.rawEvent.findMany({
-      where: { sourceId: source.id, fingerprint: { in: fingerprintList } },
-      select: { fingerprint: true },
-    });
-    const existingSet = new Set(existingRows.map((r) => r.fingerprint));
-    const toInsert = withFingerprints.filter(({ fingerprint }) => !existingSet.has(fingerprint));
-    console.log(`\nPre-existing rows: ${existingSet.size}. New rows to insert: ${toInsert.length}.`);
-
-    if (toInsert.length === 0) {
-      console.log("Nothing new to insert. Exiting.");
-      return;
-    }
-
-    await prisma.rawEvent.createMany({
-      data: toInsert.map(({ event, fingerprint }) => ({
-        sourceId: source.id,
-        rawData: event as unknown as Prisma.InputJsonValue,
-        fingerprint,
-        processed: false,
-      })),
-    });
-
-    console.log(`\nDone. Inserted ${toInsert.length} new RawEvents for source "${SOURCE_NAME}".`);
-    console.log("Trigger a scrape of this source from the admin UI to merge the new RawEvents into canonical Events.");
-  } finally {
-    await prisma.$disconnect();
-    await pool.end();
+  if (inserted === 0) {
+    console.log("Nothing new to insert. Exiting.");
+    return;
   }
+
+  console.log(`\nDone. Inserted ${inserted} new RawEvents for source "${SOURCE_NAME}".`);
+  console.log("Trigger a scrape of this source from the admin UI to merge the new RawEvents into canonical Events.");
 }
 
 main().catch((err) => {
