@@ -97,6 +97,19 @@ export function computeSummary(findings: AuditFinding[]): Record<string, number>
   return summary;
 }
 
+/**
+ * The date window audited each run: rows whose `date` falls between
+ * 7 days before now and 90 days after. Shared between `selfHealSanitizers()`
+ * and `runAudit()` so the pre-pass heals exactly what the scan will inspect.
+ */
+export function getAuditWindow(): { cutoffDate: Date; futureDate: Date } {
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - 7);
+  const futureDate = new Date();
+  futureDate.setDate(futureDate.getDate() + 90);
+  return { cutoffDate, futureDate };
+}
+
 export interface SelfHealResult {
   scanned: number;
   locationHealed: number;
@@ -118,10 +131,7 @@ export interface SelfHealResult {
  * `runAudit()` so the scan sees a clean slate.
  */
 export async function selfHealSanitizers(): Promise<SelfHealResult> {
-  const cutoffDate = new Date();
-  cutoffDate.setDate(cutoffDate.getDate() - 7);
-  const futureDate = new Date();
-  futureDate.setDate(futureDate.getDate() + 90);
+  const { cutoffDate, futureDate } = getAuditWindow();
 
   const events = await prisma.event.findMany({
     where: {
@@ -181,10 +191,7 @@ export function runChecks(rows: AuditEventRow[]): AuditFinding[] {
 }
 
 export async function runAudit(): Promise<AuditResult> {
-  const cutoffDate = new Date();
-  cutoffDate.setDate(cutoffDate.getDate() - 7);
-  const futureDate = new Date();
-  futureDate.setDate(futureDate.getDate() + 90);
+  const { cutoffDate, futureDate } = getAuditWindow();
 
   const events = await prisma.event.findMany({
     where: {
