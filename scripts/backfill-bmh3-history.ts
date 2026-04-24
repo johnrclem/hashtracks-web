@@ -19,7 +19,7 @@
  */
 
 import "dotenv/config";
-import { insertRawEventsForSource } from "./lib/backfill-runner";
+import { reportAndApplyBackfill } from "./lib/backfill-runner";
 import { parseBrassMonkeyBody } from "@/adapters/html-scraper/brass-monkey";
 import {
   chronoParseDate,
@@ -29,7 +29,6 @@ import {
   parse12HourTime,
   stripHtmlTags,
 } from "@/adapters/utils";
-import { todayInTimezone } from "@/lib/timezone";
 import type { RawEventData } from "@/adapters/types";
 import type { BloggerPost } from "@/adapters/blogger-api";
 
@@ -38,10 +37,19 @@ const BLOG_URL = "https://teambrassmonkey.blogspot.com/";
 const KENNEL_TIMEZONE = "America/Chicago";
 const BLOGGER_API_BASE = "https://www.googleapis.com/blogger/v3";
 const PAGE_SIZE = 100;
+const FETCH_TIMEOUT_MS = 30_000;
+const BLOG_ID_RE = /^\d+$/;
 
 interface PostsPage {
   items?: BloggerPost[];
   nextPageToken?: string;
+}
+
+async function fetchWithTimeout(url: string, apiKey: string): Promise<Response> {
+  return fetch(url, {
+    headers: { "X-Goog-Api-Key": apiKey },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  });
 }
 
 async function fetchAllPosts(blogId: string, apiKey: string): Promise<BloggerPost[]> {
@@ -58,9 +66,10 @@ async function fetchAllPosts(blogId: string, apiKey: string): Promise<BloggerPos
     });
     if (pageToken) params.set("pageToken", pageToken);
 
-    const res = await fetch(`${BLOGGER_API_BASE}/blogs/${blogId}/posts?${params.toString()}`, {
-      headers: { "X-Goog-Api-Key": apiKey },
-    });
+    const res = await fetchWithTimeout(
+      `${BLOGGER_API_BASE}/blogs/${blogId}/posts?${params.toString()}`,
+      apiKey,
+    );
     if (!res.ok) {
       throw new Error(`Blogger posts fetch failed (page ${page + 1}): HTTP ${res.status}`);
     }
@@ -68,7 +77,7 @@ async function fetchAllPosts(blogId: string, apiKey: string): Promise<BloggerPos
     const items = data.items ?? [];
     all.push(...items);
     page++;
-    console.log(`  Page ${page}: +${items.length} posts (running total: ${all.length})`);
+    console.log(`  Page ${page}: +${items.length} posts (total: ${all.length})`);
     const nextToken = data.nextPageToken;
     if (nextToken && seenTokens.has(nextToken)) {
       throw new Error(`Blogger pagination returned a repeated pageToken at page ${page}`);
@@ -82,12 +91,17 @@ async function fetchAllPosts(blogId: string, apiKey: string): Promise<BloggerPos
 
 async function discoverBlogId(apiKey: string): Promise<string> {
   const params = new URLSearchParams({ url: BLOG_URL });
-  const res = await fetch(`${BLOGGER_API_BASE}/blogs/byurl?${params.toString()}`, {
-    headers: { "X-Goog-Api-Key": apiKey },
-  });
+  const res = await fetchWithTimeout(
+    `${BLOGGER_API_BASE}/blogs/byurl?${params.toString()}`,
+    apiKey,
+  );
   if (!res.ok) throw new Error(`Blogger byurl failed: HTTP ${res.status}`);
   const data = (await res.json()) as { id?: string };
-  if (!data.id) throw new Error("Blogger byurl returned no blog ID");
+  // Validate to neutralize SSRF: the ID is interpolated into a URL path on
+  // subsequent calls, so reject anything that isn't a numeric Blogger ID.
+  if (!data.id || !BLOG_ID_RE.test(data.id)) {
+    throw new Error("Blogger byurl returned an invalid blog ID");
+  }
   return data.id;
 }
 
@@ -112,7 +126,7 @@ function parseBackfillTitle(rawTitle: string): {
   if (META_POST_TITLE_RE.test(title)) return {};
   const runMatch = TRAIL_TITLE_RE.exec(title);
   if (!runMatch) return {};
-  const runNumber = parseInt(runMatch[1], 10);
+  const runNumber = Number.parseInt(runMatch[1], 10);
 
   // Everything after the "#NNN" token — that's the trail name / date.
   const tailStart = runMatch.index + runMatch[0].length;
@@ -123,8 +137,10 @@ function parseBackfillTitle(rawTitle: string): {
   const date = dateMatch ? chronoParseDate(dateMatch[1], "en-US") : undefined;
 
   let cleaned = tail;
-  if (dateMatch && date) cleaned = cleaned.replace(dateMatch[0], "");
-  cleaned = cleaned.replace(/^[\s:–—-]+|[\s:–—-]+$/g, "").trim();
+  if (dateMatch && date) cleaned = cleaned.replaceAll(dateMatch[0], "");
+  // Strip leading/trailing separators (colons, dashes, em/en dashes, whitespace)
+  // — two anchored passes, no alternation, to avoid super-linear backtracking.
+  cleaned = cleaned.replaceAll(/^[\s:–—-]+/g, "").replaceAll(/[\s:–—-]+$/g, "").trim();
 
   return {
     runNumber,
@@ -133,13 +149,38 @@ function parseBackfillTitle(rawTitle: string): {
   };
 }
 
-// Old-format body fields (2010–2016 posts). Labels are space-separated:
+// Old-format body fields (2010–2016 posts). Labels typically appear on their
+// own lines with the value either on the same line or the following line:
 //   "When : Saturday, August 16th, at 4:00pm!"
 //   "Where : Backwoods Saloon 230 Lexington Conroe, TX 77385"
 //   "Hares : Mighty Mighty Small Mouth & EZ Chair"
 // Year is often omitted — resolved via chrono with publish-date as reference.
-const WHEN_LABEL_RE = /When\s*:\s*(.+?)(?=\n|Where\s*:|Hares?\s*:|$)/i;
-const WHERE_LABEL_RE = /Where\s*:\s*(.+?)(?=\n|Hares?\s*:|Why\s*:|Bring\s*:|$)/i;
+const LABEL_LINE_RE = /^\s*([A-Za-z]+)\s*:\s?(.*)$/;
+
+/**
+ * Find a labelled value in a body split into lines. The value may share the
+ * label's line, or span the next non-empty line(s) until the next label.
+ * Linear scan, no super-linear regex backtracking.
+ */
+function findLabelValue(bodyLines: string[], label: RegExp): string | undefined {
+  for (let i = 0; i < bodyLines.length; i++) {
+    const m = LABEL_LINE_RE.exec(bodyLines[i]);
+    if (!m || !label.test(m[1])) continue;
+    const inline = m[2].trim();
+    if (inline) return inline;
+    for (let j = i + 1; j < bodyLines.length; j++) {
+      const next = bodyLines[j].trim();
+      if (!next) continue;
+      if (LABEL_LINE_RE.test(bodyLines[j])) return undefined;
+      return next;
+    }
+    return undefined;
+  }
+  return undefined;
+}
+
+const WHEN_LABEL = /^when$/i;
+const WHERE_LABEL = /^where$/i;
 
 // Trail dates should fall within ~6 months of publish (typical lead time is a
 // few weeks, but occasional anniversary/roadtrip announcements post earlier).
@@ -166,7 +207,8 @@ function withinPlausibleWindow(parsedDate: string, publishDate: Date): boolean {
 function parseFallbackDate(whenText: string, publishDate: Date): string | undefined {
   const parsed = chronoParseDate(whenText, "en-US", publishDate);
   if (parsed && withinPlausibleWindow(parsed, publishDate)) return parsed;
-  const stripped = whenText.replace(/,?\s*\b(19|20)\d{2}\b/g, "").trim();
+  // Bound `\s*` to avoid super-linear backtracking on pathological whitespace.
+  const stripped = whenText.replaceAll(/,?\s{0,4}\b(?:19|20)\d{2}\b/g, "").trim();
   if (!stripped) return undefined;
   const reparsed = chronoParseDate(stripped, "en-US", publishDate);
   if (reparsed && withinPlausibleWindow(reparsed, publishDate)) return reparsed;
@@ -180,13 +222,12 @@ function parseBackfillBody(
   const strict = parseBrassMonkeyBody(bodyText);
   if (strict.date && strict.location && strict.hares) return strict;
 
-  const whenMatch = WHEN_LABEL_RE.exec(bodyText);
-  const whenText = whenMatch ? whenMatch[1].trim() : "";
+  const lines = bodyText.split("\n");
+  const whenText = findLabelValue(lines, WHEN_LABEL) ?? "";
   const publishDate = new Date(publishedIso);
   const date = strict.date ?? (whenText ? parseFallbackDate(whenText, publishDate) : undefined);
 
-  const whereMatch = WHERE_LABEL_RE.exec(bodyText);
-  const location = strict.location ?? (whereMatch ? whereMatch[1].trim() : undefined);
+  const location = strict.location ?? findLabelValue(lines, WHERE_LABEL);
 
   const startTime = strict.startTime ?? (whenText ? parse12HourTime(whenText) : undefined);
 
@@ -233,7 +274,6 @@ async function main() {
 
   console.log("\n[1/3] Discovering blog ID + fetching all posts...");
   const blogId = await discoverBlogId(apiKey);
-  console.log(`  Blog ID: ${blogId}`);
   const posts = await fetchAllPosts(blogId, apiKey);
   console.log(`  Fetched ${posts.length} total posts`);
 
@@ -249,39 +289,13 @@ async function main() {
   }
   console.log(`  Parsed: ${parsed.length}. Skipped: ${skippedNoRun} no-run-number, ${skippedNoDate} no-date.`);
 
-  const today = todayInTimezone(KENNEL_TIMEZONE);
-  const past = parsed.filter((e) => e.date < today);
-  const futureOrToday = parsed.length - past.length;
-  console.log(`  Partition: ${past.length} past rows, ${futureOrToday} skipped (date >= ${today})`);
-
-  const sorted = [...past].sort((a, b) => a.date.localeCompare(b.date));
-  if (sorted.length > 0) {
-    console.log(`\nDate range: ${sorted[0].date} → ${sorted[sorted.length - 1].date}`);
-    const sampleIdx = [0, Math.floor(sorted.length / 2), sorted.length - 1];
-    console.log("Samples (oldest, middle, newest):");
-    for (const i of sampleIdx) {
-      const e = sorted[i];
-      console.log(
-        `  #${e.runNumber ?? "?"} ${e.date} | title=${e.title ?? "—"} | hares=${e.hares ?? "—"} | loc=${e.location ?? "—"} | start=${e.startTime ?? "—"}`,
-      );
-    }
-  }
-
-  if (!apply) {
-    console.log("\n[3/3] Dry run complete. Re-run with BACKFILL_APPLY=1 to write to DB.");
-    return;
-  }
-  if (past.length === 0) {
-    console.log("\nNo events to insert. Exiting.");
-    return;
-  }
-
-  console.log("\n[3/3] Writing to DB...");
-  const { preExisting, inserted } = await insertRawEventsForSource(SOURCE_NAME, past);
-  console.log(`  Pre-existing: ${preExisting}. Inserted: ${inserted}.`);
-  if (inserted > 0) {
-    console.log(`\nDone. Trigger a scrape of "${SOURCE_NAME}" from the admin UI to merge the new RawEvents.`);
-  }
+  console.log("\n[3/3] Reporting + applying...");
+  await reportAndApplyBackfill({
+    apply,
+    sourceName: SOURCE_NAME,
+    events: parsed,
+    kennelTimezone: KENNEL_TIMEZONE,
+  });
 }
 
 main().catch((err) => {
