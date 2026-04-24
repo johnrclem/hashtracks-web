@@ -83,8 +83,9 @@ export async function POST(request: Request) {
 
   // Stagger via QStash `delay` so ~120 scrapes don't hit the residential
   // proxy at once — concurrent 429s + retry-wait burn Vercel Function CPU.
-  // `force=true` is for operator-initiated runs (incident response, backfill);
-  // those should dispatch immediately without the 0–240s stagger.
+  // Applies to `force=true` too: a forced full-batch fan-out would recreate
+  // the exact saturation this stagger is meant to prevent. Single-source
+  // urgent re-scrapes go through the admin action, not this route.
   const n = dueSources.length;
   const results = await Promise.all(
     dueSources.map(async (source, i) => {
@@ -93,7 +94,7 @@ export async function POST(request: Request) {
           url: `${appUrl}/api/cron/scrape/${source.id}`,
           body: { days: source.scrapeDays },
           retries: 2,
-          delay: force ? 0 : staggerDelaySeconds(i, n),
+          delay: staggerDelaySeconds(i, n),
         });
         return { sourceId: source.id, name: source.name, dispatched: true, messageId: res.messageId };
       } catch (err) {

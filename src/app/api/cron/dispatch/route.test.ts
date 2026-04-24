@@ -193,15 +193,18 @@ describe("POST /api/cron/dispatch", () => {
       expect(mockPublishJSON.mock.calls[0][0].delay).toBe(0);
     });
 
-    it("dispatches forced runs with delay=0 (no stagger)", async () => {
+    it("staggers forced runs too (a forced full-batch would otherwise saturate the proxy)", async () => {
       vi.mocked(prisma.source.findMany).mockResolvedValue(mockSources as never);
       vi.mocked(shouldScrape).mockReturnValue(false);
 
       await POST(makeRequest("?force=true"));
 
       expect(mockPublishJSON).toHaveBeenCalledTimes(3);
-      for (const call of mockPublishJSON.mock.calls) {
-        expect(call[0].delay).toBe(0);
+      const delays = mockPublishJSON.mock.calls.map((c) => c[0].delay as number);
+      expect(delays[0]).toBe(0);
+      expect(delays[delays.length - 1]).toBe(240);
+      for (let i = 1; i < delays.length; i++) {
+        expect(delays[i]).toBeGreaterThan(delays[i - 1]);
       }
     });
 
