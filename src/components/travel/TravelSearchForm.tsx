@@ -9,6 +9,8 @@ import { RADIUS_TIERS, snapRadiusToTier, MAX_STOPS_PER_TRIP } from "@/lib/travel
 import { capture } from "@/lib/analytics";
 import { resolveRefCode } from "@/lib/travel/iata";
 import { saveDraftSearch, updateDraftSearch, updateTravelSearch } from "@/app/travel/actions";
+import { sanitizeRedirectPath } from "@/lib/travel/url";
+import { AUTH_COPY } from "@/lib/travel/copy";
 import { DestinationInput } from "./DestinationInput";
 
 interface InitialLegValues {
@@ -200,7 +202,7 @@ export function TravelSearchForm({
     // so this callback should never fire anonymously. Defensive guard
     // preserves the invariant if a future refactor exposes the path.
     if (!isAuthenticated) {
-      setSubmitError("Sign in to plan multi-city trips");
+      setSubmitError(AUTH_COPY.signInToPlanMultiCity);
       return;
     }
     setSubmitError(null);
@@ -688,12 +690,10 @@ function SignInToAddLegRow({
     if (leg.timezone) p.set("tz", leg.timezone);
     return `/travel?${p.toString()}`;
   })();
-  // SECURITY: only allow same-origin redirects (path-relative URLs).
-  // An attacker-crafted full URL in returnTo would redirect the user
-  // to an arbitrary host after sign-in (open-redirect → phishing).
-  const safeReturnTo = returnTo.startsWith("/") && !returnTo.startsWith("//")
-    ? returnTo
-    : "/travel";
+  // SECURITY: only allow same-origin redirects. `sanitizeRedirectPath`
+  // rejects absolute and protocol-relative URLs so an attacker-crafted
+  // returnTo can't redirect past auth to an arbitrary host.
+  const safeReturnTo = sanitizeRedirectPath(returnTo, "/travel");
   const signInHref = `/sign-in?redirect_url=${encodeURIComponent(safeReturnTo)}`;
 
   return (
@@ -706,15 +706,15 @@ function SignInToAddLegRow({
         transition-all duration-200
         hover:border-muted-foreground/70 hover:bg-card
       `}
-      aria-label={`Sign in to add leg ${nextIndex}`}
+      aria-label={`${AUTH_COPY.signInToAddLeg} ${nextIndex}`}
     >
       <BoardingStamp label={`LEG ${String(nextIndex).padStart(2, "0")}`} variant="ghost" />
       <span className="flex items-center gap-2 font-mono text-[12px] uppercase tracking-[0.18em] text-muted-foreground/70 group-hover:text-foreground">
         <Lock className="h-3.5 w-3.5" />
-        Sign in to add leg
+        {AUTH_COPY.signInToAddLeg}
       </span>
       <span className="ml-auto font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground/50">
-        Multi-city is free — just need an account
+        {AUTH_COPY.multiCityIsFree}
       </span>
     </a>
   );

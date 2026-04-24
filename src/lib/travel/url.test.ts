@@ -3,6 +3,7 @@ import {
   buildTravelSearchUrl,
   localYmd,
   parseTravelRedirect,
+  sanitizeRedirectPath,
   utcYmd,
   withConcurrency,
 } from "./url";
@@ -217,5 +218,40 @@ describe("parseTravelRedirect", () => {
 
   it("returns null for malformed URLs", () => {
     expect(parseTravelRedirect(":not a url")).toBeNull();
+  });
+});
+
+describe("sanitizeRedirectPath", () => {
+  it("accepts path-relative URLs", () => {
+    expect(sanitizeRedirectPath("/travel")).toBe("/travel");
+    expect(sanitizeRedirectPath("/travel?q=Boston&saved=1")).toBe(
+      "/travel?q=Boston&saved=1",
+    );
+    expect(sanitizeRedirectPath("/travel/saved")).toBe("/travel/saved");
+  });
+
+  it("rejects protocol-relative URLs (open-redirect vector)", () => {
+    expect(sanitizeRedirectPath("//evil.com/phish", "/travel")).toBe("/travel");
+  });
+
+  it("rejects absolute http/https URLs", () => {
+    expect(sanitizeRedirectPath("https://evil.com/phish", "/travel")).toBe(
+      "/travel",
+    );
+    expect(sanitizeRedirectPath("http://evil.com/phish", "/travel")).toBe(
+      "/travel",
+    );
+  });
+
+  it("rejects non-path inputs and falls back", () => {
+    expect(sanitizeRedirectPath("", "/travel")).toBe("/travel");
+    expect(sanitizeRedirectPath("travel", "/travel")).toBe("/travel");
+    expect(sanitizeRedirectPath("javascript:alert(1)", "/travel")).toBe(
+      "/travel",
+    );
+  });
+
+  it("defaults fallback to root when not specified", () => {
+    expect(sanitizeRedirectPath("https://evil.com")).toBe("/");
   });
 });
