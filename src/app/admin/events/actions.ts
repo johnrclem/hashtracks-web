@@ -3,7 +3,8 @@
 import { prisma } from "@/lib/db";
 import { getAdminUser } from "@/lib/auth";
 import type { ActionResult } from "@/lib/actions";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
+import { HARELINE_EVENTS_TAG } from "@/app/hareline/actions";
 
 const DELETE_BATCH_SIZE = 100;
 
@@ -78,6 +79,7 @@ export async function deleteEvent(eventId: string): Promise<ActionResult<{ kenne
 
   revalidatePath("/admin/events");
   revalidatePath("/hareline");
+  revalidateTag(HARELINE_EVENTS_TAG, "max");
   return {
     success: true,
     kennelName: event.kennel.shortName,
@@ -175,6 +177,7 @@ export async function bulkDeleteEvents(filters: {
 
   revalidatePath("/admin/events");
   revalidatePath("/hareline");
+  revalidateTag(HARELINE_EVENTS_TAG, "max");
   return { success: true, deletedCount };
 }
 
@@ -205,6 +208,7 @@ export async function deleteSelectedEvents(eventIds: string[]): Promise<ActionRe
 
   revalidatePath("/admin/events");
   revalidatePath("/hareline");
+  revalidateTag(HARELINE_EVENTS_TAG, "max");
   return { success: true, deletedCount };
 }
 
@@ -238,6 +242,7 @@ export async function uncancelEvent(eventId: string): Promise<ActionResult<{ ken
 
   revalidatePath("/admin/events");
   revalidatePath("/hareline");
+  revalidateTag(HARELINE_EVENTS_TAG, "max");
   revalidatePath(`/hareline/${eventId}`);
   return {
     success: true,

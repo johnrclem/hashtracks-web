@@ -3,7 +3,8 @@
 import { getAdminUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { reverseGeocode } from "@/lib/geo";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
+import { HARELINE_EVENTS_TAG } from "@/app/hareline/actions";
 
 interface BackfillCityResult {
   total: number;
@@ -101,6 +102,7 @@ export async function backfillEventCities(): Promise<{
 
   revalidatePath("/hareline");
   revalidatePath("/admin/events");
+  revalidateTag(HARELINE_EVENTS_TAG, "max");
 
   return {
     result: {
