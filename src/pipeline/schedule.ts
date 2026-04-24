@@ -11,6 +11,16 @@ const DEFAULT_INTERVAL = 24 * 60 * 60 * 1000; // daily
 /** 10-minute buffer to avoid edge-case misses near interval boundaries */
 export const BUFFER_MS = 10 * 60 * 1000;
 
+/** Window over which dispatcher spreads QStash `delay` across a fan-out batch.
+ *  Invariant: STAGGER_WINDOW_SECONDS * 1000 < BUFFER_MS so a staggered scrape
+ *  still lands inside the schedule tolerance window. */
+export const STAGGER_WINDOW_SECONDS = 240;
+
+/** Returns the QStash `delay` (seconds) for message `i` of `n` across STAGGER_WINDOW_SECONDS. */
+export function staggerDelaySeconds(i: number, n: number): number {
+  return Math.floor((i / Math.max(n - 1, 1)) * STAGGER_WINDOW_SECONDS);
+}
+
 /**
  * Determines whether a source is due for scraping based on its frequency and last scrape time.
  * Returns `true` if the source has never been scraped or enough time has elapsed (minus buffer).

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { verifyCronAuth } from "@/lib/cron-auth";
 import { getQStashClient } from "@/lib/qstash";
-import { shouldScrape } from "@/pipeline/schedule";
+import { shouldScrape, staggerDelaySeconds } from "@/pipeline/schedule";
 
 /**
  * Fan-out dispatcher: queries all enabled sources, filters to those due for scraping,
@@ -28,8 +28,11 @@ export async function POST(request: Request) {
     );
   }
 
+  // Ordered by id so the stagger index maps deterministically to the same source
+  // across runs — makes timing-sensitive debugging reproducible.
   const sources = await prisma.source.findMany({
     where: { enabled: true },
+    orderBy: { id: "asc" },
     select: {
       id: true,
       name: true,
@@ -78,14 +81,19 @@ export async function POST(request: Request) {
     );
   }
 
-  // Publish all messages in parallel — fan-out is the whole point
+  // Stagger via QStash `delay` so ~120 scrapes don't hit the residential
+  // proxy at once — concurrent 429s + retry-wait burn Vercel Function CPU.
+  // `force=true` is for operator-initiated runs (incident response, backfill);
+  // those should dispatch immediately without the 0–240s stagger.
+  const n = dueSources.length;
   const results = await Promise.all(
-    dueSources.map(async (source) => {
+    dueSources.map(async (source, i) => {
       try {
         const res = await client.publishJSON({
           url: `${appUrl}/api/cron/scrape/${source.id}`,
           body: { days: source.scrapeDays },
           retries: 2,
+          delay: force ? 0 : staggerDelaySeconds(i, n),
         });
         return { sourceId: source.id, name: source.name, dispatched: true, messageId: res.messageId };
       } catch (err) {
