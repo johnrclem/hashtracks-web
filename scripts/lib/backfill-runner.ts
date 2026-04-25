@@ -2,11 +2,67 @@ import { PrismaClient, type Prisma } from "@/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { createScriptPool } from "./db-pool";
 import { generateFingerprint } from "@/pipeline/fingerprint";
+import { todayInTimezone } from "@/lib/timezone";
 import type { RawEventData } from "@/adapters/types";
 
 export interface InsertRawEventsResult {
   preExisting: number;
   inserted: number;
+}
+
+export interface BackfillReportOptions {
+  apply: boolean;
+  sourceName: string;
+  events: RawEventData[];
+  kennelTimezone: string;
+}
+
+/**
+ * Shared report + apply phase for one-shot backfill scripts. Splits parsed
+ * events into past (date < today-in-kennel-timezone) and skipped, prints a
+ * partition summary plus three sample rows, and either short-circuits in dry
+ * run mode or hands the past slice off to `insertRawEventsForSource`.
+ *
+ * Centralised here because every backfill repeats the same partition/report/
+ * apply block verbatim, which trips SonarCloud's duplication gate.
+ */
+export async function reportAndApplyBackfill(
+  options: BackfillReportOptions,
+): Promise<void> {
+  const { apply, sourceName, events, kennelTimezone } = options;
+  const today = todayInTimezone(kennelTimezone);
+  const past = events.filter((e) => e.date < today);
+  const skipped = events.length - past.length;
+  console.log(`  Partition: ${past.length} past rows, ${skipped} skipped (date >= ${today})`);
+
+  past.sort((a, b) => a.date.localeCompare(b.date));
+  if (past.length > 0) {
+    console.log(`\nDate range: ${past[0].date} → ${past.at(-1)!.date}`);
+    const sampleIdx = [0, Math.floor(past.length / 2), past.length - 1];
+    console.log("Samples (oldest, middle, newest):");
+    for (const i of sampleIdx) {
+      const e = past[i];
+      console.log(
+        `  #${e.runNumber ?? "?"} ${e.date} | title=${e.title ?? "—"} | hares=${e.hares ?? "—"} | loc=${e.location ?? "—"} | start=${e.startTime ?? "—"}`,
+      );
+    }
+  }
+
+  if (!apply) {
+    console.log("\nDry run complete. Re-run with BACKFILL_APPLY=1 to write to DB.");
+    return;
+  }
+  if (past.length === 0) {
+    console.log("\nNo events to insert. Exiting.");
+    return;
+  }
+
+  console.log("\nWriting to DB...");
+  const { preExisting, inserted } = await insertRawEventsForSource(sourceName, past);
+  console.log(`  Pre-existing: ${preExisting}. Inserted: ${inserted}.`);
+  if (inserted > 0) {
+    console.log(`\nDone. Trigger a scrape of "${sourceName}" from the admin UI to merge the new RawEvents.`);
+  }
 }
 
 /**

@@ -12,18 +12,13 @@
  * `kennelTag`, not source identity. The Meetup adapter scrapes 90 days
  * forward only, so it cannot race these past rows.
  *
- * Partition (per `.claude/rules/adapter-patterns.md`):
- *   - Adapter handles dates >= CURDATE()
- *   - This script handles dates < CURDATE() (these events are May 2025)
- * Always re-runnable: fingerprint-based dedup against existing RawEvents.
- *
  * Usage:
  *   1. Dry run first:  npx tsx scripts/backfill-bssh3-ko-samet.ts
  *   2. Execute:        BACKFILL_APPLY=1 npx tsx scripts/backfill-bssh3-ko-samet.ts
  */
 
 import "dotenv/config";
-import { insertRawEventsForSource } from "./lib/backfill-runner";
+import { reportAndApplyBackfill } from "./lib/backfill-runner";
 import type { RawEventData } from "@/adapters/types";
 
 const KENNEL_CODE = "bssh3";
@@ -61,41 +56,12 @@ async function main() {
   const apply = process.env.BACKFILL_APPLY === "1";
   console.log(`Mode: ${apply ? "APPLY (will write to DB)" : "DRY RUN (no writes)"}`);
 
-  // en-CA emits ISO YYYY-MM-DD; compare against RawEventData.date (also ISO).
-  const today = new Intl.DateTimeFormat("en-CA", { timeZone: KENNEL_TIMEZONE }).format(new Date());
-  const allEvents = KO_SAMET_EVENTS.filter((e) => {
-    if (e.date >= today) {
-      console.log(`Skipping ${e.title}: date ${e.date} >= today ${today} (adapter territory)`);
-      return false;
-    }
-    return true;
+  await reportAndApplyBackfill({
+    apply,
+    sourceName: SOURCE_NAME,
+    events: KO_SAMET_EVENTS,
+    kennelTimezone: KENNEL_TIMEZONE,
   });
-
-  console.log(`\nEvents to insert: ${allEvents.length}`);
-  for (const e of allEvents) {
-    console.log(`  #${e.runNumber} ${e.date} | ${e.title} | loc=${e.location} | start=${e.startTime}`);
-  }
-
-  if (!apply) {
-    console.log("\nDry run complete. Re-run with BACKFILL_APPLY=1 to write to DB.");
-    return;
-  }
-
-  if (allEvents.length === 0) {
-    console.log("No events to insert. Exiting.");
-    return;
-  }
-
-  const { preExisting, inserted } = await insertRawEventsForSource(SOURCE_NAME, allEvents);
-  console.log(`\nPre-existing rows: ${preExisting}. New rows to insert: ${inserted}.`);
-
-  if (inserted === 0) {
-    console.log("Nothing new to insert. Exiting.");
-    return;
-  }
-
-  console.log(`\nDone. Inserted ${inserted} new RawEvents for source "${SOURCE_NAME}".`);
-  console.log("Trigger a scrape of this source from the admin UI to merge the new RawEvents into canonical Events.");
 }
 
 main().catch((err) => {
