@@ -3,7 +3,7 @@
 import { getAdminUser, getRosterGroupId } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { revalidatePath, revalidateTag } from "next/cache";
-import { HARELINE_EVENTS_TAG } from "@/app/hareline/actions";
+import { HARELINE_EVENTS_TAG } from "@/lib/cache-tags";
 import { fuzzyMatch } from "@/lib/fuzzy";
 import { toSlug, toKennelCode } from "@/lib/kennel-utils";
 import { generateAliases } from "@/lib/auto-aliases";
@@ -316,7 +316,7 @@ export async function updateKennel(kennelId: string, formData: FormData) {
   // denormalized into the cached Hareline event list via a nested
   // `kennel` select, so any mutation here can leave stale labels/routes
   // in the cache until TTL.
-  revalidateTag(HARELINE_EVENTS_TAG, "max");
+  revalidateTag(HARELINE_EVENTS_TAG, { expire: 0 });
   return { success: true };
 }
 
@@ -394,7 +394,7 @@ export async function deleteKennel(kennelId: string) {
 
   revalidatePath("/admin/kennels");
   revalidatePath("/kennels");
-  revalidateTag(HARELINE_EVENTS_TAG, "max");
+  revalidateTag(HARELINE_EVENTS_TAG, { expire: 0 });
   return { success: true };
 }
 
@@ -717,7 +717,7 @@ export async function mergeKennels(
   revalidatePath(`/kennels/${targetKennel.slug}`);
   // Merge reassigns events to the target kennel, so their cached kennel
   // display fields (shortName/slug/region) go stale until tag bust.
-  revalidateTag(HARELINE_EVENTS_TAG, "max");
+  revalidateTag(HARELINE_EVENTS_TAG, { expire: 0 });
   return { success: true };
 }
 
@@ -757,7 +757,7 @@ export async function toggleKennelVisibility(kennelId: string) {
   // Hareline's cached event list filters on `kennel.isHidden`; without a
   // tag bust the cache would continue to include (or exclude) this kennel's
   // events until the 3600s revalidate window expired.
-  revalidateTag(HARELINE_EVENTS_TAG, "max");
+  revalidateTag(HARELINE_EVENTS_TAG, { expire: 0 });
   return { success: true, isHidden: newValue };
 }
 

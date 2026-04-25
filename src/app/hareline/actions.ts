@@ -19,13 +19,10 @@
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
 import { DISPLAY_EVENT_WHERE } from "@/lib/event-filters";
-
-/**
- * Shared invalidation tag. Import from here (rather than inlining the
- * string literal at every call site) so the merge pipeline + admin
- * mutation actions stay in sync with the cache wrapper below.
- */
-export const HARELINE_EVENTS_TAG = "hareline:events";
+// Tag constant lives in a plain module — a `"use server"` file can only
+// export async functions, so any non-function export (even a string)
+// makes Next strip all exports and fail the build at import sites.
+import { HARELINE_EVENTS_TAG } from "@/lib/cache-tags";
 
 /** Matches the slim shape rendered by EventCard's list view. */
 export interface HarelineListEvent {

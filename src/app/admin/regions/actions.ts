@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { callGemini } from "@/lib/ai/gemini";
 import { regionSlug } from "@/lib/region";
 import { revalidatePath, revalidateTag } from "next/cache";
-import { HARELINE_EVENTS_TAG } from "@/app/hareline/actions";
+import { HARELINE_EVENTS_TAG } from "@/lib/cache-tags";
 
 export async function getRegionsWithKennels() {
   const admin = await getAdminUser();
@@ -191,7 +191,7 @@ async function updateRegionWithRename(
   revalidatePath("/admin/kennels");
   // Denormalized `region` string on each kennel just changed; the Hareline
   // cache stores it per event, so bust the tag.
-  revalidateTag(HARELINE_EVENTS_TAG, "max");
+  revalidateTag(HARELINE_EVENTS_TAG, { expire: 0 });
   return { success: true };
 }
 
@@ -305,7 +305,7 @@ export async function mergeRegions(
   revalidatePath("/admin/kennels");
   revalidatePath("/kennels");
   // Merge reassigns kennels' denormalized `region` string.
-  revalidateTag(HARELINE_EVENTS_TAG, "max");
+  revalidateTag(HARELINE_EVENTS_TAG, { expire: 0 });
   return { success: true };
 }
 
@@ -345,7 +345,7 @@ export async function reassignKennels(kennelIds: string[], targetRegionId: strin
   revalidatePath("/admin/kennels");
   revalidatePath("/kennels");
   // Reassignment changes kennels' denormalized `region` string.
-  revalidateTag(HARELINE_EVENTS_TAG, "max");
+  revalidateTag(HARELINE_EVENTS_TAG, { expire: 0 });
   return { success: true };
 }
 

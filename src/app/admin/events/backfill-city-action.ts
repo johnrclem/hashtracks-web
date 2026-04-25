@@ -4,7 +4,7 @@ import { getAdminUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { reverseGeocode } from "@/lib/geo";
 import { revalidatePath, revalidateTag } from "next/cache";
-import { HARELINE_EVENTS_TAG } from "@/app/hareline/actions";
+import { HARELINE_EVENTS_TAG } from "@/lib/cache-tags";
 
 interface BackfillCityResult {
   total: number;
@@ -81,7 +81,11 @@ export async function backfillEventCities(): Promise<{
   }
 
   // Update events in batches (no transaction needed — each updateMany
-  // targets a disjoint set of events with an idempotent value)
+  // targets a disjoint set of events with an idempotent value).
+  // Earlier batches may have already written `locationCity` rows by the
+  // time a later batch throws, so the `finally` always runs the
+  // invalidations — otherwise the Hareline cache would keep serving the
+  // pre-backfill city values until the 3600s fallback window expired.
   const updateEntries = Array.from(coordToCity.entries());
   try {
     for (let i = 0; i < updateEntries.length; i += BATCH_SIZE) {
@@ -98,11 +102,11 @@ export async function backfillEventCities(): Promise<{
   } catch (e) {
     console.error("Failed to backfill event cities:", e);
     return { error: "Database update failed during city backfill." };
+  } finally {
+    revalidatePath("/hareline");
+    revalidatePath("/admin/events");
+    revalidateTag(HARELINE_EVENTS_TAG, { expire: 0 });
   }
-
-  revalidatePath("/hareline");
-  revalidatePath("/admin/events");
-  revalidateTag(HARELINE_EVENTS_TAG, "max");
 
   return {
     result: {

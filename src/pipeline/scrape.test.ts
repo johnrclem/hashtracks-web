@@ -43,7 +43,7 @@ vi.mock("./health", () => ({
   autoResolveCleared: vi.fn(() => Promise.resolve(0)),
 }));
 
-// Mock next/cache so the `revalidateTag(HARELINE_EVENTS_TAG, "max")` call at
+// Mock next/cache so the `revalidateTag(HARELINE_EVENTS_TAG)` call at
 // the tail of the happy-path scrape doesn't throw outside a request context.
 vi.mock("next/cache", () => ({
   revalidateTag: vi.fn(),

@@ -16,7 +16,7 @@ import { after } from "next/server";
 import { revalidateTag } from "next/cache";
 import { pingIndexNow } from "@/lib/indexnow";
 import { getCanonicalSiteUrl } from "@/lib/site-url";
-import { HARELINE_EVENTS_TAG } from "@/app/hareline/actions";
+import { HARELINE_EVENTS_TAG } from "@/lib/cache-tags";
 
 /** Result returned by `scrapeSource()` summarizing the full scrape-merge-reconcile cycle. */
 export interface ScrapeSourceResult {
@@ -499,14 +499,10 @@ export async function scrapeSource(
     // from Postgres. Conditional on something actually changing: a scrape
     // that found zero new/updated/cancelled events has no effect on what
     // /hareline would display, so there's no reason to burn a warm cache.
-    // Single tag — all (mode, date, regionsKey) entries are invalidated at
-    // once. Cheap because the cache is small and naturally re-warms on the
-    // next visit.
+    // Single tag — all (mode, date) entries are invalidated at once. Cheap
+    // because the cache is small and naturally re-warms on the next visit.
     if (mergeResult.created + mergeResult.updated + cancelledCount + mergeResult.restored > 0) {
-      // `"max"` profile = immediate expiration (purge now). Next 16 made the
-      // second arg required — scrapeSource runs in route handlers, not
-      // server actions, so we can't use `updateTag` here.
-      revalidateTag(HARELINE_EVENTS_TAG, "max");
+      revalidateTag(HARELINE_EVENTS_TAG, { expire: 0 });
     }
 
     return {
