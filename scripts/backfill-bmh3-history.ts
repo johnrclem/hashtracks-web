@@ -38,7 +38,6 @@ const KENNEL_TIMEZONE = "America/Chicago";
 const BLOGGER_API_BASE = "https://www.googleapis.com/blogger/v3";
 const PAGE_SIZE = 100;
 const FETCH_TIMEOUT_MS = 30_000;
-const BLOG_ID_RE = /^\d+$/;
 
 interface PostsPage {
   items?: BloggerPost[];
@@ -97,12 +96,15 @@ async function discoverBlogId(apiKey: string): Promise<string> {
   );
   if (!res.ok) throw new Error(`Blogger byurl failed: HTTP ${res.status}`);
   const data = (await res.json()) as { id?: string };
-  // Validate to neutralize SSRF: the ID is interpolated into a URL path on
-  // subsequent calls, so reject anything that isn't a numeric Blogger ID.
-  if (!data.id || !BLOG_ID_RE.test(data.id)) {
+  // Sanitize before interpolating into downstream Blogger API paths: parse
+  // strictly as a positive integer; the round-trip equality check rejects
+  // leading zeros, whitespace, and trailing junk that parseInt would accept.
+  if (!data.id) throw new Error("Blogger byurl returned no blog ID");
+  const numericId = Number.parseInt(data.id, 10);
+  if (!Number.isFinite(numericId) || numericId <= 0 || String(numericId) !== data.id) {
     throw new Error("Blogger byurl returned an invalid blog ID");
   }
-  return data.id;
+  return String(numericId);
 }
 
 // Broader than the live adapter regex: tolerates "BRASS MONKEY H3 RUN # 118"
