@@ -7,12 +7,22 @@
  *   both the initial server render (page.tsx) and lazy client tab-switches
  *   (HarelineView), so the two paths always use the same date boundaries,
  *   ordering, and serialization.
+ *   Delegates to an `unstable_cache`-wrapped inner so anonymous traffic
+ *   is served from the function's in-region cache. The public shape
+ *   (`HarelineListEvent`) keeps `dateUtc` as `Date` — the cache internally
+ *   round-trips via ISO string (JSON-safe) and we rehydrate at the boundary
+ *   so consumers don't need to know it was cached.
  * - getEventDetail: heavy fields (description, source URL, full address,
  *   eventLinks) fetched on detail-panel expand. Keeps the list payload slim.
  */
 
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
 import { DISPLAY_EVENT_WHERE } from "@/lib/event-filters";
+// Tag constant lives in a plain module — a `"use server"` file can only
+// export async functions, so any non-function export (even a string)
+// makes Next strip all exports and fail the build at import sites.
+import { HARELINE_EVENTS_TAG } from "@/lib/cache-tags";
 
 /** Matches the slim shape rendered by EventCard's list view. */
 export interface HarelineListEvent {
@@ -49,8 +59,103 @@ export type TimeMode = "upcoming" | "past";
 const PAST_EVENTS_LIMIT = 200;
 
 /**
- * Fetch the slim event list for a time mode.
+ * Cache-shape twin of `HarelineListEvent` with `dateUtc` serialized to ISO
+ * string. `unstable_cache` JSON-serializes its return value; keeping this
+ * twin explicit means the boundary conversion is visible at the call site.
+ */
+interface CachedHarelineEvent extends Omit<HarelineListEvent, "dateUtc"> {
+  dateUtc: string | null;
+}
+
+/**
+ * Cached inner: pure function of `(mode, todayDateStr)`.
  *
+ * Cache key parts, chosen so hit/miss behavior matches user intent:
+ *  - `mode` — upcoming vs past keep separate entries (different ORDER BY
+ *    + separate `take:` budget).
+ *  - `todayDateStr` — `YYYY-MM-DD` UTC date, so the key naturally rotates
+ *    at UTC midnight without a live timer. **Must not include raw `nowMs`**
+ *    or the key would churn every request.
+ *
+ * No region scoping at the cache/query layer: region filtering is
+ * client-side only. Attempting server-side region scoping via URL param
+ * introduced two classes of bugs — (1) the client uses `history.replaceState`
+ * for region chip changes so a user widening their selection past the
+ * original URL scope would stay frozen on the server-scoped subset,
+ * and (2) seed-derived region expansion misses metros that admins create
+ * at runtime via `src/app/admin/regions/actions.ts`. Keeping the cache
+ * key coarse maximizes hit rate and sidesteps both issues.
+ *
+ * `revalidate: 3600` is a belt-and-suspenders fallback. Tag invalidation
+ * from `scrapeSource` / admin mutations is the primary freshness mechanism
+ * (see `HARELINE_EVENTS_TAG` consumers). 1-hour max staleness in the
+ * absence of scrape activity is acceptable for a community event calendar.
+ */
+const fetchSlimEventsCached = unstable_cache(
+  async (
+    mode: TimeMode,
+    todayDateStr: string,
+  ): Promise<CachedHarelineEvent[]> => {
+    // Reconstruct UTC boundary from the date string so the cached function
+    // is a pure function of its args. (No reading Date.now() here —
+    // that would invalidate the cache contract.)
+    const startOfTodayUtc = new Date(`${todayDateStr}T00:00:00.000Z`);
+    const yesterdayUtc = new Date(startOfTodayUtc.getTime() - 24 * 60 * 60 * 1000);
+    const isPast = mode === "past";
+
+    const where = {
+      ...DISPLAY_EVENT_WHERE,
+      date: isPast ? { lt: yesterdayUtc } : { gte: yesterdayUtc },
+    };
+
+    const events = await prisma.event.findMany({
+      where,
+      select: {
+        id: true,
+        date: true,
+        dateUtc: true,
+        timezone: true,
+        kennelId: true,
+        runNumber: true,
+        title: true,
+        haresText: true,
+        startTime: true,
+        locationName: true,
+        locationCity: true,
+        status: true,
+        latitude: true,
+        longitude: true,
+        kennel: {
+          select: { id: true, shortName: true, fullName: true, slug: true, region: true, country: true },
+        },
+      },
+      orderBy: { date: isPast ? "desc" : "asc" },
+      ...(isPast ? { take: PAST_EVENTS_LIMIT } : {}),
+    });
+
+    return events.map((e) => ({
+      id: e.id,
+      date: e.date.toISOString(),
+      dateUtc: e.dateUtc ? e.dateUtc.toISOString() : null,
+      timezone: e.timezone,
+      kennelId: e.kennelId,
+      kennel: e.kennel,
+      runNumber: e.runNumber,
+      title: e.title,
+      haresText: e.haresText,
+      startTime: e.startTime,
+      locationName: e.locationName,
+      locationCity: e.locationCity,
+      status: e.status,
+      latitude: e.latitude ?? null,
+      longitude: e.longitude ?? null,
+    }));
+  },
+  ["hareline:events"],
+  { tags: [HARELINE_EVENTS_TAG], revalidate: 3600 },
+);
+
+/**
  * Events are stored at UTC noon. The single boundary used for both modes is
  * `yesterday 00:00 UTC`: upcoming is `>= yesterdayUtc` (catches noon-UTC runs
  * that haven't happened yet in any Western-Hemisphere timezone), past is
@@ -60,11 +165,8 @@ const PAST_EVENTS_LIMIT = 200;
  * hide against `take: PAST_EVENTS_LIMIT`.
  *
  * `nowMs` lets the initial-render path in `page.tsx` share a single clock
- * with the `serverNowMs` prop passed to the client — otherwise an HTTP
- * request that straddles UTC midnight could have the server compute its
- * boundary off one day and the client hydrate off the next. Omit for the
- * lazy client-driven tab switch, which recomputes fresh boundaries each
- * call.
+ * with the `serverNowMs` prop passed to the client. Omit for the lazy
+ * client-driven tab switch, which recomputes fresh boundaries each call.
  *
  * Uses `select` (not `include`) so heavy fields (description, sourceUrl,
  * locationStreet, locationAddress, eventLinks) never leave Postgres — they
@@ -74,55 +176,18 @@ export async function loadEventsForTimeMode(
   mode: TimeMode,
   nowMs?: number,
 ): Promise<HarelineListEvent[]> {
-  const now = new Date(nowMs ?? Date.now());
-  const startOfTodayUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  const yesterdayUtc = new Date(startOfTodayUtc.getTime() - 24 * 60 * 60 * 1000);
-  const isPast = mode === "past";
+  // YYYY-MM-DD in UTC — the cache key that rotates at UTC midnight.
+  const todayDateStr = new Date(nowMs ?? Date.now()).toISOString().slice(0, 10);
 
-  const events = await prisma.event.findMany({
-    where: {
-      ...DISPLAY_EVENT_WHERE,
-      date: isPast ? { lt: yesterdayUtc } : { gte: yesterdayUtc },
-    },
-    select: {
-      id: true,
-      date: true,
-      dateUtc: true,
-      timezone: true,
-      kennelId: true,
-      runNumber: true,
-      title: true,
-      haresText: true,
-      startTime: true,
-      locationName: true,
-      locationCity: true,
-      status: true,
-      latitude: true,
-      longitude: true,
-      kennel: {
-        select: { id: true, shortName: true, fullName: true, slug: true, region: true, country: true },
-      },
-    },
-    orderBy: { date: isPast ? "desc" : "asc" },
-    ...(isPast ? { take: PAST_EVENTS_LIMIT } : {}),
-  });
+  const cached = await fetchSlimEventsCached(mode, todayDateStr);
 
-  return events.map((e) => ({
-    id: e.id,
-    date: e.date.toISOString(),
-    dateUtc: e.dateUtc,
-    timezone: e.timezone,
-    kennelId: e.kennelId,
-    kennel: e.kennel,
-    runNumber: e.runNumber,
-    title: e.title,
-    haresText: e.haresText,
-    startTime: e.startTime,
-    locationName: e.locationName,
-    locationCity: e.locationCity,
-    status: e.status,
-    latitude: e.latitude ?? null,
-    longitude: e.longitude ?? null,
+  // Rehydrate `dateUtc` from ISO string back to `Date` at the cache
+  // boundary. Keeps `HarelineListEvent` stable across the project so
+  // EventCard/EventDetailPanel/CalendarView/kennel page don't need to
+  // learn about the cache shape.
+  return cached.map((e) => ({
+    ...e,
+    dateUtc: e.dateUtc ? new Date(e.dateUtc) : null,
   }));
 }
 
