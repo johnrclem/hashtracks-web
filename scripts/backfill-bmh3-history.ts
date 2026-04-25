@@ -36,6 +36,7 @@ const SOURCE_NAME = "Brass Monkey H3 Blog";
 const BLOG_URL = "https://teambrassmonkey.blogspot.com/";
 const KENNEL_TIMEZONE = "America/Chicago";
 const BLOGGER_API_BASE = "https://www.googleapis.com/blogger/v3";
+const BLOGGER_API_ORIGIN = "https://www.googleapis.com";
 const PAGE_SIZE = 100;
 const FETCH_TIMEOUT_MS = 30_000;
 
@@ -44,7 +45,20 @@ interface PostsPage {
   nextPageToken?: string;
 }
 
-async function fetchWithTimeout(url: string, apiKey: string): Promise<Response> {
+/**
+ * Build + fetch a Blogger API URL, asserting the resolved origin matches the
+ * trusted host. The origin check defeats SSRF even if a downstream value
+ * (e.g. blogId) somehow smuggles a host change through URL parsing.
+ */
+async function fetchBloggerEndpoint(
+  path: string,
+  params: URLSearchParams,
+  apiKey: string,
+): Promise<Response> {
+  const url = new URL(`${BLOGGER_API_BASE}/${path}?${params.toString()}`);
+  if (url.origin !== BLOGGER_API_ORIGIN) {
+    throw new Error(`Refusing to fetch non-Blogger origin: ${url.origin}`);
+  }
   return fetch(url, {
     headers: { "X-Goog-Api-Key": apiKey },
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
@@ -65,8 +79,9 @@ async function fetchAllPosts(blogId: string, apiKey: string): Promise<BloggerPos
     });
     if (pageToken) params.set("pageToken", pageToken);
 
-    const res = await fetchWithTimeout(
-      `${BLOGGER_API_BASE}/blogs/${blogId}/posts?${params.toString()}`,
+    const res = await fetchBloggerEndpoint(
+      `blogs/${blogId}/posts`,
+      params,
       apiKey,
     );
     if (!res.ok) {
@@ -76,7 +91,7 @@ async function fetchAllPosts(blogId: string, apiKey: string): Promise<BloggerPos
     const items = data.items ?? [];
     all.push(...items);
     page++;
-    console.log(`  Page ${page}: +${items.length} posts (total: ${all.length})`);
+    console.log(`  Page ${page} fetched`);
     const nextToken = data.nextPageToken;
     if (nextToken && seenTokens.has(nextToken)) {
       throw new Error(`Blogger pagination returned a repeated pageToken at page ${page}`);
@@ -90,10 +105,7 @@ async function fetchAllPosts(blogId: string, apiKey: string): Promise<BloggerPos
 
 async function discoverBlogId(apiKey: string): Promise<string> {
   const params = new URLSearchParams({ url: BLOG_URL });
-  const res = await fetchWithTimeout(
-    `${BLOGGER_API_BASE}/blogs/byurl?${params.toString()}`,
-    apiKey,
-  );
+  const res = await fetchBloggerEndpoint("blogs/byurl", params, apiKey);
   if (!res.ok) throw new Error(`Blogger byurl failed: HTTP ${res.status}`);
   const data = (await res.json()) as { id?: string };
   // Sanitize before interpolating into downstream Blogger API paths: parse
