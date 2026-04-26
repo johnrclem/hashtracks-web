@@ -1,26 +1,30 @@
 /**
  * One-shot merge for orphan RawEvents.
  *
- * Backfill scripts that use `insertRawEventsForSource` write RawEvents
- * directly with `processed = false`, expecting a follow-up scrape to merge
- * them. But `scrapeSource` only processes events returned by the live
- * adapter fetch — pre-inserted historical RawEvents stay orphaned forever.
+ * Backfill scripts that used `insertRawEventsForSource` (now deleted) wrote
+ * RawEvents directly with `processed = false`, expecting a follow-up scrape
+ * to merge them. But `scrapeSource` only processes events returned by the
+ * live adapter fetch — pre-inserted historical RawEvents stay orphaned
+ * forever.
  *
- * This script extracts orphan RawEvents, deletes them, and re-runs them
- * through `processRawEvents`, which creates fresh RawEvent rows AND upserts
- * canonical Events in the same pass.
+ * This script extracts orphan RawEvents, writes a JSON backup to /tmp,
+ * deletes the orphans, then re-runs them through `processRawEvents`, which
+ * creates fresh RawEvent rows AND upserts canonical Events in one pass.
+ * Delete-then-process (vs. process-then-delete) is required because
+ * `processRawEvents` calls `prisma.rawEvent.create` per row, which would
+ * collide on fingerprint with the still-present orphans. The JSON backup
+ * lets you replay if the merge fails mid-batch.
  *
  * Usage:
  *   Dry run:   npx tsx scripts/merge-orphan-rawevents.ts <sourceName>
  *   Apply:     MERGE_APPLY=1 npx tsx scripts/merge-orphan-rawevents.ts <sourceName>
- *
- *   BACKFILL_ALLOW_SELF_SIGNED_CERT=1 if running against the Railway proxy.
  */
 
 import "dotenv/config";
-import { PrismaClient } from "@/generated/prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { createScriptPool } from "./lib/db-pool";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import { prisma } from "@/lib/db";
 import { processRawEvents } from "@/pipeline/merge";
 import type { RawEventData } from "@/adapters/types";
 
@@ -33,9 +37,6 @@ async function main() {
   const apply = process.env.MERGE_APPLY === "1";
   console.log(`Mode: ${apply ? "APPLY (will write)" : "DRY RUN (no writes)"}`);
   console.log(`Source: "${sourceName}"`);
-
-  const pool = createScriptPool();
-  const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
 
   try {
     const sources = await prisma.source.findMany({
@@ -68,9 +69,17 @@ async function main() {
       return;
     }
 
-    // processRawEvents calls prisma.rawEvent.create per row, so the orphans
-    // must be deleted first to avoid a duplicate row per fingerprint.
-    console.log(`\nDeleting ${orphans.length} orphans...`);
+    // Safety net: write rawData to a JSON backup before deletion. If
+    // processRawEvents fails mid-batch the orphan rawData isn't gone — we
+    // can replay from this file.
+    const backupPath = path.join(
+      os.tmpdir(),
+      `merge-orphans-${sourceId}-${Date.now()}.json`,
+    );
+    fs.writeFileSync(backupPath, JSON.stringify(events, null, 2));
+    console.log(`\nBacked up ${events.length} events → ${backupPath}`);
+
+    console.log(`Deleting ${orphans.length} orphans...`);
     const orphanIds = orphans.map((o) => o.id);
     await prisma.rawEvent.deleteMany({ where: { id: { in: orphanIds } } });
 
@@ -95,7 +104,6 @@ async function main() {
     }
   } finally {
     await prisma.$disconnect();
-    await pool.end();
   }
 }
 

@@ -1,6 +1,4 @@
-import { PrismaClient } from "@/generated/prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { createScriptPool } from "./db-pool";
+import { prisma } from "@/lib/db";
 import { processRawEvents } from "@/pipeline/merge";
 import { todayInTimezone } from "@/lib/timezone";
 import type { RawEventData } from "@/adapters/types";
@@ -58,10 +56,14 @@ export async function reportAndApplyBackfill(
 
 /**
  * Apply-phase: look up the source by name, preflight that at least one
- * SourceKennel link exists (otherwise the merge guard would silently block
- * every row), and route through `processRawEvents`. The merge pipeline
- * creates RawEvent rows AND upserts canonical Events in one pass; on re-run
- * it dedupes by fingerprint, so this is safely idempotent.
+ * SourceKennel link exists (catches the all-zero misconfig that would
+ * silently block every row), and route through `processRawEvents`. The
+ * merge pipeline creates RawEvent rows AND upserts canonical Events in
+ * one pass; on re-run it dedupes by fingerprint, so this is idempotent.
+ *
+ * Uses the global Prisma client from `@/lib/db` because that's what
+ * `processRawEvents` uses internally — sharing the client avoids dual
+ * connection pools and SSL/config drift.
  *
  * NOTE: pre-inserting RawEvents and then "triggering a scrape" does NOT
  * merge them — `scrapeSource` only processes the live adapter's fetch
@@ -72,8 +74,6 @@ async function mergeRawEventsForSource(
   sourceName: string,
   events: RawEventData[],
 ): Promise<void> {
-  const pool = createScriptPool();
-  const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
   try {
     const sources = await prisma.source.findMany({
       where: { name: sourceName },
@@ -105,8 +105,10 @@ async function mergeRawEventsForSource(
     );
     if (result.blocked > 0) {
       throw new Error(
-        `${result.blocked} events BLOCKED by source-kennel guard (tags: ${result.blockedTags.join(", ")}). ` +
-          `Preflight should have caught this — investigate before retrying.`,
+        `${result.blocked} events BLOCKED by per-event source-kennel guard ` +
+          `(tags: ${result.blockedTags.join(", ")}). The bulk preflight only ` +
+          `checks that some links exist, not that every kennelTag is linked. ` +
+          `Add SourceKennel links for the blocked tags before retrying.`,
       );
     }
     if (result.unmatched.length > 0) {
@@ -118,6 +120,5 @@ async function mergeRawEventsForSource(
     }
   } finally {
     await prisma.$disconnect();
-    await pool.end();
   }
 }
