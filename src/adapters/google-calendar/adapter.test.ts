@@ -2391,12 +2391,16 @@ describe("Chicagoland Hash Calendar routing (#938)", () => {
     expect(result).toBeNull();
   });
 
-  it("drops events that don't match any kennel pattern (strictKennelRouting)", () => {
+  it("routes unmatched events to chicago-h3 default (Hash Ball, Drinking Practice, etc.)", () => {
+    // Non-routing-matched events default to ch3 — they're calendar-wide social
+    // or special events hosted by Chicago H3 (e.g. "Hash Ball 2026"). The
+    // pre-fix C2B3H4 leak is closed by the explicit kennelPattern, not by
+    // dropping unmatched titles.
     const result = buildRawEventFromGCalItem(
-      { summary: "Random non-hash event", start: { dateTime: "2026-04-15T19:00:00-05:00" }, status: "confirmed" },
+      { summary: "Hash Ball 2026", start: { dateTime: "2026-12-31T19:00:00-05:00" }, status: "confirmed" },
       config,
     );
-    expect(result).toBeNull();
+    expect(result?.kennelTag).toBe("ch3");
   });
 });
 

@@ -204,10 +204,11 @@ export const SOURCES = [
           ["RTH3|Ragtime", "rth3"],
           ["DLH3|Duneland|South Shore", "dlh3"],
         ],
-        // strictKennelRouting drops events that don't match any pattern instead
-        // of routing them to a default kennel. Prevents non-Chicagoland posts
-        // (and unknown groups) from polluting chicago-h3 (#938).
-        strictKennelRouting: true,
+        // Default unmatched events to chicago-h3 — calendar-wide social/special
+        // events ("Hash Ball 2026", "Chitown Drinking Practice") are CH3-hosted.
+        // The C2B3H4 leak (#938) is fixed by the explicit kennelPattern above,
+        // not by strict routing.
+        defaultKennelTag: "ch3",
         // Per-kennel `What: <kennel> No. N` run-number patterns. Each entry is
         // narrow enough that sibling Chicagoland kennels can't accidentally match.
         // - 4X2H4: "What: 4x2 H4 No. 124"
