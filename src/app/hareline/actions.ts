@@ -96,16 +96,30 @@ const fetchSlimEventsCached = unstable_cache(
     mode: TimeMode,
     todayDateStr: string,
   ): Promise<CachedHarelineEvent[]> => {
-    // Reconstruct UTC boundary from the date string so the cached function
+    // Reconstruct UTC boundaries from the date string so the cached function
     // is a pure function of its args. (No reading Date.now() here —
     // that would invalidate the cache contract.)
+    //
+    // Both payloads use lenient bounds that overlap on
+    // `[yesterday 00:00 UTC, tomorrow 00:00 UTC)` so the client's
+    // local-midnight bucket boundary (see `computeBucketBoundary` in
+    // HarelineView.tsx) can correctly route events stored at yesterday-
+    // or today-UTC-noon for any viewer's timezone:
+    //   - upcoming floor `>= yesterday 00:00 UTC` covers westward viewers
+    //     whose local-today-midnight is later than yesterday-UTC-midnight.
+    //   - past ceiling `< tomorrow 00:00 UTC` covers eastward viewers
+    //     whose local-today-midnight is later than today-UTC-midnight, so
+    //     events that just rolled into "yesterday locally" (stored at
+    //     today-UTC-noon for a JST viewer 9 hours ahead of UTC) are still
+    //     in the past payload. The client filter then narrows.
     const startOfTodayUtc = new Date(`${todayDateStr}T00:00:00.000Z`);
     const yesterdayUtc = new Date(startOfTodayUtc.getTime() - 24 * 60 * 60 * 1000);
+    const tomorrowUtc = new Date(startOfTodayUtc.getTime() + 24 * 60 * 60 * 1000);
     const isPast = mode === "past";
 
     const where = {
       ...DISPLAY_EVENT_WHERE,
-      date: isPast ? { lt: yesterdayUtc } : { gte: yesterdayUtc },
+      date: isPast ? { lt: tomorrowUtc } : { gte: yesterdayUtc },
     };
 
     const events = await prisma.event.findMany({
@@ -156,16 +170,20 @@ const fetchSlimEventsCached = unstable_cache(
 );
 
 /**
- * Events are stored at UTC noon. The server applies a lenient floor of
- * `yesterday 00:00 UTC` (upcoming is `>= yesterdayUtc`, past is
- * `< yesterdayUtc`) — wide enough that noon-UTC runs which haven't happened
- * yet in any Western-Hemisphere timezone are still in the upcoming payload
- * regardless of who's viewing. The actual upcoming/past split shown to the
- * user is refined client-side using their local timezone — see
- * `computeBucketBoundary` in `HarelineView.tsx`. This means the client may
- * filter out a few yesterday-UTC events that this query returns; that's
- * intentional — the server can't know the viewer's TZ without breaking
- * cache purity, and the wire-bloat is at most one UTC day's worth of events.
+ * Events are stored at UTC noon. Each payload uses a lenient bound that
+ * covers all viewer timezones; the client then refines the upcoming/past
+ * split using the viewer's local midnight (see `computeBucketBoundary` in
+ * `HarelineView.tsx`):
+ *   - upcoming floor `>= yesterday 00:00 UTC` (covers westward viewers).
+ *   - past ceiling `< tomorrow 00:00 UTC` (covers eastward viewers, whose
+ *     local "today" rolls before the server's UTC midnight does — without
+ *     this widening, events at today-UTC-noon would be missing from the
+ *     past payload yet filtered out of upcoming by the client).
+ *
+ * The two payloads now overlap on `[yesterday 00:00 UTC, tomorrow 00:00 UTC)`,
+ * but each tab fetches one payload at a time so the overlap doesn't cause
+ * double-rendering — it just gives the client enough events to disambiguate
+ * for any timezone.
  *
  * `nowMs` lets the initial-render path in `page.tsx` share a single clock
  * with the `serverNowMs` prop passed to the client. Omit for the lazy
