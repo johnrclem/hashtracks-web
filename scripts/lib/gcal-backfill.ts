@@ -57,8 +57,16 @@ export async function backfillGCalSource(params: GCalBackfillParams): Promise<vo
   console.log(`Window: ± ${params.days} days. Cutoff (${params.timezone}): date < ${todayIso}`);
 
   try {
-    const source = await prisma.source.findFirst({ where: { name: params.sourceName } });
-    if (!source) throw new Error(`Source "${params.sourceName}" not found in DB.`);
+    // Match insertRawEventsForSource's uniqueness check — ambiguous source
+    // names must abort, never silently bind to the first match.
+    const sources = await prisma.source.findMany({ where: { name: params.sourceName } });
+    if (sources.length === 0) throw new Error(`Source "${params.sourceName}" not found in DB.`);
+    if (sources.length > 1) {
+      throw new Error(
+        `Multiple sources named "${params.sourceName}" found (${sources.length}). Aborting to avoid writing to the wrong one.`,
+      );
+    }
+    const source = sources[0];
 
     console.log("\nFetching from Google Calendar API...");
     const adapter = new GoogleCalendarAdapter();
