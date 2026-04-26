@@ -183,8 +183,13 @@ export function rewriteStaleDefaultTitle(
   if (stalePrefixes.size === 0) return title;
 
   // Sort by length desc so longer aliases match first (e.g. "Bristol HHH"
-  // before "Bristol"), avoiding partial-prefix collisions.
-  const sortedPrefixes = [...stalePrefixes].sort((a, b) => b.length - a.length);
+  // before "Bristol"), avoiding partial-prefix collisions. Tiebreak with
+  // localeCompare so equal-length aliases produce a deterministic cache key
+  // regardless of Set insertion order (which depends on alias-add order
+  // upstream and would otherwise fragment the regex cache across batches).
+  const sortedPrefixes = [...stalePrefixes].sort(
+    (a, b) => b.length - a.length || a.localeCompare(b),
+  );
   const cacheKey = `${kennelCode}|${sortedPrefixes.join("|")}`;
   let pattern = staleTrailPatternCache.get(cacheKey);
   if (!pattern) {

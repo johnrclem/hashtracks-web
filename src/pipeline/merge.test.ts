@@ -1582,6 +1582,28 @@ describe("rewriteStaleDefaultTitle", () => {
     expect(rewriteStaleDefaultTitle("kwh3 Trail #42", "kwh3", "Key West H3", "Key West Hash House Harriers"))
       .toBe("Key West H3 Trail #42");
   });
+
+  it("sorts equal-length aliases deterministically (insertion order independent)", () => {
+    // Two equal-length aliases ("AAA" and "BBB", both length 3). The internal
+    // sort uses length desc then localeCompare, so the compiled regex (and
+    // its cache key) must be identical regardless of which order callers
+    // pass the aliases in. We assert stable rewrite behavior on both inputs
+    // for both orderings — if the tiebreaker were missing, the Set's
+    // insertion order would leak into the regex alternation order. While
+    // the resulting regex is functionally equivalent under simple prefix
+    // matching, the cache key would diverge and fragment the cache.
+    const display = "Foo H3";
+    const long = "Foo Hash House Harriers";
+    const order1 = rewriteStaleDefaultTitle("AAA Trail #1", "fooh3", display, long, ["AAA", "BBB"]);
+    const order2 = rewriteStaleDefaultTitle("AAA Trail #1", "fooh3", display, long, ["BBB", "AAA"]);
+    expect(order1).toBe("Foo H3 Trail #1");
+    expect(order2).toBe(order1);
+
+    const order3 = rewriteStaleDefaultTitle("BBB Trail #2", "fooh3", display, long, ["AAA", "BBB"]);
+    const order4 = rewriteStaleDefaultTitle("BBB Trail #2", "fooh3", display, long, ["BBB", "AAA"]);
+    expect(order3).toBe("Foo H3 Trail #2");
+    expect(order4).toBe(order3);
+  });
 });
 
 // ── sanitizeLocation ──
