@@ -1,42 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useInView } from "@/hooks/useInView";
 
-/* ── Animated counter that counts up from 0 ── */
-export function AnimatedCounter({ target, duration = 1500 }: { target: number; duration?: number }) {
-  const [count, setCount] = useState(0);
-  const ref = useRef<HTMLSpanElement>(null);
-  const hasAnimated = useRef(false);
-
-  useEffect(() => {
-    if (hasAnimated.current) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !hasAnimated.current) {
-          hasAnimated.current = true;
-          const start = performance.now();
-          const step = (now: number) => {
-            const elapsed = now - start;
-            const progress = Math.min(elapsed / duration, 1);
-            // Ease-out cubic
-            const eased = 1 - Math.pow(1 - progress, 3);
-            setCount(Math.round(eased * target));
-            if (progress < 1) requestAnimationFrame(step);
-          };
-          requestAnimationFrame(step);
-        }
-      },
-      { threshold: 0.3 }
-    );
-
-    if (ref.current) observer.observe(ref.current);
-    return () => observer.disconnect();
-  }, [target, duration]);
-
-  return <span ref={ref}>{count.toLocaleString()}</span>;
+// Renders a number formatted with locale grouping. Previously this animated
+// from 0 → target via IntersectionObserver, but the count-up effect left
+// SSR/no-JS/static-snapshot views permanently rendering "0" (issue #911), so
+// the animation was dropped in favor of correctness.
+export function AnimatedCounter({ target }: { target: number }) {
+  return <span>{target.toLocaleString()}</span>;
 }
 
 /* ── Staggered fade-in for sections ── */
