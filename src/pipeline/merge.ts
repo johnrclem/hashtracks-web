@@ -143,26 +143,66 @@ export function friendlyKennelName(shortName: string, fullName: string | null): 
   return hadHHH ? `${friendly} H3` : friendly;
 }
 
-/** Cache of kennelCode → compiled Trail pattern for rewriteStaleDefaultTitle. */
+/** Cache of cache-key → compiled Trail pattern for rewriteStaleDefaultTitle.
+ *  Cache key includes both kennelCode and the sorted alias list so renames or
+ *  alias additions invalidate the cached pattern naturally. */
 const staleTrailPatternCache = new Map<string, RegExp>();
 
 /**
- * Rewrite stale default titles that use a raw kennelCode instead of the current
- * display name. Returns the corrected title or the original if no rewrite needed.
+ * Rewrite stale default titles that use a raw kennelCode (or a known alias)
+ * instead of the current display name. Returns the corrected title or the
+ * original if no rewrite needed.
+ *
+ * Examples:
+ *   - "BRIS Trail" → "Bristol H3 Trail"      (alias "BRIS" rewrites; #884)
+ *   - "bristolh3 Trail #42" → "Bristol H3 Trail #42"  (kennelCode rewrites)
+ *   - "Bristol H3 Trail" → "Bristol H3 Trail" (already current; no-op)
+ *   - "The Posset Cup" → "The Posset Cup"     (real title; no match, unchanged)
+ *
+ * Aliases that ARE the current display name (case-insensitive) are skipped to
+ * avoid no-op rewrites that just rebuild the same string.
  */
 export function rewriteStaleDefaultTitle(
   title: string,
   kennelCode: string,
   shortName: string,
   fullName: string | null,
+  aliases: string[] = [],
 ): string {
   const displayName = friendlyKennelName(shortName, fullName);
-  if (!displayName || displayName.toLowerCase() === kennelCode.toLowerCase()) return title;
-  let pattern = staleTrailPatternCache.get(kennelCode);
+  if (!displayName) return title;
+  const displayLc = displayName.toLowerCase();
+
+  // Build the set of stale prefixes: kennelCode plus any alias that isn't the
+  // current display name. Skip empty/whitespace aliases.
+  const stalePrefixes = new Set<string>();
+  if (kennelCode && kennelCode.toLowerCase() !== displayLc) {
+    stalePrefixes.add(kennelCode);
+  }
+  for (const alias of aliases) {
+    const trimmed = alias.trim();
+    if (trimmed && trimmed.toLowerCase() !== displayLc) {
+      stalePrefixes.add(trimmed);
+    }
+  }
+  if (stalePrefixes.size === 0) return title;
+
+  // Sort by length desc so longer aliases match first (e.g. "Bristol HHH"
+  // before "Bristol"), avoiding partial-prefix collisions. Tiebreak with
+  // localeCompare so equal-length aliases produce a deterministic cache key
+  // regardless of Set insertion order (which depends on alias-add order
+  // upstream and would otherwise fragment the regex cache across batches).
+  const sortedPrefixes = [...stalePrefixes].sort(
+    (a, b) => b.length - a.length || a.localeCompare(b),
+  );
+  const cacheKey = `${kennelCode}|${sortedPrefixes.join("|")}`;
+  let pattern = staleTrailPatternCache.get(cacheKey);
   if (!pattern) {
-    const escaped = kennelCode.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
-    pattern = new RegExp(String.raw`^${escaped}(\s+Trail.*)`, "i");
-    staleTrailPatternCache.set(kennelCode, pattern);
+    const escaped = sortedPrefixes
+      .map((p) => p.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`))
+      .join("|");
+    pattern = new RegExp(String.raw`^(?:${escaped})(\s+Trail.*)`, "i");
+    staleTrailPatternCache.set(cacheKey, pattern);
   }
   const match = title.match(pattern);
   return match ? `${displayName}${match[1]}` : title;
@@ -219,6 +259,11 @@ interface KennelCacheEntry {
   country: string;
   regionCentroidLat: number | null;
   regionCentroidLng: number | null;
+  /** All known aliases for this kennel — used by rewriteStaleDefaultTitle to
+   *  catch alias-prefixed stale titles like "BRIS Trail" → "Bristol H3 Trail"
+   *  on kennels whose displayed shortName has changed since the row was
+   *  scraped. See #884. */
+  aliases: string[];
 }
 
 /** Source types whose location field is canonical and should not be enriched with a
@@ -254,7 +299,12 @@ async function resolveKennelData(kennelId: string, ctx: MergeContext): Promise<K
   if (cached === undefined) {
     const kennel = await prisma.kennel.findUnique({
       where: { id: kennelId },
-      select: { kennelCode: true, shortName: true, fullName: true, region: true, latitude: true, longitude: true, country: true, regionRef: { select: { centroidLat: true, centroidLng: true } } },
+      select: {
+        kennelCode: true, shortName: true, fullName: true, region: true,
+        latitude: true, longitude: true, country: true,
+        regionRef: { select: { centroidLat: true, centroidLng: true } },
+        aliases: { select: { alias: true } },
+      },
     });
     cached = {
       kennelCode: kennel?.kennelCode ?? "",
@@ -266,6 +316,7 @@ async function resolveKennelData(kennelId: string, ctx: MergeContext): Promise<K
       country: kennel?.country ?? "",
       regionCentroidLat: kennel?.regionRef?.centroidLat ?? null,
       regionCentroidLng: kennel?.regionRef?.centroidLng ?? null,
+      aliases: kennel?.aliases?.map((a) => a.alias) ?? [],
     };
     ctx.kennelCache.set(kennelId, cached);
   }
@@ -861,7 +912,7 @@ async function upsertCanonicalEvent(
             : {}),
           title: (() => {
             const nextTitle = sanitizeTitle(event.title) ?? existingEvent.title;
-            return nextTitle ? rewriteStaleDefaultTitle(nextTitle, kennelData.kennelCode, kennelData.shortName, kennelData.fullName) : nextTitle;
+            return nextTitle ? rewriteStaleDefaultTitle(nextTitle, kennelData.kennelCode, kennelData.shortName, kennelData.fullName, kennelData.aliases) : nextTitle;
           })(),
           // Preserve existing fields when source doesn't provide them (undefined)
           ...(event.description !== undefined
@@ -1108,7 +1159,7 @@ async function processNewRawEvent(
       ? `${displayName} Trail #${event.runNumber}`
       : `${displayName} Trail`;
   } else {
-    event.title = rewriteStaleDefaultTitle(sanitized, kennelData.kennelCode, kennelData.shortName, kennelData.fullName);
+    event.title = rewriteStaleDefaultTitle(sanitized, kennelData.kennelCode, kennelData.shortName, kennelData.fullName, kennelData.aliases);
   }
 
   const targetEventId = await upsertCanonicalEvent(event, kennelId, rawEvent.id, ctx);

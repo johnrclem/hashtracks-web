@@ -1648,6 +1648,89 @@ describe("rewriteStaleDefaultTitle", () => {
     expect(rewriteStaleDefaultTitle("Something Else", "kwh3", "Key West H3", null))
       .toBe("Something Else");
   });
+
+  // ── alias rewriting (#884 Bristol H3 — "BRIS Trail" stale prefix) ──
+
+  it("rewrites alias-prefixed stale titles to display name (#884)", () => {
+    // Bristol H3's source page emits the kennel code "BRIS" in column 1.
+    // Old DB rows landed with title "BRIS Trail" before the kennel was renamed
+    // to shortName="Bristol H3". The kennelCode rewrite alone wouldn't match
+    // because "bristolh3" isn't a prefix of "BRIS Trail" — but "BRIS" is in
+    // the alias list, so the rewrite catches it.
+    expect(
+      rewriteStaleDefaultTitle("BRIS Trail", "bristolh3", "Bristol H3", "Bristol Hash House Harriers", ["Bristol Hash", "BH3", "Bristol HHH", "BRIS"]),
+    ).toBe("Bristol H3 Trail");
+  });
+
+  it("rewrites alias-prefixed title with run number suffix", () => {
+    expect(
+      rewriteStaleDefaultTitle("BRIS Trail #1357", "bristolh3", "Bristol H3", "Bristol Hash House Harriers", ["BRIS"]),
+    ).toBe("Bristol H3 Trail #1357");
+  });
+
+  it("prefers longer alias matches over shorter (no partial-prefix collision)", () => {
+    // "Bristol HHH" (longer) and "Bristol" (hypothetical shorter) — must match
+    // the longer one first so the suffix " HHH Trail" doesn't survive.
+    expect(
+      rewriteStaleDefaultTitle("Bristol HHH Trail", "bristolh3", "Bristol H3", "Bristol Hash House Harriers", ["Bristol", "Bristol HHH"]),
+    ).toBe("Bristol H3 Trail");
+  });
+
+  it("skips aliases that equal the current display name (no-op rewrite)", () => {
+    // "Bristol H3" alias would just rebuild the same string — should be filtered.
+    expect(
+      rewriteStaleDefaultTitle("Bristol H3 Trail", "bristolh3", "Bristol H3", "Bristol Hash House Harriers", ["Bristol H3", "BRIS"]),
+    ).toBe("Bristol H3 Trail");
+  });
+
+  it("does not rewrite when no alias or kennelCode prefix matches", () => {
+    expect(
+      rewriteStaleDefaultTitle("The Posset Cup", "bristolh3", "Bristol H3", "Bristol Hash House Harriers", ["BRIS"]),
+    ).toBe("The Posset Cup");
+  });
+
+  it("rewrites when only aliases are stale (kennelCode === displayName)", () => {
+    // For kennels where kennelCode = displayName, the old behavior returned
+    // immediately without rewriting any aliases. The fix lets aliases
+    // continue to drive rewrites.
+    expect(
+      rewriteStaleDefaultTitle("OldName Trail", "currentname", "currentname", "Current Name H3", ["OldName"]),
+    ).toBe("currentname Trail");
+  });
+
+  it("ignores empty/whitespace aliases", () => {
+    expect(
+      rewriteStaleDefaultTitle("BRIS Trail", "bristolh3", "Bristol H3", "Bristol Hash House Harriers", ["", "  ", "BRIS"]),
+    ).toBe("Bristol H3 Trail");
+  });
+
+  it("aliases parameter is optional (back-compat with existing callers)", () => {
+    // Existing call sites that don't pass aliases must keep working.
+    expect(rewriteStaleDefaultTitle("kwh3 Trail #42", "kwh3", "Key West H3", "Key West Hash House Harriers"))
+      .toBe("Key West H3 Trail #42");
+  });
+
+  it("sorts equal-length aliases deterministically (insertion order independent)", () => {
+    // Two equal-length aliases ("AAA" and "BBB", both length 3). The internal
+    // sort uses length desc then localeCompare, so the compiled regex (and
+    // its cache key) must be identical regardless of which order callers
+    // pass the aliases in. We assert stable rewrite behavior on both inputs
+    // for both orderings — if the tiebreaker were missing, the Set's
+    // insertion order would leak into the regex alternation order. While
+    // the resulting regex is functionally equivalent under simple prefix
+    // matching, the cache key would diverge and fragment the cache.
+    const display = "Foo H3";
+    const long = "Foo Hash House Harriers";
+    const order1 = rewriteStaleDefaultTitle("AAA Trail #1", "fooh3", display, long, ["AAA", "BBB"]);
+    const order2 = rewriteStaleDefaultTitle("AAA Trail #1", "fooh3", display, long, ["BBB", "AAA"]);
+    expect(order1).toBe("Foo H3 Trail #1");
+    expect(order2).toBe(order1);
+
+    const order3 = rewriteStaleDefaultTitle("BBB Trail #2", "fooh3", display, long, ["AAA", "BBB"]);
+    const order4 = rewriteStaleDefaultTitle("BBB Trail #2", "fooh3", display, long, ["BBB", "AAA"]);
+    expect(order3).toBe("Foo H3 Trail #2");
+    expect(order4).toBe(order3);
+  });
 });
 
 // ── sanitizeLocation ──
