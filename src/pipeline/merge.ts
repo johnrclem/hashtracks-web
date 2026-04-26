@@ -7,7 +7,7 @@ import { composeUtcStart } from "@/lib/timezone";
 import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag, clearResolverCache } from "./kennel-resolver";
 import { extractCoordsFromMapsUrl, geocodeAddress, resolveShortMapsUrl, reverseGeocode, haversineDistance, parseDMSFromLocation, stripDMSFromLocation } from "@/lib/geo";
-import { isPlaceholder, decodeEntities, HARE_BOILERPLATE_RE } from "@/adapters/utils";
+import { isPlaceholder, decodeEntities, HARE_BOILERPLATE_RE, CTA_EMBEDDED_PATTERNS } from "@/adapters/utils";
 import { LOCATION_EMAIL_CTA_RE } from "./audit-checks";
 
 // Strip a trailing "(text/call/… for address)" parenthetical when its body
@@ -85,8 +85,13 @@ export function sanitizeHares(hares: string | undefined | null): string | null {
   if (!h) return null;
   if (isPlaceholder(h)) return null;
 
-  // Filter CTA/volunteer placeholders that aren't real hare names
+  // Filter CTA/volunteer placeholders that aren't real hare names — sentence-shaped
+  // CTAs (e.g. "We need a Hare, Contact Full Load!" — Makesweat City H3 #1920)
+  // get caught here so adapters don't need to special-case per-source. See #963.
   if (/^(?:sign[\s\u00A0]*up!?|volunteer)$/i.test(h)) return null;
+  for (const re of CTA_EMBEDDED_PATTERNS) {
+    if (re.test(h)) return null;
+  }
 
   // Reject bare URLs (e.g., Google Maps links extracted as hare names)
   if (/^https?:\/\//i.test(h)) return null;
