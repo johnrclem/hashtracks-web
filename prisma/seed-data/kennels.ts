@@ -1037,7 +1037,7 @@ export const KENNELS: KennelSeed[] = [
       scheduleDayOfWeek: "Saturday", scheduleTime: "1:00 PM", scheduleFrequency: "Monthly",
       scheduleNotes: "Monthly Saturday ride near the new moon.",
       foundedYear: 2023,
-      description: "Richmond's bike hash. Monthly Saturday rides near the new moon — meet at breweries, peddle for pilsner, and endure this Life Behind Bars.",
+      description: "Richmond's bike hash. Monthly Saturday rides near the new moon — meet at breweries, pedal for pilsner, and endure this Life Behind Bars.",
       latitude: 37.54, longitude: -77.44,
     },
     // --- Hampton Roads ---
