@@ -959,7 +959,12 @@ export class GoogleCalendarAdapter implements SourceAdapter {
 
     const sourceConfig = parseCalendarSourceConfig(source.config);
     const now = new Date();
-    const horizonDays = sourceConfig?.futureHorizonDays ?? DEFAULT_FUTURE_HORIZON_DAYS;
+    // Guard against malformed config: a non-numeric futureHorizonDays would
+    // produce NaN and crash `new Date()` with RangeError, aborting the scrape.
+    const rawHorizon = sourceConfig?.futureHorizonDays;
+    const horizonDays = (typeof rawHorizon === "number" && Number.isFinite(rawHorizon) && rawHorizon > 0)
+      ? rawHorizon
+      : DEFAULT_FUTURE_HORIZON_DAYS;
     const futureDays = Math.min(days, horizonDays);
     const timeMin = new Date(now.getTime() - days * 86_400_000).toISOString();
     const timeMax = new Date(now.getTime() + futureDays * 86_400_000).toISOString();

@@ -2520,4 +2520,19 @@ describe("GoogleCalendarAdapter — RRULE future-horizon cap (#939)", () => {
     expect(timeMax - before).toBeLessThanOrEqual(91 * 86_400_000);
     expect(timeMax - after).toBeGreaterThanOrEqual(89 * 86_400_000);
   });
+
+  it.each([
+    ["non-numeric string", "abc"],
+    ["zero", 0],
+    ["negative", -10],
+    ["NaN", Number.NaN],
+    ["Infinity", Number.POSITIVE_INFINITY],
+  ])("falls back to default when futureHorizonDays is %s", async (_label, badValue) => {
+    const bad = makeSource({ defaultKennelTag: "test", futureHorizonDays: badValue });
+    const { url, before, after } = await runAndCapture(bad, 1500);
+    const timeMax = new Date(url.searchParams.get("timeMax")!).getTime();
+    // Should fall back to the 365d default, not crash with RangeError
+    expect(timeMax - before).toBeLessThanOrEqual(366 * 86_400_000);
+    expect(timeMax - after).toBeGreaterThanOrEqual(364 * 86_400_000);
+  });
 });
