@@ -61,7 +61,11 @@ export function parseMakesweatEvent(
   if (descText) {
     const hareMatch = descText.match(/Hares?\s*[-–—]\s*(.+?)(?:\n|$)/i);
     if (hareMatch) {
-      hares = hareMatch[1].trim() || undefined;
+      // Empty string (not undefined) signals "field present but empty" so the
+      // merge UPDATE path fires and sanitizeHares("") returns null, clearing
+      // any stale value. Returning undefined would skip the haresText write
+      // entirely and leave stale data forever. See #949.
+      hares = hareMatch[1].trim();
     }
   }
 

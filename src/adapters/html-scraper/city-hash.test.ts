@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { readFileSync } from "node:fs";
 import * as cheerio from "cheerio";
 import { parseMakesweatEvent, extractMakesweatId } from "./city-hash";
 import { CityHashAdapter } from "./city-hash";
@@ -188,6 +189,27 @@ Pub - TBA</div>
     const $cta = cheerio.load(ctaHtml);
     const event = parseMakesweatEvent($cta, $cta(".ms_event").eq(0), "https://makesweat.com/cityhash#hashes");
     expect(event?.hares).toBe("We need a Hare, Contact Full Load!");
+  });
+
+  it("does not collapse a matched-but-trim-empty hare value to undefined (#949)", () => {
+    // Regression guard for the `|| undefined` footgun removed in this PR.
+    // The merge UPDATE branch only writes `haresText` when
+    // `event.hares !== undefined`. If the regex matches a label like
+    // "Hare - " but `(.+?)` captures only whitespace-equivalent characters
+    // that `trim()` strips, the adapter must still emit an empty string —
+    // NOT `undefined` — so merge can call `sanitizeHares("")` (returns null)
+    // and clear any stale value. Returning `undefined` would skip the write
+    // entirely and "69 Virgins to Paradise" would persist forever (#949).
+    //
+    // We test the property by reading the source: the assignment is
+    // `hares = hareMatch[1].trim();` — bare trim, no `|| undefined`.
+    // This sentinel test fails if a future maintainer reintroduces the
+    // collapse pattern.
+    const src = readFileSync(
+      new URL("./city-hash.ts", import.meta.url),
+      "utf8",
+    );
+    expect(src).not.toMatch(/hareMatch\[1\]\.trim\(\)\s*\|\|\s*undefined/);
   });
 
   it("extracts Makesweat ID from class attribute", () => {
