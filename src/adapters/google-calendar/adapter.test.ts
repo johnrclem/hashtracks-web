@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   extractRunNumber,
   extractTitle,
@@ -10,9 +10,11 @@ import {
   applyInlineHarelineBackfill,
   extractLocationFromDescription,
   extractTimeFromDescription,
+  extractTimeFromTitle,
   extractCostFromDescription,
   buildRawEventFromGCalItem,
   normalizeGCalDescription,
+  GoogleCalendarAdapter,
 } from "./adapter";
 import type { RawEventData } from "../types";
 import { SOURCES } from "../../../prisma/seed-data/sources";
@@ -2354,5 +2356,218 @@ describe("buildRawEventFromGCalItem — coord-only item.location (#779 BMPH3)", 
     expect(event).not.toBeNull();
     expect(event!.cost).toBe("$5");
     expect(event!.hares).toBe("Leeroy");
+  });
+});
+
+// ── #938 Chicagoland routing: C2B3H4 + strictKennelRouting ──
+
+describe("Chicagoland Hash Calendar routing (#938)", () => {
+  const source = SOURCES.find((s) => s.name === "Chicagoland Hash Calendar");
+  if (!source?.config) throw new Error("Chicagoland Hash Calendar seed config missing");
+  const config = source.config as { kennelPatterns: [string, string][]; strictKennelRouting?: boolean };
+
+  it.each([
+    ["C2B3H4 - We're back, bitches", "c2b3h4"],
+    ["C2B3H4 #2", "c2b3h4"],
+    ["C2B3 #5", "c2b3h4"],
+    ["Chicago H3 #1234", "ch3"],
+    ["CH3 - Slashie themed", "ch3"],
+    ["TH3 #99", "th3"],
+    ["4X2 H4 No. 124", "4x2h4"],
+    ["BDH3 #200", "bdh3"],
+  ])("routes %j → %s", (summary, expectedTag) => {
+    const result = buildRawEventFromGCalItem(
+      { summary, start: { dateTime: "2026-04-15T19:00:00-05:00" }, status: "confirmed" },
+      config,
+    );
+    expect(result?.kennelTag).toBe(expectedTag);
+  });
+
+  it("drops C2B3H4 placeholder 'HARE NEEDED' events (CTA filter)", () => {
+    const result = buildRawEventFromGCalItem(
+      { summary: "C2B3H4 - HARE NEEDED", start: { dateTime: "2026-04-15T19:00:00-05:00" }, status: "confirmed" },
+      config,
+    );
+    expect(result).toBeNull();
+  });
+
+  it("drops events that don't match any kennel pattern (strictKennelRouting)", () => {
+    const result = buildRawEventFromGCalItem(
+      { summary: "Random non-hash event", start: { dateTime: "2026-04-15T19:00:00-05:00" }, status: "confirmed" },
+      config,
+    );
+    expect(result).toBeNull();
+  });
+});
+
+// ── #924 extractLocationFromDescription instructional-text filter ──
+
+describe("extractLocationFromDescription — #924 instructional text filter", () => {
+  it("rejects WHERE: with themed instruction prose (Chicagoland C2B3H4 case)", () => {
+    expect(
+      extractLocationFromDescription(
+        "WHERE: Slashie themed, so start is Ola's on Damen. Carry your shit & bring cash",
+      ),
+    ).toBeUndefined();
+  });
+
+  it("rejects WHERE: with 'carry your X' instruction phrase", () => {
+    expect(extractLocationFromDescription("WHERE: Meet at the bar and carry your gear")).toBeUndefined();
+  });
+
+  it("rejects WHERE: with 'bring cash' instruction phrase", () => {
+    expect(extractLocationFromDescription("WHERE: The Pub. Bring cash, no cards")).toBeUndefined();
+  });
+
+  it("rejects WHERE: with costume keyword", () => {
+    expect(extractLocationFromDescription("WHERE: costume required, location TBA")).toBeUndefined();
+  });
+
+  it("preserves venue names containing 'dress' or 'wear' (e.g. Dress Circle Pub)", () => {
+    expect(extractLocationFromDescription("WHERE: Dress Circle Pub")).toBe("Dress Circle Pub");
+  });
+
+  it("preserves clean address WHERE: lines", () => {
+    expect(extractLocationFromDescription("WHERE: 123 Main St, Chicago, IL 60601")).toBe("123 Main St, Chicago, IL 60601");
+  });
+
+  it("preserves simple venue names without instruction prose", () => {
+    expect(extractLocationFromDescription("WHERE: Portland Saturday Market fountain")).toBe("Portland Saturday Market fountain");
+  });
+
+  it("rejects locations exceeding 100 chars (likely description prose, not address)", () => {
+    const longLocation = "WHERE: " + "x".repeat(120);
+    expect(extractLocationFromDescription(longLocation)).toBeUndefined();
+  });
+});
+
+// ── #958 extractTimeFromTitle (NOH3 social events) ──
+
+describe("extractTimeFromTitle (#958)", () => {
+  it("extracts bare 'Npm' time from title", () => {
+    expect(extractTimeFromTitle("Social @ JBs Fuel Dock, 6pm")).toBe("18:00");
+  });
+
+  it("extracts H:MMpm time from title", () => {
+    expect(extractTimeFromTitle("Hash Run 7:30pm")).toBe("19:30");
+  });
+
+  it("extracts H:MM AM time from title", () => {
+    expect(extractTimeFromTitle("Morning trail 9:15 AM")).toBe("09:15");
+  });
+
+  it("12pm normalizes to noon", () => {
+    expect(extractTimeFromTitle("Lunch run 12pm")).toBe("12:00");
+  });
+
+  it("12am normalizes to midnight", () => {
+    expect(extractTimeFromTitle("Midnight run 12am")).toBe("00:00");
+  });
+
+  it("returns undefined when title has no time", () => {
+    expect(extractTimeFromTitle("Monday Hash Run")).toBeUndefined();
+  });
+
+  it("HH:MM form takes precedence over bare hour form when both present", () => {
+    // "Run 7:30 pm meets at 6pm" — extract 7:30 PM, not 6:00 PM
+    expect(extractTimeFromTitle("Run 7:30 pm meets at 6pm")).toBe("19:30");
+  });
+
+  it("end-to-end: all-day GCal event with title-embedded time gets startTime populated", () => {
+    const item = {
+      summary: "Social @ JBs Fuel Dock, 6pm",
+      start: { date: "2026-04-24" },
+      status: "confirmed",
+    };
+    const config = { defaultKennelTag: "noh3", includeAllDayEvents: true };
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event).not.toBeNull();
+    expect(event!.startTime).toBe("18:00");
+  });
+
+  it("end-to-end: event with start.dateTime keeps explicit time over title-embedded time", () => {
+    // GCal-supplied time takes precedence; title's "6pm" is ignored.
+    const item = {
+      summary: "Hash run 6pm",
+      start: { dateTime: "2026-04-24T19:00:00-05:00" },
+      status: "confirmed",
+    };
+    const config = { defaultKennelTag: "noh3" };
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event!.startTime).toBe("19:00");
+  });
+});
+
+// ── #939 RRULE horizon cap ──
+
+describe("GoogleCalendarAdapter — RRULE future-horizon cap (#939)", () => {
+  const adapter = new GoogleCalendarAdapter();
+
+  function makeSource() {
+    return {
+      id: "test-source",
+      url: "test@calendar.google.com",
+      type: "GOOGLE_CALENDAR" as const,
+      config: { defaultKennelTag: "test" },
+      scrapeDays: 365,
+    } as unknown as Parameters<typeof adapter.fetch>[0];
+  }
+
+  it("caps timeMax at now + 180 days even when options.days = 365", async () => {
+    const originalKey = process.env.GOOGLE_CALENDAR_API_KEY;
+    process.env.GOOGLE_CALENDAR_API_KEY = "test-key";
+
+    let capturedUrl: URL | undefined;
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      capturedUrl = new URL(input as string);
+      return new Response(JSON.stringify({ items: [] }), { status: 200 });
+    });
+
+    try {
+      const before = Date.now();
+      await adapter.fetch(makeSource(), { days: 365 });
+      const after = Date.now();
+
+      expect(capturedUrl).toBeDefined();
+      const timeMin = new Date(capturedUrl!.searchParams.get("timeMin")!).getTime();
+      const timeMax = new Date(capturedUrl!.searchParams.get("timeMax")!).getTime();
+
+      // timeMin reflects full past window (~365d back)
+      expect(before - timeMin).toBeGreaterThanOrEqual(364 * 86_400_000);
+      expect(after - timeMin).toBeLessThanOrEqual(366 * 86_400_000);
+
+      // timeMax capped at +180d, not +365d
+      expect(timeMax - before).toBeLessThanOrEqual(181 * 86_400_000);
+      expect(timeMax - after).toBeGreaterThanOrEqual(179 * 86_400_000);
+    } finally {
+      fetchSpy.mockRestore();
+      if (originalKey === undefined) delete process.env.GOOGLE_CALENDAR_API_KEY;
+      else process.env.GOOGLE_CALENDAR_API_KEY = originalKey;
+    }
+  });
+
+  it("does not artificially extend timeMax when options.days < 180", async () => {
+    const originalKey = process.env.GOOGLE_CALENDAR_API_KEY;
+    process.env.GOOGLE_CALENDAR_API_KEY = "test-key";
+
+    let capturedUrl: URL | undefined;
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      capturedUrl = new URL(input as string);
+      return new Response(JSON.stringify({ items: [] }), { status: 200 });
+    });
+
+    try {
+      const before = Date.now();
+      await adapter.fetch(makeSource(), { days: 30 });
+      const after = Date.now();
+
+      const timeMax = new Date(capturedUrl!.searchParams.get("timeMax")!).getTime();
+      expect(timeMax - before).toBeLessThanOrEqual(31 * 86_400_000);
+      expect(timeMax - after).toBeGreaterThanOrEqual(29 * 86_400_000);
+    } finally {
+      fetchSpy.mockRestore();
+      if (originalKey === undefined) delete process.env.GOOGLE_CALENDAR_API_KEY;
+      else process.env.GOOGLE_CALENDAR_API_KEY = originalKey;
+    }
   });
 });

@@ -189,6 +189,9 @@ export const SOURCES = [
       scrapeDays: 365,
       config: {
         kennelPatterns: [
+          // C2B3H4 must come before generic CH3 so it doesn't accidentally
+          // match. Chicago Ballbusters H3 — sister to Boston B3H4 (#938).
+          ["C2B3H4|C2B3", "c2b3h4"],
           ["CH3|Chicago Hash|Chicago H3", "ch3"],
           ["TH3|Thirstday|Thursday Hash", "th3"],
           ["CFMH3|Chicago Full Moon|Full Moon Hash|Full Moon H3|Moon Hash", "cfmh3"],
@@ -201,7 +204,10 @@ export const SOURCES = [
           ["RTH3|Ragtime", "rth3"],
           ["DLH3|Duneland|South Shore", "dlh3"],
         ],
-        defaultKennelTag: "ch3",
+        // strictKennelRouting drops events that don't match any pattern instead
+        // of routing them to a default kennel. Prevents non-Chicagoland posts
+        // (and unknown groups) from polluting chicago-h3 (#938).
+        strictKennelRouting: true,
         // Per-kennel `What: <kennel> No. N` run-number patterns. Each entry is
         // narrow enough that sibling Chicagoland kennels can't accidentally match.
         // - 4X2H4: "What: 4x2 H4 No. 124"
@@ -216,7 +222,7 @@ export const SOURCES = [
         // ends up with its own hare name.
         inlineHarelinePattern: { kennelTag: "4x2h4", blockHeader: "4x2 H4 Hareline:" },
       },
-      kennelCodes: ["ch3", "th3", "cfmh3", "fcmh3", "bdh3", "bmh3", "2ch3", "wwh3", "4x2h4", "rth3", "dlh3"],
+      kennelCodes: ["ch3", "th3", "cfmh3", "fcmh3", "bdh3", "bmh3", "2ch3", "wwh3", "4x2h4", "rth3", "dlh3", "c2b3h4"],
     },
     {
       name: "Chicago Hash Website",
