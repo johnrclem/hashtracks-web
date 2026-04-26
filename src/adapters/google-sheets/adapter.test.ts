@@ -209,6 +209,40 @@ describe("buildEventFromSheetRow", () => {
     expect(event!.title).toBe("Real Title");
   });
 
+  it("drops all-lowercase single-token city shorthands like 'sheperdstown' (#893)", () => {
+    // W3H3 sheet row 17 (run #359) has "sheperdstown" in column D — a typo'd
+    // city name used as a venue placeholder. Without this fix the geocoder
+    // appends the resolved city → "sheperdstown, Shepherdstown, WV" double-render.
+    const row = ["359", "3/11/26", "Alice", "sheperdstown", "Trail Title"];
+    const event = buildEventFromSheetRow(row, baseConfig, "https://example.com", "2026-03-11");
+    expect(event).not.toBeNull();
+    expect(event!.location).toBeUndefined();
+    // locationUrl is gated on location, so it also drops.
+    expect(event!.locationUrl).toBeUndefined();
+  });
+
+  it("preserves capitalized one-word venue names (no false-positive on 'Subway')", () => {
+    // Capitalized one-word values could be real venues — the heuristic
+    // intentionally skips them. Capitalized city shorthands like
+    // "Charlestown" would still pass through to the geocoder; that's
+    // a downstream redundancy-suppression concern, out of scope here.
+    const row = ["359", "3/11/26", "Alice", "Subway", "Trail Title"];
+    const event = buildEventFromSheetRow(row, baseConfig, "https://example.com", "2026-03-11");
+    expect(event!.location).toBe("Subway");
+  });
+
+  it("preserves multi-word lowercase venue names (heuristic only fires on single-token)", () => {
+    const row = ["359", "3/11/26", "Alice", "the old star", "Trail Title"];
+    const event = buildEventFromSheetRow(row, baseConfig, "https://example.com", "2026-03-11");
+    expect(event!.location).toBe("the old star");
+  });
+
+  it("preserves real venue names with apostrophes/hyphens but spaces", () => {
+    const row = ["359", "3/11/26", "Alice", "Joe's Tavern", "Trail Title"];
+    const event = buildEventFromSheetRow(row, baseConfig, "https://example.com", "2026-03-11");
+    expect(event!.location).toBe("Joe's Tavern");
+  });
+
   it("applies defaultTitle with run number when title is placeholder", () => {
     const config = { ...baseConfig, defaultTitle: "Wild & Wonderful Wednesday Trail" };
     const row = ["42", "3/11/26", "Alice", "Park", "TBD"];

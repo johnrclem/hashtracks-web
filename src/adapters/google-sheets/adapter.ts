@@ -7,6 +7,32 @@ import { safeFetch } from "../safe-fetch";
 /** Titles starting with these verbs are instructions/notes, not event names. */
 const INSTRUCTION_TITLE_RE = /^(?:bring|check|don['\u2019]t|remember|note|pack|wear)\b/i;
 
+/**
+ * Detects all-lowercase single-token values that look like city/area
+ * shorthands typed into a venue column. Some kennels (W3H3) use the same
+ * sheet column for both real venue names and city hints; the city-hint
+ * rows are usually short, lowercase, and unpunctuated (e.g. "sheperdstown",
+ * "harpers", "brunswick").
+ *
+ * Treating these as venue names produces double-rendered locations like
+ * "sheperdstown, Shepherdstown, WV" once the geocoder appends the resolved
+ * city. Dropping the value here (caller sets `location = undefined` when
+ * this returns `true`) leaves the geocoder with the kennel's region bias
+ * still pointing it at the right place — without the typo'd shorthand
+ * lingering in user-facing text (#893).
+ *
+ * Capitalized one-word values like "Charlestown" are intentionally NOT
+ * caught \u2014 they could be real venues (e.g. "Subway", "Roxy") and need
+ * a different signal (geocoded-city equality) handled downstream.
+ */
+function isCityShorthand(value: string): boolean {
+  const trimmed = value.trim();
+  if (trimmed.length === 0 || trimmed.length > 30) return false;
+  // Single token, all lowercase letters/apostrophes/hyphens, no whitespace
+  // or punctuation. Allows common typo'd or shorthanded city names.
+  return /^[a-z][a-z'-]+$/.test(trimmed);
+}
+
 /** Config stored in Source.config JSON for Google Sheets sources */
 export interface GoogleSheetsConfig {
   sheetId: string;
@@ -281,7 +307,13 @@ export function buildEventFromSheetRow(
 
   // Strip placeholder values (TBD, TBA, N/A, etc.)
   const hares = stripPlaceholder(row[config.columns.hares]);
-  const location = stripPlaceholder(row[config.columns.location]);
+  let location = stripPlaceholder(row[config.columns.location]);
+  // Drop all-lowercase single-token "city shorthand" values (e.g. "sheperdstown")
+  // that aren't real venue names. The merge pipeline still has the kennel's
+  // region/country bias for geocoding. See #893.
+  if (location && isCityShorthand(location)) {
+    location = undefined;
+  }
   let title = config.columns.title != null ? stripPlaceholder(row[config.columns.title]) : undefined;
 
   if (title && INSTRUCTION_TITLE_RE.test(title)) {
