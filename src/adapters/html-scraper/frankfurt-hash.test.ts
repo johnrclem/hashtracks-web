@@ -169,6 +169,13 @@ describe("stripHareSuffix (#961)", () => {
     // accidental over-eager regexes if someone tightens the pattern later.
     expect(stripHareSuffix("FH3-Hare: X")).toBe("FH3-Hare: X");
   });
+
+  it("strips trailing ' Hare - <name>' (dash separator, archive form)", () => {
+    // Live FH3 archive title (e.g. "FH3 Run #1639: Hare - Wankula") — the
+    // run-# colon is left intact, only the trailing "Hare - …" is removed.
+    expect(stripHareSuffix("FH3 Run #1639: Hare - Wankula")).toBe("FH3 Run #1639:");
+    expect(stripHareSuffix("FH3 Run #1636: Hare - The Blacks")).toBe("FH3 Run #1636:");
+  });
 });
 
 // ── parseJEMEvent tests ──
@@ -429,6 +436,30 @@ describe("parseJEMEvent", () => {
     expect(event!.runNumber).toBe(2119);
     expect(event!.hares).toBe("Whore Durve");
     expect(event!.kennelTag).toBe("FH3");
+  });
+
+  it("strips ' Hare - <name>' suffix and extracts hares (archive dash form, #961)", () => {
+    // Live FH3 archive entry: "FH3 Run #1639: Hare - Wankula" — both
+    // stripHareSuffix and extractHaresFromText must accept the dash form,
+    // otherwise the title strips but the hare is lost.
+    const html = `<li class="jem-event">
+      <time itemprop="startDate" content="2018-06-15T19:00"></time>
+      <div class="jem-event-title">
+        <h4 title="Title: FH3 Run #1639: Hare - Wankula">
+          <a href="/index.php/coming-runs/event/695:Hare%20-%20Wankula">FH3 Run #1639: Hare - Wankula</a>
+        </h4>
+      </div>
+      <div class="jem-event-venue"><a href="/venues/1">Frankfurt</a></div>
+    </li>`;
+    const $ = cheerio.load(html);
+    const $li = $("li.jem-event").first();
+
+    const event = parseJEMEvent($li, $, compiled, defaultTag, baseUrl);
+
+    expect(event).not.toBeNull();
+    expect(event!.title).toBe("FH3 Run #1639:");
+    expect(event!.runNumber).toBe(1639);
+    expect(event!.hares).toBe("Wankula");
   });
 });
 

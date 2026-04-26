@@ -62,7 +62,7 @@ function matchKennelTag(title: string, compiled: [RegExp, string][], defaultTag:
  * See #961.
  */
 export function stripHareSuffix(title: string): string {
-  const stripped = title.replace(/\s+Hares?\s*[:\-]\s*.+$/i, "").trim();
+  const stripped = title.replace(/\s+Hares?\s*[:-]\s*.+$/i, "").trim();
   return stripped || title;
 }
 
@@ -158,8 +158,11 @@ export function extractHaresFromText(text: string): string | undefined {
   const cleaned = looksLikeHtml
     ? stripHtmlTags(text, "\n")
     : decodeEntities(text).trim();
-  // Match "Hares: <names>" or "Hare: <names>" up to newline/sentence/line break or "by".
-  const m = /\bHares?\s*:\s*([^\n.|]+?)(?=\s*(?:[.|\n]|\bby\b|$))/i.exec(cleaned);
+  // Match "Hares: <names>", "Hare: <names>", or "Hare - <names>" up to
+  // newline/sentence/line break or "by". FH3 archive titles use both colon
+  // and dash as the hare separator (e.g. "FH3 Run #1639: Hare - Wankula"),
+  // so we accept either — kept in sync with stripHareSuffix(). See #961.
+  const m = /\bHares?\s*[:-]\s*([^\n.|]+?)(?=\s*(?:[.|\n]|\bby\b|$))/i.exec(cleaned);
   if (!m) return undefined;
   const value = m[1].trim();
   return value || undefined;
