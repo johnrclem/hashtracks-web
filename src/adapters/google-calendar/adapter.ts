@@ -5,13 +5,17 @@ import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, HA
 import { PHONE_NUMBER_RE, LOCATION_EMAIL_CTA_RE } from "@/pipeline/audit-checks";
 
 /**
- * Cap on the future-window passed to Google Calendar's `timeMax`. With
+ * Default cap on the future-window passed to Google Calendar's `timeMax`. With
  * `singleEvents=true`, the API materializes RRULE recurrences across the entire
  * window — so a kennel's weekly run on a 365-day source.scrapeDays produces ~52
  * speculative entries per kennel, dwarfing the realistic planning horizon
  * (#939). Past window stays at full `days` to preserve historical retention.
+ *
+ * Per-source override via `CalendarSourceConfig.futureHorizonDays` for sources
+ * that legitimately need wider future visibility (e.g. annual events posted
+ * 6+ months ahead).
  */
-const FUTURE_HORIZON_DAYS = 180;
+const DEFAULT_FUTURE_HORIZON_DAYS = 180;
 
 /** Default description patterns for run number extraction (Boston Hash Calendar format). */
 const DEFAULT_RUN_NUMBER_PATTERNS = [
@@ -505,6 +509,13 @@ interface CalendarSourceConfig {
   descriptionSuffix?: string;           // appended to every event description
   includeAllDayEvents?: boolean;        // if true, don't skip all-day events (some calendars use them for real runs)
   defaultStartTime?: string;            // "HH:MM" fallback when neither the calendar item nor the description yields a start time (paired with includeAllDayEvents)
+  /**
+   * Per-source override for the future-window cap on `timeMax`. Default 180.
+   * Increase for calendars that schedule legit non-RRULE events more than 6
+   * months out (annual campouts). Don't increase blindly on RRULE-heavy
+   * aggregator calendars — that's how #939 happened.
+   */
+  futureHorizonDays?: number;
   defaultTitle?: string;                // human-readable fallback title when event summary is just a kennel slug
   defaultTitles?: Record<string, string>; // per-kennelTag fallback titles (aggregator calendars)
   // Some calendars only populate the soonest-upcoming event's description, which
@@ -945,8 +956,10 @@ export class GoogleCalendarAdapter implements SourceAdapter {
       throw new Error("GOOGLE_CALENDAR_API_KEY environment variable is not set");
     }
 
+    const sourceConfig = parseCalendarSourceConfig(source.config);
     const now = new Date();
-    const futureDays = Math.min(days, FUTURE_HORIZON_DAYS);
+    const horizonDays = sourceConfig?.futureHorizonDays ?? DEFAULT_FUTURE_HORIZON_DAYS;
+    const futureDays = Math.min(days, horizonDays);
     const timeMin = new Date(now.getTime() - days * 86_400_000).toISOString();
     const timeMax = new Date(now.getTime() + futureDays * 86_400_000).toISOString();
 
@@ -956,7 +969,6 @@ export class GoogleCalendarAdapter implements SourceAdapter {
     let pageToken: string | undefined;
     let totalItemsReturned = 0;
     let pagesProcessed = 0;
-    const sourceConfig = parseCalendarSourceConfig(source.config);
     const compiledHarePatterns = sourceConfig?.harePatterns?.length
       ? compilePatterns(sourceConfig.harePatterns)
       : undefined;

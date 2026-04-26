@@ -2507,71 +2507,64 @@ describe("extractTimeFromTitle (#958)", () => {
 describe("GoogleCalendarAdapter — RRULE future-horizon cap (#939)", () => {
   const adapter = new GoogleCalendarAdapter();
 
-  function makeSource() {
+  function makeSource(config: object = { defaultKennelTag: "test" }) {
     return {
       id: "test-source",
       url: "test@calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
-      config: { defaultKennelTag: "test" },
+      config,
       scrapeDays: 365,
     } as unknown as Parameters<typeof adapter.fetch>[0];
   }
 
-  it("caps timeMax at now + 180 days even when options.days = 365", async () => {
+  // Spy on fetch, swap in a stub API key, run the adapter, return the
+  // captured request URL plus the wall-clock window the call spanned.
+  async function runAndCapture(
+    source: Parameters<typeof adapter.fetch>[0],
+    days: number,
+  ): Promise<{ url: URL; before: number; after: number }> {
     const originalKey = process.env.GOOGLE_CALENDAR_API_KEY;
     process.env.GOOGLE_CALENDAR_API_KEY = "test-key";
-
     let capturedUrl: URL | undefined;
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       capturedUrl = new URL(input as string);
       return new Response(JSON.stringify({ items: [] }), { status: 200 });
     });
-
     try {
       const before = Date.now();
-      await adapter.fetch(makeSource(), { days: 365 });
+      await adapter.fetch(source, { days });
       const after = Date.now();
-
-      expect(capturedUrl).toBeDefined();
-      const timeMin = new Date(capturedUrl!.searchParams.get("timeMin")!).getTime();
-      const timeMax = new Date(capturedUrl!.searchParams.get("timeMax")!).getTime();
-
-      // timeMin reflects full past window (~365d back)
-      expect(before - timeMin).toBeGreaterThanOrEqual(364 * 86_400_000);
-      expect(after - timeMin).toBeLessThanOrEqual(366 * 86_400_000);
-
-      // timeMax capped at +180d, not +365d
-      expect(timeMax - before).toBeLessThanOrEqual(181 * 86_400_000);
-      expect(timeMax - after).toBeGreaterThanOrEqual(179 * 86_400_000);
+      if (!capturedUrl) throw new Error("fetch was not called");
+      return { url: capturedUrl, before, after };
     } finally {
       fetchSpy.mockRestore();
       if (originalKey === undefined) delete process.env.GOOGLE_CALENDAR_API_KEY;
       else process.env.GOOGLE_CALENDAR_API_KEY = originalKey;
     }
+  }
+
+  it("caps timeMax at now + 180 days even when options.days = 365", async () => {
+    const { url, before, after } = await runAndCapture(makeSource(), 365);
+    const timeMin = new Date(url.searchParams.get("timeMin")!).getTime();
+    const timeMax = new Date(url.searchParams.get("timeMax")!).getTime();
+    expect(before - timeMin).toBeGreaterThanOrEqual(364 * 86_400_000);
+    expect(after - timeMin).toBeLessThanOrEqual(366 * 86_400_000);
+    expect(timeMax - before).toBeLessThanOrEqual(181 * 86_400_000);
+    expect(timeMax - after).toBeGreaterThanOrEqual(179 * 86_400_000);
   });
 
   it("does not artificially extend timeMax when options.days < 180", async () => {
-    const originalKey = process.env.GOOGLE_CALENDAR_API_KEY;
-    process.env.GOOGLE_CALENDAR_API_KEY = "test-key";
+    const { url, before, after } = await runAndCapture(makeSource(), 30);
+    const timeMax = new Date(url.searchParams.get("timeMax")!).getTime();
+    expect(timeMax - before).toBeLessThanOrEqual(31 * 86_400_000);
+    expect(timeMax - after).toBeGreaterThanOrEqual(29 * 86_400_000);
+  });
 
-    let capturedUrl: URL | undefined;
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
-      capturedUrl = new URL(input as string);
-      return new Response(JSON.stringify({ items: [] }), { status: 200 });
-    });
-
-    try {
-      const before = Date.now();
-      await adapter.fetch(makeSource(), { days: 30 });
-      const after = Date.now();
-
-      const timeMax = new Date(capturedUrl!.searchParams.get("timeMax")!).getTime();
-      expect(timeMax - before).toBeLessThanOrEqual(31 * 86_400_000);
-      expect(timeMax - after).toBeGreaterThanOrEqual(29 * 86_400_000);
-    } finally {
-      fetchSpy.mockRestore();
-      if (originalKey === undefined) delete process.env.GOOGLE_CALENDAR_API_KEY;
-      else process.env.GOOGLE_CALENDAR_API_KEY = originalKey;
-    }
+  it("respects per-source futureHorizonDays override (e.g. 365 for annual events)", async () => {
+    const wide = makeSource({ defaultKennelTag: "test", futureHorizonDays: 365 });
+    const { url, before, after } = await runAndCapture(wide, 365);
+    const timeMax = new Date(url.searchParams.get("timeMax")!).getTime();
+    expect(timeMax - before).toBeLessThanOrEqual(366 * 86_400_000);
+    expect(timeMax - after).toBeGreaterThanOrEqual(364 * 86_400_000);
   });
 });
