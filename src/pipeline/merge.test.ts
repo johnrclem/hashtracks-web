@@ -953,6 +953,113 @@ describe("location preservation on update", () => {
   });
 });
 
+describe("dropCachedCoords signal (#957)", () => {
+  it("re-geocodes and overwrites stale coords when adapter signals dropCachedCoords", async () => {
+    // Canonical event currently stores HC's bad fallback pin (Imperial Palace).
+    // Adapter emits no coords, no locationUrl, but signals the cache is stale.
+    // Without dropCachedCoords, resolveCoords' existingCoords short-circuit
+    // would return the stored bad pin and the geocode would never run.
+    const { geocodeAddress } = await import("@/lib/geo");
+    vi.mocked(geocodeAddress).mockResolvedValueOnce({
+      lat: 35.7295, lng: 139.7109, formattedAddress: "Ikebukuro, Toshima, Tokyo, Japan",
+    } as never);
+
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      {
+        id: "evt_1",
+        trustLevel: 5,
+        latitude: 35.685,
+        longitude: 139.751,
+        locationAddress: null,
+        locationCity: "Chiyoda",
+      },
+    ] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    await processRawEvents("src_1", [
+      buildRawEvent({
+        location: "Ikebukuro (Yamanote) Metropolitan exit",
+        latitude: undefined,
+        longitude: undefined,
+        dropCachedCoords: true,
+      }),
+    ]);
+
+    const updateCall = mockEventUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(updateCall.data.latitude).toBe(35.7295);
+    expect(updateCall.data.longitude).toBe(139.7109);
+  });
+
+  it("clears stored coords + city when dropCachedCoords is set and re-geocode returns null", async () => {
+    const { geocodeAddress } = await import("@/lib/geo");
+    vi.mocked(geocodeAddress).mockResolvedValueOnce(null as never);
+
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      {
+        id: "evt_1",
+        trustLevel: 5,
+        latitude: 35.685,
+        longitude: 139.751,
+        locationAddress: null,
+        locationCity: "Chiyoda",
+      },
+    ] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    await processRawEvents("src_1", [
+      buildRawEvent({
+        location: "Some unresolvable place",
+        latitude: undefined,
+        longitude: undefined,
+        dropCachedCoords: true,
+      }),
+    ]);
+
+    const updateCall = mockEventUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(updateCall.data.latitude).toBeNull();
+    expect(updateCall.data.longitude).toBeNull();
+    expect(updateCall.data.locationCity).toBeNull();
+  });
+
+  it("preserves stored coords when dropCachedCoords is unset (cache short-circuit still wins)", async () => {
+    // Sanity check: without the signal, the existingCoords cache must continue
+    // to short-circuit so we don't burn a Google Geocoding API call on every
+    // scrape of an unchanged event.
+    const { geocodeAddress } = await import("@/lib/geo");
+    const geoSpy = vi.mocked(geocodeAddress);
+    geoSpy.mockClear();
+
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      {
+        id: "evt_1",
+        trustLevel: 5,
+        latitude: 40.7,
+        longitude: -74.0,
+        locationAddress: null,
+      },
+    ] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    await processRawEvents("src_1", [
+      buildRawEvent({
+        location: "Central Park",
+        latitude: undefined,
+        longitude: undefined,
+      }),
+    ]);
+
+    const updateCall = mockEventUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
+    // Cache short-circuit returns existing coords, which get rewritten — but
+    // crucially the geocoder was never invoked (no Google API call burned).
+    expect(updateCall.data.latitude).toBe(40.7);
+    expect(updateCall.data.longitude).toBe(-74.0);
+    expect(geoSpy).not.toHaveBeenCalled();
+  });
+});
+
 describe("time/cost field clearing on update (#530)", () => {
   // startTime
   it("preserves existing startTime when new source has undefined startTime", async () => {

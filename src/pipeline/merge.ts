@@ -661,8 +661,12 @@ async function resolveCoords(
   const rawCoords = extractRawCoords(event);
   if (rawCoords.latitude != null) return rawCoords;
 
-  // Skip geocoding when the canonical event already has coords and location hasn't changed
+  // Skip geocoding when the canonical event already has coords and location hasn't changed.
+  // Adapters can opt out via `dropCachedCoords` when they know the stored coords are
+  // stale (e.g. Harrier Central's geocode-failure fallback pin — #957) and need a
+  // fresh geocode even though `locationUrl` hasn't changed (HC events have it null).
   if (
+    !event.dropCachedCoords &&
     existingCoords &&
     existingCoords.latitude != null &&
     existingCoords.longitude != null &&
@@ -831,8 +835,13 @@ async function upsertCanonicalEvent(
           const rawCity = await reverseGeocode(coords.latitude, coords.longitude);
           locationCity = suppressRedundantCity(locName, rawCity);
         }
-      } else if (event.locationUrl !== undefined && (event.locationUrl ?? null) !== (existingEvent.locationAddress ?? null)) {
-        // Coords cleared — also clear city
+      } else if (
+        (event.locationUrl !== undefined && (event.locationUrl ?? null) !== (existingEvent.locationAddress ?? null)) ||
+        event.dropCachedCoords
+      ) {
+        // Coords cleared (either via locationUrl change or adapter dropCachedCoords
+        // signal — #957) — also clear city so we don't display a stale Tokyo
+        // "Chiyoda" against a now-uncoordinated event.
         locationCity = null;
       }
 
@@ -881,10 +890,13 @@ async function upsertCanonicalEvent(
           sourceUrl: existingEvent.sourceUrl ?? event.sourceUrl,
           trustLevel: ctx.trustLevel,
           // Write coords if resolved; clear if locationAddress changed and no new coords
-          // (prevents stale pins when an event moves to an unparseable location URL)
+          // (prevents stale pins when an event moves to an unparseable location URL),
+          // or when the adapter signalled the cached coords are stale and the
+          // re-geocode came up empty (HC fallback-pin recovery — #957).
           ...(coords.latitude != null && coords.longitude != null
             ? { latitude: coords.latitude, longitude: coords.longitude }
-            : event.locationUrl !== undefined && (event.locationUrl ?? null) !== (existingEvent.locationAddress ?? null)
+            : (event.locationUrl !== undefined && (event.locationUrl ?? null) !== (existingEvent.locationAddress ?? null)) ||
+                event.dropCachedCoords
               ? { latitude: null, longitude: null }
               : {}),
           // Reverse-geocoded city (only set when computed above)

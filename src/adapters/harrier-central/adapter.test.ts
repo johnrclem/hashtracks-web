@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { HarrierCentralAdapter, composeHcLocation } from "./adapter";
+import { HarrierCentralAdapter, composeHcLocation, hcGeocodeFailed } from "./adapter";
 import type { HCEvent } from "./adapter";
 import { generateAccessToken, PUBLIC_HASHER_ID } from "./token";
 import type { Source } from "@/generated/prisma/client";
@@ -90,6 +90,32 @@ describe("composeHcLocation", () => {
     expect(
       composeHcLocation("Iron Horse", "Iron Horse Tavern Road, Morgantown, WV"),
     ).toBe("Iron Horse, Iron Horse Tavern Road, Morgantown, WV");
+  });
+});
+
+describe("hcGeocodeFailed", () => {
+  it("returns true when both fields are non-empty and equal (case-insensitive)", () => {
+    expect(hcGeocodeFailed("Ikebukuro exit", "Ikebukuro exit")).toBe(true);
+    expect(hcGeocodeFailed("JR Keihintohoku line", "jr keihintohoku line")).toBe(true);
+  });
+
+  it("returns false when either field is missing or TBA", () => {
+    expect(hcGeocodeFailed(undefined, "Anything")).toBe(false);
+    expect(hcGeocodeFailed("Anything", undefined)).toBe(false);
+    expect(hcGeocodeFailed("TBA", "TBA")).toBe(false);
+    expect(hcGeocodeFailed("", "")).toBe(false);
+  });
+
+  it("returns false when fields differ (real geocoded address)", () => {
+    expect(
+      hcGeocodeFailed("YR Event Hall", "1 Chome−10−15, Toshima City, 171-0021, Japan"),
+    ).toBe(false);
+  });
+
+  it("returns false when resolvable is bare coordinates (HC partial geocode)", () => {
+    // Coords-only resolvable means HC has the meeting point's coords even
+    // though it couldn't reverse-geocode a street name. Keep them.
+    expect(hcGeocodeFailed("Waseda exit", "35.713, 139.704")).toBe(false);
   });
 });
 
@@ -348,6 +374,92 @@ describe("HarrierCentralAdapter", () => {
       expect(result.events[0].location).toBe(
         "227 Spruce Street, Morgantown, 26505-7511, WV, United States",
       );
+    });
+
+    it("composes full address for #2585 fixture (regression for #922)", async () => {
+      // Live HC API payload for Tokyo H3 run #2585 ("50th Anniversary Run")
+      // captured 2026-04-25. The composed string is what the merge UPDATE
+      // path will write to Event.locationName once the Tokyo source re-scrapes;
+      // the bug report is for stale DB rows that landed before HC started
+      // returning the full resolvableLocation. See #922.
+      mockApiResponse([
+        buildHCEvent({
+          eventNumber: 2585,
+          eventName: "50th Anniversary Run",
+          locationOneLineDesc: "YR Event Hall",
+          resolvableLocation: "1 Chome−10−15 養老乃瀧池袋ビル 4階, Toshima City, 171-0021, Japan",
+          syncLat: 35.72932,
+          syncLong: 139.70899,
+        }),
+      ]);
+      const result = await adapter.fetch(makeSource({ defaultKennelTag: "tokyo-h3" }));
+      expect(result.events[0].location).toBe(
+        "YR Event Hall, 1 Chome−10−15 養老乃瀧池袋ビル 4階, Toshima City, 171-0021, Japan",
+      );
+      // Coords look real (Toshima City) — keep them.
+      expect(result.events[0].latitude).toBe(35.72932);
+      expect(result.events[0].longitude).toBe(139.70899);
+    });
+
+    it("drops API coords when HC's geocoder failed (#957 Ikebukuro Imperial Palace)", async () => {
+      // When `resolvableLocation` is a verbatim copy of `locationOneLineDesc`,
+      // HC's geocoder couldn't resolve a real address and `syncLat`/`syncLong`
+      // are HC's region-default fallback (35.685, 139.751 — Imperial Palace
+      // area for any un-geocoded Tokyo event). Drop the coords so the merge
+      // pipeline geocodes from the place text + kennel country bias instead.
+      mockApiResponse([
+        buildHCEvent({
+          eventNumber: 2579,
+          eventName: "Ikebukuro",
+          locationOneLineDesc: "Ikebukuro (Yamanote) Metropolitan exit(west exit)",
+          resolvableLocation: "Ikebukuro (Yamanote) Metropolitan exit(west exit)",
+          syncLat: 35.68501691,
+          syncLong: 139.7514074,
+        }),
+      ]);
+      const result = await adapter.fetch(makeSource({ defaultKennelTag: "tokyo-h3" }));
+      expect(result.events).toHaveLength(1);
+      expect(result.events[0].latitude).toBeUndefined();
+      expect(result.events[0].longitude).toBeUndefined();
+      // Place text still flows through so the geocoder has something to use.
+      expect(result.events[0].location).toBe(
+        "Ikebukuro (Yamanote) Metropolitan exit(west exit)",
+      );
+      // Adapter signals the merge pipeline to bypass the existingCoords cache
+      // short-circuit so previously-stored fallback pins get refreshed.
+      expect(result.events[0].dropCachedCoords).toBe(true);
+    });
+
+    it("omits dropCachedCoords when HC's geocoder succeeded", async () => {
+      // Real geocoded address — adapter must not signal cache drop, otherwise
+      // every healthy HC scrape would force a redundant geocode lookup.
+      mockApiResponse([
+        buildHCEvent({
+          locationOneLineDesc: "YR Event Hall",
+          resolvableLocation: "1 Chome−10−15, Toshima City, 171-0021, Japan",
+          syncLat: 35.72932,
+          syncLong: 139.70899,
+        }),
+      ]);
+      const result = await adapter.fetch(makeSource({ defaultKennelTag: "tokyo-h3" }));
+      expect(result.events[0].dropCachedCoords).toBeUndefined();
+    });
+
+    it("preserves API coords when resolvableLocation is bare coords (HC geocode partial success)", async () => {
+      // Tokyo H3 #2578: HC has real coords in resolvableLocation (geocoded
+      // the meeting point) even though the place text is descriptive. The
+      // place !== resolvable check correctly leaves these coords alone.
+      mockApiResponse([
+        buildHCEvent({
+          locationOneLineDesc: "Yamanote, Tozai lines. Waseda exit",
+          resolvableLocation: "35.713482463621920, 139.704315846472870",
+          syncLat: 35.71348246362192,
+          syncLong: 139.70431584647287,
+        }),
+      ]);
+      const result = await adapter.fetch(makeSource({ defaultKennelTag: "tokyo-h3" }));
+      expect(result.events[0].latitude).toBe(35.71348246362192);
+      expect(result.events[0].longitude).toBe(139.70431584647287);
     });
 
     it("includes diagnosticContext in result", async () => {
