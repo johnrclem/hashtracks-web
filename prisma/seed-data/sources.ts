@@ -328,7 +328,7 @@ export const SOURCES = [
     },
     {
       name: "Barnes Hash Hare Line",
-      url: "http://www.barnesh3.com/HareLine.htm",
+      url: "https://www.barnesh3.com/HareLine.htm",
       type: "HTML_SCRAPER" as const,
       trustLevel: 6,
       scrapeFreq: "daily",

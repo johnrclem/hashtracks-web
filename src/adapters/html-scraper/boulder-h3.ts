@@ -1,8 +1,7 @@
-import * as cheerio from "cheerio";
 import type { CheerioAPI } from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult } from "../types";
-import { chronoParseDate, fetchHTMLPage, parse12HourTime } from "../utils";
+import { applyDateWindow, chronoParseDate, fetchHTMLPage, parse12HourTime } from "../utils";
 
 /**
  * Boulder Hash House Harriers (BH3 Boulder) Divi/WordPress blog scraper.
@@ -49,11 +48,8 @@ export function parseBoulderH3Article(
 
   const $body = $article.find(".post-content").first().clone();
   $body.find("a.more-link").remove();
-  const bodyText = cheerio
-    .load(($body.html() ?? "").replace(/<br\s*\/?>/gi, " "))
-    .text()
-    .replace(/\s+/g, " ")
-    .trim();
+  $body.find("br").replaceWith(" ");
+  const bodyText = $body.text().replace(/\s+/g, " ").trim();
 
   const whenMatch = WHEN_RE.exec(bodyText);
   if (!whenMatch) return null;
@@ -88,9 +84,7 @@ export function parseBoulderH3IndexPage($: CheerioAPI): RawEventData[] {
 export class BoulderH3Adapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
 
-  // Single-page index; days window N/A — the Phase B backfill script
-  // handles archive pages 2–N independently.
-  async fetch(source: Source, _options?: { days?: number }): Promise<ScrapeResult> {
+  async fetch(source: Source, options?: { days?: number }): Promise<ScrapeResult> {
     const url = source.url || HASHES_URL;
     const page = await fetchHTMLPage(url);
     if (!page.ok) return page.result;
@@ -98,7 +92,7 @@ export class BoulderH3Adapter implements SourceAdapter {
     const { $, structureHash, fetchDurationMs } = page;
     const events = parseBoulderH3IndexPage($);
 
-    return {
+    const result: ScrapeResult = {
       events,
       errors: [],
       structureHash,
@@ -108,5 +102,6 @@ export class BoulderH3Adapter implements SourceAdapter {
         fetchDurationMs,
       },
     };
+    return applyDateWindow(result, options?.days ?? 90);
   }
 }
