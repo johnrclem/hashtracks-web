@@ -187,14 +187,16 @@ async function main() {
   );
 
   // Backfill owns date < today; recurring adapter (hardcoded 90d lookback)
-  // owns the rest. reportAndApplyBackfill performs the partition + sample log
-  // + insertRawEventsForSource. After insert, the next scheduled scrape's
-  // merge pipeline promotes RawEvents to canonical Events.
+  // owns the rest. mergeInline routes through processRawEvents so canonical
+  // Events are created in this pass — without it, historical RawEvents
+  // older than 90 days would never be reached by the recurring scrape and
+  // would stay processed=false forever.
   await reportAndApplyBackfill({
     apply,
     sourceName: SOURCE_NAME,
     events,
     kennelTimezone: KENNEL_TIMEZONE,
+    mergeInline: true,
   });
 }
 

@@ -1,7 +1,9 @@
 import { PrismaClient, type Prisma } from "@/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { prisma } from "@/lib/db";
 import { createScriptPool } from "./db-pool";
 import { generateFingerprint } from "@/pipeline/fingerprint";
+import { processRawEvents } from "@/pipeline/merge";
 import { todayInTimezone } from "@/lib/timezone";
 import type { RawEventData } from "@/adapters/types";
 
@@ -15,13 +17,24 @@ export interface BackfillReportOptions {
   sourceName: string;
   events: RawEventData[];
   kennelTimezone: string;
+  /**
+   * When true, runs `processRawEvents` inline so canonical Events are
+   * created in the same pass — equivalent to the GCal helper's flow.
+   * Use this when the recurring scrape would NOT pick up the historical
+   * RawEvents on its next run (e.g. ICAL_FEED's hardcoded 90d lookback,
+   * or kennelTag overrides the recurring adapter's pattern wouldn't
+   * reproduce). Without this, the rows stay processed=false forever.
+   * Default false to preserve existing callers' behavior.
+   */
+  mergeInline?: boolean;
 }
 
 /**
  * Shared report + apply phase for one-shot backfill scripts. Splits parsed
  * events into past (date < today-in-kennel-timezone) and skipped, prints a
  * partition summary plus three sample rows, and either short-circuits in dry
- * run mode or hands the past slice off to `insertRawEventsForSource`.
+ * run mode or applies via `insertRawEventsForSource` (default) or
+ * `processRawEvents` (when `mergeInline: true`).
  *
  * Centralised here because every backfill repeats the same partition/report/
  * apply block verbatim, which trips SonarCloud's duplication gate.
@@ -29,7 +42,7 @@ export interface BackfillReportOptions {
 export async function reportAndApplyBackfill(
   options: BackfillReportOptions,
 ): Promise<void> {
-  const { apply, sourceName, events, kennelTimezone } = options;
+  const { apply, sourceName, events, kennelTimezone, mergeInline = false } = options;
   const today = todayInTimezone(kennelTimezone);
   const past = events.filter((e) => e.date < today);
   const skipped = events.length - past.length;
@@ -57,11 +70,54 @@ export async function reportAndApplyBackfill(
     return;
   }
 
+  if (mergeInline) {
+    await runInlineMerge(sourceName, past);
+    return;
+  }
+
   console.log("\nWriting to DB...");
   const { preExisting, inserted } = await insertRawEventsForSource(sourceName, past);
   console.log(`  Pre-existing: ${preExisting}. Inserted: ${inserted}.`);
   if (inserted > 0) {
     console.log(`\nDone. Trigger a scrape of "${sourceName}" from the admin UI to merge the new RawEvents.`);
+  }
+}
+
+/**
+ * Apply phase for backfills that need canonical Events created in the same
+ * pass — looks up the source by name (with the same uniqueness guard as
+ * `insertRawEventsForSource`), then routes events through the merge pipeline.
+ * Re-runnable: `processRawEvents` handles the unprocessed-orphan case so
+ * stuck RawEvents from a prior insert-only run get promoted.
+ */
+async function runInlineMerge(sourceName: string, past: RawEventData[]): Promise<void> {
+  console.log(`\nDelegating ${past.length} events to merge pipeline...`);
+  const sources = await prisma.source.findMany({
+    where: { name: sourceName },
+    select: { id: true },
+  });
+  if (sources.length === 0) throw new Error(`Source "${sourceName}" not found in DB.`);
+  if (sources.length > 1) {
+    throw new Error(
+      `Multiple sources named "${sourceName}" found (${sources.length}). Aborting to avoid writing to the wrong one.`,
+    );
+  }
+  try {
+    const merge = await processRawEvents(sources[0].id, past);
+    console.log(
+      `Done. created=${merge.created} updated=${merge.updated} skipped=${merge.skipped} ` +
+        `unmatched=${merge.unmatched.length} blocked=${merge.blocked} errors=${merge.eventErrors}`,
+    );
+    if (merge.unmatched.length > 0) console.log(`  Unmatched tags: ${merge.unmatched.join(", ")}`);
+    if (merge.blocked > 0) {
+      console.log(`  Blocked tags: ${merge.blockedTags.join(", ")}`);
+    }
+    if (merge.eventErrors > 0) {
+      const sampleErrors = merge.eventErrorMessages.slice(0, 5).join("\n    ");
+      console.log(`  Errors:\n    ${sampleErrors}`);
+    }
+  } finally {
+    await prisma.$disconnect();
   }
 }
 

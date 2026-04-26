@@ -18,9 +18,12 @@
  * what was previously stored for past Trail #39, so the data shape is
  * consistent.
  *
- * Uses `insertRawEventsForSource` directly (not `reportAndApplyBackfill`)
- * because the event date may be today or future — the helper's past-only
- * date filter would skip it.
+ * Calls `processRawEvents` inline because (a) the event is today (so the
+ * `reportAndApplyBackfill` past-only filter would drop it) and (b) the
+ * kennelTag override here ("chain-gang-hhh") doesn't match what the
+ * recurring scrape would produce (defaultKennelTag "rvah3" since the
+ * `^Chain Gang` pattern misses), so the next scrape would never reach
+ * this RawEvent — fingerprints differ. Inline merge promotes it now.
  *
  * Usage:
  *   Dry run: npx tsx scripts/backfill-chain-gang-trail-40.ts
@@ -28,7 +31,8 @@
  */
 
 import "dotenv/config";
-import { insertRawEventsForSource } from "./lib/backfill-runner";
+import { prisma } from "@/lib/db";
+import { processRawEvents } from "@/pipeline/merge";
 import type { RawEventData } from "@/adapters/types";
 
 const SOURCE_NAME = "Richmond H3 Meetup";
@@ -59,16 +63,28 @@ async function main() {
     return;
   }
 
-  console.log("\nWriting to DB...");
-  const { preExisting, inserted } = await insertRawEventsForSource(
-    SOURCE_NAME,
-    TRAIL_40,
-  );
-  console.log(`  Pre-existing: ${preExisting}. Inserted: ${inserted}.`);
-  if (inserted > 0) {
+  try {
+    const sources = await prisma.source.findMany({
+      where: { name: SOURCE_NAME },
+      select: { id: true },
+    });
+    if (sources.length === 0) throw new Error(`Source "${SOURCE_NAME}" not found in DB.`);
+    if (sources.length > 1) {
+      throw new Error(
+        `Multiple sources named "${SOURCE_NAME}" found (${sources.length}). Aborting.`,
+      );
+    }
+
+    console.log("\nDelegating to merge pipeline...");
+    const merge = await processRawEvents(sources[0].id, TRAIL_40);
     console.log(
-      `\nDone. Trigger a scrape of "${SOURCE_NAME}" from the admin UI to merge the new RawEvent.`,
+      `Done. created=${merge.created} updated=${merge.updated} skipped=${merge.skipped} ` +
+        `unmatched=${merge.unmatched.length} blocked=${merge.blocked} errors=${merge.eventErrors}`,
     );
+    if (merge.unmatched.length > 0) console.log(`  Unmatched tags: ${merge.unmatched.join(", ")}`);
+    if (merge.blocked > 0) console.log(`  Blocked tags: ${merge.blockedTags.join(", ")}`);
+  } finally {
+    await prisma.$disconnect();
   }
 }
 
