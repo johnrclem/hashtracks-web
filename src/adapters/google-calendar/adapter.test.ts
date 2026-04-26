@@ -2495,28 +2495,29 @@ describe("GoogleCalendarAdapter — RRULE future-horizon cap (#939)", () => {
     }
   }
 
-  it("caps timeMax at now + 180 days even when options.days = 365", async () => {
-    const { url, before, after } = await runAndCapture(makeSource(), 365);
+  it("caps timeMax at now + 365 days even when options.days = 1500 (audit-style scrape)", async () => {
+    const { url, before, after } = await runAndCapture(makeSource(), 1500);
     const timeMin = new Date(url.searchParams.get("timeMin")!).getTime();
     const timeMax = new Date(url.searchParams.get("timeMax")!).getTime();
-    expect(before - timeMin).toBeGreaterThanOrEqual(364 * 86_400_000);
-    expect(after - timeMin).toBeLessThanOrEqual(366 * 86_400_000);
-    expect(timeMax - before).toBeLessThanOrEqual(181 * 86_400_000);
-    expect(timeMax - after).toBeGreaterThanOrEqual(179 * 86_400_000);
+    // timeMin reflects full past window (~1500d back) for historical backfill
+    expect(before - timeMin).toBeGreaterThanOrEqual(1499 * 86_400_000);
+    // timeMax capped at +365d, not +1500d
+    expect(timeMax - before).toBeLessThanOrEqual(366 * 86_400_000);
+    expect(timeMax - after).toBeGreaterThanOrEqual(364 * 86_400_000);
   });
 
-  it("does not artificially extend timeMax when options.days < 180", async () => {
+  it("does not artificially extend timeMax when options.days < 365", async () => {
     const { url, before, after } = await runAndCapture(makeSource(), 30);
     const timeMax = new Date(url.searchParams.get("timeMax")!).getTime();
     expect(timeMax - before).toBeLessThanOrEqual(31 * 86_400_000);
     expect(timeMax - after).toBeGreaterThanOrEqual(29 * 86_400_000);
   });
 
-  it("respects per-source futureHorizonDays override (e.g. 365 for annual events)", async () => {
-    const wide = makeSource({ defaultKennelTag: "test", futureHorizonDays: 365 });
-    const { url, before, after } = await runAndCapture(wide, 365);
+  it("respects per-source futureHorizonDays override (e.g. tighter 90d cap)", async () => {
+    const tight = makeSource({ defaultKennelTag: "test", futureHorizonDays: 90 });
+    const { url, before, after } = await runAndCapture(tight, 365);
     const timeMax = new Date(url.searchParams.get("timeMax")!).getTime();
-    expect(timeMax - before).toBeLessThanOrEqual(366 * 86_400_000);
-    expect(timeMax - after).toBeGreaterThanOrEqual(364 * 86_400_000);
+    expect(timeMax - before).toBeLessThanOrEqual(91 * 86_400_000);
+    expect(timeMax - after).toBeGreaterThanOrEqual(89 * 86_400_000);
   });
 });

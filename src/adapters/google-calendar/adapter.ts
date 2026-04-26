@@ -7,15 +7,16 @@ import { PHONE_NUMBER_RE, LOCATION_EMAIL_CTA_RE } from "@/pipeline/audit-checks"
 /**
  * Default cap on the future-window passed to Google Calendar's `timeMax`. With
  * `singleEvents=true`, the API materializes RRULE recurrences across the entire
- * window — so a kennel's weekly run on a 365-day source.scrapeDays produces ~52
- * speculative entries per kennel, dwarfing the realistic planning horizon
- * (#939). Past window stays at full `days` to preserve historical retention.
+ * `[timeMin, timeMax]` window. Without a cap, an audit-driven `days=1500` (or
+ * any historical wide-window scrape) materializes ~8 years of weekly runs and
+ * persists them as CONFIRMED events that fall outside reconcile's pruning
+ * window — exactly how chicago-h3 ended up with `lastEventDate=2034` (#939).
  *
- * Per-source override via `CalendarSourceConfig.futureHorizonDays` for sources
- * that legitimately need wider future visibility (e.g. annual events posted
- * 6+ months ahead).
+ * 365 keeps the realistic planning horizon (annual events post 6-12 months
+ * out) while bounding the worst case. Past window stays at full `days` for
+ * backfill. Per-source override via `CalendarSourceConfig.futureHorizonDays`.
  */
-const DEFAULT_FUTURE_HORIZON_DAYS = 180;
+const DEFAULT_FUTURE_HORIZON_DAYS = 365;
 
 /** Default description patterns for run number extraction (Boston Hash Calendar format). */
 const DEFAULT_RUN_NUMBER_PATTERNS = [
