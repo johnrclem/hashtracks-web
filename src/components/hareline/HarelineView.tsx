@@ -110,10 +110,13 @@ interface FilterCriteria {
   /** Anchor for rolling-window filters (`2w`/`4w`/`8w`/`12w`). Today noon UTC. */
   todayUtc: number;
   /**
-   * Boundary for the upcoming/past bucket split. Yesterday 00:00 UTC — matches
-   * the server-side query floor in `src/app/hareline/page.tsx`. Keeping this
-   * separate from `todayUtc` prevents yesterday-noon events from leaking into
-   * rolling "next N weeks" windows (which should anchor at true today).
+   * Boundary for the upcoming/past bucket split. Pre-hydration this matches
+   * the server's lenient yesterday-00:00-UTC floor (so SSR HTML and the
+   * first client render agree); post-hydration it narrows to the viewer's
+   * local "today midnight" expressed as UTC ms, which correctly drops
+   * yesterday-UTC events from "upcoming" once the local clock has moved
+   * past midnight. See `computeBucketBoundary`. Kept separate from
+   * `todayUtc` so the rolling "next N weeks" anchor stays at true today.
    */
   bucketBoundaryUtc: number;
   nearMeDistance: number | null;
@@ -140,14 +143,83 @@ function matchesSearchText(event: HarelineEvent, query: string): boolean {
 }
 
 /**
+ * Compute the next clock tick that affects bucket-boundary state.
+ *
+ * Two boundaries matter to the Hareline:
+ *  1. The viewer's **local midnight** — the moment `bucketBoundaryUtc`
+ *     advances post-hydration (see `computeBucketBoundary`). Without a
+ *     refresh at local midnight, yesterday-UTC events stay in "upcoming"
+ *     for many hours after the viewer's local day rolled over.
+ *  2. **UTC midnight** — the moment the server's per-day cache key
+ *     (`YYYY-MM-DD` UTC) rotates, so the locally-cached upcoming/past
+ *     payloads are stale and must be re-fetched.
+ *
+ * Returns the earlier of the two, plus a flag indicating whether the
+ * trigger was a UTC rollover (so the caller knows whether to invalidate
+ * the event caches in addition to advancing `nowMs`).
+ *
+ * Pure function — exported for testability.
+ */
+export function computeNextRefreshMs(nowMs: number): { nextMs: number; isUtcRollover: boolean } {
+  const d = new Date(nowMs);
+  const nextUtcMidnight = Date.UTC(
+    d.getUTCFullYear(),
+    d.getUTCMonth(),
+    d.getUTCDate() + 1,
+    0, 0, 1,
+  );
+  const nextLocalMidnight = new Date(
+    d.getFullYear(),
+    d.getMonth(),
+    d.getDate() + 1,
+    0, 0, 1,
+  ).getTime();
+  const nextMs = Math.min(nextUtcMidnight, nextLocalMidnight);
+  return { nextMs, isUtcRollover: nextMs === nextUtcMidnight };
+}
+
+/**
+ * Compute the upcoming/past bucket boundary in UTC ms.
+ *
+ * Pre-hydration (server-rendered first paint), the boundary matches the
+ * server's UTC-yesterday-midnight floor so the SSR HTML and the first
+ * client render agree byte-for-byte (no hydration warning). Post-hydration,
+ * the boundary is the user's local "today midnight" expressed as UTC ms —
+ * which correctly drops yesterday-UTC-noon events out of "All upcoming"
+ * once the viewer's local clock has actually moved past their own
+ * midnight, while still preserving the run for westward-timezone users
+ * (e.g. an SF user at Sunday 23:00 PDT whose local "today" is still
+ * Sunday — UTC noon falls *after* their local midnight, so the event
+ * passes).
+ */
+export function computeBucketBoundary(nowMs: number, hasHydrated: boolean): number {
+  const now = new Date(nowMs);
+  if (hasHydrated) {
+    return new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      0, 0, 0, 0,
+    ).getTime();
+  }
+  const startOfTodayUtc = Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate(),
+    0, 0, 0,
+  );
+  return startOfTodayUtc - 24 * 60 * 60 * 1000;
+}
+
+/**
  * Check whether an event passes the time filter.
  *
  * `todayUtc` anchors the user-facing rolling windows ("next N weeks") at true
- * today, while `bucketBoundaryUtc` (yesterday 00:00 UTC) is the upcoming/past
- * bucket split that matches the server query — yesterday-noon events stay in
- * "upcoming" for westward timezones without leaking into "next 2 weeks."
+ * today, while `bucketBoundaryUtc` is the upcoming/past bucket split. See
+ * `computeBucketBoundary` for the two-phase derivation that keeps SSR
+ * hydration clean while delivering a per-user-timezone split post-mount.
  */
-function passesTimeFilter(
+export function passesTimeFilter(
   eventDate: number,
   timeFilter: FilterCriteria["timeFilter"],
   todayUtc: number,
@@ -273,11 +345,25 @@ export function HarelineView({
   // forward at each UTC midnight so long-lived tabs don't freeze their
   // upcoming/past split to yesterday.
   const [nowMs, setNowMs] = useState<number>(serverNowMs ?? Date.now());
+  // Gates the local-timezone bucket boundary in `computeBucketBoundary`.
+  // SSR (Node, UTC) and the first client render both compute the boundary
+  // with `hasHydrated=false` so they produce identical HTML; the post-mount
+  // effect flips this to `true` so the boundary narrows to the viewer's
+  // actual local midnight. Without this the SSR-rendered list and the
+  // hydrated list would differ for any non-UTC viewer (yesterday-UTC-noon
+  // events would hydrate-mismatch in EDT users).
+  const [hasHydrated, setHasHydrated] = useState(false);
   useEffect(() => {
     // Helper: which UTC day does this instant belong to? Used to detect
     // crossings of 00:00 UTC between server render and client hydration,
     // and between scheduled midnight ticks.
     const utcDay = (ms: number) => Math.floor(ms / 86400000);
+
+    // Mark hydration complete so subsequent renders use the local-TZ
+    // bucket boundary. Triggers a one-tick re-render of the filtered
+    // list — yesterday-UTC events drop out of "upcoming" for viewers
+    // whose local clock is past their own midnight.
+    setHasHydrated(true);
 
     // Transition from SSR seed to client clock once (post-hydration).
     // If hydration straddled 00:00 UTC the cached event lists were
@@ -292,25 +378,27 @@ export function HarelineView({
       setPastEvents(null);
     }
 
-    // Schedule a one-shot update at the next UTC midnight, then
-    // re-schedule. Using a chained timeout (not setInterval) keeps the
-    // trigger aligned to midnight even if the tab is backgrounded.
-    // Invalidating both caches on rollover is required — otherwise the
-    // client starts filtering with a new boundary while the server-
-    // cached events were fetched under the old one, so an event that
-    // just crossed midnight between upcoming and past would be visible
-    // in neither bucket until a full reload.
+    // Schedule a chained timeout to fire at the *next* boundary that
+    // affects bucket state — whichever of the viewer's local midnight or
+    // UTC midnight comes first. Local-midnight ticks just refresh `nowMs`
+    // so `bucketBoundaryUtc` advances; UTC-midnight ticks additionally
+    // invalidate the upcoming/past caches because the server's per-day
+    // cache key (YYYY-MM-DD UTC) rotates and the cached payloads are now
+    // stale. See `computeNextRefreshMs`. Chained timeouts (not
+    // setInterval) keep ticks aligned to the boundary even if the tab
+    // is backgrounded.
     let timer: ReturnType<typeof setTimeout> | null = null;
     function scheduleNext() {
       const now = Date.now();
-      const d = new Date(now);
-      const nextMidnightUtc = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1, 0, 0, 1);
+      const { nextMs, isUtcRollover } = computeNextRefreshMs(now);
       timer = setTimeout(() => {
         setNowMs(Date.now());
-        setUpcomingEvents(null);
-        setPastEvents(null);
+        if (isUtcRollover) {
+          setUpcomingEvents(null);
+          setPastEvents(null);
+        }
         scheduleNext();
-      }, Math.max(1000, nextMidnightUtc - now));
+      }, Math.max(1000, nextMs - now));
     }
     scheduleNext();
     return () => {
@@ -625,29 +713,26 @@ export function HarelineView({
 
   // Shared filter context (recomputed once per render).
   //
-  // `todayUtc` (today noon UTC) is the anchor for user-facing rolling
-  // windows — "next 2 weeks," "next 4 weeks," etc. start *today*, not
-  // yesterday.
+  // `todayUtc` (today noon UTC) anchors the rolling-window filters
+  // ("next 2/4/8/12 weeks"), which start at true today.
   //
-  // `bucketBoundaryUtc` (yesterday 00:00 UTC) is the upcoming/past bucket
-  // split and matches the server-side floor in
-  // `src/app/hareline/page.tsx` + `loadEventsForTimeMode`. Events are
-  // stored at UTC noon of their local calendar date, so keeping
-  // yesterday-noon events in "upcoming" correctly surfaces a run for
-  // users in westward timezones where the run hasn't happened locally
-  // yet (e.g. an SF user at 16:00 Monday viewing a Monday-noon-UTC
-  // event). Using today-noon would hide those, and using yesterday as
-  // the rolling-window anchor would leak yesterday events into
-  // "next N weeks." Separating the two keeps each surface correct.
+  // `bucketBoundaryUtc` is the upcoming/past split. Pre-hydration it
+  // matches the server's lenient yesterday-00:00-UTC floor (so SSR HTML
+  // hydrates without warnings); post-hydration it narrows to the
+  // viewer's local midnight today, which correctly drops yesterday-UTC
+  // events from "upcoming" once the local clock has moved past midnight.
+  // The lenient server floor still surfaces today's runs for westward
+  // viewers (e.g. SF at Sunday 23:00 PDT — UTC noon ≥ Sunday 00:00 PDT,
+  // so Sunday-noon-UTC events stay upcoming). See `computeBucketBoundary`
+  // for the derivation.
   const filterContext = useMemo(() => {
     const now = new Date(nowMs);
     const todayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12, 0, 0);
-    const startOfTodayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0);
-    const bucketBoundaryUtc = startOfTodayUtc - 24 * 60 * 60 * 1000;
+    const bucketBoundaryUtc = computeBucketBoundary(nowMs, hasHydrated);
     const userLat = geoState.status === "granted" ? geoState.lat : null;
     const userLng = geoState.status === "granted" ? geoState.lng : null;
     return { todayUtc, bucketBoundaryUtc, userLat, userLng };
-  }, [geoState, nowMs]);
+  }, [geoState, nowMs, hasHydrated]);
 
   // Expand state-level region selections to metro names (stable ref via useMemo)
   const regionsByState = useMemo(
