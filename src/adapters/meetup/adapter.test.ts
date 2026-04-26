@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { MeetupAdapter, extractApolloEvents, resolveVenue, isNumericId, dedupByDate, stripTrailingState, deduplicateWords, isStateFullName, buildRawEventFromApollo } from "./adapter";
+import { MeetupAdapter, extractApolloEvents, resolveVenue, isNumericId, dedupByDate, stripTrailingState, deduplicateWords, isStateFullName, buildRawEventFromApollo, extractHaresFromMeetupDescription } from "./adapter";
 import type { Source } from "@/generated/prisma/client";
 
 vi.mock("../safe-fetch", () => ({
@@ -352,6 +352,41 @@ describe("MeetupAdapter", () => {
     const result = await adapter.fetch(makeSource({ groupUrlname: "test-hash", kennelTag: "NYCH3" }));
     expect(result.events).toHaveLength(0);
     expect(result.errors[0]).toMatch(/Network error/);
+  });
+
+  it("filters out cancelled events (#917 Charlotte H3 #1235)", async () => {
+    // Charlotte H3 Trail #1235 (Jan 10) was cancelled on Meetup with
+    // status="CANCELLED", then re-held on Feb 7 with the same trail
+    // number but a new title. The adapter must not surface the cancelled
+    // version as a normal past run, otherwise users see two #1235 cards
+    // and no cancellation indicator on the first.
+    const html = buildMeetupHtml({
+      "Event:cancelled": buildApolloEvent({
+        id: "1235-cancelled",
+        title: "Charlotte H3 Trail #1235 - Erections (Elections) & SOUP Cook off",
+        dateTime: "2026-01-10T14:00:00-05:00",
+        status: "CANCELLED",
+      }),
+      "Event:active": buildApolloEvent({
+        id: "1235-active",
+        title: "Charlotte H3 Trail #1235 - An East Charlotte Snow Melt Trail!",
+        dateTime: "2026-02-07T14:00:00-05:00",
+        status: "ACTIVE",
+      }),
+      "Venue:123": VENUE_ENTRY,
+    });
+    mockHtmlResponse(html);
+
+    const adapter = new MeetupAdapter();
+    const result = await adapter.fetch(
+      makeSource({ groupUrlname: "charlotte-hash-house-harriers", kennelTag: "ch3-nc" }),
+      { days: 365 },
+    );
+
+    // Cancelled event should be skipped; only the active one survives.
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].title).toMatch(/Snow Melt/);
+    expect(result.diagnosticContext?.cancelledSkipped).toBe(1);
   });
 
   it("parses events and assigns kennelTag", async () => {
@@ -1084,5 +1119,88 @@ describe("buildRawEventFromApollo — kennelPatterns", () => {
     };
     const event = buildRawEventFromApollo(ev as never, emptyState, "rch3");
     expect(event.hares).toBeUndefined();
+  });
+});
+
+describe("extractHaresFromMeetupDescription (#953 CHH3 dash separator)", () => {
+  it("captures 'Hares - X and Y' (plural, dash, ASCII hyphen)", () => {
+    expect(extractHaresFromMeetupDescription("Hares - FAW and Just Jim\n\nGo see the rail yards"))
+      .toBe("FAW and Just Jim");
+  });
+
+  it("captures 'Hare - X' (singular)", () => {
+    expect(extractHaresFromMeetupDescription("Hare - She Shooters She Scores (Again) with Just Dave"))
+      .toBe("She Shooters She Scores (Again) with Just Dave");
+  });
+
+  it("is case-insensitive", () => {
+    expect(extractHaresFromMeetupDescription("hares - alice")).toBe("alice");
+    expect(extractHaresFromMeetupDescription("HARE - bob")).toBe("bob");
+  });
+
+  it("handles en-dash and em-dash", () => {
+    expect(extractHaresFromMeetupDescription("Hares – Alice")).toBe("Alice");
+    expect(extractHaresFromMeetupDescription("Hare — Bob")).toBe("Bob");
+  });
+
+  it("only scans the first 5 non-empty description lines", () => {
+    // Filler lines are non-empty so they consume the budget; the Hares line
+    // beyond position 5 is ignored.
+    const desc = [
+      "Filler 1", "Filler 2", "Filler 3", "Filler 4", "Filler 5", "Filler 6",
+      "Hares - Late Liner",
+    ].join("\n");
+    expect(extractHaresFromMeetupDescription(desc)).toBeUndefined();
+  });
+
+  it("truncates trailing boilerplate field labels (HASH CASH)", () => {
+    // When HTML stripping collapses several fields onto one line,
+    // HARE_BOILERPLATE_RE caps the hare names at the first known label.
+    expect(extractHaresFromMeetupDescription("Hares - FAW and Just Jim HASH CASH: $5"))
+      .toBe("FAW and Just Jim");
+  });
+
+  it("returns undefined when no Hare(s) line is present", () => {
+    expect(extractHaresFromMeetupDescription("2pm Show 2:30pm Go\n$5 Hash Cash"))
+      .toBeUndefined();
+  });
+
+  it("returns undefined for an empty/missing description", () => {
+    expect(extractHaresFromMeetupDescription(undefined)).toBeUndefined();
+    expect(extractHaresFromMeetupDescription("")).toBeUndefined();
+  });
+
+  it("does not match colon form (handled by extractHaresFromDescription)", () => {
+    // Colon form is the google-calendar helper's job; the dash-fallback
+    // should leave it alone so we don't accidentally double-match.
+    expect(extractHaresFromMeetupDescription("Hares: Just Josh")).toBeUndefined();
+  });
+});
+
+describe("buildRawEventFromApollo — CHH3 dash-form fallback (#953)", () => {
+  const emptyState = {};
+
+  it("falls back to dash-form regex when colon-form returns undefined", () => {
+    const ev = {
+      __typename: "Event",
+      id: "999",
+      title: "Heretics Trail - The Kennel Gets Railed",
+      dateTime: "2026-04-25T14:00:00-04:00",
+      description: "Hares - FAW and Just Jim\n\nGo see the magnificent rail yards.",
+    };
+    const event = buildRawEventFromApollo(ev as never, emptyState, "chh3");
+    expect(event.hares).toBe("FAW and Just Jim");
+  });
+
+  it("prefers colon-form match when present (no fallback fired)", () => {
+    const ev = {
+      __typename: "Event",
+      id: "1000",
+      title: "Heretics Trail - Love Sucks",
+      dateTime: "2026-02-14T14:00:00-04:00",
+      description: "Hares: Just Josh\n2pm Show 2:30pm Go",
+    };
+    const event = buildRawEventFromApollo(ev as never, emptyState, "chh3");
+    expect(event.hares).toBe("Just Josh");
   });
 });

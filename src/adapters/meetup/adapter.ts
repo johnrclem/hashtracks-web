@@ -2,7 +2,7 @@ import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
-import { validateSourceConfig, stripHtmlTags, buildDateWindow } from "../utils";
+import { validateSourceConfig, stripHtmlTags, buildDateWindow, HARE_BOILERPLATE_RE } from "../utils";
 import { safeFetch } from "../safe-fetch";
 import { extractHares as extractHaresFromDescription } from "../google-calendar/adapter";
 
@@ -287,6 +287,33 @@ function compileKennelPatterns(
   return compiled.length > 0 ? compiled : undefined;
 }
 
+/**
+ * Meetup-style hare-line fallback: scan the first few description lines for
+ * `Hare(s)` followed by a dash separator. Charleston Heretics (CHH3)
+ * consistently writes `Hares - FAW and Just Jim` / `Hare - X` / `Hares X and Y`,
+ * but the imported `extractHaresFromDescription` (google-calendar) only matches
+ * the colon form. We match the dash variant locally so we don't reach into
+ * WS1's google-calendar adapter to extend its pattern set.
+ *
+ * Truncates the captured names at the first boilerplate field label
+ * (`HARE_BOILERPLATE_RE`) so trailing description text like "Show/Go: 2:00"
+ * doesn't leak into the hares field. See #953.
+ */
+export function extractHaresFromMeetupDescription(
+  description: string | undefined,
+): string | undefined {
+  if (!description) return undefined;
+  const lines = description.split("\n").map((l) => l.trim()).filter(Boolean);
+  for (const line of lines.slice(0, 5)) {
+    // Dash separator: ASCII hyphen, en-dash, or em-dash (kennel users mix).
+    const m = /^Hares?\s*[-–—]\s*(.+?)\s*$/i.exec(line);
+    if (!m) continue;
+    const names = m[1].replace(HARE_BOILERPLATE_RE, "").trim();
+    if (names) return names;
+  }
+  return undefined;
+}
+
 /** Build a RawEventData from an Apollo event entry. */
 export function buildRawEventFromApollo(
   ev: ApolloEvent,
@@ -321,7 +348,12 @@ export function buildRawEventFromApollo(
   const descForHares = ev.description
     ? stripHtmlTags(ev.description, "\n").replace(/\*{1,2}|#{1,3}\s*/g, "")
     : undefined;
-  const hares = descForHares ? extractHaresFromDescription(descForHares) : undefined;
+  // Try the colon-form helper first (matches DEFAULT_HARE_PATTERNS in
+  // google-calendar/adapter.ts). Fall back to the Meetup-local dash-separator
+  // pattern for kennels like CHH3 that always write "Hares - X". See #953.
+  const hares =
+    (descForHares ? extractHaresFromDescription(descForHares) : undefined)
+    ?? extractHaresFromMeetupDescription(descForHares);
   const cleanedDesc = cleanMeetupDescription(ev.description);
 
   return {
@@ -500,9 +532,22 @@ export class MeetupAdapter implements SourceAdapter {
     }
 
     const compiledPatterns = compileKennelPatterns(config.kennelPatterns);
+    let cancelledSkipped = 0;
     for (const [i, ev] of allApolloEvents.entries()) {
       try {
         if (!ev.dateTime) continue;
+        // Drop cancelled events at ingest. Meetup's Apollo payload exposes
+        // `status: "CANCELLED"` for trails that were called off (e.g.
+        // Charlotte H3 #1235, Jan 10 — weather cancellation, re-held later
+        // as a different trail with the same number). Without this filter
+        // they show on HashTracks as normal past runs with no cancellation
+        // indicator; the reconcile pipeline transitions any pre-existing
+        // CONFIRMED row to CANCELLED on the next scrape because the event
+        // is no longer in the active set. See #917.
+        if (ev.status === "CANCELLED") {
+          cancelledSkipped++;
+          continue;
+        }
         events.push(buildRawEventFromApollo(ev, mergedState, config.kennelTag, compiledPatterns));
       } catch (err) {
         const msg = `Failed to parse event "${ev.id}": ${err instanceof Error ? err.message : String(err)}`;
@@ -524,6 +569,7 @@ export class MeetupAdapter implements SourceAdapter {
         pastEventsFound: pastEvents.length,
         pastEventsIngested: allApolloEvents.filter((ev) => pastOnlyIds.has(ev.id)).length,
         eventsAfterDedup: allApolloEvents.length,
+        cancelledSkipped,
         detailPagesFetched,
         detailPagesEnriched,
       },
