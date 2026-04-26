@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   extractRunNumber,
   extractTitle,
@@ -10,9 +10,11 @@ import {
   applyInlineHarelineBackfill,
   extractLocationFromDescription,
   extractTimeFromDescription,
+  extractTimeFromTitle,
   extractCostFromDescription,
   buildRawEventFromGCalItem,
   normalizeGCalDescription,
+  GoogleCalendarAdapter,
 } from "./adapter";
 import type { RawEventData } from "../types";
 import { SOURCES } from "../../../prisma/seed-data/sources";
@@ -2354,5 +2356,183 @@ describe("buildRawEventFromGCalItem — coord-only item.location (#779 BMPH3)", 
     expect(event).not.toBeNull();
     expect(event!.cost).toBe("$5");
     expect(event!.hares).toBe("Leeroy");
+  });
+});
+
+// ── #938 Chicagoland routing: C2B3H4 + strictKennelRouting ──
+
+describe("Chicagoland Hash Calendar routing (#938)", () => {
+  const source = SOURCES.find((s) => s.name === "Chicagoland Hash Calendar");
+  if (!source?.config) throw new Error("Chicagoland Hash Calendar seed config missing");
+  const config = source.config as { kennelPatterns: [string, string][]; strictKennelRouting?: boolean };
+
+  it.each([
+    ["C2B3H4 - We're back, bitches", "c2b3h4"],
+    ["C2B3H4 #2", "c2b3h4"],
+    ["C2B3 #5", "c2b3h4"],
+    ["Chicago H3 #1234", "ch3"],
+    ["CH3 - Slashie themed", "ch3"],
+    ["TH3 #99", "th3"],
+    ["4X2 H4 No. 124", "4x2h4"],
+    ["BDH3 #200", "bdh3"],
+  ])("routes %j → %s", (summary, expectedTag) => {
+    const result = buildRawEventFromGCalItem(
+      { summary, start: { dateTime: "2026-04-15T19:00:00-05:00" }, status: "confirmed" },
+      config,
+    );
+    expect(result?.kennelTag).toBe(expectedTag);
+  });
+
+  it("drops C2B3H4 placeholder 'HARE NEEDED' events (CTA filter)", () => {
+    const result = buildRawEventFromGCalItem(
+      { summary: "C2B3H4 - HARE NEEDED", start: { dateTime: "2026-04-15T19:00:00-05:00" }, status: "confirmed" },
+      config,
+    );
+    expect(result).toBeNull();
+  });
+
+  it("routes unmatched events to chicago-h3 default (Hash Ball, Drinking Practice, etc.)", () => {
+    // Non-routing-matched events default to ch3 — they're calendar-wide social
+    // or special events hosted by Chicago H3 (e.g. "Hash Ball 2026"). The
+    // pre-fix C2B3H4 leak is closed by the explicit kennelPattern, not by
+    // dropping unmatched titles.
+    const result = buildRawEventFromGCalItem(
+      { summary: "Hash Ball 2026", start: { dateTime: "2026-12-31T19:00:00-05:00" }, status: "confirmed" },
+      config,
+    );
+    expect(result?.kennelTag).toBe("ch3");
+  });
+});
+
+// ── #924 extractLocationFromDescription instructional-text filter ──
+
+describe("extractLocationFromDescription — #924 instructional text filter", () => {
+  it.each<[string, string, string | undefined]>([
+    ["themed prose (Chicagoland C2B3H4 case)", "WHERE: Slashie themed, so start is Ola's on Damen. Carry your shit & bring cash", undefined],
+    ["'carry your X' phrase", "WHERE: Meet at the bar and carry your gear", undefined],
+    ["'bring cash' phrase", "WHERE: The Pub. Bring cash, no cards", undefined],
+    ["costume keyword", "WHERE: costume required, location TBA", undefined],
+    ["preserves Dress Circle Pub (no false positive on 'dress')", "WHERE: Dress Circle Pub", "Dress Circle Pub"],
+    ["preserves clean address", "WHERE: 123 Main St, Chicago, IL 60601", "123 Main St, Chicago, IL 60601"],
+    ["preserves simple venue name", "WHERE: Portland Saturday Market fountain", "Portland Saturday Market fountain"],
+    ["rejects > 100 chars", "WHERE: " + "x".repeat(120), undefined],
+  ])("%s", (_label, input, expected) => {
+    expect(extractLocationFromDescription(input)).toBe(expected);
+  });
+});
+
+// ── #958 extractTimeFromTitle (NOH3 social events) ──
+
+describe("extractTimeFromTitle (#958)", () => {
+  it.each<[string, string | undefined]>([
+    ["Social @ JBs Fuel Dock, 6pm", "18:00"],
+    ["Hash Run 7:30pm", "19:30"],
+    ["Morning trail 9:15 AM", "09:15"],
+    ["Lunch run 12pm", "12:00"],
+    ["Midnight run 12am", "00:00"],
+    ["Monday Hash Run", undefined],
+    // HH:MM form is matched first because the optional ":MM" group is greedy.
+    ["Run 7:30 pm meets at 6pm", "19:30"],
+  ])("extractTimeFromTitle(%j) === %j", (input, expected) => {
+    expect(extractTimeFromTitle(input)).toBe(expected);
+  });
+
+  it("end-to-end: all-day event with title-embedded time gets startTime populated", () => {
+    const event = buildRawEventFromGCalItem(
+      { summary: "Social @ JBs Fuel Dock, 6pm", start: { date: "2026-04-24" }, status: "confirmed" },
+      { defaultKennelTag: "noh3", includeAllDayEvents: true },
+    );
+    expect(event?.startTime).toBe("18:00");
+  });
+
+  it("end-to-end: start.dateTime takes precedence over title-embedded time", () => {
+    const event = buildRawEventFromGCalItem(
+      { summary: "Hash run 6pm", start: { dateTime: "2026-04-24T19:00:00-05:00" }, status: "confirmed" },
+      { defaultKennelTag: "noh3" },
+    );
+    expect(event?.startTime).toBe("19:00");
+  });
+});
+
+// ── #939 RRULE horizon cap ──
+
+describe("GoogleCalendarAdapter — RRULE future-horizon cap (#939)", () => {
+  const adapter = new GoogleCalendarAdapter();
+
+  function makeSource(config: object = { defaultKennelTag: "test" }) {
+    return {
+      id: "test-source",
+      url: "test@calendar.google.com",
+      type: "GOOGLE_CALENDAR" as const,
+      config,
+      scrapeDays: 365,
+    } as unknown as Parameters<typeof adapter.fetch>[0];
+  }
+
+  // Spy on fetch, swap in a stub API key, run the adapter, return the
+  // captured request URL plus the wall-clock window the call spanned.
+  async function runAndCapture(
+    source: Parameters<typeof adapter.fetch>[0],
+    days: number,
+  ): Promise<{ url: URL; before: number; after: number }> {
+    const originalKey = process.env.GOOGLE_CALENDAR_API_KEY;
+    process.env.GOOGLE_CALENDAR_API_KEY = "test-key";
+    let capturedUrl: URL | undefined;
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      capturedUrl = new URL(input as string);
+      return new Response(JSON.stringify({ items: [] }), { status: 200 });
+    });
+    try {
+      const before = Date.now();
+      await adapter.fetch(source, { days });
+      const after = Date.now();
+      if (!capturedUrl) throw new Error("fetch was not called");
+      return { url: capturedUrl, before, after };
+    } finally {
+      fetchSpy.mockRestore();
+      if (originalKey === undefined) delete process.env.GOOGLE_CALENDAR_API_KEY;
+      else process.env.GOOGLE_CALENDAR_API_KEY = originalKey;
+    }
+  }
+
+  it("caps timeMax at now + 365 days even when options.days = 1500 (audit-style scrape)", async () => {
+    const { url, before, after } = await runAndCapture(makeSource(), 1500);
+    const timeMin = new Date(url.searchParams.get("timeMin")!).getTime();
+    const timeMax = new Date(url.searchParams.get("timeMax")!).getTime();
+    // timeMin reflects full past window (~1500d back) for historical backfill
+    expect(before - timeMin).toBeGreaterThanOrEqual(1499 * 86_400_000);
+    // timeMax capped at +365d, not +1500d
+    expect(timeMax - before).toBeLessThanOrEqual(366 * 86_400_000);
+    expect(timeMax - after).toBeGreaterThanOrEqual(364 * 86_400_000);
+  });
+
+  it("does not artificially extend timeMax when options.days < 365", async () => {
+    const { url, before, after } = await runAndCapture(makeSource(), 30);
+    const timeMax = new Date(url.searchParams.get("timeMax")!).getTime();
+    expect(timeMax - before).toBeLessThanOrEqual(31 * 86_400_000);
+    expect(timeMax - after).toBeGreaterThanOrEqual(29 * 86_400_000);
+  });
+
+  it("respects per-source futureHorizonDays override (e.g. tighter 90d cap)", async () => {
+    const tight = makeSource({ defaultKennelTag: "test", futureHorizonDays: 90 });
+    const { url, before, after } = await runAndCapture(tight, 365);
+    const timeMax = new Date(url.searchParams.get("timeMax")!).getTime();
+    expect(timeMax - before).toBeLessThanOrEqual(91 * 86_400_000);
+    expect(timeMax - after).toBeGreaterThanOrEqual(89 * 86_400_000);
+  });
+
+  it.each([
+    ["non-numeric string", "abc"],
+    ["zero", 0],
+    ["negative", -10],
+    ["NaN", Number.NaN],
+    ["Infinity", Number.POSITIVE_INFINITY],
+  ])("falls back to default when futureHorizonDays is %s", async (_label, badValue) => {
+    const bad = makeSource({ defaultKennelTag: "test", futureHorizonDays: badValue });
+    const { url, before, after } = await runAndCapture(bad, 1500);
+    const timeMax = new Date(url.searchParams.get("timeMax")!).getTime();
+    // Should fall back to the 365d default, not crash with RangeError
+    expect(timeMax - before).toBeLessThanOrEqual(366 * 86_400_000);
+    expect(timeMax - after).toBeGreaterThanOrEqual(364 * 86_400_000);
   });
 });

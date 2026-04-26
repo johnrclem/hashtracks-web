@@ -1,8 +1,22 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
-import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, HARE_BOILERPLATE_RE, EVENT_FIELD_LABEL_RE, EVENT_FIELD_LABEL_UPPERCASE_RE, CTA_EMBEDDED_PATTERNS, appendDescriptionSuffix, isPlaceholder, parse12HourTime, stripNonEnglishCountry } from "../utils";
+import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, HARE_BOILERPLATE_RE, EVENT_FIELD_LABEL_RE, EVENT_FIELD_LABEL_UPPERCASE_RE, CTA_EMBEDDED_PATTERNS, appendDescriptionSuffix, isPlaceholder, parse12HourTime, formatAmPmTime, stripNonEnglishCountry } from "../utils";
 import { PHONE_NUMBER_RE, LOCATION_EMAIL_CTA_RE } from "@/pipeline/audit-checks";
+
+/**
+ * Default cap on the future-window passed to Google Calendar's `timeMax`. With
+ * `singleEvents=true`, the API materializes RRULE recurrences across the entire
+ * `[timeMin, timeMax]` window. Without a cap, an audit-driven `days=1500` (or
+ * any historical wide-window scrape) materializes ~8 years of weekly runs and
+ * persists them as CONFIRMED events that fall outside reconcile's pruning
+ * window — exactly how chicago-h3 ended up with `lastEventDate=2034` (#939).
+ *
+ * 365 keeps the realistic planning horizon (annual events post 6-12 months
+ * out) while bounding the worst case. Past window stays at full `days` for
+ * backfill. Per-source override via `CalendarSourceConfig.futureHorizonDays`.
+ */
+const DEFAULT_FUTURE_HORIZON_DAYS = 365;
 
 /** Default description patterns for run number extraction (Boston Hash Calendar format). */
 const DEFAULT_RUN_NUMBER_PATTERNS = [
@@ -133,6 +147,13 @@ const LOCATION_BARE_LABEL_RE = /(?:^|\n)\s*(?:WHERE|LOCATION)\s*\n(?:\s*https?:\
 const LOCATION_START_RE = /(?:^|\n)\s*Start\s*:\s*(.+)/im;
 // Filters bare time values from location results (e.g., "6:30pm", "18:30", "7:00")
 const LOCATION_TIME_ONLY_RE = /^\d{1,2}:\d{2}(\s*(?:am|pm))?\s*$/i;
+// #924 Chicagoland: WHERE: lines often contain themed instruction prose
+// ("Slashie themed, so start is Ola's on Damen. Carry your shit & bring cash")
+// rather than a geocodable address. Anchored to noun-objects + thematic
+// adjectives so legit venue names like "Dress Circle Pub" survive.
+const LOCATION_INSTRUCTION_RE = /\b(?:themed|slashie|costume|byo|don't forget|remember to|carry your|bring (?:cash|gear|water|your|a))\b/i;
+/** Length cap on description-derived locations — real venue+address strings are well under this. */
+const LOCATION_MAX_LENGTH = 100;
 const LOCATION_TRUNCATE_RE = new RegExp(`\\s+(?:${LABEL_NAMES})\\s*:.*`, "i");
 const LOCATION_URL_RE = /\s*https?:\/\/\S+.*/i;
 /** Google Maps short/full URL pattern — used to preserve Maps links as locationUrl for geocoding. */
@@ -140,6 +161,9 @@ const MAPS_URL_RE = /^https?:\/\/(?:maps\.app\.goo\.gl|goo\.gl\/maps|google\.\w+
 
 // Pre-compiled regex for extractTimeFromDescription
 const TIME_LABEL_RE = /(?:^|\n)\s*(?:Pack\s*Meet|Circle|Time|Start|When|Chalk\s*Talk)\s*:?\s*.*?(\d{1,2}:\d{2}\s*[ap]m)/im;
+// 12-hour times in titles. Optional `:MM` so both "6pm" and "7:30pm" match.
+// `:30` capture group is undefined for the bare form.
+const TITLE_TIME_RE = /\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/i;
 
 // Pre-compiled regexes for title-embedded field extraction
 // Only matches "w/" abbreviation (not "with") to avoid false positives on natural language titles
@@ -284,8 +308,10 @@ export function extractLocationFromDescription(description: string): string | un
   location = firstLine.replace(LOCATION_URL_RE, "").trim();
 
   if (location.length < 3) return undefined;
+  if (location.length > LOCATION_MAX_LENGTH) return undefined;
   if (isPlaceholder(location)) return undefined;
   if (isNonAddressText(location)) return undefined;
+  if (LOCATION_INSTRUCTION_RE.test(location)) return undefined;
   if (LOCATION_TIME_ONLY_RE.test(location)) return undefined;
 
   return location;
@@ -300,6 +326,22 @@ export function extractTimeFromDescription(description: string): string | undefi
   const match = TIME_LABEL_RE.exec(description);
   if (!match?.[1]) return undefined;
   return parse12HourTime(match[1]);
+}
+
+/**
+ * Extract a start time embedded in a calendar event title.
+ *
+ * NOH3 (and other kennels) post social events as all-day GCal entries with the
+ * time embedded in the title — e.g. "Social @ JBs Fuel Dock, 6pm" or
+ * "Hash Run 7:30pm". Returns 24-hour "HH:MM" or undefined.
+ */
+export function extractTimeFromTitle(summary: string): string | undefined {
+  const match = TITLE_TIME_RE.exec(summary);
+  if (!match) return undefined;
+  const hour = Number.parseInt(match[1], 10);
+  const min = match[2] ? Number.parseInt(match[2], 10) : 0;
+  if (hour < 1 || hour > 12 || min < 0 || min > 59) return undefined;
+  return formatAmPmTime(hour, min, match[3]);
 }
 
 /** Default hare extraction patterns for Google Calendar descriptions. */
@@ -468,6 +510,13 @@ interface CalendarSourceConfig {
   descriptionSuffix?: string;           // appended to every event description
   includeAllDayEvents?: boolean;        // if true, don't skip all-day events (some calendars use them for real runs)
   defaultStartTime?: string;            // "HH:MM" fallback when neither the calendar item nor the description yields a start time (paired with includeAllDayEvents)
+  /**
+   * Per-source override for the future-window cap on `timeMax`. Default 180.
+   * Increase for calendars that schedule legit non-RRULE events more than 6
+   * months out (annual campouts). Don't increase blindly on RRULE-heavy
+   * aggregator calendars — that's how #939 happened.
+   */
+  futureHorizonDays?: number;
   defaultTitle?: string;                // human-readable fallback title when event summary is just a kennel slug
   defaultTitles?: Record<string, string>; // per-kennelTag fallback titles (aggregator calendars)
   // Some calendars only populate the soonest-upcoming event's description, which
@@ -846,6 +895,13 @@ export function buildRawEventFromGCalItem(
   // rendering as all-day/noon events downstream. Format-guard the default
   // so a config typo can't silently inject a bad startTime string.
   let resolvedStartTime = startTime;
+  // Title-embedded time wins over description because authors who put a time
+  // in the title (NOH3 "Social @ ..., 6pm") almost always mean it as the
+  // start time. Only fires for events that didn't have start.dateTime
+  // (i.e. all-day entries).
+  if (!resolvedStartTime) {
+    resolvedStartTime = extractTimeFromTitle(summary);
+  }
   if (!resolvedStartTime && rawDescription) {
     resolvedStartTime = extractTimeFromDescription(rawDescription);
   }
@@ -901,9 +957,17 @@ export class GoogleCalendarAdapter implements SourceAdapter {
       throw new Error("GOOGLE_CALENDAR_API_KEY environment variable is not set");
     }
 
+    const sourceConfig = parseCalendarSourceConfig(source.config);
     const now = new Date();
+    // Guard against malformed config: a non-numeric futureHorizonDays would
+    // produce NaN and crash `new Date()` with RangeError, aborting the scrape.
+    const rawHorizon = sourceConfig?.futureHorizonDays;
+    const horizonDays = (typeof rawHorizon === "number" && Number.isFinite(rawHorizon) && rawHorizon > 0)
+      ? rawHorizon
+      : DEFAULT_FUTURE_HORIZON_DAYS;
+    const futureDays = Math.min(days, horizonDays);
     const timeMin = new Date(now.getTime() - days * 86_400_000).toISOString();
-    const timeMax = new Date(now.getTime() + days * 86_400_000).toISOString();
+    const timeMax = new Date(now.getTime() + futureDays * 86_400_000).toISOString();
 
     const events: RawEventData[] = [];
     const errors: string[] = [];
@@ -911,7 +975,6 @@ export class GoogleCalendarAdapter implements SourceAdapter {
     let pageToken: string | undefined;
     let totalItemsReturned = 0;
     let pagesProcessed = 0;
-    const sourceConfig = parseCalendarSourceConfig(source.config);
     const compiledHarePatterns = sourceConfig?.harePatterns?.length
       ? compilePatterns(sourceConfig.harePatterns)
       : undefined;
