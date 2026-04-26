@@ -157,6 +157,18 @@ export class HarrierCentralAdapter implements SourceAdapter {
         hares = undefined;
       }
 
+      // When HC's geocoder fails it returns the placeName verbatim as
+      // resolvableLocation and falls back to a region-default lat/lng (e.g.
+      // 35.685, 139.751 — the Imperial Palace area — for any un-geocoded
+      // Tokyo event, ~10 km from the actual meeting point). Drop those
+      // coords and let the merge pipeline geocode from the place text +
+      // kennel country bias instead. The match is intentionally
+      // case-insensitive on trimmed values to catch the common form (#957).
+      const dropApiCoords = hcGeocodeFailed(
+        hcEvent.locationOneLineDesc,
+        hcEvent.resolvableLocation,
+      );
+
       // Intentionally no sourceUrl: the hashruns.org Flutter UI can no longer
       // resolve `https://www.hashruns.org/#/event/${publicEventId}` links
       // (#706, #725). The REST API still serves the UUIDs so scrapes succeed,
@@ -174,8 +186,8 @@ export class HarrierCentralAdapter implements SourceAdapter {
         startTime,
         hares,
         location,
-        latitude: hcEvent.syncLat != null ? hcEvent.syncLat : undefined,
-        longitude: hcEvent.syncLong != null ? hcEvent.syncLong : undefined,
+        latitude: dropApiCoords ? undefined : (hcEvent.syncLat != null ? hcEvent.syncLat : undefined),
+        longitude: dropApiCoords ? undefined : (hcEvent.syncLong != null ? hcEvent.syncLong : undefined),
       };
 
       events.push(raw);
@@ -214,6 +226,24 @@ function normalizeHcEventNumber(n: number | undefined | null): number | null | u
   if (n === 0) return null;
   if (typeof n === "number" && n > 0) return n;
   return undefined;
+}
+
+/**
+ * Detect HC API geocode failure: when `resolvableLocation` is just a verbatim
+ * copy of `locationOneLineDesc` (case-insensitive after trim, both non-empty
+ * and not TBA), the upstream API failed to resolve a real address and the
+ * accompanying `syncLat`/`syncLong` are HC's region-default fallback coords.
+ * Used to gate dropping the API coords so the merge pipeline can geocode from
+ * place text + kennel country bias instead. See #957.
+ */
+export function hcGeocodeFailed(
+  placeName: string | undefined,
+  resolvable: string | undefined,
+): boolean {
+  const place = stripTba(placeName);
+  const full = stripTba(resolvable);
+  if (!place || !full) return false;
+  return place.trim().toLowerCase() === full.trim().toLowerCase();
 }
 
 /**
