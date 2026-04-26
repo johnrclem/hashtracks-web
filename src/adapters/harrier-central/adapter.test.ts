@@ -425,6 +425,24 @@ describe("HarrierCentralAdapter", () => {
       expect(result.events[0].location).toBe(
         "Ikebukuro (Yamanote) Metropolitan exit(west exit)",
       );
+      // Adapter signals the merge pipeline to bypass the existingCoords cache
+      // short-circuit so previously-stored fallback pins get refreshed.
+      expect(result.events[0].dropCachedCoords).toBe(true);
+    });
+
+    it("omits dropCachedCoords when HC's geocoder succeeded", async () => {
+      // Real geocoded address — adapter must not signal cache drop, otherwise
+      // every healthy HC scrape would force a redundant geocode lookup.
+      mockApiResponse([
+        buildHCEvent({
+          locationOneLineDesc: "YR Event Hall",
+          resolvableLocation: "1 Chome−10−15, Toshima City, 171-0021, Japan",
+          syncLat: 35.72932,
+          syncLong: 139.70899,
+        }),
+      ]);
+      const result = await adapter.fetch(makeSource({ defaultKennelTag: "tokyo-h3" }));
+      expect(result.events[0].dropCachedCoords).toBeUndefined();
     });
 
     it("preserves API coords when resolvableLocation is bare coords (HC geocode partial success)", async () => {

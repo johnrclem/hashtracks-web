@@ -188,6 +188,13 @@ export class HarrierCentralAdapter implements SourceAdapter {
         location,
         latitude: dropApiCoords ? undefined : (hcEvent.syncLat != null ? hcEvent.syncLat : undefined),
         longitude: dropApiCoords ? undefined : (hcEvent.syncLong != null ? hcEvent.syncLong : undefined),
+        // Tell the merge pipeline to bypass its existingCoords cache and
+        // re-geocode this event — without this signal, canonical events
+        // already storing HC's bad fallback pin would never be corrected
+        // because HC events have locationUrl === null and the cache short-
+        // circuit keys on (locationUrl unchanged + stored coords present).
+        // See #957 codex review.
+        ...(dropApiCoords ? { dropCachedCoords: true } : {}),
       };
 
       events.push(raw);

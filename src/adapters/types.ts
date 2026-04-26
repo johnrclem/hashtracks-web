@@ -28,6 +28,20 @@ export interface RawEventData {
    * want Google to search globally instead of snapping to the kennel's country.
    */
   countryOverride?: string;
+  /**
+   * Adapter-emitted signal that any previously stored coordinates for this
+   * canonical event are stale and must be re-resolved from `location` text.
+   * Bypasses `resolveCoords`' existingCoords cache short-circuit (which
+   * normally returns stored coords whenever `locationUrl` is unchanged) and
+   * — when no fresh coords resolve — clears the stored lat/lng on UPDATE.
+   *
+   * Set by adapters that emit `latitude: undefined` / `longitude: undefined`
+   * specifically because the upstream API returned bad fallback coords
+   * (e.g. Harrier Central's region-default geocoder failure pin). Without
+   * this flag, the cache short-circuit keeps the stored bad pin forever
+   * since the adapter has no `locationUrl` to differ on (#957).
+   */
+  dropCachedCoords?: boolean;
 }
 
 /** Structured parse error with row-level context (Phase 2A) */
