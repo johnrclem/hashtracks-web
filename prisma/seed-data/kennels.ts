@@ -364,6 +364,13 @@ export const KENNELS: KennelSeed[] = [
       scheduleFrequency: "Irregular",
       description: "NW Indiana hash considered part of the Chicagoland community. Irregular schedule.",
     },
+    {
+      kennelCode: "c2b3h4", shortName: "C2B3H4", fullName: "Chicago Ballbuster Hash House Harriers",
+      region: "Chicago, IL",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "10:30 AM", scheduleFrequency: "Monthly",
+      scheduleNotes: "Roughly 4th Saturday morning",
+      description: "Chicago Ballbusters Hash House Harriers — sister kennel to Boston B3H4, founded by hashers who relocated from Boston.",
+    },
     // DC / DMV area
     {
       kennelCode: "ewh3", shortName: "EWH3", fullName: "Everyday is Wednesday Hash House Harriers", region: "Washington, DC",
