@@ -185,6 +185,13 @@ describe("BrewCityH3Adapter", () => {
     const result = await adapter.fetch(makeSource());
     expect(result.events.length).toBeGreaterThanOrEqual(2);
 
+    // Verify the adapter forwards timezoneId so the NAS browser-render service
+    // creates a Playwright context in BCH3's local zone (#960). Without this,
+    // Wix renders 8 PM CDT events as 12 AM UTC and parseDateTime drops them.
+    expect(mockedBrowserRender).toHaveBeenCalledWith(
+      expect.objectContaining({ timezoneId: "America/Chicago" }),
+    );
+
     // First event: BCH3 Trail #359
     const trail359 = result.events.find(e => e.runNumber === 359);
     expect(trail359).toBeDefined();

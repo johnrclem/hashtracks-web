@@ -177,18 +177,23 @@ const server = http.createServer(async (req, res) => {
 
     // Validate timezoneId — Playwright accepts any IANA timezone identifier.
     // Cap length to keep the surface small; defer full validation to Playwright
-    // which throws a clear error on unknown zones.
+    // which throws a clear error on unknown zones. Any non-undefined value that
+    // fails length OR charset checks returns 400 (no silent fallback to UTC).
     let safeTimezoneId;
-    if (typeof timezoneId === "string" && timezoneId.length > 0 && timezoneId.length <= 64) {
-      // Allow only the IANA charset: letters, digits, /, _, -, +
-      if (/^[A-Za-z0-9/_+\-]+$/.test(timezoneId)) {
-        safeTimezoneId = timezoneId;
-      } else {
+    if (timezoneId !== undefined) {
+      if (
+        typeof timezoneId !== "string" ||
+        timezoneId.length === 0 ||
+        timezoneId.length > 64 ||
+        // Allow only the IANA charset: letters, digits, /, _, -, +
+        !/^[A-Za-z0-9/_+\-]+$/.test(timezoneId)
+      ) {
         busy = false;
         return jsonResponse(res, 400, {
           error: `Invalid timezoneId: ${timezoneId}`,
         });
       }
+      safeTimezoneId = timezoneId;
     }
 
     // SSRF check
@@ -229,16 +234,15 @@ const server = http.createServer(async (req, res) => {
     );
 
     const b = await getBrowser();
-    // When timezoneId is supplied, create a dedicated context so JS calendars
-    // (Wix, Google Sites) format dates in the kennel's local zone rather than
-    // the server's UTC default. Without it, BCH3 events authored as
-    // "Thursday 8 PM CDT" rendered as "Friday 12 AM" (rounded UTC). See #960.
-    if (safeTimezoneId) {
-      context = await b.newContext({ timezoneId: safeTimezoneId });
-      page = await context.newPage();
-    } else {
-      page = await b.newPage();
-    }
+    // Always create an explicit context so cleanup is uniform across the
+    // timezone and no-timezone paths. When timezoneId is supplied, the context
+    // makes JS calendars (Wix, Google Sites) format dates in the kennel's
+    // local zone rather than the server's UTC default. Without it, BCH3 events
+    // authored as "Thursday 8 PM CDT" rendered as "Friday 12 AM" (rounded
+    // UTC). See #960.
+    const contextOpts = safeTimezoneId ? { timezoneId: safeTimezoneId } : {};
+    context = await b.newContext(contextOpts);
+    page = await context.newPage();
 
     // Use domcontentloaded instead of networkidle — Wix/SPA sites have
     // continuous background requests that prevent networkidle from firing.
