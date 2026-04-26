@@ -17,7 +17,10 @@ import { applyDateWindow, chronoParseDate, fetchHTMLPage, parse12HourTime } from
 const HASHES_URL = "https://boulderh3.com/hashes/";
 const KENNEL_TAG = "bh3-co";
 
-const TITLE_WITH_RUN_RE = /^BH3\s*#(\d+)\s*[:\-–]?\s*(.*)$/i;
+// Strip the optional `[BH3]` / `[Boulder H3]` prefix some older posts use,
+// then accept "BH3 #N" or "BH3 # N" with optional whitespace around `#`.
+const TITLE_PREFIX_RE = /^\[?\s*(?:Boulder\s+)?BH3\s*\]?\s*/i;
+const TITLE_WITH_RUN_RE = /^BH3\s*#\s*(\d+)\s*[:\-–]?\s*(.*)$/i;
 const WHEN_RE = /WHEN:\s*(\d{1,2}\/\d{1,2}\/\d{4})(?:\s*at\s*([\d:]+\s*(?:am|pm)))?/i;
 // `bodyText` has all whitespace collapsed to single spaces (no newlines), so
 // `.` is sufficient — no `s` flag needed (which would require es2018+).
@@ -35,7 +38,8 @@ export function parseBoulderH3Article(
   const sourceUrl = titleLink.attr("href");
   if (!titleText || !sourceUrl) return null;
 
-  const titleMatch = TITLE_WITH_RUN_RE.exec(titleText);
+  const normalizedTitle = titleText.replace(TITLE_PREFIX_RE, "BH3 ").trim();
+  const titleMatch = TITLE_WITH_RUN_RE.exec(normalizedTitle);
   let runNumber: number | undefined;
   let cleanTitle: string | undefined;
   if (titleMatch) {
