@@ -98,15 +98,47 @@ describe("parseBoulderH3Article", () => {
   });
 });
 
+describe("parseBoulderH3Article — edge cases", () => {
+  it("parses date-only WHEN (no time), leaving startTime undefined", () => {
+    const html = `<article class="et_pb_post"><h2 class="entry-title"><a href="https://boulderh3.com/bh3-100/">BH3 #100: Test</a></h2><div class="post-content"><p>WHEN: 06/15/2024 <br /> WHERE: Park</p></div></article>`;
+    const $ = cheerio.load(html);
+    const event = parseBoulderH3Article($, $("article").get(0)!);
+    expect(event).toMatchObject({ date: "2024-06-15", location: "Park" });
+    expect(event!.startTime).toBeUndefined();
+  });
+
+  it("returns event with undefined location when WHERE is missing", () => {
+    const html = `<article class="et_pb_post"><h2 class="entry-title"><a href="https://boulderh3.com/bh3-100/">BH3 #100: Test</a></h2><div class="post-content"><p>WHEN: 06/15/2024 at 02:00PM</p></div></article>`;
+    const $ = cheerio.load(html);
+    const event = parseBoulderH3Article($, $("article").get(0)!);
+    expect(event).not.toBeNull();
+    expect(event!.location).toBeUndefined();
+  });
+});
+
 describe("parseBoulderH3IndexPage", () => {
   it("parses every <article class=\"et_pb_post\"> on the page", () => {
-    const events = parseBoulderH3IndexPage(PAGE_FIXTURE);
+    const $ = cheerio.load(PAGE_FIXTURE);
+    const events = parseBoulderH3IndexPage($);
     expect(events).toHaveLength(3);
     expect(events.map((e) => e.runNumber)).toEqual([968, 967, 963]);
   });
 
   it("populates kennelTag bh3-co on every event", () => {
-    const events = parseBoulderH3IndexPage(PAGE_FIXTURE);
+    const $ = cheerio.load(PAGE_FIXTURE);
+    const events = parseBoulderH3IndexPage($);
     expect(events.every((e) => e.kennelTag === "bh3-co")).toBe(true);
+  });
+
+  it("skips unparseable articles without throwing", () => {
+    const mixed = `<html><body>
+      ${ARTICLE_FIXTURE}
+      <article class="et_pb_post"><h2 class="entry-title"></h2><div class="post-content"><p>No content</p></div></article>
+      <article class="et_pb_post"><h2 class="entry-title"><a href="https://boulderh3.com/bh3-200/">BH3 #200</a></h2><div class="post-content"><p>WHEN: 13/45/2024 <br /> WHERE: X</p></div></article>
+    </body></html>`;
+    const $ = cheerio.load(mixed);
+    const events = parseBoulderH3IndexPage($);
+    expect(events).toHaveLength(1);
+    expect(events[0].runNumber).toBe(968);
   });
 });
