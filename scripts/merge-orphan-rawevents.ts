@@ -60,8 +60,33 @@ async function main() {
       return;
     }
 
-    const events = orphans.map((o) => o.rawData as unknown as RawEventData);
+    // Guard against malformed legacy rows: rawData is `Json` in the schema,
+    // so a missing/non-string `date` would throw on `localeCompare`. Skip
+    // dirty rows (with a warning) so dry-run survives.
+    const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+    const mergeable: { id: string; event: RawEventData }[] = [];
+    let skippedMalformed = 0;
+    for (const o of orphans) {
+      const raw = o.rawData as unknown as Partial<RawEventData> | null;
+      if (!raw || typeof raw.date !== "string" || !ISO_DATE_RE.test(raw.date)) {
+        skippedMalformed++;
+        if (skippedMalformed <= 5) {
+          console.warn(`  Skipping malformed orphan ${o.id}: missing or non-ISO date`);
+        }
+        continue;
+      }
+      mergeable.push({ id: o.id, event: raw as RawEventData });
+    }
+    if (skippedMalformed > 5) {
+      console.warn(`  …${skippedMalformed - 5} more malformed orphans skipped`);
+    }
+    if (mergeable.length === 0) {
+      console.log("No well-formed events to merge. Exiting.");
+      return;
+    }
+    const events = mergeable.map((m) => m.event);
     const dates = events.map((e) => e.date).sort((a, b) => a.localeCompare(b));
+    console.log(`Mergeable: ${events.length} (skipped ${skippedMalformed} malformed, left in place)`);
     console.log(`Date range: ${dates[0]} → ${dates.at(-1)}`);
 
     if (!apply) {
@@ -79,9 +104,11 @@ async function main() {
     fs.writeFileSync(backupPath, JSON.stringify(events, null, 2));
     console.log(`\nBacked up ${events.length} events → ${backupPath}`);
 
-    console.log(`Deleting ${orphans.length} orphans...`);
-    const orphanIds = orphans.map((o) => o.id);
-    await prisma.rawEvent.deleteMany({ where: { id: { in: orphanIds } } });
+    // Only delete the orphans we'll re-create via processRawEvents.
+    // Malformed rows stay in place so they can be inspected and fixed manually.
+    console.log(`Deleting ${mergeable.length} mergeable orphans...`);
+    const mergeableIds = mergeable.map((m) => m.id);
+    await prisma.rawEvent.deleteMany({ where: { id: { in: mergeableIds } } });
 
     console.log("Running merge pipeline...");
     const result = await processRawEvents(sourceId, events);
