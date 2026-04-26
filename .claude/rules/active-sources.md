@@ -68,10 +68,11 @@ globs:
 - **SeaMon H3 Hareline Sheet** -> GOOGLE_SHEETS -> SeaMon
 - **Leap Year H3 Hareline Sheet** -> GOOGLE_SHEETS -> Leap Year
 
-## Colorado (5 sources)
+## Colorado (6 sources)
 - **Denver H3 Google Calendar** -> GOOGLE_CALENDAR -> DH3
 - **Mile High Humpin Hash Calendar** -> GOOGLE_CALENDAR -> MiHiHuHa
 - **Colorado H3 Aggregator Calendar** -> GOOGLE_CALENDAR -> BH3 (Boulder), MiHiHuHa (secondary)
+- **Boulder H3 Website** -> HTML_SCRAPER -> BH3 (Boulder, primary; Divi/WordPress blog)
 - **Fort Collins H3 Google Calendar** -> GOOGLE_CALENDAR -> FCH3
 - **Colorado Springs H3 Calendar** -> GOOGLE_CALENDAR -> PPH4, Kimchi, DIM (3 CS kennels)
 

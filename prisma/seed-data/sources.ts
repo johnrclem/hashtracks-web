@@ -2052,6 +2052,19 @@ export const SOURCES = [
       },
       kennelCodes: ["bh3-co", "mihi-huha", "dh3-co"],
     },
+    // --- Boulder H3 Website (Divi/WordPress blog) ---
+    // Primary feed for BH3 Boulder. Reads recent + upcoming runs from
+    // boulderh3.com/hashes/ (page 1). Historical archive (pages 2–20)
+    // is filled by scripts/backfill-bh3-co-history.ts.
+    {
+      name: "Boulder H3 Website",
+      url: "https://boulderh3.com/hashes/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      kennelCodes: ["bh3-co"],
+    },
     // --- Fort Collins H3 (Google Calendar) ---
     {
       name: "Fort Collins H3 Google Calendar",
