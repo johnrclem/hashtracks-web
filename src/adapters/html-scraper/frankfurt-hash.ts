@@ -52,6 +52,20 @@ function matchKennelTag(title: string, compiled: [RegExp, string][], defaultTag:
   return defaultTag;
 }
 
+/**
+ * Strip a trailing " Hare(s): <name>" suffix from a title. The Frankfurt
+ * JEM list page appends hare names to event titles (e.g.
+ * "FH3 Run #2119 Hare: Whore Durve"), but the hare name is also extracted
+ * into RawEventData.hares from the same `<li>` HTML — keeping it in the
+ * title is pure duplication. Returns the original title if stripping
+ * would leave nothing (defensive: a malformed bare "Hare: X" passes through).
+ * See #961.
+ */
+export function stripHareSuffix(title: string): string {
+  const stripped = title.replace(/\s+Hares?\s*[:\-]\s*.+$/i, "").trim();
+  return stripped || title;
+}
+
 // ── Exported helpers (for unit testing) ──
 
 /**
@@ -80,8 +94,13 @@ export function parseJEMEvent(
 
   // Extract title from .jem-event-title h4 a
   const titleLink = $li.find(".jem-event-title h4 a").first();
-  const title = decodeEntities(titleLink.text()).trim();
-  if (!title) return null;
+  const rawTitle = decodeEntities(titleLink.text()).trim();
+  if (!rawTitle) return null;
+  // Strip trailing " Hare(s): <name>" — Frankfurt's JEM template appends
+  // hare names to the event title (e.g. "FH3 Run #2119 Hare: Whore Durve"),
+  // but hares are extracted separately into RawEventData.hares below.
+  // See #961.
+  const title = stripHareSuffix(rawTitle);
 
   // Extract sourceUrl from href
   const href = titleLink.attr("href");
