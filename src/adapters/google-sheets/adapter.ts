@@ -16,12 +16,14 @@ const INSTRUCTION_TITLE_RE = /^(?:bring|check|don['\u2019]t|remember|note|pack|w
  *
  * Treating these as venue names produces double-rendered locations like
  * "sheperdstown, Shepherdstown, WV" once the geocoder appends the resolved
- * city. Returning the value as-is to the merge pipeline still leaves the
- * geocoder with enough context to find the right place using the kennel's
- * region bias (#893). Capitalized one-word values like "Charlestown" are
- * intentionally NOT caught \u2014 they could be real venues (e.g. "Subway",
- * "Roxy") and need a different signal (geocoded-city equality) handled
- * downstream.
+ * city. Dropping the value here (caller sets `location = undefined` when
+ * this returns `true`) leaves the geocoder with the kennel's region bias
+ * still pointing it at the right place — without the typo'd shorthand
+ * lingering in user-facing text (#893).
+ *
+ * Capitalized one-word values like "Charlestown" are intentionally NOT
+ * caught \u2014 they could be real venues (e.g. "Subway", "Roxy") and need
+ * a different signal (geocoded-city equality) handled downstream.
  */
 function isCityShorthand(value: string): boolean {
   const trimmed = value.trim();
