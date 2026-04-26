@@ -3,6 +3,7 @@ import type { Source } from "@/generated/prisma/client";
 import {
   parseJEMEvent,
   parseJEMEventList,
+  stripHareSuffix,
   FrankfurtHashAdapter,
 } from "./frankfurt-hash";
 import * as cheerio from "cheerio";
@@ -134,6 +135,48 @@ const ARCHIVE_HTML = `<html><body>
   </li>
 </ul>
 </body></html>`;
+
+// ── stripHareSuffix tests ──
+
+describe("stripHareSuffix (#961)", () => {
+  it("strips trailing ' Hare: <name>' from FH3-style titles", () => {
+    // Live FH3 list-page title (2026-04-25) — hare name appended after run #
+    expect(stripHareSuffix("FH3 Run #2119 Hare: Whore Durve")).toBe("FH3 Run #2119");
+  });
+
+  it("strips trailing ' Hares: <names>' (plural)", () => {
+    expect(stripHareSuffix("FH3 Run #2120 Hares: Foo, Bar")).toBe("FH3 Run #2120");
+  });
+
+  it("is case-insensitive on the Hare(s) keyword", () => {
+    expect(stripHareSuffix("FH3 Run #2121 hare: alice")).toBe("FH3 Run #2121");
+    expect(stripHareSuffix("FH3 Run #2122 HARES: bob")).toBe("FH3 Run #2122");
+  });
+
+  it("passes through titles with no Hare suffix unchanged", () => {
+    expect(stripHareSuffix("Frankfurt Hash House Harriers #2114")).toBe("Frankfurt Hash House Harriers #2114");
+    expect(stripHareSuffix("FM Run 500 Full Moon Edition")).toBe("FM Run 500 Full Moon Edition");
+  });
+
+  it("returns the original title when stripping would empty it (defensive)", () => {
+    // A malformed title that's *only* "Hare: X" should not collapse to "" —
+    // RawEventData.title is required to be present for the merge to succeed.
+    expect(stripHareSuffix("Hare: Solo")).toBe("Hare: Solo");
+  });
+
+  it("does not strip 'Hare' when not preceded by whitespace (no-op safety)", () => {
+    // "FH3-Hare: X" (no whitespace before Hare) should not match. Catches
+    // accidental over-eager regexes if someone tightens the pattern later.
+    expect(stripHareSuffix("FH3-Hare: X")).toBe("FH3-Hare: X");
+  });
+
+  it("strips trailing ' Hare - <name>' (dash separator, archive form)", () => {
+    // Live FH3 archive title (e.g. "FH3 Run #1639: Hare - Wankula") — the
+    // run-# colon is left intact, only the trailing "Hare - …" is removed.
+    expect(stripHareSuffix("FH3 Run #1639: Hare - Wankula")).toBe("FH3 Run #1639:");
+    expect(stripHareSuffix("FH3 Run #1636: Hare - The Blacks")).toBe("FH3 Run #1636:");
+  });
+});
 
 // ── parseJEMEvent tests ──
 
@@ -367,6 +410,56 @@ describe("parseJEMEvent", () => {
     expect(event).not.toBeNull();
     expect(event!.date).toBe("2026-03-29");
     expect(event!.startTime).toBeUndefined();
+  });
+
+  it("strips ' Hare: <name>' suffix from title and still extracts hares from the same <li> (#961)", () => {
+    // Live-page-shaped HTML for FH3 Run #2119: title text contains the hare
+    // name appended after the run number. extractHaresFromText() picks up the
+    // "Hare:" pattern from the same <li> HTML, so stripping the title doesn't
+    // lose the hare.
+    const html = `<li class="jem-event">
+      <time itemprop="startDate" content="2026-04-26T14:30"></time>
+      <div class="jem-event-title">
+        <h4 title="Title: FH3 Run #2119 Hare: Whore Durve">
+          <a href="/index.php/coming-runs/event/1315:fh3-run-2119-hare-whore-durve">FH3 Run #2119 Hare: Whore Durve</a>
+        </h4>
+      </div>
+      <div class="jem-event-venue"><a href="/venues/123">Flörsheim Bahnhof</a></div>
+    </li>`;
+    const $ = cheerio.load(html);
+    const $li = $("li.jem-event").first();
+
+    const event = parseJEMEvent($li, $, compiled, defaultTag, baseUrl);
+
+    expect(event).not.toBeNull();
+    expect(event!.title).toBe("FH3 Run #2119");
+    expect(event!.runNumber).toBe(2119);
+    expect(event!.hares).toBe("Whore Durve");
+    expect(event!.kennelTag).toBe("FH3");
+  });
+
+  it("strips ' Hare - <name>' suffix and extracts hares (archive dash form, #961)", () => {
+    // Live FH3 archive entry: "FH3 Run #1639: Hare - Wankula" — both
+    // stripHareSuffix and extractHaresFromText must accept the dash form,
+    // otherwise the title strips but the hare is lost.
+    const html = `<li class="jem-event">
+      <time itemprop="startDate" content="2018-06-15T19:00"></time>
+      <div class="jem-event-title">
+        <h4 title="Title: FH3 Run #1639: Hare - Wankula">
+          <a href="/index.php/coming-runs/event/695:Hare%20-%20Wankula">FH3 Run #1639: Hare - Wankula</a>
+        </h4>
+      </div>
+      <div class="jem-event-venue"><a href="/venues/1">Frankfurt</a></div>
+    </li>`;
+    const $ = cheerio.load(html);
+    const $li = $("li.jem-event").first();
+
+    const event = parseJEMEvent($li, $, compiled, defaultTag, baseUrl);
+
+    expect(event).not.toBeNull();
+    expect(event!.title).toBe("FH3 Run #1639:");
+    expect(event!.runNumber).toBe(1639);
+    expect(event!.hares).toBe("Wankula");
   });
 });
 
