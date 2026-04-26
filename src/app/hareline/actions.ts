@@ -156,13 +156,16 @@ const fetchSlimEventsCached = unstable_cache(
 );
 
 /**
- * Events are stored at UTC noon. The single boundary used for both modes is
- * `yesterday 00:00 UTC`: upcoming is `>= yesterdayUtc` (catches noon-UTC runs
- * that haven't happened yet in any Western-Hemisphere timezone), past is
- * `< yesterdayUtc` (events definitively in the past for every timezone). The
- * client's `bucketBoundaryUtc` uses the same value, so server query and
- * client filter agree — no wasted rows that the client would immediately
- * hide against `take: PAST_EVENTS_LIMIT`.
+ * Events are stored at UTC noon. The server applies a lenient floor of
+ * `yesterday 00:00 UTC` (upcoming is `>= yesterdayUtc`, past is
+ * `< yesterdayUtc`) — wide enough that noon-UTC runs which haven't happened
+ * yet in any Western-Hemisphere timezone are still in the upcoming payload
+ * regardless of who's viewing. The actual upcoming/past split shown to the
+ * user is refined client-side using their local timezone — see
+ * `computeBucketBoundary` in `HarelineView.tsx`. This means the client may
+ * filter out a few yesterday-UTC events that this query returns; that's
+ * intentional — the server can't know the viewer's TZ without breaking
+ * cache purity, and the wire-bloat is at most one UTC day's worth of events.
  *
  * `nowMs` lets the initial-render path in `page.tsx` share a single clock
  * with the `serverNowMs` prop passed to the client. Omit for the lazy
