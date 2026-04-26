@@ -10,7 +10,6 @@ import {
   chronoParseDate,
   parse12HourTime,
   fetchBrowserRenderedPage,
-  HARE_BOILERPLATE_RE,
   isPlaceholder,
 } from "../utils";
 
@@ -49,17 +48,24 @@ export function parseMakesweatEvent(
   const timeText = $event.find(".ms_eventstart").first().text().trim();
   const startTime = timeText ? parse12HourTime(timeText) : "19:00";
 
-  // Hares from .ms_eventdescription — match "Hare(s) - Name"
+  // Hares from .ms_eventdescription — match "Hare(s) - Name". CTA-shaped values
+  // ("We need a Hare, Contact Full Load!", "Hare needed", etc.) flow through to
+  // the merge pipeline's sanitizeHares which uses CTA_EMBEDDED_PATTERNS to
+  // recognize them and write `haresText: null`. This is the only path that
+  // CLEARS a stale haresText on an existing canonical event — returning
+  // `undefined` here would leave the merge UPDATE branch as a no-op for the
+  // hares field, so a value like "69 Virgins to Paradise" (#949) would persist
+  // forever even after the source switched to a placeholder. See #963.
   let hares: string | undefined;
   const descText = $event.find(".ms_eventdescription").first().text().trim();
   if (descText) {
     const hareMatch = descText.match(/Hares?\s*[-–—]\s*(.+?)(?:\n|$)/i);
     if (hareMatch) {
-      const raw = hareMatch[1].trim();
-      const isCta = HARE_BOILERPLATE_RE.test(raw)
-        || /^(?:hare\s+)?needed\b/i.test(raw)
-        || /^please\s+contact\b/i.test(raw);
-      hares = isCta ? undefined : raw;
+      // Empty string (not undefined) signals "field present but empty" so the
+      // merge UPDATE path fires and sanitizeHares("") returns null, clearing
+      // any stale value. Returning undefined would skip the haresText write
+      // entirely and leave stale data forever. See #949.
+      hares = hareMatch[1].trim();
     }
   }
 

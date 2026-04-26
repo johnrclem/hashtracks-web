@@ -1438,6 +1438,26 @@ describe("sanitizeHares", () => {
     expect(sanitizeHares("Needed")).toBeNull();
   });
 
+  it("returns null for sentence-shaped CTAs (#963)", () => {
+    // Live City H3 #1920 case: the source description starts "Hare - We need
+    // a Hare, Contact Full Load!" and the adapter passes the value through
+    // verbatim. sanitizeHares must catch the embedded "need a Hare" phrase
+    // (via CTA_EMBEDDED_PATTERNS) and return null so the merge UPDATE path
+    // writes haresText: null and clears any stale "real" hare value (#949).
+    expect(sanitizeHares("We need a Hare, Contact Full Load!")).toBeNull();
+    expect(sanitizeHares("Need a hare for this trail")).toBeNull();
+    expect(sanitizeHares("Hare needed — please volunteer")).toBeNull();
+    expect(sanitizeHares("Looking for a hare")).toBeNull();
+  });
+
+  it("does NOT clear legitimate hare names that contain the word 'need' (no false positives)", () => {
+    // Defensive: a hare name like "Need For Speed" or "Needled" should not
+    // be misclassified as a CTA. CTA_EMBEDDED_PATTERNS requires "need" to
+    // be followed by "(a) hare(s)", so these pass through.
+    expect(sanitizeHares("Need For Speed")).toBe("Need For Speed");
+    expect(sanitizeHares("Needled")).toBe("Needled");
+  });
+
   it("truncates at boilerplate marker 'WHAT TIME'", () => {
     expect(sanitizeHares("Captain Hash WHAT TIME: 6:30 PM")).toBe("Captain Hash");
   });

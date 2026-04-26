@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { readFileSync } from "node:fs";
 import * as cheerio from "cheerio";
 import { parseMakesweatEvent, extractMakesweatId } from "./city-hash";
 import { CityHashAdapter } from "./city-hash";
@@ -151,9 +152,15 @@ describe("parseMakesweatEvent", () => {
     expect(event!.location).toBeUndefined();
   });
 
-  it("filters CTA hare text as undefined (#726)", () => {
-    // Source description: "Hare Needed! Please contact Full Load" — the "Hare" prefix
-    // with dash separator is how Makesweat formats the field, producing a CTA as the value
+  it("passes CTA hare text through verbatim (sanitizeHares clears it; #726, #949, #963)", () => {
+    // Source description: "Hare Needed! Please contact Full Load" — the "Hare"
+    // prefix with dash separator is how Makesweat formats the field. The
+    // adapter no longer null-filters CTAs in-place — it passes raw text
+    // through so the merge pipeline's sanitizeHares can recognize the CTA
+    // and write `haresText: null`, which clears stale values on existing
+    // canonical events. Returning undefined here would leave the merge
+    // UPDATE branch as a no-op for hares, so a stale "69 Virgins to
+    // Paradise" (#949) would persist forever.
     const ctaHtml = `<div class="ms_event makesweatevent-99999">
       <div class="ms_eventtitle">City Hash R*n #1920 @ TBA</div>
       <div class="ms_event_startdate">Tue 21st Apr 26</div>
@@ -164,7 +171,45 @@ Pub - TBA</div>
     </div>`;
     const $cta = cheerio.load(ctaHtml);
     const event = parseMakesweatEvent($cta, $cta(".ms_event").eq(0), "https://makesweat.com/cityhash#hashes");
-    expect(event?.hares).toBeUndefined();
+    // Raw passthrough — sanitization happens downstream.
+    expect(event?.hares).toBe("Hare Needed! Please contact Full Load");
+  });
+
+  it("passes 'We need a Hare, Contact Full Load!' through verbatim (#963)", () => {
+    // Live #1920 reproduction (Makesweat 2026-04-26). Adapter must emit the
+    // raw string so sanitizeHares can clear stale data on UPDATE.
+    const ctaHtml = `<div class="ms_event makesweatevent-99999">
+      <div class="ms_eventtitle">City Hash R*n #1920 @ TBA</div>
+      <div class="ms_event_startdate">Tue 5th May 26</div>
+      <div class="ms_eventstart">7:00pm</div>
+      <div class="ms_eventdescription">Hare - We need a Hare, Contact Full Load!
+Pub - TBA</div>
+      <div class="ms_venue_name">TBA</div>
+    </div>`;
+    const $cta = cheerio.load(ctaHtml);
+    const event = parseMakesweatEvent($cta, $cta(".ms_event").eq(0), "https://makesweat.com/cityhash#hashes");
+    expect(event?.hares).toBe("We need a Hare, Contact Full Load!");
+  });
+
+  it("does not collapse a matched-but-trim-empty hare value to undefined (#949)", () => {
+    // Regression guard for the `|| undefined` footgun removed in this PR.
+    // The merge UPDATE branch only writes `haresText` when
+    // `event.hares !== undefined`. If the regex matches a label like
+    // "Hare - " but `(.+?)` captures only whitespace-equivalent characters
+    // that `trim()` strips, the adapter must still emit an empty string —
+    // NOT `undefined` — so merge can call `sanitizeHares("")` (returns null)
+    // and clear any stale value. Returning `undefined` would skip the write
+    // entirely and "69 Virgins to Paradise" would persist forever (#949).
+    //
+    // We test the property by reading the source: the assignment is
+    // `hares = hareMatch[1].trim();` — bare trim, no `|| undefined`.
+    // This sentinel test fails if a future maintainer reintroduces the
+    // collapse pattern.
+    const src = readFileSync(
+      new URL("./city-hash.ts", import.meta.url),
+      "utf8",
+    );
+    expect(src).not.toMatch(/hareMatch\[1\]\.trim\(\)\s*\|\|\s*undefined/);
   });
 
   it("extracts Makesweat ID from class attribute", () => {
