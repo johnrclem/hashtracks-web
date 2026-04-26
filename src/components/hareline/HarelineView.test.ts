@@ -1,4 +1,9 @@
-import { computeBucketBoundary, computeInitialScope, passesTimeFilter } from "./HarelineView";
+import {
+  computeBucketBoundary,
+  computeInitialScope,
+  computeNextRefreshMs,
+  passesTimeFilter,
+} from "./HarelineView";
 
 // Pin process timezone for deterministic local-midnight math. The bucket
 // boundary depends on the runtime's local TZ post-hydration, so without
@@ -76,6 +81,38 @@ describe("passesTimeFilter — upcoming bucket regression for yesterday-UTC even
     const bucket = computeBucketBoundary(nowMs, true);
     expect(passesTimeFilter(aprilTwentySixthNoonUtc, "4w", today, bucket)).toBe(true);
     expect(passesTimeFilter(aprilTwentyFifthNoonUtc, "4w", today, bucket)).toBe(false);
+  });
+});
+
+describe("computeNextRefreshMs (scheduler tick)", () => {
+  test("EDT viewer evening — fires at next local midnight (no UTC rollover)", () => {
+    // Apr 26 23:00 EDT == Apr 27 03:00 UTC.
+    // Next local midnight: Apr 27 00:00 EDT == Apr 27 04:00:01 UTC. ~1h away.
+    // Next UTC midnight: Apr 28 00:00:01 UTC. ~21h away.
+    // → Local midnight wins; no cache invalidation.
+    const nowMs = new Date("2026-04-27T03:00:00.000Z").getTime();
+    const { nextMs, isUtcRollover } = computeNextRefreshMs(nowMs);
+    expect(nextMs).toBe(new Date("2026-04-27T04:00:01.000Z").getTime());
+    expect(isUtcRollover).toBe(false);
+  });
+
+  test("EDT viewer late evening past their local midnight — next tick is UTC midnight", () => {
+    // Apr 27 02:00 EDT == Apr 27 06:00 UTC.
+    // Next local midnight: Apr 28 00:00 EDT == Apr 28 04:00:01 UTC. ~22h away.
+    // Next UTC midnight: Apr 28 00:00:01 UTC. ~18h away.
+    // → UTC midnight wins; caches invalidate.
+    const nowMs = new Date("2026-04-27T06:00:00.000Z").getTime();
+    const { nextMs, isUtcRollover } = computeNextRefreshMs(nowMs);
+    expect(nextMs).toBe(new Date("2026-04-28T00:00:01.000Z").getTime());
+    expect(isUtcRollover).toBe(true);
+  });
+
+  test("scheduler fires no later than 24h out", () => {
+    // For any nowMs the next tick must be within 24h + 1s.
+    const nowMs = new Date("2026-04-27T03:00:00.000Z").getTime();
+    const { nextMs } = computeNextRefreshMs(nowMs);
+    expect(nextMs - nowMs).toBeLessThanOrEqual(24 * 60 * 60 * 1000 + 1000);
+    expect(nextMs - nowMs).toBeGreaterThan(0);
   });
 });
 

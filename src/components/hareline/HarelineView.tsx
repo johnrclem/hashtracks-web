@@ -143,6 +143,42 @@ function matchesSearchText(event: HarelineEvent, query: string): boolean {
 }
 
 /**
+ * Compute the next clock tick that affects bucket-boundary state.
+ *
+ * Two boundaries matter to the Hareline:
+ *  1. The viewer's **local midnight** — the moment `bucketBoundaryUtc`
+ *     advances post-hydration (see `computeBucketBoundary`). Without a
+ *     refresh at local midnight, yesterday-UTC events stay in "upcoming"
+ *     for many hours after the viewer's local day rolled over.
+ *  2. **UTC midnight** — the moment the server's per-day cache key
+ *     (`YYYY-MM-DD` UTC) rotates, so the locally-cached upcoming/past
+ *     payloads are stale and must be re-fetched.
+ *
+ * Returns the earlier of the two, plus a flag indicating whether the
+ * trigger was a UTC rollover (so the caller knows whether to invalidate
+ * the event caches in addition to advancing `nowMs`).
+ *
+ * Pure function — exported for testability.
+ */
+export function computeNextRefreshMs(nowMs: number): { nextMs: number; isUtcRollover: boolean } {
+  const d = new Date(nowMs);
+  const nextUtcMidnight = Date.UTC(
+    d.getUTCFullYear(),
+    d.getUTCMonth(),
+    d.getUTCDate() + 1,
+    0, 0, 1,
+  );
+  const nextLocalMidnight = new Date(
+    d.getFullYear(),
+    d.getMonth(),
+    d.getDate() + 1,
+    0, 0, 1,
+  ).getTime();
+  const nextMs = Math.min(nextUtcMidnight, nextLocalMidnight);
+  return { nextMs, isUtcRollover: nextMs === nextUtcMidnight };
+}
+
+/**
  * Compute the upcoming/past bucket boundary in UTC ms.
  *
  * Pre-hydration (server-rendered first paint), the boundary matches the
@@ -342,25 +378,27 @@ export function HarelineView({
       setPastEvents(null);
     }
 
-    // Schedule a one-shot update at the next UTC midnight, then
-    // re-schedule. Using a chained timeout (not setInterval) keeps the
-    // trigger aligned to midnight even if the tab is backgrounded.
-    // Invalidating both caches on rollover is required — otherwise the
-    // client starts filtering with a new boundary while the server-
-    // cached events were fetched under the old one, so an event that
-    // just crossed midnight between upcoming and past would be visible
-    // in neither bucket until a full reload.
+    // Schedule a chained timeout to fire at the *next* boundary that
+    // affects bucket state — whichever of the viewer's local midnight or
+    // UTC midnight comes first. Local-midnight ticks just refresh `nowMs`
+    // so `bucketBoundaryUtc` advances; UTC-midnight ticks additionally
+    // invalidate the upcoming/past caches because the server's per-day
+    // cache key (YYYY-MM-DD UTC) rotates and the cached payloads are now
+    // stale. See `computeNextRefreshMs`. Chained timeouts (not
+    // setInterval) keep ticks aligned to the boundary even if the tab
+    // is backgrounded.
     let timer: ReturnType<typeof setTimeout> | null = null;
     function scheduleNext() {
       const now = Date.now();
-      const d = new Date(now);
-      const nextMidnightUtc = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1, 0, 0, 1);
+      const { nextMs, isUtcRollover } = computeNextRefreshMs(now);
       timer = setTimeout(() => {
         setNowMs(Date.now());
-        setUpcomingEvents(null);
-        setPastEvents(null);
+        if (isUtcRollover) {
+          setUpcomingEvents(null);
+          setPastEvents(null);
+        }
         scheduleNext();
-      }, Math.max(1000, nextMidnightUtc - now));
+      }, Math.max(1000, nextMs - now));
     }
     scheduleNext();
     return () => {
