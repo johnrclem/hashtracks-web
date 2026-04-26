@@ -69,6 +69,16 @@ describe("parseDateTime", () => {
     expect(result.date).toBeNull();
     expect(result.startTime).toBeUndefined();
   });
+
+  it("parses Thursday 8 PM (post-#960 timezone fix expected input)", () => {
+    // After the browser-render service is given timezoneId="America/Chicago",
+    // Wix renders BCH3 events as "Thursday, April 30, 2026 AT 8 PM" (the
+    // kennel's authored local time). Without the timezone hint, the same
+    // event rendered as "Friday, May 1, 2026 AT 12 AM" — see #960.
+    const result = parseDateTime("Thursday, April 30, 2026 AT 8 PM");
+    expect(result.date).toBe("2026-04-30");
+    expect(result.startTime).toBe("20:00");
+  });
 });
 
 describe("parseTitle", () => {
@@ -174,6 +184,13 @@ describe("BrewCityH3Adapter", () => {
 
     const result = await adapter.fetch(makeSource());
     expect(result.events.length).toBeGreaterThanOrEqual(2);
+
+    // Verify the adapter forwards timezoneId so the NAS browser-render service
+    // creates a Playwright context in BCH3's local zone (#960). Without this,
+    // Wix renders 8 PM CDT events as 12 AM UTC and parseDateTime drops them.
+    expect(mockedBrowserRender).toHaveBeenCalledWith(
+      expect.objectContaining({ timezoneId: "America/Chicago" }),
+    );
 
     // First event: BCH3 Trail #359
     const trail359 = result.events.find(e => e.runNumber === 359);

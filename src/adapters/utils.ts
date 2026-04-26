@@ -622,7 +622,16 @@ Text: "${text.slice(0, 500)}"`;
  */
 export async function fetchBrowserRenderedPage(
   url: string,
-  options?: { waitFor?: string; selector?: string; frameUrl?: string; timeout?: number },
+  options?: {
+    waitFor?: string;
+    selector?: string;
+    frameUrl?: string;
+    timeout?: number;
+    /** IANA timezone for the rendering context. See `RenderOptions.timezoneId`
+     *  in `@/lib/browser-render`. Required for Wix/JS-rendered calendars whose
+     *  date strings are formatted client-side and depend on viewer locale (#960). */
+    timezoneId?: string;
+  },
 ): Promise<FetchHTMLResult> {
   const fetchStart = Date.now();
   try {
