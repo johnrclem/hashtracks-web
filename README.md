@@ -136,3 +136,11 @@ Open [http://localhost:3000](http://localhost:3000).
 ## Project Status
 
 Active development. See [`docs/roadmap.md`](docs/roadmap.md) for what's next.
+
+## 💰 Bounty Contribution
+
+- **Task:** Dallas H3 — Historical backfill: ~16 past Dallas runs (#1203-#1220) absent from 
+- **Reward:** $20
+- **Source:** GitHub-Paid
+- **Date:** 2026-04-27
+
