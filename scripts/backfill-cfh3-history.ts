@@ -10,8 +10,8 @@
  * `/tmp/cfh3-receding-cleaned.json` for re-runs.
  *
  * Partition: live adapter owns `date >= CURDATE()`, this script owns
- * `date < CURDATE()`. `insertRawEventsForSource` fingerprint-dedupes, so the
- * script is safely re-runnable.
+ * `date < CURDATE()`. `reportAndApplyBackfill` routes through the merge
+ * pipeline, which fingerprint-dedupes — safely re-runnable.
  *
  * Usage:
  *   Dry run:   npx tsx scripts/backfill-cfh3-history.ts
@@ -24,12 +24,11 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as cheerio from "cheerio";
-import { insertRawEventsForSource } from "./lib/backfill-runner";
+import { reportAndApplyBackfill } from "./lib/backfill-runner";
 import { safeFetch } from "@/adapters/safe-fetch";
 import { callGemini } from "@/lib/ai/gemini";
 import { parseCfh3Post } from "@/adapters/html-scraper/cape-fear-h3";
 import { decodeEntities } from "@/adapters/utils";
-import { todayInTimezone } from "@/lib/timezone";
 import type { RawEventData } from "@/adapters/types";
 
 const SOURCE_NAME = "Cape Fear H3 Website";
@@ -223,39 +222,13 @@ async function main() {
   const enrichedCount = enriched.filter((e) => e.startTime || e.location).length;
   console.log(`  Enriched ${enrichedCount}/${enriched.length} rows with blog fields`);
 
-  const today = todayInTimezone(KENNEL_TIMEZONE);
-  const past = enriched.filter((e) => e.date < today);
-  const futureOrToday = enriched.length - past.length;
-  console.log(`  Partition: ${past.length} past rows, ${futureOrToday} skipped (date >= ${today})`);
-
-  const sorted = [...past].sort((a, b) => a.date.localeCompare(b.date));
-  if (sorted.length > 0) {
-    console.log(`\nDate range: ${sorted[0].date} → ${sorted[sorted.length - 1].date}`);
-    const sampleIdx = [0, Math.floor(sorted.length / 2), sorted.length - 1];
-    console.log("Samples (oldest, middle, newest):");
-    for (const i of sampleIdx) {
-      const e = sorted[i];
-      console.log(
-        `  #${e.runNumber ?? "?"} ${e.date} | title=${e.title ?? "—"} | hares=${e.hares ?? "—"} | loc=${e.location ?? "—"} | start=${e.startTime ?? "—"}`,
-      );
-    }
-  }
-
-  if (!apply) {
-    console.log(`\n[4/4] Dry run complete. Review ${CACHE_PATH} and re-run with BACKFILL_APPLY=1 to write to DB.`);
-    return;
-  }
-  if (past.length === 0) {
-    console.log("\nNo events to insert. Exiting.");
-    return;
-  }
-
-  console.log("\n[4/4] Writing to DB...");
-  const { preExisting, inserted } = await insertRawEventsForSource(SOURCE_NAME, past);
-  console.log(`  Pre-existing: ${preExisting}. Inserted: ${inserted}.`);
-  if (inserted > 0) {
-    console.log(`\nDone. Trigger a scrape of "${SOURCE_NAME}" from the admin UI to merge the new RawEvents.`);
-  }
+  console.log("\n[4/4] Reporting + applying...");
+  await reportAndApplyBackfill({
+    apply,
+    sourceName: SOURCE_NAME,
+    events: enriched,
+    kennelTimezone: KENNEL_TIMEZONE,
+  });
 }
 
 main().catch((err) => {
