@@ -1,9 +1,11 @@
 import { ExternalLink } from "lucide-react";
+import Link from "next/link";
 import { KennelNameTooltip } from "@/components/shared/KennelNameTooltip";
 import { formatDistanceShort, formatDateCompact } from "@/lib/travel/format";
 
 export interface PossibleRowData {
   kennelId: string;
+  kennelSlug: string;
   kennelName: string;
   kennelFullName: string;
   distanceKm: number;
@@ -29,12 +31,25 @@ export function PossibleRow({ result }: { result: PossibleRowData }) {
     <div className="border-b border-border/60 py-3 last:border-b-0">
       <div className="text-sm font-medium text-muted-foreground">
         <KennelNameTooltip fullName={result.kennelFullName}>
-          <span
-            title={result.kennelFullName || undefined}
-            className={result.kennelFullName ? "cursor-help" : undefined}
-          >
-            {result.kennelName}
-          </span>
+          {result.kennelSlug ? (
+            <Link
+              href={`/kennels/${result.kennelSlug}`}
+              title={result.kennelFullName || undefined}
+              className="hover:text-foreground hover:underline"
+            >
+              {result.kennelName}
+            </Link>
+          ) : (
+            // Defensive: search.ts:648 falls back to "" when the kennel
+            // record can't be resolved. Linking to /kennels/ would 404,
+            // so render an inert span — strictly better than a broken link.
+            <span
+              title={result.kennelFullName || undefined}
+              className={result.kennelFullName ? "cursor-help" : undefined}
+            >
+              {result.kennelName}
+            </span>
+          )}
         </KennelNameTooltip>
       </div>
       <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground/70">
