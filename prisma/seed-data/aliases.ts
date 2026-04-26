@@ -94,6 +94,7 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "4x2h4": ["4x2 H4", "Four by Two H4", "4x2 Hash", "Four by Two"],
     "rth3": ["Ragtime", "Ragtime Hash", "Brunch Hash"],
     "dlh3": ["Duneland", "Duneland H3", "South Shore HHH"],
+    "c2b3h4": ["C2B3H4", "C2B3", "Chicago Ballbusters", "Chicago Ballbuster H3", "Chicago BallBusters"],
     // DC / DMV area
     "ewh3": ["Everyday is Wednesday", "Every Day is Wednesday"],
     "shith3": ["SHIT H3", "S.H.I.T. H3", "So Happy It's Tuesday"],

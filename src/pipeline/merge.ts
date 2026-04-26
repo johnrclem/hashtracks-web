@@ -289,30 +289,32 @@ async function refreshExistingEvent(
   const timezone = regionTimezone(region);
   const eventDate = parseUtcNoonDate(event.date);
   const composedUtc = composeUtcStart(eventDate, event.startTime, timezone);
-  // No start time → can't update dateUtc/timezone; upsertCanonicalEvent handles restores for these
-  if (!composedUtc) return;
 
   const existingEvent = await prisma.event.findUnique({
     where: { id: existingEventId },
     select: { trustLevel: true, dateUtc: true, timezone: true, status: true },
   });
+  // Auto-restore cancelled events when source still returns them. Runs even
+  // when we can't compose a dateUtc (scraped row has no startTime) — otherwise
+  // processed=true duplicates for rows without startTime stay CANCELLED forever
+  // because upsertCanonicalEvent's restore path is unreachable here. (#874)
+  const shouldRestore = existingEvent?.status === "CANCELLED";
   const isHigherOrEqualTrust = !existingEvent || ctx.trustLevel >= existingEvent.trustLevel;
   const isAlreadyCurrent =
+    !!composedUtc &&
     existingEvent?.dateUtc?.getTime() === composedUtc.getTime() &&
     existingEvent?.timezone === timezone;
-  // Auto-restore cancelled events when source still returns them
-  const shouldRestore = existingEvent?.status === "CANCELLED";
-  const needsUpdate = (isHigherOrEqualTrust && !isAlreadyCurrent) || shouldRestore;
-  if (needsUpdate) {
-    await prisma.event.update({
-      where: { id: existingEventId },
-      data: {
-        ...(isHigherOrEqualTrust && !isAlreadyCurrent ? { dateUtc: composedUtc, timezone } : {}),
-        ...(shouldRestore ? { status: "CONFIRMED" as const } : {}),
-      },
-    });
-    if (shouldRestore) ctx.result.restored++;
-  }
+  const shouldRefreshDateUtc = !!composedUtc && isHigherOrEqualTrust && !isAlreadyCurrent;
+  if (!shouldRestore && !shouldRefreshDateUtc) return;
+
+  await prisma.event.update({
+    where: { id: existingEventId },
+    data: {
+      ...(shouldRefreshDateUtc ? { dateUtc: composedUtc, timezone } : {}),
+      ...(shouldRestore ? { status: "CONFIRMED" as const } : {}),
+    },
+  });
+  if (shouldRestore) ctx.result.restored++;
 }
 
 /**
@@ -604,11 +606,28 @@ export function sanitizeLocation(location: string | undefined): string | null {
 
 /**
  * Suppress reverse-geocoded locationCity when locationName already contains a full
- * address with state code and the city doesn't match (avoids "Hartville, OH, Akron, OH").
+ * US address and the city doesn't match (avoids "Hartville, OH, Akron, OH").
+ *
+ * Three US-specific patterns trigger the city/locationName comparison:
+ *   1. `…, ST` or `…, ST 12345`            (short-form trailing state code)
+ *   2. `ST 12345` anywhere in the string   (#906: catches `…, ST 12345, USA`
+ *      where Google's reverse geocoder returns a neighborhood like
+ *      "Marlene Village, OR" that shouldn't be appended to a fully-qualified
+ *      address.)
+ *   3. `12345, ST` anywhere in the string  (#906 + #907: Harrier Central and
+ *      Google Maps emit addresses like `…, 26505-7511, WV, United States`
+ *      with ZIP before state.)
+ *
+ * All three require a 2-letter US state code adjacent to a 5-digit ZIP —
+ * a bare 5-digit number is not enough, so international addresses with
+ * 5-digit postal codes (e.g. "80331 München, Germany") are left alone.
  */
 export function suppressRedundantCity(locationName: string | null, city: string | null): string | null {
   if (!city || !locationName) return city;
-  if (!/,\s*[A-Z]{2}(?:\s+\d{5})?$/.test(locationName)) return city;
+  const stateSuffix = /,\s*[A-Z]{2}(?:\s+\d{5})?$/.test(locationName);
+  const hasStateZip = /\b[A-Z]{2}\s+\d{5}(?:-\d{4})?\b/.test(locationName);
+  const hasZipState = /\b\d{5}(?:-\d{4})?,\s*[A-Z]{2}\b/.test(locationName);
+  if (!stateSuffix && !hasStateZip && !hasZipState) return city;
   // Require at least 3 segments (e.g., "Street, City, ST") — fewer suggests incomplete address
   if (locationName.split(",").length < 3) return city;
   const cityName = city.split(",")[0].trim();
@@ -821,7 +840,11 @@ async function upsertCanonicalEvent(
         where: { id: existingEvent.id },
         data: {
           ...(shouldRestore ? { status: "CONFIRMED" as const } : {}),
-          runNumber: event.runNumber ?? existingEvent.runNumber,
+          // Tri-state: undefined = preserve existing, null = explicit clear
+          // (e.g. HC eventNumber=0 socials), number = overwrite (#892).
+          ...(event.runNumber !== undefined
+            ? { runNumber: event.runNumber }
+            : {}),
           title: (() => {
             const nextTitle = sanitizeTitle(event.title) ?? existingEvent.title;
             return nextTitle ? rewriteStaleDefaultTitle(nextTitle, kennelData.kennelCode, kennelData.shortName, kennelData.fullName) : nextTitle;

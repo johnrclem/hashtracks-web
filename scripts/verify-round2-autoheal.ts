@@ -19,7 +19,7 @@ async function runOne(sourceName: string) {
   return { source, events: result.events, errors: result.errors };
 }
 
-function sample(events: { title?: string; hares?: string; location?: string; sourceUrl?: string; runNumber?: number }[], pred: (e: { title?: string; hares?: string; location?: string }) => boolean) {
+function sample(events: { title?: string; hares?: string; location?: string; sourceUrl?: string; runNumber?: number | null }[], pred: (e: { title?: string; hares?: string; location?: string }) => boolean) {
   return events.filter(pred).slice(0, 3);
 }
 

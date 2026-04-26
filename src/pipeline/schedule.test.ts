@@ -1,4 +1,9 @@
-import { shouldScrape } from "@/pipeline/schedule";
+import {
+  BUFFER_MS,
+  STAGGER_WINDOW_SECONDS,
+  shouldScrape,
+  staggerDelaySeconds,
+} from "@/pipeline/schedule";
 
 describe("shouldScrape", () => {
   it("returns true when lastScrapeAt is null (never scraped)", () => {
@@ -60,5 +65,45 @@ describe("shouldScrape", () => {
   it("returns false for every_6h when scraped 3h ago", () => {
     const threeHoursAgo = new Date(Date.now() - 3 * 60 * 60 * 1000);
     expect(shouldScrape("every_6h", threeHoursAgo)).toBe(false);
+  });
+});
+
+describe("staggerDelaySeconds", () => {
+  it("returns 0 for single source (n=1)", () => {
+    expect(staggerDelaySeconds(0, 1)).toBe(0);
+  });
+
+  it("returns 0 for empty batch (n=0) without throwing", () => {
+    expect(staggerDelaySeconds(0, 0)).toBe(0);
+  });
+
+  it("spans 0 to STAGGER_WINDOW_SECONDS across a large batch", () => {
+    const n = 121;
+    expect(staggerDelaySeconds(0, n)).toBe(0);
+    expect(staggerDelaySeconds(n - 1, n)).toBe(STAGGER_WINDOW_SECONDS);
+  });
+
+  it("is strictly increasing when n ≤ STAGGER_WINDOW_SECONDS + 1", () => {
+    const n = 50;
+    for (let i = 1; i < n; i++) {
+      expect(staggerDelaySeconds(i, n)).toBeGreaterThan(staggerDelaySeconds(i - 1, n));
+    }
+  });
+
+  it("is non-decreasing (duplicates allowed) when n > STAGGER_WINDOW_SECONDS + 1", () => {
+    const n = 500;
+    let duplicates = 0;
+    for (let i = 1; i < n; i++) {
+      const prev = staggerDelaySeconds(i - 1, n);
+      const curr = staggerDelaySeconds(i, n);
+      expect(curr).toBeGreaterThanOrEqual(prev);
+      if (curr === prev) duplicates++;
+    }
+    // Pigeonhole: 500 items into 241 buckets must produce duplicates.
+    expect(duplicates).toBeGreaterThan(0);
+  });
+
+  it("stays inside BUFFER_MS schedule tolerance", () => {
+    expect(STAGGER_WINDOW_SECONDS * 1000).toBeLessThan(BUFFER_MS);
   });
 });

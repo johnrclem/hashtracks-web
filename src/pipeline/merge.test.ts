@@ -225,6 +225,39 @@ describe("processRawEvents", () => {
     );
   });
 
+  it("clears existing runNumber when adapter emits null (HC social re-scrape #892)", async () => {
+    // Existing canonical event was previously stored with runNumber=2100 (a
+    // social that wrongly inherited a numbered-run value before #892). HC
+    // adapter now emits runNumber=null for eventNumber<=0; merge UPDATE must
+    // overwrite, not preserve, so the user-visible "#0/#2100" regression goes
+    // away on next scrape — not just for newly-created events.
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_social", trustLevel: 5, runNumber: 2100 },
+    ] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    await processRawEvents("src_1", [buildRawEvent({ runNumber: null })]);
+
+    const updateCall = mockEventUpdate.mock.calls[0]?.[0] as { data: Record<string, unknown> };
+    expect(updateCall.data.runNumber).toBeNull();
+  });
+
+  it("preserves existing runNumber when adapter omits the field (undefined)", async () => {
+    // Symmetric guard: many adapters never emit runNumber. They must not
+    // accidentally clear an existing value.
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_existing", trustLevel: 5, runNumber: 1234 },
+    ] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    await processRawEvents("src_1", [buildRawEvent({ runNumber: undefined })]);
+
+    const updateCall = mockEventUpdate.mock.calls[0]?.[0] as { data: Record<string, unknown> };
+    expect(updateCall.data).not.toHaveProperty("runNumber");
+  });
+
   it("preserves existing locationCity for HARRIER_CENTRAL sources on update (#471)", async () => {
     // On UPDATE we never touch locationCity for canonical-location sources. If a non-HC
     // source previously populated city for this canonical event (cross-source merge),
@@ -681,6 +714,36 @@ describe("double-header support", () => {
         data: { status: "CONFIRMED" },
       }),
     );
+  });
+
+  it("restores a CANCELLED row via refreshExistingEvent even when scraped row has no startTime (#874)", async () => {
+    // Dublin Nash Hash regression: the hareline row "3–5 July 2026" has no
+    // time, so composeUtcStart returns null. Without this fix, the early
+    // return in refreshExistingEvent bypassed the CANCELLED→CONFIRMED restore
+    // for processed=true fingerprint matches, leaving the event cancelled
+    // indefinitely once it had been cancelled by a prior reconcile cycle.
+    mockRawEventFind.mockResolvedValueOnce({
+      id: "raw_existing",
+      processed: true,
+      eventId: "evt_cancelled",
+    } as never);
+    vi.mocked(prisma.event.findUnique).mockResolvedValueOnce({
+      trustLevel: 5,
+      dateUtc: null,
+      timezone: "Europe/Dublin",
+      status: "CANCELLED",
+    } as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    const result = await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-07-03", startTime: undefined }),
+    ]);
+
+    expect(result.restored).toBe(1);
+    expect(mockEventUpdate).toHaveBeenCalledWith({
+      where: { id: "evt_cancelled" },
+      data: { status: "CONFIRMED" },
+    });
   });
 });
 
@@ -1745,6 +1808,73 @@ describe("suppressRedundantCity", () => {
 
   it("returns city when locationName is null", () => {
     expect(suppressRedundantCity(null, "Akron, OH")).toBe("Akron, OH");
+  });
+
+  it("suppresses neighborhood for full US address ending in country (#906)", () => {
+    // N2H3 case: full address with zip + USA suffix shouldn't get a
+    // reverse-geocoded neighborhood ("Marlene Village") appended.
+    expect(
+      suppressRedundantCity(
+        "Greek Village, 301 NW Murray Blvd, Portland, OR 97229, USA",
+        "Marlene Village, OR",
+      ),
+    ).toBeNull();
+  });
+
+  it("preserves city when full US address contains the city (#906)", () => {
+    expect(
+      suppressRedundantCity(
+        "Greek Village, 301 NW Murray Blvd, Portland, OR 97229, USA",
+        "Portland, OR",
+      ),
+    ).toBe("Portland, OR");
+  });
+
+  it("preserves city for international address with no zip (#906)", () => {
+    expect(
+      suppressRedundantCity(
+        "Marina Green, San Francisco, California",
+        "San Francisco, CA",
+      ),
+    ).toBe("San Francisco, CA");
+  });
+
+  it("suppresses neighborhood for Google-formatted US address with ZIP before state (#906)", () => {
+    // Google Maps & Harrier Central both emit "...ZIP, ST, United States".
+    // Note: HARRIER_CENTRAL itself is in shouldSkipReverseGeocode so this path
+    // isn't reached for HC events today, but other sources emit the same shape.
+    expect(
+      suppressRedundantCity(
+        "Apothecary Ale House, 227 Spruce Street, Morgantown, 26505-7511, WV, United States",
+        "Marlene Village, WV",
+      ),
+    ).toBeNull();
+  });
+
+  it("preserves city when ZIP-before-state US address contains the city (#906)", () => {
+    expect(
+      suppressRedundantCity(
+        "Apothecary Ale House, 227 Spruce Street, Morgantown, 26505-7511, WV, United States",
+        "Morgantown, WV",
+      ),
+    ).toBe("Morgantown, WV");
+  });
+
+  it("preserves city for international address with 5-digit postal code (#906)", () => {
+    // German 5-digit postal code shouldn't trigger US zip suppression.
+    expect(
+      suppressRedundantCity(
+        "Hofbräuhaus, Platzl 9, 80331 München, Germany",
+        "Munich",
+      ),
+    ).toBe("Munich");
+    // French 5-digit postal code.
+    expect(
+      suppressRedundantCity(
+        "Tour Eiffel, 5 Avenue Anatole France, 75007 Paris, France",
+        "Paris",
+      ),
+    ).toBe("Paris");
   });
 });
 

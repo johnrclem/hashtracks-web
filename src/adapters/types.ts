@@ -4,9 +4,9 @@ import type { SourceType, Source } from "@/generated/prisma/client";
 export interface RawEventData {
   date: string; // YYYY-MM-DD
   kennelTag: string; // Kennel identifier — use kennelCode (e.g. "nych3", "bfm") for stable resolution
-  runNumber?: number;
+  runNumber?: number | null; // null = explicit clear signal (e.g. HC eventNumber=0 for socials)
   title?: string;
-  description?: string;
+  description?: string | null; // null = explicit clear signal (see merge.ts UPDATE path)
   hares?: string;
   location?: string;
   locationStreet?: string; // Full street address (multi-line address blocks)

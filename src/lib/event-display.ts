@@ -37,7 +37,7 @@ export interface LocationDisplayEvent {
 }
 
 export interface FullLocationDisplayEvent extends LocationDisplayEvent {
-  locationStreet: string | null;
+  locationStreet?: string | null;
 }
 
 /** Build location display string with city context. Strip URLs defensively. */

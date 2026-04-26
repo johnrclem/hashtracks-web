@@ -32,6 +32,7 @@ import { haversineDistance, getEventCoords } from "@/lib/geo";
 import { groupRegionsByState, expandRegionSelections, regionAbbrev } from "@/lib/region";
 import { LocationPrompt } from "./LocationPrompt";
 import { getLocationPref, resolveLocationDefault, clearLocationPref, FILTER_PARAMS } from "@/lib/location-pref";
+import { loadEventsForTimeMode, getEventDetail, type EventDetailFields, type TimeMode } from "@/app/hareline/actions";
 
 const MapView = dynamic(() => import("./MapView"), {
   ssr: false,
@@ -75,6 +76,22 @@ function isValidTimeFilter(v: string): v is TimeFilter {
 
 interface HarelineViewProps {
   events: HarelineEvent[];
+  /**
+   * Whether the server's initial `events` array contains upcoming or past
+   * events. Drives the "is this cached" check when the user toggles the
+   * time filter — if the server already sent past events, we don't need
+   * to re-fetch them when the user stays on the "past" tab.
+   */
+  initialTimeMode?: TimeMode;
+  /**
+   * Server's `Date.now()` at render time. Used to seed the client's
+   * upcoming/past bucket boundary so SSR and initial client render agree
+   * on which events belong in which bucket. Without this the client
+   * recomputes the boundary from its own clock and the two can disagree
+   * across a UTC-midnight boundary, producing hydration mismatch. If
+   * omitted (e.g. in tests) we fall back to the client clock.
+   */
+  serverNowMs?: number;
   subscribedKennelIds: string[];
   isAuthenticated: boolean;
   attendanceMap?: Record<string, AttendanceData>;
@@ -90,13 +107,28 @@ interface FilterCriteria {
   selectedKennels: string[];
   selectedDays: string[];
   searchText: string;
+  /** Anchor for rolling-window filters (`2w`/`4w`/`8w`/`12w`). Today noon UTC. */
   todayUtc: number;
+  /**
+   * Boundary for the upcoming/past bucket split. Pre-hydration this matches
+   * the server's lenient yesterday-00:00-UTC floor (so SSR HTML and the
+   * first client render agree); post-hydration it narrows to the viewer's
+   * local "today midnight" expressed as UTC ms, which correctly drops
+   * yesterday-UTC events from "upcoming" once the local clock has moved
+   * past midnight. See `computeBucketBoundary`. Kept separate from
+   * `todayUtc` so the rolling "next N weeks" anchor stays at true today.
+   */
+  bucketBoundaryUtc: number;
   nearMeDistance: number | null;
   userLat: number | null;
   userLng: number | null;
 }
 
-/** Check whether an event matches a free-text search query. */
+/**
+ * Check whether an event matches a free-text search query. Runs only over
+ * the fields present in the slim list payload — `description` is a heavy
+ * on-demand field and is not searched.
+ */
 function matchesSearchText(event: HarelineEvent, query: string): boolean {
   if (!query.trim()) return true;
   const lower = query.toLowerCase();
@@ -106,16 +138,96 @@ function matchesSearchText(event: HarelineEvent, query: string): boolean {
     event.kennel?.fullName.toLowerCase().includes(lower) ||
     event.haresText?.toLowerCase().includes(lower) ||
     event.locationName?.toLowerCase().includes(lower) ||
-    event.locationCity?.toLowerCase().includes(lower) ||
-    event.description?.toLowerCase().includes(lower)
+    event.locationCity?.toLowerCase().includes(lower)
   );
 }
 
-/** Check whether an event passes the time filter. */
-function passesTimeFilter(eventDate: number, timeFilter: FilterCriteria["timeFilter"], todayUtc: number): boolean {
+/**
+ * Compute the next clock tick that affects bucket-boundary state.
+ *
+ * Two boundaries matter to the Hareline:
+ *  1. The viewer's **local midnight** — the moment `bucketBoundaryUtc`
+ *     advances post-hydration (see `computeBucketBoundary`). Without a
+ *     refresh at local midnight, yesterday-UTC events stay in "upcoming"
+ *     for many hours after the viewer's local day rolled over.
+ *  2. **UTC midnight** — the moment the server's per-day cache key
+ *     (`YYYY-MM-DD` UTC) rotates, so the locally-cached upcoming/past
+ *     payloads are stale and must be re-fetched.
+ *
+ * Returns the earlier of the two, plus a flag indicating whether the
+ * trigger was a UTC rollover (so the caller knows whether to invalidate
+ * the event caches in addition to advancing `nowMs`).
+ *
+ * Pure function — exported for testability.
+ */
+export function computeNextRefreshMs(nowMs: number): { nextMs: number; isUtcRollover: boolean } {
+  const d = new Date(nowMs);
+  const nextUtcMidnight = Date.UTC(
+    d.getUTCFullYear(),
+    d.getUTCMonth(),
+    d.getUTCDate() + 1,
+    0, 0, 1,
+  );
+  const nextLocalMidnight = new Date(
+    d.getFullYear(),
+    d.getMonth(),
+    d.getDate() + 1,
+    0, 0, 1,
+  ).getTime();
+  const nextMs = Math.min(nextUtcMidnight, nextLocalMidnight);
+  return { nextMs, isUtcRollover: nextMs === nextUtcMidnight };
+}
+
+/**
+ * Compute the upcoming/past bucket boundary in UTC ms.
+ *
+ * Pre-hydration (server-rendered first paint), the boundary matches the
+ * server's UTC-yesterday-midnight floor so the SSR HTML and the first
+ * client render agree byte-for-byte (no hydration warning). Post-hydration,
+ * the boundary is the user's local "today midnight" expressed as UTC ms —
+ * which correctly drops yesterday-UTC-noon events out of "All upcoming"
+ * once the viewer's local clock has actually moved past their own
+ * midnight, while still preserving the run for westward-timezone users
+ * (e.g. an SF user at Sunday 23:00 PDT whose local "today" is still
+ * Sunday — UTC noon falls *after* their local midnight, so the event
+ * passes).
+ */
+export function computeBucketBoundary(nowMs: number, hasHydrated: boolean): number {
+  const now = new Date(nowMs);
+  if (hasHydrated) {
+    return new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      0, 0, 0, 0,
+    ).getTime();
+  }
+  const startOfTodayUtc = Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate(),
+    0, 0, 0,
+  );
+  return startOfTodayUtc - 24 * 60 * 60 * 1000;
+}
+
+/**
+ * Check whether an event passes the time filter.
+ *
+ * `todayUtc` anchors the user-facing rolling windows ("next N weeks") at true
+ * today, while `bucketBoundaryUtc` is the upcoming/past bucket split. See
+ * `computeBucketBoundary` for the two-phase derivation that keeps SSR
+ * hydration clean while delivering a per-user-timezone split post-mount.
+ */
+export function passesTimeFilter(
+  eventDate: number,
+  timeFilter: FilterCriteria["timeFilter"],
+  todayUtc: number,
+  bucketBoundaryUtc: number,
+): boolean {
   if (timeFilter === "all") return true;
-  if (timeFilter === "upcoming") return eventDate >= todayUtc;
-  if (timeFilter === "past") return eventDate < todayUtc;
+  if (timeFilter === "upcoming") return eventDate >= bucketBoundaryUtc;
+  if (timeFilter === "past") return eventDate < bucketBoundaryUtc;
 
   // Rolling weeks: must be >= today AND <= today + N days
   const days = WEEKS_DAYS[timeFilter];
@@ -128,7 +240,7 @@ function passesTimeFilter(eventDate: number, timeFilter: FilterCriteria["timeFil
 function passesAllFilters(event: HarelineEvent, f: FilterCriteria): boolean {
   const eventDate = new Date(event.date).getTime();
 
-  if (!passesTimeFilter(eventDate, f.timeFilter, f.todayUtc)) return false;
+  if (!passesTimeFilter(eventDate, f.timeFilter, f.todayUtc, f.bucketBoundaryUtc)) return false;
   if (f.scope === "my" && !f.subscribedKennelIds.includes(event.kennelId)) return false;
   if (f.selectedRegions.length > 0 && !f.expandedRegions.has(event.kennel?.region ?? "")) return false;
   if (f.selectedKennels.length > 0 && !f.selectedKennels.includes(event.kennel?.id ?? "")) return false;
@@ -202,6 +314,8 @@ export function computeInitialScope(
 
 export function HarelineView({
   events,
+  initialTimeMode = "upcoming",
+  serverNowMs,
   subscribedKennelIds,
   isAuthenticated,
   attendanceMap = {},
@@ -209,6 +323,88 @@ export function HarelineView({
 }: HarelineViewProps) {
   const searchParams = useSearchParams();
   const hasSubscriptions = subscribedKennelIds.length > 0;
+
+  // Cache upcoming + past event lists separately. The server sends one of
+  // them as `events`; the other is fetched via `loadEventsForTimeMode`
+  // when the user toggles to that tab. Cached across toggles so repeated
+  // flipping doesn't re-hit the server.
+  const [upcomingEvents, setUpcomingEvents] = useState<HarelineEvent[] | null>(
+    initialTimeMode === "upcoming" ? events : null,
+  );
+  const [pastEvents, setPastEvents] = useState<HarelineEvent[] | null>(
+    initialTimeMode === "past" ? events : null,
+  );
+  const [upcomingLoading, setUpcomingLoading] = useState(false);
+  const [upcomingError, setUpcomingError] = useState<string | null>(null);
+  const [pastLoading, setPastLoading] = useState(false);
+  const [pastError, setPastError] = useState<string | null>(null);
+
+  // Live clock for bucket boundaries. Seeded with the server's render-time
+  // `Date.now()` so the first client render matches SSR (no hydration
+  // mismatch), then advanced to the real client clock on mount and rolled
+  // forward at each UTC midnight so long-lived tabs don't freeze their
+  // upcoming/past split to yesterday.
+  const [nowMs, setNowMs] = useState<number>(serverNowMs ?? Date.now());
+  // Gates the local-timezone bucket boundary in `computeBucketBoundary`.
+  // SSR (Node, UTC) and the first client render both compute the boundary
+  // with `hasHydrated=false` so they produce identical HTML; the post-mount
+  // effect flips this to `true` so the boundary narrows to the viewer's
+  // actual local midnight. Without this the SSR-rendered list and the
+  // hydrated list would differ for any non-UTC viewer (yesterday-UTC-noon
+  // events would hydrate-mismatch in EDT users).
+  const [hasHydrated, setHasHydrated] = useState(false);
+  useEffect(() => {
+    // Helper: which UTC day does this instant belong to? Used to detect
+    // crossings of 00:00 UTC between server render and client hydration,
+    // and between scheduled midnight ticks.
+    const utcDay = (ms: number) => Math.floor(ms / 86400000);
+
+    // Mark hydration complete so subsequent renders use the local-TZ
+    // bucket boundary. Triggers a one-tick re-render of the filtered
+    // list — yesterday-UTC events drop out of "upcoming" for viewers
+    // whose local clock is past their own midnight.
+    setHasHydrated(true);
+
+    // Transition from SSR seed to client clock once (post-hydration).
+    // If hydration straddled 00:00 UTC the cached event lists were
+    // fetched under the *old* day's boundary — an event that just rolled
+    // from upcoming into past (or vice versa) is in the wrong bucket.
+    // Drop both caches so the lazy-fetch effect re-pulls the active mode
+    // against the fresh boundary.
+    const clientNow = Date.now();
+    setNowMs(clientNow);
+    if (serverNowMs !== undefined && utcDay(serverNowMs) !== utcDay(clientNow)) {
+      setUpcomingEvents(null);
+      setPastEvents(null);
+    }
+
+    // Schedule a chained timeout to fire at the *next* boundary that
+    // affects bucket state — whichever of the viewer's local midnight or
+    // UTC midnight comes first. Local-midnight ticks just refresh `nowMs`
+    // so `bucketBoundaryUtc` advances; UTC-midnight ticks additionally
+    // invalidate the upcoming/past caches because the server's per-day
+    // cache key (YYYY-MM-DD UTC) rotates and the cached payloads are now
+    // stale. See `computeNextRefreshMs`. Chained timeouts (not
+    // setInterval) keep ticks aligned to the boundary even if the tab
+    // is backgrounded.
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    function scheduleNext() {
+      const now = Date.now();
+      const { nextMs, isUtcRollover } = computeNextRefreshMs(now);
+      timer = setTimeout(() => {
+        setNowMs(Date.now());
+        if (isUtcRollover) {
+          setUpcomingEvents(null);
+          setPastEvents(null);
+        }
+        scheduleNext();
+      }, Math.max(1000, nextMs - now));
+    }
+    scheduleNext();
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [serverNowMs]);
 
   // Default scope depends on auth state
   const defaultScope = isAuthenticated && hasSubscriptions ? "my" : "all";
@@ -265,6 +461,9 @@ export function HarelineView({
 
   // Selected event for detail panel (desktop only)
   const [selectedEvent, setSelectedEvent] = useState<HarelineEvent | null>(null);
+  // Per-event cache of heavy detail fields, populated on detail-panel
+  // expand via getEventDetail so the initial list payload stays small.
+  const [detailCache, setDetailCache] = useState<Record<string, EventDetailFields>>({});
 
   // Escape key dismisses detail panel
   useEffect(() => {
@@ -276,6 +475,33 @@ export function HarelineView({
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [selectedEvent]);
+
+  // When an event is selected, fetch its heavy detail fields (once). The
+  // panel renders immediately with slim data; heavy fields fill in when
+  // the fetch resolves.
+  useEffect(() => {
+    if (!selectedEvent) return;
+    if (detailCache[selectedEvent.id]) return;
+    let cancelled = false;
+    getEventDetail(selectedEvent.id)
+      .then((detail) => {
+        if (cancelled || !detail) return;
+        setDetailCache((prev) => ({ ...prev, [selectedEvent.id]: detail }));
+      })
+      .catch(() => {
+        // Swallow — detail panel continues to render from slim fields.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedEvent, detailCache]);
+
+  // Selected event enriched with its cached heavy fields (if loaded).
+  const enrichedSelectedEvent = useMemo(() => {
+    if (!selectedEvent) return null;
+    const detail = detailCache[selectedEvent.id];
+    return detail ? { ...selectedEvent, ...detail } : selectedEvent;
+  }, [selectedEvent, detailCache]);
 
   // Clear near-me filter when geolocation permission is denied
   useEffect(() => {
@@ -354,8 +580,100 @@ export function HarelineView({
   function setTimeFilter(v: TimeFilter) {
     setTimeFilterState(v);
     resetListState();
+    // Switching between upcoming and past mode crosses the lazy-fetch
+    // boundary — the new tab's data may not be cached yet. A selection
+    // made against the old dataset can't meaningfully carry over: if we
+    // don't drop it here, the detail panel and map marker highlight
+    // continue pointing at an event that isn't in the new currentEvents,
+    // and focus/keyboard state can interact with the wrong row once the
+    // lazy fetch resolves.
+    if ((v === "past") !== (timeFilter === "past")) {
+      setSelectedEvent(null);
+    }
+    // Clear prior error when re-entering a tab so the fetch effect can
+    // retry. No-op when already clear.
+    if (v === "past" && pastError) setPastError(null);
+    if (v !== "past" && upcomingError) setUpcomingError(null);
     syncUrl({ time: v });
   }
+
+  // Fetch the non-initial time-mode list lazily when the user toggles
+  // into it. Cached afterward — subsequent toggles are instant. On error
+  // we surface an inline message and stop; the user triggers a retry by
+  // re-selecting the tab (which clears the error above).
+  //
+  // IMPORTANT: we track loading + error per-mode symmetrically. Earlier
+  // iterations shared a single fetch path keyed off `timeFilter === "past"`
+  // and caused infinite retry loops on upcoming errors.
+  useEffect(() => {
+    const mode: TimeMode = timeFilter === "past" ? "past" : "upcoming";
+    const isPast = mode === "past";
+    const cachedEvents = isPast ? pastEvents : upcomingEvents;
+    const loading = isPast ? pastLoading : upcomingLoading;
+    const error = isPast ? pastError : upcomingError;
+    if (cachedEvents !== null || loading || error) return;
+
+    const setEvents = isPast ? setPastEvents : setUpcomingEvents;
+    const setLoading = isPast ? setPastLoading : setUpcomingLoading;
+    const setError = isPast ? setPastError : setUpcomingError;
+
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    loadEventsForTimeMode(mode)
+      .then((fetched) => { if (!cancelled) setEvents(fetched); })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : "Failed to load events");
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+
+    return () => { cancelled = true; };
+  }, [timeFilter, pastEvents, upcomingEvents, pastLoading, pastError, upcomingLoading, upcomingError]);
+
+  // Active event list for the current time mode. Returns an empty array
+  // when the cache for the current mode hasn't resolved — DO NOT fall
+  // back to the opposite mode's cache. Doing so makes downstream
+  // derivations (region/kennel filter options, `scope=my` filtering,
+  // empty-state UI) reference events from the wrong bucket and can
+  // produce false empty states or hide subscribed events during the
+  // brief window before the lazy fetch resolves.
+  const currentEvents = useMemo((): HarelineEvent[] => {
+    if (timeFilter === "past") return pastEvents ?? [];
+    return upcomingEvents ?? [];
+  }, [timeFilter, pastEvents, upcomingEvents]);
+
+  // True while the current mode's list is being fetched for the first
+  // time (pre-cache). Used to gate loading/error UI + suppress the
+  // "0 events" count that would otherwise show before data arrives.
+  const currentLoading = timeFilter === "past" ? pastLoading : upcomingLoading;
+  const currentError = timeFilter === "past" ? pastError : upcomingError;
+
+  // Events to feed the hidden-during-load subtree. We never want to hand
+  // `[]` to MapView / CalendarView during a tab-switch lazy fetch: even
+  // though the wrapper is `hidden`, MapView renders a "No events"
+  // placeholder when its events list is empty, which unmounts the
+  // internal <Map> and destroys camera / viewport / search-area state —
+  // the exact state preservation this loading path is meant to protect.
+  // Fall back to whichever side of the cache has already resolved (or
+  // the original server payload on first render) so the subtree keeps
+  // its mount across an uncached toggle.
+  const subtreeEvents = useMemo((): HarelineEvent[] => {
+    if (currentEvents.length > 0) return currentEvents;
+    return pastEvents ?? upcomingEvents ?? events;
+  }, [currentEvents, pastEvents, upcomingEvents, events]);
+
+  // Drop a selected event once it's no longer in the active dataset.
+  // `setTimeFilter` already clears across past/upcoming swaps, but a
+  // direct URL-driven time change or a rogue event-id collision would
+  // bypass that; this effect is the belt-and-suspenders guard.
+  useEffect(() => {
+    if (!selectedEvent) return;
+    if (currentLoading || currentError) return; // trust stale selection while the new list is still arriving
+    if (!currentEvents.some((e) => e.id === selectedEvent.id)) {
+      setSelectedEvent(null);
+    }
+  }, [selectedEvent, currentEvents, currentLoading, currentError]);
   function setScope(v: "my" | "all") {
     setScopeState(v);
     resetListState();
@@ -393,19 +711,33 @@ export function HarelineView({
     syncUrl({ q: v });
   }
 
-  // Shared filter context (recomputed once per render)
+  // Shared filter context (recomputed once per render).
+  //
+  // `todayUtc` (today noon UTC) anchors the rolling-window filters
+  // ("next 2/4/8/12 weeks"), which start at true today.
+  //
+  // `bucketBoundaryUtc` is the upcoming/past split. Pre-hydration it
+  // matches the server's lenient yesterday-00:00-UTC floor (so SSR HTML
+  // hydrates without warnings); post-hydration it narrows to the
+  // viewer's local midnight today, which correctly drops yesterday-UTC
+  // events from "upcoming" once the local clock has moved past midnight.
+  // The lenient server floor still surfaces today's runs for westward
+  // viewers (e.g. SF at Sunday 23:00 PDT — UTC noon ≥ Sunday 00:00 PDT,
+  // so Sunday-noon-UTC events stay upcoming). See `computeBucketBoundary`
+  // for the derivation.
   const filterContext = useMemo(() => {
-    const now = new Date();
+    const now = new Date(nowMs);
     const todayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12, 0, 0);
+    const bucketBoundaryUtc = computeBucketBoundary(nowMs, hasHydrated);
     const userLat = geoState.status === "granted" ? geoState.lat : null;
     const userLng = geoState.status === "granted" ? geoState.lng : null;
-    return { todayUtc, userLat, userLng };
-  }, [geoState]);
+    return { todayUtc, bucketBoundaryUtc, userLat, userLng };
+  }, [geoState, nowMs, hasHydrated]);
 
   // Expand state-level region selections to metro names (stable ref via useMemo)
   const regionsByState = useMemo(
-    () => groupRegionsByState(events.map((e) => e.kennel?.region).filter(Boolean) as string[]),
-    [events],
+    () => groupRegionsByState(currentEvents.map((e) => e.kennel?.region).filter(Boolean) as string[]),
+    [currentEvents],
   );
   const expandedRegions = useMemo(
     () => expandRegionSelections(selectedRegions, regionsByState),
@@ -416,28 +748,29 @@ export function HarelineView({
   // reflect the visible time range (e.g. "next 4 weeks") without being skewed
   // by region/kennel/search selections.
   const timeFilteredEvents = useMemo(() => {
-    return events.filter((event) => {
+    return currentEvents.filter((event) => {
       const eventDate = new Date(event.date).getTime();
-      return passesTimeFilter(eventDate, timeFilter, filterContext.todayUtc);
+      return passesTimeFilter(eventDate, timeFilter, filterContext.todayUtc, filterContext.bucketBoundaryUtc);
     });
-  }, [events, timeFilter, filterContext.todayUtc]);
+  }, [currentEvents, timeFilter, filterContext.todayUtc, filterContext.bucketBoundaryUtc]);
 
   // Calendar events — all filters EXCEPT time (calendar has its own month navigation / weeks mode)
   const calendarEvents = useMemo(() => {
-    return events.filter((event) => {
+    return currentEvents.filter((event) => {
       return passesAllFilters(event, {
         timeFilter: "all", scope, subscribedKennelIds,
         selectedRegions, expandedRegions, selectedKennels, selectedDays, searchText,
-        todayUtc: filterContext.todayUtc, nearMeDistance,
+        todayUtc: filterContext.todayUtc, bucketBoundaryUtc: filterContext.bucketBoundaryUtc,
+        nearMeDistance,
         userLat: filterContext.userLat, userLng: filterContext.userLng,
       });
     });
-  }, [events, scope, subscribedKennelIds, selectedRegions, expandedRegions, selectedKennels, selectedDays, searchText, nearMeDistance, filterContext]);
+  }, [currentEvents, scope, subscribedKennelIds, selectedRegions, expandedRegions, selectedKennels, selectedDays, searchText, nearMeDistance, filterContext]);
 
   // List/map events — derived from calendarEvents by applying time filter + optional map bounds
   const filteredEvents = useMemo(() => {
     return calendarEvents.filter((event) => {
-      if (!passesTimeFilter(new Date(event.date).getTime(), timeFilter, filterContext.todayUtc)) return false;
+      if (!passesTimeFilter(new Date(event.date).getTime(), timeFilter, filterContext.todayUtc, filterContext.bucketBoundaryUtc)) return false;
       // Map bounds filter — only when active (map view with "Search this area")
       if (mapBounds) {
         const coords = getEventCoords(event.latitude ?? null, event.longitude ?? null, event.kennel?.region ?? "");
@@ -447,15 +780,18 @@ export function HarelineView({
       }
       return true;
     });
-  }, [calendarEvents, timeFilter, filterContext.todayUtc, mapBounds]);
+  }, [calendarEvents, timeFilter, filterContext.todayUtc, filterContext.bucketBoundaryUtc, mapBounds]);
 
   const sortedEvents = useMemo(() => {
     return sortEvents(filteredEvents, timeFilter);
   }, [filteredEvents, timeFilter]);
 
-  // Debounced screen-reader announcement when filtered count changes
+  // Debounced screen-reader announcement when filtered count changes.
+  // Suppressed while the current-mode list is loading/failed so we don't
+  // speak "0 upcoming events" before data arrives.
   useEffect(() => {
     if (announceTimerRef.current) clearTimeout(announceTimerRef.current);
+    if (currentLoading || currentError) return;
     announceTimerRef.current = setTimeout(() => {
       if (liveRegionRef.current) {
         const label = TIME_LABELS[timeFilter];
@@ -465,7 +801,7 @@ export function HarelineView({
     return () => {
       if (announceTimerRef.current) clearTimeout(announceTimerRef.current);
     };
-  }, [filteredEvents.length, timeFilter]);
+  }, [filteredEvents.length, timeFilter, currentLoading, currentError]);
 
   // Paginated events for list view
   const visibleEvents = useMemo(() => {
@@ -548,16 +884,16 @@ export function HarelineView({
   // Unique metro region names from events (for LocationPrompt picker)
   const uniqueRegionNames = useMemo(() => {
     const set = new Set<string>();
-    for (const e of events) {
+    for (const e of currentEvents) {
       if (e.kennel?.region) set.add(e.kennel.region);
     }
     return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [events]);
+  }, [currentEvents]);
 
   // Derive kennel options for FilterBar (filtered by selected regions)
   const kennelOptions = useMemo(() => {
     const kennelMap = new Map<string, { id: string; shortName: string; fullName: string; region: string }>();
-    for (const e of events) {
+    for (const e of currentEvents) {
       if (e.kennel && !kennelMap.has(e.kennel.id)) {
         kennelMap.set(e.kennel.id, {
           id: e.kennel.id,
@@ -572,15 +908,15 @@ export function HarelineView({
       return all.filter((k) => expandedRegions.has(k.region));
     }
     return all.sort((a, b) => a.shortName.localeCompare(b.shortName));
-  }, [events, selectedRegions, expandedRegions]);
+  }, [currentEvents, selectedRegions, expandedRegions]);
 
   // Build items array for FilterBar (derives available filter options)
   const filterBarItems = useMemo(() => {
-    return events.map((e) => ({
+    return currentEvents.map((e) => ({
       id: e.id,
       region: e.kennel?.region ?? "",
     }));
-  }, [events]);
+  }, [currentEvents]);
 
   // Persist location preference when user manually changes Near Me or region filters
   const handleSetNearMeFromPrompt = useCallback(
@@ -609,12 +945,12 @@ export function HarelineView({
     }
   }, [selectedRegions]);
 
-  const detailPanel = selectedEvent ? (
+  const detailPanel = enrichedSelectedEvent ? (
     <div className="hidden lg:block">
       <div className="sticky top-8 max-h-[calc(100vh-4rem)]">
         <EventDetailPanel
-          event={selectedEvent}
-          attendance={attendanceMap[selectedEvent.id] ?? null}
+          event={enrichedSelectedEvent}
+          attendance={attendanceMap[enrichedSelectedEvent.id] ?? null}
           isAuthenticated={isAuthenticated}
           onDismiss={() => setSelectedEvent(null)}
         />
@@ -767,6 +1103,52 @@ export function HarelineView({
 
       <Separator className="my-1" />
 
+      {/* Loading / error state for async tab fetches — rendered outside
+       * the event-derived block below so it's visible while the
+       * current-mode list is unresolved. */}
+      {currentLoading && (
+        <p className="text-sm text-muted-foreground" aria-live="polite">
+          {timeFilter === "past" ? "Loading past events…" : "Loading upcoming events…"}
+        </p>
+      )}
+      {currentError && !currentLoading && (
+        <p className="text-sm text-destructive" role="alert">
+          {timeFilter === "past"
+            ? "Past events failed to load."
+            : "Upcoming events failed to load."}{" "}
+          <button
+            type="button"
+            onClick={() => {
+              // Clearing the error lets the fetch effect fire again —
+              // it gates on `!pastError` / `!upcomingError`. Flipping
+              // tabs is no longer required to recover.
+              if (timeFilter === "past") setPastError(null);
+              else setUpcomingError(null);
+            }}
+            className="underline hover:no-underline font-medium"
+          >
+            Retry
+          </button>
+        </p>
+      )}
+
+      {/*
+       * While the current-mode list is still being fetched (or just
+       * errored), hide the event-derived UI — RegionQuickChips,
+       * FilterBar, results count, list/calendar/map view. They all
+       * compute from `currentEvents`, which is an empty array until the
+       * server action resolves; showing them would flash zero counts,
+       * blank calendars, and empty filter option lists. The loading /
+       * error banner above stands in for the whole stack until data
+       * arrives.
+       *
+       * We use `hidden` instead of conditional-unmount so that internal
+       * state in children (CalendarView's month navigation, MapView's
+       * camera / bounds, FilterBar dropdown state) survives a lazy tab
+       * load round-trip. Unmounting reset all of that on every past /
+       * upcoming toggle.
+       */}
+      <div hidden={currentLoading || !!currentError} className="space-y-4">
       {/* Region quick-chips */}
       <RegionQuickChips
         events={timeFilteredEvents}
@@ -873,13 +1255,22 @@ export function HarelineView({
           {detailPanel}
         </div>
       ) : view === "calendar" ? (
-        <CalendarView events={calendarEvents} timeFilter={timeFilter} />
+        // During an uncached tab load the normal derivations (calendarEvents /
+        // sortedEvents) collapse to [] — which would make CalendarView/MapView
+        // swap to empty-state placeholders and unmount their internal <Map> /
+        // month-navigation state. Feed them `subtreeEvents` (last resolved
+        // snapshot) so they stay mounted; the wrapping `<div hidden>` keeps
+        // the stale content out of view.
+        <CalendarView
+          events={currentLoading || currentError ? subtreeEvents : calendarEvents}
+          timeFilter={timeFilter}
+        />
       ) : (
         <div className={selectedEvent ? "lg:grid lg:grid-cols-[1fr_380px] lg:gap-6" : ""}>
           {/* Left: map */}
           <div className="min-w-0">
             <MapView
-              events={sortedEvents}
+              events={currentLoading || currentError ? subtreeEvents : sortedEvents}
               selectedEventId={selectedEvent?.id}
               onSelectEvent={setSelectedEvent}
               onRegionFilter={handleRegionFilter}
@@ -889,6 +1280,7 @@ export function HarelineView({
           {detailPanel}
         </div>
       )}
+      </div>
     </div>
   );
 }

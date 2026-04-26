@@ -20,6 +20,7 @@ import {
   formatDateCompact,
   formatNights,
   cityToIata,
+  extractCityName,
   formatLegDateRange,
 } from "@/lib/travel/format";
 import { buildTravelSearchUrl, utcYmd } from "@/lib/travel/url";
@@ -250,7 +251,7 @@ export function SavedTripCard({
                     <div className="rounded-md border border-border/60 bg-muted/30 px-4 py-3">
                       <div className="font-display text-base font-medium tracking-tight text-foreground">
                         {isMultiStop
-                          ? destinations.map((d) => d.label.split(",")[0]?.trim() ?? d.label).join(" → ")
+                          ? destinations.map((d) => extractCityName(d.label)).join(" → ")
                           : firstLeg.label}
                       </div>
                       <div className="mt-1 font-mono text-xs uppercase tracking-wider text-muted-foreground">
@@ -297,10 +298,7 @@ export function SavedTripCard({
  */
 function MultiStopHeader({ destinations }: { destinations: SavedTripLeg[] }) {
   const iataCodes = destinations.map((d) => cityToIata(d.label));
-  const cityNames = destinations.map((d) => {
-    const first = d.label.split(",")[0]?.trim() ?? d.label;
-    return first.toUpperCase();
-  });
+  const cityNames = destinations.map((d) => extractCityName(d.label).toUpperCase());
 
   return (
     <div className="min-w-0">

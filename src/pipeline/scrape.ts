@@ -13,8 +13,10 @@ import { verifyResolvedAutoFixes } from "./verify-fixes";
 import { attemptAiRecovery, isAiRecoveryAvailable } from "@/lib/ai/parse-recovery";
 import { validateSourceUrl } from "@/adapters/utils";
 import { after } from "next/server";
+import { revalidateTag } from "next/cache";
 import { pingIndexNow } from "@/lib/indexnow";
 import { getCanonicalSiteUrl } from "@/lib/site-url";
+import { HARELINE_EVENTS_TAG } from "@/lib/cache-tags";
 
 /** Result returned by `scrapeSource()` summarizing the full scrape-merge-reconcile cycle. */
 export interface ScrapeSourceResult {
@@ -491,6 +493,16 @@ export async function scrapeSource(
       const baseUrl = getCanonicalSiteUrl();
       const urls = mergeResult.createdEventIds.map((id) => `${baseUrl}/hareline/${id}`);
       after(() => pingIndexNow(urls));
+    }
+
+    // Bust the Hareline `unstable_cache` entries so the next request re-pulls
+    // from Postgres. Conditional on something actually changing: a scrape
+    // that found zero new/updated/cancelled events has no effect on what
+    // /hareline would display, so there's no reason to burn a warm cache.
+    // Single tag — all (mode, date) entries are invalidated at once. Cheap
+    // because the cache is small and naturally re-warms on the next visit.
+    if (mergeResult.created + mergeResult.updated + cancelledCount + mergeResult.restored > 0) {
+      revalidateTag(HARELINE_EVENTS_TAG, { expire: 0 });
     }
 
     return {

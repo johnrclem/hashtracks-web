@@ -12,7 +12,7 @@ import {
   type DayCode,
   type DistanceTier,
 } from "@/lib/travel/filters";
-import { formatDayHeader, cityToIata } from "@/lib/travel/format";
+import { formatDayHeader, cityToIata, extractCityName } from "@/lib/travel/format";
 import {
   bucketDays,
   bucketStops,
@@ -475,9 +475,7 @@ function LegSubHeader({
 }) {
   const seq = String(destinationIndex + 1).padStart(2, "0");
   const iata = destinationLabel ? cityToIata(destinationLabel) : "—";
-  const cityShort = destinationLabel
-    ? (destinationLabel.split(",")[0]?.trim() ?? destinationLabel)
-    : "Stop";
+  const cityShort = destinationLabel ? extractCityName(destinationLabel) : "Stop";
   return (
     <div className="flex items-center gap-3">
       <span className="inline-flex items-center justify-center rounded-sm border-[1.5px] border-red-600/70 px-1.5 py-[1px] font-mono text-[10px] font-bold uppercase tracking-wider text-red-600 dark:border-red-400/70 dark:text-red-400">

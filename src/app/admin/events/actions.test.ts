@@ -24,7 +24,11 @@ vi.mock("@/lib/db", () => ({
     ),
   },
 }));
-vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("next/cache", () => ({
+  revalidatePath: vi.fn(),
+  revalidateTag: vi.fn(),
+  unstable_cache: <T extends (...args: never[]) => unknown>(fn: T) => fn,
+}));
 
 import { getAdminUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";

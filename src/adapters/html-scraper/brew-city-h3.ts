@@ -268,10 +268,11 @@ export class BrewCityH3Adapter implements SourceAdapter {
     const seenKeys = new Set<string>();
     const dedupedEvents: RawEventData[] = [];
     for (const event of windowFiltered) {
-      if (event.runNumber !== undefined && seenRuns.has(event.runNumber)) continue;
+      const runNum = event.runNumber ?? undefined;
+      if (runNum !== undefined && seenRuns.has(runNum)) continue;
       const titleKey = `${event.date}|${event.title}`;
-      if (event.runNumber === undefined && seenKeys.has(titleKey)) continue;
-      if (event.runNumber !== undefined) seenRuns.add(event.runNumber);
+      if (runNum === undefined && seenKeys.has(titleKey)) continue;
+      if (runNum !== undefined) seenRuns.add(runNum);
       seenKeys.add(titleKey);
       dedupedEvents.push(event);
     }

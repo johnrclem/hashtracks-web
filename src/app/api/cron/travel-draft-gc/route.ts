@@ -7,7 +7,7 @@ import { runTravelDraftGc, DRAFT_GC_AGE_DAYS } from "@/pipeline/travel-draft-gc"
  * Daily GC for orphan TravelSearch DRAFT rows.
  *
  * Drafts are created by the ghost-leg auto-save flow (see
- * src/components/travel/TravelSearchForm.tsx:persistDraft). When a user
+ * src/components/travel/TravelSearchForm/TravelSearchForm.tsx:persistDraft). When a user
  * abandons mid-flow the row stays behind — it's invisible from
  * /travel/saved but still occupies dedup-index slots and bloats the
  * table over time. This cron sweeps drafts older than

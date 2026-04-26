@@ -189,6 +189,9 @@ export const SOURCES = [
       scrapeDays: 365,
       config: {
         kennelPatterns: [
+          // C2B3H4 must come before generic CH3 so it doesn't accidentally
+          // match. Chicago Ballbusters H3 — sister to Boston B3H4 (#938).
+          ["C2B3H4|C2B3", "c2b3h4"],
           ["CH3|Chicago Hash|Chicago H3", "ch3"],
           ["TH3|Thirstday|Thursday Hash", "th3"],
           ["CFMH3|Chicago Full Moon|Full Moon Hash|Full Moon H3|Moon Hash", "cfmh3"],
@@ -201,6 +204,10 @@ export const SOURCES = [
           ["RTH3|Ragtime", "rth3"],
           ["DLH3|Duneland|South Shore", "dlh3"],
         ],
+        // Default unmatched events to chicago-h3 — calendar-wide social/special
+        // events ("Hash Ball 2026", "Chitown Drinking Practice") are CH3-hosted.
+        // The C2B3H4 leak (#938) is fixed by the explicit kennelPattern above,
+        // not by strict routing.
         defaultKennelTag: "ch3",
         // Per-kennel `What: <kennel> No. N` run-number patterns. Each entry is
         // narrow enough that sibling Chicagoland kennels can't accidentally match.
@@ -216,7 +223,7 @@ export const SOURCES = [
         // ends up with its own hare name.
         inlineHarelinePattern: { kennelTag: "4x2h4", blockHeader: "4x2 H4 Hareline:" },
       },
-      kennelCodes: ["ch3", "th3", "cfmh3", "fcmh3", "bdh3", "bmh3", "2ch3", "wwh3", "4x2h4", "rth3", "dlh3"],
+      kennelCodes: ["ch3", "th3", "cfmh3", "fcmh3", "bdh3", "bmh3", "2ch3", "wwh3", "4x2h4", "rth3", "dlh3", "c2b3h4"],
     },
     {
       name: "Chicago Hash Website",
@@ -3028,15 +3035,10 @@ export const SOURCES = [
     },
 
     // 2. Petaling H3 — Yii Framework hareline, 1,160+ runs back to 2003
-    // DISABLED pending live verification: Malaysia-hosted origin was
-    // unreachable during the build window so the adapter was only
-    // exercised against captured HTML. Manually flip enabled=true after
-    // confirming the first scrape post-merge returns valid events.
     {
       name: "Petaling H3 Hareline",
       url: "https://ph3.org/index.php?r=site/hareline",
       type: "HTML_SCRAPER" as const,
-      enabled: false,
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 180,
@@ -3048,12 +3050,10 @@ export const SOURCES = [
     },
 
     // 3. KL Full Moon H3 — Yii Framework hareline (same shape as PH3)
-    // DISABLED pending live verification (same Malaysia origin outage).
     {
       name: "KL Full Moon H3 Hareline",
       url: "https://klfullmoonhash.com/index.php?r=site/hareline",
       type: "HTML_SCRAPER" as const,
-      enabled: false,
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 365,
@@ -3065,12 +3065,10 @@ export const SOURCES = [
     },
 
     // 4. KL Junior H3 — self-hosted WordPress REST API
-    // DISABLED pending live verification (same Malaysia origin outage).
     {
       name: "KL Junior H3 Website",
       url: "https://www.kljhhh.org",
       type: "HTML_SCRAPER" as const,
-      enabled: false,
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 365,

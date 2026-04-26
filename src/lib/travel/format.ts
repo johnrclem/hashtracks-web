@@ -280,6 +280,23 @@ const CITY_IATA: Record<string, string> = {
  * are stripped before the consonant fallback, so "São Paulo" → "SPL"
  * (instead of, say, "PLO") after the accented S survives the lowercasing.
  */
+/**
+ * Extract the display city name from a destination label (e.g.
+ * "London, UK" → "London", "San Francisco, CA, USA" → "San Francisco").
+ * Uses the first comma-separated segment, trimmed. Falls back to the
+ * full label when no comma is present (e.g. "Near me").
+ *
+ * Matches the split convention used by `cityToIata` below, so the pair
+ * (code + city subhead) renders in lockstep across SavedTripCard's
+ * MultiStopHeader and TripSummary's ItineraryHero.
+ */
+export function extractCityName(label: string): string {
+  // `String.prototype.split` always returns at least one element, so
+  // the `[0]` access is non-nullable — no optional-chain or fallback
+  // needed.
+  return label.split(",")[0].trim();
+}
+
 export function cityToIata(label: string): string {
   const firstSegment = label.split(",")[0]?.trim().toLowerCase() ?? "";
   const hit = CITY_IATA[firstSegment];

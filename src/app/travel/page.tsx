@@ -17,6 +17,7 @@ import { TravelSearchForm } from "@/components/travel/TravelSearchForm";
 import { TravelResults } from "@/components/travel/TravelResults";
 import { TravelResultsSkeleton } from "@/components/travel/TravelResultsSkeleton";
 import { TripSummary } from "@/components/travel/TripSummary";
+import { toExportableConfirmedEvent } from "@/lib/travel/export";
 import { EmptyStates } from "@/components/travel/EmptyStates";
 import { TravelHero } from "@/components/travel/TravelHero";
 import { PopularDestinations } from "@/components/travel/PopularDestinations";
@@ -279,17 +280,7 @@ async function TravelResultsServer({
       confirmedCount: exportableConfirmed.length,
       likelyCount: results.likely.length + (broaderResults?.likely.length ?? 0),
       possibleCount: results.possible.length + (broaderResults?.possible.length ?? 0),
-      confirmedEvents: exportableConfirmed.map((r) => ({
-        date: r.date,
-        startTime: r.startTime,
-        timezone: r.timezone,
-        title: r.title,
-        runNumber: r.runNumber,
-        haresText: r.haresText,
-        locationName: r.locationName,
-        sourceUrl: r.sourceUrl,
-        kennelName: r.kennelName,
-      })),
+      confirmedEvents: exportableConfirmed.map(toExportableConfirmedEvent),
     };
 
     // Auto-save only fires for authenticated users returning from the
@@ -639,17 +630,7 @@ async function SavedTripPage({
     possibleCount: serializedResults.possible.length,
     noCoverage: serializedResults.emptyState === "no_coverage",
     horizonTier: serializedResults.meta.horizonTier,
-    confirmedEvents: exportableConfirmed.map((r) => ({
-      date: r.date,
-      startTime: r.startTime,
-      timezone: r.timezone,
-      title: r.title,
-      runNumber: r.runNumber,
-      haresText: r.haresText,
-      locationName: r.locationName,
-      sourceUrl: r.sourceUrl,
-      kennelName: r.kennelName,
-    })),
+    confirmedEvents: exportableConfirmed.map(toExportableConfirmedEvent),
     legs: isMultiStop ? heroLegs : undefined,
   };
 

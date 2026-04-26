@@ -40,6 +40,14 @@ vi.mock("./health", () => ({
     alerts: [],
   })),
   persistAlerts: vi.fn(() => Promise.resolve()),
+  autoResolveCleared: vi.fn(() => Promise.resolve(0)),
+}));
+
+// Mock next/cache so the `revalidateTag(HARELINE_EVENTS_TAG)` call at
+// the tail of the happy-path scrape doesn't throw outside a request context.
+vi.mock("next/cache", () => ({
+  revalidateTag: vi.fn(),
+  unstable_cache: <T extends (...args: never[]) => unknown>(fn: T) => fn,
 }));
 
 import { prisma } from "@/lib/db";
