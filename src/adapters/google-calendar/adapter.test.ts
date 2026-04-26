@@ -2407,98 +2407,50 @@ describe("Chicagoland Hash Calendar routing (#938)", () => {
 // ── #924 extractLocationFromDescription instructional-text filter ──
 
 describe("extractLocationFromDescription — #924 instructional text filter", () => {
-  it("rejects WHERE: with themed instruction prose (Chicagoland C2B3H4 case)", () => {
-    expect(
-      extractLocationFromDescription(
-        "WHERE: Slashie themed, so start is Ola's on Damen. Carry your shit & bring cash",
-      ),
-    ).toBeUndefined();
-  });
-
-  it("rejects WHERE: with 'carry your X' instruction phrase", () => {
-    expect(extractLocationFromDescription("WHERE: Meet at the bar and carry your gear")).toBeUndefined();
-  });
-
-  it("rejects WHERE: with 'bring cash' instruction phrase", () => {
-    expect(extractLocationFromDescription("WHERE: The Pub. Bring cash, no cards")).toBeUndefined();
-  });
-
-  it("rejects WHERE: with costume keyword", () => {
-    expect(extractLocationFromDescription("WHERE: costume required, location TBA")).toBeUndefined();
-  });
-
-  it("preserves venue names containing 'dress' or 'wear' (e.g. Dress Circle Pub)", () => {
-    expect(extractLocationFromDescription("WHERE: Dress Circle Pub")).toBe("Dress Circle Pub");
-  });
-
-  it("preserves clean address WHERE: lines", () => {
-    expect(extractLocationFromDescription("WHERE: 123 Main St, Chicago, IL 60601")).toBe("123 Main St, Chicago, IL 60601");
-  });
-
-  it("preserves simple venue names without instruction prose", () => {
-    expect(extractLocationFromDescription("WHERE: Portland Saturday Market fountain")).toBe("Portland Saturday Market fountain");
-  });
-
-  it("rejects locations exceeding 100 chars (likely description prose, not address)", () => {
-    const longLocation = "WHERE: " + "x".repeat(120);
-    expect(extractLocationFromDescription(longLocation)).toBeUndefined();
+  it.each<[string, string, string | undefined]>([
+    ["themed prose (Chicagoland C2B3H4 case)", "WHERE: Slashie themed, so start is Ola's on Damen. Carry your shit & bring cash", undefined],
+    ["'carry your X' phrase", "WHERE: Meet at the bar and carry your gear", undefined],
+    ["'bring cash' phrase", "WHERE: The Pub. Bring cash, no cards", undefined],
+    ["costume keyword", "WHERE: costume required, location TBA", undefined],
+    ["preserves Dress Circle Pub (no false positive on 'dress')", "WHERE: Dress Circle Pub", "Dress Circle Pub"],
+    ["preserves clean address", "WHERE: 123 Main St, Chicago, IL 60601", "123 Main St, Chicago, IL 60601"],
+    ["preserves simple venue name", "WHERE: Portland Saturday Market fountain", "Portland Saturday Market fountain"],
+    ["rejects > 100 chars", "WHERE: " + "x".repeat(120), undefined],
+  ])("%s", (_label, input, expected) => {
+    expect(extractLocationFromDescription(input)).toBe(expected);
   });
 });
 
 // ── #958 extractTimeFromTitle (NOH3 social events) ──
 
 describe("extractTimeFromTitle (#958)", () => {
-  it("extracts bare 'Npm' time from title", () => {
-    expect(extractTimeFromTitle("Social @ JBs Fuel Dock, 6pm")).toBe("18:00");
+  it.each<[string, string | undefined]>([
+    ["Social @ JBs Fuel Dock, 6pm", "18:00"],
+    ["Hash Run 7:30pm", "19:30"],
+    ["Morning trail 9:15 AM", "09:15"],
+    ["Lunch run 12pm", "12:00"],
+    ["Midnight run 12am", "00:00"],
+    ["Monday Hash Run", undefined],
+    // HH:MM form is matched first because the optional ":MM" group is greedy.
+    ["Run 7:30 pm meets at 6pm", "19:30"],
+  ])("extractTimeFromTitle(%j) === %j", (input, expected) => {
+    expect(extractTimeFromTitle(input)).toBe(expected);
   });
 
-  it("extracts H:MMpm time from title", () => {
-    expect(extractTimeFromTitle("Hash Run 7:30pm")).toBe("19:30");
+  it("end-to-end: all-day event with title-embedded time gets startTime populated", () => {
+    const event = buildRawEventFromGCalItem(
+      { summary: "Social @ JBs Fuel Dock, 6pm", start: { date: "2026-04-24" }, status: "confirmed" },
+      { defaultKennelTag: "noh3", includeAllDayEvents: true },
+    );
+    expect(event?.startTime).toBe("18:00");
   });
 
-  it("extracts H:MM AM time from title", () => {
-    expect(extractTimeFromTitle("Morning trail 9:15 AM")).toBe("09:15");
-  });
-
-  it("12pm normalizes to noon", () => {
-    expect(extractTimeFromTitle("Lunch run 12pm")).toBe("12:00");
-  });
-
-  it("12am normalizes to midnight", () => {
-    expect(extractTimeFromTitle("Midnight run 12am")).toBe("00:00");
-  });
-
-  it("returns undefined when title has no time", () => {
-    expect(extractTimeFromTitle("Monday Hash Run")).toBeUndefined();
-  });
-
-  it("HH:MM form takes precedence over bare hour form when both present", () => {
-    // "Run 7:30 pm meets at 6pm" — extract 7:30 PM, not 6:00 PM
-    expect(extractTimeFromTitle("Run 7:30 pm meets at 6pm")).toBe("19:30");
-  });
-
-  it("end-to-end: all-day GCal event with title-embedded time gets startTime populated", () => {
-    const item = {
-      summary: "Social @ JBs Fuel Dock, 6pm",
-      start: { date: "2026-04-24" },
-      status: "confirmed",
-    };
-    const config = { defaultKennelTag: "noh3", includeAllDayEvents: true };
-    const event = buildRawEventFromGCalItem(item, config);
-    expect(event).not.toBeNull();
-    expect(event!.startTime).toBe("18:00");
-  });
-
-  it("end-to-end: event with start.dateTime keeps explicit time over title-embedded time", () => {
-    // GCal-supplied time takes precedence; title's "6pm" is ignored.
-    const item = {
-      summary: "Hash run 6pm",
-      start: { dateTime: "2026-04-24T19:00:00-05:00" },
-      status: "confirmed",
-    };
-    const config = { defaultKennelTag: "noh3" };
-    const event = buildRawEventFromGCalItem(item, config);
-    expect(event!.startTime).toBe("19:00");
+  it("end-to-end: start.dateTime takes precedence over title-embedded time", () => {
+    const event = buildRawEventFromGCalItem(
+      { summary: "Hash run 6pm", start: { dateTime: "2026-04-24T19:00:00-05:00" }, status: "confirmed" },
+      { defaultKennelTag: "noh3" },
+    );
+    expect(event?.startTime).toBe("19:00");
   });
 });
 
