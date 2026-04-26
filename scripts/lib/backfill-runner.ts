@@ -1,48 +1,28 @@
-import { PrismaClient, type Prisma } from "@/generated/prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
 import { prisma } from "@/lib/db";
-import { createScriptPool } from "./db-pool";
-import { generateFingerprint } from "@/pipeline/fingerprint";
 import { processRawEvents } from "@/pipeline/merge";
 import { todayInTimezone } from "@/lib/timezone";
 import type { RawEventData } from "@/adapters/types";
-
-export interface InsertRawEventsResult {
-  preExisting: number;
-  inserted: number;
-}
 
 export interface BackfillReportOptions {
   apply: boolean;
   sourceName: string;
   events: RawEventData[];
   kennelTimezone: string;
-  /**
-   * When true, runs `processRawEvents` inline so canonical Events are
-   * created in the same pass — equivalent to the GCal helper's flow.
-   * Use this when the recurring scrape would NOT pick up the historical
-   * RawEvents on its next run (e.g. ICAL_FEED's hardcoded 90d lookback,
-   * or kennelTag overrides the recurring adapter's pattern wouldn't
-   * reproduce). Without this, the rows stay processed=false forever.
-   * Default false to preserve existing callers' behavior.
-   */
-  mergeInline?: boolean;
 }
 
 /**
  * Shared report + apply phase for one-shot backfill scripts. Splits parsed
  * events into past (date < today-in-kennel-timezone) and skipped, prints a
- * partition summary plus three sample rows, and either short-circuits in dry
- * run mode or applies via `insertRawEventsForSource` (default) or
- * `processRawEvents` (when `mergeInline: true`).
+ * partition summary plus three sample rows, and (in apply mode) routes the
+ * past slice through the live merge pipeline so canonical Events are created
+ * in the same pass — no orphan RawEvents, no follow-up scrape needed.
  *
- * Centralised here because every backfill repeats the same partition/report/
- * apply block verbatim, which trips SonarCloud's duplication gate.
+ * Re-runnable: `processRawEvents` short-circuits on existing fingerprints.
  */
 export async function reportAndApplyBackfill(
   options: BackfillReportOptions,
 ): Promise<void> {
-  const { apply, sourceName, events, kennelTimezone, mergeInline = false } = options;
+  const { apply, sourceName, events, kennelTimezone } = options;
   const today = todayInTimezone(kennelTimezone);
   const past = events.filter((e) => e.date < today);
   const skipped = events.length - past.length;
@@ -70,72 +50,30 @@ export async function reportAndApplyBackfill(
     return;
   }
 
-  if (mergeInline) {
-    await runInlineMerge(sourceName, past);
-    return;
-  }
-
-  console.log("\nWriting to DB...");
-  const { preExisting, inserted } = await insertRawEventsForSource(sourceName, past);
-  console.log(`  Pre-existing: ${preExisting}. Inserted: ${inserted}.`);
-  if (inserted > 0) {
-    console.log(`\nDone. Trigger a scrape of "${sourceName}" from the admin UI to merge the new RawEvents.`);
-  }
+  console.log("\nMerging via pipeline...");
+  await mergeRawEventsForSource(sourceName, past);
 }
 
 /**
- * Apply phase for backfills that need canonical Events created in the same
- * pass — looks up the source by name (with the same uniqueness guard as
- * `insertRawEventsForSource`), then routes events through the merge pipeline.
- * Re-runnable: `processRawEvents` handles the unprocessed-orphan case so
- * stuck RawEvents from a prior insert-only run get promoted.
- */
-async function runInlineMerge(sourceName: string, past: RawEventData[]): Promise<void> {
-  console.log(`\nDelegating ${past.length} events to merge pipeline...`);
-  const sources = await prisma.source.findMany({
-    where: { name: sourceName },
-    select: { id: true },
-  });
-  if (sources.length === 0) throw new Error(`Source "${sourceName}" not found in DB.`);
-  if (sources.length > 1) {
-    throw new Error(
-      `Multiple sources named "${sourceName}" found (${sources.length}). Aborting to avoid writing to the wrong one.`,
-    );
-  }
-  try {
-    const merge = await processRawEvents(sources[0].id, past);
-    console.log(
-      `Done. created=${merge.created} updated=${merge.updated} skipped=${merge.skipped} ` +
-        `unmatched=${merge.unmatched.length} blocked=${merge.blocked} errors=${merge.eventErrors}`,
-    );
-    if (merge.unmatched.length > 0) console.log(`  Unmatched tags: ${merge.unmatched.join(", ")}`);
-    if (merge.blocked > 0) {
-      console.log(`  Blocked tags: ${merge.blockedTags.join(", ")}`);
-    }
-    if (merge.eventErrors > 0) {
-      const sampleErrors = merge.eventErrorMessages.slice(0, 5).join("\n    ");
-      console.log(`  Errors:\n    ${sampleErrors}`);
-    }
-  } finally {
-    await prisma.$disconnect();
-  }
-}
-
-/**
- * Shared apply-phase for one-shot backfill scripts: looks up the source by
- * name, dedupes against existing RawEvent fingerprints, and batch-inserts the
- * remainder. Callers handle CLI flags, date partitioning, and reporting.
+ * Apply-phase: look up the source by name, preflight that at least one
+ * SourceKennel link exists (catches the all-zero misconfig that would
+ * silently block every row), and route through `processRawEvents`. The
+ * merge pipeline creates RawEvent rows AND upserts canonical Events in
+ * one pass; on re-run it dedupes by fingerprint, so this is idempotent.
  *
- * Every backfill has to own pool/prisma lifecycle + source lookup + dedup
- * identically; diverging copies accumulate and fail SonarCloud duplication
- * gates on every new script.
+ * Uses the global Prisma client from `@/lib/db` because that's what
+ * `processRawEvents` uses internally — sharing the client avoids dual
+ * connection pools and SSL/config drift.
+ *
+ * NOTE: pre-inserting RawEvents and then "triggering a scrape" does NOT
+ * merge them — `scrapeSource` only processes the live adapter's fetch
+ * results. Always go through this helper, never `prisma.rawEvent.create`
+ * directly.
  */
-export async function insertRawEventsForSource(
+async function mergeRawEventsForSource(
   sourceName: string,
   events: RawEventData[],
-): Promise<InsertRawEventsResult> {
-  const pool = createScriptPool();
-  const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
+): Promise<void> {
   try {
     const sources = await prisma.source.findMany({
       where: { name: sourceName },
@@ -149,34 +87,38 @@ export async function insertRawEventsForSource(
         `Multiple sources named "${sourceName}" found (${sources.length}). Aborting to avoid writing to the wrong one.`,
       );
     }
-    const source = sources[0];
+    const sourceId = sources[0].id;
 
-    const withFingerprints = events.map((event) => ({
-      event,
-      fingerprint: generateFingerprint(event),
-    }));
-    const fingerprintList = withFingerprints.map((x) => x.fingerprint);
-    const existingRows = await prisma.rawEvent.findMany({
-      where: { sourceId: source.id, fingerprint: { in: fingerprintList } },
-      select: { fingerprint: true },
-    });
-    const existingSet = new Set(existingRows.map((r) => r.fingerprint));
-    const toInsert = withFingerprints.filter(({ fingerprint }) => !existingSet.has(fingerprint));
-
-    if (toInsert.length > 0) {
-      await prisma.rawEvent.createMany({
-        data: toInsert.map(({ event, fingerprint }) => ({
-          sourceId: source.id,
-          rawData: event as unknown as Prisma.InputJsonValue,
-          fingerprint,
-          processed: false,
-        })),
-      });
+    const linkCount = await prisma.sourceKennel.count({ where: { sourceId } });
+    if (linkCount === 0) {
+      throw new Error(
+        `Source "${sourceName}" has no SourceKennel links. The merge guard would block every row. ` +
+          `Link the source to its kennel(s) in admin before running this backfill.`,
+      );
     }
 
-    return { preExisting: existingSet.size, inserted: toInsert.length };
+    const result = await processRawEvents(sourceId, events);
+    console.log(
+      `  created=${result.created} updated=${result.updated} ` +
+        `skipped=${result.skipped} blocked=${result.blocked} ` +
+        `eventErrors=${result.eventErrors}`,
+    );
+    if (result.blocked > 0) {
+      throw new Error(
+        `${result.blocked} events BLOCKED by per-event source-kennel guard ` +
+          `(tags: ${result.blockedTags.join(", ")}). The bulk preflight only ` +
+          `checks that some links exist, not that every kennelTag is linked. ` +
+          `Add SourceKennel links for the blocked tags before retrying.`,
+      );
+    }
+    if (result.unmatched.length > 0) {
+      console.warn(`  Unmatched kennel tags: ${result.unmatched.join(", ")}`);
+    }
+    if (result.eventErrors > 0) {
+      const sample = result.eventErrorMessages.slice(0, 5).join("\n    ");
+      console.warn(`  Event errors (first 5):\n    ${sample}`);
+    }
   } finally {
     await prisma.$disconnect();
-    await pool.end();
   }
 }

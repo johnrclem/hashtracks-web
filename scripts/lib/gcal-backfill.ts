@@ -57,7 +57,7 @@ export async function backfillGCalSource(params: GCalBackfillParams): Promise<vo
   console.log(`Window: ± ${params.days} days. Cutoff (${params.timezone}): date < ${todayIso}`);
 
   try {
-    // Match insertRawEventsForSource's uniqueness check — ambiguous source
+    // Same uniqueness guard as the shared backfill-runner — ambiguous source
     // names must abort, never silently bind to the first match.
     const sources = await prisma.source.findMany({ where: { name: params.sourceName } });
     if (sources.length === 0) throw new Error(`Source "${params.sourceName}" not found in DB.`);

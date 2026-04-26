@@ -187,16 +187,13 @@ async function main() {
   );
 
   // Backfill owns date < today; recurring adapter (hardcoded 90d lookback)
-  // owns the rest. mergeInline routes through processRawEvents so canonical
-  // Events are created in this pass — without it, historical RawEvents
-  // older than 90 days would never be reached by the recurring scrape and
-  // would stay processed=false forever.
+  // owns the rest. reportAndApplyBackfill routes through processRawEvents,
+  // so canonical Events are created in this pass.
   await reportAndApplyBackfill({
     apply,
     sourceName: SOURCE_NAME,
     events,
     kennelTimezone: KENNEL_TIMEZONE,
-    mergeInline: true,
   });
 }
 

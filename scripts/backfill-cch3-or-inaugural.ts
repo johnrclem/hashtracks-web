@@ -13,11 +13,11 @@
  * inserting a single RawEvent with kennelTag override; the merge pipeline
  * resolves to cch3-or via kennelTag, sidestepping the routing bug.
  *
- * `mergeInline: true` is required because the recurring scrape would
- * fingerprint this event with kennelTag="oh3" (the buggy pattern match),
- * not "cch3-or" — different fingerprint, so it would never re-process
- * this orphan RawEvent. Run the merge inline so the canonical cch3-or
- * Event is created in the same pass.
+ * The shared backfill helper routes through `processRawEvents`, so the
+ * canonical cch3-or Event is created in the same pass — important here
+ * because the recurring scrape would fingerprint this event with
+ * kennelTag="oh3" (the buggy pattern match), so it would never re-process
+ * a stale orphan if we deferred the merge.
  *
  * Usage:
  *   Dry run: npx tsx scripts/backfill-cch3-or-inaugural.ts
@@ -51,7 +51,6 @@ async function main() {
     sourceName: SOURCE_NAME,
     events: INAUGURAL_RUN,
     kennelTimezone: KENNEL_TIMEZONE,
-    mergeInline: true,
   });
 }
 
