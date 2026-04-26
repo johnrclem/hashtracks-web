@@ -20,6 +20,13 @@ export interface RenderOptions {
   frameUrl?: string;
   /** Max wait in ms (default: 15000, capped at 30000 server-side) */
   timeout?: number;
+  /** IANA timezone (e.g. "America/Chicago") for the rendering browser context.
+   *  Wix and other JS-rendered calendars use the browser's timezone via
+   *  Intl.DateTimeFormat to format event dates. Without this, Playwright's
+   *  default UTC context yields viewer-local dates that are off by hours
+   *  for kennels in non-UTC zones (#960 BCH3 — Thu 8pm CDT shown as Fri
+   *  12am UTC). Default: undefined → server uses UTC (current behavior). */
+  timezoneId?: string;
 }
 
 /**
@@ -68,6 +75,7 @@ export async function browserRender(options: RenderOptions): Promise<string> {
         selector: options.selector,
         frameUrl: options.frameUrl,
         timeout: options.timeout,
+        timezoneId: options.timezoneId,
       }),
       signal: AbortSignal.timeout(fetchTimeoutMs), // 30s render timeout + 15s tunnel buffer
     });

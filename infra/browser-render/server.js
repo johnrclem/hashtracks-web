@@ -155,6 +155,7 @@ const server = http.createServer(async (req, res) => {
 
   busy = true;
   let page = null;
+  let context = null;
 
   try {
     const rawBody = await readBody(req);
@@ -166,12 +167,28 @@ const server = http.createServer(async (req, res) => {
       return jsonResponse(res, 400, { error: "Invalid JSON body" });
     }
 
-    const { url, waitFor, selector, frameUrl, timeout } = parsed;
+    const { url, waitFor, selector, frameUrl, timeout, timezoneId } = parsed;
     if (!url || typeof url !== "string") {
       busy = false;
       return jsonResponse(res, 400, {
         error: "Missing or invalid 'url' field",
       });
+    }
+
+    // Validate timezoneId — Playwright accepts any IANA timezone identifier.
+    // Cap length to keep the surface small; defer full validation to Playwright
+    // which throws a clear error on unknown zones.
+    let safeTimezoneId;
+    if (typeof timezoneId === "string" && timezoneId.length > 0 && timezoneId.length <= 64) {
+      // Allow only the IANA charset: letters, digits, /, _, -, +
+      if (/^[A-Za-z0-9/_+\-]+$/.test(timezoneId)) {
+        safeTimezoneId = timezoneId;
+      } else {
+        busy = false;
+        return jsonResponse(res, 400, {
+          error: `Invalid timezoneId: ${timezoneId}`,
+        });
+      }
     }
 
     // SSRF check
@@ -208,11 +225,20 @@ const server = http.createServer(async (req, res) => {
 
     const renderStart = Date.now();
     console.log(
-      `[${new Date().toISOString()}] Rendering ${url} (waitFor: ${waitForSelector}, timeout: ${pageTimeout}ms)`,
+      `[${new Date().toISOString()}] Rendering ${url} (waitFor: ${waitForSelector}, timeout: ${pageTimeout}ms${safeTimezoneId ? `, tz: ${safeTimezoneId}` : ""})`,
     );
 
     const b = await getBrowser();
-    page = await b.newPage();
+    // When timezoneId is supplied, create a dedicated context so JS calendars
+    // (Wix, Google Sites) format dates in the kennel's local zone rather than
+    // the server's UTC default. Without it, BCH3 events authored as
+    // "Thursday 8 PM CDT" rendered as "Friday 12 AM" (rounded UTC). See #960.
+    if (safeTimezoneId) {
+      context = await b.newContext({ timezoneId: safeTimezoneId });
+      page = await context.newPage();
+    } else {
+      page = await b.newPage();
+    }
 
     // Use domcontentloaded instead of networkidle — Wix/SPA sites have
     // continuous background requests that prevent networkidle from firing.
@@ -248,6 +274,7 @@ const server = http.createServer(async (req, res) => {
         const frameCount = allFrames.length;
         await page.close();
         page = null;
+        if (context) { await context.close(); context = null; }
         busy = false;
         return jsonResponse(res, 422, {
           error: `No child frame matching "${frameUrl}" found (${frameCount} frames total)`,
@@ -287,6 +314,7 @@ const server = http.createServer(async (req, res) => {
       if (!element) {
         await page.close();
         page = null;
+        if (context) { await context.close(); context = null; }
         busy = false;
         return jsonResponse(res, 422, {
           error: `Selector "${selector}" not found on page`,
@@ -299,6 +327,10 @@ const server = http.createServer(async (req, res) => {
 
     await page.close();
     page = null;
+    if (context) {
+      await context.close();
+      context = null;
+    }
 
     // Size check
     const htmlBytes = Buffer.byteLength(html, "utf-8");
@@ -325,6 +357,11 @@ const server = http.createServer(async (req, res) => {
     if (page) {
       try {
         await page.close();
+      } catch {}
+    }
+    if (context) {
+      try {
+        await context.close();
       } catch {}
     }
     jsonResponse(res, 502, { error: "Render failed", detail: err.message });

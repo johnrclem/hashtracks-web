@@ -147,9 +147,17 @@ export class BrewCityH3Adapter implements SourceAdapter {
   ): Promise<ScrapeResult> {
     const calendarUrl = source.url || "https://www.brewcityh3.com/calendar";
 
+    // BCH3 is Wisconsin (Milwaukee) — America/Chicago. Wix renders calendar
+    // dates client-side via Intl.DateTimeFormat, so the rendering browser's
+    // timezone determines what string we see. Without this, Playwright's UTC
+    // default produced "Friday, May 1, AT 12 AM" for what the kennel
+    // authored as "Thursday, April 30, AT 8 PM CDT" — the date label was
+    // rounded forward across midnight UTC and the time degenerated to the
+    // 12 AM placeholder branch. See #960.
     const page = await fetchBrowserRenderedPage(calendarUrl, {
       waitFor: '[role="listitem"]',
       timeout: 20000,
+      timezoneId: "America/Chicago",
     });
 
     if (!page.ok) return page.result;

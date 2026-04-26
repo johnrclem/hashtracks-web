@@ -69,6 +69,16 @@ describe("parseDateTime", () => {
     expect(result.date).toBeNull();
     expect(result.startTime).toBeUndefined();
   });
+
+  it("parses Thursday 8 PM (post-#960 timezone fix expected input)", () => {
+    // After the browser-render service is given timezoneId="America/Chicago",
+    // Wix renders BCH3 events as "Thursday, April 30, 2026 AT 8 PM" (the
+    // kennel's authored local time). Without the timezone hint, the same
+    // event rendered as "Friday, May 1, 2026 AT 12 AM" — see #960.
+    const result = parseDateTime("Thursday, April 30, 2026 AT 8 PM");
+    expect(result.date).toBe("2026-04-30");
+    expect(result.startTime).toBe("20:00");
+  });
 });
 
 describe("parseTitle", () => {
