@@ -1,5 +1,5 @@
 /**
- * One-shot historical backfill for COH3 (Central Oregon). Issue #980.
+ * COH3 (Central Oregon) historical backfill. Issue #980.
  *
  * Source "Central Oregon H3 Calendar" exposes 69 VEVENTs spanning
  * 2021-03-27 → 2026-09-11, but only 11 (runs #114–#125, all April 2025+)
@@ -14,13 +14,10 @@
  */
 
 import "dotenv/config";
-import { backfillGCalSource } from "./lib/gcal-backfill";
+import { runGCalBackfill } from "./lib/gcal-backfill";
 
-backfillGCalSource({
+runGCalBackfill({
   sourceName: "Central Oregon H3 Calendar",
   days: 3650,
   timezone: "America/Los_Angeles",
-}).catch((err) => {
-  console.error(err);
-  process.exit(1);
 });

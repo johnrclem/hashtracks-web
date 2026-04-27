@@ -1,5 +1,5 @@
 /**
- * One-shot historical backfill for DH3 Denver (Colorado). Issue #1012.
+ * DH3 Denver (Colorado) historical backfill. Issue #1012.
  *
  * Two upstream GOOGLE_CALENDAR sources feed DH3:
  *   1. "Denver H3 Google Calendar" (denverkennel@gmail.com) — 109 VEVENTs
@@ -9,8 +9,8 @@
  *      MiHiHuHa events; ~13 DH3-tagged entries reach back to 2017-02.
  *
  * Wide-window pull is safe — GOOGLE_CALENDAR is API-backed. The Aggregator
- * scrape will also pull historical BH3 Boulder and MiHiHuHa events
- * (linked via SourceKennel for that source); intentional side benefit.
+ * scrape also fills history for BH3 Boulder + MiHiHuHa (linked via
+ * SourceKennel for that source); intentional side benefit.
  *
  * Usage:
  *   Dry run: npx tsx scripts/backfill-dh3-co-history.ts

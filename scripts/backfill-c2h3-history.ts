@@ -1,10 +1,9 @@
 /**
- * One-shot historical backfill for C2H3 (Corpus Christi). Issue #995.
+ * C2H3 (Corpus Christi) historical backfill. Issue #995.
  *
  * Source "Corpus Christi H3 Calendar" exposes 236 VEVENTs back to
- * 2019-08-17, but the recurring `scrapeDays=365` window only reaches
- * the most recent ~109. Wide-window pull is safe — GOOGLE_CALENDAR is
- * API-backed.
+ * 2019-08-17, but `scrapeDays=365` only reaches the most recent ~109.
+ * Wide-window pull is safe — GOOGLE_CALENDAR is API-backed.
  *
  * The calendar carries C2H3, BALH3, CBH3, and Sunset Seven cross-kennel
  * events; the seed routes all of them to `c2h3` (defaultKennelTag +
@@ -17,13 +16,10 @@
  */
 
 import "dotenv/config";
-import { backfillGCalSource } from "./lib/gcal-backfill";
+import { runGCalBackfill } from "./lib/gcal-backfill";
 
-backfillGCalSource({
+runGCalBackfill({
   sourceName: "Corpus Christi H3 Calendar",
   days: 3650,
   timezone: "America/Chicago",
-}).catch((err) => {
-  console.error(err);
-  process.exit(1);
 });
