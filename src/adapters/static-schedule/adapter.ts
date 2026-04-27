@@ -81,14 +81,19 @@ function parseByMonthDay(parts: Record<string, string>): number | undefined {
  */
 function parseByMonth(parts: Record<string, string>): number[] | undefined {
   if (!parts.BYMONTH) return undefined;
-  const tokens = parts.BYMONTH.split(",").map((t) => t.trim()).filter((t) => t.length > 0);
-  if (tokens.length === 0) {
+  const tokens = parts.BYMONTH.split(",").map((t) => t.trim());
+  if (tokens.length === 0 || tokens.some((t) => t.length === 0)) {
     throw new Error(`Invalid BYMONTH: ${parts.BYMONTH} (must be a comma-separated list of months 1-12)`);
   }
   const months = new Set<number>();
+  // RFC 5545 §3.3.10: monthnum = 1*2DIGIT — accept "5" and "05" but reject
+  // "005", "5.5", "5abc". Range check after parse handles "13", "99".
   for (const token of tokens) {
+    if (!/^\d{1,2}$/.test(token)) {
+      throw new Error(`Invalid BYMONTH: ${parts.BYMONTH} (each value must be an integer 1-12)`);
+    }
     const month = Number.parseInt(token, 10);
-    if (!Number.isFinite(month) || String(month) !== token || month < 1 || month > 12) {
+    if (month < 1 || month > 12) {
       throw new Error(`Invalid BYMONTH: ${parts.BYMONTH} (each value must be an integer 1-12)`);
     }
     months.add(month);

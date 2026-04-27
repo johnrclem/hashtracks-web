@@ -124,6 +124,11 @@ describe("parseRRule", () => {
     expect(rule.byMonth).toBeUndefined();
   });
 
+  it("accepts RFC 5545 1*2DIGIT month forms (leading zero)", () => {
+    const rule = parseRRule("FREQ=WEEKLY;BYDAY=TH;BYMONTH=05,06,07,08,09,10");
+    expect(rule.byMonth).toEqual([5, 6, 7, 8, 9, 10]);
+  });
+
   it.each([
     ["BYDAY=SA", "missing FREQ"],
     ["FREQ=WEEKLY;BYDAY=XX", "Unknown day"],
@@ -140,6 +145,10 @@ describe("parseRRule", () => {
     ["FREQ=WEEKLY;BYDAY=TH;BYMONTH=foo", "Invalid BYMONTH"],
     ["FREQ=WEEKLY;BYDAY=TH;BYMONTH=5.5", "Invalid BYMONTH"],
     ["FREQ=WEEKLY;BYDAY=TH;BYMONTH=,", "Invalid BYMONTH"],
+    ["FREQ=WEEKLY;BYDAY=TH;BYMONTH=5,,6", "Invalid BYMONTH"],
+    ["FREQ=WEEKLY;BYDAY=TH;BYMONTH=5,", "Invalid BYMONTH"],
+    ["FREQ=WEEKLY;BYDAY=TH;BYMONTH=,5", "Invalid BYMONTH"],
+    ["FREQ=WEEKLY;BYDAY=TH;BYMONTH=005", "Invalid BYMONTH"],
   ])("throws on invalid input: %s", (rrule, expectedError) => {
     expect(() => parseRRule(rrule)).toThrow(expectedError);
   });
