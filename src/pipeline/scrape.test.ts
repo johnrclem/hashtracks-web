@@ -281,6 +281,7 @@ describe("scrapeSource", () => {
       expect(result.success).toBe(true);
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         expect.stringContaining("post-merge revalidateTag"),
+        expect.any(Error),
       );
     });
 
@@ -297,6 +298,7 @@ describe("scrapeSource", () => {
       expect(result.success).toBe(true);
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         expect.stringContaining("post-merge IndexNow ping"),
+        expect.any(Error),
       );
     });
   });

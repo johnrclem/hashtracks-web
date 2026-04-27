@@ -492,8 +492,7 @@ export async function scrapeSource(
     // here must not roll back an already-persisted scrape. The Hareline
     // cache has a natural TTL and other mutation paths also invalidate it.
     const logHousekeepingError = (op: string, err: unknown) => {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error(`[scrape] post-merge ${op} failed for ${sourceId}: ${msg}`);
+      console.error(`[scrape] post-merge ${op} failed for ${sourceId}:`, err);
     };
 
     // IndexNow ping deferred via `after()` so it runs post-response.
