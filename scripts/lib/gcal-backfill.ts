@@ -130,3 +130,16 @@ export async function backfillGCalSource(params: GCalBackfillParams): Promise<vo
     await prisma.$disconnect();
   }
 }
+
+/**
+ * One-call entry point for thin per-kennel wrapper scripts: run the backfill
+ * and exit non-zero on failure. Lets each wrapper collapse to a single
+ * statement, avoiding the duplicate `.catch(err => {console.error; exit})`
+ * boilerplate flagged as duplication when several wrappers ship together.
+ */
+export function runGCalBackfill(params: GCalBackfillParams): void {
+  backfillGCalSource(params).catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}
