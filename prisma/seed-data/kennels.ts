@@ -2667,6 +2667,8 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "eh3-ab", shortName: "EH3", fullName: "Edmonton Hash House Harriers", region: "Edmonton, AB", country: "Canada",
       website: "https://www.eh3.org",
+      logoUrl: "https://www.eh3.org/wp-content/uploads/2017/08/EH3_icon.jpg",
+      hashCash: "$5",
       scheduleFrequency: "Weekly",
       scheduleNotes: "Monday 6:30pm (Apr-Sep), Saturday 2:00pm (Oct-Mar)",
       foundedYear: 1991,

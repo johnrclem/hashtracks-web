@@ -61,6 +61,19 @@ function eh3StartTimeFromDay(dayOfWeek: string): string {
   return /saturday/i.test(dayOfWeek) ? "14:00" : "18:30";
 }
 
+/**
+ * EH3-specific special-event header detector — a guard for the chrono-based
+ * fallback in `parseEh3EventBlock`. The page marks special events with either
+ * a "Special Event:" prefix or an ALL-CAPS day-of-week (regular numbered runs
+ * use mixed-case "Monday"/"Saturday"). Without this guard, incidental dated
+ * prose like "Updated April 2, 2026" would be ingested as a phantom event.
+ */
+function isSpecialEventHeader(headerLine: string): boolean {
+  if (/^special event\b/i.test(headerLine)) return true;
+  // All-caps day-of-week (no /i flag) — distinguishes "SATURDAY" from "Saturday".
+  return /\b(?:MONDAY|TUESDAY|WEDNESDAY|THURSDAY|FRIDAY|SATURDAY|SUNDAY)\b/.test(headerLine);
+}
+
 /** Extract labeled field value from a line, e.g., "Hares: Foo and Bar" → "Foo and Bar" */
 function extractField(line: string, ...labels: string[]): string | undefined {
   for (const label of labels) {
@@ -120,6 +133,30 @@ export function parseEh3EventBlock(
         headerDate = parseDate(datePart) ?? undefined;
         matched = true;
         break;
+      }
+    }
+
+    // Fallback for special events without an "EH3 Run #" prefix (e.g.
+    // "Special Event: Hash in Grande Cache – May 22-24", "AGPU SATURDAY
+    // AUGUST 29"). Constrained by `isSpecialEventHeader` and a chrono
+    // isCertain check so incidental dated prose ("Updated April 2, 2026",
+    // "April through September") isn't ingested as a phantom event.
+    if (!matched && isSpecialEventHeader(headerLine)) {
+      const results = chrono.en.parse(headerLine, { instant: new Date() }, { forwardDate: true });
+      if (results.length > 0) {
+        const r = results[0];
+        const parsed = r.start;
+        if (parsed.isCertain("day") && parsed.isCertain("month")) {
+          const year = parsed.get("year");
+          const month = parsed.get("month");
+          const day = parsed.get("day");
+          if (year != null && month != null && day != null) {
+            headerDate = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+            const before = headerLine.substring(0, r.index).trim().replace(/[\s–—\-:]+$/, "").trim();
+            title = before || headerLine;
+            matched = true;
+          }
+        }
       }
     }
   } else if (kennelTag === "efmh3") {
@@ -239,6 +276,14 @@ export function parseEh3EventBlock(
     if (dayMatch) {
       startTime = eh3StartTimeFromDay(dayMatch[0]);
     }
+  }
+
+  // Emit an explicit title for untitled numbered runs to suppress the
+  // downstream merge fallback ("{friendlyKennelName} Trail #N"), which for
+  // EH3 expands to the unwanted "Edmonton H3 Trail #N". The source page
+  // itself labels these runs "EH3 Run #N".
+  if (kennelTag === "eh3-ab" && runNumber !== undefined && !title) {
+    title = `EH3 Run #${runNumber}`;
   }
 
   return {

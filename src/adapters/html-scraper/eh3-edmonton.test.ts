@@ -84,7 +84,7 @@ describe("parseEh3EventBlock", () => {
       expect(result!.description).toContain("Hash Hold: Cherry Poppins");
     });
 
-    it("parses header without title", () => {
+    it("emits 'EH3 Run #NNNN' title for untitled numbered runs (#1044)", () => {
       const lines = [
         "EH3 Run # 1847 Monday April 20",
         "Hares: Very Saggy Testicles and Inky Dinky",
@@ -92,7 +92,7 @@ describe("parseEh3EventBlock", () => {
       const result = parseEh3EventBlock(lines, "eh3-ab", "18:30");
       expect(result).not.toBeNull();
       expect(result!.runNumber).toBe(1847);
-      expect(result!.title).toBeUndefined();
+      expect(result!.title).toBe("EH3 Run #1847");
       expect(result!.hares).toBe("Very Saggy Testicles and Inky Dinky");
     });
 
@@ -245,10 +245,51 @@ describe("parseEh3EventBlock", () => {
     });
   });
 
-  it("returns null for non-matching header", () => {
-    const lines = ["AGPU (Annual General Piss Up) SATURDAY AUGUST 29"];
-    const result = parseEh3EventBlock(lines, "eh3-ab", "18:30");
-    expect(result).toBeNull();
+  describe("EH3 special events without run number (#1045)", () => {
+    it("parses 'AGPU' header with caps day-of-week", () => {
+      const lines = ["AGPU (Annual General Piss Up)  SATURDAY AUGUST 29"];
+      const result = parseEh3EventBlock(lines, "eh3-ab", "18:30");
+      expect(result).not.toBeNull();
+      expect(result!.runNumber).toBeUndefined();
+      expect(result!.title).toBe("AGPU (Annual General Piss Up)");
+      expect(result!.date).toMatch(/^\d{4}-08-29$/);
+    });
+
+    it("parses 'Special Event' header with date range", () => {
+      const lines = [
+        "Special Event: Hash in Grande Cache – May 22-24 – detrails to come",
+      ];
+      const result = parseEh3EventBlock(lines, "eh3-ab", "18:30");
+      expect(result).not.toBeNull();
+      expect(result!.runNumber).toBeUndefined();
+      expect(result!.title).toBe("Special Event: Hash in Grande Cache");
+      expect(result!.date).toMatch(/^\d{4}-05-22$/);
+    });
+
+    it("returns null when no date is parseable", () => {
+      const lines = ["Random unrelated paragraph with no date or run header"];
+      const result = parseEh3EventBlock(lines, "eh3-ab", "18:30");
+      expect(result).toBeNull();
+    });
+
+    it("returns null for vague intro prose (no certain day)", () => {
+      const lines = [
+        "Unless otherwise posted, runs from April through September are held Mondays at 6:30 pm and runs from October through March are held Saturdays at 2:00 pm.",
+      ];
+      const result = parseEh3EventBlock(lines, "eh3-ab", "18:30");
+      expect(result).toBeNull();
+    });
+
+    it("returns null for incidental dated prose without a special-event marker", () => {
+      // A stray sentence with a certain date but no "Special Event:" prefix
+      // or ALL-CAPS day-of-week must not be ingested as a phantom event.
+      expect(parseEh3EventBlock(["Updated April 2, 2026"], "eh3-ab", "18:30")).toBeNull();
+      expect(parseEh3EventBlock(
+        ["Email the hares by April 15 to claim a date."],
+        "eh3-ab",
+        "18:30",
+      )).toBeNull();
+    });
   });
 });
 
