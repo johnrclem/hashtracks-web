@@ -26,6 +26,7 @@ import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
 import { createScriptPool } from "./lib/db-pool";
+import { cascadeDeleteEvents } from "./lib/cascade-delete";
 
 const APPLY = process.argv.includes("--apply");
 
@@ -35,28 +36,6 @@ const DELETE_IDS = [
   "cmof68v5x006nfdhnd5uftthg", // 2014-02-11
   "cmof6ao4o00khfdhnittmr049", // 2017-02-11
 ] as const;
-
-async function cascadeDeleteEvents(
-  prisma: PrismaClient,
-  eventIds: string[],
-): Promise<number> {
-  if (eventIds.length === 0) return 0;
-  const [, , , , , eventDeleteResult] = await prisma.$transaction([
-    prisma.rawEvent.updateMany({
-      where: { eventId: { in: eventIds } },
-      data: { eventId: null, processed: false },
-    }),
-    prisma.event.updateMany({
-      where: { parentEventId: { in: eventIds } },
-      data: { parentEventId: null },
-    }),
-    prisma.eventHare.deleteMany({ where: { eventId: { in: eventIds } } }),
-    prisma.attendance.deleteMany({ where: { eventId: { in: eventIds } } }),
-    prisma.kennelAttendance.deleteMany({ where: { eventId: { in: eventIds } } }),
-    prisma.event.deleteMany({ where: { id: { in: eventIds } } }),
-  ]);
-  return eventDeleteResult.count;
-}
 
 async function main() {
   console.log(`\n=== dedup-ch4-dk-run-260 ===`);

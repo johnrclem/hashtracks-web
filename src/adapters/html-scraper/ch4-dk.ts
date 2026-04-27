@@ -27,11 +27,6 @@ import {
   stripHtmlTags,
 } from "../utils";
 
-// `[^\d]{0,40}` is bounded + greedy: bounded length defends against
-// catastrophic backtracking (S5852); greedy is safe because `(\d{1,2}):` next
-// requires a digit, so the engine cannot over-consume.
-// NOSONAR — bounded length + non-overlapping next token rules out super-linear backtracking.
-const RE_DATE_TIME = /(\d{1,2})-(\d{1,2})-(\d{4})[^\d]{0,40}(\d{1,2}):(\d{2})/; // NOSONAR
 const RE_DATE_ONLY = /(\d{1,2})-(\d{1,2})-(\d{4})/;
 const RE_DATE_PARTIAL = /(\d{1,2})-(\d{1,2})(?!\d)/;
 const RE_TIME = /(\d{1,2}):(\d{2})/;
@@ -51,28 +46,22 @@ interface ParsedDateTime {
   startTime?: string;
 }
 
-function parseFullDateTime(text: string): ParsedDateTime | null {
-  const m = RE_DATE_TIME.exec(text);
-  if (!m) return null;
-  const [, dd, mm, yyyy, hh, mins] = m;
-  const day = Number.parseInt(dd, 10);
-  const month = Number.parseInt(mm, 10);
-  const year = Number.parseInt(yyyy, 10);
-  if (!isValidDate(year, month, day)) return null;
-  return {
-    date: formatYmd(year, month, day),
-    startTime: formatHm(Number.parseInt(hh, 10), Number.parseInt(mins, 10)),
-  };
-}
-
-function parseDateOnly(text: string): ParsedDateTime | null {
+// Two-pass scan: separately find the DD-MM-YYYY date and the HH:MM time.
+// Avoids a single multi-token regex that mixes `\d` and `[^\d]` classes
+// (S5852 false-positive). Both component regexes are linear-time.
+function parseDateOnly(text: string, withTime: boolean): ParsedDateTime | null {
   const m = RE_DATE_ONLY.exec(text);
   if (!m) return null;
   const day = Number.parseInt(m[1], 10);
   const month = Number.parseInt(m[2], 10);
   const year = Number.parseInt(m[3], 10);
   if (!isValidDate(year, month, day)) return null;
-  return { date: formatYmd(year, month, day) };
+  const date = formatYmd(year, month, day);
+  if (!withTime) return { date };
+  const tm = RE_TIME.exec(text.slice(m.index + m[0].length));
+  if (!tm) return { date };
+  const startTime = formatHm(Number.parseInt(tm[1], 10), Number.parseInt(tm[2], 10));
+  return startTime ? { date, startTime } : { date };
 }
 
 function parsePartialDate(text: string, yearHint: number): ParsedDateTime | null {
@@ -103,8 +92,7 @@ export function parseCh4DateTime(
 ): ParsedDateTime | null {
   const text = decodeEntities(stripHtmlTags(cellHtml, " "));
   return (
-    parseFullDateTime(text) ??
-    parseDateOnly(text) ??
+    parseDateOnly(text, true) ??
     (yearHint ? parsePartialDate(text, yearHint) : null)
   );
 }
