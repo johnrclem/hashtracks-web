@@ -6,6 +6,7 @@ import type { KennelSeed } from "./seed-data/kennels";
 import { KENNEL_ALIASES } from "./seed-data/aliases";
 import { SOURCES } from "./seed-data/sources";
 import { runScheduleRuleBackfill } from "../scripts/backfill-schedule-rules";
+import { composeUtcStart } from "../src/lib/timezone";
 
 /** JSON.stringify with sorted keys — prevents false diffs from key ordering differences between seed objects and DB-returned JSON. */
 function stableStringify(obj: unknown): string {
@@ -31,6 +32,44 @@ const PROFILE_FIELDS = new Set([
   "twitterHandle", "discordUrl", "mailingListUrl", "contactEmail", "foundedYear", "description",
   "logoUrl", "latitude", "longitude",
 ]);
+
+// Curated overrides that REPLACE existing non-null kennel field values. The
+// standard profile fill in ensureKennelRecords only writes nulls (so curated
+// `seed-data/kennels.ts` values are the source of truth for fresh installs
+// and any field that's still null in the DB). This list exists ONLY to repair
+// existing prod rows whose value is wrong AND non-null — the fill loop can't
+// reach those.
+//
+// Lifecycle: each entry should be removed in a follow-up PR once a prod
+// deploy has run and the linked issue's verification confirms the correction.
+// The matching kennels.ts entry is the canonical home for the value; the
+// override is one-time scaffolding for the in-place DB repair.
+const KENNEL_FORCE_OVERRIDES: Array<{ kennelCode: string; fields: Record<string, unknown>; reason: string }> = [
+  // #1019 — existing prod rows have a DH3-era description + stale
+  // daytonhhh.org website. kennels.ts now has the correct values; this
+  // override repairs already-seeded rows. Remove after deploy confirms.
+  {
+    kennelCode: "dh4",
+    fields: {
+      website: "https://daytonhash.com/daytonhash/",
+      description: "Dayton's mixed-gender (Harriers and Harriettes) hash kennel, founded September 2021. Biweekly Saturdays plus full moon trails.",
+      scheduleNotes: "Every other Saturday afternoon plus full moon evenings at 7 PM.",
+    },
+    reason: "Issue #1019 — replace DH3-era description + stale daytonhhh.org website",
+  },
+  // #840 — existing prod row has scheduleFrequency = "Every Wednesday and
+  // Saturday." (free-form sentence in the enum slot). kennels.ts now has
+  // structured scheduleDayOfWeek + scheduleTime + scheduleNotes (fill logic
+  // picks them up from null fields); this override only corrects the one
+  // wrong non-null field. Remove after deploy confirms.
+  {
+    kennelCode: "bjh3",
+    fields: {
+      scheduleFrequency: "Weekly",
+    },
+    reason: "Issue #840 — replace free-form scheduleFrequency text with enum value",
+  },
+];
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function ensureRegionRecords(prisma: any) {
@@ -283,11 +322,13 @@ async function ensureKennelRecords(prisma: any, kennels: KennelSeed[], toSlugFn:
         );
         const regionId = regionMap.get(kennel.region) ?? null;
         const updates: Record<string, unknown> = {};
-        // Update region if it changed or regionId is missing
+        // Update region if it changed, regionId is missing, OR regionId points
+        // at a stale row (can happen when an alias collision earlier mapped the
+        // string region name to the wrong Region — see issue #984 Bull Moon).
         if (regionId && record.region !== kennel.region) {
           updates.region = kennel.region;
           updates.regionId = regionId;
-        } else if (regionId && !record.regionId) {
+        } else if (regionId && record.regionId !== regionId) {
           updates.regionId = regionId;
         } else if (!regionId && kennel.region && record.region !== kennel.region) {
           console.warn(`  ⚠ Cannot update region for "${kennel.shortName}": no region found for "${kennel.region}"`);
@@ -514,6 +555,80 @@ async function ensureAllKennelsHaveGroup(prisma: any, kennelRecords: Map<string,
   }
 }
 
+// Apply curated overrides that replace existing field values (the standard
+// profile fill never overwrites non-null DB values). Idempotent — re-runs are
+// safe because Prisma update() with the same data is a no-op.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function applyKennelForceOverrides(prisma: any) {
+  if (KENNEL_FORCE_OVERRIDES.length === 0) return;
+  console.log("Applying curated kennel field overrides...");
+  for (const { kennelCode, fields, reason } of KENNEL_FORCE_OVERRIDES) {
+    const existing = await prisma.kennel.findUnique({ where: { kennelCode }, select: { id: true } });
+    if (!existing) {
+      console.warn(`  ⚠ Force-override target "${kennelCode}" not found, skipping (${reason})`);
+      continue;
+    }
+    await prisma.kennel.update({ where: { kennelCode }, data: fields });
+    console.log(`  ~ Override ${kennelCode}: ${Object.keys(fields).join(", ")} (${reason})`);
+  }
+}
+
+// Post-seed timezone reconciliation: every Event whose stored timezone differs
+// from its kennel's region.timezone is recomputed using composeUtcStart so the
+// dateUtc reflects the corrected zone. Targets the Bull Moon mass mis-tag
+// (issue #984 — 435 events stamped America/Chicago instead of Europe/London)
+// and protects against future drift across all kennels.
+//
+// Implementation: a single Event⇄Kennel⇄Region join finds drifted rows in one
+// query (Prisma's where can't compare columns from different tables, so the
+// raw SQL is the only N+1-free option). Per-event updates remain because
+// composeUtcStart needs each row's date + startTime to recompute dateUtc.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function reconcileEventTimezones(prisma: any) {
+  console.log("Reconciling Event timezones against kennel region tz...");
+  const stale: Array<{
+    id: string;
+    kennelCode: string;
+    date: Date;
+    startTime: string | null;
+    expectedTz: string;
+  }> = await prisma.$queryRaw`
+    SELECT e.id, k."kennelCode", e.date, e."startTime", r.timezone AS "expectedTz"
+    FROM "Event" e
+    JOIN "Kennel" k ON e."kennelId" = k.id
+    JOIN "Region" r ON k."regionId" = r.id
+    WHERE e.timezone IS NOT NULL AND e.timezone <> r.timezone
+  `;
+  if (stale.length === 0) {
+    console.log("  ✓ No timezone drift detected");
+    return;
+  }
+  const byKennel = new Map<string, number>();
+  for (const e of stale) byKennel.set(e.kennelCode, (byKennel.get(e.kennelCode) ?? 0) + 1);
+  for (const [code, count] of byKennel) {
+    console.log(`  ⚠ ${code}: ${count} events with wrong timezone`);
+  }
+  let updated = 0;
+  let skipped = 0;
+  for (const e of stale) {
+    const newDateUtc = e.startTime ? composeUtcStart(e.date, e.startTime, e.expectedTz) : null;
+    // Refuse to update only `timezone` when the row has a startTime but
+    // dateUtc recompute failed — that would leave the stored UTC moment
+    // inconsistent with the new local zone. Better to log and retry next seed.
+    if (e.startTime && !newDateUtc) {
+      console.error(`  ✗ Failed to recompute dateUtc for event ${e.id} (${e.kennelCode}); skipping to preserve consistency`);
+      skipped++;
+      continue;
+    }
+    await prisma.event.update({
+      where: { id: e.id },
+      data: { timezone: e.expectedTz, ...(newDateUtc ? { dateUtc: newDateUtc } : {}) },
+    });
+    updated++;
+  }
+  console.log(`  ✓ ${updated} events reconciled${skipped > 0 ? ` (${skipped} skipped — see errors above)` : ""}`);
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function seedKennels(prisma: any, kennels: KennelSeed[], kennelAliases: Record<string, string[]>, sources: any[], toSlugFn: (s: string) => string) {
   // Pre-flight: detect duplicate kennelCodes in seed data
@@ -580,8 +695,10 @@ async function seedKennels(prisma: any, kennels: KennelSeed[], kennelAliases: Re
 
   const regionMap = await ensureRegionRecords(prisma);
   const kennelRecords = await ensureKennelRecords(prisma, kennels, toSlugFn, regionMap);
+  await applyKennelForceOverrides(prisma);
   await ensureAliases(prisma, kennelAliases, kennelRecords);
   await ensureSources(prisma, sources, kennelRecords);
+  await reconcileEventTimezones(prisma);
 
   const rosterGroups = [
     { name: "NYC Metro", kennelCodes: ["nych3", "brh3", "nah3", "knick", "qbk", "si", "columbia", "harriettes-nyc", "ggfm", "nawwh3"] },

@@ -1927,7 +1927,11 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     pinColor: "#ef4444",
     centroidLat: 33.52,
     centroidLng: -86.81,
-    aliases: ["Birmingham"],
+    // Bare "Birmingham" alias collides with the UK Birmingham region (canonical
+    // name "Birmingham") and was overwriting the regionMap entry, mis-routing
+    // Bull Moon kennel and its 435 events to America/Chicago. See issue #984
+    // and the feedback_state_abbrev_collisions memory for the pattern.
+    aliases: [],
   },
   {
     name: "Enterprise, AL",
