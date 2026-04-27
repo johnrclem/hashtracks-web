@@ -14,6 +14,8 @@ import type { Source } from "@/generated/prisma/client";
 const WEEKLY_SAT = "FREQ=WEEKLY;BYDAY=SA";
 const BIWEEKLY_SAT = "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA";
 const MONTHLY_2ND_SAT = "FREQ=MONTHLY;BYDAY=2SA";
+const NOSE_SUMMER = "FREQ=WEEKLY;BYDAY=TH;BYMONTH=5,6,7,8,9,10";
+const NOSE_WINTER = "FREQ=WEEKLY;BYDAY=WE;BYMONTH=1,2,3,4,11,12";
 const DEFAULT_URL = "https://www.facebook.com/groups/rumsonh3/";
 
 function makeSource(config: Record<string, unknown>, url = DEFAULT_URL): Source {
@@ -100,6 +102,33 @@ describe("parseRRule", () => {
     expect(rule.byDay).toEqual({ day: 6 });
   });
 
+  it("parses BYMONTH list (NOSE summer)", () => {
+    const rule = parseRRule(NOSE_SUMMER);
+    expect(rule.freq).toBe("WEEKLY");
+    expect(rule.byDay).toEqual({ day: 4 });
+    expect(rule.byMonth).toEqual([5, 6, 7, 8, 9, 10]);
+  });
+
+  it("dedupes and sorts BYMONTH values", () => {
+    const rule = parseRRule("FREQ=WEEKLY;BYDAY=TH;BYMONTH=10,5,5,6,9,7,8");
+    expect(rule.byMonth).toEqual([5, 6, 7, 8, 9, 10]);
+  });
+
+  it("tolerates whitespace inside BYMONTH list", () => {
+    const rule = parseRRule("FREQ=WEEKLY;BYDAY=TH;BYMONTH=5, 6 , 7");
+    expect(rule.byMonth).toEqual([5, 6, 7]);
+  });
+
+  it("leaves byMonth undefined when BYMONTH is absent", () => {
+    const rule = parseRRule(WEEKLY_SAT);
+    expect(rule.byMonth).toBeUndefined();
+  });
+
+  it("accepts RFC 5545 1*2DIGIT month forms (leading zero)", () => {
+    const rule = parseRRule("FREQ=WEEKLY;BYDAY=TH;BYMONTH=05,06,07,08,09,10");
+    expect(rule.byMonth).toEqual([5, 6, 7, 8, 9, 10]);
+  });
+
   it.each([
     ["BYDAY=SA", "missing FREQ"],
     ["FREQ=WEEKLY;BYDAY=XX", "Unknown day"],
@@ -111,6 +140,15 @@ describe("parseRRule", () => {
     ["FREQ=DAILY;BYDAY=SA", "Unsupported FREQ"],
     ["FREQ=YEARLY;BYDAY=SA", "Unsupported FREQ"],
     ["FREQ=WEEKLY", "WEEKLY RRULE requires BYDAY"],
+    ["FREQ=WEEKLY;BYDAY=TH;BYMONTH=0", "Invalid BYMONTH"],
+    ["FREQ=WEEKLY;BYDAY=TH;BYMONTH=13", "Invalid BYMONTH"],
+    ["FREQ=WEEKLY;BYDAY=TH;BYMONTH=foo", "Invalid BYMONTH"],
+    ["FREQ=WEEKLY;BYDAY=TH;BYMONTH=5.5", "Invalid BYMONTH"],
+    ["FREQ=WEEKLY;BYDAY=TH;BYMONTH=,", "Invalid BYMONTH"],
+    ["FREQ=WEEKLY;BYDAY=TH;BYMONTH=5,,6", "Invalid BYMONTH"],
+    ["FREQ=WEEKLY;BYDAY=TH;BYMONTH=5,", "Invalid BYMONTH"],
+    ["FREQ=WEEKLY;BYDAY=TH;BYMONTH=,5", "Invalid BYMONTH"],
+    ["FREQ=WEEKLY;BYDAY=TH;BYMONTH=005", "Invalid BYMONTH"],
   ])("throws on invalid input: %s", (rrule, expectedError) => {
     expect(() => parseRRule(rrule)).toThrow(expectedError);
   });
@@ -191,6 +229,51 @@ describe("generateOccurrences", () => {
     const rule = parseRRule(WEEKLY_SAT);
     const dates = generateOccurrences(rule, utcDate(2026, 0, 5), utcDate(2026, 0, 9, 23, 59, 59));
     expect(dates).toEqual([]);
+  });
+
+  it("filters to BYMONTH months for NOSE summer (May-Oct Thursdays)", () => {
+    const rule = parseRRule(NOSE_SUMMER);
+    const dates = generateOccurrences(rule, utcDate(2026, 0, 1), utcDate(2026, 11, 31, 23, 59, 59));
+
+    expect(dates.length).toBeGreaterThan(0);
+    expect(dates[0]).toBe("2026-05-07"); // first Thursday of May 2026
+    expect(dates.at(-1)).toBe("2026-10-29"); // last Thursday of October 2026
+    for (const d of dates) {
+      const date = new Date(d + "T12:00:00Z");
+      expect(date.getUTCDay()).toBe(4); // Thursday
+      const month = date.getUTCMonth() + 1;
+      expect(month).toBeGreaterThanOrEqual(5);
+      expect(month).toBeLessThanOrEqual(10);
+    }
+  });
+
+  it("filters to BYMONTH months for NOSE winter (Nov-Apr Wednesdays)", () => {
+    const rule = parseRRule(NOSE_WINTER);
+    const dates = generateOccurrences(rule, utcDate(2026, 0, 1), utcDate(2026, 11, 31, 23, 59, 59));
+
+    expect(dates.length).toBeGreaterThan(0);
+    for (const d of dates) {
+      const date = new Date(d + "T12:00:00Z");
+      expect(date.getUTCDay()).toBe(3); // Wednesday
+      const month = date.getUTCMonth() + 1;
+      expect([1, 2, 3, 4, 11, 12]).toContain(month);
+    }
+  });
+
+  it("emits unchanged output when BYMONTH is absent (non-breaking)", () => {
+    const rule = parseRRule(WEEKLY_SAT);
+    const dates = generateOccurrences(rule, utcDate(2026, 0, 1), utcDate(2026, 11, 31, 23, 59, 59));
+
+    const monthsCovered = new Set(dates.map((d) => Number.parseInt(d.slice(5, 7), 10)));
+    for (let m = 1; m <= 12; m++) {
+      expect(monthsCovered.has(m)).toBe(true);
+    }
+  });
+
+  it("supports BYMONTH on monthly rules (annual occurrence pattern)", () => {
+    const rule = parseRRule("FREQ=MONTHLY;BYMONTHDAY=15;BYMONTH=6");
+    const dates = generateOccurrences(rule, utcDate(2026, 0, 1), utcDate(2027, 11, 31, 23, 59, 59));
+    expect(dates).toEqual(["2026-06-15", "2027-06-15"]);
   });
 });
 
@@ -338,6 +421,64 @@ describe("StaticScheduleAdapter", () => {
       expect(date.getUTCDay()).toBe(6);
       expect(date.getUTCDate()).toBeGreaterThanOrEqual(8);
       expect(date.getUTCDate()).toBeLessThanOrEqual(14);
+    }
+  });
+
+  it("filters fetched events to BYMONTH months", async () => {
+    const result = await adapter.fetch(
+      makeSource({ kennelTag: "NOSEH3", rrule: NOSE_SUMMER }),
+      { days: 365 },
+    );
+
+    expect(result.errors).toHaveLength(0);
+    expect(result.events.length).toBeGreaterThan(0);
+    for (const event of result.events) {
+      const month = Number.parseInt(event.date.slice(5, 7), 10);
+      expect([5, 6, 7, 8, 9, 10]).toContain(month);
+      expect(new Date(event.date + "T12:00:00Z").getUTCDay()).toBe(4); // Thursday
+    }
+  });
+
+  it("treats off-season as success (no error) when window misses every BYMONTH month", async () => {
+    // Single-month June rule scraped in mid-December: 90-day window spans
+    // mid-Sep → mid-Mar, never touching June. Should return 0 events with NO
+    // error so the alert pipeline doesn't fire 6+ months of false alarms.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-12-15T12:00:00Z"));
+    try {
+      const result = await adapter.fetch(
+        makeSource({ kennelTag: "TestKennel", rrule: "FREQ=MONTHLY;BYMONTHDAY=15;BYMONTH=6" }),
+      );
+      expect(result.errors).toHaveLength(0);
+      expect(result.events).toHaveLength(0);
+      expect(result.diagnosticContext?.note).toMatch(/off-season/);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("still alerts when window overlaps a BYMONTH month but generates 0 events", async () => {
+    // Window crosses June, but BYMONTHDAY=31 in June clamps to June 30 — wait,
+    // that still emits. Use BYDAY=2SA;BYMONTH=6 in a window that contains June
+    // and ensure the day-2-Saturday-of-June logic emits at least one event.
+    // To force a true 0-with-overlap, use an invalid pairing: monthly nth weekday
+    // that resolves outside the month — which the existing nthWeekdayOfMonth
+    // returns null for. But simpler: use a 1-day window starting today that
+    // overlaps a BYMONTH month but lands on a non-target weekday.
+    vi.useFakeTimers();
+    // Set "today" to Mon 2026-06-15 (June, in BYMONTH=6) and use a 0-day window:
+    // window = [today-0, today+0] = exactly today. Rule wants Saturdays in June.
+    // Today is Monday → 0 events, but window IS in June → real misconfig signal.
+    vi.setSystemTime(new Date("2026-06-15T12:00:00Z"));
+    try {
+      const result = await adapter.fetch(
+        makeSource({ kennelTag: "TestKennel", rrule: "FREQ=WEEKLY;BYDAY=SA;BYMONTH=6" }),
+        { days: 0 },
+      );
+      expect(result.errors.length).toBeGreaterThan(0);
+      expect(result.errors[0]).toMatch(/0 events/);
+    } finally {
+      vi.useRealTimers();
     }
   });
 
