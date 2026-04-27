@@ -47,19 +47,19 @@ const DELETE_CAP = 5000;
 // plus NOH3 (separate calendar, same issue). kennelCode must match Kennel.kennelCode
 // exactly — the script skips unknown codes rather than aborting.
 const AFFECTED_KENNEL_CODES = [
-  "ch3",     // Chicago H3
-  "th3",     // Thirstday H3
-  "cfmh3",   // Chicago Full Moon H3
-  "fcmh3",   // Full Chicago Moon H3
-  "bdh3",    // Back Door H3
-  "bmh3",    // Brass Monkey H3 (Chicago)
-  "2ch3",    // Second City H3
-  "wwh3",    // Wild West H3
-  "4x2h4",   // Four by Two H4
-  "rth3",    // Road Trip H3
-  "dlh3",    // Dead Last H3
-  "c2b3h4",  // Chicago Cubs Beer Barons H4 (added in #973)
-  "noh3",    // NOH3 (separate Google Calendar, same unbounded-window issue)
+  "ch3",     // Chicago H3 (Chicago Hash House Harriers)
+  "th3",     // Thirstday H3 (Thirstday Hash House Harriers)
+  "cfmh3",   // CFMH3 (Chicago Full Moon Hash House Harriers)
+  "fcmh3",   // FCMH3 (First Crack of the Moon Hash House Harriers)
+  "bdh3",    // Big Dogs H3 (Big Dogs Hash House Harriers)
+  "bmh3",    // Bushman H3 (Bushman Hash House Harriers — Chicago)
+  "2ch3",    // 2CH3 (Second City Hash House Harriers)
+  "wwh3",    // Whiskey Wed H3 (Whiskey Wednesday Hash House Harriers)
+  "4x2h4",   // 4X2H4 (4x2 Hash House Harriers and Harriettes)
+  "rth3",    // Ragtime H3 (Ragtime Hash House Harriers)
+  "dlh3",    // DLH3 (Duneland Hash House Harriers — South Shore, IN)
+  "c2b3h4",  // C2B3H4 (Chicago Ballbuster Hash House Harriers — added in #973)
+  "noh3",    // NOH3 (New Orleans Hash House Harriers — separate calendar, same unbounded-window issue)
 ] as const;
 
 interface KennelResult {
@@ -83,7 +83,7 @@ async function cascadeDeleteEvents(
   let deleted = 0;
   for (let i = 0; i < eventIds.length; i += BATCH_SIZE) {
     const batch = eventIds.slice(i, i + BATCH_SIZE);
-    const [,,,, , result] = await prisma.$transaction([
+    const [, , , , , eventDeleteResult] = await prisma.$transaction([
       prisma.rawEvent.updateMany({
         where: { eventId: { in: batch } },
         data: { eventId: null, processed: false },
@@ -97,7 +97,7 @@ async function cascadeDeleteEvents(
       prisma.kennelAttendance.deleteMany({ where: { eventId: { in: batch } } }),
       prisma.event.deleteMany({ where: { id: { in: batch } } }),
     ]);
-    deleted += result.count;
+    deleted += eventDeleteResult.count;
   }
   return deleted;
 }
