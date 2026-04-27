@@ -17,8 +17,8 @@ This spec is the structural follow-up. It picks a schema shape, defines the adap
 ### What this spec does not do
 
 - Change `prisma/schema.prisma` (deferred to step 1 of [§7](#7-migration-sequencing))
-- Touch any adapter (deferred to step 2)
-- Touch any display-layer query (deferred to step 4)
+- Touch any adapter (deferred to step 3)
+- Touch any display-layer query (deferred to step 5)
 - Decide between first-writer-wins and highest-trust-wins for `isPrimary` (presented as alternatives in [§3](#3-cross-source-dedup-with-overlapping-kennel-sets); decision deferred to the implementation PR when we have empirical co-host data)
 
 ---
@@ -140,7 +140,36 @@ export interface RawEventData {
 
 Naively switching to "collect all matches" would produce false multi-kennel events for these sources (every `CH3` event would also tag as `C2B3H4`, polluting the dedup intersection). To prevent this:
 
-> **Multi-kennel emission is opt-in per pattern.** A pattern entry is `[regex, kennelTag | kennelTag[]]`. A `string` value preserves first-match behavior — only the first `string`-typed match wins. An `array` value declares "this pattern legitimately tags multiple kennels", and *all* matches collected as arrays are unioned into the result. Single-tag patterns sharing a regex with array patterns require an explicit migration of the source config.
+> **Multi-kennel emission is opt-in per pattern.** A pattern entry is `[regex, kennelTag | kennelTag[]]`. A `string` value preserves first-match behavior — only the first `string`-typed match wins. An `array` value declares "this pattern legitimately tags multiple kennels". Single-tag patterns sharing a regex with array patterns require an explicit migration of the source config.
+
+**Explicit precedence algorithm** (per Gemini review, removes ambiguity for mixed-config sources):
+
+```
+collectedArrayTags = null  // sentinel: "no array-typed match seen yet"
+firstStringMatch = null
+
+for [regex, value] in patterns (in configured order):
+    if regex does not match: continue
+
+    if value is an array:
+        if collectedArrayTags is null: collectedArrayTags = []
+        union value into collectedArrayTags
+
+    else (value is a string):
+        if firstStringMatch is null and collectedArrayTags is null:
+            firstStringMatch = value
+        // otherwise ignore — array matches have priority once seen,
+        // and string first-match-wins is preserved for string-only configs
+
+if collectedArrayTags is not null: return collectedArrayTags  // dedup'd
+if firstStringMatch is not null: return [firstStringMatch]
+return []
+```
+
+Behaviors this guarantees:
+- All-string config: identical to today (first-match-wins, single-element result).
+- All-array config: union of all matching array values, dedup'd.
+- Mixed config: array matches take precedence; string matches only return when *no* array pattern matched. This means a source author opting into array emission does not lose disambiguation — once any array pattern matches, string patterns are advisory only.
 
 This keeps existing 28 sources behaviorally identical post-codemod and limits multi-kennel emission to patterns the source admin has explicitly reviewed.
 
@@ -378,9 +407,14 @@ if (ekPrimary !== eventCount) throw new Error(`primary count mismatch: ${ekPrima
 // Backfill produces one row per Event; future co-host events grow ekTotal but not ekPrimary.
 if (ekTotal < eventCount) throw new Error(`total EventKennel count below Event count: ${ekTotal} < ${eventCount}`);
 
-// Belt-and-suspenders: confirm the partial unique index actually catches double-primary.
-// This raises if the index is missing or wrong, before any prod write hits it.
-await prisma.$queryRaw`SELECT 1 FROM pg_indexes WHERE indexname = 'EventKennel_eventId_isPrimary_unique'`;
+// Belt-and-suspenders: confirm the partial unique index actually exists.
+// $queryRaw resolves to [] (not throw) when no rows match, so check length explicitly.
+const idx = await prisma.$queryRaw<unknown[]>`
+  SELECT 1 FROM pg_indexes WHERE indexname = 'EventKennel_eventId_isPrimary_unique'
+`;
+if (!Array.isArray(idx) || idx.length === 0) {
+  throw new Error("Partial unique index 'EventKennel_eventId_isPrimary_unique' not found");
+}
 ```
 
 Run this from CI as part of step 1's PR checks against `hashtracks_dev`, then again post-prod-deploy.
