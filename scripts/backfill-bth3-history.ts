@@ -51,7 +51,9 @@ async function discoverDetailUrls(): Promise<string[]> {
   const html = await fetchText(INDEX_URL);
   if (!html) throw new Error("Failed to fetch BTH3 archive index");
   const matches = html.match(DETAIL_URL_RE) ?? [];
-  return [...new Set(matches)].sort().map((path) => `${BASE_URL}${path}`);
+  return [...new Set(matches)]
+    .sort((a, b) => a.localeCompare(b))
+    .map((path) => `${BASE_URL}${path}`);
 }
 
 async function fetchAllArchive(): Promise<RawEventData[]> {

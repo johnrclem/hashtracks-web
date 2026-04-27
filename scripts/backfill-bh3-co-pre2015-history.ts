@@ -87,7 +87,7 @@ function extractCandidatesFromIndex($: cheerio.CheerioAPI): FreeFormCandidate[] 
     const $body = $art.find(".post-content").first().clone();
     $body.find("a.more-link").remove();
     $body.find("br").replaceWith(" ");
-    const bodyText = decodeEntities($body.text()).replace(/\s+/g, " ").trim();
+    const bodyText = decodeEntities($body.text()).replaceAll(/\s+/g, " ").trim();
     if (!bodyText) return;
     candidates.push({ permalink, title: decodeEntities(title), bodyText });
   });
@@ -119,16 +119,13 @@ async function fetchAllCandidates(): Promise<FreeFormCandidate[]> {
   return all;
 }
 
-// Tolerant of single/double quotes and `property` / `content` attribute order.
-const PUBLISHED_TIME_RE = /<meta\b[^>]*property=["']article:published_time["'][^>]*content=["']([^"']+)["']/i;
-const PUBLISHED_TIME_RE_REVERSED = /<meta\b[^>]*content=["']([^"']+)["'][^>]*property=["']article:published_time["']/i;
-
 async function enrichWithPublishedDate(candidate: FreeFormCandidate): Promise<void> {
   const html = await fetchText(candidate.permalink);
   if (!html) return;
-  const m = PUBLISHED_TIME_RE.exec(html) ?? PUBLISHED_TIME_RE_REVERSED.exec(html);
-  if (m) {
-    candidate.publishedDate = m[1].slice(0, 10); // "2012-12-27T20:25:00+00:00" → "2012-12-27"
+  const $ = cheerio.load(html);
+  const publishedTime = $('meta[property="article:published_time"]').attr("content");
+  if (publishedTime) {
+    candidate.publishedDate = publishedTime.slice(0, 10); // "2012-12-27T20:25:00+00:00" → "2012-12-27"
   }
 }
 
@@ -178,7 +175,7 @@ INPUT (${batch.length} trails):
 ${rows.join("\n\n")}`;
 
   console.log(`  Calling Gemini with ${batch.length} trails (~${Math.round(prompt.length / 1024)}KB prompt)...`);
-  const result = await callGemini({ prompt, maxOutputTokens: 65536, temperature: 0.0 }, 0);
+  const result = await callGemini({ prompt, maxOutputTokens: 65536, temperature: 0 }, 0);
   if (!result.text) throw new Error(`Gemini cleanup failed: ${result.error ?? "empty response"}`);
 
   let parsed: unknown;
@@ -190,17 +187,18 @@ ${rows.join("\n\n")}`;
   if (!Array.isArray(parsed)) throw new Error("Gemini returned non-array");
 
   // Validate each row + reject hallucinated permalinks. Gemini occasionally
-  // rewrites URLs (drops trailing slash, http→https swap). Drop those rather
-  // than emit broken sourceUrls.
+  // emits null array elements (per the prompt's escape hatch) or rewrites
+  // URLs (drops trailing slash, http→https swap). Drop those rather than
+  // crash or emit broken sourceUrls.
   const candidatePermalinks = new Set(batch.map((c) => c.permalink));
   const valid: CleanedRow[] = [];
-  for (const row of parsed as Array<Partial<CleanedRow>>) {
-    if (typeof row.permalink !== "string" || !candidatePermalinks.has(row.permalink)) continue;
+  for (const row of parsed as Array<Partial<CleanedRow> | null>) {
+    if (!row || typeof row.permalink !== "string" || !candidatePermalinks.has(row.permalink)) continue;
     if (typeof row.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(row.date)) continue;
     valid.push(row as CleanedRow);
   }
   if (valid.length < parsed.length) {
-    console.warn(`  Dropped ${parsed.length - valid.length}/${parsed.length} rows (bad permalink/date)`);
+    console.warn(`  Dropped ${parsed.length - valid.length}/${parsed.length} rows (null/bad permalink/bad date)`);
   }
   return valid;
 }
@@ -233,7 +231,12 @@ async function loadOrCleanCandidates(candidates: FreeFormCandidate[]): Promise<C
 
 function cleanedToRawEvent(row: CleanedRow): RawEventData | null {
   if (!row.date || !/^\d{4}-\d{2}-\d{2}$/.test(row.date)) return null;
-  const startTime = row.startTime && /^\d{1,2}:\d{2}$/.test(row.startTime) ? row.startTime : undefined;
+  // Pad single-digit hours to HH:MM — Gemini sometimes returns "9:30" but
+  // the codebase convention is strict 5-char "HH:MM".
+  const startTime =
+    row.startTime && /^\d{1,2}:\d{2}$/.test(row.startTime)
+      ? row.startTime.padStart(5, "0")
+      : undefined;
   return {
     date: row.date,
     kennelTag: KENNEL_TAG,
