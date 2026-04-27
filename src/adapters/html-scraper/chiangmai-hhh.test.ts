@@ -156,23 +156,19 @@ describe("parseChiangMaiLine", () => {
     expect(event!.hares).toContain("Anal Vice");
   });
 
-  describe("title preservation", () => {
+  describe("title is left unset (#1058)", () => {
+    // Per #1058, the adapter must not put hare names into `title` \u2014 they
+    // belong in `haresText` only. Leaving `title` undefined lets merge.ts
+    // synthesize a "{kennel.displayName} Trail #{N}" default, the same
+    // pattern used by every other hareline adapter.
     it.each([
-      ["CSH3 em-dash", "Saturday May 9 \u2013 CSH3 \u2013 Run #1811 \u2013 Stumbling Dyke", "csh3", "Stumbling Dyke"],
-      ["CH4 em-dash with '&' joiner", "Thursday 30 April \u2013 CH4 Run # 1102 \u2013 Bushy Tail & co-hare BUF", "ch4-cm", "Bushy Tail & co-hare BUF"],
-      ["CBH3 em-dash hare list", "Sunday 26 April \u2013 CBH3 \u2013 Run # 281 \u2013 Misfortune and Bare Bum", "cbh3-cm", "Misfortune and Bare Bum"],
-      ["CH3 whitespace form", "Monday 27th April CH3  Run # 1635 Dyke Converter", "ch3-cm", "Dyke Converter"],
-    ])("preserves title from %s", (_label, line, tag, expected) => {
+      ["CSH3 em-dash", "Saturday May 9 \u2013 CSH3 \u2013 Run #1811 \u2013 Stumbling Dyke", "csh3"],
+      ["CH4 em-dash with '&' joiner", "Thursday 30 April \u2013 CH4 Run # 1102 \u2013 Bushy Tail & co-hare BUF", "ch4-cm"],
+      ["CBH3 em-dash hare list", "Sunday 26 April \u2013 CBH3 \u2013 Run # 281 \u2013 Misfortune and Bare Bum", "cbh3-cm"],
+      ["CH3 whitespace form", "Monday 27th April CH3  Run # 1635 Dyke Converter", "ch3-cm"],
+      ["HARE NEEDED row", "Monday 18 May \u2013 CGH3 Run #258 \u2013 HARE NEEDED", "cgh3"],
+    ])("leaves title undefined for %s", (_label, line, tag) => {
       const event = parseChiangMaiLine(line, tag, SOURCE_URL);
-      expect(event!.title).toBe(expected);
-    });
-
-    it("HARE NEEDED rows leave title undefined so merge synthesizes a default", () => {
-      const event = parseChiangMaiLine(
-        "Monday 18 May \u2013 CGH3 Run #258 \u2013 HARE NEEDED",
-        "cgh3",
-        SOURCE_URL,
-      );
       expect(event!.title).toBeUndefined();
     });
   });

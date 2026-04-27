@@ -488,22 +488,31 @@ export async function scrapeSource(
       reconcileSuppressedKennels,
     });
 
-    // Run IndexNow ping after the response is sent, so the serverless function
-    // doesn't get killed mid-request. No-op when key is unset or non-prod.
+    // Post-merge housekeeping is best-effort: a Next.js request-scope error
+    // here must not roll back an already-persisted scrape. The Hareline
+    // cache has a natural TTL and other mutation paths also invalidate it.
+    const logHousekeepingError = (op: string, err: unknown) => {
+      console.error(`[scrape] post-merge ${op} failed for ${sourceId}:`, err);
+    };
+
+    // IndexNow ping deferred via `after()` so it runs post-response.
     if (mergeResult.createdEventIds.length > 0) {
-      const baseUrl = getCanonicalSiteUrl();
-      const urls = mergeResult.createdEventIds.map((id) => `${baseUrl}/hareline/${id}`);
-      after(() => pingIndexNow(urls));
+      try {
+        const baseUrl = getCanonicalSiteUrl();
+        const urls = mergeResult.createdEventIds.map((id) => `${baseUrl}/hareline/${id}`);
+        after(() => pingIndexNow(urls));
+      } catch (err) {
+        logHousekeepingError("IndexNow ping", err);
+      }
     }
 
-    // Bust the Hareline `unstable_cache` entries so the next request re-pulls
-    // from Postgres. Conditional on something actually changing: a scrape
-    // that found zero new/updated/cancelled events has no effect on what
-    // /hareline would display, so there's no reason to burn a warm cache.
-    // Single tag — all (mode, date) entries are invalidated at once. Cheap
-    // because the cache is small and naturally re-warms on the next visit.
+    // Bust the Hareline `unstable_cache` only when something actually changed.
     if (mergeResult.created + mergeResult.updated + cancelledCount + mergeResult.restored > 0) {
-      revalidateTag(HARELINE_EVENTS_TAG, { expire: 0 });
+      try {
+        revalidateTag(HARELINE_EVENTS_TAG, { expire: 0 });
+      } catch (err) {
+        logHousekeepingError(`revalidateTag(${HARELINE_EVENTS_TAG})`, err);
+      }
     }
 
     return {
