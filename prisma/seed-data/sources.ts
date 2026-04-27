@@ -3889,16 +3889,16 @@ export const SOURCES = [
       scrapeDays: 365,
       kennelCodes: ["lsw-h3"],
     },
-    // --- Ladies H4 (Wix browser-render) ---
-    // DISABLED pending live verification: Wix requires the NAS
-    // browser-render service (fetchBrowserRenderedPage) which wasn't
-    // reachable during the build. Flip enabled=true after confirming
-    // the first scrape returns valid events.
+    // --- Ladies H4 (Wix browser-render via Table Master iframe) ---
+    // The hareline lives inside a Wix "Table Master" widget at the
+    // comp-jvuzl97c iframe — top-level page has zero <table> elements.
+    // Adapter targets the iframe via NAS browser-render's frameUrl path
+    // (same pattern as samuraihash2017 / newtokyohash). Live-verified
+    // 18 upcoming events (#2864–#2881).
     {
       name: "Ladies H4 Hareline",
       url: "https://hkladiesh4.wixsite.com/hklh4/hareline",
       type: "HTML_SCRAPER" as const,
-      enabled: false,
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 365,

@@ -67,8 +67,13 @@ export class LadiesH4HkAdapter implements SourceAdapter {
   ): Promise<ScrapeResult> {
     const harelineUrl = source.url || "https://hkladiesh4.wixsite.com/hklh4/hareline";
 
+    // Hareline lives inside a Wix "Table Master" widget rendered in a child
+    // iframe at <div id="comp-jvuzl97c">. The page itself has zero top-level
+    // <table> elements, so waiting on a top-level "table" selector hangs until
+    // timeout. Same pattern as samuraihash2017 / newtokyohash adapters.
     const page = await fetchBrowserRenderedPage(harelineUrl, {
-      waitFor: "table",
+      waitFor: "iframe[title='Table Master']",
+      frameUrl: "comp-jvuzl97c",
       timeout: 25000,
     });
 

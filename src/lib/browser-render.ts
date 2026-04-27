@@ -87,8 +87,21 @@ export async function browserRender(options: RenderOptions): Promise<string> {
 
     if (!response.ok) {
       const body = await response.text();
+      // The render server returns 502 with JSON {error, detail} on Playwright
+      // failures (timeouts, missing selectors, navigation errors). Surface the
+      // detail string so adapter-level bugs don't masquerade as tunnel/origin
+      // outages. Falls back to the raw body if it isn't JSON.
+      let detail = body;
+      try {
+        const parsed = JSON.parse(body) as { error?: unknown; detail?: unknown };
+        if (typeof parsed.error === "string" && typeof parsed.detail === "string") {
+          detail = `${parsed.error}: ${parsed.detail}`;
+        }
+      } catch {
+        // Body wasn't JSON — keep the raw text (e.g. an actual Cloudflare 5xx page).
+      }
       throw new Error(
-        `Browser render error (${response.status}): ${body}`,
+        `Browser render error (${response.status}): ${detail}`,
       );
     }
 
