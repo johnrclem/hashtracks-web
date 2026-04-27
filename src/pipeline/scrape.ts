@@ -461,6 +461,7 @@ export async function scrapeSource(
     const { combined: combinedErrorDetails, hasErrors: hasErrorDetails } =
       buildCombinedErrorDetails(scrapeResult.errorDetails, mergeResult.mergeErrorDetails);
     const diagnosticContext = buildDiagnosticContext(scrapeResult.diagnosticContext, aiRecovery);
+    diagnosticContext.scrapeDays = days;
     if (reconcileContext) diagnosticContext.reconciliation = reconcileContext;
     if (mergeResult.restored > 0) diagnosticContext.eventsRestored = mergeResult.restored;
 

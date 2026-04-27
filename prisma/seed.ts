@@ -33,44 +33,6 @@ const PROFILE_FIELDS = new Set([
   "logoUrl", "latitude", "longitude",
 ]);
 
-// Curated overrides that REPLACE existing non-null kennel field values. The
-// standard profile fill in ensureKennelRecords only writes nulls (so curated
-// `seed-data/kennels.ts` values are the source of truth for fresh installs
-// and any field that's still null in the DB). This list exists ONLY to repair
-// existing prod rows whose value is wrong AND non-null — the fill loop can't
-// reach those.
-//
-// Lifecycle: each entry should be removed in a follow-up PR once a prod
-// deploy has run and the linked issue's verification confirms the correction.
-// The matching kennels.ts entry is the canonical home for the value; the
-// override is one-time scaffolding for the in-place DB repair.
-const KENNEL_FORCE_OVERRIDES: Array<{ kennelCode: string; fields: Record<string, unknown>; reason: string }> = [
-  // #1019 — existing prod rows have a DH3-era description + stale
-  // daytonhhh.org website. kennels.ts now has the correct values; this
-  // override repairs already-seeded rows. Remove after deploy confirms.
-  {
-    kennelCode: "dh4",
-    fields: {
-      website: "https://daytonhash.com/daytonhash/",
-      description: "Dayton's mixed-gender (Harriers and Harriettes) hash kennel, founded September 2021. Biweekly Saturdays plus full moon trails.",
-      scheduleNotes: "Every other Saturday afternoon plus full moon evenings at 7 PM.",
-    },
-    reason: "Issue #1019 — replace DH3-era description + stale daytonhhh.org website",
-  },
-  // #840 — existing prod row has scheduleFrequency = "Every Wednesday and
-  // Saturday." (free-form sentence in the enum slot). kennels.ts now has
-  // structured scheduleDayOfWeek + scheduleTime + scheduleNotes (fill logic
-  // picks them up from null fields); this override only corrects the one
-  // wrong non-null field. Remove after deploy confirms.
-  {
-    kennelCode: "bjh3",
-    fields: {
-      scheduleFrequency: "Weekly",
-    },
-    reason: "Issue #840 — replace free-form scheduleFrequency text with enum value",
-  },
-];
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function ensureRegionRecords(prisma: any) {
   console.log("Seeding regions...");
@@ -555,24 +517,6 @@ async function ensureAllKennelsHaveGroup(prisma: any, kennelRecords: Map<string,
   }
 }
 
-// Apply curated overrides that replace existing field values (the standard
-// profile fill never overwrites non-null DB values). Idempotent — re-runs are
-// safe because Prisma update() with the same data is a no-op.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function applyKennelForceOverrides(prisma: any) {
-  if (KENNEL_FORCE_OVERRIDES.length === 0) return;
-  console.log("Applying curated kennel field overrides...");
-  for (const { kennelCode, fields, reason } of KENNEL_FORCE_OVERRIDES) {
-    const existing = await prisma.kennel.findUnique({ where: { kennelCode }, select: { id: true } });
-    if (!existing) {
-      console.warn(`  ⚠ Force-override target "${kennelCode}" not found, skipping (${reason})`);
-      continue;
-    }
-    await prisma.kennel.update({ where: { kennelCode }, data: fields });
-    console.log(`  ~ Override ${kennelCode}: ${Object.keys(fields).join(", ")} (${reason})`);
-  }
-}
-
 // Post-seed timezone reconciliation: every Event whose stored timezone differs
 // from its kennel's region.timezone is recomputed using composeUtcStart so the
 // dateUtc reflects the corrected zone. Targets the Bull Moon mass mis-tag
@@ -695,7 +639,6 @@ async function seedKennels(prisma: any, kennels: KennelSeed[], kennelAliases: Re
 
   const regionMap = await ensureRegionRecords(prisma);
   const kennelRecords = await ensureKennelRecords(prisma, kennels, toSlugFn, regionMap);
-  await applyKennelForceOverrides(prisma);
   await ensureAliases(prisma, kennelAliases, kennelRecords);
   await ensureSources(prisma, sources, kennelRecords);
   await reconcileEventTimezones(prisma);
