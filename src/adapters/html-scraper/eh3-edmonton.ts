@@ -153,7 +153,10 @@ export function parseEh3EventBlock(
           if (year != null && month != null && day != null) {
             headerDate = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
             const before = headerLine.substring(0, r.index).trim().replace(/[\s–—\-:]+$/, "").trim();
-            title = before || headerLine;
+            // If the date sits at the very start of the line, there's no
+            // prefix to use as a title — leave undefined so we don't end up
+            // with "SATURDAY AUGUST 29" or similar.
+            title = before || undefined;
             matched = true;
           }
         }

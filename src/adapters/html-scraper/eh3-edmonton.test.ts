@@ -280,6 +280,15 @@ describe("parseEh3EventBlock", () => {
       expect(result).toBeNull();
     });
 
+    it("returns event with undefined title when date is at start of header (no prefix)", () => {
+      const lines = ["SATURDAY AUGUST 29 – Special Event"];
+      const result = parseEh3EventBlock(lines, "eh3-ab", "18:30");
+      expect(result).not.toBeNull();
+      expect(result!.runNumber).toBeUndefined();
+      expect(result!.title).toBeUndefined();
+      expect(result!.date).toMatch(/^\d{4}-08-29$/);
+    });
+
     it("returns null for incidental dated prose without a special-event marker", () => {
       // A stray sentence with a certain date but no "Special Event:" prefix
       // or ALL-CAPS day-of-week must not be ingested as a phantom event.
