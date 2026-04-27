@@ -260,6 +260,15 @@ export const KENNELS: KennelSeed[] = [
     },
     { kennelCode: "asssh3", shortName: "ASSSH3", fullName: "All Seasons Summit Shiggy H3", region: "North NJ" },
     {
+      kennelCode: "nose-h3", shortName: "NOSE H3", fullName: "North Of Seventy Eight Hash House Harriers",
+      region: "North NJ",
+      scheduleDayOfWeek: "Thursday", scheduleTime: "7:00 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Summer (May–Oct): Thursdays 7pm. Winter (Nov–Apr): Wednesdays 7pm.",
+      facebookUrl: "https://www.facebook.com/groups/NOSEHash",
+      contactEmail: "anallickitall@gmail.com",
+      description: "Active weekly kennel in North NJ (north of I-78). Facebook-only presence; runs flip from Thursdays in summer to Wednesdays in winter.",
+    },
+    {
       kennelCode: "rumson", shortName: "Rumson", fullName: "Rumson Hash House Harriers", region: "New Jersey",
       scheduleDayOfWeek: "Saturday", scheduleTime: "10:17 AM", scheduleFrequency: "Weekly",
       facebookUrl: "https://www.facebook.com/p/Rumson-H3-100063637060523/",
