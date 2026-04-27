@@ -70,13 +70,13 @@ export function parseChiangMaiLine(
   const runNumberRaw = Number.parseInt(runMatch[1], 10);
   const runNumber = Number.isNaN(runNumberRaw) ? undefined : runNumberRaw;
 
-  // The text after the run number is both the hare list (normalized) and the
-  // event title (verbatim — populating it stops merge.ts from synthesizing
-  // a default "{kennel.fullName} Trail #{N}" string).
-  // CGH3 pages prefix the name with a "Hare." label (e.g. "Hare. HRA") — strip
-  // it so only the name survives.
+  // Text after the run number is the hare list. CGH3 pages prefix the name
+  // with a "Hare." label (e.g. "Hare. HRA") — strip it so only the name
+  // survives. We deliberately leave `title` undefined so merge.ts synthesizes
+  // a "{kennel.displayName} Trail #{N}" default — putting the hare name into
+  // `title` (the previous behavior) caused #1058: hare names showed up as
+  // event titles in Hareline cards.
   let hares: string | undefined;
-  let title: string | undefined;
   const afterRun = cleaned.slice(runMatch.index + runMatch[0].length);
   const harePart = afterRun
     .replace(/^\s*[-–—]\s*/, "")
@@ -84,7 +84,6 @@ export function parseChiangMaiLine(
     .trim();
   if (harePart && !/^HARE NEEDED$/i.test(harePart) && !/^\?+$/.test(harePart)) {
     hares = normalizeHaresField(harePart);
-    title = harePart;
   }
 
   const beforeRun = cleaned.slice(0, runMatch.index).trim();
@@ -115,7 +114,6 @@ export function parseChiangMaiLine(
     kennelTag,
     runNumber,
     hares,
-    title,
     sourceUrl,
   };
 }

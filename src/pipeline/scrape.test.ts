@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -43,11 +43,15 @@ vi.mock("./health", () => ({
   autoResolveCleared: vi.fn(() => Promise.resolve(0)),
 }));
 
-// Mock next/cache so the `revalidateTag(HARELINE_EVENTS_TAG)` call at
-// the tail of the happy-path scrape doesn't throw outside a request context.
+// Mock next/cache + next/server so the post-merge `revalidateTag(...)` and
+// `after(...)` calls at the tail of the happy-path scrape don't throw
+// outside a request context.
 vi.mock("next/cache", () => ({
   revalidateTag: vi.fn(),
   unstable_cache: <T extends (...args: never[]) => unknown>(fn: T) => fn,
+}));
+vi.mock("next/server", () => ({
+  after: vi.fn(() => {}),
 }));
 
 import { prisma } from "@/lib/db";
@@ -55,6 +59,8 @@ import { getAdapter } from "@/adapters/registry";
 import { processRawEvents } from "./merge";
 import { analyzeHealth } from "./health";
 import { scrapeSource } from "./scrape";
+import { revalidateTag } from "next/cache";
+import { after } from "next/server";
 
 const mockSourceFind = vi.mocked(prisma.source.findUnique);
 const mockSourceUpdate = vi.mocked(prisma.source.update);
@@ -251,5 +257,47 @@ describe("scrapeSource", () => {
     const updateData = mockLogUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
     expect(updateData.data.sampleBlocked).toEqual(sampleBlocked);
     expect(updateData.data.sampleSkipped).toEqual(sampleSkipped);
+  });
+
+  // Regression for #1053-1056. Both `after()` and `revalidateTag()` need a
+  // Next.js request scope. When something (Vercel cold-start race, library
+  // wrapping a Promise chain, etc.) breaks AsyncLocalStorage tracking they
+  // throw, and we used to bubble that into the outer catch and mark the
+  // entire scrape FAILED — even though merge had already persisted the
+  // events. Now they're best-effort.
+  describe("post-merge housekeeping resilience", () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    afterEach(() => {
+      consoleErrorSpy.mockClear();
+    });
+
+    it("does not mark scrape FAILED when revalidateTag throws", async () => {
+      vi.mocked(revalidateTag).mockImplementationOnce(() => {
+        throw new Error("Invariant: static generation store missing in revalidateTag hareline:events");
+      });
+
+      const result = await scrapeSource("src_1");
+      expect(result.success).toBe(true);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("post-merge revalidateTag"),
+      );
+    });
+
+    it("does not mark scrape FAILED when after() throws", async () => {
+      mockProcessRaw.mockResolvedValueOnce({
+        ...fakeMergeResult,
+        createdEventIds: ["evt_1"],
+      });
+      vi.mocked(after).mockImplementationOnce(() => {
+        throw new Error("`after` was called outside a request scope");
+      });
+
+      const result = await scrapeSource("src_1");
+      expect(result.success).toBe(true);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("post-merge IndexNow ping"),
+      );
+    });
   });
 });
