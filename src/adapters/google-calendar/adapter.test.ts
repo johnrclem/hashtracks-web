@@ -2565,46 +2565,49 @@ describe("GoogleCalendarAdapter — RRULE future-horizon cap (#939)", () => {
 
 // ── #1021 / #1024 RECURRENCE-ID override recovery via secondary call ──
 
+const RECOVERY_ADAPTER = new GoogleCalendarAdapter();
+
+function makeRecoverySource(config: object) {
+  return {
+    id: "test-source",
+    url: "test@calendar.google.com",
+    type: "GOOGLE_CALENDAR" as const,
+    config,
+    scrapeDays: 90,
+  } as unknown as Parameters<typeof RECOVERY_ADAPTER.fetch>[0];
+}
+
+// Build a fetch spy that returns different bodies for the primary
+// (singleEvents=true) and secondary (singleEvents=false) calls. Both can
+// be primed with multi-page responses via { items, nextPageToken }.
+function mockTwoCalls(
+  primary: object | (() => Response | Promise<Response>),
+  secondary: object | (() => Response | Promise<Response>) | "throw" | "500",
+) {
+  return vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+    const url = new URL(input as string);
+    const isSingle = url.searchParams.get("singleEvents") === "true";
+    const handler = isSingle ? primary : secondary;
+    if (handler === "throw") throw new Error("network down");
+    if (handler === "500") return new Response("server error", { status: 500 });
+    if (typeof handler === "function") return await handler();
+    return new Response(JSON.stringify(handler), { status: 200 });
+  });
+}
+
+async function withApiKey(fn: () => Promise<void>): Promise<void> {
+  const original = process.env.GOOGLE_CALENDAR_API_KEY;
+  process.env.GOOGLE_CALENDAR_API_KEY = "test-key";
+  try { await fn(); }
+  finally {
+    if (original === undefined) delete process.env.GOOGLE_CALENDAR_API_KEY;
+    else process.env.GOOGLE_CALENDAR_API_KEY = original;
+  }
+}
+
 describe("GoogleCalendarAdapter — RECURRENCE-ID override recovery (#1021/#1024)", () => {
-  const adapter = new GoogleCalendarAdapter();
-
-  function makeSource(config: object = { defaultKennelTag: "test" }) {
-    return {
-      id: "test-source",
-      url: "test@calendar.google.com",
-      type: "GOOGLE_CALENDAR" as const,
-      config,
-      scrapeDays: 90,
-    } as unknown as Parameters<typeof adapter.fetch>[0];
-  }
-
-  // Build a fetch spy that returns different bodies for the primary
-  // (singleEvents=true) and secondary (singleEvents=false) calls. Both can
-  // be primed with multi-page responses via { items, nextPageToken }.
-  function mockTwoCalls(
-    primary: object | (() => Response | Promise<Response>),
-    secondary: object | (() => Response | Promise<Response>) | "throw" | "500",
-  ) {
-    return vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
-      const url = new URL(input as string);
-      const isSingle = url.searchParams.get("singleEvents") === "true";
-      const handler = isSingle ? primary : secondary;
-      if (handler === "throw") throw new Error("network down");
-      if (handler === "500") return new Response("server error", { status: 500 });
-      if (typeof handler === "function") return await handler();
-      return new Response(JSON.stringify(handler), { status: 200 });
-    });
-  }
-
-  async function withApiKey(fn: () => Promise<void>): Promise<void> {
-    const original = process.env.GOOGLE_CALENDAR_API_KEY;
-    process.env.GOOGLE_CALENDAR_API_KEY = "test-key";
-    try { await fn(); }
-    finally {
-      if (original === undefined) delete process.env.GOOGLE_CALENDAR_API_KEY;
-      else process.env.GOOGLE_CALENDAR_API_KEY = original;
-    }
-  }
+  const adapter = RECOVERY_ADAPTER;
+  const makeSource = makeRecoverySource;
 
   // ── Fixture A: timed RRULE master + timed override (DeMon shape) ──
   it("dedups across calls when primary singleEvents=true returns the override (DeMon shape)", async () => {
@@ -2756,7 +2759,7 @@ describe("GoogleCalendarAdapter — RECURRENCE-ID override recovery (#1021/#1024
           { days: 1500 },
         );
         expect(res.events).toHaveLength(3);
-        expect(res.events.map(e => e.date).sort()).toEqual(["2024-08-01", "2024-09-15", "2024-10-30"]);
+        expect(res.events.map(e => e.date).sort((a, b) => a.localeCompare(b))).toEqual(["2024-08-01", "2024-09-15", "2024-10-30"]);
         expect(res.diagnosticContext?.exceptionsRecovered).toBe(3);
       } finally {
         fetchSpy.mockRestore();
@@ -2793,7 +2796,7 @@ describe("GoogleCalendarAdapter — RECURRENCE-ID override recovery (#1021/#1024
       try {
         const res = await adapter.fetch(makeSource({ defaultKennelTag: "demon-h3" }), { days: 90 });
         expect(res.events).toHaveLength(2);
-        const dates = res.events.map(e => e.date).sort();
+        const dates = res.events.map(e => e.date).sort((a, b) => a.localeCompare(b));
         expect(dates).toEqual(["2025-12-15", "2025-12-22"]);
       } finally {
         fetchSpy.mockRestore();
