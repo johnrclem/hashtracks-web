@@ -82,6 +82,7 @@ import { SydneyThirstyH3Adapter } from "./html-scraper/sydney-thirsty-h3";
 import { N2TH3Adapter } from "./html-scraper/n2th3";
 import { LswH3Adapter } from "./html-scraper/lsw-h3";
 import { LadiesH4HkAdapter } from "./html-scraper/ladies-h4-hk";
+import { Hkh3Adapter } from "./html-scraper/hkh3";
 import { Cah3Adapter } from "./html-scraper/cah3";
 import { Crh3Adapter } from "./html-scraper/crh3";
 import { BkkHarriettesAdapter } from "./html-scraper/bkk-harriettes";
@@ -207,6 +208,7 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /n2th3\.org|n2th3\.wordpress/i, name: "N2TH3Adapter", factory: () => new N2TH3Adapter() },
   { pattern: /datadesignfactory\.com\/lsw/i, name: "LswH3Adapter", factory: () => new LswH3Adapter() },
   { pattern: /hkladiesh4\.wixsite/i, name: "LadiesH4HkAdapter", factory: () => new LadiesH4HkAdapter() },
+  { pattern: /^https?:\/\/(?:www\.)?hkhash\.com\/?$/i, name: "Hkh3Adapter", factory: () => new Hkh3Adapter() },
   // ── Thailand (Phase 1a) ──
   { pattern: /cah3\.net/i, name: "Cah3Adapter", factory: () => new Cah3Adapter() },
   { pattern: /chiangraihhh\.blogspot/i, name: "Crh3Adapter", factory: () => new Crh3Adapter() },

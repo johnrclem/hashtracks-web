@@ -101,6 +101,64 @@ describe("parseDate", () => {
   it("returns null for invalid D-Mon-YY", () => {
     expect(parseDate("32-Jan-26")).toBeNull();
   });
+
+  // ── "Day-name DD MonthName" (no year) — RS2H3 format ──
+
+  it("parses 'Thu 7 May' with year inferred from today (current year)", () => {
+    // Today: 1 May 2026 → "Thu 7 May" → 2026-05-07 (this year)
+    const today = new Date(Date.UTC(2026, 4, 1));
+    expect(parseDate("Thu 7 May", today)).toBe("2026-05-07");
+  });
+
+  it("parses 'Mon 14 Sep' from end of year — no rollover needed", () => {
+    const today = new Date(Date.UTC(2026, 4, 1));
+    expect(parseDate("Mon 14 Sep", today)).toBe("2026-09-14");
+  });
+
+  it("rolls year forward when month already passed", () => {
+    // Today: 15 Dec 2026 → "Mon 14 Sep" → 2027-09-14 (next year, since Sep is past)
+    const today = new Date(Date.UTC(2026, 11, 15));
+    expect(parseDate("Mon 14 Sep", today)).toBe("2027-09-14");
+  });
+
+  it("picks closest year across New Year boundary (Dec date on Jan 1)", () => {
+    // Today: 1 Jan 2026 → "Thu 25 Dec" → 2025-12-25 (within 30-day grace)
+    // NOT 2026-12-25 (358 days future) — proves we pick by distance, not just first valid.
+    const today = new Date(Date.UTC(2026, 0, 1));
+    expect(parseDate("Thu 25 Dec", today)).toBe("2025-12-25");
+  });
+
+  it("picks current year when last-year candidate is outside grace window", () => {
+    // Today: 1 Feb 2026 → "Mon 25 Dec" → 2026-12-25 (last year is 38 days back, past grace)
+    const today = new Date(Date.UTC(2026, 1, 1));
+    expect(parseDate("Mon 25 Dec", today)).toBe("2026-12-25");
+  });
+
+  it("keeps current year for date within 30-day grace window", () => {
+    // Today: 15 May 2026 → "Thu 7 May" → 2026-05-07 (only 8 days back, still grace)
+    const today = new Date(Date.UTC(2026, 4, 15));
+    expect(parseDate("Thu 7 May", today)).toBe("2026-05-07");
+  });
+
+  it("trims trailing whitespace (RS2H3 'Thu 7 May ')", () => {
+    const today = new Date(Date.UTC(2026, 4, 1));
+    expect(parseDate("Thu 7 May ", today)).toBe("2026-05-07");
+  });
+
+  it("supports full month name 'Tuesday 14 September'", () => {
+    const today = new Date(Date.UTC(2026, 4, 1));
+    expect(parseDate("Tuesday 14 September", today)).toBe("2026-09-14");
+  });
+
+  it("returns null for impossible day in no-year format", () => {
+    const today = new Date(Date.UTC(2026, 4, 1));
+    expect(parseDate("Thu 32 May", today)).toBeNull();
+  });
+
+  it("returns null for unknown month abbreviation", () => {
+    const today = new Date(Date.UTC(2026, 4, 1));
+    expect(parseDate("Thu 7 Xyz", today)).toBeNull();
+  });
 });
 
 // ── inferStartTime ──
@@ -296,6 +354,57 @@ describe("buildEventFromSheetRow", () => {
     const row = ["", "2026-04-01", "Some Hare", "Munich"];
     const result = buildEventFromSheetRow(row, config as GoogleSheetsConfig, "https://example.com", "2026-04-01");
     expect(result).toBeNull();
+  });
+
+  // ── extraHares (multi-column hare merging — KH3 Hare1/Hare2 layout) ──
+
+  it("merges extraHares column into hares when both populated", () => {
+    const config = {
+      sheetId: "test",
+      columns: { runNumber: 0, date: 1, hares: 2, extraHares: [3], location: 4, title: 5 },
+      kennelTagRules: { default: "kh3" },
+    };
+    const row = ["100", "3/11/26", "ONE HUNG LO", "LASTMAN", "Kwai Fong", ""];
+    const event = buildEventFromSheetRow(row, config as GoogleSheetsConfig, "https://example.com", "2026-03-11");
+    expect(event).not.toBeNull();
+    // Sorted alphabetically for fingerprint stability
+    expect(event!.hares).toBe("LASTMAN / ONE HUNG LO");
+  });
+
+  it("uses primary hare alone when extraHares cell is empty", () => {
+    const config = {
+      sheetId: "test",
+      columns: { runNumber: 0, date: 1, hares: 2, extraHares: [3], location: 4, title: 5 },
+      kennelTagRules: { default: "kh3" },
+    };
+    const row = ["101", "3/18/26", "TIMBITS", "", "", ""];
+    const event = buildEventFromSheetRow(row, config as GoogleSheetsConfig, "https://example.com", "2026-03-18");
+    expect(event).not.toBeNull();
+    expect(event!.hares).toBe("TIMBITS");
+  });
+
+  it("returns undefined hares when both primary and extra cells empty", () => {
+    const config = {
+      sheetId: "test",
+      columns: { runNumber: 0, date: 1, hares: 2, extraHares: [3], location: 4, title: 5 },
+      kennelTagRules: { default: "kh3" },
+    };
+    const row = ["102", "3/25/26", "", "", "", ""];
+    const event = buildEventFromSheetRow(row, config as GoogleSheetsConfig, "https://example.com", "2026-03-25");
+    expect(event).not.toBeNull();
+    expect(event!.hares).toBeUndefined();
+  });
+
+  it("strips placeholder values from extraHares cells", () => {
+    const config = {
+      sheetId: "test",
+      columns: { runNumber: 0, date: 1, hares: 2, extraHares: [3], location: 4, title: 5 },
+      kennelTagRules: { default: "kh3" },
+    };
+    const row = ["103", "4/1/26", "TIMBITS", "TBD", "", ""];
+    const event = buildEventFromSheetRow(row, config as GoogleSheetsConfig, "https://example.com", "2026-04-01");
+    expect(event).not.toBeNull();
+    expect(event!.hares).toBe("TIMBITS");
   });
 
   it.each([

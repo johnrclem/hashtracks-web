@@ -3176,6 +3176,22 @@ export const KENNELS: KennelSeed[] = [
     },
     // ===== HONG KONG =====
     {
+      // Founder kennel of the entire Hong Kong scene — "Most Royal and
+      // Ancient Hash in Hong Kong". Founded 23 Feb 1970 (8 years after
+      // HHHS Singapore, 32 years after Mother Hash KL). Run #2969 as of
+      // Apr 2026. Men only. Weekly Monday evenings 18:00.
+      kennelCode: "hkh3", shortName: "HK H3", fullName: "Hong Kong Hash House Harriers",
+      region: "Hong Kong", country: "Hong Kong",
+      website: "https://hkhash.com",
+      facebookUrl: "https://www.facebook.com/h4hongkonghash",
+      contactEmail: "h4hashit@gmail.com",
+      foundedYear: 1970,
+      scheduleDayOfWeek: "Monday", scheduleTime: "6:00 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Men only. Most Royal and Ancient Hash in Hong Kong. Trails ~6-9km, 45-90 minutes. First-time visitors free.",
+      description: "Founded 23 February 1970, the original Hong Kong hash kennel and the third-oldest in the world (after Mother Hash KL and HHHS Singapore). Weekly Monday evening runs across Hong Kong. Men-only. Run announcements posted on the homepage with location, format, and bus details ahead of each Monday.",
+      latitude: 22.2800, longitude: 114.1500,
+    },
+    {
       kennelCode: "n2th3", shortName: "N2TH3", fullName: "Northern New Territories Hash House Harriers",
       region: "Hong Kong", country: "Hong Kong",
       website: "https://n2th3.org",
