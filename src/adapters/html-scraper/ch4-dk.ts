@@ -16,7 +16,7 @@
  */
 
 import type { Source } from "@/generated/prisma/client";
-import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
+import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails, ParseError } from "../types";
 import { hasAnyErrors } from "../types";
 import {
   fetchHTMLPage,
@@ -30,16 +30,66 @@ import {
 // `[^\d]{0,40}` is bounded + greedy: bounded length defends against
 // catastrophic backtracking (S5852); greedy is safe because `(\d{1,2}):` next
 // requires a digit, so the engine cannot over-consume.
-const RE_DATE_TIME = /(\d{1,2})-(\d{1,2})-(\d{4})[^\d]{0,40}(\d{1,2}):(\d{2})/;
+// NOSONAR — bounded length + non-overlapping next token rules out super-linear backtracking.
+const RE_DATE_TIME = /(\d{1,2})-(\d{1,2})-(\d{4})[^\d]{0,40}(\d{1,2}):(\d{2})/; // NOSONAR
 const RE_DATE_ONLY = /(\d{1,2})-(\d{1,2})-(\d{4})/;
 const RE_DATE_PARTIAL = /(\d{1,2})-(\d{1,2})(?!\d)/;
 const RE_TIME = /(\d{1,2}):(\d{2})/;
 const RE_HARES_RECRUITMENT = /hares?\s+wanted|contact\s+the\s+ch4\s+junta|junta/i;
+const RE_HARES_WANTED = /hares?\s+wanted/i;
 const RE_HARES_SPLIT = /\s+and\s+|\s*&\s*|\s*,\s*/i;
 const RE_RUN_NUMBER = /#\s*(\d+)/;
 const RE_RUNSHEET_HEADING = /Runsheet\s+(\d{4})/i;
 const RE_LOCATION_TBA = /^location\s+(tba|tbc|tbd)\b/i;
 const RE_INTERNAL_LINK = /^(?:mailto:|tel:|#)/i;
+const RE_DOUBLE_COMMA = /,\s*,/g;
+const RE_LEADING_TRAILING_COMMA = /^\s*,|,\s*$/g;
+const RE_WHITESPACE_RUN = /\s+/g;
+
+interface ParsedDateTime {
+  date: string;
+  startTime?: string;
+}
+
+function parseFullDateTime(text: string): ParsedDateTime | null {
+  const m = RE_DATE_TIME.exec(text);
+  if (!m) return null;
+  const [, dd, mm, yyyy, hh, mins] = m;
+  const day = Number.parseInt(dd, 10);
+  const month = Number.parseInt(mm, 10);
+  const year = Number.parseInt(yyyy, 10);
+  if (!isValidDate(year, month, day)) return null;
+  return {
+    date: formatYmd(year, month, day),
+    startTime: formatHm(Number.parseInt(hh, 10), Number.parseInt(mins, 10)),
+  };
+}
+
+function parseDateOnly(text: string): ParsedDateTime | null {
+  const m = RE_DATE_ONLY.exec(text);
+  if (!m) return null;
+  const day = Number.parseInt(m[1], 10);
+  const month = Number.parseInt(m[2], 10);
+  const year = Number.parseInt(m[3], 10);
+  if (!isValidDate(year, month, day)) return null;
+  return { date: formatYmd(year, month, day) };
+}
+
+function parsePartialDate(text: string, yearHint: number): ParsedDateTime | null {
+  const m = RE_DATE_PARTIAL.exec(text);
+  if (!m) return null;
+  const day = Number.parseInt(m[1], 10);
+  const month = Number.parseInt(m[2], 10);
+  if (!isValidDate(yearHint, month, day)) return null;
+  const date = formatYmd(yearHint, month, day);
+  const timeMatch = RE_TIME.exec(text);
+  if (!timeMatch) return { date };
+  const startTime = formatHm(
+    Number.parseInt(timeMatch[1], 10),
+    Number.parseInt(timeMatch[2], 10),
+  );
+  return startTime ? { date, startTime } : { date };
+}
 
 /**
  * Parse cell 1 ("Friday 03-04-2026<br>20:00 hrs") into a YYYY-MM-DD date and
@@ -50,50 +100,13 @@ const RE_INTERNAL_LINK = /^(?:mailto:|tel:|#)/i;
 export function parseCh4DateTime(
   cellHtml: string,
   yearHint: number | undefined,
-): { date: string; startTime?: string } | null {
+): ParsedDateTime | null {
   const text = decodeEntities(stripHtmlTags(cellHtml, " "));
-
-  // Primary: explicit DD-MM-YYYY  HH:MM (with optional " hrs" or other words between)
-  const m = text.match(RE_DATE_TIME);
-  if (m) {
-    const [, dd, mm, yyyy, hh, mins] = m;
-    const day = Number.parseInt(dd, 10);
-    const month = Number.parseInt(mm, 10);
-    const year = Number.parseInt(yyyy, 10);
-    if (!isValidDate(year, month, day)) return null;
-    return {
-      date: formatYmd(year, month, day),
-      startTime: formatHm(Number.parseInt(hh, 10), Number.parseInt(mins, 10)),
-    };
-  }
-
-  // Fallback: DD-MM-YYYY without inline time
-  const dateOnly = text.match(RE_DATE_ONLY);
-  if (dateOnly) {
-    const day = Number.parseInt(dateOnly[1], 10);
-    const month = Number.parseInt(dateOnly[2], 10);
-    const year = Number.parseInt(dateOnly[3], 10);
-    if (!isValidDate(year, month, day)) return null;
-    return { date: formatYmd(year, month, day) };
-  }
-
-  // Last resort: DD-MM with year from heading. Optional inline time recovery.
-  if (yearHint) {
-    const partial = text.match(RE_DATE_PARTIAL);
-    if (partial) {
-      const day = Number.parseInt(partial[1], 10);
-      const month = Number.parseInt(partial[2], 10);
-      if (!isValidDate(yearHint, month, day)) return null;
-      const timeMatch = text.match(RE_TIME);
-      const startTime = timeMatch
-        ? formatHm(Number.parseInt(timeMatch[1], 10), Number.parseInt(timeMatch[2], 10))
-        : undefined;
-      const date = formatYmd(yearHint, month, day);
-      return startTime ? { date, startTime } : { date };
-    }
-  }
-
-  return null;
+  return (
+    parseFullDateTime(text) ??
+    parseDateOnly(text) ??
+    (yearHint ? parsePartialDate(text, yearHint) : null)
+  );
 }
 
 function isValidDate(year: number, month: number, day: number): boolean {
@@ -120,6 +133,11 @@ function formatHm(h: number, m: number): string | undefined {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
+function appendParseError(errorDetails: ErrorDetails, error: ParseError): void {
+  errorDetails.parse ??= [];
+  errorDetails.parse.push(error);
+}
+
 /**
  * Flatten a multi-line address cell — venues use `<br>` between
  * "Cafe Ellebo / Sjælør Boulevard 49 / 2450 Copenhagen SV". We normalize
@@ -128,8 +146,8 @@ function formatHm(h: number, m: number): string | undefined {
 export function flattenAddressCell(cellHtml: string): string | undefined {
   const text = decodeEntities(stripHtmlTags(cellHtml, ", "));
   const cleaned = text
-    .replace(/,\s*,/g, ",")
-    .replace(/^\s*,|,\s*$/g, "")
+    .replaceAll(RE_DOUBLE_COMMA, ",")
+    .replaceAll(RE_LEADING_TRAILING_COMMA, "")
     .trim();
   if (!cleaned) return undefined;
   if (RE_LOCATION_TBA.test(cleaned)) return undefined;
@@ -152,7 +170,7 @@ export function parseCh4Hares(raw: string | undefined): string | undefined {
   const parts = text
     .split(RE_HARES_SPLIT)
     .map((s) => s.trim())
-    .filter((s) => s.length > 0 && !/hares?\s+wanted/i.test(s));
+    .filter((s) => s.length > 0 && !RE_HARES_WANTED.test(s));
   if (parts.length === 0) return undefined;
   return normalizeHaresField(parts.join(", "));
 }
@@ -181,7 +199,7 @@ export class Ch4DkAdapter implements SourceAdapter {
     $("h2").each((_, el) => {
       if (runsheetTable) return;
       const txt = $(el).text();
-      const m = txt.match(RE_RUNSHEET_HEADING);
+      const m = RE_RUNSHEET_HEADING.exec(txt);
       if (!m) return;
       yearHint = Number.parseInt(m[1], 10);
       const $next = $(el).nextAll("table").first();
@@ -191,7 +209,7 @@ export class Ch4DkAdapter implements SourceAdapter {
     if (!runsheetTable) {
       const message = "Runsheet table not found";
       errors.push(message);
-      (errorDetails.parse ??= []).push({
+      appendParseError(errorDetails, {
         row: -1,
         section: "runsheet",
         error: "no <h2>Runsheet YYYY</h2> followed by <table> in document",
@@ -205,7 +223,8 @@ export class Ch4DkAdapter implements SourceAdapter {
       };
     }
 
-    const rows = (runsheetTable as ReturnType<typeof $>).find("tr");
+    const table: ReturnType<typeof $> = runsheetTable;
+    const rows = table.find("tr");
     rows.each((i, el) => {
       const $row = $(el);
       // Skip header row
@@ -216,8 +235,8 @@ export class Ch4DkAdapter implements SourceAdapter {
         if ($cells.length < 5) return;
 
         // Cell 0: "CH4 #367"
-        const runText = decodeEntities($cells.eq(0).text()).replace(/\s+/g, " ").trim();
-        const runMatch = runText.match(RE_RUN_NUMBER);
+        const runText = decodeEntities($cells.eq(0).text()).replaceAll(RE_WHITESPACE_RUN, " ").trim();
+        const runMatch = RE_RUN_NUMBER.exec(runText);
         const runNumber = runMatch ? Number.parseInt(runMatch[1], 10) : undefined;
 
         // Cell 1: date+time
@@ -242,7 +261,7 @@ export class Ch4DkAdapter implements SourceAdapter {
 
         // Cell 4: hares (cell 3 is the public-transport widget)
         const haresText = $cells.eq(4).length
-          ? decodeEntities($cells.eq(4).text()).replace(/\s+/g, " ").trim()
+          ? decodeEntities($cells.eq(4).text()).replaceAll(RE_WHITESPACE_RUN, " ").trim()
           : undefined;
         const hares = parseCh4Hares(haresText);
 
@@ -251,7 +270,7 @@ export class Ch4DkAdapter implements SourceAdapter {
         if ($cells.eq(5).length) {
           const $notes = $cells.eq(5).clone();
           $notes.find("a, img").remove();
-          const noteText = decodeEntities($notes.text()).replace(/\s+/g, " ").trim();
+          const noteText = decodeEntities($notes.text()).replaceAll(RE_WHITESPACE_RUN, " ").trim();
           notes = noteText || undefined;
         }
 
@@ -269,7 +288,7 @@ export class Ch4DkAdapter implements SourceAdapter {
         });
       } catch (err) {
         errors.push(`Error parsing row ${i}: ${err}`);
-        (errorDetails.parse ??= []).push({
+        appendParseError(errorDetails, {
           row: i,
           section: "runsheet",
           error: String(err),
