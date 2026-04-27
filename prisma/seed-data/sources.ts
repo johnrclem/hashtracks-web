@@ -66,6 +66,47 @@ const icalBaseChooChoo = {
   scrapeDays: 365,
 };
 
+// ── SHARED SOURCE BUILDERS ──
+
+/**
+ * Build a STATIC_SCHEDULE source row from the recurring-slot params. Reduces
+ * boilerplate for the dozens of FB-coordinated kennels where the only
+ * source is a known weekly/monthly cadence + a Facebook page link.
+ *
+ * Defaults: trustLevel=3 (FB-only), weekly scrape, 90-day window. Override
+ * any of these by passing them in `extra`.
+ */
+function staticScheduleSource(params: {
+  name: string;
+  url: string;
+  kennelTag: string;
+  rrule: string;
+  startTime?: string;
+  defaultTitle: string;
+  defaultLocation: string;
+  defaultDescription: string;
+  extra?: Partial<{ trustLevel: number; scrapeFreq: string; scrapeDays: number }>;
+}) {
+  const { name, url, kennelTag, rrule, startTime, defaultTitle, defaultLocation, defaultDescription, extra } = params;
+  return {
+    name,
+    url,
+    type: "STATIC_SCHEDULE" as const,
+    trustLevel: extra?.trustLevel ?? 3,
+    scrapeFreq: extra?.scrapeFreq ?? "weekly",
+    scrapeDays: extra?.scrapeDays ?? 90,
+    config: {
+      kennelTag,
+      rrule,
+      ...(startTime ? { startTime } : {}),
+      defaultTitle,
+      defaultLocation,
+      defaultDescription,
+    },
+    kennelCodes: [kennelTag],
+  };
+}
+
 // ── SOURCE DATA (PRD Section 8) ──
 
 export const SOURCES = [
@@ -3781,23 +3822,16 @@ export const SOURCES = [
       kennelCodes: ["hkh3"],
     },
     // --- HK H3 (STATIC_SCHEDULE — recurring slot for advance visibility) ---
-    {
+    staticScheduleSource({
       name: "HK H3 Static Schedule",
       url: "https://hkhash.com/",
-      type: "STATIC_SCHEDULE" as const,
-      trustLevel: 3,
-      scrapeFreq: "weekly",
-      scrapeDays: 90,
-      config: {
-        kennelTag: "hkh3",
-        rrule: "FREQ=WEEKLY;BYDAY=MO",
-        startTime: "18:00",
-        defaultTitle: "HK H3 Weekly Run",
-        defaultLocation: "Hong Kong",
-        defaultDescription: "Weekly Monday evening trail (men only). Run number, hare, and exact location are posted on https://hkhash.com/ ahead of each Monday.",
-      },
-      kennelCodes: ["hkh3"],
-    },
+      kennelTag: "hkh3",
+      rrule: "FREQ=WEEKLY;BYDAY=MO",
+      startTime: "18:00",
+      defaultTitle: "HK H3 Weekly Run",
+      defaultLocation: "Hong Kong",
+      defaultDescription: "Weekly Monday evening trail (men only). Run number, hare, and exact location are posted on https://hkhash.com/ ahead of each Monday.",
+    }),
     // --- N2TH3 (WordPress.com Public API — day-of detail) ---
     // Posts are run announcements published ~1 day before each run, so this
     // source provides rich detail (hare, location, map URL) but no future
@@ -3813,23 +3847,16 @@ export const SOURCES = [
       kennelCodes: ["n2th3"],
     },
     // --- N2TH3 (STATIC_SCHEDULE — recurring slot for advance visibility) ---
-    {
+    staticScheduleSource({
       name: "N2TH3 Static Schedule",
       url: "https://n2th3.org",
-      type: "STATIC_SCHEDULE" as const,
-      trustLevel: 3,
-      scrapeFreq: "weekly",
-      scrapeDays: 90,
-      config: {
-        kennelTag: "n2th3",
-        rrule: "FREQ=WEEKLY;BYDAY=WE",
-        startTime: "19:00",
-        defaultTitle: "N2TH3 Weekly Run",
-        defaultLocation: "Hong Kong New Territories",
-        defaultDescription: "Weekly Wednesday evening trail in Hong Kong's Northern New Territories. Trail location, hare, and on-on details are posted ~1 day before each run at https://n2th3.org/.",
-      },
-      kennelCodes: ["n2th3"],
-    },
+      kennelTag: "n2th3",
+      rrule: "FREQ=WEEKLY;BYDAY=WE",
+      startTime: "19:00",
+      defaultTitle: "N2TH3 Weekly Run",
+      defaultLocation: "Hong Kong New Territories",
+      defaultDescription: "Weekly Wednesday evening trail in Hong Kong's Northern New Territories. Trail location, hare, and on-on details are posted ~1 day before each run at https://n2th3.org/.",
+    }),
     // --- RS2H3 (Google Sheets) ---
     {
       name: "RS2H3 Hareline Sheet",

@@ -84,6 +84,37 @@ function extractLabeled(text: string, label: RegExp): string | undefined {
 }
 
 /**
+ * Find the "Next H4 Run" container element in the homepage DOM. The live
+ * site renders the label as `<p><strong>Next H4 Run</strong></p>` inside a
+ * WPBakery `wpb_text_column` block; older versions used an `<h2>`. We match
+ * the heading by text content (not tag) and walk up to its enclosing block.
+ * Returns null if the heading isn't present.
+ */
+function findNextRunContainer($: cheerio.CheerioAPI) {
+  // Cheerio's :contains() selector matches any element whose text contains
+  // the substring. Restrict to small inline-text holders (strong/h2/h3/p)
+  // to avoid matching giant ancestor elements that contain the whole page.
+  const heading = $("strong, h1, h2, h3, p").filter((_i, el) => {
+    const t = $(el).text().trim();
+    return /^Next\s+H4\s+Run\b/i.test(t) && t.length < 100;
+  });
+  if (heading.length === 0) return null;
+  // Walk up several levels to find the section that holds both the heading
+  // and the labeled fields below it. Stop once we find an ancestor whose
+  // text contains both "Next H4 Run" and "Location" — that's the right
+  // bounding block. Capped at 6 hops so we don't blow past the section.
+  let cursor = heading.first();
+  for (let hop = 0; hop < 6; hop++) {
+    const parent = cursor.parent();
+    if (parent.length === 0) break;
+    cursor = parent;
+    const txt = cursor.text();
+    if (/Location/i.test(txt) && /Format/i.test(txt)) return cursor;
+  }
+  return cursor;
+}
+
+/**
  * Parse the homepage HTML into a single RawEventData for the upcoming run,
  * or null if the "Next H4 Run" block isn't present.
  *
@@ -96,19 +127,13 @@ export function parseHkh3Homepage(
 ): RawEventData | null {
   const $ = cheerio.load(html);
 
-  // The homepage has a "Next H4 Run" heading followed by inline labels.
-  // We grab the visible text and use simple labeled-field extraction since
-  // the block layout is template-stable (WordPress page).
-  const bodyText = $("body").text().replaceAll(/\s+/g, " ").trim();
-  if (!/Next\s+H4\s+Run/i.test(bodyText)) return null;
+  const container = findNextRunContainer($);
+  if (!container) return null;
 
-  // Narrow to the "Next H4 Run" segment to reduce false matches from
-  // unrelated page chrome (e.g. archived posts mentioning a run number).
-  const segMatch = /Next\s+H4\s+Run([\s\S]{0,1000}?)(?:Contrary to our reputation|If you wish to contact us|<\/body>|$)/i.exec(html);
-  const segment = segMatch ? segMatch[1] : html;
-
-  // Strip tags from the segment for label extraction.
-  const segText = segment.replaceAll(/<[^>]+>/g, "\n").replaceAll("&nbsp;", " ");
+  // Use cheerio's built-in text extraction — no regex tag stripping needed.
+  // Whitespace collapses naturally because text() already returns plain text;
+  // collapsing runs of whitespace makes labeled-field extraction predictable.
+  const segText = container.text().replaceAll(/[ \t]+/g, " ");
 
   const runNumberRaw = extractLabeled(segText, /Run\s+Number\s*[:\s]/i);
   const runNumber = runNumberRaw ? Number.parseInt(runNumberRaw.replaceAll(/\D/g, ""), 10) : undefined;
@@ -116,9 +141,12 @@ export function parseHkh3Homepage(
   const location = extractLabeled(segText, /Location\s*[:\s]/i);
   const format = extractLabeled(segText, /Format\s*[:\s]/i);
 
-  // Locate the Google Maps link inside the segment (anchor href).
-  const mapMatch = /href="(https?:\/\/(?:maps\.app\.goo\.gl|maps\.google\.[^"/]+|www\.google\.com\/maps)[^"]*)"/i.exec(segment);
-  const locationUrl = mapMatch ? mapMatch[1] : undefined;
+  // Locate the Google Maps link inside the container (anchor href). Cheerio
+  // walks the DOM directly — no URL-shaped regex needed, no ReDoS surface.
+  const locationUrl = container
+    .find("a[href*='maps.app.goo.gl'], a[href*='maps.google.'], a[href*='google.com/maps']")
+    .first()
+    .attr("href");
 
   // Detail strings to weave into the description (skip empties).
   const description = [

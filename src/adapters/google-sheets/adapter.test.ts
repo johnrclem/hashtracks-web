@@ -104,60 +104,25 @@ describe("parseDate", () => {
 
   // ── "Day-name DD MonthName" (no year) — RS2H3 format ──
 
-  it("parses 'Thu 7 May' with year inferred from today (current year)", () => {
-    // Today: 1 May 2026 → "Thu 7 May" → 2026-05-07 (this year)
-    const today = new Date(Date.UTC(2026, 4, 1));
-    expect(parseDate("Thu 7 May", today)).toBe("2026-05-07");
-  });
+  describe("Day-name DD MonthName (no year)", () => {
+    // Each row: [today (Y, M-0idx, D), input, expected]. `null` expected = parse failure.
+    type Case = readonly [Date, string, string | null];
+    const cases: Record<string, Case> = {
+      "Thu 7 May → current year": [new Date(Date.UTC(2026, 4, 1)), "Thu 7 May", "2026-05-07"],
+      "Mon 14 Sep → end of year, no rollover": [new Date(Date.UTC(2026, 4, 1)), "Mon 14 Sep", "2026-09-14"],
+      "Mon 14 Sep → rolls forward when month past": [new Date(Date.UTC(2026, 11, 15)), "Mon 14 Sep", "2027-09-14"],
+      "Thu 25 Dec on Jan 1 → previous year (grace)": [new Date(Date.UTC(2026, 0, 1)), "Thu 25 Dec", "2025-12-25"],
+      "Mon 25 Dec on Feb 1 → current year (past grace)": [new Date(Date.UTC(2026, 1, 1)), "Mon 25 Dec", "2026-12-25"],
+      "Thu 7 May on May 15 → keep current year (in grace)": [new Date(Date.UTC(2026, 4, 15)), "Thu 7 May", "2026-05-07"],
+      "trailing whitespace 'Thu 7 May '": [new Date(Date.UTC(2026, 4, 1)), "Thu 7 May ", "2026-05-07"],
+      "full month name 'Tuesday 14 September'": [new Date(Date.UTC(2026, 4, 1)), "Tuesday 14 September", "2026-09-14"],
+      "impossible day 'Thu 32 May'": [new Date(Date.UTC(2026, 4, 1)), "Thu 32 May", null],
+      "unknown month 'Thu 7 Xyz'": [new Date(Date.UTC(2026, 4, 1)), "Thu 7 Xyz", null],
+    };
 
-  it("parses 'Mon 14 Sep' from end of year — no rollover needed", () => {
-    const today = new Date(Date.UTC(2026, 4, 1));
-    expect(parseDate("Mon 14 Sep", today)).toBe("2026-09-14");
-  });
-
-  it("rolls year forward when month already passed", () => {
-    // Today: 15 Dec 2026 → "Mon 14 Sep" → 2027-09-14 (next year, since Sep is past)
-    const today = new Date(Date.UTC(2026, 11, 15));
-    expect(parseDate("Mon 14 Sep", today)).toBe("2027-09-14");
-  });
-
-  it("picks closest year across New Year boundary (Dec date on Jan 1)", () => {
-    // Today: 1 Jan 2026 → "Thu 25 Dec" → 2025-12-25 (within 30-day grace)
-    // NOT 2026-12-25 (358 days future) — proves we pick by distance, not just first valid.
-    const today = new Date(Date.UTC(2026, 0, 1));
-    expect(parseDate("Thu 25 Dec", today)).toBe("2025-12-25");
-  });
-
-  it("picks current year when last-year candidate is outside grace window", () => {
-    // Today: 1 Feb 2026 → "Mon 25 Dec" → 2026-12-25 (last year is 38 days back, past grace)
-    const today = new Date(Date.UTC(2026, 1, 1));
-    expect(parseDate("Mon 25 Dec", today)).toBe("2026-12-25");
-  });
-
-  it("keeps current year for date within 30-day grace window", () => {
-    // Today: 15 May 2026 → "Thu 7 May" → 2026-05-07 (only 8 days back, still grace)
-    const today = new Date(Date.UTC(2026, 4, 15));
-    expect(parseDate("Thu 7 May", today)).toBe("2026-05-07");
-  });
-
-  it("trims trailing whitespace (RS2H3 'Thu 7 May ')", () => {
-    const today = new Date(Date.UTC(2026, 4, 1));
-    expect(parseDate("Thu 7 May ", today)).toBe("2026-05-07");
-  });
-
-  it("supports full month name 'Tuesday 14 September'", () => {
-    const today = new Date(Date.UTC(2026, 4, 1));
-    expect(parseDate("Tuesday 14 September", today)).toBe("2026-09-14");
-  });
-
-  it("returns null for impossible day in no-year format", () => {
-    const today = new Date(Date.UTC(2026, 4, 1));
-    expect(parseDate("Thu 32 May", today)).toBeNull();
-  });
-
-  it("returns null for unknown month abbreviation", () => {
-    const today = new Date(Date.UTC(2026, 4, 1));
-    expect(parseDate("Thu 7 Xyz", today)).toBeNull();
+    it.each(Object.entries(cases))("%s", (_label, [today, input, expected]) => {
+      expect(parseDate(input, today)).toBe(expected);
+    });
   });
 });
 

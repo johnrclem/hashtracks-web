@@ -84,4 +84,28 @@ describe("parseHkh3Homepage", () => {
     const event = parseHkh3Homepage(FIXTURE, "https://hkhash.com/", tuesday);
     expect(event!.date).toBe("2026-05-04");
   });
+
+  // Real-site fixture: hkhash.com renders the heading as <p><strong>Next H4 Run</strong></p>
+  // inside a WPBakery wpb_text_column block, NOT as <h2>. The container-finder
+  // must walk up the DOM until it finds the section that holds both the
+  // heading and the labeled fields.
+  it("parses the live <p><strong>Next H4 Run</strong></p> WPBakery layout", () => {
+    const wpbakery = `<html><body>
+      <div class="vc_row">
+        <div class="vc_column">
+          <div class="wpb_text_column"><div class="wpb_wrapper">
+            <p><strong>Next H4 Run</strong></p>
+            <p>Run Number 2970</p>
+            <div><span><b>Location</b>: <a href="https://maps.app.goo.gl/abc">Trail Park</a></span></div>
+            <div><span><b>Format</b>: B to A</span></div>
+          </div></div>
+        </div>
+      </div>
+    </body></html>`;
+    const event = parseHkh3Homepage(wpbakery, "https://hkhash.com/", today);
+    expect(event).not.toBeNull();
+    expect(event!.runNumber).toBe(2970);
+    expect(event!.location).toBe("Trail Park");
+    expect(event!.locationUrl).toBe("https://maps.app.goo.gl/abc");
+  });
 });
