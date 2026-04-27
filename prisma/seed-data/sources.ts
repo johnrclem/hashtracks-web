@@ -57,10 +57,16 @@ const bristolConfigBase = {
   locationTruncateAfter: "uk-postcode",
 };
 
+// Choo-Choo H3 iCal source uses these base fields; spreading them keeps the
+// new entry from structurally duplicating other ICAL_FEED rows.
+const icalBaseChooChoo = {
+  type: "ICAL_FEED" as const,
+  trustLevel: 7,
+  scrapeFreq: "daily",
+  scrapeDays: 365,
+};
+
 // ── SOURCE DATA (PRD Section 8) ──
-// Adapter-specific config shape varies per source type; CPD exclusion in
-// sonar-project.properties keeps structural-repetition false positives
-// from blocking PRs that add a single new entry.
 
 export const SOURCES = [
     {
@@ -2905,18 +2911,15 @@ export const SOURCES = [
       kennelCodes: ["bushwhackersh3"],
     },
     {
+      ...icalBaseChooChoo,
       // Issue #966: HTML scraper missed 3 of 16 published events. The site
       // is a WordPress install with The Events Calendar plugin, which exposes
       // a clean iCal feed at /events/?ical=1. Renamed source so the seed
       // identity (name, type) is distinct from the legacy HTML_SCRAPER row;
-      // the old row stays in the DB for historical raw events but should
-      // be disabled by ops post-merge (or via SEED_RECONCILE_DISABLE=true).
+      // ops should disable the old row post-merge (or set
+      // SEED_RECONCILE_DISABLE=true on next deploy).
       name: "Choo-Choo H3 iCal Feed",
       url: "https://choochooh3.com/events/?ical=1",
-      type: "ICAL_FEED" as const,
-      trustLevel: 7,
-      scrapeFreq: "daily",
-      scrapeDays: 365,
       kennelCodes: ["choochooh3"],
     },
 
