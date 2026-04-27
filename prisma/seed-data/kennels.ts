@@ -3188,7 +3188,7 @@ export const KENNELS: KennelSeed[] = [
       scheduleDayOfWeek: "Monday", scheduleTime: "6:00 PM", scheduleFrequency: "Weekly",
       scheduleNotes: "Men only. Most Royal and Ancient Hash in Hong Kong. Trails ~6-9km, 45-90 minutes. First-time visitors free.",
       description: "Founded 23 February 1970, the original Hong Kong hash kennel and founder of Hong Kong's hashing scene. Weekly Monday evening runs across Hong Kong. Men-only. Run announcements are posted on the homepage with location, format, and bus details ahead of each Monday.",
-      latitude: 22.2800, longitude: 114.1500,
+      latitude: 22.28, longitude: 114.15,
     },
     {
       kennelCode: "n2th3", shortName: "N2TH3", fullName: "Northern New Territories Hash House Harriers",

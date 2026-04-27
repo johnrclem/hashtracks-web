@@ -78,7 +78,7 @@ function extractLabeled(text: string, label: RegExp): string | undefined {
   // Stop at the next known field label.
   const stop = LABEL_STOP_RE.exec(cleaned);
   const value = (stop ? cleaned.slice(0, stop.index) : cleaned)
-    .replace(/\s+/g, " ")
+    .replaceAll(/\s+/g, " ")
     .trim();
   return value || undefined;
 }
@@ -99,7 +99,7 @@ export function parseHkh3Homepage(
   // The homepage has a "Next H4 Run" heading followed by inline labels.
   // We grab the visible text and use simple labeled-field extraction since
   // the block layout is template-stable (WordPress page).
-  const bodyText = $("body").text().replace(/\s+/g, " ").trim();
+  const bodyText = $("body").text().replaceAll(/\s+/g, " ").trim();
   if (!/Next\s+H4\s+Run/i.test(bodyText)) return null;
 
   // Narrow to the "Next H4 Run" segment to reduce false matches from
@@ -108,10 +108,10 @@ export function parseHkh3Homepage(
   const segment = segMatch ? segMatch[1] : html;
 
   // Strip tags from the segment for label extraction.
-  const segText = segment.replace(/<[^>]+>/g, "\n").replace(/&nbsp;/g, " ");
+  const segText = segment.replaceAll(/<[^>]+>/g, "\n").replaceAll("&nbsp;", " ");
 
   const runNumberRaw = extractLabeled(segText, /Run\s+Number\s*[:\s]/i);
-  const runNumber = runNumberRaw ? Number.parseInt(runNumberRaw.replace(/\D/g, ""), 10) : undefined;
+  const runNumber = runNumberRaw ? Number.parseInt(runNumberRaw.replaceAll(/\D/g, ""), 10) : undefined;
 
   const location = extractLabeled(segText, /Location\s*[:\s]/i);
   const format = extractLabeled(segText, /Format\s*[:\s]/i);
