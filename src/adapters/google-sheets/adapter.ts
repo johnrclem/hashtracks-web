@@ -43,6 +43,13 @@ export interface GoogleSheetsConfig {
     specialRun?: number;
     date: number;
     hares: number;
+    /**
+     * Additional hare columns to merge with `hares` when the source splits
+     * hares across multiple columns (e.g. KH3 has separate Hare1/Hare2 cells).
+     * Non-empty cells are joined with " / ", deterministically sorted to keep
+     * fingerprints stable when the underlying API reorders columns.
+     */
+    extraHares?: number[];
     location: number;
     title?: number;
     description?: number;
@@ -98,6 +105,43 @@ function parseDMonDate(cleaned: string): string | null {
 }
 
 /**
+ * Parse "Day-name DD MonthName" (no year) — e.g. "Thu 7 May", "Mon 14 Sep".
+ * Year is inferred from `today`: among the candidate years (this year, next,
+ * or last) whose resulting date is no more than 30 days behind today, pick
+ * the one whose absolute distance from today is smallest. This correctly
+ * handles dates near the year boundary (a Dec date scraped on Jan 1 resolves
+ * to the previous-year December within the grace window, not next December).
+ *
+ * Gated by the explicit day-name prefix so we don't mis-parse generic
+ * "DD MonthName" cells from other layouts.
+ */
+function parseDayNameDMonNoYear(cleaned: string, today: Date): string | null {
+  const match = /^[A-Za-z]{3,9}\s+(\d{1,2})\s+([A-Za-z]{3,9})$/.exec(cleaned);
+  if (!match) return null;
+  const day = Number.parseInt(match[1], 10);
+  const monthKey = match[2].slice(0, 3).toLowerCase();
+  const month = MONTH_NAMES[monthKey];
+  if (!month) return null;
+
+  const todayUtc = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+  const graceCutoff = todayUtc - 30 * 86_400_000;
+
+  let best: { date: string; distance: number } | null = null;
+  for (const yearOffset of [-1, 0, 1]) {
+    const year = today.getUTCFullYear() + yearOffset;
+    const candidate = formatValidDate(year, month, day);
+    if (!candidate) continue;
+    const candidateUtc = Date.UTC(year, month - 1, day);
+    if (candidateUtc < graceCutoff) continue;
+    const distance = Math.abs(candidateUtc - todayUtc);
+    if (best === null || distance < best.distance) {
+      best = { date: candidate, distance };
+    }
+  }
+  return best?.date ?? null;
+}
+
+/**
  * Parse dates in multiple formats found across hash kennel spreadsheets:
  * - "6-15-25" (M-D-YY with hyphens)
  * - "7/1/2024" (M/D/YYYY with slashes)
@@ -105,8 +149,11 @@ function parseDMonDate(cleaned: string): string | null {
  * - "2026-03-29" (YYYY-MM-DD ISO 8601)
  * - "2026/03/07" (YYYY/MM/DD)
  * - "2026/03/07 (Sat)" (YYYY/MM/DD with day-name suffix)
+ * - "Thu 7 May" (Day-name DD MonthName, year inferred from `today`)
+ *
+ * `today` is injectable for testability; defaults to the current UTC date.
  */
-export function parseDate(dateStr: string): string | null {
+export function parseDate(dateStr: string, today: Date = new Date()): string | null {
   const trimmed = dateStr.trim();
   if (!trimmed) return null;
 
@@ -116,6 +163,10 @@ export function parseDate(dateStr: string): string | null {
   // D-Mon-YY or DD-Mon-YYYY: "3-Jan-26", "20-Dec-25", "15-Mar-2026"
   const dMonResult = parseDMonDate(cleaned);
   if (dMonResult) return dMonResult;
+
+  // "Thu 7 May" / "Mon 14 Sep" — year inferred from today
+  const dayNameResult = parseDayNameDMonNoYear(cleaned, today);
+  if (dayNameResult) return dayNameResult;
 
   const parts = cleaned.split(/[/\-]/).map((s) => Number.parseInt(s, 10));
   if (parts.length !== 3 || parts.some(isNaN)) return null;
@@ -306,7 +357,18 @@ export function buildEventFromSheetRow(
   if (!resolved) return null;
 
   // Strip placeholder values (TBD, TBA, N/A, etc.)
-  const hares = stripPlaceholder(row[config.columns.hares]);
+  const primaryHare = stripPlaceholder(row[config.columns.hares]);
+  const extraHareCols = config.columns.extraHares ?? [];
+  const hares = extraHareCols.length === 0
+    ? primaryHare
+    : (() => {
+        const all = [primaryHare, ...extraHareCols.map((idx) => stripPlaceholder(row[idx]))]
+          .filter((h): h is string => Boolean(h));
+        if (all.length === 0) return undefined;
+        // Deterministic sort so column-order changes don't churn fingerprints.
+        all.sort((a, b) => a.localeCompare(b));
+        return all.join(" / ");
+      })();
   let location = stripPlaceholder(row[config.columns.location]);
   // Drop all-lowercase single-token "city shorthand" values (e.g. "sheperdstown")
   // that aren't real venue names. The merge pipeline still has the kennel's
@@ -385,7 +447,7 @@ export class GoogleSheetsAdapter implements SourceAdapter {
 
     // ── Direct CSV URL mode — skip tab discovery entirely ──
     if (config.csvUrl) {
-      return this.fetchDirectCsv(config, source.url, minISO, maxISO);
+      return this.fetchDirectCsv(config, source.url, minISO, maxISO, now);
     }
 
     const events: RawEventData[] = [];
@@ -452,7 +514,7 @@ export class GoogleSheetsAdapter implements SourceAdapter {
         sampleRows = rows.slice(0, 10);
       }
 
-      const processed = this.processRows(rows, config, source.url, minISO, maxISO, tabName);
+      const processed = this.processRows(rows, config, source.url, minISO, maxISO, now, tabName);
       events.push(...processed.events);
       errors.push(...processed.errors);
       if (processed.parseErrors.length > 0) {
@@ -479,13 +541,17 @@ export class GoogleSheetsAdapter implements SourceAdapter {
     };
   }
 
-  /** Process parsed CSV rows into events, returning results + parse errors. */
+  /** Process parsed CSV rows into events, returning results + parse errors.
+   * `today` is the reference timestamp for year-less date inference; pass a
+   * single value per fetch so a scrape spanning midnight resolves all rows
+   * against the same anchor. */
   private processRows(
     rows: string[][],
     config: GoogleSheetsConfig,
     sourceUrl: string,
     minISO: string,
     maxISO: string,
+    today: Date,
     section?: string,
   ): { events: RawEventData[]; errors: string[]; parseErrors: ParseError[]; hasEventsInWindow: boolean } {
     const events: RawEventData[] = [];
@@ -499,7 +565,7 @@ export class GoogleSheetsAdapter implements SourceAdapter {
         const dateCell = row[config.columns.date]?.trim();
         if (!dateCell) continue;
 
-        const dateStr = parseDate(dateCell);
+        const dateStr = parseDate(dateCell, today);
         if (!dateStr) continue;
 
         if (dateStr < minISO || dateStr > maxISO) continue;
@@ -529,6 +595,7 @@ export class GoogleSheetsAdapter implements SourceAdapter {
     sourceUrl: string,
     minISO: string,
     maxISO: string,
+    today: Date,
   ): Promise<ScrapeResult> {
     const events: RawEventData[] = [];
     const errors: string[] = [];
@@ -560,7 +627,7 @@ export class GoogleSheetsAdapter implements SourceAdapter {
 
     const sampleRows = rows.slice(0, 10);
 
-    const processed = this.processRows(rows, config, sourceUrl, minISO, maxISO);
+    const processed = this.processRows(rows, config, sourceUrl, minISO, maxISO, today);
     events.push(...processed.events);
     errors.push(...processed.errors);
     const errorDetails: ErrorDetails = {};

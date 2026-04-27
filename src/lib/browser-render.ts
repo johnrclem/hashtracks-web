@@ -8,6 +8,30 @@
 
 import { validateSourceUrlWithDns } from "@/adapters/ssrf-dns";
 
+/**
+ * Format a non-2xx response body from the NAS render service into a human
+ * diagnostic string. The server returns:
+ *   - 502 + `{error: "Render failed", detail: "<playwright msg>"}` on Playwright errors
+ *   - 422 + `{error: "..."}` (no detail) on selector/frame mismatches
+ *   - 4xx + `{error: "..."}` on bad input
+ * If the body isn't JSON (e.g. an actual Cloudflare 5xx page), returns it raw.
+ *
+ * Exported for unit testing.
+ */
+export function formatRenderErrorBody(body: string): string {
+  try {
+    const parsed = JSON.parse(body) as { error?: unknown; detail?: unknown };
+    const errStr = typeof parsed.error === "string" ? parsed.error : null;
+    const detailStr = typeof parsed.detail === "string" ? parsed.detail : null;
+    if (errStr && detailStr) return `${errStr}: ${detailStr}`;
+    if (errStr) return errStr;
+    if (detailStr) return detailStr;
+  } catch {
+    // Not JSON — fall through to raw body.
+  }
+  return body;
+}
+
 export interface RenderOptions {
   /** URL of the page to render */
   url: string;
@@ -88,7 +112,7 @@ export async function browserRender(options: RenderOptions): Promise<string> {
     if (!response.ok) {
       const body = await response.text();
       throw new Error(
-        `Browser render error (${response.status}): ${body}`,
+        `Browser render error (${response.status}): ${formatRenderErrorBody(body)}`,
       );
     }
 

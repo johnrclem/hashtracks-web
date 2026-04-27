@@ -464,6 +464,7 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "butterworth-h3": ["Butterworth H3", "Penang Butterworth H3", "Butterworth Hash", "BWH3"],
     "kluang-h3": ["Kluang H3", "Kluang Hash", "Kluang HHH"],
     // Hong Kong
+    "hkh3": ["HK H3", "HKH3", "HK H4", "Hong Kong H3", "Hong Kong H4", "Hong Kong Hash", "Hong Kong Hash House Harriers", "H4 Hong Kong"],
     "n2th3": ["N2TH3", "Northern New Territories H3", "Northern New Territories Hash", "N2T", "NNTH3"],
     "rs2h3": ["RS2H3", "Royal Southside H3", "Royal Southside Hash", "Royal South Side"],
     "wanchai-h3": ["Wanchai H3", "Wan Chai H3", "Wanchai Hash", "Wan Chai Hash", "WCH3 HK"],

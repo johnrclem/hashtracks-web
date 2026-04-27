@@ -1,17 +1,18 @@
 ---
-description: Active data sources catalog — 184 sources across 26+ regions
+description: Active data sources catalog — 188 sources across 27+ regions
 globs:
   - src/adapters/**
   - prisma/seed.ts
   - src/pipeline/**
 ---
 
-# Active Sources (184)
+# Active Sources (188)
 
-## NYC / NJ / Philly (8 sources)
+## NYC / NJ / Philly (9 sources)
 - **hashnyc.com** -> HTML_SCRAPER -> 11 NYC-area kennels
 - **Summit H3 Spreadsheet** -> GOOGLE_SHEETS -> 3 NJ kennels (Summit, SFM, ASSSH3)
 - **Rumson H3 Static Schedule** -> STATIC_SCHEDULE -> Rumson H3
+- **Princeton NJ Hash Calendar** -> GOOGLE_CALENDAR -> Princeton H3
 - **BFM Google Calendar** -> GOOGLE_CALENDAR -> BFM, Philly H3
 - **Philly H3 Google Calendar** -> GOOGLE_CALENDAR -> BFM, Philly H3
 - **BFM Website** -> HTML_SCRAPER -> BFM
@@ -122,6 +123,21 @@ globs:
 - **Stuttgart H3 Google Calendar** -> GOOGLE_CALENDAR -> SH3, DST, FM, SUPER (4 Stuttgart kennels)
 - **Munich H3 Hareline Sheet** -> GOOGLE_SHEETS -> MH3 (Munich)
 - **Frankfurt H3 Hareline** -> HTML_SCRAPER -> FH3, FFMH3, SHITS, DOM, Bike Hash (5 Frankfurt kennels)
+
+## Hong Kong (13 sources, 11 kennels)
+- **HK H3 Homepage** -> HTML_SCRAPER -> hkh3 (founder, 1970, weekly Mon, men only)
+- **HK H3 Static Schedule** -> STATIC_SCHEDULE -> hkh3 (recurring slot)
+- **N2TH3 WordPress Blog** -> HTML_SCRAPER -> n2th3 (weekly Wed, day-of detail)
+- **N2TH3 Static Schedule** -> STATIC_SCHEDULE -> n2th3 (recurring slot)
+- **Kowloon H3 Hareline Sheet** -> GOOGLE_SHEETS -> kowloon-h3 (weekly Mon, 1970)
+- **RS2H3 Hareline Sheet** -> GOOGLE_SHEETS -> rs2h3 (weekly Thu, men only)
+- **Wanchai H3 Hareline Sheet** -> GOOGLE_SHEETS -> wanchai-h3 (weekly Sun, 1988)
+- **Sek Kong H3 Hareline Sheet** -> GOOGLE_SHEETS -> sekkong-h3 (weekly Sun, 1974)
+- **LSW Hareline** -> HTML_SCRAPER -> lsw-h3 (weekly Wed, 1979)
+- **Ladies H4 Hareline** -> HTML_SCRAPER (DISABLED, Wix browserRender) -> lh4-hk (weekly Tue, 1971, women only)
+- **HKFH3 Static Schedule** -> STATIC_SCHEDULE -> hkfh3 (monthly Fri)
+- **Free China H3 Static Schedule** -> STATIC_SCHEDULE -> fch3-hk (monthly Sat, 1994)
+- **Hebe H3 Static Schedule** -> STATIC_SCHEDULE -> hebe-h3 (3rd Sat monthly, 2019)
 
 ## Florida (8 sources)
 - **Miami H3 Meetup** -> MEETUP -> MH3

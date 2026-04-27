@@ -101,6 +101,29 @@ describe("parseDate", () => {
   it("returns null for invalid D-Mon-YY", () => {
     expect(parseDate("32-Jan-26")).toBeNull();
   });
+
+  // ── "Day-name DD MonthName" (no year) — RS2H3 format ──
+
+  describe("Day-name DD MonthName (no year)", () => {
+    // Each row: [today (Y, M-0idx, D), input, expected]. `null` expected = parse failure.
+    type Case = readonly [Date, string, string | null];
+    const cases: Record<string, Case> = {
+      "Thu 7 May → current year": [new Date(Date.UTC(2026, 4, 1)), "Thu 7 May", "2026-05-07"],
+      "Mon 14 Sep → end of year, no rollover": [new Date(Date.UTC(2026, 4, 1)), "Mon 14 Sep", "2026-09-14"],
+      "Mon 14 Sep → rolls forward when month past": [new Date(Date.UTC(2026, 11, 15)), "Mon 14 Sep", "2027-09-14"],
+      "Thu 25 Dec on Jan 1 → previous year (grace)": [new Date(Date.UTC(2026, 0, 1)), "Thu 25 Dec", "2025-12-25"],
+      "Mon 25 Dec on Feb 1 → current year (past grace)": [new Date(Date.UTC(2026, 1, 1)), "Mon 25 Dec", "2026-12-25"],
+      "Thu 7 May on May 15 → keep current year (in grace)": [new Date(Date.UTC(2026, 4, 15)), "Thu 7 May", "2026-05-07"],
+      "trailing whitespace 'Thu 7 May '": [new Date(Date.UTC(2026, 4, 1)), "Thu 7 May ", "2026-05-07"],
+      "full month name 'Tuesday 14 September'": [new Date(Date.UTC(2026, 4, 1)), "Tuesday 14 September", "2026-09-14"],
+      "impossible day 'Thu 32 May'": [new Date(Date.UTC(2026, 4, 1)), "Thu 32 May", null],
+      "unknown month 'Thu 7 Xyz'": [new Date(Date.UTC(2026, 4, 1)), "Thu 7 Xyz", null],
+    };
+
+    it.each(Object.entries(cases))("%s", (_label, [today, input, expected]) => {
+      expect(parseDate(input, today)).toBe(expected);
+    });
+  });
 });
 
 // ── inferStartTime ──
@@ -296,6 +319,57 @@ describe("buildEventFromSheetRow", () => {
     const row = ["", "2026-04-01", "Some Hare", "Munich"];
     const result = buildEventFromSheetRow(row, config as GoogleSheetsConfig, "https://example.com", "2026-04-01");
     expect(result).toBeNull();
+  });
+
+  // ── extraHares (multi-column hare merging — KH3 Hare1/Hare2 layout) ──
+
+  it("merges extraHares column into hares when both populated", () => {
+    const config = {
+      sheetId: "test",
+      columns: { runNumber: 0, date: 1, hares: 2, extraHares: [3], location: 4, title: 5 },
+      kennelTagRules: { default: "kh3" },
+    };
+    const row = ["100", "3/11/26", "ONE HUNG LO", "LASTMAN", "Kwai Fong", ""];
+    const event = buildEventFromSheetRow(row, config as GoogleSheetsConfig, "https://example.com", "2026-03-11");
+    expect(event).not.toBeNull();
+    // Sorted alphabetically for fingerprint stability
+    expect(event!.hares).toBe("LASTMAN / ONE HUNG LO");
+  });
+
+  it("uses primary hare alone when extraHares cell is empty", () => {
+    const config = {
+      sheetId: "test",
+      columns: { runNumber: 0, date: 1, hares: 2, extraHares: [3], location: 4, title: 5 },
+      kennelTagRules: { default: "kh3" },
+    };
+    const row = ["101", "3/18/26", "TIMBITS", "", "", ""];
+    const event = buildEventFromSheetRow(row, config as GoogleSheetsConfig, "https://example.com", "2026-03-18");
+    expect(event).not.toBeNull();
+    expect(event!.hares).toBe("TIMBITS");
+  });
+
+  it("returns undefined hares when both primary and extra cells empty", () => {
+    const config = {
+      sheetId: "test",
+      columns: { runNumber: 0, date: 1, hares: 2, extraHares: [3], location: 4, title: 5 },
+      kennelTagRules: { default: "kh3" },
+    };
+    const row = ["102", "3/25/26", "", "", "", ""];
+    const event = buildEventFromSheetRow(row, config as GoogleSheetsConfig, "https://example.com", "2026-03-25");
+    expect(event).not.toBeNull();
+    expect(event!.hares).toBeUndefined();
+  });
+
+  it("strips placeholder values from extraHares cells", () => {
+    const config = {
+      sheetId: "test",
+      columns: { runNumber: 0, date: 1, hares: 2, extraHares: [3], location: 4, title: 5 },
+      kennelTagRules: { default: "kh3" },
+    };
+    const row = ["103", "4/1/26", "TIMBITS", "TBD", "", ""];
+    const event = buildEventFromSheetRow(row, config as GoogleSheetsConfig, "https://example.com", "2026-04-01");
+    expect(event).not.toBeNull();
+    expect(event!.hares).toBe("TIMBITS");
   });
 
   it.each([

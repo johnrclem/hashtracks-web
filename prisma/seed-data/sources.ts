@@ -66,6 +66,47 @@ const icalBaseChooChoo = {
   scrapeDays: 365,
 };
 
+// ── SHARED SOURCE BUILDERS ──
+
+/**
+ * Build a STATIC_SCHEDULE source row from the recurring-slot params. Reduces
+ * boilerplate for the dozens of FB-coordinated kennels where the only
+ * source is a known weekly/monthly cadence + a Facebook page link.
+ *
+ * Defaults: trustLevel=3 (FB-only), weekly scrape, 90-day window. Override
+ * any of these by passing them in `extra`.
+ */
+function staticScheduleSource(params: {
+  name: string;
+  url: string;
+  kennelTag: string;
+  rrule: string;
+  startTime?: string;
+  defaultTitle: string;
+  defaultLocation: string;
+  defaultDescription: string;
+  extra?: Partial<{ trustLevel: number; scrapeFreq: string; scrapeDays: number }>;
+}) {
+  const { name, url, kennelTag, rrule, startTime, defaultTitle, defaultLocation, defaultDescription, extra } = params;
+  return {
+    name,
+    url,
+    type: "STATIC_SCHEDULE" as const,
+    trustLevel: extra?.trustLevel ?? 3,
+    scrapeFreq: extra?.scrapeFreq ?? "weekly",
+    scrapeDays: extra?.scrapeDays ?? 90,
+    config: {
+      kennelTag,
+      rrule,
+      ...(startTime ? { startTime } : {}),
+      defaultTitle,
+      defaultLocation,
+      defaultDescription,
+    },
+    kennelCodes: [kennelTag],
+  };
+}
+
 // ── SOURCE DATA (PRD Section 8) ──
 
 export const SOURCES = [
@@ -3764,7 +3805,38 @@ export const SOURCES = [
       kennelCodes: ["kluang-h3"],
     },
     // ===== HONG KONG =====
-    // --- N2TH3 (WordPress.com Public API) ---
+    // --- HK H3 / H4 (homepage scraper — Next H4 Run block) ---
+    // The 1970 founder kennel. The dedicated Hareline page (?page_id=44)
+    // returns 404 and the WordPress REST API is iThemes-locked (401), so the
+    // adapter scrapes the homepage's "Next H4 Run" block (run #, location,
+    // map URL, format) and emits a single RawEvent for next Monday. The
+    // STATIC_SCHEDULE source below provides multi-week visibility — merge
+    // pipeline trust ordering lets homepage detail overwrite the template.
+    {
+      name: "HK H3 Homepage",
+      url: "https://hkhash.com/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 30,
+      kennelCodes: ["hkh3"],
+    },
+    // --- HK H3 (STATIC_SCHEDULE — recurring slot for advance visibility) ---
+    staticScheduleSource({
+      name: "HK H3 Static Schedule",
+      url: "https://hkhash.com/",
+      kennelTag: "hkh3",
+      rrule: "FREQ=WEEKLY;BYDAY=MO",
+      startTime: "18:00",
+      defaultTitle: "HK H3 Weekly Run",
+      defaultLocation: "Hong Kong",
+      defaultDescription: "Weekly Monday evening trail (men only). Run number, hare, and exact location are posted on https://hkhash.com/ ahead of each Monday.",
+    }),
+    // --- N2TH3 (WordPress.com Public API — day-of detail) ---
+    // Posts are run announcements published ~1 day before each run, so this
+    // source provides rich detail (hare, location, map URL) but no future
+    // visibility. Pair it with the STATIC_SCHEDULE source below to keep
+    // upcoming runs on the hareline.
     {
       name: "N2TH3 WordPress Blog",
       url: "https://n2th3.org",
@@ -3774,6 +3846,17 @@ export const SOURCES = [
       scrapeDays: 365,
       kennelCodes: ["n2th3"],
     },
+    // --- N2TH3 (STATIC_SCHEDULE — recurring slot for advance visibility) ---
+    staticScheduleSource({
+      name: "N2TH3 Static Schedule",
+      url: "https://n2th3.org",
+      kennelTag: "n2th3",
+      rrule: "FREQ=WEEKLY;BYDAY=WE",
+      startTime: "19:00",
+      defaultTitle: "N2TH3 Weekly Run",
+      defaultLocation: "Hong Kong New Territories",
+      defaultDescription: "Weekly Wednesday evening trail in Hong Kong's Northern New Territories. Trail location, hare, and on-on details are posted ~1 day before each run at https://n2th3.org/.",
+    }),
     // --- RS2H3 (Google Sheets) ---
     {
       name: "RS2H3 Hareline Sheet",
@@ -3833,36 +3916,53 @@ export const SOURCES = [
       scrapeDays: 365,
       kennelCodes: ["lsw-h3"],
     },
-    // --- Ladies H4 (Wix browser-render) ---
-    // DISABLED pending live verification: Wix requires the NAS
-    // browser-render service (fetchBrowserRenderedPage) which wasn't
-    // reachable during the build. Flip enabled=true after confirming
-    // the first scrape returns valid events.
+    // --- Ladies H4 (Wix browser-render via Table Master iframe) ---
+    // The hareline lives inside a Wix "Table Master" widget at the
+    // comp-jvuzl97c iframe — top-level page has zero <table> elements.
+    // Adapter targets the iframe via NAS browser-render's frameUrl path
+    // (same pattern as samuraihash2017 / newtokyohash). Live-verified
+    // 18 upcoming events (#2864–#2881).
     {
       name: "Ladies H4 Hareline",
       url: "https://hkladiesh4.wixsite.com/hklh4/hareline",
       type: "HTML_SCRAPER" as const,
-      enabled: false,
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 365,
       kennelCodes: ["lh4-hk"],
     },
-    // --- Kowloon H3 (STATIC_SCHEDULE) ---
+    // --- Kowloon H3 (Google Sheets — published KH3Hareline) ---
+    // Upgraded from STATIC_SCHEDULE: kowloonhash.com redirects to a published
+    // Google Sheet with weekly run details (run #, hares, location, headline).
+    // Layout: row 0/1 are notes, row 2 is the header, data rows expose
+    //   col 0: blank/run-tag prefix (e.g. "LH13")
+    //   col 1: Date (DD-MMM-YY)
+    //   col 2: Run no.
+    //   col 3: Hare1
+    //   col 4: Hare2 (sometimes blank)
+    //   col 5: Scribles (skipped — those are scribes, not hares)
+    //   col 6: Headline (often blank, sometimes special-run titles)
+    //   col 7: Location
     {
-      name: "Kowloon H3 Static Schedule",
-      url: "https://www.facebook.com/kowloonhash",
-      type: "STATIC_SCHEDULE" as const,
-      trustLevel: 3,
-      scrapeFreq: "weekly",
-      scrapeDays: 90,
+      name: "Kowloon H3 Hareline Sheet",
+      url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRBZeDVCHJWXqLg4n1iL3RIbO2mPE4tZE5KSPe9lzSRUzE6smhcee9LNNT6I3usaKfnvjDRUNWST-OF/pub",
+      type: "GOOGLE_SHEETS" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
       config: {
-        kennelTag: "kowloon-h3",
-        rrule: "FREQ=WEEKLY;BYDAY=MO",
-        startTime: "18:00",
-        defaultTitle: "Kowloon H3 Weekly Run",
-        defaultLocation: "Kowloon, Hong Kong",
-        defaultDescription: "Weekly Monday evening trail. Check the Facebook page at https://www.facebook.com/kowloonhash for run details.",
+        sheetId: "e/2PACX-1vRBZeDVCHJWXqLg4n1iL3RIbO2mPE4tZE5KSPe9lzSRUzE6smhcee9LNNT6I3usaKfnvjDRUNWST-OF",
+        csvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRBZeDVCHJWXqLg4n1iL3RIbO2mPE4tZE5KSPe9lzSRUzE6smhcee9LNNT6I3usaKfnvjDRUNWST-OF/pub?output=csv&gid=1578340354",
+        columns: {
+          date: 1,
+          runNumber: 2,
+          hares: 3,
+          extraHares: [4],
+          location: 7,
+          title: 6,
+        },
+        kennelTagRules: { default: "kowloon-h3" },
+        startTimeRules: { default: "18:00" },
       },
       kennelCodes: ["kowloon-h3"],
     },
