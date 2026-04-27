@@ -340,6 +340,29 @@ function nthWeekdayOfMonth(
   }
 }
 
+/**
+ * Check whether [windowStart, windowEnd] overlaps any (year, month) pair whose
+ * 1-indexed month is in `months`. Used to distinguish a seasonal rule's
+ * legitimate off-season (no overlap) from an actual misconfiguration (overlap
+ * but still no occurrences).
+ */
+function windowOverlapsAnyMonth(windowStart: Date, windowEnd: Date, months: number[]): boolean {
+  const allowed = new Set(months);
+  let year = windowStart.getUTCFullYear();
+  let month = windowStart.getUTCMonth(); // 0-indexed
+  const endYear = windowEnd.getUTCFullYear();
+  const endMonth = windowEnd.getUTCMonth();
+  while (year < endYear || (year === endYear && month <= endMonth)) {
+    if (allowed.has(month + 1)) return true;
+    month++;
+    if (month > 11) {
+      month = 0;
+      year++;
+    }
+  }
+  return false;
+}
+
 /** Format a UTC date as YYYY-MM-DD. */
 function formatDateUTC(d: Date): string {
   const y = d.getUTCFullYear();
@@ -402,6 +425,25 @@ export class StaticScheduleAdapter implements SourceAdapter {
     const occurrences = generateOccurrences(rule, windowStart, windowEnd, config.anchorDate);
 
     if (occurrences.length === 0) {
+      // Off-season for a seasonal rule is expected, not a misconfiguration.
+      // Only alert when the window actually overlaps an active month.
+      const seasonalOffSeason =
+        rule.byMonth !== undefined && rule.byMonth.length > 0 &&
+        !windowOverlapsAnyMonth(windowStart, windowEnd, rule.byMonth);
+      if (seasonalOffSeason) {
+        return {
+          events: [],
+          errors: [],
+          diagnosticContext: {
+            rrule: config.rrule,
+            occurrencesGenerated: 0,
+            windowDays: days,
+            windowStart: windowStart.toISOString(),
+            windowEnd: windowEnd.toISOString(),
+            note: "off-season: window does not overlap any BYMONTH month",
+          },
+        };
+      }
       const message = `RRULE "${config.rrule}" generated 0 events in ${days}-day window — check schedule configuration`;
       return { events: [], errors: [message], errorDetails: { fetch: [{ message }] } };
     }

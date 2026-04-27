@@ -237,7 +237,7 @@ describe("generateOccurrences", () => {
 
     expect(dates.length).toBeGreaterThan(0);
     expect(dates[0]).toBe("2026-05-07"); // first Thursday of May 2026
-    expect(dates[dates.length - 1]).toBe("2026-10-29"); // last Thursday of October 2026
+    expect(dates.at(-1)).toBe("2026-10-29"); // last Thursday of October 2026
     for (const d of dates) {
       const date = new Date(d + "T12:00:00Z");
       expect(date.getUTCDay()).toBe(4); // Thursday
@@ -436,6 +436,49 @@ describe("StaticScheduleAdapter", () => {
       const month = Number.parseInt(event.date.slice(5, 7), 10);
       expect([5, 6, 7, 8, 9, 10]).toContain(month);
       expect(new Date(event.date + "T12:00:00Z").getUTCDay()).toBe(4); // Thursday
+    }
+  });
+
+  it("treats off-season as success (no error) when window misses every BYMONTH month", async () => {
+    // Single-month June rule scraped in mid-December: 90-day window spans
+    // mid-Sep → mid-Mar, never touching June. Should return 0 events with NO
+    // error so the alert pipeline doesn't fire 6+ months of false alarms.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-12-15T12:00:00Z"));
+    try {
+      const result = await adapter.fetch(
+        makeSource({ kennelTag: "TestKennel", rrule: "FREQ=MONTHLY;BYMONTHDAY=15;BYMONTH=6" }),
+      );
+      expect(result.errors).toHaveLength(0);
+      expect(result.events).toHaveLength(0);
+      expect(result.diagnosticContext?.note).toMatch(/off-season/);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("still alerts when window overlaps a BYMONTH month but generates 0 events", async () => {
+    // Window crosses June, but BYMONTHDAY=31 in June clamps to June 30 — wait,
+    // that still emits. Use BYDAY=2SA;BYMONTH=6 in a window that contains June
+    // and ensure the day-2-Saturday-of-June logic emits at least one event.
+    // To force a true 0-with-overlap, use an invalid pairing: monthly nth weekday
+    // that resolves outside the month — which the existing nthWeekdayOfMonth
+    // returns null for. But simpler: use a 1-day window starting today that
+    // overlaps a BYMONTH month but lands on a non-target weekday.
+    vi.useFakeTimers();
+    // Set "today" to Mon 2026-06-15 (June, in BYMONTH=6) and use a 0-day window:
+    // window = [today-0, today+0] = exactly today. Rule wants Saturdays in June.
+    // Today is Monday → 0 events, but window IS in June → real misconfig signal.
+    vi.setSystemTime(new Date("2026-06-15T12:00:00Z"));
+    try {
+      const result = await adapter.fetch(
+        makeSource({ kennelTag: "TestKennel", rrule: "FREQ=WEEKLY;BYDAY=SA;BYMONTH=6" }),
+        { days: 0 },
+      );
+      expect(result.errors.length).toBeGreaterThan(0);
+      expect(result.errors[0]).toMatch(/0 events/);
+    } finally {
+      vi.useRealTimers();
     }
   });
 
