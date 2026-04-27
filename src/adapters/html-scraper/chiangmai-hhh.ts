@@ -92,9 +92,9 @@ export function parseChiangMaiLine(
   // parser drops the month entirely on the "Saturday April 25" shape and
   // returns the next Saturday, ignoring the date.
   const dateText = beforeRun
-    .replace(/\b(?:CH[34]|C[SGB]H3|CDH3|CFMH3)\b/gi, "")
-    .replace(/[-–—]+/g, " ")
-    .replace(
+    .replaceAll(/\b(?:CH[34]|C[SGB]H3|CDH3|CFMH3)\b/gi, "")
+    .replaceAll(/[-–—]+/g, " ")
+    .replaceAll(
       /\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2})(?:st|nd|rd|th)?\b/gi,
       "$2 $1",
     )
