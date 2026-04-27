@@ -3,6 +3,37 @@ import { processRawEvents } from "@/pipeline/merge";
 import { todayInTimezone } from "@/lib/timezone";
 import type { RawEventData } from "@/adapters/types";
 
+export interface RunBackfillScriptOptions {
+  sourceName: string;
+  kennelTimezone: string;
+  /** Short verb phrase printed in the [1/2] header, e.g. "Walking BTH3 archive". */
+  label: string;
+  /** Async function that returns the parsed RawEventData rows. */
+  fetchEvents: () => Promise<RawEventData[]>;
+}
+
+/**
+ * One-call entry point for HTML/archive backfill scripts: dry-run mode check,
+ * fetch events, partition + apply via `reportAndApplyBackfill`, and exit
+ * non-zero on failure. Lets each wrapper collapse to a single statement,
+ * eliminating the duplicated `main()` boilerplate flagged by Sonar when
+ * several wrappers ship together.
+ */
+export async function runBackfillScript(opts: RunBackfillScriptOptions): Promise<void> {
+  const apply = process.env.BACKFILL_APPLY === "1";
+  console.log(`Mode: ${apply ? "APPLY (will write to DB)" : "DRY RUN (no writes)"}`);
+  console.log(`\n[1/2] ${opts.label}...`);
+  const events = await opts.fetchEvents();
+  console.log(`  Total parsed: ${events.length}`);
+  console.log("\n[2/2] Reporting + applying...");
+  await reportAndApplyBackfill({
+    apply,
+    sourceName: opts.sourceName,
+    events,
+    kennelTimezone: opts.kennelTimezone,
+  });
+}
+
 export interface BackfillReportOptions {
   apply: boolean;
   sourceName: string;

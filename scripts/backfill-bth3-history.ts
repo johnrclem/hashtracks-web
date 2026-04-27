@@ -16,7 +16,7 @@
  */
 
 import "dotenv/config";
-import { reportAndApplyBackfill } from "./lib/backfill-runner";
+import { runBackfillScript } from "./lib/backfill-runner";
 import { safeFetch } from "@/adapters/safe-fetch";
 import { parseNextRunArticle } from "@/adapters/html-scraper/bangkokhash";
 import type { RawEventData } from "@/adapters/types";
@@ -101,24 +101,12 @@ async function fetchAllArchive(): Promise<RawEventData[]> {
   return events;
 }
 
-async function main() {
-  const apply = process.env.BACKFILL_APPLY === "1";
-  console.log(`Mode: ${apply ? "APPLY (will write to DB)" : "DRY RUN (no writes)"}`);
-
-  console.log("\n[1/2] Walking BTH3 archive...");
-  const events = await fetchAllArchive();
-  console.log(`  Total parsed: ${events.length}`);
-
-  console.log("\n[2/2] Reporting + applying...");
-  await reportAndApplyBackfill({
-    apply,
-    sourceName: SOURCE_NAME,
-    events,
-    kennelTimezone: KENNEL_TIMEZONE,
-  });
-}
-
-main().catch((err) => {
+runBackfillScript({
+  sourceName: SOURCE_NAME,
+  kennelTimezone: KENNEL_TIMEZONE,
+  label: "Walking BTH3 archive",
+  fetchEvents: fetchAllArchive,
+}).catch((err) => {
   console.error(err);
   process.exit(1);
 });
