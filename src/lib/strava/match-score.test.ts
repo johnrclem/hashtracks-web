@@ -1,4 +1,4 @@
-import { scoreMatch, findBestMatchIndex, parseStravaTimezone, getTimezoneOffsetMinutes, timeToMinutes as _timeToMinutes } from "./match-score";
+import { scoreMatch, findBestMatchIndex, parseStravaTimezone, getTimezoneOffsetMinutes } from "./match-score";
 
 describe("scoreMatch", () => {
   it("scores higher when activity name matches kennel name", () => {
