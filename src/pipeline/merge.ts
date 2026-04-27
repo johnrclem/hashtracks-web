@@ -833,6 +833,9 @@ async function findFuzzyDuplicateInWindow(
   const windowStart = new Date(eventDate.getTime() - FUZZY_WINDOW_MS);
   const windowEnd = new Date(eventDate.getTime() + FUZZY_WINDOW_MS);
 
+  // Tie-break on `createdAt: "asc"` to match `pickCanonicalEventIds`'s
+  // older-wins stability rule — fuzzy-merging into the existing canonical row
+  // keeps `isCanonical` and EventLink history coherent across scrapes.
   const candidates = await prisma.event.findMany({
     where: {
       kennelId,
@@ -840,7 +843,7 @@ async function findFuzzyDuplicateInWindow(
       parentEventId: null,
       isSeriesParent: false,
     },
-    orderBy: [{ trustLevel: "desc" }, { createdAt: "desc" }],
+    orderBy: [{ trustLevel: "desc" }, { createdAt: "asc" }],
   });
 
   for (const c of candidates) {
@@ -1199,8 +1202,12 @@ async function upsertCanonicalEvent(
   // abandoned bucket and recanonicalize. No-op when the old bucket only had
   // the moved row (recomputeCanonical early-exits on length ≤ 1).
   if (crossWindowMatch && crossWindowOldDate && ctx.trustLevel >= (existingEvent?.trustLevel ?? 0)) {
+    // Deterministic orderBy mirrors the same-day `findMany` at the top of
+    // upsertCanonicalEvent — keeps `pickCanonicalEventIds`' input-order
+    // tiebreaker stable across retries / parallel scrapes.
     const oldBucket = await prisma.event.findMany({
       where: { kennelId, date: crossWindowOldDate },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     });
     await recomputeCanonical(oldBucket as never);
   }
@@ -1516,15 +1523,27 @@ interface CandidateWithCanonicalState extends CanonicalCandidate {
 
 /**
  * Reconcile `isCanonical` across a set of rows for one (kennelId, date).
- * Caller provides the full set of rows. No-op for single-row slots and
- * for slots where the flags already match the selector's pick — the
- * early-out matters on chronic-dup kennels where a ~1000-event scrape
- * would otherwise fire a transaction per incoming event.
+ * Caller provides the full set of rows. Single-row slots: promote the row
+ * if it's currently non-canonical (the cross-window dedup at #990 can move
+ * a previously non-canonical row into an empty bucket, or leave a previously
+ * non-canonical sibling alone in its old bucket). Otherwise the early-out
+ * matters on chronic-dup kennels where a ~1000-event scrape would otherwise
+ * fire a transaction per incoming event.
  */
 async function recomputeCanonical(
   candidates: CandidateWithCanonicalState[],
 ): Promise<void> {
-  if (candidates.length <= 1) return;
+  if (candidates.length === 0) return;
+  if (candidates.length === 1) {
+    const sole = candidates[0];
+    if (!sole.isCanonical) {
+      await prisma.event.update({
+        where: { id: sole.id },
+        data: { isCanonical: true },
+      });
+    }
+    return;
+  }
 
   const canonicalIds = pickCanonicalEventIds(candidates);
   if (canonicalIds.size === 0) return;

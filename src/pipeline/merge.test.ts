@@ -2688,6 +2688,37 @@ describe("fuzzy ±48h cross-source dedup (#990)", () => {
     expect(updateData).toHaveProperty("timezone");
   });
 
+  it("promotes a single non-canonical row to canonical after move (#1040 review)", async () => {
+    // If the moved row was non-canonical in its old bucket (e.g. a sibling
+    // had higher trust), it lands alone in the new bucket and would stay
+    // invisible without a length-1 promotion path in recomputeCanonical.
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([] as never); // same-day empty
+    mockEventFindMany.mockResolvedValueOnce([
+      existingFuzzyRow({ id: "evt_was_noncanonical", isCanonical: false }),
+    ] as never);
+    mockEventFindMany.mockResolvedValueOnce([] as never); // old-bucket refetch
+
+    mockEventUpdate.mockResolvedValue({ id: "evt_was_noncanonical" } as never);
+
+    const result = await processRawEvents("src_b", [
+      buildRawEvent({
+        date: "2026-08-14",
+        title: "Invihash 2026: The Drunk Ages",
+        startTime: "15:00",
+        location: "Richmond, VT",
+      }),
+    ]);
+
+    expect(result.updated).toBe(1);
+    // Look for the dedicated isCanonical-promotion update from
+    // recomputeCanonical's length-1 branch.
+    const canonicalPromotion = mockEventUpdate.mock.calls.find(
+      c => (c[0] as { data: Record<string, unknown> }).data.isCanonical === true,
+    );
+    expect(canonicalPromotion).toBeDefined();
+  });
+
   it("does NOT merge when runNumber differs (double-header on consecutive days)", async () => {
     mockRawEventFind.mockResolvedValueOnce(null);
     mockEventFindMany.mockResolvedValueOnce([] as never); // same-day empty
