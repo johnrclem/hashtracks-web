@@ -546,6 +546,23 @@ function matchConfigPatterns(summary: string, patterns: [string, string][]): str
 
 /** Subset of the Google Calendar API v3 event shape */
 interface GCalEvent {
+  /** Stable per-instance event id; same id appears in `singleEvents=true` and `singleEvents=false` responses. */
+  id?: string;
+  /** iCalendar UID — stable across cross-calendar copies; shared by master + all RECURRENCE-ID overrides. */
+  iCalUID?: string;
+  /**
+   * Set on materialized RRULE instances and on RECURRENCE-ID override exceptions.
+   * Points to the master event's id. Combined with `originalStartTime`, signals
+   * "this item is an exception" — see issue #1021.
+   */
+  recurringEventId?: string;
+  /**
+   * The original recurrence-slot start time (RECURRENCE-ID equivalent). Present
+   * on materialized instances and overrides; absent on standalone events. The
+   * adapter only reads its presence, not its value — `start` is always used for
+   * the user-visible event time.
+   */
+  originalStartTime?: { dateTime?: string; date?: string; timeZone?: string };
   summary?: string;
   description?: string;
   location?: string;
@@ -637,11 +654,21 @@ export function buildRawEventFromGCalItem(
   compiledRunNumberPatterns?: RegExp[],
   compiledSkipPatterns?: RegExp[],
   compiledTitleHarePattern?: RegExp,
+  // Optional id-tracking map. The adapter populates this so the cross-call
+  // dedup at the end of `fetch` can use stable GCal ids without changing the
+  // public RawEventData shape.
+  gcalIdMap?: WeakMap<RawEventData, string>,
 ): RawEventData | null {
   if (item.status === "cancelled") return null;
   if (!item.summary) return null;
   if (!item.start?.dateTime && !item.start?.date) return null;
-  // Skip all-day events unless config opts in (some calendars use all-day for real runs)
+  // Skip all-day events unless config opts in (some calendars use all-day for real runs).
+  // Sources with all-day overrides (e.g. CUNTh on WA Hash) must set
+  // `includeAllDayEvents: true` to admit them — including those recovered via the
+  // secondary singleEvents=false call. We deliberately don't carve out
+  // `recurringEventId` here: that field is also set on materialized RRULE instances,
+  // so a carve-out would silently ingest unwanted all-day recurring instances on
+  // sources that never opted in.
   if (item.start?.date && !item.start?.dateTime && !sourceConfig?.includeAllDayEvents) return null;
 
   const { dateISO, startTime } = extractDateTimeFromGCalItem(item.start);
@@ -913,7 +940,7 @@ export function buildRawEventFromGCalItem(
   // not stored as display location. resolveCoords handles URL → address resolution.
   const locationIsUrl = location && /^https?:\/\//i.test(location);
   const cost = rawDescription ? extractCostFromDescription(rawDescription) : undefined;
-  return {
+  const event: RawEventData = {
     date: dateISO,
     kennelTag,
     runNumber: extractRunNumber(summary, rawDescription, compiledRunNumberPatterns),
@@ -930,6 +957,8 @@ export function buildRawEventFromGCalItem(
     cost,
     sourceUrl: item.htmlLink,
   };
+  if (gcalIdMap && item.id) gcalIdMap.set(event, item.id);
+  return event;
 }
 
 /** Build diagnostic context for a parse error on a GCal item. */
@@ -972,7 +1001,6 @@ export class GoogleCalendarAdapter implements SourceAdapter {
     const events: RawEventData[] = [];
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
-    let pageToken: string | undefined;
     let totalItemsReturned = 0;
     let pagesProcessed = 0;
     const compiledHarePatterns = sourceConfig?.harePatterns?.length
@@ -987,18 +1015,144 @@ export class GoogleCalendarAdapter implements SourceAdapter {
     const compiledTitleHarePattern = sourceConfig?.titleHarePattern
       ? compilePatterns([sourceConfig.titleHarePattern], "i")[0]
       : undefined;
+    const gcalIdMap = new WeakMap<RawEventData, string>();
 
+    const buildEvents = (items: GCalEvent[], filter?: (item: GCalEvent) => boolean): void => {
+      let eventIndex = 0;
+      for (const item of items) {
+        if (filter && !filter(item)) {
+          eventIndex++;
+          continue;
+        }
+        try {
+          const event = buildRawEventFromGCalItem(
+            item, sourceConfig,
+            compiledHarePatterns, compiledRunNumberPatterns,
+            compiledSkipPatterns, compiledTitleHarePattern,
+            gcalIdMap,
+          );
+          if (event) events.push(event);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          errors.push(`Event parse error (${item.summary ?? "unknown"}): ${message}`);
+          errorDetails.parse = [...(errorDetails.parse ?? []), {
+            row: eventIndex,
+            section: "calendar_events",
+            error: message,
+            rawText: buildGCalDiagnosticContext(item),
+            partialData: { kennelTag: item.summary ?? "unknown", date: item.start?.dateTime ?? item.start?.date },
+          }];
+        }
+        eventIndex++;
+      }
+    };
+
+    const primary = await this.#fetchAllPages(
+      calendarId, apiKey,
+      { timeMin, timeMax, singleEvents: "true", orderBy: "startTime", maxResults: "250", hl: "en" },
+      errors, errorDetails,
+    );
+    pagesProcessed += primary.pagesProcessed;
+    totalItemsReturned += primary.items.length;
+    buildEvents(primary.items);
+
+    // Secondary call recovers RECURRENCE-ID exceptions that the primary call
+    // can't surface — e.g. orphan overrides on non-recurring masters with the
+    // epoch RECURRENCE-ID 19691231T160000 pattern (#1021).
+    // NB: orderBy=startTime is incompatible with singleEvents=false (API 400).
+    let exceptionsRecovered = 0;
+    try {
+      const secondary = await this.#fetchAllPages(
+        calendarId, apiKey,
+        { timeMin, timeMax, singleEvents: "false", maxResults: "250", hl: "en" },
+        errors, errorDetails,
+      );
+      pagesProcessed += secondary.pagesProcessed;
+      const primaryIds = new Set<string>();
+      for (const e of events) {
+        const id = gcalIdMap.get(e);
+        if (id) primaryIds.add(id);
+      }
+      const before = events.length;
+      buildEvents(secondary.items, (item) => {
+        if (!item.recurringEventId || !item.originalStartTime) return false;
+        if (item.id && primaryIds.has(item.id)) return false;
+        return true;
+      });
+      exceptionsRecovered = events.length - before;
+    } catch (err) {
+      // Never let the exception-recovery call break primary results — log and continue.
+      const message = err instanceof Error ? err.message : String(err);
+      errors.push(`Exception-recovery call failed: ${message}`);
+      errorDetails.fetch = [...(errorDetails.fetch ?? []), { status: 0, message: `Exception-recovery call failed: ${message}` }];
+    }
+
+    // Some calendars (e.g. Chicagoland's 4X2H4 routing) only populate the
+    // soonest-upcoming event's description; its hareline block carries the
+    // future dates → hare mappings used to back-fill the rest.
+    const backfillCount = applyInlineHarelineBackfill(
+      events,
+      sourceConfig?.inlineHarelinePattern,
+      { now },
+    );
+
+    const hasErrorDetails = hasAnyErrors(errorDetails);
+
+    // Dedup id-first when GCal returned a stable id; legacy composite-key
+    // fallback covers synthetic test fixtures and pre-id callers.
+    const seen = new Set<string>();
+    const dedupedEvents = events.filter(e => {
+      const id = gcalIdMap.get(e);
+      const key = id
+        ? `id:${id}`
+        : `legacy:${e.date}|${e.kennelTag}|${e.startTime ?? ""}|${e.title ?? ""}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    return {
+      events: dedupedEvents,
+      errors,
+      errorDetails: hasErrorDetails ? errorDetails : undefined,
+      diagnosticContext: {
+        calendarId: decodeURIComponent(calendarId),
+        pagesProcessed,
+        itemsReturned: totalItemsReturned,
+        ...(backfillCount > 0 && { inlineHarelineBackfilled: backfillCount }),
+        ...(exceptionsRecovered > 0 && { exceptionsRecovered }),
+      },
+    };
+  }
+
+  /**
+   * Paginated GET against `events.list`. Both primary (`singleEvents=true`)
+   * and secondary (`singleEvents=false`) calls funnel through here so they
+   * share fetch / error / page-token plumbing identically.
+   *
+   * Error handling: HTTP errors and JSON `data.error` responses are appended to
+   * the passed-in `errors` and `errorDetails.fetch` arrays and the page loop
+   * breaks — the method returns whatever items were collected so far. Only
+   * transport-level exceptions (DNS failure, abort, network down) propagate
+   * out of `fetch()`/`resp.json()`; callers wrap those in try/catch when they
+   * care (e.g. the secondary call must not break primary results).
+   */
+  async #fetchAllPages(
+    calendarId: string,
+    apiKey: string,
+    params: Record<string, string>,
+    errors: string[],
+    errorDetails: ErrorDetails,
+  ): Promise<{ items: GCalEvent[]; pagesProcessed: number }> {
+    const items: GCalEvent[] = [];
+    let pagesProcessed = 0;
+    let pageToken: string | undefined;
     do {
       const url = new URL(
         `https://www.googleapis.com/calendar/v3/calendars/${calendarId}/events`,
       );
       url.searchParams.set("key", apiKey);
-      url.searchParams.set("timeMin", timeMin);
-      url.searchParams.set("timeMax", timeMax);
-      url.searchParams.set("singleEvents", "true");
-      url.searchParams.set("orderBy", "startTime");
-      url.searchParams.set("maxResults", "250");
-      url.searchParams.set("hl", "en");
+      for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
       if (pageToken) url.searchParams.set("pageToken", pageToken);
 
       const resp = await fetch(url.toString(), {
@@ -1023,63 +1177,11 @@ export class GoogleCalendarAdapter implements SourceAdapter {
       }
 
       pagesProcessed++;
-      const items = data.items ?? [];
-      totalItemsReturned += items.length;
-      let eventIndex = 0;
-
-      for (const item of items) {
-        try {
-          const event = buildRawEventFromGCalItem(item, sourceConfig, compiledHarePatterns, compiledRunNumberPatterns, compiledSkipPatterns, compiledTitleHarePattern);
-          if (event) events.push(event);
-        } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
-          errors.push(`Event parse error (${item.summary ?? "unknown"}): ${message}`);
-          errorDetails.parse = [...(errorDetails.parse ?? []), {
-            row: eventIndex,
-            section: "calendar_events",
-            error: message,
-            rawText: buildGCalDiagnosticContext(item),
-            partialData: { kennelTag: item.summary ?? "unknown", date: item.start?.dateTime ?? item.start?.date },
-          }];
-        }
-        eventIndex++;
-      }
-
+      const pageItems = data.items ?? [];
+      items.push(...pageItems);
       pageToken = data.nextPageToken;
     } while (pageToken);
-
-    // Some calendars (e.g. Chicagoland's 4X2H4 routing) only populate the
-    // soonest-upcoming event's description; its hareline block carries the
-    // future dates → hare mappings used to back-fill the rest.
-    const backfillCount = applyInlineHarelineBackfill(
-      events,
-      sourceConfig?.inlineHarelinePattern,
-      { now },
-    );
-
-    const hasErrorDetails = hasAnyErrors(errorDetails);
-
-    // Dedup events with identical date+kennelTag+startTime+title from the same calendar
-    // (upstream calendars sometimes contain duplicate entries)
-    const seen = new Set<string>();
-    const dedupedEvents = events.filter(e => {
-      const key = `${e.date}|${e.kennelTag}|${e.startTime ?? ""}|${e.title ?? ""}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-
-    return {
-      events: dedupedEvents,
-      errors,
-      errorDetails: hasErrorDetails ? errorDetails : undefined,
-      diagnosticContext: {
-        calendarId: decodeURIComponent(calendarId),
-        pagesProcessed,
-        itemsReturned: totalItemsReturned,
-        ...(backfillCount > 0 && { inlineHarelineBackfilled: backfillCount }),
-      },
-    };
+    return { items, pagesProcessed };
   }
 }
 

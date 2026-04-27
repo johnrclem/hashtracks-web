@@ -2562,3 +2562,358 @@ describe("GoogleCalendarAdapter — RRULE future-horizon cap (#939)", () => {
     expect(timeMax - after).toBeGreaterThanOrEqual(364 * 86_400_000);
   });
 });
+
+// ── #1021 / #1024 RECURRENCE-ID override recovery via secondary call ──
+
+describe("GoogleCalendarAdapter — RECURRENCE-ID override recovery (#1021/#1024)", () => {
+  const adapter = new GoogleCalendarAdapter();
+
+  function makeSource(config: object = { defaultKennelTag: "test" }) {
+    return {
+      id: "test-source",
+      url: "test@calendar.google.com",
+      type: "GOOGLE_CALENDAR" as const,
+      config,
+      scrapeDays: 90,
+    } as unknown as Parameters<typeof adapter.fetch>[0];
+  }
+
+  // Build a fetch spy that returns different bodies for the primary
+  // (singleEvents=true) and secondary (singleEvents=false) calls. Both can
+  // be primed with multi-page responses via { items, nextPageToken }.
+  function mockTwoCalls(
+    primary: object | (() => Response | Promise<Response>),
+    secondary: object | (() => Response | Promise<Response>) | "throw" | "500",
+  ) {
+    return vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = new URL(input as string);
+      const isSingle = url.searchParams.get("singleEvents") === "true";
+      const handler = isSingle ? primary : secondary;
+      if (handler === "throw") throw new Error("network down");
+      if (handler === "500") return new Response("server error", { status: 500 });
+      if (typeof handler === "function") return await handler();
+      return new Response(JSON.stringify(handler), { status: 200 });
+    });
+  }
+
+  async function withApiKey(fn: () => Promise<void>): Promise<void> {
+    const original = process.env.GOOGLE_CALENDAR_API_KEY;
+    process.env.GOOGLE_CALENDAR_API_KEY = "test-key";
+    try { await fn(); }
+    finally {
+      if (original === undefined) delete process.env.GOOGLE_CALENDAR_API_KEY;
+      else process.env.GOOGLE_CALENDAR_API_KEY = original;
+    }
+  }
+
+  // ── Fixture A: timed RRULE master + timed override (DeMon shape) ──
+  it("dedups across calls when primary singleEvents=true returns the override (DeMon shape)", async () => {
+    await withApiKey(async () => {
+      const masterId = "5mr7g9g41rjp3s3a1oj3khbu98";
+      const overrideId = `${masterId}_20251215T233000Z`;
+      const overrideItem = {
+        id: overrideId,
+        iCalUID: `${masterId}@google.com`,
+        recurringEventId: masterId,
+        originalStartTime: { dateTime: "2025-12-15T18:30:00-05:00", timeZone: "America/Detroit" },
+        summary: "DeMon H3 #5 - Bah Humbug",
+        description: "WHO (hares): Just Jordi\nHash cash: $5",
+        start: { dateTime: "2025-12-15T18:30:00-05:00", timeZone: "America/Detroit" },
+        end: { dateTime: "2025-12-15T20:30:00-05:00" },
+        status: "confirmed",
+      };
+      const masterItem = {
+        id: masterId,
+        iCalUID: `${masterId}@google.com`,
+        summary: "DeMon H3 Trail",
+        start: { dateTime: "2025-11-17T18:30:00-05:00", timeZone: "America/Detroit" },
+        recurrence: ["RRULE:FREQ=WEEKLY;BYDAY=MO"],
+        status: "confirmed",
+      };
+      const fetchSpy = mockTwoCalls(
+        { items: [overrideItem] },
+        { items: [masterItem, overrideItem] },
+      );
+      try {
+        const res = await adapter.fetch(makeSource({ defaultKennelTag: "demon-h3" }), { days: 90 });
+        expect(res.events).toHaveLength(1);
+        expect(res.events[0].kennelTag).toBe("demon-h3");
+        expect(res.events[0].date).toBe("2025-12-15");
+        expect(res.events[0].startTime).toBe("18:30");
+        expect(res.events[0].title).toBe("DeMon H3 #5 - Bah Humbug");
+        expect(res.diagnosticContext?.exceptionsRecovered).toBeUndefined();
+      } finally {
+        fetchSpy.mockRestore();
+      }
+    });
+  });
+
+  // ── Fixture B: all-day override on RRULE master, CUNTh shape (includeAllDayEvents opt-in required) ──
+  it("admits all-day override exceptions when includeAllDayEvents is set (CUNTh shape)", async () => {
+    await withApiKey(async () => {
+      const masterId = "6msrbmsmup1kjdt44qh905ijv9";
+      const overrideId = `${masterId}_20251023`;
+      const item = {
+        id: overrideId,
+        iCalUID: `${masterId}@google.com`,
+        recurringEventId: masterId,
+        originalStartTime: { date: "2025-10-23" },
+        summary: "CUNTh H3 #91",
+        description: "CUNth #91 - Two Sleeps to the Black Parade\nHash cash: $7",
+        start: { date: "2025-10-23" },
+        end: { date: "2025-10-24" },
+        status: "confirmed",
+      };
+      const fetchSpy = mockTwoCalls(
+        { items: [item] },
+        { items: [] },
+      );
+      try {
+        const res = await adapter.fetch(
+          makeSource({
+            kennelPatterns: [["CUNTh", "cunth3-wa"]],
+            strictKennelRouting: true,
+            includeAllDayEvents: true,
+          }),
+          { days: 90 },
+        );
+        expect(res.events).toHaveLength(1);
+        expect(res.events[0].kennelTag).toBe("cunth3-wa");
+        expect(res.events[0].date).toBe("2025-10-23");
+        expect(res.events[0].startTime).toBeUndefined();
+      } finally {
+        fetchSpy.mockRestore();
+      }
+    });
+  });
+
+  // ── Regression guard: non-override all-day RRULE instances must still drop without opt-in ──
+  it("does NOT admit ordinary all-day RRULE instances when includeAllDayEvents is unset", async () => {
+    await withApiKey(async () => {
+      // Materialized RRULE instance: has recurringEventId + originalStartTime,
+      // but is NOT an explicit author-edited override. Without includeAllDayEvents,
+      // these should still be dropped — otherwise sources accidentally ingest
+      // every all-day daily/weekly recurring event (holidays, OOO, etc.).
+      const masterId = "ordinary-rrule-master";
+      const expandedInstance = {
+        id: `${masterId}_20260201`,
+        iCalUID: `${masterId}@google.com`,
+        recurringEventId: masterId,
+        originalStartTime: { date: "2026-02-01" },
+        summary: "Daily standup",
+        start: { date: "2026-02-01" },
+        end: { date: "2026-02-02" },
+        status: "confirmed",
+      };
+      const fetchSpy = mockTwoCalls(
+        { items: [expandedInstance] },
+        { items: [] },
+      );
+      try {
+        const res = await adapter.fetch(makeSource({ defaultKennelTag: "test" }), { days: 90 });
+        expect(res.events).toHaveLength(0);
+      } finally {
+        fetchSpy.mockRestore();
+      }
+    });
+  });
+
+  // ── Fixture C: epoch RECURRENCE-ID on non-RRULE master ──
+  it("recovers orphan exceptions when primary returns nothing (epoch RECURRENCE-ID)", async () => {
+    await withApiKey(async () => {
+      const masterId = "abc123orphanmaster";
+      const epochOriginal = { dateTime: "1969-12-31T16:00:00-08:00" };
+      const epochOverride = (suffix: string, summary: string, date: string) => ({
+        id: `${masterId}_${suffix}`,
+        iCalUID: `${masterId}@google.com`,
+        recurringEventId: masterId,
+        originalStartTime: epochOriginal,
+        summary,
+        start: { date },
+        end: { date: new Date(new Date(date).getTime() + 86_400_000).toISOString().split("T")[0] },
+        status: "confirmed",
+      });
+      const overrides = [
+        epochOverride("a", "CUNTh H3 #62", "2024-08-01"),
+        epochOverride("b", "CUNTh H3 #65", "2024-09-15"),
+        epochOverride("c", "CUNTh H3 #68", "2024-10-30"),
+      ];
+      const orphanMaster = {
+        id: masterId,
+        iCalUID: `${masterId}@google.com`,
+        summary: "CUNTh placeholder",
+        start: { date: "2024-01-01" },
+        // No RRULE — singleEvents=true won't expand or surface the overrides.
+        status: "confirmed",
+      };
+      const fetchSpy = mockTwoCalls(
+        { items: [] },
+        { items: [orphanMaster, ...overrides] },
+      );
+      try {
+        const res = await adapter.fetch(
+          makeSource({ kennelPatterns: [["CUNTh", "cunth3-wa"]], strictKennelRouting: true, includeAllDayEvents: true }),
+          { days: 1500 },
+        );
+        expect(res.events).toHaveLength(3);
+        expect(res.events.map(e => e.date).sort()).toEqual(["2024-08-01", "2024-09-15", "2024-10-30"]);
+        expect(res.diagnosticContext?.exceptionsRecovered).toBe(3);
+      } finally {
+        fetchSpy.mockRestore();
+      }
+    });
+  });
+
+  // ── Fixture D: cross-call dedup correctness (id-first key) ──
+  it("id-first dedup eliminates double-counting when primary and secondary both return the same id", async () => {
+    await withApiKey(async () => {
+      const sharedId = "shared-event-id-xyz";
+      const item = {
+        id: sharedId,
+        iCalUID: `${sharedId}@google.com`,
+        recurringEventId: "master-rrule",
+        originalStartTime: { dateTime: "2025-12-15T18:30:00-05:00" },
+        summary: "DeMon H3 #5",
+        start: { dateTime: "2025-12-15T18:30:00-05:00" },
+        status: "confirmed",
+      };
+      const otherException = {
+        id: "another-exception-id",
+        iCalUID: `${sharedId}@google.com`,
+        recurringEventId: "master-rrule",
+        originalStartTime: { dateTime: "2025-12-22T18:30:00-05:00" },
+        summary: "DeMon H3 #6",
+        start: { dateTime: "2025-12-22T18:30:00-05:00" },
+        status: "confirmed",
+      };
+      const fetchSpy = mockTwoCalls(
+        { items: [item] },
+        { items: [item, otherException] },
+      );
+      try {
+        const res = await adapter.fetch(makeSource({ defaultKennelTag: "demon-h3" }), { days: 90 });
+        expect(res.events).toHaveLength(2);
+        const dates = res.events.map(e => e.date).sort();
+        expect(dates).toEqual(["2025-12-15", "2025-12-22"]);
+      } finally {
+        fetchSpy.mockRestore();
+      }
+    });
+  });
+
+  // ── Fixture E: secondary call failure preserves primary results ──
+  it("secondary-call HTTP 500 logs the error but does not break primary results", async () => {
+    await withApiKey(async () => {
+      const items = Array.from({ length: 3 }, (_, i) => ({
+        id: `id-${i}`,
+        summary: `Trail ${i + 1}`,
+        start: { dateTime: `2026-01-${(i + 10).toString().padStart(2, "0")}T18:30:00-05:00` },
+        status: "confirmed",
+      }));
+      const fetchSpy = mockTwoCalls({ items }, "500");
+      try {
+        const res = await adapter.fetch(makeSource({ defaultKennelTag: "test" }), { days: 90 });
+        expect(res.events).toHaveLength(3);
+        expect(res.errors.some(e => e.includes("500"))).toBe(true);
+      } finally {
+        fetchSpy.mockRestore();
+      }
+    });
+  });
+
+  it("secondary-call thrown error logs but does not break primary results", async () => {
+    await withApiKey(async () => {
+      const items = [{
+        id: "id-1",
+        summary: "Solo Trail",
+        start: { dateTime: "2026-01-15T18:30:00-05:00" },
+        status: "confirmed",
+      }];
+      const fetchSpy = mockTwoCalls({ items }, "throw");
+      try {
+        const res = await adapter.fetch(makeSource({ defaultKennelTag: "test" }), { days: 90 });
+        expect(res.events).toHaveLength(1);
+        expect(res.errors.some(e => e.toLowerCase().includes("exception-recovery"))).toBe(true);
+      } finally {
+        fetchSpy.mockRestore();
+      }
+    });
+  });
+
+  // ── Fixture F: start vs originalStartTime divergence (moved override) ──
+  it("uses start (not originalStartTime) for the user-visible date when an override is moved", async () => {
+    await withApiKey(async () => {
+      const masterId = "moved-master";
+      const item = {
+        id: `${masterId}_moved`,
+        iCalUID: `${masterId}@google.com`,
+        recurringEventId: masterId,
+        // Original recurrence slot was 2025-12-15 18:30
+        originalStartTime: { dateTime: "2025-12-15T18:30:00-05:00", timeZone: "America/Detroit" },
+        // But the trail was moved to 2025-12-16 19:00
+        start: { dateTime: "2025-12-16T19:00:00-05:00", timeZone: "America/Detroit" },
+        summary: "Moved Trail",
+        status: "confirmed",
+      };
+      const fetchSpy = mockTwoCalls({ items: [item] }, { items: [] });
+      try {
+        const res = await adapter.fetch(makeSource({ defaultKennelTag: "test" }), { days: 90 });
+        expect(res.events).toHaveLength(1);
+        expect(res.events[0].date).toBe("2025-12-16");
+        expect(res.events[0].startTime).toBe("19:00");
+      } finally {
+        fetchSpy.mockRestore();
+      }
+    });
+  });
+
+  // ── Fixture G: inline-hareline backfill still works after recovery ──
+  it("recovered exceptions can serve as inline-hareline backfill donors", async () => {
+    await withApiKey(async () => {
+      const futureDate = new Date(Date.now() + 7 * 86_400_000);
+      const futureIso = futureDate.toISOString().split("T")[0];
+      const m1 = futureDate.getMonth() + 1;
+      const d1 = futureDate.getDate();
+      const futureDate2 = new Date(futureDate.getTime() + 14 * 86_400_000);
+      const futureIso2 = futureDate2.toISOString().split("T")[0];
+      const m2real = futureDate2.getMonth() + 1;
+      const d2real = futureDate2.getDate();
+
+      const donor = {
+        id: "donor-recovered",
+        iCalUID: "rrule-master@google.com",
+        recurringEventId: "rrule-master",
+        originalStartTime: { dateTime: `${futureIso}T18:30:00-05:00` },
+        summary: "Recovered Donor",
+        description: `Hareline:\nMon ${m1}/${d1}: Alice\nMon ${m2real}/${d2real}: Bob`,
+        start: { dateTime: `${futureIso}T18:30:00-05:00`, timeZone: "America/Detroit" },
+        status: "confirmed",
+      };
+      const recipient = {
+        id: "recipient-primary",
+        summary: "Recipient #2",
+        start: { dateTime: `${futureIso2}T18:30:00-05:00`, timeZone: "America/Detroit" },
+        status: "confirmed",
+      };
+      // Donor is recovered via secondary; recipient comes through primary.
+      const fetchSpy = mockTwoCalls(
+        { items: [recipient] },
+        { items: [donor] },
+      );
+      try {
+        const res = await adapter.fetch(
+          makeSource({
+            defaultKennelTag: "test",
+            inlineHarelinePattern: { kennelTag: "test", blockHeader: "Hareline:" },
+          }),
+          { days: 90 },
+        );
+        expect(res.events).toHaveLength(2);
+        const recipientEvent = res.events.find(e => e.date === futureIso2);
+        expect(recipientEvent?.hares).toBe("Bob");
+      } finally {
+        fetchSpy.mockRestore();
+      }
+    });
+  });
+});

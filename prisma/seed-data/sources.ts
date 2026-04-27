@@ -2056,6 +2056,11 @@ export const SOURCES = [
         ],
         defaultKennelTag: "sh3-wa",
         strictKennelRouting: true,
+        // CUNTh stores many of its trail events as all-day RECURRENCE-ID overrides
+        // (DTSTART;VALUE=DATE). Without this opt-in, those events are dropped by
+        // the all-day filter (#1021). strictKennelRouting bounds the blast radius —
+        // anything not matching kennelPatterns is still discarded.
+        includeAllDayEvents: true,
       },
       kennelCodes: ["sh3-wa", "psh3", "nbh3-wa", "rch3-wa", "seamon-h3", "th3-wa", "ssh3-wa", "cunth3-wa", "taint-h3", "giggity-h3", "seh3-wa", "hswtf-h3", "leapyear-h3"],
     },

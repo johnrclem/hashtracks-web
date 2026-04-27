@@ -1868,8 +1868,12 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "cunth3-wa", shortName: "CUNTh", fullName: "C.U.N.Th Hash House Harriers", region: "Seattle, WA",
       website: "https://wh3.org",
+      facebookUrl: "https://www.facebook.com/share/g/T7Ccn7uC2zUwekBj/",
+      contactEmail: "cnthh3@gmail.com",
+      logoUrl: "https://wh3.org/img/icons/CUNTHH3.png",
       scheduleDayOfWeek: "Thursday", scheduleFrequency: "Biweekly",
       scheduleNotes: "Twice monthly Thursday. Transit-friendly, light shiggy.",
+      hashCash: "$7", foundedYear: 2022,
       description: "Seattle-area transit-friendly hash with light shiggy. Runs twice monthly on Thursdays.",
       latitude: 47.61, longitude: -122.33,
     },
@@ -2028,7 +2032,10 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "demon-h3", shortName: "DeMon", fullName: "DeMon Hash House Harriers", region: "Detroit, MI",
       website: "https://demonh3.com",
+      contactEmail: "demonhashhouseharriers@gmail.com",
+      logoUrl: "https://demonh3.com/DeMon_files/demon_logo.png",
       scheduleDayOfWeek: "Monday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
+      hashCash: "$5", foundedYear: 2025,
       description: "Detroit's Monday evening hash — 'Detroit's Monday Kennel'.",
       latitude: 42.33, longitude: -83.05,
     },
