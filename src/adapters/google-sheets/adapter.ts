@@ -447,7 +447,7 @@ export class GoogleSheetsAdapter implements SourceAdapter {
 
     // ── Direct CSV URL mode — skip tab discovery entirely ──
     if (config.csvUrl) {
-      return this.fetchDirectCsv(config, source.url, minISO, maxISO);
+      return this.fetchDirectCsv(config, source.url, minISO, maxISO, now);
     }
 
     const events: RawEventData[] = [];
@@ -514,7 +514,7 @@ export class GoogleSheetsAdapter implements SourceAdapter {
         sampleRows = rows.slice(0, 10);
       }
 
-      const processed = this.processRows(rows, config, source.url, minISO, maxISO, tabName);
+      const processed = this.processRows(rows, config, source.url, minISO, maxISO, now, tabName);
       events.push(...processed.events);
       errors.push(...processed.errors);
       if (processed.parseErrors.length > 0) {
@@ -541,13 +541,17 @@ export class GoogleSheetsAdapter implements SourceAdapter {
     };
   }
 
-  /** Process parsed CSV rows into events, returning results + parse errors. */
+  /** Process parsed CSV rows into events, returning results + parse errors.
+   * `today` is the reference timestamp for year-less date inference; pass a
+   * single value per fetch so a scrape spanning midnight resolves all rows
+   * against the same anchor. */
   private processRows(
     rows: string[][],
     config: GoogleSheetsConfig,
     sourceUrl: string,
     minISO: string,
     maxISO: string,
+    today: Date,
     section?: string,
   ): { events: RawEventData[]; errors: string[]; parseErrors: ParseError[]; hasEventsInWindow: boolean } {
     const events: RawEventData[] = [];
@@ -561,7 +565,7 @@ export class GoogleSheetsAdapter implements SourceAdapter {
         const dateCell = row[config.columns.date]?.trim();
         if (!dateCell) continue;
 
-        const dateStr = parseDate(dateCell);
+        const dateStr = parseDate(dateCell, today);
         if (!dateStr) continue;
 
         if (dateStr < minISO || dateStr > maxISO) continue;
@@ -591,6 +595,7 @@ export class GoogleSheetsAdapter implements SourceAdapter {
     sourceUrl: string,
     minISO: string,
     maxISO: string,
+    today: Date,
   ): Promise<ScrapeResult> {
     const events: RawEventData[] = [];
     const errors: string[] = [];
@@ -622,7 +627,7 @@ export class GoogleSheetsAdapter implements SourceAdapter {
 
     const sampleRows = rows.slice(0, 10);
 
-    const processed = this.processRows(rows, config, sourceUrl, minISO, maxISO);
+    const processed = this.processRows(rows, config, sourceUrl, minISO, maxISO, today);
     events.push(...processed.events);
     errors.push(...processed.errors);
     const errorDetails: ErrorDetails = {};

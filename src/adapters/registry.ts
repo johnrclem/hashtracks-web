@@ -208,7 +208,7 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /n2th3\.org|n2th3\.wordpress/i, name: "N2TH3Adapter", factory: () => new N2TH3Adapter() },
   { pattern: /datadesignfactory\.com\/lsw/i, name: "LswH3Adapter", factory: () => new LswH3Adapter() },
   { pattern: /hkladiesh4\.wixsite/i, name: "LadiesH4HkAdapter", factory: () => new LadiesH4HkAdapter() },
-  { pattern: /^https?:\/\/(?:www\.)?hkhash\.com\/?$/i, name: "Hkh3Adapter", factory: () => new Hkh3Adapter() },
+  { pattern: /^https?:\/\/(?:www\.)?hkhash\.com(?:[/?#].*)?$/i, name: "Hkh3Adapter", factory: () => new Hkh3Adapter() },
   // ── Thailand (Phase 1a) ──
   { pattern: /cah3\.net/i, name: "Cah3Adapter", factory: () => new Cah3Adapter() },
   { pattern: /chiangraihhh\.blogspot/i, name: "Crh3Adapter", factory: () => new Crh3Adapter() },

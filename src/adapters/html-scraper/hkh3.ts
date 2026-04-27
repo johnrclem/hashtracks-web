@@ -7,6 +7,7 @@ import type {
   SourceAdapter,
 } from "../types";
 import { hasAnyErrors } from "../types";
+import { safeFetch } from "../safe-fetch";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 
 /**
@@ -116,7 +117,7 @@ export function parseHkh3Homepage(
   const format = extractLabeled(segText, /Format\s*[:\s]/i);
 
   // Locate the Google Maps link inside the segment (anchor href).
-  const mapMatch = /href="(https?:\/\/(?:maps\.app\.goo\.gl|maps\.google\.[^"\/]+|www\.google\.com\/maps)[^"]*)"/i.exec(segment);
+  const mapMatch = /href="(https?:\/\/(?:maps\.app\.goo\.gl|maps\.google\.[^"/]+|www\.google\.com\/maps)[^"]*)"/i.exec(segment);
   const locationUrl = mapMatch ? mapMatch[1] : undefined;
 
   // Detail strings to weave into the description (skip empties).
@@ -151,8 +152,11 @@ export class Hkh3Adapter implements SourceAdapter {
 
     let html: string;
     const fetchStart = Date.now();
+    const controller = new AbortController();
+    const fetchTimeout = setTimeout(() => controller.abort(), 15_000);
     try {
-      const response = await fetch(baseUrl, {
+      const response = await safeFetch(baseUrl, {
+        signal: controller.signal,
         headers: {
           "User-Agent":
             "Mozilla/5.0 (HashTracksScraper/1.0; +https://hashtracks.com)",
@@ -166,13 +170,17 @@ export class Hkh3Adapter implements SourceAdapter {
       }
       html = await response.text();
     } catch (err) {
-      const message = `Fetch failed: ${err}`;
+      const message = `Fetch failed: ${err instanceof Error ? err.message : String(err)}`;
       errorDetails.fetch = [{ url: baseUrl, message }];
       return { events: [], errors: [message], errorDetails };
+    } finally {
+      clearTimeout(fetchTimeout);
     }
     const fetchDurationMs = Date.now() - fetchStart;
 
-    const event = parseHkh3Homepage(html, baseUrl);
+    // Anchor `today` to fetch start so all date computations in a single
+    // scrape resolve against the same instant (avoids midnight-boundary skew).
+    const event = parseHkh3Homepage(html, baseUrl, new Date(fetchStart));
     const structureHash = generateStructureHash(html);
 
     if (!event) {
