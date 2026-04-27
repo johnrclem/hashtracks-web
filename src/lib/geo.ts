@@ -279,8 +279,14 @@ export async function reverseGeocode(
     );
 
     if (!locality) return null;
-    return state
-      ? `${locality.long_name}, ${state.short_name}`
+    // Drop 1-char admin_area_level_1 short_name globally — every real
+    // state/province/prefecture code (US/CA/EU/UK/AU/MX/JP/…) is ≥2 chars.
+    // Google returns "D" for County Dublin which produced "Dublin, D"
+    // downstream (#968). If a future locale legitimately emits a 1-char
+    // short_name, narrow the gate to country=IE.
+    const stateShort = state?.short_name;
+    return stateShort && stateShort.length >= 2
+      ? `${locality.long_name}, ${stateShort}`
       : locality.long_name;
   } catch {
     return null;
