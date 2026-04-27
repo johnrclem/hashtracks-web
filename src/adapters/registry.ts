@@ -94,6 +94,7 @@ import { BangkokBikersAdapter } from "./html-scraper/bangkok-bikers";
 import { BangkokH3Adapter } from "./html-scraper/bangkok-h3";
 import { LVH3Adapter } from "./html-scraper/lvh3";
 import { BoulderH3Adapter } from "./html-scraper/boulder-h3";
+import { Ch4DkAdapter } from "./html-scraper/ch4-dk";
 import { GoogleCalendarAdapter } from "./google-calendar/adapter";
 import { GoogleSheetsAdapter } from "./google-sheets/adapter";
 import { ICalAdapter } from "./ical/adapter";
@@ -223,6 +224,8 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /lvh3\.org/i, name: "LVH3Adapter", factory: () => new LVH3Adapter() },
   // ── Colorado ──
   { pattern: /boulderh3\.com/i, name: "BoulderH3Adapter", factory: () => new BoulderH3Adapter() },
+  // ── Denmark ──
+  { pattern: /ch4\.dk/i, name: "Ch4DkAdapter", factory: () => new Ch4DkAdapter() },
 ];
 
 /** URL-based routing for HTML_SCRAPER — derived from htmlScraperEntries (single source of truth). */
