@@ -92,7 +92,7 @@ async function main() {
     console.log(`\nFound ${existing.length}/4 target events:\n`);
     for (const e of existing) {
       const role = e.id === KEEP_ID ? "KEEP " : "DELETE";
-      const wrong = e.kennelId !== kennel.id ? " ⚠️ wrong kennel!" : "";
+      const wrong = e.kennelId === kennel.id ? "" : " ⚠️ wrong kennel!";
       console.log(
         `  ${role}  ${e.id}  ${e.date.toISOString().split("T")[0]}  #${e.runNumber}  ${e.locationName ?? "(no loc)"}${wrong}`,
       );
