@@ -256,7 +256,7 @@ export class Ch4DkAdapter implements SourceAdapter {
           date: dt.date,
           kennelTag: "ch4-dk",
           runNumber,
-          title: runNumber !== undefined ? `CH4 #${runNumber}` : undefined,
+          title: runNumber === undefined ? undefined : `CH4 #${runNumber}`,
           startTime: dt.startTime,
           location,
           locationUrl,
