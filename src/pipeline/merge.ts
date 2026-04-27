@@ -1218,8 +1218,8 @@ async function upsertCanonicalEvent(
   // Cross-window match (#990) physically moved the row out of its original
   // bucket. If that bucket had siblings, the previous canonical pick is now
   // stale (the moved row may have been the canonical winner). Refetch the
-  // abandoned bucket and recanonicalize. No-op when the old bucket only had
-  // the moved row (recomputeCanonical early-exits on length ≤ 1).
+  // abandoned bucket and recanonicalize. recomputeCanonical also promotes
+  // any single non-canonical leftover row so it stays visible.
   if (crossWindowMatch && crossWindowOldDate && ctx.trustLevel >= (existingEvent?.trustLevel ?? 0)) {
     // Deterministic orderBy mirrors the same-day `findMany` at the top of
     // upsertCanonicalEvent — keeps `pickCanonicalEventIds`' input-order
