@@ -33,13 +33,21 @@ const PROFILE_FIELDS = new Set([
   "logoUrl", "latitude", "longitude",
 ]);
 
-// Curated overrides that REPLACE existing kennel field values. The standard
-// profile fill in ensureKennelRecords only writes nulls; this list exists for
-// the rare case where an existing non-null DB value is wrong and needs to be
-// corrected (audit fixes, mis-config cleanup). Keep tiny and document each entry.
+// Curated overrides that REPLACE existing non-null kennel field values. The
+// standard profile fill in ensureKennelRecords only writes nulls (so curated
+// `seed-data/kennels.ts` values are the source of truth for fresh installs
+// and any field that's still null in the DB). This list exists ONLY to repair
+// existing prod rows whose value is wrong AND non-null — the fill loop can't
+// reach those.
+//
+// Lifecycle: each entry should be removed in a follow-up PR once a prod
+// deploy has run and the linked issue's verification confirms the correction.
+// The matching kennels.ts entry is the canonical home for the value; the
+// override is one-time scaffolding for the in-place DB repair.
 const KENNEL_FORCE_OVERRIDES: Array<{ kennelCode: string; fields: Record<string, unknown>; reason: string }> = [
-  // #1019 — DH4 description was inherited from DH3-era misconfig ("Ohio's oldest").
-  // Website also pointed to an unrelated daytonhhh.org URL.
+  // #1019 — existing prod rows have a DH3-era description + stale
+  // daytonhhh.org website. kennels.ts now has the correct values; this
+  // override repairs already-seeded rows. Remove after deploy confirms.
   {
     kennelCode: "dh4",
     fields: {
@@ -49,16 +57,17 @@ const KENNEL_FORCE_OVERRIDES: Array<{ kennelCode: string; fields: Record<string,
     },
     reason: "Issue #1019 — replace DH3-era description + stale daytonhhh.org website",
   },
-  // #840 — BJH3 scheduleFrequency held free-form text "Every Wednesday and Saturday."
+  // #840 — existing prod row has scheduleFrequency = "Every Wednesday and
+  // Saturday." (free-form sentence in the enum slot). kennels.ts now has
+  // structured scheduleDayOfWeek + scheduleTime + scheduleNotes (fill logic
+  // picks them up from null fields); this override only corrects the one
+  // wrong non-null field. Remove after deploy confirms.
   {
     kennelCode: "bjh3",
     fields: {
-      scheduleDayOfWeek: "Wednesday",
-      scheduleTime: "7:00 PM",
       scheduleFrequency: "Weekly",
-      scheduleNotes: "Two weekly hashes: Wednesday evenings and Saturday afternoons. See Carrd for current trail.",
     },
-    reason: "Issue #840 — split free-form sentence into structured enum + notes",
+    reason: "Issue #840 — replace free-form scheduleFrequency text with enum value",
   },
 ];
 
