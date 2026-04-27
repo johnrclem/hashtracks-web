@@ -602,6 +602,64 @@ describe("chronoParseDate", () => {
     // Chrono natively parses M-D-YY; the negative lookahead must not interfere
     expect(chronoParseDate("3-7-26", "en-US")).toBe("2026-03-07");
   });
+
+  // ── "D[D] MMM YY[YY]" fast-path (chrono-node bug workaround) ──
+  // chrono mis-parses single-digit-day variants of this format: "5 May 26"
+  // becomes 2026-05-26 (interpreting the year fragment as the day) instead of
+  // 2026-05-05. We pre-parse the unambiguous DDMonYY shape before chrono.
+  // Bug surfaced in Ladies H4 HK where rows like "5 May 26" / "2 Jun 26" /
+  // "7 Jul 26" all landed on the 26th of their month.
+
+  it("parses single-digit-day '5 May 26' as 2026-05-05 (not chrono's 2026-05-26)", () => {
+    expect(chronoParseDate("5 May 26", "en-GB")).toBe("2026-05-05");
+  });
+
+  it("parses single-digit-day '2 Jun 26' as 2026-06-02", () => {
+    expect(chronoParseDate("2 Jun 26", "en-GB")).toBe("2026-06-02");
+  });
+
+  it("parses single-digit-day '7 Jul 26' as 2026-07-07", () => {
+    expect(chronoParseDate("7 Jul 26", "en-GB")).toBe("2026-07-07");
+  });
+
+  it("still parses two-digit-day '28 Apr 26' as 2026-04-28", () => {
+    expect(chronoParseDate("28 Apr 26", "en-GB")).toBe("2026-04-28");
+  });
+
+  it("parses hyphenated D-Mon-YY '5-May-26' as 2026-05-05", () => {
+    expect(chronoParseDate("5-May-26", "en-GB")).toBe("2026-05-05");
+  });
+
+  it("parses 4-digit year 'D MMM YYYY': '5 May 2026'", () => {
+    expect(chronoParseDate("5 May 2026", "en-GB")).toBe("2026-05-05");
+  });
+
+  it("parses 2-digit year boundary 49 → 2049", () => {
+    expect(chronoParseDate("5 May 49", "en-GB")).toBe("2049-05-05");
+  });
+
+  it("parses 2-digit year boundary 50 → 1950", () => {
+    expect(chronoParseDate("5 May 50", "en-GB")).toBe("1950-05-05");
+  });
+
+  it("rejects impossible D MMM YY '31 Apr 26'", () => {
+    // Apr has 30 days — fast-path returns null and chrono fallback also rejects
+    expect(chronoParseDate("31 Apr 26", "en-GB")).toBeNull();
+  });
+
+  it("rejects unknown month abbreviation 'D Xyz YY'", () => {
+    // Fast-path rejects; chrono fallback returns null too because Xyz isn't a month
+    expect(chronoParseDate("5 Xyz 26", "en-GB")).toBeNull();
+  });
+
+  it("does not fast-path 3-digit year tokens (year-226 AD would be absurd)", () => {
+    // The fast-path regex requires exactly 2 OR 4 digits, so "5 May 226"
+    // falls through to chrono. chrono parses the "5 May" prefix and infers
+    // a sensible current-year date, NOT a literal "226-05-05" the old
+    // permissive `\d{2,4}` quantifier would have produced.
+    const result = chronoParseDate("5 May 226", "en-GB");
+    expect(result).toMatch(/^20\d{2}-05-05$/);
+  });
 });
 
 describe("extractAddressWithAi", () => {

@@ -394,12 +394,46 @@ export type DateLocale = "en-US" | "en-GB";
  * @param options - Optional parsing options (forwardDate: prefer next future occurrence)
  * @returns "YYYY-MM-DD" string, or null if parsing fails
  */
+/**
+ * Pre-parse the unambiguous "D[D] MMM YY[YY]" format (e.g. "5 May 26",
+ * "28-Apr-2026") before falling through to chrono-node. chrono mis-parses
+ * single-digit-day variants of this pattern: it reads "5 May 26" as
+ * 2026-05-26 (interpreting the year fragment as the day) instead of
+ * 2026-05-05. This format is fully deterministic when the components are
+ * separated and the month is a recognized 3-letter abbreviation, so
+ * handling it explicitly is both safer and faster than the chrono path.
+ *
+ * Returns "YYYY-MM-DD" on a clean match, or null if the pattern doesn't fit.
+ */
+function parseDmyAbbrevDate(text: string): string | null {
+  // Year quantifier is exactly 2 OR exactly 4 digits — `\d{4}|\d{2}`
+  // (alternation, not `\d{2,4}`) so we don't accidentally match 3-digit years.
+  const match = /^\s*(\d{1,2})[\s-]+([A-Za-z]{3})[\s-]+(\d{4}|\d{2})\s*$/.exec(text);
+  if (!match) return null;
+  const day = Number.parseInt(match[1], 10);
+  const month = MONTHS[match[2].toLowerCase()];
+  if (!month) return null;
+  let year = Number.parseInt(match[3], 10);
+  if (year < 100) year += year < 50 ? 2000 : 1900;
+  // Date round-trip catches invalid days (e.g. "31 Apr 26" → null).
+  const d = new Date(Date.UTC(year, month - 1, day));
+  if (d.getUTCMonth() !== month - 1 || d.getUTCDate() !== day) return null;
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
 export function chronoParseDate(
   text: string,
   locale: DateLocale = "en-US",
   referenceDate?: Date,
   options?: { forwardDate?: boolean },
 ): string | null {
+  // Fast-path: "D[D] MMM YY[YY]" with space or hyphen separators. Bypasses
+  // a chrono-node bug where "5 May 26" becomes 2026-05-26 instead of
+  // 2026-05-05. Affects Ladies H4 HK and any other adapter feeding this
+  // format. See unit tests in utils.test.ts.
+  const dmyResult = parseDmyAbbrevDate(text);
+  if (dmyResult) return dmyResult;
+
   // Normalize hyphenated M-D dates (e.g., "3-7", "10-31: HALLOWEEN") → "M/D"
   // before parsing. Chrono can't parse "3-7" but handles "3/7" natively.
   // Negative lookahead excludes M-D-YY patterns (e.g., "3-7-26").
