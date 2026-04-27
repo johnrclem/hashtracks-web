@@ -599,14 +599,25 @@ async function reconcileEventTimezones(prisma: any) {
   for (const [code, count] of byKennel) {
     console.log(`  ⚠ ${code}: ${count} events with wrong timezone`);
   }
+  let updated = 0;
+  let skipped = 0;
   for (const e of stale) {
     const newDateUtc = e.startTime ? composeUtcStart(e.date, e.startTime, e.expectedTz) : null;
+    // Refuse to update only `timezone` when the row has a startTime but
+    // dateUtc recompute failed — that would leave the stored UTC moment
+    // inconsistent with the new local zone. Better to log and retry next seed.
+    if (e.startTime && !newDateUtc) {
+      console.error(`  ✗ Failed to recompute dateUtc for event ${e.id} (${e.kennelCode}); skipping to preserve consistency`);
+      skipped++;
+      continue;
+    }
     await prisma.event.update({
       where: { id: e.id },
       data: { timezone: e.expectedTz, ...(newDateUtc ? { dateUtc: newDateUtc } : {}) },
     });
+    updated++;
   }
-  console.log(`  ✓ ${stale.length} events reconciled`);
+  console.log(`  ✓ ${updated} events reconciled${skipped > 0 ? ` (${skipped} skipped — see errors above)` : ""}`);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

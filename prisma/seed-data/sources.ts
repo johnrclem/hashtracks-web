@@ -37,6 +37,26 @@ const sfh3KennelCodes = [
   "barh3", "marinh3", "fch3", "sffmh3", "vmh3", "mwh3", "262h3",
 ];
 
+// ── SHARED BRISTOL CONFIG (bristolhash.org.uk hosts three kennels) ──
+//
+// Same UK locale, same postcode-truncated location parsing across all three;
+// the per-source overrides are only the rowSelector, columns, and
+// defaultKennelTag. Keeping the base separate avoids per-source duplication
+// (and stays under SonarCloud's new-line dup-density gate).
+
+const bristolBase = {
+  type: "HTML_SCRAPER" as const,
+  trustLevel: 7,
+  scrapeFreq: "daily",
+  scrapeDays: 90,
+};
+
+const bristolConfigBase = {
+  containerSelector: "table",
+  dateLocale: "en-GB",
+  locationTruncateAfter: "uk-postcode",
+};
+
 // ── SOURCE DATA (PRD Section 8) ──
 
 export const SOURCES = [
@@ -448,14 +468,11 @@ export const SOURCES = [
     },
     // ===== UK — BRISTOL =====
     {
+      ...bristolBase,
       name: "West of England Hash Run List",
       url: "https://bristolhash.org.uk/allprint.php",
-      type: "HTML_SCRAPER" as const,
-      trustLevel: 7,
-      scrapeFreq: "daily",
-      scrapeDays: 90,
       config: {
-        containerSelector: "table",
+        ...bristolConfigBase,
         rowSelector: "tr",
         columns: {
           kennelTag: "td:nth-child(1)",
@@ -464,33 +481,28 @@ export const SOURCES = [
           hares: "td:nth-child(5)",
         },
         defaultKennelTag: "bristolh3",
-        dateLocale: "en-GB",
-        locationTruncateAfter: "uk-postcode",
       },
       // Issue #1004: bogs-h3 split off into its own bogsruns.php source below
-      // so we can capture run numbers + start times that allprint.php drops.
+      // so we capture run numbers + start times allprint.php drops.
       kennelCodes: ["bristolh3", "bristol-grey"],
     },
     {
+      ...bristolBase,
       // Issue #1004 — BOGS-only source pointing at the kennel-specific page.
-      // bogsruns.php columns (verified against live HTML 2026-04-26):
-      //   col 1: run number, col 2: date "DD/MM/YY", col 3: location + theme,
-      //   col 4: OS-map link (skipped), col 5: hare(s).
-      // allprint.php conflates 3 kennels and drops the run number entirely.
-      // Header on bogsruns.php asserts "Runs start on Wednesdays at 7:15pm
-      // sharp" — adapter doesn't honor a default time today, so the 7:15 PM
-      // scheduleTime lives on the Kennel record (#1005) instead.
-      // The page nests data rows inside an outer wrapper table, so we filter
-      // by bgcolor="#FFFFAA" (the run-row highlight color) to skip the page
-      // chrome and inter-event status banners. Verified live: 9 clean events.
+      // bogsruns.php columns (verified live 2026-04-26):
+      //   col 1: run number, col 2: date "DD/MM/YY",
+      //   col 3: location + theme, col 4: OS-map link (skipped),
+      //   col 5: hare(s).
+      // Page header asserts "Runs start on Wednesdays at 7:15pm sharp" —
+      // adapter has no default-time hook today, so the 7:15 PM scheduleTime
+      // lives on the Kennel record (#1005). Data rows nest inside an outer
+      // wrapper table, so we filter by bgcolor="#FFFFAA" (the run-row
+      // highlight) to skip page chrome and status banners. Verified live:
+      // 9 clean events.
       name: "BOGS H3 Run List",
       url: "https://bristolhash.org.uk/bogsruns.php",
-      type: "HTML_SCRAPER" as const,
-      trustLevel: 7,
-      scrapeFreq: "daily",
-      scrapeDays: 90,
       config: {
-        containerSelector: "table",
+        ...bristolConfigBase,
         rowSelector: "tr[bgcolor=\"#FFFFAA\"]",
         columns: {
           runNumber: "td:nth-child(1)",
@@ -499,8 +511,6 @@ export const SOURCES = [
           hares: "td:nth-child(5)",
         },
         defaultKennelTag: "bogs-h3",
-        dateLocale: "en-GB",
-        locationTruncateAfter: "uk-postcode",
       },
       kennelCodes: ["bogs-h3"],
     },
