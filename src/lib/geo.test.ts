@@ -409,7 +409,7 @@ describe("reverseGeocode", () => {
     expect(result).toBeNull();
   });
 
-  it("drops 1-char admin_area_level_1 short_name (#968: County Dublin returns 'D')", async () => {
+  it("drops 1-char admin short_name for IE (#968: County Dublin returns 'D')", async () => {
     const components = [
       { long_name: "Dublin", short_name: "Dublin", types: ["locality"] },
       { long_name: "County Dublin", short_name: "D", types: ["administrative_area_level_1"] },
@@ -420,6 +420,19 @@ describe("reverseGeocode", () => {
       json: async () => ({ status: "OK", results: [{ address_components: components }] }),
     } as Response);
     expect(await reverseGeocode(53.3498, -6.2603)).toBe("Dublin");
+  });
+
+  it("preserves 1-char admin short_name for non-IE countries (e.g. AR)", async () => {
+    const components = [
+      { long_name: "La Plata", short_name: "La Plata", types: ["locality"] },
+      { long_name: "Buenos Aires Province", short_name: "B", types: ["administrative_area_level_1"] },
+      { long_name: "Argentina", short_name: "AR", types: ["country"] },
+    ];
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ status: "OK", results: [{ address_components: components }] }),
+    } as Response);
+    expect(await reverseGeocode(-34.92, -57.95)).toBe("La Plata, B");
   });
 
   it("passes language=en to Google Maps Geocoding API", async () => {
