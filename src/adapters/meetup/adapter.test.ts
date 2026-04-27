@@ -1074,6 +1074,40 @@ describe("buildRawEventFromApollo — kennelPatterns", () => {
     expect(event.kennelTag).toBe("chain-gang-hhh");
   });
 
+  it("routes prefixed Chain Gang AGM title with word-boundary pattern (#992)", () => {
+    // Anchored `^Chain Gang` misses "ANNUAL GENERAL MEEING: Chain Gang ..."
+    // (the actual Trail #40 title from PR #978 backfill). The seed.ts fix
+    // switches to `\bChain Gang\b` — verify it picks up prefixed titles.
+    const ev = {
+      __typename: "Event",
+      id: "agm",
+      title: "ANNUAL GENERAL MEEING: Chain Gang Hash House Harriers Trail #40",
+      dateTime: "2026-04-25T15:00:00-04:00",
+    };
+    const patterns: [RegExp, string][] = [
+      [/\b(?:BIBH3|Belle Isle)\b/i, "bibh3"],
+      [/\b(?:TMFMH3|Titanic)\b/i, "tmfmh3"],
+      [/\bChain Gang\b/i, "chain-gang-hhh"],
+    ];
+    const event = buildRawEventFromApollo(ev as never, emptyState, "rvah3", patterns);
+    expect(event.kennelTag).toBe("chain-gang-hhh");
+  });
+
+  it("routes Belle Isle alt-name to bibh3 with word-boundary pattern (#992)", () => {
+    const ev = {
+      __typename: "Event",
+      id: "bibh3-alt",
+      title: "20-Year Bash: Belle Isle Brigade Trail #247",
+      dateTime: "2026-05-01T18:30:00-04:00",
+    };
+    const patterns: [RegExp, string][] = [
+      [/\b(?:BIBH3|Belle Isle)\b/i, "bibh3"],
+      [/\bChain Gang\b/i, "chain-gang-hhh"],
+    ];
+    const event = buildRawEventFromApollo(ev as never, emptyState, "rvah3", patterns);
+    expect(event.kennelTag).toBe("bibh3");
+  });
+
   it("falls back to default kennelTag when no pattern matches", () => {
     const ev = {
       __typename: "Event",

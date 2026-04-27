@@ -2,13 +2,14 @@ import { prisma } from "@/lib/db";
 import type { EventStatus, Prisma, SourceType } from "@/generated/prisma/client";
 import type { RawEventData, MergeResult } from "@/adapters/types";
 import { parseUtcNoonDate } from "@/lib/date";
-import { regionTimezone, getLabelForUrl, stripUrlsFromText } from "@/lib/format";
+import { regionTimezone, getLabelForUrl, stripUrlsFromText, timeToMinutes } from "@/lib/format";
 import { composeUtcStart } from "@/lib/timezone";
 import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag, clearResolverCache } from "./kennel-resolver";
 import { extractCoordsFromMapsUrl, geocodeAddress, resolveShortMapsUrl, reverseGeocode, haversineDistance, parseDMSFromLocation, stripDMSFromLocation } from "@/lib/geo";
 import { isPlaceholder, decodeEntities, HARE_BOILERPLATE_RE, CTA_EMBEDDED_PATTERNS } from "@/adapters/utils";
 import { LOCATION_EMAIL_CTA_RE } from "./audit-checks";
+import { levenshtein } from "@/lib/fuzzy";
 
 // Strip a trailing "(text/call/… for address)" parenthetical when its body
 // starts with a contact verb AND carries a contact-info signal (3+ digits, @,
@@ -772,6 +773,93 @@ async function resolveCoords(
   return {};
 }
 
+// ── Fuzzy ±48h cross-source dedup (#990) ──
+//
+// Strict same-day `(kennelId, date)` dedup misses the case where two sources
+// legitimately disagree on the start date by ±1 day (setup-day vs main-day,
+// TZ confusion, AM/PM ambiguity — see BurlyH3 Invihash in #886). Gated
+// behind `MERGE_FUZZY_DEDUP=true` so the feature ships disabled and can be
+// flipped on in Vercel without redeploy.
+
+const FUZZY_WINDOW_MS = 2 * 24 * 60 * 60 * 1000; // ±48h
+const FUZZY_TITLE_DISTANCE = 4;
+const FUZZY_LOCATION_DISTANCE = 8;
+// 120 min: setup-day vs main-day in #886 diverges by 60 min (14:00 vs 15:00),
+// AM/PM ambiguity can shift 12h but title/location gates catch those, and
+// >2h dayparts are reliably distinct trails worth keeping split.
+const FUZZY_TIME_TOLERANCE_MIN = 120;
+// Min normalized-title length: Levenshtein ≤ 4 against a 3-char title matches
+// almost any other 3-char title, so refuse to probe when there's not enough
+// signal — avoids both wasted DB round-trips and pathological matches.
+const FUZZY_MIN_TITLE_LEN = 4;
+
+/** Normalize a title for fuzzy comparison: lowercase, strip run-number tokens
+ *  (`#42`, `42`), collapse whitespace. */
+function normalizeTitleForFuzzy(t: string | null | undefined): string {
+  if (!t) return "";
+  return t.toLowerCase().replace(/\b#?\d+\b/g, "").replace(/\s+/g, " ").trim();
+}
+
+/** Absolute minute diff between two `"HH:MM"` strings; returns Infinity on
+ *  malformed input so callers' reject-on-conflict gates stay conservative. */
+function timeDiffMinutes(a: string, b: string): number {
+  const av = timeToMinutes(a);
+  const bv = timeToMinutes(b);
+  if (av == null || bv == null) return Infinity;
+  return Math.abs(av - bv);
+}
+
+/** Subset of Event columns the fuzzy probe needs — keeps the type tight so the
+ *  caller can splice the result into `sameDayEvents` without a cast. */
+type FuzzyCandidate = Awaited<ReturnType<typeof prisma.event.findMany>>[number];
+
+/**
+ * Look for an existing canonical row at the same kennel within ±48h whose title
+ * fuzzy-matches the incoming event AND has no conflicting runNumber, startTime,
+ * or location. Returns at most one candidate (highest trust, most recent).
+ *
+ * Excludes series rows (parentEventId set OR isSeriesParent=true) so multi-day
+ * series machinery from `linkMultiDaySeries` stays disjoint from cross-source
+ * dedup.
+ */
+async function findFuzzyDuplicateInWindow(
+  event: RawEventData,
+  kennelId: string,
+  eventDate: Date,
+): Promise<FuzzyCandidate | null> {
+  const incomingTitle = normalizeTitleForFuzzy(event.title);
+  if (incomingTitle.length < FUZZY_MIN_TITLE_LEN) return null;
+
+  const windowStart = new Date(eventDate.getTime() - FUZZY_WINDOW_MS);
+  const windowEnd = new Date(eventDate.getTime() + FUZZY_WINDOW_MS);
+
+  const candidates = await prisma.event.findMany({
+    where: {
+      kennelId,
+      date: { gte: windowStart, lte: windowEnd, not: eventDate },
+      parentEventId: null,
+      isSeriesParent: false,
+    },
+    orderBy: [{ trustLevel: "desc" }, { createdAt: "desc" }],
+  });
+
+  for (const c of candidates) {
+    const candTitle = normalizeTitleForFuzzy(c.title);
+    if (!candTitle) continue;
+    if (levenshtein(incomingTitle, candTitle) > FUZZY_TITLE_DISTANCE) continue;
+
+    if (event.runNumber != null && c.runNumber != null && event.runNumber !== c.runNumber) continue;
+
+    if (event.startTime && c.startTime && timeDiffMinutes(event.startTime, c.startTime) > FUZZY_TIME_TOLERANCE_MIN) continue;
+
+    if (event.location && c.locationName
+        && levenshtein(event.location.toLowerCase(), c.locationName.toLowerCase()) > FUZZY_LOCATION_DISTANCE) continue;
+
+    return c;
+  }
+  return null;
+}
+
 /**
  * Create or update the canonical Event record and link the RawEvent to it.
  * Returns the canonical event ID.
@@ -836,6 +924,29 @@ async function upsertCanonicalEvent(
     }
     if (!existingEvent && event.title) {
       existingEvent = sameDayEvents.find(e => e.title === event.title) ?? null;
+    }
+  }
+
+  // ±48h fuzzy cross-source dedup (#990) — only when nothing matched same-day,
+  // the feature flag is on, and the incoming event isn't part of a series.
+  // Splices the matched row into sameDayEvents so recomputeCanonical operates
+  // on the matched row's bucket. The matched row's ORIGINAL date is captured
+  // here so we can recanonicalize that abandoned bucket after the update
+  // physically moves the row to the incoming source's date.
+  let crossWindowMatch = false;
+  let crossWindowOldDate: Date | null = null;
+  if (
+    !existingEvent
+    && sameDayEvents.length === 0
+    && process.env.MERGE_FUZZY_DEDUP === "true"
+    && !event.seriesId
+  ) {
+    const fuzzy = await findFuzzyDuplicateInWindow(event, kennelId, eventDate);
+    if (fuzzy) {
+      existingEvent = fuzzy;
+      sameDayEvents.push(fuzzy);
+      crossWindowMatch = true;
+      crossWindowOldDate = fuzzy.date;
     }
   }
 
@@ -940,6 +1051,13 @@ async function upsertCanonicalEvent(
           ...(event.cost !== undefined
             ? { cost: event.cost ?? null }
             : {}),
+          // Cross-window fuzzy match (#990) physically moves the row from
+          // its old `date` bucket to the incoming source's date, so display
+          // paths that compose `date + startTime + timezone` render the
+          // correct day. Old bucket is recanonicalized below the
+          // recomputeCanonical for the new bucket. Same-day matches: `date`
+          // unchanged, dateUtc/timezone refresh as before.
+          ...(crossWindowMatch ? { date: eventDate } : {}),
           dateUtc,
           timezone,
           // Preserve first source's URL; subsequent sources get EventLinks
@@ -1074,6 +1192,18 @@ async function upsertCanonicalEvent(
   // field values may be slightly stale but trustLevel + createdAt (the
   // dominant sort keys) are immutable.
   await recomputeCanonical(sameDayEvents);
+
+  // Cross-window match (#990) physically moved the row out of its original
+  // bucket. If that bucket had siblings, the previous canonical pick is now
+  // stale (the moved row may have been the canonical winner). Refetch the
+  // abandoned bucket and recanonicalize. No-op when the old bucket only had
+  // the moved row (recomputeCanonical early-exits on length ≤ 1).
+  if (crossWindowMatch && crossWindowOldDate && ctx.trustLevel >= (existingEvent?.trustLevel ?? 0)) {
+    const oldBucket = await prisma.event.findMany({
+      where: { kennelId, date: crossWindowOldDate },
+    });
+    await recomputeCanonical(oldBucket as never);
+  }
 
   return targetEventId;
 }

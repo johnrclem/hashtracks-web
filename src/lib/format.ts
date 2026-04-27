@@ -12,6 +12,20 @@ export function formatTime(time: string): string {
 }
 
 /**
+ * Parse "HH:MM" into minutes since midnight. Returns null if unparseable
+ * or out of range. Promoted from src/lib/strava/match-score.ts so the
+ * pipeline can share the same parser without depending on Strava.
+ */
+export function timeToMinutes(time: string): number | null {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(time);
+  if (!m) return null;
+  const h = Number.parseInt(m[1], 10);
+  const min = Number.parseInt(m[2], 10);
+  if (h > 23 || min > 59) return null;
+  return h * 60 + min;
+}
+
+/**
  * Compact 12-hour time following Google Calendar conventions.
  * e.g. "19:00" → "7pm", "14:30" → "2:30pm", "09:00" → "9am"
  */

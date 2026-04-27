@@ -4,7 +4,7 @@
  * Used for kennel tag resolution and user-to-hasher name matching.
  */
 
-function levenshtein(a: string, b: string): number {
+export function levenshtein(a: string, b: string): number {
   const la = a.length;
   const lb = b.length;
   const dp: number[][] = Array.from({ length: la + 1 }, () =>

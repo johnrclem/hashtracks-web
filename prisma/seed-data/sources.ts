@@ -932,10 +932,14 @@ export const SOURCES = [
       config: {
         groupUrlname: "richmond-hash-house-harriers",
         kennelTag: "rvah3",
+        // Word-boundary patterns (not anchored) so prefixed Meetup titles like
+        // "ANNUAL GENERAL MEEING: Chain Gang ... Trail #40" route correctly.
+        // Closes #992. Alt names (Belle Isle, Titanic) included since the same
+        // prefix-blindness affects sister kennels.
         kennelPatterns: [
-          ["^BIBH3", "bibh3"],
-          ["^TMFMH3", "tmfmh3"],
-          ["^Chain Gang", "chain-gang-hhh"],
+          ["\\b(?:BIBH3|Belle Isle)\\b", "bibh3"],
+          ["\\b(?:TMFMH3|Titanic)\\b", "tmfmh3"],
+          ["\\bChain Gang\\b", "chain-gang-hhh"],
         ],
       },
       kennelCodes: ["rvah3", "bibh3", "tmfmh3", "chain-gang-hhh"],
@@ -1747,8 +1751,11 @@ export const SOURCES = [
       scrapeDays: 365,
       config: {
         calendarId: "cae3r4u2uhucmmi9rvq5eu6obg@group.calendar.google.com",
+        // Anchor OH3 to start-of-title so co-host titles like
+        // "Cherry City H3 #1 / OH3 # 1340" no longer match the OH3 pattern
+        // mid-string and get correctly routed to cch3-or. Closes #991.
         kennelPatterns: [
-          ["OH3.*Full Moon|OH3 #|OH3 -|OH3$", "oh3"],
+          ["^OH3\\b|OH3 Full Moon", "oh3"],
           ["TGIF|Friday.*Pubcrawl", "tgif"],
           ["Cherry City|Cherry Cherry City", "cch3-or"],
         ],

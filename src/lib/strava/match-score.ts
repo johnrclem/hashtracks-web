@@ -7,6 +7,7 @@
  */
 import { fuzzyNameMatch } from "@/lib/fuzzy";
 import { haversineDistance } from "@/lib/geo";
+import { timeToMinutes } from "@/lib/format";
 
 export interface ScoredActivity {
   activityName: string;
@@ -124,13 +125,6 @@ export function findBestMatchIndex(
     }
   }
   return bestIdx;
-}
-
-/** Parse "HH:MM" into minutes since midnight. Returns null if unparseable. */
-export function timeToMinutes(time: string): number | null {
-  const match = /^(\d{1,2}):(\d{2})$/.exec(time);
-  if (!match) return null;
-  return Number.parseInt(match[1], 10) * 60 + Number.parseInt(match[2], 10);
 }
 
 /**

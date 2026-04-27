@@ -2404,6 +2404,32 @@ describe("Chicagoland Hash Calendar routing (#938)", () => {
   });
 });
 
+// ── #991 Oregon Hashing Calendar routing: Cherry City joint-trail precedence ──
+
+describe("Oregon Hashing Calendar routing (#991)", () => {
+  const source = SOURCES.find((s) => s.name === "Oregon Hashing Calendar");
+  if (!source?.config) throw new Error("Oregon Hashing Calendar seed config missing");
+  const config = source.config as { kennelPatterns: [string, string][] };
+
+  it.each<[string, string]>([
+    // Co-host title MUST route to Cherry City — pre-fix `OH3$` matched first.
+    ["Cherry City H3 #1 / OH3 # 1340", "cch3-or"],
+    ["Cherry City + OH3 joint", "cch3-or"],
+    // Standard OH3-prefixed titles still match.
+    ["OH3 #1340 - Stumptown", "oh3"],
+    ["OH3 - Whatever", "oh3"],
+    ["OH3 Full Moon Hash", "oh3"],
+    // TGIF still routes correctly.
+    ["TGIF Friday", "tgif"],
+  ])("routes %j → %s", (summary, expectedTag) => {
+    const result = buildRawEventFromGCalItem(
+      { summary, start: { dateTime: "2026-07-12T19:00:00-07:00" }, status: "confirmed" },
+      config,
+    );
+    expect(result?.kennelTag).toBe(expectedTag);
+  });
+});
+
 // ── #924 extractLocationFromDescription instructional-text filter ──
 
 describe("extractLocationFromDescription — #924 instructional text filter", () => {

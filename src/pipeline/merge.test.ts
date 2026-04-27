@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { buildRawEvent } from "@/test/factories";
 
 vi.mock("@/lib/db", () => ({
@@ -2588,5 +2588,182 @@ describe("pickCanonicalEventId", () => {
     };
     // Completeness now beats the sibling (4 vs 2).
     expect(pickCanonicalEventId([postUpdate, sibling])).toBe("updating");
+  });
+});
+
+// ── Fuzzy ±48h cross-source dedup (#990) ──
+
+describe("fuzzy ±48h cross-source dedup (#990)", () => {
+  const FUZZY_FLAG = "MERGE_FUZZY_DEDUP";
+  let prevFlag: string | undefined;
+
+  beforeEach(() => {
+    prevFlag = process.env[FUZZY_FLAG];
+    process.env[FUZZY_FLAG] = "true";
+  });
+
+  afterEach(() => {
+    if (prevFlag === undefined) delete process.env[FUZZY_FLAG];
+    else process.env[FUZZY_FLAG] = prevFlag;
+  });
+
+  function existingFuzzyRow(overrides?: Record<string, unknown>) {
+    return {
+      id: "evt_existing",
+      trustLevel: 5,
+      sourceUrl: "https://kennel-site.com/event",
+      title: "Invihash 2026: The Drunk Ages",
+      runNumber: null,
+      startTime: "14:00",
+      locationName: "Richmond, VT",
+      date: new Date("2026-08-13T12:00:00Z"),
+      ...overrides,
+    };
+  }
+
+  it("creates new row when feature flag is OFF (regression: existing behavior preserved)", async () => {
+    process.env[FUZZY_FLAG] = "false";
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([] as never); // same-day empty
+    // No second findMany — fuzzy probe MUST NOT run.
+    mockEventCreate.mockResolvedValueOnce({ id: "evt_new" } as never);
+
+    const result = await processRawEvents("src_b", [
+      buildRawEvent({
+        date: "2026-08-14",
+        title: "Invihash 2026: The Drunk Ages",
+        sourceUrl: "https://hashrego.com/event/123",
+        startTime: "15:00",
+      }),
+    ]);
+
+    expect(result.created).toBe(1);
+    expect(result.updated).toBe(0);
+    expect(mockEventFindMany).toHaveBeenCalledTimes(1); // only same-day, no fuzzy probe
+  });
+
+  it("merges into ±24h row with fuzzy-matching title (the BurlyH3 Invihash case from #886)", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([] as never); // same-day empty (incoming bucket)
+    mockEventFindMany.mockResolvedValueOnce([existingFuzzyRow()] as never); // fuzzy probe hit
+    mockEventFindMany.mockResolvedValueOnce([] as never); // old-bucket recanonicalize refetch
+    mockEventUpdate.mockResolvedValueOnce({ id: "evt_existing" } as never);
+
+    const result = await processRawEvents("src_hashrego", [
+      buildRawEvent({
+        date: "2026-08-14", // 1 day off from existing's 2026-08-13
+        title: "Invihash 2026: The Drunk Ages",
+        sourceUrl: "https://hashrego.com/event/123",
+        startTime: "15:00", // within 120 min of existing 14:00
+        location: "Richmond, VT",
+      }),
+    ]);
+
+    expect(result.updated).toBe(1);
+    expect(result.created).toBe(0);
+    // EventLink for the cross-source URL
+    expect(vi.mocked(prisma.eventLink.upsert)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { eventId_url: { eventId: "evt_existing", url: "https://hashrego.com/event/123" } },
+      }),
+    );
+
+    // Verify the fuzzy probe used a ±48h window predicate (not just kennelId).
+    // Order-coupled mocks would otherwise pass for the wrong reason if the
+    // implementation ever flipped query order.
+    const fuzzyCall = mockEventFindMany.mock.calls[1];
+    const fuzzyWhere = (fuzzyCall[0] as { where: { date: { gte?: Date; lte?: Date; not?: Date } } }).where;
+    expect(fuzzyWhere.date.gte).toBeInstanceOf(Date);
+    expect(fuzzyWhere.date.lte).toBeInstanceOf(Date);
+    expect(fuzzyWhere.date.not).toBeInstanceOf(Date);
+
+    // Cross-window match physically MOVES the row to the incoming source's
+    // date so display paths render the correct day. Old bucket gets
+    // recanonicalized via the third findMany above.
+    const updateCall = mockEventUpdate.mock.calls.find(c => (c[0] as { where: { id: string } }).where.id === "evt_existing");
+    expect(updateCall).toBeDefined();
+    const updateData = (updateCall![0] as { data: Record<string, unknown> }).data;
+    expect(updateData.date).toEqual(new Date("2026-08-14T12:00:00.000Z"));
+    expect(updateData).toHaveProperty("dateUtc");
+    expect(updateData).toHaveProperty("timezone");
+  });
+
+  it("does NOT merge when runNumber differs (double-header on consecutive days)", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([] as never); // same-day empty
+    mockEventFindMany.mockResolvedValueOnce([
+      existingFuzzyRow({ runNumber: 786, title: "Annual Bash Trail" }),
+    ] as never); // fuzzy probe candidate, but runNumber will conflict
+    mockEventCreate.mockResolvedValueOnce({ id: "evt_new" } as never);
+
+    const result = await processRawEvents("src_b", [
+      buildRawEvent({
+        date: "2026-08-14",
+        title: "Annual Bash Trail",
+        runNumber: 787, // different from existing 786 → reject
+        startTime: "14:00",
+      }),
+    ]);
+
+    expect(result.created).toBe(1);
+    expect(result.updated).toBe(0);
+  });
+
+  it("does NOT run fuzzy probe when incoming event has seriesId (multi-day series)", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([] as never); // same-day empty
+    // No second findMany — fuzzy probe MUST NOT run for series events.
+    mockEventCreate.mockResolvedValueOnce({ id: "evt_new" } as never);
+
+    const result = await processRawEvents("src_b", [
+      buildRawEvent({
+        date: "2026-08-14",
+        title: "Invihash 2026: The Drunk Ages",
+        seriesId: "invihash-2026", // adapter signaled this is part of a series
+      }),
+    ]);
+
+    expect(result.created).toBe(1);
+    expect(mockEventFindMany).toHaveBeenCalledTimes(1); // only same-day query
+  });
+
+  it("does NOT merge when locationName diverges sharply (different venues)", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([] as never); // same-day empty
+    mockEventFindMany.mockResolvedValueOnce([
+      existingFuzzyRow({ locationName: "Central Park" }),
+    ] as never); // fuzzy probe candidate, location will conflict
+    mockEventCreate.mockResolvedValueOnce({ id: "evt_new" } as never);
+
+    const result = await processRawEvents("src_b", [
+      buildRawEvent({
+        date: "2026-08-14",
+        title: "Invihash 2026: The Drunk Ages",
+        location: "Prospect Park Brooklyn", // Levenshtein > 8 vs "Central Park"
+      }),
+    ]);
+
+    expect(result.created).toBe(1);
+    expect(result.updated).toBe(0);
+  });
+
+  it("does NOT merge when startTime daypart conflicts (morning vs evening)", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([] as never); // same-day empty
+    mockEventFindMany.mockResolvedValueOnce([
+      existingFuzzyRow({ startTime: "10:00" }),
+    ] as never);
+    mockEventCreate.mockResolvedValueOnce({ id: "evt_new" } as never);
+
+    const result = await processRawEvents("src_b", [
+      buildRawEvent({
+        date: "2026-08-14",
+        title: "Invihash 2026: The Drunk Ages",
+        startTime: "18:00", // 8h later → reject (>120 min threshold)
+      }),
+    ]);
+
+    expect(result.created).toBe(1);
+    expect(result.updated).toBe(0);
   });
 });
