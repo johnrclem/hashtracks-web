@@ -822,11 +822,12 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "dh3", shortName: "Dublin H3", fullName: "Dublin Hash House Harriers", region: "Dublin", country: "IE",
       website: "https://dublinhhh.com/",
+      logoUrl: "https://dublinhhh.com/assets/images/leprechaun.gif",
       facebookUrl: "https://www.facebook.com/groups/dublinhashhouseharriers/",
       instagramHandle: "dublinhashhouseharriers",
-      scheduleDayOfWeek: "Sunday / Monday", scheduleTime: "19:30", scheduleFrequency: "Weekly",
+      scheduleDayOfWeek: "Monday", scheduleTime: "19:30", scheduleFrequency: "Weekly",
       foundedYear: 1986, hashCash: "€2",
-      description: "Ireland's only regularly running hash. Alternates between Sunday afternoon and Monday evening runs in the Dublin area.",
+      description: "Ireland's longest-running hash. Weekly Monday evening runs in the Dublin area, alternating Dublin H3 (odd weeks) and I ♥ Monday (even weeks).",
       latitude: 53.3498, longitude: -6.2603,
     },
     // ===== UK — SCOTLAND =====

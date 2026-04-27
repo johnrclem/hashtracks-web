@@ -409,6 +409,26 @@ describe("reverseGeocode", () => {
     expect(result).toBeNull();
   });
 
+  // #968: IE-only workaround — County Dublin's admin short_name is "D"
+  // (Eircode prefix). Drop it for IE; preserve 1-char codes elsewhere.
+  it.each([
+    { case: "IE: drops 1-char admin", country: "IE", admin: "D", expected: "Dublin" },
+    { case: "AR: preserves 1-char admin", country: "AR", admin: "B", expected: "Dublin, B" },
+  ])("$case", async ({ country, admin, expected }) => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        status: "OK",
+        results: [{ address_components: [
+          { long_name: "Dublin", short_name: "Dublin", types: ["locality"] },
+          { long_name: "Admin", short_name: admin, types: ["administrative_area_level_1"] },
+          { long_name: country, short_name: country, types: ["country"] },
+        ] }],
+      }),
+    } as Response);
+    expect(await reverseGeocode(0, 0)).toBe(expected);
+  });
+
   it("passes language=en to Google Maps Geocoding API", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
       ok: true,

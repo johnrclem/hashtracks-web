@@ -279,8 +279,17 @@ export async function reverseGeocode(
     );
 
     if (!locality) return null;
-    return state
-      ? `${locality.long_name}, ${state.short_name}`
+    // #968: Google returns admin_area_level_1.short_name = "D" for County
+    // Dublin (an Eircode prefix, not a real abbreviation), which produced
+    // "Dublin, D". Drop the suffix only for IE so we don't accidentally
+    // strip a legitimate 1-char admin code elsewhere (e.g., AR ISO 3166-2).
+    const stateShort = state?.short_name;
+    const countryShort = components.find((c) => c.types.includes("country"))?.short_name;
+    if (countryShort === "IE" && stateShort && stateShort.length < 2) {
+      return locality.long_name;
+    }
+    return stateShort
+      ? `${locality.long_name}, ${stateShort}`
       : locality.long_name;
   } catch {
     return null;
