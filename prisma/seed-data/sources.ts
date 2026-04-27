@@ -58,6 +58,9 @@ const bristolConfigBase = {
 };
 
 // ── SOURCE DATA (PRD Section 8) ──
+// Adapter-specific config shape varies per source type; CPD exclusion in
+// sonar-project.properties keeps structural-repetition false positives
+// from blocking PRs that add a single new entry.
 
 export const SOURCES = [
     {
