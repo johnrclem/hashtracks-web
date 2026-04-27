@@ -394,12 +394,6 @@ export type DateLocale = "en-US" | "en-GB";
  * @param options - Optional parsing options (forwardDate: prefer next future occurrence)
  * @returns "YYYY-MM-DD" string, or null if parsing fails
  */
-/** 3-letter month abbreviation → 1-based month number. */
-const MONTH_ABBREV_TO_NUMBER: Record<string, number> = {
-  jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6,
-  jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12,
-};
-
 /**
  * Pre-parse the unambiguous "D[D] MMM YY[YY]" format (e.g. "5 May 26",
  * "28-Apr-2026") before falling through to chrono-node. chrono mis-parses
@@ -412,17 +406,18 @@ const MONTH_ABBREV_TO_NUMBER: Record<string, number> = {
  * Returns "YYYY-MM-DD" on a clean match, or null if the pattern doesn't fit.
  */
 function parseDmyAbbrevDate(text: string): string | null {
-  const match = /^\s*(\d{1,2})[\s-]+([A-Za-z]{3})[\s-]+(\d{2,4})\s*$/.exec(text);
+  // Year quantifier is exactly 2 OR exactly 4 digits — `\d{4}|\d{2}`
+  // (alternation, not `\d{2,4}`) so we don't accidentally match 3-digit years.
+  const match = /^\s*(\d{1,2})[\s-]+([A-Za-z]{3})[\s-]+(\d{4}|\d{2})\s*$/.exec(text);
   if (!match) return null;
   const day = Number.parseInt(match[1], 10);
-  const month = MONTH_ABBREV_TO_NUMBER[match[2].toLowerCase()];
+  const month = MONTHS[match[2].toLowerCase()];
   if (!month) return null;
   let year = Number.parseInt(match[3], 10);
   if (year < 100) year += year < 50 ? 2000 : 1900;
-  // Validate the day fits in the month (rejects e.g. "31 Apr 26").
+  // Date round-trip catches invalid days (e.g. "31 Apr 26" → null).
   const d = new Date(Date.UTC(year, month - 1, day));
   if (d.getUTCMonth() !== month - 1 || d.getUTCDate() !== day) return null;
-  if (day < 1 || day > 31) return null;
   return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 

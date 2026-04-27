@@ -651,6 +651,15 @@ describe("chronoParseDate", () => {
     // Fast-path rejects; chrono fallback returns null too because Xyz isn't a month
     expect(chronoParseDate("5 Xyz 26", "en-GB")).toBeNull();
   });
+
+  it("does not fast-path 3-digit year tokens (year-226 AD would be absurd)", () => {
+    // The fast-path regex requires exactly 2 OR 4 digits, so "5 May 226"
+    // falls through to chrono. chrono parses the "5 May" prefix and infers
+    // a sensible current-year date, NOT a literal "226-05-05" the old
+    // permissive `\d{2,4}` quantifier would have produced.
+    const result = chronoParseDate("5 May 226", "en-GB");
+    expect(result).toMatch(/^20\d{2}-05-05$/);
+  });
 });
 
 describe("extractAddressWithAi", () => {
