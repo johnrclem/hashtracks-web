@@ -131,7 +131,11 @@ async function enrichWithPublishedDate(candidate: FreeFormCandidate): Promise<vo
 
 /** Strip a leading/trailing markdown code fence so JSON.parse doesn't choke. */
 function stripCodeFence(text: string): string {
-  return text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+  let t = text.trim();
+  if (t.startsWith("```json")) t = t.slice(7);
+  else if (t.startsWith("```")) t = t.slice(3);
+  if (t.endsWith("```")) t = t.slice(0, -3);
+  return t.trim();
 }
 
 async function geminiCleanBatch(batch: FreeFormCandidate[]): Promise<CleanedRow[]> {
