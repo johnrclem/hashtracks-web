@@ -177,7 +177,7 @@ describe("Ch4DkAdapter.fetch", () => {
     <tr align="center">
       <td><a href="https://ch4.dk/index.html">CH4</a> #367</td>
       <td><font COLOR="#FF0000">Good </font><font COLOR="#FFFF00">Friday 03-04-2026<br>20:00 hrs</font></td>
-      <td><a href="http://kbhguide.com/foo">Cafe Ellebo</a><br>Sj&aelig;l&oslash;r Boulevard 49<br>2450 Copenhagen SV</td>
+      <td><a href="https://kbhguide.com/foo">Cafe Ellebo</a><br>Sj&aelig;l&oslash;r Boulevard 49<br>2450 Copenhagen SV</td>
       <td><a href="http://rejseplanen.dk/foo"><img src="ht-bus.gif"></a></td>
       <td>Red Carpet and Codpiece</td>
       <td>Full Moon Hash<br><a href='https://www.google.com/calendar/event?...'><img src='gc.gif'></a></td>
@@ -219,7 +219,7 @@ describe("Ch4DkAdapter.fetch", () => {
       title: "CH4 #367",
       startTime: "20:00",
       location: "Cafe Ellebo, Sjælør Boulevard 49, 2450 Copenhagen SV",
-      locationUrl: "http://kbhguide.com/foo",
+      locationUrl: "https://kbhguide.com/foo",
       hares: "Codpiece, Red Carpet",
       description: "Full Moon Hash",
       sourceUrl: "https://ch4.dk/",

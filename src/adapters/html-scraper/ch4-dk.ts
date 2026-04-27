@@ -27,7 +27,10 @@ import {
   stripHtmlTags,
 } from "../utils";
 
-const RE_DATE_TIME = /(\d{1,2})-(\d{1,2})-(\d{4})[^0-9]*?(\d{1,2}):(\d{2})/;
+// `[^\d]{0,40}` is bounded + greedy: bounded length defends against
+// catastrophic backtracking (S5852); greedy is safe because `(\d{1,2}):` next
+// requires a digit, so the engine cannot over-consume.
+const RE_DATE_TIME = /(\d{1,2})-(\d{1,2})-(\d{4})[^\d]{0,40}(\d{1,2}):(\d{2})/;
 const RE_DATE_ONLY = /(\d{1,2})-(\d{1,2})-(\d{4})/;
 const RE_DATE_PARTIAL = /(\d{1,2})-(\d{1,2})(?!\d)/;
 const RE_TIME = /(\d{1,2}):(\d{2})/;
