@@ -8,22 +8,10 @@ import {
   decodeEntities,
   normalizeHaresField,
   parse12HourTime,
+  parsePublishDate,
   stripHtmlTags,
 } from "../utils";
 
-/**
- * Parse a WordPress ISO publish date as a chrono reference Date.
- * WordPress.com / self-hosted WordPress emit timestamps with timezone
- * offsets like "2026-03-22T18:07:00+07:00"; `new Date()` handles them
- * directly. (An earlier version of this helper unconditionally appended
- * "Z", producing an Invalid Date on the offset form and silently breaking
- * year inference for every post.)
- */
-function utcRef(iso: string | undefined): Date | undefined {
-  if (!iso) return undefined;
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? undefined : d;
-}
 
 /**
  * Cha-Am Hash House Harriers (CAH3) adapter.
@@ -64,7 +52,7 @@ export function parseCah3Title(title: string, publishDateIso: string): {
   const stripped = decoded.replace(/^Run\s*#?\s*\d+\s*[:\-–]?\s*/i, "").trim();
 
   // Parse date from the remaining title text using the publish date as reference
-  const refDate = utcRef(publishDateIso);
+  const refDate = parsePublishDate(publishDateIso);
   const date = chronoParseDate(stripped, "en-GB", refDate, { forwardDate: true })
     ?? chronoParseDate(decoded, "en-GB", refDate, { forwardDate: true });
 

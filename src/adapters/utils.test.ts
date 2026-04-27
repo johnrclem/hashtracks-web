@@ -3,6 +3,7 @@ import {
   MONTHS,
   MONTHS_ZERO,
   parse12HourTime,
+  parsePublishDate,
   googleMapsSearchUrl,
   extractUkPostcode,
   validateSourceConfig,
@@ -40,6 +41,47 @@ describe("MONTHS_ZERO", () => {
     expect(MONTHS_ZERO.jan).toBe(0);
     expect(MONTHS_ZERO.december).toBe(11);
     expect(MONTHS_ZERO.june).toBe(5);
+  });
+});
+
+describe("parsePublishDate", () => {
+  // Pins the contract for the shared helper that replaced the broken
+  // per-adapter `utcRef` (which appended "Z" unconditionally and produced
+  // Invalid Date on offset-bearing inputs). The bug shipped in three
+  // adapters (CRH3, CAH3, BKK Harriettes) before being caught.
+
+  it("parses ISO with timezone offset (Blogger / WordPress.com format)", () => {
+    const d = parsePublishDate("2026-03-22T18:07:00+07:00");
+    expect(d).toBeInstanceOf(Date);
+    expect(d!.toISOString()).toBe("2026-03-22T11:07:00.000Z");
+  });
+
+  it("parses ISO with explicit Z suffix", () => {
+    const d = parsePublishDate("2026-03-22T18:07:00Z");
+    expect(d!.toISOString()).toBe("2026-03-22T18:07:00.000Z");
+  });
+
+  it("parses ISO without offset (treats as local then UTC by JS spec)", () => {
+    // Date-only ISO is treated as UTC midnight by the spec.
+    const d = parsePublishDate("2026-03-22");
+    expect(d!.toISOString()).toBe("2026-03-22T00:00:00.000Z");
+  });
+
+  it("returns undefined for undefined input", () => {
+    expect(parsePublishDate(undefined)).toBeUndefined();
+  });
+
+  it("returns undefined for empty string", () => {
+    expect(parsePublishDate("")).toBeUndefined();
+  });
+
+  it("returns undefined for unparseable input (regression for old utcRef)", () => {
+    // The old utcRef helper produced this exact value when given an
+    // offset-bearing input (it appended "Z" → "2026-03-22T18:07:00+07:00Z"
+    // → Invalid Date). Confirms the new helper does not silently propagate
+    // an Invalid Date to callers.
+    expect(parsePublishDate("2026-03-22T18:07:00+07:00Z")).toBeUndefined();
+    expect(parsePublishDate("not a date")).toBeUndefined();
   });
 });
 

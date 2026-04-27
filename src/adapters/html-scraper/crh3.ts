@@ -7,6 +7,7 @@ import {
   chronoParseDate,
   decodeEntities,
   normalizeHaresField,
+  parsePublishDate,
   stripHtmlTags,
 } from "../utils";
 
@@ -22,21 +23,6 @@ import {
  * Posts are freeform with emojis and variable formatting. The body often
  * contains date, location, and hare info in plain text. Monthly 3rd Saturday.
  */
-
-/**
- * Parse a Blogger ISO publish date as a chrono reference Date. The Blogger
- * Public Data API returns timestamps with explicit timezone offsets like
- * "2026-03-22T18:07:00+07:00"; passing them straight to `new Date()` is
- * correct. (An earlier version of this helper appended "Z" unconditionally,
- * which produced an Invalid Date on the offset form and silently broke
- * year inference for every offset-bearing post — chrono fell back to the
- * system clock and `forwardDate: true` then mis-resolved past run dates.)
- */
-function utcRef(iso: string | undefined): Date | undefined {
-  if (!iso) return undefined;
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? undefined : d;
-}
 
 const KENNEL_TAG = "crh3";
 const DEFAULT_START_TIME = "15:00"; // 3rd Saturday monthly, 3:00 PM start per Chrome research
@@ -59,7 +45,7 @@ export function parseCrh3Title(title: string, publishDateIso: string): {
 
   // Strip "CRH3#NNN" or "CRH3" prefix and try to parse remaining text as a date
   const stripped = decoded.replace(/CRH3\s*#?\s*\d*\s*/i, "").trim();
-  const refDate = utcRef(publishDateIso);
+  const refDate = parsePublishDate(publishDateIso);
   const date = chronoParseDate(stripped, "en-GB", refDate, { forwardDate: true })
     ?? chronoParseDate(decoded, "en-GB", refDate, { forwardDate: true });
 
@@ -97,7 +83,7 @@ export function parseCrh3Body(bodyHtml: string, publishDateIso: string): {
   const location = grab("Location|Run\\s*Site|Meeting");
 
   // Try to find a date in the body
-  const refDate = utcRef(publishDateIso);
+  const refDate = parsePublishDate(publishDateIso);
   const date = chronoParseDate(text, "en-GB", refDate, { forwardDate: true }) ?? undefined;
 
   return { date, hares, location };

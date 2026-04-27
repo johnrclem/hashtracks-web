@@ -88,6 +88,27 @@ export const MONTHS_ZERO: Record<string, number> = {
   nov: 10, november: 10, dec: 11, december: 11,
 };
 
+/**
+ * Parse a Blogger / WordPress / WordPress.com publish-date string into a
+ * chrono reference Date. These APIs emit ISO 8601 timestamps with explicit
+ * timezone offsets like `"2026-03-22T18:07:00+07:00"`; passing them straight
+ * to `new Date()` is correct.
+ *
+ * Earlier per-adapter copies of this helper appended `"Z"` unconditionally,
+ * which produced an Invalid Date on offset-bearing inputs. chrono then fell
+ * back to the system clock and `forwardDate: true` mis-resolved every
+ * year-less title to null. The bug shipped in three adapters before being
+ * caught (CRH3, CAH3, BKK Harriettes) — keep this helper as the single
+ * source of truth so a future regression can't reach production.
+ *
+ * Returns `undefined` when the input is missing or unparseable.
+ */
+export function parsePublishDate(iso: string | undefined): Date | undefined {
+  if (!iso) return undefined;
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? undefined : d;
+}
+
 
 /**
  * Check if an IPv4 address (as 4 octets) falls within private/reserved ranges.
