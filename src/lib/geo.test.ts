@@ -409,30 +409,24 @@ describe("reverseGeocode", () => {
     expect(result).toBeNull();
   });
 
-  it("drops 1-char admin short_name for IE (#968: County Dublin returns 'D')", async () => {
-    const components = [
-      { long_name: "Dublin", short_name: "Dublin", types: ["locality"] },
-      { long_name: "County Dublin", short_name: "D", types: ["administrative_area_level_1"] },
-      { long_name: "Ireland", short_name: "IE", types: ["country"] },
-    ];
+  // #968: IE-only workaround — County Dublin's admin short_name is "D"
+  // (Eircode prefix). Drop it for IE; preserve 1-char codes elsewhere.
+  it.each([
+    { case: "IE: drops 1-char admin", country: "IE", admin: "D", expected: "Dublin" },
+    { case: "AR: preserves 1-char admin", country: "AR", admin: "B", expected: "Dublin, B" },
+  ])("$case", async ({ country, admin, expected }) => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
       ok: true,
-      json: async () => ({ status: "OK", results: [{ address_components: components }] }),
+      json: async () => ({
+        status: "OK",
+        results: [{ address_components: [
+          { long_name: "Dublin", short_name: "Dublin", types: ["locality"] },
+          { long_name: "Admin", short_name: admin, types: ["administrative_area_level_1"] },
+          { long_name: country, short_name: country, types: ["country"] },
+        ] }],
+      }),
     } as Response);
-    expect(await reverseGeocode(53.3498, -6.2603)).toBe("Dublin");
-  });
-
-  it("preserves 1-char admin short_name for non-IE countries (e.g. AR)", async () => {
-    const components = [
-      { long_name: "La Plata", short_name: "La Plata", types: ["locality"] },
-      { long_name: "Buenos Aires Province", short_name: "B", types: ["administrative_area_level_1"] },
-      { long_name: "Argentina", short_name: "AR", types: ["country"] },
-    ];
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ status: "OK", results: [{ address_components: components }] }),
-    } as Response);
-    expect(await reverseGeocode(-34.92, -57.95)).toBe("La Plata, B");
+    expect(await reverseGeocode(0, 0)).toBe(expected);
   });
 
   it("passes language=en to Google Maps Geocoding API", async () => {
