@@ -820,12 +820,16 @@ type FuzzyCandidate = Awaited<ReturnType<typeof prisma.event.findMany>>[number];
  *
  * Excludes series rows (parentEventId set OR isSeriesParent=true) so multi-day
  * series machinery from `linkMultiDaySeries` stays disjoint from cross-source
- * dedup.
+ * dedup. Also excludes candidates that already have a RawEvent from the
+ * incoming source — fuzzy dedup is for collapsing DIFFERENT sources' takes on
+ * one real-world event, not the same source emitting back-to-back trails on
+ * adjacent days (PR #1040 review).
  */
 async function findFuzzyDuplicateInWindow(
   event: RawEventData,
   kennelId: string,
   eventDate: Date,
+  sourceId: string,
 ): Promise<FuzzyCandidate | null> {
   const incomingTitle = normalizeTitleForFuzzy(event.title);
   if (incomingTitle.length < FUZZY_MIN_TITLE_LEN) return null;
@@ -845,8 +849,23 @@ async function findFuzzyDuplicateInWindow(
     },
     orderBy: [{ trustLevel: "desc" }, { createdAt: "asc" }],
   });
+  if (candidates.length === 0) return null;
+
+  // Batch-query: which of these candidates already have a RawEvent from our
+  // source? Those are same-source events (e.g. back-to-back weekend trails)
+  // and must NOT be fuzzy-merge targets — would silently collapse two
+  // legitimate adjacent-day trails into one.
+  const sameSourceLinks = await prisma.rawEvent.findMany({
+    where: { eventId: { in: candidates.map(c => c.id) }, sourceId },
+    select: { eventId: true },
+  });
+  const sameSourceEventIds = new Set(
+    sameSourceLinks.map(r => r.eventId).filter((id): id is string => id != null),
+  );
 
   for (const c of candidates) {
+    if (sameSourceEventIds.has(c.id)) continue;
+
     const candTitle = normalizeTitleForFuzzy(c.title);
     if (!candTitle) continue;
     if (levenshtein(incomingTitle, candTitle) > FUZZY_TITLE_DISTANCE) continue;
@@ -944,7 +963,7 @@ async function upsertCanonicalEvent(
     && process.env.MERGE_FUZZY_DEDUP === "true"
     && !event.seriesId
   ) {
-    const fuzzy = await findFuzzyDuplicateInWindow(event, kennelId, eventDate);
+    const fuzzy = await findFuzzyDuplicateInWindow(event, kennelId, eventDate, ctx.sourceId);
     if (fuzzy) {
       existingEvent = fuzzy;
       sameDayEvents.push(fuzzy);

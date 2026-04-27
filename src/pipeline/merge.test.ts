@@ -5,7 +5,7 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     source: { findUnique: vi.fn(), update: vi.fn() },
     sourceKennel: { findMany: vi.fn() },
-    rawEvent: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
+    rawEvent: { findFirst: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn() },
     event: { findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     eventLink: { upsert: vi.fn() },
     kennel: { findUnique: vi.fn() },
@@ -59,6 +59,9 @@ beforeEach(() => {
   mockSourceKennelFind.mockResolvedValue([{ kennelId: "kennel_1" }] as never);
   mockRawEventCreate.mockResolvedValue({ id: "raw_1" } as never);
   mockRawEventUpdate.mockResolvedValue({} as never);
+  // Default fuzzy probe's same-source RawEvent lookup to empty so existing
+  // tests are unaffected; per-test overrides exercise the same-source guard.
+  vi.mocked(prisma.rawEvent.findMany).mockResolvedValue([] as never);
   vi.mocked(prisma.eventLink.upsert).mockResolvedValue({} as never);
   mockResolve.mockResolvedValue({ kennelId: "kennel_1", matched: true });
   // recomputeCanonical calls findMany once per successful upsert AFTER the
@@ -2717,6 +2720,38 @@ describe("fuzzy ±48h cross-source dedup (#990)", () => {
       c => (c[0] as { data: Record<string, unknown> }).data.isCanonical === true,
     );
     expect(canonicalPromotion).toBeDefined();
+  });
+
+  it("does NOT merge when candidate already has a RawEvent from the same source (#1040 review)", async () => {
+    // Single source emitting back-to-back trails on adjacent days (e.g.
+    // generic-titled weekend bash with no run numbers) must not collapse —
+    // fuzzy dedup is only for cross-source dedup. The same-source guard
+    // catches this via a RawEvent join even when title/time/location all
+    // pass.
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([] as never); // same-day empty
+    mockEventFindMany.mockResolvedValueOnce([
+      existingFuzzyRow({ id: "evt_same_source_yesterday" }),
+    ] as never);
+    // Candidate already has a RawEvent from the incoming source — same-
+    // source guard should reject the match.
+    vi.mocked(prisma.rawEvent.findMany).mockResolvedValueOnce([
+      { eventId: "evt_same_source_yesterday" },
+    ] as never);
+    mockEventCreate.mockResolvedValueOnce({ id: "evt_new" } as never);
+
+    const result = await processRawEvents("src_b", [
+      buildRawEvent({
+        date: "2026-08-14",
+        title: "Invihash 2026: The Drunk Ages",
+        sourceUrl: "https://kennel-site.com/different-event",
+        startTime: "14:00",
+        location: "Richmond, VT",
+      }),
+    ]);
+
+    expect(result.created).toBe(1);
+    expect(result.updated).toBe(0);
   });
 
   it("does NOT merge when runNumber differs (double-header on consecutive days)", async () => {
