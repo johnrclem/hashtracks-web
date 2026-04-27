@@ -70,10 +70,13 @@ export function parseChiangMaiLine(
   const runNumberRaw = Number.parseInt(runMatch[1], 10);
   const runNumber = Number.isNaN(runNumberRaw) ? undefined : runNumberRaw;
 
-  // Extract hare name: everything after the last " – " or after the run number.
+  // The text after the run number is both the hare list (normalized) and the
+  // event title (verbatim — populating it stops merge.ts from synthesizing
+  // a default "{kennel.fullName} Trail #{N}" string).
   // CGH3 pages prefix the name with a "Hare." label (e.g. "Hare. HRA") — strip
-  // it so only the name survives. #814.
+  // it so only the name survives.
   let hares: string | undefined;
+  let title: string | undefined;
   const afterRun = cleaned.slice(runMatch.index + runMatch[0].length);
   const harePart = afterRun
     .replace(/^\s*[-–—]\s*/, "")
@@ -81,20 +84,30 @@ export function parseChiangMaiLine(
     .trim();
   if (harePart && !/^HARE NEEDED$/i.test(harePart) && !/^\?+$/.test(harePart)) {
     hares = normalizeHaresField(harePart);
+    title = harePart;
   }
 
-  // Parse date from the beginning of the line (before kennel code or "Run")
   const beforeRun = cleaned.slice(0, runMatch.index).trim();
-  // Strip kennel tags (CH3, CH4, CSH3, CGH3, CBH3, CDH3, etc.)
+  // Strip kennel tags then normalize "Month DD" → "DD Month" — chrono's en-GB
+  // parser drops the month entirely on the "Saturday April 25" shape and
+  // returns the next Saturday, ignoring the date.
   const dateText = beforeRun
-    .replace(/\b(?:CH[34]|C[SGB]H3|CDH3|CFMH3)\b/gi, "")
-    .replace(/[-–—]+/g, " ")
+    .replaceAll(/\b(?:CH[34]|C[SGB]H3|CDH3|CFMH3)\b/gi, "")
+    .replaceAll(/[-–—]+/g, " ")
+    .replaceAll(
+      /\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2})(?:st|nd|rd|th)?\b/gi,
+      "$2 $1",
+    )
     .trim();
 
-  // Use the year from the preceding month header (e.g. "April 2026") as
-  // a reference so yearless dates resolve correctly across Dec/Jan boundary.
+  // forwardDate is essential when we have a reference year: without it,
+  // chrono picks the calendar-closest match and silently rolls late-year
+  // events back to the prior year (mid-year is equidistant from a Jan 1
+  // reference and chrono favors past dates).
   const refDate = referenceYear ? new Date(Date.UTC(referenceYear, 0, 1)) : undefined;
-  const date = chronoParseDate(dateText, "en-GB", refDate);
+  const date = chronoParseDate(dateText, "en-GB", refDate, {
+    forwardDate: referenceYear !== undefined,
+  });
   if (!date) return null;
 
   return {
@@ -102,6 +115,7 @@ export function parseChiangMaiLine(
     kennelTag,
     runNumber,
     hares,
+    title,
     sourceUrl,
   };
 }
