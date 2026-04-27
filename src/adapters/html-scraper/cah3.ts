@@ -11,10 +11,18 @@ import {
   stripHtmlTags,
 } from "../utils";
 
-/** Parse ISO string as UTC for chrono reference date anchoring. */
+/**
+ * Parse a WordPress ISO publish date as a chrono reference Date.
+ * WordPress.com / self-hosted WordPress emit timestamps with timezone
+ * offsets like "2026-03-22T18:07:00+07:00"; `new Date()` handles them
+ * directly. (An earlier version of this helper unconditionally appended
+ * "Z", producing an Invalid Date on the offset form and silently breaking
+ * year inference for every post.)
+ */
 function utcRef(iso: string | undefined): Date | undefined {
   if (!iso) return undefined;
-  return new Date(iso.endsWith("Z") ? iso : `${iso}Z`);
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? undefined : d;
 }
 
 /**

@@ -37,6 +37,20 @@ describe("parseCah3Title", () => {
     expect(result.runNumber).toBe(530);
     expect(result.date).toBeUndefined();
   });
+
+  it("infers date when publish date carries a timezone offset (utcRef regression)", () => {
+    // WordPress dates may carry an offset like "+07:00". The earlier
+    // utcRef helper appended "Z" unconditionally, producing an Invalid
+    // Date and silently breaking year inference for every offset-bearing
+    // post. This test pins the format so future helper changes can't
+    // reintroduce the regression.
+    const result = parseCah3Title(
+      "Run 534: Songkran Outstation APR 10 & 11",
+      "2026-04-07T12:40:57+07:00",
+    );
+    expect(result.runNumber).toBe(534);
+    expect(result.date).toBe("2026-04-10");
+  });
 });
 
 describe("parseCah3Body", () => {

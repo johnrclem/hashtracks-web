@@ -23,10 +23,19 @@ import {
  * contains date, location, and hare info in plain text. Monthly 3rd Saturday.
  */
 
-/** Parse ISO string as UTC for chrono reference date anchoring. */
+/**
+ * Parse a Blogger ISO publish date as a chrono reference Date. The Blogger
+ * Public Data API returns timestamps with explicit timezone offsets like
+ * "2026-03-22T18:07:00+07:00"; passing them straight to `new Date()` is
+ * correct. (An earlier version of this helper appended "Z" unconditionally,
+ * which produced an Invalid Date on the offset form and silently broke
+ * year inference for every offset-bearing post — chrono fell back to the
+ * system clock and `forwardDate: true` then mis-resolved past run dates.)
+ */
 function utcRef(iso: string | undefined): Date | undefined {
   if (!iso) return undefined;
-  return new Date(iso.endsWith("Z") ? iso : iso + "Z");
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? undefined : d;
 }
 
 const KENNEL_TAG = "crh3";
