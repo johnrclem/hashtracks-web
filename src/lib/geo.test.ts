@@ -410,24 +410,16 @@ describe("reverseGeocode", () => {
   });
 
   it("drops 1-char admin_area_level_1 short_name (#968: County Dublin returns 'D')", async () => {
+    const components = [
+      { long_name: "Dublin", short_name: "Dublin", types: ["locality"] },
+      { long_name: "County Dublin", short_name: "D", types: ["administrative_area_level_1"] },
+      { long_name: "Ireland", short_name: "IE", types: ["country"] },
+    ];
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
       ok: true,
-      json: async () => ({
-        status: "OK",
-        results: [
-          {
-            address_components: [
-              { long_name: "Dublin", short_name: "Dublin", types: ["locality"] },
-              { long_name: "County Dublin", short_name: "D", types: ["administrative_area_level_1"] },
-              { long_name: "Ireland", short_name: "IE", types: ["country"] },
-            ],
-          },
-        ],
-      }),
+      json: async () => ({ status: "OK", results: [{ address_components: components }] }),
     } as Response);
-
-    const result = await reverseGeocode(53.3498, -6.2603);
-    expect(result).toBe("Dublin");
+    expect(await reverseGeocode(53.3498, -6.2603)).toBe("Dublin");
   });
 
   it("passes language=en to Google Maps Geocoding API", async () => {
