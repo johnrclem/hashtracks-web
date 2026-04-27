@@ -75,17 +75,41 @@ function parseByMonthDay(parts: Record<string, string>): number | undefined {
 }
 
 /**
+ * Parse BYMONTH from RRULE parts. Comma-separated list of month numbers (1-12)
+ * per RFC 5545 §3.3.10. Returns a deduplicated, sorted list, or undefined if not present.
+ * @throws {Error} If the list is empty or contains values outside 1-12.
+ */
+function parseByMonth(parts: Record<string, string>): number[] | undefined {
+  if (!parts.BYMONTH) return undefined;
+  const tokens = parts.BYMONTH.split(",").map((t) => t.trim()).filter((t) => t.length > 0);
+  if (tokens.length === 0) {
+    throw new Error(`Invalid BYMONTH: ${parts.BYMONTH} (must be a comma-separated list of months 1-12)`);
+  }
+  const months = new Set<number>();
+  for (const token of tokens) {
+    const month = Number.parseInt(token, 10);
+    if (!Number.isFinite(month) || String(month) !== token || month < 1 || month > 12) {
+      throw new Error(`Invalid BYMONTH: ${parts.BYMONTH} (each value must be an integer 1-12)`);
+    }
+    months.add(month);
+  }
+  return [...months].sort((a, b) => a - b);
+}
+
+/**
  * Parse an RRULE string into structured parts.
- * Supports: FREQ (WEEKLY|MONTHLY), BYDAY (with optional nth prefix), INTERVAL, BYMONTHDAY.
+ * Supports: FREQ (WEEKLY|MONTHLY), BYDAY (with optional nth prefix), INTERVAL, BYMONTHDAY,
+ * BYMONTH (comma-separated list of months 1-12, RFC 5545 §3.3.10).
  * Whitespace around semicolons and equals signs is trimmed.
  *
- * @throws {Error} On missing FREQ, unsupported FREQ, invalid INTERVAL/BYMONTHDAY/BYDAY values.
+ * @throws {Error} On missing FREQ, unsupported FREQ, invalid INTERVAL/BYMONTHDAY/BYMONTH/BYDAY values.
  */
 export function parseRRule(rrule: string): {
   freq: string;
   interval: number;
   byDay?: { day: number; nth?: number };
   byMonthDay?: number;
+  byMonth?: number[];
 } {
   const parts: Record<string, string> = {};
   for (const segment of rrule.split(";")) {
@@ -105,12 +129,13 @@ export function parseRRule(rrule: string): {
   const interval = parseInterval(parts);
   const byDay = parseByDay(parts);
   const byMonthDay = parseByMonthDay(parts);
+  const byMonth = parseByMonth(parts);
 
   if (freq === "WEEKLY" && !byDay) {
     throw new Error("WEEKLY RRULE requires BYDAY");
   }
 
-  return { freq, interval, byDay, byMonthDay };
+  return { freq, interval, byDay, byMonthDay, byMonth };
 }
 
 /**
@@ -262,21 +287,26 @@ export function generateOccurrences(
   windowEnd: Date,
   anchorDate?: string,
 ): string[] {
+  let dates: string[] = [];
   if (rule.freq === "WEEKLY" && rule.byDay) {
-    return generateWeeklyDates(rule.byDay.day, rule.interval, windowStart, windowEnd, anchorDate);
-  }
-  if (rule.freq === "MONTHLY") {
+    dates = generateWeeklyDates(rule.byDay.day, rule.interval, windowStart, windowEnd, anchorDate);
+  } else if (rule.freq === "MONTHLY") {
     if (rule.byDay?.nth !== undefined) {
-      return generateMonthlyNthWeekdayDates(rule.byDay.day, rule.byDay.nth, rule.interval, windowStart, windowEnd);
-    }
-    if (rule.byMonthDay) {
-      return generateMonthlyByMonthDayDates(rule.byMonthDay, rule.interval, windowStart, windowEnd);
-    }
-    if (rule.byDay) {
-      return generateMonthlyByWeekdayDates(rule.byDay.day, rule.interval, windowStart, windowEnd);
+      dates = generateMonthlyNthWeekdayDates(rule.byDay.day, rule.byDay.nth, rule.interval, windowStart, windowEnd);
+    } else if (rule.byMonthDay) {
+      dates = generateMonthlyByMonthDayDates(rule.byMonthDay, rule.interval, windowStart, windowEnd);
+    } else if (rule.byDay) {
+      dates = generateMonthlyByWeekdayDates(rule.byDay.day, rule.interval, windowStart, windowEnd);
     }
   }
-  return [];
+
+  if (rule.byMonth && rule.byMonth.length > 0) {
+    const allowed = new Set(rule.byMonth);
+    // YYYY-MM-DD → month is chars 5-6 (1-indexed slice), parse as 1-12.
+    dates = dates.filter((d) => allowed.has(Number.parseInt(d.slice(5, 7), 10)));
+  }
+
+  return dates;
 }
 
 /** Find the nth weekday of a given month. Supports negative nth (-1 = last). */
