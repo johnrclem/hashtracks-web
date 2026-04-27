@@ -1068,11 +1068,9 @@ export class GoogleCalendarAdapter implements SourceAdapter {
         errors, errorDetails,
       );
       pagesProcessed += secondary.pagesProcessed;
-      const primaryIds = new Set<string>();
-      for (const e of events) {
-        const id = gcalIdMap.get(e);
-        if (id) primaryIds.add(id);
-      }
+      const primaryIds = new Set(
+        events.map(e => gcalIdMap.get(e)).filter((id): id is string => !!id),
+      );
       const before = events.length;
       buildEvents(secondary.items, (item) => {
         if (!item.recurringEventId || !item.originalStartTime) return false;
