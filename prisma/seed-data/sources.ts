@@ -467,7 +467,42 @@ export const SOURCES = [
         dateLocale: "en-GB",
         locationTruncateAfter: "uk-postcode",
       },
-      kennelCodes: ["bristolh3", "bristol-grey", "bogs-h3"],
+      // Issue #1004: bogs-h3 split off into its own bogsruns.php source below
+      // so we can capture run numbers + start times that allprint.php drops.
+      kennelCodes: ["bristolh3", "bristol-grey"],
+    },
+    {
+      // Issue #1004 — BOGS-only source pointing at the kennel-specific page.
+      // bogsruns.php columns (verified against live HTML 2026-04-26):
+      //   col 1: run number, col 2: date "DD/MM/YY", col 3: location + theme,
+      //   col 4: OS-map link (skipped), col 5: hare(s).
+      // allprint.php conflates 3 kennels and drops the run number entirely.
+      // Header on bogsruns.php asserts "Runs start on Wednesdays at 7:15pm
+      // sharp" — adapter doesn't honor a default time today, so the 7:15 PM
+      // scheduleTime lives on the Kennel record (#1005) instead.
+      // The page nests data rows inside an outer wrapper table, so we filter
+      // by bgcolor="#FFFFAA" (the run-row highlight color) to skip the page
+      // chrome and inter-event status banners. Verified live: 9 clean events.
+      name: "BOGS H3 Run List",
+      url: "https://bristolhash.org.uk/bogsruns.php",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        containerSelector: "table",
+        rowSelector: "tr[bgcolor=\"#FFFFAA\"]",
+        columns: {
+          runNumber: "td:nth-child(1)",
+          date: "td:nth-child(2)",
+          location: "td:nth-child(3)",
+          hares: "td:nth-child(5)",
+        },
+        defaultKennelTag: "bogs-h3",
+        dateLocale: "en-GB",
+        locationTruncateAfter: "uk-postcode",
+      },
+      kennelCodes: ["bogs-h3"],
     },
     // ===== GERMANY =====
     // Berlin (iCal Feed — 2 kennels, rolling window)
@@ -2435,12 +2470,18 @@ export const SOURCES = [
     // --- Dayton (Google Calendar) ---
     {
       name: "DH4 Google Calendar",
-      url: "dh3calendar@gmail.com",
+      // Issue #1018: source previously pointed at dh3calendar@gmail.com (the
+      // older Dayton H3 men-only kennel), so every DH4 event was actually a
+      // DH3 event. Switched to dh4calendar@gmail.com — the calendar embedded
+      // by daytonhash.com/daytonhash/schedule, which is DH4's authoritative
+      // trail series.
+      url: "dh4calendar@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
       scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
+        calendarId: "dh4calendar@gmail.com",
         defaultKennelTag: "dh4",
         // #800: calendar emits legacy "DH3 #N" titles despite the kennel
         // having been recoded to dh4. Adapter substitutes this fallback when
@@ -2851,12 +2892,18 @@ export const SOURCES = [
       kennelCodes: ["bushwhackersh3"],
     },
     {
-      name: "Choo-Choo H3 Website",
-      url: "https://choochooh3.com",
-      type: "HTML_SCRAPER" as const,
+      // Issue #966: HTML scraper missed 3 of 16 published events. The site
+      // is a WordPress install with The Events Calendar plugin, which exposes
+      // a clean iCal feed at /events/?ical=1. Renamed source so the seed
+      // identity (name, type) is distinct from the legacy HTML_SCRAPER row;
+      // the old row stays in the DB for historical raw events but should
+      // be disabled by ops post-merge (or via SEED_RECONCILE_DISABLE=true).
+      name: "Choo-Choo H3 iCal Feed",
+      url: "https://choochooh3.com/events/?ical=1",
+      type: "ICAL_FEED" as const,
       trustLevel: 7,
       scrapeFreq: "daily",
-      scrapeDays: 180,
+      scrapeDays: 365,
       kennelCodes: ["choochooh3"],
     },
 
