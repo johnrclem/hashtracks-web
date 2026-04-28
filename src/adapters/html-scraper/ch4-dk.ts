@@ -27,9 +27,6 @@ import {
   stripHtmlTags,
 } from "../utils";
 
-const RE_DATE_ONLY = /(\d{1,2})-(\d{1,2})-(\d{4})/;
-const RE_DATE_PARTIAL = /(\d{1,2})-(\d{1,2})(?!\d)/;
-const RE_TIME = /(\d{1,2}):(\d{2})/;
 const RE_HARES_RECRUITMENT = /hares?\s+wanted|contact\s+the\s+ch4\s+junta|junta/i;
 const RE_HARES_WANTED = /hares?\s+wanted/i;
 const RE_HARES_SPLIT = /\s+and\s+|\s*&\s*|\s*,\s*/i;
@@ -46,37 +43,89 @@ interface ParsedDateTime {
   startTime?: string;
 }
 
-// Two-pass scan: separately find the DD-MM-YYYY date and the HH:MM time.
-// Avoids a single multi-token regex that mixes `\d` and `[^\d]` classes
-// (S5852 false-positive). Both component regexes are linear-time.
-function parseDateOnly(text: string, withTime: boolean): ParsedDateTime | null {
-  const m = RE_DATE_ONLY.exec(text);
-  if (!m) return null;
-  const day = Number.parseInt(m[1], 10);
-  const month = Number.parseInt(m[2], 10);
-  const year = Number.parseInt(m[3], 10);
-  if (!isValidDate(year, month, day)) return null;
-  const date = formatYmd(year, month, day);
+// Hand-rolled scanners to avoid Sonar S5852 hotspots on quantified regex.
+// All loops are O(text.length) with no backtracking.
+
+function isDigit(ch: string): boolean {
+  return ch >= "0" && ch <= "9";
+}
+
+interface NumScan {
+  value: number;
+  end: number;
+}
+
+/** Read 1–`maxLen` consecutive digits starting at `pos`. */
+function readDigits(text: string, pos: number, maxLen: number): NumScan | null {
+  let end = pos;
+  while (end < text.length && end - pos < maxLen && isDigit(text[end])) end++;
+  if (end === pos) return null;
+  return { value: Number.parseInt(text.slice(pos, end), 10), end };
+}
+
+/** Find next "DD-MM-YYYY" tuple at or after `from`. */
+function findDateTuple(
+  text: string,
+  from: number,
+): { day: number; month: number; year: number; end: number } | null {
+  for (let i = from; i < text.length; i++) {
+    const dd = readDigits(text, i, 2);
+    if (!dd || dd.end >= text.length || text[dd.end] !== "-") continue;
+    const mm = readDigits(text, dd.end + 1, 2);
+    if (!mm || mm.end >= text.length || text[mm.end] !== "-") continue;
+    const yy = readDigits(text, mm.end + 1, 4);
+    if (!yy || yy.end - (mm.end + 1) !== 4) continue;
+    return { day: dd.value, month: mm.value, year: yy.value, end: yy.end };
+  }
+  return null;
+}
+
+/** Find next "HH:MM" tuple at or after `from`. */
+function findTimeTuple(text: string, from: number): { hour: number; minute: number } | null {
+  for (let i = from; i < text.length; i++) {
+    const hh = readDigits(text, i, 2);
+    if (!hh || hh.end >= text.length || text[hh.end] !== ":") continue;
+    const mm = readDigits(text, hh.end + 1, 2);
+    if (!mm || mm.end - (hh.end + 1) !== 2) continue;
+    return { hour: hh.value, minute: mm.value };
+  }
+  return null;
+}
+
+/** Find a "DD-MM" partial date NOT followed by another digit (i.e. not part of a full DD-MM-YYYY). */
+function findPartialDate(text: string, from: number): { day: number; month: number } | null {
+  for (let i = from; i < text.length; i++) {
+    const dd = readDigits(text, i, 2);
+    if (!dd || dd.end >= text.length || text[dd.end] !== "-") continue;
+    const mm = readDigits(text, dd.end + 1, 2);
+    if (!mm) continue;
+    // Reject if followed by `-digit` (would be a full DD-MM-YYYY we already failed).
+    if (mm.end < text.length - 1 && text[mm.end] === "-" && isDigit(text[mm.end + 1])) continue;
+    return { day: dd.value, month: mm.value };
+  }
+  return null;
+}
+
+function parseFullDate(text: string, withTime: boolean): ParsedDateTime | null {
+  const tup = findDateTuple(text, 0);
+  if (!tup) return null;
+  if (!isValidDate(tup.year, tup.month, tup.day)) return null;
+  const date = formatYmd(tup.year, tup.month, tup.day);
   if (!withTime) return { date };
-  const tm = RE_TIME.exec(text.slice(m.index + m[0].length));
+  const tm = findTimeTuple(text, tup.end);
   if (!tm) return { date };
-  const startTime = formatHm(Number.parseInt(tm[1], 10), Number.parseInt(tm[2], 10));
+  const startTime = formatHm(tm.hour, tm.minute);
   return startTime ? { date, startTime } : { date };
 }
 
 function parsePartialDate(text: string, yearHint: number): ParsedDateTime | null {
-  const m = RE_DATE_PARTIAL.exec(text);
-  if (!m) return null;
-  const day = Number.parseInt(m[1], 10);
-  const month = Number.parseInt(m[2], 10);
-  if (!isValidDate(yearHint, month, day)) return null;
-  const date = formatYmd(yearHint, month, day);
-  const timeMatch = RE_TIME.exec(text);
-  if (!timeMatch) return { date };
-  const startTime = formatHm(
-    Number.parseInt(timeMatch[1], 10),
-    Number.parseInt(timeMatch[2], 10),
-  );
+  const part = findPartialDate(text, 0);
+  if (!part) return null;
+  if (!isValidDate(yearHint, part.month, part.day)) return null;
+  const date = formatYmd(yearHint, part.month, part.day);
+  const tm = findTimeTuple(text, 0);
+  if (!tm) return { date };
+  const startTime = formatHm(tm.hour, tm.minute);
   return startTime ? { date, startTime } : { date };
 }
 
@@ -92,7 +141,7 @@ export function parseCh4DateTime(
 ): ParsedDateTime | null {
   const text = decodeEntities(stripHtmlTags(cellHtml, " "));
   return (
-    parseDateOnly(text, true) ??
+    parseFullDate(text, true) ??
     (yearHint ? parsePartialDate(text, yearHint) : null)
   );
 }
