@@ -13,10 +13,10 @@ import { verifyResolvedAutoFixes } from "./verify-fixes";
 import { attemptAiRecovery, isAiRecoveryAvailable } from "@/lib/ai/parse-recovery";
 import { validateSourceUrl } from "@/adapters/utils";
 import { after } from "next/server";
-import { revalidateTag } from "next/cache";
 import { pingIndexNow } from "@/lib/indexnow";
 import { getCanonicalSiteUrl } from "@/lib/site-url";
 import { HARELINE_EVENTS_TAG } from "@/lib/cache-tags";
+import { safeRevalidateTag } from "@/lib/safe-revalidate";
 
 /** Result returned by `scrapeSource()` summarizing the full scrape-merge-reconcile cycle. */
 export interface ScrapeSourceResult {
@@ -507,9 +507,12 @@ export async function scrapeSource(
     }
 
     // Bust the Hareline `unstable_cache` only when something actually changed.
+    // safeRevalidateTag handles the E263 "outside request scope" case for CLI
+    // callers; the outer try/catch keeps the rest of the call best-effort so
+    // an unexpected revalidation failure can't roll back a successful scrape.
     if (mergeResult.created + mergeResult.updated + cancelledCount + mergeResult.restored > 0) {
       try {
-        revalidateTag(HARELINE_EVENTS_TAG, { expire: 0 });
+        safeRevalidateTag(HARELINE_EVENTS_TAG, { expire: 0 });
       } catch (err) {
         logHousekeepingError(`revalidateTag(${HARELINE_EVENTS_TAG})`, err);
       }
