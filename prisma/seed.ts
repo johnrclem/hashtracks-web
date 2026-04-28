@@ -415,16 +415,21 @@ async function ensureSources(prisma: any, sources: any[], kennelRecords: Map<str
       console.error(`  ✗ FAILED to seed source "${sourceData.name}" (${sourceData.type}): ${msg}`);
       if (code) console.error(`    Prisma code: ${code}`);
       if (meta) console.error(`    Prisma meta:`, JSON.stringify(meta));
-      console.error(`    Seed row:`, stableStringify(sourceData));
+      // Log the full seed entry (including kennelCodes / kennelSlugMap) so failures inside
+      // linkKennelsToSource still record the association context that caused them.
+      console.error(`    Seed row:`, stableStringify(source));
+      // Prefer the just-created row when the create path succeeded but linkKennelsToSource
+      // then failed — existingSource is still null in that window.
+      const dbRow = activeSource ?? existingSource;
       console.error(
         `    Matched DB row:`,
-        existingSource
+        dbRow
           ? stableStringify({
-              id: existingSource.id,
-              name: existingSource.name,
-              type: existingSource.type,
-              url: existingSource.url,
-              enabled: existingSource.enabled,
+              id: dbRow.id,
+              name: dbRow.name,
+              type: dbRow.type,
+              url: dbRow.url,
+              enabled: dbRow.enabled,
             })
           : "<none — create-path failure>",
       );
