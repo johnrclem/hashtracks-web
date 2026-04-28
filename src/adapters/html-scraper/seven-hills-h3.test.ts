@@ -101,7 +101,7 @@ describe("SevenHillsH3Adapter.fetch", () => {
     const result = await adapter.fetch(source);
     expect(result.events).toHaveLength(1);
     expect(result.events[0]).toMatchObject({
-      kennelTag: "7h4",
+      kennelTags: ["7h4"],
       runNumber: 2005,
       title: "Peter CottonTrail",
       hares: "Frodo & Snatch",

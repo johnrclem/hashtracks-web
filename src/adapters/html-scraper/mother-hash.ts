@@ -161,7 +161,7 @@ export function parseMotherHashBlock(block: string, sourceUrl: string): RawEvent
 
   return {
     date,
-    kennelTag: KENNEL_TAG,
+    kennelTags: [KENNEL_TAG],
     runNumber,
     hares,
     location,

@@ -222,13 +222,13 @@ describe("SamuraiH3Adapter", () => {
       expect(run123!.date).toBe("2026-03-28");
       expect(run123!.startTime).toBe("14:00");
       expect(run123!.title).toBe("Samurai H3 #123");
-      expect(run123!.kennelTag).toBe("samurai-h3");
+      expect(run123!.kennelTags[0]).toBe("samurai-h3");
       expect(run123!.hares).toBe("Hashimoto; Sweep: Sake Bomb");
 
       const run124 = result.events.find((e) => e.runNumber === 124);
       expect(run124).toBeDefined();
       expect(run124!.date).toBe("2026-04-04");
-      expect(run124!.kennelTag).toBe("samurai-h3");
+      expect(run124!.kennelTags[0]).toBe("samurai-h3");
     });
 
     it("verifies browserRender is called with frameUrl option", async () => {

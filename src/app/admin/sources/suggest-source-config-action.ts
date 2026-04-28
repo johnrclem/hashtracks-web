@@ -251,17 +251,17 @@ export async function buildGeminiSuggestion(
 
   // Replace sentinel __unknown__ tags with UNTAGGED_KENNEL_DISPLAY so Gemini derives kennels from titles
   const cleanEvents = events.map(e =>
-    e.kennelTag === UNKNOWN_KENNEL_SENTINEL ? { ...e, kennelTag: UNTAGGED_KENNEL_DISPLAY } : e
+    e.kennelTags[0] === UNKNOWN_KENNEL_SENTINEL ? { ...e, kennelTag: UNTAGGED_KENNEL_DISPLAY } : e
   );
 
   const sampleLines = cleanEvents
     .slice(0, MAX_SAMPLE_EVENTS)
-    .map((e) => `${e.date}: [${e.kennelTag}] ${e.title ?? "(no title)"}`)
+    .map((e) => `${e.date}: [${e.kennelTags[0]}] ${e.title ?? "(no title)"}`)
     .join("\n");
 
   const tagCounts = new Map<string, number>();
   for (const e of cleanEvents) {
-    tagCounts.set(e.kennelTag, (tagCounts.get(e.kennelTag) ?? 0) + 1);
+    tagCounts.set(e.kennelTags[0], (tagCounts.get(e.kennelTags[0]) ?? 0) + 1);
   }
   const tagSummary = [...tagCounts.entries()]
     .sort((a, b) => b[1] - a[1])

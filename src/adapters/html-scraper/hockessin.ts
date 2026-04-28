@@ -59,7 +59,7 @@ export function parseHockessinEvent(
 
   return {
     date,
-    kennelTag: "hockessin",
+    kennelTags: ["hockessin"],
     runNumber: !Number.isNaN(runNumber) ? runNumber : undefined,
     title: `Hockessin H3 Trail #${runNumber}`,
     hares,

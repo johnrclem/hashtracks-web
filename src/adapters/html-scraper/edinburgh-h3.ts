@@ -208,7 +208,7 @@ export class EdinburghH3Adapter implements SourceAdapter {
 
         events.push({
           date: run.date,
-          kennelTag: "Edinburgh H3",
+          kennelTags: ["Edinburgh H3"],
           runNumber: run.runNumber,
           title,
           hares: run.hares,

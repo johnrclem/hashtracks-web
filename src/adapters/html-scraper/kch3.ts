@@ -111,8 +111,7 @@ export function processKCH3Post(
 
   return {
     date: dateStr,
-    kennelTag,
-    title: trailName,
+    kennelTags: [kennelTag],    title: trailName,
     hares: body.hares,
     location: body.location,
     startTime,

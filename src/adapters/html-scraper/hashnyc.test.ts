@@ -453,7 +453,7 @@ describe("parseRows", () => {
 
     const result = parseRows($, rows, "https://hashnyc.com", true, "future_hashes");
     expect(result.events.length).toBe(1);
-    expect(result.events[0].kennelTag).toBe("nych3");
+    expect(result.events[0].kennelTags[0]).toBe("nych3");
   });
 
   it("defaults section to past_hashes for non-future rows", () => {
@@ -520,7 +520,7 @@ describe("HashNYCAdapter deduplication", () => {
     const result = await adapter.fetch({ url: "https://hashnyc.com" } as never);
 
     // Should be deduplicated: only 1 event, not 2
-    const nychEvents = result.events.filter(e => e.kennelTag === "nych3" && e.date === "2026-06-20");
+    const nychEvents = result.events.filter(e => e.kennelTags[0] === "nych3" && e.date === "2026-06-20");
     expect(nychEvents.length).toBe(1);
     // Future table entry should win (later overwrites)
     expect(nychEvents[0].hares).toBe("Updated Hare");

@@ -41,7 +41,7 @@ describe("parsePhuketRow", () => {
     const event = parsePhuketRow(cells, "saturday", DEFAULT_KENNEL_MAP, sourceUrl);
     expect(event).not.toBeNull();
     expect(event!.date).toBe("2026-04-18");
-    expect(event!.kennelTag).toBe("phhh");
+    expect(event!.kennelTags[0]).toBe("phhh");
     expect(event!.runNumber).toBe(2062);
     expect(event!.startTime).toBe("16:00");
     expect(event!.hares).toContain("B.C.");
@@ -58,7 +58,7 @@ describe("parsePhuketRow", () => {
     ];
     const event = parsePhuketRow(cells, "pooying", DEFAULT_KENNEL_MAP, sourceUrl);
     expect(event).not.toBeNull();
-    expect(event!.kennelTag).toBe("phuket-pooying");
+    expect(event!.kennelTags[0]).toBe("phuket-pooying");
     expect(event!.runNumber).toBe(414);
     expect(event!.startTime).toBe("15:00");
   });
@@ -73,7 +73,7 @@ describe("parsePhuketRow", () => {
     ];
     const event = parsePhuketRow(cells, "tinmen", DEFAULT_KENNEL_MAP, sourceUrl);
     expect(event).not.toBeNull();
-    expect(event!.kennelTag).toBe("phuket-tinmen");
+    expect(event!.kennelTags[0]).toBe("phuket-tinmen");
     expect(event!.date).toBe("2026-05-06");
   });
 
@@ -87,7 +87,7 @@ describe("parsePhuketRow", () => {
     ];
     const event = parsePhuketRow(cells, "ironpussy", DEFAULT_KENNEL_MAP, sourceUrl);
     expect(event).not.toBeNull();
-    expect(event!.kennelTag).toBe("iron-pussy");
+    expect(event!.kennelTags[0]).toBe("iron-pussy");
   });
 
   it("skips unknown kennel class", () => {

@@ -205,7 +205,7 @@ function buildRawEvent(parsed: ParsedSamuraiRun, sourceUrl: string): RawEventDat
 
   return {
     date: parsed.date,
-    kennelTag: KENNEL_CODE,
+    kennelTags: [KENNEL_CODE],
     runNumber: parsed.runNumber,
     title,
     hares: parsed.hares,

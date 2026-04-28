@@ -55,7 +55,7 @@ async function main() {
       180,
       cfg => ({ ...cfg, defaultTitles: { ...(cfg.defaultTitles as Record<string, string> | undefined), "wasatch-h3": "Wasatch H3 Trail" } }),
     );
-    const wasatch = events.filter(e => e.kennelTag === "wasatch-h3");
+    const wasatch = events.filter(e => e.kennelTags[0] === "wasatch-h3");
     const bad = wasatch.filter(e => /^wasatch\s*#?\d+$/i.test(e.title ?? ""));
     const healed = wasatch.filter(e => /^Wasatch H3 Trail #\d+$/.test(e.title ?? ""));
     print("#796 Wasatch bare-code titles", bad.length === 0 && healed.length > 0,

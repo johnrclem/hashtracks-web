@@ -60,7 +60,7 @@ describe("parseSlashRow", () => {
     const event = parseSlashRow(cells);
     expect(event).not.toBeNull();
     expect(event!.date).toBe("2026-03-14");
-    expect(event!.kennelTag).toBe("slh3");
+    expect(event!.kennelTags[0]).toBe("slh3");
     expect(event!.runNumber).toBe(320);
     expect(event!.startTime).toBe("12:00");
     expect(event!.location).toBe("The Pub, Brixton");
@@ -96,7 +96,7 @@ describe("parseSlashRow", () => {
   it("always uses SLH3 kennel tag", () => {
     const cells = ["323", "Sat", "13th June 2026", "12 Noon", "Venue", "Hare"];
     const event = parseSlashRow(cells);
-    expect(event!.kennelTag).toBe("slh3");
+    expect(event!.kennelTags[0]).toBe("slh3");
   });
 });
 
@@ -130,7 +130,7 @@ describe("SlashHashAdapter.fetch", () => {
 
     const first = result.events[0];
     expect(first.date).toBe("2026-03-14");
-    expect(first.kennelTag).toBe("slh3");
+    expect(first.kennelTags[0]).toBe("slh3");
     expect(first.runNumber).toBe(320);
     expect(first.startTime).toBe("12:00");
     expect(first.location).toBe("The Duke, Brixton");

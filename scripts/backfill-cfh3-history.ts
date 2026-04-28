@@ -172,7 +172,7 @@ function cleanedToRawEvent(row: CleanedRow): RawEventData | null {
   const notes = row.notes && !/omit\s+hares/i.test(row.notes) ? row.notes : undefined;
   return {
     date: row.date,
-    kennelTag: "cfh3",
+    kennelTags: ["cfh3"],
     runNumber: row.runNumber && row.runNumber > 0 ? row.runNumber : undefined,
     title: row.title,
     hares: row.hares,

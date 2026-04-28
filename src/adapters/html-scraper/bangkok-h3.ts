@@ -57,7 +57,7 @@ export class BangkokH3Adapter implements SourceAdapter {
 
       events.push({
         date,
-        kennelTag: KENNEL_TAG,
+        kennelTags: [KENNEL_TAG],
         runNumber: runMatch ? Number.parseInt(runMatch[1], 10) : undefined,
         hares: normalizeHaresField(hareMatch?.[1]?.trim()),
         location: locationMatch?.[1]?.trim() || undefined,

@@ -321,7 +321,7 @@ describe("parseHistoryCard", () => {
     expect(event).not.toBeNull();
     expect(event!.date).toBe("2026-03-25");
     expect(event!.runNumber).toBe(1989);
-    expect(event!.kennelTag).toBe("bh4");
+    expect(event!.kennelTags[0]).toBe("bh4");
     expect(event!.title).toContain("Whiney The Beer Bitch");
     expect(event!.location).toBe("Ladue");
     // Attendance hares override title hares
@@ -565,7 +565,7 @@ describe("BigHumpAdapter", () => {
     expect(result.events).toHaveLength(2);
     expect(result.events[0].date).toBe("2026-04-01");
     expect(result.events[0].runNumber).toBe(1991);
-    expect(result.events[0].kennelTag).toBe("bh4");
+    expect(result.events[0].kennelTags[0]).toBe("bh4");
     expect(result.events[0].startTime).toBe("18:45");
     expect((result.diagnosticContext as Record<string, unknown>).includeHistory).toBe(false);
     // Should not have fetched history pages
@@ -746,7 +746,7 @@ describe.skip("BigHumpAdapter live", () => {
 
     const sample = result.events[0];
     expect(sample.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-    expect(sample.kennelTag).toBe("bh4");
+    expect(sample.kennelTags[0]).toBe("bh4");
     expect(sample.runNumber).toBeGreaterThan(0);
   });
 
@@ -762,7 +762,7 @@ describe.skip("BigHumpAdapter live", () => {
 
     const sample = events[0];
     expect(sample.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-    expect(sample.kennelTag).toBe("bh4");
+    expect(sample.kennelTags[0]).toBe("bh4");
     expect(sample.runNumber).toBeGreaterThan(0);
     expect(sample.sourceUrl).toContain("runinfo.php?num=");
   });

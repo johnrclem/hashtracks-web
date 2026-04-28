@@ -48,7 +48,7 @@ function buildExtractionPrompt(parseError: ParseError): string {
   if (parseError.partialData) {
     const partial = parseError.partialData;
     const known: string[] = [];
-    if (partial.kennelTag) known.push(`kennelTag: "${partial.kennelTag}"`);
+    if (partial.kennelTags?.[0]) known.push(`kennelTag: "${partial.kennelTags[0]}"`);
     if (partial.date) known.push(`date: "${partial.date}"`);
     if (partial.title) known.push(`title: "${partial.title}"`);
     if (known.length > 0) {
@@ -161,12 +161,12 @@ async function recoverSingleError(
   if (!parsed) return null;
 
   // Merge: partialData (deterministic) + AI-extracted fields. Prefer the
-  // per-error kennelTag over the scrape-wide default so multi-kennel sources
-  // (HASHREGO, SFH3, Phoenix, etc.) don't recover events under the wrong
-  // kennel — `kennelTag` arg is a fallback for adapters that haven't started
-  // populating partialData.kennelTag yet.
+  // per-error primary tag (kennelTags[0]) over the scrape-wide default so
+  // multi-kennel sources (HASHREGO, SFH3, Phoenix, etc.) don't recover
+  // events under the wrong kennel — `kennelTag` arg is a fallback for
+  // adapters that haven't started populating partialData.kennelTags yet.
   const merged: RawEventData = {
-    kennelTag: parseError.partialData?.kennelTag ?? kennelTag,
+    kennelTags: [parseError.partialData?.kennelTags?.[0] ?? kennelTag],
     date: parseError.partialData?.date ?? parsed.event.date ?? "",
     title: parseError.partialData?.title ?? parsed.event.title,
     hares: parseError.partialData?.hares ?? parsed.event.hares,

@@ -86,7 +86,7 @@ describe("parseCah3Post", () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.event.date).toBe("2025-03-08");
-      expect(result.event.kennelTag).toBe("cah3");
+      expect(result.event.kennelTags[0]).toBe("cah3");
       expect(result.event.runNumber).toBe(533);
       expect(result.event.hares).toBe("Rusty Nail");
       expect(result.event.location).toBe("Cha-Am Beach");

@@ -10,7 +10,7 @@
  * 2. Planning-ahead section with one-line-per-event future runs:
  *    2208    Monday, 4 May    2026    NEED A HARE
  *
- * kennelTag: "oh3-ca"
+ * kennelTags: ["oh3-ca"]
  */
 
 import type { Source } from "@/generated/prisma/client";
@@ -80,7 +80,7 @@ export function parseDetailedBlock(text: string): RawEventData | null {
 
   return {
     date: dateStr,
-    kennelTag: KENNEL_TAG,
+    kennelTags: [KENNEL_TAG],
     runNumber,
     title,
     hares: stripPlaceholder(haresMatch?.[1]),
@@ -136,7 +136,7 @@ export function parsePlanningLine(text: string): RawEventData | null {
 
   return {
     date: dateStr,
-    kennelTag: KENNEL_TAG,
+    kennelTags: [KENNEL_TAG],
     runNumber,
     title,
     hares,

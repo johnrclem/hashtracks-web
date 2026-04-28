@@ -406,8 +406,7 @@ export class Eh3EdmontonAdapter implements SourceAdapter {
 
             const event: RawEventData = {
               date: parsed.date,
-              kennelTag,
-              runNumber: parsed.runNumber,
+              kennelTags: [kennelTag],              runNumber: parsed.runNumber,
               title: parsed.title,
               hares: parsed.hares,
               location: parsed.location,

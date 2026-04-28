@@ -175,7 +175,7 @@ describe("BrassMonkeyAdapter.fetch (Blogger API path)", () => {
 
     expect(result.events[0]).toMatchObject({
       date: "2026-03-14",
-      kennelTag: "bmh3-tx",
+      kennelTags: ["bmh3-tx"],
       runNumber: 421,
       title: "Just Short of A Brass Monkey Mile?",
       hares: "Lucky Stiff",
@@ -186,7 +186,7 @@ describe("BrassMonkeyAdapter.fetch (Blogger API path)", () => {
 
     expect(result.events[1]).toMatchObject({
       date: "2026-02-28",
-      kennelTag: "bmh3-tx",
+      kennelTags: ["bmh3-tx"],
       runNumber: 420,
       title: "Blaze It Trail",
       hares: "Hot Mess & Cold Feet",
@@ -231,7 +231,7 @@ describe("BrassMonkeyAdapter.fetch (Blogger API path)", () => {
     } as never);
 
     expect(result.events).toHaveLength(1);
-    expect(result.events[0].kennelTag).toBe("bmh3-tx");
+    expect(result.events[0].kennelTags[0]).toBe("bmh3-tx");
     expect(result.diagnosticContext).toMatchObject({
       fetchMethod: "html-scrape",
     });

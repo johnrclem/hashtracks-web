@@ -129,8 +129,7 @@ export function parseJEMEvent(
 
   return {
     date: datePart,
-    kennelTag,
-    runNumber,
+    kennelTags: [kennelTag],    runNumber,
     title,
     location,
     startTime,

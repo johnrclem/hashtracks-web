@@ -33,7 +33,7 @@ describe("parseGlasgowRow", () => {
     expect(event).not.toBeNull();
     expect(event!.date).toMatch(/^\d{4}-03-23$/);
     expect(event!.runNumber).toBe(2206);
-    expect(event!.kennelTag).toBe("Glasgow H3");
+    expect(event!.kennelTags[0]).toBe("Glasgow H3");
     expect(event!.location).toBe("Redhurst Hotel, Giffnock");
     expect(event!.hares).toBe("Audrey");
     expect(event!.startTime).toBe("19:00");

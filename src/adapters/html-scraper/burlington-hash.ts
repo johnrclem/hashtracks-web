@@ -124,7 +124,7 @@ export function parseCalendarLink(
 
   return {
     date,
-    kennelTag: "burlyh3",
+    kennelTags: ["burlyh3"],
     runNumber,
     title,
     hares,

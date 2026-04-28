@@ -171,7 +171,7 @@ export function parseEventBlock(
 
   return {
     date,
-    kennelTag: KENNEL_TAG,
+    kennelTags: [KENNEL_TAG],
     title: eventTitle,
     runNumber,
     hares,

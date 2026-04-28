@@ -86,7 +86,7 @@ beforeEach(() => {
   mockSourceUpdate.mockResolvedValue({} as never);
   mockGetAdapter.mockReturnValue({
     type: "HTML_SCRAPER",
-    fetch: vi.fn().mockResolvedValue({ events: [{ date: "2026-02-14", kennelTag: "NYCH3" }], errors: [] }),
+    fetch: vi.fn().mockResolvedValue({ events: [{ date: "2026-02-14", kennelTags: ["NYCH3"] }], errors: [] }),
   } as never);
   mockProcessRaw.mockResolvedValue(fakeMergeResult);
   mockRawEventDeleteMany.mockResolvedValue({} as never);
@@ -209,7 +209,7 @@ describe("scrapeSource", () => {
     mockSourceFind.mockResolvedValueOnce(gcalSource as never);
     mockGetAdapter.mockReturnValue({
       type: "GOOGLE_CALENDAR",
-      fetch: vi.fn().mockResolvedValue({ events: [{ date: "2026-03-01", kennelTag: "BH3" }], errors: [] }),
+      fetch: vi.fn().mockResolvedValue({ events: [{ date: "2026-03-01", kennelTags: ["BH3"] }], errors: [] }),
     } as never);
 
     const result = await scrapeSource("src_gcal");

@@ -120,7 +120,7 @@ describe("processKCH3Post", () => {
 
     expect(result).not.toBeNull();
     expect(result!.date).toBe("2026-03-21");
-    expect(result!.kennelTag).toBe("kch3");
+    expect(result!.kennelTags[0]).toBe("kch3");
     expect(result!.title).toBe("SHHHHHHH Trail");
     expect(result!.hares).toBe("Shhhhhhhh");
     expect(result!.startTime).toBe("14:00");
@@ -183,7 +183,7 @@ describe("KCH3Adapter", () => {
     const result = await adapter.fetch(mockSource);
     expect(result.events).toHaveLength(1);
     expect(result.events[0].date).toBe("2026-03-21");
-    expect(result.events[0].kennelTag).toBe("kch3");
+    expect(result.events[0].kennelTags[0]).toBe("kch3");
     expect(result.events[0].hares).toBe("Shhhhhhhh");
   });
 

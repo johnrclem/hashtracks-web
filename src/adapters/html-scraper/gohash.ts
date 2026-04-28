@@ -29,7 +29,7 @@ import { applyDateWindow, fetchHTMLPage, normalizeHaresField, validateSourceConf
  *
  * **Config shape** (`source.config`):
  * ```ts
- * { kennelTag: "penangh3", startTime?: "17:30", harelinePath?: "/hareline/upcoming" }
+ * { kennelTags: ["penangh3"], startTime?: "17:30", harelinePath?: "/hareline/upcoming" }
  * ```
  * If `harelinePath` is omitted the adapter defaults to `/hareline/upcoming`
  * appended to `source.url`.
@@ -175,7 +175,7 @@ export function parseGoHashRun(
 
   return {
     date: rawDate,
-    kennelTag: config.kennelTag,
+    kennelTags: [config.kennelTag],
     runNumber: Number.isFinite(run.run_number) ? (run.run_number as number) : undefined,
     title,
     hares,

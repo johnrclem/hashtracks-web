@@ -21,7 +21,7 @@ describe("gold-coast-h3 parseGoldCoastRow", () => {
     expect(e).not.toBeNull();
     expect(e!.date).toBe("2026-04-13");
     expect(e!.runNumber).toBe(2500);
-    expect(e!.kennelTag).toBe("gch3-au");
+    expect(e!.kennelTags[0]).toBe("gch3-au");
     expect(e!.hares).toBe("Hierarchy");
     expect(e!.title).toBe("Special Event");
   });

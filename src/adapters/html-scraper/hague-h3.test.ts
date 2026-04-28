@@ -61,7 +61,7 @@ Cost: non-members EUR 7.00 for a single run (includes beer and snacks)`;
     expect(event!.hares).toBe("Balls on a Dyke");
     expect(event!.startTime).toBe("14:00");
     expect(event!.location).toBe("Parallelweg crossing Houtrustweg by Sportcity, The Hague");
-    expect(event!.kennelTag).toBe("hagueh3");
+    expect(event!.kennelTags[0]).toBe("hagueh3");
     expect(event!.title).toBe("Hague H3 #2412");
   });
 
@@ -246,7 +246,7 @@ describe("HagueH3Adapter", () => {
     expect(result.errors).toHaveLength(0);
     expect(result.events.length).toBeGreaterThanOrEqual(2);
     expect(result.events[0].runNumber).toBe(2412);
-    expect(result.events[0].kennelTag).toBe("hagueh3");
+    expect(result.events[0].kennelTags[0]).toBe("hagueh3");
   });
 
   it("handles fetch failure gracefully", async () => {

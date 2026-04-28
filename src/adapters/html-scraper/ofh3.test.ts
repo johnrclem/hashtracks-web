@@ -256,7 +256,7 @@ describe("OFH3Adapter.fetch (Blogger API path)", () => {
 
     expect(result.events[0]).toMatchObject({
       date: "2026-03-14",
-      kennelTag: "ofh3",
+      kennelTags: ["ofh3"],
       title: "Are you feelin' lucky?",
       hares: "Herpicles",
       location: "Blue Heron Elementary School",
@@ -268,7 +268,7 @@ describe("OFH3Adapter.fetch (Blogger API path)", () => {
     // TBA location should be excluded
     expect(result.events[1]).toMatchObject({
       date: "2026-02-08",
-      kennelTag: "ofh3",
+      kennelTags: ["ofh3"],
     });
     expect(result.events[1].location).toBeUndefined();
 
@@ -339,7 +339,7 @@ describe("OFH3Adapter.fetch (HTML fallback path)", () => {
     // First event (March)
     expect(result.events[0]).toMatchObject({
       date: "2026-03-14",
-      kennelTag: "ofh3",
+      kennelTags: ["ofh3"],
       title: "Are you feelin' lucky?",
       hares: "Herpicles",
       location: "Blue Heron Elementary School",
@@ -352,7 +352,7 @@ describe("OFH3Adapter.fetch (HTML fallback path)", () => {
     // Second event (February) — TBA location should be excluded
     expect(result.events[1]).toMatchObject({
       date: "2026-02-08",
-      kennelTag: "ofh3",
+      kennelTags: ["ofh3"],
       title: "Ready to shake off the snow?",
       hares: "Livin' Lolita Loca & Special Ed Forces",
       startTime: "11:00",

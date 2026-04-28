@@ -292,7 +292,7 @@ async function fetchAndParseDetail(
       error: msg,
       rawText: `Slug: ${entry.slug}\nTitle: ${entry.title ?? "unknown"}\nDate: ${entry.startDate ?? "unknown"}`.slice(0, 2000),
       partialData: {
-        kennelTag: entry.kennelSlug,
+        kennelTags: [entry.kennelSlug],
         sourceUrl: eventDetailUrl(entry.slug),
       },
     });
@@ -425,7 +425,7 @@ async function fetchAndConvertKennelEvents(
         section: slug,
         error: message,
         rawText: safeApiRowSample(row ?? {}),
-        partialData: { kennelTag: slug, sourceUrl },
+        partialData: { kennelTags: [slug], sourceUrl },
       });
     }
   });
@@ -447,7 +447,7 @@ function createFromIndex(entry: IndexEntry): RawEventData[] {
   return [
     {
       date,
-      kennelTag: entry.kennelSlug,
+      kennelTags: [entry.kennelSlug],
       title: entry.title,
       startTime: time || undefined,
       sourceUrl: hashRegoUrl,

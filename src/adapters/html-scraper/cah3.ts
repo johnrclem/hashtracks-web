@@ -150,7 +150,7 @@ export function parseCah3Post(post: Cah3PostInput): ParseCah3PostResult {
     ok: true,
     event: {
       date,
-      kennelTag: KENNEL_TAG,
+      kennelTags: [KENNEL_TAG],
       runNumber: titleFields.runNumber,
       title: titleFields.title,
       hares: normalizeHaresField(body.hares),

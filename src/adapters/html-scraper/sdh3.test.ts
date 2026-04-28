@@ -297,12 +297,12 @@ describe("parseHarelineEvents", () => {
 
   it("parses a dt with all fields", () => {
     const events = parseHarelineEvents(HARELINE_HTML, config);
-    const sdh3Event = events.find((e) => e.kennelTag === "sdh3");
+    const sdh3Event = events.find((e) => e.kennelTags[0] === "sdh3");
 
     expect(sdh3Event).toBeDefined();
     expect(sdh3Event).toMatchObject({
       date: "2026-03-20",
-      kennelTag: "sdh3",
+      kennelTags: ["sdh3"],
       startTime: "18:00",
       hares: "Trail Blazer & Lost Cause",
       location: "123 Main St, San Diego, CA",
@@ -317,12 +317,12 @@ describe("parseHarelineEvents", () => {
 
   it("parses a dt with minimal fields", () => {
     const events = parseHarelineEvents(HARELINE_HTML, config);
-    const irh3Event = events.find((e) => e.kennelTag === "irh3-sd");
+    const irh3Event = events.find((e) => e.kennelTags[0] === "irh3-sd");
 
     expect(irh3Event).toBeDefined();
     expect(irh3Event).toMatchObject({
       date: "2026-03-21",
-      kennelTag: "irh3-sd",
+      kennelTags: ["irh3-sd"],
       startTime: "15:00",
       hares: "Iron Mike",
     });
@@ -352,7 +352,7 @@ describe("parseHarelineEvents", () => {
 
   it("extracts kennel code from CSS class", () => {
     const events = parseHarelineEvents(HARELINE_HTML, config);
-    const tags = events.map((e) => e.kennelTag);
+    const tags = events.map((e) => e.kennelTags[0]);
     expect(tags).toContain("sdh3");
     expect(tags).toContain("irh3-sd");
   });
@@ -361,16 +361,16 @@ describe("parseHarelineEvents", () => {
     const events = parseHarelineEvents(HARELINE_HTML, config);
     // "UNKN" is not in the config, so it should be skipped
     expect(events).toHaveLength(2);
-    expect(events.every((e) => e.kennelTag !== "UNKN")).toBe(true);
+    expect(events.every((e) => e.kennelTags[0] !== "UNKN")).toBe(true);
   });
 
   it("extracts sourceUrl from the float-right span event link", () => {
     const events = parseHarelineEvents(HARELINE_HTML, config);
-    const sdh3Event = events.find((e) => e.kennelTag === "sdh3");
+    const sdh3Event = events.find((e) => e.kennelTags[0] === "sdh3");
     expect(sdh3Event?.sourceUrl).toBe(
       "https://sdh3.com/e/event-20260320180000.shtml",
     );
-    const irh3Event = events.find((e) => e.kennelTag === "irh3-sd");
+    const irh3Event = events.find((e) => e.kennelTags[0] === "irh3-sd");
     expect(irh3Event?.sourceUrl).toBe(
       "https://sdh3.com/e/event-20260321150000.shtml",
     );
@@ -404,12 +404,12 @@ describe("parseHistoryEvents", () => {
 
   it("parses an li entry with kennel in parentheses", () => {
     const events = parseHistoryEvents(HISTORY_HTML, config);
-    const sdEvent = events.find((e) => e.kennelTag === "sdh3");
+    const sdEvent = events.find((e) => e.kennelTags[0] === "sdh3");
 
     expect(sdEvent).toBeDefined();
     expect(sdEvent).toMatchObject({
       date: "2006-12-03",
-      kennelTag: "sdh3",
+      kennelTags: ["sdh3"],
       startTime: "18:30",
       title: "The Cold Moon",
       sourceUrl: "https://sdh3.com/e/event-20061203183000.shtml",
@@ -418,12 +418,12 @@ describe("parseHistoryEvents", () => {
 
   it("maps kennel name via kennelNameMap", () => {
     const events = parseHistoryEvents(HISTORY_HTML, config);
-    const irEvent = events.find((e) => e.kennelTag === "irh3-sd");
+    const irEvent = events.find((e) => e.kennelTags[0] === "irh3-sd");
 
     expect(irEvent).toBeDefined();
     expect(irEvent).toMatchObject({
       date: "2007-01-05",
-      kennelTag: "irh3-sd",
+      kennelTags: ["irh3-sd"],
       title: "New Year Hash",
     });
   });
@@ -444,7 +444,7 @@ describe("parseHistoryEvents", () => {
 
   it("constructs sourceUrl from link href", () => {
     const events = parseHistoryEvents(HISTORY_HTML, config);
-    const sdEvent = events.find((e) => e.kennelTag === "sdh3");
+    const sdEvent = events.find((e) => e.kennelTags[0] === "sdh3");
     expect(sdEvent?.sourceUrl).toBe(
       "https://sdh3.com/e/event-20061203183000.shtml",
     );
@@ -582,7 +582,7 @@ describe("SDH3Adapter", () => {
 
     // Find the SDH3 event on 2006-12-03 — hareline should win with richer data
     const overlapEvents = result.events.filter(
-      (e) => e.date === "2006-12-03" && e.kennelTag === "sdh3",
+      (e) => e.date === "2006-12-03" && e.kennelTags[0] === "sdh3",
     );
     expect(overlapEvents).toHaveLength(1);
     expect(overlapEvents[0].hares).toBe("Special Hare");

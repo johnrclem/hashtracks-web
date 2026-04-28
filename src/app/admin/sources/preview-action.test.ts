@@ -112,7 +112,7 @@ describe("previewSourceConfig", () => {
     const mockEvents = [
       {
         date: "2026-03-01",
-        kennelTag: "NYCH3",
+        kennelTags: ["NYCH3"],
         title: "Run #2000",
         location: "Central Park",
         hares: "John",
@@ -121,7 +121,7 @@ describe("previewSourceConfig", () => {
       },
       {
         date: "2026-03-08",
-        kennelTag: "EWH3",
+        kennelTags: ["EWH3"],
         title: "Trail Run",
         location: null,
         hares: null,
@@ -163,7 +163,7 @@ describe("previewSourceConfig", () => {
   it("caps preview events at 25", async () => {
     const mockEvents = Array.from({ length: 40 }, (_, i) => ({
       date: `2026-03-${String(i + 1).padStart(2, "0")}`,
-      kennelTag: "NYCH3",
+      kennelTags: ["NYCH3"],
       title: `Run #${i}`,
     }));
     const mockAdapter = {
@@ -238,7 +238,7 @@ describe("previewSourceConfig", () => {
   it("clears resolver cache before resolving tags", async () => {
     const mockAdapter = {
       fetch: vi.fn().mockResolvedValue({
-        events: [{ date: "2026-03-01", kennelTag: "TestH3" }],
+        events: [{ date: "2026-03-01", kennelTags: ["TestH3"] }],
         errors: [],
       }),
     };
@@ -359,9 +359,9 @@ describe("previewSourceConfig", () => {
 
   it("deduplicates kennel tags before resolving", async () => {
     const mockEvents = [
-      { date: "2026-03-01", kennelTag: "NYCH3" },
-      { date: "2026-03-08", kennelTag: "NYCH3" },
-      { date: "2026-03-15", kennelTag: "NYCH3" },
+      { date: "2026-03-01", kennelTags: ["NYCH3"] },
+      { date: "2026-03-08", kennelTags: ["NYCH3"] },
+      { date: "2026-03-15", kennelTags: ["NYCH3"] },
     ];
     const mockAdapter = {
       fetch: vi.fn().mockResolvedValue({ events: mockEvents, errors: [] }),

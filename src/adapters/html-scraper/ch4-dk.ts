@@ -313,7 +313,7 @@ export class Ch4DkAdapter implements SourceAdapter {
 
         events.push({
           date: dt.date,
-          kennelTag: "ch4-dk",
+          kennelTags: ["ch4-dk"],
           runNumber,
           title: runNumber === undefined ? undefined : `CH4 #${runNumber}`,
           startTime: dt.startTime,

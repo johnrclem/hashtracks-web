@@ -17,7 +17,7 @@ describe("parseChiangMaiLine", () => {
     );
     expect(event).not.toBeNull();
     expect(event!.date).toBe("2026-04-06");
-    expect(event!.kennelTag).toBe("ch3-cm");
+    expect(event!.kennelTags[0]).toBe("ch3-cm");
     expect(event!.runNumber).toBe(1631);
     expect(event!.hares).toBe("Suckit");
   });

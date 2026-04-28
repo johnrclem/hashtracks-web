@@ -97,7 +97,7 @@ describe("SumoH3Adapter", () => {
 
       expect(result).toMatchObject({
         date: "2026-04-05",
-        kennelTag: "sumo-h3",
+        kennelTags: ["sumo-h3"],
         title: "Sumo H3 #1038",
         runNumber: 1038,
         hares: "Khuming Rouge",

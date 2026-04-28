@@ -267,7 +267,7 @@ export class StlH3Adapter implements SourceAdapter {
 
         events.push({
           date,
-          kennelTag: "stlh3",
+          kennelTags: ["stlh3"],
           title: cleanPostTitle(post.title),
           location,
           startTime,

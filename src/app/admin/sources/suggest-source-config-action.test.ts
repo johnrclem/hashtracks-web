@@ -39,7 +39,7 @@ describe("extractMeetupGroupUrlname", () => {
 function makeSampleEvents(kennelTag: string, count = 3): RawEventData[] {
   return Array.from({ length: count }, (_, i) => ({
     date: `2026-03-${String(i + 1).padStart(2, "0")}`,
-    kennelTag,
+    kennelTags: [kennelTag],
     title: `Trail #${i + 1} — Test Run`,
   }));
 }

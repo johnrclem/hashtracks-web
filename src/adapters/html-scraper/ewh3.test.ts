@@ -212,7 +212,7 @@ describe("EWH3Adapter (WordPress API path)", () => {
     expect(result.events).toHaveLength(1);
     expect(result.events[0]).toMatchObject({
       date: "2026-02-19",
-      kennelTag: "ewh3",
+      kennelTags: ["ewh3"],
       runNumber: 1506,
       title: "Huaynaputina's Revenge",
       hares: "Mongo & Lo Ho",
@@ -295,7 +295,7 @@ describe("EWH3Adapter (HTML fallback path)", () => {
     // First event
     expect(result.events[0]).toMatchObject({
       date: "2026-02-19",
-      kennelTag: "ewh3",
+      kennelTags: ["ewh3"],
       runNumber: 1506,
       title: "Huaynaputina's Revenge",
       hares: "Mongo & Lo Ho",
@@ -307,7 +307,7 @@ describe("EWH3Adapter (HTML fallback path)", () => {
     // Second event
     expect(result.events[1]).toMatchObject({
       date: "2026-02-12",
-      kennelTag: "ewh3",
+      kennelTags: ["ewh3"],
       runNumber: 1505,
       title: "Roose Rips Fukov Farewell Trail",
       hares: "Roose Rips, Ha-Cum-On My Tatas",

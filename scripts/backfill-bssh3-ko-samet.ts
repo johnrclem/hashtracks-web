@@ -36,7 +36,7 @@ const DEFAULT_START_TIME = "13:45"; // BSSH3's standard meet time
 const KO_SAMET_EVENTS: RawEventData[] = [
   {
     date: "2025-05-30",
-    kennelTag: KENNEL_CODE,
+    kennelTags: [KENNEL_CODE],
     runNumber: 10,
     title: "Run 10 - Ko Samet",
     location: "Ko Samet",
@@ -44,7 +44,7 @@ const KO_SAMET_EVENTS: RawEventData[] = [
   },
   {
     date: "2025-05-31",
-    kennelTag: KENNEL_CODE,
+    kennelTags: [KENNEL_CODE],
     runNumber: 11,
     title: "Run 11 - Ko Samet",
     location: "Ko Samet",

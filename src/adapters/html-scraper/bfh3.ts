@@ -91,7 +91,7 @@ export class Bfh3Adapter implements SourceAdapter {
       events.push({
         date,
         startTime,
-        kennelTag: KENNEL_TAG,
+        kennelTags: [KENNEL_TAG],
         sourceUrl: url,
       });
     }

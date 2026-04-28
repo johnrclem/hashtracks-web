@@ -121,7 +121,7 @@ export function parseRunItem(
 
   const event: RawEventData & { _longParagraph?: string } = {
     date,
-    kennelTag: "wlh3",
+    kennelTags: ["wlh3"],
     runNumber: runNumber ?? undefined,
     title,
     hares,

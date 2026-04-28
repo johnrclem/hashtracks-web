@@ -66,7 +66,7 @@ describe("HashPhillyAdapter.fetch", () => {
     expect(result.errors).toHaveLength(0);
 
     const event = result.events[0];
-    expect(event.kennelTag).toBe("philly-h3");
+    expect(event.kennelTags[0]).toBe("philly-h3");
     expect(event.date).toBe("2026-02-14");
     expect(event.runNumber).toBe(1234);
     expect(event.startTime).toBe("15:00");

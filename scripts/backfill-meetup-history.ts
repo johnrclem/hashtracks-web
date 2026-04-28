@@ -54,8 +54,8 @@ for (const source of meetupSources) {
   const url = source.url;
 
   if (typeof defaultKennel !== "string" || !defaultKennel) {
-    console.log(`Skipping ${source.name}: missing config.kennelTag`);
-    summary.push({ source: source.name, kennel: "?", status: "skipped", detail: "missing config.kennelTag" });
+    console.log(`Skipping ${source.name}: missing config.kennelTags[0]`);
+    summary.push({ source: source.name, kennel: "?", status: "skipped", detail: "missing config.kennelTags[0]" });
     continue;
   }
   if (typeof url !== "string" || !url.includes("meetup.com")) {

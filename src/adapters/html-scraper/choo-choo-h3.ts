@@ -51,7 +51,7 @@ export class ChooChooH3Adapter implements SourceAdapter {
         // All-day events carry a meaningless 00:00 from the API; omit so the
         // canonical record doesn't show "midnight".
         startTime: e.allDay ? undefined : e.startTime,
-        kennelTag: KENNEL_TAG,
+        kennelTags: [KENNEL_TAG],
         title: e.title,
         description: e.description,
         location: e.location || e.venue,

@@ -360,7 +360,7 @@ export class NorfolkH3Adapter implements SourceAdapter {
 
         events.push({
           date: parsed.date,
-          kennelTag: KENNEL_TAG,
+          kennelTags: [KENNEL_TAG],
           runNumber: parsed.runNumber,
           title,
           hares: parsed.hares,

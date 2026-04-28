@@ -479,7 +479,7 @@ describe("GoogleSheetsAdapter.fetch — skipRows", () => {
     const result = await adapter.fetch(source);
 
     expect(result.events.length).toBe(1);
-    expect(result.events[0].kennelTag).toBe("TestH3");
+    expect(result.events[0].kennelTags[0]).toBe("TestH3");
     expect(result.events[0].runNumber).toBe(100);
     expect(result.events[0].title).toBe("Fun Run");
   });
@@ -583,7 +583,7 @@ describe("GoogleSheetsAdapter.fetch — csvUrl", () => {
 
     expect(result.events.length).toBe(1);
     expect(result.events[0].title).toBe("Pub Crawl");
-    expect(result.events[0].kennelTag).toBe("TestH3");
+    expect(result.events[0].kennelTags[0]).toBe("TestH3");
 
     // Verify it fetched from the csvUrl directly
     const fetchedUrl = mockedSafeFetch.mock.calls[0][0] as string;

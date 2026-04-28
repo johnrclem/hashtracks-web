@@ -125,7 +125,7 @@ export function buildEventFromDetail(detail: DetailItem, listing: ListingItem): 
 
   return {
     date,
-    kennelTag: "shith3",
+    kennelTags: ["shith3"],
     runNumber: runNumber && !isNaN(runNumber) ? runNumber : undefined,
     title: decodeEntities(detail.TITLE || "") || parseListingTitle(listing.title).trailName,
     hares,
@@ -148,7 +148,7 @@ export function buildEventFromListing(listing: ListingItem): RawEventData | null
 
   return {
     date,
-    kennelTag: "shith3",
+    kennelTags: ["shith3"],
     runNumber: parsed.runNumber,
     title: parsed.trailName,
     startTime: extractStartTime(listing.start),

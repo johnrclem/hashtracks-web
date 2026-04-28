@@ -454,7 +454,7 @@ export class StaticScheduleAdapter implements SourceAdapter {
 
     const events: RawEventData[] = occurrences.map((date) => ({
       date,
-      kennelTag: config.kennelTag,
+      kennelTags: [config.kennelTag],
       title: config.defaultTitle,
       description: config.defaultDescription,
       location: config.defaultLocation,

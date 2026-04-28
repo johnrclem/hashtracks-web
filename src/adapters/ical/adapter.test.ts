@@ -498,7 +498,7 @@ describe("ICalAdapter", () => {
     // Should skip Hand Pump Workday (skipPatterns), cancelled Agnews, and filter by date range
     // With days=9999, all non-skipped, non-cancelled events should be included
     // SFH3 #2300
-    const sfh3 = result.events.find((e) => e.kennelTag === "SFH3" && e.runNumber === 2300);
+    const sfh3 = result.events.find((e) => e.kennelTags[0] === "SFH3" && e.runNumber === 2300);
     expect(sfh3).toBeDefined();
     expect(sfh3!.title).toBe("Test Trail");
     expect(sfh3!.date).toBe("2026-03-01");
@@ -510,20 +510,20 @@ describe("ICalAdapter", () => {
     expect(sfh3!.sourceUrl).toBe("https://www.sfh3.com/runs/1");
 
     // GPH3 #1700
-    const gph3 = result.events.find((e) => e.kennelTag === "GPH3");
+    const gph3 = result.events.find((e) => e.kennelTags[0] === "GPH3");
     expect(gph3).toBeDefined();
     expect(gph3!.runNumber).toBe(1700);
     expect(gph3!.location).toBe("Alamo Square");
 
     // FHAC-U: BAWC 5 (no run number, has title)
-    const fhacu = result.events.find((e) => e.kennelTag === "FHAC-U");
+    const fhacu = result.events.find((e) => e.kennelTags[0] === "FHAC-U");
     expect(fhacu).toBeDefined();
     expect(fhacu!.title).toBe("BAWC 5");
     expect(fhacu!.runNumber).toBeUndefined();
     expect(fhacu!.hares).toBe("Alpha & Omega");
 
     // Marin H3 #290
-    const marin = result.events.find((e) => e.kennelTag === "MARINH3");
+    const marin = result.events.find((e) => e.kennelTags[0] === "MARINH3");
     expect(marin).toBeDefined();
     expect(marin!.runNumber).toBe(290);
     expect(marin!.startTime).toBe("14:00");
@@ -535,13 +535,13 @@ describe("ICalAdapter", () => {
     expect(handpump).toBeUndefined();
 
     // Cancelled Agnews should be skipped
-    const agnews = result.events.find((e) => e.kennelTag === "AGNEWS");
+    const agnews = result.events.find((e) => e.kennelTags[0] === "AGNEWS");
     expect(agnews).toBeUndefined();
 
     // Bay 2 Blackout (all-day event) should use defaultKennelTag
     const b2b = result.events.find((e) => e.title?.includes("Bay 2 Blackout"));
     expect(b2b).toBeDefined();
-    expect(b2b!.kennelTag).toBe("SFH3");
+    expect(b2b!.kennelTags[0]).toBe("SFH3");
     expect(b2b!.date).toBe("2026-06-20");
     expect(b2b!.startTime).toBeUndefined();
 
@@ -764,7 +764,7 @@ END:VCALENDAR`;
 
     expect(result.events).toHaveLength(1);
     expect(result.events[0].hares).toBe("Captain Hash");
-    expect(result.events[0].kennelTag).toBe("CCH3");
+    expect(result.events[0].kennelTags[0]).toBe("CCH3");
   });
 
   it("suppresses endTime when DTEND is on a different calendar day (overnight run)", async () => {
@@ -858,7 +858,7 @@ END:VCALENDAR`;
 
     expect(result.events).toHaveLength(1);
     expect(result.events[0].cost).toBe("5€");
-    expect(result.events[0].kennelTag).toBe("berlinh3");
+    expect(result.events[0].kennelTags[0]).toBe("berlinh3");
   });
 
   it("enriches Berlin H3 events with Hares from wp-event-manager detail page", async () => {
@@ -902,7 +902,7 @@ END:VCALENDAR`;
     const result = await adapter.fetch(source, { days: 9999 });
 
     expect(result.events).toHaveLength(1);
-    expect(result.events[0].kennelTag).toBe("bh3fm");
+    expect(result.events[0].kennelTags[0]).toBe("bh3fm");
     expect(result.events[0].hares).toBe("Symphomaniac");
     expect(result.events[0].cost).toBe("5€");
     expect(result.diagnosticContext!.enrichmentEnriched).toBe(1);
@@ -1009,7 +1009,7 @@ END:VCALENDAR`;
     // Without patterns, all events get UNKNOWN tag
     expect(result.events.length).toBeGreaterThan(0);
     result.events.forEach((e) => {
-      expect(e.kennelTag).toBe("UNKNOWN");
+      expect(e.kennelTags[0]).toBe("UNKNOWN");
     });
   });
 });

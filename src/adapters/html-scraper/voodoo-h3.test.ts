@@ -175,7 +175,7 @@ On-After: JB's Fuel Dock.
     const result = processVoodooPost(title, body, "https://www.voodoohash.com/2026/03/29/trail-1035/");
     expect(result).not.toBeNull();
     expect(result!.date).toBe("2026-04-02");
-    expect(result!.kennelTag).toBe("voodoo-h3");
+    expect(result!.kennelTags[0]).toBe("voodoo-h3");
     expect(result!.runNumber).toBe(1035);
     expect(result!.title).toBe("The Egg-Stra Dirty Spring Scramble");
     expect(result!.hares).toBe("Steven with a D and Surprise Co Hare.");
@@ -263,7 +263,7 @@ Hare &amp; Co-Hares: Steven with a D</p>`,
     const result = await adapter.fetch(mockSource);
     expect(result.events).toHaveLength(1);
     expect(result.events[0].date).toBe("2026-04-02");
-    expect(result.events[0].kennelTag).toBe("voodoo-h3");
+    expect(result.events[0].kennelTags[0]).toBe("voodoo-h3");
     expect(result.events[0].runNumber).toBe(1035);
     expect(result.events[0].startTime).toBe("18:30");
     expect(result.errors).toHaveLength(0);

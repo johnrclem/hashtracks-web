@@ -40,7 +40,7 @@ const SOURCE_NAME = "Richmond H3 Meetup";
 const TRAIL_40: RawEventData[] = [
   {
     date: "2026-04-25",
-    kennelTag: "chain-gang-hhh",
+    kennelTags: ["chain-gang-hhh"],
     runNumber: 40,
     title: "ANNUAL GENERAL MEEING: Chain Gang Hash House Harriers Trail #40",
     startTime: "13:00",

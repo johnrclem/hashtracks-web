@@ -60,7 +60,7 @@ describe("parseIndyCard", () => {
     expect(event).toMatchObject({
       date: "2026-04-10",
       startTime: "17:00",
-      kennelTag: "indyh3",
+      kennelTags: ["indyh3"],
       runNumber: 1119,
       title: "IndyScent Prom - Spy vs Spy 2026 - Initial Contact",
       sourceUrl: "https://indyhhh.com/hashes/hash-1119-indy-prom-pre-lube/",
@@ -77,7 +77,7 @@ describe("parseIndyCard", () => {
       "indyh3",
       "https://indyhhh.com",
     );
-    expect(event?.kennelTag).toBe("thicch3");
+    expect(event?.kennelTags[0]).toBe("thicch3");
     expect(event?.runNumber).toBe(1122);
     expect(event?.hares).toBe("Shaggy");
   });

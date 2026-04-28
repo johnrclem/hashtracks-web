@@ -336,7 +336,7 @@ describe("NorfolkH3Adapter", () => {
       expect(run2139!.location).toContain("Crown Inn");
       expect(run2139!.location).toContain("NR28 0AH");
       expect(run2139!.hares).toBe("Woolly and Bagpuss");
-      expect(run2139!.kennelTag).toBe("Norfolk H3");
+      expect(run2139!.kennelTags[0]).toBe("Norfolk H3");
 
       // Second event: Run #2144 (Wednesday evening)
       const run2144 = result.events.find((e) => e.runNumber === 2144);

@@ -89,7 +89,7 @@ describe("F3H3Adapter", () => {
 
       expect(result).toMatchObject({
         date: "2026-04-10",
-        kennelTag: "f3h3",
+        kennelTags: ["f3h3"],
         title: "F3H3 #1058",
         runNumber: 1058,
         hares: "Mismanagement",

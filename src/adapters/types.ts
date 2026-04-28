@@ -3,7 +3,13 @@ import type { SourceType, Source } from "@/generated/prisma/client";
 /** Raw event data extracted from a source before kennel resolution or deduplication */
 export interface RawEventData {
   date: string; // YYYY-MM-DD
-  kennelTag: string; // Kennel identifier — use kennelCode (e.g. "nych3", "bfm") for stable resolution
+  /**
+   * Kennel identifiers — use kennelCode (e.g. "nych3", "bfm") for stable
+   * resolution. Always at least one entry; multi-kennel co-hosted events
+   * (#1023) emit multiple. The first resolved tag becomes the primary
+   * EventKennel; the rest become co-host secondaries.
+   */
+  kennelTags: string[];
   runNumber?: number | null; // null = explicit clear signal (e.g. HC eventNumber=0 for socials)
   title?: string;
   description?: string | null; // null = explicit clear signal (see merge.ts UPDATE path)

@@ -128,7 +128,7 @@ describe("parseCfh3Post", () => {
   it("sets kennelTag to cfh3", () => {
     const $ = cheerio.load(POST_HTML_MIS_MAN);
     const result = parseCfh3Post($, "2026-03-17T18:40:42-04:00");
-    expect(result!.kennelTag).toBe("cfh3");
+    expect(result!.kennelTags[0]).toBe("cfh3");
   });
 
   it("parses posts with the colon inside the <strong> tag (#903 regression)", () => {
@@ -158,7 +158,7 @@ describe("parseHarelineRow", () => {
       date: "2026-03-07",
       runNumber: 514,
       hares: "Photo Spread",
-      kennelTag: "cfh3",
+      kennelTags: ["cfh3"],
     });
   });
 

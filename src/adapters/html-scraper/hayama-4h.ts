@@ -71,7 +71,7 @@ export function parseSectionText(
 
   return {
     date,
-    kennelTag: "hayama-4h",
+    kennelTags: ["hayama-4h"],
     title,
     runNumber,
     hares: hares || undefined,

@@ -46,7 +46,7 @@ describe("Boston Hash Calendar multi-kennel routing (#789)", () => {
       { summary, start: { dateTime: "2026-04-15T19:00:00-04:00" }, status: "confirmed" },
       config,
     );
-    expect(result?.kennelTag).toBe(expectedTag);
+    expect(result?.kennelTags[0]).toBe(expectedTag);
   });
 
   it("unmatched titles pass summary through as kennelTag (distinct UNMATCHED_TAGS alerts, #789)", () => {
@@ -54,7 +54,7 @@ describe("Boston Hash Calendar multi-kennel routing (#789)", () => {
       { summary: "AGM Planning Meeting", start: { dateTime: "2026-04-15T19:00:00-04:00" }, status: "confirmed" },
       config,
     );
-    expect(result?.kennelTag).toBe("AGM Planning Meeting");
+    expect(result?.kennelTags[0]).toBe("AGM Planning Meeting");
   });
 });
 
@@ -78,7 +78,7 @@ describe("Colorado H3 Aggregator multi-kennel routing (#850)", () => {
       { summary, start: { dateTime: "2026-04-15T19:00:00-06:00" }, status: "confirmed" },
       config,
     );
-    expect(result?.kennelTag).toBe(expectedTag);
+    expect(result?.kennelTags[0]).toBe(expectedTag);
   });
 
   it.each([
@@ -91,7 +91,7 @@ describe("Colorado H3 Aggregator multi-kennel routing (#850)", () => {
       { summary, start: { dateTime: "2026-04-15T19:00:00-06:00" }, status: "confirmed" },
       config,
     );
-    expect(result?.kennelTag).toBe(summary);
+    expect(result?.kennelTags[0]).toBe(summary);
   });
 });
 
@@ -103,7 +103,7 @@ describe("resolveKennelTagFromSummary with no config", () => {
       { summary: "Some Random Event", start: { dateTime: "2026-04-15T19:00:00-04:00" }, status: "confirmed" },
       null,
     );
-    expect(result?.kennelTag).toBe("Some Random Event");
+    expect(result?.kennelTags[0]).toBe("Some Random Event");
   });
 });
 
@@ -972,7 +972,7 @@ describe("buildRawEventFromGCalItem — skipPatterns", () => {
       skipPatterns,
     );
     expect(result).not.toBeNull();
-    expect(result!.kennelTag).toBe("philly-h3");
+    expect(result!.kennelTags[0]).toBe("philly-h3");
   });
 
   it("works with empty skipPatterns array", () => {
@@ -1024,7 +1024,7 @@ describe("buildRawEventFromGCalItem — skipPatterns", () => {
         PHILLY_SKIP,
       );
       expect(result).not.toBeNull();
-      expect(result!.kennelTag).toBe("philly-h3");
+      expect(result!.kennelTags[0]).toBe("philly-h3");
     });
 
     it("drops a pure N2H3-titled event from the Oregon calendar", () => {
@@ -1058,7 +1058,7 @@ describe("buildRawEventFromGCalItem — skipPatterns", () => {
         OREGON_SKIP,
       );
       expect(result).not.toBeNull();
-      expect(result!.kennelTag).toBe("oh3");
+      expect(result!.kennelTags[0]).toBe("oh3");
     });
   });
 });
@@ -1928,7 +1928,7 @@ describe("applyInlineHarelineBackfill (#498)", () => {
   function makeEvent(overrides: Partial<RawEventData>): RawEventData {
     return {
       date: "2026-04-07",
-      kennelTag: "4x2h4",
+      kennelTags: ["4x2h4"],
       title: "4x2 H4 No. 124",
       ...overrides,
     };
@@ -1964,7 +1964,7 @@ describe("applyInlineHarelineBackfill (#498)", () => {
   it("ignores events for other kennels", () => {
     const events = [
       makeEvent({ date: "2026-04-07", hares: "Lifa", description: donorDescription }),
-      makeEvent({ date: "2026-05-05", kennelTag: "ch3" }),
+      makeEvent({ date: "2026-05-05", kennelTags: ["ch3"] }),
     ];
     applyInlineHarelineBackfill(events, pattern, { now });
     expect(events[1].hares).toBeUndefined();
@@ -2206,7 +2206,7 @@ describe("buildRawEventFromGCalItem — strictKennelRouting (#753 WA Hash)", () 
       testGCalEvent({ summary: "Seattle H3 #500" }),
       config,
     );
-    expect(result?.kennelTag).toBe("seattle-h3");
+    expect(result?.kennelTags[0]).toBe("seattle-h3");
   });
 
   it("falls back to defaultKennelTag when strictKennelRouting is not set", () => {
@@ -2217,7 +2217,7 @@ describe("buildRawEventFromGCalItem — strictKennelRouting (#753 WA Hash)", () 
         defaultKennelTag: "wa-hash",
       },
     );
-    expect(result?.kennelTag).toBe("wa-hash");
+    expect(result?.kennelTags[0]).toBe("wa-hash");
   });
 });
 
@@ -2394,7 +2394,7 @@ describe("Chicagoland Hash Calendar routing (#938)", () => {
       { summary, start: { dateTime: "2026-04-15T19:00:00-05:00" }, status: "confirmed" },
       config,
     );
-    expect(result?.kennelTag).toBe(expectedTag);
+    expect(result?.kennelTags[0]).toBe(expectedTag);
   });
 
   it("drops C2B3H4 placeholder 'HARE NEEDED' events (CTA filter)", () => {
@@ -2414,7 +2414,7 @@ describe("Chicagoland Hash Calendar routing (#938)", () => {
       { summary: "Hash Ball 2026", start: { dateTime: "2026-12-31T19:00:00-05:00" }, status: "confirmed" },
       config,
     );
-    expect(result?.kennelTag).toBe("ch3");
+    expect(result?.kennelTags[0]).toBe("ch3");
   });
 });
 
@@ -2440,7 +2440,7 @@ describe("Oregon Hashing Calendar routing (#991)", () => {
       { summary, start: { dateTime: "2026-07-12T19:00:00-07:00" }, status: "confirmed" },
       config,
     );
-    expect(result?.kennelTag).toBe(expectedTag);
+    expect(result?.kennelTags[0]).toBe(expectedTag);
   });
 });
 
@@ -2654,7 +2654,7 @@ describe("GoogleCalendarAdapter — RECURRENCE-ID override recovery (#1021/#1024
       try {
         const res = await adapter.fetch(makeSource({ defaultKennelTag: "demon-h3" }), { days: 90 });
         expect(res.events).toHaveLength(1);
-        expect(res.events[0].kennelTag).toBe("demon-h3");
+        expect(res.events[0].kennelTags[0]).toBe("demon-h3");
         expect(res.events[0].date).toBe("2025-12-15");
         expect(res.events[0].startTime).toBe("18:30");
         expect(res.events[0].title).toBe("DeMon H3 #5 - Bah Humbug");
@@ -2695,7 +2695,7 @@ describe("GoogleCalendarAdapter — RECURRENCE-ID override recovery (#1021/#1024
           { days: 90 },
         );
         expect(res.events).toHaveLength(1);
-        expect(res.events[0].kennelTag).toBe("cunth3-wa");
+        expect(res.events[0].kennelTags[0]).toBe("cunth3-wa");
         expect(res.events[0].date).toBe("2025-10-23");
         expect(res.events[0].startTime).toBeUndefined();
       } finally {

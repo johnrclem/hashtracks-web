@@ -147,7 +147,7 @@ export function parseNextRunArticle(
 
   return {
     date,
-    kennelTag,
+    kennelTags: [kennelTag],
     runNumber,
     hares: normalizeHaresField(hare),
     location: location || undefined,
@@ -206,7 +206,7 @@ export function parseHarelineApiHtml(
     if (fullmoonMatch) {
       events.push({
         date,
-        kennelTag: fullmoonTag ?? kennelTag,
+        kennelTags: [fullmoonTag ?? kennelTag],
         runNumber: Number.parseInt(fullmoonMatch[1], 10),
         startTime: "18:30",
         sourceUrl,
@@ -228,7 +228,7 @@ export function parseHarelineApiHtml(
 
     events.push({
       date,
-      kennelTag,
+      kennelTags: [kennelTag],
       runNumber,
       hares,
       startTime: defaultTime,
@@ -300,9 +300,9 @@ export class BangkokHashAdapter implements SourceAdapter {
         const apiEvents = parseHarelineApiHtml(harelineHtml, kennelTag, fullmoonTag, defaultTime, baseUrl);
 
         // Deduplicate: prefer the article's next-run event (richer data) over API data
-        const existingDates = new Set(events.map((e) => `${e.date}|${e.kennelTag}`));
+        const existingDates = new Set(events.map((e) => `${e.date}|${e.kennelTags[0]}`));
         for (const apiEvent of apiEvents) {
-          const key = `${apiEvent.date}|${apiEvent.kennelTag}`;
+          const key = `${apiEvent.date}|${apiEvent.kennelTags[0]}`;
           if (!existingDates.has(key)) {
             events.push(apiEvent);
             existingDates.add(key);

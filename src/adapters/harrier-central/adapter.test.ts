@@ -162,7 +162,7 @@ describe("HarrierCentralAdapter", () => {
       const evt = result.events[0];
       expect(evt.date).toBe("2026-04-27");
       expect(evt.startTime).toBe("19:15");
-      expect(evt.kennelTag).toBe("tokyo-h3");
+      expect(evt.kennelTags[0]).toBe("tokyo-h3");
       expect(evt.title).toBe("Takadanobanba");
       expect(evt.runNumber).toBe(2577);
       expect(evt.hares).toBe("Khuming Rouge");
@@ -235,15 +235,15 @@ describe("HarrierCentralAdapter", () => {
 
       const result = await adapter.fetch(source);
       expect(result.events).toHaveLength(2);
-      expect(result.events[0].kennelTag).toBe("seamon-h3");
-      expect(result.events[1].kennelTag).toBe("psh3");
+      expect(result.events[0].kennelTags[0]).toBe("seamon-h3");
+      expect(result.events[1].kennelTags[0]).toBe("psh3");
     });
 
     it("falls back to kennelUniqueShortName when no config patterns match", async () => {
       mockApiResponse([buildHCEvent()]);
       const result = await adapter.fetch(makeSource({}));
       expect(result.events).toHaveLength(1);
-      expect(result.events[0].kennelTag).toBe("TH3");
+      expect(result.events[0].kennelTags[0]).toBe("TH3");
     });
 
     it("handles API errors gracefully", async () => {

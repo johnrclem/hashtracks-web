@@ -268,7 +268,7 @@ function postToRawEvent(post: BloggerPost): RawEventData | SkipReason {
 
   return {
     date,
-    kennelTag: "bmh3-tx",
+    kennelTags: ["bmh3-tx"],
     runNumber: titleFields.runNumber,
     title: titleFields.title,
     hares: bodyFields.hares,

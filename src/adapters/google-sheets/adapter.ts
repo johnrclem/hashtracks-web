@@ -399,7 +399,7 @@ export function buildEventFromSheetRow(
 
   return {
     date: dateStr,
-    kennelTag: resolved.kennelTag,
+    kennelTags: [resolved.kennelTag],
     runNumber: resolved.runNumber,
     title,
     description,

@@ -5,7 +5,7 @@ import { parseUtcNoonDate } from "@/lib/date";
 import { regionTimezone, getLabelForUrl, stripUrlsFromText, timeToMinutes } from "@/lib/format";
 import { composeUtcStart } from "@/lib/timezone";
 import { generateFingerprint } from "./fingerprint";
-import { resolveKennelTag, clearResolverCache } from "./kennel-resolver";
+import { resolveKennelTag, resolveKennelTags, clearResolverCache } from "./kennel-resolver";
 import { extractCoordsFromMapsUrl, geocodeAddress, resolveShortMapsUrl, reverseGeocode, haversineDistance, parseDMSFromLocation, stripDMSFromLocation } from "@/lib/geo";
 import { isPlaceholder, decodeEntities, HARE_BOILERPLATE_RE, CTA_EMBEDDED_PATTERNS } from "@/adapters/utils";
 import { LOCATION_EMAIL_CTA_RE } from "./audit-checks";
@@ -340,7 +340,7 @@ async function refreshExistingEvent(
   event: RawEventData,
   ctx: MergeContext,
 ): Promise<void> {
-  const { kennelId, matched } = await resolveKennelTag(event.kennelTag, ctx.sourceId);
+  const { kennelId, matched } = await resolveKennelTag(event.kennelTags[0], ctx.sourceId);
   if (!matched || !kennelId || !ctx.linkedKennelIds.has(kennelId)) return;
 
   const region = await resolveRegion(kennelId, ctx);
@@ -387,15 +387,15 @@ async function collectSkippedAndBlockedSamples(
   if (!needSkippedSamples && !needBlockedSamples) return;
 
   const { kennelId: resolvedId, matched: resolvedMatch } =
-    await resolveKennelTag(event.kennelTag, ctx.sourceId);
+    await resolveKennelTag(event.kennelTags[0], ctx.sourceId);
 
   if (!resolvedMatch || !resolvedId) {
     if (needSkippedSamples) {
       ctx.result.sampleSkipped?.push({
         reason: "UNMATCHED_TAG",
-        kennelTag: event.kennelTag,
+        kennelTag: event.kennelTags[0],
         event,
-        suggestedAction: `Create kennel or alias for "${event.kennelTag}"`,
+        suggestedAction: `Create kennel or alias for "${event.kennelTags[0]}"`,
       });
     }
   } else if (!ctx.linkedKennelIds.has(resolvedId)) {
@@ -403,7 +403,7 @@ async function collectSkippedAndBlockedSamples(
       const kennel = await prisma.kennel.findUnique({ where: { id: resolvedId }, select: { shortName: true } });
       ctx.result.sampleBlocked?.push({
         reason: "SOURCE_KENNEL_MISMATCH",
-        kennelTag: event.kennelTag,
+        kennelTag: event.kennelTags[0],
         event,
         suggestedAction: `Link ${kennel?.shortName ?? resolvedId} to this source`,
       });
@@ -460,19 +460,19 @@ async function resolveAndGuardKennel(
   event: RawEventData,
   ctx: MergeContext,
 ): Promise<string | null> {
-  const { kennelId, matched } = await resolveKennelTag(event.kennelTag, ctx.sourceId);
+  const { kennelId, matched } = await resolveKennelTag(event.kennelTags[0], ctx.sourceId);
 
   if (!matched || !kennelId) {
     // Flag for review — leave unprocessed
-    if (!ctx.result.unmatched.includes(event.kennelTag)) {
-      ctx.result.unmatched.push(event.kennelTag);
+    if (!ctx.result.unmatched.includes(event.kennelTags[0])) {
+      ctx.result.unmatched.push(event.kennelTags[0]);
     }
     if (ctx.result.sampleSkipped && ctx.result.sampleSkipped.length < 3) {
       ctx.result.sampleSkipped.push({
         reason: "UNMATCHED_TAG",
-        kennelTag: event.kennelTag,
+        kennelTag: event.kennelTags[0],
         event,
-        suggestedAction: `Create kennel or alias for "${event.kennelTag}"`,
+        suggestedAction: `Create kennel or alias for "${event.kennelTags[0]}"`,
       });
     }
     return null;
@@ -481,8 +481,8 @@ async function resolveAndGuardKennel(
   // Guard: block events for kennels not linked to this source
   if (!ctx.linkedKennelIds.has(kennelId)) {
     ctx.result.blocked++;
-    if (!ctx.result.blockedTags.includes(event.kennelTag)) {
-      ctx.result.blockedTags.push(event.kennelTag);
+    if (!ctx.result.blockedTags.includes(event.kennelTags[0])) {
+      ctx.result.blockedTags.push(event.kennelTags[0]);
     }
     if (ctx.result.sampleBlocked && ctx.result.sampleBlocked.length < 3) {
       const kennel = await prisma.kennel.findUnique({
@@ -491,7 +491,7 @@ async function resolveAndGuardKennel(
       });
       ctx.result.sampleBlocked.push({
         reason: "SOURCE_KENNEL_MISMATCH",
-        kennelTag: event.kennelTag,
+        kennelTag: event.kennelTags[0],
         event,
         suggestedAction: `Link ${kennel?.shortName ?? kennelId} to this source`,
       });
@@ -1204,6 +1204,36 @@ async function upsertCanonicalEvent(
     ctx.result.createdEventIds.push(newEvent.id);
   }
 
+  // #1023 step 3: write co-host EventKennel rows for any additional kennel
+  // tags beyond the primary. No-op for single-tag events (every adapter
+  // currently emits a 1-element array; multi-tag emission opts in via
+  // step 4's `matchConfigPatterns` arrayification). Upsert is safe across
+  // re-scrapes; we never delete co-host rows so a tag dropping from a
+  // future scrape doesn't reverse a real co-host relationship.
+  //
+  // The `update: {}` no-op is intentional: if a kennel was previously the
+  // primary on this event (isPrimary=true), a fresh scrape that lists it
+  // as a co-host should NOT demote it. Demotion only happens via the admin
+  // kennel-merge path in `app/admin/kennels/actions.ts`.
+  if (event.kennelTags.length > 1) {
+    const secondaryTags = [...new Set(event.kennelTags.slice(1))];
+    const resolved = await resolveKennelTags(secondaryTags, ctx.sourceId);
+    const coHostIds = new Set<string>();
+    for (const r of resolved) {
+      if (!r.matched || !r.kennelId || r.kennelId === kennelId) continue;
+      coHostIds.add(r.kennelId);
+    }
+    await Promise.all(
+      [...coHostIds].map((coHostId) =>
+        prisma.eventKennel.upsert({
+          where: { eventId_kennelId: { eventId: targetEventId, kennelId: coHostId } },
+          create: { eventId: targetEventId, kennelId: coHostId, isPrimary: false },
+          update: {},
+        }),
+      ),
+    );
+  }
+
   // Record this match in the per-batch tracker
   const matched = ctx.batchMatchedEvents.get(batchKey) ?? new Set<string>();
   matched.add(targetEventId);
@@ -1283,12 +1313,12 @@ async function processNewRawEvent(
 
   // Validate the event has at least one meaningful display field before processing.
   // kennelTag counts because we'll generate a default title from it after kennel resolution.
-  const hasDisplayData = event.title || event.location || event.hares || event.runNumber || event.kennelTag;
+  const hasDisplayData = event.title || event.location || event.hares || event.runNumber || event.kennelTags[0];
   if (!hasDisplayData) {
     ctx.result.eventErrors++;
     if (ctx.result.eventErrorMessages.length < 50) {
       ctx.result.eventErrorMessages.push(
-        `${event.date}/${event.kennelTag}: Skipping empty event (no title, location, hares, or run number)`,
+        `${event.date}/${event.kennelTags[0]}: Skipping empty event (no title, location, hares, or run number)`,
       );
     }
     return null;
@@ -1311,7 +1341,7 @@ async function processNewRawEvent(
   const kennelData = await resolveKennelData(kennelId, ctx);
   const sanitized = sanitizeTitle(event.title);
   if (!sanitized) {
-    const displayName = friendlyKennelName(kennelData.shortName, kennelData.fullName) || event.kennelTag;
+    const displayName = friendlyKennelName(kennelData.shortName, kennelData.fullName) || event.kennelTags[0];
     event.title = event.runNumber
       ? `${displayName} Trail #${event.runNumber}`
       : `${displayName} Trail`;
@@ -1605,7 +1635,7 @@ function recordMergeError(
   result: MergeResult,
 ): void {
   const reason = err instanceof Error ? err.message : String(err);
-  const msg = `${event.date}/${event.kennelTag}: ${reason}`;
+  const msg = `${event.date}/${event.kennelTags[0]}: ${reason}`;
   console.error(`Merge error: ${msg}`);
   result.eventErrors++;
   if (result.eventErrorMessages.length < 50) {

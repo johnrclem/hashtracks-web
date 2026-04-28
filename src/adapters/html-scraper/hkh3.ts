@@ -156,7 +156,7 @@ export function parseHkh3Homepage(
 
   return {
     date: nextMondayOnOrAfter(today),
-    kennelTag: KENNEL_TAG,
+    kennelTags: [KENNEL_TAG],
     runNumber: Number.isFinite(runNumber) ? runNumber : undefined,
     title: runNumber ? `HK H3 Run #${runNumber}` : "HK H3 Weekly Run",
     location,

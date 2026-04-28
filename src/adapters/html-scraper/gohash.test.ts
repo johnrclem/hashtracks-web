@@ -55,7 +55,7 @@ describe("parseGoHashRun", () => {
     expect(event?.location).toBe("Kali Corner");
     expect(event?.locationUrl).toBe("https://maps.app.goo.gl/6sYjGXsrKKKJzsp68");
     expect(event?.startTime).toBe("17:30");
-    expect(event?.kennelTag).toBe("penangh3");
+    expect(event?.kennelTags[0]).toBe("penangh3");
     // Deduped: locationUrl removed from externalLinks
     expect(event?.externalLinks).toEqual([
       { url: "https://waze.com/ul/xyz", label: "Waze" },

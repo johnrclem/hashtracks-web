@@ -111,7 +111,7 @@ export function parseCfh3Post(
 
   return {
     date,
-    kennelTag: "cfh3",
+    kennelTags: ["cfh3"],
     hares: haresField?.text || undefined,
     location,
     locationUrl,
@@ -164,7 +164,7 @@ export function parseHarelineRow(
 
   return {
     date,
-    kennelTag: "cfh3",
+    kennelTags: ["cfh3"],
     runNumber: runNumber && runNumber > 0 ? runNumber : undefined,
     title,
     hares: isPlaceholderHares ? undefined : hares,

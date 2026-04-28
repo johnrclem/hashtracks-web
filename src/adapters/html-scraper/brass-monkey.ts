@@ -147,7 +147,7 @@ function processPost(
         error: dateError,
         rawText: `Title: ${titleText}\n\n${bodyText}`.slice(0, 2000),
         partialData: {
-          kennelTag: "bmh3-tx",
+          kennelTags: ["bmh3-tx"],
           title: titleFields.title,
           runNumber: titleFields.runNumber,
           hares: bodyFields.hares,
@@ -169,7 +169,7 @@ function processPost(
 
   return {
     date: eventDate,
-    kennelTag: "bmh3-tx",
+    kennelTags: ["bmh3-tx"],
     runNumber: titleFields.runNumber,
     title: titleFields.title,
     hares: bodyFields.hares,

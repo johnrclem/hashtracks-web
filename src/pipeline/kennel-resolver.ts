@@ -112,6 +112,20 @@ async function resolveViaPatternMapping(
 }
 
 /**
+ * Resolve an array of raw kennel tags to ResolveResults (#1023). Per-tag
+ * results preserve order — `kennelTags[0]` becomes the primary kennel for
+ * the event, the rest become EventKennel co-host rows. Unmatched tags
+ * surface as `{ kennelId: null, matched: false }` so the caller can decide
+ * to skip the event or alert.
+ */
+export async function resolveKennelTags(
+  tags: string[],
+  sourceId?: string,
+): Promise<ResolveResult[]> {
+  return Promise.all(tags.map((tag) => resolveKennelTag(tag, sourceId)));
+}
+
+/**
  * Resolve a raw kennel tag to a Kennel ID.
  *
  * Pipeline:

@@ -157,7 +157,7 @@ export function parseTrailBlock(
 
   return {
     date,
-    kennelTag: "nbh3",
+    kennelTags: ["nbh3"],
     runNumber,
     title: title || `NbH3 Trail #${runNumber}`,
     hares,

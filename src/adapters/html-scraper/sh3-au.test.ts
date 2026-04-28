@@ -12,7 +12,7 @@ describe("sh3-au parseSh3Paragraph", () => {
     expect(e).not.toBeNull();
     expect(e!.runNumber).toBe(3069);
     expect(e!.date).toBe("2026-04-07");
-    expect(e!.kennelTag).toBe("sh3-au");
+    expect(e!.kennelTags[0]).toBe("sh3-au");
     expect(e!.hares).toBe("Harriettes");
     expect(e!.location).toBe("Carpark 87 Winbourne Rd, Brookvale");
     expect(e!.description).toBe("Brookvale Hotel");

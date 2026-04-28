@@ -358,7 +358,7 @@ export function buildRawEventFromApollo(
 
   return {
     date,
-    kennelTag: resolvedKennelTag,
+    kennelTags: [resolvedKennelTag],
     title: ev.title || undefined,
     description: cleanedDesc,
     hares,

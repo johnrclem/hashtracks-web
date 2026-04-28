@@ -138,7 +138,7 @@ function parseRowsFromHtml(
 
       events.push({
         date: dateStr,
-        kennelTag: parsed.kennelTag,
+        kennelTags: [parsed.kennelTag],
         runNumber: parsed.runNumber,
         title: parsed.title,
         description: parsed.description,
@@ -438,7 +438,7 @@ async function main() {
     if (!event.hares) continue;
     eventsWithHares++;
 
-    const kennel = event.kennelTag;
+    const kennel = event.kennelTags[0];
     if (!namesByKennel.has(kennel)) namesByKennel.set(kennel, []);
 
     const names = splitHareNames(event.hares);

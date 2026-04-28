@@ -187,7 +187,7 @@ export function groupSeletarRows(rows: SeletarRow[]): GroupSeletarRowsResult {
     events.push({
       date: head.hl_datetime,
       startTime: DEFAULT_START_TIME,
-      kennelTag: KENNEL_TAG,
+      kennelTags: [KENNEL_TAG],
       runNumber,
       title,
       // Sort alphabetically so the fingerprint is stable — the API returns

@@ -407,7 +407,7 @@ export class LondonHashAdapter implements SourceAdapter {
 
         events.push({
           date,
-          kennelTag: "lh3",
+          kennelTags: ["lh3"],
           runNumber: block.runNumber,
           title: `London Hash Run #${block.runNumber}`,
           hares: hares ?? undefined,

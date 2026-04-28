@@ -100,8 +100,7 @@ export function buildLvh3RawEvent(
   return {
     date: e.date,
     startTime: e.allDay ? undefined : e.startTime,
-    kennelTag,
-    title: e.title,
+    kennelTags: [kennelTag],    title: e.title,
     runNumber: extractLvRunNumber(e.title ?? ""),
     description: e.description,
     location:

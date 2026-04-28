@@ -121,7 +121,7 @@ export function parseBkkHarriettesPost(
 
   return {
     date,
-    kennelTag: KENNEL_TAG,
+    kennelTags: [KENNEL_TAG],
     runNumber,
     hares: normalizeHaresField(hares),
     location,

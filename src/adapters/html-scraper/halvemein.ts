@@ -146,7 +146,7 @@ export function parseHalveMeinRow(
 
   return {
     date,
-    kennelTag: "halvemein",
+    kennelTags: ["halvemein"],
     runNumber,
     title,
     hares,

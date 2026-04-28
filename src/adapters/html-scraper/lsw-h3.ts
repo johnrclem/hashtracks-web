@@ -66,7 +66,7 @@ export function parseLswRow(
 
   return {
     date,
-    kennelTag: KENNEL_TAG,
+    kennelTags: [KENNEL_TAG],
     runNumber: runNumber && runNumber > 0 ? runNumber : undefined,
     title: runNumber ? `LSW Run #${runNumber}` : location || undefined,
     hares: validHares,

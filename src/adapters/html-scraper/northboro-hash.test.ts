@@ -66,7 +66,7 @@ describe("parseTrailBlock", () => {
     );
     expect(result).toEqual({
       date: "2026-02-15",
-      kennelTag: "nbh3",
+      kennelTags: ["nbh3"],
       runNumber: 237,
       title: "NbH3 Trail #237",
       hares: undefined,
@@ -83,7 +83,7 @@ describe("parseTrailBlock", () => {
     );
     expect(result).toEqual({
       date: "2026-01-01",
-      kennelTag: "nbh3",
+      kennelTags: ["nbh3"],
       runNumber: 236,
       title: "Hangover Trail",
       hares: "Scrumples",
@@ -100,7 +100,7 @@ describe("parseTrailBlock", () => {
     );
     expect(result).toEqual({
       date: "2026-03-14",
-      kennelTag: "nbh3",
+      kennelTags: ["nbh3"],
       runNumber: 238,
       title: "Pi Day Hash",
       hares: "Alice, Bob",
@@ -121,7 +121,7 @@ describe("parseTrailBlock", () => {
     );
     expect(result).toEqual({
       date: "2026-04-18",
-      kennelTag: "nbh3",
+      kennelTags: ["nbh3"],
       runNumber: 239,
       title: "NbH3 Trail #239",
       hares: "HashName",
@@ -138,7 +138,7 @@ describe("parseTrailBlock", () => {
     );
     expect(result).toEqual({
       date: "2026-05-16",
-      kennelTag: "nbh3",
+      kennelTags: ["nbh3"],
       runNumber: 240,
       title: "NbH3 Trail #240",
       hares: undefined,
@@ -270,13 +270,13 @@ describe("NorthboroHashAdapter", () => {
     expect(result.events).toHaveLength(2);
     expect(result.events[0]).toMatchObject({
       date: "2026-02-15",
-      kennelTag: "nbh3",
+      kennelTags: ["nbh3"],
       runNumber: 237,
       title: "Winter Hash",
     });
     expect(result.events[1]).toMatchObject({
       date: "2026-03-14",
-      kennelTag: "nbh3",
+      kennelTags: ["nbh3"],
       runNumber: 238,
       title: "Pi Day Hash",
     });
@@ -305,7 +305,7 @@ describe("NorthboroHashAdapter", () => {
     const december = result.events.find((e) => e.runNumber === 235);
     expect(december).toMatchObject({
       date: "2025-12-20",
-      kennelTag: "nbh3",
+      kennelTags: ["nbh3"],
       runNumber: 235,
       title: "Holiday Hash",
       hares: "Santa",

@@ -73,7 +73,7 @@ describe("attemptAiRecovery", () => {
         field: "date",
         error: "No date found in post: March Trail 3.14.26",
         rawText: "Title: March Trail 3.14.26\n\nHares: Just John\nWhen: 3.14.26\nWhere: Blue Heron Elementary",
-        partialData: { kennelTag: "OFH3" },
+        partialData: { kennelTags: ["OFH3" ]},
       },
     ];
 
@@ -83,7 +83,7 @@ describe("attemptAiRecovery", () => {
     expect(result.failed).toBe(0);
     expect(result.results).toHaveLength(1);
     expect(result.results[0].recovered.date).toBe("2026-03-14");
-    expect(result.results[0].recovered.kennelTag).toBe("OFH3");
+    expect(result.results[0].recovered.kennelTags[0]).toBe("OFH3");
     expect(result.results[0].recovered.hares).toBe("Just John");
     expect(result.results[0].recovered.location).toBe("Blue Heron Elementary");
     expect(result.results[0].confidence).toBe("high");
@@ -109,14 +109,14 @@ describe("attemptAiRecovery", () => {
         section: "NYCH3",
         error: "bad start_time",
         rawText: "Some raw text",
-        partialData: { kennelTag: "NYCH3" },
+        partialData: { kennelTags: ["NYCH3" ]},
       },
       {
         row: 0,
         section: "BFMH3",
         error: "bad start_time",
         rawText: "Some raw text",
-        partialData: { kennelTag: "BFMH3" },
+        partialData: { kennelTags: ["BFMH3" ]},
       },
     ];
 
@@ -125,7 +125,7 @@ describe("attemptAiRecovery", () => {
     const result = await attemptAiRecovery(errors, "WRONG_KENNEL");
     expect(result.succeeded).toBe(2);
     const tags = result.results
-      .map((r) => r.recovered.kennelTag)
+      .map((r) => r.recovered.kennelTags[0])
       .sort((a, b) => a.localeCompare(b));
     expect(tags).toEqual(["BFMH3", "NYCH3"]);
   });
@@ -149,7 +149,7 @@ describe("attemptAiRecovery", () => {
         error: "bad start_time",
         rawText: "Some raw text",
         partialData: {
-          kennelTag: "NYCH3",
+          kennelTags: ["NYCH3"],
           sourceUrl: "https://hashrego.com/events/nych3-pub-crawl-2026",
         },
       },
@@ -180,7 +180,7 @@ describe("attemptAiRecovery", () => {
         error: "No date",
         rawText: "Some raw text with date 3.14.26",
         partialData: {
-          kennelTag: "OFH3",
+          kennelTags: ["OFH3"],
           hares: "Deterministic Hare", // This should take priority over AI
         },
       },
@@ -334,7 +334,7 @@ describe("attemptAiRecovery", () => {
         field: "date",
         error: "Could not parse date from post: March Trail",
         rawText: "When: 3.14.26\nWhere: School",
-        partialData: { kennelTag: "OFH3", title: "March Trail" },
+        partialData: { kennelTags: ["OFH3"], title: "March Trail" },
       },
     ];
 
@@ -357,7 +357,7 @@ describe("attemptAiRecovery", () => {
     ];
 
     const result = await attemptAiRecovery(errors, "TestH3");
-    expect(result.results[0].recovered.kennelTag).toBe("TestH3");
+    expect(result.results[0].recovered.kennelTags[0]).toBe("TestH3");
   });
 
   it("tracks duration across all recovery attempts", async () => {

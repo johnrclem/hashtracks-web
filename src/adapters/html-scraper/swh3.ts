@@ -213,7 +213,7 @@ function processPost(
 
   return {
     date,
-    kennelTag: "swh3",
+    kennelTags: ["swh3"],
     runNumber: titleFields.runNumber,
     title: bodyFields.trailName || titleText,
     hares: bodyFields.hares,

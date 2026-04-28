@@ -226,8 +226,8 @@ describe("AtlantaHashBoardAdapter", () => {
       url: "https://board.atlantahash.com",
       config: {
         forums: {
-          "2": { kennelTag: "ah4", hashDay: "Saturday" },
-          "8": { kennelTag: "mlh4", hashDay: "Monday" },
+          "2": { kennelTags: ["ah4"], hashDay: "Saturday" },
+          "8": { kennelTags: ["mlh4"], hashDay: "Monday" },
         },
       },
     } as never;
@@ -265,7 +265,7 @@ describe("AtlantaHashBoardAdapter", () => {
       url: "https://board.atlantahash.com",
       config: {
         forums: {
-          "2": { kennelTag: "ah4", hashDay: "Saturday" },
+          "2": { kennelTags: ["ah4"], hashDay: "Saturday" },
         },
       },
     } as never;

@@ -130,8 +130,7 @@ export function parseIndyCard(
 
   return {
     date,
-    kennelTag,
-    runNumber,
+    kennelTags: [kennelTag],    runNumber,
     title,
     hares,
     location,

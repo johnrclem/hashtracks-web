@@ -126,7 +126,7 @@ function sfh3NeedsEnrichment(event: RawEventData): boolean {
   const descHasComment = !!event.description && /\bComment\s*:/i.test(event.description);
   // Skip the fetch entirely when both sides are already good — the detail
   // page can't improve on a descriptive hareline title + an existing Comment.
-  if (descHasComment && !isGenericSFH3Title(event.title, event.kennelTag)) return false;
+  if (descHasComment && !isGenericSFH3Title(event.title, event.kennelTags[0])) return false;
   return true;
 }
 
@@ -142,7 +142,7 @@ function applyDetailToEvent(event: EnrichableEvent, detail: SFH3Detail): boolean
   if (
     detail.title
     && detail.title !== event.title
-    && isGenericSFH3Title(event.title, event.kennelTag)
+    && isGenericSFH3Title(event.title, event.kennelTags[0])
   ) {
     event.title = detail.title;
     touched = true;

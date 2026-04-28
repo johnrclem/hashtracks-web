@@ -28,7 +28,7 @@ describe("parseN2th3Post", () => {
     const result = parseN2th3Post(buildPost());
     expect(result).not.toBeNull();
     expect(result!.date).toBe("2026-04-09");
-    expect(result!.kennelTag).toBe("n2th3");
+    expect(result!.kennelTags[0]).toBe("n2th3");
     expect(result!.runNumber).toBe(2226);
     expect(result!.hares).toBe("Imbiblio");
     expect(result!.startTime).toBe("19:00");

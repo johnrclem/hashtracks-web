@@ -26,7 +26,7 @@ import {
  * **Config shape** (`source.config`):
  * ```ts
  * {
- *   kennelTag: "ph3-my",              // kennelCode — used for all events
+ *   kennelTags: ["ph3-my"],              // kennelCode — used for all events
  *   startTime: "16:00",               // default HH:MM for all runs (kennel meets)
  *   columnMap?: {                     // 0-indexed column positions; defaults below
  *     runNumber: 0,
@@ -147,7 +147,7 @@ export function parseYiiHarelineRow(
 
   return {
     date,
-    kennelTag: config.kennelTag,
+    kennelTags: [config.kennelTag],
     runNumber,
     hares,
     location,

@@ -344,7 +344,7 @@ describe("MerseyThirstdaysAdapter", () => {
       expect(run600!.date).toBe("2026-04-16");
       expect(run600!.hares).toBe("Snoozeanne");
       expect(run600!.location).toContain("Augustus John");
-      expect(run600!.kennelTag).toBe("MTH3");
+      expect(run600!.kennelTags[0]).toBe("MTH3");
       expect(run600!.startTime).toBe("19:00");
     });
 

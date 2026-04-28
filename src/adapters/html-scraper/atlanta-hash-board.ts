@@ -262,7 +262,7 @@ function processForumEntries(
 
       events.push({
         date,
-        kennelTag: forumConfig.kennelTag,
+        kennelTags: [forumConfig.kennelTag],
         runNumber: fields.runNumber ?? titleRunNumber,
         title: titleName,
         hares: fields.hares,

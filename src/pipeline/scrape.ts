@@ -65,8 +65,8 @@ async function runAiRecovery(
     return undefined;
   }
 
-  const defaultKennelTag = scrapeResult.events[0]?.kennelTag
-    ?? parseErrors[0]?.partialData?.kennelTag
+  const defaultKennelTag = scrapeResult.events[0]?.kennelTags?.[0]
+    ?? parseErrors[0]?.partialData?.kennelTags?.[0]
     ?? sourceName;
 
   const aiRecovery = await attemptAiRecovery(recoverableErrors, defaultKennelTag);

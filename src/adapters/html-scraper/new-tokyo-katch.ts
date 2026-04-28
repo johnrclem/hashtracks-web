@@ -209,7 +209,7 @@ function buildRawEvent(parsed: ParsedNtkRun, sourceUrl: string): RawEventData {
 
   return {
     date: parsed.date,
-    kennelTag: KENNEL_CODE,
+    kennelTags: [KENNEL_CODE],
     runNumber: parsed.runNumber,
     title,
     hares: parsed.hares,

@@ -109,7 +109,7 @@ describe("parseMakesweatEvent", () => {
     const event = parseMakesweatEvent($, cards.eq(0), "https://makesweat.com/cityhash#hashes");
     expect(event).not.toBeNull();
     expect(event!.date).toBe("2026-03-10");
-    expect(event!.kennelTag).toBe("cityh3");
+    expect(event!.kennelTags[0]).toBe("cityh3");
     expect(event!.runNumber).toBe(1912);
     expect(event!.title).toBe("City Hash Run #1912 - International Women's Day");
     expect(event!.hares).toBe("Sort Yourself Out");

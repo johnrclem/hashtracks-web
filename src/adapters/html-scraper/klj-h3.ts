@@ -181,7 +181,7 @@ export function parseKljPost(post: KljPostInput): ParseKljPostResult {
     ok: true,
     event: {
       date,
-      kennelTag: KENNEL_TAG,
+      kennelTags: [KENNEL_TAG],
       runNumber,
       title,
       hares: normalizeHaresField(mergedHares),

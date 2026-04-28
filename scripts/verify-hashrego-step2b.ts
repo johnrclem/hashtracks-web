@@ -83,7 +83,7 @@ async function main() {
   if (sample) {
     console.log("\nSample event:");
     console.log(`  date:      ${sample.date}`);
-    console.log(`  kennelTag: ${sample.kennelTag}`);
+    console.log(`  kennelTag: ${sample.kennelTags[0]}`);
     console.log(`  title:     ${sample.title}`);
     console.log(`  startTime: ${sample.startTime}`);
   }
@@ -103,7 +103,7 @@ async function main() {
     pageEventsFound > 0 &&
     sample !== undefined &&
     !!sample.date &&
-    !!sample.kennelTag;
+    !!sample.kennelTags[0];
   function check(pass: boolean, detail?: string): string {
     const icon = pass ? "✅" : "❌";
     return detail ? `${icon} ${detail}` : icon;
@@ -114,7 +114,7 @@ async function main() {
   console.log(`top-level errors empty:          ${check(result.errors.length === 0)}`);
   console.log(`kennelPagesChecked > 10:         ${check(checked > 10, `(${checked})`)}`);
   console.log(`kennelPageEventsFound > 0:       ${check(pageEventsFound > 0)}`);
-  console.log(`sample has date + kennelTag:     ${check(!!sample?.date && !!sample?.kennelTag)}`);
+  console.log(`sample has date + kennelTag:     ${check(!!sample?.date && !!sample?.kennelTags[0])}`);
   console.log(`\n  (kennelPageFetchErrors: ${pageFetchErrors} — per-slug not_found is expected if the DB has drifted from the live API; check errorDetails.fetch[] for kinds)`);
 
   await pool.end();

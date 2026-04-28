@@ -60,7 +60,7 @@ export function parseLarrikinsRow(
   const hares = hareCell.trim() || undefined;
   return {
     date,
-    kennelTag: KENNEL_TAG,
+    kennelTags: [KENNEL_TAG],
     runNumber,
     hares,
     sourceUrl,

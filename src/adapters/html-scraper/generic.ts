@@ -178,8 +178,7 @@ export function parseEventRow(
 
   return {
     date,
-    kennelTag,
-    title,
+    kennelTags: [kennelTag],    title,
     hares,
     location,
     locationUrl,

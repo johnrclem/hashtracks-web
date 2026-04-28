@@ -196,7 +196,7 @@ describe("BrewCityH3Adapter", () => {
     const trail359 = result.events.find(e => e.runNumber === 359);
     expect(trail359).toBeDefined();
     expect(trail359!.date).toBe("2026-04-03");
-    expect(trail359!.kennelTag).toBe("bch3");
+    expect(trail359!.kennelTags[0]).toBe("bch3");
     expect(trail359!.title).toBe("🌕 Moonlit Easter Egg Hunt Hash III");
     expect(trail359!.hares).toBe("Amber Alert");
     // "Location:" header wins over On-Out abbreviated value (#698)

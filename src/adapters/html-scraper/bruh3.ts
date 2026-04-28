@@ -138,7 +138,7 @@ export function parseEventBlock(
 
   return {
     date,
-    kennelTag: KENNEL_TAG,
+    kennelTags: [KENNEL_TAG],
     title,
     runNumber,
     hares,
@@ -203,7 +203,7 @@ export function parseFutureDates(
 
     events.push({
       date,
-      kennelTag: KENNEL_TAG,
+      kennelTags: [KENNEL_TAG],
       title: `BruH3 — ${dateStr}`,
       hares: isReserved ? undefined : hare,
       startTime: DEFAULT_START_TIME,
