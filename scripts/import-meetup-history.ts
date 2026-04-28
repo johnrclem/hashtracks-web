@@ -244,9 +244,7 @@ async function main() {
     events.push({
       date: row.date,
       kennelTags: [
-        kennelOverride
-          ? kennelOverride
-          : resolveKennelTag(row.title, defaultKennelCode, compiledPatterns),
+        kennelOverride ?? resolveKennelTag(row.title, defaultKennelCode, compiledPatterns),
       ],
       title: row.title,
       runNumber: extractRunNumber(row.title),

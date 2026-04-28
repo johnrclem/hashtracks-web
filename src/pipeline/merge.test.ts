@@ -19,10 +19,18 @@ vi.mock("./fingerprint", () => ({
   generateFingerprint: vi.fn(() => "fp_abc123"),
 }));
 
-vi.mock("./kennel-resolver", () => ({
-  resolveKennelTag: vi.fn(),
-  clearResolverCache: vi.fn(),
-}));
+vi.mock("./kennel-resolver", () => {
+  const resolveKennelTag = vi.fn();
+  return {
+    resolveKennelTag,
+    // Route through the mocked single-tag resolver so per-test
+    // mockResolve.mockImplementation() drives both code paths.
+    resolveKennelTags: vi.fn(async (tags: string[], sourceId?: string) =>
+      Promise.all(tags.map((t) => resolveKennelTag(t, sourceId))),
+    ),
+    clearResolverCache: vi.fn(),
+  };
+});
 
 vi.mock("@/lib/geo", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/geo")>();

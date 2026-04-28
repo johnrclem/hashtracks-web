@@ -15,7 +15,10 @@ import type { RawEventData } from "@/adapters/types";
  * sorted-join is the same string as the bare tag).
  */
 export function generateFingerprint(data: RawEventData): string {
-  const sortedTags = [...data.kennelTags].sort((a, b) => a.localeCompare(b));
+  // Dedupe before sorting so an adapter that accidentally emits a duplicate
+  // tag (`["A", "B", "A"]`) fingerprints the same as the canonical set
+  // (`["A", "B"]`) — preserves idempotency across set-typed sources.
+  const sortedTags = [...new Set(data.kennelTags)].sort((a, b) => a.localeCompare(b));
   const input = [
     data.date,
     sortedTags.join(","),

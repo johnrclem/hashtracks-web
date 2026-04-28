@@ -5,7 +5,7 @@ import { parseUtcNoonDate } from "@/lib/date";
 import { regionTimezone, getLabelForUrl, stripUrlsFromText, timeToMinutes } from "@/lib/format";
 import { composeUtcStart } from "@/lib/timezone";
 import { generateFingerprint } from "./fingerprint";
-import { resolveKennelTag, clearResolverCache } from "./kennel-resolver";
+import { resolveKennelTag, resolveKennelTags, clearResolverCache } from "./kennel-resolver";
 import { extractCoordsFromMapsUrl, geocodeAddress, resolveShortMapsUrl, reverseGeocode, haversineDistance, parseDMSFromLocation, stripDMSFromLocation } from "@/lib/geo";
 import { isPlaceholder, decodeEntities, HARE_BOILERPLATE_RE, CTA_EMBEDDED_PATTERNS } from "@/adapters/utils";
 import { LOCATION_EMAIL_CTA_RE } from "./audit-checks";
@@ -1210,16 +1210,28 @@ async function upsertCanonicalEvent(
   // step 4's `matchConfigPatterns` arrayification). Upsert is safe across
   // re-scrapes; we never delete co-host rows so a tag dropping from a
   // future scrape doesn't reverse a real co-host relationship.
+  //
+  // The `update: {}` no-op is intentional: if a kennel was previously the
+  // primary on this event (isPrimary=true), a fresh scrape that lists it
+  // as a co-host should NOT demote it. Demotion only happens via the admin
+  // kennel-merge path in `app/admin/kennels/actions.ts`.
   if (event.kennelTags.length > 1) {
-    for (const tag of event.kennelTags.slice(1)) {
-      const { kennelId: coHostId, matched: coHostMatched } = await resolveKennelTag(tag, ctx.sourceId);
-      if (!coHostMatched || !coHostId || coHostId === kennelId) continue;
-      await prisma.eventKennel.upsert({
-        where: { eventId_kennelId: { eventId: targetEventId, kennelId: coHostId } },
-        create: { eventId: targetEventId, kennelId: coHostId, isPrimary: false },
-        update: {},
-      });
+    const secondaryTags = [...new Set(event.kennelTags.slice(1))];
+    const resolved = await resolveKennelTags(secondaryTags, ctx.sourceId);
+    const coHostIds = new Set<string>();
+    for (const r of resolved) {
+      if (!r.matched || !r.kennelId || r.kennelId === kennelId) continue;
+      coHostIds.add(r.kennelId);
     }
+    await Promise.all(
+      [...coHostIds].map((coHostId) =>
+        prisma.eventKennel.upsert({
+          where: { eventId_kennelId: { eventId: targetEventId, kennelId: coHostId } },
+          create: { eventId: targetEventId, kennelId: coHostId, isPrimary: false },
+          update: {},
+        }),
+      ),
+    );
   }
 
   // Record this match in the per-batch tracker
