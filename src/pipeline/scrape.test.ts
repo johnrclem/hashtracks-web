@@ -267,9 +267,11 @@ describe("scrapeSource", () => {
   // events. Now they're best-effort.
   describe("post-merge housekeeping resilience", () => {
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     afterEach(() => {
       consoleErrorSpy.mockClear();
+      consoleWarnSpy.mockClear();
     });
 
     it("does not mark scrape FAILED when revalidateTag throws", async () => {
@@ -279,8 +281,8 @@ describe("scrapeSource", () => {
 
       const result = await scrapeSource("src_1");
       expect(result.success).toBe(true);
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        expect.stringContaining("post-merge revalidateTag"),
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining("revalidateTag(hareline:events) skipped"),
         expect.any(Error),
       );
     });
