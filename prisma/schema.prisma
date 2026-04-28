@@ -350,7 +350,10 @@ model Event {
   /// Multi-kennel join (#1023). Exactly one row has isPrimary=true,
   /// enforced by a hand-written partial unique index (Prisma can't express
   /// it). The primary's kennelId mirrors Event.kennelId until step 7.
-  kennels           EventKennel[]
+  /// Named `eventKennels` (not `kennels`) so the field name reflects the
+  /// returned join model — `event.eventKennels[0]` is an `EventKennel`,
+  /// not a `Kennel`. Same convention as `eventLinks: EventLink[]`.
+  eventKennels      EventKennel[]
   // Misman relations
   kennelAttendances KennelAttendance[]
   createdAt         DateTime           @default(now())
