@@ -185,6 +185,20 @@ describe("extractRunNumber", () => {
       ]),
     ).toBe(259);
   });
+
+  it("extracts from summary with space after hash (CUNTh-WA #40, #66)", () => {
+    expect(extractRunNumber("Cunth # 40: the perfect birthday")).toBe(40);
+    expect(extractRunNumber("CUNTh # 66 - Winner Winner Dildo Dinner")).toBe(66);
+  });
+
+  it("extracts from summary with multiple spaces after hash (El Paso H3)", () => {
+    expect(extractRunNumber("Hash#  2713")).toBe(2713);
+    expect(extractRunNumber("Christmas Lights Hash#  2713")).toBe(2713);
+  });
+
+  it("does not match qualifier text without a # (e.g. 'CUNTh 66ish')", () => {
+    expect(extractRunNumber("CUNTh 66ish Hiidea's Bday")).toBeUndefined();
+  });
 });
 
 // ── extractTitle ──

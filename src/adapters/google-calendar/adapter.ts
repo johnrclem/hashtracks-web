@@ -35,8 +35,8 @@ export function extractRunNumber(
   description?: string,
   customPatterns?: string[] | RegExp[],
 ): number | undefined {
-  // 1. Check summary first (e.g., "Beantown #255: ...", "BH3: ... #2781")
-  const summaryMatch = /#(\d+)/.exec(summary);
+  // 1. Check summary first (e.g., "Beantown #255: ...", "BH3: ... #2781", "Cunth # 40: ...")
+  const summaryMatch = /#\s*(\d+)/.exec(summary);
   if (summaryMatch) return Number.parseInt(summaryMatch[1], 10);
 
   if (!description) return undefined;
