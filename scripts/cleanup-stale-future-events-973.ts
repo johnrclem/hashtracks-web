@@ -34,6 +34,7 @@ import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
 import { createScriptPool } from "./lib/db-pool";
+import { cascadeDeleteEvents } from "./lib/cascade-delete";
 
 const EXECUTE = process.argv.includes("--execute");
 // Stale threshold: events dated on or after this date are candidates.
@@ -72,34 +73,6 @@ interface KennelResult {
   deleted: number;
   cappedAt: number | null;
   error: string | null;
-}
-
-// Replicates deleteEventsCascade() from src/app/admin/events/actions.ts
-// without the Next.js revalidation calls (not available in script context).
-async function cascadeDeleteEvents(
-  prisma: PrismaClient,
-  eventIds: string[],
-): Promise<number> {
-  let deleted = 0;
-  for (let i = 0; i < eventIds.length; i += BATCH_SIZE) {
-    const batch = eventIds.slice(i, i + BATCH_SIZE);
-    const [, , , , , eventDeleteResult] = await prisma.$transaction([
-      prisma.rawEvent.updateMany({
-        where: { eventId: { in: batch } },
-        data: { eventId: null, processed: false },
-      }),
-      prisma.event.updateMany({
-        where: { parentEventId: { in: batch } },
-        data: { parentEventId: null },
-      }),
-      prisma.eventHare.deleteMany({ where: { eventId: { in: batch } } }),
-      prisma.attendance.deleteMany({ where: { eventId: { in: batch } } }),
-      prisma.kennelAttendance.deleteMany({ where: { eventId: { in: batch } } }),
-      prisma.event.deleteMany({ where: { id: { in: batch } } }),
-    ]);
-    deleted += eventDeleteResult.count;
-  }
-  return deleted;
 }
 
 async function processKennel(

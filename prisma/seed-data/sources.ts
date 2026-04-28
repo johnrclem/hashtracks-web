@@ -2922,6 +2922,20 @@ export const SOURCES = [
       },
       kennelCodes: ["ch3-dk", "ch4-dk", "rdh3"],
     },
+    {
+      // Enrichment source: trustLevel 6 (below the GCal feed at 7) so this
+      // scraper only fills NULL fields (location, hares, startTime) on events
+      // the calendar source already created. Avoids overwriting calendar
+      // titles/descriptions with the runsheet's generic "Full Moon Hash"
+      // notes. See merge.ts L1110+ for the enrichment path.
+      name: "Copenhagen Howling H3 Runsheet",
+      url: "https://ch4.dk/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      kennelCodes: ["ch4-dk"],
+    },
 
     // ===== SWEDEN =====
     {
