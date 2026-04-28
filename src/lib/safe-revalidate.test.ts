@@ -12,6 +12,24 @@ import { safeRevalidateTag, safeRevalidatePath } from "./safe-revalidate";
 const mockRevalidateTag = vi.mocked(revalidateTag);
 const mockRevalidatePath = vi.mocked(revalidatePath);
 
+let consoleWarnSpy: MockInstance<typeof console.warn>;
+
+beforeAll(() => {
+  consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+});
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
+afterEach(() => {
+  consoleWarnSpy.mockClear();
+});
+
+afterAll(() => {
+  consoleWarnSpy.mockRestore();
+});
+
 function makeStaticStoreError(
   expression: string,
   opts: { withCode?: boolean } = { withCode: true },
@@ -28,28 +46,15 @@ function makeStaticStoreError(
 }
 
 describe("safeRevalidateTag", () => {
-  let consoleWarnSpy: MockInstance<typeof console.warn>;
-
-  beforeAll(() => {
-    consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-  });
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  afterEach(() => {
-    consoleWarnSpy.mockClear();
-  });
-
-  afterAll(() => {
-    consoleWarnSpy.mockRestore();
-  });
-
   it("forwards args to revalidateTag on the happy path", () => {
     safeRevalidateTag("hareline:events", { expire: 0 });
     expect(mockRevalidateTag).toHaveBeenCalledWith("hareline:events", { expire: 0 });
     expect(consoleWarnSpy).not.toHaveBeenCalled();
+  });
+
+  it("defaults profile to immediate-expire when omitted", () => {
+    safeRevalidateTag("hareline:events");
+    expect(mockRevalidateTag).toHaveBeenCalledWith("hareline:events", { expire: 0 });
   });
 
   it("swallows E263 invariant and logs a warning", () => {
@@ -100,24 +105,6 @@ describe("safeRevalidateTag", () => {
 });
 
 describe("safeRevalidatePath", () => {
-  let consoleWarnSpy: MockInstance<typeof console.warn>;
-
-  beforeAll(() => {
-    consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-  });
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  afterEach(() => {
-    consoleWarnSpy.mockClear();
-  });
-
-  afterAll(() => {
-    consoleWarnSpy.mockRestore();
-  });
-
   it("forwards args to revalidatePath on the happy path", () => {
     safeRevalidatePath("/hareline", "page");
     expect(mockRevalidatePath).toHaveBeenCalledWith("/hareline", "page");

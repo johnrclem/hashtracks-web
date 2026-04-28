@@ -507,8 +507,15 @@ export async function scrapeSource(
     }
 
     // Bust the Hareline `unstable_cache` only when something actually changed.
+    // safeRevalidateTag handles the E263 "outside request scope" case for CLI
+    // callers; the outer try/catch keeps the rest of the call best-effort so
+    // an unexpected revalidation failure can't roll back a successful scrape.
     if (mergeResult.created + mergeResult.updated + cancelledCount + mergeResult.restored > 0) {
-      safeRevalidateTag(HARELINE_EVENTS_TAG, { expire: 0 });
+      try {
+        safeRevalidateTag(HARELINE_EVENTS_TAG, { expire: 0 });
+      } catch (err) {
+        logHousekeepingError(`revalidateTag(${HARELINE_EVENTS_TAG})`, err);
+      }
     }
 
     return {

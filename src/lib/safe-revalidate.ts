@@ -44,7 +44,7 @@ function isStaticStoreMissing(err: unknown): boolean {
  */
 export function safeRevalidateTag(
   tag: string,
-  profile: Parameters<typeof revalidateTag>[1],
+  profile: Parameters<typeof revalidateTag>[1] = { expire: 0 },
 ): void {
   try {
     revalidateTag(tag, profile);
@@ -63,7 +63,7 @@ export function safeRevalidateTag(
  */
 export function safeRevalidatePath(
   path: string,
-  type?: "layout" | "page",
+  type?: Parameters<typeof revalidatePath>[1],
 ): void {
   try {
     revalidatePath(path, type);
