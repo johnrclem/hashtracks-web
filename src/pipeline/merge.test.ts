@@ -7,6 +7,7 @@ vi.mock("@/lib/db", () => ({
     sourceKennel: { findMany: vi.fn() },
     rawEvent: { findFirst: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn() },
     event: { findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
+    eventKennel: { create: vi.fn() },
     eventLink: { upsert: vi.fn() },
     kennel: { findUnique: vi.fn() },
     $executeRaw: vi.fn().mockResolvedValue(0),
@@ -70,7 +71,16 @@ beforeEach(() => {
   // recomputeCanonical early-exits on length 0 and doesn't consume the
   // next test's queued response.
   mockEventFindMany.mockResolvedValue([] as never);
-  vi.mocked(prisma.$transaction).mockResolvedValue([] as never);
+  vi.mocked(prisma.eventKennel.create).mockResolvedValue({} as never);
+  // $transaction supports two call shapes: array of ops (returns Promise.all)
+  // and callback (invoked with the tx client). The dual-write helper added
+  // in #1023 step 2 uses the callback form, so we route through to the
+  // top-level prisma mock for tests that assert on prisma.event.create etc.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  vi.mocked(prisma.$transaction).mockImplementation((input: any) => {
+    if (typeof input === "function") return input(prisma);
+    return Promise.all(input);
+  });
 });
 
 describe("processRawEvents", () => {
@@ -103,6 +113,23 @@ describe("processRawEvents", () => {
         data: expect.objectContaining({ processed: true, eventId: "evt_1" }),
       }),
     );
+  });
+
+  it("dual-writes primary EventKennel alongside the new Event (#1023 step 2)", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([] as never);
+    mockEventCreate.mockResolvedValueOnce({ id: "evt_dw", kennelId: "kennel_1" } as never);
+
+    await processRawEvents("src_1", [buildRawEvent()]);
+
+    // Nested write: event.create receives an `eventKennels: { create: ... }`
+    // payload so Prisma writes both rows in one round-trip.
+    expect(mockEventCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        kennelId: "kennel_1",
+        eventKennels: { create: { kennelId: "kennel_1", isPrimary: true } },
+      }),
+    });
   });
 
   it("updates existing event when trust level is >=", async () => {

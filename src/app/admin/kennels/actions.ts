@@ -1,5 +1,6 @@
 "use server";
 
+import type { Prisma } from "@/generated/prisma/client";
 import { getAdminUser, getRosterGroupId } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { revalidatePath, revalidateTag } from "next/cache";
@@ -346,6 +347,19 @@ export async function deleteKennel(kennelId: string) {
     };
   }
 
+  // _count.events covers events where this kennel is the primary
+  // (Event.kennelId). Co-host EventKennel rows aren't covered by that count
+  // — guard against them separately so the FK RESTRICT on EventKennel.kennelId
+  // doesn't surface as a confusing 'foreign key violation' deep in the cascade.
+  const coHostCount = await prisma.eventKennel.count({
+    where: { kennelId },
+  });
+  if (coHostCount > 0) {
+    return {
+      error: `Cannot delete: kennel is a co-host on ${coHostCount} event(s). Remove from those events first.`,
+    };
+  }
+
   // Check for attendance records via events (events belong to kennels)
   const attendanceCount = await prisma.kennelAttendance.count({
     where: { event: { kennelId } },
@@ -541,6 +555,57 @@ async function deduplicateHashers(sourceKennelId: string, targetKennelId: string
   }
 }
 
+/**
+ * Handle EventKennel deduplication during kennel merge (#1023 step 2).
+ * Runs inside the merge's interactive transaction so it shares a snapshot
+ * with the subsequent reassignment + delete steps.
+ *
+ * For each source EventKennel row:
+ *   - Target already has a row on the same event: collapse to one row.
+ *     If source was primary and target wasn't, the source row must be
+ *     deleted *first* — the partial unique index `(eventId) WHERE
+ *     isPrimary = true` rejects two-primaries-at-once states even
+ *     transiently. Then promote target.
+ *   - Target has no row on the event: re-point sourceRow.kennelId → target.
+ */
+export async function deduplicateEventKennels(
+  tx: Prisma.TransactionClient,
+  sourceKennelId: string,
+  targetKennelId: string,
+): Promise<void> {
+  const sourceRows = await tx.eventKennel.findMany({
+    where: { kennelId: sourceKennelId },
+    select: { eventId: true, isPrimary: true },
+  });
+
+  for (const sourceRow of sourceRows) {
+    const targetRow = await tx.eventKennel.findUnique({
+      where: { eventId_kennelId: { eventId: sourceRow.eventId, kennelId: targetKennelId } },
+      select: { isPrimary: true },
+    });
+
+    if (targetRow) {
+      const needsPromotion = sourceRow.isPrimary && !targetRow.isPrimary;
+      // Always delete source first — promoting target while source is still
+      // primary would briefly violate the partial unique index and raise P2002.
+      await tx.eventKennel.delete({
+        where: { eventId_kennelId: { eventId: sourceRow.eventId, kennelId: sourceKennelId } },
+      });
+      if (needsPromotion) {
+        await tx.eventKennel.update({
+          where: { eventId_kennelId: { eventId: sourceRow.eventId, kennelId: targetKennelId } },
+          data: { isPrimary: true },
+        });
+      }
+    } else {
+      await tx.eventKennel.update({
+        where: { eventId_kennelId: { eventId: sourceRow.eventId, kennelId: sourceKennelId } },
+        data: { kennelId: targetKennelId },
+      });
+    }
+  }
+}
+
 /** Handle SourceKennel deduplication: delete source links that already exist on target. */
 async function deduplicateSourceKennels(sourceKennelId: string, targetKennelId: string): Promise<void> {
   const sourceLinks = await prisma.sourceKennel.findMany({
@@ -662,44 +727,55 @@ export async function mergeKennels(
     return { error: "Cannot proceed with merge due to conflicts. Please resolve manually." };
   }
 
-  // 5-7. Handle duplicates for UserKennel, KennelHasher, SourceKennel
+  // 5-7. Pre-merge dedup for UserKennel/Hasher/SourceKennel runs outside
+  //      the merge transaction (pre-existing pattern; #1023 spec doesn't
+  //      change these). EventKennel dedup runs INSIDE the transaction below
+  //      so it shares a snapshot with the reassignment + delete steps and
+  //      no concurrent EventKennel insert can leave us with a stale primary
+  //      pointing at the now-deleted source kennel.
   await deduplicateUserKennels(sourceKennel.id, targetKennel.id);
   await deduplicateHashers(sourceKennel.id, targetKennel.id);
   await deduplicateSourceKennels(sourceKennel.id, targetKennel.id);
 
-  // 8. Execute transaction for remaining reassignments
+  // 8. Execute reassignment + delete in one interactive transaction. Any
+  //    concurrent Event/EventKennel insert that races us either commits
+  //    before our snapshot (we see it and re-point it correctly) or after
+  //    our delete (its FK to the deleted source kennel fails cleanly via
+  //    RESTRICT, rolling back just the racing tx). Either way, the merge
+  //    leaves the DB consistent.
   const targetRosterGroupId = await getRosterGroupId(targetKennel.id);
-  await prisma.$transaction([
-    prisma.event.updateMany({
+  await prisma.$transaction(async (tx) => {
+    await deduplicateEventKennels(tx, sourceKennel.id, targetKennel.id);
+    await tx.event.updateMany({
       where: { kennelId: sourceKennel.id },
       data: { kennelId: targetKennel.id },
-    }),
-    prisma.userKennel.updateMany({
+    });
+    await tx.userKennel.updateMany({
       where: { kennelId: sourceKennel.id },
       data: { kennelId: targetKennel.id },
-    }),
-    prisma.kennelHasher.updateMany({
+    });
+    await tx.kennelHasher.updateMany({
       where: { kennelId: sourceKennel.id },
       data: { kennelId: targetKennel.id, rosterGroupId: targetRosterGroupId },
-    }),
-    prisma.mismanRequest.updateMany({
+    });
+    await tx.mismanRequest.updateMany({
       where: { kennelId: sourceKennel.id },
       data: { kennelId: targetKennel.id },
-    }),
-    prisma.sourceKennel.updateMany({
+    });
+    await tx.sourceKennel.updateMany({
       where: { kennelId: sourceKennel.id },
       data: { kennelId: targetKennel.id },
-    }),
-    prisma.kennelAlias.deleteMany({
+    });
+    await tx.kennelAlias.deleteMany({
       where: { kennelId: sourceKennel.id },
-    }),
-    prisma.rosterGroupKennel.deleteMany({
+    });
+    await tx.rosterGroupKennel.deleteMany({
       where: { kennelId: sourceKennel.id },
-    }),
-    prisma.kennel.delete({
+    });
+    await tx.kennel.delete({
       where: { id: sourceKennel.id },
-    }),
-  ]);
+    });
+  });
 
   console.log("[admin-audit] mergeKennels", JSON.stringify({
     adminId: admin.id,

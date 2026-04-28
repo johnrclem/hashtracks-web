@@ -10,6 +10,7 @@ vi.mock("@/lib/db", () => ({
     kennelAlias: { deleteMany: vi.fn() },
     sourceKennel: { deleteMany: vi.fn() },
     kennelAttendance: { count: vi.fn() },
+    eventKennel: { count: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn(), delete: vi.fn() },
     kennelHasher: { deleteMany: vi.fn() },
     kennelHasherLink: { deleteMany: vi.fn() },
     rosterGroupKennel: { deleteMany: vi.fn() },
@@ -33,6 +34,7 @@ import {
   deleteKennel,
   assignMismanRole,
   revokeMismanRole,
+  deduplicateEventKennels,
 } from "./actions";
 
 const mockAdminAuth = vi.mocked(getAdminUser);
@@ -238,22 +240,128 @@ describe("deleteKennel", () => {
     expect(result.error).toContain("3 subscriber(s)");
   });
 
+  it("returns error when kennel is a co-host on EventKennel rows (#1023)", async () => {
+    mockKennelFindUnique.mockResolvedValueOnce({
+      id: "k1", _count: { events: 0, members: 0 },
+    } as never);
+    vi.mocked(prisma.eventKennel.count).mockResolvedValueOnce(7);
+    const result = await deleteKennel("k1");
+    expect(result.error).toContain("co-host on 7 event(s)");
+  });
+
   it("returns error when kennel has attendance records", async () => {
     mockKennelFindUnique.mockResolvedValueOnce({
       id: "k1", _count: { events: 0, members: 0 },
     } as never);
+    vi.mocked(prisma.eventKennel.count).mockResolvedValueOnce(0);
     vi.mocked(prisma.kennelAttendance.count).mockResolvedValueOnce(12);
     const result = await deleteKennel("k1");
     expect(result.error).toContain("12 attendance record(s)");
   });
 
-  it("deletes kennel when no events, members, or attendance", async () => {
+  it("deletes kennel when no events, members, co-hosts, or attendance", async () => {
     mockKennelFindUnique.mockResolvedValueOnce({
       id: "k1", _count: { events: 0, members: 0 },
     } as never);
+    vi.mocked(prisma.eventKennel.count).mockResolvedValueOnce(0);
     vi.mocked(prisma.kennelAttendance.count).mockResolvedValueOnce(0);
     const result = await deleteKennel("k1");
     expect(result).toEqual({ success: true });
+  });
+});
+
+describe("deduplicateEventKennels (#1023 step 2)", () => {
+  // The four collapse cases when source has an EventKennel row on event X
+  // and target may or may not also have one.
+  function makeTx() {
+    return {
+      eventKennel: {
+        findMany: vi.fn(),
+        findUnique: vi.fn(),
+        update: vi.fn(),
+        delete: vi.fn(),
+      },
+    };
+  }
+
+  it("re-points source row when target has no row on the event", async () => {
+    const tx = makeTx();
+    tx.eventKennel.findMany.mockResolvedValueOnce([{ eventId: "e1", isPrimary: true }]);
+    tx.eventKennel.findUnique.mockResolvedValueOnce(null);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await deduplicateEventKennels(tx as any, "src", "tgt");
+
+    expect(tx.eventKennel.update).toHaveBeenCalledWith({
+      where: { eventId_kennelId: { eventId: "e1", kennelId: "src" } },
+      data: { kennelId: "tgt" },
+    });
+    expect(tx.eventKennel.delete).not.toHaveBeenCalled();
+  });
+
+  it("source-primary + target-secondary: deletes source FIRST, then promotes target (avoids partial unique index conflict)", async () => {
+    const tx = makeTx();
+    tx.eventKennel.findMany.mockResolvedValueOnce([{ eventId: "e1", isPrimary: true }]);
+    tx.eventKennel.findUnique.mockResolvedValueOnce({ isPrimary: false });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await deduplicateEventKennels(tx as any, "src", "tgt");
+
+    const deleteOrder = tx.eventKennel.delete.mock.invocationCallOrder[0] ?? Infinity;
+    const updateOrder = tx.eventKennel.update.mock.invocationCallOrder[0] ?? -Infinity;
+    expect(deleteOrder).toBeLessThan(updateOrder);
+    expect(tx.eventKennel.delete).toHaveBeenCalledWith({
+      where: { eventId_kennelId: { eventId: "e1", kennelId: "src" } },
+    });
+    expect(tx.eventKennel.update).toHaveBeenCalledWith({
+      where: { eventId_kennelId: { eventId: "e1", kennelId: "tgt" } },
+      data: { isPrimary: true },
+    });
+  });
+
+  it("source-secondary + target-primary: deletes source row, target stays primary", async () => {
+    const tx = makeTx();
+    tx.eventKennel.findMany.mockResolvedValueOnce([{ eventId: "e1", isPrimary: false }]);
+    tx.eventKennel.findUnique.mockResolvedValueOnce({ isPrimary: true });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await deduplicateEventKennels(tx as any, "src", "tgt");
+
+    expect(tx.eventKennel.delete).toHaveBeenCalledWith({
+      where: { eventId_kennelId: { eventId: "e1", kennelId: "src" } },
+    });
+    // No promotion — target was already primary.
+    expect(tx.eventKennel.update).not.toHaveBeenCalled();
+  });
+
+  it("source-secondary + target-secondary: just deletes source, both stay non-primary", async () => {
+    const tx = makeTx();
+    tx.eventKennel.findMany.mockResolvedValueOnce([{ eventId: "e1", isPrimary: false }]);
+    tx.eventKennel.findUnique.mockResolvedValueOnce({ isPrimary: false });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await deduplicateEventKennels(tx as any, "src", "tgt");
+
+    expect(tx.eventKennel.delete).toHaveBeenCalledOnce();
+    expect(tx.eventKennel.update).not.toHaveBeenCalled();
+  });
+
+  it("processes multiple source rows independently", async () => {
+    const tx = makeTx();
+    tx.eventKennel.findMany.mockResolvedValueOnce([
+      { eventId: "e1", isPrimary: true },
+      { eventId: "e2", isPrimary: false },
+    ]);
+    // e1 → no target row (re-point); e2 → target has primary (collapse)
+    tx.eventKennel.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ isPrimary: true });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await deduplicateEventKennels(tx as any, "src", "tgt");
+
+    expect(tx.eventKennel.update).toHaveBeenCalledTimes(1); // only the e1 re-point
+    expect(tx.eventKennel.delete).toHaveBeenCalledTimes(1); // only the e2 source row
   });
 });
 
