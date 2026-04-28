@@ -10,6 +10,7 @@ import { extractCoordsFromMapsUrl, geocodeAddress, resolveShortMapsUrl, reverseG
 import { isPlaceholder, decodeEntities, HARE_BOILERPLATE_RE, CTA_EMBEDDED_PATTERNS } from "@/adapters/utils";
 import { LOCATION_EMAIL_CTA_RE } from "./audit-checks";
 import { levenshtein } from "@/lib/fuzzy";
+import { createEventWithKennel } from "@/lib/event-write";
 
 // Strip a trailing "(text/call/… for address)" parenthetical when its body
 // starts with a contact verb AND carries a contact-info signal (3+ digits, @,
@@ -1166,28 +1167,28 @@ async function upsertCanonicalEvent(
     if (!shouldSkipReverseGeocode(ctx.sourceType) && coords.latitude != null && coords.longitude != null) {
       locationCity = suppressRedundantCity(locName, await reverseGeocode(coords.latitude, coords.longitude));
     }
-    const newEvent = await prisma.event.create({
-      data: {
-        kennelId,
-        date: eventDate,
-        dateUtc,
-        timezone,
-        runNumber: event.runNumber,
-        title: sanitizeTitle(event.title),
-        description: event.description,
-        haresText: sanitizeHares(event.hares),
-        locationName: locName,
-        locationStreet: event.locationStreet ?? null,
-        locationAddress: sanitizeLocationUrl(event.locationUrl),
-        startTime: event.startTime,
-        endTime: event.endTime,
-        cost: event.cost,
-        sourceUrl: event.sourceUrl,
-        trustLevel: ctx.trustLevel,
-        latitude: coords.latitude,
-        longitude: coords.longitude,
-        locationCity,
-      },
+    // Dual-write Event + primary EventKennel atomically (#1023 step 2).
+    // Uses Prisma's nested create — one round-trip, one implicit tx.
+    const newEvent = await createEventWithKennel(prisma, {
+      kennelId,
+      date: eventDate,
+      dateUtc,
+      timezone,
+      runNumber: event.runNumber,
+      title: sanitizeTitle(event.title),
+      description: event.description,
+      haresText: sanitizeHares(event.hares),
+      locationName: locName,
+      locationStreet: event.locationStreet ?? null,
+      locationAddress: sanitizeLocationUrl(event.locationUrl),
+      startTime: event.startTime,
+      endTime: event.endTime,
+      cost: event.cost,
+      sourceUrl: event.sourceUrl,
+      trustLevel: ctx.trustLevel,
+      latitude: coords.latitude,
+      longitude: coords.longitude,
+      locationCity,
     });
 
     targetEventId = newEvent.id;

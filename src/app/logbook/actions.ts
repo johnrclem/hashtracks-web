@@ -3,6 +3,7 @@
 import { Prisma } from "@/generated/prisma/client";
 import { getOrCreateUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { createEventWithKennel } from "@/lib/event-write";
 import { getTodayUtcNoon, parseUtcNoonDate } from "@/lib/date";
 import { parseParticipationLevel } from "@/lib/format";
 import { buildStravaUrl } from "@/lib/strava/url";
@@ -654,17 +655,16 @@ export async function createManualEvent(data: {
   if (data.notes && data.notes.length > 1000) return { error: "Notes are too long (max 1,000 characters)" };
 
   const result = await prisma.$transaction(async (tx) => {
-    const event = await tx.event.create({
-      data: {
-        kennelId: data.kennelId,
-        date: utcNoon,
-        title: data.title || null,
-        locationName: data.locationName || null,
-        isManualEntry: true,
-        submittedByUserId: user.id,
-        trustLevel: 3,
-        status: "CONFIRMED",
-      },
+    // Dual-write Event + primary EventKennel atomically (#1023 step 2).
+    const event = await createEventWithKennel(tx, {
+      kennelId: data.kennelId,
+      date: utcNoon,
+      title: data.title || null,
+      locationName: data.locationName || null,
+      isManualEntry: true,
+      submittedByUserId: user.id,
+      trustLevel: 3,
+      status: "CONFIRMED",
     });
 
     const attendance = await tx.attendance.create({
