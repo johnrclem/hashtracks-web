@@ -126,7 +126,7 @@ Public transport: De Lijn buses R75 from Etterbeek
 
     expect(event).not.toBeNull();
     expect(event!.date).toBe("2026-03-28");
-    expect(event!.kennelTag).toBe("bruh3");
+    expect(event!.kennelTags[0]).toBe("bruh3");
     expect(event!.runNumber).toBe(2339);
     expect(event!.title).toBe("BruH3 #2339");
     expect(event!.hares).toBe("John & Alison");
@@ -260,7 +260,7 @@ April 25 - Julian O.
     expect(events).toHaveLength(3);
     expect(events[0].date).toBe("2026-04-11");
     expect(events[0].hares).toBe("Ed");
-    expect(events[0].kennelTag).toBe("bruh3");
+    expect(events[0].kennelTags[0]).toBe("bruh3");
     expect(events[0].startTime).toBe("15:00");
 
     expect(events[1].date).toBe("2026-04-18");

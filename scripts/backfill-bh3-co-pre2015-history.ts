@@ -243,7 +243,7 @@ function cleanedToRawEvent(row: CleanedRow): RawEventData | null {
       : undefined;
   return {
     date: row.date,
-    kennelTag: KENNEL_TAG,
+    kennelTags: [KENNEL_TAG],
     runNumber: row.runNumber && row.runNumber > 0 ? row.runNumber : undefined,
     title: row.title,
     hares: row.hares,

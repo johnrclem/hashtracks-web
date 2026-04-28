@@ -214,7 +214,7 @@ describe("kennel pattern matching", () => {
     const compiled = makeCompiledPatterns(DEFAULT_CONFIG);
     const event = parseEventFromItem($item, $, DEFAULT_CONFIG, compiled);
 
-    expect(event!.kennelTag).toBe("LBH");
+    expect(event!.kennelTags[0]).toBe("LBH");
   });
 
   it("uses defaultKennelTag when no title available for pattern matching", () => {
@@ -224,7 +224,7 @@ describe("kennel pattern matching", () => {
     const event = parseEventFromItem($item, $, DEFAULT_CONFIG, compiled);
 
     // No title means no pattern match — falls back to defaultKennelTag
-    expect(event!.kennelTag).toBe("Wrong Way");
+    expect(event!.kennelTags[0]).toBe("Wrong Way");
   });
 
   it("matches Wrong Way from img alt", () => {
@@ -233,7 +233,7 @@ describe("kennel pattern matching", () => {
     const compiled = makeCompiledPatterns(DEFAULT_CONFIG);
     const event = parseEventFromItem($item, $, DEFAULT_CONFIG, compiled);
 
-    expect(event!.kennelTag).toBe("Wrong Way");
+    expect(event!.kennelTags[0]).toBe("Wrong Way");
   });
 
   it("matches FDTDD from title", () => {
@@ -242,7 +242,7 @@ describe("kennel pattern matching", () => {
     const compiled = makeCompiledPatterns(DEFAULT_CONFIG);
     const event = parseEventFromItem($item, $, DEFAULT_CONFIG, compiled);
 
-    expect(event!.kennelTag).toBe("FDTDD");
+    expect(event!.kennelTags[0]).toBe("FDTDD");
   });
 
   it("falls back to defaultKennelTag for unrecognized events", () => {
@@ -255,7 +255,7 @@ describe("kennel pattern matching", () => {
     const compiled = makeCompiledPatterns(DEFAULT_CONFIG);
     const event = parseEventFromItem($item, $, DEFAULT_CONFIG, compiled);
 
-    expect(event!.kennelTag).toBe("Wrong Way");
+    expect(event!.kennelTags[0]).toBe("Wrong Way");
   });
 });
 

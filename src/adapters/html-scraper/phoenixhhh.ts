@@ -137,8 +137,7 @@ export function parseEventFromItem(
 
   return {
     date,
-    kennelTag,
-    title,
+    kennelTags: [kennelTag],    title,
     description,
     hares,
     location,
@@ -293,7 +292,7 @@ export class PhoenixHHHAdapter implements SourceAdapter {
           // Re-resolve kennel tag now that we have the real title
           for (const [pattern, tag] of compiledPatterns) {
             if (pattern.test(result.value)) {
-              batch[j].kennelTag = tag;
+              batch[j].kennelTags[0] = tag;
               break;
             }
           }

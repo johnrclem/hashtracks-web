@@ -136,7 +136,7 @@ export function parseArticle(
 
   return {
     date,
-    kennelTag: "th3",
+    kennelTags: ["th3"],
     runNumber,
     title: titleText,
     hares: fields.hares,

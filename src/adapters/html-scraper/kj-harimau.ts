@@ -230,7 +230,7 @@ export class KjHarimauAdapter implements SourceAdapter {
 
       events.push({
         date,
-        kennelTag: KENNEL_TAG,
+        kennelTags: [KENNEL_TAG],
         runNumber,
         hares,
         location,

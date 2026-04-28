@@ -64,7 +64,7 @@ describe("parseYiiHarelineRow", () => {
     expect(event?.hares).toBe("Raymond Lai");
     expect(event?.location).toBe("Pantai Remis (Remis Beach)");
     expect(event?.startTime).toBe("16:00");
-    expect(event?.kennelTag).toBe("ph3-my");
+    expect(event?.kennelTags[0]).toBe("ph3-my");
   });
 
   it("extracts title from Occasion column", () => {

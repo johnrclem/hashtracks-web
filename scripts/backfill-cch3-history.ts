@@ -134,7 +134,7 @@ function buildEvent(vevent: VEvent, titleHareRegex: RegExp): RawEventData | null
 
   return {
     date: dateStr,
-    kennelTag: parsed.kennelTag,
+    kennelTags: [parsed.kennelTag],
     runNumber: parsed.runNumber,
     title: parsed.title ?? summary,
     description: description?.substring(0, 2000) || undefined,

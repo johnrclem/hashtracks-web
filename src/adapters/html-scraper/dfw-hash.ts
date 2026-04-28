@@ -218,8 +218,7 @@ export function extractDFWEvents(
 
         const event: RawEventData = {
           date: dateStr,
-          kennelTag,
-          sourceUrl,
+          kennelTags: [kennelTag],          sourceUrl,
           ...(title && { title }),
           ...(hares && { hares }),
         };

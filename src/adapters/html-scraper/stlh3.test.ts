@@ -195,7 +195,7 @@ describe("StlH3Adapter", () => {
 
     expect(result.events).toHaveLength(1);
     expect(result.events[0].date).toBe("2026-03-29");
-    expect(result.events[0].kennelTag).toBe("stlh3");
+    expect(result.events[0].kennelTags[0]).toBe("stlh3");
     expect(result.events[0].startTime).toBe("17:00");
     expect(result.events[0].location).toBe(
       "Fenton Bar and Grill 1025 Dougherty Ferry Rd",

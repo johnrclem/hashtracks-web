@@ -448,7 +448,7 @@ function buildRawEventFromVEvent(
 
   return {
     date: dateStr,
-    kennelTag: parsed.kennelTag,
+    kennelTags: [parsed.kennelTag],
     runNumber,
     title: parsed.title ?? summary,
     description: appendDescriptionSuffix(description?.substring(0, 2000) || undefined, config?.descriptionSuffix),
@@ -574,7 +574,7 @@ export class ICalAdapter implements SourceAdapter {
           error: message,
           rawText: diag.rawText,
           partialData: {
-            kennelTag: diag.summary,
+            kennelTags: [diag.summary],
             date: vevent.start ? formatDate(vevent.start) : undefined,
           },
         });

@@ -273,17 +273,17 @@ describe("BullMoonAdapter", () => {
       expect(t3Run!.date).toBe("2026-04-02");
       expect(t3Run!.startTime).toBe("18:45");
       expect(t3Run!.title).toBe("T3 #201");
-      expect(t3Run!.kennelTag).toBe("bullmoon");
+      expect(t3Run!.kennelTags[0]).toBe("bullmoon");
 
       const bmRun = result.events.find((e) => e.runNumber === 124);
       expect(bmRun).toBeDefined();
       expect(bmRun!.startTime).toBe("12:00");
       expect(bmRun!.title).toBe("Bull Moon #124");
-      expect(bmRun!.kennelTag).toBe("bullmoon");
+      expect(bmRun!.kennelTags[0]).toBe("bullmoon");
 
       const social = result.events.find((e) => !e.runNumber);
       expect(social).toBeDefined();
-      expect(social!.kennelTag).toBe("bullmoon");
+      expect(social!.kennelTags[0]).toBe("bullmoon");
     });
 
     it("verifies browserRender is called with frameUrl option", async () => {

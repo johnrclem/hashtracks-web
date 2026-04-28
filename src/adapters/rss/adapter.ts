@@ -99,7 +99,7 @@ export class RssAdapter implements SourceAdapter {
 
         events.push({
           date: parsed.dateStr,
-          kennelTag: config.kennelTag,
+          kennelTags: [config.kennelTag],
           title: item.title?.trim() || undefined,
           description: extractDescription(item),
           sourceUrl: item.link?.trim() || undefined,

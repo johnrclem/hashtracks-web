@@ -10,7 +10,7 @@ describe("parseLadiesH4Row", () => {
 
     expect(result).not.toBeNull();
     expect(result!.date).toBe("2025-04-08");
-    expect(result!.kennelTag).toBe("lh4-hk");
+    expect(result!.kennelTags[0]).toBe("lh4-hk");
     expect(result!.runNumber).toBe(1234);
     expect(result!.hares).toBe("Speedy & Dizzy");
     expect(result!.location).toBe("Wan Chai Park");

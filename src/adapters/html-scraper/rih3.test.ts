@@ -181,7 +181,7 @@ describe("parseHarelineRow", () => {
 
     expect(result).toMatchObject({
       date: "2026-04-21",
-      kennelTag: "rih3",
+      kennelTags: ["rih3"],
       runNumber: 2043,
       startTime: "18:30",
       hares: "tongue in rEar, ProbonoR",
@@ -496,7 +496,7 @@ describe("RIH3Adapter", () => {
     expect(result.events).toHaveLength(2);
     expect(result.events[0]).toMatchObject({
       date: "2026-04-21",
-      kennelTag: "rih3",
+      kennelTags: ["rih3"],
       runNumber: 2043,
       hares: "Rusty",
       title: "Spring Trail",

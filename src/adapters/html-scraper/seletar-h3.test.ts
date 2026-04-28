@@ -33,7 +33,7 @@ describe("groupSeletarRows", () => {
     expect(events[0]).toMatchObject({
       runNumber: 2374,
       date: "2026-04-14",
-      kennelTag: "seletar-h3",
+      kennelTags: ["seletar-h3"],
       startTime: "18:00",
       hares: "Perut Besar, Skinny",
       location: "Bukit Gombak",

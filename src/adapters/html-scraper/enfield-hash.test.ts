@@ -394,7 +394,7 @@ describe("EnfieldHashAdapter.fetch (new site structure)", () => {
     expect(result.structureHash).toBeDefined();
 
     const first = result.events[0];
-    expect(first.kennelTag).toBe("eh3");
+    expect(first.kennelTags[0]).toBe("eh3");
     expect(first.startTime).toBe("19:30");
     expect(first.title).toBe("Run 318 - Wed 25 February");
     // SPA fix: fetches home.html, so sourceUrl is the home.html URL
@@ -510,7 +510,7 @@ describe("EnfieldHashAdapter.fetch (legacy Blogger HTML fallback)", () => {
 
     const first = result.events[0];
     expect(first.date).toBe("2026-03-18");
-    expect(first.kennelTag).toBe("eh3");
+    expect(first.kennelTags[0]).toBe("eh3");
     expect(first.startTime).toBe("19:30");
     expect(first.location).toBe("The King's Head, Winchmore Hill, Enfield");
     expect(first.hares).toBe("Speedy");

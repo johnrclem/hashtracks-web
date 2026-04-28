@@ -116,7 +116,7 @@ export function processVoodooPost(
 
   return {
     date: dateStr,
-    kennelTag: "voodoo-h3",
+    kennelTags: ["voodoo-h3"],
     runNumber: parsed.runNumber,
     title: parsed.trailName,
     hares: body.hares,

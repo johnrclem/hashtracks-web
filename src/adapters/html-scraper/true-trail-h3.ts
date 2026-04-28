@@ -169,7 +169,7 @@ export class TrueTrailH3Adapter implements SourceAdapter {
           row: hIdx,
           field: "date",
           error: `No date found for event #${heading.runNumber}`,
-          partialData: { kennelTag: KENNEL_TAG, runNumber: heading.runNumber, title: heading.title },
+          partialData: { kennelTags: [KENNEL_TAG], runNumber: heading.runNumber, title: heading.title },
         });
         continue;
       }
@@ -186,7 +186,7 @@ export class TrueTrailH3Adapter implements SourceAdapter {
 
       events.push({
         date,
-        kennelTag: KENNEL_TAG,
+        kennelTags: [KENNEL_TAG],
         runNumber: heading.runNumber,
         title: heading.title,
         hares,

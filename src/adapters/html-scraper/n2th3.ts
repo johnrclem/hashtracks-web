@@ -162,7 +162,7 @@ export function parseN2th3Post(
 
   return {
     date,
-    kennelTag: KENNEL_TAG,
+    kennelTags: [KENNEL_TAG],
     runNumber,
     title: runNumber ? `N2TH3 Run #${runNumber}` : title,
     hares,

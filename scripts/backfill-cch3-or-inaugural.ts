@@ -34,7 +34,7 @@ const KENNEL_TIMEZONE = "America/Los_Angeles";
 const INAUGURAL_RUN: RawEventData[] = [
   {
     date: "2025-07-12",
-    kennelTag: "cch3-or",
+    kennelTags: ["cch3-or"],
     runNumber: 1,
     title: "Cherry City H3 #1 / OH3 # 1340",
     location: "Keizer Rapids Park, 1900 Chemawa Rd N, Keizer, OR 97303, USA",

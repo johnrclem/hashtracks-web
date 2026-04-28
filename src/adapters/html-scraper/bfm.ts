@@ -93,7 +93,7 @@ function scrapeCurrentTrail(
   const trailMatch = /Trail\s*#(\d+)\s*:?\s*([^\n]+?)(?:\n|$)/i.exec(bodyText);
   if (!trailMatch) {
     errors.push("No current trail found on page");
-    parseErrors.push({ row: 0, section: "current_trail", error: "No current trail found on page", rawText: bodyText.slice(0, 2000), partialData: { kennelTag: "bfm" } });
+    parseErrors.push({ row: 0, section: "current_trail", error: "No current trail found on page", rawText: bodyText.slice(0, 2000), partialData: { kennelTags: ["bfm" ]} });
     return { events, errors, parseErrors };
   }
 
@@ -113,7 +113,7 @@ function scrapeCurrentTrail(
 
   if (!dateStr) {
     errors.push("Could not parse date from current trail");
-    parseErrors.push({ row: 0, section: "current_trail", field: "date", error: "Could not parse date from current trail", rawText: bodyText.slice(0, 2000), partialData: { kennelTag: "bfm" } });
+    parseErrors.push({ row: 0, section: "current_trail", field: "date", error: "Could not parse date from current trail", rawText: bodyText.slice(0, 2000), partialData: { kennelTags: ["bfm" ]} });
     return { events, errors, parseErrors };
   }
 
@@ -138,7 +138,7 @@ function scrapeCurrentTrail(
 
   events.push({
     date: dateStr,
-    kennelTag: "bfm",
+    kennelTags: ["bfm"],
     runNumber,
     title: trailName,
     hares,
@@ -194,7 +194,7 @@ function scrapeUpcomingHares(
 
     events.push({
       date: dateStr,
-      kennelTag: "bfm",
+      kennelTags: ["bfm"],
       title: undefined,
       hares: harePart,
       sourceUrl: baseUrl,
@@ -237,7 +237,7 @@ async function scrapeSpecialEvents(
 
       events.push({
         date: dateStr,
-        kennelTag: "bfm",
+        kennelTags: ["bfm"],
         title,
         sourceUrl: specialUrl,
       });

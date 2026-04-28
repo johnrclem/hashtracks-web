@@ -123,7 +123,7 @@ describe("parseRunItem", () => {
     const event = parseRunItem($, items.eq(0), "https://westlondonhash.com/runs/");
     expect(event).not.toBeNull();
     expect(event!.date).toBe("2026-02-19");
-    expect(event!.kennelTag).toBe("wlh3");
+    expect(event!.kennelTags[0]).toBe("wlh3");
     expect(event!.runNumber).toBe(2081);
     expect(event!.hares).toBe("Alice and Bobo");
     expect(event!.location).toContain("Roundhouse");

@@ -63,7 +63,7 @@ export function parseGoldCoastRow(
   const themeRaw = cells[3].trim();
   return {
     date,
-    kennelTag: KENNEL_TAG,
+    kennelTags: [KENNEL_TAG],
     runNumber,
     hares: hareRaw || undefined,
     title: themeRaw || undefined,

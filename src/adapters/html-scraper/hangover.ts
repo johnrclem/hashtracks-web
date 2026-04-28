@@ -316,7 +316,7 @@ export class HangoverAdapter implements SourceAdapter {
 
       events.push({
         date: eventDate,
-        kennelTag: "h4",
+        kennelTags: ["h4"],
         runNumber: parsed.runNumber,
         title: parsed.trailName,
         hares: bodyFields.hares,
@@ -403,7 +403,7 @@ export class HangoverAdapter implements SourceAdapter {
 
       events.push({
         date: eventDate,
-        kennelTag: "h4",
+        kennelTags: ["h4"],
         runNumber: parsed.runNumber,
         title: parsed.trailName,
         hares: bodyFields.hares,

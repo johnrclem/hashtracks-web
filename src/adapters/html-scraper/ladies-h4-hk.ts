@@ -39,7 +39,7 @@ export function parseLadiesH4Row(
 
   return {
     date,
-    kennelTag: KENNEL_TAG,
+    kennelTags: [KENNEL_TAG],
     runNumber: runNumber && runNumber > 0 ? runNumber : undefined,
     title: runNumber ? `Ladies H4 Run #${runNumber}` : "Ladies H4 Run",
     hares: validHares,

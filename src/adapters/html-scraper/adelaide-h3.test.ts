@@ -19,7 +19,7 @@ describe("adelaide-h3 parseAdelaideEvent", () => {
     expect(e!.runNumber).toBe(2645);
     expect(e!.date).toBe("2026-04-13");
     expect(e!.startTime).toBe("19:00");
-    expect(e!.kennelTag).toBe("ah3-au");
+    expect(e!.kennelTags[0]).toBe("ah3-au");
     expect(e!.hares).toBe("Crunchy Crack and Unstoppable");
   });
 

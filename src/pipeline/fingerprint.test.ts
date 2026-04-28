@@ -20,8 +20,8 @@ describe("generateFingerprint", () => {
   });
 
   it("different kennel tags produce different fingerprints", () => {
-    const a = generateFingerprint(buildRawEvent({ kennelTag: "NYCH3" }));
-    const b = generateFingerprint(buildRawEvent({ kennelTag: "BrH3" }));
+    const a = generateFingerprint(buildRawEvent({ kennelTags: ["NYCH3" ]}));
+    const b = generateFingerprint(buildRawEvent({ kennelTags: ["BrH3" ]}));
     expect(a).not.toBe(b);
   });
 

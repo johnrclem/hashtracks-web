@@ -147,7 +147,7 @@ export class SevenHillsH3Adapter implements SourceAdapter {
     } else {
       events.push({
         date: parsed.date,
-        kennelTag: "7h4",
+        kennelTags: ["7h4"],
         runNumber: parsed.runNumber,
         title: parsed.title,
         hares: parsed.hares,

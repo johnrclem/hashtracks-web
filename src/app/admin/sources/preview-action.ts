@@ -68,10 +68,12 @@ function parsePreviewConfig(
 
 /** Resolve all unique kennel tags and return resolution map + unmatched list. */
 async function resolvePreviewTags(
-  events: Array<{ kennelTag: string }>,
+  events: Array<{ kennelTags: string[] }>,
 ): Promise<{ tagResolution: Map<string, { matched: boolean; kennelId: string | null }>; unmatchedTags: string[] }> {
   clearResolverCache();
-  const uniqueTags = [...new Set(events.map((e) => e.kennelTag))];
+  // Use the primary tag for preview-time resolution; co-host secondaries are
+  // a step-4 concern and don't affect preview UX.
+  const uniqueTags = [...new Set(events.map((e) => e.kennelTags[0]))];
   const tagResults = await Promise.all(
     uniqueTags.map(async (tag) => {
       const { matched, kennelId } = await resolveKennelTag(tag);
@@ -156,15 +158,15 @@ export async function previewSourceConfig(
     .slice(0, MAX_PREVIEW_EVENTS)
     .map((e) => ({
       date: e.date,
-      kennelTag: e.kennelTag === UNKNOWN_KENNEL_SENTINEL ? UNTAGGED_KENNEL_DISPLAY : e.kennelTag,
+      kennelTag: e.kennelTags[0] === UNKNOWN_KENNEL_SENTINEL ? UNTAGGED_KENNEL_DISPLAY : e.kennelTags[0],
       title: e.title,
       description: e.description?.substring(0, 500) || undefined,
       runNumber: e.runNumber ?? undefined,
       location: e.location,
       hares: e.hares,
       startTime: e.startTime ?? undefined,
-      resolved: tagResolution.get(e.kennelTag)?.matched ?? false,
-      resolvedKennelId: tagResolution.get(e.kennelTag)?.kennelId ?? undefined,
+      resolved: tagResolution.get(e.kennelTags[0])?.matched ?? false,
+      resolvedKennelId: tagResolution.get(e.kennelTags[0])?.kennelId ?? undefined,
     }));
 
   return {

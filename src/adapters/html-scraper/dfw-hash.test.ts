@@ -114,25 +114,25 @@ describe("extractDFWEvents", () => {
     expect(events.length).toBeGreaterThanOrEqual(4);
 
     // Check first DUHHH event (Wed March 2)
-    const duhhh = events.find((e) => e.event.kennelTag === "duhhh" && e.event.date === "2026-03-02");
+    const duhhh = events.find((e) => e.event.kennelTags[0] === "duhhh" && e.event.date === "2026-03-02");
     expect(duhhh).toBeDefined();
     expect(duhhh!.event.hares).toBe("Hare Name");
     expect(duhhh!.detailUrl).toContain("event.php");
 
     // Check Dallas H3 event (Sat March 5)
-    const dh3 = events.find((e) => e.event.kennelTag === "dh3-tx");
+    const dh3 = events.find((e) => e.event.kennelTags[0] === "dh3-tx");
     expect(dh3).toBeDefined();
     expect(dh3!.event.date).toBe("2026-03-05");
     expect(dh3!.event.hares).toBe("Dallas Hare");
 
     // Check NODUHHH event (Mon March 7)
-    const noduhhh = events.find((e) => e.event.kennelTag === "noduhhh");
+    const noduhhh = events.find((e) => e.event.kennelTags[0] === "noduhhh");
     expect(noduhhh).toBeDefined();
     expect(noduhhh!.event.date).toBe("2026-03-07");
     expect(noduhhh!.event.hares).toBeUndefined(); // no <em> tag
 
     // Check FWH3 event (Sat March 12)
-    const fwh3 = events.find((e) => e.event.kennelTag === "fwh3");
+    const fwh3 = events.find((e) => e.event.kennelTags[0] === "fwh3");
     expect(fwh3).toBeDefined();
     expect(fwh3!.event.date).toBe("2026-03-12");
     expect(fwh3!.event.hares).toBe("FW Hare");
@@ -183,7 +183,7 @@ describe("extractDFWEvents", () => {
     `;
     const $ = cheerio.load(html);
     const { events } = extractDFWEvents($, 2026, 2, "http://test.com");
-    const evt = events.find((e) => e.event.kennelTag === "duhhh");
+    const evt = events.find((e) => e.event.kennelTags[0] === "duhhh");
     expect(evt).toBeDefined();
     expect(evt!.event.title).toBe("Bubblecum Strikes Again");
     expect(evt!.event.hares).toBe("Bubblecum");
@@ -219,7 +219,7 @@ describe("extractDFWEvents", () => {
     `;
     const $ = cheerio.load(html);
     const { events } = extractDFWEvents($, 2026, 3, "http://test.com"); // April 2026
-    const yak = events.find((e) => e.event.kennelTag === "yakh3");
+    const yak = events.find((e) => e.event.kennelTags[0] === "yakh3");
     expect(yak).toBeDefined();
     expect(yak!.event.date).toBe("2026-04-19");
     expect(yak!.event.title).toBe("Yak Season Opener");
@@ -250,7 +250,7 @@ describe("day-number extraction with holiday prefixes (Issue #2)", () => {
     `;
     const $ = cheerio.load(html);
     const { events } = extractDFWEvents($, 2026, 2, "http://test.com"); // March 2026
-    const fwh3 = events.find((e) => e.event.kennelTag === "fwh3");
+    const fwh3 = events.find((e) => e.event.kennelTags[0] === "fwh3");
     expect(fwh3).toBeDefined();
     expect(fwh3!.event.date).toBe("2026-03-21");
     expect(fwh3!.event.hares).toBe("Whitney MutchaFuckin Houston");
@@ -279,7 +279,7 @@ describe("day-number extraction with holiday prefixes (Issue #2)", () => {
     `;
     const $ = cheerio.load(html);
     const { events } = extractDFWEvents($, 2026, 3, "http://test.com"); // April 2026
-    const noduhhh = events.find((e) => e.event.kennelTag === "noduhhh");
+    const noduhhh = events.find((e) => e.event.kennelTags[0] === "noduhhh");
     expect(noduhhh).toBeDefined();
     expect(noduhhh!.event.date).toBe("2026-04-20");
   });
@@ -307,7 +307,7 @@ describe("day-number extraction with holiday prefixes (Issue #2)", () => {
     `;
     const $ = cheerio.load(html);
     const { events } = extractDFWEvents($, 2026, 3, "http://test.com"); // April 2026
-    const duhhh = events.find((e) => e.event.kennelTag === "duhhh");
+    const duhhh = events.find((e) => e.event.kennelTags[0] === "duhhh");
     expect(duhhh).toBeDefined();
     expect(duhhh!.event.date).toBe("2026-04-01");
     expect(duhhh!.event.title).toBe("Conjoined with the Full Moon!");
@@ -337,7 +337,7 @@ describe("day-number extraction with holiday prefixes (Issue #2)", () => {
     `;
     const $ = cheerio.load(html);
     const { events } = extractDFWEvents($, 2026, 3, "http://test.com"); // April 2026
-    const dh3 = events.find((e) => e.event.kennelTag === "dh3-tx");
+    const dh3 = events.find((e) => e.event.kennelTags[0] === "dh3-tx");
     expect(dh3).toBeDefined();
     expect(dh3!.event.date).toBe("2026-04-05");
     expect(dh3!.event.title).toBe("Easter Trail");

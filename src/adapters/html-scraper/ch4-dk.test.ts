@@ -214,7 +214,7 @@ describe("Ch4DkAdapter.fetch", () => {
     const run367 = result.events.find((e) => e.runNumber === 367);
     expect(run367).toMatchObject({
       date: "2026-04-03",
-      kennelTag: "ch4-dk",
+      kennelTags: ["ch4-dk"],
       runNumber: 367,
       title: "CH4 #367",
       startTime: "20:00",

@@ -166,7 +166,7 @@ export class WCFHCalendarAdapter implements SourceAdapter {
           for (const tag of kennelTags) {
             events.push({
               date: dateStr,
-              kennelTag: tag,
+              kennelTags: [tag],
               title: `${WCFH_CODE_TO_ABBREV[tag] ?? tag} Trail`,
               sourceUrl,
             });

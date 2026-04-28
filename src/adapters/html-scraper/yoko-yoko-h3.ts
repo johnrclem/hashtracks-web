@@ -162,7 +162,7 @@ export function parseEventCell(
 
   return {
     date,
-    kennelTag: "yoko-yoko-h3",
+    kennelTags: ["yoko-yoko-h3"],
     title,
     runNumber,
     hares,

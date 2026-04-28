@@ -120,7 +120,7 @@ describe("DublinHashAdapter", () => {
       expect(event).not.toBeNull();
       expect(event!.date).toBe("2026-03-16");
       expect(event!.startTime).toBe("19:30");
-      expect(event!.kennelTag).toBe("dh3");
+      expect(event!.kennelTags[0]).toBe("dh3");
       expect(event!.title).toBe("Dublin H3 #1668");
       expect(event!.runNumber).toBe(1668);
       expect(event!.location).toBe("Dalkey DART Station");
@@ -154,7 +154,7 @@ describe("DublinHashAdapter", () => {
 
       expect(event).not.toBeNull();
       expect(event!.date).toBe("2026-03-23");
-      expect(event!.kennelTag).toBe("dh3");
+      expect(event!.kennelTags[0]).toBe("dh3");
       expect(event!.title).toBe("I ♥ Monday #410");
       expect(event!.runNumber).toBe(410);
       expect(event!.location).toBe("Strand House, Fairview");

@@ -39,7 +39,7 @@ describe("parseBoulderH3Article", () => {
       startTime: "19:00",
       location: "Arrowwood Park",
       sourceUrl: "https://boulderh3.com/bh3-968-a-farewell-to-the-dark-horse/",
-      kennelTag: "bh3-co",
+      kennelTags: ["bh3-co"],
     });
   });
 
@@ -127,7 +127,7 @@ describe("parseBoulderH3IndexPage", () => {
   it("populates kennelTag bh3-co on every event", () => {
     const $ = cheerio.load(PAGE_FIXTURE);
     const events = parseBoulderH3IndexPage($);
-    expect(events.every((e) => e.kennelTag === "bh3-co")).toBe(true);
+    expect(events.every((e) => e.kennelTags[0] === "bh3-co")).toBe(true);
   });
 
   it("skips unparseable articles without throwing", () => {

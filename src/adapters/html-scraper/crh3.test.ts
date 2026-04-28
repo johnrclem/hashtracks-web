@@ -75,7 +75,7 @@ describe("parseCrh3Post", () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.event.date).toBe("2025-02-15");
-      expect(result.event.kennelTag).toBe("crh3");
+      expect(result.event.kennelTags[0]).toBe("crh3");
       expect(result.event.runNumber).toBe(218);
       expect(result.event.hares).toBe("Iron Chef");
       expect(result.event.location).toBe("Mae Fah Luang");

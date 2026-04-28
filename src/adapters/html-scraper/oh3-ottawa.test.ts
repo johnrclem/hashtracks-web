@@ -98,7 +98,7 @@ Hash Cash:                   $5`;
 
   it("sets kennelTag to oh3-ca", () => {
     const result = parseDetailedBlock(fullBlock);
-    expect(result!.kennelTag).toBe("oh3-ca");
+    expect(result!.kennelTags[0]).toBe("oh3-ca");
   });
 
   it("returns null when no R*n pattern found", () => {
@@ -162,7 +162,7 @@ describe("parsePlanningLine", () => {
     expect(result!.runNumber).toBe(2210);
     expect(result!.date).toBe("2026-05-18");
     expect(result!.hares).toBe("Alkasleezer");
-    expect(result!.kennelTag).toBe("oh3-ca");
+    expect(result!.kennelTags[0]).toBe("oh3-ca");
     expect(result!.startTime).toBe("18:45");
   });
 
@@ -247,7 +247,7 @@ describe("Oh3OttawaAdapter", () => {
     expect(run2203).toBeDefined();
     expect(run2203!.date).toBe("2026-03-30");
     expect(run2203!.hares).toBe("Didgeri-Do-Me");
-    expect(run2203!.kennelTag).toBe("oh3-ca");
+    expect(run2203!.kennelTags[0]).toBe("oh3-ca");
 
     const run2204 = result.events.find((e) => e.runNumber === 2204);
     expect(run2204).toBeDefined();

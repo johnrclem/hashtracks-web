@@ -176,8 +176,7 @@ export class HarrierCentralAdapter implements SourceAdapter {
       // to the kennel website / other EventLinks when sourceUrl is null.
       const raw: RawEventData = {
         date: dateStr,
-        kennelTag,
-        title: hcEvent.eventName || undefined,
+        kennelTags: [kennelTag],        title: hcEvent.eventName || undefined,
         // Socials / "drinking practices" come back as eventNumber=0. Map that
         // sentinel to null (explicit clear) and positive values to the number;
         // anything else stays undefined so the merge UPDATE path preserves an

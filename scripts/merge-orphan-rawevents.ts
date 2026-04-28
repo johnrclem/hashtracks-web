@@ -63,11 +63,17 @@ async function main() {
     // Guard against malformed legacy rows: rawData is `Json` in the schema,
     // so a missing/non-string `date` would throw on `localeCompare`. Skip
     // dirty rows (with a warning) so dry-run survives.
+    //
+    // Also normalize legacy `kennelTag: string` payloads (pre-#1023 step 3)
+    // into the new `kennelTags: string[]` shape — old RawEvents persisted
+    // before step 3 deployed still have the bare string, and merge.ts now
+    // dereferences `event.kennelTags[0]` unconditionally.
     const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+    type LegacyOrCurrent = Partial<RawEventData> & { kennelTag?: string };
     const mergeable: { id: string; event: RawEventData }[] = [];
     let skippedMalformed = 0;
     for (const o of orphans) {
-      const raw = o.rawData as unknown as Partial<RawEventData> | null;
+      const raw = o.rawData as unknown as LegacyOrCurrent | null;
       if (!raw || typeof raw.date !== "string" || !ISO_DATE_RE.test(raw.date)) {
         skippedMalformed++;
         if (skippedMalformed <= 5) {
@@ -75,7 +81,15 @@ async function main() {
         }
         continue;
       }
-      mergeable.push({ id: o.id, event: raw as RawEventData });
+      const kennelTags = raw.kennelTags ?? (raw.kennelTag ? [raw.kennelTag] : undefined);
+      if (!kennelTags || kennelTags.length === 0) {
+        skippedMalformed++;
+        if (skippedMalformed <= 5) {
+          console.warn(`  Skipping malformed orphan ${o.id}: missing kennelTag/kennelTags`);
+        }
+        continue;
+      }
+      mergeable.push({ id: o.id, event: { ...raw, kennelTags } as RawEventData });
     }
     if (skippedMalformed > 5) {
       console.warn(`  …${skippedMalformed - 5} more malformed orphans skipped`);

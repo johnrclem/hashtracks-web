@@ -142,7 +142,7 @@ export function parseHashHorrorsHareline(text: string): ParseHarelineResult {
       events.push({
         date,
         startTime: DEFAULT_START_TIME,
-        kennelTag: KENNEL_TAG,
+        kennelTags: [KENNEL_TAG],
         runNumber: parsed.runNumber,
         title: `Hash Horrors ${parsed.runNumber}`,
         hares: parsed.hares,

@@ -134,7 +134,7 @@ Attendance: 35
     );
     expect(result).not.toBeNull();
     expect(result!.date).toBe("2026-03-29");
-    expect(result!.kennelTag).toBe("ch3-ab");
+    expect(result!.kennelTags[0]).toBe("ch3-ab");
     expect(result!.runNumber).toBe(2453);
     expect(result!.title).toBe("A Hot Slippy Thong in the Cheeks");
     expect(result!.hares).toBe("Boner and Chips");
@@ -204,7 +204,7 @@ Attendance: 35</p>`,
     const result = await adapter.fetch(mockSource);
     expect(result.events).toHaveLength(2);
     expect(result.events[0].runNumber).toBe(2453);
-    expect(result.events[0].kennelTag).toBe("ch3-ab");
+    expect(result.events[0].kennelTags[0]).toBe("ch3-ab");
     expect(result.events[1].runNumber).toBe(2452);
     expect(result.errors).toHaveLength(0);
   });

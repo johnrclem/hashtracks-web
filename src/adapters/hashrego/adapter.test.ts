@@ -692,7 +692,7 @@ describe("splitToRawEvents", () => {
     const events = splitToRawEvents(parsed, "bfmh3-agm-2026");
     expect(events).toHaveLength(1);
     expect(events[0].date).toBe("2026-02-05");
-    expect(events[0].kennelTag).toBe("BFMH3");
+    expect(events[0].kennelTags[0]).toBe("BFMH3");
     expect(events[0].sourceUrl).toBe("https://hashrego.com/events/bfmh3-agm-2026");
     expect(events[0].externalLinks).toEqual([
       { url: "https://hashrego.com/events/bfmh3-agm-2026", label: "Hash Rego" },
@@ -842,7 +842,7 @@ describe("HashRegoAdapter", () => {
     const result = await adapter.fetch(source, { days: 36500, kennelSlugs: ["EWH3"] });
 
     expect(result.events.length).toBeGreaterThan(0);
-    expect(result.events[0].kennelTag).toBe("EWH3");
+    expect(result.events[0].kennelTags[0]).toBe("EWH3");
     expect(result.events[0].date).toBe("2026-02-19");
     expect(result.errors.length).toBeGreaterThan(0);
   });

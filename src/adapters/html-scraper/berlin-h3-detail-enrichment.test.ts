@@ -66,7 +66,7 @@ describe("enrichBerlinH3Events", () => {
   function buildEvent(overrides: Partial<RawEventData>): RawEventData {
     return {
       date: "2026-04-03",
-      kennelTag: "bh3fm",
+      kennelTags: ["bh3fm"],
       sourceUrl: "https://www.berlin-h3.eu/event/full-moon-run-148/",
       ...overrides,
     };

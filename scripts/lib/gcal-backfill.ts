@@ -36,14 +36,14 @@ function logEventSamples(events: readonly RawEventData[]): void {
   console.log("\nFirst 3:");
   for (const e of events.slice(0, 3)) {
     console.log(
-      `  ${e.date} #${e.runNumber ?? "?"} ${e.kennelTag} | ${e.title ?? "—"} | hares=${e.hares ?? "—"}`,
+      `  ${e.date} #${e.runNumber ?? "?"} ${e.kennelTags[0]} | ${e.title ?? "—"} | hares=${e.hares ?? "—"}`,
     );
   }
   if (events.length > 3) {
     console.log("Last 3:");
     for (const e of events.slice(-3)) {
       console.log(
-        `  ${e.date} #${e.runNumber ?? "?"} ${e.kennelTag} | ${e.title ?? "—"} | hares=${e.hares ?? "—"}`,
+        `  ${e.date} #${e.runNumber ?? "?"} ${e.kennelTags[0]} | ${e.title ?? "—"} | hares=${e.hares ?? "—"}`,
       );
     }
   }
@@ -83,7 +83,7 @@ export async function backfillGCalSource(params: GCalBackfillParams): Promise<vo
     // Tally per-kennel for visibility on multi-kennel calendars.
     const byKennel = new Map<string, number>();
     for (const ev of historical) {
-      byKennel.set(ev.kennelTag, (byKennel.get(ev.kennelTag) ?? 0) + 1);
+      byKennel.set(ev.kennelTags[0], (byKennel.get(ev.kennelTags[0]) ?? 0) + 1);
     }
     if (byKennel.size > 0) {
       console.log("  Per-kennel:");

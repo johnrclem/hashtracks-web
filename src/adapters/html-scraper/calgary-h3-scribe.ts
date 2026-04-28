@@ -8,7 +8,7 @@
  * Post title format: "Run 2453 – A Hot Slippy Thong in the Cheeks"
  * Post body contains labeled fields: Hares:, Location:, RA:, Attendance:
  *
- * kennelTag: "ch3-ab"
+ * kennelTags: ["ch3-ab"]
  */
 
 import * as cheerio from "cheerio";
@@ -104,7 +104,7 @@ export function processScribePost(
 
   return {
     date: dateStr,
-    kennelTag: KENNEL_TAG,
+    kennelTags: [KENNEL_TAG],
     runNumber: parsed.runNumber,
     title: parsed.trailName,
     hares: body.hares,

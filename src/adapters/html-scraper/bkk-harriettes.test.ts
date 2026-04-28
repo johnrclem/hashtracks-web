@@ -27,7 +27,7 @@ describe("parseBkkHarriettesPost", () => {
     const event = parseBkkHarriettesPost(post);
     expect(event).not.toBeNull();
     expect(event?.date).toBe("2026-04-15");
-    expect(event?.kennelTag).toBe("bkk-harriettes");
+    expect(event?.kennelTags[0]).toBe("bkk-harriettes");
     expect(event?.runNumber).toBe(2259);
     expect(event?.hares).toBe("Hazukashii");
     // TBA should be excluded

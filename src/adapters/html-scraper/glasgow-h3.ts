@@ -83,7 +83,7 @@ export function parseGlasgowRow(
 
   return {
     date,
-    kennelTag: "Glasgow H3",
+    kennelTags: ["Glasgow H3"],
     title,
     hares,
     location,

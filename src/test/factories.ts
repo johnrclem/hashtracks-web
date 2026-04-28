@@ -14,7 +14,7 @@ import type {
 export function buildRawEvent(overrides?: Partial<RawEventData>): RawEventData {
   return {
     date: "2026-02-14",
-    kennelTag: "NYCH3",
+    kennelTags: ["NYCH3"],
     runNumber: 2100,
     title: "Valentine's Day Trail",
     description: "A lovely trail",

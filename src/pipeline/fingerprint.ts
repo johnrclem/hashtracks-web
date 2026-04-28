@@ -4,11 +4,21 @@ import type { RawEventData } from "@/adapters/types";
 /**
  * Generate a deterministic fingerprint for a raw event.
  * Used to detect unchanged events and skip re-processing.
+ *
+ * `kennelTags` is sorted before joining — adapters that emit multi-kennel
+ * tags from set-typed sources (e.g. Hash Rego API) can return them in
+ * non-deterministic order, and an unsorted join would produce a fresh
+ * fingerprint on every scrape and break idempotency
+ * (memory: feedback_fingerprint_stability — Seletar PR #541, 74 dups).
+ *
+ * Single-tag events fingerprint identically to pre-#1023 (single-element
+ * sorted-join is the same string as the bare tag).
  */
 export function generateFingerprint(data: RawEventData): string {
+  const sortedTags = [...data.kennelTags].sort((a, b) => a.localeCompare(b));
   const input = [
     data.date,
-    data.kennelTag,
+    sortedTags.join(","),
     data.runNumber?.toString() ?? "",
     data.title ?? "",
     data.location ?? "",

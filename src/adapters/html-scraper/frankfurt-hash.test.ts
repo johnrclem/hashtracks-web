@@ -209,7 +209,7 @@ describe("parseJEMEvent", () => {
     expect(event!.title).toBe("Frankfurt Hash House Harriers #2114");
     expect(event!.location).toBe("Golfclub Rheinblick");
     expect(event!.runNumber).toBe(2114);
-    expect(event!.kennelTag).toBe("FH3"); // default, no pattern match
+    expect(event!.kennelTags[0]).toBe("FH3"); // default, no pattern match
     expect(event!.sourceUrl).toBe("https://frankfurt-hash.de/coming-runs/event/1234:fh3-run-2114");
   });
 
@@ -280,7 +280,7 @@ describe("parseJEMEvent", () => {
     const event = parseJEMEvent($li, $, compiled, defaultTag, baseUrl);
 
     expect(event).not.toBeNull();
-    expect(event!.kennelTag).toBe("FFMH3");
+    expect(event!.kennelTags[0]).toBe("FFMH3");
     expect(event!.startTime).toBe("19:00");
   });
 
@@ -298,7 +298,7 @@ describe("parseJEMEvent", () => {
     const event = parseJEMEvent($li, $, compiled, defaultTag, baseUrl);
 
     expect(event).not.toBeNull();
-    expect(event!.kennelTag).toBe("SHITS");
+    expect(event!.kennelTags[0]).toBe("SHITS");
   });
 
   it("matches DOM pattern for DOM Run events", () => {
@@ -315,7 +315,7 @@ describe("parseJEMEvent", () => {
     const event = parseJEMEvent($li, $, compiled, defaultTag, baseUrl);
 
     expect(event).not.toBeNull();
-    expect(event!.kennelTag).toBe("DOM");
+    expect(event!.kennelTags[0]).toBe("DOM");
     expect(event!.runNumber).toBe(42);
   });
 
@@ -333,7 +333,7 @@ describe("parseJEMEvent", () => {
     const event = parseJEMEvent($li, $, compiled, defaultTag, baseUrl);
 
     expect(event).not.toBeNull();
-    expect(event!.kennelTag).toBe("Bike Hash");
+    expect(event!.kennelTags[0]).toBe("Bike Hash");
   });
 
   it("extracts 'Run NNN' style run numbers", () => {
@@ -435,7 +435,7 @@ describe("parseJEMEvent", () => {
     expect(event!.title).toBe("FH3 Run #2119");
     expect(event!.runNumber).toBe(2119);
     expect(event!.hares).toBe("Whore Durve");
-    expect(event!.kennelTag).toBe("FH3");
+    expect(event!.kennelTags[0]).toBe("FH3");
   });
 
   it("strips ' Hare - <name>' suffix and extracts hares (archive dash form, #961)", () => {
@@ -477,11 +477,11 @@ describe("parseJEMEventList", () => {
     const events = parseJEMEventList(UPCOMING_HTML, compiled, "FH3", "https://frankfurt-hash.de");
 
     expect(events).toHaveLength(5);
-    expect(events[0].kennelTag).toBe("FH3");
-    expect(events[1].kennelTag).toBe("FFMH3");
-    expect(events[2].kennelTag).toBe("SHITS");
-    expect(events[3].kennelTag).toBe("DOM");
-    expect(events[4].kennelTag).toBe("Bike Hash");
+    expect(events[0].kennelTags[0]).toBe("FH3");
+    expect(events[1].kennelTags[0]).toBe("FFMH3");
+    expect(events[2].kennelTags[0]).toBe("SHITS");
+    expect(events[3].kennelTags[0]).toBe("DOM");
+    expect(events[4].kennelTags[0]).toBe("Bike Hash");
   });
 
   it("extracts venues correctly including HTML entities", () => {

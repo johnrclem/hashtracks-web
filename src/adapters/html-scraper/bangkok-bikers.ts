@@ -58,7 +58,7 @@ export function parseBikersNextRide(
 
   return {
     date,
-    kennelTag: KENNEL_TAG,
+    kennelTags: [KENNEL_TAG],
     runNumber,
     hares: normalizeHaresField(hares),
     location: location || undefined,
@@ -106,7 +106,7 @@ export class BangkokBikersAdapter implements SourceAdapter {
 
         events.push({
           date: dateMatch,
-          kennelTag: KENNEL_TAG,
+          kennelTags: [KENNEL_TAG],
           runNumber: runMatch ? Number.parseInt(runMatch[1], 10) : undefined,
           hares: normalizeHaresField(hareMatch?.[1]?.trim()),
           sourceUrl: baseUrl,

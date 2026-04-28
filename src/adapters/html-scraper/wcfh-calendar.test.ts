@@ -205,15 +205,15 @@ describe("WCFHCalendarAdapter.fetch", () => {
     } as never);
 
     // First event is Feb 22 CH3 (circus-h3)
-    const feb22 = result.events.find(e => e.date === "2026-02-22" && e.kennelTag === "circus-h3");
+    const feb22 = result.events.find(e => e.date === "2026-02-22" && e.kennelTags[0] === "circus-h3");
     expect(feb22).toBeDefined();
     expect(feb22!.sourceUrl).toBe("https://www.jollyrogerh3.com/WCFH_Calendar.htm");
 
     // March events
-    const mar1 = result.events.find(e => e.date === "2026-03-01" && e.kennelTag === "b2b-h3");
+    const mar1 = result.events.find(e => e.date === "2026-03-01" && e.kennelTags[0] === "b2b-h3");
     expect(mar1).toBeDefined();
 
-    const mar8 = result.events.find(e => e.date === "2026-03-08" && e.kennelTag === "circus-h3");
+    const mar8 = result.events.find(e => e.date === "2026-03-08" && e.kennelTags[0] === "circus-h3");
     expect(mar8).toBeDefined();
 
     vi.restoreAllMocks();
@@ -233,7 +233,7 @@ describe("WCFHCalendarAdapter.fetch", () => {
     // Apr 5 has both CH3 (circus-h3) and B2BH3 (b2b-h3)
     const apr5Events = result.events.filter(e => e.date === "2026-04-05");
     expect(apr5Events).toHaveLength(2);
-    expect(apr5Events.map(e => e.kennelTag).sort()).toEqual(["b2b-h3", "circus-h3"]);
+    expect(apr5Events.map(e => e.kennelTags[0]).sort()).toEqual(["b2b-h3", "circus-h3"]);
 
     vi.restoreAllMocks();
   });
@@ -270,7 +270,7 @@ describe("WCFHCalendarAdapter.fetch", () => {
 
     const knownTags = new Set(["barf-h3", "b2b-h3", "jrh3", "lh3-fl", "sbh3", "lush", "nsah3", "circus-h3", "sph3-fl", "tth3-fl", "tbh3-fl"]);
     for (const event of result.events) {
-      expect(knownTags.has(event.kennelTag)).toBe(true);
+      expect(knownTags.has(event.kennelTags[0])).toBe(true);
     }
 
     vi.restoreAllMocks();
@@ -288,27 +288,27 @@ describe("WCFHCalendarAdapter.fetch", () => {
     } as never);
 
     // TTH3 should use the display abbreviation, not the kennelCode "tth3-fl"
-    const tth3 = result.events.find(e => e.kennelTag === "tth3-fl");
+    const tth3 = result.events.find(e => e.kennelTags[0] === "tth3-fl");
     expect(tth3).toBeDefined();
     expect(tth3!.title).toBe("TTH3 Trail");
 
     // CH3 → circus-h3 should produce "CH3 Trail"
-    const ch3 = result.events.find(e => e.kennelTag === "circus-h3");
+    const ch3 = result.events.find(e => e.kennelTags[0] === "circus-h3");
     expect(ch3).toBeDefined();
     expect(ch3!.title).toBe("CH3 Trail");
 
     // SPH3 → sph3-fl should produce "SPH3 Trail"
-    const sph3 = result.events.find(e => e.kennelTag === "sph3-fl");
+    const sph3 = result.events.find(e => e.kennelTags[0] === "sph3-fl");
     expect(sph3).toBeDefined();
     expect(sph3!.title).toBe("SPH3 Trail");
 
     // B2BH3 → b2b-h3 should produce "B2BH3 Trail"
-    const b2b = result.events.find(e => e.kennelTag === "b2b-h3");
+    const b2b = result.events.find(e => e.kennelTags[0] === "b2b-h3");
     expect(b2b).toBeDefined();
     expect(b2b!.title).toBe("B2BH3 Trail");
 
     // TBH3 → tbh3-fl should produce "TBH3 Trail"
-    const tbh3 = result.events.find(e => e.kennelTag === "tbh3-fl");
+    const tbh3 = result.events.find(e => e.kennelTags[0] === "tbh3-fl");
     expect(tbh3).toBeDefined();
     expect(tbh3!.title).toBe("TBH3 Trail");
 

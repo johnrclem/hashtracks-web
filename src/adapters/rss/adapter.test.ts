@@ -111,7 +111,7 @@ describe("RssAdapter", () => {
       expect(result.events).toHaveLength(1);
 
       const ev = result.events[0];
-      expect(ev.kennelTag).toBe("TestH3");
+      expect(ev.kennelTags[0]).toBe("TestH3");
       expect(ev.title).toBe("Trail #42 — Central Park");
       expect(ev.sourceUrl).toBe("https://example.com/trail-42");
       // date is YYYY-MM-DD

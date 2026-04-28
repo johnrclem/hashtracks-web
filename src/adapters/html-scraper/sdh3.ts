@@ -289,8 +289,7 @@ export function parseHarelineEvents(
 
     events.push({
       date: parsed.date,
-      kennelTag,
-      startTime: parsed.startTime,
+      kennelTags: [kennelTag],      startTime: parsed.startTime,
       title,
       hares,
       location,
@@ -345,8 +344,7 @@ export function parseHistoryEvents(
 
     events.push({
       date: entry.date,
-      kennelTag,
-      startTime: entry.startTime,
+      kennelTags: [kennelTag],      startTime: entry.startTime,
       title: entry.title,
       sourceUrl: entry.sourceUrl,
     });
@@ -552,10 +550,10 @@ export class SDH3Adapter implements SourceAdapter {
     // ── Step 3: Combine and dedup ──
     // Hareline events win when both pages have the same date+kennel
     const harelineKeys = new Set(
-      harelineEvents.map((e) => `${e.date}|${e.kennelTag}`),
+      harelineEvents.map((e) => `${e.date}|${e.kennelTags[0]}`),
     );
     const dedupedHistory = historyEvents.filter(
-      (e) => !harelineKeys.has(`${e.date}|${e.kennelTag}`),
+      (e) => !harelineKeys.has(`${e.date}|${e.kennelTags[0]}`),
     );
 
     const allEvents = [...harelineEvents, ...dedupedHistory];

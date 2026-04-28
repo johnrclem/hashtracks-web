@@ -57,7 +57,7 @@ describe("parseHashHorrorsHareline", () => {
   it("tags every event with kennelTag 'hhhorrors' and default startTime", () => {
     const text = "2026 1016 – May 17 – Wade Family";
     const events = parseHashHorrorsHareline(text).events;
-    expect(events[0].kennelTag).toBe("hhhorrors");
+    expect(events[0].kennelTags[0]).toBe("hhhorrors");
     expect(events[0].startTime).toBe("16:30");
   });
 

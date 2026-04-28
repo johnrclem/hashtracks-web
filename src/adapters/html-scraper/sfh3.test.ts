@@ -307,7 +307,7 @@ describe("SFH3Adapter.fetch", () => {
     // Verify first event (SFH3)
     const sfh3Event = result.events[0];
     expect(sfh3Event.date).toBe("2026-03-03");
-    expect(sfh3Event.kennelTag).toBe("sfh3");
+    expect(sfh3Event.kennelTags[0]).toBe("sfh3");
     expect(sfh3Event.runNumber).toBe(2302);
     expect(sfh3Event.title).toBe("A Very Heated Rivalry");
     expect(sfh3Event.hares).toBe("Trail Blazer");
@@ -317,12 +317,12 @@ describe("SFH3Adapter.fetch", () => {
 
     // Verify second event (GPH3)
     const gph3Event = result.events[1];
-    expect(gph3Event.kennelTag).toBe("gph3");
+    expect(gph3Event.kennelTags[0]).toBe("gph3");
     expect(gph3Event.runNumber).toBe(1700);
 
     // Verify Marin H3 event (kennel pattern with space)
     const marinEvent = result.events[4];
-    expect(marinEvent.kennelTag).toBe("marinh3");
+    expect(marinEvent.kennelTags[0]).toBe("marinh3");
     expect(marinEvent.runNumber).toBe(292);
 
     vi.restoreAllMocks();
@@ -377,8 +377,8 @@ describe("SFH3Adapter.fetch", () => {
     } as never);
 
     expect(result.events).toHaveLength(2);
-    expect(result.events[0].kennelTag).toBe("sfh3");
-    expect(result.events[1].kennelTag).toBe("gph3");
+    expect(result.events[0].kennelTags[0]).toBe("sfh3");
+    expect(result.events[1].kennelTags[0]).toBe("gph3");
     expect(result.diagnosticContext).toMatchObject({
       rowsFound: 4,
       eventsParsed: 2,
@@ -430,7 +430,7 @@ describe("SFH3Adapter.fetch", () => {
     } as never);
 
     expect(result.events).toHaveLength(1);
-    expect(result.events[0].kennelTag).toBe("SFH3");
+    expect(result.events[0].kennelTags[0]).toBe("SFH3");
     expect(result.diagnosticContext).toMatchObject({
       rowsFound: 2,
       eventsParsed: 1,
@@ -465,7 +465,7 @@ describe("SFH3Adapter.fetch", () => {
 
     // Without skipPatterns, the row is emitted (falls back to defaultKennelTag)
     expect(result.events).toHaveLength(1);
-    expect(result.events[0].kennelTag).toBe("sfh3");
+    expect(result.events[0].kennelTags[0]).toBe("sfh3");
     expect(result.diagnosticContext).toMatchObject({ skippedPattern: 0 });
 
     vi.restoreAllMocks();
@@ -495,7 +495,7 @@ describe("SFH3Adapter.fetch", () => {
     } as never);
 
     expect(result.events).toHaveLength(1);
-    expect(result.events[0].kennelTag).toBe("sfh3");
+    expect(result.events[0].kennelTags[0]).toBe("sfh3");
 
     vi.restoreAllMocks();
   });
@@ -688,7 +688,7 @@ describe("isGenericSFH3Title", () => {
   it("does not classify `Campout #5` or other descriptive `{word} #N` titles as generic (Codex PR #557 review)", () => {
     // Without the kennelTag anchor, the earlier heuristic classified any
     // "{single-word} #N" shape as generic. The fix ties the check to the
-    // event's own kennelTag: only titles that literally begin with the tag
+    // event's own kennelTags: [only titles that literally begin with the tag]
     // are candidates for override. "Campout" is a descriptive noun, not
     // the Agnews kennel slug, so its title must survive enrichment.
     expect(isGenericSFH3Title("Campout #5", "agnews")).toBe(false);
@@ -729,7 +729,7 @@ describe("enrichSFH3Events — preserves descriptive titles (#545)", () => {
   function buildEvent(overrides: Partial<RawEventData>): RawEventData {
     return {
       date: "2026-04-09",
-      kennelTag: "agnews",
+      kennelTags: ["agnews"],
       sourceUrl: "https://www.sfh3.com/runs/6495",
       ...overrides,
     };
@@ -760,7 +760,7 @@ describe("enrichSFH3Events — preserves descriptive titles (#545)", () => {
     const events = [
       buildEvent({
         date: "2026-08-15",
-        kennelTag: "262h3",
+        kennelTags: ["262h3"],
         title: "26.2H3 #7",
         runNumber: 7,
         sourceUrl: "https://www.sfh3.com/runs/6478",

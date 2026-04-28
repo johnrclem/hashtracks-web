@@ -104,7 +104,7 @@ describe("parseMotherHashBlock", () => {
       url: "https://waze.com/ul/hw282wz7gv",
       label: "Waze",
     });
-    expect(event?.kennelTag).toBe("motherh3");
+    expect(event?.kennelTags[0]).toBe("motherh3");
     expect(event?.sourceUrl).toBe("https://www.motherhash.org");
   });
 

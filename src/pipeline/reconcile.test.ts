@@ -57,7 +57,7 @@ beforeEach(() => {
 describe("reconcileStaleEvents", () => {
   it("cancels sole-source events not in current scrape", async () => {
     const scrapedEvents = [
-      buildRawEvent({ date: "2026-02-14", kennelTag: "BoBBH3" }),
+      buildRawEvent({ date: "2026-02-14", kennelTags: ["BoBBH3" ]}),
     ];
 
     // DB has two events for kennel_1, but scrape only returned one date
@@ -81,7 +81,7 @@ describe("reconcileStaleEvents", () => {
 
   it("preserves multi-source events when one source removes them", async () => {
     const scrapedEvents = [
-      buildRawEvent({ date: "2026-02-14", kennelTag: "BoBBH3" }),
+      buildRawEvent({ date: "2026-02-14", kennelTags: ["BoBBH3" ]}),
     ];
 
     mockEventFindMany.mockResolvedValueOnce([
@@ -101,8 +101,8 @@ describe("reconcileStaleEvents", () => {
 
   it("does not cancel events that match scraped dates", async () => {
     const scrapedEvents = [
-      buildRawEvent({ date: "2026-02-14", kennelTag: "BoBBH3" }),
-      buildRawEvent({ date: "2026-02-21", kennelTag: "BoBBH3" }),
+      buildRawEvent({ date: "2026-02-14", kennelTags: ["BoBBH3" ]}),
+      buildRawEvent({ date: "2026-02-21", kennelTags: ["BoBBH3" ]}),
     ];
 
     mockEventFindMany.mockResolvedValueOnce([
@@ -141,8 +141,8 @@ describe("reconcileStaleEvents", () => {
       .mockResolvedValueOnce({ kennelId: "kennel_1", matched: true });
 
     const scrapedEvents = [
-      buildRawEvent({ date: "2026-02-14", kennelTag: "Unknown" }),
-      buildRawEvent({ date: "2026-02-21", kennelTag: "BoBBH3" }),
+      buildRawEvent({ date: "2026-02-14", kennelTags: ["Unknown" ]}),
+      buildRawEvent({ date: "2026-02-21", kennelTags: ["BoBBH3" ]}),
     ];
 
     // DB has both dates
@@ -172,8 +172,8 @@ describe("reconcileStaleEvents", () => {
       .mockResolvedValueOnce({ kennelId: "kennel_2", matched: true });
 
     const scrapedEvents = [
-      buildRawEvent({ date: "2026-02-14", kennelTag: "BoBBH3" }),
-      buildRawEvent({ date: "2026-02-14", kennelTag: "BoH3" }),
+      buildRawEvent({ date: "2026-02-14", kennelTags: ["BoBBH3" ]}),
+      buildRawEvent({ date: "2026-02-14", kennelTags: ["BoH3" ]}),
     ];
 
     // DB has events for both kennels, plus an extra for kennel_2
@@ -202,7 +202,7 @@ describe("reconcileStaleEvents", () => {
     const scrapedEvents = [
       buildRawEvent({
         date: "2026-02-14",
-        kennelTag: "BoBBH3",
+        kennelTags: ["BoBBH3"],
         sourceUrl: "https://example.com/past/detail?id=123",
       }),
     ];
@@ -234,7 +234,7 @@ describe("reconcileStaleEvents", () => {
     const scrapedEvents = [
       buildRawEvent({
         date: "2026-03-08",
-        kennelTag: "BoH3",
+        kennelTags: ["BoH3"],
         sourceUrl: "https://example.com/trail-a",
       }),
     ];
@@ -269,7 +269,7 @@ describe("reconcileStaleEvents", () => {
     const scrapedEvents = [
       buildRawEvent({
         date: "2026-03-08",
-        kennelTag: "BoH3",
+        kennelTags: ["BoH3"],
         sourceUrl: undefined,
         startTime: undefined,
         title: undefined,
@@ -301,7 +301,7 @@ describe("reconcileStaleEvents", () => {
         // Cast through unknown because the type says YYYY-MM-DD — this is the
         // adapter-bug scenario we're protecting against.
         date: "2026-02-14T15:00:00Z" as unknown as string,
-        kennelTag: "BoBBH3",
+        kennelTags: ["BoBBH3"],
       }),
     ];
 
@@ -324,7 +324,7 @@ describe("reconcileStaleEvents", () => {
     const scrapedEvents = [
       buildRawEvent({
         date: "2026-2-14 15:00:00" as unknown as string,
-        kennelTag: "BoBBH3",
+        kennelTags: ["BoBBH3"],
       }),
     ];
 
@@ -348,7 +348,7 @@ describe("reconcileStaleEvents", () => {
     const scrapedEvents = [
       buildRawEvent({
         date: "2026-02-14T23:30:00-05:00" as unknown as string,
-        kennelTag: "BoBBH3",
+        kennelTags: ["BoBBH3"],
       }),
     ];
 
@@ -376,7 +376,7 @@ describe("reconcileStaleEvents", () => {
         // Sole scraped row for kennel_1; date is garbage. Without the safeguard,
         // any canonical of kennel_1 would look orphaned and get cancelled.
         date: "not-a-date" as unknown as string,
-        kennelTag: "BoBBH3",
+        kennelTags: ["BoBBH3"],
       }),
     ];
 
@@ -411,11 +411,11 @@ describe("reconcileStaleEvents", () => {
     const scrapedEvents = [
       buildRawEvent({
         date: "not-a-date" as unknown as string,
-        kennelTag: "BoBBH3",
+        kennelTags: ["BoBBH3"],
       }),
       buildRawEvent({
         date: "2026-02-14",
-        kennelTag: "Kennel2",
+        kennelTags: ["Kennel2"],
       }),
     ];
 
@@ -457,13 +457,13 @@ describe("reconcileStaleEvents", () => {
     const scrapedEvents = [
       buildRawEvent({
         date: "2026-03-08",
-        kennelTag: "BoH3",
+        kennelTags: ["BoH3"],
         sourceUrl: "https://example.com/trail-a",
         startTime: "10:30",
       }),
       buildRawEvent({
         date: "2026-03-08",
-        kennelTag: "BoH3",
+        kennelTags: ["BoH3"],
         // URL drifted from trail-b to a per-event detail page
         sourceUrl: "https://example.com/detail?id=999",
         startTime: "14:30",
@@ -499,8 +499,8 @@ describe("reconcileStaleEvents", () => {
 
   it("does not cancel same-day events when both present in scrape", async () => {
     const scrapedEvents = [
-      buildRawEvent({ date: "2026-03-08", kennelTag: "BoH3", sourceUrl: "https://example.com/trail-a" }),
-      buildRawEvent({ date: "2026-03-08", kennelTag: "BoH3", sourceUrl: "https://example.com/trail-b" }),
+      buildRawEvent({ date: "2026-03-08", kennelTags: ["BoH3"], sourceUrl: "https://example.com/trail-a" }),
+      buildRawEvent({ date: "2026-03-08", kennelTags: ["BoH3"], sourceUrl: "https://example.com/trail-b" }),
     ];
 
     mockEventFindMany.mockResolvedValueOnce([
@@ -524,7 +524,7 @@ describe("reconcileStaleEvents", () => {
     mockResolve.mockResolvedValueOnce({ kennelId: "kennel_1", matched: true });
 
     const scrapedEvents = [
-      buildRawEvent({ date: "2026-02-14", kennelTag: "BoBBH3" }),
+      buildRawEvent({ date: "2026-02-14", kennelTags: ["BoBBH3" ]}),
     ];
 
     // DB returns events for both kennels in the window (scoped to kennel_1 only)
@@ -557,7 +557,7 @@ describe("reconcileStaleEvents", () => {
 
   it("cancels multiple orphaned events in one batch", async () => {
     const scrapedEvents = [
-      buildRawEvent({ date: "2026-02-14", kennelTag: "BoBBH3" }),
+      buildRawEvent({ date: "2026-02-14", kennelTags: ["BoBBH3" ]}),
     ];
 
     mockEventFindMany.mockResolvedValueOnce([
@@ -589,7 +589,7 @@ describe("reconcileStaleEvents", () => {
     mockResolve.mockResolvedValue({ kennelId: "kennel_1", matched: true });
 
     const scrapedEvents = [
-      buildRawEvent({ date: "2026-02-14", kennelTag: "BoBBH3" }),
+      buildRawEvent({ date: "2026-02-14", kennelTags: ["BoBBH3" ]}),
     ];
 
     // DB has events for both kennels — kennel_2's event would be orphaned
@@ -622,7 +622,7 @@ describe("reconcileStaleEvents", () => {
     mockResolve.mockResolvedValue({ kennelId: "kennel_1", matched: true });
 
     const scrapedEvents = [
-      buildRawEvent({ date: "2026-02-14", kennelTag: "BoBBH3" }),
+      buildRawEvent({ date: "2026-02-14", kennelTags: ["BoBBH3" ]}),
     ];
 
     mockEventFindMany.mockResolvedValueOnce([] as never);
@@ -648,7 +648,7 @@ describe("reconcileStaleEvents", () => {
     mockResolve.mockResolvedValue({ kennelId: "kennel_1", matched: true });
 
     const scrapedEvents = [
-      buildRawEvent({ date: "2026-02-14", kennelTag: "BoBBH3" }),
+      buildRawEvent({ date: "2026-02-14", kennelTags: ["BoBBH3" ]}),
     ];
 
     mockEventFindMany.mockResolvedValueOnce([] as never);
@@ -675,7 +675,7 @@ describe("reconcileStaleEvents", () => {
     mockResolve.mockResolvedValue({ kennelId: "kennel_1", matched: true });
 
     const scrapedEvents = [
-      buildRawEvent({ date: "2026-02-14", kennelTag: "BoBBH3" }),
+      buildRawEvent({ date: "2026-02-14", kennelTags: ["BoBBH3" ]}),
     ];
 
     mockEventFindMany.mockResolvedValueOnce([

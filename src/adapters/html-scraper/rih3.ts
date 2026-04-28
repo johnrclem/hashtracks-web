@@ -182,7 +182,7 @@ export function parseHarelineRow(
 
   return {
     date,
-    kennelTag: "rih3",
+    kennelTags: ["rih3"],
     title,
     runNumber,
     hares,

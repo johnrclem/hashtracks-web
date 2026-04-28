@@ -10,7 +10,7 @@ describe("parsePattayaRow", () => {
 
     expect(event).not.toBeNull();
     expect(event!.date).toBe("2026-04-13");
-    expect(event!.kennelTag).toBe("pattaya-h3");
+    expect(event!.kennelTags[0]).toBe("pattaya-h3");
     expect(event!.runNumber).toBe(2146);
     expect(event!.hares).toContain("Lady Squeeze My Tube");
     expect(event!.hares).toContain("Many Drinks");

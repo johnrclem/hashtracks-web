@@ -115,7 +115,7 @@ export function parseSlashRow(cells: string[]): RawEventData | null {
 
   return {
     date,
-    kennelTag: "slh3",
+    kennelTags: ["slh3"],
     runNumber,
     title: runNumber ? `SLASH Run #${runNumber}` : undefined,
     hares,

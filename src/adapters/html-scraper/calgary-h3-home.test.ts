@@ -119,7 +119,7 @@ describe("CalgaryH3HomeAdapter", () => {
     expect(run2455.date).toBe("2026-04-02");
     expect(run2455.startTime).toBe("19:00");
     expect(run2455.location).toBe("Kensington Pub");
-    expect(run2455.kennelTag).toBe("ch3-ab");
+    expect(run2455.kennelTags[0]).toBe("ch3-ab");
     expect(run2455.sourceUrl).toBe("https://home.onon.org/events/2455/");
 
     const badThursday = result.events[1];

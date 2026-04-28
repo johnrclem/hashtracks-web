@@ -46,10 +46,10 @@ function utcDate(y: number, m: number, d: number, h = 0, min = 0, s = 0): Date {
   return new Date(Date.UTC(y, m, d, h, min, s));
 }
 
-/** Assert that every event has the given property value. */
+/** Assert that every event has the given property value (deep equality for arrays/objects). */
 function expectAllEvents(events: RawEventData[], prop: keyof RawEventData, value: unknown): void {
   for (const event of events) {
-    expect(event[prop]).toBe(value);
+    expect(event[prop]).toEqual(value);
   }
 }
 
@@ -335,7 +335,7 @@ describe("StaticScheduleAdapter", () => {
     });
 
     it("assigns kennelTag to all events", () => {
-      expectAllEvents(result.events, "kennelTag", "Rumson");
+      expectAllEvents(result.events, "kennelTags", ["Rumson"]);
     });
 
     it("omits startTime when not configured", () => {

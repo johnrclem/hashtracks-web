@@ -88,7 +88,7 @@ describe("parseEventRow", () => {
     const event = parseEventRow($, $(rows[0]), BASE_CONFIG, "https://example.com");
     expect(event).toEqual({
       date: "2026-03-15",
-      kennelTag: "DFWH3",
+      kennelTags: ["DFWH3"],
       title: undefined,
       hares: "Salty Dog & Beer Me",
       location: "The Rusty Bucket",
@@ -117,7 +117,7 @@ describe("parseEventRow", () => {
 
   it("uses defaultKennelTag when no kennelTag column configured", () => {
     const event = parseEventRow($, $(rows[0]), BASE_CONFIG, "https://example.com");
-    expect(event?.kennelTag).toBe("DFWH3");
+    expect(event?.kennelTags[0]).toBe("DFWH3");
   });
 
   it("parses en-GB dates correctly", () => {
@@ -556,7 +556,7 @@ describe("GenericHtmlAdapter", () => {
 describe("fixYearMonotonicity", () => {
   const makeEvent = (date: string, runNumber?: number) => ({
     date,
-    kennelTag: "TEST",
+    kennelTags: ["TEST"],
     sourceUrl: "https://example.com",
     runNumber,
   });

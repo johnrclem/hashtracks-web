@@ -444,7 +444,7 @@ export class MerseyThirstdaysAdapter implements SourceAdapter {
 
           events.push({
             date: run.date,
-            kennelTag: KENNEL_TAG,
+            kennelTags: [KENNEL_TAG],
             runNumber: run.runNumber,
             title,
             hares: run.hares,
@@ -511,7 +511,7 @@ export class MerseyThirstdaysAdapter implements SourceAdapter {
 
                 events.push({
                   date: run.date,
-                  kennelTag: KENNEL_TAG,
+                  kennelTags: [KENNEL_TAG],
                   runNumber: run.runNumber,
                   title,
                   hares: run.hares,

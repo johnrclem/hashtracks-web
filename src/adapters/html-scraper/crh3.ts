@@ -122,7 +122,7 @@ export function parseCrh3Post(post: Crh3PostInput): ParseCrh3PostResult {
     ok: true,
     event: {
       date,
-      kennelTag: KENNEL_TAG,
+      kennelTags: [KENNEL_TAG],
       runNumber: titleFields.runNumber,
       hares: normalizeHaresField(body.hares),
       location: body.location,

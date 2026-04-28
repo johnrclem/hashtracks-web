@@ -33,7 +33,7 @@ describe("parseNextRunArticle", () => {
     const event = parseNextRunArticle(NEXT_RUN_HTML, "bth3", "18:30", "https://www.bangkokhash.com/thursday/index.php");
     expect(event).not.toBeNull();
     expect(event!.date).toBe("2026-04-16");
-    expect(event!.kennelTag).toBe("bth3");
+    expect(event!.kennelTags[0]).toBe("bth3");
     expect(event!.runNumber).toBe(519);
     expect(event!.startTime).toBe("18:30");
     expect(event!.hares).toBe("Jessticles");
@@ -45,7 +45,7 @@ describe("parseNextRunArticle", () => {
     const event = parseNextRunArticle(SIAM_SUNDAY_HTML, "s2h3", "16:30", "https://www.bangkokhash.com/siamsunday/index.php");
     expect(event).not.toBeNull();
     expect(event!.date).toBe("2026-04-12");
-    expect(event!.kennelTag).toBe("s2h3");
+    expect(event!.kennelTags[0]).toBe("s2h3");
     expect(event!.runNumber).toBe(653);
     expect(event!.startTime).toBe("16:30");
     expect(event!.hares).toBe("Horny Viking");
@@ -131,7 +131,7 @@ describe("parseNextRunArticle", () => {
     const event = parseNextRunArticle(html, "bfmh3", "18:30", "https://www.bangkokhash.com/fullmoon/index.php/run-archives-bfmh3/157-run-254");
     expect(event).not.toBeNull();
     expect(event!.date).toBe("2026-04-03");
-    expect(event!.kennelTag).toBe("bfmh3");
+    expect(event!.kennelTags[0]).toBe("bfmh3");
     expect(event!.hares).toBe("Patpom");
     expect(event!.location).toBe("BTS Asok");
     expect(event!.locationUrl).toBe("https://maps.app.goo.gl/v5yucg6jKmXALUf59");
@@ -213,7 +213,7 @@ describe("parseHarelineApiHtml", () => {
 
     // First entry: BTH3
     expect(events[0].date).toBe("2026-04-16");
-    expect(events[0].kennelTag).toBe("bth3");
+    expect(events[0].kennelTags[0]).toBe("bth3");
     expect(events[0].runNumber).toBe(519);
     expect(events[0].hares).toBe("Jessticles");
 
@@ -225,7 +225,7 @@ describe("parseHarelineApiHtml", () => {
 
   it("routes Fullmoon entries to bfmh3 tag", () => {
     const events = parseHarelineApiHtml(HARELINE_HTML, "bth3", "bfmh3", "18:30", "https://www.bangkokhash.com/thursday/index.php");
-    const fullmoon = events.find((e) => e.kennelTag === "bfmh3");
+    const fullmoon = events.find((e) => e.kennelTags[0] === "bfmh3");
     expect(fullmoon).toBeDefined();
     expect(fullmoon!.date).toBe("2026-05-01");
     expect(fullmoon!.runNumber).toBe(255);
@@ -234,7 +234,7 @@ describe("parseHarelineApiHtml", () => {
 
   it("does not route Fullmoon when fullmoonTag is null", () => {
     const events = parseHarelineApiHtml(HARELINE_HTML, "s2h3", null, "16:30", "https://www.bangkokhash.com/siamsunday/index.php");
-    const fullmoon = events.find((e) => e.kennelTag === "bfmh3");
+    const fullmoon = events.find((e) => e.kennelTags[0] === "bfmh3");
     expect(fullmoon).toBeUndefined();
   });
 

@@ -52,7 +52,7 @@ describe("parseHkh3Homepage", () => {
     expect(event!.location).toBe("Hollywood Park Road");
     expect(event!.locationUrl).toBe("https://maps.app.goo.gl/gxCPV8ZLegCWebTX8?g_st=ac");
     expect(event!.startTime).toBe("18:00");
-    expect(event!.kennelTag).toBe("hkh3");
+    expect(event!.kennelTags[0]).toBe("hkh3");
     expect(event!.title).toBe("HK H3 Run #2969");
     expect(event!.date).toBe("2026-04-27");
   });

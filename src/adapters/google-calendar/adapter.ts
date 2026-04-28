@@ -942,7 +942,7 @@ export function buildRawEventFromGCalItem(
   const cost = rawDescription ? extractCostFromDescription(rawDescription) : undefined;
   const event: RawEventData = {
     date: dateISO,
-    kennelTag,
+    kennelTags: [kennelTag],
     runNumber: extractRunNumber(summary, rawDescription, compiledRunNumberPatterns),
     title,
     description: appendDescriptionSuffix(description, sourceConfig?.descriptionSuffix),
@@ -1040,7 +1040,7 @@ export class GoogleCalendarAdapter implements SourceAdapter {
             section: "calendar_events",
             error: message,
             rawText: buildGCalDiagnosticContext(item),
-            partialData: { kennelTag: item.summary ?? "unknown", date: item.start?.dateTime ?? item.start?.date },
+            partialData: { kennelTags: [item.summary ?? "unknown"], date: item.start?.dateTime ?? item.start?.date },
           }];
         }
         eventIndex++;
@@ -1103,7 +1103,7 @@ export class GoogleCalendarAdapter implements SourceAdapter {
       const id = gcalIdMap.get(e);
       const key = id
         ? `id:${id}`
-        : `legacy:${e.date}|${e.kennelTag}|${e.startTime ?? ""}|${e.title ?? ""}`;
+        : `legacy:${e.date}|${e.kennelTags[0]}|${e.startTime ?? ""}|${e.title ?? ""}`;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
@@ -1215,7 +1215,7 @@ export function applyInlineHarelineBackfill(
   const todayIso = new Date(referenceTime - 86_400_000).toISOString().split("T")[0];
   const donor = events
     .filter((e) =>
-      e.kennelTag === targetKennel
+      e.kennelTags[0] === targetKennel
       && e.date >= todayIso
       && !!e.description?.includes(blockHeader),
     )
@@ -1229,7 +1229,7 @@ export function applyInlineHarelineBackfill(
 
   let backfilled = 0;
   for (const event of events) {
-    if (event.kennelTag !== targetKennel) continue;
+    if (event.kennelTags[0] !== targetKennel) continue;
     if (event.hares) continue;
     const hares = absoluteMap[event.date];
     if (hares) {

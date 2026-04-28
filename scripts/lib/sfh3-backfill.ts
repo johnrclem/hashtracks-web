@@ -142,7 +142,7 @@ async function fetchPeriodRows(
       : url;
     events.push({
       date,
-      kennelTag: kennelCode,
+      kennelTags: [kennelCode],
       runNumber: row.runNumber,
       title: row.title || undefined,
       hares: row.hare,

@@ -33,7 +33,7 @@ describe("parseLswRow", () => {
 
     expect(result).not.toBeNull();
     expect(result!.date).toBe("2025-04-09");
-    expect(result!.kennelTag).toBe("lsw-h3");
+    expect(result!.kennelTags[0]).toBe("lsw-h3");
     expect(result!.runNumber).toBe(2402);
     expect(result!.hares).toBe("Indy and Inflatable");
     // Source calls this column "DESCRIPTION" but it always holds an HK

@@ -21,7 +21,7 @@ describe("larrikins parseLarrikinsRow", () => {
     expect(e).not.toBeNull();
     expect(e!.date).toBe("2026-04-21");
     expect(e!.runNumber).toBe(2492);
-    expect(e!.kennelTag).toBe("larrikins-au");
+    expect(e!.kennelTags[0]).toBe("larrikins-au");
     expect(e!.hares).toBe("Bejesus");
   });
 

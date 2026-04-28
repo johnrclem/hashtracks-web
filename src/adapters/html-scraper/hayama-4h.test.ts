@@ -47,7 +47,7 @@ describe("parseSectionText", () => {
 
     expect(event).not.toBeNull();
     expect(event!.date).toBe("2026-03-29");
-    expect(event!.kennelTag).toBe("hayama-4h");
+    expect(event!.kennelTags[0]).toBe("hayama-4h");
     expect(event!.runNumber).toBe(204);
     expect(event!.location).toBe("Mejiroyamashita(目白山下)");
     expect(event!.hares).toBe("Super Spreader");

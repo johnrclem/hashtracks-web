@@ -272,13 +272,13 @@ describe("NewTokyoKatchAdapter", () => {
       expect(run456).toBeDefined();
       expect(run456!.date).toBe("2026-01-31");
       expect(run456!.title).toBe("New Tokyo Katch #456");
-      expect(run456!.kennelTag).toBe("new-tokyo-katch");
+      expect(run456!.kennelTags[0]).toBe("new-tokyo-katch");
       expect(run456!.hares).toBe("Tokyo Runner; Sweep: Noodle King");
 
       const run457 = result.events.find((e) => e.runNumber === 457);
       expect(run457).toBeDefined();
       expect(run457!.date).toBe("2026-04-17");
-      expect(run457!.kennelTag).toBe("new-tokyo-katch");
+      expect(run457!.kennelTags[0]).toBe("new-tokyo-katch");
     });
 
     it("verifies browserRender is called with frameUrl option", async () => {

@@ -111,8 +111,7 @@ export function parseChiangMaiLine(
 
   return {
     date,
-    kennelTag,
-    runNumber,
+    kennelTags: [kennelTag],    runNumber,
     hares,
     sourceUrl,
   };

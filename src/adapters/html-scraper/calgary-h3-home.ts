@@ -12,7 +12,7 @@
  * Note: Events Manager loads events via AJAX, so this adapter uses
  * fetchBrowserRenderedPage() to get the fully rendered HTML.
  *
- * kennelTag: "ch3-ab"
+ * kennelTags: ["ch3-ab"]
  */
 
 import type { Source } from "@/generated/prisma/client";
@@ -120,7 +120,7 @@ export class CalgaryH3HomeAdapter implements SourceAdapter {
 
         events.push({
           date: dateStr,
-          kennelTag: KENNEL_TAG,
+          kennelTags: [KENNEL_TAG],
           runNumber,
           title: title || undefined,
           location,

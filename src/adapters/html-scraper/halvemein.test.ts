@@ -83,7 +83,7 @@ describe("parseHalveMeinRow", () => {
     expect(result!.startTime).toBe("18:00");
     expect(result!.location).toBe("Crossroads Brewing, Athens, NY");
     expect(result!.hares).toBe("Hashy McHashface");
-    expect(result!.kennelTag).toBe("halvemein");
+    expect(result!.kennelTags[0]).toBe("halvemein");
     expect(result!.title).toBe("HMHHH #825");
   });
 

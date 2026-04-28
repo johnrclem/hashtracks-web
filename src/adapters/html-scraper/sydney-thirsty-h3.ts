@@ -149,7 +149,7 @@ export function parseThirstyBlock(
 
   return runNumbers.map((runNumber) => ({
     date,
-    kennelTag: KENNEL_TAG,
+    kennelTags: [KENNEL_TAG],
     runNumber,
     location,
     locationUrl,

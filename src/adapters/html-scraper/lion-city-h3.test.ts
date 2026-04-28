@@ -89,7 +89,7 @@ Map – On On: A bar</p>`;
     expect(event).toMatchObject({
       date: "2026-04-03",
       startTime: "18:00",
-      kennelTag: "lch3",
+      kennelTags: ["lch3"],
       runNumber: 2193,
       title: "Hash Run #2193",
       hares: "Lap Dog",

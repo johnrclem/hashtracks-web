@@ -402,7 +402,7 @@ describe("MeetupAdapter", () => {
       { days: 365 },
     );
     expect(result.events.length).toBe(1);
-    expect(result.events[0].kennelTag).toBe("NYCH3");
+    expect(result.events[0].kennelTags[0]).toBe("NYCH3");
     expect(result.events[0].title).toBe("Trail #42 — Central Park");
     expect(result.events[0].date).toBe("2026-03-15");
     expect(result.events[0].startTime).toBe("18:00");
@@ -1059,7 +1059,7 @@ describe("buildRawEventFromApollo — kennelPatterns", () => {
     };
     const patterns: [RegExp, string][] = [[/^BIBH3/i, "bibh3"], [/^TMFMH3/i, "tmfmh3"]];
     const event = buildRawEventFromApollo(ev as never, emptyState, "rvah3", patterns);
-    expect(event.kennelTag).toBe("bibh3");
+    expect(event.kennelTags[0]).toBe("bibh3");
   });
 
   it("routes Chain Gang event correctly", () => {
@@ -1071,7 +1071,7 @@ describe("buildRawEventFromApollo — kennelPatterns", () => {
     };
     const patterns: [RegExp, string][] = [[/^BIBH3/i, "bibh3"], [/^Chain Gang/i, "chain-gang-hhh"]];
     const event = buildRawEventFromApollo(ev as never, emptyState, "rvah3", patterns);
-    expect(event.kennelTag).toBe("chain-gang-hhh");
+    expect(event.kennelTags[0]).toBe("chain-gang-hhh");
   });
 
   it("routes prefixed Chain Gang AGM title with word-boundary pattern (#992)", () => {
@@ -1090,7 +1090,7 @@ describe("buildRawEventFromApollo — kennelPatterns", () => {
       [/\bChain Gang\b/i, "chain-gang-hhh"],
     ];
     const event = buildRawEventFromApollo(ev as never, emptyState, "rvah3", patterns);
-    expect(event.kennelTag).toBe("chain-gang-hhh");
+    expect(event.kennelTags[0]).toBe("chain-gang-hhh");
   });
 
   it("routes Belle Isle alt-name to bibh3 with word-boundary pattern (#992)", () => {
@@ -1105,7 +1105,7 @@ describe("buildRawEventFromApollo — kennelPatterns", () => {
       [/\bChain Gang\b/i, "chain-gang-hhh"],
     ];
     const event = buildRawEventFromApollo(ev as never, emptyState, "rvah3", patterns);
-    expect(event.kennelTag).toBe("bibh3");
+    expect(event.kennelTags[0]).toBe("bibh3");
   });
 
   it("falls back to default kennelTag when no pattern matches", () => {
@@ -1117,7 +1117,7 @@ describe("buildRawEventFromApollo — kennelPatterns", () => {
     };
     const patterns: [RegExp, string][] = [[/^BIBH3/i, "bibh3"], [/^TMFMH3/i, "tmfmh3"]];
     const event = buildRawEventFromApollo(ev as never, emptyState, "rvah3", patterns);
-    expect(event.kennelTag).toBe("rvah3");
+    expect(event.kennelTags[0]).toBe("rvah3");
   });
 
   it("uses default kennelTag when no patterns provided", () => {
@@ -1128,7 +1128,7 @@ describe("buildRawEventFromApollo — kennelPatterns", () => {
       dateTime: "2026-04-08T18:30:00-04:00",
     };
     const event = buildRawEventFromApollo(ev as never, emptyState, "rvah3");
-    expect(event.kennelTag).toBe("rvah3");
+    expect(event.kennelTags[0]).toBe("rvah3");
   });
 
   it("extracts hares from description (HARE: pattern)", () => {

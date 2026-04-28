@@ -259,8 +259,7 @@ export class SFH3Adapter implements SourceAdapter {
 
         events.push({
           date,
-          kennelTag,
-          runNumber,
+          kennelTags: [kennelTag],          runNumber,
           title: parsed.title ?? row.title,
           hares: row.hare,
           location: row.locationText,

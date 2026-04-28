@@ -290,7 +290,7 @@ export function parseHistoryCard(
 
   const event: RawEventData = {
     date,
-    kennelTag: "bh4",
+    kennelTags: ["bh4"],
     runNumber,
     title,
     hares,
@@ -497,7 +497,7 @@ export class BigHumpAdapter implements SourceAdapter {
 
           harelineEvents.push({
             date,
-            kennelTag: "bh4",
+            kennelTags: ["bh4"],
             runNumber,
             title,
             hares,

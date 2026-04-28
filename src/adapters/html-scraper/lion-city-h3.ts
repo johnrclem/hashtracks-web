@@ -140,7 +140,7 @@ export function buildLionCityEvent(
   return {
     date: parsedBody.date,
     startTime: parsedBody.startTime,
-    kennelTag: KENNEL_TAG,
+    kennelTags: [KENNEL_TAG],
     runNumber: parsedTitle.runNumber,
     title: parsedTitle.title,
     description,

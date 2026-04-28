@@ -346,7 +346,7 @@ describe("Eh3EdmontonAdapter", () => {
 
     const firstEvent = result.events.find((e) => e.runNumber === 1845);
     expect(firstEvent).toBeDefined();
-    expect(firstEvent!.kennelTag).toBe("eh3-ab");
+    expect(firstEvent!.kennelTags[0]).toBe("eh3-ab");
     expect(firstEvent!.title).toBe("Test Run");
     expect(firstEvent!.hares).toBe("Spring Loaded and Soggy Bottom");
     expect(firstEvent!.date).toMatch(/^\d{4}-04-06$/);

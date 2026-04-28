@@ -41,7 +41,7 @@ describe("sydney-thirsty-h3 parseThirstyBlock", () => {
     expect(e.startTime).toBe("18:30");
     expect(e.location).toBe("Redfern Park, Redfern");
     expect(e.locationUrl).toBe("https://maps.app.goo.gl/x");
-    expect(e.kennelTag).toBe("sth3-au");
+    expect(e.kennelTags[0]).toBe("sth3-au");
   });
 
   it("tolerates missing location/map fields", () => {

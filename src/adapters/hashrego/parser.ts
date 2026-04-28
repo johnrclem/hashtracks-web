@@ -276,7 +276,7 @@ export function splitToRawEvents(
     return [
       {
         date,
-        kennelTag: parsed.hostKennelName || parsed.kennelSlug,
+        kennelTags: [parsed.hostKennelName || parsed.kennelSlug],
         title: parsed.title,
         description: parsed.description,
         hares: parsed.hares,
@@ -296,7 +296,7 @@ export function splitToRawEvents(
       i === 0 ? "Day 1" : i === parsed.dates.length - 1 ? `Day ${i + 1}` : `Day ${i + 1}`;
     return {
       date,
-      kennelTag: parsed.hostKennelName || parsed.kennelSlug,
+      kennelTags: [parsed.hostKennelName || parsed.kennelSlug],
       title: `${parsed.title} (${dayLabel})`,
       description: parsed.description,
       hares: parsed.hares,

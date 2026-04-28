@@ -150,7 +150,7 @@ describe("TrueTrailH3Adapter", () => {
     // First detailed event: #170
     const ev170 = result.events.find((e) => e.runNumber === 170);
     expect(ev170).toBeDefined();
-    expect(ev170!.kennelTag).toBe("tth3-ab");
+    expect(ev170!.kennelTags[0]).toBe("tth3-ab");
     expect(ev170!.title).toBe("Get Green\u2019d Up Hash");
     expect(ev170!.date).toBe("2026-03-26");
     expect(ev170!.hares).toBe("Peppermint Meatrod, Tinder Tits");

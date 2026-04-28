@@ -99,7 +99,7 @@ function buildEventFromPageText(pageText: string, sourceUrl: string): {
   const event: RawEventData = {
     date: fields.date,
     startTime: fields.startTime,
-    kennelTag: KENNEL_TAG,
+    kennelTags: [KENNEL_TAG],
     runNumber: fields.runNumber,
     title: fields.runNumber
       ? `Kampong H3 Run ${fields.runNumber}`

@@ -204,7 +204,7 @@ export function parseEventSection(
 
   return {
     date,
-    kennelTag: KENNEL_TAG,
+    kennelTags: [KENNEL_TAG],
     title: eventTitle,
     runNumber,
     hares,
@@ -351,7 +351,7 @@ export function extractEventsFromGallery(
 
       events.push({
         date: dateParsed.date,
-        kennelTag: KENNEL_TAG,
+        kennelTags: [KENNEL_TAG],
         title,
         hares,
         location,

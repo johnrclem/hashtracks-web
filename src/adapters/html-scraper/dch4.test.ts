@@ -170,7 +170,7 @@ describe("DCH4Adapter (WordPress API path)", () => {
     expect(result.events).toHaveLength(1);
     expect(result.events[0]).toMatchObject({
       date: "2026-02-14",
-      kennelTag: "dch4",
+      kennelTags: ["dch4"],
       runNumber: 2299,
       hares: "Blinded by the Spooge",
       location: "Twinbrook Metro Station (1600 Chapman Ave. Rockville, MD)",
@@ -250,7 +250,7 @@ describe("DCH4Adapter (HTML fallback path)", () => {
 
     expect(result.events[0]).toMatchObject({
       date: "2026-02-14",
-      kennelTag: "dch4",
+      kennelTags: ["dch4"],
       runNumber: 2299,
       hares: "Blinded by the Spooge",
       location: "Twinbrook Metro Station (1600 Chapman Ave. Rockville, MD)",
@@ -260,7 +260,7 @@ describe("DCH4Adapter (HTML fallback path)", () => {
 
     expect(result.events[1]).toMatchObject({
       date: "2026-02-07",
-      kennelTag: "dch4",
+      kennelTags: ["dch4"],
       runNumber: 2298,
       hares: "Spike and Big in Japan",
       startTime: "14:00",

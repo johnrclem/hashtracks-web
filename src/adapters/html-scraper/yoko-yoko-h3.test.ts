@@ -224,7 +224,7 @@ describe("parseEventCell", () => {
     const event = parseEventCell(CELL_ST_PATRICKS, "https://y2h3.net/");
     expect(event).not.toBeNull();
     expect(event!.date).toBe("2026-03-20");
-    expect(event!.kennelTag).toBe("yoko-yoko-h3");
+    expect(event!.kennelTags[0]).toBe("yoko-yoko-h3");
     expect(event!.title).toBe("Yoko Yoko Hash, St. Patrick's Hash");
     expect(event!.startTime).toBe("19:00");
     expect(event!.hares).toBe("Gerbil Stuffer");

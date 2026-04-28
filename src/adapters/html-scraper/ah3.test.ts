@@ -146,7 +146,7 @@ describe("parseEventSection — DOM-based event parsing", () => {
     expect(event!.date).toBe("2026-04-12");
     expect(event!.startTime).toBe("12:45");
     expect(event!.location).toBe("Near Station Lelylaan");
-    expect(event!.kennelTag).toBe("ah3-nl");
+    expect(event!.kennelTags[0]).toBe("ah3-nl");
   });
 
   it("extracts description text between header and ___good_to_know (#563)", () => {
@@ -261,7 +261,7 @@ describe("extractEventsFromGallery", () => {
     expect(events[0].hares).toBe("War 'n Piece & MiaB");
     expect(events[0].description).toContain("Birthday run from Haarlem");
     expect(events[0].description).not.toContain("<b>");
-    expect(events[0].kennelTag).toBe("ah3-nl");
+    expect(events[0].kennelTags[0]).toBe("ah3-nl");
     // sourceUrl should come from the tile's per-event href, not the listing page
     expect(events[0].sourceUrl).toContain("publiceventid=abc");
   });

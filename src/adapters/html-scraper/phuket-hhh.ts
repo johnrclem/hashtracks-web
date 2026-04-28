@@ -106,8 +106,7 @@ export function parsePhuketRow(
 
   return {
     date,
-    kennelTag,
-    runNumber,
+    kennelTags: [kennelTag],    runNumber,
     hares: haresRaw ? normalizeHaresField(haresRaw) : undefined,
     location,
     startTime: startTime ?? undefined,
@@ -184,7 +183,7 @@ export class PhuketHHHAdapter implements SourceAdapter {
           fetchMethod: "fetchHTMLPage",
           rowsFound: rowsParsed,
           eventsParsed: events.length,
-          kennelsFound: [...new Set(events.map((e) => e.kennelTag))],
+          kennelsFound: [...new Set(events.map((e) => e.kennelTags[0]))],
           fetchDurationMs,
         },
       },

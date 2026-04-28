@@ -144,7 +144,7 @@ describe("buildEventFromDetail", () => {
   it("maps all fields correctly", () => {
     const event = buildEventFromDetail(baseDetail, baseListing);
     expect(event.date).toBe("2026-03-03");
-    expect(event.kennelTag).toBe("shith3");
+    expect(event.kennelTags[0]).toBe("shith3");
     expect(event.runNumber).toBe(1196);
     expect(event.title).toBe("Peek a Boob. Hide n Seek!");
     expect(event.hares).toBe("Fingrrrrrrrrrr");
@@ -219,7 +219,7 @@ describe("buildEventFromListing", () => {
     });
     expect(event).not.toBeNull();
     expect(event!.date).toBe("2026-03-03");
-    expect(event!.kennelTag).toBe("shith3");
+    expect(event!.kennelTags[0]).toBe("shith3");
     expect(event!.runNumber).toBe(1196);
     expect(event!.title).toBe("Peek a Boob");
     expect(event!.startTime).toBe("19:00");

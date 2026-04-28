@@ -131,7 +131,7 @@ export function parseMakesweatEvent(
 
   return {
     date,
-    kennelTag: "cityh3",
+    kennelTags: ["cityh3"],
     runNumber,
     title,
     hares,

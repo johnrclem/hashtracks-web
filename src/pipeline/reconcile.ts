@@ -56,7 +56,7 @@ export async function reconcileStaleEvents(
   // (kennelId, date) slot below. Slot membership drives the orphan decision
   // after we query canonical candidates from the DB.
   const resolutions = await Promise.all(
-    scrapedEvents.map((event) => resolveKennelTag(event.kennelTag, sourceId)),
+    scrapedEvents.map((event) => resolveKennelTag(event.kennelTags[0], sourceId)),
   );
   // When a scraped row has an unparseable date we suppress the whole kennel,
   // not just the row: dropping the row would leave its canonical orphaned and

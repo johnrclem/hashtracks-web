@@ -242,7 +242,7 @@ export class BrewCityH3Adapter implements SourceAdapter {
 
         const event: RawEventData = {
           date,
-          kennelTag: "bch3",
+          kennelTags: ["bch3"],
           title,
           runNumber,
           hares: details.hares,

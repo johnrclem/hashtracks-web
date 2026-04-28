@@ -197,7 +197,7 @@ function processPost(
           field: "date",
           error: `No date found in post: ${titleText || "(untitled)"}`,
           rawText: `Title: ${titleText}\n\n${bodyText}`.slice(0, 2000),
-          partialData: { kennelTag: "eh3", title: titleText || undefined },
+          partialData: { kennelTags: ["eh3"], title: titleText || undefined },
         },
       ];
     }
@@ -212,7 +212,7 @@ function processPost(
 
   return {
     date,
-    kennelTag: "eh3",
+    kennelTags: ["eh3"],
     title: titleText || undefined,
     hares: bodyFields.hares,
     location: bodyFields.location,
