@@ -153,6 +153,10 @@ model Kennel {
   aliases           KennelAlias[]
   sources           SourceKennel[]
   events            Event[]
+  /// Multi-kennel join (#1023). Coexists with `events` (single FK) until
+  /// step 7 of the rollout drops Event.kennelId; until then dual-write keeps
+  /// the two in sync so legacy single-FK readers still work.
+  eventKennels      EventKennel[]
   members           UserKennel[]
   // Misman relations
   kennelHashers     KennelHasher[]
@@ -343,6 +347,10 @@ model Event {
   hares             EventHare[]
   attendances       Attendance[]
   eventLinks        EventLink[]
+  /// Multi-kennel join (#1023). Exactly one row has isPrimary=true,
+  /// enforced by a hand-written partial unique index (Prisma can't express
+  /// it). The primary's kennelId mirrors Event.kennelId until step 7.
+  kennels           EventKennel[]
   // Misman relations
   kennelAttendances KennelAttendance[]
   createdAt         DateTime           @default(now())
@@ -353,6 +361,21 @@ model Event {
   // Covers the former `[kennelId, date]` index as a prefix; prefix lookups
   // still hit it without needing a separate entry.
   @@index([kennelId, date, isCanonical])
+}
+
+/// Multi-kennel co-host join table (#1023). One row per kennel involved in
+/// the event; the single-primary invariant lives in a hand-written partial
+/// unique index on (eventId) WHERE isPrimary = true.
+model EventKennel {
+  eventId   String
+  kennelId  String
+  isPrimary Boolean @default(false)
+
+  event  Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  kennel Kennel @relation(fields: [kennelId], references: [id])
+
+  @@id([eventId, kennelId])
+  @@index([kennelId])
 }
 
 model EventLink {
