@@ -744,38 +744,44 @@ export async function mergeKennels(
   //    RESTRICT, rolling back just the racing tx). Either way, the merge
   //    leaves the DB consistent.
   const targetRosterGroupId = await getRosterGroupId(targetKennel.id);
-  await prisma.$transaction(async (tx) => {
-    await deduplicateEventKennels(tx, sourceKennel.id, targetKennel.id);
-    await tx.event.updateMany({
-      where: { kennelId: sourceKennel.id },
-      data: { kennelId: targetKennel.id },
-    });
-    await tx.userKennel.updateMany({
-      where: { kennelId: sourceKennel.id },
-      data: { kennelId: targetKennel.id },
-    });
-    await tx.kennelHasher.updateMany({
-      where: { kennelId: sourceKennel.id },
-      data: { kennelId: targetKennel.id, rosterGroupId: targetRosterGroupId },
-    });
-    await tx.mismanRequest.updateMany({
-      where: { kennelId: sourceKennel.id },
-      data: { kennelId: targetKennel.id },
-    });
-    await tx.sourceKennel.updateMany({
-      where: { kennelId: sourceKennel.id },
-      data: { kennelId: targetKennel.id },
-    });
-    await tx.kennelAlias.deleteMany({
-      where: { kennelId: sourceKennel.id },
-    });
-    await tx.rosterGroupKennel.deleteMany({
-      where: { kennelId: sourceKennel.id },
-    });
-    await tx.kennel.delete({
-      where: { id: sourceKennel.id },
-    });
-  });
+  // Prisma's default interactive-tx timeout is 5s. The per-row dedup loop
+  // for a kennel with thousands of EventKennel rows can blow past that and
+  // roll back the whole merge — bump the timeout. Admin-triggered, infrequent.
+  await prisma.$transaction(
+    async (tx) => {
+      await deduplicateEventKennels(tx, sourceKennel.id, targetKennel.id);
+      await tx.event.updateMany({
+        where: { kennelId: sourceKennel.id },
+        data: { kennelId: targetKennel.id },
+      });
+      await tx.userKennel.updateMany({
+        where: { kennelId: sourceKennel.id },
+        data: { kennelId: targetKennel.id },
+      });
+      await tx.kennelHasher.updateMany({
+        where: { kennelId: sourceKennel.id },
+        data: { kennelId: targetKennel.id, rosterGroupId: targetRosterGroupId },
+      });
+      await tx.mismanRequest.updateMany({
+        where: { kennelId: sourceKennel.id },
+        data: { kennelId: targetKennel.id },
+      });
+      await tx.sourceKennel.updateMany({
+        where: { kennelId: sourceKennel.id },
+        data: { kennelId: targetKennel.id },
+      });
+      await tx.kennelAlias.deleteMany({
+        where: { kennelId: sourceKennel.id },
+      });
+      await tx.rosterGroupKennel.deleteMany({
+        where: { kennelId: sourceKennel.id },
+      });
+      await tx.kennel.delete({
+        where: { id: sourceKennel.id },
+      });
+    },
+    { timeout: 120_000, maxWait: 10_000 },
+  );
 
   console.log("[admin-audit] mergeKennels", JSON.stringify({
     adminId: admin.id,
