@@ -373,6 +373,7 @@ async function ensureSources(prisma: any, sources: any[], kennelRecords: Map<str
     const existingSource = matchingSources[0] ?? null;
 
     let activeSource;
+    let updates: Record<string, unknown> | null = null;
     try {
       if (!existingSource) {
         activeSource = await prisma.source.create({ data: sourceData });
@@ -381,7 +382,7 @@ async function ensureSources(prisma: any, sources: any[], kennelRecords: Map<str
       } else {
         activeSource = existingSource;
         // Sync mutable fields (config, name, trustLevel) so seed changes get applied
-        const updates: Record<string, unknown> = {};
+        updates = {};
         if (sourceData.trustLevel && sourceData.trustLevel > (existingSource.trustLevel ?? 0)) {
           updates.trustLevel = sourceData.trustLevel;
         }
@@ -409,9 +410,48 @@ async function ensureSources(prisma: any, sources: any[], kennelRecords: Map<str
       await linkKennelsToSource(prisma, activeSource.id, kennelCodes, kennelRecords, kennelSlugMap);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
+      const code = e != null && typeof e === "object" && "code" in e ? (e as { code: unknown }).code : undefined;
       const meta = e != null && typeof e === "object" && "meta" in e ? (e as { meta: unknown }).meta : undefined;
       console.error(`  ✗ FAILED to seed source "${sourceData.name}" (${sourceData.type}): ${msg}`);
+      if (code) console.error(`    Prisma code: ${code}`);
       if (meta) console.error(`    Prisma meta:`, JSON.stringify(meta));
+      console.error(`    Seed row:`, stableStringify(sourceData));
+      console.error(
+        `    Matched DB row:`,
+        existingSource
+          ? stableStringify({
+              id: existingSource.id,
+              name: existingSource.name,
+              type: existingSource.type,
+              url: existingSource.url,
+              enabled: existingSource.enabled,
+            })
+          : "<none — create-path failure>",
+      );
+      if (updates && Object.keys(updates).length > 0) {
+        console.error(`    Update payload:`, stableStringify(updates));
+      }
+      if (code === "P2002") {
+        try {
+          const conflicts = await prisma.source.findMany({
+            where: {
+              OR: [
+                { name: sourceData.name, type: sourceData.type },
+                ...(sourceData.url ? [{ url: sourceData.url }] : []),
+              ],
+            },
+            select: { id: true, name: true, type: true, url: true, enabled: true },
+            take: 10,
+          });
+          console.error(`    Rows colliding on (name,type) or url:`);
+          for (const row of conflicts) {
+            console.error(`      - ${stableStringify(row)}`);
+          }
+        } catch (lookupErr) {
+          const lookupMsg = lookupErr instanceof Error ? lookupErr.message : String(lookupErr);
+          console.error(`    (conflict lookup failed: ${lookupMsg})`);
+        }
+      }
       throw e;
     }
   }
