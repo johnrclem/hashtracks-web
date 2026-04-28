@@ -83,11 +83,11 @@ describe("validateSourceConfig", () => {
         kennelPatterns: [["only one"]],
       });
       expect(errors).toHaveLength(1);
-      expect(errors[0]).toContain("[regex, tag] pair");
+      expect(errors[0]).toContain("must be a [regex, tag");
     });
 
     it.each([
-      [[[123, "TAG"]], "must be strings"],
+      [[[123, "TAG"]], "regex must be a string"],
       [[["^EWH3", "  "]], "cannot be empty"],
       [[["[invalid(", "TAG"]], "invalid regex"],
       [[["(a+)+$", "TAG"]], "catastrophic backtracking"],
@@ -97,6 +97,36 @@ describe("validateSourceConfig", () => {
       });
       expect(errors).toHaveLength(1);
       expect(errors[0]).toContain(expectedMsg);
+    });
+
+    // #1023 step 4: multi-kennel array tag values — gated by source type
+    it("accepts a multi-kennel array tag pattern for GOOGLE_CALENDAR (migrated to matchKennelPatterns)", () => {
+      const errors = validateSourceConfig("GOOGLE_CALENDAR", {
+        kennelPatterns: [["Cherry City.*OH3", ["cch3-or", "oh3"]]],
+      });
+      expect(errors).toEqual([]);
+    });
+
+    it.each(["MEETUP", "ICAL_FEED", "HTML_SCRAPER", "RSS_FEED"])(
+      "rejects a multi-kennel array tag pattern for non-migrated source type %s",
+      (type) => {
+        const errors = validateSourceConfig(type, {
+          kennelPatterns: [["X", ["a", "b"]]],
+        });
+        expect(errors.some((e) => e.includes("multi-kennel array tags are not supported"))).toBe(true);
+      },
+    );
+
+    it.each([
+      [[[".*", []]], "multi-kennel tag array cannot be empty"],
+      [[[".*", ["valid", ""]]], "each multi-kennel tag must be a non-empty string"],
+      [[[".*", ["valid", 123]]], "each multi-kennel tag must be a non-empty string"],
+      [[[".*", 42]], "tag must be a string or string[]"],
+    ])("rejects invalid multi-kennel tag value: %s", (patterns, expectedMsg) => {
+      const errors = validateSourceConfig("GOOGLE_CALENDAR", {
+        kennelPatterns: patterns,
+      });
+      expect(errors.some((e) => e.includes(expectedMsg))).toBe(true);
     });
 
     it("collects multiple errors", () => {

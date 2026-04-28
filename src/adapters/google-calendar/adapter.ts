@@ -2,6 +2,7 @@ import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
 import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, HARE_BOILERPLATE_RE, EVENT_FIELD_LABEL_RE, EVENT_FIELD_LABEL_UPPERCASE_RE, CTA_EMBEDDED_PATTERNS, appendDescriptionSuffix, isPlaceholder, parse12HourTime, formatAmPmTime, stripNonEnglishCountry } from "../utils";
+import { matchKennelPatterns, type KennelPattern } from "../kennel-patterns";
 import { PHONE_NUMBER_RE, LOCATION_EMAIL_CTA_RE } from "@/pipeline/audit-checks";
 
 /**
@@ -490,7 +491,13 @@ function isNonAddressText(text: string): boolean {
 
 /** Config shape for Google Calendar sources */
 interface CalendarSourceConfig {
-  kennelPatterns?: [string, string][];  // [[regex, kennelTag], ...]
+  /**
+   * Per-event kennel routing. Each entry is `[regex, kennelTag | kennelTag[]]`.
+   * Single-tag (string) entries preserve legacy first-match-wins behavior.
+   * Array entries declare a true multi-kennel co-host (#1023 step 4); see
+   * `src/adapters/kennel-patterns.ts` for the full precedence rules.
+   */
+  kennelPatterns?: KennelPattern[];
   defaultKennelTag?: string;            // fallback for unrecognized events
   /**
    * When true on a multi-kennel calendar (one with `kennelPatterns`), a summary
@@ -531,17 +538,12 @@ interface CalendarSourceConfig {
 
 /**
  * Match event summary against config-driven kennel patterns.
- * Returns the kennel tag for the first matching pattern, or null.
+ * Returns resolved kennel tags per the spec §2 D15 precedence rules
+ * (see `src/adapters/kennel-patterns.ts`). Always returns an array;
+ * empty when nothing matched.
  */
-function matchConfigPatterns(summary: string, patterns: [string, string][]): string | null {
-  for (const [regex, tag] of patterns) {
-    try {
-      if (new RegExp(regex, "i").test(summary)) return tag;
-    } catch {
-      // Skip malformed patterns from source config
-    }
-  }
-  return null;
+function matchConfigPatterns(summary: string, patterns: KennelPattern[]): string[] {
+  return matchKennelPatterns(summary, patterns);
 }
 
 /** Subset of the Google Calendar API v3 event shape */
@@ -626,17 +628,17 @@ export function normalizeGCalDescription(rawDesc: string | undefined): { rawDesc
 function resolveKennelTagFromSummary(
   summary: string,
   sourceConfig: CalendarSourceConfig | null,
-): { kennelTag: string; useFullTitle: boolean } | null {
+): { kennelTags: string[]; useFullTitle: boolean } | null {
   if (sourceConfig?.kennelPatterns) {
     const matched = matchConfigPatterns(summary, sourceConfig.kennelPatterns);
-    if (matched) return { kennelTag: matched, useFullTitle: true };
+    if (matched.length > 0) return { kennelTags: matched, useFullTitle: true };
     if (sourceConfig.strictKennelRouting) return null;
-    return { kennelTag: sourceConfig.defaultKennelTag ?? summary, useFullTitle: true };
+    return { kennelTags: [sourceConfig.defaultKennelTag ?? summary], useFullTitle: true };
   }
   if (sourceConfig?.defaultKennelTag) {
-    return { kennelTag: sourceConfig.defaultKennelTag, useFullTitle: true };
+    return { kennelTags: [sourceConfig.defaultKennelTag], useFullTitle: true };
   }
-  return { kennelTag: summary, useFullTitle: true };
+  return { kennelTags: [summary], useFullTitle: true };
 }
 
 /** Parse source.config into CalendarSourceConfig or null. */
@@ -707,7 +709,11 @@ export function buildRawEventFromGCalItem(
   }
   const resolved = resolveKennelTagFromSummary(summary, sourceConfig);
   if (!resolved) return null;
-  const { kennelTag, useFullTitle } = resolved;
+  const { kennelTags, useFullTitle } = resolved;
+  // The first resolved tag is the primary kennel for routing/title fallback
+  // logic below. Co-host secondaries (#1023) ride along in `kennelTags` and
+  // are written to EventKennel rows by the merge pipeline.
+  const kennelTag = kennelTags[0];
   // Location: prefer item.location (unless placeholder or instruction text), fall back to description extraction.
   // #743: strip trailing phone numbers and contact-CTA parentheticals from the
   // raw GCal location field. Trailing only — a bare "1 800 ..." in the middle
@@ -905,7 +911,7 @@ export function buildRawEventFromGCalItem(
     const prefixMatchesKennel = !!prefix && (
       titleMatchesKennelTag(prefix, kennelTag)
       || (sourceConfig?.kennelPatterns
-        ? matchConfigPatterns(prefix, sourceConfig.kennelPatterns) === kennelTag
+        ? matchConfigPatterns(prefix, sourceConfig.kennelPatterns).includes(kennelTag)
         : false)
     );
     if (bareKennelRunMatch && prefixMatchesKennel) {
@@ -942,7 +948,9 @@ export function buildRawEventFromGCalItem(
   const cost = rawDescription ? extractCostFromDescription(rawDescription) : undefined;
   const event: RawEventData = {
     date: dateISO,
-    kennelTags: [kennelTag],
+    // Pass the full multi-kennel set (#1023): for single-tag patterns this
+    // is `[primary]`; for array patterns it's the union of all matched kennels.
+    kennelTags,
     runNumber: extractRunNumber(summary, rawDescription, compiledRunNumberPatterns),
     title,
     description: appendDescriptionSuffix(description, sourceConfig?.descriptionSuffix),

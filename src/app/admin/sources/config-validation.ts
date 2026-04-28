@@ -36,26 +36,58 @@ function validateRegex(
   }
 }
 
-/** Validate kennelPatterns array: each entry must be a [regex, tag] pair. */
-function validateKennelPatterns(obj: Record<string, unknown>, errors: string[]): void {
+/**
+ * Source types whose adapters consume the multi-kennel array tag form
+ * via the central `matchKennelPatterns` helper (#1023 step 4). Every other
+ * adapter is still string-only and would silently emit malformed kennelTags
+ * if given an array value, so the validator gates the broader grammar to
+ * just these types.
+ *
+ * Add to this set when migrating an adapter to `matchKennelPatterns`.
+ */
+const TYPES_SUPPORTING_MULTI_KENNEL_PATTERNS = new Set(["GOOGLE_CALENDAR"]);
+
+/** Validate kennelPatterns: each entry is [regex, tag] or [regex, tag[]] (#1023 step 4). */
+function validateKennelPatterns(type: string, obj: Record<string, unknown>, errors: string[]): void {
   if (!("kennelPatterns" in obj) || obj.kennelPatterns === undefined) return;
 
   if (!Array.isArray(obj.kennelPatterns)) {
     errors.push("kennelPatterns must be an array of [regex, tag] pairs");
     return;
   }
+  const allowMultiKennel = TYPES_SUPPORTING_MULTI_KENNEL_PATTERNS.has(type);
   for (const [i, pair] of obj.kennelPatterns.entries()) {
     if (!Array.isArray(pair) || pair.length !== 2) {
       errors.push(`kennelPatterns[${i}]: must be a [regex, tag] pair`);
       continue;
     }
-    const [pattern, tag] = pair;
-    if (typeof pattern !== "string" || typeof tag !== "string") {
-      errors.push(`kennelPatterns[${i}]: both regex and tag must be strings`);
+    const [pattern, tagValue] = pair;
+    if (typeof pattern !== "string") {
+      errors.push(`kennelPatterns[${i}]: regex must be a string`);
       continue;
     }
-    if (!tag.trim()) {
-      errors.push(`kennelPatterns[${i}]: kennel tag cannot be empty`);
+    if (typeof tagValue === "string") {
+      if (!tagValue.trim()) {
+        errors.push(`kennelPatterns[${i}]: kennel tag cannot be empty`);
+      }
+    } else if (Array.isArray(tagValue)) {
+      if (!allowMultiKennel) {
+        errors.push(
+          `kennelPatterns[${i}]: multi-kennel array tags are not supported for source type ${type} ` +
+            `— migrate the adapter to matchKennelPatterns first (#1023). Allowed: ${[...TYPES_SUPPORTING_MULTI_KENNEL_PATTERNS].join(", ")}.`,
+        );
+        continue;
+      }
+      if (tagValue.length === 0) {
+        errors.push(`kennelPatterns[${i}]: multi-kennel tag array cannot be empty`);
+      }
+      for (const [j, tag] of tagValue.entries()) {
+        if (typeof tag !== "string" || !tag.trim()) {
+          errors.push(`kennelPatterns[${i}][${j}]: each multi-kennel tag must be a non-empty string`);
+        }
+      }
+    } else {
+      errors.push(`kennelPatterns[${i}]: tag must be a string${allowMultiKennel ? " or string[]" : ""}`);
     }
     validateRegex(pattern, `kennelPatterns[${i}]`, errors);
   }
@@ -219,7 +251,7 @@ export function validateSourceConfig(
   const obj = config as Record<string, unknown>;
 
   // Common pattern validation
-  validateKennelPatterns(obj, errors);
+  validateKennelPatterns(type, obj, errors);
   validatePatternArray(obj, "skipPatterns", errors);
   validatePatternArray(obj, "harePatterns", errors);
   validatePatternArray(obj, "runNumberPatterns", errors);

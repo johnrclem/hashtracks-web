@@ -95,6 +95,52 @@ describe("Colorado H3 Aggregator multi-kennel routing (#850)", () => {
   });
 });
 
+// ── Oregon Hashing Calendar multi-kennel co-host pattern (#1023 step 4 / #991) ──
+
+describe("Oregon Hashing Calendar multi-kennel routing (#1023 step 4)", () => {
+  const oregonSource = SOURCES.find((s) => s.name === "Oregon Hashing Calendar");
+  if (!oregonSource?.config) throw new Error("Oregon Hashing Calendar seed config missing");
+  const config = oregonSource.config as { kennelPatterns: [string, string | string[]][]; defaultKennelTag: string };
+
+  it("emits BOTH kennels when title mentions Cherry City + OH3 (the joint inaugural — #991)", () => {
+    const result = buildRawEventFromGCalItem(
+      {
+        summary: "Cherry City H3 #1 / OH3 # 1340",
+        start: { dateTime: "2025-07-12T18:30:00-07:00" },
+        status: "confirmed",
+      },
+      config,
+    );
+    // Multi-kennel pattern fires before the single-tag patterns and
+    // returns both as co-hosts.
+    expect(result?.kennelTags).toEqual(["cch3-or", "oh3"]);
+  });
+
+  it("emits a single tag for OH3-only titles (single-tag pattern still wins)", () => {
+    const result = buildRawEventFromGCalItem(
+      { summary: "OH3 #1342: Wednesday Trail", start: { dateTime: "2025-07-23T18:30:00-07:00" }, status: "confirmed" },
+      config,
+    );
+    expect(result?.kennelTags).toEqual(["oh3"]);
+  });
+
+  it("emits a single tag for Cherry City-only titles", () => {
+    const result = buildRawEventFromGCalItem(
+      { summary: "Cherry City H3 #2", start: { dateTime: "2025-08-10T18:30:00-07:00" }, status: "confirmed" },
+      config,
+    );
+    expect(result?.kennelTags).toEqual(["cch3-or"]);
+  });
+
+  it("emits a single tag for TGIF-only titles", () => {
+    const result = buildRawEventFromGCalItem(
+      { summary: "TGIF Pubcrawl", start: { dateTime: "2025-08-15T18:30:00-07:00" }, status: "confirmed" },
+      config,
+    );
+    expect(result?.kennelTags).toEqual(["tgif"]);
+  });
+});
+
 // ── GCal adapter with no config returns empty tag (no Boston fallback) ──
 
 describe("resolveKennelTagFromSummary with no config", () => {

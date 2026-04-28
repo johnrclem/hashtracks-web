@@ -1884,10 +1884,14 @@ export const SOURCES = [
       scrapeDays: 365,
       config: {
         calendarId: "cae3r4u2uhucmmi9rvq5eu6obg@group.calendar.google.com",
-        // Anchor OH3 to start-of-title so co-host titles like
-        // "Cherry City H3 #1 / OH3 # 1340" no longer match the OH3 pattern
-        // mid-string and get correctly routed to cch3-or. Closes #991.
+        // Multi-kennel pattern (#1023 step 4): titles mentioning BOTH Cherry
+        // City and OH3 (e.g. "Cherry City H3 #1 / OH3 # 1340" — the inaugural
+        // joint trail surfaced in #991) emit both kennels as co-hosts so the
+        // event lands on both kennel pages. The array form takes precedence
+        // over the single-tag patterns below per spec §2 D15, so single-kennel
+        // titles still route correctly.
         kennelPatterns: [
+          ["(?:Cherry City.*OH3)|(?:OH3.*Cherry City)", ["cch3-or", "oh3"]],
           ["^OH3\\b|OH3 Full Moon", "oh3"],
           ["TGIF|Friday.*Pubcrawl", "tgif"],
           ["Cherry City|Cherry Cherry City", "cch3-or"],
