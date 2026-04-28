@@ -7,6 +7,7 @@ import {
   chronoParseDate,
   decodeEntities,
   normalizeHaresField,
+  parsePublishDate,
   stripHtmlTags,
 } from "../utils";
 
@@ -22,12 +23,6 @@ import {
  * Posts are freeform with emojis and variable formatting. The body often
  * contains date, location, and hare info in plain text. Monthly 3rd Saturday.
  */
-
-/** Parse ISO string as UTC for chrono reference date anchoring. */
-function utcRef(iso: string | undefined): Date | undefined {
-  if (!iso) return undefined;
-  return new Date(iso.endsWith("Z") ? iso : iso + "Z");
-}
 
 const KENNEL_TAG = "crh3";
 const DEFAULT_START_TIME = "15:00"; // 3rd Saturday monthly, 3:00 PM start per Chrome research
@@ -50,7 +45,7 @@ export function parseCrh3Title(title: string, publishDateIso: string): {
 
   // Strip "CRH3#NNN" or "CRH3" prefix and try to parse remaining text as a date
   const stripped = decoded.replace(/CRH3\s*#?\s*\d*\s*/i, "").trim();
-  const refDate = utcRef(publishDateIso);
+  const refDate = parsePublishDate(publishDateIso);
   const date = chronoParseDate(stripped, "en-GB", refDate, { forwardDate: true })
     ?? chronoParseDate(decoded, "en-GB", refDate, { forwardDate: true });
 
@@ -88,7 +83,7 @@ export function parseCrh3Body(bodyHtml: string, publishDateIso: string): {
   const location = grab("Location|Run\\s*Site|Meeting");
 
   // Try to find a date in the body
-  const refDate = utcRef(publishDateIso);
+  const refDate = parsePublishDate(publishDateIso);
   const date = chronoParseDate(text, "en-GB", refDate, { forwardDate: true }) ?? undefined;
 
   return { date, hares, location };

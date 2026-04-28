@@ -9,13 +9,8 @@ import {
   decodeEntities,
   normalizeHaresField,
   parse12HourTime,
+  parsePublishDate,
 } from "../utils";
-
-/** Parse ISO string as UTC for chrono reference date anchoring. */
-function utcRef(iso: string | undefined): Date | undefined {
-  if (!iso) return undefined;
-  return new Date(iso.endsWith("Z") ? iso : `${iso}Z`);
-}
 
 /**
  * Bangkok Harriettes Hash House Harriers adapter.
@@ -65,7 +60,7 @@ export function parseBkkHarriettesPost(
   // publish dates to 2000-01-01, so use post.modified (reflects when
   // the "Next Run" post was last updated). UTC normalization avoids
   // timezone-dependent year shifts around midnight.
-  const refDate = utcRef(post.modified) ?? utcRef(post.date);
+  const refDate = parsePublishDate(post.modified) ?? parsePublishDate(post.date);
 
   // Pattern 1: "Run no. NNNN on Wednesday 15 April at 17:30"
   const runLineMatch = /Run\s*no\.?\s*(\d+)\s+on\s+(.+?)(?:\s+at\s+(\d{1,2}:\d{2}))?[.,]?\s*$/im.exec(bodyText);

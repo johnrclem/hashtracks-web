@@ -81,13 +81,16 @@ function staticScheduleSource(params: {
   url: string;
   kennelTag: string;
   rrule: string;
+  /** Optional anchor for INTERVAL>1 RRULEs (e.g. biweekly) so the
+   *  expansion picks the correct week-of. Format: "YYYY-MM-DD". */
+  anchorDate?: string;
   startTime?: string;
   defaultTitle: string;
   defaultLocation: string;
   defaultDescription: string;
   extra?: Partial<{ trustLevel: number; scrapeFreq: string; scrapeDays: number }>;
 }) {
-  const { name, url, kennelTag, rrule, startTime, defaultTitle, defaultLocation, defaultDescription, extra } = params;
+  const { name, url, kennelTag, rrule, anchorDate, startTime, defaultTitle, defaultLocation, defaultDescription, extra } = params;
   return {
     name,
     url,
@@ -98,6 +101,7 @@ function staticScheduleSource(params: {
     config: {
       kennelTag,
       rrule,
+      ...(anchorDate ? { anchorDate } : {}),
       ...(startTime ? { startTime } : {}),
       defaultTitle,
       defaultLocation,
@@ -4075,7 +4079,13 @@ export const SOURCES = [
       },
       kennelCodes: ["bssh3"],
     },
-    // --- Cha-Am H3 (WordPress REST API) ---
+    // --- Cha-Am H3 (WordPress REST API — day-of detail when title carries date) ---
+    // Posts announce upcoming biweekly Saturday runs but most titles only
+    // contain "Run NNN: <event name>" with no date in title or body. The
+    // adapter parses the ~20% of posts whose titles do carry dates (e.g.
+    // "Songkran Outstation APR 10 & 11") and rejects the rest. Pair with
+    // the STATIC_SCHEDULE source below so the recurring biweekly Saturday
+    // slot still shows on the hareline.
     {
       name: "Cha-Am H3 Website",
       url: "https://cah3.net",
@@ -4086,6 +4096,23 @@ export const SOURCES = [
       config: {},
       kennelCodes: ["cah3"],
     },
+    // --- Cha-Am H3 (STATIC_SCHEDULE — biweekly recurring slot) ---
+    // anchorDate is a confirmed CAH3 Saturday (Run #528 published Mon
+    // 2026-01-05 → Sat 2026-01-10) so the biweekly RRULE expansion picks
+    // the correct week parity. Observed cadence from WP publish dates:
+    // Jan 10, Jan 24, Feb 7, Feb 21, Mar 7, Mar 21, Apr 4, Apr 18, ...
+    staticScheduleSource({
+      name: "Cha-Am H3 Static Schedule",
+      url: "https://cah3.net",
+      kennelTag: "cah3",
+      rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA",
+      anchorDate: "2026-01-10",
+      startTime: "16:00",
+      defaultTitle: "Cha-Am H3 Biweekly Run",
+      defaultLocation: "Hua Hin / Cha-Am, Thailand",
+      defaultDescription: "Biweekly Saturday afternoon trail in the Hua Hin / Cha-Am area. Trail location, hare, and exact start time are posted at https://cah3.net/ ahead of each run.",
+      extra: { trustLevel: 4 },
+    }),
     // --- Chiang Rai H3 (Blogger API) ---
     {
       name: "Chiang Rai H3 Blog",

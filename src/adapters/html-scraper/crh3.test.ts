@@ -27,6 +27,21 @@ describe("parseCrh3Title", () => {
     );
     expect(result.runNumber).toBe(217);
   });
+
+  it("infers year from publish date with timezone offset (utcRef regression)", () => {
+    // Real Blogger publish dates carry an offset like "+07:00".
+    // An earlier utcRef helper appended "Z" unconditionally, producing
+    // an Invalid Date; chrono then fell back to the system clock and
+    // forwardDate=true mis-resolved every year-less title to null.
+    // This test pins the format so future helper changes can't reintroduce
+    // the regression.
+    const result = parseCrh3Title(
+      "CRH3#220 Saturday 26 March",
+      "2026-03-22T18:07:00+07:00",
+    );
+    expect(result.runNumber).toBe(220);
+    expect(result.date).toBe("2026-03-26");
+  });
 });
 
 describe("parseCrh3Body", () => {

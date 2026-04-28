@@ -8,14 +8,10 @@ import {
   decodeEntities,
   normalizeHaresField,
   parse12HourTime,
+  parsePublishDate,
   stripHtmlTags,
 } from "../utils";
 
-/** Parse ISO string as UTC for chrono reference date anchoring. */
-function utcRef(iso: string | undefined): Date | undefined {
-  if (!iso) return undefined;
-  return new Date(iso.endsWith("Z") ? iso : `${iso}Z`);
-}
 
 /**
  * Cha-Am Hash House Harriers (CAH3) adapter.
@@ -56,7 +52,7 @@ export function parseCah3Title(title: string, publishDateIso: string): {
   const stripped = decoded.replace(/^Run\s*#?\s*\d+\s*[:\-–]?\s*/i, "").trim();
 
   // Parse date from the remaining title text using the publish date as reference
-  const refDate = utcRef(publishDateIso);
+  const refDate = parsePublishDate(publishDateIso);
   const date = chronoParseDate(stripped, "en-GB", refDate, { forwardDate: true })
     ?? chronoParseDate(decoded, "en-GB", refDate, { forwardDate: true });
 
