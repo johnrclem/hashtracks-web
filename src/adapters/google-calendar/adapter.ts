@@ -654,22 +654,38 @@ function parseCalendarSourceConfig(config: unknown): CalendarSourceConfig | null
     : null;
 }
 
+/** Optional pre-compiled patterns + tracking map plumbed through the
+ *  fetch loop. Bundled into one options object to keep
+ *  buildRawEventFromGCalItem within the function-arity limit. Direct
+ *  test invocations can omit this entirely. */
+export interface BuildRawEventFromGCalItemOptions {
+  compiledHarePatterns?: RegExp[];
+  compiledRunNumberPatterns?: RegExp[];
+  compiledSkipPatterns?: RegExp[];
+  compiledTitleHarePattern?: RegExp;
+  /** Pre-compiled kennelPatterns. Production fetch path passes this so
+   *  we don't re-compile every event; tests can omit. */
+  compiledKennelPatterns?: CompiledKennelPattern[];
+  /** id-tracking map; the adapter populates this so the cross-call
+   *  dedup at the end of `fetch` can use stable GCal ids without
+   *  changing the public RawEventData shape. */
+  gcalIdMap?: WeakMap<RawEventData, string>;
+}
+
 /** Build a RawEventData from a single Google Calendar event item. Returns null if the item should be skipped. */
 export function buildRawEventFromGCalItem(
   item: GCalEvent,
   sourceConfig: CalendarSourceConfig | null,
-  compiledHarePatterns?: RegExp[],
-  compiledRunNumberPatterns?: RegExp[],
-  compiledSkipPatterns?: RegExp[],
-  compiledTitleHarePattern?: RegExp,
-  // Optional id-tracking map. The adapter populates this so the cross-call
-  // dedup at the end of `fetch` can use stable GCal ids without changing the
-  // public RawEventData shape.
-  gcalIdMap?: WeakMap<RawEventData, string>,
-  // Pre-compiled kennelPatterns. Optional for direct test invocations; the
-  // production fetch loop passes this so we don't re-compile every event.
-  compiledKennelPatterns?: CompiledKennelPattern[],
+  options: BuildRawEventFromGCalItemOptions = {},
 ): RawEventData | null {
+  const {
+    compiledHarePatterns,
+    compiledRunNumberPatterns,
+    compiledSkipPatterns,
+    compiledTitleHarePattern,
+    compiledKennelPatterns,
+    gcalIdMap,
+  } = options;
   if (item.status === "cancelled") return null;
   if (!item.summary) return null;
   if (!item.start?.dateTime && !item.start?.date) return null;
@@ -1045,12 +1061,14 @@ export class GoogleCalendarAdapter implements SourceAdapter {
           continue;
         }
         try {
-          const event = buildRawEventFromGCalItem(
-            item, sourceConfig,
-            compiledHarePatterns, compiledRunNumberPatterns,
-            compiledSkipPatterns, compiledTitleHarePattern,
-            gcalIdMap, compiledKennelPatterns,
-          );
+          const event = buildRawEventFromGCalItem(item, sourceConfig, {
+            compiledHarePatterns,
+            compiledRunNumberPatterns,
+            compiledSkipPatterns,
+            compiledTitleHarePattern,
+            compiledKennelPatterns,
+            gcalIdMap,
+          });
           if (event) events.push(event);
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);

@@ -51,7 +51,8 @@ export function compileKennelPatterns(
   const compiled: CompiledKennelPattern[] = [];
   for (const [regex, value] of patterns) {
     try {
-      compiled.push([new RegExp(regex, "i"), value]);
+      // nosemgrep: detect-non-literal-regexp — patterns are pre-validated via safe-regex2 in config-validation.ts
+      compiled.push([new RegExp(regex, "i"), value]); // NOSONAR
     } catch (err) {
       console.warn(
         `[kennel-patterns] Skipping malformed regex ${JSON.stringify(regex)}: ${(err as Error).message}`,

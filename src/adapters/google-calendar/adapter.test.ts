@@ -681,10 +681,7 @@ describe("titleHarePattern — hare extraction from summary", () => {
         description: "MAP: https://maps.app.goo.gl/bPryrj1CNfrg6kxQ7\nA to B, Dog Friendly",
         location: "12017 Amherst Dr, Austin, TX 78759, USA",
       }),
-      { defaultKennelTag: "ah3", titleHarePattern: String.raw`^(.+?)\s+AH3\s+#` },
-      undefined, undefined, undefined,
-      titleHareRE,
-    );
+      { defaultKennelTag: "ah3", titleHarePattern: String.raw`^(.+?)\s+AH3\s+#` }, { compiledTitleHarePattern: titleHareRE });
     expect(result).not.toBeNull();
     expect(result!.hares).toBe("Baba Gagush & Crusty Beaver");
     expect(result!.title).toBe("AH3 #2269");
@@ -701,10 +698,7 @@ describe("titleHarePattern — hare extraction from summary", () => {
         summary: "AH3 #1833 - Manoa Valley District Park - International Dicklomat",
         start: { dateTime: "2026-04-18T14:00:00-10:00" },
       }),
-      { defaultKennelTag: "ah3-hi", titleHarePattern: String.raw`^AH3\s*#\d+.*-\s+(.+)$` },
-      undefined, undefined, undefined,
-      suffixRE,
-    );
+      { defaultKennelTag: "ah3-hi", titleHarePattern: String.raw`^AH3\s*#\d+.*-\s+(.+)$` }, { compiledTitleHarePattern: suffixRE });
     expect(result).not.toBeNull();
     expect(result!.hares).toBe("International Dicklomat");
     expect(result!.title).toBe("AH3 #1833 - Manoa Valley District Park");
@@ -718,10 +712,7 @@ describe("titleHarePattern — hare extraction from summary", () => {
         summary: "AH3 #1828 - **EARLY START** - Kailua District Park - Green Machine",
         start: { dateTime: "2026-03-14T10:00:00-10:00" },
       }),
-      { defaultKennelTag: "ah3-hi", titleHarePattern: String.raw`^AH3\s*#\d+.*-\s+(.+)$` },
-      undefined, undefined, undefined,
-      suffixRE,
-    );
+      { defaultKennelTag: "ah3-hi", titleHarePattern: String.raw`^AH3\s*#\d+.*-\s+(.+)$` }, { compiledTitleHarePattern: suffixRE });
     expect(result).not.toBeNull();
     expect(result!.hares).toBe("Green Machine");
     expect(result!.title).toBe("AH3 #1828 - **EARLY START** - Kailua District Park");
@@ -737,10 +728,7 @@ describe("titleHarePattern — hare extraction from summary", () => {
         summary: "Alice AH3 #2269 - Event with Alice",
         start: { dateTime: "2026-04-18T14:00:00-05:00" },
       }),
-      { defaultKennelTag: "ah3", titleHarePattern: String.raw`^(.+?)\s+AH3\s+#` },
-      undefined, undefined, undefined,
-      prefixRE,
-    );
+      { defaultKennelTag: "ah3", titleHarePattern: String.raw`^(.+?)\s+AH3\s+#` }, { compiledTitleHarePattern: prefixRE });
     expect(result).not.toBeNull();
     expect(result!.hares).toBe("Alice");
     // Title should strip from the front, not the back
@@ -757,10 +745,7 @@ describe("titleHarePattern — hare extraction from summary", () => {
         summary: "SH3 #880 Hare: Kiss Me- Degerloch",
         start: { dateTime: "2026-04-19T12:00:00+02:00" },
       }),
-      { defaultKennelTag: "sh3-de", titleHarePattern: String.raw`Hare:\s+(.+?)(?=-\s+\S)` },
-      undefined, undefined, undefined,
-      midRE,
-    );
+      { defaultKennelTag: "sh3-de", titleHarePattern: String.raw`Hare:\s+(.+?)(?=-\s+\S)` }, { compiledTitleHarePattern: midRE });
     expect(result).not.toBeNull();
     expect(result!.hares).toBe("Kiss Me");
     expect(result!.title).toBe("SH3 #880 - Degerloch");
@@ -778,10 +763,7 @@ describe("titleHarePattern — hare extraction from summary", () => {
       {
         defaultKennelTag: "sh3-de",
         titleHarePattern: String.raw`Hare:?\s+(.+?)(?:(?=[-\u2013\u2014]\s*\S)|\s*$)`,
-      },
-      undefined, undefined, undefined,
-      pattern,
-    );
+      }, { compiledTitleHarePattern: pattern });
     expect(result).not.toBeNull();
     expect(result!.hares).toBe("Kiss Me");
     expect(result!.title).toBe("SH3 #881 — Degerloch");
@@ -801,10 +783,7 @@ describe("titleHarePattern — hare extraction from summary", () => {
       {
         defaultKennelTag: "ah3-hi",
         titleHarePattern: String.raw`Hare:\s+(.+?)(?:\s*$)`,
-      },
-      undefined, undefined, undefined,
-      pattern,
-    );
+      }, { compiledTitleHarePattern: pattern });
     expect(result).not.toBeNull();
     expect(result!.hares).toBe("AH3");
     expect(result!.title).toBe("AH3 #880");
@@ -817,10 +796,7 @@ describe("titleHarePattern — hare extraction from summary", () => {
         start: { dateTime: "2026-04-05T14:00:00-05:00" },
         description: "Hare: Actual Hare Name\nDetails here",
       }),
-      { defaultKennelTag: "ah3", titleHarePattern: String.raw`^(.+?)\s+AH3\s+#` },
-      undefined, undefined, undefined,
-      titleHareRE,
-    );
+      { defaultKennelTag: "ah3", titleHarePattern: String.raw`^(.+?)\s+AH3\s+#` }, { compiledTitleHarePattern: titleHareRE });
     expect(result).not.toBeNull();
     expect(result!.hares).toBe("Actual Hare Name");
     // Title should NOT be stripped when hares came from description
@@ -1000,11 +976,7 @@ describe("buildRawEventFromGCalItem — skipPatterns", () => {
     const skipPatterns = [/BFM|Ben Franklin/i];
     const result = buildRawEventFromGCalItem(
       baseItem,
-      { defaultKennelTag: "philly-h3" },
-      undefined,
-      undefined,
-      skipPatterns,
-    );
+      { defaultKennelTag: "philly-h3" }, { compiledSkipPatterns: skipPatterns });
     expect(result).toBeNull();
   });
 
@@ -1012,11 +984,7 @@ describe("buildRawEventFromGCalItem — skipPatterns", () => {
     const skipPatterns = [/BFM|Ben Franklin/i];
     const result = buildRawEventFromGCalItem(
       { ...baseItem, summary: "Philly Hash Weekly Run" },
-      { defaultKennelTag: "philly-h3" },
-      undefined,
-      undefined,
-      skipPatterns,
-    );
+      { defaultKennelTag: "philly-h3" }, { compiledSkipPatterns: skipPatterns });
     expect(result).not.toBeNull();
     expect(result!.kennelTags[0]).toBe("philly-h3");
   });
@@ -1025,9 +993,7 @@ describe("buildRawEventFromGCalItem — skipPatterns", () => {
     const result = buildRawEventFromGCalItem(
       baseItem,
       { defaultKennelTag: "TEST" },
-      undefined,
-      undefined,
-      [],
+      { compiledSkipPatterns: [] },
     );
     expect(result).not.toBeNull();
   });
@@ -1042,33 +1008,21 @@ describe("buildRawEventFromGCalItem — skipPatterns", () => {
     it("drops a pure BFM-titled event from the Philly calendar", () => {
       const result = buildRawEventFromGCalItem(
         { ...baseItem, summary: "Ben Franklin Mob H3" },
-        { defaultKennelTag: "philly-h3" },
-        undefined,
-        undefined,
-        PHILLY_SKIP,
-      );
+        { defaultKennelTag: "philly-h3" }, { compiledSkipPatterns: PHILLY_SKIP });
       expect(result).toBeNull();
     });
 
     it("drops a 'BFM #123' prefixed event from the Philly calendar", () => {
       const result = buildRawEventFromGCalItem(
         { ...baseItem, summary: "BFM #1234: Trail Name" },
-        { defaultKennelTag: "philly-h3" },
-        undefined,
-        undefined,
-        PHILLY_SKIP,
-      );
+        { defaultKennelTag: "philly-h3" }, { compiledSkipPatterns: PHILLY_SKIP });
       expect(result).toBeNull();
     });
 
     it("KEEPS a mixed-title joint event under Philly H3 (co-host, not BFM-only)", () => {
       const result = buildRawEventFromGCalItem(
         { ...baseItem, summary: "Philly H3 & BFM joint co-host trail" },
-        { defaultKennelTag: "philly-h3" },
-        undefined,
-        undefined,
-        PHILLY_SKIP,
-      );
+        { defaultKennelTag: "philly-h3" }, { compiledSkipPatterns: PHILLY_SKIP });
       expect(result).not.toBeNull();
       expect(result!.kennelTags[0]).toBe("philly-h3");
     });
@@ -1076,33 +1030,21 @@ describe("buildRawEventFromGCalItem — skipPatterns", () => {
     it("drops a pure N2H3-titled event from the Oregon calendar", () => {
       const result = buildRawEventFromGCalItem(
         { ...baseItem, summary: "N2H3 #769 The Matzo Ball Hash!" },
-        { defaultKennelTag: "oh3" },
-        undefined,
-        undefined,
-        OREGON_SKIP,
-      );
+        { defaultKennelTag: "oh3" }, { compiledSkipPatterns: OREGON_SKIP });
       expect(result).toBeNull();
     });
 
     it("drops an NNH3-prefixed event from the Oregon calendar", () => {
       const result = buildRawEventFromGCalItem(
         { ...baseItem, summary: "NNH3 #769 The Matzo Ball Hash!" },
-        { defaultKennelTag: "oh3" },
-        undefined,
-        undefined,
-        OREGON_SKIP,
-      );
+        { defaultKennelTag: "oh3" }, { compiledSkipPatterns: OREGON_SKIP });
       expect(result).toBeNull();
     });
 
     it("KEEPS an OH3 event whose description mentions N2H3 (e.g. meetup reference)", () => {
       const result = buildRawEventFromGCalItem(
         { ...baseItem, summary: "OH3 #1500 — meet at the No Name H3 bar" },
-        { defaultKennelTag: "oh3" },
-        undefined,
-        undefined,
-        OREGON_SKIP,
-      );
+        { defaultKennelTag: "oh3" }, { compiledSkipPatterns: OREGON_SKIP });
       expect(result).not.toBeNull();
       expect(result!.kennelTags[0]).toBe("oh3");
     });
@@ -1792,7 +1734,7 @@ describe("buildRawEventFromGCalItem — 4X2H4 stale-default title fix (#496/#497
   it("extracts the run number from the description via runNumberPatterns", () => {
     // Caller (the adapter) pre-compiles patterns once per scrape and threads them in.
     const compiledRunNumberPatterns = [/What:\s*4x2\s*H4\s*No\.?\s*(\d+)/i];
-    const event = buildRawEventFromGCalItem(item, config, undefined, compiledRunNumberPatterns);
+    const event = buildRawEventFromGCalItem(item, config, { compiledRunNumberPatterns });
     expect(event!.runNumber).toBe(124);
   });
 
