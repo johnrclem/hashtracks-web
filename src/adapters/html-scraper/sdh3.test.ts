@@ -282,27 +282,25 @@ describe("parseEventFields", () => {
   // the next line. The original parser saw the empty value after "Notes:" and
   // bailed via `if (!value) continue;` — losing the entire freetext block.
   // Notes content must fold the next non-label line(s) into the description.
-  it("captures Notes block when value follows on the next line (#1068)", () => {
-    const text = "Hare(s): Test\nRun Fee: $5\nTrail type: A to A\nDog friendly: Yes\nNotes:\nIn honor of National Gummy Bear Day, your favorite little bear will be taking you through the deep dark streets of College area. Come dressed as your favorite bear and you will be rewarded with a special boozey prize.";
+  it.each([
+    [
+      "captures Notes block when value follows on the next line",
+      "Hare(s): Test\nRun Fee: $5\nTrail type: A to A\nDog friendly: Yes\nNotes:\nIn honor of National Gummy Bear Day, your favorite little bear will be taking you through the deep dark streets of College area. Come dressed as your favorite bear and you will be rewarded with a special boozey prize.",
+      ["Hash Cash: $5", "Trail: A to A", "Dog Friendly: Yes", "In honor of National Gummy Bear Day", "special boozey prize"],
+    ],
+    [
+      "captures inline Notes value when present on same line",
+      "Hare(s): Test\nNotes: Bring a headlamp",
+      ["Bring a headlamp"],
+    ],
+    [
+      "folds multi-line Notes paragraphs",
+      "Hare(s): Test\nNotes:\nFirst paragraph here.\nSecond paragraph follows.",
+      ["First paragraph here", "Second paragraph follows"],
+    ],
+  ] as const)("%s (#1068)", (_label, text, expectedFragments) => {
     const result = parseEventFields(text);
-    expect(result.description).toContain("Hash Cash: $5");
-    expect(result.description).toContain("Trail: A to A");
-    expect(result.description).toContain("Dog Friendly: Yes");
-    expect(result.description).toContain("In honor of National Gummy Bear Day");
-    expect(result.description).toContain("special boozey prize");
-  });
-
-  it("captures inline Notes value when present on same line (#1068)", () => {
-    const text = "Hare(s): Test\nNotes: Bring a headlamp";
-    const result = parseEventFields(text);
-    expect(result.description).toContain("Bring a headlamp");
-  });
-
-  it("folds multi-line Notes paragraphs (#1068)", () => {
-    const text = "Hare(s): Test\nNotes:\nFirst paragraph here.\nSecond paragraph follows.";
-    const result = parseEventFields(text);
-    expect(result.description).toContain("First paragraph here");
-    expect(result.description).toContain("Second paragraph follows");
+    for (const frag of expectedFragments) expect(result.description).toContain(frag);
   });
 
   it("drops raw GPS coordinates from location (#714)", () => {

@@ -252,36 +252,27 @@ describe("buildEventFromSheetRow", () => {
       columns: { runNumber: 0, date: 1, hares: 4, location: 5, description: 6, startTime: 3 },
       kennelTagRules: { default: "mh3-de" },
     };
+    // [#, Date, Group, Start time, Hared by, Location, Notes]
+    const buildRow = (cell3: string, run = "999", date = "25-Apr-26") =>
+      [run, date, "MH3", cell3, "Hare1", "Treffpunkt", ""];
 
-    it("extracts startTime from configured column ('15:00')", () => {
-      // [#, Date, Group, Start time, Hared by, Location, Notes]
-      const row = ["934", "25-Apr-26", "MH3", "15:00", "Hare1", "Treffpunkt", "Note the earlier time"];
-      const event = buildEventFromSheetRow(row, munichConfig, "https://example.com", "2026-04-25");
-      expect(event!.startTime).toBe("15:00");
-    });
-
-    it("normalizes single-digit hour ('9:30' → '09:30')", () => {
-      const row = ["935", "9-May-26", "MH3", "9:30", "Hare1", "Park", ""];
-      const event = buildEventFromSheetRow(row, munichConfig, "https://example.com", "2026-05-09");
-      expect(event!.startTime).toBe("09:30");
-    });
-
-    it("accepts 12-hour 'H:MM pm' format", () => {
-      const row = ["936", "23-May-26", "MFMH3", "7:00 pm", "Hare1", "", ""];
-      const event = buildEventFromSheetRow(row, munichConfig, "https://example.com", "2026-05-23");
-      expect(event!.startTime).toBe("19:00");
+    it.each([
+      ["24-hour 'HH:MM' verbatim", "15:00", "15:00"],
+      ["single-digit hour normalized to zero-padded", "9:30", "09:30"],
+      ["12-hour 'H:MM pm' format converted", "7:00 pm", "19:00"],
+    ])("extracts startTime from column: %s", (_label, cell, expected) => {
+      const event = buildEventFromSheetRow(buildRow(cell), munichConfig, "https://example.com", "2026-04-25");
+      expect(event!.startTime).toBe(expected);
     });
 
     it("falls through to startTimeRules when cell is empty/TBD", () => {
       const config = { ...munichConfig, startTimeRules: { default: "19:00" } };
-      const row = ["937", "30-May-26", "MH3", "TBD", "Hare1", "", ""];
-      const event = buildEventFromSheetRow(row, config, "https://example.com", "2026-05-30");
+      const event = buildEventFromSheetRow(buildRow("TBD"), config, "https://example.com", "2026-04-25");
       expect(event!.startTime).toBe("19:00");
     });
 
     it("undefined when neither column nor rules supply a value", () => {
-      const row = ["938", "6-Jun-26", "MH3", "", "Hare1", "", ""];
-      const event = buildEventFromSheetRow(row, munichConfig, "https://example.com", "2026-06-06");
+      const event = buildEventFromSheetRow(buildRow(""), munichConfig, "https://example.com", "2026-04-25");
       expect(event!.startTime).toBeUndefined();
     });
   });
