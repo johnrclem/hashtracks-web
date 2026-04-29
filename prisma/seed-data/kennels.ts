@@ -153,6 +153,9 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "bos-moon", shortName: "Boston Moon", fullName: "Boston Moon Hash House Harriers", region: "Boston, MA",
       scheduleFrequency: "Full Moon",
+      instagramHandle: "@bostonh3",
+      twitterHandle: "@bostonhash",
+      description: "Boston Moon (BMH3) runs once a month on or around the full moon — or some other time of the month. Wear a cranium cover to avoid moon burn!",
     },
     { kennelCode: "pink-taco", shortName: "Pink Taco Trotters", fullName: "Pink Taco Hash House Harriers", region: "Boston, MA" },
     // Massachusetts (non-Boston)
@@ -322,6 +325,8 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "cfmh3", shortName: "CFMH3", fullName: "Chicago Full Moon Hash House Harriers", region: "Chicago, IL",
       website: "https://www.hhhinchicago.com", foundedYear: 1987,
       facebookUrl: "https://www.facebook.com/groups/570636943051356/",
+      contactEmail: "H3HornEH3@aol.com",
+      hashCash: "$5",
       scheduleFrequency: "Monthly", scheduleNotes: "Evenings near the full moon",
       description: "Monthly hash near the full moon (est. 1987). Day of week varies with the lunar cycle.",
     },
@@ -423,6 +428,7 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "dch4", shortName: "DCH4", fullName: "DC Harriettes and Harriers Hash House", region: "Washington, DC",
       website: "https://dch4.org", foundedYear: 1978,
+      logoUrl: "/kennel-logos/dch4.png",
       facebookUrl: "https://www.facebook.com/groups/dch4hashhouse",
       scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Weekly",
       scheduleNotes: "2:00 PM daylight, 3:00 PM standard time",
@@ -539,10 +545,14 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "ebh3", shortName: "East Bay H3", fullName: "East Bay Hash House Harriers", region: "Oakland, CA",
       website: "https://www.ebh3.com",
+      logoUrl: "https://www.ebh3.com/local/images/ebh3/apple-touch-icon-ebh3.png",
       facebookUrl: "https://www.facebook.com/groups/Ebhhh/",
+      contactEmail: "hareraiser@ebh3.com",
+      mailingListUrl: "https://mail.ebh3.com/mailman/listinfo/ebh3-hashers",
       scheduleDayOfWeek: "Sunday", scheduleTime: "1:00 PM", scheduleFrequency: "Biweekly",
       hashCash: "$6",
-      description: "Biweekly Sunday afternoon runs in the East Bay. Run #1159+.",
+      foundedYear: 1979,
+      description: "One of the longest-running active hashes in the U.S., founded in 1979 (originally as the Alamo H3). Biweekly Sunday afternoon runs through East Bay open-space and parks, usually live trails, with circle and on-on-on at a nearby pub afterwards.",
     },
     {
       kennelCode: "svh3", shortName: "SVH3", fullName: "Silicone Valley Hash House Harriers", region: "San Jose, CA",
@@ -834,8 +844,12 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "edinburghh3", shortName: "Edinburgh H3", fullName: "Edinburgh Hash House Harriers", region: "Edinburgh", country: "UK",
       website: "https://www.edinburghh3.com",
+      logoUrl: "https://www.edinburghh3.com/uploads/9/2/5/2/9252544/6294829_orig.jpg",
+      facebookUrl: "https://www.facebook.com/groups/1343234319067769/",
+      contactEmail: "EH3Brewer@aol.com",
+      foundedYear: 1981,
       scheduleDayOfWeek: "Sunday", scheduleTime: "11:00 AM", scheduleFrequency: "Weekly",
-      description: "Edinburgh's weekly Sunday morning hash. Run #2302+ and counting.",
+      description: "Non-competitive fun-running club of around 100 members. Different location every Sunday at 11am within roughly a 40-mile radius of Edinburgh; runs are usually around 8km and followed by a pub lunch. Founded February 1981 by Willie Coupar (Surrey H3); hosted the Commonwealth Hash in 1986 and UK Nash Hashes in 1989 and 2009.",
       latitude: 55.95, longitude: -3.19,
     },
     {
@@ -1242,8 +1256,12 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "dh3-tx", shortName: "Dallas H3", fullName: "Dallas Hash House Harriers", region: "Dallas-Fort Worth, TX",
       website: "http://www.dfwhhh.org",
-      scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly",
-      description: "Biweekly Saturday runs in the Dallas area.",
+      facebookUrl: "https://www.facebook.com/groups/1645429635716687",
+      contactEmail: "DoubleDribble@att.net",
+      hashCash: "$10",
+      foundedYear: 1978,
+      scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Biweekly",
+      description: "Biweekly Saturday runs in the Dallas area. Founded 1 October 1978 by Dewey 'Pockets' Dethrow as a daughter of Singapore H3 — one of the older active kennels in North America.",
       latitude: 32.78, longitude: -96.80,
     },
     {
@@ -1279,6 +1297,16 @@ export const KENNELS: KennelSeed[] = [
       latitude: 29.42, longitude: -98.49,
     },
     // --- El Paso ---
+    {
+      kennelCode: "eph3", shortName: "El Paso H3", fullName: "El Paso Hash House Harriers", region: "El Paso",
+      website: "https://www.elpasohash.com/",
+      logoUrl: "https://storage.googleapis.com/wzukusers/user-32922669/images/5acbc8ff2ded2cWgAgB9/STAR_d200.jpg",
+      scheduleDayOfWeek: "Sunday", scheduleFrequency: "Weekly",
+      scheduleNotes: "Every Sunday and on other special occasions. The hareline should be checked for start times and locations as they may change.",
+      foundedYear: 1987,
+      description: "El Paso's weekly Sunday hash, on-on since 1987.",
+      latitude: 31.76, longitude: -106.49,
+    },
     {
       kennelCode: "bjh3", shortName: "BJH3", fullName: "Border Jumpers Hash House Harriers", region: "El Paso, TX",
       website: "https://bjhash.carrd.co",
@@ -1627,6 +1655,7 @@ export const KENNELS: KennelSeed[] = [
     // --- Columbus ---
     {
       kennelCode: "cvh3", shortName: "CVH3", fullName: "Chattahoochee Valley Hash House Harriers", region: "Columbus, GA",
+      foundedYear: 2000,
       scheduleDayOfWeek: "Saturday", scheduleTime: "11:00 AM", scheduleFrequency: "Biweekly",
       description: "Alternate Saturday morning runs in the Columbus/Chattahoochee Valley area.",
     },
@@ -1751,6 +1780,9 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "dwh3", shortName: "DWH3", fullName: "Dead Whores Hash House Harriers",
       region: "Portland, OR",
       website: "https://www.dwh3portland.com/",
+      logoUrl: "https://static.wixstatic.com/media/41b903_88e1a6c8e948448aabd92264ef3add56~mv2.jpg",
+      facebookUrl: "https://www.facebook.com/share/g/MQZCtzzVQChFkXSY/",
+      instagramHandle: "@dwh3_pnw",
       scheduleDayOfWeek: "Sunday", scheduleTime: "12:00 PM", scheduleFrequency: "Monthly",
       foundedYear: 2001,
       description: "Portland's monthly Sunday afternoon hash. Founded 2001 in Lake Oswego. Female-oriented kennel, wankers welcome on analversaries.",
@@ -1996,8 +2028,12 @@ export const KENNELS: KennelSeed[] = [
     },
     {
       kennelCode: "dim-h3", shortName: "DIM", fullName: "Damn It's Monday Hash House Harriers", region: "Colorado Springs, CO",
+      facebookUrl: "https://www.facebook.com/groups/2147541855493092/",
+      contactEmail: "cspringsh3@gmail.com",
+      foundedYear: 1999,
       scheduleDayOfWeek: "Monday", scheduleTime: "6:00 PM", scheduleFrequency: "Biweekly",
-      description: "Colorado Springs biweekly Monday evening hash.",
+      scheduleNotes: "Every other Monday during DST; hibernates in winter.",
+      description: "Damn It's Monday — a Colorado Springs hash created in 1999 by P2H4's Crack Climber as a summertime offshoot of Pikes Peak H4. Hibernates each winter and returns annually during Daylight Savings Time, hashing every other Monday at 6:00 PM. Trails tend toward the longer and more challenging end of the P2H4 family.",
       latitude: 38.83, longitude: -104.82,
     },
     // ===== MINNESOTA =====
@@ -2290,7 +2326,9 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "f3h3", shortName: "F3H3*", fullName: "Finally Friday Fukov Hash House Harriers", region: "Tokyo", country: "Japan",
       website: "https://www.f3h3.net",
+      logoUrl: "https://www.f3h3.net/bh_mex50.gif",
       facebookUrl: "https://www.facebook.com/groups/f3hash",
+      contactEmail: "f3hash@gmail.com",
       scheduleDayOfWeek: "Friday", scheduleTime: "7:30 PM", scheduleFrequency: "Biweekly",
       scheduleNotes: "2nd and 4th Fridays",
       hashCash: "¥1,000", foundedYear: 2004,
@@ -3182,10 +3220,11 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "butterworth-h3", shortName: "Butterworth H3", fullName: "Penang Butterworth Hash House Harriers",
       region: "Butterworth, MY", country: "Malaysia",
+      facebookUrl: "https://www.facebook.com/butterworth.hashhouseharriers",
       scheduleDayOfWeek: "Saturday", scheduleTime: "5:00 PM", scheduleFrequency: "Weekly",
       scheduleNotes: "Founded 1980, the mainland Penang hash kennel. Schedule details available via Facebook.",
       foundedYear: 1980,
-      description: "Founded in 1980 on the mainland side of Penang, Butterworth H3 runs weekly Saturday trails through Seberang Perai and the mainland Penang hinterland.",
+      description: "Founded 29 May 1980 by Peter 'Jonsi' Jones as a daughter kennel of Penang H3, Butterworth H3 is the men-only mainland-Penang hash. Weekly Saturday trails through Seberang Perai and the mainland Penang hinterland.",
       latitude: 5.3987, longitude: 100.3649,
     },
     {
