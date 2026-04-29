@@ -2,6 +2,7 @@ import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
 import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, HARE_BOILERPLATE_RE, EVENT_FIELD_LABEL_RE, EVENT_FIELD_LABEL_UPPERCASE_RE, CTA_EMBEDDED_PATTERNS, appendDescriptionSuffix, isPlaceholder, parse12HourTime, formatAmPmTime, stripNonEnglishCountry } from "../utils";
+import { matchKennelPatterns, matchCompiledKennelPatterns, compileKennelPatterns, type KennelPattern, type CompiledKennelPattern } from "../kennel-patterns";
 import { PHONE_NUMBER_RE, LOCATION_EMAIL_CTA_RE } from "@/pipeline/audit-checks";
 
 /**
@@ -490,7 +491,13 @@ function isNonAddressText(text: string): boolean {
 
 /** Config shape for Google Calendar sources */
 interface CalendarSourceConfig {
-  kennelPatterns?: [string, string][];  // [[regex, kennelTag], ...]
+  /**
+   * Per-event kennel routing. Each entry is `[regex, kennelTag | kennelTag[]]`.
+   * Single-tag (string) entries preserve legacy first-match-wins behavior.
+   * Array entries declare a true multi-kennel co-host (#1023 step 4); see
+   * `src/adapters/kennel-patterns.ts` for the full precedence rules.
+   */
+  kennelPatterns?: KennelPattern[];
   defaultKennelTag?: string;            // fallback for unrecognized events
   /**
    * When true on a multi-kennel calendar (one with `kennelPatterns`), a summary
@@ -530,18 +537,18 @@ interface CalendarSourceConfig {
 }
 
 /**
- * Match event summary against config-driven kennel patterns.
- * Returns the kennel tag for the first matching pattern, or null.
+ * Match event summary against kennel patterns. Prefers pre-compiled patterns
+ * (the hot path during a scrape) and falls back to compile-per-call for
+ * direct test invocations. Always returns an array; see
+ * `src/adapters/kennel-patterns.ts` for precedence rules.
  */
-function matchConfigPatterns(summary: string, patterns: [string, string][]): string | null {
-  for (const [regex, tag] of patterns) {
-    try {
-      if (new RegExp(regex, "i").test(summary)) return tag;
-    } catch {
-      // Skip malformed patterns from source config
-    }
-  }
-  return null;
+function matchConfigPatterns(
+  summary: string,
+  patterns: KennelPattern[],
+  compiled?: CompiledKennelPattern[],
+): string[] {
+  if (compiled) return matchCompiledKennelPatterns(summary, compiled);
+  return matchKennelPatterns(summary, patterns);
 }
 
 /** Subset of the Google Calendar API v3 event shape */
@@ -626,17 +633,18 @@ export function normalizeGCalDescription(rawDesc: string | undefined): { rawDesc
 function resolveKennelTagFromSummary(
   summary: string,
   sourceConfig: CalendarSourceConfig | null,
-): { kennelTag: string; useFullTitle: boolean } | null {
+  compiledKennelPatterns?: CompiledKennelPattern[],
+): { kennelTags: string[]; useFullTitle: boolean } | null {
   if (sourceConfig?.kennelPatterns) {
-    const matched = matchConfigPatterns(summary, sourceConfig.kennelPatterns);
-    if (matched) return { kennelTag: matched, useFullTitle: true };
+    const matched = matchConfigPatterns(summary, sourceConfig.kennelPatterns, compiledKennelPatterns);
+    if (matched.length > 0) return { kennelTags: matched, useFullTitle: true };
     if (sourceConfig.strictKennelRouting) return null;
-    return { kennelTag: sourceConfig.defaultKennelTag ?? summary, useFullTitle: true };
+    return { kennelTags: [sourceConfig.defaultKennelTag ?? summary], useFullTitle: true };
   }
   if (sourceConfig?.defaultKennelTag) {
-    return { kennelTag: sourceConfig.defaultKennelTag, useFullTitle: true };
+    return { kennelTags: [sourceConfig.defaultKennelTag], useFullTitle: true };
   }
-  return { kennelTag: summary, useFullTitle: true };
+  return { kennelTags: [summary], useFullTitle: true };
 }
 
 /** Parse source.config into CalendarSourceConfig or null. */
@@ -646,19 +654,38 @@ function parseCalendarSourceConfig(config: unknown): CalendarSourceConfig | null
     : null;
 }
 
+/** Optional pre-compiled patterns + tracking map plumbed through the
+ *  fetch loop. Bundled into one options object to keep
+ *  buildRawEventFromGCalItem within the function-arity limit. Direct
+ *  test invocations can omit this entirely. */
+export interface BuildRawEventFromGCalItemOptions {
+  compiledHarePatterns?: RegExp[];
+  compiledRunNumberPatterns?: RegExp[];
+  compiledSkipPatterns?: RegExp[];
+  compiledTitleHarePattern?: RegExp;
+  /** Pre-compiled kennelPatterns. Production fetch path passes this so
+   *  we don't re-compile every event; tests can omit. */
+  compiledKennelPatterns?: CompiledKennelPattern[];
+  /** id-tracking map; the adapter populates this so the cross-call
+   *  dedup at the end of `fetch` can use stable GCal ids without
+   *  changing the public RawEventData shape. */
+  gcalIdMap?: WeakMap<RawEventData, string>;
+}
+
 /** Build a RawEventData from a single Google Calendar event item. Returns null if the item should be skipped. */
 export function buildRawEventFromGCalItem(
   item: GCalEvent,
   sourceConfig: CalendarSourceConfig | null,
-  compiledHarePatterns?: RegExp[],
-  compiledRunNumberPatterns?: RegExp[],
-  compiledSkipPatterns?: RegExp[],
-  compiledTitleHarePattern?: RegExp,
-  // Optional id-tracking map. The adapter populates this so the cross-call
-  // dedup at the end of `fetch` can use stable GCal ids without changing the
-  // public RawEventData shape.
-  gcalIdMap?: WeakMap<RawEventData, string>,
+  options: BuildRawEventFromGCalItemOptions = {},
 ): RawEventData | null {
+  const {
+    compiledHarePatterns,
+    compiledRunNumberPatterns,
+    compiledSkipPatterns,
+    compiledTitleHarePattern,
+    compiledKennelPatterns,
+    gcalIdMap,
+  } = options;
   if (item.status === "cancelled") return null;
   if (!item.summary) return null;
   if (!item.start?.dateTime && !item.start?.date) return null;
@@ -705,9 +732,13 @@ export function buildRawEventFromGCalItem(
       haresFromTitle = !!hares;
     }
   }
-  const resolved = resolveKennelTagFromSummary(summary, sourceConfig);
+  const resolved = resolveKennelTagFromSummary(summary, sourceConfig, compiledKennelPatterns);
   if (!resolved) return null;
-  const { kennelTag, useFullTitle } = resolved;
+  const { kennelTags, useFullTitle } = resolved;
+  // The first resolved tag is the primary kennel for routing/title fallback
+  // logic below. Co-host secondaries (#1023) ride along in `kennelTags` and
+  // are written to EventKennel rows by the merge pipeline.
+  const kennelTag = kennelTags[0];
   // Location: prefer item.location (unless placeholder or instruction text), fall back to description extraction.
   // #743: strip trailing phone numbers and contact-CTA parentheticals from the
   // raw GCal location field. Trailing only — a bare "1 800 ..." in the middle
@@ -905,7 +936,7 @@ export function buildRawEventFromGCalItem(
     const prefixMatchesKennel = !!prefix && (
       titleMatchesKennelTag(prefix, kennelTag)
       || (sourceConfig?.kennelPatterns
-        ? matchConfigPatterns(prefix, sourceConfig.kennelPatterns) === kennelTag
+        ? matchConfigPatterns(prefix, sourceConfig.kennelPatterns, compiledKennelPatterns).includes(kennelTag)
         : false)
     );
     if (bareKennelRunMatch && prefixMatchesKennel) {
@@ -942,7 +973,9 @@ export function buildRawEventFromGCalItem(
   const cost = rawDescription ? extractCostFromDescription(rawDescription) : undefined;
   const event: RawEventData = {
     date: dateISO,
-    kennelTags: [kennelTag],
+    // Pass the full multi-kennel set (#1023): for single-tag patterns this
+    // is `[primary]`; for array patterns it's the union of all matched kennels.
+    kennelTags,
     runNumber: extractRunNumber(summary, rawDescription, compiledRunNumberPatterns),
     title,
     description: appendDescriptionSuffix(description, sourceConfig?.descriptionSuffix),
@@ -1015,6 +1048,9 @@ export class GoogleCalendarAdapter implements SourceAdapter {
     const compiledTitleHarePattern = sourceConfig?.titleHarePattern
       ? compilePatterns([sourceConfig.titleHarePattern], "i")[0]
       : undefined;
+    const compiledKennelPatterns = sourceConfig?.kennelPatterns?.length
+      ? compileKennelPatterns(sourceConfig.kennelPatterns)
+      : undefined;
     const gcalIdMap = new WeakMap<RawEventData, string>();
 
     const buildEvents = (items: GCalEvent[], filter?: (item: GCalEvent) => boolean): void => {
@@ -1025,12 +1061,14 @@ export class GoogleCalendarAdapter implements SourceAdapter {
           continue;
         }
         try {
-          const event = buildRawEventFromGCalItem(
-            item, sourceConfig,
-            compiledHarePatterns, compiledRunNumberPatterns,
-            compiledSkipPatterns, compiledTitleHarePattern,
+          const event = buildRawEventFromGCalItem(item, sourceConfig, {
+            compiledHarePatterns,
+            compiledRunNumberPatterns,
+            compiledSkipPatterns,
+            compiledTitleHarePattern,
+            compiledKennelPatterns,
             gcalIdMap,
-          );
+          });
           if (event) events.push(event);
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);

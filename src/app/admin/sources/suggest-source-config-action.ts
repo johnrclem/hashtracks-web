@@ -470,7 +470,7 @@ function validateConfigShape(raw: unknown, type: string): Record<string, unknown
   const obj = { ...(raw as Record<string, unknown>) };
 
   if (Array.isArray(obj.kennelPatterns)) {
-    obj.kennelPatterns = (obj.kennelPatterns as unknown[]).filter(isValidPatternEntry);
+    obj.kennelPatterns = (obj.kennelPatterns as unknown[]).filter((e) => isValidPatternEntry(e, type));
   }
 
   if (Array.isArray(obj.skipPatterns)) {
@@ -490,11 +490,29 @@ function isNonEmptyString(value: unknown): value is string {
 }
 
 
-/** Returns true if entry is a valid [pattern, tag] pair with a safe regex. */
-function isValidPatternEntry(entry: unknown): boolean {
+// Mirror config-validation's gate: only adapter types that consume the
+// central matchKennelPatterns helper accept array-valued tags. Adding a
+// type here without migrating the adapter risks silent malformed kennelTags.
+const TYPES_SUPPORTING_MULTI_KENNEL_PATTERNS = new Set(["GOOGLE_CALENDAR"]);
+
+/**
+ * Returns true if entry is a valid `[pattern, tag | tag[]]` pair with a
+ * safe regex. Multi-kennel arrays (#1023 step 4) are only allowed for
+ * source types whose adapter has been migrated to handle them.
+ */
+function isValidPatternEntry(entry: unknown, type?: string): boolean {
   if (!Array.isArray(entry) || entry.length !== 2) return false;
-  const [pattern, tag] = entry;
-  if (typeof pattern !== "string" || typeof tag !== "string") return false;
+  const [pattern, tagValue] = entry;
+  if (typeof pattern !== "string") return false;
+  if (typeof tagValue === "string") {
+    if (!tagValue.trim()) return false;
+  } else if (Array.isArray(tagValue)) {
+    if (type !== undefined && !TYPES_SUPPORTING_MULTI_KENNEL_PATTERNS.has(type)) return false;
+    if (tagValue.length === 0) return false;
+    if (!tagValue.every((t) => typeof t === "string" && t.trim().length > 0)) return false;
+  } else {
+    return false;
+  }
   return isSafeRegexString(pattern);
 }
 
