@@ -93,10 +93,22 @@ export default async function KennelDetailPage({
   const [user, events] = await Promise.all([
     getOrCreateUser(),
     prisma.event.findMany({
-      where: { kennelId: kennel.id, status: { not: "CANCELLED" }, isManualEntry: { not: true }, isCanonical: true, parentEventId: null },
+      // #1023 step 5: filter via EventKennel join so co-host events
+      // (where this kennel is a secondary, not the primary) appear here too.
+      where: { eventKennels: { some: { kennelId: kennel.id } }, status: { not: "CANCELLED" }, isManualEntry: { not: true }, isCanonical: true, parentEventId: null },
       include: {
         kennel: {
           select: { id: true, shortName: true, fullName: true, slug: true, region: true, country: true },
+        },
+        // Populate co-host kennels (#1023 step 5) — surfaces the
+        // "Cherry City × OH3" conjunction in EventCard for multi-kennel
+        // events. Empty array for the common single-kennel case.
+        eventKennels: {
+          where: { isPrimary: false },
+          select: {
+            kennel: { select: { id: true, shortName: true, fullName: true, slug: true, region: true, country: true } },
+          },
+          orderBy: { kennel: { shortName: "asc" } },
         },
       },
       orderBy: { date: "asc" },
@@ -130,6 +142,10 @@ export default async function KennelDetailPage({
     timezone: e.timezone,
     kennelId: e.kennelId,
     kennel: e.kennel,
+    // #1023 step 5: surface co-host kennels for the EventCard conjunction
+    // ("Cherry City × OH3"). `eventKennels` was filtered to isPrimary=false
+    // in the SELECT above, so this is just the secondaries.
+    coHosts: e.eventKennels.map((ek) => ek.kennel),
     runNumber: e.runNumber,
     title: e.title,
     haresText: e.haresText,

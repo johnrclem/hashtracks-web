@@ -23,7 +23,8 @@ export default async function HistoryPage({ params }: Props) {
 
   const where = {
     kennelAttendances: { some: {} },
-    kennelId: kennel.id,
+    // #1023 step 5: include co-hosted events in history.
+    eventKennels: { some: { kennelId: kennel.id } },
   };
 
   const [events, total] = await Promise.all([

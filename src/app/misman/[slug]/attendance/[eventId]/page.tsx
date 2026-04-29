@@ -19,19 +19,26 @@ export default async function EventAttendancePage({ params }: Props) {
   const user = await getMismanUser(kennel.id);
   if (!user) notFound();
 
-  // Verify the event exists and belongs to this kennel
+  // Verify the event exists and is hosted by this kennel (primary OR co-host).
+  // #1023 step 5: check EventKennel set, not just Event.kennelId.
   const event = await prisma.event.findUnique({
     where: { id: eventId },
-    select: { id: true, kennelId: true },
+    select: {
+      id: true,
+      kennelId: true,
+      eventKennels: { select: { kennelId: true } },
+    },
   });
-  if (!event || event.kennelId !== kennel.id) notFound();
+  const eventKennelIds = event ? event.eventKennels.map((ek) => ek.kennelId) : [];
+  const isOnEvent = event && (eventKennelIds.includes(kennel.id) || event.kennelId === kennel.id);
+  if (!isOnEvent) notFound();
 
   const oneYearAgo = new Date();
   oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
 
   const events = await prisma.event.findMany({
     where: {
-      kennelId: kennel.id,
+      eventKennels: { some: { kennelId: kennel.id } },
       date: { gte: oneYearAgo },
     },
     select: {

@@ -487,7 +487,8 @@ async function runStopSearch(
     prisma.event.findMany({
       where: {
         ...CANONICAL_EVENT_WHERE,
-        kennelId: { in: nearbyIds },
+        // #1023 step 5: include co-hosted events at any nearby kennel.
+        eventKennels: { some: { kennelId: { in: nearbyIds } } },
         date: { gte: startDate, lte: confirmedEndDate },
         status: "CONFIRMED",
       },

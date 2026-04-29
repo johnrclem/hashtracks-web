@@ -123,6 +123,52 @@ export async function getMismanUser(kennelId: string): Promise<User | null> {
 }
 
 /**
+ * Get user if they have MISMAN or ADMIN role for ANY kennel on the given
+ * event (#1023 step 5). Co-hosted events have multiple kennels via
+ * EventKennel; a misman of any one of them should be able to record
+ * attendance / view misman UI on the event detail page.
+ *
+ * Falls back to the legacy `Event.kennelId` denormalized primary pointer
+ * if the event has no EventKennel rows (shouldn't happen post-step-1
+ * backfill, but defensive).
+ */
+export async function getMismanUserForEvent(eventId: string): Promise<User | null> {
+  const clerkUser = await safeCurrentUser();
+  if (!clerkUser) return null;
+
+  // Site admins always have misman access (cheap pre-check, avoids the DB roundtrip).
+  const metadata = clerkUser.publicMetadata as { role?: string } | null;
+  if (metadata?.role === "admin") {
+    return getOrCreateUser();
+  }
+
+  const event = await prisma.event.findUnique({
+    where: { id: eventId },
+    select: {
+      kennelId: true, // legacy denorm fallback
+      eventKennels: { select: { kennelId: true } },
+    },
+  });
+  if (!event) return null;
+
+  const user = await getOrCreateUser();
+  if (!user) return null;
+
+  const kennelIds = event.eventKennels.length > 0
+    ? event.eventKennels.map((ek) => ek.kennelId)
+    : [event.kennelId];
+
+  const membership = await prisma.userKennel.findFirst({
+    where: {
+      userId: user.id,
+      kennelId: { in: kennelIds },
+      role: { in: ["MISMAN", "ADMIN"] },
+    },
+  });
+  return membership ? user : null;
+}
+
+/**
  * Get all kennel IDs in the same Roster Group as the given kennel.
  * Returns [kennelId] if the kennel is not in any group (standalone).
  * Still needed for event validation (events belong to kennels, not groups).

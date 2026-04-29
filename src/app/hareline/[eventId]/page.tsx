@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
-import { getOrCreateUser, getAdminUser, getMismanUser } from "@/lib/auth";
+import { getOrCreateUser, getAdminUser, getMismanUserForEvent } from "@/lib/auth";
 import { getStravaConnection } from "@/app/strava/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -126,7 +126,9 @@ export default async function EventDetailPage({
     prisma.attendance.count({ where: { eventId, status: "CONFIRMED" } }),
     prisma.attendance.count({ where: { eventId, status: "INTENDING" } }),
     user ? getStravaConnection() : Promise.resolve(null),
-    user ? getMismanUser(event.kennelId) : Promise.resolve(null),
+    // #1023 step 5: scan all kennels on the event so secondary co-host
+    // mismans get the misman UI, not just the primary kennel's misman.
+    user ? getMismanUserForEvent(event.id) : Promise.resolve(null),
     event.status === "CANCELLED" ? getAdminUser() : Promise.resolve(null),
   ]);
 

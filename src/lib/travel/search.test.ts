@@ -88,8 +88,13 @@ function createMockPrisma(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       findMany: vi.fn().mockImplementation(({ where }: { where: any }) => {
         let filtered = [...events];
-        if (where.kennelId?.in) {
-          filtered = filtered.filter((e: MockEvent) => where.kennelId.in.includes(e.kennelId));
+        // #1023 step 5: production query filters via EventKennel.some.
+        // Mock matches Event.kennelId (the denormalized primary pointer) —
+        // for single-kennel test fixtures, primary is the only kennel so
+        // this is equivalent to the EventKennel filter.
+        const kennelInList = where.eventKennels?.some?.kennelId?.in ?? where.kennelId?.in;
+        if (kennelInList) {
+          filtered = filtered.filter((e: MockEvent) => kennelInList.includes(e.kennelId));
         }
         if (where.status === "CONFIRMED") {
           filtered = filtered.filter((e: MockEvent) => e.status === "CONFIRMED");

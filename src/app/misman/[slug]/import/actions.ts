@@ -75,8 +75,10 @@ export async function previewCSVImport(
   );
 
   // Fetch events (no date limit for imports)
+  // #1023 step 5: include co-hosted events in import lookup so a misman can
+  // map CSV rows onto trails their kennel co-hosted (not just primary-hosted).
   const events: EventLookup[] = await prisma.event.findMany({
-    where: { kennelId },
+    where: { eventKennels: { some: { kennelId } } },
     select: { id: true, date: true, runNumber: true, kennelId: true },
   });
 
@@ -88,8 +90,11 @@ export async function previewCSVImport(
   );
 
   // Fetch existing attendance for dedup
+  // #1023 step 5: KennelAttendance is hasher-scoped (already segregated per
+  // kennel via the hasher's kennelId), so dedup against existing attendance
+  // for events this kennel hosts (primary OR co-host).
   const existingAttendance = await prisma.kennelAttendance.findMany({
-    where: { event: { kennelId } },
+    where: { event: { eventKennels: { some: { kennelId } } } },
     select: { kennelHasherId: true, eventId: true },
   });
 
@@ -211,8 +216,10 @@ export async function executeCSVImport(
   }
 
   // Fetch events (no date limit)
+  // #1023 step 5: include co-hosted events in import lookup so a misman can
+  // map CSV rows onto trails their kennel co-hosted (not just primary-hosted).
   const events: EventLookup[] = await prisma.event.findMany({
-    where: { kennelId },
+    where: { eventKennels: { some: { kennelId } } },
     select: { id: true, date: true, runNumber: true, kennelId: true },
   });
 
@@ -224,8 +231,11 @@ export async function executeCSVImport(
   );
 
   // Fetch existing attendance for dedup
+  // #1023 step 5: KennelAttendance is hasher-scoped (already segregated per
+  // kennel via the hasher's kennelId), so dedup against existing attendance
+  // for events this kennel hosts (primary OR co-host).
   const existingAttendance = await prisma.kennelAttendance.findMany({
-    where: { event: { kennelId } },
+    where: { event: { eventKennels: { some: { kennelId } } } },
     select: { kennelHasherId: true, eventId: true },
   });
 

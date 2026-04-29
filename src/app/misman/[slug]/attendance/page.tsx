@@ -25,7 +25,8 @@ export default async function AttendancePage({ params }: Props) {
 
   const events = await prisma.event.findMany({
     where: {
-      kennelId: kennel.id,
+      // #1023 step 5: filter via EventKennel join so co-hosted events appear too.
+      eventKennels: { some: { kennelId: kennel.id } },
       date: { gte: oneYearAgo },
     },
     select: {

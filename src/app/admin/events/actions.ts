@@ -264,7 +264,8 @@ function buildEventWhere(filters: {
   const conditions: Record<string, unknown>[] = [];
 
   if (filters.kennelId) {
-    conditions.push({ kennelId: filters.kennelId });
+    // #1023 step 5: include co-hosted events when filtering by kennel.
+    conditions.push({ eventKennels: { some: { kennelId: filters.kennelId } } });
   }
 
   if (filters.sourceId === "none") {

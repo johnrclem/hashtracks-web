@@ -31,9 +31,12 @@ export async function getAttendanceHistory(
     dateFilter.lte = new Date(filters.endDate);
   }
 
+  // #1023 step 5: filter via EventKennel join so co-hosted events appear in
+  // history too. (KennelAttendance is hasher-scoped, so per-kennel attendance
+  // already segregates by misman roster regardless of primary/co-host status.)
   const where = {
     kennelAttendances: { some: {} },
-    kennelId,
+    eventKennels: { some: { kennelId } },
     ...(Object.keys(dateFilter).length > 0 ? { date: dateFilter } : {}),
   };
 
@@ -267,7 +270,8 @@ export async function seedRosterFromHares(kennelId: string) {
 
   const events = await prisma.event.findMany({
     where: {
-      kennelId: { in: rosterKennelIds },
+      // #1023 step 5: include co-hosted events for any roster-group kennel.
+      eventKennels: { some: { kennelId: { in: rosterKennelIds } } },
       date: { gte: oneYearAgo },
       haresText: { not: null },
     },
