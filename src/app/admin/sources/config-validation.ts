@@ -47,6 +47,45 @@ function validateRegex(
  */
 const TYPES_SUPPORTING_MULTI_KENNEL_PATTERNS = new Set(["GOOGLE_CALENDAR"]);
 
+/** Per-entry tag-value validation for `validateKennelPatterns`. Extracted to
+ *  keep the parent function's cognitive complexity below SonarCloud's
+ *  threshold. Returns true when the value is well-formed enough to fall
+ *  through to regex validation; false on hard rejection. */
+function validateKennelPatternTagValue(
+  i: number,
+  tagValue: unknown,
+  type: string,
+  errors: string[],
+): boolean {
+  const allowMultiKennel = TYPES_SUPPORTING_MULTI_KENNEL_PATTERNS.has(type);
+  if (typeof tagValue === "string") {
+    if (!tagValue.trim()) {
+      errors.push(`kennelPatterns[${i}]: kennel tag cannot be empty`);
+    }
+    return true;
+  }
+  if (Array.isArray(tagValue)) {
+    if (!allowMultiKennel) {
+      errors.push(
+        `kennelPatterns[${i}]: multi-kennel array tags are not supported for source type ${type} ` +
+          `— migrate the adapter to matchKennelPatterns first (#1023). Allowed: ${[...TYPES_SUPPORTING_MULTI_KENNEL_PATTERNS].join(", ")}.`,
+      );
+      return false;
+    }
+    if (tagValue.length === 0) {
+      errors.push(`kennelPatterns[${i}]: multi-kennel tag array cannot be empty`);
+    }
+    for (const [j, tag] of tagValue.entries()) {
+      if (typeof tag !== "string" || !tag.trim()) {
+        errors.push(`kennelPatterns[${i}][${j}]: each multi-kennel tag must be a non-empty string`);
+      }
+    }
+    return true;
+  }
+  errors.push(`kennelPatterns[${i}]: tag must be a string${allowMultiKennel ? " or string[]" : ""}`);
+  return false;
+}
+
 /** Validate kennelPatterns: each entry is [regex, tag] or [regex, tag[]] (#1023 step 4). */
 function validateKennelPatterns(type: string, obj: Record<string, unknown>, errors: string[]): void {
   if (!("kennelPatterns" in obj) || obj.kennelPatterns === undefined) return;
@@ -55,7 +94,6 @@ function validateKennelPatterns(type: string, obj: Record<string, unknown>, erro
     errors.push("kennelPatterns must be an array of [regex, tag] pairs");
     return;
   }
-  const allowMultiKennel = TYPES_SUPPORTING_MULTI_KENNEL_PATTERNS.has(type);
   for (const [i, pair] of obj.kennelPatterns.entries()) {
     if (!Array.isArray(pair) || pair.length !== 2) {
       errors.push(`kennelPatterns[${i}]: must be a [regex, tag] pair`);
@@ -66,29 +104,7 @@ function validateKennelPatterns(type: string, obj: Record<string, unknown>, erro
       errors.push(`kennelPatterns[${i}]: regex must be a string`);
       continue;
     }
-    if (typeof tagValue === "string") {
-      if (!tagValue.trim()) {
-        errors.push(`kennelPatterns[${i}]: kennel tag cannot be empty`);
-      }
-    } else if (Array.isArray(tagValue)) {
-      if (!allowMultiKennel) {
-        errors.push(
-          `kennelPatterns[${i}]: multi-kennel array tags are not supported for source type ${type} ` +
-            `— migrate the adapter to matchKennelPatterns first (#1023). Allowed: ${[...TYPES_SUPPORTING_MULTI_KENNEL_PATTERNS].join(", ")}.`,
-        );
-        continue;
-      }
-      if (tagValue.length === 0) {
-        errors.push(`kennelPatterns[${i}]: multi-kennel tag array cannot be empty`);
-      }
-      for (const [j, tag] of tagValue.entries()) {
-        if (typeof tag !== "string" || !tag.trim()) {
-          errors.push(`kennelPatterns[${i}][${j}]: each multi-kennel tag must be a non-empty string`);
-        }
-      }
-    } else {
-      errors.push(`kennelPatterns[${i}]: tag must be a string${allowMultiKennel ? " or string[]" : ""}`);
-    }
+    if (!validateKennelPatternTagValue(i, tagValue, type, errors)) continue;
     validateRegex(pattern, `kennelPatterns[${i}]`, errors);
   }
 }

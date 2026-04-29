@@ -32,39 +32,79 @@ export type KennelPatternValue = string | string[];
 export type KennelPattern = readonly [string, KennelPatternValue];
 
 /**
- * Match `text` against the configured patterns and return the resolved
- * kennel tags per the precedence rules above. Always returns an array;
- * empty when nothing matched.
- *
- * Malformed regex strings from source config are skipped silently.
+ * Pre-compiled form of `KennelPattern`. Adapters that match the same
+ * patterns against many events per scrape should compile once via
+ * `compileKennelPatterns()` and pass the result to
+ * `matchCompiledKennelPatterns()` to avoid `new RegExp(...)` overhead per
+ * event.
+ */
+export type CompiledKennelPattern = readonly [RegExp, KennelPatternValue];
+
+/**
+ * Compile a list of source-config kennel patterns into runtime form.
+ * Malformed regex strings are dropped (with `console.warn`) so a single
+ * bad config entry doesn't kill the whole scrape.
+ */
+export function compileKennelPatterns(
+  patterns: readonly KennelPattern[],
+): CompiledKennelPattern[] {
+  const compiled: CompiledKennelPattern[] = [];
+  for (const [regex, value] of patterns) {
+    try {
+      compiled.push([new RegExp(regex, "i"), value]);
+    } catch (err) {
+      console.warn(
+        `[kennel-patterns] Skipping malformed regex ${JSON.stringify(regex)}: ${(err as Error).message}`,
+      );
+    }
+  }
+  return compiled;
+}
+
+/** Update accumulator state for a single matched pattern (extracted to keep
+ *  the matcher's cognitive complexity below SonarCloud's threshold). */
+function applyMatch(
+  value: KennelPatternValue,
+  acc: { arrayMatches: string[] | null; firstStringMatch: string | null },
+): void {
+  if (Array.isArray(value)) {
+    acc.arrayMatches ??= [];
+    for (const tag of value) {
+      if (!acc.arrayMatches.includes(tag)) acc.arrayMatches.push(tag);
+    }
+  } else if (acc.firstStringMatch === null && acc.arrayMatches === null) {
+    acc.firstStringMatch = value;
+  }
+}
+
+/**
+ * Match `text` against pre-compiled kennel patterns. Always returns an
+ * array; empty when nothing matched. See module docstring for precedence.
+ */
+export function matchCompiledKennelPatterns(
+  text: string,
+  compiled: readonly CompiledKennelPattern[],
+): string[] {
+  const acc: { arrayMatches: string[] | null; firstStringMatch: string | null } = {
+    arrayMatches: null,
+    firstStringMatch: null,
+  };
+  for (const [regex, value] of compiled) {
+    if (regex.test(text)) applyMatch(value, acc);
+  }
+  if (acc.arrayMatches !== null) return acc.arrayMatches;
+  if (acc.firstStringMatch !== null) return [acc.firstStringMatch];
+  return [];
+}
+
+/**
+ * Convenience: compile + match in one call. Use only for one-off matches
+ * (tests, scripts). Hot paths should compile once per scrape via
+ * `compileKennelPatterns()` and reuse `matchCompiledKennelPatterns()`.
  */
 export function matchKennelPatterns(
   text: string,
   patterns: readonly KennelPattern[],
 ): string[] {
-  let arrayMatches: string[] | null = null;
-  let firstStringMatch: string | null = null;
-
-  for (const [regex, value] of patterns) {
-    let matched: boolean;
-    try {
-      matched = new RegExp(regex, "i").test(text);
-    } catch {
-      continue;
-    }
-    if (!matched) continue;
-
-    if (Array.isArray(value)) {
-      arrayMatches ??= [];
-      for (const tag of value) {
-        if (!arrayMatches.includes(tag)) arrayMatches.push(tag);
-      }
-    } else if (firstStringMatch === null && arrayMatches === null) {
-      firstStringMatch = value;
-    }
-  }
-
-  if (arrayMatches !== null) return arrayMatches;
-  if (firstStringMatch !== null) return [firstStringMatch];
-  return [];
+  return matchCompiledKennelPatterns(text, compileKennelPatterns(patterns));
 }

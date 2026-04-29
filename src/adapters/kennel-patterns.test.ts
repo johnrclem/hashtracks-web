@@ -1,4 +1,3 @@
-import { describe, it, expect } from "vitest";
 import { matchKennelPatterns, type KennelPattern } from "./kennel-patterns";
 
 describe("matchKennelPatterns (#1023 step 4)", () => {
