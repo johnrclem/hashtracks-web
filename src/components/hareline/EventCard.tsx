@@ -32,20 +32,30 @@ import { getDisplayTitle, getLocationDisplay } from "@/lib/event-display";
  * list and detail views share a single type, and the detail panel can tell
  * "not yet loaded" (undefined) apart from "loaded and empty" (null).
  */
+/** Kennel shape consumed by EventCard for both primary and co-host display. */
+export type HarelineEventKennel = {
+  id: string;
+  shortName: string;
+  fullName: string;
+  slug: string;
+  region: string;
+  country: string;
+};
+
 export type HarelineEvent = {
   id: string;
   date: string; // ISO string
   dateUtc: Date | null;
   timezone: string | null;
   kennelId: string;
-  kennel: {
-    id: string;
-    shortName: string;
-    fullName: string;
-    slug: string;
-    region: string;
-    country: string;
-  } | null;
+  /** Primary kennel (the one Event.kennelId points at). */
+  kennel: HarelineEventKennel | null;
+  /**
+   * Co-host kennels (#1023 step 5). Empty/undefined for the common
+   * single-kennel case; EventCard's conjunction component is conditional
+   * on this so single-kennel rendering is byte-identical to pre-#1023.
+   */
+  coHosts?: HarelineEventKennel[];
   runNumber: number | null;
   title: string | null;
   haresText: string | null;
@@ -75,10 +85,86 @@ function formatDate(iso: string): string {
 
 export { formatDate };
 
+/**
+ * Render a co-host kennel link with its own region-color underline accent
+ * and a tooltip showing the kennel's fullName + "co-host" annotation.
+ * Visually equal-class to the primary anchor but with `font-bold` (vs the
+ * primary's `font-extrabold`) so the primary still wins the eye.
+ */
+function CoHostKennelLink({
+  kennel,
+  size,
+}: {
+  readonly kennel: HarelineEventKennel;
+  readonly size: "compact" | "medium";
+}) {
+  const color = getRegionColor(kennel.region);
+  const fontSize = size === "medium" ? "text-base" : "text-sm";
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Link
+          href={`/kennels/${kennel.slug}`}
+          className={`${fontSize} font-bold tracking-tight text-foreground/90 hover:underline decoration-2 underline-offset-3 truncate`}
+          style={{ textDecorationColor: color }}
+          onClick={(e) => e.stopPropagation()}
+          title={`${kennel.fullName} (co-host)`}
+        >
+          {kennel.shortName}
+        </Link>
+      </TooltipTrigger>
+      <TooltipContent>{kennel.fullName} <span className="opacity-60">· co-host</span></TooltipContent>
+    </Tooltip>
+  );
+}
+
+/**
+ * Render `× <co-host>` (or `× <co-host> +N more` for 3+ kennels) — the
+ * typographic conjunction idiom for multi-kennel co-hosted events
+ * (#1023 step 5). The × glyph is decorative and aria-hidden; aria-label
+ * uses "with" instead.
+ */
+function CoHostConjunction({
+  coHosts,
+  size,
+}: {
+  readonly coHosts: readonly HarelineEventKennel[];
+  readonly size: "compact" | "medium";
+}) {
+  if (coHosts.length === 0) return null;
+  const [first, ...rest] = coHosts;
+  return (
+    <>
+      <span aria-hidden="true" className="text-muted-foreground/40 font-light px-0.5 select-none">×</span>
+      <CoHostKennelLink kennel={first} size={size} />
+      {rest.length > 0 && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="text-[10px] font-mono text-muted-foreground/60 cursor-help">
+              +{rest.length}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>
+            Also co-hosted by:{" "}
+            {rest.map((k) => k.shortName).join(", ")}
+          </TooltipContent>
+        </Tooltip>
+      )}
+    </>
+  );
+}
+
 /** Compose an accessible label from event fields. */
 function buildAriaLabel(event: HarelineEvent, attendance?: AttendanceData | null): string {
   const parts: string[] = [];
-  if (event.kennel?.shortName) parts.push(event.kennel.shortName);
+  if (event.kennel?.shortName) {
+    const coHostNames = event.coHosts?.map((k) => k.shortName) ?? [];
+    parts.push(
+      coHostNames.length > 0
+        ? `${event.kennel.shortName} with ${coHostNames.join(" and ")}`
+        : event.kennel.shortName,
+    );
+  }
   const { title, isFallback } = getDisplayTitle({ ...event, kennel: event.kennel ?? { shortName: "", fullName: "" } });
   if (!isFallback) parts.push(title);
   parts.push(formatDate(event.date));
@@ -194,22 +280,29 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
             </span>
           )}
 
-          <span className="relative w-20 shrink-0 truncate">
+          <span className={`relative shrink-0 flex items-baseline gap-1 truncate ${
+            event.coHosts && event.coHosts.length > 0 ? "max-w-[180px]" : "w-20"
+          }`}>
             {event.kennel ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link
-                    href={`/kennels/${event.kennel.slug}`}
-                    className="font-extrabold tracking-tight text-foreground hover:underline decoration-2 underline-offset-2 truncate block"
-                    style={{ textDecorationColor: regionColor }}
-                    onClick={(e) => e.stopPropagation()}
-                    title={event.kennel.fullName}
-                  >
-                    {event.kennel.shortName}
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent>{event.kennel.fullName}</TooltipContent>
-              </Tooltip>
+              <>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Link
+                      href={`/kennels/${event.kennel.slug}`}
+                      className="font-extrabold tracking-tight text-foreground hover:underline decoration-2 underline-offset-2 truncate block"
+                      style={{ textDecorationColor: regionColor }}
+                      onClick={(e) => e.stopPropagation()}
+                      title={event.kennel.fullName}
+                    >
+                      {event.kennel.shortName}
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent>{event.kennel.fullName}</TooltipContent>
+                </Tooltip>
+                {event.coHosts && event.coHosts.length > 0 && (
+                  <CoHostConjunction coHosts={event.coHosts} size="compact" />
+                )}
+              </>
             ) : null}
           </span>
 
@@ -325,20 +418,25 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
             <div className="flex items-center gap-2 min-w-0 flex-wrap">
               {/* Kennel name — the bold visual anchor */}
               {event.kennel ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Link
-                      href={`/kennels/${event.kennel.slug}`}
-                      className="text-base font-extrabold tracking-tight text-foreground hover:underline decoration-2 underline-offset-3"
-                      style={{ textDecorationColor: regionColor }}
-                      onClick={(e) => e.stopPropagation()}
-                      title={event.kennel.fullName}
-                    >
-                      {event.kennel.shortName}
-                    </Link>
-                  </TooltipTrigger>
-                  <TooltipContent>{event.kennel.fullName}</TooltipContent>
-                </Tooltip>
+                <>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Link
+                        href={`/kennels/${event.kennel.slug}`}
+                        className="text-base font-extrabold tracking-tight text-foreground hover:underline decoration-2 underline-offset-3"
+                        style={{ textDecorationColor: regionColor }}
+                        onClick={(e) => e.stopPropagation()}
+                        title={event.kennel.fullName}
+                      >
+                        {event.kennel.shortName}
+                      </Link>
+                    </TooltipTrigger>
+                    <TooltipContent>{event.kennel.fullName}</TooltipContent>
+                  </Tooltip>
+                  {event.coHosts && event.coHosts.length > 0 && (
+                    <CoHostConjunction coHosts={event.coHosts} size="medium" />
+                  )}
+                </>
               ) : null}
 
               {event.kennel && <RegionBadge region={event.kennel.region} size="sm" />}

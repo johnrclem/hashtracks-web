@@ -25,7 +25,14 @@ export default async function AttendancePage({ params }: Props) {
 
   const events = await prisma.event.findMany({
     where: {
-      kennelId: kennel.id,
+      // #1023 step 5: filter via EventKennel join so co-hosted events
+      // appear too. OR-fallback to the legacy denorm pointer so a misman
+      // never loses an event from the picker if (hypothetically) an
+      // EventKennel row is missing for it.
+      OR: [
+        { eventKennels: { some: { kennelId: kennel.id } } },
+        { kennelId: kennel.id },
+      ],
       date: { gte: oneYearAgo },
     },
     select: {

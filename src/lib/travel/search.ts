@@ -487,12 +487,18 @@ async function runStopSearch(
     prisma.event.findMany({
       where: {
         ...CANONICAL_EVENT_WHERE,
-        kennelId: { in: nearbyIds },
+        // #1023 step 5: include co-hosted events at any nearby kennel.
+        // The result construction below pivots metadata onto whichever
+        // EventKennel.kennelId is in `nearbyIds` (not necessarily the
+        // event's primary), so the query returns the kennel-link rows
+        // alongside the event for that pivot.
+        eventKennels: { some: { kennelId: { in: nearbyIds } } },
         date: { gte: startDate, lte: confirmedEndDate },
         status: "CONFIRMED",
       },
       include: {
         eventLinks: { select: { url: true, label: true } },
+        eventKennels: { select: { kennelId: true } },
       },
       orderBy: { date: "asc" },
       take: CONFIRMED_EVENT_ROW_CAP,
@@ -563,8 +569,17 @@ async function runStopSearch(
   const weatherInputs: WeatherInput[] = [];
 
   // Step 13: Assign distance tiers + build result objects
+  // #1023 step 5: when an event matches because a CO-HOST kennel is in
+  // `nearbyIds` (the primary `event.kennelId` may not be), pivot the
+  // result's kennel metadata onto that nearby kennel — otherwise we'd
+  // emit empty kennelSlug/kennelName/distance for the user's intended
+  // destination kennel.
+  const nearbyIdsSet = new Set(nearbyIds);
   const confirmedResults: ConfirmedResult[] = confirmedEvents.map((event) => {
-    const kennel = kennelMap.get(event.kennelId);
+    const pivotKennelId = nearbyIdsSet.has(event.kennelId)
+      ? event.kennelId
+      : (event.eventKennels.find((ek) => nearbyIdsSet.has(ek.kennelId))?.kennelId ?? event.kennelId);
+    const kennel = kennelMap.get(pivotKennelId);
     const eventLat = event.latitude ?? kennel?.latitude;
     const eventLng = event.longitude ?? kennel?.longitude;
     const distanceKm = eventLat != null && eventLng != null
@@ -584,7 +599,7 @@ async function runStopSearch(
       destinationIndex: index,
       destinationLabel,
       eventId: event.id,
-      kennelId: event.kennelId,
+      kennelId: pivotKennelId,
       kennelSlug: kennel?.slug ?? "",
       kennelName: kennel?.shortName ?? "",
       kennelFullName: kennel?.fullName ?? "",

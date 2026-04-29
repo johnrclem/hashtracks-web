@@ -18,6 +18,23 @@ import { syncEventHares } from "@/lib/misman/hare-sync";
 const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
 
 /**
+ * Resolve the full set of kennelIds participating in an event (#1023 step 5).
+ * Prefers the EventKennel join when populated; falls back to the legacy
+ * `Event.kennelId` denormalized primary pointer for any pre-step-1-backfill
+ * row that somehow lacks EventKennel entries.
+ *
+ * Centralizes the lookup so all three IDOR scope guards in this file
+ * (loadAttendanceForMisman, validateEventForAttendance, clearEventAttendance)
+ * accept the same set of kennels for any given event.
+ */
+function getEventKennelIds(
+  event: { kennelId: string; eventKennels?: ReadonlyArray<{ kennelId: string }> | null },
+): string[] {
+  const ekRows = event.eventKennels ?? [];
+  return ekRows.length > 0 ? ekRows.map((ek) => ek.kennelId) : [event.kennelId];
+}
+
+/**
  * Load a `KennelAttendance` record by ID, together with its parent
  * event's kennelId, and verify that kennel is in the caller's roster
  * scope. Returns `null` for both missing and out-of-scope IDs so
@@ -31,11 +48,17 @@ async function loadAttendanceForMisman(
   const [record, rosterKennelIds] = await Promise.all([
     prisma.kennelAttendance.findUnique({
       where: { id: attendanceId },
-      include: { event: { select: { kennelId: true } } },
+      // #1023 step 5: scope check via the full EventKennel set so
+      // co-hosted events admit a secondary kennel's misman too.
+      include: {
+        event: { select: { kennelId: true, eventKennels: { select: { kennelId: true } } } },
+      },
     }),
     getRosterKennelIds(kennelId),
   ]);
-  if (!record || !rosterKennelIds.includes(record.event.kennelId)) {
+  if (!record) return null;
+  const eventKennelIds = getEventKennelIds(record.event);
+  if (!eventKennelIds.some((id) => rosterKennelIds.includes(id))) {
     return null;
   }
   return record;
@@ -51,12 +74,20 @@ async function validateEventForAttendance(
 ): Promise<{ error?: string; event?: { id: string; kennelId: string } }> {
   const event = await prisma.event.findUnique({
     where: { id: eventId },
-    select: { id: true, kennelId: true, date: true },
+    // #1023 step 5: include EventKennel set so a co-host kennel's misman
+    // can record attendance on the event (not just the primary kennel's).
+    select: {
+      id: true,
+      kennelId: true,
+      date: true,
+      eventKennels: { select: { kennelId: true } },
+    },
   });
   if (!event) return { error: "Event not found" };
 
   const rosterKennelIds = await getRosterKennelIds(kennelId);
-  if (!rosterKennelIds.includes(event.kennelId)) {
+  const eventKennelIds = getEventKennelIds(event);
+  if (!eventKennelIds.some((id) => rosterKennelIds.includes(id))) {
     return { error: "Event does not belong to this kennel or roster group" };
   }
 
@@ -259,14 +290,21 @@ export async function clearEventAttendance(kennelId: string, eventId: string) {
 
   // Roster-scope check (IDOR prevention). Collapse scope miss + missing
   // event into a single not-found response.
+  // #1023 step 5: scope via EventKennel set so a co-host kennel's misman
+  // can clear attendance on shared events.
   const [event, rosterKennelIds] = await Promise.all([
     prisma.event.findUnique({
       where: { id: eventId },
-      select: { kennelId: true },
+      select: {
+        kennelId: true,
+        eventKennels: { select: { kennelId: true } },
+      },
     }),
     getRosterKennelIds(kennelId),
   ]);
-  if (!event || !rosterKennelIds.includes(event.kennelId)) {
+  if (!event) return { error: "Event not found" };
+  const eventKennelIds = getEventKennelIds(event);
+  if (!eventKennelIds.some((id) => rosterKennelIds.includes(id))) {
     return { error: "Event not found" };
   }
 
@@ -449,8 +487,10 @@ export async function getSuggestions(kennelId: string) {
   );
 
   // Fetch kennel events (this kennel only, within lookback)
+  // #1023 step 5: filter via EventKennel join so co-hosted events
+  // (where this kennel is a secondary) appear too.
   const kennelEvents = await prisma.event.findMany({
-    where: { kennelId, date: { gte: lookbackDate } },
+    where: { eventKennels: { some: { kennelId } }, date: { gte: lookbackDate } },
     select: { id: true, date: true },
     orderBy: { date: "desc" },
   });
@@ -459,7 +499,7 @@ export async function getSuggestions(kennelId: string) {
   const isMultiKennel = rosterKennelIds.length > 1;
   const rosterEvents = isMultiKennel
     ? await prisma.event.findMany({
-        where: { kennelId: { in: rosterKennelIds }, date: { gte: lookbackDate } },
+        where: { eventKennels: { some: { kennelId: { in: rosterKennelIds } } }, date: { gte: lookbackDate } },
         select: { id: true, date: true },
         orderBy: { date: "desc" },
       })

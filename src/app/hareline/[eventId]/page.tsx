@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
-import { getOrCreateUser, getAdminUser, getMismanUser } from "@/lib/auth";
+import { getOrCreateUser, getAdminUser, getMismanUserForEvent } from "@/lib/auth";
 import { getStravaConnection } from "@/app/strava/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -122,16 +122,22 @@ export default async function EventDetailPage({
     }
   }
 
-  const [confirmedCount, goingCount, stravaResult, mismanUser, adminUser] = await Promise.all([
+  const [confirmedCount, goingCount, stravaResult, mismanResult, adminUser] = await Promise.all([
     prisma.attendance.count({ where: { eventId, status: "CONFIRMED" } }),
     prisma.attendance.count({ where: { eventId, status: "INTENDING" } }),
     user ? getStravaConnection() : Promise.resolve(null),
-    user ? getMismanUser(event.kennelId) : Promise.resolve(null),
+    // #1023 step 5: scan all kennels on the event so secondary co-host
+    // mismans get the misman UI, not just the primary kennel's misman.
+    // The resolved kennel slug also drives the "Take Attendance" link
+    // below so it routes to a kennel the user actually manages, not
+    // necessarily the event's primary kennel.
+    user ? getMismanUserForEvent(event.id) : Promise.resolve(null),
     event.status === "CANCELLED" ? getAdminUser() : Promise.resolve(null),
   ]);
 
   const stravaConnected = stravaResult?.success ? stravaResult.connected : false;
-  const isMisman = !!mismanUser;
+  const isMisman = !!mismanResult;
+  const mismanKennelSlug = mismanResult?.kennelSlug ?? null;
   const isAdmin = !!adminUser;
 
   // Fetch weather forecast for upcoming events (0–10 days out).
@@ -394,9 +400,11 @@ export default async function EventDetailPage({
 
       {/* Actions */}
       <div className="flex flex-wrap gap-2">
-        {isMisman && (
+        {isMisman && mismanKennelSlug && (
           <Button variant="outline" size="sm" asChild>
-            <Link href={`/misman/${event.kennel.slug}/attendance/${event.id}`}>
+            {/* #1023 step 5: link must point at the kennel the user manages —
+                a secondary co-host's misman would 404 on the primary's slug. */}
+            <Link href={`/misman/${mismanKennelSlug}/attendance/${event.id}`}>
               Take Attendance
             </Link>
           </Button>

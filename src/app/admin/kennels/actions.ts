@@ -360,9 +360,12 @@ export async function deleteKennel(kennelId: string) {
     };
   }
 
-  // Check for attendance records via events (events belong to kennels)
+  // Check for attendance records via events. #1023 step 5: scope by
+  // EventKennel set so co-hosted events are also covered (the prior
+  // co-host guard already short-circuits when any exist, but using the
+  // join here keeps semantics consistent).
   const attendanceCount = await prisma.kennelAttendance.count({
-    where: { event: { kennelId } },
+    where: { event: { eventKennels: { some: { kennelId } } } },
   });
   if (attendanceCount > 0) {
     return {

@@ -25,20 +25,24 @@ import { DISPLAY_EVENT_WHERE } from "@/lib/event-filters";
 import { HARELINE_EVENTS_TAG } from "@/lib/cache-tags";
 
 /** Matches the slim shape rendered by EventCard's list view. */
+interface HarelineKennelLite {
+  id: string;
+  shortName: string;
+  fullName: string;
+  slug: string;
+  region: string;
+  country: string;
+}
+
 export interface HarelineListEvent {
   id: string;
   date: string; // ISO string
   dateUtc: Date | null;
   timezone: string | null;
   kennelId: string;
-  kennel: {
-    id: string;
-    shortName: string;
-    fullName: string;
-    slug: string;
-    region: string;
-    country: string;
-  } | null;
+  kennel: HarelineKennelLite | null;
+  /** Co-host kennels (#1023 step 5). Empty when the event has only a primary. */
+  coHosts: HarelineKennelLite[];
   runNumber: number | null;
   title: string | null;
   haresText: string | null;
@@ -142,6 +146,16 @@ const fetchSlimEventsCached = unstable_cache(
         kennel: {
           select: { id: true, shortName: true, fullName: true, slug: true, region: true, country: true },
         },
+        // Co-hosts (#1023 step 5) — drives the EventCard conjunction
+        // ("Cherry City × OH3"). Empty array for single-kennel events,
+        // which is the common case.
+        eventKennels: {
+          where: { isPrimary: false },
+          select: {
+            kennel: { select: { id: true, shortName: true, fullName: true, slug: true, region: true, country: true } },
+          },
+          orderBy: { kennel: { shortName: "asc" } },
+        },
       },
       orderBy: { date: isPast ? "desc" : "asc" },
       ...(isPast ? { take: PAST_EVENTS_LIMIT } : {}),
@@ -154,6 +168,7 @@ const fetchSlimEventsCached = unstable_cache(
       timezone: e.timezone,
       kennelId: e.kennelId,
       kennel: e.kennel,
+      coHosts: e.eventKennels.map((ek) => ek.kennel),
       runNumber: e.runNumber,
       title: e.title,
       haresText: e.haresText,

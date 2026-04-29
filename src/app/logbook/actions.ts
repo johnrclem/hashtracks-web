@@ -537,7 +537,8 @@ export async function searchEvents(params: {
       events = await prisma.event.findMany({
         where: {
           ...commonFilters,
-          kennelId: { in: kennelIds },
+          // #1023 step 5: include co-hosted events at any subscribed kennel.
+          eventKennels: { some: { kennelId: { in: kennelIds } } },
           date: { gte: windowStart, lte: todayNoon },
         },
         include: {

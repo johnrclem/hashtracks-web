@@ -50,7 +50,16 @@ export default async function AdminEventsPage({ searchParams }: PageProps) {
 
   // Build where clause from filters
   const conditions: Record<string, unknown>[] = [];
-  if (kennelId) conditions.push({ kennelId });
+  // #1023 step 5: include co-hosted events when filtering by kennel,
+  // OR-fallback to the legacy `Event.kennelId` denorm for safety.
+  if (kennelId) {
+    conditions.push({
+      OR: [
+        { eventKennels: { some: { kennelId } } },
+        { kennelId },
+      ],
+    });
+  }
   if (sourceId === "none") {
     conditions.push({ rawEvents: { none: {} } });
   } else if (sourceId) {

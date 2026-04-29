@@ -98,7 +98,7 @@ describe("getAttendanceHistory", () => {
     expect(findManyCall?.where).toHaveProperty("date");
   });
 
-  it("filters by single kennelId, not roster group scope", async () => {
+  it("filters by single kennel via EventKennel join, not roster group scope", async () => {
     mockRosterKennelIds.mockResolvedValueOnce(["kennel_1", "kennel_2"]);
 
     vi.mocked(prisma.event.findMany).mockResolvedValueOnce([] as never);
@@ -106,8 +106,10 @@ describe("getAttendanceHistory", () => {
 
     await getAttendanceHistory("kennel_1");
 
+    // #1023 step 5: history scopes via EventKennel.some so co-hosted
+    // events (where this kennel is a secondary) appear too.
     const findManyCall = vi.mocked(prisma.event.findMany).mock.calls[0][0];
-    expect(findManyCall?.where?.kennelId).toBe("kennel_1");
+    expect(findManyCall?.where?.eventKennels).toEqual({ some: { kennelId: "kennel_1" } });
   });
 
   it("paginates correctly", async () => {
@@ -360,11 +362,12 @@ describe("seedRosterFromHares", () => {
 
     await seedRosterFromHares("kennel_1");
 
-    // Should query events from both kennels
+    // Should query events from both kennels (#1023 step 5: via EventKennel join
+    // so co-hosted events at any roster-group kennel are also covered).
     expect(vi.mocked(prisma.event.findMany)).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          kennelId: { in: ["kennel_1", "kennel_2"] },
+          eventKennels: { some: { kennelId: { in: ["kennel_1", "kennel_2"] } } },
         }),
       }),
     );

@@ -41,7 +41,11 @@ interface MockKennel {
 
 interface MockEvent {
   id: string;
-  kennelId: string;
+  kennelId: string; // primary
+  /** Optional co-host kennel IDs. Combined with `kennelId` to model the
+   *  EventKennel set for multi-kennel events (#1023). When omitted, the
+   *  event behaves single-kennel (just `kennelId`). */
+  coHostKennelIds?: string[];
   date: Date;
   startTime: string | null;
   title: string | null;
@@ -88,8 +92,15 @@ function createMockPrisma(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       findMany: vi.fn().mockImplementation(({ where }: { where: any }) => {
         let filtered = [...events];
-        if (where.kennelId?.in) {
-          filtered = filtered.filter((e: MockEvent) => where.kennelId.in.includes(e.kennelId));
+        // #1023 step 5: production query filters via EventKennel.some on
+        // the full kennel set (primary + co-hosts). Match against the
+        // event's `coHostKennelIds` plus its primary `kennelId`.
+        const kennelInList = where.eventKennels?.some?.kennelId?.in ?? where.kennelId?.in;
+        if (kennelInList) {
+          filtered = filtered.filter((e: MockEvent) => {
+            const allKennelIds = [e.kennelId, ...(e.coHostKennelIds ?? [])];
+            return allKennelIds.some((id) => kennelInList.includes(id));
+          });
         }
         if (where.status === "CONFIRMED") {
           filtered = filtered.filter((e: MockEvent) => e.status === "CONFIRMED");
@@ -100,7 +111,18 @@ function createMockPrisma(
         if (where.date?.lte) {
           filtered = filtered.filter((e: MockEvent) => e.date <= where.date.lte);
         }
-        return Promise.resolve(filtered);
+        // Production includes `eventKennels: { select: { kennelId: true } }`
+        // so the result-builder can pivot to the matching co-host. Mirror
+        // that in the mock by attaching the kennel-set on each row.
+        return Promise.resolve(
+          filtered.map((e) => ({
+            ...e,
+            eventKennels: [
+              { kennelId: e.kennelId },
+              ...(e.coHostKennelIds ?? []).map((id) => ({ kennelId: id })),
+            ],
+          })),
+        );
       }),
     },
     scheduleRule: {
@@ -209,6 +231,36 @@ describe("executeTravelSearch", () => {
     // broaderRadiusKm must be undefined on primary-only searches or
     // TripSummary will render the "routing revised" expanded-radius UI.
     expect(result.destinations[0].broaderRadiusKm).toBeUndefined();
+  });
+
+  it("pivots co-host events onto the matching nearby kennel (#1023 step 5)", async () => {
+    // Event has primary kennel FAR from Atlanta (London) and a co-host
+    // kennel IN Atlanta. The query matches because Atlanta is in nearbyIds.
+    // Result must surface metadata for the Atlanta kennel, not the
+    // (out-of-range) London primary.
+    const londonKennel: MockKennel = {
+      ...testKennel,
+      id: "k-london",
+      slug: "london-h3",
+      shortName: "London H3",
+      latitude: 51.5,
+      longitude: -0.13,
+    };
+    const coHostEvent: MockEvent = {
+      ...testEvent,
+      id: "e-cohost",
+      kennelId: "k-london",        // primary is London (far from Atlanta)
+      coHostKennelIds: ["k-atl"],   // co-host is Atlanta (in range)
+    };
+    const prisma = createMockPrisma([testKennel, londonKennel], [coHostEvent], []);
+    const result = await executeTravelSearch(prisma, baseParams);
+
+    expect(result.confirmed).toHaveLength(1);
+    // Pivoted: kennel metadata is Atlanta H3, not London H3.
+    expect(result.confirmed[0].kennelId).toBe("k-atl");
+    expect(result.confirmed[0].kennelName).toBe("Atlanta H3");
+    expect(result.confirmed[0].kennelSlug).toBe("atlanta-h3");
+    expect(result.confirmed[0].distanceTier).toBe("nearby");
   });
 
   it("returns likely projections from schedule rules", async () => {
