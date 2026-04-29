@@ -32,15 +32,20 @@ export async function generateMetadata({
       id: true,
       lastEventDate: true,
       scheduleDayOfWeek: true,
+      // #1023 spec D8: directory counts include co-hosted events for both
+      // kennels — go through the EventKennel join so a kennel that's only
+      // a secondary co-host on upcoming events still reads as "active".
       _count: {
         select: {
-          events: { where: { date: { gte: todayMeta }, status: "CONFIRMED" } },
+          eventKennels: {
+            where: { event: { date: { gte: todayMeta }, status: "CONFIRMED" } },
+          },
         },
       },
     },
   });
   const activeCount = kennels.filter(
-    (k) => getActivityStatus(k.lastEventDate, k._count.events > 0) === "active",
+    (k) => getActivityStatus(k.lastEventDate, k._count.eventKennels > 0) === "active",
   ).length;
   const days = kennels.map((k) => k.scheduleDayOfWeek).filter(Boolean) as string[];
   const intro = generateRegionIntro(region.name, activeCount, days);
@@ -97,23 +102,37 @@ export default async function RegionPage({
         lastEventDate: true,
       },
     }),
+    // #1023 spec D8: include co-hosted events. The nested `eventKennels`
+    // selector pushes the visible-in-region filter into SQL so we only
+    // return the kennel-link rows the directory actually attributes to.
     prisma.event.findMany({
       where: {
         date: { gte: todayUtc },
         status: "CONFIRMED",
         isCanonical: true,
-        kennel: { region: region.name, isHidden: false },
+        eventKennels: { some: { kennel: { region: region.name, isHidden: false } } },
       },
       orderBy: { date: "asc" },
-      select: { kennelId: true, date: true, title: true },
+      select: {
+        date: true,
+        title: true,
+        eventKennels: {
+          where: { kennel: { region: region.name, isHidden: false } },
+          select: { kennelId: true },
+        },
+      },
     }),
   ]);
 
-  // Build next event map
+  // Build next event map. Attribute each event to every region-matching
+  // kennel on it (primary + co-hosts) — so a co-host kennel's directory
+  // card shows the upcoming joint trail too.
   const nextEventMap = new Map<string, { date: Date; title: string | null }>();
   for (const event of upcomingEvents) {
-    if (!nextEventMap.has(event.kennelId)) {
-      nextEventMap.set(event.kennelId, { date: event.date, title: event.title });
+    for (const ek of event.eventKennels) {
+      if (!nextEventMap.has(ek.kennelId)) {
+        nextEventMap.set(ek.kennelId, { date: event.date, title: event.title });
+      }
     }
   }
 

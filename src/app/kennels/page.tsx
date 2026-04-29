@@ -56,18 +56,37 @@ export default async function KennelsPage() {
         lastEventDate: true,
       },
     }),
+    // #1023 spec D8: include co-hosted events. The nested `eventKennels`
+    // selector pushes the not-hidden filter into SQL so we only return the
+    // kennel-link rows the directory actually attributes to.
     prisma.event.findMany({
-      where: { date: { gte: todayUtc }, status: "CONFIRMED", isCanonical: true, kennel: { isHidden: false } },
+      where: {
+        date: { gte: todayUtc },
+        status: "CONFIRMED",
+        isCanonical: true,
+        eventKennels: { some: { kennel: { isHidden: false } } },
+      },
       orderBy: { date: "asc" },
-      select: { kennelId: true, date: true, title: true },
+      select: {
+        date: true,
+        title: true,
+        eventKennels: {
+          where: { kennel: { isHidden: false } },
+          select: { kennelId: true },
+        },
+      },
     }),
   ]);
 
-  // Build Map<kennelId, firstEvent> — events are sorted by date, so first per kennel is next
+  // Build Map<kennelId, firstEvent> — events are sorted by date, so first
+  // per kennel is next. Attribute each event to every kennel on it so a
+  // co-host kennel's card shows the upcoming joint trail too.
   const nextEventMap = new Map<string, { date: Date; title: string | null }>();
   for (const event of upcomingEvents) {
-    if (!nextEventMap.has(event.kennelId)) {
-      nextEventMap.set(event.kennelId, { date: event.date, title: event.title });
+    for (const ek of event.eventKennels) {
+      if (!nextEventMap.has(ek.kennelId)) {
+        nextEventMap.set(ek.kennelId, { date: event.date, title: event.title });
+      }
     }
   }
 
