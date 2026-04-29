@@ -438,7 +438,7 @@ describe("BruH3Adapter", () => {
     // 2339 from upcoming, 2340 from upcoming, 2338 from write-ups
     // 2339 from write-ups is deduplicated
     expect(result.events).toHaveLength(3);
-    expect(result.events.map((e) => e.runNumber).sort()).toEqual([2338, 2339, 2340]);
+    expect(result.events.map((e) => e.runNumber).sort((a, b) => (a ?? 0) - (b ?? 0))).toEqual([2338, 2339, 2340]);
 
     // Verify 2339 comes from upcoming (sourceUrl check)
     const ev2339 = result.events.find((e) => e.runNumber === 2339);

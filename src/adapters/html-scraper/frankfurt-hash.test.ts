@@ -183,7 +183,7 @@ describe("stripHareSuffix (#961)", () => {
 describe("parseJEMEvent", () => {
   const compiled: [RegExp, string][] = [
     [/SHITS|Shits/i, "SHITS"],
-    [/^FM\b|Full Moon|Frankfurt Full Moon/i, "FFMH3"],
+    [/(?:^FM\b)|Full Moon|Frankfurt Full Moon/i, "FFMH3"],
     [/^DOM Run/i, "DOM"],
     [/Bike Hash|Bike Bash/i, "Bike Hash"],
   ];
@@ -468,7 +468,7 @@ describe("parseJEMEvent", () => {
 describe("parseJEMEventList", () => {
   const compiled: [RegExp, string][] = [
     [/SHITS|Shits/i, "SHITS"],
-    [/^FM\b|Full Moon|Frankfurt Full Moon/i, "FFMH3"],
+    [/(?:^FM\b)|Full Moon|Frankfurt Full Moon/i, "FFMH3"],
     [/^DOM Run/i, "DOM"],
     [/Bike Hash|Bike Bash/i, "Bike Hash"],
   ];

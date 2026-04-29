@@ -498,7 +498,7 @@ describe("filterProjectionsByHorizon", () => {
 
   it("keeps HIGH + LOW but drops MEDIUM at tier 'high'", () => {
     const out = filterProjectionsByHorizon(mixed, "high");
-    expect(out.map((p) => p.id).sort()).toEqual(["h1", "l1"]);
+    expect(out.map((p) => p.id).sort((a, b) => a.localeCompare(b))).toEqual(["h1", "l1"]);
   });
 
   it("returns [] at tier 'none' — projections drop entirely past 365d", () => {

@@ -27,6 +27,7 @@ export function TimePreferenceProvider({
     }, [initialPreference]);
 
     const setPreference = async (newPref: TimeDisplayPref) => {
+        const previousPref = preference;
         // Optimistic update
         setPreferenceState(newPref);
         setIsLoading(true);
@@ -43,8 +44,7 @@ export function TimePreferenceProvider({
             }
         } catch (err) {
             console.error("Error setting time preference:", err);
-            // Revert on failure
-            setPreferenceState(preference);
+            setPreferenceState(previousPref);
         } finally {
             setIsLoading(false);
         }

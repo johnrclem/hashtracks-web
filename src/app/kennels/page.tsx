@@ -93,7 +93,7 @@ export default async function KennelsPage() {
   // Only include regions that resolve to a valid landing page slug
   const uniqueRegions = Array.from(new Set(kennels.map((k) => k.region)))
     .filter((r) => regionNameToSlug(r) !== null)
-    .sort();
+    .sort((a, b) => a.localeCompare(b));
 
   return (
     <div>
