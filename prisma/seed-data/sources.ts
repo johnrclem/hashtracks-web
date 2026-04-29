@@ -663,7 +663,6 @@ export const SOURCES = [
       config: {
         kennelTag: "dst-h3",
         rrule: "FREQ=WEEKLY;BYDAY=TU",
-        anchorDate: "2026-04-28",
         startTime: "18:30",
         titleTemplate: "DST — {date} Hash (hare TBD)",
         defaultLocation: "Stuttgart, Germany",

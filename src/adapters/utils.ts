@@ -45,6 +45,8 @@ export const WEEKDAY_NAMES: Record<string, number> = {
   SU: 0, MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6,
 };
 
+const MS_PER_DAY = 86_400_000;
+
 export interface WeekdayShiftConfig {
   /** Source weekday \u2014 full name ("Friday") or RFC 5545 abbr ("FR"). */
   from: string;
@@ -101,7 +103,11 @@ export function applyWeekdayShift(
   if (delta > 3) delta -= 7;
   if (delta < -3) delta += 7;
 
-  const shifted = new Date(dt.getTime() + delta * 86_400_000);
+  // Same-weekday shift is a no-op \u2014 return shifted: false so callers don't
+  // mistakenly treat a same-day pass-through as a successful remap.
+  if (delta === 0) return { date, startTime, shifted: false };
+
+  const shifted = new Date(dt.getTime() + delta * MS_PER_DAY);
   return {
     date: toIsoDateString(shifted),
     startTime: cfg.defaultStartTime ?? startTime,

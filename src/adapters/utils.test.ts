@@ -855,6 +855,15 @@ describe("applyWeekdayShift", () => {
     expect(result.shifted).toBe(false);
   });
 
+  it("returns shifted: false when from and to are the same weekday (no-op)", () => {
+    const result = applyWeekdayShift(FRIDAY, "00:00", {
+      from: "Friday",
+      to: "Friday",
+      defaultStartTime: "20:00",
+    });
+    expect(result).toEqual({ date: FRIDAY, startTime: "00:00", shifted: false });
+  });
+
   it("throws on unknown weekday names", () => {
     expect(() => applyWeekdayShift(FRIDAY, "00:00", { from: "Funday", to: "Thursday" })).toThrow(/unknown weekday/);
     expect(() => applyWeekdayShift(FRIDAY, "00:00", { from: "Friday", to: "Xxx" })).toThrow(/unknown weekday/);
