@@ -70,7 +70,7 @@ export class CalgaryH3HomeAdapter implements SourceAdapter {
 
   async fetch(
     source: Source,
-    _options?: { days?: number },
+    options?: { days?: number },
   ): Promise<ScrapeResult> {
     const url = source.url || "https://home.onon.org/upcumming-runs";
 
@@ -82,7 +82,7 @@ export class CalgaryH3HomeAdapter implements SourceAdapter {
 
     const { $, structureHash, fetchDurationMs } = page;
 
-    const days = _options?.days ?? source.scrapeDays ?? 90;
+    const days = options?.days ?? source.scrapeDays ?? 90;
     const { minDate, maxDate } = buildDateWindow(days);
 
     const events: RawEventData[] = [];

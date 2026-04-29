@@ -54,20 +54,18 @@ async function main(): Promise<void> {
   // ── #970: clear haresText where it matches a known CTA pattern ──
   // Patterns mirror src/adapters/utils.ts CTA_EMBEDDED_PATTERNS so we don't
   // diverge from the live filter rules. Postgres regex is POSIX (no `\b`),
-  // so use word-boundary equivalents `(^|[^A-Za-z])`.
+  // so use word-boundary equivalents `(^|[^A-Za-z])`. Tagged-template
+  // `$executeRaw` / `$queryRaw` emit a parameterized query — no SQL injection
+  // surface and SonarCloud's $executeRawUnsafe hotspot stays clean.
   const ctaPattern = "(^|[^A-Za-z])(hares?[[:space:]]+(needed|wanted|required|volunteer)|need(ed)?[[:space:]]+(a[[:space:]]+)?hares?|looking[[:space:]]+for[[:space:]]+(a[[:space:]]+)?hares?)";
   if (apply) {
-    counts.cta = await prisma.$executeRawUnsafe(
-      `UPDATE "Event" SET "haresText" = NULL
-       WHERE "haresText" IS NOT NULL AND "haresText" ~* $1`,
-      ctaPattern,
-    );
+    counts.cta = await prisma.$executeRaw`
+      UPDATE "Event" SET "haresText" = NULL
+      WHERE "haresText" IS NOT NULL AND "haresText" ~* ${ctaPattern}`;
   } else {
-    const rows = await prisma.$queryRawUnsafe<{ count: bigint }[]>(
-      `SELECT COUNT(*)::bigint AS count FROM "Event"
-       WHERE "haresText" IS NOT NULL AND "haresText" ~* $1`,
-      ctaPattern,
-    );
+    const rows = await prisma.$queryRaw<{ count: bigint }[]>`
+      SELECT COUNT(*)::bigint AS count FROM "Event"
+      WHERE "haresText" IS NOT NULL AND "haresText" ~* ${ctaPattern}`;
     counts.cta = Number(rows[0]?.count ?? 0);
   }
   console.log(`[#970][${tag}] CTA-shaped haresText: ${counts.cta} rows ${apply ? "cleared" : "would be cleared"}`);
