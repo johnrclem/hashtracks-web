@@ -417,7 +417,7 @@ export function renderTitleTemplate(template: string, dateStr: string): string {
     "{date}": `${monthName} ${dayNum}`,
     "{iso}": dateStr,
   };
-  return template.replace(/\{[A-Za-z]+\}/g, (match) => tokens[match] ?? match);
+  return template.replaceAll(/\{[A-Za-z]+\}/g, (match) => tokens[match] ?? match);
 }
 
 /**

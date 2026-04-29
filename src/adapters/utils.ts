@@ -91,7 +91,7 @@ export function applyWeekdayShift(
   const toDow = parseWeekday(cfg.to, "to");
   const dt = new Date(date + "T12:00:00Z");
   if (Number.isNaN(dt.getTime())) {
-    throw new Error(`applyWeekdayShift: invalid date "${date}" (expected YYYY-MM-DD)`);
+    throw new TypeError(`applyWeekdayShift: invalid date "${date}" (expected YYYY-MM-DD)`);
   }
   if (dt.getUTCDay() !== fromDow) return { date, startTime, shifted: false };
   if (cfg.placeholderTime !== undefined && startTime !== cfg.placeholderTime) {
