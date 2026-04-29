@@ -18,6 +18,23 @@ import { syncEventHares } from "@/lib/misman/hare-sync";
 const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
 
 /**
+ * Resolve the full set of kennelIds participating in an event (#1023 step 5).
+ * Prefers the EventKennel join when populated; falls back to the legacy
+ * `Event.kennelId` denormalized primary pointer for any pre-step-1-backfill
+ * row that somehow lacks EventKennel entries.
+ *
+ * Centralizes the lookup so all three IDOR scope guards in this file
+ * (loadAttendanceForMisman, validateEventForAttendance, clearEventAttendance)
+ * accept the same set of kennels for any given event.
+ */
+function getEventKennelIds(
+  event: { kennelId: string; eventKennels?: ReadonlyArray<{ kennelId: string }> | null },
+): string[] {
+  const ekRows = event.eventKennels ?? [];
+  return ekRows.length > 0 ? ekRows.map((ek) => ek.kennelId) : [event.kennelId];
+}
+
+/**
  * Load a `KennelAttendance` record by ID, together with its parent
  * event's kennelId, and verify that kennel is in the caller's roster
  * scope. Returns `null` for both missing and out-of-scope IDs so
@@ -40,9 +57,7 @@ async function loadAttendanceForMisman(
     getRosterKennelIds(kennelId),
   ]);
   if (!record) return null;
-  const eventKennelIds = (record.event.eventKennels ?? []).length > 0
-    ? record.event.eventKennels.map((ek) => ek.kennelId)
-    : [record.event.kennelId];
+  const eventKennelIds = getEventKennelIds(record.event);
   if (!eventKennelIds.some((id) => rosterKennelIds.includes(id))) {
     return null;
   }
@@ -71,9 +86,7 @@ async function validateEventForAttendance(
   if (!event) return { error: "Event not found" };
 
   const rosterKennelIds = await getRosterKennelIds(kennelId);
-  const eventKennelIds = (event.eventKennels ?? []).length > 0
-    ? event.eventKennels.map((ek) => ek.kennelId)
-    : [event.kennelId];
+  const eventKennelIds = getEventKennelIds(event);
   if (!eventKennelIds.some((id) => rosterKennelIds.includes(id))) {
     return { error: "Event does not belong to this kennel or roster group" };
   }
@@ -289,10 +302,9 @@ export async function clearEventAttendance(kennelId: string, eventId: string) {
     }),
     getRosterKennelIds(kennelId),
   ]);
-  const eventKennelIds = event
-    ? ((event.eventKennels ?? []).length > 0 ? event.eventKennels.map((ek) => ek.kennelId) : [event.kennelId])
-    : [];
-  if (!event || !eventKennelIds.some((id) => rosterKennelIds.includes(id))) {
+  if (!event) return { error: "Event not found" };
+  const eventKennelIds = getEventKennelIds(event);
+  if (!eventKennelIds.some((id) => rosterKennelIds.includes(id))) {
     return { error: "Event not found" };
   }
 

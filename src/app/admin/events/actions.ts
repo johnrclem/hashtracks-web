@@ -265,7 +265,15 @@ function buildEventWhere(filters: {
 
   if (filters.kennelId) {
     // #1023 step 5: include co-hosted events when filtering by kennel.
-    conditions.push({ eventKennels: { some: { kennelId: filters.kennelId } } });
+    // OR-fallback against the legacy `Event.kennelId` denorm so admins
+    // never lose an event from the filter view if (hypothetically) an
+    // EventKennel row is missing for it.
+    conditions.push({
+      OR: [
+        { eventKennels: { some: { kennelId: filters.kennelId } } },
+        { kennelId: filters.kennelId },
+      ],
+    });
   }
 
   if (filters.sourceId === "none") {

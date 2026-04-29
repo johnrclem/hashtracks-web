@@ -123,49 +123,83 @@ export async function getMismanUser(kennelId: string): Promise<User | null> {
 }
 
 /**
- * Get user if they have MISMAN or ADMIN role for ANY kennel on the given
- * event (#1023 step 5). Co-hosted events have multiple kennels via
- * EventKennel; a misman of any one of them should be able to record
- * attendance / view misman UI on the event detail page.
+ * Authorization result for an event-scoped misman check.
+ * `kennelSlug` is the slug of an authorized kennel — useful for routing the
+ * caller to a misman page they actually have access to (e.g. the
+ * "Take Attendance" button on the event detail page must link to a kennel
+ * the user manages, not necessarily the event's primary kennel).
+ */
+export interface EventMismanResult {
+  user: User;
+  kennelId: string;
+  kennelSlug: string;
+}
+
+/**
+ * Get user (+ an authorized kennel slug) if they have MISMAN or ADMIN role
+ * for ANY kennel on the given event (#1023 step 5). Co-hosted events have
+ * multiple kennels via EventKennel; a misman of any one of them should be
+ * able to record attendance / view misman UI on the event detail page —
+ * and the misman link must point at one of THEIR kennels' slugs, not the
+ * event's primary kennel.
  *
  * Falls back to the legacy `Event.kennelId` denormalized primary pointer
  * if the event has no EventKennel rows (shouldn't happen post-step-1
  * backfill, but defensive).
+ *
+ * For site admins, returns the event's primary kennel slug (admins have
+ * access to every misman route, so any slug works).
  */
-export async function getMismanUserForEvent(eventId: string): Promise<User | null> {
+export async function getMismanUserForEvent(eventId: string): Promise<EventMismanResult | null> {
   const clerkUser = await safeCurrentUser();
   if (!clerkUser) return null;
-
-  // Site admins always have misman access (cheap pre-check, avoids the DB roundtrip).
-  const metadata = clerkUser.publicMetadata as { role?: string } | null;
-  if (metadata?.role === "admin") {
-    return getOrCreateUser();
-  }
 
   const event = await prisma.event.findUnique({
     where: { id: eventId },
     select: {
-      kennelId: true, // legacy denorm fallback
-      eventKennels: { select: { kennelId: true } },
+      kennelId: true,
+      kennel: { select: { slug: true } },
+      eventKennels: {
+        select: {
+          kennelId: true,
+          kennel: { select: { slug: true } },
+        },
+      },
     },
   });
   if (!event) return null;
 
+  const eventKennels = event.eventKennels.length > 0
+    ? event.eventKennels.map((ek) => ({ kennelId: ek.kennelId, kennelSlug: ek.kennel.slug }))
+    : [{ kennelId: event.kennelId, kennelSlug: event.kennel?.slug ?? "" }];
+
+  // Site admins have access to every misman route — return the event's
+  // primary kennel slug for the link.
+  const metadata = clerkUser.publicMetadata as { role?: string } | null;
+  if (metadata?.role === "admin") {
+    const user = await getOrCreateUser();
+    if (!user) return null;
+    return { user, kennelId: event.kennelId, kennelSlug: event.kennel?.slug ?? "" };
+  }
+
   const user = await getOrCreateUser();
   if (!user) return null;
-
-  const kennelIds = event.eventKennels.length > 0
-    ? event.eventKennels.map((ek) => ek.kennelId)
-    : [event.kennelId];
 
   const membership = await prisma.userKennel.findFirst({
     where: {
       userId: user.id,
-      kennelId: { in: kennelIds },
+      kennelId: { in: eventKennels.map((k) => k.kennelId) },
       role: { in: ["MISMAN", "ADMIN"] },
     },
+    select: { kennelId: true },
   });
-  return membership ? user : null;
+  if (!membership) return null;
+
+  // Resolve the matching kennel's slug from the event's set so the link
+  // routes to a kennel the user actually manages.
+  const matched = eventKennels.find((k) => k.kennelId === membership.kennelId);
+  if (!matched) return null;
+  return { user, kennelId: matched.kennelId, kennelSlug: matched.kennelSlug };
 }
 
 /**

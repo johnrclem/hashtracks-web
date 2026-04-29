@@ -21,9 +21,12 @@ export default async function HistoryPage({ params }: Props) {
   const user = await getMismanUser(kennel.id);
   if (!user) notFound();
 
+  // #1023 step 5: include co-hosted events but scope kennelAttendances to
+  // THIS kennel's roster only — co-hosted events have separate attendance
+  // rows per kennel (one set per kennelHasher.kennelId), and we must not
+  // leak the other kennel's attendees into this kennel's history view.
   const where = {
-    kennelAttendances: { some: {} },
-    // #1023 step 5: include co-hosted events in history.
+    kennelAttendances: { some: { kennelHasher: { kennelId: kennel.id } } },
     eventKennels: { some: { kennelId: kennel.id } },
   };
 
@@ -33,6 +36,7 @@ export default async function HistoryPage({ params }: Props) {
       include: {
         kennel: { select: { shortName: true } },
         kennelAttendances: {
+          where: { kennelHasher: { kennelId: kennel.id } },
           include: {
             kennelHasher: {
               select: { hashName: true, nerdName: true },

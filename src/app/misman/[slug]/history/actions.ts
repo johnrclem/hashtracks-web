@@ -32,10 +32,12 @@ export async function getAttendanceHistory(
   }
 
   // #1023 step 5: filter via EventKennel join so co-hosted events appear in
-  // history too. (KennelAttendance is hasher-scoped, so per-kennel attendance
-  // already segregates by misman roster regardless of primary/co-host status.)
+  // history too. The `kennelAttendances` predicate must be scoped to THIS
+  // kennel's roster — on a co-hosted event, kennel A and kennel B both have
+  // their own KennelAttendance rows and we must not leak the other kennel's
+  // attendees into this kennel's history view.
   const where = {
-    kennelAttendances: { some: {} },
+    kennelAttendances: { some: { kennelHasher: { kennelId } } },
     eventKennels: { some: { kennelId } },
     ...(Object.keys(dateFilter).length > 0 ? { date: dateFilter } : {}),
   };
@@ -46,6 +48,9 @@ export async function getAttendanceHistory(
       include: {
         kennel: { select: { shortName: true } },
         kennelAttendances: {
+          // Same scope as the where-clause: only attendance recorded by
+          // THIS kennel's misman appears in this history view.
+          where: { kennelHasher: { kennelId } },
           include: {
             kennelHasher: {
               select: { hashName: true, nerdName: true },
