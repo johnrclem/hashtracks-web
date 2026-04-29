@@ -40,8 +40,14 @@ export type KennelPattern = readonly [string, KennelPatternValue];
  */
 export type CompiledKennelPattern = readonly [RegExp, KennelPatternValue];
 
+import { compilePatterns } from "./utils";
+
 /**
  * Compile a list of source-config kennel patterns into runtime form.
+ * Delegates regex construction to `compilePatterns` (the canonical site
+ * for `new RegExp(...)` in the adapter layer — patterns are pre-validated
+ * via safe-regex2 in `config-validation.ts` before reaching here).
+ *
  * Malformed regex strings are dropped (with `console.warn`) so a single
  * bad config entry doesn't kill the whole scrape.
  */
@@ -49,14 +55,12 @@ export function compileKennelPatterns(
   patterns: readonly KennelPattern[],
 ): CompiledKennelPattern[] {
   const compiled: CompiledKennelPattern[] = [];
-  for (const [regex, value] of patterns) {
-    try {
-      // nosemgrep: detect-non-literal-regexp — patterns are pre-validated via safe-regex2 in config-validation.ts
-      compiled.push([new RegExp(regex, "i"), value]); // NOSONAR
-    } catch (err) {
-      console.warn(
-        `[kennel-patterns] Skipping malformed regex ${JSON.stringify(regex)}: ${(err as Error).message}`,
-      );
+  for (const [regexStr, value] of patterns) {
+    const [regex] = compilePatterns([regexStr], "i");
+    if (regex) {
+      compiled.push([regex, value]);
+    } else {
+      console.warn(`[kennel-patterns] Skipping malformed regex ${JSON.stringify(regexStr)}`);
     }
   }
   return compiled;
