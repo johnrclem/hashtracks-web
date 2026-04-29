@@ -39,10 +39,16 @@ export function parseCalgaryRunNumber(title: string): number | undefined {
 
 /**
  * Extract clean title from a Calgary event title.
- * Strips the "#NNNN - " prefix if present.
+ * Strips the "#NNNN - " prefix if present, EXCEPT when the source title is a
+ * bare "#NNNN -" / "#NNNN –" / "#NNNN —" (TBA placeholder with nothing after
+ * the dash). Stripping that to empty would let the merge pipeline synthesize
+ * a generic "Calgary H3 Trail #N", erasing the TBA marker. Preserve the raw
+ * trimmed title verbatim instead so the source's TBA shape survives. See #896.
  */
 export function parseCalgaryTitle(title: string): string {
-  return title.replace(/^#\d+\s*[-–—]\s*/, "").trim();
+  const trimmed = title.trim();
+  const stripped = trimmed.replace(/^#\d+\s*[-–—]\s*/, "").trim();
+  return stripped || trimmed;
 }
 
 /**
@@ -64,7 +70,7 @@ export class CalgaryH3HomeAdapter implements SourceAdapter {
 
   async fetch(
     source: Source,
-    _options?: { days?: number },
+    options?: { days?: number },
   ): Promise<ScrapeResult> {
     const url = source.url || "https://home.onon.org/upcumming-runs";
 
@@ -76,7 +82,7 @@ export class CalgaryH3HomeAdapter implements SourceAdapter {
 
     const { $, structureHash, fetchDurationMs } = page;
 
-    const days = _options?.days ?? source.scrapeDays ?? 90;
+    const days = options?.days ?? source.scrapeDays ?? 90;
     const { minDate, maxDate } = buildDateWindow(days);
 
     const events: RawEventData[] = [];

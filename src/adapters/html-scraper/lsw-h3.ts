@@ -40,19 +40,41 @@ export function parseLswDate(text: string): string | null {
 
 /**
  * Parse a single LSW hareline table row into RawEventData.
- * Expected columns: DATE, RUN NO., HARES, DESCRIPTION (source calls it
- * "DESCRIPTION" but the content is always an HK district name —
- * "Chai Wan", "Shek O" — so map it to `location`, not `description`).
+ * Expected columns: DATE, RUN NO., HARES, DESCRIPTION.
+ *
+ * The DESCRIPTION column historically held HK district names ("Chai Wan",
+ * "Shek O") so #873 mapped it to `location`. The live source has since
+ * shifted to event themes / titles ("ANZAC Day Run", "Cinco de Mayo",
+ * "LSW Reunion 2026, Bedford", "Birthday run", "Summer Solstice Run").
+ *
+ * Heuristic split: short single-token-or-two-tokens values are treated as
+ * district-shaped venue names (kept on `location`); anything longer or with
+ * trailing run-number / theme markers ("Run", "Day", "Hash") goes to
+ * `description`. Empty cells stay undefined so the merge UPDATE branch is a
+ * no-op (preserves descriptions from other sources / manual edits). #962.
  *
  * Exported for unit testing.
  */
+const THEME_MARKER_RE = /\b(?:run|day|night|hash|reunion|crawl|party|year|solstice|virgin)s?\b/i; // NOSONAR — word-boundary-anchored alternation of fixed literals, no nested quantifiers
+function classifyDescriptionCell(value: string): { location?: string; description: string } {
+  const tokenCount = value.split(/\s+/).filter(Boolean).length;
+  // Short values without theme keywords look like venue/district names.
+  if (tokenCount <= 2 && !THEME_MARKER_RE.test(value)) {
+    return { location: value, description: value };
+  }
+  // Themed text: emit as description only — `sanitizeLocation` doesn't reject
+  // arbitrary strings, so leaving it on `location` would surface "ANZAC Day
+  // Run" as a venue on the canonical event.
+  return { description: value };
+}
+
 export function parseLswRow(
   cells: string[],
   sourceUrl: string,
 ): RawEventData | null {
   if (cells.length < 2) return null;
 
-  const [dateCell, runNoCell, haresCell, locationCell] = cells;
+  const [dateCell, runNoCell, haresCell, descCell] = cells;
   const date = parseLswDate(dateCell ?? "");
   if (!date) return null;
 
@@ -62,20 +84,17 @@ export function parseLswRow(
   const hares = haresCell?.trim();
   const validHares = hares && !isPlaceholder(hares) ? hares : undefined;
 
-  const location = locationCell?.trim() || undefined;
+  const value = descCell?.trim() || undefined;
+  const classified = value ? classifyDescriptionCell(value) : { location: undefined, description: undefined };
 
   return {
     date,
     kennelTags: [KENNEL_TAG],
     runNumber: runNumber && runNumber > 0 ? runNumber : undefined,
-    title: runNumber ? `LSW Run #${runNumber}` : location || undefined,
+    title: runNumber ? `LSW Run #${runNumber}` : value || undefined,
     hares: validHares,
-    location,
-    // Do NOT emit description: null here — the merge UPDATE path treats that
-    // as an authoritative clear and would wipe descriptions contributed by
-    // other sources or manual edits on every scrape. Stale rows from the
-    // previous mis-mapping get cleaned up via a one-shot admin cleanup, not
-    // by silently nuking the column forever (#873).
+    location: classified.location,
+    description: classified.description,
     startTime: DEFAULT_START_TIME,
     sourceUrl,
   };

@@ -70,6 +70,42 @@ Venue Somewhere in Edinburgh`;
       expect(run).toBeNull();
     });
 
+    // #1107: Edinburgh's `<br>` separators inside a single labeled section
+    // (especially Directions / ON INN) were collapsing to single sentences
+    // because parseRunBlock iterated line-by-line and only matched the label
+    // regex on the first line of each section. Continuation lines (no label
+    // prefix) must be folded into the current section's value.
+    it("preserves multi-line Directions and ON INN sections (#1107)", () => {
+      const block = `Run No. 2308
+Date 3rd May 2026
+Hares Septic Sporran
+Venue Charlestown Limekilns (KY11 3ET)
+Time 11:00
+Location (w3w): https://w3w.co/soggy.galaxies.scatters
+Directions Take the M90 to Fife over the Queensferry Crossing.
+Take exit 1c onto the A985 towards Kincardine Bridge and Rosyth.
+Follow this road through 3 roundabouts.
+After the turn off left to Rosyth Dockyard West Gate take the left to Charlestown and Limekilns.
+Stay on this road for 1.1 miles.
+Just before entering Charlestown and the uphill cobbled road turn left on to Saltpans.
+Follow this road along the sea for 0.4 of a mile and park on the road at the Limekilns.
+ON INN: The Bruce Arms
+Septic has booked 16 spaces at 13:30 for lunch at The Bruce Arms, a preorder is required, menus attached.`;
+
+      const run = parseRunBlock(block);
+
+      expect(run).not.toBeNull();
+      expect(run!.runNumber).toBe(2308);
+      expect(run!.date).toBe("2026-05-03");
+      expect(run!.hares).toBe("Septic Sporran");
+      expect(run!.directions).toContain("Take the M90 to Fife");
+      expect(run!.directions).toContain("Stay on this road for 1.1 miles");
+      expect(run!.directions).toContain("park on the road at the Limekilns");
+      expect(run!.onInn).toContain("The Bruce Arms");
+      expect(run!.onInn).toContain("Septic has booked 16 spaces");
+      expect(run!.onInn).toContain("preorder is required");
+    });
+
     it("handles TBD hares", () => {
       const block = `Run No. 2306
 Date 19th April 2026

@@ -205,6 +205,25 @@ describe("extractRunNumber", () => {
     ).toBeUndefined();
   });
 
+  // #1009 Bushman H3: source description starts "What: Bushman HHH No. 251" —
+  // matched by per-source `runNumberPatterns` config in the Chicagoland Hash
+  // Calendar entry. Also handles the bare "Bushman No. 251" variant.
+  it("matches Bushman H3 'What: Bushman HHH No. NNN' via custom pattern (#1009)", () => {
+    expect(
+      extractRunNumber("Bushman H3", "What: Bushman HHH No. 251\nWhen: ...", [
+        String.raw`What:\s*Bushman(?:\s+HHH)?\s*No\.?\s*(\d+)`,
+      ]),
+    ).toBe(251);
+  });
+
+  it("matches Bushman variant without HHH suffix (#1009)", () => {
+    expect(
+      extractRunNumber("Bushman H3", "What: Bushman No. 252", [
+        String.raw`What:\s*Bushman(?:\s+HHH)?\s*No\.?\s*(\d+)`,
+      ]),
+    ).toBe(252);
+  });
+
   it("skips malformed custom patterns gracefully", () => {
     expect(
       extractRunNumber("Weekly Run", "Hash # 2658", [
@@ -300,6 +319,24 @@ describe("extractHares", () => {
 
   it("takes only first line of hare text", () => {
     expect(extractHares("Hare: Alice\nSome other info")).toBe("Alice");
+  });
+
+  // #1082 EPH3 #2719: source description sometimes has no newlines between
+  // WHO/WHAT/WHEN sections — the greedy `(.*)` swallowed everything to the
+  // end of string. Section-label lookahead now stops before the next label.
+  it("stops at next concatenated WHAT/WHEN/etc. section label without newlines (#1082 EPH3)", () => {
+    const desc = "WHO ARE THE HARES: TBDWHAT TIME IS THE HASH: @10am B-TRUCK OUT 9:50WHAT TO WEAR: Hash GearWHATIS THE COST: $7";
+    expect(extractHares(desc)).toBe("TBD");
+  });
+
+  it("preserves multi-line WHO ARE THE HARES values (#1082 backwards compat)", () => {
+    const desc = "WHO ARE THE HARES: Leeroy\n\nWHAT TIME IS THE HASH: 10am";
+    expect(extractHares(desc)).toBe("Leeroy");
+  });
+
+  it("captures multi-name hares before next section label (#1082)", () => {
+    const desc = "WHO ARE THE HARES: choco & cuntswayloWHAT TIME IS THE HASH: 10am";
+    expect(extractHares(desc)).toBe("choco & cuntswaylo");
   });
 
   // Custom hare patterns (configurable via source config)
@@ -685,6 +722,34 @@ describe("titleHarePattern — hare extraction from summary", () => {
     expect(result).not.toBeNull();
     expect(result!.hares).toBe("Baba Gagush & Crusty Beaver");
     expect(result!.title).toBe("AH3 #2269");
+  });
+
+  // #1091 DWH3 (Portland): titles encode hares inline with the kennel name.
+  // The pattern strips "Dead Whores H3" / "DWH" plus an optional Hare/Hares
+  // label and returns whatever is left after the separator.
+  describe("DWH3 titleHarePattern variants (#1091)", () => {
+    const dwh3Pattern = String.raw`^(?:Dead\s+Whores(?:\s+H3|\s+hash)?|DWH)\s*[-/\s]\s*(?:Har(?:es?|é)\s*[-/]\s*)?(.+?)(?:\s*[-/]\s*cancelled\s*)?$`;
+    const dwh3RE = new RegExp(dwh3Pattern, "i");
+
+    const cases: Array<[string, string]> = [
+      ["Dead Whores H3/Tripod. And I'm Gonna Cum", "Tripod. And I'm Gonna Cum"],
+      ["Dead Whores hash-Hare-Log Jammer", "Log Jammer"],
+      ["Dead Whores-Hare-Dark Star", "Dark Star"],
+      ["Dead Whores hash Hares-Ditch Bitch, Mamma Ditch", "Ditch Bitch, Mamma Ditch"],
+      ["Dead Whores Hash-Hare-Crack Up", "Crack Up"],
+      ["Dead Whores-Haré-Kerstan", "Kerstan"],
+      ["Dead Whores H3- CommandHo & Drool Sargent", "CommandHo & Drool Sargent"],
+      ["DWH- Jaba the Slut & Stop, Drop, and Puke", "Jaba the Slut & Stop, Drop, and Puke"],
+    ];
+    it.each(cases)("extracts hares from %s", (summary, expectedHares) => {
+      const result = buildRawEventFromGCalItem(
+        testGCalEvent({ summary, start: { dateTime: "2026-04-19T13:00:00-07:00" } }),
+        { defaultKennelTag: "dwh3", titleHarePattern: dwh3Pattern },
+        { compiledTitleHarePattern: dwh3RE },
+      );
+      expect(result).not.toBeNull();
+      expect(result!.hares).toBe(expectedHares);
+    });
   });
 
   it("handles SUFFIX-style titleHarePattern (hares at end of title, not start) (#575)", () => {
@@ -2088,15 +2153,42 @@ describe("buildRawEventFromGCalItem — trailing dash + defaultTitle (#756 Moooo
   it.each([
     ["en-dash", "–"],
     ["em-dash", "—"],
-  ])("strips trailing %s too", (_label, dash) => {
+    ["colon (#1060)", ":"],
+  ])("strips trailing %s too", (_label, delim) => {
     const result = buildRawEventFromGCalItem(
-      testGCalEvent({ summary: `Moooouston H3 ${dash}` }),
+      testGCalEvent({ summary: `Moooouston H3 ${delim}` }),
       {
         kennelPatterns: [["Moooouston", "moooouston-h3"]],
         defaultTitle: "Moooouston H3 Trail",
       },
     );
     expect(result?.title).toBe("Moooouston H3 Trail");
+  });
+
+  it("Space City 'Space City Hash:' → 'Space City H3 Trail' default (#1060)", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "Space City Hash:" }),
+      {
+        kennelPatterns: [["Space City Hash|Space City H3", "space-city-h3"]],
+        defaultTitles: { "space-city-h3": "Space City H3 Trail" },
+        staleTitleAliases: { "space-city-h3": ["Space City Hash"] },
+      },
+    );
+    expect(result?.title).toBe("Space City H3 Trail");
+  });
+
+  it("staleTitleAliases is per-kennel: doesn't fire for unlisted kennels (#1060)", () => {
+    // April Hash matches the kennelPattern but ISN'T in staleTitleAliases —
+    // the multi-word title must remain untouched (preserves the #796 guard).
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "April Hash" }),
+      {
+        kennelPatterns: [["April", "wasatch-h3"]],
+        defaultTitle: "Wasatch H3 Trail",
+        staleTitleAliases: { "space-city-h3": ["Space City Hash"] },
+      },
+    );
+    expect(result?.title).toBe("April Hash");
   });
 
   it("defaultTitles map scopes fallback per-kennel on aggregator calendars", () => {
@@ -2278,6 +2370,13 @@ describe("extractCostFromDescription (#774)", () => {
     // When HTML stripping collapses fields onto one line, EVENT_FIELD_LABEL_RE
     // truncates at the next recognized label so the value doesn't leak.
     expect(extractCostFromDescription("Hash Cash: $5 When: 6pm")).toBe("$5");
+  });
+
+  // #1009 Bushman H3 verbatim shape after `<br>` → `\n` strip:
+  // What: Bushman HHH No. 251\nWhen: ...\nWhere: ...\nHow much: $5\nHare: ...
+  it("extracts cost from Bushman-shaped description (#1009)", () => {
+    const desc = "What: Bushman HHH No. 251\nWhen: Saturday 4/18, 2:00 PM, on out at 2:30 PM\nWhere: LaBagh Woods\nHow much: $5\nHare: Back Door Bizzle";
+    expect(extractCostFromDescription(desc)).toBe("$5");
   });
 });
 

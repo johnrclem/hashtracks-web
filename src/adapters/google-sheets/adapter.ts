@@ -1,7 +1,7 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails, ParseError } from "../types";
 import { hasAnyErrors } from "../types";
-import { googleMapsSearchUrl, validateSourceConfig, stripPlaceholder } from "../utils";
+import { googleMapsSearchUrl, validateSourceConfig, stripPlaceholder, parse12HourTime } from "../utils";
 import { safeFetch } from "../safe-fetch";
 
 /** Titles starting with these verbs are instructions/notes, not event names. */
@@ -53,6 +53,13 @@ export interface GoogleSheetsConfig {
     location: number;
     title?: number;
     description?: number;
+    /**
+     * Optional column index for an explicit start-time string ("HH:MM" or
+     * "H:MMam/pm" — both 24-hour and 12-hour formats accepted). When set
+     * and the cell is non-empty, this beats `startTimeRules`-based
+     * day-of-week inference. Empty cells fall through to the rules. (#923)
+     */
+    startTime?: number;
   };
   kennelTagRules: {
     default: string;
@@ -183,6 +190,31 @@ export function parseDate(dateStr: string, today: Date = new Date()): string | n
   }
 
   return formatValidDate(year, month, day);
+}
+
+/**
+ * Parse an explicit start-time cell from a Google Sheets row into "HH:MM"
+ * (24-hour). Accepts "15:00", "3:00 pm", "3pm", "15:00:00". Returns
+ * undefined for empty / placeholder / unparseable values so the caller can
+ * fall through to `inferStartTime` rules. See #923 (Munich H3).
+ *
+ * Exported for unit testing.
+ */
+export function parseSheetStartTimeCell(raw: string | undefined): string | undefined {
+  if (raw == null) return undefined;
+  const cleaned = stripPlaceholder(raw);
+  if (!cleaned) return undefined;
+  // 24-hour "HH:MM" or "HH:MM:SS"
+  const hm = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(cleaned);
+  if (hm) {
+    const h = Number(hm[1]); const m = Number(hm[2]);
+    if (h >= 0 && h <= 23 && m >= 0 && m <= 59) {
+      return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+    }
+    return undefined;
+  }
+  // 12-hour "H:MM am/pm" or "Ham/pm"
+  return parse12HourTime(cleaned) ?? undefined;
 }
 
 /**
@@ -395,7 +427,10 @@ export function buildEventFromSheetRow(
   const description = writeUp
     ? writeUp.substring(0, 2000) || undefined
     : undefined;
-  const startTime = inferStartTime(dateStr, config.startTimeRules);
+  // #923: prefer an explicit startTime cell when configured, fall back to
+  // day-of-week inference. Cell may be "HH:MM", "H:MM am/pm", or empty/TBD.
+  const startTimeCell = config.columns.startTime == null ? undefined : row[config.columns.startTime];
+  const startTime = parseSheetStartTimeCell(startTimeCell) ?? inferStartTime(dateStr, config.startTimeRules);
 
   return {
     date: dateStr,

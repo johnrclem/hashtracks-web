@@ -1177,14 +1177,16 @@ describe("extractHaresFromMeetupDescription (#953 CHH3 dash separator)", () => {
     expect(extractHaresFromMeetupDescription("Hare — Bob")).toBe("Bob");
   });
 
-  it("only scans the first 5 non-empty description lines", () => {
-    // Filler lines are non-empty so they consume the budget; the Hares line
-    // beyond position 5 is ignored.
+  it("pass-1 caps at the first 5 lines but pass-2 backstops anywhere (#975)", () => {
+    // Filler lines push the Hares line past pass-1's 5-line cap, but the
+    // sentence-level pass-2 regex still finds it. The cap exists so a footer
+    // that mentions "hare" prose can't override a real label, but actual
+    // labels deep in a description should still resolve.
     const desc = [
       "Filler 1", "Filler 2", "Filler 3", "Filler 4", "Filler 5", "Filler 6",
       "Hares - Late Liner",
     ].join("\n");
-    expect(extractHaresFromMeetupDescription(desc)).toBeUndefined();
+    expect(extractHaresFromMeetupDescription(desc)).toBe("Late Liner");
   });
 
   it("truncates trailing boilerplate field labels (HASH CASH)", () => {
@@ -1204,10 +1206,24 @@ describe("extractHaresFromMeetupDescription (#953 CHH3 dash separator)", () => {
     expect(extractHaresFromMeetupDescription("")).toBeUndefined();
   });
 
-  it("does not match colon form (handled by extractHaresFromDescription)", () => {
-    // Colon form is the google-calendar helper's job; the dash-fallback
-    // should leave it alone so we don't accidentally double-match.
-    expect(extractHaresFromMeetupDescription("Hares: Just Josh")).toBeUndefined();
+  // #975: also accept the colon form. The upstream `extractHaresFromDescription`
+  // (google-calendar helper) catches `Hares:` only when the line starts at a
+  // newline boundary; some Meetup descriptions concatenate it after prose, so
+  // the local helper backstops both shapes line-by-line.
+  it("captures 'Hares: X and Y' colon form (#975)", () => {
+    expect(extractHaresFromMeetupDescription("Hares: Birthday Gurrrl and Tub Puppet"))
+      .toBe("Birthday Gurrrl and Tub Puppet");
+  });
+
+  it("captures 'Hare: X' singular colon form (#975)", () => {
+    expect(extractHaresFromMeetupDescription("Hare: Yellow Snow Cone"))
+      .toBe("Yellow Snow Cone");
+  });
+
+  it("captures mid-paragraph 'Hares: X and Y' run-on prose (#975 Cleveland H4)", () => {
+    const desc = "Kentucky Derby Hash. Bring a fancy hat and enjoy Cleveland's first trail of 2026. CH4 is not dead! Hares: Birthday Gurrrl and Tub Puppet. Location: Winking Lizard.";
+    expect(extractHaresFromMeetupDescription(desc))
+      .toBe("Birthday Gurrrl and Tub Puppet");
   });
 });
 

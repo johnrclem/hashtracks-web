@@ -193,7 +193,7 @@ async function fetchAdelaideDetail(
 
 const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
 
-type DetailTarget = { event: RawEventData; row: AdelaideEventRow };
+type DetailTarget = { eventIndex: number; row: AdelaideEventRow };
 
 /**
  * POST the admin-ajax list endpoint and normalize the response into either
@@ -257,11 +257,52 @@ async function fetchAdelaideList(
   }
 }
 
-function applyAdelaideDetail(event: RawEventData, detail: AdelaideEventDetail): void {
-  if (detail.location) event.location = detail.location;
-  if (detail.locationStreet) event.locationStreet = detail.locationStreet;
-  if (detail.description) event.description = detail.description;
-  if (detail.locationUrl) event.locationUrl = detail.locationUrl;
+/**
+ * Remove the event theme (typically the WordPress description value, e.g.
+ * "Anzac Day run") from a comma-separated hares string. For special runs the
+ * source organizer appends the theme to the title after a comma, so
+ * `parseAdelaideEvent` extracts it as a hare segment. Once the per-event
+ * detail fetch returns a description, we can identify and drop the matching
+ * segment. See #1059.
+ *
+ * Comparison is case-insensitive and trims surrounding whitespace; remaining
+ * segments are joined back with ", " in their original order.
+ *
+ * Exported for unit testing.
+ */
+export function stripThemeFromHares(
+  hares: string | undefined,
+  description: string | undefined,
+): string | undefined {
+  if (!hares) return undefined;
+  if (!description) return hares;
+  const theme = description.trim().toLowerCase();
+  if (!theme) return hares;
+  const segments = hares
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0 && s.toLowerCase() !== theme);
+  return segments.length > 0 ? segments.join(", ") : undefined;
+}
+
+function applyAdelaideDetail(event: RawEventData, detail: AdelaideEventDetail): RawEventData {
+  // Return a new RawEventData rather than mutating in place — the immutable-
+  // audit-trail rule (CLAUDE.md) treats RawEvent records as read-only after
+  // creation. Special-run titles append the theme after a comma (#1059); once
+  // the WordPress description gives us the canonical theme text, strip it
+  // from the title-derived `hares` field.
+  return {
+    ...event,
+    ...(detail.location ? { location: detail.location } : {}),
+    ...(detail.locationStreet ? { locationStreet: detail.locationStreet } : {}),
+    ...(detail.description
+      ? {
+          description: detail.description,
+          ...(event.hares ? { hares: stripThemeFromHares(event.hares, detail.description) } : {}),
+        }
+      : {}),
+    ...(detail.locationUrl ? { locationUrl: detail.locationUrl } : {}),
+  };
 }
 
 /**
@@ -279,6 +320,7 @@ function applyAdelaideDetail(event: RawEventData, detail: AdelaideEventDetail): 
  */
 async function enrichAdelaideEvents(
   url: string,
+  events: RawEventData[],
   detailTargets: DetailTarget[],
 ): Promise<{
   detailsFetched: number;
@@ -303,10 +345,10 @@ async function enrichAdelaideEvents(
   let detailsFetched = 0;
   let detailsFailed = 0;
   for (let i = 0; i < targets.length; i++) {
-    const { event, row } = targets[i];
+    const { eventIndex, row } = targets[i];
     const detail = await fetchAdelaideDetail(url, row.id!, row.start!, row.end!);
     if (detail) {
-      applyAdelaideDetail(event, detail);
+      events[eventIndex] = applyAdelaideDetail(events[eventIndex], detail);
       detailsFetched++;
     } else {
       detailsFailed++;
@@ -340,8 +382,8 @@ export class AdelaideH3Adapter implements SourceAdapter {
     for (const row of rows) {
       const event = parseAdelaideEvent(row, url);
       if (event) {
+        detailTargets.push({ eventIndex: events.length, row });
         events.push(event);
-        detailTargets.push({ event, row });
       } else {
         skipped++;
       }
@@ -352,7 +394,7 @@ export class AdelaideH3Adapter implements SourceAdapter {
       detailsFailed,
       detailsSkippedMissingFields,
       detailsSkippedByCap,
-    } = await enrichAdelaideEvents(url, detailTargets);
+    } = await enrichAdelaideEvents(url, events, detailTargets);
 
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};

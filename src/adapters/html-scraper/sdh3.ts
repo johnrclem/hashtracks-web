@@ -141,7 +141,27 @@ export function parseEventFields(fieldsText: string): {
     if (!labelMatch) continue;
 
     const label = labelMatch[1].trim().toLowerCase();
-    const value = labelMatch[2].trim();
+    let value = labelMatch[2].trim();
+    // #1068: Notes is rendered as `<strong>Notes:</strong><br />body` so after
+    // <br>→\n the value is empty on the same line and the actual Notes body
+    // sits on the following non-label line(s). Pull it forward before the
+    // empty-value bail. A single blank line is treated as a paragraph break
+    // (joined with " "), so multi-paragraph Notes blocks survive intact; only
+    // the next labeled line terminates the capture.
+    if (!value && label === "notes") {
+      const continuation: string[] = [];
+      for (let k = i + 1; k < lines.length; k++) {
+        const next = lines[k].trim();
+        if (/^(.+?):\s/.test(next)) break;
+        if (!next && continuation.length === 0) continue;
+        continuation.push(next);
+      }
+      // Drop trailing blank lines so we don't render dangling whitespace.
+      while (continuation.length > 0 && !continuation.at(-1)) {
+        continuation.pop();
+      }
+      if (continuation.length > 0) value = continuation.join(" ").replaceAll(/\s{2,}/g, " ").trim();
+    }
     if (!value) continue;
 
     switch (label) {

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Source } from "@/generated/prisma/client";
-import { parseDate, inferStartTime, parseCSV, buildEventFromSheetRow, GoogleSheetsAdapter } from "./adapter";
+import { parseDate, inferStartTime, parseCSV, buildEventFromSheetRow, parseSheetStartTimeCell, GoogleSheetsAdapter } from "./adapter";
 import type { GoogleSheetsConfig } from "./adapter";
 
 // Mock safeFetch
@@ -242,6 +242,57 @@ describe("buildEventFromSheetRow", () => {
     expect(event!.location).toBeUndefined();
     // locationUrl is gated on location, so it also drops.
     expect(event!.locationUrl).toBeUndefined();
+  });
+
+  // #923 Munich H3: explicit startTime column overrides startTimeRules
+  // inference. Empty / placeholder cells fall through to rules.
+  describe("startTime column (#923)", () => {
+    const munichConfig = {
+      sheetId: "munich",
+      columns: { runNumber: 0, date: 1, hares: 4, location: 5, description: 6, startTime: 3 },
+      kennelTagRules: { default: "mh3-de" },
+    };
+    // [#, Date, Group, Start time, Hared by, Location, Notes]
+    const buildRow = (cell3: string, run = "999", date = "25-Apr-26") =>
+      [run, date, "MH3", cell3, "Hare1", "Treffpunkt", ""];
+
+    it.each([
+      ["24-hour 'HH:MM' verbatim", "15:00", "15:00"],
+      ["single-digit hour normalized to zero-padded", "9:30", "09:30"],
+      ["12-hour 'H:MM pm' format converted", "7:00 pm", "19:00"],
+    ])("extracts startTime from column: %s", (_label, cell, expected) => {
+      const event = buildEventFromSheetRow(buildRow(cell), munichConfig, "https://example.com", "2026-04-25");
+      expect(event!.startTime).toBe(expected);
+    });
+
+    it("falls through to startTimeRules when cell is empty/TBD", () => {
+      const config = { ...munichConfig, startTimeRules: { default: "19:00" } };
+      const event = buildEventFromSheetRow(buildRow("TBD"), config, "https://example.com", "2026-04-25");
+      expect(event!.startTime).toBe("19:00");
+    });
+
+    it("undefined when neither column nor rules supply a value", () => {
+      const event = buildEventFromSheetRow(buildRow(""), munichConfig, "https://example.com", "2026-04-25");
+      expect(event!.startTime).toBeUndefined();
+    });
+  });
+
+  describe("parseSheetStartTimeCell (#923)", () => {
+    it("returns undefined for blank, undefined, or TBD", () => {
+      expect(parseSheetStartTimeCell(undefined)).toBeUndefined();
+      expect(parseSheetStartTimeCell("")).toBeUndefined();
+      expect(parseSheetStartTimeCell("TBD")).toBeUndefined();
+      expect(parseSheetStartTimeCell("  ")).toBeUndefined();
+    });
+
+    it("rejects out-of-range values gracefully", () => {
+      expect(parseSheetStartTimeCell("25:00")).toBeUndefined();
+      expect(parseSheetStartTimeCell("12:60")).toBeUndefined();
+    });
+
+    it("strips trailing seconds component", () => {
+      expect(parseSheetStartTimeCell("15:00:00")).toBe("15:00");
+    });
   });
 
   it("preserves capitalized one-word venue names (no false-positive on 'Subway')", () => {
