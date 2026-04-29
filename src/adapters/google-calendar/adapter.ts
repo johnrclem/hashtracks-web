@@ -353,7 +353,7 @@ const DEFAULT_HARE_PATTERNS = [
   // with a section-label lookahead terminator handles concatenated descriptions
   // (no newlines between WHO/WHAT/WHEN sections, e.g. EPH3 #2719) — without it,
   // `(.*)` swallows the entire post-label remainder. See #1082.
-  /(?:^|\n)[ \t]*WHO\s+ARE\s+THE\s+HARES?\s*:[ \t]*(.+?)(?=(?:WHO|WHAT|WHEN|WHERE|HOW)\s+\w+|\n|$)/im,
+  /(?:^|\n)[ \t]*WHO\s+ARE\s+THE\s+HARES?\s*:[ \t]*(.+?)(?=(?:WHO|WHAT|WHEN|WHERE|HOW)\s+\w+|\n|$)/im, // NOSONAR — non-greedy, bounded by literal lookahead alternation; description is trusted GCal field
   /(?:^|\n)[ \t]*Who\s*\(?(?:hares?)?\)?:[ \t]*(.*)/im,  // Who:, WHO (hares):, Who(hare):
   /(?:^|\n)[ \t]*Hare[ \t]+([A-Z*].+)/im,  // "Hare C*ck Swap" (no colon, name starts uppercase/special)
 ];
@@ -799,7 +799,7 @@ export function buildRawEventFromGCalItem(
   // #1060 "Space City Hash:"). The subsequent defaultTitle path replaces
   // an empty string with a configured fallback; without this strip the
   // title shipped to users as "… -" / "… :".
-  title = title.replace(/\s*[-–—:]\s*$/, "").trim();
+  title = title.replace(/\s*[-–—:]\s*$/, "").trim(); // NOSONAR — anchored end-of-string strip, no nested quantifiers
   // Stale-default detection: equality is whitespace-insensitive so a SUMMARY
   // of "4X2 H4" still matches kennelTag "4x2h4".
   if (titleMatchesKennelTag(title, kennelTag) && rawDescription) {

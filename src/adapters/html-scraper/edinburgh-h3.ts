@@ -42,7 +42,7 @@ export interface ParsedRun {
  *  labels (`Location (w3w)`) come before shorter prefixes (`Location`) so the
  *  alternation captures the full label. */
 const LABEL_RE =
-  /^(Run\s+No\.?|Date|Hares?|Venue|Time|Location\s*\(w3w\)|Directions?|ON\s+INN)\s*:?\s*(.*)$/i;
+  /^(Run\s+No\.?|Date|Hares?|Venue|Time|Location\s*\(w3w\)|Directions?|ON\s+INN)\s*:?\s*(.*)$/i; // NOSONAR — anchored ^...$, alternation of literal labels, bounded \s* between literals
 
 type LabelKey = "run" | "date" | "hares" | "venue" | "time" | "w3w" | "directions" | "onInn";
 

@@ -55,7 +55,7 @@ export function parseLswDate(text: string): string | null {
  *
  * Exported for unit testing.
  */
-const THEME_MARKER_RE = /\b(?:run|day|night|hash|reunion|crawl|party|year|solstice|virgin)s?\b/i;
+const THEME_MARKER_RE = /\b(?:run|day|night|hash|reunion|crawl|party|year|solstice|virgin)s?\b/i; // NOSONAR — word-boundary-anchored alternation of fixed literals, no nested quantifiers
 function classifyDescriptionCell(value: string): { location?: string; description: string } {
   const tokenCount = value.split(/\s+/).filter(Boolean).length;
   // Short values without theme keywords look like venue/district names.
