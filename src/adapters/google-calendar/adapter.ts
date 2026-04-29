@@ -955,10 +955,12 @@ export function buildRawEventFromGCalItem(
     // multi-word placeholder titles like "Space City Hash" that wouldn't
     // normalize to the kennel tag. Substring matching against kennelPatterns
     // would over-fire on legit titles like "April Hash" (#796), so the alias
-    // list is opt-in per kennel rather than auto-derived.
+    // list is opt-in per kennel rather than auto-derived. Validate array +
+    // string element types in case a malformed config slips past validation.
     const aliases = sourceConfig?.staleTitleAliases?.[kennelTag];
-    const titleMatchesAlias = !!title && !!aliases?.some(
-      (a) => a.trim().toLowerCase() === title.trim().toLowerCase(),
+    const normalizedTitle = title.trim().toLowerCase();
+    const titleMatchesAlias = !!title && Array.isArray(aliases) && aliases.some(
+      (a) => typeof a === "string" && a.trim().toLowerCase() === normalizedTitle,
     );
     if (bareKennelRunMatch && prefixMatchesKennel) {
       title = `${fallback} #${bareKennelRunMatch[2]}`;

@@ -102,7 +102,7 @@ export function parseRunBlock(block: string): ParsedRun | null {
   for (const seg of segments) {
     if (!seg.value && seg.key !== "run") continue;
     if (seg.key === "run") {
-      const num = parseInt(seg.value, 10);
+      const num = Number.parseInt(seg.value, 10);
       if (!Number.isNaN(num)) result.runNumber = num;
     } else if (seg.key === "date") {
       const parsed = chronoParseDate(seg.value, "en-GB");

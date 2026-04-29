@@ -315,7 +315,8 @@ export function extractHaresFromMeetupDescription(
   const lines = description.split("\n").map((l) => l.trim()).filter(Boolean);
   for (const line of lines.slice(0, 5)) {
     // Separator: ASCII hyphen, en-dash, em-dash, or colon (kennels mix forms).
-    const m = /^Hares?\s*[:\-–—]\s*(.+?)\s*$/i.exec(line);
+    // `Hare(s)` literal form (parenthetical) accepted alongside `Hare` / `Hares`.
+    const m = /^Hare(?:\(s\)|s)?\s*[:\-–—]\s*(.+?)\s*$/i.exec(line);
     if (!m) continue;
     const names = m[1].replace(HARE_BOILERPLATE_RE, "").trim();
     if (names) return names;
@@ -326,7 +327,7 @@ export function extractHaresFromMeetupDescription(
   // and Tub Puppet. Location: Winking …". Match `Hare(s):` anywhere and stop
   // at the next sentence boundary (`. ` or `.\n` or end-of-text). Word boundary
   // `\b` keeps us from matching inside other words.
-  const sentenceMatch = /\bHares?\s*[:\-–—]\s*([^.\n]{1,200}?)(?:\.\s|\.$|\n|$)/i.exec(description);
+  const sentenceMatch = /\bHare(?:\(s\)|s)?\s*[:\-–—]\s*([^.\n]{1,200}?)(?:\.\s|\.$|\n|$)/i.exec(description);
   if (sentenceMatch) {
     const names = sentenceMatch[1].replace(HARE_BOILERPLATE_RE, "").trim();
     if (names) return names;

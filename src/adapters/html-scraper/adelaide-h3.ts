@@ -193,7 +193,7 @@ async function fetchAdelaideDetail(
 
 const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
 
-type DetailTarget = { event: RawEventData; row: AdelaideEventRow };
+type DetailTarget = { eventIndex: number; row: AdelaideEventRow };
 
 /**
  * POST the admin-ajax list endpoint and normalize the response into either
@@ -285,18 +285,24 @@ export function stripThemeFromHares(
   return segments.length > 0 ? segments.join(", ") : undefined;
 }
 
-function applyAdelaideDetail(event: RawEventData, detail: AdelaideEventDetail): void {
-  if (detail.location) event.location = detail.location;
-  if (detail.locationStreet) event.locationStreet = detail.locationStreet;
-  if (detail.description) {
-    event.description = detail.description;
-    // Special-run titles append the theme to the title (#1059); strip it
-    // from `hares` once the WordPress description gives us the canonical text.
-    if (event.hares) {
-      event.hares = stripThemeFromHares(event.hares, detail.description);
-    }
-  }
-  if (detail.locationUrl) event.locationUrl = detail.locationUrl;
+function applyAdelaideDetail(event: RawEventData, detail: AdelaideEventDetail): RawEventData {
+  // Return a new RawEventData rather than mutating in place — the immutable-
+  // audit-trail rule (CLAUDE.md) treats RawEvent records as read-only after
+  // creation. Special-run titles append the theme after a comma (#1059); once
+  // the WordPress description gives us the canonical theme text, strip it
+  // from the title-derived `hares` field.
+  return {
+    ...event,
+    ...(detail.location ? { location: detail.location } : {}),
+    ...(detail.locationStreet ? { locationStreet: detail.locationStreet } : {}),
+    ...(detail.description
+      ? {
+          description: detail.description,
+          ...(event.hares ? { hares: stripThemeFromHares(event.hares, detail.description) } : {}),
+        }
+      : {}),
+    ...(detail.locationUrl ? { locationUrl: detail.locationUrl } : {}),
+  };
 }
 
 /**
@@ -314,6 +320,7 @@ function applyAdelaideDetail(event: RawEventData, detail: AdelaideEventDetail): 
  */
 async function enrichAdelaideEvents(
   url: string,
+  events: RawEventData[],
   detailTargets: DetailTarget[],
 ): Promise<{
   detailsFetched: number;
@@ -338,10 +345,10 @@ async function enrichAdelaideEvents(
   let detailsFetched = 0;
   let detailsFailed = 0;
   for (let i = 0; i < targets.length; i++) {
-    const { event, row } = targets[i];
+    const { eventIndex, row } = targets[i];
     const detail = await fetchAdelaideDetail(url, row.id!, row.start!, row.end!);
     if (detail) {
-      applyAdelaideDetail(event, detail);
+      events[eventIndex] = applyAdelaideDetail(events[eventIndex], detail);
       detailsFetched++;
     } else {
       detailsFailed++;
@@ -375,8 +382,8 @@ export class AdelaideH3Adapter implements SourceAdapter {
     for (const row of rows) {
       const event = parseAdelaideEvent(row, url);
       if (event) {
+        detailTargets.push({ eventIndex: events.length, row });
         events.push(event);
-        detailTargets.push({ event, row });
       } else {
         skipped++;
       }
@@ -387,7 +394,7 @@ export class AdelaideH3Adapter implements SourceAdapter {
       detailsFailed,
       detailsSkippedMissingFields,
       detailsSkippedByCap,
-    } = await enrichAdelaideEvents(url, detailTargets);
+    } = await enrichAdelaideEvents(url, events, detailTargets);
 
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};

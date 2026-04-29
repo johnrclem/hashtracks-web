@@ -298,6 +298,11 @@ describe("parseEventFields", () => {
       "Hare(s): Test\nNotes:\nFirst paragraph here.\nSecond paragraph follows.",
       ["First paragraph here", "Second paragraph follows"],
     ],
+    [
+      "preserves blank-line-separated Notes paragraphs",
+      "Hare(s): Test\nNotes:\nPara 1\n\nPara 2",
+      ["Para 1", "Para 2"],
+    ],
   ] as const)("%s (#1068)", (_label, text, expectedFragments) => {
     const result = parseEventFields(text);
     for (const frag of expectedFragments) expect(result.description).toContain(frag);
