@@ -8,7 +8,7 @@
 
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult } from "../types";
-import { validateSourceConfig } from "../utils";
+import { validateSourceConfig, WEEKDAY_NAMES } from "../utils";
 
 /** Configuration shape for a STATIC_SCHEDULE source. */
 export interface StaticScheduleConfig {
@@ -19,15 +19,24 @@ export interface StaticScheduleConfig {
   defaultTitle?: string;       // e.g. "Rumson H3 Weekly Run"
   defaultLocation?: string;    // e.g. "Rumson, NJ"
   defaultDescription?: string; // e.g. "Check Facebook for start location"
+  /**
+   * Title template with date-derived tokens. When present, it overrides
+   * `defaultTitle`. Tokens (case-sensitive):
+   *   {dayName}    → "Sunday"
+   *   {monthName}  → "May"
+   *   {date}       → "May 3"
+   *   {iso}        → "2026-05-03"
+   * Unknown tokens are left literal so typos surface visibly.
+   *
+   * No schedule-semantic tokens (e.g. nth-of-month) — those can lie about
+   * the schedule on weekly rules. Encode "1st Sunday" / "3rd Sunday" intent
+   * as literal text on per-source rows whose RRULE matches that slot.
+   */
+  titleTemplate?: string;
 }
 
 /** Supported FREQ values. Other values (DAILY, YEARLY, etc.) are rejected. */
 const SUPPORTED_FREQS = new Set(["WEEKLY", "MONTHLY"]);
-
-/** Day abbreviation to JS Date.getUTCDay() number (Sunday=0). */
-const DAY_MAP: Record<string, number> = {
-  SU: 0, MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6,
-};
 
 /**
  * Parse INTERVAL from RRULE parts. Returns 1 if not specified.
@@ -51,7 +60,7 @@ function parseByDay(parts: Record<string, string>): { day: number; nth?: number 
   if (!parts.BYDAY) return undefined;
   const match = /^(-?\d+)?([A-Z]{2})$/.exec(parts.BYDAY);
   if (!match) throw new Error(`Invalid BYDAY: ${parts.BYDAY}`);
-  const dayNum = DAY_MAP[match[2]];
+  const dayNum = WEEKDAY_NAMES[match[2]];
   if (dayNum === undefined) throw new Error(`Unknown day: ${match[2]}`);
   if (match[1]) {
     const nth = Number.parseInt(match[1], 10);
@@ -380,6 +389,37 @@ function normalizeTime(raw: string): string | undefined {
   return undefined;
 }
 
+const DAY_NAMES_FULL = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"] as const;
+const MONTH_NAMES_FULL = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+] as const;
+
+/**
+ * Render a title template with date-derived tokens. Tokens not in the supported
+ * set are left literal so typos like `{Date}` (capital D) surface visibly in the
+ * UI rather than silently rendering empty. Only date-derived tokens are
+ * supported — schedule-semantic tokens (nth-of-month etc.) would lie about
+ * weekly rules, so admins encode that intent as literal text per source row.
+ *
+ * @param template - e.g. `"DST — {date} Hash"`
+ * @param dateStr  - YYYY-MM-DD (interpreted as UTC noon)
+ */
+export function renderTitleTemplate(template: string, dateStr: string): string {
+  const dt = new Date(dateStr + "T12:00:00Z");
+  if (Number.isNaN(dt.getTime())) return template;
+  const dayName = DAY_NAMES_FULL[dt.getUTCDay()];
+  const monthName = MONTH_NAMES_FULL[dt.getUTCMonth()];
+  const dayNum = dt.getUTCDate();
+  const tokens: Record<string, string> = {
+    "{dayName}": dayName,
+    "{monthName}": monthName,
+    "{date}": `${monthName} ${dayNum}`,
+    "{iso}": dateStr,
+  };
+  return template.replaceAll(/\{[A-Za-z]+\}/g, (match) => tokens[match] ?? match);
+}
+
 /**
  * Adapter for kennels that operate on a consistent, predictable schedule but lack
  * a scrapeable website (e.g., Facebook-only groups). Generates recurring events
@@ -452,10 +492,19 @@ export class StaticScheduleAdapter implements SourceAdapter {
       ? normalizeTime(config.startTime)
       : undefined;
 
+    // titleTemplate is opt-in; we accept only strings here so a malformed admin
+    // payload (e.g. `titleTemplate: []`) fails closed to defaultTitle instead of
+    // crashing the scrape inside renderTitleTemplate(). Whitespace-only strings
+    // are treated as absent so a field cleared in the admin panel doesn't render
+    // empty titles on every event.
+    const rawTpl = config.titleTemplate;
+    const titleTemplate =
+      typeof rawTpl === "string" && rawTpl.trim().length > 0 ? rawTpl : undefined;
+
     const events: RawEventData[] = occurrences.map((date) => ({
       date,
       kennelTags: [config.kennelTag],
-      title: config.defaultTitle,
+      title: titleTemplate ? renderTitleTemplate(titleTemplate, date) : config.defaultTitle,
       description: config.defaultDescription,
       location: config.defaultLocation,
       startTime,

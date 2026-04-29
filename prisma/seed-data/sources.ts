@@ -648,6 +648,28 @@ export const SOURCES = [
       },
       kennelCodes: ["sh3-de", "dst-h3", "fm-stgt", "super-h3"],
     },
+    // Backstop for the Stuttgart H3 GCal source: the CTA filter in
+    // google-calendar/adapter.ts strips "DST # - Hare Needed" placeholder rows,
+    // leaving only weeks where a hare is named. This static source fills the
+    // resulting Tuesday gaps. trustLevel 2 < GCal's 7 so real-titled GCal rows
+    // still win the canonical event for any Tuesday they cover.
+    {
+      name: "DST H3 Static Schedule",
+      url: "https://calendar.google.com/calendar/u/0/embed?src=1op2o8a7q9k5gif7m7b4n2ft7g@group.calendar.google.com",
+      type: "STATIC_SCHEDULE" as const,
+      trustLevel: 2,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "dst-h3",
+        rrule: "FREQ=WEEKLY;BYDAY=TU",
+        startTime: "18:30",
+        titleTemplate: "DST — {date} Hash (hare TBD)",
+        defaultLocation: "Stuttgart, Germany",
+        defaultDescription: "Stuttgart's weekly DST Tuesday-evening hash. Hare often listed on the Stuttgart H3 calendar — placeholder until a specific hare is named.",
+      },
+      kennelCodes: ["dst-h3"],
+    },
     // Bay Area iCal feed (sfh3.com aggregator — ~11 kennels)
     {
       name: "SFH3 MultiHash iCal Feed",
@@ -1560,7 +1582,7 @@ export const SOURCES = [
         rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA",
         anchorDate: "2026-03-07",
         startTime: "11:00",
-        defaultTitle: "CVH3 Biweekly Run",
+        titleTemplate: "CVH3 — {date} Hash",
         defaultLocation: "Columbus, GA",
         defaultDescription: "Alternate Saturday morning trail. Check Facebook for start location.",
       },
@@ -1646,7 +1668,7 @@ export const SOURCES = [
         rrule: "FREQ=MONTHLY;BYDAY=1SU",
         anchorDate: "2026-03-01",
         startTime: "15:00",
-        defaultTitle: "ColH3 Biweekly Run",
+        titleTemplate: "ColH3 — 1st Sunday Hash",
         defaultLocation: "Columbia, SC",
         defaultDescription: "1st & 3rd Sunday trail. Check Facebook for start location.",
       },
@@ -1664,7 +1686,7 @@ export const SOURCES = [
         rrule: "FREQ=MONTHLY;BYDAY=3SU",
         anchorDate: "2026-03-15",
         startTime: "15:00",
-        defaultTitle: "ColH3 Biweekly Run",
+        titleTemplate: "ColH3 — 3rd Sunday Hash",
         defaultLocation: "Columbia, SC",
         defaultDescription: "1st & 3rd Sunday trail. Check Facebook for start location.",
       },
@@ -3838,13 +3860,16 @@ export const SOURCES = [
       trustLevel: 3,
       scrapeFreq: "weekly",
       scrapeDays: 90,
+      // malaysiahash.com directory: Wednesdays @ 6:00pm. The earlier Saturday
+      // 17:00 was a data-entry mistake (likely confused with Butterworth
+      // Hashettes/Hazards, both Mondays).
       config: {
         kennelTag: "butterworth-h3",
-        rrule: "FREQ=WEEKLY;BYDAY=SA",
-        startTime: "17:00",
-        defaultTitle: "Butterworth H3 Weekly Run",
+        rrule: "FREQ=WEEKLY;BYDAY=WE",
+        startTime: "18:00",
+        defaultTitle: "Butterworth H3 Weekly Hash",
         defaultLocation: "Butterworth, Penang, Malaysia",
-        defaultDescription: "Weekly Saturday evening trail on mainland Penang. Founded 1980. Check the malaysiahash.com directory for contact details.",
+        defaultDescription: "Weekly Wednesday evening trail on mainland Penang. Founded 1980. Check the malaysiahash.com directory for contact details.",
       },
       kennelCodes: ["butterworth-h3"],
     },

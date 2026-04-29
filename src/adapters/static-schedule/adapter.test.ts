@@ -2,6 +2,7 @@ import {
   StaticScheduleAdapter,
   parseRRule,
   generateOccurrences,
+  renderTitleTemplate,
 } from "./adapter";
 import type { StaticScheduleConfig } from "./adapter";
 import type { RawEventData } from "../types";
@@ -490,6 +491,115 @@ describe("StaticScheduleAdapter", () => {
     for (const event of result.events) {
       const daysDiff = Math.abs(Math.round((new Date(event.date + "T12:00:00Z").getTime() - anchorMs) / 86_400_000));
       expect(daysDiff % 14).toBe(0);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// renderTitleTemplate
+// ---------------------------------------------------------------------------
+
+describe("renderTitleTemplate", () => {
+  // Anchor: 2026-05-03 is a Sunday in May.
+  it("renders {dayName}", () => {
+    expect(renderTitleTemplate("Hash on {dayName}", "2026-05-03")).toBe("Hash on Sunday");
+  });
+
+  it("renders {monthName}", () => {
+    expect(renderTitleTemplate("Run in {monthName}", "2026-05-03")).toBe("Run in May");
+  });
+
+  it("renders {date} as month + day-of-month without leading zero", () => {
+    expect(renderTitleTemplate("CVH3 — {date} Hash", "2026-05-03")).toBe("CVH3 — May 3 Hash");
+    expect(renderTitleTemplate("CVH3 — {date} Hash", "2026-05-23")).toBe("CVH3 — May 23 Hash");
+  });
+
+  it("renders {iso} as the input date string", () => {
+    expect(renderTitleTemplate("[{iso}] Hash", "2026-05-03")).toBe("[2026-05-03] Hash");
+  });
+
+  it("renders multiple tokens in one template", () => {
+    expect(renderTitleTemplate("DST — {date} ({dayName}) Hash", "2026-05-12")).toBe(
+      "DST — May 12 (Tuesday) Hash",
+    );
+  });
+
+  it("leaves unknown tokens literal", () => {
+    expect(renderTitleTemplate("Hash {frobnitz} {date}", "2026-05-03")).toBe("Hash {frobnitz} May 3");
+  });
+
+  it("leaves a literal template unchanged when no tokens are present", () => {
+    expect(renderTitleTemplate("ColH3 — 1st Sunday Hash", "2026-05-03")).toBe("ColH3 — 1st Sunday Hash");
+  });
+
+  it("returns the template untouched on malformed dates (defensive)", () => {
+    expect(renderTitleTemplate("{date}", "not-a-date")).toBe("{date}");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// StaticScheduleAdapter — titleTemplate end-to-end
+// ---------------------------------------------------------------------------
+
+describe("StaticScheduleAdapter titleTemplate", () => {
+  const adapter = new StaticScheduleAdapter();
+
+  it("renders titleTemplate per occurrence", async () => {
+    const result = await adapter.fetch(rumsonSource({ titleTemplate: "Rumson — {date} Hash" }));
+    expect(result.errors).toHaveLength(0);
+    expect(result.events.length).toBeGreaterThan(0);
+    for (const event of result.events) {
+      expect(event.title).toMatch(/^Rumson — [A-Z][a-z]+ \d{1,2} Hash$/);
+    }
+  });
+
+  it("falls back to defaultTitle when titleTemplate is absent", async () => {
+    const result = await adapter.fetch(rumsonSource({ defaultTitle: "Rumson H3 Weekly Run" }));
+    expectAllEvents(result.events, "title", "Rumson H3 Weekly Run");
+  });
+
+  it("titleTemplate wins when both fields are set", async () => {
+    const result = await adapter.fetch(
+      rumsonSource({
+        defaultTitle: "Rumson H3 Weekly Run",
+        titleTemplate: "Rumson — {dayName} Hash",
+      }),
+    );
+    for (const event of result.events) {
+      expect(event.title).toBe("Rumson — Saturday Hash");
+    }
+  });
+
+  it("treats empty titleTemplate as absent", async () => {
+    const result = await adapter.fetch(
+      rumsonSource({ defaultTitle: "Rumson H3 Weekly Run", titleTemplate: "" }),
+    );
+    expectAllEvents(result.events, "title", "Rumson H3 Weekly Run");
+  });
+
+  it("treats whitespace-only titleTemplate as absent", async () => {
+    const result = await adapter.fetch(
+      rumsonSource({ defaultTitle: "Rumson H3 Weekly Run", titleTemplate: "   " }),
+    );
+    expectAllEvents(result.events, "title", "Rumson H3 Weekly Run");
+  });
+
+  it("falls back to defaultTitle when titleTemplate is a non-string (admin payload corruption)", async () => {
+    // Cast through unknown to simulate a malformed JSON payload reaching the adapter.
+    const result = await adapter.fetch(
+      rumsonSource({
+        defaultTitle: "Rumson H3 Weekly Run",
+        titleTemplate: [] as unknown as string,
+      }),
+    );
+    expect(result.errors).toHaveLength(0);
+    expectAllEvents(result.events, "title", "Rumson H3 Weekly Run");
+  });
+
+  it("leaves unknown tokens literal in the rendered title", async () => {
+    const result = await adapter.fetch(rumsonSource({ titleTemplate: "Rumson {frobnitz} on {dayName}" }));
+    for (const event of result.events) {
+      expect(event.title).toBe("Rumson {frobnitz} on Saturday");
     }
   });
 });
