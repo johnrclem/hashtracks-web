@@ -429,9 +429,8 @@ export function buildEventFromSheetRow(
     : undefined;
   // #923: prefer an explicit startTime cell when configured, fall back to
   // day-of-week inference. Cell may be "HH:MM", "H:MM am/pm", or empty/TBD.
-  const startTime =
-    parseSheetStartTimeCell(config.columns.startTime != null ? row[config.columns.startTime] : undefined)
-    ?? inferStartTime(dateStr, config.startTimeRules);
+  const startTimeCell = config.columns.startTime == null ? undefined : row[config.columns.startTime];
+  const startTime = parseSheetStartTimeCell(startTimeCell) ?? inferStartTime(dateStr, config.startTimeRules);
 
   return {
     date: dateStr,

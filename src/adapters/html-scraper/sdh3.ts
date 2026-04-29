@@ -157,10 +157,10 @@ export function parseEventFields(fieldsText: string): {
         continuation.push(next);
       }
       // Drop trailing blank lines so we don't render dangling whitespace.
-      while (continuation.length > 0 && !continuation[continuation.length - 1]) {
+      while (continuation.length > 0 && !continuation.at(-1)) {
         continuation.pop();
       }
-      if (continuation.length > 0) value = continuation.join(" ").replace(/\s{2,}/g, " ").trim();
+      if (continuation.length > 0) value = continuation.join(" ").replaceAll(/\s{2,}/g, " ").trim();
     }
     if (!value) continue;
 
