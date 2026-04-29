@@ -47,6 +47,21 @@ export function parseDch4Title(title: string, referenceYear: number): {
   return null;
 }
 
+// Field regexes are compiled once at module load. Stop patterns require the
+// label to be followed by colon to avoid matching inside words (e.g. "Blonde"
+// contains "on" which would false-match "On"). The optional `(?:EMOJI\s*)+`
+// prefix accepts newer DCH4 posts using emoji-prefixed labels like
+// "🐇 Hare(s):" / "📍 Start Location:" / "💵 Cost:" (#1072); `Hare(s)` form is
+// tolerated alongside `Hares?:`. The trailing `️?` after `\p{Extended_Pictographic}`
+// is the optional VS-16 variation selector that follows some emoji ("🐇️").
+const EMOJI = String.raw`(?:\p{Extended_Pictographic}️?\s*)+`;
+const HARE_RE = new RegExp(`(?:${EMOJI})?Hares?(?:\\(s\\))?\\s*:\\s*(.+?)(?=\\n|(?:${EMOJI})?(?:Start|Location|Cost|Hash Cash|On\\s*-?\\s*After|Trail|Dog|Stroller|Time)\\s*:|$)`, "iu");
+const LOCATION_RE = new RegExp(`(?:${EMOJI})?(?:Start Location|Start|Location|Where)\\s*:\\s*(.+?)(?=\\n|(?:${EMOJI})?(?:Hare|Cost|Hash Cash|Trail|Dog|Stroller|On\\s*-?\\s*After|Time)\\s*:|$)`, "iu");
+const COST_RE = new RegExp(`(?:${EMOJI})?(?:Hash Cash|Cost)\\s*:\\s*\\$?(\\d+)`, "iu");
+const ON_AFTER_RE = new RegExp(`(?:${EMOJI})?On\\s*-?\\s*After\\s*:\\s*(.+?)(?=\\n|$)`, "iu");
+const RUNNER_RE = /Runners?\s*(?:~|about|less than|:)?\s*([\d.]+)\s*(?:mi(?:les?)?)/i;
+const WALKER_RE = /Walkers?\s*(?:~|about|:)?\s*([\d.]+)\s*(?:mi(?:les?)?)/i;
+
 /**
  * Parse labeled fields from DCH4 post body text.
  * Fields are in semi-structured paragraph format with bold labels.
@@ -59,14 +74,12 @@ export function parseDch4Body(text: string): {
   runnerDistance?: string;
   walkerDistance?: string;
 } {
-  // Stop patterns require the label to be followed by colon to avoid matching inside words
-  // (e.g., "Blonde" contains "on" which would false-match "On" without the colon anchor)
-  const hareMatch = text.match(/Hares?\s*:\s*(.+?)(?=\n|(?:Start|Location|Cost|Hash Cash|On\s*-?\s*After|Trail|Dog|Stroller)\s*:|$)/i);
-  const locationMatch = text.match(/(?:Start|Start Location|Location|Where)\s*:\s*(.+?)(?=\n|(?:Hare|Cost|Hash Cash|Trail|Dog|Stroller|On\s*-?\s*After)\s*:|$)/i);
-  const costMatch = text.match(/(?:Hash Cash|Cost)\s*:\s*\$?(\d+)/i);
-  const onAfterMatch = text.match(/On\s*-?\s*After\s*:\s*(.+?)(?=\n|$)/i);
-  const runnerMatch = text.match(/Runners?\s*(?:~|about|less than|:)?\s*([\d.]+)\s*(?:mi(?:les?)?)/i);
-  const walkerMatch = text.match(/Walkers?\s*(?:~|about|:)?\s*([\d.]+)\s*(?:mi(?:les?)?)/i);
+  const hareMatch = HARE_RE.exec(text);
+  const locationMatch = LOCATION_RE.exec(text);
+  const costMatch = COST_RE.exec(text);
+  const onAfterMatch = ON_AFTER_RE.exec(text);
+  const runnerMatch = RUNNER_RE.exec(text);
+  const walkerMatch = WALKER_RE.exec(text);
 
   return {
     hares: hareMatch ? hareMatch[1].trim() : undefined,

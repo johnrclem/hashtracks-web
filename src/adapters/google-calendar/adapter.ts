@@ -349,8 +349,11 @@ export function extractTimeFromTitle(summary: string): string | undefined {
 const DEFAULT_HARE_PATTERNS = [
   /(?:^|\n)[ \t]*H{1,3}are(?:\s*&\s*Co-Hares?)?\(?s?\)?:[ \t]*(.*)/im,  // Hare:, Hares:, HHHares: (Asheville's "HHH" = Hash House Harriers convention)
   // "WHO ARE THE HARES:" template variant — must match before the generic
-  // "Who:" pattern so the full label prefix is consumed.
-  /(?:^|\n)[ \t]*WHO\s+ARE\s+THE\s+HARES?\s*:[ \t]*(.*)/im,
+  // "Who:" pattern so the full label prefix is consumed. Non-greedy capture
+  // with a section-label lookahead terminator handles concatenated descriptions
+  // (no newlines between WHO/WHAT/WHEN sections, e.g. EPH3 #2719) — without it,
+  // `(.*)` swallows the entire post-label remainder. See #1082.
+  /(?:^|\n)[ \t]*WHO\s+ARE\s+THE\s+HARES?\s*:[ \t]*(.+?)(?=(?:WHO|WHAT|WHEN|WHERE|HOW)\s+\w+|\n|$)/im,
   /(?:^|\n)[ \t]*Who\s*\(?(?:hares?)?\)?:[ \t]*(.*)/im,  // Who:, WHO (hares):, Who(hare):
   /(?:^|\n)[ \t]*Hare[ \t]+([A-Z*].+)/im,  // "Hare C*ck Swap" (no colon, name starts uppercase/special)
 ];
@@ -526,6 +529,14 @@ interface CalendarSourceConfig {
   futureHorizonDays?: number;
   defaultTitle?: string;                // human-readable fallback title when event summary is just a kennel slug
   defaultTitles?: Record<string, string>; // per-kennelTag fallback titles (aggregator calendars)
+  /** #1060: per-kennel list of "stale" alias strings whose presence as the
+   *  full title should trigger the `defaultTitles` fallback. Useful when a
+   *  kennel's calendar SUMMARY is a placeholder name that doesn't normalize
+   *  to the canonical kennel tag (e.g. "Space City Hash" vs "space-city-h3"
+   *  — the kennel pattern recognizes both but `titleMatchesKennelTag` only
+   *  compares the normalized tag, so without an explicit list the fallback
+   *  doesn't fire). Compared case-insensitively against the stripped title. */
+  staleTitleAliases?: Record<string, readonly string[]>;
   // Some calendars only populate the soonest-upcoming event's description, which
   // carries an inline schedule listing future dates and hares. After the scrape
   // finishes, back-fill `hares` on other events for the same kennelTag by
@@ -784,10 +795,11 @@ export function buildRawEventFromGCalItem(
   // Determine title: if title matches kennel tag, try description fallback
   let title = useFullTitle ? summary : extractTitle(summary);
   title = stripDatePrefix(title);
-  // Strip a trailing dash/delimiter (#756 "Moooouston H3 Trail -"). The
-  // subsequent defaultTitle path replaces an empty string with a configured
-  // fallback; without this strip the title shipped to users as "… -".
-  title = title.replace(/\s*[-–—]\s*$/, "").trim();
+  // Strip a trailing dash/delimiter (#756 "Moooouston H3 Trail -" /
+  // #1060 "Space City Hash:"). The subsequent defaultTitle path replaces
+  // an empty string with a configured fallback; without this strip the
+  // title shipped to users as "… -" / "… :".
+  title = title.replace(/\s*[-–—:]\s*$/, "").trim();
   // Stale-default detection: equality is whitespace-insensitive so a SUMMARY
   // of "4X2 H4" still matches kennelTag "4x2h4".
   if (titleMatchesKennelTag(title, kennelTag) && rawDescription) {
@@ -939,9 +951,18 @@ export function buildRawEventFromGCalItem(
         ? matchConfigPatterns(prefix, sourceConfig.kennelPatterns, compiledKennelPatterns).includes(kennelTag)
         : false)
     );
+    // #1060: an explicit alias list lets a kennel opt in to fallback for
+    // multi-word placeholder titles like "Space City Hash" that wouldn't
+    // normalize to the kennel tag. Substring matching against kennelPatterns
+    // would over-fire on legit titles like "April Hash" (#796), so the alias
+    // list is opt-in per kennel rather than auto-derived.
+    const aliases = sourceConfig?.staleTitleAliases?.[kennelTag];
+    const titleMatchesAlias = !!title && !!aliases?.some(
+      (a) => a.trim().toLowerCase() === title.trim().toLowerCase(),
+    );
     if (bareKennelRunMatch && prefixMatchesKennel) {
       title = `${fallback} #${bareKennelRunMatch[2]}`;
-    } else if (!title || titleMatchesKennelTag(title, kennelTag)) {
+    } else if (!title || titleMatchesKennelTag(title, kennelTag) || titleMatchesAlias) {
       title = fallback;
     }
   }

@@ -324,6 +324,8 @@ export const SOURCES = [
         runNumberPatterns: [
           String.raw`What:\s*4x2\s*H4\s*No\.?\s*(\d+)`,
           String.raw`What:\s*Big\s+Dogs(?:\s+HHH)?\s*No\.?\s*(\d+)`,
+          // #1009 Bushman H3: "<b>What:</b> Bushman HHH No. 251<br>"
+          String.raw`What:\s*Bushman(?:\s+HHH)?\s*No\.?\s*(\d+)`,
         ],
         // Only the soonest-upcoming 4X2H4 event has a populated description; it
         // carries an inline hareline block listing future dates → hares.
@@ -670,6 +672,23 @@ export const SOURCES = [
       config: sfh3Config,
       kennelCodes: sfh3KennelCodes,
     },
+    // East Bay H3 dedicated subsite (#1031): the kennels=all aggregator strips
+    // trail names from SUMMARY ("EBH3 #1163"), but the kennel-owned ebh3.com
+    // subsite ICS keeps them ("EBH3 #1163: Feast of Our Lady of Good Council").
+    // Higher trust than the multihash feed so its richer title wins on merge.
+    {
+      name: "East Bay H3 iCal Feed",
+      url: "https://www.ebh3.com/calendar.ics",
+      type: "ICAL_FEED" as const,
+      trustLevel: 9,
+      scrapeFreq: "daily",
+      scrapeDays: 180,
+      config: {
+        kennelPatterns: [["^EBH3", "ebh3"]],
+        defaultKennelTag: "ebh3",
+      },
+      kennelCodes: ["ebh3"],
+    },
     // DC / DMV area — iCal feeds (ai1ec WordPress plugin)
     {
       name: "Charm City H3 iCal Feed",
@@ -786,7 +805,19 @@ export const SOURCES = [
         ],
         defaultKennelTag: "h4-tx",
         skipPatterns: ["^VOICE:", "^Platterpuss"],
-        defaultTitles: { "moooouston-h3": "Moooouston H3 Trail" },
+        defaultTitles: {
+          "moooouston-h3": "Moooouston H3 Trail",
+          // #1060: GCal SUMMARY is the trailing-colon placeholder
+          // "Space City Hash:" — adapter strips the trailing ":" then we
+          // surface the friendly default title across all 24 events.
+          "space-city-h3": "Space City H3 Trail",
+        },
+        staleTitleAliases: {
+          // #1060: "Space City Hash" doesn't normalize to "space-city-h3"
+          // (different suffix words) so titleMatchesKennelTag misses. Opt in
+          // explicitly so the colon-stripped title triggers defaultTitles.
+          "space-city-h3": ["Space City Hash"],
+        },
       },
       kennelCodes: ["h4-tx", "bmh3-tx", "mosquito-h3", "moooouston-h3", "space-city-h3", "galh3"],
     },
@@ -1969,6 +2000,18 @@ export const SOURCES = [
       config: {
         calendarId: "e435782c94f98136bde0957e4f791bdd3a0ac0d13970bbfe1ff34f5ddc676990@group.calendar.google.com",
         defaultKennelTag: "dwh3",
+        // #1091 DWH3 (Portland) titles encode the hare(s) inline with the
+        // kennel name. Variants:
+        //   "Dead Whores H3/Tripod. And I'm Gonna Cum"
+        //   "Dead Whores hash-Hare-Log Jammer"
+        //   "Dead Whores Hash-Hare-Crack Up"
+        //   "Dead Whores hash Hares-Ditch Bitch, Mamma Ditch"
+        //   "Dead Whores-Haré-Kerstan"
+        //   "Dead Whores H3- CommandHo & Drool Sargent"
+        //   "DWH- Jaba the Slut & Stop, Drop, and Puke"
+        // Capture hares after the prefix, optional Hare/Hares/Haré label
+        // and `/` or `-` separator, stopping before any `- cancelled` suffix.
+        titleHarePattern: String.raw`^(?:Dead\s+Whores(?:\s+H3|\s+hash)?|DWH)\s*[-/\s]\s*(?:Har(?:es?|é)\s*[-/]\s*)?(.+?)(?:\s*[-/]\s*cancelled\s*)?$`,
       },
       kennelCodes: ["dwh3"],
     },
@@ -2687,7 +2730,11 @@ export const SOURCES = [
       config: {
         sheetId: "anonymous",
         csvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtbizBGgic04azrTshlhcpRolA73yaiIijIFUSV0Gq7gU7KKchGWl0JRPHeIYspoq1PAx5XlyLTBfr/pub?output=csv&gid=2100367947",
-        columns: { runNumber: 0, date: 1, hares: 4, location: 5, description: 6, title: 7 },
+        // #923: source has 6 cols (#, Date, Group, Start time, Hared by,
+        // Location, Notes — col index 0..6). Wire startTime to col 3 so
+        // Munich H3 events surface their actual start (15:00 / 17:00 /
+        // 19:00 vary per event). Drop the dead `title: 7` mapping.
+        columns: { runNumber: 0, date: 1, hares: 4, location: 5, description: 6, startTime: 3 },
         kennelTagRules: { default: "mh3-de" },
       },
       // Group column has MH3/MFMH3/MASS H3 but Sheets adapter can't route by column — all events tagged MH3

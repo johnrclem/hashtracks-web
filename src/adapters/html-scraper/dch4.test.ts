@@ -99,6 +99,22 @@ describe("parseDch4Body", () => {
     expect(parseDch4Body(text).runnerDistance).toBe("4 mi");
     expect(parseDch4Body(text).walkerDistance).toBe("2.5 mi");
   });
+
+  // #1072: newer DCH4 posts use emoji-prefixed labels with `Hare(s):` form.
+  it("extracts emoji-prefixed Hare(s)/Start Location/Cost labels (#1072)", () => {
+    const text = [
+      "🐇 Hare(s): No Child Left Behind and Princess Jizzmine",
+      "📍 Start Location: Saints Row Brewing",
+      "⏰ Time: 2pm gather, pack on out @ 3pm",
+      "🍺 on after: Mayan Monkey",
+      "💵 Cost: $7",
+    ].join("\n");
+    const parsed = parseDch4Body(text);
+    expect(parsed.hares).toBe("No Child Left Behind and Princess Jizzmine");
+    expect(parsed.location).toBe("Saints Row Brewing");
+    expect(parsed.hashCash).toBe("$7");
+    expect(parsed.onAfter).toBe("Mayan Monkey");
+  });
 });
 
 const SAMPLE_HTML = `

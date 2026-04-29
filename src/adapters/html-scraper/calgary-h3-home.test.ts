@@ -51,6 +51,16 @@ describe("parseCalgaryTitle", () => {
   it("handles em-dash separator", () => {
     expect(parseCalgaryTitle("#2455 \u2014 Trail Name")).toBe("Trail Name");
   });
+
+  // #896: TBA upcoming runs have a bare "#NNNN \u2013" title (run number + dash + nothing).
+  // Stripping the prefix would leave an empty string, and the merge pipeline then
+  // synthesizes "Calgary H3 Trail #N" \u2014 burying the source's verbatim TBA marker.
+  // Preserve the raw title in that case.
+  it("preserves bare '#NNNN \u2013' for TBA upcoming runs (#896)", () => {
+    expect(parseCalgaryTitle("#2460 \u2013")).toBe("#2460 \u2013");
+    expect(parseCalgaryTitle("#2460 -")).toBe("#2460 -");
+    expect(parseCalgaryTitle("#2460 \u2014")).toBe("#2460 \u2014");
+  });
 });
 
 // ---------------------------------------------------------------------------

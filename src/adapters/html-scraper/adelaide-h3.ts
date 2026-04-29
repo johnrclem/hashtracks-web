@@ -257,10 +257,45 @@ async function fetchAdelaideList(
   }
 }
 
+/**
+ * Remove the event theme (typically the WordPress description value, e.g.
+ * "Anzac Day run") from a comma-separated hares string. For special runs the
+ * source organizer appends the theme to the title after a comma, so
+ * `parseAdelaideEvent` extracts it as a hare segment. Once the per-event
+ * detail fetch returns a description, we can identify and drop the matching
+ * segment. See #1059.
+ *
+ * Comparison is case-insensitive and trims surrounding whitespace; remaining
+ * segments are joined back with ", " in their original order.
+ *
+ * Exported for unit testing.
+ */
+export function stripThemeFromHares(
+  hares: string | undefined,
+  description: string | undefined,
+): string | undefined {
+  if (!hares) return undefined;
+  if (!description) return hares;
+  const theme = description.trim().toLowerCase();
+  if (!theme) return hares;
+  const segments = hares
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0 && s.toLowerCase() !== theme);
+  return segments.length > 0 ? segments.join(", ") : undefined;
+}
+
 function applyAdelaideDetail(event: RawEventData, detail: AdelaideEventDetail): void {
   if (detail.location) event.location = detail.location;
   if (detail.locationStreet) event.locationStreet = detail.locationStreet;
-  if (detail.description) event.description = detail.description;
+  if (detail.description) {
+    event.description = detail.description;
+    // Special-run titles append the theme to the title (#1059); strip it
+    // from `hares` once the WordPress description gives us the canonical text.
+    if (event.hares) {
+      event.hares = stripThemeFromHares(event.hares, detail.description);
+    }
+  }
   if (detail.locationUrl) event.locationUrl = detail.locationUrl;
 }
 

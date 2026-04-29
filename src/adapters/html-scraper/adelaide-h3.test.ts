@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseAdelaideEvent, parseAdelaideDetail, adelaideWallClockToUnix } from "./adelaide-h3";
+import { parseAdelaideEvent, parseAdelaideDetail, adelaideWallClockToUnix, stripThemeFromHares } from "./adelaide-h3";
 
 const URL = "https://ah3.com.au/wp-admin/admin-ajax.php";
 
@@ -81,6 +81,42 @@ describe("adelaide-h3 parseAdelaideDetail (#705)", () => {
     expect(d.locationStreet).toBeUndefined();
     expect(d.description).toBeUndefined();
     expect(d.locationUrl).toBeUndefined();
+  });
+
+  // #1059: special-run titles append the event theme to the title after a
+  // comma — the WordPress description field separately holds the theme. Strip
+  // it from hares when the two strings overlap.
+  describe("stripThemeFromHares (#1059)", () => {
+    it("removes a description that exactly matches a comma-segment of hares", () => {
+      expect(stripThemeFromHares("Nifty & MoPed, Anzac Day run", "Anzac Day run"))
+        .toBe("Nifty & MoPed");
+    });
+
+    it("works regardless of segment order (post-normalize sort)", () => {
+      // normalizeHaresField sorts alphabetically, so "Anzac…" lands first.
+      expect(stripThemeFromHares("Anzac Day run, Nifty & MoPed", "Anzac Day run"))
+        .toBe("Nifty & MoPed");
+    });
+
+    it("is case-insensitive", () => {
+      expect(stripThemeFromHares("Crunchy Crack, ONSIE RUN", "Onsie Run"))
+        .toBe("Crunchy Crack");
+    });
+
+    it("leaves hares untouched when description does not appear as a segment", () => {
+      expect(stripThemeFromHares("Crunchy Crack", "Onsie Run"))
+        .toBe("Crunchy Crack");
+    });
+
+    it("returns the original when description is empty", () => {
+      expect(stripThemeFromHares("Nifty & MoPed", undefined)).toBe("Nifty & MoPed");
+      expect(stripThemeFromHares("Nifty & MoPed", "")).toBe("Nifty & MoPed");
+    });
+
+    it("returns undefined when the only segment matches the description", () => {
+      // Defensive case — a hare named exactly the same as the theme string.
+      expect(stripThemeFromHares("Anzac Day run", "Anzac Day run")).toBeUndefined();
+    });
   });
 
   it("drops placeholder TBA venue/street + stale map URL (#705 polish)", () => {

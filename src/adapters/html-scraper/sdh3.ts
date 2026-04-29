@@ -141,7 +141,21 @@ export function parseEventFields(fieldsText: string): {
     if (!labelMatch) continue;
 
     const label = labelMatch[1].trim().toLowerCase();
-    const value = labelMatch[2].trim();
+    let value = labelMatch[2].trim();
+    // #1068: Notes is rendered as `<strong>Notes:</strong><br />body` so after
+    // <br>→\n the value is empty on the same line and the actual Notes body
+    // sits on the following non-label line(s). Pull it forward before the
+    // empty-value bail so the description doesn't drop the freetext block.
+    if (!value && label === "notes") {
+      const continuation: string[] = [];
+      for (let k = i + 1; k < lines.length; k++) {
+        const next = lines[k].trim();
+        if (!next) { if (continuation.length === 0) continue; else break; }
+        if (/^(.+?):\s/.test(next)) break;
+        continuation.push(next);
+      }
+      if (continuation.length > 0) value = continuation.join(" ");
+    }
     if (!value) continue;
 
     switch (label) {

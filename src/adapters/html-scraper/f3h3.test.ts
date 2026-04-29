@@ -157,6 +157,38 @@ describe("F3H3Adapter", () => {
       expect(result?.location).toBe("Yoyogi Park");
       expect(result?.description).toContain("Station: Shibuya Station");
     });
+
+    // #959: when Venue cell is empty (or `&nbsp;` whitespace from cheerio), fall
+    // back to Station for the location. Previously inconsistent for some rows.
+    it("falls back to station when venue cell is empty/whitespace (#959)", () => {
+      const cells = [
+        "May 8th",
+        "1060",
+        "Ochanomizu御茶ノ水",
+        "",
+        "Milts In Your Mouth",
+        "Chuo, Chuo-Sobu, and Marunouchi Lines",
+      ];
+
+      const result = parseHarelineRow(cells, sourceUrl, ref);
+
+      expect(result?.location).toBe("Ochanomizu御茶ノ水");
+    });
+
+    it("treats nbsp-only venue as empty and falls back to station (#959)", () => {
+      const cells = [
+        "May 8th",
+        "1060",
+        "Ikebukuro池袋",
+        " ",
+        "TestHare",
+        "",
+      ];
+
+      const result = parseHarelineRow(cells, sourceUrl, ref);
+
+      expect(result?.location).toBe("Ikebukuro池袋");
+    });
   });
 
   describe("fetch()", () => {

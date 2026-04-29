@@ -38,83 +38,100 @@ export interface ParsedRun {
   directions?: string;
 }
 
+/** Match the start of any known Edinburgh field label. Order matters: longer
+ *  labels (`Location (w3w)`) come before shorter prefixes (`Location`) so the
+ *  alternation captures the full label. */
+const LABEL_RE =
+  /^(Run\s+No\.?|Date|Hares?|Venue|Time|Location\s*\(w3w\)|Directions?|ON\s+INN)\s*:?\s*(.*)$/i;
+
+type LabelKey = "run" | "date" | "hares" | "venue" | "time" | "w3w" | "directions" | "onInn";
+
+function classifyLabel(label: string): LabelKey | null {
+  const l = label.toLowerCase();
+  if (/^run\s+no/.test(l)) return "run";
+  if (l === "date") return "date";
+  if (/^hares?$/.test(l)) return "hares";
+  if (l === "venue") return "venue";
+  if (l === "time") return "time";
+  if (/^location\s*\(w3w\)/.test(l)) return "w3w";
+  if (/^directions?$/.test(l)) return "directions";
+  if (/^on\s+inn$/.test(l)) return "onInn";
+  return null;
+}
+
 /**
  * Parse a single run text block into structured fields.
  * Returns null if the block has no parseable date.
+ *
+ * Two-pass section-spanning parser (#1107): pass 1 scans line-by-line and
+ * records the index + label + first-line value for every line that matches
+ * a known label. Pass 2 walks consecutive label entries and folds any
+ * intervening continuation lines (no-label lines like the second sentence of
+ * Directions) into the previous section's value. The first hare-label match
+ * wins so an "ON INN" body that incidentally starts with "Hare will provide
+ * soup…" can't overwrite the real hare names (legacy #659 guard).
+ *
  * Exported for unit testing.
  */
 export function parseRunBlock(block: string): ParsedRun | null {
   const lines = block.split(/\n/).map((l) => l.trim()).filter(Boolean);
   if (lines.length === 0) return null;
 
+  // Pass 1: identify label-start lines and their first-line values.
+  const segments: Array<{ idx: number; key: LabelKey; value: string }> = [];
+  for (let i = 0; i < lines.length; i++) {
+    const m = LABEL_RE.exec(lines[i]);
+    if (!m) continue;
+    const key = classifyLabel(m[1]);
+    if (!key) continue;
+    segments.push({ idx: i, key, value: m[2].trim() });
+  }
+
+  // Pass 2: fold continuation lines (between consecutive label-start lines)
+  // into the previous segment's value, joined with a space.
+  for (let s = 0; s < segments.length; s++) {
+    const start = segments[s].idx + 1;
+    const end = s + 1 < segments.length ? segments[s + 1].idx : lines.length;
+    if (end > start) {
+      const tail = lines.slice(start, end).join(" ").trim();
+      segments[s].value = (segments[s].value + " " + tail).trim();
+    }
+  }
+
   const result: ParsedRun = {};
-
-  for (const line of lines) {
-    // Run No. NNNN
-    const runMatch = /^Run\s+No\.?\s*(\d+)/i.exec(line);
-    if (runMatch) {
-      result.runNumber = parseInt(runMatch[1], 10);
-      continue;
-    }
-
-    // Date 22nd March 2026
-    const dateMatch = /^Date\s+(.+)/i.exec(line);
-    if (dateMatch) {
-      const parsed = chronoParseDate(dateMatch[1].trim(), "en-GB");
+  for (const seg of segments) {
+    if (!seg.value && seg.key !== "run") continue;
+    if (seg.key === "run") {
+      const num = parseInt(seg.value, 10);
+      if (!Number.isNaN(num)) result.runNumber = num;
+    } else if (seg.key === "date") {
+      const parsed = chronoParseDate(seg.value, "en-GB");
       if (parsed) result.date = parsed;
-      continue;
-    }
-
-    // Hares Name & Name — only take the FIRST match. The ON INN section
-    // can contain "Hare will provide soup..." which also matches /^Hare/
-    // and would overwrite the real hare names. Closes #659.
-    if (!result.hares) {
-      const haresMatch = /^Hares?\s+(.+)/i.exec(line);
-      if (haresMatch) {
-        const hares = stripPlaceholder(haresMatch[1]);
+    } else if (seg.key === "hares") {
+      // First hare match wins (#659): an "ON INN" body that says "Hare will
+      // provide soup…" must not overwrite real hare names.
+      if (!result.hares) {
+        const hares = stripPlaceholder(seg.value);
         if (hares) result.hares = hares;
-        continue;
       }
-    }
-
-    // Venue Location text (postcode)
-    const venueMatch = /^Venue\s+(.+)/i.exec(line);
-    if (venueMatch) {
-      const venue = stripPlaceholder(venueMatch[1]);
+    } else if (seg.key === "venue") {
+      const venue = stripPlaceholder(seg.value);
       if (venue) result.location = venue;
-      continue;
-    }
-
-    // Time HH:MM (24-hour)
-    const timeMatch = /^Time\s+(\d{1,2}:\d{2})/i.exec(line);
-    if (timeMatch) {
-      const [h, m] = timeMatch[1].split(":").map(Number);
-      if (h >= 0 && h <= 23 && m >= 0 && m <= 59) {
-        result.startTime = `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+    } else if (seg.key === "time") {
+      const tm = /^(\d{1,2}):(\d{2})/.exec(seg.value);
+      if (tm) {
+        const h = Number(tm[1]); const mn = Number(tm[2]);
+        if (h >= 0 && h <= 23 && mn >= 0 && mn <= 59) {
+          result.startTime = `${h.toString().padStart(2, "0")}:${mn.toString().padStart(2, "0")}`;
+        }
       }
-      continue;
-    }
-
-    // Location (w3w): URL
-    const w3wMatch = /^Location\s*\(w3w\)\s*:?\s*(.+)/i.exec(line);
-    if (w3wMatch) {
-      result.locationW3W = w3wMatch[1].trim();
-      continue;
-    }
-
-    // Directions text
-    const dirMatch = /^Directions?\s+(.+)/i.exec(line);
-    if (dirMatch) {
-      result.directions = dirMatch[1].trim();
-      continue;
-    }
-
-    // ON INN: pub name
-    const onInnMatch = /^ON\s+INN\s*:?\s*(.+)/i.exec(line);
-    if (onInnMatch) {
-      const onInn = stripPlaceholder(onInnMatch[1]);
+    } else if (seg.key === "w3w") {
+      result.locationW3W = seg.value;
+    } else if (seg.key === "directions") {
+      result.directions = seg.value;
+    } else if (seg.key === "onInn") {
+      const onInn = stripPlaceholder(seg.value);
       if (onInn) result.onInn = onInn;
-      continue;
     }
   }
 

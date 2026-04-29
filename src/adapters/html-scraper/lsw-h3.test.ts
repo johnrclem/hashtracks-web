@@ -27,7 +27,7 @@ describe("parseLswDate", () => {
 describe("parseLswRow", () => {
   const sourceUrl = "https://www.datadesignfactory.com/lsw/hareline.htm";
 
-  it("parses a complete row, mapping DESCRIPTION column to location (#873)", () => {
+  it("parses a complete row, mapping DESCRIPTION column to both location and description (#873, #962)", () => {
     const cells = ["09 Apr 25", "2402", "Indy and Inflatable", "Chai Wan"];
     const result = parseLswRow(cells, sourceUrl);
 
@@ -36,14 +36,32 @@ describe("parseLswRow", () => {
     expect(result!.kennelTags[0]).toBe("lsw-h3");
     expect(result!.runNumber).toBe(2402);
     expect(result!.hares).toBe("Indy and Inflatable");
-    // Source calls this column "DESCRIPTION" but it always holds an HK
-    // district name — map to location, not description.
+    // Source DESCRIPTION column carries either HK district names (legacy) or
+    // event themes (current). Both interpretations are useful so emit to
+    // location AND description — the merge layer will reconcile.
     expect(result!.location).toBe("Chai Wan");
-    // Do NOT emit description: null — that would wipe descriptions contributed
-    // by other sources / manual edits on every scrape. Field is simply absent.
-    expect(result!.description).toBeUndefined();
+    expect(result!.description).toBe("Chai Wan");
     expect(result!.startTime).toBe("18:30");
     expect(result!.sourceUrl).toBe(sourceUrl);
+  });
+
+  it("routes themed/event DESCRIPTION values to description only (#962)", () => {
+    // Themed text isn't a usable venue name. sanitizeLocation downstream
+    // doesn't reject arbitrary strings, so leaving "ANZAC Day Run" on
+    // location would surface it as a venue on the canonical event.
+    const cells = ["29 Apr 26", "2595", "Indyanus, Octopussy & HOTR", "ANZAC Day Run"];
+    const result = parseLswRow(cells, sourceUrl);
+    expect(result!.description).toBe("ANZAC Day Run");
+    expect(result!.location).toBeUndefined();
+  });
+
+  it("keeps short district-shaped DESCRIPTION values on both location and description (#873/#962)", () => {
+    // Two-token / single-word values without theme markers look like venues
+    // and stay on both fields for backward compatibility.
+    const cells = ["06 May 26", "2596", "Hopeless", "Shek O"];
+    const result = parseLswRow(cells, sourceUrl);
+    expect(result!.location).toBe("Shek O");
+    expect(result!.description).toBe("Shek O");
   });
 
   it("handles missing hares", () => {
@@ -52,7 +70,9 @@ describe("parseLswRow", () => {
 
     expect(result).not.toBeNull();
     expect(result!.hares).toBeUndefined();
+    // Short district-shaped value: routed to both fields.
     expect(result!.location).toBe("Shek O");
+    expect(result!.description).toBe("Shek O");
   });
 
   it("handles placeholder hares", () => {

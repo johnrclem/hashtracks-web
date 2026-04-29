@@ -289,26 +289,46 @@ function compileKennelPatterns(
 
 /**
  * Meetup-style hare-line fallback: scan the first few description lines for
- * `Hare(s)` followed by a dash separator. Charleston Heretics (CHH3)
- * consistently writes `Hares - FAW and Just Jim` / `Hare - X` / `Hares X and Y`,
- * but the imported `extractHaresFromDescription` (google-calendar) only matches
- * the colon form. We match the dash variant locally so we don't reach into
- * WS1's google-calendar adapter to extend its pattern set.
+ * `Hare(s)` followed by a colon or dash separator.
+ *
+ * Charleston Heretics (CHH3) consistently writes `Hares - FAW and Just Jim`
+ * (dash); Cleveland H4 writes `Hares: Birthday Gurrrl and Tub Puppet` (colon).
+ * Both shapes are handled locally because the imported
+ * `extractHaresFromDescription` (google-calendar) only matches the colon form
+ * AND only when the label sits at the start of a line — some Meetup
+ * descriptions concatenate the label after prose, where the gcal regex's
+ * `(?:^|\n)[ \t]*` boundary doesn't fire. Iterating per-line and anchoring to
+ * line start backstops both gaps. See #953 (dash) and #975 (colon).
  *
  * Truncates the captured names at the first boilerplate field label
  * (`HARE_BOILERPLATE_RE`) so trailing description text like "Show/Go: 2:00"
- * doesn't leak into the hares field. See #953.
+ * doesn't leak into the hares field.
  */
 export function extractHaresFromMeetupDescription(
   description: string | undefined,
 ): string | undefined {
   if (!description) return undefined;
+
+  // Pass 1: line-anchored — handles `Hares - Alice` / `Hares: Alice` on its own
+  // line. Capped at the first 5 lines so a kennel boilerplate footer that
+  // happens to mention "hare" can't override the real label.
   const lines = description.split("\n").map((l) => l.trim()).filter(Boolean);
   for (const line of lines.slice(0, 5)) {
-    // Dash separator: ASCII hyphen, en-dash, or em-dash (kennel users mix).
-    const m = /^Hares?\s*[-–—]\s*(.+?)\s*$/i.exec(line);
+    // Separator: ASCII hyphen, en-dash, em-dash, or colon (kennels mix forms).
+    const m = /^Hares?\s*[:\-–—]\s*(.+?)\s*$/i.exec(line);
     if (!m) continue;
     const names = m[1].replace(HARE_BOILERPLATE_RE, "").trim();
+    if (names) return names;
+  }
+
+  // Pass 2: sentence-level — some kennels (Cleveland H4 #975) write the entire
+  // event in one run-on paragraph: "… CH4 is not dead! Hares: Birthday Gurrrl
+  // and Tub Puppet. Location: Winking …". Match `Hare(s):` anywhere and stop
+  // at the next sentence boundary (`. ` or `.\n` or end-of-text). Word boundary
+  // `\b` keeps us from matching inside other words.
+  const sentenceMatch = /\bHares?\s*[:\-–—]\s*([^.\n]{1,200}?)(?:\.\s|\.$|\n|$)/i.exec(description);
+  if (sentenceMatch) {
+    const names = sentenceMatch[1].replace(HARE_BOILERPLATE_RE, "").trim();
     if (names) return names;
   }
   return undefined;
