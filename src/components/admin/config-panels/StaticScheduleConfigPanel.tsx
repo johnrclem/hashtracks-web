@@ -11,6 +11,7 @@ export interface StaticScheduleConfig {
   anchorDate?: string;
   startTime?: string;
   defaultTitle?: string;
+  titleTemplate?: string;
   defaultLocation?: string;
   defaultDescription?: string;
 }
@@ -109,6 +110,29 @@ export function StaticScheduleConfigPanel({
           }
           placeholder="e.g. Rumson H3 Weekly Run"
         />
+        <p className="text-xs text-muted-foreground">
+          Used when Title Template is empty. Same string on every generated event.
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="ss-title-template">Title Template</Label>
+        <Input
+          id="ss-title-template"
+          value={current.titleTemplate ?? ""}
+          onChange={(e) =>
+            onChange({ ...current, titleTemplate: e.target.value || undefined })
+          }
+          placeholder="e.g. CVH3 — {date} Hash"
+        />
+        <p className="text-xs text-muted-foreground">
+          Optional. When set, overrides Default Title. Tokens:{" "}
+          <code className="rounded bg-muted px-1">{"{dayName}"}</code>,{" "}
+          <code className="rounded bg-muted px-1">{"{monthName}"}</code>,{" "}
+          <code className="rounded bg-muted px-1">{"{date}"}</code>,{" "}
+          <code className="rounded bg-muted px-1">{"{iso}"}</code>. Unknown
+          tokens render literal.
+        </p>
       </div>
 
       <div className="space-y-2">

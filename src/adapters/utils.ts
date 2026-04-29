@@ -11,6 +11,7 @@ import * as cheerio from "cheerio";
 import * as chrono from "chrono-node";
 import he from "he";
 import { buildUrlVariantCandidates } from "@/adapters/url-variants";
+import { toIsoDateString } from "@/lib/date";
 import { safeFetch } from "./safe-fetch";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 import type { ErrorDetails, ScrapeResult } from "./types";
@@ -22,6 +23,90 @@ import type { ErrorDetails, ScrapeResult } from "./types";
  */
 export function decodeEntities(text: string): string {
   return he.decode(text).replace(/\u00A0/g, " ");
+}
+
+// ---------------------------------------------------------------------------
+// Weekday shift \u2014 opt-in remap of generated/scraped occurrences from one
+// weekday to another. Used when a kennel's published schedule disagrees with
+// when they actually run.
+//
+// Not wired into STATIC_SCHEDULE: that adapter's RRULE is the single source
+// of truth, and a hidden second-shift layer would let a future RRULE edit
+// silently re-misdate events.
+// ---------------------------------------------------------------------------
+
+/**
+ * Weekday name \u2192 JS Date.getUTCDay() number (Sunday=0..Saturday=6).
+ * Accepts both full names ("FRIDAY") and RFC 5545 abbreviations ("FR").
+ * Keys are uppercase; callers must normalize input before lookup.
+ */
+export const WEEKDAY_NAMES: Record<string, number> = {
+  SUNDAY: 0, MONDAY: 1, TUESDAY: 2, WEDNESDAY: 3, THURSDAY: 4, FRIDAY: 5, SATURDAY: 6,
+  SU: 0, MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6,
+};
+
+export interface WeekdayShiftConfig {
+  /** Source weekday \u2014 full name ("Friday") or RFC 5545 abbr ("FR"). */
+  from: string;
+  /** Target weekday \u2014 same forms accepted as `from`. */
+  to: string;
+  /** When set, only events with this exact startTime ("HH:MM") get shifted. */
+  placeholderTime?: string;
+  /** When set, the shifted event's startTime is rewritten to this value. */
+  defaultStartTime?: string;
+}
+
+function parseWeekday(name: string, field: string): number {
+  const key = name.trim().toUpperCase();
+  const num = WEEKDAY_NAMES[key];
+  if (num === undefined) {
+    throw new Error(`applyWeekdayShift: unknown weekday "${name}" for ${field}`);
+  }
+  return num;
+}
+
+/**
+ * Apply a weekday shift to a (date, startTime) pair if eligible.
+ *
+ * Eligibility:
+ *   - the source date's weekday matches `cfg.from`, AND
+ *   - either no `placeholderTime` is configured or `startTime === placeholderTime`.
+ *
+ * When eligible, the date is shifted by the shortest signed day-delta from
+ * `from` to `to` (Friday\u2192Thursday is \u22121, Sunday\u2192Saturday is also \u22121 across
+ * the week boundary). If `defaultStartTime` is set, the returned startTime
+ * is rewritten to that value; otherwise the original is preserved.
+ *
+ * Date in/out is YYYY-MM-DD. Internally normalized at UTC noon to match the
+ * project-wide UTC-noon date convention.
+ */
+export function applyWeekdayShift(
+  date: string,
+  startTime: string | undefined,
+  cfg: WeekdayShiftConfig,
+): { date: string; startTime: string | undefined; shifted: boolean } {
+  const fromDow = parseWeekday(cfg.from, "from");
+  const toDow = parseWeekday(cfg.to, "to");
+  const dt = new Date(date + "T12:00:00Z");
+  if (Number.isNaN(dt.getTime())) {
+    throw new Error(`applyWeekdayShift: invalid date "${date}" (expected YYYY-MM-DD)`);
+  }
+  if (dt.getUTCDay() !== fromDow) return { date, startTime, shifted: false };
+  if (cfg.placeholderTime !== undefined && startTime !== cfg.placeholderTime) {
+    return { date, startTime, shifted: false };
+  }
+
+  // Shortest signed delta in [-3, +3]. Friday(5)\u2192Thursday(4) = -1; Sunday(0)\u2192Saturday(6) = -1.
+  let delta = toDow - fromDow;
+  if (delta > 3) delta -= 7;
+  if (delta < -3) delta += 7;
+
+  const shifted = new Date(dt.getTime() + delta * 86_400_000);
+  return {
+    date: toIsoDateString(shifted),
+    startTime: cfg.defaultStartTime ?? startTime,
+    shifted: true,
+  };
 }
 
 /**

@@ -16,6 +16,7 @@ import {
   stripPlaceholder,
   extractAddressWithAi,
   stripNonEnglishCountry,
+  applyWeekdayShift,
 } from "./utils";
 import { validateSourceUrlWithDns } from "./ssrf-dns";
 
@@ -770,5 +771,96 @@ describe("stripNonEnglishCountry", () => {
 
   it("does not modify locations without country suffix", () => {
     expect(stripNonEnglishCountry("Lucien Morin Park, Rochester, NY")).toBe("Lucien Morin Park, Rochester, NY");
+  });
+});
+
+// ── applyWeekdayShift ──
+
+describe("applyWeekdayShift", () => {
+  // Sanity anchor: 2026-05-01 is a Friday, 2026-05-03 is a Sunday.
+  const FRIDAY = "2026-05-01";
+  const THURSDAY_BEFORE = "2026-04-30";
+  const SUNDAY = "2026-05-03";
+  const SATURDAY_BEFORE = "2026-05-02";
+
+  it("shifts Friday → Thursday by −1 day and rewrites startTime", () => {
+    const result = applyWeekdayShift(FRIDAY, "00:00", {
+      from: "Friday",
+      to: "Thursday",
+      placeholderTime: "00:00",
+      defaultStartTime: "20:00",
+    });
+    expect(result).toEqual({ date: THURSDAY_BEFORE, startTime: "20:00", shifted: true });
+  });
+
+  it("shifts Sunday → Saturday across the week boundary using shortest signed delta", () => {
+    const result = applyWeekdayShift(SUNDAY, "10:00", { from: "Sunday", to: "Saturday" });
+    expect(result).toEqual({ date: SATURDAY_BEFORE, startTime: "10:00", shifted: true });
+  });
+
+  it("accepts RFC 5545 abbreviations interchangeably with full names", () => {
+    const a = applyWeekdayShift(FRIDAY, "00:00", { from: "FR", to: "TH" });
+    const b = applyWeekdayShift(FRIDAY, "00:00", { from: "Friday", to: "Thursday" });
+    expect(a.date).toBe(b.date);
+    expect(a.shifted).toBe(true);
+  });
+
+  it("leaves event unchanged when source weekday differs from `from`", () => {
+    // 2026-05-02 is a Saturday — does not match `from: Friday`.
+    const result = applyWeekdayShift("2026-05-02", "00:00", {
+      from: "Friday",
+      to: "Thursday",
+      defaultStartTime: "20:00",
+    });
+    expect(result).toEqual({ date: "2026-05-02", startTime: "00:00", shifted: false });
+  });
+
+  it("leaves event unchanged when placeholderTime is set and startTime mismatches", () => {
+    const result = applyWeekdayShift(FRIDAY, "19:00", {
+      from: "Friday",
+      to: "Thursday",
+      placeholderTime: "00:00",
+      defaultStartTime: "20:00",
+    });
+    expect(result).toEqual({ date: FRIDAY, startTime: "19:00", shifted: false });
+  });
+
+  it("shifts when placeholderTime is absent (always-shift mode)", () => {
+    const result = applyWeekdayShift(FRIDAY, "19:00", { from: "Friday", to: "Thursday" });
+    expect(result).toEqual({ date: THURSDAY_BEFORE, startTime: "19:00", shifted: true });
+  });
+
+  it("preserves original startTime when defaultStartTime is absent", () => {
+    const result = applyWeekdayShift(FRIDAY, "19:00", {
+      from: "Friday",
+      to: "Thursday",
+      placeholderTime: "19:00",
+    });
+    expect(result.shifted).toBe(true);
+    expect(result.startTime).toBe("19:00");
+  });
+
+  it("shifts even when startTime is undefined and placeholderTime is unset", () => {
+    const result = applyWeekdayShift(FRIDAY, undefined, { from: "Friday", to: "Thursday" });
+    expect(result).toEqual({ date: THURSDAY_BEFORE, startTime: undefined, shifted: true });
+  });
+
+  it("does not shift when startTime is undefined and placeholderTime is set", () => {
+    // placeholderTime gate requires an exact string match, and undefined !== "00:00".
+    const result = applyWeekdayShift(FRIDAY, undefined, {
+      from: "Friday",
+      to: "Thursday",
+      placeholderTime: "00:00",
+    });
+    expect(result.shifted).toBe(false);
+  });
+
+  it("throws on unknown weekday names", () => {
+    expect(() => applyWeekdayShift(FRIDAY, "00:00", { from: "Funday", to: "Thursday" })).toThrow(/unknown weekday/);
+    expect(() => applyWeekdayShift(FRIDAY, "00:00", { from: "Friday", to: "Xxx" })).toThrow(/unknown weekday/);
+  });
+
+  it("throws on malformed date input", () => {
+    expect(() => applyWeekdayShift("not-a-date", "00:00", { from: "Friday", to: "Thursday" })).toThrow(/invalid date/);
   });
 });
