@@ -914,7 +914,7 @@ Surfaced by browser audits + adversarial reviews during the Travel Mode build. C
 - [x] **Meetup adapter** (`MEETUP`): 17+ live sources across 8 states, zero-code onboarding via admin wizard
 - [x] **WordPress REST API** (`WORDPRESS_API`): Shared utility for blog-based sources (EWH3, DCH4)
 - [ ] **RSS/Atom adapter** (`RSS_FEED`): For kennels with blog-style event posts (WordPress blog scrapers already cover some of this)
-- [ ] **Facebook Events adapter** (`FACEBOOK_EVENTS`): Scrape public Facebook page events via NAS headless browser with authenticated session. Would unlock dozens of Facebook-only kennels (e.g., CT: SBH3, Rotten Groton; many small-market kennels). Requires: cookie/session persistence in browser render service, anti-detection measures, periodic re-auth. High-value capability — many kennels have no web presence outside Facebook.
+- [ ] **Facebook Events adapter** (`FACEBOOK_EVENTS`): **Deferred design — see [`facebook-integration-strategy.md`](facebook-integration-strategy.md) for the framework.** Direct scraping (O4) is out of scope. The active path is the T2f Claude dispatch pilot (public Pages, log-only output, kill-switch armed); promotion to a real adapter is gated on 60 days of N≥5 clean runs plus an explicit decision on logged-in scope and write path. Graph API admin OAuth (O3) is a parallel option whose capability is being audited (T2c). The page-accessible subset of the blocked-kennel list below is the realistic unlock target for either path; private Groups in the list (e.g. #656 B2BH3, #697 BCH3) only clear if T2d returns a usable Groups path or if the kennel admin uses O7. The strategy doc explicitly does not claim a single winner clears the whole list.
   - **Kennels blocked on this (audit references — confirm current list via `gh issue list --search "facebook group" --label audit --state all` before implementation):**
     - ASS H3 — Las Vegas; lvh3.org category is sparse (18-month gap), FB group is primary (#734)
     - B2BH3 — #656 (closed as deferred)
@@ -1138,6 +1138,7 @@ Surfaced by browser audits + adversarial reviews during the Travel Mode build. C
 - [Source Onboarding Playbook](source-onboarding-playbook.md) — step-by-step guide for adding sources
 - [Competitive Analysis](competitive-analysis.md) — Harrier Central analysis and strategic positioning
 - [Facebook User Research](facebook-user-research.md) — HHH Facebook group (16.6K members) pain points and location demand analysis
+- [Facebook Integration Strategy](facebook-integration-strategy.md) — use cases, options matrix, tiered strategy, and decision log for FB-as-data-source (read this before suggesting any FB scraping work)
 - [Kennel Page Redesign Spec](kennel-page-redesign-spec.md) — kennel profile enrichment and page redesign spec
 - [Kennel Research](kennel-research/) — regional research for DC, Chicago, SF Bay, London kennels
 - [Misman Attendance Requirements](misman-attendance-requirements.md) — kennel attendance management tool requirements and decisions
