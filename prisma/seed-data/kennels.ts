@@ -428,6 +428,7 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "dch4", shortName: "DCH4", fullName: "DC Harriettes and Harriers Hash House", region: "Washington, DC",
       website: "https://dch4.org", foundedYear: 1978,
+      logoUrl: "/kennel-logos/dch4.png",
       facebookUrl: "https://www.facebook.com/groups/dch4hashhouse",
       scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Weekly",
       scheduleNotes: "2:00 PM daylight, 3:00 PM standard time",
