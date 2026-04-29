@@ -2,8 +2,7 @@
 -- only fills null fields) cannot apply against existing non-null values.
 -- Run manually against prod after the seed-update PR lands.
 -- Closes #1106 (Edinburgh description), #1103 (DIM description),
--- #1030 (East Bay description + $$6 → $6), #1034 (Butterworth description),
--- #1062 (Boston Moon description).
+-- #1030 (East Bay description + $$6 → $6), #1034 (Butterworth description).
 
 BEGIN;
 
@@ -14,7 +13,7 @@ DECLARE
   missing text[];
   code text;
 BEGIN
-  FOREACH code IN ARRAY ARRAY['edinburghh3','dim-h3','ebh3','butterworth-h3','bos-moon']
+  FOREACH code IN ARRAY ARRAY['edinburghh3','dim-h3','ebh3','butterworth-h3']
   LOOP
     IF NOT EXISTS (SELECT 1 FROM "Kennel" WHERE "kennelCode" = code) THEN
       missing := array_append(missing, code);
@@ -37,15 +36,11 @@ UPDATE "Kennel"
 SET "description" = 'Damn It''s Monday — a Colorado Springs hash created in 1999 by P2H4''s Crack Climber as a summertime offshoot of Pikes Peak H4. Hibernates each winter and returns annually during Daylight Savings Time, hashing every other Monday at 6:00 PM. Trails tend toward the longer and more challenging end of the P2H4 family.'
 WHERE "kennelCode" = 'dim-h3';
 
--- East Bay H3 — fix the "$$6" hashCash bug (idempotent: only overwrites if
--- the value starts with "$$") and replace description-with-stale-run-number.
+-- East Bay H3 — replace description-with-stale-run-number and conditionally
+-- fix the "$$6" hashCash bug in a single atomic update.
 UPDATE "Kennel"
-SET "hashCash" = '$6'
-WHERE "kennelCode" = 'ebh3'
-  AND "hashCash" LIKE '$$%';
-
-UPDATE "Kennel"
-SET "description" = 'One of the longest-running active hashes in the U.S., founded in 1979 (originally as the Alamo H3). Biweekly Sunday afternoon runs through East Bay open-space and parks, usually live trails, with circle and on-on-on at a nearby pub afterwards.'
+SET "description" = 'One of the longest-running active hashes in the U.S., founded in 1979 (originally as the Alamo H3). Biweekly Sunday afternoon runs through East Bay open-space and parks, usually live trails, with circle and on-on-on at a nearby pub afterwards.',
+    "hashCash" = CASE WHEN "hashCash" LIKE '$$%' THEN '$6' ELSE "hashCash" END
 WHERE "kennelCode" = 'ebh3';
 
 -- Butterworth H3 — bake founder + parent kennel + men-only into description
@@ -53,10 +48,5 @@ WHERE "kennelCode" = 'ebh3';
 UPDATE "Kennel"
 SET "description" = 'Founded 29 May 1980 by Peter ''Jonsi'' Jones as a daughter kennel of Penang H3, Butterworth H3 is the men-only mainland-Penang hash. Weekly Saturday trails through Seberang Perai and the mainland Penang hinterland.'
 WHERE "kennelCode" = 'butterworth-h3';
-
--- Boston Moon — pick up the verbatim flavor copy from bostonhash.com/about/kennels.
-UPDATE "Kennel"
-SET "description" = 'Boston Moon (BMH3) runs once a month on or around the full moon — or some other time of the month. Wear a cranium cover to avoid moon burn!'
-WHERE "kennelCode" = 'bos-moon';
 
 COMMIT;

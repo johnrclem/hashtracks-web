@@ -153,8 +153,8 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "bos-moon", shortName: "Boston Moon", fullName: "Boston Moon Hash House Harriers", region: "Boston, MA",
       scheduleFrequency: "Full Moon",
-      instagramHandle: "bostonh3",
-      twitterHandle: "bostonhash",
+      instagramHandle: "@bostonh3",
+      twitterHandle: "@bostonhash",
       description: "Boston Moon (BMH3) runs once a month on or around the full moon — or some other time of the month. Wear a cranium cover to avoid moon burn!",
     },
     { kennelCode: "pink-taco", shortName: "Pink Taco Trotters", fullName: "Pink Taco Hash House Harriers", region: "Boston, MA" },
@@ -1782,7 +1782,7 @@ export const KENNELS: KennelSeed[] = [
       website: "https://www.dwh3portland.com/",
       logoUrl: "https://static.wixstatic.com/media/41b903_88e1a6c8e948448aabd92264ef3add56~mv2.jpg",
       facebookUrl: "https://www.facebook.com/share/g/MQZCtzzVQChFkXSY/",
-      instagramHandle: "dwh3_pnw",
+      instagramHandle: "@dwh3_pnw",
       scheduleDayOfWeek: "Sunday", scheduleTime: "12:00 PM", scheduleFrequency: "Monthly",
       foundedYear: 2001,
       description: "Portland's monthly Sunday afternoon hash. Founded 2001 in Lake Oswego. Female-oriented kennel, wankers welcome on analversaries.",
@@ -2028,7 +2028,6 @@ export const KENNELS: KennelSeed[] = [
     },
     {
       kennelCode: "dim-h3", shortName: "DIM", fullName: "Damn It's Monday Hash House Harriers", region: "Colorado Springs, CO",
-      website: "http://www.cspringsh3.com/",
       facebookUrl: "https://www.facebook.com/groups/2147541855493092/",
       contactEmail: "cspringsh3@gmail.com",
       foundedYear: 1999,
