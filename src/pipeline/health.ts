@@ -44,6 +44,10 @@ interface AnalyzeInput {
   reconcileEvaluated?: boolean;
   /** Kennel IDs whose stale-event cancellation was suppressed because the adapter emitted unparseable dates. */
   reconcileSuppressedKennels?: string[];
+  /** SHA-256 of `Source.config` at scrape time. Used as a regime-boundary key — rolling-window baselines (#1115) only consider scrape rows whose hash matches this one (or is NULL during the migration backfill window). */
+  currentConfigHash?: string;
+  /** Optional manual baseline boundary (`Source.baselineResetAt`). Health checks ignore scrape rows older than this when computing rolling averages. Use after a code-led adapter improvement that doesn't change `Source.config`. */
+  baselineResetAt?: Date;
 }
 
 /** Type alias for the shape of recent scrape log rows used across checks. */
@@ -274,12 +278,17 @@ function checkExcessiveCancellations(
   const count = input.cancelledCount ?? 0;
   if (count === 0) return null;
 
+  // Both thresholds need a same-regime baseline to avoid false-positive
+  // catch-up cleanup waves on the first scrape after a regime reset (#1115).
+  // Without baseline data we can't tell a benign one-shot reconciliation
+  // (e.g. adapter improvement cleared stale events) from a real regression.
+  if (recentSuccessful.length === 0) return null;
+
   // Absolute threshold: >10 cancellations in one scrape is always suspicious
   const absoluteThreshold = 10;
   // Relative threshold: cancellations > 50% of average event count
-  const avgEvents = recentSuccessful.length > 0
-    ? recentSuccessful.reduce((sum, l) => sum + l.eventsFound, 0) / recentSuccessful.length
-    : 0;
+  const avgEvents =
+    recentSuccessful.reduce((sum, l) => sum + l.eventsFound, 0) / recentSuccessful.length;
   const relativeThreshold = avgEvents > 0 ? avgEvents * 0.5 : Infinity;
 
   const isCritical = avgEvents > 0 && count > relativeThreshold;
@@ -361,22 +370,61 @@ export async function analyzeHealth(
   // Track which alert types were actually evaluated (for safe auto-resolution)
   const checkedTypes = new Set<string>();
 
-  // Fetch last 10 successful scrapes for baseline (excluding current)
-  const recentSuccessful = await prisma.scrapeLog.findMany({
-    where: { sourceId, status: "SUCCESS", id: { not: scrapeLogId } },
+  // Regime-aware baseline (#1115): only consider scrape rows from the
+  // current config regime so a config edit / manual code-rollout marker
+  // resets the rolling average instead of firing false-positive alerts.
+  //   - prefer rows with the current configHash
+  //   - fall back to NULL-configHash rows ONLY when zero hashed rows
+  //     exist yet (pre-#1115 backfill window, before the source has its
+  //     first post-deploy successful scrape). Once any hashed row exists
+  //     for this source, null rows are excluded — mixing old/new regime
+  //     baselines is the class of bug this PR is meant to prevent.
+  //   - startedAt ignores rows before `Source.baselineResetAt` when set
+  const baselineSelect = {
+    eventsFound: true,
+    unmatchedTags: true,
+    fillRateTitle: true,
+    fillRateLocation: true,
+    fillRateHares: true,
+    fillRateStartTime: true,
+    fillRateRunNumber: true,
+    structureHash: true,
+  } as const;
+  const baseWhere: Prisma.ScrapeLogWhereInput = {
+    sourceId,
+    status: "SUCCESS",
+    id: { not: scrapeLogId },
+    ...(input.baselineResetAt
+      ? { startedAt: { gte: input.baselineResetAt } }
+      : {}),
+  };
+  let recentSuccessful = await prisma.scrapeLog.findMany({
+    where: input.currentConfigHash
+      ? { ...baseWhere, configHash: input.currentConfigHash }
+      : baseWhere,
     orderBy: { startedAt: "desc" },
     take: 10,
-    select: {
-      eventsFound: true,
-      unmatchedTags: true,
-      fillRateTitle: true,
-      fillRateLocation: true,
-      fillRateHares: true,
-      fillRateStartTime: true,
-      fillRateRunNumber: true,
-      structureHash: true,
-    },
+    select: baselineSelect,
   });
+  if (recentSuccessful.length === 0 && input.currentConfigHash) {
+    // Only fall back to NULL rows when the source has *no* hashed history
+    // at all (any status), excluding the current scrape — which already
+    // wrote its own configHash before we got here. If a prior row has a
+    // hash, those rows are an explicitly old regime; pulling NULL legacy
+    // rows in would mix regimes (the bug Codex flagged in the first pass).
+    const hasAnyHashedRow = await prisma.scrapeLog.findFirst({
+      where: { sourceId, id: { not: scrapeLogId }, configHash: { not: null } },
+      select: { id: true },
+    });
+    if (!hasAnyHashedRow) {
+      recentSuccessful = await prisma.scrapeLog.findMany({
+        where: { ...baseWhere, configHash: null },
+        orderBy: { startedAt: "desc" },
+        take: 10,
+        select: baselineSelect,
+      });
+    }
+  }
 
   // Fetch last 3 scrapes (any status) for consecutive failure check
   const recentAll = await prisma.scrapeLog.findMany({
@@ -396,26 +444,29 @@ export async function analyzeHealth(
   const consecutiveAlert = checkConsecutiveFailures(input, recentAll);
   if (consecutiveAlert) alerts.push(consecutiveAlert);
 
-  // Trend checks require baseline data and a successful scrape
-  if (!input.scrapeFailed && recentSuccessful.length > 0) {
-    // 3. Event count anomaly
+  // Trend checks: register as checked on any successful scrape so stale
+  // alerts auto-resolve when a regime reset (#1115) wipes the baseline.
+  // The actual checks only run when there's baseline data to compare
+  // against — otherwise auto-resolve clears any prior-regime trend alerts
+  // since no current alerts will be in the candidate set.
+  if (!input.scrapeFailed) {
     checkedTypes.add("EVENT_COUNT_ANOMALY");
-    const countAlert = checkEventCountAnomaly(input, recentSuccessful);
-    if (countAlert) alerts.push(countAlert);
-
-    // 4. Field fill rate drops
     checkedTypes.add("FIELD_FILL_DROP");
-    alerts.push(...checkFieldFillDrops(input, recentSuccessful));
-
-    // 5. Structural change detection
     checkedTypes.add("STRUCTURE_CHANGE");
-    const structureAlert = await checkStructuralChange(sourceId, input, recentSuccessful);
-    if (structureAlert) alerts.push(structureAlert);
-
-    // 6. New unmatched kennel tags
     checkedTypes.add("UNMATCHED_TAGS");
-    const unmatchedAlert = checkUnmatchedTags(input, recentSuccessful);
-    if (unmatchedAlert) alerts.push(unmatchedAlert);
+
+    if (recentSuccessful.length > 0) {
+      const countAlert = checkEventCountAnomaly(input, recentSuccessful);
+      if (countAlert) alerts.push(countAlert);
+
+      alerts.push(...checkFieldFillDrops(input, recentSuccessful));
+
+      const structureAlert = await checkStructuralChange(sourceId, input, recentSuccessful);
+      if (structureAlert) alerts.push(structureAlert);
+
+      const unmatchedAlert = checkUnmatchedTags(input, recentSuccessful);
+      if (unmatchedAlert) alerts.push(unmatchedAlert);
+    }
   }
 
   // 7. Source-kennel mismatches (always check, even without baseline)
