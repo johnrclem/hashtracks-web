@@ -2,23 +2,25 @@ import "dotenv/config";
 import { prisma } from "@/lib/db";
 
 /**
- * Post-deploy verification for the EventKennel backfill (issue #1023, step 1).
+ * Post-deploy verification for the EventKennel backfill (issue #1023).
  *
- * Hard assertions (throw on failure): partial unique index exists, no drift
- * between primary EventKennel.kennelId and Event.kennelId.
+ * Hard assertions (throw on failure):
+ *   - Partial unique index `EventKennel_eventId_isPrimary_unique` exists.
+ *   - No drift between primary EventKennel.kennelId and Event.kennelId.
+ *   - Every Event has exactly one primary EventKennel row.
  *
- * Soft check (warn, do not throw): every Event has exactly one primary
- * EventKennel row. Until step 2 (dual-write) ships, new Events written via
- * the existing single-FK code path won't have an EventKennel row — that gap
- * is expected during the rollout window. The script logs up to 25 missing
- * Event IDs so on-call can spot-check whether they're recent (gap-window) or
- * old (real backfill bug).
- *
- * TODO(#1023 step 2): once dual-write ships, restore the strict equality
- * assertion `ekPrimary === eventCount` as a hard throw.
+ * If the third check fails, run
+ * `scripts/reconcile-missing-event-kennel-primaries.ts --apply` to backfill
+ * the missing rows (Event.kennelId is the source of truth) and then re-run
+ * this verifier. The reconciler exists because step-1's migration backfill
+ * only covered Events that existed at migration deploy time — Events created
+ * between migration deploy and step-2 (dual-write) deploy were not picked up.
+ * After step 2 shipped, the merge pipeline writes both sides atomically, so
+ * any new orphan signals a real bug (a write path bypassing
+ * `createEventWithKennel`, or a row deletion).
  *
  * Run: `npx tsx scripts/verify-event-kennel-backfill.ts` — exits non-zero
- * only when a hard assertion fails.
+ * on any failure.
  */
 const PARTIAL_UNIQUE_INDEX_NAME = "EventKennel_eventId_isPrimary_unique";
 const MISSING_ID_SAMPLE = 25;
@@ -58,7 +60,7 @@ async function main() {
   }
   console.log("Denorm/join sync:      OK (no drift)");
 
-  if (ekPrimary !== eventCount) {
+  if (ekPrimary < eventCount) {
     const gap = eventCount - ekPrimary;
     const missing = await prisma.$queryRaw<{ id: string }[]>`
       SELECT e.id
@@ -69,13 +71,24 @@ async function main() {
       )
       LIMIT ${MISSING_ID_SAMPLE}
     `;
-    console.warn(
-      `\nWARN: ${gap} event(s) missing a primary EventKennel row. Expected during the rollout window between step 1 and step 2 (dual-write); investigate if these are old IDs (pre-backfill).`,
+    const sampleList = missing.map(({ id }) => `  ${id}`).join("\n");
+    throw new Error(
+      `${gap} event(s) missing a primary EventKennel row — first ${missing.length}:\n${sampleList}\n\n` +
+        `Run \`npx tsx scripts/reconcile-missing-event-kennel-primaries.ts --apply\` to backfill, ` +
+        `then investigate which write path created Events without going through createEventWithKennel.`,
     );
-    console.warn(`First ${missing.length} missing event IDs:`);
-    for (const { id } of missing) console.warn(`  ${id}`);
-    console.log("\nHard assertions passed (count gap is expected pre-step-2)");
-    return;
+  }
+
+  if (ekPrimary > eventCount) {
+    // Structurally impossible given the FK from EventKennel.eventId →
+    // Event.id (ON DELETE CASCADE) plus the partial unique index that caps
+    // primaries at one per event. If we hit this branch, one of those
+    // invariants has been compromised — point at that, not the reconciler.
+    throw new Error(
+      `Primary EventKennel rows (${ekPrimary}) exceed Event rows (${eventCount}) — ` +
+        `the FK + partial unique index should make this impossible. Investigate index/constraint state ` +
+        `(\\d "EventKennel" in psql) and any direct DB writes that bypass Prisma before reconciling.`,
+    );
   }
 
   console.log("\nAll invariants hold ✓");
@@ -85,6 +98,10 @@ main()
   .catch((err) => {
     console.error("\nVerification failed:");
     console.error(err.message);
-    process.exit(1);
+    // Set exitCode (don't `process.exit` synchronously) so `.finally` runs
+    // and `prisma.$disconnect()` resolves before the process exits.
+    process.exitCode = 1;
   })
-  .finally(() => prisma.$disconnect());
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
