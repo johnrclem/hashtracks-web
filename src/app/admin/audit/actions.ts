@@ -647,13 +647,19 @@ export async function getHarelinePromptInputs(): Promise<HarelinePromptInputs> {
     }),
   ]);
 
-  const recentlyFixed: RecentlyFixedItem[] = closedIssues.map((i) => ({
-    issueNumber: i.githubNumber,
-    title: i.title,
-    // Non-null because the where clause filtered by `githubClosedAt: { gte: since }`.
-    // Use easternDate so prompt date strings match the rest of the dashboard's bucketing.
-    closedDate: easternDate(i.githubClosedAt!),
-  }));
+  // `githubClosedAt` is non-null at runtime (the where clause filters
+  // `gte: since`), but Prisma's projected type still includes null. Filter
+  // narrows it without the bare `!` assertion Sonar flagged.
+  const recentlyFixed: RecentlyFixedItem[] = closedIssues
+    .filter(
+      (i): i is typeof i & { githubClosedAt: Date } => i.githubClosedAt !== null,
+    )
+    .map((i) => ({
+      issueNumber: i.githubNumber,
+      title: i.title,
+      // easternDate keeps prompt dates in the same bucket as the rest of the dashboard.
+      closedDate: easternDate(i.githubClosedAt),
+    }));
 
   const focusAreas: FocusAreaItem[] = recentSources.map((s) => ({
     sourceName: s.name,

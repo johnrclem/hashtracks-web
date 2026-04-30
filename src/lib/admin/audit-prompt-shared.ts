@@ -68,6 +68,6 @@ ${issueUrl}
 * **Suspected Adapter:** [source type]
 * **Field(s) Affected:** [field name]
 * **Current Extracted Value:** "[exact text from the HashTracks page, verbatim]"
-* **Expected Value:** "[verbatim text from the source — **not** a synthesized cleanup or inference. If the source says \"2FC Takes Fenton\", that's the expected value; don't 'clean it up' to \"2FC\" unless the source literally shows that string somewhere.]"
+* **Expected Value:** "[verbatim text from the source — **not** a synthesized cleanup or inference. If the source says "2FC Takes Fenton", that's the expected value; don't 'clean it up' to "2FC" unless the source literally shows that string somewhere.]"
 * **Fix Hypothesis:** [brief guess on root cause]`;
 }

@@ -1,4 +1,3 @@
-import { describe, it, expect } from "vitest";
 import { buildDeepDivePrompt } from "./deep-dive-prompt";
 import type { DeepDiveCandidate } from "@/app/admin/audit/actions";
 
@@ -15,16 +14,19 @@ const FIXTURE: DeepDiveCandidate = {
   ],
 };
 
+// Pre-compute once. The prompt is a pure function of FIXTURE and 17 of the 18
+// tests below assert on the same string — re-running buildDeepDivePrompt(FIXTURE)
+// in every test triggered Sonar's duplication detector (S4144) on the test file.
+const prompt = buildDeepDivePrompt(FIXTURE);
+
 describe("buildDeepDivePrompt", () => {
   it("includes kennel name, region, and HashTracks URL", () => {
-    const prompt = buildDeepDivePrompt(FIXTURE);
     expect(prompt).toContain("NYCH3");
     expect(prompt).toContain("New York City, NY");
     expect(prompt).toContain("https://www.hashtracks.xyz/kennels/nych3");
   });
 
   it("lists every source with type and URL", () => {
-    const prompt = buildDeepDivePrompt(FIXTURE);
     expect(prompt).toContain("hashnyc.com");
     expect(prompt).toContain("HTML_SCRAPER");
     expect(prompt).toContain("https://hashnyc.com");
@@ -33,7 +35,6 @@ describe("buildDeepDivePrompt", () => {
   });
 
   it("shows 'never' when there's no prior deep dive", () => {
-    const prompt = buildDeepDivePrompt(FIXTURE);
     expect(prompt).toContain("Last deep dive:** never");
   });
 
@@ -46,7 +47,6 @@ describe("buildDeepDivePrompt", () => {
   });
 
   it("includes the 'What to check' and filing instructions", () => {
-    const prompt = buildDeepDivePrompt(FIXTURE);
     expect(prompt).toContain("## What to check");
     expect(prompt).toContain("## Filing findings");
     expect(prompt).toContain("audit,alert");
@@ -56,13 +56,11 @@ describe("buildDeepDivePrompt", () => {
     // The dashboard's "Findings by stream" panel reads these labels to attribute
     // each issue to the chrome-kennel stream and the right kennel — without
     // them, every deep-dive issue lands in the UNKNOWN bucket.
-    const prompt = buildDeepDivePrompt(FIXTURE);
     expect(prompt).toContain("audit:chrome-kennel");
     expect(prompt).toContain("kennel:nych3");
   });
 
   it("calls out kennel-page improvements (founded year, social links, etc.)", () => {
-    const prompt = buildDeepDivePrompt(FIXTURE);
     expect(prompt).toContain("Kennel page completeness");
     expect(prompt).toContain("Founded year");
     expect(prompt).toContain("Facebook");
@@ -72,7 +70,6 @@ describe("buildDeepDivePrompt", () => {
   it("tells the auditor to verify current HashTracks state before filing", () => {
     // Guards against false-positive "missing data" findings where the auditor
     // inspected only the source and never checked the HashTracks side.
-    const prompt = buildDeepDivePrompt(FIXTURE);
     expect(prompt).toContain("Verify current state before flagging");
     expect(prompt).toContain("spot-check 2-3 of the highest run-numbered events");
   });
@@ -82,7 +79,6 @@ describe("buildDeepDivePrompt", () => {
     // events the adapter didn't return. That's safe for complete-enumeration
     // APIs but unsafe for partial-enumeration sources — the prompt must
     // distinguish by listing the actual source-type identifiers.
-    const prompt = buildDeepDivePrompt(FIXTURE);
     expect(prompt).toContain("Historical events");
     // Complete-enumeration bucket — named by SourceType identifier so the
     // auditor can match against prisma/seed-data/sources.ts entries
@@ -107,7 +103,6 @@ describe("buildDeepDivePrompt", () => {
     // level, trail type, beer meister that have no user-visible slot.
     // Uses visible-evidence anchoring instead of a schema list that would
     // drift when the Event model changes (e.g. haresText vs hares).
-    const prompt = buildDeepDivePrompt(FIXTURE);
     expect(prompt).toContain("schema gap");
     expect(prompt).toContain("visible home on a HashTracks event card");
     expect(prompt).toContain("shiggy level");
@@ -116,7 +111,6 @@ describe("buildDeepDivePrompt", () => {
   it("requires verbatim source text in the Expected Value filing line", () => {
     // Earlier audits synthesized expected values ("2FC" from "2FC Takes Fenton",
     // "1992-06-21" from "1992") that the adapter couldn't realistically emit.
-    const prompt = buildDeepDivePrompt(FIXTURE);
     expect(prompt).toContain("verbatim text from the source");
     expect(prompt).toContain("not** a synthesized cleanup");
     // Also guard the Current Extracted Value line — it shares the verbatim
@@ -127,7 +121,6 @@ describe("buildDeepDivePrompt", () => {
   it("interpolates the kennel name into the 'Mark <kennel> complete' CTA so it matches the dialog button label", () => {
     // CodeRabbit flagged the prior wording ("Mark deep dive complete") drifting
     // from the dialog button text after #1160's kennel-echo change.
-    const prompt = buildDeepDivePrompt(FIXTURE);
     expect(prompt).toContain("Mark NYCH3 complete");
   });
 
@@ -139,7 +132,6 @@ describe("buildDeepDivePrompt", () => {
   it("references the live suppressions endpoint so the auditor doesn't re-flag accepted behavior", () => {
     // Without this, deep dives re-flag globally-suppressed rules every cycle
     // (chrome-event prompt has had this reference; chrome-kennel didn't).
-    const prompt = buildDeepDivePrompt(FIXTURE);
     expect(prompt).toContain("https://hashtracks.xyz/api/audit/suppressions");
     expect(prompt).toContain("Active suppressions");
   });
@@ -149,7 +141,6 @@ describe("buildDeepDivePrompt", () => {
     // issues #1029/#1019/#1011 all converged on Profile-bundle naming. The
     // prompt must instruct agents to file in that shape from the start so
     // humans don't keep bundling 5–7 micro-issues by hand.
-    const prompt = buildDeepDivePrompt(FIXTURE);
     expect(prompt).toContain("Profile bundle rule");
     expect(prompt).toContain("≥2 missing");
     expect(prompt).toContain("NYCH3 — Profile bundle:");
@@ -160,7 +151,6 @@ describe("buildDeepDivePrompt", () => {
     // Trailing-dash title artifacts (Moooouston #756, GyNO #815, Pedal Files #799,
     // Space City #1060) used to file N separate issues. The prompt must teach
     // agents to bundle by root cause with a sample link + count.
-    const prompt = buildDeepDivePrompt(FIXTURE);
     expect(prompt).toContain("Root-cause bundle rule");
     expect(prompt).toContain("sample event link");
     expect(prompt).toContain("not N issues");
@@ -170,7 +160,6 @@ describe("buildDeepDivePrompt", () => {
     // Generic 'fields with no visible home' guidance was insufficient — agents
     // kept re-discovering 26.2H3-style endTime/cost gaps. Prompt now lists the
     // actual fields and the tracking issues that own the schema work.
-    const prompt = buildDeepDivePrompt(FIXTURE);
     expect(prompt).toContain("`endTime`");
     expect(prompt).toContain("#504");
     expect(prompt).toContain("`cost`");
@@ -184,7 +173,6 @@ describe("buildDeepDivePrompt", () => {
     // automation. Until the underlying UX is hardened, the prompt asks the
     // auditor to confirm post-submit by re-loading and checking queue
     // membership; misattribution → stop, file an admin-tooling issue.
-    const prompt = buildDeepDivePrompt(FIXTURE);
     expect(prompt).toContain("hard-reload");
     expect(prompt).toContain("no longer in the queue");
     expect(prompt).toContain("#1160");

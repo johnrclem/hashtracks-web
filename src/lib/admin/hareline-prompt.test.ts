@@ -22,16 +22,19 @@ const FIXTURE: HarelinePromptInputs = {
   ],
 };
 
+// Pre-compute once for the cases that share the same FIXTURE — avoids
+// re-running the builder per `it`, which Sonar flagged as a duplicated block
+// across the test file (S4144 on the test file itself).
+const prompt = buildHarelinePrompt(FIXTURE);
+
 describe("buildHarelinePrompt", () => {
   it("includes scope=all hareline URL and stream-attribution label guidance", () => {
-    const prompt = buildHarelinePrompt(FIXTURE);
     expect(prompt).toContain("hashtracks.xyz/hareline?scope=all");
     expect(prompt).toContain("audit:chrome-event");
     expect(prompt).toContain("kennel:{KENNEL_CODE}");
   });
 
   it("renders the recently-fixed list from injected closed issues", () => {
-    const prompt = buildHarelinePrompt(FIXTURE);
     expect(prompt).toContain("#1116");
     expect(prompt).toContain("13 metadata fixes");
     expect(prompt).toContain("closed 2026-04-29");
@@ -44,7 +47,6 @@ describe("buildHarelinePrompt", () => {
   });
 
   it("renders focus areas from injected newly-onboarded sources", () => {
-    const prompt = buildHarelinePrompt(FIXTURE);
     expect(prompt).toContain("Princeton NJ Hash Calendar");
     expect(prompt).toContain("GOOGLE_CALENDAR");
     expect(prompt).toContain("added 2026-04-28");
@@ -58,7 +60,6 @@ describe("buildHarelinePrompt", () => {
   });
 
   it("links to the live suppressions endpoint and the audit-checks rule registry", () => {
-    const prompt = buildHarelinePrompt(FIXTURE);
     expect(prompt).toContain("https://hashtracks.xyz/api/audit/suppressions");
     expect(prompt).toContain("src/pipeline/audit-checks.ts");
   });
@@ -66,7 +67,6 @@ describe("buildHarelinePrompt", () => {
   it("enumerates schema-gap fields explicitly with cross-references to schema issues", () => {
     // Same field list and #503/#504 cross-references as the deep-dive prompt,
     // so schema-gap routing is consistent across both chrome streams.
-    const prompt = buildHarelinePrompt(FIXTURE);
     expect(prompt).toContain("`endTime`");
     expect(prompt).toContain("#504");
     expect(prompt).toContain("`cost`");
@@ -75,7 +75,6 @@ describe("buildHarelinePrompt", () => {
   });
 
   it("preserves the dedup-against-existing-issues block (not a regression from the static doc)", () => {
-    const prompt = buildHarelinePrompt(FIXTURE);
     expect(prompt).toContain(
       "label%3Aaudit+is%3Aopen",
     );
@@ -83,7 +82,6 @@ describe("buildHarelinePrompt", () => {
   });
 
   it("preserves the verbatim-source-text contract for filing bodies", () => {
-    const prompt = buildHarelinePrompt(FIXTURE);
     expect(prompt).toContain("verbatim text from the source");
     expect(prompt).toContain("exact text from the HashTracks page, verbatim");
   });

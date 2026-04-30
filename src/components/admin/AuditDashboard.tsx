@@ -988,10 +988,7 @@ function DeepDiveCompleteDialog({
             target="_blank"
             rel="noreferrer"
             className="underline"
-          >
-            #1160
-          </a>
-          .
+          >#1160</a>{`.`}
         </p>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
