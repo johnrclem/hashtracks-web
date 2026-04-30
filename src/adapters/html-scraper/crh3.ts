@@ -51,16 +51,17 @@ const RUN_NUMBER_RE = /CRH3\s*#?\s*(\d+)/i;
  * have no future-event metadata. Skip them to avoid duplicate parse
  * errors against `seenRuns`-deduped events.
  *
- * Anchored to the start of the title so an announcement like
- * "CRH3 #230 Photo Run Saturday..." is NOT filtered. Must match a
- * compound recap phrase (e.g. "Memories of", "Photos from") rather
- * than any title containing one of those words. */
-const REPORT_TITLE_RE = /^\s*(?:(?:Memories|Memory)\s+of|Photos?\s+(?:of|from)|Report\s+(?:of|on)|Write\s*-?\s*Up\s+of|Recap\s+of)\b/i;
+ * Requires a compound recap phrase (e.g. "Memories of", "Photos from")
+ * so legitimate announcement titles like "CRH3 #230 Photo Run" pass
+ * through. Not anchored to start-of-title — recap posts sometimes
+ * prefix the run number ("CRH3 #186 Memories of Karl"). */
+const REPORT_TITLE_RE = /\b(?:(?:Memories|Memory) of|Photos? (?:of|from)|Report (?:of|on)|Write\s*-?\s*Up of|Recap of)\b/i;
 
 /** Single source of truth for body field labels. Used by both the
  * label-anchored regexes (in parseCrh3Body's grab()) and the line filter
- * in extractDescription so the two can't drift. */
-const LABEL_PATTERN = "Hares?|GM|Grand\\s*Master|Starting\\s*Location|Location|Run\\s*Site|Meeting|EARLY\\s*TIME|Start(?:\\s*Time)?|Time|Date|Price|Cost|Hash\\s*Cash|Parking|TIPS|On\\s*After|Circle|ON\\s*ON\\s*ON";
+ * in extractDescription so the two can't drift. Uses String.raw to
+ * keep `\s` as a regex escape, not a string escape. */
+const LABEL_PATTERN = String.raw`Hares?|GM|Grand\s*Master|Starting\s*Location|Location|Run\s*Site|Meeting|EARLY\s*TIME|Start(?:\s*Time)?|Time|Date|Price|Cost|Hash\s*Cash|Parking|TIPS|On\s*After|Circle|ON\s*ON\s*ON`;
 
 /**
  * Parse a CRH3 post title for run number and optional date.
@@ -91,32 +92,41 @@ export function parseCrh3Body(bodyHtml: string, publishDateIso: string): {
   date?: string;
   hares?: string;
   location?: string;
+  locationUrl?: string;
   startTime?: string;
   cost?: string;
   description?: string;
 } {
-  const text = decodeEntities(stripHtmlTags(bodyHtml, "\n")).replace(EMOJI_RE, " ");
+  const text = decodeEntities(stripHtmlTags(bodyHtml, "\n")).replaceAll(EMOJI_RE, " ");
 
-  // Trailing stop: newline, end of string, or next known label, so a
-  // value can't run into the next line's label even if newlines drop.
-  const stop = `(?=\\n|(?:${LABEL_PATTERN})\\b|$)`;
+  // Trailing stop: newline, end of string, or next labelled line. Requires
+  // a delimiter (`:`, `=`, `-`) after the label so prose words inside a
+  // value (e.g. "at your own cost", "Circle and ON ON ON") don't truncate
+  // the capture mid-sentence.
+  const stop = String.raw`(?=\n|(?:${LABEL_PATTERN})\s*[:=\-]|$)`;
 
   const grab = (label: string): string | undefined => {
-    // Allow either ":", "=", or "-" as the label/value delimiter.
-    const re = new RegExp(`(?:${label})\\s*[:=\\-]\\s*(.+?)${stop}`, "i");
+    const re = new RegExp(String.raw`(?:${label})\s*[:=\-]\s*(.+?)${stop}`, "i");
     const m = re.exec(text);
     if (!m) return undefined;
-    const value = m[1].trim().replace(/\s+/g, " ");
+    const value = m[1].trim().replaceAll(/\s+/g, " ");
     return value || undefined;
   };
 
-  const hares = grab("Hares?|GM|Grand Master");
-  const location = grab("Starting\\s*Location|Location|Run\\s*Site|Meeting");
-  const cost = grab("Price|Cost|Hash\\s*Cash");
+  const hares = grab(String.raw`Hares?|GM|Grand\s*Master`);
+  const rawLocation = grab(String.raw`Starting\s*Location|Location|Run\s*Site|Meeting`);
+  const cost = grab(String.raw`Price|Cost|Hash\s*Cash`);
+
+  // Route bare URLs to `locationUrl` so the merge pipeline's
+  // sanitizeLocation() doesn't drop the value (it filters bare URLs)
+  // and resolveCoords() can pick up Maps short-link coordinates.
+  const isUrlOnly = rawLocation && /^https?:\/\/\S+$/.test(rawLocation);
+  const location = isUrlOnly ? undefined : rawLocation;
+  const locationUrl = isUrlOnly ? rawLocation : undefined;
 
   // EARLY TIME line: "3 for 3:30 pm start" — pull the LATER (run-start)
   // time when both are present, since hashers stagger arrival vs start.
-  const earlyLine = grab("EARLY\\s*TIME|Start(?:\\s*Time)?|Time");
+  const earlyLine = grab(String.raw`EARLY\s*TIME|Start(?:\s*Time)?|Time`);
   const startTime = parseStartTime(earlyLine);
 
   // Strip URLs before chrono — Google Maps short-link base64 fragments
@@ -128,34 +138,53 @@ export function parseCrh3Body(bodyHtml: string, publishDateIso: string): {
 
   const description = extractDescription(text);
 
-  return { date, hares, location, startTime, cost, description };
+  return { date, hares, location, locationUrl, startTime, cost, description };
 }
 
 /** Parse "3 for 3:30 pm start" → "15:30". Picks the run-start time
- * (last clock pattern) and the meridiem nearest to it. */
+ * (last clock pattern) and the meridiem nearest to it.
+ *
+ * Returns undefined when the input lacks an am/pm marker AND the hour
+ * is < 12 (ambiguous). CRH3 runs are always afternoon, so falling back
+ * to DEFAULT_START_TIME is safer than wrongly storing 04:00 for
+ * "3 for 4 pm start" with a missing meridiem. */
 export function parseStartTime(value: string | undefined): string | undefined {
   if (!value) return undefined;
   const re = /(\d{1,2})(?:[:.](\d{2}))?/g;
   const matches = [...value.matchAll(re)];
   if (matches.length === 0) return undefined;
-  const last = matches[matches.length - 1];
+  const last = matches.at(-1);
+  if (!last) return undefined;
   const hour = Number.parseInt(last[1], 10);
   const minute = last[2] ? Number.parseInt(last[2], 10) : 0;
   if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return undefined;
   // Anchor meridiem detection to text near the matched time (within
-  // ~12 chars) so an unrelated "PM" earlier in the input doesn't flip
-  // a morning time to afternoon.
+  // ~12 chars on either side) so unrelated "PM"/"AM" elsewhere in the
+  // input doesn't flip the hour. Using a symmetric window catches
+  // "3 PM for 3:30 start" — the meridiem precedes the matched time.
   const lastIndex = last.index ?? 0;
-  const window = value.slice(lastIndex, lastIndex + last[0].length + 12);
-  const ampm = /pm/i.test(window) ? "pm" : (/am/i.test(window) ? "am" : "");
-  return ampm ? formatAmPmTime(hour, minute, ampm) : `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`;
+  const windowStart = Math.max(0, lastIndex - 12);
+  const window = value.slice(windowStart, lastIndex + last[0].length + 12);
+  let ampm = "";
+  if (/pm/i.test(window)) ampm = "pm";
+  else if (/am/i.test(window)) ampm = "am";
+  if (ampm) return formatAmPmTime(hour, minute, ampm);
+  // Hour 12+ is unambiguously 24h or noon; anything < 12 with no
+  // meridiem is ambiguous — let the caller fall back to default.
+  if (hour < 12) return undefined;
+  return `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`;
 }
 
 /** Pull freeform description line(s) — anywhere in the body that isn't
- * a header line, date line, labelled line, URL line, or short noise. */
+ * a header line, date line, labelled line, URL line, or short noise.
+ *
+ * The labelled-line filter requires a delimiter (`:`, `=`, `-`) after
+ * the label name so prose lines starting with a label-shaped word
+ * (e.g. "Time for a beer!", "Parking note: keep right") aren't
+ * misclassified as labelled fields and dropped from the description. */
 function extractDescription(text: string): string | undefined {
   const lines = text.split(/\n+/).map((l) => l.trim()).filter(Boolean);
-  const labelStart = new RegExp(`^(?:${LABEL_PATTERN})\\b`, "i");
+  const labelStart = new RegExp(String.raw`^(?:${LABEL_PATTERN})\s*[:=\-]`, "i");
   const headerLike = /^Next\s*Run|^Saturday\b|^(?:https?:|www\.)/i;
   const desc: string[] = [];
   for (const line of lines) {
@@ -210,6 +239,7 @@ export function parseCrh3Post(post: Crh3PostInput): ParseCrh3PostResult {
       runNumber: titleFields.runNumber,
       hares: normalizeHaresField(body.hares),
       location: body.location,
+      locationUrl: body.locationUrl,
       startTime: body.startTime ?? DEFAULT_START_TIME,
       cost: body.cost,
       sourceUrl: post.url,

@@ -50,6 +50,12 @@ describe("parseStartTime", () => {
     expect(parseStartTime("4:00 PM")).toBe("16:00");
   });
 
+  it("handles meridiem before the matched time", () => {
+    // "3 PM for 3:30 start" — the PM precedes the run-start time but
+    // sits within the ±12-char window, so we still pick afternoon.
+    expect(parseStartTime("3 PM for 3:30 start")).toBe("15:30");
+  });
+
   it("returns undefined for unparseable input", () => {
     expect(parseStartTime("ASAP")).toBeUndefined();
     expect(parseStartTime(undefined)).toBeUndefined();
@@ -58,6 +64,16 @@ describe("parseStartTime", () => {
   it("handles am times", () => {
     expect(parseStartTime("11 am")).toBe("11:00");
     expect(parseStartTime("12 am")).toBe("00:00");
+  });
+
+  it("returns undefined for ambiguous times (no am/pm, hour < 12)", () => {
+    // "Meet 3.30 for 4.00 start" without "pm" is ambiguous — caller
+    // should fall back to default rather than store 04:00.
+    expect(parseStartTime("Meet 3.30 for 4.00 start")).toBeUndefined();
+  });
+
+  it("accepts unambiguous 24h times (hour ≥ 12)", () => {
+    expect(parseStartTime("Meet at 16:30")).toBe("16:30");
   });
 });
 
@@ -72,13 +88,23 @@ A to A flat trail - no hazards.
 🕞EARLY TIME - 3 for 3:30 pm start.
 💲Price - All attendees 100 Baht.`;
 
-  it("extracts hares, location, startTime, cost, description from real CRH3 body", () => {
+  it("extracts hares, locationUrl, startTime, cost, description from real CRH3 body", () => {
     const result = parseCrh3Body(realBody, "2026-03-22T18:07:00+07:00");
     expect(result.hares).toBe("Pussy Rainbow");
-    expect(result.location).toBe("https://www.google.com/...");
+    // Bare URL routes to locationUrl (not location) so the merge
+    // pipeline's sanitizeLocation() doesn't drop it as a bare URL.
+    expect(result.location).toBeUndefined();
+    expect(result.locationUrl).toBe("https://www.google.com/...");
     expect(result.startTime).toBe("15:30");
     expect(result.cost).toBe("All attendees 100 Baht.");
     expect(result.description).toBe("A to A flat trail - no hazards.");
+  });
+
+  it("keeps human-readable location strings in the location field", () => {
+    const body = "▶️Hare: Test\n📍Location: Tawanwa Restaurant\n💲Price - 100 Baht";
+    const result = parseCrh3Body(body, "2025-02-01T00:00:00");
+    expect(result.location).toBe("Tawanwa Restaurant");
+    expect(result.locationUrl).toBeUndefined();
   });
 
   it("prefers body's Saturday-cadence date over the title's day-of-month (#1117)", () => {
