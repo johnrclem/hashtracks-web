@@ -49,7 +49,9 @@ describe("buildDeepDivePrompt", () => {
   it("includes the 'What to check' and filing instructions", () => {
     expect(prompt).toContain("## What to check");
     expect(prompt).toContain("## Filing findings");
-    expect(prompt).toContain("audit,alert");
+    // Labels list in the prefilled GitHub URL is URL-encoded (CodeRabbit feedback)
+    // so future kennelCodes containing reserved chars don't corrupt the link.
+    expect(prompt).toContain("audit%2Calert");
   });
 
   it("bakes the stream + kennel labels into the pre-filled new-issue URL", () => {

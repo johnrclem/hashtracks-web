@@ -51,7 +51,14 @@ export interface FilingInstructionsInput {
 export function renderFilingInstructions(
   input: FilingInstructionsInput,
 ): string {
-  const labels = `audit,alert,audit:${input.stream},kennel:${input.kennelLabel}`;
+  // URL-encode the labels list for safety. Today's kennelCodes are slug-shaped
+  // (`[a-z0-9-]`), but encoding defensively means a future kennelCode containing
+  // `+`, space, or `&` won't silently corrupt the prefilled-issue link. The
+  // hareline `{KENNEL_CODE}` placeholder becomes `%7BKENNEL_CODE%7D` — uglier
+  // but the prompt's surrounding text still tells the agent how to substitute.
+  const labels = encodeURIComponent(
+    `audit,alert,audit:${input.stream},kennel:${input.kennelLabel}`,
+  );
   const issueUrl = `https://github.com/${HASHTRACKS_REPO}/issues/new?labels=${labels}&title={URL-ENCODED TITLE}&body={URL-ENCODED BODY}`;
 
   return `**Option 1 (preferred):** Open this URL in a new tab with title and body URL-encoded. The labels list is pre-baked with \`audit:${input.stream}\` (stream attribution) and \`kennel:${input.kennelLabel}\` (kennel attribution) so the dashboard's "Findings by stream" panel can route the issue correctly:
