@@ -350,11 +350,12 @@ export function formatAmPmTime(hour: number, minute: number, ampm: string): stri
  * (☎ ☀), Dingbats (✓), all main emoji blocks, variation selectors,
  * ZWJ, keycap combiner, and tag chars.
  *
- * Combining marks (ZWJ + variation selectors) are split into a
- * separate char class via alternation so Sonar S5868 doesn't flag
- * `\u{27BF}\u{FE00}` as a "combined character" inside a single class.
+ * Each alternation arm holds at most one range and no adjacent
+ * codepoints — Sonar S5868 flags any single codepoint sitting next
+ * to a range boundary inside a character class as a possible
+ * "combined character" sequence.
  */
-export const EMOJI_RE = /[\u{2300}-\u{27BF}\u{1F300}-\u{1FFFF}\u{20E3}\u{E0020}-\u{E007F}]|[\u{200D}\u{FE00}-\u{FE0F}]/gu;
+export const EMOJI_RE = /[\u{2300}-\u{27BF}]|[\u{1F300}-\u{1FFFF}]|[\u{E0020}-\u{E007F}]|[\u{FE00}-\u{FE0F}]|\u{200D}|\u{20E3}/gu;
 
 /** Strip http/https URLs from text. Useful before passing user-facing
  * text to chrono — base64 fragments inside Maps short-links commonly

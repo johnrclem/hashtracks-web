@@ -27,50 +27,50 @@ const SOURCE_NAME = "Chiang Rai H3 Blog";
 const KENNEL_TIMEZONE = "Asia/Bangkok";
 const KENNEL_TAG = "crh3";
 
+/** Build a CRH3 backfill row. `kennelTags` and the kennel-page-rooted
+ * sourceUrl are stable; everything else varies per row. */
+function row(
+  date: string,
+  runNumber: number,
+  title: string,
+  startTime: string,
+  sourceUrl: string,
+  extras: Partial<RawEventData> = {},
+): RawEventData {
+  return { date, kennelTags: [KENNEL_TAG], title, runNumber, startTime, sourceUrl, ...extras };
+}
+
 const HISTORICAL_EVENTS: RawEventData[] = [
-  {
-    date: "2025-07-12",
-    kennelTags: [KENNEL_TAG],
-    title: "CR H3 #211 Saturday 12 July",
-    runNumber: 211,
-    startTime: "15:00",
-    sourceUrl: "https://chiangraihhh.blogspot.com/2025/07/cr-h3-211-saturday-12-july.html",
-  },
-  {
-    date: "2025-09-07",
-    kennelTags: [KENNEL_TAG],
-    title: "Chiang Mai Male Oustation and CR H3 # 213",
-    description: "Joint Chiang Mai male hash outstation at Pong Sali Arboretum. Males only this Sunday; trail repeats Sat 13 Sept for full kennel.",
-    runNumber: 213,
-    hares: "Sirgin",
-    cost: "350 baht (drinkers) / 200 baht (non)",
-    startTime: "16:00",
-    sourceUrl: "https://chiangraihhh.blogspot.com/2025/09/chiang-mai-male-oustation-and-cr-h3-213.html",
-  },
-  {
-    date: "2025-09-13",
-    kennelTags: [KENNEL_TAG],
-    title: "Chiang Rai Hash House Harriers Meet #214 next Saturday 13th September at 4.30PM.",
-    runNumber: 214,
-    startTime: "16:30",
-    sourceUrl: "https://chiangraihhh.blogspot.com/2025/09/",
-  },
-  {
-    date: "2025-11-22",
-    kennelTags: [KENNEL_TAG],
-    title: "CRH3 # 216 is on Saturday 22nd November 3.30 for 4.00.",
-    runNumber: 216,
-    startTime: "16:00",
-    sourceUrl: "https://chiangraihhh.blogspot.com/2025/11/",
-  },
-  {
-    date: "2026-01-17",
-    kennelTags: [KENNEL_TAG],
-    title: "CRH3 Saturday 17 January",
-    runNumber: 218,
-    startTime: "15:00",
-    sourceUrl: "https://chiangraihhh.blogspot.com/2026/01/",
-  },
+  row(
+    "2025-07-12", 211,
+    "CR H3 #211 Saturday 12 July", "15:00",
+    "https://chiangraihhh.blogspot.com/2025/07/cr-h3-211-saturday-12-july.html",
+  ),
+  row(
+    "2025-09-07", 213,
+    "Chiang Mai Male Oustation and CR H3 # 213", "16:00",
+    "https://chiangraihhh.blogspot.com/2025/09/chiang-mai-male-oustation-and-cr-h3-213.html",
+    {
+      description: "Joint Chiang Mai male hash outstation at Pong Sali Arboretum. Males only this Sunday; trail repeats Sat 13 Sept for full kennel.",
+      hares: "Sirgin",
+      cost: "350 baht (drinkers) / 200 baht (non)",
+    },
+  ),
+  row(
+    "2025-09-13", 214,
+    "Chiang Rai Hash House Harriers Meet #214 next Saturday 13th September at 4.30PM.", "16:30",
+    "https://chiangraihhh.blogspot.com/2025/09/",
+  ),
+  row(
+    "2025-11-22", 216,
+    "CRH3 # 216 is on Saturday 22nd November 3.30 for 4.00.", "16:00",
+    "https://chiangraihhh.blogspot.com/2025/11/",
+  ),
+  row(
+    "2026-01-17", 218,
+    "CRH3 Saturday 17 January", "15:00",
+    "https://chiangraihhh.blogspot.com/2026/01/",
+  ),
 ];
 
 runBackfillScript({
