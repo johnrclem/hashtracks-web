@@ -25,10 +25,12 @@ export default async function OgImage({ params }: { params: Promise<{ slug: stri
       // #1023 spec D8: count co-hosted events too — go through the
       // EventKennel join so a kennel that's only a secondary on upcoming
       // events still reads as "active" on its own page's OG image.
+      // `isCanonical: true` matches the kennel page's event list query
+      // so the OG status badge agrees with what the page actually shows.
       _count: {
         select: {
           eventKennels: {
-            where: { event: { date: { gte: todayUtc }, status: "CONFIRMED" } },
+            where: { event: { date: { gte: todayUtc }, status: "CONFIRMED", isCanonical: true } },
           },
         },
       },

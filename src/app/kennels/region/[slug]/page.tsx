@@ -35,10 +35,13 @@ export async function generateMetadata({
       // #1023 spec D8: directory counts include co-hosted events for both
       // kennels — go through the EventKennel join so a kennel that's only
       // a secondary co-host on upcoming events still reads as "active".
+      // `isCanonical: true` matches the next-event-map query below + the
+      // page intro's canonical-only event derivation so the metadata stat
+      // and the rendered page agree.
       _count: {
         select: {
           eventKennels: {
-            where: { event: { date: { gte: todayMeta }, status: "CONFIRMED" } },
+            where: { event: { date: { gte: todayMeta }, status: "CONFIRMED", isCanonical: true } },
           },
         },
       },
