@@ -4,7 +4,8 @@ import { Plus } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { KennelDirectory } from "@/components/kennels/KennelDirectory";
 import Link from "next/link";
-import { getStateGroup, regionAbbrev, regionNameToSlug } from "@/lib/region";
+import { regionAbbrev, regionNameToSlug } from "@/lib/region";
+import { buildNextEventMap, serializeKennelWithNext } from "@/lib/kennel-directory";
 import { buildRegionItemListJsonLd, safeJsonLd } from "@/lib/seo";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -78,28 +79,11 @@ export default async function KennelsPage() {
     }),
   ]);
 
-  // Build Map<kennelId, firstEvent> — events are sorted by date, so first
-  // per kennel is next. Attribute each event to every kennel on it so a
-  // co-host kennel's card shows the upcoming joint trail too.
-  const nextEventMap = new Map<string, { date: Date; title: string | null }>();
-  for (const event of upcomingEvents) {
-    for (const ek of event.eventKennels) {
-      if (!nextEventMap.has(ek.kennelId)) {
-        nextEventMap.set(ek.kennelId, { date: event.date, title: event.title });
-      }
-    }
-  }
-
-  // Serialize for client
-  const kennelsWithNext = kennels.map((k) => {
-    const next = nextEventMap.get(k.id);
-    return {
-      ...k,
-      stateGroup: getStateGroup(k.region),
-      nextEvent: next ? { date: next.date.toISOString(), title: next.title } : null,
-      lastEventDate: k.lastEventDate ? k.lastEventDate.toISOString() : null,
-    };
-  });
+  // #1023 spec D8: attribute each event to every visible kennel on it so
+  // co-host events surface on co-host kennels' cards. See
+  // `src/lib/kennel-directory.ts` for the shared helper.
+  const nextEventMap = buildNextEventMap(upcomingEvents);
+  const kennelsWithNext = kennels.map((k) => serializeKennelWithNext(k, nextEventMap));
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://hashtracks.xyz";
   // Cap at 100 items — schema.org recommends bounded ItemLists for large catalogs
@@ -112,7 +96,7 @@ export default async function KennelsPage() {
   // Only include regions that resolve to a valid landing page slug
   const uniqueRegions = Array.from(new Set(kennels.map((k) => k.region)))
     .filter((r) => regionNameToSlug(r) !== null)
-    .sort();
+    .sort((a, b) => a.localeCompare(b));
 
   return (
     <div>

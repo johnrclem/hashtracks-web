@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { prisma } from "@/lib/db";
-import { regionBySlug, getStateGroup } from "@/lib/region";
+import { regionBySlug } from "@/lib/region";
+import { buildNextEventMap, serializeKennelWithNext } from "@/lib/kennel-directory";
 import { getActivityStatus } from "@/lib/activity-status";
 import { getTodayUtcNoon } from "@/lib/date";
 import { generateRegionIntro, buildRegionItemListJsonLd, safeJsonLd } from "@/lib/seo";
@@ -127,28 +128,10 @@ export default async function RegionPage({
     }),
   ]);
 
-  // Build next event map. Attribute each event to every region-matching
-  // kennel on it (primary + co-hosts) — so a co-host kennel's directory
-  // card shows the upcoming joint trail too.
-  const nextEventMap = new Map<string, { date: Date; title: string | null }>();
-  for (const event of upcomingEvents) {
-    for (const ek of event.eventKennels) {
-      if (!nextEventMap.has(ek.kennelId)) {
-        nextEventMap.set(ek.kennelId, { date: event.date, title: event.title });
-      }
-    }
-  }
-
-  // Serialize for client
-  const kennelsWithNext = kennels.map((k) => {
-    const next = nextEventMap.get(k.id);
-    return {
-      ...k,
-      stateGroup: getStateGroup(k.region),
-      nextEvent: next ? { date: next.date.toISOString(), title: next.title } : null,
-      lastEventDate: k.lastEventDate ? k.lastEventDate.toISOString() : null,
-    };
-  });
+  // #1023 spec D8: attribute each event to every region-matching kennel
+  // on it (primary + co-hosts). See `src/lib/kennel-directory.ts`.
+  const nextEventMap = buildNextEventMap(upcomingEvents);
+  const kennelsWithNext = kennels.map((k) => serializeKennelWithNext(k, nextEventMap));
 
   // Compute intro
   const activeCount = kennels.filter(
