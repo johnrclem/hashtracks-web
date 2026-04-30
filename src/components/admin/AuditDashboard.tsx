@@ -967,12 +967,30 @@ function DeepDiveCompleteDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Mark deep dive complete</DialogTitle>
+          <DialogTitle>
+            Mark deep dive complete: {kennel.shortName}
+          </DialogTitle>
           <DialogDescription>
-            Record a deep dive run for <strong>{kennel.shortName}</strong>. The next-up
-            queue will rotate to the next-oldest active kennel.
+            Recording a deep dive for <strong>{kennel.shortName}</strong>{" "}
+            <span className="text-xs text-muted-foreground">
+              ({kennel.region})
+            </span>
+            . The next-up queue will rotate to the next-oldest active kennel.
           </DialogDescription>
         </DialogHeader>
+        <p className="text-xs text-muted-foreground">
+          If this isn&apos;t the kennel you intended to mark complete, cancel
+          and re-select from the queue — see issue{" "}
+          <a
+            href="https://github.com/johnrclem/hashtracks-web/issues/1160"
+            target="_blank"
+            rel="noreferrer"
+            className="underline"
+          >
+            #1160
+          </a>
+          .
+        </p>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="dd-findings-count">Findings filed</Label>
@@ -1005,7 +1023,7 @@ function DeepDiveCompleteDialog({
               Cancel
             </Button>
             <Button type="submit" size="sm" disabled={pending}>
-              {pending ? "Saving…" : "Mark complete"}
+              {pending ? "Saving…" : `Mark ${kennel.shortName} complete`}
             </Button>
           </DialogFooter>
         </form>

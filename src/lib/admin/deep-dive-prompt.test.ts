@@ -133,4 +133,59 @@ describe("buildDeepDivePrompt", () => {
     const prompt = buildDeepDivePrompt({ ...FIXTURE, sources: [] });
     expect(prompt).toContain("no enabled sources");
   });
+
+  it("references the live suppressions endpoint so the auditor doesn't re-flag accepted behavior", () => {
+    // Without this, deep dives re-flag globally-suppressed rules every cycle
+    // (chrome-event prompt has had this reference; chrome-kennel didn't).
+    const prompt = buildDeepDivePrompt(FIXTURE);
+    expect(prompt).toContain("https://hashtracks.xyz/api/audit/suppressions");
+    expect(prompt).toContain("Active suppressions");
+  });
+
+  it("steers profile-metadata findings into a single bundled issue (not one per field)", () => {
+    // PR #1116 ("13 metadata fixes"), PR #974 ("10 Chrome-audit issues"), and
+    // issues #1029/#1019/#1011 all converged on Profile-bundle naming. The
+    // prompt must instruct agents to file in that shape from the start so
+    // humans don't keep bundling 5–7 micro-issues by hand.
+    const prompt = buildDeepDivePrompt(FIXTURE);
+    expect(prompt).toContain("Profile bundle rule");
+    expect(prompt).toContain("≥2 missing");
+    expect(prompt).toContain("NYCH3 — Profile bundle:");
+    expect(prompt).toContain("Don't open separate issues per field");
+  });
+
+  it("steers same-root-cause findings across N events into a single issue", () => {
+    // Trailing-dash title artifacts (Moooouston #756, GyNO #815, Pedal Files #799,
+    // Space City #1060) used to file N separate issues. The prompt must teach
+    // agents to bundle by root cause with a sample link + count.
+    const prompt = buildDeepDivePrompt(FIXTURE);
+    expect(prompt).toContain("Root-cause bundle rule");
+    expect(prompt).toContain("sample event link");
+    expect(prompt).toContain("not N issues");
+  });
+
+  it("enumerates schema-gap fields explicitly with cross-references to open schema issues", () => {
+    // Generic 'fields with no visible home' guidance was insufficient — agents
+    // kept re-discovering 26.2H3-style endTime/cost gaps. Prompt now lists the
+    // actual fields and the tracking issues that own the schema work.
+    const prompt = buildDeepDivePrompt(FIXTURE);
+    expect(prompt).toContain("`endTime`");
+    expect(prompt).toContain("#504");
+    expect(prompt).toContain("`cost`");
+    expect(prompt).toContain("#503");
+    expect(prompt).toContain("`trailType`");
+    expect(prompt).toContain("`schema-gap`");
+  });
+
+  it("instructs the auditor to verify the kennel was removed from the queue after Mark complete", () => {
+    // Issue #1160: the Mark-complete dropdown is unsafe for chrome-driven
+    // automation. Until the underlying UX is hardened, the prompt asks the
+    // auditor to confirm post-submit by re-loading and checking queue
+    // membership; misattribution → stop, file an admin-tooling issue.
+    const prompt = buildDeepDivePrompt(FIXTURE);
+    expect(prompt).toContain("hard-reload");
+    expect(prompt).toContain("no longer in the queue");
+    expect(prompt).toContain("#1160");
+    expect(prompt).toContain("do **not** re-submit");
+  });
 });
