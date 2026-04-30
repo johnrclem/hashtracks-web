@@ -6,30 +6,61 @@ import {
   applyDateWindow,
   chronoParseDate,
   decodeEntities,
+  EMOJI_RE,
+  formatAmPmTime,
   normalizeHaresField,
   parsePublishDate,
   stripHtmlTags,
+  stripUrls,
 } from "../utils";
 
 /**
  * Chiang Rai Hash House Harriers (CRH3) adapter.
  *
  * chiangraihhh.blogspot.com is a Blogger-hosted blog with 364+ posts.
- * Run announcements have titles matching patterns like:
- *   "CRH3#220"
+ * Run announcements have titles like:
+ *   "CRH3#220 Saturday 26 March"
  *   "CRH3 #218 Saturday 15th February 2025"
  *   "CRH3#217 HAPPY NEW YEAR RUN"
  *
- * Posts are freeform with emojis and variable formatting. The body often
- * contains date, location, and hare info in plain text. Monthly 3rd Saturday.
+ * Bodies follow a loose emoji-labelled template:
+ *   🏃‍♂️Next Run #N🏃‍♀️
+ *   Saturday 28th Mar 26 (This coming Saturday)
+ *   ▶️Hare: Pussy Rainbow
+ *   📍Starting Location - <maps url>
+ *   🕞EARLY TIME - 3 for 3:30 pm start.
+ *   💲Price - All attendees 100 Baht.
+ *
+ * Title dates can disagree with body dates (titles sometimes off by a few
+ * days). The body line "Saturday Nth Mon YY" is canonical — CRH3 runs
+ * monthly on a Saturday, so we prefer the body and treat the title date
+ * as a fallback only.
  */
 
 const KENNEL_TAG = "crh3";
 const DEFAULT_START_TIME = "15:00"; // 3rd Saturday monthly, 3:00 PM start per Chrome research
+/** Default scrape window. CRH3 runs monthly so 12 posts/year. Bumping
+ * maxResults to 100 buffers for run reports and non-run posts that
+ * intersperse the announcements. */
+const BLOGGER_MAX_RESULTS = 100;
 /** Matches CRH3 run posts — requires at least one digit to avoid matching run reports. */
 const RUN_TITLE_RE = /CRH3\s*#?\s*\d+/i;
 /** Extracts the run number if present. */
 const RUN_NUMBER_RE = /CRH3\s*#?\s*(\d+)/i;
+/** Recap/report titles share the run number with the announcement but
+ * have no future-event metadata. Skip them to avoid duplicate parse
+ * errors against `seenRuns`-deduped events.
+ *
+ * Anchored to the start of the title so an announcement like
+ * "CRH3 #230 Photo Run Saturday..." is NOT filtered. Must match a
+ * compound recap phrase (e.g. "Memories of", "Photos from") rather
+ * than any title containing one of those words. */
+const REPORT_TITLE_RE = /^\s*(?:(?:Memories|Memory)\s+of|Photos?\s+(?:of|from)|Report\s+(?:of|on)|Write\s*-?\s*Up\s+of|Recap\s+of)\b/i;
+
+/** Single source of truth for body field labels. Used by both the
+ * label-anchored regexes (in parseCrh3Body's grab()) and the line filter
+ * in extractDescription so the two can't drift. */
+const LABEL_PATTERN = "Hares?|GM|Grand\\s*Master|Starting\\s*Location|Location|Run\\s*Site|Meeting|EARLY\\s*TIME|Start(?:\\s*Time)?|Time|Date|Price|Cost|Hash\\s*Cash|Parking|TIPS|On\\s*After|Circle|ON\\s*ON\\s*ON";
 
 /**
  * Parse a CRH3 post title for run number and optional date.
@@ -53,26 +84,26 @@ export function parseCrh3Title(title: string, publishDateIso: string): {
 }
 
 /**
- * Extract fields from a CRH3 post body. The body is freeform text with
- * emoji separators. We look for date, hare, and location patterns.
- * Exported for unit testing.
+ * Extract fields from a CRH3 post body. The body is loose emoji-labelled
+ * text — see top-of-file template. Exported for unit testing.
  */
 export function parseCrh3Body(bodyHtml: string, publishDateIso: string): {
   date?: string;
   hares?: string;
   location?: string;
+  startTime?: string;
+  cost?: string;
+  description?: string;
 } {
-  const text = decodeEntities(stripHtmlTags(bodyHtml, "\n"))
-    // Strip emoji characters that might interfere with regex
-    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, " ");
+  const text = decodeEntities(stripHtmlTags(bodyHtml, "\n")).replace(EMOJI_RE, " ");
 
-  // Use newline-delimited text with label-anchored regexes that stop at
-  // the next known label or newline to avoid greedy over-matching.
-  const labels = "(?:Hares?|GM|Grand Master|Location|Run\\s*Site|Start|Meeting|Time|Date|On\\s*After)";
-  const stop = `(?=\\n|${labels}\\s*[=:]|$)`;
+  // Trailing stop: newline, end of string, or next known label, so a
+  // value can't run into the next line's label even if newlines drop.
+  const stop = `(?=\\n|(?:${LABEL_PATTERN})\\b|$)`;
 
   const grab = (label: string): string | undefined => {
-    const re = new RegExp(`(?:${label})\\s*[=:]\\s*(.+?)${stop}`, "i");
+    // Allow either ":", "=", or "-" as the label/value delimiter.
+    const re = new RegExp(`(?:${label})\\s*[:=\\-]\\s*(.+?)${stop}`, "i");
     const m = re.exec(text);
     if (!m) return undefined;
     const value = m[1].trim().replace(/\s+/g, " ");
@@ -80,13 +111,62 @@ export function parseCrh3Body(bodyHtml: string, publishDateIso: string): {
   };
 
   const hares = grab("Hares?|GM|Grand Master");
-  const location = grab("Location|Run\\s*Site|Meeting");
+  const location = grab("Starting\\s*Location|Location|Run\\s*Site|Meeting");
+  const cost = grab("Price|Cost|Hash\\s*Cash");
 
-  // Try to find a date in the body
+  // EARLY TIME line: "3 for 3:30 pm start" — pull the LATER (run-start)
+  // time when both are present, since hashers stagger arrival vs start.
+  const earlyLine = grab("EARLY\\s*TIME|Start(?:\\s*Time)?|Time");
+  const startTime = parseStartTime(earlyLine);
+
+  // Strip URLs before chrono — Google Maps short-link base64 fragments
+  // contain digit sequences that chrono mis-parses as dates (verified
+  // live: #216 had `g_ep=EgoyMDI1MTExMi4w` decode to "20251112" and
+  // chrono picked Nov 16 instead of the title's Nov 22).
   const refDate = parsePublishDate(publishDateIso);
-  const date = chronoParseDate(text, "en-GB", refDate, { forwardDate: true }) ?? undefined;
+  const date = chronoParseDate(stripUrls(text), "en-GB", refDate, { forwardDate: true }) ?? undefined;
 
-  return { date, hares, location };
+  const description = extractDescription(text);
+
+  return { date, hares, location, startTime, cost, description };
+}
+
+/** Parse "3 for 3:30 pm start" → "15:30". Picks the run-start time
+ * (last clock pattern) and the meridiem nearest to it. */
+export function parseStartTime(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  const re = /(\d{1,2})(?:[:.](\d{2}))?/g;
+  const matches = [...value.matchAll(re)];
+  if (matches.length === 0) return undefined;
+  const last = matches[matches.length - 1];
+  const hour = Number.parseInt(last[1], 10);
+  const minute = last[2] ? Number.parseInt(last[2], 10) : 0;
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return undefined;
+  // Anchor meridiem detection to text near the matched time (within
+  // ~12 chars) so an unrelated "PM" earlier in the input doesn't flip
+  // a morning time to afternoon.
+  const lastIndex = last.index ?? 0;
+  const window = value.slice(lastIndex, lastIndex + last[0].length + 12);
+  const ampm = /pm/i.test(window) ? "pm" : (/am/i.test(window) ? "am" : "");
+  return ampm ? formatAmPmTime(hour, minute, ampm) : `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`;
+}
+
+/** Pull freeform description line(s) — anywhere in the body that isn't
+ * a header line, date line, labelled line, URL line, or short noise. */
+function extractDescription(text: string): string | undefined {
+  const lines = text.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+  const labelStart = new RegExp(`^(?:${LABEL_PATTERN})\\b`, "i");
+  const headerLike = /^Next\s*Run|^Saturday\b|^(?:https?:|www\.)/i;
+  const desc: string[] = [];
+  for (const line of lines) {
+    if (headerLike.test(line)) continue;
+    if (labelStart.test(line)) continue;
+    if (line.length < 8) continue;
+    desc.push(line);
+  }
+  if (desc.length === 0) return undefined;
+  const joined = desc.join(" ");
+  return joined.length > 240 ? `${joined.slice(0, 239)}…` : joined;
 }
 
 /** A minimal Blogger post shape for parsePost. */
@@ -108,14 +188,16 @@ export type ParseCrh3PostResult =
  */
 export function parseCrh3Post(post: Crh3PostInput): ParseCrh3PostResult {
   const rawTitle = post.title;
-  if (!RUN_TITLE_RE.test(rawTitle)) {
+  if (!RUN_TITLE_RE.test(rawTitle) || REPORT_TITLE_RE.test(rawTitle)) {
     return { ok: false, reason: "not-run-post", title: rawTitle };
   }
 
   const titleFields = parseCrh3Title(rawTitle, post.published);
   const body = parseCrh3Body(post.content, post.published);
 
-  const date = titleFields.date ?? body.date;
+  // Body date is canonical (matches CRH3's Saturday cadence). Title date
+  // is fallback for posts where the body date didn't parse.
+  const date = body.date ?? titleFields.date;
   if (!date) return { ok: false, reason: "no-date", title: rawTitle };
 
   return {
@@ -123,10 +205,13 @@ export function parseCrh3Post(post: Crh3PostInput): ParseCrh3PostResult {
     event: {
       date,
       kennelTags: [KENNEL_TAG],
+      title: decodeEntities(rawTitle).trim(),
+      description: body.description,
       runNumber: titleFields.runNumber,
       hares: normalizeHaresField(body.hares),
       location: body.location,
-      startTime: DEFAULT_START_TIME,
+      startTime: body.startTime ?? DEFAULT_START_TIME,
+      cost: body.cost,
       sourceUrl: post.url,
     },
   };
@@ -143,7 +228,7 @@ export class Crh3Adapter implements SourceAdapter {
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
 
-    const bloggerResult = await fetchBloggerPosts(baseUrl);
+    const bloggerResult = await fetchBloggerPosts(baseUrl, BLOGGER_MAX_RESULTS);
     if (bloggerResult.error) {
       errorDetails.fetch = [
         {

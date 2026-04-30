@@ -342,6 +342,23 @@ export function formatAmPmTime(hour: number, minute: number, ampm: string): stri
   return `${String(h).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 }
 
+/**
+ * Wide emoji-strip regex used by adapters whose source bodies are
+ * decorated with emoji bullets/icons. Explicit ranges rather than
+ * `\p{Emoji}` because the latter also matches digits, `#`, `*`.
+ * Covers: Misc Technical (clocks), Geometric Shapes (▶), Misc Symbols
+ * (☎ ☀), Dingbats (✓), all main emoji blocks, variation selectors,
+ * ZWJ, keycap combiner, and tag chars.
+ */
+export const EMOJI_RE = /[\u{2300}-\u{27BF}\u{1F300}-\u{1FFFF}\u{2600}-\u{26FF}\u{FE00}-\u{FE0F}\u{200D}\u{20E3}\u{E0020}-\u{E007F}]/gu;
+
+/** Strip http/https URLs from text. Useful before passing user-facing
+ * text to chrono — base64 fragments inside Maps short-links commonly
+ * mis-parse as dates. */
+export function stripUrls(text: string): string {
+  return text.replace(/https?:\/\/\S+/g, " ");
+}
+
 export function parse12HourTime(text: string): string | undefined {
   const match = /(\d{1,2}):(\d{2,3})\s*(am|pm)/i.exec(text);
   if (!match) return undefined;
