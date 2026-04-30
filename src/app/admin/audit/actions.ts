@@ -5,6 +5,11 @@ import { prisma } from "@/lib/db";
 import { getAdminUser } from "@/lib/auth";
 import { KNOWN_AUDIT_RULES, type AuditFinding } from "@/pipeline/audit-checks";
 import { DASHBOARD_STREAMS } from "@/lib/audit-stream-meta";
+import type {
+  HarelinePromptInputs,
+  RecentlyFixedItem,
+  FocusAreaItem,
+} from "@/lib/admin/hareline-prompt";
 
 /** All audit dashboard actions are admin-only — server actions are POST endpoints anyone can hit. */
 async function requireAdmin(): Promise<void> {
@@ -602,4 +607,65 @@ export async function getRecentOpenIssues(limit = 30): Promise<RecentOpenIssue[]
     orderBy: { githubCreatedAt: "desc" },
     take: limit,
   });
+}
+
+// ── Hareline prompt inputs (chrome-event auto-rotated sections) ─────
+
+const HARELINE_PROMPT_WINDOW_DAYS = 14;
+const HARELINE_PROMPT_LIST_LIMIT = 8;
+
+/**
+ * Fetch the dynamic inputs for `buildHarelinePrompt` — recently-closed audit
+ * issues and recently-onboarded sources. Replaces the hand-curated "Recently
+ * Fixed" / "Focus Areas" sections in the static prompt that decayed into
+ * stale references (e.g. PR #423 from weeks ago).
+ */
+export async function getHarelinePromptInputs(): Promise<HarelinePromptInputs> {
+  await requireAdmin();
+  const since = daysAgo(HARELINE_PROMPT_WINDOW_DAYS);
+
+  const [closedIssues, recentSources] = await Promise.all([
+    prisma.auditIssue.findMany({
+      where: {
+        state: "closed",
+        delistedAt: null,
+        githubClosedAt: { gte: since },
+        // Scope to the human-driven streams. Including AUTOMATED would mix
+        // cron-auto-closed structural findings into a list whose readers are
+        // chrome auditors looking for "fixes the team verified."
+        stream: { in: [AuditStream.CHROME_EVENT, AuditStream.CHROME_KENNEL] },
+      },
+      select: { githubNumber: true, title: true, githubClosedAt: true },
+      orderBy: { githubClosedAt: "desc" },
+      take: HARELINE_PROMPT_LIST_LIMIT,
+    }),
+    prisma.source.findMany({
+      where: { enabled: true, createdAt: { gte: since } },
+      select: { name: true, type: true, createdAt: true },
+      orderBy: { createdAt: "desc" },
+      take: HARELINE_PROMPT_LIST_LIMIT,
+    }),
+  ]);
+
+  // `githubClosedAt` is non-null at runtime (the where clause filters
+  // `gte: since`), but Prisma's projected type still includes null. Filter
+  // narrows it without the bare `!` assertion Sonar flagged.
+  const recentlyFixed: RecentlyFixedItem[] = closedIssues
+    .filter(
+      (i): i is typeof i & { githubClosedAt: Date } => i.githubClosedAt !== null,
+    )
+    .map((i) => ({
+      issueNumber: i.githubNumber,
+      title: i.title,
+      // easternDate keeps prompt dates in the same bucket as the rest of the dashboard.
+      closedDate: easternDate(i.githubClosedAt),
+    }));
+
+  const focusAreas: FocusAreaItem[] = recentSources.map((s) => ({
+    sourceName: s.name,
+    sourceType: s.type,
+    addedDate: easternDate(s.createdAt),
+  }));
+
+  return { recentlyFixed, focusAreas };
 }

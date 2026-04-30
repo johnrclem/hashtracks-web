@@ -1,4 +1,3 @@
-import { describe, it, expect } from "vitest";
 import { buildDeepDivePrompt } from "./deep-dive-prompt";
 import type { DeepDiveCandidate } from "@/app/admin/audit/actions";
 
@@ -15,122 +14,79 @@ const FIXTURE: DeepDiveCandidate = {
   ],
 };
 
+// Pre-compute once. The prompt is a pure function of FIXTURE; sharing the
+// build keeps the test parametric (each row is just a different (label,
+// substrings) pair fed into a single it.each block) and avoids the fan-out
+// of near-identical it() blocks Sonar's S4144 was flagging on this file.
+const prompt = buildDeepDivePrompt(FIXTURE);
+
+/**
+ * Each row is `[label, [substring, ...]]` — one logical contract the prompt
+ * must honor. Tuple form on single lines keeps Sonar's CPD detector from
+ * flagging the table as a duplicated block (the multi-line `{ label, expected }`
+ * object form repeated 16 times tripped the new-code duplication gate).
+ *
+ * Adding a guarantee = new row, no new scaffolding. Per-row "why" notes
+ * inline above each tuple.
+ */
+type ContainsCase = readonly [label: string, expected: readonly string[]];
+
+// prettier-ignore
+const CONTAINS_CASES: readonly ContainsCase[] = [
+  // Identity + linking — issue lands in the correct kennel/region context.
+  ["kennel name, region, and HashTracks URL", ["NYCH3", "New York City, NY", "https://www.hashtracks.xyz/kennels/nych3"]],
+  // Source enumeration — auditor sees every adapter type.
+  ["every source with type and URL", ["hashnyc.com", "HTML_SCRAPER", "https://hashnyc.com", "Hash Rego (NYCH3)", "HASHREGO"]],
+  // Last-dived display when never run.
+  ["'never' for kennels without a prior deep dive", ["Last deep dive:** never"]],
+  // Filing instructions present; labels list is URL-encoded so future kennelCodes with reserved chars don't corrupt the link.
+  ["What-to-check + filing instructions + URL-encoded labels", ["## What to check", "## Filing findings", "audit%2Calert"]],
+  // Stream + kennel labels in the prefilled URL — without these the dashboard's "Findings by stream" panel buckets the issue as UNKNOWN.
+  ["stream + kennel labels in the prefilled new-issue URL", ["audit:chrome-kennel", "kennel:nych3"]],
+  // Kennel-page completeness section.
+  ["kennel-page improvements (founded year, social, hash cash)", ["Kennel page completeness", "Founded year", "Facebook", "Hash Cash"]],
+  // Verify-current-state pre-step: guards against false-positive "missing data" findings where the auditor inspected only the source.
+  ["verify-current-state pre-step", ["Verify current state before flagging", "spot-check 2-3 of the highest run-numbered events"]],
+  // Historical-backfill routing by source type. Wide-window scrapes trigger reconcile (which cancels sole-source events) — safe for complete-enumeration APIs, unsafe for partial-enumeration sources.
+  ["historical backfill by source type", ["Historical events", "`GOOGLE_CALENDAR`", "`ICAL_FEED`", "`MEETUP`", "`HARRIER_CENTRAL`", "`HASHREGO`", "`HTML_SCRAPER`", "`GOOGLE_SHEETS`", "wider scrape window is **unsafe**", "one-shot DB insert", "auth-protected"]],
+  // Schema-gap framing — fields with no visible event-card slot get tagged as schema-gap, not extraction bugs.
+  ["schema-gap framing anchored on event-card visibility", ["schema gap", "visible home on a HashTracks event card", "shiggy level"]],
+  // Verbatim-source contract on filing bodies. Earlier audits synthesized expected values the adapter couldn't emit.
+  ["verbatim-source contract for Expected/Current values", ["verbatim text from the source", "not** a synthesized cleanup", "exact text from the HashTracks page, verbatim"]],
+  // CTA matches the dialog button label after #1160 kennel-echo change.
+  ["Mark <kennel> complete CTA matching the dialog button", ["Mark NYCH3 complete"]],
+  // Suppressions endpoint reference so deep dives don't re-flag globally-suppressed rules.
+  ["live suppressions endpoint reference", ["https://hashtracks.xyz/api/audit/suppressions", "Active suppressions"]],
+  // Profile-bundle steering — file ONE bundled issue rather than 5–7 micro-issues per field (PR #1116, PR #974, issue #1029).
+  ["profile-bundle steering for ≥2 missing fields", ["Profile bundle rule", "≥2 missing", "NYCH3 — Profile bundle:", "Don't open separate issues per field"]],
+  // Root-cause bundling — same artifact across N events → ONE issue.
+  ["root-cause bundling across N events", ["Root-cause bundle rule", "sample event link", "not N issues"]],
+  // Schema-gap field list with #503/#504 cross-references.
+  ["schema-gap field list with #503/#504 cross-references", ["`endTime`", "#504", "`cost`", "#503", "`trailType`", "`schema-gap`"]],
+  // Post-submit reload-and-verify — issue #1160 mitigation; auditor confirms the kennel actually dropped from the queue after Submit.
+  ["post-submit reload-and-verify (issue #1160 mitigation)", ["hard-reload", "no longer in the queue", "#1160", "do **not** re-submit"]],
+];
+
 describe("buildDeepDivePrompt", () => {
-  it("includes kennel name, region, and HashTracks URL", () => {
-    const prompt = buildDeepDivePrompt(FIXTURE);
-    expect(prompt).toContain("NYCH3");
-    expect(prompt).toContain("New York City, NY");
-    expect(prompt).toContain("https://www.hashtracks.xyz/kennels/nych3");
+  it.each(CONTAINS_CASES)("contains %s", (_label, expected) => {
+    for (const substring of expected) {
+      expect(prompt).toContain(substring);
+    }
   });
 
-  it("lists every source with type and URL", () => {
-    const prompt = buildDeepDivePrompt(FIXTURE);
-    expect(prompt).toContain("hashnyc.com");
-    expect(prompt).toContain("HTML_SCRAPER");
-    expect(prompt).toContain("https://hashnyc.com");
-    expect(prompt).toContain("Hash Rego (NYCH3)");
-    expect(prompt).toContain("HASHREGO");
-  });
-
-  it("shows 'never' when there's no prior deep dive", () => {
-    const prompt = buildDeepDivePrompt(FIXTURE);
-    expect(prompt).toContain("Last deep dive:** never");
-  });
-
-  it("formats prior deep dive date as ISO date", () => {
-    const prompt = buildDeepDivePrompt({
+  it("formats prior deep dive date as ISO date when one is set", () => {
+    const dated = buildDeepDivePrompt({
       ...FIXTURE,
       lastDeepDiveAt: new Date("2026-03-15T12:00:00Z"),
     });
-    expect(prompt).toContain("Last deep dive:** 2026-03-15");
-  });
-
-  it("includes the 'What to check' and filing instructions", () => {
-    const prompt = buildDeepDivePrompt(FIXTURE);
-    expect(prompt).toContain("## What to check");
-    expect(prompt).toContain("## Filing findings");
-    expect(prompt).toContain("audit,alert");
-  });
-
-  it("bakes the stream + kennel labels into the pre-filled new-issue URL", () => {
-    // The dashboard's "Findings by stream" panel reads these labels to attribute
-    // each issue to the chrome-kennel stream and the right kennel — without
-    // them, every deep-dive issue lands in the UNKNOWN bucket.
-    const prompt = buildDeepDivePrompt(FIXTURE);
-    expect(prompt).toContain("audit:chrome-kennel");
-    expect(prompt).toContain("kennel:nych3");
-  });
-
-  it("calls out kennel-page improvements (founded year, social links, etc.)", () => {
-    const prompt = buildDeepDivePrompt(FIXTURE);
-    expect(prompt).toContain("Kennel page completeness");
-    expect(prompt).toContain("Founded year");
-    expect(prompt).toContain("Facebook");
-    expect(prompt).toContain("Hash Cash");
-  });
-
-  it("tells the auditor to verify current HashTracks state before filing", () => {
-    // Guards against false-positive "missing data" findings where the auditor
-    // inspected only the source and never checked the HashTracks side.
-    const prompt = buildDeepDivePrompt(FIXTURE);
-    expect(prompt).toContain("Verify current state before flagging");
-    expect(prompt).toContain("spot-check 2-3 of the highest run-numbered events");
-  });
-
-  it("routes historical backfill by source type (wide-window scrape vs one-shot insert)", () => {
-    // Wide-window scrapes trigger the reconcile step, which cancels sole-source
-    // events the adapter didn't return. That's safe for complete-enumeration
-    // APIs but unsafe for partial-enumeration sources — the prompt must
-    // distinguish by listing the actual source-type identifiers.
-    const prompt = buildDeepDivePrompt(FIXTURE);
-    expect(prompt).toContain("Historical events");
-    // Complete-enumeration bucket — named by SourceType identifier so the
-    // auditor can match against prisma/seed-data/sources.ts entries
-    expect(prompt).toContain("`GOOGLE_CALENDAR`");
-    expect(prompt).toContain("`ICAL_FEED`");
-    expect(prompt).toContain("`MEETUP`");
-    expect(prompt).toContain("`HARRIER_CENTRAL`");
-    expect(prompt).toContain("`HASHREGO`");
-    // Partial-enumeration bucket
-    expect(prompt).toContain("`HTML_SCRAPER`");
-    expect(prompt).toContain("`GOOGLE_SHEETS`");
-    expect(prompt).toContain("wider scrape window is **unsafe**");
-    // The "one-shot DB insert" phrase still appears as the partial-enumeration fallback
-    expect(prompt).toContain("one-shot DB insert");
-    // The prompt must not instruct the auditor to hit the cron endpoint directly —
-    // it's auth-protected and an admin-initiated operation.
-    expect(prompt).toContain("auth-protected");
-  });
-
-  it("tags schema-gap fields using event-card visibility, not a hardcoded column list", () => {
-    // Prevents filing "missing extraction" issues for fields like shiggy
-    // level, trail type, beer meister that have no user-visible slot.
-    // Uses visible-evidence anchoring instead of a schema list that would
-    // drift when the Event model changes (e.g. haresText vs hares).
-    const prompt = buildDeepDivePrompt(FIXTURE);
-    expect(prompt).toContain("schema gap");
-    expect(prompt).toContain("visible home on a HashTracks event card");
-    expect(prompt).toContain("shiggy level");
-  });
-
-  it("requires verbatim source text in the Expected Value filing line", () => {
-    // Earlier audits synthesized expected values ("2FC" from "2FC Takes Fenton",
-    // "1992-06-21" from "1992") that the adapter couldn't realistically emit.
-    const prompt = buildDeepDivePrompt(FIXTURE);
-    expect(prompt).toContain("verbatim text from the source");
-    expect(prompt).toContain("not** a synthesized cleanup");
-    // Also guard the Current Extracted Value line — it shares the verbatim
-    // contract so both halves of the diff are symmetric.
-    expect(prompt).toContain("exact text from the HashTracks page, verbatim");
-  });
-
-  it("ends with the 'mark deep dive complete' instruction", () => {
-    const prompt = buildDeepDivePrompt(FIXTURE);
-    expect(prompt).toMatch(/Mark deep dive complete/);
+    expect(dated).toContain("Last deep dive:** 2026-03-15");
   });
 
   it("notes when a kennel has no enabled sources", () => {
-    const prompt = buildDeepDivePrompt({ ...FIXTURE, sources: [] });
-    expect(prompt).toContain("no enabled sources");
+    const promptWithNoSources = buildDeepDivePrompt({
+      ...FIXTURE,
+      sources: [],
+    });
+    expect(promptWithNoSources).toContain("no enabled sources");
   });
 });

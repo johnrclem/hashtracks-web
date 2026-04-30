@@ -7,7 +7,11 @@
  * the same six lines and regex.
  */
 
-const DEFAULT_REPO = "johnrclem/hashtracks-web";
+/** Production repo slug. Exported for display-only callers (prompt builders,
+ *  href targets) that don't need env-driven overrides. */
+export const HASHTRACKS_REPO = "johnrclem/hashtracks-web";
+
+const DEFAULT_REPO = HASHTRACKS_REPO;
 const REPO_PATTERN = /^[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+$/;
 
 /** Read GITHUB_REPOSITORY from env, validate the `owner/name` shape, return it. */

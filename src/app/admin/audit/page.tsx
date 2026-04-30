@@ -1,5 +1,3 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 import { prisma } from "@/lib/db";
 import {
   getAuditTrends,
@@ -11,19 +9,21 @@ import {
   getStreamTrends,
   getOpenIssueCountsByStream,
   getRecentOpenIssues,
+  getHarelinePromptInputs,
 } from "./actions";
 import { KNOWN_AUDIT_RULES } from "@/pipeline/audit-checks";
 import { AuditDashboard } from "@/components/admin/AuditDashboard";
+import { buildHarelinePrompt } from "@/lib/admin/hareline-prompt";
 
-/** Load the daily hareline audit prompt from the markdown file at the repo root.
- *  Read at request time so edits to the doc reflect on next refresh without a redeploy.
- *  Returns null on failure (file missing, permissions) so the dashboard can hide the
- *  copy button rather than render an empty string. Errors are logged for visibility. */
+/** Build the daily hareline audit prompt at request time so the curated
+ *  sections (recently-fixed, focus areas) reflect live data. Returns null on
+ *  failure so the dashboard hides the copy button rather than rendering empty. */
 async function loadHarelinePrompt(): Promise<string | null> {
   try {
-    return await readFile(path.join(process.cwd(), "docs/audit-chrome-prompt.md"), "utf-8");
+    const inputs = await getHarelinePromptInputs();
+    return buildHarelinePrompt(inputs);
   } catch (err) {
-    console.warn("[admin/audit] failed to load hareline prompt:", err);
+    console.warn("[admin/audit] failed to build hareline prompt:", err);
     return null;
   }
 }
