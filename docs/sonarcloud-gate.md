@@ -37,11 +37,9 @@ The `main` branch gate currently shows ERROR because of historical debt:
 
 This is **deferred Phase B** of [#1086](https://github.com/johnrclem/hashtracks-web/issues/1086): a one-time SAFE-resolve sweep of the existing hotspots and any genuinely-stale bug findings. PR-gate relief (this doc) lands first; the main-gate green-up follows separately.
 
-If you want to help with Phase B, query unreviewed hotspots via the SonarQube MCP:
-```
-mcp__sonarqube__hotspots(project_key="johnrclem_hashtracks-web", status="TO_REVIEW")
-```
-Most are bounded-input regex (`typescript:S5852`) or `http://` URLs in seed files (`typescript:S5332`) — low-risk in context, but each needs a per-hotspot SAFE-resolve.
+If you want to help with Phase B, query unreviewed hotspots via the SonarQube MCP tool from inside Claude Code — invoke the `mcp__sonarqube__hotspots` tool with `project_key="johnrclem_hashtracks-web"` and `status="TO_REVIEW"`. (Note: this is a Claude Code tool name, not a shell command — there is no CLI you can run literally.) For ad-hoc browsing, the SonarCloud web UI works too: <https://sonarcloud.io/project/security_hotspots?id=johnrclem_hashtracks-web>.
+
+Most hotspots are bounded-input regex (`typescript:S5852`) or `http://` URLs in seed files (`typescript:S5332`) — low-risk in context, but each needs a per-hotspot SAFE-resolve.
 
 ## Why we don't use "previous version" for the PR new-code period
 
