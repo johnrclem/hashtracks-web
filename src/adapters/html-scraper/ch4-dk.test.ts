@@ -237,10 +237,17 @@ describe("Ch4DkAdapter.fetch", () => {
   });
 
   it("filters events outside the date window", async () => {
-    mockFetchResponse(minimalRunsheet);
-    const result = await adapter.fetch(makeSource(), { days: 1 });
-    // none of the 2026 runs are within ±1 day of test execution
-    expect(result.events).toHaveLength(0);
+    // Pin the clock to a date far from any 2026 fixture event so the ±1-day
+    // window can't accidentally catch one when CI runs near a fixture date.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-01-01T12:00:00Z"));
+    try {
+      mockFetchResponse(minimalRunsheet);
+      const result = await adapter.fetch(makeSource(), { days: 1 });
+      expect(result.events).toHaveLength(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("captures runsheetYear in diagnosticContext", async () => {
