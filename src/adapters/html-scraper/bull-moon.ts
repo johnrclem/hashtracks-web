@@ -27,6 +27,7 @@ import { hasAnyErrors } from "../types";
 import {
   MONTHS_ZERO,
   chronoParseDate,
+  EMOJI_RE,
   extractUkPostcode,
   googleMapsSearchUrl,
   parse12HourTime,
@@ -37,9 +38,6 @@ import {
 
 const KENNEL_CODE = "bullmoon";
 const DISPLAY_NAME = "Bull Moon";
-
-// Explicit ranges rather than \p{Emoji} which also matches digits/#/*
-const EMOJI_RE = /[\u{1F300}-\u{1FFFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{200D}\u{20E3}\u{E0020}-\u{E007F}]/gu;
 
 // ---------------------------------------------------------------------------
 // Event classification

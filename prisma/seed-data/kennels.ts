@@ -3362,6 +3362,7 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "crh3", shortName: "Chiang Rai H3", fullName: "Chiang Rai Hash House Harriers",
       region: "Chiang Rai", country: "Thailand",
       website: "https://chiangraihhh.blogspot.com",
+      hashCash: "200 baht (drinkers) / 100 baht (non)",
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Monthly",
       scheduleNotes: "Monthly 3rd Saturday runs. Trail announcements on chiangraihhh.blogspot.com with run number and details.",
       description: "Chiang Rai's monthly hash in northern Thailand. Blog posts chronicle each run with emojis, freeform details, and run number in titles like 'CRH3#220'.",
