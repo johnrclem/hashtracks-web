@@ -22,9 +22,16 @@ export default async function OgImage({ params }: { params: Promise<{ slug: stri
       scheduleDayOfWeek: true,
       scheduleFrequency: true,
       isHidden: true,
+      // #1023 spec D8: count co-hosted events too — go through the
+      // EventKennel join so a kennel that's only a secondary on upcoming
+      // events still reads as "active" on its own page's OG image.
+      // `isCanonical: true` matches the kennel page's event list query
+      // so the OG status badge agrees with what the page actually shows.
       _count: {
         select: {
-          events: { where: { date: { gte: todayUtc }, status: "CONFIRMED" } },
+          eventKennels: {
+            where: { event: { date: { gte: todayUtc }, status: "CONFIRMED", isCanonical: true } },
+          },
         },
       },
     },
@@ -39,7 +46,7 @@ export default async function OgImage({ params }: { params: Promise<{ slug: stri
     );
   }
 
-  const status = getActivityStatus(kennel.lastEventDate, kennel._count.events > 0);
+  const status = getActivityStatus(kennel.lastEventDate, kennel._count.eventKennels > 0);
   const statusText = status === "active" ? "Active" : status === "possibly-inactive" ? "Possibly Inactive" : status === "inactive" ? "Inactive" : "";
   const statusColor = status === "active" ? "#4ade80" : status === "possibly-inactive" ? "#facc15" : status === "inactive" ? "#f87171" : "#71717a";
   const schedule = [kennel.scheduleFrequency, kennel.scheduleDayOfWeek].filter(Boolean).join(" · ");

@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { prisma } from "@/lib/db";
-import { regionBySlug, getStateGroup } from "@/lib/region";
+import { regionBySlug } from "@/lib/region";
+import { buildNextEventMap, serializeKennelWithNext } from "@/lib/kennel-directory";
 import { getActivityStatus } from "@/lib/activity-status";
 import { getTodayUtcNoon } from "@/lib/date";
 import { generateRegionIntro, buildRegionItemListJsonLd, safeJsonLd } from "@/lib/seo";
@@ -32,15 +33,23 @@ export async function generateMetadata({
       id: true,
       lastEventDate: true,
       scheduleDayOfWeek: true,
+      // #1023 spec D8: directory counts include co-hosted events for both
+      // kennels — go through the EventKennel join so a kennel that's only
+      // a secondary co-host on upcoming events still reads as "active".
+      // `isCanonical: true` matches the next-event-map query below + the
+      // page intro's canonical-only event derivation so the metadata stat
+      // and the rendered page agree.
       _count: {
         select: {
-          events: { where: { date: { gte: todayMeta }, status: "CONFIRMED" } },
+          eventKennels: {
+            where: { event: { date: { gte: todayMeta }, status: "CONFIRMED", isCanonical: true } },
+          },
         },
       },
     },
   });
   const activeCount = kennels.filter(
-    (k) => getActivityStatus(k.lastEventDate, k._count.events > 0) === "active",
+    (k) => getActivityStatus(k.lastEventDate, k._count.eventKennels > 0) === "active",
   ).length;
   const days = kennels.map((k) => k.scheduleDayOfWeek).filter(Boolean) as string[];
   const intro = generateRegionIntro(region.name, activeCount, days);
@@ -97,36 +106,32 @@ export default async function RegionPage({
         lastEventDate: true,
       },
     }),
+    // #1023 spec D8: include co-hosted events. The nested `eventKennels`
+    // selector pushes the visible-in-region filter into SQL so we only
+    // return the kennel-link rows the directory actually attributes to.
     prisma.event.findMany({
       where: {
         date: { gte: todayUtc },
         status: "CONFIRMED",
         isCanonical: true,
-        kennel: { region: region.name, isHidden: false },
+        eventKennels: { some: { kennel: { region: region.name, isHidden: false } } },
       },
       orderBy: { date: "asc" },
-      select: { kennelId: true, date: true, title: true },
+      select: {
+        date: true,
+        title: true,
+        eventKennels: {
+          where: { kennel: { region: region.name, isHidden: false } },
+          select: { kennelId: true },
+        },
+      },
     }),
   ]);
 
-  // Build next event map
-  const nextEventMap = new Map<string, { date: Date; title: string | null }>();
-  for (const event of upcomingEvents) {
-    if (!nextEventMap.has(event.kennelId)) {
-      nextEventMap.set(event.kennelId, { date: event.date, title: event.title });
-    }
-  }
-
-  // Serialize for client
-  const kennelsWithNext = kennels.map((k) => {
-    const next = nextEventMap.get(k.id);
-    return {
-      ...k,
-      stateGroup: getStateGroup(k.region),
-      nextEvent: next ? { date: next.date.toISOString(), title: next.title } : null,
-      lastEventDate: k.lastEventDate ? k.lastEventDate.toISOString() : null,
-    };
-  });
+  // #1023 spec D8: attribute each event to every region-matching kennel
+  // on it (primary + co-hosts). See `src/lib/kennel-directory.ts`.
+  const nextEventMap = buildNextEventMap(upcomingEvents);
+  const kennelsWithNext = kennels.map((k) => serializeKennelWithNext(k, nextEventMap));
 
   // Compute intro
   const activeCount = kennels.filter(
