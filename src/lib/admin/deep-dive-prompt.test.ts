@@ -124,9 +124,11 @@ describe("buildDeepDivePrompt", () => {
     expect(prompt).toContain("exact text from the HashTracks page, verbatim");
   });
 
-  it("ends with the 'mark deep dive complete' instruction", () => {
+  it("interpolates the kennel name into the 'Mark <kennel> complete' CTA so it matches the dialog button label", () => {
+    // CodeRabbit flagged the prior wording ("Mark deep dive complete") drifting
+    // from the dialog button text after #1160's kennel-echo change.
     const prompt = buildDeepDivePrompt(FIXTURE);
-    expect(prompt).toMatch(/Mark deep dive complete/);
+    expect(prompt).toContain("Mark NYCH3 complete");
   });
 
   it("notes when a kennel has no enabled sources", () => {

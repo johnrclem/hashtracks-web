@@ -13,6 +13,7 @@ import { HASHTRACKS_REPO } from "@/lib/github-repo";
 import {
   AUDIT_SUPPRESSIONS_URL,
   SCHEMA_GAP_FIELDS_MD,
+  renderFilingInstructions,
 } from "./audit-prompt-shared";
 
 export interface RecentlyFixedItem {
@@ -138,7 +139,7 @@ These require visual/semantic judgment that the script cannot do:
 4. **Cross-kennel duplicates:** Same physical event appearing under two different kennels.
 5. **Missing data:** Source has hares/location/description but HashTracks doesn't — the adapter is not extracting available fields.
 6. **Duplicate values across fields (source data entry, not adapter bug):** If the same text appears in both \`hares\` and \`location\` (or in any two semantically-distinct fields), that's almost always a kennel data-entry mistake — the user pasted the same value into two form slots on the source. **Check the source event/page directly** before hypothesizing adapter fallback logic (if the source is form-backed, verify which raw fields were populated). File the issue, but frame it as "source data entry" rather than "adapter extraction" so it isn't routed to an adapter fix.
-7. **Schema gap vs extraction gap:** Only flag fields that have a visible home on a HashTracks event card. Look at an event page to see what's displayed — title, date, start time, hares, location, description, run number, cost are all user-visible today. The fields below have **no visible home on HashTracks event cards today** — tag those as **schema gap** findings, not extraction bugs:
+7. **Schema gap vs extraction gap:** Only flag fields that have a visible home on a HashTracks event card. Look at an event page to see what's displayed — title, date, start time, hares, location, description, run number are user-visible today. The fields below do **not** have a column on the Event model yet — tag those as **schema gap** findings, not extraction bugs:
 ${SCHEMA_GAP_FIELDS_MD}
 
 ## Active Suppressions
@@ -159,25 +160,8 @@ ${renderFocusAreas(inputs.focusAreas)}
 
 ## Output: Filing Issues
 
-For each issue found, try to file it as a GitHub issue:
+**Finding the kennelCode:** it is the last URL segment on the kennel's HashTracks page — e.g. \`agnews\` for \`https://www.hashtracks.xyz/kennels/agnews\`, \`ah3-hi\` for \`https://www.hashtracks.xyz/kennels/ah3-hi\`. If the URL is ambiguous (e.g. two kennels share the "AH3" shortName), open the kennel page and verify the slug in the address bar before filing — do not guess. Substitute the resolved value for \`{KENNEL_CODE}\` in the URL below.
 
-**Option 1 (preferred):** Navigate to this URL with the title, body, and labels filled in. \`title\` and \`body\` MUST be URL-encoded (use \`encodeURIComponent\`) — raw newlines, \`&\`, or \`#\` will break the query string. The labels list MUST include \`audit:chrome-event\` for stream attribution and \`kennel:<kennelCode>\` (the kennel's HashTracks code, lowercase, hyphenated) for kennel attribution. The dashboard's "Findings by stream" panel reads these labels — without them the issue lands in the \`UNKNOWN\` bucket.
-
-**Finding the kennelCode:** it is the last URL segment on the kennel's HashTracks page — e.g. \`agnews\` for \`https://www.hashtracks.xyz/kennels/agnews\`, \`ah3-hi\` for \`https://www.hashtracks.xyz/kennels/ah3-hi\`. If the URL is ambiguous (e.g. two kennels share the "AH3" shortName), open the kennel page and verify the slug in the address bar before filing — do not guess.
-
-\`\`\`text
-https://github.com/${HASHTRACKS_REPO}/issues/new?labels=audit,alert,audit:chrome-event,kennel:{KENNEL_CODE}&title={URL-ENCODED TITLE}&body={URL-ENCODED BODY}
-\`\`\`
-
-**Option 2 (fallback):** Output the finding in this format for manual filing:
-
-### [Kennel Short Name] — [Issue Category]
-* **Impacted HashTracks Event URL:** [exact URL]
-* **Source URL:** [original source URL]
-* **Suspected Adapter:** [source type]
-* **Field(s) Affected:** [field name]
-* **Current Extracted Value:** "[exact text from the HashTracks page, verbatim]"
-* **Expected Value:** "[verbatim text from the source — **not** a synthesized cleanup or inference. Paste exactly what the source shows.]"
-* **CLI Fix Hypothesis:** [brief guess on root cause]
+${renderFilingInstructions({ stream: "chrome-event", kennelLabel: "{KENNEL_CODE}" })}
 `;
 }

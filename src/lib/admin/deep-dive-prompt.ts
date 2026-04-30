@@ -1,8 +1,8 @@
 import type { DeepDiveCandidate } from "@/app/admin/audit/actions";
-import { HASHTRACKS_REPO } from "@/lib/github-repo";
 import {
   AUDIT_SUPPRESSIONS_URL,
   SCHEMA_GAP_FIELDS_MD,
+  renderFilingInstructions,
 } from "./audit-prompt-shared";
 
 const HASHTRACKS_KENNEL_BASE = "https://www.hashtracks.xyz/kennels";
@@ -60,7 +60,7 @@ Before flagging anything, open this list — kennel+rule combos here are accepte
    - **Logo / branding** — does the source page expose a direct logo URL we can embed? Look for a \`<meta property="og:image">\` tag, the favicon in \`<link rel="icon">\`, or any \`<img>\` in the site header. Paste the **full URL** (not a description of what the logo looks like) so we can set \`Kennel.logoUrl\` without a round-trip. Prefer stable, publicly fetchable URLs. **Avoid Facebook CDN links** (\`fbcdn.net\`) and other URLs that contain expiring session tokens — they'll 404 within hours.
    - **Description / "about us"** — short paragraph capturing the kennel's vibe
 2. **Source accuracy** — visit each source URL and compare what it shows to the HashTracks kennel page. Are all visible events also on HashTracks? Are dates/times/locations correct?
-3. **Missing event fields** — does the source provide event details that HashTracks isn't capturing? **Important:** only flag fields that have a visible home on a HashTracks event card. Look at an existing event page for a similar kennel to see which fields are displayed (title, date, start time, hares, location, description, run number, cost are all user-visible today). The fields below have **no visible home on HashTracks event cards today** — tag those as **schema gap** findings, not extraction bugs, so they route to a PRD decision instead of an adapter PR:
+3. **Missing event fields** — does the source provide event details that HashTracks isn't capturing? **Important:** only flag fields that have a visible home on a HashTracks event card. Look at an existing event page for a similar kennel to see which fields are displayed (title, date, start time, hares, location, description, run number are user-visible today). The fields below do **not** have a column on the Event model yet — tag those as **schema gap** findings, not extraction bugs, so they route to a PRD decision instead of an adapter PR:
 ${SCHEMA_GAP_FIELDS_MD}
 4. **Historical events** — does the source list past events that aren't in HashTracks? The right path depends on the source type:
    - **For API-backed sources that enumerate a complete window** (\`GOOGLE_CALENDAR\`, \`ICAL_FEED\`, \`MEETUP\`, \`HARRIER_CENTRAL\`, \`HASHREGO\`): note the event count and date range, and an admin can trigger a wide-window scrape via the per-source cron endpoint to pull them through the normal merge pipeline. Don't try to run the cron yourself — it's auth-protected.
@@ -77,25 +77,11 @@ ${SCHEMA_GAP_FIELDS_MD}
 
 For each distinct root-cause finding:
 
-**Option 1 (preferred):** Open this URL in a new tab with title and body URL-encoded. The labels list is pre-baked with \`audit:chrome-kennel\` (stream attribution) and \`kennel:${kennel.kennelCode}\` (kennel attribution) so the dashboard's "Findings by stream" panel can route the issue correctly:
-\`\`\`text
-https://github.com/${HASHTRACKS_REPO}/issues/new?labels=audit,alert,audit:chrome-kennel,kennel:${kennel.kennelCode}&title={URL-ENCODED TITLE}&body={URL-ENCODED BODY}
-\`\`\`
-
-**Option 2 (fallback):** Output the finding in this format and the admin will file it:
-
-### [Kennel] — [Issue Category]
-* **HashTracks Event URL:** [link]
-* **Source URL:** [link]
-* **Suspected Adapter:** [source type]
-* **Field(s) Affected:** [field name]
-* **Current Extracted Value:** "[exact text from the HashTracks page, verbatim]"
-* **Expected Value:** "[verbatim text from the source — **not** a synthesized cleanup or inference. If the source says \"2FC Takes Fenton\", that's the expected value; don't 'clean it up' to \"2FC\" unless the source literally shows that string somewhere.]"
-* **Fix Hypothesis:** [brief guess on root cause]
+${renderFilingInstructions({ stream: "chrome-kennel", kennelLabel: kennel.kennelCode })}
 
 ## When done
 
-Return to https://hashtracks.xyz/admin/audit and click **Mark deep dive complete** with a count of findings filed and a one-line summary.
+Return to https://hashtracks.xyz/admin/audit and click **Mark ${kennel.shortName} complete** with a count of findings filed and a one-line summary.
 
 **After clicking Submit:** hard-reload the page and confirm \`${kennel.shortName}\` is no longer in the queue. If it still appears, the submit was misattributed to a different kennel (issue #1160) — stop, file an admin-tooling issue, and do **not** re-submit.
 `;

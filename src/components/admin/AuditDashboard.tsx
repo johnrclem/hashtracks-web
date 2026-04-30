@@ -40,6 +40,7 @@ import {
 } from "@/app/admin/audit/actions";
 import { AuditStreamPanel } from "@/components/admin/AuditStreamPanel";
 import { buildDeepDivePrompt } from "@/lib/admin/deep-dive-prompt";
+import { HASHTRACKS_REPO } from "@/lib/github-repo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -971,18 +972,19 @@ function DeepDiveCompleteDialog({
             Mark deep dive complete: {kennel.shortName}
           </DialogTitle>
           <DialogDescription>
-            Recording a deep dive for <strong>{kennel.shortName}</strong>{" "}
+            {`Recording a deep dive for `}
+            <strong>{kennel.shortName}</strong>
+            {` `}
             <span className="text-xs text-muted-foreground">
               ({kennel.region})
             </span>
-            . The next-up queue will rotate to the next-oldest active kennel.
+            {`. The next-up queue will rotate to the next-oldest active kennel.`}
           </DialogDescription>
         </DialogHeader>
         <p className="text-xs text-muted-foreground">
-          If this isn&apos;t the kennel you intended to mark complete, cancel
-          and re-select from the queue — see issue{" "}
+          {`If this isn't the kennel you intended to mark complete, cancel and re-select from the queue — see issue `}
           <a
-            href="https://github.com/johnrclem/hashtracks-web/issues/1160"
+            href={`https://github.com/${HASHTRACKS_REPO}/issues/1160`}
             target="_blank"
             rel="noreferrer"
             className="underline"

@@ -630,6 +630,10 @@ export async function getHarelinePromptInputs(): Promise<HarelinePromptInputs> {
         state: "closed",
         delistedAt: null,
         githubClosedAt: { gte: since },
+        // Scope to the human-driven streams. Including AUTOMATED would mix
+        // cron-auto-closed structural findings into a list whose readers are
+        // chrome auditors looking for "fixes the team verified."
+        stream: { in: [AuditStream.CHROME_EVENT, AuditStream.CHROME_KENNEL] },
       },
       select: { githubNumber: true, title: true, githubClosedAt: true },
       orderBy: { githubClosedAt: "desc" },
@@ -647,13 +651,14 @@ export async function getHarelinePromptInputs(): Promise<HarelinePromptInputs> {
     issueNumber: i.githubNumber,
     title: i.title,
     // Non-null because the where clause filtered by `githubClosedAt: { gte: since }`.
-    closedDate: i.githubClosedAt!.toISOString().split("T")[0],
+    // Use easternDate so prompt date strings match the rest of the dashboard's bucketing.
+    closedDate: easternDate(i.githubClosedAt!),
   }));
 
   const focusAreas: FocusAreaItem[] = recentSources.map((s) => ({
     sourceName: s.name,
     sourceType: s.type,
-    addedDate: s.createdAt.toISOString().split("T")[0],
+    addedDate: easternDate(s.createdAt),
   }));
 
   return { recentlyFixed, focusAreas };
