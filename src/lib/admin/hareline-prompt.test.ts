@@ -26,68 +26,29 @@ const FIXTURE: HarelinePromptInputs = {
 // keeps Sonar's S4144 from flagging the file as a duplication hot spot.
 const prompt = buildHarelinePrompt(FIXTURE);
 
-const CONTAINS_CASES: ReadonlyArray<{
-  label: string;
-  expected: readonly string[];
-}> = [
-  // scope=all is the canonical view; the stream attribution label routes
-  // each finding to the right dashboard bucket.
-  {
-    label: "scope=all hareline URL + stream-attribution label guidance",
-    expected: [
-      "hashtracks.xyz/hareline?scope=all",
-      "audit:chrome-event",
-      "kennel:{KENNEL_CODE}",
-    ],
-  },
+type ContainsCase = readonly [label: string, expected: readonly string[]];
+
+// Tuple-on-single-line form for the same Sonar-CPD reason as deep-dive-prompt.test.ts.
+// prettier-ignore
+const CONTAINS_CASES: readonly ContainsCase[] = [
+  // scope=all is the canonical view; the stream attribution label routes each finding to the right dashboard bucket.
+  ["scope=all hareline URL + stream-attribution label guidance", ["hashtracks.xyz/hareline?scope=all", "audit:chrome-event", "kennel:{KENNEL_CODE}"]],
   // Recently-fixed list rotates from the auditIssue mirror.
-  {
-    label: "recently-fixed list rendered from injected closed issues",
-    expected: ["#1116", "13 metadata fixes", "closed 2026-04-29", "#974"],
-  },
+  ["recently-fixed list rendered from injected closed issues", ["#1116", "13 metadata fixes", "closed 2026-04-29", "#974"]],
   // Focus-areas list rotates from Source.createdAt.
-  {
-    label: "focus areas rendered from injected onboarded sources",
-    expected: [
-      "Princeton NJ Hash Calendar",
-      "GOOGLE_CALENDAR",
-      "added 2026-04-28",
-      "Boulder H3 Website",
-      "HTML_SCRAPER",
-    ],
-  },
+  ["focus areas rendered from injected onboarded sources", ["Princeton NJ Hash Calendar", "GOOGLE_CALENDAR", "added 2026-04-28", "Boulder H3 Website", "HTML_SCRAPER"]],
   // Live suppressions endpoint + rule registry pointer.
-  {
-    label: "suppressions endpoint + audit-checks rule registry links",
-    expected: [
-      "https://hashtracks.xyz/api/audit/suppressions",
-      "src/pipeline/audit-checks.ts",
-    ],
-  },
-  // Same schema-gap framing as deep-dive — keeps both chrome streams
-  // consistent on routing schema-shaped findings to PRD instead of adapter.
-  {
-    label: "schema-gap field list with #503/#504 cross-references",
-    expected: ["`endTime`", "#504", "`cost`", "#503", "`schema-gap`"],
-  },
-  // Dedup-against-existing-issues block — agents must check open + recent
-  // closed audit issues before filing anything.
-  {
-    label: "dedup-against-existing-issues block",
-    expected: ["label%3Aaudit+is%3Aopen", "same kennel + same field"],
-  },
+  ["suppressions endpoint + audit-checks rule registry links", ["https://hashtracks.xyz/api/audit/suppressions", "src/pipeline/audit-checks.ts"]],
+  // Same schema-gap framing as deep-dive — keeps both chrome streams consistent on routing schema-shaped findings to PRD instead of adapter.
+  ["schema-gap field list with #503/#504 cross-references", ["`endTime`", "#504", "`cost`", "#503", "`schema-gap`"]],
+  // Dedup-against-existing-issues block — agents must check open + recent closed audit issues before filing anything.
+  ["dedup-against-existing-issues block", ["label%3Aaudit+is%3Aopen", "same kennel + same field"]],
   // Verbatim-source contract on filing bodies.
-  {
-    label: "verbatim-source contract for filing bodies",
-    expected: [
-      "verbatim text from the source",
-      "exact text from the HashTracks page, verbatim",
-    ],
-  },
+  ["verbatim-source contract for filing bodies", ["verbatim text from the source", "exact text from the HashTracks page, verbatim"]],
 ];
 
 describe("buildHarelinePrompt", () => {
-  it.each(CONTAINS_CASES)("contains $label", ({ expected }) => {
+  it.each(CONTAINS_CASES)("contains %s", (_label, expected) => {
     for (const substring of expected) {
       expect(prompt).toContain(substring);
     }
