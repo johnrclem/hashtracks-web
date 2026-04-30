@@ -8,6 +8,7 @@ import { reconcileStaleEvents } from "./reconcile";
 import { computeFillRates } from "./fill-rates";
 import type { FieldFillRates } from "./fill-rates";
 import { analyzeHealth, persistAlerts, autoResolveCleared } from "./health";
+import { computeConfigHash } from "./config-hash";
 import { autoFileIssuesForAlerts } from "./auto-issue";
 import { verifyResolvedAutoFixes } from "./verify-fixes";
 import { attemptAiRecovery, isAiRecoveryAvailable } from "@/lib/ai/parse-recovery";
@@ -298,12 +299,22 @@ export async function scrapeSource(
 
   const days = options?.days ?? source.scrapeDays ?? 90;
 
+  // Snapshot config-hash on the ScrapeLog so health checks can detect
+  // regime boundaries (#1115). Set at scrape start so even FAILED scrapes
+  // preserve which config they ran under.
+  const configHash = computeConfigHash(source.config);
+  const regimeContext = {
+    currentConfigHash: configHash,
+    baselineResetAt: source.baselineResetAt ?? undefined,
+  };
+
   // Create ScrapeLog record
   const startedAt = new Date();
   const scrapeLog = await prisma.scrapeLog.create({
     data: {
       sourceId,
       forced: force,
+      configHash,
     },
   });
 
@@ -486,6 +497,7 @@ export async function scrapeSource(
       cancelledCount,
       reconcileEvaluated,
       reconcileSuppressedKennels,
+      ...regimeContext,
     });
 
     // Post-merge housekeeping is best-effort: a Next.js request-scope error
@@ -556,6 +568,7 @@ export async function scrapeSource(
       errors: [errorMsg],
       unmatchedTags: [],
       fillRates: { title: 0, location: 0, hares: 0, startTime: 0, runNumber: 0 },
+      ...regimeContext,
     });
 
     return {

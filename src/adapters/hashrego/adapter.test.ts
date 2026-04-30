@@ -754,6 +754,7 @@ function buildSource(configOverrides?: { kennelSlugs?: string[] }) {
     healthStatus: "UNKNOWN" as const,
     scrapeDays: 90,
     enabled: true,
+    baselineResetAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   };

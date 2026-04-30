@@ -202,6 +202,12 @@ model Source {
   healthStatus  SourceHealth   @default(UNKNOWN)
   scrapeDays    Int            @default(90) // Lookback window in days for cron
   enabled       Boolean        @default(true) // False = skip in cron (temporary disable)
+  // Manual baseline boundary: health checks ignore ScrapeLog rows with
+  // startedAt < this value when computing rolling averages. Set after a
+  // code-led adapter improvement so stale baselines don't fire false
+  // FIELD_FILL_DROP / EVENT_COUNT_ANOMALY alerts. Auto-managed regime
+  // shifts (config edits) flow through ScrapeLog.configHash separately.
+  baselineResetAt DateTime?
   kennels       SourceKennel[]
   rawEvents     RawEvent[]
   scrapeLogs    ScrapeLog[]
@@ -251,6 +257,10 @@ model ScrapeLog {
   fillRateStartTime Int? // % of events with non-empty startTime
   fillRateRunNumber Int? // % of events with non-empty runNumber
   structureHash     String? // HTML structural fingerprint (HTML sources only)
+  // SHA-256 of Source.config at scrape time. Health baselines filter
+  // recent scrape rows by this hash so a config edit resets the rolling
+  // average instead of firing false-positive deviation alerts (#1115).
+  configHash        String?
   // Enhanced logging (Phase 2 + Phase 3)
   errorDetails      Json? // Structured error breakdown: {fetch: [], parse: [], merge: []}
   sampleBlocked     Json? // 3-5 example blocked events with reason + suggested action
@@ -262,6 +272,7 @@ model ScrapeLog {
   alerts            Alert[]
 
   @@index([sourceId, startedAt])
+  @@index([sourceId, status, configHash, startedAt])
 }
 
 enum ScrapeStatus {

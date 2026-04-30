@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/db", () => ({
   prisma: {
-    scrapeLog: { findMany: vi.fn() },
+    scrapeLog: { findMany: vi.fn(), findFirst: vi.fn() },
     alert: { findMany: vi.fn(), update: vi.fn() },
     kennel: { findMany: vi.fn() },
   },
@@ -12,6 +12,7 @@ import { prisma } from "@/lib/db";
 import { analyzeHealth, autoResolveCleared } from "./health";
 
 const mockScrapeLogFind = vi.mocked(prisma.scrapeLog.findMany);
+const mockScrapeLogFindFirst = vi.mocked(prisma.scrapeLog.findFirst);
 const mockKennelFindMany = vi.mocked(prisma.kennel.findMany);
 
 const baseFillRates = { title: 100, location: 80, hares: 50, startTime: 90, runNumber: 70 };
@@ -98,7 +99,10 @@ describe("analyzeHealth", () => {
     expect(result.checkedTypes).not.toContain("RECONCILE_SUPPRESSED");
   });
 
-  it("omits trend check types from checkedTypes when no baseline", async () => {
+  it("registers trend types in checkedTypes even when baseline is empty (#1115)", async () => {
+    // Trend types are registered as checked on any successful scrape so
+    // that stale alerts auto-resolve when a regime reset wipes the
+    // baseline. The actual checks short-circuit when there's no baseline.
     mockScrapeLogFind.mockReset();
     mockScrapeLogFind
       .mockResolvedValueOnce([] as never)  // no baseline
@@ -108,7 +112,22 @@ describe("analyzeHealth", () => {
     expect(result.checkedTypes).toContain("SCRAPE_FAILURE");
     expect(result.checkedTypes).toContain("CONSECUTIVE_FAILURES");
     expect(result.checkedTypes).toContain("SOURCE_KENNEL_MISMATCH");
-    // Trend checks not evaluated without baseline
+    expect(result.checkedTypes).toContain("EVENT_COUNT_ANOMALY");
+    expect(result.checkedTypes).toContain("FIELD_FILL_DROP");
+    expect(result.checkedTypes).toContain("STRUCTURE_CHANGE");
+    expect(result.checkedTypes).toContain("UNMATCHED_TAGS");
+    // Verify the actual check did NOT fire alerts (baseline-empty short-circuit)
+    expect(result.alerts.find((a) => a.type === "EVENT_COUNT_ANOMALY")).toBeUndefined();
+    expect(result.alerts.find((a) => a.type === "FIELD_FILL_DROP")).toBeUndefined();
+  });
+
+  it("omits trend types from checkedTypes when scrape fails", async () => {
+    // On scrape failure, trend types must NOT be marked checked — auto-resolve
+    // would otherwise wrongly clear stale CRITICAL alerts during an outage.
+    const result = await analyzeHealth("src_1", "log_1", baseInput({
+      scrapeFailed: true,
+      errors: ["timeout"],
+    }));
     expect(result.checkedTypes).not.toContain("EVENT_COUNT_ANOMALY");
     expect(result.checkedTypes).not.toContain("FIELD_FILL_DROP");
     expect(result.checkedTypes).not.toContain("STRUCTURE_CHANGE");
@@ -184,6 +203,176 @@ describe("SOURCE_KENNEL_MISMATCH alerts", () => {
     const alert = result.alerts.find(a => a.type === "SOURCE_KENNEL_MISMATCH");
     expect(alert!.title).toContain("1 kennel tag blocked");
     expect(alert!.title).not.toContain("tags");
+  });
+});
+
+describe("regime-aware baseline (#1115)", () => {
+  it("filters baseline by configHash equality (no OR-on-null) when currentConfigHash is provided", async () => {
+    await analyzeHealth("src_1", "log_1", baseInput({ currentConfigHash: "abc123" }));
+
+    const baselineWhere = mockScrapeLogFind.mock.calls[0][0]?.where;
+    expect(baselineWhere).toMatchObject({
+      sourceId: "src_1",
+      status: "SUCCESS",
+      configHash: "abc123",
+    });
+    expect(baselineWhere).not.toHaveProperty("OR");
+  });
+
+  it("falls back to NULL configHash only when source has no hashed history at all", async () => {
+    // Primary empty + scrapeLog.findFirst probe finds no hashed row → fall back to NULL.
+    mockScrapeLogFind.mockReset();
+    mockScrapeLogFind
+      .mockResolvedValueOnce([] as never)  // primary (hashed): empty
+      .mockResolvedValueOnce(baselineEntries as never)  // fallback (null): rows
+      .mockResolvedValueOnce([] as never);  // recentAll
+    mockScrapeLogFindFirst.mockResolvedValueOnce(null);  // no prior hashed row
+
+    await analyzeHealth("src_1", "log_1", baseInput({ currentConfigHash: "new-config" }));
+
+    expect(mockScrapeLogFind.mock.calls[0][0]?.where).toMatchObject({ configHash: "new-config" });
+    // Probe must exclude the current scrape's row — see "first post-deploy scrape" test below
+    expect(mockScrapeLogFindFirst).toHaveBeenCalledWith({
+      where: { sourceId: "src_1", id: { not: "log_1" }, configHash: { not: null } },
+      select: { id: true },
+    });
+    expect(mockScrapeLogFind.mock.calls[1][0]?.where).toMatchObject({ configHash: null });
+  });
+
+  it("does NOT fall back to NULL when source has hashed rows from a previous regime", async () => {
+    // Critical regression case: post-#1115 source with rows for OLD config.
+    // Config edits to NEW config. Primary (NEW) is empty. Fallback MUST NOT
+    // pull legacy NULL rows in — that would mix regimes (Codex finding).
+    mockScrapeLogFind.mockReset();
+    mockScrapeLogFind
+      .mockResolvedValueOnce([] as never)  // primary (hashed: NEW): empty
+      .mockResolvedValueOnce([] as never);  // recentAll
+    mockScrapeLogFindFirst.mockResolvedValueOnce({ id: "log_old_regime" } as never);  // prior hashed row exists
+
+    await analyzeHealth("src_1", "log_1", baseInput({ currentConfigHash: "new-config" }));
+
+    // findFirst probe was called (current scrape excluded)
+    expect(mockScrapeLogFindFirst).toHaveBeenCalledWith({
+      where: { sourceId: "src_1", id: { not: "log_1" }, configHash: { not: null } },
+      select: { id: true },
+    });
+    // Only 2 findMany calls: primary + recentAll. No NULL fallback.
+    expect(mockScrapeLogFind).toHaveBeenCalledTimes(2);
+    expect(mockScrapeLogFind.mock.calls[1][0]?.select).toEqual({ status: true });
+  });
+
+  it("first post-deploy scrape: NULL fallback fires even though current row already has configHash (Codex regression)", async () => {
+    // The scrape orchestrator writes configHash on the current ScrapeLog
+    // BEFORE analyzeHealth runs. The findFirst probe must exclude the
+    // current row, otherwise it sees its own just-written hash and
+    // wrongly concludes "hashed history exists" — defeating the legacy
+    // NULL fallback for every source's first post-deploy scrape.
+    mockScrapeLogFind.mockReset();
+    mockScrapeLogFind
+      .mockResolvedValueOnce([] as never)  // primary (hashed: current): empty (no prior hashed)
+      .mockResolvedValueOnce(baselineEntries as never)  // fallback (null): legacy rows
+      .mockResolvedValueOnce([] as never);  // recentAll
+    // Probe with id-exclusion finds no PRIOR hashed row (the current row is excluded)
+    mockScrapeLogFindFirst.mockResolvedValueOnce(null);
+
+    await analyzeHealth("src_1", "log_1", baseInput({ currentConfigHash: "first-hashed" }));
+
+    // Probe excludes the current scrape's id
+    expect(mockScrapeLogFindFirst).toHaveBeenCalledWith({
+      where: { sourceId: "src_1", id: { not: "log_1" }, configHash: { not: null } },
+      select: { id: true },
+    });
+    // Fallback fired with legacy NULL rows
+    expect(mockScrapeLogFind.mock.calls[1][0]?.where).toMatchObject({ configHash: null });
+  });
+
+  it("does NOT issue the NULL fallback query once hashed rows exist", async () => {
+    // Primary query returns rows → fallback must not run, no findFirst probe needed.
+    mockScrapeLogFind.mockReset();
+    mockScrapeLogFind
+      .mockResolvedValueOnce(baselineEntries as never)  // primary returns 3 rows
+      .mockResolvedValueOnce([] as never);  // recentAll
+
+    await analyzeHealth("src_1", "log_1", baseInput({ currentConfigHash: "current" }));
+
+    expect(mockScrapeLogFind).toHaveBeenCalledTimes(2);
+    expect(mockScrapeLogFind.mock.calls[1][0]?.select).toEqual({ status: true });
+    expect(mockScrapeLogFindFirst).not.toHaveBeenCalled();
+  });
+
+  it("filters baseline by baselineResetAt when provided", async () => {
+    const reset = new Date("2026-04-15T00:00:00Z");
+    await analyzeHealth("src_1", "log_1", baseInput({ baselineResetAt: reset }));
+
+    const baselineWhere = mockScrapeLogFind.mock.calls[0][0]?.where;
+    expect(baselineWhere).toMatchObject({
+      startedAt: { gte: reset },
+    });
+  });
+
+  it("combines configHash equality and baselineResetAt filters", async () => {
+    const reset = new Date("2026-04-15T00:00:00Z");
+    await analyzeHealth("src_1", "log_1", baseInput({
+      currentConfigHash: "xyz789",
+      baselineResetAt: reset,
+    }));
+
+    const baselineWhere = mockScrapeLogFind.mock.calls[0][0]?.where;
+    expect(baselineWhere).toMatchObject({
+      configHash: "xyz789",
+      startedAt: { gte: reset },
+    });
+  });
+
+  it("omits regime filters when neither field is provided (back-compat)", async () => {
+    await analyzeHealth("src_1", "log_1", baseInput());
+
+    const baselineWhere = mockScrapeLogFind.mock.calls[0][0]?.where;
+    expect(baselineWhere).not.toHaveProperty("configHash");
+    expect(baselineWhere).not.toHaveProperty("startedAt");
+  });
+
+  it("suppresses FIELD_FILL_DROP after a regime change wipes the baseline", async () => {
+    mockScrapeLogFind.mockReset();
+    mockScrapeLogFind
+      .mockResolvedValueOnce([] as never)  // primary (hashed): no rows yet for new regime
+      .mockResolvedValueOnce([] as never);  // recentAll
+    // Source has hashed history from the OLD regime → fallback is gated off
+    mockScrapeLogFindFirst.mockResolvedValueOnce({ id: "log_old" } as never);
+
+    const result = await analyzeHealth("src_1", "log_1", baseInput({
+      currentConfigHash: "new-config",
+      // Drastically different fill rates that would have triggered alerts
+      // against the original 100/80/50/90/70 baseline:
+      fillRates: { title: 50, location: 20, hares: 10, startTime: 30, runNumber: 0 },
+    }));
+
+    expect(result.alerts.find((a) => a.type === "FIELD_FILL_DROP")).toBeUndefined();
+    expect(result.alerts.find((a) => a.type === "EVENT_COUNT_ANOMALY")).toBeUndefined();
+    // But trend types ARE marked checked so stale prior-regime alerts auto-resolve
+    expect(result.checkedTypes).toContain("FIELD_FILL_DROP");
+    expect(result.checkedTypes).toContain("EVENT_COUNT_ANOMALY");
+  });
+
+  it("suppresses EXCESSIVE_CANCELLATIONS warning when baseline is empty (post-regime-reset)", async () => {
+    // Codex finding: a legitimate first-scrape catch-up cleanup wave after a
+    // regime reset shouldn't fire EXCESSIVE_CANCELLATIONS just on the >10
+    // absolute threshold. Without baseline, we can't tell benign cleanup
+    // from a real regression — so suppress the alert entirely.
+    mockScrapeLogFind.mockReset();
+    mockScrapeLogFind
+      .mockResolvedValueOnce([] as never)  // primary: empty
+      .mockResolvedValueOnce([] as never);  // recentAll
+    mockScrapeLogFindFirst.mockResolvedValueOnce({ id: "log_old" } as never);  // gate fallback off
+
+    const result = await analyzeHealth("src_1", "log_1", baseInput({
+      currentConfigHash: "new-config",
+      cancelledCount: 25,  // would normally fire WARNING (> 10 absolute threshold)
+    }));
+
+    expect(result.alerts.find((a) => a.type === "EXCESSIVE_CANCELLATIONS")).toBeUndefined();
+    // Still registered as checked so any stale prior-regime alert auto-resolves
+    expect(result.checkedTypes).toContain("EXCESSIVE_CANCELLATIONS");
   });
 });
 
