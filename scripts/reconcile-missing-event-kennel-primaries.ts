@@ -100,6 +100,10 @@ main()
   .catch((err) => {
     console.error("\nReconciler failed:");
     console.error(err);
-    process.exit(1);
+    // Set exitCode (don't `process.exit` synchronously) so `.finally` runs
+    // and `prisma.$disconnect()` resolves before the process exits.
+    process.exitCode = 1;
   })
-  .finally(() => prisma.$disconnect());
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

@@ -60,7 +60,7 @@ async function main() {
   }
   console.log("Denorm/join sync:      OK (no drift)");
 
-  if (ekPrimary !== eventCount) {
+  if (ekPrimary < eventCount) {
     const gap = eventCount - ekPrimary;
     const missing = await prisma.$queryRaw<{ id: string }[]>`
       SELECT e.id
@@ -79,6 +79,18 @@ async function main() {
     );
   }
 
+  if (ekPrimary > eventCount) {
+    // Structurally impossible given the FK from EventKennel.eventId →
+    // Event.id (ON DELETE CASCADE) plus the partial unique index that caps
+    // primaries at one per event. If we hit this branch, one of those
+    // invariants has been compromised — point at that, not the reconciler.
+    throw new Error(
+      `Primary EventKennel rows (${ekPrimary}) exceed Event rows (${eventCount}) — ` +
+        `the FK + partial unique index should make this impossible. Investigate index/constraint state ` +
+        `(\\d "EventKennel" in psql) and any direct DB writes that bypass Prisma before reconciling.`,
+    );
+  }
+
   console.log("\nAll invariants hold ✓");
 }
 
@@ -86,6 +98,10 @@ main()
   .catch((err) => {
     console.error("\nVerification failed:");
     console.error(err.message);
-    process.exit(1);
+    // Set exitCode (don't `process.exit` synchronously) so `.finally` runs
+    // and `prisma.$disconnect()` resolves before the process exits.
+    process.exitCode = 1;
   })
-  .finally(() => prisma.$disconnect());
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
