@@ -272,7 +272,7 @@ model ScrapeLog {
   alerts            Alert[]
 
   @@index([sourceId, startedAt])
-  @@index([sourceId, status, configHash, startedAt])
+  @@index([sourceId, status, configHash, startedAt(sort: Desc)])
 }
 
 enum ScrapeStatus {
