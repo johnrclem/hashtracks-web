@@ -186,8 +186,8 @@ describe("audit-issue-sync — pure helpers", () => {
         },
         NOW,
       );
-      expect(events.map((e) => e.type).sort()).toEqual(
-        [AuditIssueEventType.CLOSED, AuditIssueEventType.RELABELED].sort(),
+      expect(events.map((e) => e.type).sort((a, b) => a.localeCompare(b))).toEqual(
+        [AuditIssueEventType.CLOSED, AuditIssueEventType.RELABELED].sort((a, b) => a.localeCompare(b)),
       );
     });
 

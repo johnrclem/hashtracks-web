@@ -292,8 +292,7 @@ export function splitToRawEvents(
   // Multi-day event: one RawEventData per date
   const seriesId = slug; // Use the Hash Rego slug as series identifier
   return parsed.dates.map((date, i) => {
-    const dayLabel =
-      i === 0 ? "Day 1" : i === parsed.dates.length - 1 ? `Day ${i + 1}` : `Day ${i + 1}`;
+    const dayLabel = `Day ${i + 1}`;
     return {
       date,
       kennelTags: [parsed.hostKennelName || parsed.kennelSlug],

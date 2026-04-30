@@ -233,7 +233,7 @@ describe("WCFHCalendarAdapter.fetch", () => {
     // Apr 5 has both CH3 (circus-h3) and B2BH3 (b2b-h3)
     const apr5Events = result.events.filter(e => e.date === "2026-04-05");
     expect(apr5Events).toHaveLength(2);
-    expect(apr5Events.map(e => e.kennelTags[0]).sort()).toEqual(["b2b-h3", "circus-h3"]);
+    expect(apr5Events.map(e => e.kennelTags[0]).sort((a, b) => a.localeCompare(b))).toEqual(["b2b-h3", "circus-h3"]);
 
     vi.restoreAllMocks();
   });
