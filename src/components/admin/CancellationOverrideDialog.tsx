@@ -14,13 +14,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { adminCancelEvent } from "@/app/admin/events/actions";
+import {
+  adminCancelEvent,
+  CANCELLATION_REASON_MIN,
+  CANCELLATION_REASON_MAX,
+} from "@/app/admin/events/actions";
 import { formatDateLong } from "@/lib/format";
 import { toast } from "sonner";
 
-const REASON_MIN = 3;
-const REASON_MAX = 500;
-const REASON_WARN_AT = REASON_MAX - 50;
+const REASON_WARN_AT = CANCELLATION_REASON_MAX - 50;
 
 interface CancellationOverrideDialogProps {
   /** The event being cancelled. */
@@ -74,11 +76,11 @@ export function CancellationOverrideDialog({
 
   const trimmed = reason.trim();
   const length = trimmed.length;
-  const tooShort = length < REASON_MIN;
-  const tooLong = length > REASON_MAX;
+  const tooShort = length < CANCELLATION_REASON_MIN;
+  const tooLong = length > CANCELLATION_REASON_MAX;
   const isValid = !tooShort && !tooLong;
   const showShortError = touched && tooShort;
-  const nearLimit = length >= REASON_WARN_AT && length <= REASON_MAX;
+  const nearLimit = length >= REASON_WARN_AT && length <= CANCELLATION_REASON_MAX;
 
   const counterClassName = tooLong
     ? "text-destructive"
@@ -153,7 +155,7 @@ export function CancellationOverrideDialog({
               Reason <span className="text-destructive">*</span>
             </Label>
             <span className={`text-xs tabular-nums ${counterClassName}`}>
-              {length} / {REASON_MAX}
+              {length} / {CANCELLATION_REASON_MAX}
             </span>
           </div>
           <Textarea
@@ -177,9 +179,9 @@ export function CancellationOverrideDialog({
             className="text-xs text-muted-foreground"
           >
             {showShortError
-              ? `Minimum ${REASON_MIN} characters.`
+              ? `Minimum ${CANCELLATION_REASON_MIN} characters.`
               : tooLong
-                ? `Maximum ${REASON_MAX} characters.`
+                ? `Maximum ${CANCELLATION_REASON_MAX} characters.`
                 : "Captured in the audit log; visible to admins on the row hover."}
           </p>
         </div>

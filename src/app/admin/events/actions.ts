@@ -9,6 +9,31 @@ import { appendAuditLog, type AuditLogEntry } from "@/lib/misman/audit";
 
 const DELETE_BATCH_SIZE = 100;
 
+/** Validation bounds for the admin-cancellation reason. Re-exported for the
+ *  client-side dialog so the textarea counter and Confirm button enforce the
+ *  same limits as the server action. */
+export const CANCELLATION_REASON_MIN = 3;
+export const CANCELLATION_REASON_MAX = 500;
+
+/** Shared kennel-projection used by both adminCancelEvent and uncancelEvent
+ *  to fetch the slug for revalidation and the shortName for toast messages. */
+const KENNEL_SELECT_FOR_OVERRIDE = { shortName: true, slug: true } as const;
+
+/** Revalidate every cache surface affected by a cancel/uncancel toggle:
+ *  - /admin/events: this page
+ *  - /hareline + HARELINE_EVENTS_TAG: list pages
+ *  - /hareline/[eventId]: event detail page
+ *  - /kennels/[slug]: public kennel page (filters CANCELLED events directly)
+ *  Five invalidations — each targets a distinct cache that the others don't
+ *  subsume. Pre-code adversarial review specifically required the slug path. */
+function revalidateAfterCancelToggle(eventId: string, kennelSlug: string): void {
+  revalidatePath("/admin/events");
+  revalidatePath("/hareline");
+  revalidateTag(HARELINE_EVENTS_TAG, { expire: 0 });
+  revalidatePath(`/hareline/${eventId}`);
+  revalidatePath(`/kennels/${kennelSlug}`);
+}
+
 /**
  * Cascade-delete events: unlink RawEvents, remove dependents, delete events.
  * RawEvents are preserved (immutable audit trail) but unlinked.
@@ -226,7 +251,7 @@ export async function uncancelEvent(eventId: string): Promise<ActionResult<{ ken
 
   const event = await prisma.event.findUnique({
     where: { id: eventId },
-    include: { kennel: { select: { shortName: true, slug: true } } },
+    include: { kennel: { select: KENNEL_SELECT_FOR_OVERRIDE } },
   });
   if (!event) return { error: "Event not found" };
   if (event.status !== "CANCELLED") return { error: "Event is not cancelled" };
@@ -264,11 +289,7 @@ export async function uncancelEvent(eventId: string): Promise<ActionResult<{ ken
     timestamp: new Date().toISOString(),
   }));
 
-  revalidatePath("/admin/events");
-  revalidatePath("/hareline");
-  revalidateTag(HARELINE_EVENTS_TAG, { expire: 0 });
-  revalidatePath(`/hareline/${eventId}`);
-  revalidatePath(`/kennels/${event.kennel.slug}`);
+  revalidateAfterCancelToggle(eventId, event.kennel.slug);
   return {
     success: true,
     kennelName: event.kennel.shortName,
@@ -291,12 +312,16 @@ export async function adminCancelEvent(
   if (!admin) return { error: "Not authorized" };
 
   const trimmed = reason.trim();
-  if (trimmed.length < 3) return { error: "Reason must be at least 3 characters" };
-  if (trimmed.length > 500) return { error: "Reason must be 500 characters or fewer" };
+  if (trimmed.length < CANCELLATION_REASON_MIN) {
+    return { error: `Reason must be at least ${CANCELLATION_REASON_MIN} characters` };
+  }
+  if (trimmed.length > CANCELLATION_REASON_MAX) {
+    return { error: `Reason must be ${CANCELLATION_REASON_MAX} characters or fewer` };
+  }
 
   const event = await prisma.event.findUnique({
     where: { id: eventId },
-    include: { kennel: { select: { shortName: true, slug: true } } },
+    include: { kennel: { select: KENNEL_SELECT_FOR_OVERRIDE } },
   });
   if (!event) return { error: "Event not found" };
   if (event.adminCancelledAt) {
@@ -332,11 +357,7 @@ export async function adminCancelEvent(
     timestamp: new Date().toISOString(),
   }));
 
-  revalidatePath("/admin/events");
-  revalidatePath("/hareline");
-  revalidateTag(HARELINE_EVENTS_TAG, { expire: 0 });
-  revalidatePath(`/hareline/${eventId}`);
-  revalidatePath(`/kennels/${event.kennel.slug}`);
+  revalidateAfterCancelToggle(eventId, event.kennel.slug);
 
   return {
     success: true,

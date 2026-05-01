@@ -482,9 +482,11 @@ export function EventTable({
                   <TableCell className="hidden sm:table-cell text-xs text-right w-16">
                     {event.attendanceCount > 0 ? event.attendanceCount : "—"}
                   </TableCell>
-                  <TableCell onClick={(e) => e.stopPropagation()}>
-                    <div className="flex items-center justify-end gap-1">
-                      {event.adminCancelledAt && (
+                  <TableCell
+                    onClick={(e) => e.stopPropagation()}
+                    className="flex items-center justify-end gap-1"
+                  >
+                    {event.adminCancelledAt && (
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <span
@@ -546,7 +548,6 @@ export function EventTable({
                       >
                         Delete
                       </Button>
-                    </div>
                   </TableCell>
                 </TableRow>
               ))}
