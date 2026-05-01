@@ -113,19 +113,20 @@ export function resolveStream(labelNames: readonly string[]): StreamResolution {
  * Cron titles follow the format produced by `formatGroupIssueTitle`:
  *   `[Audit] {kennelShortName} — {categoryLabel} [{ruleSlug}] (N events) — yyyy-mm-dd`
  *
- * The regex matches only slug-shaped brackets (lowercase + digits +
- * hyphens), so the literal `[Audit]` and any uppercase operator-added
- * tags like `[REVIEWED]` are skipped. The first remaining match is
- * the rule slug. Returns null when no slug-shaped bracket is present
- * — chrome-filed titles are free-form prose and won't match.
+ * The regex anchors to the `(N events)` suffix that immediately
+ * follows the slug bracket — operators editing the title for triage
+ * (e.g. prepending `[triage]` or `[REVIEWED]`) can't fool the match
+ * because their tags don't sit before an event-count parenthetical
+ * (Gemini + Qodo PR #1172 review feedback). Non-stateful regex —
+ * no shared `lastIndex` state to reset.
+ *
+ * Returns null when no slug-shaped bracket immediately precedes the
+ * `(N events)` marker — chrome-filed titles are free-form prose and
+ * won't match.
  */
-const RULE_SLUG_IN_TITLE_RE = /\[([a-z][a-z0-9-]*)\]/g;
+const RULE_SLUG_IN_TITLE_RE = /\[([a-z][a-z0-9-]*)\]\s*\(\d+\s+events?\)/;
 export function extractRuleSlugFromAutomatedTitle(title: string): string | null {
-  const match = RULE_SLUG_IN_TITLE_RE.exec(title);
-  // `exec` on a /g regex updates lastIndex; reset so subsequent calls
-  // restart from the beginning of the input.
-  RULE_SLUG_IN_TITLE_RE.lastIndex = 0;
-  return match?.[1] ?? null;
+  return title.match(RULE_SLUG_IN_TITLE_RE)?.[1] ?? null;
 }
 
 /**
@@ -398,18 +399,24 @@ export async function syncAuditIssues(): Promise<SyncResult> {
         // upsert first lets us batch the events afterwards. `delistedAt` is
         // cleared on every update so a re-listed issue (operator re-added
         // the `audit` label) automatically comes back into the dashboard.
-        // Re-derive the fingerprint from labels + title — the only
-        // inputs the sync can trust. Operator-editable body blocks are
-        // ignored for sync purposes (see computeFingerprintFromIdentity
-        // for rationale). Returns null for chrome-stream issues; on
-        // update we leave their fingerprint untouched so bundle 5b's
-        // file-finding endpoint owns that path.
-        const reDerivedFingerprint = computeFingerprintFromIdentity(
+        // Compute the fingerprint from labels + title — used only on
+        // insert. Codex pass-2 review on PR #1172 flagged that
+        // re-deriving on every sync would let a registry version/
+        // semanticHash roll retroactively rewrite every historical
+        // AUTOMATED issue's fingerprint, collapsing the version
+        // boundary the registry was supposed to enforce.
+        //
+        // Insert-only write: once a row's fingerprint is set, we never
+        // overwrite it. Registry rolls produce new fingerprints for
+        // future findings only. Identity drift (operator edits a
+        // kennel label or rule-slug bracket on an existing row)
+        // doesn't propagate either — admin can clear the column
+        // manually if a misclassification needs to be re-derived.
+        const insertFingerprint = computeFingerprintFromIdentity(
           stream,
           kennelCode,
           issue.title,
         );
-        const isAutomated = stream === AuditStream.AUTOMATED;
 
         const upserted = await tx.auditIssue.upsert({
           where: { githubNumber: issue.number },
@@ -423,7 +430,7 @@ export async function syncAuditIssues(): Promise<SyncResult> {
             githubCreatedAt,
             githubClosedAt: githubClosedAt ?? undefined,
             closeReason: issue.state_reason ?? undefined,
-            fingerprint: reDerivedFingerprint ?? undefined,
+            fingerprint: insertFingerprint ?? undefined,
           },
           update: {
             stream,
@@ -433,12 +440,8 @@ export async function syncAuditIssues(): Promise<SyncResult> {
             kennelCode: kennelCode ?? null,
             githubClosedAt: githubClosedAt ?? null,
             closeReason: issue.state_reason ?? null,
-            // For AUTOMATED, write the re-derived value (or null when
-            // identity drifted) — addresses Codex's stale-fingerprint
-            // finding. For non-AUTOMATED streams, leave the column alone
-            // so the file-finding endpoint's authoritative writes aren't
-            // clobbered on the next sync.
-            ...(isAutomated ? { fingerprint: reDerivedFingerprint } : {}),
+            // Intentionally NOT updating `fingerprint` here. See
+            // comment above on insert-only semantics.
             delistedAt: null,
           },
         });

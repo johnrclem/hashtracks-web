@@ -163,6 +163,15 @@ describe("parseCanonicalBlock", () => {
     expect(parseCanonicalBlock(badStream)).toBeNull();
   });
 
+  it("round-trips the `-->` escape — emit's `--&gt;` is unescaped on parse", () => {
+    // Without the symmetric unescape, kennelCodes containing `-->`
+    // would be silently corrupted: emit produces `weird--&gt;code`
+    // inside the JSON, parse extracts that literal string instead
+    // of the original (Gemini PR #1172 review feedback).
+    const block = emitCanonicalBlock({ ...SAMPLE, kennelCode: "weird-->code" });
+    expect(parseCanonicalBlock(block)?.kennelCode).toBe("weird-->code");
+  });
+
   it("takes the first block when the body contains multiple", () => {
     // Defensive: shouldn't happen in normal flow but if it does,
     // first-wins is more predictable than last-wins.

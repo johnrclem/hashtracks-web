@@ -228,13 +228,32 @@ describe("audit-issue-sync — pure helpers", () => {
     });
 
     it("ignores extra brackets an operator might add for triage tags", () => {
-      // Tolerate `[REVIEWED] [Audit] Kennel — Cat [hare-url] (...)`
-      // by taking the SECOND match — but here the first `[REVIEWED]`
-      // shifts everything, so the slug becomes the third match (which
-      // we don't return). This case correctly returns the first
-      // post-`[Audit]` slug-shaped bracket.
+      // The regex anchors to `(N events)` so triage tags can't be
+      // confused for the rule slug — only the bracket immediately
+      // followed by the event-count parenthetical wins (Gemini + Qodo
+      // PR #1172 review feedback).
       const title = "[Audit] NYCH3 — Hare Extraction [hare-url] (5 events) — 2026-04-30";
       expect(extractRuleSlugFromAutomatedTitle(title)).toBe("hare-url");
+    });
+
+    it("returns the rule slug even when an operator prepends a lowercase triage tag", () => {
+      // Pre-fix regression: a `[triage]` prefix mis-extracted as the
+      // slug because the regex took the first lowercase bracket
+      // anywhere. Anchored regex pinpoints the `(N events)` suffix.
+      const title = "[triage] [Audit] NYCH3 — Hare Extraction [hare-url] (5 events) — 2026-04-30";
+      expect(extractRuleSlugFromAutomatedTitle(title)).toBe("hare-url");
+    });
+
+    it("matches the singular `(1 event)` count — boundary case for short groups", () => {
+      const title = "[Audit] NYCH3 — Hare Extraction [hare-url] (1 event) — 2026-04-30";
+      expect(extractRuleSlugFromAutomatedTitle(title)).toBe("hare-url");
+    });
+
+    it("returns null for a title with a slug bracket but no `(N events)` suffix", () => {
+      // Without the structured suffix we can't safely identify which
+      // bracket is the slug. Fail closed → fingerprint stays null.
+      const title = "[Audit] NYCH3 — Hare Extraction [hare-url] — manually edited";
+      expect(extractRuleSlugFromAutomatedTitle(title)).toBeNull();
     });
   });
 

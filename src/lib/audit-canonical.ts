@@ -65,16 +65,20 @@ export function emitCanonicalBlock(block: Omit<CanonicalBlock, "v">): string {
  * when the body has no block, the block is malformed JSON, or the
  * schema version doesn't match. Strict on shape — partial matches
  * fail closed so the bridging tier can claim the row instead.
+ *
+ * Symmetric with `emitCanonicalBlock`: the emitter escapes `-->`
+ * inside string fields to `--&gt;` so the comment envelope can't be
+ * terminated early; the parser MUST unescape that back before
+ * `JSON.parse` or the original string value is silently corrupted
+ * (Gemini PR #1172 review feedback).
  */
 export function parseCanonicalBlock(body: string | null | undefined): CanonicalBlock | null {
   if (!body) return null;
-  // Match the first occurrence; if a body has multiple blocks (it
-  // shouldn't, but be defensive) we take the first.
   const start = body.indexOf(PREFIX);
   if (start === -1) return null;
   const end = body.indexOf(SUFFIX, start + PREFIX.length);
   if (end === -1) return null;
-  const json = body.slice(start + PREFIX.length, end).trim();
+  const json = body.slice(start + PREFIX.length, end).trim().replaceAll("--&gt;", "-->");
   try {
     const parsed: unknown = JSON.parse(json);
     if (!isCanonicalBlock(parsed)) return null;
@@ -100,7 +104,7 @@ export function buildCanonicalBlock(input: {
   ruleSlug: string;
 }): Omit<CanonicalBlock, "v"> | undefined {
   const rule = getRule(input.ruleSlug);
-  if (!rule || !rule.fingerprint) return undefined;
+  if (!rule?.fingerprint) return undefined;
   const semanticHash = semanticHashFor(rule);
   const fingerprint = computeAuditFingerprint({
     kennelCode: input.kennelCode,
