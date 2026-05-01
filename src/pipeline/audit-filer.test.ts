@@ -591,49 +591,44 @@ describe("fileAuditFinding — recurrence escalation", () => {
     expect(actions.createIssue).not.toHaveBeenCalled();
   });
 
-  it("rolls back the claim if the meta-issue create fails (no orphan claim, retry-safe)", async () => {
-    setupStrictHit(ESCALATION_THRESHOLD);
-    mockUpdateMany.mockResolvedValueOnce({ count: 1 } as never); // claim wins
-    const actions = buildActions({
-      createIssue: vi.fn().mockResolvedValue(null), // GitHub create failed
-    });
+  // Rollback paths share the same setup + assertion shape — Codex
+  // 5c-B pass-1 surfaced three distinct ways the post-claim block
+  // could fail (returns-null create, throwing create, throwing
+  // finalize), and each must trigger the same wedge-prevention
+  // rollback. Parametrize to keep the assertion logic in one place
+  // (Sonar's CPD detector flagged the inline copies as duplicated).
+  describe.each([
+    {
+      label: "createIssue returns null (graceful failure)",
+      build: () =>
+        buildActions({
+          createIssue: vi.fn().mockResolvedValue(null),
+        }),
+    },
+    {
+      label: "createIssue throws (network blip / other rejection)",
+      build: () =>
+        buildActions({
+          createIssue: vi.fn().mockRejectedValue(new Error("network blip")),
+        }),
+    },
+  ])("rolls back the claim when $label", ({ build }) => {
+    it("clears both escalation columns and surfaces no escalation link", async () => {
+      setupStrictHit(ESCALATION_THRESHOLD);
+      mockUpdateMany.mockResolvedValueOnce({ count: 1 } as never); // claim wins
+      const actions = build();
 
-    const out = await fileAuditFinding(BASE_INPUT, actions);
-    if (out.action !== "recurred") throw new Error("expected recurred");
-    // Recur still succeeds (recurrenceCount was already incremented).
-    expect(out.escalatedToIssueNumber).toBeUndefined();
-
-    // Strict-tier increment (first mockUpdate call) + rollback
-    // (second mockUpdate call) = 2 mockUpdate calls. Rollback now
-    // clears BOTH escalation columns to be safe under any
-    // post-claim failure (Codex 5c-B pass-1 high finding).
-    expect(mockUpdate).toHaveBeenCalledWith({
-      where: { id: "ai_base" },
-      data: { escalatedAt: null, escalatedToIssueNumber: null },
-    });
-  });
-
-  it("rolls back the claim if createIssue throws (not just returns null)", async () => {
-    // Codex 5c-B pass-1 high finding: previously only the
-    // `createIssue → null` branch rolled back. Any thrown rejection
-    // (network blip, etc.) leaked the row in a half-escalated state
-    // — escalatedAt set, escalatedToIssueNumber null — and every
-    // subsequent caller would lose the CAS forever, wedging the
-    // base. Now wrapped in try/catch.
-    setupStrictHit(ESCALATION_THRESHOLD);
-    mockUpdateMany.mockResolvedValueOnce({ count: 1 } as never);
-    const actions = buildActions({
-      createIssue: vi.fn().mockRejectedValue(new Error("network blip")),
-    });
-
-    const out = await fileAuditFinding(BASE_INPUT, actions);
-    if (out.action !== "recurred") throw new Error("expected recurred");
-    expect(out.escalatedToIssueNumber).toBeUndefined();
-    // Rollback fired, leaving both escalation columns null so the
-    // next call can re-attempt cleanly.
-    expect(mockUpdate).toHaveBeenCalledWith({
-      where: { id: "ai_base" },
-      data: { escalatedAt: null, escalatedToIssueNumber: null },
+      const out = await fileAuditFinding(BASE_INPUT, actions);
+      if (out.action !== "recurred") throw new Error("expected recurred");
+      // Recur succeeds (recurrenceCount was already incremented),
+      // but no escalation link surfaces — claim was rolled back.
+      expect(out.escalatedToIssueNumber).toBeUndefined();
+      // Rollback always clears BOTH columns so the next attempt
+      // re-runs the claim CAS cleanly.
+      expect(mockUpdate).toHaveBeenCalledWith({
+        where: { id: "ai_base" },
+        data: { escalatedAt: null, escalatedToIssueNumber: null },
+      });
     });
   });
 
