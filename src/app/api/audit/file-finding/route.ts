@@ -122,8 +122,8 @@ async function bindNonce(
   const nonce = await prisma.auditFilingNonce.findUnique({
     where: { nonceHash: hashNonce(rawNonce) },
   });
+  if (!nonce) return null;
   if (
-    !nonce ||
     nonce.adminUserId !== adminId ||
     nonce.kennelCode !== body.kennelCode ||
     nonce.ruleSlug !== body.ruleSlug ||
