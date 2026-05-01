@@ -12,6 +12,18 @@ import { LOCATION_EMAIL_CTA_RE } from "./audit-checks";
 import { levenshtein } from "@/lib/fuzzy";
 import { createEventWithKennel } from "@/lib/event-write";
 
+/**
+ * Admin lock predicate: an event whose `adminCancelledAt` is non-null has been
+ * explicitly cancelled by an admin and must not be auto-restored to CONFIRMED
+ * by any merge code path. Centralized here so all restore sites consult the
+ * same invariant — see refreshExistingEvent and upsertCanonicalEvent below.
+ *
+ * Spec: docs/superpowers/specs/2026-05-01-cancellation-override-design.md
+ */
+export function isAdminLocked(event: { adminCancelledAt: Date | null }): boolean {
+  return event.adminCancelledAt !== null;
+}
+
 // Strip a trailing "(text/call/… for address)" parenthetical when its body
 // starts with a contact verb AND carries a contact-info signal (3+ digits, @,
 // or "for <noun>"). Legit parens like "(Call Center entrance)" or

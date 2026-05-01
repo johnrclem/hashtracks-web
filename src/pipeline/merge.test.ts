@@ -48,7 +48,7 @@ vi.mock("@/lib/geo", async (importOriginal) => {
 import { prisma } from "@/lib/db";
 import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag } from "./kennel-resolver";
-import { processRawEvents, sanitizeTitle, sanitizeLocation, sanitizeHares, friendlyKennelName, rewriteStaleDefaultTitle, suppressRedundantCity, NON_ENGLISH_GEO_RE, completenessScore, pickCanonicalEventId, pickCanonicalEventIds } from "./merge";
+import { processRawEvents, sanitizeTitle, sanitizeLocation, sanitizeHares, friendlyKennelName, rewriteStaleDefaultTitle, suppressRedundantCity, NON_ENGLISH_GEO_RE, completenessScore, pickCanonicalEventId, pickCanonicalEventIds, isAdminLocked } from "./merge";
 
 const mockSourceFind = vi.mocked(prisma.source.findUnique);
 const _mockSourceUpdate = vi.mocked(prisma.source.update);
@@ -2927,5 +2927,15 @@ describe("fuzzy ±48h cross-source dedup (#990)", () => {
 
     expect(result.created).toBe(1);
     expect(result.updated).toBe(0);
+  });
+});
+
+describe("isAdminLocked", () => {
+  it("returns false for an event with adminCancelledAt = null", () => {
+    expect(isAdminLocked({ adminCancelledAt: null })).toBe(false);
+  });
+
+  it("returns true for an event with a non-null adminCancelledAt", () => {
+    expect(isAdminLocked({ adminCancelledAt: new Date("2026-05-01T10:00:00Z") })).toBe(true);
   });
 });
