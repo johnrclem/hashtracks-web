@@ -74,9 +74,11 @@ function githubPostInit(token: string, body: unknown): RequestInit {
   };
 }
 
-function buildCronActions(token: string): FilerActions {
+function buildCronActions(): FilerActions {
   return {
     createIssue: async ({ title, body, labels }) => {
+      const token = process.env.GITHUB_TOKEN;
+      if (!token) return null;
       const repo = getValidatedRepo();
       try {
         // SSRF-safe: URL constructor anchors the request to the
@@ -95,13 +97,15 @@ function buildCronActions(token: string): FilerActions {
           html_url: string;
           number: number;
         };
-        return { number: issueHtml.number, htmlUrl: issueHtml.html_url };
+        return { htmlUrl: issueHtml.html_url, number: issueHtml.number };
       } catch (err) {
         console.error("[audit-issue] Failed to create GitHub issue:", err);
         return null;
       }
     },
     postComment: async (issueNumber, body) => {
+      const token = process.env.GITHUB_TOKEN;
+      if (!token) return false;
       if (!Number.isInteger(issueNumber) || issueNumber <= 0) return false;
       const repo = getValidatedRepo();
       try {
@@ -142,7 +146,7 @@ export async function fileAuditIssues(groups: AuditGroup[]): Promise<string[]> {
   const today = toIsoDateString(new Date());
   // Set, not Array — O(1) per-group lookup instead of O(n).
   const existingTitles = new Set(await getExistingAuditIssueTitles(token));
-  const actions = buildCronActions(token);
+  const actions = buildCronActions();
 
   const urls: string[] = [];
   for (const group of groups) {

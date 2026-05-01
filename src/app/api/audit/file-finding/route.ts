@@ -314,7 +314,7 @@ function buildApiActions(): FilerActions {
           html_url: string;
           number: number;
         };
-        return { number: issueHtml.number, htmlUrl: issueHtml.html_url };
+        return { htmlUrl: issueHtml.html_url, number: issueHtml.number };
       } catch {
         return null;
       }
