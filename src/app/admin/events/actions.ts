@@ -276,7 +276,15 @@ export async function uncancelEvent(eventId: string): Promise<ActionResult<{ ken
     if (event.status !== "CANCELLED") return { ok: false, error: "Event is not cancelled" };
 
     const wasAdminCancelled = event.adminCancelledAt !== null;
-    const auditEntry: AuditLogEntry | null = wasAdminCancelled
+    // Append an audit entry whenever this is an admin-driven uncancel of a
+    // row that has any admin-cancellation history (current lock OR prior
+    // cancel/uncancel cycles). Without this, a reconciler-cancellation that
+    // follows a prior admin-cycle silently drops the next manual uncancel
+    // from the audit trail. Codex re-review #2.
+    const hasPriorAuditHistory =
+      Array.isArray(event.adminAuditLog) && event.adminAuditLog.length > 0;
+    const shouldAppendAudit = wasAdminCancelled || hasPriorAuditHistory;
+    const auditEntry: AuditLogEntry | null = shouldAppendAudit
       ? {
           action: "uncancel",
           timestamp: new Date().toISOString(),
@@ -365,18 +373,21 @@ export async function adminCancelEvent(
       include: { kennel: { select: KENNEL_SELECT_FOR_OVERRIDE } },
     });
     if (!event) return { ok: false, error: "Event not found" };
-    if (event.status === "CANCELLED") {
-      // Catches both adminCancelledAt-set rows (re-cancel attempt) and
-      // reconciler-cancelled rows. The latter must be un-cancelled first
-      // before they can be admin-locked, otherwise the audit entry would
-      // record a meaningless CANCELLED → CANCELLED transition.
+    if (event.adminCancelledAt) {
+      // Already admin-locked: reject and force un-cancel-then-recancel for
+      // reason changes (prevents accidental reason overwrite + preserves the
+      // explicit "I'm changing my mind" audit-log shape).
       return {
         ok: false,
-        error: event.adminCancelledAt
-          ? "Event already admin-cancelled — un-cancel first to change reason"
-          : "Event is already cancelled — un-cancel first to admin-lock it",
+        error: "Event already admin-cancelled — un-cancel first to change reason",
       };
     }
+    // Reconciler-cancelled rows (status=CANCELLED, adminCancelledAt=null) ARE
+    // accepted as a direct elevation path: attach the admin lock + reason
+    // without a status flip. The previous design forced un-cancel → recancel,
+    // which briefly made the event publicly visible if step 2 was abandoned.
+    // The audit entry honestly records status: { old: "CANCELLED", new: "CANCELLED" }
+    // for the elevation case; the meaningful change is the lock + reason.
 
     const auditEntry: AuditLogEntry = {
       action: "cancel",

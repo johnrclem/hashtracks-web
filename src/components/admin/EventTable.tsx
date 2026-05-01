@@ -518,10 +518,8 @@ export function EventTable({
                           </TooltipContent>
                         </Tooltip>
                       )}
-                      {event.status === "CANCELLED" ? (
-                        // Already cancelled (admin-locked OR reconciler-cancelled)
-                        // — restoring is the only sensible action; admin-lock
-                        // requires un-cancelling first.
+                      {event.adminCancelledAt ? (
+                        // Already admin-locked — only un-cancel makes sense.
                         <Button
                           variant="ghost"
                           size="sm"
@@ -531,6 +529,31 @@ export function EventTable({
                         >
                           Un-cancel
                         </Button>
+                      ) : event.status === "CANCELLED" ? (
+                        // Reconciler-cancelled (no admin lock yet). Offer both
+                        // un-cancel (restore to CONFIRMED) and elevate-to-admin-
+                        // lock (attach a reason without the public flicker of
+                        // un-cancel-then-recancel).
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs"
+                            disabled={isPending}
+                            onClick={() => handleUncancel(event)}
+                          >
+                            Un-cancel
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs"
+                            disabled={isPending}
+                            onClick={() => setCancelDialogEvent(event)}
+                          >
+                            Lock…
+                          </Button>
+                        </>
                       ) : (
                         <Button
                           variant="ghost"

@@ -337,15 +337,34 @@ describe("adminCancelEvent", () => {
     });
   });
 
-  it("rejects reconciler-cancelled event (status=CANCELLED but no admin lock)", async () => {
+  it("elevates a reconciler-cancelled event to admin-locked without flipping status", async () => {
+    // Reconciler-cancelled (status=CANCELLED, adminCancelledAt=null) is a
+    // direct elevation path: attach the lock + reason, no public CONFIRMED
+    // flicker. Audit entry honestly records CANCELLED → CANCELLED for the
+    // status; the meaningful change is the lock + reason fields.
     mockEventFindUnique.mockResolvedValueOnce({
       ...eventBase,
       status: "CANCELLED",
       adminCancelledAt: null,
+      adminAuditLog: null,
     } as never);
-    expect(await adminCancelEvent("evt_1", "valid reason")).toEqual({
-      error: "Event is already cancelled — un-cancel first to admin-lock it",
-    });
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    const result = await adminCancelEvent("evt_1", "Lock this cancellation");
+    expect(result).toMatchObject({ success: true });
+    const updateArg = mockEventUpdate.mock.calls[0]?.[0] as unknown as {
+      data: {
+        status: "CANCELLED";
+        adminCancelledAt: Date;
+        adminCancellationReason: string;
+        adminAuditLog: Array<{ action: string; changes?: { status?: { old: string; new: string } } }>;
+      };
+    };
+    expect(updateArg.data.status).toBe("CANCELLED");
+    expect(updateArg.data.adminCancelledAt).toBeInstanceOf(Date);
+    expect(updateArg.data.adminCancellationReason).toBe("Lock this cancellation");
+    expect(updateArg.data.adminAuditLog[0].action).toBe("cancel");
+    expect(updateArg.data.adminAuditLog[0].changes?.status).toEqual({ old: "CANCELLED", new: "CANCELLED" });
   });
 
   it("happy path: sets all 4 fields, appends audit entry, calls revalidations", async () => {
@@ -504,5 +523,49 @@ describe("uncancelEvent — extended for admin override", () => {
   it("returns error when event not found", async () => {
     mockEventFindUnique.mockResolvedValueOnce(null);
     expect(await uncancelEvent("evt_missing")).toEqual({ error: "Event not found" });
+  });
+
+  it("appends an uncancel audit entry on a reconciler-cancelled row that has prior admin history", async () => {
+    // Scenario: admin cancelled, admin un-cancelled, source stopped emitting,
+    // reconciler re-cancelled (status=CANCELLED, adminCancelledAt=null).
+    // A subsequent manual un-cancel must still append to the audit trail —
+    // otherwise the append-only history loses a real admin transition.
+    const priorLog = [
+      {
+        action: "cancel",
+        timestamp: "2026-04-01T10:00:00.000Z",
+        userId: "clerk_admin",
+        changes: { status: { old: "CONFIRMED", new: "CANCELLED" } },
+        details: { reason: "Earlier reason" },
+      },
+      {
+        action: "uncancel",
+        timestamp: "2026-04-02T10:00:00.000Z",
+        userId: "clerk_admin",
+        changes: { status: { old: "CANCELLED", new: "CONFIRMED" } },
+      },
+    ];
+    mockEventFindUnique.mockResolvedValueOnce({
+      id: "evt_prior",
+      kennelId: "knl_1",
+      date: new Date("2026-06-06T12:00:00Z"),
+      status: "CANCELLED" as const,
+      // Reconciler re-cancelled after the prior un-cancel; lock fields cleared.
+      adminCancelledAt: null,
+      adminCancelledBy: null,
+      adminCancellationReason: null,
+      adminAuditLog: priorLog,
+      kennel: { shortName: "NYCH3", slug: "nych3" },
+    } as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    const result = await uncancelEvent("evt_prior");
+
+    expect(result).toMatchObject({ success: true });
+    const updateArg = mockEventUpdate.mock.calls[0]?.[0] as unknown as {
+      data: { adminAuditLog: Array<{ action: string }> };
+    };
+    expect(updateArg.data.adminAuditLog).toHaveLength(3);
+    expect(updateArg.data.adminAuditLog[2].action).toBe("uncancel");
   });
 });
