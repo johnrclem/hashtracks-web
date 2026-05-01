@@ -93,6 +93,14 @@ const regexCache = new WeakMap<object, RegExp>();
  */
 const ALLOWED_FLAGS_RE = /^[imsu]*$/;
 
+/**
+ * Compile a registry-supplied regex pattern. Patterns come from the
+ * source-controlled rule registry (not user input), but `isSafeRegex`
+ * is cheap defense-in-depth so a rule author can't accidentally land
+ * a catastrophic-backtrack pattern that would hang every audit run.
+ * The check cost is amortized by the WeakMap cache (one isSafeRegex
+ * call per first-compile per matcher node).
+ */
 function compileRegex(matcher: Extract<Matcher, { op: "regex-test" }>): RegExp {
   const cached = regexCache.get(matcher);
   if (cached) return cached;
@@ -104,12 +112,7 @@ function compileRegex(matcher: Extract<Matcher, { op: "regex-test" }>): RegExp {
       `Matcher regex-test: invalid flags "${matcher.flags}" (allowed: i, m, s, u)`,
     );
   }
-  // Patterns come from the source-controlled rule registry, not from
-  // user input — but `isSafeRegex` is cheap defense-in-depth so a
-  // rule author can't accidentally land a catastrophic-backtrack
-  // pattern that would hang every audit run. The cost (one check per
-  // first-compile) is amortized by the WeakMap cache.
-  // nosemgrep: detect-non-literal-regexp — pattern is registry-supplied + ReDoS-validated
+  // nosemgrep: detect-non-literal-regexp — pattern is registry-supplied + ReDoS-validated below
   const compiled = new RegExp(matcher.pattern, matcher.flags); // NOSONAR
   if (!isSafeRegex(compiled)) {
     throw new Error(
