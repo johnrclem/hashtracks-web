@@ -259,15 +259,12 @@ async function tryEscalate(
     return existing?.escalatedToIssueNumber ?? undefined;
   }
 
-  // We hold the claim. Wrap the rest in try/catch so ANY failure
-  // (createIssue rejects, finalize update fails) rolls back the
-  // claim — otherwise the base would be wedged in a half-escalated
-  // state with `escalatedAt` set but `escalatedToIssueNumber` null,
-  // and every subsequent caller would lose the CAS forever
-  // (Codex 5c-B pass-1 high finding).
+  // Step 2: create the meta-issue. Pre-create failures (returns null
+  // OR throws) roll back the claim cleanly because no GitHub side
+  // effect happened yet.
+  let meta: { number: number; htmlUrl: string } | null;
   try {
-    // Step 2: file the meta-issue.
-    const meta = await actions.createIssue({
+    meta = await actions.createIssue({
       title: `[Audit Recurring] ${kennelShortName} — ${input.ruleSlug}: ${newRecurrenceCount}+ days unresolved`,
       body: formatEscalationBody(
         baseIssueNumber,
@@ -277,43 +274,53 @@ async function tryEscalate(
       ),
       labels: [AUDIT_LABEL, NEEDS_DECISION_LABEL, kennelLabel(input.kennelCode)],
     });
-    if (!meta) {
-      console.error(
-        `[audit-filer] Escalation meta-issue create failed for base #${baseIssueNumber} — rolling back claim`,
-      );
-      await rollbackEscalationClaim(baseIssueId);
-      return undefined;
-    }
-
-    // Step 3: finalize. We hold the escalation slot — no race here.
-    await prisma.auditIssue.update({
-      where: { id: baseIssueId },
-      data: { escalatedToIssueNumber: meta.number },
-    });
-
-    // Best-effort link comment. Failure is logged but not surfaced —
-    // the meta is filed and tracked regardless, and the next sync cycle
-    // gives operators another chance to discover it via the
-    // `audit:needs-decision` label.
-    const linkOk = await actions.postComment(
-      baseIssueNumber,
-      `Escalated to meta-issue #${meta.number} after ${newRecurrenceCount} consecutive recurrences without resolution. Pick a remediation path; this tracker resets when the base issue closes-and-reopens.`,
-    );
-    if (!linkOk) {
-      console.warn(
-        `[audit-filer] Escalation link comment failed for base #${baseIssueNumber} (meta #${meta.number} still filed)`,
-      );
-    }
-
-    return meta.number;
   } catch (err) {
     console.error(
-      `[audit-filer] Escalation post-claim failure for base #${baseIssueNumber} — rolling back claim:`,
+      `[audit-filer] Escalation meta-issue create threw for base #${baseIssueNumber} — rolling back claim:`,
       err,
     );
     await rollbackEscalationClaim(baseIssueId);
     return undefined;
   }
+  if (!meta) {
+    console.error(
+      `[audit-filer] Escalation meta-issue create returned null for base #${baseIssueNumber} — rolling back claim`,
+    );
+    await rollbackEscalationClaim(baseIssueId);
+    return undefined;
+  }
+
+  // Step 3+: meta-issue IS filed. From here on, rolling back would
+  // orphan it — Codex 5c-B pass-2 P1 finding. Finalize + link
+  // comment are best-effort: failures get logged loudly so an
+  // operator can manually link, but we never clear the claim.
+  // Worst case: `escalatedToIssueNumber` stays null on the row but
+  // the meta-issue exists in GitHub with the `audit:needs-decision`
+  // label — still discoverable.
+  const metaNumber = meta.number;
+  await prisma.auditIssue
+    .update({
+      where: { id: baseIssueId },
+      data: { escalatedToIssueNumber: metaNumber },
+    })
+    .catch((err: unknown) => {
+      console.error(
+        `[audit-filer] Escalation finalize update failed for base #${baseIssueNumber} (meta #${metaNumber} is filed; column not linked, manual fix needed):`,
+        err,
+      );
+    });
+
+  const linkOk = await actions.postComment(
+    baseIssueNumber,
+    `Escalated to meta-issue #${metaNumber} after ${newRecurrenceCount} consecutive recurrences without resolution. Pick a remediation path; this tracker resets when the base issue closes-and-reopens.`,
+  );
+  if (!linkOk) {
+    console.warn(
+      `[audit-filer] Escalation link comment failed for base #${baseIssueNumber} (meta #${metaNumber} still filed)`,
+    );
+  }
+
+  return metaNumber;
 }
 
 /**
@@ -364,6 +371,11 @@ async function runStrictTier(
       githubNumber: true,
       htmlUrl: true,
       recurrenceCount: true,
+      // Reading `escalatedToIssueNumber` upfront lets us short-circuit
+      // `tryEscalate` when the row is already escalated for this
+      // lifecycle (saves the claim CAS round-trip per recur on
+      // already-escalated rows). Gemini PR #1197 review.
+      escalatedToIssueNumber: true,
       // Kennel shortName is plumbed through to `tryEscalate` so the
       // escalation path doesn't need its own findUnique round-trip
       // (saves one DB call per threshold-crossing recur).
@@ -417,17 +429,20 @@ async function runStrictTier(
   }
 
   // Escalation is best-effort — failures don't roll back the
-  // increment. See `tryEscalate` doc for race semantics. We pass
-  // the kennel shortName already loaded by the strict-tier query
-  // so the escalation path doesn't need its own findUnique.
-  const escalatedToIssueNumber = await tryEscalate(
-    strict.id,
-    strict.githubNumber,
-    newRecurrenceCount,
-    strict.kennel?.shortName ?? input.kennelCode,
-    input,
-    actions,
-  );
+  // increment. See `tryEscalate` doc for race semantics. Skip the
+  // attempt entirely when the row already has an escalation linked
+  // for this lifecycle: `tryEscalate`'s claim CAS would lose
+  // immediately and we'd just re-read what we already have.
+  const escalatedToIssueNumber =
+    strict.escalatedToIssueNumber ??
+    (await tryEscalate(
+      strict.id,
+      strict.githubNumber,
+      newRecurrenceCount,
+      strict.kennel?.shortName ?? input.kennelCode,
+      input,
+      actions,
+    ));
 
   return {
     action: "recurred",
@@ -475,6 +490,10 @@ async function tryBridge(
       htmlUrl: true,
       title: true,
       recurrenceCount: true,
+      escalatedToIssueNumber: true,
+      // Plumb kennel shortName for the escalation path's meta-issue
+      // title — same optimization as the strict-tier query.
+      kennel: { select: { shortName: true } },
     },
     // Oldest first: when several legacy rows could bridge, claim the
     // canonical (oldest) one and let the others stay un-bridged so an
@@ -550,12 +569,29 @@ async function tryBridge(
       };
     }
 
+    // Same escalation logic as strict tier — Codex 5c-B PR #1197 P2
+     // / Gemini high. Bridging only crosses threshold in pathological
+     // cases (a legacy row with already-high recurrenceCount), but the
+     // call is cheap (early-returns below threshold) and keeps the
+     // behavior consistent across both tiers.
+    const escalatedToIssueNumber =
+      candidate.escalatedToIssueNumber ??
+      (await tryEscalate(
+        candidate.id,
+        candidate.githubNumber,
+        newRecurrenceCount,
+        candidate.kennel?.shortName ?? input.kennelCode,
+        input,
+        actions,
+      ));
+
     return {
       action: "recurred",
       issueNumber: candidate.githubNumber,
       htmlUrl: candidate.htmlUrl,
       recurrenceCount: newRecurrenceCount,
       tier: "bridging",
+      escalatedToIssueNumber,
     };
   }
   return null;
