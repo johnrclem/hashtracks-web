@@ -27,7 +27,7 @@ Examples: Rumson, NOSE H3, Mosquito H3, Wildcard, H6, PBH3, all 11 GA/SC fillers
 
 These work, but they have known limitations the playbook already documents:
 - Can't express **lunar recurrence** (Full Moon / New Moon hashes — KFMH3 Osaka uses Google Calendar instead because of this; many MY/HK FM kennels are unsupported).
-- Can't express **seasonal schedule switching** (NOSE summer Thursday → winter Wednesday is two seeded sources today; brittle).
+- ~~Can't express seasonal schedule switching~~ — **resolved.** NOSE H3 (summer Thursday May–Oct / winter Wednesday Nov–Apr) ships correctly today as two seed sources with disjoint `BYMONTH` filters. The pattern was canonicalized in `source-onboarding-playbook.md` lesson #102 on 2026-04-30; see decision log entry 2026-04-30 below for why a single-source `seasons` schema was investigated and dropped.
 - Don't know about **cancellations** (city event conflicts — see Charleston bridge-run example in [`facebook-user-research.md`](facebook-user-research.md) line 39).
 - Don't carry **per-run details** (location, hares, on-after) — placeholder only.
 
@@ -66,7 +66,7 @@ Derived from the inventory above. Each row is a real scenario we hit today.
 | # | Use case | Concrete example | What we have | What's missing |
 |---|---|---|---|---|
 | **U1** | Recurring schedule, no per-run detail | Rumson Saturday | STATIC_SCHEDULE | Nothing — works |
-| **U2** | Seasonal switch | NOSE Thursday-summer / Wednesday-winter | Two STATIC_SCHEDULE sources | First-class seasonal RRULE; modest adapter change |
+| **U2** | Seasonal switch | NOSE Thursday-summer / Wednesday-winter | Two STATIC_SCHEDULE sources with disjoint `BYMONTH` (works correctly today) | Nothing — pattern canonicalized in source-onboarding-playbook.md #102 on 2026-04-30 |
 | **U3** | Lunar recurrence | KFMH3 Full Moon, HKFH3, FCH3-HK, ~30+ MY full-moon kennels | Workaround via Google Calendar where the kennel maintains one | Lunar generator with timezone + ephemeris model |
 | **U4** | Per-run location/hare/start-time | Little Rock posts day-of FB, Singapore Harriets, most MY kennels | Placeholder text only | Live FB read OR human submission |
 | **U5** | Cancellations / conflicts | Charleston bridge-run cancellation | Nothing — we'd show a phantom event | Live FB read OR admin override |
@@ -112,7 +112,7 @@ These are the only items that are simultaneously low-risk, immediately useful, a
 
 - **The strategy doc itself (this file).** Future "why aren't we scraping FB" pushback gets routed here. Update [`roadmap.md`](roadmap.md) line 917 to point at this doc and reframe `FACEBOOK_EVENTS` as a deferred design until the T2f pilot graduates.
 - **Cancellation override on STATIC_SCHEDULE-generated events** (U5). Admin marks a generated event as cancelled; the override sticks across re-scrapes. Reuses existing machinery in [`src/app/admin/events/actions.ts`](../src/app/admin/events/actions.ts). No new ingestion path; closes the most-cited correctness gap (Charleston-style conflicts) using human input we already have.
-- **Seasonal RRULE switch in STATIC_SCHEDULE** (U2). NOSE-style "summer Thursday / winter Wednesday" expressed as one source instead of two. **Limited to date-range switches in a known timezone** — not lunar, not equinox-based, not observance-based. This is a config-shape change and is provably bounded.
+- ~~**Seasonal RRULE switch in STATIC_SCHEDULE** (U2)~~ — **dropped 2026-04-30.** Investigation showed NOSE H3 already ships seasonal switching correctly via two STATIC_SCHEDULE sources with disjoint `BYMONTH` filters (PR #1035 added `BYMONTH` parsing to the adapter); a single-source `seasons` schema would have duplicated month-partitioning semantics, rippled across the admin validator + `StaticScheduleConfigPanel` + seed helpers + `fetch()` validation, and added test surface for zero user-visible value. Codex's adversarial review surfaced these compatibility costs before code was written. The two-source-with-`BYMONTH` pattern is now the canonical seasonal-switch onboarding pattern (`source-onboarding-playbook.md` lesson #102). NOSE is the only validated seasonal-switch kennel in the repo today; future kennels with the same shape will use the same pattern. See decision log entry 2026-04-30 below.
 
 Tier 1 explicitly does **not** include lunar recurrence. See Tier 2.
 
@@ -236,6 +236,17 @@ Until this snapshot exists, no percentage-based decision in this doc can fire.
 ## Decision Log
 
 This section is intentionally append-only. **New entries on top.**
+
+**2026-04-30 — Seasonal RRULE feature dropped from Tier 1**
+
+When work began on the Tier 1 "Seasonal RRULE switch in STATIC_SCHEDULE" item, exploration revealed:
+- NOSE H3 (the example named in the original Tier 1 entry) already ships seasonal switching correctly via two `STATIC_SCHEDULE` sources sharing one `kennelTag`, each scoped via disjoint `BYMONTH` filters (May–Oct Thursday / Nov–Apr Wednesday). PR #1035 added `BYMONTH` parsing to the `parseRRule()` helper before this strategy doc was written; the original "NOSE is brittle" framing was inaccurate.
+- The proposed single-source `seasons: SeasonRule[]` schema was put through Codex adversarial review pre-code. Findings: (a) `months[]` duplicates `BYMONTH`'s existing month-partitioning semantics — a config can silently disagree with itself; (b) making top-level `rrule` optional ripples into the admin validator, the `StaticScheduleConfigPanel` UI, the shared seed helper, and `fetch()` validation — far beyond a "config-shape change"; (c) NOSE migration in the same PR creates manual prod-cleanup debt; (d) the proposed "annual parity" test is weaker than the actual fetch contract (window-dependent, anchor-aligned).
+- The user-visible value was zero (NOSE works today). The cost was a multi-layer schema change with non-trivial validation and window-boundary tests.
+
+**Decision:** drop the feature. Document the BYMONTH-on-multiple-sources pattern as canonical (`source-onboarding-playbook.md` lesson #102 + step-6 example). Update Tier 1 in this doc to reflect the corrected scope. Move to the cancellation override item (the Tier 1 entry with actual user value — phantom-event correctness gap).
+
+If a future, validated seasonal-switch onboarding case materially benefits from a single-source seasons schema (i.e. the two-source-with-`BYMONTH` pattern produces real friction beyond DRY-only), this decision can be revisited with the corrected understanding of the cost surface. The earlier draft of this entry named LBH3 and Cherry Capital as motivating cases; that was inaccurate — LBH3 already has a `GOOGLE_CALENDAR` source covering its schedule, and Cherry Capital's schedule is unverified (FB-only with unclear regularity per `docs/kennel-research/us-deepen-nj-md-mi-la-research.md`). Reopening the question requires a real validated case, not a speculative one.
 
 **2026-04-29 — Initial decisions**
 
