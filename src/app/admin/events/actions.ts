@@ -5,6 +5,7 @@ import { getAdminUser } from "@/lib/auth";
 import type { ActionResult } from "@/lib/actions";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { HARELINE_EVENTS_TAG } from "@/lib/cache-tags";
+import { appendAuditLog, type AuditLogEntry } from "@/lib/misman/audit";
 
 const DELETE_BATCH_SIZE = 100;
 
@@ -213,7 +214,11 @@ export async function deleteSelectedEvents(eventIds: string[]): Promise<ActionRe
 }
 
 /**
- * Restore a cancelled event by setting status back to CONFIRMED.
+ * Restore a CANCELLED event back to CONFIRMED. Works for both reconciler-set
+ * and admin-set CANCELLED. Clears any admin-override lock fields and, if the
+ * event was admin-cancelled, appends an "uncancel" entry to the audit log.
+ *
+ * Spec: docs/superpowers/specs/2026-05-01-cancellation-override-design.md
  */
 export async function uncancelEvent(eventId: string): Promise<ActionResult<{ kennelName: string; date: string }>> {
   const admin = await getAdminUser();
@@ -221,14 +226,32 @@ export async function uncancelEvent(eventId: string): Promise<ActionResult<{ ken
 
   const event = await prisma.event.findUnique({
     where: { id: eventId },
-    include: { kennel: { select: { shortName: true } } },
+    include: { kennel: { select: { shortName: true, slug: true } } },
   });
   if (!event) return { error: "Event not found" };
   if (event.status !== "CANCELLED") return { error: "Event is not cancelled" };
 
+  const wasAdminCancelled = event.adminCancelledAt !== null;
+  const auditEntry: AuditLogEntry | null = wasAdminCancelled
+    ? {
+        action: "uncancel",
+        timestamp: new Date().toISOString(),
+        userId: admin.id,
+        changes: { status: { old: "CANCELLED", new: "CONFIRMED" } },
+      }
+    : null;
+
   await prisma.event.update({
     where: { id: eventId },
-    data: { status: "CONFIRMED" },
+    data: {
+      status: "CONFIRMED",
+      adminCancelledAt: null,
+      adminCancelledBy: null,
+      adminCancellationReason: null,
+      ...(auditEntry !== null
+        ? { adminAuditLog: appendAuditLog(event.adminAuditLog, auditEntry) }
+        : {}),
+    },
   });
 
   console.log("[admin-audit] uncancelEvent", JSON.stringify({
@@ -237,6 +260,7 @@ export async function uncancelEvent(eventId: string): Promise<ActionResult<{ ken
     eventId,
     kennelName: event.kennel.shortName,
     eventDate: event.date.toISOString(),
+    wasAdminCancelled,
     timestamp: new Date().toISOString(),
   }));
 
@@ -244,6 +268,76 @@ export async function uncancelEvent(eventId: string): Promise<ActionResult<{ ken
   revalidatePath("/hareline");
   revalidateTag(HARELINE_EVENTS_TAG, { expire: 0 });
   revalidatePath(`/hareline/${eventId}`);
+  revalidatePath(`/kennels/${event.kennel.slug}`);
+  return {
+    success: true,
+    kennelName: event.kennel.shortName,
+    date: event.date.toISOString(),
+  };
+}
+
+/**
+ * Admin override: mark an event CANCELLED with a required reason. The override
+ * survives all subsequent merge/reconcile passes via the merge pipeline's
+ * `isAdminLocked` guard. Un-cancel via `uncancelEvent`.
+ *
+ * Spec: docs/superpowers/specs/2026-05-01-cancellation-override-design.md
+ */
+export async function adminCancelEvent(
+  eventId: string,
+  reason: string,
+): Promise<ActionResult<{ kennelName: string; date: string }>> {
+  const admin = await getAdminUser();
+  if (!admin) return { error: "Not authorized" };
+
+  const trimmed = reason.trim();
+  if (trimmed.length < 3) return { error: "Reason must be at least 3 characters" };
+  if (trimmed.length > 500) return { error: "Reason must be 500 characters or fewer" };
+
+  const event = await prisma.event.findUnique({
+    where: { id: eventId },
+    include: { kennel: { select: { shortName: true, slug: true } } },
+  });
+  if (!event) return { error: "Event not found" };
+  if (event.adminCancelledAt) {
+    return { error: "Event already admin-cancelled — un-cancel first to change reason" };
+  }
+
+  const auditEntry: AuditLogEntry = {
+    action: "cancel",
+    timestamp: new Date().toISOString(),
+    userId: admin.id,
+    changes: { status: { old: event.status, new: "CANCELLED" } },
+    details: { reason: trimmed },
+  };
+
+  await prisma.event.update({
+    where: { id: eventId },
+    data: {
+      status: "CANCELLED",
+      adminCancelledAt: new Date(),
+      adminCancelledBy: admin.id,
+      adminCancellationReason: trimmed,
+      adminAuditLog: appendAuditLog(event.adminAuditLog, auditEntry),
+    },
+  });
+
+  console.log("[admin-audit] adminCancelEvent", JSON.stringify({
+    adminId: admin.id,
+    action: "admin_cancel_event",
+    eventId,
+    kennelName: event.kennel.shortName,
+    eventDate: event.date.toISOString(),
+    reason: trimmed,
+    timestamp: new Date().toISOString(),
+  }));
+
+  revalidatePath("/admin/events");
+  revalidatePath("/hareline");
+  revalidateTag(HARELINE_EVENTS_TAG, { expire: 0 });
+  revalidatePath(`/hareline/${eventId}`);
+  revalidatePath(`/kennels/${event.kennel.slug}`);
+
   return {
     success: true,
     kennelName: event.kennel.shortName,
