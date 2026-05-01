@@ -6,14 +6,12 @@ import type { ActionResult } from "@/lib/actions";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { HARELINE_EVENTS_TAG } from "@/lib/cache-tags";
 import { appendAuditLog, type AuditLogEntry } from "@/lib/misman/audit";
+import {
+  CANCELLATION_REASON_MIN,
+  CANCELLATION_REASON_MAX,
+} from "./constants";
 
 const DELETE_BATCH_SIZE = 100;
-
-/** Validation bounds for the admin-cancellation reason. Re-exported for the
- *  client-side dialog so the textarea counter and Confirm button enforce the
- *  same limits as the server action. */
-export const CANCELLATION_REASON_MIN = 3;
-export const CANCELLATION_REASON_MAX = 500;
 
 /** Shared kennel-projection used by both adminCancelEvent and uncancelEvent
  *  to fetch the slug for revalidation and the shortName for toast messages. */

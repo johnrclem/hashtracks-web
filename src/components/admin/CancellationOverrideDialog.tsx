@@ -14,11 +14,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { adminCancelEvent } from "@/app/admin/events/actions";
 import {
-  adminCancelEvent,
   CANCELLATION_REASON_MIN,
   CANCELLATION_REASON_MAX,
-} from "@/app/admin/events/actions";
+} from "@/app/admin/events/constants";
 import { formatDateLong } from "@/lib/format";
 import { toast } from "sonner";
 

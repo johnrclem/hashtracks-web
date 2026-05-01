@@ -10,6 +10,8 @@ vi.mock("@/app/admin/events/actions", () => ({
   previewBulkDelete: vi.fn(),
   uncancelEvent: vi.fn(),
   adminCancelEvent: vi.fn(),
+}));
+vi.mock("@/app/admin/events/constants", () => ({
   CANCELLATION_REASON_MIN: 3,
   CANCELLATION_REASON_MAX: 500,
 }));
