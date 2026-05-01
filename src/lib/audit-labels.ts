@@ -15,6 +15,10 @@
 
 export const AUDIT_LABEL = "audit";
 export const ALERT_LABEL = "alert";
+/** Applied to meta-issues filed when a base finding has recurred
+ *  past the escalation threshold without resolution. Surfaces in
+ *  `gh issue list -l audit:needs-decision` for triage. */
+export const NEEDS_DECISION_LABEL = "audit:needs-decision";
 
 export const STREAM_LABELS = {
   AUTOMATED: "audit:automated",

@@ -226,6 +226,36 @@ export async function fetchAllAuditIssues(token: string): Promise<GitHubIssue[]>
  * @param current - resolved current state (stream, state, closedAt)
  * @param now - reference clock for REOPENED/RELABELED events. Defaults to now.
  */
+/**
+ * Build the optional escalation-reset patch when an issue transitions
+ * closed → open. The recurrence streak the meta-issue tracked is over;
+ * a fresh streak should accumulate independently. Sync-side rather than
+ * filer-side because the open→closed→open transition isn't visible to
+ * the filer (which only sees current open rows).
+ *
+ * Also resets `recurrenceCount` to 0: the counter is a "since-current-
+ * open" streak, not a lifetime total. Without this, a base that hit
+ * 8+ recurrences before close would re-escalate on its very first
+ * new recurrence post-reopen (count would jump to 9, > threshold)
+ * instead of accumulating a fresh streak of 5 (Codex 5c-B pass-1
+ * medium finding).
+ *
+ * Pure function — extracted from the upsert-data builder so it's
+ * directly testable without standing up the full sync transaction.
+ */
+export function escalationResetForEvents(
+  newEvents: readonly { type: AuditIssueEventType }[],
+):
+  | { escalatedAt: null; escalatedToIssueNumber: null; recurrenceCount: 0 }
+  | Record<string, never> {
+  const reopened = newEvents.some(
+    (e) => e.type === AuditIssueEventType.REOPENED,
+  );
+  return reopened
+    ? { escalatedAt: null, escalatedToIssueNumber: null, recurrenceCount: 0 }
+    : {};
+}
+
 export function diffIssue(
   prior: { stream: AuditStream; state: string; githubClosedAt: Date | null } | null,
   current: {
@@ -439,6 +469,8 @@ export async function syncAuditIssues(): Promise<SyncResult> {
           issue.title,
         );
 
+        const escalationReset = escalationResetForEvents(newEvents);
+
         const upserted = await tx.auditIssue.upsert({
           where: { githubNumber: issue.number },
           create: {
@@ -464,6 +496,7 @@ export async function syncAuditIssues(): Promise<SyncResult> {
             // Intentionally NOT updating `fingerprint` here. See
             // comment above on insert-only semantics.
             delistedAt: null,
+            ...escalationReset,
           },
         });
 

@@ -5,6 +5,7 @@ import {
   resolveStream,
   resolveKennel,
   diffIssue,
+  escalationResetForEvents,
   extractRuleSlugFromAutomatedTitle,
   computeFingerprintFromIdentity,
 } from "./audit-issue-sync";
@@ -326,6 +327,55 @@ describe("audit-issue-sync — pure helpers", () => {
       // — a body param would be a regression to address.)
       const sig = computeFingerprintFromIdentity.length;
       expect(sig).toBe(3);
+    });
+  });
+
+  describe("escalationResetForEvents", () => {
+    it("emits the reset patch when newEvents contains REOPENED", () => {
+      const reset = escalationResetForEvents([
+        { type: AuditIssueEventType.REOPENED },
+      ]);
+      // recurrenceCount: 0 included so the next strict-tier hit
+      // accumulates a fresh streak rather than re-escalating
+      // immediately from the pre-close count.
+      expect(reset).toEqual({
+        escalatedAt: null,
+        escalatedToIssueNumber: null,
+        recurrenceCount: 0,
+      });
+    });
+
+    it("returns an empty patch when no REOPENED event fired", () => {
+      // OPENED + CLOSED on a brand-new closed-from-the-start issue
+      // shouldn't reset escalation — the recurrence streak this
+      // tracker measures hasn't ended via reopen.
+      const reset = escalationResetForEvents([
+        { type: AuditIssueEventType.OPENED },
+        { type: AuditIssueEventType.CLOSED },
+      ]);
+      expect(reset).toEqual({});
+    });
+
+    it("returns an empty patch on RELABELED-only changes", () => {
+      const reset = escalationResetForEvents([
+        { type: AuditIssueEventType.RELABELED },
+      ]);
+      expect(reset).toEqual({});
+    });
+
+    it("emits the reset patch when REOPENED is mixed with other events", () => {
+      // RELABELED can fire alongside REOPENED on the same sync round
+      // (operator reopens + relabels in one go). Reset should still
+      // win because the lifecycle restarted.
+      const reset = escalationResetForEvents([
+        { type: AuditIssueEventType.REOPENED },
+        { type: AuditIssueEventType.RELABELED },
+      ]);
+      expect(reset).toEqual({
+        escalatedAt: null,
+        escalatedToIssueNumber: null,
+        recurrenceCount: 0,
+      });
     });
   });
 });
