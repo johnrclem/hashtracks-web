@@ -586,6 +586,10 @@ export async function getOpenIssueCountsByStream(): Promise<StreamOpenCounts[]> 
 
 export interface StreamCloseReasonRatio {
   stream: AuditStream;
+  /** Days of closure history this row covers. Echoed in the payload
+   *  so the UI can render the window length without keeping its own
+   *  hardcoded "14d" string in sync with the server constant. */
+  windowDays: number;
   /** All closures in window — known + unknown. */
   closedTotal: number;
   /** Closures with `state_reason="not_planned"`. */
@@ -661,6 +665,7 @@ export async function getCloseReasonRatiosByStream(
         : null;
     return {
       stream,
+      windowDays: days,
       closedTotal: bucket.total,
       closedNotPlanned: bucket.notPlanned,
       closedUnknown: bucket.unknown,

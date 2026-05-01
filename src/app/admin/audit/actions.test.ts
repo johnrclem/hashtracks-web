@@ -419,6 +419,7 @@ describe("getCloseReasonRatiosByStream", () => {
     const automated = ratios.find((r) => r.stream === "AUTOMATED");
     expect(automated).toEqual({
       stream: "AUTOMATED",
+      windowDays: 14,
       closedTotal: 8,
       closedNotPlanned: 6,
       closedUnknown: 0,
@@ -438,6 +439,7 @@ describe("getCloseReasonRatiosByStream", () => {
     const chromeKennel = ratios.find((r) => r.stream === "CHROME_KENNEL");
     expect(chromeKennel).toEqual({
       stream: "CHROME_KENNEL",
+      windowDays: 14,
       closedTotal: 4,
       closedNotPlanned: 4,
       closedUnknown: 0,
@@ -461,6 +463,7 @@ describe("getCloseReasonRatiosByStream", () => {
     const chromeEvent = ratios.find((r) => r.stream === "CHROME_EVENT");
     expect(chromeEvent).toEqual({
       stream: "CHROME_EVENT",
+      windowDays: 14,
       closedTotal: 10,
       closedNotPlanned: 0,
       closedUnknown: 7,
@@ -484,6 +487,7 @@ describe("getCloseReasonRatiosByStream", () => {
     const automated = ratios.find((r) => r.stream === "AUTOMATED");
     expect(automated).toEqual({
       stream: "AUTOMATED",
+      windowDays: 14,
       closedTotal: 13,
       closedNotPlanned: 2,
       closedUnknown: 5,
@@ -497,10 +501,19 @@ describe("getCloseReasonRatiosByStream", () => {
     // DASHBOARD_STREAMS = AUTOMATED, CHROME_EVENT, CHROME_KENNEL, UNKNOWN
     expect(ratios).toHaveLength(4);
     for (const r of ratios) {
+      // windowDays is echoed even on empty streams so the UI never has to
+      // fall back to a hardcoded "14d" — Gemini PR #1171 review feedback.
+      expect(r.windowDays).toBe(14);
       expect(r.closedTotal).toBe(0);
       expect(r.closedNotPlanned).toBe(0);
       expect(r.closedUnknown).toBe(0);
       expect(r.notPlannedPct).toBeNull();
     }
+  });
+
+  it("echoes the explicit days argument as windowDays so the UI stays in sync with the server constant", async () => {
+    mockGroupBy.mockResolvedValue([] as never);
+    const ratios = await getCloseReasonRatiosByStream(30);
+    for (const r of ratios) expect(r.windowDays).toBe(30);
   });
 });

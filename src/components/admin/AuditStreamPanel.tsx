@@ -321,14 +321,25 @@ function StreamStatCard({ meta, open, delta, ratio }: StreamStatCardProps) {
   );
 }
 
+/** Default window size shown when the ratio prop is null/unavailable
+ *  (no row to read `windowDays` from). Kept short to stay in sync with
+ *  the server's `CLOSE_REASON_WINDOW_DAYS` default — the value is only
+ *  rendered in zero-state text, never in the live ratio. */
+const DEFAULT_WINDOW_DAYS = 14;
+
 function RatioLine({ ratio }: { ratio: StreamCloseReasonRatio | null | "unavailable" }) {
   if (ratio === "unavailable") {
     return (
       <div className="mt-1 text-xs text-orange-500">not-planned ratio unavailable</div>
     );
   }
+  const windowDays = ratio?.windowDays ?? DEFAULT_WINDOW_DAYS;
   if (ratio === null || ratio.closedTotal === 0) {
-    return <div className="mt-1 text-xs text-muted-foreground">0 closed / 14d</div>;
+    return (
+      <div className="mt-1 text-xs text-muted-foreground">
+        0 closed / {windowDays}d
+      </div>
+    );
   }
   // High not-planned% means many closures are "won't fix" — orange so it
   // visibly competes with the delta indicator.
@@ -342,8 +353,8 @@ function RatioLine({ ratio }: { ratio: StreamCloseReasonRatio | null | "unavaila
   return (
     <div className={`mt-1 text-xs ${color}`}>
       {ratio.notPlannedPct === null
-        ? `${ratio.closedTotal} closed / 14d${unknownSuffix}`
-        : `${ratio.notPlannedPct}% not-planned (${ratio.closedTotal} closed / 14d${unknownSuffix})`}
+        ? `${ratio.closedTotal} closed / ${windowDays}d${unknownSuffix}`
+        : `${ratio.notPlannedPct}% not-planned (${ratio.closedTotal} closed / ${windowDays}d${unknownSuffix})`}
     </div>
   );
 }
