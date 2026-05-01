@@ -13,6 +13,8 @@
  * fingerprint = same matching semantics" a sound invariant.
  */
 
+import isSafeRegex from "safe-regex2";
+
 import type { AuditEventRow } from "@/pipeline/audit-checks";
 
 /**
@@ -80,18 +82,40 @@ export type Matcher =
  */
 const regexCache = new WeakMap<object, RegExp>();
 
+/**
+ * Allowed flag set: `i`, `m`, `s`, `u`. The stateful flags `g` and `y`
+ * are banned because the compiled `RegExp` is cached and reused across
+ * many `evaluate()` calls — `RegExp.prototype.test()` mutates
+ * `lastIndex` for those flags, which would make the evaluator
+ * non-deterministic and break the fingerprint invariant. Multiple PR
+ * reviewers (Gemini, Codex, Qodo, CodeRabbit) flagged this on the
+ * initial pass; the test suite locks the rejection in.
+ */
+const ALLOWED_FLAGS_RE = /^[imsu]*$/;
+
 function compileRegex(matcher: Extract<Matcher, { op: "regex-test" }>): RegExp {
   const cached = regexCache.get(matcher);
   if (cached) return cached;
   if (matcher.pattern.length === 0) {
     throw new Error("Matcher regex-test: pattern must be non-empty");
   }
-  // Flags string is data, not a runtime configuration knob — anything
-  // that varies at request time would invalidate the fingerprint.
-  if (matcher.flags !== undefined && !/^[gimsuy]*$/.test(matcher.flags)) {
-    throw new Error(`Matcher regex-test: invalid flags "${matcher.flags}"`);
+  if (matcher.flags !== undefined && !ALLOWED_FLAGS_RE.test(matcher.flags)) {
+    throw new Error(
+      `Matcher regex-test: invalid flags "${matcher.flags}" (allowed: i, m, s, u)`,
+    );
   }
-  const compiled = new RegExp(matcher.pattern, matcher.flags);
+  // Patterns come from the source-controlled rule registry, not from
+  // user input — but `isSafeRegex` is cheap defense-in-depth so a
+  // rule author can't accidentally land a catastrophic-backtrack
+  // pattern that would hang every audit run. The cost (one check per
+  // first-compile) is amortized by the WeakMap cache.
+  // nosemgrep: detect-non-literal-regexp — pattern is registry-supplied + ReDoS-validated
+  const compiled = new RegExp(matcher.pattern, matcher.flags); // NOSONAR
+  if (!isSafeRegex(compiled)) {
+    throw new Error(
+      `Matcher regex-test: pattern "${matcher.pattern}" may cause catastrophic backtracking (ReDoS)`,
+    );
+  }
   regexCache.set(matcher, compiled);
   return compiled;
 }
@@ -114,8 +138,7 @@ export function evaluate(matcher: Matcher, row: NormalizedRow): boolean {
       return compileRegex(matcher).test(value);
     }
     case "starts-with": {
-      const value = readField(row, matcher.field);
-      return value !== null && value.startsWith(matcher.value);
+      return readField(row, matcher.field)?.startsWith(matcher.value) ?? false;
     }
     case "equals": {
       const value = readField(row, matcher.field);
@@ -156,7 +179,7 @@ function sortedKeyReplacer(_key: string, value: unknown): unknown {
     !Array.isArray(value)
   ) {
     const obj = value as Record<string, unknown>;
-    const sortedKeys = Object.keys(obj).sort();
+    const sortedKeys = Object.keys(obj).sort((a, b) => a.localeCompare(b));
     const out: Record<string, unknown> = {};
     for (const k of sortedKeys) {
       // `k` came from Object.keys(obj) directly — same source.

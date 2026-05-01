@@ -58,8 +58,20 @@ export interface AuditRule {
   description?: string;
 }
 
+/**
+ * Build a registry from `(slug, rule)` entries. Separating construction
+ * from the exported `AUDIT_RULES` instance lets bundle 4b populate the
+ * registry by passing entries here, and lets tests build smaller
+ * registries without monkey-patching the exported singleton.
+ */
+export function buildRegistry(
+  entries: ReadonlyArray<readonly [string, AuditRule]> = [],
+): ReadonlyMap<string, AuditRule> {
+  return new Map(entries);
+}
+
 /** Registry of fingerprintable audit rules. */
-export const AUDIT_RULES: ReadonlyMap<string, AuditRule> = new Map();
+export const AUDIT_RULES: ReadonlyMap<string, AuditRule> = buildRegistry();
 
 export function getRule(slug: string): AuditRule | undefined {
   return AUDIT_RULES.get(slug);
@@ -73,11 +85,15 @@ export function getRule(slug: string): AuditRule | undefined {
  * canonicalizer — rolls the fingerprint forward even if the matcher
  * data didn't change. Captures the FULL match-surface, not just the
  * rule's data.
+ *
+ * Built from explicit string concatenation rather than `JSON.stringify`
+ * so the encoding is bit-stable regardless of object-key order
+ * variations across JS engines (the inner `canonicalizeMatcher` already
+ * sorts keys deterministically; we just don't want to layer another
+ * `JSON.stringify` on top of an outer object whose key order isn't
+ * guaranteed by spec).
  */
 export function semanticHashFor(rule: AuditRule): string {
-  const payload = JSON.stringify({
-    matcher: canonicalizeMatcher(rule.matcher),
-    evaluatorVersion: EVALUATOR_VERSION,
-  });
+  const payload = `v${EVALUATOR_VERSION}\n${canonicalizeMatcher(rule.matcher)}`;
   return createHash("sha256").update(payload).digest("hex");
 }

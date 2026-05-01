@@ -46,6 +46,32 @@ describe("evaluate", () => {
     expect(() => evaluate(m, FIXTURE)).toThrow(/invalid flags/);
   });
 
+  it.each([["g"], ["y"], ["gi"], ["iy"]])(
+    "regex-test rejects stateful flag '%s' (cached RegExp + lastIndex would break determinism)",
+    (flags) => {
+      // Compiled regex is memoized in a WeakMap and reused across many
+      // evaluations. `g` and `y` mutate `lastIndex` on `.test()`, which
+      // would make identical inputs alternate between match/non-match
+      // depending on prior call history. PR #1163 reviewers (Gemini,
+      // Codex, Qodo, CodeRabbit) all flagged this on the initial pass.
+      const m: Matcher = { op: "regex-test", field: "title", pattern: "x", flags };
+      expect(() => evaluate(m, FIXTURE)).toThrow(/invalid flags/);
+    },
+  );
+
+  it("regex-test rejects ReDoS-vulnerable patterns via safe-regex2", () => {
+    // Classic catastrophic-backtrack pattern: nested quantifiers with
+    // overlapping character classes. Rule authors are trusted (registry
+    // is source-controlled), but isSafeRegex is cheap defense-in-depth
+    // so a bad rule can't hang every audit run.
+    const m: Matcher = {
+      op: "regex-test",
+      field: "title",
+      pattern: "(a+)+$",
+    };
+    expect(() => evaluate(m, FIXTURE)).toThrow(/catastrophic backtracking/);
+  });
+
   it("starts-with is case-sensitive (use regex-test with ^ for fuzzier matching)", () => {
     const lower: Matcher = { op: "starts-with", field: "title", value: "nych3" };
     expect(evaluate(lower, FIXTURE)).toBe(false);
