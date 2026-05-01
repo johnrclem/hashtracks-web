@@ -283,83 +283,73 @@ async function persistFilingResult(
 // ── GitHub helpers ───────────────────────────────────────────────────
 
 /**
- * One of two server-known GitHub repos/* paths. Discriminated union
- * (rather than free-form path string) keeps the `fetch` URL bounded
- * to two literal-template forms with a single bounded numeric ID,
- * which Codacy's taint analysis accepts.
+ * Standard headers + body shape for a GitHub repos/* POST. Building
+ * once per call keeps the two `fetch` sites below symmetric without
+ * sharing a helper that would defeat Codacy's tainted-URL analysis.
  */
-type GithubPath =
-  | { kind: "create-issue" }
-  | { kind: "comment"; issueNumber: number };
-
-/**
- * POST a JSON payload to a GitHub repos/* path. Returns the parsed
- * response on 2xx, or null on any failure (no token, network error,
- * non-2xx status). Failure cases are handled by callers — this helper
- * deliberately swallows error detail to keep the route logic linear.
- *
- * URL construction is inlined (not extracted to a helper) so the
- * literal-template strings are visible to Codacy's tainted-URL rule
- * in the same scope as `fetch`. Across-function string returns
- * defeat that analysis even when the discriminated union narrows
- * the inputs.
- */
-async function githubApiPost<T>(
-  path: GithubPath,
-  body: unknown,
-): Promise<T | null> {
-  const token = process.env.GITHUB_TOKEN;
-  if (!token) return null;
-  const repo = getValidatedRepo();
-  let url: string;
-  if (path.kind === "create-issue") {
-    url = `https://api.github.com/repos/${repo}/issues`;
-  } else {
-    // Defensive: issueNumber comes from our DB mirror or GitHub's
-    // own create response, but reject anything non-positive-integer
-    // so the URL can't be steered even if a row gets corrupted.
-    if (!Number.isInteger(path.issueNumber) || path.issueNumber <= 0) {
-      return null;
-    }
-    url = `https://api.github.com/repos/${repo}/issues/${path.issueNumber}/comments`;
-  }
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/vnd.github+json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-    });
-    if (!res.ok) return null;
-    return (await res.json()) as T;
-  } catch {
-    return null;
-  }
+function githubPostInit(token: string, body: unknown): RequestInit {
+  return {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/vnd.github+json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  };
 }
 
+/**
+ * Comment on an existing GitHub issue. URL is built as a literal
+ * template inside the `fetch` call — keeping it there (rather than
+ * routing through a shared helper) is what satisfies Codacy's
+ * tainted-URL rule. The only dynamic segment is `issueNumber`,
+ * which we explicitly bound to a positive integer.
+ */
 async function postCommentToIssue(
   issueNumber: number,
   body: string,
 ): Promise<"ok" | "error"> {
-  const result = await githubApiPost<unknown>(
-    { kind: "comment", issueNumber },
-    { body },
-  );
-  return result === null ? "error" : "ok";
+  const token = process.env.GITHUB_TOKEN;
+  if (!token) return "error";
+  if (!Number.isInteger(issueNumber) || issueNumber <= 0) return "error";
+  const repo = getValidatedRepo();
+  try {
+    // SSRF-safe: api.github.com host literal; repo from validated
+    // env; issueNumber bounded above.
+    const res = await fetch(
+      `https://api.github.com/repos/${repo}/issues/${issueNumber}/comments`,
+      githubPostInit(token, { body }),
+    );
+    return res.ok ? "ok" : "error";
+  } catch {
+    return "error";
+  }
 }
 
+/**
+ * Create a fresh GitHub issue with the given title/body/labels.
+ * Same fetch-with-literal-URL pattern as `postCommentToIssue`.
+ */
 async function createGithubIssue(
   title: string,
   body: string,
   labels: readonly string[],
 ): Promise<{ htmlUrl: string; number: number } | null> {
-  const issue = await githubApiPost<{ html_url: string; number: number }>(
-    { kind: "create-issue" },
-    { title, body, labels },
-  );
-  return issue ? { htmlUrl: issue.html_url, number: issue.number } : null;
+  const token = process.env.GITHUB_TOKEN;
+  if (!token) return null;
+  const repo = getValidatedRepo();
+  try {
+    // SSRF-safe: api.github.com host literal; repo from validated env.
+    const res = await fetch(
+      `https://api.github.com/repos/${repo}/issues`,
+      githubPostInit(token, { title, body, labels }),
+    );
+    if (!res.ok) return null;
+    const issue = (await res.json()) as { html_url: string; number: number };
+    return { htmlUrl: issue.html_url, number: issue.number };
+  } catch {
+    return null;
+  }
 }
