@@ -12,6 +12,8 @@ import {
   Telescope,
   Copy,
   Check,
+  Flame,
+  Lock,
 } from "lucide-react";
 import {
   LineChart,
@@ -39,6 +41,7 @@ import {
   type StreamOpenCounts,
   type StreamCloseReasonRatio,
   type RecentOpenIssue,
+  type EscalatedFinding,
 } from "@/app/admin/audit/actions";
 import { AuditStreamPanel } from "@/components/admin/AuditStreamPanel";
 import { buildDeepDivePrompt } from "@/lib/admin/deep-dive-prompt";
@@ -99,6 +102,7 @@ interface Props {
    *  an explicit "metric unavailable" line instead of fake zeros. */
   streamCloseReasonRatios: StreamCloseReasonRatio[] | null;
   recentOpenIssues: RecentOpenIssue[];
+  escalatedFindings: EscalatedFinding[];
 }
 
 const CATEGORY_LINES: { key: keyof TrendPoint; label: string; color: string }[] = [
@@ -125,6 +129,7 @@ export function AuditDashboard({
   streamOpenCounts,
   streamCloseReasonRatios,
   recentOpenIssues,
+  escalatedFindings,
 }: Props) {
   const router = useRouter();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -158,6 +163,9 @@ export function AuditDashboard({
 
   return (
     <div className="space-y-10">
+      {/* ── Escalated findings (highest-priority signal post-5c-B) ── */}
+      <NeedsDecisionPanel findings={escalatedFindings} />
+
       {/* ── Stream attribution ─────────────────────────────────── */}
       <AuditStreamPanel
         streamTrends={streamTrends}
@@ -290,20 +298,44 @@ export function AuditDashboard({
                       className="hover:bg-accent/30 transition-colors"
                     >
                       <td className="px-5 py-2.5 font-medium">
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-1.5">
                           <span>{o.kennelShortName}</span>
                           {o.suppressed && (
                             <Badge variant="secondary" className="text-[10px]">
                               Suppressed
                             </Badge>
                           )}
+                          {o.escalatedToIssueNumber !== null && (
+                            <a
+                              href={`https://github.com/${HASHTRACKS_REPO}/issues/${o.escalatedToIssueNumber}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1 rounded border border-red-500/40 bg-red-500/10 px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-red-600 hover:bg-red-500/20 dark:text-red-400"
+                              title={`Escalated meta-issue #${o.escalatedToIssueNumber}`}
+                            >
+                              <Flame className="h-3 w-3" />
+                              #{o.escalatedToIssueNumber}
+                            </a>
+                          )}
                         </div>
                       </td>
                       <td className="px-5 py-2.5 font-mono text-xs text-muted-foreground">
                         {o.rule}
                       </td>
-                      <td className="px-5 py-2.5 text-right tabular-nums font-mono text-xs">
-                        {o.count}
+                      <td className="px-5 py-2.5 text-right">
+                        <div className="flex flex-col items-end gap-0.5 leading-tight">
+                          <span className="tabular-nums font-mono text-xs">
+                            {o.count}
+                          </span>
+                          {o.recurrenceCount !== null && o.recurrenceCount > 0 && (
+                            <span
+                              className="text-[10px] tabular-nums text-muted-foreground"
+                              title="Strict-tier recurrence count from the AuditIssue mirror — distinct from per-event finding count above"
+                            >
+                              ×{o.recurrenceCount} recurs
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-5 py-2.5 text-muted-foreground tabular-nums text-xs">
                         {o.lastSeen}
@@ -484,6 +516,94 @@ export function AuditDashboard({
 }
 
 // ── Suppression Row + Delete Confirmation ───────────────────────────
+
+// ── Needs Decision panel ────────────────────────────────────────────
+//
+// Surfaces open AuditIssue rows that crossed the recurrence escalation
+// threshold (5c-B). Each row is a finding the auto-coalescer has given
+// up on — the operator must pick fix / suppress / reclassify before
+// the comment trail bloats further. Hidden when there's nothing to
+// surface so the dashboard's first paint isn't a wall of red boxes for
+// no reason.
+
+function NeedsDecisionPanel({ findings }: { findings: EscalatedFinding[] }) {
+  if (findings.length === 0) return null;
+
+  return (
+    <section className="space-y-4">
+      <div className="flex items-center justify-between gap-4">
+        <SectionHeader
+          icon={Flame}
+          title={`Needs Decision (${findings.length})`}
+          color="bg-red-500/10 text-red-500"
+        />
+        <p className="text-xs text-muted-foreground max-w-md text-right">
+          Recurred 5+ times; auto-coalesce gave up. Pick{" "}
+          <span className="font-medium text-foreground">fix</span>,{" "}
+          <span className="font-medium text-foreground">suppress</span>, or{" "}
+          <span className="font-medium text-foreground">reclassify</span>.
+        </p>
+      </div>
+      <div className="rounded-xl border border-red-500/30 bg-red-500/[0.03] overflow-hidden">
+        <ul className="divide-y divide-red-500/15">
+          {findings.map((f) => (
+            <NeedsDecisionRow key={f.baseIssueNumber} finding={f} />
+          ))}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
+function NeedsDecisionRow({ finding }: { finding: EscalatedFinding }) {
+  return (
+    <li className="flex flex-col gap-2 px-5 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+      <div className="min-w-0 flex-1 space-y-1">
+        <div className="flex flex-wrap items-center gap-2">
+          {finding.baseKennelShortName && (
+            <span className="font-medium">{finding.baseKennelShortName}</span>
+          )}
+          <Badge
+            variant="outline"
+            className="border-red-500/40 bg-red-500/10 text-red-600 dark:text-red-400 font-mono text-[10px] tabular-nums"
+          >
+            ×{finding.recurrenceCount} recurrences
+          </Badge>
+          <span className="text-xs text-muted-foreground">
+            escalated {finding.escalatedAgoLabel}
+          </span>
+        </div>
+        <a
+          href={finding.baseIssueUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="block truncate text-sm hover:underline"
+        >
+          <span className="font-mono tabular-nums text-muted-foreground">
+            #{finding.baseIssueNumber}
+          </span>{" "}
+          {finding.baseIssueTitle}
+        </a>
+      </div>
+      <div className="flex shrink-0 items-center gap-2 text-xs">
+        {finding.escalatedToIssueNumber !== null ? (
+          <a
+            href={`https://github.com/${HASHTRACKS_REPO}/issues/${finding.escalatedToIssueNumber}`}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 rounded-md border border-red-500/40 bg-red-500/10 px-2.5 py-1 font-mono tabular-nums text-red-600 hover:bg-red-500/20 dark:text-red-400"
+          >
+            Decision → #{finding.escalatedToIssueNumber}
+          </a>
+        ) : (
+          <span className="text-muted-foreground italic">
+            meta unlinked — see logs
+          </span>
+        )}
+      </div>
+    </li>
+  );
+}
 
 function SuppressionRowView({
   row,
@@ -851,12 +971,33 @@ function DeepDiveCard({
       {/* ── Queue table (clickable rows select the kennel above) ── */}
       {queue.length > 1 && (
         <div className="rounded-xl border border-border/50 bg-card overflow-hidden">
-          <div className="px-5 py-3 border-b border-border/50">
+          <div className="flex items-center justify-between gap-2 px-5 py-3 border-b border-border/50">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Queue
             </h3>
+            {/* Visual lock when the completion dialog is open: the
+              * snapshot token from bundle 6 has bound `selectedCode`
+              * for the duration of that submission. Reordering the
+              * queue from a second tab during this window would now
+              * 409 the submit; making it clear that the queue is
+              * "frozen" prevents the operator from confusing
+              * themselves. */}
+            {completeOpen && (
+              <span
+                id="dd-queue-lock-message"
+                className="inline-flex items-center gap-1.5 rounded border border-purple-500/40 bg-purple-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-purple-600 dark:text-purple-400"
+                title="Snapshot token bound — cancel the dialog to retarget another kennel"
+              >
+                <Lock className="h-3 w-3" />
+                Locked to {currentKennel.shortName}
+              </span>
+            )}
           </div>
-          <div className="overflow-x-auto">
+          <div
+            className={`overflow-x-auto transition-opacity ${
+              completeOpen ? "opacity-50" : ""
+            }`}
+          >
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border/30">
@@ -882,14 +1023,27 @@ function DeepDiveCard({
                   <tr
                     key={k.kennelCode}
                     role="button"
-                    tabIndex={0}
-                    className={`cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 ${
+                    tabIndex={completeOpen ? -1 : 0}
+                    aria-disabled={completeOpen || undefined}
+                    aria-describedby={
+                      completeOpen ? "dd-queue-lock-message" : undefined
+                    }
+                    className={`transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 ${
+                      completeOpen ? "cursor-not-allowed" : "cursor-pointer"
+                    } ${
                       k.kennelCode === selectedCode
                         ? "bg-accent/50 border-l-2 border-l-purple-500"
-                        : "hover:bg-accent/30"
+                        : completeOpen
+                          ? ""
+                          : "hover:bg-accent/30"
                     }`}
-                    onClick={() => { setSelectedCode(k.kennelCode); setCopied(false); }}
+                    onClick={() => {
+                      if (completeOpen) return;
+                      setSelectedCode(k.kennelCode);
+                      setCopied(false);
+                    }}
                     onKeyDown={(e) => {
+                      if (completeOpen) return;
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
                         setSelectedCode(k.kennelCode);

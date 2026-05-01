@@ -20,6 +20,7 @@ vi.mock("@/lib/db", () => ({
     },
     auditIssue: {
       groupBy: vi.fn(),
+      findMany: vi.fn(),
     },
   },
 }));
@@ -65,6 +66,7 @@ import {
   getCloseReasonRatiosByStream,
   getDeepDiveQueueToken,
   recordDeepDive,
+  getEscalatedFindings,
 } from "./actions";
 import {
   computeQueueSnapshotId,
@@ -126,6 +128,15 @@ describe("getAuditTrends", () => {
 });
 
 describe("getTopOffenders", () => {
+  const mockIssueFindMany = vi.mocked(prisma.auditIssue.findMany);
+
+  beforeEach(() => {
+    // Default: no open AuditIssue rows → recurrence/escalation
+    // enrichment fields are null on every offender. Tests that
+    // exercise the enrichment override.
+    mockIssueFindMany.mockResolvedValue([] as never);
+  });
+
   it("aggregates by kennelCode + rule and flags suppressed entries", async () => {
     mockLogFind.mockResolvedValue([
       {
@@ -144,6 +155,8 @@ describe("getTopOffenders", () => {
     const cta = result.find(r => r.kennelCode === "NYCH3")!;
     expect(cta.count).toBe(2);
     expect(cta.suppressed).toBe(true);
+    expect(cta.recurrenceCount).toBeNull();
+    expect(cta.escalatedToIssueNumber).toBeNull();
     const title = result.find(r => r.kennelCode === "BFM")!;
     expect(title.suppressed).toBe(false);
   });
@@ -161,6 +174,180 @@ describe("getTopOffenders", () => {
 
     const result = await getTopOffenders();
     expect(result[0].suppressed).toBe(true);
+  });
+
+  it("enriches offender rows with recurrenceCount + escalatedToIssueNumber from the AuditIssue mirror", async () => {
+    mockLogFind.mockResolvedValue([
+      {
+        createdAt: new Date("2026-04-04T12:00:00Z"),
+        findings: [
+          {
+            kennelCode: "nych3",
+            kennelShortName: "NYCH3",
+            rule: "hare-url",
+            category: "hares",
+          },
+        ],
+      },
+    ] as never);
+    mockSupFind.mockResolvedValue([] as never);
+    // Open AuditIssue with the slug bracket in the title that
+    // `extractRuleSlugFromAutomatedTitle` matches: enrichment hits.
+    mockIssueFindMany.mockResolvedValue([
+      {
+        kennelCode: "nych3",
+        title:
+          "[Audit] NYCH3 — Hare Quality [hare-url] (3 events) — 2026-04-30",
+        recurrenceCount: 7,
+        escalatedToIssueNumber: 555,
+      },
+    ] as never);
+
+    const result = await getTopOffenders();
+    expect(result).toHaveLength(1);
+    expect(result[0].recurrenceCount).toBe(7);
+    expect(result[0].escalatedToIssueNumber).toBe(555);
+  });
+
+  it("leaves enrichment fields null when no open AuditIssue title carries the slug bracket", async () => {
+    // Chrome-stream rows have free-form titles; the bracket regex
+    // misses them, so enrichment for chrome-only kennels stays
+    // null. Documented limitation per the helper's doc.
+    mockLogFind.mockResolvedValue([
+      {
+        createdAt: new Date("2026-04-04T12:00:00Z"),
+        findings: [
+          {
+            kennelCode: "nych3",
+            kennelShortName: "NYCH3",
+            rule: "hare-url",
+            category: "hares",
+          },
+        ],
+      },
+    ] as never);
+    mockSupFind.mockResolvedValue([] as never);
+    mockIssueFindMany.mockResolvedValue([
+      {
+        kennelCode: "nych3",
+        title: "Finding: NYCH3 hare-url",  // chrome-style — no bracket
+        recurrenceCount: 4,
+        escalatedToIssueNumber: null,
+      },
+    ] as never);
+
+    const result = await getTopOffenders();
+    expect(result[0].recurrenceCount).toBeNull();
+    expect(result[0].escalatedToIssueNumber).toBeNull();
+  });
+});
+
+describe("getEscalatedFindings", () => {
+  const mockIssueFindMany = vi.mocked(prisma.auditIssue.findMany);
+
+  beforeEach(() => {
+    mockIssueFindMany.mockReset();
+  });
+
+  it("requires admin", async () => {
+    mockAdmin.mockResolvedValue(null);
+    await expect(getEscalatedFindings()).rejects.toThrow("Unauthorized");
+  });
+
+  it("returns rows that have crossed the escalation threshold, ordered by most-recent escalation", async () => {
+    const now = new Date("2026-05-01T12:00:00Z");
+    const yesterday = new Date("2026-04-30T12:00:00Z");
+    mockIssueFindMany.mockResolvedValue([
+      {
+        githubNumber: 1100,
+        title: "[Audit] NYCH3 — Hare Quality [hare-url] (5 events)",
+        htmlUrl: "https://github.com/x/y/issues/1100",
+        stream: "AUTOMATED",
+        kennelCode: "nych3",
+        kennel: { shortName: "NYCH3" },
+        recurrenceCount: 7,
+        escalatedAt: now,
+        escalatedToIssueNumber: 1200,
+      },
+      {
+        githubNumber: 950,
+        title: "[Audit] BFM — Title Quality [title-cta-text] (2 events)",
+        htmlUrl: "https://github.com/x/y/issues/950",
+        stream: "AUTOMATED",
+        kennelCode: "bfm",
+        kennel: { shortName: "BFM" },
+        recurrenceCount: 5,
+        escalatedAt: yesterday,
+        escalatedToIssueNumber: 1000,
+      },
+    ] as never);
+
+    const result = await getEscalatedFindings();
+    expect(result).toHaveLength(2);
+    expect(result[0].baseIssueNumber).toBe(1100);
+    expect(result[0].baseKennelShortName).toBe("NYCH3");
+    expect(result[0].recurrenceCount).toBe(7);
+    expect(result[0].escalatedToIssueNumber).toBe(1200);
+    expect(result[1].baseIssueNumber).toBe(950);
+
+    // Confirm the WHERE clause filters to escalated + open + not-delisted.
+    expect(mockIssueFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          state: "open",
+          delistedAt: null,
+          escalatedAt: { not: null },
+        }),
+      }),
+    );
+  });
+
+  it("computes the escalatedAgoLabel server-side to avoid hydration drift", async () => {
+    // Hardcode a known `escalatedAt` and rely on `Date.now()` at
+    // call time. The exact label depends on timing (today vs 1 day
+    // ago around midnight); just assert it's one of the
+    // human-readable shapes the helper produces.
+    mockIssueFindMany.mockResolvedValue([
+      {
+        githubNumber: 1,
+        title: "[Audit] X — [hare-url] (1 events)",
+        htmlUrl: "https://github.com/x/y/issues/1",
+        stream: "AUTOMATED",
+        kennelCode: "x",
+        kennel: { shortName: "X" },
+        recurrenceCount: 5,
+        escalatedAt: new Date(Date.now() - 3 * 86_400_000),
+        escalatedToIssueNumber: 100,
+      },
+    ] as never);
+
+    const result = await getEscalatedFindings();
+    expect(result[0].escalatedAgoLabel).toMatch(/^(today|\d+ days? ago)$/);
+    // For a 3-day-old escalation specifically, expect "3 days ago".
+    expect(result[0].escalatedAgoLabel).toBe("3 days ago");
+  });
+
+  it("surfaces rows with null escalatedToIssueNumber (half-state) so operators can investigate", async () => {
+    // Rare but possible: claim landed but finalize update didn't.
+    // The dashboard panel still shows the row so an operator can
+    // clear the manual debt — see audit-filer.ts header comment.
+    mockIssueFindMany.mockResolvedValue([
+      {
+        githubNumber: 800,
+        title: "[Audit] NYCH3 — Hare Quality [hare-url] (1 events)",
+        htmlUrl: "https://github.com/x/y/issues/800",
+        stream: "AUTOMATED",
+        kennelCode: "nych3",
+        kennel: { shortName: "NYCH3" },
+        recurrenceCount: 5,
+        escalatedAt: new Date(),
+        escalatedToIssueNumber: null,
+      },
+    ] as never);
+
+    const result = await getEscalatedFindings();
+    expect(result).toHaveLength(1);
+    expect(result[0].escalatedToIssueNumber).toBeNull();
   });
 });
 

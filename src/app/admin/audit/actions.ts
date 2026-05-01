@@ -4,6 +4,7 @@ import { Prisma, AuditStream, AuditIssueEventType } from "@/generated/prisma/cli
 import { prisma } from "@/lib/db";
 import { getAdminUser } from "@/lib/auth";
 import { KNOWN_AUDIT_RULES, type AuditFinding } from "@/pipeline/audit-checks";
+import { extractRuleSlugFromAutomatedTitle } from "@/pipeline/audit-issue-sync";
 import { DASHBOARD_STREAMS } from "@/lib/audit-stream-meta";
 import type {
   HarelinePromptInputs,
@@ -97,6 +98,20 @@ export interface TopOffender {
   count: number;
   lastSeen: string;
   suppressed: boolean;
+  /** Recurrence count from the matching open AuditIssue (cron-side
+   *  fingerprint dedup, 5c-A). Null when no open mirror row matches —
+   *  e.g. non-fingerprintable rule, all matching issues already
+   *  closed, or rule-slug extraction failed. The dashboard shows this
+   *  alongside `count` so operators can distinguish "many separate
+   *  events under one rule" from "one persistent finding the
+   *  cron-coalescer has been tracking". */
+  recurrenceCount: number | null;
+  /** When the matching open AuditIssue has crossed the escalation
+   *  threshold (5c-B), the meta-issue's GitHub number. The
+   *  `Needs Decision` panel surfaces these globally too — duplicating
+   *  them inline here lets operators triage from the offenders view
+   *  without scrolling. */
+  escalatedToIssueNumber: number | null;
 }
 
 export async function getTopOffenders(days = OFFENDER_DAYS): Promise<TopOffender[]> {
@@ -104,16 +119,47 @@ export async function getTopOffenders(days = OFFENDER_DAYS): Promise<TopOffender
   // Rows are ordered desc, so the first encounter for a (kennelCode, rule) key is the most
   // recent date — used for `lastSeen` below. `count` is per-finding occurrence across runs,
   // which inflates for events that persist day-to-day; that's intentional for ranking impact.
-  const [rows, suppressions] = await Promise.all([
+  const [rows, suppressions, openIssues] = await Promise.all([
     prisma.auditLog.findMany({
       where: { type: "HARELINE", createdAt: { gte: daysAgo(days) } },
       select: { createdAt: true, findings: true },
       orderBy: { createdAt: "desc" },
     }),
     prisma.auditSuppression.findMany({ select: { kennelCode: true, rule: true } }),
+    // Pull the open AuditIssue mirror so we can enrich each offender row
+    // with its recurrenceCount + escalation status. We extract ruleSlug
+    // from the title (matching the cron-format bracket) since the
+    // mirror doesn't store the slug as a column.
+    prisma.auditIssue.findMany({
+      where: { state: "open", delistedAt: null, kennelCode: { not: null } },
+      select: {
+        kennelCode: true,
+        title: true,
+        recurrenceCount: true,
+        escalatedToIssueNumber: true,
+      },
+    }),
   ]);
 
   const suppressedKeys = new Set(suppressions.map(s => suppressionKey(s.kennelCode, s.rule)));
+
+  // Index open issues by (kennelCode, ruleSlug) for O(1) lookup. Rows
+  // whose title doesn't yield a slug (chrome-stream legacy prose,
+  // operator-edited titles) drop out of the index — their offender
+  // rows render with `recurrenceCount: null`.
+  const openIssueByKey = new Map<
+    string,
+    { recurrenceCount: number; escalatedToIssueNumber: number | null }
+  >();
+  for (const issue of openIssues) {
+    if (!issue.kennelCode) continue;
+    const slug = extractRuleSlugFromAutomatedTitle(issue.title);
+    if (!slug) continue;
+    openIssueByKey.set(suppressionKey(issue.kennelCode, slug), {
+      recurrenceCount: issue.recurrenceCount,
+      escalatedToIssueNumber: issue.escalatedToIssueNumber,
+    });
+  }
 
   const map = new Map<string, TopOffender>();
   for (const r of rows) {
@@ -124,6 +170,7 @@ export async function getTopOffenders(days = OFFENDER_DAYS): Promise<TopOffender
       if (existing) {
         existing.count += 1;
       } else {
+        const mirror = openIssueByKey.get(key);
         map.set(key, {
           kennelCode: f.kennelCode,
           kennelShortName: f.kennelShortName,
@@ -132,6 +179,8 @@ export async function getTopOffenders(days = OFFENDER_DAYS): Promise<TopOffender
           count: 1,
           lastSeen: easternDate(r.createdAt),
           suppressed: suppressedKeys.has(key) || suppressedKeys.has(suppressionKey(null, f.rule)),
+          recurrenceCount: mirror?.recurrenceCount ?? null,
+          escalatedToIssueNumber: mirror?.escalatedToIssueNumber ?? null,
         });
       }
     }
@@ -839,6 +888,96 @@ export async function getRecentOpenIssues(limit = 30): Promise<RecentOpenIssue[]
     },
     orderBy: { githubCreatedAt: "desc" },
     take: limit,
+  });
+}
+
+export interface EscalatedFinding {
+  /** Base issue (the original recurring finding). */
+  baseIssueNumber: number;
+  baseIssueTitle: string;
+  baseIssueUrl: string;
+  baseStream: AuditStream;
+  baseKennelCode: string | null;
+  baseKennelShortName: string | null;
+  /** How many times the strict tier has commented "still recurring" on
+   *  the base. The threshold-cross was at 5; this number tells the
+   *  operator how far past the threshold the finding has gone before
+   *  they decided to act. */
+  recurrenceCount: number;
+  /** When escalation fired. */
+  escalatedAt: Date;
+  /** Server-computed "today" / "1 day ago" / "N days ago" label.
+   *  Pre-computed here rather than on the client to avoid React
+   *  hydration drift from `Date.now()` running in render — the
+   *  next `router.refresh()` re-renders this anyway. */
+  escalatedAgoLabel: string;
+  /** Meta-issue number filed with the `audit:needs-decision` label.
+   *  May be null if the finalize update hasn't landed yet (the rare
+   *  half-state documented in audit-filer.ts) — the panel still
+   *  surfaces these so an operator can investigate. */
+  escalatedToIssueNumber: number | null;
+}
+
+/** "today" / "1 day ago" / "N days ago" — pure helper, server-rendered. */
+function relativeDaysAgoLabel(escalatedAt: Date, now = Date.now()): string {
+  const days = Math.max(0, Math.floor((now - escalatedAt.getTime()) / 86_400_000));
+  if (days === 0) return "today";
+  if (days === 1) return "1 day ago";
+  return `${days} days ago`;
+}
+
+/**
+ * Open AuditIssue rows whose recurrence has crossed the escalation
+ * threshold (5+ days same fingerprint without resolution; meta-issue
+ * filed with `audit:needs-decision`). These are the highest-priority
+ * signal on the dashboard: the system has already given up
+ * auto-coalescing and is asking an operator to decide between fix,
+ * suppress, and reclassify.
+ *
+ * Sorted by `escalatedAt DESC` so freshly-escalated bases land at
+ * the top of the panel.
+ */
+export async function getEscalatedFindings(
+  limit = 20,
+): Promise<EscalatedFinding[]> {
+  await requireAdmin();
+  const rows = await prisma.auditIssue.findMany({
+    where: {
+      state: "open",
+      delistedAt: null,
+      escalatedAt: { not: null },
+    },
+    select: {
+      githubNumber: true,
+      title: true,
+      htmlUrl: true,
+      stream: true,
+      kennelCode: true,
+      kennel: { select: { shortName: true } },
+      recurrenceCount: true,
+      escalatedAt: true,
+      escalatedToIssueNumber: true,
+    },
+    orderBy: { escalatedAt: "desc" },
+    take: limit,
+  });
+  const now = Date.now();
+  return rows.map((r) => {
+    // `escalatedAt: { not: null }` in the WHERE clause guarantees
+    // this is non-null at runtime; the Prisma type just doesn't narrow.
+    const escalatedAt = r.escalatedAt as Date;
+    return {
+      baseIssueNumber: r.githubNumber,
+      baseIssueTitle: r.title,
+      baseIssueUrl: r.htmlUrl,
+      baseStream: r.stream,
+      baseKennelCode: r.kennelCode,
+      baseKennelShortName: r.kennel?.shortName ?? null,
+      recurrenceCount: r.recurrenceCount,
+      escalatedAt,
+      escalatedAgoLabel: relativeDaysAgoLabel(escalatedAt, now),
+      escalatedToIssueNumber: r.escalatedToIssueNumber,
+    };
   });
 }
 
