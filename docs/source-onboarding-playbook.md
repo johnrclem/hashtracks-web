@@ -160,7 +160,7 @@ Existing adapter types:
 - `HARRIER_CENTRAL` — For kennels listed on hashruns.org (Harrier Central). Config-driven with `cityNames`, `kennelUniqueShortName`, `publicKennelId`, `defaultKennelTag`, or `kennelPatterns`. Returns rich data: event name, run number, date/time, lat/lng coordinates, hares, location descriptions. Currently: Tokyo H3. Known kennels on platform: Tokyo H3, SeaMon H3, Glasgow H3, City Hash, London H3, WLH3, Puget Sound H3, Rain City H3, Seattle H3, Morgantown H3, New Town H3, East End London H3, Brussels Manneke Piss H3, Amsterdam H3, Lisbon H3, Nairobi H3, Taiwan H3.
 - `HTML_SCRAPER` (WordPress REST API) — For WordPress-hosted sites with public REST API. Uses shared `fetchWordPressPosts()` from `src/adapters/wordpress-api.ts`. Title contains event name/date, body contains labeled fields (Hare, Location, Date, Time). Currently: EWH3, DCH4, Voodoo H3, KCH3, BruH3. **Check first**: `curl -s "https://site.com/wp-json/wp/v2/posts?per_page=3" | python3 -m json.tool` — if it returns JSON posts, use this pattern.
 - `HTML_SCRAPER` (Substack API) — For Substack-hosted newsletters. Public API at `{domain}/api/v1/archive` (listing) + `{domain}/api/v1/posts/{slug}` (detail with body_html). No auth required. Parse event date from title, time from subtitle, location from Google Maps links in body. Currently: STLH3. **Check**: `curl -s "https://site.com/api/v1/archive?limit=3"` — if it returns JSON array of posts, use this pattern.
-- `STATIC_SCHEDULE` — For kennels without scrapeable web sources (Facebook-only). Generates placeholder events from RRULE recurrence rules — no external fetch. Config-driven with `rrule`, `defaultTitle`, `defaultLocation`, `startTime`, `kennelTag`. Currently: 28 sources across FL, GA, SC, MA, NJ, RI, TX. **Cannot express lunar recurrence** (full/new moon schedules). **Cannot express seasonal schedule switching** (e.g., summer Friday / winter Sunday) — add kennel record with `scheduleNotes` but no source until seasonal RRULE support is implemented.
+- `STATIC_SCHEDULE` — For kennels without scrapeable web sources (Facebook-only). Generates placeholder events from RRULE recurrence rules — no external fetch. Config-driven with `rrule`, `defaultTitle`, `defaultLocation`, `startTime`, `kennelTag`. Currently: 28 sources across FL, GA, SC, MA, NJ, RI, TX. **Cannot express lunar recurrence** (full/new moon schedules). **Seasonal schedule switching** (e.g., summer Thursday / winter Wednesday) **is supported via `BYMONTH` on disjoint per-season sources** — see the seasonal-switch pattern in step 6 below; NOSE H3 is the reference example.
 
 If none fit, create a new adapter implementing `SourceAdapter` from `src/adapters/types.ts`.
 
@@ -232,6 +232,49 @@ config: { rrule: "FREQ=MONTHLY;BYDAY=1SU,3SU", ... }
 // Every other Saturday
 config: { rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA", ... }
 ```
+
+**Seasonal schedule switching (canonical pattern):** kennels that change run day with the seasons (e.g. summer Thursday / winter Wednesday) are encoded as **two source records sharing the same `kennelTag`, each scoped to disjoint months via `BYMONTH`**. The two RRULEs together must cover the full year with no overlap. Reference: NOSE H3 in `prisma/seed-data/sources.ts` lines 184–214 — summer Thursdays use `BYMONTH=5,6,7,8,9,10` (May–Oct), winter Wednesdays use `BYMONTH=1,2,3,4,11,12` (Nov–Apr). The block below is the full runnable seed shape; copy and adapt for new seasonal-switch kennels.
+
+```typescript
+// Source 1 — summer schedule (NOSE H3 actual seed)
+{
+  name: "NOSE Hash Static Schedule (Summer Thursdays)",
+  url: "https://www.facebook.com/groups/NOSEHash",
+  type: "STATIC_SCHEDULE" as const,
+  trustLevel: 3,
+  scrapeFreq: "weekly",
+  scrapeDays: 90,
+  config: {
+    kennelTag: "nose-h3",
+    rrule: "FREQ=WEEKLY;BYDAY=TH;BYMONTH=5,6,7,8,9,10",
+    startTime: "19:00",
+    defaultTitle: "NOSE H3 Weekly Run",
+    defaultLocation: "North NJ",
+    defaultDescription: "Summer schedule: Thursdays 7pm in North NJ. Check the Facebook group at https://www.facebook.com/groups/NOSEHash for start location.",
+  },
+  kennelCodes: ["nose-h3"],
+},
+// Source 2 — winter schedule (NOSE H3 actual seed)
+{
+  name: "NOSE Hash Static Schedule (Winter Wednesdays)",
+  url: "https://www.facebook.com/groups/NOSEHash#winter-wed",
+  type: "STATIC_SCHEDULE" as const,
+  trustLevel: 3,
+  scrapeFreq: "weekly",
+  scrapeDays: 90,
+  config: {
+    kennelTag: "nose-h3",
+    rrule: "FREQ=WEEKLY;BYDAY=WE;BYMONTH=1,2,3,4,11,12",
+    startTime: "19:00",
+    defaultTitle: "NOSE H3 Weekly Run",
+    defaultLocation: "North NJ",
+    defaultDescription: "Winter schedule: Wednesdays 7pm in North NJ. Check the Facebook group at https://www.facebook.com/groups/NOSEHash for start location.",
+  },
+  kennelCodes: ["nose-h3"],
+},
+```
+
+**The two seasonal sources MUST have distinct `name` values.** The seed upsert identity is `(name, type)` — see `@@unique([name, type])` in `prisma/schema.prisma:221` and the lookup at `prisma/seed.ts:364`. URL is *not* part of the identity key, so two seed entries sharing a `name` (even with different URLs or URL fragments) collapse to a single row on seed: the second entry updates the first rather than creating a second source, dropping one season's RRULE. The only operational signal is the normal `~ Updated ... for <name>` log line from `seed.ts:401-406`, so the failure is easy to miss in a long seed run. The `#winter-wed` fragment on the second source's URL is for human readability only — the actual deduplication guarantee comes from the distinct names ("Summer Thursdays" vs. "Winter Wednesdays"). Each source is scraped/scheduled independently; the merge pipeline produces one event per real run because the two `BYMONTH` ranges never produce a date for the same kennel on the same day. A single-source `seasons` schema was considered and rejected — see [`facebook-integration-strategy.md`](facebook-integration-strategy.md) decision log entry 2026-04-30 for the full rationale.
 
 **For new HTML scrapers:**
 1. Create `src/adapters/html-scraper/{site-name}.ts` implementing `SourceAdapter`
@@ -657,7 +700,7 @@ The display layer (`getLocationDisplay()` in `EventCard.tsx`) deduplicates city 
 32. **Listing + detail fetch pattern** — When an API provides a listing endpoint with IDs and a detail endpoint per event, fetch detail sequentially (not in parallel) to be a good API citizen. Always implement a listing-only fallback when detail fetches fail — partial data is better than no data.
 33. **STATIC_SCHEDULE is the default for Facebook-only kennels** — Most small-market kennels have no website, calendar, or API — just a Facebook group. STATIC_SCHEDULE sources generate placeholder events from RRULE patterns, giving users visibility into the schedule even without automated scraping.
 34. **KennelCode conflicts need region suffixes** — As coverage expands, shortName collisions across regions become common (e.g., CH3 in both Chicago and Charleston). Use region suffixes on the `kennelCode` (e.g., `ch3-sc`, `ph3-atl`) to disambiguate. The `shortName` stays clean for display.
-35. **Moon-phase scheduling can't be expressed as RRULE** — Kennels that run on full/new moons (Luna Ticks, Dark Side) need a custom recurrence model. For now, add them as kennel-only records (no source) and note the lunar schedule in `scheduleNotes`.
+35. **Moon-phase scheduling can't be expressed as RRULE** — Kennels that run on full/new moons (Luna Ticks, Dark Side) need a custom recurrence model. For now, add them as kennel-only records (no source) and note the lunar schedule in `scheduleNotes`. (Seasonal day-of-week switches *can* be expressed — see lesson #102.)
 36. **Zero-code onboarding at scale** — South Carolina onboarded 10 kennels with 9 sources and zero new adapter code. Config-driven adapters (MEETUP, STATIC_SCHEDULE) + seed data changes are sufficient for regions without structured web sources. This pattern scales to any region with known schedules.
 37. **Wix/Google Sites/SPAs need headless browser rendering** — JS-rendered sites return empty containers to Cheerio. Use `fetchBrowserRenderedPage()` (wraps `browserRender()` from `src/lib/browser-render.ts`) to render via NAS-hosted Playwright, then parse normally. The adapter still uses `HTML_SCRAPER` type and URL-based routing in the registry. See `northboro-hash.ts` for the reference implementation. Config: Cloudflare Tunnel path routing `proxy.hashtracks.xyz/render` → `browser-render:3200`.
 38. **Facebook Events are the biggest untapped source** — Many small-market kennels exist only on Facebook (no website, calendar, or API). Public Facebook pages show events without login, but the page is JS-rendered and returns empty HTML to standard fetch. A future `FACEBOOK_EVENTS` adapter could use the NAS headless browser with an authenticated session (persistent cookies) to scrape public page events. This would unlock dozens of currently un-scrapeable kennels. Key challenges: Facebook anti-scraping measures (behavioral analysis, CAPTCHAs), session cookie expiration requiring periodic re-auth, and fragile DOM selectors that change frequently. Until this adapter exists, use `STATIC_SCHEDULE` for Facebook-only kennels with known schedules.
@@ -724,6 +767,7 @@ The display layer (`getLocationDisplay()` in `EventCard.tsx`) deduplicates city 
 99. **Multi-run event blocks require array return types** — Sydney Thirsty H3 publishes AGPU-style multi-day specials as "Runs (Sat and Sun) 1843 & 1844" — a single block with two run numbers. Codex caught that the parser was dropping these because it required a singular `Run #NNNN` line. Fix: parse the alternate `Runs N & M` regex and return `RawEventData[]` instead of `RawEventData | null`, emitting one event per run number. For multi-day specials (e.g. "Sat and Sun"), offset the date for the second run (+1 day) to avoid fingerprint collisions — two events with the same kennel + date deduplicate in the merge pipeline. Test the alternate format explicitly.
 100. **hhh.asn.au is the Australian national kennel directory** — static HTML-frameset site listing ~220 AU kennels across 14 state-page codes with URLs and schedules. No other aggregator covers Australia — Harrier Central has zero AU kennels, HashRego has zero, Half-Mind explicitly excludes AU/Asia. Use `hhh.asn.au` as the primary Stage-2 discovery source for any AU region research. Cross-reference with `genealogy.gotothehash.net` for founding dates and aliases (195 historical AU records).
 101. **Chrome verification is mandatory, not optional** — the Australia research pass classified 9 kennels as "ready to ship" but Chrome verification proved 4 were wrong (dead Meetup groups, wrong URLs, wrong source types), and discovered 3 additional kennels not in the original research. Only 2 of the original 9 shipped as-planned (with URL corrections). Without Chrome verification, the PR would have shipped 4 non-functional sources. Always run Chrome verification before committing to an implementation plan.
+102. **Seasonal schedule switching uses two STATIC_SCHEDULE sources with disjoint `BYMONTH`** — kennels that change run day with the seasons (e.g. NOSE H3: summer Thursday May–Oct / winter Wednesday Nov–Apr) ship as two `STATIC_SCHEDULE` sources sharing one `kennelTag`. Reference NOSE H3 in `prisma/seed-data/sources.ts` lines 184–214 and the step-6 example. NOSE is the only validated case in the repo today; if a future onboarding case requires this pattern, follow the same shape. A single-source `seasons` schema was considered and rejected — see [`facebook-integration-strategy.md`](facebook-integration-strategy.md) decision log entry 2026-04-30 for the full rationale.
 
 ---
 
