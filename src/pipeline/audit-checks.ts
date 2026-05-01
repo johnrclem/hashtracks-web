@@ -18,6 +18,9 @@ export interface AuditEventRow {
   rawDescription: string | null;
 }
 
+export type AuditCategory = "hares" | "title" | "location" | "event" | "description";
+export type AuditSeverity = "error" | "warning";
+
 export interface AuditFinding {
   kennelShortName: string;
   kennelCode: string;
@@ -25,12 +28,12 @@ export interface AuditFinding {
   eventUrl: string;
   sourceUrl: string | null;
   adapterType: string;
-  category: "hares" | "title" | "location" | "event" | "description";
+  category: AuditCategory;
   field: string;
   currentValue: string;
   expectedValue?: string;
   rule: string;
-  severity: "error" | "warning";
+  severity: AuditSeverity;
 }
 
 const HARELINE_BASE_URL = "https://www.hashtracks.xyz/hareline";

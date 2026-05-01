@@ -962,16 +962,74 @@ model AuditIssue {
   kennel          Kennel?           @relation("AuditIssueKennel", fields: [kennelCode], references: [kennelCode])
   githubCreatedAt DateTime // GitHub issue.created_at
   githubClosedAt  DateTime? // GitHub issue.closed_at — current closure only
+  // GitHub `state_reason` ("completed" | "not_planned" | "reopened" | null).
+  // Populated by the sync pipeline; powers the closed-not-planned ratio panel
+  // (P2) and is the strongest signal that the audit prompt over-flagged.
+  closeReason     String?
   delistedAt      DateTime? // non-null when the issue has fallen out of the audit corpus
   // (operator removed the `audit` label, issue deleted, etc.)
   // Preserves the AuditIssueEvent trail for historical trends
   // instead of the cascade-delete codex flagged as a data-loss risk.
-  syncedAt        DateTime          @updatedAt
-  events          AuditIssueEvent[]
+
+  // Fingerprint-based dedup (audit-process improvement plan, P0a).
+  // Null on legacy rows the bridging tier hasn't backfilled yet. Same
+  // (kennelCode, ruleSlug, ruleVersion, semanticHash) hashes to the same
+  // fingerprint regardless of which event sample surfaced the finding —
+  // so cross-stream coalescing works.
+  fingerprint            String? // sha256 hex
+  affectedEventIds       String[] // event IDs sampled into this issue
+  recurrenceCount        Int               @default(0) // bumps each time the same fingerprint fires
+  escalatedAt            DateTime? // set once when recurrenceCount crosses threshold
+  escalatedToIssueNumber Int? // GitHub issue number of the meta-escalation issue
+
+  syncedAt DateTime          @updatedAt
+  events   AuditIssueEvent[]
 
   @@index([stream, state])
   @@index([kennelCode])
   @@index([delistedAt])
+  @@index([fingerprint])
+}
+
+// Single-use, payload-bound nonces minted by /api/audit/mint-filing-nonce
+// and consumed atomically by /api/audit/file-finding. Binding each nonce
+// to (adminUserId, kennelCode, ruleSlug, payloadHash) means a leaked
+// nonce can only file the exact (kennel, rule, payload) it was minted
+// for — not a generic write capability against the admin's session.
+//
+// Hash-not-raw: only the HMAC hash is persisted; the raw nonce never
+// lives at rest.
+model AuditFilingNonce {
+  id          String    @id @default(cuid())
+  nonceHash   String    @unique
+  adminUserId String // Clerk user.id
+  kennelCode  String
+  ruleSlug    String
+  payloadHash String // sha256 over (stream, kennelCode, ruleSlug, sortedEventIds, bodyMarkdown)
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([adminUserId, expiresAt])
+}
+
+// Audit rule version history. Records the (ruleVersion, semanticHash) that
+// was active when an AuditIssue was filed. The bridging tier (bundle 5)
+// consults this table to decide whether `semanticHash` rolled forward
+// since a legacy null-fingerprint row was filed; if so, bridging is unsafe
+// (semantics changed) and a new issue gets filed cleanly.
+//
+// Populated by the rule-registry codegen step. One row per
+// (ruleSlug, ruleVersion); `validFrom` orders the timeline.
+model AuditRuleVersionHistory {
+  id           String   @id @default(cuid())
+  ruleSlug     String
+  ruleVersion  Int
+  semanticHash String
+  validFrom    DateTime @default(now())
+
+  @@unique([ruleSlug, ruleVersion])
+  @@index([ruleSlug, validFrom])
 }
 
 model AuditIssueEvent {
