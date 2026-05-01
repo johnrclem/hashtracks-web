@@ -1,8 +1,7 @@
 /**
  * Chrome-stream audit-issue filing endpoint. Consumes a single-use
- * nonce minted by `/api/audit/mint-filing-nonce`, files the GitHub
- * issue, and coalesces against any existing AuditIssue with the same
- * fingerprint (cross-stream).
+ * nonce minted by `/api/audit/mint-filing-nonce`, then delegates the
+ * strict/bridging/create cascade to the shared `audit-filer` module.
  *
  * Auth model:
  *   - Origin must match `getCanonicalSiteUrl()` (CSRF defense)
@@ -13,33 +12,30 @@
  *
  * Flow:
  *   1. Validate Origin + admin session + request shape
- *   2. SELECT nonce row, verify all binds + expiry. Reject on
- *      mismatch / expiry → 401.
- *   3. If `filingResultJson` is set → return the cached result.
- *      This makes the endpoint retry-safe: a transient GitHub
- *      failure leaves the cache empty so the agent can resubmit
- *      with the same nonce, and a successful prior call returns
- *      its outcome on retry without re-filing.
- *   4. Compute fingerprint via `buildCanonicalBlock`. If non-null
- *      and an open AuditIssue carries the same fingerprint, post
- *      a coalesce comment on it.
- *   5. Otherwise create a fresh GitHub issue with the canonical
- *      block embedded for sync mirroring.
- *   6. On any successful GitHub side effect, persist the outcome
- *      to `filingResultJson` and mark `consumedAt`. On failure,
- *      return 502 — the cache stays empty so the same nonce can
- *      retry.
+ *   2. SELECT nonce row, verify all bind checks. Reject mismatch → 401.
+ *   3. If `filingResultJson` is set → return the cached result. This
+ *      makes the endpoint retry-safe even past TTL: a slow client
+ *      retry past the 5-minute window must still get the cached
+ *      outcome rather than flipping to 401.
+ *   4. Otherwise check expiry → 401 if expired.
+ *   5. Call `fileAuditFinding` (shared with the cron path). The filer
+ *      handles strict-tier coalescing (existing fingerprint match →
+ *      comment + recurrenceCount++), bridging (legacy null-fingerprint
+ *      row with matching kennel + ruleSlug → atomic backfill), or
+ *      fresh GitHub create with the canonical block embedded.
+ *   6. On any successful GitHub side effect, persist the outcome to
+ *      `filingResultJson` and mark `consumedAt`. On filer-side error,
+ *      return 502 — the cache stays empty so the same nonce can retry.
  *
  * Trade-off vs strict atomic-consume: two concurrent requests with
- * the same nonce can each pass step 3 and reach step 4–5 before
+ * the same nonce can each pass step 4 and reach the filer before
  * either writes the cache, producing one orphan GitHub issue. For
  * the admin-driven audit-filing flow (low concurrency), this is an
  * accepted limitation; an outbox/job model is the long-term answer
  * if the surface ever sees real parallelism.
  *
- * Bridging tier (legacy null-fingerprint rows) and recurrence
- * escalation (5+ days same fingerprint → meta-issue) are deferred to
- * follow-up PRs to keep this one reviewable.
+ * Recurrence escalation (5+ days same fingerprint → meta-issue) is
+ * deferred to a follow-up PR (5c-B).
  */
 
 import { NextResponse } from "next/server";
@@ -51,10 +47,6 @@ import {
   computePayloadHash,
   type FilingPayload,
 } from "@/lib/audit-nonce";
-import {
-  buildCanonicalBlock,
-  emitCanonicalBlock,
-} from "@/lib/audit-canonical";
 import { getValidatedRepo } from "@/lib/github-repo";
 import {
   AUDIT_LABEL,
@@ -63,6 +55,12 @@ import {
   kennelLabel,
 } from "@/lib/audit-labels";
 import { AuditStream } from "@/generated/prisma/client";
+import {
+  fileAuditFinding,
+  type FilerActions,
+  type FileFindingOutcome,
+  type FilerErrorReason,
+} from "@/pipeline/audit-filer";
 
 interface FileFindingRequest {
   /** Raw nonce returned by the mint endpoint. */
@@ -133,54 +131,6 @@ async function bindNonce(
   return nonce;
 }
 
-/**
- * Cross-stream coalescing: comment on an existing open AuditIssue
- * with the same fingerprint instead of opening a duplicate. Returns
- * the response to send if coalescing applied (success or 502 on
- * failed comment), or null if no matching issue was found and the
- * caller should proceed to create a fresh issue.
- *
- * Failed comment returns 502 rather than falling through to create
- * — falling through would split the finding's history across two
- * open rows for the same fingerprint (Codex pass-2 finding).
- */
-async function tryCoalesce(
-  fingerprint: string,
-  body: FileFindingRequest,
-  nonceId: string,
-): Promise<NextResponse | null> {
-  const existing = await prisma.auditIssue.findFirst({
-    where: { fingerprint, state: "open", delistedAt: null },
-    select: { githubNumber: true, htmlUrl: true },
-  });
-  if (!existing) return null;
-
-  const commentResult = await postCommentToIssue(
-    existing.githubNumber,
-    body.bodyMarkdown,
-  );
-  if (commentResult === "ok") {
-    const result = {
-      action: "coalesced" as const,
-      // Field name carries "HtmlUrl" so the xss/no-mixed-html lint
-      // doesn't flag this as "non-HTML variable storing raw HTML".
-      // The value is a plain GitHub issue URL string, but Codacy
-      // tracks taint by name and the source field is `htmlUrl`.
-      existingIssueHtmlUrl: existing.htmlUrl,
-      existingIssueNumber: existing.githubNumber,
-    };
-    await persistFilingResult(nonceId, result);
-    return NextResponse.json(result);
-  }
-  return NextResponse.json(
-    {
-      error: "GitHub comment failed; refusing to fork a duplicate issue",
-      existingIssueNumber: existing.githubNumber,
-    },
-    { status: 502 },
-  );
-}
-
 export async function POST(req: Request): Promise<NextResponse> {
   const auth = await authorizeAuditApi(req);
   if (!auth.ok) return auth.response;
@@ -220,21 +170,6 @@ export async function POST(req: Request): Promise<NextResponse> {
       ? AuditStream.CHROME_KENNEL
       : AuditStream.CHROME_EVENT;
 
-  const canonical = buildCanonicalBlock({
-    stream: dbStream,
-    kennelCode: body.kennelCode,
-    ruleSlug: body.ruleSlug,
-  });
-
-  if (canonical) {
-    const coalesced = await tryCoalesce(canonical.fingerprint, body, nonce.id);
-    if (coalesced) return coalesced;
-  }
-
-  const finalBody = canonical
-    ? `${body.bodyMarkdown}\n\n${emitCanonicalBlock(canonical)}`
-    : body.bodyMarkdown;
-
   const labels = [
     AUDIT_LABEL,
     ALERT_LABEL,
@@ -244,22 +179,70 @@ export async function POST(req: Request): Promise<NextResponse> {
     kennelLabel(body.kennelCode),
   ];
 
-  const created = await createGithubIssue(body.title, finalBody, labels);
-  if (!created) {
-    return NextResponse.json(
-      { error: "GitHub issue creation failed" },
-      { status: 502 },
-    );
-  }
+  const outcome = await fileAuditFinding(
+    {
+      stream: dbStream,
+      kennelCode: body.kennelCode,
+      ruleSlug: body.ruleSlug,
+      title: body.title,
+      bodyMarkdown: body.bodyMarkdown,
+      labels,
+    },
+    buildApiActions(),
+  );
 
-  const result = {
-    action: "created" as const,
-    // See note on existingIssueHtmlUrl above — same Codacy lint.
-    issueHtmlUrl: created.htmlUrl,
-    issueNumber: created.number,
-  };
-  await persistFilingResult(nonce.id, result);
+  return persistAndRespond(nonce.id, outcome);
+}
+
+/**
+ * Translate the filer's tagged outcome into the response envelope
+ * the chrome agent expects (cached on success), plus the 502 error
+ * shape on filer error.
+ */
+async function persistAndRespond(
+  nonceId: string,
+  outcome: FileFindingOutcome,
+): Promise<NextResponse> {
+  if (outcome.action === "error") {
+    const body: { error: string; existingIssueNumber?: number } = {
+      error: errorMessageFor(outcome.reason),
+    };
+    if (outcome.existingIssueNumber !== undefined) {
+      body.existingIssueNumber = outcome.existingIssueNumber;
+    }
+    return NextResponse.json(body, { status: 502 });
+  }
+  const result =
+    outcome.action === "created"
+      ? {
+          action: "created" as const,
+          // Field name carries "HtmlUrl" so the xss/no-mixed-html lint
+          // doesn't flag this as "non-HTML variable storing raw HTML".
+          // The value is a plain GitHub issue URL string, but Codacy
+          // tracks taint by name and the source field is `htmlUrl`.
+          issueHtmlUrl: outcome.htmlUrl,
+          issueNumber: outcome.issueNumber,
+        }
+      : {
+          action: "recurred" as const,
+          tier: outcome.tier,
+          // See note above — Codacy taint propagation.
+          existingIssueHtmlUrl: outcome.htmlUrl,
+          existingIssueNumber: outcome.issueNumber,
+          recurrenceCount: outcome.recurrenceCount,
+        };
+  await persistFilingResult(nonceId, result);
   return NextResponse.json(result);
+}
+
+function errorMessageFor(reason: FilerErrorReason): string {
+  switch (reason) {
+    case "comment-failed-strict":
+    case "comment-failed-bridging":
+      return "GitHub comment failed; refusing to fork a duplicate issue";
+    case "create-failed":
+      return "GitHub issue creation failed";
+  }
 }
 
 /**
@@ -280,13 +263,9 @@ async function persistFilingResult(
   });
 }
 
-// ── GitHub helpers ───────────────────────────────────────────────────
+// ── GitHub IO ────────────────────────────────────────────────────────
 
-/**
- * Standard headers + body shape for a GitHub repos/* POST. Building
- * once per call keeps the two `fetch` sites below symmetric without
- * sharing a helper that would defeat Codacy's tainted-URL analysis.
- */
+/** Standard POST init for any GitHub repos/* call. */
 function githubPostInit(token: string, body: unknown): RequestInit {
   return {
     method: "POST",
@@ -301,56 +280,55 @@ function githubPostInit(token: string, body: unknown): RequestInit {
 }
 
 /**
- * Comment on an existing GitHub issue. URL is built as a literal
- * template inside the `fetch` call — keeping it there (rather than
- * routing through a shared helper) is what satisfies Codacy's
- * tainted-URL rule. The only dynamic segment is `issueNumber`,
- * which we explicitly bound to a positive integer.
+ * Build the FilerActions interface using the api route's GitHub
+ * envelope. URL construction stays inlined in each action so Codacy's
+ * tainted-URL rule sees the literal-template directly inside fetch.
+ *
+ * Separate from `buildCronActions` in `src/pipeline/audit-issue.ts`
+ * by design — cron is server-internal so it can use the simpler
+ * `auto-issue.ts` envelope, while this public-route version layers
+ * on `URL` constructor + `getValidatedRepo()` + integer guard.
  */
-async function postCommentToIssue(
-  issueNumber: number,
-  body: string,
-): Promise<"ok" | "error"> {
-  const token = process.env.GITHUB_TOKEN;
-  if (!token) return "error";
-  if (!Number.isInteger(issueNumber) || issueNumber <= 0) return "error";
-  const repo = getValidatedRepo();
-  try {
-    // SSRF-safe: URL constructor anchors the request to the
-    // api.github.com origin literal; repo comes from validated env;
-    // issueNumber is a bounded positive integer per the guard above.
-    const url = new URL(
-      `/repos/${repo}/issues/${issueNumber}/comments`,
-      "https://api.github.com",
-    );
-    const res = await fetch(url, githubPostInit(token, { body }));
-    return res.ok ? "ok" : "error";
-  } catch {
-    return "error";
-  }
-}
-
-/**
- * Create a fresh GitHub issue with the given title/body/labels.
- * Same fetch-with-literal-URL pattern as `postCommentToIssue`.
- */
-async function createGithubIssue(
-  title: string,
-  body: string,
-  labels: readonly string[],
-): Promise<{ htmlUrl: string; number: number } | null> {
-  const token = process.env.GITHUB_TOKEN;
-  if (!token) return null;
-  const repo = getValidatedRepo();
-  try {
-    // SSRF-safe: URL constructor anchors the request to the
-    // api.github.com origin literal; repo comes from validated env.
-    const url = new URL(`/repos/${repo}/issues`, "https://api.github.com");
-    const res = await fetch(url, githubPostInit(token, { title, body, labels }));
-    if (!res.ok) return null;
-    const issue = (await res.json()) as { html_url: string; number: number };
-    return { htmlUrl: issue.html_url, number: issue.number };
-  } catch {
-    return null;
-  }
+function buildApiActions(): FilerActions {
+  return {
+    async createIssue({ title, body, labels }) {
+      const token = process.env.GITHUB_TOKEN;
+      if (!token) return null;
+      const repo = getValidatedRepo();
+      try {
+        // SSRF-safe: URL constructor anchors the request to the
+        // api.github.com origin literal; repo comes from validated env.
+        const url = new URL(`/repos/${repo}/issues`, "https://api.github.com");
+        const res = await fetch(
+          url,
+          githubPostInit(token, { title, body, labels }),
+        );
+        if (!res.ok) return null;
+        const issue = (await res.json()) as {
+          html_url: string;
+          number: number;
+        };
+        return { number: issue.number, htmlUrl: issue.html_url };
+      } catch {
+        return null;
+      }
+    },
+    async postComment(issueNumber, body) {
+      const token = process.env.GITHUB_TOKEN;
+      if (!token) return false;
+      if (!Number.isInteger(issueNumber) || issueNumber <= 0) return false;
+      const repo = getValidatedRepo();
+      try {
+        // Same SSRF guard as createIssue. issueNumber bounded above.
+        const url = new URL(
+          `/repos/${repo}/issues/${issueNumber}/comments`,
+          "https://api.github.com",
+        );
+        const res = await fetch(url, githubPostInit(token, { body }));
+        return res.ok;
+      } catch {
+        return false;
+      }
+    },
+  };
 }

@@ -1,0 +1,357 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+
+vi.mock("@/lib/db", () => ({
+  prisma: {
+    auditIssue: {
+      findFirst: vi.fn(),
+      findMany: vi.fn(),
+      update: vi.fn(),
+      updateMany: vi.fn(),
+    },
+  },
+}));
+
+// Stub the registry so buildCanonicalBlock returns a deterministic
+// fingerprint without depending on the live rule corpus. The rule
+// `hare-url` is registered + fingerprintable; `hare-cta-text` is
+// registered but `fingerprint: false` (cross-row). `unknown-rule`
+// returns undefined from `getRule`.
+vi.mock("@/pipeline/rule-registry", () => ({
+  getRule: (slug: string) => {
+    if (slug === "hare-url") {
+      return { slug: "hare-url", version: 1, fingerprint: true };
+    }
+    if (slug === "hare-cta-text") {
+      return { slug: "hare-cta-text", version: 1, fingerprint: false };
+    }
+    return undefined;
+  },
+  semanticHashFor: () => "a".repeat(64),
+}));
+
+vi.mock("@/lib/audit-fingerprint", () => ({
+  computeAuditFingerprint: ({ ruleSlug }: { ruleSlug: string }) =>
+    `fp_${ruleSlug}_dummy`,
+}));
+
+import { prisma } from "@/lib/db";
+import { fileAuditFinding, type FilerActions } from "./audit-filer";
+import { AuditStream } from "@/generated/prisma/client";
+
+const mockFindFirst = vi.mocked(prisma.auditIssue.findFirst);
+const mockFindMany = vi.mocked(prisma.auditIssue.findMany);
+const mockUpdate = vi.mocked(prisma.auditIssue.update);
+const mockUpdateMany = vi.mocked(prisma.auditIssue.updateMany);
+
+function buildActions(overrides: Partial<FilerActions> = {}): FilerActions {
+  return {
+    createIssue: vi.fn().mockResolvedValue({
+      number: 999,
+      htmlUrl: "https://github.com/x/y/issues/999",
+    }),
+    postComment: vi.fn().mockResolvedValue(true),
+    ...overrides,
+  };
+}
+
+const BASE_INPUT = {
+  stream: AuditStream.AUTOMATED,
+  kennelCode: "nych3",
+  ruleSlug: "hare-url",
+  title: "[Audit] NYCH3 — Hare Quality [hare-url] (3 events) — 2026-05-01",
+  bodyMarkdown: "## NYCH3 hare-url\n\nDetails here.",
+  labels: ["audit", "alert", "audit:automated", "kennel:nych3"],
+} as const;
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
+describe("fileAuditFinding — strict tier", () => {
+  it("comments + increments recurrenceCount when an open issue carries the same fingerprint", async () => {
+    mockFindFirst.mockResolvedValue({
+      id: "ai_1",
+      githubNumber: 42,
+      htmlUrl: "https://github.com/x/y/issues/42",
+      recurrenceCount: 3,
+    } as never);
+    mockUpdate.mockResolvedValue({ recurrenceCount: 4 } as never);
+    const actions = buildActions();
+
+    const out = await fileAuditFinding(BASE_INPUT, actions);
+
+    expect(out).toEqual({
+      action: "recurred",
+      issueNumber: 42,
+      htmlUrl: "https://github.com/x/y/issues/42",
+      recurrenceCount: 4,
+      tier: "strict",
+    });
+    expect(actions.postComment).toHaveBeenCalledWith(
+      42,
+      expect.stringContaining("Still recurring on"),
+    );
+    expect(mockUpdate).toHaveBeenCalledWith({
+      where: { id: "ai_1" },
+      data: { recurrenceCount: { increment: 1 } },
+      select: { recurrenceCount: true },
+    });
+    expect(actions.createIssue).not.toHaveBeenCalled();
+  });
+
+  it("returns error without forking a duplicate when the strict-tier comment fails", async () => {
+    mockFindFirst.mockResolvedValue({
+      id: "ai_1",
+      githubNumber: 42,
+      htmlUrl: "https://github.com/x/y/issues/42",
+      recurrenceCount: 3,
+    } as never);
+    const actions = buildActions({
+      postComment: vi.fn().mockResolvedValue(false),
+    });
+
+    const out = await fileAuditFinding(BASE_INPUT, actions);
+    expect(out).toEqual({
+      action: "error",
+      reason: "comment-failed-strict",
+      existingIssueNumber: 42,
+    });
+    expect(actions.createIssue).not.toHaveBeenCalled();
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+});
+
+describe("fileAuditFinding — bridging tier", () => {
+  it("backfills fingerprint + comments when a legacy null-fingerprint row matches kennel + extracted ruleSlug", async () => {
+    // No strict match; one legacy candidate with matching slug in title.
+    mockFindFirst.mockResolvedValue(null);
+    mockFindMany.mockResolvedValue([
+      {
+        id: "legacy_1",
+        githubNumber: 17,
+        htmlUrl: "https://github.com/x/y/issues/17",
+        title:
+          "[Audit] NYCH3 — Hare Quality [hare-url] (2 events) — 2026-04-15",
+        recurrenceCount: 0,
+      },
+    ] as never);
+    mockUpdateMany.mockResolvedValue({ count: 1 } as never);
+    const actions = buildActions();
+
+    const out = await fileAuditFinding(BASE_INPUT, actions);
+
+    expect(out).toEqual({
+      action: "recurred",
+      issueNumber: 17,
+      htmlUrl: "https://github.com/x/y/issues/17",
+      recurrenceCount: 1,
+      tier: "bridging",
+    });
+    // CAS write: fingerprint + recurrenceCount in one statement, only
+    // matching rows that are still null.
+    expect(mockUpdateMany).toHaveBeenCalledWith({
+      where: { id: "legacy_1", fingerprint: null },
+      data: {
+        fingerprint: "fp_hare-url_dummy",
+        recurrenceCount: { increment: 1 },
+      },
+    });
+    expect(actions.createIssue).not.toHaveBeenCalled();
+  });
+
+  it("skips legacy rows whose title slug does not match", async () => {
+    mockFindFirst.mockResolvedValue(null);
+    mockFindMany.mockResolvedValue([
+      {
+        id: "legacy_other_rule",
+        githubNumber: 11,
+        htmlUrl: "https://github.com/x/y/issues/11",
+        // Different rule slug in brackets — must not bridge.
+        title:
+          "[Audit] NYCH3 — Title Quality [missing-title] (1 events) — 2026-04-10",
+        recurrenceCount: 0,
+      },
+    ] as never);
+    mockUpdateMany.mockResolvedValue({ count: 0 } as never);
+    const actions = buildActions();
+
+    const out = await fileAuditFinding(BASE_INPUT, actions);
+    expect(out.action).toBe("created");
+    expect(mockUpdateMany).not.toHaveBeenCalled();
+    expect(actions.createIssue).toHaveBeenCalled();
+  });
+
+  it("re-checks strict tier on CAS loss to defeat concurrent-bridge double-stamp race", async () => {
+    // Race: caller A and caller B both see candidate row 17 as the
+    // legacy match. A wins the CAS first, stamps the fingerprint on
+    // 17, posts its comment, and returns. B's CAS on 17 returns
+    // count=0. WITHOUT the post-CAS strict-tier recheck, B would
+    // move to row 18 and double-stamp the fingerprint — producing
+    // two open rows for one finding, the very state the dedup
+    // system exists to prevent.
+    //
+    // After the fix, B's CAS-loss path re-runs the strict-tier
+    // query, sees that row 17 now carries the target fingerprint,
+    // and routes through strict-tier handling.
+    // First strict-tier call (top-of-cascade): no match.
+    // Second strict-tier call (post-CAS-loss recovery): row 17 is
+    // now populated with our fingerprint by the racing caller.
+    mockFindFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        id: "legacy_17",
+        githubNumber: 17,
+        htmlUrl: "https://github.com/x/y/issues/17",
+        recurrenceCount: 1,
+      } as never);
+    mockFindMany.mockResolvedValue([
+      {
+        id: "legacy_17",
+        githubNumber: 17,
+        htmlUrl: "https://github.com/x/y/issues/17",
+        title:
+          "[Audit] NYCH3 — Hare Quality [hare-url] (1 events) — 2026-04-15",
+        recurrenceCount: 0,
+      },
+      {
+        id: "legacy_18",
+        githubNumber: 18,
+        htmlUrl: "https://github.com/x/y/issues/18",
+        title:
+          "[Audit] NYCH3 — Hare Quality [hare-url] (1 events) — 2026-04-12",
+        recurrenceCount: 0,
+      },
+    ] as never);
+    // CAS loses on row 17 (race winner already claimed it).
+    mockUpdateMany.mockResolvedValue({ count: 0 } as never);
+    mockUpdate.mockResolvedValue({ recurrenceCount: 2 } as never);
+    const actions = buildActions();
+
+    const out = await fileAuditFinding(BASE_INPUT, actions);
+    expect(out.action).toBe("recurred");
+    if (out.action !== "recurred") return;
+    // Routed through strict tier (post-recovery), not bridging.
+    expect(out.tier).toBe("strict");
+    expect(out.issueNumber).toBe(17);
+    // Critically: row 18 was never touched.
+    expect(mockUpdateMany).toHaveBeenCalledTimes(1);
+    expect(actions.createIssue).not.toHaveBeenCalled();
+  });
+
+  it("falls through to next candidate when CAS race loses without strict recovery", async () => {
+    mockFindFirst.mockResolvedValue(null);
+    mockFindMany.mockResolvedValue([
+      {
+        id: "legacy_lost_race",
+        githubNumber: 17,
+        htmlUrl: "https://github.com/x/y/issues/17",
+        title:
+          "[Audit] NYCH3 — Hare Quality [hare-url] (2 events) — 2026-04-15",
+        recurrenceCount: 0,
+      },
+      {
+        id: "legacy_winner",
+        githubNumber: 18,
+        htmlUrl: "https://github.com/x/y/issues/18",
+        title:
+          "[Audit] NYCH3 — Hare Quality [hare-url] (1 events) — 2026-04-12",
+        recurrenceCount: 0,
+      },
+    ] as never);
+    // First CAS loses (someone else claimed it); second wins.
+    mockUpdateMany
+      .mockResolvedValueOnce({ count: 0 } as never)
+      .mockResolvedValueOnce({ count: 1 } as never);
+    const actions = buildActions();
+
+    const out = await fileAuditFinding(BASE_INPUT, actions);
+    expect(out.action).toBe("recurred");
+    if (out.action !== "recurred") return;
+    expect(out.issueNumber).toBe(18);
+    expect(mockUpdateMany).toHaveBeenCalledTimes(2);
+    expect(actions.createIssue).not.toHaveBeenCalled();
+  });
+
+  it("returns error after a successful backfill if the bridging comment fails", async () => {
+    // Backfill is a permanent mirror improvement — don't roll it
+    // back, just surface the error so caller can retry the comment.
+    mockFindFirst.mockResolvedValue(null);
+    mockFindMany.mockResolvedValue([
+      {
+        id: "legacy_1",
+        githubNumber: 17,
+        htmlUrl: "https://github.com/x/y/issues/17",
+        title:
+          "[Audit] NYCH3 — Hare Quality [hare-url] (2 events) — 2026-04-15",
+        recurrenceCount: 0,
+      },
+    ] as never);
+    mockUpdateMany.mockResolvedValue({ count: 1 } as never);
+    const actions = buildActions({
+      postComment: vi.fn().mockResolvedValue(false),
+    });
+
+    const out = await fileAuditFinding(BASE_INPUT, actions);
+    expect(out).toEqual({
+      action: "error",
+      reason: "comment-failed-bridging",
+      existingIssueNumber: 17,
+    });
+    // Backfill stays put.
+    expect(mockUpdateMany).toHaveBeenCalledTimes(1);
+    expect(actions.createIssue).not.toHaveBeenCalled();
+  });
+});
+
+describe("fileAuditFinding — create tier", () => {
+  it("creates a fresh issue with canonical block embedded for fingerprintable rules", async () => {
+    mockFindFirst.mockResolvedValue(null);
+    mockFindMany.mockResolvedValue([] as never);
+    const actions = buildActions();
+
+    const out = await fileAuditFinding(BASE_INPUT, actions);
+    expect(out).toEqual({
+      action: "created",
+      issueNumber: 999,
+      htmlUrl: "https://github.com/x/y/issues/999",
+    });
+    const createCall = vi.mocked(actions.createIssue).mock.calls[0][0];
+    expect(createCall.body).toContain("<!-- audit-canonical:");
+    expect(createCall.body).toContain("fp_hare-url_dummy");
+    expect(createCall.title).toBe(BASE_INPUT.title);
+    expect(createCall.labels).toEqual(BASE_INPUT.labels);
+  });
+
+  it("creates without canonical block (and skips dedup tiers) for non-fingerprintable rules", async () => {
+    const actions = buildActions();
+    const input = { ...BASE_INPUT, ruleSlug: "hare-cta-text" };
+
+    const out = await fileAuditFinding(input, actions);
+    expect(out.action).toBe("created");
+    // No fingerprint queries at all.
+    expect(mockFindFirst).not.toHaveBeenCalled();
+    expect(mockFindMany).not.toHaveBeenCalled();
+    const createCall = vi.mocked(actions.createIssue).mock.calls[0][0];
+    expect(createCall.body).not.toContain("<!-- audit-canonical:");
+  });
+
+  it("creates without canonical block when the rule is not in the registry at all", async () => {
+    const actions = buildActions();
+    const input = { ...BASE_INPUT, ruleSlug: "totally-unknown-rule" };
+
+    const out = await fileAuditFinding(input, actions);
+    expect(out.action).toBe("created");
+    expect(mockFindFirst).not.toHaveBeenCalled();
+  });
+
+  it("returns create-failed error when the GitHub create call fails", async () => {
+    mockFindFirst.mockResolvedValue(null);
+    mockFindMany.mockResolvedValue([] as never);
+    const actions = buildActions({
+      createIssue: vi.fn().mockResolvedValue(null),
+    });
+
+    const out = await fileAuditFinding(BASE_INPUT, actions);
+    expect(out).toEqual({ action: "error", reason: "create-failed" });
+  });
+});
