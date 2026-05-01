@@ -215,7 +215,7 @@ describe("POST /api/audit/file-finding", () => {
 
     // Posted a comment, not a new issue.
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    const url = fetchMock.mock.calls[0][0] as string;
+    const url = String(fetchMock.mock.calls[0][0]);
     expect(url).toContain("/issues/42/comments");
   });
 
@@ -253,7 +253,7 @@ describe("POST /api/audit/file-finding", () => {
     expect(json.issueNumber).toBe(77);
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    const url = fetchMock.mock.calls[0][0] as string;
+    const url = String(fetchMock.mock.calls[0][0]);
     expect(url).toContain("/issues");
     const init = fetchMock.mock.calls[0][1] as { body: string };
     const requestBody = JSON.parse(init.body) as {

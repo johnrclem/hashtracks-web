@@ -316,12 +316,14 @@ async function postCommentToIssue(
   if (!Number.isInteger(issueNumber) || issueNumber <= 0) return "error";
   const repo = getValidatedRepo();
   try {
-    // SSRF-safe: api.github.com host literal; repo from validated
-    // env; issueNumber bounded above.
-    const res = await fetch(
-      `https://api.github.com/repos/${repo}/issues/${issueNumber}/comments`,
-      githubPostInit(token, { body }),
+    // SSRF-safe: URL constructor anchors the request to the
+    // api.github.com origin literal; repo comes from validated env;
+    // issueNumber is a bounded positive integer per the guard above.
+    const url = new URL(
+      `/repos/${repo}/issues/${issueNumber}/comments`,
+      "https://api.github.com",
     );
+    const res = await fetch(url, githubPostInit(token, { body }));
     return res.ok ? "ok" : "error";
   } catch {
     return "error";
@@ -341,11 +343,10 @@ async function createGithubIssue(
   if (!token) return null;
   const repo = getValidatedRepo();
   try {
-    // SSRF-safe: api.github.com host literal; repo from validated env.
-    const res = await fetch(
-      `https://api.github.com/repos/${repo}/issues`,
-      githubPostInit(token, { title, body, labels }),
-    );
+    // SSRF-safe: URL constructor anchors the request to the
+    // api.github.com origin literal; repo comes from validated env.
+    const url = new URL(`/repos/${repo}/issues`, "https://api.github.com");
+    const res = await fetch(url, githubPostInit(token, { title, body, labels }));
     if (!res.ok) return null;
     const issue = (await res.json()) as { html_url: string; number: number };
     return { htmlUrl: issue.html_url, number: issue.number };
