@@ -320,19 +320,23 @@ async function tryEscalate(
  * Best-effort rollback of an escalation claim. If the rollback itself
  * fails the row stays wedged, but we've at least attempted recovery
  * and logged it — operator can clear `escalatedAt` manually.
+ *
+ * Uses `.catch()` rather than try/catch so Codacy's "unhandled errors
+ * in async function" rule sees the error path explicitly. Same
+ * observable behavior — the rollback never throws to its caller.
  */
 async function rollbackEscalationClaim(baseIssueId: string): Promise<void> {
-  try {
-    await prisma.auditIssue.update({
+  await prisma.auditIssue
+    .update({
       where: { id: baseIssueId },
       data: { escalatedAt: null, escalatedToIssueNumber: null },
+    })
+    .catch((rollbackErr: unknown) => {
+      console.error(
+        `[audit-filer] Escalation claim rollback failed for ${baseIssueId} — operator must clear escalatedAt manually:`,
+        rollbackErr,
+      );
     });
-  } catch (rollbackErr) {
-    console.error(
-      `[audit-filer] Escalation claim rollback failed for ${baseIssueId} — operator must clear escalatedAt manually:`,
-      rollbackErr,
-    );
-  }
 }
 
 /**
@@ -431,7 +435,7 @@ async function runStrictTier(
     htmlUrl: strict.htmlUrl,
     recurrenceCount: newRecurrenceCount,
     tier: "strict",
-    ...(escalatedToIssueNumber !== undefined ? { escalatedToIssueNumber } : {}),
+    escalatedToIssueNumber,
   };
 }
 

@@ -495,32 +495,27 @@ describe("fileAuditFinding — create tier", () => {
   });
 });
 
-describe("fileAuditFinding — recurrence escalation", () => {
-  /**
-   * Wire the strict-tier match such that the post-increment
-   * recurrenceCount equals `count`. mockUpdate's return value is what
-   * the filer reads as the new count.
-   */
-  function setupStrictHit(count: number) {
-    mockFindFirst.mockResolvedValue({
-      id: "ai_base",
-      githubNumber: 100,
-      htmlUrl: "https://github.com/x/y/issues/100",
-      recurrenceCount: count - 1,
-      // Kennel info plumbed through `runStrictTier` so `tryEscalate`
-      // doesn't need its own findUnique. Tests must include it.
-      kennel: { shortName: "NYCH3" },
-    } as never);
-    mockUpdate.mockResolvedValue({ recurrenceCount: count } as never);
-  }
+/**
+ * Wire the strict-tier match such that the post-increment
+ * recurrenceCount equals `count`. mockUpdate's return value is what
+ * the filer reads as the new count. Module-scope per Sonar S7721 —
+ * nested-function declarations inside describe blocks rebuild on
+ * every iteration of `it.each` and trip the lint.
+ */
+function setupStrictHit(count: number) {
+  mockFindFirst.mockResolvedValue({
+    id: "ai_base",
+    githubNumber: 100,
+    htmlUrl: "https://github.com/x/y/issues/100",
+    recurrenceCount: count - 1,
+    // Kennel info plumbed through `runStrictTier` so `tryEscalate`
+    // doesn't need its own findUnique. Tests must include it.
+    kennel: { shortName: "NYCH3" },
+  } as never);
+  mockUpdate.mockResolvedValue({ recurrenceCount: count } as never);
+}
 
-  /** Vestigial — escalation no longer issues its own findUnique for
-   *  kennel info. Kept as a no-op for tests that still wire up
-   *  the claim-lost path's `findUnique` for `escalatedToIssueNumber`. */
-  function mockKennelLookup() {
-    // Intentionally empty: claim-lost path uses its own
-    // mockFindUnique.mockResolvedValueOnce within the test body.
-  }
+describe("fileAuditFinding — recurrence escalation", () => {
 
   it("does not escalate below the threshold", async () => {
     setupStrictHit(ESCALATION_THRESHOLD - 1);
@@ -539,7 +534,6 @@ describe("fileAuditFinding — recurrence escalation", () => {
     // Claim CAS wins (count=1). Bridging uses updateMany too, so
     // mockUpdateMany.mockResolvedValueOnce gives us call-order control.
     mockUpdateMany.mockResolvedValueOnce({ count: 1 } as never);
-    mockKennelLookup();
     const createIssue = vi.fn().mockResolvedValue({
       number: 555,
       htmlUrl: "https://github.com/x/y/issues/555",
@@ -600,7 +594,6 @@ describe("fileAuditFinding — recurrence escalation", () => {
   it("rolls back the claim if the meta-issue create fails (no orphan claim, retry-safe)", async () => {
     setupStrictHit(ESCALATION_THRESHOLD);
     mockUpdateMany.mockResolvedValueOnce({ count: 1 } as never); // claim wins
-    mockKennelLookup();
     const actions = buildActions({
       createIssue: vi.fn().mockResolvedValue(null), // GitHub create failed
     });
@@ -629,7 +622,6 @@ describe("fileAuditFinding — recurrence escalation", () => {
     // base. Now wrapped in try/catch.
     setupStrictHit(ESCALATION_THRESHOLD);
     mockUpdateMany.mockResolvedValueOnce({ count: 1 } as never);
-    mockKennelLookup();
     const actions = buildActions({
       createIssue: vi.fn().mockRejectedValue(new Error("network blip")),
     });
@@ -651,7 +643,6 @@ describe("fileAuditFinding — recurrence escalation", () => {
     // producing the same wedge state. Try/catch covers this too.
     setupStrictHit(ESCALATION_THRESHOLD);
     mockUpdateMany.mockResolvedValueOnce({ count: 1 } as never);
-    mockKennelLookup();
     // Sequence: strict-tier increment → finalize (throws) → rollback.
     mockUpdate
       .mockResolvedValueOnce({ recurrenceCount: ESCALATION_THRESHOLD } as never) // strict increment
@@ -672,7 +663,6 @@ describe("fileAuditFinding — recurrence escalation", () => {
   it("logs but does not surface a link-comment failure (meta still filed + tracked)", async () => {
     setupStrictHit(ESCALATION_THRESHOLD);
     mockUpdateMany.mockResolvedValueOnce({ count: 1 } as never);
-    mockKennelLookup();
     let postCount = 0;
     const postComment = vi.fn().mockImplementation(async () => {
       postCount += 1;
