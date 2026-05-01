@@ -70,17 +70,25 @@ export interface FilingPayload {
  * mint time (agent → server: "I will file this exact payload") and
  * consume time (server: "the body I just received hashes to the
  * value the mint endpoint stored").
+ *
+ * Serialization uses `JSON.stringify` over a fixed-key array, which
+ * gives us injective encoding: every distinct payload produces a
+ * distinct canonical string. Earlier `\n`-delimited joins were
+ * vulnerable to field-substitution attacks where a caller absorbed
+ * the delimiter into one field to forge a different (kennelCode,
+ * ruleSlug, …) tuple — Codex pass-2 finding. JSON's quoting +
+ * escaping forecloses that.
  */
 export function computePayloadHash(payload: FilingPayload): string {
-  const sortedEventIds = [...payload.eventIds].sort();
-  const canonical = [
+  const sortedEventIds = [...payload.eventIds].sort((a, b) => a.localeCompare(b));
+  const canonical = JSON.stringify([
     payload.stream,
     payload.kennelCode,
     payload.ruleSlug,
     payload.title,
-    sortedEventIds.join(","),
+    sortedEventIds,
     payload.bodyMarkdown,
-  ].join("\n");
+  ]);
   return createHash("sha256").update(canonical).digest("hex");
 }
 

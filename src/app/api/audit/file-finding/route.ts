@@ -96,6 +96,88 @@ function isFileFindingRequest(value: unknown): value is FileFindingRequest {
 
 const FETCH_TIMEOUT_MS = 10_000;
 
+/** Indistinguishable 401 — never leak which bind check failed. */
+const NONCE_REJECTION = NextResponse.json(
+  { error: "Nonce invalid, expired, or payload tampered" },
+  { status: 401 },
+);
+
+interface ValidatedNonce {
+  id: string;
+  expiresAt: Date;
+  filingResultJson: unknown;
+}
+
+/**
+ * Verify all bind checks except expiry. Returns the nonce row on
+ * success, or null on any mismatch — caller turns null into the
+ * single shared 401 so we don't leak which check failed.
+ */
+async function bindNonce(
+  rawNonce: string,
+  adminId: string,
+  body: FileFindingRequest,
+  expectedPayloadHash: string,
+): Promise<ValidatedNonce | null> {
+  const nonce = await prisma.auditFilingNonce.findUnique({
+    where: { nonceHash: hashNonce(rawNonce) },
+  });
+  if (
+    !nonce ||
+    nonce.adminUserId !== adminId ||
+    nonce.kennelCode !== body.kennelCode ||
+    nonce.ruleSlug !== body.ruleSlug ||
+    nonce.payloadHash !== expectedPayloadHash
+  ) {
+    return null;
+  }
+  return nonce;
+}
+
+/**
+ * Cross-stream coalescing: comment on an existing open AuditIssue
+ * with the same fingerprint instead of opening a duplicate. Returns
+ * the response to send if coalescing applied (success or 502 on
+ * failed comment), or null if no matching issue was found and the
+ * caller should proceed to create a fresh issue.
+ *
+ * Failed comment returns 502 rather than falling through to create
+ * — falling through would split the finding's history across two
+ * open rows for the same fingerprint (Codex pass-2 finding).
+ */
+async function tryCoalesce(
+  fingerprint: string,
+  body: FileFindingRequest,
+  nonceId: string,
+): Promise<NextResponse | null> {
+  const existing = await prisma.auditIssue.findFirst({
+    where: { fingerprint, state: "open", delistedAt: null },
+    select: { githubNumber: true, htmlUrl: true },
+  });
+  if (!existing) return null;
+
+  const commentResult = await postCommentToIssue(
+    existing.githubNumber,
+    body.bodyMarkdown,
+  );
+  if (commentResult === "ok") {
+    const result = {
+      action: "coalesced" as const,
+      existingIssueUrl: existing.htmlUrl,
+      existingIssueNumber: existing.githubNumber,
+    };
+    await persistFilingResult(nonceId, result);
+    return NextResponse.json(result);
+  }
+  return NextResponse.json(
+    {
+      error: "GitHub comment failed; refusing to fork a duplicate issue",
+      existingIssueNumber: existing.githubNumber,
+    },
+    { status: 502 },
+  );
+}
+
 export async function POST(req: Request): Promise<NextResponse> {
   if (!isValidOrigin(req.headers.get("origin"))) {
     return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
@@ -116,10 +198,6 @@ export async function POST(req: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "Malformed payload" }, { status: 400 });
   }
 
-  // Look up the nonce row. All bind checks happen here so a single
-  // 401 covers wrong-nonce, wrong-admin, wrong-kennel, wrong-rule,
-  // payload-tampered, and expired in one indistinguishable response
-  // (don't leak which check failed).
   const payload: FilingPayload = {
     stream: body.stream,
     kennelCode: body.kennelCode,
@@ -129,28 +207,20 @@ export async function POST(req: Request): Promise<NextResponse> {
     bodyMarkdown: body.bodyMarkdown,
   };
   const expectedPayloadHash = computePayloadHash(payload);
-  const nonce = await prisma.auditFilingNonce.findUnique({
-    where: { nonceHash: hashNonce(body.nonce) },
-  });
-  if (
-    !nonce ||
-    nonce.adminUserId !== admin.id ||
-    nonce.kennelCode !== body.kennelCode ||
-    nonce.ruleSlug !== body.ruleSlug ||
-    nonce.payloadHash !== expectedPayloadHash ||
-    nonce.expiresAt.getTime() <= Date.now()
-  ) {
-    return NextResponse.json(
-      { error: "Nonce invalid, expired, or payload tampered" },
-      { status: 401 },
-    );
-  }
+  const nonce = await bindNonce(body.nonce, admin.id, body, expectedPayloadHash);
+  if (!nonce) return NONCE_REJECTION;
 
-  // Idempotency cache: if a previous call for this nonce already
-  // succeeded, return the same outcome without re-filing.
+  // Idempotency cache comes BEFORE expiry: a previous successful
+  // filing must remain retrievable even after the nonce TTL has
+  // elapsed. Without this, a slow client retry past the 5-minute
+  // window flips success → 401 and the agent would assume the
+  // filing dropped.
   if (nonce.filingResultJson !== null) {
     return NextResponse.json(nonce.filingResultJson);
   }
+
+  // Expiry only applies when we're about to do new work.
+  if (nonce.expiresAt.getTime() <= Date.now()) return NONCE_REJECTION;
 
   // Map the chrome-stream literal to the Prisma enum value.
   const dbStream =
@@ -164,43 +234,9 @@ export async function POST(req: Request): Promise<NextResponse> {
     ruleSlug: body.ruleSlug,
   });
 
-  // Cross-stream coalescing: if any existing AuditIssue carries the
-  // same fingerprint, comment on it instead of opening a new issue.
-  // If the comment fails, return 502 — falling through to file a
-  // fresh issue would split the finding's history across two open
-  // rows for the same fingerprint, which is exactly the duplicate-
-  // dedup state coalescing exists to prevent (Codex pass-2 finding).
   if (canonical) {
-    const existing = await prisma.auditIssue.findFirst({
-      where: {
-        fingerprint: canonical.fingerprint,
-        state: "open",
-        delistedAt: null,
-      },
-      select: { githubNumber: true, htmlUrl: true },
-    });
-    if (existing) {
-      const commentResult = await postCommentToIssue(
-        existing.githubNumber,
-        body.bodyMarkdown,
-      );
-      if (commentResult === "ok") {
-        const result = {
-          action: "coalesced" as const,
-          existingIssueUrl: existing.htmlUrl,
-          existingIssueNumber: existing.githubNumber,
-        };
-        await persistFilingResult(nonce.id, result);
-        return NextResponse.json(result);
-      }
-      return NextResponse.json(
-        {
-          error: "GitHub comment failed; refusing to fork a duplicate issue",
-          existingIssueNumber: existing.githubNumber,
-        },
-        { status: 502 },
-      );
-    }
+    const coalesced = await tryCoalesce(canonical.fingerprint, body, nonce.id);
+    if (coalesced) return coalesced;
   }
 
   const finalBody = canonical

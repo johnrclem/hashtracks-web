@@ -28,11 +28,10 @@ export function buildApiPostRequest(
   const headers = new Headers();
   if (origin !== null) headers.set("origin", origin);
   headers.set("content-type", "application/json");
-  const init: RequestInit = { method: "POST", headers };
-  if (opts.bodyText !== undefined) {
-    init.body = opts.bodyText;
-  } else {
-    init.body = JSON.stringify(opts.body ?? defaultBody);
-  }
+  const init: RequestInit = {
+    method: "POST",
+    headers,
+    body: opts.bodyText ?? JSON.stringify(opts.body ?? defaultBody),
+  };
   return new Request(url, init);
 }

@@ -154,6 +154,25 @@ describe("POST /api/audit/file-finding", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("returns the cached filingResultJson even after the nonce TTL has elapsed", async () => {
+    // Gemini-HIGH: idempotency must survive expiry. A slow client
+    // retry past the 5-minute window must still return the cached
+    // success rather than flipping to 401, otherwise the agent
+    // assumes the filing dropped and we double-file.
+    const cachedResult = { action: "created", issueNumber: 99 };
+    mockFindNonce.mockResolvedValue(
+      nonceRow({
+        filingResultJson: cachedResult,
+        consumedAt: new Date(),
+        expiresAt: new Date(Date.now() - 60_000), // expired
+      }) as never,
+    );
+    const res = await POST(buildReq());
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual(cachedResult);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("returns the cached filingResultJson on retry (idempotency cache)", async () => {
     // After a successful filing, the row's filingResultJson holds
     // the outcome. Retries with the same nonce return the cached
