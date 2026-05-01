@@ -16,13 +16,12 @@
 
 import { NextResponse } from "next/server";
 
-import { getAdminUser } from "@/lib/auth";
+import { authorizeAuditApi } from "@/lib/audit-api-auth";
 import { prisma } from "@/lib/db";
 import {
   generateNonce,
   hashNonce,
   computeNonceExpiresAt,
-  isValidOrigin,
 } from "@/lib/audit-nonce";
 
 interface MintRequest {
@@ -47,22 +46,9 @@ function isMintRequest(value: unknown): value is MintRequest {
 }
 
 export async function POST(req: Request): Promise<NextResponse> {
-  // Origin check first so CSRF attempts don't even reach the DB.
-  if (!isValidOrigin(req.headers.get("origin"))) {
-    return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
-  }
-
-  const admin = await getAdminUser();
-  if (!admin) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
+  const auth = await authorizeAuditApi(req);
+  if (!auth.ok) return auth.response;
+  const { admin, body } = auth;
 
   if (!isMintRequest(body)) {
     return NextResponse.json(

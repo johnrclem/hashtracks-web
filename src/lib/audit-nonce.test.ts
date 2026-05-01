@@ -144,6 +144,8 @@ describe("isValidOrigin", () => {
   });
 
   it("rejects a different scheme on the same hostname", () => {
-    expect(isValidOrigin("http://www.hashtracks.xyz")).toBe(false);
+    // NOSONAR: deliberate http:// fixture — we're asserting that
+    // the validator REJECTS plain-http origins, not using one.
+    expect(isValidOrigin("http://www.hashtracks.xyz")).toBe(false); // NOSONAR
   });
 });

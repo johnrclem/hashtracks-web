@@ -44,12 +44,11 @@
 
 import { NextResponse } from "next/server";
 
-import { getAdminUser } from "@/lib/auth";
+import { authorizeAuditApi } from "@/lib/audit-api-auth";
 import { prisma } from "@/lib/db";
 import {
   hashNonce,
   computePayloadHash,
-  isValidOrigin,
   type FilingPayload,
 } from "@/lib/audit-nonce";
 import {
@@ -179,21 +178,10 @@ async function tryCoalesce(
 }
 
 export async function POST(req: Request): Promise<NextResponse> {
-  if (!isValidOrigin(req.headers.get("origin"))) {
-    return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
-  }
+  const auth = await authorizeAuditApi(req);
+  if (!auth.ok) return auth.response;
+  const { admin, body } = auth;
 
-  const admin = await getAdminUser();
-  if (!admin) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
   if (!isFileFindingRequest(body)) {
     return NextResponse.json({ error: "Malformed payload" }, { status: 400 });
   }
