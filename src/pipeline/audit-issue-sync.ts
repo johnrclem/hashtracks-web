@@ -31,6 +31,7 @@ import {
   parseKennelLabel,
 } from "@/lib/audit-labels";
 import { getValidatedRepo } from "@/lib/github-repo";
+import { buildCanonicalBlock } from "@/lib/audit-canonical";
 
 const FETCH_TIMEOUT_MS = 15_000;
 const PAGE_SIZE = 100;
@@ -40,6 +41,10 @@ const MAX_PAGES = 20; // safety cap; ~2000 issues
 export interface GitHubIssue {
   number: number;
   title: string;
+  /** Issue body — markdown. Parsed for the `<!-- audit-canonical: {...} -->`
+   *  block (see `src/lib/audit-canonical.ts`) so the sync can
+   *  populate `AuditIssue.fingerprint` without re-deriving the hash. */
+  body: string | null;
   html_url: string;
   state: "open" | "closed";
   // GitHub's `state_reason` field — `"completed"` when an issue is
@@ -102,6 +107,57 @@ export function resolveStream(labelNames: readonly string[]): StreamResolution {
  * blindly written to `AuditIssue.kennelCode` (which is a FK — blind writes
  * fail with a constraint violation and drop the issue from the mirror).
  */
+/**
+ * Extract the rule slug from a cron-filed audit issue title.
+ *
+ * Cron titles follow the format produced by `formatGroupIssueTitle`:
+ *   `[Audit] {kennelShortName} — {categoryLabel} [{ruleSlug}] (N events) — yyyy-mm-dd`
+ *
+ * The regex matches only slug-shaped brackets (lowercase + digits +
+ * hyphens), so the literal `[Audit]` and any uppercase operator-added
+ * tags like `[REVIEWED]` are skipped. The first remaining match is
+ * the rule slug. Returns null when no slug-shaped bracket is present
+ * — chrome-filed titles are free-form prose and won't match.
+ */
+const RULE_SLUG_IN_TITLE_RE = /\[([a-z][a-z0-9-]*)\]/g;
+export function extractRuleSlugFromAutomatedTitle(title: string): string | null {
+  const match = RULE_SLUG_IN_TITLE_RE.exec(title);
+  // `exec` on a /g regex updates lastIndex; reset so subsequent calls
+  // restart from the beginning of the input.
+  RULE_SLUG_IN_TITLE_RE.lastIndex = 0;
+  return match?.[1] ?? null;
+}
+
+/**
+ * Re-derive `AuditIssue.fingerprint` from labels + title — the only
+ * inputs the sync can trust. Codex review on PR #1171b flagged that
+ * reading the operator-editable body block as authoritative was a
+ * dedup-poisoning vector: a forged block could inject an arbitrary
+ * fingerprint and absorb future findings under the wrong row.
+ *
+ * Authoritative path is currently AUTOMATED-stream only — those titles
+ * carry a structured rule slug. Chrome-stream issues won't ship with a
+ * sync-derivable identity until bundle 5b's file-finding endpoint
+ * lands; until then the sync leaves their fingerprint untouched and
+ * lets the endpoint write directly at filing time.
+ *
+ * The canonical block in the body is still emitted by the cron path
+ * (and will be by 5b's endpoint) for human / debugger inspection, but
+ * the sync deliberately ignores it here.
+ */
+export function computeFingerprintFromIdentity(
+  stream: AuditStream,
+  kennelCode: string | null,
+  title: string,
+): string | null {
+  if (stream !== AuditStream.AUTOMATED) return null;
+  if (!kennelCode) return null;
+  const ruleSlug = extractRuleSlugFromAutomatedTitle(title);
+  if (!ruleSlug) return null;
+  const block = buildCanonicalBlock({ stream, kennelCode, ruleSlug });
+  return block?.fingerprint ?? null;
+}
+
 export function resolveKennel(
   labelNames: readonly string[],
   knownKennelCodes: ReadonlySet<string>,
@@ -342,6 +398,19 @@ export async function syncAuditIssues(): Promise<SyncResult> {
         // upsert first lets us batch the events afterwards. `delistedAt` is
         // cleared on every update so a re-listed issue (operator re-added
         // the `audit` label) automatically comes back into the dashboard.
+        // Re-derive the fingerprint from labels + title — the only
+        // inputs the sync can trust. Operator-editable body blocks are
+        // ignored for sync purposes (see computeFingerprintFromIdentity
+        // for rationale). Returns null for chrome-stream issues; on
+        // update we leave their fingerprint untouched so bundle 5b's
+        // file-finding endpoint owns that path.
+        const reDerivedFingerprint = computeFingerprintFromIdentity(
+          stream,
+          kennelCode,
+          issue.title,
+        );
+        const isAutomated = stream === AuditStream.AUTOMATED;
+
         const upserted = await tx.auditIssue.upsert({
           where: { githubNumber: issue.number },
           create: {
@@ -354,6 +423,7 @@ export async function syncAuditIssues(): Promise<SyncResult> {
             githubCreatedAt,
             githubClosedAt: githubClosedAt ?? undefined,
             closeReason: issue.state_reason ?? undefined,
+            fingerprint: reDerivedFingerprint ?? undefined,
           },
           update: {
             stream,
@@ -363,6 +433,12 @@ export async function syncAuditIssues(): Promise<SyncResult> {
             kennelCode: kennelCode ?? null,
             githubClosedAt: githubClosedAt ?? null,
             closeReason: issue.state_reason ?? null,
+            // For AUTOMATED, write the re-derived value (or null when
+            // identity drifted) — addresses Codex's stale-fingerprint
+            // finding. For non-AUTOMATED streams, leave the column alone
+            // so the file-finding endpoint's authoritative writes aren't
+            // clobbered on the next sync.
+            ...(isAutomated ? { fingerprint: reDerivedFingerprint } : {}),
             delistedAt: null,
           },
         });

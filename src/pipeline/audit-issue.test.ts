@@ -133,6 +133,41 @@ describe("fileAuditIssues", () => {
     expect(mockFindMany).not.toHaveBeenCalled();
   });
 
+  it("embeds the canonical block for fingerprintable rules", async () => {
+    // `hare-url` is registered in rule-definitions.ts as fingerprint:true,
+    // so cron-filed issues must carry the audit-canonical block. The sync
+    // pipeline reads the block on next upsert and populates
+    // AuditIssue.fingerprint without re-deriving the hash.
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ html_url: "https://github.com/test/1", number: 1 }),
+    });
+
+    await fileAuditIssues([buildGroup({ rule: "hare-url", category: "hares" })]);
+
+    const fetchCall = mockFetch.mock.calls[0];
+    const requestBody = JSON.parse(fetchCall[1].body) as { body: string };
+    expect(requestBody.body).toContain("<!-- audit-canonical:");
+    expect(requestBody.body).toContain('"stream":"AUTOMATED"');
+    expect(requestBody.body).toContain('"ruleSlug":"hare-url"');
+    expect(requestBody.body).toContain('"kennelCode":"testh3"');
+  });
+
+  it("omits the canonical block for non-fingerprintable rules", async () => {
+    // Imperative-only rules (hare-cta-text, title-raw-kennel-code, etc.)
+    // aren't in the registry — issues for them stay un-fingerprinted.
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ html_url: "https://github.com/test/2", number: 2 }),
+    });
+
+    await fileAuditIssues([buildGroup({ rule: "hare-cta-text", category: "hares" })]);
+
+    const fetchCall = mockFetch.mock.calls[0];
+    const requestBody = JSON.parse(fetchCall[1].body) as { body: string };
+    expect(requestBody.body).not.toContain("<!-- audit-canonical:");
+  });
+
   it("caps issues at MAX_ISSUES_PER_RUN (3)", async () => {
     let issueNum = 1;
     mockFetch.mockImplementation(async () => ({

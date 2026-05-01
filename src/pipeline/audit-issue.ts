@@ -7,6 +7,8 @@ import type { AuditGroup } from "./audit-runner";
 import { formatGroupIssueTitle, formatGroupIssueBody } from "./audit-format";
 import { AUDIT_LABEL, ALERT_LABEL, STREAM_LABELS, kennelLabel } from "@/lib/audit-labels";
 import { prisma } from "@/lib/db";
+import { AUDIT_STREAM } from "@/lib/audit-stream-meta";
+import { buildCanonicalBlock } from "@/lib/audit-canonical";
 
 /**
  * Rules where the fix is running a backfill/re-scrape, not a code change.
@@ -67,7 +69,12 @@ export async function fileAuditIssues(groups: AuditGroup[]): Promise<string[]> {
 /** Create a GitHub issue for one audit group. All audit issues require human review before
  *  any autofix workflow runs — add `claude-autofix` manually after triaging. */
 async function createIssueForGroup(token: string, title: string, group: AuditGroup): Promise<string | null> {
-  const body = formatGroupIssueBody(group);
+  const canonical = buildCanonicalBlock({
+    stream: AUDIT_STREAM.AUTOMATED,
+    kennelCode: group.kennelCode,
+    ruleSlug: group.rule,
+  });
+  const body = formatGroupIssueBody(group, canonical);
   const isCodeFix = !DATA_REMEDIATION_RULES.has(group.rule);
   const labels = [AUDIT_LABEL, ALERT_LABEL, STREAM_LABELS.AUTOMATED, kennelLabel(group.kennelCode)];
 
