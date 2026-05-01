@@ -1007,8 +1007,11 @@ async function upsertCanonicalEvent(
   if (existingEvent) {
     targetEventId = existingEvent.id;
 
-    // Auto-restore: if any source actively returns this event, it's not stale
-    const shouldRestore = existingEvent.status === "CANCELLED";
+    // Auto-restore: if any source actively returns this event, it's not stale.
+    // Admin-locked events are exempt — an admin explicitly cancelled the event
+    // and the lock survives any source re-emission.
+    const shouldRestore =
+      existingEvent.status === "CANCELLED" && !isAdminLocked(existingEvent);
     if (shouldRestore && ctx.trustLevel < existingEvent.trustLevel) {
       // Lower-trust source can't update fields, but can still restore status
       await prisma.event.update({

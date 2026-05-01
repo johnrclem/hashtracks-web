@@ -794,6 +794,7 @@ describe("double-header support", () => {
         id: "evt_restored",
         trustLevel: 9, // higher than ctx.trustLevel=5 → takes restore path only
         status: "CANCELLED",
+        adminCancelledAt: null, // not admin-locked; auto-restore path applies
         sourceUrl: "https://source-a.com/event",
         startTime: "19:00",
         title: "Trail",
@@ -811,6 +812,40 @@ describe("double-header support", () => {
       expect.objectContaining({
         where: { id: "evt_restored" },
         data: { status: "CONFIRMED" },
+      }),
+    );
+  });
+
+  it("does NOT restore an admin-locked CANCELLED row via upsertCanonicalEvent (admin override)", async () => {
+    // Site-2 admin-lock guard: a same-date Event matched via the sameDayEvents
+    // path stays CANCELLED on source re-emission when adminCancelledAt is set.
+    // Complements the site-1 (refreshExistingEvent) guard tested above.
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      {
+        id: "evt_admin_locked",
+        trustLevel: 9, // higher than ctx.trustLevel=5 → would take restore path
+        status: "CANCELLED",
+        adminCancelledAt: new Date("2026-05-01T10:00:00Z"),
+        adminCancelledBy: "user_admin",
+        adminCancellationReason: "City bridge run",
+        sourceUrl: "https://source-a.com/event",
+        startTime: "19:00",
+        title: "Trail",
+        runNumber: 42,
+      },
+    ] as never);
+
+    const result = await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-03-08", sourceUrl: "https://source-a.com/event", startTime: "19:00", runNumber: 42 }),
+    ]);
+
+    expect(result.restored).toBe(0);
+    // The lower-trust restore branch must not write status: CONFIRMED.
+    expect(mockEventUpdate).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "evt_admin_locked" },
+        data: expect.objectContaining({ status: "CONFIRMED" }),
       }),
     );
   });
