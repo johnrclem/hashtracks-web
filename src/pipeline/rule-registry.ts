@@ -28,11 +28,13 @@ import {
   EVALUATOR_VERSION,
   canonicalizeMatcher,
   type Matcher,
+  type RowField,
 } from "@/lib/audit-evaluator";
 import type {
   AuditCategory,
   AuditSeverity,
 } from "@/pipeline/audit-checks";
+import { FINGERPRINTABLE_RULES } from "./rule-definitions";
 
 export interface AuditRule {
   /** Stable rule identifier (e.g. `"hare-cta-text"`). Matches the
@@ -41,6 +43,10 @@ export interface AuditRule {
   slug: string;
   category: AuditCategory;
   severity: AuditSeverity;
+  /** The field a matching finding describes. Used by the future
+   *  registry-driven check runner (bundle 5) to populate
+   *  `AuditFinding.field`. */
+  field: RowField;
   /** Bumped manually when the registry author wants to treat a change
    *  as a fresh version even if the matcher payload's canonical form
    *  is unchanged. Most authors don't touch this — changing matcher
@@ -60,8 +66,7 @@ export interface AuditRule {
 
 /**
  * Build a registry from `(slug, rule)` entries. Separating construction
- * from the exported `AUDIT_RULES` instance lets bundle 4b populate the
- * registry by passing entries here, and lets tests build smaller
+ * from the exported `AUDIT_RULES` instance lets tests build smaller
  * registries without monkey-patching the exported singleton.
  */
 export function buildRegistry(
@@ -70,8 +75,13 @@ export function buildRegistry(
   return new Map(entries);
 }
 
-/** Registry of fingerprintable audit rules. */
-export const AUDIT_RULES: ReadonlyMap<string, AuditRule> = buildRegistry();
+/** Registry of fingerprintable audit rules. Populated from
+ *  {@link FINGERPRINTABLE_RULES} so the imperative checks in
+ *  `audit-checks.ts` and the registry-driven check runner can stay in
+ *  sync (covered by `rule-definitions.test.ts`). */
+export const AUDIT_RULES: ReadonlyMap<string, AuditRule> = buildRegistry(
+  FINGERPRINTABLE_RULES,
+);
 
 export function getRule(slug: string): AuditRule | undefined {
   return AUDIT_RULES.get(slug);

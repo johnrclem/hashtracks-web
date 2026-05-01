@@ -1,5 +1,6 @@
 import type { RawEventData } from "@/adapters/types";
 import type { CalendarEvent } from "@/lib/calendar";
+import type { AuditEventRow } from "@/pipeline/audit-checks";
 import type {
   KennelHasher,
   KennelAttendance,
@@ -10,6 +11,34 @@ import type {
   StravaConnection,
   StravaActivity,
 } from "@/generated/prisma/client";
+
+/**
+ * Minimal AuditEventRow for `audit-checks` and `rule-definitions` tests.
+ * Fields default to nulls / safe placeholders so each test only sets the
+ * one or two fields it cares about.
+ */
+export function buildAuditEventRow(
+  overrides: Partial<AuditEventRow> = {},
+): AuditEventRow {
+  return {
+    id: "evt-1",
+    kennelShortName: "NYCH3",
+    kennelCode: "nych3",
+    haresText: null,
+    title: null,
+    description: null,
+    locationName: null,
+    locationCity: null,
+    startTime: null,
+    runNumber: null,
+    date: "2026-01-01",
+    sourceUrl: null,
+    sourceType: "HTML_SCRAPER",
+    scrapeDays: 90,
+    rawDescription: null,
+    ...overrides,
+  };
+}
 
 export function buildRawEvent(overrides?: Partial<RawEventData>): RawEventData {
   return {
