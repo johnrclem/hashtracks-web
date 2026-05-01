@@ -4,7 +4,7 @@
 import { useState, useEffect, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowUp, ArrowDown } from "lucide-react";
+import { ArrowUp, ArrowDown, Lock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -47,7 +47,6 @@ import {
   uncancelEvent,
 } from "@/app/admin/events/actions";
 import { CancellationOverrideDialog } from "./CancellationOverrideDialog";
-import { Lock } from "lucide-react";
 
 interface EventData {
   id: string;
@@ -125,6 +124,53 @@ export function buildSortParams(
   }
   params.set("page", "1");
   return params.toString();
+}
+
+/**
+ * Per-row cancel/uncancel/lock buttons. Three cases:
+ *   - admin-locked (adminCancelledAt set) → 'Un-cancel'
+ *   - reconciler-cancelled (status=CANCELLED, no admin lock) → 'Un-cancel' + 'Lock…' (elevate without public flicker)
+ *   - default (CONFIRMED or other) → 'Cancel…'
+ *
+ * Extracted from the row-render JSX so SonarCloud's "deeply nested ternary"
+ * rule (S3358) doesn't fire on the 3-branch button cluster.
+ */
+interface CancelToggleActionsProps {
+  readonly event: Pick<EventData, "status" | "adminCancelledAt">;
+  readonly isPending: boolean;
+  readonly onCancel: () => void;
+  readonly onUncancel: () => void;
+}
+
+function CancelToggleActions({ event, isPending, onCancel, onUncancel }: CancelToggleActionsProps) {
+  const buttonClass = "h-7 text-xs";
+  if (event.adminCancelledAt) {
+    return (
+      <Button variant="ghost" size="sm" className={buttonClass} disabled={isPending} onClick={onUncancel}>
+        Un-cancel
+      </Button>
+    );
+  }
+  if (event.status === "CANCELLED") {
+    // Reconciler-cancelled (no admin lock yet). Offer both un-cancel
+    // (restore to CONFIRMED) and elevate-to-admin-lock (attach a reason
+    // without the public flicker of un-cancel-then-recancel).
+    return (
+      <>
+        <Button variant="ghost" size="sm" className={buttonClass} disabled={isPending} onClick={onUncancel}>
+          Un-cancel
+        </Button>
+        <Button variant="ghost" size="sm" className={buttonClass} disabled={isPending} onClick={onCancel}>
+          Lock…
+        </Button>
+      </>
+    );
+  }
+  return (
+    <Button variant="ghost" size="sm" className={buttonClass} disabled={isPending} onClick={onCancel}>
+      Cancel…
+    </Button>
+  );
 }
 
 /** Admin event table with filtering, sorting, pagination, and bulk delete. */
@@ -518,53 +564,13 @@ export function EventTable({
                           </TooltipContent>
                         </Tooltip>
                       )}
-                      {event.adminCancelledAt ? (
-                        // Already admin-locked — only un-cancel makes sense.
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 text-xs"
-                          disabled={isPending}
-                          onClick={() => handleUncancel(event)}
-                        >
-                          Un-cancel
-                        </Button>
-                      ) : event.status === "CANCELLED" ? (
-                        // Reconciler-cancelled (no admin lock yet). Offer both
-                        // un-cancel (restore to CONFIRMED) and elevate-to-admin-
-                        // lock (attach a reason without the public flicker of
-                        // un-cancel-then-recancel).
-                        <>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 text-xs"
-                            disabled={isPending}
-                            onClick={() => handleUncancel(event)}
-                          >
-                            Un-cancel
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 text-xs"
-                            disabled={isPending}
-                            onClick={() => setCancelDialogEvent(event)}
-                          >
-                            Lock…
-                          </Button>
-                        </>
-                      ) : (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 text-xs"
-                          disabled={isPending}
-                          onClick={() => setCancelDialogEvent(event)}
-                        >
-                          Cancel…
-                        </Button>
-                      )}
+                      <CancelToggleActions
+                        event={event}
+                        isPending={isPending}
+                        onCancel={() => setCancelDialogEvent(event)}
+                        onUncancel={() => handleUncancel(event)}
+                      />
+
                       <Button
                         variant="ghost"
                         size="sm"

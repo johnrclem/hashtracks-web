@@ -26,15 +26,15 @@ import { toast } from "sonner";
 
 interface CancellationOverrideDialogProps {
   /** The event being cancelled. */
-  event: {
-    id: string;
-    title: string | null;
+  readonly event: {
+    readonly id: string;
+    readonly title: string | null;
     /** ISO 8601 date string. */
-    date: string;
-    kennelShortName: string;
+    readonly date: string;
+    readonly kennelShortName: string;
   } | null;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  readonly open: boolean;
+  readonly onOpenChange: (open: boolean) => void;
 }
 
 /**

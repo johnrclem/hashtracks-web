@@ -298,9 +298,9 @@ export async function uncancelEvent(eventId: string): Promise<ActionResult<{ ken
         adminCancelledAt: null,
         adminCancelledBy: null,
         adminCancellationReason: null,
-        ...(auditEntry !== null
-          ? { adminAuditLog: appendAuditLog(event.adminAuditLog, auditEntry) }
-          : {}),
+        ...(auditEntry === null
+          ? {}
+          : { adminAuditLog: appendAuditLog(event.adminAuditLog, auditEntry) }),
       },
     });
 
