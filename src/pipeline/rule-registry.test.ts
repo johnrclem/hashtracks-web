@@ -9,6 +9,7 @@ const SAMPLE_RULE: AuditRule = {
   slug: "test-only-sample",
   category: "title",
   severity: "warning",
+  field: "title",
   version: 1,
   matcher: { op: "regex-test", field: "title", pattern: "test" },
   fingerprint: true,
@@ -16,15 +17,21 @@ const SAMPLE_RULE: AuditRule = {
 };
 
 describe("AUDIT_RULES", () => {
-  it("is empty in the P0a scaffolding PR", () => {
-    // Bundle 4b populates this; if a rule lands here without the
-    // companion bridging-tier work in bundle 5, dedup behavior will
-    // diverge from the rest of the audit pipeline.
-    expect(AUDIT_RULES.size).toBe(0);
+  it("is populated with the fingerprintable rules from rule-definitions", () => {
+    // Sanity check that the import path wired up. Specific rule-by-rule
+    // assertions live in rule-definitions.test.ts (parity with
+    // audit-checks.ts).
+    expect(AUDIT_RULES.size).toBeGreaterThan(0);
   });
 
   it("returns undefined for unknown slugs via getRule()", () => {
     expect(getRule("nonexistent")).toBeUndefined();
+  });
+
+  it("each registry entry is self-describing — slug field matches map key", () => {
+    for (const [key, rule] of AUDIT_RULES) {
+      expect(rule.slug).toBe(key);
+    }
   });
 });
 

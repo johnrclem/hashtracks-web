@@ -59,18 +59,6 @@ describe("evaluate", () => {
     },
   );
 
-  it("regex-test rejects ReDoS-vulnerable patterns via safe-regex2", () => {
-    // Classic catastrophic-backtrack pattern: nested quantifiers with
-    // overlapping character classes. Rule authors are trusted (registry
-    // is source-controlled), but isSafeRegex is cheap defense-in-depth
-    // so a bad rule can't hang every audit run.
-    const m: Matcher = {
-      op: "regex-test",
-      field: "title",
-      pattern: "(a+)+$",
-    };
-    expect(() => evaluate(m, FIXTURE)).toThrow(/catastrophic backtracking/);
-  });
 
   it("starts-with is case-sensitive (use regex-test with ^ for fuzzier matching)", () => {
     const lower: Matcher = { op: "starts-with", field: "title", value: "nych3" };

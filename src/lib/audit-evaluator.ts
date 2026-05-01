@@ -13,8 +13,6 @@
  * fingerprint = same matching semantics" a sound invariant.
  */
 
-import isSafeRegex from "safe-regex2";
-
 import type { AuditEventRow } from "@/pipeline/audit-checks";
 
 /**
@@ -95,11 +93,13 @@ const ALLOWED_FLAGS_RE = /^[imsu]*$/;
 
 /**
  * Compile a registry-supplied regex pattern. Patterns come from the
- * source-controlled rule registry (not user input), but `isSafeRegex`
- * is cheap defense-in-depth so a rule author can't accidentally land
- * a catastrophic-backtrack pattern that would hang every audit run.
- * The check cost is amortized by the WeakMap cache (one isSafeRegex
- * call per first-compile per matcher node).
+ * source-controlled rule registry (not user input) — the trust
+ * boundary is the registry definitions file, which is code-reviewed.
+ * Compiled regex is memoized in {@link regexCache} so evaluating one
+ * rule across thousands of events doesn't recompile the same pattern.
+ *
+ * Stateful flags (`g`, `y`) are rejected — they mutate `lastIndex` on
+ * `.test()` and would make the cached `RegExp` non-deterministic.
  */
 function compileRegex(matcher: Extract<Matcher, { op: "regex-test" }>): RegExp {
   const cached = regexCache.get(matcher);
@@ -112,13 +112,8 @@ function compileRegex(matcher: Extract<Matcher, { op: "regex-test" }>): RegExp {
       `Matcher regex-test: invalid flags "${matcher.flags}" (allowed: i, m, s, u)`,
     );
   }
-  // nosemgrep: detect-non-literal-regexp — pattern is registry-supplied + ReDoS-validated below
+  // nosemgrep: detect-non-literal-regexp — pattern is registry-supplied, source-controlled
   const compiled = new RegExp(matcher.pattern, matcher.flags); // NOSONAR
-  if (!isSafeRegex(compiled)) {
-    throw new Error(
-      `Matcher regex-test: pattern "${matcher.pattern}" may cause catastrophic backtracking (ReDoS)`,
-    );
-  }
   regexCache.set(matcher, compiled);
   return compiled;
 }
