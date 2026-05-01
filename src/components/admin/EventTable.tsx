@@ -44,7 +44,10 @@ import {
   deleteSelectedEvents,
   bulkDeleteEvents,
   previewBulkDelete,
+  uncancelEvent,
 } from "@/app/admin/events/actions";
+import { CancellationOverrideDialog } from "./CancellationOverrideDialog";
+import { Lock } from "lucide-react";
 
 interface EventData {
   id: string;
@@ -56,6 +59,13 @@ interface EventData {
   runNumber: number | null;
   startTime: string | null;
   status: string;
+  /** ISO 8601 timestamp; null when not admin-cancelled. */
+  adminCancelledAt: string | null;
+  /** Local DB User.id of the admin who set the override. */
+  adminCancelledBy: string | null;
+  adminCancellationReason: string | null;
+  /** Length of the append-only audit log; 0 when no admin override has ever been set. */
+  adminAuditLogCount: number;
   sources: string[];
   rawEventCount: number;
   attendanceCount: number;
@@ -140,6 +150,7 @@ export function EventTable({
     totalAttendances: number;
     sampleEvents: { id: string; date: string; kennelName: string; title: string | null; attendanceCount: number }[];
   } | null>(null);
+  const [cancelDialogEvent, setCancelDialogEvent] = useState<EventData | null>(null);
 
   // Clear selection when URL params change (page navigation, filter change)
   useEffect(() => {
@@ -207,6 +218,18 @@ export function EventTable({
           `Deleted event: ${result.kennelName} ${formatDate(result.date)}`,
         );
       }
+      router.refresh();
+    });
+  }
+
+  function handleUncancel(event: EventData) {
+    startTransition(async () => {
+      const result = await uncancelEvent(event.id);
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success(`Restored ${result.kennelName} — ${formatDate(result.date)}`);
       router.refresh();
     });
   }
@@ -460,15 +483,70 @@ export function EventTable({
                     {event.attendanceCount > 0 ? event.attendanceCount : "—"}
                   </TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-xs text-destructive hover:text-destructive"
-                      disabled={isPending}
-                      onClick={() => handleDelete(event)}
-                    >
-                      Delete
-                    </Button>
+                    <div className="flex items-center justify-end gap-1">
+                      {event.adminCancelledAt && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span
+                              aria-label="Admin-cancelled"
+                              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground"
+                            >
+                              <Lock className="h-3.5 w-3.5" />
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="left" className="max-w-xs">
+                            <div className="space-y-1 text-xs">
+                              <p>
+                                <span className="font-medium">Cancelled</span>
+                                {event.adminCancelledBy && ` by ${event.adminCancelledBy}`}
+                                {" on "}
+                                {new Date(event.adminCancelledAt).toLocaleDateString()}
+                              </p>
+                              {event.adminCancellationReason && (
+                                <p className="italic">
+                                  &ldquo;{event.adminCancellationReason}&rdquo;
+                                </p>
+                              )}
+                              {event.adminAuditLogCount > 1 && (
+                                <p className="text-muted-foreground">
+                                  + {event.adminAuditLogCount - 1} prior cancel/uncancel
+                                </p>
+                              )}
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                      {event.adminCancelledAt ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs"
+                          disabled={isPending}
+                          onClick={() => handleUncancel(event)}
+                        >
+                          Un-cancel
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs"
+                          disabled={isPending}
+                          onClick={() => setCancelDialogEvent(event)}
+                        >
+                          Cancel…
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs text-destructive hover:text-destructive"
+                        disabled={isPending}
+                        onClick={() => handleDelete(event)}
+                      >
+                        Delete
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -653,6 +731,23 @@ export function EventTable({
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <CancellationOverrideDialog
+          event={
+            cancelDialogEvent
+              ? {
+                  id: cancelDialogEvent.id,
+                  title: cancelDialogEvent.title,
+                  date: cancelDialogEvent.date,
+                  kennelShortName: cancelDialogEvent.kennelName,
+                }
+              : null
+          }
+          open={cancelDialogEvent !== null}
+          onOpenChange={(next) => {
+            if (!next) setCancelDialogEvent(null);
+          }}
+        />
       </div>
     </TooltipProvider>
   );
