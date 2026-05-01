@@ -4,6 +4,7 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     auditIssue: {
       findFirst: vi.fn(),
+      findUnique: vi.fn(),
       findMany: vi.fn(),
       update: vi.fn(),
       updateMany: vi.fn(),
@@ -35,10 +36,15 @@ vi.mock("@/lib/audit-fingerprint", () => ({
 }));
 
 import { prisma } from "@/lib/db";
-import { fileAuditFinding, type FilerActions } from "./audit-filer";
+import {
+  fileAuditFinding,
+  ESCALATION_THRESHOLD,
+  type FilerActions,
+} from "./audit-filer";
 import { AuditStream } from "@/generated/prisma/client";
 
 const mockFindFirst = vi.mocked(prisma.auditIssue.findFirst);
+const mockFindUnique = vi.mocked(prisma.auditIssue.findUnique);
 const mockFindMany = vi.mocked(prisma.auditIssue.findMany);
 const mockUpdate = vi.mocked(prisma.auditIssue.update);
 const mockUpdateMany = vi.mocked(prisma.auditIssue.updateMany);
@@ -65,6 +71,13 @@ const BASE_INPUT = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Default findUnique result — supplies kennel info to the
+  // post-claim escalation lookup. Tests that exercise the
+  // claim-lost path override with `escalatedToIssueNumber: ...`.
+  mockFindUnique.mockResolvedValue({
+    kennelCode: "nych3",
+    kennel: { shortName: "NYCH3" },
+  } as never);
 });
 
 describe("fileAuditFinding — strict tier", () => {
@@ -479,5 +492,271 @@ describe("fileAuditFinding — create tier", () => {
 
     const out = await fileAuditFinding(BASE_INPUT, actions);
     expect(out).toEqual({ action: "error", reason: "create-failed" });
+  });
+});
+
+/**
+ * Wire the strict-tier match such that the post-increment
+ * recurrenceCount equals `count`. mockUpdate's return value is what
+ * the filer reads as the new count. Module-scope per Sonar S7721 —
+ * nested-function declarations inside describe blocks rebuild on
+ * every iteration of `it.each` and trip the lint.
+ */
+function setupStrictHit(count: number) {
+  mockFindFirst.mockResolvedValue({
+    id: "ai_base",
+    githubNumber: 100,
+    htmlUrl: "https://github.com/x/y/issues/100",
+    recurrenceCount: count - 1,
+    // Kennel info plumbed through `runStrictTier` so `tryEscalate`
+    // doesn't need its own findUnique. Tests must include it.
+    kennel: { shortName: "NYCH3" },
+  } as never);
+  mockUpdate.mockResolvedValue({ recurrenceCount: count } as never);
+}
+
+describe("fileAuditFinding — recurrence escalation", () => {
+
+  it("does not escalate below the threshold", async () => {
+    setupStrictHit(ESCALATION_THRESHOLD - 1);
+    const actions = buildActions();
+
+    const out = await fileAuditFinding(BASE_INPUT, actions);
+    if (out.action !== "recurred") throw new Error("expected recurred");
+    expect(out.escalatedToIssueNumber).toBeUndefined();
+    // No claim CAS, no kennel lookup, no second createIssue.
+    expect(mockUpdateMany).not.toHaveBeenCalled();
+    expect(actions.createIssue).not.toHaveBeenCalled();
+  });
+
+  it("claim-first → create → finalize when the threshold is crossed", async () => {
+    setupStrictHit(ESCALATION_THRESHOLD);
+    // Claim CAS wins (count=1). Bridging uses updateMany too, so
+    // mockUpdateMany.mockResolvedValueOnce gives us call-order control.
+    mockUpdateMany.mockResolvedValueOnce({ count: 1 } as never);
+    const createIssue = vi.fn().mockResolvedValue({
+      number: 555,
+      htmlUrl: "https://github.com/x/y/issues/555",
+    });
+    const postComment = vi.fn().mockResolvedValue(true);
+    const actions: FilerActions = { createIssue, postComment };
+
+    const out = await fileAuditFinding(BASE_INPUT, actions);
+    if (out.action !== "recurred") throw new Error("expected recurred");
+    expect(out.escalatedToIssueNumber).toBe(555);
+
+    // Meta-issue was filed with audit:needs-decision label.
+    expect(createIssue).toHaveBeenCalledTimes(1);
+    const metaCall = createIssue.mock.calls[0][0] as { labels: string[]; title: string };
+    expect(metaCall.labels).toContain("audit");
+    expect(metaCall.labels).toContain("audit:needs-decision");
+    expect(metaCall.labels).toContain("kennel:nych3");
+    expect(metaCall.title).toContain("NYCH3");
+    expect(metaCall.title).toContain("hare-url");
+
+    // Step 1: atomic claim BEFORE create — this is the race fix.
+    expect(mockUpdateMany).toHaveBeenCalledWith({
+      where: { id: "ai_base", escalatedAt: null },
+      data: { escalatedAt: expect.any(Date) },
+    });
+    // Step 3: finalize stamps the issue number after create succeeds.
+    // (Strict-tier increment is the first mockUpdate call; finalize
+    // is the second.)
+    expect(mockUpdate).toHaveBeenCalledWith({
+      where: { id: "ai_base" },
+      data: { escalatedToIssueNumber: 555 },
+    });
+
+    // Recur comment + escalation link comment = 2 postComment calls.
+    expect(postComment).toHaveBeenCalledTimes(2);
+    const linkCall = postComment.mock.calls[1];
+    expect(linkCall[0]).toBe(100); // base issue
+    expect(linkCall[1]).toContain("Escalated to meta-issue #555");
+  });
+
+  it("returns the existing meta-issue number when claim CAS loses (already escalated)", async () => {
+    setupStrictHit(ESCALATION_THRESHOLD + 3);
+    // Claim lost: another caller already escalated.
+    mockUpdateMany.mockResolvedValueOnce({ count: 0 } as never);
+    // Existing escalation has issue number 333.
+    mockFindUnique.mockResolvedValueOnce({
+      escalatedToIssueNumber: 333,
+    } as never);
+    const actions = buildActions();
+
+    const out = await fileAuditFinding(BASE_INPUT, actions);
+    if (out.action !== "recurred") throw new Error("expected recurred");
+    expect(out.escalatedToIssueNumber).toBe(333);
+    // No meta-issue created — winner already filed it.
+    expect(actions.createIssue).not.toHaveBeenCalled();
+  });
+
+  // Rollback paths share the same setup + assertion shape — Codex
+  // 5c-B pass-1 surfaced three distinct ways the post-claim block
+  // could fail (returns-null create, throwing create, throwing
+  // finalize), and each must trigger the same wedge-prevention
+  // rollback. Parametrize to keep the assertion logic in one place
+  // (Sonar's CPD detector flagged the inline copies as duplicated).
+  describe.each([
+    {
+      label: "createIssue returns null (graceful failure)",
+      build: () =>
+        buildActions({
+          createIssue: vi.fn().mockResolvedValue(null),
+        }),
+    },
+    {
+      label: "createIssue throws (network blip / other rejection)",
+      build: () =>
+        buildActions({
+          createIssue: vi.fn().mockRejectedValue(new Error("network blip")),
+        }),
+    },
+  ])("rolls back the claim when $label", ({ build }) => {
+    it("clears both escalation columns and surfaces no escalation link", async () => {
+      setupStrictHit(ESCALATION_THRESHOLD);
+      mockUpdateMany.mockResolvedValueOnce({ count: 1 } as never); // claim wins
+      const actions = build();
+
+      const out = await fileAuditFinding(BASE_INPUT, actions);
+      if (out.action !== "recurred") throw new Error("expected recurred");
+      // Recur succeeds (recurrenceCount was already incremented),
+      // but no escalation link surfaces — claim was rolled back.
+      expect(out.escalatedToIssueNumber).toBeUndefined();
+      // Rollback always clears BOTH columns so the next attempt
+      // re-runs the claim CAS cleanly.
+      expect(mockUpdate).toHaveBeenCalledWith({
+        where: { id: "ai_base" },
+        data: { escalatedAt: null, escalatedToIssueNumber: null },
+      });
+    });
+  });
+
+  it("does NOT roll back when finalize update fails after meta-issue is created (preserves linkage to live meta)", async () => {
+    // Codex 5c-B PR #1197 P1 finding: the original implementation
+    // rolled back on ANY post-claim failure, including when
+    // `createIssue` had already succeeded. That produced a real
+    // bug — a transient finalize failure would clear `escalatedAt`
+    // back to null, and the next recurrence would file a SECOND
+    // meta-issue for the same base lifecycle, breaking the
+    // one-meta-per-lifecycle invariant.
+    //
+    // Fix: only rollback for pre-create failures. Post-create
+    // failures (finalize throws, link-comment fails) get logged
+    // loudly and the column may end up null, but the meta-issue
+    // exists in GitHub with `audit:needs-decision` and the
+    // escalatedAt claim stays in place so we don't re-file.
+    setupStrictHit(ESCALATION_THRESHOLD);
+    mockUpdateMany.mockResolvedValueOnce({ count: 1 } as never);
+    // Sequence: strict-tier increment → finalize (throws).
+    // No rollback expected.
+    mockUpdate
+      .mockResolvedValueOnce({ recurrenceCount: ESCALATION_THRESHOLD } as never) // strict increment
+      .mockRejectedValueOnce(new Error("finalize update failed")); // finalize throws
+    const actions = buildActions();
+
+    const out = await fileAuditFinding(BASE_INPUT, actions);
+    if (out.action !== "recurred") throw new Error("expected recurred");
+    // Meta-issue 999 (from buildActions default) was filed; we
+    // surface it even though the column-link write failed.
+    expect(out.escalatedToIssueNumber).toBe(999);
+    // CRITICALLY: rollback was NOT called. Only 2 mockUpdate calls
+    // (strict increment, failed finalize); no third call to clear
+    // escalatedAt back to null.
+    expect(mockUpdate).toHaveBeenCalledTimes(2);
+    expect(mockUpdate).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { escalatedAt: null, escalatedToIssueNumber: null },
+      }),
+    );
+  });
+
+  it("skips tryEscalate when the strict-tier row is already escalated (Gemini PR #1197 optimization)", async () => {
+    // Optimization: reading `escalatedToIssueNumber` upfront in the
+    // strict-tier query lets us short-circuit `tryEscalate` for
+    // already-escalated rows. Saves the claim-CAS round-trip on
+    // every recur after the first escalation.
+    mockFindFirst.mockResolvedValue({
+      id: "ai_base",
+      githubNumber: 100,
+      htmlUrl: "https://github.com/x/y/issues/100",
+      recurrenceCount: ESCALATION_THRESHOLD + 4,
+      escalatedToIssueNumber: 555, // already escalated
+      kennel: { shortName: "NYCH3" },
+    } as never);
+    mockUpdate.mockResolvedValue({
+      recurrenceCount: ESCALATION_THRESHOLD + 5,
+    } as never);
+    const actions = buildActions();
+
+    const out = await fileAuditFinding(BASE_INPUT, actions);
+    if (out.action !== "recurred") throw new Error("expected recurred");
+    expect(out.escalatedToIssueNumber).toBe(555);
+
+    // No claim CAS attempted — `tryEscalate` was short-circuited.
+    expect(mockUpdateMany).not.toHaveBeenCalled();
+    // No meta-issue created.
+    expect(actions.createIssue).not.toHaveBeenCalled();
+  });
+
+  it("escalates from the bridging tier too when threshold crosses (Codex PR #1197 P2 / Gemini high)", async () => {
+    // Bridging only crosses threshold in pathological cases (a
+    // legacy row arriving with a high pre-existing recurrenceCount),
+    // but the call must be in place for behavioral consistency
+    // across both tiers.
+    mockFindFirst.mockResolvedValue(null);
+    mockFindMany.mockResolvedValue([
+      {
+        id: "legacy_high_count",
+        githubNumber: 17,
+        htmlUrl: "https://github.com/x/y/issues/17",
+        title:
+          "[Audit] NYCH3 — Hare Quality [hare-url] (1 events) — 2026-04-15",
+        recurrenceCount: ESCALATION_THRESHOLD - 1, // count goes to threshold
+        escalatedToIssueNumber: null,
+        kennel: { shortName: "NYCH3" },
+      },
+    ] as never);
+    mockUpdateMany
+      .mockResolvedValueOnce({ count: 1 } as never) // bridge backfill
+      .mockResolvedValueOnce({ count: 1 } as never); // escalation claim
+    mockUpdate.mockResolvedValue({
+      recurrenceCount: ESCALATION_THRESHOLD,
+    } as never);
+    const createIssue = vi.fn().mockResolvedValue({
+      number: 777,
+      htmlUrl: "https://github.com/x/y/issues/777",
+    });
+    const postComment = vi.fn().mockResolvedValue(true);
+    const actions: FilerActions = { createIssue, postComment };
+
+    const out = await fileAuditFinding(BASE_INPUT, actions);
+    if (out.action !== "recurred") throw new Error("expected recurred");
+    expect(out.tier).toBe("bridging");
+    expect(out.escalatedToIssueNumber).toBe(777);
+  });
+
+  it("logs but does not surface a link-comment failure (meta still filed + tracked)", async () => {
+    setupStrictHit(ESCALATION_THRESHOLD);
+    mockUpdateMany.mockResolvedValueOnce({ count: 1 } as never);
+    let postCount = 0;
+    const postComment = vi.fn().mockImplementation(async () => {
+      postCount += 1;
+      // First post (recur comment) ok; second post (escalation link) fails.
+      return postCount === 1;
+    });
+    const actions: FilerActions = {
+      createIssue: vi.fn().mockResolvedValue({
+        number: 777,
+        htmlUrl: "https://github.com/x/y/issues/777",
+      }),
+      postComment,
+    };
+
+    const out = await fileAuditFinding(BASE_INPUT, actions);
+    if (out.action !== "recurred") throw new Error("expected recurred");
+    // Meta is filed and tracked even though link comment failed.
+    expect(out.escalatedToIssueNumber).toBe(777);
+    expect(postComment).toHaveBeenCalledTimes(2);
   });
 });
