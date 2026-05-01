@@ -88,17 +88,24 @@ export type FilerErrorReason =
   | "comment-failed-bridging"
   | "create-failed";
 
+/**
+ * Function-typed (not method-shorthand) properties so callers can
+ * assert against `actions.postComment` directly without tripping
+ * eslint's `unbound-method` rule. Cron + api callers also benefit:
+ * arrow-function-typed properties are normal callable values, no
+ * `this`-binding fragility.
+ */
 export interface FilerActions {
   /** Returns the created issue's number and html URL on 2xx, null on
    *  any failure. Caller-supplied so cron and api can keep their own
    *  fetch envelopes. */
-  createIssue(input: {
+  createIssue: (input: {
     title: string;
     body: string;
     labels: readonly string[];
-  }): Promise<{ number: number; htmlUrl: string } | null>;
+  }) => Promise<{ number: number; htmlUrl: string } | null>;
   /** Returns true on successful 2xx comment, false on any failure. */
-  postComment(issueNumber: number, body: string): Promise<boolean>;
+  postComment: (issueNumber: number, body: string) => Promise<boolean>;
 }
 
 /**

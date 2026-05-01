@@ -113,10 +113,12 @@ describe("fileAuditIssues", () => {
     const result = await fileAuditIssues([buildGroup()]);
     expect(result).toEqual(["https://github.com/test/42"]);
     expect(mockFetch).toHaveBeenCalledTimes(1);
-    expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringContaining("/issues"),
-      expect.objectContaining({ method: "POST" }),
-    );
+    // fetch now receives a URL object (the cron path's
+    // tainted-URL Codacy fix); stringify before assertion.
+    const url = String(mockFetch.mock.calls[0][0]);
+    expect(url).toContain("/issues");
+    const init = mockFetch.mock.calls[0][1] as { method: string };
+    expect(init.method).toBe("POST");
   });
 
   it("falls back to GitHub API and still creates issues when mirror query fails", async () => {
@@ -213,7 +215,7 @@ describe("fileAuditIssues", () => {
     expect(result).toEqual(["https://github.com/test/42"]);
     // Only one fetch — the comment. NO POST to /issues.
     expect(mockFetch).toHaveBeenCalledTimes(1);
-    const fetchUrl = mockFetch.mock.calls[0][0] as string;
+    const fetchUrl = String(mockFetch.mock.calls[0][0]);
     expect(fetchUrl).toContain("/issues/42/comments");
     // recurrenceCount was incremented atomically.
     expect(mockUpdate).toHaveBeenCalledWith({
@@ -259,7 +261,7 @@ describe("fileAuditIssues", () => {
       }),
     );
     // Fetch was the bridging comment, not a fresh-create POST.
-    const fetchUrl = mockFetch.mock.calls[0][0] as string;
+    const fetchUrl = String(mockFetch.mock.calls[0][0]);
     expect(fetchUrl).toContain("/issues/17/comments");
   });
 
