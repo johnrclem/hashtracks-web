@@ -18,6 +18,9 @@ vi.mock("@/lib/db", () => ({
       findMany: vi.fn(),
       count: vi.fn(),
     },
+    auditIssue: {
+      groupBy: vi.fn(),
+    },
   },
 }));
 vi.mock("@/generated/prisma/client", () => ({
@@ -59,6 +62,7 @@ import {
   getSuppressionImpact,
   getDeepDiveQueue,
   getDeepDiveCoverage,
+  getCloseReasonRatiosByStream,
   recordDeepDive,
 } from "./actions";
 
@@ -392,5 +396,81 @@ describe("recordDeepDive", () => {
         }),
       }),
     );
+  });
+});
+
+describe("getCloseReasonRatiosByStream", () => {
+  const mockGroupBy = vi.mocked(prisma.auditIssue.groupBy);
+
+  it("rejects unauthenticated callers", async () => {
+    mockAdmin.mockResolvedValue(null);
+    await expect(getCloseReasonRatiosByStream()).rejects.toThrow("Unauthorized");
+  });
+
+  it("computes the not-planned percentage when the sample is large enough", async () => {
+    // 8 closed AUTOMATED, 6 of them not_planned → 75%.
+    mockGroupBy.mockResolvedValue([
+      { stream: "AUTOMATED", closeReason: "not_planned", _count: { _all: 6 } },
+      { stream: "AUTOMATED", closeReason: "completed", _count: { _all: 2 } },
+    ] as never);
+
+    const ratios = await getCloseReasonRatiosByStream();
+    const automated = ratios.find((r) => r.stream === "AUTOMATED");
+    expect(automated).toEqual({
+      stream: "AUTOMATED",
+      closedTotal: 8,
+      closedNotPlanned: 6,
+      notPlannedPct: 75,
+    });
+  });
+
+  it("returns null pct when the closure denominator is below the noise floor", async () => {
+    // 4 closures total — below RATIO_MIN_DENOMINATOR (5), so pct should be null
+    // even though 100% are not_planned. Prevents tiny samples from showing
+    // alarming "100% not-planned" badges in the dashboard.
+    mockGroupBy.mockResolvedValue([
+      { stream: "CHROME_KENNEL", closeReason: "not_planned", _count: { _all: 4 } },
+    ] as never);
+
+    const ratios = await getCloseReasonRatiosByStream();
+    const chromeKennel = ratios.find((r) => r.stream === "CHROME_KENNEL");
+    expect(chromeKennel).toEqual({
+      stream: "CHROME_KENNEL",
+      closedTotal: 4,
+      closedNotPlanned: 4,
+      notPlannedPct: null,
+    });
+  });
+
+  it("ignores closures that pre-date the audit-process improvement (closeReason null)", async () => {
+    // Legacy rows that haven't been re-synced still have closeReason=null —
+    // they count toward closedTotal but not toward closedNotPlanned, so
+    // the ratio drifts toward 0 rather than producing wrong "not-planned"
+    // attribution.
+    mockGroupBy.mockResolvedValue([
+      { stream: "CHROME_EVENT", closeReason: null, _count: { _all: 7 } },
+      { stream: "CHROME_EVENT", closeReason: "completed", _count: { _all: 3 } },
+    ] as never);
+
+    const ratios = await getCloseReasonRatiosByStream();
+    const chromeEvent = ratios.find((r) => r.stream === "CHROME_EVENT");
+    expect(chromeEvent).toEqual({
+      stream: "CHROME_EVENT",
+      closedTotal: 10,
+      closedNotPlanned: 0,
+      notPlannedPct: 0,
+    });
+  });
+
+  it("returns one row per dashboard stream even when groupBy returned nothing", async () => {
+    mockGroupBy.mockResolvedValue([] as never);
+    const ratios = await getCloseReasonRatiosByStream();
+    // DASHBOARD_STREAMS = AUTOMATED, CHROME_EVENT, CHROME_KENNEL, UNKNOWN
+    expect(ratios).toHaveLength(4);
+    for (const r of ratios) {
+      expect(r.closedTotal).toBe(0);
+      expect(r.closedNotPlanned).toBe(0);
+      expect(r.notPlannedPct).toBeNull();
+    }
   });
 });

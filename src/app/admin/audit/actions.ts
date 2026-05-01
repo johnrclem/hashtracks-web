@@ -582,6 +582,69 @@ export async function getOpenIssueCountsByStream(): Promise<StreamOpenCounts[]> 
   });
 }
 
+// ── Closed-not-planned ratio (P2) ───────────────────────────────────
+
+export interface StreamCloseReasonRatio {
+  stream: AuditStream;
+  closedTotal: number;
+  closedNotPlanned: number;
+  /** 0–100 rounded; null when `closedTotal` is too small to be meaningful. */
+  notPlannedPct: number | null;
+}
+
+const CLOSE_REASON_WINDOW_DAYS = 14;
+/** Below this many closures the ratio noise dominates the signal. */
+const RATIO_MIN_DENOMINATOR = 5;
+
+/**
+ * Fraction of recent closures per stream that GitHub recorded as
+ * `state_reason="not_planned"`. A high ratio is the strongest signal
+ * we have that the audit prompt over-flagged — operators close those
+ * issues by picking "Close as not planned" rather than fixing them.
+ *
+ * `closeReason` is populated by `audit-issue-sync.ts`. Legacy rows
+ * stay `null` until the next sync cycle catches them.
+ */
+export async function getCloseReasonRatiosByStream(
+  days = CLOSE_REASON_WINDOW_DAYS,
+): Promise<StreamCloseReasonRatio[]> {
+  await requireAdmin();
+
+  const rows = await prisma.auditIssue.groupBy({
+    by: ["stream", "closeReason"],
+    where: {
+      state: "closed",
+      delistedAt: null,
+      githubClosedAt: { gte: daysAgo(days) },
+    },
+    _count: { _all: true },
+  });
+
+  const totals = new Map<AuditStream, { total: number; notPlanned: number }>();
+  for (const stream of DASHBOARD_STREAMS) totals.set(stream, { total: 0, notPlanned: 0 });
+
+  for (const row of rows) {
+    const bucket = totals.get(row.stream);
+    if (!bucket) continue;
+    bucket.total += row._count._all;
+    if (row.closeReason === "not_planned") bucket.notPlanned += row._count._all;
+  }
+
+  return DASHBOARD_STREAMS.map((stream) => {
+    const bucket = totals.get(stream) ?? { total: 0, notPlanned: 0 };
+    const pct =
+      bucket.total >= RATIO_MIN_DENOMINATOR
+        ? Math.round((bucket.notPlanned / bucket.total) * 100)
+        : null;
+    return {
+      stream,
+      closedTotal: bucket.total,
+      closedNotPlanned: bucket.notPlanned,
+      notPlannedPct: pct,
+    };
+  });
+}
+
 export interface RecentOpenIssue {
   githubNumber: number;
   title: string;

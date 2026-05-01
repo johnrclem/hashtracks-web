@@ -42,6 +42,13 @@ export interface GitHubIssue {
   title: string;
   html_url: string;
   state: "open" | "closed";
+  // GitHub's `state_reason` field — `"completed"` when an issue is
+  // closed normally, `"not_planned"` when the operator picked the
+  // "Close as not planned" option, `"reopened"` after a reopen,
+  // `null` for issues that have never been closed. Populated since
+  // 2022; null on legacy mirror rows until the next sync re-upserts
+  // them via the `state=all` query.
+  state_reason: "completed" | "not_planned" | "reopened" | null;
   created_at: string;
   closed_at: string | null;
   labels: Array<{ name: string } | string>;
@@ -346,6 +353,7 @@ export async function syncAuditIssues(): Promise<SyncResult> {
             kennelCode: kennelCode ?? undefined,
             githubCreatedAt,
             githubClosedAt: githubClosedAt ?? undefined,
+            closeReason: issue.state_reason ?? undefined,
           },
           update: {
             stream,
@@ -354,6 +362,7 @@ export async function syncAuditIssues(): Promise<SyncResult> {
             htmlUrl: issue.html_url,
             kennelCode: kennelCode ?? null,
             githubClosedAt: githubClosedAt ?? null,
+            closeReason: issue.state_reason ?? null,
             delistedAt: null,
           },
         });

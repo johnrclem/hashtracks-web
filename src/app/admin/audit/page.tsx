@@ -8,6 +8,7 @@ import {
   getDeepDiveCoverage,
   getStreamTrends,
   getOpenIssueCountsByStream,
+  getCloseReasonRatiosByStream,
   getRecentOpenIssues,
   getHarelinePromptInputs,
 } from "./actions";
@@ -42,6 +43,7 @@ export default async function AuditPage() {
     harelinePrompt,
     streamTrendsResult,
     streamOpenCountsResult,
+    streamCloseReasonRatiosResult,
     recentOpenIssuesResult,
   ] = await Promise.all([
     getAuditTrends().catch(() => []),
@@ -57,6 +59,7 @@ export default async function AuditPage() {
     loadHarelinePrompt(),
     getStreamTrends().catch(() => []),
     getOpenIssueCountsByStream().catch(() => []),
+    getCloseReasonRatiosByStream().catch(() => []),
     getRecentOpenIssues().catch(() => []),
   ]);
 
@@ -73,6 +76,7 @@ export default async function AuditPage() {
       harelinePrompt={harelinePrompt}
       streamTrends={streamTrendsResult}
       streamOpenCounts={streamOpenCountsResult}
+      streamCloseReasonRatios={streamCloseReasonRatiosResult}
       recentOpenIssues={recentOpenIssuesResult}
     />
   );
