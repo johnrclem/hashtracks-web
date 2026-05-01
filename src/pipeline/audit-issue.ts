@@ -142,7 +142,8 @@ export async function fileAuditIssues(groups: AuditGroup[]): Promise<string[]> {
   }
 
   const today = toIsoDateString(new Date());
-  const existingTitles = await getExistingAuditIssueTitles(token);
+  // Set, not Array — O(1) per-group lookup instead of O(n).
+  const existingTitles = new Set(await getExistingAuditIssueTitles(token));
   const actions = buildCronActions(token);
 
   const urls: string[] = [];
@@ -157,7 +158,7 @@ export async function fileAuditIssues(groups: AuditGroup[]): Promise<string[]> {
     // yesterday's open row. Skip the no-op rather than calling the
     // filer (which would still strict-tier-skip but cost a DB
     // round-trip and a comment).
-    if (existingTitles.includes(title)) {
+    if (existingTitles.has(title)) {
       console.log(`[audit-issue] Skipping "${title}" — exact title already in mirror`);
       continue;
     }

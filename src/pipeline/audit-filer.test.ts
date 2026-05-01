@@ -119,6 +119,33 @@ describe("fileAuditFinding — strict tier", () => {
     expect(actions.createIssue).not.toHaveBeenCalled();
     expect(mockUpdate).not.toHaveBeenCalled();
   });
+
+  it("returns db-update-failed when the strict-tier increment throws after a successful comment", async () => {
+    // Qodo flagged: previously a DB exception after a successful
+    // GitHub comment bubbled out of the route as a 500, bypassing
+    // the typed FileFindingOutcome and the nonce idempotency cache.
+    // A retry would then re-post the comment, double-counting the
+    // recurrence. Now: catch and return a typed `db-update-failed`
+    // error so the route returns 502 cleanly.
+    mockFindFirst.mockResolvedValue({
+      id: "ai_1",
+      githubNumber: 42,
+      htmlUrl: "https://github.com/x/y/issues/42",
+      recurrenceCount: 3,
+    } as never);
+    mockUpdate.mockRejectedValue(new Error("connection lost"));
+    const actions = buildActions();
+
+    const out = await fileAuditFinding(BASE_INPUT, actions);
+    expect(out).toEqual({
+      action: "error",
+      reason: "db-update-failed",
+      existingIssueNumber: 42,
+    });
+    // Comment landed successfully; the DB failure surfaces as the
+    // typed outcome rather than an uncaught exception.
+    expect(actions.postComment).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("fileAuditFinding — bridging tier", () => {
@@ -136,6 +163,8 @@ describe("fileAuditFinding — bridging tier", () => {
       },
     ] as never);
     mockUpdateMany.mockResolvedValue({ count: 1 } as never);
+    // Step 3 increment reads back the actual count from the DB.
+    mockUpdate.mockResolvedValue({ recurrenceCount: 1 } as never);
     const actions = buildActions();
 
     const out = await fileAuditFinding(BASE_INPUT, actions);
@@ -147,16 +176,76 @@ describe("fileAuditFinding — bridging tier", () => {
       recurrenceCount: 1,
       tier: "bridging",
     });
-    // CAS write: fingerprint + recurrenceCount in one statement, only
-    // matching rows that are still null.
+    // Step 1: CAS backfills ONLY the fingerprint (no count increment).
+    // Splitting the increment out of the CAS prevents count inflation
+    // when the comment fails or retries — review feedback from Qodo /
+    // CodeRabbit / Codex on PR #1190.
     expect(mockUpdateMany).toHaveBeenCalledWith({
       where: { id: "legacy_1", fingerprint: null },
-      data: {
-        fingerprint: "fp_hare-url_dummy",
-        recurrenceCount: { increment: 1 },
-      },
+      data: { fingerprint: "fp_hare-url_dummy" },
+    });
+    // Step 3: increment runs after comment success, in its own update.
+    expect(mockUpdate).toHaveBeenCalledWith({
+      where: { id: "legacy_1" },
+      data: { recurrenceCount: { increment: 1 } },
+      select: { recurrenceCount: true },
     });
     expect(actions.createIssue).not.toHaveBeenCalled();
+  });
+
+  it("does NOT increment recurrenceCount when bridging comment fails (preserves count integrity on retry)", async () => {
+    mockFindFirst.mockResolvedValue(null);
+    mockFindMany.mockResolvedValue([
+      {
+        id: "legacy_1",
+        githubNumber: 17,
+        htmlUrl: "https://github.com/x/y/issues/17",
+        title:
+          "[Audit] NYCH3 — Hare Quality [hare-url] (2 events) — 2026-04-15",
+        recurrenceCount: 4,
+      },
+    ] as never);
+    mockUpdateMany.mockResolvedValue({ count: 1 } as never);
+    const actions = buildActions({
+      postComment: vi.fn().mockResolvedValue(false), // GH comment fails
+    });
+
+    const out = await fileAuditFinding(BASE_INPUT, actions);
+    expect(out).toEqual({
+      action: "error",
+      reason: "comment-failed-bridging",
+      existingIssueNumber: 17,
+    });
+    // Critically: the increment update was NEVER called. Backfill
+    // (CAS) is in place, but recurrenceCount stays put. A retry will
+    // re-attempt the comment + increment cleanly — no count inflation.
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it("bridges chrome-style 'Finding: <KENNEL> <slug>' titles too", async () => {
+    // Legacy chrome-stream rows from before 5c-C wired the prompts
+    // into /api/audit/file-finding don't have the [Audit] bracket
+    // format. Bridging now also accepts `Finding: <KENNEL> <slug>`
+    // via the secondary extractor (CodeRabbit feedback on PR #1190).
+    mockFindFirst.mockResolvedValue(null);
+    mockFindMany.mockResolvedValue([
+      {
+        id: "legacy_chrome",
+        githubNumber: 88,
+        htmlUrl: "https://github.com/x/y/issues/88",
+        title: "Finding: NYCH3 hare-url",
+        recurrenceCount: 0,
+      },
+    ] as never);
+    mockUpdateMany.mockResolvedValue({ count: 1 } as never);
+    mockUpdate.mockResolvedValue({ recurrenceCount: 1 } as never);
+    const actions = buildActions();
+
+    const out = await fileAuditFinding(BASE_INPUT, actions);
+    expect(out.action).toBe("recurred");
+    if (out.action !== "recurred") return;
+    expect(out.tier).toBe("bridging");
+    expect(out.issueNumber).toBe(88);
   });
 
   it("skips legacy rows whose title slug does not match", async () => {
@@ -300,6 +389,42 @@ describe("fileAuditFinding — bridging tier", () => {
     // Backfill stays put.
     expect(mockUpdateMany).toHaveBeenCalledTimes(1);
     expect(actions.createIssue).not.toHaveBeenCalled();
+  });
+
+  it("falls through to fresh-create when every legacy candidate fails the slug match", async () => {
+    // Claude review-feedback gap: cover the full-bridge-no-match path.
+    // Multiple null-fingerprint candidates exist for the kennel, but
+    // none of them have the target ruleSlug in their title — so
+    // bridging exhausts without claiming any row, and the cascade
+    // correctly falls through to creating a fresh issue.
+    mockFindFirst.mockResolvedValue(null);
+    mockFindMany.mockResolvedValue([
+      {
+        id: "legacy_a",
+        githubNumber: 11,
+        htmlUrl: "https://github.com/x/y/issues/11",
+        // Different rule slug.
+        title:
+          "[Audit] NYCH3 — Title Quality [missing-title] (1 events) — 2026-04-10",
+        recurrenceCount: 0,
+      },
+      {
+        id: "legacy_b",
+        githubNumber: 12,
+        htmlUrl: "https://github.com/x/y/issues/12",
+        // Free-form prose with no recognizable slug — won't match
+        // either extractor.
+        title: "EWH3 logo missing",
+        recurrenceCount: 0,
+      },
+    ] as never);
+    const actions = buildActions();
+
+    const out = await fileAuditFinding(BASE_INPUT, actions);
+    expect(out.action).toBe("created");
+    // No CAS attempted (slug mismatches short-circuit the loop).
+    expect(mockUpdateMany).not.toHaveBeenCalled();
+    expect(actions.createIssue).toHaveBeenCalled();
   });
 });
 

@@ -32,12 +32,33 @@
  *   - Comment fails on a strict-tier hit → return `error`. Caller
  *     decides whether to retry; we deliberately don't fork a fresh
  *     issue, since the matching open row already covers this finding.
+ *     The recurrenceCount increment is deferred until AFTER comment
+ *     success so a retry can't double-count.
  *   - Comment fails on a bridging-tier hit → return `error`, but the
  *     fingerprint backfill is left in place. Backfill is a permanent
  *     improvement to the mirror; rolling it back to null would just
- *     re-bridge on the next attempt.
+ *     re-bridge on the next attempt. recurrenceCount stays put — the
+ *     CAS only sets the fingerprint, increment runs after comment.
+ *   - DB increment fails after a successful comment → return
+ *     `db-update-failed` (typed) so the caller surfaces a 502. A
+ *     retry will hit strict tier, re-comment, and re-attempt the
+ *     increment — comment spam is preferable to a lost recurrence
+ *     count, especially once 5c-B's escalation is wired in.
  *   - Create fails → return `error`. Caller can retry; the canonical
  *     block hasn't been emitted yet so re-trying is safe.
+ *
+ * Known follow-ups (deferred from PR #1190 review):
+ *   - Rule version-drift check: bridging consults only kennelCode +
+ *     extracted ruleSlug, not the rule's version-at-time-of-filing.
+ *     Implementing it requires populating `AuditRuleVersionHistory`
+ *     from a registry codegen step (table is currently empty).
+ *   - Comment-throttling: long-lived issues accumulate one recur
+ *     comment per cron day. A "skip if last comment < N days old"
+ *     gate is a follow-up.
+ *   - Response envelope `{ data, error?, meta? }` (Qodo): the
+ *     CLAUDE.md convention isn't enforced anywhere in the existing
+ *     audit/admin route surface. Adopting it just here would diverge
+ *     from neighbors; tracked as a cross-cutting refactor.
  */
 
 import { prisma } from "@/lib/db";
@@ -47,7 +68,24 @@ import {
 } from "@/lib/audit-canonical";
 import { toIsoDateString } from "@/lib/date";
 import type { AuditStream } from "@/lib/audit-stream-meta";
-import { extractRuleSlugFromAutomatedTitle } from "@/pipeline/audit-issue-sync";
+import {
+  extractRuleSlugFromAutomatedTitle,
+  extractRuleSlugFromChromeTitle,
+} from "@/pipeline/audit-issue-sync";
+
+/**
+ * Try every known title format until one extracts a recognizable slug.
+ * Cron-stream legacy rows match `extractRuleSlugFromAutomatedTitle`;
+ * chrome-stream legacy rows (filings made by an early version of the
+ * file-finding endpoint or by pasted-prompt admins before 5c-C wires
+ * the prompts to the endpoint) match `extractRuleSlugFromChromeTitle`.
+ */
+function extractRuleSlugFromTitle(title: string): string | null {
+  return (
+    extractRuleSlugFromAutomatedTitle(title) ??
+    extractRuleSlugFromChromeTitle(title)
+  );
+}
 
 export interface FileFindingInput {
   stream: AuditStream;
@@ -86,7 +124,8 @@ export type FileFindingOutcome =
 export type FilerErrorReason =
   | "comment-failed-strict"
   | "comment-failed-bridging"
-  | "create-failed";
+  | "create-failed"
+  | "db-update-failed";
 
 /**
  * Function-typed (not method-shorthand) properties so callers can
@@ -144,6 +183,12 @@ async function runStrictTier(
       htmlUrl: true,
       recurrenceCount: true,
     },
+    // Deterministic match under the rare case where two open rows
+    // share a fingerprint (incident recovery / migration windows):
+    // always pick the oldest. Without this, two cron ticks could
+    // comment on different rows and split the recurrence thread.
+    // Mirrors `tryBridge`'s candidate ordering.
+    orderBy: { githubCreatedAt: "asc" },
   });
   if (!strict) return null;
 
@@ -158,16 +203,39 @@ async function runStrictTier(
       existingIssueNumber: strict.githubNumber,
     };
   }
-  const updated = await prisma.auditIssue.update({
-    where: { id: strict.id },
-    data: { recurrenceCount: { increment: 1 } },
-    select: { recurrenceCount: true },
-  });
+
+  // Increment lives in its own try/catch so a DB failure after a
+  // successful GitHub comment doesn't bubble out of the route as a
+  // 500. The caller already has the comment landed; we surface a
+  // typed `db-update-failed` outcome (idempotent on retry: the
+  // strict-tier branch will hit again, post a fresh comment, and
+  // re-attempt the increment — comment spam is preferable to a lost
+  // recurrence count).
+  let newRecurrenceCount: number;
+  try {
+    const updated = await prisma.auditIssue.update({
+      where: { id: strict.id },
+      data: { recurrenceCount: { increment: 1 } },
+      select: { recurrenceCount: true },
+    });
+    newRecurrenceCount = updated.recurrenceCount;
+  } catch (err) {
+    console.error(
+      `[audit-filer] Strict-tier recurrenceCount update failed for #${strict.githubNumber}:`,
+      err,
+    );
+    return {
+      action: "error",
+      reason: "db-update-failed",
+      existingIssueNumber: strict.githubNumber,
+    };
+  }
+
   return {
     action: "recurred",
     issueNumber: strict.githubNumber,
     htmlUrl: strict.htmlUrl,
-    recurrenceCount: updated.recurrenceCount,
+    recurrenceCount: newRecurrenceCount,
     tier: "strict",
   };
 }
@@ -217,16 +285,19 @@ async function tryBridge(
   });
 
   for (const candidate of candidates) {
-    const slugFromTitle = extractRuleSlugFromAutomatedTitle(candidate.title);
+    const slugFromTitle = extractRuleSlugFromTitle(candidate.title);
     if (slugFromTitle !== input.ruleSlug) continue;
 
-    // Compare-and-swap: only claim rows that are still null.
+    // Step 1: backfill the fingerprint only — DO NOT increment
+    // recurrenceCount yet. Originally we did both in the same CAS,
+    // but Qodo/CodeRabbit/Codex flagged that a comment failure or
+    // retry between the CAS and the comment would inflate the count
+    // (and trigger escalation prematurely once 5c-B lands). Strict
+    // tier already separates increment from comment for the same
+    // reason; bridging now matches.
     const claimed = await prisma.auditIssue.updateMany({
       where: { id: candidate.id, fingerprint: null },
-      data: {
-        fingerprint,
-        recurrenceCount: { increment: 1 },
-      },
+      data: { fingerprint },
     });
     if (claimed.count === 0) {
       // CAS lost. The winner may have just stamped THIS fingerprint
@@ -240,25 +311,51 @@ async function tryBridge(
       continue;
     }
 
+    // Step 2: post the recur comment. Failure surfaces as 502; the
+    // backfilled fingerprint is left in place because that's a
+    // permanent mirror improvement (next call hits strict cleanly).
     const ok = await actions.postComment(
       candidate.githubNumber,
       formatRecurComment(input),
     );
     if (!ok) {
-      // Backfill is a permanent improvement to the mirror — leaving
-      // it in place means the next call hits the strict tier cleanly
-      // instead of re-bridging.
       return {
         action: "error",
         reason: "comment-failed-bridging",
         existingIssueNumber: candidate.githubNumber,
       };
     }
+
+    // Step 3: increment recurrenceCount and read back the actual
+    // value. Returning `candidate.recurrenceCount + 1` (the original
+    // implementation) was racy — a concurrent caller between
+    // `findMany` and now could have bumped the count too. The
+    // DB-returned value is the only reliable source.
+    let newRecurrenceCount: number;
+    try {
+      const updated = await prisma.auditIssue.update({
+        where: { id: candidate.id },
+        data: { recurrenceCount: { increment: 1 } },
+        select: { recurrenceCount: true },
+      });
+      newRecurrenceCount = updated.recurrenceCount;
+    } catch (err) {
+      console.error(
+        `[audit-filer] Bridging recurrenceCount update failed for #${candidate.githubNumber}:`,
+        err,
+      );
+      return {
+        action: "error",
+        reason: "db-update-failed",
+        existingIssueNumber: candidate.githubNumber,
+      };
+    }
+
     return {
       action: "recurred",
       issueNumber: candidate.githubNumber,
       htmlUrl: candidate.htmlUrl,
-      recurrenceCount: candidate.recurrenceCount + 1,
+      recurrenceCount: newRecurrenceCount,
       tier: "bridging",
     };
   }

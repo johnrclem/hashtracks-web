@@ -240,6 +240,8 @@ function errorMessageFor(reason: FilerErrorReason): string {
     case "comment-failed-strict":
     case "comment-failed-bridging":
       return "GitHub comment failed; refusing to fork a duplicate issue";
+    case "db-update-failed":
+      return "Filing-mirror DB update failed after successful GitHub comment; retry is safe";
     case "create-failed":
       return "GitHub issue creation failed";
   }
