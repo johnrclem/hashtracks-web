@@ -283,31 +283,26 @@ async function persistFilingResult(
 // ── GitHub helpers ───────────────────────────────────────────────────
 
 /**
- * Build the GitHub repos/* URL for one of the two paths this route
- * uses. Forcing a discriminated union (rather than accepting an
- * arbitrary path string) means the URL passed to `fetch` is provably
- * not user-controlled — only `issueNumber` flows through, and that
- * comes from our own DB mirror or GitHub's own create-issue
- * response. Closes the Codacy tainted-URL finding on the previous
- * template-literal form.
+ * One of two server-known GitHub repos/* paths. Discriminated union
+ * (rather than free-form path string) keeps the `fetch` URL bounded
+ * to two literal-template forms with a single bounded numeric ID,
+ * which Codacy's taint analysis accepts.
  */
 type GithubPath =
   | { kind: "create-issue" }
   | { kind: "comment"; issueNumber: number };
-
-function githubApiUrl(path: GithubPath): string {
-  const repo = getValidatedRepo();
-  if (path.kind === "create-issue") {
-    return `https://api.github.com/repos/${repo}/issues`;
-  }
-  return `https://api.github.com/repos/${repo}/issues/${path.issueNumber}/comments`;
-}
 
 /**
  * POST a JSON payload to a GitHub repos/* path. Returns the parsed
  * response on 2xx, or null on any failure (no token, network error,
  * non-2xx status). Failure cases are handled by callers — this helper
  * deliberately swallows error detail to keep the route logic linear.
+ *
+ * URL construction is inlined (not extracted to a helper) so the
+ * literal-template strings are visible to Codacy's tainted-URL rule
+ * in the same scope as `fetch`. Across-function string returns
+ * defeat that analysis even when the discriminated union narrows
+ * the inputs.
  */
 async function githubApiPost<T>(
   path: GithubPath,
@@ -315,8 +310,21 @@ async function githubApiPost<T>(
 ): Promise<T | null> {
   const token = process.env.GITHUB_TOKEN;
   if (!token) return null;
+  const repo = getValidatedRepo();
+  let url: string;
+  if (path.kind === "create-issue") {
+    url = `https://api.github.com/repos/${repo}/issues`;
+  } else {
+    // Defensive: issueNumber comes from our DB mirror or GitHub's
+    // own create response, but reject anything non-positive-integer
+    // so the URL can't be steered even if a row gets corrupted.
+    if (!Number.isInteger(path.issueNumber) || path.issueNumber <= 0) {
+      return null;
+    }
+    url = `https://api.github.com/repos/${repo}/issues/${path.issueNumber}/comments`;
+  }
   try {
-    const res = await fetch(githubApiUrl(path), {
+    const res = await fetch(url, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
