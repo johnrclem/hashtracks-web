@@ -8,6 +8,7 @@ import {
   getDeepDiveCoverage,
   getStreamTrends,
   getOpenIssueCountsByStream,
+  getCloseReasonRatiosByStream,
   getRecentOpenIssues,
   getHarelinePromptInputs,
 } from "./actions";
@@ -42,6 +43,7 @@ export default async function AuditPage() {
     harelinePrompt,
     streamTrendsResult,
     streamOpenCountsResult,
+    streamCloseReasonRatiosResult,
     recentOpenIssuesResult,
   ] = await Promise.all([
     getAuditTrends().catch(() => []),
@@ -57,6 +59,11 @@ export default async function AuditPage() {
     loadHarelinePrompt(),
     getStreamTrends().catch(() => []),
     getOpenIssueCountsByStream().catch(() => []),
+    // Coerce to `null` (not `[]`) on failure so the panel can render
+    // an explicit "metric unavailable" state. Empty array would be
+    // indistinguishable from a legitimate zero-activity period and
+    // hide schema skew / Prisma errors during rollout.
+    getCloseReasonRatiosByStream().catch(() => null),
     getRecentOpenIssues().catch(() => []),
   ]);
 
@@ -73,6 +80,7 @@ export default async function AuditPage() {
       harelinePrompt={harelinePrompt}
       streamTrends={streamTrendsResult}
       streamOpenCounts={streamOpenCountsResult}
+      streamCloseReasonRatios={streamCloseReasonRatiosResult}
       recentOpenIssues={recentOpenIssuesResult}
     />
   );

@@ -18,6 +18,9 @@ vi.mock("@/lib/db", () => ({
       findMany: vi.fn(),
       count: vi.fn(),
     },
+    auditIssue: {
+      groupBy: vi.fn(),
+    },
   },
 }));
 vi.mock("@/generated/prisma/client", () => ({
@@ -59,6 +62,7 @@ import {
   getSuppressionImpact,
   getDeepDiveQueue,
   getDeepDiveCoverage,
+  getCloseReasonRatiosByStream,
   recordDeepDive,
 } from "./actions";
 
@@ -392,5 +396,124 @@ describe("recordDeepDive", () => {
         }),
       }),
     );
+  });
+});
+
+describe("getCloseReasonRatiosByStream", () => {
+  const mockGroupBy = vi.mocked(prisma.auditIssue.groupBy);
+
+  it("rejects unauthenticated callers", async () => {
+    mockAdmin.mockResolvedValue(null);
+    await expect(getCloseReasonRatiosByStream()).rejects.toThrow("Unauthorized");
+  });
+
+  it("computes the not-planned percentage over known-reason closures only", async () => {
+    // 8 closed AUTOMATED, 6 of them not_planned, 2 completed → 75%.
+    // No unknown rows, so the known denominator equals closedTotal.
+    mockGroupBy.mockResolvedValue([
+      { stream: "AUTOMATED", closeReason: "not_planned", _count: { _all: 6 } },
+      { stream: "AUTOMATED", closeReason: "completed", _count: { _all: 2 } },
+    ] as never);
+
+    const ratios = await getCloseReasonRatiosByStream();
+    const automated = ratios.find((r) => r.stream === "AUTOMATED");
+    expect(automated).toEqual({
+      stream: "AUTOMATED",
+      windowDays: 14,
+      closedTotal: 8,
+      closedNotPlanned: 6,
+      closedUnknown: 0,
+      notPlannedPct: 75,
+    });
+  });
+
+  it("returns null pct when the *known* denominator is below the noise floor", async () => {
+    // 4 closures total, all not_planned — below RATIO_MIN_DENOMINATOR (5),
+    // so pct is null even though the known ratio would be 100%. Prevents
+    // tiny samples from showing alarming "100% not-planned" badges.
+    mockGroupBy.mockResolvedValue([
+      { stream: "CHROME_KENNEL", closeReason: "not_planned", _count: { _all: 4 } },
+    ] as never);
+
+    const ratios = await getCloseReasonRatiosByStream();
+    const chromeKennel = ratios.find((r) => r.stream === "CHROME_KENNEL");
+    expect(chromeKennel).toEqual({
+      stream: "CHROME_KENNEL",
+      windowDays: 14,
+      closedTotal: 4,
+      closedNotPlanned: 4,
+      closedUnknown: 0,
+      notPlannedPct: null,
+    });
+  });
+
+  it("excludes legacy null closeReason rows from the ratio denominator", async () => {
+    // Codex pass-1 finding: counting null rows toward `closedTotal - 0` would
+    // bias the metric toward 0% during rollout (lots of legacy null rows
+    // dilute the signal). Instead, those are surfaced as `closedUnknown`
+    // and excluded from the known denominator so the ratio reflects ONLY
+    // closures whose state_reason we actually mirrored. 7 unknown + 3
+    // completed = 10 total, but ratio is computed over 3 known → 0%.
+    mockGroupBy.mockResolvedValue([
+      { stream: "CHROME_EVENT", closeReason: null, _count: { _all: 7 } },
+      { stream: "CHROME_EVENT", closeReason: "completed", _count: { _all: 3 } },
+    ] as never);
+
+    const ratios = await getCloseReasonRatiosByStream();
+    const chromeEvent = ratios.find((r) => r.stream === "CHROME_EVENT");
+    expect(chromeEvent).toEqual({
+      stream: "CHROME_EVENT",
+      windowDays: 14,
+      closedTotal: 10,
+      closedNotPlanned: 0,
+      closedUnknown: 7,
+      // Known denominator = 10 - 7 = 3, below RATIO_MIN_DENOMINATOR=5,
+      // so we return null rather than a misleading 0% on a tiny sample.
+      notPlannedPct: null,
+    });
+  });
+
+  it("computes the ratio correctly when unknown + known + not_planned coexist", async () => {
+    // Mixed row mid-rollout: 5 unknown, 2 not_planned, 6 completed → known
+    // denominator = 8, not_planned share = 25%. The 5 unknown rows are
+    // surfaced separately so the dashboard can show "5 not yet synced".
+    mockGroupBy.mockResolvedValue([
+      { stream: "AUTOMATED", closeReason: null, _count: { _all: 5 } },
+      { stream: "AUTOMATED", closeReason: "not_planned", _count: { _all: 2 } },
+      { stream: "AUTOMATED", closeReason: "completed", _count: { _all: 6 } },
+    ] as never);
+
+    const ratios = await getCloseReasonRatiosByStream();
+    const automated = ratios.find((r) => r.stream === "AUTOMATED");
+    expect(automated).toEqual({
+      stream: "AUTOMATED",
+      windowDays: 14,
+      closedTotal: 13,
+      closedNotPlanned: 2,
+      closedUnknown: 5,
+      notPlannedPct: 25,
+    });
+  });
+
+  it("returns one row per dashboard stream even when groupBy returned nothing", async () => {
+    mockGroupBy.mockResolvedValue([] as never);
+    const ratios = await getCloseReasonRatiosByStream();
+    // DASHBOARD_STREAMS = AUTOMATED, CHROME_EVENT, CHROME_KENNEL, UNKNOWN
+    expect(ratios).toHaveLength(4);
+    for (const r of ratios) {
+      // windowDays is echoed even on empty streams so the UI never has to
+      // fall back to a hardcoded "14d" — Gemini PR #1171 review feedback.
+      expect(r.windowDays).toBe(14);
+      expect(r.closedTotal).toBe(0);
+      expect(r.closedNotPlanned).toBe(0);
+      expect(r.closedUnknown).toBe(0);
+      expect(r.notPlannedPct).toBeNull();
+    }
+  });
+
+  it("echoes the explicit days argument as windowDays so the UI stays in sync with the server constant", async () => {
+    mockGroupBy.mockResolvedValue([] as never);
+    const ratios = await getCloseReasonRatiosByStream(30);
+    for (const r of ratios) expect(r.windowDays).toBe(30);
   });
 });

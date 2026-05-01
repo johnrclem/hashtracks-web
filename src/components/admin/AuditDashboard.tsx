@@ -36,6 +36,7 @@ import {
   type DeepDiveCoverage,
   type StreamTrendPoint,
   type StreamOpenCounts,
+  type StreamCloseReasonRatio,
   type RecentOpenIssue,
 } from "@/app/admin/audit/actions";
 import { AuditStreamPanel } from "@/components/admin/AuditStreamPanel";
@@ -93,6 +94,9 @@ interface Props {
   harelinePrompt: string | null;
   streamTrends: StreamTrendPoint[];
   streamOpenCounts: StreamOpenCounts[];
+  /** `null` when the underlying query failed — the panel renders
+   *  an explicit "metric unavailable" line instead of fake zeros. */
+  streamCloseReasonRatios: StreamCloseReasonRatio[] | null;
   recentOpenIssues: RecentOpenIssue[];
 }
 
@@ -118,6 +122,7 @@ export function AuditDashboard({
   harelinePrompt,
   streamTrends,
   streamOpenCounts,
+  streamCloseReasonRatios,
   recentOpenIssues,
 }: Props) {
   const router = useRouter();
@@ -156,6 +161,7 @@ export function AuditDashboard({
       <AuditStreamPanel
         streamTrends={streamTrends}
         openCounts={streamOpenCounts}
+        closeReasonRatios={streamCloseReasonRatios}
         recentOpenIssues={recentOpenIssues}
       />
 
