@@ -407,8 +407,9 @@ describe("getCloseReasonRatiosByStream", () => {
     await expect(getCloseReasonRatiosByStream()).rejects.toThrow("Unauthorized");
   });
 
-  it("computes the not-planned percentage when the sample is large enough", async () => {
-    // 8 closed AUTOMATED, 6 of them not_planned → 75%.
+  it("computes the not-planned percentage over known-reason closures only", async () => {
+    // 8 closed AUTOMATED, 6 of them not_planned, 2 completed → 75%.
+    // No unknown rows, so the known denominator equals closedTotal.
     mockGroupBy.mockResolvedValue([
       { stream: "AUTOMATED", closeReason: "not_planned", _count: { _all: 6 } },
       { stream: "AUTOMATED", closeReason: "completed", _count: { _all: 2 } },
@@ -420,14 +421,15 @@ describe("getCloseReasonRatiosByStream", () => {
       stream: "AUTOMATED",
       closedTotal: 8,
       closedNotPlanned: 6,
+      closedUnknown: 0,
       notPlannedPct: 75,
     });
   });
 
-  it("returns null pct when the closure denominator is below the noise floor", async () => {
-    // 4 closures total — below RATIO_MIN_DENOMINATOR (5), so pct should be null
-    // even though 100% are not_planned. Prevents tiny samples from showing
-    // alarming "100% not-planned" badges in the dashboard.
+  it("returns null pct when the *known* denominator is below the noise floor", async () => {
+    // 4 closures total, all not_planned — below RATIO_MIN_DENOMINATOR (5),
+    // so pct is null even though the known ratio would be 100%. Prevents
+    // tiny samples from showing alarming "100% not-planned" badges.
     mockGroupBy.mockResolvedValue([
       { stream: "CHROME_KENNEL", closeReason: "not_planned", _count: { _all: 4 } },
     ] as never);
@@ -438,15 +440,18 @@ describe("getCloseReasonRatiosByStream", () => {
       stream: "CHROME_KENNEL",
       closedTotal: 4,
       closedNotPlanned: 4,
+      closedUnknown: 0,
       notPlannedPct: null,
     });
   });
 
-  it("ignores closures that pre-date the audit-process improvement (closeReason null)", async () => {
-    // Legacy rows that haven't been re-synced still have closeReason=null —
-    // they count toward closedTotal but not toward closedNotPlanned, so
-    // the ratio drifts toward 0 rather than producing wrong "not-planned"
-    // attribution.
+  it("excludes legacy null closeReason rows from the ratio denominator", async () => {
+    // Codex pass-1 finding: counting null rows toward `closedTotal - 0` would
+    // bias the metric toward 0% during rollout (lots of legacy null rows
+    // dilute the signal). Instead, those are surfaced as `closedUnknown`
+    // and excluded from the known denominator so the ratio reflects ONLY
+    // closures whose state_reason we actually mirrored. 7 unknown + 3
+    // completed = 10 total, but ratio is computed over 3 known → 0%.
     mockGroupBy.mockResolvedValue([
       { stream: "CHROME_EVENT", closeReason: null, _count: { _all: 7 } },
       { stream: "CHROME_EVENT", closeReason: "completed", _count: { _all: 3 } },
@@ -458,7 +463,31 @@ describe("getCloseReasonRatiosByStream", () => {
       stream: "CHROME_EVENT",
       closedTotal: 10,
       closedNotPlanned: 0,
-      notPlannedPct: 0,
+      closedUnknown: 7,
+      // Known denominator = 10 - 7 = 3, below RATIO_MIN_DENOMINATOR=5,
+      // so we return null rather than a misleading 0% on a tiny sample.
+      notPlannedPct: null,
+    });
+  });
+
+  it("computes the ratio correctly when unknown + known + not_planned coexist", async () => {
+    // Mixed row mid-rollout: 5 unknown, 2 not_planned, 6 completed → known
+    // denominator = 8, not_planned share = 25%. The 5 unknown rows are
+    // surfaced separately so the dashboard can show "5 not yet synced".
+    mockGroupBy.mockResolvedValue([
+      { stream: "AUTOMATED", closeReason: null, _count: { _all: 5 } },
+      { stream: "AUTOMATED", closeReason: "not_planned", _count: { _all: 2 } },
+      { stream: "AUTOMATED", closeReason: "completed", _count: { _all: 6 } },
+    ] as never);
+
+    const ratios = await getCloseReasonRatiosByStream();
+    const automated = ratios.find((r) => r.stream === "AUTOMATED");
+    expect(automated).toEqual({
+      stream: "AUTOMATED",
+      closedTotal: 13,
+      closedNotPlanned: 2,
+      closedUnknown: 5,
+      notPlannedPct: 25,
     });
   });
 
@@ -470,6 +499,7 @@ describe("getCloseReasonRatiosByStream", () => {
     for (const r of ratios) {
       expect(r.closedTotal).toBe(0);
       expect(r.closedNotPlanned).toBe(0);
+      expect(r.closedUnknown).toBe(0);
       expect(r.notPlannedPct).toBeNull();
     }
   });

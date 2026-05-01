@@ -59,7 +59,11 @@ export default async function AuditPage() {
     loadHarelinePrompt(),
     getStreamTrends().catch(() => []),
     getOpenIssueCountsByStream().catch(() => []),
-    getCloseReasonRatiosByStream().catch(() => []),
+    // Coerce to `null` (not `[]`) on failure so the panel can render
+    // an explicit "metric unavailable" state. Empty array would be
+    // indistinguishable from a legitimate zero-activity period and
+    // hide schema skew / Prisma errors during rollout.
+    getCloseReasonRatiosByStream().catch(() => null),
     getRecentOpenIssues().catch(() => []),
   ]);
 

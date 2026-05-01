@@ -94,7 +94,9 @@ interface Props {
   harelinePrompt: string | null;
   streamTrends: StreamTrendPoint[];
   streamOpenCounts: StreamOpenCounts[];
-  streamCloseReasonRatios: StreamCloseReasonRatio[];
+  /** `null` when the underlying query failed — the panel renders
+   *  an explicit "metric unavailable" line instead of fake zeros. */
+  streamCloseReasonRatios: StreamCloseReasonRatio[] | null;
   recentOpenIssues: RecentOpenIssue[];
 }
 

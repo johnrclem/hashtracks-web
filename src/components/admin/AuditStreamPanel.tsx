@@ -33,8 +33,11 @@ interface Props {
   openCounts: StreamOpenCounts[];
   /** Per-stream `state_reason="not_planned"` ratios over the last 14 days.
    *  A high ratio is the audit prompt over-flagging — operators close
-   *  those issues with "Close as not planned" rather than fixing them. */
-  closeReasonRatios: StreamCloseReasonRatio[];
+   *  those issues with "Close as not planned" rather than fixing them.
+   *  `null` when the underlying query failed (schema skew, transient
+   *  DB error); the panel renders an explicit "metric unavailable"
+   *  line in that case so failures don't masquerade as zero activity. */
+  closeReasonRatios: StreamCloseReasonRatio[] | null;
   recentOpenIssues: RecentOpenIssue[];
 }
 
@@ -143,15 +146,14 @@ export function AuditStreamPanel({
           const counts = openCounts.find((c) => c.stream === stream);
           const open = counts?.open ?? 0;
           const delta = open - (counts?.openWeekAgo ?? 0);
-          const ratio = closeReasonRatios.find((r) => r.stream === stream);
+          const ratio = closeReasonRatios?.find((r) => r.stream === stream) ?? null;
           return (
             <StreamStatCard
               key={stream}
               meta={metaFor(stream)}
               open={open}
               delta={delta}
-              notPlannedPct={ratio?.notPlannedPct ?? null}
-              closedTotal={ratio?.closedTotal ?? 0}
+              ratio={closeReasonRatios === null ? "unavailable" : ratio}
             />
           );
         })}
@@ -271,37 +273,28 @@ interface StreamStatCardProps {
   meta: { label: string; color: string; icon: typeof Bot };
   open: number;
   delta: number;
-  /** % of recent closures with `state_reason="not_planned"`, or null
-   *  when the closure denominator is too small to be meaningful. */
-  notPlannedPct: number | null;
-  /** Closure denominator from the same window — shown alongside the
-   *  ratio so operators can sanity-check the sample size. */
-  closedTotal: number;
+  /**
+   *  - `StreamCloseReasonRatio`: render the ratio (or "X closed / 14d"
+   *    if the known-reason denominator is below the noise floor).
+   *  - `null`: this stream has no row in the result. Render zero state.
+   *  - `"unavailable"`: the upstream query failed. Render an explicit
+   *    error line so operators don't mistake it for a zero-activity
+   *    period.
+   */
+  ratio: StreamCloseReasonRatio | null | "unavailable";
 }
 
 /** Above this threshold the audit prompt is likely over-flagging:
  *  operators are closing as not-planned rather than fixing. */
 const NOT_PLANNED_HIGH_PCT = 50;
 
-function StreamStatCard({
-  meta,
-  open,
-  delta,
-  notPlannedPct,
-  closedTotal,
-}: StreamStatCardProps) {
+function StreamStatCard({ meta, open, delta, ratio }: StreamStatCardProps) {
   const Icon = meta.icon;
   // Down/green = improving (fewer open issues), up/orange = regressing.
   const DeltaIcon = delta < 0 ? ArrowDown : delta > 0 ? ArrowUp : Minus;
   const deltaColor =
     delta < 0 ? "text-emerald-500" : delta > 0 ? "text-orange-500" : "text-muted-foreground";
-  // High not-planned% means many closures are "won't fix" — orange when
-  // it crosses the threshold so it visibly competes with delta. Below
-  // threshold or null (insufficient data): muted.
-  const ratioColor =
-    notPlannedPct !== null && notPlannedPct >= NOT_PLANNED_HIGH_PCT
-      ? "text-orange-500"
-      : "text-muted-foreground";
+
   return (
     <div className="rounded-xl border border-border/50 bg-card p-5">
       <div className="flex items-center justify-between">
@@ -323,11 +316,34 @@ function StreamStatCard({
           {delta === 0 ? "no change" : `${Math.abs(delta)} vs 7d ago`}
         </span>
       </div>
-      <div className={`mt-1 text-xs ${ratioColor}`}>
-        {notPlannedPct === null
-          ? `${closedTotal} closed / 14d`
-          : `${notPlannedPct}% not-planned (${closedTotal} closed / 14d)`}
-      </div>
+      <RatioLine ratio={ratio} />
+    </div>
+  );
+}
+
+function RatioLine({ ratio }: { ratio: StreamCloseReasonRatio | null | "unavailable" }) {
+  if (ratio === "unavailable") {
+    return (
+      <div className="mt-1 text-xs text-orange-500">not-planned ratio unavailable</div>
+    );
+  }
+  if (ratio === null || ratio.closedTotal === 0) {
+    return <div className="mt-1 text-xs text-muted-foreground">0 closed / 14d</div>;
+  }
+  // High not-planned% means many closures are "won't fix" — orange so it
+  // visibly competes with the delta indicator.
+  const isHigh =
+    ratio.notPlannedPct !== null && ratio.notPlannedPct >= NOT_PLANNED_HIGH_PCT;
+  const color = isHigh ? "text-orange-500" : "text-muted-foreground";
+  // When some closures are not yet synced (legacy null closeReason rows),
+  // surface the unknown count so operators can see the metric is
+  // mid-rollout rather than reflecting a clean denominator.
+  const unknownSuffix = ratio.closedUnknown > 0 ? `, ${ratio.closedUnknown} not yet synced` : "";
+  return (
+    <div className={`mt-1 text-xs ${color}`}>
+      {ratio.notPlannedPct === null
+        ? `${ratio.closedTotal} closed / 14d${unknownSuffix}`
+        : `${ratio.notPlannedPct}% not-planned (${ratio.closedTotal} closed / 14d${unknownSuffix})`}
     </div>
   );
 }

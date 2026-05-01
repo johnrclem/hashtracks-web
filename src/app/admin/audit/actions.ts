@@ -586,14 +586,25 @@ export async function getOpenIssueCountsByStream(): Promise<StreamOpenCounts[]> 
 
 export interface StreamCloseReasonRatio {
   stream: AuditStream;
+  /** All closures in window — known + unknown. */
   closedTotal: number;
+  /** Closures with `state_reason="not_planned"`. */
   closedNotPlanned: number;
-  /** 0–100 rounded; null when `closedTotal` is too small to be meaningful. */
+  /** Closures with `closeReason IS NULL` — legacy rows the sync
+   *  hasn't re-upserted yet, or rows where GitHub returned a value
+   *  outside our literal union. The ratio panel shows this so
+   *  operators can see when the metric is mid-rollout. */
+  closedUnknown: number;
+  /** 0–100 rounded over `closedTotal - closedUnknown`. Null when
+   *  the known-reason denominator is below the noise floor. The
+   *  unknown bucket is excluded so partially-backfilled data
+   *  doesn't dilute the signal toward 0. */
   notPlannedPct: number | null;
 }
 
 const CLOSE_REASON_WINDOW_DAYS = 14;
-/** Below this many closures the ratio noise dominates the signal. */
+/** Below this many *known-reason* closures the ratio noise
+ *  dominates the signal. */
 const RATIO_MIN_DENOMINATOR = 5;
 
 /**
@@ -603,7 +614,9 @@ const RATIO_MIN_DENOMINATOR = 5;
  * issues by picking "Close as not planned" rather than fixing them.
  *
  * `closeReason` is populated by `audit-issue-sync.ts`. Legacy rows
- * stay `null` until the next sync cycle catches them.
+ * stay `null` until the next sync cycle catches them; their count is
+ * surfaced via `closedUnknown` so the ratio panel can show rollout
+ * state honestly.
  */
 export async function getCloseReasonRatiosByStream(
   days = CLOSE_REASON_WINDOW_DAYS,
@@ -620,26 +633,37 @@ export async function getCloseReasonRatiosByStream(
     _count: { _all: true },
   });
 
-  const totals = new Map<AuditStream, { total: number; notPlanned: number }>();
-  for (const stream of DASHBOARD_STREAMS) totals.set(stream, { total: 0, notPlanned: 0 });
+  const totals = new Map<
+    AuditStream,
+    { total: number; notPlanned: number; unknown: number }
+  >();
+  for (const stream of DASHBOARD_STREAMS) {
+    totals.set(stream, { total: 0, notPlanned: 0, unknown: 0 });
+  }
 
   for (const row of rows) {
     const bucket = totals.get(row.stream);
     if (!bucket) continue;
     bucket.total += row._count._all;
-    if (row.closeReason === "not_planned") bucket.notPlanned += row._count._all;
+    if (row.closeReason === "not_planned") {
+      bucket.notPlanned += row._count._all;
+    } else if (row.closeReason === null) {
+      bucket.unknown += row._count._all;
+    }
   }
 
   return DASHBOARD_STREAMS.map((stream) => {
-    const bucket = totals.get(stream) ?? { total: 0, notPlanned: 0 };
+    const bucket = totals.get(stream) ?? { total: 0, notPlanned: 0, unknown: 0 };
+    const knownDenominator = bucket.total - bucket.unknown;
     const pct =
-      bucket.total >= RATIO_MIN_DENOMINATOR
-        ? Math.round((bucket.notPlanned / bucket.total) * 100)
+      knownDenominator >= RATIO_MIN_DENOMINATOR
+        ? Math.round((bucket.notPlanned / knownDenominator) * 100)
         : null;
     return {
       stream,
       closedTotal: bucket.total,
       closedNotPlanned: bucket.notPlanned,
+      closedUnknown: bucket.unknown,
       notPlannedPct: pct,
     };
   });
@@ -697,6 +721,13 @@ export async function getHarelinePromptInputs(): Promise<HarelinePromptInputs> {
         // cron-auto-closed structural findings into a list whose readers are
         // chrome auditors looking for "fixes the team verified."
         stream: { in: [AuditStream.CHROME_EVENT, AuditStream.CHROME_KENNEL] },
+        // Exclude `state_reason="not_planned"` closures — those are
+        // operator-marked false positives, not fixes. Advertising them
+        // as "Recently Fixed" would actively mis-teach future auditors.
+        // `null` closeReason (legacy rows pre-PR #1171 that haven't
+        // re-synced yet) is permitted so the list isn't empty during
+        // rollout; the next sync cycle populates the field for them.
+        closeReason: { not: "not_planned" },
       },
       select: { githubNumber: true, title: true, githubClosedAt: true },
       orderBy: { githubClosedAt: "desc" },
