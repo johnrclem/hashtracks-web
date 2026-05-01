@@ -50,7 +50,12 @@ export interface QueueTokenPayload {
 export function computeQueueSnapshotId(
   kennelCodes: readonly string[],
 ): string {
-  const sorted = [...kennelCodes].sort((a, b) => a.localeCompare(b));
+  // Byte-wise sort — `localeCompare` without an explicit locale
+  // depends on host collation and isn't deterministic across
+  // environments (CodeRabbit PR #1203 finding). KennelCodes are
+  // restricted to `[a-z0-9-]` so a simple `<`/`>` comparison gives
+  // stable lexicographic ordering everywhere.
+  const sorted = [...kennelCodes].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
   return createHash("sha256").update(sorted.join("\n")).digest("hex");
 }
 

@@ -306,8 +306,70 @@ export interface DeepDiveCandidate {
   sources: DeepDiveSource[];
 }
 
+/** Default page size for the deep-dive queue display. Centralized so
+ *  `getDeepDiveQueue` and the snapshot-bound token endpoints all
+ *  capture the same window — drift would let a token mint against a
+ *  larger queue than the dashboard shows, weakening the snapshot
+ *  binding. */
+export const DEEP_DIVE_QUEUE_DEFAULT_LIMIT = 20;
+
+/**
+ * Lightweight queue snapshot — just the kennelCodes in the same
+ * ranking order `getDeepDiveQueue` returns. Used by the
+ * snapshot-bound token endpoints; avoids the heavy joins that
+ * `getDeepDiveQueue` does for sources / event counts.
+ *
+ * Both `getDeepDiveQueueToken` and `recordDeepDive` call this so the
+ * snapshot recomputed at consume time matches what the dialog saw at
+ * mint time (Gemini PR #1203 review).
+ */
+async function getDeepDiveQueueKennelCodes(
+  limit: number = DEEP_DIVE_QUEUE_DEFAULT_LIMIT,
+): Promise<string[]> {
+  const activeSince = daysAgo(ACTIVE_EVENT_WINDOW_DAYS);
+  const [kennels, lastDives] = await Promise.all([
+    prisma.kennel.findMany({
+      where: {
+        isHidden: false,
+        sources: { some: { source: { enabled: true } } },
+        events: { some: { date: { gte: activeSince } } },
+      },
+      select: { kennelCode: true, shortName: true },
+    }),
+    prisma.auditLog.groupBy({
+      by: ["kennelCode"],
+      where: { type: "KENNEL_DEEP_DIVE", kennelCode: { not: null } },
+      _max: { createdAt: true },
+    }),
+  ]);
+  const lastDiveByKennel = new Map<string, Date>();
+  for (const row of lastDives) {
+    if (row.kennelCode && row._max.createdAt) {
+      lastDiveByKennel.set(row.kennelCode, row._max.createdAt);
+    }
+  }
+  // Mirrors `getDeepDiveQueue`'s sort: never-dived first, then
+  // oldest dive first.
+  const sortable = kennels.map((k) => ({
+    kennelCode: k.kennelCode,
+    shortName: k.shortName,
+    lastDeepDiveAt: lastDiveByKennel.get(k.kennelCode) ?? null,
+  }));
+  sortable.sort((a, b) => {
+    if (a.lastDeepDiveAt === null && b.lastDeepDiveAt === null) {
+      return a.shortName.localeCompare(b.shortName);
+    }
+    if (a.lastDeepDiveAt === null) return -1;
+    if (b.lastDeepDiveAt === null) return 1;
+    return a.lastDeepDiveAt.getTime() - b.lastDeepDiveAt.getTime();
+  });
+  return sortable.slice(0, limit).map((k) => k.kennelCode);
+}
+
 /** Active kennels ranked oldest-deep-dive-first (nulls first). Active = ≥1 source + ≥1 event in last 90d. */
-export async function getDeepDiveQueue(limit = 20): Promise<DeepDiveCandidate[]> {
+export async function getDeepDiveQueue(
+  limit: number = DEEP_DIVE_QUEUE_DEFAULT_LIMIT,
+): Promise<DeepDiveCandidate[]> {
   await requireAdmin();
 
   const activeSince = daysAgo(ACTIVE_EVENT_WINDOW_DAYS);
@@ -439,12 +501,7 @@ export async function getDeepDiveQueueToken(
   await requireAdmin();
   if (!kennelCode) return null;
 
-  // Use the same query as `getDeepDiveQueue` for consistency, but
-  // only need the kennelCode list — no event counts or sources.
-  // Limit matches the dashboard's queue display so the snapshot
-  // tracks what the admin actually sees.
-  const queue = await getDeepDiveQueue();
-  const kennelCodes = queue.map((c) => c.kennelCode);
+  const kennelCodes = await getDeepDiveQueueKennelCodes();
   if (!kennelCodes.includes(kennelCode)) return null;
 
   const expiresAt = computeQueueTokenExpiresAt();
@@ -492,9 +549,10 @@ export async function recordDeepDive(input: {
     return { ok: false, error: "invalidToken" };
   }
 
-  // Recompute snapshot from the live queue and decide.
-  const liveQueue = await getDeepDiveQueue();
-  const liveCodes = liveQueue.map((c) => c.kennelCode);
+  // Recompute snapshot from the live queue and decide. Use the
+  // lightweight kennelCode-only query to match what the token mint
+  // path captured.
+  const liveCodes = await getDeepDiveQueueKennelCodes();
   if (!liveCodes.includes(input.kennelCode)) {
     return { ok: false, error: "kennelGone" };
   }

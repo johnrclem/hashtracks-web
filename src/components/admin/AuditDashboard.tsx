@@ -948,6 +948,14 @@ function DeepDiveCompleteDialog({
   const [queueToken, setQueueToken] = useState<string | null>(null);
   const [tokenLoading, setTokenLoading] = useState(false);
   const [pending, startTransition] = useTransition();
+  // Snapshot the kennel at dialog-open time so a parent-side queue
+  // refresh while the modal is open can't silently retarget the
+  // submission (CodeRabbit PR #1203 finding). All token fetches and
+  // the submit payload key off this frozen value, not the live
+  // `kennel` prop.
+  const [boundKennel, setBoundKennel] = useState<DeepDiveCandidate | null>(
+    null,
+  );
 
   // Fetch the snapshot-bound token on open. The token captures the
   // queue's membership at click time so a queue change between
@@ -955,6 +963,11 @@ function DeepDiveCompleteDialog({
   // (issue #1160).
   useEffect(() => {
     if (!open) return;
+    // Freeze the dialog target on this open transition. Subsequent
+    // changes to `kennel` while open are ignored — the operator
+    // must close + reopen to retarget.
+    const frozen = kennel;
+    setBoundKennel(frozen);
     setFindingsCount(0);
     setSummary("");
     setError(null);
@@ -963,11 +976,11 @@ function DeepDiveCompleteDialog({
     let cancelled = false;
     void (async () => {
       try {
-        const result = await getDeepDiveQueueToken(kennel.kennelCode);
+        const result = await getDeepDiveQueueToken(frozen.kennelCode);
         if (cancelled) return;
         if (!result) {
           setError(
-            `${kennel.shortName} is no longer in the deep-dive queue. Cancel and refresh the page to pick another kennel.`,
+            `${frozen.shortName} is no longer in the deep-dive queue. Cancel and refresh the page to pick another kennel.`,
           );
         } else {
           setQueueToken(result.token);
@@ -986,18 +999,29 @@ function DeepDiveCompleteDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, kennel.kennelCode, kennel.shortName]);
+    // Intentionally exclude `kennel` from deps — see freeze rationale
+    // above. Re-running this effect on `kennel` change would defeat
+    // the misattribution defense.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  // The bound kennel is the source of truth from here on. Until the
+  // first open transition lands, fall back to the prop so the title
+  // renders cleanly on first paint.
+  const dialogKennel = boundKennel ?? kennel;
 
   /** Refetch the token after the server reports a queue-changed
    *  rejection. Lets the operator re-confirm without closing the
-   *  dialog when other admins edit the queue mid-session. */
+   *  dialog when other admins edit the queue mid-session.
+   *  Returns the token on success, or null on failure (in which
+   *  case it has already set its own error message). */
   async function refetchToken(): Promise<string | null> {
     setTokenLoading(true);
     try {
-      const result = await getDeepDiveQueueToken(kennel.kennelCode);
+      const result = await getDeepDiveQueueToken(dialogKennel.kennelCode);
       if (!result) {
         setError(
-          `${kennel.shortName} is no longer in the deep-dive queue. Cancel and refresh.`,
+          `${dialogKennel.shortName} is no longer in the deep-dive queue. Cancel and refresh.`,
         );
         setQueueToken(null);
         return null;
@@ -1019,7 +1043,7 @@ function DeepDiveCompleteDialog({
     startTransition(async () => {
       try {
         const result = await recordDeepDive({
-          kennelCode: kennel.kennelCode,
+          kennelCode: dialogKennel.kennelCode,
           findingsCount,
           summary: summary.trim() || "(no notes)",
           queueToken,
@@ -1031,18 +1055,20 @@ function DeepDiveCompleteDialog({
         if (result.error === "queueChanged") {
           // Refresh the token + show a one-shot warning. If the
           // operator submits again with the fresh token and the
-          // queue still matches, it'll succeed.
+          // queue still matches, it'll succeed. On refetch
+          // failure, refetchToken has already set its own error
+          // (kennelGone) — don't overwrite it (Gemini PR #1203).
           const fresh = await refetchToken();
-          setError(
-            fresh
-              ? "The deep-dive queue was edited by someone else. Confirm by submitting again."
-              : null,
-          );
+          if (fresh) {
+            setError(
+              "The deep-dive queue was edited by someone else. Confirm by submitting again.",
+            );
+          }
           return;
         }
         if (result.error === "kennelGone") {
           setError(
-            `${kennel.shortName} was removed from the queue. Cancel and refresh the page.`,
+            `${dialogKennel.shortName} was removed from the queue. Cancel and refresh the page.`,
           );
           return;
         }
@@ -1061,14 +1087,14 @@ function DeepDiveCompleteDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
-            Mark deep dive complete: {kennel.shortName} ({kennel.region})
+            Mark deep dive complete: {dialogKennel.shortName} ({dialogKennel.region})
           </DialogTitle>
           <DialogDescription>
             {`Recording a deep dive for `}
-            <strong>{kennel.shortName}</strong>
+            <strong>{dialogKennel.shortName}</strong>
             {` `}
             <span className="text-xs text-muted-foreground">
-              ({kennel.region})
+              ({dialogKennel.region})
             </span>
             {`. The next-up queue will rotate to the next-oldest active kennel.`}
           </DialogDescription>
@@ -1122,7 +1148,7 @@ function DeepDiveCompleteDialog({
                 ? "Saving…"
                 : tokenLoading
                   ? "Loading…"
-                  : `Mark ${kennel.shortName} complete`}
+                  : `Mark ${dialogKennel.shortName} complete`}
             </Button>
           </DialogFooter>
         </form>
