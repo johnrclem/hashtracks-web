@@ -1005,12 +1005,20 @@ model AuditFilingNonce {
   adminUserId String // Clerk user.id
   kennelCode  String
   ruleSlug    String
-  payloadHash String // sha256 over (stream, kennelCode, ruleSlug, sortedEventIds, bodyMarkdown)
+  payloadHash String // sha256 over (stream, kennelCode, ruleSlug, title, sortedEventIds, bodyMarkdown)
   expiresAt   DateTime
   consumedAt  DateTime?
   createdAt   DateTime  @default(now())
-
-  @@index([adminUserId, expiresAt])
+  // Idempotency cache for retry-safe filing. Populated by
+  // /api/audit/file-finding after a successful GitHub side effect
+  // (issue created OR coalesce comment posted). On retry with the
+  // same nonce, the endpoint returns this cached result instead of
+  // making a second GitHub call. Codex pass-2 finding on PR #1173:
+  // without this, a transient GitHub failure burns the nonce and
+  // the next retry returns 401, dropping the finding.
+  //
+  // Shape: `{ action: "created" | "coalesced", issueNumber, issueUrl }`.
+  filingResultJson Json?
 }
 
 // Audit rule version history. Records the (ruleVersion, semanticHash) that

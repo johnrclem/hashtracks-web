@@ -1,0 +1,310 @@
+/**
+ * Chrome-stream audit-issue filing endpoint. Consumes a single-use
+ * nonce minted by `/api/audit/mint-filing-nonce`, files the GitHub
+ * issue, and coalesces against any existing AuditIssue with the same
+ * fingerprint (cross-stream).
+ *
+ * Auth model:
+ *   - Origin must match `getCanonicalSiteUrl()` (CSRF defense)
+ *   - Clerk admin session required
+ *   - Nonce row must exist and bind to the calling admin + the
+ *     posted payload's hash — defends against forged or tampered
+ *     consume requests
+ *
+ * Flow:
+ *   1. Validate Origin + admin session + request shape
+ *   2. SELECT nonce row, verify all binds + expiry. Reject on
+ *      mismatch / expiry → 401.
+ *   3. If `filingResultJson` is set → return the cached result.
+ *      This makes the endpoint retry-safe: a transient GitHub
+ *      failure leaves the cache empty so the agent can resubmit
+ *      with the same nonce, and a successful prior call returns
+ *      its outcome on retry without re-filing.
+ *   4. Compute fingerprint via `buildCanonicalBlock`. If non-null
+ *      and an open AuditIssue carries the same fingerprint, post
+ *      a coalesce comment on it.
+ *   5. Otherwise create a fresh GitHub issue with the canonical
+ *      block embedded for sync mirroring.
+ *   6. On any successful GitHub side effect, persist the outcome
+ *      to `filingResultJson` and mark `consumedAt`. On failure,
+ *      return 502 — the cache stays empty so the same nonce can
+ *      retry.
+ *
+ * Trade-off vs strict atomic-consume: two concurrent requests with
+ * the same nonce can each pass step 3 and reach step 4–5 before
+ * either writes the cache, producing one orphan GitHub issue. For
+ * the admin-driven audit-filing flow (low concurrency), this is an
+ * accepted limitation; an outbox/job model is the long-term answer
+ * if the surface ever sees real parallelism.
+ *
+ * Bridging tier (legacy null-fingerprint rows) and recurrence
+ * escalation (5+ days same fingerprint → meta-issue) are deferred to
+ * follow-up PRs to keep this one reviewable.
+ */
+
+import { NextResponse } from "next/server";
+
+import { getAdminUser } from "@/lib/auth";
+import { prisma } from "@/lib/db";
+import {
+  hashNonce,
+  computePayloadHash,
+  isValidOrigin,
+  type FilingPayload,
+} from "@/lib/audit-nonce";
+import {
+  buildCanonicalBlock,
+  emitCanonicalBlock,
+} from "@/lib/audit-canonical";
+import { getValidatedRepo } from "@/lib/github-repo";
+import {
+  AUDIT_LABEL,
+  ALERT_LABEL,
+  STREAM_LABELS,
+  kennelLabel,
+} from "@/lib/audit-labels";
+import { AuditStream } from "@/generated/prisma/client";
+
+interface FileFindingRequest {
+  /** Raw nonce returned by the mint endpoint. */
+  nonce: string;
+  /** AuditStream — restricted to the chrome streams the file-finding
+   *  endpoint owns. AUTOMATED filings come from the cron path
+   *  (`src/pipeline/audit-issue.ts`), not here. */
+  stream: "CHROME_KENNEL" | "CHROME_EVENT";
+  kennelCode: string;
+  ruleSlug: string;
+  eventIds: string[];
+  title: string;
+  bodyMarkdown: string;
+}
+
+function isFileFindingRequest(value: unknown): value is FileFindingRequest {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.nonce === "string" &&
+    (v.stream === "CHROME_KENNEL" || v.stream === "CHROME_EVENT") &&
+    typeof v.kennelCode === "string" &&
+    typeof v.ruleSlug === "string" &&
+    Array.isArray(v.eventIds) &&
+    v.eventIds.every((id) => typeof id === "string") &&
+    typeof v.title === "string" &&
+    typeof v.bodyMarkdown === "string"
+  );
+}
+
+const FETCH_TIMEOUT_MS = 10_000;
+
+export async function POST(req: Request): Promise<NextResponse> {
+  if (!isValidOrigin(req.headers.get("origin"))) {
+    return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
+  }
+
+  const admin = await getAdminUser();
+  if (!admin) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+  if (!isFileFindingRequest(body)) {
+    return NextResponse.json({ error: "Malformed payload" }, { status: 400 });
+  }
+
+  // Look up the nonce row. All bind checks happen here so a single
+  // 401 covers wrong-nonce, wrong-admin, wrong-kennel, wrong-rule,
+  // payload-tampered, and expired in one indistinguishable response
+  // (don't leak which check failed).
+  const payload: FilingPayload = {
+    stream: body.stream,
+    kennelCode: body.kennelCode,
+    ruleSlug: body.ruleSlug,
+    title: body.title,
+    eventIds: body.eventIds,
+    bodyMarkdown: body.bodyMarkdown,
+  };
+  const expectedPayloadHash = computePayloadHash(payload);
+  const nonce = await prisma.auditFilingNonce.findUnique({
+    where: { nonceHash: hashNonce(body.nonce) },
+  });
+  if (
+    !nonce ||
+    nonce.adminUserId !== admin.id ||
+    nonce.kennelCode !== body.kennelCode ||
+    nonce.ruleSlug !== body.ruleSlug ||
+    nonce.payloadHash !== expectedPayloadHash ||
+    nonce.expiresAt.getTime() <= Date.now()
+  ) {
+    return NextResponse.json(
+      { error: "Nonce invalid, expired, or payload tampered" },
+      { status: 401 },
+    );
+  }
+
+  // Idempotency cache: if a previous call for this nonce already
+  // succeeded, return the same outcome without re-filing.
+  if (nonce.filingResultJson !== null) {
+    return NextResponse.json(nonce.filingResultJson);
+  }
+
+  // Map the chrome-stream literal to the Prisma enum value.
+  const dbStream =
+    body.stream === "CHROME_KENNEL"
+      ? AuditStream.CHROME_KENNEL
+      : AuditStream.CHROME_EVENT;
+
+  const canonical = buildCanonicalBlock({
+    stream: dbStream,
+    kennelCode: body.kennelCode,
+    ruleSlug: body.ruleSlug,
+  });
+
+  // Cross-stream coalescing: if any existing AuditIssue carries the
+  // same fingerprint, comment on it instead of opening a new issue.
+  // If the comment fails, return 502 — falling through to file a
+  // fresh issue would split the finding's history across two open
+  // rows for the same fingerprint, which is exactly the duplicate-
+  // dedup state coalescing exists to prevent (Codex pass-2 finding).
+  if (canonical) {
+    const existing = await prisma.auditIssue.findFirst({
+      where: {
+        fingerprint: canonical.fingerprint,
+        state: "open",
+        delistedAt: null,
+      },
+      select: { githubNumber: true, htmlUrl: true },
+    });
+    if (existing) {
+      const commentResult = await postCommentToIssue(
+        existing.githubNumber,
+        body.bodyMarkdown,
+      );
+      if (commentResult === "ok") {
+        const result = {
+          action: "coalesced" as const,
+          existingIssueUrl: existing.htmlUrl,
+          existingIssueNumber: existing.githubNumber,
+        };
+        await persistFilingResult(nonce.id, result);
+        return NextResponse.json(result);
+      }
+      return NextResponse.json(
+        {
+          error: "GitHub comment failed; refusing to fork a duplicate issue",
+          existingIssueNumber: existing.githubNumber,
+        },
+        { status: 502 },
+      );
+    }
+  }
+
+  const finalBody = canonical
+    ? `${body.bodyMarkdown}\n\n${emitCanonicalBlock(canonical)}`
+    : body.bodyMarkdown;
+
+  const labels = [
+    AUDIT_LABEL,
+    ALERT_LABEL,
+    body.stream === "CHROME_KENNEL"
+      ? STREAM_LABELS.CHROME_KENNEL
+      : STREAM_LABELS.CHROME_EVENT,
+    kennelLabel(body.kennelCode),
+  ];
+
+  const created = await createGithubIssue(body.title, finalBody, labels);
+  if (!created) {
+    return NextResponse.json(
+      { error: "GitHub issue creation failed" },
+      { status: 502 },
+    );
+  }
+
+  const result = {
+    action: "created" as const,
+    issueUrl: created.htmlUrl,
+    issueNumber: created.number,
+  };
+  await persistFilingResult(nonce.id, result);
+  return NextResponse.json(result);
+}
+
+/**
+ * Mark the nonce row as consumed and cache the filing outcome so a
+ * retry with the same nonce returns the cached result instead of
+ * re-filing.
+ */
+async function persistFilingResult(
+  nonceId: string,
+  result: object,
+): Promise<void> {
+  await prisma.auditFilingNonce.update({
+    where: { id: nonceId },
+    data: {
+      consumedAt: new Date(),
+      filingResultJson: result,
+    },
+  });
+}
+
+// ── GitHub helpers ───────────────────────────────────────────────────
+
+/**
+ * POST a JSON payload to a GitHub repos/* path. Returns the parsed
+ * response on 2xx, or null on any failure (no token, network error,
+ * non-2xx status). Failure cases are handled by callers — this helper
+ * deliberately swallows error detail to keep the route logic linear.
+ */
+async function githubApiPost<T>(
+  pathSuffix: string,
+  body: unknown,
+): Promise<T | null> {
+  const token = process.env.GITHUB_TOKEN;
+  if (!token) return null;
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${getValidatedRepo()}/${pathSuffix}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/vnd.github+json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      },
+    );
+    if (!res.ok) return null;
+    return (await res.json()) as T;
+  } catch {
+    return null;
+  }
+}
+
+async function postCommentToIssue(
+  issueNumber: number,
+  body: string,
+): Promise<"ok" | "error"> {
+  const result = await githubApiPost<unknown>(
+    `issues/${issueNumber}/comments`,
+    { body },
+  );
+  return result === null ? "error" : "ok";
+}
+
+async function createGithubIssue(
+  title: string,
+  body: string,
+  labels: readonly string[],
+): Promise<{ htmlUrl: string; number: number } | null> {
+  const issue = await githubApiPost<{ html_url: string; number: number }>(
+    "issues",
+    { title, body, labels },
+  );
+  return issue ? { htmlUrl: issue.html_url, number: issue.number } : null;
+}
