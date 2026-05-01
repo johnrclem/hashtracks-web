@@ -27,6 +27,7 @@ import {
   createSuppression,
   deleteSuppression,
   getSuppressionImpact,
+  getDeepDiveQueueToken,
   recordDeepDive,
   type TrendPoint,
   type TopOffender,
@@ -944,26 +945,111 @@ function DeepDiveCompleteDialog({
   const [findingsCount, setFindingsCount] = useState(0);
   const [summary, setSummary] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [queueToken, setQueueToken] = useState<string | null>(null);
+  const [tokenLoading, setTokenLoading] = useState(false);
   const [pending, startTransition] = useTransition();
 
+  // Fetch the snapshot-bound token on open. The token captures the
+  // queue's membership at click time so a queue change between
+  // dialog-open and submit can't misattribute the deep dive
+  // (issue #1160).
   useEffect(() => {
     if (!open) return;
     setFindingsCount(0);
     setSummary("");
     setError(null);
-  }, [open, kennel.kennelCode]);
+    setQueueToken(null);
+    setTokenLoading(true);
+    let cancelled = false;
+    void (async () => {
+      try {
+        const result = await getDeepDiveQueueToken(kennel.kennelCode);
+        if (cancelled) return;
+        if (!result) {
+          setError(
+            `${kennel.shortName} is no longer in the deep-dive queue. Cancel and refresh the page to pick another kennel.`,
+          );
+        } else {
+          setQueueToken(result.token);
+        }
+      } catch (err) {
+        if (cancelled) return;
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to acquire submission token",
+        );
+      } finally {
+        if (!cancelled) setTokenLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, kennel.kennelCode, kennel.shortName]);
+
+  /** Refetch the token after the server reports a queue-changed
+   *  rejection. Lets the operator re-confirm without closing the
+   *  dialog when other admins edit the queue mid-session. */
+  async function refetchToken(): Promise<string | null> {
+    setTokenLoading(true);
+    try {
+      const result = await getDeepDiveQueueToken(kennel.kennelCode);
+      if (!result) {
+        setError(
+          `${kennel.shortName} is no longer in the deep-dive queue. Cancel and refresh.`,
+        );
+        setQueueToken(null);
+        return null;
+      }
+      setQueueToken(result.token);
+      return result.token;
+    } finally {
+      setTokenLoading(false);
+    }
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (!queueToken) {
+      setError("No submission token available — please re-open the dialog.");
+      return;
+    }
     startTransition(async () => {
       try {
-        await recordDeepDive({
+        const result = await recordDeepDive({
           kennelCode: kennel.kennelCode,
           findingsCount,
           summary: summary.trim() || "(no notes)",
+          queueToken,
         });
-        onCompleted();
+        if (result.ok) {
+          onCompleted();
+          return;
+        }
+        if (result.error === "queueChanged") {
+          // Refresh the token + show a one-shot warning. If the
+          // operator submits again with the fresh token and the
+          // queue still matches, it'll succeed.
+          const fresh = await refetchToken();
+          setError(
+            fresh
+              ? "The deep-dive queue was edited by someone else. Confirm by submitting again."
+              : null,
+          );
+          return;
+        }
+        if (result.error === "kennelGone") {
+          setError(
+            `${kennel.shortName} was removed from the queue. Cancel and refresh the page.`,
+          );
+          return;
+        }
+        // invalidToken: session expired or tampered
+        setError(
+          "Submission token rejected. Cancel and re-open the dialog to refresh.",
+        );
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to record deep dive");
       }
@@ -975,7 +1061,7 @@ function DeepDiveCompleteDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
-            Mark deep dive complete: {kennel.shortName}
+            Mark deep dive complete: {kennel.shortName} ({kennel.region})
           </DialogTitle>
           <DialogDescription>
             {`Recording a deep dive for `}
@@ -1027,8 +1113,16 @@ function DeepDiveCompleteDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" size="sm" disabled={pending}>
-              {pending ? "Saving…" : `Mark ${kennel.shortName} complete`}
+            <Button
+              type="submit"
+              size="sm"
+              disabled={pending || tokenLoading || !queueToken}
+            >
+              {pending
+                ? "Saving…"
+                : tokenLoading
+                  ? "Loading…"
+                  : `Mark ${kennel.shortName} complete`}
             </Button>
           </DialogFooter>
         </form>

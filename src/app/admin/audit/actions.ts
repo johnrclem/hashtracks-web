@@ -10,6 +10,12 @@ import type {
   RecentlyFixedItem,
   FocusAreaItem,
 } from "@/lib/admin/hareline-prompt";
+import {
+  computeQueueSnapshotId,
+  computeQueueTokenExpiresAt,
+  signQueueToken,
+  verifyQueueToken,
+} from "@/lib/queue-snapshot-token";
 
 /** All audit dashboard actions are admin-only — server actions are POST endpoints anyone can hit. */
 async function requireAdmin(): Promise<void> {
@@ -410,15 +416,92 @@ export async function getDeepDiveCoverage(): Promise<DeepDiveCoverage> {
   return { audited, total, percent, projectedFullCycleDate: projectedDate };
 }
 
-/** Record that a deep dive has been completed for a kennel. */
+// ── Deep-dive queue snapshot tokens (issue #1160) ───────────────────
+//
+// The completion dialog binds a kennel at open-time via a signed
+// snapshot token; submit fails closed if the queue has shifted in a
+// way that would change which kennel gets credit.
+
+/**
+ * Mint an HMAC-signed token for the deep-dive completion dialog.
+ * Caller passes the kennelCode the admin clicked; we verify it's
+ * actually in the current queue and return a token bound to
+ * `(kennelCode, queueSnapshotId, expiresAt)`. The dialog includes
+ * this token in the submit payload; `recordDeepDive` recomputes the
+ * snapshot from the live queue and rejects mismatches.
+ *
+ * Returns null when the kennel isn't in the current queue (404
+ * shape). Throws on auth failure (admin requirement).
+ */
+export async function getDeepDiveQueueToken(
+  kennelCode: string,
+): Promise<{ token: string; expiresAt: number } | null> {
+  await requireAdmin();
+  if (!kennelCode) return null;
+
+  // Use the same query as `getDeepDiveQueue` for consistency, but
+  // only need the kennelCode list — no event counts or sources.
+  // Limit matches the dashboard's queue display so the snapshot
+  // tracks what the admin actually sees.
+  const queue = await getDeepDiveQueue();
+  const kennelCodes = queue.map((c) => c.kennelCode);
+  if (!kennelCodes.includes(kennelCode)) return null;
+
+  const expiresAt = computeQueueTokenExpiresAt();
+  const queueSnapshotId = computeQueueSnapshotId(kennelCodes);
+  const token = signQueueToken({ kennelCode, queueSnapshotId, expiresAt });
+  return { token, expiresAt };
+}
+
+/** Result shape for `recordDeepDive`. Discriminated union on `ok`
+ *  so the dialog can branch on the failure mode (refetch token vs
+ *  hard error). */
+export type RecordDeepDiveResult =
+  | { ok: true; id: string }
+  | {
+      ok: false;
+      error:
+        | "invalidToken" // tampered, expired, or mismatched kennel
+        | "queueChanged" // kennel still in queue but snapshot diverged
+        | "kennelGone"; // kennel no longer in queue
+    };
+
+/** Record that a deep dive has been completed for a kennel. Requires
+ *  a valid queue token from `getDeepDiveQueueToken` so a queue change
+ *  between dialog-open and submit can't misattribute the credit
+ *  (issue #1160). */
 export async function recordDeepDive(input: {
   kennelCode: string;
   findingsCount: number;
   summary: string;
-}): Promise<{ id: string }> {
+  /** HMAC-signed token from `getDeepDiveQueueToken`. Required. */
+  queueToken: string;
+}): Promise<RecordDeepDiveResult> {
   await requireAdmin();
   if (!input.kennelCode) throw new Error("kennelCode is required");
   if (input.findingsCount < 0) throw new Error("findingsCount must be ≥ 0");
+  if (!input.queueToken) {
+    return { ok: false, error: "invalidToken" };
+  }
+
+  const verification = verifyQueueToken(input.queueToken);
+  if (
+    !verification.ok ||
+    verification.payload.kennelCode !== input.kennelCode
+  ) {
+    return { ok: false, error: "invalidToken" };
+  }
+
+  // Recompute snapshot from the live queue and decide.
+  const liveQueue = await getDeepDiveQueue();
+  const liveCodes = liveQueue.map((c) => c.kennelCode);
+  if (!liveCodes.includes(input.kennelCode)) {
+    return { ok: false, error: "kennelGone" };
+  }
+  const liveSnapshot = computeQueueSnapshotId(liveCodes);
+  if (liveSnapshot !== verification.payload.queueSnapshotId) {
+    return { ok: false, error: "queueChanged" };
+  }
 
   const log = await prisma.auditLog.create({
     data: {
@@ -433,7 +516,7 @@ export async function recordDeepDive(input: {
     },
     select: { id: true },
   });
-  return log;
+  return { ok: true, id: log.id };
 }
 
 // ── Stream Trends (audit-issue mirror) ──────────────────────────────
