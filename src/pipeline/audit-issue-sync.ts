@@ -31,6 +31,7 @@ import {
   parseKennelLabel,
 } from "@/lib/audit-labels";
 import { getValidatedRepo } from "@/lib/github-repo";
+import { buildCanonicalBlock } from "@/lib/audit-canonical";
 
 const FETCH_TIMEOUT_MS = 15_000;
 const PAGE_SIZE = 100;
@@ -40,6 +41,10 @@ const MAX_PAGES = 20; // safety cap; ~2000 issues
 export interface GitHubIssue {
   number: number;
   title: string;
+  /** Issue body — markdown. Parsed for the `<!-- audit-canonical: {...} -->`
+   *  block (see `src/lib/audit-canonical.ts`) so the sync can
+   *  populate `AuditIssue.fingerprint` without re-deriving the hash. */
+  body: string | null;
   html_url: string;
   state: "open" | "closed";
   // GitHub's `state_reason` field — `"completed"` when an issue is
@@ -102,6 +107,58 @@ export function resolveStream(labelNames: readonly string[]): StreamResolution {
  * blindly written to `AuditIssue.kennelCode` (which is a FK — blind writes
  * fail with a constraint violation and drop the issue from the mirror).
  */
+/**
+ * Extract the rule slug from a cron-filed audit issue title.
+ *
+ * Cron titles follow the format produced by `formatGroupIssueTitle`:
+ *   `[Audit] {kennelShortName} — {categoryLabel} [{ruleSlug}] (N events) — yyyy-mm-dd`
+ *
+ * The regex anchors to the `(N events)` suffix that immediately
+ * follows the slug bracket — operators editing the title for triage
+ * (e.g. prepending `[triage]` or `[REVIEWED]`) can't fool the match
+ * because their tags don't sit before an event-count parenthetical
+ * (Gemini + Qodo PR #1172 review feedback). Non-stateful regex —
+ * no shared `lastIndex` state to reset.
+ *
+ * Returns null when no slug-shaped bracket immediately precedes the
+ * `(N events)` marker — chrome-filed titles are free-form prose and
+ * won't match.
+ */
+const RULE_SLUG_IN_TITLE_RE = /\[([a-z][a-z0-9-]*)\]\s*\(\d+\s+events?\)/;
+export function extractRuleSlugFromAutomatedTitle(title: string): string | null {
+  return title.match(RULE_SLUG_IN_TITLE_RE)?.[1] ?? null;
+}
+
+/**
+ * Re-derive `AuditIssue.fingerprint` from labels + title — the only
+ * inputs the sync can trust. Codex review on PR #1171b flagged that
+ * reading the operator-editable body block as authoritative was a
+ * dedup-poisoning vector: a forged block could inject an arbitrary
+ * fingerprint and absorb future findings under the wrong row.
+ *
+ * Authoritative path is currently AUTOMATED-stream only — those titles
+ * carry a structured rule slug. Chrome-stream issues won't ship with a
+ * sync-derivable identity until bundle 5b's file-finding endpoint
+ * lands; until then the sync leaves their fingerprint untouched and
+ * lets the endpoint write directly at filing time.
+ *
+ * The canonical block in the body is still emitted by the cron path
+ * (and will be by 5b's endpoint) for human / debugger inspection, but
+ * the sync deliberately ignores it here.
+ */
+export function computeFingerprintFromIdentity(
+  stream: AuditStream,
+  kennelCode: string | null,
+  title: string,
+): string | null {
+  if (stream !== AuditStream.AUTOMATED) return null;
+  if (!kennelCode) return null;
+  const ruleSlug = extractRuleSlugFromAutomatedTitle(title);
+  if (!ruleSlug) return null;
+  const block = buildCanonicalBlock({ stream, kennelCode, ruleSlug });
+  return block?.fingerprint ?? null;
+}
+
 export function resolveKennel(
   labelNames: readonly string[],
   knownKennelCodes: ReadonlySet<string>,
@@ -342,6 +399,25 @@ export async function syncAuditIssues(): Promise<SyncResult> {
         // upsert first lets us batch the events afterwards. `delistedAt` is
         // cleared on every update so a re-listed issue (operator re-added
         // the `audit` label) automatically comes back into the dashboard.
+        // Compute the fingerprint from labels + title — used only on
+        // insert. Codex pass-2 review on PR #1172 flagged that
+        // re-deriving on every sync would let a registry version/
+        // semanticHash roll retroactively rewrite every historical
+        // AUTOMATED issue's fingerprint, collapsing the version
+        // boundary the registry was supposed to enforce.
+        //
+        // Insert-only write: once a row's fingerprint is set, we never
+        // overwrite it. Registry rolls produce new fingerprints for
+        // future findings only. Identity drift (operator edits a
+        // kennel label or rule-slug bracket on an existing row)
+        // doesn't propagate either — admin can clear the column
+        // manually if a misclassification needs to be re-derived.
+        const insertFingerprint = computeFingerprintFromIdentity(
+          stream,
+          kennelCode,
+          issue.title,
+        );
+
         const upserted = await tx.auditIssue.upsert({
           where: { githubNumber: issue.number },
           create: {
@@ -354,6 +430,7 @@ export async function syncAuditIssues(): Promise<SyncResult> {
             githubCreatedAt,
             githubClosedAt: githubClosedAt ?? undefined,
             closeReason: issue.state_reason ?? undefined,
+            fingerprint: insertFingerprint ?? undefined,
           },
           update: {
             stream,
@@ -363,6 +440,8 @@ export async function syncAuditIssues(): Promise<SyncResult> {
             kennelCode: kennelCode ?? null,
             githubClosedAt: githubClosedAt ?? null,
             closeReason: issue.state_reason ?? null,
+            // Intentionally NOT updating `fingerprint` here. See
+            // comment above on insert-only semantics.
             delistedAt: null,
           },
         });

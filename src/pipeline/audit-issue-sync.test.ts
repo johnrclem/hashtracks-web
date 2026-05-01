@@ -5,6 +5,8 @@ import {
   resolveStream,
   resolveKennel,
   diffIssue,
+  extractRuleSlugFromAutomatedTitle,
+  computeFingerprintFromIdentity,
 } from "./audit-issue-sync";
 
 describe("audit-issue-sync — pure helpers", () => {
@@ -203,6 +205,127 @@ describe("audit-issue-sync — pure helpers", () => {
         NOW,
       );
       expect(events).toEqual([]);
+    });
+  });
+
+  describe("extractRuleSlugFromAutomatedTitle", () => {
+    it("extracts the rule slug from a canonical cron title", () => {
+      const title =
+        "[Audit] NYCH3 — Hare Extraction [hare-cta-text] (3 events) — 2026-04-30";
+      expect(extractRuleSlugFromAutomatedTitle(title)).toBe("hare-cta-text");
+    });
+
+    it("returns null when no rule-slug bracket follows the [Audit] tag", () => {
+      // Chrome-filed titles are free-form prose — they shouldn't match.
+      expect(extractRuleSlugFromAutomatedTitle("EWH3 logo missing")).toBeNull();
+    });
+
+    it("returns null on edited titles that lost the structured slug bracket", () => {
+      // Operator could rewrite a title for triage. With only `[Audit]`
+      // remaining, the second bracket is missing — fingerprint should
+      // be cleared rather than left stale.
+      expect(extractRuleSlugFromAutomatedTitle("[Audit] retitled by operator")).toBeNull();
+    });
+
+    it("ignores extra brackets an operator might add for triage tags", () => {
+      // The regex anchors to `(N events)` so triage tags can't be
+      // confused for the rule slug — only the bracket immediately
+      // followed by the event-count parenthetical wins (Gemini + Qodo
+      // PR #1172 review feedback).
+      const title = "[Audit] NYCH3 — Hare Extraction [hare-url] (5 events) — 2026-04-30";
+      expect(extractRuleSlugFromAutomatedTitle(title)).toBe("hare-url");
+    });
+
+    it("returns the rule slug even when an operator prepends a lowercase triage tag", () => {
+      // Pre-fix regression: a `[triage]` prefix mis-extracted as the
+      // slug because the regex took the first lowercase bracket
+      // anywhere. Anchored regex pinpoints the `(N events)` suffix.
+      const title = "[triage] [Audit] NYCH3 — Hare Extraction [hare-url] (5 events) — 2026-04-30";
+      expect(extractRuleSlugFromAutomatedTitle(title)).toBe("hare-url");
+    });
+
+    it("matches the singular `(1 event)` count — boundary case for short groups", () => {
+      const title = "[Audit] NYCH3 — Hare Extraction [hare-url] (1 event) — 2026-04-30";
+      expect(extractRuleSlugFromAutomatedTitle(title)).toBe("hare-url");
+    });
+
+    it("returns null for a title with a slug bracket but no `(N events)` suffix", () => {
+      // Without the structured suffix we can't safely identify which
+      // bracket is the slug. Fail closed → fingerprint stays null.
+      const title = "[Audit] NYCH3 — Hare Extraction [hare-url] — manually edited";
+      expect(extractRuleSlugFromAutomatedTitle(title)).toBeNull();
+    });
+  });
+
+  describe("computeFingerprintFromIdentity", () => {
+    const VALID_TITLE = "[Audit] NYCH3 — Hare Extraction [hare-url] (3 events) — 2026-04-30";
+
+    it("returns a stable fingerprint for AUTOMATED issues with derivable identity", () => {
+      const fp = computeFingerprintFromIdentity(AuditStream.AUTOMATED, "nych3", VALID_TITLE);
+      expect(fp).toMatch(/^[0-9a-f]{64}$/);
+    });
+
+    it("returns the SAME fingerprint on every call — sync-stable across re-runs", () => {
+      const a = computeFingerprintFromIdentity(AuditStream.AUTOMATED, "nych3", VALID_TITLE);
+      const b = computeFingerprintFromIdentity(AuditStream.AUTOMATED, "nych3", VALID_TITLE);
+      expect(a).toBe(b);
+    });
+
+    it("returns null for chrome streams (sync isn't authoritative there)", () => {
+      // Bundle 5b's file-finding endpoint owns the chrome-stream
+      // fingerprint write at filing time; the sync must not touch
+      // those rows on update or it'd race the endpoint.
+      expect(
+        computeFingerprintFromIdentity(AuditStream.CHROME_KENNEL, "nych3", VALID_TITLE),
+      ).toBeNull();
+      expect(
+        computeFingerprintFromIdentity(AuditStream.CHROME_EVENT, "nych3", VALID_TITLE),
+      ).toBeNull();
+      expect(
+        computeFingerprintFromIdentity(AuditStream.UNKNOWN, "nych3", VALID_TITLE),
+      ).toBeNull();
+    });
+
+    it("returns null when the kennel label resolved to nothing", () => {
+      expect(
+        computeFingerprintFromIdentity(AuditStream.AUTOMATED, null, VALID_TITLE),
+      ).toBeNull();
+    });
+
+    it("returns null when the title has no extractable rule slug", () => {
+      // Identity-drift case: operator rewrote the title and dropped
+      // the `[ruleSlug]` bracket. Sync correctly clears the
+      // fingerprint rather than leaving a stale value attached to a
+      // now-different issue (Codex review pass-1, finding 2).
+      expect(
+        computeFingerprintFromIdentity(AuditStream.AUTOMATED, "nych3", "Edited title"),
+      ).toBeNull();
+    });
+
+    it("returns null when the rule slug isn't fingerprintable in the registry", () => {
+      // `hare-cta-text` is one of the imperative-only rules — it
+      // exists conceptually but isn't in AUDIT_RULES with
+      // fingerprint:true, so buildCanonicalBlock returns undefined.
+      const ctaTitle =
+        "[Audit] NYCH3 — Hare Extraction [hare-cta-text] (3 events) — 2026-04-30";
+      expect(
+        computeFingerprintFromIdentity(AuditStream.AUTOMATED, "nych3", ctaTitle),
+      ).toBeNull();
+    });
+
+    it("rejects forged-block scenarios — fingerprint depends only on labels + title, not body", () => {
+      // The whole point of the redesign: the body is operator-editable
+      // and could carry a forged canonical block claiming a different
+      // (kennelCode, ruleSlug). The sync ignores that block entirely;
+      // its fingerprint reflects ONLY the trusted label-derived
+      // kennelCode and title-derived ruleSlug.
+      //
+      // Concretely: this test asserts the function's signature has no
+      // body parameter — it CAN'T be poisoned by body content.
+      // (computeFingerprintFromIdentity has signature (stream, kennelCode, title)
+      // — a body param would be a regression to address.)
+      const sig = computeFingerprintFromIdentity.length;
+      expect(sig).toBe(3);
     });
   });
 });

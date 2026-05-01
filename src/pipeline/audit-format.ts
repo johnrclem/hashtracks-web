@@ -3,6 +3,8 @@
  */
 import type { AuditFinding } from "./audit-checks";
 import type { AuditGroup } from "./audit-runner";
+import { emitCanonicalBlock } from "@/lib/audit-canonical";
+import type { CanonicalBlock } from "@/lib/audit-canonical";
 
 const CATEGORY_LABELS: Record<string, string> = {
   hares: "Hare Extraction",
@@ -18,7 +20,20 @@ export function formatGroupIssueTitle(group: AuditGroup, date: string): string {
   return `[Audit] ${group.kennelShortName} — ${label} [${group.rule}] (${group.count} events) — ${date}`;
 }
 
-export function formatGroupIssueBody(group: AuditGroup): string {
+/**
+ * Format an audit group as a GitHub issue body. When `canonical` is
+ * provided, an `<!-- audit-canonical: ... -->` block is appended to
+ * the body so the sync pipeline can backfill `AuditIssue.fingerprint`
+ * directly from the issue mirror without re-deriving the hash.
+ *
+ * Cron-filed issues for fingerprintable rules pass `canonical`;
+ * imperative-only rules (hare-cta-text, etc.) omit it and stay
+ * un-fingerprinted.
+ */
+export function formatGroupIssueBody(
+  group: AuditGroup,
+  canonical?: Omit<CanonicalBlock, "v">,
+): string {
   const lines: string[] = [
     `Automated audit found **${group.count} event${group.count === 1 ? "" : "s"}** affected by \`${group.rule}\` for **${group.kennelShortName}**.\n`,
     `**Severity:** ${group.severity}`,
@@ -47,6 +62,10 @@ export function formatGroupIssueBody(group: AuditGroup): string {
     formatFixGuidance(group),
     "",
   );
+
+  if (canonical) {
+    lines.push(emitCanonicalBlock(canonical));
+  }
 
   return lines.join("\n");
 }
