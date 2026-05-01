@@ -1,5 +1,5 @@
 /**
- * Audit log utilities for KennelAttendance edit tracking.
+ * Audit log utilities used by KennelAttendance edits and Event admin overrides.
  * Pure functions — no DB or auth dependencies.
  *
  * Follows the appendRepairLog pattern from src/app/admin/alerts/actions.ts.
@@ -7,14 +7,16 @@
 
 import type { Prisma } from "@/generated/prisma/client";
 
-/** Actions that can be recorded in a KennelAttendance audit log. */
+/** Actions that can be recorded in an audit log (KennelAttendance edits + Event admin overrides). */
 export type AuditAction =
   | "record"
   | "update"
   | "remove"
   | "clear"
   | "import"
-  | "hare_sync";
+  | "hare_sync"
+  | "cancel"
+  | "uncancel";
 
 /** A single entry in the KennelAttendance audit log (stored as JSON array). */
 export interface AuditLogEntry {

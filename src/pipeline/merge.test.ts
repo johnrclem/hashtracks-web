@@ -48,7 +48,7 @@ vi.mock("@/lib/geo", async (importOriginal) => {
 import { prisma } from "@/lib/db";
 import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag } from "./kennel-resolver";
-import { processRawEvents, sanitizeTitle, sanitizeLocation, sanitizeHares, friendlyKennelName, rewriteStaleDefaultTitle, suppressRedundantCity, NON_ENGLISH_GEO_RE, completenessScore, pickCanonicalEventId, pickCanonicalEventIds } from "./merge";
+import { processRawEvents, sanitizeTitle, sanitizeLocation, sanitizeHares, friendlyKennelName, rewriteStaleDefaultTitle, suppressRedundantCity, NON_ENGLISH_GEO_RE, completenessScore, pickCanonicalEventId, pickCanonicalEventIds, isAdminLocked } from "./merge";
 
 const mockSourceFind = vi.mocked(prisma.source.findUnique);
 const _mockSourceUpdate = vi.mocked(prisma.source.update);
@@ -794,6 +794,7 @@ describe("double-header support", () => {
         id: "evt_restored",
         trustLevel: 9, // higher than ctx.trustLevel=5 → takes restore path only
         status: "CANCELLED",
+        adminCancelledAt: null, // not admin-locked; auto-restore path applies
         sourceUrl: "https://source-a.com/event",
         startTime: "19:00",
         title: "Trail",
@@ -815,6 +816,40 @@ describe("double-header support", () => {
     );
   });
 
+  it("does NOT restore an admin-locked CANCELLED row via upsertCanonicalEvent (admin override)", async () => {
+    // Site-2 admin-lock guard: a same-date Event matched via the sameDayEvents
+    // path stays CANCELLED on source re-emission when adminCancelledAt is set.
+    // Complements the site-1 (refreshExistingEvent) guard tested above.
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      {
+        id: "evt_admin_locked",
+        trustLevel: 9, // higher than ctx.trustLevel=5 → would take restore path
+        status: "CANCELLED",
+        adminCancelledAt: new Date("2026-05-01T10:00:00Z"),
+        adminCancelledBy: "user_admin",
+        adminCancellationReason: "City bridge run",
+        sourceUrl: "https://source-a.com/event",
+        startTime: "19:00",
+        title: "Trail",
+        runNumber: 42,
+      },
+    ] as never);
+
+    const result = await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-03-08", sourceUrl: "https://source-a.com/event", startTime: "19:00", runNumber: 42 }),
+    ]);
+
+    expect(result.restored).toBe(0);
+    // The lower-trust restore branch must not write status: CONFIRMED.
+    expect(mockEventUpdate).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "evt_admin_locked" },
+        data: expect.objectContaining({ status: "CONFIRMED" }),
+      }),
+    );
+  });
+
   it("restores a CANCELLED row via refreshExistingEvent even when scraped row has no startTime (#874)", async () => {
     // Dublin Nash Hash regression: the hareline row "3–5 July 2026" has no
     // time, so composeUtcStart returns null. Without this fix, the early
@@ -831,6 +866,7 @@ describe("double-header support", () => {
       dateUtc: null,
       timezone: "Europe/Dublin",
       status: "CANCELLED",
+      adminCancelledAt: null,
     } as never);
     mockEventUpdate.mockResolvedValueOnce({} as never);
 
@@ -843,6 +879,41 @@ describe("double-header support", () => {
       where: { id: "evt_cancelled" },
       data: { status: "CONFIRMED" },
     });
+  });
+
+  it("does NOT restore an admin-locked CANCELLED row via refreshExistingEvent (admin override)", async () => {
+    // Admin lock: an event with non-null adminCancelledAt is exempt from
+    // auto-restore even when the source re-emits the same fingerprint.
+    // This is the duplicate-fingerprint path that fires on every weekly
+    // STATIC_SCHEDULE re-scrape — without this guard, the override would
+    // be silently undone on the next scrape.
+    mockRawEventFind.mockResolvedValueOnce({
+      id: "raw_existing",
+      processed: true,
+      eventId: "evt_admin_cancelled",
+    } as never);
+    vi.mocked(prisma.event.findUnique).mockResolvedValueOnce({
+      trustLevel: 5,
+      dateUtc: null,
+      timezone: "America/New_York",
+      status: "CANCELLED",
+      adminCancelledAt: new Date("2026-05-01T10:00:00Z"),
+    } as never);
+
+    const result = await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-06-06", startTime: undefined }),
+    ]);
+
+    expect(result.restored).toBe(0);
+    // event.update is only called for refresh actions; with no shouldRestore
+    // and no shouldRefreshDateUtc (composedUtc is null, see #874), it must
+    // not be called at all.
+    expect(mockEventUpdate).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "evt_admin_cancelled" },
+        data: expect.objectContaining({ status: "CONFIRMED" }),
+      }),
+    );
   });
 });
 
@@ -2927,5 +2998,15 @@ describe("fuzzy ±48h cross-source dedup (#990)", () => {
 
     expect(result.created).toBe(1);
     expect(result.updated).toBe(0);
+  });
+});
+
+describe("isAdminLocked", () => {
+  it("returns false for an event with adminCancelledAt = null", () => {
+    expect(isAdminLocked({ adminCancelledAt: null })).toBe(false);
+  });
+
+  it("returns true for an event with a non-null adminCancelledAt", () => {
+    expect(isAdminLocked({ adminCancelledAt: new Date("2026-05-01T10:00:00Z") })).toBe(true);
   });
 });

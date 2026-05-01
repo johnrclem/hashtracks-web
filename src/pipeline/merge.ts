@@ -12,6 +12,18 @@ import { LOCATION_EMAIL_CTA_RE } from "./audit-checks";
 import { levenshtein } from "@/lib/fuzzy";
 import { createEventWithKennel } from "@/lib/event-write";
 
+/**
+ * Admin lock predicate: an event whose `adminCancelledAt` is non-null has been
+ * explicitly cancelled by an admin and must not be auto-restored to CONFIRMED
+ * by any merge code path. Centralized here so all restore sites consult the
+ * same invariant — see refreshExistingEvent and upsertCanonicalEvent below.
+ *
+ * Spec: docs/superpowers/specs/2026-05-01-cancellation-override-design.md
+ */
+export function isAdminLocked(event: { adminCancelledAt: Date | null }): boolean {
+  return event.adminCancelledAt !== null;
+}
+
 // Strip a trailing "(text/call/… for address)" parenthetical when its body
 // starts with a contact verb AND carries a contact-info signal (3+ digits, @,
 // or "for <noun>"). Legit parens like "(Call Center entrance)" or
@@ -350,13 +362,22 @@ async function refreshExistingEvent(
 
   const existingEvent = await prisma.event.findUnique({
     where: { id: existingEventId },
-    select: { trustLevel: true, dateUtc: true, timezone: true, status: true },
+    select: {
+      trustLevel: true,
+      dateUtc: true,
+      timezone: true,
+      status: true,
+      adminCancelledAt: true,
+    },
   });
   // Auto-restore cancelled events when source still returns them. Runs even
   // when we can't compose a dateUtc (scraped row has no startTime) — otherwise
   // processed=true duplicates for rows without startTime stay CANCELLED forever
   // because upsertCanonicalEvent's restore path is unreachable here. (#874)
-  const shouldRestore = existingEvent?.status === "CANCELLED";
+  // Admin-locked events are exempt from auto-restore: an admin explicitly
+  // cancelled the event and the lock survives any source re-emission.
+  const shouldRestore =
+    existingEvent?.status === "CANCELLED" && !isAdminLocked(existingEvent);
   const isHigherOrEqualTrust = !existingEvent || ctx.trustLevel >= existingEvent.trustLevel;
   const isAlreadyCurrent =
     !!composedUtc &&
@@ -986,8 +1007,11 @@ async function upsertCanonicalEvent(
   if (existingEvent) {
     targetEventId = existingEvent.id;
 
-    // Auto-restore: if any source actively returns this event, it's not stale
-    const shouldRestore = existingEvent.status === "CANCELLED";
+    // Auto-restore: if any source actively returns this event, it's not stale.
+    // Admin-locked events are exempt — an admin explicitly cancelled the event
+    // and the lock survives any source re-emission.
+    const shouldRestore =
+      existingEvent.status === "CANCELLED" && !isAdminLocked(existingEvent);
     if (shouldRestore && ctx.trustLevel < existingEvent.trustLevel) {
       // Lower-trust source can't update fields, but can still restore status
       await prisma.event.update({

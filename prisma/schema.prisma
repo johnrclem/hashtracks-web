@@ -341,6 +341,10 @@ model Event {
   isSeriesParent    Boolean     @default(false)
   parentEventId     String?
   status            EventStatus @default(CONFIRMED)
+  adminCancelledAt        DateTime? // null = no admin override; non-null = locked
+  adminCancelledBy        String?   // Clerk userId of admin who set the override
+  adminCancellationReason String?   // free-text reason; validated 3–500 chars at action layer
+  adminAuditLog           Json?     // append-only history of cancel/uncancel transitions
   isManualEntry     Boolean     @default(false)
   submittedByUserId String?
   submittedBy       User?       @relation("SubmittedEvents", fields: [submittedByUserId], references: [id])
@@ -977,7 +981,7 @@ model AuditIssue {
   // fingerprint regardless of which event sample surfaced the finding —
   // so cross-stream coalescing works.
   fingerprint            String? // sha256 hex
-  affectedEventIds       String[] // event IDs sampled into this issue
+  affectedEventIds       String[] @default([]) // event IDs sampled into this issue (matches prod default)
   recurrenceCount        Int               @default(0) // bumps each time the same fingerprint fires
   escalatedAt            DateTime? // set once when recurrenceCount crosses threshold
   escalatedToIssueNumber Int? // GitHub issue number of the meta-escalation issue

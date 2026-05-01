@@ -94,3 +94,35 @@ describe("buildFieldChanges", () => {
     });
   });
 });
+
+describe("appendAuditLog with cancel/uncancel actions (admin Event override)", () => {
+  it("appends a cancel entry to a null log", () => {
+    const entry: AuditLogEntry = {
+      action: "cancel",
+      timestamp: "2026-05-01T10:00:00.000Z",
+      userId: "user_admin",
+      changes: { status: { old: "CONFIRMED", new: "CANCELLED" } },
+      details: { reason: "City bridge run" },
+    };
+    const result = appendAuditLog(null, entry);
+    expect(result).toEqual([entry]);
+  });
+
+  it("appends an uncancel entry to an existing log", () => {
+    const cancelEntry: AuditLogEntry = {
+      action: "cancel",
+      timestamp: "2026-05-01T10:00:00.000Z",
+      userId: "user_admin",
+      changes: { status: { old: "CONFIRMED", new: "CANCELLED" } },
+      details: { reason: "City bridge run" },
+    };
+    const uncancelEntry: AuditLogEntry = {
+      action: "uncancel",
+      timestamp: "2026-05-02T11:00:00.000Z",
+      userId: "user_admin",
+      changes: { status: { old: "CANCELLED", new: "CONFIRMED" } },
+    };
+    const result = appendAuditLog([cancelEntry] as never, uncancelEntry);
+    expect(result).toEqual([cancelEntry, uncancelEntry]);
+  });
+});

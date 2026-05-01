@@ -4,7 +4,7 @@
 import { useState, useEffect, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowUp, ArrowDown } from "lucide-react";
+import { ArrowUp, ArrowDown, Lock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -44,7 +44,9 @@ import {
   deleteSelectedEvents,
   bulkDeleteEvents,
   previewBulkDelete,
+  uncancelEvent,
 } from "@/app/admin/events/actions";
+import { CancellationOverrideDialog } from "./CancellationOverrideDialog";
 
 interface EventData {
   id: string;
@@ -56,6 +58,13 @@ interface EventData {
   runNumber: number | null;
   startTime: string | null;
   status: string;
+  /** ISO 8601 timestamp; null when not admin-cancelled. */
+  adminCancelledAt: string | null;
+  /** Clerk userId of the admin who set the override (matches User.clerkId; not the local User.id). */
+  adminCancelledBy: string | null;
+  adminCancellationReason: string | null;
+  /** Length of the append-only audit log; 0 when no admin override has ever been set. */
+  adminAuditLogCount: number;
   sources: string[];
   rawEventCount: number;
   attendanceCount: number;
@@ -117,6 +126,53 @@ export function buildSortParams(
   return params.toString();
 }
 
+/**
+ * Per-row cancel/uncancel/lock buttons. Three cases:
+ *   - admin-locked (adminCancelledAt set) → 'Un-cancel'
+ *   - reconciler-cancelled (status=CANCELLED, no admin lock) → 'Un-cancel' + 'Lock…' (elevate without public flicker)
+ *   - default (CONFIRMED or other) → 'Cancel…'
+ *
+ * Extracted from the row-render JSX so SonarCloud's "deeply nested ternary"
+ * rule (S3358) doesn't fire on the 3-branch button cluster.
+ */
+interface CancelToggleActionsProps {
+  readonly event: Pick<EventData, "status" | "adminCancelledAt">;
+  readonly isPending: boolean;
+  readonly onCancel: () => void;
+  readonly onUncancel: () => void;
+}
+
+function CancelToggleActions({ event, isPending, onCancel, onUncancel }: CancelToggleActionsProps) {
+  const buttonClass = "h-7 text-xs";
+  if (event.adminCancelledAt) {
+    return (
+      <Button variant="ghost" size="sm" className={buttonClass} disabled={isPending} onClick={onUncancel}>
+        Un-cancel
+      </Button>
+    );
+  }
+  if (event.status === "CANCELLED") {
+    // Reconciler-cancelled (no admin lock yet). Offer both un-cancel
+    // (restore to CONFIRMED) and elevate-to-admin-lock (attach a reason
+    // without the public flicker of un-cancel-then-recancel).
+    return (
+      <>
+        <Button variant="ghost" size="sm" className={buttonClass} disabled={isPending} onClick={onUncancel}>
+          Un-cancel
+        </Button>
+        <Button variant="ghost" size="sm" className={buttonClass} disabled={isPending} onClick={onCancel}>
+          Lock…
+        </Button>
+      </>
+    );
+  }
+  return (
+    <Button variant="ghost" size="sm" className={buttonClass} disabled={isPending} onClick={onCancel}>
+      Cancel…
+    </Button>
+  );
+}
+
 /** Admin event table with filtering, sorting, pagination, and bulk delete. */
 export function EventTable({
   events,
@@ -140,6 +196,7 @@ export function EventTable({
     totalAttendances: number;
     sampleEvents: { id: string; date: string; kennelName: string; title: string | null; attendanceCount: number }[];
   } | null>(null);
+  const [cancelDialogEvent, setCancelDialogEvent] = useState<EventData | null>(null);
 
   // Clear selection when URL params change (page navigation, filter change)
   useEffect(() => {
@@ -207,6 +264,18 @@ export function EventTable({
           `Deleted event: ${result.kennelName} ${formatDate(result.date)}`,
         );
       }
+      router.refresh();
+    });
+  }
+
+  function handleUncancel(event: EventData) {
+    startTransition(async () => {
+      const result = await uncancelEvent(event.id);
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success(`Restored ${result.kennelName} — ${formatDate(result.date)}`);
       router.refresh();
     });
   }
@@ -459,16 +528,58 @@ export function EventTable({
                   <TableCell className="hidden sm:table-cell text-xs text-right w-16">
                     {event.attendanceCount > 0 ? event.attendanceCount : "—"}
                   </TableCell>
-                  <TableCell onClick={(e) => e.stopPropagation()}>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-xs text-destructive hover:text-destructive"
-                      disabled={isPending}
-                      onClick={() => handleDelete(event)}
-                    >
-                      Delete
-                    </Button>
+                  <TableCell
+                    onClick={(e) => e.stopPropagation()}
+                    className="flex items-center justify-end gap-1"
+                  >
+                    {event.adminCancelledAt && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span
+                              aria-label="Admin-cancelled"
+                              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground"
+                            >
+                              <Lock className="h-3.5 w-3.5" />
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="left" className="max-w-xs">
+                            <div className="space-y-1 text-xs">
+                              <p>
+                                <span className="font-medium">Cancelled</span>
+                                {event.adminCancelledBy && ` by ${event.adminCancelledBy}`}
+                                {" on "}
+                                {new Date(event.adminCancelledAt).toLocaleDateString()}
+                              </p>
+                              {event.adminCancellationReason && (
+                                <p className="italic">
+                                  &ldquo;{event.adminCancellationReason}&rdquo;
+                                </p>
+                              )}
+                              {event.adminAuditLogCount > 1 && (
+                                <p className="text-muted-foreground">
+                                  + {event.adminAuditLogCount - 1} prior cancel/uncancel
+                                </p>
+                              )}
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                      <CancelToggleActions
+                        event={event}
+                        isPending={isPending}
+                        onCancel={() => setCancelDialogEvent(event)}
+                        onUncancel={() => handleUncancel(event)}
+                      />
+
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs text-destructive hover:text-destructive"
+                        disabled={isPending}
+                        onClick={() => handleDelete(event)}
+                      >
+                        Delete
+                      </Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -653,6 +764,23 @@ export function EventTable({
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <CancellationOverrideDialog
+          event={
+            cancelDialogEvent
+              ? {
+                  id: cancelDialogEvent.id,
+                  title: cancelDialogEvent.title,
+                  date: cancelDialogEvent.date,
+                  kennelShortName: cancelDialogEvent.kennelName,
+                }
+              : null
+          }
+          open={cancelDialogEvent !== null}
+          onOpenChange={(next) => {
+            if (!next) setCancelDialogEvent(null);
+          }}
+        />
       </div>
     </TooltipProvider>
   );

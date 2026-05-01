@@ -8,6 +8,12 @@ vi.mock("@/app/admin/events/actions", () => ({
   deleteSelectedEvents: vi.fn(),
   bulkDeleteEvents: vi.fn(),
   previewBulkDelete: vi.fn(),
+  uncancelEvent: vi.fn(),
+  adminCancelEvent: vi.fn(),
+}));
+vi.mock("@/app/admin/events/constants", () => ({
+  CANCELLATION_REASON_MIN: 3,
+  CANCELLATION_REASON_MAX: 500,
 }));
 
 import { buildFilterParams, buildSortParams, formatDate } from "./EventTable";
