@@ -306,12 +306,19 @@ export interface DeepDiveCandidate {
   sources: DeepDiveSource[];
 }
 
-/** Default page size for the deep-dive queue display. Centralized so
- *  `getDeepDiveQueue` and the snapshot-bound token endpoints all
- *  capture the same window — drift would let a token mint against a
- *  larger queue than the dashboard shows, weakening the snapshot
- *  binding. */
-export const DEEP_DIVE_QUEUE_DEFAULT_LIMIT = 20;
+/**
+ * Default page size for the deep-dive queue display. Centralized so
+ * `getDeepDiveQueue` and the snapshot-bound token endpoints all
+ * capture the same window — drift would let a token mint against a
+ * larger queue than the dashboard shows, weakening the snapshot
+ * binding.
+ *
+ * NOT exported: Next.js 16's `"use server"` directive rejects modules
+ * that export anything other than async functions. Callers that need
+ * the constant should import from a non-server module; today, all
+ * usage is internal to this file.
+ */
+const DEEP_DIVE_QUEUE_DEFAULT_LIMIT = 20;
 
 /**
  * Lightweight queue snapshot — just the kennelCodes in the same
