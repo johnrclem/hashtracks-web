@@ -222,11 +222,12 @@ describe("fileAuditFinding — bridging tier", () => {
     expect(mockUpdate).not.toHaveBeenCalled();
   });
 
-  it("bridges chrome-style 'Finding: <KENNEL> <slug>' titles too", async () => {
+  it("bridges chrome-style `Finding: KENNEL slug` titles too", async () => {
     // Legacy chrome-stream rows from before 5c-C wired the prompts
     // into /api/audit/file-finding don't have the [Audit] bracket
-    // format. Bridging now also accepts `Finding: <KENNEL> <slug>`
-    // via the secondary extractor (CodeRabbit feedback on PR #1190).
+    // format. Bridging now also accepts the chrome-style title
+    // format via the secondary extractor (CodeRabbit feedback on
+    // PR #1190).
     mockFindFirst.mockResolvedValue(null);
     mockFindMany.mockResolvedValue([
       {

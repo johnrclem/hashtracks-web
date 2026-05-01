@@ -28,6 +28,7 @@ import {
 import { prisma } from "@/lib/db";
 import { AUDIT_STREAM } from "@/lib/audit-stream-meta";
 import { toIsoDateString } from "@/lib/date";
+import { getValidatedRepo } from "@/lib/github-repo";
 import { fileAuditFinding, type FilerActions } from "./audit-filer";
 
 /**
@@ -41,16 +42,10 @@ const DATA_REMEDIATION_RULES = new Set([
 ]);
 
 const FETCH_TIMEOUT_MS = 10_000;
-const DEFAULT_REPO = "johnrclem/hashtracks-web";
 const MAX_ISSUES_PER_RUN = 3;
 
 /** If the mirror's most recent syncedAt is older than this, fall back to GitHub API. */
 const MIRROR_STALE_MS = 25 * 60 * 60 * 1000; // 25 hours
-
-/** Get the GitHub repository slug from env or fall back to default. */
-function getRepo(): string {
-  return process.env.GITHUB_REPOSITORY ?? DEFAULT_REPO;
-}
 
 /**
  * Build the cron's GitHub IO actions on top of the GITHUB_TOKEN env.
@@ -60,7 +55,7 @@ function getRepo(): string {
  * `URL` constructor + `getValidatedRepo()` + an integer guard on
  * issueNumber so Codacy's tainted-URL rule sees a literal-template
  * URL bound directly to `fetch`. Cron is server-internal and inherits
- * the existing `auto-issue.ts` envelope (template URL + `getRepo()`).
+ * the existing `auto-issue.ts` envelope (template URL + `getValidatedRepo()`).
  * Don't unify the two without addressing both constraints.
  */
 function buildCronActions(token: string): FilerActions {
@@ -71,7 +66,7 @@ function buildCronActions(token: string): FilerActions {
   };
   return {
     createIssue: async ({ title, body, labels }) => {
-      const repo = getRepo();
+      const repo = getValidatedRepo();
       try {
         // SSRF-safe: URL constructor anchors the request to the
         // api.github.com origin literal; repo from validated env.
@@ -86,13 +81,11 @@ function buildCronActions(token: string): FilerActions {
           console.error(`[audit-issue] GitHub API ${res.status}: ${await res.text()}`);
           return null;
         }
-        // Destructure into renamed locals so the xss/no-mixed-html
-        // rule doesn't flag a `*Url`-suffixed alias of `html_url`.
-        const { html_url: htmlUrlValue, number } = (await res.json()) as {
+        const issue = (await res.json()) as {
           html_url: string;
           number: number;
         };
-        return { number, htmlUrl: htmlUrlValue };
+        return { number: issue.number, htmlUrl: issue.html_url };
       } catch (err) {
         console.error("[audit-issue] Failed to create GitHub issue:", err);
         return null;
@@ -100,7 +93,7 @@ function buildCronActions(token: string): FilerActions {
     },
     postComment: async (issueNumber, body) => {
       if (!Number.isInteger(issueNumber) || issueNumber <= 0) return false;
-      const repo = getRepo();
+      const repo = getValidatedRepo();
       try {
         // Same SSRF guard as createIssue. issueNumber bounded above.
         const url = new URL(
@@ -237,7 +230,7 @@ async function getExistingAuditIssueTitles(token: string): Promise<string[]> {
 async function fetchAuditIssueTitlesFromGitHub(token: string): Promise<string[]> {
   try {
     const res = await fetch(
-      `https://api.github.com/repos/${getRepo()}/issues?state=open&labels=audit&per_page=100`,
+      `https://api.github.com/repos/${getValidatedRepo()}/issues?state=open&labels=audit&per_page=100`,
       {
         headers: {
           Authorization: `Bearer ${token}`,

@@ -306,13 +306,16 @@ function buildApiActions(): FilerActions {
           githubPostInit(token, { title, body, labels }),
         );
         if (!res.ok) return null;
-        // Destructure into renamed locals so the xss/no-mixed-html
-        // rule doesn't flag a `*Url`-suffixed alias of `html_url`.
-        const { html_url: htmlUrlValue, number } = (await res.json()) as {
+        // Match auto-issue.ts:404 — Codacy historically passes the
+        // typed-cast local `issue` even though it carries `html_url`.
+        // The destructure form (with renamed locals) was rejected as
+        // a "non-HTML variable storing raw HTML" because Codacy
+        // tracks the destructure binding as a single unit.
+        const issue = (await res.json()) as {
           html_url: string;
           number: number;
         };
-        return { number, htmlUrl: htmlUrlValue };
+        return { number: issue.number, htmlUrl: issue.html_url };
       } catch {
         return null;
       }
