@@ -250,7 +250,7 @@ config: { rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA", ... }
     startTime: "19:00",
     defaultTitle: "NOSE H3 Weekly Run",
     defaultLocation: "North NJ",
-    defaultDescription: "Summer schedule: Thursdays 7pm in North NJ. ...",
+    defaultDescription: "Summer schedule: Thursdays 7pm in North NJ. Check the Facebook group at https://www.facebook.com/groups/NOSEHash for start location.",
   },
   kennelCodes: ["nose-h3"],
 },
@@ -268,13 +268,13 @@ config: { rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA", ... }
     startTime: "19:00",
     defaultTitle: "NOSE H3 Weekly Run",
     defaultLocation: "North NJ",
-    defaultDescription: "Winter schedule: Wednesdays 7pm in North NJ. ...",
+    defaultDescription: "Winter schedule: Wednesdays 7pm in North NJ. Check the Facebook group at https://www.facebook.com/groups/NOSEHash for start location.",
   },
   kennelCodes: ["nose-h3"],
 },
 ```
 
-Note the `url` field on the second source — adding a fragment (`#winter-wed`) keeps the two source URLs distinct so the seed upsert treats them as separate rows. Each source is scraped/scheduled independently; the merge pipeline produces one event per real run because the two `BYMONTH` ranges never produce a date for the same kennel on the same day. A single-source `seasons` schema was considered and rejected — see [`facebook-integration-strategy.md`](facebook-integration-strategy.md) decision log entry 2026-04-30 for the full rationale.
+**The two seasonal sources MUST have distinct `name` values.** The seed upsert identity is `(name, type)` — see `@@unique([name, type])` in `prisma/schema.prisma:221` and the lookup at `prisma/seed.ts:364`. URL is *not* part of the identity key, so two seed entries sharing a `name` (even with different URLs or URL fragments) collapse to a single row on seed: the second entry updates the first rather than creating a second source, dropping one season's RRULE. The only operational signal is the normal `~ Updated ... for <name>` log line from `seed.ts:401-406`, so the failure is easy to miss in a long seed run. The `#winter-wed` fragment on the second source's URL is for human readability only — the actual deduplication guarantee comes from the distinct names ("Summer Thursdays" vs. "Winter Wednesdays"). Each source is scraped/scheduled independently; the merge pipeline produces one event per real run because the two `BYMONTH` ranges never produce a date for the same kennel on the same day. A single-source `seasons` schema was considered and rejected — see [`facebook-integration-strategy.md`](facebook-integration-strategy.md) decision log entry 2026-04-30 for the full rationale.
 
 **For new HTML scrapers:**
 1. Create `src/adapters/html-scraper/{site-name}.ts` implementing `SourceAdapter`

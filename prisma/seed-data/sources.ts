@@ -3135,9 +3135,12 @@ export const SOURCES = [
     // in feedback_sourceless_kennels memory. Description fields link to their FB
     // page so users can check the actual trail location day-of.
     //
-    // The two records below share the same Facebook page but use distinct URL
-    // fragments (#sunday / #wednesday) so the OR(url+type, name+type) match in
-    // prisma/seed.ts treats them as separate sources rather than overwriting.
+    // The two records below share the same Facebook page but are kept as
+    // separate seed rows by their distinct `name` values — the seed upsert
+    // identity is `(name, type)` per `prisma/schema.prisma:221` and
+    // `prisma/seed.ts:364`. The `#sunday` / `#wednesday` URL fragments are
+    // only for human readability; identical names with different URLs would
+    // collapse to a single row on seed.
     {
       name: "Little Rock H3 Static Schedule (Sunday)",
       url: "https://www.facebook.com/littlerockhashhouseharriers#sunday",
