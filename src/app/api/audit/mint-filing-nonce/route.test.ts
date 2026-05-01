@@ -10,6 +10,7 @@ vi.mock("@/lib/site-url", () => ({
 
 import { getAdminUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { computePayloadHash, type FilingPayload } from "@/lib/audit-nonce";
 import { buildApiPostRequest, type ApiPostInit } from "@/test/audit-request";
 import { POST } from "./route";
 
@@ -96,5 +97,55 @@ describe("POST /api/audit/mint-filing-nonce", () => {
   it("sets Cache-Control: no-store so admin-bound nonces don't get cached", async () => {
     const res = await POST(buildReq());
     expect(res.headers.get("cache-control")).toBe("no-store");
+  });
+
+  describe("canonical-fields shape (chrome prompt path)", () => {
+    // 5c-C added a second request shape so chrome agents don't have
+    // to compute SHA-256 client-side. Server computes the hash from
+    // the canonical fields and persists it the same as the
+    // pre-hashed shape. Same security envelope at consume time.
+    const CANONICAL_BODY = {
+      stream: "CHROME_KENNEL" as const,
+      kennelCode: "nych3",
+      ruleSlug: "hare-url",
+      title: "NYCH3: hare field is a URL",
+      eventIds: ["evt-1", "evt-2"],
+      bodyMarkdown: "## Finding\n\nDetails go here.",
+    };
+
+    it("accepts canonical fields and computes payloadHash server-side", async () => {
+      const res = await POST(buildReq({ body: CANONICAL_BODY }));
+      expect(res.status).toBe(200);
+
+      // The persisted payloadHash must equal what the server-side
+      // helper computes from the same fields, so the file-finding
+      // endpoint's recompute-and-verify works end-to-end.
+      const expected: FilingPayload = {
+        stream: CANONICAL_BODY.stream,
+        kennelCode: CANONICAL_BODY.kennelCode,
+        ruleSlug: CANONICAL_BODY.ruleSlug,
+        title: CANONICAL_BODY.title,
+        eventIds: CANONICAL_BODY.eventIds,
+        bodyMarkdown: CANONICAL_BODY.bodyMarkdown,
+      };
+      const args = mockCreate.mock.calls[0][0] as {
+        data: { payloadHash: string };
+      };
+      expect(args.data.payloadHash).toBe(computePayloadHash(expected));
+    });
+
+    it("rejects canonical-fields requests missing eventIds", async () => {
+      const { eventIds: _eventIds, ...withoutEventIds } = CANONICAL_BODY;
+      const res = await POST(buildReq({ body: withoutEventIds }));
+      expect(res.status).toBe(400);
+      expect(mockCreate).not.toHaveBeenCalled();
+    });
+
+    it("rejects unsupported stream values", async () => {
+      const res = await POST(
+        buildReq({ body: { ...CANONICAL_BODY, stream: "AUTOMATED" } }),
+      );
+      expect(res.status).toBe(400);
+    });
   });
 });

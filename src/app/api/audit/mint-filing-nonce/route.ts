@@ -22,27 +22,87 @@ import {
   generateNonce,
   hashNonce,
   computeNonceExpiresAt,
+  computePayloadHash,
+  type FilingPayload,
 } from "@/lib/audit-nonce";
 
-interface MintRequest {
+/**
+ * Pre-hashed shape: caller computed `payloadHash` client-side. Used
+ * by tooling that wants an explicit binding of the agent's intent.
+ */
+interface PreHashedMintRequest {
   kennelCode: string;
   ruleSlug: string;
-  /** sha256 of the canonical filing payload — see
-   *  `computePayloadHash` in audit-nonce.ts. The agent computes
-   *  this client-side, the consume endpoint recomputes from the
-   *  posted body and rejects on mismatch. */
   payloadHash: string;
 }
 
-function isMintRequest(value: unknown): value is MintRequest {
-  if (typeof value !== "object" || value === null) return false;
-  const v = value as Record<string, unknown>;
+/**
+ * Canonical-fields shape: caller posts the full payload and the
+ * server computes the hash. This is the path used by the chrome
+ * prompts (5c-C) — agents don't need to call `crypto.subtle`.
+ *
+ * Same security envelope as the pre-hashed variant: the server's
+ * `computePayloadHash` produces the same value the consume
+ * endpoint will recompute from its request body, so a leaked nonce
+ * still only files the exact (kennel, rule, title, body) it was
+ * minted for.
+ */
+interface CanonicalFieldsMintRequest {
+  stream: "CHROME_KENNEL" | "CHROME_EVENT";
+  kennelCode: string;
+  ruleSlug: string;
+  title: string;
+  eventIds: string[];
+  bodyMarkdown: string;
+}
+
+type MintRequest = PreHashedMintRequest | CanonicalFieldsMintRequest;
+
+function isPreHashedMintRequest(v: Record<string, unknown>): v is PreHashedMintRequest & Record<string, unknown> {
   return (
     typeof v.kennelCode === "string" &&
     typeof v.ruleSlug === "string" &&
     typeof v.payloadHash === "string" &&
     /^[0-9a-f]{64}$/.test(v.payloadHash)
   );
+}
+
+function isCanonicalFieldsMintRequest(
+  v: Record<string, unknown>,
+): v is CanonicalFieldsMintRequest & Record<string, unknown> {
+  return (
+    (v.stream === "CHROME_KENNEL" || v.stream === "CHROME_EVENT") &&
+    typeof v.kennelCode === "string" &&
+    typeof v.ruleSlug === "string" &&
+    typeof v.title === "string" &&
+    Array.isArray(v.eventIds) &&
+    v.eventIds.every((id) => typeof id === "string") &&
+    typeof v.bodyMarkdown === "string"
+  );
+}
+
+function isMintRequest(value: unknown): value is MintRequest {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return isPreHashedMintRequest(v) || isCanonicalFieldsMintRequest(v);
+}
+
+/**
+ * Resolve the payload hash from either the pre-hashed shape or the
+ * canonical-fields shape. Both end up persisted to the same nonce
+ * row for verification at consume time.
+ */
+function resolvePayloadHash(req: MintRequest): string {
+  if ("payloadHash" in req) return req.payloadHash;
+  const payload: FilingPayload = {
+    stream: req.stream,
+    kennelCode: req.kennelCode,
+    ruleSlug: req.ruleSlug,
+    title: req.title,
+    eventIds: req.eventIds,
+    bodyMarkdown: req.bodyMarkdown,
+  };
+  return computePayloadHash(payload);
 }
 
 export async function POST(req: Request): Promise<NextResponse> {
@@ -52,7 +112,10 @@ export async function POST(req: Request): Promise<NextResponse> {
 
   if (!isMintRequest(body)) {
     return NextResponse.json(
-      { error: "Missing or malformed kennelCode / ruleSlug / payloadHash" },
+      {
+        error:
+          "Body must be either {kennelCode, ruleSlug, payloadHash} or {stream, kennelCode, ruleSlug, title, eventIds, bodyMarkdown}",
+      },
       { status: 400 },
     );
   }
@@ -64,7 +127,7 @@ export async function POST(req: Request): Promise<NextResponse> {
       adminUserId: admin.id,
       kennelCode: body.kennelCode,
       ruleSlug: body.ruleSlug,
-      payloadHash: body.payloadHash,
+      payloadHash: resolvePayloadHash(body),
       expiresAt: computeNonceExpiresAt(),
     },
   });

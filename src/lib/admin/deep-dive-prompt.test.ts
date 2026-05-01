@@ -39,10 +39,11 @@ const CONTAINS_CASES: readonly ContainsCase[] = [
   ["every source with type and URL", ["hashnyc.com", "HTML_SCRAPER", "https://hashnyc.com", "Hash Rego (NYCH3)", "HASHREGO"]],
   // Last-dived display when never run.
   ["'never' for kennels without a prior deep dive", ["Last deep dive:** never"]],
-  // Filing instructions present; labels list is URL-encoded so future kennelCodes with reserved chars don't corrupt the link.
-  ["What-to-check + filing instructions + URL-encoded labels", ["## What to check", "## Filing findings", "audit%2Calert"]],
-  // Stream + kennel labels in the prefilled URL — without these the dashboard's "Findings by stream" panel buckets the issue as UNKNOWN.
-  ["stream + kennel labels in the prefilled new-issue URL", ["audit:chrome-kennel", "kennel:nych3"]],
+  // Filing instructions present; new flow uses the audit API endpoints (5c-C).
+  ["What-to-check + filing instructions + audit API references", ["## What to check", "## Filing findings", "/api/audit/mint-filing-nonce", "/api/audit/file-finding"]],
+  // Stream literal + kennel slug appear in the JSON body shape so the agent
+  // can copy the example payload directly without guessing field shapes.
+  ["stream + kennel literals in the API payload example", ["CHROME_KENNEL", "\"nych3\""]],
   // Kennel-page completeness section.
   ["kennel-page improvements (founded year, social, hash cash)", ["Kennel page completeness", "Founded year", "Facebook", "Hash Cash"]],
   // Verify-current-state pre-step: guards against false-positive "missing data" findings where the auditor inspected only the source.
