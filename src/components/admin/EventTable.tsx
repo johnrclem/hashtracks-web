@@ -518,7 +518,10 @@ export function EventTable({
                           </TooltipContent>
                         </Tooltip>
                       )}
-                      {event.adminCancelledAt ? (
+                      {event.status === "CANCELLED" ? (
+                        // Already cancelled (admin-locked OR reconciler-cancelled)
+                        // — restoring is the only sensible action; admin-lock
+                        // requires un-cancelling first.
                         <Button
                           variant="ghost"
                           size="sm"

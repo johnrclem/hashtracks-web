@@ -3,28 +3,40 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const mockAdmin = { id: "admin_1", clerkId: "clerk_admin", email: "admin@test.com" };
 
 vi.mock("@/lib/auth", () => ({ getAdminUser: vi.fn() }));
-vi.mock("@/lib/db", () => ({
-  prisma: {
-    event: {
-      findUnique: vi.fn(),
-      findMany: vi.fn(),
-      count: vi.fn(),
-      delete: vi.fn(),
-      deleteMany: vi.fn().mockImplementation((args: { where: { id: { in: string[] } } }) =>
-        Promise.resolve({ count: args?.where?.id?.in?.length ?? 0 })
-      ),
-      update: vi.fn(),
-      updateMany: vi.fn(),
-    },
+vi.mock("@/lib/db", () => {
+  const eventMock = {
+    findUnique: vi.fn(),
+    findMany: vi.fn(),
+    count: vi.fn(),
+    delete: vi.fn(),
+    deleteMany: vi.fn().mockImplementation((args: { where: { id: { in: string[] } } }) =>
+      Promise.resolve({ count: args?.where?.id?.in?.length ?? 0 })
+    ),
+    update: vi.fn(),
+    updateMany: vi.fn(),
+  };
+  const prismaMock = {
+    event: eventMock,
     rawEvent: { updateMany: vi.fn() },
     eventHare: { deleteMany: vi.fn() },
     attendance: { deleteMany: vi.fn() },
     kennelAttendance: { deleteMany: vi.fn() },
-    $transaction: vi.fn((arr: Promise<unknown>[]) =>
-      Promise.all(arr).then((results) => results.map((r) => r ?? { count: 0 }))
-    ),
-  },
-}));
+    $executeRaw: vi.fn().mockResolvedValue(1),
+    // $transaction supports both forms:
+    //   - array: deleteEventsCascade pattern
+    //   - callback (interactive tx): adminCancelEvent / uncancelEvent pattern
+    $transaction: vi.fn(async (
+      arg: Promise<unknown>[] | ((tx: typeof prismaMock) => Promise<unknown>),
+    ) => {
+      if (typeof arg === "function") {
+        return arg(prismaMock);
+      }
+      const results = await Promise.all(arg);
+      return results.map((r) => r ?? { count: 0 });
+    }),
+  };
+  return { prisma: prismaMock };
+});
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
   revalidateTag: vi.fn(),
@@ -317,10 +329,22 @@ describe("adminCancelEvent", () => {
   it("rejects already admin-cancelled event", async () => {
     mockEventFindUnique.mockResolvedValueOnce({
       ...eventBase,
+      status: "CANCELLED",
       adminCancelledAt: new Date("2026-05-01T10:00:00Z"),
     } as never);
     expect(await adminCancelEvent("evt_1", "different reason")).toEqual({
       error: "Event already admin-cancelled — un-cancel first to change reason",
+    });
+  });
+
+  it("rejects reconciler-cancelled event (status=CANCELLED but no admin lock)", async () => {
+    mockEventFindUnique.mockResolvedValueOnce({
+      ...eventBase,
+      status: "CANCELLED",
+      adminCancelledAt: null,
+    } as never);
+    expect(await adminCancelEvent("evt_1", "valid reason")).toEqual({
+      error: "Event is already cancelled — un-cancel first to admin-lock it",
     });
   });
 
@@ -344,7 +368,7 @@ describe("adminCancelEvent", () => {
     };
     expect(updateArg.where).toEqual({ id: "evt_1" });
     expect(updateArg.data.status).toBe("CANCELLED");
-    expect(updateArg.data.adminCancelledBy).toBe("admin_1");
+    expect(updateArg.data.adminCancelledBy).toBe("clerk_admin");
     expect(updateArg.data.adminCancellationReason).toBe("City bridge run"); // trimmed
     expect(updateArg.data.adminCancelledAt).toBeInstanceOf(Date);
     expect(Array.isArray(updateArg.data.adminAuditLog)).toBe(true);
@@ -356,7 +380,7 @@ describe("adminCancelEvent", () => {
     }>;
     expect(log).toHaveLength(1);
     expect(log[0].action).toBe("cancel");
-    expect(log[0].userId).toBe("admin_1");
+    expect(log[0].userId).toBe("clerk_admin");
     expect(log[0].changes?.status).toEqual({ old: "CONFIRMED", new: "CANCELLED" });
     expect(log[0].details?.reason).toBe("City bridge run");
   });

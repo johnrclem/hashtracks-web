@@ -238,10 +238,24 @@ export async function deleteSelectedEvents(eventIds: string[]): Promise<ActionRe
   return { success: true, deletedCount };
 }
 
+type TxOk = {
+  ok: true;
+  kennelName: string;
+  kennelSlug: string;
+  date: string;
+  wasAdminCancelled?: boolean;
+};
+type TxErr = { ok: false; error: string };
+type TxResult = TxOk | TxErr;
+
 /**
  * Restore a CANCELLED event back to CONFIRMED. Works for both reconciler-set
  * and admin-set CANCELLED. Clears any admin-override lock fields and, if the
  * event was admin-cancelled, appends an "uncancel" entry to the audit log.
+ *
+ * Atomic: read + check + append + update happen inside a single transaction
+ * with `SELECT ... FOR UPDATE` so a concurrent admin can't lose the audit
+ * entry via read-modify-write race.
  *
  * Spec: docs/superpowers/specs/2026-05-01-cancellation-override-design.md
  */
@@ -249,51 +263,68 @@ export async function uncancelEvent(eventId: string): Promise<ActionResult<{ ken
   const admin = await getAdminUser();
   if (!admin) return { error: "Not authorized" };
 
-  const event = await prisma.event.findUnique({
-    where: { id: eventId },
-    include: { kennel: { select: KENNEL_SELECT_FOR_OVERRIDE } },
-  });
-  if (!event) return { error: "Event not found" };
-  if (event.status !== "CANCELLED") return { error: "Event is not cancelled" };
+  const result: TxResult = await prisma.$transaction(async (tx) => {
+    // Row-level lock prevents two concurrent uncancel/cancel actions from
+    // racing on the audit-log append. The lock is released on commit/rollback.
+    await tx.$executeRaw`SELECT id FROM "Event" WHERE id = ${eventId} FOR UPDATE`;
 
-  const wasAdminCancelled = event.adminCancelledAt !== null;
-  const auditEntry: AuditLogEntry | null = wasAdminCancelled
-    ? {
-        action: "uncancel",
-        timestamp: new Date().toISOString(),
-        userId: admin.id,
-        changes: { status: { old: "CANCELLED", new: "CONFIRMED" } },
-      }
-    : null;
+    const event = await tx.event.findUnique({
+      where: { id: eventId },
+      include: { kennel: { select: KENNEL_SELECT_FOR_OVERRIDE } },
+    });
+    if (!event) return { ok: false, error: "Event not found" };
+    if (event.status !== "CANCELLED") return { ok: false, error: "Event is not cancelled" };
 
-  await prisma.event.update({
-    where: { id: eventId },
-    data: {
-      status: "CONFIRMED",
-      adminCancelledAt: null,
-      adminCancelledBy: null,
-      adminCancellationReason: null,
-      ...(auditEntry !== null
-        ? { adminAuditLog: appendAuditLog(event.adminAuditLog, auditEntry) }
-        : {}),
-    },
+    const wasAdminCancelled = event.adminCancelledAt !== null;
+    const auditEntry: AuditLogEntry | null = wasAdminCancelled
+      ? {
+          action: "uncancel",
+          timestamp: new Date().toISOString(),
+          userId: admin.clerkId,
+          changes: { status: { old: "CANCELLED", new: "CONFIRMED" } },
+        }
+      : null;
+
+    await tx.event.update({
+      where: { id: eventId },
+      data: {
+        status: "CONFIRMED",
+        adminCancelledAt: null,
+        adminCancelledBy: null,
+        adminCancellationReason: null,
+        ...(auditEntry !== null
+          ? { adminAuditLog: appendAuditLog(event.adminAuditLog, auditEntry) }
+          : {}),
+      },
+    });
+
+    return {
+      ok: true,
+      kennelName: event.kennel.shortName,
+      kennelSlug: event.kennel.slug,
+      date: event.date.toISOString(),
+      wasAdminCancelled,
+    };
   });
+
+  if (!result.ok) return { error: result.error };
 
   console.log("[admin-audit] uncancelEvent", JSON.stringify({
     adminId: admin.id,
+    adminClerkId: admin.clerkId,
     action: "uncancel_event",
     eventId,
-    kennelName: event.kennel.shortName,
-    eventDate: event.date.toISOString(),
-    wasAdminCancelled,
+    kennelName: result.kennelName,
+    eventDate: result.date,
+    wasAdminCancelled: result.wasAdminCancelled,
     timestamp: new Date().toISOString(),
   }));
 
-  revalidateAfterCancelToggle(eventId, event.kennel.slug);
+  revalidateAfterCancelToggle(eventId, result.kennelSlug);
   return {
     success: true,
-    kennelName: event.kennel.shortName,
-    date: event.date.toISOString(),
+    kennelName: result.kennelName,
+    date: result.date,
   };
 }
 
@@ -301,6 +332,13 @@ export async function uncancelEvent(eventId: string): Promise<ActionResult<{ ken
  * Admin override: mark an event CANCELLED with a required reason. The override
  * survives all subsequent merge/reconcile passes via the merge pipeline's
  * `isAdminLocked` guard. Un-cancel via `uncancelEvent`.
+ *
+ * Atomic: read + check + append + update happen inside a single transaction
+ * with `SELECT ... FOR UPDATE` so a concurrent admin can't lose the audit
+ * entry via read-modify-write race. Rejects already-CANCELLED rows (whether
+ * reconciler-set or admin-set) — admin-cancellation is for transitioning a
+ * CONFIRMED event to a CANCELLED-with-reason state, not for re-flagging an
+ * existing cancellation.
  *
  * Spec: docs/superpowers/specs/2026-05-01-cancellation-override-design.md
  */
@@ -319,50 +357,73 @@ export async function adminCancelEvent(
     return { error: `Reason must be ${CANCELLATION_REASON_MAX} characters or fewer` };
   }
 
-  const event = await prisma.event.findUnique({
-    where: { id: eventId },
-    include: { kennel: { select: KENNEL_SELECT_FOR_OVERRIDE } },
-  });
-  if (!event) return { error: "Event not found" };
-  if (event.adminCancelledAt) {
-    return { error: "Event already admin-cancelled — un-cancel first to change reason" };
-  }
+  const result: TxResult = await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT id FROM "Event" WHERE id = ${eventId} FOR UPDATE`;
 
-  const auditEntry: AuditLogEntry = {
-    action: "cancel",
-    timestamp: new Date().toISOString(),
-    userId: admin.id,
-    changes: { status: { old: event.status, new: "CANCELLED" } },
-    details: { reason: trimmed },
-  };
+    const event = await tx.event.findUnique({
+      where: { id: eventId },
+      include: { kennel: { select: KENNEL_SELECT_FOR_OVERRIDE } },
+    });
+    if (!event) return { ok: false, error: "Event not found" };
+    if (event.status === "CANCELLED") {
+      // Catches both adminCancelledAt-set rows (re-cancel attempt) and
+      // reconciler-cancelled rows. The latter must be un-cancelled first
+      // before they can be admin-locked, otherwise the audit entry would
+      // record a meaningless CANCELLED → CANCELLED transition.
+      return {
+        ok: false,
+        error: event.adminCancelledAt
+          ? "Event already admin-cancelled — un-cancel first to change reason"
+          : "Event is already cancelled — un-cancel first to admin-lock it",
+      };
+    }
 
-  await prisma.event.update({
-    where: { id: eventId },
-    data: {
-      status: "CANCELLED",
-      adminCancelledAt: new Date(),
-      adminCancelledBy: admin.id,
-      adminCancellationReason: trimmed,
-      adminAuditLog: appendAuditLog(event.adminAuditLog, auditEntry),
-    },
+    const auditEntry: AuditLogEntry = {
+      action: "cancel",
+      timestamp: new Date().toISOString(),
+      userId: admin.clerkId,
+      changes: { status: { old: event.status, new: "CANCELLED" } },
+      details: { reason: trimmed },
+    };
+
+    await tx.event.update({
+      where: { id: eventId },
+      data: {
+        status: "CANCELLED",
+        adminCancelledAt: new Date(),
+        adminCancelledBy: admin.clerkId,
+        adminCancellationReason: trimmed,
+        adminAuditLog: appendAuditLog(event.adminAuditLog, auditEntry),
+      },
+    });
+
+    return {
+      ok: true,
+      kennelName: event.kennel.shortName,
+      kennelSlug: event.kennel.slug,
+      date: event.date.toISOString(),
+    };
   });
+
+  if (!result.ok) return { error: result.error };
 
   console.log("[admin-audit] adminCancelEvent", JSON.stringify({
     adminId: admin.id,
+    adminClerkId: admin.clerkId,
     action: "admin_cancel_event",
     eventId,
-    kennelName: event.kennel.shortName,
-    eventDate: event.date.toISOString(),
+    kennelName: result.kennelName,
+    eventDate: result.date,
     reason: trimmed,
     timestamp: new Date().toISOString(),
   }));
 
-  revalidateAfterCancelToggle(eventId, event.kennel.slug);
+  revalidateAfterCancelToggle(eventId, result.kennelSlug);
 
   return {
     success: true,
-    kennelName: event.kennel.shortName,
-    date: event.date.toISOString(),
+    kennelName: result.kennelName,
+    date: result.date,
   };
 }
 
