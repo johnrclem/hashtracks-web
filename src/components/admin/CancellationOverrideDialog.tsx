@@ -15,14 +15,14 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { adminCancelEvent } from "@/app/admin/events/actions";
+import { CANCELLATION_REASON_MAX } from "@/app/admin/events/constants";
 import {
-  CANCELLATION_REASON_MIN,
-  CANCELLATION_REASON_MAX,
-} from "@/app/admin/events/constants";
+  counterClassName,
+  deriveReasonState,
+  reasonHelperText,
+} from "./CancellationOverrideDialog.utils";
 import { formatDateLong } from "@/lib/format";
 import { toast } from "sonner";
-
-const REASON_WARN_AT = CANCELLATION_REASON_MAX - 50;
 
 interface CancellationOverrideDialogProps {
   /** The event being cancelled. */
@@ -74,21 +74,10 @@ export function CancellationOverrideDialog({
     }
   }, [open, event?.id]);
 
-  const trimmed = reason.trim();
-  const length = trimmed.length;
-  const tooShort = length < CANCELLATION_REASON_MIN;
-  const tooLong = length > CANCELLATION_REASON_MAX;
-  const isValid = !tooShort && !tooLong;
-  const showShortError = touched && tooShort;
-  const nearLimit = length >= REASON_WARN_AT && length <= CANCELLATION_REASON_MAX;
-
-  const counterClassName = tooLong
-    ? "text-destructive"
-    : nearLimit
-      ? "text-amber-600 dark:text-amber-500"
-      : showShortError
-        ? "text-destructive"
-        : "text-muted-foreground";
+  const reasonState = deriveReasonState(reason, touched);
+  const { trimmed, length, tooLong, isValid, showShortError } = reasonState;
+  const counterClass = counterClassName(reasonState);
+  const helperText = reasonHelperText(reasonState);
 
   const handleConfirm = () => {
     if (!event || !isValid) return;
@@ -154,7 +143,7 @@ export function CancellationOverrideDialog({
             <Label htmlFor="cancellation-reason">
               Reason <span className="text-destructive">*</span>
             </Label>
-            <span className={`text-xs tabular-nums ${counterClassName}`}>
+            <span className={`text-xs tabular-nums ${counterClass}`}>
               {length} / {CANCELLATION_REASON_MAX}
             </span>
           </div>
@@ -178,11 +167,7 @@ export function CancellationOverrideDialog({
             id="cancellation-reason-help"
             className="text-xs text-muted-foreground"
           >
-            {showShortError
-              ? `Minimum ${CANCELLATION_REASON_MIN} characters.`
-              : tooLong
-                ? `Maximum ${CANCELLATION_REASON_MAX} characters.`
-                : "Captured in the audit log; visible to admins on the row hover."}
+            {helperText}
           </p>
         </div>
 

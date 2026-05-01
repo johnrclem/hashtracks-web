@@ -339,12 +339,23 @@ export async function uncancelEvent(eventId: string): Promise<ActionResult<{ ken
  * survives all subsequent merge/reconcile passes via the merge pipeline's
  * `isAdminLocked` guard. Un-cancel via `uncancelEvent`.
  *
+ * Accepts:
+ *  - CONFIRMED rows (the typical case): transitions status to CANCELLED with
+ *    the lock + reason fields and a `cancel` audit entry.
+ *  - Reconciler-cancelled rows (status=CANCELLED, adminCancelledAt=null):
+ *    direct elevation path — attaches the lock + reason in place without a
+ *    status flip. Avoids the public-visibility flicker of un-cancel-then-
+ *    recancel. The audit entry honestly records CANCELLED → CANCELLED for
+ *    the status; the meaningful change is the lock + reason fields.
+ *
+ * Rejects:
+ *  - Already admin-locked rows (adminCancelledAt set): forces un-cancel-then-
+ *    recancel for reason changes, which preserves the explicit audit-log
+ *    shape and prevents accidental reason overwrite.
+ *
  * Atomic: read + check + append + update happen inside a single transaction
  * with `SELECT ... FOR UPDATE` so a concurrent admin can't lose the audit
- * entry via read-modify-write race. Rejects already-CANCELLED rows (whether
- * reconciler-set or admin-set) — admin-cancellation is for transitioning a
- * CONFIRMED event to a CANCELLED-with-reason state, not for re-flagging an
- * existing cancellation.
+ * entry via read-modify-write race.
  *
  * Spec: docs/superpowers/specs/2026-05-01-cancellation-override-design.md
  */

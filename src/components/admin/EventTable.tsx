@@ -61,7 +61,7 @@ interface EventData {
   status: string;
   /** ISO 8601 timestamp; null when not admin-cancelled. */
   adminCancelledAt: string | null;
-  /** Local DB User.id of the admin who set the override. */
+  /** Clerk userId of the admin who set the override (matches User.clerkId; not the local User.id). */
   adminCancelledBy: string | null;
   adminCancellationReason: string | null;
   /** Length of the append-only audit log; 0 when no admin override has ever been set. */
