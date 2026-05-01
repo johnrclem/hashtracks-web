@@ -48,26 +48,70 @@ export interface FilingInstructionsInput {
   kennelLabel: string;
 }
 
+/**
+ * Map the prompt's stream slug ("chrome-kennel" / "chrome-event") to
+ * the API endpoint's enum literal ("CHROME_KENNEL" / "CHROME_EVENT").
+ */
+function streamLiteralFor(stream: FilingInstructionsInput["stream"]): string {
+  return stream === "chrome-kennel" ? "CHROME_KENNEL" : "CHROME_EVENT";
+}
+
 export function renderFilingInstructions(
   input: FilingInstructionsInput,
 ): string {
-  // URL-encode the labels list for safety. Today's kennelCodes are slug-shaped
-  // (`[a-z0-9-]`), but encoding defensively means a future kennelCode containing
-  // `+`, space, or `&` won't silently corrupt the prefilled-issue link. The
-  // hareline `{KENNEL_CODE}` placeholder becomes `%7BKENNEL_CODE%7D` — uglier
-  // but the prompt's surrounding text still tells the agent how to substitute.
-  const labels = encodeURIComponent(
-    `audit,alert,audit:${input.stream},kennel:${input.kennelLabel}`,
-  );
-  const issueUrl = `https://github.com/${HASHTRACKS_REPO}/issues/new?labels=${labels}&title={URL-ENCODED TITLE}&body={URL-ENCODED BODY}`;
+  const apiStream = streamLiteralFor(input.stream);
+  // Always JSON-quote the kennelLabel value — even the hareline
+  // placeholder. Codex 5c-C pass-1 finding: an unquoted
+  // `{KENNEL_CODE}` produces invalid JSON in the prompt example,
+  // which confuses the agent at copy time. With quotes the example
+  // is valid JSON syntactically; the surrounding prose tells the
+  // agent to substitute the literal placeholder.
+  const kennelJsonValue = `"${input.kennelLabel}"`;
 
-  return `**Option 1 (preferred):** Open this URL in a new tab with title and body URL-encoded. The labels list is pre-baked with \`audit:${input.stream}\` (stream attribution) and \`kennel:${input.kennelLabel}\` (kennel attribution) so the dashboard's "Findings by stream" panel can route the issue correctly:
+  return `**Option 1 (preferred): file via the audit API**
 
-\`\`\`text
-${issueUrl}
+Two-step flow: mint a single-use nonce, then POST the finding. Both calls run in your browser (admin Clerk session, same-origin). Server computes the payload hash, files the GitHub issue, and runs cross-stream coalescing — so if the same finding already has an open issue you'll get a "recurred" outcome instead of a duplicate.
+
+**Step 1 — mint:** \`POST /api/audit/mint-filing-nonce\`
+
+\`\`\`json
+{
+  "stream": "${apiStream}",
+  "kennelCode": ${kennelJsonValue},
+  "ruleSlug": "<rule-slug>",
+  "title": "<your issue title>",
+  "eventIds": ["<event-id-1>", "<event-id-2>"],
+  "bodyMarkdown": "<your issue body, markdown>"
+}
 \`\`\`
 
-**Option 2 (fallback):** Output the finding in this format and the admin will file it:
+Response: \`{ "nonce": "<base64url>" }\` (5-minute TTL, single-use).
+
+**Step 2 — file:** \`POST /api/audit/file-finding\`
+
+\`\`\`json
+{
+  "nonce": "<from step 1>",
+  "stream": "${apiStream}",
+  "kennelCode": ${kennelJsonValue},
+  "ruleSlug": "<same as step 1>",
+  "title": "<same>",
+  "eventIds": ["<same>"],
+  "bodyMarkdown": "<same>"
+}
+\`\`\`
+
+Response shapes:
+- \`{ "action": "created", "issueNumber": N, "issueHtmlUrl": "..." }\` — fresh issue filed.
+- \`{ "action": "recurred", "tier": "strict" | "bridging", "existingIssueNumber": N, "existingIssueHtmlUrl": "...", "recurrenceCount": N }\` — same finding already had an open issue; we commented "still recurring" instead of forking. **Don't refile.**
+- \`{ "error": "...", "existingIssueNumber"?: N }\` (502) — GitHub side effect failed; safe to retry the same nonce.
+- \`{ "error": "Nonce invalid, expired, or payload tampered" }\` (401) — nonce mismatch; mint a fresh one and retry.
+
+The labels (\`audit\`, \`alert\`, \`audit:${input.stream}\`, \`kennel:${input.kennelLabel}\`) are applied server-side; you don't set them yourself.
+
+**Option 2 (fallback): paste the finding for an admin to file manually**
+
+Use this only if the API call fails after a fresh nonce. Output the finding in this format:
 
 ### [Kennel] — [Issue Category]
 * **HashTracks Event URL:** [link]
@@ -76,5 +120,9 @@ ${issueUrl}
 * **Field(s) Affected:** [field name]
 * **Current Extracted Value:** "[exact text from the HashTracks page, verbatim]"
 * **Expected Value:** "[verbatim text from the source — **not** a synthesized cleanup or inference. If the source says "2FC Takes Fenton", that's the expected value; don't 'clean it up' to "2FC" unless the source literally shows that string somewhere.]"
-* **Fix Hypothesis:** [brief guess on root cause]`;
+* **Fix Hypothesis:** [brief guess on root cause]
+
+**Option 3 (legacy fallback): GitHub URL flow**
+
+Old prompts used to direct agents to a prefilled \`https://github.com/${HASHTRACKS_REPO}/issues/new?...\` URL. That path is still supported and will be detected by the bridging tier on the next sync round, but **prefer Option 1** so cross-stream coalescing fires immediately and you don't fork a duplicate.`;
 }

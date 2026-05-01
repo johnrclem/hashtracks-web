@@ -63,4 +63,25 @@ describe("buildHarelinePrompt", () => {
     const empty = buildHarelinePrompt({ ...FIXTURE, focusAreas: [] });
     expect(empty).toContain("no new sources onboarded in the last 14 days");
   });
+
+  it("emits valid JSON in the file-finding payload examples (with quoted {KENNEL_CODE} placeholder)", () => {
+    // Codex 5c-C pass-1 finding: an unquoted `{KENNEL_CODE}`
+    // produced invalid JSON in the prompt example. The fix: always
+    // JSON-quote the kennelCode value, even the placeholder. The
+    // surrounding prose tells the agent to substitute the literal.
+    //
+    // Extract every \`\`\`json fenced block and JSON.parse them all.
+    // Failure to parse is a regression of the original bug.
+    const jsonBlocks = prompt.match(/```json\n([\s\S]*?)\n```/g);
+    expect(jsonBlocks).not.toBeNull();
+    if (!jsonBlocks) return;
+    expect(jsonBlocks.length).toBeGreaterThan(0);
+    for (const block of jsonBlocks) {
+      const inner = block.replace(/^```json\n/, "").replace(/\n```$/, "");
+      // Should not throw; placeholders like "{KENNEL_CODE}",
+      // "<rule-slug>", etc. are all string-quoted so JSON.parse
+      // succeeds.
+      expect(() => JSON.parse(inner)).not.toThrow();
+    }
+  });
 });
