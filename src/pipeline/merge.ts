@@ -362,13 +362,22 @@ async function refreshExistingEvent(
 
   const existingEvent = await prisma.event.findUnique({
     where: { id: existingEventId },
-    select: { trustLevel: true, dateUtc: true, timezone: true, status: true },
+    select: {
+      trustLevel: true,
+      dateUtc: true,
+      timezone: true,
+      status: true,
+      adminCancelledAt: true,
+    },
   });
   // Auto-restore cancelled events when source still returns them. Runs even
   // when we can't compose a dateUtc (scraped row has no startTime) — otherwise
   // processed=true duplicates for rows without startTime stay CANCELLED forever
   // because upsertCanonicalEvent's restore path is unreachable here. (#874)
-  const shouldRestore = existingEvent?.status === "CANCELLED";
+  // Admin-locked events are exempt from auto-restore: an admin explicitly
+  // cancelled the event and the lock survives any source re-emission.
+  const shouldRestore =
+    existingEvent?.status === "CANCELLED" && !isAdminLocked(existingEvent);
   const isHigherOrEqualTrust = !existingEvent || ctx.trustLevel >= existingEvent.trustLevel;
   const isAlreadyCurrent =
     !!composedUtc &&

@@ -831,6 +831,7 @@ describe("double-header support", () => {
       dateUtc: null,
       timezone: "Europe/Dublin",
       status: "CANCELLED",
+      adminCancelledAt: null,
     } as never);
     mockEventUpdate.mockResolvedValueOnce({} as never);
 
@@ -843,6 +844,41 @@ describe("double-header support", () => {
       where: { id: "evt_cancelled" },
       data: { status: "CONFIRMED" },
     });
+  });
+
+  it("does NOT restore an admin-locked CANCELLED row via refreshExistingEvent (admin override)", async () => {
+    // Admin lock: an event with non-null adminCancelledAt is exempt from
+    // auto-restore even when the source re-emits the same fingerprint.
+    // This is the duplicate-fingerprint path that fires on every weekly
+    // STATIC_SCHEDULE re-scrape — without this guard, the override would
+    // be silently undone on the next scrape.
+    mockRawEventFind.mockResolvedValueOnce({
+      id: "raw_existing",
+      processed: true,
+      eventId: "evt_admin_cancelled",
+    } as never);
+    vi.mocked(prisma.event.findUnique).mockResolvedValueOnce({
+      trustLevel: 5,
+      dateUtc: null,
+      timezone: "America/New_York",
+      status: "CANCELLED",
+      adminCancelledAt: new Date("2026-05-01T10:00:00Z"),
+    } as never);
+
+    const result = await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-06-06", startTime: undefined }),
+    ]);
+
+    expect(result.restored).toBe(0);
+    // event.update is only called for refresh actions; with no shouldRestore
+    // and no shouldRefreshDateUtc (composedUtc is null, see #874), it must
+    // not be called at all.
+    expect(mockEventUpdate).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "evt_admin_cancelled" },
+        data: expect.objectContaining({ status: "CONFIRMED" }),
+      }),
+    );
   });
 });
 
