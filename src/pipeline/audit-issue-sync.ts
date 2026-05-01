@@ -130,6 +130,27 @@ export function extractRuleSlugFromAutomatedTitle(title: string): string | null 
 }
 
 /**
+ * Extract the rule slug from a chrome-stream filed audit issue title.
+ *
+ * Chrome filings produced by `/api/audit/file-finding` (and the
+ * deep-dive / hareline prompts that ship in 5c-C) follow the format
+ * `Finding: <KENNEL_SHORTNAME> <rule-slug>` — the slug is a stable
+ * `[a-z][a-z0-9-]*` token immediately following the kennel name.
+ * We use a permissive scan that tolerates extra prose between
+ * "Finding:" and the slug, but anchors on the recognizable
+ * slug-shape token so noisy operator-edited titles can still match.
+ *
+ * Returns null when no slug-shaped token follows the `Finding:`
+ * marker. Used by the bridging tier alongside
+ * `extractRuleSlugFromAutomatedTitle` so legacy chrome rows can be
+ * bridged into the new fingerprint-based dedup just like cron rows.
+ */
+const RULE_SLUG_IN_CHROME_TITLE_RE = /^Finding:\s+\S.*?\s([a-z][a-z0-9-]*)$/;
+export function extractRuleSlugFromChromeTitle(title: string): string | null {
+  return title.match(RULE_SLUG_IN_CHROME_TITLE_RE)?.[1] ?? null;
+}
+
+/**
  * Re-derive `AuditIssue.fingerprint` from labels + title — the only
  * inputs the sync can trust. Codex review on PR #1171b flagged that
  * reading the operator-editable body block as authoritative was a

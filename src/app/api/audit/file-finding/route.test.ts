@@ -7,7 +7,18 @@ vi.mock("@/lib/db", () => ({
       findUnique: vi.fn(),
       update: vi.fn(),
     },
-    auditIssue: { findFirst: vi.fn() },
+    auditIssue: {
+      findFirst: vi.fn(),
+      // Used by the shared audit-filer module:
+      //   findMany   — bridging-tier candidate lookup
+      //   update     — strict-tier recurrenceCount increment
+      //   updateMany — bridging CAS backfill
+      // Defaults set in beforeEach return empty / no-match so tests
+      // fall through to fresh-create unless they override.
+      findMany: vi.fn(),
+      update: vi.fn(),
+      updateMany: vi.fn(),
+    },
   },
 }));
 vi.mock("@/lib/site-url", () => ({
@@ -35,6 +46,9 @@ const mockAdmin = vi.mocked(getAdminUser);
 const mockFindNonce = vi.mocked(prisma.auditFilingNonce.findUnique);
 const mockUpdateNonce = vi.mocked(prisma.auditFilingNonce.update);
 const mockFindIssue = vi.mocked(prisma.auditIssue.findFirst);
+const mockFindManyIssue = vi.mocked(prisma.auditIssue.findMany);
+const mockUpdateIssue = vi.mocked(prisma.auditIssue.update);
+const mockUpdateManyIssue = vi.mocked(prisma.auditIssue.updateMany);
 
 /** Build a valid nonce row that passes all bind checks. */
 function nonceRow(overrides: Record<string, unknown> = {}) {
@@ -90,6 +104,9 @@ beforeEach(() => {
   mockFindNonce.mockResolvedValue(nonceRow() as never);
   mockUpdateNonce.mockResolvedValue({} as never);
   mockFindIssue.mockResolvedValue(null);
+  mockFindManyIssue.mockResolvedValue([] as never);
+  mockUpdateIssue.mockResolvedValue({ recurrenceCount: 1 } as never);
+  mockUpdateManyIssue.mockResolvedValue({ count: 0 } as never);
 });
 
 describe("POST /api/audit/file-finding", () => {
@@ -196,22 +213,30 @@ describe("POST /api/audit/file-finding", () => {
     expect(mockFindIssue).not.toHaveBeenCalled();
   });
 
-  it("coalesces against an existing AuditIssue with the same fingerprint", async () => {
+  it("recurs (strict tier) against an existing AuditIssue with the same fingerprint", async () => {
     // Existing issue carries the same fingerprint (set by the cron path
     // or a prior chrome filing). File-finding should comment, not open.
     mockFindIssue.mockResolvedValue({
+      id: "ai_existing",
       githubNumber: 42,
       htmlUrl: "https://github.com/johnrclem/hashtracks-web/issues/42",
+      recurrenceCount: 2,
     } as never);
-    // GitHub's POST .../comments returns the created comment object;
-    // mock includes json() to match the shared `githubApiPost` helper.
+    mockUpdateIssue.mockResolvedValue({ recurrenceCount: 3 } as never);
     fetchMock.mockResolvedValue({ ok: true, json: async () => ({ id: 1 }) });
 
     const res = await POST(buildReq());
     expect(res.status).toBe(200);
-    const json = (await res.json()) as { action: string; existingIssueNumber: number };
-    expect(json.action).toBe("coalesced");
+    const json = (await res.json()) as {
+      action: string;
+      tier: string;
+      existingIssueNumber: number;
+      recurrenceCount: number;
+    };
+    expect(json.action).toBe("recurred");
+    expect(json.tier).toBe("strict");
     expect(json.existingIssueNumber).toBe(42);
+    expect(json.recurrenceCount).toBe(3);
 
     // Posted a comment, not a new issue.
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -219,7 +244,40 @@ describe("POST /api/audit/file-finding", () => {
     expect(url).toContain("/issues/42/comments");
   });
 
-  it("returns 502 when the coalesce-comment call fails — refuses to fork a duplicate", async () => {
+  it("recurs (bridging tier) into a legacy null-fingerprint AuditIssue when the slug+kennel match", async () => {
+    // No strict match. One legacy candidate carries `[hare-url]` in
+    // its title bracket — extracted slug matches, so the endpoint
+    // bridges into it, atomically backfills the fingerprint, and
+    // posts the recur comment.
+    mockFindIssue.mockResolvedValue(null);
+    mockFindManyIssue.mockResolvedValue([
+      {
+        id: "legacy_1",
+        githubNumber: 17,
+        htmlUrl: "https://github.com/x/y/issues/17",
+        title: "[Audit] NYCH3 — Hare Quality [hare-url] (1 events) — 2026-04-01",
+        recurrenceCount: 0,
+      },
+    ] as never);
+    mockUpdateManyIssue.mockResolvedValue({ count: 1 } as never);
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ id: 1 }) });
+
+    const res = await POST(buildReq());
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      action: string;
+      tier: string;
+      existingIssueNumber: number;
+    };
+    expect(json.action).toBe("recurred");
+    expect(json.tier).toBe("bridging");
+    expect(json.existingIssueNumber).toBe(17);
+    // Comment hit the legacy issue's URL.
+    const url = String(fetchMock.mock.calls[0][0]);
+    expect(url).toContain("/issues/17/comments");
+  });
+
+  it("returns 502 when the recur-comment call fails — refuses to fork a duplicate", async () => {
     // Codex pass-2 finding: falling through to createGithubIssue when
     // an existing fingerprint match's comment fails would split the
     // finding's history across two open issues for the same defect.
@@ -227,8 +285,10 @@ describe("POST /api/audit/file-finding", () => {
     // existing issue number so the caller can retry (or open the
     // existing issue manually).
     mockFindIssue.mockResolvedValue({
+      id: "ai_existing",
       githubNumber: 42,
       htmlUrl: "https://github.com/x/y/issues/42",
+      recurrenceCount: 0,
     } as never);
     fetchMock.mockResolvedValueOnce({ ok: false, json: async () => ({}) });
 
@@ -238,6 +298,9 @@ describe("POST /api/audit/file-finding", () => {
     expect(json.existingIssueNumber).toBe(42);
     // Only one fetch attempted (the failed comment); no fresh-issue create.
     expect(fetchMock).toHaveBeenCalledTimes(1);
+    // recurrenceCount should NOT have been incremented since the
+    // comment side effect failed.
+    expect(mockUpdateIssue).not.toHaveBeenCalled();
   });
 
   it("creates a new GitHub issue with stream + kennel labels and embedded canonical block", async () => {

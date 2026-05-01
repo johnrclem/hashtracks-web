@@ -1,15 +1,34 @@
 import { fileAuditIssues } from "./audit-issue";
 import type { AuditGroup } from "./audit-runner";
 
-const { mockFindMany, mockAggregate, mockFetch } = vi.hoisted(() => ({
+const {
+  mockFindMany,
+  mockAggregate,
+  mockFindFirst,
+  mockUpdate,
+  mockUpdateMany,
+  mockFetch,
+} = vi.hoisted(() => ({
   mockFindMany: vi.fn(),
   mockAggregate: vi.fn(),
+  mockFindFirst: vi.fn(),
+  mockUpdate: vi.fn(),
+  mockUpdateMany: vi.fn(),
   mockFetch: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
   prisma: {
-    auditIssue: { findMany: mockFindMany, aggregate: mockAggregate },
+    auditIssue: {
+      findMany: mockFindMany,
+      aggregate: mockAggregate,
+      // Used by the shared audit-filer module for fingerprint dedup.
+      // Default returns simulate "no existing fingerprint match" so
+      // tests fall through to the create path unless a test overrides.
+      findFirst: mockFindFirst,
+      update: mockUpdate,
+      updateMany: mockUpdateMany,
+    },
   },
 }));
 
@@ -39,6 +58,12 @@ beforeEach(() => {
   process.env.GITHUB_TOKEN = "ghp_test";
   mockAggregate.mockResolvedValue(freshSyncResult());
   mockFindMany.mockResolvedValue([]);
+  // Default fingerprint dedup state: no strict match, no bridging
+  // candidates. Individual tests override when they need the recur
+  // path.
+  mockFindFirst.mockResolvedValue(null);
+  mockUpdate.mockResolvedValue({ recurrenceCount: 0 });
+  mockUpdateMany.mockResolvedValue({ count: 0 });
 });
 
 afterEach(() => {
@@ -88,10 +113,12 @@ describe("fileAuditIssues", () => {
     const result = await fileAuditIssues([buildGroup()]);
     expect(result).toEqual(["https://github.com/test/42"]);
     expect(mockFetch).toHaveBeenCalledTimes(1);
-    expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringContaining("/issues"),
-      expect.objectContaining({ method: "POST" }),
-    );
+    // fetch now receives a URL object (the cron path's
+    // tainted-URL Codacy fix); stringify before assertion.
+    const url = String(mockFetch.mock.calls[0][0]);
+    expect(url).toContain("/issues");
+    const init = mockFetch.mock.calls[0][1] as { method: string };
+    expect(init.method).toBe("POST");
   });
 
   it("falls back to GitHub API and still creates issues when mirror query fails", async () => {
@@ -166,6 +193,76 @@ describe("fileAuditIssues", () => {
     const fetchCall = mockFetch.mock.calls[0];
     const requestBody = JSON.parse(fetchCall[1].body) as { body: string };
     expect(requestBody.body).not.toContain("<!-- audit-canonical:");
+  });
+
+  it("comments instead of forking a duplicate when the same fingerprint already has an open issue", async () => {
+    // Cross-day recur defense — root P0 of the audit-process plan.
+    // Yesterday's open issue with matching fingerprint absorbs today's
+    // finding via a "Still recurring …" comment + recurrenceCount++.
+    mockFindFirst.mockResolvedValue({
+      id: "ai_existing",
+      githubNumber: 42,
+      htmlUrl: "https://github.com/test/42",
+      recurrenceCount: 1,
+    });
+    mockUpdate.mockResolvedValue({ recurrenceCount: 2 });
+    mockFetch.mockResolvedValue({ ok: true, json: async () => ({}) });
+
+    const result = await fileAuditIssues([
+      buildGroup({ rule: "hare-url", category: "hares" }),
+    ]);
+
+    expect(result).toEqual(["https://github.com/test/42"]);
+    // Only one fetch — the comment. NO POST to /issues.
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    const fetchUrl = String(mockFetch.mock.calls[0][0]);
+    expect(fetchUrl).toContain("/issues/42/comments");
+    // recurrenceCount was incremented atomically.
+    expect(mockUpdate).toHaveBeenCalledWith({
+      where: { id: "ai_existing" },
+      data: { recurrenceCount: { increment: 1 } },
+      select: { recurrenceCount: true },
+    });
+  });
+
+  it("bridges into a legacy null-fingerprint row when kennel + extracted ruleSlug match", async () => {
+    // No strict match; one legacy candidate with the matching slug
+    // bracket in its title. Filer should atomically backfill the
+    // fingerprint and post the recur comment.
+    mockFindFirst.mockResolvedValue(null);
+    mockFindMany.mockImplementation((args: { where?: { fingerprint?: null } }) => {
+      // The audit-filer's bridging query has `fingerprint: null` in the
+      // where clause; the same-run-dedup query doesn't. Branch on it.
+      if (args.where?.fingerprint === null) {
+        return Promise.resolve([
+          {
+            id: "legacy_1",
+            githubNumber: 17,
+            htmlUrl: "https://github.com/test/17",
+            title:
+              "[Audit] TestH3 — Hare Quality [hare-url] (2 events) — 2026-04-15",
+            recurrenceCount: 0,
+          },
+        ]);
+      }
+      return Promise.resolve([]);
+    });
+    mockUpdateMany.mockResolvedValue({ count: 1 });
+    mockFetch.mockResolvedValue({ ok: true, json: async () => ({}) });
+
+    const result = await fileAuditIssues([
+      buildGroup({ rule: "hare-url", category: "hares" }),
+    ]);
+
+    expect(result).toEqual(["https://github.com/test/17"]);
+    expect(mockUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "legacy_1", fingerprint: null },
+      }),
+    );
+    // Fetch was the bridging comment, not a fresh-create POST.
+    const fetchUrl = String(mockFetch.mock.calls[0][0]);
+    expect(fetchUrl).toContain("/issues/17/comments");
   });
 
   it("caps issues at MAX_ISSUES_PER_RUN (3)", async () => {
