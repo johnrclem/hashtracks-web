@@ -10,6 +10,7 @@ import {
   getOpenIssueCountsByStream,
   getCloseReasonRatiosByStream,
   getRecentOpenIssues,
+  getEscalatedFindings,
   getHarelinePromptInputs,
 } from "./actions";
 import { KNOWN_AUDIT_RULES } from "@/pipeline/audit-checks";
@@ -45,6 +46,7 @@ export default async function AuditPage() {
     streamOpenCountsResult,
     streamCloseReasonRatiosResult,
     recentOpenIssuesResult,
+    escalatedFindingsResult,
   ] = await Promise.all([
     getAuditTrends().catch(() => []),
     getTopOffenders().catch(() => []),
@@ -65,6 +67,7 @@ export default async function AuditPage() {
     // hide schema skew / Prisma errors during rollout.
     getCloseReasonRatiosByStream().catch(() => null),
     getRecentOpenIssues().catch(() => []),
+    getEscalatedFindings().catch(() => []),
   ]);
 
   return (
@@ -82,6 +85,7 @@ export default async function AuditPage() {
       streamOpenCounts={streamOpenCountsResult}
       streamCloseReasonRatios={streamCloseReasonRatiosResult}
       recentOpenIssues={recentOpenIssuesResult}
+      escalatedFindings={escalatedFindingsResult}
     />
   );
 }
