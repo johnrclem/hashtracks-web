@@ -4,7 +4,7 @@ import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "..
 import { hasAnyErrors } from "../types";
 import { validateSourceConfig, stripHtmlTags, buildDateWindow, HARE_BOILERPLATE_RE } from "../utils";
 import { safeFetch } from "../safe-fetch";
-import { extractHares as extractHaresFromDescription } from "../google-calendar/adapter";
+import { extractHares as extractHaresFromDescription } from "../hare-extraction";
 
 /** US state abbreviation → full name mapping (50 states + DC). */
 const US_STATE_ABBREV_TO_NAME: Record<string, string> = {
