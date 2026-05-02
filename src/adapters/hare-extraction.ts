@@ -24,9 +24,9 @@ import {
 // and by extractLocationFromDescription in google-calendar/adapter.ts (#743
 // "123 Main St 555-123-4567"). Anchored to end-of-string — a global strip
 // would eat "800" out of address fragments like "Suite 1 800".
-// nosemgrep: javascript.dos.rule-non-literal-regexp — source is a hard-coded constant from audit-checks
+// nosemgrep: detect-non-literal-regexp — source is a hard-coded constant from audit-checks (mirrors utils.ts:151 suppression)
 // eslint-disable-next-line -- security/detect-non-literal-regexp + security-node/non-literal-reg-expr (Codacy ESLint plugins not loaded locally); source is a hard-coded constant
-export const PHONE_TRAILING_RE = new RegExp(String.raw`\s*(?:${PHONE_NUMBER_RE.source})\s*$`); // NOSONAR
+export const PHONE_TRAILING_RE = new RegExp(String.raw`\s*(?:${PHONE_NUMBER_RE.source})\s*$`); // NOSONAR nosemgrep
 
 /** Default hare extraction patterns for Google Calendar descriptions. */
 /* eslint-disable -- security/detect-unsafe-regex (Codacy ESLint plugin not loaded locally); patterns operate on trusted GCal description fields with bounded line slicing in extractHares */
