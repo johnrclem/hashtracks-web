@@ -537,12 +537,22 @@ function NeedsDecisionPanel({ findings }: { findings: EscalatedFinding[] }) {
           title={`Needs Decision (${findings.length})`}
           color="bg-red-500/10 text-red-500"
         />
-        <p className="text-xs text-muted-foreground max-w-md text-right">
-          Recurred 5+ times; auto-coalesce gave up. Pick{" "}
-          <span className="font-medium text-foreground">fix</span>,{" "}
-          <span className="font-medium text-foreground">suppress</span>, or{" "}
-          <span className="font-medium text-foreground">reclassify</span>.
-        </p>
+        <div className="flex flex-col items-end gap-1">
+          <p className="text-xs text-muted-foreground max-w-md text-right">
+            Recurred 5+ times; auto-coalesce gave up. Pick{" "}
+            <span className="font-medium text-foreground">fix</span>,{" "}
+            <span className="font-medium text-foreground">suppress</span>, or{" "}
+            <span className="font-medium text-foreground">reclassify</span>.
+          </p>
+          <a
+            href={`https://github.com/${HASHTRACKS_REPO}/issues?q=is%3Aopen+label%3A%22audit%3Aneeds-decision%22`}
+            target="_blank"
+            rel="noreferrer"
+            className="text-[11px] font-medium text-red-600 hover:underline dark:text-red-400"
+          >
+            View all on GitHub →
+          </a>
+        </div>
       </div>
       <div className="rounded-xl border border-red-500/30 bg-red-500/[0.03] overflow-hidden">
         <ul className="divide-y divide-red-500/15">

@@ -209,10 +209,11 @@ describe("getTopOffenders", () => {
     expect(result[0].escalatedToIssueNumber).toBe(555);
   });
 
-  it("leaves enrichment fields null when no open AuditIssue title carries the slug bracket", async () => {
-    // Chrome-stream rows have free-form titles; the bracket regex
-    // misses them, so enrichment for chrome-only kennels stays
-    // null. Documented limitation per the helper's doc.
+  it("enriches via the chrome-title fallback for `Finding: KENNEL slug` rows (Gemini PR #1205)", async () => {
+    // Chrome-stream rows have a known title shape too — the
+    // secondary `extractRuleSlugFromChromeTitle` extractor catches
+    // them, so chrome-only kennels also surface recurrence /
+    // escalation badges in the offenders table.
     mockLogFind.mockResolvedValue([
       {
         createdAt: new Date("2026-04-04T12:00:00Z"),
@@ -230,15 +231,56 @@ describe("getTopOffenders", () => {
     mockIssueFindMany.mockResolvedValue([
       {
         kennelCode: "nych3",
-        title: "Finding: NYCH3 hare-url",  // chrome-style — no bracket
+        title: "Finding: NYCH3 hare-url",  // chrome-style
         recurrenceCount: 4,
         escalatedToIssueNumber: null,
       },
     ] as never);
 
     const result = await getTopOffenders();
-    expect(result[0].recurrenceCount).toBeNull();
-    expect(result[0].escalatedToIssueNumber).toBeNull();
+    expect(result[0].recurrenceCount).toBe(4);
+  });
+
+  it("picks the oldest row deterministically when multiple open issues share a (kennel, ruleSlug) key", async () => {
+    // Codex P2 / Gemini medium PR #1205: without first-wins indexing
+    // + ASC orderBy, the badge data could flicker between rows on
+    // each query when multiple open issues happen to share the same
+    // key (rare incident-recovery state). Order-by-asc + has-guard
+    // makes the choice deterministic — oldest row anchors the badges.
+    mockLogFind.mockResolvedValue([
+      {
+        createdAt: new Date("2026-04-04T12:00:00Z"),
+        findings: [
+          {
+            kennelCode: "nych3",
+            kennelShortName: "NYCH3",
+            rule: "hare-url",
+            category: "hares",
+          },
+        ],
+      },
+    ] as never);
+    mockSupFind.mockResolvedValue([] as never);
+    // Mock returns rows in the same order Prisma would produce
+    // them with `orderBy: { githubCreatedAt: "asc" }` — oldest first.
+    mockIssueFindMany.mockResolvedValue([
+      {
+        kennelCode: "nych3",
+        title: "[Audit] NYCH3 — Hare Quality [hare-url] (1 events) — 2026-04-15",
+        recurrenceCount: 9, // older; should win under has-guard
+        escalatedToIssueNumber: 100,
+      },
+      {
+        kennelCode: "nych3",
+        title: "[Audit] NYCH3 — Hare Quality [hare-url] (2 events) — 2026-04-30",
+        recurrenceCount: 2, // newer; loses
+        escalatedToIssueNumber: null,
+      },
+    ] as never);
+
+    const result = await getTopOffenders();
+    expect(result[0].recurrenceCount).toBe(9);
+    expect(result[0].escalatedToIssueNumber).toBe(100);
   });
 });
 

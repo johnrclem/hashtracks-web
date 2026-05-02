@@ -4,7 +4,10 @@ import { Prisma, AuditStream, AuditIssueEventType } from "@/generated/prisma/cli
 import { prisma } from "@/lib/db";
 import { getAdminUser } from "@/lib/auth";
 import { KNOWN_AUDIT_RULES, type AuditFinding } from "@/pipeline/audit-checks";
-import { extractRuleSlugFromAutomatedTitle } from "@/pipeline/audit-issue-sync";
+import {
+  extractRuleSlugFromAutomatedTitle,
+  extractRuleSlugFromChromeTitle,
+} from "@/pipeline/audit-issue-sync";
 import { DASHBOARD_STREAMS } from "@/lib/audit-stream-meta";
 import type {
   HarelinePromptInputs,
@@ -128,8 +131,15 @@ export async function getTopOffenders(days = OFFENDER_DAYS): Promise<TopOffender
     prisma.auditSuppression.findMany({ select: { kennelCode: true, rule: true } }),
     // Pull the open AuditIssue mirror so we can enrich each offender row
     // with its recurrenceCount + escalation status. We extract ruleSlug
-    // from the title (matching the cron-format bracket) since the
-    // mirror doesn't store the slug as a column.
+    // from the title (cron-format bracket OR chrome `Finding: <KENNEL>
+    // <slug>` shape) since the mirror doesn't store the slug as a column.
+    //
+    // Order by oldest githubCreatedAt first so that when multiple open
+    // rows resolve to the same `(kennelCode, ruleSlug)` key (rare
+    // incident-recovery / migration windows), the loop below picks the
+    // oldest row deterministically — matching the strict-tier match
+    // ordering in `audit-filer.ts`. Without this, badges could flicker
+    // between rows on each query (Codex / Gemini PR #1205 review).
     prisma.auditIssue.findMany({
       where: { state: "open", delistedAt: null, kennelCode: { not: null } },
       select: {
@@ -138,6 +148,7 @@ export async function getTopOffenders(days = OFFENDER_DAYS): Promise<TopOffender
         recurrenceCount: true,
         escalatedToIssueNumber: true,
       },
+      orderBy: { githubCreatedAt: "asc" },
     }),
   ]);
 
@@ -153,9 +164,18 @@ export async function getTopOffenders(days = OFFENDER_DAYS): Promise<TopOffender
   >();
   for (const issue of openIssues) {
     if (!issue.kennelCode) continue;
-    const slug = extractRuleSlugFromAutomatedTitle(issue.title);
+    // Try cron-format bracket first, fall back to chrome-format
+    // `Finding: <KENNEL> <slug>` so chrome-stream rows also enrich
+    // (Gemini PR #1205 review). Same fallback chain `tryBridge` uses.
+    const slug =
+      extractRuleSlugFromAutomatedTitle(issue.title) ??
+      extractRuleSlugFromChromeTitle(issue.title);
     if (!slug) continue;
-    openIssueByKey.set(suppressionKey(issue.kennelCode, slug), {
+    const key = suppressionKey(issue.kennelCode, slug);
+    // First-wins so the oldest row (per the orderBy above) anchors
+    // the badge data deterministically.
+    if (openIssueByKey.has(key)) continue;
+    openIssueByKey.set(key, {
       recurrenceCount: issue.recurrenceCount,
       escalatedToIssueNumber: issue.escalatedToIssueNumber,
     });
@@ -355,12 +375,19 @@ export interface DeepDiveCandidate {
   sources: DeepDiveSource[];
 }
 
-/** Default page size for the deep-dive queue display. Centralized so
- *  `getDeepDiveQueue` and the snapshot-bound token endpoints all
- *  capture the same window — drift would let a token mint against a
- *  larger queue than the dashboard shows, weakening the snapshot
- *  binding. */
-export const DEEP_DIVE_QUEUE_DEFAULT_LIMIT = 20;
+/**
+ * Default page size for the deep-dive queue display. Centralized so
+ * `getDeepDiveQueue` and the snapshot-bound token endpoints all
+ * capture the same window — drift would let a token mint against a
+ * larger queue than the dashboard shows, weakening the snapshot
+ * binding.
+ *
+ * NOT exported: Next.js 16's `"use server"` directive rejects modules
+ * that export anything other than async functions. Callers that need
+ * the constant should import from a non-server module; today, all
+ * usage is internal to this file.
+ */
+const DEEP_DIVE_QUEUE_DEFAULT_LIMIT = 20;
 
 /**
  * Lightweight queue snapshot — just the kennelCodes in the same
