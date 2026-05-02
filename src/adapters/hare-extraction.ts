@@ -43,96 +43,123 @@ const DEFAULT_HARE_PATTERNS = [
 ];
 /* eslint-enable */
 
+const MAX_CONTINUATION_LINES = 6;
+const MAX_LINE_LEN = 80;
+const MAX_HARES_LEN = 200;
+const GENERIC_WHO_ANSWER_RE = /^(?:that be you|your|all|everyone)/i;
+const PROSE_PREFIX_RE = /^(?:away|at|from|drop|is|was|has|had|can|will|would|should|could|for|and|or|off)\b/i;
+const URL_PREFIX_RE = /^https?:\/\//i;
+const SENTENCE_PUNCT_RE = /[:.!?]\s/;
+const SENTENCE_END_RE = /[.!?]$/;
+const PHONE_LABEL_TRAILING_RE = /[,:;\s-]*(?:phone|tel|mobile|cell)\b\s*:?\s*$/i; // NOSONAR — bounded char class + literal alternation + `$` anchor
+const PUNCT_TRAILING_RE = /[,:;\s-]+$/; // NOSONAR — single char class + `$` anchor
+const ASTERISK_TAIL_RE = /\s*\*{2,}\s*.*$/; // NOSONAR — bounded `.*$` on first-line slice (no nesting); input ≤200 chars
+const COHARE_COMMENTARY_RE = /\s*(?:could|need)\s+.*?co-?hares?\b.*$/i; // NOSONAR — non-greedy `.*?` anchored to literal `co-?hares?\b`
+// Pre-normalize: rejoin lines where HTML stripping split a label from its colon
+// e.g., "<b>WHO (hares)</b>: Name" → after stripHtmlTags → "WHO (hares)\n: Name"
+const LABEL_COLON_REJOIN_RE = /(\b(?:Who|Hares?)\s*\(?[^)]*\)?)\s*\n\s*:/gim; // NOSONAR — bounded by literal `\n` and char classes; capture is `[^)]*` (no nesting)
+
+function selectPatterns(customPatterns?: string[] | RegExp[]): RegExp[] {
+  if (!customPatterns || customPatterns.length === 0) return DEFAULT_HARE_PATTERNS;
+  return typeof customPatterns[0] === "string"
+    ? compilePatterns(customPatterns as string[])
+    : (customPatterns as RegExp[]);
+}
+
+/** Returns true if the line should terminate continuation collection. */
+function isContinuationTerminator(line: string): boolean {
+  if (!line) return true;
+  if (EVENT_FIELD_LABEL_RE.test(line)) return true;
+  if (EVENT_FIELD_LABEL_UPPERCASE_RE.test(line)) return true;
+  if (HARE_BOILERPLATE_RE.test(line)) return true;
+  if (URL_PREFIX_RE.test(line)) return true;
+  if (line.length > MAX_LINE_LEN) return true;
+  if (SENTENCE_PUNCT_RE.test(line) || SENTENCE_END_RE.test(line)) return true;
+  if (line.includes(":")) return true;
+  return false;
+}
+
+/**
+ * Multi-line continuation: when the label line has NO inline content
+ * (e.g., "Hares:\nAlice\nBob"), walk forward and concatenate names until a
+ * blank line, next field label, URL, or boilerplate marker. Restricted to
+ * label-only headers — text after an inline hare is almost always free-form
+ * description, not a co-hare. Caps line count and per-line length, and
+ * rejects sentence-shaped lines.
+ */
+function collectContinuationLines(normalized: string, match: RegExpExecArray): string {
+  // eslint-disable-next-line -- @typescript-eslint/no-unnecessary-condition: defensive against engines where match.index can be undefined
+  const matchEnd = (match.index ?? 0) + match[0].length;
+  const continuation = normalized.slice(matchEnd).split("\n");
+  const startIdx = continuation[0] === "" ? 1 : 0;
+  let collected = "";
+  let added = 0;
+  for (let i = startIdx; i < continuation.length && added < MAX_CONTINUATION_LINES; i++) {
+    // eslint-disable-next-line -- security/detect-object-injection (Codacy ESLint plugin not loaded locally); `i` is a numeric loop index, not user input
+    const line = continuation[i].trim();
+    if (isContinuationTerminator(line)) break;
+    collected = collected ? `${collected}, ${line}` : line;
+    added++;
+  }
+  return collected;
+}
+
+/**
+ * Apply trimming, punctuation/asterisk truncation, boilerplate/phone/label
+ * regexes, and the final prepositional/generic filters. Returns undefined if
+ * the candidate fails a filter (caller should try the next pattern).
+ */
+function cleanAndFilterHares(raw: string): string | undefined {
+  let hares = raw
+    .replace(ASTERISK_TAIL_RE, "")
+    .trim()
+    .replace(COHARE_COMMENTARY_RE, "")
+    .trim()
+    .replace(HARE_BOILERPLATE_RE, "")
+    .trim()
+    .replace(EVENT_FIELD_LABEL_RE, "")
+    .replace(EVENT_FIELD_LABEL_UPPERCASE_RE, "")
+    .trim()
+    .replace(PHONE_TRAILING_RE, "")
+    .trim();
+
+  // Truncate at mid-string phone numbers with trailing commentary (e.g.,
+  // "Name, 2406185563 CALL for same day service" — #809). Real names don't
+  // contain 10-digit runs.
+  const phoneIdx = hares.search(PHONE_NUMBER_RE);
+  if (phoneIdx >= 0) {
+    hares = hares
+      .slice(0, phoneIdx)
+      .replace(PHONE_LABEL_TRAILING_RE, "")
+      .replace(PUNCT_TRAILING_RE, "")
+      .trim();
+  }
+
+  if (GENERIC_WHO_ANSWER_RE.test(hares)) return undefined;
+  if (PROSE_PREFIX_RE.test(hares)) return undefined;
+  if (hares.length === 0 || hares.length >= MAX_HARES_LEN) return undefined;
+  return hares;
+}
+
 /**
  * Extract hare names from the event description.
  * Accepts pre-compiled RegExp[] or raw string[] (compiled on the fly for one-off use).
  * The adapter fetch() pre-compiles once per scrape for efficiency.
  */
 export function extractHares(description: string, customPatterns?: string[] | RegExp[]): string | undefined {
-  // Pre-normalize: rejoin lines where HTML stripping split a label from its colon
-  // e.g., "<b>WHO (hares)</b>: Name" → after stripHtmlTags → "WHO (hares)\n: Name"
-  const normalized = description.replace(
-    /(\b(?:Who|Hares?)\s*\(?[^)]*\)?)\s*\n\s*:/gim, // NOSONAR — bounded by literal `\n` and char classes; capture is `[^)]*` (no nesting)
-    "$1:",
-  );
-  let patterns: RegExp[];
-
-  if (customPatterns && customPatterns.length > 0) {
-    patterns = typeof customPatterns[0] === "string"
-      ? compilePatterns(customPatterns as string[])
-      : customPatterns as RegExp[];
-  } else {
-    patterns = DEFAULT_HARE_PATTERNS;
-  }
+  const normalized = description.replaceAll(LABEL_COLON_REJOIN_RE, "$1:");
+  const patterns = selectPatterns(customPatterns);
 
   for (const pattern of patterns) {
     const match = pattern.exec(normalized);
-    if (match) {
-      // eslint-disable-next-line -- @typescript-eslint/no-unnecessary-condition: defensive — capture group can be undefined for some custom patterns
-      let hares = (match[1] ?? "").trim();
-      // Clean up trailing punctuation/whitespace
-      hares = hares.split("\n")[0].trim();
-      // Multi-line continuation: when the label line has NO inline content
-      // (e.g., "Hares:\nAlice\nBob"), walk forward and concatenate names until
-      // a blank line, next field label, URL, or boilerplate marker. Restricted
-      // to label-only headers — text after an inline hare is almost always
-      // free-form description, not a co-hare. Additional safeguards against
-      // sweeping prose: cap line count, per-line length, and reject lines that
-      // look like sentences rather than hash names.
-      if (!hares) {
-        const MAX_CONTINUATION_LINES = 6;
-        const MAX_LINE_LEN = 80;
-        // eslint-disable-next-line -- @typescript-eslint/no-unnecessary-condition: defensive against engines where match.index can be undefined
-        const matchEnd = (match.index ?? 0) + match[0].length;
-        const continuation = normalized.slice(matchEnd).split("\n");
-        const startIdx = continuation[0] === "" ? 1 : 0;
-        let added = 0;
-        for (let i = startIdx; i < continuation.length && added < MAX_CONTINUATION_LINES; i++) {
-          // eslint-disable-next-line -- security/detect-object-injection (Codacy ESLint plugin not loaded locally); `i` is a numeric loop index, not user input
-          const line = continuation[i].trim();
-          if (!line) break;
-          if (EVENT_FIELD_LABEL_RE.test(line) || EVENT_FIELD_LABEL_UPPERCASE_RE.test(line)) break;
-          if (HARE_BOILERPLATE_RE.test(line)) break;
-          if (/^https?:\/\//i.test(line)) break;
-          // Reject obviously non-name lines: colons (unrecognized field labels),
-          // sentence-ending punctuation, or overly long lines.
-          if (line.length > MAX_LINE_LEN) break;
-          if (/[:.!?]\s/.test(line) || /[.!?]$/.test(line)) break;
-          if (line.includes(":")) break;
-          hares = hares ? `${hares}, ${line}` : line;
-          added++;
-        }
-      }
-      // Truncate at asterisk separators (e.g., "Denny's Sucks *** could use a co-hare")
-      hares = hares.replace(/\s*\*{2,}\s*.*$/, "").trim(); // NOSONAR — bounded `.*$` on a single first-line slice (no nesting); input ≤200 chars
-      // Strip trailing co-hare commentary (e.g., "could use a co-hare", "need a co-hare")
-      hares = hares.replace(/\s*(?:could|need)\s+.*?co-?hares?\b.*$/i, "").trim(); // NOSONAR — non-greedy `.*?` anchored to literal `co-?hares?\b`; bounded
-      // Truncate at boilerplate markers (description text leaking into hares)
-      hares = hares.replace(HARE_BOILERPLATE_RE, "").trim();
-      // Truncate at next embedded field label when HTML stripping collapsed fields
-      // (e.g., "AmazonWhat: A beautiful trail …" → "Amazon"). The \b word boundary
-      // in EVENT_FIELD_LABEL_RE prevents matching tokens inside other words.
-      hares = hares.replace(EVENT_FIELD_LABEL_RE, "").replace(EVENT_FIELD_LABEL_UPPERCASE_RE, "").trim();
-      // Strip trailing US phone numbers — both formatted ("(555) 123-4567",
-      // "719-360-3805") and bare 10-digit runs ("2406185563" — see #742).
-      hares = hares.replace(PHONE_TRAILING_RE, "").trim();
-      // Truncate at mid-string phone numbers with trailing commentary (e.g.,
-      // "Name, 2406185563 CALL for same day service" — #809). Real names
-      // don't contain 10-digit runs.
-      const phoneIdx = hares.search(PHONE_NUMBER_RE);
-      if (phoneIdx >= 0) {
-        hares = hares
-          .slice(0, phoneIdx)
-          .replace(/[,:;\s-]*(?:phone|tel|mobile|cell)\b\s*:?\s*$/i, "") // NOSONAR — bounded char class + literal alternation + `$` anchor
-          .replace(/[,:;\s-]+$/, "") // NOSONAR — single char class + `$` anchor
-          .trim();
-      }
-      // Skip generic/non-hare "Who:" answers
-      if (/^(?:that be you|your|all|everyone)/i.test(hares)) continue;
-      // Filter hare strings starting with common prepositions/verbs (description text, not names)
-      if (/^(?:away|at|from|drop|is|was|has|had|can|will|would|should|could|for|and|or|off)\b/i.test(hares)) continue;
-      if (hares.length > 0 && hares.length < 200) return hares;
-    }
+    if (!match) continue;
+
+    // eslint-disable-next-line -- @typescript-eslint/no-unnecessary-condition: defensive — capture group can be undefined for some custom patterns
+    let raw = (match[1] ?? "").trim().split("\n")[0].trim();
+    if (!raw) raw = collectContinuationLines(normalized, match);
+
+    const cleaned = cleanAndFilterHares(raw);
+    if (cleaned) return cleaned;
   }
 
   return undefined;
