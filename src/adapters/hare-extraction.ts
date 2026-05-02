@@ -24,9 +24,12 @@ import {
 // and by extractLocationFromDescription in google-calendar/adapter.ts (#743
 // "123 Main St 555-123-4567"). Anchored to end-of-string — a global strip
 // would eat "800" out of address fragments like "Suite 1 800".
-export const PHONE_TRAILING_RE = new RegExp(String.raw`\s*(?:${PHONE_NUMBER_RE.source})\s*$`);
+// nosemgrep: javascript.dos.rule-non-literal-regexp — source is a hard-coded constant from audit-checks
+// eslint-disable-next-line -- security/detect-non-literal-regexp + security-node/non-literal-reg-expr (Codacy ESLint plugins not loaded locally); source is a hard-coded constant
+export const PHONE_TRAILING_RE = new RegExp(String.raw`\s*(?:${PHONE_NUMBER_RE.source})\s*$`); // NOSONAR
 
 /** Default hare extraction patterns for Google Calendar descriptions. */
+/* eslint-disable -- security/detect-unsafe-regex (Codacy ESLint plugin not loaded locally); patterns operate on trusted GCal description fields with bounded line slicing in extractHares */
 const DEFAULT_HARE_PATTERNS = [
   /(?:^|\n)[ \t]*H{1,3}are(?:\s*&\s*Co-Hares?)?\(?s?\)?:[ \t]*(.*)/im,  // Hare:, Hares:, HHHares: (Asheville's "HHH" = Hash House Harriers convention)
   // "WHO ARE THE HARES:" template variant — must match before the generic
@@ -38,6 +41,7 @@ const DEFAULT_HARE_PATTERNS = [
   /(?:^|\n)[ \t]*Who\s*\(?(?:hares?)?\)?:[ \t]*(.*)/im,  // Who:, WHO (hares):, Who(hare):
   /(?:^|\n)[ \t]*Hare[ \t]+([A-Z*].+)/im,  // "Hare C*ck Swap" (no colon, name starts uppercase/special)
 ];
+/* eslint-enable */
 
 /**
  * Extract hare names from the event description.
@@ -64,6 +68,7 @@ export function extractHares(description: string, customPatterns?: string[] | Re
   for (const pattern of patterns) {
     const match = pattern.exec(normalized);
     if (match) {
+      // eslint-disable-next-line -- @typescript-eslint/no-unnecessary-condition: defensive — capture group can be undefined for some custom patterns
       let hares = (match[1] ?? "").trim();
       // Clean up trailing punctuation/whitespace
       hares = hares.split("\n")[0].trim();
@@ -77,11 +82,13 @@ export function extractHares(description: string, customPatterns?: string[] | Re
       if (!hares) {
         const MAX_CONTINUATION_LINES = 6;
         const MAX_LINE_LEN = 80;
+        // eslint-disable-next-line -- @typescript-eslint/no-unnecessary-condition: defensive against engines where match.index can be undefined
         const matchEnd = (match.index ?? 0) + match[0].length;
         const continuation = normalized.slice(matchEnd).split("\n");
         const startIdx = continuation[0] === "" ? 1 : 0;
         let added = 0;
         for (let i = startIdx; i < continuation.length && added < MAX_CONTINUATION_LINES; i++) {
+          // eslint-disable-next-line -- security/detect-object-injection (Codacy ESLint plugin not loaded locally); `i` is a numeric loop index, not user input
           const line = continuation[i].trim();
           if (!line) break;
           if (EVENT_FIELD_LABEL_RE.test(line) || EVENT_FIELD_LABEL_UPPERCASE_RE.test(line)) break;
