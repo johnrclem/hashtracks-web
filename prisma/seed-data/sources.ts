@@ -2782,6 +2782,24 @@ export const SOURCES = [
       },
       kennelCodes: ["fh3", "ffmh3", "shits-fra", "dom-fra", "bikeh3-fra"],
     },
+    // FFMH3-specific JEM category (#1201) — cat/3 aggregator captures FFMH3
+    // historical entries but cat/3 upcoming carries no future FFMH3 events.
+    // This dedicated source pulls cat/8 ("next Frankfurt Full Moon Hash
+    // re-reloaded") so future FFMH3 runs land as soon as they're posted.
+    {
+      name: "FFMH3 Hareline",
+      url: "https://frankfurt-hash.de/index.php/coming-runs/category/8:next-frankfurt-full-moon-hash-re-reloaded",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        archiveUrl: "https://frankfurt-hash.de/index.php/coming-runs/category/8?id=8&task=archive&filter_reset=1&limit=0",
+        kennelPatterns: [],
+        defaultKennelTag: "ffmh3",
+      },
+      kennelCodes: ["ffmh3"],
+    },
 
     // ===== JAPAN =====
     // Tokyo H3 — Harrier Central public API
@@ -3527,7 +3545,7 @@ export const SOURCES = [
     // --- Edmonton: EH3 multi-kennel (7 kennels) ---
     {
       name: "EH3 Edmonton Area Harelines",
-      url: "https://www.eh3.org/wp-json/wp/v2/pages/423",
+      url: "https://www.eh3.org/wp-json/wp/v2/pages/437",
       type: "HTML_SCRAPER" as const,
       trustLevel: 8,
       scrapeFreq: "daily",

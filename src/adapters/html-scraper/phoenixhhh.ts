@@ -15,8 +15,7 @@ import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails, ParseError } from "../types";
 import { safeFetch } from "../safe-fetch";
 import { parse12HourTime, validateSourceConfig, compilePatterns, buildDateWindow, stripHtmlTags, decodeEntities } from "../utils";
-// Shared hare extraction — lives in GCal adapter but is generic. TODO: move to utils.ts
-import { extractHares } from "../google-calendar/adapter";
+import { extractHares } from "../hare-extraction";
 
 // ── Config shape ──
 
