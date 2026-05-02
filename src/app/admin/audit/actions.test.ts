@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("@/lib/auth", () => ({ getAdminUser: vi.fn() }));
 vi.mock("@/lib/db", () => ({
@@ -63,8 +63,14 @@ import {
   getDeepDiveQueue,
   getDeepDiveCoverage,
   getCloseReasonRatiosByStream,
+  getDeepDiveQueueToken,
   recordDeepDive,
 } from "./actions";
+import {
+  computeQueueSnapshotId,
+  computeQueueTokenExpiresAt,
+  signQueueToken,
+} from "@/lib/queue-snapshot-token";
 
 const mockAdmin = vi.mocked(getAdminUser);
 const mockLogFind = vi.mocked(prisma.auditLog.findMany);
@@ -358,44 +364,240 @@ describe("getDeepDiveCoverage", () => {
 
 describe("recordDeepDive", () => {
   const mockLogCreate = vi.mocked(prisma.auditLog.create);
+  const mockKennelFind = vi.mocked(prisma.kennel.findMany);
+  const mockLogGroupBy = vi.mocked(prisma.auditLog.groupBy);
+
+  const ORIGINAL_SECRET = process.env.AUDIT_QUEUE_TOKEN_SECRET;
+  beforeEach(() => {
+    process.env.AUDIT_QUEUE_TOKEN_SECRET = "test-secret-for-queue-tokens";
+    // Default queue: a stable list with NYCH3 present so the
+    // happy-path test can mint and verify a real token. Tests that
+    // exercise removed/changed-snapshot paths override.
+    mockKennelFind.mockResolvedValue([
+      {
+        kennelCode: "nych3",
+        shortName: "NYCH3",
+        slug: "nych3",
+        region: "New York City, NY",
+        sources: [],
+        _count: { events: 5 },
+      },
+      {
+        kennelCode: "agnews",
+        shortName: "AGNEWS",
+        slug: "agnews",
+        region: "Atlanta, GA",
+        sources: [],
+        _count: { events: 3 },
+      },
+    ] as never);
+    mockLogGroupBy.mockResolvedValue([] as never);
+  });
+
+  afterEach(() => {
+    if (ORIGINAL_SECRET === undefined) {
+      delete process.env.AUDIT_QUEUE_TOKEN_SECRET;
+    } else {
+      process.env.AUDIT_QUEUE_TOKEN_SECRET = ORIGINAL_SECRET;
+    }
+  });
+
+  function freshToken(kennelCode: string, kennelCodes: string[] = ["nych3", "agnews"]): string {
+    return signQueueToken({
+      kennelCode,
+      queueSnapshotId: computeQueueSnapshotId(kennelCodes),
+      expiresAt: computeQueueTokenExpiresAt(),
+    });
+  }
 
   it("requires admin", async () => {
     mockAdmin.mockResolvedValue(null);
     await expect(
-      recordDeepDive({ kennelCode: "X", findingsCount: 1, summary: "test" }),
+      recordDeepDive({
+        kennelCode: "nych3",
+        findingsCount: 1,
+        summary: "test",
+        queueToken: freshToken("nych3"),
+      }),
     ).rejects.toThrow("Unauthorized");
   });
 
   it("rejects empty kennelCode", async () => {
     await expect(
-      recordDeepDive({ kennelCode: "", findingsCount: 1, summary: "test" }),
+      recordDeepDive({
+        kennelCode: "",
+        findingsCount: 1,
+        summary: "test",
+        queueToken: "anything",
+      }),
     ).rejects.toThrow("kennelCode is required");
   });
 
   it("rejects negative findings count", async () => {
     await expect(
-      recordDeepDive({ kennelCode: "X", findingsCount: -1, summary: "test" }),
+      recordDeepDive({
+        kennelCode: "nych3",
+        findingsCount: -1,
+        summary: "test",
+        queueToken: freshToken("nych3"),
+      }),
     ).rejects.toThrow("findingsCount must be ≥ 0");
   });
 
-  it("creates an AuditLog row with type=KENNEL_DEEP_DIVE", async () => {
+  it("rejects when no token is supplied (defense against pre-#1160 callers)", async () => {
+    const result = await recordDeepDive({
+      kennelCode: "nych3",
+      findingsCount: 1,
+      summary: "test",
+      queueToken: "",
+    });
+    expect(result).toEqual({ ok: false, error: "invalidToken" });
+    expect(mockLogCreate).not.toHaveBeenCalled();
+  });
+
+  it("rejects a token whose kennelCode doesn't match the submission", async () => {
+    // Token signed for AGNEWS, submission claims NYCH3. Without
+    // this guard, an attacker who captured a token for one kennel
+    // could spend it on a different kennel still in the queue.
+    const result = await recordDeepDive({
+      kennelCode: "nych3",
+      findingsCount: 1,
+      summary: "test",
+      queueToken: freshToken("agnews"),
+    });
+    expect(result).toEqual({ ok: false, error: "invalidToken" });
+    expect(mockLogCreate).not.toHaveBeenCalled();
+  });
+
+  it("returns kennelGone when the kennel is no longer in the queue (410-shape)", async () => {
+    // Token was minted when NYCH3 was in the queue. Now NYCH3 has
+    // been removed (e.g. another admin already marked it complete).
+    mockKennelFind.mockResolvedValue([
+      {
+        kennelCode: "agnews",
+        shortName: "AGNEWS",
+        slug: "agnews",
+        region: "Atlanta, GA",
+        sources: [],
+        _count: { events: 3 },
+      },
+    ] as never);
+    const result = await recordDeepDive({
+      kennelCode: "nych3",
+      findingsCount: 1,
+      summary: "test",
+      queueToken: freshToken("nych3"),
+    });
+    expect(result).toEqual({ ok: false, error: "kennelGone" });
+    expect(mockLogCreate).not.toHaveBeenCalled();
+  });
+
+  it("returns queueChanged when the snapshot diverges (409-shape)", async () => {
+    // Token was minted with snapshot of [nych3, agnews], but the
+    // queue now also has philly-h3 added. NYCH3 still present, so
+    // we want a refresh-and-retry rather than a hard error.
+    mockKennelFind.mockResolvedValue([
+      {
+        kennelCode: "nych3",
+        shortName: "NYCH3",
+        slug: "nych3",
+        region: "New York City, NY",
+        sources: [],
+        _count: { events: 5 },
+      },
+      {
+        kennelCode: "agnews",
+        shortName: "AGNEWS",
+        slug: "agnews",
+        region: "Atlanta, GA",
+        sources: [],
+        _count: { events: 3 },
+      },
+      {
+        kennelCode: "philly-h3",
+        shortName: "PhillyH3",
+        slug: "philly-h3",
+        region: "Philadelphia, PA",
+        sources: [],
+        _count: { events: 4 },
+      },
+    ] as never);
+    const result = await recordDeepDive({
+      kennelCode: "nych3",
+      findingsCount: 1,
+      summary: "test",
+      queueToken: freshToken("nych3"),
+    });
+    expect(result).toEqual({ ok: false, error: "queueChanged" });
+    expect(mockLogCreate).not.toHaveBeenCalled();
+  });
+
+  it("creates an AuditLog row on the happy path (token valid, kennel still in queue, snapshot matches)", async () => {
     mockLogCreate.mockResolvedValue({ id: "log_1" } as never);
     const result = await recordDeepDive({
-      kennelCode: "NYCH3",
+      kennelCode: "nych3",
       findingsCount: 2,
       summary: "found 2 stale titles",
+      queueToken: freshToken("nych3"),
     });
-    expect(result.id).toBe("log_1");
+    expect(result).toEqual({ ok: true, id: "log_1" });
     expect(mockLogCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           type: "KENNEL_DEEP_DIVE",
-          kennelCode: "NYCH3",
+          kennelCode: "nych3",
           findingsCount: 2,
           summary: { note: "found 2 stale titles" },
         }),
       }),
     );
+  });
+});
+
+describe("getDeepDiveQueueToken", () => {
+  const mockKennelFind = vi.mocked(prisma.kennel.findMany);
+  const mockLogGroupBy = vi.mocked(prisma.auditLog.groupBy);
+
+  const ORIGINAL_SECRET = process.env.AUDIT_QUEUE_TOKEN_SECRET;
+  beforeEach(() => {
+    process.env.AUDIT_QUEUE_TOKEN_SECRET = "test-secret-for-queue-tokens";
+    mockKennelFind.mockResolvedValue([
+      {
+        kennelCode: "nych3",
+        shortName: "NYCH3",
+        slug: "nych3",
+        region: "New York City, NY",
+        sources: [],
+        _count: { events: 5 },
+      },
+    ] as never);
+    mockLogGroupBy.mockResolvedValue([] as never);
+  });
+
+  afterEach(() => {
+    if (ORIGINAL_SECRET === undefined) {
+      delete process.env.AUDIT_QUEUE_TOKEN_SECRET;
+    } else {
+      process.env.AUDIT_QUEUE_TOKEN_SECRET = ORIGINAL_SECRET;
+    }
+  });
+
+  it("returns a signed token + expiresAt when the kennel is in the queue", async () => {
+    const result = await getDeepDiveQueueToken("nych3");
+    expect(result).not.toBeNull();
+    if (!result) return;
+    // Token format is `<base64url>.<hex-mac>` — minimal shape check.
+    expect(result.token).toMatch(/^[A-Za-z0-9_-]+\.[0-9a-f]+$/);
+    expect(result.expiresAt).toBeGreaterThan(Date.now());
+  });
+
+  it("returns null when the kennel is not in the current queue", async () => {
+    const result = await getDeepDiveQueueToken("not-in-queue");
+    expect(result).toBeNull();
+  });
+
+  it("returns null for an empty kennelCode (defensive)", async () => {
+    expect(await getDeepDiveQueueToken("")).toBeNull();
   });
 });
 

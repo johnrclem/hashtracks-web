@@ -10,6 +10,12 @@ import type {
   RecentlyFixedItem,
   FocusAreaItem,
 } from "@/lib/admin/hareline-prompt";
+import {
+  computeQueueSnapshotId,
+  computeQueueTokenExpiresAt,
+  signQueueToken,
+  verifyQueueToken,
+} from "@/lib/queue-snapshot-token";
 
 /** All audit dashboard actions are admin-only — server actions are POST endpoints anyone can hit. */
 async function requireAdmin(): Promise<void> {
@@ -300,8 +306,77 @@ export interface DeepDiveCandidate {
   sources: DeepDiveSource[];
 }
 
+/**
+ * Default page size for the deep-dive queue display. Centralized so
+ * `getDeepDiveQueue` and the snapshot-bound token endpoints all
+ * capture the same window — drift would let a token mint against a
+ * larger queue than the dashboard shows, weakening the snapshot
+ * binding.
+ *
+ * NOT exported: Next.js 16's `"use server"` directive rejects modules
+ * that export anything other than async functions. Callers that need
+ * the constant should import from a non-server module; today, all
+ * usage is internal to this file.
+ */
+const DEEP_DIVE_QUEUE_DEFAULT_LIMIT = 20;
+
+/**
+ * Lightweight queue snapshot — just the kennelCodes in the same
+ * ranking order `getDeepDiveQueue` returns. Used by the
+ * snapshot-bound token endpoints; avoids the heavy joins that
+ * `getDeepDiveQueue` does for sources / event counts.
+ *
+ * Both `getDeepDiveQueueToken` and `recordDeepDive` call this so the
+ * snapshot recomputed at consume time matches what the dialog saw at
+ * mint time (Gemini PR #1203 review).
+ */
+async function getDeepDiveQueueKennelCodes(
+  limit: number = DEEP_DIVE_QUEUE_DEFAULT_LIMIT,
+): Promise<string[]> {
+  const activeSince = daysAgo(ACTIVE_EVENT_WINDOW_DAYS);
+  const [kennels, lastDives] = await Promise.all([
+    prisma.kennel.findMany({
+      where: {
+        isHidden: false,
+        sources: { some: { source: { enabled: true } } },
+        events: { some: { date: { gte: activeSince } } },
+      },
+      select: { kennelCode: true, shortName: true },
+    }),
+    prisma.auditLog.groupBy({
+      by: ["kennelCode"],
+      where: { type: "KENNEL_DEEP_DIVE", kennelCode: { not: null } },
+      _max: { createdAt: true },
+    }),
+  ]);
+  const lastDiveByKennel = new Map<string, Date>();
+  for (const row of lastDives) {
+    if (row.kennelCode && row._max.createdAt) {
+      lastDiveByKennel.set(row.kennelCode, row._max.createdAt);
+    }
+  }
+  // Mirrors `getDeepDiveQueue`'s sort: never-dived first, then
+  // oldest dive first.
+  const sortable = kennels.map((k) => ({
+    kennelCode: k.kennelCode,
+    shortName: k.shortName,
+    lastDeepDiveAt: lastDiveByKennel.get(k.kennelCode) ?? null,
+  }));
+  sortable.sort((a, b) => {
+    if (a.lastDeepDiveAt === null && b.lastDeepDiveAt === null) {
+      return a.shortName.localeCompare(b.shortName);
+    }
+    if (a.lastDeepDiveAt === null) return -1;
+    if (b.lastDeepDiveAt === null) return 1;
+    return a.lastDeepDiveAt.getTime() - b.lastDeepDiveAt.getTime();
+  });
+  return sortable.slice(0, limit).map((k) => k.kennelCode);
+}
+
 /** Active kennels ranked oldest-deep-dive-first (nulls first). Active = ≥1 source + ≥1 event in last 90d. */
-export async function getDeepDiveQueue(limit = 20): Promise<DeepDiveCandidate[]> {
+export async function getDeepDiveQueue(
+  limit: number = DEEP_DIVE_QUEUE_DEFAULT_LIMIT,
+): Promise<DeepDiveCandidate[]> {
   await requireAdmin();
 
   const activeSince = daysAgo(ACTIVE_EVENT_WINDOW_DAYS);
@@ -410,15 +485,88 @@ export async function getDeepDiveCoverage(): Promise<DeepDiveCoverage> {
   return { audited, total, percent, projectedFullCycleDate: projectedDate };
 }
 
-/** Record that a deep dive has been completed for a kennel. */
+// ── Deep-dive queue snapshot tokens (issue #1160) ───────────────────
+//
+// The completion dialog binds a kennel at open-time via a signed
+// snapshot token; submit fails closed if the queue has shifted in a
+// way that would change which kennel gets credit.
+
+/**
+ * Mint an HMAC-signed token for the deep-dive completion dialog.
+ * Caller passes the kennelCode the admin clicked; we verify it's
+ * actually in the current queue and return a token bound to
+ * `(kennelCode, queueSnapshotId, expiresAt)`. The dialog includes
+ * this token in the submit payload; `recordDeepDive` recomputes the
+ * snapshot from the live queue and rejects mismatches.
+ *
+ * Returns null when the kennel isn't in the current queue (404
+ * shape). Throws on auth failure (admin requirement).
+ */
+export async function getDeepDiveQueueToken(
+  kennelCode: string,
+): Promise<{ token: string; expiresAt: number } | null> {
+  await requireAdmin();
+  if (!kennelCode) return null;
+
+  const kennelCodes = await getDeepDiveQueueKennelCodes();
+  if (!kennelCodes.includes(kennelCode)) return null;
+
+  const expiresAt = computeQueueTokenExpiresAt();
+  const queueSnapshotId = computeQueueSnapshotId(kennelCodes);
+  const token = signQueueToken({ kennelCode, queueSnapshotId, expiresAt });
+  return { token, expiresAt };
+}
+
+/** Result shape for `recordDeepDive`. Discriminated union on `ok`
+ *  so the dialog can branch on the failure mode (refetch token vs
+ *  hard error). */
+export type RecordDeepDiveResult =
+  | { ok: true; id: string }
+  | {
+      ok: false;
+      error:
+        | "invalidToken" // tampered, expired, or mismatched kennel
+        | "queueChanged" // kennel still in queue but snapshot diverged
+        | "kennelGone"; // kennel no longer in queue
+    };
+
+/** Record that a deep dive has been completed for a kennel. Requires
+ *  a valid queue token from `getDeepDiveQueueToken` so a queue change
+ *  between dialog-open and submit can't misattribute the credit
+ *  (issue #1160). */
 export async function recordDeepDive(input: {
   kennelCode: string;
   findingsCount: number;
   summary: string;
-}): Promise<{ id: string }> {
+  /** HMAC-signed token from `getDeepDiveQueueToken`. Required. */
+  queueToken: string;
+}): Promise<RecordDeepDiveResult> {
   await requireAdmin();
   if (!input.kennelCode) throw new Error("kennelCode is required");
   if (input.findingsCount < 0) throw new Error("findingsCount must be ≥ 0");
+  if (!input.queueToken) {
+    return { ok: false, error: "invalidToken" };
+  }
+
+  const verification = verifyQueueToken(input.queueToken);
+  if (
+    !verification.ok ||
+    verification.payload.kennelCode !== input.kennelCode
+  ) {
+    return { ok: false, error: "invalidToken" };
+  }
+
+  // Recompute snapshot from the live queue and decide. Use the
+  // lightweight kennelCode-only query to match what the token mint
+  // path captured.
+  const liveCodes = await getDeepDiveQueueKennelCodes();
+  if (!liveCodes.includes(input.kennelCode)) {
+    return { ok: false, error: "kennelGone" };
+  }
+  const liveSnapshot = computeQueueSnapshotId(liveCodes);
+  if (liveSnapshot !== verification.payload.queueSnapshotId) {
+    return { ok: false, error: "queueChanged" };
+  }
 
   const log = await prisma.auditLog.create({
     data: {
@@ -433,7 +581,7 @@ export async function recordDeepDive(input: {
     },
     select: { id: true },
   });
-  return log;
+  return { ok: true, id: log.id };
 }
 
 // ── Stream Trends (audit-issue mirror) ──────────────────────────────
