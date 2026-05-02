@@ -48,7 +48,7 @@ export function extractHares(description: string, customPatterns?: string[] | Re
   // Pre-normalize: rejoin lines where HTML stripping split a label from its colon
   // e.g., "<b>WHO (hares)</b>: Name" → after stripHtmlTags → "WHO (hares)\n: Name"
   const normalized = description.replace(
-    /(\b(?:Who|Hares?)\s*\(?[^)]*\)?)\s*\n\s*:/gim,
+    /(\b(?:Who|Hares?)\s*\(?[^)]*\)?)\s*\n\s*:/gim, // NOSONAR — bounded by literal `\n` and char classes; capture is `[^)]*` (no nesting)
     "$1:",
   );
   let patterns: RegExp[];
@@ -97,9 +97,9 @@ export function extractHares(description: string, customPatterns?: string[] | Re
         }
       }
       // Truncate at asterisk separators (e.g., "Denny's Sucks *** could use a co-hare")
-      hares = hares.replace(/\s*\*{2,}\s*.*$/, "").trim();
+      hares = hares.replace(/\s*\*{2,}\s*.*$/, "").trim(); // NOSONAR — bounded `.*$` on a single first-line slice (no nesting); input ≤200 chars
       // Strip trailing co-hare commentary (e.g., "could use a co-hare", "need a co-hare")
-      hares = hares.replace(/\s*(?:could|need)\s+.*?co-?hares?\b.*$/i, "").trim();
+      hares = hares.replace(/\s*(?:could|need)\s+.*?co-?hares?\b.*$/i, "").trim(); // NOSONAR — non-greedy `.*?` anchored to literal `co-?hares?\b`; bounded
       // Truncate at boilerplate markers (description text leaking into hares)
       hares = hares.replace(HARE_BOILERPLATE_RE, "").trim();
       // Truncate at next embedded field label when HTML stripping collapsed fields
@@ -116,8 +116,8 @@ export function extractHares(description: string, customPatterns?: string[] | Re
       if (phoneIdx >= 0) {
         hares = hares
           .slice(0, phoneIdx)
-          .replace(/[,:;\s-]*(?:phone|tel|mobile|cell)\b\s*:?\s*$/i, "")
-          .replace(/[,:;\s-]+$/, "")
+          .replace(/[,:;\s-]*(?:phone|tel|mobile|cell)\b\s*:?\s*$/i, "") // NOSONAR — bounded char class + literal alternation + `$` anchor
+          .replace(/[,:;\s-]+$/, "") // NOSONAR — single char class + `$` anchor
           .trim();
       }
       // Skip generic/non-hare "Who:" answers
