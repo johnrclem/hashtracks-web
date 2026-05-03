@@ -999,6 +999,34 @@ function buildGCalDiagnosticContext(item: GCalEvent): string {
   return rawParts.join("\n").slice(0, 2000);
 }
 
+/** Compile every regex-string config field once per scrape so the per-event
+ * build path doesn't re-compile. Returns an object with every compiled
+ * pattern needed by `buildRawEventFromGCalItem` (or `undefined` when the
+ * config didn't supply one).
+ */
+function compileSourceConfigPatterns(sourceConfig: CalendarSourceConfig | null) {
+  return {
+    compiledHarePatterns: sourceConfig?.harePatterns?.length
+      ? compilePatterns(sourceConfig.harePatterns)
+      : undefined,
+    compiledRunNumberPatterns: sourceConfig?.runNumberPatterns?.length
+      ? compilePatterns(sourceConfig.runNumberPatterns)
+      : undefined,
+    compiledSkipPatterns: sourceConfig?.skipPatterns?.length
+      ? compilePatterns(sourceConfig.skipPatterns, "i")
+      : undefined,
+    compiledTitleHarePattern: sourceConfig?.titleHarePattern
+      ? compilePatterns([sourceConfig.titleHarePattern], "i")[0]
+      : undefined,
+    compiledTitleStripPatterns: sourceConfig?.titleStripPatterns?.length
+      ? compilePatterns(sourceConfig.titleStripPatterns, "i")
+      : undefined,
+    compiledKennelPatterns: sourceConfig?.kennelPatterns?.length
+      ? compileKennelPatterns(sourceConfig.kennelPatterns)
+      : undefined,
+  };
+}
+
 /**
  * Two-pass dedup for fetched events:
  *   1. id-first — GCal returns a stable per-instance id; collapse exact-id
@@ -1070,24 +1098,7 @@ export class GoogleCalendarAdapter implements SourceAdapter {
     const errorDetails: ErrorDetails = {};
     let totalItemsReturned = 0;
     let pagesProcessed = 0;
-    const compiledHarePatterns = sourceConfig?.harePatterns?.length
-      ? compilePatterns(sourceConfig.harePatterns)
-      : undefined;
-    const compiledRunNumberPatterns = sourceConfig?.runNumberPatterns?.length
-      ? compilePatterns(sourceConfig.runNumberPatterns)
-      : undefined;
-    const compiledSkipPatterns = sourceConfig?.skipPatterns?.length
-      ? compilePatterns(sourceConfig.skipPatterns, "i")
-      : undefined;
-    const compiledTitleHarePattern = sourceConfig?.titleHarePattern
-      ? compilePatterns([sourceConfig.titleHarePattern], "i")[0]
-      : undefined;
-    const compiledTitleStripPatterns = sourceConfig?.titleStripPatterns?.length
-      ? compilePatterns(sourceConfig.titleStripPatterns, "i")
-      : undefined;
-    const compiledKennelPatterns = sourceConfig?.kennelPatterns?.length
-      ? compileKennelPatterns(sourceConfig.kennelPatterns)
-      : undefined;
+    const compiled = compileSourceConfigPatterns(sourceConfig);
     const gcalIdMap = new WeakMap<RawEventData, string>();
 
     const buildEvents = (items: GCalEvent[], filter?: (item: GCalEvent) => boolean): void => {
@@ -1098,15 +1109,7 @@ export class GoogleCalendarAdapter implements SourceAdapter {
           continue;
         }
         try {
-          const event = buildRawEventFromGCalItem(item, sourceConfig, {
-            compiledHarePatterns,
-            compiledRunNumberPatterns,
-            compiledSkipPatterns,
-            compiledTitleHarePattern,
-            compiledTitleStripPatterns,
-            compiledKennelPatterns,
-            gcalIdMap,
-          });
+          const event = buildRawEventFromGCalItem(item, sourceConfig, { ...compiled, gcalIdMap });
           if (event) events.push(event);
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);

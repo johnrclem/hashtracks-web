@@ -38,7 +38,7 @@ const TARGETS: VerifyTarget[] = [
     sourceName: "Eugene H3 Calendar",
     describe: "#1188/#1189 — admits all-day; strips emoji; 👣 hares",
     inspect: (events) => {
-      const stillEmoji = events.filter((e) => /🌲|🍺/u.test(e.title ?? ""));
+      const stillEmoji = events.filter((e) => /[🌲🍺]/u.test(e.title ?? ""));
       const leadingDash = events.filter((e) => /^[-–—]/.test(e.hares ?? ""));
       return [
         `events: ${events.length}`,
