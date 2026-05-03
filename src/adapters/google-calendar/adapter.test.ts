@@ -1369,17 +1369,21 @@ describe("buildRawEventFromGCalItem — dash-separated hare/location extraction"
     expect(event!.title).toBe("OCHHH");
   });
 
-  it("extracts hares from 'Name - Location TBD' (EWH3 placeholder)", () => {
+  it("preserves prefix as title in 'Name - Location TBD' (EWH3 placeholder, #1127)", () => {
+    // Without an explicit hare delimiter (`w/`, `Hare:`, `hared by`) the
+    // prefix is the trail title — never assume it's a hare name. EWH3's
+    // "Autism Speaks for Deities & Friends! - Location TBD" was previously
+    // routed to `hares` and the title clobbered with `defaultTitle`.
     const item = {
       summary: "Captain Jack Swallows - Location TBD",
       start: { dateTime: "2026-04-09T18:30:00-04:00" },
       status: "confirmed",
     };
-    const config = { defaultKennelTag: "EWH3" };
+    const config = { defaultKennelTag: "EWH3", defaultTitle: "Everyday is Wednesday H3 Trail" };
     const event = buildRawEventFromGCalItem(item, config);
     expect(event).not.toBeNull();
-    expect(event!.hares).toBe("Captain Jack Swallows");
-    expect(event!.title).toBe("EWH3");
+    expect(event!.hares).toBeUndefined();
+    expect(event!.title).toBe("Captain Jack Swallows");
   });
 
   it("extracts hares from 'hared by Name' suffix (Voodoo H3)", () => {
@@ -2661,14 +2665,19 @@ describe("GoogleCalendarAdapter — RECURRENCE-ID override recovery (#1021/#1024
   // ── Fixture G: inline-hareline backfill still works after recovery ──
   it("recovered exceptions can serve as inline-hareline backfill donors", async () => {
     await withApiKey(async () => {
+      // Compute the calendar M/D the same way the adapter stores it (UTC via
+      // toISOString), so the hareline string lines up with `event.date` even
+      // when the runner's wall clock straddles UTC midnight. Previously this
+      // test mixed local `getMonth()/getDate()` with UTC `toISOString()` and
+      // flaked at the boundary.
       const futureDate = new Date(Date.now() + 7 * 86_400_000);
       const futureIso = futureDate.toISOString().split("T")[0];
-      const m1 = futureDate.getMonth() + 1;
-      const d1 = futureDate.getDate();
+      const m1 = parseInt(futureIso.slice(5, 7), 10);
+      const d1 = parseInt(futureIso.slice(8, 10), 10);
       const futureDate2 = new Date(futureDate.getTime() + 14 * 86_400_000);
       const futureIso2 = futureDate2.toISOString().split("T")[0];
-      const m2real = futureDate2.getMonth() + 1;
-      const d2real = futureDate2.getDate();
+      const m2real = parseInt(futureIso2.slice(5, 7), 10);
+      const d2real = parseInt(futureIso2.slice(8, 10), 10);
 
       const donor = {
         id: "donor-recovered",
@@ -2702,6 +2711,416 @@ describe("GoogleCalendarAdapter — RECURRENCE-ID override recovery (#1021/#1024
         expect(res.events).toHaveLength(2);
         const recipientEvent = res.events.find(e => e.date === futureIso2);
         expect(recipientEvent?.hares).toBe("Bob");
+      } finally {
+        fetchSpy.mockRestore();
+      }
+    });
+  });
+});
+
+// ── Audit-stream Deep Dive — 11 GCal adapter bugs ──
+
+describe("extractRunNumber — partial-digit token rejection (#1147)", () => {
+  it("returns undefined for `#30X?` (mid-token alphanumeric)", () => {
+    expect(extractRunNumber("FCH3 #30X?: Frisky Whisk-her and CBD")).toBeUndefined();
+  });
+  it("still extracts clean numeric tokens (regression)", () => {
+    expect(extractRunNumber("FCH3 #308: Laporte: Squeeze")).toBe(308);
+  });
+  it("still extracts when terminator is hyphen", () => {
+    expect(extractRunNumber("CUNTh # 66 - Winner Winner Dildo Dinner")).toBe(66);
+  });
+  it("still extracts when terminator is end-of-string", () => {
+    expect(extractRunNumber("BH3 #2781")).toBe(2781);
+  });
+  it("returns undefined for `#30TBD`", () => {
+    expect(extractRunNumber("FCH3 #30TBD")).toBeUndefined();
+  });
+});
+
+describe("extractTitleFromDescription — acronym-only filter (#1194 GAL)", () => {
+  it("rejects bare BYOB as a title candidate", () => {
+    expect(extractTitleFromDescription("BYOB")).toBeUndefined();
+  });
+  it("rejects TBD as a title candidate", () => {
+    expect(extractTitleFromDescription("TBD")).toBeUndefined();
+  });
+  it("rejects BYOB followed by other content (next non-acronym line wins)", () => {
+    expect(extractTitleFromDescription("BYOB\nThe Real Title")).toBe("The Real Title");
+  });
+  it("keeps multi-word titles (regression)", () => {
+    expect(extractTitleFromDescription("Trail Name\nHare: Foo")).toBe("Trail Name");
+  });
+  it("keeps mixed-case single-word titles (regression)", () => {
+    expect(extractTitleFromDescription("Trail")).toBe("Trail");
+  });
+});
+
+describe("extractLocationFromDescription — empty-label cross-line capture (#1129 Flour City)", () => {
+  it("does not capture next line's content for empty `Where:` (Flour City template)", () => {
+    const desc = "Hare: \nWhere: \nWhen: 5:69\nWhy: \nHow: $5 hash cash \nVenmo or PayPal: fch3trails@gmail.com";
+    expect(extractLocationFromDescription(desc)).toBeUndefined();
+  });
+  it("captures real `Where:` value on its own line (regression)", () => {
+    const desc = "Hare: Bloody\nWhere: Abe Lincoln Park, Empire boulevard Webster NY\nWhen: 5:69";
+    expect(extractLocationFromDescription(desc)).toBe("Abe Lincoln Park, Empire boulevard Webster NY");
+  });
+});
+
+describe("buildRawEventFromGCalItem — Flour City template title leak (#1129)", () => {
+  it("does not promote empty `Why:` to title for short summaries", () => {
+    const item = {
+      summary: "Fetch",
+      description: "Hare: \nWhere: \nWhen: 5:69\nWhy: \nHow: $5 hash cash",
+      start: { dateTime: "2026-05-28T18:09:00-04:00" },
+      status: "confirmed",
+    };
+    const config = { defaultKennelTag: "flour-city" };
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event).not.toBeNull();
+    expect(event!.title).toBe("Fetch");
+    expect(event!.title).not.toBe("Why:");
+  });
+  it("does not promote `When: 5:69` template line to location", () => {
+    const item = {
+      summary: "Mud and Cockbook",
+      description: "Hare: \nWhere: \nWhen: 5:69\nWhy: \nHow: $5 hash cash",
+      start: { dateTime: "2026-05-07T18:09:00-04:00" },
+      status: "confirmed",
+    };
+    const config = { defaultKennelTag: "flour-city" };
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event).not.toBeNull();
+    expect(event!.title).toBe("Mud and Cockbook");
+    expect(event!.location).toBeUndefined();
+  });
+});
+
+describe("buildRawEventFromGCalItem — FtH3 description body capture (#1154)", () => {
+  it("preserves multi-paragraph description verbatim through the adapter", () => {
+    const item = {
+      summary: "Foothill Returns",
+      description: "Pookie to the rescue as Foothill returns from its winter slumber to bring you shiggy all summer long.\n\nRemember Foothill is a no frills, no fee hash. Bring your own beverage, munchies, and lawn chair for circle after trail.",
+      start: { dateTime: "2026-04-19T10:00:00-07:00" },
+      location: "Quarter Horse Drive Trailhead, Yorba Linda, CA 92886",
+      status: "confirmed",
+    };
+    const config = { defaultKennelTag: "fth3" };
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event).not.toBeNull();
+    expect(event!.description).toContain("Pookie to the rescue");
+    expect(event!.description).toContain("no frills");
+  });
+});
+
+describe("buildRawEventFromGCalItem — GAL acronym description does not become title (#1194)", () => {
+  it("keeps summary as title when description is just `BYOB`", () => {
+    const item = {
+      summary: "GAL",
+      description: "BYOB",
+      start: { dateTime: "2026-04-27T19:30:00-07:00" },
+      location: "34.119611, -118.503",
+      status: "confirmed",
+    };
+    const config = { defaultKennelTag: "gal-h3" };
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event).not.toBeNull();
+    expect(event!.title).toBe("GAL");
+    expect(event!.description).toBe("BYOB");
+  });
+});
+
+describe("buildRawEventFromGCalItem — coord-only location preservation (#1195)", () => {
+  it("preserves DMS coord string as location and parses lat/lng", () => {
+    const item = {
+      summary: "GAL",
+      description: "BYOB",
+      // Quote the inner double-quote with the JSON-style escape; using single
+      // quotes for the seconds delimiter keeps the source readable.
+      location: "34°07'10.6\"N 118°30'10.8\"W",
+      start: { dateTime: "2026-04-27T19:30:00-07:00" },
+      status: "confirmed",
+    };
+    const config = { defaultKennelTag: "gal-h3" };
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event).not.toBeNull();
+    expect(event!.location).toBe("34°07'10.6\"N 118°30'10.8\"W");
+    expect(event!.latitude).toBeCloseTo(34.1196, 3);
+    expect(event!.longitude).toBeCloseTo(-118.503, 3);
+  });
+  it("preserves decimal coord string when description has no address fallback", () => {
+    const item = {
+      summary: "GAL",
+      description: "BYOB",
+      location: "34.086778, -118.485327",
+      start: { dateTime: "2025-06-30T19:30:00-07:00" },
+      status: "confirmed",
+    };
+    const config = { defaultKennelTag: "gal-h3" };
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event).not.toBeNull();
+    expect(event!.location).toBe("34.086778, -118.485327");
+    expect(event!.latitude).toBeCloseTo(34.086778, 5);
+    expect(event!.longitude).toBeCloseTo(-118.485327, 5);
+  });
+  it("still defers to description-derived address when one is provided (#779 BMPH3 regression)", () => {
+    const item = {
+      summary: "BMPH3 Trail",
+      description: "Start: Rue de la Gare, 1332 Genval\nHares: Tester",
+      location: "50.7234, 4.5123",
+      start: { dateTime: "2026-04-05T14:00:00+02:00" },
+      status: "confirmed",
+    };
+    const config = { defaultKennelTag: "bmph3-be" };
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event).not.toBeNull();
+    expect(event!.location).toBe("Rue de la Gare, 1332 Genval");
+    expect(event!.latitude).toBeCloseTo(50.7234, 4);
+    expect(event!.longitude).toBeCloseTo(4.5123, 4);
+  });
+});
+
+describe("buildRawEventFromGCalItem — COH3 'with X' titleHarePattern (#981)", () => {
+  // Mirrors the seed config for "Central Oregon H3 Calendar".
+  const config = {
+    defaultKennelTag: "coh3",
+    titleHarePattern: String.raw`\bwith\s+(.+?)\s*$`,
+  };
+  const compiledTitleHarePattern = /\bwith\s+(.+?)\s*$/i;
+
+  it("extracts hares from `COH3 #125 with Copper Cunt`", () => {
+    const item = {
+      summary: "COH3 #125 with Copper Cunt",
+      start: { dateTime: "2026-05-10T13:00:00-07:00" },
+      status: "confirmed",
+    };
+    const event = buildRawEventFromGCalItem(item, config, { compiledTitleHarePattern });
+    expect(event).not.toBeNull();
+    expect(event!.hares).toBe("Copper Cunt");
+    expect(event!.title).toBe("COH3 #125");
+  });
+
+  it("extracts compound hare names with `&`", () => {
+    const item = {
+      summary: "COH3 #122 with Auto Erectus & Sherpa",
+      start: { dateTime: "2026-05-03T13:00:00-07:00" },
+      status: "confirmed",
+    };
+    const event = buildRawEventFromGCalItem(item, config, { compiledTitleHarePattern });
+    expect(event).not.toBeNull();
+    expect(event!.hares).toBe("Auto Erectus & Sherpa");
+  });
+
+  it("does not extract hares from a description that mid-sentence-mentions 'hare'", () => {
+    // #981 Bug 1: "Meet at 1pm hare off soon after" should NOT produce
+    // hares="off soon after". The default `Hare:` patterns require a label
+    // at start-of-line + colon (or capital "Hare " start-of-line); none
+    // match this lowercase mid-sentence fragment.
+    const item = {
+      summary: "COH3 World Peace through Beer",
+      description: "Meet at 1pm hare off soon after\nMore details follow",
+      start: { dateTime: "2025-10-19T13:00:00-07:00" },
+      status: "confirmed",
+    };
+    const event = buildRawEventFromGCalItem(item, config, { compiledTitleHarePattern });
+    expect(event).not.toBeNull();
+    expect(event!.hares).toBeUndefined();
+  });
+});
+
+describe("buildRawEventFromGCalItem — Eugene H3 emoji-delimited title parsing (#1189)", () => {
+  // Mirrors the seed config for "Eugene H3 Calendar".
+  const config = {
+    defaultKennelTag: "eh3-or",
+    includeAllDayEvents: true,
+    titleHarePattern: String.raw`👣[\s:\-–—]*(.+?)\s*$`,
+    titleStripPatterns: [
+      String.raw`^🌲\s*`,
+      String.raw`\s*🍺.*$`,
+      String.raw`\s*👣.*$`,
+    ],
+  };
+  const compiledTitleHarePattern = /👣[\s:\-–—]*(.+?)\s*$/i;
+  const compiledTitleStripPatterns = [
+    /^🌲\s*/i,
+    /\s*🍺.*$/i,
+    /\s*👣.*$/i,
+  ];
+
+  it("extracts hare from 👣 marker and strips leading 🌲", () => {
+    const item = {
+      summary: "🌲 EH3 Sasquach Hash 👣 Fembot",
+      start: { date: "2026-05-02" },
+      status: "confirmed",
+    };
+    const event = buildRawEventFromGCalItem(item, config, {
+      compiledTitleHarePattern,
+      compiledTitleStripPatterns,
+    });
+    expect(event).not.toBeNull();
+    expect(event!.hares).toBe("Fembot");
+    expect(event!.title).toBe("EH3 Sasquach Hash");
+  });
+
+  it("strips 🍺 + time/location tail from Hashy Hour title", () => {
+    const item = {
+      summary: "🌲 EH3 Hashy Hour 🍺 6:69 pm- Location TBD",
+      start: { date: "2026-05-08" },
+      status: "confirmed",
+    };
+    const event = buildRawEventFromGCalItem(item, config, {
+      compiledTitleHarePattern,
+      compiledTitleStripPatterns,
+    });
+    expect(event).not.toBeNull();
+    expect(event!.hares).toBeUndefined();
+    expect(event!.title).toBe("EH3 Hashy Hour");
+  });
+
+  it("ingests all-day events when includeAllDayEvents=true", () => {
+    const item = {
+      summary: "🌲 EH3 Hash 👣",
+      start: { date: "2026-05-03" },
+      status: "confirmed",
+    };
+    const event = buildRawEventFromGCalItem(item, config, {
+      compiledTitleHarePattern,
+      compiledTitleStripPatterns,
+    });
+    expect(event).not.toBeNull();
+    expect(event!.title).toBe("EH3 Hash");
+    expect(event!.hares).toBeUndefined();
+    expect(event!.startTime).toBeUndefined();
+  });
+
+  it("skips all-day events when includeAllDayEvents is unset (regression)", () => {
+    const item = {
+      summary: "Regular All-Day",
+      start: { date: "2026-05-04" },
+      status: "confirmed",
+    };
+    const event = buildRawEventFromGCalItem(item, { defaultKennelTag: "test" });
+    expect(event).toBeNull();
+  });
+
+  it("handles `👣-` (no-space dash separator) without leaving a leading dash on hares", () => {
+    const item = {
+      summary: "🌲 EH3 Hash 👣- Pecker Checker",
+      start: { date: "2026-05-11" },
+      status: "confirmed",
+    };
+    const event = buildRawEventFromGCalItem(item, config, {
+      compiledTitleHarePattern,
+      compiledTitleStripPatterns,
+    });
+    expect(event).not.toBeNull();
+    expect(event!.hares).toBe("Pecker Checker");
+    expect(event!.title).toBe("EH3 Hash");
+  });
+
+  it("strips trailing 👣 + theme prose when description provides authoritative hares", () => {
+    // Real Eugene example: title has theme name after 👣 but the canonical
+    // hares come from the description's `Hare:` line. We strip the title's
+    // 👣-tail aggressively so cards stay clean.
+    const item = {
+      summary: "🌲 EH3 Hash 👣 Cheap Smut's Birthday Book Hash",
+      description: "Hare: Cheap Smut and TCB",
+      start: { date: "2026-05-25" },
+      status: "confirmed",
+    };
+    const event = buildRawEventFromGCalItem(item, config, {
+      compiledTitleHarePattern,
+      compiledTitleStripPatterns,
+    });
+    expect(event).not.toBeNull();
+    expect(event!.hares).toBe("Cheap Smut and TCB");
+    expect(event!.title).toBe("EH3 Hash");
+  });
+});
+
+describe("buildRawEventFromGCalItem — Fort Collins all-day Rex Manning Day (#1149)", () => {
+  it("admits one-off all-day events when includeAllDayEvents=true", () => {
+    const item = {
+      summary: "Rex Manning Day",
+      start: { date: "2027-04-08" },
+      status: "confirmed",
+    };
+    const config = { defaultKennelTag: "fch3-co", includeAllDayEvents: true };
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event).not.toBeNull();
+    expect(event!.title).toBe("Rex Manning Day");
+    expect(event!.date).toBe("2027-04-08");
+    expect(event!.startTime).toBeUndefined();
+  });
+});
+
+// ── #1101 CFMH3 composite-key dedup (parallel RRULE series) ──
+
+describe("GoogleCalendarAdapter — composite-key dedup of duplicate series (#1101 CFMH3)", () => {
+  const adapter = new GoogleCalendarAdapter();
+  const cfmh3Source = {
+    id: "test",
+    url: "test@calendar.google.com",
+    type: "GOOGLE_CALENDAR" as const,
+    config: { defaultKennelTag: "cfmh3" },
+    scrapeDays: 90,
+  } as unknown as Parameters<typeof adapter.fetch>[0];
+
+  it("collapses two events with same kennel/date/startTime/title but distinct ids", async () => {
+    await withApiKey(async () => {
+      // Two distinct ids, identical kennel/date/title/time — parallel RRULE series.
+      const fetchSpy = mockTwoCalls(
+        { items: [
+          { id: "series-a-instance-1", iCalUID: "series-a@google.com", summary: "Full Moon H3", start: { dateTime: "2026-06-02T19:00:00-05:00" }, status: "confirmed" },
+          { id: "series-b-instance-1", iCalUID: "series-b@google.com", summary: "Full Moon H3", start: { dateTime: "2026-06-02T19:00:00-05:00" }, status: "confirmed" },
+        ] },
+        { items: [] },
+      );
+      try {
+        const result = await adapter.fetch(cfmh3Source, { days: 90 });
+        expect(result.events).toHaveLength(1);
+        expect(result.diagnosticContext?.compositeDeduped).toBe(1);
+      } finally {
+        fetchSpy.mockRestore();
+      }
+    });
+  });
+
+  it("field-merges across collisions so the survivor keeps non-empty data from both", async () => {
+    await withApiKey(async () => {
+      // First series has description, second has location — survivor carries both.
+      const fetchSpy = mockTwoCalls(
+        { items: [
+          { id: "series-a", iCalUID: "series-a@google.com", summary: "Full Moon H3", description: "BYO mug, $5 hash cash", start: { dateTime: "2026-06-02T19:00:00-05:00" }, status: "confirmed" },
+          { id: "series-b", iCalUID: "series-b@google.com", summary: "Full Moon H3", location: "Cerebral Brewing, Denver, CO", start: { dateTime: "2026-06-02T19:00:00-05:00" }, status: "confirmed" },
+        ] },
+        { items: [] },
+      );
+      try {
+        const result = await adapter.fetch(cfmh3Source, { days: 90 });
+        expect(result.events).toHaveLength(1);
+        expect(result.events[0].description).toContain("BYO mug");
+        expect(result.events[0].location).toBe("Cerebral Brewing, Denver, CO");
+        expect(result.diagnosticContext?.compositeDeduped).toBe(1);
+      } finally {
+        fetchSpy.mockRestore();
+      }
+    });
+  });
+
+  it("does not collapse two events with the same id+date but different titles", async () => {
+    await withApiKey(async () => {
+      const fetchSpy = mockTwoCalls(
+        { items: [
+          { id: "evt-a", summary: "Full Moon H3", start: { dateTime: "2026-06-02T19:00:00-05:00" }, status: "confirmed" },
+          { id: "evt-b", summary: "Special Trail", start: { dateTime: "2026-06-02T19:00:00-05:00" }, status: "confirmed" },
+        ] },
+        { items: [] },
+      );
+      try {
+        const result = await adapter.fetch(cfmh3Source, { days: 90 });
+        expect(result.events).toHaveLength(2);
+        expect(result.diagnosticContext?.compositeDeduped).toBeUndefined();
       } finally {
         fetchSpy.mockRestore();
       }

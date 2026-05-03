@@ -2086,6 +2086,18 @@ export const SOURCES = [
       config: {
         calendarId: "8b593752049f42f9aca8fb04197bfb25d7f4148db8c314991e842bbf6b4ea303@group.calendar.google.com",
         defaultKennelTag: "eh3-or",
+        // #1188: every Eugene event is all-day; without this they all get dropped.
+        includeAllDayEvents: true,
+        // #1189: emoji-delimited titles. 🌲 prefix, 👣 = hare delimiter (with
+        // optional `-`), 🍺 = time/location tail. Strip 👣 + tail aggressively
+        // so cards stay clean when the description carries the authoritative
+        // hare and the title-tail is theme prose.
+        titleHarePattern: String.raw`👣[\s:\-–—]*(.+?)\s*$`,
+        titleStripPatterns: [
+          String.raw`^🌲\s*`,
+          String.raw`\s*🍺.*$`,
+          String.raw`\s*👣.*$`,
+        ],
       },
       kennelCodes: ["eh3-or"],
     },
@@ -2099,6 +2111,9 @@ export const SOURCES = [
       config: {
         calendarId: "6ureum96qhgf13kj820i61ovq8@group.calendar.google.com",
         defaultKennelTag: "coh3",
+        // #981: hares are encoded in the summary as `COH3 #NNN with <Hare>` /
+        // `COH3 <Theme> with <Hare1> & <Hare2>`. Capture trailing "with X".
+        titleHarePattern: String.raw`\bwith\s+(.+?)\s*$`,
       },
       kennelCodes: ["coh3"],
     },
@@ -2287,7 +2302,13 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "every_6h",
       scrapeDays: 90,
-      config: { defaultKennelTag: "fch3-co" },
+      config: {
+        defaultKennelTag: "fch3-co",
+        // #1149: kennel uses occasional all-day entries for non-trail events
+        // (Rex Manning Day, anniversaries). Trail events are timed and
+        // unaffected.
+        includeAllDayEvents: true,
+      },
       kennelCodes: ["fch3-co"],
     },
     // --- Colorado Springs H3 (Google Calendar — multi-kennel) ---
