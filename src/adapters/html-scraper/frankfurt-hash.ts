@@ -53,18 +53,34 @@ function matchKennelTag(title: string, compiled: [RegExp, string][], defaultTag:
 }
 
 /**
- * Strip a trailing " Hare(s): <name>" suffix from a title. The Frankfurt
- * JEM list page appends hare names to event titles (e.g.
- * "FH3 Run #2119 Hare: Whore Durve"), but the hare name is also extracted
- * into RawEventData.hares from the same `<li>` HTML — keeping it in the
- * title is pure duplication. Returns the original title if stripping
- * would leave nothing (defensive: a malformed bare "Hare: X" passes through).
- * See #961.
+ * Strip a trailing " Hare(s): <name>" / " Hare(s) - <name>" / bare " Hares:"
+ * suffix from a title. The Frankfurt JEM list page appends hare names to
+ * event titles (e.g. "FH3 Run #2119 Hare: Whore Durve"), but the hare name
+ * is also extracted into RawEventData.hares from the same `<li>` HTML —
+ * keeping it in the title is pure duplication. The trailing-only "Hares:"
+ * variant (no hare name) also gets stripped so empty announcements don't
+ * ship with the dangling label visible to users (#1228).
+ * Returns the original title if stripping would leave nothing (defensive:
+ * a malformed bare "Hare: X" passes through). See #961.
  */
 export function stripHareSuffix(title: string): string {
-  const stripped = title.replace(/\s+Hares?\s*[:-]\s*.+$/i, "").trim();
+  // Optional separator + greedy `.*` so a trailing label with no hare name
+  // ("FH3 Run #2114 Hares:") strips down to "FH3 Run #2114". The leading
+  // `\s+` requirement still prevents matching "FH3-Hare: X" with no
+  // whitespace before the keyword.
+  const stripped = title.replace(/\s+Hares?\s*[:-]?\s*.*$/i, "").trim();
   return stripped || title;
 }
+
+/**
+ * Generic nav-menu words that are sometimes captured by the Hares regex
+ * when it runs against a full detail-page HTML (Joomla menu blocks render
+ * "Hares" as a menu link followed by sibling links like "Home", "About", etc.
+ * After stripHtmlTags flattens those siblings into the same line, the
+ * non-greedy capture grabs the next nav word). Reject these explicitly so
+ * a bogus "Home" never overwrites the real `hares` field. (#1228)
+ */
+const HARES_NAV_DENYLIST = /^(?:Home|About|Contact|Calendar|Members|News|Blog|Login|Logout|Menu|Search|Categories|Archive|Events?|Trail\s*News)$/i;
 
 // ── Exported helpers (for unit testing) ──
 
@@ -164,11 +180,29 @@ export function extractHaresFromText(text: string): string | undefined {
   const m = /\bHares?\s*[:-]\s*([^\n.|]+?)(?=\s*(?:[.|\n]|\bby\b|$))/i.exec(cleaned);
   if (!m) return undefined;
   const value = m[1].trim();
-  return value || undefined;
+  if (!value) return undefined;
+  // Drop nav-menu fall-throughs like "Home" / "About" — these surface when
+  // the regex runs against a detail page and the Hares anchor is followed
+  // by a sibling menu link in the same flattened block. (#1228)
+  if (HARES_NAV_DENYLIST.test(value)) return undefined;
+  return value;
 }
 
 /** Cap the number of detail-page fetches per scrape so a long upcoming list can't fan out. */
 const MAX_ENRICH_PER_SCRAPE = 30;
+
+/**
+ * Narrow a JEM detail-page HTML string to its main-content subtree before
+ * the Hares regex runs. Joomla detail pages bundle a global nav/menu block
+ * whose flattened text can pollute the non-greedy capture group (a
+ * `Hares` link followed by a `Home` link). When no recognized content
+ * wrapper is present, return the original HTML so we never fail closed.
+ */
+function scopeToContent(html: string): string {
+  const $ = cheerio.load(html);
+  const main = $("main, .jem-event-content, article, .item-page").first();
+  return main.length ? (main.html() ?? html) : html;
+}
 
 /**
  * Fetch the event detail page for events missing hares and enrich them in place.
@@ -205,7 +239,12 @@ export async function enrichFrankfurtHares(
         continue;
       }
       const { html, event } = result.value;
-      const hares = extractHaresFromText(html);
+      // Scope to the main content area before regex extraction so global
+      // nav/menu blocks (whose flattened text can otherwise feed words like
+      // "Home" into the Hares regex's capture group) never reach
+      // extractHaresFromText. Falls back to the full page when the JEM
+      // template doesn't expose a recognized content wrapper. (#1228)
+      const hares = extractHaresFromText(scopeToContent(html));
       if (hares) {
         event.hares = hares;
         enriched++;

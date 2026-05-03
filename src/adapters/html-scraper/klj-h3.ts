@@ -74,7 +74,11 @@ export function parseKljBody(bodyHtml: string): {
     return value;
   };
 
-  const runSite = grab("Run[- ]?site");
+  // Strip a leading "probably " qualifier — KLJ posts use it to mark a
+  // tentative venue choice; the qualifier belongs in description, not in
+  // the location field that drives geocoding. (#1213)
+  const runSiteRaw = grab("Run[- ]?site");
+  const runSite = runSiteRaw?.replace(/^probably\s+/i, "").trim() || undefined;
   const travelTime = grab("Travel\\s*Time");
   const dateRaw = grab("Date");
   const hares = grab("Hares?");
@@ -113,20 +117,39 @@ export function parseKljTitleDate(title: string, publishDateIso: string): string
 }
 
 /**
- * Strip the "Run # N, <date> – " prefix from a post title, leaving just
+ * Strip the "Run # N, <date> ..." prefix from a post title, leaving just
  * the themed title (e.g. "Halloween @ TBD", "Christmas Party"). Also
  * decodes HTML entities left by WordPress (–, &amp;, …).
+ *
+ * When the post-date trailer is purely a venue (e.g.
+ * "Run # 526, 7th June @ Nambee estate, near Rasa") with no themed-event
+ * content, synthesize a clean "Run #N" string — the venue is already
+ * stored separately in `RawEventData.location`. (#1213)
  *
  * Exported for unit testing.
  */
 export function cleanKljTitle(title: string): string {
   const decoded = decodeEntities(title);
   const withoutTags = decoded.replace(/<[^>]+>/g, "").trim();
-  // Drop "Run # 532, 6th December 2026 - " / "Run # 524, 5th April – "
-  const m = /^Run\s*#\s*\d+\s*[,:\-]?\s*[0-9]{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+(?:\s+\d{4})?\s*[–\-]\s*(.+)$/i
-    .exec(withoutTags);
-  if (m) return m[1].trim();
-  return withoutTags;
+  const runMatch = /^Run\s*#\s*(\d+)/i.exec(withoutTags);
+  if (!runMatch) return withoutTags;
+  const runNum = runMatch[1];
+
+  let rest = withoutTags.slice(runMatch[0].length).trim();
+  // Drop the leading separator after the run number ("Run # 532, …").
+  rest = rest.replace(/^[,:\-–—]\s*/, "");
+  // Drop the date token ("6th December 2026 ", "1st November ").
+  rest = rest.replace(/^[0-9]{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+(?:\s+\d{4})?\s*/, "");
+  // Drop the dash separator between date and themed title ("– Christmas Party").
+  rest = rest.replace(/^[–\-—:]\s*/, "");
+
+  // Empty trailer or one that opens with a venue marker ("@ …", ", …",
+  // "near …") means the post title carries no themed name — synthesize
+  // a stable "Run #N" instead of leaving date + venue in the title.
+  if (!rest || /^[@,]\s/.test(rest) || /^near\s/i.test(rest)) {
+    return `Run #${runNum}`;
+  }
+  return rest;
 }
 
 /**

@@ -19,6 +19,17 @@ describe("cleanKljTitle", () => {
   it("leaves titles without a run prefix alone", () => {
     expect(cleanKljTitle("Welcome to KLJ H3")).toBe("Welcome to KLJ H3");
   });
+  it("synthesizes 'Run #N' when trailer is just '@ <venue>' (#1213)", () => {
+    expect(cleanKljTitle("Run # 526, 7th June @ Nambee estate, near Rasa")).toBe(
+      "Run #526",
+    );
+  });
+  it("synthesizes 'Run #N' when trailer is just a venue (no @ separator) (#1213)", () => {
+    expect(cleanKljTitle("Run # 527, 5th July near KL")).toBe("Run #527");
+  });
+  it("synthesizes 'Run #N' when title is bare run number without trailer (#1213)", () => {
+    expect(cleanKljTitle("Run # 528")).toBe("Run #528");
+  });
 });
 
 describe("parseKljTitleDate", () => {
@@ -65,6 +76,13 @@ describe("parseKljBody", () => {
     expect(parsed.runSite).toBeUndefined();
     expect(parsed.hares).toBeUndefined();
     expect(parsed.date).toBe("2026-11-01");
+  });
+
+  it("strips leading 'probably' qualifier from runSite (#1213)", () => {
+    const html = `<p>Run-site: probably Nambee estate</p>
+<p>Date: Sunday 1st November, 2026</p>`;
+    const parsed = parseKljBody(html);
+    expect(parsed.runSite).toBe("Nambee estate");
   });
 
   it("handles empty body", () => {

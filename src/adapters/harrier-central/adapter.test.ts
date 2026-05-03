@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { HarrierCentralAdapter, composeHcLocation, hcGeocodeFailed } from "./adapter";
+import {
+  HarrierCentralAdapter,
+  applyTitleFallback,
+  composeHcLocation,
+  hcGeocodeFailed,
+} from "./adapter";
 import type { HCEvent } from "./adapter";
 import { generateAccessToken, PUBLIC_HASHER_ID } from "./token";
 import type { Source } from "@/generated/prisma/client";
@@ -90,6 +95,113 @@ describe("composeHcLocation", () => {
     expect(
       composeHcLocation("Iron Horse", "Iron Horse Tavern Road, Morgantown, WV"),
     ).toBe("Iron Horse, Iron Horse Tavern Road, Morgantown, WV");
+  });
+
+  it("appends cityCountry when HC's geocoder failed (#1167)", () => {
+    // place === resolvable means HC couldn't resolve a real address; the
+    // downstream geocoder needs city context to avoid landing on a region
+    // default pin (e.g. Imperial Palace ~10km from Akabane).
+    expect(
+      composeHcLocation(
+        "JR Keihintohoku line, Akabane station, North Exit",
+        "JR Keihintohoku line, Akabane station, North Exit",
+        "Tokyo, Japan",
+      ),
+    ).toBe("JR Keihintohoku line, Akabane station, North Exit, Tokyo, Japan");
+  });
+
+  it("does not double-append when cityCountry already appears in the place text", () => {
+    // Some HC kennels include the city name in their place description; avoid
+    // "...Tokyo, Tokyo, Japan".
+    expect(
+      composeHcLocation("Shibuya, Tokyo", "Shibuya, Tokyo", "Tokyo, Japan"),
+    ).toBe("Shibuya, Tokyo");
+  });
+
+  it("does not append cityCountry when geocoder succeeded (different fields)", () => {
+    // The compose path with a real address never invokes the city-append
+    // branch — the address itself already disambiguates the location.
+    expect(
+      composeHcLocation(
+        "Apothecary Ale House",
+        "227 Spruce Street, Morgantown, WV",
+        "Morgantown, United States",
+      ),
+    ).toBe("Apothecary Ale House, 227 Spruce Street, Morgantown, WV");
+  });
+
+  it("does not append cityCountry when resolvable is bare coordinates (HC partial geocode)", () => {
+    // Real coords + descriptive place — coords already pin the meeting point,
+    // no need to enrich the user-facing string with city context.
+    expect(
+      composeHcLocation("Waseda exit", "35.713, 139.704", "Tokyo, Japan"),
+    ).toBe("Waseda exit");
+  });
+});
+
+describe("applyTitleFallback (#1166)", () => {
+  it("passes through real eventName when no aliases configured", () => {
+    expect(applyTitleFallback("Takadanobanba", 2577, {})).toBe("Takadanobanba");
+    expect(applyTitleFallback("50th Anniversary Run", 2585, {})).toBe(
+      "50th Anniversary Run",
+    );
+  });
+
+  it("substitutes synthesized title when eventName matches stale alias and defaultTitle is set", () => {
+    const config = {
+      defaultTitle: "Tokyo H3 Trail",
+      staleTitleAliases: ["Ikebukuro", "Akabane"],
+    };
+    expect(applyTitleFallback("Ikebukuro", 2580, config)).toBe(
+      "Tokyo H3 Trail #2580",
+    );
+    expect(applyTitleFallback("akabane", 2581, config)).toBe(
+      "Tokyo H3 Trail #2581",
+    );
+    // Whitespace-trimmed match.
+    expect(applyTitleFallback(" Ikebukuro ", 2582, config)).toBe(
+      "Tokyo H3 Trail #2582",
+    );
+  });
+
+  it("substitutes synthesized title when eventName is empty/missing and defaultTitle is set", () => {
+    const config = {
+      defaultTitle: "Tokyo H3 Trail",
+      staleTitleAliases: ["Ikebukuro"],
+    };
+    expect(applyTitleFallback(undefined, 2583, config)).toBe("Tokyo H3 Trail #2583");
+    expect(applyTitleFallback("", 2584, config)).toBe("Tokyo H3 Trail #2584");
+    expect(applyTitleFallback("   ", 2585, config)).toBe("Tokyo H3 Trail #2585");
+  });
+
+  it("returns undefined when alias matches but no defaultTitle is configured", () => {
+    // Lets sources opt into stale-name detection (clearing the bad title)
+    // without committing to a specific brand string yet.
+    expect(
+      applyTitleFallback("Ikebukuro", 2580, {
+        staleTitleAliases: ["Ikebukuro"],
+      }),
+    ).toBeUndefined();
+  });
+
+  it("returns undefined when eventNumber is missing/zero and alias matches", () => {
+    // Synthesizing "Tokyo H3 Trail #0" or "Tokyo H3 Trail #undefined" is
+    // worse than an empty title — fall through to undefined.
+    const config = { defaultTitle: "Tokyo H3 Trail", staleTitleAliases: ["Ikebukuro"] };
+    expect(applyTitleFallback("Ikebukuro", 0, config)).toBeUndefined();
+    expect(applyTitleFallback("Ikebukuro", undefined, config)).toBeUndefined();
+    expect(applyTitleFallback("Ikebukuro", null, config)).toBeUndefined();
+  });
+
+  it("does not substitute a real trail name even when defaultTitle is configured", () => {
+    const config = {
+      defaultTitle: "Tokyo H3 Trail",
+      staleTitleAliases: ["Ikebukuro", "Akabane"],
+    };
+    expect(applyTitleFallback("50th Anniversary Run", 2585, config)).toBe(
+      "50th Anniversary Run",
+    );
+    expect(applyTitleFallback("Hashmas Eve", 2590, config)).toBe("Hashmas Eve");
   });
 });
 
@@ -421,12 +533,44 @@ describe("HarrierCentralAdapter", () => {
       expect(result.events).toHaveLength(1);
       expect(result.events[0].latitude).toBeUndefined();
       expect(result.events[0].longitude).toBeUndefined();
-      // Place text still flows through so the geocoder has something to use.
+      // Place text still flows through so the geocoder has something to use,
+      // enriched with eventCityAndCountry per #1167 so geocoding doesn't
+      // fall back to a region-default pin.
       expect(result.events[0].location).toBe(
-        "Ikebukuro (Yamanote) Metropolitan exit(west exit)",
+        "Ikebukuro (Yamanote) Metropolitan exit(west exit), Tokyo, Japan",
       );
       // Adapter signals the merge pipeline to bypass the existingCoords cache
       // short-circuit so previously-stored fallback pins get refreshed.
+      expect(result.events[0].dropCachedCoords).toBe(true);
+    });
+
+    it("substitutes neighborhood titles + appends city to transit-prose location (#1166 + #1167)", async () => {
+      // Tokyo H3 #2580 reproduction: HC returns the neighborhood as both
+      // eventName and locationOneLineDesc; resolvableLocation is verbatim and
+      // syncLat/Lng are HC's fallback region default. With the source seeded
+      // with defaultTitle + staleTitleAliases, the adapter should substitute a
+      // synthesized title AND enrich the location with city/country.
+      mockApiResponse([
+        buildHCEvent({
+          eventNumber: 2580,
+          eventName: "Akabane",
+          locationOneLineDesc: "JR Keihintohoku line, Akabane station, North Exit",
+          resolvableLocation: "JR Keihintohoku line, Akabane station, North Exit",
+        }),
+      ]);
+      const result = await adapter.fetch(
+        makeSource({
+          cityNames: "Tokyo",
+          defaultKennelTag: "tokyo-h3",
+          defaultTitle: "Tokyo H3 Trail",
+          staleTitleAliases: ["Ikebukuro", "Akabane", "Suidobashi"],
+        }),
+      );
+      expect(result.events).toHaveLength(1);
+      expect(result.events[0].title).toBe("Tokyo H3 Trail #2580");
+      expect(result.events[0].location).toBe(
+        "JR Keihintohoku line, Akabane station, North Exit, Tokyo, Japan",
+      );
       expect(result.events[0].dropCachedCoords).toBe(true);
     });
 

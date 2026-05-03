@@ -45,6 +45,20 @@ export interface HarrierCentralConfig {
   defaultKennelTag?: string;
   /** Kennel patterns for multi-kennel sources: [["regex", "kennelTag"], ...] */
   kennelPatterns?: [string, string][];
+  /**
+   * Human-readable fallback when an event's `eventName` is empty or matches
+   * `staleTitleAliases`. Combined with `eventNumber` to produce e.g.
+   * "Tokyo H3 Trail #2580". Mirrors the GCal `defaultTitle` pattern. (#1166)
+   */
+  defaultTitle?: string;
+  /**
+   * Title strings (case-insensitive, trimmed) that aren't real trail names —
+   * typically neighborhood / station names that surface from kennels who use
+   * the location field as a working title (Tokyo H3: "Ikebukuro", "Akabane").
+   * Matched events have title replaced by `${defaultTitle} #${eventNumber}`,
+   * or cleared to undefined when no defaultTitle is configured. (#1166)
+   */
+  staleTitleAliases?: readonly string[];
 }
 
 /**
@@ -144,7 +158,11 @@ export class HarrierCentralAdapter implements SourceAdapter {
       const startTime = timeMatch ? timeMatch[1] : undefined;
 
       let hares = stripTba(hcEvent.hares);
-      const location = composeHcLocation(hcEvent.locationOneLineDesc, hcEvent.resolvableLocation);
+      const location = composeHcLocation(
+        hcEvent.locationOneLineDesc,
+        hcEvent.resolvableLocation,
+        hcEvent.eventCityAndCountry,
+      );
 
       // Data-entry safety net: when a kennel user pastes the same text into
       // both the hare and location slots (observed on Tokyo H3 #2578, where
@@ -176,7 +194,8 @@ export class HarrierCentralAdapter implements SourceAdapter {
       // to the kennel website / other EventLinks when sourceUrl is null.
       const raw: RawEventData = {
         date: dateStr,
-        kennelTags: [kennelTag],        title: hcEvent.eventName || undefined,
+        kennelTags: [kennelTag],
+        title: applyTitleFallback(hcEvent.eventName, hcEvent.eventNumber, config),
         // Socials / "drinking practices" come back as eventNumber=0. Map that
         // sentinel to null (explicit clear) and positive values to the number;
         // anything else stays undefined so the merge UPDATE path preserves an
@@ -253,6 +272,39 @@ export function hcGeocodeFailed(
 }
 
 /**
+ * Apply title fallback rules from HarrierCentralConfig.
+ *
+ * Returns the synthesized "{defaultTitle} #{eventNumber}" when:
+ *   - eventName is empty/missing OR matches a `staleTitleAliases` entry, AND
+ *   - `defaultTitle` is configured AND `eventNumber > 0`.
+ * Returns `undefined` when an alias matches but no `defaultTitle` is set
+ * (so the canonical event renders via UI's run-number fallback).
+ * Otherwise returns the trimmed `eventName` unchanged.
+ *
+ * #1166 — Tokyo H3 surfaces neighborhood names ("Ikebukuro", "Akabane") as
+ * eventName; this lets the source seed a fixed list of placeholder strings
+ * to substitute without touching adapter code each time a new one appears.
+ */
+export function applyTitleFallback(
+  eventName: string | undefined,
+  eventNumber: number | undefined | null,
+  config: HarrierCentralConfig,
+): string | undefined {
+  const trimmed = eventName?.trim();
+  const aliases = config.staleTitleAliases;
+  const isStale =
+    !trimmed ||
+    (aliases?.some((a) => a.trim().toLowerCase() === trimmed.toLowerCase()) ?? false);
+
+  if (!isStale) return trimmed || undefined;
+
+  if (config.defaultTitle && typeof eventNumber === "number" && eventNumber > 0) {
+    return `${config.defaultTitle} #${eventNumber}`;
+  }
+  return undefined;
+}
+
+/**
  * Compose a location string from HC's two location fields.
  *
  * `locationOneLineDesc` is typically the venue/place name ("Iron Horse Tavern").
@@ -263,10 +315,18 @@ export function hcGeocodeFailed(
  *
  * Prefer "{place}, {full address}" when both fields carry real, distinct data
  * so hashers get street-level context in addition to the venue name (#907).
+ *
+ * `cityCountry` is `eventCityAndCountry` from the HC payload (e.g. "Tokyo, Japan").
+ * Appended ONLY when HC's geocoder failed (place === resolvable) AND the
+ * city/country isn't already present in the place text. Gives the merge-
+ * pipeline geocoder enough context to resolve a transit-prose place like
+ * "JR Keihintohoku line, Akabane station, North Exit" to the correct city
+ * instead of falling back to a region-default pin (#1167).
  */
 export function composeHcLocation(
   placeName: string | undefined,
   resolvable: string | undefined,
+  cityCountry?: string | undefined,
 ): string | undefined {
   const place = stripTba(placeName);
   const full = stripTba(resolvable);
@@ -279,7 +339,7 @@ export function composeHcLocation(
   if (!place && !addressShaped) return undefined;
   if (!addressShaped) return place;
   if (!place) return addressShaped;
-  if (place === addressShaped) return place;
+  if (place === addressShaped) return appendCityCountry(place, cityCountry);
   // Drop place when it duplicates the address — either as a complete comma
   // segment (e.g. place "Morgantown" inside "...Morgantown, WV") or as a
   // leading prefix of the address (e.g. place "227 Spruce Street, Morgantown"
@@ -292,6 +352,28 @@ export function composeHcLocation(
   if (segments.includes(placeLc)) return addressShaped;
   if (addressLc.startsWith(`${placeLc},`)) return addressShaped;
   return `${place}, ${addressShaped}`;
+}
+
+/**
+ * Append `, ${cityCountry}` to `place` when the city/country isn't already
+ * a substring of place (case-insensitive). Used to enrich transit-prose
+ * place names like "JR Keihintohoku line" with city context for the
+ * downstream geocoder. See #1167.
+ */
+function appendCityCountry(
+  place: string | undefined,
+  cityCountry: string | undefined,
+): string | undefined {
+  if (!place) return place;
+  const cc = cityCountry?.trim();
+  if (!cc) return place;
+  // Skip the append when ANY segment of cityCountry ("Tokyo, Japan" → "Tokyo",
+  // "Japan") already appears as a word inside place. Catches both the full
+  // form ("...Tokyo, Japan") and the common partial form ("Shibuya, Tokyo").
+  const placeTokens = new Set(place.toLowerCase().split(/\W+/).filter(Boolean));
+  const ccSegments = cc.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+  if (ccSegments.some((seg) => placeTokens.has(seg))) return place;
+  return `${place}, ${cc}`;
 }
 
 /** Resolve kennel tag from HC event using pre-compiled config patterns */

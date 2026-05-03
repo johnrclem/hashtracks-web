@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Source } from "@/generated/prisma/client";
 import {
+  extractHaresFromText,
   parseJEMEvent,
   parseJEMEventList,
   stripHareSuffix,
@@ -175,6 +176,40 @@ describe("stripHareSuffix (#961)", () => {
     // run-# colon is left intact, only the trailing "Hare - …" is removed.
     expect(stripHareSuffix("FH3 Run #1639: Hare - Wankula")).toBe("FH3 Run #1639:");
     expect(stripHareSuffix("FH3 Run #1636: Hare - The Blacks")).toBe("FH3 Run #1636:");
+  });
+
+  it("strips trailing 'Hares:' (no name) so empty announcements don't ship the dangling label (#1228)", () => {
+    expect(stripHareSuffix("FH3 Run #2114 Hares:")).toBe("FH3 Run #2114");
+    expect(stripHareSuffix("FH3 Run #2114 Hare:")).toBe("FH3 Run #2114");
+    // With trailing whitespace.
+    expect(stripHareSuffix("FH3 Run #2115 Hares: ")).toBe("FH3 Run #2115");
+    // With dash separator + nothing after.
+    expect(stripHareSuffix("FH3 Run #2116 Hare -")).toBe("FH3 Run #2116");
+    // Bare 'Hares' word (no separator) at end.
+    expect(stripHareSuffix("FH3 Run #2117 Hares")).toBe("FH3 Run #2117");
+  });
+});
+
+describe("extractHaresFromText nav-menu denylist (#1228)", () => {
+  it("returns undefined when the captured value is a generic nav word", () => {
+    // Simulates a flattened detail-page HTML where the Hares anchor is
+    // followed by a sibling 'Home' menu link in the same line.
+    const html = `<div class="menu"><a href="/hares">Hares</a> | <a href="/home">Home</a></div>`;
+    expect(extractHaresFromText(html)).toBeUndefined();
+  });
+
+  it("rejects 'About', 'Calendar', and similar nav words", () => {
+    expect(extractHaresFromText("Hares: About")).toBeUndefined();
+    expect(extractHaresFromText("Hares: Calendar")).toBeUndefined();
+    expect(extractHaresFromText("Hare: Login")).toBeUndefined();
+  });
+
+  it("still returns real hare names that share characters with nav words", () => {
+    // "About Time" is a plausible hash name — only exact matches are
+    // suppressed, not substrings.
+    expect(extractHaresFromText("Hares: About Time")).toBe("About Time");
+    // Sanity: regular hare name unaffected.
+    expect(extractHaresFromText("Hares: Whore Durve")).toBe("Whore Durve");
   });
 });
 

@@ -1,4 +1,10 @@
-import { parseLionCityTitle, parseLionCityBody, buildLionCityEvent } from "./lion-city-h3";
+import {
+  buildLionCityEvent,
+  extractThemedTitle,
+  parseLionCityBody,
+  parseLionCityTitle,
+  trimLocationNavText,
+} from "./lion-city-h3";
 
 describe("parseLionCityTitle", () => {
   it("parses run number with comma", () => {
@@ -23,6 +29,45 @@ describe("parseLionCityTitle", () => {
       runNumber: 2193,
       title: "Hash Run #2193",
     });
+  });
+});
+
+describe("extractThemedTitle (#1168)", () => {
+  it("returns the first short quoted string", () => {
+    expect(extractThemedTitle('Date: ...   "Thank God it is Good Friday"\nHare(s)...'))
+      .toBe("Thank God it is Good Friday");
+  });
+  it("supports curly quotes", () => {
+    expect(extractThemedTitle('blah “Hello World” foo')).toBe("Hello World");
+  });
+  it("returns undefined when no quoted text", () => {
+    expect(extractThemedTitle("plain post body without quotes")).toBeUndefined();
+  });
+  it("skips quoted text that contains a colon (caption-like)", () => {
+    // "Bus: 67, 71" is a caption, not a themed title.
+    expect(extractThemedTitle('something "Bus: 67, 71"')).toBeUndefined();
+  });
+  it("rejects too-short quoted text", () => {
+    expect(extractThemedTitle('a "b" c')).toBeUndefined();
+  });
+});
+
+describe("trimLocationNavText (#1169)", () => {
+  it("truncates at '. Note:'", () => {
+    expect(
+      trimLocationNavText("corner of Path 6 and 7. Note: Don't use Google Directions"),
+    ).toBe("corner of Path 6 and 7");
+  });
+  it("truncates at '. NB:'", () => {
+    expect(trimLocationNavText("Place X. NB: bring water")).toBe("Place X");
+  });
+  it("truncates at '. Tip:'", () => {
+    expect(trimLocationNavText("Place Y. Tip: park behind")).toBe("Place Y");
+  });
+  it("returns input unchanged when no nav block follows", () => {
+    expect(trimLocationNavText("Just an address, somewhere")).toBe(
+      "Just an address, somewhere",
+    );
   });
 });
 
@@ -56,6 +101,37 @@ describe("parseLionCityBody", () => {
     const html = "<p>Date: Friday, 02 January, 6 pm sharp.</p>";
     const out = parseLionCityBody(html, ref);
     expect(out.date).toBe("2026-01-02");
+  });
+
+  it("captures themed title from quoted body text (#1168)", () => {
+    const html = `<p>Date: Friday, 03 April, 6 pm sharp. "Thank God it is Good Friday"
+Hare(s): Lap Dog
+Map – Run Location: Somewhere</p>`;
+    const out = parseLionCityBody(html, ref);
+    expect(out.themeTitle).toBe("Thank God it is Good Friday");
+  });
+
+  it("captures themed title with curly quotes (#1168)", () => {
+    const html = `<p>Date: Friday, 03 April, 6 pm sharp. “The Jurong Innovation District Run”
+Hare(s): Lap Dog</p>`;
+    const out = parseLionCityBody(html, ref);
+    expect(out.themeTitle).toBe("The Jurong Innovation District Run");
+  });
+
+  it("leaves themeTitle undefined when no quoted line is present (#1168)", () => {
+    const html = `<p>Date: Friday, 03 April, 6 pm sharp.
+Hare(s): Lap Dog
+Map – Run Location: Somewhere</p>`;
+    const out = parseLionCityBody(html, ref);
+    expect(out.themeTitle).toBeUndefined();
+  });
+
+  it("truncates location at trailing nav-instructions (#1169)", () => {
+    const html = `<p>Date: Friday, 03 April, 6 pm sharp.
+Hare(s): Lap Dog
+Map – Run Location: corner of Christian Cemetery Path 6 and 7. Note: Don't use Google Directions. Use your own brain and a map (which could be Google Maps), Singapore</p>`;
+    const out = parseLionCityBody(html, ref);
+    expect(out.location).toBe("corner of Christian Cemetery Path 6 and 7");
   });
 
   it("does not leak the next-paragraph link label into hares when fields live in sibling <p> elements (#583)", () => {
@@ -102,6 +178,21 @@ Map – On On: A bar</p>`;
   it("returns null when body has no parseable date", () => {
     const event = buildLionCityEvent("Hash Run #999", "<p>No date here</p>", "https://x", new Date());
     expect(event).toBeNull();
+  });
+
+  it("uses themed body title when present, overrides generic Hash Run #N (#1168)", () => {
+    const html = `<p>Date: Friday, 03 April, 6 pm sharp. "Thank God it is Good Friday"
+Hare(s): Lap Dog
+Map – Run Location: Somewhere</p>`;
+    const event = buildLionCityEvent(
+      "Hash Run #2,193",
+      html,
+      "https://x",
+      new Date("2026-03-31T00:00:00Z"),
+    );
+    expect(event?.title).toBe("Thank God it is Good Friday");
+    // Run number still extracted from the post title.
+    expect(event?.runNumber).toBe(2193);
   });
 
   it("leaves description undefined when there is no on-on block", () => {

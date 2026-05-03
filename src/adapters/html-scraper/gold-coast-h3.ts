@@ -61,12 +61,18 @@ export function parseGoldCoastRow(
   const runNumber = Number.parseInt(runDigits, 10);
   const hareRaw = cells[2].trim();
   const themeRaw = cells[3].trim();
+  // Synthesize a stable title from the run number — the Theme column is a
+  // one-word annotation ("Birthday", "5pm Start") not a real trail name, and
+  // it's blank for most rows. Append the theme when present so the
+  // annotation surfaces without becoming the entire title. (#1225)
+  const baseTitle = `Gold Coast H3 Run #${runNumber}`;
+  const title = themeRaw ? `${baseTitle} — ${themeRaw}` : baseTitle;
   return {
     date,
     kennelTags: [KENNEL_TAG],
     runNumber,
     hares: hareRaw || undefined,
-    title: themeRaw || undefined,
+    title,
     sourceUrl,
   };
 }
