@@ -2091,8 +2091,9 @@ export const SOURCES = [
         // #1189: emoji-delimited titles. 🌲 prefix, 👣 = hare delimiter (with
         // optional `-`), 🍺 = time/location tail. Strip 👣 + tail aggressively
         // so cards stay clean when the description carries the authoritative
-        // hare and the title-tail is theme prose.
-        titleHarePattern: String.raw`👣[\s:\-–—]*(.+?)\s*$`,
+        // hare and the title-tail is theme prose. Capture is greedy + adapter
+        // trims — avoids the lazy + trailing-`\s*$` ReDoS shape.
+        titleHarePattern: String.raw`👣[\s:\-–—]*(.+)$`,
         titleStripPatterns: [
           String.raw`^🌲\s*`,
           String.raw`\s*🍺.*$`,
@@ -2112,8 +2113,9 @@ export const SOURCES = [
         calendarId: "6ureum96qhgf13kj820i61ovq8@group.calendar.google.com",
         defaultKennelTag: "coh3",
         // #981: hares are encoded in the summary as `COH3 #NNN with <Hare>` /
-        // `COH3 <Theme> with <Hare1> & <Hare2>`. Capture trailing "with X".
-        titleHarePattern: String.raw`\bwith\s+(.+?)\s*$`,
+        // `COH3 <Theme> with <Hare1> & <Hare2>`. Capture is greedy + adapter
+        // trims — avoids the lazy + trailing-`\s*$` ReDoS shape.
+        titleHarePattern: String.raw`\bwith\s+(.+)$`,
       },
       kennelCodes: ["coh3"],
     },

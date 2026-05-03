@@ -191,8 +191,11 @@ const LOCATION_LABEL_RE = new RegExp(
   String.raw`(?:^|\n)\s*(?:${LOCATION_LABEL_TOKENS.join("|")})[ \t]*:[ \t]*(.+)`,
   "im",
 );
-// Fallback: bare label (no colon) with value on subsequent line, optionally after a URL line
-const LOCATION_BARE_LABEL_RE = /(?:^|\n)\s*(?:WHERE|LOCATION)\s*\n(?:\s*https?:\/\/\S+\s*\n)?\s*(.+)/im;
+// Fallback: bare label (no colon) with value on subsequent line, optionally
+// after a URL line. Uses `[ \t]*` for intra-line whitespace and explicit `\n`
+// boundaries to keep the regex linear (no overlapping `\s*` runs that span
+// newlines, which Sonar S5852 flags as super-linear).
+const LOCATION_BARE_LABEL_RE = /(?:^|\n)[ \t]*(?:WHERE|LOCATION)[ \t]*\n(?:[ \t]*https?:\/\/\S+[ \t]*\n)?[ \t]*(.+)/im;
 // Secondary fallback: "Start:" as location label (lower priority — often contains time, not location)
 const LOCATION_START_RE = /(?:^|\n)\s*Start[ \t]*:[ \t]*(.+)/im;
 // Filters bare time values from location results (e.g., "6:30pm", "18:30", "7:00")
