@@ -38,7 +38,7 @@ const TARGETS: VerifyTarget[] = [
     sourceName: "Eugene H3 Calendar",
     describe: "#1188/#1189 — admits all-day; strips emoji; 👣 hares",
     inspect: (events) => {
-      const stillEmoji = events.filter((e) => /[🌲🍺]/.test(e.title ?? ""));
+      const stillEmoji = events.filter((e) => /🌲|🍺/u.test(e.title ?? ""));
       const leadingDash = events.filter((e) => /^[-–—]/.test(e.hares ?? ""));
       return [
         `events: ${events.length}`,
@@ -93,7 +93,7 @@ const TARGETS: VerifyTarget[] = [
         `total: ${events.length}`,
         `cfmh3: ${cfmh3.length}`,
         `cfmh3 duplicate-key buckets: ${collisions.length} (target: 0)`,
-        `compositeDeduped diagnostic: ${diag?.compositeDeduped ?? "absent"}`,
+        `compositeDeduped diagnostic: ${JSON.stringify(diag?.compositeDeduped ?? "absent")}`,
       ];
     },
   },
@@ -125,8 +125,7 @@ async function main() {
     try {
       const result = await adapter.fetch(source, { days: 365 });
       console.log(`   diag: ${JSON.stringify(result.diagnosticContext)}`);
-      const diag = result.diagnosticContext as Record<string, unknown> | undefined;
-      for (const line of target.inspect(result.events, diag)) {
+      for (const line of target.inspect(result.events, result.diagnosticContext)) {
         console.log(`   ${line}`);
       }
     } catch (err) {

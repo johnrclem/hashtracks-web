@@ -2672,12 +2672,12 @@ describe("GoogleCalendarAdapter — RECURRENCE-ID override recovery (#1021/#1024
       // flaked at the boundary.
       const futureDate = new Date(Date.now() + 7 * 86_400_000);
       const futureIso = futureDate.toISOString().split("T")[0];
-      const m1 = parseInt(futureIso.slice(5, 7), 10);
-      const d1 = parseInt(futureIso.slice(8, 10), 10);
+      const m1 = Number.parseInt(futureIso.slice(5, 7), 10);
+      const d1 = Number.parseInt(futureIso.slice(8, 10), 10);
       const futureDate2 = new Date(futureDate.getTime() + 14 * 86_400_000);
       const futureIso2 = futureDate2.toISOString().split("T")[0];
-      const m2real = parseInt(futureIso2.slice(5, 7), 10);
-      const d2real = parseInt(futureIso2.slice(8, 10), 10);
+      const m2real = Number.parseInt(futureIso2.slice(5, 7), 10);
+      const d2real = Number.parseInt(futureIso2.slice(8, 10), 10);
 
       const donor = {
         id: "donor-recovered",

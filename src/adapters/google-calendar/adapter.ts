@@ -99,7 +99,7 @@ export function stripDatePrefix(text: string): string {
 // `Why|How` (#1129): Flour City uses a `Hare/Where/When/Why/How` template, and
 // an empty `Why:` line was promoted to the event title because the label name
 // wasn't recognized.
-const LABEL_NAMES = "Hares?|Who|Where|Location|When|Why|How|Time|Start|What|Hash Cash|Cost|Price|Registration|On[ -]After|Directions|Pack\\s*Meet|Meet(?:ing)?|Circle|Chalk\\s*Talk";
+const LABEL_NAMES = String.raw`Hares?|Who|Where|Location|When|Why|How|Time|Start|What|Hash Cash|Cost|Price|Registration|On[ -]After|Directions|Pack\s*Meet|Meet(?:ing)?|Circle|Chalk\s*Talk`;
 
 /** Extended label names with additional title-only terms. */
 const TITLE_LABEL_NAMES = `${LABEL_NAMES}|Trail Type|Distance|Length`;
@@ -147,7 +147,8 @@ const LOCATION_DMS_ONLY_RE = /^\s*\d{1,3}°\d{1,2}'[\d.]+"[NS],?\s+\d{1,3}°\d{1
  * or whitespace.
  */
 function parseCoordOnlyLocation(value: string): { lat: number; lng: number } | null {
-  const first = value.charCodeAt(0);
+  const first = value.codePointAt(0);
+  if (first === undefined) return null;
   const isDigit = first >= 48 && first <= 57;
   const isSign = first === 45 /* - */ || first === 43 /* + */;
   const isSpace = first === 32 || first === 9;
@@ -995,6 +996,44 @@ function buildGCalDiagnosticContext(item: GCalEvent): string {
   return rawParts.join("\n").slice(0, 2000);
 }
 
+/**
+ * Two-pass dedup for fetched events:
+ *   1. id-first — GCal returns a stable per-instance id; collapse exact-id
+ *      duplicates from the primary + secondary calls. Legacy composite-key
+ *      fallback covers synthetic test fixtures without ids.
+ *   2. composite-key (kennel|date|startTime|title) — catches parallel RRULE
+ *      series that share key but differ in id (#1101 CFMH3). On collision
+ *      the survivor inherits non-empty fields from the donor before drop.
+ */
+function dedupGCalEvents(
+  events: RawEventData[],
+  gcalIdMap: WeakMap<RawEventData, string>,
+): { events: RawEventData[]; compositeDedupedCount: number } {
+  const seen = new Set<string>();
+  const idDeduped = events.filter(e => {
+    const id = gcalIdMap.get(e);
+    const key = id
+      ? `id:${id}`
+      : `legacy:${e.date}|${e.kennelTags[0]}|${e.startTime ?? ""}|${e.title ?? ""}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  const compositeMap = new Map<string, RawEventData>();
+  for (const e of idDeduped) {
+    const key = `${e.kennelTags[0]}|${e.date}|${e.startTime ?? ""}|${e.title ?? ""}`;
+    const existing = compositeMap.get(key);
+    if (existing) mergeRawEventInPlace(existing, e);
+    else compositeMap.set(key, e);
+  }
+  const compositeDedupedCount = idDeduped.length - compositeMap.size;
+  // Skip the rebuild when nothing collapsed — saves an O(n) array copy on
+  // the typical scrape where parallel-series duplicates don't exist.
+  const result = compositeDedupedCount === 0 ? idDeduped : [...compositeMap.values()];
+  return { events: result, compositeDedupedCount };
+}
+
 /** Google Calendar API v3 adapter. Fetches events from a public calendar and extracts kennel tags via configurable patterns. */
 export class GoogleCalendarAdapter implements SourceAdapter {
   type = "GOOGLE_CALENDAR" as const;
@@ -1130,39 +1169,7 @@ export class GoogleCalendarAdapter implements SourceAdapter {
 
     const hasErrorDetails = hasAnyErrors(errorDetails);
 
-    // Dedup id-first when GCal returned a stable id; legacy composite-key
-    // fallback covers synthetic test fixtures and pre-id callers.
-    const seen = new Set<string>();
-    const dedupedEvents = events.filter(e => {
-      const id = gcalIdMap.get(e);
-      const key = id
-        ? `id:${id}`
-        : `legacy:${e.date}|${e.kennelTags[0]}|${e.startTime ?? ""}|${e.title ?? ""}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-
-    // Second-tier composite dedup catches calendars that publish parallel
-    // RRULE series with distinct UIDs — each materializes to a separate event
-    // with a unique gcal id, so the id-first pass keeps both. CFMH3 (#1101)
-    // had ~21 upcoming "Full Moon H3" entries for a monthly kennel because
-    // two duplicate Google-Calendar series were ingested in lockstep.
-    // Field-merge on collision: keep the first event but pull non-empty
-    // values from subsequent matches before dropping them. Prevents data
-    // loss if maintainers populated different fields on the parallel series
-    // (e.g. one has a description and the other a location).
-    const compositeMap = new Map<string, RawEventData>();
-    for (const e of dedupedEvents) {
-      const key = `${e.kennelTags[0]}|${e.date}|${e.startTime ?? ""}|${e.title ?? ""}`;
-      const existing = compositeMap.get(key);
-      if (existing) mergeRawEventInPlace(existing, e);
-      else compositeMap.set(key, e);
-    }
-    const compositeDedupedCount = dedupedEvents.length - compositeMap.size;
-    // Skip the rebuild when nothing collapsed — saves an O(n) array copy on
-    // the typical scrape where parallel-series duplicates don't exist.
-    const compositeDeduped = compositeDedupedCount === 0 ? dedupedEvents : [...compositeMap.values()];
+    const { events: compositeDeduped, compositeDedupedCount } = dedupGCalEvents(events, gcalIdMap);
 
     return {
       events: compositeDeduped,
