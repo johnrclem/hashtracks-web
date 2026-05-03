@@ -8,11 +8,11 @@ export function TravelHintBadge({
   glyph,
   label,
   ariaLabel,
-}: {
+}: Readonly<{
   glyph: "◆" | "◇";
   label: string;
   ariaLabel: string;
-}) {
+}>) {
   return (
     <p
       className="mb-2 font-mono text-[11px] uppercase tracking-[0.18em] text-amber-600 dark:text-amber-400"

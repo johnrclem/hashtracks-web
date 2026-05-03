@@ -29,7 +29,7 @@ export function PossibleSection({ results, confirmedCount }: Readonly<PossibleSe
         <TravelHintBadge
           glyph="◆"
           label="Showing possible activity"
-          ariaLabel={`No confirmed runs in this window — showing ${results.length} possible kennel${results.length !== 1 ? "s" : ""} instead`}
+          ariaLabel={`No confirmed runs in this window — showing ${results.length} possible kennel${results.length === 1 ? "" : "s"} instead`}
         />
       )}
       <button
