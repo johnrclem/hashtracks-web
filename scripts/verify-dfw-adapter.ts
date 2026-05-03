@@ -37,7 +37,9 @@ async function main() {
 
   if (result.errors.length) {
     console.log(`\nFirst 3 errors:`);
-    result.errors.slice(0, 3).forEach((e) => console.log(`  - ${e}`));
+    result.errors.slice(0, 3).forEach((e) => {
+      console.log(`  - ${e}`);
+    });
   }
 
   const sample = result.events.find((e) => e.description && e.cost) ?? result.events[0];
