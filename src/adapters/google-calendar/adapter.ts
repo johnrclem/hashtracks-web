@@ -195,7 +195,7 @@ const LOCATION_LABEL_RE = new RegExp(
 // after a URL line. Uses `[ \t]*` for intra-line whitespace and explicit `\n`
 // boundaries to keep the regex linear (no overlapping `\s*` runs that span
 // newlines, which Sonar S5852 flags as super-linear).
-const LOCATION_BARE_LABEL_RE = /(?:^|\n)[ \t]*(?:WHERE|LOCATION)[ \t]*\n(?:[ \t]*https?:\/\/\S+[ \t]*\n)?[ \t]*(.+)/im;
+const LOCATION_BARE_LABEL_RE = /(?:^|\n)[ \t]*(?:WHERE|LOCATION)[ \t]*\n(?:[ \t]*https?:\/\/\S+[ \t]*\n)?[ \t]*(\S.*)/im;
 // Secondary fallback: "Start:" as location label (lower priority — often contains time, not location)
 const LOCATION_START_RE = /(?:^|\n)[ \t]*Start[ \t]*:[ \t]*(.+)/im;
 // Filters bare time values from location results (e.g., "6:30pm", "18:30", "7:00")

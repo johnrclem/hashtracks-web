@@ -2093,11 +2093,11 @@ export const SOURCES = [
         // so cards stay clean when the description carries the authoritative
         // hare and the title-tail is theme prose. Capture is greedy + adapter
         // trims — avoids the lazy + trailing-`\s*$` ReDoS shape.
-        titleHarePattern: String.raw`👣[\s:\-–—]*(.+)$`,
+        titleHarePattern: String.raw`👣[\s:\-–—]*(\S.*)`,
         titleStripPatterns: [
           String.raw`^🌲\s*`,
-          String.raw`\s*🍺.*$`,
-          String.raw`\s*👣.*$`,
+          String.raw`🍺.*`,
+          String.raw`👣.*`,
         ],
       },
       kennelCodes: ["eh3-or"],
@@ -2115,7 +2115,7 @@ export const SOURCES = [
         // #981: hares are encoded in the summary as `COH3 #NNN with <Hare>` /
         // `COH3 <Theme> with <Hare1> & <Hare2>`. Capture is greedy + adapter
         // trims — avoids the lazy + trailing-`\s*$` ReDoS shape.
-        titleHarePattern: String.raw`\bwith\s+(.+)$`,
+        titleHarePattern: String.raw`\bwith\s+(\S.*)`,
       },
       kennelCodes: ["coh3"],
     },

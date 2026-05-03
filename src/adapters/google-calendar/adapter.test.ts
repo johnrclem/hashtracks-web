@@ -2848,8 +2848,8 @@ describe("buildRawEventFromGCalItem — coord-only location preservation (#1195)
 
 describe("buildRawEventFromGCalItem — COH3 'with X' titleHarePattern (#981)", () => {
   // Mirrors the seed config for "Central Oregon H3 Calendar".
-  const config = { defaultKennelTag: "coh3", titleHarePattern: String.raw`\bwith\s+(.+)$` };
-  const compiledTitleHarePattern = /\bwith\s+(.+)$/i;
+  const config = { defaultKennelTag: "coh3", titleHarePattern: String.raw`\bwith\s+(\S.*)` };
+  const compiledTitleHarePattern = /\bwith\s+(\S.*)/i;
 
   it.each([
     { name: "single-name `with X`", summary: "COH3 #125 with Copper Cunt", description: undefined, hares: "Copper Cunt" as string | undefined, title: "COH3 #125" as string | undefined },
@@ -2874,18 +2874,18 @@ describe("buildRawEventFromGCalItem — Eugene H3 emoji-delimited title parsing 
   const config = {
     defaultKennelTag: "eh3-or",
     includeAllDayEvents: true,
-    titleHarePattern: String.raw`👣[\s:\-–—]*(.+?)\s*$`,
+    titleHarePattern: String.raw`👣[\s:\-–—]*(\S.*)`,
     titleStripPatterns: [
       String.raw`^🌲\s*`,
-      String.raw`\s*🍺.*$`,
-      String.raw`\s*👣.*$`,
+      String.raw`🍺.*`,
+      String.raw`👣.*`,
     ],
   };
-  const compiledTitleHarePattern = /👣[\s:\-–—]*(.+)$/i;
+  const compiledTitleHarePattern = /👣[\s:\-–—]*(\S.*)/i;
   const compiledTitleStripPatterns = [
     /^🌲\s*/i,
-    /\s*🍺.*$/i,
-    /\s*👣.*$/i,
+    /🍺.*/i,
+    /👣.*/i,
   ];
   const opts = { compiledTitleHarePattern, compiledTitleStripPatterns };
 
