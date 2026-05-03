@@ -3195,7 +3195,7 @@ export const KENNELS: KennelSeed[] = [
       scheduleDayOfWeek: "Monday", scheduleTime: "6:00 PM", scheduleFrequency: "Weekly",
       scheduleNotes: "Weekly hash around the Gold Coast. Hareline published via TablePress at goldcoasthash.org/hareline.",
       foundedYear: 1978,
-      description: "The Gourmet Hash — Gold Coast's men's-only Hash kennel in Queensland, established 1978. Runs every Monday night, wet or fine, starting at 6:00 pm.",
+      description: "The Gourmet Hash — Gold Coast's men-only Hash kennel in Queensland, established 1978. Runs every Monday night, wet or fine, starting at 6:00 pm.",
       latitude: -28.0167, longitude: 153.4000,
     },
     {

@@ -35,7 +35,7 @@ async function main() {
     where: { kennelCode: "gch3-au" },
     data: {
       description:
-        "The Gourmet Hash — Gold Coast's men's-only Hash kennel in Queensland, established 1978. Runs every Monday night, wet or fine, starting at 6:00 pm.",
+        "The Gourmet Hash — Gold Coast's men-only Hash kennel in Queensland, established 1978. Runs every Monday night, wet or fine, starting at 6:00 pm.",
     },
     select: { kennelCode: true, description: true },
   });
