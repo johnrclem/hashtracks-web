@@ -813,7 +813,7 @@ describe("DFWHashAdapter.fetch", () => {
 
     const result = await adapter.fetch({
       id: "test-dfw",
-      url: "http://www.dfwhhh.org/calendar/",
+      url: "http://www.dfwhhh.org/calendar/", // NOSONAR — source has expired SSL
     } as never);
 
     const duhhhEvents = result.events.filter((e) => e.kennelTags?.includes("duhhh"));

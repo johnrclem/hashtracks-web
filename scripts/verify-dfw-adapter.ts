@@ -16,7 +16,7 @@ async function main() {
   const adapter = new DFWHashAdapter();
   const source = {
     id: "live-verify",
-    url: "http://www.dfwhhh.org/calendar/",
+    url: "http://www.dfwhhh.org/calendar/", // NOSONAR — source has expired SSL
   };
 
   const result = await adapter.fetch(source as never);
