@@ -147,7 +147,11 @@ export interface PossibleResult extends DestinationTag {
   distanceTier: DistanceTier;
   explanation: string;
   sourceLinks: SourceLink[];
-  /** Most recent confirmed event in the 12-week evidence window, or null. */
+  /** Most recent confirmed event for this kennel — preferring the
+   *  in-window 12-week evidence event so the line moves as the kennel
+   *  posts; falling back to the kennel's all-time `lastEventDate` when
+   *  no in-window evidence exists. Null only when the kennel has no
+   *  event history at all. */
   lastConfirmedAt: Date | null;
 }
 
