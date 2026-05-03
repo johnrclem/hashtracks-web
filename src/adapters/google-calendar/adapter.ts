@@ -4,6 +4,7 @@ import { hasAnyErrors } from "../types";
 import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, EVENT_FIELD_LABEL_RE, EVENT_FIELD_LABEL_UPPERCASE_RE, CTA_EMBEDDED_PATTERNS, appendDescriptionSuffix, isPlaceholder, parse12HourTime, formatAmPmTime, stripNonEnglishCountry } from "../utils";
 import { matchKennelPatterns, matchCompiledKennelPatterns, compileKennelPatterns, type KennelPattern, type CompiledKennelPattern } from "../kennel-patterns";
 import { LOCATION_EMAIL_CTA_RE } from "@/pipeline/audit-checks";
+import { parseDMSFromLocation } from "@/lib/geo";
 import { extractHares, PHONE_TRAILING_RE } from "../hare-extraction";
 
 /**
@@ -37,8 +38,11 @@ export function extractRunNumber(
   description?: string,
   customPatterns?: string[] | RegExp[],
 ): number | undefined {
-  // 1. Check summary first (e.g., "Beantown #255: ...", "BH3: ... #2781", "Cunth # 40: ...")
-  const summaryMatch = /#\s*(\d+)/.exec(summary);
+  // 1. Check summary first (e.g., "Beantown #255: ...", "BH3: ... #2781", "Cunth # 40: ...").
+  // Require a clean delimiter (whitespace, punctuation, or end-of-string) after the
+  // digits — otherwise "#30X?" parses as 30, contradicting the kennel's intent that
+  // the run number is unknown (#1147). Mid-token alphanumeric leaves runNumber undefined.
+  const summaryMatch = /#\s*(\d+)(?=$|[\s:\-–—,.()/])/.exec(summary);
   if (summaryMatch) return Number.parseInt(summaryMatch[1], 10);
 
   if (!description) return undefined;
@@ -92,7 +96,10 @@ export function stripDatePrefix(text: string): string {
 }
 
 /** Shared label names used in description field parsing (start-of-line detection + embedded truncation). */
-const LABEL_NAMES = "Hares?|Who|Where|Location|When|Time|Start|What|Hash Cash|Cost|Price|Registration|On[ -]After|Directions|Pack\\s*Meet|Meet(?:ing)?|Circle|Chalk\\s*Talk";
+// `Why|How` (#1129): Flour City uses a `Hare/Where/When/Why/How` template, and
+// an empty `Why:` line was promoted to the event title because the label name
+// wasn't recognized.
+const LABEL_NAMES = String.raw`Hares?|Who|Where|Location|When|Why|How|Time|Start|What|Hash Cash|Cost|Price|Registration|On[ -]After|Directions|Pack\s*Meet|Meet(?:ing)?|Circle|Chalk\s*Talk`;
 
 /** Extended label names with additional title-only terms. */
 const TITLE_LABEL_NAMES = `${LABEL_NAMES}|Trail Type|Distance|Length`;
@@ -107,6 +114,10 @@ const TITLE_URL_RE = /^https?:\/\//;
 const TITLE_PURE_TIME_RE = /^\d{1,2}:\d{2}\s*[ap]m$/i;
 // Schedule-line pattern: "Label: time" or "Label & Label: time" — skip as title candidates
 const TITLE_SCHEDULE_LINE_RE = /:\s*\d{1,2}:\d{2}\s*(?:am|pm)/i;
+// #1194 GAL: short all-caps tokens like BYOB, TBD, TBA, FYI, NSFW are CTAs/
+// acronyms a kennel typed into the description, not real event titles. Reject
+// as title candidates so a 4-char "BYOB" doesn't become the displayed title.
+const TITLE_ACRONYM_ONLY_RE = /^[A-Z]{2,6}$/;
 
 // Hash-vernacular CTAs we strip from locationName (#743): parenthetical
 // suffixes like "(text for details)" that creep in via Google Calendar.
@@ -115,11 +126,48 @@ const LOCATION_TRAILING_CTA_RE = /\s*\((?:text|call|contact|ping)[^)]*\)\s*$/i;
 // on its own). The broader "Inquire for location: …@…" form is shared with
 // the audit-checks rule and imported above.
 const LOCATION_BARE_EMAIL_RE = /^\s*\S+@\S+\.\S+\s*$/;
-// Some GCal sources put "lat, lng" in item.location and the readable venue in
-// the description. Coord-only values are discarded so description extraction
-// surfaces the address; parsed coords flow to the pipeline as structured
-// lat/lng.
+// Coord-only `item.location` values: parse to structured lat/lng AND keep the
+// verbatim string as the display location (#1195 GAL). Pre-fix, the decimal
+// branch set `location = undefined` so description fallback could surface a
+// real address; both formats now preserve the source string and only fall
+// back when description provides something better.
 const LOCATION_COORDS_ONLY_RE = /^\s*(-?\d{1,3}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)\s*$/;
+// Anchored shape-check for DMS-only strings — actual parsing delegates to
+// `parseDMSFromLocation` in `src/lib/geo.ts`, which is also used by the merge
+// pipeline. The shape-check is the only adapter-local part: it ensures the
+// entire string is coords (not "Venue, 34°...").
+const LOCATION_DMS_ONLY_RE = /^\s*\d{1,3}°\d{1,2}'[\d.]+"[NS],?\s+\d{1,3}°\d{1,2}'[\d.]+"[EW]\s*$/;
+
+/**
+ * Parse a coord-only location string into structured lat/lng. Returns null
+ * for anything that isn't a recognised coord format (decimal or DMS).
+ *
+ * Cheap structural prefilter rejects letter-leading addresses before the
+ * regex engine traverses them — coord strings always start with digit, sign,
+ * or whitespace.
+ */
+function parseCoordOnlyLocation(value: string): { lat: number; lng: number } | null {
+  const first = value.codePointAt(0);
+  if (first === undefined) return null;
+  const isDigit = first >= 48 && first <= 57;
+  const isSign = first === 45 /* - */ || first === 43 /* + */;
+  const isSpace = first === 32 || first === 9;
+  if (!isDigit && !isSign && !isSpace) return null;
+
+  const decMatch = LOCATION_COORDS_ONLY_RE.exec(value);
+  if (decMatch) {
+    const lat = Number.parseFloat(decMatch[1]);
+    const lng = Number.parseFloat(decMatch[2]);
+    if (Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 && (lat !== 0 || lng !== 0)) {
+      return { lat, lng };
+    }
+    return null;
+  }
+  if (LOCATION_DMS_ONLY_RE.test(value)) {
+    return parseDMSFromLocation(value);
+  }
+  return null;
+}
 
 // Pre-compiled regexes for extractLocationFromDescription.
 // #742: hash-vernacular labels (De'erections, Direcshits, Where to gather) are synonyms for "Location".
@@ -135,14 +183,21 @@ const LOCATION_LABEL_TOKENS = [
   String.raw`Direcshits`,
   String.raw`Where\s+to\s+gather`,
 ];
+// `[ \t]*` after the label colon — NOT `\s*` — keeps the value capture on the
+// same line as the label. With `\s*` an empty `Where: ` line was consuming the
+// trailing newline and capturing the next line's content (e.g. Flour City's
+// `When: 5:69` template line, #1129).
 const LOCATION_LABEL_RE = new RegExp(
-  String.raw`(?:^|\n)\s*(?:${LOCATION_LABEL_TOKENS.join("|")})\s*:\s*(.+)`,
+  String.raw`(?:^|\n)\s*(?:${LOCATION_LABEL_TOKENS.join("|")})[ \t]*:[ \t]*(.+)`,
   "im",
 );
-// Fallback: bare label (no colon) with value on subsequent line, optionally after a URL line
-const LOCATION_BARE_LABEL_RE = /(?:^|\n)\s*(?:WHERE|LOCATION)\s*\n(?:\s*https?:\/\/\S+\s*\n)?\s*(.+)/im;
+// Fallback: bare label (no colon) with value on subsequent line, optionally
+// after a URL line. Uses `[ \t]*` for intra-line whitespace and explicit `\n`
+// boundaries to keep the regex linear (no overlapping `\s*` runs that span
+// newlines, which Sonar S5852 flags as super-linear).
+const LOCATION_BARE_LABEL_RE = /(?:^|\n)[ \t]*(?:WHERE|LOCATION)[ \t]*\n(?:[ \t]*https?:\/\/\S+[ \t]*\n)?[ \t]*(\S.*)/im;
 // Secondary fallback: "Start:" as location label (lower priority — often contains time, not location)
-const LOCATION_START_RE = /(?:^|\n)\s*Start\s*:\s*(.+)/im;
+const LOCATION_START_RE = /(?:^|\n)[ \t]*Start[ \t]*:[ \t]*(.+)/im;
 // Filters bare time values from location results (e.g., "6:30pm", "18:30", "7:00")
 const LOCATION_TIME_ONLY_RE = /^\d{1,2}:\d{2}(\s*(?:am|pm))?\s*$/i;
 // #924 Chicagoland: WHERE: lines often contain themed instruction prose
@@ -280,6 +335,7 @@ export function extractTitleFromDescription(description: string): string | undef
     if (TITLE_URL_RE.test(text)) continue;
     if (TITLE_PURE_TIME_RE.test(text)) continue;
     if (TITLE_SCHEDULE_LINE_RE.test(text)) continue;
+    if (TITLE_ACRONYM_ONLY_RE.test(text)) continue;
     return text;
   }
   return undefined;
@@ -409,6 +465,14 @@ interface CalendarSourceConfig {
   harePatterns?: string[];              // regex strings to extract hares from descriptions
   runNumberPatterns?: string[];         // regex strings to extract run numbers from descriptions
   titleHarePattern?: string;            // regex to extract hare names from summary when description has none
+  /**
+   * Regex strings applied as `title.replace(re, "")` in sequence after hare
+   * extraction and before the `defaultTitle` fallback. Compiled with `i`
+   * (matches the rest of the adapter's pattern fields). Used for kennels
+   * that wrap titles in fixed delimiters that aren't real title content
+   * (#1189 Eugene H3: leading "🌲" and trailing "🍺 6:69 pm- Location TBD").
+   */
+  titleStripPatterns?: string[];
   descriptionSuffix?: string;           // appended to every event description
   includeAllDayEvents?: boolean;        // if true, don't skip all-day events (some calendars use them for real runs)
   defaultStartTime?: string;            // "HH:MM" fallback when neither the calendar item nor the description yields a start time (paired with includeAllDayEvents)
@@ -566,6 +630,7 @@ export interface BuildRawEventFromGCalItemOptions {
   compiledRunNumberPatterns?: RegExp[];
   compiledSkipPatterns?: RegExp[];
   compiledTitleHarePattern?: RegExp;
+  compiledTitleStripPatterns?: RegExp[];
   /** Pre-compiled kennelPatterns. Production fetch path passes this so
    *  we don't re-compile every event; tests can omit. */
   compiledKennelPatterns?: CompiledKennelPattern[];
@@ -586,6 +651,7 @@ export function buildRawEventFromGCalItem(
     compiledRunNumberPatterns,
     compiledSkipPatterns,
     compiledTitleHarePattern,
+    compiledTitleStripPatterns,
     compiledKennelPatterns,
     gcalIdMap,
   } = options;
@@ -649,21 +715,19 @@ export function buildRawEventFromGCalItem(
   let location = item.location ? stripNonEnglishCountry(decodeEntities(item.location).trim()) : undefined;
   let latitude: number | undefined;
   let longitude: number | undefined;
+  // When `item.location` is a coord-only string (decimal or DMS), parse it
+  // into structured lat/lng. Stash the verbatim coord string and clear
+  // `location` so the description-fallback branch can surface a real address
+  // if the kennel typed one (#779 BMPH3 Rue de la Gare). If the description
+  // doesn't yield anything, the coord string is restored at the bottom of
+  // the location pipeline so the source signal survives (#1195 GAL).
+  let coordOnlyDisplay: string | undefined;
   if (location) {
-    const coordsMatch = LOCATION_COORDS_ONLY_RE.exec(location);
-    if (coordsMatch) {
-      const lat = Number.parseFloat(coordsMatch[1]);
-      const lng = Number.parseFloat(coordsMatch[2]);
-      if (
-        Number.isFinite(lat) &&
-        Number.isFinite(lng) &&
-        Math.abs(lat) <= 90 &&
-        Math.abs(lng) <= 180 &&
-        (lat !== 0 || lng !== 0)
-      ) {
-        latitude = lat;
-        longitude = lng;
-      }
+    const coords = parseCoordOnlyLocation(location);
+    if (coords) {
+      latitude = coords.lat;
+      longitude = coords.lng;
+      coordOnlyDisplay = location;
       location = undefined;
     }
   }
@@ -683,6 +747,10 @@ export function buildRawEventFromGCalItem(
   if (!location && rawDescription) {
     location = extractLocationFromDescription(rawDescription);
   }
+  // Restore the verbatim coord string when description didn't provide a
+  // better address. The source explicitly chose "no street name" so we'd
+  // rather show the coords than the kennel-default fallback (#1195 GAL).
+  if (!location && coordOnlyDisplay) location = coordOnlyDisplay;
 
   // Determine title: if title matches kennel tag, try description fallback
   let title = useFullTitle ? summary : extractTitle(summary);
@@ -797,13 +865,15 @@ export function buildRawEventFromGCalItem(
     title = title.slice(0, haredByMatch.index).trim();
   }
 
-  // " - Location TBD" suffix: "HareName - Location TBD" (EWH3 placeholder events)
+  // " - Location TBD" suffix: "<title> - Location TBD" (EWH3 placeholder events).
+  // The prefix is the trail title — never assume it's a hare name. Without an
+  // explicit hare delimiter (`w/`, `Hare:`, `hared by`) we have no reliable
+  // signal that the prefix names the hares. #1127: EWH3's "Autism Speaks for
+  // Deities & Friends! - Location TBD" was wrongly being routed to `hares`
+  // and the title replaced with the configured `defaultTitle`.
   const locTbdMatch = TITLE_DASH_LOCATION_TBD_RE.exec(title);
   if (locTbdMatch) {
-    const beforeDash = locTbdMatch[1].trim();
-    // The text before " - Location TBD" is likely hare name(s) for future events
-    if (!hares && beforeDash) hares = beforeDash;
-    title = kennelTag;
+    title = locTbdMatch[1].trim();
   }
 
   // Strip " - LocationName" from title when location was already extracted
@@ -823,6 +893,17 @@ export function buildRawEventFromGCalItem(
   // Email-as-title: placeholder/recruitment summary — use kennel tag
   if (EMAIL_IN_TITLE_RE.test(title)) {
     title = kennelTag;
+  }
+
+  // Per-source title strips (#1189): kennels that wrap titles in fixed
+  // delimiters that aren't part of the actual title content. Eugene H3 uses
+  // 🌲 as a leading marker and 🍺 to separate title from a time/location
+  // tail. Runs after hare extraction so emoji delimiters are still present
+  // when titleHarePattern executes.
+  if (compiledTitleStripPatterns?.length) {
+    for (const re of compiledTitleStripPatterns) {
+      title = title.replace(re, "").trim();
+    }
   }
 
   // defaultTitle fallback runs last, after all branches that may reset title to kennelTag.
@@ -918,6 +999,72 @@ function buildGCalDiagnosticContext(item: GCalEvent): string {
   return rawParts.join("\n").slice(0, 2000);
 }
 
+/** Compile every regex-string config field once per scrape so the per-event
+ * build path doesn't re-compile. Returns an object with every compiled
+ * pattern needed by `buildRawEventFromGCalItem` (or `undefined` when the
+ * config didn't supply one).
+ */
+function compileSourceConfigPatterns(sourceConfig: CalendarSourceConfig | null) {
+  return {
+    compiledHarePatterns: sourceConfig?.harePatterns?.length
+      ? compilePatterns(sourceConfig.harePatterns)
+      : undefined,
+    compiledRunNumberPatterns: sourceConfig?.runNumberPatterns?.length
+      ? compilePatterns(sourceConfig.runNumberPatterns)
+      : undefined,
+    compiledSkipPatterns: sourceConfig?.skipPatterns?.length
+      ? compilePatterns(sourceConfig.skipPatterns, "i")
+      : undefined,
+    compiledTitleHarePattern: sourceConfig?.titleHarePattern
+      ? compilePatterns([sourceConfig.titleHarePattern], "i")[0]
+      : undefined,
+    compiledTitleStripPatterns: sourceConfig?.titleStripPatterns?.length
+      ? compilePatterns(sourceConfig.titleStripPatterns, "i")
+      : undefined,
+    compiledKennelPatterns: sourceConfig?.kennelPatterns?.length
+      ? compileKennelPatterns(sourceConfig.kennelPatterns)
+      : undefined,
+  };
+}
+
+/**
+ * Two-pass dedup for fetched events:
+ *   1. id-first — GCal returns a stable per-instance id; collapse exact-id
+ *      duplicates from the primary + secondary calls. Legacy composite-key
+ *      fallback covers synthetic test fixtures without ids.
+ *   2. composite-key (kennel|date|startTime|title) — catches parallel RRULE
+ *      series that share key but differ in id (#1101 CFMH3). On collision
+ *      the survivor inherits non-empty fields from the donor before drop.
+ */
+function dedupGCalEvents(
+  events: RawEventData[],
+  gcalIdMap: WeakMap<RawEventData, string>,
+): { events: RawEventData[]; compositeDedupedCount: number } {
+  const seen = new Set<string>();
+  const idDeduped = events.filter(e => {
+    const id = gcalIdMap.get(e);
+    const key = id
+      ? `id:${id}`
+      : `legacy:${e.date}|${e.kennelTags[0]}|${e.startTime ?? ""}|${e.title ?? ""}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  const compositeMap = new Map<string, RawEventData>();
+  for (const e of idDeduped) {
+    const key = `${e.kennelTags[0]}|${e.date}|${e.startTime ?? ""}|${e.title ?? ""}`;
+    const existing = compositeMap.get(key);
+    if (existing) mergeRawEventInPlace(existing, e);
+    else compositeMap.set(key, e);
+  }
+  const compositeDedupedCount = idDeduped.length - compositeMap.size;
+  // Skip the rebuild when nothing collapsed — saves an O(n) array copy on
+  // the typical scrape where parallel-series duplicates don't exist.
+  const result = compositeDedupedCount === 0 ? idDeduped : [...compositeMap.values()];
+  return { events: result, compositeDedupedCount };
+}
+
 /** Google Calendar API v3 adapter. Fetches events from a public calendar and extracts kennel tags via configurable patterns. */
 export class GoogleCalendarAdapter implements SourceAdapter {
   type = "GOOGLE_CALENDAR" as const;
@@ -951,21 +1098,7 @@ export class GoogleCalendarAdapter implements SourceAdapter {
     const errorDetails: ErrorDetails = {};
     let totalItemsReturned = 0;
     let pagesProcessed = 0;
-    const compiledHarePatterns = sourceConfig?.harePatterns?.length
-      ? compilePatterns(sourceConfig.harePatterns)
-      : undefined;
-    const compiledRunNumberPatterns = sourceConfig?.runNumberPatterns?.length
-      ? compilePatterns(sourceConfig.runNumberPatterns)
-      : undefined;
-    const compiledSkipPatterns = sourceConfig?.skipPatterns?.length
-      ? compilePatterns(sourceConfig.skipPatterns, "i")
-      : undefined;
-    const compiledTitleHarePattern = sourceConfig?.titleHarePattern
-      ? compilePatterns([sourceConfig.titleHarePattern], "i")[0]
-      : undefined;
-    const compiledKennelPatterns = sourceConfig?.kennelPatterns?.length
-      ? compileKennelPatterns(sourceConfig.kennelPatterns)
-      : undefined;
+    const compiled = compileSourceConfigPatterns(sourceConfig);
     const gcalIdMap = new WeakMap<RawEventData, string>();
 
     const buildEvents = (items: GCalEvent[], filter?: (item: GCalEvent) => boolean): void => {
@@ -976,14 +1109,7 @@ export class GoogleCalendarAdapter implements SourceAdapter {
           continue;
         }
         try {
-          const event = buildRawEventFromGCalItem(item, sourceConfig, {
-            compiledHarePatterns,
-            compiledRunNumberPatterns,
-            compiledSkipPatterns,
-            compiledTitleHarePattern,
-            compiledKennelPatterns,
-            gcalIdMap,
-          });
+          const event = buildRawEventFromGCalItem(item, sourceConfig, { ...compiled, gcalIdMap });
           if (event) events.push(event);
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
@@ -1049,21 +1175,10 @@ export class GoogleCalendarAdapter implements SourceAdapter {
 
     const hasErrorDetails = hasAnyErrors(errorDetails);
 
-    // Dedup id-first when GCal returned a stable id; legacy composite-key
-    // fallback covers synthetic test fixtures and pre-id callers.
-    const seen = new Set<string>();
-    const dedupedEvents = events.filter(e => {
-      const id = gcalIdMap.get(e);
-      const key = id
-        ? `id:${id}`
-        : `legacy:${e.date}|${e.kennelTags[0]}|${e.startTime ?? ""}|${e.title ?? ""}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
+    const { events: compositeDeduped, compositeDedupedCount } = dedupGCalEvents(events, gcalIdMap);
 
     return {
-      events: dedupedEvents,
+      events: compositeDeduped,
       errors,
       errorDetails: hasErrorDetails ? errorDetails : undefined,
       diagnosticContext: {
@@ -1072,6 +1187,7 @@ export class GoogleCalendarAdapter implements SourceAdapter {
         itemsReturned: totalItemsReturned,
         ...(backfillCount > 0 && { inlineHarelineBackfilled: backfillCount }),
         ...(exceptionsRecovered > 0 && { exceptionsRecovered }),
+        ...(compositeDedupedCount > 0 && { compositeDeduped: compositeDedupedCount }),
       },
     };
   }
@@ -1133,6 +1249,35 @@ export class GoogleCalendarAdapter implements SourceAdapter {
       pageToken = data.nextPageToken;
     } while (pageToken);
     return { items, pagesProcessed };
+  }
+}
+
+/**
+ * Fields filled in on a composite-dedup collision (#1101): when two duplicate
+ * RRULE series produce events with the same kennel/date/title/startTime, the
+ * first-seen wins but we backfill any missing field from the donor. Title is
+ * intentionally absent — the composite key already includes it, so colliders
+ * always share it. `kennelTags`/`date`/`startTime`/`sourceUrl` are part of the
+ * key (or the source identity) and likewise off-limits.
+ */
+const MERGE_KEYS = [
+  "description", "location", "locationUrl", "hares",
+  "latitude", "longitude", "cost", "runNumber", "endTime",
+] as const satisfies readonly (keyof RawEventData)[];
+
+/**
+ * Backfill missing fields on `target` from `donor`. Uses `== null` to treat
+ * both `undefined` (numeric fields) and missing string values uniformly;
+ * empty strings are also considered "missing" since none of the merged
+ * fields use empty-string as a meaningful value.
+ */
+function mergeRawEventInPlace(target: RawEventData, donor: RawEventData): void {
+  for (const k of MERGE_KEYS) {
+    const tv = target[k];
+    const dv = donor[k];
+    if ((tv == null || tv === "") && dv != null && dv !== "") {
+      (target as unknown as Record<string, unknown>)[k] = dv;
+    }
   }
 }
 
