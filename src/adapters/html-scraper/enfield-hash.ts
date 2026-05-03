@@ -145,19 +145,15 @@ export function parseEnfieldBody(text: string, now?: Date): {
 
   if (location && isPlaceholder(location)) location = undefined;
 
-  // Geocode disambiguation: an "Enfield" village in Lincolnshire otherwise
-  // outranks the London borough — ensure "London" appears so the geocoder
-  // lands in the right place. Trade-off: an away-weekend trail run from
-  // outside London (e.g. Hatfield) would be wrongly coerced too. EH3 has no
-  // such events today; revisit if joint-with-other-kennel runs become regular.
+  // Geocode disambiguation: every EH3 trail runs in the London borough of
+  // Enfield, but "Enfield" alone resolves to a Lincolnshire village ("Grimsby"
+  // suffix) and London alone over-matches generic pub names. Force both into
+  // the string so the geocoder lands on the right borough. Trade-off: an
+  // away-weekend run from outside London would be wrongly coerced too. EH3
+  // has no such events today; revisit if joint-with-other-kennel runs recur.
   if (location) {
-    const hasEnfield = /\benfield\b/i.test(location);
-    const hasLondon = /\blondon\b/i.test(location);
-    if (!hasEnfield && !hasLondon) {
-      location = `${location}, Enfield, London`;
-    } else if (!hasLondon) {
-      location = `${location}, London`;
-    }
+    if (!/\benfield\b/i.test(location)) location = `${location}, Enfield`;
+    if (!/\blondon\b/i.test(location)) location = `${location}, London`;
   }
 
   return {
@@ -174,8 +170,8 @@ export function parseEnfieldBody(text: string, now?: Date): {
  * `25:99` style garbage as a startTime. Minute group is optional ("7pm").
  */
 function timeFromMatch(m: RegExpMatchArray): string | undefined {
-  const h = parseInt(m[1], 10);
-  const minute = m[2] ? parseInt(m[2], 10) : 0;
+  const h = Number.parseInt(m[1], 10);
+  const minute = m[2] ? Number.parseInt(m[2], 10) : 0;
   if (h < 1 || h > 12 || minute > 59) return undefined;
   return formatAmPmTime(h, minute, m[3]);
 }
@@ -192,28 +188,30 @@ function timeFromMatch(m: RegExpMatchArray): string | undefined {
  *      ("EARLY START meet 7pm" → 7pm when no later "for X start" exists)
  */
 export function extractStartTimeOverride(text: string): string | undefined {
-  const forMatch = text.match(
-    /\bfor\s+(?:a\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)\s+(?:start|run|trail)\b/i,
-  );
+  const forRe =
+    /\bfor\s+(?:a\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)\s+(?:start|run|trail)\b/i;
+  const forMatch = forRe.exec(text);
   if (forMatch) {
     const t = timeFromMatch(forMatch);
     if (t) return t;
   }
 
-  const startMatch = text.match(/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\s+start\b/i);
+  const startRe = /\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\s+start\b/i;
+  const startMatch = startRe.exec(text);
   if (startMatch) {
     const t = timeFromMatch(startMatch);
     if (t) return t;
   }
 
-  if (/early\s+start/i.test(text)) {
-    const earlyMatch = text.match(
-      /early\s+start[\s\S]*?(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i,
-    );
-    if (earlyMatch) {
-      const t = timeFromMatch(earlyMatch);
-      if (t) return t;
-    }
+  // Bounded lookahead — limit to 120 chars after "EARLY START" so a stray
+  // time mention later in the post (e.g. "back at the pub by 9pm") doesn't
+  // get picked up by mistake.
+  const earlyRe =
+    /early\s+start[\s\S]{0,120}?(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i;
+  const earlyMatch = earlyRe.exec(text);
+  if (earlyMatch) {
+    const t = timeFromMatch(earlyMatch);
+    if (t) return t;
   }
 
   return undefined;

@@ -235,8 +235,12 @@ describe("parseEnfieldBody", () => {
   it("does not double-append London when location already names it (#1135)", () => {
     const text = "Pub: The Old Wheatsheaf, Chase Side, London";
     const result = parseEnfieldBody(text, now);
-    // Already contains London → no `, London` re-append; Enfield not added either
-    expect(result.location).toBe("The Old Wheatsheaf, Chase Side, London");
+    // Already contains London → no `, London` re-append. Enfield IS appended
+    // because every EH3 trail is in the London borough of Enfield, so naming
+    // the borough explicitly improves geocoder precision.
+    expect(result.location).toBe(
+      "The Old Wheatsheaf, Chase Side, London, Enfield",
+    );
   });
 
   it("handles year-less date in prose", () => {
@@ -370,21 +374,6 @@ const SAMPLE_NEW_SITE_HTML = `
   <div class="paragraph-box">
     <h1>Welcome to the Enfield Hash!</h1>
     <p>We are a friendly running club.</p>
-    <p>OnOn</p>
-  </div>
-</div>
-</body></html>
-`;
-
-// Run 319 fixture — joint-run / EARLY START / 7:15pm override.
-const SAMPLE_RUN_319_HTML = `
-<html><body>
-<div class="content" id="content">
-  <div class="paragraph-box">
-    <h1>Run 319 - Wed 18 March</h1>
-    <p>Joint run with Enfield Chasers - EARLY START meet 7pm for 7:15pm run</p>
-    <p>We are running from The Cricketers, Chase Side, Enfield. P trail from Enfield Chase station.</p>
-    <p>Bring a torch and your trail shoes.</p>
     <p>OnOn</p>
   </div>
 </div>
@@ -545,8 +534,15 @@ describe("EnfieldHashAdapter.fetch (new site structure)", () => {
   });
 
   it("extracts joint-run early-start text + 7:15pm override end-to-end (#1135, #1136)", async () => {
+    // Run 319 fixture — joint-run / EARLY START / 7:15pm override.
+    const html =
+      `<h1>Run 319 - Wed 18 March</h1>` +
+      `<p>Joint run with Enfield Chasers - EARLY START meet 7pm for 7:15pm run</p>` +
+      `<p>We are running from The Cricketers, Chase Side, Enfield. P trail from Enfield Chase station.</p>` +
+      `<p>Bring a torch and your trail shoes.</p>` +
+      `<p>OnOn</p>`;
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response(SAMPLE_RUN_319_HTML, { status: 200 }),
+      new Response(`<div class="paragraph-box">${html}</div>`, { status: 200 }),
     );
 
     const result = await adapter.fetch({
