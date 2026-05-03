@@ -1429,8 +1429,7 @@ export const KENNELS: KennelSeed[] = [
     },
     {
       kennelCode: "circus-h3", shortName: "Circus H3", fullName: "Sarasota Circus Hash House Harriers", region: "Tampa Bay, FL",
-      website: "http://www.circushash.com/",
-      logoUrl: "http://www.circushash.com/uploads/1/3/0/5/13054913/1343274878.png",
+      logoUrl: "/kennel-logos/circus-h3.png",
       facebookUrl: "https://www.facebook.com/groups/circushash/",
       scheduleDayOfWeek: "Sunday", scheduleFrequency: "Biweekly",
       hashCash: "$5",
