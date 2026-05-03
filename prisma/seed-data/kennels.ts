@@ -1049,9 +1049,11 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "h5-hash", shortName: "H5", fullName: "Harrisburg-Hershey Hash House Harriers", region: "Harrisburg, PA",
       website: "https://h5hash.com/",
+      facebookUrl: "https://www.facebook.com/groups/h5rocks",
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly", scheduleTime: "2:30 PM",
       scheduleNotes: "Biweekly Saturdays. Also runs TMI full moon hashes.",
-      description: "Biweekly hash in the Harrisburg/Hershey area.",
+      foundedYear: 1997,
+      description: "Harrisburg/Hershey biweekly hash since March 1997. A drinking club with a running problem.",
       latitude: 40.27, longitude: -76.88,
     },
     // ===== DELAWARE =====
@@ -2111,6 +2113,7 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "glh3", shortName: "GLH3", fullName: "Greater Lansing Hash House Harriers", region: "Lansing, MI",
       website: "https://glh3.net",
+      logoUrl: "https://images.squarespace-cdn.com/content/v1/5976305e725e25e03b77f0ca/1587492643561-4KPIMV5IUHP8YR8V561W/GLH3+Logo.png?format=1500w",
       scheduleDayOfWeek: "Saturday", scheduleTime: "3:00 PM", scheduleFrequency: "Biweekly",
       scheduleNotes: "1st Saturday, $10 hash cash",
       hashCash: "$10",
@@ -3187,9 +3190,12 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "gch3-au", shortName: "Gold Coast H3", fullName: "Gold Coast Hash House Harriers",
       region: "Gold Coast, QLD", country: "Australia",
       website: "https://www.goldcoasthash.org",
+      facebookUrl: "https://www.facebook.com/groups/gch3thegourmehash",
+      logoUrl: "https://www.goldcoasthash.org/wp-content/uploads/The-Royal-Header1.png",
       scheduleDayOfWeek: "Monday", scheduleTime: "6:00 PM", scheduleFrequency: "Weekly",
       scheduleNotes: "Weekly hash around the Gold Coast. Hareline published via TablePress at goldcoasthash.org/hareline.",
-      description: "Gold Coast's mixed hash kennel in Queensland. Weekly runs around the Gold Coast metro and hinterland, currently approaching Run #2500.",
+      foundedYear: 1978,
+      description: "The Gourmet Hash — Gold Coast's men's-only Hash kennel in Queensland, established 1978. Runs every Monday night, wet or fine, starting at 6:00 pm.",
       latitude: -28.0167, longitude: 153.4000,
     },
     {
