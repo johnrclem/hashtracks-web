@@ -26,6 +26,7 @@ import { buildMultiEventIcs } from "@/lib/calendar";
 import { capture } from "@/lib/analytics";
 import { stashSaveIntent } from "@/lib/travel/save-intent";
 import type { ExportableConfirmedEvent } from "@/lib/travel/export";
+import { TravelHintBadge } from "./TravelHintBadge";
 
 // Re-export so existing consumers that imported `ExportableConfirmedEvent`
 // from TripSummary keep working. The canonical definition + projection
@@ -59,6 +60,9 @@ interface TripSummaryProps {
   /** Effective radius after the broader-region fallback; triggers the ROUTING REVISED badge when larger than radiusKm. */
   effectiveRadiusKm?: number;
   timezone?: string;
+  /** Round-tripped from URL `pid`. Persisted on save so a later SSR
+   *  lookup can match on placeId identity rather than coord equality. */
+  placeId?: string;
   isAuthenticated: boolean;
   initialSavedId: string | null;
   confirmedCount: number;
@@ -92,6 +96,7 @@ export function TripSummary({
   requestedRadiusKm,
   effectiveRadiusKm,
   timezone,
+  placeId,
   isAuthenticated,
   initialSavedId,
   confirmedCount,
@@ -165,6 +170,7 @@ export function TripSummary({
         startDate,
         endDate,
         timezone,
+        placeId,
       });
       const here = new URL(window.location.href);
       here.searchParams.set("saved", "1");
@@ -190,6 +196,7 @@ export function TripSummary({
         startDate,
         endDate,
         timezone,
+        placeId,
       });
       if ("success" in result && result.success) {
         setSavedId(result.id);
@@ -308,19 +315,17 @@ export function TripSummary({
   return (
     <section className="mt-8 border-b border-border pb-8">
       {broaderExpanded ? (
-        <p
-          className="mb-2 font-mono text-[11px] uppercase tracking-[0.18em] text-amber-600 dark:text-amber-400"
-          aria-label="Search radius was automatically expanded to find results"
-        >
-          ◆ Routing revised
-        </p>
+        <TravelHintBadge
+          glyph="◆"
+          label="Routing revised"
+          ariaLabel="Search radius was automatically expanded to find results"
+        />
       ) : radiusSnapped ? (
-        <p
-          className="mb-2 font-mono text-[11px] uppercase tracking-[0.18em] text-amber-600 dark:text-amber-400"
-          aria-label="Requested radius was adjusted to the nearest supported tier"
-        >
-          ◇ Radius adjusted
-        </p>
+        <TravelHintBadge
+          glyph="◇"
+          label="Radius adjusted"
+          ariaLabel="Requested radius was adjusted to the nearest supported tier"
+        />
       ) : null}
 
       {legs && legs.length > 1 ? (

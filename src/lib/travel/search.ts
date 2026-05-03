@@ -652,9 +652,14 @@ async function runStopSearch(
   const possibleResults: PossibleResult[] = possibleProjections.map((proj) => {
     const kennel = kennelMap.get(proj.kennelId);
     const evidence = evidenceByKennel.get(proj.kennelId) ?? [];
-    const lastConfirmedAt = evidence.length > 0
+    // Prefer the most-recent in-window event so the line moves as the kennel
+    // posts. Fall back to the kennel's all-time `lastEventDate` so a Low
+    // projection still anchors to *something* — even old history justifies
+    // why we listed the kennel.
+    const recentLast = evidence.length > 0
       ? new Date(evidence.reduce((max, e) => Math.max(max, e.date.getTime()), 0))
       : null;
+    const lastConfirmedAt = recentLast ?? kennel?.lastEventDate ?? null;
     return {
       type: "possible" as const,
       destinationIndex: index,

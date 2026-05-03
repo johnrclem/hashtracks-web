@@ -8,6 +8,12 @@ export interface InitialLegValues {
   endDate: string;
   radiusKm: number;
   timezone?: string;
+  /** Google Places ID if the destination was picked from autocomplete.
+   *  Round-tripped through the URL (`pid` param) so saved-trip lookups
+   *  can match on placeId even when re-rendered from a stateless URL —
+   *  geocoder fallback and autocomplete return coords that drift
+   *  ~0.0001° apart for the same place. */
+  placeId?: string;
 }
 
 export interface TravelSearchFormProps {
@@ -39,6 +45,11 @@ export interface LegState {
   radiusKm: number;
   /** DestinationInput reported resolved coords — (0, 0) is a valid equatorial destination so this is not just `latitude !== 0`. */
   coordsResolved: boolean;
+  /** Optional Google Places ID. Set when the destination was picked from
+   *  autocomplete; absent on the geocode-fallback path. Threaded into
+   *  the URL as `pid` so SSR saved-trip lookup can prefer placeId
+   *  identity over coord equality. */
+  placeId?: string;
 }
 
 export type BoardingStampVariant = "leg" | "ghost" | "required";

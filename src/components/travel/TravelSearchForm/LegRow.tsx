@@ -39,13 +39,14 @@ export const LegRow = memo(function LegRow({
   const datesInvalid = showRequiredStamps && !legDatesValid(leg);
 
   const onDestinationChange = useCallback(
-    (place: { label: string; latitude: number; longitude: number; timezone?: string }) => {
+    (place: { label: string; latitude: number; longitude: number; timezone?: string; placeId?: string }) => {
       updateLeg(legIndex, {
         destination: place.label,
         latitude: place.latitude,
         longitude: place.longitude,
         coordsResolved: true,
         timezone: place.timezone ?? "",
+        placeId: place.placeId,
       });
     },
     [updateLeg, legIndex],
@@ -57,6 +58,7 @@ export const LegRow = memo(function LegRow({
       longitude: 0,
       coordsResolved: false,
       timezone: "",
+      placeId: undefined,
     });
   }, [updateLeg, legIndex]);
   const onStartDateChange = useCallback(

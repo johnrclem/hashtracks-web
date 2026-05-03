@@ -74,6 +74,7 @@ export default async function TravelPage({ searchParams }: TravelPageProps) {
   const q = getParam(params, "q");
   const r = getParam(params, "r");
   const tz = getParam(params, "tz");
+  const pid = getParam(params, "pid");
 
   const hasSearchParams =
     lat != null && lng != null && from != null && to != null;
@@ -138,6 +139,7 @@ export default async function TravelPage({ searchParams }: TravelPageProps) {
           endDate: to,
           radiusKm,
           timezone: tz,
+          placeId: pid,
         }}
       />
 
@@ -152,6 +154,7 @@ export default async function TravelPage({ searchParams }: TravelPageProps) {
           endDate={to}
           destination={q ?? ""}
           timezone={tz}
+          placeId={pid}
           filterParams={params}
           pendingAutoSave={getParam(params, "saved") === "1"}
         />
@@ -174,6 +177,7 @@ async function TravelResultsServer({
   endDate,
   destination,
   timezone,
+  placeId,
   filterParams,
   pendingAutoSave,
 }: {
@@ -185,6 +189,7 @@ async function TravelResultsServer({
   endDate: string;
   destination: string;
   timezone?: string;
+  placeId?: string;
   filterParams: Record<string, string | string[] | undefined>;
   pendingAutoSave: boolean;
 }) {
@@ -221,6 +226,7 @@ async function TravelResultsServer({
       ? await findExistingSavedSearch({
           latitude,
           longitude,
+          placeId,
           radiusKm: radiusKm === requestedRadiusKm
             ? radiusKm
             : [radiusKm, requestedRadiusKm],
@@ -268,6 +274,7 @@ async function TravelResultsServer({
       longitude,
       radiusKm,
       requestedRadiusKm,
+      placeId,
       // When the service expanded to a broader region, surface the
       // larger radius so the hero count + summary can stop lying about
       // which radius the trails are actually within.
@@ -300,6 +307,7 @@ async function TravelResultsServer({
             longitude={longitude}
             radiusKm={radiusKm}
             timezone={timezone}
+            placeId={placeId}
           />
         )}
       </>

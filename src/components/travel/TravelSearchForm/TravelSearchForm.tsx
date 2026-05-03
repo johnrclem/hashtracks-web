@@ -192,6 +192,10 @@ export function TravelSearchForm({
       q: leg.destination,
     });
     if (leg.timezone) params.set("tz", leg.timezone);
+    // placeId round-trip lets SSR saved-trip lookup prefer placeId identity
+    // over coord equality — same place geocoded vs. picked from autocomplete
+    // can produce coords that drift by ~0.0001°.
+    if (leg.placeId) params.set("pid", leg.placeId);
     router.push(`/travel?${params.toString()}`);
     if (variant === "compact") setIsExpanded(false);
   }, [router, variant]);

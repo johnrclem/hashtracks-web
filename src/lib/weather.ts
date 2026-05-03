@@ -34,6 +34,11 @@ interface GoogleWeatherApiResponse {
   forecastDays?: GoogleWeatherForecastDay[];
 }
 
+/** Caps each upstream Google Weather call so a hung response can't push
+ *  the SSR render past Vercel's gateway window into a 503. The catch
+ *  path renders the page without weather data. */
+const WEATHER_FETCH_TIMEOUT_MS = 8000;
+
 /**
  * Fetch daily forecast for a given event date and location.
  * Returns null if the date is not found in the 10-day window or the API fails.
@@ -61,6 +66,7 @@ export async function getEventDayWeather(
   try {
     const res = await fetch(url, { // NOSONAR - domain is hardcoded; lat/lng are DB-sourced numbers
       next: { revalidate: 1800 }, // 30-minute cache
+      signal: AbortSignal.timeout(WEATHER_FETCH_TIMEOUT_MS),
     });
 
     if (!res.ok) return null;
@@ -187,7 +193,10 @@ export async function getWeatherForEvents(
       `&days=10`;
 
     try {
-      const res = await fetch(url, { next: { revalidate: 1800 } });
+      const res = await fetch(url, {
+        next: { revalidate: 1800 },
+        signal: AbortSignal.timeout(WEATHER_FETCH_TIMEOUT_MS),
+      });
       if (!res.ok) return;
 
       const data = (await res.json()) as GoogleWeatherApiResponse;

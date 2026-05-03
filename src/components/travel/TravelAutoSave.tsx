@@ -16,6 +16,10 @@ interface TravelAutoSaveProps {
   longitude: number;
   radiusKm: number;
   timezone?: string;
+  /** Round-tripped from the URL `pid` param. Persisted on save so a
+   *  later SSR lookup can match on placeId identity even when coords
+   *  drift between autocomplete and geocode-fallback paths. */
+  placeId?: string;
 }
 
 /**
@@ -41,6 +45,7 @@ export function TravelAutoSave({
   longitude,
   radiusKm,
   timezone,
+  placeId,
 }: TravelAutoSaveProps) {
   const router = useRouter();
   const fired = useRef(false);
@@ -65,6 +70,7 @@ export function TravelAutoSave({
       startDate,
       endDate,
       timezone,
+      placeId,
     });
 
     if (!hasIntent) {
@@ -82,6 +88,7 @@ export function TravelAutoSave({
           startDate,
           endDate,
           timezone,
+          placeId,
         });
         if ("success" in result && result.success) {
           capture("travel_saved_search_created", {
@@ -106,7 +113,7 @@ export function TravelAutoSave({
         stripSavedParam();
       }
     })();
-  }, [destination, startDate, endDate, latitude, longitude, radiusKm, timezone, router]);
+  }, [destination, startDate, endDate, latitude, longitude, radiusKm, timezone, placeId, router]);
 
   return null;
 }

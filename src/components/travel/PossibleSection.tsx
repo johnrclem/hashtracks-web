@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { capture } from "@/lib/analytics";
 import { PossibleRow, type PossibleRowData } from "./PossibleRow";
+import { TravelHintBadge } from "./TravelHintBadge";
 
 interface PossibleResult extends PossibleRowData {
   date: string | null;
@@ -20,8 +21,17 @@ export function PossibleSection({ results, confirmedCount }: Readonly<PossibleSe
 
   if (results.length === 0) return null;
 
+  const autoPromoted = confirmedCount === 0;
+
   return (
     <div className="mt-8 border-l-2 border-dashed border-border pl-5">
+      {autoPromoted && (
+        <TravelHintBadge
+          glyph="◆"
+          label="Showing possible activity"
+          ariaLabel={`No confirmed runs in this window — showing ${results.length} possible kennel${results.length !== 1 ? "s" : ""} instead`}
+        />
+      )}
       <button
         type="button"
         onClick={() => {

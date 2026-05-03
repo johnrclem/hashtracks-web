@@ -166,4 +166,15 @@ describe("getEventDayWeather", () => {
     expect(calledUrl).toContain("location.longitude=-0.13");
     expect(calledUrl).toContain("weather.googleapis.com");
   });
+
+  it("attaches an AbortSignal so a hung upstream can't stall the SSR (#768)", async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(buildWeatherResponse("2026-03-01")),
+    });
+    vi.stubGlobal("fetch", mockFetch);
+    await getEventDayWeather(51.51, -0.13, new Date("2026-03-01T12:00:00Z"));
+    const init = mockFetch.mock.calls[0][1] as RequestInit;
+    expect(init.signal).toBeInstanceOf(AbortSignal);
+  });
 });
