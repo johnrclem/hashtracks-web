@@ -2941,62 +2941,50 @@ describe("GoogleCalendarAdapter — composite-key dedup of duplicate series (#11
     config: { defaultKennelTag: "cfmh3" },
     scrapeDays: 90,
   } as unknown as Parameters<typeof adapter.fetch>[0];
+  const sameStart = { dateTime: "2026-06-02T19:00:00-05:00" };
 
-  it("collapses two events with same kennel/date/startTime/title but distinct ids", async () => {
-    await withApiKey(async () => {
-      // Two distinct ids, identical kennel/date/title/time — parallel RRULE series.
-      const fetchSpy = mockTwoCalls(
-        { items: [
-          { id: "series-a-instance-1", iCalUID: "series-a@google.com", summary: "Full Moon H3", start: { dateTime: "2026-06-02T19:00:00-05:00" }, status: "confirmed" },
-          { id: "series-b-instance-1", iCalUID: "series-b@google.com", summary: "Full Moon H3", start: { dateTime: "2026-06-02T19:00:00-05:00" }, status: "confirmed" },
-        ] },
-        { items: [] },
-      );
-      try {
-        const result = await adapter.fetch(cfmh3Source, { days: 90 });
+  it.each([
+    {
+      name: "collapses identical-key events with distinct ids",
+      items: [
+        { id: "series-a-instance-1", iCalUID: "series-a@google.com", summary: "Full Moon H3", start: sameStart, status: "confirmed" },
+        { id: "series-b-instance-1", iCalUID: "series-b@google.com", summary: "Full Moon H3", start: sameStart, status: "confirmed" },
+      ],
+      assert: (result: Awaited<ReturnType<typeof adapter.fetch>>) => {
         expect(result.events).toHaveLength(1);
         expect(result.diagnosticContext?.compositeDeduped).toBe(1);
-      } finally {
-        fetchSpy.mockRestore();
-      }
-    });
-  });
-
-  it("field-merges across collisions so the survivor keeps non-empty data from both", async () => {
-    await withApiKey(async () => {
+      },
+    },
+    {
       // First series has description, second has location — survivor carries both.
-      const fetchSpy = mockTwoCalls(
-        { items: [
-          { id: "series-a", iCalUID: "series-a@google.com", summary: "Full Moon H3", description: "BYO mug, $5 hash cash", start: { dateTime: "2026-06-02T19:00:00-05:00" }, status: "confirmed" },
-          { id: "series-b", iCalUID: "series-b@google.com", summary: "Full Moon H3", location: "Cerebral Brewing, Denver, CO", start: { dateTime: "2026-06-02T19:00:00-05:00" }, status: "confirmed" },
-        ] },
-        { items: [] },
-      );
-      try {
-        const result = await adapter.fetch(cfmh3Source, { days: 90 });
+      name: "field-merges so survivor keeps non-empty data from both donors",
+      items: [
+        { id: "series-a", iCalUID: "series-a@google.com", summary: "Full Moon H3", description: "BYO mug, $5 hash cash", start: sameStart, status: "confirmed" },
+        { id: "series-b", iCalUID: "series-b@google.com", summary: "Full Moon H3", location: "Cerebral Brewing, Denver, CO", start: sameStart, status: "confirmed" },
+      ],
+      assert: (result: Awaited<ReturnType<typeof adapter.fetch>>) => {
         expect(result.events).toHaveLength(1);
         expect(result.events[0].description).toContain("BYO mug");
         expect(result.events[0].location).toBe("Cerebral Brewing, Denver, CO");
         expect(result.diagnosticContext?.compositeDeduped).toBe(1);
-      } finally {
-        fetchSpy.mockRestore();
-      }
-    });
-  });
-
-  it("does not collapse two events with the same id+date but different titles", async () => {
-    await withApiKey(async () => {
-      const fetchSpy = mockTwoCalls(
-        { items: [
-          { id: "evt-a", summary: "Full Moon H3", start: { dateTime: "2026-06-02T19:00:00-05:00" }, status: "confirmed" },
-          { id: "evt-b", summary: "Special Trail", start: { dateTime: "2026-06-02T19:00:00-05:00" }, status: "confirmed" },
-        ] },
-        { items: [] },
-      );
-      try {
-        const result = await adapter.fetch(cfmh3Source, { days: 90 });
+      },
+    },
+    {
+      name: "preserves distinct events sharing date/time but with different titles",
+      items: [
+        { id: "evt-a", summary: "Full Moon H3", start: sameStart, status: "confirmed" },
+        { id: "evt-b", summary: "Special Trail", start: sameStart, status: "confirmed" },
+      ],
+      assert: (result: Awaited<ReturnType<typeof adapter.fetch>>) => {
         expect(result.events).toHaveLength(2);
         expect(result.diagnosticContext?.compositeDeduped).toBeUndefined();
+      },
+    },
+  ])("$name", async ({ items, assert }) => {
+    await withApiKey(async () => {
+      const fetchSpy = mockTwoCalls({ items }, { items: [] });
+      try {
+        assert(await adapter.fetch(cfmh3Source, { days: 90 }));
       } finally {
         fetchSpy.mockRestore();
       }
