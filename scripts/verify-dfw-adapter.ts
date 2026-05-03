@@ -21,14 +21,14 @@ async function main() {
 
   const result = await adapter.fetch(source as never);
 
-  const dates = result.events.map((e) => e.date).sort();
+  const dates = result.events.map((e) => e.date).sort((a, b) => a.localeCompare(b));
   const withDescription = result.events.filter((e) => e.description);
   const withCost = result.events.filter((e) => e.cost);
   const withRunNumber = result.events.filter((e) => e.runNumber !== undefined);
 
   console.log(`\n=== DFW Live Verification ===\n`);
   console.log(`Events parsed: ${result.events.length}`);
-  console.log(`Date range:    ${dates[0] ?? "n/a"} → ${dates[dates.length - 1] ?? "n/a"}`);
+  console.log(`Date range:    ${dates[0] ?? "n/a"} → ${dates.at(-1) ?? "n/a"}`);
   console.log(`With description: ${withDescription.length}`);
   console.log(`With cost:        ${withCost.length}`);
   console.log(`With runNumber:   ${withRunNumber.length}`);
@@ -53,7 +53,7 @@ async function main() {
     }
   }
   console.log(`\n=== Events per kennel ===`);
-  for (const [tag, n] of [...byKennel.entries()].sort()) {
+  for (const [tag, n] of [...byKennel.entries()].sort(([a], [b]) => a.localeCompare(b))) {
     console.log(`  ${tag}: ${n}`);
   }
 }

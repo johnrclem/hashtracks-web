@@ -24,7 +24,7 @@ import type {
 } from "../types";
 import { hasAnyErrors } from "../types";
 import { safeFetch } from "../safe-fetch";
-import { parse12HourTime, stripHtmlTags } from "../utils";
+import { MONTHS_ZERO, parse12HourTime, stripHtmlTags } from "../utils";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 import * as cheerio from "cheerio";
 import type { CheerioAPI, Cheerio } from "cheerio";
@@ -257,11 +257,9 @@ const KENNEL_NAME_PATTERNS = [
 /** Day-of-week prefix pattern (detail pages sometimes have date headings). */
 const DAY_PREFIX_PATTERN = /^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)/i;
 
-/** Month-name → 0-indexed month (matches the long-form names used in detail-page <h2> headings). */
-const MONTH_NAME_TO_INDEX: Record<string, number> = {
-  january: 0, february: 1, march: 2, april: 3, may: 4, june: 5,
-  july: 6, august: 7, september: 8, october: 9, november: 10, december: 11,
-};
+/** Long-form month + day + year regex for detail-page date headings. */
+const DETAIL_DATE_PATTERN =
+  /\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s+(\d{4})\b/i;
 
 /**
  * Extract the canonical event date from a detail-page heading.
@@ -284,15 +282,23 @@ export function extractDetailPageDate($: CheerioAPI): string | undefined {
 
   for (const text of candidates) {
     if (!text || !DAY_PREFIX_PATTERN.test(text)) continue;
-    const match = text.match(
-      /\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s+(\d{4})\b/i,
-    );
+    const match = DETAIL_DATE_PATTERN.exec(text);
     if (!match) continue;
-    const month = MONTH_NAME_TO_INDEX[match[1].toLowerCase()];
-    const day = parseInt(match[2], 10);
-    const year = parseInt(match[3], 10);
+    const month = MONTHS_ZERO[match[1].toLowerCase()];
+    const day = Number.parseInt(match[2], 10);
+    const year = Number.parseInt(match[3], 10);
     if (day < 1 || day > 31) continue;
-    return new Date(Date.UTC(year, month, day, 12, 0, 0)).toISOString().split("T")[0];
+    // Date.UTC silently normalizes overflowed inputs (Feb 31 → Mar 3); reject
+    // those rather than mis-key downstream merge/fingerprint logic.
+    const candidate = new Date(Date.UTC(year, month, day, 12, 0, 0));
+    if (
+      candidate.getUTCFullYear() !== year ||
+      candidate.getUTCMonth() !== month ||
+      candidate.getUTCDate() !== day
+    ) {
+      continue;
+    }
+    return candidate.toISOString().split("T")[0];
   }
 
   return undefined;
@@ -384,9 +390,12 @@ export function parseDFWDetailPage($: CheerioAPI): {
     } else if (label.startsWith("hares:") || label.startsWith("hare:")) {
       result.hares = value;
     } else if (label.startsWith("hash cash:")) {
-      result.cost = value;
+      // Verbatim — issue authors explicitly call this out (#1151). Use
+      // rawValue (no run-collapsing) so payment instructions and embedded
+      // separators are preserved as the source published them.
+      result.cost = rawValue.replace(/^[\s:,]+/, "").trim();
     } else if (label.startsWith("description:")) {
-      result.description = value;
+      result.description = rawValue.replace(/^[\s:,]+/, "").trim();
     }
   });
 
