@@ -24,7 +24,7 @@ import type {
 } from "../types";
 import { hasAnyErrors } from "../types";
 import { safeFetch } from "../safe-fetch";
-import { parse12HourTime, stripHtmlTags } from "../utils";
+import { MONTHS_ZERO, parse12HourTime, stripHtmlTags } from "../utils";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 import * as cheerio from "cheerio";
 import type { CheerioAPI, Cheerio } from "cheerio";
@@ -257,6 +257,53 @@ const KENNEL_NAME_PATTERNS = [
 /** Day-of-week prefix pattern (detail pages sometimes have date headings). */
 const DAY_PREFIX_PATTERN = /^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)/i;
 
+/** Long-form month + day + year regex for detail-page date headings. */
+const DETAIL_DATE_PATTERN =
+  /\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s+(\d{4})\b/i;
+
+/**
+ * Extract the canonical event date from a detail-page heading.
+ *
+ * Detail pages render the date as `<h2>Wednesday, April 22, 2026</h2>` (or
+ * occasionally in `<h1>`). This is the source of truth — the calendar grid
+ * cell can drift when a wide multi-day event (e.g. Texas Interhash) confuses
+ * cell-to-day-of-week alignment, mistagging events with the wrong date (#1155).
+ *
+ * Returns ISO `YYYY-MM-DD` (UTC) or undefined if no parseable heading is found.
+ */
+export function extractDetailPageDate($: CheerioAPI): string | undefined {
+  const candidates: string[] = [];
+  $("h2").each((_i, el) => {
+    candidates.push($(el).text().trim());
+  });
+  $("h1").each((_i, el) => {
+    candidates.push($(el).text().trim());
+  });
+
+  for (const text of candidates) {
+    if (!text || !DAY_PREFIX_PATTERN.test(text)) continue;
+    const match = DETAIL_DATE_PATTERN.exec(text);
+    if (!match) continue;
+    const month = MONTHS_ZERO[match[1].toLowerCase()];
+    const day = Number.parseInt(match[2], 10);
+    const year = Number.parseInt(match[3], 10);
+    if (day < 1 || day > 31) continue;
+    // Date.UTC silently normalizes overflowed inputs (Feb 31 → Mar 3); reject
+    // those rather than mis-key downstream merge/fingerprint logic.
+    const candidate = new Date(Date.UTC(year, month, day, 12, 0, 0));
+    if (
+      candidate.getUTCFullYear() !== year ||
+      candidate.getUTCMonth() !== month ||
+      candidate.getUTCDate() !== day
+    ) {
+      continue;
+    }
+    return candidate.toISOString().split("T")[0];
+  }
+
+  return undefined;
+}
+
 /**
  * Extract a venue name from the detail page headings.
  *
@@ -294,19 +341,28 @@ function extractVenueName($: CheerioAPI): string | undefined {
  *   - Time: "7:00 PM"
  *   - Start address: "Sam Houston Trail Park, Irving"
  *   - Hares: "Casting Cooch"
+ *   - Hash cash: "$7.00 cash - Paypal $7 ..." (verbatim, no cleanup — see #1151)
+ *   - Description: free-form prose
  *   - Hash Run No NNN (in <h3>)
+ *   - Canonical date in <h2> (e.g. "Wednesday, April 22, 2026") — see #1155
  */
 export function parseDFWDetailPage($: CheerioAPI): {
   startTime?: string;
   location?: string;
   hares?: string;
   runNumber?: number;
+  description?: string;
+  cost?: string;
+  date?: string;
 } {
   const result: {
     startTime?: string;
     location?: string;
     hares?: string;
     runNumber?: number;
+    description?: string;
+    cost?: string;
+    date?: string;
   } = {};
 
   // Extract fields from <h5><em>Label:</em> Value</h5> pattern. Multi-line
@@ -333,8 +389,18 @@ export function parseDFWDetailPage($: CheerioAPI): {
       result.location = value;
     } else if (label.startsWith("hares:") || label.startsWith("hare:")) {
       result.hares = value;
+    } else if (label.startsWith("hash cash:")) {
+      // Verbatim — issue authors explicitly call this out (#1151). Use
+      // rawValue (no run-collapsing) so payment instructions and embedded
+      // separators are preserved as the source published them.
+      result.cost = rawValue.replace(/^[\s:,]+/, "").trim();
+    } else if (label.startsWith("description:")) {
+      result.description = rawValue.replace(/^[\s:,]+/, "").trim();
     }
   });
+
+  const detailDate = extractDetailPageDate($);
+  if (detailDate) result.date = detailDate;
 
   const h3Text = $("h3").first().text().trim();
   const runMatch = h3Text.match(/Hash Run No\s*(\d+)/i);
@@ -479,6 +545,16 @@ export class DFWHashAdapter implements SourceAdapter {
           if (detail.location) evt.location = detail.location;
           if (detail.runNumber) evt.runNumber = detail.runNumber;
           if (detail.hares) evt.hares = detail.hares;
+          if (detail.description) evt.description = detail.description;
+          if (detail.cost) evt.cost = detail.cost;
+          // Detail-page date is canonical — overrides the grid cell date when
+          // they disagree. Calendar grid can drift on multi-day cells (#1155).
+          if (detail.date && detail.date !== evt.date) {
+            console.warn(
+              `[dfw-hash] date override for run #${detail.runNumber ?? "?"}: grid=${evt.date} → detail=${detail.date}`,
+            );
+            evt.date = detail.date;
+          }
 
           detailFetched++;
         } else {

@@ -4,6 +4,7 @@ import {
   buildDFWMonthUrl,
   ICON_TO_KENNEL,
   extractDFWEvents,
+  extractDetailPageDate,
   parseDFWDetailPage,
   DFWHashAdapter,
 } from "./dfw-hash";
@@ -372,6 +373,80 @@ describe("parseDFWDetailPage", () => {
     expect(detail.location).toBe("Sam Houston Trail Park, Irving");
     expect(detail.hares).toBe("Casting Cooch");
     expect(detail.runNumber).toBe(340);
+    expect(detail.cost).toBe("$7.00");
+    expect(detail.description).toBe("Give me beer or give me death!");
+    expect(detail.date).toBe("2026-03-23");
+  });
+
+  it("extracts verbatim FWH3 cost string without cleanup (#1151)", () => {
+    // FWH3's hash cash row is a long free-form string with payment instructions.
+    // The adapter must store it verbatim — issue authors explicitly call this out.
+    const html = `
+      <html><body>
+        <h3>Hash Run No 1056</h3>
+        <h5><em>Hash cash:</em> $7.00 cash - Paypal $7 - Pay pal (FWH3) or Zelle 817-689-9363 - BYOB pre-lube beer</h5>
+        <h5><em>Description:</em> Y'all know what to bring when you see my name as the hare</h5>
+      </body></html>
+    `;
+    const $ = cheerio.load(html);
+    const detail = parseDFWDetailPage($);
+    expect(detail.cost).toBe(
+      "$7.00 cash - Paypal $7 - Pay pal (FWH3) or Zelle 817-689-9363 - BYOB pre-lube beer",
+    );
+    expect(detail.description).toBe(
+      "Y'all know what to bring when you see my name as the hare",
+    );
+  });
+
+  it("returns canonical date from <h2> heading (#1155)", () => {
+    // DUHHH #849 was stored on Fri 4/3 but the source detail page says
+    // Wednesday, April 22, 2026. parseDFWDetailPage should surface the date
+    // so the adapter enrich loop can override the (drifted) grid date.
+    const html = `
+      <html><body>
+        <h1>Dallas Urban Hash</h1>
+        <h2>Wednesday, April 22, 2026</h2>
+        <h3>Hash Run No 849</h3>
+        <h5><em>Time:</em> 6:30 PM</h5>
+        <h5><em>Hares:</em> My Boyfriend Joe</h5>
+      </body></html>
+    `;
+    const $ = cheerio.load(html);
+    const detail = parseDFWDetailPage($);
+    expect(detail.date).toBe("2026-04-22");
+    expect(detail.runNumber).toBe(849);
+  });
+});
+
+describe("extractDetailPageDate", () => {
+  it("parses a Wednesday date heading", () => {
+    const $ = cheerio.load("<h2>Wednesday, April 22, 2026</h2>");
+    expect(extractDetailPageDate($)).toBe("2026-04-22");
+  });
+
+  it("parses a Saturday date heading", () => {
+    const $ = cheerio.load("<h2>Saturday, March 14, 2026</h2>");
+    expect(extractDetailPageDate($)).toBe("2026-03-14");
+  });
+
+  it("falls back to <h1> when <h2> has no date", () => {
+    const $ = cheerio.load(`
+      <html><body>
+        <h1>Friday, January 9, 2026</h1>
+        <h2>Some Venue</h2>
+      </body></html>
+    `);
+    expect(extractDetailPageDate($)).toBe("2026-01-09");
+  });
+
+  it("returns undefined when no date heading exists", () => {
+    const $ = cheerio.load("<h2>Twin Peaks</h2><h3>Hash Run No 1</h3>");
+    expect(extractDetailPageDate($)).toBeUndefined();
+  });
+
+  it("ignores headings without a day-of-week prefix", () => {
+    const $ = cheerio.load("<h2>April 22, 2026</h2>");
+    expect(extractDetailPageDate($)).toBeUndefined();
   });
 
   it("skips 'Nothing yet' values", () => {
@@ -697,6 +772,56 @@ describe("DFWHashAdapter.fetch", () => {
     expect(eventsWithHares.length).toBeGreaterThan(0);
     for (const evt of eventsWithHares) {
       expect(evt.hares).toBe("Son of a Peach");
+    }
+  });
+
+  it("detail-page date overrides drifted grid date (DUHHH #849 regression, #1155)", async () => {
+    // Calendar grid puts the DUHHH event on day 3 of the current month, but
+    // the detail page's <h2> says Wednesday, April 22, 2026. The adapter must
+    // trust the detail-page date and overwrite the grid-derived date.
+    const adapter = new DFWHashAdapter();
+
+    const calendarHtml = `
+      <html><body>
+        <table class="main">
+          <tr><th>Sun</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th></tr>
+          <tr>
+            <td class="day"><table class="inner"><tr><td class="dom">3</td></tr><tr><td class="event">
+              <a href="event.php?month=4&day=22&year=2026&no=1"><img src="/icons/DUH.png" /></a><br />Hickery House Bar<br /><em>My Boyfriend Joe</em>
+            </td></tr></table></td>
+          </tr>
+        </table>
+      </body></html>
+    `;
+
+    const detailHtml = `
+      <html><body>
+        <h1>Dallas Urban Hash</h1>
+        <h2>Wednesday, April 22, 2026</h2>
+        <h3>Hash Run No 849</h3>
+        <h5><em>Time:</em> 6:30 PM</h5>
+        <h5><em>Hares:</em> My Boyfriend Joe</h5>
+        <h5><em>Hash cash:</em> $3</h5>
+      </body></html>
+    `;
+
+    const mockModule = await import("../safe-fetch");
+    vi.spyOn(mockModule, "safeFetch")
+      .mockResolvedValueOnce(new Response(calendarHtml, { status: 200 }) as never)
+      .mockResolvedValueOnce(new Response(calendarHtml, { status: 200 }) as never)
+      .mockImplementation(async () => new Response(detailHtml, { status: 200 }) as never);
+
+    const result = await adapter.fetch({
+      id: "test-dfw",
+      url: "http://www.dfwhhh.org/calendar/", // NOSONAR — source has expired SSL
+    } as never);
+
+    const duhhhEvents = result.events.filter((e) => e.kennelTags?.includes("duhhh"));
+    expect(duhhhEvents.length).toBeGreaterThan(0);
+    for (const evt of duhhhEvents) {
+      expect(evt.date).toBe("2026-04-22");
+      expect(evt.runNumber).toBe(849);
+      expect(evt.cost).toBe("$3");
     }
   });
 
