@@ -197,7 +197,7 @@ const LOCATION_LABEL_RE = new RegExp(
 // newlines, which Sonar S5852 flags as super-linear).
 const LOCATION_BARE_LABEL_RE = /(?:^|\n)[ \t]*(?:WHERE|LOCATION)[ \t]*\n(?:[ \t]*https?:\/\/\S+[ \t]*\n)?[ \t]*(.+)/im;
 // Secondary fallback: "Start:" as location label (lower priority — often contains time, not location)
-const LOCATION_START_RE = /(?:^|\n)\s*Start[ \t]*:[ \t]*(.+)/im;
+const LOCATION_START_RE = /(?:^|\n)[ \t]*Start[ \t]*:[ \t]*(.+)/im;
 // Filters bare time values from location results (e.g., "6:30pm", "18:30", "7:00")
 const LOCATION_TIME_ONLY_RE = /^\d{1,2}:\d{2}(\s*(?:am|pm))?\s*$/i;
 // #924 Chicagoland: WHERE: lines often contain themed instruction prose
@@ -1273,8 +1273,7 @@ function mergeRawEventInPlace(target: RawEventData, donor: RawEventData): void {
     const tv = target[k];
     const dv = donor[k];
     if ((tv == null || tv === "") && dv != null && dv !== "") {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- key is a const-asserted union of RawEventData keys
-      (target as any)[k] = dv;
+      (target as unknown as Record<string, unknown>)[k] = dv;
     }
   }
 }

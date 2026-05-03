@@ -2767,66 +2767,59 @@ describe("extractLocationFromDescription — empty-label cross-line capture (#11
   });
 });
 
-describe("buildRawEventFromGCalItem — Flour City template title leak (#1129)", () => {
-  it("does not promote empty `Why:` to title for short summaries", () => {
-    const item = {
-      summary: "Fetch",
-      description: "Hare: \nWhere: \nWhen: 5:69\nWhy: \nHow: $5 hash cash",
-      start: { dateTime: "2026-05-28T18:09:00-04:00" },
-      status: "confirmed",
-    };
-    const config = { defaultKennelTag: "flour-city" };
-    const event = buildRawEventFromGCalItem(item, config);
-    expect(event).not.toBeNull();
-    expect(event!.title).toBe("Fetch");
-    expect(event!.title).not.toBe("Why:");
-  });
-  it("does not promote `When: 5:69` template line to location", () => {
-    const item = {
-      summary: "Mud and Cockbook",
-      description: "Hare: \nWhere: \nWhen: 5:69\nWhy: \nHow: $5 hash cash",
-      start: { dateTime: "2026-05-07T18:09:00-04:00" },
-      status: "confirmed",
-    };
-    const config = { defaultKennelTag: "flour-city" };
-    const event = buildRawEventFromGCalItem(item, config);
-    expect(event).not.toBeNull();
-    expect(event!.title).toBe("Mud and Cockbook");
-    expect(event!.location).toBeUndefined();
-  });
-});
+describe("buildRawEventFromGCalItem — single-event audit-stream cases", () => {
+  const FLOUR_CITY_DESC = "Hare: \nWhere: \nWhen: 5:69\nWhy: \nHow: $5 hash cash";
+  const FTH3_DESC = "Pookie to the rescue as Foothill returns from its winter slumber to bring you shiggy all summer long.\n\nRemember Foothill is a no frills, no fee hash. Bring your own beverage, munchies, and lawn chair for circle after trail.";
 
-describe("buildRawEventFromGCalItem — FtH3 description body capture (#1154)", () => {
-  it("preserves multi-paragraph description verbatim through the adapter", () => {
-    const item = {
-      summary: "Foothill Returns",
-      description: "Pookie to the rescue as Foothill returns from its winter slumber to bring you shiggy all summer long.\n\nRemember Foothill is a no frills, no fee hash. Bring your own beverage, munchies, and lawn chair for circle after trail.",
-      start: { dateTime: "2026-04-19T10:00:00-07:00" },
-      location: "Quarter Horse Drive Trailhead, Yorba Linda, CA 92886",
-      status: "confirmed",
-    };
-    const config = { defaultKennelTag: "fth3" };
-    const event = buildRawEventFromGCalItem(item, config);
+  it.each([
+    {
+      // #1129a — empty `Why:` line was being promoted to event title.
+      name: "Flour City: empty `Why:` is recognised as a label, not a title",
+      kennel: "flour-city",
+      overrides: { summary: "Fetch", description: FLOUR_CITY_DESC },
+      assert: (e: RawEventData) => {
+        expect(e.title).toBe("Fetch");
+        expect(e.title).not.toBe("Why:");
+      },
+    },
+    {
+      // #1129b — `When: 5:69` template line was leaking into the location field.
+      name: "Flour City: `When: 5:69` does not leak into location",
+      kennel: "flour-city",
+      overrides: { summary: "Mud and Cockbook", description: FLOUR_CITY_DESC },
+      assert: (e: RawEventData) => {
+        expect(e.title).toBe("Mud and Cockbook");
+        expect(e.location).toBeUndefined();
+      },
+    },
+    {
+      // #1154 — adapter passes multi-paragraph description through unchanged.
+      name: "FtH3: multi-paragraph description preserved verbatim",
+      kennel: "fth3",
+      overrides: {
+        summary: "Foothill Returns",
+        description: FTH3_DESC,
+        location: "Quarter Horse Drive Trailhead, Yorba Linda, CA 92886",
+      },
+      assert: (e: RawEventData) => {
+        expect(e.description).toContain("Pookie to the rescue");
+        expect(e.description).toContain("no frills");
+      },
+    },
+    {
+      // #1194 — GAL summary survives even though description is just "BYOB".
+      name: "GAL: acronym-only description does not become title",
+      kennel: "gal-h3",
+      overrides: { summary: "GAL", description: "BYOB", location: "34.119611, -118.503" },
+      assert: (e: RawEventData) => {
+        expect(e.title).toBe("GAL");
+        expect(e.description).toBe("BYOB");
+      },
+    },
+  ])("$name", ({ kennel, overrides, assert }) => {
+    const event = buildRawEventFromGCalItem(testGCalEvent(overrides), { defaultKennelTag: kennel });
     expect(event).not.toBeNull();
-    expect(event!.description).toContain("Pookie to the rescue");
-    expect(event!.description).toContain("no frills");
-  });
-});
-
-describe("buildRawEventFromGCalItem — GAL acronym description does not become title (#1194)", () => {
-  it("keeps summary as title when description is just `BYOB`", () => {
-    const item = {
-      summary: "GAL",
-      description: "BYOB",
-      start: { dateTime: "2026-04-27T19:30:00-07:00" },
-      location: "34.119611, -118.503",
-      status: "confirmed",
-    };
-    const config = { defaultKennelTag: "gal-h3" };
-    const event = buildRawEventFromGCalItem(item, config);
-    expect(event).not.toBeNull();
-    expect(event!.title).toBe("GAL");
-    expect(event!.description).toBe("BYOB");
+    assert(event!);
   });
 });
 
@@ -2834,38 +2827,26 @@ describe("buildRawEventFromGCalItem — coord-only location preservation (#1195)
   it.each([
     {
       name: "DMS coord string preserved as location with parsed lat/lng",
-      summary: "GAL",
-      description: "BYOB",
-      location: "34°07'10.6\"N 118°30'10.8\"W",
+      summary: "GAL", description: "BYOB", location: "34°07'10.6\"N 118°30'10.8\"W",
       kennel: "gal-h3",
-      expectLocation: "34°07'10.6\"N 118°30'10.8\"W",
-      expectLat: 34.1196,
-      expectLng: -118.503,
+      expectLocation: "34°07'10.6\"N 118°30'10.8\"W", expectLat: 34.1196, expectLng: -118.503,
     },
     {
       name: "decimal coord string preserved when description has no address",
-      summary: "GAL",
-      description: "BYOB",
-      location: "34.086778, -118.485327",
+      summary: "GAL", description: "BYOB", location: "34.086778, -118.485327",
       kennel: "gal-h3",
-      expectLocation: "34.086778, -118.485327",
-      expectLat: 34.086778,
-      expectLng: -118.485327,
+      expectLocation: "34.086778, -118.485327", expectLat: 34.086778, expectLng: -118.485327,
     },
     {
       // #779 BMPH3 regression: description-derived address still wins.
       name: "defers to description-derived address when one is provided",
-      summary: "BMPH3 Trail",
-      description: "Start: Rue de la Gare, 1332 Genval\nHares: Tester",
-      location: "50.7234, 4.5123",
+      summary: "BMPH3 Trail", description: "Start: Rue de la Gare, 1332 Genval\nHares: Tester", location: "50.7234, 4.5123",
       kennel: "bmph3-be",
-      expectLocation: "Rue de la Gare, 1332 Genval",
-      expectLat: 50.7234,
-      expectLng: 4.5123,
+      expectLocation: "Rue de la Gare, 1332 Genval", expectLat: 50.7234, expectLng: 4.5123,
     },
   ])("$name", ({ summary, description, location, kennel, expectLocation, expectLat, expectLng }) => {
     const event = buildRawEventFromGCalItem(
-      { summary, description, location, start: { dateTime: "2026-04-27T19:30:00-07:00" }, status: "confirmed" },
+      testGCalEvent({ summary, description, location }),
       { defaultKennelTag: kennel },
     );
     expect(event).not.toBeNull();
@@ -2877,35 +2858,24 @@ describe("buildRawEventFromGCalItem — coord-only location preservation (#1195)
 
 describe("buildRawEventFromGCalItem — COH3 'with X' titleHarePattern (#981)", () => {
   // Mirrors the seed config for "Central Oregon H3 Calendar".
-  const config = {
-    defaultKennelTag: "coh3",
-    titleHarePattern: String.raw`\bwith\s+(.+)$`,
-  };
+  const config = { defaultKennelTag: "coh3", titleHarePattern: String.raw`\bwith\s+(.+)$` };
   const compiledTitleHarePattern = /\bwith\s+(.+)$/i;
-  const start = { dateTime: "2026-05-10T13:00:00-07:00" };
 
   it.each([
-    { name: "single-name `with X`", summary: "COH3 #125 with Copper Cunt", hares: "Copper Cunt", title: "COH3 #125" },
-    { name: "compound `with X & Y`", summary: "COH3 #122 with Auto Erectus & Sherpa", hares: "Auto Erectus & Sherpa", title: undefined },
-  ])("$name", ({ summary, hares, title }) => {
-    const event = buildRawEventFromGCalItem({ summary, start, status: "confirmed" }, config, { compiledTitleHarePattern });
+    { name: "single-name `with X`", summary: "COH3 #125 with Copper Cunt", description: undefined, hares: "Copper Cunt" as string | undefined, title: "COH3 #125" as string | undefined },
+    { name: "compound `with X & Y`", summary: "COH3 #122 with Auto Erectus & Sherpa", description: undefined, hares: "Auto Erectus & Sherpa", title: undefined },
+    // #981 Bug 1: lowercase mid-sentence "hare" is not a label and must not
+    // produce hares="off soon after".
+    { name: "ignores mid-sentence lowercase 'hare' in description", summary: "COH3 World Peace through Beer", description: "Meet at 1pm hare off soon after\nMore details follow", hares: undefined, title: undefined },
+  ])("$name", ({ summary, description, hares, title }) => {
+    const event = buildRawEventFromGCalItem(
+      testGCalEvent({ summary, description }),
+      config,
+      { compiledTitleHarePattern },
+    );
     expect(event).not.toBeNull();
     expect(event!.hares).toBe(hares);
     if (title !== undefined) expect(event!.title).toBe(title);
-  });
-
-  it("does not extract hares from a description that mid-sentence-mentions 'hare' (#981 Bug 1)", () => {
-    // Default `Hare:` patterns require a label at start-of-line with colon
-    // (or capital "Hare " start-of-line); none match the lowercase mid-
-    // sentence fragment "Meet at 1pm hare off soon after".
-    const event = buildRawEventFromGCalItem({
-      summary: "COH3 World Peace through Beer",
-      description: "Meet at 1pm hare off soon after\nMore details follow",
-      start: { dateTime: "2025-10-19T13:00:00-07:00" },
-      status: "confirmed",
-    }, config, { compiledTitleHarePattern });
-    expect(event).not.toBeNull();
-    expect(event!.hares).toBeUndefined();
   });
 });
 
@@ -2930,35 +2900,27 @@ describe("buildRawEventFromGCalItem — Eugene H3 emoji-delimited title parsing 
   const opts = { compiledTitleHarePattern, compiledTitleStripPatterns };
 
   it.each([
-    { name: "extracts 👣 hare and strips leading 🌲", summary: "🌲 EH3 Sasquach Hash 👣 Fembot", date: "2026-05-02", title: "EH3 Sasquach Hash", hares: "Fembot" as string | undefined },
-    { name: "strips 🍺 time/location tail from Hashy Hour", summary: "🌲 EH3 Hashy Hour 🍺 6:69 pm- Location TBD", date: "2026-05-08", title: "EH3 Hashy Hour", hares: undefined },
-    { name: "admits bare 👣 all-day with no hare", summary: "🌲 EH3 Hash 👣", date: "2026-05-03", title: "EH3 Hash", hares: undefined },
-    { name: "handles `👣-` no-space dash separator", summary: "🌲 EH3 Hash 👣- Pecker Checker", date: "2026-05-11", title: "EH3 Hash", hares: "Pecker Checker" },
-  ])("$name", ({ summary, date, title, hares }) => {
-    const event = buildRawEventFromGCalItem({ summary, start: { date }, status: "confirmed" }, config, opts);
+    { name: "extracts 👣 hare and strips leading 🌲", summary: "🌲 EH3 Sasquach Hash 👣 Fembot", description: undefined, date: "2026-05-02", title: "EH3 Sasquach Hash", hares: "Fembot" as string | undefined },
+    { name: "strips 🍺 time/location tail from Hashy Hour", summary: "🌲 EH3 Hashy Hour 🍺 6:69 pm- Location TBD", description: undefined, date: "2026-05-08", title: "EH3 Hashy Hour", hares: undefined },
+    { name: "admits bare 👣 all-day with no hare", summary: "🌲 EH3 Hash 👣", description: undefined, date: "2026-05-03", title: "EH3 Hash", hares: undefined },
+    { name: "handles `👣-` no-space dash separator", summary: "🌲 EH3 Hash 👣- Pecker Checker", description: undefined, date: "2026-05-11", title: "EH3 Hash", hares: "Pecker Checker" },
+    // Real Eugene example: title has theme name after 👣 but canonical hares
+    // come from the description. Strip the 👣-tail aggressively.
+    { name: "strips 👣-theme tail when description provides hares", summary: "🌲 EH3 Hash 👣 Cheap Smut's Birthday Book Hash", description: "Hare: Cheap Smut and TCB", date: "2026-05-25", title: "EH3 Hash", hares: "Cheap Smut and TCB" },
+  ])("$name", ({ summary, description, date, title, hares }) => {
+    const event = buildRawEventFromGCalItem(
+      testGCalEvent({ summary, description, start: { date } }),
+      config,
+      opts,
+    );
     expect(event).not.toBeNull();
     expect(event!.title).toBe(title);
     expect(event!.hares).toBe(hares);
-    if (hares === undefined) expect(event!.startTime).toBeUndefined();
-  });
-
-  it("strips trailing 👣 + theme prose when description provides authoritative hares", () => {
-    // Real Eugene example: title has theme name after 👣 but the canonical
-    // hares come from the description. Strip the 👣-tail aggressively.
-    const event = buildRawEventFromGCalItem({
-      summary: "🌲 EH3 Hash 👣 Cheap Smut's Birthday Book Hash",
-      description: "Hare: Cheap Smut and TCB",
-      start: { date: "2026-05-25" },
-      status: "confirmed",
-    }, config, opts);
-    expect(event).not.toBeNull();
-    expect(event!.hares).toBe("Cheap Smut and TCB");
-    expect(event!.title).toBe("EH3 Hash");
   });
 
   it("skips all-day events when includeAllDayEvents is unset (regression)", () => {
     const event = buildRawEventFromGCalItem(
-      { summary: "Regular All-Day", start: { date: "2026-05-04" }, status: "confirmed" },
+      testGCalEvent({ summary: "Regular All-Day", start: { date: "2026-05-04" } }),
       { defaultKennelTag: "test" },
     );
     expect(event).toBeNull();
@@ -2967,13 +2929,10 @@ describe("buildRawEventFromGCalItem — Eugene H3 emoji-delimited title parsing 
 
 describe("buildRawEventFromGCalItem — Fort Collins all-day Rex Manning Day (#1149)", () => {
   it("admits one-off all-day events when includeAllDayEvents=true", () => {
-    const item = {
-      summary: "Rex Manning Day",
-      start: { date: "2027-04-08" },
-      status: "confirmed",
-    };
-    const config = { defaultKennelTag: "fch3-co", includeAllDayEvents: true };
-    const event = buildRawEventFromGCalItem(item, config);
+    const event = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "Rex Manning Day", start: { date: "2027-04-08" } }),
+      { defaultKennelTag: "fch3-co", includeAllDayEvents: true },
+    );
     expect(event).not.toBeNull();
     expect(event!.title).toBe("Rex Manning Day");
     expect(event!.date).toBe("2027-04-08");
