@@ -2720,50 +2720,40 @@ describe("GoogleCalendarAdapter — RECURRENCE-ID override recovery (#1021/#1024
 
 // ── Audit-stream Deep Dive — 11 GCal adapter bugs ──
 
-describe("extractRunNumber — partial-digit token rejection (#1147)", () => {
-  it("returns undefined for `#30X?` (mid-token alphanumeric)", () => {
-    expect(extractRunNumber("FCH3 #30X?: Frisky Whisk-her and CBD")).toBeUndefined();
+describe("audit-stream pure-function cases", () => {
+  it.each<[string, string, string | undefined, number | undefined]>([
+    // [#issue-tag, summary, description-or-na, expected-runNumber]
+    // #1147 — `extractRunNumber` rejects mid-token alphanumeric, accepts
+    // clean numeric tokens regardless of trailing delimiter.
+    ["#1147", "FCH3 #30X?: Frisky Whisk-her and CBD", undefined, undefined],
+    ["#1147", "FCH3 #308: Laporte: Squeeze", undefined, 308],
+    ["#1147", "CUNTh # 66 - Winner Winner Dildo Dinner", undefined, 66],
+    ["#1147", "BH3 #2781", undefined, 2781],
+    ["#1147", "FCH3 #30TBD", undefined, undefined],
+  ])("extractRunNumber %s %j → %p", (_, summary, _desc, expected) => {
+    expect(extractRunNumber(summary)).toBe(expected);
   });
-  it("still extracts clean numeric tokens (regression)", () => {
-    expect(extractRunNumber("FCH3 #308: Laporte: Squeeze")).toBe(308);
-  });
-  it("still extracts when terminator is hyphen", () => {
-    expect(extractRunNumber("CUNTh # 66 - Winner Winner Dildo Dinner")).toBe(66);
-  });
-  it("still extracts when terminator is end-of-string", () => {
-    expect(extractRunNumber("BH3 #2781")).toBe(2781);
-  });
-  it("returns undefined for `#30TBD`", () => {
-    expect(extractRunNumber("FCH3 #30TBD")).toBeUndefined();
-  });
-});
 
-describe("extractTitleFromDescription — acronym-only filter (#1194 GAL)", () => {
-  it("rejects bare BYOB as a title candidate", () => {
-    expect(extractTitleFromDescription("BYOB")).toBeUndefined();
+  it.each<[string, string, string | undefined]>([
+    // [#issue-tag, description, expected-title]
+    // #1194 — acronym-only candidates rejected, real titles still surface.
+    ["#1194", "BYOB", undefined],
+    ["#1194", "TBD", undefined],
+    ["#1194", "BYOB\nThe Real Title", "The Real Title"],
+    ["#1194", "Trail Name\nHare: Foo", "Trail Name"],
+    ["#1194", "Trail", "Trail"],
+  ])("extractTitleFromDescription %s %j → %p", (_, desc, expected) => {
+    expect(extractTitleFromDescription(desc)).toBe(expected);
   });
-  it("rejects TBD as a title candidate", () => {
-    expect(extractTitleFromDescription("TBD")).toBeUndefined();
-  });
-  it("rejects BYOB followed by other content (next non-acronym line wins)", () => {
-    expect(extractTitleFromDescription("BYOB\nThe Real Title")).toBe("The Real Title");
-  });
-  it("keeps multi-word titles (regression)", () => {
-    expect(extractTitleFromDescription("Trail Name\nHare: Foo")).toBe("Trail Name");
-  });
-  it("keeps mixed-case single-word titles (regression)", () => {
-    expect(extractTitleFromDescription("Trail")).toBe("Trail");
-  });
-});
 
-describe("extractLocationFromDescription — empty-label cross-line capture (#1129 Flour City)", () => {
-  it("does not capture next line's content for empty `Where:` (Flour City template)", () => {
-    const desc = "Hare: \nWhere: \nWhen: 5:69\nWhy: \nHow: $5 hash cash \nVenmo or PayPal: fch3trails@gmail.com";
-    expect(extractLocationFromDescription(desc)).toBeUndefined();
-  });
-  it("captures real `Where:` value on its own line (regression)", () => {
-    const desc = "Hare: Bloody\nWhere: Abe Lincoln Park, Empire boulevard Webster NY\nWhen: 5:69";
-    expect(extractLocationFromDescription(desc)).toBe("Abe Lincoln Park, Empire boulevard Webster NY");
+  it.each<[string, string, string | undefined]>([
+    // [#issue-tag, description, expected-location]
+    // #1129 — empty `Where:` does not capture next line's `When: 5:69`,
+    // but a populated `Where:` still works.
+    ["#1129", "Hare: \nWhere: \nWhen: 5:69\nWhy: \nHow: $5 hash cash", undefined],
+    ["#1129", "Hare: Bloody\nWhere: Abe Lincoln Park, Empire boulevard Webster NY\nWhen: 5:69", "Abe Lincoln Park, Empire boulevard Webster NY"],
+  ])("extractLocationFromDescription %s %j → %p", (_, desc, expected) => {
+    expect(extractLocationFromDescription(desc)).toBe(expected);
   });
 });
 
