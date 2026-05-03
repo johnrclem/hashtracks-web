@@ -8,7 +8,13 @@ import type {
 } from "../types";
 import { hasAnyErrors } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
-import { buildUrlVariantCandidates, chronoParseDate, decodeEntities, isPlaceholder } from "../utils";
+import {
+  buildUrlVariantCandidates,
+  chronoParseDate,
+  decodeEntities,
+  formatAmPmTime,
+  isPlaceholder,
+} from "../utils";
 import { safeFetch } from "../safe-fetch";
 
 const USE_RESIDENTIAL_PROXY = true;
@@ -137,12 +143,17 @@ export function parseEnfieldBody(text: string, now?: Date): {
     if (pubWord) location = pubWord[1].trim();
   }
 
-  // Filter placeholders before appending Enfield suffix
   if (location && isPlaceholder(location)) location = undefined;
 
-  // Append ", Enfield" for geocoding disambiguation — EH3 always runs in/around Enfield
-  if (location && !/enfield/i.test(location)) {
-    location = `${location}, Enfield`;
+  // Geocode disambiguation: every EH3 trail runs in the London borough of
+  // Enfield, but "Enfield" alone resolves to a Lincolnshire village ("Grimsby"
+  // suffix) and London alone over-matches generic pub names. Force both into
+  // the string so the geocoder lands on the right borough. Trade-off: an
+  // away-weekend run from outside London would be wrongly coerced too. EH3
+  // has no such events today; revisit if joint-with-other-kennel runs recur.
+  if (location) {
+    if (!/\benfield\b/i.test(location)) location = `${location}, Enfield`;
+    if (!/\blondon\b/i.test(location)) location = `${location}, London`;
   }
 
   return {
@@ -154,12 +165,56 @@ export function parseEnfieldBody(text: string, now?: Date): {
 }
 
 /**
- * Extract a run number from an Enfield Hash title.
- *   "Run 318 - Wed 25 February" → 318
+ * Range-validated wrapper around `formatAmPmTime`. Regex `\d{1,2}` admits
+ * "13"–"99", `\d{2}` admits "60"–"99" — reject those rather than emit
+ * `25:99` style garbage as a startTime. Minute group is optional ("7pm").
  */
-function extractRunNumber(title: string): number | undefined {
-  const match = title.match(/Run\s+(\d+)/i);
-  return match ? parseInt(match[1], 10) : undefined;
+function timeFromMatch(m: RegExpMatchArray): string | undefined {
+  const h = Number.parseInt(m[1], 10);
+  const minute = m[2] ? Number.parseInt(m[2], 10) : 0;
+  if (h < 1 || h > 12 || minute > 59) return undefined;
+  return formatAmPmTime(h, minute, m[3]);
+}
+
+/**
+ * Scan an Enfield post body for an explicit per-event start-time override.
+ * Returns "HH:MM" (24h) when found, otherwise undefined → caller keeps the
+ * kennel default.
+ *
+ * Order of preference, most explicit to least:
+ *   1. "for [a] HH(:MM)?(am|pm) start|run|trail"  ("for 7:15pm run")
+ *   2. "HH(:MM)?(am|pm) start"                     ("7:30pm start")
+ *   3. with "EARLY START" present: first time token after that phrase
+ *      ("EARLY START meet 7pm" → 7pm when no later "for X start" exists)
+ */
+export function extractStartTimeOverride(text: string): string | undefined {
+  const forRe =
+    /\bfor\s+(?:a\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)\s+(?:start|run|trail)\b/i;
+  const forMatch = forRe.exec(text);
+  if (forMatch) {
+    const t = timeFromMatch(forMatch);
+    if (t) return t;
+  }
+
+  const startRe = /\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\s+start\b/i;
+  const startMatch = startRe.exec(text);
+  if (startMatch) {
+    const t = timeFromMatch(startMatch);
+    if (t) return t;
+  }
+
+  // Bounded lookahead — limit to 120 chars after "EARLY START" so a stray
+  // time mention later in the post (e.g. "back at the pub by 9pm") doesn't
+  // get picked up by mistake.
+  const earlyRe =
+    /early\s+start[\s\S]{0,120}?(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i;
+  const earlyMatch = earlyRe.exec(text);
+  if (earlyMatch) {
+    const t = timeFromMatch(earlyMatch);
+    if (t) return t;
+  }
+
+  return undefined;
 }
 
 /**
@@ -204,11 +259,12 @@ function processPost(
     return null;
   }
 
-  const runNumber = extractRunNumber(titleText);
-  const descParts: string[] = [];
-  if (runNumber) descParts.push(`Run #${runNumber}`);
-  if (bodyFields.station) descParts.push(`Nearest station: ${bodyFields.station}`);
-  const description = descParts.length > 0 ? descParts.join(". ") : undefined;
+  // Preserve body prose — joint-run / early-start / change-of-date callouts
+  // live only here.
+  const description = bodyText.trim() || undefined;
+
+  // Per-event override; falls back to EH3's 3rd-Wednesday 7:30 PM default.
+  const startTime = extractStartTimeOverride(bodyText) ?? "19:30";
 
   return {
     date,
@@ -216,7 +272,7 @@ function processPost(
     title: titleText || undefined,
     hares: bodyFields.hares,
     location: bodyFields.location,
-    startTime: "19:30", // EH3: 3rd Wednesday 7:30 PM
+    startTime,
     sourceUrl,
     description,
   };

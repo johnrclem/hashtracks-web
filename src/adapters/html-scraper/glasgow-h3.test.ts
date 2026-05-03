@@ -187,6 +187,65 @@ describe("GlasgowH3Adapter", () => {
     expect(result.events[0].startTime).toBe("19:00");
   });
 
+  // Verbatim chunk from glasgowh3.co.uk/hareline.php — exercises the live
+  // structural quirks: rows close with `<TR>` instead of `</TR>`, venues are
+  // wrapped in anchors, and W3W codes follow as a nested anchor after `<br>`.
+  const LIVE_VERBATIM_HTML = `<html><body>
+    <div class="row no-brd">
+      <table class="halloffame">
+        <thead><tr><th>Run No</th><th>When</th><th>Where</th><th>Hare / Hares</th></tr></thead>
+        <tbody>
+          <TR><TD>2211</TD><TD>Monday 27 April</TD><TD><a href=https://whatpub.com/pubs/GLA/0600/old-smiddy-glasgow target="_blank">The Old Smiddy, 131 Old Castle Road, Cathcart </a><br>What 3 Words= <a href="https://what3words.com/vague.food.code" target="_blank">vague.food.code</a></TD><TD> <a href="risk_assessment.php?run=2211">Kipper</a></TD> <TR><TR><TD> <a href="run_request.php?run=2212">2212</a> </TD><TD>Monday 4 May</TD><TD>Casa Entropia</td><TD> <a href="risk_assessment.php?run=2212">Stand and Deliver</a></TD> <TR><TR><TD> <a href="run_request.php?run=2213">2213</a> </TD><TD>Monday 11 May</TD><TD><a href=https://camra.org.uk/pubs/ladywell-bar-glasgow-195148 target="_blank">Ladywell Bar, 139 Barrack Street, Dennistoun </a><br>What 3 Words= <a href="https://what3words.com/tent.builds.tent" target="_blank">tent.builds.tent</a></TD><TD> <a href="risk_assessment.php?run=2213">Cumming Again</a></TD> <TR><TR><TD> <a href="run_request.php?run=2214">2214</a> </TD><TD>Monday 18 May</TD><TD><a href=https://camra.org.uk/REN/3 target="_blank">Brown Bull, 32 Main St., Lochwinnoch </a><br>What 3 Words= <a href="https://what3words.com/nourished.builder.decorator" target="_blank">nourished.builder.decorator</a></TD><TD> <a href="risk_assessment.php?run=2214">Dr Livingstone I Presume</a></TD> <TR>
+        </tbody>
+      </table>
+    </div>
+  </body></html>`;
+
+  it("parses anchor-wrapped venues and W3W-suffixed cells from live HTML (#1143, #1174)", async () => {
+    mockFetchResponse(LIVE_VERBATIM_HTML);
+    const source = { id: "src-glasgow", url: sourceUrl, config: {} } as unknown as Source;
+    const result = await adapter.fetch(source, { days: 365 });
+
+    expect(result.events).toHaveLength(4);
+    const byRun = new Map(result.events.map((e) => [e.runNumber, e]));
+
+    const r2211 = byRun.get(2211)!;
+    expect(r2211).toBeDefined();
+    expect(r2211.location).toBe("The Old Smiddy, 131 Old Castle Road, Cathcart");
+    expect(r2211.description).toBe("What3Words: vague.food.code");
+    expect(r2211.locationUrl).toBe("https://whatpub.com/pubs/GLA/0600/old-smiddy-glasgow");
+    expect(r2211.hares).toBe("Kipper");
+
+    const r2212 = byRun.get(2212)!;
+    expect(r2212.location).toBe("Casa Entropia");
+    expect(r2212.description).toBeUndefined();
+    expect(r2212.hares).toBe("Stand and Deliver");
+
+    // #1174: #2213 must extract location from the same anchor+W3W structure
+    // that works for #2211 and #2214 — historically dropped due to reconcile,
+    // but the parser must produce a location for the row.
+    const r2213 = byRun.get(2213)!;
+    expect(r2213.location).toBe("Ladywell Bar, 139 Barrack Street, Dennistoun");
+    expect(r2213.description).toBe("What3Words: tent.builds.tent");
+    expect(r2213.locationUrl).toBe("https://camra.org.uk/pubs/ladywell-bar-glasgow-195148");
+    expect(r2213.hares).toBe("Cumming Again");
+
+    // #1143: #2214 was reportedly dropped entirely — must be present and parsed.
+    const r2214 = byRun.get(2214)!;
+    expect(r2214).toBeDefined();
+    expect(r2214.location).toBe("Brown Bull, 32 Main St., Lochwinnoch");
+    expect(r2214.description).toBe("What3Words: nourished.builder.decorator");
+    expect(r2214.locationUrl).toBe("https://camra.org.uk/REN/3");
+    expect(r2214.hares).toBe("Dr Livingstone I Presume");
+
+    // No location should leak the W3W tail or the hare-cell risk_assessment URL
+    for (const ev of result.events) {
+      expect(ev.location).not.toMatch(/What\s*3\s*Words/i);
+      expect(ev.locationUrl ?? "").not.toMatch(/risk_assessment\.php/);
+      expect(ev.locationUrl ?? "").not.toMatch(/what3words\.com/);
+    }
+  });
+
   it("includes recent past events — forwardDate does not push them to next year", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-03-26T12:00:00Z"));

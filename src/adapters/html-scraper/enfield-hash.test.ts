@@ -3,6 +3,7 @@ import {
   parseEnfieldDate,
   parseEnfieldBody,
   inferYear,
+  extractStartTimeOverride,
   EnfieldHashAdapter,
 } from "./enfield-hash";
 
@@ -128,7 +129,7 @@ describe("parseEnfieldBody", () => {
     const text = "Date: Wednesday 18th March 2026\nPub: The King's Head\nStation: Enfield Chase\nHare: Speedy";
     const result = parseEnfieldBody(text);
     expect(result.date).toBe("2026-03-18");
-    expect(result.location).toBe("The King's Head, Enfield");
+    expect(result.location).toBe("The King's Head, Enfield, London");
     expect(result.station).toBe("Enfield Chase");
     expect(result.hares).toBe("Speedy");
   });
@@ -137,7 +138,7 @@ describe("parseEnfieldBody", () => {
     const text = "When: 15th April 2026\nWhere: The Rose and Crown\nHare: Muddy Boots";
     const result = parseEnfieldBody(text);
     expect(result.date).toBe("2026-04-15");
-    expect(result.location).toBe("The Rose and Crown, Enfield");
+    expect(result.location).toBe("The Rose and Crown, Enfield, London");
     expect(result.hares).toBe("Muddy Boots");
   });
 
@@ -169,21 +170,21 @@ describe("parseEnfieldBody", () => {
   it("does not truncate pub name containing 'Station' (e.g. The Station Hotel)", () => {
     const text = "Date: 18th March 2026\nPub: The Station Hotel\nStation: Enfield Chase\nHare: Speedy";
     const result = parseEnfieldBody(text);
-    expect(result.location).toBe("The Station Hotel, Enfield");
+    expect(result.location).toBe("The Station Hotel, Enfield, London");
     expect(result.station).toBe("Enfield Chase");
   });
 
   it("does not truncate pub name containing 'Start' or 'Time'", () => {
     const text = "Date: 18th March 2026\nPub: The Time and Tide\nHare: Flash";
     const result = parseEnfieldBody(text);
-    expect(result.location).toBe("The Time and Tide, Enfield");
+    expect(result.location).toBe("The Time and Tide, Enfield, London");
   });
 
   it("does not truncate station containing 'Meet' (e.g. Meeting House Lane)", () => {
     const text = "Date: 18th March 2026\nStation: Meeting House Lane\nPub: The Crown\nHare: Muddy";
     const result = parseEnfieldBody(text);
     expect(result.station).toBe("Meeting House Lane");
-    expect(result.location).toBe("The Crown, Enfield");
+    expect(result.location).toBe("The Crown, Enfield, London");
   });
 
   it("does not truncate hare name containing label words", () => {
@@ -203,32 +204,43 @@ describe("parseEnfieldBody", () => {
   it("extracts location from prose: 'running from The Wonder'", () => {
     const text = "As is tradition, we will be running from The Wonder, with a mulled wine and mince pie stop";
     const result = parseEnfieldBody(text, now);
-    expect(result.location).toBe("The Wonder, Enfield");
+    expect(result.location).toBe("The Wonder, Enfield, London");
   });
 
   it("extracts full address from 'running from' prose (Chase Side, Enfield)", () => {
     const text = "We are running from The Cricketers, Chase Side, Enfield. P trail from Enfield Chase station.";
     const result = parseEnfieldBody(text, now);
-    expect(result.location).toBe("The Cricketers, Chase Side, Enfield");
+    expect(result.location).toBe("The Cricketers, Chase Side, Enfield, London");
     expect(result.station).toBe("Enfield Chase");
   });
 
   it("extracts location from 'Meet at' prose pattern", () => {
     const text = "Meet at The Old Wheatsheaf, opposite Enfield Chase station. Bring a torch!";
     const result = parseEnfieldBody(text, now);
-    expect(result.location).toBe("The Old Wheatsheaf, opposite Enfield Chase station");
+    expect(result.location).toBe("The Old Wheatsheaf, opposite Enfield Chase station, London");
   });
 
   it("extracts location from 'pub' keyword prose pattern", () => {
     const text = "Rose and Crown pub, Clay Hill, Enfield. P trail from Gordon Hill station.";
     const result = parseEnfieldBody(text, now);
-    expect(result.location).toBe("Rose and Crown pub, Clay Hill, Enfield");
+    expect(result.location).toBe("Rose and Crown pub, Clay Hill, Enfield, London");
   });
 
-  it("appends Enfield to locations that lack it for geocoding", () => {
+  it("appends Enfield and London to locations that lack them for geocoding (#1135)", () => {
     const text = "Pub: The King's Head";
     const result = parseEnfieldBody(text, now);
-    expect(result.location).toBe("The King's Head, Enfield");
+    expect(result.location).toBe("The King's Head, Enfield, London");
+  });
+
+  it("does not double-append London when location already names it (#1135)", () => {
+    const text = "Pub: The Old Wheatsheaf, Chase Side, London";
+    const result = parseEnfieldBody(text, now);
+    // Already contains London → no `, London` re-append. Enfield IS appended
+    // because every EH3 trail is in the London borough of Enfield, so naming
+    // the borough explicitly improves geocoder precision.
+    expect(result.location).toBe(
+      "The Old Wheatsheaf, Chase Side, London, Enfield",
+    );
   });
 
   it("handles year-less date in prose", () => {
@@ -245,6 +257,54 @@ describe("parseEnfieldBody", () => {
     const result = parseEnfieldBody(text, marchNow);
     // Body parser returns March 11 (wrong) — processPost should prefer title date instead
     expect(result.date).toBe("2026-03-11");
+  });
+});
+
+describe("extractStartTimeOverride (#1136)", () => {
+  it("extracts 'for HH:MMpm run' (Run 319 joint-run)", () => {
+    const text =
+      "Joint run with Enfield Chasers - EARLY START meet 7pm for 7:15pm run";
+    expect(extractStartTimeOverride(text)).toBe("19:15");
+  });
+
+  it("extracts 'for a HH:MMpm start' (Run 316 Christmas)", () => {
+    const text =
+      "Meet at the pub for a 7:30pm start. You will need a TORCH.";
+    expect(extractStartTimeOverride(text)).toBe("19:30");
+  });
+
+  it("extracts standalone 'HH:MMpm start' anchor", () => {
+    const text = "Meet at The Old Wheatsheaf for a 8:00pm start.";
+    expect(extractStartTimeOverride(text)).toBe("20:00");
+  });
+
+  it("falls back to first time after 'EARLY START' when no 'for X' anchor", () => {
+    const text = "EARLY START meet 6pm. Bring a torch.";
+    expect(extractStartTimeOverride(text)).toBe("18:00");
+  });
+
+  it("returns undefined when body has no time mention (Run 320)", () => {
+    const text =
+      "We are running from The Rose and Crown, Clay Hill. P trail from Gordon Hill station. Bring a torch.";
+    expect(extractStartTimeOverride(text)).toBeUndefined();
+  });
+
+  it("returns undefined for malformed time tokens", () => {
+    expect(extractStartTimeOverride("for 25:99pm start")).toBeUndefined();
+    expect(extractStartTimeOverride("the year 2026 starts soon")).toBeUndefined();
+  });
+
+  // Known limitations — documented as tests so future readers see what the
+  // extractor doesn't catch. If a third pattern shows up in real EH3 posts,
+  // extend `extractStartTimeOverride` and flip these to positive assertions.
+  it("does not catch 'starts at HH(pm)' phrasing (known limitation)", () => {
+    expect(extractStartTimeOverride("Run starts at 8pm")).toBeUndefined();
+    expect(extractStartTimeOverride("starts 6:30pm sharp")).toBeUndefined();
+  });
+
+  it("handles 12am/12pm correctly", () => {
+    expect(extractStartTimeOverride("for a 12pm start")).toBe("12:00");
+    expect(extractStartTimeOverride("for a 12am start")).toBe("00:00");
   });
 });
 
@@ -433,7 +493,7 @@ describe("EnfieldHashAdapter.fetch (new site structure)", () => {
     }
   });
 
-  it("extracts run number into description", async () => {
+  it("uses the source body prose as description (#1136)", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       new Response(SAMPLE_NEW_SITE_HTML, { status: 200 }),
     );
@@ -443,7 +503,16 @@ describe("EnfieldHashAdapter.fetch (new site structure)", () => {
       url: "https://www.enfieldhash.org/",
     } as never);
 
-    expect(result.events[0].description).toContain("Run #318");
+    // Run 318 body announces a date change — that callout must survive.
+    const run318 = result.events.find((e) => e.title?.includes("Run 318"))!;
+    expect(run318.description).toContain("CHANGE OF DATE");
+    expect(run318.description).toContain("FOURTH WEDNESDAY");
+
+    // Run 317 body mentions Gordon Hill station — still surfaced via the
+    // verbatim body, no longer via a synthesized "Nearest station" string.
+    const run317 = result.events.find((e) => e.title?.includes("Run 317"))!;
+    expect(run317.description).toContain("Gordon Hill");
+    expect(run317.description).toContain("Bring a torch");
   });
 
   it("prefers title date over body date when body contains ambiguous day name (Run 318 regression)", async () => {
@@ -462,6 +531,39 @@ describe("EnfieldHashAdapter.fetch (new site structure)", () => {
     const run318 = result.events.find((e) => e.title?.includes("Run 318"));
     expect(run318).toBeDefined();
     expect(run318!.date).toBe("2026-02-25");
+  });
+
+  it("extracts joint-run early-start text + 7:15pm override end-to-end (#1135, #1136)", async () => {
+    // Run 319 fixture — joint-run / EARLY START / 7:15pm override.
+    const html =
+      `<h1>Run 319 - Wed 18 March</h1>` +
+      `<p>Joint run with Enfield Chasers - EARLY START meet 7pm for 7:15pm run</p>` +
+      `<p>We are running from The Cricketers, Chase Side, Enfield. P trail from Enfield Chase station.</p>` +
+      `<p>Bring a torch and your trail shoes.</p>` +
+      `<p>OnOn</p>`;
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(`<div class="paragraph-box">${html}</div>`, { status: 200 }),
+    );
+
+    const result = await adapter.fetch({
+      id: "test",
+      url: "https://www.enfieldhash.org/",
+    } as never);
+
+    expect(result.events).toHaveLength(1);
+    const run319 = result.events[0];
+    expect(run319.title).toBe("Run 319 - Wed 18 March");
+    // Per-event override beats the kennel default of 19:30
+    expect(run319.startTime).toBe("19:15");
+    // Description preserves the source prose, including the joint-run callout
+    expect(run319.description).toContain("Joint run");
+    expect(run319.description).toContain("EARLY START");
+    expect(run319.description).toContain("Bring a torch");
+    // Geocode disambiguation: the displayed location now ends in `, London`
+    // so the geocoder doesn't fall through to Enfield, Lincolnshire.
+    expect(run319.location).toBe(
+      "The Cricketers, Chase Side, Enfield, London",
+    );
   });
 
   it("skips posts without dates", async () => {
@@ -512,7 +614,7 @@ describe("EnfieldHashAdapter.fetch (legacy Blogger HTML fallback)", () => {
     expect(first.date).toBe("2026-03-18");
     expect(first.kennelTags[0]).toBe("eh3");
     expect(first.startTime).toBe("19:30");
-    expect(first.location).toBe("The King's Head, Winchmore Hill, Enfield");
+    expect(first.location).toBe("The King's Head, Winchmore Hill, Enfield, London");
     expect(first.hares).toBe("Speedy");
     expect(first.description).toContain("Winchmore Hill");
     expect(first.sourceUrl).toBe("http://www.enfieldhash.org/2026/03/run-266.html");
