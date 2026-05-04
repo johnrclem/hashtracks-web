@@ -55,6 +55,15 @@ const PHONE_LABEL_TRAILING_RE = /[,:;\s-]*(?:phone|tel|mobile|cell)\b\s*:?\s*$/i
 const PUNCT_TRAILING_RE = /[,:;\s-]+$/; // NOSONAR — single char class + `$` anchor
 const ASTERISK_TAIL_RE = /\s*\*{2,}\s*.*$/; // NOSONAR — bounded `.*$` on first-line slice (no nesting); input ≤200 chars
 const COHARE_COMMENTARY_RE = /\s*(?:could|need)\s+.*?co-?hares?\b.*$/i; // NOSONAR — non-greedy `.*?` anchored to literal `co-?hares?\b`
+// Strip trailing " - lowercase commentary" annotations like
+// "Just Ayaka - it's her first time haring!" (#1212 GLH3). Anchored to
+// end-of-string; `[a-z]` rules out names whose 2nd token starts uppercase
+// (e.g. "Alice - Bob" — second hare survives the existing comma split).
+const TRAILING_LOWERCASE_COMMENTARY_RE = /\s+[-–—]\s+[a-z][^A-Z]*$/; // NOSONAR — anchored, single char class
+// Sibling Co-Hare label scan (#1212): when the primary `Hare:` capture
+// succeeded, also look for a separate `Co-Hare:` / `Co-Hares:` line in the
+// same description. Non-greedy until end of line.
+const COHARE_LABEL_RE = /(?:^|\n)[ \t]*Co-?Hares?:[ \t]*([^\n]+)/im; // NOSONAR — anchored, capture is `[^\n]+` (no nesting)
 // Pre-normalize: rejoin lines where HTML stripping split a label from its colon
 // e.g., "<b>WHO (hares)</b>: Name" → after stripHtmlTags → "WHO (hares)\n: Name"
 const LABEL_COLON_REJOIN_RE = /(\b(?:Who|Hares?)\s*\(?[^)]*\)?)\s*\n\s*:/gim; // NOSONAR — bounded by literal `\n` and char classes; capture is `[^)]*` (no nesting)
@@ -135,6 +144,13 @@ function cleanAndFilterHares(raw: string): string | undefined {
       .trim();
   }
 
+  // Trailing " - lowercase commentary" annotation strip (#1212 GLH3).
+  // Runs after punctuation/phone trimming so the dash is reliably present.
+  // Cheap substring gate skips the regex for the vast majority of inputs.
+  if (/\s[-–—]\s/.test(hares)) {
+    hares = hares.replace(TRAILING_LOWERCASE_COMMENTARY_RE, "").trim();
+  }
+
   if (GENERIC_WHO_ANSWER_RE.test(hares)) return undefined;
   if (PROSE_PREFIX_RE.test(hares)) return undefined;
   if (hares.length === 0 || hares.length >= MAX_HARES_LEN) return undefined;
@@ -159,8 +175,31 @@ export function extractHares(description: string, customPatterns?: string[] | Re
     if (!raw) raw = collectContinuationLines(normalized, match);
 
     const cleaned = cleanAndFilterHares(raw);
-    if (cleaned) return cleaned;
+    if (cleaned) return mergeCoHareIfPresent(cleaned, normalized);
   }
 
   return undefined;
+}
+
+/** Token-set containment: every word in `b` already appears (case-insensitive)
+ *  as a whole word in `a`. Avoids substring false-positives where "Ali" would
+ *  match inside "Alice and Bob" and silently suppress a real co-hare. */
+function tokensFullyContained(a: string, b: string): boolean {
+  const aTokens = new Set(a.toLowerCase().split(/\s+/));
+  return b.toLowerCase().split(/\s+/).every((t) => aTokens.has(t));
+}
+
+/** Append a sibling `Co-Hare:` / `Co-Hares:` capture to the primary hare
+ *  string when one exists in the description. Gated on a cheap substring
+ *  check so consumers without Co-Hare labels (Meetup, Phoenix, most GCal)
+ *  skip the regex altogether. Order is text-derived (deterministic) — no
+ *  sort required for fingerprint stability. */
+function mergeCoHareIfPresent(primary: string, normalized: string): string {
+  if (!/co-?hare/i.test(normalized)) return primary;
+  const coMatch = COHARE_LABEL_RE.exec(normalized);
+  if (!coMatch?.[1]) return primary;
+  const coRaw = coMatch[1].trim().split("\n")[0].trim();
+  const coCleaned = cleanAndFilterHares(coRaw);
+  if (!coCleaned || tokensFullyContained(primary, coCleaned)) return primary;
+  return `${primary}, ${coCleaned}`;
 }

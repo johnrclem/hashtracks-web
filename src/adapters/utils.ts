@@ -686,12 +686,32 @@ export function stripNonEnglishCountry(location: string): string {
   return location.replace(NON_ENGLISH_COUNTRY_SUFFIX_RE, "").trim();
 }
 
+/**
+ * Match `#NNN` in free-form text and return the integer. Lookahead requires a
+ * clean delimiter after the digits so ambiguous tokens like `#30X?` (kennel
+ * signaling unknown run number) reject instead of being parsed as 30 (#1147).
+ * Shared by the Google Calendar summary path (`extractRunNumber` in
+ * `google-calendar/adapter.ts`) and the Phoenix HHH HTML scraper which
+ * preempts a stale-WordPress-slug fallback (#1211).
+ */
+const HASH_RUN_NUMBER_RE = /#\s*(\d+)(?=$|[\s:\-–—,.()/])/;
+export function extractHashRunNumber(text: string | undefined): number | undefined {
+  if (!text) return undefined;
+  const m = HASH_RUN_NUMBER_RE.exec(text);
+  if (!m) return undefined;
+  const n = Number.parseInt(m[1], 10);
+  return Number.isFinite(n) && n > 0 ? n : undefined;
+}
+
 // ---------------------------------------------------------------------------
 // Placeholder detection — shared across adapters for TBD/TBA/TBC cleanup
 // ---------------------------------------------------------------------------
 
+// `(?:venue[\s-]+)?` lets "venue TBC" / "venue TBD" / "venue TBA" pass through
+// the placeholder filter (#1222 Capital H3). Other branches stay anchored as
+// they were — extension is scoped to the tbd|tba|tbc branch.
 const PLACEHOLDER_RE =
-  /^(?:tbd|tba|tbc|n\/a|none|null|needed|required|registration|sign[\s\-_]*up!?|volunteer|\?{1,3}|hares?\s+needed\b[\s\S]*|needs?\s+(?:a\s+)?hares?\b[\s\S]*)$/i;
+  /^(?:(?:venue[\s-]+)?(?:tbd|tba|tbc)|n\/a|none|null|needed|required|registration|sign[\s\-_]*up!?|volunteer|\?{1,3}|hares?\s+needed\b[\s\S]*|needs?\s+(?:a\s+)?hares?\b[\s\S]*)$/i;
 
 /**
  * Field labels that frequently appear next to a colon in event descriptions
