@@ -991,6 +991,33 @@ describe("empty event guard", () => {
     );
   });
 
+  it("synthesizes 'Bristol Greyhound H3 Trail' for empty-title GREY events", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([] as never);
+    mockEventCreate.mockResolvedValueOnce({ id: "evt_grey_1" } as never);
+    vi.mocked(prisma.kennel.findUnique).mockResolvedValueOnce({
+      shortName: "GREY", fullName: "Bristol Greyhound Hash House Harriers", region: "Bristol",
+      latitude: null, longitude: null, country: "UK", regionRef: null,
+    } as never);
+
+    const result = await processRawEvents("src_grey", [
+      buildRawEvent({
+        kennelTags: ["bristol-grey"],
+        title: undefined,
+        location: undefined,
+        hares: undefined,
+        runNumber: undefined,
+      }),
+    ]);
+
+    expect(result.created).toBe(1);
+    expect(mockEventCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ title: "Bristol Greyhound H3 Trail" }),
+      }),
+    );
+  });
+
   it("includes run number in default title when available", async () => {
     mockRawEventFind.mockResolvedValueOnce(null);
     mockEventFindMany.mockResolvedValueOnce([] as never);
@@ -1900,6 +1927,82 @@ describe("rewriteStaleDefaultTitle", () => {
     const order4 = rewriteStaleDefaultTitle("BBB Trail #2", "fooh3", display, long, ["BBB", "AAA"]);
     expect(order3).toBe("Foo H3 Trail #2");
     expect(order4).toBe(order3);
+  });
+
+  // ── Bristol GREY canonical-form regression ──
+  //
+  // Locks in the chosen canonical default-title format for short-coded
+  // kennels: `<friendlyKennelName(shortName, fullName)> Trail [#N]`.
+  // friendlyKennelName("GREY", "Bristol Greyhound Hash House Harriers")
+  // returns "Bristol Greyhound H3", so both the legacy `"GREY Trail"` and
+  // the kennelCode-prefixed `"bristol-grey Trail"` rewrite to the same form.
+  describe("Bristol GREY canonical title", () => {
+    const greyAliases = ["Bristol Greyhound Hash", "Greyhound Hash", "GREY"];
+
+    it("expands GREY/bristol-grey to 'Bristol Greyhound H3' via friendlyKennelName", () => {
+      expect(
+        friendlyKennelName("GREY", "Bristol Greyhound Hash House Harriers"),
+      ).toBe("Bristol Greyhound H3");
+    });
+
+    it("rewrites legacy 'GREY Trail' alias-prefixed title to canonical form", () => {
+      expect(
+        rewriteStaleDefaultTitle(
+          "GREY Trail",
+          "bristol-grey",
+          "GREY",
+          "Bristol Greyhound Hash House Harriers",
+          greyAliases,
+        ),
+      ).toBe("Bristol Greyhound H3 Trail");
+    });
+
+    it("rewrites kennelCode-prefixed 'bristol-grey Trail' to canonical form", () => {
+      expect(
+        rewriteStaleDefaultTitle(
+          "bristol-grey Trail",
+          "bristol-grey",
+          "GREY",
+          "Bristol Greyhound Hash House Harriers",
+          greyAliases,
+        ),
+      ).toBe("Bristol Greyhound H3 Trail");
+    });
+
+    it("preserves the run-number suffix when rewriting", () => {
+      expect(
+        rewriteStaleDefaultTitle(
+          "GREY Trail #42",
+          "bristol-grey",
+          "GREY",
+          "Bristol Greyhound Hash House Harriers",
+          greyAliases,
+        ),
+      ).toBe("Bristol Greyhound H3 Trail #42");
+    });
+
+    it("does not rewrite a real (non-default) GREY event title", () => {
+      expect(
+        rewriteStaleDefaultTitle(
+          "Le Caniveau's Birthday Hash",
+          "bristol-grey",
+          "GREY",
+          "Bristol Greyhound Hash House Harriers",
+          greyAliases,
+        ),
+      ).toBe("Le Caniveau's Birthday Hash");
+    });
+
+    it("regression — kwh3 still rewrites correctly (no drift)", () => {
+      expect(
+        rewriteStaleDefaultTitle(
+          "KWH3 Trail",
+          "kwh3",
+          "Key West H3",
+          "Key West Hash House Harriers",
+        ),
+      ).toBe("Key West H3 Trail");
+    });
   });
 });
 

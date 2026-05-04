@@ -104,6 +104,92 @@ describe("parseGeminiResponse", () => {
     expect(result).not.toBeNull();
     expect(result!.columns.hares).toBeUndefined();
   });
+
+  // ── locationOmitIfMatches sanitization (#1183) ──
+
+  it("extracts safe locationOmitIfMatches when AI returns it", () => {
+    const response = JSON.stringify({
+      columns: { date: "td:nth-child(1)" },
+      defaultKennelTag: "X",
+      dateLocale: "en-GB",
+      locationOmitIfMatches: [
+        String.raw`^t\.?b\.?[ad]\.?$`,
+        String.raw`^hare\s+wanted\.?$`,
+      ],
+      confidence: "high",
+      explanation: "ok",
+    });
+    const result = parseGeminiResponse(response);
+    expect(result?.locationOmitIfMatches).toEqual([
+      String.raw`^t\.?b\.?[ad]\.?$`,
+      String.raw`^hare\s+wanted\.?$`,
+    ]);
+  });
+
+  it("drops too-broad universal patterns from locationOmitIfMatches", () => {
+    const response = JSON.stringify({
+      columns: { date: "td:nth-child(1)" },
+      defaultKennelTag: "X",
+      dateLocale: "en-US",
+      locationOmitIfMatches: ["^.*$", ".*", "^.+$", String.raw`^t\.?b\.?[ad]\.?$`],
+      confidence: "high",
+      explanation: "ok",
+    });
+    const result = parseGeminiResponse(response);
+    expect(result?.locationOmitIfMatches).toEqual([String.raw`^t\.?b\.?[ad]\.?$`]);
+  });
+
+  it("drops ReDoS-unsafe entries from locationOmitIfMatches but keeps safe ones", () => {
+    const response = JSON.stringify({
+      columns: { date: "td:nth-child(1)" },
+      defaultKennelTag: "X",
+      dateLocale: "en-US",
+      locationOmitIfMatches: ["(a+a+)+$", String.raw`^t\.?b\.?[ad]\.?$`, "[broken("],
+      confidence: "high",
+      explanation: "ok",
+    });
+    const result = parseGeminiResponse(response);
+    expect(result?.locationOmitIfMatches).toEqual([String.raw`^t\.?b\.?[ad]\.?$`]);
+  });
+
+  it("caps locationOmitIfMatches at 10 entries", () => {
+    const tooMany = Array.from({ length: 25 }, (_, i) => `^placeholder${i}$`);
+    const response = JSON.stringify({
+      columns: { date: "td:nth-child(1)" },
+      defaultKennelTag: "X",
+      dateLocale: "en-US",
+      locationOmitIfMatches: tooMany,
+      confidence: "high",
+      explanation: "ok",
+    });
+    const result = parseGeminiResponse(response);
+    expect(result?.locationOmitIfMatches).toHaveLength(10);
+  });
+
+  it("omits locationOmitIfMatches from result when AI does not include it", () => {
+    const response = JSON.stringify({
+      columns: { date: "td:nth-child(1)" },
+      defaultKennelTag: "X",
+      dateLocale: "en-US",
+      confidence: "high",
+      explanation: "ok",
+    });
+    const result = parseGeminiResponse(response);
+    expect(result?.locationOmitIfMatches).toBeUndefined();
+  });
+
+  it("omits locationOmitIfMatches when every AI entry is unsafe", () => {
+    const response = JSON.stringify({
+      columns: { date: "td:nth-child(1)" },
+      defaultKennelTag: "X",
+      dateLocale: "en-US",
+      locationOmitIfMatches: ["(a+a+)+$", "[broken(", 42],
+      confidence: "high",
+      explanation: "ok",
+    });
+    const result = parseGeminiResponse(response);
+    expect(result?.locationOmitIfMatches).toBeUndefined();
+  });
 });
 
 describe("analyzeUrlForProposal", () => {

@@ -18,6 +18,7 @@ import type {
 import { hasAnyErrors } from "../types";
 import {
   chronoParseDate,
+  compilePatterns,
   fetchHTMLPage,
   parse12HourTime,
   validateSourceConfig,
@@ -116,12 +117,17 @@ export function fixYearMonotonicity(events: RawEventData[]): RawEventData[] {
 /**
  * Parse a single row element into RawEventData using the column config.
  * Exported for unit testing.
+ *
+ * `omitPatterns` is the compiled form of `config.locationOmitIfMatches` —
+ * the adapter hoists compilation outside the row loop. When undefined, the
+ * row parser compiles inline (slower but convenient for tests).
  */
 export function parseEventRow(
   $: CheerioAPI,
   $row: Cheerio<AnyNode>,
   config: GenericHtmlConfig,
   sourceUrl: string,
+  omitPatterns?: RegExp[],
 ): RawEventData | null {
   const { columns, defaultKennelTag, dateLocale = "en-US" } = config;
 
@@ -143,6 +149,16 @@ export function parseEventRow(
     const postcodeMatch = UK_POSTCODE_RE.exec(location);
     if (postcodeMatch) {
       location = location.slice(0, postcodeMatch.index! + postcodeMatch[0].length).trim();
+    }
+  }
+  // Drop placeholder/CTA location strings (e.g., "T.B.A.", "Contact X to set this run")
+  if (location) {
+    const patterns = omitPatterns ?? compilePatterns(config.locationOmitIfMatches ?? [], "i");
+    if (patterns.length) {
+      const trimmed = location.trim();
+      if (patterns.some((re) => re.test(trimmed))) {
+        location = undefined;
+      }
     }
   }
   const locationUrl = extractHref($, $row, columns.locationUrl) ?? extractHref($, $row, columns.location);
@@ -171,9 +187,16 @@ export function parseEventRow(
       }
     }
   }
-  // Fall back to config default when no per-event time extracted
-  if (!startTime && config.defaultStartTime) {
-    startTime = config.defaultStartTime;
+  // Fall back to config default when no per-event time extracted.
+  // Per-kennel map (e.g., bristolhash legend "BRIS=11am, GREY=7pm, BOGS=7:15pm")
+  // wins over the single defaultStartTime when the row's kennelTag matches.
+  if (!startTime) {
+    const perKennel = config.defaultStartTimeByKennel?.[kennelTag];
+    if (perKennel) {
+      startTime = perKennel;
+    } else if (config.defaultStartTime) {
+      startTime = config.defaultStartTime;
+    }
   }
 
   return {
@@ -234,10 +257,14 @@ export class GenericHtmlAdapter implements SourceAdapter {
     let lastRunNumber: number | undefined;
     let stopParsing = false;
 
+    // Compile location-omit regexes once per fetch (large hareline pages can
+    // exceed several hundred rows; per-row compile would be wasted work).
+    const omitPatterns = compilePatterns(config.locationOmitIfMatches ?? [], "i");
+
     rows.each((i, el) => {
       if (stopParsing) return;
       try {
-        const event = parseEventRow($, $(el), config, sourceUrl);
+        const event = parseEventRow($, $(el), config, sourceUrl, omitPatterns);
         if (event) {
           // Skip events too far in the past
           if (pastCutoff && event.date < pastCutoff) return;

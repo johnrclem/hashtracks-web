@@ -314,6 +314,126 @@ describe("validateSourceConfig", () => {
   });
 
   // ---------------------------------------------------------------------------
+  // locationOmitIfMatches validation
+  // ---------------------------------------------------------------------------
+
+  describe("locationOmitIfMatches validation", () => {
+    const baseHtmlConfig = {
+      containerSelector: "table",
+      rowSelector: "tr",
+      columns: { date: "td:nth-child(2)" },
+      defaultKennelTag: "bristolh3",
+    };
+
+    it("accepts valid pattern array", () => {
+      const config = {
+        ...baseHtmlConfig,
+        locationOmitIfMatches: [
+          String.raw`^t\.?b\.?[ad]\.?$`,
+          String.raw`^hare\s+wanted\.?$`,
+        ],
+      };
+      expect(validateSourceConfig("HTML_SCRAPER", config)).toEqual([]);
+    });
+
+    it("rejects non-array locationOmitIfMatches", () => {
+      const errors = validateSourceConfig("HTML_SCRAPER", {
+        ...baseHtmlConfig,
+        locationOmitIfMatches: "not an array",
+      });
+      expect(errors.some((e) => e.includes("locationOmitIfMatches"))).toBe(true);
+      expect(errors.some((e) => e.includes("must be an array"))).toBe(true);
+    });
+
+    it.each([
+      [["[broken("], "invalid regex"],
+      [[123], "must be a string"],
+      [["(x+x+)+y"], "catastrophic backtracking"],
+    ])("rejects invalid locationOmitIfMatches entry: %s", (patterns, expectedMsg) => {
+      const errors = validateSourceConfig("HTML_SCRAPER", {
+        ...baseHtmlConfig,
+        locationOmitIfMatches: patterns,
+      });
+      expect(errors.some((e) => e.includes(expectedMsg))).toBe(true);
+    });
+
+    it.each([
+      [["^.*$"], "universal anchored"],
+      [[".*"], "universal unanchored"],
+      [["^.+$"], "any-non-empty"],
+      [["^\\s*$"], "whitespace-only"],
+    ])("rejects too-broad locationOmitIfMatches pattern (%s)", (patterns, _label) => {
+      const errors = validateSourceConfig("HTML_SCRAPER", {
+        ...baseHtmlConfig,
+        locationOmitIfMatches: patterns,
+      });
+      expect(errors.some((e) => e.includes("too broad"))).toBe(true);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // defaultStartTime + defaultStartTimeByKennel validation
+  // ---------------------------------------------------------------------------
+
+  describe("default start time validation", () => {
+    const baseHtmlConfig = {
+      containerSelector: "table",
+      rowSelector: "tr",
+      columns: { date: "td:nth-child(2)" },
+      defaultKennelTag: "bristolh3",
+    };
+
+    it("accepts valid HH:MM defaultStartTime", () => {
+      expect(
+        validateSourceConfig("HTML_SCRAPER", {
+          ...baseHtmlConfig,
+          defaultStartTime: "19:00",
+        }),
+      ).toEqual([]);
+    });
+
+    it.each(["7:00", "19", "19:0", "25:00", "12:60", "noon"])(
+      "rejects malformed defaultStartTime %s",
+      (bad) => {
+        const errors = validateSourceConfig("HTML_SCRAPER", {
+          ...baseHtmlConfig,
+          defaultStartTime: bad,
+        });
+        expect(errors.some((e) => e.includes("HH:MM"))).toBe(true);
+      },
+    );
+
+    it("accepts valid defaultStartTimeByKennel map", () => {
+      expect(
+        validateSourceConfig("HTML_SCRAPER", {
+          ...baseHtmlConfig,
+          defaultStartTimeByKennel: {
+            bristolh3: "11:00",
+            "bristol-grey": "19:00",
+            "bogs-h3": "19:15",
+          },
+        }),
+      ).toEqual([]);
+    });
+
+    it("rejects non-object defaultStartTimeByKennel", () => {
+      const errors = validateSourceConfig("HTML_SCRAPER", {
+        ...baseHtmlConfig,
+        defaultStartTimeByKennel: ["not", "an", "object"],
+      });
+      expect(errors.some((e) => e.includes("must be an object"))).toBe(true);
+    });
+
+    it("rejects malformed time values in defaultStartTimeByKennel", () => {
+      const errors = validateSourceConfig("HTML_SCRAPER", {
+        ...baseHtmlConfig,
+        defaultStartTimeByKennel: { bristolh3: "11am" },
+      });
+      expect(errors.some((e) => e.includes("HH:MM"))).toBe(true);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // GOOGLE_SHEETS required fields
   // ---------------------------------------------------------------------------
 

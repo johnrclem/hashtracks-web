@@ -31,7 +31,9 @@ export interface GenericHtmlConfig {
   defaultKennelTag: string;
   dateLocale?: DateLocale;    // "en-US" | "en-GB" — defaults to "en-US"
   locationTruncateAfter?: "uk-postcode";  // truncate location at first UK postcode match
+  locationOmitIfMatches?: string[];        // regex strings; trimmed location matching any pattern is dropped (TBA, "Contact X to set this run", etc.)
   defaultStartTime?: string;               // "HH:MM" fallback when page doesn't have per-event times
+  defaultStartTimeByKennel?: Record<string, string>; // per-kennelTag "HH:MM" map; takes precedence over defaultStartTime when the row's kennelTag matches a key
   forwardDate?: boolean;                   // resolve year-less dates to next future occurrence
   maxPastDays?: number;                    // skip events with dates more than N days in the past
   stopWhenRunNumberDecreases?: boolean;    // stop parsing when run number drops (e.g., Cape Fear receding hareline)

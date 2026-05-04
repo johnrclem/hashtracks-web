@@ -109,8 +109,31 @@ function validateKennelPatterns(type: string, obj: Record<string, unknown>, erro
   }
 }
 
+/**
+ * Reject patterns that match the empty string or a single space — those are
+ * the universal regexes (`^.*$`, `^.+$`, `.*`, etc.) that would silently
+ * drop every location cell from a source. Real placeholders always contain
+ * literal text. Only enforced for `locationOmitIfMatches` because the other
+ * pattern arrays (skip/hare/runNumber/cost) operate as substring matchers
+ * over multi-line text where broad anchors are sometimes legitimate.
+ */
+function isPatternTooBroad(pattern: string): boolean {
+  try {
+    // nosemgrep: detect-non-literal-regexp — pattern already passed isSafeRegex above
+    const re = new RegExp(pattern, "i"); // NOSONAR
+    return re.test("") || re.test(" ");
+  } catch {
+    return true;
+  }
+}
+
 /** Validate a named string[] config field where each entry must be a valid regex. */
-function validatePatternArray(obj: Record<string, unknown>, fieldName: string, errors: string[]): void {
+function validatePatternArray(
+  obj: Record<string, unknown>,
+  fieldName: string,
+  errors: string[],
+  opts: { rejectBroad?: boolean } = {},
+): void {
   if (!(fieldName in obj) || obj[fieldName] === undefined) return;
 
   if (!Array.isArray(obj[fieldName])) {
@@ -123,6 +146,11 @@ function validatePatternArray(obj: Record<string, unknown>, fieldName: string, e
       continue;
     }
     validateRegex(pattern, `${fieldName}[${i}]`, errors);
+    if (opts.rejectBroad && isPatternTooBroad(pattern)) {
+      errors.push(
+        `${fieldName}[${i}]: regex "${pattern}" matches empty/whitespace input — too broad, would drop legitimate values`,
+      );
+    }
   }
 }
 
@@ -173,7 +201,7 @@ function validateStaticScheduleConfig(obj: Record<string, unknown>, errors: stri
   if (obj.startTime !== undefined) {
     if (typeof obj.startTime !== "string") {
       errors.push("Static Schedule config startTime must be a string");
-    } else if (!/^\d{2}:\d{2}$/.test(obj.startTime)) {
+    } else if (!TIME_HHMM_RE.test(obj.startTime)) {
       errors.push('Static Schedule config startTime must be HH:MM format (e.g. "10:17", "19:00")');
     }
   }
@@ -215,6 +243,27 @@ function validateColumnSelectors(columns: unknown, errors: string[]): void {
   }
 }
 
+/** Allowed HH:MM (24h) time format for default start times. */
+const TIME_HHMM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+/** Validate `defaultStartTimeByKennel` is a flat string→"HH:MM" map. */
+function validateDefaultStartTimeByKennel(value: unknown, errors: string[]): void {
+  if (value === undefined) return;
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    errors.push("Generic HTML config defaultStartTimeByKennel must be an object mapping kennelTag → \"HH:MM\"");
+    return;
+  }
+  for (const [tag, time] of Object.entries(value as Record<string, unknown>)) {
+    if (!tag.trim()) {
+      errors.push("defaultStartTimeByKennel keys (kennelTag) must be non-empty strings");
+      continue;
+    }
+    if (typeof time !== "string" || !TIME_HHMM_RE.test(time)) {
+      errors.push(`defaultStartTimeByKennel.${tag}: time must be HH:MM (e.g. "07:00", "19:15")`);
+    }
+  }
+}
+
 /** Validate Generic HTML Scraper config (containerSelector, rowSelector, columns). */
 function validateGenericHtmlConfig(obj: Record<string, unknown>, errors: string[]): void {
   // Only validate if this looks like a generic HTML config
@@ -231,6 +280,14 @@ function validateGenericHtmlConfig(obj: Record<string, unknown>, errors: string[
   if (obj.dateLocale !== undefined && obj.dateLocale !== "en-US" && obj.dateLocale !== "en-GB") {
     errors.push('Generic HTML config dateLocale must be "en-US" or "en-GB"');
   }
+
+  if (obj.defaultStartTime !== undefined) {
+    if (typeof obj.defaultStartTime !== "string" || !TIME_HHMM_RE.test(obj.defaultStartTime)) {
+      errors.push('Generic HTML config defaultStartTime must be HH:MM (e.g. "19:00")');
+    }
+  }
+
+  validateDefaultStartTimeByKennel(obj.defaultStartTimeByKennel, errors);
 }
 
 /** Run type-specific validation for a source config. */
@@ -274,6 +331,7 @@ export function validateSourceConfig(
   validatePatternArray(obj, "locationPatterns", errors);
   validatePatternArray(obj, "costPatterns", errors);
   validatePatternArray(obj, "titleStripPatterns", errors);
+  validatePatternArray(obj, "locationOmitIfMatches", errors, { rejectBroad: true });
 
   // Single-pattern validation (titleHarePattern is a string, not an array)
   if ("titleHarePattern" in obj && obj.titleHarePattern !== undefined) {
