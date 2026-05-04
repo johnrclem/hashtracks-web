@@ -1309,6 +1309,15 @@ export const KENNELS: KennelSeed[] = [
       description: "Biweekly Saturday-afternoon hash in the DFW area, founded March 31, 1987. A-to-B, A-to-A, or A-to-A' trails of 3-5 miles with variable shiggy; a beer stop on trail and a strict \"done is done\" after circle.",
       latitude: 32.75, longitude: -97.33,
     },
+    {
+      kennelCode: "yakh3", shortName: "YakH3", fullName: "Yak Hash House Harriers", region: "Dallas-Fort Worth, TX",
+      website: "http://www.dfwhhh.org", // NOSONAR — source has expired SSL
+      scheduleDayOfWeek: "Sunday", scheduleTime: "12:00 PM", scheduleFrequency: "Biweekly",
+      scheduleNotes: "Seasonal kayak hash — paddle trails on DFW-area lakes (Grapevine Lake, Campion Trail canals). Roughly biweekly Sundays when in season; start time varies (noon to early afternoon).",
+      hashCash: "BYOB",
+      description: "DFW-area kayak hash. A-to-A paddle trails on Grapevine Lake, the Campion Trail canals in Valley Ranch, and other Metroplex waterways. Bring a kayak, paddleboard, canoe, or anything that floats.",
+      latitude: 32.97, longitude: -97.07,
+    },
     // --- San Antonio ---
     {
       kennelCode: "sah3", shortName: "San Antonio H3", fullName: "San Antonio Hash House Harriers", region: "San Antonio, TX",

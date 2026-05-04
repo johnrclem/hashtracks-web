@@ -886,7 +886,7 @@ export const SOURCES = [
       },
       kennelCodes: ["mosquito-h3"],
     },
-    // --- DFW (1 HTML scraper — PHP calendar covering 4 kennels) ---
+    // --- DFW (1 HTML scraper — PHP calendar covering 5 kennels) ---
     {
       name: "DFW Hash Calendar",
       url: "http://www.dfwhhh.org/calendar/",
@@ -894,7 +894,7 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      kennelCodes: ["dh3-tx", "duhhh", "noduhhh", "fwh3"],
+      kennelCodes: ["dh3-tx", "duhhh", "noduhhh", "fwh3", "yakh3"],
     },
     // --- El Paso (1 Google Calendar) ---
     {
