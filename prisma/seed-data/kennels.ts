@@ -1311,7 +1311,7 @@ export const KENNELS: KennelSeed[] = [
     },
     {
       kennelCode: "yakh3", shortName: "YakH3", fullName: "Yak Hash House Harriers", region: "Dallas-Fort Worth, TX",
-      website: "http://www.dfwhhh.org",
+      website: "http://www.dfwhhh.org", // NOSONAR — source has expired SSL
       scheduleDayOfWeek: "Sunday", scheduleTime: "12:00 PM", scheduleFrequency: "Biweekly",
       scheduleNotes: "Seasonal kayak hash — paddle trails on DFW-area lakes (Grapevine Lake, Campion Trail canals). Roughly biweekly Sundays when in season; start time varies (noon to early afternoon).",
       hashCash: "BYOB",
