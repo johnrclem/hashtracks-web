@@ -3,22 +3,29 @@
  * same upcoming-only mis-config that triggered #1229 (Gold Coast TablePress
  * past events stale-cancelled).
  *
- * Smoking-gun signature: `status = CANCELLED`, `adminCancelledAt IS NULL`
- * (so this isn't an admin override), and the event date is in the past
- * (so the cancellation can't be a real "the kennel cancelled the upcoming
- * trail" decision — by definition, real cancellations happen BEFORE the
- * date passes). Sources whose `config.upcomingOnly` is already true are
- * excluded — they're using the correct mode and any past-cancellation
- * there has another root cause.
+ * Per Codex adversarial review (PR #1236): the simple "past + CANCELLED +
+ * no admin lock" heuristic is unsafe — adapter-driven legitimate
+ * cancellations (Meetup/iCal drop-on-ingest then reconcile-cancel) land
+ * in exactly that state. So this script doesn't claim to find bugs.
+ * Instead, it identifies a STRONGER pattern unique to stale-reconcile
+ * cancellation:
+ *
+ *   - Event is CANCELLED, past-dated, no admin override
+ *   - Event has 2+ RawEvent rows from a single source (the source
+ *     definitely emitted this event multiple times before going silent —
+ *     a real source-side cancellation typically drops the row entirely
+ *     after one or zero scrapes)
+ *   - Source's config does NOT already enable upcomingOnly
+ *
+ * Even that signal isn't proof — a source could legitimately re-confirm
+ * an event across multiple scrapes and then mark it cancelled. The
+ * output is a SHORTLIST for human review, not a directive. The operator
+ * is expected to spot-check the live source URL to confirm it's
+ * future-only before adding upcomingOnly: true to its row.
  *
  * Usage:
  *   npx tsx scripts/audit-stale-cancellations.ts
- *   npx tsx scripts/audit-stale-cancellations.ts --since 2025-01-01   # filter window
- *
- * Output: a per-source table sorted by stale-cancellation count, plus a
- * per-source list of sample event ids for spot-checking. The user reviews
- * the output and decides which sources need follow-up `upcomingOnly: true`
- * config additions (each shipped in its own PR to keep WS3 scope tight).
+ *   npx tsx scripts/audit-stale-cancellations.ts --since 2025-01-01
  *
  * Read-only — never writes to the database.
  */
@@ -28,13 +35,11 @@ import { PrismaClient } from "@/generated/prisma/client";
 import { createScriptPool } from "./lib/db-pool";
 
 const MIN_COUNT_TO_REPORT = 3;
+const MIN_SCRAPES_PER_EVENT = 2;
 
 function parseSince(): Date {
   const idx = process.argv.indexOf("--since");
   if (idx === -1 || !process.argv[idx + 1]) {
-    // Default: 1 year back. The reconcile bug isn't time-bounded — older
-    // cancellations that fit the signature are equally suspicious — but
-    // 1 year is a reasonable cap for a quick-scan report.
     const d = new Date();
     d.setUTCFullYear(d.getUTCFullYear() - 1);
     d.setUTCHours(0, 0, 0, 0);
@@ -58,9 +63,8 @@ async function main() {
   const prisma = new PrismaClient({ adapter });
 
   try {
-    // Filter sources up front so we never load full Source.config blobs
-    // (potentially large JSONB) per event. Build an in-memory lookup of
-    // eligible sources (those NOT already marked upcomingOnly) and keyed by id.
+    // Fetch all sources up front so we don't load full Source.config blobs
+    // per event during the main scan.
     const allSources = await prisma.source.findMany({
       select: { id: true, name: true, type: true, config: true },
     });
@@ -76,8 +80,6 @@ async function main() {
       return;
     }
 
-    // Now pull cancelled past events whose RawEvents reference an eligible
-    // source. Prisma's relational filter pushes the IN-list to the DB.
     const candidates = await prisma.event.findMany({
       where: {
         status: "CANCELLED",
@@ -90,17 +92,18 @@ async function main() {
         date: true,
         kennelId: true,
         kennel: { select: { kennelCode: true, shortName: true } },
+        // Ask Prisma to give us per-event scrape counts grouped by source —
+        // a single canonical event has multiple RawEvent rows in the
+        // append-only history table.
         rawEvents: { select: { sourceId: true } },
       },
     });
 
-    // Group by source. An event with multiple sources gets counted under
-    // each (the bug typically fires on a per-source basis).
     type Bucket = {
       sourceName: string;
       sourceType: string;
       kennels: Set<string>;
-      events: { id: string; date: string; kennel: string }[];
+      events: { id: string; date: string; kennel: string; scrapes: number }[];
     };
     const bySource = new Map<string, Bucket>();
 
@@ -108,10 +111,18 @@ async function main() {
       const dateStr = event.date.toISOString().slice(0, 10);
       const kennelLabel =
         event.kennel?.shortName ?? event.kennel?.kennelCode ?? event.kennelId;
+      // Per-source scrape count for this event — dedupes the rawEvents
+      // append-only history (Codex finding 3) and gates each event on the
+      // multi-scrape signature (Codex finding 2).
+      const scrapesPerSource = new Map<string, number>();
       for (const r of event.rawEvents) {
-        const src = eligibleSources.get(r.sourceId);
+        scrapesPerSource.set(r.sourceId, (scrapesPerSource.get(r.sourceId) ?? 0) + 1);
+      }
+      for (const [sourceId, scrapes] of scrapesPerSource) {
+        const src = eligibleSources.get(sourceId);
         if (!src) continue;
-        let bucket = bySource.get(r.sourceId);
+        if (scrapes < MIN_SCRAPES_PER_EVENT) continue;
+        let bucket = bySource.get(sourceId);
         if (!bucket) {
           bucket = {
             sourceName: src.name,
@@ -119,25 +130,30 @@ async function main() {
             kennels: new Set(),
             events: [],
           };
-          bySource.set(r.sourceId, bucket);
+          bySource.set(sourceId, bucket);
         }
         bucket.kennels.add(kennelLabel);
-        bucket.events.push({ id: event.id, date: dateStr, kennel: kennelLabel });
+        bucket.events.push({ id: event.id, date: dateStr, kennel: kennelLabel, scrapes });
       }
     }
 
-    // Filter to noisy buckets and sort by event count desc.
     const reported = [...bySource.entries()]
       .filter(([, b]) => b.events.length >= MIN_COUNT_TO_REPORT)
       .sort((a, b) => b[1].events.length - a[1].events.length);
 
     console.log(
-      `\nStale-cancellation audit (since ${since.toISOString().slice(0, 10)}): ` +
-        `${reported.length} suspect source(s) with ≥${MIN_COUNT_TO_REPORT} past CANCELLED events.\n`,
+      `\nStale-cancellation shortlist (since ${since.toISOString().slice(0, 10)}): ` +
+        `${reported.length} suspect source(s) with ≥${MIN_COUNT_TO_REPORT} past CANCELLED ` +
+        `events that were emitted ≥${MIN_SCRAPES_PER_EVENT}× before going silent.\n`,
+    );
+    console.log(
+      "NOTE: This is a shortlist for human review, not a list of bugs. The multi-scrape " +
+        "signature is suggestive but not conclusive — you must spot-check each source's live URL " +
+        "to confirm it's future-only before adding `config.upcomingOnly: true` in a follow-up PR.\n",
     );
 
     if (reported.length === 0) {
-      console.log("No suspects. Either the fleet is healthy or the bug is contained to upcomingOnly-eligible sources.");
+      console.log("No suspects.");
       return;
     }
 
@@ -149,15 +165,11 @@ async function main() {
       console.log(`         kennel(s): ${kennelList}`);
       console.log(`         sourceId:  ${sourceId}`);
       const samples = b.events.slice(0, 5);
-      console.log(`         sample(s): ${samples.map((s) => `${s.date} ${s.id}`).join(", ")}`);
+      console.log(
+        `         sample(s): ${samples.map((s) => `${s.date} ${s.id} (${s.scrapes} scrapes)`).join(", ")}`,
+      );
       console.log("");
     }
-
-    console.log(
-      "Suggested follow-up: for each suspect source above, verify the source URL is upcoming-only " +
-        "(does the live page strip past rows?). If yes, add `config: { upcomingOnly: true }` to its " +
-        "row in prisma/seed-data/sources.ts in a follow-up PR.",
-    );
   } finally {
     await prisma.$disconnect();
     await pool.end();
