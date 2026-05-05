@@ -29,21 +29,41 @@ function formatSample(e: RawEventData): string {
   return `[${e.date} ${time}] ${titleSlice} | hares=${e.hares ?? "—"} | loc=${locSlice}${runSuffix}`;
 }
 
+/** Filter to events whose primary kennel tag is `tag`. */
+function byKennelTag(events: RawEventData[], tag: string): RawEventData[] {
+  return events.filter((e) => e.kennelTags[0] === tag);
+}
+
+/** Append up to `limit` formatted samples to `lines`, prefixed with `prefix`. */
+function appendSamples(lines: string[], events: RawEventData[], limit: number, prefix = ""): void {
+  for (const e of events.slice(0, limit)) lines.push(`  ${prefix}${formatSample(e)}`);
+}
+
+/** Group events by date and return only dates that have more than one event. */
+function datesWithMultiple(events: RawEventData[]): [string, RawEventData[]][] {
+  const byKey = new Map<string, RawEventData[]>();
+  for (const e of events) byKey.set(e.date, [...(byKey.get(e.date) ?? []), e]);
+  return [...byKey.entries()].filter(([, es]) => es.length > 1);
+}
+
+/** Common per-kennel-bucket summary line: "Tag: total (with hares: N)". */
+function bucketSummary(label: string, bucket: RawEventData[]): string {
+  return `${label}: ${bucket.length} (with hares: ${bucket.filter((e) => !!e.hares).length})`;
+}
+
 const TARGETS: VerifyTarget[] = [
   {
     sourceName: "Capital Hash Calendar",
     describe: "#1222 — split title into hares + location; reject 'venue TBC'",
     inspect: (events) => {
-      const withHares = events.filter((e) => !!e.hares);
-      const withLoc = events.filter((e) => !!e.location);
-      const venueTbc = events.filter((e) => /venue\s+TB[CDA]/i.test(JSON.stringify(e.hares ?? "") + JSON.stringify(e.location ?? "")));
+      const venueTbc = events.filter((e) => /venue\s+TB[CDA]/i.test(`${e.hares ?? ""} ${e.location ?? ""}`));
       const lines = [
         `events: ${events.length}`,
-        `with hares: ${withHares.length}`,
-        `with location: ${withLoc.length}`,
+        `with hares: ${events.filter((e) => !!e.hares).length}`,
+        `with location: ${events.filter((e) => !!e.location).length}`,
         `'venue TBC' surviving in any field: ${venueTbc.length} (expect 0)`,
       ];
-      for (const e of events.slice(0, 6)) lines.push(`  ${formatSample(e)}`);
+      appendSamples(lines, events, 6);
       return lines;
     },
   },
@@ -56,7 +76,7 @@ const TARGETS: VerifyTarget[] = [
         `events: ${events.length}`,
         `events with trailing-dash hares: ${trailingDash.length} (expect 0)`,
       ];
-      for (const e of events.slice(0, 6)) lines.push(`  ${formatSample(e)}`);
+      appendSamples(lines, events, 6);
       return lines;
     },
   },
@@ -64,10 +84,9 @@ const TARGETS: VerifyTarget[] = [
     sourceName: "GLH3 Google Calendar",
     describe: "#1212 — Co-Hare merge + annotation strip",
     inspect: (events) => {
-      const lines = [`events: ${events.length}`];
-      for (const e of events.slice(0, 8)) lines.push(`  ${formatSample(e)}`);
-      // Look for annotation leakage
       const annotations = events.filter((e) => e.hares && / - [a-z]/.test(e.hares));
+      const lines = [`events: ${events.length}`];
+      appendSamples(lines, events, 8);
       lines.push(`hares with ' - lowercase' annotation tail: ${annotations.length} (expect 0)`);
       return lines;
     },
@@ -77,23 +96,18 @@ const TARGETS: VerifyTarget[] = [
     describe: "#1199 — drops Giggity all-day placeholder when timed sibling exists",
     kennelTagFilter: "giggity-h3",
     inspect: (events, diag) => {
-      const giggity = events.filter((e) => e.kennelTags[0] === "giggity-h3");
-      const cunth = events.filter((e) => e.kennelTags[0] === "cunth3-wa");
+      const giggity = byKennelTag(events, "giggity-h3");
+      const cunth = byKennelTag(events, "cunth3-wa");
+      const collapsedRaw = diag?.allDayCollapsed;
+      const collapsed = typeof collapsedRaw === "number" ? collapsedRaw : 0;
       const lines = [
         `total events: ${events.length}`,
         `Giggity events: ${giggity.length}`,
         `CUNTh events (all-day overrides should still survive): ${cunth.length}`,
-        `diag.allDayCollapsed: ${typeof diag?.allDayCollapsed === "number" ? diag.allDayCollapsed : 0}`,
+        `diag.allDayCollapsed: ${collapsed}`,
       ];
-      for (const e of giggity.slice(0, 6)) lines.push(`  ${formatSample(e)}`);
-      // Check: any (giggity-h3, date) with both timed + all-day? Should not exist post-dedup.
-      const byKey = new Map<string, RawEventData[]>();
-      for (const e of giggity) {
-        const k = e.date;
-        byKey.set(k, [...(byKey.get(k) ?? []), e]);
-      }
-      const dupDates = [...byKey.entries()].filter(([, es]) => es.length > 1);
-      lines.push(`Giggity dates with multiple events surviving: ${dupDates.length} (expect 0)`);
+      appendSamples(lines, giggity, 6);
+      lines.push(`Giggity dates with multiple events surviving: ${datesWithMultiple(giggity).length} (expect 0)`);
       return lines;
     },
   },
@@ -101,15 +115,11 @@ const TARGETS: VerifyTarget[] = [
     sourceName: "Stuttgart H3 Google Calendar",
     describe: "#1208 — DST hares from 'DST # - Hare' format; SH3 still works",
     inspect: (events) => {
-      const dst = events.filter((e) => e.kennelTags[0] === "dst-h3");
-      const sh3 = events.filter((e) => e.kennelTags[0] === "sh3-de");
-      const lines = [
-        `events: ${events.length}`,
-        `DST: ${dst.length} (with hares: ${dst.filter((e) => !!e.hares).length})`,
-        `SH3: ${sh3.length} (with hares: ${sh3.filter((e) => !!e.hares).length})`,
-      ];
-      for (const e of dst.slice(0, 4)) lines.push(`  DST ${formatSample(e)}`);
-      for (const e of sh3.slice(0, 4)) lines.push(`  SH3 ${formatSample(e)}`);
+      const dst = byKennelTag(events, "dst-h3");
+      const sh3 = byKennelTag(events, "sh3-de");
+      const lines = [`events: ${events.length}`, bucketSummary("DST", dst), bucketSummary("SH3", sh3)];
+      appendSamples(lines, dst, 4, "DST ");
+      appendSamples(lines, sh3, 4, "SH3 ");
       return lines;
     },
   },
@@ -117,15 +127,11 @@ const TARGETS: VerifyTarget[] = [
     sourceName: "Copenhagen H3 Google Calendar",
     describe: "#1209/#1221 — CH3 third-dash-segment hare; RDH3 still works",
     inspect: (events) => {
-      const ch3 = events.filter((e) => e.kennelTags[0] === "ch3-dk");
-      const rdh3 = events.filter((e) => e.kennelTags[0] === "rdh3");
-      const lines = [
-        `events: ${events.length}`,
-        `CH3: ${ch3.length} (with hares: ${ch3.filter((e) => !!e.hares).length})`,
-        `RDH3: ${rdh3.length} (with hares: ${rdh3.filter((e) => !!e.hares).length})`,
-      ];
-      for (const e of ch3.slice(0, 4)) lines.push(`  CH3 ${formatSample(e)}`);
-      for (const e of rdh3.slice(0, 3)) lines.push(`  RDH3 ${formatSample(e)}`);
+      const ch3 = byKennelTag(events, "ch3-dk");
+      const rdh3 = byKennelTag(events, "rdh3");
+      const lines = [`events: ${events.length}`, bucketSummary("CH3", ch3), bucketSummary("RDH3", rdh3)];
+      appendSamples(lines, ch3, 4, "CH3 ");
+      appendSamples(lines, rdh3, 3, "RDH3 ");
       return lines;
     },
   },

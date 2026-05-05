@@ -239,56 +239,21 @@ describe("extractHares — anchored single-case scenarios", () => {
 });
 
 describe("extractHares — Co-Hare merge + annotation strip (#1212 GLH3)", () => {
-  it("merges a separate Co-Hare line into the primary hare", () => {
-    const desc = "Hare: Just Ayaka\nCo-Hare: Backseat Muffher\nDirections: ...";
-    expect(extractHares(desc)).toBe("Just Ayaka, Backseat Muffher");
-  });
-
-  it("merges Co-Hares (plural) variant", () => {
-    const desc = "Hare: Alice\nCo-Hares: Bob & Carol";
-    expect(extractHares(desc)).toBe("Alice, Bob & Carol");
-  });
-
-  it("merges 'Cohare' (no dash) variant", () => {
-    const desc = "Hare: Alice\nCohare: Bob";
-    expect(extractHares(desc)).toBe("Alice, Bob");
-  });
-
-  it("merges multiple Co-Hare lines", () => {
-    const desc = "Hare: Alice\nCo-Hare: Bob\nCo-Hare: Carol\nLocation: ...";
-    expect(extractHares(desc)).toBe("Alice, Bob, Carol");
-  });
-
-  it("token comparison handles comma-joined primary (Alice, Bob vs Bob)", () => {
-    const desc = "Hare: Alice and Bob\nCo-Hare: Bob\nCo-Hare: Carol";
-    // Bob is already in primary; only Carol gets appended.
-    expect(extractHares(desc)).toBe("Alice and Bob, Carol");
-  });
-
-  it("strips trailing ' - lowercase commentary' annotation", () => {
-    const desc = "Hare: Just Ayaka - it's her first time haring!";
-    expect(extractHares(desc)).toBe("Just Ayaka");
-  });
-
-  it("preserves capital-leading second name (e.g. 'Alice - Bob')", () => {
-    // Annotation strip is anchored to a lowercase first char after the dash;
-    // a real co-hare written inline after a dash starts with a capital letter
-    // and survives the strip.
-    const desc = "Hare: Alice - Bob";
-    expect(extractHares(desc)).toBe("Alice - Bob");
-  });
-
-  it("regression: lone Hare line still returns just the primary", () => {
-    expect(extractHares("Hare: Alice")).toBe("Alice");
-  });
-
-  it("regression: no spurious join when description has unrelated text", () => {
-    const desc = "Hare: Alice\nLocation: 123 Main St";
-    expect(extractHares(desc)).toBe("Alice");
-  });
-
-  it("avoids duplicate when Co-Hare name already appears in primary", () => {
-    const desc = "Hare: Alice and Bob\nCo-Hare: Bob";
-    expect(extractHares(desc)).toBe("Alice and Bob");
+  // Each row is independent — no shared object state between them. Note that
+  // the annotation-strip cases stand alone (no Co-Hare line) and the
+  // capital-leading test verifies the strip is gated on lowercase-only.
+  it.each([
+    { name: "single Co-Hare line", desc: "Hare: Just Ayaka\nCo-Hare: Backseat Muffher\nDirections: ...", expected: "Just Ayaka, Backseat Muffher" },
+    { name: "Co-Hares plural", desc: "Hare: Alice\nCo-Hares: Bob & Carol", expected: "Alice, Bob & Carol" },
+    { name: "Cohare no-dash", desc: "Hare: Alice\nCohare: Bob", expected: "Alice, Bob" },
+    { name: "multiple Co-Hare lines", desc: "Hare: Alice\nCo-Hare: Bob\nCo-Hare: Carol\nLocation: ...", expected: "Alice, Bob, Carol" },
+    { name: "token compare on comma-joined primary", desc: "Hare: Alice and Bob\nCo-Hare: Bob\nCo-Hare: Carol", expected: "Alice and Bob, Carol" },
+    { name: "duplicate Co-Hare already in primary", desc: "Hare: Alice and Bob\nCo-Hare: Bob", expected: "Alice and Bob" },
+    { name: "trailing lowercase commentary stripped", desc: "Hare: Just Ayaka - it's her first time haring!", expected: "Just Ayaka" },
+    { name: "capital-leading second name preserved", desc: "Hare: Alice - Bob", expected: "Alice - Bob" },
+    { name: "lone Hare line — primary only", desc: "Hare: Alice", expected: "Alice" },
+    { name: "unrelated description text — primary only", desc: "Hare: Alice\nLocation: 123 Main St", expected: "Alice" },
+  ])("$name", ({ desc, expected }) => {
+    expect(extractHares(desc)).toBe(expected);
   });
 });
