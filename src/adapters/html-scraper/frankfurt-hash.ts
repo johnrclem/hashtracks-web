@@ -71,14 +71,13 @@ export function stripHareSuffix(title: string): string {
   // by an over-broad `\s+Hares?\s*[:-]?\s*.*$` regex. The leading `\s+`
   // requirement still prevents matching "FH3-Hare: X" with no whitespace
   // before the keyword. (#1228 + PR #1236 review)
+  // Both regexes are end-anchored with single-class character runs and no
+  // nested quantifiers — Sonar S5852 fires conservatively on `\s+...\s*.+$`
+  // shapes but backtracking here is linear. NOSONAR markers are per-line
+  // (Sonar requires them on the same line as the flagged code).
   const stripped = title
-    // NOSONAR — anchored to end-of-string, fixed-literal keyword `Hares?`,
-    // single-class character runs (`\s+`, `[:-]`, `\s*`), and a greedy
-    // `.+$` tail. No nested quantifiers; backtracking is linear.
-    .replace(/\s+Hares?\s*[:-]\s*.+$/i, "")  // "Hares: <name>" / "Hare - <name>"
-    // NOSONAR — same shape, anchored at `$`. Optional separator + trailing
-    // whitespace cannot trigger super-linear backtracking.
-    .replace(/\s+Hares?\s*[:-]?\s*$/i, "")   // bare trailing "Hares:" / "Hare" / "Hare -"
+    .replace(/\s+Hares?\s*[:-]\s*.+$/i, "")  // NOSONAR S5852 — "Hares: <name>" / "Hare - <name>", linear
+    .replace(/\s+Hares?\s*[:-]?\s*$/i, "")   // NOSONAR S5852 — bare trailing "Hares:" / "Hare" / "Hare -", linear
     .trim();
   return stripped || title;
 }

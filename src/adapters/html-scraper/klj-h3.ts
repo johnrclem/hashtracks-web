@@ -38,8 +38,11 @@ import {
 const KENNEL_TAG = "kljhhh";
 const DEFAULT_START_TIME = "14:00"; // 2:00 PM, first Sunday monthly
 const TITLE_RUN_NUMBER_RE = /Run\s*#\s*(\d+)/i;
-const TITLE_DATE_RE =
-  /Run\s*#\s*\d+\s*[,:\-]?\s*(\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+(?:\s+\d{4})?)/i;
+// Match the date trailer in two passes (split to keep regex complexity
+// under Sonar S5843's threshold of 20): first locate the run-number prefix
+// + optional separator, then capture the date token from what follows.
+const TITLE_RUN_PREFIX_RE = /Run\s*#\s*\d+\s*[,:\-]?\s*/i;
+const TITLE_DATE_TOKEN_RE = /^(\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+(?:\s+\d{4})?)/;
 
 /**
  * Extract labeled fields from an HTML post body.
@@ -119,14 +122,19 @@ export function parseKljBody(bodyHtml: string): {
  * post's publish year as reference. Exported for unit testing.
  */
 export function parseKljTitleDate(title: string, publishDateIso: string): string | null {
-  const m = TITLE_DATE_RE.exec(title);
-  if (!m) return null;
+  // Two-pass split (per Sonar S5843): peel the "Run # N <sep>" prefix,
+  // then look for the date token at the start of what's left.
+  const prefixMatch = TITLE_RUN_PREFIX_RE.exec(title);
+  if (!prefixMatch) return null;
+  const trailer = title.slice(prefixMatch.index + prefixMatch[0].length);
+  const dateMatch = TITLE_DATE_TOKEN_RE.exec(trailer);
+  if (!dateMatch) return null;
   // Use the post's publish date as the chrono reference, with forwardDate so
   // year-less dates ("1st November") resolve to the *next* occurrence after
   // the post was published — KLJ posts are always published ahead of the
   // run they announce.
   const refDate = new Date(publishDateIso);
-  return chronoParseDate(m[1], "en-GB", refDate, { forwardDate: true });
+  return chronoParseDate(dateMatch[1], "en-GB", refDate, { forwardDate: true });
 }
 
 /**
