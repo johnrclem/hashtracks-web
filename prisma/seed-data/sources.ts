@@ -650,8 +650,8 @@ export const SOURCES = [
         // Testigel" (placeholder) or "DST #814 - Full of Spunk" (assigned).
         // The hare follows the dash with no `Hare:` label (#1208).
         titleHarePattern: [
-          "Hare:?\\s+(.+?)(?:(?=[-\u2013\u2014]\\s*\\S)|\\s*$)",
-          "^DST\\s*#?\\s*\\d*\\s*-\\s*(.+)$",
+          String.raw`Hare:?\s+(.+?)(?:(?=[-\u2013\u2014]\s*\S)|\s*$)`,
+          String.raw`^DST\s*#?\s*\d*\s*-\s*(.+)$`,
         ],
       },
       kennelCodes: ["sh3-de", "dst-h3", "fm-stgt", "super-h3"],
@@ -3047,8 +3047,8 @@ export const SOURCES = [
         // Patterns fire only when description has no hares. The first
         // capture-group hit wins.
         titleHarePattern: [
-          "[.]\\s*Hare:\\s*(.+)$",
-          "^CH3\\s+\\d+\\s+-\\s+[^-]+\\s+-\\s+(.+)$",
+          String.raw`[.]\s*Hare:\s*(.+)$`,
+          String.raw`^CH3\s+\d+\s+-\s+[^-]+\s+-\s+(.+)$`,
         ],
       },
       kennelCodes: ["ch3-dk", "ch4-dk", "rdh3"],

@@ -183,23 +183,35 @@ export function extractHares(description: string, customPatterns?: string[] | Re
 
 /** Token-set containment: every word in `b` already appears (case-insensitive)
  *  as a whole word in `a`. Avoids substring false-positives where "Ali" would
- *  match inside "Alice and Bob" and silently suppress a real co-hare. */
+ *  match inside "Alice and Bob" and silently suppress a real co-hare. Splits
+ *  on whitespace + commas so the primary's joined form ("Alice, Bob") still
+ *  matches a co-hare candidate of "Bob". */
 function tokensFullyContained(a: string, b: string): boolean {
-  const aTokens = new Set(a.toLowerCase().split(/\s+/));
-  return b.toLowerCase().split(/\s+/).every((t) => aTokens.has(t));
+  const aTokens = new Set(a.toLowerCase().split(/[\s,]+/).filter(Boolean));
+  return b.toLowerCase().split(/[\s,]+/).filter(Boolean).every((t) => aTokens.has(t));
 }
 
-/** Append a sibling `Co-Hare:` / `Co-Hares:` capture to the primary hare
- *  string when one exists in the description. Gated on a cheap substring
- *  check so consumers without Co-Hare labels (Meetup, Phoenix, most GCal)
- *  skip the regex altogether. Order is text-derived (deterministic) — no
- *  sort required for fingerprint stability. */
+/** Global form so `matchAll` can capture every `Co-Hare:` / `Co-Hares:` line
+ *  on descriptions that list multiple co-hares on separate lines. */
+const COHARE_LABEL_GLOBAL_RE = new RegExp(COHARE_LABEL_RE.source, "gim"); // NOSONAR — reuses anchored source
+
+/** Append every sibling `Co-Hare:` / `Co-Hares:` capture to the primary hare
+ *  string. Gated on a cheap substring check so consumers without Co-Hare
+ *  labels (Meetup, Phoenix, most GCal) skip the regex iteration altogether.
+ *  Each candidate is filtered through `cleanAndFilterHares` and added only
+ *  if it's not already token-contained in the running result. Order is
+ *  text-derived (deterministic) — no sort required for fingerprint
+ *  stability. */
 function mergeCoHareIfPresent(primary: string, normalized: string): string {
   if (!/co-?hare/i.test(normalized)) return primary;
-  const coMatch = COHARE_LABEL_RE.exec(normalized);
-  if (!coMatch?.[1]) return primary;
-  const coRaw = coMatch[1].trim().split("\n")[0].trim();
-  const coCleaned = cleanAndFilterHares(coRaw);
-  if (!coCleaned || tokensFullyContained(primary, coCleaned)) return primary;
-  return `${primary}, ${coCleaned}`;
+  let result = primary;
+  for (const match of normalized.matchAll(COHARE_LABEL_GLOBAL_RE)) {
+    const coRaw = match[1]?.trim().split("\n")[0].trim();
+    if (!coRaw) continue;
+    const coCleaned = cleanAndFilterHares(coRaw);
+    if (coCleaned && !tokensFullyContained(result, coCleaned)) {
+      result = `${result}, ${coCleaned}`;
+    }
+  }
+  return result;
 }

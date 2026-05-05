@@ -22,7 +22,11 @@ interface VerifyTarget {
 }
 
 function formatSample(e: RawEventData): string {
-  return `[${e.date} ${e.startTime ?? "all-day"}] ${(e.title ?? "").slice(0, 60)} | hares=${e.hares ?? "—"} | loc=${(e.location ?? "—").slice(0, 50)}${e.runNumber ? ` | run=${e.runNumber}` : ""}`;
+  const time = e.startTime ?? "all-day";
+  const titleSlice = (e.title ?? "").slice(0, 60);
+  const locSlice = (e.location ?? "—").slice(0, 50);
+  const runSuffix = e.runNumber ? ` | run=${e.runNumber}` : "";
+  return `[${e.date} ${time}] ${titleSlice} | hares=${e.hares ?? "—"} | loc=${locSlice}${runSuffix}`;
 }
 
 const TARGETS: VerifyTarget[] = [
@@ -79,7 +83,7 @@ const TARGETS: VerifyTarget[] = [
         `total events: ${events.length}`,
         `Giggity events: ${giggity.length}`,
         `CUNTh events (all-day overrides should still survive): ${cunth.length}`,
-        `diag.allDayCollapsed: ${diag?.allDayCollapsed ?? "0"}`,
+        `diag.allDayCollapsed: ${typeof diag?.allDayCollapsed === "number" ? diag.allDayCollapsed : 0}`,
       ];
       for (const e of giggity.slice(0, 6)) lines.push(`  ${formatSample(e)}`);
       // Check: any (giggity-h3, date) with both timed + all-day? Should not exist post-dedup.

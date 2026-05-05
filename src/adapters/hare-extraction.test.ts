@@ -254,6 +254,17 @@ describe("extractHares — Co-Hare merge + annotation strip (#1212 GLH3)", () =>
     expect(extractHares(desc)).toBe("Alice, Bob");
   });
 
+  it("merges multiple Co-Hare lines", () => {
+    const desc = "Hare: Alice\nCo-Hare: Bob\nCo-Hare: Carol\nLocation: ...";
+    expect(extractHares(desc)).toBe("Alice, Bob, Carol");
+  });
+
+  it("token comparison handles comma-joined primary (Alice, Bob vs Bob)", () => {
+    const desc = "Hare: Alice and Bob\nCo-Hare: Bob\nCo-Hare: Carol";
+    // Bob is already in primary; only Carol gets appended.
+    expect(extractHares(desc)).toBe("Alice and Bob, Carol");
+  });
+
   it("strips trailing ' - lowercase commentary' annotation", () => {
     const desc = "Hare: Just Ayaka - it's her first time haring!";
     expect(extractHares(desc)).toBe("Just Ayaka");

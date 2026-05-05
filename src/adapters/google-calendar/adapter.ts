@@ -854,11 +854,11 @@ export function buildRawEventFromGCalItem(
     for (const re of compiledTitleLocationPatterns) {
       const locMatch = re.exec(title);
       if (locMatch?.[1]) {
-        const candidate = locMatch[1].trim().replace(/[.,;:\s]+$/, "").trim();
+        const candidate = locMatch[1].trim().replace(/[.,;:\s]+$/, "").trim(); // NOSONAR — anchored end-of-string char-class
         if (candidate && !isPlaceholder(candidate)) {
           location = candidate;
           title = (title.slice(0, locMatch.index) + title.slice(locMatch.index + locMatch[0].length))
-            .replace(/^\s*[-–—:]\s*|\s*[-–—:]\s*$/g, "")
+            .replaceAll(/^\s*[-–—:]+\s*|\s*[-–—:]+\s*$/g, "") // NOSONAR — anchored char-class alternation, mirrors title-hare strip
             .trim();
           break;
         }

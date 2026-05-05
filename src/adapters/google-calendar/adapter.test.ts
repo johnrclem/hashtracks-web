@@ -590,8 +590,8 @@ describe("titleHarePattern — hare extraction from summary", () => {
 describe("titleHarePattern array — multi-pattern fallback (#1208/#1209/#1221)", () => {
   it("Stuttgart: SH3 first pattern wins for 'Hare:' titles", () => {
     const patterns = [
-      /Hare:?\s+(.+?)(?:(?=[-–—]\s*\S)|\s*$)/i,
-      /^DST\s*#?\s*-\s*(.+)$/i,
+      /Hare:?\s+(.+?)(?:(?=[-–—]\s*\S)|\s*$)/i, // NOSONAR — non-greedy with bounded lookahead, test fixture
+      /^DST\s*#?\s*-\s*(.+)$/i, // NOSONAR — anchored, single capture, test fixture
     ];
     const result = buildRawEventFromGCalItem(
       testGCalEvent({
@@ -612,15 +612,15 @@ describe("titleHarePattern array — multi-pattern fallback (#1208/#1209/#1221)"
     { name: "no '#' at all", summary: "DST - Bad Sex", expected: "Bad Sex" },
   ])("Stuttgart: DST second pattern matches $name (#1208)", ({ summary, expected }) => {
     const patterns = [
-      /Hare:?\s+(.+?)(?:(?=[-–—]\s*\S)|\s*$)/i,
-      /^DST\s*#?\s*\d*\s*-\s*(.+)$/i,
+      /Hare:?\s+(.+?)(?:(?=[-–—]\s*\S)|\s*$)/i, // NOSONAR — non-greedy with bounded lookahead, test fixture
+      /^DST\s*#?\s*\d*\s*-\s*(.+)$/i, // NOSONAR — anchored, single capture, test fixture
     ];
     const result = buildRawEventFromGCalItem(
       testGCalEvent({
         summary,
         start: { dateTime: "2026-04-21T18:30:00+02:00" },
       }),
-      { defaultKennelTag: "sh3-de", kennelPatterns: [["^DST\\b", "dst-h3"]] },
+      { defaultKennelTag: "sh3-de", kennelPatterns: [[String.raw`^DST\b`, "dst-h3"]] },
       {
         compiledTitleHarePatterns: patterns,
         compiledKennelPatterns: [[/^DST\b/i, "dst-h3"] as const],
@@ -632,18 +632,18 @@ describe("titleHarePattern array — multi-pattern fallback (#1208/#1209/#1221)"
 
   it("Copenhagen: CH3 second pattern matches 'CH3 NNNN - Loc - Hare' (#1209/#1221)", () => {
     const patterns = [
-      /[.]\s*Hare:\s*(.+)$/i,
-      /^CH3\s+\d+\s+-\s+[^-]+\s+-\s+(.+)$/i,
+      /[.]\s*Hare:\s*(.+)$/i, // NOSONAR — anchored, single capture, test fixture
+      /^CH3\s+\d+\s+-\s+[^-]+\s+-\s+(.+)$/i, // NOSONAR — anchored, char-class delimited, test fixture
     ];
     const result = buildRawEventFromGCalItem(
       testGCalEvent({
         summary: "CH3 2730 - Nørreport St - Mr Petit",
         start: { dateTime: "2026-05-04T18:30:00+02:00" },
       }),
-      { defaultKennelTag: "ch3-dk", kennelPatterns: [["^CH3\\b|Copenhagen", "ch3-dk"]] },
+      { defaultKennelTag: "ch3-dk", kennelPatterns: [[String.raw`(?:^CH3\b|Copenhagen)`, "ch3-dk"]] },
       {
         compiledTitleHarePatterns: patterns,
-        compiledKennelPatterns: [[/^CH3\b|Copenhagen/i, "ch3-dk"] as const],
+        compiledKennelPatterns: [[/(?:^CH3\b|Copenhagen)/i, "ch3-dk"] as const],
       },
     );
     expect(result).not.toBeNull();
@@ -652,8 +652,8 @@ describe("titleHarePattern array — multi-pattern fallback (#1208/#1209/#1221)"
 
   it("Copenhagen: RDH3 first pattern still wins for legacy '. Hare:' titles", () => {
     const patterns = [
-      /[.]\s*Hare:\s*(.+)$/i,
-      /^CH3\s+\d+\s+-\s+[^-]+\s+-\s+(.+)$/i,
+      /[.]\s*Hare:\s*(.+)$/i, // NOSONAR — anchored, single capture, test fixture
+      /^CH3\s+\d+\s+-\s+[^-]+\s+-\s+(.+)$/i, // NOSONAR — anchored, char-class delimited, test fixture
     ];
     const result = buildRawEventFromGCalItem(
       testGCalEvent({
@@ -673,7 +673,7 @@ describe("titleHarePattern array — multi-pattern fallback (#1208/#1209/#1221)"
 
 describe("titleHarePattern trailing-dash strip on capture (#1210)", () => {
   it("strips trailing ' -' left by lazy `(.+?)` AH3 pattern", () => {
-    const re = /^(.+?)\s+-\s+AH3\s+#/i;
+    const re = /^(.+?)\s+-\s+AH3\s+#/i; // NOSONAR — non-greedy bounded by literal " - AH3 #", test fixture
     const result = buildRawEventFromGCalItem(
       testGCalEvent({
         summary: "Crusty Beaver and Pissfull Ignorinse - AH3 #2274",
@@ -697,8 +697,8 @@ describe("titleLocationPattern — capture address from title (#1222)", () => {
       }),
       { defaultKennelTag: "capital-h3-au" },
       {
-        compiledTitleHarePatterns: [/^(.+?)\s+\d+\s+[A-Z]/i],
-        compiledTitleLocationPatterns: [/(\d+\s+.+?)\.?\s*$/i],
+        compiledTitleHarePatterns: [/^(.+?)\s+\d+\s+[A-Z]/i], // NOSONAR — non-greedy bounded by digit run, test fixture
+        compiledTitleLocationPatterns: [/(\d+\s+.+?)\.?\s*$/i], // NOSONAR — non-greedy bounded by literal end, test fixture
       },
     );
     expect(result).not.toBeNull();
@@ -715,7 +715,7 @@ describe("titleLocationPattern — capture address from title (#1222)", () => {
       { defaultKennelTag: "capital-h3-au" },
       {
         // Capture group 1 is "venue TBC" — should be rejected by isPlaceholder.
-        compiledTitleLocationPatterns: [/\s+(venue\s+TBC)\s*$/i],
+        compiledTitleLocationPatterns: [/\s+(venue\s+TBC)\s*$/i], // NOSONAR — anchored, single capture, test fixture
       },
     );
     expect(result).not.toBeNull();
