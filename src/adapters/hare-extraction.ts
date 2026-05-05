@@ -61,9 +61,14 @@ const COHARE_COMMENTARY_RE = /\s*(?:could|need)\s+.*?co-?hares?\b.*$/i; // NOSON
 // (e.g. "Alice - Bob" — second hare survives the existing comma split).
 const TRAILING_LOWERCASE_COMMENTARY_RE = /\s+[-–—]\s+[a-z][^A-Z]*$/; // NOSONAR — anchored, single char class
 // Sibling Co-Hare label scan (#1212): when the primary `Hare:` capture
-// succeeded, also look for a separate `Co-Hare:` / `Co-Hares:` line in the
-// same description. Non-greedy until end of line.
+// succeeded, also look for separate `Co-Hare:` / `Co-Hares:` lines in the
+// same description. Both forms exposed: single-match (used internally as a
+// substring gate) and global-match (used by `mergeCoHareIfPresent` to
+// iterate every line via `matchAll`). Declared as literals so Codacy's
+// non-literal-RegExp rule (security/detect-non-literal-regexp) doesn't
+// flag the construction.
 const COHARE_LABEL_RE = /(?:^|\n)[ \t]*Co-?Hares?:[ \t]*([^\n]+)/im; // NOSONAR — anchored, capture is `[^\n]+` (no nesting)
+const COHARE_LABEL_GLOBAL_RE = /(?:^|\n)[ \t]*Co-?Hares?:[ \t]*([^\n]+)/gim; // NOSONAR — same shape, global flag for matchAll
 // Pre-normalize: rejoin lines where HTML stripping split a label from its colon
 // e.g., "<b>WHO (hares)</b>: Name" → after stripHtmlTags → "WHO (hares)\n: Name"
 const LABEL_COLON_REJOIN_RE = /(\b(?:Who|Hares?)\s*\(?[^)]*\)?)\s*\n\s*:/gim; // NOSONAR — bounded by literal `\n` and char classes; capture is `[^)]*` (no nesting)
@@ -190,10 +195,6 @@ function tokensFullyContained(a: string, b: string): boolean {
   const aTokens = new Set(a.toLowerCase().split(/[\s,]+/).filter(Boolean));
   return b.toLowerCase().split(/[\s,]+/).filter(Boolean).every((t) => aTokens.has(t));
 }
-
-/** Global form so `matchAll` can capture every `Co-Hare:` / `Co-Hares:` line
- *  on descriptions that list multiple co-hares on separate lines. */
-const COHARE_LABEL_GLOBAL_RE = new RegExp(COHARE_LABEL_RE.source, "gim"); // NOSONAR — reuses anchored source
 
 /** Append every sibling `Co-Hare:` / `Co-Hares:` capture to the primary hare
  *  string. Gated on a cheap substring check so consumers without Co-Hare
