@@ -1938,70 +1938,26 @@ describe("rewriteStaleDefaultTitle", () => {
   // the kennelCode-prefixed `"bristol-grey Trail"` rewrite to the same form.
   describe("Bristol GREY canonical title", () => {
     const greyAliases = ["Bristol Greyhound Hash", "Greyhound Hash", "GREY"];
+    const rewriteGrey = (title: string) =>
+      rewriteStaleDefaultTitle(title, "bristol-grey", "GREY", "Bristol Greyhound Hash House Harriers", greyAliases);
 
     it("expands GREY/bristol-grey to 'Bristol Greyhound H3' via friendlyKennelName", () => {
-      expect(
-        friendlyKennelName("GREY", "Bristol Greyhound Hash House Harriers"),
-      ).toBe("Bristol Greyhound H3");
+      expect(friendlyKennelName("GREY", "Bristol Greyhound Hash House Harriers"))
+        .toBe("Bristol Greyhound H3");
     });
 
-    it("rewrites legacy 'GREY Trail' alias-prefixed title to canonical form", () => {
-      expect(
-        rewriteStaleDefaultTitle(
-          "GREY Trail",
-          "bristol-grey",
-          "GREY",
-          "Bristol Greyhound Hash House Harriers",
-          greyAliases,
-        ),
-      ).toBe("Bristol Greyhound H3 Trail");
-    });
-
-    it("rewrites kennelCode-prefixed 'bristol-grey Trail' to canonical form", () => {
-      expect(
-        rewriteStaleDefaultTitle(
-          "bristol-grey Trail",
-          "bristol-grey",
-          "GREY",
-          "Bristol Greyhound Hash House Harriers",
-          greyAliases,
-        ),
-      ).toBe("Bristol Greyhound H3 Trail");
-    });
-
-    it("preserves the run-number suffix when rewriting", () => {
-      expect(
-        rewriteStaleDefaultTitle(
-          "GREY Trail #42",
-          "bristol-grey",
-          "GREY",
-          "Bristol Greyhound Hash House Harriers",
-          greyAliases,
-        ),
-      ).toBe("Bristol Greyhound H3 Trail #42");
-    });
-
-    it("does not rewrite a real (non-default) GREY event title", () => {
-      expect(
-        rewriteStaleDefaultTitle(
-          "Le Caniveau's Birthday Hash",
-          "bristol-grey",
-          "GREY",
-          "Bristol Greyhound Hash House Harriers",
-          greyAliases,
-        ),
-      ).toBe("Le Caniveau's Birthday Hash");
+    it.each([
+      ["alias-prefixed default title", "GREY Trail", "Bristol Greyhound H3 Trail"],
+      ["kennelCode-prefixed default title", "bristol-grey Trail", "Bristol Greyhound H3 Trail"],
+      ["alias-prefixed default title with run number", "GREY Trail #42", "Bristol Greyhound H3 Trail #42"],
+      ["non-default real title (left alone)", "Le Caniveau's Birthday Hash", "Le Caniveau's Birthday Hash"],
+    ])("rewrites %s", (_label, input, expected) => {
+      expect(rewriteGrey(input)).toBe(expected);
     });
 
     it("regression — kwh3 still rewrites correctly (no drift)", () => {
-      expect(
-        rewriteStaleDefaultTitle(
-          "KWH3 Trail",
-          "kwh3",
-          "Key West H3",
-          "Key West Hash House Harriers",
-        ),
-      ).toBe("Key West H3 Trail");
+      expect(rewriteStaleDefaultTitle("KWH3 Trail", "kwh3", "Key West H3", "Key West Hash House Harriers"))
+        .toBe("Key West H3 Trail");
     });
   });
 });

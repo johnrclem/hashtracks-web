@@ -310,85 +310,60 @@ describe("parseEventRow", () => {
     const buildRow = (locationCell: string) =>
       `<table><tr><td>05/05/26</td><td>${locationCell}</td></tr></table>`;
 
-    it.each([
-      ["Contact Le Caniveau to set this run."],
-      ["Contact Le Caniveau to set this run"],
-      ["T.B.A."],
-      ["T.B.A"],
-      ["TBA"],
-      ["tbd"],
-      ["Hare wanted."],
-      ["Hare wanted"],
-      ["Hare needed!"],
-      ["Sign up to hare!"],
-      ["sign up to hare"],
-    ])("drops placeholder location %s", (placeholder) => {
-      const $row = cheerio.load(buildRow(placeholder));
-      const event = parseEventRow(
+    function parseLocation(
+      cell: string,
+      configOverride: Partial<GenericHtmlConfig> = {},
+    ): string | undefined {
+      const $row = cheerio.load(buildRow(cell));
+      return parseEventRow(
         $row,
         $row("tr").first(),
-        { ...baseOmit, locationOmitIfMatches: BRISTOL_PATTERNS },
+        { ...baseOmit, locationOmitIfMatches: BRISTOL_PATTERNS, ...configOverride },
         "https://example.com",
-      );
-      expect(event?.location).toBeUndefined();
+      )?.location;
+    }
+
+    it.each([
+      "Contact Le Caniveau to set this run.",
+      "Contact Le Caniveau to set this run",
+      "T.B.A.",
+      "T.B.A",
+      "TBA",
+      "tbd",
+      "Hare wanted.",
+      "Hare wanted",
+      "Hare needed!",
+      "Sign up to hare!",
+      "sign up to hare",
+    ])("drops placeholder location %s", (placeholder) => {
+      expect(parseLocation(placeholder)).toBeUndefined();
     });
 
     it("preserves real venue strings", () => {
-      const $row = cheerio.load(
-        buildRow("The Queen's Head, 12 Moor Street, Chepstow NP16 5DD"),
-      );
-      const event = parseEventRow(
-        $row,
-        $row("tr").first(),
-        { ...baseOmit, locationOmitIfMatches: BRISTOL_PATTERNS },
-        "https://example.com",
-      );
-      expect(event?.location).toBe("The Queen's Head, 12 Moor Street, Chepstow NP16 5DD");
+      expect(parseLocation("The Queen's Head, 12 Moor Street, Chepstow NP16 5DD"))
+        .toBe("The Queen's Head, 12 Moor Street, Chepstow NP16 5DD");
     });
 
-    it("is a no-op when locationOmitIfMatches is undefined", () => {
-      const $row = cheerio.load(buildRow("T.B.A."));
-      const event = parseEventRow($row, $row("tr").first(), baseOmit, "https://example.com");
-      expect(event?.location).toBe("T.B.A.");
-    });
-
-    it("is a no-op when locationOmitIfMatches is empty", () => {
-      const $row = cheerio.load(buildRow("T.B.A."));
-      const event = parseEventRow(
-        $row,
-        $row("tr").first(),
-        { ...baseOmit, locationOmitIfMatches: [] },
-        "https://example.com",
-      );
-      expect(event?.location).toBe("T.B.A.");
+    it.each([
+      ["undefined patterns", { locationOmitIfMatches: undefined }],
+      ["empty patterns", { locationOmitIfMatches: [] }],
+    ])("is a no-op when patterns are %s", (_label, override) => {
+      expect(parseLocation("T.B.A.", override)).toBe("T.B.A.");
     });
 
     it("skips invalid regex entries without crashing", () => {
-      const $row = cheerio.load(buildRow("T.B.A."));
-      const event = parseEventRow(
-        $row,
-        $row("tr").first(),
-        { ...baseOmit, locationOmitIfMatches: ["[invalid(", String.raw`^t\.?b\.?[ad]\.?$`] },
-        "https://example.com",
-      );
-      expect(event?.location).toBeUndefined();
+      expect(
+        parseLocation("T.B.A.", {
+          locationOmitIfMatches: ["[invalid(", String.raw`^t\.?b\.?[ad]\.?$`],
+        }),
+      ).toBeUndefined();
     });
 
-    it("runs after locationTruncateAfter (truncated result still matched)", () => {
-      const $row = cheerio.load(buildRow("T.B.A. AB1 2CD extra context"));
+    it("runs after locationTruncateAfter — truncated result no longer matches", () => {
       // After uk-postcode truncation: "T.B.A. AB1 2CD" — does NOT match `^t.b.a$`,
-      // so location is preserved (regression-locks ordering: truncate first, then omit).
-      const event = parseEventRow(
-        $row,
-        $row("tr").first(),
-        {
-          ...baseOmit,
-          locationTruncateAfter: "uk-postcode",
-          locationOmitIfMatches: BRISTOL_PATTERNS,
-        },
-        "https://example.com",
-      );
-      expect(event?.location).toBe("T.B.A. AB1 2CD");
+      // so location is preserved. Regression-locks ordering: truncate first, then omit.
+      expect(parseLocation("T.B.A. AB1 2CD extra context", { locationTruncateAfter: "uk-postcode" }))
+        .toBe("T.B.A. AB1 2CD");
     });
   });
 

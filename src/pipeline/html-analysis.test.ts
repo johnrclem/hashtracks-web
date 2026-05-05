@@ -107,88 +107,39 @@ describe("parseGeminiResponse", () => {
 
   // ── locationOmitIfMatches sanitization (#1183) ──
 
-  it("extracts safe locationOmitIfMatches when AI returns it", () => {
-    const response = JSON.stringify({
-      columns: { date: "td:nth-child(1)" },
-      defaultKennelTag: "X",
-      dateLocale: "en-GB",
-      locationOmitIfMatches: [
-        String.raw`^t\.?b\.?[ad]\.?$`,
-        String.raw`^hare\s+wanted\.?$`,
-      ],
-      confidence: "high",
-      explanation: "ok",
-    });
-    const result = parseGeminiResponse(response);
-    expect(result?.locationOmitIfMatches).toEqual([
-      String.raw`^t\.?b\.?[ad]\.?$`,
-      String.raw`^hare\s+wanted\.?$`,
-    ]);
-  });
+  // ── locationOmitIfMatches sanitization ──
+  describe("parseGeminiResponse locationOmitIfMatches", () => {
+    const TBA = String.raw`^t\.?b\.?[ad]\.?$`;
+    const HARE = String.raw`^hare\s+wanted\.?$`;
 
-  it("drops too-broad universal patterns from locationOmitIfMatches", () => {
-    const response = JSON.stringify({
-      columns: { date: "td:nth-child(1)" },
-      defaultKennelTag: "X",
-      dateLocale: "en-US",
-      locationOmitIfMatches: ["^.*$", ".*", "^.+$", String.raw`^t\.?b\.?[ad]\.?$`],
-      confidence: "high",
-      explanation: "ok",
-    });
-    const result = parseGeminiResponse(response);
-    expect(result?.locationOmitIfMatches).toEqual([String.raw`^t\.?b\.?[ad]\.?$`]);
-  });
+    function buildResponse(locationOmitIfMatches?: unknown): string {
+      const body: Record<string, unknown> = {
+        columns: { date: "td:nth-child(1)" },
+        defaultKennelTag: "X",
+        dateLocale: "en-US",
+        confidence: "high",
+        explanation: "ok",
+      };
+      if (locationOmitIfMatches !== undefined) body.locationOmitIfMatches = locationOmitIfMatches;
+      return JSON.stringify(body);
+    }
 
-  it("drops ReDoS-unsafe entries from locationOmitIfMatches but keeps safe ones", () => {
-    const response = JSON.stringify({
-      columns: { date: "td:nth-child(1)" },
-      defaultKennelTag: "X",
-      dateLocale: "en-US",
-      locationOmitIfMatches: ["(a+a+)+$", String.raw`^t\.?b\.?[ad]\.?$`, "[broken("],
-      confidence: "high",
-      explanation: "ok",
+    it.each<[string, unknown, string[] | undefined]>([
+      ["accepts safe entries", [TBA, HARE], [TBA, HARE]],
+      ["drops too-broad universal patterns", ["^.*$", ".*", "^.+$", TBA], [TBA]],
+      ["drops ReDoS-unsafe entries", ["(a+a+)+$", TBA, "[broken("], [TBA]],
+      ["omits when every entry is unsafe", ["(a+a+)+$", "[broken(", 42], undefined],
+      ["omits when key absent", undefined, undefined],
+    ])("%s", (_label, input, expected) => {
+      const result = parseGeminiResponse(buildResponse(input));
+      expect(result?.locationOmitIfMatches).toEqual(expected);
     });
-    const result = parseGeminiResponse(response);
-    expect(result?.locationOmitIfMatches).toEqual([String.raw`^t\.?b\.?[ad]\.?$`]);
-  });
 
-  it("caps locationOmitIfMatches at 10 entries", () => {
-    const tooMany = Array.from({ length: 25 }, (_, i) => `^placeholder${i}$`);
-    const response = JSON.stringify({
-      columns: { date: "td:nth-child(1)" },
-      defaultKennelTag: "X",
-      dateLocale: "en-US",
-      locationOmitIfMatches: tooMany,
-      confidence: "high",
-      explanation: "ok",
+    it("caps at 10 entries", () => {
+      const tooMany = Array.from({ length: 25 }, (_, i) => `^placeholder${i}$`);
+      const result = parseGeminiResponse(buildResponse(tooMany));
+      expect(result?.locationOmitIfMatches).toHaveLength(10);
     });
-    const result = parseGeminiResponse(response);
-    expect(result?.locationOmitIfMatches).toHaveLength(10);
-  });
-
-  it("omits locationOmitIfMatches from result when AI does not include it", () => {
-    const response = JSON.stringify({
-      columns: { date: "td:nth-child(1)" },
-      defaultKennelTag: "X",
-      dateLocale: "en-US",
-      confidence: "high",
-      explanation: "ok",
-    });
-    const result = parseGeminiResponse(response);
-    expect(result?.locationOmitIfMatches).toBeUndefined();
-  });
-
-  it("omits locationOmitIfMatches when every AI entry is unsafe", () => {
-    const response = JSON.stringify({
-      columns: { date: "td:nth-child(1)" },
-      defaultKennelTag: "X",
-      dateLocale: "en-US",
-      locationOmitIfMatches: ["(a+a+)+$", "[broken(", 42],
-      confidence: "high",
-      explanation: "ok",
-    });
-    const result = parseGeminiResponse(response);
-    expect(result?.locationOmitIfMatches).toBeUndefined();
   });
 });
 
