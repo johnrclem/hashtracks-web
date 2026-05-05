@@ -41,7 +41,7 @@ const TITLE_RUN_NUMBER_RE = /Run\s*#\s*(\d+)/i;
 // Match the date trailer in two passes (split to keep regex complexity
 // under Sonar S5843's threshold of 20): first locate the run-number prefix
 // + optional separator, then capture the date token from what follows.
-const TITLE_RUN_PREFIX_RE = /Run\s*#\s*\d+\s*[,:\-]?\s*/i;
+const TITLE_RUN_PREFIX_RE = /Run\s*#\s*\d+\s*[,:-]?\s*/i;
 const TITLE_DATE_TOKEN_RE = /^(\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+(?:\s+\d{4})?)/;
 
 /**
