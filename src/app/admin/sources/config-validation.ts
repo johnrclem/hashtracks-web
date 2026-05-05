@@ -117,9 +117,9 @@ function validateKennelPatterns(type: string, obj: Record<string, unknown>, erro
  * pattern arrays (skip/hare/runNumber/cost) operate as substring matchers
  * over multi-line text where broad anchors are sometimes legitimate.
  */
-function isPatternTooBroad(pattern: string): boolean {
+export function isPatternTooBroad(pattern: string): boolean {
   try {
-    // nosemgrep: detect-non-literal-regexp — pattern already passed isSafeRegex above
+    // nosemgrep: detect-non-literal-regexp — intentional: validating user/AI-supplied regex, protected by isSafeRegex()
     const re = new RegExp(pattern, "i"); // NOSONAR
     return re.test("") || re.test(" ");
   } catch {

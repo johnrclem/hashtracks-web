@@ -29,9 +29,9 @@ export function isDefaultTitleShape(title: string, identifiers: string[]): boole
   for (const id of identifiers) {
     if (!id) continue;
     const escaped = id.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
-    if (new RegExp(String.raw`^${escaped}\s+Trail(?:\s+#\d+)?$`, "i").test(trimmed)) {
-      return true;
-    }
+    // nosemgrep: detect-non-literal-regexp — kennel identifier is metachar-escaped above
+    const re = new RegExp(String.raw`^${escaped}\s+Trail(?:\s+#\d+)?$`, "i"); // NOSONAR
+    if (re.test(trimmed)) return true;
   }
   return false;
 }
@@ -65,7 +65,7 @@ async function main() {
     });
 
     const aliases = k.aliases.map((a) => a.alias);
-    const identifiers = [k.kennelCode, k.shortName, ...aliases].filter(Boolean);
+    const identifiers = [...new Set([k.kennelCode, k.shortName, ...aliases])].filter(Boolean);
     const stale: { id: string; oldTitle: string; newTitle: string }[] = [];
     for (const ev of events) {
       if (!ev.title) continue;

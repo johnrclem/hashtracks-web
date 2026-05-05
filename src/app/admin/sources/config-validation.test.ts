@@ -361,7 +361,7 @@ describe("validateSourceConfig", () => {
       [["^.*$"], "universal anchored"],
       [[".*"], "universal unanchored"],
       [["^.+$"], "any-non-empty"],
-      [["^\\s*$"], "whitespace-only"],
+      [[String.raw`^\s*$`], "whitespace-only"],
     ])("rejects too-broad locationOmitIfMatches pattern (%s)", (patterns, _label) => {
       const errors = validateSourceConfig("HTML_SCRAPER", {
         ...baseHtmlConfig,

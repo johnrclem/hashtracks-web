@@ -12,26 +12,10 @@ import {
 } from "@/adapters/html-scraper/examples";
 import he from "he";
 import type { GenericHtmlConfig, GenericHtmlColumns } from "@/adapters/html-scraper/generic";
-import { isSafeRegexString } from "@/app/admin/sources/config-validation";
+import { isPatternTooBroad, isSafeRegexString } from "@/app/admin/sources/config-validation";
 
 /** Cap AI-suggested regex arrays to bound prompt-injection blast radius. */
 const MAX_LOCATION_OMIT_PATTERNS = 10;
-
-/**
- * Reject regexes that match the empty string or a single space — those are
- * the universal patterns (`^.*$`, `^.+$`, `.*` unanchored, etc.) that would
- * blank out every location cell from a source. Real placeholder strings
- * always contain literal text.
- */
-function isLocationOmitPatternTooBroad(pattern: string): boolean {
-  try {
-    // nosemgrep: detect-non-literal-regexp — pattern already passed isSafeRegexString upstream
-    const re = new RegExp(pattern, "i");
-    return re.test("") || re.test(" ");
-  } catch {
-    return true;
-  }
-}
 
 /** Filter an AI-supplied regex list to safe entries; returns undefined if empty. */
 function sanitizeLocationOmitPatterns(value: unknown): string[] | undefined {
@@ -39,7 +23,7 @@ function sanitizeLocationOmitPatterns(value: unknown): string[] | undefined {
   const safe = value
     .filter((e): e is string => typeof e === "string")
     .map((s) => s.trim())
-    .filter((s) => s && isSafeRegexString(s) && !isLocationOmitPatternTooBroad(s))
+    .filter((s) => s && isSafeRegexString(s) && !isPatternTooBroad(s))
     .slice(0, MAX_LOCATION_OMIT_PATTERNS);
   return safe.length ? safe : undefined;
 }
