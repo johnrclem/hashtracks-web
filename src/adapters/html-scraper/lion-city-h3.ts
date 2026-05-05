@@ -47,6 +47,39 @@ interface ParsedBody {
   hares?: string;
   location?: string;
   onAfter?: string;
+  themeTitle?: string;
+}
+
+/**
+ * Extract a themed run title from the post body — Lion City posts often
+ * surface a thematic name in straight or curly quotes, e.g.
+ *   Date: Friday, 03 April, 6 pm sharp. "Thank God it is Good Friday"
+ *
+ * Returns the first quoted string of length 4–80 chars whose content has
+ * no `:` (to skip "MRT:" / "Bus:" prefixed captions). Returns undefined
+ * when no themed line is present so callers fall back to the generic
+ * "Hash Run #N" title. (#1168)
+ */
+export function extractThemedTitle(text: string): string | undefined {
+  // Match an open quote (straight or curly) followed by 4-80 chars of
+  // anything-but-quote, then a close quote. Curly quotes are U+201C/D.
+  const m = /["“”]([^"“”]{4,80})["“”]/.exec(text);
+  if (!m) return undefined;
+  const value = m[1].trim();
+  if (!value || value.includes(":")) return undefined;
+  return value;
+}
+
+/**
+ * Truncate a Lion City location string at trailing nav-instruction blocks.
+ * Production posts often inline advisory text after the location, e.g.
+ *   "corner of Christian Cemetery Path 6 and 7. Note: Don't use Google Directions..."
+ * The advisory is for hasher convenience but pollutes the geocoder input
+ * and the user-facing locationName. Truncate at the first `. Note:` /
+ * `. NB:` / `. Tip:` boundary. (#1169)
+ */
+export function trimLocationNavText(location: string): string {
+  return location.split(/\.\s*(?:Note|N\.?B\.?|Tip)\b/i)[0].trim();
 }
 
 /**
@@ -99,12 +132,15 @@ export function parseLionCityBody(html: string, referenceDate: Date): ParsedBody
 
   // Run Location: handles "Map – Run Location:", "Map - Run Location:", "Run Location:"
   const locMatch = /(?:Map\s*[–-]\s*)?Run\s*Location:\s*([^\n]+?)(?:\n|$)/i.exec(cleaned);
-  if (locMatch) result.location = locMatch[1].trim();
+  if (locMatch) result.location = trimLocationNavText(locMatch[1].trim()) || undefined;
 
   // On On: handles "Map – O n On:" (spaces, common WordPress artifact),
   // "Map - On On:", "On On:", "On-On:"
   const onOnMatch = /(?:Map\s*[–-]\s*)?O\s*n\s*[-–]?\s*On:\s*([^\n]+?)(?:\n|$)/i.exec(cleaned);
   if (onOnMatch) result.onAfter = onOnMatch[1].trim();
+
+  // Themed title in body quotes — surfaces e.g. "Thank God it is Good Friday".
+  result.themeTitle = extractThemedTitle(cleaned);
 
   return result;
 }
@@ -137,12 +173,15 @@ export function buildLionCityEvent(
   if (!parsedBody.date) return null;
   // RawEventData doesn't have an on-after field; surface it in description.
   const description = parsedBody.onAfter ? `On-On: ${parsedBody.onAfter}` : undefined;
+  // Prefer the themed title from the post body when present; fall back to
+  // the generic "Hash Run #N" derived from the post title. (#1168)
+  const finalTitle = parsedBody.themeTitle ?? parsedTitle.title;
   return {
     date: parsedBody.date,
     startTime: parsedBody.startTime,
     kennelTags: [KENNEL_TAG],
     runNumber: parsedTitle.runNumber,
-    title: parsedTitle.title,
+    title: finalTitle,
     description,
     hares: parsedBody.hares,
     location: parsedBody.location,

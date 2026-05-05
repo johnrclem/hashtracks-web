@@ -19,6 +19,23 @@ describe("cleanKljTitle", () => {
   it("leaves titles without a run prefix alone", () => {
     expect(cleanKljTitle("Welcome to KLJ H3")).toBe("Welcome to KLJ H3");
   });
+  it("synthesizes 'Run #N' when trailer is just '@ <venue>' (#1213)", () => {
+    expect(cleanKljTitle("Run # 526, 7th June @ Nambee estate, near Rasa")).toBe(
+      "Run #526",
+    );
+  });
+  it("synthesizes 'Run #N' when trailer is just a venue (no @ separator) (#1213)", () => {
+    expect(cleanKljTitle("Run # 527, 5th July near KL")).toBe("Run #527");
+  });
+  it("synthesizes 'Run #N' when title is bare run number without trailer (#1213)", () => {
+    expect(cleanKljTitle("Run # 528")).toBe("Run #528");
+  });
+  it("preserves themed titles that legitimately start with 'near' (PR #1236 review)", () => {
+    // "near" alone isn't a venue marker — only "near <CapitalizedPlace>" is.
+    expect(cleanKljTitle("Run # 530, 6th October – Near Death Experience")).toBe(
+      "Near Death Experience",
+    );
+  });
 });
 
 describe("parseKljTitleDate", () => {
@@ -65,6 +82,28 @@ describe("parseKljBody", () => {
     expect(parsed.runSite).toBeUndefined();
     expect(parsed.hares).toBeUndefined();
     expect(parsed.date).toBe("2026-11-01");
+  });
+
+  it("strips leading 'probably' qualifier from runSite + flags as tentative (#1213)", () => {
+    const html = `<p>Run-site: probably Nambee estate</p>
+<p>Date: Sunday 1st November, 2026</p>`;
+    const parsed = parseKljBody(html);
+    expect(parsed.runSite).toBe("Nambee estate");
+    expect(parsed.runSiteTentative).toBe(true);
+  });
+
+  it("does not flag tentative when runSite has no 'probably' prefix", () => {
+    const html = `<p>Run-site: Nambee estate</p>
+<p>Date: Sunday 1st November, 2026</p>`;
+    const parsed = parseKljBody(html);
+    expect(parsed.runSite).toBe("Nambee estate");
+    expect(parsed.runSiteTentative).toBe(false);
+  });
+
+  it("leaves runSiteTentative undefined when runSite is missing", () => {
+    const parsed = parseKljBody(`<p>Date: Sunday 1st November, 2026</p>`);
+    expect(parsed.runSite).toBeUndefined();
+    expect(parsed.runSiteTentative).toBeUndefined();
   });
 
   it("handles empty body", () => {

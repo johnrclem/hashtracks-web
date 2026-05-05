@@ -38,8 +38,11 @@ import {
 const KENNEL_TAG = "kljhhh";
 const DEFAULT_START_TIME = "14:00"; // 2:00 PM, first Sunday monthly
 const TITLE_RUN_NUMBER_RE = /Run\s*#\s*(\d+)/i;
-const TITLE_DATE_RE =
-  /Run\s*#\s*\d+\s*[,:\-]?\s*([0-9]{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+(?:\s+\d{4})?)/i;
+// Match the date trailer in two passes (split to keep regex complexity
+// under Sonar S5843's threshold of 20): first locate the run-number prefix
+// + optional separator, then capture the date token from what follows.
+const TITLE_RUN_PREFIX_RE = /Run\s*#\s*\d+\s*[,:-]?\s*/i;
+const TITLE_DATE_TOKEN_RE = /^(\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+(?:\s+\d{4})?)/;
 
 /**
  * Extract labeled fields from an HTML post body.
@@ -54,6 +57,7 @@ const TITLE_DATE_RE =
 export function parseKljBody(bodyHtml: string): {
   date?: string;
   runSite?: string;
+  runSiteTentative?: boolean;
   travelTime?: string;
   hares?: string;
   coHares?: string;
@@ -74,7 +78,14 @@ export function parseKljBody(bodyHtml: string): {
     return value;
   };
 
-  const runSite = grab("Run[- ]?site");
+  // Strip a leading "probably " qualifier — KLJ posts use it to mark a
+  // tentative venue choice; the qualifier belongs in description, not in
+  // the location field that drives geocoding. We surface a separate
+  // `runSiteTentative` flag so parseKljPost can preserve the source's
+  // hedge in the description (#1213, PR #1236 review).
+  const runSiteRaw = grab("Run[- ]?site");
+  const runSiteTentative = runSiteRaw ? /^probably\s+/i.test(runSiteRaw) : undefined;
+  const runSite = runSiteRaw?.replace(/^probably\s+/i, "").trim() || undefined;
   const travelTime = grab("Travel\\s*Time");
   const dateRaw = grab("Date");
   const hares = grab("Hares?");
@@ -94,7 +105,16 @@ export function parseKljBody(bodyHtml: string): {
     startTime = parse12HourTime(normalized);
   }
 
-  return { date, runSite, travelTime, hares, coHares, startTime, registration };
+  return {
+    date,
+    runSite,
+    runSiteTentative,
+    travelTime,
+    hares,
+    coHares,
+    startTime,
+    registration,
+  };
 }
 
 /**
@@ -102,31 +122,58 @@ export function parseKljBody(bodyHtml: string): {
  * post's publish year as reference. Exported for unit testing.
  */
 export function parseKljTitleDate(title: string, publishDateIso: string): string | null {
-  const m = TITLE_DATE_RE.exec(title);
-  if (!m) return null;
+  // Two-pass split (per Sonar S5843): peel the "Run # N <sep>" prefix,
+  // then look for the date token at the start of what's left.
+  const prefixMatch = TITLE_RUN_PREFIX_RE.exec(title);
+  if (!prefixMatch) return null;
+  const trailer = title.slice(prefixMatch.index + prefixMatch[0].length);
+  const dateMatch = TITLE_DATE_TOKEN_RE.exec(trailer);
+  if (!dateMatch) return null;
   // Use the post's publish date as the chrono reference, with forwardDate so
   // year-less dates ("1st November") resolve to the *next* occurrence after
   // the post was published — KLJ posts are always published ahead of the
   // run they announce.
   const refDate = new Date(publishDateIso);
-  return chronoParseDate(m[1], "en-GB", refDate, { forwardDate: true });
+  return chronoParseDate(dateMatch[1], "en-GB", refDate, { forwardDate: true });
 }
 
 /**
- * Strip the "Run # N, <date> – " prefix from a post title, leaving just
+ * Strip the "Run # N, <date> ..." prefix from a post title, leaving just
  * the themed title (e.g. "Halloween @ TBD", "Christmas Party"). Also
  * decodes HTML entities left by WordPress (–, &amp;, …).
+ *
+ * When the post-date trailer is purely a venue (e.g.
+ * "Run # 526, 7th June @ Nambee estate, near Rasa") with no themed-event
+ * content, synthesize a clean "Run #N" string — the venue is already
+ * stored separately in `RawEventData.location`. (#1213)
  *
  * Exported for unit testing.
  */
 export function cleanKljTitle(title: string): string {
   const decoded = decodeEntities(title);
   const withoutTags = decoded.replace(/<[^>]+>/g, "").trim();
-  // Drop "Run # 532, 6th December 2026 - " / "Run # 524, 5th April – "
-  const m = /^Run\s*#\s*\d+\s*[,:\-]?\s*[0-9]{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+(?:\s+\d{4})?\s*[–\-]\s*(.+)$/i
-    .exec(withoutTags);
-  if (m) return m[1].trim();
-  return withoutTags;
+  const runMatch = /^Run\s*#\s*(\d+)/i.exec(withoutTags);
+  if (!runMatch) return withoutTags;
+  const runNum = runMatch[1];
+
+  let rest = withoutTags.slice(runMatch[0].length).trim();
+  // Drop the leading separator after the run number ("Run # 532, …").
+  rest = rest.replace(/^[,:\-–—]\s*/, "");
+  // Drop the date token ("6th December 2026 ", "1st November ").
+  rest = rest.replace(/^\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+(?:\s+\d{4})?\s*/, "");
+  // Drop the dash separator between date and themed title ("– Christmas Party").
+  rest = rest.replace(/^[–\-—:]\s*/, "");
+
+  // Empty trailer or one that opens with a venue marker ("@ …", ", …",
+  // "near <Place>") means the post title carries no themed name —
+  // synthesize a stable "Run #N" instead of leaving date + venue in the
+  // title. The "near" branch requires a following capitalized word so a
+  // legitimate themed title like "Near Death Experience" isn't rewritten
+  // (PR #1236 review).
+  if (!rest || /^[@,]\s/.test(rest) || /^near\s+[A-Z][a-zA-Z]+/.test(rest)) {
+    return `Run #${runNum}`;
+  }
+  return rest;
 }
 
 /**
@@ -166,9 +213,19 @@ export function parseKljPost(post: KljPostInput): ParseKljPostResult {
   if (!date) return { ok: false, reason: "no-date", title: rawTitle };
 
   const title = cleanKljTitle(rawTitle) || undefined;
-  const description = body.registration
-    ? `Registration: ${body.registration}`
-    : undefined;
+  // Combine the source's "probably <venue>" hedge (stripped from the
+  // location field for clean geocoding — see parseKljBody) with the
+  // registration line so neither signal is lost downstream. Sorted in
+  // a stable order so the merge fingerprint doesn't churn (#1213 +
+  // PR #1236 review).
+  const descriptionParts: string[] = [];
+  if (body.runSiteTentative && body.runSite) {
+    descriptionParts.push(`Run-site: probably ${body.runSite}`);
+  }
+  if (body.registration) {
+    descriptionParts.push(`Registration: ${body.registration}`);
+  }
+  const description = descriptionParts.length > 0 ? descriptionParts.join("\n") : undefined;
 
   // Merge hares + coHares into a single normalized field so the
   // fingerprint is stable across scrapes regardless of WP post-body

@@ -16,20 +16,20 @@ describe("gold-coast-h3 parseGoldCoastDate", () => {
 });
 
 describe("gold-coast-h3 parseGoldCoastRow", () => {
-  it("parses a full row", () => {
-    const e = parseGoldCoastRow(["April 13 2026", "2500", "Hierarchy", "Special Event"], URL);
+  it("parses a full row and synthesizes title with theme suffix (#1225)", () => {
+    const e = parseGoldCoastRow(["April 13 2026", "2500", "Hierarchy", "Birthday"], URL);
     expect(e).not.toBeNull();
     expect(e!.date).toBe("2026-04-13");
     expect(e!.runNumber).toBe(2500);
     expect(e!.kennelTags[0]).toBe("gch3-au");
     expect(e!.hares).toBe("Hierarchy");
-    expect(e!.title).toBe("Special Event");
+    expect(e!.title).toBe("Gold Coast H3 Run #2500 — Birthday");
   });
 
-  it("parses a row with no theme", () => {
+  it("synthesizes plain 'Run #N' title when theme column is empty (#1225)", () => {
     const e = parseGoldCoastRow(["April 20 2026", "2501", "Rug", ""], URL);
     expect(e).not.toBeNull();
-    expect(e!.title).toBeUndefined();
+    expect(e!.title).toBe("Gold Coast H3 Run #2501");
   });
 
   it("returns null on header row", () => {

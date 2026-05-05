@@ -2836,6 +2836,36 @@ export const SOURCES = [
       config: {
         cityNames: "Tokyo",
         defaultKennelTag: "tokyo-h3",
+        // Tokyo H3 enters trail names in HC's eventName field as the
+        // neighborhood/station nearest the meeting point — not a real trail
+        // name. Substitute the synthesized "Tokyo H3 Trail #N" for the
+        // observed placeholder strings. Extend this list when new
+        // neighborhood-only titles surface in scrapes. (#1166)
+        defaultTitle: "Tokyo H3 Trail",
+        staleTitleAliases: [
+          "Akabane",
+          "Akihabara",
+          "Asakusa",
+          "Ebisu",
+          "Ginza",
+          "Ikebukuro",
+          "Iidabashi",
+          "Kanda",
+          "Meguro",
+          "Nakameguro",
+          "Nishiogikubo",
+          "Roppongi",
+          "Shibuya",
+          "Shimbashi",
+          "Shinagawa",
+          "Shinjuku",
+          "Suidobashi",
+          "Takadanobaba",
+          "Takadanobanba",
+          "Tokyo",
+          "Ueno",
+          "Yotsuya",
+        ],
       },
       kennelCodes: ["tokyo-h3"],
     },
@@ -3834,6 +3864,11 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 180,
+      // TablePress hareline strips past rows automatically (see comment in
+      // src/adapters/html-scraper/gold-coast-h3.ts:14-16). Without
+      // upcomingOnly, the reconcile step cancels live past events the
+      // moment they age out of the future-only table. (#1229)
+      config: { upcomingOnly: true },
       kennelCodes: ["gch3-au"],
     },
     {
