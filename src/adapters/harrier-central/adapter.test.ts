@@ -118,6 +118,34 @@ describe("composeHcLocation", () => {
     ).toBe("Shibuya, Tokyo");
   });
 
+  it("does not double-append for multi-word cities (Hong Kong, Kuala Lumpur, New York)", () => {
+    // Token-only checks would miss multi-word cities — the contiguous-
+    // subsequence walk catches "Hong Kong" inside "Wan Chai, Hong Kong".
+    expect(
+      composeHcLocation(
+        "Wan Chai, Hong Kong",
+        "Wan Chai, Hong Kong",
+        "Hong Kong, China",
+      ),
+    ).toBe("Wan Chai, Hong Kong");
+    expect(
+      composeHcLocation(
+        "Mid Valley, Kuala Lumpur",
+        "Mid Valley, Kuala Lumpur",
+        "Kuala Lumpur, Malaysia",
+      ),
+    ).toBe("Mid Valley, Kuala Lumpur");
+    expect(
+      composeHcLocation("Brooklyn, New York", "Brooklyn, New York", "New York, USA"),
+    ).toBe("Brooklyn, New York");
+  });
+
+  it("appends multi-word city when not already present in place text", () => {
+    expect(
+      composeHcLocation("Mong Kok MTR exit B2", "Mong Kok MTR exit B2", "Hong Kong, China"),
+    ).toBe("Mong Kok MTR exit B2, Hong Kong, China");
+  });
+
   it("does not append cityCountry when geocoder succeeded (different fields)", () => {
     // The compose path with a real address never invokes the city-append
     // branch — the address itself already disambiguates the location.

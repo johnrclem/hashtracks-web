@@ -39,7 +39,7 @@ const KENNEL_TAG = "kljhhh";
 const DEFAULT_START_TIME = "14:00"; // 2:00 PM, first Sunday monthly
 const TITLE_RUN_NUMBER_RE = /Run\s*#\s*(\d+)/i;
 const TITLE_DATE_RE =
-  /Run\s*#\s*\d+\s*[,:\-]?\s*([0-9]{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+(?:\s+\d{4})?)/i;
+  /Run\s*#\s*\d+\s*[,:\-]?\s*(\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+(?:\s+\d{4})?)/i;
 
 /**
  * Extract labeled fields from an HTML post body.
@@ -54,6 +54,7 @@ const TITLE_DATE_RE =
 export function parseKljBody(bodyHtml: string): {
   date?: string;
   runSite?: string;
+  runSiteTentative?: boolean;
   travelTime?: string;
   hares?: string;
   coHares?: string;
@@ -76,8 +77,11 @@ export function parseKljBody(bodyHtml: string): {
 
   // Strip a leading "probably " qualifier — KLJ posts use it to mark a
   // tentative venue choice; the qualifier belongs in description, not in
-  // the location field that drives geocoding. (#1213)
+  // the location field that drives geocoding. We surface a separate
+  // `runSiteTentative` flag so parseKljPost can preserve the source's
+  // hedge in the description (#1213, PR #1236 review).
   const runSiteRaw = grab("Run[- ]?site");
+  const runSiteTentative = runSiteRaw ? /^probably\s+/i.test(runSiteRaw) : undefined;
   const runSite = runSiteRaw?.replace(/^probably\s+/i, "").trim() || undefined;
   const travelTime = grab("Travel\\s*Time");
   const dateRaw = grab("Date");
@@ -98,7 +102,16 @@ export function parseKljBody(bodyHtml: string): {
     startTime = parse12HourTime(normalized);
   }
 
-  return { date, runSite, travelTime, hares, coHares, startTime, registration };
+  return {
+    date,
+    runSite,
+    runSiteTentative,
+    travelTime,
+    hares,
+    coHares,
+    startTime,
+    registration,
+  };
 }
 
 /**
@@ -139,14 +152,17 @@ export function cleanKljTitle(title: string): string {
   // Drop the leading separator after the run number ("Run # 532, …").
   rest = rest.replace(/^[,:\-–—]\s*/, "");
   // Drop the date token ("6th December 2026 ", "1st November ").
-  rest = rest.replace(/^[0-9]{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+(?:\s+\d{4})?\s*/, "");
+  rest = rest.replace(/^\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+(?:\s+\d{4})?\s*/, "");
   // Drop the dash separator between date and themed title ("– Christmas Party").
   rest = rest.replace(/^[–\-—:]\s*/, "");
 
   // Empty trailer or one that opens with a venue marker ("@ …", ", …",
-  // "near …") means the post title carries no themed name — synthesize
-  // a stable "Run #N" instead of leaving date + venue in the title.
-  if (!rest || /^[@,]\s/.test(rest) || /^near\s/i.test(rest)) {
+  // "near <Place>") means the post title carries no themed name —
+  // synthesize a stable "Run #N" instead of leaving date + venue in the
+  // title. The "near" branch requires a following capitalized word so a
+  // legitimate themed title like "Near Death Experience" isn't rewritten
+  // (PR #1236 review).
+  if (!rest || /^[@,]\s/.test(rest) || /^near\s+[A-Z][a-zA-Z]+/.test(rest)) {
     return `Run #${runNum}`;
   }
   return rest;
@@ -189,9 +205,19 @@ export function parseKljPost(post: KljPostInput): ParseKljPostResult {
   if (!date) return { ok: false, reason: "no-date", title: rawTitle };
 
   const title = cleanKljTitle(rawTitle) || undefined;
-  const description = body.registration
-    ? `Registration: ${body.registration}`
-    : undefined;
+  // Combine the source's "probably <venue>" hedge (stripped from the
+  // location field for clean geocoding — see parseKljBody) with the
+  // registration line so neither signal is lost downstream. Sorted in
+  // a stable order so the merge fingerprint doesn't churn (#1213 +
+  // PR #1236 review).
+  const descriptionParts: string[] = [];
+  if (body.runSiteTentative && body.runSite) {
+    descriptionParts.push(`Run-site: probably ${body.runSite}`);
+  }
+  if (body.registration) {
+    descriptionParts.push(`Registration: ${body.registration}`);
+  }
+  const description = descriptionParts.length > 0 ? descriptionParts.join("\n") : undefined;
 
   // Merge hares + coHares into a single normalized field so the
   // fingerprint is stable across scrapes regardless of WP post-body

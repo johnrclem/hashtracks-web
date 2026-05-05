@@ -53,6 +53,96 @@ function parseSince(): Date {
   return d;
 }
 
+type EligibleSource = { id: string; name: string; type: string };
+type Bucket = {
+  sourceName: string;
+  sourceType: string;
+  kennels: Set<string>;
+  events: { id: string; date: string; kennel: string; scrapes: number }[];
+};
+type CandidateEvent = {
+  id: string;
+  date: Date;
+  kennelId: string;
+  kennel: { kennelCode: string | null; shortName: string | null } | null;
+  rawEvents: { sourceId: string }[];
+};
+
+async function loadEligibleSources(prisma: PrismaClient): Promise<Map<string, EligibleSource>> {
+  const allSources = await prisma.source.findMany({
+    select: { id: true, name: true, type: true, config: true },
+  });
+  const eligible = new Map<string, EligibleSource>();
+  for (const s of allSources) {
+    const cfg = (s.config ?? {}) as { upcomingOnly?: boolean };
+    if (cfg.upcomingOnly === true) continue;
+    eligible.set(s.id, { id: s.id, name: s.name, type: s.type });
+  }
+  return eligible;
+}
+
+function bucketEvent(
+  event: CandidateEvent,
+  eligibleSources: Map<string, EligibleSource>,
+  bySource: Map<string, Bucket>,
+): void {
+  const dateStr = event.date.toISOString().slice(0, 10);
+  const kennelLabel =
+    event.kennel?.shortName ?? event.kennel?.kennelCode ?? event.kennelId;
+  // Per-source scrape count for this event — dedupes the rawEvents
+  // append-only history (Codex finding 3) and gates each event on the
+  // multi-scrape signature (Codex finding 2).
+  const scrapesPerSource = new Map<string, number>();
+  for (const r of event.rawEvents) {
+    scrapesPerSource.set(r.sourceId, (scrapesPerSource.get(r.sourceId) ?? 0) + 1);
+  }
+  for (const [sourceId, scrapes] of scrapesPerSource) {
+    const src = eligibleSources.get(sourceId);
+    if (!src || scrapes < MIN_SCRAPES_PER_EVENT) continue;
+    let bucket = bySource.get(sourceId);
+    if (!bucket) {
+      bucket = {
+        sourceName: src.name,
+        sourceType: src.type,
+        kennels: new Set(),
+        events: [],
+      };
+      bySource.set(sourceId, bucket);
+    }
+    bucket.kennels.add(kennelLabel);
+    bucket.events.push({ id: event.id, date: dateStr, kennel: kennelLabel, scrapes });
+  }
+}
+
+function printReport(reported: [string, Bucket][], since: Date): void {
+  const sinceStr = since.toISOString().slice(0, 10);
+  const header = `\nStale-cancellation shortlist (since ${sinceStr}): ${reported.length} suspect source(s) with ≥${MIN_COUNT_TO_REPORT} past CANCELLED events that were emitted ≥${MIN_SCRAPES_PER_EVENT}× before going silent.\n`;
+  console.log(header);
+  console.log(
+    "NOTE: This is a shortlist for human review, not a list of bugs. The multi-scrape " +
+      "signature is suggestive but not conclusive — you must spot-check each source's live URL " +
+      "to confirm it's future-only before adding `config.upcomingOnly: true` in a follow-up PR.\n",
+  );
+  if (reported.length === 0) {
+    console.log("No suspects.");
+    return;
+  }
+  for (const [sourceId, b] of reported) {
+    const kennelList = [...b.kennels].sort((a, c) => a.localeCompare(c)).join(", ");
+    const count = b.events.length.toString().padStart(4);
+    const type = b.sourceType.padEnd(18);
+    console.log(`  ${count}  ${type}  ${b.sourceName}`);
+    console.log(`         kennel(s): ${kennelList}`);
+    console.log(`         sourceId:  ${sourceId}`);
+    const samplesStr = b.events
+      .slice(0, 5)
+      .map((s) => `${s.date} ${s.id} (${s.scrapes} scrapes)`)
+      .join(", ");
+    console.log(`         sample(s): ${samplesStr}`);
+    console.log("");
+  }
+}
+
 async function main() {
   const since = parseSince();
   const today = new Date();
@@ -63,18 +153,7 @@ async function main() {
   const prisma = new PrismaClient({ adapter });
 
   try {
-    // Fetch all sources up front so we don't load full Source.config blobs
-    // per event during the main scan.
-    const allSources = await prisma.source.findMany({
-      select: { id: true, name: true, type: true, config: true },
-    });
-    type EligibleSource = { id: string; name: string; type: string };
-    const eligibleSources = new Map<string, EligibleSource>();
-    for (const s of allSources) {
-      const cfg = (s.config ?? {}) as { upcomingOnly?: boolean };
-      if (cfg.upcomingOnly === true) continue;
-      eligibleSources.set(s.id, { id: s.id, name: s.name, type: s.type });
-    }
+    const eligibleSources = await loadEligibleSources(prisma);
     if (eligibleSources.size === 0) {
       console.log("All sources already use upcomingOnly: true. Nothing to audit.");
       return;
@@ -92,84 +171,20 @@ async function main() {
         date: true,
         kennelId: true,
         kennel: { select: { kennelCode: true, shortName: true } },
-        // Ask Prisma to give us per-event scrape counts grouped by source —
-        // a single canonical event has multiple RawEvent rows in the
-        // append-only history table.
         rawEvents: { select: { sourceId: true } },
       },
     });
 
-    type Bucket = {
-      sourceName: string;
-      sourceType: string;
-      kennels: Set<string>;
-      events: { id: string; date: string; kennel: string; scrapes: number }[];
-    };
     const bySource = new Map<string, Bucket>();
-
     for (const event of candidates) {
-      const dateStr = event.date.toISOString().slice(0, 10);
-      const kennelLabel =
-        event.kennel?.shortName ?? event.kennel?.kennelCode ?? event.kennelId;
-      // Per-source scrape count for this event — dedupes the rawEvents
-      // append-only history (Codex finding 3) and gates each event on the
-      // multi-scrape signature (Codex finding 2).
-      const scrapesPerSource = new Map<string, number>();
-      for (const r of event.rawEvents) {
-        scrapesPerSource.set(r.sourceId, (scrapesPerSource.get(r.sourceId) ?? 0) + 1);
-      }
-      for (const [sourceId, scrapes] of scrapesPerSource) {
-        const src = eligibleSources.get(sourceId);
-        if (!src) continue;
-        if (scrapes < MIN_SCRAPES_PER_EVENT) continue;
-        let bucket = bySource.get(sourceId);
-        if (!bucket) {
-          bucket = {
-            sourceName: src.name,
-            sourceType: src.type,
-            kennels: new Set(),
-            events: [],
-          };
-          bySource.set(sourceId, bucket);
-        }
-        bucket.kennels.add(kennelLabel);
-        bucket.events.push({ id: event.id, date: dateStr, kennel: kennelLabel, scrapes });
-      }
+      bucketEvent(event, eligibleSources, bySource);
     }
 
     const reported = [...bySource.entries()]
       .filter(([, b]) => b.events.length >= MIN_COUNT_TO_REPORT)
       .sort((a, b) => b[1].events.length - a[1].events.length);
 
-    console.log(
-      `\nStale-cancellation shortlist (since ${since.toISOString().slice(0, 10)}): ` +
-        `${reported.length} suspect source(s) with ≥${MIN_COUNT_TO_REPORT} past CANCELLED ` +
-        `events that were emitted ≥${MIN_SCRAPES_PER_EVENT}× before going silent.\n`,
-    );
-    console.log(
-      "NOTE: This is a shortlist for human review, not a list of bugs. The multi-scrape " +
-        "signature is suggestive but not conclusive — you must spot-check each source's live URL " +
-        "to confirm it's future-only before adding `config.upcomingOnly: true` in a follow-up PR.\n",
-    );
-
-    if (reported.length === 0) {
-      console.log("No suspects.");
-      return;
-    }
-
-    for (const [sourceId, b] of reported) {
-      const kennelList = [...b.kennels].sort().join(", ");
-      console.log(
-        `  ${b.events.length.toString().padStart(4)}  ${b.sourceType.padEnd(18)}  ${b.sourceName}`,
-      );
-      console.log(`         kennel(s): ${kennelList}`);
-      console.log(`         sourceId:  ${sourceId}`);
-      const samples = b.events.slice(0, 5);
-      console.log(
-        `         sample(s): ${samples.map((s) => `${s.date} ${s.id} (${s.scrapes} scrapes)`).join(", ")}`,
-      );
-      console.log("");
-    }
+    printReport(reported, since);
   } finally {
     await prisma.$disconnect();
     await pool.end();

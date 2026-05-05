@@ -64,11 +64,22 @@ function matchKennelTag(title: string, compiled: [RegExp, string][], defaultTag:
  * a malformed bare "Hare: X" passes through). See #961.
  */
 export function stripHareSuffix(title: string): string {
-  // Optional separator + greedy `.*` so a trailing label with no hare name
-  // ("FH3 Run #2114 Hares:") strips down to "FH3 Run #2114". The leading
-  // `\s+` requirement still prevents matching "FH3-Hare: X" with no
-  // whitespace before the keyword.
-  const stripped = title.replace(/\s+Hares?\s*[:-]?\s*.*$/i, "").trim();
+  // Two-pass strip: first the separator-required form ("Hares: Name",
+  // "Hare - Name"), then the trailing-bare-label form ("Hares:", "Hare").
+  // Splitting the patterns keeps the second pass anchored to end-of-string
+  // (`$`) so a mid-title token like "Hares vs Hounds" doesn't get clobbered
+  // by an over-broad `\s+Hares?\s*[:-]?\s*.*$` regex. The leading `\s+`
+  // requirement still prevents matching "FH3-Hare: X" with no whitespace
+  // before the keyword. (#1228 + PR #1236 review)
+  const stripped = title
+    // NOSONAR — anchored to end-of-string, fixed-literal keyword `Hares?`,
+    // single-class character runs (`\s+`, `[:-]`, `\s*`), and a greedy
+    // `.+$` tail. No nested quantifiers; backtracking is linear.
+    .replace(/\s+Hares?\s*[:-]\s*.+$/i, "")  // "Hares: <name>" / "Hare - <name>"
+    // NOSONAR — same shape, anchored at `$`. Optional separator + trailing
+    // whitespace cannot trigger super-linear backtracking.
+    .replace(/\s+Hares?\s*[:-]?\s*$/i, "")   // bare trailing "Hares:" / "Hare" / "Hare -"
+    .trim();
   return stripped || title;
 }
 

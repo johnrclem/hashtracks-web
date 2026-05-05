@@ -178,6 +178,15 @@ describe("stripHareSuffix (#961)", () => {
     expect(stripHareSuffix("FH3 Run #1636: Hare - The Blacks")).toBe("FH3 Run #1636:");
   });
 
+  it("does NOT clobber themed titles where 'Hares' appears mid-string (PR #1236 review)", () => {
+    // The bare-label strip must be anchored at end-of-string so a mid-title
+    // "Hares" token (e.g. "Hares vs Hounds") survives unchanged.
+    expect(stripHareSuffix("Hares vs Hounds #2120")).toBe("Hares vs Hounds #2120");
+    expect(stripHareSuffix("FH3 Hare Raising Hell #2121")).toBe(
+      "FH3 Hare Raising Hell #2121",
+    );
+  });
+
   it("strips trailing 'Hares:' (no name) so empty announcements don't ship the dangling label (#1228)", () => {
     expect(stripHareSuffix("FH3 Run #2114 Hares:")).toBe("FH3 Run #2114");
     expect(stripHareSuffix("FH3 Run #2114 Hare:")).toBe("FH3 Run #2114");

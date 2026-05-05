@@ -367,12 +367,29 @@ function appendCityCountry(
   if (!place) return place;
   const cc = cityCountry?.trim();
   if (!cc) return place;
-  // Skip the append when ANY segment of cityCountry ("Tokyo, Japan" → "Tokyo",
-  // "Japan") already appears as a word inside place. Catches both the full
+  // Skip the append when ANY comma-segment of cityCountry already appears
+  // as a contiguous word sequence inside place. Tokenize both sides so
+  // multi-word cities like "Hong Kong" / "Kuala Lumpur" / "New York" match
+  // when the place text already names them. Catches both the full
   // form ("...Tokyo, Japan") and the common partial form ("Shibuya, Tokyo").
-  const placeTokens = new Set(place.toLowerCase().split(/\W+/).filter(Boolean));
+  const placeTokens = place.toLowerCase().split(/\W+/).filter(Boolean);
+  const placeTokenSet = new Set(placeTokens);
   const ccSegments = cc.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
-  if (ccSegments.some((seg) => placeTokens.has(seg))) return place;
+  const segmentInPlace = (seg: string) => {
+    const segTokens = seg.split(/\W+/).filter(Boolean);
+    if (segTokens.length === 0) return false;
+    if (segTokens.length === 1) return placeTokenSet.has(segTokens[0]);
+    // Multi-word: scan placeTokens for the contiguous subsequence.
+    for (let i = 0; i + segTokens.length <= placeTokens.length; i++) {
+      let hit = true;
+      for (let j = 0; j < segTokens.length; j++) {
+        if (placeTokens[i + j] !== segTokens[j]) { hit = false; break; }
+      }
+      if (hit) return true;
+    }
+    return false;
+  };
+  if (ccSegments.some(segmentInPlace)) return place;
   return `${place}, ${cc}`;
 }
 
