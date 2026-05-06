@@ -240,11 +240,10 @@ function parseTrailLength(raw: string | undefined): ParsedTrailLength {
   if (!raw) return {};
   // Strip a trailing unit suffix for numeric parsing only — keep the
   // verbatim string in trailLengthText so the UI can render exactly what
-  // the source shows ("3-5 Miles" stays "3-5 Miles", not "3-5").
-  const numericPart = raw
-    .replace(/\s*\(?\s*miles?\s*\)?\s*$/i, "")
-    .replace(/\s*mi\s*$/i, "")
-    .trim();
+  // the source shows ("3-5 Miles" stays "3-5 Miles", not "3-5"). Single
+  // alternation with one `\s*` quantifier avoids nested quantifiers that
+  // SonarCloud S5852 flags as ReDoS-prone.
+  const numericPart = raw.replace(/\s*(?:\(miles?\)|miles?|mi)$/i, "").trim();
 
   const range = /^(\d+(?:\.\d+)?)\s*[-–]\s*(\d+(?:\.\d+)?)$/.exec(numericPart);
   if (range) {
