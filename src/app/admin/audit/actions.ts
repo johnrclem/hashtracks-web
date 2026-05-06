@@ -1,5 +1,6 @@
 "use server";
 
+import * as Sentry from "@sentry/nextjs";
 import { Prisma, AuditStream, AuditIssueEventType } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
 import { getAdminUser } from "@/lib/auth";
@@ -505,16 +506,24 @@ export async function getDeepDiveCoverage(): Promise<DeepDiveCoverage> {
 export async function getDeepDiveQueueToken(
   kennelCode: string,
 ): Promise<{ token: string; expiresAt: number } | null> {
-  await requireAdmin();
-  if (!kennelCode) return null;
+  try {
+    await requireAdmin();
+    if (!kennelCode) return null;
 
-  const kennelCodes = await getDeepDiveQueueKennelCodes();
-  if (!kennelCodes.includes(kennelCode)) return null;
+    const kennelCodes = await getDeepDiveQueueKennelCodes();
+    if (!kennelCodes.includes(kennelCode)) return null;
 
-  const expiresAt = computeQueueTokenExpiresAt();
-  const queueSnapshotId = computeQueueSnapshotId(kennelCodes);
-  const token = signQueueToken({ kennelCode, queueSnapshotId, expiresAt });
-  return { token, expiresAt };
+    const expiresAt = computeQueueTokenExpiresAt();
+    const queueSnapshotId = computeQueueSnapshotId(kennelCodes);
+    const token = signQueueToken({ kennelCode, queueSnapshotId, expiresAt });
+    return { token, expiresAt };
+  } catch (err) {
+    // Production-sanitized "Server Components render" error hides the
+    // root cause from the dialog. Capture before rethrowing so the
+    // actual digest stays diagnosable in Sentry (issues #1207 / #1216).
+    Sentry.captureException(err, { extra: { kennelCode } });
+    throw err;
+  }
 }
 
 /** Result shape for `recordDeepDive`. Discriminated union on `ok`
