@@ -686,12 +686,42 @@ export function stripNonEnglishCountry(location: string): string {
   return location.replace(NON_ENGLISH_COUNTRY_SUFFIX_RE, "").trim();
 }
 
+/**
+ * Match `#NNN` in free-form text and return the integer. Lookahead requires a
+ * clean delimiter after the digits so ambiguous tokens like `#30X?` (kennel
+ * signaling unknown run number) reject instead of being parsed as 30 (#1147).
+ * Shared by the Google Calendar summary path (`extractRunNumber` in
+ * `google-calendar/adapter.ts`) and the Phoenix HHH HTML scraper which
+ * preempts a stale-WordPress-slug fallback (#1211).
+ */
+const HASH_RUN_NUMBER_RE = /#\s*(\d+)(?=$|[\s:\-–—,.()/])/;
+export function extractHashRunNumber(text: string | undefined): number | undefined {
+  if (!text) return undefined;
+  const m = HASH_RUN_NUMBER_RE.exec(text);
+  if (!m) return undefined;
+  const n = Number.parseInt(m[1], 10);
+  return Number.isFinite(n) && n > 0 ? n : undefined;
+}
+
 // ---------------------------------------------------------------------------
 // Placeholder detection — shared across adapters for TBD/TBA/TBC cleanup
 // ---------------------------------------------------------------------------
 
-const PLACEHOLDER_RE =
-  /^(?:tbd|tba|tbc|n\/a|none|null|needed|required|registration|sign[\s\-_]*up!?|volunteer|\?{1,3}|hares?\s+needed\b[\s\S]*|needs?\s+(?:a\s+)?hares?\b[\s\S]*)$/i;
+// Split into narrow patterns to stay under SonarCloud's per-regex complexity
+// budget (S5856). `(?:venue[\s-]+)?` on the TBC branch lets "venue TBC" /
+// "venue TBD" / "venue TBA" pass through (#1222 Capital H3). The
+// `hares?\s+needed` / `needs?\s+(?:a\s+)?hares?` branches share the same
+// `[\s\S]*` tail so they're folded into a single anchored regex via
+// alternation and a single tail.
+const PLACEHOLDER_TBD_RE = /^(?:venue[\s-]+)?(?:tbd|tba|tbc)$/i;
+const PLACEHOLDER_OTHER_RE =
+  /^(?:n\/a|none|null|needed|required|registration|sign[\s\-_]*up!?|volunteer|\?{1,3})$/i;
+const PLACEHOLDER_HARES_NEEDED_RE = /^(?:hares?\s+needed|needs?\s+(?:a\s+)?hares?)\b[\s\S]*$/i;
+function isPlaceholderText(value: string): boolean {
+  return PLACEHOLDER_TBD_RE.test(value)
+    || PLACEHOLDER_OTHER_RE.test(value)
+    || PLACEHOLDER_HARES_NEEDED_RE.test(value);
+}
 
 /**
  * Field labels that frequently appear next to a colon in event descriptions
@@ -721,7 +751,7 @@ export const EVENT_FIELD_LABEL_UPPERCASE_RE =
  * Fully anchored + case-insensitive. Trims input before matching.
  */
 export function isPlaceholder(value: string): boolean {
-  return PLACEHOLDER_RE.test(value.trim());
+  return isPlaceholderText(value.trim());
 }
 
 /**
@@ -731,7 +761,7 @@ export function isPlaceholder(value: string): boolean {
 export function stripPlaceholder(value: string | undefined | null): string | undefined {
   if (value == null) return undefined;
   const trimmed = value.trim();
-  if (!trimmed || PLACEHOLDER_RE.test(trimmed)) return undefined;
+  if (!trimmed || isPlaceholderText(trimmed)) return undefined;
   return trimmed;
 }
 

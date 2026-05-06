@@ -14,7 +14,7 @@ import type { AnyNode } from "domhandler";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails, ParseError } from "../types";
 import { safeFetch } from "../safe-fetch";
-import { parse12HourTime, validateSourceConfig, compilePatterns, buildDateWindow, stripHtmlTags, decodeEntities } from "../utils";
+import { parse12HourTime, validateSourceConfig, compilePatterns, buildDateWindow, stripHtmlTags, decodeEntities, extractHashRunNumber } from "../utils";
 import { extractHares } from "../hare-extraction";
 
 // ── Config shape ──
@@ -136,7 +136,9 @@ export function parseEventFromItem(
 
   return {
     date,
-    kennelTags: [kennelTag],    title,
+    kennelTags: [kennelTag],
+    title,
+    runNumber: extractHashRunNumber(title),
     description,
     hares,
     location,
@@ -295,6 +297,14 @@ export class PhoenixHHHAdapter implements SourceAdapter {
               break;
             }
           }
+          // #1211: detail-page title is the authoritative run number source.
+          // Always overwrite when the fetched title yields a number — the
+          // list-page img.alt may carry a stale placeholder (e.g. "Wrong Way
+          // #1155 need hares") that the kennel later corrected on the detail
+          // page (#1156). Falling back to the previous value only when the
+          // detail title yields nothing keeps us no worse than before.
+          const detailRun = extractHashRunNumber(result.value);
+          if (detailRun !== undefined) batch[j].runNumber = detailRun;
           titlesFetched++;
         }
       }

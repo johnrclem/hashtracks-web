@@ -6,6 +6,7 @@ import {
   parseEventFromItem,
   PhoenixHHHAdapter,
 } from "./phoenixhhh";
+import { extractHashRunNumber } from "../utils";
 
 // ── Sample HTML fixtures ──
 
@@ -287,6 +288,61 @@ describe("hare extraction", () => {
     const event = parseEventFromItem($item, $, DEFAULT_CONFIG, compiled);
 
     expect(event!.hares).toBeUndefined();
+  });
+});
+
+// ── runNumber extraction (#1211) ──
+
+describe("extractHashRunNumber (#1211 Wrong Way URL-slug fix)", () => {
+  it("extracts run number from 'Kennel #NNN: Trail' title", () => {
+    expect(extractHashRunNumber("Wrong Way #1156: Master Shake n' Baker")).toBe(1156);
+  });
+
+  it("extracts run number with whitespace after #", () => {
+    expect(extractHashRunNumber("Wrong Way # 1156")).toBe(1156);
+  });
+
+  it("returns undefined for ambiguous mid-token alphanumeric", () => {
+    // Mirrors the GCal #1147 delimiter guard — "#30X?" is the kennel saying
+    // run number unknown.
+    expect(extractHashRunNumber("Wrong Way #30X?")).toBeUndefined();
+  });
+
+  it("returns undefined when no run number present", () => {
+    expect(extractHashRunNumber("Wrong Way Trail")).toBeUndefined();
+  });
+
+  it("returns undefined for null/empty title", () => {
+    expect(extractHashRunNumber(undefined)).toBeUndefined();
+    expect(extractHashRunNumber("")).toBeUndefined();
+  });
+});
+
+describe("parseEventFromItem — runNumber from img-alt title (#1211)", () => {
+  it("extracts runNumber from a title containing '#NNN'", () => {
+    const html = `
+      <div class="em-item em-event">
+        <div class="em-item-image">
+          <img src="/img/x.jpg" alt="Wrong Way #1156: Master Shake n' Baker" />
+        </div>
+        <div class="em-item-meta-line em-event-date">Saturday - 05/02/2026</div>
+        <div class="em-item-meta-line em-event-time">6:30 pm - 9:30 pm</div>
+        <a class="em-item-read-more" href="/?event=wrong-way-1155-need-hares">Read More</a>
+      </div>
+    `;
+    const $ = cheerio.load(html);
+    const $item = $(".em-item").first();
+    const config = {
+      kennelPatterns: [["Wrong Way", "wrong-way"] as [string, string]],
+      defaultKennelTag: "wrong-way",
+    };
+    const compiledPatterns: [RegExp, string][] = [[/Wrong Way/i, "wrong-way"]];
+    const event = parseEventFromItem($item, $, config, compiledPatterns);
+    expect(event).not.toBeNull();
+    expect(event!.runNumber).toBe(1156);
+    // The sourceUrl still contains the stale slug — that's fine; we just
+    // don't trust it for runNumber extraction.
+    expect(event!.sourceUrl).toContain("wrong-way-1155-need-hares");
   });
 });
 

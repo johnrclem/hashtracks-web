@@ -1,7 +1,7 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
-import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, EVENT_FIELD_LABEL_RE, EVENT_FIELD_LABEL_UPPERCASE_RE, CTA_EMBEDDED_PATTERNS, appendDescriptionSuffix, isPlaceholder, parse12HourTime, formatAmPmTime, stripNonEnglishCountry } from "../utils";
+import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, EVENT_FIELD_LABEL_RE, EVENT_FIELD_LABEL_UPPERCASE_RE, CTA_EMBEDDED_PATTERNS, appendDescriptionSuffix, isPlaceholder, parse12HourTime, formatAmPmTime, stripNonEnglishCountry, extractHashRunNumber } from "../utils";
 import { matchKennelPatterns, matchCompiledKennelPatterns, compileKennelPatterns, type KennelPattern, type CompiledKennelPattern } from "../kennel-patterns";
 import { LOCATION_EMAIL_CTA_RE } from "@/pipeline/audit-checks";
 import { parseDMSFromLocation } from "@/lib/geo";
@@ -39,11 +39,10 @@ export function extractRunNumber(
   customPatterns?: string[] | RegExp[],
 ): number | undefined {
   // 1. Check summary first (e.g., "Beantown #255: ...", "BH3: ... #2781", "Cunth # 40: ...").
-  // Require a clean delimiter (whitespace, punctuation, or end-of-string) after the
-  // digits — otherwise "#30X?" parses as 30, contradicting the kennel's intent that
-  // the run number is unknown (#1147). Mid-token alphanumeric leaves runNumber undefined.
-  const summaryMatch = /#\s*(\d+)(?=$|[\s:\-–—,.()/])/.exec(summary);
-  if (summaryMatch) return Number.parseInt(summaryMatch[1], 10);
+  // Shared `extractHashRunNumber` enforces the delimiter guard (#1147) — "#30X?"
+  // rejects rather than parsing as 30.
+  const fromSummary = extractHashRunNumber(summary);
+  if (fromSummary !== undefined) return fromSummary;
 
   if (!description) return undefined;
 
@@ -464,7 +463,16 @@ interface CalendarSourceConfig {
   skipPatterns?: string[];              // regex strings — skip events whose summary matches
   harePatterns?: string[];              // regex strings to extract hares from descriptions
   runNumberPatterns?: string[];         // regex strings to extract run numbers from descriptions
-  titleHarePattern?: string;            // regex to extract hare names from summary when description has none
+  /** Regex(es) to extract hare names from summary when description has none.
+   *  Accepts a single pattern string or an array tried in order — first
+   *  capture-group hit wins (#1208 DST + Stuttgart SH3 share a source;
+   *  #1209/#1221 CH3 + RDH3 share a source). */
+  titleHarePattern?: string | string[];
+  /** Regex(es) to extract a location from the summary when item.location is
+   *  empty or a placeholder. Tried after titleHarePattern; first capture-group
+   *  hit wins. The matched span is stripped from the title. Candidates that
+   *  trip `isPlaceholder()` (e.g. "venue TBC") are rejected (#1222). */
+  titleLocationPattern?: string | string[];
   /**
    * Regex strings applied as `title.replace(re, "")` in sequence after hare
    * extraction and before the `defaultTitle` fallback. Compiled with `i`
@@ -629,7 +637,8 @@ export interface BuildRawEventFromGCalItemOptions {
   compiledHarePatterns?: RegExp[];
   compiledRunNumberPatterns?: RegExp[];
   compiledSkipPatterns?: RegExp[];
-  compiledTitleHarePattern?: RegExp;
+  compiledTitleHarePatterns?: RegExp[];
+  compiledTitleLocationPatterns?: RegExp[];
   compiledTitleStripPatterns?: RegExp[];
   /** Pre-compiled kennelPatterns. Production fetch path passes this so
    *  we don't re-compile every event; tests can omit. */
@@ -638,6 +647,10 @@ export interface BuildRawEventFromGCalItemOptions {
    *  dedup at the end of `fetch` can use stable GCal ids without
    *  changing the public RawEventData shape. */
   gcalIdMap?: WeakMap<RawEventData, string>;
+  /** Set of RawEventData built from all-day GCal items. Used by
+   *  `dedupGCalEvents` to drop placeholder all-day rows when a timed
+   *  sibling exists for the same `(kennelTag, date)` (#1199 Giggity). */
+  allDayEventSet?: WeakSet<RawEventData>;
 }
 
 /** Build a RawEventData from a single Google Calendar event item. Returns null if the item should be skipped. */
@@ -650,10 +663,12 @@ export function buildRawEventFromGCalItem(
     compiledHarePatterns,
     compiledRunNumberPatterns,
     compiledSkipPatterns,
-    compiledTitleHarePattern,
+    compiledTitleHarePatterns,
+    compiledTitleLocationPatterns,
     compiledTitleStripPatterns,
     compiledKennelPatterns,
     gcalIdMap,
+    allDayEventSet,
   } = options;
   if (item.status === "cancelled") return null;
   if (!item.summary) return null;
@@ -665,7 +680,8 @@ export function buildRawEventFromGCalItem(
   // `recurringEventId` here: that field is also set on materialized RRULE instances,
   // so a carve-out would silently ingest unwanted all-day recurring instances on
   // sources that never opted in.
-  if (item.start?.date && !item.start?.dateTime && !sourceConfig?.includeAllDayEvents) return null;
+  const isAllDay = !!(item.start?.date && !item.start?.dateTime);
+  if (isAllDay && !sourceConfig?.includeAllDayEvents) return null;
 
   const { dateISO, startTime } = extractDateTimeFromGCalItem(item.start);
   if (!dateISO) return null;
@@ -692,13 +708,29 @@ export function buildRawEventFromGCalItem(
   }
   const { rawDescription, description } = normalizeGCalDescription(item.description);
   let hares = rawDescription ? extractHares(rawDescription, compiledHarePatterns) : undefined;
-  // Fall back to extracting hares from title when description has none
+  // Fall back to extracting hares from title when description has none. Try
+  // each pattern in order; first capture-group hit wins. Track which pattern
+  // matched so the downstream title-cleanup block uses the same regex span.
   let haresFromTitle = false;
-  if (!hares && compiledTitleHarePattern) {
-    const titleMatch = compiledTitleHarePattern.exec(summary);
-    if (titleMatch?.[1]) {
-      hares = titleMatch[1].trim() || undefined;
-      haresFromTitle = !!hares;
+  let matchedTitleHarePattern: RegExp | undefined;
+  if (!hares && compiledTitleHarePatterns?.length) {
+    for (const re of compiledTitleHarePatterns) {
+      const titleMatch = re.exec(summary);
+      if (titleMatch?.[1]) {
+        // #1210: lazy `^(.+?)\s+AH3\s+#` leaves a trailing " -" on titles like
+        // "Alice and Bob - AH3 #2351". Anchored char-class strip is SonarCloud
+        // safe (≤20 complexity, no nesting).
+        const cleaned = titleMatch[1]
+          .trim()
+          .replace(/^\s*[-–—:]+\s*|\s*[-–—:]+\s*$/g, "") // NOSONAR — anchored char-class alternation
+          .trim();
+        if (cleaned) {
+          hares = cleaned;
+          haresFromTitle = true;
+          matchedTitleHarePattern = re;
+          break;
+        }
+      }
     }
   }
   const resolved = resolveKennelTagFromSummary(summary, sourceConfig, compiledKennelPatterns);
@@ -776,8 +808,8 @@ export function buildRawEventFromGCalItem(
   // and suffix patterns (hares at end: "AH3 #1833 - Location - Hare Name").
   // The prior code assumed prefix-only and did title.slice(captureGroup.length),
   // which mangled titles when the capture group was at the end.
-  if (haresFromTitle && compiledTitleHarePattern) {
-    const titleMatch = compiledTitleHarePattern.exec(title);
+  if (haresFromTitle && matchedTitleHarePattern) {
+    const titleMatch = matchedTitleHarePattern.exec(title);
     if (titleMatch && titleMatch[1]) {
       const hareText = titleMatch[1];
       const start = titleMatch.index;
@@ -811,6 +843,26 @@ export function buildRawEventFromGCalItem(
           .trim();
       }
       if (cleaned) title = cleaned;
+    }
+  }
+
+  // Title-embedded location extraction (#1222 Capital H3): the source has no
+  // separate item.location and packs the address into the title after the
+  // hare names. Try each pattern in order; first capture-group hit wins.
+  // Reject placeholders like "venue TBC" via isPlaceholder().
+  if (!location && compiledTitleLocationPatterns?.length) {
+    for (const re of compiledTitleLocationPatterns) {
+      const locMatch = re.exec(title);
+      if (locMatch?.[1]) {
+        const candidate = locMatch[1].trim().replace(/[.,;:\s]+$/, "").trim(); // NOSONAR — anchored end-of-string char-class
+        if (candidate && !isPlaceholder(candidate)) {
+          location = candidate;
+          title = (title.slice(0, locMatch.index) + title.slice(locMatch.index + locMatch[0].length))
+            .replaceAll(/^\s*[-–—:]+\s*|\s*[-–—:]+\s*$/g, "") // NOSONAR — anchored char-class alternation, mirrors title-hare strip
+            .trim();
+          break;
+        }
+      }
     }
   }
 
@@ -987,6 +1039,7 @@ export function buildRawEventFromGCalItem(
     sourceUrl: item.htmlLink,
   };
   if (gcalIdMap && item.id) gcalIdMap.set(event, item.id);
+  if (allDayEventSet && isAllDay) allDayEventSet.add(event);
   return event;
 }
 
@@ -1004,6 +1057,11 @@ function buildGCalDiagnosticContext(item: GCalEvent): string {
  * pattern needed by `buildRawEventFromGCalItem` (or `undefined` when the
  * config didn't supply one).
  */
+function compileMaybeArray(p: string | string[] | undefined, flags?: string): RegExp[] | undefined {
+  if (!p) return undefined;
+  return compilePatterns(Array.isArray(p) ? p : [p], flags);
+}
+
 function compileSourceConfigPatterns(sourceConfig: CalendarSourceConfig | null) {
   return {
     compiledHarePatterns: sourceConfig?.harePatterns?.length
@@ -1015,9 +1073,8 @@ function compileSourceConfigPatterns(sourceConfig: CalendarSourceConfig | null) 
     compiledSkipPatterns: sourceConfig?.skipPatterns?.length
       ? compilePatterns(sourceConfig.skipPatterns, "i")
       : undefined,
-    compiledTitleHarePattern: sourceConfig?.titleHarePattern
-      ? compilePatterns([sourceConfig.titleHarePattern], "i")[0]
-      : undefined,
+    compiledTitleHarePatterns: compileMaybeArray(sourceConfig?.titleHarePattern, "i"),
+    compiledTitleLocationPatterns: compileMaybeArray(sourceConfig?.titleLocationPattern, "i"),
     compiledTitleStripPatterns: sourceConfig?.titleStripPatterns?.length
       ? compilePatterns(sourceConfig.titleStripPatterns, "i")
       : undefined,
@@ -1036,12 +1093,57 @@ function compileSourceConfigPatterns(sourceConfig: CalendarSourceConfig | null) 
  *      series that share key but differ in id (#1101 CFMH3). On collision
  *      the survivor inherits non-empty fields from the donor before drop.
  */
-function dedupGCalEvents(
+/** A placeholder all-day shell looks like "Giggity H3 #? (TBD)" — no run
+ *  number, no real hares/location, and a title containing `#?` or a TBD/TBA/
+ *  TBC marker. Real all-day entries (campouts, away weekends) will have a
+ *  populated title or run number and must NOT be collapsed when a timed
+ *  sibling exists on the same date. */
+function isPlaceholderShell(e: RawEventData): boolean {
+  if (e.runNumber !== undefined) return false;
+  const title = (e.title ?? "").trim();
+  if (!title) return true;
+  if (/#\s*\?/.test(title)) return true;
+  if (/\b(?:TBD|TBA|TBC)\b/i.test(title)) return true;
+  if (e.hares && isPlaceholder(e.hares)) return true;
+  return false;
+}
+
+export function dedupGCalEvents(
   events: RawEventData[],
   gcalIdMap: WeakMap<RawEventData, string>,
-): { events: RawEventData[]; compositeDedupedCount: number } {
+  allDayEventSet: WeakSet<RawEventData>,
+): { events: RawEventData[]; compositeDedupedCount: number; allDayCollapsedCount: number } {
+  // #1199 pre-pass: drop placeholder all-day events when a timed sibling
+  // exists for the same `(kennelTag, date)`. Sources with
+  // `includeAllDayEvents: true` (WA Hash for CUNTh) admit both placeholder
+  // shells like "Giggity H3 #? (TBD)" and real timed runs; the merge
+  // pipeline collapses them into one canonical event by `(kennelId, date)`,
+  // so whichever survives this dedup wins. Prefer the timed one — but ONLY
+  // when the all-day event LOOKS like a placeholder. A real all-day event
+  // (campout, away weekend, RDR) sharing the date with a timed trail must
+  // survive so the merge pipeline can keep both via signature-based
+  // multi-event handling. Placeholder evidence: missing run number AND
+  // (title contains `#?`, "TBD"/"TBA"/"TBC" placeholder marker, or
+  // hares/location are placeholder strings).
+  const timedKeys = new Set<string>();
+  for (const e of events) {
+    if (!allDayEventSet.has(e)) timedKeys.add(`${e.kennelTags[0]}|${e.date}`);
+  }
+  let allDayCollapsedCount = 0;
+  const timedFiltered = events.filter(e => {
+    if (
+      allDayEventSet.has(e)
+      && timedKeys.has(`${e.kennelTags[0]}|${e.date}`)
+      && isPlaceholderShell(e)
+    ) {
+      allDayCollapsedCount++;
+      return false;
+    }
+    return true;
+  });
+
   const seen = new Set<string>();
-  const idDeduped = events.filter(e => {
+  const idDeduped = timedFiltered.filter(e => {
     const id = gcalIdMap.get(e);
     const key = id
       ? `id:${id}`
@@ -1062,7 +1164,7 @@ function dedupGCalEvents(
   // Skip the rebuild when nothing collapsed — saves an O(n) array copy on
   // the typical scrape where parallel-series duplicates don't exist.
   const result = compositeDedupedCount === 0 ? idDeduped : [...compositeMap.values()];
-  return { events: result, compositeDedupedCount };
+  return { events: result, compositeDedupedCount, allDayCollapsedCount };
 }
 
 /** Google Calendar API v3 adapter. Fetches events from a public calendar and extracts kennel tags via configurable patterns. */
@@ -1100,6 +1202,7 @@ export class GoogleCalendarAdapter implements SourceAdapter {
     let pagesProcessed = 0;
     const compiled = compileSourceConfigPatterns(sourceConfig);
     const gcalIdMap = new WeakMap<RawEventData, string>();
+    const allDayEventSet = new WeakSet<RawEventData>();
 
     const buildEvents = (items: GCalEvent[], filter?: (item: GCalEvent) => boolean): void => {
       let eventIndex = 0;
@@ -1109,7 +1212,7 @@ export class GoogleCalendarAdapter implements SourceAdapter {
           continue;
         }
         try {
-          const event = buildRawEventFromGCalItem(item, sourceConfig, { ...compiled, gcalIdMap });
+          const event = buildRawEventFromGCalItem(item, sourceConfig, { ...compiled, gcalIdMap, allDayEventSet });
           if (event) events.push(event);
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
@@ -1175,7 +1278,7 @@ export class GoogleCalendarAdapter implements SourceAdapter {
 
     const hasErrorDetails = hasAnyErrors(errorDetails);
 
-    const { events: compositeDeduped, compositeDedupedCount } = dedupGCalEvents(events, gcalIdMap);
+    const { events: compositeDeduped, compositeDedupedCount, allDayCollapsedCount } = dedupGCalEvents(events, gcalIdMap, allDayEventSet);
 
     return {
       events: compositeDeduped,
@@ -1188,6 +1291,7 @@ export class GoogleCalendarAdapter implements SourceAdapter {
         ...(backfillCount > 0 && { inlineHarelineBackfilled: backfillCount }),
         ...(exceptionsRecovered > 0 && { exceptionsRecovered }),
         ...(compositeDedupedCount > 0 && { compositeDeduped: compositeDedupedCount }),
+        ...(allDayCollapsedCount > 0 && { allDayCollapsed: allDayCollapsedCount }),
       },
     };
   }

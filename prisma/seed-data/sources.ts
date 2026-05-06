@@ -669,7 +669,13 @@ export const SOURCES = [
         // name after "Hare:" up to the neighborhood delimiter or end of
         // string. Middle-match: the full `Hare: X-` span is stripped from
         // the title so it reads "SH3 #880 - Degerloch". #807.
-        titleHarePattern: "Hare:?\\s+(.+?)(?:(?=[-\u2013\u2014]\\s*\\S)|\\s*$)",
+        // DST sub-kennel uses a different title shape: "DST # - Lucky
+        // Testigel" (placeholder) or "DST #814 - Full of Spunk" (assigned).
+        // The hare follows the dash with no `Hare:` label (#1208).
+        titleHarePattern: [
+          String.raw`Hare:?\s+(.+?)(?:(?=[-\u2013\u2014]\s*\S)|\s*$)`,
+          String.raw`^DST\s*#?\s*\d*\s*-\s*(.+)$`,
+        ],
       },
       kennelCodes: ["sh3-de", "dst-h3", "fm-stgt", "super-h3"],
     },
@@ -816,7 +822,12 @@ export const SOURCES = [
       scrapeDays: 365,
       config: {
         defaultKennelTag: "ah3",
-        titleHarePattern: String.raw`^(.+?)\s+AH3\s+#`,
+        // Title format: "{Hare1 and Hare2} - AH3 #N". Requiring an explicit
+        // " - " separator keeps the dash out of the capture group (#1210 —
+        // lazy match `(.+?)\s+AH3\s+#` left a trailing " -" on every event)
+        // and avoids matching titles where the slot before AH3 isn't a hare
+        // (e.g. titles whose author wrote a trail-type name in the hare slot).
+        titleHarePattern: String.raw`^(.+?)\s+-\s+AH3\s+#`,
       },
       kennelCodes: ["ah3"],
     },
@@ -3081,11 +3092,17 @@ export const SOURCES = [
           ["RDH3|Rabid", "rdh3"],
         ],
         defaultKennelTag: "ch3-dk",
-        // RDH3 events embed hares in the title: "RDH3 134 Walkers. Hare: Lust Jucie".
-        // The pattern only fires when the description has no hares. Empty "Hare:"
-        // (upcoming/TBA events) produce an empty capture group → skipped.
-        // CH3/CH4 don't use this format so the pattern won't match their titles.
-        titleHarePattern: "[.]\\s*Hare:\\s*(.+)$",
+        // Hares embedded in title — two formats coexist on this calendar:
+        // 1. RDH3: "RDH3 134 Walkers. Hare: Lust Jucie" — period + label.
+        // 2. CH3:  "CH3 2730 - Nørreport St - Mr Petit" — third dash segment
+        //    is the hare (#1209/#1221). The kennel slug `^CH3\b` constraint
+        //    keeps this pattern from misfiring on CH4/RDH3 titles.
+        // Patterns fire only when description has no hares. The first
+        // capture-group hit wins.
+        titleHarePattern: [
+          String.raw`[.]\s*Hare:\s*(.+)$`,
+          String.raw`^CH3\s+\d+\s+-\s+[^-]+\s+-\s+(.+)$`,
+        ],
       },
       kennelCodes: ["ch3-dk", "ch4-dk", "rdh3"],
     },
@@ -3854,6 +3871,13 @@ export const SOURCES = [
       scrapeDays: 365,
       config: {
         defaultKennelTag: "capital-h3-au",
+        // Capital H3 packs hares + address into the title with no item.location:
+        // "Kwine & Mitzi 68 Macleay Street Turner." → hares "Kwine & Mitzi",
+        // location "68 Macleay Street Turner" (#1222). The hare pattern stops
+        // at the first run of digits (street number); the location pattern
+        // captures from that digit run to end-of-string.
+        titleHarePattern: String.raw`^(.+?)\s+\d+\s+[A-Z]`,
+        titleLocationPattern: String.raw`(\d+\s+.+?)\.?\s*$`,
       },
       kennelCodes: ["capital-h3-au"],
     },
