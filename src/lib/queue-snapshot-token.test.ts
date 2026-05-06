@@ -172,7 +172,8 @@ describe("mintQueueTokens", () => {
   it("returns one verifiable token per kennelCode sharing the same snapshot", () => {
     const codes = ["nych3", "philly-h3", "agnews"];
     const tokens = mintQueueTokens(codes);
-    expect(Object.keys(tokens).sort()).toEqual([...codes].sort());
+    const cmp = (a: string, b: string) => a.localeCompare(b);
+    expect(Object.keys(tokens).sort(cmp)).toEqual([...codes].sort(cmp));
 
     const expectedSnapshot = computeQueueSnapshotId(codes);
     for (const code of codes) {
