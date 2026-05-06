@@ -83,6 +83,18 @@ interface KennelOption {
   shortName: string;
 }
 
+import type {
+  MintedQueueToken,
+  MintedQueueTokens,
+} from "@/lib/queue-snapshot-token";
+
+/** Pre-minted queue tokens keyed by kennelCode. Empty when the
+ *  page-render mint failed (e.g. missing secret) — the dialog falls
+ *  back to the async `getDeepDiveQueueToken` path. Re-exports the
+ *  lib type so the `page → dashboard → dialog` prop chain stays in
+ *  one shape; rename to `DeepDiveTokens` for context at call sites. */
+export type DeepDiveTokens = MintedQueueTokens;
+
 interface Props {
   trends: TrendPoint[];
   topOffenders: TopOffender[];
@@ -92,6 +104,7 @@ interface Props {
   knownRules: string[];
   deepDiveQueue: DeepDiveCandidate[];
   deepDiveCoverage: DeepDiveCoverage;
+  deepDiveTokens: DeepDiveTokens;
   harelinePrompt: string | null;
   streamTrends: StreamTrendPoint[];
   streamOpenCounts: StreamOpenCounts[];
@@ -120,6 +133,7 @@ export function AuditDashboard({
   knownRules,
   deepDiveQueue,
   deepDiveCoverage,
+  deepDiveTokens,
   harelinePrompt,
   streamTrends,
   streamOpenCounts,
@@ -338,6 +352,7 @@ export function AuditDashboard({
         <DeepDiveCard
           queue={deepDiveQueue}
           coverage={deepDiveCoverage}
+          tokens={deepDiveTokens}
           onCompleted={() => router.refresh()}
         />
       </section>
@@ -755,10 +770,12 @@ function CopyHarelinePromptButton({ prompt }: Readonly<{ prompt: string }>) {
 function DeepDiveCard({
   queue,
   coverage,
+  tokens,
   onCompleted,
 }: {
   queue: DeepDiveCandidate[];
   coverage: DeepDiveCoverage;
+  tokens: DeepDiveTokens;
   onCompleted: () => void;
 }) {
   const [selectedCode, setSelectedCode] = useState(queue[0]?.kennelCode ?? "");
@@ -804,13 +821,24 @@ function DeepDiveCard({
             <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground mb-1.5">
               Deep dive target
             </div>
+            {/* `data-kennel-code` on the trigger, items, and queue rows lets
+                accessibility-tree-driven agents (and e2e tests) verify which
+                kennel is bound without parsing display text — closes #1175's
+                ask 6 (the misattribution that motivated #1160 / #1175). */}
             <Select value={selectedCode} onValueChange={(v) => { setSelectedCode(v); setCopied(false); }}>
-              <SelectTrigger className="h-9 w-full max-w-sm text-base font-semibold">
+              <SelectTrigger
+                className="h-9 w-full max-w-sm text-base font-semibold"
+                data-kennel-code={selectedCode}
+              >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {queue.map((k) => (
-                  <SelectItem key={k.kennelCode} value={k.kennelCode}>
+                  <SelectItem
+                    key={k.kennelCode}
+                    value={k.kennelCode}
+                    data-kennel-code={k.kennelCode}
+                  >
                     <span className="font-medium">{k.shortName}</span>
                     <span className="ml-2 text-xs text-muted-foreground">{k.region}</span>
                   </SelectItem>
@@ -883,6 +911,7 @@ function DeepDiveCard({
                     key={k.kennelCode}
                     role="button"
                     tabIndex={0}
+                    data-kennel-code={k.kennelCode}
                     className={`cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 ${
                       k.kennelCode === selectedCode
                         ? "bg-accent/50 border-l-2 border-l-purple-500"
@@ -922,6 +951,7 @@ function DeepDiveCard({
         open={completeOpen}
         onOpenChange={setCompleteOpen}
         kennel={currentKennel}
+        prefetchedToken={tokens[currentKennel.kennelCode] ?? null}
         onCompleted={() => {
           setCompleteOpen(false);
           onCompleted();
@@ -935,11 +965,17 @@ function DeepDiveCompleteDialog({
   open,
   onOpenChange,
   kennel,
+  prefetchedToken,
   onCompleted,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   kennel: DeepDiveCandidate;
+  /** Token minted server-side at page render. When present, the
+   *  dialog skips the on-open server action — the round trip was the
+   *  failure surface in #1207 / #1216. `null` falls back to the
+   *  async path. */
+  prefetchedToken: MintedQueueToken | null;
   onCompleted: () => void;
 }) {
   const [findingsCount, setFindingsCount] = useState(0);
@@ -957,10 +993,12 @@ function DeepDiveCompleteDialog({
     null,
   );
 
-  // Fetch the snapshot-bound token on open. The token captures the
-  // queue's membership at click time so a queue change between
-  // dialog-open and submit can't misattribute the deep dive
-  // (issue #1160).
+  // Bind the dialog to a kennel + token on open. The page mints a
+  // token server-side and passes it via `prefetchedToken`; we use
+  // that synchronously to skip the on-open server action that
+  // intermittently failed in production (#1207 / #1216). When the
+  // prefetched token is missing (e.g. page-render mint failed), fall
+  // back to the async `getDeepDiveQueueToken` path.
   useEffect(() => {
     if (!open) return;
     // Freeze the dialog target on this open transition. Subsequent
@@ -971,6 +1009,21 @@ function DeepDiveCompleteDialog({
     setFindingsCount(0);
     setSummary("");
     setError(null);
+
+    // Reject prefetched tokens that are at or past their TTL — falling
+    // through to the async fetch lets a long-idle dashboard recover
+    // without a page refresh. 30s buffer absorbs the round-trip
+    // between dialog-open and submit.
+    const TOKEN_FRESHNESS_BUFFER_MS = 30_000;
+    if (
+      prefetchedToken &&
+      prefetchedToken.expiresAt - Date.now() > TOKEN_FRESHNESS_BUFFER_MS
+    ) {
+      setQueueToken(prefetchedToken.token);
+      setTokenLoading(false);
+      return;
+    }
+
     setQueueToken(null);
     setTokenLoading(true);
     let cancelled = false;
@@ -999,9 +1052,9 @@ function DeepDiveCompleteDialog({
     return () => {
       cancelled = true;
     };
-    // Intentionally exclude `kennel` from deps — see freeze rationale
-    // above. Re-running this effect on `kennel` change would defeat
-    // the misattribution defense.
+    // Intentionally exclude `kennel` and `prefetchedToken` from deps —
+    // see freeze rationale above. Re-running this effect on prop
+    // change would defeat the misattribution defense.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
@@ -1072,10 +1125,19 @@ function DeepDiveCompleteDialog({
           );
           return;
         }
-        // invalidToken: session expired or tampered
-        setError(
-          "Submission token rejected. Cancel and re-open the dialog to refresh.",
-        );
+        // invalidToken: session expired or tampered. Try refetching
+        // in-place — the page-render-minted prefetched token expires
+        // after QUEUE_TOKEN_TTL_MS, and an idle dashboard would
+        // otherwise need a full refresh to recover. If the refetch
+        // succeeds, prompt the operator to submit again with the
+        // fresh token. If it fails, refetchToken already set its
+        // own error.
+        const fresh = await refetchToken();
+        if (fresh) {
+          setError(
+            "Submission token expired — refreshed automatically. Submit again to confirm.",
+          );
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to record deep dive");
       }

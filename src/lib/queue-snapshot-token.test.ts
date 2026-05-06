@@ -5,6 +5,7 @@ import {
   signQueueToken,
   verifyQueueToken,
   computeQueueTokenExpiresAt,
+  mintQueueTokens,
   QUEUE_TOKEN_TTL_MS,
 } from "./queue-snapshot-token";
 
@@ -164,6 +165,68 @@ describe("computeQueueTokenExpiresAt", () => {
   it("honors an explicit ttl override", () => {
     const exp = computeQueueTokenExpiresAt(60_000);
     expect(exp).toBeLessThan(Date.now() + 90_000);
+  });
+});
+
+describe("mintQueueTokens", () => {
+  it("returns one verifiable token per kennelCode sharing the same snapshot", () => {
+    const codes = ["nych3", "philly-h3", "agnews"];
+    const tokens = mintQueueTokens(codes);
+    const cmp = (a: string, b: string) => a.localeCompare(b);
+    expect(Object.keys(tokens).sort(cmp)).toEqual([...codes].sort(cmp));
+
+    const expectedSnapshot = computeQueueSnapshotId(codes);
+    for (const code of codes) {
+      const minted = tokens[code];
+      expect(minted).toBeDefined();
+      if (!minted) continue;
+      const result = verifyQueueToken(minted.token);
+      expect(result.ok).toBe(true);
+      if (!result.ok) continue;
+      expect(result.payload.kennelCode).toBe(code);
+      expect(result.payload.queueSnapshotId).toBe(expectedSnapshot);
+      expect(minted.expiresAt).toBe(result.payload.expiresAt);
+    }
+  });
+
+  it("returns the same snapshot regardless of input order", () => {
+    const a = mintQueueTokens(["nych3", "philly-h3", "agnews"]);
+    const b = mintQueueTokens(["agnews", "nych3", "philly-h3"]);
+    const aMinted = a.nych3;
+    const bMinted = b.nych3;
+    expect(aMinted && bMinted).toBeDefined();
+    if (!aMinted || !bMinted) return;
+    const aResult = verifyQueueToken(aMinted.token);
+    const bResult = verifyQueueToken(bMinted.token);
+    expect(aResult.ok && bResult.ok).toBe(true);
+    if (!aResult.ok || !bResult.ok) return;
+    expect(aResult.payload.queueSnapshotId).toBe(
+      bResult.payload.queueSnapshotId,
+    );
+  });
+
+  it("returns {} for an empty input", () => {
+    expect(mintQueueTokens([])).toEqual({});
+  });
+
+  it("returns {} when the secret is missing instead of throwing (page must still render)", () => {
+    delete process.env.AUDIT_QUEUE_TOKEN_SECRET;
+    expect(mintQueueTokens(["nych3"])).toEqual({});
+  });
+
+  it("stamps expiresAt at QUEUE_TOKEN_TTL_MS in the future so callers can detect staleness", () => {
+    // Codex flagged a no-ship: the dialog accepts prefetchedToken
+    // unconditionally, so a tab idle past the TTL submits an expired
+    // token. The mint side returns expiresAt; the dialog gates on
+    // `expiresAt - Date.now() > buffer` to fall back to async fetch.
+    const before = Date.now();
+    const tokens = mintQueueTokens(["nych3"]);
+    const after = Date.now();
+    const minted = tokens.nych3;
+    expect(minted).toBeDefined();
+    if (!minted) return;
+    expect(minted.expiresAt).toBeGreaterThanOrEqual(before + QUEUE_TOKEN_TTL_MS);
+    expect(minted.expiresAt).toBeLessThanOrEqual(after + QUEUE_TOKEN_TTL_MS);
   });
 });
 

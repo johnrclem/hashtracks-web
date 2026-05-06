@@ -157,3 +157,47 @@ export function computeQueueTokenExpiresAt(
 ): number {
   return Date.now() + ttlMs;
 }
+
+/** Single signed token + its expiration. The shape callers store and
+ *  hand off to a submission. */
+export interface MintedQueueToken {
+  token: string;
+  expiresAt: number;
+}
+
+/** Map of `kennelCode → MintedQueueToken`. `Partial` because lookups
+ *  by an unrecognized kennelCode return `undefined` — callers must
+ *  handle the missing case (typically by falling back to the async
+ *  `getDeepDiveQueueToken` server action). */
+export type MintedQueueTokens = Partial<Record<string, MintedQueueToken>>;
+
+/**
+ * Mint one queue token per candidate kennelCode in a single pass —
+ * shares the snapshot ID and expiration across all entries so the
+ * caller can hand each dialog a pre-signed token at page render time.
+ *
+ * Returns `{}` when the secret isn't configured (or any other signing
+ * failure) so the caller can fall back to the on-open server action
+ * without crashing the page render. Failure is logged so the
+ * underlying cause stays diagnosable.
+ */
+export function mintQueueTokens(
+  kennelCodes: readonly string[],
+): MintedQueueTokens {
+  if (kennelCodes.length === 0) return {};
+  try {
+    const queueSnapshotId = computeQueueSnapshotId(kennelCodes);
+    const expiresAt = computeQueueTokenExpiresAt();
+    const out: MintedQueueTokens = {};
+    for (const kennelCode of kennelCodes) {
+      out[kennelCode] = {
+        token: signQueueToken({ kennelCode, queueSnapshotId, expiresAt }),
+        expiresAt,
+      };
+    }
+    return out;
+  } catch (err) {
+    console.warn("[queue-snapshot-token] mintQueueTokens failed:", err);
+    return {};
+  }
+}
