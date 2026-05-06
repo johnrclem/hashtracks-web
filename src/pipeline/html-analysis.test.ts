@@ -104,6 +104,43 @@ describe("parseGeminiResponse", () => {
     expect(result).not.toBeNull();
     expect(result!.columns.hares).toBeUndefined();
   });
+
+  // ── locationOmitIfMatches sanitization (#1183) ──
+
+  // ── locationOmitIfMatches sanitization ──
+  describe("parseGeminiResponse locationOmitIfMatches", () => {
+    const TBA = String.raw`^t\.?b\.?[ad]\.?$`;
+    const HARE = String.raw`^hare\s+wanted\.?$`;
+
+    function buildResponse(locationOmitIfMatches?: unknown): string {
+      const body: Record<string, unknown> = {
+        columns: { date: "td:nth-child(1)" },
+        defaultKennelTag: "X",
+        dateLocale: "en-US",
+        confidence: "high",
+        explanation: "ok",
+      };
+      if (locationOmitIfMatches !== undefined) body.locationOmitIfMatches = locationOmitIfMatches;
+      return JSON.stringify(body);
+    }
+
+    it.each<[string, unknown, string[] | undefined]>([
+      ["accepts safe entries", [TBA, HARE], [TBA, HARE]],
+      ["drops too-broad universal patterns", ["^.*$", ".*", "^.+$", TBA], [TBA]],
+      ["drops ReDoS-unsafe entries", ["(a+a+)+$", TBA, "[broken("], [TBA]],
+      ["omits when every entry is unsafe", ["(a+a+)+$", "[broken(", 42], undefined],
+      ["omits when key absent", undefined, undefined],
+    ])("%s", (_label, input, expected) => {
+      const result = parseGeminiResponse(buildResponse(input));
+      expect(result?.locationOmitIfMatches).toEqual(expected);
+    });
+
+    it("caps at 10 entries", () => {
+      const tooMany = Array.from({ length: 25 }, (_, i) => `^placeholder${i}$`);
+      const result = parseGeminiResponse(buildResponse(tooMany));
+      expect(result?.locationOmitIfMatches).toHaveLength(10);
+    });
+  });
 });
 
 describe("analyzeUrlForProposal", () => {

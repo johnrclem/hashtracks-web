@@ -57,6 +57,17 @@ const bristolConfigBase = {
   locationTruncateAfter: "uk-postcode",
 };
 
+// Shared placeholder/CTA strings the Bristol pages emit when no venue is set
+// — drop these so the UI shows a true "venue TBD" state instead of leaking
+// editorial copy into the location field.
+const BRISTOL_LOCATION_OMIT = [
+  String.raw`^contact\s+\S.*\s+to\s+set\s+this\s+run\.?$`,
+  String.raw`^t\.?b\.?[ad]\.?$`,
+  String.raw`^hare\s+(?:wanted|needed)\.?!?$`,
+  String.raw`^sign\s+up\s+to\s+hare!?$`,
+  String.raw`^hare\s+needed!\s*contact\s+\S.*\.?$`,
+];
+
 // Choo-Choo H3 iCal source uses these base fields; spreading them keeps the
 // new entry from structurally duplicating other ICAL_FEED rows.
 const icalBaseChooChoo = {
@@ -571,6 +582,16 @@ export const SOURCES = [
           hares: "td:nth-child(5)",
         },
         defaultKennelTag: "bristolh3",
+        // Page legend declares per-kennel default times since the table has no
+        // time column: "BRIS=Sundays 11:00am, GREY=Mondays 7:00pm, BOGS=Wednesday
+        // 7:15pm". Keys are the source-page codes (column 1, "BRIS"/"GREY"/"BOGS"),
+        // not kennelCodes — the adapter looks them up pre-resolution.
+        defaultStartTimeByKennel: {
+          BRIS: "11:00",
+          GREY: "19:00",
+          BOGS: "19:15",
+        },
+        locationOmitIfMatches: BRISTOL_LOCATION_OMIT,
       },
       // Issue #1004: bogs-h3 split off into its own bogsruns.php source below
       // so we capture run numbers + start times allprint.php drops.
@@ -584,11 +605,11 @@ export const SOURCES = [
       //   col 3: location + theme, col 4: OS-map link (skipped),
       //   col 5: hare(s).
       // Page header asserts "Runs start on Wednesdays at 7:15pm sharp" —
-      // adapter has no default-time hook today, so the 7:15 PM scheduleTime
-      // lives on the Kennel record (#1005). Data rows nest inside an outer
-      // wrapper table, so we filter by bgcolor="#FFFFAA" (the run-row
-      // highlight) to skip page chrome and status banners. Verified live:
-      // 9 clean events.
+      // bogsruns.php has no per-event time column, so apply 19:15 as the
+      // source-wide default (single-kennel page, so unambiguous unlike
+      // allprint.php). Data rows nest inside an outer wrapper table, so we
+      // filter by bgcolor="#FFFFAA" (the run-row highlight) to skip page
+      // chrome and status banners. Verified live: 9 clean events.
       name: "BOGS H3 Run List",
       url: "https://bristolhash.org.uk/bogsruns.php",
       config: {
@@ -601,6 +622,8 @@ export const SOURCES = [
           hares: "td:nth-child(5)",
         },
         defaultKennelTag: "bogs-h3",
+        defaultStartTime: "19:15",
+        locationOmitIfMatches: BRISTOL_LOCATION_OMIT,
       },
       kennelCodes: ["bogs-h3"],
     },

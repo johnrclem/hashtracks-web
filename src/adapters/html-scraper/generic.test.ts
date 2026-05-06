@@ -290,6 +290,138 @@ describe("parseEventRow", () => {
     expect(event).toBeDefined();
     expect(event!.date).toMatch(/^\d{4}-03-28$/);
   });
+
+  // ── locationOmitIfMatches ──
+  describe("locationOmitIfMatches", () => {
+    const baseOmit = {
+      containerSelector: "table",
+      rowSelector: "tr",
+      columns: { date: "td:nth-child(1)", location: "td:nth-child(2)" },
+      defaultKennelTag: "test",
+      dateLocale: "en-GB" as const,
+    };
+    const BRISTOL_PATTERNS = [
+      String.raw`^contact\s+\S.*\s+to\s+set\s+this\s+run\.?$`,
+      String.raw`^t\.?b\.?[ad]\.?$`,
+      String.raw`^hare\s+(?:wanted|needed)\.?!?$`,
+      String.raw`^sign\s+up\s+to\s+hare!?$`,
+    ];
+
+    const buildRow = (locationCell: string) =>
+      `<table><tr><td>05/05/26</td><td>${locationCell}</td></tr></table>`;
+
+    function parseLocation(
+      cell: string,
+      configOverride: Partial<GenericHtmlConfig> = {},
+    ): string | undefined {
+      const $row = cheerio.load(buildRow(cell));
+      return parseEventRow(
+        $row,
+        $row("tr").first(),
+        { ...baseOmit, locationOmitIfMatches: BRISTOL_PATTERNS, ...configOverride },
+        "https://example.com",
+      )?.location;
+    }
+
+    it.each([
+      "Contact Le Caniveau to set this run.",
+      "Contact Le Caniveau to set this run",
+      "T.B.A.",
+      "T.B.A",
+      "TBA",
+      "tbd",
+      "Hare wanted.",
+      "Hare wanted",
+      "Hare needed!",
+      "Sign up to hare!",
+      "sign up to hare",
+    ])("drops placeholder location %s", (placeholder) => {
+      expect(parseLocation(placeholder)).toBeUndefined();
+    });
+
+    it("preserves real venue strings", () => {
+      expect(parseLocation("The Queen's Head, 12 Moor Street, Chepstow NP16 5DD"))
+        .toBe("The Queen's Head, 12 Moor Street, Chepstow NP16 5DD");
+    });
+
+    it.each([
+      ["undefined patterns", { locationOmitIfMatches: undefined }],
+      ["empty patterns", { locationOmitIfMatches: [] }],
+    ])("is a no-op when patterns are %s", (_label, override) => {
+      expect(parseLocation("T.B.A.", override)).toBe("T.B.A.");
+    });
+
+    it("skips invalid regex entries without crashing", () => {
+      expect(
+        parseLocation("T.B.A.", {
+          locationOmitIfMatches: ["[invalid(", String.raw`^t\.?b\.?[ad]\.?$`],
+        }),
+      ).toBeUndefined();
+    });
+
+    it("runs after locationTruncateAfter — truncated result no longer matches", () => {
+      // After uk-postcode truncation: "T.B.A. AB1 2CD" — does NOT match `^t.b.a$`,
+      // so location is preserved. Regression-locks ordering: truncate first, then omit.
+      expect(parseLocation("T.B.A. AB1 2CD extra context", { locationTruncateAfter: "uk-postcode" }))
+        .toBe("T.B.A. AB1 2CD");
+    });
+  });
+
+  // ── defaultStartTimeByKennel ──
+  describe("defaultStartTimeByKennel", () => {
+    const html = `<table>
+      <tr><td>BRIS</td><td>03/05/26</td></tr>
+      <tr><td>GREY</td><td>04/05/26</td></tr>
+      <tr><td>BOGS</td><td>06/05/26</td></tr>
+      <tr><td>UNKNOWN</td><td>10/05/26</td></tr>
+    </table>`;
+    const config: GenericHtmlConfig = {
+      containerSelector: "table",
+      rowSelector: "tr",
+      columns: {
+        kennelTag: "td:nth-child(1)",
+        date: "td:nth-child(2)",
+      },
+      defaultKennelTag: "fallback",
+      dateLocale: "en-GB",
+      defaultStartTime: "12:00",
+      defaultStartTimeByKennel: {
+        BRIS: "11:00",
+        GREY: "19:00",
+        BOGS: "19:15",
+      },
+    };
+
+    it("uses per-kennel time when row's kennelTag matches", () => {
+      const $h = cheerio.load(html);
+      const rows = $h("tr");
+      expect(parseEventRow($h, rows.eq(0), config, "x")?.startTime).toBe("11:00");
+      expect(parseEventRow($h, rows.eq(1), config, "x")?.startTime).toBe("19:00");
+      expect(parseEventRow($h, rows.eq(2), config, "x")?.startTime).toBe("19:15");
+    });
+
+    it("falls back to defaultStartTime when row kennelTag has no per-kennel entry", () => {
+      const $h = cheerio.load(html);
+      const event = parseEventRow($h, $h("tr").eq(3), config, "x");
+      expect(event?.kennelTags[0]).toBe("UNKNOWN");
+      expect(event?.startTime).toBe("12:00");
+    });
+
+    it("does not override an explicitly-extracted startTime", () => {
+      const html2 = `<table><tr><td>BRIS</td><td>03/05/26</td><td>6:30 PM</td></tr></table>`;
+      const $h = cheerio.load(html2);
+      const event = parseEventRow(
+        $h,
+        $h("tr").first(),
+        {
+          ...config,
+          columns: { ...config.columns, startTime: "td:nth-child(3)" },
+        },
+        "x",
+      );
+      expect(event?.startTime).toBe("18:30");
+    });
+  });
 });
 
 describe("GenericHtmlAdapter", () => {

@@ -12,6 +12,21 @@ import {
 } from "@/adapters/html-scraper/examples";
 import he from "he";
 import type { GenericHtmlConfig, GenericHtmlColumns } from "@/adapters/html-scraper/generic";
+import { isPatternTooBroad, isSafeRegexString } from "@/app/admin/sources/config-validation";
+
+/** Cap AI-suggested regex arrays to bound prompt-injection blast radius. */
+const MAX_LOCATION_OMIT_PATTERNS = 10;
+
+/** Filter an AI-supplied regex list to safe entries; returns undefined if empty. */
+function sanitizeLocationOmitPatterns(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const safe = value
+    .filter((e): e is string => typeof e === "string")
+    .map((s) => s.trim())
+    .filter((s) => s && isSafeRegexString(s) && !isPatternTooBroad(s))
+    .slice(0, MAX_LOCATION_OMIT_PATTERNS);
+  return safe.length ? safe : undefined;
+}
 import { findCandidateContainers } from "@/app/admin/sources/html-analysis-utils";
 import type { ContainerCandidate } from "@/app/admin/sources/html-analysis-utils";
 import type { CheerioAPI } from "cheerio";
@@ -73,6 +88,7 @@ Respond with a JSON object:
   },
   "defaultKennelTag": "best guess kennel abbreviation from the data (e.g., 'DFWH3')",
   "dateLocale": "en-US or en-GB based on date format",
+  "locationOmitIfMatches": ["optional list of regex strings — if a location cell exactly matches any pattern (case-insensitive), the location is dropped. Use for placeholder/CTA strings like 'T.B.A.', 'TBD', 'Hare wanted', 'Sign up to hare!', 'Contact <name> to set this run'. Anchor with ^...$ and keep simple — no nested quantifiers. Omit this key entirely if every row carries a real venue."],
   "confidence": "high, medium, or low",
   "explanation": "brief explanation of what you found"
 }
@@ -85,6 +101,7 @@ export function parseGeminiResponse(text: string): {
   columns: Partial<GenericHtmlColumns>;
   defaultKennelTag: string;
   dateLocale: "en-US" | "en-GB";
+  locationOmitIfMatches?: string[];
   confidence: "high" | "medium" | "low";
   explanation: string;
 } | null {
@@ -116,10 +133,13 @@ export function parseGeminiResponse(text: string): {
     if (parsed.columns.kennelTag) columns.kennelTag = sanitize(parsed.columns.kennelTag);
     if (parsed.columns.sourceUrl) columns.sourceUrl = sanitize(parsed.columns.sourceUrl);
 
+    const locationOmitIfMatches = sanitizeLocationOmitPatterns(parsed.locationOmitIfMatches);
+
     return {
       columns,
       defaultKennelTag: typeof parsed.defaultKennelTag === "string" ? parsed.defaultKennelTag : "UNKNOWN",
       dateLocale: parsed.dateLocale === "en-GB" ? "en-GB" : "en-US",
+      ...(locationOmitIfMatches ? { locationOmitIfMatches } : {}),
       confidence: ["high", "medium", "low"].includes(parsed.confidence) ? parsed.confidence : "medium",
       explanation: typeof parsed.explanation === "string" ? parsed.explanation : "AI analysis complete",
     };
@@ -207,6 +227,7 @@ function buildConfig(
     } as GenericHtmlColumns,
     defaultKennelTag: parsed.defaultKennelTag,
     dateLocale: parsed.dateLocale,
+    ...(parsed.locationOmitIfMatches ? { locationOmitIfMatches: parsed.locationOmitIfMatches } : {}),
   };
 }
 
@@ -322,6 +343,10 @@ export async function refineAnalysis(
         .join("\n")
     : "  (none)";
 
+  const currentOmitText = currentConfig.locationOmitIfMatches?.length
+    ? currentConfig.locationOmitIfMatches.map((p) => `  - ${p}`).join("\n")
+    : "  (none)";
+
   const prompt = `You are refining an HTML event table analysis based on admin feedback.
 
 Reference examples:
@@ -335,13 +360,17 @@ ${rowsText}
 Current column mapping:
 ${currentConfigText}
 
+Current locationOmitIfMatches:
+${currentOmitText}
+
 Admin feedback: "${feedback}"
 
-Adjust the column mappings based on the admin's feedback. Respond with the same JSON format:
+Adjust the column mappings (and locationOmitIfMatches if needed) based on the admin's feedback. Respond with the same JSON format:
 {
   "columns": { "date": "...", "hares": "...", ... },
   "defaultKennelTag": "...",
   "dateLocale": "en-US or en-GB",
+  "locationOmitIfMatches": ["optional list of regex strings — see prior schema"],
   "confidence": "high/medium/low",
   "explanation": "what changed based on feedback"
 }
