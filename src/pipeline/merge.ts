@@ -1098,18 +1098,18 @@ async function upsertCanonicalEvent(
           ...(event.cost !== undefined
             ? { cost: event.cost ?? null }
             : {}),
-          ...(event.trailLengthText !== undefined
-            ? { trailLengthText: event.trailLengthText ?? null }
-            : {}),
-          ...(event.trailLengthMinMiles !== undefined
-            ? { trailLengthMinMiles: event.trailLengthMinMiles ?? null }
-            : {}),
-          ...(event.trailLengthMaxMiles !== undefined
-            ? { trailLengthMaxMiles: event.trailLengthMaxMiles ?? null }
-            : {}),
-          ...(event.difficulty !== undefined
-            ? { difficulty: event.difficulty ?? null }
-            : {}),
+          ...(event.trailLengthText === undefined
+            ? {}
+            : { trailLengthText: event.trailLengthText ?? null }),
+          ...(event.trailLengthMinMiles === undefined
+            ? {}
+            : { trailLengthMinMiles: event.trailLengthMinMiles ?? null }),
+          ...(event.trailLengthMaxMiles === undefined
+            ? {}
+            : { trailLengthMaxMiles: event.trailLengthMaxMiles ?? null }),
+          ...(event.difficulty === undefined
+            ? {}
+            : { difficulty: event.difficulty ?? null }),
           // Cross-window fuzzy match (#990) physically moves the row from
           // its old `date` bucket to the incoming source's date, so display
           // paths that compose `date + startTime + timezone` render the

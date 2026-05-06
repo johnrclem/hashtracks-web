@@ -103,8 +103,8 @@ export function TrailLengthLine({
   return (
     <span className={`inline-flex items-center gap-1 tabular-nums ${textCls} ${className ?? ""}`}>
       <Route
-        className={`${dim} shrink-0 opacity-90`}
-        style={color ? { color: `${color}b0` } : undefined}
+        className={`${dim} shrink-0`}
+        style={color ? { color, opacity: 0.7 } : { opacity: 0.9 }}
         aria-hidden="true"
       />
       <span className="truncate">{text}</span>

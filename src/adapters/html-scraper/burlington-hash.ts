@@ -48,12 +48,12 @@ export function parseCalendarLink(
 
   const utcDate = new Date(
     Date.UTC(
-      parseInt(dateMatch[1]),
-      parseInt(dateMatch[2]) - 1,
-      parseInt(dateMatch[3]),
-      parseInt(dateMatch[4]),
-      parseInt(dateMatch[5]),
-      parseInt(dateMatch[6]),
+      Number.parseInt(dateMatch[1]),
+      Number.parseInt(dateMatch[2]) - 1,
+      Number.parseInt(dateMatch[3]),
+      Number.parseInt(dateMatch[4]),
+      Number.parseInt(dateMatch[5]),
+      Number.parseInt(dateMatch[6]),
     ),
   );
 
@@ -70,25 +70,7 @@ export function parseCalendarLink(
   const min = String(localDate.getMinutes()).padStart(2, "0");
   const startTime = `${hh}:${min}`;
 
-  // Parse title and run number. Three accepted forms (#889):
-  //   "BTVH3 #846: Season Premier"       → title "Season Premier"
-  //   "BTVH3 #851 ft. Not Just the Tip"  → title "ft. Not Just the Tip" (prefix kept)
-  //   "BTVH3 #852"                        → title "BurlyH3 #852"
-  let title = text.trim();
-  let runNumber: number | undefined;
-  const colonMatch = /(?:BTVH3|BurlyH3|Burlington)\s*#(\d+)\s*[:\-–]\s*(.*)/i.exec(title);
-  if (colonMatch) {
-    runNumber = parseInt(colonMatch[1], 10);
-    title = colonMatch[2].trim() || `BurlyH3 #${runNumber}`;
-  } else {
-    const altMatch = /(?:BTVH3|BurlyH3|Burlington)\s*#(\d+)(?:\s+(ft\.|feat\.)\s+(.+)|\s*$)/i.exec(title);
-    if (altMatch) {
-      runNumber = parseInt(altMatch[1], 10);
-      const featSep = altMatch[2];
-      const rest = altMatch[3];
-      title = featSep ? `${featSep} ${rest}`.trim() : `BurlyH3 #${runNumber}`;
-    }
-  }
+  const { title, runNumber } = parseTitleAndRunNumber(text.trim());
 
   // Parse details — strip HTML, then extract labeled fields and free-form prose.
   // The live Wix payload uses `<br>` between labeled fields and before the
@@ -125,18 +107,18 @@ export function parseCalendarLink(
   const lengthRaw = extractLabeledField(detailText, LENGTH_LABEL_RE);
   const parsedLength = parseTrailLength(lengthRaw);
   const trailLengthText =
-    lengthRaw !== undefined ? parsedLength.trailLengthText ?? null : undefined;
+    lengthRaw === undefined ? undefined : parsedLength.trailLengthText ?? null;
   const trailLengthMinMiles =
-    lengthRaw !== undefined ? parsedLength.trailLengthMinMiles ?? null : undefined;
+    lengthRaw === undefined ? undefined : parsedLength.trailLengthMinMiles ?? null;
   const trailLengthMaxMiles =
-    lengthRaw !== undefined ? parsedLength.trailLengthMaxMiles ?? null : undefined;
+    lengthRaw === undefined ? undefined : parsedLength.trailLengthMaxMiles ?? null;
 
   // Same atomic semantic for difficulty: label-present-but-out-of-range
   // emits `null` so the canonical event doesn't keep a stale Shiggy
   // rating after the source drops the value.
   const shiggyRaw = extractLabeledField(detailText, SHIGGY_LABEL_RE);
   const difficulty =
-    shiggyRaw !== undefined ? parseShiggyScale(shiggyRaw) ?? null : undefined;
+    shiggyRaw === undefined ? undefined : parseShiggyScale(shiggyRaw) ?? null;
 
   // #887: extract free-form description. Wix puts `<br><br>` (a blank line
   // after `<br>→\n` conversion) before the prose paragraph that follows the
@@ -185,10 +167,35 @@ function extractHares(detailText: string): string | undefined {
 // HARES_TERMINATORS_RE in spirit — handles BurlyH3's #850 payload where
 // labels run together with no whitespace ("...Length: TBDShiggy Scale:
 // 4Cost:..."), so a labeled value ends at the next label even without
-// a delimiter.
-const FIELD_TERMINATORS_RE = /Length\s*:|Shiggy\s*Scale\s*:|Hares?:|Location\s*:|Cost\s*:|HASH\s*CASH|On[\s-]*On|\n[\t ]*\n/i;
+// a delimiter. Colon-suffixed labels share one alternation group to keep
+// regex complexity under SonarCloud's S5843 threshold.
+const FIELD_TERMINATORS_RE = /(?:Length|Shiggy\s*Scale|Hares?|Location|Cost)\s*:|HASH\s*CASH|On[\s-]*On|\n[\t ]*\n/i;
 const LENGTH_LABEL_RE = /Length\s*:\s*/i;
 const SHIGGY_LABEL_RE = /Shiggy\s*Scale\s*:\s*/i;
+
+/**
+ * Parse the calendar-link `text` field into title + run number.
+ *
+ * Three accepted forms (#889):
+ *   "BTVH3 #846: Season Premier"       → title "Season Premier"
+ *   "BTVH3 #851 ft. Not Just the Tip"  → title "ft. Not Just the Tip" (prefix kept)
+ *   "BTVH3 #852"                        → title "BurlyH3 #852"
+ */
+function parseTitleAndRunNumber(raw: string): { title: string; runNumber: number | undefined } {
+  const colonMatch = /(?:BTVH3|BurlyH3|Burlington)\s*#(\d+)\s*[:\-–]\s*(.*)/i.exec(raw);
+  if (colonMatch) {
+    const runNumber = Number.parseInt(colonMatch[1], 10);
+    return { title: colonMatch[2].trim() || `BurlyH3 #${runNumber}`, runNumber };
+  }
+  const altMatch = /(?:BTVH3|BurlyH3|Burlington)\s*#(\d+)(?:\s+(ft\.|feat\.)\s+(.+)|\s*$)/i.exec(raw);
+  if (altMatch) {
+    const runNumber = Number.parseInt(altMatch[1], 10);
+    const featSep = altMatch[2];
+    const rest = altMatch[3];
+    return { title: featSep ? `${featSep} ${rest}`.trim() : `BurlyH3 #${runNumber}`, runNumber };
+  }
+  return { title: raw, runNumber: undefined };
+}
 
 function extractLabeledField(detailText: string, labelRe: RegExp): string | undefined {
   const labelMatch = labelRe.exec(detailText);
@@ -219,8 +226,8 @@ function parseTrailLength(raw: string | undefined): ParsedTrailLength {
 
   const range = /^(\d+(?:\.\d+)?)\s*[-–]\s*(\d+(?:\.\d+)?)$/.exec(numericPart);
   if (range) {
-    const min = parseFloat(range[1]);
-    const max = parseFloat(range[2]);
+    const min = Number.parseFloat(range[1]);
+    const max = Number.parseFloat(range[2]);
     return {
       trailLengthText: raw,
       trailLengthMinMiles: min,
@@ -229,7 +236,7 @@ function parseTrailLength(raw: string | undefined): ParsedTrailLength {
   }
   const fixed = /^(\d+(?:\.\d+)?)$/.exec(numericPart);
   if (fixed) {
-    const n = parseFloat(fixed[1]);
+    const n = Number.parseFloat(fixed[1]);
     return {
       trailLengthText: raw,
       trailLengthMinMiles: n,
@@ -248,7 +255,7 @@ function parseShiggyScale(raw: string | undefined): number | undefined {
   if (!raw) return undefined;
   const match = /^(\d+)$/.exec(raw.trim());
   if (!match) return undefined;
-  const n = parseInt(match[1], 10);
+  const n = Number.parseInt(match[1], 10);
   if (!Number.isInteger(n) || n < 1 || n > 5) return undefined;
   return n;
 }
