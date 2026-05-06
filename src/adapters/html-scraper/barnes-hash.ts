@@ -83,7 +83,7 @@ function extractHaresFromCells(cells: string[]): string | undefined {
   return undefined;
 }
 
-export function parseBarnesRow(cells: string[], sourceUrl = "http://www.barnesh3.com/HareLine.htm"): RawEventData | null {
+export function parseBarnesRow(cells: string[], sourceUrl = "https://www.barnesh3.com/HareLine.htm"): RawEventData | null {
   if (cells.length < 2) return null;
 
   const allText = cells.join(" ");
@@ -125,7 +125,7 @@ export class BarnesHashAdapter implements SourceAdapter {
     source: Source,
     _options?: { days?: number },
   ): Promise<ScrapeResult> {
-    const baseUrl = source.url || "http://www.barnesh3.com/HareLine.htm";
+    const baseUrl = source.url || "https://www.barnesh3.com/HareLine.htm";
 
     const events: RawEventData[] = [];
     const errors: string[] = [];

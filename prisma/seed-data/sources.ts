@@ -4387,7 +4387,7 @@ export const SOURCES = [
     // --- Phuket HHH Shared Hareline ---
     {
       name: "Phuket HHH Hareline",
-      url: "http://www.phuket-hhh.com/hareline.php",
+      url: "https://www.phuket-hhh.com/hareline.php",
       type: "HTML_SCRAPER" as const,
       trustLevel: 8,
       scrapeFreq: "daily",
@@ -4479,7 +4479,7 @@ export const SOURCES = [
     // Needs live Chrome verification before enabling.
     {
       name: "Bangkok Bikers Website",
-      url: "http://www.bangkokbikehash.org",
+      url: "https://www.bangkokbikehash.org",
       type: "HTML_SCRAPER" as const,
       enabled: false,
       trustLevel: 5,

@@ -25,21 +25,21 @@
 
 ## What's excluded
 
-`sonar-project.properties` excludes:
-- `prisma/seed.ts`, `prisma/seed-data/**/*.ts` — duplication checks (large hand-curated data files)
-- `docs/mockups/**` — full Sonar analysis (these are static design references, not shipped code)
+`sonar-project.properties` lists exclusions for:
+- `sonar.cpd.exclusions`: `prisma/seed.ts`, `prisma/seed-data/**/*.ts`, `src/lib/admin/*-prompt.test.ts`, `src/adapters/hare-extraction.test.ts` — duplication only
+- `sonar.exclusions`: `docs/mockups/**` — full analysis (static design references, not shipped code)
 
-## `main` gate is currently ERROR — by design (for now)
+> **Important:** SonarCloud Automatic Analysis ignores `sonar-project.properties` — exclusions must also be set in the SonarCloud UI (Project Settings → Analysis Scope) for them to take effect. Until that UI config is in place, the duplication gate condition counts seed-data files. See [#1267](https://github.com/johnrclem/hashtracks-web/issues/1267).
 
-The `main` branch gate currently shows ERROR because of historical debt:
-- ~399 unreviewed security hotspots accumulated over time
-- Reliability rating D from a backlog of medium-severity bugs in test files and mockups
+## Phase B status
 
-This is **deferred Phase B** of [#1086](https://github.com/johnrclem/hashtracks-web/issues/1086): a one-time SAFE-resolve sweep of the existing hotspots and any genuinely-stale bug findings. PR-gate relief (this doc) lands first; the main-gate green-up follows separately.
+Phase B sweep landed via [#1141](https://github.com/johnrclem/hashtracks-web/issues/1141): all 398 hotspots in `TO_REVIEW` were triaged through the SonarQube MCP (most SAFE-resolved with per-hotspot context, 16 FIXED inline via HTTPS upgrades on kennel-website seed URLs that actually serve TLS), and the 6 BUG findings on `main` were resolved (5 mockup wirefames marked WONTFIX, 1 conditional-keyboard-handler false-positive). Verifiable at <https://sonarcloud.io/project/security_hotspots?id=johnrclem_hashtracks-web> (filter to `Reviewed`) and via `mcp__sonarqube__quality_gate_status`.
 
-If you want to help with Phase B, query unreviewed hotspots via the SonarQube MCP tool from inside Claude Code — invoke the `mcp__sonarqube__hotspots` tool with `project_key="johnrclem_hashtracks-web"` and `status="TO_REVIEW"`. (Note: this is a Claude Code tool name, not a shell command — there is no CLI you can run literally.) For ad-hoc browsing, the SonarCloud web UI works too: <https://sonarcloud.io/project/security_hotspots?id=johnrclem_hashtracks-web>.
+Current `main` gate: 5 of 6 conditions OK. The remaining ERROR is `new_duplicated_lines_density` (4.5% > 3% threshold). By directory: `src/adapters` 3,705 dup lines (mostly test fixtures), `prisma` 2,425, `src/pipeline` 1,368. Closing it has two prerequisites tracked in [#1267](https://github.com/johnrclem/hashtracks-web/issues/1267):
+1. **SonarCloud UI exclusions** for the patterns currently in `sonar.cpd.exclusions` (the in-repo properties file is inert under Automatic Analysis). This alone resolves the seed-data contribution (~2,425 lines) but is **not sufficient** — the existing CPD exclusion list does not cover generic adapter test fixtures.
+2. **Adapter test fixture deduping** for `src/adapters/**/*.test.ts` — either by adding a broader pattern to the UI CPD exclusions, or by refactoring shared fixtures via `it.each` (memory `feedback_it_each_for_sonar_cpd.md`).
 
-Most hotspots are bounded-input regex (`typescript:S5852`) or `http://` URLs in seed files (`typescript:S5332`) — low-risk in context, but each needs a per-hotspot SAFE-resolve.
+If new hotspots or bugs accrue, query them with `mcp__sonarqube__hotspots` (`project_key="johnrclem_hashtracks-web"`, `status="TO_REVIEW"`) from Claude Code, or browse <https://sonarcloud.io/project/security_hotspots?id=johnrclem_hashtracks-web>.
 
 ## Why we don't use "previous version" for the PR new-code period
 
