@@ -336,6 +336,15 @@ model Event {
   startTime         String? // Local time string "HH:MM" — NOT a timestamp
   endTime           String? // Local time string "HH:MM" — same convention as startTime
   cost              String? // Free-form: "$10", "$5 cash / $10 card", "Free for virgins"
+  /// Verbatim trail-length string from the source ("3-5 Miles", "2.69 (miles)", "13 miles").
+  /// Preserves source intent for display; min/max below carry the parsed numerics.
+  trailLengthText      String?
+  trailLengthMinMiles  Float? // Parsed lower bound; equal to max when source is fixed (e.g. "2.69" → min=max=2.69).
+  trailLengthMaxMiles  Float? // Parsed upper bound; for ranges only ("3-5 Miles" → min=3, max=5).
+  /// Shiggy Scale (1–5). Range validated at adapter layer — Prisma can't enforce.
+  /// User-facing label is "Shiggy Level" (hash vernacular); DB column stays generic so other
+  /// adapters' "rating"/"hardness" fields can land in the same column later.
+  difficulty           Int?
   sourceUrl         String? // Link to original event page
   trustLevel        Int         @default(5)
   isSeriesParent    Boolean     @default(false)

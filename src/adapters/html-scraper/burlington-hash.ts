@@ -110,6 +110,34 @@ export function parseCalendarLink(
   const costMatch = /Cost:\s*\$?([0-9]+(?:\.[0-9]{1,2})?)/i.exec(detailText);
   if (costMatch) cost = `$${costMatch[1]}`;
 
+  // #890: extract Length + Shiggy Scale. Both labels already terminate
+  // hares (HARES_TERMINATORS_RE), so the values land between the label and
+  // the next labeled field — same indexOf-based slicing pattern.
+  //
+  // Atomic-bundle semantics for the trail-length triple:
+  //   • Label NOT found → all three stay `undefined`. Merge preserves
+  //     existing values (consistent with description/haresText handling).
+  //   • Label found but numerics unparseable (e.g. "TBD") → text is
+  //     populated; numerics emit explicit `null`. Merge writes nulls,
+  //     clearing any stale parsed range from a prior scrape. Without this,
+  //     `Length: 3-5 Miles → Length: TBD` would leave `min=3, max=5`
+  //     wired to fresh text="TBD" — a silent corruption (Codex finding).
+  const lengthRaw = extractLabeledField(detailText, LENGTH_LABEL_RE);
+  const parsedLength = parseTrailLength(lengthRaw);
+  const trailLengthText =
+    lengthRaw !== undefined ? parsedLength.trailLengthText ?? null : undefined;
+  const trailLengthMinMiles =
+    lengthRaw !== undefined ? parsedLength.trailLengthMinMiles ?? null : undefined;
+  const trailLengthMaxMiles =
+    lengthRaw !== undefined ? parsedLength.trailLengthMaxMiles ?? null : undefined;
+
+  // Same atomic semantic for difficulty: label-present-but-out-of-range
+  // emits `null` so the canonical event doesn't keep a stale Shiggy
+  // rating after the source drops the value.
+  const shiggyRaw = extractLabeledField(detailText, SHIGGY_LABEL_RE);
+  const difficulty =
+    shiggyRaw !== undefined ? parseShiggyScale(shiggyRaw) ?? null : undefined;
+
   // #887: extract free-form description. Wix puts `<br><br>` (a blank line
   // after `<br>→\n` conversion) before the prose paragraph that follows the
   // labeled fields. Anchoring on that paragraph break avoids treating any
@@ -133,6 +161,10 @@ export function parseCalendarLink(
     location: location.trim() || undefined,
     startTime,
     sourceUrl,
+    trailLengthText,
+    trailLengthMinMiles,
+    trailLengthMaxMiles,
+    difficulty,
   };
 }
 
@@ -147,6 +179,78 @@ function extractHares(detailText: string): string | undefined {
   const value = termMatch ? rest.slice(0, termMatch.index) : rest;
   const cleaned = value.replace(HARE_BOILERPLATE_RE, "").trim();
   return cleaned || undefined;
+}
+
+// #890: terminators for trail-length / shiggy-scale values. Matches
+// HARES_TERMINATORS_RE in spirit — handles BurlyH3's #850 payload where
+// labels run together with no whitespace ("...Length: TBDShiggy Scale:
+// 4Cost:..."), so a labeled value ends at the next label even without
+// a delimiter.
+const FIELD_TERMINATORS_RE = /Length\s*:|Shiggy\s*Scale\s*:|Hares?:|Location\s*:|Cost\s*:|HASH\s*CASH|On[\s-]*On|\n[\t ]*\n/i;
+const LENGTH_LABEL_RE = /Length\s*:\s*/i;
+const SHIGGY_LABEL_RE = /Shiggy\s*Scale\s*:\s*/i;
+
+function extractLabeledField(detailText: string, labelRe: RegExp): string | undefined {
+  const labelMatch = labelRe.exec(detailText);
+  if (!labelMatch) return undefined;
+  const rest = detailText.slice(labelMatch.index + labelMatch[0].length);
+  const termMatch = FIELD_TERMINATORS_RE.exec(rest);
+  const value = (termMatch ? rest.slice(0, termMatch.index) : rest).trim();
+  return value || undefined;
+}
+
+interface ParsedTrailLength {
+  trailLengthText?: string;
+  trailLengthMinMiles?: number;
+  trailLengthMaxMiles?: number;
+}
+
+// Capture group: digits with optional decimal — both range bounds and fixed
+// values flow through it. Inline so reviewers don't have to hop to a const.
+function parseTrailLength(raw: string | undefined): ParsedTrailLength {
+  if (!raw) return {};
+  // Strip a trailing unit suffix for numeric parsing only — keep the
+  // verbatim string in trailLengthText so the UI can render exactly what
+  // the source shows ("3-5 Miles" stays "3-5 Miles", not "3-5").
+  const numericPart = raw
+    .replace(/\s*\(?\s*miles?\s*\)?\s*$/i, "")
+    .replace(/\s*mi\s*$/i, "")
+    .trim();
+
+  const range = /^(\d+(?:\.\d+)?)\s*[-–]\s*(\d+(?:\.\d+)?)$/.exec(numericPart);
+  if (range) {
+    const min = parseFloat(range[1]);
+    const max = parseFloat(range[2]);
+    return {
+      trailLengthText: raw,
+      trailLengthMinMiles: min,
+      trailLengthMaxMiles: max,
+    };
+  }
+  const fixed = /^(\d+(?:\.\d+)?)$/.exec(numericPart);
+  if (fixed) {
+    const n = parseFloat(fixed[1]);
+    return {
+      trailLengthText: raw,
+      trailLengthMinMiles: n,
+      trailLengthMaxMiles: n,
+    };
+  }
+  // Unparseable (TBD, ?, ranges-with-units, etc.): preserve the verbatim
+  // string for display, but leave numerics undefined so future filter/sort
+  // doesn't false-bucket the event.
+  return { trailLengthText: raw };
+}
+
+// Shiggy Scale is 1–5. Reject anything outside that integer range, including
+// "TBD"/"?"/floats — better to drop the field than store ambiguous data.
+function parseShiggyScale(raw: string | undefined): number | undefined {
+  if (!raw) return undefined;
+  const match = /^(\d+)$/.exec(raw.trim());
+  if (!match) return undefined;
+  const n = parseInt(match[1], 10);
+  if (!Number.isInteger(n) || n < 1 || n > 5) return undefined;
+  return n;
 }
 
 /**

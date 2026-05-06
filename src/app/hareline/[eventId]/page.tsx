@@ -15,6 +15,8 @@ import { CheckInButton } from "@/components/logbook/CheckInButton";
 import { CalendarExportButton } from "@/components/hareline/CalendarExportButton";
 import { EventLocationMap } from "@/components/hareline/EventLocationMap";
 import { EventWeatherCard } from "@/components/hareline/EventWeatherCard";
+import { ShiggyLevelFlames, TrailLengthLine, formatTrailLength } from "@/components/hareline/TrailDifficulty";
+import { getRegionColor } from "@/lib/region";
 import { EventTimeDisplay } from "@/components/hareline/EventTimeDisplay";
 import { SourcesDropdown } from "@/components/hareline/SourcesDropdown";
 import { getEventDayWeather } from "@/lib/weather";
@@ -172,6 +174,10 @@ export default async function EventDetailPage({
 
   const hasLocation =
     (event.latitude != null && event.longitude != null) || !!event.locationName;
+
+  // #890 — hoist once for reuse in the trail-length + Shiggy-level rows.
+  const regionColor = getRegionColor(event.kennel.region);
+  const trailLengthDisplay = formatTrailLength(event);
 
   function getAttendancePrompt(eventDate: Date, status: string | null): string {
     // Compare at UTC noon to match date storage convention (Appendix F.4)
@@ -350,6 +356,37 @@ export default async function EventDetailPage({
                 ) : event.haresText ? (
                   <DetailItem label="Hares" value={event.haresText} />
                 ) : null}
+                {/* #890 — first-class trail length + Shiggy Level. Same
+                    Route/Flame iconography + kennel region tint as the
+                    card and detail panel so the visual language is
+                    consistent across surfaces. */}
+                {trailLengthDisplay && (
+                  <div>
+                    <dt className="text-sm font-medium text-muted-foreground">Trail Length</dt>
+                    <dd className="mt-0.5">
+                      <TrailLengthLine
+                        text={trailLengthDisplay}
+                        color={regionColor}
+                        size="md"
+                      />
+                    </dd>
+                  </div>
+                )}
+                {event.difficulty != null && event.difficulty >= 1 && event.difficulty <= 5 && (
+                  <div>
+                    <dt className="text-sm font-medium text-muted-foreground">Shiggy Level</dt>
+                    <dd className="mt-0.5 flex items-center gap-2">
+                      <ShiggyLevelFlames
+                        level={event.difficulty}
+                        color={regionColor}
+                        size="md"
+                      />
+                      <span className="tabular-nums text-muted-foreground/70">
+                        {event.difficulty}/5
+                      </span>
+                    </dd>
+                  </div>
+                )}
                 {event.locationName && (
                   <div>
                     <dt className="text-sm font-medium text-muted-foreground">Location</dt>

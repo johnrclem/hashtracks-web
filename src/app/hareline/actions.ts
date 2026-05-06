@@ -52,6 +52,14 @@ export interface HarelineListEvent {
   status: string;
   latitude: number | null;
   longitude: number | null;
+  /** #890 — verbatim source string ("3-5 Miles", "2.69 (miles)") for in-card display. */
+  trailLengthText: string | null;
+  /** #890 — parsed lower bound; equal to max for fixed values. */
+  trailLengthMinMiles: number | null;
+  /** #890 — parsed upper bound; only distinct from min for ranges. */
+  trailLengthMaxMiles: number | null;
+  /** #890 — Shiggy Level (1–5). UI-facing label is "Shiggy Level". */
+  difficulty: number | null;
 }
 
 export type TimeMode = "upcoming" | "past";
@@ -143,6 +151,10 @@ const fetchSlimEventsCached = unstable_cache(
         status: true,
         latitude: true,
         longitude: true,
+        trailLengthText: true,
+        trailLengthMinMiles: true,
+        trailLengthMaxMiles: true,
+        difficulty: true,
         kennel: {
           select: { id: true, shortName: true, fullName: true, slug: true, region: true, country: true },
         },
@@ -178,6 +190,10 @@ const fetchSlimEventsCached = unstable_cache(
       status: e.status,
       latitude: e.latitude ?? null,
       longitude: e.longitude ?? null,
+      trailLengthText: e.trailLengthText,
+      trailLengthMinMiles: e.trailLengthMinMiles,
+      trailLengthMaxMiles: e.trailLengthMaxMiles,
+      difficulty: e.difficulty,
     }));
   },
   ["hareline:events"],
