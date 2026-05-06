@@ -59,6 +59,18 @@ export interface Sfh3BackfillParams {
    * without descriptions are low-value.
    */
   enrichDetailPages?: boolean;
+  /**
+   * Expected label text inside the selected `<option>` for `sfh3KennelId`
+   * (e.g. "EBH3"). When set, the page must emit
+   * `<option selected="selected" value="<id>">{expectedLabel}</option>` —
+   * proving the numeric id still maps to the intended kennel upstream. If
+   * sfh3.com renumbers its dropdown or this wrapper is given a wrong id by
+   * a copy-paste mistake, the assertion fails before any writes instead of
+   * silently importing another kennel's history under our `kennelCode`.
+   * Optional for backward compatibility with existing wrappers; new
+   * wrappers should always set it.
+   */
+  expectedLabel?: string;
 }
 
 /** Build the SFH3 hareline URL for a given kennel + period bucket. */
@@ -79,7 +91,12 @@ function localTodayIso(timezone: string): string {
 }
 
 /** Guard: confirm the fetched page is actually filtered to the expected kennel. */
-function assertKennelFilterApplied(html: string, sfh3KennelId: number, url: string): void {
+function assertKennelFilterApplied(
+  html: string,
+  sfh3KennelId: number,
+  url: string,
+  expectedLabel?: string,
+): void {
   // The hareline renders `<option selected="selected" value="<id>">` inside
   // the kennel <select>. If SFH3 ever stops honoring `kennel=<id>`, the
   // selected value will be "*" (All kennels) and we'd silently import other
@@ -92,6 +109,20 @@ function assertKennelFilterApplied(html: string, sfh3KennelId: number, url: stri
       `SFH3 kennel filter not applied at ${url} — expected selected kennel id ${sfh3KennelId}. ` +
         `Refusing to backfill to avoid cross-kennel data corruption.`,
     );
+  }
+  // Identity check: id alone proves the page is filtered, not that the id
+  // maps to the kennel we think it does. If a wrapper passes a wrong id (or
+  // sfh3.com renumbers the dropdown), this catches the mismatch before any
+  // writes — instead of importing another kennel's full history under
+  // `kennelCode`.
+  if (expectedLabel !== undefined) {
+    const labelMarker = `${marker}>${expectedLabel}</option>`;
+    if (!html.includes(labelMarker)) {
+      throw new Error(
+        `SFH3 kennel id ${sfh3KennelId} does not map to "${expectedLabel}" at ${url}. ` +
+          `Refusing to backfill — verify the kennel dropdown on sfh3.com.`,
+      );
+    }
   }
 }
 
@@ -120,13 +151,14 @@ async function fetchPeriodRows(
   sfh3KennelId: number,
   period: string,
   kennelCode: string,
+  expectedLabel?: string,
 ): Promise<{ events: RawEventData[]; skippedDate: number }> {
   const url = buildUrl(sfh3KennelId, period);
   const page = await fetchHTMLPage(url);
   if (!page.ok) {
     throw new Error(`Failed to fetch ${url}: ${page.result.errors.join("; ")}`);
   }
-  assertKennelFilterApplied(page.html, sfh3KennelId, url);
+  assertKennelFilterApplied(page.html, sfh3KennelId, url, expectedLabel);
 
   const rows = parseHarelineRows(page.html);
   const events: RawEventData[] = [];
@@ -176,6 +208,7 @@ export async function backfillSfh3Kennel(params: Sfh3BackfillParams): Promise<vo
       params.sfh3KennelId,
       period,
       params.kennelCode,
+      params.expectedLabel,
     );
     const historical = events.filter((e) => e.date < todayIso);
     console.log(
