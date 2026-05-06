@@ -234,16 +234,28 @@ interface ParsedTrailLength {
   trailLengthMaxMiles?: number;
 }
 
-// Capture group: digits with optional decimal — both range bounds and fixed
-// values flow through it. Inline so reviewers don't have to hop to a const.
+// Recognized trailing units, longest first so "miles" is consumed before
+// "mile" / "mi" prefixes match. Procedural matching avoids the nested
+// `\s*` quantifiers in regex alternation that SonarCloud S5852 flags as
+// ReDoS-prone.
+const TRAIL_LENGTH_UNITS = ["(miles)", "(mile)", "miles", "mile", "mi"];
+
+function stripTrailingUnit(input: string): string {
+  const lower = input.toLowerCase();
+  for (const unit of TRAIL_LENGTH_UNITS) {
+    if (lower.endsWith(unit)) {
+      return input.slice(0, input.length - unit.length).trimEnd();
+    }
+  }
+  return input;
+}
+
 function parseTrailLength(raw: string | undefined): ParsedTrailLength {
   if (!raw) return {};
   // Strip a trailing unit suffix for numeric parsing only — keep the
   // verbatim string in trailLengthText so the UI can render exactly what
-  // the source shows ("3-5 Miles" stays "3-5 Miles", not "3-5"). Single
-  // alternation with one `\s*` quantifier avoids nested quantifiers that
-  // SonarCloud S5852 flags as ReDoS-prone.
-  const numericPart = raw.replace(/\s*(?:\(miles?\)|miles?|mi)$/i, "").trim();
+  // the source shows ("3-5 Miles" stays "3-5 Miles", not "3-5").
+  const numericPart = stripTrailingUnit(raw.trimEnd());
 
   const range = /^(\d+(?:\.\d+)?)\s*[-–]\s*(\d+(?:\.\d+)?)$/.exec(numericPart);
   if (range) {
