@@ -205,6 +205,83 @@ describe("parseCalendarLink", () => {
     expect(result?.cost).toBe("$6.90");
     expect(result?.description).toContain("Earth day");
     expect(result?.description).toContain("Sunny Hollow");
+    // #890: Length + Shiggy Scale extraction from the same Wix payload.
+    expect(result?.trailLengthText).toBe("2.69");
+    expect(result?.trailLengthMinMiles).toBe(2.69);
+    expect(result?.trailLengthMaxMiles).toBe(2.69);
+    expect(result?.difficulty).toBe(4);
+  });
+
+  it("parses ranged trail length and Shiggy Scale (#890)", () => {
+    // Mountain Man scenario from issue #890: Length: 3-5 Miles, Shiggy Scale: 5
+    const details =
+      "%3Cb%3EHares%3A%3C%2Fb%3E+Mountain+Goat" +
+      "%3Cbr%3E%3Cb%3ELength%3A+%3C%2Fb%3E3-5+Miles" +
+      "%3Cbr%3E%3Cb%3EShiggy+Scale%3A+%3C%2Fb%3E5" +
+      "%3Cbr%3E%3Cb%3ECost%3A%3C%2Fb%3E+%2410.00";
+    const href =
+      "https://calendar.google.com/calendar/render?action=TEMPLATE" +
+      "&text=BTVH3+%23854%3A+Mountain+Man" +
+      "&dates=20260820T223000Z/20260820T233000Z" +
+      `&details=${details}`;
+
+    const result = parseCalendarLink(href, SOURCE_URL);
+    expect(result?.trailLengthText).toBe("3-5 Miles");
+    expect(result?.trailLengthMinMiles).toBe(3);
+    expect(result?.trailLengthMaxMiles).toBe(5);
+    expect(result?.difficulty).toBe(5);
+  });
+
+  it("emits explicit null numerics when Length label is present but unparseable (#890)", () => {
+    // Atomic-bundle semantics: when text="TBD" is sourced, min/max emit
+    // explicit null so the merge UPDATE clears any stale parsed range
+    // from a prior scrape. Without this, `3-5 Miles → TBD` would leave
+    // stale min=3, max=5 wired to fresh text="TBD" (Codex finding).
+    const href =
+      "https://calendar.google.com/calendar/render?action=TEMPLATE" +
+      "&text=BTVH3+%23855%3A+TBD+Trail" +
+      "&dates=20260827T223000Z/20260827T233000Z" +
+      "&details=Hares%3A+Sherpa+Length%3A+TBD+Shiggy+Scale%3A+4";
+
+    const result = parseCalendarLink(href, SOURCE_URL);
+    expect(result?.trailLengthText).toBe("TBD");
+    expect(result?.trailLengthMinMiles).toBeNull();
+    expect(result?.trailLengthMaxMiles).toBeNull();
+    expect(result?.difficulty).toBe(4);
+  });
+
+  it("emits explicit null difficulty when Shiggy Scale is present but out of range (#890)", () => {
+    // Same atomic guarantee for difficulty — a typo'd "7" must clear any
+    // stale rating, not silently preserve it.
+    const details =
+      "%3Cb%3EHares%3A%3C%2Fb%3E+X" +
+      "%3Cbr%3E%3Cb%3ELength%3A+%3C%2Fb%3E4" +
+      "%3Cbr%3E%3Cb%3EShiggy+Scale%3A+%3C%2Fb%3E7";
+    const href =
+      "https://calendar.google.com/calendar/render?action=TEMPLATE" +
+      "&text=BTVH3+%23856%3A+Out+of+range" +
+      "&dates=20260903T223000Z/20260903T233000Z" +
+      `&details=${details}`;
+
+    const result = parseCalendarLink(href, SOURCE_URL);
+    expect(result?.trailLengthMinMiles).toBe(4);
+    expect(result?.difficulty).toBeNull();
+  });
+
+  it("leaves trail-length and difficulty undefined (preserve) when neither label is present (#890)", () => {
+    // Distinct from the explicit-null cases above: no label found means
+    // "source didn't speak", so the merge preserves any prior values.
+    const href =
+      "https://calendar.google.com/calendar/render?action=TEMPLATE" +
+      "&text=BTVH3+%23857%3A+Bare+payload" +
+      "&dates=20260910T223000Z/20260910T233000Z" +
+      "&details=Hares%3A+Lone+Wolf";
+
+    const result = parseCalendarLink(href, SOURCE_URL);
+    expect(result?.trailLengthText).toBeUndefined();
+    expect(result?.trailLengthMinMiles).toBeUndefined();
+    expect(result?.trailLengthMaxMiles).toBeUndefined();
+    expect(result?.difficulty).toBeUndefined();
   });
 
   it("leaves cost undefined when the details payload has no 'Cost:' marker (#887)", () => {

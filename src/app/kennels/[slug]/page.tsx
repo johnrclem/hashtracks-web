@@ -157,6 +157,10 @@ export default async function KennelDetailPage({
     description: e.description,
     sourceUrl: e.sourceUrl,
     status: e.status,
+    trailLengthText: e.trailLengthText,
+    trailLengthMinMiles: e.trailLengthMinMiles,
+    trailLengthMaxMiles: e.trailLengthMaxMiles,
+    difficulty: e.difficulty,
   }));
 
   const upcoming = serialized.filter(

@@ -48,12 +48,12 @@ export function parseCalendarLink(
 
   const utcDate = new Date(
     Date.UTC(
-      parseInt(dateMatch[1]),
-      parseInt(dateMatch[2]) - 1,
-      parseInt(dateMatch[3]),
-      parseInt(dateMatch[4]),
-      parseInt(dateMatch[5]),
-      parseInt(dateMatch[6]),
+      Number.parseInt(dateMatch[1]),
+      Number.parseInt(dateMatch[2]) - 1,
+      Number.parseInt(dateMatch[3]),
+      Number.parseInt(dateMatch[4]),
+      Number.parseInt(dateMatch[5]),
+      Number.parseInt(dateMatch[6]),
     ),
   );
 
@@ -70,25 +70,7 @@ export function parseCalendarLink(
   const min = String(localDate.getMinutes()).padStart(2, "0");
   const startTime = `${hh}:${min}`;
 
-  // Parse title and run number. Three accepted forms (#889):
-  //   "BTVH3 #846: Season Premier"       → title "Season Premier"
-  //   "BTVH3 #851 ft. Not Just the Tip"  → title "ft. Not Just the Tip" (prefix kept)
-  //   "BTVH3 #852"                        → title "BurlyH3 #852"
-  let title = text.trim();
-  let runNumber: number | undefined;
-  const colonMatch = /(?:BTVH3|BurlyH3|Burlington)\s*#(\d+)\s*[:\-–]\s*(.*)/i.exec(title);
-  if (colonMatch) {
-    runNumber = parseInt(colonMatch[1], 10);
-    title = colonMatch[2].trim() || `BurlyH3 #${runNumber}`;
-  } else {
-    const altMatch = /(?:BTVH3|BurlyH3|Burlington)\s*#(\d+)(?:\s+(ft\.|feat\.)\s+(.+)|\s*$)/i.exec(title);
-    if (altMatch) {
-      runNumber = parseInt(altMatch[1], 10);
-      const featSep = altMatch[2];
-      const rest = altMatch[3];
-      title = featSep ? `${featSep} ${rest}`.trim() : `BurlyH3 #${runNumber}`;
-    }
-  }
+  const { title, runNumber } = parseTitleAndRunNumber(text.trim());
 
   // Parse details — strip HTML, then extract labeled fields and free-form prose.
   // The live Wix payload uses `<br>` between labeled fields and before the
@@ -109,6 +91,34 @@ export function parseCalendarLink(
   let cost: string | undefined;
   const costMatch = /Cost:\s*\$?([0-9]+(?:\.[0-9]{1,2})?)/i.exec(detailText);
   if (costMatch) cost = `$${costMatch[1]}`;
+
+  // #890: extract Length + Shiggy Scale. Both labels already terminate
+  // hares (HARES_TERMINATORS_RE), so the values land between the label and
+  // the next labeled field — same indexOf-based slicing pattern.
+  //
+  // Atomic-bundle semantics for the trail-length triple:
+  //   • Label NOT found → all three stay `undefined`. Merge preserves
+  //     existing values (consistent with description/haresText handling).
+  //   • Label found but numerics unparseable (e.g. "TBD") → text is
+  //     populated; numerics emit explicit `null`. Merge writes nulls,
+  //     clearing any stale parsed range from a prior scrape. Without this,
+  //     `Length: 3-5 Miles → Length: TBD` would leave `min=3, max=5`
+  //     wired to fresh text="TBD" — a silent corruption (Codex finding).
+  const lengthRaw = extractLabeledField(detailText, LENGTH_LABEL_RE);
+  const parsedLength = parseTrailLength(lengthRaw);
+  const trailLengthText =
+    lengthRaw === undefined ? undefined : parsedLength.trailLengthText ?? null;
+  const trailLengthMinMiles =
+    lengthRaw === undefined ? undefined : parsedLength.trailLengthMinMiles ?? null;
+  const trailLengthMaxMiles =
+    lengthRaw === undefined ? undefined : parsedLength.trailLengthMaxMiles ?? null;
+
+  // Same atomic semantic for difficulty: label-present-but-out-of-range
+  // emits `null` so the canonical event doesn't keep a stale Shiggy
+  // rating after the source drops the value.
+  const shiggyRaw = extractLabeledField(detailText, SHIGGY_LABEL_RE);
+  const difficulty =
+    shiggyRaw === undefined ? undefined : parseShiggyScale(shiggyRaw) ?? null;
 
   // #887: extract free-form description. Wix puts `<br><br>` (a blank line
   // after `<br>→\n` conversion) before the prose paragraph that follows the
@@ -133,6 +143,10 @@ export function parseCalendarLink(
     location: location.trim() || undefined,
     startTime,
     sourceUrl,
+    trailLengthText,
+    trailLengthMinMiles,
+    trailLengthMaxMiles,
+    difficulty,
   };
 }
 
@@ -147,6 +161,136 @@ function extractHares(detailText: string): string | undefined {
   const value = termMatch ? rest.slice(0, termMatch.index) : rest;
   const cleaned = value.replace(HARE_BOILERPLATE_RE, "").trim();
   return cleaned || undefined;
+}
+
+// #890: terminators for trail-length / shiggy-scale values. Handles
+// BurlyH3's #850 payload where labels run together with no whitespace
+// ("...Length: TBDShiggy Scale: 4Cost:..."), so a labeled value ends
+// at the next label even without a delimiter.
+//
+// Split into three smaller regexes scanned via Math.min() of match
+// indices, rather than one fat alternation. SonarCloud S5843 caps
+// regex complexity at 20; the unified form clocked in at 24+. Splitting
+// also matches the codebase's documented preference (.claude/rules/
+// adapter-patterns.md) for multi-pass tokenizers over single complex
+// regexes — see hash-horrors.ts findYearHeadings/findRunLineStarts.
+const FIELD_LABEL_RE = /(?:Length|Shiggy\s*Scale|Hares?|Location|Cost)\s*:/i;
+const FIELD_KEYWORD_RE = /HASH\s*CASH|On[\s-]*On/i;
+const PARAGRAPH_BREAK_RE = /\n[\t ]*\n/;
+const LENGTH_LABEL_RE = /Length\s*:\s*/i;
+const SHIGGY_LABEL_RE = /Shiggy\s*Scale\s*:\s*/i;
+
+/**
+ * Index of the earliest terminator in `text`, or -1 if none.
+ * Scans three independent regexes and returns whichever matches first.
+ */
+function findFirstTerminatorIndex(text: string): number {
+  let nearest = -1;
+  for (const re of [FIELD_LABEL_RE, FIELD_KEYWORD_RE, PARAGRAPH_BREAK_RE]) {
+    const match = re.exec(text);
+    if (match && (nearest === -1 || match.index < nearest)) {
+      nearest = match.index;
+    }
+  }
+  return nearest;
+}
+
+/**
+ * Parse the calendar-link `text` field into title + run number.
+ *
+ * Three accepted forms (#889):
+ *   "BTVH3 #846: Season Premier"       → title "Season Premier"
+ *   "BTVH3 #851 ft. Not Just the Tip"  → title "ft. Not Just the Tip" (prefix kept)
+ *   "BTVH3 #852"                        → title "BurlyH3 #852"
+ */
+function parseTitleAndRunNumber(raw: string): { title: string; runNumber: number | undefined } {
+  const colonMatch = /(?:BTVH3|BurlyH3|Burlington)\s*#(\d+)\s*[:\-–]\s*(.*)/i.exec(raw);
+  if (colonMatch) {
+    const runNumber = Number.parseInt(colonMatch[1], 10);
+    return { title: colonMatch[2].trim() || `BurlyH3 #${runNumber}`, runNumber };
+  }
+  const altMatch = /(?:BTVH3|BurlyH3|Burlington)\s*#(\d+)(?:\s+(ft\.|feat\.)\s+(.+)|\s*$)/i.exec(raw);
+  if (altMatch) {
+    const runNumber = Number.parseInt(altMatch[1], 10);
+    const featSep = altMatch[2];
+    const rest = altMatch[3];
+    return { title: featSep ? `${featSep} ${rest}`.trim() : `BurlyH3 #${runNumber}`, runNumber };
+  }
+  return { title: raw, runNumber: undefined };
+}
+
+function extractLabeledField(detailText: string, labelRe: RegExp): string | undefined {
+  const labelMatch = labelRe.exec(detailText);
+  if (!labelMatch) return undefined;
+  const rest = detailText.slice(labelMatch.index + labelMatch[0].length);
+  const termIdx = findFirstTerminatorIndex(rest);
+  const value = (termIdx === -1 ? rest : rest.slice(0, termIdx)).trim();
+  return value || undefined;
+}
+
+interface ParsedTrailLength {
+  trailLengthText?: string;
+  trailLengthMinMiles?: number;
+  trailLengthMaxMiles?: number;
+}
+
+// Recognized trailing units, longest first so "miles" is consumed before
+// "mile" / "mi" prefixes match. Procedural matching avoids the nested
+// `\s*` quantifiers in regex alternation that SonarCloud S5852 flags as
+// ReDoS-prone.
+const TRAIL_LENGTH_UNITS = ["(miles)", "(mile)", "miles", "mile", "mi"];
+
+function stripTrailingUnit(input: string): string {
+  const lower = input.toLowerCase();
+  for (const unit of TRAIL_LENGTH_UNITS) {
+    if (lower.endsWith(unit)) {
+      return input.slice(0, input.length - unit.length).trimEnd();
+    }
+  }
+  return input;
+}
+
+function parseTrailLength(raw: string | undefined): ParsedTrailLength {
+  if (!raw) return {};
+  // Strip a trailing unit suffix for numeric parsing only — keep the
+  // verbatim string in trailLengthText so the UI can render exactly what
+  // the source shows ("3-5 Miles" stays "3-5 Miles", not "3-5").
+  const numericPart = stripTrailingUnit(raw.trimEnd());
+
+  const range = /^(\d+(?:\.\d+)?)\s*[-–]\s*(\d+(?:\.\d+)?)$/.exec(numericPart);
+  if (range) {
+    const min = Number.parseFloat(range[1]);
+    const max = Number.parseFloat(range[2]);
+    return {
+      trailLengthText: raw,
+      trailLengthMinMiles: min,
+      trailLengthMaxMiles: max,
+    };
+  }
+  const fixed = /^(\d+(?:\.\d+)?)$/.exec(numericPart);
+  if (fixed) {
+    const n = Number.parseFloat(fixed[1]);
+    return {
+      trailLengthText: raw,
+      trailLengthMinMiles: n,
+      trailLengthMaxMiles: n,
+    };
+  }
+  // Unparseable (TBD, ?, ranges-with-units, etc.): preserve the verbatim
+  // string for display, but leave numerics undefined so future filter/sort
+  // doesn't false-bucket the event.
+  return { trailLengthText: raw };
+}
+
+// Shiggy Scale is 1–5. Reject anything outside that integer range, including
+// "TBD"/"?"/floats — better to drop the field than store ambiguous data.
+function parseShiggyScale(raw: string | undefined): number | undefined {
+  if (!raw) return undefined;
+  const match = /^(\d+)$/.exec(raw.trim());
+  if (!match) return undefined;
+  const n = Number.parseInt(match[1], 10);
+  if (!Number.isInteger(n) || n < 1 || n > 5) return undefined;
+  return n;
 }
 
 /**

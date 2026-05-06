@@ -1098,6 +1098,18 @@ async function upsertCanonicalEvent(
           ...(event.cost !== undefined
             ? { cost: event.cost ?? null }
             : {}),
+          ...(event.trailLengthText === undefined
+            ? {}
+            : { trailLengthText: event.trailLengthText ?? null }),
+          ...(event.trailLengthMinMiles === undefined
+            ? {}
+            : { trailLengthMinMiles: event.trailLengthMinMiles ?? null }),
+          ...(event.trailLengthMaxMiles === undefined
+            ? {}
+            : { trailLengthMaxMiles: event.trailLengthMaxMiles ?? null }),
+          ...(event.difficulty === undefined
+            ? {}
+            : { difficulty: event.difficulty ?? null }),
           // Cross-window fuzzy match (#990) physically moves the row from
           // its old `date` bucket to the incoming source's date, so display
           // paths that compose `date + startTime + timezone` render the
@@ -1154,6 +1166,24 @@ async function upsertCanonicalEvent(
       if (!existingEvent.startTime && event.startTime) {
         enrichData.startTime = event.startTime;
       }
+      // #890 — fill the trail-length bundle when the canonical event has
+      // it unset, so a higher-trust primary that lacks these fields
+      // doesn't drop a lower-trust source's parsed values on the floor.
+      // The bundle is treated atomically: if the source provided text but
+      // not numerics (or vice versa), we still backfill what we have so
+      // partial data lands rather than nothing.
+      if (existingEvent.trailLengthText == null && event.trailLengthText) {
+        enrichData.trailLengthText = event.trailLengthText;
+      }
+      if (existingEvent.trailLengthMinMiles == null && event.trailLengthMinMiles != null) {
+        enrichData.trailLengthMinMiles = event.trailLengthMinMiles;
+      }
+      if (existingEvent.trailLengthMaxMiles == null && event.trailLengthMaxMiles != null) {
+        enrichData.trailLengthMaxMiles = event.trailLengthMaxMiles;
+      }
+      if (existingEvent.difficulty == null && event.difficulty != null) {
+        enrichData.difficulty = event.difficulty;
+      }
       if (Object.keys(enrichData).length > 0) {
         const enriched = await prisma.event.update({
           where: { id: existingEvent.id },
@@ -1208,6 +1238,10 @@ async function upsertCanonicalEvent(
       startTime: event.startTime,
       endTime: event.endTime,
       cost: event.cost,
+      trailLengthText: event.trailLengthText,
+      trailLengthMinMiles: event.trailLengthMinMiles,
+      trailLengthMaxMiles: event.trailLengthMaxMiles,
+      difficulty: event.difficulty,
       sourceUrl: event.sourceUrl,
       trustLevel: ctx.trustLevel,
       latitude: coords.latitude,

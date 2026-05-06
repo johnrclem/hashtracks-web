@@ -22,6 +22,14 @@ export interface RawEventData {
   startTime?: string | null; // HH:MM (local time); null = explicit clear signal
   endTime?: string | null; // HH:MM (local time); null = explicit clear signal
   cost?: string | null; // Free-form cost text; null = explicit clear signal
+  /** Verbatim trail-length string from the source ("3-5 Miles", "2.69 (miles)"). */
+  trailLengthText?: string | null;
+  /** Parsed lower bound in miles. Equal to max when source is fixed (e.g. "2.69" → both 2.69). */
+  trailLengthMinMiles?: number | null;
+  /** Parsed upper bound in miles. Distinct from min only for ranges ("3-5 Miles" → 3, 5). */
+  trailLengthMaxMiles?: number | null;
+  /** Shiggy Scale 1–5 (user-facing label "Shiggy Level"). Adapter-validated range. */
+  difficulty?: number | null;
   sourceUrl?: string;
   externalLinks?: { url: string; label: string }[]; // Additional links (creates EventLink records)
   seriesId?: string; // Groups multi-day events (e.g., Hash Rego event slug)

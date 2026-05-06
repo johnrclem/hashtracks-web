@@ -20,6 +20,7 @@ import { useUnitsPreference } from "@/components/providers/units-preference-prov
 import type { DailyWeather } from "@/lib/weather";
 import { getConditionEmoji, cToF } from "@/lib/weather-display";
 import { getDisplayTitle, getLocationDisplay } from "@/lib/event-display";
+import { ShiggyLevelFlames, TrailLengthLine, formatTrailLength } from "./TrailDifficulty";
 
 /**
  * Event shape consumed by EventCard (list rendering) and EventDetailPanel
@@ -65,6 +66,12 @@ export type HarelineEvent = {
   status: string;
   latitude?: number | null;
   longitude?: number | null;
+  /** #890 — verbatim trail-length string from the source. */
+  trailLengthText?: string | null;
+  trailLengthMinMiles?: number | null;
+  trailLengthMaxMiles?: number | null;
+  /** #890 — Shiggy Level (1–5). UI label is always "Shiggy Level". */
+  difficulty?: number | null;
   // Heavy / on-demand fields — undefined until `getEventDetail` resolves.
   locationStreet?: string | null;
   locationAddress?: string | null;
@@ -72,6 +79,7 @@ export type HarelineEvent = {
   sourceUrl?: string | null;
   eventLinks?: { id: string; url: string; label: string }[];
 };
+
 
 function formatDate(iso: string): string {
   const d = new Date(iso);
@@ -363,6 +371,7 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
 
   // ── Medium density ──
   const locationDisplay = getLocationDisplay(event);
+  const trailLengthDisplay = formatTrailLength(event);
   const { title: displayTitle } = getDisplayTitle({ ...event, kennel: event.kennel ?? { shortName: "", fullName: "" } });
 
   return (
@@ -532,7 +541,40 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
               </span>
             )}
 
-            {weather && (locationDisplay || event.haresText) && (
+            {/* #890 — trail length + Shiggy Level. Inline alongside
+                location/hares so hashers can size up "how far / how hard"
+                without expanding the detail panel. Region-color flame tint
+                ties difficulty to kennel identity (same color used by the
+                kennel-name underline + left border + time pill). */}
+            {trailLengthDisplay && (locationDisplay || event.haresText) && (
+              <span className="text-muted-foreground/30" aria-hidden="true">&middot;</span>
+            )}
+            {trailLengthDisplay && (
+              <TrailLengthLine
+                text={trailLengthDisplay}
+                color={regionColor}
+                size="sm"
+                className="shrink-0 max-w-[140px]"
+              />
+            )}
+            {event.difficulty != null && (trailLengthDisplay || locationDisplay || event.haresText) && (
+              <span className="text-muted-foreground/30" aria-hidden="true">&middot;</span>
+            )}
+            {event.difficulty != null && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <ShiggyLevelFlames
+                    level={event.difficulty}
+                    color={regionColor}
+                    size="sm"
+                    className="shrink-0"
+                  />
+                </TooltipTrigger>
+                <TooltipContent>Shiggy Level {event.difficulty}/5</TooltipContent>
+              </Tooltip>
+            )}
+
+            {weather && (locationDisplay || event.haresText || trailLengthDisplay || event.difficulty != null) && (
               <span className="text-muted-foreground/30" aria-hidden="true">&middot;</span>
             )}
 
