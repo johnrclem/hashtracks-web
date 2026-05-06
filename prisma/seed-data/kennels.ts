@@ -106,7 +106,7 @@ export const KENNELS: KennelSeed[] = [
     // --- Rochester ---
     {
       kennelCode: "flour-city", shortName: "Flour City H3", fullName: "Flour City Hash House Harriers", region: "Rochester, NY",
-      website: "http://flourcityhhh.com/",
+      website: "https://flourcityhhh.com/",
       logoUrl: "https://static1.squarespace.com/static/5159d000e4b0faeba238a2f8/t/5a43b07ae2c483652f03b5de/1514385531224/VerticalStacked-AllWhite-Transparent.png?format=1500w",
       contactEmail: "flourcitymismanagement@gmail.com",
       scheduleDayOfWeek: "Sunday", scheduleFrequency: "Weekly", scheduleTime: "1:09 PM",
@@ -118,7 +118,7 @@ export const KENNELS: KennelSeed[] = [
     // --- Buffalo ---
     {
       kennelCode: "bh3", shortName: "Buffalo H3", fullName: "Buffalo Hash House Harriers", region: "Buffalo, NY",
-      website: "http://hashinthebuff.com/",
+      website: "https://hashinthebuff.com/",
       logoUrl: "/kennel-logos/bh3.gif",
       facebookUrl: "https://www.facebook.com/groups/1692560221019401/",
       contactEmail: "hashinthebuff@gmail.com",
@@ -455,7 +455,7 @@ export const KENNELS: KennelSeed[] = [
     },
     {
       kennelCode: "mvh3", shortName: "MVH3", fullName: "Mount Vernon Hash House Harriers", region: "Washington, DC",
-      website: "http://www.dchashing.org/mvh3/", foundedYear: 1985,
+      website: "https://www.dchashing.org/mvh3/", foundedYear: 1985,
       scheduleDayOfWeek: "Saturday", scheduleTime: "10:00 AM", scheduleFrequency: "Weekly",
       description: "Weekly Saturday 10 AM hash in the DC metro area (est. 1985).",
     },
@@ -803,7 +803,7 @@ export const KENNELS: KennelSeed[] = [
     },
     {
       kennelCode: "barnesh3", shortName: "BarnesH3", fullName: "Barnes Hash House Harriers", region: "London", country: "UK",
-      website: "http://www.barnesh3.com",
+      website: "https://www.barnesh3.com",
       scheduleDayOfWeek: "Wednesday", scheduleTime: "7:30 PM", scheduleFrequency: "Weekly",
       hashCash: "£2",
     },
@@ -1390,7 +1390,7 @@ export const KENNELS: KennelSeed[] = [
     },
     {
       kennelCode: "pbh3", shortName: "Palm Beach H3", fullName: "Palm Beach Hash House Harriers", region: "Miami, FL",
-      website: "http://www.pbh3.org",
+      website: "https://www.pbh3.org",
       facebookUrl: "https://www.facebook.com/groups/pbhhh/",
       scheduleDayOfWeek: "Wednesday", scheduleFrequency: "Weekly",
       description: "Weekly Wednesday runs in the Palm Beach County area.",
@@ -1517,7 +1517,7 @@ export const KENNELS: KennelSeed[] = [
     },
     {
       kennelCode: "bvd-h3", shortName: "BVDH3", fullName: "BVD Hash House Harriers", region: "Orlando, FL",
-      website: "http://www.bvdh3.com",
+      website: "https://www.bvdh3.com",
       facebookUrl: "https://www.facebook.com/groups/506635549502193/",
       scheduleDayOfWeek: "Saturday", scheduleTime: "4:00 PM", scheduleFrequency: "Biweekly",
       hashCash: "$5", foundedYear: 1999,
@@ -1793,7 +1793,7 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "okh3", shortName: "OKH3", fullName: "Oregon Kahuna Hash House Harriers",
       region: "Portland, OR",
-      website: "http://oregonkahunah3.pbworks.com/",
+      website: "https://oregonkahunah3.pbworks.com/",
       scheduleDayOfWeek: "Monday", scheduleTime: "6:00 PM", scheduleFrequency: "Weekly",
       description: "Portland's Monday evening hash. Also runs as Ka-Three-Na and Katuna for alternating events.",
       latitude: 45.52, longitude: -122.68,
@@ -3473,7 +3473,7 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "phhh", shortName: "PHHH", fullName: "Phuket Hash House Harriers",
       region: "Phuket", country: "Thailand",
-      website: "http://www.phuket-hhh.com",
+      website: "https://www.phuket-hhh.com",
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Weekly",
       scheduleTime: "4:00 PM",
       scheduleNotes: "Weekly Saturday runs. Shared hareline at phuket-hhh.com covers PHHH, Pooying, Tinmen, Iron Pussy, Bike Hash, and Kamala Koma.",
@@ -3483,7 +3483,7 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "phuket-tinmen", shortName: "Phuket Tin Men", fullName: "Phuket Tin Men Hash House Harriers",
       region: "Phuket", country: "Thailand",
-      website: "http://www.phuket-hhh.com",
+      website: "https://www.phuket-hhh.com",
       scheduleDayOfWeek: "Wednesday", scheduleFrequency: "Monthly",
       scheduleTime: "3:00 PM",
       scheduleNotes: "1st Wednesday monthly. Listed on the shared phuket-hhh.com hareline.",
@@ -3493,7 +3493,7 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "iron-pussy", shortName: "Iron Pussy", fullName: "Iron Pussy Hash House Harriers",
       region: "Phuket", country: "Thailand",
-      website: "http://www.phuket-hhh.com",
+      website: "https://www.phuket-hhh.com",
       scheduleDayOfWeek: "Wednesday", scheduleFrequency: "Monthly",
       scheduleTime: "4:00 PM",
       scheduleNotes: "2nd Wednesday monthly. Listed on the shared phuket-hhh.com hareline.",
@@ -3503,7 +3503,7 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "phuket-pooying", shortName: "Phuket Pooying", fullName: "Phuket Pooying Picnic Hash",
       region: "Phuket", country: "Thailand",
-      website: "http://www.phuket-hhh.com",
+      website: "https://www.phuket-hhh.com",
       scheduleDayOfWeek: "Sunday", scheduleFrequency: "Monthly",
       scheduleTime: "3:00 PM",
       scheduleNotes: "2nd/3rd Sunday monthly. 'The most dangerous hash on the island.' Listed on shared phuket-hhh.com hareline.",
@@ -3604,7 +3604,7 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "bhhb", shortName: "BHHB", fullName: "Bangkok Hash House Bikers",
       region: "Bangkok", country: "Thailand",
-      website: "http://www.bangkokbikehash.org",
+      website: "https://www.bangkokbikehash.org",
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Monthly",
       scheduleNotes: "Monthly weekend mountain bike rides, 40-50km. Trail laid by hares, circle up with beers afterward.",
       description: "Bangkok's mountain bike hash. Monthly rides of 40-50km on trails laid by hares, followed by a beer circle.",

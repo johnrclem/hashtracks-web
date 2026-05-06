@@ -73,7 +73,7 @@ export class BangkokBikersAdapter implements SourceAdapter {
     source: Source,
     options?: { days?: number },
   ): Promise<ScrapeResult> {
-    const baseUrl = source.url || "http://www.bangkokbikehash.org";
+    const baseUrl = source.url || "https://www.bangkokbikehash.org";
 
     // Fetch the /hash_weekends/upcoming page (the canonical ride list),
     // NOT just the homepage which only shows the single next ride.

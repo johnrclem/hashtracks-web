@@ -121,7 +121,7 @@ export class PhuketHHHAdapter implements SourceAdapter {
     source: Source,
     options?: { days?: number },
   ): Promise<ScrapeResult> {
-    const baseUrl = source.url || "http://www.phuket-hhh.com/hareline.php";
+    const baseUrl = source.url || "https://www.phuket-hhh.com/hareline.php";
     const config = (source.config ?? {}) as Record<string, unknown>;
     const kennelMap = (config.kennelMap as Record<string, string>) ?? DEFAULT_KENNEL_MAP;
 
