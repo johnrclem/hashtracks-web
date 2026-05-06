@@ -33,11 +33,11 @@
 
 ## Phase B status
 
-Phase B sweep landed via [#1141](https://github.com/johnrclem/hashtracks-web/issues/1141): all 398 hotspots in `TO_REVIEW` were triaged through the SonarQube MCP (most SAFE-resolved with per-hotspot context, 16 FIXED inline via HTTPS upgrades on kennel-website seed URLs that actually serve TLS), and the 6 BUG findings on `main` were resolved (5 mockup wirefames marked WONTFIX, 1 conditional-keyboard-handler false-positive). Verifiable at <https://sonarcloud.io/project/security_hotspots?id=johnrclem_hashtracks-web> (filter to `Reviewed`) and via `mcp__sonarqube__quality_gate_status`.
+Phase B sweep landed via [#1141](https://github.com/johnrclem/hashtracks-web/issues/1141): all 398 hotspots in `TO_REVIEW` were triaged through the SonarQube MCP (most SAFE-resolved with per-hotspot context, 16 FIXED inline via HTTPS upgrades on kennel-website seed URLs that actually serve TLS), and the 6 BUG findings on `main` were resolved (5 mockup wireframes marked WONTFIX, 1 conditional-keyboard-handler false-positive). Verifiable at <https://sonarcloud.io/project/security_hotspots?id=johnrclem_hashtracks-web> (filter to `Reviewed`) and via `mcp__sonarqube__quality_gate_status`.
 
 Current `main` gate: 5 of 6 conditions OK. The remaining ERROR is `new_duplicated_lines_density` (4.5% > 3% threshold). By directory: `src/adapters` 3,705 dup lines (mostly test fixtures), `prisma` 2,425, `src/pipeline` 1,368. Closing it has two prerequisites tracked in [#1267](https://github.com/johnrclem/hashtracks-web/issues/1267):
 1. **SonarCloud UI exclusions** for the patterns currently in `sonar.cpd.exclusions` (the in-repo properties file is inert under Automatic Analysis). This alone resolves the seed-data contribution (~2,425 lines) but is **not sufficient** — the existing CPD exclusion list does not cover generic adapter test fixtures.
-2. **Adapter test fixture deduping** for `src/adapters/**/*.test.ts` — either by adding a broader pattern to the UI CPD exclusions, or by refactoring shared fixtures via `it.each` (memory `feedback_it_each_for_sonar_cpd.md`).
+2. **Adapter test fixture deduping** for `src/adapters/**/*.test.ts` — either by adding a broader pattern to the UI CPD exclusions, or by refactoring shared fixtures via `it.each` tables and shared helpers.
 
 If new hotspots or bugs accrue, query them with `mcp__sonarqube__hotspots` (`project_key="johnrclem_hashtracks-web"`, `status="TO_REVIEW"`) from Claude Code, or browse <https://sonarcloud.io/project/security_hotspots?id=johnrclem_hashtracks-web>.
 
