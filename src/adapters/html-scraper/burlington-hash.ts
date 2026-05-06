@@ -163,15 +163,37 @@ function extractHares(detailText: string): string | undefined {
   return cleaned || undefined;
 }
 
-// #890: terminators for trail-length / shiggy-scale values. Matches
-// HARES_TERMINATORS_RE in spirit — handles BurlyH3's #850 payload where
-// labels run together with no whitespace ("...Length: TBDShiggy Scale:
-// 4Cost:..."), so a labeled value ends at the next label even without
-// a delimiter. Colon-suffixed labels share one alternation group to keep
-// regex complexity under SonarCloud's S5843 threshold.
-const FIELD_TERMINATORS_RE = /(?:Length|Shiggy\s*Scale|Hares?|Location|Cost)\s*:|HASH\s*CASH|On[\s-]*On|\n[\t ]*\n/i;
+// #890: terminators for trail-length / shiggy-scale values. Handles
+// BurlyH3's #850 payload where labels run together with no whitespace
+// ("...Length: TBDShiggy Scale: 4Cost:..."), so a labeled value ends
+// at the next label even without a delimiter.
+//
+// Split into three smaller regexes scanned via Math.min() of match
+// indices, rather than one fat alternation. SonarCloud S5843 caps
+// regex complexity at 20; the unified form clocked in at 24+. Splitting
+// also matches the codebase's documented preference (.claude/rules/
+// adapter-patterns.md) for multi-pass tokenizers over single complex
+// regexes — see hash-horrors.ts findYearHeadings/findRunLineStarts.
+const FIELD_LABEL_RE = /(?:Length|Shiggy\s*Scale|Hares?|Location|Cost)\s*:/i;
+const FIELD_KEYWORD_RE = /HASH\s*CASH|On[\s-]*On/i;
+const PARAGRAPH_BREAK_RE = /\n[\t ]*\n/;
 const LENGTH_LABEL_RE = /Length\s*:\s*/i;
 const SHIGGY_LABEL_RE = /Shiggy\s*Scale\s*:\s*/i;
+
+/**
+ * Index of the earliest terminator in `text`, or -1 if none.
+ * Scans three independent regexes and returns whichever matches first.
+ */
+function findFirstTerminatorIndex(text: string): number {
+  let nearest = -1;
+  for (const re of [FIELD_LABEL_RE, FIELD_KEYWORD_RE, PARAGRAPH_BREAK_RE]) {
+    const match = re.exec(text);
+    if (match && (nearest === -1 || match.index < nearest)) {
+      nearest = match.index;
+    }
+  }
+  return nearest;
+}
 
 /**
  * Parse the calendar-link `text` field into title + run number.
@@ -201,8 +223,8 @@ function extractLabeledField(detailText: string, labelRe: RegExp): string | unde
   const labelMatch = labelRe.exec(detailText);
   if (!labelMatch) return undefined;
   const rest = detailText.slice(labelMatch.index + labelMatch[0].length);
-  const termMatch = FIELD_TERMINATORS_RE.exec(rest);
-  const value = (termMatch ? rest.slice(0, termMatch.index) : rest).trim();
+  const termIdx = findFirstTerminatorIndex(rest);
+  const value = (termIdx === -1 ? rest : rest.slice(0, termIdx)).trim();
   return value || undefined;
 }
 
