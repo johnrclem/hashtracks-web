@@ -20,6 +20,7 @@ import { EventCard, type HarelineEvent } from "./EventCard";
 import { regionColorClasses, regionBgClass, regionAbbrev, formatTimeCompact, formatTime } from "@/lib/format";
 import { getRegionColor } from "@/lib/region";
 import { getTimezoneAbbreviation, getBrowserTimezone, formatTimeInZone } from "@/lib/timezone";
+import { getMoonPhaseGlyphForDate, MOON_PHASE_GLYPHS } from "@/lib/moon-phase";
 import { useTimePreference } from "@/components/providers/time-preference-provider";
 import { type TimeFilter, WEEKS_DAYS } from "./HarelineView";
 
@@ -112,6 +113,32 @@ function dateKeyFromParts(y: number, m: number, d: number): string {
 
 type CalendarMode = "month" | "weeks";
 
+/**
+ * Decorative moon-phase glyph rendered in the calendar day-cell corner.
+ * Extracted from `renderDayCell` so the cell renderer stays under
+ * SonarCloud's cognitive-complexity cap.
+ */
+function MoonPhaseGlyph({ phase }: Readonly<{ phase: "full" | "new" | null }>) {
+  if (!phase) return null;
+  const label = phase === "full" ? "Full moon" : "New moon";
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span
+          className="text-xs leading-none"
+          aria-label={`${phase} moon (your local sky)`}
+          data-testid={`moon-phase-${phase}`}
+        >
+          {MOON_PHASE_GLYPHS[phase]}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>
+        {label} in your local sky. Lunar kennels in other regions may run a day earlier or later.
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 export function CalendarView({ events, timeFilter }: CalendarViewProps) {
   const router = useRouter();
   const { preference: timePref } = useTimePreference();
@@ -119,6 +146,16 @@ export function CalendarView({ events, timeFilter }: CalendarViewProps) {
   const [year, setYear] = useState(today.getUTCFullYear());
   const [month, setMonth] = useState(today.getUTCMonth());
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  // viewerTimezone resolves only after mount. During SSR and the first client
+  // render, `getBrowserTimezone()` would return the server's zone (typically
+  // UTC) — re-rendering with the actual viewer zone after hydration could
+  // shift the glyph to a different day, producing a React hydration warning.
+  // Codex pass-6 finding — fixed by deferring the glyph until the client
+  // timezone is known. The `null` initial state suppresses the glyph.
+  const [viewerTimezone, setViewerTimezone] = useState<string | null>(null);
+  useEffect(() => {
+    setViewerTimezone(getBrowserTimezone());
+  }, []);
 
   // Calendar mode: auto-switch to weeks when a rolling filter is active
   const [calendarMode, setCalendarModeState] = useState<CalendarMode>(
@@ -354,6 +391,13 @@ export function CalendarView({ events, timeFilter }: CalendarViewProps) {
     const isSelected = dateKey === selectedDay;
     const isPast = cellDate < todayDate && !isToday;
     const day = cellDate.getUTCDate();
+    // Glyph marks the calendar day the moon is full/new in the *viewer's*
+    // local sky. For lunar kennels in the viewer's region this matches the
+    // event date; for kennels far from the viewer's timezone the glyph and
+    // event can land on adjacent days (the tooltip calls this out). Glyph
+    // is suppressed during SSR / pre-hydration to avoid a server-vs-client
+    // timezone mismatch (Codex pass-6 finding).
+    const moonPhase = viewerTimezone ? getMoonPhaseGlyphForDate(cellDate, viewerTimezone) : null;
 
     const fullDateLabel = ariaDateFormatter.format(cellDate);
     const cellAriaLabel = buildCellLabel(fullDateLabel, dayEvents.length);
@@ -391,6 +435,7 @@ export function CalendarView({ events, timeFilter }: CalendarViewProps) {
         >
           {dayLabel}
           {isToday && <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />}
+          <MoonPhaseGlyph phase={moonPhase} />
         </span>
         {dayEvents.length > 0 && (
           <div className="mt-0.5 flex flex-col gap-1">

@@ -96,13 +96,38 @@ describe("projectTrails", () => {
     const rules = [makeRule({
       rrule: "FREQ=LUNAR",
       confidence: "LOW",
-      notes: "Full moon schedule",
+      notes: "Lunar full moon, exact phase date in America/Los_Angeles",
     })];
     const results = projectTrails(rules, windowStart, windowEnd);
 
     expect(results).toHaveLength(1);
     expect(results[0].date).toBeNull();
     expect(results[0].confidence).toBe("low");
+    expect(results[0].explanation).toContain("Full moon");
+  });
+
+  it("FREQ=LUNAR with new-moon notes renders as new-moon (Codex pass-5: phase metadata)", () => {
+    const rules = [makeRule({
+      rrule: "FREQ=LUNAR",
+      confidence: "LOW",
+      notes: "Lunar new moon, exact phase date in Asia/Tokyo",
+    })];
+    const results = projectTrails(rules, windowStart, windowEnd);
+
+    expect(results).toHaveLength(1);
+    expect(results[0].date).toBeNull();
+    expect(results[0].explanation).toContain("New moon");
+    expect(results[0].explanation).not.toContain("Full moon");
+  });
+
+  it("FREQ=LUNAR with anchored full-moon notes renders as full-moon", () => {
+    const rules = [makeRule({
+      rrule: "FREQ=LUNAR",
+      confidence: "LOW",
+      notes: "Lunar full moon, anchored to SA (nearest)",
+    })];
+    const results = projectTrails(rules, windowStart, windowEnd);
+
     expect(results[0].explanation).toContain("Full moon");
   });
 

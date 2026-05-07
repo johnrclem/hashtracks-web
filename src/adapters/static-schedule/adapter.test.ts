@@ -603,3 +603,163 @@ describe("StaticScheduleAdapter titleTemplate", () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// Lunar mode (XOR with rrule)
+// ---------------------------------------------------------------------------
+
+describe("StaticScheduleAdapter lunar mode", () => {
+  const adapter = new StaticScheduleAdapter();
+
+  it("rejects config with neither rrule nor lunar", async () => {
+    const source = makeSource({ kennelTag: "FMH3" });
+    const result = await adapter.fetch(source);
+    expect(result.events).toHaveLength(0);
+    expect(result.errors[0]).toMatch(/rrule.*lunar|lunar.*rrule/);
+  });
+
+  it("rejects config with both rrule and lunar (XOR)", async () => {
+    const source = makeSource({
+      kennelTag: "FMH3",
+      rrule: "FREQ=WEEKLY;BYDAY=SA",
+      lunar: { phase: "full", timezone: "America/Los_Angeles" },
+    });
+    const result = await adapter.fetch(source);
+    expect(result.events).toHaveLength(0);
+    expect(result.errors[0]).toMatch(/cannot specify both/i);
+  });
+
+  it("rejects lunar without timezone", async () => {
+    const source = makeSource({
+      kennelTag: "FMH3",
+      lunar: { phase: "full" },
+    });
+    const result = await adapter.fetch(source);
+    expect(result.events).toHaveLength(0);
+    expect(result.errors[0]).toContain("timezone");
+  });
+
+  it("rejects lunar with invalid phase", async () => {
+    const source = makeSource({
+      kennelTag: "FMH3",
+      lunar: { phase: "quarter", timezone: "UTC" },
+    });
+    const result = await adapter.fetch(source);
+    expect(result.events).toHaveLength(0);
+    expect(result.errors[0]).toContain("phase");
+  });
+
+  it("rejects anchorWeekday without anchorRule (and vice versa)", async () => {
+    const a = await adapter.fetch(makeSource({
+      kennelTag: "FMH3",
+      lunar: { phase: "full", timezone: "UTC", anchorWeekday: "SA" },
+    }));
+    expect(a.errors[0]).toMatch(/anchor/);
+    const b = await adapter.fetch(makeSource({
+      kennelTag: "FMH3",
+      lunar: { phase: "full", timezone: "UTC", anchorRule: "nearest" },
+    }));
+    expect(b.errors[0]).toMatch(/anchor/);
+  });
+
+  it("rejects an invalid IANA timezone (Codex pass-3: typos must not silently fall back to UTC)", async () => {
+    const result = await adapter.fetch(makeSource({
+      kennelTag: "FMH3",
+      lunar: { phase: "full", timezone: "America/Los_Angles" }, // typo
+    }));
+    expect(result.events).toHaveLength(0);
+    expect(result.errors[0]).toMatch(/not a recognized IANA timezone/);
+  });
+
+  it("rejects an invalid anchorWeekday value (Codex pass-3: enum check needed)", async () => {
+    const result = await adapter.fetch(makeSource({
+      kennelTag: "FMH3",
+      lunar: {
+        phase: "full",
+        timezone: "America/Los_Angeles",
+        anchorWeekday: "BOGUS",
+        anchorRule: "nearest",
+      },
+    }));
+    expect(result.events).toHaveLength(0);
+    expect(result.errors[0]).toMatch(/anchorWeekday/);
+  });
+
+  it("rejects an invalid anchorRule value (Codex pass-3: enum check needed)", async () => {
+    const result = await adapter.fetch(makeSource({
+      kennelTag: "FMH3",
+      lunar: {
+        phase: "full",
+        timezone: "America/Los_Angeles",
+        anchorWeekday: "SA",
+        anchorRule: "whenever",
+      },
+    }));
+    expect(result.events).toHaveLength(0);
+    expect(result.errors[0]).toMatch(/anchorRule/);
+  });
+
+  it("generates lunar full-moon events for an FMH3 SF style config", async () => {
+    const source = makeSource({
+      kennelTag: "fmh3-sf",
+      lunar: { phase: "full", timezone: "America/Los_Angeles" },
+      defaultTitle: "FMH3 SF Full Moon Run",
+      defaultLocation: "San Francisco",
+    });
+    // ±365 day window centered on now → expect ~25 full moons (one per ~29.5 days).
+    const result = await adapter.fetch(source, { days: 365 });
+    expect(result.errors).toEqual([]);
+    expect(result.events.length).toBeGreaterThanOrEqual(20);
+    expect(result.events.length).toBeLessThanOrEqual(28);
+    expect(result.events[0].kennelTags).toEqual(["fmh3-sf"]);
+    expect(result.events[0].title).toBe("FMH3 SF Full Moon Run");
+    expect(result.events[0].location).toBe("San Francisco");
+    // diagnosticContext should reflect lunar mode, not rrule.
+    expect(result.diagnosticContext?.mode).toBe("lunar");
+    expect(result.diagnosticContext?.phase).toBe("full");
+  });
+
+  it("generates anchor-mode events for a DCFMH3 style config (Saturday near full moon)", async () => {
+    const source = makeSource({
+      kennelTag: "dcfmh3",
+      lunar: {
+        phase: "full",
+        timezone: "America/New_York",
+        anchorWeekday: "SA",
+        anchorRule: "nearest",
+      },
+      defaultTitle: "DCFMH3 Full Moon Hash",
+    });
+    const result = await adapter.fetch(source, { days: 90 });
+    expect(result.errors).toEqual([]);
+    expect(result.events.length).toBeGreaterThanOrEqual(2);
+    // Every event should land on a Saturday (UTC-day 6, since dates are stored UTC noon).
+    for (const event of result.events) {
+      const d = new Date(event.date + "T12:00:00Z");
+      expect(d.getUTCDay()).toBe(6);
+    }
+  });
+
+  it("respects options.days for lunar mode (smaller window → fewer events)", async () => {
+    const source = makeSource({
+      kennelTag: "fmh3-sf",
+      lunar: { phase: "full", timezone: "America/Los_Angeles" },
+    });
+    const small = await adapter.fetch(source, { days: 30 });
+    const large = await adapter.fetch(source, { days: 365 });
+    // 30-day window: 1 or 2 full moons; 365-day window: ~25.
+    expect(small.events.length).toBeLessThanOrEqual(3);
+    expect(large.events.length).toBeGreaterThan(small.events.length);
+  });
+
+  it("emits dates as YYYY-MM-DD UTC-noon strings (matches RRULE-mode convention)", async () => {
+    const source = makeSource({
+      kennelTag: "fmh3-sf",
+      lunar: { phase: "full", timezone: "America/Los_Angeles" },
+    });
+    const result = await adapter.fetch(source, { days: 365 });
+    for (const event of result.events) {
+      expect(event.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    }
+  });
+});

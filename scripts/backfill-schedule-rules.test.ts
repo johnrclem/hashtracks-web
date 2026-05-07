@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { parseScheduleTime, parseFrequencyDay, normalizeRRule } from "./backfill-schedule-rules";
+import {
+  parseScheduleTime,
+  parseFrequencyDay,
+  normalizeRRule,
+  runStaticSchedulePass,
+} from "./backfill-schedule-rules";
 
 describe("parseScheduleTime", () => {
   it("parses PM times to 24-hour", () => {
@@ -210,5 +215,235 @@ describe("normalizeRRule", () => {
     expect(normalizeRRule("FREQ=MONTHLY;BYDAY=SA,FR;BYSETPOS=3")).toBe(
       "FREQ=MONTHLY;BYDAY=SA,FR;BYSETPOS=3",
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// runStaticSchedulePass — lunar sentinel emission (T2a, PR #1)
+// ---------------------------------------------------------------------------
+
+interface FakeKennelLink {
+  kennel: { id: string; shortName: string; isHidden: boolean };
+}
+
+interface FakeSource {
+  id: string;
+  name: string;
+  url: string | null;
+  type: "STATIC_SCHEDULE";
+  enabled: boolean;
+  lastSuccessAt: Date | null;
+  lastScrapeAt: Date | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  config: any;
+  kennels: FakeKennelLink[];
+}
+
+function fakePrisma(sources: FakeSource[]) {
+  return {
+    source: {
+      findMany: async () => sources,
+    },
+    // Other methods on PrismaClient are not exercised by runStaticSchedulePass.
+  } as unknown as Parameters<typeof runStaticSchedulePass>[0];
+}
+
+const FMH3_KENNEL: FakeKennelLink = {
+  kennel: { id: "k_sffmh3", shortName: "SFFMH3", isHidden: false },
+};
+const DCFMH3_KENNEL: FakeKennelLink = {
+  kennel: { id: "k_dcfmh3", shortName: "DCFMH3", isHidden: false },
+};
+
+describe("runStaticSchedulePass — lunar branch", () => {
+  it("emits FREQ=LUNAR sentinel at LOW confidence for exact-mode lunar config", async () => {
+    const planned: Parameters<typeof runStaticSchedulePass>[1] = [];
+    const prisma = fakePrisma([
+      {
+        id: "src1",
+        name: "SFFMH3 Static Schedule (Lunar)",
+        url: "https://www.facebook.com/sffmh",
+        type: "STATIC_SCHEDULE",
+        enabled: true,
+        lastSuccessAt: null,
+        lastScrapeAt: null,
+        config: {
+          kennelTag: "sffmh3",
+          lunar: { phase: "full", timezone: "America/Los_Angeles" },
+        },
+        kennels: [FMH3_KENNEL],
+      },
+    ]);
+    await runStaticSchedulePass(prisma, planned);
+    expect(planned).toHaveLength(1);
+    expect(planned[0]).toMatchObject({
+      kennelId: "k_sffmh3",
+      rrule: "FREQ=LUNAR",
+      confidence: "LOW",
+    });
+    // Notes should mention the phase + timezone for admin context.
+    expect(planned[0].notes).toContain("full");
+    expect(planned[0].notes).toContain("America/Los_Angeles");
+  });
+
+  it("emits FREQ=LUNAR sentinel at LOW confidence for anchor-mode lunar config", async () => {
+    const planned: Parameters<typeof runStaticSchedulePass>[1] = [];
+    const prisma = fakePrisma([
+      {
+        id: "src2",
+        name: "DCFMH3 Static Schedule (Lunar Anchor)",
+        url: "https://sites.google.com/site/dcfmh3/home",
+        type: "STATIC_SCHEDULE",
+        enabled: true,
+        lastSuccessAt: null,
+        lastScrapeAt: null,
+        config: {
+          kennelTag: "dcfmh3",
+          lunar: {
+            phase: "full",
+            timezone: "America/New_York",
+            anchorWeekday: "SA",
+            anchorRule: "nearest",
+          },
+        },
+        kennels: [DCFMH3_KENNEL],
+      },
+    ]);
+    await runStaticSchedulePass(prisma, planned);
+    expect(planned).toHaveLength(1);
+    expect(planned[0]).toMatchObject({
+      kennelId: "k_dcfmh3",
+      rrule: "FREQ=LUNAR",
+      confidence: "LOW",
+    });
+    expect(planned[0].notes).toContain("anchored");
+    expect(planned[0].notes).toContain("SA");
+    expect(planned[0].notes).toContain("nearest");
+  });
+
+  it("skips lunar config with missing or invalid phase", async () => {
+    const planned: Parameters<typeof runStaticSchedulePass>[1] = [];
+    const prisma = fakePrisma([
+      {
+        id: "src3",
+        name: "Bogus Lunar",
+        url: null,
+        type: "STATIC_SCHEDULE",
+        enabled: true,
+        lastSuccessAt: null,
+        lastScrapeAt: null,
+        config: {
+          kennelTag: "bogus",
+          lunar: { phase: "quarter", timezone: "UTC" }, // invalid phase
+        },
+        kennels: [{ kennel: { id: "k_bogus", shortName: "BOGUS", isHidden: false } }],
+      },
+    ]);
+    const result = await runStaticSchedulePass(prisma, planned);
+    expect(planned).toHaveLength(0);
+    expect(result.skipped).toBe(1);
+  });
+
+  it("skips lunar config missing timezone (matches adapter rejection)", async () => {
+    // Codex pass-2 finding: backfill must reject configs the adapter rejects,
+    // otherwise Travel Mode shows possible-activity rules for sources that
+    // produce zero canonical events.
+    const planned: Parameters<typeof runStaticSchedulePass>[1] = [];
+    const prisma = fakePrisma([
+      {
+        id: "src5",
+        name: "Lunar without timezone",
+        url: null,
+        type: "STATIC_SCHEDULE",
+        enabled: true,
+        lastSuccessAt: null,
+        lastScrapeAt: null,
+        config: {
+          kennelTag: "no-tz",
+          lunar: { phase: "full" }, // missing timezone
+        },
+        kennels: [{ kennel: { id: "k_notz", shortName: "NOTZ", isHidden: false } }],
+      },
+    ]);
+    const result = await runStaticSchedulePass(prisma, planned);
+    expect(planned).toHaveLength(0);
+    expect(result.skipped).toBe(1);
+  });
+
+  it("skips lunar config with partial anchor pair (matches adapter rejection)", async () => {
+    const planned: Parameters<typeof runStaticSchedulePass>[1] = [];
+    const prisma = fakePrisma([
+      {
+        id: "src6",
+        name: "Lunar with anchorWeekday but no anchorRule",
+        url: null,
+        type: "STATIC_SCHEDULE",
+        enabled: true,
+        lastSuccessAt: null,
+        lastScrapeAt: null,
+        config: {
+          kennelTag: "partial-anchor",
+          lunar: { phase: "full", timezone: "UTC", anchorWeekday: "SA" },
+        },
+        kennels: [{ kennel: { id: "k_partial", shortName: "PARTIAL", isHidden: false } }],
+      },
+    ]);
+    const result = await runStaticSchedulePass(prisma, planned);
+    expect(planned).toHaveLength(0);
+    expect(result.skipped).toBe(1);
+  });
+
+  it("skips dual-config rows where both rrule and lunar are set (Codex pass-4: XOR enforcement)", async () => {
+    const planned: Parameters<typeof runStaticSchedulePass>[1] = [];
+    const prisma = fakePrisma([
+      {
+        id: "src-dual",
+        name: "Dual-config (XOR violation)",
+        url: null,
+        type: "STATIC_SCHEDULE",
+        enabled: true,
+        lastSuccessAt: null,
+        lastScrapeAt: null,
+        config: {
+          kennelTag: "dual",
+          rrule: "FREQ=WEEKLY;BYDAY=SA",
+          lunar: { phase: "full", timezone: "America/Los_Angeles" },
+        },
+        kennels: [{ kennel: { id: "k_dual", shortName: "DUAL", isHidden: false } }],
+      },
+    ]);
+    const result = await runStaticSchedulePass(prisma, planned);
+    // Adapter rejects dual-config; backfill must too — otherwise Travel Mode
+    // would project a HIGH-confidence rule for a source that never materializes.
+    expect(planned).toHaveLength(0);
+    expect(result.skipped).toBe(1);
+  });
+
+  it("does not regress rrule-mode handling (existing GSH3-shape source still HIGH confidence)", async () => {
+    const planned: Parameters<typeof runStaticSchedulePass>[1] = [];
+    const prisma = fakePrisma([
+      {
+        id: "src4",
+        name: "Grand Strand H3 Static Schedule",
+        url: "https://www.facebook.com/GrandStrandHashing/",
+        type: "STATIC_SCHEDULE",
+        enabled: true,
+        lastSuccessAt: null,
+        lastScrapeAt: null,
+        config: {
+          kennelTag: "gsh3",
+          rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA",
+          anchorDate: "2026-03-07",
+        },
+        kennels: [{ kennel: { id: "k_gsh3", shortName: "GSH3", isHidden: false } }],
+      },
+    ]);
+    await runStaticSchedulePass(prisma, planned);
+    expect(planned).toHaveLength(1);
+    expect(planned[0]).toMatchObject({
+      rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA",
+      anchorDate: "2026-03-07",
+      confidence: "HIGH",
+    });
   });
 });

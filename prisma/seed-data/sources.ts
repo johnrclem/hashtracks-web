@@ -740,6 +740,30 @@ export const SOURCES = [
       },
       kennelCodes: ["ebh3"],
     },
+    // SF Full Moon Hash — lunar STATIC_SCHEDULE.
+    // Lunar dates are deterministic so scrapeDays:365 costs nothing.
+    // The SFH3 multihash feed maps `^FMH3` → sffmh3 but doesn't publish FMH3
+    // events on its calendar; this is the primary coverage path for sffmh3.
+    {
+      name: "SFFMH3 Static Schedule (Lunar)",
+      url: "https://www.facebook.com/sffmh",
+      type: "STATIC_SCHEDULE" as const,
+      trustLevel: 5,
+      scrapeFreq: "weekly",
+      scrapeDays: 365,
+      config: {
+        kennelTag: "sffmh3",
+        lunar: {
+          phase: "full",
+          timezone: "America/Los_Angeles",
+        },
+        startTime: "18:30",
+        defaultTitle: "SFFMH3 Full Moon Run",
+        defaultLocation: "San Francisco, CA",
+        defaultDescription: "Monthly full-moon hash. Check Facebook for start location and hare details.",
+      },
+      kennelCodes: ["sffmh3"],
+    },
     // DC / DMV area — iCal feeds (ai1ec WordPress plugin)
     {
       name: "Charm City H3 iCal Feed",
@@ -795,6 +819,33 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 90,
       kennelCodes: ["h4"],
+    },
+    // DC Full Moon Hash — anchor-mode lunar STATIC_SCHEDULE.
+    // DCFMH3 runs Friday/Saturday "near the full moon" rather than on the
+    // exact phase. `nearest` snaps each phase to the closest Saturday
+    // (forward on tie). Hash Rego covers individual registrations; this
+    // source provides forward-looking projections for Travel Mode + calendar.
+    {
+      name: "DCFMH3 Static Schedule (Lunar Anchor)",
+      url: "https://sites.google.com/site/dcfmh3/home",
+      type: "STATIC_SCHEDULE" as const,
+      trustLevel: 5,
+      scrapeFreq: "weekly",
+      scrapeDays: 365,
+      config: {
+        kennelTag: "dcfmh3",
+        lunar: {
+          phase: "full",
+          timezone: "America/New_York",
+          anchorWeekday: "SA",
+          anchorRule: "nearest",
+        },
+        startTime: "18:30",
+        defaultTitle: "DCFMH3 Full Moon Run",
+        defaultLocation: "Washington, DC",
+        defaultDescription: "Monthly full-moon hash, run on the Saturday nearest the full moon. Check Hash Rego or the kennel website for hare and start details.",
+      },
+      kennelCodes: ["dcfmh3"],
     },
     // Hash Rego (hashrego.com — multi-kennel registration platform)
     {
