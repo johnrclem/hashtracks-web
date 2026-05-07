@@ -238,9 +238,10 @@ async function enrichWithDetails(events: RawEventData[]): Promise<EnrichmentResu
 
 /** Extract the FB event id from a `https://www.facebook.com/events/{id}/`
  *  sourceUrl. Returns null for non-FB or malformed URLs. */
+const EVENT_ID_FROM_URL_RE = /\/events\/(\d{14,18})\//;
 function extractEventIdFromSourceUrl(sourceUrl: string | undefined): string | null {
   if (!sourceUrl) return null;
-  const m = sourceUrl.match(/\/events\/(\d{14,18})\//);
+  const m = EVENT_ID_FROM_URL_RE.exec(sourceUrl);
   return m ? m[1] : null;
 }
 
@@ -314,6 +315,6 @@ function errorResult(message: string, status?: number): ScrapeResult {
   return {
     events: [],
     errors: [message],
-    errorDetails: { fetch: [{ message, ...(status !== undefined ? { status } : {}) }] },
+    errorDetails: { fetch: [{ message, ...(status === undefined ? {} : { status }) }] },
   };
 }

@@ -135,8 +135,8 @@ function findEventDescriptionText(value: unknown): string | null {
   const seen = new WeakSet<object>();
   function walk(v: unknown, parentKey: string): string | null {
     if (v === null || typeof v !== "object") return null;
-    if (seen.has(v as object)) return null;
-    seen.add(v as object);
+    if (seen.has(v)) return null;
+    seen.add(v);
     if (Array.isArray(v)) {
       for (const item of v) {
         const hit = walk(item, parentKey);
@@ -195,38 +195,44 @@ function walkAndCollect(value: unknown, byId: Map<string, EventBag>): void {
   const seen = new WeakSet<object>();
   function walk(v: unknown): void {
     if (v === null || typeof v !== "object") return;
-    if (seen.has(v as object)) return;
-    seen.add(v as object);
+    if (seen.has(v)) return;
+    seen.add(v);
     if (Array.isArray(v)) {
       for (const item of v) walk(item);
       return;
     }
     const obj = v as Record<string, unknown>;
-    const id = typeof obj.id === "string" ? obj.id : null;
-    if (id && FB_EVENT_ID_RE.test(id)) {
-      if (typeof obj.start_timestamp === "number") {
-        const bag = byId.get(id) ?? { id };
-        // First-write-wins for time nodes too, just for consistency. In
-        // practice FB emits a single time node per event id.
-        if (!bag.time) bag.time = obj as unknown as TimeNode;
-        byId.set(id, bag);
-      }
-      if (obj.__typename === "Event") {
-        // Merge per-field instead of replacing wholesale. FB graphs can
-        // emit MULTIPLE Event refs for the same id with complementary data
-        // (one with `name`, another with `event_place`, a third shallow);
-        // a naive overwrite would drop fields. Field-level merging keeps
-        // the union of everything we've seen across visit order. Codex
-        // pass-3 finding.
-        const bag = byId.get(id) ?? { id };
-        const candidate = obj as unknown as RichNode;
-        bag.rich = mergeRichNodes(bag.rich, candidate);
-        byId.set(id, bag);
-      }
-    }
+    collectIfEventNode(obj, byId);
     for (const child of Object.values(obj)) walk(child);
   }
   walk(value);
+}
+
+/** Inspect a single object node and bucket it into the by-id map if it
+ *  carries either an Event __typename (rich half) or a start_timestamp
+ *  (time half) under a recognized FB event id. */
+function collectIfEventNode(
+  obj: Record<string, unknown>,
+  byId: Map<string, EventBag>,
+): void {
+  const id = typeof obj.id === "string" ? obj.id : null;
+  if (!id || !FB_EVENT_ID_RE.test(id)) return;
+  if (typeof obj.start_timestamp === "number") {
+    const bag = byId.get(id) ?? { id };
+    // First-write-wins for time nodes too, just for consistency. In
+    // practice FB emits a single time node per event id.
+    bag.time ??= obj as unknown as TimeNode;
+    byId.set(id, bag);
+  }
+  if (obj.__typename === "Event") {
+    // Merge per-field instead of replacing wholesale. FB graphs can emit
+    // MULTIPLE Event refs for the same id with complementary data (one
+    // with `name`, another with `event_place`, a third shallow); a naive
+    // overwrite would drop fields. Codex pass-3 finding.
+    const bag = byId.get(id) ?? { id };
+    bag.rich = mergeRichNodes(bag.rich, obj as unknown as RichNode);
+    byId.set(id, bag);
+  }
 }
 
 /**
@@ -247,8 +253,8 @@ function mergeRichNodes(prev: RichNode | undefined, next: RichNode): RichNode {
     id: prev.id,
     name: prev.name?.trim() ? prev.name : next.name,
     event_place: mergeEventPlace(prev.event_place, next.event_place),
-    // First-non-undefined wins for booleans (treats `false` as a deliberate signal).
-    is_canceled: prev.is_canceled !== undefined ? prev.is_canceled : next.is_canceled,
+    // First-non-nullish wins for booleans (treats `false` as a deliberate signal).
+    is_canceled: prev.is_canceled ?? next.is_canceled,
   };
 }
 
