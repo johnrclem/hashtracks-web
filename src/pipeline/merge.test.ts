@@ -76,6 +76,9 @@ const mockRawEventFind = {
     vi.mocked(prisma.rawEvent.findMany).mockResolvedValue(seedDedup(value) as never);
     return this;
   },
+  // NOTE: rejection now aborts the entire `processRawEvents` call (the
+  // prefetch runs once, before the per-event try/catch), not a single
+  // iteration. To simulate per-event failure use `mockRawEventCreate`.
   mockRejectedValueOnce(err: Error) {
     vi.mocked(prisma.rawEvent.findMany).mockRejectedValueOnce(err);
     return this;
@@ -161,6 +164,32 @@ describe("processRawEvents", () => {
     expect(dedupCalls[0][0]).toMatchObject({
       where: { sourceId: "src_1", fingerprint: { in: ["fp_a", "fp_b", "fp_c"] } },
     });
+  });
+
+  it("isolates fingerprint-precompute errors per event (one bad event does not abort the batch)", async () => {
+    // Regression for the Codex P1 in PR #1280: precomputing fingerprints
+    // outside the per-event try/catch must not abort the whole batch when
+    // one event throws. The bad event records a merge error; the good one
+    // proceeds.
+    mockRawEventFind.mockResolvedValue(null);
+    mockEventFindMany.mockResolvedValueOnce([] as never);
+    mockEventCreate.mockResolvedValueOnce({ id: "evt_good" } as never);
+    mockRawEventCreate.mockResolvedValueOnce({ id: "raw_good" } as never);
+    // First event: fingerprint throws. Second event: fingerprint succeeds.
+    mockFingerprint
+      .mockImplementationOnce(() => { throw new Error("malformed event"); })
+      .mockReturnValueOnce("fp_good");
+
+    const result = await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-04-01" }),
+      buildRawEvent({ date: "2026-04-02" }),
+    ]);
+
+    expect(result.created).toBe(1);
+    expect(result.eventErrors).toBe(1);
+    expect(result.mergeErrorDetails).toEqual([
+      { fingerprint: "<fingerprint-error>", reason: "malformed event" },
+    ]);
   });
 
   it("treats a duplicate fingerprint within the same batch as a dedup hit (in-memory write-back)", async () => {

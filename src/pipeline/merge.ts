@@ -332,18 +332,18 @@ const DEDUP_PREFETCH_CHUNK_SIZE = 1000;
  *  by fingerprint into `existingByFingerprint`. */
 async function prefetchExistingByFingerprint(
   sourceId: string,
-  fingerprints: readonly string[],
+  fingerprints: string[],
 ): Promise<ExistingRawEventEntry[]> {
   if (fingerprints.length === 0) return [];
   if (fingerprints.length <= DEDUP_PREFETCH_CHUNK_SIZE) {
     return prisma.rawEvent.findMany({
-      where: { sourceId, fingerprint: { in: [...fingerprints] } },
+      where: { sourceId, fingerprint: { in: fingerprints } },
       select: RAW_EVENT_DEDUP_SELECT,
     });
   }
   const chunks: string[][] = [];
   for (let i = 0; i < fingerprints.length; i += DEDUP_PREFETCH_CHUNK_SIZE) {
-    chunks.push([...fingerprints.slice(i, i + DEDUP_PREFETCH_CHUNK_SIZE)]);
+    chunks.push(fingerprints.slice(i, i + DEDUP_PREFETCH_CHUNK_SIZE));
   }
   const results = await Promise.all(
     chunks.map((chunk) =>
@@ -1751,6 +1751,7 @@ function recordMergeError(
   event: RawEventData,
   err: unknown,
   result: MergeResult,
+  precomputedFingerprint?: string,
 ): void {
   const reason = err instanceof Error ? err.message : String(err);
   const msg = `${event.date}/${event.kennelTags[0]}: ${reason}`;
@@ -1760,10 +1761,19 @@ function recordMergeError(
     result.eventErrorMessages.push(msg);
   }
   if (result.mergeErrorDetails && result.mergeErrorDetails.length < 50) {
-    result.mergeErrorDetails.push({
-      fingerprint: generateFingerprint(event),
-      reason,
-    });
+    // Prefer the caller's fingerprint (the precompute always passes one,
+    // including the `<fingerprint-error>` sentinel for events that failed
+    // there). For loop-body errors with no precomputed value, regenerate —
+    // and shield against the rare case where regenerate also throws.
+    let fingerprint = precomputedFingerprint;
+    if (fingerprint === undefined) {
+      try {
+        fingerprint = generateFingerprint(event);
+      } catch {
+        fingerprint = "<fingerprint-error>";
+      }
+    }
+    result.mergeErrorDetails.push({ fingerprint, reason });
   }
 }
 
@@ -1801,10 +1811,18 @@ export async function processRawEvents(
 
   // Fingerprint precompute (sync) — runs first so the prefetch query can join
   // the parallel batch below. The Map keys by event identity so the per-event
-  // loop can reuse the same fingerprint without recomputing.
+  // loop can reuse the same fingerprint without recomputing. Each call is
+  // wrapped to preserve the per-event error isolation the loop body has —
+  // a malformed event must not abort the whole batch's prefetch. We pass the
+  // sentinel directly to `recordMergeError` so it doesn't re-call
+  // `generateFingerprint` on the same event (which would just throw again).
   const fingerprintByEvent = new Map<RawEventData, string>();
   for (const event of events) {
-    fingerprintByEvent.set(event, generateFingerprint(event));
+    try {
+      fingerprintByEvent.set(event, generateFingerprint(event));
+    } catch (err) {
+      recordMergeError(event, err, result, "<fingerprint-error>");
+    }
   }
   const uniqueFingerprints = [...new Set(fingerprintByEvent.values())];
 
@@ -1850,10 +1868,12 @@ export async function processRawEvents(
   const seriesGroups = new Map<string, string[]>();
 
   for (const event of events) {
+    // Events that failed the fingerprint precompute were already recorded as
+    // errors and are skipped here so the prefetch's empty-fingerprint case
+    // doesn't re-classify them as new.
+    const fingerprint = fingerprintByEvent.get(event);
+    if (fingerprint === undefined) continue;
     try {
-      // Reuse the fingerprint computed for the prefetch (set above for every event).
-      const fingerprint = fingerprintByEvent.get(event)!;
-
       const dupResult = await handleDuplicateFingerprint(event, fingerprint, ctx);
       if (dupResult !== false) {
         if (dupResult) await createEventLinks(dupResult, sourceId, event.externalLinks);
@@ -1868,7 +1888,7 @@ export async function processRawEvents(
         seriesGroups.set(event.seriesId, group);
       }
     } catch (err) {
-      recordMergeError(event, err, result);
+      recordMergeError(event, err, result, fingerprint);
     }
   }
 
