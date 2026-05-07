@@ -317,6 +317,51 @@ editing UX.
 
 ---
 
+## Kennel schema (related but not Event-row)
+
+These are tracked here for adjacency rather than splitting into a parallel
+doc. Same shipping rule applies — delete the entry when the work lands.
+
+### Multi-Facebook-surface kennels (Group + Page split)
+- **What:** `Kennel.facebookUrl` stores **one** FB surface per kennel today.
+  Real-world kennels often have **both** a Facebook Group AND a Facebook
+  Page that serve different content. The two surfaces are not redundant:
+  - Group: discussion thread, RSVPs, often the day-of "we're at X tonight"
+    posts. Reachable only via T2b paste-flow or admin-installed Graph API.
+  - Page: \`upcoming_hosted_events\` / \`past_hosted_events\` tabs that the
+    `FACEBOOK_HOSTED_EVENTS` adapter scrapes. Logged-out reachable.
+- **Where (concrete example):** **NYC H3** has Group `groups/nychash` (the
+  one we store) AND Page `hashnyc` (we don't store it — see
+  `docs/kennel-research/facebook-hosted-events-audit.md`'s "Schema gap
+  surfaced" section). The Page exposes a hosted_events tab; the Group
+  doesn't, but it has discussion. We're storing the wrong-shape surface
+  for FB-events scraping.
+- **Unlocks:** Per-kennel Group AND Page integration without one
+  overwriting the other. The 106 `/groups/...` rows in the audit's
+  Skipped table are presumed Group-only today; an unknown subset of them
+  also have a Page we'd auto-onboard if the schema let us.
+- **Schema:** Two reasonable shapes:
+  1. Two columns: `Kennel.facebookPageUrl?: String` +
+     `Kennel.facebookGroupUrl?: String`. Simple, captures the 99% case
+     (kennels have at most one of each). Migration is additive; backfill
+     reads the existing `facebookUrl` and routes to the right new column
+     based on URL shape.
+  2. Separate `KennelFacebookSurface` table (`kennelId`, `kind: "PAGE" |
+     "GROUP"`, `url`, `verified: Boolean`). Generalizes if FB ever ships
+     a third Page-like surface or if a kennel ever needs multiple Pages.
+     Heavier — only justified if (1) hits a real wall.
+  
+  v1 should be (1). The `SocialLinks` UI component already takes one URL;
+  it'd start preferring `facebookPageUrl` over `facebookGroupUrl` on the
+  display side. Source-row routing wires `FACEBOOK_HOSTED_EVENTS` to the
+  Page column; the future T2b paste-flow source binds to either.
+- **Not in scope because:** the audit identified the gap but only one
+  kennel (NYC H3) has been verified to have both surfaces. Before
+  authoring a schema migration, run a follow-up audit pass against the
+  106 Group-only kennels to see how many also have a Page — that
+  audited count drives whether (1) is enough or whether the long tail
+  justifies the heavier (2) shape.
+
 ## When something here ships
 
 1. Open a new PR introducing the schema column / table.
