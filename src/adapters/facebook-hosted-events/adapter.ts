@@ -234,30 +234,42 @@ async function enrichWithDetails(events: RawEventData[]): Promise<EnrichmentResu
     }
     if (i > 0) await sleep(DETAIL_FETCH_DELAY_MS);
     attempted++;
-    try {
-      const html = await fetchEventDetailHtml(id);
-      const detail = parseFacebookEventDetail(html);
-      if (detail.description) {
-        out.push({ ...event, description: detail.description });
-        enrichedCount++;
-      } else {
-        out.push(event);
-      }
-    } catch (err) {
-      // Listing data is still good — keep the event without description.
-      // Capture a bounded sample of underlying messages so operators can
-      // distinguish a 429 burst from a 404 from an ECONNRESET in
-      // diagnosticContext. Failures aren't promoted to top-level errors.
+    const outcome = await fetchOneEventDescription(id);
+    if (outcome.kind === "enriched") {
+      out.push({ ...event, description: outcome.description });
+      enrichedCount++;
+    } else if (outcome.kind === "no-description") {
+      out.push(event);
+    } else {
+      // outcome.kind === "failed"
       failed++;
       if (errorSample.length < DETAIL_FETCH_ERROR_SAMPLE_LIMIT) {
-        const message = err instanceof Error ? err.message : String(err);
-        errorSample.push(`${id}: ${message.slice(0, 120)}`);
+        errorSample.push(`${id}: ${outcome.message.slice(0, 120)}`);
       }
       out.push(event);
     }
   }
   out.push(...events.slice(MAX_DETAIL_FETCHES));
   return { events: out, errors, attempted, enriched: enrichedCount, failed, errorSample };
+}
+
+type DetailOutcome =
+  | { kind: "enriched"; description: string }
+  | { kind: "no-description" }
+  | { kind: "failed"; message: string };
+
+/** Fetch + parse one detail page. Listing data integrity wins — any failure
+ *  becomes a `failed` outcome rather than a thrown exception, so the caller
+ *  always emits the listing event even when the detail page is gone. */
+async function fetchOneEventDescription(eventId: string): Promise<DetailOutcome> {
+  try {
+    const html = await fetchEventDetailHtml(eventId);
+    const detail = parseFacebookEventDetail(html);
+    if (detail.description) return { kind: "enriched", description: detail.description };
+    return { kind: "no-description" };
+  } catch (err) {
+    return { kind: "failed", message: err instanceof Error ? err.message : String(err) };
+  }
 }
 
 /** Extract the FB event id from a `https://www.facebook.com/events/{id}/`

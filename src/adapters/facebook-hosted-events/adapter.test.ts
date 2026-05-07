@@ -288,8 +288,8 @@ describe("FacebookHostedEventsAdapter — fetch", () => {
     // Regression for the tight regex (#1292 review): a sourceUrl like
     // `.../events/1012210268147290?ref=foo` (no trailing slash before the
     // query) must still resolve to a detail-page fetch.
-    const queryUrlListing = FIXTURE_HTML.replace(
-      /https:\/\/www\.facebook\.com\/events\/1012210268147290\//g,
+    const queryUrlListing = FIXTURE_HTML.replaceAll(
+      "https://www.facebook.com/events/1012210268147290/",
       "https://www.facebook.com/events/1012210268147290?ref=foo",
     );
     mockedFetch
