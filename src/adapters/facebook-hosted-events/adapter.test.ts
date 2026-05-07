@@ -362,6 +362,10 @@ describe("FacebookHostedEventsAdapter — fetch", () => {
       detailFetchEnriched: 0,
       detailFetchFailed: 1,
     });
+    // Failure cause captured for operator diagnostics, bounded list.
+    const sample = result.diagnosticContext?.detailFetchErrorSample;
+    expect(Array.isArray(sample)).toBe(true);
+    expect((sample as string[])[0]).toMatch(/ECONNRESET/);
   });
 
   it("survives a detail-page non-2xx response without dropping the listing event", async () => {

@@ -171,6 +171,9 @@ export class FacebookHostedEventsAdapter implements SourceAdapter {
         detailFetchAttempted: enriched.attempted,
         detailFetchEnriched: enriched.enriched,
         detailFetchFailed: enriched.failed,
+        ...(enriched.errorSample.length > 0
+          ? { detailFetchErrorSample: enriched.errorSample }
+          : {}),
       },
     };
   }
@@ -182,7 +185,20 @@ interface EnrichmentResult {
   attempted: number;
   enriched: number;
   failed: number;
+  /**
+   * Up to `DETAIL_FETCH_ERROR_SAMPLE_LIMIT` short error strings from per-event
+   * detail-page fetch failures. Surfaced via `diagnosticContext` so operators
+   * can distinguish a 429 burst from a 404 (page deleted) from an `ECONNRESET`
+   * without each failure becoming a top-level scrape error.
+   */
+  errorSample: string[];
 }
+
+/** Per-scrape cap on captured detail-fetch error strings. Keeps
+ *  `diagnosticContext` bounded even if every detail page in a 30-event scrape
+ *  fails. The first few are the most informative — we don't need 30 copies of
+ *  the same `ECONNRESET`. */
+const DETAIL_FETCH_ERROR_SAMPLE_LIMIT = 5;
 
 /**
  * Sequentially fetch each event's detail page and merge `description` into
@@ -205,6 +221,7 @@ async function enrichWithDetails(events: RawEventData[]): Promise<EnrichmentResu
     );
   }
   const out: RawEventData[] = [];
+  const errorSample: string[] = [];
   let attempted = 0;
   let enrichedCount = 0;
   let failed = 0;
@@ -226,14 +243,21 @@ async function enrichWithDetails(events: RawEventData[]): Promise<EnrichmentResu
       } else {
         out.push(event);
       }
-    } catch {
-      // Swallow — listing data is still good. Failure tally surfaces in diagnostics.
+    } catch (err) {
+      // Listing data is still good — keep the event without description.
+      // Capture a bounded sample of underlying messages so operators can
+      // distinguish a 429 burst from a 404 from an ECONNRESET in
+      // diagnosticContext. Failures aren't promoted to top-level errors.
       failed++;
+      if (errorSample.length < DETAIL_FETCH_ERROR_SAMPLE_LIMIT) {
+        const message = err instanceof Error ? err.message : String(err);
+        errorSample.push(`${id}: ${message.slice(0, 120)}`);
+      }
       out.push(event);
     }
   }
   out.push(...events.slice(MAX_DETAIL_FETCHES));
-  return { events: out, errors, attempted, enriched: enrichedCount, failed };
+  return { events: out, errors, attempted, enriched: enrichedCount, failed, errorSample };
 }
 
 /** Extract the FB event id from a `https://www.facebook.com/events/{id}/`

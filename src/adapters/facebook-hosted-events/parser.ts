@@ -81,7 +81,6 @@ interface EventBag {
 interface TimeNode {
   id: string;
   start_timestamp: number;
-  is_past?: boolean;
 }
 
 interface RichNode {

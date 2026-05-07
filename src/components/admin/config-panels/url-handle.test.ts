@@ -58,8 +58,10 @@ describe("extractFirstPathSegment", () => {
     expect(
       extractFirstPathSegment("HTTPS://www.facebook.com/SomePage/", "facebook.com"),
     ).toBe("SomePage");
+    // NOSONAR: typescript:S5332 — `Http://` here is intentional test data
+    // for the case-insensitive scheme regex; not a real outbound request.
     expect(
-      extractFirstPathSegment("Http://www.facebook.com/Other/", "facebook.com"),
+      extractFirstPathSegment("Http://www.facebook.com/Other/", "facebook.com"), // NOSONAR
     ).toBe("Other");
   });
 
