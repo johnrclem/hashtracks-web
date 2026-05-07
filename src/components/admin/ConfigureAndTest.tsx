@@ -49,6 +49,10 @@ import {
   StaticScheduleConfigPanel,
   type StaticScheduleConfig,
 } from "./config-panels/StaticScheduleConfigPanel";
+import {
+  FacebookHostedEventsConfigPanel,
+  type FacebookHostedEventsConfig,
+} from "./config-panels/FacebookHostedEventsConfigPanel";
 import { GenericHtmlConfigPanel } from "./config-panels/GenericHtmlConfigPanel";
 import { isGenericHtmlConfig, type GenericHtmlConfig } from "@/adapters/html-scraper/generic-types";
 import type { KennelOption } from "./config-panels/KennelTagInput";
@@ -61,6 +65,7 @@ const CONFIG_TYPES = new Set([
   "MEETUP",
   "RSS_FEED",
   "STATIC_SCHEDULE",
+  "FACEBOOK_HOSTED_EVENTS",
 ]);
 
 /** Types that get a dedicated config panel UI */
@@ -71,6 +76,7 @@ const PANEL_TYPES = new Set([
   "MEETUP",
   "RSS_FEED",
   "STATIC_SCHEDULE",
+  "FACEBOOK_HOSTED_EVENTS",
 ]);
 
 /**
@@ -184,7 +190,7 @@ export function ConfigureAndTest({
   const hasPanel =
     PANEL_TYPES.has(type) || (type === "HTML_SCRAPER" && hasICalConfigShape(config)) || hasGenericConfig;
 
-  function getPanelType(): "ical" | "calendar" | "sheets" | "meetup" | "rss" | "static-schedule" | "generic-html" | null {
+  function getPanelType(): "ical" | "calendar" | "sheets" | "meetup" | "rss" | "static-schedule" | "fb-hosted-events" | "generic-html" | null {
     if (type === "ICAL_FEED" || (type === "HTML_SCRAPER" && hasICalConfigShape(config)))
       return "ical";
     if (type === "GOOGLE_CALENDAR") return "calendar";
@@ -192,6 +198,7 @@ export function ConfigureAndTest({
     if (type === "MEETUP") return "meetup";
     if (type === "RSS_FEED") return "rss";
     if (type === "STATIC_SCHEDULE") return "static-schedule";
+    if (type === "FACEBOOK_HOSTED_EVENTS") return "fb-hosted-events";
     if (hasGenericConfig) return "generic-html";
     return null;
   }
@@ -311,7 +318,13 @@ export function ConfigureAndTest({
   );
 
   function handleConfigChange(
-    newConfig: CalendarConfig | ICalConfig | SheetsConfig | MeetupConfig | StaticScheduleConfig,
+    newConfig:
+      | CalendarConfig
+      | ICalConfig
+      | SheetsConfig
+      | MeetupConfig
+      | StaticScheduleConfig
+      | FacebookHostedEventsConfig,
   ) {
     const entries = Object.entries(newConfig).filter(([, v]) => v !== undefined);
     const cleaned = Object.fromEntries(entries) as Record<string, unknown>;
@@ -580,6 +593,14 @@ export function ConfigureAndTest({
         {panelType === "static-schedule" && (
           <StaticScheduleConfigPanel
             config={config as StaticScheduleConfig | null}
+            onChange={handleConfigChange}
+            allKennels={allKennelsWithExtra}
+          />
+        )}
+
+        {panelType === "fb-hosted-events" && (
+          <FacebookHostedEventsConfigPanel
+            config={config as FacebookHostedEventsConfig | null}
             onChange={handleConfigChange}
             allKennels={allKennelsWithExtra}
           />

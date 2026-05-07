@@ -1,5 +1,6 @@
 import isSafeRegex from "safe-regex2";
 import { isValidTimezone } from "@/lib/timezone";
+import { FB_PAGE_HANDLE_RE, isReservedFacebookHandle } from "@/adapters/facebook-hosted-events/constants";
 
 /** Returns true if the string is a valid, ReDoS-safe regex. Shared by config validation and AI suggestion filtering. */
 export function isSafeRegexString(p: unknown): boolean {
@@ -14,7 +15,13 @@ export function isSafeRegexString(p: unknown): boolean {
 }
 
 /** Types that require a non-empty config object */
-const TYPES_REQUIRING_CONFIG = new Set(["GOOGLE_SHEETS", "MEETUP", "RSS_FEED", "STATIC_SCHEDULE"]);
+const TYPES_REQUIRING_CONFIG = new Set([
+  "GOOGLE_SHEETS",
+  "MEETUP",
+  "RSS_FEED",
+  "STATIC_SCHEDULE",
+  "FACEBOOK_HOSTED_EVENTS",
+]);
 
 /** Validate a single regex pattern for syntax and ReDoS safety */
 function validateRegex(
@@ -186,6 +193,46 @@ function validateMeetupConfig(obj: Record<string, unknown>, errors: string[]): v
 function validateRssFeedConfig(obj: Record<string, unknown>, errors: string[]): void {
   if (typeof obj.kennelTag !== "string" || !obj.kennelTag.trim()) {
     errors.push("RSS Feed config requires a non-empty kennelTag");
+  }
+}
+
+/** Validate FACEBOOK_HOSTED_EVENTS required fields. The handle regex is
+ *  imported from `src/adapters/facebook-hosted-events/constants.ts` so admin
+ *  and cron reject the same malformed handles. */
+function validateFacebookHostedEventsConfig(obj: Record<string, unknown>, errors: string[]): void {
+  if (typeof obj.kennelTag !== "string" || !obj.kennelTag.trim()) {
+    errors.push("Facebook hosted_events config requires a non-empty kennelTag");
+  }
+  if (typeof obj.pageHandle !== "string" || !obj.pageHandle.trim()) {
+    errors.push("Facebook hosted_events config requires a non-empty pageHandle");
+  } else if (!FB_PAGE_HANDLE_RE.test(obj.pageHandle)) {
+    errors.push(
+      `Facebook hosted_events pageHandle "${obj.pageHandle}" must be 2–80 chars of A–Z, a–z, 0–9, dot, underscore, or dash`,
+    );
+  } else if (isReservedFacebookHandle(obj.pageHandle)) {
+    // Defense-in-depth against the URL-helper bypass: a pasted URL like
+    // `facebook.com/events/{id}/` would have its first segment ("events")
+    // returned as the handle. The shape regex above accepts it. Reject
+    // explicitly so the admin sees a meaningful error instead of an
+    // unscrapable saved config. Codex review pass-1 finding on PR #1292.
+    errors.push(
+      `Facebook hosted_events pageHandle "${obj.pageHandle}" is a Facebook structural namespace, not a Page handle — paste the kennel's Page URL or handle (e.g. \`GrandStrandHashing\`)`,
+    );
+  }
+  if (typeof obj.timezone !== "string" || !obj.timezone.trim()) {
+    errors.push('Facebook hosted_events config requires a non-empty timezone (IANA, e.g. "America/New_York")');
+  } else if (!isValidTimezone(obj.timezone)) {
+    errors.push(`Facebook hosted_events timezone "${obj.timezone}" is not a recognized IANA timezone`);
+  }
+  // Server-side invariant: `/upcoming_hosted_events` is a partial-enumeration
+  // feed (past events drop off). Without `upcomingOnly: true` the reconcile
+  // pipeline would interpret missing past events as cancellations. Reject
+  // any save path (panel, raw JSON, API) that drops or unsets this bit.
+  // Codex pass-2 finding.
+  if (obj.upcomingOnly !== true) {
+    errors.push(
+      'Facebook hosted_events config requires `upcomingOnly: true` (the /upcoming_hosted_events feed drops past events; reconcile must not cancel them)',
+    );
   }
 }
 
@@ -371,6 +418,7 @@ function runTypeValidator(type: string, obj: Record<string, unknown>, errors: st
   else if (type === "MEETUP") validateMeetupConfig(obj, errors);
   else if (type === "RSS_FEED") validateRssFeedConfig(obj, errors);
   else if (type === "STATIC_SCHEDULE") validateStaticScheduleConfig(obj, errors);
+  else if (type === "FACEBOOK_HOSTED_EVENTS") validateFacebookHostedEventsConfig(obj, errors);
 
   // Generic HTML validation runs for any HTML_SCRAPER with selector config
   if (type === "HTML_SCRAPER") validateGenericHtmlConfig(obj, errors);

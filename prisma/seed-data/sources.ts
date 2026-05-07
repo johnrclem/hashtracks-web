@@ -1898,6 +1898,27 @@ export const SOURCES = [
       },
       kennelCodes: ["gsh3"],
     },
+    // GSH3 Facebook Page hosted_events — primary coverage path (T2c canary).
+    // Logged-out scrape of /upcoming_hosted_events returns SSR'd GraphQL with
+    // real event titles, locations, and lat/lng. Higher trust than the
+    // STATIC_SCHEDULE fallback (above) so its richer data wins on merge.
+    // upcomingOnly=true: events drop off the upcoming tab once they pass —
+    // the reconciler must not interpret that as a cancellation signal.
+    {
+      name: "Grand Strand H3 Facebook Hosted Events",
+      url: "https://www.facebook.com/GrandStrandHashing/upcoming_hosted_events",
+      type: "FACEBOOK_HOSTED_EVENTS" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "gsh3",
+        pageHandle: "GrandStrandHashing",
+        timezone: "America/New_York",
+        upcomingOnly: true,
+      },
+      kennelCodes: ["gsh3"],
+    },
     // Massachusetts
     {
       name: "Happy Valley H3 Static Schedule",

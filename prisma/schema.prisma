@@ -232,6 +232,7 @@ enum SourceType {
   MEETUP // meetup.com group events
   STATIC_SCHEDULE // Auto-generated events from schedule rules (Facebook-only kennels)
   HARRIER_CENTRAL // harriercentralpublicapi.azurewebsites.net REST API
+  FACEBOOK_HOSTED_EVENTS // facebook.com/{page}/upcoming_hosted_events SSR GraphQL
   MANUAL // User-submitted events
 }
 

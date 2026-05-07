@@ -1,12 +1,12 @@
 ---
-description: Active data sources catalog — 188 sources across 27+ regions
+description: Active data sources catalog — 189 sources across 27+ regions
 globs:
   - src/adapters/**
   - prisma/seed.ts
   - src/pipeline/**
 ---
 
-# Active Sources (188)
+# Active Sources (189)
 
 ## NYC / NJ / Philly (9 sources)
 - **hashnyc.com** -> HTML_SCRAPER -> 11 NYC-area kennels
@@ -162,7 +162,7 @@ globs:
 - **CVH3 Static Schedule** -> STATIC_SCHEDULE -> CVH3
 - **R2H3 Static Schedule** -> STATIC_SCHEDULE -> R2H3
 
-## South Carolina (10 sources)
+## South Carolina (11 sources)
 - **Charleston Heretics Meetup** -> MEETUP -> CHH3
 - **Charleston H3 Static Schedule** -> STATIC_SCHEDULE -> CH3-SC
 - **BUDH3 Static Schedule** -> STATIC_SCHEDULE -> BUDH3
@@ -172,7 +172,8 @@ globs:
 - **Palmetto H3 Static Schedule** -> STATIC_SCHEDULE -> PalH3
 - **Upstate H3 Static Schedule** -> STATIC_SCHEDULE -> UH3
 - **GOTH3 Static Schedule** -> STATIC_SCHEDULE -> GOTH3
-- **Grand Strand H3 Static Schedule** -> STATIC_SCHEDULE -> GSH3
+- **Grand Strand H3 Static Schedule** -> STATIC_SCHEDULE -> GSH3 (low-trust fallback)
+- **Grand Strand H3 Facebook Hosted Events** -> FACEBOOK_HOSTED_EVENTS -> GSH3 (primary; T2c canary)
 
 ## Texas (8 sources)
 - **Austin H3 Calendar** -> GOOGLE_CALENDAR -> AH3

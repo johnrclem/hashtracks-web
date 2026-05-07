@@ -15,7 +15,7 @@ describe("validateSourceConfig", () => {
       expect(validateSourceConfig("HASHREGO", undefined)).toEqual([]);
     });
 
-    it.each(["GOOGLE_SHEETS", "MEETUP", "RSS_FEED", "STATIC_SCHEDULE"])(
+    it.each(["GOOGLE_SHEETS", "MEETUP", "RSS_FEED", "STATIC_SCHEDULE", "FACEBOOK_HOSTED_EVENTS"])(
       "rejects null config for %s",
       (type) => {
         const errors = validateSourceConfig(type, null);
@@ -24,7 +24,7 @@ describe("validateSourceConfig", () => {
       },
     );
 
-    it.each(["GOOGLE_SHEETS", "MEETUP", "RSS_FEED", "STATIC_SCHEDULE"])(
+    it.each(["GOOGLE_SHEETS", "MEETUP", "RSS_FEED", "STATIC_SCHEDULE", "FACEBOOK_HOSTED_EVENTS"])(
       "rejects undefined config for %s",
       (type) => {
         const errors = validateSourceConfig(type, undefined);
@@ -610,6 +610,60 @@ describe("validateSourceConfig", () => {
     it("reports both errors when both fields are missing", () => {
       const errors = validateSourceConfig("MEETUP", {});
       expect(errors).toHaveLength(2);
+    });
+  });
+
+  describe("FACEBOOK_HOSTED_EVENTS", () => {
+    const valid = {
+      kennelTag: "gsh3",
+      pageHandle: "GrandStrandHashing",
+      timezone: "America/New_York",
+      upcomingOnly: true,
+    };
+
+    it("accepts a complete config", () => {
+      expect(validateSourceConfig("FACEBOOK_HOSTED_EVENTS", valid)).toEqual([]);
+    });
+
+    it("rejects missing kennelTag, pageHandle, timezone, upcomingOnly", () => {
+      const errors = validateSourceConfig("FACEBOOK_HOSTED_EVENTS", {});
+      expect(errors.some((e) => /kennelTag/.test(e))).toBe(true);
+      expect(errors.some((e) => /pageHandle/.test(e))).toBe(true);
+      expect(errors.some((e) => /timezone/.test(e))).toBe(true);
+      expect(errors.some((e) => /upcomingOnly/.test(e))).toBe(true);
+    });
+
+    it("rejects pageHandle with disallowed characters (XSS / spaces)", () => {
+      const errors = validateSourceConfig("FACEBOOK_HOSTED_EVENTS", { ...valid, pageHandle: "Some Page" });
+      expect(errors.some((e) => /pageHandle/.test(e))).toBe(true);
+    });
+
+    it.each(["events", "groups", "watch", "profile.php", "Events"])(
+      "rejects FB reserved namespace as pageHandle: %s",
+      (reserved) => {
+        const errors = validateSourceConfig("FACEBOOK_HOSTED_EVENTS", {
+          ...valid,
+          pageHandle: reserved,
+        });
+        expect(errors.some((e) => /structural namespace/.test(e))).toBe(true);
+      },
+    );
+
+    it("rejects an invalid IANA timezone", () => {
+      const errors = validateSourceConfig("FACEBOOK_HOSTED_EVENTS", { ...valid, timezone: "America/Los_Angles" });
+      expect(errors.some((e) => /IANA/.test(e))).toBe(true);
+    });
+
+    it("rejects upcomingOnly: false (Codex pass-2: server-side invariant)", () => {
+      const errors = validateSourceConfig("FACEBOOK_HOSTED_EVENTS", { ...valid, upcomingOnly: false });
+      expect(errors.some((e) => /upcomingOnly/.test(e))).toBe(true);
+    });
+
+    it("rejects upcomingOnly missing entirely (e.g. raw-JSON edit drops it)", () => {
+      const partial = { ...valid };
+      delete (partial as Partial<typeof valid>).upcomingOnly;
+      const errors = validateSourceConfig("FACEBOOK_HOSTED_EVENTS", partial);
+      expect(errors.some((e) => /upcomingOnly/.test(e))).toBe(true);
     });
   });
 });

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { KennelTagInput, type KennelOption } from "./KennelTagInput";
+import { extractFirstPathSegment } from "./url-handle";
 
 export interface MeetupConfig {
   groupUrlname?: string; // Meetup group URL name, e.g. "brooklyn-hash-house-harriers"
@@ -16,28 +17,13 @@ interface MeetupConfigPanelProps {
   readonly allKennels?: KennelOption[];
 }
 
-/** Extract the groupUrlname from a full meetup.com URL or return the value as-is. */
-function extractGroupUrlname(value: string): string {
-  try {
-    const url = new URL(value.startsWith("http") ? value : `https://${value}`);
-    if (url.hostname === "meetup.com" || url.hostname.endsWith(".meetup.com")) {
-      // https://www.meetup.com/brooklyn-hash-house-harriers/
-      const parts = url.pathname.split("/").filter(Boolean);
-      if (parts.length > 0) return parts[0];
-    }
-  } catch {
-    // not a URL — treat as raw slug
-  }
-  return value.trim();
-}
-
 export function MeetupConfigPanel({ config, onChange, allKennels }: MeetupConfigPanelProps) {
   const current = config ?? {};
   // Local input value so user can paste a full URL; we extract on blur
   const [urlInput, setUrlInput] = useState(current.groupUrlname ?? "");
 
   function handleUrlBlur() {
-    const extracted = extractGroupUrlname(urlInput);
+    const extracted = extractFirstPathSegment(urlInput, "meetup.com");
     setUrlInput(extracted);
     onChange({ ...current, groupUrlname: extracted || undefined });
   }
