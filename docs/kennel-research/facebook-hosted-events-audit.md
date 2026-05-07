@@ -20,6 +20,18 @@
 - Pages with **0 upcoming but ≥1 past** event (re-audit candidates — Page is real and used): **27**
 - Pages with no events on either tab (likely dormant Pages): **15**
 
+## Schema gap surfaced — multi-FB-URL kennels
+
+`Kennel.facebookUrl` stores **one** Facebook surface per kennel today. Some kennels have **both** a Group and a Page, and they expose different content:
+
+- **NYC H3** has Group `groups/nychash` (in seed as `facebookUrl`) AND Page `hashnyc` (NOT in seed). The Page exposes `/upcoming_hosted_events` (currently empty but reachable); the Group serves `/events` separately. We're storing one and missing the other entirely — and per this audit, Pages are the surface the FACEBOOK_HOSTED_EVENTS adapter can scrape.
+
+Schema follow-up to track in `docs/event-schema-future-fields.md`:
+
+- Promote `Kennel.facebookUrl` to a 1-to-many `KennelFacebookSurface` table or split into `facebookPageUrl` + `facebookGroupUrl` columns.
+- Audit the 106 `/groups/...` skipped rows below for an associated Page handle (often `{kennelname}` or close to it). Some of those kennels probably have a Page with hosted_events we'd otherwise have shipped a source for.
+- Source-row routing: a `FACEBOOK_HOSTED_EVENTS` source binds to the Page handle; a future paste-flow / Graph API source path binds to the Group. They're not interchangeable.
+
 ## Pages with upcoming events — seed candidates
 
 Highest-leverage targets first. The `up`/`past` columns count events on each tab; `loc/lat` count events with structured location and lat-lng pair on the upcoming tab.
@@ -214,4 +226,4 @@ Reasons in priority order. **Group** rows are the largest pool and are the natur
 3. **Re-audit past-only Pages first** on the 30/60/90 cadence — they're demonstrably active and most likely to flip to having upcoming events. Past-only count itself is a rough liveness/popularity ranking.
 4. **Resolve shortlink redirects** (the `/share/` / `/p/` skipped rows) to recover canonical handles. Cheap follow-up; small script that follows one HTTP 301 per row.
 5. **Group-only kennels** (the `group` skipped rows) feed the T2b paste-flow PR backlog. They cannot be auto-scraped via the hosted_events route; they need admin paste or kennel-admin-installed Graph API.
-
+6. **Multi-FB-URL kennel schema** — see "Schema gap surfaced" above. Tracked in `docs/event-schema-future-fields.md` as a follow-up.

@@ -195,6 +195,23 @@ async function auditOneTab(
   };
 }
 
+/** Markdown-table cell-safe formatter for a sample title — pipe-escape and
+ *  newline-flatten. `String.raw` makes the literal backslash readable. */
+const PIPE_ESCAPE = String.raw`\|`;
+function fmtSample(s: string | undefined): string {
+  return (s ?? "—").replaceAll("|", PIPE_ESCAPE).replaceAll("\n", " ").slice(0, 70);
+}
+
+function linkUp(handle: string): string {
+  return `https://www.facebook.com/${handle}/upcoming_hosted_events`;
+}
+function linkPast(handle: string): string {
+  return `https://www.facebook.com/${handle}/past_hosted_events`;
+}
+
+/** Build the four content sections + skip table in one pass. Each section
+ *  is its own template literal so the report shape stays self-evident
+ *  without a sea of `lines.push` calls. */
 function renderReport(audited: AuditResult[], skipped: SkippedRow[]): string {
   const totalSeen = audited.length + skipped.length;
   const withUpcoming = audited.filter((a) => a.upcoming.eventCount > 0);
@@ -225,156 +242,134 @@ function renderReport(audited: AuditResult[], skipped: SkippedRow[]): string {
       b.past.eventCount - a.past.eventCount ||
       a.shortName.localeCompare(b.shortName),
   );
-  // Past-only Pages: rank by past count — these are kennels we KNOW exist
-  // and post trails, just don't have the next one scheduled yet.
   withPastOnly.sort(
     (a, b) =>
       b.past.eventCount - a.past.eventCount || a.shortName.localeCompare(b.shortName),
   );
   completelyEmpty.sort((a, b) => a.shortName.localeCompare(b.shortName));
 
-  const fmtSample = (s: string | undefined) =>
-    (s ?? "—").replaceAll("|", "\\|").replaceAll("\n", " ").slice(0, 70);
-  const linkUp = (h: string) => `https://www.facebook.com/${h}/upcoming_hosted_events`;
-  const linkPast = (h: string) => `https://www.facebook.com/${h}/past_hosted_events`;
+  const today = new Date().toISOString().slice(0, 10);
+  const skipBreakdown = [...byReason.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([reason, n]) => `  - \`${reason}\`: ${n}`)
+    .join("\n");
+  const erroredLine = errored.length > 0 ? `\n- Errored: **${errored.length}**` : "";
 
-  const lines: string[] = [];
-  lines.push("# Facebook hosted_events audit");
-  lines.push("");
-  lines.push(`> One-shot audit run on ${new Date().toISOString().slice(0, 10)} —`);
-  lines.push(
-    "> identifies seeded kennels with a public Facebook Page exposing populated",
-  );
-  lines.push(
-    "> `/upcoming_hosted_events` and/or `/past_hosted_events` tabs, the data source",
-  );
-  lines.push(
-    "> the `FACEBOOK_HOSTED_EVENTS` adapter (PR #1292) consumes. Past tab adds",
-  );
-  lines.push(
-    "> historical-backfill awareness — a Page with 0 upcoming but 50 past is a",
-  );
-  lines.push(
-    "> real kennel that just hasn't scheduled the next trail yet. Re-run via",
-  );
-  lines.push("> `npx tsx scripts/audit-fb-hosted-events.ts`.");
-  lines.push("");
-  lines.push("## Summary");
-  lines.push("");
-  lines.push(`- Kennels in seed with a populated \`facebookUrl\`: **${totalSeen}**`);
-  lines.push(`- Page-shape handles audited: **${audited.length}**`);
-  lines.push(`- Skipped (not a Page-shape URL): **${skipped.length}**`);
-  for (const [reason, n] of [...byReason.entries()].sort((a, b) => b[1] - a[1])) {
-    lines.push(`  - \`${reason}\`: ${n}`);
-  }
-  lines.push("");
-  lines.push(
-    `- Pages with **≥1 upcoming event** (active scaling targets): **${withUpcoming.length}**`,
-  );
-  lines.push(
-    `- Pages with **0 upcoming but ≥1 past** event (re-audit candidates — Page is real and used): **${withPastOnly.length}**`,
-  );
-  lines.push(
-    `- Pages with no events on either tab (likely dormant Pages): **${completelyEmpty.length}**`,
-  );
-  if (errored.length > 0) {
-    lines.push(`- Errored: **${errored.length}**`);
-  }
-  lines.push("");
+  const upcomingRows = withUpcoming
+    .map(
+      (r) =>
+        `| ${r.shortName} (\`${r.kennelCode}\`) | [\`${r.handle}\`](${linkUp(r.handle)}) | ${r.region} | ${r.upcoming.eventCount} | ${r.past.eventCount} | ${r.upcoming.withLocation} | ${r.upcoming.withLatLng} | ${fmtSample(r.upcoming.sampleTitle)} |`,
+    )
+    .join("\n");
+  const pastOnlyRows = withPastOnly
+    .map(
+      (r) =>
+        `| ${r.shortName} (\`${r.kennelCode}\`) | [past](${linkPast(r.handle)}) · [up](${linkUp(r.handle)}) | ${r.region} | ${r.past.eventCount} | ${r.past.withLocation} | ${r.past.withLatLng} | ${fmtSample(r.past.sampleTitle)} |`,
+    )
+    .join("\n");
+  const dormantRows = completelyEmpty
+    .map(
+      (r) =>
+        `| ${r.shortName} (\`${r.kennelCode}\`) | [\`${r.handle}\`](${linkUp(r.handle)}) | ${r.region} |`,
+    )
+    .join("\n");
+  const skippedRows = skipped
+    .map(
+      (s) =>
+        `| ${s.shortName} (\`${s.kennelCode}\`) | [link](${s.facebookUrl}) | ${s.reason} |`,
+    )
+    .join("\n");
 
-  lines.push("## Pages with upcoming events — seed candidates");
-  lines.push("");
-  lines.push(
-    "Highest-leverage targets first. The `up`/`past` columns count events on each tab; `loc/lat` count events with structured location and lat-lng pair on the upcoming tab.",
-  );
-  lines.push("");
-  lines.push("| Kennel | Handle | Region | up | past | loc | lat | Sample upcoming title |");
-  lines.push("|---|---|---|---:|---:|---:|---:|---|");
-  for (const r of withUpcoming) {
-    lines.push(
-      `| ${r.shortName} (\`${r.kennelCode}\`) | [\`${r.handle}\`](${linkUp(r.handle)}) | ${r.region} | ${r.upcoming.eventCount} | ${r.past.eventCount} | ${r.upcoming.withLocation} | ${r.upcoming.withLatLng} | ${fmtSample(r.upcoming.sampleTitle)} |`,
-    );
-  }
-  lines.push("");
+  const erroredSection =
+    errored.length === 0
+      ? ""
+      : `## Errored
 
-  lines.push("## Pages with past events but no upcoming — re-audit candidates");
-  lines.push("");
-  lines.push(
-    "These Pages are demonstrably active (kennel has hosted at least one trail recently) but no upcoming events are listed today. Worth re-checking on the 30/60/90 cadence — they're high-probability scaling targets the next time the kennel updates the calendar. Past-event count is also a rough liveness signal: a Page with 50 past hosted_events is more likely to publish future trails than one with 1.",
-  );
-  lines.push("");
-  lines.push("| Kennel | Handle | Region | past | loc | lat | Sample past title |");
-  lines.push("|---|---|---|---:|---:|---:|---|");
-  for (const r of withPastOnly) {
-    lines.push(
-      `| ${r.shortName} (\`${r.kennelCode}\`) | [past](${linkPast(r.handle)}) · [up](${linkUp(r.handle)}) | ${r.region} | ${r.past.eventCount} | ${r.past.withLocation} | ${r.past.withLatLng} | ${fmtSample(r.past.sampleTitle)} |`,
-    );
-  }
-  lines.push("");
+| Kennel | Handle | Upcoming status | Past status | Detail |
+|---|---|---|---|---|
+${errored
+  .map(
+    (r) =>
+      `| ${r.shortName} (\`${r.kennelCode}\`) | \`${r.handle}\` | ${r.upcoming.status} | ${r.past.status} | ${(r.upcoming.detail ?? r.past.detail) ?? ""} |`,
+  )
+  .join("\n")}
 
-  lines.push("## Pages with no events on either tab — likely dormant");
-  lines.push("");
-  lines.push(
-    "Public Pages that render cleanly but expose neither upcoming nor past hosted_events. Either the kennel doesn't use FB events at all (posts trails as regular FB posts), the Page predates FB Events as a feature, or the Page is abandoned. Lower-priority for re-audit.",
-  );
-  lines.push("");
-  lines.push("| Kennel | Handle | Region |");
-  lines.push("|---|---|---|");
-  for (const r of completelyEmpty) {
-    lines.push(
-      `| ${r.shortName} (\`${r.kennelCode}\`) | [\`${r.handle}\`](${linkUp(r.handle)}) | ${r.region} |`,
-    );
-  }
-  lines.push("");
+`;
 
-  if (errored.length > 0) {
-    lines.push("## Errored");
-    lines.push("");
-    lines.push("| Kennel | Handle | Upcoming status | Past status | Detail |");
-    lines.push("|---|---|---|---|---|");
-    for (const r of errored) {
-      lines.push(
-        `| ${r.shortName} (\`${r.kennelCode}\`) | \`${r.handle}\` | ${r.upcoming.status} | ${r.past.status} | ${(r.upcoming.detail ?? r.past.detail) ?? ""} |`,
-      );
-    }
-    lines.push("");
-  }
+  return `# Facebook hosted_events audit
 
-  lines.push("## Skipped — not a Page-shape `facebookUrl`");
-  lines.push("");
-  lines.push(
-    "Reasons in priority order. **Group** rows are the largest pool and are the natural target for the T2b admin paste-flow PR. **Shortlink** rows can be promoted into the Page bucket by following the `/share/` or `/p/` redirect to recover the canonical handle — out of scope for this audit.",
-  );
-  lines.push("");
-  lines.push("| Kennel | URL | Reason |");
-  lines.push("|---|---|---|");
-  for (const s of skipped) {
-    lines.push(
-      `| ${s.shortName} (\`${s.kennelCode}\`) | [link](${s.facebookUrl}) | ${s.reason} |`,
-    );
-  }
-  lines.push("");
+> One-shot audit run on ${today} —
+> identifies seeded kennels with a public Facebook Page exposing populated
+> \`/upcoming_hosted_events\` and/or \`/past_hosted_events\` tabs, the data source
+> the \`FACEBOOK_HOSTED_EVENTS\` adapter (PR #1292) consumes. Past tab adds
+> historical-backfill awareness — a Page with 0 upcoming but 50 past is a
+> real kennel that just hasn't scheduled the next trail yet. Re-run via
+> \`npx tsx scripts/audit-fb-hosted-events.ts\`.
 
-  lines.push("## Next steps");
-  lines.push("");
-  lines.push(
-    "1. **Seed the top N event-producing Pages** as `FACEBOOK_HOSTED_EVENTS` sources, mirroring the GSH3 row in `prisma/seed-data/sources.ts`. The migration + adapter are already in main; only the seed rows are needed.",
-  );
-  lines.push(
-    "2. **Historical backfill** — the past-events table is the natural input for a separate one-shot script (per the Seletar pattern documented in the FB integration plan). For each Page with a meaningful past-event count, a backfill run pulls the full archive of `start_timestamp + name + event_place` triples and inserts them as confirmed historical Events at trustLevel 8. Out of scope for the cron path; tracked separately.",
-  );
-  lines.push(
-    "3. **Re-audit past-only Pages first** on the 30/60/90 cadence — they're demonstrably active and most likely to flip to having upcoming events. Past-only count itself is a rough liveness/popularity ranking.",
-  );
-  lines.push(
-    "4. **Resolve shortlink redirects** (the `/share/` / `/p/` skipped rows) to recover canonical handles. Cheap follow-up; small script that follows one HTTP 301 per row.",
-  );
-  lines.push(
-    "5. **Group-only kennels** (the `group` skipped rows) feed the T2b paste-flow PR backlog. They cannot be auto-scraped via the hosted_events route; they need admin paste or kennel-admin-installed Graph API.",
-  );
-  lines.push("");
+## Summary
 
-  return lines.join("\n") + "\n";
+- Kennels in seed with a populated \`facebookUrl\`: **${totalSeen}**
+- Page-shape handles audited: **${audited.length}**
+- Skipped (not a Page-shape URL): **${skipped.length}**
+${skipBreakdown}
+
+- Pages with **≥1 upcoming event** (active scaling targets): **${withUpcoming.length}**
+- Pages with **0 upcoming but ≥1 past** event (re-audit candidates — Page is real and used): **${withPastOnly.length}**
+- Pages with no events on either tab (likely dormant Pages): **${completelyEmpty.length}**${erroredLine}
+
+## Schema gap surfaced — multi-FB-URL kennels
+
+\`Kennel.facebookUrl\` stores **one** Facebook surface per kennel today. Some kennels have **both** a Group and a Page, and they expose different content:
+
+- **NYC H3** has Group \`groups/nychash\` (in seed as \`facebookUrl\`) AND Page \`hashnyc\` (NOT in seed). The Page exposes \`/upcoming_hosted_events\` (currently empty but reachable); the Group serves \`/events\` separately. We're storing one and missing the other entirely — and per this audit, Pages are the surface the FACEBOOK_HOSTED_EVENTS adapter can scrape.
+
+Schema follow-up to track in \`docs/event-schema-future-fields.md\`:
+
+- Promote \`Kennel.facebookUrl\` to a 1-to-many \`KennelFacebookSurface\` table or split into \`facebookPageUrl\` + \`facebookGroupUrl\` columns.
+- Audit the 106 \`/groups/...\` skipped rows below for an associated Page handle (often \`{kennelname}\` or close to it). Some of those kennels probably have a Page with hosted_events we'd otherwise have shipped a source for.
+- Source-row routing: a \`FACEBOOK_HOSTED_EVENTS\` source binds to the Page handle; a future paste-flow / Graph API source path binds to the Group. They're not interchangeable.
+
+## Pages with upcoming events — seed candidates
+
+Highest-leverage targets first. The \`up\`/\`past\` columns count events on each tab; \`loc/lat\` count events with structured location and lat-lng pair on the upcoming tab.
+
+| Kennel | Handle | Region | up | past | loc | lat | Sample upcoming title |
+|---|---|---|---:|---:|---:|---:|---|
+${upcomingRows}
+
+## Pages with past events but no upcoming — re-audit candidates
+
+These Pages are demonstrably active (kennel has hosted at least one trail recently) but no upcoming events are listed today. Worth re-checking on the 30/60/90 cadence — they're high-probability scaling targets the next time the kennel updates the calendar. Past-event count is also a rough liveness signal: a Page with 50 past hosted_events is more likely to publish future trails than one with 1.
+
+| Kennel | Handle | Region | past | loc | lat | Sample past title |
+|---|---|---|---:|---:|---:|---|
+${pastOnlyRows}
+
+## Pages with no events on either tab — likely dormant
+
+Public Pages that render cleanly but expose neither upcoming nor past hosted_events. Either the kennel doesn't use FB events at all (posts trails as regular FB posts), the Page predates FB Events as a feature, or the Page is abandoned. Lower-priority for re-audit.
+
+| Kennel | Handle | Region |
+|---|---|---|
+${dormantRows}
+
+${erroredSection}## Skipped — not a Page-shape \`facebookUrl\`
+
+Reasons in priority order. **Group** rows are the largest pool and are the natural target for the T2b admin paste-flow PR. **Shortlink** rows can be promoted into the Page bucket by following the \`/share/\` or \`/p/\` redirect to recover the canonical handle — out of scope for this audit.
+
+| Kennel | URL | Reason |
+|---|---|---|
+${skippedRows}
+
+## Next steps
+
+1. **Seed the top N event-producing Pages** as \`FACEBOOK_HOSTED_EVENTS\` sources, mirroring the GSH3 row in \`prisma/seed-data/sources.ts\`. The migration + adapter are already in main; only the seed rows are needed.
+2. **Historical backfill** — the past-events table is the natural input for a separate one-shot script (per the Seletar pattern documented in the FB integration plan). For each Page with a meaningful past-event count, a backfill run pulls the full archive of \`start_timestamp + name + event_place\` triples and inserts them as confirmed historical Events at trustLevel 8. Out of scope for the cron path; tracked separately.
+3. **Re-audit past-only Pages first** on the 30/60/90 cadence — they're demonstrably active and most likely to flip to having upcoming events. Past-only count itself is a rough liveness/popularity ranking.
+4. **Resolve shortlink redirects** (the \`/share/\` / \`/p/\` skipped rows) to recover canonical handles. Cheap follow-up; small script that follows one HTTP 301 per row.
+5. **Group-only kennels** (the \`group\` skipped rows) feed the T2b paste-flow PR backlog. They cannot be auto-scraped via the hosted_events route; they need admin paste or kennel-admin-installed Graph API.
+6. **Multi-FB-URL kennel schema** — see "Schema gap surfaced" above. Tracked in \`docs/event-schema-future-fields.md\` as a follow-up.
+`;
 }
 
 async function main(): Promise<void> {
