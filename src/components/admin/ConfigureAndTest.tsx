@@ -65,6 +65,7 @@ const CONFIG_TYPES = new Set([
   "MEETUP",
   "RSS_FEED",
   "STATIC_SCHEDULE",
+  "FACEBOOK_HOSTED_EVENTS",
 ]);
 
 /** Types that get a dedicated config panel UI */
@@ -75,6 +76,7 @@ const PANEL_TYPES = new Set([
   "MEETUP",
   "RSS_FEED",
   "STATIC_SCHEDULE",
+  "FACEBOOK_HOSTED_EVENTS",
 ]);
 
 /**

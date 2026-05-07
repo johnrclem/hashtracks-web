@@ -63,6 +63,25 @@ describe("FacebookHostedEventsAdapter — fetch", () => {
     expect(result.errors[0]).toMatch(/missing required config field/);
   });
 
+  it("rejects a reserved FB structural namespace as pageHandle (e.g. \"events\")", async () => {
+    // The admin URL helper extracts the first path segment from a pasted
+    // URL. A pasted event URL like https://www.facebook.com/events/{id}/
+    // would yield "events" — passes the shape regex but is not a Page handle.
+    const adapter = new FacebookHostedEventsAdapter();
+    for (const reserved of ["events", "groups", "watch", "profile.php"]) {
+      const result = await adapter.fetch(
+        makeSource({
+          kennelTag: "gsh3",
+          pageHandle: reserved,
+          timezone: "America/New_York",
+          upcomingOnly: true,
+        }),
+      );
+      expect(result.events).toHaveLength(0);
+      expect(result.errors[0]).toMatch(/structural namespace/);
+    }
+  });
+
   it("rejects pageHandle that fails the regex (XSS / weird chars)", async () => {
     const adapter = new FacebookHostedEventsAdapter();
     const result = await adapter.fetch(

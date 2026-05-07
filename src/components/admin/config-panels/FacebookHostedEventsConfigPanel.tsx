@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { KennelTagInput, type KennelOption } from "./KennelTagInput";
 import { extractFirstPathSegment } from "./url-handle";
+import { FB_RESERVED_FIRST_SEGMENTS } from "@/adapters/facebook-hosted-events/constants";
 
 /**
  * Form-level config shape for the FACEBOOK_HOSTED_EVENTS source type.
@@ -53,7 +54,9 @@ export function FacebookHostedEventsConfigPanel({
   }
 
   function handlePageBlur() {
-    const extracted = extractFirstPathSegment(pageInput, "facebook.com");
+    const extracted = extractFirstPathSegment(pageInput, "facebook.com", {
+      reservedFirstSegments: FB_RESERVED_FIRST_SEGMENTS,
+    });
     setPageInput(extracted);
     emitChange({ pageHandle: extracted || undefined });
   }

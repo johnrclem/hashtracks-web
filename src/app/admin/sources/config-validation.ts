@@ -1,6 +1,6 @@
 import isSafeRegex from "safe-regex2";
 import { isValidTimezone } from "@/lib/timezone";
-import { FB_PAGE_HANDLE_RE } from "@/adapters/facebook-hosted-events/constants";
+import { FB_PAGE_HANDLE_RE, isReservedFacebookHandle } from "@/adapters/facebook-hosted-events/constants";
 
 /** Returns true if the string is a valid, ReDoS-safe regex. Shared by config validation and AI suggestion filtering. */
 export function isSafeRegexString(p: unknown): boolean {
@@ -208,6 +208,15 @@ function validateFacebookHostedEventsConfig(obj: Record<string, unknown>, errors
   } else if (!FB_PAGE_HANDLE_RE.test(obj.pageHandle)) {
     errors.push(
       `Facebook hosted_events pageHandle "${obj.pageHandle}" must be 2–80 chars of A–Z, a–z, 0–9, dot, underscore, or dash`,
+    );
+  } else if (isReservedFacebookHandle(obj.pageHandle)) {
+    // Defense-in-depth against the URL-helper bypass: a pasted URL like
+    // `facebook.com/events/{id}/` would have its first segment ("events")
+    // returned as the handle. The shape regex above accepts it. Reject
+    // explicitly so the admin sees a meaningful error instead of an
+    // unscrapable saved config. Codex review pass-1 finding on PR #1292.
+    errors.push(
+      `Facebook hosted_events pageHandle "${obj.pageHandle}" is a Facebook structural namespace, not a Page handle — paste the kennel's Page URL or handle (e.g. \`GrandStrandHashing\`)`,
     );
   }
   if (typeof obj.timezone !== "string" || !obj.timezone.trim()) {

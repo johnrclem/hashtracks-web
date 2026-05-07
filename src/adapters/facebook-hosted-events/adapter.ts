@@ -24,7 +24,7 @@ import { validateSourceConfig, applyDateWindow } from "../utils";
 import { safeFetch } from "../safe-fetch";
 import { isValidTimezone } from "@/lib/timezone";
 import { parseFacebookHostedEvents, parseFacebookEventDetail } from "./parser";
-import { FB_PAGE_HANDLE_RE } from "./constants";
+import { FB_PAGE_HANDLE_RE, isReservedFacebookHandle } from "./constants";
 
 /**
  * Headers required to get a 200 from `/upcoming_hosted_events` logged out.
@@ -286,6 +286,15 @@ function validateConfig(source: Source): ConfigValidationOk | ConfigValidationEr
     return {
       ok: false,
       error: `FacebookHostedEventsAdapter: pageHandle "${config.pageHandle}" must match ${FB_PAGE_HANDLE_RE} (FB Page handles are 2–80 alnum/dash/underscore/period chars)`,
+    };
+  }
+  if (isReservedFacebookHandle(config.pageHandle)) {
+    // Belt-and-suspenders against the URL-helper bypass. Same rejection
+    // the admin validator applies; this fires for non-admin write paths
+    // (DB edit, seed drift, future API).
+    return {
+      ok: false,
+      error: `FacebookHostedEventsAdapter: pageHandle "${config.pageHandle}" is a Facebook structural namespace, not a Page handle`,
     };
   }
   if (!isValidTimezone(config.timezone)) {

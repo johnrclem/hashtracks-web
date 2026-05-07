@@ -638,6 +638,17 @@ describe("validateSourceConfig", () => {
       expect(errors.some((e) => /pageHandle/.test(e))).toBe(true);
     });
 
+    it.each(["events", "groups", "watch", "profile.php", "Events"])(
+      "rejects FB reserved namespace as pageHandle: %s",
+      (reserved) => {
+        const errors = validateSourceConfig("FACEBOOK_HOSTED_EVENTS", {
+          ...valid,
+          pageHandle: reserved,
+        });
+        expect(errors.some((e) => /structural namespace/.test(e))).toBe(true);
+      },
+    );
+
     it("rejects an invalid IANA timezone", () => {
       const errors = validateSourceConfig("FACEBOOK_HOSTED_EVENTS", { ...valid, timezone: "America/Los_Angles" });
       expect(errors.some((e) => /IANA/.test(e))).toBe(true);
