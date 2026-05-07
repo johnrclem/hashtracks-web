@@ -54,6 +54,15 @@ describe("extractFirstPathSegment", () => {
     ).toBe("https://www.facebook.com/Events/foo/");
   });
 
+  it("handles uppercase schemes case-insensitively (#1292 review)", () => {
+    expect(
+      extractFirstPathSegment("HTTPS://www.facebook.com/SomePage/", "facebook.com"),
+    ).toBe("SomePage");
+    expect(
+      extractFirstPathSegment("Http://www.facebook.com/Other/", "facebook.com"),
+    ).toBe("Other");
+  });
+
   it("does not reject reserved segments when no list is provided", () => {
     // Meetup uses the helper without reservedFirstSegments — should still
     // extract "events" as a literal first segment.

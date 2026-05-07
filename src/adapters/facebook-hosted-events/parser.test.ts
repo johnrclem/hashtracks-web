@@ -262,6 +262,18 @@ describe("parseFacebookEventDetail — edge cases", () => {
     expect(detail.description).toBeUndefined();
   });
 
+  it("ignores event_description that lives under any event_place ancestor (#1292 review)", () => {
+    // The sticky inEventPlace flag means even a deeply-nested
+    // `event_description` under `event_place.something.deeper` is rejected,
+    // so a future shape rotation can't quietly leak venue copy into the
+    // canonical event body.
+    const html = `<script type="application/json">{
+      "data":{"event":{"event_place":{"deeper":{"event_description":{"text":"Venue copy — IGNORE"}}}}}
+    }</script>`;
+    const detail = parseFacebookEventDetail(html);
+    expect(detail.description).toBeUndefined();
+  });
+
   it("extracts event_description.text even when nested under arbitrary GraphQL bbox path", () => {
     const html = `<script type="application/json">{
       "__bbox":{"result":{"data":{"event":{"event_description":{"text":"Real body"}}}}}

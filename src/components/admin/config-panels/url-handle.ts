@@ -42,7 +42,10 @@ export function extractFirstPathSegment(
   const trimmed = value.trim();
   const reserved = options.reservedFirstSegments;
   try {
-    const url = new URL(trimmed.startsWith("http") ? trimmed : `https://${trimmed}`);
+    // Case-insensitive scheme detection so HTTPS://, Http://, etc. don't
+    // trip the prepend-https branch (#1292 review).
+    const hasHttpScheme = /^https?:\/\//i.test(trimmed);
+    const url = new URL(hasHttpScheme ? trimmed : `https://${trimmed}`);
     const allowed =
       url.hostname === allowedHostSuffix || url.hostname.endsWith(`.${allowedHostSuffix}`);
     if (allowed) {

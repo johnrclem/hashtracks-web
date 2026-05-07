@@ -126,20 +126,23 @@ export function parseFacebookEventDetail(html: string): FacebookEventDetail {
 
 /**
  * Walk a parsed JSON tree and return the first `event_description.text`
- * found. Skips matches under an `event_place` parent (those are venue
- * blurbs, not event bodies). Walks until a hit so the first valid match
- * wins; if FB ever splits the description across two refs we'd need to
- * extend like the listing-tab merge — leave as a follow-up if observed.
+ * found. Skips matches under any `event_place` ancestor (those are venue
+ * blurbs, not event bodies) — the `inEventPlace` flag is sticky through
+ * recursion so a nested `.event_place.foo.bar.event_description` cannot
+ * leak into the canonical event description (#1292 review). Walks until
+ * a hit so the first valid match wins; if FB ever splits the description
+ * across two refs we'd need to extend like the listing-tab merge — leave
+ * as a follow-up if observed.
  */
 function findEventDescriptionText(value: unknown): string | null {
   const seen = new WeakSet<object>();
-  function walk(v: unknown, parentKey: string): string | null {
+  function walk(v: unknown, inEventPlace: boolean): string | null {
     if (v === null || typeof v !== "object") return null;
     if (seen.has(v)) return null;
     seen.add(v);
     if (Array.isArray(v)) {
       for (const item of v) {
-        const hit = walk(item, parentKey);
+        const hit = walk(item, inEventPlace);
         if (hit) return hit;
       }
       return null;
@@ -149,21 +152,21 @@ function findEventDescriptionText(value: unknown): string | null {
     // best_description that lives under event_place.
     const desc = obj.event_description;
     if (
+      !inEventPlace &&
       desc &&
       typeof desc === "object" &&
-      typeof (desc as Record<string, unknown>).text === "string" &&
-      parentKey !== "event_place"
+      typeof (desc as Record<string, unknown>).text === "string"
     ) {
       const text = ((desc as Record<string, unknown>).text as string).trim();
       if (text.length > 0) return text;
     }
     for (const [k, child] of Object.entries(obj)) {
-      const hit = walk(child, k);
+      const hit = walk(child, inEventPlace || k === "event_place");
       if (hit) return hit;
     }
     return null;
   }
-  return walk(value, "");
+  return walk(value, false);
 }
 
 const SCRIPT_JSON_RE = /<script[^>]*type=["']application\/json["'][^>]*>([\s\S]*?)<\/script>/gi;

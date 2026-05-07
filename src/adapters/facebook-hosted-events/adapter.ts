@@ -237,8 +237,14 @@ async function enrichWithDetails(events: RawEventData[]): Promise<EnrichmentResu
 }
 
 /** Extract the FB event id from a `https://www.facebook.com/events/{id}/`
- *  sourceUrl. Returns null for non-FB or malformed URLs. */
-const EVENT_ID_FROM_URL_RE = /\/events\/(\d{14,18})\//;
+ *  sourceUrl. Returns null for non-FB or malformed URLs.
+ *
+ *  Tolerant of URL-format drift (#1292 review): accepts a trailing slash,
+ *  `?query`, `#frag`, or end-of-string after the digits, so a sourceUrl
+ *  like `.../events/1012210268147290?ref=...` (no trailing slash before
+ *  the query) still matches. Digit range 10–20 is generous — FB has
+ *  shipped both 15- and 16-digit ids historically. */
+const EVENT_ID_FROM_URL_RE = /\/events\/(\d{10,20})(?:[/?#]|$)/;
 function extractEventIdFromSourceUrl(sourceUrl: string | undefined): string | null {
   if (!sourceUrl) return null;
   const m = EVENT_ID_FROM_URL_RE.exec(sourceUrl);

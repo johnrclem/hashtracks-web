@@ -284,6 +284,34 @@ describe("FacebookHostedEventsAdapter — fetch", () => {
     expect(result.diagnosticContext?.totalBeforeFilter).toBe(0);
   });
 
+  it("enriches a listing event whose sourceUrl carries a query string (no trailing slash)", async () => {
+    // Regression for the tight regex (#1292 review): a sourceUrl like
+    // `.../events/1012210268147290?ref=foo` (no trailing slash before the
+    // query) must still resolve to a detail-page fetch.
+    const queryUrlListing = FIXTURE_HTML.replace(
+      /https:\/\/www\.facebook\.com\/events\/1012210268147290\//g,
+      "https://www.facebook.com/events/1012210268147290?ref=foo",
+    );
+    mockedFetch
+      .mockResolvedValueOnce(htmlResponse(queryUrlListing))
+      .mockResolvedValueOnce(htmlResponse(DETAIL_FIXTURE_HTML));
+    const adapter = new FacebookHostedEventsAdapter();
+    const result = await adapter.fetch(
+      makeSource({
+        kennelTag: "gsh3",
+        pageHandle: "GrandStrandHashing",
+        timezone: "America/New_York",
+        upcomingOnly: true,
+      }),
+      { days: 365 },
+    );
+    expect(result.diagnosticContext).toMatchObject({
+      detailFetchAttempted: 1,
+      detailFetchEnriched: 1,
+    });
+    expect(result.events[0].description).toMatch(/Hare:/);
+  });
+
   it("enriches each parsed event with the description from its detail page", async () => {
     // First call: listing tab. Second call: detail page for the only event.
     mockedFetch

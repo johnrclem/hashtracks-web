@@ -283,7 +283,7 @@ editing UX.
 ## Cancellation / lifecycle
 
 ### Cancellation reason
-- **What:** Why an event was cancelled (weather, hare backed out,
+- **What:** Why an event was canceled (weather, hare backed out,
   permit denied, kennel folded). FB exposes a free-text reason on the
   detail page when a hare cancels.
 - **Where:** Detail-page parsing — we already read `is_canceled` and
