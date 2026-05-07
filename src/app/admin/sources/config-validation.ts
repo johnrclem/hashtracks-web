@@ -1,4 +1,5 @@
 import isSafeRegex from "safe-regex2";
+import { isValidTimezone } from "@/lib/timezone";
 
 /** Returns true if the string is a valid, ReDoS-safe regex. Shared by config validation and AI suggestion filtering. */
 export function isSafeRegexString(p: unknown): boolean {
@@ -188,16 +189,74 @@ function validateRssFeedConfig(obj: Record<string, unknown>, errors: string[]): 
   }
 }
 
-/** Validate STATIC_SCHEDULE required fields. */
+/** RRULE-style two-letter weekday codes (RFC 5545 §3.3.10). */
+const LUNAR_WEEKDAYS = new Set(["SU", "MO", "TU", "WE", "TH", "FR", "SA"]);
+const LUNAR_ANCHOR_RULES = new Set(["nearest", "on-or-after", "on-or-before"]);
+
+/**
+ * Validate the lunar config block (when set). Mirror of `validateRruleLunarXor`
+ * in the adapter — kept in sync so admin-side and cron-side rejection messages
+ * read consistently.
+ */
+function validateLunarConfig(lunar: Record<string, unknown>, errors: string[]): void {
+  if (lunar.phase !== "full" && lunar.phase !== "new") {
+    errors.push('Static Schedule lunar.phase must be "full" or "new"');
+  }
+  if (typeof lunar.timezone !== "string" || !lunar.timezone.trim()) {
+    errors.push('Static Schedule lunar.timezone is required (IANA timezone, e.g. "America/Los_Angeles")');
+  } else if (!isValidTimezone(lunar.timezone)) {
+    errors.push(`Static Schedule lunar.timezone "${lunar.timezone}" is not a recognized IANA timezone`);
+  }
+  const weekday = lunar.anchorWeekday;
+  const rule = lunar.anchorRule;
+  const hasWeekday = weekday !== undefined && weekday !== null;
+  const hasRule = rule !== undefined && rule !== null;
+  if (hasWeekday !== hasRule) {
+    errors.push("Static Schedule lunar.anchorWeekday and lunar.anchorRule must be set together (or both omitted)");
+    return;
+  }
+  if (hasWeekday) {
+    if (typeof weekday !== "string" || !LUNAR_WEEKDAYS.has(weekday)) {
+      errors.push("Static Schedule lunar.anchorWeekday must be one of SU/MO/TU/WE/TH/FR/SA");
+    }
+    if (typeof rule !== "string" || !LUNAR_ANCHOR_RULES.has(rule)) {
+      errors.push('Static Schedule lunar.anchorRule must be one of "nearest", "on-or-after", "on-or-before"');
+    }
+  }
+}
+
+/**
+ * Validate STATIC_SCHEDULE required fields.
+ *
+ * XOR contract: exactly one of `rrule | lunar` must be present.
+ *  - RRULE mode: traditional calendar recurrence (FREQ=WEEKLY;BYDAY=SA, etc.)
+ *  - Lunar mode: phase-anchored ("full" / "new") with optional weekday anchor
+ *    for kennels like DCFMH3 ("Fri/Sat near full moon").
+ */
 function validateStaticScheduleConfig(obj: Record<string, unknown>, errors: string[]): void {
   if (typeof obj.kennelTag !== "string" || !obj.kennelTag.trim()) {
     errors.push("Static Schedule config requires a non-empty kennelTag");
   }
-  if (typeof obj.rrule !== "string" || !obj.rrule.trim()) {
-    errors.push("Static Schedule config requires a non-empty rrule");
-  } else if (!/^FREQ=/i.test(obj.rrule.trim())) {
-    errors.push("Static Schedule rrule must start with FREQ= (e.g. FREQ=WEEKLY;BYDAY=SA)");
+
+  const hasRrule = typeof obj.rrule === "string" && obj.rrule.trim().length > 0;
+  const hasLunar = obj.lunar !== undefined && obj.lunar !== null;
+  if (!hasRrule && !hasLunar) {
+    errors.push("Static Schedule config requires either rrule or lunar (exactly one)");
+  } else if (hasRrule && hasLunar) {
+    errors.push("Static Schedule config cannot specify both rrule and lunar (XOR)");
+  } else if (hasRrule) {
+    const rrule = obj.rrule as string;
+    if (!/^FREQ=/i.test(rrule.trim())) {
+      errors.push("Static Schedule rrule must start with FREQ= (e.g. FREQ=WEEKLY;BYDAY=SA)");
+    }
+  } else if (hasLunar) {
+    if (typeof obj.lunar !== "object" || Array.isArray(obj.lunar)) {
+      errors.push("Static Schedule lunar must be an object");
+    } else {
+      validateLunarConfig(obj.lunar as Record<string, unknown>, errors);
+    }
   }
+
   if (obj.startTime !== undefined) {
     if (typeof obj.startTime !== "string") {
       errors.push("Static Schedule config startTime must be a string");

@@ -383,10 +383,36 @@ function timeSuffix(startTime: string | null | undefined): string {
   return startTime ? ` at ${formatTime(startTime)}` : "";
 }
 
+/**
+ * Extract the lunar phase ("full" | "new") from a backfill-emitted notes
+ * string. Format produced by `runStaticSchedulePass`:
+ *   "Lunar full moon, exact phase date in <tz>"
+ *   "Lunar new moon, anchored to SA (nearest)"
+ *
+ * Returns null when the notes don't follow that pattern (older rules with
+ * only the FREQ=LUNAR sentinel and no notes).
+ */
+function parseLunarPhaseFromNotes(notes: string | null | undefined): "full" | "new" | null {
+  if (!notes) return null;
+  if (/\blunar\s+new\s+moon\b/i.test(notes)) return "new";
+  if (/\blunar\s+full\s+moon\b/i.test(notes)) return "full";
+  return null;
+}
+
 /** Explanation strings for the non-parseable CADENCE / LUNAR sentinels. */
-function explainSentinel(rrule: string, startTime: string | null | undefined): string | null {
+function explainSentinel(
+  rrule: string,
+  startTime: string | null | undefined,
+  notes?: string | null,
+): string | null {
   if (rrule === "FREQ=LUNAR") {
-    return "Full moon schedule — check kennel sources for exact dates";
+    // Phase + anchor metadata is carried in the rule's notes (set by
+    // backfill-schedule-rules.ts). Default to "Full" if notes are missing
+    // or unrecognized, since `phase: "full"` is by far the more common case
+    // in the seed (there's no `phase: "new"` kennel as of this writing).
+    const phase = parseLunarPhaseFromNotes(notes);
+    const phaseLabel = phase === "new" ? "New moon" : "Full moon";
+    return `${phaseLabel} schedule — check kennel sources for exact dates`;
   }
   if (rrule.startsWith("CADENCE=BIWEEKLY")) {
     const day = extractDayFromSentinel(rrule);
@@ -435,7 +461,7 @@ export function generateExplanationFromRule(
 ): string {
   const { rrule, startTime, notes, confidence } = rule;
 
-  const sentinelExplanation = explainSentinel(rrule, startTime);
+  const sentinelExplanation = explainSentinel(rrule, startTime, notes);
   if (sentinelExplanation) return sentinelExplanation;
 
   try {

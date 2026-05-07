@@ -50,6 +50,8 @@ import {
   ScheduleRuleSource,
 } from "@/generated/prisma/client";
 import { createScriptPool } from "./lib/db-pool";
+import { ANCHOR_WEEKDAYS, ANCHOR_RULES } from "@/adapters/static-schedule/lunar";
+import { isValidTimezone } from "@/lib/timezone";
 
 interface BackfillOptions {
   verbose?: boolean;
@@ -357,7 +359,48 @@ type StaticScheduleConfig = {
   anchorDate?: string;
   startTime?: string;
   kennelTag?: string;
+  /** Lunar mode (XOR with rrule). See src/adapters/static-schedule/lunar.ts. */
+  lunar?: {
+    phase?: "full" | "new";
+    timezone?: string;
+    anchorWeekday?: "SU" | "MO" | "TU" | "WE" | "TH" | "FR" | "SA";
+    anchorRule?: "nearest" | "on-or-after" | "on-or-before";
+  };
 };
+
+/**
+ * Validate the lunar block matches the adapter's contract — phase, timezone,
+ * and the anchorWeekday/anchorRule XOR pair. MUST stay in sync with
+ * `validateRruleLunarXor` in `src/adapters/static-schedule/adapter.ts`: if
+ * backfill is more permissive than the adapter, Travel Mode would surface a
+ * `FREQ=LUNAR` "possible activity" rule for a source that produces zero
+ * canonical events, masking the misconfiguration behind a synthetic schedule.
+ *
+ * Phase + anchor metadata is carried in the rule's `notes` (admin-visible)
+ * rather than the rrule string: `src/lib/travel/projections.ts` matches the
+ * sentinel via exact equality (`rrule === "FREQ=LUNAR"`), so extending the
+ * rrule with `;PHASE=…` segments would silently bypass the existing match.
+ */
+function isValidLunarConfig(lunar: NonNullable<StaticScheduleConfig["lunar"]>): boolean {
+  if (lunar.phase !== "full" && lunar.phase !== "new") return false;
+  if (typeof lunar.timezone !== "string" || !isValidTimezone(lunar.timezone)) return false;
+  const hasWeekday = lunar.anchorWeekday !== undefined && lunar.anchorWeekday !== null;
+  const hasRule = lunar.anchorRule !== undefined && lunar.anchorRule !== null;
+  if (hasWeekday !== hasRule) return false;
+  if (
+    hasWeekday &&
+    !ANCHOR_WEEKDAYS.includes(lunar.anchorWeekday as (typeof ANCHOR_WEEKDAYS)[number])
+  ) {
+    return false;
+  }
+  if (
+    hasRule &&
+    !ANCHOR_RULES.includes(lunar.anchorRule as (typeof ANCHOR_RULES)[number])
+  ) {
+    return false;
+  }
+  return true;
+}
 
 /**
  * Pass 1 of the backfill: collect HIGH-confidence rules from STATIC_SCHEDULE
@@ -389,6 +432,7 @@ function processSourceKennel(
   rrule: string,
   planned: PlannedRule[],
   options: BackfillOptions,
+  overrides?: { confidence?: ScheduleConfidence; notes?: string | null },
 ): boolean {
   if (kennel.isHidden) {
     if (options.verbose) console.log(`  ⊘ ${src.name} → ${kennel.shortName} — hidden kennel, skipping`);
@@ -400,11 +444,11 @@ function processSourceKennel(
     rrule,
     anchorDate: config.anchorDate?.trim() || null,
     startTime: config.startTime?.trim() || null,
-    confidence: "HIGH",
+    confidence: overrides?.confidence ?? "HIGH",
     source: "STATIC_SCHEDULE",
     sourceReference: src.url || src.name,
     lastValidatedAt: src.lastSuccessAt ?? src.lastScrapeAt ?? null,
-    notes: null,
+    notes: overrides?.notes ?? null,
   });
   return true;
 }
@@ -432,6 +476,48 @@ export async function runStaticSchedulePass(
   for (const src of staticSources) {
     const config = (src.config ?? {}) as StaticScheduleConfig;
     const rawRrule = config.rrule?.trim();
+
+    // XOR enforcement matching `validateRruleLunarXor` in the adapter (Codex
+    // pass-4 finding). Dual-config rows previously took the rrule branch
+    // silently — projecting HIGH-confidence rules for sources whose canonical
+    // event generation would later reject the same shape.
+    if (rawRrule && config.lunar) {
+      skipped++;
+      if (options.verbose) {
+        console.log(`  ⊘ ${src.name} — XOR violation: both rrule and lunar set`);
+      }
+      continue;
+    }
+
+    // Lunar branch — emits the `FREQ=LUNAR` sentinel at LOW confidence so
+    // Travel Mode surfaces the kennel as "possible activity" beyond the
+    // materialized event horizon. LOW for both exact and anchor modes:
+    // the projection engine cannot reproduce astronomical phase math.
+    if (!rawRrule && config.lunar) {
+      if (!isValidLunarConfig(config.lunar)) {
+        skipped++;
+        if (options.verbose) {
+          console.log(`  ⊘ ${src.name} — lunar config malformed (missing or invalid phase)`);
+        }
+        continue;
+      }
+      const isAnchored = !!(config.lunar.anchorWeekday && config.lunar.anchorRule);
+      const notes = isAnchored
+        ? `Lunar ${config.lunar.phase} moon, anchored to ${config.lunar.anchorWeekday} (${config.lunar.anchorRule})`
+        : `Lunar ${config.lunar.phase} moon, exact phase date in ${config.lunar.timezone ?? "(timezone unknown)"}`;
+      for (const { kennel } of src.kennels) {
+        if (processSourceKennel(src, kennel, config, "FREQ=LUNAR", planned, options, {
+          confidence: "LOW",
+          notes,
+        })) {
+          count++;
+        } else {
+          skipped++;
+        }
+      }
+      continue;
+    }
+
     if (!rawRrule) {
       skipped++;
       if (options.verbose) console.log(`  ⊘ ${src.name} — missing rrule in config`);

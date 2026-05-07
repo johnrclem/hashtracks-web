@@ -9,11 +9,28 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult } from "../types";
 import { validateSourceConfig, WEEKDAY_NAMES } from "../utils";
+import {
+  generateLunarOccurrences,
+  ANCHOR_WEEKDAYS,
+  ANCHOR_RULES,
+  type LunarConfig,
+} from "./lunar";
+import { isValidTimezone } from "@/lib/timezone";
 
-/** Configuration shape for a STATIC_SCHEDULE source. */
+/**
+ * Configuration shape for a STATIC_SCHEDULE source.
+ *
+ * Exactly one of `rrule` OR `lunar` must be set — the adapter and the admin
+ * `validateStaticScheduleConfig` validator both enforce this XOR. RRULE-mode
+ * generates calendar-rule occurrences (FREQ=WEEKLY|MONTHLY etc.). Lunar-mode
+ * generates occurrences anchored to astronomical full or new moons in the
+ * kennel's timezone, with optional snap-to-weekday for kennels that run
+ * "Friday/Saturday near full moon" rather than on the exact phase day.
+ */
 export interface StaticScheduleConfig {
   kennelTag: string;           // Kennel shortName for all generated events (e.g. "Rumson")
-  rrule: string;               // RRULE string, e.g. "FREQ=WEEKLY;BYDAY=SA"
+  rrule?: string;              // RRULE string, e.g. "FREQ=WEEKLY;BYDAY=SA". XOR with `lunar`.
+  lunar?: LunarConfig;         // Lunar-phase recurrence config. XOR with `rrule`.
   anchorDate?: string;         // YYYY-MM-DD — a known past occurrence, stabilizes INTERVAL > 1
   startTime?: string;          // "HH:MM" 24-hour format (e.g. "10:17", "19:00")
   defaultTitle?: string;       // e.g. "Rumson H3 Weekly Run"
@@ -441,11 +458,20 @@ export class StaticScheduleAdapter implements SourceAdapter {
       config = validateSourceConfig<StaticScheduleConfig>(
         source.config,
         "StaticScheduleAdapter",
-        { kennelTag: "string", rrule: "string" },
+        { kennelTag: "string" },
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : "Invalid source config";
       return { events: [], errors: [message], errorDetails: { fetch: [{ message }] } };
+    }
+
+    const validated = validateRruleLunarXor(config);
+    if (!validated.ok) {
+      return {
+        events: [],
+        errors: [validated.error],
+        errorDetails: { fetch: [{ message: validated.error }] },
+      };
     }
 
     const days = options?.days ?? 90;
@@ -454,38 +480,60 @@ export class StaticScheduleAdapter implements SourceAdapter {
     const windowStart = new Date(todayNoon - days * 86_400_000);
     const windowEnd = new Date(todayNoon + days * 86_400_000);
 
-    let rule: ReturnType<typeof parseRRule>;
-    try {
-      rule = parseRRule(config.rrule);
-    } catch (err) {
-      const message = `Invalid RRULE "${config.rrule}": ${err instanceof Error ? err.message : String(err)}`;
-      return { events: [], errors: [message], errorDetails: { fetch: [{ message }] } };
-    }
-
-    const occurrences = generateOccurrences(rule, windowStart, windowEnd, config.anchorDate);
-
-    if (occurrences.length === 0) {
-      // Off-season for a seasonal rule is expected, not a misconfiguration.
-      // Only alert when the window actually overlaps an active month.
-      const seasonalOffSeason =
-        rule.byMonth !== undefined && rule.byMonth.length > 0 &&
-        !windowOverlapsAnyMonth(windowStart, windowEnd, rule.byMonth);
-      if (seasonalOffSeason) {
-        return {
-          events: [],
-          errors: [],
-          diagnosticContext: {
-            rrule: config.rrule,
-            occurrencesGenerated: 0,
-            windowDays: days,
-            windowStart: windowStart.toISOString(),
-            windowEnd: windowEnd.toISOString(),
-            note: "off-season: window does not overlap any BYMONTH month",
-          },
-        };
+    let occurrences: string[];
+    let diagnosticRule: DiagnosticRule;
+    if (validated.kind === "lunar") {
+      const lunar = validated.lunar;
+      occurrences = generateLunarOccurrences(lunar, windowStart, windowEnd);
+      diagnosticRule = {
+        mode: "lunar",
+        phase: lunar.phase,
+        timezone: lunar.timezone,
+        anchorWeekday: lunar.anchorWeekday ?? null,
+        anchorRule: lunar.anchorRule ?? null,
+      };
+      if (occurrences.length === 0) {
+        // Lunar has no "season" — every month has a full+new moon. Empty here
+        // means the window is degenerate or the timezone is invalid.
+        const message = `Lunar config (${lunar.phase}) generated 0 events in ${days}-day window — check timezone and window`;
+        return { events: [], errors: [message], errorDetails: { fetch: [{ message }] } };
       }
-      const message = `RRULE "${config.rrule}" generated 0 events in ${days}-day window — check schedule configuration`;
-      return { events: [], errors: [message], errorDetails: { fetch: [{ message }] } };
+    } else {
+      const rruleStr = validated.rrule;
+      let rule: ReturnType<typeof parseRRule>;
+      try {
+        rule = parseRRule(rruleStr);
+      } catch (err) {
+        const message = `Invalid RRULE "${rruleStr}": ${err instanceof Error ? err.message : String(err)}`;
+        return { events: [], errors: [message], errorDetails: { fetch: [{ message }] } };
+      }
+
+      occurrences = generateOccurrences(rule, windowStart, windowEnd, config.anchorDate);
+      diagnosticRule = { mode: "rrule", rrule: rruleStr };
+
+      if (occurrences.length === 0) {
+        // Off-season for a seasonal rule is expected, not a misconfiguration.
+        // Only alert when the window actually overlaps an active month.
+        const seasonalOffSeason =
+          rule.byMonth !== undefined && rule.byMonth.length > 0 &&
+          !windowOverlapsAnyMonth(windowStart, windowEnd, rule.byMonth);
+        if (seasonalOffSeason) {
+          return {
+            events: [],
+            errors: [],
+            diagnosticContext: {
+              ...diagnosticRule,
+              occurrencesGenerated: 0,
+              windowDays: days,
+              windowStart: windowStart.toISOString(),
+              windowEnd: windowEnd.toISOString(),
+              note: "off-season: window does not overlap any BYMONTH month",
+            },
+          };
+        }
+        const message = `RRULE "${rruleStr}" generated 0 events in ${days}-day window — check schedule configuration`;
+        return { events: [], errors: [message], errorDetails: { fetch: [{ message }] } };
+      }
     }
 
     const startTime = config.startTime
@@ -515,7 +563,7 @@ export class StaticScheduleAdapter implements SourceAdapter {
       events,
       errors: [],
       diagnosticContext: {
-        rrule: config.rrule,
+        ...diagnosticRule,
         occurrencesGenerated: events.length,
         windowDays: days,
         windowStart: windowStart.toISOString(),
@@ -523,4 +571,83 @@ export class StaticScheduleAdapter implements SourceAdapter {
       },
     };
   }
+}
+
+/** Diagnostic-context shape per branch — surfaces in scrape logs and self-healing alerts. */
+type DiagnosticRule =
+  | { mode: "lunar"; phase: LunarConfig["phase"]; timezone: string; anchorWeekday: LunarConfig["anchorWeekday"] | null; anchorRule: LunarConfig["anchorRule"] | null }
+  | { mode: "rrule"; rrule: string };
+
+type ValidatedSchedule =
+  | { ok: true; kind: "rrule"; rrule: string }
+  | { ok: true; kind: "lunar"; lunar: LunarConfig }
+  | { ok: false; error: string };
+
+/**
+ * Enforce that exactly one of rrule | lunar is set, and that the chosen branch
+ * has its required fields. The discriminated return lets the caller branch
+ * on `kind` without non-null assertions on the original config. Mirrored by
+ * `validateStaticScheduleConfig` in the admin wizard so the same rule applies
+ * in both cron and admin contexts.
+ */
+function validateRruleLunarXor(config: StaticScheduleConfig): ValidatedSchedule {
+  const rrule = typeof config.rrule === "string" ? config.rrule.trim() : "";
+  const hasRrule = rrule.length > 0;
+  const hasLunar = config.lunar !== undefined && config.lunar !== null;
+  if (!hasRrule && !hasLunar) {
+    return { ok: false, error: "StaticScheduleAdapter: config must specify either rrule or lunar" };
+  }
+  if (hasRrule && hasLunar) {
+    return { ok: false, error: "StaticScheduleAdapter: config cannot specify both rrule and lunar (XOR)" };
+  }
+  if (hasRrule) {
+    return { ok: true, kind: "rrule", rrule };
+  }
+  const lunar = config.lunar as LunarConfig;
+  if (lunar.phase !== "full" && lunar.phase !== "new") {
+    return {
+      ok: false,
+      error: `StaticScheduleAdapter: lunar.phase must be "full" or "new", got ${JSON.stringify(lunar.phase)}`,
+    };
+  }
+  if (typeof lunar.timezone !== "string" || lunar.timezone.trim().length === 0) {
+    return {
+      ok: false,
+      error: 'StaticScheduleAdapter: lunar.timezone is required (IANA timezone string, e.g. "America/Los_Angeles")',
+    };
+  }
+  // Codex pass-3 finding: a typo like "America/Los_Angles" was previously
+  // accepted, then silently remapped to UTC by the formatter — generating
+  // events on the wrong calendar day. Reject invalid IANA zones up front.
+  if (!isValidTimezone(lunar.timezone)) {
+    return {
+      ok: false,
+      error: `StaticScheduleAdapter: lunar.timezone "${lunar.timezone}" is not a recognized IANA timezone`,
+    };
+  }
+  const hasWeekday = lunar.anchorWeekday !== undefined && lunar.anchorWeekday !== null;
+  const hasRule = lunar.anchorRule !== undefined && lunar.anchorRule !== null;
+  if (hasWeekday !== hasRule) {
+    return {
+      ok: false,
+      error: "StaticScheduleAdapter: lunar.anchorWeekday and lunar.anchorRule must be set together (or both omitted)",
+    };
+  }
+  // Codex pass-3 finding: persisted JSON can carry arbitrary strings here;
+  // without an enum check, snapToAnchorWeekday reads `WEEKDAY_NAMES[bogus]`
+  // as undefined and produces NaN dates that crash `toIsoDateString`. Fail
+  // closed before generation.
+  if (hasWeekday && !ANCHOR_WEEKDAYS.includes(lunar.anchorWeekday as (typeof ANCHOR_WEEKDAYS)[number])) {
+    return {
+      ok: false,
+      error: `StaticScheduleAdapter: lunar.anchorWeekday "${lunar.anchorWeekday}" must be one of ${ANCHOR_WEEKDAYS.join(", ")}`,
+    };
+  }
+  if (hasRule && !ANCHOR_RULES.includes(lunar.anchorRule as (typeof ANCHOR_RULES)[number])) {
+    return {
+      ok: false,
+      error: `StaticScheduleAdapter: lunar.anchorRule "${lunar.anchorRule}" must be one of ${ANCHOR_RULES.join(", ")}`,
+    };
+  }
+  return { ok: true, kind: "lunar", lunar };
 }
