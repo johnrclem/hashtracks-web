@@ -330,6 +330,25 @@ const DEDUP_PREFETCH_CHUNK_SIZE = 1000;
 /** Single-query batch dedup prefetch (with chunking for very large batches).
  *  Returns the prefetched RawEvent rows, in any order. The caller keys them
  *  by fingerprint into `existingByFingerprint`. */
+/** Compute fingerprints for every event up front so the prefetch query and the
+ *  per-event loop can share them. Wraps each call so a malformed event
+ *  (rare) is recorded as an isolated `eventError` instead of aborting the
+ *  whole batch. Events absent from the returned map are skipped by the loop. */
+function precomputeFingerprints(
+  events: RawEventData[],
+  result: MergeResult,
+): Map<RawEventData, string> {
+  const fingerprintByEvent = new Map<RawEventData, string>();
+  for (const event of events) {
+    try {
+      fingerprintByEvent.set(event, generateFingerprint(event));
+    } catch (err) {
+      recordMergeError(event, err, result, "<fingerprint-error>");
+    }
+  }
+  return fingerprintByEvent;
+}
+
 async function prefetchExistingByFingerprint(
   sourceId: string,
   fingerprints: string[],
@@ -1809,21 +1828,10 @@ export async function processRawEvents(
     sampleSkipped: [],
   };
 
-  // Fingerprint precompute (sync) — runs first so the prefetch query can join
-  // the parallel batch below. The Map keys by event identity so the per-event
-  // loop can reuse the same fingerprint without recomputing. Each call is
-  // wrapped to preserve the per-event error isolation the loop body has —
-  // a malformed event must not abort the whole batch's prefetch. We pass the
-  // sentinel directly to `recordMergeError` so it doesn't re-call
-  // `generateFingerprint` on the same event (which would just throw again).
-  const fingerprintByEvent = new Map<RawEventData, string>();
-  for (const event of events) {
-    try {
-      fingerprintByEvent.set(event, generateFingerprint(event));
-    } catch (err) {
-      recordMergeError(event, err, result, "<fingerprint-error>");
-    }
-  }
+  // Sync fingerprint precompute keyed by event identity. Runs first so the
+  // prefetch query can join the parallel batch below; the loop body reuses
+  // the same fingerprints without recomputing.
+  const fingerprintByEvent = precomputeFingerprints(events, result);
   const uniqueFingerprints = [...new Set(fingerprintByEvent.values())];
 
   // Three independent reads — source metadata, source-kennel links, and the
