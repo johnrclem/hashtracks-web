@@ -12,7 +12,7 @@ const { safeFetch } = await import("../safe-fetch");
 const mockedFetch = vi.mocked(safeFetch);
 
 const FIXTURE_HTML = readFileSync(
-  join(__dirname, "fixtures", "grand-strand-upcoming.html"),
+  join(__dirname, "fixtures", "grand-strand-upcoming.html.fixture"),
   "utf-8",
 );
 

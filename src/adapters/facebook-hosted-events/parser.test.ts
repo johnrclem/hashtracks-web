@@ -19,7 +19,7 @@ import { parseFacebookHostedEvents } from "./parser";
  * exactly this snapshot.
  */
 const FIXTURE = readFileSync(
-  join(__dirname, "fixtures", "grand-strand-upcoming.html"),
+  join(__dirname, "fixtures", "grand-strand-upcoming.html.fixture"),
   "utf-8",
 );
 
