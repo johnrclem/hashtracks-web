@@ -18,7 +18,8 @@ Create a new HTML scraper adapter for the source at URL: $ARGUMENTS
 2. **Create the adapter file**
    - File: `src/adapters/html-scraper/{name}.ts`
    - Implement the `SourceAdapter` interface from `src/adapters/types.ts`
-   - Return `RawEventData[]` with at minimum: `date`, `kennelTag` (use kennelCode from seed data for stable resolution)
+   - Return `RawEventData[]` with at minimum: `date`, `kennelTags: string[]` (use kennelCode strings from seed data for stable resolution; single-kennel events emit `kennelTags: ["nych3"]`, multi-kennel co-hosts emit all tags)
+   - **Check shared utilities first** before writing similar logic — see `.claude/rules/adapter-patterns.md` "Shared Utilities" section. `extractHashRunNumber`, `extractHares`, `matchKennelPatterns`, `fetchBloggerPosts`, `fetchWordPressPosts`, and the goHash / Yii platform parsers cover most common cases.
    - Follow existing patterns — see simple examples:
      - `src/adapters/html-scraper/barnes-hash.ts` (single kennel, UK dates)
      - `src/adapters/html-scraper/city-hash.ts` (div-card layout)
