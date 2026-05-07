@@ -48,11 +48,25 @@ const FB_REQUEST_HEADERS = {
 };
 
 const DEFAULT_WINDOW_DAYS = 90;
-/** Below this byte count, an empty parse result is the legit "no upcoming
- *  events" page. Above it (with 0 events) the SSR shape almost certainly
- *  rotated and the parser-fixture needs refreshing. Calibrated against the
- *  ~900KB GSH3 fixture; FB's empty-page response is well under 50KB. */
-const SHAPE_BREAK_BYTES = 200_000;
+
+/**
+ * SSR markers FB ships in every hosted_events response when the GraphQL
+ * shape we know is intact — both in pages with events and in empty pages.
+ * If the response carries neither marker, the SSR shape has rotated and
+ * our parser surface is stale; if at least one is present and we still
+ * parse 0 events, the Page just genuinely has no events on this tab.
+ *
+ * Both markers are matched in their quoted JSON-token form so a Page
+ * coincidentally mentioning either string in plain text or a comment
+ * can't false-negative the shape-break check. Tightening per Gemini
+ * review on PR #1295.
+ *
+ * Replaces the earlier byte-count heuristic (#1294 audit), which wrongly
+ * flagged every 600KB+ empty-Page response as a shape break — empty FB
+ * Pages still ship the full SSR bundle (Page UI, comments, photos, etc.),
+ * not a stub.
+ */
+const FB_SSR_ENVELOPE_MARKERS = ['"RelayPrefetchedStreamCache"', '"__bbox"'] as const;
 
 /**
  * Cap on detail-page fetches per scrape. FB doesn't aggressively rate-limit
@@ -128,16 +142,17 @@ export class FacebookHostedEventsAdapter implements SourceAdapter {
       timezone: config.timezone,
     });
 
-    // Shape-break heuristic: a real "no upcoming events" page is small
-    // (FB ships <50KB when the events list is empty). A 200-OK page with
-    // a fat payload but 0 parsed events almost certainly means the SSR
-    // GraphQL shape rotated. Surface as a non-fatal error so the existing
-    // SCRAPE_FAILURE alert path catches it on first scrape — without
-    // requiring the EVENT_COUNT_ANOMALY rolling baseline.
+    // Shape-break heuristic: 0 parsed events AND none of FB's SSR envelope
+    // markers present → the GraphQL shape rotated. If at least one marker
+    // is there and we still got 0 events, the Page genuinely has nothing
+    // scheduled (and that's not an alert condition). Surface as non-fatal
+    // so the existing SCRAPE_FAILURE alert path catches a real shape
+    // change on first scrape, without false-positive-firing on empty Pages.
     const errors: string[] = [];
-    if (allEvents.length === 0 && html.length > SHAPE_BREAK_BYTES) {
+    const hasEnvelopeMarker = FB_SSR_ENVELOPE_MARKERS.some((m) => html.includes(m));
+    if (allEvents.length === 0 && !hasEnvelopeMarker) {
       errors.push(
-        `FB hosted_events page returned ${html.length} bytes but parser found 0 events — likely SSR GraphQL shape change. Refresh the parser fixture and re-test.`,
+        `FB hosted_events page returned ${html.length} chars but parser found 0 events and the SSR envelope markers are absent — likely a GraphQL shape change. Refresh the parser fixture and re-test.`,
       );
     }
 
