@@ -304,7 +304,75 @@ interface MergeContext {
    *  Key = `${kennelId}:${dateIso}`, value = set of canonical Event IDs matched in this batch.
    *  Used to distinguish double-headers (same source, second event) from cross-source merges. */
   batchMatchedEvents: Map<string, Set<string>>;
+  /** Per-batch prefetched RawEvents keyed by fingerprint. Avoids the N+1 in
+   *  `handleDuplicateFingerprint` (one `findFirst` per incoming event). Populated
+   *  once before the loop; updated in-place when `processNewRawEvent` creates a
+   *  new RawEvent so duplicate fingerprints later in the same batch still resolve. */
+  existingByFingerprint: Map<string, ExistingRawEventEntry>;
   result: MergeResult;
+}
+
+/** `select` for the dedup prefetch — kept as a hoisted const so the value type
+ *  derived from it (`ExistingRawEventEntry`) stays in lock-step with the query. */
+const RAW_EVENT_DEDUP_SELECT = {
+  id: true,
+  fingerprint: true,
+  processed: true,
+  eventId: true,
+} as const satisfies Prisma.RawEventSelect;
+type ExistingRawEventEntry = Prisma.RawEventGetPayload<{ select: typeof RAW_EVENT_DEDUP_SELECT }>;
+
+/** Cap on `WHERE fingerprint IN (...)` size per query — keeps Postgres planner
+ *  cost linear and stays well below the 65535 bind-parameter limit. Historical
+ *  re-scrapes (e.g. SDH3 ~7649 events) chunk transparently. */
+const DEDUP_PREFETCH_CHUNK_SIZE = 1000;
+
+/** Single-query batch dedup prefetch (with chunking for very large batches).
+ *  Returns the prefetched RawEvent rows, in any order. The caller keys them
+ *  by fingerprint into `existingByFingerprint`. */
+/** Compute fingerprints for every event up front so the prefetch query and the
+ *  per-event loop can share them. Wraps each call so a malformed event
+ *  (rare) is recorded as an isolated `eventError` instead of aborting the
+ *  whole batch. Events absent from the returned map are skipped by the loop. */
+function precomputeFingerprints(
+  events: RawEventData[],
+  result: MergeResult,
+): Map<RawEventData, string> {
+  const fingerprintByEvent = new Map<RawEventData, string>();
+  for (const event of events) {
+    try {
+      fingerprintByEvent.set(event, generateFingerprint(event));
+    } catch (err) {
+      recordMergeError(event, err, result, "<fingerprint-error>");
+    }
+  }
+  return fingerprintByEvent;
+}
+
+async function prefetchExistingByFingerprint(
+  sourceId: string,
+  fingerprints: string[],
+): Promise<ExistingRawEventEntry[]> {
+  if (fingerprints.length === 0) return [];
+  if (fingerprints.length <= DEDUP_PREFETCH_CHUNK_SIZE) {
+    return prisma.rawEvent.findMany({
+      where: { sourceId, fingerprint: { in: fingerprints } },
+      select: RAW_EVENT_DEDUP_SELECT,
+    });
+  }
+  const chunks: string[][] = [];
+  for (let i = 0; i < fingerprints.length; i += DEDUP_PREFETCH_CHUNK_SIZE) {
+    chunks.push(fingerprints.slice(i, i + DEDUP_PREFETCH_CHUNK_SIZE));
+  }
+  const results = await Promise.all(
+    chunks.map((chunk) =>
+      prisma.rawEvent.findMany({
+        where: { sourceId, fingerprint: { in: chunk } },
+        select: RAW_EVENT_DEDUP_SELECT,
+      }),
+    ),
+  );
+  return results.flat();
 }
 
 /** Resolve kennel data (name + region + coords + country + region centroid), using the per-batch cache to avoid N+1 queries. */
@@ -443,10 +511,9 @@ async function handleDuplicateFingerprint(
   fingerprint: string,
   ctx: MergeContext,
 ): Promise<false | string | null> {
-  const existing = await prisma.rawEvent.findFirst({
-    where: { fingerprint, sourceId: ctx.sourceId },
-    select: { id: true, processed: true, eventId: true },
-  });
+  // Read-through the per-batch prefetch map populated in `processRawEvents`
+  // (Sentry JAVASCRIPT-NEXTJS-3 — was one `findFirst` per incoming event).
+  const existing = ctx.existingByFingerprint.get(fingerprint);
   if (!existing) return false; // Not a duplicate — proceed normally
 
   ctx.result.skipped++;
@@ -1408,6 +1475,18 @@ async function processNewRawEvent(
   }
 
   const targetEventId = await upsertCanonicalEvent(event, kennelId, rawEvent.id, ctx);
+  // Mirror DB state into the dedup map *immediately* after upsertCanonicalEvent
+  // marks the RawEvent processed. If a later side-effect (createEventLinks, the
+  // kennel cache update) throws, the per-event try/catch records the error but
+  // the row is already `processed: true` in the DB — keeping map ↔ DB aligned
+  // means a later in-batch duplicate still takes the existing-Event branch
+  // instead of being re-processed as new.
+  ctx.existingByFingerprint.set(fingerprint, {
+    id: rawEvent.id,
+    fingerprint,
+    processed: true,
+    eventId: targetEventId,
+  });
 
   await createEventLinks(targetEventId, sourceId, event.externalLinks);
 
@@ -1691,6 +1770,7 @@ function recordMergeError(
   event: RawEventData,
   err: unknown,
   result: MergeResult,
+  precomputedFingerprint?: string,
 ): void {
   const reason = err instanceof Error ? err.message : String(err);
   const msg = `${event.date}/${event.kennelTags[0]}: ${reason}`;
@@ -1700,10 +1780,19 @@ function recordMergeError(
     result.eventErrorMessages.push(msg);
   }
   if (result.mergeErrorDetails && result.mergeErrorDetails.length < 50) {
-    result.mergeErrorDetails.push({
-      fingerprint: generateFingerprint(event),
-      reason,
-    });
+    // Prefer the caller's fingerprint (the precompute always passes one,
+    // including the `<fingerprint-error>` sentinel for events that failed
+    // there). For loop-body errors with no precomputed value, regenerate —
+    // and shield against the rare case where regenerate also throws.
+    let fingerprint = precomputedFingerprint;
+    if (fingerprint === undefined) {
+      try {
+        fingerprint = generateFingerprint(event);
+      } catch {
+        fingerprint = "<fingerprint-error>";
+      }
+    }
+    result.mergeErrorDetails.push({ fingerprint, reason });
   }
 }
 
@@ -1739,32 +1828,60 @@ export async function processRawEvents(
     sampleSkipped: [],
   };
 
-  const source = await prisma.source.findUnique({
-    where: { id: sourceId },
-    select: { trustLevel: true, type: true },
-  });
+  // Sync fingerprint precompute keyed by event identity. Runs first so the
+  // prefetch query can join the parallel batch below; the loop body reuses
+  // the same fingerprints without recomputing.
+  const fingerprintByEvent = precomputeFingerprints(events, result);
+  const uniqueFingerprints = [...new Set(fingerprintByEvent.values())];
+
+  // Three independent reads — source metadata, source-kennel links, and the
+  // dedup prefetch (Sentry JAVASCRIPT-NEXTJS-3) — fan out together to save
+  // round-trips on every scrape.
+  const [source, sourceKennels, prefetchedRawEvents] = await Promise.all([
+    prisma.source.findUnique({
+      where: { id: sourceId },
+      select: { trustLevel: true, type: true },
+    }),
+    prisma.sourceKennel.findMany({
+      where: { sourceId },
+      select: { kennelId: true },
+    }),
+    prefetchExistingByFingerprint(sourceId, uniqueFingerprints),
+  ]);
   const trustLevel = source?.trustLevel ?? 5;
   const sourceType: SourceType | null = source?.type ?? null;
-
-  const sourceKennels = await prisma.sourceKennel.findMany({
-    where: { sourceId },
-    select: { kennelId: true },
-  });
-  const linkedKennelIds = new Set(sourceKennels.map(sk => sk.kennelId));
+  const linkedKennelIds = new Set(sourceKennels.map((sk) => sk.kennelId));
 
   clearResolverCache();
+
+  const existingByFingerprint = new Map<string, ExistingRawEventEntry>(
+    prefetchedRawEvents.map((r) => [r.fingerprint, r]),
+  );
 
   const kennelCache = new Map<string, KennelCacheEntry>();
   const shortUrlCache = new Map<string, string | null>();
   const batchMatchedEvents = new Map<string, Set<string>>();
-  const ctx: MergeContext = { sourceId, trustLevel, sourceType, linkedKennelIds, kennelCache, shortUrlCache, batchMatchedEvents, result };
+  const ctx: MergeContext = {
+    sourceId,
+    trustLevel,
+    sourceType,
+    linkedKennelIds,
+    kennelCache,
+    shortUrlCache,
+    batchMatchedEvents,
+    existingByFingerprint,
+    result,
+  };
 
   const seriesGroups = new Map<string, string[]>();
 
   for (const event of events) {
+    // Events that failed the fingerprint precompute were already recorded as
+    // errors and are skipped here so the prefetch's empty-fingerprint case
+    // doesn't re-classify them as new.
+    const fingerprint = fingerprintByEvent.get(event);
+    if (fingerprint === undefined) continue;
     try {
-      const fingerprint = generateFingerprint(event);
-
       const dupResult = await handleDuplicateFingerprint(event, fingerprint, ctx);
       if (dupResult !== false) {
         if (dupResult) await createEventLinks(dupResult, sourceId, event.externalLinks);
@@ -1779,7 +1896,7 @@ export async function processRawEvents(
         seriesGroups.set(event.seriesId, group);
       }
     } catch (err) {
-      recordMergeError(event, err, result);
+      recordMergeError(event, err, result, fingerprint);
     }
   }
 

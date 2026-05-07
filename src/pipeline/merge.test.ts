@@ -53,7 +53,41 @@ import { processRawEvents, sanitizeTitle, sanitizeLocation, sanitizeHares, frien
 const mockSourceFind = vi.mocked(prisma.source.findUnique);
 const _mockSourceUpdate = vi.mocked(prisma.source.update);
 const mockSourceKennelFind = vi.mocked(prisma.sourceKennel.findMany);
-const mockRawEventFind = vi.mocked(prisma.rawEvent.findFirst);
+// Compat shim: tests historically seeded the per-event dedup query by mocking
+// `prisma.rawEvent.findFirst`. The N+1 fix in `merge.ts` collapsed that into a
+// single per-batch `prisma.rawEvent.findMany` prefetch (Sentry JAVASCRIPT-NEXTJS-3).
+// This shim preserves the legacy `mockResolvedValueOnce({...})` interface by
+// translating each seeded value into a one-element findMany result keyed by the
+// mocked fingerprint. `null` (no dedup hit) translates to an empty array.
+type DedupSeed = { id: string; processed: boolean; eventId?: string | null } | null;
+// The mocked `generateFingerprint` returns "fp_abc123" by default (see vi.mock above);
+// tests that override that don't seed the dedup map, so this constant is safe.
+const DEFAULT_MOCK_FINGERPRINT = "fp_abc123";
+function seedDedup(value: DedupSeed): unknown[] {
+  if (!value) return [];
+  return [{ fingerprint: DEFAULT_MOCK_FINGERPRINT, eventId: null, ...value }];
+}
+const mockRawEventFind = {
+  mockResolvedValueOnce(value: DedupSeed) {
+    vi.mocked(prisma.rawEvent.findMany).mockResolvedValueOnce(seedDedup(value) as never);
+    return this;
+  },
+  mockResolvedValue(value: DedupSeed) {
+    vi.mocked(prisma.rawEvent.findMany).mockResolvedValue(seedDedup(value) as never);
+    return this;
+  },
+  // NOTE: rejection now aborts the entire `processRawEvents` call (the
+  // prefetch runs once, before the per-event try/catch), not a single
+  // iteration. To simulate per-event failure use `mockRawEventCreate`.
+  mockRejectedValueOnce(err: Error) {
+    vi.mocked(prisma.rawEvent.findMany).mockRejectedValueOnce(err);
+    return this;
+  },
+  mockRejectedValue(err: Error) {
+    vi.mocked(prisma.rawEvent.findMany).mockRejectedValue(err);
+    return this;
+  },
+};
 const mockRawEventCreate = vi.mocked(prisma.rawEvent.create);
 const mockRawEventUpdate = vi.mocked(prisma.rawEvent.update);
 const mockEventFindMany = vi.mocked(prisma.event.findMany);
@@ -64,6 +98,12 @@ const mockFingerprint = vi.mocked(generateFingerprint);
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // `vi.clearAllMocks()` clears call history but does NOT drain `mockResolvedValueOnce`
+  // queues. Drain `prisma.rawEvent.findMany` explicitly because the dedup-prefetch
+  // path (Sentry JAVASCRIPT-NEXTJS-3 fix) added a new findMany call inside
+  // `processRawEvents` that would consume any leftover Once entry from a
+  // preceding test, scrambling the ordering for tests that seed multiple Onces.
+  vi.mocked(prisma.rawEvent.findMany).mockReset();
   mockSourceFind.mockResolvedValue({ trustLevel: 5, type: "HTML_SCRAPER" } as never);
   mockSourceKennelFind.mockResolvedValue([{ kennelId: "kennel_1" }] as never);
   mockRawEventCreate.mockResolvedValue({ id: "raw_1" } as never);
@@ -92,6 +132,90 @@ beforeEach(() => {
 });
 
 describe("processRawEvents", () => {
+  it("dedup prefetch issues exactly one rawEvent.findMany for the whole batch (Sentry JAVASCRIPT-NEXTJS-3)", async () => {
+    // Regression test: the merge loop previously called `prisma.rawEvent.findFirst`
+    // once per incoming event (Sentry flagged this as N+1). The fix collapses the
+    // dedup into a single `rawEvent.findMany({ fingerprint: { in: [...] } })`
+    // before the loop. Lock that in so no future change reintroduces the N+1.
+    const findManyMock = vi.mocked(prisma.rawEvent.findMany);
+    findManyMock.mockReset();
+    // Default empty return covers the prefetch and any in-loop fuzzy probes.
+    findManyMock.mockResolvedValue([] as never);
+    mockEventFindMany.mockResolvedValue([] as never);
+    mockEventCreate.mockResolvedValue({ id: "evt" } as never);
+    // Queue exactly N=3 one-shot returns so no leftover Once entries can bleed
+    // into the next test — `vi.clearAllMocks()` does not drain queues.
+    mockFingerprint
+      .mockReturnValueOnce("fp_a")
+      .mockReturnValueOnce("fp_b")
+      .mockReturnValueOnce("fp_c");
+
+    await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-04-01" }),
+      buildRawEvent({ date: "2026-04-02" }),
+      buildRawEvent({ date: "2026-04-03" }),
+    ]);
+
+    // Find the prefetch call — it's the one keyed by `fingerprint: { in: [...] }`.
+    const dedupCalls = findManyMock.mock.calls.filter(
+      ([args]) => (args as { where?: { fingerprint?: { in?: unknown } } })?.where?.fingerprint?.in !== undefined,
+    );
+    expect(dedupCalls).toHaveLength(1);
+    expect(dedupCalls[0][0]).toMatchObject({
+      where: { sourceId: "src_1", fingerprint: { in: ["fp_a", "fp_b", "fp_c"] } },
+    });
+  });
+
+  it("isolates fingerprint-precompute errors per event (one bad event does not abort the batch)", async () => {
+    // Regression for the Codex P1 in PR #1280: precomputing fingerprints
+    // outside the per-event try/catch must not abort the whole batch when
+    // one event throws. The bad event records a merge error; the good one
+    // proceeds.
+    mockRawEventFind.mockResolvedValue(null);
+    mockEventFindMany.mockResolvedValueOnce([] as never);
+    mockEventCreate.mockResolvedValueOnce({ id: "evt_good" } as never);
+    mockRawEventCreate.mockResolvedValueOnce({ id: "raw_good" } as never);
+    // First event: fingerprint throws. Second event: fingerprint succeeds.
+    mockFingerprint
+      .mockImplementationOnce(() => { throw new Error("malformed event"); })
+      .mockReturnValueOnce("fp_good");
+
+    const result = await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-04-01" }),
+      buildRawEvent({ date: "2026-04-02" }),
+    ]);
+
+    expect(result.created).toBe(1);
+    expect(result.eventErrors).toBe(1);
+    expect(result.mergeErrorDetails).toEqual([
+      { fingerprint: "<fingerprint-error>", reason: "malformed event" },
+    ]);
+  });
+
+  it("treats a duplicate fingerprint within the same batch as a dedup hit (in-memory write-back)", async () => {
+    // Two events fingerprint to the same value. The first creates a new RawEvent;
+    // the second iteration must see the just-created row via the in-memory map
+    // and treat it as a duplicate — no second canonical Event is created.
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([] as never);
+    mockEventCreate.mockResolvedValueOnce({ id: "evt_first" } as never);
+    // mockReturnValueOnce (not mockReturnValue) so the implementation override
+    // doesn't persist into the next test's default fingerprint.
+    mockFingerprint.mockReturnValueOnce("fp_dup").mockReturnValueOnce("fp_dup");
+    mockRawEventCreate.mockResolvedValueOnce({ id: "raw_first" } as never);
+    // refreshExistingEvent on the dup-iter path reads the canonical event;
+    // returning null short-circuits the refresh so the test focuses on dedup.
+    vi.mocked(prisma.event.findUnique).mockResolvedValue(null as never);
+
+    const result = await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-04-01" }),
+      buildRawEvent({ date: "2026-04-01" }),
+    ]);
+    expect(result.created).toBe(1);
+    expect(result.skipped).toBe(1);
+    expect(mockRawEventCreate).toHaveBeenCalledTimes(1);
+  });
+
   it("skips event when fingerprint already exists (processed)", async () => {
     mockRawEventFind.mockResolvedValueOnce({ id: "existing", processed: true, eventId: "evt_1" } as never);
     const result = await processRawEvents("src_1", [buildRawEvent()]);
@@ -255,13 +379,17 @@ describe("processRawEvents", () => {
   });
 
   it("continues processing after individual event error", async () => {
-    // First event: fingerprint lookup throws
-    mockRawEventFind.mockRejectedValueOnce(new Error("DB error"));
-    // Second event: succeeds
-    mockRawEventFind.mockResolvedValueOnce(null);
+    // Dedup prefetch returns no matches for either fingerprint — both events
+    // are new and pass into `processNewRawEvent`. The first iteration's
+    // RawEvent insert throws; the per-event try/catch in `processRawEvents`
+    // must swallow it and let the second iteration proceed. (The pre-N+1-fix
+    // version of this test threw from `findFirst` per iteration; that path no
+    // longer exists — dedup is now a single batch prefetch outside the loop.)
+    mockRawEventFind.mockResolvedValue(null);
+    mockRawEventCreate.mockRejectedValueOnce(new Error("DB error"));
+    mockRawEventCreate.mockResolvedValueOnce({ id: "raw_2" } as never);
     mockEventFindMany.mockResolvedValueOnce([] as never);
     mockEventCreate.mockResolvedValueOnce({ id: "evt_1" } as never);
-    // Need unique fingerprints
     mockFingerprint.mockReturnValueOnce("fp_1").mockReturnValueOnce("fp_2");
 
     const result = await processRawEvents("src_1", [
@@ -431,8 +559,13 @@ describe("source-kennel guard", () => {
 
 describe("mergeErrorDetails", () => {
   it("populates mergeErrorDetails with fingerprint and reason on error", async () => {
-    mockRawEventFind.mockRejectedValueOnce(new Error("DB connection lost"));
-    // generateFingerprint is called twice: once at line 53, once in catch block at line 200
+    // Dedup prefetch returns empty (event is new), then `rawEvent.create` inside
+    // `processNewRawEvent` throws — exercises the per-event try/catch in
+    // `processRawEvents` that records mergeErrorDetails. (Pre-N+1-fix this test
+    // simulated a per-event `findFirst` rejection; that query path is gone now.)
+    mockRawEventFind.mockResolvedValue(null);
+    mockRawEventCreate.mockRejectedValueOnce(new Error("DB connection lost"));
+    // generateFingerprint is called twice: once during prefetch, once in the loop
     mockFingerprint.mockReturnValueOnce("fp_error_event").mockReturnValueOnce("fp_error_event");
 
     const result = await processRawEvents("src_1", [
@@ -446,11 +579,14 @@ describe("mergeErrorDetails", () => {
   });
 
   it("caps mergeErrorDetails at 50 entries", async () => {
-    // Create 55 events that all fail
+    // Create 55 events that all fail. With the dedup prefetch outside the loop,
+    // we simulate per-iteration failure by rejecting `rawEvent.create` instead
+    // of the (now batched) dedup query.
     const events = Array.from({ length: 55 }, (_, i) =>
       buildRawEvent({ date: `2026-03-${String(i + 1).padStart(2, "0")}` }),
     );
-    mockRawEventFind.mockRejectedValue(new Error("Repeated failure"));
+    mockRawEventFind.mockResolvedValue(null);
+    mockRawEventCreate.mockRejectedValue(new Error("Repeated failure"));
 
     const result = await processRawEvents("src_1", events);
     expect(result.mergeErrorDetails!.length).toBe(50);
