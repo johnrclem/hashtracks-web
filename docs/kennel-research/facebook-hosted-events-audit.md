@@ -1,9 +1,12 @@
 # Facebook hosted_events audit
 
 > One-shot audit run on 2026-05-07 —
-> identifies seeded kennels with a public Facebook Page exposing a populated
-> `/upcoming_hosted_events` tab, the data source the `FACEBOOK_HOSTED_EVENTS`
-> adapter (PR #1292) consumes. Re-run via `npx tsx scripts/audit-fb-hosted-events.ts`.
+> identifies seeded kennels with a public Facebook Page exposing populated
+> `/upcoming_hosted_events` and/or `/past_hosted_events` tabs, the data source
+> the `FACEBOOK_HOSTED_EVENTS` adapter (PR #1292) consumes. Past tab adds
+> historical-backfill awareness — a Page with 0 upcoming but 50 past is a
+> real kennel that just hasn't scheduled the next trail yet. Re-run via
+> `npx tsx scripts/audit-fb-hosted-events.ts`.
 
 ## Summary
 
@@ -13,71 +16,78 @@
   - `group`: 106
   - `shortlink`: 5
 
-- Pages with **≥1 upcoming event** (scaling targets): **6**
-- Pages reachable but empty (no upcoming events): **42**
-- Errored / shape-broken: **0**
+- Pages with **≥1 upcoming event** (active scaling targets): **6**
+- Pages with **0 upcoming but ≥1 past** event (re-audit candidates — Page is real and used): **27**
+- Pages with no events on either tab (likely dormant Pages): **15**
 
 ## Pages with upcoming events — seed candidates
 
-Highest-leverage targets first. `loc/lat/desc` columns count events with structured location, lat-lng pair, and post-body description respectively (max = total events).
+Highest-leverage targets first. The `up`/`past` columns count events on each tab; `loc/lat` count events with structured location and lat-lng pair on the upcoming tab.
 
-| Kennel | Handle | Region | Events | loc | lat | desc | Sample title |
+| Kennel | Handle | Region | up | past | loc | lat | Sample upcoming title |
 |---|---|---|---:|---:|---:|---:|---|
-| Hollyweird (`h6`) | [`HollyweirdH6`](https://www.facebook.com/HollyweirdH6/upcoming_hosted_events) | Miami, FL | 8 | 7 | 0 | 0 | Hollyweird Hash House Harriers HapPy Hour @ Lampost w/ LIGHT EM UP 4 VC's Beer🎂 |
-| Memphis H3 (`mh3-tn`) | [`MemphisH3`](https://www.facebook.com/MemphisH3/upcoming_hosted_events) | Memphis, TN | 8 | 4 | 0 | 0 | GyNO H3 - Harriette Happy Hour! |
-| SOH4 (`soh4`) | [`soh4onon`](https://www.facebook.com/soh4onon/upcoming_hosted_events) | Syracuse, NY | 8 | 0 | 0 | 0 | Trail #832: TBD |
-| PCH3 (`pch3`) | [`PCH3FL`](https://www.facebook.com/PCH3FL/upcoming_hosted_events) | Florida Panhandle | 2 | 2 | 0 | 0 | Drinking Practice With PCH3 |
-| Dayton H4 (`dh4`) | [`DaytonHash`](https://www.facebook.com/DaytonHash/upcoming_hosted_events) | Dayton, OH | 1 | 0 | 0 | 0 | DH4 #1659 Hash (Run/Walk) |
-| GSH3 (`gsh3`) | [`GrandStrandHashing`](https://www.facebook.com/GrandStrandHashing/upcoming_hosted_events) | Myrtle Beach, SC | 1 | 1 | 0 | 0 | Trail #186…. Nuevo de Mayo |
+| Hollyweird (`h6`) | [`HollyweirdH6`](https://www.facebook.com/HollyweirdH6/upcoming_hosted_events) | Miami, FL | 8 | 8 | 7 | 0 | Hollyweird Hash House Harriers HapPy Hour @ Lampost w/ LIGHT EM UP 4 V |
+| Memphis H3 (`mh3-tn`) | [`MemphisH3`](https://www.facebook.com/MemphisH3/upcoming_hosted_events) | Memphis, TN | 8 | 8 | 4 | 0 | GyNO H3 - Harriette Happy Hour! |
+| SOH4 (`soh4`) | [`soh4onon`](https://www.facebook.com/soh4onon/upcoming_hosted_events) | Syracuse, NY | 8 | 8 | 0 | 0 | Trail #832: TBD |
+| PCH3 (`pch3`) | [`PCH3FL`](https://www.facebook.com/PCH3FL/upcoming_hosted_events) | Florida Panhandle | 2 | 8 | 2 | 0 | Drinking Practice With PCH3 |
+| Dayton H4 (`dh4`) | [`DaytonHash`](https://www.facebook.com/DaytonHash/upcoming_hosted_events) | Dayton, OH | 1 | 8 | 0 | 0 | DH4 #1659 Hash (Run/Walk) |
+| GSH3 (`gsh3`) | [`GrandStrandHashing`](https://www.facebook.com/GrandStrandHashing/upcoming_hosted_events) | Myrtle Beach, SC | 1 | 8 | 1 | 0 | Trail #186…. Nuevo de Mayo |
 
-## Pages reachable but no upcoming events
+## Pages with past events but no upcoming — re-audit candidates
 
-These are public Pages (no login wall, page rendered) but no events on the hosted_events tab right now. Worth re-auditing periodically — kennels schedule trails in bursts.
+These Pages are demonstrably active (kennel has hosted at least one trail recently) but no upcoming events are listed today. Worth re-checking on the 30/60/90 cadence — they're high-probability scaling targets the next time the kennel updates the calendar. Past-event count is also a rough liveness signal: a Page with 50 past hosted_events is more likely to publish future trails than one with 1.
 
-| Kennel | Handle | Region | HTML bytes |
-|---|---|---|---:|
-| Adelaide H3 (`ah3-au`) | [`adelaidehash`](https://www.facebook.com/adelaidehash/upcoming_hosted_events) | Adelaide, SA | 629,655 |
-| Agnews (`agnews`) | [`SIliconeValleyHash`](https://www.facebook.com/SIliconeValleyHash/upcoming_hosted_events) | San Jose, CA | 327,376 |
-| AH3 (`ah3-hi`) | [`AlohaH3`](https://www.facebook.com/AlohaH3/upcoming_hosted_events) | Honolulu, HI | 630,791 |
-| AUGH3 (`augh3`) | [`augustaundergroundH3`](https://www.facebook.com/augustaundergroundH3/upcoming_hosted_events) | Augusta, GA | 631,256 |
-| Berlin Full Moon (`bh3fm`) | [`BerlinHashHouseHarriers`](https://www.facebook.com/BerlinHashHouseHarriers/upcoming_hosted_events) | Berlin | 628,362 |
-| Berlin H3 (`berlinh3`) | [`BerlinHashHouseHarriers`](https://www.facebook.com/BerlinHashHouseHarriers/upcoming_hosted_events) | Berlin | 630,360 |
-| BurlyH3 (`burlyh3`) | [`BurlingtonH3`](https://www.facebook.com/BurlingtonH3/upcoming_hosted_events) | Vermont | 630,676 |
-| Butterworth H3 (`butterworth-h3`) | [`butterworth.hashhouseharriers`](https://www.facebook.com/butterworth.hashhouseharriers/upcoming_hosted_events) | Butterworth, MY | 644,131 |
-| Cape Fear H3 (`cfh3`) | [`CapeFearH3`](https://www.facebook.com/CapeFearH3/upcoming_hosted_events) | Wilmington, NC | 628,989 |
-| CBH3 (`cbh3-cm`) | [`chiangmaihashhouseharriershhh`](https://www.facebook.com/chiangmaihashhouseharriershhh/upcoming_hosted_events) | Chiang Mai | 629,399 |
-| CH3 (`ch3-cm`) | [`chiangmaihashhouseharriershhh`](https://www.facebook.com/chiangmaihashhouseharriershhh/upcoming_hosted_events) | Chiang Mai | 629,470 |
-| CH4 (`ch4-cm`) | [`chiangmaihashhouseharriershhh`](https://www.facebook.com/chiangmaihashhouseharriershhh/upcoming_hosted_events) | Chiang Mai | 629,387 |
-| Charm City H3 (`cch3`) | [`CharmCityH3`](https://www.facebook.com/CharmCityH3/upcoming_hosted_events) | Baltimore, MD | 628,285 |
-| CHH3 (`chh3`) | [`charlestonheretics`](https://www.facebook.com/charlestonheretics/upcoming_hosted_events) | Charleston, SC | 629,218 |
-| Cleveland H4 (`cleh4`) | [`clevelandhash`](https://www.facebook.com/clevelandhash/upcoming_hosted_events) | Cleveland, OH | 626,690 |
-| CSH3 (`csh3`) | [`chiangmaihashhouseharriershhh`](https://www.facebook.com/chiangmaihashhouseharriershhh/upcoming_hosted_events) | Chiang Mai | 629,425 |
-| ECH3 (`ech3-fl`) | [`FWBAreaHHH`](https://www.facebook.com/FWBAreaHHH/upcoming_hosted_events) | Florida Panhandle | 628,584 |
-| FtH3 (`fth3`) | [`FoothillH3`](https://www.facebook.com/FoothillH3/upcoming_hosted_events) | Los Angeles, CA | 628,712 |
-| Gulf Coast H3 (`gch3`) | [`GulfCoastHashHouseHarriers`](https://www.facebook.com/GulfCoastHashHouseHarriers/upcoming_hosted_events) | Mobile, AL | 327,363 |
-| Halve Mein (`halvemein`) | [`AHHHinc`](https://www.facebook.com/AHHHinc/upcoming_hosted_events) | Capital District, NY | 327,220 |
-| HK H3 (`hkh3`) | [`h4hongkonghash`](https://www.facebook.com/h4hongkonghash/upcoming_hosted_events) | Hong Kong | 629,972 |
-| JB H3 (`jb-h3`) | [`tjbhhh`](https://www.facebook.com/tjbhhh/upcoming_hosted_events) | Johor Bahru, MY | 641,634 |
-| KCH3 (`kch3`) | [`KansasCityH3`](https://www.facebook.com/KansasCityH3/upcoming_hosted_events) | Kansas City, MO | 327,335 |
-| Kowloon H3 (`kowloon-h3`) | [`kowloonhash`](https://www.facebook.com/kowloonhash/upcoming_hosted_events) | Hong Kong | 327,234 |
-| Larryville H3 (`lh3-ks`) | [`LarryvilleH3`](https://www.facebook.com/LarryvilleH3/upcoming_hosted_events) | Lawrence, KS | 327,338 |
-| Little Rock H3 (`lrh3`) | [`littlerockhashhouseharriers`](https://www.facebook.com/littlerockhashhouseharriers/upcoming_hosted_events) | Little Rock, AR | 327,819 |
-| LVH3 (`lvh3-cin`) | [`Licking-Valley-Hash-House-Harriers-841860922532429`](https://www.facebook.com/Licking-Valley-Hash-House-Harriers-841860922532429/upcoming_hosted_events) | Cincinnati, OH | 625,955 |
-| Madison H3 (`madisonh3`) | [`madisonHHH`](https://www.facebook.com/madisonHHH/upcoming_hosted_events) | Madison, WI | 628,973 |
-| MH3 (`mh3-mn`) | [`MinneapolisHashHouseHarriers`](https://www.facebook.com/MinneapolisHashHouseHarriers/upcoming_hosted_events) | Minneapolis, MN | 327,353 |
-| MiHiHuHa (`mihi-huha`) | [`MileHighH3`](https://www.facebook.com/MileHighH3/upcoming_hosted_events) | Denver, CO | 628,497 |
-| MoA2H3 (`moa2h3`) | [`MOA2H3`](https://www.facebook.com/MOA2H3/upcoming_hosted_events) | Detroit, MI | 628,564 |
-| Narwhal H3 (`narwhal-h3`) | [`HashNarwhal`](https://www.facebook.com/HashNarwhal/upcoming_hosted_events) | Connecticut | 628,405 |
-| Norfolk H3 (`norfolkh3`) | [`NorfolkH3`](https://www.facebook.com/NorfolkH3/upcoming_hosted_events) | Norfolk | 629,790 |
-| O2H3 (`o2h3`) | [`OtherOrlandoH3`](https://www.facebook.com/OtherOrlandoH3/upcoming_hosted_events) | Orlando, FL | 327,654 |
-| PalH3 (`palh3`) | [`PalmettoH3`](https://www.facebook.com/PalmettoH3/upcoming_hosted_events) | Columbia, SC | 626,438 |
-| RH3C (`renh3`) | [`rh3columbus`](https://www.facebook.com/rh3columbus/upcoming_hosted_events) | Columbus, OH | 628,439 |
-| Rotten Groton H3 (`rgh3`) | [`rottengrotonh3`](https://www.facebook.com/rottengrotonh3/upcoming_hosted_events) | Connecticut | 327,254 |
-| SF H3 (`sfh3`) | [`sfhash`](https://www.facebook.com/sfhash/upcoming_hosted_events) | San Francisco, CA | 327,244 |
-| Survivor H3 (`survivor-h3`) | [`SurvivorH3`](https://www.facebook.com/SurvivorH3/upcoming_hosted_events) | Florida Panhandle | 628,177 |
-| SVH3 (`svh3`) | [`SIliconeValleyHash`](https://www.facebook.com/SIliconeValleyHash/upcoming_hosted_events) | San Jose, CA | 327,348 |
-| SWH3 (`swh3`) | [`sirwaltersh3`](https://www.facebook.com/sirwaltersh3/upcoming_hosted_events) | Raleigh, NC | 628,579 |
-| Von Tramp H3 (`vth3`) | [`vontramph3`](https://www.facebook.com/vontramph3/upcoming_hosted_events) | Vermont | 629,960 |
+| Kennel | Handle | Region | past | loc | lat | Sample past title |
+|---|---|---|---:|---:|---:|---|
+| Adelaide H3 (`ah3-au`) | [past](https://www.facebook.com/adelaidehash/past_hosted_events) · [up](https://www.facebook.com/adelaidehash/upcoming_hosted_events) | Adelaide, SA | 8 | 7 | 0 | 2400th run |
+| AH3 (`ah3-hi`) | [past](https://www.facebook.com/AlohaH3/past_hosted_events) · [up](https://www.facebook.com/AlohaH3/upcoming_hosted_events) | Honolulu, HI | 8 | 0 | 0 | The Regerts Hash! |
+| AUGH3 (`augh3`) | [past](https://www.facebook.com/augustaundergroundH3/past_hosted_events) · [up](https://www.facebook.com/augustaundergroundH3/upcoming_hosted_events) | Augusta, GA | 8 | 5 | 0 | Lake olmstead trash pickup |
+| Berlin Full Moon (`bh3fm`) | [past](https://www.facebook.com/BerlinHashHouseHarriers/past_hosted_events) · [up](https://www.facebook.com/BerlinHashHouseHarriers/upcoming_hosted_events) | Berlin | 8 | 7 | 0 | Run #2320 |
+| Berlin H3 (`berlinh3`) | [past](https://www.facebook.com/BerlinHashHouseHarriers/past_hosted_events) · [up](https://www.facebook.com/BerlinHashHouseHarriers/upcoming_hosted_events) | Berlin | 8 | 7 | 0 | Run #2320 |
+| BurlyH3 (`burlyh3`) | [past](https://www.facebook.com/BurlingtonH3/past_hosted_events) · [up](https://www.facebook.com/BurlingtonH3/upcoming_hosted_events) | Vermont | 8 | 8 | 0 | Von Tramp and Burlington H3 Present Drunken Pilgrim — Saturday Run/Wal |
+| Cape Fear H3 (`cfh3`) | [past](https://www.facebook.com/CapeFearH3/past_hosted_events) · [up](https://www.facebook.com/CapeFearH3/upcoming_hosted_events) | Wilmington, NC | 8 | 8 | 0 | CFH3 500th Campout |
+| CBH3 (`cbh3-cm`) | [past](https://www.facebook.com/chiangmaihashhouseharriershhh/past_hosted_events) · [up](https://www.facebook.com/chiangmaihashhouseharriershhh/upcoming_hosted_events) | Chiang Mai | 8 | 8 | 0 | Diamond HHH Run#63 |
+| CH3 (`ch3-cm`) | [past](https://www.facebook.com/chiangmaihashhouseharriershhh/past_hosted_events) · [up](https://www.facebook.com/chiangmaihashhouseharriershhh/upcoming_hosted_events) | Chiang Mai | 8 | 8 | 0 | Diamond HHH Run#63 |
+| CH4 (`ch4-cm`) | [past](https://www.facebook.com/chiangmaihashhouseharriershhh/past_hosted_events) · [up](https://www.facebook.com/chiangmaihashhouseharriershhh/upcoming_hosted_events) | Chiang Mai | 8 | 8 | 0 | Diamond HHH Run#63 |
+| Charm City H3 (`cch3`) | [past](https://www.facebook.com/CharmCityH3/past_hosted_events) · [up](https://www.facebook.com/CharmCityH3/upcoming_hosted_events) | Baltimore, MD | 8 | 6 | 0 | CCH3 #338 |
+| CHH3 (`chh3`) | [past](https://www.facebook.com/charlestonheretics/past_hosted_events) · [up](https://www.facebook.com/charlestonheretics/upcoming_hosted_events) | Charleston, SC | 8 | 8 | 0 | The Kennel Gets Railed Trail |
+| Cleveland H4 (`cleh4`) | [past](https://www.facebook.com/clevelandhash/past_hosted_events) · [up](https://www.facebook.com/clevelandhash/upcoming_hosted_events) | Cleveland, OH | 8 | 4 | 0 | CH4 Trail #8-something and some: Air Show Hash! |
+| CSH3 (`csh3`) | [past](https://www.facebook.com/chiangmaihashhouseharriershhh/past_hosted_events) · [up](https://www.facebook.com/chiangmaihashhouseharriershhh/upcoming_hosted_events) | Chiang Mai | 8 | 8 | 0 | Diamond HHH Run#63 |
+| ECH3 (`ech3-fl`) | [past](https://www.facebook.com/FWBAreaHHH/past_hosted_events) · [up](https://www.facebook.com/FWBAreaHHH/upcoming_hosted_events) | Florida Panhandle | 8 | 8 | 0 | Trail 1647, Now it's Drinking practice |
+| FtH3 (`fth3`) | [past](https://www.facebook.com/FoothillH3/past_hosted_events) · [up](https://www.facebook.com/FoothillH3/upcoming_hosted_events) | Los Angeles, CA | 8 | 8 | 0 | C Blockers 91st Birthday Trail |
+| HK H3 (`hkh3`) | [past](https://www.facebook.com/h4hongkonghash/past_hosted_events) · [up](https://www.facebook.com/h4hongkonghash/upcoming_hosted_events) | Hong Kong | 8 | 4 | 0 | Frogging it to Bastille |
+| LVH3 (`lvh3-cin`) | [past](https://www.facebook.com/Licking-Valley-Hash-House-Harriers-841860922532429/past_hosted_events) · [up](https://www.facebook.com/Licking-Valley-Hash-House-Harriers-841860922532429/upcoming_hosted_events) | Cincinnati, OH | 8 | 8 | 0 | July LVH3 Hash |
+| Madison H3 (`madisonh3`) | [past](https://www.facebook.com/madisonHHH/past_hosted_events) · [up](https://www.facebook.com/madisonHHH/upcoming_hosted_events) | Madison, WI | 8 | 6 | 0 | The Finnish Five |
+| MiHiHuHa (`mihi-huha`) | [past](https://www.facebook.com/MileHighH3/past_hosted_events) · [up](https://www.facebook.com/MileHighH3/upcoming_hosted_events) | Denver, CO | 8 | 0 | 0 | MiHiHuHa #549: - The Next Last Annual Hot Wet Balls Trail |
+| MoA2H3 (`moa2h3`) | [past](https://www.facebook.com/MOA2H3/past_hosted_events) · [up](https://www.facebook.com/MOA2H3/upcoming_hosted_events) | Detroit, MI | 8 | 8 | 0 | Just Lena's Virgin Haring! |
+| Narwhal H3 (`narwhal-h3`) | [past](https://www.facebook.com/HashNarwhal/past_hosted_events) · [up](https://www.facebook.com/HashNarwhal/upcoming_hosted_events) | Connecticut | 8 | 7 | 0 | Trail #??: First of the Mohegan Trails (NOON START) |
+| Norfolk H3 (`norfolkh3`) | [past](https://www.facebook.com/NorfolkH3/past_hosted_events) · [up](https://www.facebook.com/NorfolkH3/upcoming_hosted_events) | Norfolk | 8 | 5 | 0 | Wednesday run |
+| RH3C (`renh3`) | [past](https://www.facebook.com/rh3columbus/past_hosted_events) · [up](https://www.facebook.com/rh3columbus/upcoming_hosted_events) | Columbus, OH | 8 | 6 | 0 | Renegade #294 an Immaculate Cock Production |
+| Survivor H3 (`survivor-h3`) | [past](https://www.facebook.com/SurvivorH3/past_hosted_events) · [up](https://www.facebook.com/SurvivorH3/upcoming_hosted_events) | Florida Panhandle | 8 | 7 | 0 | Drinking Practice! |
+| SWH3 (`swh3`) | [past](https://www.facebook.com/sirwaltersh3/past_hosted_events) · [up](https://www.facebook.com/sirwaltersh3/upcoming_hosted_events) | Raleigh, NC | 8 | 7 | 0 | SWH3 #1788 |
+| Von Tramp H3 (`vth3`) | [past](https://www.facebook.com/vontramph3/past_hosted_events) · [up](https://www.facebook.com/vontramph3/upcoming_hosted_events) | Vermont | 8 | 7 | 0 | VTH3 Trail #092: Getting Litter-ally Trashed on Green Up Day — Saturda |
+
+## Pages with no events on either tab — likely dormant
+
+Public Pages that render cleanly but expose neither upcoming nor past hosted_events. Either the kennel doesn't use FB events at all (posts trails as regular FB posts), the Page predates FB Events as a feature, or the Page is abandoned. Lower-priority for re-audit.
+
+| Kennel | Handle | Region |
+|---|---|---|
+| Agnews (`agnews`) | [`SIliconeValleyHash`](https://www.facebook.com/SIliconeValleyHash/upcoming_hosted_events) | San Jose, CA |
+| Butterworth H3 (`butterworth-h3`) | [`butterworth.hashhouseharriers`](https://www.facebook.com/butterworth.hashhouseharriers/upcoming_hosted_events) | Butterworth, MY |
+| Gulf Coast H3 (`gch3`) | [`GulfCoastHashHouseHarriers`](https://www.facebook.com/GulfCoastHashHouseHarriers/upcoming_hosted_events) | Mobile, AL |
+| Halve Mein (`halvemein`) | [`AHHHinc`](https://www.facebook.com/AHHHinc/upcoming_hosted_events) | Capital District, NY |
+| JB H3 (`jb-h3`) | [`tjbhhh`](https://www.facebook.com/tjbhhh/upcoming_hosted_events) | Johor Bahru, MY |
+| KCH3 (`kch3`) | [`KansasCityH3`](https://www.facebook.com/KansasCityH3/upcoming_hosted_events) | Kansas City, MO |
+| Kowloon H3 (`kowloon-h3`) | [`kowloonhash`](https://www.facebook.com/kowloonhash/upcoming_hosted_events) | Hong Kong |
+| Larryville H3 (`lh3-ks`) | [`LarryvilleH3`](https://www.facebook.com/LarryvilleH3/upcoming_hosted_events) | Lawrence, KS |
+| Little Rock H3 (`lrh3`) | [`littlerockhashhouseharriers`](https://www.facebook.com/littlerockhashhouseharriers/upcoming_hosted_events) | Little Rock, AR |
+| MH3 (`mh3-mn`) | [`MinneapolisHashHouseHarriers`](https://www.facebook.com/MinneapolisHashHouseHarriers/upcoming_hosted_events) | Minneapolis, MN |
+| O2H3 (`o2h3`) | [`OtherOrlandoH3`](https://www.facebook.com/OtherOrlandoH3/upcoming_hosted_events) | Orlando, FL |
+| PalH3 (`palh3`) | [`PalmettoH3`](https://www.facebook.com/PalmettoH3/upcoming_hosted_events) | Columbia, SC |
+| Rotten Groton H3 (`rgh3`) | [`rottengrotonh3`](https://www.facebook.com/rottengrotonh3/upcoming_hosted_events) | Connecticut |
+| SF H3 (`sfh3`) | [`sfhash`](https://www.facebook.com/sfhash/upcoming_hosted_events) | San Francisco, CA |
+| SVH3 (`svh3`) | [`SIliconeValleyHash`](https://www.facebook.com/SIliconeValleyHash/upcoming_hosted_events) | San Jose, CA |
 
 ## Skipped — not a Page-shape `facebookUrl`
 
@@ -200,7 +210,8 @@ Reasons in priority order. **Group** rows are the largest pool and are the natur
 ## Next steps
 
 1. **Seed the top N event-producing Pages** as `FACEBOOK_HOSTED_EVENTS` sources, mirroring the GSH3 row in `prisma/seed-data/sources.ts`. The migration + adapter are already in main; only the seed rows are needed.
-2. **Re-audit empty Pages** in 30/60/90 days — kennels publish trails in bursts. A Page that's empty today may have 5 upcoming next month.
-3. **Resolve shortlink redirects** (the `/share/` / `/p/` skipped rows) to recover canonical handles. Cheap follow-up; small script that follows one HTTP 301 per row.
-4. **Group-only kennels** (the `group` skipped rows) feed the T2b paste-flow PR backlog. They cannot be auto-scraped; they need admin paste or kennel-admin-installed Graph API.
+2. **Historical backfill** — the past-events table is the natural input for a separate one-shot script (per the Seletar pattern documented in the FB integration plan). For each Page with a meaningful past-event count, a backfill run pulls the full archive of `start_timestamp + name + event_place` triples and inserts them as confirmed historical Events at trustLevel 8. Out of scope for the cron path; tracked separately.
+3. **Re-audit past-only Pages first** on the 30/60/90 cadence — they're demonstrably active and most likely to flip to having upcoming events. Past-only count itself is a rough liveness/popularity ranking.
+4. **Resolve shortlink redirects** (the `/share/` / `/p/` skipped rows) to recover canonical handles. Cheap follow-up; small script that follows one HTTP 301 per row.
+5. **Group-only kennels** (the `group` skipped rows) feed the T2b paste-flow PR backlog. They cannot be auto-scraped via the hosted_events route; they need admin paste or kennel-admin-installed Graph API.
 
