@@ -26,6 +26,7 @@ Verify an adapter works against the live production source for: $ARGUMENTS
    - At least some dates are in the future (upcoming events exist)
    - `startTime` (if present) matches `"HH:MM"` format
    - No garbled text or broken field mapping
+   - **Optional-field coverage** — if you spotted any high-value enrichment fields during source analysis (distance, Shiggy Level, cost, description, full street address, endTime — see [`add-adapter.md`](add-adapter.md) step 1), confirm they're populated in the live output. Missing them isn't a failure, but it usually means the parser didn't find the labels — worth a second look at the live HTML before shipping. For trail-length / Shiggy specifically, also exercise the unparseable cases (e.g. `Length: TBD`) and confirm the adapter emits explicit `null` for the affected numerics, not `undefined` (atomic-bundle semantics — see [`adapter-patterns.md`](../rules/adapter-patterns.md)).
 
 5. **Report results**
    - Log: total event count, date range, adapter type

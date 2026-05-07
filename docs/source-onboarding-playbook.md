@@ -23,6 +23,22 @@ Source → Adapter.fetch() → RawEventData[] → fingerprint dedup → RawEvent
 - **Force rescrape**: `force` param deletes existing RawEvents and re-processes from scratch
 - **`RawEventData`** is the universal contract between any adapter and the pipeline
 
+## User-Visible Fields (Capture When the Source Has Them)
+
+`RawEventData` (in `src/adapters/types.ts`) is the universal contract, but a few optional fields are easy to miss because they aren't in the "core" mental model. Each one surfaces on the event card or detail panel — capture them at adapter time when the source provides the data, even if the value is rare or only some events have it. See `.claude/rules/adapter-patterns.md` for the full conventions.
+
+| Field | Source clue | Notes |
+|---|---|---|
+| `hares` | "Hares: …", "Hare: …" | Sanitized in merge pipeline |
+| `cost` | "Cost: $5", "Hash Cash: …", currency markers | Free-form text |
+| `description` | Free-form prose paragraph (theme, on-after, what to bring, station info) | Rendered on detail panel |
+| `locationStreet` | Full street address vs. just venue name | Distinct from `location` (venue name) |
+| `endTime` | "ends at", duration markers | `"HH:MM"` local time string |
+| `trailLengthText` + `trailLengthMinMiles` + `trailLengthMaxMiles` | "Length: 3-5 Miles", "Distance: 2.69 mi", "13 km" | **Atomic bundle** — see below |
+| `difficulty` | "Shiggy Scale: 4", "Difficulty: …", "🌶️🌶️🌶️" | 1–5 only; reject out-of-range with explicit `null` |
+
+**Trail-length / Shiggy Level atomic-bundle semantics:** the merge pipeline treats `undefined` as "preserve existing" and `null` as "explicit clear". When a label is present but the value is unparseable (e.g. `Length: TBD` or `Shiggy Scale: 7`), the adapter must emit explicit `null` for the affected numerics — otherwise stale parsed values from a previous scrape silently survive (Codex caught this on PR #1266). Reference pattern: `parseTrailLength` + `parseShiggyScale` in `burlington-hash.ts`.
+
 ## What Varies Per Source (the adapter-specific work)
 
 | Concern | HTML Scraper | Browser-Rendered HTML | Google Calendar | Google Sheets | iCal Feed | Blogger API | Ghost Content API | WordPress.com API | Meetup | Hash Rego | Static Schedule |
@@ -336,6 +352,35 @@ config: {
   defaultKennelTag: "BFM",  // fallback for unrecognized events
 }
 ```
+
+**Multi-kennel co-host events** (joint trails, e.g. Cherry City × OH3): use the array form for the kennel value. Per the spec D15 precedence rule (PR #1108, see [`src/adapters/kennel-patterns.ts`](../src/adapters/kennel-patterns.ts)), array-typed values always win once one matches; string-only configs preserve legacy first-match-wins.
+
+```typescript
+config: {
+  kennelPatterns: [
+    ["(?:Cherry City.*OH3)|(?:OH3.*Cherry City)", ["cch3-or", "oh3"]], // co-host
+    ["^OH3\\b|OH3 Full Moon", "oh3"],
+    ["TGIF|Friday.*Pubcrawl", "tgif"],
+    ["Cherry City|Cherry Cherry City", "cch3-or"],
+  ],
+}
+```
+
+The merge pipeline writes the first tag as the primary `EventKennel` and the rest as secondaries (`isPrimary=false`), so the joint event surfaces on every participating kennel page.
+
+### GenericHtmlAdapter config knobs (CSS-selector scraping)
+
+The `GenericHtmlAdapter` is config-driven — most adapter authoring effort here goes into the `Source.config` JSON, not new code. Key knobs (full schema in [`src/app/admin/sources/config-validation.ts`](../src/app/admin/sources/config-validation.ts)):
+
+- **Layout selectors** — `containerSelector`, `eventSelector`, plus per-field selectors (`titleSelector`, `dateSelector`, `haresSelector`, etc.)
+- **`defaultStartTime`** — single source-wide HH:MM fallback when the source has no time column.
+- **`defaultStartTimeByKennel`** (#1238) — `Record<string, string>` for per-kennel HH:MM defaults. Use when a source aggregates kennels that legitimately run at different times (Bristol stack: BRIS=11:00, GREY=19:00, BOGS=19:15).
+- **`titleTemplate`** (#1123) — date-derived templates with tokens `{dayName}`, `{monthName}`, `{date}`, `{iso}`. Used for kennels whose runs lack distinguishing titles (CVH3, ColH3). Avoid schedule-semantic tokens (`{ordinal}`/nth-of-month) — those would lie on weekly rules.
+- **`locationOmitIfMatches`** (#1238) — case-insensitive list; trimmed location values matching any pattern drop to `undefined` so the UI renders "venue TBD" instead of leaking source CTA copy.
+- **Title-cleanup knobs** (cross-cutting, also used by GCal/HC adapters):
+  - `staleTitleAliases` — known placeholders that map to the synthesized default title.
+  - `titleStripPatterns` — regexes that strip emoji/decoration prefixes.
+  - `titleHarePattern` — per-source regex capturing hares from varied title prefix forms.
 
 ### 10. Test locally
 
