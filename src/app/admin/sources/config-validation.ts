@@ -233,44 +233,60 @@ function validateLunarConfig(lunar: Record<string, unknown>, errors: string[]): 
  *  - Lunar mode: phase-anchored ("full" / "new") with optional weekday anchor
  *    for kennels like DCFMH3 ("Fri/Sat near full moon").
  */
-function validateStaticScheduleConfig(obj: Record<string, unknown>, errors: string[]): void {
-  if (typeof obj.kennelTag !== "string" || !obj.kennelTag.trim()) {
-    errors.push("Static Schedule config requires a non-empty kennelTag");
-  }
-
+/** Validate the recurrence XOR (rrule | lunar). Pulled out so the parent
+ *  stays under SonarCloud's cognitive-complexity cap. */
+function validateRecurrenceBlock(obj: Record<string, unknown>, errors: string[]): void {
   const hasRrule = typeof obj.rrule === "string" && obj.rrule.trim().length > 0;
   const hasLunar = obj.lunar !== undefined && obj.lunar !== null;
   if (!hasRrule && !hasLunar) {
     errors.push("Static Schedule config requires either rrule or lunar (exactly one)");
-  } else if (hasRrule && hasLunar) {
+    return;
+  }
+  if (hasRrule && hasLunar) {
     errors.push("Static Schedule config cannot specify both rrule and lunar (XOR)");
-  } else if (hasRrule) {
+    return;
+  }
+  if (hasRrule) {
     const rrule = obj.rrule as string;
     if (!/^FREQ=/i.test(rrule.trim())) {
       errors.push("Static Schedule rrule must start with FREQ= (e.g. FREQ=WEEKLY;BYDAY=SA)");
     }
-  } else if (hasLunar) {
-    if (typeof obj.lunar !== "object" || Array.isArray(obj.lunar)) {
-      errors.push("Static Schedule lunar must be an object");
-    } else {
-      validateLunarConfig(obj.lunar as Record<string, unknown>, errors);
-    }
+    return;
   }
+  if (typeof obj.lunar !== "object" || Array.isArray(obj.lunar)) {
+    errors.push("Static Schedule lunar must be an object");
+    return;
+  }
+  validateLunarConfig(obj.lunar as Record<string, unknown>, errors);
+}
 
-  if (obj.startTime !== undefined) {
-    if (typeof obj.startTime !== "string") {
-      errors.push("Static Schedule config startTime must be a string");
-    } else if (!TIME_HHMM_RE.test(obj.startTime)) {
-      errors.push('Static Schedule config startTime must be HH:MM format (e.g. "10:17", "19:00")');
-    }
+/** Validate optional `startTime` field. */
+function validateStartTimeField(obj: Record<string, unknown>, errors: string[]): void {
+  if (obj.startTime === undefined) return;
+  if (typeof obj.startTime !== "string") {
+    errors.push("Static Schedule config startTime must be a string");
+  } else if (!TIME_HHMM_RE.test(obj.startTime)) {
+    errors.push('Static Schedule config startTime must be HH:MM format (e.g. "10:17", "19:00")');
   }
-  if (obj.anchorDate !== undefined) {
-    if (typeof obj.anchorDate !== "string") {
-      errors.push("Static Schedule config anchorDate must be a string");
-    } else if (!/^\d{4}-\d{2}-\d{2}$/.test(obj.anchorDate)) {
-      errors.push('Static Schedule config anchorDate must be YYYY-MM-DD format (e.g. "2026-01-03")');
-    }
+}
+
+/** Validate optional `anchorDate` field. */
+function validateAnchorDateField(obj: Record<string, unknown>, errors: string[]): void {
+  if (obj.anchorDate === undefined) return;
+  if (typeof obj.anchorDate !== "string") {
+    errors.push("Static Schedule config anchorDate must be a string");
+  } else if (!/^\d{4}-\d{2}-\d{2}$/.test(obj.anchorDate)) {
+    errors.push('Static Schedule config anchorDate must be YYYY-MM-DD format (e.g. "2026-01-03")');
   }
+}
+
+function validateStaticScheduleConfig(obj: Record<string, unknown>, errors: string[]): void {
+  if (typeof obj.kennelTag !== "string" || !obj.kennelTag.trim()) {
+    errors.push("Static Schedule config requires a non-empty kennelTag");
+  }
+  validateRecurrenceBlock(obj, errors);
+  validateStartTimeField(obj, errors);
+  validateAnchorDateField(obj, errors);
 }
 
 /** Dangerous patterns blocked in CSS selectors (XSS prevention). */

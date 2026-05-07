@@ -113,6 +113,25 @@ describe("MOON_PHASE_GLYPHS", () => {
   });
 });
 
+/** Walk a 5-day window centered on `centerDay` and return the dates that
+ *  glyph as `phase` in the given timezone. Hoisted to module scope so the
+ *  closure isn't recreated per test (SonarCloud S7721). */
+function findGlyphDays(
+  yearMonthPrefix: string,
+  centerDay: number,
+  phase: "full" | "new",
+  timezone: string,
+): string[] {
+  const matches: string[] = [];
+  for (let day = centerDay - 2; day <= centerDay + 2; day++) {
+    const dateStr = `${yearMonthPrefix}${String(day).padStart(2, "0")}`;
+    if (getMoonPhaseGlyphForDate(utcDate(dateStr), timezone) === phase) {
+      matches.push(dateStr);
+    }
+  }
+  return matches;
+}
+
 describe("getMoonPhaseGlyphForDate timezone awareness", () => {
   // Codex pass-2 finding: marking glyphs at noon UTC drifts by a day for any
   // viewer west of UTC. Marker must fire on the viewer's local calendar day
@@ -121,24 +140,6 @@ describe("getMoonPhaseGlyphForDate timezone awareness", () => {
   // USNO 2026 full-moon UTC instants used in these tests:
   //   May  1 2026 09:23 UTC  (chosen — late morning UTC, day-stable across zones)
   //   Aug 28 2026 04:18 UTC  (chosen — early UTC, expected to differ between LA and Tokyo)
-
-  /** Walk a 5-day window centered on `centerDay` and return the dates that
-   *  glyph as `phase` in the given timezone. */
-  function findGlyphDays(
-    yearMonthPrefix: string,
-    centerDay: number,
-    phase: "full" | "new",
-    timezone: string,
-  ): string[] {
-    const matches: string[] = [];
-    for (let day = centerDay - 2; day <= centerDay + 2; day++) {
-      const dateStr = `${yearMonthPrefix}${String(day).padStart(2, "0")}`;
-      if (getMoonPhaseGlyphForDate(utcDate(dateStr), timezone) === phase) {
-        matches.push(dateStr);
-      }
-    }
-    return matches;
-  }
 
   it("UTC and LA both mark the May 1 2026 full moon (UTC instant 09:23 — same calendar day in both)", () => {
     // 09:23 UTC on May 1 = 02:23 PDT on May 1 — same calendar day in both.

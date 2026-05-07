@@ -453,11 +453,78 @@ function processSourceKennel(
   return true;
 }
 
+/**
+ * Build the `notes` string for a `FREQ=LUNAR` sentinel rule. `lunar` is
+ * pre-validated (`isValidLunarConfig`) so timezone is non-empty here.
+ */
+function buildLunarNotes(lunar: NonNullable<StaticScheduleConfig["lunar"]>): string {
+  const isAnchored = !!(lunar.anchorWeekday && lunar.anchorRule);
+  return isAnchored
+    ? `Lunar ${lunar.phase} moon, anchored to ${lunar.anchorWeekday} (${lunar.anchorRule})`
+    : `Lunar ${lunar.phase} moon, exact phase date in ${lunar.timezone}`;
+}
+
+interface PassResult {
+  count: number;
+  skipped: number;
+}
+
+/** Lunar source branch: validate, emit FREQ=LUNAR sentinel per kennel. */
+function processLunarSource(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  src: any,
+  config: StaticScheduleConfig,
+  planned: PlannedRule[],
+  options: BackfillOptions,
+): PassResult {
+  if (!config.lunar || !isValidLunarConfig(config.lunar)) {
+    if (options.verbose) {
+      console.log(`  ⊘ ${src.name} — lunar config malformed (missing or invalid phase)`);
+    }
+    return { count: 0, skipped: 1 };
+  }
+  const notes = buildLunarNotes(config.lunar);
+  let count = 0;
+  let skipped = 0;
+  for (const { kennel } of src.kennels) {
+    const ok = processSourceKennel(src, kennel, config, "FREQ=LUNAR", planned, options, {
+      confidence: "LOW",
+      notes,
+    });
+    if (ok) count++;
+    else skipped++;
+  }
+  return { count, skipped };
+}
+
+/** RRULE source branch: normalize + emit HIGH-confidence rule per kennel. */
+function processRruleSource(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  src: any,
+  config: StaticScheduleConfig,
+  rawRrule: string,
+  planned: PlannedRule[],
+  options: BackfillOptions,
+): PassResult {
+  const rrule = normalizeRRule(rawRrule);
+  if (options.verbose && rrule !== rawRrule) {
+    console.log(`  ↻ ${src.name} — normalized ${rawRrule} → ${rrule}`);
+  }
+  let count = 0;
+  let skipped = 0;
+  for (const { kennel } of src.kennels) {
+    const ok = processSourceKennel(src, kennel, config, rrule, planned, options);
+    if (ok) count++;
+    else skipped++;
+  }
+  return { count, skipped };
+}
+
 export async function runStaticSchedulePass(
   prisma: PrismaClientLike,
   planned: PlannedRule[],
   options: BackfillOptions = {},
-): Promise<{ count: number; skipped: number }> {
+): Promise<PassResult> {
   console.log("━━━ Pass 1: STATIC_SCHEDULE sources → HIGH confidence ━━━");
 
   const staticSources = await prisma.source.findMany({
@@ -477,63 +544,26 @@ export async function runStaticSchedulePass(
     const config = (src.config ?? {}) as StaticScheduleConfig;
     const rawRrule = config.rrule?.trim();
 
-    // XOR enforcement matching `validateRruleLunarXor` in the adapter (Codex
-    // pass-4 finding). Dual-config rows previously took the rrule branch
-    // silently — projecting HIGH-confidence rules for sources whose canonical
-    // event generation would later reject the same shape.
+    // XOR enforcement matching `validateRruleLunarXor` in the adapter — dual-
+    // config rows are skipped to avoid projecting HIGH-confidence rules for
+    // sources whose canonical event generation would later reject the shape.
     if (rawRrule && config.lunar) {
       skipped++;
-      if (options.verbose) {
-        console.log(`  ⊘ ${src.name} — XOR violation: both rrule and lunar set`);
-      }
+      if (options.verbose) console.log(`  ⊘ ${src.name} — XOR violation: both rrule and lunar set`);
       continue;
     }
 
-    // Lunar branch — emits the `FREQ=LUNAR` sentinel at LOW confidence so
-    // Travel Mode surfaces the kennel as "possible activity" beyond the
-    // materialized event horizon. LOW for both exact and anchor modes:
-    // the projection engine cannot reproduce astronomical phase math.
-    if (!rawRrule && config.lunar) {
-      if (!isValidLunarConfig(config.lunar)) {
-        skipped++;
-        if (options.verbose) {
-          console.log(`  ⊘ ${src.name} — lunar config malformed (missing or invalid phase)`);
-        }
-        continue;
-      }
-      const isAnchored = !!(config.lunar.anchorWeekday && config.lunar.anchorRule);
-      const notes = isAnchored
-        ? `Lunar ${config.lunar.phase} moon, anchored to ${config.lunar.anchorWeekday} (${config.lunar.anchorRule})`
-        : `Lunar ${config.lunar.phase} moon, exact phase date in ${config.lunar.timezone ?? "(timezone unknown)"}`;
-      for (const { kennel } of src.kennels) {
-        if (processSourceKennel(src, kennel, config, "FREQ=LUNAR", planned, options, {
-          confidence: "LOW",
-          notes,
-        })) {
-          count++;
-        } else {
-          skipped++;
-        }
-      }
-      continue;
-    }
-
-    if (!rawRrule) {
-      skipped++;
+    let result: PassResult;
+    if (config.lunar) {
+      result = processLunarSource(src, config, planned, options);
+    } else if (rawRrule) {
+      result = processRruleSource(src, config, rawRrule, planned, options);
+    } else {
       if (options.verbose) console.log(`  ⊘ ${src.name} — missing rrule in config`);
-      continue;
+      result = { count: 0, skipped: 1 };
     }
-    const rrule = normalizeRRule(rawRrule);
-    if (options.verbose && rrule !== rawRrule) {
-      console.log(`  ↻ ${src.name} — normalized ${rawRrule} → ${rrule}`);
-    }
-    for (const { kennel } of src.kennels) {
-      if (processSourceKennel(src, kennel, config, rrule, planned, options)) {
-        count++;
-      } else {
-        skipped++;
-      }
-    }
+    count += result.count;
+    skipped += result.skipped;
   }
   console.log(`  ✓ ${count} rules planned (${skipped} sources skipped)\n`);
   return { count, skipped };

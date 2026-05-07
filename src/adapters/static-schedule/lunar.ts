@@ -261,5 +261,8 @@ export function generateLunarOccurrences(
     if (t < startMs || t > endMs) continue;
     out.add(toIsoDateString(local));
   }
-  return [...out].sort();
+  // Explicit comparator: ISO YYYY-MM-DD strings ARE chronological under
+  // lexicographic order, but bare `.sort()` is locale-dependent in some
+  // engines and trips Sonar S2871.
+  return [...out].sort((a, b) => a.localeCompare(b));
 }

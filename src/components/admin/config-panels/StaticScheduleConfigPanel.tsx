@@ -78,12 +78,20 @@ export function syncStashFromConfig(
   prev: StashState,
   current: { rrule?: string; anchorDate?: string; lunar?: LunarConfigForm },
 ): StashState {
+  // Source of truth is the *active* mode: when `current.lunar` is set we're
+  // in lunar mode and the parent has locally cleared rrule/anchorDate; keep
+  // the previous draft for both. When lunar is unset we're in rrule mode —
+  // capture rrule AND anchorDate together so an anchorDate edit isn't lost
+  // when rrule happens to be empty (CodeRabbit review finding). The
+  // `hasRruleField` guard preserves the previous draft when current is fully
+  // empty (e.g. initial null config) instead of wiping it.
+  const inRruleMode = current.lunar === undefined;
+  const hasRruleField = current.rrule !== undefined || current.anchorDate !== undefined;
   return {
-    rrule:
-      current.rrule !== undefined
-        ? { rrule: current.rrule, anchorDate: current.anchorDate }
-        : prev.rrule,
-    lunar: current.lunar !== undefined ? current.lunar : prev.lunar,
+    rrule: inRruleMode && hasRruleField
+      ? { rrule: current.rrule, anchorDate: current.anchorDate }
+      : prev.rrule,
+    lunar: current.lunar ?? prev.lunar,
   };
 }
 
@@ -297,8 +305,8 @@ export function StaticScheduleConfigPanel({
           <p className="text-xs text-muted-foreground">
             Anchor mode snaps the event to the nearest matching weekday relative
             to the astronomical phase — useful for kennels like DCFMH3
-            (&quot;Friday/Saturday near full moon&quot;). Leave anchor weekday set to
-            <em> None</em> to land directly on the phase date.
+            (&quot;Friday/Saturday near full moon&quot;). Leave anchor weekday set
+            to <em>None</em> to land directly on the phase date.
           </p>
         </div>
       )}

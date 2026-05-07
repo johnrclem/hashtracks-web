@@ -113,6 +113,32 @@ function dateKeyFromParts(y: number, m: number, d: number): string {
 
 type CalendarMode = "month" | "weeks";
 
+/**
+ * Decorative moon-phase glyph rendered in the calendar day-cell corner.
+ * Extracted from `renderDayCell` so the cell renderer stays under
+ * SonarCloud's cognitive-complexity cap.
+ */
+function MoonPhaseGlyph({ phase }: Readonly<{ phase: "full" | "new" | null }>) {
+  if (!phase) return null;
+  const label = phase === "full" ? "Full moon" : "New moon";
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span
+          className="text-xs leading-none"
+          aria-label={`${phase} moon (your local sky)`}
+          data-testid={`moon-phase-${phase}`}
+        >
+          {MOON_PHASE_GLYPHS[phase]}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>
+        {label} in your local sky. Lunar kennels in other regions may run a day earlier or later.
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 export function CalendarView({ events, timeFilter }: CalendarViewProps) {
   const router = useRouter();
   const { preference: timePref } = useTimePreference();
@@ -409,23 +435,7 @@ export function CalendarView({ events, timeFilter }: CalendarViewProps) {
         >
           {dayLabel}
           {isToday && <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />}
-          {moonPhase && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span
-                  className="text-xs leading-none"
-                  aria-label={`${moonPhase} moon (your local sky)`}
-                  data-testid={`moon-phase-${moonPhase}`}
-                >
-                  {MOON_PHASE_GLYPHS[moonPhase]}
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>
-                {moonPhase === "full" ? "Full moon" : "New moon"} in your local sky.
-                Lunar kennels in other regions may run a day earlier or later.
-              </TooltipContent>
-            </Tooltip>
-          )}
+          <MoonPhaseGlyph phase={moonPhase} />
         </span>
         {dayEvents.length > 0 && (
           <div className="mt-0.5 flex flex-col gap-1">

@@ -30,7 +30,17 @@ describe("syncStashFromConfig", () => {
       phase: "full",
       timezone: "America/Los_Angeles",
     });
+    // In lunar mode, rrule stash is preserved unchanged (it's the previous draft).
     expect(next.rrule).toEqual({});
+  });
+
+  it("captures anchorDate edits when in rrule mode even if rrule is empty (CodeRabbit fix)", () => {
+    const next = syncStashFromConfig(
+      { rrule: { rrule: "FREQ=WEEKLY;BYDAY=SA", anchorDate: "2026-01-03" }, lunar: undefined },
+      // User cleared rrule and edited anchorDate (no lunar — still in rrule mode).
+      { rrule: "", anchorDate: "2026-04-04" },
+    );
+    expect(next.rrule).toEqual({ rrule: "", anchorDate: "2026-04-04" });
   });
 
   it("preserves the inactive mode's stash across mode-switch transitions", () => {
