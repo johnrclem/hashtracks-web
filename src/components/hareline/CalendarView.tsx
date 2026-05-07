@@ -336,6 +336,30 @@ export function CalendarView({ events, timeFilter }: CalendarViewProps) {
 
   const selectedEvents = selectedDay ? eventsByDate.get(selectedDay) || [] : [];
 
+  // Pre-compute moon-phase days for the visible range so per-cell lookups
+  // are O(1). Without this, every render of a 31-day month re-instantiated
+  // ~186 Intl.DateTimeFormat objects (3 days × 2 phases × 31 cells), each
+  // calling SunCalc.getMoonIllumination — measurable in DevTools profiler
+  // for cells with frequent re-renders. Recomputes only when the displayed
+  // month or viewer timezone changes.
+  const moonPhaseDays = useMemo(() => {
+    const map = new Map<string, "full" | "new">();
+    if (!viewerTimezone) return map;
+    // ±45 days around the displayed month covers month-grid padding (prev/
+    // next month days that fill the calendar weeks) and the rolling weeks
+    // mode without needing to read calendarMode/weeksGrid here.
+    const start = new Date(Date.UTC(year, month - 1, 15, 12, 0, 0));
+    const end = new Date(Date.UTC(year, month + 2, 15, 12, 0, 0));
+    for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
+      const phase = getMoonPhaseGlyphForDate(d, viewerTimezone);
+      if (phase) {
+        const key = dateKeyFromParts(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate());
+        map.set(key, phase);
+      }
+    }
+    return map;
+  }, [year, month, viewerTimezone]);
+
   // Compute visible regions + event count for the displayed range
   const { visibleRegions, rangeEventCount } = useMemo(() => {
     const seen = new Map<string, { region: string; abbrev: string; colorClasses: string }>();
@@ -392,12 +416,10 @@ export function CalendarView({ events, timeFilter }: CalendarViewProps) {
     const isPast = cellDate < todayDate && !isToday;
     const day = cellDate.getUTCDate();
     // Glyph marks the calendar day the moon is full/new in the *viewer's*
-    // local sky. For lunar kennels in the viewer's region this matches the
-    // event date; for kennels far from the viewer's timezone the glyph and
-    // event can land on adjacent days (the tooltip calls this out). Glyph
-    // is suppressed during SSR / pre-hydration to avoid a server-vs-client
-    // timezone mismatch (Codex pass-6 finding).
-    const moonPhase = viewerTimezone ? getMoonPhaseGlyphForDate(cellDate, viewerTimezone) : null;
+    // local sky. Pre-computed in `moonPhaseDays` (above) so this is O(1)
+    // per cell. Suppressed during SSR / pre-hydration via the empty map
+    // when viewerTimezone is null (Codex pass-6 finding).
+    const moonPhase = moonPhaseDays.get(dateKey) ?? null;
 
     const fullDateLabel = ariaDateFormatter.format(cellDate);
     const cellAriaLabel = buildCellLabel(fullDateLabel, dayEvents.length);

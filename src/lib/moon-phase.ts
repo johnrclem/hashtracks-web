@@ -160,6 +160,14 @@ function localNoonInTimezoneMs(dateStr: string, timezone: string): number {
   for (const p of parts) {
     if (p.type !== "literal") lookup[p.type] = p.value;
   }
+  // Defensive: `formatToParts` can in edge-case environments return fewer
+  // than the requested fields. `parseInt(undefined, 10)` yields NaN and
+  // `Date.UTC(NaN, …)` silently returns NaN, which would propagate to every
+  // `SunCalc.getMoonIllumination(new Date(NaN))` call without throwing.
+  // Fall back to the UTC-noon anchor when any expected field is missing.
+  if (!lookup.year || !lookup.month || !lookup.day || !lookup.hour || !lookup.minute) {
+    return utcNoonMs;
+  }
   const localUtcEquivalentMs = Date.UTC(
     Number.parseInt(lookup.year, 10),
     Number.parseInt(lookup.month, 10) - 1,
