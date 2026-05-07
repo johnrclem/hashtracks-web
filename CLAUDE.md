@@ -20,7 +20,7 @@ logbook + kennel directory.
 - **Database:** PostgreSQL via Prisma ORM (Railway hosted)
 - **Auth:** Clerk (Google OAuth + email/password)
 - **UI:** Tailwind CSS + shadcn/ui components
-- **Scraping:** HTTP fetch + Cheerio for static HTML; NAS-hosted headless Chrome (Playwright on external NAS, not in the app) for JS-rendered sites (Wix, Google Sites) via `browserRender()`; Blogger API v3 for Blogspot-hosted sites; GenericHtmlAdapter for config-driven CSS selector scraping; STATIC_SCHEDULE adapter for RRULE-based event generation; Meetup public REST API adapter; Harrier Central public REST API adapter (hashruns.org, config-driven)
+- **Scraping:** HTTP fetch + Cheerio for static HTML; NAS-hosted headless Chrome (Playwright on external NAS, not in the app) for JS-rendered sites (Wix, Google Sites) via `browserRender()`; Blogger API v3 for Blogspot-hosted sites; GenericHtmlAdapter for config-driven CSS selector scraping; STATIC_SCHEDULE adapter for RRULE-based event generation; Meetup public REST API adapter; Harrier Central public REST API adapter (hashruns.org, config-driven); FACEBOOK_HOSTED_EVENTS adapter for public FB Pages with `/upcoming_hosted_events` tab (SSR'd inline GraphQL)
 - **Residential Proxy:** Optional NAS-based forward proxy for WAF-blocked targets
 - **NAS Infrastructure:** Synology DS423+ at `nas-tailscale` (via Tailscale). Hosts browser render service and residential proxy relay.
 - **AI:** Gemini 2.0 Flash for complex HTML parsing, parse error recovery, column auto-detection, kennel pattern suggestions
@@ -148,6 +148,7 @@ logbook + kennel directory.
 - `src/adapters/html-scraper/generic.ts` — Generic config-driven HTML scraper (CSS selector-based, AI-assisted setup)
 - `src/adapters/html-scraper/examples.ts` — Static adapter pattern catalog for AI few-shot learning (7 layout examples)
 - `src/adapters/static-schedule/adapter.ts` — STATIC_SCHEDULE adapter (RRULE-based event generation, no external fetch)
+- `src/adapters/facebook-hosted-events/adapter.ts` + `parser.ts` — FACEBOOK_HOSTED_EVENTS adapter (logged-out scrape of `/upcoming_hosted_events`, SSR'd GraphQL JSON-island parser, ID-merged time + rich nodes)
 - `src/adapters/utils.ts` — Shared adapter utilities (date parsing, field extraction)
 - `src/pipeline/merge.ts` — Raw→Canonical merge pipeline (fingerprint dedup + source-kennel guard)
 - `src/pipeline/kennel-resolver.ts` — Alias-based kennel name resolution (with pattern fallback)
@@ -422,7 +423,8 @@ logbook + kennel directory.
 - **Palmetto H3 Static Schedule** → STATIC_SCHEDULE → PalH3
 - **Upstate H3 Static Schedule** → STATIC_SCHEDULE → UH3
 - **GOTH3 Static Schedule** → STATIC_SCHEDULE → GOTH3
-- **Grand Strand H3 Static Schedule** → STATIC_SCHEDULE → GSH3
+- **Grand Strand H3 Static Schedule** → STATIC_SCHEDULE → GSH3 (low-trust fallback)
+- **Grand Strand H3 Facebook Hosted Events** → FACEBOOK_HOSTED_EVENTS → GSH3 (primary)
 
 ### Texas (10 sources)
 - **Austin H3 Calendar** → GOOGLE_CALENDAR → AH3

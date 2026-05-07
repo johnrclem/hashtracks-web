@@ -59,6 +59,10 @@ import {
   StaticScheduleConfigPanel,
   type StaticScheduleConfig,
 } from "./config-panels/StaticScheduleConfigPanel";
+import {
+  FacebookHostedEventsConfigPanel,
+  type FacebookHostedEventsConfig,
+} from "./config-panels/FacebookHostedEventsConfigPanel";
 
 const SOURCE_TYPES = [
   "HTML_SCRAPER",
@@ -69,6 +73,7 @@ const SOURCE_TYPES = [
   "MEETUP",
   "RSS_FEED",
   "STATIC_SCHEDULE",
+  "FACEBOOK_HOSTED_EVENTS",
   "JSON_API",
   "MANUAL",
 ] as const;
@@ -81,10 +86,19 @@ const CONFIG_TYPES = new Set([
   "MEETUP",
   "RSS_FEED",
   "STATIC_SCHEDULE",
+  "FACEBOOK_HOSTED_EVENTS",
 ]);
 
 /** Types that get a dedicated config panel (vs raw JSON) */
-const PANEL_TYPES = new Set(["GOOGLE_CALENDAR", "ICAL_FEED", "GOOGLE_SHEETS", "MEETUP", "RSS_FEED", "STATIC_SCHEDULE"]);
+const PANEL_TYPES = new Set([
+  "GOOGLE_CALENDAR",
+  "ICAL_FEED",
+  "GOOGLE_SHEETS",
+  "MEETUP",
+  "RSS_FEED",
+  "STATIC_SCHEDULE",
+  "FACEBOOK_HOSTED_EVENTS",
+]);
 
 type SourceData = {
   id: string;
@@ -203,13 +217,14 @@ export function SourceForm({ source, allKennels, allRegions, openAlertTags, gemi
   function getPanelType(
     type: string,
     config: Record<string, unknown> | null,
-  ): "ical" | "calendar" | "sheets" | "meetup" | "rss" | "static-schedule" | null {
+  ): "ical" | "calendar" | "sheets" | "meetup" | "rss" | "static-schedule" | "fb-hosted-events" | null {
     if (type === "ICAL_FEED" || (type === "HTML_SCRAPER" && hasICalConfigShape(config))) return "ical";
     if (type === "GOOGLE_CALENDAR") return "calendar";
     if (type === "GOOGLE_SHEETS") return "sheets";
     if (type === "MEETUP") return "meetup";
     if (type === "RSS_FEED") return "rss";
     if (type === "STATIC_SCHEDULE") return "static-schedule";
+    if (type === "FACEBOOK_HOSTED_EVENTS") return "fb-hosted-events";
     return null;
   }
 
@@ -224,7 +239,7 @@ export function SourceForm({ source, allKennels, allRegions, openAlertTags, gemi
   }
 
   /** Sync structured config object → raw JSON string */
-  function handleConfigChange(newConfig: CalendarConfig | ICalConfig | SheetsConfig | MeetupConfig | RssConfig | StaticScheduleConfig) {
+  function handleConfigChange(newConfig: CalendarConfig | ICalConfig | SheetsConfig | MeetupConfig | RssConfig | StaticScheduleConfig | FacebookHostedEventsConfig) {
     // Clean undefined values
     const entries = Object.entries(newConfig).filter(
       ([, v]) => v !== undefined,
@@ -595,6 +610,19 @@ export function SourceForm({ source, allKennels, allRegions, openAlertTags, gemi
               </Label>
               <StaticScheduleConfigPanel
                 config={configObj as StaticScheduleConfig | null}
+                onChange={handleConfigChange}
+                allKennels={allKennelsWithExtra}
+              />
+            </div>
+          )}
+
+          {panelType === "fb-hosted-events" && (
+            <div className="space-y-2 rounded-md border p-4">
+              <Label className="text-sm font-semibold">
+                Facebook Hosted Events Configuration
+              </Label>
+              <FacebookHostedEventsConfigPanel
+                config={configObj as FacebookHostedEventsConfig | null}
                 onChange={handleConfigChange}
                 allKennels={allKennelsWithExtra}
               />

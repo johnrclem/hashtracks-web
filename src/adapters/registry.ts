@@ -103,6 +103,7 @@ import { MeetupAdapter } from "./meetup/adapter";
 import { RssAdapter } from "./rss/adapter";
 import { StaticScheduleAdapter } from "./static-schedule/adapter";
 import { HarrierCentralAdapter } from "./harrier-central/adapter";
+import { FacebookHostedEventsAdapter } from "./facebook-hosted-events/adapter";
 
 const adapters: Partial<Record<SourceType, () => SourceAdapter>> = {
   HTML_SCRAPER: () => new HashNYCAdapter(), // default HTML scraper
@@ -114,6 +115,7 @@ const adapters: Partial<Record<SourceType, () => SourceAdapter>> = {
   RSS_FEED: () => new RssAdapter(),
   STATIC_SCHEDULE: () => new StaticScheduleAdapter(),
   HARRIER_CENTRAL: () => new HarrierCentralAdapter(),
+  FACEBOOK_HOSTED_EVENTS: () => new FacebookHostedEventsAdapter(),
 };
 
 /** Single source of truth for URL-routed HTML scrapers: pattern, adapter name, factory. */

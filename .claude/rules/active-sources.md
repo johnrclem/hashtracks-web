@@ -172,7 +172,8 @@ globs:
 - **Palmetto H3 Static Schedule** -> STATIC_SCHEDULE -> PalH3
 - **Upstate H3 Static Schedule** -> STATIC_SCHEDULE -> UH3
 - **GOTH3 Static Schedule** -> STATIC_SCHEDULE -> GOTH3
-- **Grand Strand H3 Static Schedule** -> STATIC_SCHEDULE -> GSH3
+- **Grand Strand H3 Static Schedule** -> STATIC_SCHEDULE -> GSH3 (low-trust fallback)
+- **Grand Strand H3 Facebook Hosted Events** -> FACEBOOK_HOSTED_EVENTS -> GSH3 (primary; T2c canary)
 
 ## Texas (8 sources)
 - **Austin H3 Calendar** -> GOOGLE_CALENDAR -> AH3
