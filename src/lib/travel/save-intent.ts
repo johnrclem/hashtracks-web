@@ -27,6 +27,10 @@ export interface SaveIntentParams {
   longitude: number;
   radiusKm: number;
   timezone?: string;
+  /** Bound into the intent so a tampered redirect URL can't substitute a
+   *  different placeId between the guest Save click and the post-sign-in
+   *  auto-save — the consume side rejects mismatches. */
+  placeId?: string;
 }
 
 interface StoredIntent {
@@ -47,6 +51,7 @@ export function signatureForIntent(p: SaveIntentParams): string {
     p.longitude.toFixed(6),
     p.radiusKm,
     p.timezone ?? "",
+    p.placeId ?? "",
   ].join("|");
 }
 

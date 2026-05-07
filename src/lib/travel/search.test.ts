@@ -591,7 +591,10 @@ describe("executeTravelSearch", () => {
     expect(result.possible[0].lastConfirmedAt!.getTime()).toBe(recentEvidence.getTime());
   });
 
-  it("leaves lastConfirmedAt null when no evidence in the 12-week window", async () => {
+  it("falls back to kennel.lastEventDate when no in-window evidence (#769)", async () => {
+    // No in-window evidence, but the kennel has an all-time `lastEventDate`
+    // from outside the 12-week window. That older anchor should still
+    // surface so the Possible card explains why we listed the kennel.
     const lowRule: MockScheduleRule = {
       ...testRule,
       id: "r-low",
@@ -599,6 +602,29 @@ describe("executeTravelSearch", () => {
       confidence: "LOW",
     };
     const prisma = createMockPrisma([testKennel], [], [lowRule]);
+    const result = await executeTravelSearch(prisma, baseParams);
+
+    expect(result.possible).toHaveLength(1);
+    expect(result.possible[0].lastConfirmedAt).toBeInstanceOf(Date);
+    expect(result.possible[0].lastConfirmedAt!.getTime()).toBe(
+      testKennel.lastEventDate!.getTime(),
+    );
+  });
+
+  it("leaves lastConfirmedAt null when kennel has no history at all (#769)", async () => {
+    // Truly history-less kennel: no in-window evidence AND no all-time
+    // lastEventDate. Render path hides the line in this case.
+    const lowRule: MockScheduleRule = {
+      ...testRule,
+      id: "r-low",
+      rrule: "CADENCE=MONTHLY",
+      confidence: "LOW",
+    };
+    const historyLessKennel: MockKennel = {
+      ...testKennel,
+      lastEventDate: null,
+    };
+    const prisma = createMockPrisma([historyLessKennel], [], [lowRule]);
     const result = await executeTravelSearch(prisma, baseParams);
 
     expect(result.possible).toHaveLength(1);

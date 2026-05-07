@@ -149,26 +149,69 @@ export async function findExistingSavedSearch(
         },
       ]);
 
-    const signatures: string[] = [];
+    const placeIdSigs: string[] = [];
+    const coordSigs: string[] = [];
     for (const radiusKm of radii) {
-      signatures.push(buildSig(radiusKm, false));
-      if (placeId) signatures.push(buildSig(radiusKm, true));
+      coordSigs.push(buildSig(radiusKm, false));
+      if (placeId) placeIdSigs.push(buildSig(radiusKm, true));
     }
 
-    const match = await prisma.travelSearch.findFirst({
-      where: {
-        userId: user.id,
-        status: TravelSearchStatus.ACTIVE,
-        itinerarySignature: { in: Array.from(new Set(signatures)) },
-      },
-      select: { id: true },
-    });
-    return match?.id ?? null;
+    const queryFor = (sigs: string[]) =>
+      prisma.travelSearch.findFirst({
+        where: {
+          userId: user.id,
+          status: TravelSearchStatus.ACTIVE,
+          itinerarySignature: { in: Array.from(new Set(sigs)) },
+        },
+        select: {
+          id: true,
+          // Pulled so a placeId-bearing lookup can verify coord proximity
+          // post-query — defense against a tampered URL that pairs
+          // coords-of-A with placeId-of-B. The placeId-only signature
+          // variant ignores coords by design (it exists to absorb
+          // ~0.0001° geocoder drift), so without this check a crafted
+          // URL could resolve to trip B's id and let downstream
+          // mutations target the wrong saved row.
+          destinations: {
+            select: { latitude: true, longitude: true },
+            orderBy: { position: "asc" },
+            take: 1,
+          },
+        },
+      });
+
+    // Prefer the placeId-bearing signature so a user who has BOTH a
+    // legacy coord-only row AND a newer placeId-saved row for the same
+    // destination binds to the placeId one — `findFirst` returns
+    // undefined order on `in: [...]` matches, and downstream actions
+    // (delete/update) need to target the row the page just resolved.
+    let match = placeIdSigs.length > 0 ? await queryFor(placeIdSigs) : null;
+    if (!match) match = await queryFor(coordSigs);
+    if (!match) return null;
+
+    if (placeId) {
+      const dest = match.destinations[0];
+      if (!dest) return null;
+      const km = haversineDistance(
+        latitude,
+        longitude,
+        dest.latitude,
+        dest.longitude,
+      );
+      if (km > PLACEID_PROXIMITY_KM_LIMIT) return null;
+    }
+    return match.id;
   } catch (err) {
     console.error("[travel] findExistingSavedSearch failed", err);
     return null;
   }
 }
+
+/** Max distance between URL coords and the matched saved row's coords
+ *  when the lookup used a placeId-bearing signature. Wide enough to
+ *  cover any legitimate provider drift; tight enough to reject a
+ *  cross-city `pid` tampered into the URL. */
+const PLACEID_PROXIMITY_KM_LIMIT = 10;
 
 // ============================================================================
 // saveTravelSearch

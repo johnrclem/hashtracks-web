@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { getEventDayWeather } from "./weather";
+import { getEventDayWeather, getWeatherForEvents } from "./weather";
 
 const MOCK_API_KEY = "test-api-key";
 
@@ -165,5 +165,56 @@ describe("getEventDayWeather", () => {
     expect(calledUrl).toContain("location.latitude=51.51");
     expect(calledUrl).toContain("location.longitude=-0.13");
     expect(calledUrl).toContain("weather.googleapis.com");
+  });
+
+  it("attaches an AbortSignal so a hung upstream can't stall the SSR (#768)", async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(buildWeatherResponse("2026-03-01")),
+    });
+    vi.stubGlobal("fetch", mockFetch);
+    await getEventDayWeather(51.51, -0.13, new Date("2026-03-01T12:00:00Z"));
+    const init = mockFetch.mock.calls[0][1] as RequestInit;
+    expect(init.signal).toBeInstanceOf(AbortSignal);
+  });
+});
+
+describe("getWeatherForEvents", () => {
+  beforeEach(() => {
+    vi.stubEnv("GOOGLE_WEATHER_API_KEY", "test-key");
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it("attaches an AbortSignal to each batched fetch (#768)", async () => {
+    // Pick a date inside the 10-day forecast window so the batch
+    // actually issues a fetch. Anchor on today + 1d so the test stays
+    // green regardless of when it runs.
+    const tomorrow = new Date();
+    tomorrow.setUTCHours(12, 0, 0, 0);
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+    const dateStr = tomorrow.toISOString().slice(0, 10);
+
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(buildWeatherResponse(dateStr)),
+    });
+    vi.stubGlobal("fetch", mockFetch);
+
+    await getWeatherForEvents([
+      {
+        id: "evt-1",
+        date: tomorrow,
+        latitude: 51.5,
+        longitude: -0.1,
+        kennel: { region: "London" },
+      },
+    ]);
+
+    expect(mockFetch).toHaveBeenCalled();
+    const init = mockFetch.mock.calls[0][1] as RequestInit;
+    expect(init.signal).toBeInstanceOf(AbortSignal);
   });
 });

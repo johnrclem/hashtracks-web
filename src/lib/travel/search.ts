@@ -147,7 +147,11 @@ export interface PossibleResult extends DestinationTag {
   distanceTier: DistanceTier;
   explanation: string;
   sourceLinks: SourceLink[];
-  /** Most recent confirmed event in the 12-week evidence window, or null. */
+  /** Most recent confirmed event for this kennel — preferring the
+   *  in-window 12-week evidence event so the line moves as the kennel
+   *  posts; falling back to the kennel's all-time `lastEventDate` when
+   *  no in-window evidence exists. Null only when the kennel has no
+   *  event history at all. */
   lastConfirmedAt: Date | null;
 }
 
@@ -652,9 +656,14 @@ async function runStopSearch(
   const possibleResults: PossibleResult[] = possibleProjections.map((proj) => {
     const kennel = kennelMap.get(proj.kennelId);
     const evidence = evidenceByKennel.get(proj.kennelId) ?? [];
-    const lastConfirmedAt = evidence.length > 0
+    // Prefer the most-recent in-window event so the line moves as the kennel
+    // posts. Fall back to the kennel's all-time `lastEventDate` so a Low
+    // projection still anchors to *something* — even old history justifies
+    // why we listed the kennel.
+    const recentLast = evidence.length > 0
       ? new Date(evidence.reduce((max, e) => Math.max(max, e.date.getTime()), 0))
       : null;
+    const lastConfirmedAt = recentLast ?? kennel?.lastEventDate ?? null;
     return {
       type: "possible" as const,
       destinationIndex: index,

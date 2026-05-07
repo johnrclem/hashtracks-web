@@ -718,6 +718,137 @@ describe("findExistingSavedSearch", () => {
     expect(prisma.travelSearch.findFirst).not.toHaveBeenCalled();
   });
 
+  it("queries placeId signatures first, then coord signatures on miss (#784)", async () => {
+    // First call (placeId-bearing sigs) returns null → fall back to the
+    // coord-only query. Both calls must hit `findFirst`. Order matters:
+    // placeId-saved rows must take precedence over coord-only rows when
+    // a user has both for the same destination, otherwise downstream
+    // saved-trip actions can target the wrong row.
+    vi.mocked(prisma.travelSearch.findFirst)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null);
+    await findExistingSavedSearch({ ...BASE, placeId: "ChIJplace123" });
+    const calls = vi.mocked(prisma.travelSearch.findFirst).mock.calls;
+    expect(calls).toHaveLength(2);
+    const firstSigs = (
+      calls[0][0]?.where?.itinerarySignature as { in?: string[] } | undefined
+    )?.in;
+    const secondSigs = (
+      calls[1][0]?.where?.itinerarySignature as { in?: string[] } | undefined
+    )?.in;
+    expect(firstSigs).toHaveLength(1);
+    expect(secondSigs).toHaveLength(1);
+    expect(firstSigs?.[0]).not.toBe(secondSigs?.[0]);
+  });
+
+  it("returns the placeId match without falling back to the coord query (#784)", async () => {
+    vi.mocked(prisma.travelSearch.findFirst).mockResolvedValueOnce({
+      id: "ts-placeid",
+      destinations: [{ latitude: BASE.latitude, longitude: BASE.longitude }],
+    } as never);
+    const result = await findExistingSavedSearch({
+      ...BASE,
+      placeId: "ChIJplace123",
+    });
+    expect(result).toBe("ts-placeid");
+    expect(vi.mocked(prisma.travelSearch.findFirst).mock.calls).toHaveLength(1);
+  });
+
+  it("matches a saved row whose coords drifted, via the placeId signature (#784)", async () => {
+    const SAVED_PLACE_ID = "ChIJOwg_06VPwokRYv534QaPC8g";
+    const driftedLookup = {
+      ...BASE,
+      latitude: BASE.latitude + 0.0001,
+      longitude: BASE.longitude - 0.0001,
+      placeId: SAVED_PLACE_ID,
+    };
+
+    const { computeItinerarySignature } = await import("@/lib/travel/limits");
+    const expectedSavedSig = computeItinerarySignature([
+      {
+        placeId: SAVED_PLACE_ID,
+        // canonicalStop strips coords when placeId is set; values
+        // here don't affect the signature output.
+        latitude: 0,
+        longitude: 0,
+        radiusKm: BASE.radiusKm,
+        startDate: BASE.startDate,
+        endDate: BASE.endDate,
+      },
+    ]);
+
+    vi.mocked(prisma.travelSearch.findFirst).mockResolvedValueOnce({
+      id: "ts-place-match",
+      destinations: [{ latitude: BASE.latitude, longitude: BASE.longitude }],
+    } as never);
+    const result = await findExistingSavedSearch(driftedLookup);
+    expect(result).toBe("ts-place-match");
+
+    const call = vi.mocked(prisma.travelSearch.findFirst).mock.calls[0][0];
+    const sigIn = (
+      call?.where?.itinerarySignature as { in?: string[] } | undefined
+    )?.in;
+    expect(sigIn).toContain(expectedSavedSig);
+  });
+
+  it("rejects a placeId-bearing lookup whose coords are far from the matched row (#784)", async () => {
+    // Crafted URL pairs Tokyo coords with London's placeId. The
+    // placeId-only signature would otherwise resolve to the London
+    // saved row and let the page mis-flag a totally different
+    // destination as "Saved". Proximity guard rejects this.
+    const tampered = {
+      ...BASE,
+      latitude: 35.6762, // Tokyo
+      longitude: 139.6503,
+      placeId: "ChIJdd4hrwug2EcRmSrV3Vo6llI", // London City of London
+    };
+    // First call (placeId sigs) returns the London row → guard rejects.
+    // Second call (coord sigs) also returns null since no row matches.
+    vi.mocked(prisma.travelSearch.findFirst)
+      .mockResolvedValueOnce({
+        id: "ts-london",
+        destinations: [{ latitude: 51.5074, longitude: -0.1278 }],
+      } as never)
+      .mockResolvedValueOnce(null);
+    const result = await findExistingSavedSearch(tampered);
+    expect(result).toBeNull();
+  });
+
+  it("accepts a placeId-bearing match within the 10km proximity boundary (#784)", async () => {
+    // Saved row coords ~1km north of URL coords — well within the
+    // PLACEID_PROXIMITY_KM_LIMIT cutoff. Locks the boundary against
+    // off-by-one regressions in the haversine guard.
+    vi.mocked(prisma.travelSearch.findFirst).mockResolvedValueOnce({
+      id: "ts-near",
+      destinations: [
+        { latitude: BASE.latitude + 0.009, longitude: BASE.longitude },
+      ],
+    } as never);
+    const result = await findExistingSavedSearch({
+      ...BASE,
+      placeId: "ChIJplace123",
+    });
+    expect(result).toBe("ts-near");
+  });
+
+  it("rejects a placeId-bearing match just past the 10km proximity boundary (#784)", async () => {
+    // Saved row coords ~12km from URL coords — outside the cutoff.
+    // Pairs with the boundary-accept test above to lock the threshold.
+    vi.mocked(prisma.travelSearch.findFirst)
+      .mockResolvedValueOnce({
+        id: "ts-far",
+        destinations: [
+          { latitude: BASE.latitude + 0.11, longitude: BASE.longitude },
+        ],
+      } as never)
+      .mockResolvedValueOnce(null);
+    const result = await findExistingSavedSearch({
+      ...BASE,
+      placeId: "ChIJplace123",
+    });
+    expect(result).toBeNull();
+  });
+
   it("swallows errors and returns null so the page renders as unsaved", async () => {
     vi.mocked(prisma.travelSearch.findFirst).mockRejectedValueOnce(
       new Error("db down"),

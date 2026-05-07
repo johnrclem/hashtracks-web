@@ -32,6 +32,7 @@ export function makeLegFromInitial(
     // Types mark latitude/longitude as required numbers; any LegState we
     // build from initialValues is coord-resolved by construction.
     coordsResolved: true,
+    placeId: initial.placeId,
   };
 }
 
@@ -46,6 +47,7 @@ export function legToDestParams(leg: LegState) {
     startDate: leg.startDate,
     endDate: leg.endDate,
     timezone: leg.timezone || undefined,
+    placeId: leg.placeId,
   };
 }
 
