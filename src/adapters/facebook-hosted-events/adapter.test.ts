@@ -266,10 +266,16 @@ describe("FacebookHostedEventsAdapter — fetch", () => {
     expect(result.errors[0]).toMatch(/ECONNRESET|fetch error/);
   });
 
-  it("returns 0 events silently for a small empty-page response (legit no-events case)", async () => {
-    // Small page (<200KB) + 0 events is the legit "no upcoming events"
-    // shape — pass through silently so the surrounding alerts don't fire.
-    mockedFetch.mockResolvedValueOnce(htmlResponse("<html><body>No events</body></html>"));
+  it("returns 0 events silently for an empty FB Page that ships SSR envelope markers (legit no-events case)", async () => {
+    // Real-world empty FB Page: 600KB+ SSR bundle with the envelope
+    // markers intact, just no Event nodes. The #1294 audit confirmed this
+    // is what every empty-but-active hosted_events Page looks like.
+    const emptyPageHtml =
+      `<html><body>` +
+      `<script type="application/json">{"require":[["RelayPrefetchedStreamCache","next",[],[]]]}</script>` +
+      `<div data-bbox='{"__bbox":{"complete":true,"result":{"data":null}}}'></div>` +
+      `</body></html>`;
+    mockedFetch.mockResolvedValueOnce(htmlResponse(emptyPageHtml));
     const adapter = new FacebookHostedEventsAdapter();
     const result = await adapter.fetch(
       makeSource({
@@ -392,12 +398,13 @@ describe("FacebookHostedEventsAdapter — fetch", () => {
     });
   });
 
-  it("flags a shape-break heuristic error when a heavy 200-OK response yields 0 events", async () => {
-    // A fat (>200KB) page with 0 parsed events is almost certainly an SSR
-    // shape change — surface as a non-fatal error so SCRAPE_FAILURE fires
-    // before EVENT_COUNT_ANOMALY's baseline accrues.
-    const fatHtml = "<html><body>" + "x".repeat(200_001) + "</body></html>";
-    mockedFetch.mockResolvedValueOnce(htmlResponse(fatHtml));
+  it("flags a shape-break heuristic error when SSR envelope markers are absent", async () => {
+    // A 200-OK response that's missing FB's GraphQL envelope markers
+    // (RelayPrefetchedStreamCache / __bbox) AND parses 0 events is an
+    // actual shape rotation — surface as a non-fatal error so
+    // SCRAPE_FAILURE fires before EVENT_COUNT_ANOMALY's baseline accrues.
+    const noEnvelopeHtml = "<html><body>" + "x".repeat(200_001) + "</body></html>";
+    mockedFetch.mockResolvedValueOnce(htmlResponse(noEnvelopeHtml));
     const adapter = new FacebookHostedEventsAdapter();
     const result = await adapter.fetch(
       makeSource({
@@ -409,6 +416,30 @@ describe("FacebookHostedEventsAdapter — fetch", () => {
     );
     expect(result.events).toEqual([]);
     expect(result.errors).toHaveLength(1);
-    expect(result.errors[0]).toMatch(/SSR GraphQL shape change/i);
+    expect(result.errors[0]).toMatch(/GraphQL shape change/i);
+  });
+
+  it("does NOT flag shape-break when a fat empty-Page response carries SSR envelope markers (#1294 audit fix)", async () => {
+    // Real-world: empty FB Pages still ship 600KB+ SSR bundles with the
+    // RelayPrefetchedStreamCache / __bbox envelope intact. The byte-count
+    // heuristic mis-classified those as shape rotations; the envelope
+    // check correctly identifies them as legit "no upcoming events" pages.
+    const fatEmptyWithEnvelope =
+      `<html><body>${"x".repeat(700_000)}` +
+      `<script type="application/json">{"require":[["RelayPrefetchedStreamCache","next",[],[]]]}</script>` +
+      `<div data-bbox='{"__bbox":{"complete":true,"result":{"data":null}}}'></div>` +
+      `</body></html>`;
+    mockedFetch.mockResolvedValueOnce(htmlResponse(fatEmptyWithEnvelope));
+    const adapter = new FacebookHostedEventsAdapter();
+    const result = await adapter.fetch(
+      makeSource({
+        kennelTag: "gsh3",
+        pageHandle: "GrandStrandHashing",
+        timezone: "America/New_York",
+        upcomingOnly: true,
+      }),
+    );
+    expect(result.events).toEqual([]);
+    expect(result.errors).toEqual([]);
   });
 });
