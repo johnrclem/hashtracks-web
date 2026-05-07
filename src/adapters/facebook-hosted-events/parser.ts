@@ -95,6 +95,77 @@ interface RichNode {
   };
 }
 
+/**
+ * Parsed event-detail data from `https://www.facebook.com/events/{id}/`.
+ * Mirrors only the fields we propagate into RawEventData beyond what the
+ * listing-tab parse already captures.
+ */
+export interface FacebookEventDetail {
+  /** Trimmed `event_description.text` — the post body shown on the event page. */
+  description?: string;
+}
+
+/**
+ * Parse a Facebook event detail page (`/events/{id}/`) for the post-body
+ * description. Pinned to one field for now; extend cautiously since FB
+ * shape rotation here breaks separately from the listing-tab parse.
+ *
+ * Distinguishes `event_description` (the post body) from `best_description`
+ * (the venue blurb on `event_place.best_description`). Only the former is
+ * what users want as the canonical Event description.
+ */
+export function parseFacebookEventDetail(html: string): FacebookEventDetail {
+  for (const json of extractJsonIslands(html)) {
+    const parsed = safeJsonParse(json);
+    if (parsed === undefined) continue;
+    const text = findEventDescriptionText(parsed);
+    if (text) return { description: text };
+  }
+  return {};
+}
+
+/**
+ * Walk a parsed JSON tree and return the first `event_description.text`
+ * found. Skips matches under an `event_place` parent (those are venue
+ * blurbs, not event bodies). Walks until a hit so the first valid match
+ * wins; if FB ever splits the description across two refs we'd need to
+ * extend like the listing-tab merge — leave as a follow-up if observed.
+ */
+function findEventDescriptionText(value: unknown): string | null {
+  const seen = new WeakSet<object>();
+  function walk(v: unknown, parentKey: string): string | null {
+    if (v === null || typeof v !== "object") return null;
+    if (seen.has(v as object)) return null;
+    seen.add(v as object);
+    if (Array.isArray(v)) {
+      for (const item of v) {
+        const hit = walk(item, parentKey);
+        if (hit) return hit;
+      }
+      return null;
+    }
+    const obj = v as Record<string, unknown>;
+    // Only accept event_description (the post body), never the venue
+    // best_description that lives under event_place.
+    const desc = obj.event_description;
+    if (
+      desc &&
+      typeof desc === "object" &&
+      typeof (desc as Record<string, unknown>).text === "string" &&
+      parentKey !== "event_place"
+    ) {
+      const text = ((desc as Record<string, unknown>).text as string).trim();
+      if (text.length > 0) return text;
+    }
+    for (const [k, child] of Object.entries(obj)) {
+      const hit = walk(child, k);
+      if (hit) return hit;
+    }
+    return null;
+  }
+  return walk(value, "");
+}
+
 const SCRIPT_JSON_RE = /<script[^>]*type=["']application\/json["'][^>]*>([\s\S]*?)<\/script>/gi;
 
 /** Pull every `<script type="application/json">…</script>` body. Uses

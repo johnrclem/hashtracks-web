@@ -19,11 +19,11 @@
  */
 
 import type { Source } from "@/generated/prisma/client";
-import type { SourceAdapter, ScrapeResult } from "../types";
+import type { SourceAdapter, ScrapeResult, RawEventData } from "../types";
 import { validateSourceConfig, applyDateWindow } from "../utils";
 import { safeFetch } from "../safe-fetch";
 import { isValidTimezone } from "@/lib/timezone";
-import { parseFacebookHostedEvents } from "./parser";
+import { parseFacebookHostedEvents, parseFacebookEventDetail } from "./parser";
 import { FB_PAGE_HANDLE_RE } from "./constants";
 
 /**
@@ -53,6 +53,19 @@ const DEFAULT_WINDOW_DAYS = 90;
  *  rotated and the parser-fixture needs refreshing. Calibrated against the
  *  ~900KB GSH3 fixture; FB's empty-page response is well under 50KB. */
 const SHAPE_BREAK_BYTES = 200_000;
+
+/**
+ * Cap on detail-page fetches per scrape. FB doesn't aggressively rate-limit
+ * but courtesy-throttling keeps us safely below any threshold. A typical
+ * hash-kennel Page has 1–10 upcoming events; this cap is generous headroom.
+ * The shape-break heuristic catches the case of a Page with thousands of
+ * events (likely a non-kennel handle that snuck through admin validation).
+ */
+const MAX_DETAIL_FETCHES = 30;
+/** Delay between detail-page fetches. 200ms keeps us well under the rate
+ *  thresholds anonymous browsers hit; sequential fetching is also kinder
+ *  to FB's edge cache than fan-out. */
+const DETAIL_FETCH_DELAY_MS = 200;
 
 /** Configuration shape for a FACEBOOK_HOSTED_EVENTS source. */
 export interface FacebookHostedEventsConfig {
@@ -131,7 +144,7 @@ export class FacebookHostedEventsAdapter implements SourceAdapter {
     // Honor options.days via the shared `applyDateWindow` so diagnostic
     // counts stay consistent with other adapters. Returns a new result
     // with `events` filtered + `totalBeforeFilter` set on diagnosticContext.
-    return applyDateWindow(
+    const windowed = applyDateWindow(
       {
         events: allEvents,
         errors,
@@ -145,7 +158,109 @@ export class FacebookHostedEventsAdapter implements SourceAdapter {
       },
       days,
     );
+
+    // Enrich each event with the post-body description from its detail page.
+    // The listing tab only carries the structured fields (date, location,
+    // lat/lng) — the actual hash-run blurb (hares, shiggy level, parking
+    // notes, special instructions) lives on `/events/{id}/`. Capping at
+    // MAX_DETAIL_FETCHES with sequential 200ms delays keeps us courtesy-
+    // throttled below FB's anonymous limits.
+    const enriched = await enrichWithDetails(windowed.events);
+    return {
+      ...windowed,
+      events: enriched.events,
+      errors: [...windowed.errors, ...enriched.errors],
+      diagnosticContext: {
+        ...windowed.diagnosticContext,
+        detailFetchAttempted: enriched.attempted,
+        detailFetchEnriched: enriched.enriched,
+        detailFetchFailed: enriched.failed,
+      },
+    };
   }
+}
+
+interface EnrichmentResult {
+  events: RawEventData[];
+  errors: string[];
+  attempted: number;
+  enriched: number;
+  failed: number;
+}
+
+/**
+ * Sequentially fetch each event's detail page and merge `description` into
+ * the RawEventData. Bounded by MAX_DETAIL_FETCHES to keep a misbehaving
+ * source (or an adversarially-large hosted_events list) from running an
+ * adapter into the ground; events past the cap are returned without
+ * descriptions and a single warning is surfaced.
+ *
+ * Errors on individual fetches are swallowed (description stays absent)
+ * and tallied in the diagnostic counts — a transient detail-page failure
+ * shouldn't fail the whole scrape and lose the structured listing data
+ * we already parsed successfully.
+ */
+async function enrichWithDetails(events: RawEventData[]): Promise<EnrichmentResult> {
+  const errors: string[] = [];
+  const targets = events.slice(0, MAX_DETAIL_FETCHES);
+  if (events.length > MAX_DETAIL_FETCHES) {
+    errors.push(
+      `FB hosted_events page returned ${events.length} events — only the first ${MAX_DETAIL_FETCHES} were enriched with detail-page descriptions.`,
+    );
+  }
+  const out: RawEventData[] = [];
+  let attempted = 0;
+  let enrichedCount = 0;
+  let failed = 0;
+  for (let i = 0; i < targets.length; i++) {
+    const event = targets[i];
+    const id = extractEventIdFromSourceUrl(event.sourceUrl);
+    if (!id) {
+      out.push(event);
+      continue;
+    }
+    if (i > 0) await sleep(DETAIL_FETCH_DELAY_MS);
+    attempted++;
+    try {
+      const html = await fetchEventDetailHtml(id);
+      const detail = parseFacebookEventDetail(html);
+      if (detail.description) {
+        out.push({ ...event, description: detail.description });
+        enrichedCount++;
+      } else {
+        out.push(event);
+      }
+    } catch {
+      // Swallow — listing data is still good. Failure tally surfaces in diagnostics.
+      failed++;
+      out.push(event);
+    }
+  }
+  // Tail past the cap is passed through unenriched.
+  for (let i = targets.length; i < events.length; i++) out.push(events[i]);
+  return { events: out, errors, attempted, enriched: enrichedCount, failed };
+}
+
+/** Extract the FB event id from a `https://www.facebook.com/events/{id}/`
+ *  sourceUrl. Returns null for non-FB or malformed URLs. */
+function extractEventIdFromSourceUrl(sourceUrl: string | undefined): string | null {
+  if (!sourceUrl) return null;
+  const m = sourceUrl.match(/\/events\/(\d{14,18})\//);
+  return m ? m[1] : null;
+}
+
+/** Fetch a single event detail page. Throws on network errors or non-2xx
+ *  responses so the caller can tally a failure without injecting a malformed
+ *  HTML string into the parser. */
+async function fetchEventDetailHtml(eventId: string): Promise<string> {
+  const url = `https://www.facebook.com/events/${eventId}/`;
+  const res = await safeFetch(url, { headers: FB_REQUEST_HEADERS });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.text();
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 interface ConfigValidationOk {

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { parseFacebookHostedEvents } from "./parser";
+import { parseFacebookHostedEvents, parseFacebookEventDetail } from "./parser";
 
 /**
  * Fixture captured 2026-05-07 from
@@ -224,5 +224,65 @@ describe("parseFacebookHostedEvents — edge cases", () => {
     const tokyoEvents = parseFacebookHostedEvents(html, { kennelTag: "tokyo", timezone: "Asia/Tokyo" });
     expect(laEvents[0].date).toBe("2026-05-08");
     expect(tokyoEvents[0].date).toBe("2026-05-09");
+  });
+});
+
+const DETAIL_FIXTURE = readFileSync(
+  join(__dirname, "fixtures", "grand-strand-event-1012210268147290.html.fixture"),
+  "utf-8",
+);
+
+describe("parseFacebookEventDetail — GSH3 detail-page fixture", () => {
+  it("extracts the event_description.text post body", () => {
+    const detail = parseFacebookEventDetail(DETAIL_FIXTURE);
+    expect(detail.description).toBeDefined();
+    expect(detail.description).toMatch(/Hare:\s*Lesbian/i);
+    expect(detail.description).toMatch(/Big Air/);
+    expect(detail.description).toMatch(/Mexican beers/);
+    expect(detail.description).toMatch(/Dog friendly/);
+    // Shiggy level — the project specifically tracks this per CLAUDE.md.
+    expect(detail.description).toMatch(/Shiggy 1\.69/);
+  });
+});
+
+describe("parseFacebookEventDetail — edge cases", () => {
+  it("returns an empty result when no event_description is present", () => {
+    const html = "<html><body></body></html>";
+    const detail = parseFacebookEventDetail(html);
+    expect(detail.description).toBeUndefined();
+  });
+
+  it("ignores best_description (the venue blurb, not the event body)", () => {
+    // best_description on event_place is the VENUE description; we don't want
+    // it as the event body even though both share the same shape.
+    const html = `<script type="application/json">{
+      "data":{"event":{"event_place":{"best_description":{"text":"Venue blurb — IGNORE"}}}}
+    }</script>`;
+    const detail = parseFacebookEventDetail(html);
+    expect(detail.description).toBeUndefined();
+  });
+
+  it("extracts event_description.text even when nested under arbitrary GraphQL bbox path", () => {
+    const html = `<script type="application/json">{
+      "__bbox":{"result":{"data":{"event":{"event_description":{"text":"Real body"}}}}}
+    }</script>`;
+    const detail = parseFacebookEventDetail(html);
+    expect(detail.description).toBe("Real body");
+  });
+
+  it("trims the description text", () => {
+    const html = `<script type="application/json">{
+      "data":{"event":{"event_description":{"text":"  spaced  "}}}
+    }</script>`;
+    const detail = parseFacebookEventDetail(html);
+    expect(detail.description).toBe("spaced");
+  });
+
+  it("survives malformed JSON islands without throwing", () => {
+    const html = `<script type="application/json">{ broken </script><script type="application/json">{
+      "data":{"event":{"event_description":{"text":"OK"}}}
+    }</script>`;
+    expect(() => parseFacebookEventDetail(html)).not.toThrow();
+    expect(parseFacebookEventDetail(html).description).toBe("OK");
   });
 });

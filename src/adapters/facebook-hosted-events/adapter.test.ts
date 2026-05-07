@@ -16,6 +16,11 @@ const FIXTURE_HTML = readFileSync(
   "utf-8",
 );
 
+const DETAIL_FIXTURE_HTML = readFileSync(
+  join(__dirname, "fixtures", "grand-strand-event-1012210268147290.html.fixture"),
+  "utf-8",
+);
+
 function makeSource(config: Record<string, unknown>): Source {
   return {
     id: "src-fb-test",
@@ -258,6 +263,82 @@ describe("FacebookHostedEventsAdapter — fetch", () => {
     expect(result.errors).toEqual([]);
     expect(result.events).toEqual([]);
     expect(result.diagnosticContext?.totalBeforeFilter).toBe(0);
+  });
+
+  it("enriches each parsed event with the description from its detail page", async () => {
+    // First call: listing tab. Second call: detail page for the only event.
+    mockedFetch
+      .mockResolvedValueOnce(htmlResponse(FIXTURE_HTML))
+      .mockResolvedValueOnce(htmlResponse(DETAIL_FIXTURE_HTML));
+    const adapter = new FacebookHostedEventsAdapter();
+    const result = await adapter.fetch(
+      makeSource({
+        kennelTag: "gsh3",
+        pageHandle: "GrandStrandHashing",
+        timezone: "America/New_York",
+        upcomingOnly: true,
+      }),
+      { days: 365 },
+    );
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].description).toMatch(/Hare:/);
+    // Second mock call should target the detail-page URL.
+    const detailCall = mockedFetch.mock.calls[1];
+    expect(detailCall[0]).toBe("https://www.facebook.com/events/1012210268147290/");
+    expect(result.diagnosticContext).toMatchObject({
+      detailFetchAttempted: 1,
+      detailFetchEnriched: 1,
+      detailFetchFailed: 0,
+    });
+  });
+
+  it("survives a detail-page fetch failure without dropping the listing event", async () => {
+    mockedFetch
+      .mockResolvedValueOnce(htmlResponse(FIXTURE_HTML))
+      .mockRejectedValueOnce(new Error("ECONNRESET"));
+    const adapter = new FacebookHostedEventsAdapter();
+    const result = await adapter.fetch(
+      makeSource({
+        kennelTag: "gsh3",
+        pageHandle: "GrandStrandHashing",
+        timezone: "America/New_York",
+        upcomingOnly: true,
+      }),
+      { days: 365 },
+    );
+    // Listing event still emitted, just without description.
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].description).toBeUndefined();
+    expect(result.errors).toEqual([]);
+    expect(result.diagnosticContext).toMatchObject({
+      detailFetchAttempted: 1,
+      detailFetchEnriched: 0,
+      detailFetchFailed: 1,
+    });
+  });
+
+  it("survives a detail-page non-2xx response without dropping the listing event", async () => {
+    mockedFetch.mockResolvedValueOnce(htmlResponse(FIXTURE_HTML)).mockResolvedValueOnce({
+      ok: false,
+      status: 404,
+      text: async () => "not found",
+    } as Response);
+    const adapter = new FacebookHostedEventsAdapter();
+    const result = await adapter.fetch(
+      makeSource({
+        kennelTag: "gsh3",
+        pageHandle: "GrandStrandHashing",
+        timezone: "America/New_York",
+        upcomingOnly: true,
+      }),
+      { days: 365 },
+    );
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].description).toBeUndefined();
+    expect(result.diagnosticContext).toMatchObject({
+      detailFetchAttempted: 1,
+      detailFetchFailed: 1,
+    });
   });
 
   it("flags a shape-break heuristic error when a heavy 200-OK response yields 0 events", async () => {
