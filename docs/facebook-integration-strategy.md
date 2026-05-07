@@ -120,14 +120,35 @@ Tier 1 explicitly does **not** include lunar recurrence. See Tier 2.
 
 Each Tier 2 item is a hypothesis. None of them advances to default unless its gate fires.
 
-**T2a. Lunar / observance-based recurrence in STATIC_SCHEDULE (U3).**
-Promoted from "extend the adapter" to a design exercise because the current adapter has no timezone or observance model — it computes UTC-noon dates and has WEEKLY/MONTHLY-only RRULE support ([`src/adapters/static-schedule/adapter.ts`](../src/adapters/static-schedule/adapter.ts) lines 14–25). Lunar dates require:
-- Source of moon-phase dates (astronomical calc, ephemeris API, or curated table — pick one and document the trade-off).
-- Observance rules ("full moon Saturday closest to" is not a date — it is a function of the lunar date plus a local-time anchor).
-- Per-source IANA timezone (a UTC full-moon Saturday is a different local Saturday in HK/MY).
-- Correctness tests across at least one US, one HK, and one MY full-moon kennel.
+**T2a. Lunar / observance-based recurrence in STATIC_SCHEDULE (U3) — SHIPPED via PR #1279 (2026-05-06).**
 
-Gate to ship: a design doc covering the four bullets above, reviewed before code starts. Until then, full-moon kennels stay on Google Calendar workarounds where they exist and remain deferred otherwise.
+Originally promoted from "extend the adapter" to a design exercise because the adapter had no timezone or observance model. Shipped scope:
+- Moon-phase dates computed locally via `suncalc` (MIT, ~10KB, no deps); no external API rate-limit risk.
+- Anchor model supports both **exact phase-date** (FMH3-shape — event lands on the calendar date of the astronomical phase in the kennel's TZ) and **nearest-weekday** (DCFMH3-shape — `anchorWeekday` + `anchorRule: nearest | on-or-after | on-or-before`).
+- Per-source IANA timezone projection from UTC phase instant to local kennel date.
+- XOR validation across `rrule` and `lunar` config fields, enforced at admin form, server validator, and adapter runtime.
+- `CalendarView` renders both full and new moon glyphs in the day-cell corner via the same `phaseDistance` metric used by the adapter (one-marker-per-cycle local-minimum check).
+- `FREQ=LUNAR` ScheduleRule rows wired into `scripts/backfill-schedule-rules.ts` so Travel Mode projections beyond `scrapeDays` cover lunar kennels.
+- Live-verified against FMH3 SF + DCFMH3 DMV.
+
+**T2c (NEW). FACEBOOK_HOSTED_EVENTS adapter — SHIPPED via PR #1292 (2026-05-07).**
+
+> **Correction note:** Earlier framings in this doc (and the O4 row of the capability matrix) implied that any URL-mode read against a public FB Page would hit the JS shell that profile/news-feed surfaces serve to logged-out clients. **Re-tested 2026-05-06 specifically against `https://www.facebook.com/{handle}/upcoming_hosted_events` and `/past_hosted_events` — those endpoints serve SSR'd inline GraphQL with full event tuples to a logged-out HTTP fetcher**, no headless browser, no proxy, no login wall. The earlier conclusion held for profile/news-feed surfaces; it did not hold for the dedicated hosted_events tabs. This PR ships the corrected adapter; O4 in the matrix is still accurate for non-hosted_events surfaces.
+
+Shipped scope:
+- New `FACEBOOK_HOSTED_EVENTS` SourceType with adapter + parser at `src/adapters/facebook-hosted-events/`.
+- Parser walks `<script type="application/json">` islands; FB splits each event across two related nodes (rich `__typename:Event` + time-only) sharing the same `id` — adapter buckets by id and per-field/per-axis merges (Codex passes 1–4 fixed naive overwrites that lost lat/lng).
+- Detail-page enrichment: each event's `/events/{id}/` is fetched sequentially with 200ms courtesy delays (cap 30 events/scrape) so the canonical Event ships with the post-body description (hares, shiggy level, parking, after-after) instead of just structured fields. Per-event failures bounded-sample into `diagnosticContext.detailFetchErrorSample`.
+- `upcomingOnly: true` is a structural invariant enforced at three layers (TS literal type, admin validator, adapter runtime) — without it the reconciler would interpret missing past events as cancellations.
+- 35-namespace reserved-prefix rejection (`events`, `groups`, `profile.php`, etc.) so a pasted event URL never gets saved as a `pageHandle`.
+- Required headers empirically pinned: browser User-Agent + `Sec-Fetch-Dest: document` + `Sec-Fetch-Mode: navigate` + `Sec-Fetch-Site: none`. Missing the Sec-Fetch triplet returns HTTP 400.
+- Trust level 8; canary kennel is **GSH3** (Grand Strand H3, Myrtle Beach SC). The existing STATIC_SCHEDULE source for GSH3 is kept at low trust as a fallback so cron resilience is preserved.
+- Cancellation interaction with PR #1185 admin override is automatic — `is_canceled: true` events are dropped at ingest; the existing `merge.isAdminLocked` guard prevents an FB un-cancel from flipping a deliberately-locked admin cancellation.
+- Future-add data points (cover image, RSVP counts, end time, online-flag, structured venue address) catalogued in [`event-schema-future-fields.md`](event-schema-future-fields.md) so the next person adding a FB-derived field has a verified extraction path.
+
+The doc's **existing T2c entry below (Graph API admin OAuth — Pages capability check)** is unrelated and still pending. Two different Tier 2 items happened to share a label across the strategy doc and the implementation plan; readers should treat the section labelled "T2c. Graph API admin OAuth — Pages" below as the doc's authoritative T2c.
+
+**T2a (legacy framing, kept for reference) — Gate to ship was a design doc covering moon-phase data source, observance rules, per-source IANA timezone, and US/HK/MY correctness tests.** All four bullets satisfied in PR #1279.
 
 **T2b. Paste-a-FB-post submission flow (O7).**
 Reframed from default Tier 1 to a validated pilot because there is **no evidence** kennel admins will sustainably paste posts. The earlier "10s/run" claim was unsupported. Pilot scope:
@@ -236,6 +257,18 @@ Until this snapshot exists, no percentage-based decision in this doc can fire.
 ## Decision Log
 
 This section is intentionally append-only. **New entries on top.**
+
+**2026-05-07 — T2a Lunar (PR #1279) and FACEBOOK_HOSTED_EVENTS adapter (PR #1292) shipped; URL-mode framing corrected**
+
+Two Tier 2 items merged this week:
+
+1. **T2a (Lunar STATIC_SCHEDULE) — PR #1279.** Ships exact-phase + nearest-weekday anchor models, IANA-TZ-aware projection, three-layer XOR validation across `rrule` and `lunar`, and CalendarView moon-phase glyphs. Full design intent in the original T2a Tier 2 entry above is satisfied; entry is now annotated SHIPPED.
+
+2. **FACEBOOK_HOSTED_EVENTS adapter (plan-T2c, NEW item) — PR #1292.** Net-new Tier 2 item that did not exist in this doc when it was first written. Discovered by re-testing the URL-mode assumption against `https://www.facebook.com/{handle}/upcoming_hosted_events` on 2026-05-06: that endpoint serves SSR'd inline GraphQL with full event tuples to a logged-out HTTP fetcher, contradicting the doc's earlier assumption (which was actually only true for profile/news-feed surfaces). The capability-matrix O4 row remains accurate for those non-hosted_events surfaces; the new adapter is its own narrow option, not a replacement for O4.
+
+   Mechanics shipped: dual-node parser (Codex-validated through 5 review passes), detail-page enrichment so descriptions reach the canonical Event, three-layer `upcomingOnly: true` invariant, 35-namespace reserved-prefix list, future-fields catalog at [`event-schema-future-fields.md`](event-schema-future-fields.md). Canary kennel: GSH3 (Grand Strand H3, Myrtle Beach SC) with the existing STATIC_SCHEDULE source kept as low-trust fallback for cron resilience.
+
+   **Naming note:** the implementation plan labeled this work "T2c (NEW)" because it was a new Tier 2 item; the strategy doc's existing T2c entry is the unrelated Graph API admin-OAuth Pages capability audit. Both labels coexist intentionally — the doc's T2c is still an open audit, this entry tracks a different shipped capability.
 
 **2026-04-30 — Seasonal RRULE feature dropped from Tier 1**
 
