@@ -23,6 +23,22 @@ Source → Adapter.fetch() → RawEventData[] → fingerprint dedup → RawEvent
 - **Force rescrape**: `force` param deletes existing RawEvents and re-processes from scratch
 - **`RawEventData`** is the universal contract between any adapter and the pipeline
 
+## User-Visible Fields (Capture When the Source Has Them)
+
+`RawEventData` (in `src/adapters/types.ts`) is the universal contract, but a few optional fields are easy to miss because they aren't in the "core" mental model. Each one surfaces on the event card or detail panel — capture them at adapter time when the source provides the data, even if the value is rare or only some events have it. See `.claude/rules/adapter-patterns.md` for the full conventions.
+
+| Field | Source clue | Notes |
+|---|---|---|
+| `hares` | "Hares: …", "Hare: …" | Sanitized in merge pipeline |
+| `cost` | "Cost: $5", "Hash Cash: …", currency markers | Free-form text |
+| `description` | Free-form prose paragraph (theme, on-after, what to bring, station info) | Rendered on detail panel |
+| `locationStreet` | Full street address vs. just venue name | Distinct from `location` (venue name) |
+| `endTime` | "ends at", duration markers | `"HH:MM"` local time string |
+| `trailLengthText` + `trailLengthMinMiles` + `trailLengthMaxMiles` | "Length: 3-5 Miles", "Distance: 2.69 mi", "13 km" | **Atomic bundle** — see below |
+| `difficulty` | "Shiggy Scale: 4", "Difficulty: …", "🌶️🌶️🌶️" | 1–5 only; reject out-of-range with explicit `null` |
+
+**Trail-length / Shiggy Level atomic-bundle semantics:** the merge pipeline treats `undefined` as "preserve existing" and `null` as "explicit clear". When a label is present but the value is unparseable (e.g. `Length: TBD` or `Shiggy Scale: 7`), the adapter must emit explicit `null` for the affected numerics — otherwise stale parsed values from a previous scrape silently survive (Codex caught this on PR #1266). Reference pattern: `parseTrailLength` + `parseShiggyScale` in `burlington-hash.ts`.
+
 ## What Varies Per Source (the adapter-specific work)
 
 | Concern | HTML Scraper | Browser-Rendered HTML | Google Calendar | Google Sheets | iCal Feed | Blogger API | Ghost Content API | WordPress.com API | Meetup | Hash Rego | Static Schedule |

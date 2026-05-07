@@ -30,6 +30,21 @@ All adapters implement `SourceAdapter` from `src/adapters/types.ts`. The `fetch(
 - **kennelTag:** Use `kennelCode` from seed data for stable resolution (not display names)
 - **Registration:** Add to `src/adapters/registry.ts`
 
+## Optional User-Visible Fields (Capture When Available)
+Adapter authors should opportunistically populate these when the source exposes them — every one of them surfaces on the event card or detail panel and materially improves the listing:
+
+- **`hares`** — comma-separated hare names (sanitized in merge pipeline)
+- **`location`** / **`locationStreet`** / **`locationUrl`** — venue name, full street address, Google Maps URL
+- **`startTime`** — `"HH:MM"` local time string (NOT a DateTime; see Conventions)
+- **`endTime`** — `"HH:MM"`, same convention
+- **`cost`** — free-form cost text, e.g. `"$10"`, `"$5 cash / $10 card"`, `"Free for virgins"`
+- **`description`** — free-form prose (event blurb, theme, what to bring, on-after venue, station info)
+- **`trailLengthText`** + **`trailLengthMinMiles`** + **`trailLengthMaxMiles`** — verbatim source string + parsed bounds (e.g. `"3-5 Miles"` → `text="3-5 Miles", min=3, max=5`; `"2.69"` → `text="2.69", min=max=2.69`). UI prefers `text` for display; min/max enables future filter/sort.
+- **`difficulty`** — Shiggy Scale 1–5 (UI label is "Shiggy Level"). Adapter must validate range; reject anything outside 1–5 with `null` (see atomic-bundle semantics below).
+
+**Atomic-bundle semantics for `trailLengthText` / `min` / `max` and `difficulty`:**
+The merge pipeline treats `undefined` as "preserve existing" and `null` as "explicit clear". When an adapter sees a label with an unparseable value (e.g. `Length: TBD` or `Shiggy Scale: 7`), it must emit explicit `null` for the affected numeric fields rather than `undefined`. Without this, a transition like `3-5 Miles → TBD` leaves stale `min=3, max=5` wired to fresh `text="TBD"` (silent corruption — Codex caught this on PR #1266). Reference pattern: `parseTrailLength` + `parseShiggyScale` in `burlington-hash.ts`.
+
 ## Testing Pattern
 - Test file lives next to source: `{adapter}.test.ts`
 - Save representative HTML as a string constant fixture
@@ -46,6 +61,8 @@ All adapters implement `SourceAdapter` from `src/adapters/types.ts`. The `fetch(
 - **PWA backends often expose open JSON APIs** — before falling back to browser-render, inspect the bundled `main.js` in DevTools for fetch signatures. Seletar's `HashController.php` REST-over-SQL endpoint was discovered this way and unlocked the full 1980→present archive.
 - **Historical backfill uses strict date partitioning** — adapter `>= CURDATE()`, backfill `< CURDATE()`, never overlap. Makes the one-shot script safe to re-run with no dedup index. Reference: `HISTORICAL_SQL` in `seletar-h3.ts` + `scripts/backfill-seletar-h3-history.ts`.
 - **SonarCloud regex complexity ≤ 20** — prefer multi-pass tokenizers (find section boundaries with a simple regex, then per-section line parsing) over a single regex with alternation + lookahead. Reference: two-pass `findYearHeadings` + `findRunLineStarts` in `hash-horrors.ts`.
+- **Sonar S5852 (ReDoS) flags any nested `\s*` in regex alternation** — even when linear in practice. The PR #1266 unit-strip regex went through 3 rewrites before passing: `/\s*\(?\s*miles?\s*\)?\s*$/i` → `/(?:\(miles?\)|miles?|mi)\s*$/i` → procedural `endsWith` loop over a longest-first unit list. When a regex would have any `\s*` adjacent to an alternation group, prefer string operations (`endsWith` / `startsWith` / `slice`) over fighting the analyzer. Reference: `stripTrailingUnit` + `TRAIL_LENGTH_UNITS` in `burlington-hash.ts`.
+- **Sonar S5843 regex-complexity bumps fire fast on terminator alternations** — every `\s*` quantifier and every alternation branch counts. The threshold is 20. Reference fix: split `FIELD_TERMINATORS_RE` into three smaller regexes (`FIELD_LABEL_RE`, `FIELD_KEYWORD_RE`, `PARAGRAPH_BREAK_RE`) and use `Math.min()` of their match indices via `findFirstTerminatorIndex()` in `burlington-hash.ts`.
 
 ## Reference Adapters (good starting points)
 - Simple single-kennel UK: `src/adapters/html-scraper/barnes-hash.ts`

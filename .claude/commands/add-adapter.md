@@ -6,6 +6,14 @@ Create a new HTML scraper adapter for the source at URL: $ARGUMENTS
    - Fetch the URL with `curl -s` and examine the HTML structure
    - Identify: date format, event container elements, field locations (title, hares, location, time, run number)
    - Determine date locale (en-US vs en-GB) and any timezone considerations
+   - **Scan for high-value optional fields** — many sources expose enrichment data adapter authors miss because they aren't in the "core" mental model. If the source lists any of the following, capture them as `RawEventData` fields (see [`adapter-patterns.md`](../rules/adapter-patterns.md) for the contract):
+     - **Distance / trail length** (e.g. "Length: 3-5 Miles", "Distance: 2.69 mi", "13 km") → `trailLengthText` + parsed `trailLengthMinMiles` / `trailLengthMaxMiles`
+     - **Shiggy Scale / difficulty** (typically 1–5; sometimes "🌶️🌶️🌶️" or "easy/medium/hard") → `difficulty` (validated 1–5; reject anything else with explicit `null`)
+     - **Cost / hash cash** (e.g. "Cost: $5", "$10 cash / $15 card") → `cost`
+     - **Free-form description** (theme, on-after venue, what to bring, station info) → `description`
+     - **Full street address** (vs. just venue name) → `locationStreet`
+     - **End time** → `endTime`
+   - These all surface on the event card or detail panel (see `EventCard.tsx` / `EventDetailPanel.tsx` / `[eventId]/page.tsx`). Capturing them at adapter time is much cheaper than re-scraping later.
 
 2. **Create the adapter file**
    - File: `src/adapters/html-scraper/{name}.ts`
