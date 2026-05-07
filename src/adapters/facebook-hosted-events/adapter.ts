@@ -56,12 +56,17 @@ const DEFAULT_WINDOW_DAYS = 90;
  * our parser surface is stale; if at least one is present and we still
  * parse 0 events, the Page just genuinely has no events on this tab.
  *
+ * Both markers are matched in their quoted JSON-token form so a Page
+ * coincidentally mentioning either string in plain text or a comment
+ * can't false-negative the shape-break check. Tightening per Gemini
+ * review on PR #1295.
+ *
  * Replaces the earlier byte-count heuristic (#1294 audit), which wrongly
  * flagged every 600KB+ empty-Page response as a shape break — empty FB
  * Pages still ship the full SSR bundle (Page UI, comments, photos, etc.),
  * not a stub.
  */
-const FB_SSR_ENVELOPE_MARKERS = ["RelayPrefetchedStreamCache", '"__bbox"'] as const;
+const FB_SSR_ENVELOPE_MARKERS = ['"RelayPrefetchedStreamCache"', '"__bbox"'] as const;
 
 /**
  * Cap on detail-page fetches per scrape. FB doesn't aggressively rate-limit
