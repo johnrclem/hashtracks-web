@@ -152,7 +152,7 @@ export class FacebookHostedEventsAdapter implements SourceAdapter {
     const hasEnvelopeMarker = FB_SSR_ENVELOPE_MARKERS.some((m) => html.includes(m));
     if (allEvents.length === 0 && !hasEnvelopeMarker) {
       errors.push(
-        `FB hosted_events page returned ${html.length} bytes but parser found 0 events and the SSR envelope markers are absent — likely a GraphQL shape change. Refresh the parser fixture and re-test.`,
+        `FB hosted_events page returned ${html.length} chars but parser found 0 events and the SSR envelope markers are absent — likely a GraphQL shape change. Refresh the parser fixture and re-test.`,
       );
     }
 
