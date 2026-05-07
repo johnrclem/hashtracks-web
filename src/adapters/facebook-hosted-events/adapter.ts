@@ -159,12 +159,8 @@ export class FacebookHostedEventsAdapter implements SourceAdapter {
       days,
     );
 
-    // Enrich each event with the post-body description from its detail page.
-    // The listing tab only carries the structured fields (date, location,
-    // lat/lng) — the actual hash-run blurb (hares, shiggy level, parking
-    // notes, special instructions) lives on `/events/{id}/`. Capping at
-    // MAX_DETAIL_FETCHES with sequential 200ms delays keeps us courtesy-
-    // throttled below FB's anonymous limits.
+    // The listing tab carries structured fields but no post body; the
+    // hash-run blurb (hares, shiggy, parking) lives on `/events/{id}/`.
     const enriched = await enrichWithDetails(windowed.events);
     return {
       ...windowed,
@@ -236,8 +232,7 @@ async function enrichWithDetails(events: RawEventData[]): Promise<EnrichmentResu
       out.push(event);
     }
   }
-  // Tail past the cap is passed through unenriched.
-  for (let i = targets.length; i < events.length; i++) out.push(events[i]);
+  out.push(...events.slice(MAX_DETAIL_FETCHES));
   return { events: out, errors, attempted, enriched: enrichedCount, failed };
 }
 
