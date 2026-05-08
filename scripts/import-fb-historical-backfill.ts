@@ -232,6 +232,169 @@ async function loadSourceLookup(
   return { byKennelCode, missing };
 }
 
+/** Per-run accumulators printed in the final summary. Mutating one
+ *  struct keeps `processOneShard`'s signature small. */
+interface RunTotals {
+  projected: number;
+  cancelled: number;
+  future: number;
+  unprojectable: number;
+  inserted: number;
+  alreadyPresent: number;
+  sourceless: number;
+}
+
+function newRunTotals(): RunTotals {
+  return {
+    projected: 0,
+    cancelled: 0,
+    future: 0,
+    unprojectable: 0,
+    inserted: 0,
+    alreadyPresent: 0,
+    sourceless: 0,
+  };
+}
+
+/** Static-ish dependencies threaded through the per-shard processor. */
+interface ProcessContext {
+  prisma: PrismaClient;
+  apply: boolean;
+  handleToKennels: ReadonlyMap<string, readonly string[]>;
+  byKennelCode: ReadonlyMap<string, SourceLookup>;
+  timezoneByKennel: ReadonlyMap<string, string>;
+  todayUtcMs: number;
+}
+
+/** Group projected events by their target sourceId, dropping any whose
+ *  kennelCode lacks a Source row in the DB (tallies sourceless count). */
+function groupBySourceId(
+  projected: ProjectedEvent[],
+  ctx: ProcessContext,
+  totals: RunTotals,
+): Map<string, ProjectedEvent[]> {
+  const bySourceId = new Map<string, ProjectedEvent[]>();
+  for (const p of projected) {
+    const lookup = ctx.byKennelCode.get(p.kennelCode);
+    if (!lookup) {
+      totals.sourceless++;
+      continue;
+    }
+    const existing = bySourceId.get(lookup.sourceId) ?? [];
+    existing.push(p);
+    bySourceId.set(lookup.sourceId, existing);
+  }
+  return bySourceId;
+}
+
+/** For one (sourceId, events) bucket: query existing fingerprints,
+ *  filter to fresh ones, optionally write. Returns counts the caller
+ *  can fold into the run totals. */
+async function dedupAndInsert(
+  sourceId: string,
+  events: ProjectedEvent[],
+  ctx: ProcessContext,
+): Promise<{ inserted: number; alreadyPresent: number }> {
+  const fingerprintList = events.map((e) => e.fingerprint);
+  const existingRows = await ctx.prisma.rawEvent.findMany({
+    where: { sourceId, fingerprint: { in: fingerprintList } },
+    select: { fingerprint: true },
+  });
+  const existingSet = new Set(existingRows.map((r) => r.fingerprint));
+  const toInsert = events.filter((e) => !existingSet.has(e.fingerprint));
+  if (ctx.apply && toInsert.length > 0) {
+    await ctx.prisma.rawEvent.createMany({
+      data: toInsert.map((e) => ({
+        sourceId,
+        rawData: e.rawEventData as unknown as Prisma.InputJsonValue,
+        fingerprint: e.fingerprint,
+        processed: false,
+      })),
+    });
+  }
+  return { inserted: toInsert.length, alreadyPresent: existingSet.size };
+}
+
+/** Process one CIC shard: project, dedup, insert, log. Returns the
+ *  cancelled events for the side audit file. */
+async function processOneShard(
+  shard: BackfillShard,
+  ctx: ProcessContext,
+  totals: RunTotals,
+): Promise<FacebookEventInput[]> {
+  console.log(`\n[${shard.handle}] status=${shard.status}, events=${shard.totalEvents}`);
+  const kennelCodes = ctx.handleToKennels.get(shard.handle);
+  if (!kennelCodes) {
+    console.log(`  ! handle not in HANDLE_TO_KENNELS — skipping`);
+    return [];
+  }
+  const { projected, cancelled, future, unprojectable } = projectShard(
+    shard,
+    kennelCodes,
+    ctx.timezoneByKennel,
+    ctx.todayUtcMs,
+  );
+  totals.cancelled += cancelled.length;
+  totals.future += future;
+  totals.unprojectable += unprojectable;
+  totals.projected += projected.length;
+
+  let shardInserted = 0;
+  let shardAlready = 0;
+  const bySourceId = groupBySourceId(projected, ctx, totals);
+  for (const [sourceId, events] of bySourceId) {
+    const result = await dedupAndInsert(sourceId, events, ctx);
+    shardInserted += result.inserted;
+    shardAlready += result.alreadyPresent;
+  }
+  totals.inserted += shardInserted;
+  totals.alreadyPresent += shardAlready;
+
+  console.log(
+    `  projected=${projected.length}, future_skipped=${future}, cancelled_skipped=${cancelled.length}, unprojectable=${unprojectable}`,
+  );
+  console.log(`  to_insert=${shardInserted}, already_present=${shardAlready}`);
+  return cancelled;
+}
+
+/** Cancelled events get audit-logged so they're not silently lost.
+ *  Importing them as Event.status=CANCELLED requires merge-pipeline
+ *  changes that are deliberately a separate follow-up PR. */
+function writeCancelledAudit(
+  dir: string,
+  cancelledAcrossShards: { handle: string; events: FacebookEventInput[] }[],
+): void {
+  const nonEmpty = cancelledAcrossShards.filter((s) => s.events.length > 0);
+  if (nonEmpty.length === 0) return;
+  const auditPath = join(dir, "_cancelled-events.json");
+  const payload = {
+    note: "Cancelled FB events skipped during this backfill run. Importing them as Event.status=CANCELLED requires merge-pipeline changes (see import-fb-historical-backfill.ts docstring). This file is the audit trail so a future follow-up can pick them up.",
+    generatedAt: new Date().toISOString(),
+    shards: nonEmpty,
+  };
+  writeFileSync(auditPath, JSON.stringify(payload, null, 2));
+  console.log(`\nCancelled events written to ${auditPath} (skipped from import).`);
+}
+
+function printRunSummary(shardCount: number, totals: RunTotals, apply: boolean): void {
+  console.log(`
+Summary:
+  shards processed:         ${shardCount}
+  events projected:         ${totals.projected}
+  events inserted:          ${totals.inserted}${apply ? "" : " (dry run — no writes)"}
+  events already present:   ${totals.alreadyPresent}
+  cancelled (skipped):      ${totals.cancelled}
+  future-dated (skipped):   ${totals.future}
+  unprojectable (skipped):  ${totals.unprojectable}
+  sourceless (skipped):     ${totals.sourceless}
+`);
+  if (apply) {
+    console.log("Done. The merge pipeline will canonicalize these RawEvents on its next run.");
+  } else {
+    console.log("Dry run complete. Re-run with BACKFILL_APPLY=1 to write to DB.");
+  }
+}
+
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   console.log(`Mode: ${args.apply ? "APPLY (will write to DB)" : "DRY RUN (no writes)"}`);
@@ -287,110 +450,24 @@ async function main(): Promise<void> {
     const timezoneByKennel = new Map<string, string>();
     for (const [k, v] of byKennelCode) timezoneByKennel.set(k, v.timezone);
 
+    const ctx: ProcessContext = {
+      prisma,
+      apply: args.apply,
+      handleToKennels,
+      byKennelCode,
+      timezoneByKennel,
+      todayUtcMs,
+    };
+    const totals = newRunTotals();
     const cancelledAcrossShards: { handle: string; events: FacebookEventInput[] }[] = [];
-    let totalProjected = 0;
-    let totalCancelled = 0;
-    let totalFuture = 0;
-    let totalUnprojectable = 0;
-    let totalInserted = 0;
-    let totalAlreadyPresent = 0;
-    let totalSourceless = 0;
 
     for (const shard of allShards) {
-      console.log(`\n[${shard.handle}] status=${shard.status}, events=${shard.totalEvents}`);
-      const kennelCodes = handleToKennels.get(shard.handle);
-      if (!kennelCodes) {
-        console.log(`  ! handle not in HANDLE_TO_KENNELS — skipping`);
-        continue;
-      }
-      const { projected, cancelled, future, unprojectable } = projectShard(
-        shard,
-        kennelCodes,
-        timezoneByKennel,
-        todayUtcMs,
-      );
-      totalCancelled += cancelled.length;
-      totalFuture += future;
-      totalUnprojectable += unprojectable;
+      const cancelled = await processOneShard(shard, ctx, totals);
       cancelledAcrossShards.push({ handle: shard.handle, events: cancelled });
-
-      // Group projected events by sourceId for batched fingerprint-dedup.
-      const bySourceId = new Map<string, ProjectedEvent[]>();
-      for (const p of projected) {
-        const lookup = byKennelCode.get(p.kennelCode);
-        if (!lookup) {
-          totalSourceless++;
-          continue;
-        }
-        const existing = bySourceId.get(lookup.sourceId) ?? [];
-        existing.push(p);
-        bySourceId.set(lookup.sourceId, existing);
-      }
-
-      let shardInserted = 0;
-      let shardAlready = 0;
-      for (const [sourceId, events] of bySourceId) {
-        const fingerprintList = events.map((e) => e.fingerprint);
-        const existingRows = await prisma.rawEvent.findMany({
-          where: { sourceId, fingerprint: { in: fingerprintList } },
-          select: { fingerprint: true },
-        });
-        const existingSet = new Set(existingRows.map((r) => r.fingerprint));
-        const toInsert = events.filter((e) => !existingSet.has(e.fingerprint));
-        shardAlready += existingSet.size;
-        if (args.apply && toInsert.length > 0) {
-          await prisma.rawEvent.createMany({
-            data: toInsert.map((e) => ({
-              sourceId,
-              rawData: e.rawEventData as unknown as Prisma.InputJsonValue,
-              fingerprint: e.fingerprint,
-              processed: false,
-            })),
-          });
-        }
-        shardInserted += toInsert.length;
-      }
-
-      console.log(
-        `  projected=${projected.length}, future_skipped=${future}, cancelled_skipped=${cancelled.length}, unprojectable=${unprojectable}`,
-      );
-      console.log(`  to_insert=${shardInserted}, already_present=${shardAlready}`);
-      totalProjected += projected.length;
-      totalInserted += shardInserted;
-      totalAlreadyPresent += shardAlready;
     }
 
-    // Cancelled events get audit-logged so they're not silently lost.
-    // Importing them as Event.status=CANCELLED requires merge-pipeline
-    // changes that are deliberately a separate follow-up PR.
-    if (cancelledAcrossShards.some((s) => s.events.length > 0)) {
-      const auditPath = join(args.dir, "_cancelled-events.json");
-      const payload = {
-        note: "Cancelled FB events skipped during this backfill run. Importing them as Event.status=CANCELLED requires merge-pipeline changes (see import-fb-historical-backfill.ts docstring). This file is the audit trail so a future follow-up can pick them up.",
-        generatedAt: new Date().toISOString(),
-        shards: cancelledAcrossShards.filter((s) => s.events.length > 0),
-      };
-      writeFileSync(auditPath, JSON.stringify(payload, null, 2));
-      console.log(`\nCancelled events written to ${auditPath} (skipped from import).`);
-    }
-
-    console.log(`
-Summary:
-  shards processed:         ${allShards.length}
-  events projected:         ${totalProjected}
-  events inserted:          ${totalInserted}${args.apply ? "" : " (dry run — no writes)"}
-  events already present:   ${totalAlreadyPresent}
-  cancelled (skipped):      ${totalCancelled}
-  future-dated (skipped):   ${totalFuture}
-  unprojectable (skipped):  ${totalUnprojectable}
-  sourceless (skipped):     ${totalSourceless}
-`);
-
-    if (!args.apply) {
-      console.log("Dry run complete. Re-run with BACKFILL_APPLY=1 to write to DB.");
-    } else {
-      console.log("Done. The merge pipeline will canonicalize these RawEvents on its next run.");
-    }
+    writeCancelledAudit(args.dir, cancelledAcrossShards);
+    printRunSummary(allShards.length, totals, args.apply);
   } finally {
     await prisma.$disconnect();
     await pool.end();
