@@ -42,14 +42,23 @@ export function parseLswDate(text: string): string | null {
  * Parse a single LSW hareline table row into RawEventData.
  * Expected columns: DATE, RUN NO., HARES, DESCRIPTION.
  *
- * The source table has no location column — the DESCRIPTION column is
- * editorial theme text ("Cinco de Mayo", "Summer Solstice Run", "Handover
- * Day", "LSW Reunion 2026, Bedford"). Even short values that look like
- * district names ("Shek O") are not reliable venue strings — the source
- * authors use this column for whatever annotation they want. The DESCRIPTION
- * cell is routed to `description` only; `location` is always left undefined
- * so the merge UPDATE branch is a no-op and downstream map pins / cards
- * stay clean (#1241).
+ * Policy: the DESCRIPTION cell is routed to `description` only; `location`
+ * is always left undefined (#1241).
+ *
+ * The source table has no location column. The historical adapter exploited
+ * the fact that some DESCRIPTION values were HK district names ("Shek O",
+ * "Chai Wan") to populate `location`. The live source has shifted entirely
+ * to editorial theme text — every non-empty DESCRIPTION on the upcoming
+ * hareline today is a theme ("LSW Reunion 2026, Bedford", "Summer Solstice
+ * Run", "Handover Day", "Birthday run"), not a district. Heuristics that
+ * tried to distinguish the two were silently mis-routing themes onto the
+ * map pin.
+ *
+ * Tradeoff acknowledged: a future row with a single-token district value
+ * would not produce a map pin from this adapter. That's accepted — map
+ * pins from arbitrary unlabeled strings are worse than no map pin. If LSW
+ * starts publishing structured location data, add it as a separate field
+ * rather than re-introducing the heuristic.
  *
  * Exported for unit testing.
  */

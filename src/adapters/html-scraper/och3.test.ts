@@ -524,17 +524,20 @@ describe("OCH3Adapter.fetch", () => {
       "2026-06-01",
     ]);
 
+    // 2-segment milestone: venue is inline in the title; no separate location.
     const may23 = result.events.find((e) => e.date === "2026-05-23");
     expect(may23).toBeDefined();
     expect(may23!.title).toBe("2000th Run at the Pheasantry Mogador");
     expect(may23!.hares).toBe("Jamie 'Phil the Greek' Wheadon");
     expect(may23!.location).toBeUndefined();
 
+    // 3-segment milestone: middle segment is the venue, kept on `location`
+    // so map pins / event cards get the proper field.
     const may24 = result.events.find((e) => e.date === "2026-05-24");
     expect(may24).toBeDefined();
-    expect(may24!.title).toBe("2001th Run - The Sportsman, Mogador");
+    expect(may24!.title).toBe("2001th Run");
+    expect(may24!.location).toBe("The Sportsman, Mogador");
     expect(may24!.hares).toBe("Karen 'Legolas' Hedderman");
-    expect(may24!.location).toBeUndefined();
 
     // Non-milestone entries keep the legacy {date} - {hare} - {venue} layout.
     const may18 = result.events.find((e) => e.date === "2026-05-18");

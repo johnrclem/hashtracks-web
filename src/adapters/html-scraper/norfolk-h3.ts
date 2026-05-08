@@ -50,6 +50,15 @@ const KENNEL_TAG = "Norfolk H3";
 // food/bar blurb between the address and the hares (#1257). The other labels
 // are pre-existing notes/contact prompts. A blank line (paragraph break) is
 // also a hard stop — htmlToText emits "\n\n" for </p>.
+//
+// Source-layout assumption (verified against current and historical Norfolk
+// posts): each post wraps an entire section (Venue+address, Hare(s)+names,
+// notes) in ONE <p> with <br> separators between lines. Distinct sections
+// are separate <p> elements, so blank lines reliably bound them. If the
+// Norfolk theme ever switches to per-line <p> elements (e.g. each address
+// line in its own paragraph), the blank-line stop would truncate addresses
+// at the first newline and this regex would need to drop the blank-line
+// arm in favor of explicit-label-only stops.
 const SECTION_STOP =
   /\n\s*(?:\n|Hare\(s\):|Venue:|Please\s+park|Contact\s|Afterwards\b|Wear\s|Bring\s|On\s+down\b|On-On\b)/i;
 const VENUE_RE = new RegExp(

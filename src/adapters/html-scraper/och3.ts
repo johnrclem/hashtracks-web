@@ -317,19 +317,32 @@ function parseRunEntry(
   const segments = withoutDatePrefix.split(/\s+-\s+/).map((s) => s.trim()).filter(Boolean);
 
   // Milestone-run rows ("2000th Run at the Pheasantry Mogador - Jamie 'Phil
-  // the Greek' Wheadon") swap the canonical layout: the leading segment is
-  // the actual event title (often containing the venue), and the trailing
-  // segment is the hare. Detect by 3+ digit ordinal followed by "Run" (#1273).
+  // the Greek' Wheadon", "2001th Run - The Sportsman, Mogador - Karen ...")
+  // swap the canonical {hare}-{venue} layout: the leading segment is a
+  // milestone title and the trailing segment is the hare. Detect by 3+ digit
+  // ordinal followed by "Run" (#1273).
+  //
+  // Layout disambiguation:
+  //   2-segment ("Nth Run <inline-venue> - Hare")        → title=full first, hares=last
+  //   3+ segment ("Nth Run - Venue [- Sub] - Hare")      → title=first, location=middle(s), hares=last
+  // The 3-segment split keeps milestone titles concise and gives the canonical
+  // event a usable venue for map pins.
   const isMilestone =
-    segments.length >= 2 && /^\d{3,4}(?:st|nd|rd|th)?\s+Run\b/i.test(segments[0] ?? "");
+    segments.length >= 2 && /^\d{3,4}(?:st|nd|rd|th)?\s+Run\b/i.test(segments[0]);
 
   let title: string | undefined;
   let location: string | undefined;
   let hares: string | undefined;
 
   if (isMilestone) {
-    title = segments.slice(0, -1).join(" - ");
-    hares = segments[segments.length - 1];
+    if (segments.length >= 3) {
+      title = segments[0];
+      location = segments.slice(1, -1).join(" - ");
+      hares = segments[segments.length - 1];
+    } else {
+      title = segments[0];
+      hares = segments[1];
+    }
   } else {
     title = segments.length > 0 ? segments[0] : undefined;
     if (segments.length > 1) {
