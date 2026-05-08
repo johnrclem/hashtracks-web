@@ -350,13 +350,21 @@ function stripNavBleed(title: string | undefined): string | undefined {
 }
 
 /**
- * Strip the leading date prefix off a section so the remainder is the
- * dash-delimited content. Anchored at start; the optional day-of-week
- * prefix covers stray legacy content. The simpler dateStartPattern below
- * matches at the date itself, so most sections enter without a day name.
+ * Strip the leading date off a section so the remainder is the
+ * dash-delimited content. Sections enter this function already starting
+ * at the date because the boundary scan in parseOCH3EntriesFromText
+ * matches at the digit run, never at a day-of-week prefix. The shape is:
+ *
+ *   "23rd May 2026"        — month name, optional ordinal
+ *   "1st June 2026"
+ *   "9th March"            — year-less form
+ *
+ * The trailing " - " separator (if any) is stripped in a second pass so
+ * the regex stays trivially bounded (no nested alternation, no compound
+ * quantifier overlap — Sonar S5852 friendly).
  */
-const SECTION_DATE_PREFIX_RE =
-  /^(?:(?:Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday)\s+)?\d{1,2}(?:st|nd|rd|th)?\s+[A-Z][a-z]+(?:\s+\d{4})?\s*-?\s*/i;
+const SECTION_DATE_PREFIX_RE = /^\d{1,2}[a-z]{0,2}\s+[A-Z][a-z]+(?:\s+\d{4})?/;
+const LEADING_DASH_RE = /^\s*-\s*/;
 
 /** Parse a single run entry section into a RawEventData. */
 function parseRunEntry(
@@ -378,7 +386,10 @@ function parseRunEntry(
     inferredYear = parseInt(date.slice(0, 4), 10);
   }
 
-  const withoutDatePrefix = section.replace(SECTION_DATE_PREFIX_RE, "").trim();
+  const withoutDatePrefix = section
+    .replace(SECTION_DATE_PREFIX_RE, "")
+    .replace(LEADING_DASH_RE, "")
+    .trim();
   // Section text is already whitespace-normalized by normalizeOCH3Text
   // (collapses all runs of whitespace to a single space), so a literal
   // " - " split is safe and side-steps Sonar's regex heuristic on
