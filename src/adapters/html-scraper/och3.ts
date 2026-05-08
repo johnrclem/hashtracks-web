@@ -379,8 +379,12 @@ function parseRunEntry(
   }
 
   const withoutDatePrefix = section.replace(SECTION_DATE_PREFIX_RE, "").trim();
+  // Section text is already whitespace-normalized by normalizeOCH3Text
+  // (collapses all runs of whitespace to a single space), so a literal
+  // " - " split is safe and side-steps Sonar's regex heuristic on
+  // \s+-\s+ patterns.
   const segments = withoutDatePrefix
-    .split(/\s+-\s+/)
+    .split(" - ")
     .map((s) => s.trim())
     .filter(Boolean);
 
