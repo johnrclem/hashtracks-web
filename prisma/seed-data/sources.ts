@@ -132,6 +132,9 @@ export const SOURCES = [
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 365,
+      // "Receding Hareline (Next 30 Days)" — events fall off the page once they
+      // pass, so the reconciler must not interpret that as a cancellation. (#1263)
+      config: { upcomingOnly: true },
       kennelCodes: ["nych3", "brh3", "nah3", "knick", "lil", "qbk", "si", "columbia", "harriettes-nyc", "ggfm", "nawwh3"],
     },
     {
@@ -425,6 +428,9 @@ export const SOURCES = [
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 90,
+      // Makesweat is a booking SaaS — past hashes drop off the public listing
+      // once the date passes. Reconciler must skip past events. (#1263)
+      config: { upcomingOnly: true },
       kennelCodes: ["cityh3"],
     },
     {
@@ -574,6 +580,9 @@ export const SOURCES = [
       url: "https://bristolhash.org.uk/allprint.php",
       config: {
         ...bristolConfigBase,
+        // allprint.php is the live "future runs" view — past rows drop off
+        // once the date passes. Reconciler must skip past events. (#1263)
+        upcomingOnly: true,
         rowSelector: "tr",
         columns: {
           kennelTag: "td:nth-child(1)",
@@ -979,6 +988,10 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
+      // Adapter scrapes only the current + next month's calendar pages — past
+      // months are not refetched, so a previously-visible event is "missing"
+      // on the next month rollover. Reconciler must skip past events. (#1263)
+      config: { upcomingOnly: true },
       kennelCodes: ["dh3-tx", "duhhh", "noduhhh", "fwh3", "yakh3"],
     },
     // --- El Paso (1 Google Calendar) ---
@@ -1050,7 +1063,9 @@ export const SOURCES = [
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 180,
-      config: { defaultKennelTag: "soh4" },
+      // RSS feed at /trails/feed/ is a rolling window — past trail posts scroll
+      // off as new ones are added. Reconciler must skip past events. (#1263)
+      config: { defaultKennelTag: "soh4", upcomingOnly: true },
       kennelCodes: ["soh4"],
     },
     // --- Capital District (HTML scraper) ---
@@ -1061,7 +1076,9 @@ export const SOURCES = [
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 180,
-      config: { defaultKennelTag: "halvemein" },
+      // ?log=upcoming.con is explicitly the "upcoming events" view — past trails
+      // fall off once they pass. Reconciler must skip past events. (#1263)
+      config: { defaultKennelTag: "halvemein", upcomingOnly: true },
       kennelCodes: ["halvemein"],
     },
     // --- Ithaca (HTML scraper) ---
@@ -1545,6 +1562,10 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 90,
       config: {
+        // phpBB Atom feeds are a rolling window of recent topics — past run
+        // posts scroll off as new posts arrive. Reconciler must skip past
+        // events. (#1263)
+        upcomingOnly: true,
         forums: {
           "2": { kennelTag: "ah4", hashDay: "Saturday" },
           "4": { kennelTag: "ph3-atl", hashDay: "Saturday" },
@@ -1869,6 +1890,12 @@ export const SOURCES = [
       trustLevel: 3,
       scrapeFreq: "weekly",
       scrapeDays: 90,
+      // gothh3.com is NXDOMAIN (DNS Status 3) and no replacement source has
+      // been found (no FB/IG/Hash Rego presence). STATIC_SCHEDULE generates
+      // events from the rrule without ever fetching the URL, so health
+      // appears HEALTHY despite the dead domain — disable until a human can
+      // re-onboard the kennel against a real channel. (#1231)
+      enabled: false,
       config: {
         kennelTag: "goth3",
         rrule: "FREQ=MONTHLY;BYDAY=3SA",
@@ -3145,6 +3172,9 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 365,
+      // "Next Run(s)" homepage block — older runs are removed when a new run
+      // is added. Reconciler must skip past events. (#1263)
+      config: { upcomingOnly: true },
       kennelCodes: ["hagueh3"],
     },
 
@@ -3543,6 +3573,9 @@ export const SOURCES = [
         kennelTag: "hhhpenang",
         startTime: "17:30",
         harelinePath: "/hareline/upcoming",
+        // /hareline/upcoming is the future-runs view — past rows drop off once
+        // the date passes. Reconciler must skip past events. (#1263)
+        upcomingOnly: true,
       },
       kennelCodes: ["hhhpenang"],
     },
@@ -3716,6 +3749,10 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 365,
       config: {
+        // Each per-kennel WordPress page is hand-edited by the kennel — when
+        // they post the next run, the previous one is overwritten. Reconciler
+        // must skip past events. (#1263)
+        upcomingOnly: true,
         pageIds: {
           "423": { kennelTag: "eh3-ab", defaultStartTime: "18:30" },
           "425": { kennelTag: "osh3-ab", defaultStartTime: "14:00" },
@@ -4475,7 +4512,9 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 365,
-      config: { harelineKey: "ch3" },
+      // Per-month rolling hareline — past months' runs disappear when the
+      // page rolls over. Reconciler must skip past events. (#1263)
+      config: { harelineKey: "ch3", upcomingOnly: true },
       kennelCodes: ["ch3-cm"],
     },
     // --- Chiang Mai CGH3 Hareline ---
@@ -4497,7 +4536,8 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 365,
-      config: { harelineKey: "ch4" },
+      // Per-month rolling hareline — see Chiang Mai CH3 above. (#1263)
+      config: { harelineKey: "ch4", upcomingOnly: true },
       kennelCodes: ["ch4-cm"],
     },
     // --- Chiang Mai CSH3 Hareline ---
@@ -4508,7 +4548,8 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 365,
-      config: { harelineKey: "csh3" },
+      // Per-month rolling hareline — see Chiang Mai CH3 above. (#1263)
+      config: { harelineKey: "csh3", upcomingOnly: true },
       kennelCodes: ["csh3"],
     },
     // --- Chiang Mai CBH3 Hareline ---
@@ -4530,7 +4571,9 @@ export const SOURCES = [
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 365,
-      config: {},
+      // Hareline shows only future runs — past trails are not retained on the
+      // page. Reconciler must skip past events. (#1263)
+      config: { upcomingOnly: true },
       kennelCodes: ["pattaya-h3"],
     },
     // --- Bangkok H3 (Wix — disabled, needs browser render) ---
