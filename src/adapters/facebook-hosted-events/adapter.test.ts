@@ -215,21 +215,29 @@ describe("FacebookHostedEventsAdapter — fetch", () => {
   });
 
   it("honors options.days by filtering events outside the window", async () => {
-    mockedFetch.mockResolvedValueOnce(htmlResponse(FIXTURE_HTML));
-    const adapter = new FacebookHostedEventsAdapter();
-    // Tiny ±1d window — the May 9 2026 event is outside this window so should drop.
-    // Today is 2026-05-07 per session context; ±1 day = May 6 to May 8.
-    const result = await adapter.fetch(
-      makeSource({
-        kennelTag: "gsh3",
-        pageHandle: "GrandStrandHashing",
-        timezone: "America/New_York",
-        upcomingOnly: true,
-      }),
-      { days: 1 },
-    );
-    expect(result.events).toHaveLength(0);
-    expect(result.diagnosticContext?.totalBeforeFilter).toBe(1);
+    // Pin the clock so the ±1d window relative to "today" is deterministic.
+    // The fixture's only event is on 2026-05-09; pinning today to
+    // 2026-05-07 puts the ±1 day window at May 6–May 8 and excludes it.
+    // Without this, the test drifts every day and fails on May 8/9/10.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-07T12:00:00Z"));
+    try {
+      mockedFetch.mockResolvedValueOnce(htmlResponse(FIXTURE_HTML));
+      const adapter = new FacebookHostedEventsAdapter();
+      const result = await adapter.fetch(
+        makeSource({
+          kennelTag: "gsh3",
+          pageHandle: "GrandStrandHashing",
+          timezone: "America/New_York",
+          upcomingOnly: true,
+        }),
+        { days: 1 },
+      );
+      expect(result.events).toHaveLength(0);
+      expect(result.diagnosticContext?.totalBeforeFilter).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("returns an HTTP-status error when FB responds non-2xx", async () => {
