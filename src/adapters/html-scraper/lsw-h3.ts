@@ -42,32 +42,26 @@ export function parseLswDate(text: string): string | null {
  * Parse a single LSW hareline table row into RawEventData.
  * Expected columns: DATE, RUN NO., HARES, DESCRIPTION.
  *
- * The DESCRIPTION column historically held HK district names ("Chai Wan",
- * "Shek O") so #873 mapped it to `location`. The live source has since
- * shifted to event themes / titles ("ANZAC Day Run", "Cinco de Mayo",
- * "LSW Reunion 2026, Bedford", "Birthday run", "Summer Solstice Run").
+ * Policy: the DESCRIPTION cell is routed to `description` only; `location`
+ * is always left undefined (#1241).
  *
- * Heuristic split: short single-token-or-two-tokens values are treated as
- * district-shaped venue names (kept on `location`); anything longer or with
- * trailing run-number / theme markers ("Run", "Day", "Hash") goes to
- * `description`. Empty cells stay undefined so the merge UPDATE branch is a
- * no-op (preserves descriptions from other sources / manual edits). #962.
+ * The source table has no location column. The historical adapter exploited
+ * the fact that some DESCRIPTION values were HK district names ("Shek O",
+ * "Chai Wan") to populate `location`. The live source has shifted entirely
+ * to editorial theme text — every non-empty DESCRIPTION on the upcoming
+ * hareline today is a theme ("LSW Reunion 2026, Bedford", "Summer Solstice
+ * Run", "Handover Day", "Birthday run"), not a district. Heuristics that
+ * tried to distinguish the two were silently mis-routing themes onto the
+ * map pin.
+ *
+ * Tradeoff acknowledged: a future row with a single-token district value
+ * would not produce a map pin from this adapter. That's accepted — map
+ * pins from arbitrary unlabeled strings are worse than no map pin. If LSW
+ * starts publishing structured location data, add it as a separate field
+ * rather than re-introducing the heuristic.
  *
  * Exported for unit testing.
  */
-const THEME_MARKER_RE = /\b(?:run|day|night|hash|reunion|crawl|party|year|solstice|virgin)s?\b/i; // NOSONAR — word-boundary-anchored alternation of fixed literals, no nested quantifiers
-function classifyDescriptionCell(value: string): { location?: string; description: string } {
-  const tokenCount = value.split(/\s+/).filter(Boolean).length;
-  // Short values without theme keywords look like venue/district names.
-  if (tokenCount <= 2 && !THEME_MARKER_RE.test(value)) {
-    return { location: value, description: value };
-  }
-  // Themed text: emit as description only — `sanitizeLocation` doesn't reject
-  // arbitrary strings, so leaving it on `location` would surface "ANZAC Day
-  // Run" as a venue on the canonical event.
-  return { description: value };
-}
-
 export function parseLswRow(
   cells: string[],
   sourceUrl: string,
@@ -84,17 +78,15 @@ export function parseLswRow(
   const hares = haresCell?.trim();
   const validHares = hares && !isPlaceholder(hares) ? hares : undefined;
 
-  const value = descCell?.trim() || undefined;
-  const classified = value ? classifyDescriptionCell(value) : { location: undefined, description: undefined };
+  const description = descCell?.trim() || undefined;
 
   return {
     date,
     kennelTags: [KENNEL_TAG],
     runNumber: runNumber && runNumber > 0 ? runNumber : undefined,
-    title: runNumber ? `LSW Run #${runNumber}` : value || undefined,
+    title: runNumber ? `LSW Run #${runNumber}` : description,
     hares: validHares,
-    location: classified.location,
-    description: classified.description,
+    description,
     startTime: DEFAULT_START_TIME,
     sourceUrl,
   };

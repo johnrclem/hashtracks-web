@@ -75,6 +75,10 @@ Hare: XL`;
     const event = parseEventBlock(text, SOURCE_URL);
     expect(event).not.toBeNull();
     expect(event!.runNumber).toBe(2411);
+    // Schedule-modifier parentheticals (e.g. "50+% run") are surfaced as
+    // titles alongside theme parentheticals — every Hague H3 parenthetical
+    // is user-meaningful and beats the bare "Hague H3 #NNNN" placeholder.
+    expect(event!.title).toBe("Hague H3 #2411 — 50+% run");
     expect(event!.hares).toBe("XL");
   });
 
@@ -136,6 +140,62 @@ No date info here
 Where: Some place`;
 
     expect(parseEventBlock(text, SOURCE_URL)).toBeNull();
+  });
+
+  it("captures parenthetical theme as title and strips emoji from location (#1258)", () => {
+    // Verbatim from issue #1258 / live haguehash.nl source.
+    const text = `Run 2419 (How Original Run)
+When: Wednesday, May 6
+Time: 19:00 hr
+Where: Station Voorburg 👣 under the viaduct
+Hare: XL
+Cost: non-members EUR 7.00 for a single run (includes beer and snacks)`;
+
+    const event = parseEventBlock(text, SOURCE_URL);
+    expect(event).not.toBeNull();
+    expect(event!.runNumber).toBe(2419);
+    expect(event!.title).toBe("Hague H3 #2419 — How Original Run");
+    expect(event!.location).toBe("Station Voorburg under the viaduct");
+    expect(event!.location).not.toMatch(/\p{Extended_Pictographic}/u);
+    expect(event!.hares).toBe("XL");
+  });
+
+  it("collapses internal whitespace inside parenthetical themes", () => {
+    // Multi-space / line-broken parentheticals come up when authors paste
+    // from a document — the title should still render cleanly.
+    const text = `Run 2425 (super  lazy
+  pld run)
+When: Sunday April 26
+Time: 14:00 hr
+Where: Test Location
+Hare: Tester`;
+
+    const event = parseEventBlock(text, SOURCE_URL);
+    expect(event).not.toBeNull();
+    expect(event!.title).toBe("Hague H3 #2425 — super lazy pld run");
+  });
+
+  it("captures lowercase parenthetical theme (#1258, Run 2416)", () => {
+    const text = `Run 2416 (super lazy pld run)
+When: Wednesday April 22, 19:00 sharp
+Time: 19.00 hr
+Where: Duinenmarsplein free parking Kijkduin
+Hares: Layher & FaD`;
+
+    const event = parseEventBlock(text, SOURCE_URL);
+    expect(event).not.toBeNull();
+    expect(event!.title).toBe("Hague H3 #2416 — super lazy pld run");
+  });
+
+  it("preserves non-emoji unicode in location", () => {
+    const text = `Run 2420
+When: Sunday April 26
+Time: 14:00 hr
+Where: Café Délice, 12 Rue de Béziers
+Hares: Speedy`;
+    const event = parseEventBlock(text, SOURCE_URL);
+    expect(event).not.toBeNull();
+    expect(event!.location).toBe("Café Délice, 12 Rue de Béziers");
   });
 
   it("handles & in hare names", () => {

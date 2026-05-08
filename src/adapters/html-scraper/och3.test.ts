@@ -138,7 +138,7 @@ describe("parseDetailPage", () => {
 
   it("parses full detail page with all fields", () => {
     const $ = cheerio.load(DETAIL_HTML);
-    const detail = parseDetailPage($, "http://www.och3.org.uk/next-run-details.html");
+    const detail = parseDetailPage($, "https://www.och3.org.uk/next-run-details.html");
     expect(detail).not.toBeNull();
     expect(detail!.runNumber).toBe(1989);
     expect(detail!.startTime).toBe("19:30");
@@ -148,7 +148,7 @@ describe("parseDetailPage", () => {
     expect(detail!.onInn).toBe("The Bush, Dorking");
     expect(detail!.latitude).toBeCloseTo(51.2336578, 5);
     expect(detail!.longitude).toBeCloseTo(-0.3321353, 5);
-    expect(detail!.sourceUrl).toBe("http://www.och3.org.uk/next-run-details.html");
+    expect(detail!.sourceUrl).toBe("https://www.och3.org.uk/next-run-details.html");
   });
 
   it("handles split-tag hare label", () => {
@@ -156,7 +156,7 @@ describe("parseDetailPage", () => {
       <div class="paragraph"><b>H</b>are: Speedy McHash</div>
     </body></html>`;
     const $ = cheerio.load(html);
-    const detail = parseDetailPage($, "http://www.och3.org.uk/next-run-details.html");
+    const detail = parseDetailPage($, "https://www.och3.org.uk/next-run-details.html");
     expect(detail).not.toBeNull();
     expect(detail!.hares).toBe("Speedy McHash");
   });
@@ -166,7 +166,7 @@ describe("parseDetailPage", () => {
       <div class="paragraph">Run 2000 - Sunday 15th March 2026</div>
     </body></html>`;
     const $ = cheerio.load(html);
-    const detail = parseDetailPage($, "http://www.och3.org.uk/next-run-details.html");
+    const detail = parseDetailPage($, "https://www.och3.org.uk/next-run-details.html");
     expect(detail).not.toBeNull();
     expect(detail!.runNumber).toBe(2000);
     expect(detail!.date).toBe("2026-03-15");
@@ -180,7 +180,7 @@ describe("parseDetailPage", () => {
 
   it("returns null for empty page", () => {
     const $ = cheerio.load("<html><body></body></html>");
-    const detail = parseDetailPage($, "http://www.och3.org.uk/next-run-details.html");
+    const detail = parseDetailPage($, "https://www.och3.org.uk/next-run-details.html");
     expect(detail).toBeNull();
   });
 
@@ -198,7 +198,7 @@ describe("parseDetailPage", () => {
       </div>
     </body></html>`;
     const $ = cheerio.load(html);
-    const detail = parseDetailPage($, "http://www.och3.org.uk/next-run-details.html");
+    const detail = parseDetailPage($, "https://www.och3.org.uk/next-run-details.html");
     expect(detail).not.toBeNull();
     expect(detail!.runNumber).toBe(1992);
     expect(detail!.location).toBe("The Palmerston, 31 Mill Lane, Carshalton, Surrey, SM5 2JY");
@@ -218,7 +218,7 @@ describe("mergeDetailIntoEvent", () => {
     kennelTags: ["och3"],
     title: "Anna 'Fish n Chips' Cooper",
     startTime: "19:30",
-    sourceUrl: "http://www.och3.org.uk/upcoming-run-list.html",
+    sourceUrl: "https://www.och3.org.uk/upcoming-run-list.html",
   };
 
   it("merges all detail fields into event", () => {
@@ -231,7 +231,7 @@ describe("mergeDetailIntoEvent", () => {
       latitude: 51.2336578,
       longitude: -0.3321353,
       onInn: "The Bush, Dorking",
-      sourceUrl: "http://www.och3.org.uk/next-run-details.html",
+      sourceUrl: "https://www.och3.org.uk/next-run-details.html",
     };
 
     const merged = mergeDetailIntoEvent(baseEvent, detail);
@@ -242,7 +242,7 @@ describe("mergeDetailIntoEvent", () => {
     expect(merged.latitude).toBeCloseTo(51.2336578, 5);
     expect(merged.longitude).toBeCloseTo(-0.3321353, 5);
     expect(merged.description).toBe("On Inn: The Bush, Dorking");
-    expect(merged.sourceUrl).toBe("http://www.och3.org.uk/next-run-details.html");
+    expect(merged.sourceUrl).toBe("https://www.och3.org.uk/next-run-details.html");
     // Original fields preserved
     expect(merged.kennelTags[0]).toBe("och3");
     // Title cleared because it matched the hare name (run-list sets hare as title for OCH3)
@@ -253,7 +253,7 @@ describe("mergeDetailIntoEvent", () => {
     const partialDetail = {
       date: "2026-03-09",
       runNumber: 1989,
-      sourceUrl: "http://www.och3.org.uk/next-run-details.html",
+      sourceUrl: "https://www.och3.org.uk/next-run-details.html",
     };
 
     const merged = mergeDetailIntoEvent(baseEvent, partialDetail);
@@ -311,7 +311,7 @@ describe("parseEventsPage", () => {
         </ul>
       </div>
     </body></html>`;
-    const events = parseEventsPage(html, "http://www.och3.org.uk/eventslinks.html");
+    const events = parseEventsPage(html, "https://www.och3.org.uk/eventslinks.html");
     expect(events).toHaveLength(3);
     expect(events[0].date).toBe("2026-03-22");
     expect(events[0].title).toBe("'Chipmonk's last lay' Hash");
@@ -391,7 +391,7 @@ describe("OCH3Adapter.fetch", () => {
     const adapter = new OCH3Adapter();
     const result = await adapter.fetch({
       id: "test",
-      url: "http://www.och3.org.uk/upcoming-run-list.html",
+      url: "https://www.och3.org.uk/upcoming-run-list.html",
     } as never);
 
     expect(result.events).toHaveLength(4);
@@ -417,7 +417,7 @@ describe("OCH3Adapter.fetch", () => {
     const adapter = new OCH3Adapter();
     const result = await adapter.fetch({
       id: "test",
-      url: "http://www.och3.org.uk/upcoming-run-list.html",
+      url: "https://www.och3.org.uk/upcoming-run-list.html",
     } as never);
 
     expect(result.events).toHaveLength(4);
@@ -452,7 +452,7 @@ describe("OCH3Adapter.fetch", () => {
     const adapter = new OCH3Adapter();
     const result = await adapter.fetch({
       id: "test",
-      url: "http://www.och3.org.uk/upcoming-run-list.html",
+      url: "https://www.och3.org.uk/upcoming-run-list.html",
     } as never);
 
     expect(result.events).toHaveLength(4);
@@ -475,7 +475,7 @@ describe("OCH3Adapter.fetch", () => {
     const adapter = new OCH3Adapter();
     const result = await adapter.fetch({
       id: "test",
-      url: "http://www.och3.org.uk/upcoming-run-list.html",
+      url: "https://www.och3.org.uk/upcoming-run-list.html",
     } as never);
 
     // Bug 1 fix: detail page creates new event even when not in run list
@@ -489,6 +489,68 @@ describe("OCH3Adapter.fetch", () => {
     vi.restoreAllMocks();
   });
 
+  it("parses milestone runs (2000th, 2001th) without regex collision (#1273)", async () => {
+    // Verbatim from live och3.org.uk/upcoming-run-list.html. Pre-fix the
+    // dateStartPattern matched "00th Run" / "01th Run" inside the milestone
+    // numbers, slicing the section so title="20" and hares were dropped.
+    const html = `<html><body><div class="wsite-section-wrap">
+      <p>Upcoming Runs:</p>
+      <p>10th May 2026 - Memorial Run for Lawrence ' Dynorod' Pearce - The Red Lion, Betchworth</p>
+      <p>18th May 2026 - The Fox, Coulsdon - Ray 'Sir Ray' Sterry</p>
+      <p>23rd May 2026 - 2000th Run at the Pheasantry Mogador - Jamie 'Phil the Greek' Wheadon</p>
+      <p>24th May 2026 - 2001th Run - The Sportsman, Mogador - Karen 'Legolas' Hedderman</p>
+      <p>1st June 2026 - Inn on the Pond - Merstham - Jamie 'Phil the Greek' Wheadon</p>
+    </div></body></html>`;
+
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(html, { status: 200 }))
+      .mockResolvedValueOnce(new Response("<html><body></body></html>", { status: 200 }))
+      .mockResolvedValueOnce(new Response("<html><body></body></html>", { status: 200 }));
+
+    const adapter = new OCH3Adapter();
+    const result = await adapter.fetch({
+      id: "test",
+      url: "https://www.och3.org.uk/upcoming-run-list.html",
+    } as never);
+
+    // All 5 entries parse, including the milestone rows that previously
+    // collapsed to title="20".
+    expect(result.events).toHaveLength(5);
+    expect(result.events.map((e) => e.date)).toEqual([
+      "2026-05-10",
+      "2026-05-18",
+      "2026-05-23",
+      "2026-05-24",
+      "2026-06-01",
+    ]);
+
+    // 2-segment milestone: venue is inline in the title; no separate location.
+    const may23 = result.events.find((e) => e.date === "2026-05-23");
+    expect(may23).toBeDefined();
+    expect(may23!.title).toBe("2000th Run at the Pheasantry Mogador");
+    expect(may23!.hares).toBe("Jamie 'Phil the Greek' Wheadon");
+    expect(may23!.location).toBeUndefined();
+
+    // 3-segment milestone: middle segment is the venue, kept on `location`
+    // so map pins / event cards get the proper field.
+    const may24 = result.events.find((e) => e.date === "2026-05-24");
+    expect(may24).toBeDefined();
+    expect(may24!.title).toBe("2001th Run");
+    expect(may24!.location).toBe("The Sportsman, Mogador");
+    expect(may24!.hares).toBe("Karen 'Legolas' Hedderman");
+
+    // Non-milestone entries keep the legacy {date} - {hare} - {venue} layout.
+    const may18 = result.events.find((e) => e.date === "2026-05-18");
+    expect(may18!.title).toBe("The Fox, Coulsdon");
+    expect(may18!.location).toBe("Ray 'Sir Ray' Sterry");
+
+    const jun1 = result.events.find((e) => e.date === "2026-06-01");
+    expect(jun1!.title).toBe("Inn on the Pond");
+    expect(jun1!.location).toBe("Jamie 'Phil the Greek' Wheadon");
+
+    vi.restoreAllMocks();
+  });
+
   it("returns fetch error on network failure", async () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValue(
       new Error("Network error"),
@@ -497,7 +559,7 @@ describe("OCH3Adapter.fetch", () => {
     const adapter = new OCH3Adapter();
     const result = await adapter.fetch({
       id: "test",
-      url: "http://www.och3.org.uk/upcoming-run-list.html",
+      url: "https://www.och3.org.uk/upcoming-run-list.html",
     } as never);
 
     expect(result.events).toHaveLength(0);
@@ -515,7 +577,7 @@ describe("OCH3Adapter.fetch", () => {
     const adapter = new OCH3Adapter();
     const result = await adapter.fetch({
       id: "test",
-      url: "http://www.och3.org.uk/upcoming-run-list.html",
+      url: "https://www.och3.org.uk/upcoming-run-list.html",
     } as never);
 
     expect(result.events).toHaveLength(0);
@@ -542,7 +604,7 @@ describe("OCH3Adapter.fetch", () => {
     const adapter = new OCH3Adapter();
     const result = await adapter.fetch({
       id: "test",
-      url: "http://www.och3.org.uk/upcoming-run-list.html",
+      url: "https://www.och3.org.uk/upcoming-run-list.html",
     } as never);
 
     expect(result.events).toHaveLength(1);
@@ -574,7 +636,7 @@ describe("OCH3Adapter.fetch", () => {
     const adapter = new OCH3Adapter();
     const result = await adapter.fetch({
       id: "test",
-      url: "http://www.och3.org.uk/upcoming-run-list.html",
+      url: "https://www.och3.org.uk/upcoming-run-list.html",
     } as never);
 
     // Should parse the event without script content bleeding in
@@ -608,7 +670,7 @@ describe("OCH3Adapter.fetch", () => {
     const adapter = new OCH3Adapter();
     const result = await adapter.fetch({
       id: "test",
-      url: "http://www.och3.org.uk/upcoming-run-list.html",
+      url: "https://www.och3.org.uk/upcoming-run-list.html",
     } as never);
 
     expect(result.events.length).toBeGreaterThanOrEqual(1);
@@ -639,7 +701,7 @@ describe("OCH3Adapter.fetch", () => {
     const adapter = new OCH3Adapter();
     const result = await adapter.fetch({
       id: "test",
-      url: "http://www.och3.org.uk/upcoming-run-list.html",
+      url: "https://www.och3.org.uk/upcoming-run-list.html",
     } as never);
 
     const mar22 = result.events.find(e => e.date === "2026-03-22");
@@ -665,7 +727,7 @@ describe("OCH3Adapter.fetch", () => {
     const adapter = new OCH3Adapter();
     const result = await adapter.fetch({
       id: "test",
-      url: "http://www.och3.org.uk/upcoming-run-list.html",
+      url: "https://www.och3.org.uk/upcoming-run-list.html",
     } as never);
 
     const apr6 = result.events.find(e => e.date === "2026-04-06");

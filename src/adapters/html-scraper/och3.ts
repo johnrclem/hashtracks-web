@@ -290,6 +290,82 @@ function normalizeOCH3Text(text: string): string {
     .trim();
 }
 
+interface ParsedSegments {
+  title?: string;
+  location?: string;
+  hares?: string;
+}
+
+/**
+ * Detect the milestone-run layout where the leading segment is a milestone
+ * title (e.g. "2000th Run") and the trailing segment is the hare, instead of
+ * the canonical {hare}-{venue} order. Generalized to ≥3 digits so 10000th
+ * runs etc. parse correctly (#1273).
+ */
+const MILESTONE_RUN_RE = /^\d{3,}(?:st|nd|rd|th)?\s+Run\b/i;
+
+/**
+ * Classify dash-delimited segments into title / location / hares.
+ *
+ *   Canonical row    "{date} - {hare} - {venue}"             → title=hare,
+ *                                                              location=venue
+ *   Milestone, 2-seg "{date} - {Nth Run <venue>} - {hare}"   → title=full first,
+ *                                                              hares=last
+ *   Milestone, 3+seg "{date} - {Nth Run} - {venue} - {hare}" → title=first,
+ *                                                              location=middle,
+ *                                                              hares=last
+ */
+function classifySegments(segments: string[]): ParsedSegments {
+  if (segments.length === 0) return {};
+  const first = segments[0];
+
+  if (segments.length >= 2 && MILESTONE_RUN_RE.test(first)) {
+    if (segments.length >= 3) {
+      return {
+        title: first,
+        location: segments.slice(1, -1).join(" - "),
+        hares: segments.at(-1),
+      };
+    }
+    return { title: first, hares: segments[1] };
+  }
+
+  if (segments.length === 1) return { title: first };
+
+  const last = segments.at(-1);
+  return {
+    title: first,
+    location: last && /details to follow/i.test(last) ? undefined : last,
+  };
+}
+
+/** Strip a leading boilerplate/nav fragment off a parsed title, if present. */
+function stripNavBleed(title: string | undefined): string | undefined {
+  if (!title) return undefined;
+  return (
+    title
+      .replace(/\b(?:home|about us|contact|next run|committee|links|members|gallery)\b.*$/i, "")
+      .trim() || undefined
+  );
+}
+
+/**
+ * Strip the leading date off a section so the remainder is the
+ * dash-delimited content. Sections enter this function already starting
+ * at the date because the boundary scan in parseOCH3EntriesFromText
+ * matches at the digit run, never at a day-of-week prefix. The shape is:
+ *
+ *   "23rd May 2026"        — month name, optional ordinal
+ *   "1st June 2026"
+ *   "9th March"            — year-less form
+ *
+ * The trailing " - " separator (if any) is stripped in a second pass so
+ * the regex stays trivially bounded (no nested alternation, no compound
+ * quantifier overlap — Sonar S5852 friendly).
+ */
+const SECTION_DATE_PREFIX_RE = /^\d{1,2}[a-z]{0,2}\s+[A-Z][a-z]+(?:\s+\d{4})?/;
+const LEADING_DASH_RE = /^\s*-\s*/;
+
 /** Parse a single run entry section into a RawEventData. */
 function parseRunEntry(
   section: string,
@@ -300,7 +376,7 @@ function parseRunEntry(
     return { entry: null, year: inferredYear };
   }
 
-  const explicitYearMatch = section.match(/\b(20\d{2})\b/);
+  const explicitYearMatch = /\b(20\d{2})\b/.exec(section);
   if (explicitYearMatch) inferredYear = parseInt(explicitYearMatch[1], 10);
 
   const date = parseOCH3Date(section, inferredYear);
@@ -311,23 +387,20 @@ function parseRunEntry(
   }
 
   const withoutDatePrefix = section
-    .replace(/^(?:(?:Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday)\s+)?\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+(?:\s+\d{4})?\s*-?\s*/i, "")
+    .replace(SECTION_DATE_PREFIX_RE, "")
+    .replace(LEADING_DASH_RE, "")
     .trim();
+  // Section text is already whitespace-normalized by normalizeOCH3Text
+  // (collapses all runs of whitespace to a single space), so a literal
+  // " - " split is safe and side-steps Sonar's regex heuristic on
+  // \s+-\s+ patterns.
+  const segments = withoutDatePrefix
+    .split(" - ")
+    .map((s) => s.trim())
+    .filter(Boolean);
 
-  const segments = withoutDatePrefix.split(/\s+-\s+/).map((s) => s.trim()).filter(Boolean);
-  let title = segments.length > 0 ? segments[0] : undefined;
-  // Strip nav/boilerplate phrases that bleed through from page text
-  if (title) {
-    title = title
-      .replace(/\b(?:home|about us|contact|next run|committee|links|members|gallery)\b.*$/i, "")
-      .trim() || undefined;
-  }
-
-  let location: string | undefined;
-  if (segments.length > 1) {
-    location = segments[segments.length - 1];
-    if (/details to follow/i.test(location)) location = undefined;
-  }
+  const { title: rawTitle, location, hares } = classifySegments(segments);
+  const title = stripNavBleed(rawTitle);
 
   return {
     entry: {
@@ -335,6 +408,7 @@ function parseRunEntry(
       kennelTags: ["och3"],
       title,
       location,
+      hares,
       startTime: getStartTimeForDay(extractDayOfWeek(section) ?? inferDayFromDate(date)),
       sourceUrl: baseUrl,
     },
@@ -345,8 +419,30 @@ function parseRunEntry(
 function parseOCH3EntriesFromText(text: string, baseUrl: string): RawEventData[] {
   const normalizedText = normalizeOCH3Text(text);
 
-  const dateStartPattern = /(?:(?:Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday)\s+)?\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+(?:\s+\d{4})?/gi;
-  const matches = [...normalizedText.matchAll(dateStartPattern)];
+  // Find "DD MonthName" / "DDth MonthName" / "DDth MonthName YYYY" boundaries.
+  // The regex is intentionally simple — bounded character classes, no
+  // alternation arms — and the "leading digit run can't begin mid-number"
+  // constraint is enforced as a post-filter in JS rather than as a
+  // (?<!\d) lookbehind. This keeps the engine's backtracking footprint
+  // trivially small.
+  //
+  // Without the digit-prefix filter, "2000th Run" inside "23rd May 2026 -
+  // 2000th Run" matched as "00th Run" (\d{1,2}="00", th, " Run"), creating
+  // a spurious section boundary that left title="20" and dropped hares
+  // (#1273).
+  //
+  // Day-of-week prefix is intentionally absent: when a row begins
+  // "Sunday 23rd May 2026", we slice from "23rd" and the upstream day
+  // name stays in the text. parseRunEntry's startTime fallback
+  // (extractDayOfWeek ?? inferDayFromDate) covers it.
+  const candidateRe = /\d{1,2}[a-z]{0,2}\s+[A-Z][a-z]+(?:\s+\d{4})?/g;
+  const matches: RegExpExecArray[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = candidateRe.exec(normalizedText)) !== null) {
+    const prevChar = m.index > 0 ? normalizedText[m.index - 1] : "";
+    if (prevChar >= "0" && prevChar <= "9") continue;
+    matches.push(m);
+  }
 
   const entries: RawEventData[] = [];
   let inferredYear: number | undefined;
