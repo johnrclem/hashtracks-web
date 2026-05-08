@@ -17,6 +17,7 @@ import {
   extractAddressWithAi,
   stripNonEnglishCountry,
   applyWeekdayShift,
+  hasPlaceholderRunNumber,
 } from "./utils";
 import { validateSourceUrlWithDns } from "./ssrf-dns";
 
@@ -871,5 +872,39 @@ describe("applyWeekdayShift", () => {
 
   it("throws on malformed date input", () => {
     expect(() => applyWeekdayShift("not-a-date", "00:00", { from: "Friday", to: "Thursday" })).toThrow(/invalid date/);
+  });
+});
+
+// #1272/#1274/#1275 — placeholder-runNumber detection. Kennel admins use
+// `#NN[X|XX|X?|TBD|TBA|?]` to signal "next run, number not yet assigned".
+// `extractHashRunNumber` correctly rejects these, but downstream callers
+// (the GCal `extractRunNumber`) also need to distinguish "no signal" from
+// "explicit placeholder" so the merge pipeline's tri-state can clear stale
+// runNumbers from prior scrapes.
+describe("hasPlaceholderRunNumber", () => {
+  it.each<[string, string, boolean]>([
+    // Houston H4 #1272
+    ["#1272 X-suffix double", "H4 Run #25XX— Erections", true],
+    // jHav #1274
+    ["#1274 X-suffix single", "Open for Hares--Jhav Trail #208X", true],
+    // FCH3 #1275
+    ["#1275 X-question", "FCH3 #30X?: Frisky Whisk-her and CBD", true],
+    // Common variants
+    ["TBD suffix", "FCH3 #30TBD", true],
+    ["TBA suffix", "Boston #2784 TBA", true],
+    ["TBC suffix", "BH3 #2792TBC", true],
+    ["question-mark only", "FCH3 #30?", true],
+    ["lower-case x", "Run #50x", true],
+    ["space before placeholder", "Run #100 TBD", true],
+    // Negative — clean run numbers must not register as placeholders
+    ["clean simple", "FCH3 #308: Laporte", false],
+    ["clean with delimiter", "BH3 #2781", false],
+    ["clean with comma", "Hash #100, hare needed", false],
+    ["no run number", "Just a regular run", false],
+    ["bare digits", "Event 100", false],
+    ["empty", "", false],
+    ["undefined", undefined as unknown as string, false],
+  ])("%s: %j → %p", (_, input, expected) => {
+    expect(hasPlaceholderRunNumber(input)).toBe(expected);
   });
 });

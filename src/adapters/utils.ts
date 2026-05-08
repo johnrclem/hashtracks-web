@@ -703,6 +703,18 @@ export function extractHashRunNumber(text: string | undefined): number | undefin
   return Number.isFinite(n) && n > 0 ? n : undefined;
 }
 
+/**
+ * Detect placeholder run-number markers like `#25XX`, `#208X`, `#30X?`,
+ * `#30TBD`, `#100?` — "next run, number not yet assigned"
+ * (#1272/#1274/#1275). Callers emit `null` so merge.ts's tri-state clears
+ * stale runNumbers from prior scrapes when a retitle drops the digit.
+ */
+const HASH_RUN_NUMBER_PLACEHOLDER_RE =
+  /#\s*\d+\s*(?:[Xx]+\??|TBD|TBA|TBC|\?+)(?=$|[^A-Za-z0-9])/i;
+export function hasPlaceholderRunNumber(text: string | undefined): boolean {
+  return !!text && HASH_RUN_NUMBER_PLACEHOLDER_RE.test(text);
+}
+
 // ---------------------------------------------------------------------------
 // Placeholder detection — shared across adapters for TBD/TBA/TBC cleanup
 // ---------------------------------------------------------------------------

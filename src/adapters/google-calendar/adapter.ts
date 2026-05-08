@@ -1,7 +1,7 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
-import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, EVENT_FIELD_LABEL_RE, EVENT_FIELD_LABEL_UPPERCASE_RE, CTA_EMBEDDED_PATTERNS, appendDescriptionSuffix, isPlaceholder, parse12HourTime, formatAmPmTime, stripNonEnglishCountry, extractHashRunNumber } from "../utils";
+import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, EVENT_FIELD_LABEL_RE, EVENT_FIELD_LABEL_UPPERCASE_RE, CTA_EMBEDDED_PATTERNS, appendDescriptionSuffix, isPlaceholder, parse12HourTime, formatAmPmTime, stripNonEnglishCountry, extractHashRunNumber, hasPlaceholderRunNumber } from "../utils";
 import { matchKennelPatterns, matchCompiledKennelPatterns, compileKennelPatterns, type KennelPattern, type CompiledKennelPattern } from "../kennel-patterns";
 import { LOCATION_EMAIL_CTA_RE } from "@/pipeline/audit-checks";
 import { parseDMSFromLocation } from "@/lib/geo";
@@ -32,41 +32,55 @@ const DEFAULT_RUN_NUMBER_PATTERNS = [
  * Always checks summary first with `#(\d+)`. Then checks description with
  * custom patterns (if provided) or default patterns.
  * Accepts pre-compiled RegExp[] or raw string[] (compiled on the fly for one-off use).
+ *
+ * Returns:
+ *   - `number` when a clean run number is found
+ *   - `null` when the summary contains an explicit placeholder marker
+ *     (`#NN[X|XX|X?|TBD|TBA|?]`) — merge.ts's tri-state treats null as
+ *     "explicit clear" so stale runNumbers from prior scrapes get
+ *     overwritten when a kennel admin retitles to a placeholder
+ *     (#1272/#1274/#1275)
+ *   - `undefined` when no run-number signal is present (preserve existing)
  */
 export function extractRunNumber(
   summary: string,
   description?: string,
   customPatterns?: string[] | RegExp[],
-): number | undefined {
+): number | null | undefined {
   // 1. Check summary first (e.g., "Beantown #255: ...", "BH3: ... #2781", "Cunth # 40: ...").
   // Shared `extractHashRunNumber` enforces the delimiter guard (#1147) — "#30X?"
   // rejects rather than parsing as 30.
   const fromSummary = extractHashRunNumber(summary);
   if (fromSummary !== undefined) return fromSummary;
 
-  if (!description) return undefined;
-
   // 2. Fall back to description patterns
-  let patterns: RegExp[];
-  if (customPatterns && customPatterns.length > 0) {
-    patterns = typeof customPatterns[0] === "string"
-      ? compilePatterns(customPatterns as string[])
-      : customPatterns as RegExp[];
-  } else {
-    patterns = DEFAULT_RUN_NUMBER_PATTERNS;
-  }
-
-  for (const pattern of patterns) {
-    const match = pattern.exec(description);
-    if (match?.[1]) {
-      const num = Number.parseInt(match[1], 10);
-      if (!Number.isNaN(num) && num > 0) return num;
+  if (description) {
+    let patterns: RegExp[];
+    if (customPatterns && customPatterns.length > 0) {
+      patterns = typeof customPatterns[0] === "string"
+        ? compilePatterns(customPatterns as string[])
+        : customPatterns as RegExp[];
+    } else {
+      patterns = DEFAULT_RUN_NUMBER_PATTERNS;
     }
+
+    for (const pattern of patterns) {
+      const match = pattern.exec(description);
+      if (match?.[1]) {
+        const num = Number.parseInt(match[1], 10);
+        if (!Number.isNaN(num) && num > 0) return num;
+      }
+    }
+
+    // Standalone run number in description (e.g., "#2792" on its own line)
+    const standaloneMatch = /(?:^|\n)[ \t]*#(\d{3,})[ \t]*(?:\n|$)/m.exec(description);
+    if (standaloneMatch) return Number.parseInt(standaloneMatch[1], 10);
   }
 
-  // Standalone run number in description (e.g., "#2792" on its own line)
-  const standaloneMatch = /(?:^|\n)[ \t]*#(\d{3,})[ \t]*(?:\n|$)/m.exec(description);
-  if (standaloneMatch) return Number.parseInt(standaloneMatch[1], 10);
+  // 3. Explicit placeholder marker in summary → null (clear stale value).
+  // Without this, a retitle from `FCH3 #30: ...` to `FCH3 #30X?: ...`
+  // emits undefined and merge.ts preserves the stale 30 (#1275).
+  if (hasPlaceholderRunNumber(summary)) return null;
 
   return undefined;
 }
@@ -84,6 +98,25 @@ const DATE_PREFIX_NUMERIC_RE = /^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\w*[,\s]+\d{1,2}
 
 /** Strict "HH:MM" 24-hour format — guards `CalendarSourceConfig.defaultStartTime` against typos. */
 const VALID_HHMM_RE = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
+
+/**
+ * Personal-calendar drift detector for the non-hash event filter (#1271).
+ * One regex per intent keeps each pattern under SonarCloud's S5843
+ * complexity budget. Anchored at `^` so a hash title that mentions
+ * "lunch" mid-string never matches. FALSE-NEGATIVE bias — anything
+ * outside the allowlist passes through `buildRawEventFromGCalItem` even
+ * when other fields are sparse (campouts, named annual events, kennel
+ * acronyms like "TGIF Friday").
+ */
+const PERSONAL_TITLE_PATTERNS: readonly RegExp[] = [
+  /^\s*meet(?:ing)?\s+(?:for|with|up\s+with|at)\b/i,
+  /^\s*(?:lunch|dinner|brunch|breakfast|drinks|coffee)\s+with\b/i,
+  /^\s*(?:doctor|dentist|optician|orthodontist|chiropractor)(?:'s)?(?:\s+(?:appointment|visit))?\b/i,
+  /^\s*(?:appointment|interview)\s+(?:for|with|at)\b/i,
+  /^\s*pick\s+up\s+\S/i,
+  /^\s*drop\s+off\s+\S/i,
+  /^\s*call\s+(?:with|to)\b/i,
+];
 
 /** Strip leading day/date prefixes like "Wed April 1st", "Sat 3/28" from titles. */
 export function stripDatePrefix(text: string): string {
@@ -1019,12 +1052,27 @@ export function buildRawEventFromGCalItem(
   // not stored as display location. resolveCoords handles URL → address resolution.
   const locationIsUrl = location && /^https?:\/\//i.test(location);
   const cost = rawDescription ? extractCostFromDescription(rawDescription) : undefined;
+  const runNumber = extractRunNumber(summary, rawDescription, compiledRunNumberPatterns);
+
+  // #1271 — drop personal-calendar drift only when no structured signal.
+  // `runNumber !== undefined` covers both clean numbers and placeholder
+  // markers (kennel admin's intent was a hash run, even if number is TBD).
+  const hasStructuredField = !!(
+    runNumber !== undefined ||
+    hares ||
+    location ||
+    description?.trim()
+  );
+  if (!hasStructuredField && PERSONAL_TITLE_PATTERNS.some((re) => re.test(summary))) {
+    return null;
+  }
+
   const event: RawEventData = {
     date: dateISO,
     // Pass the full multi-kennel set (#1023): for single-tag patterns this
     // is `[primary]`; for array patterns it's the union of all matched kennels.
     kennelTags,
-    runNumber: extractRunNumber(summary, rawDescription, compiledRunNumberPatterns),
+    runNumber,
     title,
     description: appendDescriptionSuffix(description, sourceConfig?.descriptionSuffix),
     hares,
