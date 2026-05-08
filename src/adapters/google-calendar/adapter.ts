@@ -60,30 +60,30 @@ export function extractRunNumber(
   if (hasPlaceholderRunNumber(summary)) return null;
 
   // 3. Fall back to description patterns
-  if (description) {
-    let patterns: RegExp[];
-    if (customPatterns && customPatterns.length > 0) {
-      patterns = typeof customPatterns[0] === "string"
+  return description
+    ? extractRunNumberFromDescription(description, customPatterns)
+    : undefined;
+}
+
+function extractRunNumberFromDescription(
+  description: string,
+  customPatterns?: string[] | RegExp[],
+): number | undefined {
+  const patterns = customPatterns && customPatterns.length > 0
+    ? (typeof customPatterns[0] === "string"
         ? compilePatterns(customPatterns as string[])
-        : customPatterns as RegExp[];
-    } else {
-      patterns = DEFAULT_RUN_NUMBER_PATTERNS;
-    }
+        : customPatterns as RegExp[])
+    : DEFAULT_RUN_NUMBER_PATTERNS;
 
-    for (const pattern of patterns) {
-      const match = pattern.exec(description);
-      if (match?.[1]) {
-        const num = Number.parseInt(match[1], 10);
-        if (!Number.isNaN(num) && num > 0) return num;
-      }
-    }
-
-    // Standalone run number in description (e.g., "#2792" on its own line)
-    const standaloneMatch = /(?:^|\n)[ \t]*#(\d{3,})[ \t]*(?:\n|$)/m.exec(description);
-    if (standaloneMatch) return Number.parseInt(standaloneMatch[1], 10);
+  for (const pattern of patterns) {
+    const match = pattern.exec(description);
+    const num = match?.[1] ? Number.parseInt(match[1], 10) : NaN;
+    if (Number.isFinite(num) && num > 0) return num;
   }
 
-  return undefined;
+  // Standalone run number in description (e.g., "#2792" on its own line)
+  const standaloneMatch = /(?:^|\n)[ \t]*#(\d{3,})[ \t]*(?:\n|$)/m.exec(description);
+  return standaloneMatch ? Number.parseInt(standaloneMatch[1], 10) : undefined;
 }
 
 /** Strip the "Kennel: " or "Kennel #N: " prefix from a calendar summary to extract the event title. */
@@ -1142,13 +1142,15 @@ function compileSourceConfigPatterns(sourceConfig: CalendarSourceConfig | null) 
  *      series that share key but differ in id (#1101 CFMH3). On collision
  *      the survivor inherits non-empty fields from the donor before drop.
  */
-/** A placeholder all-day shell looks like "Giggity H3 #? (TBD)" — no run
- *  number, no real hares/location, and a title containing `#?` or a TBD/TBA/
- *  TBC marker. Real all-day entries (campouts, away weekends) will have a
- *  populated title or run number and must NOT be collapsed when a timed
- *  sibling exists on the same date. */
+/** A placeholder all-day shell looks like "Giggity H3 #? (TBD)" — no real
+ *  run number, no real hares/location, and a title containing `#?` or a
+ *  TBD/TBA/TBC marker. Real all-day entries (campouts, away weekends) will
+ *  have a populated title or numeric run number and must NOT be collapsed
+ *  when a timed sibling exists on the same date. `runNumber === null` is an
+ *  explicit placeholder-marker emission (#1272/#1274/#1275) and counts as
+ *  evidence of a shell, not as a real number. */
 function isPlaceholderShell(e: RawEventData): boolean {
-  if (e.runNumber !== undefined) return false;
+  if (typeof e.runNumber === "number" && e.runNumber > 0) return false;
   const title = (e.title ?? "").trim();
   if (!title) return true;
   if (/#\s*\?/.test(title)) return true;

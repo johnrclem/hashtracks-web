@@ -882,7 +882,7 @@ describe("applyWeekdayShift", () => {
 // "explicit placeholder" so the merge pipeline's tri-state can clear stale
 // runNumbers from prior scrapes.
 describe("hasPlaceholderRunNumber", () => {
-  it.each<[string, string, boolean]>([
+  it.each<[string, string | undefined, boolean]>([
     // Houston H4 #1272
     ["#1272 X-suffix double", "H4 Run #25XX— Erections", true],
     // jHav #1274
@@ -896,6 +896,11 @@ describe("hasPlaceholderRunNumber", () => {
     ["question-mark only", "FCH3 #30?", true],
     ["lower-case x", "Run #50x", true],
     ["space before placeholder", "Run #100 TBD", true],
+    // Digit-free placeholders — kennel admin hasn't typed any digit yet
+    // (Gemini + Claude review feedback on PR #1297).
+    ["digit-free TBD", "Run #TBD", true],
+    ["digit-free question", "Run #?", true],
+    ["digit-free X", "Run #X", true],
     // Negative — clean run numbers must not register as placeholders
     ["clean simple", "FCH3 #308: Laporte", false],
     ["clean with delimiter", "BH3 #2781", false],
@@ -903,7 +908,7 @@ describe("hasPlaceholderRunNumber", () => {
     ["no run number", "Just a regular run", false],
     ["bare digits", "Event 100", false],
     ["empty", "", false],
-    ["undefined", undefined as unknown as string, false],
+    ["undefined", undefined, false],
   ])("%s: %j → %p", (_, input, expected) => {
     expect(hasPlaceholderRunNumber(input)).toBe(expected);
   });
