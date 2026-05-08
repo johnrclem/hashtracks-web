@@ -398,6 +398,11 @@ async function ensureSources(prisma: any, sources: any[], kennelRecords: Map<str
             updates[field] = sourceData[field];
           }
         }
+        // `enabled` needs explicit handling: the truthy-guard above would skip
+        // `enabled: false`. Sync only when the seed explicitly sets the field.
+        if (sourceData.enabled !== undefined && sourceData.enabled !== existingSource.enabled) {
+          updates.enabled = sourceData.enabled;
+        }
         if (Object.keys(updates).length > 0) {
           await prisma.source.update({
             where: { id: existingSource.id },
