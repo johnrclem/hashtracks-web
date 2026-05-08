@@ -175,17 +175,49 @@ interface ProjectedEvent {
   fingerprint: string;
 }
 
+type KennelProjection =
+  | { kind: "projected"; entry: ProjectedEvent }
+  | { kind: "future" }
+  | { kind: "unprojectable" };
+
+/** Project one (event, kennelCode) pair to a `ProjectedEvent`, or report
+ *  why it was rejected (date is in cron's territory / can't project).
+ *
+ *  Strict per-kennel partition (Codex pass-1 finding): the cron adapter
+ *  owns events whose local date in this kennel's TZ is today or later.
+ *  Compare ISO date strings ("YYYY-MM-DD") rather than UTC ms — the
+ *  latter false-includes same-day events near midnight boundaries. */
+function projectOneEventForKennel(
+  event: FacebookEventInput,
+  kennelCode: string,
+  tz: string,
+  todayInTz: string,
+): KennelProjection {
+  const raw = facebookEventToRawEvent(event, kennelCode, tz);
+  if (!raw) return { kind: "unprojectable" };
+  if (raw.date >= todayInTz) return { kind: "future" };
+  return {
+    kind: "projected",
+    entry: { kennelCode, rawEventData: raw, fingerprint: generateFingerprint(raw) },
+  };
+}
+
+function getTodayInTz(now: Date, tz: string, cache: Map<string, string>): string {
+  let v = cache.get(tz);
+  if (v === undefined) {
+    v = formatYmdInTimezone(now, tz);
+    cache.set(tz, v);
+  }
+  return v;
+}
+
 /** Decide whether to skip an event (cancelled, future-dated, or
  *  un-projectable) or project it for each target kennel.
  *
- *  Date partition (Codex pass-1 finding on PR #1309): the cron adapter
- *  owns events whose date in the **kennel's local timezone** is today
- *  or later. The partition therefore has to be applied AFTER the
- *  per-kennel projection — comparing `raw.date` (which `bagToRawEvent`
- *  computes via `formatYmdInTimezone`) to today's date in that same
- *  kennel TZ. A naive global UTC-noon cutoff would leak same-day
- *  events near midnight boundaries into both the backfill and the cron
- *  path, breaking the no-overlap contract this script depends on. */
+ *  Date partition: see `projectOneEventForKennel`'s docstring. The
+ *  partition is applied AFTER the per-kennel projection because each
+ *  kennel runs in its own timezone — a global cutoff can't represent
+ *  "today" for a multi-handle shard (Berlin + Chiang Mai). */
 function projectShard(
   shard: BackfillShard,
   kennelCodes: readonly string[],
@@ -208,42 +240,32 @@ function projectShard(
       cancelled.push(event);
       continue;
     }
-    let allFuture = true;
-    let allUnprojectable = true;
+    let projectedHere = 0;
+    let futureHere = 0;
     for (const kennelCode of kennelCodes) {
       const tz = timezoneByKennel.get(kennelCode);
       if (!tz) {
         unprojectable++;
         continue;
       }
-      const raw = facebookEventToRawEvent(event, kennelCode, tz);
-      if (!raw) {
-        unprojectable++;
-        continue;
-      }
-      // Strict per-kennel partition: cron adapter owns events whose
-      // local date in this kennel's TZ is today or later. Compare ISO
-      // date strings ("YYYY-MM-DD") rather than UTC ms — the latter
-      // false-includes same-day events near midnight boundaries.
-      let todayInTz = todayByTz.get(tz);
-      if (todayInTz === undefined) {
-        todayInTz = formatYmdInTimezone(now, tz);
-        todayByTz.set(tz, todayInTz);
-      }
-      if (raw.date >= todayInTz) {
-        allUnprojectable = false; // it WAS projectable, just future
-        continue;
-      }
-      allFuture = false;
-      allUnprojectable = false;
-      projected.push({
+      const result = projectOneEventForKennel(
+        event,
         kennelCode,
-        rawEventData: raw,
-        fingerprint: generateFingerprint(raw),
-      });
+        tz,
+        getTodayInTz(now, tz, todayByTz),
+      );
+      if (result.kind === "projected") {
+        projected.push(result.entry);
+        projectedHere++;
+      } else if (result.kind === "future") {
+        futureHere++;
+      } else {
+        unprojectable++;
+      }
     }
-    // Per-event tally: count once at event level, not once per kennel.
-    if (allFuture && !allUnprojectable) future++;
+    // Per-event future tally: count once if every TZ-resolved kennel
+    // landed in the future bucket and no kennel projected.
+    if (projectedHere === 0 && futureHere > 0) future++;
   }
   return { projected, cancelled, future, unprojectable };
 }
