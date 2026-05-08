@@ -105,8 +105,7 @@ async function applyRestore(prisma: PrismaClient, sourceId: string, ids: string[
     for (const id of rejected) console.warn(`  ${id}`);
   }
   if (accepted.length === 0) {
-    console.error("No accepted ids — nothing to restore.");
-    process.exit(1);
+    throw new Error("No accepted ids — nothing to restore.");
   }
   console.log(`Restoring ${accepted.length} event(s) to CONFIRMED:`);
   for (const id of accepted) {
@@ -141,8 +140,7 @@ async function main() {
       select: { id: true, name: true, type: true },
     });
     if (!source) {
-      console.error(`Source ${sourceId} not found.`);
-      process.exit(1);
+      throw new Error(`Source ${sourceId} not found.`);
     }
     console.log(`Source: ${source.name} (${source.type})`);
 
