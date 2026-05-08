@@ -14,16 +14,25 @@
  *
  * Algorithm:
  *   1. Fetch + parse `previous.con`.
- *   2. Query DB for `Event` rows on kennel `halvemein` with `runNumber` set.
- *      The lowest such runNumber is our anchor — using the lowest (rather
- *      than the highest) keeps the anchor stable across future scrapes that
- *      ingest newer runs from `upcoming.con`.
+ *   2. Query DB for canonical `Event` rows on kennel `halvemein` with
+ *      `runNumber` set. The HIGHEST such runNumber is our anchor.
  *   3. For each archive row whose runNumber is NOT already in DB AND whose
  *      offset to the anchor is in [1, MAX_BACKWARDS_RUNS] (default 50):
  *        derivedDate = anchor.date − (anchor.runNumber − row.runNumber) × 14 days
  *   4. Skip everything else (already in DB or beyond the confidence window).
  *   5. `reportAndApplyBackfill` partitions to date < today (America/New_York)
  *      and routes through the merge pipeline (fingerprint dedup → idempotent).
+ *
+ * Why anchor on the HIGHEST runNumber:
+ *   The earlier draft anchored on the lowest runNumber, but that drifts
+ *   downward every time this backfill runs (the newly-inserted runs become
+ *   the new minimum), causing run-2 to emit another 50 older runs and
+ *   breaking idempotency (Codex review #1305). Highest-runNumber is stable:
+ *   live ingest only adds higher numbers, and this backfill never emits any
+ *   row with runNumber ≥ anchor (offset > 0 guard), so the anchor only
+ *   moves forward when the live feed advances. Combined with the
+ *   existing-run-number skip, that bounds drift on any re-emission to one
+ *   cadence step (~14 days), well within the partial-backfill error budget.
  *
  * Why ±14 days:
  *   The kennel runs every other Wednesday year-round. Special-weekend events
@@ -34,8 +43,8 @@
  *   available (issue #1249, suggested fix path 3).
  *
  * Idempotency:
- *   Anchor is chosen deterministically (min runNumber + date in DB), the walk
- *   is deterministic, and existing DB runNumbers are filtered out before
+ *   Anchor is chosen deterministically (highest runNumber + date in DB), the
+ *   walk is deterministic, and existing DB runNumbers are filtered out before
  *   emission. Re-running this script writes zero new rows.
  *
  * Usage:
@@ -47,7 +56,7 @@
 
 import "dotenv/config";
 import * as cheerio from "cheerio";
-import { reportAndApplyBackfill } from "./lib/backfill-runner";
+import { runBackfillScript } from "./lib/backfill-runner";
 import { prisma } from "@/lib/db";
 import { safeFetch } from "@/adapters/safe-fetch";
 import type { RawEventData } from "@/adapters/types";
@@ -92,7 +101,7 @@ function parseArchive(html: string): ArchiveRow[] {
 
       const runText = cells[0]?.replace(/[^\d]/g, "") ?? "";
       if (!runText) return;
-      const runNumber = parseInt(runText, 10);
+      const runNumber = Number.parseInt(runText, 10);
       if (!Number.isFinite(runNumber) || runNumber <= 0) return;
 
       const title = cells[2]?.trim() || undefined;
@@ -114,7 +123,7 @@ interface Anchor {
 }
 
 function shiftDateByDays(iso: string, deltaDays: number): string {
-  const [y, m, d] = iso.split("-").map((s) => parseInt(s, 10));
+  const [y, m, d] = iso.split("-").map((s) => Number.parseInt(s, 10));
   const out = new Date(Date.UTC(y, m - 1, d + deltaDays));
   return `${out.getUTCFullYear()}-${String(out.getUTCMonth() + 1).padStart(2, "0")}-${String(out.getUTCDate()).padStart(2, "0")}`;
 }
@@ -126,11 +135,20 @@ function buildTitle(row: ArchiveRow): string {
   return `HMHHH #${row.runNumber}`;
 }
 
+function resolveMaxBackwards(): number {
+  const raw = process.env.BACKFILL_MAX_BACKWARDS_RUNS;
+  if (raw == null || raw === "") return DEFAULT_MAX_BACKWARDS_RUNS;
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error(
+      `Invalid BACKFILL_MAX_BACKWARDS_RUNS: "${raw}". Must be a positive integer.`,
+    );
+  }
+  return parsed;
+}
+
 async function fetchEvents(): Promise<RawEventData[]> {
-  const maxBackwards = parseInt(
-    process.env.BACKFILL_MAX_BACKWARDS_RUNS ?? String(DEFAULT_MAX_BACKWARDS_RUNS),
-    10,
-  );
+  const maxBackwards = resolveMaxBackwards();
 
   console.log(`Fetching archive: ${ARCHIVE_URL}`);
   const res = await safeFetch(ARCHIVE_URL, { headers: { "User-Agent": USER_AGENT } });
@@ -149,9 +167,13 @@ async function fetchEvents(): Promise<RawEventData[]> {
   if (!kennel) {
     throw new Error(`Kennel "${KENNEL_CODE}" not found in DB.`);
   }
+  // Highest-runNumber anchor must come from canonical rows only — when two
+  // sources disagree on (kennelId, date) the merge pipeline keeps every row
+  // for audit but only flags one canonical. Anchoring on a non-canonical
+  // duplicate would let stale dates leak into derived dates.
   const dbEvents = await prisma.event.findMany({
-    where: { kennelId: kennel.id, runNumber: { not: null } },
-    orderBy: { runNumber: "asc" },
+    where: { kennelId: kennel.id, runNumber: { not: null }, isCanonical: true },
+    orderBy: { runNumber: "desc" },
     select: { runNumber: true, date: true },
   });
   const existingRuns = new Set(
@@ -159,10 +181,8 @@ async function fetchEvents(): Promise<RawEventData[]> {
       .map((e) => e.runNumber)
       .filter((n): n is number => n != null),
   );
-  // Lowest runNumber → most stable anchor: it doesn't move when the live
-  // adapter ingests newer runs from upcoming.con.
   const anchorRow = dbEvents[0];
-  if (!anchorRow || anchorRow.runNumber == null) {
+  if (anchorRow?.runNumber == null) {
     console.warn(
       "  No live event with runNumber + date found for halvemein. " +
         "Run the live scrape first to seed at least one anchor, then re-run this script.",
@@ -173,7 +193,7 @@ async function fetchEvents(): Promise<RawEventData[]> {
     runNumber: anchorRow.runNumber,
     date: anchorRow.date.toISOString().slice(0, 10),
   };
-  console.log(`  Anchor: run #${anchor.runNumber} on ${anchor.date}`);
+  console.log(`  Anchor: run #${anchor.runNumber} on ${anchor.date} (highest in DB)`);
   console.log(`  ${existingRuns.size} runs already in DB (will be skipped).`);
   console.log(`  Window: max ${maxBackwards} runs back from anchor.`);
 
@@ -189,7 +209,6 @@ async function fetchEvents(): Promise<RawEventData[]> {
     }
     const offset = anchor.runNumber - row.runNumber;
     if (offset <= 0) {
-      // newer than anchor — live adapter territory
       skipBeyondAnchor++;
       continue;
     }
@@ -216,22 +235,12 @@ async function fetchEvents(): Promise<RawEventData[]> {
   return events;
 }
 
-async function main(): Promise<void> {
-  const apply = process.env.BACKFILL_APPLY === "1";
-  console.log(`Mode: ${apply ? "APPLY (will write to DB)" : "DRY RUN (no writes)"}`);
-  console.log(`\n[1/2] Walking Halve Mein archive (date-derived from anchor)...`);
-  const events = await fetchEvents();
-  console.log(`  Total emitted: ${events.length}`);
-  console.log(`\n[2/2] Reporting + applying...`);
-  await reportAndApplyBackfill({
-    apply,
-    sourceName: SOURCE_NAME,
-    events,
-    kennelTimezone: KENNEL_TIMEZONE,
-  });
-}
-
-main().catch((err) => {
+runBackfillScript({
+  sourceName: SOURCE_NAME,
+  kennelTimezone: KENNEL_TIMEZONE,
+  label: "Walking Halve Mein archive (date-derived from anchor)",
+  fetchEvents,
+}).catch((err) => {
   console.error(err);
   process.exit(1);
 });
