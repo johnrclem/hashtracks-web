@@ -3454,7 +3454,6 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "bkk-harriettes", shortName: "BKK Harriettes", fullName: "Bangkok Harriettes Hash House Harriers",
       region: "Bangkok", country: "Thailand",
       website: "https://bangkokharriettes.wordpress.com",
-      logoUrl: "https://bangkokharriettes.wordpress.com/wp-content/uploads/2021/04/harriettesheader937.jpg",
       scheduleDayOfWeek: "Wednesday", scheduleFrequency: "Weekly",
       scheduleNotes: "Weekly Wednesday runs. Blog has only 3 posts (they reuse/overwrite a single 'Next Run' post with updated details).",
       description: "Bangkok's women's hash, running weekly Wednesday trails. One of the longest-running Harriettes chapters in Southeast Asia.",
