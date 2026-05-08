@@ -705,19 +705,29 @@ export function extractHashRunNumber(text: string | undefined): number | undefin
 
 /**
  * Detect placeholder run-number markers like `#25XX`, `#208X`, `#30X?`,
- * `#30TBD`, `#100?`, plus digit-free variants like `#TBD`, `#?`, `#X`
- * — "next run, number not yet assigned" (#1272/#1274/#1275). Callers emit
- * `null` so merge.ts's tri-state clears stale runNumbers from prior
- * scrapes when a retitle drops the digit. The `/i` flag handles case;
- * the character classes deliberately list one case only. The
- * `(?:\d+[ \t]*)?` non-capturing wrapper keeps `\d` and the trailing
- * spaces glued together — avoids the `\s*\d*\s*` triple-quantifier
- * shape that Sonar S5852 flags as ReDoS-prone.
+ * `#30TBD`, `#2784 TBA`, plus digit-free variants like `#TBD`, `#?`, `#X`
+ * — "next run, number not yet assigned" (#1272/#1274/#1275). Callers
+ * emit `null` so merge.ts's tri-state clears stale runNumbers from prior
+ * scrapes when a retitle drops the digit.
+ *
+ * Split into two patterns, each carrying at most one zero-or-more
+ * quantifier so Sonar S5852 sees them as provably linear: the digit form
+ * matches `#NN[ ?][suffix]`, the bare form matches `#[suffix]` directly.
+ * `#` is never followed by a space in real reported placeholder titles
+ * — dropping the leading `[ \t]*` after `#` keeps each pattern
+ * unambiguous.
  */
-const HASH_RUN_NUMBER_PLACEHOLDER_RE =
-  /#[ \t]*(?:\d+[ \t]*)?(?:X+\??|TBD|TBA|TBC|\?+)(?=$|[^A-Z0-9])/i;
+const HASH_PLACEHOLDER_SUFFIX = "(?:X+\\??|TBD|TBA|TBC|\\?+)(?=$|[^A-Z0-9])";
+const HASH_RUN_NUMBER_PLACEHOLDER_DIGITS_RE = new RegExp(
+  `#\\d+[ \\t]*${HASH_PLACEHOLDER_SUFFIX}`, "i",
+);
+const HASH_RUN_NUMBER_PLACEHOLDER_BARE_RE = new RegExp(
+  `#${HASH_PLACEHOLDER_SUFFIX}`, "i",
+);
 export function hasPlaceholderRunNumber(text: string | undefined): boolean {
-  return !!text && HASH_RUN_NUMBER_PLACEHOLDER_RE.test(text);
+  if (!text) return false;
+  return HASH_RUN_NUMBER_PLACEHOLDER_DIGITS_RE.test(text)
+    || HASH_RUN_NUMBER_PLACEHOLDER_BARE_RE.test(text);
 }
 
 // ---------------------------------------------------------------------------

@@ -895,7 +895,7 @@ describe("hasPlaceholderRunNumber", () => {
     ["TBC suffix", "BH3 #2792TBC", true],
     ["question-mark only", "FCH3 #30?", true],
     ["lower-case x", "Run #50x", true],
-    ["space before placeholder", "Run #100 TBD", true],
+    ["digit + space before suffix", "Run #100 TBD", true],
     // Digit-free placeholders — kennel admin hasn't typed any digit yet
     // (Gemini + Claude review feedback on PR #1297).
     ["digit-free TBD", "Run #TBD", true],
