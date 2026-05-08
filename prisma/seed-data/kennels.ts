@@ -2904,7 +2904,7 @@ export const KENNELS: KennelSeed[] = [
       scheduleFrequency: "Monthly",
       scheduleNotes: "Approximately monthly, typically the 3rd Saturday",
       hashCash: "$6", foundedYear: 1990,
-      description: "Mobile, Alabama's hash kennel, founded 1990. Hash cash $6.",
+      description: "Mobile, Alabama's hash kennel — monthly Saturday trails along the Gulf Coast.",
       latitude: 30.69, longitude: -88.04,
     },
     {
