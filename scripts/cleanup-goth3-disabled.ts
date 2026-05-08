@@ -46,7 +46,7 @@ async function main() {
   }
 
   const pool = createScriptPool();
-  const prisma = new PrismaClient({ adapter: new PrismaPg(pool) } as never);
+  const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
 
   try {
     const kennel = await prisma.kennel.findUnique({
