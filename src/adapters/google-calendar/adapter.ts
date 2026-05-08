@@ -1,7 +1,7 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
-import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, EVENT_FIELD_LABEL_RE, EVENT_FIELD_LABEL_UPPERCASE_RE, CTA_EMBEDDED_PATTERNS, appendDescriptionSuffix, isPlaceholder, parse12HourTime, formatAmPmTime, stripNonEnglishCountry, extractHashRunNumber } from "../utils";
+import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, EVENT_FIELD_LABEL_RE, EVENT_FIELD_LABEL_UPPERCASE_RE, CTA_EMBEDDED_PATTERNS, appendDescriptionSuffix, isPlaceholder, parse12HourTime, formatAmPmTime, stripNonEnglishCountry, extractHashRunNumber, hasPlaceholderRunNumber } from "../utils";
 import { matchKennelPatterns, matchCompiledKennelPatterns, compileKennelPatterns, type KennelPattern, type CompiledKennelPattern } from "../kennel-patterns";
 import { LOCATION_EMAIL_CTA_RE } from "@/pipeline/audit-checks";
 import { parseDMSFromLocation } from "@/lib/geo";
@@ -32,43 +32,59 @@ const DEFAULT_RUN_NUMBER_PATTERNS = [
  * Always checks summary first with `#(\d+)`. Then checks description with
  * custom patterns (if provided) or default patterns.
  * Accepts pre-compiled RegExp[] or raw string[] (compiled on the fly for one-off use).
+ *
+ * Returns:
+ *   - `number` when a clean run number is found
+ *   - `null` when the summary contains an explicit placeholder marker
+ *     (`#NN[X|XX|X?|TBD|TBA|?]`) — merge.ts's tri-state treats null as
+ *     "explicit clear" so stale runNumbers from prior scrapes get
+ *     overwritten when a kennel admin retitles to a placeholder
+ *     (#1272/#1274/#1275)
+ *   - `undefined` when no run-number signal is present (preserve existing)
  */
 export function extractRunNumber(
   summary: string,
   description?: string,
   customPatterns?: string[] | RegExp[],
-): number | undefined {
+): number | null | undefined {
   // 1. Check summary first (e.g., "Beantown #255: ...", "BH3: ... #2781", "Cunth # 40: ...").
   // Shared `extractHashRunNumber` enforces the delimiter guard (#1147) — "#30X?"
   // rejects rather than parsing as 30.
   const fromSummary = extractHashRunNumber(summary);
   if (fromSummary !== undefined) return fromSummary;
 
-  if (!description) return undefined;
+  // 2. Summary placeholder takes precedence over description fallback. A
+  // partial retitle (`#30: …` → `#30X?: …` while description still says
+  // "#30") would otherwise let the stale description number reassert
+  // itself and re-anchor the cleared run on the next merge.
+  if (hasPlaceholderRunNumber(summary)) return null;
 
-  // 2. Fall back to description patterns
-  let patterns: RegExp[];
-  if (customPatterns && customPatterns.length > 0) {
-    patterns = typeof customPatterns[0] === "string"
-      ? compilePatterns(customPatterns as string[])
-      : customPatterns as RegExp[];
-  } else {
-    patterns = DEFAULT_RUN_NUMBER_PATTERNS;
-  }
+  // 3. Fall back to description patterns
+  return description
+    ? extractRunNumberFromDescription(description, customPatterns)
+    : undefined;
+}
 
-  for (const pattern of patterns) {
+function resolveRunNumberPatterns(customPatterns?: string[] | RegExp[]): RegExp[] {
+  if (!customPatterns || customPatterns.length === 0) return DEFAULT_RUN_NUMBER_PATTERNS;
+  if (typeof customPatterns[0] === "string") return compilePatterns(customPatterns as string[]);
+  return customPatterns as RegExp[];
+}
+
+function extractRunNumberFromDescription(
+  description: string,
+  customPatterns?: string[] | RegExp[],
+): number | undefined {
+  for (const pattern of resolveRunNumberPatterns(customPatterns)) {
     const match = pattern.exec(description);
-    if (match?.[1]) {
-      const num = Number.parseInt(match[1], 10);
-      if (!Number.isNaN(num) && num > 0) return num;
-    }
+    if (!match?.[1]) continue;
+    const num = Number.parseInt(match[1], 10);
+    if (Number.isFinite(num) && num > 0) return num;
   }
 
   // Standalone run number in description (e.g., "#2792" on its own line)
   const standaloneMatch = /(?:^|\n)[ \t]*#(\d{3,})[ \t]*(?:\n|$)/m.exec(description);
-  if (standaloneMatch) return Number.parseInt(standaloneMatch[1], 10);
-
-  return undefined;
+  return standaloneMatch ? Number.parseInt(standaloneMatch[1], 10) : undefined;
 }
 
 /** Strip the "Kennel: " or "Kennel #N: " prefix from a calendar summary to extract the event title. */
@@ -84,6 +100,30 @@ const DATE_PREFIX_NUMERIC_RE = /^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\w*[,\s]+\d{1,2}
 
 /** Strict "HH:MM" 24-hour format — guards `CalendarSourceConfig.defaultStartTime` against typos. */
 const VALID_HHMM_RE = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
+
+/**
+ * Personal-calendar drift detector for the non-hash event filter (#1271).
+ * One regex per intent keeps each pattern under SonarCloud's S5843
+ * complexity budget. Anchored at `^` so a hash title that mentions
+ * "lunch" mid-string never matches. FALSE-NEGATIVE bias — anything
+ * outside the allowlist passes through `buildRawEventFromGCalItem` even
+ * when other fields are sparse (campouts, named annual events, kennel
+ * acronyms like "TGIF Friday").
+ *
+ * Deliberately NOT included: `meet at <venue>` — kennel admins commonly
+ * encode the venue in the summary alone ("Meet at the Tipsy Cow, 7pm")
+ * with no other fields. Only `meet for|with|up with` are unambiguous
+ * personal verbs (Codex review on PR #1297).
+ */
+const PERSONAL_TITLE_PATTERNS: readonly RegExp[] = [
+  /^\s*meet\s+(?:for|with|up\s+with)\b/i,
+  /^\s*(?:lunch|dinner|brunch|breakfast|drinks|coffee)\s+with\b/i,
+  /^\s*(?:doctor|dentist|optician|orthodontist|chiropractor)(?:'s)?(?:\s+(?:appointment|visit))?\b/i,
+  /^\s*(?:appointment|interview)\s+(?:for|with|at)\b/i,
+  /^\s*pick\s+up\s+\S/i,
+  /^\s*drop\s+off\s+\S/i,
+  /^\s*call\s+(?:with|to)\b/i,
+];
 
 /** Strip leading day/date prefixes like "Wed April 1st", "Sat 3/28" from titles. */
 export function stripDatePrefix(text: string): string {
@@ -1019,12 +1059,27 @@ export function buildRawEventFromGCalItem(
   // not stored as display location. resolveCoords handles URL → address resolution.
   const locationIsUrl = location && /^https?:\/\//i.test(location);
   const cost = rawDescription ? extractCostFromDescription(rawDescription) : undefined;
+  const runNumber = extractRunNumber(summary, rawDescription, compiledRunNumberPatterns);
+
+  // #1271 — drop personal-calendar drift only when no structured signal.
+  // `runNumber !== undefined` covers both clean numbers and placeholder
+  // markers (kennel admin's intent was a hash run, even if number is TBD).
+  const hasStructuredField = !!(
+    runNumber !== undefined ||
+    hares ||
+    location ||
+    description?.trim()
+  );
+  if (!hasStructuredField && PERSONAL_TITLE_PATTERNS.some((re) => re.test(summary))) {
+    return null;
+  }
+
   const event: RawEventData = {
     date: dateISO,
     // Pass the full multi-kennel set (#1023): for single-tag patterns this
     // is `[primary]`; for array patterns it's the union of all matched kennels.
     kennelTags,
-    runNumber: extractRunNumber(summary, rawDescription, compiledRunNumberPatterns),
+    runNumber,
     title,
     description: appendDescriptionSuffix(description, sourceConfig?.descriptionSuffix),
     hares,
@@ -1093,13 +1148,15 @@ function compileSourceConfigPatterns(sourceConfig: CalendarSourceConfig | null) 
  *      series that share key but differ in id (#1101 CFMH3). On collision
  *      the survivor inherits non-empty fields from the donor before drop.
  */
-/** A placeholder all-day shell looks like "Giggity H3 #? (TBD)" — no run
- *  number, no real hares/location, and a title containing `#?` or a TBD/TBA/
- *  TBC marker. Real all-day entries (campouts, away weekends) will have a
- *  populated title or run number and must NOT be collapsed when a timed
- *  sibling exists on the same date. */
+/** A placeholder all-day shell looks like "Giggity H3 #? (TBD)" — no real
+ *  run number, no real hares/location, and a title containing `#?` or a
+ *  TBD/TBA/TBC marker. Real all-day entries (campouts, away weekends) will
+ *  have a populated title or numeric run number and must NOT be collapsed
+ *  when a timed sibling exists on the same date. `runNumber === null` is an
+ *  explicit placeholder-marker emission (#1272/#1274/#1275) and counts as
+ *  evidence of a shell, not as a real number. */
 function isPlaceholderShell(e: RawEventData): boolean {
-  if (e.runNumber !== undefined) return false;
+  if (typeof e.runNumber === "number" && e.runNumber > 0) return false;
   const title = (e.title ?? "").trim();
   if (!title) return true;
   if (/#\s*\?/.test(title)) return true;

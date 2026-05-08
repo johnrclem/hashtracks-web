@@ -703,6 +703,33 @@ export function extractHashRunNumber(text: string | undefined): number | undefin
   return Number.isFinite(n) && n > 0 ? n : undefined;
 }
 
+/**
+ * Detect placeholder run-number markers like `#25XX`, `#208X`, `#30X?`,
+ * `#30TBD`, `#2784 TBA`, plus digit-free variants like `#TBD`, `#?`, `#X`
+ * — "next run, number not yet assigned" (#1272/#1274/#1275). Callers
+ * emit `null` so merge.ts's tri-state clears stale runNumbers from prior
+ * scrapes when a retitle drops the digit.
+ *
+ * Split into two patterns, each carrying at most one zero-or-more
+ * quantifier so Sonar S5852 sees them as provably linear: the digit form
+ * matches `#NN[ ?][suffix]`, the bare form matches `#[suffix]` directly.
+ * `#` is never followed by a space in real reported placeholder titles
+ * — dropping the leading `[ \t]*` after `#` keeps each pattern
+ * unambiguous.
+ */
+// Suffix `(?:X+\??|TB[ADC]|\?+)(?=$|[^A-Z0-9])` is intentionally
+// duplicated inline across both regexes — extracting it forces template
+// literals or `new RegExp(...)` which Sonar S7780 then flags.
+const HASH_RUN_NUMBER_PLACEHOLDER_DIGITS_RE =
+  /#\d+[ \t]*(?:X+\??|TB[ADC]|\?+)(?=$|[^A-Z0-9])/i;
+const HASH_RUN_NUMBER_PLACEHOLDER_BARE_RE =
+  /#(?:X+\??|TB[ADC]|\?+)(?=$|[^A-Z0-9])/i;
+export function hasPlaceholderRunNumber(text: string | undefined): boolean {
+  if (!text) return false;
+  return HASH_RUN_NUMBER_PLACEHOLDER_DIGITS_RE.test(text)
+    || HASH_RUN_NUMBER_PLACEHOLDER_BARE_RE.test(text);
+}
+
 // ---------------------------------------------------------------------------
 // Placeholder detection — shared across adapters for TBD/TBA/TBC cleanup
 // ---------------------------------------------------------------------------

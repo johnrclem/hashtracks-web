@@ -264,6 +264,30 @@ describe("extractRunNumber", () => {
   it("does not match qualifier text without a # (e.g. 'CUNTh 66ish')", () => {
     expect(extractRunNumber("CUNTh 66ish Hiidea's Bday")).toBeUndefined();
   });
+
+  // Summary placeholder must beat description fallback (Codex adversarial
+  // review #1297). A partial retitle (kennel admin updates the title to
+  // `#30X?` but leaves the prior `BH3 #30` reference in the description)
+  // would otherwise let the description number reassert itself and re-
+  // anchor the runNumber on the next merge instead of clearing it.
+  it("summary placeholder overrides stale description run number", () => {
+    expect(
+      extractRunNumber(
+        "FCH3 #30X?: Frisky Whisk-her and CBD",
+        "Trail #30 was last week — see you Saturday at the park",
+      ),
+    ).toBeNull();
+  });
+
+  it("summary placeholder overrides stale description with custom pattern", () => {
+    expect(
+      extractRunNumber(
+        "FCH3 #30X?: TBD",
+        "Hash # 30",
+        [String.raw`Hash\s*#\s*(\d+)`],
+      ),
+    ).toBeNull();
+  });
 });
 
 // ── extractTitle ──
@@ -317,6 +341,69 @@ describe("CTA placeholder event skip", () => {
       { defaultKennelTag: "ewh3" },
     );
     expect(result).not.toBeNull();
+  });
+});
+
+describe("non-hash event filter (#1271)", () => {
+  it.each([
+    "Meet for wedding talk", // #1271
+    "Meet with Bob",
+    "Meet up with the team",
+    "Lunch with Sarah",
+    "Dinner with the in-laws",
+    "Brunch with friends",
+    "Doctor appointment",
+    "Dentist visit",
+    "Doctor's",
+    "Appointment with the realtor",
+    "Pick up dry cleaning",
+    "Drop off the kids",
+    "Call with the lawyer",
+  ])("skips personal-verb pattern: %s", (summary) => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary }),
+      { defaultKennelTag: "h4-tx" },
+    );
+    expect(result).toBeNull();
+  });
+
+  it.each([
+    ["bare proper noun", "Rex Manning Day"],
+    ["short title", "TGIF Friday"],
+    ["social with venue", "Social @ JBs Fuel Dock, 6pm"],
+    ["AGM acronym", "AGM 2026"],
+    ["campout", "Annual Campout"],
+    ["holiday party", "Christmas Hash Party"],
+    // Codex review on PR #1297 — `Meet at <venue>` is a common kennel
+    // summary-only format, must NOT be classified as personal.
+    ["meet at venue", "Meet at the Tipsy Cow, 7pm"],
+    ["meet at park", "Meet at Memorial Park"],
+    ["meeting at venue", "Meeting at Pat's house"],
+  ])("preserves non-personal title: %s", (_, summary) => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary }),
+      { defaultKennelTag: "h4-tx" },
+    );
+    expect(result).not.toBeNull();
+  });
+
+  // Structured fields override the personal-title filter — the kennel
+  // admin's intent is a hash event whenever they fill in a description,
+  // location, or run number (clean OR placeholder).
+  it.each<[string, Record<string, unknown>, number | null | undefined]>([
+    ["description present", { summary: "Lunch with the kennel", description: "Annual mismanagement lunch — RSVP required." }, undefined],
+    ["location present", { summary: "Meet for the trail", location: "Memorial Park" }, undefined],
+    ["clean run number", { summary: "Meet for hash #1234" }, 1234],
+    ["placeholder run number", { summary: "Meet for hash #1234TBD" }, null],
+  ])("preserves personal-pattern title when %s", (_, overrides, expectedRunNumber) => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent(overrides),
+      { defaultKennelTag: "h4-tx" },
+    );
+    expect(result).not.toBeNull();
+    if (expectedRunNumber !== undefined) {
+      expect(result!.runNumber).toBe(expectedRunNumber);
+    }
   });
 });
 
@@ -2933,16 +3020,20 @@ describe("GoogleCalendarAdapter — RECURRENCE-ID override recovery (#1021/#1024
 // ── Audit-stream Deep Dive — 11 GCal adapter bugs ──
 
 describe("audit-stream pure-function cases", () => {
-  it.each<[string, string, string | undefined, number | undefined]>([
-    // [#issue-tag, summary, description-or-na, expected-runNumber]
-    // #1147 — `extractRunNumber` rejects mid-token alphanumeric, accepts
-    // clean numeric tokens regardless of trailing delimiter.
-    ["#1147", "FCH3 #30X?: Frisky Whisk-her and CBD", undefined, undefined],
-    ["#1147", "FCH3 #308: Laporte: Squeeze", undefined, 308],
-    ["#1147", "CUNTh # 66 - Winner Winner Dildo Dinner", undefined, 66],
-    ["#1147", "BH3 #2781", undefined, 2781],
-    ["#1147", "FCH3 #30TBD", undefined, undefined],
-  ])("extractRunNumber %s %j → %p", (_, summary, _desc, expected) => {
+  // #1147 — clean numeric tokens accepted regardless of delimiter.
+  // #1272/#1274/#1275 — placeholder shapes return null (merge.ts clears
+  // stale runNumbers when a kennel retitles to a placeholder).
+  it.each<[string, string, number | null | undefined]>([
+    ["#1275 placeholder X?", "FCH3 #30X?: Frisky Whisk-her and CBD", null],
+    ["#1272 placeholder XX", "H4 Run #25XX— Erections", null],
+    ["#1274 placeholder X", "Open for Hares--Jhav Trail #208X", null],
+    ["#1147 clean #N", "FCH3 #308: Laporte: Squeeze", 308],
+    ["#1147 spaced #", "CUNTh # 66 - Winner Winner Dildo Dinner", 66],
+    ["#1147 trailing", "BH3 #2781", 2781],
+    ["#1147 TBD suffix", "FCH3 #30TBD", null],
+    ["#1275 ? only", "Run #100?", null],
+    ["no run number, no placeholder", "Just a regular run", undefined],
+  ])("extractRunNumber %s %j → %p", (_, summary, expected) => {
     expect(extractRunNumber(summary)).toBe(expected);
   });
 
