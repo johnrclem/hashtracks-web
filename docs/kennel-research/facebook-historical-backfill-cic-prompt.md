@@ -265,16 +265,24 @@ The operator should:
 
 1. Verify the shards landed: `ls tmp/fb-backfill/`.
 2. Spot-check one shard: `jq '.totalEvents,.earliestEventDate' tmp/fb-backfill/MemphisH3.json`.
-3. Run the import script in dry-run mode first:
-   ```
-   npx tsx scripts/import-fb-historical-backfill.ts --dir tmp/fb-backfill --dry-run
-   ```
-4. Review the dry-run output. If it looks right, run the real import:
+3. Run the import script in dry-run mode first (default — no flag
+   needed):
    ```
    npx tsx scripts/import-fb-historical-backfill.ts --dir tmp/fb-backfill
    ```
-5. The script is idempotent (upserts on `(sourceId, externalId)`),
-   so re-running on the same shards is safe.
+4. Review the dry-run output. If it looks right, run the real import
+   with `--apply` (or `BACKFILL_APPLY=1` as an env-var alternative):
+   ```
+   npx tsx scripts/import-fb-historical-backfill.ts --dir tmp/fb-backfill --apply
+   ```
+5. The script is idempotent (RawEvent fingerprint dedup), so
+   re-running on the same shards is safe.
+
+If the script exits with `❌ Missing FACEBOOK_HOSTED_EVENTS sources`,
+add the listed kennelCodes to `prisma/seed-data/sources.ts`, run
+`npx prisma db seed`, then retry. The script refuses to proceed when
+any expected kennel→source mapping is missing (otherwise most
+harvested events would be silently dropped).
 
 ## Rough time/cost estimate
 

@@ -41,6 +41,7 @@ import { createScriptPool } from "./lib/db-pool";
 import { facebookEventToRawEvent } from "@/adapters/facebook-hosted-events/parser";
 import type { FacebookEventInput } from "@/adapters/facebook-hosted-events/parser";
 import { generateFingerprint } from "@/pipeline/fingerprint";
+import { formatYmdInTimezone } from "@/lib/timezone";
 import type { RawEventData } from "@/adapters/types";
 
 /**
@@ -122,12 +123,26 @@ interface ScriptArgs {
 function parseArgs(argv: readonly string[]): ScriptArgs {
   const args: ScriptArgs = { dir: "tmp/fb-backfill", apply: process.env.BACKFILL_APPLY === "1" };
   for (let i = 0; i < argv.length; i++) {
-    if (argv[i] === "--dir" && argv[i + 1]) {
+    const flag = argv[i];
+    if (flag === "--dir" && argv[i + 1]) {
       args.dir = argv[i + 1];
       i++;
-    } else if (argv[i] === "--handle" && argv[i + 1]) {
+    } else if (flag === "--handle" && argv[i + 1]) {
       args.handle = argv[i + 1];
       i++;
+    } else if (flag === "--apply") {
+      // CLI alias for BACKFILL_APPLY=1. Either form works; explicit
+      // CLI flag is the documented runbook path.
+      args.apply = true;
+    } else if (flag === "--dry-run") {
+      // Default mode anyway (without --apply / BACKFILL_APPLY=1) — but
+      // accept the explicit flag so the doc's command shape doesn't
+      // silently fail.
+      args.apply = false;
+    } else {
+      throw new Error(
+        `Unknown flag: ${flag}. Supported: --dir <path>, --handle <h>, --apply, --dry-run`,
+      );
     }
   }
   return args;
@@ -161,12 +176,21 @@ interface ProjectedEvent {
 }
 
 /** Decide whether to skip an event (cancelled, future-dated, or
- *  un-projectable) or project it for each target kennel. */
+ *  un-projectable) or project it for each target kennel.
+ *
+ *  Date partition (Codex pass-1 finding on PR #1309): the cron adapter
+ *  owns events whose date in the **kennel's local timezone** is today
+ *  or later. The partition therefore has to be applied AFTER the
+ *  per-kennel projection — comparing `raw.date` (which `bagToRawEvent`
+ *  computes via `formatYmdInTimezone`) to today's date in that same
+ *  kennel TZ. A naive global UTC-noon cutoff would leak same-day
+ *  events near midnight boundaries into both the backfill and the cron
+ *  path, breaking the no-overlap contract this script depends on. */
 function projectShard(
   shard: BackfillShard,
   kennelCodes: readonly string[],
   timezoneByKennel: ReadonlyMap<string, string>,
-  todayUtcMs: number,
+  now: Date,
 ): {
   projected: ProjectedEvent[];
   cancelled: FacebookEventInput[];
@@ -177,17 +201,15 @@ function projectShard(
   const cancelled: FacebookEventInput[] = [];
   let future = 0;
   let unprojectable = 0;
+  // Cache today-in-tz per timezone so we don't recompute per event.
+  const todayByTz = new Map<string, string>();
   for (const event of shard.events) {
     if (event.isCanceled) {
       cancelled.push(event);
       continue;
     }
-    // Strict-partition: backfill writes < today only. Anything in the
-    // future or today belongs to the cron adapter to avoid double-write.
-    if (event.startTimestamp * 1000 >= todayUtcMs) {
-      future++;
-      continue;
-    }
+    let allFuture = true;
+    let allUnprojectable = true;
     for (const kennelCode of kennelCodes) {
       const tz = timezoneByKennel.get(kennelCode);
       if (!tz) {
@@ -199,12 +221,29 @@ function projectShard(
         unprojectable++;
         continue;
       }
+      // Strict per-kennel partition: cron adapter owns events whose
+      // local date in this kennel's TZ is today or later. Compare ISO
+      // date strings ("YYYY-MM-DD") rather than UTC ms — the latter
+      // false-includes same-day events near midnight boundaries.
+      let todayInTz = todayByTz.get(tz);
+      if (todayInTz === undefined) {
+        todayInTz = formatYmdInTimezone(now, tz);
+        todayByTz.set(tz, todayInTz);
+      }
+      if (raw.date >= todayInTz) {
+        allUnprojectable = false; // it WAS projectable, just future
+        continue;
+      }
+      allFuture = false;
+      allUnprojectable = false;
       projected.push({
         kennelCode,
         rawEventData: raw,
         fingerprint: generateFingerprint(raw),
       });
     }
+    // Per-event tally: count once at event level, not once per kennel.
+    if (allFuture && !allUnprojectable) future++;
   }
   return { projected, cancelled, future, unprojectable };
 }
@@ -263,7 +302,8 @@ interface ProcessContext {
   handleToKennels: ReadonlyMap<string, readonly string[]>;
   byKennelCode: ReadonlyMap<string, SourceLookup>;
   timezoneByKennel: ReadonlyMap<string, string>;
-  todayUtcMs: number;
+  /** Wall-clock now; per-kennel today-in-tz is computed lazily from this. */
+  now: Date;
 }
 
 /** Group projected events by their target sourceId, dropping any whose
@@ -332,7 +372,7 @@ async function processOneShard(
     shard,
     kennelCodes,
     ctx.timezoneByKennel,
-    ctx.todayUtcMs,
+    ctx.now,
   );
   totals.cancelled += cancelled.length;
   totals.future += future;
@@ -412,17 +452,10 @@ async function main(): Promise<void> {
     return;
   }
 
-  // Today at UTC noon — matches the project's UTC-noon date convention
-  // and gives a stable cutoff regardless of the operator's local time.
-  const today = new Date();
-  const todayUtcMs = Date.UTC(
-    today.getUTCFullYear(),
-    today.getUTCMonth(),
-    today.getUTCDate(),
-    12,
-    0,
-    0,
-  );
+  // The strict-partition cutoff (cron owns date >= today, backfill owns
+  // date < today) is computed per-kennel from this `now` instant inside
+  // `projectShard`, using the kennel's local timezone — see comment there.
+  const now = new Date();
 
   const handleToKennels = new Map(HANDLE_TO_KENNELS.map((m) => [m.handle, m.kennelCodes]));
   const expectedKennelCodes = [...new Set(HANDLE_TO_KENNELS.flatMap((m) => m.kennelCodes))];
@@ -433,18 +466,25 @@ async function main(): Promise<void> {
   try {
     const { byKennelCode, missing } = await loadSourceLookup(prisma, expectedKennelCodes);
     if (missing.length > 0) {
-      console.log("");
-      console.log("⚠️  Missing FACEBOOK_HOSTED_EVENTS sources (one per kennelCode below):");
-      for (const k of missing) console.log(`     - ${k}`);
-      console.log("");
-      console.log(
+      // Fail-hard, not warn-and-continue. Reviewers caught a footgun: an
+      // operator could spend 30–60 minutes on the CIC harvest, run this
+      // script, see "Done. The merge pipeline will canonicalize..." and
+      // believe the import succeeded — when in fact most events were
+      // silently dropped at the kennel→source lookup. Exit non-zero so
+      // CI / shell pipelines / a human reading the terminal all flag it.
+      console.error("");
+      console.error("❌ Missing FACEBOOK_HOSTED_EVENTS sources (one per kennelCode below):");
+      for (const k of missing) console.error(`     - ${k}`);
+      console.error("");
+      console.error(
         "Add these to prisma/seed-data/sources.ts and run `npx prisma db seed` before retrying.",
       );
-      console.log(
+      console.error(
         "(The audit at docs/kennel-research/facebook-hosted-events-audit.md is the canonical inventory.)",
       );
-      console.log("");
-      console.log("Continuing — handles whose kennels are missing sources will be skipped.");
+      throw new Error(
+        `${missing.length} expected kennelCode(s) have no FACEBOOK_HOSTED_EVENTS source. Refusing to continue — would silently drop most events.`,
+      );
     }
 
     const timezoneByKennel = new Map<string, string>();
@@ -456,7 +496,7 @@ async function main(): Promise<void> {
       handleToKennels,
       byKennelCode,
       timezoneByKennel,
-      todayUtcMs,
+      now,
     };
     const totals = newRunTotals();
     const cancelledAcrossShards: { handle: string; events: FacebookEventInput[] }[] = [];
