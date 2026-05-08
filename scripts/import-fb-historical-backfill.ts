@@ -218,6 +218,56 @@ function getTodayInTz(now: Date, tz: string, cache: Map<string, string>): string
  *  partition is applied AFTER the per-kennel projection because each
  *  kennel runs in its own timezone — a global cutoff can't represent
  *  "today" for a multi-handle shard (Berlin + Chiang Mai). */
+interface PerEventCounts {
+  entries: ProjectedEvent[];
+  /** kennels that yielded a projected entry — also = entries.length, but
+   *  named for symmetry with the other two counts. */
+  projectedHere: number;
+  /** kennels whose date landed in cron's territory (today or later). */
+  futureHere: number;
+  /** kennels that couldn't project — missing TZ or `bagToRawEvent`
+   *  rejected (cancelled / unnamed / invalid timestamp). */
+  unprojectableHere: number;
+}
+
+/** Project one event across every target kennel, returning per-bucket
+ *  tallies. Pulled out of `projectShard` to keep the outer loop flat —
+ *  cognitive complexity stays under Sonar's S3776 ceiling. */
+function projectAllKennels(
+  event: FacebookEventInput,
+  kennelCodes: readonly string[],
+  timezoneByKennel: ReadonlyMap<string, string>,
+  now: Date,
+  todayByTz: Map<string, string>,
+): PerEventCounts {
+  const entries: ProjectedEvent[] = [];
+  let projectedHere = 0;
+  let futureHere = 0;
+  let unprojectableHere = 0;
+  for (const kennelCode of kennelCodes) {
+    const tz = timezoneByKennel.get(kennelCode);
+    if (!tz) {
+      unprojectableHere++;
+      continue;
+    }
+    const result = projectOneEventForKennel(
+      event,
+      kennelCode,
+      tz,
+      getTodayInTz(now, tz, todayByTz),
+    );
+    if (result.kind === "projected") {
+      entries.push(result.entry);
+      projectedHere++;
+    } else if (result.kind === "future") {
+      futureHere++;
+    } else {
+      unprojectableHere++;
+    }
+  }
+  return { entries, projectedHere, futureHere, unprojectableHere };
+}
+
 function projectShard(
   shard: BackfillShard,
   kennelCodes: readonly string[],
@@ -240,32 +290,12 @@ function projectShard(
       cancelled.push(event);
       continue;
     }
-    let projectedHere = 0;
-    let futureHere = 0;
-    for (const kennelCode of kennelCodes) {
-      const tz = timezoneByKennel.get(kennelCode);
-      if (!tz) {
-        unprojectable++;
-        continue;
-      }
-      const result = projectOneEventForKennel(
-        event,
-        kennelCode,
-        tz,
-        getTodayInTz(now, tz, todayByTz),
-      );
-      if (result.kind === "projected") {
-        projected.push(result.entry);
-        projectedHere++;
-      } else if (result.kind === "future") {
-        futureHere++;
-      } else {
-        unprojectable++;
-      }
-    }
+    const counts = projectAllKennels(event, kennelCodes, timezoneByKennel, now, todayByTz);
+    projected.push(...counts.entries);
+    unprojectable += counts.unprojectableHere;
     // Per-event future tally: count once if every TZ-resolved kennel
     // landed in the future bucket and no kennel projected.
-    if (projectedHere === 0 && futureHere > 0) future++;
+    if (counts.projectedHere === 0 && counts.futureHere > 0) future++;
   }
   return { projected, cancelled, future, unprojectable };
 }
