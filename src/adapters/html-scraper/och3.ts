@@ -414,8 +414,14 @@ function parseOCH3EntriesFromText(text: string, baseUrl: string): RawEventData[]
   // day name in the upstream text. parseRunEntry's dependent code uses
   // extractDayOfWeek(section) ?? inferDayFromDate(date), and the second
   // arm always succeeds — so the day prefix is unneeded ceremony here.
+  //
+  // NOSONAR S5852 — bounded literal classes only ([A-Z], [a-z], \d), no
+  // overlapping alternation, constant-width lookbehind. No catastrophic
+  // backtracking path on any input.
   const matches = [
-    ...normalizedText.matchAll(/(?<!\d)\d{1,2}(?:st|nd|rd|th)?\s+[A-Z][a-z]+(?:\s+\d{4})?/g),
+    ...normalizedText.matchAll(
+      /(?<!\d)\d{1,2}(?:st|nd|rd|th)?\s+[A-Z][a-z]+(?:\s+\d{4})?/g, // NOSONAR S5852
+    ),
   ];
 
   const entries: RawEventData[] = [];

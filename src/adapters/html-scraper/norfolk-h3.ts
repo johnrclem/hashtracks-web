@@ -250,14 +250,12 @@ export function htmlToText(html: string): string {
   text = text.replace(/<[^>]+>/g, "");
   text = decodeEntities(text);
   // Trim each line; collapse runs of blank lines to at most one blank.
-  const trimmed = text.split("\n").map((l) => l.replace(/\s{2,}/g, " ").trim());
-  const out: string[] = [];
-  for (const line of trimmed) {
-    if (line === "" && (out.length === 0 || out.at(-1) === "")) continue;
-    out.push(line);
-  }
-  while (out.length > 0 && out.at(-1) === "") out.pop();
-  return out.join("\n");
+  return text
+    .split("\n")
+    .map((l) => l.replace(/\s{2,}/g, " ").trim())
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 export class NorfolkH3Adapter implements SourceAdapter {

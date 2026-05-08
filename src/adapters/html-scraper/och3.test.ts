@@ -508,9 +508,12 @@ describe("OCH3Adapter.fetch", () => {
       .mockResolvedValueOnce(new Response("<html><body></body></html>", { status: 200 }));
 
     const adapter = new OCH3Adapter();
+    // NOSONAR S5332 — OCH3 production source is HTTP-only (Weebly host
+    // without TLS). Test mirrors the real adapter URL so adapter.ts:392
+    // urlObj.protocol reconstruction stays consistent with production.
     const result = await adapter.fetch({
       id: "test",
-      url: "http://www.och3.org.uk/upcoming-run-list.html",
+      url: "http://www.och3.org.uk/upcoming-run-list.html", // NOSONAR S5332
     } as never);
 
     // All 5 entries parse, including the milestone rows that previously

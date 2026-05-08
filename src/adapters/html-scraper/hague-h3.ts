@@ -50,10 +50,10 @@ const RUN_NUMBER_RE = /Run\s+(\d{4})/;
  * Match the parenthetical theme that frequently follows the run number on the
  * same line, e.g. "Run 2419 (How Original Run)", "Run 2416 (super lazy pld
  * run)". Captures the theme text without the surrounding parentheses (#1258).
- * No /i flag — "Run" is consistently capitalized and the captured group
- * carries no case-sensitive literals.
+ * The /i flag is intentional — "Run" is alphabetic, so case-insensitivity
+ * makes the match resilient if the source ever switches to lowercase "run".
  */
-const RUN_TITLE_PARENTHETICAL_RE = /Run\s+\d{4}\s*\(([^)]+)\)/;
+const RUN_TITLE_PARENTHETICAL_RE = /Run\s+\d{4}\s*\(([^)]+)\)/i;
 
 /** Match date line: "When: Sunday, March 29" or "When: Sunday Februari 22th" */
 const WHEN_RE = /When:\s*(.+)/i;

@@ -75,6 +75,10 @@ Hare: XL`;
     const event = parseEventBlock(text, SOURCE_URL);
     expect(event).not.toBeNull();
     expect(event!.runNumber).toBe(2411);
+    // Schedule-modifier parentheticals (e.g. "50+% run") are surfaced as
+    // titles alongside theme parentheticals — every Hague H3 parenthetical
+    // is user-meaningful and beats the bare "Hague H3 #NNNN" placeholder.
+    expect(event!.title).toBe("Hague H3 #2411 — 50+% run");
     expect(event!.hares).toBe("XL");
   });
 
