@@ -47,6 +47,9 @@ next-env.d.ts
 # script output
 /data
 
+# one-shot operator scratch space (CIC harvest output, backfill shards, etc.)
+/tmp/
+
 # clerk configuration (can include secrets)
 /.clerk/
 .env.template
