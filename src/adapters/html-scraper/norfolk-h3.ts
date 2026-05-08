@@ -45,6 +45,22 @@ import { safeFetch } from "../safe-fetch";
 const USE_RESIDENTIAL_PROXY = true;
 const KENNEL_TAG = "Norfolk H3";
 
+// Stop labels for both Venue: and Hare(s): captures inside parseNorfolkRunBlock.
+// "Afterwards" is the most common offender — Norfolk authors paste an on-after
+// food/bar blurb between the address and the hares (#1257). The other labels
+// are pre-existing notes/contact prompts. A blank line (paragraph break) is
+// also a hard stop — htmlToText emits "\n\n" for </p>.
+const SECTION_STOP =
+  /\n\s*(?:\n|Hare\(s\):|Venue:|Please\s+park|Contact\s|Afterwards\b|Wear\s|Bring\s|On\s+down\b|On-On\b)/i;
+const VENUE_RE = new RegExp(
+  `Venue:\\s*([\\s\\S]*?)(?=${SECTION_STOP.source}|\\s*$)`,
+  "i",
+);
+const HARES_RE = new RegExp(
+  `Hare\\(s\\):\\s*([\\s\\S]*?)(?=${SECTION_STOP.source}|\\s*$)`,
+  "i",
+);
+
 /** Parsed fields from a single Norfolk H3 run block. */
 export interface ParsedNorfolkRun {
   runNumber?: number;
@@ -115,26 +131,26 @@ export function parseNorfolkRunBlock(text: string): ParsedNorfolkRun | null {
 
   const result: ParsedNorfolkRun = {};
 
-  const lines = text
-    .split(/\n/)
-    .map((l) => l.trim())
-    .filter(Boolean);
+  // Preserve blank lines (paragraph boundaries from htmlToText's </p>→"\n\n"
+  // conversion) so multi-line Hare(s): blocks can be separated from trailing
+  // notes paragraphs (#1257).
+  const rawLines = text.split(/\n/).map((l) => l.trim());
+  // Trim leading/trailing blanks but keep internal paragraph breaks.
+  while (rawLines.length > 0 && rawLines[0] === "") rawLines.shift();
+  while (rawLines.length > 0 && rawLines[rawLines.length - 1] === "") rawLines.pop();
+  if (rawLines.length === 0) return null;
 
-  if (lines.length === 0) return null;
-
-  const firstLine = lines[0];
+  const firstLine = rawLines[0];
   const dateResult = parseNorfolkDate(firstLine);
   if (!dateResult) return null;
 
   result.date = dateResult.date;
   result.startTime = dateResult.startTime;
 
-  const fullText = lines.join("\n");
+  const fullText = rawLines.join("\n");
 
   // Match Venue: followed by content up to next known label or end
-  const venueMatch = fullText.match(
-    /Venue:\s*([\s\S]*?)(?=\n\s*(?:Hare\(s\):|Please\s+park|Contact)|\s*$)/i,
-  );
+  const venueMatch = fullText.match(VENUE_RE);
   if (venueMatch) {
     const venueText = venueMatch[1]
       .replace(/\n/g, ", ")
@@ -154,17 +170,27 @@ export function parseNorfolkRunBlock(text: string): ParsedNorfolkRun | null {
     }
   }
 
-  const haresMatch = fullText.match(/Hare\(s\):\s*(.*?)(?:\n|$)/i);
+  // Capture Hare(s): block as multi-line — Norfolk authors put each hare on
+  // a separate line under one label (#1257 — "Tweedledum (Simon)" was being
+  // dropped into notes/description because the regex only matched one line).
+  const haresMatch = fullText.match(HARES_RE);
   if (haresMatch) {
-    const haresText = haresMatch[1].trim();
+    const haresText = haresMatch[1]
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .join(", ")
+      .trim();
     // "It could be you?" is a Norfolk-specific volunteer prompt, not a real hare name
     if (!/^It could be you\??$/i.test(haresText)) {
       result.hares = stripPlaceholder(haresText);
     }
   }
 
-  // Collect notes by subtracting known blocks from the text
-  let remainingText = lines.slice(1).join("\n");
+  // Collect notes by subtracting known blocks from the text. Use rawLines
+  // (with blank-line paragraph markers) so venueMatch[0]/haresMatch[0] —
+  // which contain those blank lines — can match.
+  let remainingText = rawLines.slice(1).join("\n");
   if (venueMatch) remainingText = remainingText.replace(venueMatch[0], "");
   if (haresMatch) remainingText = remainingText.replace(haresMatch[0], "");
 
@@ -202,22 +228,27 @@ export function parseNorfolkRunBlock(text: string): ParsedNorfolkRun | null {
  */
 export function htmlToText(html: string): string {
   let text = html;
-  text = text.replace(/<br\s*\/?>/gi, "\n");
-  text = text.replace(/<\/p>/gi, "\n");
+  // <br> + any surrounding whitespace (including the literal newline that
+  // typically follows in source markup) collapses to a single \n. Without
+  // consuming the trailing whitespace, "<br>\n" became "\n\n" and produced
+  // spurious blank lines between consecutive address parts.
+  text = text.replace(/<br\s*\/?>\s*/gi, "\n");
+  // </p> + trailing whitespace becomes a paragraph break (\n\n). The single
+  // intervening blank line is what parseNorfolkRunBlock uses as a section
+  // stop so multi-line Hare(s): blocks don't swallow notes paragraphs (#1257).
+  text = text.replace(/<\/p>\s*/gi, "\n\n");
   text = text.replace(/<\/(strong|em|b|i|a|span)>/gi, "</$1> ");
   text = text.replace(/<[^>]+>/g, "");
   text = decodeEntities(text);
-  text = text
-    .split("\n")
-    .map((line) =>
-      line
-        .replace(/\s{2,}/g, " ")
-        .trim(),
-    )
-    .filter(Boolean)
-    .join("\n");
-
-  return text;
+  // Trim each line; collapse runs of blank lines to at most one blank.
+  const trimmed = text.split("\n").map((l) => l.replace(/\s{2,}/g, " ").trim());
+  const out: string[] = [];
+  for (const line of trimmed) {
+    if (line === "" && (out.length === 0 || out[out.length - 1] === "")) continue;
+    out.push(line);
+  }
+  while (out.length > 0 && out[out.length - 1] === "") out.pop();
+  return out.join("\n");
 }
 
 export class NorfolkH3Adapter implements SourceAdapter {

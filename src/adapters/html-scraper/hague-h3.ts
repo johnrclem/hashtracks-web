@@ -34,7 +34,7 @@ import type {
   ParseError,
 } from "../types";
 import { hasAnyErrors } from "../types";
-import { fetchHTMLPage, buildDateWindow, decodeEntities } from "../utils";
+import { fetchHTMLPage, buildDateWindow, decodeEntities, EMOJI_RE } from "../utils";
 
 // ── Constants ──
 
@@ -45,6 +45,13 @@ const DEFAULT_START_TIME = "14:00";
 
 /** Match run number: "Run 2412" or "Run 2410 (50+% run)" */
 const RUN_NUMBER_RE = /Run\s+(\d{4})/;
+
+/**
+ * Match the parenthetical theme that frequently follows the run number on the
+ * same line, e.g. "Run 2419 (How Original Run)", "Run 2416 (super lazy pld
+ * run)". Captures the theme text without the surrounding parentheses (#1258).
+ */
+const RUN_TITLE_PARENTHETICAL_RE = /Run\s+\d{4}\s*\(([^)]+)\)/i;
 
 /** Match date line: "When: Sunday, March 29" or "When: Sunday Februari 22th" */
 const WHEN_RE = /When:\s*(.+)/i;
@@ -120,7 +127,10 @@ export function parseEventBlock(
     startTime = `${timeMatch[1].padStart(2, "0")}:${timeMatch[2]}`;
   }
 
-  // Extract location — strip trailing "Link" text from Google Maps links
+  // Extract location — strip trailing "Link" text from Google Maps links,
+  // strip any URLs, and strip pictographic emoji that the source authors
+  // sprinkle into the Where: line (e.g. "Station Voorburg 👣 under the
+  // viaduct" — the 👣 is in the source markup, #1258).
   let location: string | undefined;
   const whereMatch = WHERE_RE.exec(text);
   if (whereMatch) {
@@ -128,6 +138,8 @@ export function parseEventBlock(
       .trim()
       .replace(/\s*Link\s*$/i, "")
       .replace(/\s*https?:\/\/\S+/g, "")
+      .replace(EMOJI_RE, "")
+      .replace(/\s{2,}/g, " ")
       .trim();
     if (!location) location = undefined;
   }
@@ -145,15 +157,21 @@ export function parseEventBlock(
     if (!hares) hares = undefined;
   }
 
-  // Extract title: look for text before "Run NNNN" that isn't just whitespace
+  // Extract title: prefer the parenthetical theme on the run-number line
+  // ("Run 2419 (How Original Run)" → "How Original Run", #1258). Otherwise
+  // fall back to the first non-blank line preceding the Run line.
   let title: string | undefined;
-  const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
-  for (const line of lines) {
-    if (RUN_NUMBER_RE.test(line) || /^When:/i.test(line)) break;
-    // Use the first substantive line as the title
-    if (line.length > 2 && !/^OnOn/i.test(line)) {
-      title = line;
-      break;
+  const parenMatch = RUN_TITLE_PARENTHETICAL_RE.exec(text);
+  if (parenMatch) {
+    title = parenMatch[1].trim() || undefined;
+  } else {
+    const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+    for (const line of lines) {
+      if (RUN_NUMBER_RE.test(line) || /^When:/i.test(line)) break;
+      if (line.length > 2 && !/^OnOn/i.test(line)) {
+        title = line;
+        break;
+      }
     }
   }
 

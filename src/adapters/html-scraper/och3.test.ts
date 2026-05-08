@@ -489,6 +489,65 @@ describe("OCH3Adapter.fetch", () => {
     vi.restoreAllMocks();
   });
 
+  it("parses milestone runs (2000th, 2001th) without regex collision (#1273)", async () => {
+    // Verbatim from live och3.org.uk/upcoming-run-list.html. Pre-fix the
+    // dateStartPattern matched "00th Run" / "01th Run" inside the milestone
+    // numbers, slicing the section so title="20" and hares were dropped.
+    const html = `<html><body><div class="wsite-section-wrap">
+      <p>Upcoming Runs:</p>
+      <p>10th May 2026 - Memorial Run for Lawrence ' Dynorod' Pearce - The Red Lion, Betchworth</p>
+      <p>18th May 2026 - The Fox, Coulsdon - Ray 'Sir Ray' Sterry</p>
+      <p>23rd May 2026 - 2000th Run at the Pheasantry Mogador - Jamie 'Phil the Greek' Wheadon</p>
+      <p>24th May 2026 - 2001th Run - The Sportsman, Mogador - Karen 'Legolas' Hedderman</p>
+      <p>1st June 2026 - Inn on the Pond - Merstham - Jamie 'Phil the Greek' Wheadon</p>
+    </div></body></html>`;
+
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(html, { status: 200 }))
+      .mockResolvedValueOnce(new Response("<html><body></body></html>", { status: 200 }))
+      .mockResolvedValueOnce(new Response("<html><body></body></html>", { status: 200 }));
+
+    const adapter = new OCH3Adapter();
+    const result = await adapter.fetch({
+      id: "test",
+      url: "http://www.och3.org.uk/upcoming-run-list.html",
+    } as never);
+
+    // All 5 entries parse, including the milestone rows that previously
+    // collapsed to title="20".
+    expect(result.events).toHaveLength(5);
+    expect(result.events.map((e) => e.date)).toEqual([
+      "2026-05-10",
+      "2026-05-18",
+      "2026-05-23",
+      "2026-05-24",
+      "2026-06-01",
+    ]);
+
+    const may23 = result.events.find((e) => e.date === "2026-05-23");
+    expect(may23).toBeDefined();
+    expect(may23!.title).toBe("2000th Run at the Pheasantry Mogador");
+    expect(may23!.hares).toBe("Jamie 'Phil the Greek' Wheadon");
+    expect(may23!.location).toBeUndefined();
+
+    const may24 = result.events.find((e) => e.date === "2026-05-24");
+    expect(may24).toBeDefined();
+    expect(may24!.title).toBe("2001th Run - The Sportsman, Mogador");
+    expect(may24!.hares).toBe("Karen 'Legolas' Hedderman");
+    expect(may24!.location).toBeUndefined();
+
+    // Non-milestone entries keep the legacy {date} - {hare} - {venue} layout.
+    const may18 = result.events.find((e) => e.date === "2026-05-18");
+    expect(may18!.title).toBe("The Fox, Coulsdon");
+    expect(may18!.location).toBe("Ray 'Sir Ray' Sterry");
+
+    const jun1 = result.events.find((e) => e.date === "2026-06-01");
+    expect(jun1!.title).toBe("Inn on the Pond");
+    expect(jun1!.location).toBe("Jamie 'Phil the Greek' Wheadon");
+
+    vi.restoreAllMocks();
+  });
+
   it("returns fetch error on network failure", async () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValue(
       new Error("Network error"),

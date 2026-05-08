@@ -315,18 +315,34 @@ function parseRunEntry(
     .trim();
 
   const segments = withoutDatePrefix.split(/\s+-\s+/).map((s) => s.trim()).filter(Boolean);
-  let title = segments.length > 0 ? segments[0] : undefined;
+
+  // Milestone-run rows ("2000th Run at the Pheasantry Mogador - Jamie 'Phil
+  // the Greek' Wheadon") swap the canonical layout: the leading segment is
+  // the actual event title (often containing the venue), and the trailing
+  // segment is the hare. Detect by 3+ digit ordinal followed by "Run" (#1273).
+  const isMilestone =
+    segments.length >= 2 && /^\d{3,4}(?:st|nd|rd|th)?\s+Run\b/i.test(segments[0] ?? "");
+
+  let title: string | undefined;
+  let location: string | undefined;
+  let hares: string | undefined;
+
+  if (isMilestone) {
+    title = segments.slice(0, -1).join(" - ");
+    hares = segments[segments.length - 1];
+  } else {
+    title = segments.length > 0 ? segments[0] : undefined;
+    if (segments.length > 1) {
+      location = segments[segments.length - 1];
+      if (/details to follow/i.test(location)) location = undefined;
+    }
+  }
+
   // Strip nav/boilerplate phrases that bleed through from page text
   if (title) {
     title = title
       .replace(/\b(?:home|about us|contact|next run|committee|links|members|gallery)\b.*$/i, "")
       .trim() || undefined;
-  }
-
-  let location: string | undefined;
-  if (segments.length > 1) {
-    location = segments[segments.length - 1];
-    if (/details to follow/i.test(location)) location = undefined;
   }
 
   return {
@@ -335,6 +351,7 @@ function parseRunEntry(
       kennelTags: ["och3"],
       title,
       location,
+      hares,
       startTime: getStartTimeForDay(extractDayOfWeek(section) ?? inferDayFromDate(date)),
       sourceUrl: baseUrl,
     },
@@ -345,7 +362,11 @@ function parseRunEntry(
 function parseOCH3EntriesFromText(text: string, baseUrl: string): RawEventData[] {
   const normalizedText = normalizeOCH3Text(text);
 
-  const dateStartPattern = /(?:(?:Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday)\s+)?\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+(?:\s+\d{4})?/gi;
+  // The (?<!\d) lookbehind prevents the leading digit run from beginning
+  // mid-number. Without it, "2000th Run" inside "23rd May 2026 - 2000th Run"
+  // matched as "00th Run" (\d{1,2}="00", th, " Run"), creating a spurious
+  // section boundary that left title="20" and dropped hares (#1273).
+  const dateStartPattern = /(?<!\d)(?:(?:Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday)\s+)?\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+(?:\s+\d{4})?/gi;
   const matches = [...normalizedText.matchAll(dateStartPattern)];
 
   const entries: RawEventData[] = [];

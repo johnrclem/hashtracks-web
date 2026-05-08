@@ -147,6 +147,34 @@ describe("NorfolkH3Adapter", () => {
       expect(run!.hares).toBe("Fi Fi and Tweedledee ( Flori)");
     });
 
+    it("captures multi-line hares and stops venue at on-after blurb (#1257)", () => {
+      // Verbatim from issue #1257 (Run #2144). Two hares on separate lines
+      // under one Hare(s): label, and an "Afterwards, ..." on-after blurb
+      // that previously concatenated into the address.
+      const text = [
+        "Wednesday 6th May 2026, 7pm",
+        "Venue: Heathlands Social Club and Community Centre",
+        "Woodbastwick Road",
+        "Blofield Heath NR13 4QH",
+        "Afterwards, sandwich buffet, wagon wheels, cake, tea & coffee and the bar will be open!",
+        "Hare(s): Fi Fi and Tweedledee ( Flori)",
+        "Tweedledum (Simon)",
+      ].join("\n");
+
+      const run = parseNorfolkRunBlock(text);
+      expect(run).not.toBeNull();
+      expect(run!.date).toBe("2026-05-06");
+      expect(run!.startTime).toBe("19:00");
+      // Location stops at the postcode; "Afterwards" blurb must NOT bleed in.
+      expect(run!.location).toContain("Heathlands Social Club");
+      expect(run!.location).toContain("NR13 4QH");
+      expect(run!.location).not.toMatch(/sandwich|buffet|wagon wheels|bar will be open/i);
+      // Both hares captured, joined with comma.
+      expect(run!.hares).toBe("Fi Fi and Tweedledee ( Flori), Tweedledum (Simon)");
+      // Notes/description must NOT contain the second hare.
+      expect(run!.notes ?? "").not.toMatch(/Tweedledum/);
+    });
+
     it("handles placeholder venues (???)", () => {
       const text = [
         "Wednesday 13 May 2026, 7pm",
@@ -182,6 +210,10 @@ describe("NorfolkH3Adapter", () => {
     });
 
     it("captures notes after the hares block", () => {
+      // Notes that follow hares come from a separate <p> in the source HTML;
+      // htmlToText emits a blank line between paragraphs. parseNorfolkRunBlock
+      // treats that blank as a section stop so multi-line hares (#1257) don't
+      // swallow the following notes paragraph.
       const text = [
         "Sunday 12th April 2026, 11am",
         "Venue:",
@@ -190,11 +222,13 @@ describe("NorfolkH3Adapter", () => {
         "NR11 6QG",
         "Hare(s):",
         "Woolly Jumper and Bagpuss",
+        "",
         "Dead Beat Cats band playing at 4pm.",
       ].join("\n");
 
       const run = parseNorfolkRunBlock(text);
       expect(run).not.toBeNull();
+      expect(run!.hares).toBe("Woolly Jumper and Bagpuss");
       expect(run!.notes).toContain("Dead Beat Cats");
     });
 
@@ -218,10 +252,12 @@ describe("NorfolkH3Adapter", () => {
       expect(text).toContain("\nNR28 0AH");
     });
 
-    it("converts </p> to newlines", () => {
+    it("converts </p> to paragraph breaks (blank line between)", () => {
+      // Paragraph break preserved as a blank line so parseNorfolkRunBlock can
+      // stop multi-line Hare(s): captures at the boundary (#1257).
       const html = "<p>Line one</p><p>Line two</p>";
       const text = htmlToText(html);
-      expect(text).toBe("Line one\nLine two");
+      expect(text).toBe("Line one\n\nLine two");
     });
 
     it("inserts space after inline closing tags", () => {
