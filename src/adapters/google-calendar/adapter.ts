@@ -65,19 +65,20 @@ export function extractRunNumber(
     : undefined;
 }
 
+function resolveRunNumberPatterns(customPatterns?: string[] | RegExp[]): RegExp[] {
+  if (!customPatterns || customPatterns.length === 0) return DEFAULT_RUN_NUMBER_PATTERNS;
+  if (typeof customPatterns[0] === "string") return compilePatterns(customPatterns as string[]);
+  return customPatterns as RegExp[];
+}
+
 function extractRunNumberFromDescription(
   description: string,
   customPatterns?: string[] | RegExp[],
 ): number | undefined {
-  const patterns = customPatterns && customPatterns.length > 0
-    ? (typeof customPatterns[0] === "string"
-        ? compilePatterns(customPatterns as string[])
-        : customPatterns as RegExp[])
-    : DEFAULT_RUN_NUMBER_PATTERNS;
-
-  for (const pattern of patterns) {
+  for (const pattern of resolveRunNumberPatterns(customPatterns)) {
     const match = pattern.exec(description);
-    const num = match?.[1] ? Number.parseInt(match[1], 10) : NaN;
+    if (!match?.[1]) continue;
+    const num = Number.parseInt(match[1], 10);
     if (Number.isFinite(num) && num > 0) return num;
   }
 
