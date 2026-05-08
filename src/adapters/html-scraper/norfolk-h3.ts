@@ -62,11 +62,11 @@ const KENNEL_TAG = "Norfolk H3";
 const SECTION_STOP =
   /\n\s*(?:\n|Hare\(s\):|Venue:|Please\s+park|Contact\s|Afterwards\b|Wear\s|Bring\s|On\s+down\b|On-On\b)/i;
 const VENUE_RE = new RegExp(
-  `Venue:\\s*([\\s\\S]*?)(?=${SECTION_STOP.source}|\\s*$)`,
+  String.raw`Venue:\s*([\s\S]*?)(?=${SECTION_STOP.source}|\s*$)`,
   "i",
 );
 const HARES_RE = new RegExp(
-  `Hare\\(s\\):\\s*([\\s\\S]*?)(?=${SECTION_STOP.source}|\\s*$)`,
+  String.raw`Hare\(s\):\s*([\s\S]*?)(?=${SECTION_STOP.source}|\s*$)`,
   "i",
 );
 
@@ -146,7 +146,7 @@ export function parseNorfolkRunBlock(text: string): ParsedNorfolkRun | null {
   const rawLines = text.split(/\n/).map((l) => l.trim());
   // Trim leading/trailing blanks but keep internal paragraph breaks.
   while (rawLines.length > 0 && rawLines[0] === "") rawLines.shift();
-  while (rawLines.length > 0 && rawLines[rawLines.length - 1] === "") rawLines.pop();
+  while (rawLines.length > 0 && rawLines.at(-1) === "") rawLines.pop();
   if (rawLines.length === 0) return null;
 
   const firstLine = rawLines[0];
@@ -159,7 +159,7 @@ export function parseNorfolkRunBlock(text: string): ParsedNorfolkRun | null {
   const fullText = rawLines.join("\n");
 
   // Match Venue: followed by content up to next known label or end
-  const venueMatch = fullText.match(VENUE_RE);
+  const venueMatch = VENUE_RE.exec(fullText);
   if (venueMatch) {
     const venueText = venueMatch[1]
       .replace(/\n/g, ", ")
@@ -182,7 +182,7 @@ export function parseNorfolkRunBlock(text: string): ParsedNorfolkRun | null {
   // Capture Hare(s): block as multi-line — Norfolk authors put each hare on
   // a separate line under one label (#1257 — "Tweedledum (Simon)" was being
   // dropped into notes/description because the regex only matched one line).
-  const haresMatch = fullText.match(HARES_RE);
+  const haresMatch = HARES_RE.exec(fullText);
   if (haresMatch) {
     const haresText = haresMatch[1]
       .split("\n")
@@ -253,10 +253,10 @@ export function htmlToText(html: string): string {
   const trimmed = text.split("\n").map((l) => l.replace(/\s{2,}/g, " ").trim());
   const out: string[] = [];
   for (const line of trimmed) {
-    if (line === "" && (out.length === 0 || out[out.length - 1] === "")) continue;
+    if (line === "" && (out.length === 0 || out.at(-1) === "")) continue;
     out.push(line);
   }
-  while (out.length > 0 && out[out.length - 1] === "") out.pop();
+  while (out.length > 0 && out.at(-1) === "") out.pop();
   return out.join("\n");
 }
 
@@ -338,7 +338,7 @@ export class NorfolkH3Adapter implements SourceAdapter {
     );
 
     if (!fetchResult) {
-      const last = errorDetails.fetch?.[errorDetails.fetch.length - 1];
+      const last = errorDetails.fetch?.at(-1);
       const fallbackMessage = last?.message ?? "Fetch failed";
       return {
         events: [],

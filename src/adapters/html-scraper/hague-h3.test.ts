@@ -156,6 +156,21 @@ Cost: non-members EUR 7.00 for a single run (includes beer and snacks)`;
     expect(event!.hares).toBe("XL");
   });
 
+  it("collapses internal whitespace inside parenthetical themes", () => {
+    // Multi-space / line-broken parentheticals come up when authors paste
+    // from a document — the title should still render cleanly.
+    const text = `Run 2425 (super  lazy
+  pld run)
+When: Sunday April 26
+Time: 14:00 hr
+Where: Test Location
+Hare: Tester`;
+
+    const event = parseEventBlock(text, SOURCE_URL);
+    expect(event).not.toBeNull();
+    expect(event!.title).toBe("Hague H3 #2425 — super lazy pld run");
+  });
+
   it("captures lowercase parenthetical theme (#1258, Run 2416)", () => {
     const text = `Run 2416 (super lazy pld run)
 When: Wednesday April 22, 19:00 sharp

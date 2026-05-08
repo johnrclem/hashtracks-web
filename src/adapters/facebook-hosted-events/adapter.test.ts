@@ -48,12 +48,20 @@ function htmlResponse(body: string): Response {
 }
 
 describe("FacebookHostedEventsAdapter — fetch", () => {
+  // Freeze the clock so the date-window assertions don't drift as calendar
+  // time advances past the May 9 2026 fixture event. Without this, tests
+  // like "honors options.days by filtering events outside the window" pass
+  // for a few days then break the moment "today" crosses into the fixture's
+  // ±days window.
   beforeEach(() => {
     mockedFetch.mockReset();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-07T12:00:00Z"));
   });
 
   afterEach(() => {
     mockedFetch.mockReset();
+    vi.useRealTimers();
   });
 
   it("rejects config missing required fields", async () => {

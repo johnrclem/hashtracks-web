@@ -50,8 +50,10 @@ const RUN_NUMBER_RE = /Run\s+(\d{4})/;
  * Match the parenthetical theme that frequently follows the run number on the
  * same line, e.g. "Run 2419 (How Original Run)", "Run 2416 (super lazy pld
  * run)". Captures the theme text without the surrounding parentheses (#1258).
+ * No /i flag — "Run" is consistently capitalized and the captured group
+ * carries no case-sensitive literals.
  */
-const RUN_TITLE_PARENTHETICAL_RE = /Run\s+\d{4}\s*\(([^)]+)\)/i;
+const RUN_TITLE_PARENTHETICAL_RE = /Run\s+\d{4}\s*\(([^)]+)\)/;
 
 /** Match date line: "When: Sunday, March 29" or "When: Sunday Februari 22th" */
 const WHEN_RE = /When:\s*(.+)/i;
@@ -163,7 +165,10 @@ export function parseEventBlock(
   let title: string | undefined;
   const parenMatch = RUN_TITLE_PARENTHETICAL_RE.exec(text);
   if (parenMatch) {
-    title = parenMatch[1].trim() || undefined;
+    // Collapse internal whitespace — sources occasionally embed line breaks
+    // or double spaces inside the parenthetical (e.g. "(super  lazy\n  pld
+    // run)") which look ugly on the event card.
+    title = parenMatch[1].replace(/\s+/g, " ").trim() || undefined;
   } else {
     const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
     for (const line of lines) {
