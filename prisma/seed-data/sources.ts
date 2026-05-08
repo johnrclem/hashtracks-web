@@ -4811,11 +4811,17 @@ export const SOURCES = [
       kennelCodes: ["augh3"],
     },
     {
-      // Berlin H3 + Berlin Full Moon share one FB Page. The adapter emits
-      // events tagged with `kennelTag: "berlinh3"` on the cron path; the
-      // SourceKennel link table covers both kennels for the backfill.
-      // Adding `kennelPatterns` support to the FB adapter is a future
-      // step if/when the two kennels publish distinguishable events.
+      // Berlin H3 + Berlin Full Moon share one FB Page. The cron adapter
+      // emits events tagged with `kennelTag: "berlinh3"` (single primary).
+      // Listing `bh3fm` in `kennelCodes` records the relationship in the
+      // SourceKennel link table — useful for documentation and ready for
+      // when the FB adapter gains `kennelPatterns` routing — but events
+      // ARE NOT currently attributed to `bh3fm` by cron or by the
+      // backfill script. Avoiding that attribution today keeps the
+      // backfill behaviorally symmetric with cron (Gemini finding on
+      // PR #1310). When kennelPatterns lands, the SourceKennel link is
+      // already in place and a re-run of both will start writing
+      // bh3fm-attributed events automatically.
       name: "Berlin H3 Facebook Hosted Events",
       url: "https://www.facebook.com/BerlinHashHouseHarriers/upcoming_hosted_events",
       type: "FACEBOOK_HOSTED_EVENTS" as const,
@@ -4862,7 +4868,10 @@ export const SOURCES = [
     },
     {
       // Four Chiang Mai kennels share one chiangmaihashhouseharriershhh
-      // Page. Same multi-kennel-handle handling as Berlin above.
+      // Page. As with Berlin H3 above: the SourceKennel link table
+      // records the relationship for all four kennels, but cron + backfill
+      // currently attribute events only to the primary `ch3-cm` until the
+      // FB adapter gains `kennelPatterns` routing.
       name: "Chiang Mai Hash Facebook Hosted Events",
       url: "https://www.facebook.com/chiangmaihashhouseharriershhh/upcoming_hosted_events",
       type: "FACEBOOK_HOSTED_EVENTS" as const,

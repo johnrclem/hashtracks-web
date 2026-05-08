@@ -71,13 +71,19 @@ const HANDLE_TO_KENNELS: ReadonlyArray<{
   { handle: "adelaidehash", kennelCodes: ["ah3-au"] },
   { handle: "AlohaH3", kennelCodes: ["ah3-hi"] },
   { handle: "augustaundergroundH3", kennelCodes: ["augh3"] },
-  { handle: "BerlinHashHouseHarriers", kennelCodes: ["berlinh3", "bh3fm"] },
+  // BerlinHashHouseHarriers Page also covers `bh3fm`, but the cron
+  // adapter only attributes to one kennel (`berlinh3`). Backfill mirrors
+  // that until kennelPatterns routing lands. The SourceKennel link table
+  // still records the bh3fm relationship for future use.
+  { handle: "BerlinHashHouseHarriers", kennelCodes: ["berlinh3"] },
   { handle: "BurlingtonH3", kennelCodes: ["burlyh3"] },
   { handle: "CapeFearH3", kennelCodes: ["cfh3"] },
-  {
-    handle: "chiangmaihashhouseharriershhh",
-    kennelCodes: ["ch3-cm", "ch4-cm", "csh3", "cbh3-cm"],
-  },
+  // Same single-kennel attribution as Berlin: the chiangmaihashhouseharriershhh
+  // Page covers four kennels via SourceKennel links, but only `ch3-cm`
+  // (the source's primary kennelTag) receives backfill events under
+  // current cron semantics. ch4-cm/csh3/cbh3-cm follow once the FB
+  // adapter learns kennelPatterns.
+  { handle: "chiangmaihashhouseharriershhh", kennelCodes: ["ch3-cm"] },
   { handle: "CharmCityH3", kennelCodes: ["cch3"] },
   { handle: "charlestonheretics", kennelCodes: ["chh3"] },
   { handle: "clevelandhash", kennelCodes: ["cleh4"] },
@@ -309,26 +315,25 @@ async function loadSourceLookup(
   prisma: PrismaClient,
   expectedKennelCodes: readonly string[],
 ): Promise<{ byKennelCode: Map<string, SourceLookup>; missing: string[] }> {
-  // Walk the SourceKennel link table joined with Source so we resolve
-  // every kennelCode that's linked to a FACEBOOK_HOSTED_EVENTS source —
-  // not just the primary in `Source.config.kennelTag`. This matters for
-  // multi-kennel Pages: Berlin H3 + Berlin Full Moon both serve from
-  // BerlinHashHouseHarriers, and four Chiang Mai kennels share one
-  // chiangmaihashhouseharriershhh Page. Without joining via the link
-  // table, every secondary kennel would land in `missing` even when the
-  // Source row exists.
-  const links = await prisma.sourceKennel.findMany({
-    where: { source: { type: "FACEBOOK_HOSTED_EVENTS", enabled: true } },
-    select: {
-      kennel: { select: { kennelCode: true } },
-      source: { select: { id: true, config: true } },
-    },
+  // Backfill attribution mirrors the cron adapter exactly: events are
+  // attributed to ONE kennel — the source's `config.kennelTag`. The
+  // SourceKennel link table records that other kennels share the same
+  // Page (e.g. bh3fm shares BerlinHashHouseHarriers with berlinh3,
+  // four Chiang Mai kennels share one Page), but those secondary
+  // kennels don't get event attribution until `kennelPatterns` routing
+  // is added to `FacebookHostedEventsAdapter`. Walking the link table
+  // here would write 2× Berlin Events / 4× Chiang Mai Events vs what
+  // cron produces — breaking the behavioral-symmetry rule with the
+  // primary recurring process. Gemini high-priority finding on PR #1310.
+  const sources = await prisma.source.findMany({
+    where: { type: "FACEBOOK_HOSTED_EVENTS", enabled: true },
+    select: { id: true, config: true },
   });
   const byKennelCode = new Map<string, SourceLookup>();
-  for (const l of links) {
-    const cfg = l.source.config as { timezone?: string } | null;
-    if (!cfg?.timezone) continue;
-    byKennelCode.set(l.kennel.kennelCode, { sourceId: l.source.id, timezone: cfg.timezone });
+  for (const s of sources) {
+    const cfg = s.config as { kennelTag?: string; timezone?: string } | null;
+    if (!cfg?.kennelTag || !cfg.timezone) continue;
+    byKennelCode.set(cfg.kennelTag, { sourceId: s.id, timezone: cfg.timezone });
   }
   const missing = expectedKennelCodes.filter((c) => !byKennelCode.has(c));
   return { byKennelCode, missing };
