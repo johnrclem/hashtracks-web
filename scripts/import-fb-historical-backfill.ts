@@ -309,15 +309,26 @@ async function loadSourceLookup(
   prisma: PrismaClient,
   expectedKennelCodes: readonly string[],
 ): Promise<{ byKennelCode: Map<string, SourceLookup>; missing: string[] }> {
-  const sources = await prisma.source.findMany({
-    where: { type: "FACEBOOK_HOSTED_EVENTS", enabled: true },
-    select: { id: true, config: true },
+  // Walk the SourceKennel link table joined with Source so we resolve
+  // every kennelCode that's linked to a FACEBOOK_HOSTED_EVENTS source —
+  // not just the primary in `Source.config.kennelTag`. This matters for
+  // multi-kennel Pages: Berlin H3 + Berlin Full Moon both serve from
+  // BerlinHashHouseHarriers, and four Chiang Mai kennels share one
+  // chiangmaihashhouseharriershhh Page. Without joining via the link
+  // table, every secondary kennel would land in `missing` even when the
+  // Source row exists.
+  const links = await prisma.sourceKennel.findMany({
+    where: { source: { type: "FACEBOOK_HOSTED_EVENTS", enabled: true } },
+    select: {
+      kennel: { select: { kennelCode: true } },
+      source: { select: { id: true, config: true } },
+    },
   });
   const byKennelCode = new Map<string, SourceLookup>();
-  for (const s of sources) {
-    const cfg = s.config as { kennelTag?: string; timezone?: string } | null;
-    if (!cfg?.kennelTag || !cfg.timezone) continue;
-    byKennelCode.set(cfg.kennelTag, { sourceId: s.id, timezone: cfg.timezone });
+  for (const l of links) {
+    const cfg = l.source.config as { timezone?: string } | null;
+    if (!cfg?.timezone) continue;
+    byKennelCode.set(l.kennel.kennelCode, { sourceId: l.source.id, timezone: cfg.timezone });
   }
   const missing = expectedKennelCodes.filter((c) => !byKennelCode.has(c));
   return { byKennelCode, missing };
