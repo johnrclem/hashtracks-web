@@ -709,10 +709,13 @@ export function extractHashRunNumber(text: string | undefined): number | undefin
  * — "next run, number not yet assigned" (#1272/#1274/#1275). Callers emit
  * `null` so merge.ts's tri-state clears stale runNumbers from prior
  * scrapes when a retitle drops the digit. The `/i` flag handles case;
- * the character classes deliberately list one case only.
+ * the character classes deliberately list one case only. The
+ * `(?:\d+[ \t]*)?` non-capturing wrapper keeps `\d` and the trailing
+ * spaces glued together — avoids the `\s*\d*\s*` triple-quantifier
+ * shape that Sonar S5852 flags as ReDoS-prone.
  */
 const HASH_RUN_NUMBER_PLACEHOLDER_RE =
-  /#\s*\d*\s*(?:X+\??|TBD|TBA|TBC|\?+)(?=$|[^A-Z0-9])/i;
+  /#[ \t]*(?:\d+[ \t]*)?(?:X+\??|TBD|TBA|TBC|\?+)(?=$|[^A-Z0-9])/i;
 export function hasPlaceholderRunNumber(text: string | undefined): boolean {
   return !!text && HASH_RUN_NUMBER_PLACEHOLDER_RE.test(text);
 }
