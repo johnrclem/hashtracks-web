@@ -404,25 +404,30 @@ function parseRunEntry(
 function parseOCH3EntriesFromText(text: string, baseUrl: string): RawEventData[] {
   const normalizedText = normalizeOCH3Text(text);
 
-  // The (?<!\d) lookbehind prevents the leading digit run from beginning
-  // mid-number. Without it, "2000th Run" inside "23rd May 2026 - 2000th Run"
-  // matched as "00th Run" (\d{1,2}="00", th, " Run"), creating a spurious
-  // section boundary that left title="20" and dropped hares (#1273).
+  // Find "DD MonthName" / "DDth MonthName" / "DDth MonthName YYYY" boundaries.
+  // The regex is intentionally simple — bounded character classes, no
+  // alternation arms — and the "leading digit run can't begin mid-number"
+  // constraint is enforced as a post-filter in JS rather than as a
+  // (?<!\d) lookbehind. This keeps the engine's backtracking footprint
+  // trivially small.
   //
-  // Day-of-week prefix is intentionally absent from the boundary scan: when
-  // a row begins "Sunday 23rd May 2026", we slice from "23rd" and leave the
-  // day name in the upstream text. parseRunEntry's dependent code uses
-  // extractDayOfWeek(section) ?? inferDayFromDate(date), and the second
-  // arm always succeeds — so the day prefix is unneeded ceremony here.
+  // Without the digit-prefix filter, "2000th Run" inside "23rd May 2026 -
+  // 2000th Run" matched as "00th Run" (\d{1,2}="00", th, " Run"), creating
+  // a spurious section boundary that left title="20" and dropped hares
+  // (#1273).
   //
-  // NOSONAR S5852 — bounded literal classes only ([A-Z], [a-z], \d), no
-  // overlapping alternation, constant-width lookbehind. No catastrophic
-  // backtracking path on any input.
-  const matches = [
-    ...normalizedText.matchAll(
-      /(?<!\d)\d{1,2}(?:st|nd|rd|th)?\s+[A-Z][a-z]+(?:\s+\d{4})?/g, // NOSONAR S5852
-    ),
-  ];
+  // Day-of-week prefix is intentionally absent: when a row begins
+  // "Sunday 23rd May 2026", we slice from "23rd" and the upstream day
+  // name stays in the text. parseRunEntry's startTime fallback
+  // (extractDayOfWeek ?? inferDayFromDate) covers it.
+  const candidateRe = /\d{1,2}[a-z]{0,2}\s+[A-Z][a-z]+(?:\s+\d{4})?/g;
+  const matches: RegExpExecArray[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = candidateRe.exec(normalizedText)) !== null) {
+    const prevChar = m.index > 0 ? normalizedText[m.index - 1] : "";
+    if (prevChar >= "0" && prevChar <= "9") continue;
+    matches.push(m);
+  }
 
   const entries: RawEventData[] = [];
   let inferredYear: number | undefined;
