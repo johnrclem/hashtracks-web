@@ -717,9 +717,9 @@ export function extractHashRunNumber(text: string | undefined): number | undefin
  * — dropping the leading `[ \t]*` after `#` keeps each pattern
  * unambiguous.
  */
-const HASH_PLACEHOLDER_SUFFIX = "(?:X+\\??|TB[ADC]|\\?+)(?=$|[^A-Z0-9])";
+const HASH_PLACEHOLDER_SUFFIX = String.raw`(?:X+\??|TB[ADC]|\?+)(?=$|[^A-Z0-9])`;
 const HASH_RUN_NUMBER_PLACEHOLDER_DIGITS_RE = new RegExp(
-  `#\\d+[ \\t]*${HASH_PLACEHOLDER_SUFFIX}`, "i",
+  String.raw`#\d+[ \t]*${HASH_PLACEHOLDER_SUFFIX}`, "i",
 );
 const HASH_RUN_NUMBER_PLACEHOLDER_BARE_RE = new RegExp(
   `#${HASH_PLACEHOLDER_SUFFIX}`, "i",
