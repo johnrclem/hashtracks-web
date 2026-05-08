@@ -4667,5 +4667,465 @@ export const SOURCES = [
       },
       kennelCodes: ["wasatch-h3", "lds-h3", "slosh-h3", "slut-h3"],
     },
+    // ────────────────────────────────────────────────────────────────────
+    // FACEBOOK_HOSTED_EVENTS scaling targets (PR #1294 audit, PR #1309 backfill)
+    //
+    // Every Page-shape facebookUrl in our seed that returned ≥1 event on
+    // the audit's `/upcoming_hosted_events` OR `/past_hosted_events` tab
+    // gets a FACEBOOK_HOSTED_EVENTS source row here. These are required
+    // before `scripts/import-fb-historical-backfill.ts` can run — the
+    // script fail-louds without them.
+    //
+    // GSH3 (Grand Strand H3) is intentionally NOT in this block — it
+    // already has its own row up in the South Carolina region, kept as
+    // the canary kennel from PR #1292.
+    //
+    // Multi-kennel Pages (Berlin H3 + Berlin Full Moon share
+    // BerlinHashHouseHarriers; four Chiang Mai kennels share one Page)
+    // emit ONE source with `kennelCodes` listing every linked kennel.
+    // The backfill script's `loadSourceLookup` walks SourceKennel links
+    // (not just config.kennelTag) so all kennels resolve cleanly.
+    //
+    // ────────────────────────────────────────────────────────────────────
+
+    // Tier 1 — Pages with upcoming events at audit time
+    {
+      name: "Hollyweird H6 Facebook Hosted Events",
+      url: "https://www.facebook.com/HollyweirdH6/upcoming_hosted_events",
+      type: "FACEBOOK_HOSTED_EVENTS" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "h6",
+        pageHandle: "HollyweirdH6",
+        timezone: "America/New_York",
+        upcomingOnly: true,
+      },
+      kennelCodes: ["h6"],
+    },
+    {
+      name: "Memphis H3 Facebook Hosted Events",
+      url: "https://www.facebook.com/MemphisH3/upcoming_hosted_events",
+      type: "FACEBOOK_HOSTED_EVENTS" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "mh3-tn",
+        pageHandle: "MemphisH3",
+        timezone: "America/Chicago",
+        upcomingOnly: true,
+      },
+      kennelCodes: ["mh3-tn"],
+    },
+    {
+      name: "SOH4 Facebook Hosted Events",
+      url: "https://www.facebook.com/soh4onon/upcoming_hosted_events",
+      type: "FACEBOOK_HOSTED_EVENTS" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "soh4",
+        pageHandle: "soh4onon",
+        timezone: "America/New_York",
+        upcomingOnly: true,
+      },
+      kennelCodes: ["soh4"],
+    },
+    {
+      name: "PCH3 Facebook Hosted Events",
+      url: "https://www.facebook.com/PCH3FL/upcoming_hosted_events",
+      type: "FACEBOOK_HOSTED_EVENTS" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "pch3",
+        pageHandle: "PCH3FL",
+        timezone: "America/Chicago",
+        upcomingOnly: true,
+      },
+      kennelCodes: ["pch3"],
+    },
+    {
+      name: "Dayton H4 Facebook Hosted Events",
+      url: "https://www.facebook.com/DaytonHash/upcoming_hosted_events",
+      type: "FACEBOOK_HOSTED_EVENTS" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "dh4",
+        pageHandle: "DaytonHash",
+        timezone: "America/New_York",
+        upcomingOnly: true,
+      },
+      kennelCodes: ["dh4"],
+    },
+    // Tier 2 — Pages with past events only at audit time (re-audit candidates)
+    {
+      name: "Adelaide H3 Facebook Hosted Events",
+      url: "https://www.facebook.com/adelaidehash/upcoming_hosted_events",
+      type: "FACEBOOK_HOSTED_EVENTS" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "ah3-au",
+        pageHandle: "adelaidehash",
+        timezone: "Australia/Adelaide",
+        upcomingOnly: true,
+      },
+      kennelCodes: ["ah3-au"],
+    },
+    {
+      name: "Aloha H3 Facebook Hosted Events",
+      url: "https://www.facebook.com/AlohaH3/upcoming_hosted_events",
+      type: "FACEBOOK_HOSTED_EVENTS" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "ah3-hi",
+        pageHandle: "AlohaH3",
+        timezone: "Pacific/Honolulu",
+        upcomingOnly: true,
+      },
+      kennelCodes: ["ah3-hi"],
+    },
+    {
+      name: "AUGH3 Facebook Hosted Events",
+      url: "https://www.facebook.com/augustaundergroundH3/upcoming_hosted_events",
+      type: "FACEBOOK_HOSTED_EVENTS" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "augh3",
+        pageHandle: "augustaundergroundH3",
+        timezone: "America/New_York",
+        upcomingOnly: true,
+      },
+      kennelCodes: ["augh3"],
+    },
+    {
+      // Berlin H3 + Berlin Full Moon share one FB Page. The cron adapter
+      // emits events tagged with `kennelTag: "berlinh3"` (single primary).
+      // Listing `bh3fm` in `kennelCodes` records the relationship in the
+      // SourceKennel link table — useful for documentation and ready for
+      // when the FB adapter gains `kennelPatterns` routing — but events
+      // ARE NOT currently attributed to `bh3fm` by cron or by the
+      // backfill script. Avoiding that attribution today keeps the
+      // backfill behaviorally symmetric with cron (Gemini finding on
+      // PR #1310). When kennelPatterns lands, the SourceKennel link is
+      // already in place and a re-run of both will start writing
+      // bh3fm-attributed events automatically.
+      name: "Berlin H3 Facebook Hosted Events",
+      url: "https://www.facebook.com/BerlinHashHouseHarriers/upcoming_hosted_events",
+      type: "FACEBOOK_HOSTED_EVENTS" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "berlinh3",
+        pageHandle: "BerlinHashHouseHarriers",
+        timezone: "Europe/Berlin",
+        upcomingOnly: true,
+      },
+      kennelCodes: ["berlinh3", "bh3fm"],
+    },
+    {
+      name: "Burlington H3 Facebook Hosted Events",
+      url: "https://www.facebook.com/BurlingtonH3/upcoming_hosted_events",
+      type: "FACEBOOK_HOSTED_EVENTS" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "burlyh3",
+        pageHandle: "BurlingtonH3",
+        timezone: "America/New_York",
+        upcomingOnly: true,
+      },
+      kennelCodes: ["burlyh3"],
+    },
+    {
+      name: "Cape Fear H3 Facebook Hosted Events",
+      url: "https://www.facebook.com/CapeFearH3/upcoming_hosted_events",
+      type: "FACEBOOK_HOSTED_EVENTS" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "cfh3",
+        pageHandle: "CapeFearH3",
+        timezone: "America/New_York",
+        upcomingOnly: true,
+      },
+      kennelCodes: ["cfh3"],
+    },
+    {
+      // Four Chiang Mai kennels share one chiangmaihashhouseharriershhh
+      // Page. As with Berlin H3 above: the SourceKennel link table
+      // records the relationship for all four kennels, but cron + backfill
+      // currently attribute events only to the primary `ch3-cm` until the
+      // FB adapter gains `kennelPatterns` routing.
+      name: "Chiang Mai Hash Facebook Hosted Events",
+      url: "https://www.facebook.com/chiangmaihashhouseharriershhh/upcoming_hosted_events",
+      type: "FACEBOOK_HOSTED_EVENTS" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "ch3-cm",
+        pageHandle: "chiangmaihashhouseharriershhh",
+        timezone: "Asia/Bangkok",
+        upcomingOnly: true,
+      },
+      kennelCodes: ["ch3-cm", "ch4-cm", "csh3", "cbh3-cm"],
+    },
+    {
+      name: "Charm City H3 Facebook Hosted Events",
+      url: "https://www.facebook.com/CharmCityH3/upcoming_hosted_events",
+      type: "FACEBOOK_HOSTED_EVENTS" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "cch3",
+        pageHandle: "CharmCityH3",
+        timezone: "America/New_York",
+        upcomingOnly: true,
+      },
+      kennelCodes: ["cch3"],
+    },
+    {
+      name: "Charleston Heretics Facebook Hosted Events",
+      url: "https://www.facebook.com/charlestonheretics/upcoming_hosted_events",
+      type: "FACEBOOK_HOSTED_EVENTS" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "chh3",
+        pageHandle: "charlestonheretics",
+        timezone: "America/New_York",
+        upcomingOnly: true,
+      },
+      kennelCodes: ["chh3"],
+    },
+    {
+      name: "Cleveland H4 Facebook Hosted Events",
+      url: "https://www.facebook.com/clevelandhash/upcoming_hosted_events",
+      type: "FACEBOOK_HOSTED_EVENTS" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "cleh4",
+        pageHandle: "clevelandhash",
+        timezone: "America/New_York",
+        upcomingOnly: true,
+      },
+      kennelCodes: ["cleh4"],
+    },
+    {
+      name: "ECH3 Facebook Hosted Events",
+      url: "https://www.facebook.com/FWBAreaHHH/upcoming_hosted_events",
+      type: "FACEBOOK_HOSTED_EVENTS" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "ech3-fl",
+        pageHandle: "FWBAreaHHH",
+        timezone: "America/Chicago",
+        upcomingOnly: true,
+      },
+      kennelCodes: ["ech3-fl"],
+    },
+    {
+      name: "Foothill H3 Facebook Hosted Events",
+      url: "https://www.facebook.com/FoothillH3/upcoming_hosted_events",
+      type: "FACEBOOK_HOSTED_EVENTS" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "fth3",
+        pageHandle: "FoothillH3",
+        timezone: "America/Los_Angeles",
+        upcomingOnly: true,
+      },
+      kennelCodes: ["fth3"],
+    },
+    {
+      name: "HK H3 Facebook Hosted Events",
+      url: "https://www.facebook.com/h4hongkonghash/upcoming_hosted_events",
+      type: "FACEBOOK_HOSTED_EVENTS" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "hkh3",
+        pageHandle: "h4hongkonghash",
+        timezone: "Asia/Hong_Kong",
+        upcomingOnly: true,
+      },
+      kennelCodes: ["hkh3"],
+    },
+    {
+      name: "Licking Valley H3 Facebook Hosted Events",
+      url: "https://www.facebook.com/Licking-Valley-Hash-House-Harriers-841860922532429/upcoming_hosted_events",
+      type: "FACEBOOK_HOSTED_EVENTS" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "lvh3-cin",
+        pageHandle: "Licking-Valley-Hash-House-Harriers-841860922532429",
+        timezone: "America/New_York",
+        upcomingOnly: true,
+      },
+      kennelCodes: ["lvh3-cin"],
+    },
+    {
+      name: "Madison H3 Facebook Hosted Events",
+      url: "https://www.facebook.com/madisonHHH/upcoming_hosted_events",
+      type: "FACEBOOK_HOSTED_EVENTS" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "madisonh3",
+        pageHandle: "madisonHHH",
+        timezone: "America/Chicago",
+        upcomingOnly: true,
+      },
+      kennelCodes: ["madisonh3"],
+    },
+    {
+      name: "MiHi-HuHa Facebook Hosted Events",
+      url: "https://www.facebook.com/MileHighH3/upcoming_hosted_events",
+      type: "FACEBOOK_HOSTED_EVENTS" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "mihi-huha",
+        pageHandle: "MileHighH3",
+        timezone: "America/Denver",
+        upcomingOnly: true,
+      },
+      kennelCodes: ["mihi-huha"],
+    },
+    {
+      name: "MoA2H3 Facebook Hosted Events",
+      url: "https://www.facebook.com/MOA2H3/upcoming_hosted_events",
+      type: "FACEBOOK_HOSTED_EVENTS" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "moa2h3",
+        pageHandle: "MOA2H3",
+        timezone: "America/Detroit",
+        upcomingOnly: true,
+      },
+      kennelCodes: ["moa2h3"],
+    },
+    {
+      name: "Narwhal H3 Facebook Hosted Events",
+      url: "https://www.facebook.com/HashNarwhal/upcoming_hosted_events",
+      type: "FACEBOOK_HOSTED_EVENTS" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "narwhal-h3",
+        pageHandle: "HashNarwhal",
+        timezone: "America/New_York",
+        upcomingOnly: true,
+      },
+      kennelCodes: ["narwhal-h3"],
+    },
+    {
+      // Norfolk H3 lives in Norfolk, UK — disambiguate from Norfolk, VA.
+      name: "Norfolk H3 Facebook Hosted Events",
+      url: "https://www.facebook.com/NorfolkH3/upcoming_hosted_events",
+      type: "FACEBOOK_HOSTED_EVENTS" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "norfolkh3",
+        pageHandle: "NorfolkH3",
+        timezone: "Europe/London",
+        upcomingOnly: true,
+      },
+      kennelCodes: ["norfolkh3"],
+    },
+    {
+      name: "RH3 Columbus Facebook Hosted Events",
+      url: "https://www.facebook.com/rh3columbus/upcoming_hosted_events",
+      type: "FACEBOOK_HOSTED_EVENTS" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "renh3",
+        pageHandle: "rh3columbus",
+        timezone: "America/New_York",
+        upcomingOnly: true,
+      },
+      kennelCodes: ["renh3"],
+    },
+    {
+      name: "Survivor H3 Facebook Hosted Events",
+      url: "https://www.facebook.com/SurvivorH3/upcoming_hosted_events",
+      type: "FACEBOOK_HOSTED_EVENTS" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "survivor-h3",
+        pageHandle: "SurvivorH3",
+        timezone: "America/Chicago",
+        upcomingOnly: true,
+      },
+      kennelCodes: ["survivor-h3"],
+    },
+    {
+      name: "Sir Walters H3 Facebook Hosted Events",
+      url: "https://www.facebook.com/sirwaltersh3/upcoming_hosted_events",
+      type: "FACEBOOK_HOSTED_EVENTS" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "swh3",
+        pageHandle: "sirwaltersh3",
+        timezone: "America/New_York",
+        upcomingOnly: true,
+      },
+      kennelCodes: ["swh3"],
+    },
+    {
+      name: "Von Tramp H3 Facebook Hosted Events",
+      url: "https://www.facebook.com/vontramph3/upcoming_hosted_events",
+      type: "FACEBOOK_HOSTED_EVENTS" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "vth3",
+        pageHandle: "vontramph3",
+        timezone: "America/New_York",
+        upcomingOnly: true,
+      },
+      kennelCodes: ["vth3"],
+    },
   ];
 
