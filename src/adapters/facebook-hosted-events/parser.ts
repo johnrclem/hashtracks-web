@@ -304,6 +304,79 @@ function mergeLocation(
  *     events, so we drop FB-cancelled rows at ingest. Same pattern as the
  *     Meetup adapter's `status === "CANCELLED"` skip.).
  */
+/**
+ * Externally-friendly Facebook Event shape consumed by the historical
+ * backfill path (`scripts/import-fb-historical-backfill.ts`). The CIC
+ * harvester emits events in this exact form via
+ * `docs/kennel-research/facebook-historical-backfill-cic-prompt.md`.
+ *
+ * Camel-cased equivalent of the FB GraphQL Event node: `id`,
+ * `start_timestamp`, `is_canceled`, `event_place.contextual_name`,
+ * `event_place.location.{latitude,longitude}` rendered as
+ * `startTimestamp`, `isCanceled`, `eventPlace.{contextualName, latitude,
+ * longitude}`. Same projection rules as the live listing-tab parser
+ * (`bagToRawEvent`); cancelled events project to null so the backfill
+ * matches the live cron path's behavior.
+ */
+export interface FacebookEventInput {
+  id: string;
+  name?: string;
+  startTimestamp: number;
+  isCanceled?: boolean;
+  eventPlace?: {
+    contextualName?: string;
+    latitude?: number;
+    longitude?: number;
+  };
+}
+
+/**
+ * Project a CIC-harvested Facebook Event into a RawEventData. Mirrors
+ * `bagToRawEvent`'s contract — same null-rules, same output shape — but
+ * accepts a single merged Event node (the GraphQL pagination response
+ * shape) instead of the listing-tab's split rich+time bag.
+ *
+ * Returns null when:
+ *   - The event lacks a non-empty `name`.
+ *   - The event is `isCanceled: true` (matches the live adapter's
+ *     drop-at-ingest semantics; cancelled-event support across the
+ *     merge pipeline is a separate follow-up).
+ *   - `startTimestamp * 1000` is not a valid Date.
+ */
+export function facebookEventToRawEvent(
+  input: FacebookEventInput,
+  kennelTag: string,
+  timezone: string,
+): RawEventData | null {
+  return bagToRawEvent(
+    {
+      id: input.id,
+      time: { id: input.id, start_timestamp: input.startTimestamp },
+      rich: {
+        __typename: "Event",
+        id: input.id,
+        name: input.name,
+        is_canceled: input.isCanceled,
+        event_place: input.eventPlace
+          ? {
+              contextual_name: input.eventPlace.contextualName,
+              location:
+                typeof input.eventPlace.latitude === "number" ||
+                typeof input.eventPlace.longitude === "number"
+                  ? {
+                      latitude: input.eventPlace.latitude,
+                      longitude: input.eventPlace.longitude,
+                    }
+                  : undefined,
+            }
+          : undefined,
+      },
+    },
+    kennelTag,
+    timezone,
+  );
+}
+
 function bagToRawEvent(bag: EventBag, kennelTag: string, timezone: string): RawEventData | null {
   if (!bag.time || !bag.rich) return null;
   if (bag.rich.is_canceled === true) return null;

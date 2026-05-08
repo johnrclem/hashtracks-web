@@ -1,7 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { parseFacebookHostedEvents, parseFacebookEventDetail } from "./parser";
+import {
+  parseFacebookHostedEvents,
+  parseFacebookEventDetail,
+  facebookEventToRawEvent,
+} from "./parser";
 
 /**
  * Fixture captured 2026-05-07 from
@@ -296,5 +300,82 @@ describe("parseFacebookEventDetail — edge cases", () => {
     }</script>`;
     expect(() => parseFacebookEventDetail(html)).not.toThrow();
     expect(parseFacebookEventDetail(html).description).toBe("OK");
+  });
+});
+
+describe("facebookEventToRawEvent — CIC-harvested Event projection", () => {
+  // 1714521600 = exactly 2024-05-01 00:00:00 UTC (= 19844 × 86400).
+  // - America/New_York (EDT, UTC-4): 2024-04-30 20:00
+  // - Asia/Hong_Kong (HKT, UTC+8):   2024-05-01 08:00
+  const baseEvent = {
+    id: "1234567890123456",
+    name: "Trail #186 — Test",
+    startTimestamp: 1714521600,
+    isCanceled: false,
+  };
+
+  it("projects a confirmed event to the same shape as the live listing-tab parser", () => {
+    const raw = facebookEventToRawEvent(
+      {
+        ...baseEvent,
+        eventPlace: {
+          contextualName: "Some Bar",
+          latitude: 35.149,
+          longitude: -90.048,
+        },
+      },
+      "mh3-tn",
+      "America/New_York",
+    );
+    expect(raw).toMatchObject({
+      kennelTags: ["mh3-tn"],
+      title: "Trail #186 — Test",
+      date: "2024-04-30",
+      startTime: "20:00",
+      location: "Some Bar",
+      latitude: 35.149,
+      longitude: -90.048,
+      sourceUrl: "https://www.facebook.com/events/1234567890123456/",
+    });
+    expect(raw?.externalLinks?.[0]).toMatchObject({
+      url: "https://www.facebook.com/events/1234567890123456/",
+      label: "Facebook event",
+    });
+  });
+
+  it("returns null for cancelled events (matches live cron drop-at-ingest semantics)", () => {
+    const raw = facebookEventToRawEvent(
+      { ...baseEvent, isCanceled: true },
+      "mh3-tn",
+      "America/New_York",
+    );
+    expect(raw).toBeNull();
+  });
+
+  it("returns null when name is missing or empty", () => {
+    expect(
+      facebookEventToRawEvent({ ...baseEvent, name: undefined }, "mh3-tn", "America/New_York"),
+    ).toBeNull();
+    expect(
+      facebookEventToRawEvent({ ...baseEvent, name: "   " }, "mh3-tn", "America/New_York"),
+    ).toBeNull();
+  });
+
+  it("omits eventPlace fields gracefully when not provided", () => {
+    const raw = facebookEventToRawEvent(baseEvent, "mh3-tn", "America/New_York");
+    expect(raw).toMatchObject({ kennelTags: ["mh3-tn"], title: "Trail #186 — Test" });
+    expect(raw?.location).toBeUndefined();
+    expect(raw?.latitude).toBeUndefined();
+    expect(raw?.longitude).toBeUndefined();
+  });
+
+  it("projects to the kennel's local timezone (HK/Asia rolls forward a day)", () => {
+    // Same UTC instant; kennel timezones differ.
+    const ny = facebookEventToRawEvent(baseEvent, "mh3-tn", "America/New_York");
+    const hk = facebookEventToRawEvent(baseEvent, "hkh3", "Asia/Hong_Kong");
+    expect(ny?.date).toBe("2024-04-30");
+    expect(ny?.startTime).toBe("20:00");
+    expect(hk?.date).toBe("2024-05-01");
+    expect(hk?.startTime).toBe("08:00");
   });
 });
