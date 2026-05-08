@@ -29,6 +29,13 @@ export interface GCalBackfillParams {
   days: number;
   /** IANA timezone for the today-cutoff (e.g. "Europe/Copenhagen"). */
   timezone: string;
+  /**
+   * Skip the trailing `prisma.$disconnect()`. Set on every call but the last
+   * when chaining multiple `backfillGCalSource` invocations in one process —
+   * Prisma's `$disconnect` is terminal, and the global client is cached, so
+   * a second call after disconnect would fail to query.
+   */
+  keepConnected?: boolean;
 }
 
 function logEventSamples(events: readonly RawEventData[]): void {
@@ -127,7 +134,9 @@ export async function backfillGCalSource(params: GCalBackfillParams): Promise<vo
       console.log(`  Errors:\n    ${sampleErrors}`);
     }
   } finally {
-    await prisma.$disconnect();
+    if (!params.keepConnected) {
+      await prisma.$disconnect();
+    }
   }
 }
 

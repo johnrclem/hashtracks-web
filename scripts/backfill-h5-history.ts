@@ -37,10 +37,15 @@ const DAYS = 4000;
 
 async function main(): Promise<void> {
   console.log("===== Source 1/2: Honolulu H5 Google Calendar =====\n");
+  // keepConnected: the helper's default `finally { prisma.$disconnect() }`
+  // would terminate the cached global client; the second call below would
+  // then fail to query. Last call leaves keepConnected unset so the script
+  // still exits cleanly.
   await backfillGCalSource({
     sourceName: "Honolulu H5 Google Calendar",
     days: DAYS,
     timezone: TIMEZONE,
+    keepConnected: true,
   });
 
   console.log("\n===== Source 2/2: Aloha H3 Google Calendar (H5 events via kennelPatterns) =====\n");
