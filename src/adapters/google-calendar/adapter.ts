@@ -53,7 +53,13 @@ export function extractRunNumber(
   const fromSummary = extractHashRunNumber(summary);
   if (fromSummary !== undefined) return fromSummary;
 
-  // 2. Fall back to description patterns
+  // 2. Summary placeholder takes precedence over description fallback. A
+  // partial retitle (`#30: …` → `#30X?: …` while description still says
+  // "#30") would otherwise let the stale description number reassert
+  // itself and re-anchor the cleared run on the next merge.
+  if (hasPlaceholderRunNumber(summary)) return null;
+
+  // 3. Fall back to description patterns
   if (description) {
     let patterns: RegExp[];
     if (customPatterns && customPatterns.length > 0) {
@@ -76,11 +82,6 @@ export function extractRunNumber(
     const standaloneMatch = /(?:^|\n)[ \t]*#(\d{3,})[ \t]*(?:\n|$)/m.exec(description);
     if (standaloneMatch) return Number.parseInt(standaloneMatch[1], 10);
   }
-
-  // 3. Explicit placeholder marker in summary → null (clear stale value).
-  // Without this, a retitle from `FCH3 #30: ...` to `FCH3 #30X?: ...`
-  // emits undefined and merge.ts preserves the stale 30 (#1275).
-  if (hasPlaceholderRunNumber(summary)) return null;
 
   return undefined;
 }

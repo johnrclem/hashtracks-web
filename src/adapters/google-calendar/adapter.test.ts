@@ -264,6 +264,30 @@ describe("extractRunNumber", () => {
   it("does not match qualifier text without a # (e.g. 'CUNTh 66ish')", () => {
     expect(extractRunNumber("CUNTh 66ish Hiidea's Bday")).toBeUndefined();
   });
+
+  // Summary placeholder must beat description fallback (Codex adversarial
+  // review #1297). A partial retitle (kennel admin updates the title to
+  // `#30X?` but leaves the prior `BH3 #30` reference in the description)
+  // would otherwise let the description number reassert itself and re-
+  // anchor the runNumber on the next merge instead of clearing it.
+  it("summary placeholder overrides stale description run number", () => {
+    expect(
+      extractRunNumber(
+        "FCH3 #30X?: Frisky Whisk-her and CBD",
+        "Trail #30 was last week — see you Saturday at the park",
+      ),
+    ).toBeNull();
+  });
+
+  it("summary placeholder overrides stale description with custom pattern", () => {
+    expect(
+      extractRunNumber(
+        "FCH3 #30X?: TBD",
+        "Hash # 30",
+        [String.raw`Hash\s*#\s*(\d+)`],
+      ),
+    ).toBeNull();
+  });
 });
 
 // ── extractTitle ──
