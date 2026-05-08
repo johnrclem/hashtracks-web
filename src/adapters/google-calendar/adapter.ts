@@ -108,9 +108,14 @@ const VALID_HHMM_RE = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
  * outside the allowlist passes through `buildRawEventFromGCalItem` even
  * when other fields are sparse (campouts, named annual events, kennel
  * acronyms like "TGIF Friday").
+ *
+ * Deliberately NOT included: `meet at <venue>` — kennel admins commonly
+ * encode the venue in the summary alone ("Meet at the Tipsy Cow, 7pm")
+ * with no other fields. Only `meet for|with|up with` are unambiguous
+ * personal verbs (Codex review on PR #1297).
  */
 const PERSONAL_TITLE_PATTERNS: readonly RegExp[] = [
-  /^\s*meet(?:ing)?\s+(?:for|with|up\s+with|at)\b/i,
+  /^\s*meet\s+(?:for|with|up\s+with)\b/i,
   /^\s*(?:lunch|dinner|brunch|breakfast|drinks|coffee)\s+with\b/i,
   /^\s*(?:doctor|dentist|optician|orthodontist|chiropractor)(?:'s)?(?:\s+(?:appointment|visit))?\b/i,
   /^\s*(?:appointment|interview)\s+(?:for|with|at)\b/i,

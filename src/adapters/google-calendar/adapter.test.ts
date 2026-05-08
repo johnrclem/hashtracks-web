@@ -348,7 +348,7 @@ describe("non-hash event filter (#1271)", () => {
   it.each([
     "Meet for wedding talk", // #1271
     "Meet with Bob",
-    "Meeting at the office",
+    "Meet up with the team",
     "Lunch with Sarah",
     "Dinner with the in-laws",
     "Brunch with friends",
@@ -374,6 +374,11 @@ describe("non-hash event filter (#1271)", () => {
     ["AGM acronym", "AGM 2026"],
     ["campout", "Annual Campout"],
     ["holiday party", "Christmas Hash Party"],
+    // Codex review on PR #1297 — `Meet at <venue>` is a common kennel
+    // summary-only format, must NOT be classified as personal.
+    ["meet at venue", "Meet at the Tipsy Cow, 7pm"],
+    ["meet at park", "Meet at Memorial Park"],
+    ["meeting at venue", "Meeting at Pat's house"],
   ])("preserves non-personal title: %s", (_, summary) => {
     const result = buildRawEventFromGCalItem(
       testGCalEvent({ summary }),
