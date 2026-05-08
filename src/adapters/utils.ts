@@ -717,13 +717,13 @@ export function extractHashRunNumber(text: string | undefined): number | undefin
  * — dropping the leading `[ \t]*` after `#` keeps each pattern
  * unambiguous.
  */
-const HASH_PLACEHOLDER_SUFFIX = String.raw`(?:X+\??|TB[ADC]|\?+)(?=$|[^A-Z0-9])`;
-const HASH_RUN_NUMBER_PLACEHOLDER_DIGITS_RE = new RegExp(
-  String.raw`#\d+[ \t]*${HASH_PLACEHOLDER_SUFFIX}`, "i",
-);
-const HASH_RUN_NUMBER_PLACEHOLDER_BARE_RE = new RegExp(
-  `#${HASH_PLACEHOLDER_SUFFIX}`, "i",
-);
+// Suffix `(?:X+\??|TB[ADC]|\?+)(?=$|[^A-Z0-9])` is intentionally
+// duplicated inline across both regexes — extracting it forces template
+// literals or `new RegExp(...)` which Sonar S7780 then flags.
+const HASH_RUN_NUMBER_PLACEHOLDER_DIGITS_RE =
+  /#\d+[ \t]*(?:X+\??|TB[ADC]|\?+)(?=$|[^A-Z0-9])/i;
+const HASH_RUN_NUMBER_PLACEHOLDER_BARE_RE =
+  /#(?:X+\??|TB[ADC]|\?+)(?=$|[^A-Z0-9])/i;
 export function hasPlaceholderRunNumber(text: string | undefined): boolean {
   if (!text) return false;
   return HASH_RUN_NUMBER_PLACEHOLDER_DIGITS_RE.test(text)
