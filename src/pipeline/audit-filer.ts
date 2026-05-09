@@ -72,7 +72,7 @@ import {
   NEEDS_DECISION_LABEL,
   kennelLabel,
 } from "@/lib/audit-labels";
-import type { AuditStream } from "@/lib/audit-stream-meta";
+import { AUDIT_STREAM, type AuditStream } from "@/lib/audit-stream-meta";
 import {
   extractRuleSlugFromAutomatedTitle,
   extractRuleSlugFromChromeTitle,
@@ -127,7 +127,7 @@ export type FileFindingOutcome =
       issueNumber: number;
       htmlUrl: string;
       recurrenceCount: number;
-      tier: "strict" | "bridging";
+      tier: "strict" | "bridging" | "coarse";
       /** Set when this recur crossed the escalation threshold and a
        *  meta-issue was filed (or had previously been filed for this
        *  base lifecycle). Lets callers surface a link to the meta in
@@ -147,6 +147,7 @@ export type FileFindingOutcome =
 export type FilerErrorReason =
   | "comment-failed-strict"
   | "comment-failed-bridging"
+  | "comment-failed-coarse"
   | "create-failed"
   | "db-update-failed";
 
@@ -598,9 +599,198 @@ async function tryBridge(
 }
 
 /**
- * File an audit finding through the strict-tier → bridging-tier →
- * create cascade. Returns a tagged outcome so the caller can render
- * appropriate logs / response payloads.
+ * Bound on the candidate-vanished retry loop in `tryCoarseDedup`. Two
+ * attempts handles the rare case where a row closes between findMany
+ * and the CAS; if neither attempt finds a stable canonical, the loop
+ * exits with `null` (truly no match) and the caller creates fresh.
+ */
+const COARSE_DEDUP_MAX_RETRIES = 2;
+
+/**
+ * Coarse-dedup tier for non-fingerprintable rules. The 5 unmigrated
+ * rules (header in `rule-definitions.ts`) skip strict + bridging and
+ * would otherwise create a fresh issue per cron tick — that's how #964
+ * accumulated 16 daily duplicates for C2H3 / `event-improbable-time`.
+ *
+ * Stream-scoped to prevent automated/chrome cross-coalescing. For the
+ * automated stream, the title's `[<ruleSlug>]` bracket is part of the
+ * SQL filter so the 25-row candidate cap can't hide the canonical row
+ * behind unrelated open issues. Chrome streams are low-volume; their
+ * `Finding: <kennel> <slug>` titles are matched in-memory.
+ *
+ * Order mirrors `runStrictTier`: post comment first, then CAS-increment
+ * `recurrenceCount`. The comment-first ordering keeps retries idempotent
+ * across cron ticks — a comment failure surfaces without bumping the
+ * count, so the next tick re-runs cleanly. CAS-loss after a successful
+ * comment means a peer caller raced to the increment; we refetch the
+ * row's current state and return the peer's count (mild duplicate
+ * recurrence comments under contention is the same trade-off the
+ * strict tier accepts and is preferable to over-counting).
+ */
+async function tryCoarseDedup(
+  input: FileFindingInput,
+  actions: FilerActions,
+): Promise<FileFindingOutcome | null> {
+  // Push the rule-slug discriminator into SQL so the 25-row LIMIT can't
+  // push the canonical row outside the candidate window for kennels with
+  // deep backlogs. Per-stream because the title formats differ:
+  //   - automated: `[Audit] {kennel} — {category} [{slug}] (...) — date`
+  //   - chrome:    `Finding: {kennel} {slug}`
+  //   - unknown:   no enforced format → no SQL filter, fall back to in-memory
+  const titleFilter = ((): { contains: string } | { endsWith: string } | undefined => {
+    if (input.stream === AUDIT_STREAM.AUTOMATED) return { contains: `[${input.ruleSlug}]` };
+    if (input.stream === AUDIT_STREAM.CHROME_EVENT || input.stream === AUDIT_STREAM.CHROME_KENNEL) {
+      return { endsWith: ` ${input.ruleSlug}` };
+    }
+    return undefined;
+  })();
+
+  for (let attempt = 0; attempt < COARSE_DEDUP_MAX_RETRIES; attempt++) {
+    const candidates = await prisma.auditIssue.findMany({
+      where: {
+        kennelCode: input.kennelCode,
+        stream: input.stream,
+        fingerprint: null,
+        state: "open",
+        delistedAt: null,
+        ...(titleFilter ? { title: titleFilter } : {}),
+      },
+      select: {
+        id: true,
+        githubNumber: true,
+        htmlUrl: true,
+        title: true,
+        recurrenceCount: true,
+        escalatedToIssueNumber: true,
+        kennel: { select: { shortName: true } },
+      },
+      orderBy: { githubCreatedAt: "asc" },
+      take: 25,
+    });
+
+    // In-memory identity check. Two reasons we don't trust the SQL
+    // filter alone: (1) the chrome regex is intentionally permissive
+    // (`extractRuleSlugFromChromeTitle` accepts any trailing slug-shaped
+    // token, so a title like `Finding: NYCH3 note about hare-cta-text`
+    // would parse as that slug); (2) operator-edited titles can drift
+    // from the canonical format. For chrome streams we additionally
+    // require the exact format `Finding: <kennelShortName> <ruleSlug>`
+    // so an edited title can't silently absorb the wrong recurrence.
+    const canonical = candidates.find((c) => {
+      const slug = extractRuleSlugFromTitle(c.title);
+      if (slug !== input.ruleSlug) return false;
+      if (input.stream === AUDIT_STREAM.CHROME_EVENT || input.stream === AUDIT_STREAM.CHROME_KENNEL) {
+        const expected = `Finding: ${c.kennel?.shortName ?? input.kennelCode} ${input.ruleSlug}`;
+        if (c.title !== expected) return false;
+      }
+      return true;
+    });
+    if (!canonical) return null;
+
+    // Step 1: post comment first (idempotent ordering). On failure we
+    // surface a typed error WITHOUT incrementing — next cron tick will
+    // re-find the same canonical and retry cleanly.
+    const ok = await actions.postComment(
+      canonical.githubNumber,
+      formatRecurComment(input),
+    );
+    if (!ok) {
+      return {
+        action: "error",
+        reason: "comment-failed-coarse",
+        existingIssueNumber: canonical.githubNumber,
+      };
+    }
+
+    // Step 2: CAS-increment `recurrenceCount`. On loss, a concurrent
+    // caller already incremented this same canonical row — refetch its
+    // current state and return their count (no additional increment
+    // from us; mild double-comment is the accepted trade-off).
+    let claim;
+    try {
+      claim = await prisma.auditIssue.updateMany({
+        where: {
+          id: canonical.id,
+          recurrenceCount: canonical.recurrenceCount,
+          state: "open",
+          delistedAt: null,
+        },
+        data: { recurrenceCount: { increment: 1 } },
+      });
+    } catch (err) {
+      console.error(
+        `[audit-filer] Coarse-dedup CAS update failed for #${canonical.githubNumber}:`,
+        err,
+      );
+      return {
+        action: "error",
+        reason: "db-update-failed",
+        existingIssueNumber: canonical.githubNumber,
+      };
+    }
+
+    if (claim.count === 0) {
+      // CAS lost. Refetch the canonical's current state.
+      const refetched = await prisma.auditIssue.findUnique({
+        where: { id: canonical.id },
+        select: {
+          recurrenceCount: true,
+          escalatedToIssueNumber: true,
+          state: true,
+          delistedAt: true,
+        },
+      });
+      if (refetched && refetched.state === "open" && !refetched.delistedAt) {
+        return {
+          action: "recurred",
+          issueNumber: canonical.githubNumber,
+          htmlUrl: canonical.htmlUrl,
+          recurrenceCount: refetched.recurrenceCount,
+          tier: "coarse",
+          escalatedToIssueNumber: refetched.escalatedToIssueNumber ?? undefined,
+        };
+      }
+      // Row vanished (closed / delisted between findMany and refetch).
+      // Retry from scratch — there may be another open canonical.
+      continue;
+    }
+
+    // We won the CAS.
+    const newRecurrenceCount = canonical.recurrenceCount + 1;
+    const escalatedToIssueNumber =
+      canonical.escalatedToIssueNumber ??
+      (await tryEscalate(
+        canonical.id,
+        canonical.githubNumber,
+        newRecurrenceCount,
+        canonical.kennel?.shortName ?? input.kennelCode,
+        input,
+        actions,
+      ));
+
+    return {
+      action: "recurred",
+      issueNumber: canonical.githubNumber,
+      htmlUrl: canonical.htmlUrl,
+      recurrenceCount: newRecurrenceCount,
+      tier: "coarse",
+      escalatedToIssueNumber,
+    };
+  }
+  // Exhausted retries — every attempt found a candidate that vanished
+  // before we could attach. No stable canonical exists; create-fresh
+  // is the correct fallthrough.
+  return null;
+}
+
+/**
+ * File an audit finding through the dedup cascade.
+ *   - Fingerprintable (canonical !== null): strict → bridging → create.
+ *   - Non-fingerprintable (canonical === null): coarse-dedup → create.
+ *
+ * Coarse-dedup is gated to the canonical-null branch on purpose:
+ * bridging already handles the (kennelCode, ruleSlug) match for
+ * fingerprintable rules and additionally backfills the fingerprint.
  */
 export async function fileAuditFinding(
   input: FileFindingInput,
@@ -619,6 +809,10 @@ export async function fileAuditFinding(
     // Bridging tier — only when no strict match.
     const bridged = await tryBridge(canonical.fingerprint, input, actions);
     if (bridged) return bridged;
+  } else {
+    // Coarse-dedup tier — only for non-fingerprintable rules.
+    const coarse = await tryCoarseDedup(input, actions);
+    if (coarse) return coarse;
   }
 
   // Embedding the canonical block on fresh creates lets the next

@@ -103,7 +103,7 @@ Response: \`{ "nonce": "<base64url>" }\` (5-minute TTL, single-use).
 
 Response shapes:
 - \`{ "action": "created", "issueNumber": N, "issueHtmlUrl": "..." }\` — fresh issue filed.
-- \`{ "action": "recurred", "tier": "strict" | "bridging", "existingIssueNumber": N, "existingIssueHtmlUrl": "...", "recurrenceCount": N }\` — same finding already had an open issue; we commented "still recurring" instead of forking. **Don't refile.**
+- \`{ "action": "recurred", "tier": "strict" | "bridging" | "coarse", "existingIssueNumber": N, "existingIssueHtmlUrl": "...", "recurrenceCount": N }\` — same finding already had an open issue; we commented "still recurring" instead of forking. **Don't refile.** (\`coarse\` is the dedup path for non-fingerprintable rules — see #964.)
 - \`{ "error": "...", "existingIssueNumber"?: N }\` (502) — GitHub side effect failed; safe to retry the same nonce.
 - \`{ "error": "Nonce invalid, expired, or payload tampered" }\` (401) — nonce mismatch; mint a fresh one and retry.
 

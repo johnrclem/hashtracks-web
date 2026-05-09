@@ -1038,6 +1038,10 @@ export const SOURCES = [
       scrapeDays: 365,
       config: {
         defaultKennelTag: "c2h3",
+        // Calendar feed publishes dateTime as UTC; without this the wall-clock
+        // slice misreads the UTC hour as local and trips event-improbable-time
+        // on every Thursday run (#964 + 15 daily duplicates).
+        timezone: "America/Chicago",
       },
       kennelCodes: ["c2h3"],
     },

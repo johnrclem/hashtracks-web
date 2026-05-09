@@ -461,15 +461,24 @@ describe("fileAuditFinding — create tier", () => {
     expect(createCall.labels).toEqual(BASE_INPUT.labels);
   });
 
-  it("creates without canonical block (and skips dedup tiers) for non-fingerprintable rules", async () => {
+  it("creates without canonical block (and skips fingerprint dedup tiers) for non-fingerprintable rules when coarse-dedup finds no match", async () => {
+    // Non-fingerprintable rules skip the strict + bridging tiers
+    // entirely (canonical === null short-circuits both). The coarse
+    // tier (#964) runs in their place; with no candidates it falls
+    // through to a fresh create.
+    mockFindMany.mockResolvedValue([] as never);
     const actions = buildActions();
     const input = { ...BASE_INPUT, ruleSlug: "hare-cta-text" };
 
     const out = await fileAuditFinding(input, actions);
     expect(out.action).toBe("created");
-    // No fingerprint queries at all.
+    // No fingerprint-keyed strict-tier query.
     expect(mockFindFirst).not.toHaveBeenCalled();
-    expect(mockFindMany).not.toHaveBeenCalled();
+    // Coarse-dedup ran (single findMany with stream filter present);
+    // no fingerprint:null query without stream filter.
+    expect(mockFindMany).toHaveBeenCalledTimes(1);
+    const callArgs = mockFindMany.mock.calls[0][0] as { where: Record<string, unknown> };
+    expect(callArgs.where).toHaveProperty("stream", AuditStream.AUTOMATED);
     const createCall = vi.mocked(actions.createIssue).mock.calls[0][0];
     expect(createCall.body).not.toContain("<!-- audit-canonical:");
   });
@@ -758,5 +767,388 @@ describe("fileAuditFinding — recurrence escalation", () => {
     // Meta is filed and tracked even though link comment failed.
     expect(out.escalatedToIssueNumber).toBe(777);
     expect(postComment).toHaveBeenCalledTimes(2);
+  });
+});
+
+// ── Coarse-dedup tier (non-fingerprintable rules; #964 / C2H3) ─────────
+
+const COARSE_INPUT = {
+  stream: AuditStream.AUTOMATED,
+  kennelCode: "c2h3",
+  // `hare-cta-text` is registered with `fingerprint: false` in the test
+  // mock above — same shape as `event-improbable-time` and the other 4
+  // unmigrated rules. canonical block returns null → coarse-dedup runs.
+  ruleSlug: "hare-cta-text",
+  title: "[Audit] C2H3 — Hare Quality [hare-cta-text] (1 events) — 2026-05-09",
+  bodyMarkdown: "## C2H3 hare-cta-text\n\nDetails here.",
+  labels: ["audit", "alert", "audit:automated", "kennel:c2h3"],
+} as const;
+
+describe("fileAuditFinding — coarse-dedup tier (non-fingerprintable rules)", () => {
+  it("comments + CAS-increments recurrenceCount when an open same-stream null-fingerprint row matches kennel + rule", async () => {
+    // recurrenceCount 2 keeps us under ESCALATION_THRESHOLD so the
+    // escalation path stays out of this test (covered separately).
+    mockFindMany.mockResolvedValue([
+      {
+        id: "coarse_1",
+        githubNumber: 964,
+        htmlUrl: "https://github.com/x/y/issues/964",
+        title:
+          "[Audit] C2H3 — Hare Quality [hare-cta-text] (1 events) — 2026-05-08",
+        recurrenceCount: 2,
+        kennel: { shortName: "C2H3" },
+      },
+    ] as never);
+    mockUpdateMany.mockResolvedValue({ count: 1 } as never); // CAS wins
+    const actions = buildActions();
+
+    const out = await fileAuditFinding(COARSE_INPUT, actions);
+
+    expect(out).toEqual({
+      action: "recurred",
+      issueNumber: 964,
+      htmlUrl: "https://github.com/x/y/issues/964",
+      recurrenceCount: 3,
+      tier: "coarse",
+    });
+    expect(mockFindFirst).not.toHaveBeenCalled();
+    expect(mockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          kennelCode: "c2h3",
+          stream: AuditStream.AUTOMATED,
+          fingerprint: null,
+          state: "open",
+          delistedAt: null,
+        }),
+      }),
+    );
+    expect(mockUpdateMany).toHaveBeenCalledWith({
+      where: {
+        id: "coarse_1",
+        recurrenceCount: 2,
+        state: "open",
+        delistedAt: null,
+      },
+      data: { recurrenceCount: { increment: 1 } },
+    });
+    expect(actions.postComment).toHaveBeenCalledWith(
+      964,
+      expect.stringContaining("Still recurring on"),
+    );
+    expect(actions.createIssue).not.toHaveBeenCalled();
+  });
+
+  it("escalates after crossing ESCALATION_THRESHOLD on a coarse-dedup recurrence", async () => {
+    // Coarse-dedup uses the same escalation path as strict / bridging.
+    // When a non-fingerprintable rule has been recurring for
+    // ESCALATION_THRESHOLD consecutive cron ticks, the next coarse hit
+    // claims the escalation slot and files a meta-issue.
+    mockFindMany.mockResolvedValue([
+      {
+        id: "coarse_1",
+        githubNumber: 964,
+        htmlUrl: "https://github.com/x/y/issues/964",
+        title:
+          "[Audit] C2H3 — Hare Quality [hare-cta-text] (1 events) — 2026-05-04",
+        recurrenceCount: ESCALATION_THRESHOLD - 1,
+        kennel: { shortName: "C2H3" },
+      },
+    ] as never);
+    // First updateMany: coarse CAS wins. Second updateMany: escalation claim.
+    mockUpdateMany
+      .mockResolvedValueOnce({ count: 1 } as never)
+      .mockResolvedValueOnce({ count: 1 } as never);
+    const actions = buildActions();
+
+    const out = await fileAuditFinding(COARSE_INPUT, actions);
+    if (out.action !== "recurred") throw new Error("expected recurred");
+    expect(out.tier).toBe("coarse");
+    expect(out.recurrenceCount).toBe(ESCALATION_THRESHOLD);
+    expect(out.escalatedToIssueNumber).toBe(999); // default mocked createIssue number
+    // Two postComment calls: recurrence comment + escalation link comment.
+    expect(actions.postComment).toHaveBeenCalledTimes(2);
+  });
+
+  it("does NOT coalesce across audit streams", async () => {
+    // chrome-kennel rows for the same kennel + rule must not be
+    // attached to by an automated finding (different triage contexts).
+    // The mock simulates the DB honoring the stream filter.
+    mockFindMany.mockResolvedValue([] as never);
+    const actions = buildActions();
+
+    const out = await fileAuditFinding(COARSE_INPUT, actions);
+    // Falls through to fresh-create because no same-stream candidate.
+    expect(out.action).toBe("created");
+    expect(mockUpdateMany).not.toHaveBeenCalled();
+    expect(actions.createIssue).toHaveBeenCalled();
+    // The query that actually went out had the stream filter applied.
+    const findManyCall = mockFindMany.mock.calls[0][0] as {
+      where: { stream: AuditStream };
+    };
+    expect(findManyCall.where.stream).toBe(AuditStream.AUTOMATED);
+  });
+
+  it("on CAS loss after a successful comment, refetches the canonical row and returns the peer's count (single canonical thread)", async () => {
+    // Codex round-2 MEDIUM #3 regression. Without refetch-and-return,
+    // a CAS loss would either advance to the next candidate (splitting
+    // the thread) or retry the CAS (over-counting). After the fix: post
+    // comment, lose CAS to a peer, refetch the same row, return peer's
+    // count as our outcome.
+    const cand = {
+      id: "coarse_1",
+      githubNumber: 964,
+      htmlUrl: "https://github.com/x/y/issues/964",
+      title: "[Audit] C2H3 — Hare Quality [hare-cta-text] (1 events) — 2026-05-08",
+      recurrenceCount: 2,
+      kennel: { shortName: "C2H3" },
+    };
+    mockFindMany.mockResolvedValue([cand] as never);
+    mockUpdateMany.mockResolvedValue({ count: 0 } as never); // CAS loses
+    mockFindUnique.mockResolvedValue({
+      recurrenceCount: 3,            // peer's increment
+      escalatedToIssueNumber: null,
+      state: "open",
+      delistedAt: null,
+    } as never);
+    const actions = buildActions();
+
+    const out = await fileAuditFinding(COARSE_INPUT, actions);
+    expect(out.action).toBe("recurred");
+    if (out.action !== "recurred") return;
+    expect(out.issueNumber).toBe(964);
+    expect(out.recurrenceCount).toBe(3);            // peer's count, not ours+1
+    expect(out.tier).toBe("coarse");
+    // Comment posted exactly once (our attempt). CAS attempted once
+    // (lost). No create.
+    expect(actions.postComment).toHaveBeenCalledTimes(1);
+    expect(mockUpdateMany).toHaveBeenCalledTimes(1);
+    expect(actions.createIssue).not.toHaveBeenCalled();
+  });
+
+  it("does NOT increment recurrenceCount when the coarse-dedup comment fails (idempotent across cron retries)", async () => {
+    // Codex round-3 HIGH #2 regression. Comment-first ordering means a
+    // comment failure surfaces before any DB mutation. Next cron tick
+    // re-finds the same canonical with the same recurrenceCount and
+    // retries cleanly — never over-counting from a partial run.
+    const cand = {
+      id: "coarse_1",
+      githubNumber: 964,
+      htmlUrl: "https://github.com/x/y/issues/964",
+      title: "[Audit] C2H3 — Hare Quality [hare-cta-text] (1 events) — 2026-05-08",
+      recurrenceCount: 2,
+      kennel: { shortName: "C2H3" },
+    };
+    mockFindMany.mockResolvedValue([cand] as never);
+    const actions = buildActions({
+      postComment: vi.fn().mockResolvedValue(false),
+    });
+
+    const out = await fileAuditFinding(COARSE_INPUT, actions);
+    expect(out).toEqual({
+      action: "error",
+      reason: "comment-failed-coarse",
+      existingIssueNumber: 964,
+    });
+    // Critically: NO CAS / DB increment. recurrenceCount is unchanged.
+    expect(mockUpdateMany).not.toHaveBeenCalled();
+    expect(actions.createIssue).not.toHaveBeenCalled();
+  });
+
+  it("retries the candidate fetch when the canonical row vanished between findMany and CAS", async () => {
+    // Edge case: between candidate fetch and refetch, the canonical row
+    // was closed/delisted. The loop tries again from scratch — maybe
+    // there's another open candidate.
+    const stale = {
+      id: "coarse_stale",
+      githubNumber: 800,
+      htmlUrl: "https://github.com/x/y/issues/800",
+      title: "[Audit] C2H3 — Hare Quality [hare-cta-text] (1 events) — 2026-04-10",
+      recurrenceCount: 5,
+      kennel: { shortName: "C2H3" },
+    };
+    const fresh = {
+      id: "coarse_fresh",
+      githubNumber: 964,
+      htmlUrl: "https://github.com/x/y/issues/964",
+      title: "[Audit] C2H3 — Hare Quality [hare-cta-text] (1 events) — 2026-05-08",
+      recurrenceCount: 1,
+      kennel: { shortName: "C2H3" },
+    };
+    // Attempt 1: stale row, CAS loses, refetch shows row closed → retry.
+    // Attempt 2: fresh row, CAS wins.
+    mockFindMany
+      .mockResolvedValueOnce([stale] as never)
+      .mockResolvedValueOnce([fresh] as never);
+    mockUpdateMany
+      .mockResolvedValueOnce({ count: 0 } as never)
+      .mockResolvedValueOnce({ count: 1 } as never);
+    mockFindUnique.mockResolvedValueOnce({
+      recurrenceCount: 5,
+      escalatedToIssueNumber: null,
+      state: "closed",      // row was closed
+      delistedAt: null,
+    } as never);
+    const actions = buildActions();
+
+    const out = await fileAuditFinding(COARSE_INPUT, actions);
+    expect(out.action).toBe("recurred");
+    if (out.action !== "recurred") return;
+    expect(out.issueNumber).toBe(964);
+    expect(out.recurrenceCount).toBe(2);
+    expect(actions.createIssue).not.toHaveBeenCalled();
+  });
+
+  it("filters by [<ruleSlug>] in the SQL query for the automated stream", async () => {
+    // Without the SQL title filter the 25-row candidate cap could hide
+    // the canonical row behind unrelated open audit issues. For automated
+    // stream, the [<slug>] bracket is in the title format and gets pushed
+    // down to the DB.
+    mockFindMany.mockResolvedValue([] as never);
+    const actions = buildActions();
+
+    await fileAuditFinding(COARSE_INPUT, actions);
+    const callArgs = mockFindMany.mock.calls[0][0] as {
+      where: { title?: { contains: string } };
+    };
+    expect(callArgs.where.title).toEqual({ contains: "[hare-cta-text]" });
+  });
+
+  it("filters by trailing ' <ruleSlug>' in the SQL query for chrome streams", async () => {
+    // Chrome title format is `Finding: {kennel} {slug}` — slug at end of
+    // title. Pushing endsWith into SQL ensures the 25-row cap can't hide
+    // the canonical row even if the kennel accumulates many open
+    // chrome-stream issues across distinct rules.
+    mockFindMany.mockResolvedValue([] as never);
+    const actions = buildActions();
+
+    const chromeInput = { ...COARSE_INPUT, stream: AuditStream.CHROME_KENNEL };
+    await fileAuditFinding(chromeInput, actions);
+    const callArgs = mockFindMany.mock.calls[0][0] as {
+      where: { title?: { endsWith: string } };
+    };
+    expect(callArgs.where.title).toEqual({ endsWith: " hare-cta-text" });
+  });
+
+  it("rejects chrome titles whose slug appears amid extra prose (exact-format identity check)", async () => {
+    // The chrome title regex is permissive — it captures the LAST slug
+    // token. An operator-edited title like `Finding: C2H3 please ignore
+    // hare-cta-text` parses as `hare-cta-text` and would be accepted
+    // by the SQL endsWith filter. The exact-format in-memory check
+    // catches this and forces fall-through to fresh-create.
+    mockFindMany.mockResolvedValue([
+      {
+        id: "chrome_noisy",
+        githubNumber: 500,
+        htmlUrl: "https://github.com/x/y/issues/500",
+        title: "Finding: C2H3 please ignore hare-cta-text",
+        recurrenceCount: 0,
+        kennel: { shortName: "C2H3" },
+      },
+    ] as never);
+    const actions = buildActions();
+
+    const chromeInput = { ...COARSE_INPUT, stream: AuditStream.CHROME_KENNEL };
+    const out = await fileAuditFinding(chromeInput, actions);
+    // Strict format mismatch → no canonical match → fresh create.
+    expect(out.action).toBe("created");
+    expect(mockUpdateMany).not.toHaveBeenCalled();
+    expect(actions.postComment).not.toHaveBeenCalled();
+  });
+
+  it("matches chrome titles in the canonical exact format", async () => {
+    mockFindMany.mockResolvedValue([
+      {
+        id: "chrome_canon",
+        githubNumber: 500,
+        htmlUrl: "https://github.com/x/y/issues/500",
+        title: "Finding: C2H3 hare-cta-text",
+        recurrenceCount: 1,
+        kennel: { shortName: "C2H3" },
+      },
+    ] as never);
+    mockUpdateMany.mockResolvedValue({ count: 1 } as never);
+    const actions = buildActions();
+
+    const chromeInput = { ...COARSE_INPUT, stream: AuditStream.CHROME_KENNEL };
+    const out = await fileAuditFinding(chromeInput, actions);
+    expect(out.action).toBe("recurred");
+    if (out.action !== "recurred") return;
+    expect(out.issueNumber).toBe(500);
+    expect(out.tier).toBe("coarse");
+  });
+
+  it("returns comment-failed-coarse without rolling back the increment if the recur comment fails", async () => {
+    // CAS already incremented; if the comment fails, the count is
+    // bumped but no comment landed. A retry will pick a different
+    // candidate (recurrenceCount no longer matches the original
+    // snapshot). This mirrors strict-tier semantics: comment spam
+    // is preferable to a lost recurrence count.
+    mockFindMany.mockResolvedValue([
+      {
+        id: "coarse_1",
+        githubNumber: 964,
+        htmlUrl: "https://github.com/x/y/issues/964",
+        title:
+          "[Audit] C2H3 — Hare Quality [hare-cta-text] (1 events) — 2026-05-08",
+        recurrenceCount: 7,
+        kennel: { shortName: "C2H3" },
+      },
+    ] as never);
+    mockUpdateMany.mockResolvedValue({ count: 1 } as never);
+    const actions = buildActions({
+      postComment: vi.fn().mockResolvedValue(false),
+    });
+
+    const out = await fileAuditFinding(COARSE_INPUT, actions);
+    expect(out).toEqual({
+      action: "error",
+      reason: "comment-failed-coarse",
+      existingIssueNumber: 964,
+    });
+    expect(actions.createIssue).not.toHaveBeenCalled();
+  });
+
+  it("skips candidates whose title slug does not match the input rule slug", async () => {
+    // Same kennel + stream, but the candidate's title carries a
+    // different rule slug. The loop skips it without attempting the
+    // CAS, and the cascade falls through to fresh-create.
+    mockFindMany.mockResolvedValue([
+      {
+        id: "coarse_other_rule",
+        githubNumber: 99,
+        htmlUrl: "https://github.com/x/y/issues/99",
+        title:
+          "[Audit] C2H3 — Title Quality [title-raw-kennel-code] (1 events) — 2026-05-09",
+        recurrenceCount: 0,
+        kennel: { shortName: "C2H3" },
+      },
+    ] as never);
+    const actions = buildActions();
+
+    const out = await fileAuditFinding(COARSE_INPUT, actions);
+    expect(out.action).toBe("created");
+    expect(mockUpdateMany).not.toHaveBeenCalled();
+    expect(actions.createIssue).toHaveBeenCalled();
+  });
+
+  it("does NOT run for fingerprintable rules — canonical-non-null routes through strict/bridging only", async () => {
+    // Codex review note: coarse-dedup is gated to canonical === null.
+    // For a fingerprintable rule (hare-url here), the cascade goes
+    // strict → bridging → create; coarse-dedup is never invoked even
+    // if the bridging tier exhausts its candidates.
+    mockFindFirst.mockResolvedValue(null); // strict miss
+    mockFindMany.mockResolvedValue([] as never); // bridging empty
+    const actions = buildActions();
+
+    const out = await fileAuditFinding(BASE_INPUT, actions); // hare-url (fingerprintable)
+    expect(out.action).toBe("created");
+    // Bridging fired exactly once with fingerprint:null + kennelCode
+    // (no stream filter — bridging accepts cross-stream legacy rows).
+    // Coarse-dedup would have been a SECOND findMany call with
+    // stream filter — that must not happen.
+    expect(mockFindMany).toHaveBeenCalledTimes(1);
+    const callArgs = mockFindMany.mock.calls[0][0] as { where: Record<string, unknown> };
+    expect(callArgs.where).not.toHaveProperty("stream");
   });
 });

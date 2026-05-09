@@ -157,7 +157,16 @@ describe("fileAuditIssues", () => {
 
     const result = await fileAuditIssues([buildGroup()]);
     expect(result).toEqual(["https://github.com/test/5"]);
-    expect(mockFindMany).not.toHaveBeenCalled();
+    // Stale mirror → mirror title query is skipped; the GitHub API
+    // fallback is what populates `existingTitles`. Note: the
+    // unmigrated-rule coarse-dedup tier (#964) runs at the audit-filer
+    // layer regardless of mirror staleness — that's a separate concern
+    // (kennel-scoped query, not a global title scan), so findMany may
+    // still be called once by that path before falling through to
+    // create. The mirror-bypass invariant is observed via mockAggregate
+    // returning a stale date and the GH API receiving the title fetch.
+    expect(mockAggregate).toHaveBeenCalled();
+    expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 
   it("embeds the canonical block for fingerprintable rules", async () => {
