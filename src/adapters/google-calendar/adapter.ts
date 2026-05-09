@@ -653,6 +653,39 @@ function getTzFormatter(timezone: string): Intl.DateTimeFormat | null {
 }
 
 /**
+ * Convert a UTC `dateTime` to local wall-clock parts in the given zone.
+ * Returns `null` on any failure (invalid Date, invalid timezone, missing
+ * formatToParts components) so the caller can fall back to raw-slice.
+ *
+ * All five parts (year/month/day/hour/minute) are required — without
+ * this guard a missing component would silently emit malformed output
+ * like `"2026--14"` or `"14:"`. ICU should always populate every part
+ * for the configured options on a valid date, but defending against
+ * exotic locale builds is cheap.
+ */
+function extractDateTimeWithTimezone(
+  dateTime: string,
+  timezone: string,
+): { dateISO: string; startTime: string } | null {
+  const fmt = getTzFormatter(timezone);
+  if (!fmt) return null;
+  const date = new Date(dateTime);
+  if (Number.isNaN(date.getTime())) return null;
+  const parts = fmt.formatToParts(date);
+  let year = "", month = "", day = "", hour = "", minute = "";
+  for (const p of parts) {
+    if (p.type === "year") year = p.value;
+    else if (p.type === "month") month = p.value;
+    else if (p.type === "day") day = p.value;
+    else if (p.type === "hour") hour = p.value;
+    else if (p.type === "minute") minute = p.value;
+  }
+  if (!year || !month || !day || !hour || !minute) return null;
+  if (hour === "24") hour = "00";
+  return { dateISO: `${year}-${month}-${day}`, startTime: `${hour}:${minute}` };
+}
+
+/**
  * Extract local date and time from a Google Calendar start/end object.
  * With `timezone`, the instant is converted via Intl into wall-clock
  * digits in that zone — required for feeds that publish `dateTime` as
@@ -664,26 +697,8 @@ function extractDateTimeFromGCalItem(
 ): { dateISO: string; startTime: string | undefined } {
   if (start.dateTime) {
     if (timezone) {
-      const fmt = getTzFormatter(timezone);
-      const date = new Date(start.dateTime);
-      // Guard both: formatToParts throws RangeError on Invalid Date,
-      // and `fmt === null` means the timezone itself failed to compile.
-      if (fmt && !Number.isNaN(date.getTime())) {
-        const parts = fmt.formatToParts(date);
-        let year = "", month = "", day = "", hour = "", minute = "";
-        for (const p of parts) {
-          if (p.type === "year") year = p.value;
-          else if (p.type === "month") month = p.value;
-          else if (p.type === "day") day = p.value;
-          else if (p.type === "hour") hour = p.value;
-          else if (p.type === "minute") minute = p.value;
-        }
-        if (year && hour) {
-          if (hour === "24") hour = "00";
-          return { dateISO: `${year}-${month}-${day}`, startTime: `${hour}:${minute}` };
-        }
-      }
-      // Invalid Date, invalid timezone, or missing parts — raw-slice fallback.
+      const tz = extractDateTimeWithTimezone(start.dateTime, timezone);
+      if (tz) return tz;
     }
     const dtMatch = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})/.exec(
       start.dateTime,
