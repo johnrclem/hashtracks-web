@@ -412,9 +412,26 @@ function validateGenericHtmlConfig(obj: Record<string, unknown>, errors: string[
   validateDefaultStartTimeByKennel(obj.defaultStartTimeByKennel, errors);
 }
 
+/**
+ * Validate Google Calendar source config. Currently only validates the
+ * optional `timezone` field (IANA name); other GCal fields are validated
+ * via the shared regex / pattern paths in `validateSourceConfig`.
+ */
+function validateGoogleCalendarConfig(obj: Record<string, unknown>, errors: string[]): void {
+  if (obj.timezone === undefined) return;
+  if (typeof obj.timezone !== "string" || !obj.timezone.trim()) {
+    errors.push("Google Calendar config timezone must be a non-empty IANA name (e.g. \"America/Chicago\")");
+    return;
+  }
+  if (!isValidTimezone(obj.timezone)) {
+    errors.push(`Google Calendar config timezone "${obj.timezone}" is not a recognized IANA timezone`);
+  }
+}
+
 /** Run type-specific validation for a source config. */
 function runTypeValidator(type: string, obj: Record<string, unknown>, errors: string[]): void {
   if (type === "GOOGLE_SHEETS") validateGoogleSheetsConfig(obj, errors);
+  else if (type === "GOOGLE_CALENDAR") validateGoogleCalendarConfig(obj, errors);
   else if (type === "MEETUP") validateMeetupConfig(obj, errors);
   else if (type === "RSS_FEED") validateRssFeedConfig(obj, errors);
   else if (type === "STATIC_SCHEDULE") validateStaticScheduleConfig(obj, errors);

@@ -549,6 +549,13 @@ interface CalendarSourceConfig {
     kennelTag: string;       // which kennel's events to back-fill
     blockHeader: string;     // e.g. "4x2 H4 Hareline:"
   };
+  /**
+   * IANA timezone name. Required for calendars that publish `dateTime` as
+   * UTC (`...Z`) — without it the wall-clock slice misreads the UTC hour
+   * as local and trips `event-improbable-time` on every late run (#964).
+   * Undefined preserves the legacy raw-slice behavior.
+   */
+  timezone?: string;
 }
 
 /**
@@ -602,9 +609,97 @@ interface GCalListResponse {
   error?: { code: number; message: string };
 }
 
-/** Extract local date and time from a Google Calendar start object. */
-function extractDateTimeFromGCalItem(start: { dateTime?: string; date?: string }): { dateISO: string; startTime: string | undefined } {
+// One Intl.DateTimeFormat per IANA zone. The set is bounded by the
+// configured GCal sources; without caching, busy scrapes allocate a
+// fresh formatter for every event (~5K per cron tick on a 365-day window).
+// `null` is cached ONLY for RangeError (invalid IANA name — durable config
+// error). Transient errors don't poison the cache; the next event retries.
+const tzFormatterCache = new Map<string, Intl.DateTimeFormat | null>();
+function getTzFormatter(timezone: string): Intl.DateTimeFormat | null {
+  if (tzFormatterCache.has(timezone)) return tzFormatterCache.get(timezone) ?? null;
+  try {
+    // en-GB: predictable 24-hour formatting. We still normalize "24" → "00"
+    // below as a belt-and-braces guard against ICU edge cases.
+    const fmt = new Intl.DateTimeFormat("en-GB", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+    tzFormatterCache.set(timezone, fmt);
+    return fmt;
+  } catch (err) {
+    if (err instanceof RangeError) {
+      // Durable config error (invalid IANA name) — admin validator catches
+      // new edits but pre-existing seed/DB rows could still slip through.
+      // Cache null so we don't re-throw on every event.
+      console.warn(
+        `[gcal-adapter] Invalid timezone "${timezone}" — falling back to raw-slice extraction:`,
+        err,
+      );
+      tzFormatterCache.set(timezone, null);
+      return null;
+    }
+    // Unexpected error — log and DO NOT poison the cache. Next event retries.
+    console.error(
+      `[gcal-adapter] Unexpected error constructing formatter for "${timezone}":`,
+      err,
+    );
+    return null;
+  }
+}
+
+/**
+ * Convert a UTC `dateTime` to local wall-clock parts in the given zone.
+ * Returns `null` on any failure (invalid Date, invalid timezone, missing
+ * formatToParts components) so the caller can fall back to raw-slice.
+ *
+ * All five parts (year/month/day/hour/minute) are required — without
+ * this guard a missing component would silently emit malformed output
+ * like `"2026--14"` or `"14:"`. ICU should always populate every part
+ * for the configured options on a valid date, but defending against
+ * exotic locale builds is cheap.
+ */
+function extractDateTimeWithTimezone(
+  dateTime: string,
+  timezone: string,
+): { dateISO: string; startTime: string } | null {
+  const fmt = getTzFormatter(timezone);
+  if (!fmt) return null;
+  const date = new Date(dateTime);
+  if (Number.isNaN(date.getTime())) return null;
+  const parts = fmt.formatToParts(date);
+  let year = "", month = "", day = "", hour = "", minute = "";
+  for (const p of parts) {
+    if (p.type === "year") year = p.value;
+    else if (p.type === "month") month = p.value;
+    else if (p.type === "day") day = p.value;
+    else if (p.type === "hour") hour = p.value;
+    else if (p.type === "minute") minute = p.value;
+  }
+  if (!year || !month || !day || !hour || !minute) return null;
+  if (hour === "24") hour = "00";
+  return { dateISO: `${year}-${month}-${day}`, startTime: `${hour}:${minute}` };
+}
+
+/**
+ * Extract local date and time from a Google Calendar start/end object.
+ * With `timezone`, the instant is converted via Intl into wall-clock
+ * digits in that zone — required for feeds that publish `dateTime` as
+ * UTC (`...Z`). Without it, the legacy raw-slice path runs unchanged.
+ */
+function extractDateTimeFromGCalItem(
+  start: { dateTime?: string; date?: string },
+  timezone?: string,
+): { dateISO: string; startTime: string | undefined } {
   if (start.dateTime) {
+    if (timezone) {
+      const tz = extractDateTimeWithTimezone(start.dateTime, timezone);
+      if (tz) return tz;
+    }
     const dtMatch = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})/.exec(
       start.dateTime,
     );
@@ -618,7 +713,6 @@ function extractDateTimeFromGCalItem(start: { dateTime?: string; date?: string }
     }
     return { dateISO: "", startTime: undefined };
   }
-  // All-day event: start.date is already YYYY-MM-DD
   return { dateISO: start.date ?? "", startTime: undefined };
 }
 
@@ -723,9 +817,9 @@ export function buildRawEventFromGCalItem(
   const isAllDay = !!(item.start?.date && !item.start?.dateTime);
   if (isAllDay && !sourceConfig?.includeAllDayEvents) return null;
 
-  const { dateISO, startTime } = extractDateTimeFromGCalItem(item.start);
+  const { dateISO, startTime } = extractDateTimeFromGCalItem(item.start, sourceConfig?.timezone);
   if (!dateISO) return null;
-  const endParts = item.end ? extractDateTimeFromGCalItem(item.end) : undefined;
+  const endParts = item.end ? extractDateTimeFromGCalItem(item.end, sourceConfig?.timezone) : undefined;
   const summary = decodeEntities(item.summary);
 
   // Skip events whose summary matches any configured skip pattern (e.g., cross-kennel posts)

@@ -1042,6 +1042,126 @@ describe("buildRawEventFromGCalItem — all-day events", () => {
   });
 });
 
+// ── buildRawEventFromGCalItem — timezone-aware extraction (#964 / C2H3) ──
+
+describe("buildRawEventFromGCalItem — timezone-aware extraction (#964)", () => {
+  it("converts UTC dateTime to local HH:MM in the configured timezone (C2H3)", () => {
+    // 19:00 UTC = 14:00 CDT (May 2026 is in DST).
+    const result = buildRawEventFromGCalItem(
+      {
+        summary: "C2H3 Thursday Run",
+        start: { dateTime: "2026-05-14T19:00:00.000Z" },
+        end: { dateTime: "2026-05-14T21:00:00.000Z" },
+        status: "confirmed",
+      },
+      { defaultKennelTag: "c2h3", timezone: "America/Chicago" },
+    );
+    expect(result).not.toBeNull();
+    expect(result!.date).toBe("2026-05-14");
+    expect(result!.startTime).toBe("14:00");
+    expect(result!.endTime).toBe("16:00");
+  });
+
+  it("handles DST transitions (US fall-back, 2026-11-01)", () => {
+    // Fall-back happens at 07:00 UTC; 06:00 UTC is unambiguously 01:00 CDT.
+    const result = buildRawEventFromGCalItem(
+      {
+        summary: "Late Hash",
+        start: { dateTime: "2026-11-01T06:00:00.000Z" },
+        status: "confirmed",
+      },
+      { defaultKennelTag: "c2h3", timezone: "America/Chicago" },
+    );
+    expect(result).not.toBeNull();
+    expect(result!.date).toBe("2026-11-01");
+    expect(result!.startTime).toBe("01:00");
+  });
+
+  it("preserves endTime when start and end localize to the same local date even if UTC dates differ", () => {
+    // Both UTC values fall on 2026-05-15, but in Central they are both
+    // 2026-05-14. Without timezone applied to BOTH start and end, the raw
+    // UTC slice would emit dateISO="2026-05-15" and endParts.dateISO would
+    // disagree with dateISO, silently dropping endTime at line 1092.
+    const result = buildRawEventFromGCalItem(
+      {
+        summary: "Late Trail",
+        start: { dateTime: "2026-05-15T02:30:00.000Z" },
+        end: { dateTime: "2026-05-15T04:30:00.000Z" },
+        status: "confirmed",
+      },
+      { defaultKennelTag: "c2h3", timezone: "America/Chicago" },
+    );
+    expect(result).not.toBeNull();
+    expect(result!.date).toBe("2026-05-14");
+    expect(result!.startTime).toBe("21:30");
+    expect(result!.endTime).toBe("23:30");
+  });
+
+  it("does not affect all-day events (date-only, no dateTime)", () => {
+    const result = buildRawEventFromGCalItem(
+      {
+        summary: "Annual Campout",
+        start: { date: "2026-05-14" },
+        end: { date: "2026-05-15" },
+        description: "Hares: Trail Boss\nWhat: Campout",
+        status: "confirmed",
+      },
+      { defaultKennelTag: "c2h3", timezone: "America/Chicago", includeAllDayEvents: true, defaultStartTime: "18:00" },
+    );
+    expect(result).not.toBeNull();
+    expect(result!.date).toBe("2026-05-14");
+    expect(result!.startTime).toBe("18:00");
+  });
+
+  it("preserves legacy raw-slice behavior when timezone is undefined", () => {
+    const result = buildRawEventFromGCalItem(
+      {
+        summary: "Legacy Source",
+        start: { dateTime: "2026-04-15T19:00:00-04:00" },
+        status: "confirmed",
+      },
+      { defaultKennelTag: "test" },
+    );
+    expect(result).not.toBeNull();
+    expect(result!.date).toBe("2026-04-15");
+    expect(result!.startTime).toBe("19:00");
+  });
+
+  it("falls back to raw-slice when dateTime is malformed (does not throw on Invalid Date)", () => {
+    // formatToParts(Invalid Date) throws RangeError. Guard must catch
+    // unparseable strings and let the regex fallback handle them.
+    const result = buildRawEventFromGCalItem(
+      {
+        summary: "Bad Payload",
+        start: { dateTime: "not-a-date-2026-04-15T19:00:00" },
+        status: "confirmed",
+      },
+      { defaultKennelTag: "test", timezone: "America/Chicago" },
+    );
+    expect(result).not.toBeNull();
+    // Regex fallback recovers the YYYY-MM-DD substring.
+    expect(result!.date).toBe("2026-04-15");
+  });
+
+  it("falls back to raw-slice when the configured timezone is invalid (admin validator bypassed via seed/DB)", () => {
+    // Intl.DateTimeFormat({ timeZone: "Bogus/Zone" }) throws RangeError.
+    // The cache stores `null` so subsequent events with the same bad
+    // zone don't repeat the throw. Adapter must NOT crash the scrape.
+    const result = buildRawEventFromGCalItem(
+      {
+        summary: "Bad TZ Source",
+        start: { dateTime: "2026-04-15T19:00:00-04:00" },
+        status: "confirmed",
+      },
+      { defaultKennelTag: "test", timezone: "Bogus/Not_Real" },
+    );
+    expect(result).not.toBeNull();
+    // Raw-slice extracts wall-clock digits from the RFC3339 string directly.
+    expect(result!.date).toBe("2026-04-15");
+    expect(result!.startTime).toBe("19:00");
+  });
+});
+
 // ── buildRawEventFromGCalItem — skipPatterns ──
 
 describe("buildRawEventFromGCalItem — skipPatterns", () => {

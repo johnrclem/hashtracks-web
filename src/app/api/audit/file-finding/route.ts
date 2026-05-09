@@ -239,6 +239,7 @@ function errorMessageFor(reason: FilerErrorReason): string {
   switch (reason) {
     case "comment-failed-strict":
     case "comment-failed-bridging":
+    case "comment-failed-coarse":
       return "GitHub comment failed; refusing to fork a duplicate issue";
     case "db-update-failed":
       return "Filing-mirror DB update failed after successful GitHub comment; retry is safe";
