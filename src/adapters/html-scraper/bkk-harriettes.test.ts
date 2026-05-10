@@ -171,9 +171,7 @@ describe("parseBkkHarrietteHarelineTable", () => {
   });
 
   it("year-rolls forward when refDate is past the row's month", () => {
-    // refDate Feb 1, row "30 Dec" — chrono forwardDate should pick the
-    // current year if Dec hasn't passed yet, otherwise next year. With
-    // refDate Feb 2026 and row "30 Dec", forwardDate yields 2026-12-30.
+    // refDate Feb 1 2026, row "30 Dec" — forwardDate picks 2026-12-30.
     const refDate = new Date(Date.UTC(2026, 1, 1));
     const events = parseBkkHarrietteHarelineTable(
       `<table><tr><td>2296</td><td>30 Dec</td><td>TBA</td><td>TBA</td></tr></table>`,
@@ -181,6 +179,19 @@ describe("parseBkkHarrietteHarelineTable", () => {
       "https://x",
     );
     expect(events[0].date).toBe("2026-12-30");
+  });
+
+  it("rolls into next year when scraping in December and the row is January", () => {
+    // The hareline crosses into next year before Dec 31. Without forwardDate
+    // working, "3 Jan" stamped with refDate.getUTCFullYear() would land on
+    // 2026-01-03 (past) and applyDateWindow would silently drop the row.
+    const refDate = new Date(Date.UTC(2026, 11, 15)); // 2026-12-15
+    const events = parseBkkHarrietteHarelineTable(
+      `<table><tr><td>2297</td><td>3 Jan</td><td>TBA</td><td>TBA</td></tr></table>`,
+      refDate,
+      "https://x",
+    );
+    expect(events[0].date).toBe("2027-01-03");
   });
 
   it("ignores rows that aren't 4 cells", () => {

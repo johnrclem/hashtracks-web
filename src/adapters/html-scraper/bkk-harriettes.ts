@@ -9,6 +9,7 @@ import {
   decodeEntities,
   fetchHTMLPage,
   type FetchHTMLResult,
+  MONTHS,
   normalizeHaresField,
   parse12HourTime,
   parsePublishDate,
@@ -130,6 +131,42 @@ export function parseBkkHarriettesPost(
   };
 }
 
+const DAY_MONTH_RE = /^(\d{1,2})\s+([A-Za-z]{3,})\.?$/;
+
+/**
+ * Resolve a year-less `D MMM` cell (e.g. "24 Jun") into "YYYY-MM-DD".
+ *
+ * The hareline interleaves recent-past rows (e.g. "29 Apr" on a May
+ * homepage) with far-future ones (~8 months ahead, ending in late December).
+ * Default to refDate's year; if that lands the date more than 90 days
+ * behind refDate, the table has rolled into next year — bump to year + 1.
+ * The 90-day window is wide enough to cover the small back-window of
+ * recent-past rows BKK keeps on the homepage.
+ */
+export function resolveTableDate(dateRaw: string, refDate: Date): string | null {
+  const m = DAY_MONTH_RE.exec(dateRaw.trim());
+  if (!m) return null;
+  const day = Number.parseInt(m[1], 10);
+  const month = MONTHS[m[2].toLowerCase()];
+  if (!month) return null;
+
+  const buildIso = (year: number): string | null => {
+    const d = new Date(Date.UTC(year, month - 1, day));
+    if (d.getUTCMonth() !== month - 1 || d.getUTCDate() !== day) return null;
+    return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  };
+
+  const baseYear = refDate.getUTCFullYear();
+  const baseIso = buildIso(baseYear);
+  if (!baseIso) return null;
+
+  const baseMs = new Date(`${baseIso}T12:00:00Z`).getTime();
+  if (baseMs < refDate.getTime() - 90 * 86_400_000) {
+    return buildIso(baseYear + 1);
+  }
+  return baseIso;
+}
+
 /**
  * Parse a 4-column hareline `<table>` into RawEventData rows.
  *
@@ -155,7 +192,6 @@ export function parseBkkHarrietteHarelineTable(
 ): RawEventData[] {
   const $ = cheerio.load(html);
   const events: RawEventData[] = [];
-  const referenceYear = refDate.getUTCFullYear();
 
   $("tr").each((_i, tr) => {
     const cells = $(tr).find("td");
@@ -169,12 +205,7 @@ export function parseBkkHarrietteHarelineTable(
     if (!/^\d+$/.test(runRaw)) return;
     const runNumber = Number.parseInt(runRaw, 10);
 
-    const date = chronoParseDate(
-      `${dateRaw} ${referenceYear}`,
-      "en-GB",
-      refDate,
-      { forwardDate: true },
-    );
+    const date = resolveTableDate(dateRaw, refDate);
     if (!date) return;
 
     // Strip trailing `*` "to be confirmed" marker before placeholder filter
@@ -194,6 +225,70 @@ export function parseBkkHarrietteHarelineTable(
   });
 
   return events;
+}
+
+type PostsResult = Awaited<ReturnType<typeof fetchWordPressComPosts>>;
+
+const RUN_TITLE_RE = /run\s*(?:no|#|number)?\s*\.?\s*\d/i;
+const POSTS_API_URL = `public-api.wordpress.com/.../sites/${SITE_DOMAIN}/posts/`;
+
+function collectPostEvents(
+  postsResult: PostsResult,
+  errors: string[],
+  errorDetails: ErrorDetails,
+): RawEventData[] {
+  if (postsResult.error) {
+    errorDetails.fetch = [
+      ...(errorDetails.fetch ?? []),
+      { url: POSTS_API_URL, message: postsResult.error.message, status: postsResult.error.status },
+    ];
+    errors.push(postsResult.error.message);
+    return [];
+  }
+  const events: RawEventData[] = [];
+  const filtered = postsResult.posts.filter((p) =>
+    RUN_TITLE_RE.test(`${p.title} ${p.content}`),
+  );
+  for (const post of filtered) {
+    try {
+      const event = parseBkkHarriettesPost(post);
+      if (event) events.push(event);
+    } catch (err) {
+      errors.push(`Error parsing post "${post.title}": ${err}`);
+      errorDetails.parse = [
+        ...(errorDetails.parse ?? []),
+        { row: post.ID, error: String(err), rawText: post.title.slice(0, 200) },
+      ];
+    }
+  }
+  return events;
+}
+
+function consumeTablePage(
+  result: FetchHTMLResult,
+  sourceUrl: string,
+  section: string,
+  refDate: Date,
+  out: RawEventData[],
+  errors: string[],
+  errorDetails: ErrorDetails,
+): void {
+  if (!result.ok) {
+    if (result.result.errorDetails?.fetch) {
+      errorDetails.fetch = [...(errorDetails.fetch ?? []), ...result.result.errorDetails.fetch];
+    }
+    errors.push(...result.result.errors);
+    return;
+  }
+  try {
+    out.push(...parseBkkHarrietteHarelineTable(result.html, refDate, sourceUrl));
+  } catch (err) {
+    errors.push(`Error parsing ${section}: ${err}`);
+    errorDetails.parse = [
+      ...(errorDetails.parse ?? []),
+      { row: 0, section, error: String(err) },
+    ];
+  }
 }
 
 export class BkkHarriettesAdapter implements SourceAdapter {
@@ -217,76 +312,17 @@ export class BkkHarriettesAdapter implements SourceAdapter {
       fetchHTMLPage(FULL_HARELINE_URL),
     ]);
 
-    // ── Post-derived event(s) ────────────────────────────────────────────────
-    const postEvents: RawEventData[] = [];
-    if (postsResult.error) {
-      errorDetails.fetch = [
-        ...(errorDetails.fetch ?? []),
-        {
-          url: `public-api.wordpress.com/.../sites/${SITE_DOMAIN}/posts/`,
-          message: postsResult.error.message,
-          status: postsResult.error.status,
-        },
-      ];
-      errors.push(postsResult.error.message);
-    } else {
-      const filteredPosts = postsResult.posts.filter((p) =>
-        /run\s*(?:no|#|number)?\s*\.?\s*\d/i.test(p.title + " " + p.content),
-      );
-      for (const post of filteredPosts) {
-        try {
-          const event = parseBkkHarriettesPost(post);
-          if (event) postEvents.push(event);
-        } catch (err) {
-          errors.push(`Error parsing post "${post.title}": ${err}`);
-          errorDetails.parse = [
-            ...(errorDetails.parse ?? []),
-            { row: post.ID, error: String(err), rawText: post.title.slice(0, 200) },
-          ];
-        }
-      }
-    }
+    const postEvents = collectPostEvents(postsResult, errors, errorDetails);
 
-    // ── Table-derived events ────────────────────────────────────────────────
     const refDate = new Date();
     const tableEvents: RawEventData[] = [];
+    consumeTablePage(homepageResult, SITE_BASE, "homepage", refDate, tableEvents, errors, errorDetails);
+    consumeTablePage(fullResult, FULL_HARELINE_URL, "hareline-in-full", refDate, tableEvents, errors, errorDetails);
 
-    const consumeTablePage = (
-      result: FetchHTMLResult,
-      sourceUrl: string,
-      section: string,
-    ): void => {
-      if (!result.ok) {
-        if (result.result.errorDetails?.fetch) {
-          errorDetails.fetch = [
-            ...(errorDetails.fetch ?? []),
-            ...result.result.errorDetails.fetch,
-          ];
-        }
-        errors.push(...result.result.errors);
-        return;
-      }
-      try {
-        tableEvents.push(...parseBkkHarrietteHarelineTable(result.html, refDate, sourceUrl));
-      } catch (err) {
-        errors.push(`Error parsing ${section}: ${err}`);
-        errorDetails.parse = [
-          ...(errorDetails.parse ?? []),
-          { row: 0, section, error: String(err) },
-        ];
-      }
-    };
-
-    consumeTablePage(homepageResult, SITE_BASE, "homepage");
-    consumeTablePage(fullResult, FULL_HARELINE_URL, "hareline-in-full");
-
-    // Dedupe by runNumber; post-derived events override table rows because
-    // they carry a permalink sourceUrl and an explicitly-parsed startTime.
+    // Dedupe by runNumber; post events come last so they override table rows
+    // (post events carry the permalink sourceUrl and a parsed startTime).
     const byRun = new Map<number, RawEventData>();
-    for (const e of tableEvents) {
-      if (typeof e.runNumber === "number") byRun.set(e.runNumber, e);
-    }
-    for (const e of postEvents) {
+    for (const e of [...tableEvents, ...postEvents]) {
       if (typeof e.runNumber === "number") byRun.set(e.runNumber, e);
     }
     const events: RawEventData[] = [

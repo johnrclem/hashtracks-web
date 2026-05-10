@@ -160,31 +160,91 @@ export function parseIndyCard(
  *
  * Exported for unit testing.
  */
-const LOCATION_LABEL_RE = /^(?:Start\s+Location|Where|Start)\s*[?:]?$/i;
+// Drop the bare "Start" arm — `<strong>Start:</strong> 3:00 PM` is a start
+// time on some detail pages, not a location (Codex review on PR #1335).
+const LOCATION_LABEL_RE = /^(?:Start\s+Location|Where)\s*[?:]?$/i;
 
 export function parseIndyDetail(html: string): { location?: string } {
   const $ = cheerio.load(html);
   let preferred: string | undefined; // value behind "Start Location" — wins
-  let fallback: string | undefined; // value behind "Where?" / "Start"
+  let fallback: string | undefined; // value behind "Where?"
 
   $("strong").each((_i, el) => {
     if (preferred) return false;
     const labelText = $(el).text().trim();
-    const m = LOCATION_LABEL_RE.exec(labelText);
-    if (!m) return;
+    if (!LOCATION_LABEL_RE.test(labelText)) return;
     const next = el.nextSibling;
-    if (!next || next.type !== "text") return;
+    if (next?.type !== "text") return;
     const candidate = stripPlaceholder(decodeEntities(next.data ?? ""));
     if (!candidate) return;
     if (/^Start\s+Location/i.test(labelText)) {
       preferred = candidate;
-      return false; // stop traversal — preferred is final
+      return false;
     } else if (!fallback) {
       fallback = candidate;
     }
   });
 
   return { location: preferred ?? fallback };
+}
+
+async function fetchDetailHtml(
+  url: string,
+): Promise<{ ok: true; html: string } | { ok: false; status: number }> {
+  const res = await safeFetch(url, {
+    headers: { "User-Agent": USER_AGENT, Accept: "text/html" },
+  });
+  if (!res.ok) return { ok: false, status: res.status };
+  return { ok: true, html: await res.text() };
+}
+
+async function enrichWithDetails(
+  detailEnrichable: RawEventData[],
+  errors: string[],
+  errorDetails: ErrorDetails,
+): Promise<{ fetched: number; enriched: number }> {
+  let fetched = 0;
+  let enriched = 0;
+  for (let i = 0; i < detailEnrichable.length; i += DETAIL_FETCH_CONCURRENCY) {
+    const batch = detailEnrichable.slice(i, i + DETAIL_FETCH_CONCURRENCY);
+    const settled = await Promise.allSettled(
+      batch.map((event) => fetchDetailHtml(event.sourceUrl as string)),
+    );
+    settled.forEach((r, j) => {
+      const event = batch[j];
+      const url = event.sourceUrl as string;
+      if (r.status === "rejected") {
+        errors.push(`Detail fetch failed for ${url}: ${r.reason}`);
+        errorDetails.fetch = [
+          ...(errorDetails.fetch ?? []),
+          { url, message: String(r.reason) },
+        ];
+        return;
+      }
+      fetched++;
+      if (!r.value.ok) {
+        errorDetails.fetch = [
+          ...(errorDetails.fetch ?? []),
+          { url, status: r.value.status, message: `HTTP ${r.value.status}` },
+        ];
+        return;
+      }
+      try {
+        const detail = parseIndyDetail(r.value.html);
+        if (detail.location) {
+          event.location = detail.location;
+          enriched++;
+        }
+      } catch (err) {
+        errors.push(`Detail parse error for ${url}: ${err}`);
+        errorDetails.parse = [
+          ...(errorDetails.parse ?? []),
+          { row: 0, section: url, error: String(err) },
+        ];
+      }
+    });
+  }
+  return { fetched, enriched };
 }
 
 /**
@@ -294,56 +354,8 @@ export class IndyH3Adapter implements SourceAdapter {
         typeof e.sourceUrl === "string" &&
         /\/hashes\//i.test(e.sourceUrl),
     );
-    let detailFetched = 0;
-    let detailEnriched = 0;
-    for (let i = 0; i < detailEnrichable.length; i += DETAIL_FETCH_CONCURRENCY) {
-      const batch = detailEnrichable.slice(i, i + DETAIL_FETCH_CONCURRENCY);
-      const settled = await Promise.allSettled(
-        batch.map(async (event) => {
-          const url = event.sourceUrl as string;
-          const res = await safeFetch(url, {
-            headers: { "User-Agent": USER_AGENT, Accept: "text/html" },
-          });
-          if (!res.ok) {
-            return { event, ok: false as const, status: res.status, url };
-          }
-          const html = await res.text();
-          return { event, ok: true as const, html, url };
-        }),
-      );
-      for (const r of settled) {
-        if (r.status === "rejected") {
-          errors.push(`Detail fetch failed: ${r.reason}`);
-          errorDetails.fetch = [
-            ...(errorDetails.fetch ?? []),
-            { url: "<unknown>", message: String(r.reason) },
-          ];
-          continue;
-        }
-        const { value } = r;
-        detailFetched++;
-        if (!value.ok) {
-          errorDetails.fetch = [
-            ...(errorDetails.fetch ?? []),
-            { url: value.url, status: value.status, message: `HTTP ${value.status}` },
-          ];
-          continue;
-        }
-        try {
-          const detail = parseIndyDetail(value.html);
-          if (detail.location) {
-            value.event.location = detail.location;
-            detailEnriched++;
-          }
-        } catch (err) {
-          errors.push(`Detail parse error for ${value.url}: ${err}`);
-          errorDetails.parse = [
-            ...(errorDetails.parse ?? []),
-            { row: 0, section: value.url, error: String(err) },
-          ];
-        }
-      }
-    }
+    const { fetched: detailFetched, enriched: detailEnriched } =
+      await enrichWithDetails(detailEnrichable, errors, errorDetails);
 
     const hasErrors = hasAnyErrors(errorDetails);
     return {
