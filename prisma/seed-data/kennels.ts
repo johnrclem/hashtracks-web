@@ -518,7 +518,7 @@ export const KENNELS: KennelSeed[] = [
       website: "https://hangoverhash.com", foundedYear: 2012,
       facebookUrl: "https://www.facebook.com/groups/shiggy",
       instagramHandle: "hangoverhash",
-      twitterHandle: "@hangoverhash",
+      twitterHandle: "hangoverhash",
       scheduleFrequency: "Monthly", scheduleNotes: "Sunday 10:00 AM",
       description: "Monthly Sunday 10 AM hash. Hashing the DC area since 2012.",
     },
