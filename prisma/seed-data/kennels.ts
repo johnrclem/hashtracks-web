@@ -516,6 +516,9 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "h4", shortName: "Hangover H3", fullName: "Hangover Hash House Harriers", region: "Washington, DC",
       website: "https://hangoverhash.com", foundedYear: 2012,
+      facebookUrl: "https://www.facebook.com/groups/shiggy",
+      instagramHandle: "@hangoverhash",
+      twitterHandle: "@hangoverhash",
       scheduleFrequency: "Monthly", scheduleNotes: "Sunday 10:00 AM",
       description: "Monthly Sunday 10 AM hash. Hashing the DC area since 2012.",
     },
@@ -745,8 +748,11 @@ export const KENNELS: KennelSeed[] = [
     },
     {
       kennelCode: "hah3-sd", shortName: "HAH3", fullName: "Half-Assed Hash House Harriers", region: "San Diego, CA",
-      scheduleFrequency: "Monthly",
-      description: "Monthly hash in San Diego.",
+      website: "https://sdh3.com/hah3/",
+      logoUrl: "https://sdh3.com/hah3/images/hah_logo.jpg",
+      scheduleDayOfWeek: "Saturday", scheduleFrequency: "Monthly",
+      scheduleNotes: "Saturdays when no other San Diego hash event is happening — irregular cadence, not a fixed week-of-month.",
+      description: "San Diego virgin-friendly hash focused on fun over running. Welcomes virgins (free first run), keeps trails under three miles, and isn't a walking hash — short trails packed with shiggy.",
       latitude: 32.72, longitude: -117.16,
     },
     {
@@ -3454,6 +3460,7 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "bkk-harriettes", shortName: "BKK Harriettes", fullName: "Bangkok Harriettes Hash House Harriers",
       region: "Bangkok", country: "Thailand",
       website: "https://bangkokharriettes.wordpress.com",
+      foundedYear: 1982,
       scheduleDayOfWeek: "Wednesday", scheduleFrequency: "Weekly",
       scheduleNotes: "Weekly Wednesday runs. Blog has only 3 posts (they reuse/overwrite a single 'Next Run' post with updated details).",
       description: "Bangkok's women's hash, running weekly Wednesday trails. One of the longest-running Harriettes chapters in Southeast Asia.",
