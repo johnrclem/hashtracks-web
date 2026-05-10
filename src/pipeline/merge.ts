@@ -1834,23 +1834,25 @@ export async function processRawEvents(
   const fingerprintByEvent = precomputeFingerprints(events, result);
   const uniqueFingerprints = [...new Set(fingerprintByEvent.values())];
 
-  // Three independent reads — source metadata, source-kennel links, and the
-  // dedup prefetch (Sentry JAVASCRIPT-NEXTJS-3) — fan out together to save
-  // round-trips on every scrape.
-  const [source, sourceKennels, prefetchedRawEvents] = await Promise.all([
+  // Two independent reads — source metadata (with linked kennels via the FK
+  // relation) and the dedup prefetch (Sentry JAVASCRIPT-NEXTJS-3) — fan out
+  // together to save round-trips on every scrape. Collapsing the previous
+  // separate `sourceKennel.findMany` into the same `findUnique` saves one
+  // round-trip per scrape (issue #1288).
+  const [source, prefetchedRawEvents] = await Promise.all([
     prisma.source.findUnique({
       where: { id: sourceId },
-      select: { trustLevel: true, type: true },
-    }),
-    prisma.sourceKennel.findMany({
-      where: { sourceId },
-      select: { kennelId: true },
+      select: {
+        trustLevel: true,
+        type: true,
+        kennels: { select: { kennelId: true } },
+      },
     }),
     prefetchExistingByFingerprint(sourceId, uniqueFingerprints),
   ]);
   const trustLevel = source?.trustLevel ?? 5;
   const sourceType: SourceType | null = source?.type ?? null;
-  const linkedKennelIds = new Set(sourceKennels.map((sk) => sk.kennelId));
+  const linkedKennelIds = new Set((source?.kennels ?? []).map((sk) => sk.kennelId));
 
   clearResolverCache();
 

@@ -52,7 +52,6 @@ import { processRawEvents, sanitizeTitle, sanitizeLocation, sanitizeHares, frien
 
 const mockSourceFind = vi.mocked(prisma.source.findUnique);
 const _mockSourceUpdate = vi.mocked(prisma.source.update);
-const mockSourceKennelFind = vi.mocked(prisma.sourceKennel.findMany);
 // Compat shim: tests historically seeded the per-event dedup query by mocking
 // `prisma.rawEvent.findFirst`. The N+1 fix in `merge.ts` collapsed that into a
 // single per-batch `prisma.rawEvent.findMany` prefetch (Sentry JAVASCRIPT-NEXTJS-3).
@@ -104,8 +103,11 @@ beforeEach(() => {
   // `processRawEvents` that would consume any leftover Once entry from a
   // preceding test, scrambling the ordering for tests that seed multiple Onces.
   vi.mocked(prisma.rawEvent.findMany).mockReset();
-  mockSourceFind.mockResolvedValue({ trustLevel: 5, type: "HTML_SCRAPER" } as never);
-  mockSourceKennelFind.mockResolvedValue([{ kennelId: "kennel_1" }] as never);
+  mockSourceFind.mockResolvedValue({
+    trustLevel: 5,
+    type: "HTML_SCRAPER",
+    kennels: [{ kennelId: "kennel_1" }],
+  } as never);
   mockRawEventCreate.mockResolvedValue({ id: "raw_1" } as never);
   mockRawEventUpdate.mockResolvedValue({} as never);
   // Default fuzzy probe's same-source RawEvent lookup to empty so existing
@@ -436,7 +438,11 @@ describe("processRawEvents", () => {
   });
 
   it("never writes locationCity for HARRIER_CENTRAL sources on create (#471)", async () => {
-    mockSourceFind.mockResolvedValue({ trustLevel: 5, type: "HARRIER_CENTRAL" } as never);
+    mockSourceFind.mockResolvedValue({
+      trustLevel: 5,
+      type: "HARRIER_CENTRAL",
+      kennels: [{ kennelId: "kennel_1" }],
+    } as never);
     mockRawEventFind.mockResolvedValueOnce(null);
     mockEventFindMany.mockResolvedValueOnce([] as never);
     mockEventCreate.mockResolvedValueOnce({ id: "evt_new" } as never);
@@ -489,7 +495,11 @@ describe("processRawEvents", () => {
     // On UPDATE we never touch locationCity for canonical-location sources. If a non-HC
     // source previously populated city for this canonical event (cross-source merge),
     // an HC scrape must not wipe it.
-    mockSourceFind.mockResolvedValue({ trustLevel: 5, type: "HARRIER_CENTRAL" } as never);
+    mockSourceFind.mockResolvedValue({
+      trustLevel: 5,
+      type: "HARRIER_CENTRAL",
+      kennels: [{ kennelId: "kennel_1" }],
+    } as never);
     mockRawEventFind.mockResolvedValueOnce(null);
     mockEventFindMany.mockResolvedValueOnce([
       { id: "evt_existing", trustLevel: 5, locationCity: "Tokyo" },
@@ -543,7 +553,11 @@ describe("source-kennel guard", () => {
     expect(result.blockedTags).toEqual(["OtherH3"]);
   });
 
-  it("fetches SourceKennel links only once per batch", async () => {
+  it("fetches source metadata + linked kennels in a single query per batch", async () => {
+    // Issue #1288: source + sourceKennel reads were collapsed via Prisma
+    // `include`. The merge pipeline must hit the database once for source
+    // metadata regardless of batch size, and the request must pull the
+    // linked `kennels` relation in the same round-trip.
     mockRawEventFind.mockResolvedValue(null);
     mockEventFindMany.mockResolvedValue([] as never);
     mockEventCreate.mockResolvedValue({ id: "evt_1" } as never);
@@ -553,7 +567,15 @@ describe("source-kennel guard", () => {
       buildRawEvent({ date: "2026-02-14" }),
       buildRawEvent({ date: "2026-02-15" }),
     ]);
-    expect(mockSourceKennelFind).toHaveBeenCalledTimes(1);
+    expect(mockSourceFind).toHaveBeenCalledTimes(1);
+    expect(mockSourceFind).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "src_1" },
+        select: expect.objectContaining({
+          kennels: { select: { kennelId: true } },
+        }),
+      }),
+    );
   });
 });
 
