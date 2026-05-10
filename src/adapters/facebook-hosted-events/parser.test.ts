@@ -480,4 +480,41 @@ describe("extractFieldsFromFbDescription (#1319)", () => {
     const fields = extractFieldsFromFbDescription(desc);
     expect(fields.locationStreet).toBe("12 First Ave");
   });
+
+  it("captures a single-line address when the full address is on the label line", () => {
+    // Regression: prior implementation dropped same-line content because it
+    // used .test() instead of capturing the regex group.
+    const desc = "Location: 123 Main St, Anytown, NY 10001";
+    const fields = extractFieldsFromFbDescription(desc);
+    expect(fields.locationStreet).toBe("123 Main St, Anytown, NY 10001");
+  });
+
+  it("treats a digit-free same-line remainder as the venue and uses the continuation lines", () => {
+    // "Location: Boston Johnny's" is a venue name; the address comes on
+    // subsequent lines. We don't want the venue duplicated into locationStreet.
+    const desc = "Location: Boston Johnny's\n2120 N Dixie hywy, Holly-Hood, FL 33020";
+    const fields = extractFieldsFromFbDescription(desc);
+    expect(fields.locationStreet).toBe("2120 N Dixie hywy, Holly-Hood, FL 33020");
+  });
+
+  it("terminates the address block on labels with no whitespace after the colon (Pre-Lube:6pm)", () => {
+    const desc = [
+      "Location: A Bar",
+      "12 First Ave",
+      "Pre-Lube:6pm",
+      "Theme: ridiculous",
+    ].join("\n");
+    const fields = extractFieldsFromFbDescription(desc);
+    expect(fields.locationStreet).toBe("12 First Ave");
+  });
+
+  it("admits address continuation lines that lead with `(`, `-`, `[`, or `*`", () => {
+    const desc = [
+      "Location: Some Bar",
+      "123 Main St",
+      "(Corner of Main & Oak)",
+    ].join("\n");
+    const fields = extractFieldsFromFbDescription(desc);
+    expect(fields.locationStreet).toBe("123 Main St, (Corner of Main & Oak)");
+  });
 });

@@ -438,11 +438,19 @@ export interface FacebookDescriptionFields {
   locationStreet?: string;
 }
 
-const FB_LOCATION_LABEL_RE = /^\s*(?:location|launchpad|where|address|start|meet)\s*:\s*(.*)$/i;
-// Allow hyphens in label names ("Pre-Lube:", "On-After:") so they terminate
-// the address block — the earlier letters+spaces-only shape missed those.
-const FB_ANY_FIELD_LABEL_RE = /^[A-Za-z][A-Za-z\- ]{0,40}:\s/;
+// Address-block label tokens. Matched procedurally (`parseLocationLabel`) to
+// avoid the `\s*` near alternation + `(.*)$` shape that Sonar S5852 flags as
+// ReDoS-prone, per feedback_sonar_s5852_false_positives.
+const FB_LOCATION_LABELS = [
+  "location",
+  "launchpad",
+  "where",
+  "address",
+  "start",
+  "meet",
+] as const;
 const FB_LEADING_DECORATION_RE = /^[^\p{L}\p{N}]{1,16}/u;
+const FB_FIRST_CHAR_OK_RE = /[\p{L}\p{N}\-(\[*]/u;
 const FB_TRAILING_PUNCT_RE = /[\s,;.]+$/;
 // US-style 5-digit zip (with optional ZIP+4) at end of line — strong signal
 // the address block has finished. We append the line then stop walking.
@@ -493,32 +501,77 @@ function stripLeadingDecoration(value: string): string {
   return value.slice(m[0].length);
 }
 
+/**
+ * If `line` is a `<Label>:<remainder>` line where `<Label>` is one of
+ * `FB_LOCATION_LABELS` (case-insensitive), return the trimmed remainder
+ * (possibly empty when the address starts on the next line). Otherwise null.
+ */
+function parseLocationLabel(line: string): string | null {
+  const trimmed = line.trimStart();
+  const colonIdx = trimmed.indexOf(":");
+  if (colonIdx <= 0) return null;
+  const label = trimmed.slice(0, colonIdx).trim().toLowerCase();
+  if (!FB_LOCATION_LABELS.includes(label as (typeof FB_LOCATION_LABELS)[number])) return null;
+  return trimmed.slice(colonIdx + 1).trim();
+}
+
+/**
+ * True when `line` looks like the start of any other labelled section
+ * (`Pre-Lube:`, `Hare Away:`, `On-After:` …) and should terminate the
+ * address-block walk. Procedural to keep Sonar S5852 quiet.
+ */
+function isFieldLabelLine(line: string): boolean {
+  const colonIdx = line.indexOf(":");
+  if (colonIdx <= 0 || colonIdx > 41) return false;
+  const label = line.slice(0, colonIdx);
+  if (!/^[A-Za-z]/.test(label)) return false;
+  for (let i = 0; i < label.length; i++) {
+    const c = label[i];
+    if (!/[A-Za-z\- ]/.test(c)) return false;
+  }
+  return true;
+}
+
 function extractStreetBlock(description: string): string | undefined {
   const lines = description.split(/\r?\n/);
   for (let i = 0; i < lines.length; i++) {
-    if (!FB_LOCATION_LABEL_RE.test(lines[i])) continue;
+    const remainder = parseLocationLabel(lines[i]);
+    if (remainder === null) continue;
     const continuation: string[] = [];
+    // Same-line remainder is either a venue name ("Location: Boston Johnny's"
+    // with the address on subsequent lines) or the address itself ("Location:
+    // 123 Main St, …"). US addresses lead with a house number; venues do not
+    // — include the remainder only when its first char (after a leading
+    // emoji decoration like "📍") is a digit. This correctly skips
+    // "Launchpad: 📍 Americian Legion Pist 310" (post-suffix digit) as a
+    // venue, while "Location: 123 Main St" is captured as an address.
+    if (remainder.length > 0) {
+      const undecorated = stripLeadingDecoration(remainder).trimStart();
+      if (/^\d/.test(undecorated)) continuation.push(undecorated);
+    }
+    let zipSeen = continuation.some((line) => FB_ZIP_AT_END_RE.test(line));
     for (
       let j = i + 1;
-      j < lines.length && continuation.length < STREET_MAX_CONTINUATION_LINES;
+      !zipSeen && j < lines.length && continuation.length < STREET_MAX_CONTINUATION_LINES;
       j++
     ) {
       const line = lines[j].trim();
       if (line.length === 0) break;
-      if (FB_ANY_FIELD_LABEL_RE.test(line)) break;
+      if (isFieldLabelLine(line)) break;
       if (line.startsWith("http://") || line.startsWith("https://")) break;
-      // Skip lines whose first non-space character is a non-letter/digit
-      // (emoji decoration like "➡️ e'rections: …"). The check is
-      // intentionally narrow — we only stop *new* decoration; a street like
-      // "208 SW 2nd St…" passes because it leads with a digit.
-      const firstChar = line.charAt(0);
-      if (!/[\p{L}\p{N}]/u.test(firstChar)) break;
+      // First-char filter rejects emoji-prefixed continuation like
+      // "➡️ e'rections: GPS it…" while still admitting addresses that lead
+      // with `(Corner of …)`, `- Unit 2B`, `[Building B]`, `*Parking note*`.
+      if (!FB_FIRST_CHAR_OK_RE.test(line.charAt(0))) break;
       continuation.push(line);
       // A line ending in a US zip code is a strong terminator: the address
       // block typically ends with the city/state/zip line, and what follows
       // is almost always loose prose (boilerplate, notes, the next field
       // label) that would pollute locationStreet otherwise.
-      if (FB_ZIP_AT_END_RE.test(line)) break;
+      if (FB_ZIP_AT_END_RE.test(line)) {
+        zipSeen = true;
+        break;
+      }
     }
     if (continuation.length === 0) return undefined;
     let joined = continuation
