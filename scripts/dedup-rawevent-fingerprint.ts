@@ -36,6 +36,7 @@
 import "dotenv/config";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { prisma } from "@/lib/db";
 
 const APPLY = process.argv.includes("--apply");
@@ -64,7 +65,10 @@ function toAuditRow(r: RawEventRow): AuditRow {
 
 /**
  * Pick the survivor for a duplicate group. Linked rows beat unlinked rows.
- * Tiebreakers: linked → most-recent `scrapedAt`; unlinked → oldest.
+ * Tiebreakers: linked → most-recent `scrapedAt`, then `id` ASC for stability;
+ * unlinked → oldest `scrapedAt`, then `id` ASC. The `id` tiebreaker makes
+ * dry-run and apply produce identical survivors even when two rows share a
+ * `scrapedAt` (concurrent scrapes can land within the same millisecond).
  */
 export function pickSurvivor(rows: RawEventRow[]): RawEventRow {
   if (rows.length === 0) {
@@ -72,16 +76,33 @@ export function pickSurvivor(rows: RawEventRow[]): RawEventRow {
   }
   const linked = rows.filter((r) => r.eventId !== null);
   if (linked.length > 0) {
-    return [...linked].sort((a, b) => b.scrapedAt.getTime() - a.scrapedAt.getTime())[0];
+    return [...linked].sort(
+      (a, b) =>
+        b.scrapedAt.getTime() - a.scrapedAt.getTime() ||
+        a.id.localeCompare(b.id),
+    )[0];
   }
-  return [...rows].sort((a, b) => a.scrapedAt.getTime() - b.scrapedAt.getTime())[0];
+  return [...rows].sort(
+    (a, b) =>
+      a.scrapedAt.getTime() - b.scrapedAt.getTime() ||
+      a.id.localeCompare(b.id),
+  )[0];
+}
+
+function extractHost(databaseUrl: string | undefined): string {
+  if (!databaseUrl) return "<unknown>";
+  try {
+    return new URL(databaseUrl).hostname || "<unknown>";
+  } catch {
+    return "<unparseable>";
+  }
 }
 
 async function main() {
   // Surface the target host before the first DB write — the user has to
   // confirm the script is pointed at the intended environment.
-  const host = (process.env.DATABASE_URL ?? "").replace(/^[^@]*@/, "").replace(/[:/].*$/, "");
-  console.log(`Target DB host: ${host || "<unknown>"}`);
+  const host = extractHost(process.env.DATABASE_URL);
+  console.log(`Target DB host: ${host}`);
   console.log(`Mode: ${APPLY ? "APPLY (will DELETE)" : "DRY RUN (no writes)"}`);
 
   console.log("Fetching all rows in duplicate (sourceId, fingerprint) groups…");
@@ -92,7 +113,7 @@ async function main() {
       SELECT "sourceId", "fingerprint" FROM "RawEvent"
       GROUP BY "sourceId", "fingerprint" HAVING COUNT(*) > 1
     )
-    ORDER BY "sourceId", "fingerprint", "scrapedAt"
+    ORDER BY "sourceId", "fingerprint", "scrapedAt", id
   `;
   console.log(`Fetched ${dupRows.length} rows across duplicate groups`);
 
@@ -145,7 +166,7 @@ async function main() {
       {
         mode: APPLY ? "APPLY" : "DRY_RUN",
         runAt: new Date().toISOString(),
-        targetHost: host || null,
+        targetHost: host,
         groupsProcessed: auditEntries.length,
         totalDeleted: doomedIds.length,
         linkagePreservedSurvivors,
@@ -178,8 +199,10 @@ async function main() {
 }
 
 // Only auto-run main() when invoked directly (`tsx scripts/dedup-...ts`),
-// not when imported from a test file.
-if (import.meta.url === `file://${process.argv[1]}`) {
+// not when imported from a test file. Use `fileURLToPath` + `path.resolve`
+// for cross-platform safety (handles Windows backslashes and missing
+// `file://` prefix on `process.argv[1]`).
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   main()
     .catch((err) => {
       console.error(err);

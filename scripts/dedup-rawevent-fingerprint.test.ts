@@ -57,4 +57,24 @@ describe("pickSurvivor", () => {
   it("throws on an empty group (defensive — caller should never invoke this)", () => {
     expect(() => pickSurvivor([])).toThrow(/empty group/);
   });
+
+  it("breaks ties on id when scrapedAt is identical (linked branch)", () => {
+    const sameTime = new Date("2026-03-25T16:00:10.064Z");
+    const rows = [
+      row({ id: "id_b", scrapedAt: sameTime, eventId: "evt_1" }),
+      row({ id: "id_a", scrapedAt: sameTime, eventId: "evt_1" }),
+      row({ id: "id_c", scrapedAt: sameTime, eventId: "evt_1" }),
+    ];
+    expect(pickSurvivor(rows).id).toBe("id_a");
+  });
+
+  it("breaks ties on id when scrapedAt is identical (unlinked branch)", () => {
+    const sameTime = new Date("2026-03-25T16:00:10.064Z");
+    const rows = [
+      row({ id: "id_b", scrapedAt: sameTime }),
+      row({ id: "id_a", scrapedAt: sameTime }),
+      row({ id: "id_c", scrapedAt: sameTime }),
+    ];
+    expect(pickSurvivor(rows).id).toBe("id_a");
+  });
 });
