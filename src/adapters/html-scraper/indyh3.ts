@@ -21,6 +21,8 @@ const DEFAULT_BASE = "https://indyhhh.com";
 const DEFAULT_PAGE_ID = 1792; // "Upcumming Hashes" WordPress page
 const USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+/** How many detail pages to fetch in parallel (issue #1302). */
+const DETAIL_FETCH_CONCURRENCY = 5;
 
 /** Source config for IndyScent adapter. */
 interface IndyH3Config {
@@ -140,11 +142,121 @@ export function parseIndyCard(
 }
 
 /**
+ * Parse a `/hashes/<slug>/` IndyScent detail page.
+ *
+ * The list page (Upcumming Hashes) does not include the start location — it
+ * only lives on the per-hash detail page, where IndyScent uses two label
+ * conventions:
+ *
+ *   - Finalized / past events:  `<strong>Start Location:</strong> Gravel lot ...`
+ *   - Pre-posted upcoming runs: `<strong>Where?</strong> Leonard Park ...`
+ *
+ * The `<strong>Start Location:</strong>` label also appears earlier in the
+ * page as an empty section heading (no text node follows it). To handle all
+ * three cases we walk every `<strong>`, match against the labels in priority
+ * order, and pick the first whose adjacent text node is a non-placeholder.
+ *
+ * Returns `{}` when no usable location is found (caller keeps list-page data).
+ *
+ * Exported for unit testing.
+ */
+// Drop the bare "Start" arm — `<strong>Start:</strong> 3:00 PM` is a start
+// time on some detail pages, not a location (Codex review on PR #1335).
+const LOCATION_LABEL_RE = /^(?:Start\s+Location|Where)\s*[?:]?$/i;
+
+export function parseIndyDetail(html: string): { location?: string } {
+  const $ = cheerio.load(html);
+  let preferred: string | undefined; // value behind "Start Location" — wins
+  let fallback: string | undefined; // value behind "Where?"
+
+  $("strong").each((_i, el) => {
+    if (preferred) return false;
+    const labelText = $(el).text().trim();
+    if (!LOCATION_LABEL_RE.test(labelText)) return;
+    const next = el.nextSibling;
+    if (next?.type !== "text") return;
+    const candidate = stripPlaceholder(decodeEntities(next.data ?? ""));
+    if (!candidate) return;
+    if (/^Start\s+Location/i.test(labelText)) {
+      preferred = candidate;
+      return false;
+    } else if (!fallback) {
+      fallback = candidate;
+    }
+  });
+
+  return { location: preferred ?? fallback };
+}
+
+async function fetchDetailHtml(
+  url: string,
+): Promise<{ ok: true; html: string } | { ok: false; status: number }> {
+  const res = await safeFetch(url, {
+    headers: { "User-Agent": USER_AGENT, Accept: "text/html" },
+  });
+  if (!res.ok) return { ok: false, status: res.status };
+  return { ok: true, html: await res.text() };
+}
+
+async function enrichWithDetails(
+  detailEnrichable: RawEventData[],
+  errors: string[],
+  errorDetails: ErrorDetails,
+): Promise<{ fetched: number; enriched: number }> {
+  let fetched = 0;
+  let enriched = 0;
+  for (let i = 0; i < detailEnrichable.length; i += DETAIL_FETCH_CONCURRENCY) {
+    const batch = detailEnrichable.slice(i, i + DETAIL_FETCH_CONCURRENCY);
+    const settled = await Promise.allSettled(
+      batch.map((event) => fetchDetailHtml(event.sourceUrl as string)),
+    );
+    settled.forEach((r, j) => {
+      const event = batch[j];
+      const url = event.sourceUrl as string;
+      if (r.status === "rejected") {
+        errors.push(`Detail fetch failed for ${url}: ${r.reason}`);
+        errorDetails.fetch = [
+          ...(errorDetails.fetch ?? []),
+          { url, message: String(r.reason) },
+        ];
+        return;
+      }
+      fetched++;
+      if (!r.value.ok) {
+        errorDetails.fetch = [
+          ...(errorDetails.fetch ?? []),
+          { url, status: r.value.status, message: `HTTP ${r.value.status}` },
+        ];
+        return;
+      }
+      try {
+        const detail = parseIndyDetail(r.value.html);
+        if (detail.location) {
+          event.location = detail.location;
+          enriched++;
+        }
+      } catch (err) {
+        errors.push(`Detail parse error for ${url}: ${err}`);
+        errorDetails.parse = [
+          ...(errorDetails.parse ?? []),
+          { row: 0, section: url, error: String(err) },
+        ];
+      }
+    });
+  }
+  return { fetched, enriched };
+}
+
+/**
  * IndyScent H3 (Indianapolis) adapter.
  *
  * Fetches the "Upcumming Hashes" WordPress page (default id 1792) and parses
  * the `.ht-upcoming-card` blocks. The same page aggregates THICC H3 events;
  * `kennelPatterns` can route those to the `thicch3` kennel.
+ *
+ * After list-page parsing, follows each card's `/hashes/` detail URL (capped
+ * concurrency) to extract the start location, which the list page omits
+ * (issue #1302).
  */
 export class IndyH3Adapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
@@ -234,6 +346,17 @@ export class IndyH3Adapter implements SourceAdapter {
       return d >= minDate && d <= maxDate;
     });
 
+    // The list page omits start location; follow each event's /hashes/<slug>/
+    // URL and copy the parsed location onto the RawEventData (#1302).
+    const detailEnrichable = events.filter(
+      (e) =>
+        !e.location &&
+        typeof e.sourceUrl === "string" &&
+        /\/hashes\//i.test(e.sourceUrl),
+    );
+    const { fetched: detailFetched, enriched: detailEnriched } =
+      await enrichWithDetails(detailEnrichable, errors, errorDetails);
+
     const hasErrors = hasAnyErrors(errorDetails);
     return {
       events,
@@ -243,6 +366,8 @@ export class IndyH3Adapter implements SourceAdapter {
       diagnosticContext: {
         cardsFound: cardIndex,
         eventsParsed: events.length,
+        detailFetched,
+        detailEnriched,
       },
     };
   }

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import * as cheerio from "cheerio";
-import { parseIndyDate, parseIndyTime, parseIndyCard } from "./indyh3";
+import { parseIndyDate, parseIndyTime, parseIndyCard, parseIndyDetail } from "./indyh3";
 
 describe("parseIndyDate", () => {
   it("parses a full human date", () => {
@@ -118,5 +118,65 @@ describe("parseIndyCard", () => {
       "https://indyhhh.com",
     );
     expect(event).toBeNull();
+  });
+});
+
+describe("parseIndyDetail", () => {
+  // Mirrors the live indyhhh.com /hashes/<slug>/ page (verified 2026-05-10):
+  // a heading section repeats `<strong>Start Location:</strong>` with no value,
+  // and the body block carries the real value before a `<br>`.
+  const sampleDetailHtml = `
+    <body>
+      <div class="hash-header">
+        <strong>Start Location:</strong>
+        <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+      </div>
+      <p><span><strong>Start Location:</strong> Gravel lot across from Goose the Market <br class="html-br" /><strong>Trail:</strong> ~3.69mi<br class="html-br" /><strong>Shiggy level:</strong> 0.69</span></p>
+    </body>
+  `;
+
+  it("extracts Start Location from the body block, ignoring the empty heading repeat", () => {
+    const result = parseIndyDetail(sampleDetailHtml);
+    expect(result.location).toBe("Gravel lot across from Goose the Market");
+  });
+
+  it("returns undefined when no Start Location label appears", () => {
+    const result = parseIndyDetail(`<p>Just description text, no labels.</p>`);
+    expect(result.location).toBeUndefined();
+  });
+
+  it("treats TBD/TBA value as undefined", () => {
+    const result = parseIndyDetail(
+      `<p><strong>Start Location:</strong> TBD<br /><strong>Trail:</strong> 3mi</p>`,
+    );
+    expect(result.location).toBeUndefined();
+  });
+
+  it("decodes HTML entities in the location value", () => {
+    const result = parseIndyDetail(
+      `<p><strong>Start Location:</strong> Tom &amp; Jerry&#8217;s Pub <br /><strong>Trail:</strong> 3mi</p>`,
+    );
+    expect(result.location).toBe("Tom & Jerry’s Pub");
+  });
+
+  it("falls back to <strong>Where?</strong> for upcoming events", () => {
+    // Pre-posted upcoming events have an empty Start Location heading and
+    // publish the venue under a Where? label in the description body.
+    const html = `
+      <div class="hash-header"><strong>Start Location:</strong></div>
+      <div><strong>What?</strong> HAH Hash 2026</div>
+      <div><strong>Where?</strong> Leonard Park – Speedway, Indiana</div>
+    `;
+    const result = parseIndyDetail(html);
+    expect(result.location).toBe("Leonard Park – Speedway, Indiana");
+  });
+
+  it("prefers Start Location over Where? when both have values", () => {
+    const html = `
+      <p><strong>Where?</strong> Old fallback</p>
+      <p><strong>Start Location:</strong> Canonical address</p>
+    `;
+    const result = parseIndyDetail(html);
+    expect(result.location).toBe("Canonical address");
   });
 });
