@@ -450,7 +450,7 @@ const FB_LOCATION_LABELS = [
   "meet",
 ] as const;
 const FB_LEADING_DECORATION_RE = /^[^\p{L}\p{N}]{1,16}/u;
-const FB_FIRST_CHAR_OK_RE = /[\p{L}\p{N}\-(\[*]/u;
+const FB_FIRST_CHAR_OK_RE = /[\p{L}\p{N}\-([*]/u;
 const FB_TRAILING_PUNCT_RE = /[\s,;.]+$/; // NOSONAR — single char class + `$` anchor; same shape as PUNCT_TRAILING_RE in hare-extraction.ts
 // US-style 5-digit zip (with optional ZIP+4) at end of line — strong signal
 // the address block has finished. We append the line then stop walking.
@@ -526,16 +526,79 @@ function parseLocationLabel(line: string): string | null {
  * (`Pre-Lube:`, `Hare Away:`, `On-After:` …) and should terminate the
  * address-block walk. Procedural to keep Sonar S5852 quiet.
  */
+const FIELD_LABEL_CHAR_RE = /[A-Za-z\- ]/;
 function isFieldLabelLine(line: string): boolean {
   const colonIdx = line.indexOf(":");
   if (colonIdx <= 0 || colonIdx > 41) return false;
   const label = line.slice(0, colonIdx);
   if (!/^[A-Za-z]/.test(label)) return false;
-  for (let i = 0; i < label.length; i++) {
-    const c = label[i];
-    if (!/[A-Za-z\- ]/.test(c)) return false;
+  for (const c of label) {
+    if (!FIELD_LABEL_CHAR_RE.test(c)) return false;
   }
   return true;
+}
+
+/**
+ * Should `line` terminate the address-block walk? Centralizes the four
+ * stop conditions so the inner loop in `extractStreetBlock` stays flat.
+ */
+function isContinuationTerminator(line: string): boolean {
+  if (line.length === 0) return true;
+  if (isFieldLabelLine(line)) return true;
+  if (line.startsWith("http://") || line.startsWith("https://")) return true;
+  // First-char filter rejects emoji-prefixed continuation like
+  // "➡️ e'rections: GPS it…" while still admitting addresses that lead
+  // with `(Corner of …)`, `- Unit 2B`, `[Building B]`, `*Parking note*`.
+  if (!FB_FIRST_CHAR_OK_RE.test(line.charAt(0))) return true;
+  return false;
+}
+
+/**
+ * Pick the same-line remainder from a `Location:` line, or skip it entirely.
+ * US addresses lead with a house number; venues do not — include the
+ * remainder only when its first char (after a leading emoji decoration like
+ * "📍") is a digit. This correctly skips
+ * `Launchpad: 📍 Americian Legion Pist 310` (post-suffix digit) as a venue,
+ * while `Location: 123 Main St` is captured as an address.
+ */
+function pickAddressRemainder(remainder: string): string | undefined {
+  if (remainder.length === 0) return undefined;
+  const undecorated = stripLeadingDecoration(remainder).trimStart();
+  return /^\d/.test(undecorated) ? undecorated : undefined;
+}
+
+/**
+ * Walk forward from `startIdx` collecting up to `STREET_MAX_CONTINUATION_LINES`
+ * address-continuation lines. A line ending in a US zip code terminates the
+ * walk (subsequent lines are almost always boilerplate or the next field).
+ */
+function collectAddressContinuation(lines: string[], startIdx: number, seed: string[]): string[] {
+  const out = [...seed];
+  if (out.some((line) => FB_ZIP_AT_END_RE.test(line))) return out;
+  for (let j = startIdx; j < lines.length && out.length < STREET_MAX_CONTINUATION_LINES; j++) {
+    const line = lines[j].trim();
+    if (isContinuationTerminator(line)) break;
+    out.push(line);
+    if (FB_ZIP_AT_END_RE.test(line)) break;
+  }
+  return out;
+}
+
+function buildAddressFromContinuation(continuation: string[]): string | undefined {
+  if (continuation.length === 0) return undefined;
+  let joined = continuation
+    .join(", ")
+    .replace(/,\s*,/g, ",")
+    .replace(FB_TRAILING_PUNCT_RE, "");
+  joined = stripFbCountryStateNoise(joined);
+  if (joined.length === 0) return undefined;
+  // Address-shape sanity check: reject candidates that don't look like a
+  // real address. Some descriptions have an earlier `Start: 6:30 PM` whose
+  // label matches the location-label list; without this gate, the time
+  // string would mis-fill locationStreet.
+  if (!looksLikeAddress(joined)) return undefined;
+  if (joined.length > STREET_MAX_LEN) joined = joined.slice(0, STREET_MAX_LEN).trim();
+  return joined;
 }
 
 function extractStreetBlock(description: string): string | undefined {
@@ -543,56 +606,10 @@ function extractStreetBlock(description: string): string | undefined {
   for (let i = 0; i < lines.length; i++) {
     const remainder = parseLocationLabel(lines[i]);
     if (remainder === null) continue;
-    const continuation: string[] = [];
-    // Same-line remainder is either a venue name ("Location: Boston Johnny's"
-    // with the address on subsequent lines) or the address itself ("Location:
-    // 123 Main St, …"). US addresses lead with a house number; venues do not
-    // — include the remainder only when its first char (after a leading
-    // emoji decoration like "📍") is a digit. This correctly skips
-    // "Launchpad: 📍 Americian Legion Pist 310" (post-suffix digit) as a
-    // venue, while "Location: 123 Main St" is captured as an address.
-    if (remainder.length > 0) {
-      const undecorated = stripLeadingDecoration(remainder).trimStart();
-      if (/^\d/.test(undecorated)) continuation.push(undecorated);
-    }
-    let zipSeen = continuation.some((line) => FB_ZIP_AT_END_RE.test(line));
-    for (
-      let j = i + 1;
-      !zipSeen && j < lines.length && continuation.length < STREET_MAX_CONTINUATION_LINES;
-      j++
-    ) {
-      const line = lines[j].trim();
-      if (line.length === 0) break;
-      if (isFieldLabelLine(line)) break;
-      if (line.startsWith("http://") || line.startsWith("https://")) break;
-      // First-char filter rejects emoji-prefixed continuation like
-      // "➡️ e'rections: GPS it…" while still admitting addresses that lead
-      // with `(Corner of …)`, `- Unit 2B`, `[Building B]`, `*Parking note*`.
-      if (!FB_FIRST_CHAR_OK_RE.test(line.charAt(0))) break;
-      continuation.push(line);
-      // A line ending in a US zip code is a strong terminator: the address
-      // block typically ends with the city/state/zip line, and what follows
-      // is almost always loose prose (boilerplate, notes, the next field
-      // label) that would pollute locationStreet otherwise.
-      if (FB_ZIP_AT_END_RE.test(line)) {
-        zipSeen = true;
-        break;
-      }
-    }
-    if (continuation.length === 0) continue;
-    let joined = continuation
-      .join(", ")
-      .replace(/,\s*,/g, ",")
-      .replace(FB_TRAILING_PUNCT_RE, "");
-    joined = stripFbCountryStateNoise(joined);
-    if (joined.length === 0) continue;
-    // Address-shape sanity check: skip and keep scanning when the candidate
-    // doesn't look like a real address. Some descriptions have "Start: 6:30
-    // PM" earlier than "Location: 123 Main St"; without this gate, the
-    // first match wins and a time string is mis-stored as the street.
-    if (!looksLikeAddress(joined)) continue;
-    if (joined.length > STREET_MAX_LEN) joined = joined.slice(0, STREET_MAX_LEN).trim();
-    return joined;
+    const seed = pickAddressRemainder(remainder);
+    const continuation = collectAddressContinuation(lines, i + 1, seed ? [seed] : []);
+    const candidate = buildAddressFromContinuation(continuation);
+    if (candidate) return candidate;
   }
   return undefined;
 }

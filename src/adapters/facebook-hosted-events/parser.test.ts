@@ -381,15 +381,15 @@ describe("facebookEventToRawEvent — CIC-harvested Event projection", () => {
   });
 });
 
-describe("bagToRawEvent — runNumber extraction (#1319)", () => {
-  function rawFromTitle(title: string) {
-    const html = `<script type="application/json">{
-      "rich":{"__typename":"Event","id":"123456789012345","name":${JSON.stringify(title)}},
-      "time":{"id":"123456789012345","start_timestamp":1778353200}
-    }</script>`;
-    return parseFacebookHostedEvents(html, { kennelTag: "h6" })[0];
-  }
+function rawFromTitle(title: string) {
+  const html = `<script type="application/json">{
+    "rich":{"__typename":"Event","id":"123456789012345","name":${JSON.stringify(title)}},
+    "time":{"id":"123456789012345","start_timestamp":1778353200}
+  }</script>`;
+  return parseFacebookHostedEvents(html, { kennelTag: "h6" })[0];
+}
 
+describe("bagToRawEvent — runNumber extraction (#1319)", () => {
   it.each([
     ["…HapPy Hour ~ Boston Johnny's May's Birthday Party ~ H6#307", 307],
     ["…Tacos @ Bandoleros ~ H6 #308", 308],
