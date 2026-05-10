@@ -27,6 +27,8 @@
 import type { RawEventData } from "../types";
 import { formatYmdInTimezone, formatTimeInZone, isValidTimezone } from "@/lib/timezone";
 import { FB_EVENT_ID_RE } from "./constants";
+import { extractHashRunNumber, hasPlaceholderRunNumber } from "../utils";
+import { extractHares } from "../hare-extraction";
 
 export interface ParseFacebookOptions {
   /** kennelTag (kennelCode) for all parsed events. */
@@ -407,6 +409,246 @@ function bagToRawEvent(bag: EventBag, kennelTag: string, timezone: string): RawE
     event.latitude = lat;
     event.longitude = lng;
   }
+
+  // Placeholder titles ("H6#28?") emit `runNumber: null` so the merge
+  // pipeline's tri-state clears any stale value from a prior non-placeholder
+  // scrape — see the `runNumber?: number | null` contract on RawEventData.
+  if (title) {
+    const parsed = extractHashRunNumber(title);
+    if (typeof parsed === "number") {
+      event.runNumber = parsed;
+    } else if (hasPlaceholderRunNumber(title)) {
+      event.runNumber = null;
+    }
+  }
   // Cancelled events are filtered above (return null when is_canceled).
   return event;
+}
+
+/**
+ * Extract structured fields from the FB event-detail post body (#1319).
+ *
+ * The listing tab carries `name`, `start_timestamp`, and
+ * `event_place.contextual_name` but no description — hash kennels put the
+ * Hare and full address in the post body on `/events/{id}/`, which the
+ * adapter's `enrichWithDetails` step fetches separately.
+ */
+export interface FacebookDescriptionFields {
+  hares?: string;
+  locationStreet?: string;
+}
+
+// Address-block label tokens. Matched procedurally (`parseLocationLabel`) to
+// avoid the `\s*` near alternation + `(.*)$` shape that Sonar S5852 flags as
+// ReDoS-prone, per feedback_sonar_s5852_false_positives.
+const FB_LOCATION_LABELS = [
+  "location",
+  "launchpad",
+  "where",
+  "address",
+  "start",
+  "meet",
+] as const;
+const FB_LEADING_DECORATION_RE = /^[^\p{L}\p{N}]{1,16}/u;
+const FB_FIRST_CHAR_OK_RE = /[\p{L}\p{N}\-([*]/u;
+const FB_TRAILING_PUNCT_RE = /[\s,;.]+$/; // NOSONAR — single char class + `$` anchor; same shape as PUNCT_TRAILING_RE in hare-extraction.ts
+// US-style 5-digit zip (with optional ZIP+4) at end of line — strong signal
+// the address block has finished. We append the line then stop walking.
+const FB_ZIP_AT_END_RE = /\b\d{5}(?:-\d{4})?\s*$/;
+// Sentinel that FB ships in addresses with country/state expanded
+// ("…, FL, United States, Florida 33301"). Stripped procedurally instead of
+// via a single regex with `\s*` near the trailing zip lookahead, which Sonar
+// S5852 flags as ReDoS-prone (per feedback_sonar_s5852_false_positives).
+const FB_COUNTRY_NOISE_PREFIX = ", United States, ";
+const FB_STATE_NAMES = [
+  "Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado",
+  "Connecticut", "Delaware", "Florida", "Georgia", "Hawaii", "Idaho",
+  "Illinois", "Indiana", "Iowa", "Kansas", "Kentucky", "Louisiana", "Maine",
+  "Maryland", "Massachusetts", "Michigan", "Minnesota", "Mississippi",
+  "Missouri", "Montana", "Nebraska", "Nevada", "New Hampshire", "New Jersey",
+  "New Mexico", "New York", "North Carolina", "North Dakota", "Ohio",
+  "Oklahoma", "Oregon", "Pennsylvania", "Rhode Island", "South Carolina",
+  "South Dakota", "Tennessee", "Texas", "Utah", "Vermont", "Virginia",
+  "Washington", "West Virginia", "Wisconsin", "Wyoming",
+] as const;
+const STREET_MAX_CONTINUATION_LINES = 4;
+const STREET_MAX_LEN = 250;
+const HARE_LEADING_STRIP_MAX = 12;
+
+export function extractFieldsFromFbDescription(description: string): FacebookDescriptionFields {
+  const out: FacebookDescriptionFields = {};
+  const trimmed = description?.trim();
+  if (!trimmed) return out;
+
+  const haresRaw = extractHares(trimmed);
+  if (haresRaw) {
+    const cleaned = stripLeadingDecoration(haresRaw).trim();
+    if (cleaned.length > 0) out.hares = cleaned;
+  }
+
+  const street = extractStreetBlock(trimmed);
+  if (street) {
+    // Belt-and-suspenders: strip any residual leading emoji/symbol decoration
+    // from the final street. extractStreetBlock already filters per-line, but
+    // a same-line "Location: 📍 123 Main St" path would slip through.
+    const cleanedStreet = stripLeadingDecoration(street).trim();
+    if (cleanedStreet.length > 0) out.locationStreet = cleanedStreet;
+  }
+
+  return out;
+}
+
+function stripLeadingDecoration(value: string): string {
+  // Bound the leading-decoration strip so we only eat short emoji/symbol
+  // runs (🐰✨, 📍, ➡️) — not long prefixes that might contain real letters.
+  const m = FB_LEADING_DECORATION_RE.exec(value);
+  if (!m) return value;
+  if (m[0].length > HARE_LEADING_STRIP_MAX) return value;
+  return value.slice(m[0].length);
+}
+
+/**
+ * If `line` is a `<Label>:<remainder>` line where `<Label>` is one of
+ * `FB_LOCATION_LABELS` (case-insensitive), return the trimmed remainder
+ * (possibly empty when the address starts on the next line). Otherwise null.
+ */
+function parseLocationLabel(line: string): string | null {
+  const trimmed = line.trimStart();
+  const colonIdx = trimmed.indexOf(":");
+  if (colonIdx <= 0) return null;
+  const label = trimmed.slice(0, colonIdx).trim().toLowerCase();
+  if (!FB_LOCATION_LABELS.includes(label as (typeof FB_LOCATION_LABELS)[number])) return null;
+  return trimmed.slice(colonIdx + 1).trim();
+}
+
+/**
+ * True when `line` looks like the start of any other labelled section
+ * (`Pre-Lube:`, `Hare Away:`, `On-After:` …) and should terminate the
+ * address-block walk. Procedural to keep Sonar S5852 quiet.
+ */
+const FIELD_LABEL_CHAR_RE = /[A-Za-z\- ]/;
+function isFieldLabelLine(line: string): boolean {
+  const colonIdx = line.indexOf(":");
+  if (colonIdx <= 0 || colonIdx > 41) return false;
+  const label = line.slice(0, colonIdx);
+  if (!/^[A-Za-z]/.test(label)) return false;
+  for (const c of label) {
+    if (!FIELD_LABEL_CHAR_RE.test(c)) return false;
+  }
+  return true;
+}
+
+/**
+ * Should `line` terminate the address-block walk? Centralizes the four
+ * stop conditions so the inner loop in `extractStreetBlock` stays flat.
+ */
+function isContinuationTerminator(line: string): boolean {
+  if (line.length === 0) return true;
+  if (isFieldLabelLine(line)) return true;
+  if (line.startsWith("http://") || line.startsWith("https://")) return true;
+  // First-char filter rejects emoji-prefixed continuation like
+  // "➡️ e'rections: GPS it…" while still admitting addresses that lead
+  // with `(Corner of …)`, `- Unit 2B`, `[Building B]`, `*Parking note*`.
+  if (!FB_FIRST_CHAR_OK_RE.test(line.charAt(0))) return true;
+  return false;
+}
+
+/**
+ * Pick the same-line remainder from a `Location:` line, or skip it entirely.
+ * US addresses lead with a house number; venues do not — include the
+ * remainder only when its first char (after a leading emoji decoration like
+ * "📍") is a digit. This correctly skips
+ * `Launchpad: 📍 Americian Legion Pist 310` (post-suffix digit) as a venue,
+ * while `Location: 123 Main St` is captured as an address.
+ */
+function pickAddressRemainder(remainder: string): string | undefined {
+  if (remainder.length === 0) return undefined;
+  const undecorated = stripLeadingDecoration(remainder).trimStart();
+  return /^\d/.test(undecorated) ? undecorated : undefined;
+}
+
+/**
+ * Walk forward from `startIdx` collecting up to `STREET_MAX_CONTINUATION_LINES`
+ * address-continuation lines. A line ending in a US zip code terminates the
+ * walk (subsequent lines are almost always boilerplate or the next field).
+ */
+function collectAddressContinuation(lines: string[], startIdx: number, seed: string[]): string[] {
+  const out = [...seed];
+  if (out.some((line) => FB_ZIP_AT_END_RE.test(line))) return out;
+  for (let j = startIdx; j < lines.length && out.length < STREET_MAX_CONTINUATION_LINES; j++) {
+    const line = lines[j].trim();
+    if (isContinuationTerminator(line)) break;
+    out.push(line);
+    if (FB_ZIP_AT_END_RE.test(line)) break;
+  }
+  return out;
+}
+
+function buildAddressFromContinuation(continuation: string[]): string | undefined {
+  if (continuation.length === 0) return undefined;
+  let joined = continuation
+    .join(", ")
+    .replace(/,\s*,/g, ",")
+    .replace(FB_TRAILING_PUNCT_RE, "");
+  joined = stripFbCountryStateNoise(joined);
+  if (joined.length === 0) return undefined;
+  // Address-shape sanity check: reject candidates that don't look like a
+  // real address. Some descriptions have an earlier `Start: 6:30 PM` whose
+  // label matches the location-label list; without this gate, the time
+  // string would mis-fill locationStreet.
+  if (!looksLikeAddress(joined)) return undefined;
+  if (joined.length > STREET_MAX_LEN) joined = joined.slice(0, STREET_MAX_LEN).trim();
+  return joined;
+}
+
+function extractStreetBlock(description: string): string | undefined {
+  const lines = description.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    const remainder = parseLocationLabel(lines[i]);
+    if (remainder === null) continue;
+    const seed = pickAddressRemainder(remainder);
+    const continuation = collectAddressContinuation(lines, i + 1, seed ? [seed] : []);
+    const candidate = buildAddressFromContinuation(continuation);
+    if (candidate) return candidate;
+  }
+  return undefined;
+}
+
+/**
+ * Heuristic: does `value` look like a US street address rather than a time
+ * or other label value? Some descriptions have an earlier `Start:` field
+ * carrying a clock time ("Start: 6:30 PM"); without this gate, the first
+ * matched location-label wins and the time mis-fills locationStreet.
+ *
+ * Returns true unless `value` is recognizably a clock time. Plain street
+ * fragments like "12 First Ave" or "1234 Maple St" pass — they contain
+ * digits but no `H:MM` clock pattern.
+ */
+const FB_CLOCK_TIME_RE = /^\s*\d{1,2}:\d{2}(?:\s*[AaPp]\.?[Mm]\.?)?\s*$/;
+function looksLikeAddress(value: string): boolean {
+  if (FB_ZIP_AT_END_RE.test(value)) return true;
+  if (FB_CLOCK_TIME_RE.test(value)) return false;
+  return /\d/.test(value);
+}
+
+/**
+ * Collapse FB's redundant country/state expansion to a clean state-abbrev + zip.
+ * Example: `… FL, United States, Florida 33301` → `… FL 33301`.
+ *
+ * Done procedurally (substring + state-name list) instead of with a single
+ * regex containing `\s*` near a `\d{5}` lookahead — the latter shape is what
+ * Sonar S5852 flags as ReDoS-prone for these adapters.
+ */
+function stripFbCountryStateNoise(value: string): string {
+  const idx = value.toLowerCase().indexOf(FB_COUNTRY_NOISE_PREFIX.toLowerCase());
+  if (idx < 0) return value;
+  const after = value.slice(idx + FB_COUNTRY_NOISE_PREFIX.length);
+  for (const state of FB_STATE_NAMES) {
+    if (!after.toLowerCase().startsWith(state.toLowerCase() + " ")) continue;
+    const remainder = after.slice(state.length).trimStart();
+    if (FB_ZIP_AT_END_RE.test(remainder)) {
+      return `${value.slice(0, idx)} ${remainder}`;
+    }
+  }
+  return value;
 }

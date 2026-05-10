@@ -23,7 +23,11 @@ import type { SourceAdapter, ScrapeResult, RawEventData } from "../types";
 import { validateSourceConfig, applyDateWindow } from "../utils";
 import { safeFetch } from "../safe-fetch";
 import { isValidTimezone } from "@/lib/timezone";
-import { parseFacebookHostedEvents, parseFacebookEventDetail } from "./parser";
+import {
+  parseFacebookHostedEvents,
+  parseFacebookEventDetail,
+  extractFieldsFromFbDescription,
+} from "./parser";
 import { FB_PAGE_HANDLE_RE, isReservedFacebookHandle } from "./constants";
 
 /**
@@ -227,6 +231,52 @@ const DETAIL_FETCH_ERROR_SAMPLE_LIMIT = 5;
  * shouldn't fail the whole scrape and lose the structured listing data
  * we already parsed successfully.
  */
+/**
+ * Mine structured fields (#1319) out of the post body and merge into the
+ * event. Only backfills fields the parser hasn't already populated, so a
+ * future adapter-side emit (or a richer listing-tab GraphQL field) wins.
+ */
+function applyDetailDescription(event: RawEventData, description: string): RawEventData {
+  const extra = extractFieldsFromFbDescription(description);
+  return {
+    ...event,
+    description,
+    ...(event.hares === undefined && extra.hares ? { hares: extra.hares } : {}),
+    ...(event.locationStreet === undefined && extra.locationStreet
+      ? { locationStreet: extra.locationStreet }
+      : {}),
+  };
+}
+
+interface DetailFetchOutcome {
+  event: RawEventData;
+  attempted: number;
+  enriched: number;
+  failed: number;
+  /** Optional error sample line ("eventId: message") to record. */
+  errorLine?: string;
+}
+
+/** Fetch one event's detail page, parse the description, and merge fields. */
+async function fetchAndMergeDetail(event: RawEventData): Promise<DetailFetchOutcome> {
+  const id = extractEventIdFromSourceUrl(event.sourceUrl);
+  if (!id) return { event, attempted: 0, enriched: 0, failed: 0 };
+  const outcome = await fetchOneEventDescription(id);
+  if (outcome.kind === "enriched") {
+    return { event: applyDetailDescription(event, outcome.description), attempted: 1, enriched: 1, failed: 0 };
+  }
+  if (outcome.kind === "no-description") {
+    return { event, attempted: 1, enriched: 0, failed: 0 };
+  }
+  return {
+    event,
+    attempted: 1,
+    enriched: 0,
+    failed: 1,
+    errorLine: `${id}: ${outcome.message.slice(0, 120)}`,
+  };
+}
+
 async function enrichWithDetails(events: RawEventData[]): Promise<EnrichmentResult> {
   const errors: string[] = [];
   const targets = events.slice(0, MAX_DETAIL_FETCHES);
@@ -241,27 +291,14 @@ async function enrichWithDetails(events: RawEventData[]): Promise<EnrichmentResu
   let enrichedCount = 0;
   let failed = 0;
   for (let i = 0; i < targets.length; i++) {
-    const event = targets[i];
-    const id = extractEventIdFromSourceUrl(event.sourceUrl);
-    if (!id) {
-      out.push(event);
-      continue;
-    }
     if (i > 0) await sleep(DETAIL_FETCH_DELAY_MS);
-    attempted++;
-    const outcome = await fetchOneEventDescription(id);
-    if (outcome.kind === "enriched") {
-      out.push({ ...event, description: outcome.description });
-      enrichedCount++;
-    } else if (outcome.kind === "no-description") {
-      out.push(event);
-    } else {
-      // outcome.kind === "failed"
-      failed++;
-      if (errorSample.length < DETAIL_FETCH_ERROR_SAMPLE_LIMIT) {
-        errorSample.push(`${id}: ${outcome.message.slice(0, 120)}`);
-      }
-      out.push(event);
+    const outcome = await fetchAndMergeDetail(targets[i]);
+    out.push(outcome.event);
+    attempted += outcome.attempted;
+    enrichedCount += outcome.enriched;
+    failed += outcome.failed;
+    if (outcome.errorLine && errorSample.length < DETAIL_FETCH_ERROR_SAMPLE_LIMIT) {
+      errorSample.push(outcome.errorLine);
     }
   }
   out.push(...events.slice(MAX_DETAIL_FETCHES));
