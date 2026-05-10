@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
-import { Prisma } from "@/generated/prisma/client";
-import type { EventStatus, SourceType } from "@/generated/prisma/client";
+import type { Prisma, EventStatus, SourceType } from "@/generated/prisma/client";
+import { isUniqueConstraintViolation } from "@/lib/prisma-errors";
 import type { RawEventData, MergeResult } from "@/adapters/types";
 import { parseUtcNoonDate } from "@/lib/date";
 import { regionTimezone, getLabelForUrl, stripUrlsFromText, timeToMinutes } from "@/lib/format";
@@ -322,15 +322,6 @@ const RAW_EVENT_DEDUP_SELECT = {
   eventId: true,
 } as const satisfies Prisma.RawEventSelect;
 type ExistingRawEventEntry = Prisma.RawEventGetPayload<{ select: typeof RAW_EVENT_DEDUP_SELECT }>;
-
-/** True if `err` is a P2002 unique-constraint violation specifically on
- *  `RawEvent(sourceId, fingerprint)`. Other P2002s (future schema changes)
- *  surface unchanged. */
-function isRawEventFingerprintP2002(err: unknown): err is Prisma.PrismaClientKnownRequestError {
-  if (!(err instanceof Prisma.PrismaClientKnownRequestError) || err.code !== "P2002") return false;
-  const target = err.meta?.target;
-  return Array.isArray(target) && target.includes("sourceId") && target.includes("fingerprint");
-}
 
 /** Cap on `WHERE fingerprint IN (...)` size per query — keeps Postgres planner
  *  cost linear and stays well below the 65535 bind-parameter limit. Historical
@@ -1473,7 +1464,7 @@ async function processNewRawEvent(
       },
     });
   } catch (err) {
-    if (!isRawEventFingerprintP2002(err)) throw err;
+    if (!isUniqueConstraintViolation(err, ["sourceId", "fingerprint"])) throw err;
 
     const winner = await prisma.rawEvent.findUnique({
       where: { sourceId_fingerprint: { sourceId, fingerprint } },

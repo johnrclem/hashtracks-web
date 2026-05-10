@@ -4,6 +4,7 @@ import { getAdminUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { Prisma, RequestSource } from "@/generated/prisma/client";
 import type { SourceType, RequestStatus } from "@/generated/prisma/client";
+import { isUniqueConstraintViolation } from "@/lib/prisma-errors";
 import { revalidatePath } from "next/cache";
 import { researchSourcesForRegion, buildDetectedConfig } from "@/pipeline/source-research";
 import { detectSourceType } from "@/lib/source-detect";
@@ -250,7 +251,7 @@ export async function approveProposal(
             data: { sourceId: source.id, kennelId: resolved.kennelId },
           });
         } catch (e: unknown) {
-          if (!(e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002")) throw e;
+          if (!isUniqueConstraintViolation(e)) throw e;
         }
       }
 

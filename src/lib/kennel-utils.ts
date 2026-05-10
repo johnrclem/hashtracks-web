@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { Prisma } from "@/generated/prisma/client";
+import { isUniqueConstraintViolation } from "@/lib/prisma-errors";
 
 /** Generate a URL-safe slug from a kennel shortName. Strips parens, collapses hyphens. */
 export function toSlug(shortName: string): string {
@@ -78,7 +78,7 @@ export async function createKennelRecord(
     });
     return { kennelId: newKennel.id };
   } catch (e) {
-    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+    if (isUniqueConstraintViolation(e)) {
       return { error: `Kennel "${trimmedShort}" already exists` };
     }
     throw e;

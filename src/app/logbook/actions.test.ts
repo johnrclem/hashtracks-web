@@ -31,7 +31,7 @@ vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
 }));
 
-import { Prisma } from "@/generated/prisma/client";
+import { buildPrismaUniqueViolation } from "@/test/factories";
 import { getOrCreateUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import {
@@ -694,11 +694,7 @@ describe("declineMismanAttendance", () => {
     mockAttFind.mockResolvedValueOnce(null);
 
     // Simulate concurrent insert winning the race
-    const p2002 = new Prisma.PrismaClientKnownRequestError(
-      "Unique constraint failed",
-      { code: "P2002", clientVersion: "0.0.0" },
-    );
-    mockAttCreate.mockRejectedValueOnce(p2002);
+    mockAttCreate.mockRejectedValueOnce(buildPrismaUniqueViolation(["userId", "eventId"]));
 
     const result = await declineMismanAttendance("ka_1");
     expect(result).toEqual({ success: true });

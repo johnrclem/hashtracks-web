@@ -51,7 +51,7 @@ vi.mock("@/generated/prisma/client", () => ({
 
 import { getAdminUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { Prisma } from "@/generated/prisma/client";
+import { buildPrismaUniqueViolation } from "@/test/factories";
 import {
   getAuditTrends,
   getTopOffenders,
@@ -188,9 +188,7 @@ describe("createSuppression", () => {
 
   it("surfaces P2002 with friendly message", async () => {
     mockAdmin.mockResolvedValue({ id: "u_1", email: "a@b.com" } as never);
-    mockSupCreate.mockRejectedValue(
-      new Prisma.PrismaClientKnownRequestError("dup", { code: "P2002" } as never),
-    );
+    mockSupCreate.mockRejectedValue(buildPrismaUniqueViolation(["kennelId", "rule"]));
     await expect(
       createSuppression({ kennelCode: "X", rule: "hare-url", reason: "long enough reason" }),
     ).rejects.toThrow("already exists");

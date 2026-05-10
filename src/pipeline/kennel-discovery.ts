@@ -17,6 +17,7 @@ import {
   type HashRegoKennelProfile,
 } from "@/adapters/hashrego/kennel-api";
 import { Prisma } from "@/generated/prisma/client";
+import { isUniqueConstraintViolation } from "@/lib/prisma-errors";
 import type { DiscoveredKennel } from "@/adapters/hashrego/kennel-directory-parser";
 
 const EXTERNAL_SOURCE = "HASHREGO";
@@ -50,7 +51,7 @@ export async function linkDiscoveryKennelToHashRego(
         await prisma.kennelAlias.create({ data: { kennelId, alias: externalSlug } });
       } catch (e: unknown) {
         // P2002 = unique constraint violation — alias already exists, safe to ignore
-        if (!(e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002")) throw e;
+        if (!isUniqueConstraintViolation(e)) throw e;
       }
     }
   }

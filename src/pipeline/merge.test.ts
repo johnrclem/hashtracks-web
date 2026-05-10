@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { buildRawEvent } from "@/test/factories";
+import { buildRawEvent, buildPrismaUniqueViolation } from "@/test/factories";
 
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -3237,15 +3237,8 @@ describe("isAdminLocked", () => {
 // and routes the event through the duplicate-fingerprint path so it's
 // counted as `skipped` instead of bubbling as `eventErrors`.
 describe("processNewRawEvent — P2002 race-window fall-through (#1286)", () => {
-  function makeP2002({ target }: { target: string[] }): Error {
-    return new Prisma.PrismaClientKnownRequestError(
-      "Unique constraint failed on the fields: " + target.join(", "),
-      { code: "P2002", clientVersion: "0.0.0", meta: { target } },
-    );
-  }
-
   it("routes through the duplicate path when the racing winner is processed + linked", async () => {
-    mockRawEventCreate.mockRejectedValueOnce(makeP2002({ target: ["sourceId", "fingerprint"] }));
+    mockRawEventCreate.mockRejectedValueOnce(buildPrismaUniqueViolation(["sourceId", "fingerprint"]));
     vi.mocked(prisma.rawEvent.findUnique).mockResolvedValueOnce({
       id: "raw_winner",
       fingerprint: "fp_abc123",
@@ -3277,7 +3270,7 @@ describe("processNewRawEvent — P2002 race-window fall-through (#1286)", () => 
     // (eventId is null). handleDuplicateFingerprint signals "re-process me"
     // by returning false; we count the event as skipped (the racing worker
     // will eventually process its own RawEvent) and return null.
-    mockRawEventCreate.mockRejectedValueOnce(makeP2002({ target: ["sourceId", "fingerprint"] }));
+    mockRawEventCreate.mockRejectedValueOnce(buildPrismaUniqueViolation(["sourceId", "fingerprint"]));
     vi.mocked(prisma.rawEvent.findUnique).mockResolvedValueOnce({
       id: "raw_winner",
       fingerprint: "fp_abc123",
@@ -3298,7 +3291,7 @@ describe("processNewRawEvent — P2002 race-window fall-through (#1286)", () => 
     // Future schema changes could add other unique constraints on RawEvent.
     // Only the (sourceId, fingerprint) target should fall through; everything
     // else must surface so it's not silently masked.
-    mockRawEventCreate.mockRejectedValueOnce(makeP2002({ target: ["someOtherColumn"] }));
+    mockRawEventCreate.mockRejectedValueOnce(buildPrismaUniqueViolation(["someOtherColumn"]));
 
     const result = await processRawEvents("src_1", [
       buildRawEvent({ date: "2026-04-01", kennelTags: ["TestH3"] }),
@@ -3334,7 +3327,7 @@ describe("processNewRawEvent — P2002 race-window fall-through (#1286)", () => 
     // leak state between iterations.
     mockFingerprint.mockReturnValueOnce("fp_p2002").mockReturnValueOnce("fp_normal");
     mockRawEventCreate
-      .mockRejectedValueOnce(makeP2002({ target: ["sourceId", "fingerprint"] }))
+      .mockRejectedValueOnce(buildPrismaUniqueViolation(["sourceId", "fingerprint"]))
       .mockResolvedValueOnce({ id: "raw_normal" } as never);
     vi.mocked(prisma.rawEvent.findUnique).mockResolvedValueOnce({
       id: "raw_winner",

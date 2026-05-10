@@ -1,7 +1,8 @@
 "use server";
 
 import * as Sentry from "@sentry/nextjs";
-import { Prisma, AuditStream, AuditIssueEventType } from "@/generated/prisma/client";
+import { AuditStream, AuditIssueEventType } from "@/generated/prisma/client";
+import { isUniqueConstraintViolation } from "@/lib/prisma-errors";
 import { prisma } from "@/lib/db";
 import { getAdminUser } from "@/lib/auth";
 import { KNOWN_AUDIT_RULES, type AuditFinding } from "@/pipeline/audit-checks";
@@ -244,7 +245,7 @@ export async function createSuppression(input: {
       },
     });
   } catch (err) {
-    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+    if (isUniqueConstraintViolation(err)) {
       throw new Error("A suppression for this kennel and rule already exists");
     }
     throw err;
