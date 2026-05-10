@@ -451,7 +451,7 @@ const FB_LOCATION_LABELS = [
 ] as const;
 const FB_LEADING_DECORATION_RE = /^[^\p{L}\p{N}]{1,16}/u;
 const FB_FIRST_CHAR_OK_RE = /[\p{L}\p{N}\-(\[*]/u;
-const FB_TRAILING_PUNCT_RE = /[\s,;.]+$/;
+const FB_TRAILING_PUNCT_RE = /[\s,;.]+$/; // NOSONAR — single char class + `$` anchor; same shape as PUNCT_TRAILING_RE in hare-extraction.ts
 // US-style 5-digit zip (with optional ZIP+4) at end of line — strong signal
 // the address block has finished. We append the line then stop walking.
 const FB_ZIP_AT_END_RE = /\b\d{5}(?:-\d{4})?\s*$/;
@@ -487,7 +487,13 @@ export function extractFieldsFromFbDescription(description: string): FacebookDes
   }
 
   const street = extractStreetBlock(trimmed);
-  if (street) out.locationStreet = street;
+  if (street) {
+    // Belt-and-suspenders: strip any residual leading emoji/symbol decoration
+    // from the final street. extractStreetBlock already filters per-line, but
+    // a same-line "Location: 📍 123 Main St" path would slip through.
+    const cleanedStreet = stripLeadingDecoration(street).trim();
+    if (cleanedStreet.length > 0) out.locationStreet = cleanedStreet;
+  }
 
   return out;
 }
@@ -573,17 +579,39 @@ function extractStreetBlock(description: string): string | undefined {
         break;
       }
     }
-    if (continuation.length === 0) return undefined;
+    if (continuation.length === 0) continue;
     let joined = continuation
       .join(", ")
       .replace(/,\s*,/g, ",")
       .replace(FB_TRAILING_PUNCT_RE, "");
     joined = stripFbCountryStateNoise(joined);
-    if (joined.length === 0) return undefined;
+    if (joined.length === 0) continue;
+    // Address-shape sanity check: skip and keep scanning when the candidate
+    // doesn't look like a real address. Some descriptions have "Start: 6:30
+    // PM" earlier than "Location: 123 Main St"; without this gate, the
+    // first match wins and a time string is mis-stored as the street.
+    if (!looksLikeAddress(joined)) continue;
     if (joined.length > STREET_MAX_LEN) joined = joined.slice(0, STREET_MAX_LEN).trim();
     return joined;
   }
   return undefined;
+}
+
+/**
+ * Heuristic: does `value` look like a US street address rather than a time
+ * or other label value? Some descriptions have an earlier `Start:` field
+ * carrying a clock time ("Start: 6:30 PM"); without this gate, the first
+ * matched location-label wins and the time mis-fills locationStreet.
+ *
+ * Returns true unless `value` is recognizably a clock time. Plain street
+ * fragments like "12 First Ave" or "1234 Maple St" pass — they contain
+ * digits but no `H:MM` clock pattern.
+ */
+const FB_CLOCK_TIME_RE = /^\s*\d{1,2}:\d{2}(?:\s*[AaPp]\.?[Mm]\.?)?\s*$/;
+function looksLikeAddress(value: string): boolean {
+  if (FB_ZIP_AT_END_RE.test(value)) return true;
+  if (FB_CLOCK_TIME_RE.test(value)) return false;
+  return /\d/.test(value);
 }
 
 /**

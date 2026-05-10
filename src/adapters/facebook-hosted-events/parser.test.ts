@@ -517,4 +517,24 @@ describe("extractFieldsFromFbDescription (#1319)", () => {
     const fields = extractFieldsFromFbDescription(desc);
     expect(fields.locationStreet).toBe("123 Main St, (Corner of Main & Oak)");
   });
+
+  it("skips a non-address `Start:` line and continues to the next location label (codex P1)", () => {
+    // "Start: 6:30 PM" matches the location-label list but carries a clock
+    // time, not an address. The walker must keep scanning so the real
+    // "Location: 123 Main St…" later in the body wins.
+    const desc = [
+      "Hare: Alice",
+      "Start: 6:30 PM",
+      "Location: 123 Main St",
+      "Anytown, NY 10001",
+    ].join("\n");
+    const fields = extractFieldsFromFbDescription(desc);
+    expect(fields.locationStreet).toBe("123 Main St, Anytown, NY 10001");
+  });
+
+  it("strips a leading emoji decoration on a same-line full-address (gemini #3)", () => {
+    const desc = "Location: 📍 123 Main St, Anytown, NY 10001";
+    const fields = extractFieldsFromFbDescription(desc);
+    expect(fields.locationStreet).toBe("123 Main St, Anytown, NY 10001");
+  });
 });
