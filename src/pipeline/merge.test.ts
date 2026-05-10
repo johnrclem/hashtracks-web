@@ -3272,26 +3272,52 @@ describe("processNewRawEvent — P2002 race-window fall-through (#1286)", () => 
     });
   });
 
-  it("routes through the duplicate path when the racing winner is an unprocessed orphan", async () => {
-    // The winner row exists but the racing worker hasn't processed it yet
-    // (eventId is null). handleDuplicateFingerprint signals "re-process me"
-    // by returning false; we count the event as skipped (the racing worker
-    // will eventually process its own RawEvent) and return null.
+  it("adopts the orphan and processes it when the racing winner is unprocessed + unlinked", async () => {
+    // The winner row exists but the racing worker hasn't linked it to a
+    // canonical Event yet. Pre-#1286 the caller would have created its
+    // own RawEvent and a fresh canonical Event (leaving the orphan as a
+    // tombstone); the unique constraint blocks that. We adopt the
+    // orphan and run the rest of `processNewRawEvent` against winner.id,
+    // so a crashed-mid-processing worker doesn't permanently drop the
+    // event.
     mockRawEventCreate.mockRejectedValueOnce(makeP2002({ target: ["sourceId", "fingerprint"] }));
     vi.mocked(prisma.rawEvent.findUnique).mockResolvedValueOnce({
-      id: "raw_winner",
+      id: "raw_orphan",
       fingerprint: "fp_abc123",
       processed: false,
       eventId: null,
     } as never);
+    mockEventFindMany.mockResolvedValue([] as never);
+    mockEventCreate.mockResolvedValue({ id: "evt_adopted" } as never);
 
     const result = await processRawEvents("src_1", [
       buildRawEvent({ date: "2026-04-01", kennelTags: ["TestH3"] }),
     ]);
 
-    expect(result.created).toBe(0);
-    expect(result.skipped).toBe(1);
+    expect(result.created).toBe(1);
+    expect(result.skipped).toBe(0);
     expect(result.eventErrors).toBe(0);
+    // The orphan's id (not a freshly-created RawEvent id) was used to
+    // process the canonical Event.
+    expect(mockRawEventUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "raw_orphan" } }),
+    );
+  });
+
+  it("re-throws if the winner row vanishes between P2002 and the re-fetch", async () => {
+    // Microsecond-window TOCTOU: the racing worker's row gets deleted
+    // (e.g. concurrent admin cleanup) between the P2002 and our findUnique.
+    // Should surface, not silently drop the event.
+    mockRawEventCreate.mockRejectedValueOnce(makeP2002({ target: ["sourceId", "fingerprint"] }));
+    vi.mocked(prisma.rawEvent.findUnique).mockResolvedValueOnce(null);
+
+    const result = await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-04-01", kennelTags: ["TestH3"] }),
+    ]);
+
+    expect(result.eventErrors).toBe(1);
+    expect(result.created).toBe(0);
+    expect(result.skipped).toBe(0);
   });
 
   it("re-throws P2002 errors targeting different columns (defensive)", async () => {

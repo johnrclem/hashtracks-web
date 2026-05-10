@@ -325,11 +325,18 @@ type ExistingRawEventEntry = Prisma.RawEventGetPayload<{ select: typeof RAW_EVEN
 
 /** True if `err` is a P2002 unique-constraint violation specifically on
  *  `RawEvent(sourceId, fingerprint)`. Other P2002s (future schema changes)
- *  surface unchanged. */
+ *  surface unchanged. The `target.length === 2` guard prevents a future
+ *  composite constraint that happens to include these two columns from
+ *  silently being matched here. */
 function isRawEventFingerprintP2002(err: unknown): err is Prisma.PrismaClientKnownRequestError {
   if (!(err instanceof Prisma.PrismaClientKnownRequestError) || err.code !== "P2002") return false;
   const target = err.meta?.target;
-  return Array.isArray(target) && target.includes("sourceId") && target.includes("fingerprint");
+  return (
+    Array.isArray(target) &&
+    target.length === 2 &&
+    target.includes("sourceId") &&
+    target.includes("fingerprint")
+  );
 }
 
 /** Cap on `WHERE fingerprint IN (...)` size per query — keeps Postgres planner
@@ -1484,15 +1491,20 @@ async function processNewRawEvent(
     ctx.existingByFingerprint.set(fingerprint, winner);
     const dupId = await handleDuplicateFingerprint(event, fingerprint, ctx);
     if (dupId === false) {
-      // Orphan-reprocess signal — but we can't create our own row.
-      // handleDuplicateFingerprint zeroes its skipped++/skipped-- pair on
-      // this branch, so the bump here is a single net increment.
-      ctx.result.skipped++;
-      return null;
+      // Orphan-reprocess signal: the racing worker's row is unprocessed
+      // and unlinked. Pre-#1286 the caller would have created its own
+      // RawEvent and a fresh canonical Event (leaving the orphan as a
+      // tombstone); the unique constraint blocks that, so we ADOPT the
+      // orphan instead — fall through with `rawEvent = winner` and run
+      // the rest of `processNewRawEvent` against winner.id. Without this,
+      // a worker that crashed mid-processing would leave a permanently-
+      // dropped event for that fingerprint.
+      rawEvent = winner;
+    } else {
+      if (!dupId) return null;
+      await createEventLinks(dupId, sourceId, event.externalLinks);
+      return dupId;
     }
-    if (!dupId) return null;
-    await createEventLinks(dupId, sourceId, event.externalLinks);
-    return dupId;
   }
 
   const kennelId = await resolveAndGuardKennel(event, ctx);
