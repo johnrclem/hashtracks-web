@@ -17,6 +17,16 @@
 --      script's localeCompare-based JS tiebreak so a partial
 --      script run + this migration's defensive sweep agree on the
 --      survivor).
+--
+-- Lock the table for the duration of the migration so concurrent QStash
+-- workers can't INSERT a fresh duplicate between the DELETE and the
+-- CREATE UNIQUE INDEX (which would fail with a unique-violation and roll
+-- back the whole migration). ACCESS EXCLUSIVE is what CREATE INDEX takes
+-- anyway; acquiring it up-front folds a few hundred ms of would-be
+-- writer-blocking into a single contiguous window. Released on
+-- COMMIT/ROLLBACK of the implicit migration transaction.
+LOCK TABLE "RawEvent" IN ACCESS EXCLUSIVE MODE;
+
 WITH ranked AS (
   SELECT id,
     ROW_NUMBER() OVER (
