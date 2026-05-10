@@ -5,6 +5,7 @@ import {
   parseFacebookHostedEvents,
   parseFacebookEventDetail,
   facebookEventToRawEvent,
+  extractFieldsFromFbDescription,
 } from "./parser";
 
 /**
@@ -377,5 +378,106 @@ describe("facebookEventToRawEvent — CIC-harvested Event projection", () => {
     expect(ny?.startTime).toBe("20:00");
     expect(hk?.date).toBe("2024-05-01");
     expect(hk?.startTime).toBe("08:00");
+  });
+});
+
+describe("bagToRawEvent — runNumber extraction (#1319)", () => {
+  function rawFromTitle(title: string) {
+    const html = `<script type="application/json">{
+      "rich":{"__typename":"Event","id":"123456789012345","name":${JSON.stringify(title)}},
+      "time":{"id":"123456789012345","start_timestamp":1778353200}
+    }</script>`;
+    return parseFacebookHostedEvents(html, { kennelTag: "h6" })[0];
+  }
+
+  it.each([
+    ["…HapPy Hour ~ Boston Johnny's May's Birthday Party ~ H6#307", 307],
+    ["…Tacos @ Bandoleros ~ H6 #308", 308],
+    ["Hollyweird Hash House Harriers HapPy Hour w/ Shane Duncan Band ~ H6#308", 308],
+  ])("extracts runNumber from %p", (title, expected) => {
+    expect(rawFromTitle(title).runNumber).toBe(expected);
+  });
+
+  it.each([
+    "Hollyweird Hash House Harriers HapPy Hour ~ Nelson Mangina ~ON-ON~H6#28?",
+    "Hollyweird Hash House Harriers HapPy Hour w/ American Legion Party 310 ~ H6#31?",
+    "Hollyweird Hash House Harriers HapPy Hour ~ Tin Fish Hash ~ H6#23?",
+  ])("emits null for placeholder runNumber title %p", (title) => {
+    expect(rawFromTitle(title).runNumber).toBeNull();
+  });
+
+  it("leaves runNumber undefined when the title carries no run marker", () => {
+    expect(rawFromTitle("Plain title with no marker").runNumber).toBeUndefined();
+  });
+
+  it("leaves runNumber undefined for the unusual `# <digits>?` shape with a space", () => {
+    // "H6# 20?" — both the shared extractor and the placeholder detector
+    // reject it (extractHashRunNumber requires no leading whitespace; the
+    // placeholder regex requires `#\d+`). Diverging the shared helper
+    // rules to support this single-source typo isn't worth it.
+    expect(rawFromTitle("Hollyweird ~ Tin Fish Hash ~ H6# 20?").runNumber).toBeUndefined();
+  });
+});
+
+describe("extractFieldsFromFbDescription (#1319)", () => {
+  const MAY_15_DESCRIPTION = [
+    "Hollyweird Hash House Harriers HapPy Hour ~ Boston Johnny's May's Birthday Party ~ H6#307",
+    "",
+    "Hare: Cake by the Ocean",
+    "Friday: 5/15/26",
+    "Location: Boston Johnny's",
+    "2120 N Dixie hywy,",
+    "Holly-Hood, FL 33020",
+    "",
+    "Pre-lube: 5ish",
+  ].join("\n");
+
+  const MAY_29_DESCRIPTION = [
+    "Hollyweird Hash House Harriers HapPy Hour 4 All we can Eat Tacos @ Bandoleros ~ H6 #308",
+    "",
+    "Hare: 🐰✨ Senorita Pink Taco and/or ¿ Going or Cumin ?",
+    "",
+    "Launchpad: 📍 Bandoleros",
+    "208 SW 2nd St, Fort Lauderdale, FL, United States, Florida 33301",
+    "➡️ e'rections: GPS it, then look just around a park",
+  ].join("\n");
+
+  it("extracts plain Hare name and a multi-line address block under Location:", () => {
+    const fields = extractFieldsFromFbDescription(MAY_15_DESCRIPTION);
+    expect(fields.hares).toBe("Cake by the Ocean");
+    expect(fields.locationStreet).toMatch(/2120 N Dixie hywy/);
+    expect(fields.locationStreet).toMatch(/33020$/);
+  });
+
+  it("strips emoji/decoration prefixes from Hare names and collapses FB redundant country/state in the address", () => {
+    const fields = extractFieldsFromFbDescription(MAY_29_DESCRIPTION);
+    expect(fields.hares).toBe("Senorita Pink Taco and/or ¿ Going or Cumin ?");
+    expect(fields.locationStreet).toBe("208 SW 2nd St, Fort Lauderdale, FL 33301");
+  });
+
+  it("returns empty object when the description carries neither a Hare line nor a Location block", () => {
+    expect(extractFieldsFromFbDescription("Just a regular blurb with no labels")).toEqual({});
+  });
+
+  it("returns empty object on empty/whitespace input", () => {
+    expect(extractFieldsFromFbDescription("")).toEqual({});
+    expect(extractFieldsFromFbDescription("   \n\n  ")).toEqual({});
+  });
+
+  it("recognizes alternate location labels (Where, Address, Start, Meet)", () => {
+    const desc = "Where: Some Bar\n123 Main St, Anytown, NY 10001";
+    const fields = extractFieldsFromFbDescription(desc);
+    expect(fields.locationStreet).toBe("123 Main St, Anytown, NY 10001");
+  });
+
+  it("stops the address block at the next labeled section", () => {
+    const desc = [
+      "Location: A Bar",
+      "12 First Ave",
+      "Hare Away: 6:30 PM",
+      "Theme: ridiculous",
+    ].join("\n");
+    const fields = extractFieldsFromFbDescription(desc);
+    expect(fields.locationStreet).toBe("12 First Ave");
   });
 });

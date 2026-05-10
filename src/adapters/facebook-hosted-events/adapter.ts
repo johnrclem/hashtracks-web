@@ -23,7 +23,11 @@ import type { SourceAdapter, ScrapeResult, RawEventData } from "../types";
 import { validateSourceConfig, applyDateWindow } from "../utils";
 import { safeFetch } from "../safe-fetch";
 import { isValidTimezone } from "@/lib/timezone";
-import { parseFacebookHostedEvents, parseFacebookEventDetail } from "./parser";
+import {
+  parseFacebookHostedEvents,
+  parseFacebookEventDetail,
+  extractFieldsFromFbDescription,
+} from "./parser";
 import { FB_PAGE_HANDLE_RE, isReservedFacebookHandle } from "./constants";
 
 /**
@@ -251,7 +255,19 @@ async function enrichWithDetails(events: RawEventData[]): Promise<EnrichmentResu
     attempted++;
     const outcome = await fetchOneEventDescription(id);
     if (outcome.kind === "enriched") {
-      out.push({ ...event, description: outcome.description });
+      // Mine structured fields out of the post body (#1319): the listing tab
+      // doesn't carry hares or the full address — both live in the body. Only
+      // backfill fields the parser hasn't already populated, so a future
+      // adapter-side emit (or a richer listing-tab GraphQL field) wins.
+      const extra = extractFieldsFromFbDescription(outcome.description);
+      out.push({
+        ...event,
+        description: outcome.description,
+        ...(event.hares === undefined && extra.hares ? { hares: extra.hares } : {}),
+        ...(event.locationStreet === undefined && extra.locationStreet
+          ? { locationStreet: extra.locationStreet }
+          : {}),
+      });
       enrichedCount++;
     } else if (outcome.kind === "no-description") {
       out.push(event);

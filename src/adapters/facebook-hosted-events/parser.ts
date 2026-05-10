@@ -27,6 +27,8 @@
 import type { RawEventData } from "../types";
 import { formatYmdInTimezone, formatTimeInZone, isValidTimezone } from "@/lib/timezone";
 import { FB_EVENT_ID_RE } from "./constants";
+import { extractHashRunNumber, hasPlaceholderRunNumber } from "../utils";
+import { extractHares } from "../hare-extraction";
 
 export interface ParseFacebookOptions {
   /** kennelTag (kennelCode) for all parsed events. */
@@ -407,6 +409,148 @@ function bagToRawEvent(bag: EventBag, kennelTag: string, timezone: string): RawE
     event.latitude = lat;
     event.longitude = lng;
   }
+
+  // Placeholder titles ("H6#28?") emit `runNumber: null` so the merge
+  // pipeline's tri-state clears any stale value from a prior non-placeholder
+  // scrape — see the `runNumber?: number | null` contract on RawEventData.
+  if (title) {
+    const parsed = extractHashRunNumber(title);
+    if (typeof parsed === "number") {
+      event.runNumber = parsed;
+    } else if (hasPlaceholderRunNumber(title)) {
+      event.runNumber = null;
+    }
+  }
   // Cancelled events are filtered above (return null when is_canceled).
   return event;
+}
+
+/**
+ * Extract structured fields from the FB event-detail post body (#1319).
+ *
+ * The listing tab carries `name`, `start_timestamp`, and
+ * `event_place.contextual_name` but no description — hash kennels put the
+ * Hare and full address in the post body on `/events/{id}/`, which the
+ * adapter's `enrichWithDetails` step fetches separately.
+ */
+export interface FacebookDescriptionFields {
+  hares?: string;
+  locationStreet?: string;
+}
+
+const FB_LOCATION_LABEL_RE = /^\s*(?:location|launchpad|where|address|start|meet)\s*:\s*(.*)$/i;
+// Allow hyphens in label names ("Pre-Lube:", "On-After:") so they terminate
+// the address block — the earlier letters+spaces-only shape missed those.
+const FB_ANY_FIELD_LABEL_RE = /^[A-Za-z][A-Za-z\- ]{0,40}:\s/;
+const FB_LEADING_DECORATION_RE = /^[^\p{L}\p{N}]{1,16}/u;
+const FB_TRAILING_PUNCT_RE = /[\s,;.]+$/;
+// US-style 5-digit zip (with optional ZIP+4) at end of line — strong signal
+// the address block has finished. We append the line then stop walking.
+const FB_ZIP_AT_END_RE = /\b\d{5}(?:-\d{4})?\s*$/;
+// Sentinel that FB ships in addresses with country/state expanded
+// ("…, FL, United States, Florida 33301"). Stripped procedurally instead of
+// via a single regex with `\s*` near the trailing zip lookahead, which Sonar
+// S5852 flags as ReDoS-prone (per feedback_sonar_s5852_false_positives).
+const FB_COUNTRY_NOISE_PREFIX = ", United States, ";
+const FB_STATE_NAMES = [
+  "Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado",
+  "Connecticut", "Delaware", "Florida", "Georgia", "Hawaii", "Idaho",
+  "Illinois", "Indiana", "Iowa", "Kansas", "Kentucky", "Louisiana", "Maine",
+  "Maryland", "Massachusetts", "Michigan", "Minnesota", "Mississippi",
+  "Missouri", "Montana", "Nebraska", "Nevada", "New Hampshire", "New Jersey",
+  "New Mexico", "New York", "North Carolina", "North Dakota", "Ohio",
+  "Oklahoma", "Oregon", "Pennsylvania", "Rhode Island", "South Carolina",
+  "South Dakota", "Tennessee", "Texas", "Utah", "Vermont", "Virginia",
+  "Washington", "West Virginia", "Wisconsin", "Wyoming",
+] as const;
+const STREET_MAX_CONTINUATION_LINES = 4;
+const STREET_MAX_LEN = 250;
+const HARE_LEADING_STRIP_MAX = 12;
+
+export function extractFieldsFromFbDescription(description: string): FacebookDescriptionFields {
+  const out: FacebookDescriptionFields = {};
+  const trimmed = description?.trim();
+  if (!trimmed) return out;
+
+  const haresRaw = extractHares(trimmed);
+  if (haresRaw) {
+    const cleaned = stripLeadingDecoration(haresRaw).trim();
+    if (cleaned.length > 0) out.hares = cleaned;
+  }
+
+  const street = extractStreetBlock(trimmed);
+  if (street) out.locationStreet = street;
+
+  return out;
+}
+
+function stripLeadingDecoration(value: string): string {
+  // Bound the leading-decoration strip so we only eat short emoji/symbol
+  // runs (🐰✨, 📍, ➡️) — not long prefixes that might contain real letters.
+  const m = FB_LEADING_DECORATION_RE.exec(value);
+  if (!m) return value;
+  if (m[0].length > HARE_LEADING_STRIP_MAX) return value;
+  return value.slice(m[0].length);
+}
+
+function extractStreetBlock(description: string): string | undefined {
+  const lines = description.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    if (!FB_LOCATION_LABEL_RE.test(lines[i])) continue;
+    const continuation: string[] = [];
+    for (
+      let j = i + 1;
+      j < lines.length && continuation.length < STREET_MAX_CONTINUATION_LINES;
+      j++
+    ) {
+      const line = lines[j].trim();
+      if (line.length === 0) break;
+      if (FB_ANY_FIELD_LABEL_RE.test(line)) break;
+      if (line.startsWith("http://") || line.startsWith("https://")) break;
+      // Skip lines whose first non-space character is a non-letter/digit
+      // (emoji decoration like "➡️ e'rections: …"). The check is
+      // intentionally narrow — we only stop *new* decoration; a street like
+      // "208 SW 2nd St…" passes because it leads with a digit.
+      const firstChar = line.charAt(0);
+      if (!/[\p{L}\p{N}]/u.test(firstChar)) break;
+      continuation.push(line);
+      // A line ending in a US zip code is a strong terminator: the address
+      // block typically ends with the city/state/zip line, and what follows
+      // is almost always loose prose (boilerplate, notes, the next field
+      // label) that would pollute locationStreet otherwise.
+      if (FB_ZIP_AT_END_RE.test(line)) break;
+    }
+    if (continuation.length === 0) return undefined;
+    let joined = continuation
+      .join(", ")
+      .replace(/,\s*,/g, ",")
+      .replace(FB_TRAILING_PUNCT_RE, "");
+    joined = stripFbCountryStateNoise(joined);
+    if (joined.length === 0) return undefined;
+    if (joined.length > STREET_MAX_LEN) joined = joined.slice(0, STREET_MAX_LEN).trim();
+    return joined;
+  }
+  return undefined;
+}
+
+/**
+ * Collapse FB's redundant country/state expansion to a clean state-abbrev + zip.
+ * Example: `… FL, United States, Florida 33301` → `… FL 33301`.
+ *
+ * Done procedurally (substring + state-name list) instead of with a single
+ * regex containing `\s*` near a `\d{5}` lookahead — the latter shape is what
+ * Sonar S5852 flags as ReDoS-prone for these adapters.
+ */
+function stripFbCountryStateNoise(value: string): string {
+  const idx = value.toLowerCase().indexOf(FB_COUNTRY_NOISE_PREFIX.toLowerCase());
+  if (idx < 0) return value;
+  const after = value.slice(idx + FB_COUNTRY_NOISE_PREFIX.length);
+  for (const state of FB_STATE_NAMES) {
+    if (!after.toLowerCase().startsWith(state.toLowerCase() + " ")) continue;
+    const remainder = after.slice(state.length).trimStart();
+    if (FB_ZIP_AT_END_RE.test(remainder)) {
+      return `${value.slice(0, idx)} ${remainder}`;
+    }
+  }
+  return value;
 }

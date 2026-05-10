@@ -21,6 +21,16 @@ const DETAIL_FIXTURE_HTML = readFileSync(
   "utf-8",
 );
 
+const HOLLYWEIRD_UPCOMING_HTML = readFileSync(
+  join(__dirname, "fixtures", "hollyweird-upcoming.html.fixture"),
+  "utf-8",
+);
+
+const HOLLYWEIRD_BANDOLEROS_DETAIL_HTML = readFileSync(
+  join(__dirname, "fixtures", "hollyweird-event-1481362937047925.html.fixture"),
+  "utf-8",
+);
+
 function makeSource(config: Record<string, unknown>): Source {
   return {
     id: "src-fb-test",
@@ -425,6 +435,72 @@ describe("FacebookHostedEventsAdapter — fetch", () => {
     expect(result.events).toEqual([]);
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0]).toMatch(/GraphQL shape change/i);
+  });
+
+  it("populates runNumber, hares, and locationStreet end-to-end for a Hollyweird upcoming event (#1319 regression)", async () => {
+    // Hollyweird upcoming fixture captured 2026-05-10 carries 7 events. Detail
+    // fetch is mocked: the May 29 H6 #308 / Bandoleros event (id 1481362937047925)
+    // returns its real SSR detail page; every other event returns 404 so the
+    // listing-tab data still emits but description-derived fields stay
+    // undefined for those rows. Real timers — `enrichWithDetails` sleeps
+    // 200ms between each detail fetch and we have 7 of them, so the
+    // beforeEach's fake timers would deadlock.
+    vi.useRealTimers();
+    mockedFetch.mockImplementation((url: string | URL) => {
+      const u = typeof url === "string" ? url : url.toString();
+      if (u.endsWith("/HollyweirdH6/upcoming_hosted_events")) {
+        return Promise.resolve(htmlResponse(HOLLYWEIRD_UPCOMING_HTML));
+      }
+      if (u.includes("/events/1481362937047925/")) {
+        return Promise.resolve(htmlResponse(HOLLYWEIRD_BANDOLEROS_DETAIL_HTML));
+      }
+      return Promise.resolve({
+        ok: false,
+        status: 404,
+        text: async () => "not found",
+      } as Response);
+    });
+
+    const adapter = new FacebookHostedEventsAdapter();
+    const result = await adapter.fetch(
+      makeSource({
+        kennelTag: "h6",
+        pageHandle: "HollyweirdH6",
+        timezone: "America/New_York",
+        upcomingOnly: true,
+      }),
+      { days: 365 },
+    );
+
+    expect(result.events.length).toBeGreaterThanOrEqual(7);
+
+    // Find the well-formed runNumber events (3 of 7 titles use H6#NNN
+    // without a trailing `?` placeholder marker).
+    const concreteRunNumbers = result.events
+      .map((e) => e.runNumber)
+      .filter((n): n is number => typeof n === "number")
+      .sort((a, b) => a - b);
+    expect(concreteRunNumbers).toEqual([307, 308, 308]);
+
+    // Placeholder titles ("H6#28?", "H6#31?", "H6#23?") clear runNumber to
+    // null — the explicit-clear sentinel.
+    const explicitNull = result.events.filter((e) => e.runNumber === null);
+    expect(explicitNull.length).toBeGreaterThanOrEqual(3);
+
+    // The Bandoleros event detail returned a real description → hares +
+    // locationStreet must be populated for that row.
+    const bandoleros = result.events.find((e) =>
+      e.sourceUrl?.includes("/events/1481362937047925/"),
+    );
+    expect(bandoleros).toBeDefined();
+    expect(bandoleros?.runNumber).toBe(308);
+    expect(bandoleros?.hares).toBe(
+      "Senorita Pink Taco and/or ¿ Going or Cumin ?",
+    );
+    expect(bandoleros?.locationStreet).toBe(
+      "208 SW 2nd St, Fort Lauderdale, FL 33301",
+    );
+    expect(bandoleros?.description).toMatch(/Hare:/);
   });
 
   it("does NOT flag shape-break when a fat empty-Page response carries SSR envelope markers (#1294 audit fix)", async () => {
