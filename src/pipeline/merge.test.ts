@@ -9,7 +9,7 @@ vi.mock("@/lib/db", () => ({
     event: { findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     eventKennel: { create: vi.fn(), upsert: vi.fn() },
     eventLink: { upsert: vi.fn() },
-    kennel: { findUnique: vi.fn() },
+    kennel: { findUnique: vi.fn(), updateMany: vi.fn() },
     $executeRaw: vi.fn().mockResolvedValue(0),
     $transaction: vi.fn(),
   },
@@ -104,6 +104,12 @@ beforeEach(() => {
   // `processRawEvents` that would consume any leftover Once entry from a
   // preceding test, scrambling the ordering for tests that seed multiple Onces.
   vi.mocked(prisma.rawEvent.findMany).mockReset();
+  // Same Once-queue hygiene for `event.findMany` — `ensureKennelEventCache`
+  // (issue #1287) added a per-kennel prefetch that runs before the
+  // disambiguation lookup, so any leftover `mockResolvedValueOnce` from a
+  // preceding test would now be consumed by the prefetch instead of the
+  // intended caller.
+  vi.mocked(prisma.event.findMany).mockReset();
   mockSourceFind.mockResolvedValue({
     trustLevel: 5,
     type: "HTML_SCRAPER",
@@ -3032,8 +3038,11 @@ describe("fuzzy ±48h cross-source dedup (#990)", () => {
 
   it("merges into ±24h row with fuzzy-matching title (the BurlyH3 Invihash case from #886)", async () => {
     mockRawEventFind.mockResolvedValueOnce(null);
-    mockEventFindMany.mockResolvedValueOnce([] as never); // same-day empty (incoming bucket)
-    mockEventFindMany.mockResolvedValueOnce([existingFuzzyRow()] as never); // fuzzy probe hit
+    // After #1287, the per-kennel ensureKennelEventCache fetches one batch
+    // covering ±48h around the union of batchDates and serves both same-day
+    // and fuzzy lookups in memory. Old-bucket recanonicalize still issues
+    // its own findMany after the cross-window date update + cache invalidate.
+    mockEventFindMany.mockResolvedValueOnce([existingFuzzyRow()] as never); // cache prefetch
     mockEventFindMany.mockResolvedValueOnce([] as never); // old-bucket recanonicalize refetch
     mockEventUpdate.mockResolvedValueOnce({ id: "evt_existing" } as never);
 
@@ -3056,18 +3065,17 @@ describe("fuzzy ±48h cross-source dedup (#990)", () => {
       }),
     );
 
-    // Verify the fuzzy probe used a ±48h window predicate (not just kennelId).
-    // Order-coupled mocks would otherwise pass for the wrong reason if the
-    // implementation ever flipped query order.
-    const fuzzyCall = mockEventFindMany.mock.calls[1];
-    const fuzzyWhere = (fuzzyCall[0] as { where: { date: { gte?: Date; lte?: Date; not?: Date } } }).where;
-    expect(fuzzyWhere.date.gte).toBeInstanceOf(Date);
-    expect(fuzzyWhere.date.lte).toBeInstanceOf(Date);
-    expect(fuzzyWhere.date.not).toBeInstanceOf(Date);
+    // Verify the cache prefetch used a ±48h date-range predicate (not just
+    // kennelId) — this is what makes the fuzzy candidate visible in memory.
+    const cacheCall = mockEventFindMany.mock.calls[0];
+    const cacheWhere = (cacheCall[0] as { where: { date: { gte?: Date; lte?: Date } } }).where;
+    expect(cacheWhere.date.gte).toBeInstanceOf(Date);
+    expect(cacheWhere.date.lte).toBeInstanceOf(Date);
 
     // Cross-window match physically MOVES the row to the incoming source's
     // date so display paths render the correct day. Old bucket gets
-    // recanonicalized via the third findMany above.
+    // recanonicalized via the second findMany above (after the cache is
+    // invalidated by the cross-window update).
     const updateCall = mockEventUpdate.mock.calls.find(c => (c[0] as { where: { id: string } }).where.id === "evt_existing");
     expect(updateCall).toBeDefined();
     const updateData = (updateCall![0] as { data: Record<string, unknown> }).data;
@@ -3081,7 +3089,9 @@ describe("fuzzy ±48h cross-source dedup (#990)", () => {
     // had higher trust), it lands alone in the new bucket and would stay
     // invisible without a length-1 promotion path in recomputeCanonical.
     mockRawEventFind.mockResolvedValueOnce(null);
-    mockEventFindMany.mockResolvedValueOnce([] as never); // same-day empty
+    // Cache prefetch returns the fuzzy candidate; getSameDayEvents filters
+    // it out of the incoming bucket (different date) and the fuzzy probe
+    // picks it up from the in-memory pool (#1287).
     mockEventFindMany.mockResolvedValueOnce([
       existingFuzzyRow({ id: "evt_was_noncanonical", isCanonical: false }),
     ] as never);
@@ -3216,6 +3226,114 @@ describe("fuzzy ±48h cross-source dedup (#990)", () => {
 
     expect(result.created).toBe(1);
     expect(result.updated).toBe(0);
+  });
+});
+
+// Issue #1287: three previously per-new-event Prisma queries (sameDayEvents,
+// fuzzy ±48h, lastEventDate UPDATE) collapsed into per-kennel/per-batch
+// patterns. The `event.findMany` from `ensureKennelEventCache` runs at most
+// once per kennel touched in a batch (regardless of how many events that
+// kennel sees), and `kennel.updateMany` runs at most once per kennel after
+// the loop (regardless of new-event count).
+describe("processRawEvents — per-kennel read batching (#1287)", () => {
+  it("issues at most one event.findMany per distinct kennel across a multi-event batch (fuzzy off)", async () => {
+    mockRawEventFind.mockResolvedValue(null); // every event is new
+    mockEventCreate.mockResolvedValue({ id: "evt_new" } as never);
+    mockFingerprint
+      .mockReturnValueOnce("fp_a").mockReturnValueOnce("fp_b").mockReturnValueOnce("fp_c");
+
+    await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-04-01", kennelTags: ["TestH3"] }),
+      buildRawEvent({ date: "2026-04-08", kennelTags: ["TestH3"] }),
+      buildRawEvent({ date: "2026-04-15", kennelTags: ["TestH3"] }),
+    ]);
+
+    // Pre-#1287: 3 same-day findMany calls (one per new event).
+    // Post-#1287 (fuzzy off): 1 cache prefetch with `date IN [batchDates]`
+    // — narrow query, never pulls non-batch events for the kennel (avoids
+    // the SDH3-backfill pathology where one scrape would otherwise load 7K+
+    // historical rows because batchDates spans a year).
+    expect(mockEventFindMany).toHaveBeenCalledTimes(1);
+    const cacheCall = mockEventFindMany.mock.calls[0];
+    const cacheWhere = (cacheCall[0] as { where: { kennelId: string; date: { in: Date[] } } }).where;
+    expect(cacheWhere.kennelId).toBe("kennel_1");
+    expect(cacheWhere.date.in).toEqual([
+      new Date("2026-04-01T12:00:00.000Z"),
+      new Date("2026-04-08T12:00:00.000Z"),
+      new Date("2026-04-15T12:00:00.000Z"),
+    ]);
+  });
+
+  it("widens the cache prefetch to ±48h around batch dates when MERGE_FUZZY_DEDUP is on", async () => {
+    const prevFlag = process.env.MERGE_FUZZY_DEDUP;
+    process.env.MERGE_FUZZY_DEDUP = "true";
+    try {
+      mockRawEventFind.mockResolvedValue(null);
+      mockEventCreate.mockResolvedValue({ id: "evt_new" } as never);
+      mockFingerprint.mockReturnValueOnce("fp_a").mockReturnValueOnce("fp_b");
+
+      await processRawEvents("src_1", [
+        buildRawEvent({ date: "2026-04-01", kennelTags: ["TestH3"] }),
+        buildRawEvent({ date: "2026-04-08", kennelTags: ["TestH3"] }),
+      ]);
+
+      expect(mockEventFindMany).toHaveBeenCalledTimes(1);
+      const cacheCall = mockEventFindMany.mock.calls[0];
+      const cacheWhere = (cacheCall[0] as { where: { date: { gte: Date; lte: Date } } }).where;
+      // ±48h around 2026-04-01 (min) and 2026-04-08 (max)
+      expect(cacheWhere.date.gte).toEqual(new Date("2026-03-30T12:00:00.000Z"));
+      expect(cacheWhere.date.lte).toEqual(new Date("2026-04-10T12:00:00.000Z"));
+    } finally {
+      if (prevFlag === undefined) delete process.env.MERGE_FUZZY_DEDUP;
+      else process.env.MERGE_FUZZY_DEDUP = prevFlag;
+    }
+  });
+
+  it("issues at most one kennel.updateMany per distinct kennel across a multi-event batch", async () => {
+    const mockKennelUpdateMany = vi.mocked(prisma.kennel.updateMany);
+    mockKennelUpdateMany.mockResolvedValue({ count: 1 } as never);
+    mockRawEventFind.mockResolvedValue(null);
+    mockEventCreate.mockResolvedValue({ id: "evt_new" } as never);
+    mockFingerprint
+      .mockReturnValueOnce("fp_a").mockReturnValueOnce("fp_b").mockReturnValueOnce("fp_c");
+
+    await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-04-01", kennelTags: ["TestH3"] }),
+      buildRawEvent({ date: "2026-04-08", kennelTags: ["TestH3"] }),
+      buildRawEvent({ date: "2026-04-15", kennelTags: ["TestH3"] }),
+    ]);
+
+    // Pre-#1287: 3 per-event `$executeRaw UPDATE "Kennel"` (one per new event).
+    // Post-#1287: 1 batched `kennel.updateMany` for kennel_1.
+    expect(mockKennelUpdateMany).toHaveBeenCalledTimes(1);
+    const updateCall = mockKennelUpdateMany.mock.calls[0];
+    const updateData = (updateCall[0] as {
+      where: { id: string; OR: Array<{ lastEventDate: null | { lt: Date } }> };
+      data: { lastEventDate: Date };
+    });
+    expect(updateData.where.id).toBe("kennel_1");
+    // Max event date in the batch is 2026-04-15.
+    expect(updateData.data.lastEventDate.toISOString()).toBe("2026-04-15T12:00:00.000Z");
+    // Guard preserves "only update if newer" semantic.
+    expect(updateData.where.OR).toEqual([
+      { lastEventDate: null },
+      { lastEventDate: { lt: updateData.data.lastEventDate } },
+    ]);
+  });
+
+  it("does not call kennel.updateMany when no new events are processed (all duplicates)", async () => {
+    const mockKennelUpdateMany = vi.mocked(prisma.kennel.updateMany);
+    // Pre-seed dedup map so the event takes the duplicate-fingerprint path.
+    // The seedDedup shim keys the prefetch result by the default fingerprint
+    // ("fp_abc123" — matches the default `mockFingerprint` return), so the
+    // event's fingerprint must NOT be overridden here.
+    mockRawEventFind.mockResolvedValue({ id: "raw_seen", processed: true, eventId: "evt_seen" });
+
+    await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-04-01", kennelTags: ["TestH3"] }),
+    ]);
+
+    expect(mockKennelUpdateMany).not.toHaveBeenCalled();
   });
 });
 
