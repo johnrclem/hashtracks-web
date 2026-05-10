@@ -12,7 +12,7 @@ vi.mock("@/lib/db", () => ({
 }));
 
 import { currentUser } from "@clerk/nextjs/server";
-import { Prisma } from "@/generated/prisma/client";
+import { buildPrismaUniqueViolation } from "@/test/factories";
 import { prisma } from "@/lib/db";
 import {
   getOrCreateUser,
@@ -133,11 +133,7 @@ describe("getOrCreateUser", () => {
     mockCurrentUser.mockResolvedValueOnce(clerkUser as never);
     mockUserFind.mockResolvedValueOnce(null); // clerkId miss
     mockUserFind.mockResolvedValueOnce(null); // email miss
-    const p2002 = new Prisma.PrismaClientKnownRequestError(
-      "Unique constraint failed",
-      { code: "P2002", clientVersion: "0.0.0" },
-    );
-    mockUserCreate.mockRejectedValueOnce(p2002);
+    mockUserCreate.mockRejectedValueOnce(buildPrismaUniqueViolation(["clerkId"]));
     mockUserFind.mockResolvedValueOnce({ id: "user_raced" } as never); // retry by clerkId finds it
 
     const result = await getOrCreateUser();
@@ -148,11 +144,7 @@ describe("getOrCreateUser", () => {
     mockCurrentUser.mockResolvedValueOnce(clerkUser as never);
     mockUserFind.mockResolvedValueOnce(null); // clerkId miss
     mockUserFind.mockResolvedValueOnce(null); // email miss
-    const p2002 = new Prisma.PrismaClientKnownRequestError(
-      "Unique constraint failed",
-      { code: "P2002", clientVersion: "0.0.0" },
-    );
-    mockUserCreate.mockRejectedValueOnce(p2002);
+    mockUserCreate.mockRejectedValueOnce(buildPrismaUniqueViolation(["email"]));
     mockUserFind.mockResolvedValueOnce(null); // retry by clerkId misses
     mockUserFind.mockResolvedValueOnce({ id: "user_email_raced" } as never); // retry by email finds it
 

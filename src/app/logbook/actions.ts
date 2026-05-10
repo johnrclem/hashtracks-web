@@ -1,6 +1,6 @@
 "use server";
 
-import { Prisma } from "@/generated/prisma/client";
+import { isUniqueConstraintViolation } from "@/lib/prisma-errors";
 import { getOrCreateUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { createEventWithKennel } from "@/lib/event-write";
@@ -423,7 +423,7 @@ export async function confirmMismanAttendance(kennelAttendanceId: string): Promi
     return { success: true, attendanceId: attendance.id };
   } catch (e) {
     // Concurrent insert won the race — treat as idempotent success
-    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+    if (isUniqueConstraintViolation(e)) {
       const raced = await prisma.attendance.findUnique({
         where: { userId_eventId: { userId: user.id, eventId: mismanRecord.eventId } },
       });
@@ -600,7 +600,7 @@ export async function declineMismanAttendance(kennelAttendanceId: string): Promi
     });
   } catch (e) {
     // Concurrent insert won the race — treat as idempotent success
-    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+    if (isUniqueConstraintViolation(e)) {
       revalidatePath("/logbook");
       return { success: true };
     }

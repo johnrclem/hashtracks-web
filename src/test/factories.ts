@@ -11,6 +11,20 @@ import type {
   StravaConnection,
   StravaActivity,
 } from "@/generated/prisma/client";
+import { Prisma } from "@/generated/prisma/client";
+
+/**
+ * Build a P2002 unique-constraint-violation error matching what the Prisma
+ * client raises when an INSERT collides with a unique index. Pass `target`
+ * to populate `err.meta.target`, which `isUniqueConstraintViolation` reads
+ * when the caller wants to narrow to a specific constraint.
+ */
+export function buildPrismaUniqueViolation(target: string[]): Prisma.PrismaClientKnownRequestError {
+  return new Prisma.PrismaClientKnownRequestError(
+    `Unique constraint failed on the fields: ${target.join(", ")}`,
+    { code: "P2002", clientVersion: "0.0.0", meta: { target } },
+  );
+}
 
 /**
  * Minimal AuditEventRow for `audit-checks` and `rule-definitions` tests.

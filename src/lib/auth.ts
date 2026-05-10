@@ -1,6 +1,7 @@
 import { currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
-import { Prisma, type User } from "@/generated/prisma/client";
+import type { User } from "@/generated/prisma/client";
+import { isUniqueConstraintViolation } from "@/lib/prisma-errors";
 
 /**
  * Safe wrapper around Clerk's currentUser(). Returns null instead of throwing
@@ -70,7 +71,8 @@ export async function getOrCreateUser(): Promise<User | null> {
     // Step 4: race-condition guard — another request may have created the
     // record between our lookups and this create. P2002 could be on clerkId
     // or email unique constraint, so try both.
-    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+    // P2002 may fire on clerkId or email; the refetch below handles both.
+    if (isUniqueConstraintViolation(err)) {
       const user = await prisma.user.findUnique({ where: { clerkId: clerkUser.id } });
       if (user) return user;
       return email ? prisma.user.findUnique({ where: { email } }) : null;

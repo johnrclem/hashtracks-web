@@ -12,7 +12,8 @@
  * - resolveDestinationTimezone: Google Time Zone API lookup
  */
 
-import { Prisma, TravelSearchStatus } from "@/generated/prisma/client";
+import { TravelSearchStatus } from "@/generated/prisma/client";
+import { isUniqueConstraintViolation } from "@/lib/prisma-errors";
 
 import { getOrCreateUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
@@ -267,7 +268,7 @@ export async function saveTravelSearch(
       return { success: true as const, id: search.id };
     });
   } catch (err) {
-    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+    if (isUniqueConstraintViolation(err)) {
       const winner = await prisma.travelSearch.findFirst({
         where: matchWhere,
         select: { id: true },
@@ -336,7 +337,7 @@ export async function updateTravelSearch(
       });
     });
   } catch (err) {
-    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+    if (isUniqueConstraintViolation(err)) {
       return { error: "Another saved trip already has these dates and location" };
     }
     throw err;
@@ -426,7 +427,7 @@ export async function restoreTravelSearch(
     ]);
     return { success: true, id };
   } catch (err) {
-    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+    if (isUniqueConstraintViolation(err)) {
       return { error: "A duplicate trip was saved in the meantime." };
     }
     throw err;

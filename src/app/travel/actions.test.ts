@@ -47,7 +47,7 @@ vi.mock("@/lib/db", () => {
   };
 });
 
-import { Prisma } from "@/generated/prisma/client";
+import { buildPrismaUniqueViolation } from "@/test/factories";
 import { getOrCreateUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import {
@@ -176,11 +176,9 @@ describe("saveTravelSearch", () => {
     // request) inserts between our findFirst and our create. The DB
     // partial-unique throws P2002; we refetch the winner so the loser
     // sees the same idempotent semantics as if it had won.
-    const p2002 = new Prisma.PrismaClientKnownRequestError(
-      "Unique constraint failed on TravelDestination_user_dedup_active",
-      { code: "P2002", clientVersion: "test" },
+    vi.mocked(prisma.$transaction).mockRejectedValueOnce(
+      buildPrismaUniqueViolation(["TravelDestination_user_dedup_active"]),
     );
-    vi.mocked(prisma.$transaction).mockRejectedValueOnce(p2002);
     vi.mocked(prisma.travelSearch.findFirst).mockResolvedValueOnce({
       id: "ts-winner",
     } as never);
@@ -370,11 +368,9 @@ describe("updateTravelSearch", () => {
     vi.mocked(prisma.travelSearch.findUnique).mockResolvedValue({
       userId: "user-1",
     } as never);
-    const p2002 = new Prisma.PrismaClientKnownRequestError(
-      "Unique constraint failed on TravelDestination_user_dedup_active",
-      { code: "P2002", clientVersion: "test" },
+    vi.mocked(prisma.$transaction).mockRejectedValueOnce(
+      buildPrismaUniqueViolation(["TravelDestination_user_dedup_active"]),
     );
-    vi.mocked(prisma.$transaction).mockRejectedValueOnce(p2002);
 
     const result = await updateTravelSearch("ts-1", validParams);
     expect("error" in result && result.error).toContain("Another saved trip");
@@ -509,11 +505,9 @@ describe("restoreTravelSearch", () => {
       userId: "user-1",
       status: "ARCHIVED",
     } as never);
-    const p2002 = new Prisma.PrismaClientKnownRequestError(
-      "unique violation",
-      { code: "P2002", clientVersion: "test" },
+    vi.mocked(prisma.$transaction).mockRejectedValueOnce(
+      buildPrismaUniqueViolation(["TravelDestination_user_dedup_active"]),
     );
-    vi.mocked(prisma.$transaction).mockRejectedValueOnce(p2002);
 
     const result = await restoreTravelSearch("ts-1");
     expect("error" in result && result.error).toMatch(/duplicate/i);

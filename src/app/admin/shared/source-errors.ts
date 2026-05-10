@@ -1,4 +1,4 @@
-import { Prisma } from "@/generated/prisma/client";
+import { isUniqueConstraintViolation } from "@/lib/prisma-errors";
 
 /**
  * Friendly message when a Source write violates the `(name, type)` unique
@@ -6,13 +6,7 @@ import { Prisma } from "@/generated/prisma/client";
  * Source and #817.
  */
 export function nameTypeConflictError(err: unknown): string | null {
-  if (
-    err instanceof Prisma.PrismaClientKnownRequestError &&
-    err.code === "P2002" &&
-    Array.isArray(err.meta?.target) &&
-    (err.meta.target as string[]).includes("name") &&
-    (err.meta.target as string[]).includes("type")
-  ) {
+  if (isUniqueConstraintViolation(err, ["name", "type"])) {
     return "A source with that name and type already exists.";
   }
   return null;
