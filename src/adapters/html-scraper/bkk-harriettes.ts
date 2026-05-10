@@ -210,7 +210,9 @@ export function parseBkkHarrietteHarelineTable(
 
     // Strip trailing `*` "to be confirmed" marker before placeholder filter
     // so "TBA *" collapses to undefined rather than the literal "TBA *".
-    const hareCleaned = hareRaw.replace(/\s*\*\s*$/, "").trim();
+    // String slice avoids the `\s*<lit>\s*$` ReDoS shape Sonar S5852 flags.
+    const trimmed = hareRaw.trim();
+    const hareCleaned = trimmed.endsWith("*") ? trimmed.slice(0, -1).trim() : trimmed;
     const hares = normalizeHaresField(stripPlaceholder(hareCleaned));
 
     events.push({
@@ -229,8 +231,28 @@ export function parseBkkHarrietteHarelineTable(
 
 type PostsResult = Awaited<ReturnType<typeof fetchWordPressComPosts>>;
 
-const RUN_TITLE_RE = /run\s*(?:no|#|number)?\s*\.?\s*\d/i;
 const POSTS_API_URL = `public-api.wordpress.com/.../sites/${SITE_DOMAIN}/posts/`;
+
+/**
+ * Loose "is this a run post" check used to drop the static hareline / info
+ * pages that BKK keeps under the same site. We're looking for the word
+ * "run" followed within ~12 chars by a digit (covers "Run no. 2259",
+ * "Run #2259", "Next Run 2259", etc.). Implemented with string ops because
+ * the equivalent regex pattern (`run\s*(?:no|#|number)?\s*\.?\s*\d`) trips
+ * Sonar S5852 ReDoS heuristics.
+ */
+function looksLikeRunPost(text: string): boolean {
+  const lower = text.toLowerCase();
+  let idx = lower.indexOf("run");
+  while (idx !== -1) {
+    const window = lower.slice(idx + 3, idx + 15);
+    for (const ch of window) {
+      if (ch >= "0" && ch <= "9") return true;
+    }
+    idx = lower.indexOf("run", idx + 1);
+  }
+  return false;
+}
 
 function collectPostEvents(
   postsResult: PostsResult,
@@ -247,7 +269,7 @@ function collectPostEvents(
   }
   const events: RawEventData[] = [];
   const filtered = postsResult.posts.filter((p) =>
-    RUN_TITLE_RE.test(`${p.title} ${p.content}`),
+    looksLikeRunPost(`${p.title} ${p.content}`),
   );
   for (const post of filtered) {
     try {
