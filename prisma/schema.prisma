@@ -314,8 +314,8 @@ model RawEvent {
   source      Source   @relation(fields: [sourceId], references: [id])
   event       Event?   @relation(fields: [eventId], references: [id])
 
+  @@unique([sourceId, fingerprint])
   @@index([sourceId, scrapedAt])
-  @@index([fingerprint])
 }
 
 model Event {

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
-import type { EventStatus, Prisma, SourceType } from "@/generated/prisma/client";
+import { Prisma } from "@/generated/prisma/client";
+import type { EventStatus, SourceType } from "@/generated/prisma/client";
 import type { RawEventData, MergeResult } from "@/adapters/types";
 import { parseUtcNoonDate } from "@/lib/date";
 import { regionTimezone, getLabelForUrl, stripUrlsFromText, timeToMinutes } from "@/lib/format";
@@ -321,6 +322,22 @@ const RAW_EVENT_DEDUP_SELECT = {
   eventId: true,
 } as const satisfies Prisma.RawEventSelect;
 type ExistingRawEventEntry = Prisma.RawEventGetPayload<{ select: typeof RAW_EVENT_DEDUP_SELECT }>;
+
+/** True if `err` is a P2002 unique-constraint violation specifically on
+ *  `RawEvent(sourceId, fingerprint)`. Other P2002s (future schema changes)
+ *  surface unchanged. The `target.length === 2` guard prevents a future
+ *  composite constraint that happens to include these two columns from
+ *  silently being matched here. */
+function isRawEventFingerprintP2002(err: unknown): err is Prisma.PrismaClientKnownRequestError {
+  if (!(err instanceof Prisma.PrismaClientKnownRequestError) || err.code !== "P2002") return false;
+  const target = err.meta?.target;
+  return (
+    Array.isArray(target) &&
+    target.length === 2 &&
+    target.includes("sourceId") &&
+    target.includes("fingerprint")
+  );
+}
 
 /** Cap on `WHERE fingerprint IN (...)` size per query — keeps Postgres planner
  *  cost linear and stays well below the 65535 bind-parameter limit. Historical
@@ -1449,14 +1466,46 @@ async function processNewRawEvent(
     return null;
   }
 
-  const rawEvent = await prisma.rawEvent.create({
-    data: {
-      sourceId,
-      rawData: event as unknown as Prisma.InputJsonValue,
-      fingerprint,
-      processed: false,
-    },
-  });
+  // Race-window guard for #1286: concurrent QStash workers can both miss
+  // the per-batch dedup prefetch; the @@unique constraint makes the loser
+  // raise P2002 and we route via the duplicate-fingerprint path.
+  let rawEvent: { id: string };
+  try {
+    rawEvent = await prisma.rawEvent.create({
+      data: {
+        sourceId,
+        rawData: event as unknown as Prisma.InputJsonValue,
+        fingerprint,
+        processed: false,
+      },
+    });
+  } catch (err) {
+    if (!isRawEventFingerprintP2002(err)) throw err;
+
+    const winner = await prisma.rawEvent.findUnique({
+      where: { sourceId_fingerprint: { sourceId, fingerprint } },
+      select: RAW_EVENT_DEDUP_SELECT,
+    });
+    if (!winner) throw err;
+
+    ctx.existingByFingerprint.set(fingerprint, winner);
+    const dupId = await handleDuplicateFingerprint(event, fingerprint, ctx);
+    if (dupId === false) {
+      // Orphan-reprocess signal: the racing worker's row is unprocessed
+      // and unlinked. Pre-#1286 the caller would have created its own
+      // RawEvent and a fresh canonical Event (leaving the orphan as a
+      // tombstone); the unique constraint blocks that, so we ADOPT the
+      // orphan instead — fall through with `rawEvent = winner` and run
+      // the rest of `processNewRawEvent` against winner.id. Without this,
+      // a worker that crashed mid-processing would leave a permanently-
+      // dropped event for that fingerprint.
+      rawEvent = winner;
+    } else {
+      if (!dupId) return null;
+      await createEventLinks(dupId, sourceId, event.externalLinks);
+      return dupId;
+    }
+  }
 
   const kennelId = await resolveAndGuardKennel(event, ctx);
   if (!kennelId) return null;
