@@ -288,7 +288,43 @@ function shouldSkipReverseGeocode(sourceType: SourceType | null): boolean {
 }
 
 /** Per-batch state threaded through all merge helper functions. */
-type EventRow = Awaited<ReturnType<typeof prisma.event.findMany>>[number];
+/** Narrow select for the per-batch event cache. Skips columns the merge
+ *  pipeline never reads — notably `adminAuditLog`, a Json column that grows
+ *  unbounded on rows with cancel/uncancel history and would otherwise
+ *  balloon prefetch payloads on backfill scrapes. */
+const EVENT_CACHE_SELECT = {
+  id: true,
+  kennelId: true,
+  date: true,
+  dateUtc: true,
+  timezone: true,
+  runNumber: true,
+  title: true,
+  description: true,
+  haresText: true,
+  locationName: true,
+  locationStreet: true,
+  locationCity: true,
+  locationAddress: true,
+  latitude: true,
+  longitude: true,
+  startTime: true,
+  endTime: true,
+  cost: true,
+  trailLengthText: true,
+  trailLengthMinMiles: true,
+  trailLengthMaxMiles: true,
+  difficulty: true,
+  sourceUrl: true,
+  trustLevel: true,
+  isSeriesParent: true,
+  parentEventId: true,
+  status: true,
+  adminCancelledAt: true,
+  createdAt: true,
+  isCanonical: true,
+} as const satisfies Prisma.EventSelect;
+type EventRow = Prisma.EventGetPayload<{ select: typeof EVENT_CACHE_SELECT }>;
 
 interface MergeContext {
   sourceId: string;
@@ -312,25 +348,24 @@ interface MergeContext {
    *  once before the loop; updated in-place when `processNewRawEvent` creates a
    *  new RawEvent so duplicate fingerprints later in the same batch still resolve. */
   existingByFingerprint: Map<string, ExistingRawEventEntry>;
-  /** Union of UTC-noon event dates across the whole batch — drives the
-   *  per-kennel ±48h window for `ensureKennelEventCache` (issue #1287). */
-  batchDates: Date[];
-  /** Per-kennel pool of canonical Events within the union ±48h window —
-   *  replaces the per-event `event.findMany` at the top of
-   *  `upsertCanonicalEvent` (and the fuzzy probe via `fuzzyPoolByKennel`).
-   *  Populated lazily on first touch via `ensureKennelEventCache`; mirrored
-   *  with each new canonical Event from `rememberCreatedEvent`. Lookup
-   *  helpers filter by date on access. */
-  sameDayCache: Map<string, EventRow[]>;
-  /** Per-kennel pool of fuzzy candidates (parents and non-series only,
-   *  sorted by trustLevel desc, createdAt asc). Derived from the same
-   *  prefetch as `sameDayCache`. */
-  fuzzyPoolByKennel: Map<string, EventRow[]>;
-  /** Per-kennel max event date observed for newly-created Events; flushed after
-   *  the loop as a single batched `kennel.updateMany` per kennel, replacing the
-   *  per-event `$executeRaw UPDATE "Kennel" SET "lastEventDate"`. */
-  kennelMaxDates: Map<string, Date>;
+  /** Per-kennel event-cache + write buffers driving the #1287 batching
+   *  (one `event.findMany` per kennel touched, one `kennel.updateMany` per
+   *  kennel after the loop). Lazily populated by `ensureKennelEventCache`;
+   *  mirrored on CREATE via `rememberCreatedEvent` and on UPDATE via
+   *  in-place patching at the upsert site. */
+  eventBatch: EventBatchState;
   result: MergeResult;
+}
+
+interface EventBatchState {
+  /** Union of UTC-noon event dates across the batch — drives the prefetch window. */
+  dates: Date[];
+  /** Per-kennel pool of canonical Events. Filtered by date on access in `getSameDayEvents`. */
+  sameDayByKennel: Map<string, EventRow[]>;
+  /** Per-kennel pool of fuzzy candidates: parents/non-series only, sorted trustLevel desc. */
+  fuzzyPoolByKennel: Map<string, EventRow[]>;
+  /** Per-kennel max event date observed; flushed as one `kennel.updateMany` per kennel. */
+  kennelMaxDates: Map<string, Date>;
 }
 
 /** `select` for the dedup prefetch — kept as a hoisted const so the value type
@@ -436,10 +471,10 @@ async function resolveRegion(kennelId: string, ctx: MergeContext): Promise<strin
  * Lazy-warm the per-batch event caches for a kennel (issue #1287).
  *
  * On first call for a kennelId, runs ONE `event.findMany` covering the union
- * of `ctx.batchDates ± FUZZY_WINDOW_MS`, then partitions the result into:
- *   - `ctx.sameDayCache`     — `Map<dateISO, EventRow[]>` for same-day matching
+ * of `ctx.eventBatch.dates ± FUZZY_WINDOW_MS`, then partitions the result into:
+ *   - `ctx.eventBatch.sameDayByKennel`     — `Map<dateISO, EventRow[]>` for same-day matching
  *                              in `upsertCanonicalEvent` (no parent/series filter).
- *   - `ctx.fuzzyPoolByKennel` — sorted `EventRow[]` of parents/non-series only,
+ *   - `ctx.eventBatch.fuzzyPoolByKennel` — sorted `EventRow[]` of parents/non-series only,
  *                              for `findFuzzyDuplicateInWindow`.
  *
  * Replaces two per-new-event `event.findMany` calls. Subsequent calls for the
@@ -449,11 +484,11 @@ async function resolveRegion(kennelId: string, ctx: MergeContext): Promise<strin
  * so we invalidate via `invalidateKennelEventCache` and re-fetch on next use.
  */
 async function ensureKennelEventCache(kennelId: string, ctx: MergeContext): Promise<void> {
-  if (ctx.sameDayCache.has(kennelId)) return;
+  if (ctx.eventBatch.sameDayByKennel.has(kennelId)) return;
 
-  if (ctx.batchDates.length === 0) {
-    ctx.sameDayCache.set(kennelId, []);
-    ctx.fuzzyPoolByKennel.set(kennelId, []);
+  if (ctx.eventBatch.dates.length === 0) {
+    ctx.eventBatch.sameDayByKennel.set(kennelId, []);
+    ctx.eventBatch.fuzzyPoolByKennel.set(kennelId, []);
     return;
   }
 
@@ -471,7 +506,7 @@ async function ensureKennelEventCache(kennelId: string, ctx: MergeContext): Prom
   if (fuzzyEnabled) {
     let minMs = Infinity;
     let maxMs = -Infinity;
-    for (const d of ctx.batchDates) {
+    for (const d of ctx.eventBatch.dates) {
       const t = d.getTime();
       if (t < minMs) minMs = t;
       if (t > maxMs) maxMs = t;
@@ -481,14 +516,15 @@ async function ensureKennelEventCache(kennelId: string, ctx: MergeContext): Prom
       date: { gte: new Date(minMs - FUZZY_WINDOW_MS), lte: new Date(maxMs + FUZZY_WINDOW_MS) },
     };
   } else {
-    where = { kennelId, date: { in: ctx.batchDates } };
+    where = { kennelId, date: { in: ctx.eventBatch.dates } };
   }
 
   const events = await prisma.event.findMany({
     where,
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    select: EVENT_CACHE_SELECT,
   });
-  ctx.sameDayCache.set(kennelId, events);
+  ctx.eventBatch.sameDayByKennel.set(kennelId, events);
 
   // Fuzzy pool: parents/non-series only, sorted by trustLevel desc (createdAt
   // asc preserves the secondary key from the cache-wide sort). `== null`
@@ -499,7 +535,7 @@ async function ensureKennelEventCache(kennelId: string, ctx: MergeContext): Prom
     (e) => e.parentEventId == null && !e.isSeriesParent,
   );
   fuzzyPool.sort((a, b) => b.trustLevel - a.trustLevel);
-  ctx.fuzzyPoolByKennel.set(kennelId, fuzzyPool);
+  ctx.eventBatch.fuzzyPoolByKennel.set(kennelId, fuzzyPool);
 }
 
 /** Filter a kennel's cached pool down to events on a specific UTC-noon date.
@@ -507,7 +543,7 @@ async function ensureKennelEventCache(kennelId: string, ctx: MergeContext): Prom
  *  loose contract of the prior per-event `event.findMany` whose `where.date`
  *  was ignored by Vitest mocks. */
 function getSameDayEvents(kennelId: string, eventDate: Date, ctx: MergeContext): EventRow[] {
-  const pool = ctx.sameDayCache.get(kennelId);
+  const pool = ctx.eventBatch.sameDayByKennel.get(kennelId);
   if (!pool) return [];
   const eventTime = eventDate.getTime();
   return pool.filter((e) => !(e.date instanceof Date) || e.date.getTime() === eventTime);
@@ -519,10 +555,10 @@ function getSameDayEvents(kennelId: string, eventDate: Date, ctx: MergeContext):
  *  uses an O(N) walk + splice instead of `Array.sort` so a batch creating
  *  M events on one kennel stays linear, not M·N·logN. */
 function rememberCreatedEvent(kennelId: string, created: EventRow, ctx: MergeContext): void {
-  const pool = ctx.sameDayCache.get(kennelId);
+  const pool = ctx.eventBatch.sameDayByKennel.get(kennelId);
   if (pool) pool.push(created);
   if (created.parentEventId == null && !created.isSeriesParent) {
-    const fuzzyPool = ctx.fuzzyPoolByKennel.get(kennelId);
+    const fuzzyPool = ctx.eventBatch.fuzzyPoolByKennel.get(kennelId);
     if (fuzzyPool) {
       // Pool is sorted by trustLevel desc; insert before the first row with
       // a lower trustLevel (or push if `created` is the new lowest).
@@ -538,8 +574,8 @@ function rememberCreatedEvent(kennelId: string, created: EventRow, ctx: MergeCon
  *  index by date would otherwise be stale. Cheap because cross-window matches
  *  are gated by MERGE_FUZZY_DEDUP and very rare. */
 function invalidateKennelEventCache(kennelId: string, ctx: MergeContext): void {
-  ctx.sameDayCache.delete(kennelId);
-  ctx.fuzzyPoolByKennel.delete(kennelId);
+  ctx.eventBatch.sameDayByKennel.delete(kennelId);
+  ctx.eventBatch.fuzzyPoolByKennel.delete(kennelId);
 }
 
 /**
@@ -1029,9 +1065,6 @@ function timeDiffMinutes(a: string, b: string): number {
   return Math.abs(av - bv);
 }
 
-/** Subset of Event columns the fuzzy probe needs — keeps the type tight so the
- *  caller can splice the result into `sameDayEvents` without a cast. */
-type FuzzyCandidate = Awaited<ReturnType<typeof prisma.event.findMany>>[number];
 
 /**
  * Look for an existing canonical row at the same kennel within ±48h whose title
@@ -1050,7 +1083,7 @@ async function findFuzzyDuplicateInWindow(
   kennelId: string,
   eventDate: Date,
   ctx: MergeContext,
-): Promise<FuzzyCandidate | null> {
+): Promise<EventRow | null> {
   const incomingTitle = normalizeTitleForFuzzy(event.title);
   if (incomingTitle.length < FUZZY_MIN_TITLE_LEN) return null;
 
@@ -1063,7 +1096,7 @@ async function findFuzzyDuplicateInWindow(
   // filtered to parents/non-series and sorted by trustLevel desc, createdAt
   // asc; we just narrow to the per-event ±48h window in memory.
   await ensureKennelEventCache(kennelId, ctx);
-  const pool = ctx.fuzzyPoolByKennel.get(kennelId) ?? [];
+  const pool = ctx.eventBatch.fuzzyPoolByKennel.get(kennelId) ?? [];
   const candidates = pool.filter((c) => {
     if (!(c.date instanceof Date)) return true; // tolerate test mocks without date
     const t = c.date.getTime();
@@ -1356,13 +1389,13 @@ async function upsertCanonicalEvent(
         // this canonical row sees post-update values, not stale ones —
         // skipping this leaks the same "stale match → spurious create"
         // regression a fresh DB findMany would have avoided pre-#1287.
-        const sharedPool = ctx.sameDayCache.get(kennelId);
+        const sharedPool = ctx.eventBatch.sameDayByKennel.get(kennelId);
         if (sharedPool) {
           const si = sharedPool.findIndex(e => e.id === updated.id);
           if (si !== -1) sharedPool[si] = updated;
         }
         if (updated.parentEventId == null && !updated.isSeriesParent) {
-          const fuzzyPool = ctx.fuzzyPoolByKennel.get(kennelId);
+          const fuzzyPool = ctx.eventBatch.fuzzyPoolByKennel.get(kennelId);
           if (fuzzyPool) {
             const fi = fuzzyPool.findIndex(e => e.id === updated.id);
             if (fi !== -1) fuzzyPool[fi] = updated;
@@ -1546,6 +1579,7 @@ async function upsertCanonicalEvent(
     const oldBucket = await prisma.event.findMany({
       where: { kennelId, date: crossWindowOldDate },
       orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      select: EVENT_CACHE_SELECT,
     });
     await recomputeCanonical(oldBucket as never);
   }
@@ -1689,9 +1723,9 @@ async function processNewRawEvent(
   // `kennel.updateMany` per kennel after the loop in `processRawEvents`
   // (#1287 — replaces the per-event `$executeRaw UPDATE "Kennel"`).
   const eventDateForCache = parseUtcNoonDate(event.date);
-  const previousMax = ctx.kennelMaxDates.get(kennelId);
+  const previousMax = ctx.eventBatch.kennelMaxDates.get(kennelId);
   if (!previousMax || previousMax.getTime() < eventDateForCache.getTime()) {
-    ctx.kennelMaxDates.set(kennelId, eventDateForCache);
+    ctx.eventBatch.kennelMaxDates.set(kennelId, eventDateForCache);
   }
 
   return targetEventId;
@@ -2087,10 +2121,12 @@ export async function processRawEvents(
     shortUrlCache,
     batchMatchedEvents,
     existingByFingerprint,
-    batchDates,
-    sameDayCache: new Map(),
-    fuzzyPoolByKennel: new Map(),
-    kennelMaxDates: new Map(),
+    eventBatch: {
+      dates: batchDates,
+      sameDayByKennel: new Map(),
+      fuzzyPoolByKennel: new Map(),
+      kennelMaxDates: new Map(),
+    },
     result,
   };
 
@@ -2135,8 +2171,8 @@ export async function processRawEvents(
   // `lastEventDate` is a non-critical UI-cache field (used by the kennel
   // directory's "recently active" filter); a missed update self-heals on
   // the next scrape.
-  if (ctx.kennelMaxDates.size > 0) {
-    const entries = [...ctx.kennelMaxDates];
+  if (ctx.eventBatch.kennelMaxDates.size > 0) {
+    const entries = [...ctx.eventBatch.kennelMaxDates];
     const settled = await Promise.allSettled(
       entries.map(([kennelId, maxDate]) =>
         prisma.kennel.updateMany({
