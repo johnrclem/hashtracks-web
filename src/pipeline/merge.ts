@@ -1343,12 +1343,32 @@ async function upsertCanonicalEvent(
       const idx = sameDayEvents.findIndex(e => e.id === existingEvent.id);
       if (idx !== -1) sameDayEvents[idx] = updated;
 
-      // The cross-window UPDATE above mutated `date` in DB, so the per-
-      // batch cache's view of this row is stale. Invalidate so the next
-      // event in the batch refetches. Only fires when the date actually
-      // changed (this trust-gated branch); the lower-trust enrichment
-      // path leaves date untouched and doesn't need invalidation.
-      if (crossWindowMatch) invalidateKennelEventCache(kennelId, ctx);
+      if (crossWindowMatch) {
+        // Cross-window UPDATE moved `date` in DB, shifting the row's bucket
+        // in the cache. Invalidate so the next event refetches; surgical
+        // patching of a moved-date row is bug-prone.
+        invalidateKennelEventCache(kennelId, ctx);
+      } else {
+        // Non-cross-window UPDATE: the row's `date` is unchanged but other
+        // fields the matcher reads (runNumber, startTime, sourceUrl,
+        // trustLevel, title, etc.) may have moved. Patch the shared caches
+        // in place so a later event in the same batch matching against
+        // this canonical row sees post-update values, not stale ones —
+        // skipping this leaks the same "stale match → spurious create"
+        // regression a fresh DB findMany would have avoided pre-#1287.
+        const sharedPool = ctx.sameDayCache.get(kennelId);
+        if (sharedPool) {
+          const si = sharedPool.findIndex(e => e.id === updated.id);
+          if (si !== -1) sharedPool[si] = updated;
+        }
+        if (updated.parentEventId == null && !updated.isSeriesParent) {
+          const fuzzyPool = ctx.fuzzyPoolByKennel.get(kennelId);
+          if (fuzzyPool) {
+            const fi = fuzzyPool.findIndex(e => e.id === updated.id);
+            if (fi !== -1) fuzzyPool[fi] = updated;
+          }
+        }
+      }
     }
 
     // Lower-trust enrichment: fill NULL fields without overwriting non-null
@@ -2107,9 +2127,18 @@ export async function processRawEvents(
   // (#1287 — replaces the per-event `$executeRaw UPDATE "Kennel"`). The
   // OR-NULL-or-LT guard in `where` preserves the "only update if newer"
   // semantic. `updatedAt` auto-updates via Prisma's @updatedAt.
+  //
+  // `allSettled` (not `all`) so a transient DB error on one kennel's cache
+  // write doesn't reject the whole batch — pre-#1287 the equivalent
+  // `$executeRaw` was inside the per-event try/catch and a single failure
+  // was recorded as `eventErrors` while the batch still completed.
+  // `lastEventDate` is a non-critical UI-cache field (used by the kennel
+  // directory's "recently active" filter); a missed update self-heals on
+  // the next scrape.
   if (ctx.kennelMaxDates.size > 0) {
-    await Promise.all(
-      [...ctx.kennelMaxDates].map(([kennelId, maxDate]) =>
+    const entries = [...ctx.kennelMaxDates];
+    const settled = await Promise.allSettled(
+      entries.map(([kennelId, maxDate]) =>
         prisma.kennel.updateMany({
           where: {
             id: kennelId,
@@ -2119,6 +2148,16 @@ export async function processRawEvents(
         }),
       ),
     );
+    for (let i = 0; i < settled.length; i++) {
+      const outcome = settled[i];
+      if (outcome.status === "rejected") {
+        const [kennelId] = entries[i];
+        console.error(
+          `[merge] lastEventDate flush failed for kennel ${kennelId}:`,
+          outcome.reason,
+        );
+      }
+    }
   }
 
   return result;

@@ -3124,7 +3124,10 @@ describe("fuzzy ±48h cross-source dedup (#990)", () => {
     // catches this via a RawEvent join even when title/time/location all
     // pass.
     mockRawEventFind.mockResolvedValueOnce(null);
-    mockEventFindMany.mockResolvedValueOnce([] as never); // same-day empty
+    // Cache prefetch returns the candidate; getSameDayEvents filters it
+    // out of the incoming bucket (different date) and the fuzzy probe
+    // picks it up from the in-memory pool (#1287). The wide ±48h prefetch
+    // window (MERGE_FUZZY_DEDUP=true in beforeEach) keeps it visible.
     mockEventFindMany.mockResolvedValueOnce([
       existingFuzzyRow({ id: "evt_same_source_yesterday" }),
     ] as never);
@@ -3151,7 +3154,10 @@ describe("fuzzy ±48h cross-source dedup (#990)", () => {
 
   it("does NOT merge when runNumber differs (double-header on consecutive days)", async () => {
     mockRawEventFind.mockResolvedValueOnce(null);
-    mockEventFindMany.mockResolvedValueOnce([] as never); // same-day empty
+    // Cache prefetch returns the candidate; getSameDayEvents filters it
+    // out of the incoming bucket (different date) and the fuzzy probe
+    // picks it up from the in-memory pool (#1287). The wide ±48h prefetch
+    // window (MERGE_FUZZY_DEDUP=true in beforeEach) keeps it visible.
     mockEventFindMany.mockResolvedValueOnce([
       existingFuzzyRow({ runNumber: 786, title: "Annual Bash Trail" }),
     ] as never); // fuzzy probe candidate, but runNumber will conflict
@@ -3190,7 +3196,10 @@ describe("fuzzy ±48h cross-source dedup (#990)", () => {
 
   it("does NOT merge when locationName diverges sharply (different venues)", async () => {
     mockRawEventFind.mockResolvedValueOnce(null);
-    mockEventFindMany.mockResolvedValueOnce([] as never); // same-day empty
+    // Cache prefetch returns the candidate; getSameDayEvents filters it
+    // out of the incoming bucket (different date) and the fuzzy probe
+    // picks it up from the in-memory pool (#1287). The wide ±48h prefetch
+    // window (MERGE_FUZZY_DEDUP=true in beforeEach) keeps it visible.
     mockEventFindMany.mockResolvedValueOnce([
       existingFuzzyRow({ locationName: "Central Park" }),
     ] as never); // fuzzy probe candidate, location will conflict
@@ -3210,7 +3219,10 @@ describe("fuzzy ±48h cross-source dedup (#990)", () => {
 
   it("does NOT merge when startTime daypart conflicts (morning vs evening)", async () => {
     mockRawEventFind.mockResolvedValueOnce(null);
-    mockEventFindMany.mockResolvedValueOnce([] as never); // same-day empty
+    // Cache prefetch returns the candidate; getSameDayEvents filters it
+    // out of the incoming bucket (different date) and the fuzzy probe
+    // picks it up from the in-memory pool (#1287). The wide ±48h prefetch
+    // window (MERGE_FUZZY_DEDUP=true in beforeEach) keeps it visible.
     mockEventFindMany.mockResolvedValueOnce([
       existingFuzzyRow({ startTime: "10:00" }),
     ] as never);
@@ -3319,6 +3331,103 @@ describe("processRawEvents — per-kennel read batching (#1287)", () => {
       { lastEventDate: null },
       { lastEventDate: { lt: updateData.data.lastEventDate } },
     ]);
+  });
+
+  it("does not reject the whole batch when one kennel.updateMany flush fails", async () => {
+    // Pre-#1287 the equivalent `$executeRaw UPDATE "Kennel"` fired inside
+    // the per-event try/catch — a single failure was recorded as
+    // `eventErrors` while the batch still completed. The batched flush
+    // moves these writes outside the try/catch boundary, so we use
+    // `Promise.allSettled` (not `Promise.all`) to keep the same semantics:
+    // a `lastEventDate` cache-write rejection logs but does not throw.
+    const mockKennelUpdateMany = vi.mocked(prisma.kennel.updateMany);
+    mockKennelUpdateMany.mockRejectedValueOnce(new Error("transient DB error"));
+    mockRawEventFind.mockResolvedValue(null);
+    mockEventCreate.mockResolvedValue({ id: "evt_new" } as never);
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await expect(
+      processRawEvents("src_1", [
+        buildRawEvent({ date: "2026-04-01", kennelTags: ["TestH3"] }),
+      ]),
+    ).resolves.toBeDefined();
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining("[merge] lastEventDate flush failed for kennel kennel_1"),
+      expect.any(Error),
+    );
+    consoleSpy.mockRestore();
+  });
+
+  it("writes a high-trust UPDATE back into the per-batch cache so later events see post-update state", async () => {
+    // Cross-source same-day match: source A updates the canonical row in
+    // the high-trust branch, source B (later in the batch, different
+    // sourceUrl) must see the post-update row when it consults the cache.
+    // Pre-fix: getSameDayEvents returned a freshly-filtered array, so
+    // sameDayEvents[idx] = updated only patched the local slice; the
+    // shared cache still held the pre-update reference, leaving source
+    // B's lookup looking at stale (pre-update) startTime/runNumber/etc.
+    // and falling through to a spurious CREATE.
+    mockRawEventFind.mockResolvedValue(null);
+    // Cache prefetch returns one existing canonical row with empty fields
+    // so the high-trust UPDATE has something to fill.
+    mockEventFindMany.mockResolvedValueOnce([
+      {
+        id: "evt_canonical",
+        kennelId: "kennel_1",
+        date: new Date("2026-04-01T12:00:00.000Z"),
+        trustLevel: 5,
+        sourceUrl: "https://source-a.example/event/1",
+        startTime: null,
+        runNumber: null,
+        title: null,
+        locationName: null,
+        parentEventId: null,
+        isSeriesParent: false,
+        isCanonical: true,
+        status: "CONFIRMED",
+      },
+    ] as never);
+    // The UPDATE returns the post-update row (startTime now set).
+    mockEventUpdate.mockResolvedValue({
+      id: "evt_canonical",
+      kennelId: "kennel_1",
+      date: new Date("2026-04-01T12:00:00.000Z"),
+      trustLevel: 5,
+      sourceUrl: "https://source-a.example/event/1",
+      startTime: "18:00",
+      runNumber: 42,
+      title: "Trail #42",
+      locationName: null,
+      parentEventId: null,
+      isSeriesParent: false,
+      isCanonical: true,
+      status: "CONFIRMED",
+    } as never);
+    mockFingerprint.mockReturnValueOnce("fp_a").mockReturnValueOnce("fp_b");
+
+    await processRawEvents("src_1", [
+      buildRawEvent({
+        date: "2026-04-01",
+        kennelTags: ["TestH3"],
+        sourceUrl: "https://source-a.example/event/1",
+        startTime: "18:00",
+        runNumber: 42,
+      }),
+      // Source B emits a different sourceUrl but the same logical event
+      // (same kennel + date + startTime + runNumber). It should match the
+      // canonical row via the post-A-update cache, NOT create a new row.
+      buildRawEvent({
+        date: "2026-04-01",
+        kennelTags: ["TestH3"],
+        sourceUrl: "https://source-b.example/event/2",
+        startTime: "18:00",
+        runNumber: 42,
+      }),
+    ]);
+
+    // No second canonical row was created — both events resolve to evt_canonical.
+    expect(mockEventCreate).not.toHaveBeenCalled();
   });
 
   it("does not call kennel.updateMany when no new events are processed (all duplicates)", async () => {
