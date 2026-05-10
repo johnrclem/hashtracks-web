@@ -60,6 +60,12 @@ export interface HarelineListEvent {
   trailLengthMaxMiles: number | null;
   /** #890 — Shiggy Level (1–5). UI-facing label is "Shiggy Level". */
   difficulty: number | null;
+  /** #1316 — trail layout description, verbatim ("A to A", "A to B", "Live Hare"). */
+  trailType: string | null;
+  /** #1316 — dogs welcome? null = unknown / source didn't say. */
+  dogFriendly: boolean | null;
+  /** #1316 — pre-event meetup venue/time, free-form. */
+  prelube: string | null;
 }
 
 export type TimeMode = "upcoming" | "past";
@@ -155,6 +161,9 @@ const fetchSlimEventsCached = unstable_cache(
         trailLengthMinMiles: true,
         trailLengthMaxMiles: true,
         difficulty: true,
+        trailType: true,
+        dogFriendly: true,
+        prelube: true,
         kennel: {
           select: { id: true, shortName: true, fullName: true, slug: true, region: true, country: true },
         },
@@ -194,6 +203,9 @@ const fetchSlimEventsCached = unstable_cache(
       trailLengthMinMiles: e.trailLengthMinMiles,
       trailLengthMaxMiles: e.trailLengthMaxMiles,
       difficulty: e.difficulty,
+      trailType: e.trailType,
+      dogFriendly: e.dogFriendly,
+      prelube: e.prelube,
     }));
   },
   ["hareline:events"],

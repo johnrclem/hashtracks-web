@@ -1563,6 +1563,107 @@ describe("time/cost field clearing on update (#530)", () => {
     expect(updateCall.data).toHaveProperty("cost");
     expect(updateCall.data.cost).toBeNull();
   });
+
+  // #1316 — trailType / dogFriendly / prelube atomic-bundle semantics on UPDATE
+  it.each([
+    ["trailType", "A to A", "A to B"],
+    ["dogFriendly", true, false],
+    ["prelube", "Old Pub 5pm", "New Pub 6pm"],
+  ] as const)(
+    "preserves existing %s when new source has undefined %s",
+    async (field, existingValue, _newValue) => {
+      mockRawEventFind.mockResolvedValueOnce(null);
+      mockEventFindMany.mockResolvedValueOnce([
+        { id: "evt_1", trustLevel: 5, [field]: existingValue },
+      ] as never);
+      mockEventUpdate.mockResolvedValueOnce({} as never);
+
+      await processRawEvents("src_1", [buildRawEvent({ [field]: undefined } as never)]);
+
+      const updateCall = mockEventUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
+      expect(updateCall.data).not.toHaveProperty(field);
+    },
+  );
+
+  it.each([
+    ["trailType", "A to A", "A to B"],
+    ["dogFriendly", true, false],
+    ["prelube", "Old Pub 5pm", "New Pub 6pm"],
+  ] as const)(
+    "overwrites existing %s when new source provides a value",
+    async (field, existingValue, newValue) => {
+      mockRawEventFind.mockResolvedValueOnce(null);
+      mockEventFindMany.mockResolvedValueOnce([
+        { id: "evt_1", trustLevel: 5, [field]: existingValue },
+      ] as never);
+      mockEventUpdate.mockResolvedValueOnce({} as never);
+
+      await processRawEvents("src_1", [buildRawEvent({ [field]: newValue } as never)]);
+
+      const updateCall = mockEventUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
+      expect(updateCall.data[field]).toBe(newValue);
+    },
+  );
+
+  it.each([
+    ["trailType", "A to A"],
+    ["dogFriendly", true],
+    ["prelube", "Old Pub 5pm"],
+  ] as const)(
+    "clears existing %s when source explicitly provides null",
+    async (field, existingValue) => {
+      mockRawEventFind.mockResolvedValueOnce(null);
+      mockEventFindMany.mockResolvedValueOnce([
+        { id: "evt_1", trustLevel: 5, [field]: existingValue },
+      ] as never);
+      mockEventUpdate.mockResolvedValueOnce({} as never);
+
+      await processRawEvents("src_1", [buildRawEvent({ [field]: null } as never)]);
+
+      const updateCall = mockEventUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
+      expect(updateCall.data).toHaveProperty(field);
+      expect(updateCall.data[field]).toBeNull();
+    },
+  );
+
+  it.each([
+    ["trailType", "A to A"],
+    ["dogFriendly", true],
+    ["prelube", "Old Pub 5pm"],
+  ] as const)(
+    "lower-trust enrichment fills %s when canonical row has it null",
+    async (field, newValue) => {
+      mockRawEventFind.mockResolvedValueOnce(null);
+      mockEventFindMany.mockResolvedValueOnce([
+        // existing event has higher trust → lower-trust enrichment branch
+        { id: "evt_1", trustLevel: 9, [field]: null },
+      ] as never);
+      mockEventUpdate.mockResolvedValueOnce({} as never);
+
+      await processRawEvents("src_1", [buildRawEvent({ [field]: newValue } as never)]);
+
+      const updateCall = mockEventUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
+      expect(updateCall.data[field]).toBe(newValue);
+    },
+  );
+
+  it.each([
+    ["trailType", "A to A"],
+    ["dogFriendly", true],
+    ["prelube", "Old Pub 5pm"],
+  ] as const)(
+    "create path forwards %s when no existing event",
+    async (field, newValue) => {
+      mockRawEventFind.mockResolvedValueOnce(null);
+      mockEventFindMany.mockResolvedValueOnce([] as never);
+      mockEventCreate.mockResolvedValueOnce({ id: "evt_new" } as never);
+
+      await processRawEvents("src_1", [buildRawEvent({ [field]: newValue } as never)]);
+
+      const createCall = mockEventCreate.mock.calls[0][0] as { data: Record<string, unknown> };
+      expect(createCall.data[field]).toBe(newValue);
+    },
+  );
 });
 
 describe("sanitizeLocationUrl", () => {

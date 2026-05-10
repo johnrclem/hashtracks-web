@@ -387,6 +387,16 @@ export default async function EventDetailPage({
                     </dd>
                   </div>
                 )}
+                {/* #1316 — first-class cost / trailType / dogFriendly / prelube */}
+                {event.cost && <DetailItem label="Hash Cash" value={event.cost} />}
+                {event.trailType && <DetailItem label="Trail Type" value={event.trailType} />}
+                {event.dogFriendly != null && (
+                  <DetailItem
+                    label="Dog Friendly"
+                    value={event.dogFriendly ? "Yes 🐕" : "No"}
+                  />
+                )}
+                {event.prelube && <DetailItem label="Pre-lube" value={event.prelube} />}
                 {event.locationName && (
                   <div>
                     <dt className="text-sm font-medium text-muted-foreground">Location</dt>

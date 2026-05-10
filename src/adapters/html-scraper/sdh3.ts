@@ -25,7 +25,7 @@ import type {
 } from "../types";
 import { safeFetch } from "../safe-fetch";
 import {
-  fetchHTMLPage,
+  type FetchHTMLResult,
   chronoParseDate,
   parse12HourTime,
   validateSourceConfig,
@@ -33,6 +33,7 @@ import {
   decodeEntities,
   stripHtmlTags,
 } from "../utils";
+import { generateStructureHash } from "@/pipeline/structure-hash";
 
 // ── Config shape ──
 
@@ -47,6 +48,62 @@ interface SDH3Config {
 
 /** Raw GPS coordinate string — hares sometimes enter "(lat, lng)" as the address field. */
 const GPS_COORDS_RE = /^\s*\(\s*-?\d+\.\d+\s*,\s*-?\d+\.\d+\s*\)\s*$/;
+
+/**
+ * sdh3.com serves a UTF-8 body but advertises a non-UTF-8 charset (issue #1315),
+ * so Node's `fetch().text()` honors the lying header and decodes Latin-1 — the
+ * 🌮 emoji becomes "ðŸŒ®" by the time it reaches our DB. Read raw bytes and
+ * force UTF-8 to bypass the server's mistaken header.
+ *
+ * Local-only fix: `fetchHTMLPage` keeps its server-charset-trusting default so
+ * other adapters whose servers advertise legitimate non-UTF-8 charsets don't
+ * regress. Used by both the live adapter and the HAH3 history backfill script.
+ */
+async function decodeUtf8Body(response: Response): Promise<string> {
+  const buf = await response.arrayBuffer();
+  return new TextDecoder("utf-8").decode(buf);
+}
+
+export async function fetchSDH3Page(url: string): Promise<FetchHTMLResult> {
+  const fetchStart = Date.now();
+  try {
+    const response = await safeFetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
+    });
+    if (!response.ok) {
+      const message = `HTTP ${response.status}: ${response.statusText}`;
+      const errorDetails: ErrorDetails = {
+        fetch: [{ url, status: response.status, message }],
+      };
+      return { ok: false, result: { events: [], errors: [message], errorDetails } };
+    }
+    const html = await decodeUtf8Body(response);
+    return {
+      ok: true,
+      html,
+      $: cheerio.load(html),
+      structureHash: generateStructureHash(html),
+      fetchDurationMs: Date.now() - fetchStart,
+    };
+  } catch (err) {
+    const message = `Fetch failed: ${err}`;
+    const errorDetails: ErrorDetails = { fetch: [{ url, message }] };
+    return { ok: false, result: { events: [], errors: [message], errorDetails } };
+  }
+}
+
+/**
+ * Parse a `Dog friendly:` source value into a tri-state.
+ * Tri-state semantics: undefined = label not present (caller never invokes this);
+ * boolean = parsed; null = label present but value unrecognized (clears stale).
+ */
+export function parseDogFriendly(v: string): boolean | null {
+  const t = v.toLowerCase().trim();
+  if (!t) return null;
+  if (/^(yes|y|true|sometimes|usually|welcome|always)/.test(t)) return true;
+  if (/^(no|n|false|never)/.test(t)) return false;
+  return null;
+}
 
 // ── Exported helpers (for unit testing) ──
 
@@ -123,16 +180,28 @@ export function extractHistoryEntry(
  * Parse structured "Label: Value" fields from HTML containing
  * <strong>Label:</strong> value<br /> patterns.
  * Shared by hareline event parsing and individual event page enrichment.
+ *
+ * Issue #1316: cost / trailType / dogFriendly / prelube are returned as
+ * discrete fields rather than smashed into description. `On after:` and
+ * `Notes:` continue to flow into description (no schema column requested).
  */
 export function parseEventFields(fieldsText: string): {
   hares?: string;
   location?: string;
   locationStreet?: string;
   description?: string;
+  cost?: string | null;
+  trailType?: string | null;
+  dogFriendly?: boolean | null;
+  prelube?: string | null;
 } {
   let hares: string | undefined;
   let location: string | undefined;
   let locationStreet: string | undefined;
+  let cost: string | null | undefined;
+  let trailType: string | null | undefined;
+  let dogFriendly: boolean | null | undefined;
+  let prelube: string | null | undefined;
   const descParts: string[] = [];
 
   const lines = fieldsText.split("\n");
@@ -194,13 +263,17 @@ export function parseEventFields(fieldsText: string): {
       }
       case "run fee":
       case "hash cash":
-        descParts.push(`Hash Cash: ${value}`);
+        cost = value;
         break;
       case "trail type":
-        descParts.push(`Trail: ${value}`);
+        trailType = value;
         break;
       case "dog friendly":
-        descParts.push(`Dog Friendly: ${value}`);
+        dogFriendly = parseDogFriendly(value);
+        break;
+      case "pre-lube":
+      case "prelube":
+        prelube = value;
         break;
       case "on after":
         descParts.push(`On After: ${value}`);
@@ -216,6 +289,10 @@ export function parseEventFields(fieldsText: string): {
     location,
     locationStreet,
     description: descParts.length > 0 ? descParts.join(" | ") : undefined,
+    cost,
+    trailType,
+    dogFriendly,
+    prelube,
   };
 }
 
@@ -290,7 +367,16 @@ export function parseHarelineEvents(
     const fieldsHtml = fieldsDiv.html() ?? "";
     const fieldsText = stripHtmlTags(fieldsHtml, "\n");
 
-    const { hares, location, locationStreet, description } = parseEventFields(fieldsText);
+    const {
+      hares,
+      location,
+      locationStreet,
+      description,
+      cost,
+      trailType,
+      dogFriendly,
+      prelube,
+    } = parseEventFields(fieldsText);
 
     const locationUrl = extractMapLink(fieldsDiv, $);
     const sourceUrl = extractEventPageUrl($dt, $, baseUrl);
@@ -309,13 +395,18 @@ export function parseHarelineEvents(
 
     events.push({
       date: parsed.date,
-      kennelTags: [kennelTag],      startTime: parsed.startTime,
+      kennelTags: [kennelTag],
+      startTime: parsed.startTime,
       title,
       hares,
       location,
       locationStreet,
       locationUrl,
       description,
+      cost,
+      trailType,
+      dogFriendly,
+      prelube,
       sourceUrl,
     });
   });
@@ -420,7 +511,7 @@ export async function enrichEventsFromDetail(
         if (!response.ok) {
           throw new Error(`HTTP ${response.status} for ${event.sourceUrl}`);
         }
-        return { html: await response.text(), event };
+        return { html: await decodeUtf8Body(response), event };
       }),
     );
 
@@ -449,6 +540,10 @@ export async function enrichEventsFromDetail(
       if (fields.location) { event.location = fields.location; wasEnriched = true; }
       if (fields.locationStreet) { event.locationStreet = fields.locationStreet; wasEnriched = true; }
       if (fields.description && !event.description) { event.description = fields.description; wasEnriched = true; }
+      if (fields.cost !== undefined && event.cost === undefined) { event.cost = fields.cost; wasEnriched = true; }
+      if (fields.trailType !== undefined && event.trailType === undefined) { event.trailType = fields.trailType; wasEnriched = true; }
+      if (fields.dogFriendly !== undefined && event.dogFriendly === undefined) { event.dogFriendly = fields.dogFriendly; wasEnriched = true; }
+      if (fields.prelube !== undefined && event.prelube === undefined) { event.prelube = fields.prelube; wasEnriched = true; }
 
       const mapLink = extractMapLink(contentDiv, $);
       if (mapLink) { event.locationUrl = mapLink; wasEnriched = true; }
@@ -492,8 +587,8 @@ export class SDH3Adapter implements SourceAdapter {
     const historyUrl = `${baseUrl}/history.shtml`;
 
     const [harelinePage, historyPage] = await Promise.all([
-      fetchHTMLPage(harelineUrl),
-      config.includeHistory ? fetchHTMLPage(historyUrl) : null,
+      fetchSDH3Page(harelineUrl),
+      config.includeHistory ? fetchSDH3Page(historyUrl) : null,
     ]);
 
     let harelineEvents: RawEventData[] = [];

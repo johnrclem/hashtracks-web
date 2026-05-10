@@ -72,6 +72,14 @@ export type HarelineEvent = {
   trailLengthMaxMiles?: number | null;
   /** #890 — Shiggy Level (1–5). UI label is always "Shiggy Level". */
   difficulty?: number | null;
+  /** #1316 — trail layout description ("A to A", "A to B", "Live Hare"). */
+  trailType?: string | null;
+  /** #1316 — dogs welcome at trail. null = source didn't say. */
+  dogFriendly?: boolean | null;
+  /** #1316 — pre-event meetup venue/time, free-form. Heavy field; render only on detail. */
+  prelube?: string | null;
+  /** #1316 — explicit `cost` column (free-form). Used to be smashed into `description`. */
+  cost?: string | null;
   // Heavy / on-demand fields — undefined until `getEventDetail` resolves.
   locationStreet?: string | null;
   locationAddress?: string | null;
@@ -574,7 +582,29 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
               </Tooltip>
             )}
 
-            {weather && (locationDisplay || event.haresText || trailLengthDisplay || event.difficulty != null) && (
+            {/* #1316 — trail type as a compact text chip; dog-friendly as 🐕
+                only when explicitly Yes (false / null stay off the card). */}
+            {event.trailType && (locationDisplay || event.haresText || trailLengthDisplay || event.difficulty != null) && (
+              <span className="text-muted-foreground/30" aria-hidden="true">&middot;</span>
+            )}
+            {event.trailType && (
+              <span
+                className="shrink-0 rounded-sm px-1 py-px text-[10px] font-medium uppercase tracking-wide"
+                style={{ backgroundColor: `${regionColor}1a`, color: regionColor }}
+              >
+                {event.trailType}
+              </span>
+            )}
+            {event.dogFriendly === true && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="shrink-0 text-[11px]" aria-label="Dog-friendly trail">🐕</span>
+                </TooltipTrigger>
+                <TooltipContent>Dog-friendly</TooltipContent>
+              </Tooltip>
+            )}
+
+            {weather && (locationDisplay || event.haresText || trailLengthDisplay || event.difficulty != null || event.trailType || event.dogFriendly === true) && (
               <span className="text-muted-foreground/30" aria-hidden="true">&middot;</span>
             )}
 

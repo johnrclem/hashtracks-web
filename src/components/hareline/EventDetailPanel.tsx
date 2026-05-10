@@ -193,6 +193,32 @@ export function EventDetailPanel({ event, attendance, isAuthenticated, onDismiss
               </dd>
             </div>
           )}
+          {/* #1316 — first-class trail type / dog-friendly / pre-lube fields.
+              Used to be smashed into description as "Hash Cash: 5 | Trail: A to A | …" */}
+          {event.cost && (
+            <div>
+              <dt className="font-medium text-muted-foreground">Hash Cash</dt>
+              <dd>{event.cost}</dd>
+            </div>
+          )}
+          {event.trailType && (
+            <div>
+              <dt className="font-medium text-muted-foreground">Trail Type</dt>
+              <dd>{event.trailType}</dd>
+            </div>
+          )}
+          {event.dogFriendly != null && (
+            <div>
+              <dt className="font-medium text-muted-foreground">Dog Friendly</dt>
+              <dd>{event.dogFriendly ? "Yes 🐕" : "No"}</dd>
+            </div>
+          )}
+          {event.prelube && (
+            <div>
+              <dt className="font-medium text-muted-foreground">Pre-lube</dt>
+              <dd>{event.prelube}</dd>
+            </div>
+          )}
           {event.locationName && (
             <div>
               <dt className="font-medium text-muted-foreground">Location</dt>

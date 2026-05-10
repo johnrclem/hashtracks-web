@@ -1343,6 +1343,15 @@ async function upsertCanonicalEvent(
           ...(event.difficulty === undefined
             ? {}
             : { difficulty: event.difficulty ?? null }),
+          ...(event.trailType === undefined
+            ? {}
+            : { trailType: event.trailType ?? null }),
+          ...(event.dogFriendly === undefined
+            ? {}
+            : { dogFriendly: event.dogFriendly ?? null }),
+          ...(event.prelube === undefined
+            ? {}
+            : { prelube: event.prelube ?? null }),
           // Cross-window fuzzy match (#990) physically moves the row from
           // its old `date` bucket to the incoming source's date, so display
           // paths that compose `date + startTime + timezone` render the
@@ -1444,6 +1453,15 @@ async function upsertCanonicalEvent(
       if (existingEvent.difficulty == null && event.difficulty != null) {
         enrichData.difficulty = event.difficulty;
       }
+      if (existingEvent.trailType == null && event.trailType != null) {
+        enrichData.trailType = event.trailType;
+      }
+      if (existingEvent.dogFriendly == null && event.dogFriendly != null) {
+        enrichData.dogFriendly = event.dogFriendly;
+      }
+      if (existingEvent.prelube == null && event.prelube != null) {
+        enrichData.prelube = event.prelube;
+      }
       if (Object.keys(enrichData).length > 0) {
         const enriched = await prisma.event.update({
           where: { id: existingEvent.id },
@@ -1502,6 +1520,9 @@ async function upsertCanonicalEvent(
       trailLengthMinMiles: event.trailLengthMinMiles,
       trailLengthMaxMiles: event.trailLengthMaxMiles,
       difficulty: event.difficulty,
+      trailType: event.trailType,
+      dogFriendly: event.dogFriendly,
+      prelube: event.prelube,
       sourceUrl: event.sourceUrl,
       trustLevel: ctx.trustLevel,
       latitude: coords.latitude,
