@@ -5,7 +5,7 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     source: { findUnique: vi.fn(), update: vi.fn() },
     sourceKennel: { findMany: vi.fn() },
-    rawEvent: { findFirst: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn() },
+    rawEvent: { findFirst: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
     event: { findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     eventKennel: { create: vi.fn(), upsert: vi.fn() },
     eventLink: { upsert: vi.fn() },
@@ -46,6 +46,7 @@ vi.mock("@/lib/geo", async (importOriginal) => {
 });
 
 import { prisma } from "@/lib/db";
+import { Prisma } from "@/generated/prisma/client";
 import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag } from "./kennel-resolver";
 import { processRawEvents, sanitizeTitle, sanitizeLocation, sanitizeHares, friendlyKennelName, rewriteStaleDefaultTitle, suppressRedundantCity, NON_ENGLISH_GEO_RE, completenessScore, pickCanonicalEventId, pickCanonicalEventIds, isAdminLocked } from "./merge";
@@ -3225,5 +3226,137 @@ describe("isAdminLocked", () => {
 
   it("returns true for an event with a non-null adminCancelledAt", () => {
     expect(isAdminLocked({ adminCancelledAt: new Date("2026-05-01T10:00:00Z") })).toBe(true);
+  });
+});
+
+// Issue #1286: cross-worker race window. The dedup prefetch (PR #1280) is
+// per-batch and not transactional with the create, so two concurrent QStash
+// workers can both miss the prefetch and both reach `prisma.rawEvent.create`.
+// The new `@@unique([sourceId, fingerprint])` constraint makes the loser
+// raise P2002; `processNewRawEvent` catches it, re-fetches the winning row,
+// and routes the event through the duplicate-fingerprint path so it's
+// counted as `skipped` instead of bubbling as `eventErrors`.
+describe("processNewRawEvent — P2002 race-window fall-through (#1286)", () => {
+  function makeP2002({ target }: { target: string[] }): Error {
+    return new Prisma.PrismaClientKnownRequestError(
+      "Unique constraint failed on the fields: " + target.join(", "),
+      { code: "P2002", clientVersion: "0.0.0", meta: { target } },
+    );
+  }
+
+  it("routes through the duplicate path when the racing winner is processed + linked", async () => {
+    mockRawEventCreate.mockRejectedValueOnce(makeP2002({ target: ["sourceId", "fingerprint"] }));
+    vi.mocked(prisma.rawEvent.findUnique).mockResolvedValueOnce({
+      id: "raw_winner",
+      fingerprint: "fp_abc123",
+      processed: true,
+      eventId: "evt_winner",
+    } as never);
+    vi.mocked(prisma.event.findUnique).mockResolvedValueOnce({
+      id: "evt_winner",
+      kennelId: "kennel_1",
+      trustLevel: 5,
+    } as never);
+
+    const result = await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-04-01", kennelTags: ["TestH3"] }),
+    ]);
+
+    expect(result.created).toBe(0);
+    expect(result.skipped).toBe(1);
+    expect(result.eventErrors).toBe(0);
+    expect(result.mergeErrorDetails).toEqual([]);
+    expect(vi.mocked(prisma.rawEvent.findUnique)).toHaveBeenCalledWith({
+      where: { sourceId_fingerprint: { sourceId: "src_1", fingerprint: "fp_abc123" } },
+      select: expect.any(Object),
+    });
+  });
+
+  it("routes through the duplicate path when the racing winner is an unprocessed orphan", async () => {
+    // The winner row exists but the racing worker hasn't processed it yet
+    // (eventId is null). handleDuplicateFingerprint signals "re-process me"
+    // by returning false; we count the event as skipped (the racing worker
+    // will eventually process its own RawEvent) and return null.
+    mockRawEventCreate.mockRejectedValueOnce(makeP2002({ target: ["sourceId", "fingerprint"] }));
+    vi.mocked(prisma.rawEvent.findUnique).mockResolvedValueOnce({
+      id: "raw_winner",
+      fingerprint: "fp_abc123",
+      processed: false,
+      eventId: null,
+    } as never);
+
+    const result = await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-04-01", kennelTags: ["TestH3"] }),
+    ]);
+
+    expect(result.created).toBe(0);
+    expect(result.skipped).toBe(1);
+    expect(result.eventErrors).toBe(0);
+  });
+
+  it("re-throws P2002 errors targeting different columns (defensive)", async () => {
+    // Future schema changes could add other unique constraints on RawEvent.
+    // Only the (sourceId, fingerprint) target should fall through; everything
+    // else must surface so it's not silently masked.
+    mockRawEventCreate.mockRejectedValueOnce(makeP2002({ target: ["someOtherColumn"] }));
+
+    const result = await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-04-01", kennelTags: ["TestH3"] }),
+    ]);
+
+    // The per-event try/catch in `processRawEvents` records this as an
+    // `eventErrors` entry rather than letting it crash the batch.
+    expect(result.eventErrors).toBe(1);
+    expect(result.created).toBe(0);
+    expect(result.skipped).toBe(0);
+    expect(vi.mocked(prisma.rawEvent.findUnique)).not.toHaveBeenCalled();
+  });
+
+  it("re-throws non-P2002 PrismaClientKnownRequestError (e.g. P2003 FK violation)", async () => {
+    mockRawEventCreate.mockRejectedValueOnce(
+      new Prisma.PrismaClientKnownRequestError("FK violation", {
+        code: "P2003",
+        clientVersion: "0.0.0",
+      }),
+    );
+
+    const result = await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-04-01", kennelTags: ["TestH3"] }),
+    ]);
+
+    expect(result.eventErrors).toBe(1);
+    expect(vi.mocked(prisma.rawEvent.findUnique)).not.toHaveBeenCalled();
+  });
+
+  it("does not double-count: a successful create after a P2002 in the same batch counts as 1 created + 1 skipped", async () => {
+    // Two events. First hits P2002, falls through to duplicate path. Second
+    // creates normally. Verifies the per-event try/catch boundary doesn't
+    // leak state between iterations.
+    mockFingerprint.mockReturnValueOnce("fp_p2002").mockReturnValueOnce("fp_normal");
+    mockRawEventCreate
+      .mockRejectedValueOnce(makeP2002({ target: ["sourceId", "fingerprint"] }))
+      .mockResolvedValueOnce({ id: "raw_normal" } as never);
+    vi.mocked(prisma.rawEvent.findUnique).mockResolvedValueOnce({
+      id: "raw_winner",
+      fingerprint: "fp_p2002",
+      processed: true,
+      eventId: "evt_winner",
+    } as never);
+    vi.mocked(prisma.event.findUnique).mockResolvedValueOnce({
+      id: "evt_winner",
+      kennelId: "kennel_1",
+      trustLevel: 5,
+    } as never);
+    mockEventFindMany.mockResolvedValue([] as never);
+    mockEventCreate.mockResolvedValue({ id: "evt_normal" } as never);
+
+    const result = await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-04-01", kennelTags: ["TestH3"] }),
+      buildRawEvent({ date: "2026-04-02", kennelTags: ["TestH3"] }),
+    ]);
+
+    expect(result.created).toBe(1);
+    expect(result.skipped).toBe(1);
+    expect(result.eventErrors).toBe(0);
   });
 });
