@@ -15,7 +15,12 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult } from "../types";
 import { fetchWordPressPosts } from "../wordpress-api";
-import { applyDateWindow, chronoParseDate, htmlToNewlineText } from "../utils";
+import {
+  applyDateWindow,
+  chronoParseDate,
+  htmlToNewlineText,
+  parsePublishDate,
+} from "../utils";
 
 /** Default start time when the meetup line is missing or unparseable. */
 const DEFAULT_START_TIME = "14:00";
@@ -38,7 +43,11 @@ export function parseKCH3Time(timeStr?: string): string {
   if (!timeStr) return DEFAULT_START_TIME;
   const t = timeStr.trim();
 
-  const hourMatch = /^(\d{1,2})(?::(\d{2}))?/.exec(t);
+  // Find the first hour token anywhere in the string — the meetup-line
+  // capture can include filler text like "at 6 p.m.", "the trail starts at
+  // 2:00", or "2:00 at: Fox & Hound". Anchoring to `^` would mis-fire on
+  // any post that doesn't begin with a digit (codex P1 on PR #1382).
+  const hourMatch = /(\d{1,2})(?::(\d{2}))?/.exec(t);
   if (!hourMatch) return DEFAULT_START_TIME;
   let hours = Number.parseInt(hourMatch[1], 10);
   const minutes = hourMatch[2] ?? "00";
@@ -49,7 +58,7 @@ export function parseKCH3Time(timeStr?: string): string {
 
   // `\b` after `m` / lone `a`/`p` blocks matches like the `a` in `at`
   // (next char is `t` — a word char — so no word boundary).
-  const rest = t.slice(hourMatch[0].length);
+  const rest = t.slice((hourMatch.index ?? 0) + hourMatch[0].length);
   const ampmMatch = /^\s*(a\.m\.?|p\.m\.?|am\b|pm\b|a\b|p\b)/i.exec(rest);
 
   if (ampmMatch) {
@@ -124,14 +133,9 @@ export function processKCH3Post(
   postUrl: string,
   publishDate?: string,
 ): RawEventData | null {
-  // A malformed non-empty publishDate yields `new Date(NaN)`, which chrono
-  // honors as the reference and then drops the parse — silently losing the
-  // event. Fall back to undefined so chrono uses its own default.
-  let refDate: Date | undefined;
-  if (publishDate) {
-    const parsed = new Date(publishDate);
-    if (!Number.isNaN(parsed.getTime())) refDate = parsed;
-  }
+  // `parsePublishDate` returns undefined for missing or malformed input,
+  // sidestepping a silent parse failure when chrono is handed `Date(NaN)`.
+  const refDate = parsePublishDate(publishDate);
   const dateStr = chronoParseDate(titleText, "en-US", refDate);
   if (!dateStr) return null;
 

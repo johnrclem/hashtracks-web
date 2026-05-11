@@ -48,6 +48,13 @@ describe("parseKCH3Time", () => {
     expect(parseKCH3Time("2:00 at: Fox & Hound")).toBe("14:00");
   });
 
+  it("finds an hour token after leading filler text (PR #1382 codex P1)", () => {
+    // parseKCH3Body captures the whole meetup line as time, so "Meetup at
+    // 6 p.m." reaches this function as "at 6 p.m.". Anchoring to `^` would
+    // mis-default it to 14:00.
+    expect(parseKCH3Time("at 6 p.m.")).toBe("18:00");
+  });
+
   it.each([
     ["2:00", "14:00"],
     ["5:00", "17:00"],
@@ -125,7 +132,7 @@ describe("resolveKennelTag", () => {
     expect(resolveKennelTag("14 March Snake Saturday Trail")).toBe("kch3");
   });
 
-  it("returns pnh3 for Pearl Necklace title", () => {
+  it("returns kch3 for a non-PNH3 ladies trail title", () => {
     expect(
       resolveKennelTag("8 February 2026 Ladies Only Olympic Trials Trail"),
     ).toBe("kch3");

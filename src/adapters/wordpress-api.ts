@@ -307,7 +307,9 @@ export async function fetchAllWordPressPosts(
 ): Promise<WordPressPost[]> {
   const perPage = options.perPage ?? 100;
   const maxPages = options.maxPages ?? 100;
-  const base = siteUrl.replace(/\/+$/, "");
+  // Procedural trim avoids the Sonar S5852 ReDoS hotspot that `/\/+$/` trips.
+  let base = siteUrl;
+  while (base.endsWith("/")) base = base.slice(0, -1);
   const posts: WordPressPost[] = [];
   let lastBatchSize = 0;
 
@@ -321,11 +323,29 @@ export async function fetchAllWordPressPosts(
     const response = await fetch(url, {
       headers: { Accept: "application/json", "User-Agent": WP_USER_AGENT },
     });
-    if (response.status === 400) return posts; // past totalPages
+    if (response.status === 400) {
+      if (page === 1) {
+        // First-page 400 means bad URL / bad perPage, not "past last page".
+        // Returning [] would silently mask that as an empty archive.
+        throw new Error(
+          `WordPress paginator failed on first page: HTTP 400 from ${url}. Check siteUrl or perPage.`,
+        );
+      }
+      return posts;
+    }
     if (!response.ok) {
       throw new Error(`WordPress paginator page ${page}: HTTP ${response.status}`);
     }
-    const batch: unknown = await response.json();
+    // Some WordPress sites embed literal control characters in JSON string
+    // values (e.g. Voodoo H3 has raw newlines inside post bodies). Use the
+    // same sanitization as `fetchWordPressPosts` so the paginator survives.
+    const raw = await response.text();
+    const sanitized = raw
+      .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, "")
+      .replace(/"(?:[^"\\]|\\.)*"/g, (match) =>
+        match.replace(/\t/g, "\\t").replace(/\n/g, "\\n").replace(/\r/g, "\\r"),
+      );
+    const batch: unknown = JSON.parse(sanitized);
     if (!Array.isArray(batch)) {
       throw new Error(
         `WordPress paginator page ${page}: expected JSON array, got ${typeof batch}`,
