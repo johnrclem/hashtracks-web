@@ -1596,6 +1596,9 @@ describe("time/cost field clearing on update (#530)", () => {
       mockEventFindMany.mockResolvedValueOnce([
         { id: "evt_1", trustLevel: 5, [field]: existingValue },
       ] as never);
+      // NOSONAR S4325 — vi.mocked typed mock requires Event; `{}` doesn't
+      // type-check without the cast (Sonar's "receiver accepts original type"
+      // claim is wrong here; matches the pre-existing pattern at line 1526).
       mockEventUpdate.mockResolvedValueOnce({} as never);
 
       await processRawEvents("src_1", [buildRawEvent({ [field]: newValue })]);
@@ -1616,7 +1619,7 @@ describe("time/cost field clearing on update (#530)", () => {
       mockEventFindMany.mockResolvedValueOnce([
         { id: "evt_1", trustLevel: 5, [field]: existingValue },
       ] as never);
-      mockEventUpdate.mockResolvedValueOnce({} as never);
+      mockEventUpdate.mockResolvedValueOnce({} as never); // NOSONAR S4325
 
       await processRawEvents("src_1", [buildRawEvent({ [field]: null })]);
 
@@ -1638,7 +1641,7 @@ describe("time/cost field clearing on update (#530)", () => {
         // existing event has higher trust → lower-trust enrichment branch
         { id: "evt_1", trustLevel: 9, [field]: null },
       ] as never);
-      mockEventUpdate.mockResolvedValueOnce({} as never);
+      mockEventUpdate.mockResolvedValueOnce({} as never); // NOSONAR S4325
 
       await processRawEvents("src_1", [buildRawEvent({ [field]: newValue })]);
 
