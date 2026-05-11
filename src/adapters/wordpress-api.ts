@@ -291,3 +291,72 @@ export async function fetchWordPressPosts(
     fetchDurationMs: Date.now() - fetchStart,
   };
 }
+
+/**
+ * Paginated walk of the WordPress REST API. Used by one-shot historical
+ * backfill scripts that need every post on a self-hosted WP site, not just
+ * the latest N. Stops when the API returns 400 (past totalPages) or when
+ * fewer than `perPage` items come back (final page).
+ *
+ * Decodes title entities so callers can match against the live adapter's
+ * post.title shape without re-decoding.
+ */
+export async function fetchAllWordPressPosts(
+  siteUrl: string,
+  options: { perPage?: number; maxPages?: number } = {},
+): Promise<WordPressPost[]> {
+  const perPage = options.perPage ?? 100;
+  const maxPages = options.maxPages ?? 100;
+  const base = siteUrl.replace(/\/+$/, "");
+  const posts: WordPressPost[] = [];
+  let lastBatchSize = 0;
+
+  for (let page = 1; page <= maxPages; page++) {
+    const params = new URLSearchParams({
+      per_page: String(perPage),
+      page: String(page),
+      _fields: "title,content,link,date",
+    });
+    const url = `${base}/wp-json/wp/v2/posts?${params.toString()}`;
+    const response = await fetch(url, {
+      headers: { Accept: "application/json", "User-Agent": WP_USER_AGENT },
+    });
+    if (response.status === 400) return posts; // past totalPages
+    if (!response.ok) {
+      throw new Error(`WordPress paginator page ${page}: HTTP ${response.status}`);
+    }
+    const batch: unknown = await response.json();
+    if (!Array.isArray(batch)) {
+      throw new Error(
+        `WordPress paginator page ${page}: expected JSON array, got ${typeof batch}`,
+      );
+    }
+    lastBatchSize = batch.length;
+    if (batch.length === 0) return posts;
+    for (const item of batch as Array<{
+      title?: { rendered?: string };
+      content?: { rendered?: string };
+      link?: string;
+      date?: string;
+    }>) {
+      posts.push({
+        title: he.decode(item.title?.rendered ?? ""),
+        content: item.content?.rendered ?? "",
+        url: item.link ?? "",
+        date: item.date ?? "",
+      });
+    }
+    if (batch.length < perPage) return posts;
+  }
+
+  // Hit maxPages with a full final batch — more pages exist. Fail loud
+  // rather than silently truncate (would corrupt one-shot backfills).
+  if (lastBatchSize === perPage) {
+    throw new Error(
+      `WordPress paginator exhausted maxPages=${maxPages} with a full ` +
+        `final batch of ${perPage}. Archive may have more posts. ` +
+        `Raise maxPages and re-run.`,
+    );
+  }
+  return posts;
+}

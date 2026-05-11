@@ -364,6 +364,22 @@ export function stripUrls(text: string): string {
   return text.replaceAll(/https?:\/\/\S+/g, " ");
 }
 
+/**
+ * Render WordPress / WYSIWYG HTML to plain text with `<p>` and `<br>`
+ * boundaries preserved as newlines. Adapters parse labeled fields like
+ * `Hash Cash: $5` on a per-line basis, so without this collapse cheerio's
+ * whitespace coalescing would join all paragraphs into one line and break
+ * the label extraction.
+ *
+ * Used by every adapter that consumes WP post bodies (kch3, ewh3, voodoo-h3
+ * et al.) plus the matching one-shot backfill scripts.
+ */
+export function htmlToNewlineText(html: string): string {
+  const $ = cheerio.load(html);
+  $("p, br").before("\n");
+  return $.text();
+}
+
 export function parse12HourTime(text: string): string | undefined {
   const match = /(\d{1,2}):(\d{2,3})\s*(am|pm)/i.exec(text);
   if (!match) return undefined;
