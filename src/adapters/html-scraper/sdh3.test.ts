@@ -3,6 +3,7 @@ import type { Source } from "@/generated/prisma/client";
 import {
   parseEventFields,
   parseHarelineDate,
+  parseDogFriendly,
   extractHistoryEntry,
   parseHarelineEvents,
   parseHistoryEvents,
@@ -50,14 +51,27 @@ function makeSource(overrides?: Partial<Source>): Source {
   } as Source;
 }
 
-function mockFetchResponse(html: string) {
-  mockedSafeFetch.mockResolvedValue({
+/**
+ * Build a fake Response covering both `text()` (legacy) and `arrayBuffer()` (the
+ * UTF-8-forced path used by fetchSDH3Page after #1315). Pass raw `bytes` to
+ * simulate a server returning non-UTF-8-encoded bytes; otherwise `html` is
+ * UTF-8-encoded and both methods agree.
+ */
+function fakeResponse(html: string, bytes?: Uint8Array): Response {
+  const encoded = bytes ?? new TextEncoder().encode(html);
+  const ab = encoded.buffer.slice(encoded.byteOffset, encoded.byteOffset + encoded.byteLength);
+  return {
     ok: true,
     status: 200,
     statusText: "OK",
     text: () => Promise.resolve(html),
+    arrayBuffer: () => Promise.resolve(ab),
     headers: new Headers(),
-  } as Response);
+  } as Response;
+}
+
+function mockFetchResponse(html: string, bytes?: Uint8Array) {
+  mockedSafeFetch.mockResolvedValue(fakeResponse(html, bytes));
 }
 
 // ── Inline HTML fixtures ──
@@ -216,14 +230,34 @@ describe("extractHistoryEntry", () => {
 // ── parseEventFields ──
 
 describe("parseEventFields", () => {
-  it("extracts hares and location from label/value text", () => {
-    const text = "Trail Title\nHare(s): Surf N Turf, Deep Space 69\nAddress: Pioneer Park 1521 Washington Pl, San Diego, CA 92103\nRun Fee: $10\nTrail type: A to A\nDog friendly: Yes";
+  it("extracts discrete cost / trailType / dogFriendly / prelube fields (#1316)", () => {
+    const text = "Trail Title\nHare(s): Surf N Turf, Deep Space 69\nAddress: Pioneer Park 1521 Washington Pl, San Diego, CA 92103\nRun Fee: $10\nTrail type: A to A\nDog friendly: Yes\nPre-lube: SRO Lounge 5pm";
     const result = parseEventFields(text);
     expect(result.hares).toBe("Surf N Turf, Deep Space 69");
     expect(result.location).toBe("Pioneer Park 1521 Washington Pl, San Diego, CA 92103");
-    expect(result.description).toContain("Hash Cash: $10");
-    expect(result.description).toContain("Trail: A to A");
-    expect(result.description).toContain("Dog Friendly: Yes");
+    expect(result.cost).toBe("$10");
+    expect(result.trailType).toBe("A to A");
+    expect(result.dogFriendly).toBe(true);
+    expect(result.prelube).toBe("SRO Lounge 5pm");
+  });
+
+  it("does not smash structured fields into description (#1316 regression)", () => {
+    const text = "Hare(s): Test\nRun Fee: 5\nTrail type: A to A\nDog friendly: Yes\nPre-lube: TBD\nNotes: Bring water";
+    const result = parseEventFields(text);
+    // Description should carry only the actual notes body, not labeled fields.
+    expect(result.description ?? "").not.toContain("Hash Cash:");
+    expect(result.description ?? "").not.toContain("Trail:");
+    expect(result.description ?? "").not.toContain("Dog Friendly:");
+    expect(result.description ?? "").not.toContain("Pre-lube:");
+    expect(result.description).toBe("Bring water");
+  });
+
+  it("leaves trailType / cost / prelube undefined when labels absent", () => {
+    const result = parseEventFields("Hare(s): Solo\nAddress: TBD");
+    expect(result.cost).toBeUndefined();
+    expect(result.trailType).toBeUndefined();
+    expect(result.dogFriendly).toBeUndefined();
+    expect(result.prelube).toBeUndefined();
   });
 
   it("handles singular 'Hare:' label", () => {
@@ -286,7 +320,7 @@ describe("parseEventFields", () => {
     [
       "captures Notes block when value follows on the next line",
       "Hare(s): Test\nRun Fee: $5\nTrail type: A to A\nDog friendly: Yes\nNotes:\nIn honor of National Gummy Bear Day, your favorite little bear will be taking you through the deep dark streets of College area. Come dressed as your favorite bear and you will be rewarded with a special boozey prize.",
-      ["Hash Cash: $5", "Trail: A to A", "Dog Friendly: Yes", "In honor of National Gummy Bear Day", "special boozey prize"],
+      ["In honor of National Gummy Bear Day", "special boozey prize"],
     ],
     [
       "captures inline Notes value when present on same line",
@@ -307,6 +341,10 @@ describe("parseEventFields", () => {
     const result = parseEventFields(text);
     for (const frag of expectedFragments) expect(result.description).toContain(frag);
   });
+
+  // #1068 / #1316: the original first row asserted smashed `Hash Cash: ... | Trail: ... | Dog Friendly: ...`
+  // tokens in description; per #1316 those moved to discrete fields, so its expectedFragments
+  // list now mentions only the Notes body. The Notes-folding behavior is the unchanged invariant.
 
   it("drops raw GPS coordinates from location (#714)", () => {
     // Some hares enter coordinates directly as the address — not a useful venue name.
@@ -339,10 +377,11 @@ describe("parseHarelineEvents", () => {
       locationUrl: "https://maps.app.goo.gl/abc123",
       sourceUrl: "https://sdh3.com/e/event-20260320180000.shtml",
     });
-    expect(sdh3Event?.description).toContain("Hash Cash: $7");
-    expect(sdh3Event?.description).toContain("Trail: A to A");
-    expect(sdh3Event?.description).toContain("Dog Friendly: Yes");
-    expect(sdh3Event?.description).toContain("Bring a headlamp");
+    // #1316: per-label fields land on discrete columns, not in description.
+    expect(sdh3Event?.cost).toBe("$7");
+    expect(sdh3Event?.trailType).toBe("A to A");
+    expect(sdh3Event?.dogFriendly).toBe(true);
+    expect(sdh3Event?.description).toBe("Bring a headlamp");
   });
 
   it("parses a dt with minimal fields", () => {
@@ -511,6 +550,40 @@ describe("SDH3Adapter", () => {
     expect(result.diagnosticContext?.includeHistory).toBe(false);
   });
 
+  // #1315: sdh3.com serves UTF-8 bytes under a misdeclared charset header,
+  // so `response.text()` decodes them as Latin-1 and 🌮 becomes "ðŸŒ®".
+  // fetchSDH3Page reads arrayBuffer + forces TextDecoder("utf-8"); a quick
+  // way to assert that path is to feed a malicious `text()` (returns the
+  // mojibake) alongside the correct UTF-8 `arrayBuffer()` (returns the
+  // real bytes) — only the arrayBuffer path produces the actual taco.
+  it("decodes UTF-8 bytes despite a server's lying charset header (#1315)", async () => {
+    const harelineWithEmoji = HARELINE_HTML.replace(
+      "Bring a headlamp",
+      "Bring lots of ca$h and ID 🌮 You know I love TACOS",
+    );
+    const utf8Bytes = new TextEncoder().encode(harelineWithEmoji);
+    // Mojibake string: what response.text() would return if the server lied
+    // about charset. We pass it as the `text()` value so any code path that
+    // still uses it will produce the wrong output.
+    const mojibake = harelineWithEmoji.replace("🌮", "ðŸŒ®");
+    mockedSafeFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      text: () => Promise.resolve(mojibake),
+      arrayBuffer: () => Promise.resolve(
+        utf8Bytes.buffer.slice(utf8Bytes.byteOffset, utf8Bytes.byteOffset + utf8Bytes.byteLength),
+      ),
+      headers: new Headers(),
+    } as Response);
+
+    const source = makeSource();
+    const result = await adapter.fetch(source, { days: 365 });
+    const sdh3Event = result.events.find((e) => e.kennelTags[0] === "sdh3");
+    expect(sdh3Event?.description).toContain("🌮");
+    expect(sdh3Event?.description).not.toContain("ðŸŒ®");
+  });
+
   it("fetches both hareline and history when includeHistory is true", async () => {
     // First call returns hareline, second returns history, subsequent calls are enrichment
     const enrichmentHtml = `<html><body><div style="margin-left:25px"><span>
@@ -518,27 +591,9 @@ describe("SDH3Adapter", () => {
       <strong>Address:</strong> 123 Enriched St<br />
     </span></div></body></html>`;
     mockedSafeFetch
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        statusText: "OK",
-        text: () => Promise.resolve(HARELINE_HTML),
-        headers: new Headers(),
-      } as Response)
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        statusText: "OK",
-        text: () => Promise.resolve(HISTORY_HTML),
-        headers: new Headers(),
-      } as Response)
-      .mockResolvedValue({
-        ok: true,
-        status: 200,
-        statusText: "OK",
-        text: () => Promise.resolve(enrichmentHtml),
-        headers: new Headers(),
-      } as Response);
+      .mockResolvedValueOnce(fakeResponse(HARELINE_HTML))
+      .mockResolvedValueOnce(fakeResponse(HISTORY_HTML))
+      .mockResolvedValue(fakeResponse(enrichmentHtml));
 
     const source = makeSource({
       config: {
@@ -578,27 +633,9 @@ describe("SDH3Adapter", () => {
 </body></html>`;
 
     mockedSafeFetch
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        statusText: "OK",
-        text: () => Promise.resolve(harelineWithOverlap),
-        headers: new Headers(),
-      } as Response)
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        statusText: "OK",
-        text: () => Promise.resolve(HISTORY_HTML),
-        headers: new Headers(),
-      } as Response)
-      .mockResolvedValue({
-        ok: true,
-        status: 200,
-        statusText: "OK",
-        text: () => Promise.resolve("<html><body><div style='margin-left:25px'><span></span></div></body></html>"),
-        headers: new Headers(),
-      } as Response);
+      .mockResolvedValueOnce(fakeResponse(harelineWithOverlap))
+      .mockResolvedValueOnce(fakeResponse(HISTORY_HTML))
+      .mockResolvedValue(fakeResponse("<html><body><div style='margin-left:25px'><span></span></div></body></html>"));
 
     const source = makeSource({
       config: {
@@ -625,6 +662,7 @@ describe("SDH3Adapter", () => {
       status: 503,
       statusText: "Service Unavailable",
       text: () => Promise.resolve(""),
+      arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
       headers: new Headers(),
     } as Response);
 
@@ -672,5 +710,21 @@ describe("SDH3Adapter", () => {
     // Near-term event should be included
     const currentEvent = result.events.find((e) => e.date === "2026-03-20");
     expect(currentEvent).toBeDefined();
+  });
+});
+
+// ── parseDogFriendly (#1316) ──
+
+describe("parseDogFriendly", () => {
+  it.each([
+    ["Yes", true], ["yes", true], ["YES!", true], ["Y", true],
+    ["Sometimes", true], ["Welcome", true], ["always with leash", true],
+    ["No", false], ["no", false], ["Never", false], ["Nope", false],
+    ["Maybe", null], ["TBD", null], ["Ask the hare", null], ["", null],
+    // Tri-state safety: ambiguous strings that prefix-matched "n" before
+    // the word-boundary fix must NOT coerce to false (Codex review).
+    ["Not sure", null], ["n/a", null], ["N/A", null], ["need to ask venue", null],
+  ] as const)("parses %j → %s", (input, expected) => {
+    expect(parseDogFriendly(input)).toBe(expected);
   });
 });

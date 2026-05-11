@@ -48,6 +48,7 @@ async function main() {
         locationCity: true, locationAddress: true, latitude: true, longitude: true,
         startTime: true, endTime: true, cost: true, sourceUrl: true,
         runNumber: true, description: true,
+        trailType: true, dogFriendly: true, prelube: true,
       },
     });
 

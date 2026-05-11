@@ -346,6 +346,12 @@ model Event {
   /// User-facing label is "Shiggy Level" (hash vernacular); DB column stays generic so other
   /// adapters' "rating"/"hardness" fields can land in the same column later.
   difficulty           Int?
+  /// Trail layout description, verbatim from source ("A to A", "A to B", "Live Hare", etc.).
+  trailType            String?
+  /// Whether dogs are welcome at the trail. null = unknown / source didn't say.
+  dogFriendly          Boolean?
+  /// Pre-event meetup venue/time, free-form text.
+  prelube              String?
   sourceUrl         String? // Link to original event page
   trustLevel        Int         @default(5)
   isSeriesParent    Boolean     @default(false)

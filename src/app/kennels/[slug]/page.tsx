@@ -161,6 +161,10 @@ export default async function KennelDetailPage({
     trailLengthMinMiles: e.trailLengthMinMiles,
     trailLengthMaxMiles: e.trailLengthMaxMiles,
     difficulty: e.difficulty,
+    trailType: e.trailType,
+    dogFriendly: e.dogFriendly,
+    prelube: e.prelube,
+    cost: e.cost,
   }));
 
   const upcoming = serialized.filter(

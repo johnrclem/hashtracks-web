@@ -30,6 +30,12 @@ export interface RawEventData {
   trailLengthMaxMiles?: number | null;
   /** Shiggy Scale 1–5 (user-facing label "Shiggy Level"). Adapter-validated range. */
   difficulty?: number | null;
+  /** Trail layout description, verbatim ("A to A", "A to B", "Live Hare", etc.). */
+  trailType?: string | null;
+  /** Whether dogs are welcome. null = label found but unparseable; clears stale value. */
+  dogFriendly?: boolean | null;
+  /** Pre-event meetup venue/time, free-form text. */
+  prelube?: string | null;
   sourceUrl?: string;
   externalLinks?: { url: string; label: string }[]; // Additional links (creates EventLink records)
   seriesId?: string; // Groups multi-day events (e.g., Hash Rego event slug)

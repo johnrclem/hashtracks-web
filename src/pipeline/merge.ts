@@ -315,6 +315,9 @@ const EVENT_CACHE_SELECT = {
   trailLengthMinMiles: true,
   trailLengthMaxMiles: true,
   difficulty: true,
+  trailType: true,
+  dogFriendly: true,
+  prelube: true,
   sourceUrl: true,
   trustLevel: true,
   isSeriesParent: true,
@@ -1343,6 +1346,15 @@ async function upsertCanonicalEvent(
           ...(event.difficulty === undefined
             ? {}
             : { difficulty: event.difficulty ?? null }),
+          ...(event.trailType === undefined
+            ? {}
+            : { trailType: event.trailType ?? null }),
+          ...(event.dogFriendly === undefined
+            ? {}
+            : { dogFriendly: event.dogFriendly ?? null }),
+          ...(event.prelube === undefined
+            ? {}
+            : { prelube: event.prelube ?? null }),
           // Cross-window fuzzy match (#990) physically moves the row from
           // its old `date` bucket to the incoming source's date, so display
           // paths that compose `date + startTime + timezone` render the
@@ -1444,6 +1456,15 @@ async function upsertCanonicalEvent(
       if (existingEvent.difficulty == null && event.difficulty != null) {
         enrichData.difficulty = event.difficulty;
       }
+      if (existingEvent.trailType == null && event.trailType != null) {
+        enrichData.trailType = event.trailType;
+      }
+      if (existingEvent.dogFriendly == null && event.dogFriendly != null) {
+        enrichData.dogFriendly = event.dogFriendly;
+      }
+      if (existingEvent.prelube == null && event.prelube != null) {
+        enrichData.prelube = event.prelube;
+      }
       if (Object.keys(enrichData).length > 0) {
         const enriched = await prisma.event.update({
           where: { id: existingEvent.id },
@@ -1502,6 +1523,9 @@ async function upsertCanonicalEvent(
       trailLengthMinMiles: event.trailLengthMinMiles,
       trailLengthMaxMiles: event.trailLengthMaxMiles,
       difficulty: event.difficulty,
+      trailType: event.trailType,
+      dogFriendly: event.dogFriendly,
+      prelube: event.prelube,
       sourceUrl: event.sourceUrl,
       trustLevel: ctx.trustLevel,
       latitude: coords.latitude,
@@ -1755,24 +1779,41 @@ type CanonicalCandidate = {
   sourceUrl: string | null;
   runNumber: number | null;
   description: string | null;
+  trailType: string | null;
+  dogFriendly: boolean | null;
+  prelube: string | null;
 };
 
+/**
+ * Truthy display fields each count one toward the score. Listed once here so
+ * adding a new column means one line, not another branch — keeps the function
+ * under Sonar S3776's cognitive-complexity threshold even as the schema grows.
+ */
+const COMPLETENESS_TRUTHY_FIELDS: ReadonlyArray<
+  keyof Omit<CanonicalCandidate, "id" | "trustLevel" | "createdAt" | "status">
+> = [
+  "title",
+  "haresText",
+  "locationName",
+  "locationStreet",
+  "locationCity",
+  "locationAddress",
+  "startTime",
+  "endTime",
+  "cost",
+  "sourceUrl",
+  "description",
+  "trailType",
+  "prelube",
+];
+
 export function completenessScore(e: Omit<CanonicalCandidate, "id" | "trustLevel" | "createdAt" | "status">): number {
-  let score = 0;
-  if (e.title) score++;
-  if (e.haresText) score++;
-  if (e.locationName) score++;
-  if (e.locationStreet) score++;
-  if (e.locationCity) score++;
-  if (e.locationAddress) score++;
+  let score = COMPLETENESS_TRUTHY_FIELDS.reduce((n, k) => n + (e[k] ? 1 : 0), 0);
   // Coords count as one unit — half a pair is useless for display.
   if (e.latitude != null && e.longitude != null) score++;
-  if (e.startTime) score++;
-  if (e.endTime) score++;
-  if (e.cost) score++;
-  if (e.sourceUrl) score++;
+  // Numeric/boolean fields where 0 / false is still "populated".
   if (e.runNumber != null) score++;
-  if (e.description) score++;
+  if (e.dogFriendly != null) score++;
   return score;
 }
 
