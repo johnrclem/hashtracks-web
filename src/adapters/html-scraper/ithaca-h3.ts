@@ -176,13 +176,19 @@ export function parseIH3Block(
   }
 
   // Extract cost — fixed "Cost: $X (...)" line on every event (#1346).
-  // `\n` is a terminator because cheerio's `.text()` collapses well-formed
-  // `<br>` to newlines; the label list is the terminator when the source
-  // omits `<br>` and labels run together (see TBDWhen test). Carrying the
-  // full label set defends against any field-reordering the source might
-  // introduce in the future (gemini-code-assist review on #1379).
-  const costMatch = /Cost\s*:?\s*(.+?)(?:\n|Details\s*:|Hares?\s*:|Where\s*:|When\s*:|$)/i.exec(blockText);
-  const cost = costMatch ? stripPlaceholder(costMatch[1]) : undefined;
+  // Uses the same slice-+-split shape the location extraction above uses:
+  // anchor on the label, then split on the next label / newline. This
+  // avoids the `Label\s*:?\s*(.+?)(?:alt|...|$)` lazy-quantifier shape that
+  // Sonar S5852 flags as ReDoS-vulnerable (the actual input is a single
+  // event block, so it's linear in practice, but reusing the established
+  // pattern keeps the analyzer quiet and matches the file's house style).
+  let cost: string | undefined;
+  const costLabelMatch = /Cost\s*:?\s*/i.exec(blockText);
+  if (costLabelMatch) {
+    const afterCost = blockText.slice(costLabelMatch.index + costLabelMatch[0].length);
+    const costRaw = afterCost.split(/\n|Details\s*:|Hares?\s*:|Where\s*:|When\s*:/i)[0] ?? "";
+    cost = stripPlaceholder(costRaw);
+  }
 
   return {
     date,

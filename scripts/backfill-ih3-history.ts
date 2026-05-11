@@ -60,7 +60,7 @@ import type { RawEventData } from "@/adapters/types";
 
 const SOURCE_NAME = "IH3 Website Hareline";
 const KENNEL_TIMEZONE = "America/New_York";
-const TRAIL_LOG_URL = "http://ithacah3.org/hair_line-trail_log/";
+const TRAIL_LOG_URL = "http://ithacah3.org/hair_line-trail_log/"; // NOSONAR — source has expired SSL
 
 async function fetchEvents(): Promise<RawEventData[]> {
   console.log(`Fetching ${TRAIL_LOG_URL}`);

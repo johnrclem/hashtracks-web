@@ -193,7 +193,7 @@ describe("parseIH3Block", () => {
 });
 
 describe("parseTrailLog", () => {
-  const sourceUrl = "http://ithacah3.org/hair_line-trail_log/";
+  const sourceUrl = "http://ithacah3.org/hair_line-trail_log/"; // NOSONAR — source has expired SSL
 
   it("parses a complete trail log row with title + location", () => {
     const html = `<p><strong>Hash #1097:</strong> Not at Grass Roots trail<br>2025-07-20; Mulholland Wildflower Preserve</p>`;
