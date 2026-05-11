@@ -8,8 +8,18 @@ import type {
   ErrorDetails,
 } from "../types";
 import { hasAnyErrors } from "../types";
-import { fetchHTMLPage, parse12HourTime, HARE_BOILERPLATE_RE } from "../utils";
+import {
+  fetchHTMLPage,
+  parse12HourTime,
+  HARE_BOILERPLATE_RE,
+  decodeEntities,
+  stripPlaceholder,
+} from "../utils";
 import { extractCoordsFromMapsUrl } from "@/lib/geo";
+
+/** Labels that appear inside `<strong>` tags on the hare-line — used to skip
+ *  label-only strongs when hunting for the event title strong. */
+const IH3_LABEL_STRONG_RE = /^\s*(?:hares?|where|when|cost|details)\s*:?\s*$/i;
 
 /**
  * Parse a date string like "March 15" into "YYYY-MM-DD" with year inference.
@@ -48,15 +58,23 @@ export function parseIH3Date(text: string): string | null {
 /**
  * Parse a single event <p> block from the IH3 hare-line page.
  *
- * Expected HTML structure:
+ * Expected HTML structure (the title strong is optional and only present when
+ * the trail has a published name — #1344):
  *   <p>
  *     <strong>#1119: March 15</strong><br>
+ *     <strong>RAINBOW DRESS RUN</strong><br>    (optional — title)
  *     <strong>Hares:</strong> Flesh Flaps &amp; Spike<br>
  *     <span style="font-weight: 600;">Where</span>: <a href="maps-url">Flat Rock</a><br>
  *     <span style="font-weight: 600;">When:</span> 2:00 pm<br>
  *     <span style="font-weight: 600;">Cost:</span> $5 (first timers free)<br>
  *     <span style="font-weight: 600;">Details</span>: <a href="...">touch me</a>
  *   </p>
+ *
+ * The site frequently embeds `<br>` inside the next decorative `<span>` rather
+ * than as a separator between fields, so `$block.text()` collapses adjacent
+ * fields with no whitespace (e.g. `When: 12:00 pmCost: $8`). The `.+?`
+ * lazy-match + next-label alternation in the When/Cost regexes is the load-
+ * bearing fix for that — don't simplify to `.*$` (#1123).
  */
 export function parseIH3Block(
   $block: cheerio.Cheerio<AnyNode>,
@@ -67,13 +85,37 @@ export function parseIH3Block(
   const blockText = $block.text();
 
   // Extract trail number and date from the first <strong>
-  const headerMatch = /#(\d+)\s*:\s*(.+)/i.exec($block.find("strong").first().text());
+  const strongs = $block.find("strong");
+  const headerMatch = /#(\d+)\s*:\s*(.+)/i.exec(strongs.first().text());
   if (!headerMatch) return null;
 
   const runNumber = parseInt(headerMatch[1], 10);
   const dateText = headerMatch[2].trim();
   const date = parseIH3Date(dateText);
   if (!date) return null;
+
+  // Extract event title — first <strong> after the header that isn't a field
+  // label (Hares/Where/When/Cost/Details). When the source omits a title,
+  // leave it undefined so merge.ts synthesizes "Ithaca H3 Trail #NNNN" via
+  // friendlyKennelName instead of locking in a placeholder #1344.
+  //
+  // Known tradeoff (#1344 / codex adversarial review): if a source admin
+  // removes a previously published title, the next scrape emits undefined and
+  // merge.ts will overwrite the canonical Event.title with the synthesized
+  // default. This is the same behavior every conditional-title adapter has
+  // in the codebase (see hashnyc.ts). Acceptable because (a) source admins
+  // rarely strip published titles, and (b) the synthesized fallback is
+  // strictly better than the pre-PR "IH3 #N" placeholder we used to ship.
+  let title: string | undefined;
+  strongs.each((i, el) => {
+    if (i === 0) return;
+    const t = $(el).text();
+    if (IH3_LABEL_STRONG_RE.test(t)) return;
+    const cleaned = decodeEntities(t).replaceAll(/\s+/g, " ").trim();
+    if (!cleaned) return;
+    title = cleaned;
+    return false; // break cheerio .each() once we have the title
+  });
 
   // Extract hares
   let hares: string | undefined;
@@ -132,19 +174,96 @@ export function parseIH3Block(
     startTime = parse12HourTime(whenMatch[1]);
   }
 
+  // Extract cost — fixed "Cost: $X (...)" line on every event (#1346).
+  // `\n` is a terminator because cheerio's `.text()` collapses well-formed
+  // `<br>` to newlines; `Details` is the terminator when the source omits
+  // `<br>` and labels run together (see TBDWhen test).
+  const costMatch = /Cost\s*:?\s*(.+?)(?:\n|Details|$)/i.exec(blockText);
+  const cost = costMatch ? stripPlaceholder(costMatch[1]) : undefined;
+
   return {
     date,
     kennelTags: ["ih3"],
-    runNumber: !isNaN(runNumber) ? runNumber : undefined,
-    title: `IH3 #${runNumber}`,
+    runNumber,
+    title,
     hares,
     location,
     locationUrl,
     latitude,
     longitude,
     startTime,
+    cost,
     sourceUrl: detailUrl || sourceUrl,
   };
+}
+
+/**
+ * Parse the IH3 Trail Log archive page (`/hair_line-trail_log/`).
+ *
+ * Row shape (verified live 2026-05):
+ *   <p[ class="event_W|I|L|D"]?>
+ *     <strong>Hash #NNNN:</strong> [optional title]
+ *     <br>YYYY-MM-DD; Location
+ *   </p>
+ *
+ * Used by `scripts/backfill-ih3-history.ts` to backfill ~99 historical events
+ * (#999–#1097, 2022-09 → 2025-07) that pre-date the kennel's WordPress hare-line
+ * (which only carries upcoming runs).
+ *
+ * Notes:
+ * - Title can be empty (`<strong>Hash #1093:</strong> <br>2025-05-25; …`).
+ * - `class="event_W"` etc. are category colors — not relevant to parsing.
+ * - The live page duplicates one row (`#1083` appears twice). We don't dedupe
+ *   here; the merge pipeline's `(sourceId, fingerprint)` unique index catches
+ *   it. Don't "fix" the duplicate emit — fingerprint dedup is the load-bearing
+ *   correctness guarantee, and one row twice in the parser output is harmless.
+ */
+export function parseTrailLog(html: string, sourceUrl: string): RawEventData[] {
+  const $ = cheerio.load(html);
+  const out: RawEventData[] = [];
+
+  $("p").each((_i, el) => {
+    const $p = $(el);
+    const strongText = $p.find("strong").first().text();
+    const header = /Hash\s*#(\d+)\s*:/i.exec(strongText);
+    if (!header) return;
+    const runNumber = parseInt(header[1], 10);
+
+    // Split inner HTML on the <br> separating "Hash #N: Title" from "Date; Location".
+    const inner = $.html($p);
+    const brSplit = inner.split(/<br\s*\/?>/i);
+    if (brSplit.length < 2) return;
+
+    // Title: text content of the first half, after the closing </strong>.
+    const titleMatch = /<\/strong>([\s\S]*)$/i.exec(brSplit[0]);
+    const titleRaw = titleMatch
+      ? cheerio.load(`<div>${titleMatch[1]}</div>`)("div").text()
+      : "";
+    const titleClean = decodeEntities(titleRaw).replaceAll(/\s+/g, " ").trim();
+    const title = titleClean || undefined;
+
+    // Date + location: "YYYY-MM-DD; Location" in the second half.
+    const datesHalfRaw = cheerio
+      .load(`<div>${brSplit[1]}</div>`)("div")
+      .text();
+    const datesHalf = decodeEntities(datesHalfRaw).trim();
+    const dateMatch = /^(\d{4}-\d{2}-\d{2})\s*[;,]?\s*(.*)$/.exec(datesHalf);
+    if (!dateMatch) return;
+    const date = dateMatch[1];
+    const locationClean = dateMatch[2].replaceAll(/\s+/g, " ").trim();
+    const location = locationClean || undefined;
+
+    out.push({
+      date,
+      kennelTags: ["ih3"],
+      runNumber,
+      title,
+      location,
+      sourceUrl,
+    });
+  });
+
+  return out;
 }
 
 /**
