@@ -301,6 +301,47 @@ export async function fetchWordPressPosts(
  * Decodes title entities so callers can match against the live adapter's
  * post.title shape without re-decoding.
  */
+interface WordPressBatchItem {
+  title?: { rendered?: string };
+  content?: { rendered?: string };
+  link?: string;
+  date?: string;
+}
+
+function toWordPressPost(item: WordPressBatchItem): WordPressPost {
+  return {
+    title: he.decode(item.title?.rendered ?? ""),
+    content: item.content?.rendered ?? "",
+    url: item.link ?? "",
+    date: item.date ?? "",
+  };
+}
+
+/**
+ * Sanitize a WP REST API JSON page and parse it. Some sites embed literal
+ * control characters inside JSON string values (e.g. Voodoo H3 has raw
+ * newlines inside post bodies) which makes a plain `JSON.parse` throw.
+ * Strips non-whitespace control bytes, escapes whitespace control bytes
+ * only inside string literals, then parses.
+ */
+function parseWordPressBatch(raw: string, page: number): WordPressBatchItem[] {
+  const sanitized = raw
+    .replaceAll(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, "")
+    .replaceAll(/"(?:[^"\\]|\\.)*"/g, (match) =>
+      match
+        .replaceAll("\t", String.raw`\t`)
+        .replaceAll("\n", String.raw`\n`)
+        .replaceAll("\r", String.raw`\r`),
+    );
+  const batch: unknown = JSON.parse(sanitized);
+  if (!Array.isArray(batch)) {
+    throw new TypeError(
+      `WordPress paginator page ${page}: expected JSON array, got ${typeof batch}`,
+    );
+  }
+  return batch as WordPressBatchItem[];
+}
+
 export async function fetchAllWordPressPosts(
   siteUrl: string,
   options: { perPage?: number; maxPages?: number } = {},
@@ -336,36 +377,10 @@ export async function fetchAllWordPressPosts(
     if (!response.ok) {
       throw new Error(`WordPress paginator page ${page}: HTTP ${response.status}`);
     }
-    // Some WordPress sites embed literal control characters in JSON string
-    // values (e.g. Voodoo H3 has raw newlines inside post bodies). Use the
-    // same sanitization as `fetchWordPressPosts` so the paginator survives.
-    const raw = await response.text();
-    const sanitized = raw
-      .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, "")
-      .replace(/"(?:[^"\\]|\\.)*"/g, (match) =>
-        match.replace(/\t/g, "\\t").replace(/\n/g, "\\n").replace(/\r/g, "\\r"),
-      );
-    const batch: unknown = JSON.parse(sanitized);
-    if (!Array.isArray(batch)) {
-      throw new Error(
-        `WordPress paginator page ${page}: expected JSON array, got ${typeof batch}`,
-      );
-    }
+    const batch = parseWordPressBatch(await response.text(), page);
     lastBatchSize = batch.length;
     if (batch.length === 0) return posts;
-    for (const item of batch as Array<{
-      title?: { rendered?: string };
-      content?: { rendered?: string };
-      link?: string;
-      date?: string;
-    }>) {
-      posts.push({
-        title: he.decode(item.title?.rendered ?? ""),
-        content: item.content?.rendered ?? "",
-        url: item.link ?? "",
-        date: item.date ?? "",
-      });
-    }
+    posts.push(...batch.map(toWordPressPost));
     if (batch.length < perPage) return posts;
   }
 
