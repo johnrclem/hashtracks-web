@@ -19,8 +19,9 @@ const TRAIL_MARKER = /H4 Trail\s*#\d+/i;
  * (`findFirstLocationStopIndex`).
  */
 const HANGOVER_LOCATION_STOP_PATTERNS: readonly RegExp[] = [
-  /Metro\s*Acce[s]+ibility\s*:/i,
-  /Acce[s]+ibility\s*:/i,
+  // `Acces+ibility` tolerates the `Accesibility` typo in real Hangover posts.
+  /Metro\s*Acces+ibility\s*:/i,
+  /Acces+ibility\s*:/i,
   /Shiggy\s*Rating\s*:/i,
   /D.Erections?\s*:/i,
   /Trail\s*Length\s*:/i,

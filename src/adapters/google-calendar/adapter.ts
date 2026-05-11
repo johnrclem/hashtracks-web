@@ -506,18 +506,30 @@ export function extractCostFromDescription(description: string): string | undefi
 
 const mapsUrl = googleMapsSearchUrl;
 
-/** Instruction phrases that indicate a GCal location field contains directions, not an address.
- *  Sibling template labels (`when:`, `how:`, `venmo`/`paypal`/`cashapp`, ...) are listed so that
- *  the bare-label `WHERE:` capture path (#1328) doesn't surface the next labeled line as a venue
- *  when `WHERE:` was left blank in the template (#1329). */
-const NON_ADDRESS_RE = /^(?:use the|check the|see the|see description|click|follow the|refer to|details in|when:|why:|hare:|what:|who:|cost:|how:|how\s+much:|hash\s+cash:|venmo|pay\s*pal|cash\s*app|zelle|on[\s-]?after:|pack\s*meet:|pre[\s-]?lube:|trail\s*(?:type|length):)/i;
+/** Instruction phrases that indicate a GCal location field is direction text. */
+const NON_ADDRESS_INSTRUCTION_RE = /^(?:use the|check the|see the|see description|click|follow the|refer to|details in)/i;
+/** Single-word sibling labels — leak when `WHERE:` is left blank in a template
+ *  (#1329 Flour City: `Where:\nWhen: 5:69` would otherwise capture "When: 5:69"). */
+const NON_ADDRESS_SINGLE_LABEL_RE = /^(?:when|why|hare|what|who|cost|how)\s*:/i;
+/** Multi-word sibling labels (`On-After:`, `Hash Cash:`, `Pre-lube:` etc.). */
+const NON_ADDRESS_MULTI_LABEL_RE = /^(?:how\s+much|hash\s+cash|on[\s-]?after|pack\s*meet|pre[\s-]?lube|trail\s*(?:type|length))\s*:/i;
+/** Bare payment keywords — `Venmo or PayPal: …` etc. */
+const NON_ADDRESS_PAYMENT_RE = /^(?:venmo|pay\s*pal|cash\s*app|zelle)\b/i;
 /** Suffix phrase indicating the field is a placeholder like "DST start location". */
 const NON_ADDRESS_SUFFIX_RE = /\bstart\s+location\s*$/i;
 
-/** Returns true if text starts with instruction phrasing rather than an address. */
+/** Returns true if text starts with instruction phrasing rather than an address.
+ *  Patterns are split across multiple small regexes so each stays under
+ *  SonarQube's S5843 complexity threshold of 20. */
 function isNonAddressText(text: string): boolean {
   const t = text.trim();
-  return NON_ADDRESS_RE.test(t) || NON_ADDRESS_SUFFIX_RE.test(t);
+  return (
+    NON_ADDRESS_INSTRUCTION_RE.test(t) ||
+    NON_ADDRESS_SINGLE_LABEL_RE.test(t) ||
+    NON_ADDRESS_MULTI_LABEL_RE.test(t) ||
+    NON_ADDRESS_PAYMENT_RE.test(t) ||
+    NON_ADDRESS_SUFFIX_RE.test(t)
+  );
 }
 
 /** Config shape for Google Calendar sources */

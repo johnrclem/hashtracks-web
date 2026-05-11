@@ -78,6 +78,35 @@ function splitCellSegments(raw: string): string[] {
 const PHUKET_DIRECTIONS_RE =
   /(?:Coming from|From the|Heading|Head toward|Turn (?:left|right)|Go past|Continue|Follow|The run|GPS\s*:)[\s\S]*/i;
 
+/** Placeholder-only venue values that should resolve to undefined location. */
+const PHUKET_PLACEHOLDER_VENUE_RE = /^(?:location:\s*tbc|tbc|tbd)$/i;
+
+/** Hares cell → comma-joined sorted list (stable fingerprint per project rule). */
+function parsePhuketHares(cell: string | undefined): string | undefined {
+  if (!cell) return undefined;
+  const segments = splitCellSegments(cell);
+  if (segments.length === 0) return undefined;
+  return normalizeHaresField(
+    [...segments].sort((a, b) => a.localeCompare(b)).join(", "),
+  );
+}
+
+/** Location cell → venue (first <br>-segment, directions stripped) + description (remaining segments). */
+function parsePhuketLocationCell(cell: string | undefined): {
+  location?: string;
+  description?: string;
+} {
+  if (!cell) return {};
+  const segments = splitCellSegments(cell);
+  if (segments.length === 0) return {};
+  const venue = segments[0].replace(PHUKET_DIRECTIONS_RE, "").trim();
+  const location =
+    venue.length > 0 && !PHUKET_PLACEHOLDER_VENUE_RE.test(venue) ? venue : undefined;
+  const rest = segments.slice(1).filter(Boolean);
+  const description = rest.length > 0 ? rest.join("\n") : undefined;
+  return { location, description };
+}
+
 /** Parse a single hareline table row. Cell strings are expected to encode
  *  `<br>` boundaries as `\n` (see the adapter's cell extraction). Exported
  *  for testing. */
@@ -98,31 +127,13 @@ export function parsePhuketRow(
   const runNumberMatch = /(\d+)/.exec(cells[2] ?? "");
   const runNumber = runNumberMatch ? Number.parseInt(runNumberMatch[1], 10) : undefined;
 
-  // Cell 3 = hares column (one hare per <br>-delimited line; #1327 fixed the
-  // BUNNYKEN-PIS / LA-LASAGNA / DOMINO-CUNT run-on by switching to <br>-aware
-  // segment splitting). Sort + comma-join keeps the fingerprint deterministic.
-  const hareSegments = cells.length > 3 ? splitCellSegments(cells[3]) : [];
-  const hares = hareSegments.length > 0
-    ? normalizeHaresField([...hareSegments].sort((a, b) => a.localeCompare(b)).join(", "))
-    : undefined;
+  // Hares column (#1327): one hare per <br>-delimited line; sort + comma-join
+  // for stable fingerprint per project rule.
+  const hares = parsePhuketHares(cells[3]);
 
-  // Cell 4 = location column. The cell typically has:
-  //   <venue><br>ON-ON: <on-after><br>Theme: <theme><br>Bus: <bus schedule>
-  // First segment is the venue; remaining segments are description content.
-  let location: string | undefined;
-  let description: string | undefined;
-  if (cells.length > 4) {
-    const segments = splitCellSegments(cells[4]);
-    if (segments.length > 0) {
-      // Venue: first segment, with driving-directions noise stripped.
-      let venue = segments[0].replace(PHUKET_DIRECTIONS_RE, "").trim();
-      if (/^(?:location:\s*tbc|tbc|tbd)$/i.test(venue)) venue = "";
-      if (venue.length > 0) location = venue;
-      // Description: remaining segments (OnOn / Theme / Bus / etc.)
-      const rest = segments.slice(1).filter(Boolean);
-      if (rest.length > 0) description = rest.join("\n");
-    }
-  }
+  // Location column (#1327): <venue><br>ON-ON: …<br>Theme: …<br>Bus: …
+  // First segment → locationName, rest → description.
+  const { location, description } = parsePhuketLocationCell(cells[4]);
 
   return {
     date,

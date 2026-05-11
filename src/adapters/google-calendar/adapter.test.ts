@@ -1502,7 +1502,7 @@ describe("extractLocationFromDescription", () => {
   // Current behaviour (limited): description's `WHERE:\n<coord-line>\n<venue>` only captures
   // the first line. When that's coord-shaped we reject it (returns undefined) rather than
   // surface coords as the display name. The kennel-centroid fallback then takes over. Picking
-  // up `<venue>` from the second line is a future improvement (see TODO in adapter).
+  // up `<venue>` from the second line is a future improvement tracked separately.
   it("(#1328 follow-up) rejects coord-shaped first line under WHERE: (returns undefined)", () => {
     const desc = "WHERE:\n42.38948, -83.0508\nHamtramck Stadium\nHamtramck, MI";
     expect(extractLocationFromDescription(desc)).toBeUndefined();

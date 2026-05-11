@@ -28,7 +28,8 @@ import { prisma } from "../src/lib/db";
 
 const APPLY = process.argv.includes("--apply");
 
-/** Same shape as NON_ADDRESS_RE in src/adapters/google-calendar/adapter.ts — must stay in sync.
+/** Mirrors the NON_ADDRESS_SINGLE_LABEL_RE / _MULTI_LABEL_RE prefixes in
+ *  src/adapters/google-calendar/adapter.ts — must stay in sync.
  *  `hares?` covers both singular and plural — must match every entry in
  *  TEMPLATE_LABEL_PREFIXES so DB-pulled rows don't get silently skipped. */
 const TEMPLATE_LABEL_RE = /^\s*(?:when|why|hares?|what|who|cost)\s*:/i;
