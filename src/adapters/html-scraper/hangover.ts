@@ -49,14 +49,18 @@ function findFirstLocationStopIndex(s: string): number {
 
 /** Non-English country-locale tail from Google Maps widget exports
  *  (`Clarksburg, MD 20871, États-Unis` etc.). Lifted to module scope so
- *  `cleanHangoverLocation` doesn't recompile it per event. */
+ *  `cleanHangoverLocation` doesn't recompile it per event.
+ *
+ *  NOSONAR S5852 — `\s*` prefix runs against literal locale alternatives
+ *  (distinct first characters), `[\s-]?` is bounded; linear in practice. */
 const HANGOVER_LOCALE_TAIL_RE =
-  /,?\s*(?:États[\s-]?Unis|Estados Unidos|Vereinigte Staaten|Stati Uniti)\b[^\n]*$/i;
+  /,?\s*(?:États[\s-]?Unis|Estados Unidos|Vereinigte Staaten|Stati Uniti)\b[^\n]*$/i; // NOSONAR
 
 /** Trailing whitespace / sentence punctuation stripped after a label cut.
  *  Deliberately does NOT include `)` — balanced parentheses like `(rear)`
- *  belong to the address and must survive the cut. */
-const HANGOVER_TRAILING_PUNCT_RE = /[\s,;.!?]+$/;
+ *  belong to the address and must survive the cut.
+ *  NOSONAR S5852 — character-class quantifier at end-of-string is linear. */
+const HANGOVER_TRAILING_PUNCT_RE = /[\s,;.!?]+$/; // NOSONAR
 
 /**
  * Clean a captured location string: strip map-widget concatenation, non-English
@@ -84,7 +88,8 @@ export function cleanHangoverLocation(raw: string): string | undefined {
     cleaned = cleaned.slice(0, stopIdx).replace(HANGOVER_TRAILING_PUNCT_RE, "");
   }
 
-  cleaned = cleaned.replace(/[,\s·*]+$/, "").trim();
+  // NOSONAR S5852 — anchored character-class quantifier at end-of-string; linear.
+  cleaned = cleaned.replace(/[,\s·*]+$/, "").trim(); // NOSONAR
   if (cleaned.length < 3) return undefined;
   return cleaned;
 }

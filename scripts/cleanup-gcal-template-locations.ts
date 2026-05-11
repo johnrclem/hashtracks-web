@@ -28,8 +28,10 @@ import { prisma } from "../src/lib/db";
 
 const APPLY = process.argv.includes("--apply");
 
-/** Same shape as NON_ADDRESS_RE in src/adapters/google-calendar/adapter.ts — must stay in sync. */
-const TEMPLATE_LABEL_RE = /^\s*(?:when|why|hare|what|who|cost)\s*:/i;
+/** Same shape as NON_ADDRESS_RE in src/adapters/google-calendar/adapter.ts — must stay in sync.
+ *  `hares?` covers both singular and plural — must match every entry in
+ *  TEMPLATE_LABEL_PREFIXES so DB-pulled rows don't get silently skipped. */
+const TEMPLATE_LABEL_RE = /^\s*(?:when|why|hares?|what|who|cost)\s*:/i;
 /** DB-side pre-filter. Postgres `startsWith` is case-insensitive when the
  *  column is case-collation-aware, but Prisma exposes an explicit `mode`. */
 const TEMPLATE_LABEL_PREFIXES = ["When:", "Why:", "Hare:", "Hares:", "What:", "Who:", "Cost:"];

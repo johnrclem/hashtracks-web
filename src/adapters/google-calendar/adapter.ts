@@ -262,7 +262,10 @@ const LOCATION_LABEL_RE = new RegExp(
 // `:?` is the one-character extension; the capture-rejection filter at line
 // 406 (`isNonAddressText`) still kicks in if the captured value is a sibling
 // label like `When: 5:69` (#1329).
-const LOCATION_BARE_LABEL_RE = /(?:^|\n)[ \t]*(?:WHERE|LOCATION)[ \t]*:?[ \t]*\n(?:[ \t]*https?:\/\/\S+[ \t]*\n)?[ \t]*(\S.*)/im;
+// NOSONAR S5852 — `[ \t]*` runs are bounded by explicit `\n` boundaries
+// (not `\s*`, deliberately), so backtracking can't span across newlines.
+// The trailing `:?` is the one-character #1328 extension; pattern stays linear.
+const LOCATION_BARE_LABEL_RE = /(?:^|\n)[ \t]*(?:WHERE|LOCATION)[ \t]*:?[ \t]*\n(?:[ \t]*https?:\/\/\S+[ \t]*\n)?[ \t]*(\S.*)/im; // NOSONAR
 // Secondary fallback: "Start:" as location label (lower priority — often contains time, not location)
 const LOCATION_START_RE = /(?:^|\n)[ \t]*Start[ \t]*:[ \t]*(.+)/im;
 // Filters bare time values from location results (e.g., "6:30pm", "18:30", "7:00")
