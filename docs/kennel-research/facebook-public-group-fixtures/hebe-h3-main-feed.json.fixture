@@ -1,0 +1,53 @@
+{
+  "__spike_fixture__": {
+    "source_url": "https://www.facebook.com/groups/HebeH3",
+    "fetched_at": "2026-05-11",
+    "group_status": "public (verified via 3x \"Public group\" text marker)",
+    "note": "JSON islands containing message.text post bodies, extracted from raw SSR HTML. User names + photo URLs + permalink IDs sanitized. Note: only 2 unique post bodies surfaced from a 1.1 MB SSR response \u2014 FB renders only pinned/featured posts to logged-out viewers, not the live discussion feed.",
+    "islands_in_raw_html": 89,
+    "islands_with_post_body": 2,
+    "unique_post_bodies_found": 2,
+    "raw_html_bytes": 1095016,
+    "oldest_post_evidence_date": "2024-12 (post lists schedule through Dec 2024)",
+    "newest_post_evidence_date": "2024-06 (visitor post, references June visit)"
+  },
+  "islands": [
+    {
+      "island_index": 62,
+      "island_size_bytes": 38636,
+      "samples": [
+        {
+          "message_text": "Hebe Hashers, we are looking good for the remainder of 2024. How awesome is that!  On-On!\n\n#52 17-Feb-24, Spinky McHu & Timbits\n#53 16-Mar-24, Keg on Keg on Legs\n#54 20-Apr-24, Hopeless\n#55 18-May-24, Minja Turtle\n#56 15-June-24, Smallbone\n#57 20-July-24, Mark Reeves\n#58 17-August-24, Rainbow C*nt & Lost in Translation\n#59 21-September-24, Haggis Humper, joint run with SLH\n#60 19-October-24, Hopeless\n#61 16-Nov-24, Nicole ( plus Lost in Translation...)\n#62 21-Dec-24, South China Seaman\n\nCheers and OnOn!!",
+          "story_id_shape": "UzpfSTcwNDI2ODQ5MzpWSzoxMTU5OT...",
+          "url_shape": null
+        },
+        {
+          "message_text": "Hebe Hashers, we are looking good for the remainder of 2024. How awesome is that!  On-On!\n\n#52 17-Feb-24, Spinky McHu & Timbits\n#53 16-Mar-24, Keg on Keg on Legs\n#54 20-Apr-24, Hopeless\n#55 18-May-24, Minja Turtle\n#56 15-June-24, Smallbone\n#57 20-July-24, Mark Reeves\n#58 17-August-24, Rainbow C*nt & Lost in Translation\n#59 21-September-24, Haggis Humper, joint run with SLH\n#60 19-October-24, Hopeless\n#61 16-Nov-24, Nicole ( plus Lost in Translation...)\n#62 21-Dec-24, South China Seaman\n\nCheers and OnOn!!",
+          "story_id_shape": "UzpfSTcwNDI2ODQ5MzpWSzoxMTU5OT...",
+          "url_shape": null
+        }
+      ]
+    },
+    {
+      "island_index": 66,
+      "island_size_bytes": 62420,
+      "samples": [
+        {
+          "message_text": "Visitor - 03-07JUN\nG'day wanks! I'll be all up in Hong Kong visiting from San Diego 03-07JUN and saw there are some once-a-month hashes like this one. Just looking to meet up for trail and/or drinking practice. Then I'm off to Shanghai, Beijing and Xi'an for Northern Alliance. \n\nOn On! \ud83c\udf7b\n\n-ManAIDS",
+          "story_id_shape": "UzpfSTEwMDAwOTY3MjcwOTMxMjpWSz...",
+          "url_shape": null
+        },
+        {
+          "message_text": "Visitor - 03-07JUN\nG'day wanks! I'll be all up in Hong Kong visiting from San Diego 03-07JUN and saw there are some once-a-month hashes like this one. Just looking to meet up for trail and/or drinking practice. Then I'm off to Shanghai, Beijing and Xi'an for Northern Alliance. \n\nOn On! \ud83c\udf7b\n\n-ManAIDS",
+          "story_id_shape": "UzpfSTEwMDAwOTY3MjcwOTMxMjpWSz...",
+          "url_shape": null
+        },
+        {
+          "message_text": "Visitor - 03-07JUN\nG'day wanks! I'll be all up in Hong Kong visiting from San Diego 03-07JUN and saw there are some once-a-month hashes like this one. Just looking to meet up for trail and/or drinking practice. Then I'm off to Shanghai, Beijing and Xi'an for Northern Alliance. \n\nOn On! \ud83c\udf7b\n\n-ManAIDS",
+          "story_id_shape": "UzpfSTEwMDAwOTY3MjcwOTMxMjpWSz...",
+          "url_shape": "https://www.facebook.com/groups/HebeH3/permalink/1900011277299085/"
+        }
+      ]
+    }
+  ]
+}
