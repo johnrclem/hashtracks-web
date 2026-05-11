@@ -186,6 +186,9 @@ function buildAriaLabel(event: HarelineEvent, attendance?: AttendanceData | null
   parts.push(formatDate(event.date));
   if (event.runNumber) parts.push(`Run #${event.runNumber}`);
   if (event.startTime) parts.push(formatTime(event.startTime));
+  // #1316 — surface card-visible structured fields to screen readers.
+  if (event.trailType) parts.push(`Trail type ${event.trailType}`);
+  if (event.dogFriendly === true) parts.push("dog friendly");
   if (attendance?.status === "INTENDING") parts.push("Going");
   if (attendance?.status === "CONFIRMED") parts.push("Checked in");
   return parts.join(", ");
@@ -594,6 +597,9 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
               >
                 {event.trailType}
               </span>
+            )}
+            {event.dogFriendly === true && event.trailType && (
+              <span className="text-muted-foreground/30" aria-hidden="true">&middot;</span>
             )}
             {event.dogFriendly === true && (
               <Tooltip>
