@@ -2604,6 +2604,9 @@ const EMPTY_DISPLAY_FIELDS = {
   sourceUrl: null,
   runNumber: null,
   description: null,
+  trailType: null,
+  dogFriendly: null,
+  prelube: null,
 };
 
 type Candidate = Parameters<typeof pickCanonicalEventId>[0][number];
@@ -2652,6 +2655,26 @@ describe("completenessScore", () => {
     ).toBe(0);
     expect(
       completenessScore({ ...EMPTY_DISPLAY_FIELDS, latitude: 33.75, longitude: -84.39 }),
+    ).toBe(1);
+  });
+
+  // #1316 — the new structured hareline fields must count toward
+  // completeness so an equal-trust sibling that carries them wins the
+  // canonical tiebreak (Codex review on PR #1366).
+  it("counts trailType / dogFriendly / prelube as one each", () => {
+    expect(
+      completenessScore({
+        ...EMPTY_DISPLAY_FIELDS,
+        trailType: "A to A",
+        dogFriendly: true,
+        prelube: "SRO 5pm",
+      }),
+    ).toBe(3);
+  });
+
+  it("counts dogFriendly=false as populated (explicit No is useful display data)", () => {
+    expect(
+      completenessScore({ ...EMPTY_DISPLAY_FIELDS, dogFriendly: false }),
     ).toBe(1);
   });
 });

@@ -96,12 +96,17 @@ export async function fetchSDH3Page(url: string): Promise<FetchHTMLResult> {
  * Parse a `Dog friendly:` source value into a tri-state.
  * Tri-state semantics: undefined = label not present (caller never invokes this);
  * boolean = parsed; null = label present but value unrecognized (clears stale).
+ *
+ * Word-boundary anchored so ambiguous strings like "not sure" / "n/a" /
+ * "need to ask the hare" return null instead of being coerced to false
+ * (Codex review: the prefix-match form converted these to a hard `false`,
+ * which would clobber an existing `true` via the merge UPDATE branch).
  */
 export function parseDogFriendly(v: string): boolean | null {
   const t = v.toLowerCase().trim();
   if (!t) return null;
-  if (/^(yes|y|true|sometimes|usually|welcome|always)/.test(t)) return true;
-  if (/^(no|n|false|never)/.test(t)) return false;
+  if (/^(yes|y|true|sometimes|usually|welcome|always)\b/.test(t)) return true;
+  if (/^(no|nope|never|false)\b/.test(t)) return false;
   return null;
 }
 

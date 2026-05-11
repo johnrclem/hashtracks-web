@@ -1776,6 +1776,9 @@ type CanonicalCandidate = {
   sourceUrl: string | null;
   runNumber: number | null;
   description: string | null;
+  trailType: string | null;
+  dogFriendly: boolean | null;
+  prelube: string | null;
 };
 
 export function completenessScore(e: Omit<CanonicalCandidate, "id" | "trustLevel" | "createdAt" | "status">): number {
@@ -1794,6 +1797,12 @@ export function completenessScore(e: Omit<CanonicalCandidate, "id" | "trustLevel
   if (e.sourceUrl) score++;
   if (e.runNumber != null) score++;
   if (e.description) score++;
+  // #1316 — structured hareline fields count for canonical tiebreaks so an
+  // equally-trusted sibling that lacks them can't keep the richer row from
+  // becoming canonical (Codex review on PR #1366).
+  if (e.trailType) score++;
+  if (e.dogFriendly != null) score++;
+  if (e.prelube) score++;
   return score;
 }
 

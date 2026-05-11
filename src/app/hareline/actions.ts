@@ -260,6 +260,8 @@ export interface EventDetailFields {
   sourceUrl: string | null;
   locationStreet: string | null;
   locationAddress: string | null;
+  /** #1316 — Hash Cash. Detail-only because card has no room for a chip. */
+  cost: string | null;
   eventLinks: { id: string; url: string; label: string }[];
 }
 
@@ -277,6 +279,7 @@ export async function getEventDetail(eventId: string): Promise<EventDetailFields
       sourceUrl: true,
       locationStreet: true,
       locationAddress: true,
+      cost: true,
       eventLinks: { select: { id: true, url: true, label: true } },
     },
   });

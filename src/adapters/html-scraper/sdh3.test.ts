@@ -719,8 +719,11 @@ describe("parseDogFriendly", () => {
   it.each([
     ["Yes", true], ["yes", true], ["YES!", true], ["Y", true],
     ["Sometimes", true], ["Welcome", true], ["always with leash", true],
-    ["No", false], ["no", false], ["Never", false], ["N", false],
+    ["No", false], ["no", false], ["Never", false], ["Nope", false],
     ["Maybe", null], ["TBD", null], ["Ask the hare", null], ["", null],
+    // Tri-state safety: ambiguous strings that prefix-matched "n" before
+    // the word-boundary fix must NOT coerce to false (Codex review).
+    ["Not sure", null], ["n/a", null], ["N/A", null], ["need to ask venue", null],
   ] as const)("parses %j → %s", (input, expected) => {
     expect(parseDogFriendly(input)).toBe(expected);
   });
