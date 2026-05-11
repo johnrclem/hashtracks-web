@@ -18,8 +18,10 @@ import {
 import { extractCoordsFromMapsUrl } from "@/lib/geo";
 
 /** Labels that appear inside `<strong>` tags on the hare-line — used to skip
- *  label-only strongs when hunting for the event title strong. */
-const IH3_LABEL_STRONG_RE = /^\s*(?:hares?|where|when|cost|details)\s*:?\s*$/i;
+ *  label-only strongs when hunting for the event title strong. Inputs are
+ *  pre-trimmed by the caller, so this anchor pair doesn't need outer `\s*`
+ *  (which Sonar S5852 flags as ReDoS-shaped). */
+const IH3_LABEL_STRONG_RE = /^(?:hares?|where|when|cost|details):?$/i;
 
 /**
  * Parse a date string like "March 15" into "YYYY-MM-DD" with year inference.
@@ -109,10 +111,9 @@ export function parseIH3Block(
   let title: string | undefined;
   strongs.each((i, el) => {
     if (i === 0) return;
-    const t = $(el).text();
-    if (IH3_LABEL_STRONG_RE.test(t)) return;
-    const cleaned = decodeEntities(t).replaceAll(/\s+/g, " ").trim();
+    const cleaned = decodeEntities($(el).text()).replaceAll(/\s+/g, " ").trim();
     if (!cleaned) return;
+    if (IH3_LABEL_STRONG_RE.test(cleaned)) return;
     title = cleaned;
     return false; // break cheerio .each() once we have the title
   });
@@ -176,9 +177,11 @@ export function parseIH3Block(
 
   // Extract cost — fixed "Cost: $X (...)" line on every event (#1346).
   // `\n` is a terminator because cheerio's `.text()` collapses well-formed
-  // `<br>` to newlines; `Details` is the terminator when the source omits
-  // `<br>` and labels run together (see TBDWhen test).
-  const costMatch = /Cost\s*:?\s*(.+?)(?:\n|Details|$)/i.exec(blockText);
+  // `<br>` to newlines; the label list is the terminator when the source
+  // omits `<br>` and labels run together (see TBDWhen test). Carrying the
+  // full label set defends against any field-reordering the source might
+  // introduce in the future (gemini-code-assist review on #1379).
+  const costMatch = /Cost\s*:?\s*(.+?)(?:\n|Details\s*:|Hares?\s*:|Where\s*:|When\s*:|$)/i.exec(blockText);
   const cost = costMatch ? stripPlaceholder(costMatch[1]) : undefined;
 
   return {
@@ -229,28 +232,38 @@ export function parseTrailLog(html: string, sourceUrl: string): RawEventData[] {
     if (!header) return;
     const runNumber = parseInt(header[1], 10);
 
-    // Split inner HTML on the <br> separating "Hash #N: Title" from "Date; Location".
+    // Split inner HTML on <br>. The documented row shape has a single <br>,
+    // but slice(1).join("<br>") preserves any extras inside the location half
+    // (e.g. a multi-line address) instead of silently truncating them.
     const inner = $.html($p);
     const brSplit = inner.split(/<br\s*\/?>/i);
     if (brSplit.length < 2) return;
+    const headerHalf = brSplit[0];
+    const tailHalf = brSplit.slice(1).join("<br>");
 
-    // Title: text content of the first half, after the closing </strong>.
-    const titleMatch = /<\/strong>([\s\S]*)$/i.exec(brSplit[0]);
+    // Title: text content after the closing </strong> on the header half.
+    const titleMatch = /<\/strong>([\s\S]*)$/i.exec(headerHalf);
     const titleRaw = titleMatch
       ? cheerio.load(`<div>${titleMatch[1]}</div>`)("div").text()
       : "";
     const titleClean = decodeEntities(titleRaw).replaceAll(/\s+/g, " ").trim();
     const title = titleClean || undefined;
 
-    // Date + location: "YYYY-MM-DD; Location" in the second half.
+    // Date + location: "YYYY-MM-DD; Location" on the tail half. The regex
+    // anchors on the fixed date prefix; the location split is done with
+    // string ops to keep the regex shape away from Sonar S5852's
+    // `\s*[;,]?\s*` false-positive trigger.
     const datesHalfRaw = cheerio
-      .load(`<div>${brSplit[1]}</div>`)("div")
+      .load(`<div>${tailHalf}</div>`)("div")
       .text();
     const datesHalf = decodeEntities(datesHalfRaw).trim();
-    const dateMatch = /^(\d{4}-\d{2}-\d{2})\s*[;,]?\s*(.*)$/.exec(datesHalf);
+    const dateMatch = /^(\d{4}-\d{2}-\d{2})([\s\S]*)$/.exec(datesHalf);
     if (!dateMatch) return;
     const date = dateMatch[1];
-    const locationClean = dateMatch[2].replaceAll(/\s+/g, " ").trim();
+    const locationClean = dateMatch[2]
+      .replace(/^[;,\s]+/, "")
+      .replaceAll(/\s+/g, " ")
+      .trim();
     const location = locationClean || undefined;
 
     out.push({
