@@ -10,8 +10,10 @@
  * inferred wrong year. The current adapter no longer reproduces this — the
  * trail-text date parse wins over `published_at` (hangover.ts:301-306).
  *
- * This script deletes the phantom row in a transaction, with the RawEvents
- * that point to it. We deliberately target the row by `(kennelId, runNumber=198,
+ * This script deletes the phantom Event via the shared `cascadeDeleteEvents`
+ * helper, which removes EventHare / Attendance / KennelAttendance dependents
+ * and unlinks (rather than drops) any RawEvents pointing at the phantom so
+ * the audit trail survives. We target the row by `(kennelId, runNumber=198,
  * date < 2025-01-01)` rather than by event id so the script is re-runnable
  * and explicit about the criteria.
  *
@@ -21,6 +23,7 @@
  */
 import "dotenv/config";
 import { prisma } from "../src/lib/db";
+import { cascadeDeleteEvents } from "./lib/cascade-delete";
 
 const APPLY = process.argv.includes("--apply");
 
@@ -49,12 +52,12 @@ async function main() {
   }
 
   if (APPLY && phantoms.length > 0) {
-    const ids = phantoms.map((e: Row) => e.id);
-    await prisma.$transaction([
-      prisma.rawEvent.deleteMany({ where: { eventId: { in: ids } } }),
-      prisma.event.deleteMany({ where: { id: { in: ids } } }),
-    ]);
-    console.log(`\nDeleted ${ids.length} Event row(s) (and any linked RawEvent rows) inside one transaction.`);
+    // Use the shared cascade helper so EventHare / Attendance / KennelAttendance
+    // dependents (which lack onDelete: Cascade) are removed in the right order
+    // and RawEvent audit history is preserved (unlinked + reset processed=false)
+    // rather than dropped — matches `deleteEventsCascade()` in admin actions.
+    const deleted = await cascadeDeleteEvents(prisma, phantoms.map((e: Row) => e.id));
+    console.log(`\nDeleted ${deleted} Event row(s) (dependents removed, RawEvent history unlinked).`);
   } else if (!APPLY) {
     console.log("\nDry-run only. Re-run with --apply to write changes.");
   }
