@@ -1784,28 +1784,36 @@ type CanonicalCandidate = {
   prelube: string | null;
 };
 
+/**
+ * Truthy display fields each count one toward the score. Listed once here so
+ * adding a new column means one line, not another branch — keeps the function
+ * under Sonar S3776's cognitive-complexity threshold even as the schema grows.
+ */
+const COMPLETENESS_TRUTHY_FIELDS: ReadonlyArray<
+  keyof Omit<CanonicalCandidate, "id" | "trustLevel" | "createdAt" | "status">
+> = [
+  "title",
+  "haresText",
+  "locationName",
+  "locationStreet",
+  "locationCity",
+  "locationAddress",
+  "startTime",
+  "endTime",
+  "cost",
+  "sourceUrl",
+  "description",
+  "trailType",
+  "prelube",
+];
+
 export function completenessScore(e: Omit<CanonicalCandidate, "id" | "trustLevel" | "createdAt" | "status">): number {
-  let score = 0;
-  if (e.title) score++;
-  if (e.haresText) score++;
-  if (e.locationName) score++;
-  if (e.locationStreet) score++;
-  if (e.locationCity) score++;
-  if (e.locationAddress) score++;
+  let score = COMPLETENESS_TRUTHY_FIELDS.reduce((n, k) => n + (e[k] ? 1 : 0), 0);
   // Coords count as one unit — half a pair is useless for display.
   if (e.latitude != null && e.longitude != null) score++;
-  if (e.startTime) score++;
-  if (e.endTime) score++;
-  if (e.cost) score++;
-  if (e.sourceUrl) score++;
+  // Numeric/boolean fields where 0 / false is still "populated".
   if (e.runNumber != null) score++;
-  if (e.description) score++;
-  // #1316 — structured hareline fields count for canonical tiebreaks so an
-  // equally-trusted sibling that lacks them can't keep the richer row from
-  // becoming canonical (Codex review on PR #1366).
-  if (e.trailType) score++;
   if (e.dogFriendly != null) score++;
-  if (e.prelube) score++;
   return score;
 }
 

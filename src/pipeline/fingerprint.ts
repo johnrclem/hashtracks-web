@@ -1,6 +1,12 @@
 import { createHash } from "crypto";
 import type { RawEventData } from "@/adapters/types";
 
+/** Stringify a tri-state boolean for the fingerprint hash input. */
+function dogFriendlyToken(v: boolean | null | undefined): string {
+  if (v == null) return "";
+  return v ? "1" : "0";
+}
+
 /**
  * Generate a deterministic fingerprint for a raw event.
  * Used to detect unchanged events and skip re-processing.
@@ -38,7 +44,7 @@ export function generateFingerprint(data: RawEventData): string {
     // merge UPDATE branch fires per row); no duplicates because the
     // (sourceId, fingerprint) unique index + source-kennel guard hold.
     data.trailType ?? "",
-    data.dogFriendly == null ? "" : data.dogFriendly ? "1" : "0",
+    dogFriendlyToken(data.dogFriendly),
     data.prelube ?? "",
   ].join("|");
 

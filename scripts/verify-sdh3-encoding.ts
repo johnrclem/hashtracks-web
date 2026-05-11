@@ -11,6 +11,7 @@
 import "dotenv/config";
 import { SDH3Adapter } from "@/adapters/html-scraper/sdh3";
 import type { Source } from "@/generated/prisma/client";
+import type { RawEventData } from "@/adapters/types";
 
 const source = {
   id: "verify-sdh3",
@@ -37,9 +38,37 @@ const source = {
   },
 } as unknown as Source;
 
+const MOJIBAKE_RE = /ðŸ|Â|Ã©|Ã¨|Ã¯/;
+// Includes raw source labels (Run Fee:, Trail type:, Dog friendly:) so the
+// regression check catches both the old "Hash Cash" form and any path where the
+// adapter forwards the source label unchanged into description (CodeRabbit).
+const LABELED_LEAK_RE = /(Hash Cash:|Run Fee:|Trail:\s|Trail type:|Dog Friendly:|Dog friendly:|Pre-lube:)/i;
+
+function checkEvent(e: RawEventData, failures: string[]): void {
+  console.log(`\n  ${e.date} ${e.startTime ?? ""}  "${e.title ?? ""}"`);
+  console.log(`    cost=${JSON.stringify(e.cost)}`);
+  console.log(`    trailType=${JSON.stringify(e.trailType)}`);
+  console.log(`    dogFriendly=${JSON.stringify(e.dogFriendly)}`);
+  console.log(`    prelube=${JSON.stringify(e.prelube)}`);
+  console.log(`    hares=${JSON.stringify(e.hares)}`);
+  if (!e.description) return;
+  const truncated = e.description.length > 120 ? e.description.slice(0, 120) + "…" : e.description;
+  console.log(`    description=${JSON.stringify(truncated)}`);
+  if (MOJIBAKE_RE.test(e.description)) {
+    failures.push(`mojibake in ${e.date} "${e.title ?? ""}"`);
+    console.log("    ⚠️  description contains mojibake markers!");
+  }
+  if (/🌮/.test(e.description)) console.log("    ✅ description contains literal 🌮");
+  if (LABELED_LEAK_RE.test(e.description)) {
+    failures.push(`labeled field leaked into description for ${e.date} "${e.title ?? ""}"`);
+    console.log("    ❌ description still contains label-prefixed smashed fields");
+  }
+}
+
 async function main() {
   const adapter = new SDH3Adapter();
   const result = await adapter.fetch(source, { days: 365 });
+  const failures: string[] = [];
 
   console.log(`Total events: ${result.events.length}`);
   const byKennel: Record<string, number> = {};
@@ -50,30 +79,16 @@ async function main() {
   console.log("By kennel:", byKennel);
   console.log(`Errors: ${result.errors.length}`);
   if (result.errors.length > 0) {
+    failures.push(`adapter returned ${result.errors.length} errors`);
     console.log("First 3 errors:", result.errors.slice(0, 3));
   }
 
   const hahEvents = result.events.filter((e) => e.kennelTags[0] === "hah3-sd");
   console.log(`\nHAH3 events (${hahEvents.length}):`);
-  for (const e of hahEvents) {
-  console.log(`\n  ${e.date} ${e.startTime ?? ""}  "${e.title ?? ""}"`);
-  console.log(`    cost=${JSON.stringify(e.cost)}`);
-  console.log(`    trailType=${JSON.stringify(e.trailType)}`);
-  console.log(`    dogFriendly=${JSON.stringify(e.dogFriendly)}`);
-  console.log(`    prelube=${JSON.stringify(e.prelube)}`);
-  console.log(`    hares=${JSON.stringify(e.hares)}`);
-  if (e.description) {
-    const containsMojibake = /ðŸ|Â|Ã©|Ã¨|Ã¯/.test(e.description);
-    const containsTacos = /🌮/.test(e.description);
-    const truncated = e.description.length > 120 ? e.description.slice(0, 120) + "…" : e.description;
-    console.log(`    description=${JSON.stringify(truncated)}`);
-    if (containsMojibake) console.log("    ⚠️  description contains mojibake markers!");
-    if (containsTacos) console.log("    ✅ description contains literal 🌮");
-    // #1316 regression check
-    if (/Hash Cash:|Trail:\s|Dog Friendly:|Pre-lube:/.test(e.description)) {
-      console.log("    ❌ description still contains label-prefixed smashed fields");
-    }
-  }
+  for (const e of hahEvents) checkEvent(e, failures);
+
+  if (failures.length > 0) {
+    throw new Error(`SDH3 verification failed:\n  - ${failures.join("\n  - ")}`);
   }
 }
 

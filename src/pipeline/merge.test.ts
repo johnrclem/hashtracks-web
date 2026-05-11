@@ -1578,7 +1578,7 @@ describe("time/cost field clearing on update (#530)", () => {
       ] as never);
       mockEventUpdate.mockResolvedValueOnce({} as never);
 
-      await processRawEvents("src_1", [buildRawEvent({ [field]: undefined } as never)]);
+      await processRawEvents("src_1", [buildRawEvent({ [field]: undefined })]);
 
       const updateCall = mockEventUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
       expect(updateCall.data).not.toHaveProperty(field);
@@ -1598,7 +1598,7 @@ describe("time/cost field clearing on update (#530)", () => {
       ] as never);
       mockEventUpdate.mockResolvedValueOnce({} as never);
 
-      await processRawEvents("src_1", [buildRawEvent({ [field]: newValue } as never)]);
+      await processRawEvents("src_1", [buildRawEvent({ [field]: newValue })]);
 
       const updateCall = mockEventUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
       expect(updateCall.data[field]).toBe(newValue);
@@ -1618,7 +1618,7 @@ describe("time/cost field clearing on update (#530)", () => {
       ] as never);
       mockEventUpdate.mockResolvedValueOnce({} as never);
 
-      await processRawEvents("src_1", [buildRawEvent({ [field]: null } as never)]);
+      await processRawEvents("src_1", [buildRawEvent({ [field]: null })]);
 
       const updateCall = mockEventUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
       expect(updateCall.data).toHaveProperty(field);
@@ -1640,7 +1640,7 @@ describe("time/cost field clearing on update (#530)", () => {
       ] as never);
       mockEventUpdate.mockResolvedValueOnce({} as never);
 
-      await processRawEvents("src_1", [buildRawEvent({ [field]: newValue } as never)]);
+      await processRawEvents("src_1", [buildRawEvent({ [field]: newValue })]);
 
       const updateCall = mockEventUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
       expect(updateCall.data[field]).toBe(newValue);
@@ -1658,7 +1658,7 @@ describe("time/cost field clearing on update (#530)", () => {
       mockEventFindMany.mockResolvedValueOnce([] as never);
       mockEventCreate.mockResolvedValueOnce({ id: "evt_new" } as never);
 
-      await processRawEvents("src_1", [buildRawEvent({ [field]: newValue } as never)]);
+      await processRawEvents("src_1", [buildRawEvent({ [field]: newValue })]);
 
       const createCall = mockEventCreate.mock.calls[0][0] as { data: Record<string, unknown> };
       expect(createCall.data[field]).toBe(newValue);
