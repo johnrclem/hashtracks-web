@@ -236,7 +236,7 @@ export function parseTrailLog(html: string, sourceUrl: string): RawEventData[] {
     const strongText = $p.find("strong").first().text();
     const header = /Hash\s*#(\d+)\s*:/i.exec(strongText);
     if (!header) return;
-    const runNumber = parseInt(header[1], 10);
+    const runNumber = Number.parseInt(header[1], 10);
 
     // Split inner HTML on <br>. The documented row shape has a single <br>,
     // but slice(1).join("<br>") preserves any extras inside the location half
