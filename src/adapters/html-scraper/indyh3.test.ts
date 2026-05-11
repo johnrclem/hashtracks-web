@@ -82,6 +82,51 @@ describe("parseIndyCard", () => {
     expect(event?.hares).toBe("Shaggy");
   });
 
+  // ── #1352: bare "THICC Moon" title (no surrounding descriptor) must emit + route ──
+  it("(#1352) parses bare 'THICC Moon' cards (issue body shape) and routes to thicch3", () => {
+    // Three cards mirroring runs #1125, #1128, #1134 from the issue body.
+    const html = `
+      <div class="ht-upcoming-card">
+        <h3>Hash #1125: THICC Moon</h3>
+        <div><strong>📅 Date:</strong> Sunday, May 17, 2026</div>
+        <div><strong>⏰ Time:</strong> 7:00 PM</div>
+        <div><strong>🐇 Hares:</strong> NEEEEERRRRRD! / Sheiße Superveiße</div>
+        <a href="https://indyhhh.com/hashes/hash-1125-thicc-moon/">View</a>
+      </div>
+      <div class="ht-upcoming-card">
+        <h3>Hash #1128: THICC Moon</h3>
+        <div><strong>📅 Date:</strong> Monday, June 15, 2026</div>
+        <div><strong>⏰ Time:</strong> 7:00 PM</div>
+        <div><strong>🐇 Hares:</strong> Someone</div>
+        <a href="https://indyhhh.com/hashes/hash-1128-thicc-moon/">View</a>
+      </div>
+      <div class="ht-upcoming-card">
+        <h3>Hash #1134: THICC Moon</h3>
+        <div><strong>📅 Date:</strong> Tuesday, July 14, 2026</div>
+        <div><strong>⏰ Time:</strong> 7:00 PM</div>
+        <div><strong>🐇 Hares:</strong> Another</div>
+        <a href="https://indyhhh.com/hashes/hash-1134-thicc-moon/">View</a>
+      </div>
+    `;
+    const $ = cheerio.load(html);
+    const cards = $(".ht-upcoming-card").toArray();
+    expect(cards).toHaveLength(3);
+    const events = cards.map((el) =>
+      parseIndyCard(
+        $(el) as cheerio.Cheerio<never>,
+        $,
+        [[/THICC/i, "thicch3"]],
+        "indyh3",
+        "https://indyhhh.com",
+      ),
+    );
+    expect(events.every((e) => e !== null)).toBe(true);
+    expect(events.map((e) => e!.runNumber)).toEqual([1125, 1128, 1134]);
+    expect(events.every((e) => e!.kennelTags[0] === "thicch3")).toBe(true);
+    expect(events.map((e) => e!.title)).toEqual(["THICC Moon", "THICC Moon", "THICC Moon"]);
+    expect(events.map((e) => e!.date)).toEqual(["2026-05-17", "2026-06-15", "2026-07-14"]);
+  });
+
   it("#752: preserves multi-hare comma-separated string", () => {
     const html = `
       <div class="ht-upcoming-card">

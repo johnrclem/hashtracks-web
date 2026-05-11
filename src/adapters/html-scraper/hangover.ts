@@ -10,6 +10,86 @@ const DEFAULT_START_TIME = "10:15";
 const TRAIL_MARKER = /H4 Trail\s*#\d+/i;
 
 /**
+ * Sibling-label boundaries the `Location:` value must stop at, even when the
+ * source HTML collapses adjacent paragraph breaks or omits whitespace before
+ * a new label (e.g. `Greenbelt)D'Erections:` — #1323).
+ *
+ * Each pattern is kept simple to keep SonarQube S5843 (alternation complexity)
+ * comfortably under 20 — we scan all of them and take the earliest match
+ * (`findFirstLocationStopIndex`).
+ */
+const HANGOVER_LOCATION_STOP_PATTERNS: readonly RegExp[] = [
+  /Metro\s*Acce[s]+ibility\s*:/i,
+  /Acce[s]+ibility\s*:/i,
+  /Shiggy\s*Rating\s*:/i,
+  /D.Erections?\s*:/i,
+  /Trail\s*Length\s*:/i,
+  /Pack\s*Meet\s*:/i,
+  /Pre[\s-]?lube\s*:/i,
+  /On[\s-]?After\s*:/i,
+  /Hash\s*Cash\s*:/i,
+  /Cost\s*:/i,
+  /\bHares?\s*:/i,
+  /Pack\s*Away\s/i,
+  /Hare\s*Away\s/i,
+  /Directions\s*:/i,
+  /Parking\s*:/i,
+  /Dog\s*Friendly\s*:/i,
+  /Stroller\s*Friendly\s*:/i,
+];
+
+function findFirstLocationStopIndex(s: string): number {
+  let min = -1;
+  for (const re of HANGOVER_LOCATION_STOP_PATTERNS) {
+    const m = re.exec(s);
+    if (m && (min === -1 || m.index < min)) min = m.index;
+  }
+  return min;
+}
+
+/** Non-English country-locale tail from Google Maps widget exports
+ *  (`Clarksburg, MD 20871, États-Unis` etc.). Lifted to module scope so
+ *  `cleanHangoverLocation` doesn't recompile it per event. */
+const HANGOVER_LOCALE_TAIL_RE =
+  /,?\s*(?:États[\s-]?Unis|Estados Unidos|Vereinigte Staaten|Stati Uniti)\b[^\n]*$/i;
+
+/** Trailing whitespace / sentence punctuation stripped after a label cut.
+ *  Deliberately does NOT include `)` — balanced parentheses like `(rear)`
+ *  belong to the address and must survive the cut. */
+const HANGOVER_TRAILING_PUNCT_RE = /[\s,;.!?]+$/;
+
+/**
+ * Clean a captured location string: strip map-widget concatenation, non-English
+ * locale leaks, and trailing labeled fields that survived HTML normalization
+ * (#1323). Returns undefined when the cleaned string is too short to be a
+ * usable address.
+ */
+export function cleanHangoverLocation(raw: string): string | undefined {
+  let cleaned = raw;
+
+  // Map widget vomit (#211): "<addr>**<dup-addr> · <dup-addr>, États-Unis**".
+  // The `**` markdown-bold pair is the reliable widget signal; we cut there.
+  // We don't cut on a bare `·` because it appears in legitimate addresses
+  // (e.g. `Main St · Suite B`).
+  const boldIdx = cleaned.indexOf("**");
+  if (boldIdx >= 0) cleaned = cleaned.slice(0, boldIdx);
+
+  cleaned = cleaned.replace(HANGOVER_LOCALE_TAIL_RE, "");
+
+  // Truncate at the next labeled sibling-field. Strip trailing whitespace and
+  // sentence punctuation so the cut produces a clean trailing token, BUT keep
+  // closing parens (an address like `123 Main St (rear)` must survive).
+  const stopIdx = findFirstLocationStopIndex(cleaned);
+  if (stopIdx >= 0) {
+    cleaned = cleaned.slice(0, stopIdx).replace(HANGOVER_TRAILING_PUNCT_RE, "");
+  }
+
+  cleaned = cleaned.replace(/[,\s·*]+$/, "").trim();
+  if (cleaned.length < 3) return undefined;
+  return cleaned;
+}
+
+/**
  * Ghost Content API key — this is a public read-only key embedded in every page
  * response of the DigitalPress site (in the ghost-portal script tag's data-key attribute).
  * If it rotates, find the new one by inspecting the page source for `data-key="..."`.
@@ -146,10 +226,13 @@ export function parseHangoverBody(text: string): {
   if (turkeyMatch) distanceParts.push(`Turkey: ~${turkeyMatch[1]} mi`);
   if (penguinMatch) distanceParts.push(`Penguin: ~${penguinMatch[1]} mi`);
 
+  const rawLocation = locationMatch ? locationMatch[1].trim() : undefined;
+  const location = rawLocation ? cleanHangoverLocation(rawLocation) : undefined;
+
   return {
     date: date ?? undefined,
     hares: hareMatch ? hareMatch[1].trim() : undefined,
-    location: locationMatch ? locationMatch[1].trim() : undefined,
+    location,
     hashCash: cashMatch ? cashMatch[1].trim() : undefined,
     startTime,
     trailType: trailTypeMatch ? trailTypeMatch[1].trim() : undefined,

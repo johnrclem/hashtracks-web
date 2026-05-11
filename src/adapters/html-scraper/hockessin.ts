@@ -61,7 +61,9 @@ export function parseHockessinEvent(
     date,
     kennelTags: ["hockessin"],
     runNumber: !Number.isNaN(runNumber) ? runNumber : undefined,
-    title: `Hockessin H3 Trail #${runNumber}`,
+    // Source format is `Hash #N: <hares>` — no source-distinct title (#1326).
+    // Leave undefined so the UI/merge pipeline synthesizes from kennel + run #.
+    title: undefined,
     hares,
     location,
     startTime,

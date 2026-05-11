@@ -1456,6 +1456,57 @@ describe("extractLocationFromDescription", () => {
     const desc = "Start Address: St. Patrick Playground - meet at the corner by 501 S Bernadotte St. New Orleans, LA 70119";
     expect(extractLocationFromDescription(desc)).toBe("St. Patrick Playground - meet at the corner by 501 S Bernadotte St. New Orleans, LA 70119");
   });
+
+  // ── #1328 DeMon H3 — `WHERE:` (with colon) on its own line, address on the next ──
+  it("(#1328) extracts WHERE: label-then-newline value (DeMon shape)", () => {
+    const desc = [
+      "WHERE:",
+      "The bridge across the street from 1701 Orleans Street",
+      "https://maps.app.goo.gl/yuha3P2b8qKHWAqH7",
+      "",
+      "HOW (much):$5 hash cash",
+    ].join("\n");
+    expect(extractLocationFromDescription(desc)).toBe(
+      "The bridge across the street from 1701 Orleans Street",
+    );
+  });
+
+  // ── #1329 Flour City H3 — `Where:` empty followed by `When: 5:69` must NOT leak ──
+  it("(#1329) rejects empty WHERE: followed by When: 5:69 sibling label", () => {
+    const desc = [
+      "Hare: Vowel movement",
+      "Where:",
+      "When: 5:69",
+      "Why:",
+      "How: $5 hash cash",
+      "Venmo or PayPal: fch3trails@gmail.com",
+    ].join("\n");
+    // Bare-label-with-colon regex captures "When: 5:69" candidate, but
+    // isNonAddressText(NON_ADDRESS_RE) rejects "when:" prefix.
+    expect(extractLocationFromDescription(desc)).toBeUndefined();
+  });
+
+  // BARE_LABEL_RE widening regression coverage — sibling labels other than `When:`
+  // that could appear as the first line under an empty `Where:` (Codex review).
+  it.each([
+    ["How: $5 hash cash", "Where:\nHow: $5 hash cash"],
+    ["Hash Cash: $5", "Where:\nHash Cash: $5"],
+    ["Venmo or PayPal: trails@example.com", "Where:\nVenmo or PayPal: trails@example.com"],
+    ["Pre-Lube: Bar X", "Where:\nPre-Lube: Bar X"],
+    ["On-After: Tavern", "Where:\nOn-After: Tavern"],
+  ])("(#1329) rejects empty WHERE: followed by sibling label %j", (_label, desc) => {
+    expect(extractLocationFromDescription(desc)).toBeUndefined();
+  });
+
+  // ── #1328 follow-up: WHERE:\n<coords>\n<venue> — coords get rejected, venue captured next ──
+  // Current behaviour (limited): description's `WHERE:\n<coord-line>\n<venue>` only captures
+  // the first line. When that's coord-shaped we reject it (returns undefined) rather than
+  // surface coords as the display name. The kennel-centroid fallback then takes over. Picking
+  // up `<venue>` from the second line is a future improvement (see TODO in adapter).
+  it("(#1328 follow-up) rejects coord-shaped first line under WHERE: (returns undefined)", () => {
+    const desc = "WHERE:\n42.38948, -83.0508\nHamtramck Stadium\nHamtramck, MI";
+    expect(extractLocationFromDescription(desc)).toBeUndefined();
+  });
 });
 
 // ── extractTimeFromDescription ──
@@ -2567,6 +2618,37 @@ describe("buildRawEventFromGCalItem — coord-only item.location (#779 BMPH3)", 
     expect(event).not.toBeNull();
     expect(event!.cost).toBe("$5");
     expect(event!.hares).toBe("Leeroy");
+  });
+
+  // ── #1328 DeMon H3 — decimal-cardinal item.location + description with WHERE: address ──
+  it("(#1328) splits DeMon decimal-cardinal coords into lat/lng and prefers WHERE: address from description", () => {
+    const item = {
+      summary: "DeMon H3 Trail #25",
+      // Verbatim from the live calendar (issue body): decimal magnitudes
+      // with cardinal-direction letters. Handled by the new
+      // `LOCATION_DECIMAL_CARDINAL_RE` branch in `parseCoordOnlyLocation`.
+      location: "42.34269 N, 83.0328069 W",
+      description: [
+        "WHERE:",
+        "The bridge across the street from 1701 Orleans Street",
+        "https://maps.app.goo.gl/yuha3P2b8qKHWAqH7",
+        "",
+        "HOW (much):$5 hash cash",
+      ].join("\n"),
+      start: { dateTime: "2026-04-12T10:00:00-04:00" },
+      status: "confirmed",
+    };
+    const config = { defaultKennelTag: "demon-h3" };
+    const event = buildRawEventFromGCalItem(item, config);
+    expect(event).not.toBeNull();
+    // Coord-only item.location → structured lat/lng survives.
+    expect(event!.latitude).toBeCloseTo(42.34269);
+    expect(event!.longitude).toBeCloseTo(-83.0328069);
+    // Description's WHERE: address wins over the verbatim coord-string fallback.
+    expect(event!.location).toBe("The bridge across the street from 1701 Orleans Street");
+    // Sanity: the raw coord string MUST NOT survive as the display location.
+    expect(event!.location).not.toContain("42.34269");
+    expect(event!.location).not.toContain("83.0328069");
   });
 });
 

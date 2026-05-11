@@ -12,7 +12,8 @@ describe("HockessinAdapter", () => {
 
       expect(event).not.toBeNull();
       expect(event!.runNumber).toBe(1656);
-      expect(event!.title).toBe("Hockessin H3 Trail #1656");
+      // #1326: no source-distinct title; merge/UI synthesizes from kennel + run #.
+      expect(event!.title).toBeUndefined();
       expect(event!.hares).toBe("Green Dress Hash");
       expect(event!.date).toBe("2026-03-14");
       expect(event!.startTime).toBe("15:00");
@@ -30,7 +31,7 @@ describe("HockessinAdapter", () => {
 
       expect(event).not.toBeNull();
       expect(event!.runNumber).toBe(1650);
-      expect(event!.title).toBe("Hockessin H3 Trail #1650");
+      expect(event!.title).toBeUndefined();
       expect(event!.hares).toBe("January Thaw");
       expect(event!.date).toBe("2026-01-10");
       expect(event!.startTime).toBe("15:00");
@@ -46,7 +47,7 @@ describe("HockessinAdapter", () => {
 
       expect(event).not.toBeNull();
       expect(event!.runNumber).toBe(1661);
-      expect(event!.title).toBe("Hockessin H3 Trail #1661");
+      expect(event!.title).toBeUndefined();
       expect(event!.hares).toBe("Asshopper");
       expect(event!.date).toBe("2026-04-18");
       expect(event!.startTime).toBe("15:00");
@@ -114,15 +115,15 @@ describe("HockessinAdapter", () => {
     });
 
     it("emits empty hares when the header has no post-colon text", () => {
-      // Title is always synthesized from the run number (#797); a missing
-      // post-colon segment just leaves hares undefined.
+      // #1326: title is always undefined (let UI synthesize); missing
+      // post-colon segment just leaves hares undefined too.
       const header = "Hash #1700: ";
       const detail = "SATURDAY, May 2, 2026, 3:00pm, Test Location";
 
       const event = parseHockessinEvent(header, detail, "https://www.hockessinhash.org/");
 
       expect(event).not.toBeNull();
-      expect(event!.title).toBe("Hockessin H3 Trail #1700");
+      expect(event!.title).toBeUndefined();
       expect(event!.hares).toBeUndefined();
     });
   });
