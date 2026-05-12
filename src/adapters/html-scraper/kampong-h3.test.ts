@@ -62,13 +62,13 @@ function makeSource(overrides?: Partial<Source>): Source {
 }
 
 function mockFetchResponse(html: string) {
-  mockedSafeFetch.mockResolvedValue({
-    ok: true,
-    status: 200,
-    statusText: "OK",
-    text: () => Promise.resolve(html),
-    headers: new Headers({ "content-type": "text/html" }),
-  } as Response);
+  mockedSafeFetch.mockResolvedValue(
+    new Response(html, {
+      status: 200,
+      statusText: "OK",
+      headers: { "content-type": "text/html" },
+    }),
+  );
 }
 
 describe("parseKampongNextRun", () => {

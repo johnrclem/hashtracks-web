@@ -43,8 +43,8 @@ export interface KampongFields {
   onAfter?: string;
 }
 
-// Single-pass normalize: collapse NBSPs and runs of whitespace to one space.
-const NORMALIZE_WS_RE = /[ \s]+/g;
+// `\s` already includes NBSP and all Unicode whitespace runs in JS regex.
+const NORMALIZE_WS_RE = /\s+/g;
 const RUN_NUMBER_RE = /Run\s+(\d{1,4})/i;
 const TIME_RE = /(?:Run\s*starts\s*)?(\d{1,2})(?::(\d{2}))?\s*([ap]m)/i;
 const TBA_RE = /^t\.?\s*b\.?\s*a\.?$/i;
@@ -92,6 +92,33 @@ function parseDateFromHeader(text: string): string | undefined {
  * `<h2>` per chunk separated by " | "); the parser splits on that
  * separator so each labelled field can be matched with anchored regexes.
  */
+function parseStartTime(text: string): string | undefined {
+  const m = TIME_RE.exec(text);
+  if (!m) return undefined;
+  const hour = Number.parseInt(m[1], 10);
+  const minute = m[2] ? Number.parseInt(m[2], 10) : 0;
+  return formatAmPmTime(hour, minute, m[3]);
+}
+
+function applyLabelledField(chunk: string, result: KampongFields): void {
+  const hareMatch = HARES_FIELD_RE.exec(chunk);
+  if (hareMatch) {
+    result.hares = hareMatch[1].trim();
+    return;
+  }
+  const siteMatch = RUN_SITE_FIELD_RE.exec(chunk);
+  if (siteMatch) {
+    const site = siteMatch[1].trim();
+    if (!TBA_RE.test(site)) result.location = site;
+    return;
+  }
+  const onOnMatch = ON_ON_FIELD_RE.exec(chunk);
+  if (onOnMatch) {
+    const onAfter = onOnMatch[1].trim();
+    if (onAfter.length > 0) result.onAfter = onAfter;
+  }
+}
+
 export function parseKampongNextRun(rawText: string): KampongFields {
   const text = rawText.replaceAll(NORMALIZE_WS_RE, " ").trim();
   const result: KampongFields = {};
@@ -100,32 +127,10 @@ export function parseKampongNextRun(rawText: string): KampongFields {
   if (runMatch) result.runNumber = Number.parseInt(runMatch[1], 10);
 
   result.date = parseDateFromHeader(text);
-
-  const timeMatch = TIME_RE.exec(text);
-  if (timeMatch) {
-    const hour = Number.parseInt(timeMatch[1], 10);
-    const minute = timeMatch[2] ? Number.parseInt(timeMatch[2], 10) : 0;
-    result.startTime = formatAmPmTime(hour, minute, timeMatch[3]);
-  }
+  result.startTime = parseStartTime(text);
 
   for (const rawChunk of text.split(" | ")) {
-    const chunk = rawChunk.trim();
-    const hareMatch = HARES_FIELD_RE.exec(chunk);
-    if (hareMatch) {
-      result.hares = hareMatch[1].trim();
-      continue;
-    }
-    const siteMatch = RUN_SITE_FIELD_RE.exec(chunk);
-    if (siteMatch) {
-      const site = siteMatch[1].trim();
-      if (!TBA_RE.test(site)) result.location = site;
-      continue;
-    }
-    const onOnMatch = ON_ON_FIELD_RE.exec(chunk);
-    if (onOnMatch) {
-      const onAfter = onOnMatch[1].trim();
-      if (onAfter.length > 0) result.onAfter = onAfter;
-    }
+    applyLabelledField(rawChunk.trim(), result);
   }
 
   return result;
@@ -299,6 +304,57 @@ function addDaysISO(isoDate: string, days: number): string {
 /** Fallback when source.scrapeDays is null/0 — matches seed default. */
 const DEFAULT_SCRAPE_DAYS = 90;
 
+function collectArchiveEvents(
+  parsed: KampongArchiveParseResult,
+  url: string,
+  today: string,
+  horizon: string,
+): Map<number, RawEventData> {
+  const map = new Map<number, RawEventData>();
+  for (const row of parsed.rows) {
+    if (row.date < today || row.date > horizon) continue;
+    map.set(row.runNumber, archiveRowToEvent(row, url));
+  }
+  return map;
+}
+
+/**
+ * Promote skipped rows to scrape errors only when their runNumber falls
+ * within the live emission window — i.e. >= the earliest emitted run.
+ * When nothing was emitted (e.g. source temporarily empty), keep the
+ * historical-archive ambiguities silent so they don't mask the actual
+ * cause.
+ */
+function reportSkipped(
+  parsed: KampongArchiveParseResult,
+  byRunNumber: Map<number, RawEventData>,
+): string[] {
+  if (byRunNumber.size === 0) return [];
+  const liveCutoff = Math.min(...byRunNumber.keys());
+  return parsed.skipped
+    .filter((s) => s.runNumber >= liveCutoff)
+    .map((s) => `Archive row ${s.runNumber} skipped (${s.reason}): "${s.cellText}"`);
+}
+
+function applyNextRunOverlay(
+  nextRunResult: ReturnType<typeof buildNextRunEvent>,
+  byRunNumber: Map<number, RawEventData>,
+  today: string,
+  horizon: string,
+  errors: string[],
+): void {
+  const event = nextRunResult.event;
+  if (!event || event.date < today || event.date > horizon) {
+    if (nextRunResult.error) errors.push(nextRunResult.error);
+    return;
+  }
+  if (event.runNumber) {
+    byRunNumber.set(event.runNumber, event);
+  } else {
+    errors.push("Next Run block parsed but missing run number — skipping overlay");
+  }
+}
+
 export class KampongH3Adapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
 
@@ -309,60 +365,24 @@ export class KampongH3Adapter implements SourceAdapter {
 
     const { $, structureHash } = page;
     const today = todayInTimezone(KAMPONG_KENNEL_TIMEZONE);
-    // Clamp forward emissions to the configured scrape horizon so that
-    // archive rows months ahead don't sit outside reconcile's cancellation
-    // scope if the kennel later changes them. options.days wins, then
-    // source.scrapeDays, then a 90-day default matching the seed.
+    // Clamp forward emissions to the configured scrape horizon so archive
+    // rows months ahead don't sit outside reconcile's cancellation scope.
     const windowDays = options?.days ?? source.scrapeDays ?? DEFAULT_SCRAPE_DAYS;
     const horizon = addDaysISO(today, windowDays);
 
     const parsed = parseKampongArchiveTable($);
-    const byRunNumber = new Map<number, RawEventData>();
-    const errors: string[] = [];
+    const byRunNumber = collectArchiveEvents(parsed, url, today, horizon);
+    const errors = reportSkipped(parsed, byRunNumber);
 
-    // Seed with archive rows in the [today, today+windowDays] window.
-    for (const row of parsed.rows) {
-      if (row.date < today) continue;
-      if (row.date > horizon) continue;
-      byRunNumber.set(row.runNumber, archiveRowToEvent(row, url));
-    }
-
-    // Promote skipped rows to scrape errors only when their runNumber falls
-    // within the live emission window — i.e. >= the earliest emitted run.
-    // Guard: when nothing was emitted (e.g. source temporarily empty of
-    // forward rows), keep the historical-archive ambiguities silent —
-    // they're never reconcile-relevant and would otherwise be the only
-    // error returned, masking the actual cause.
-    if (byRunNumber.size > 0) {
-      const liveCutoff = Math.min(...byRunNumber.keys());
-      for (const skip of parsed.skipped) {
-        if (skip.runNumber < liveCutoff) continue;
-        errors.push(
-          `Archive row ${skip.runNumber} skipped (${skip.reason}): "${skip.cellText}"`,
-        );
-      }
-    }
-
-    // Overlay the Next Run hero block (richer hares/location/on-after).
     const nextRunResult = buildNextRunEvent($, url);
-    if (
-      nextRunResult.event &&
-      nextRunResult.event.date >= today &&
-      nextRunResult.event.date <= horizon
-    ) {
-      const runNumber = nextRunResult.event.runNumber;
-      if (runNumber) {
-        byRunNumber.set(runNumber, nextRunResult.event);
-      } else {
-        errors.push("Next Run block parsed but missing run number — skipping overlay");
-      }
-    } else if (nextRunResult.error) {
-      errors.push(nextRunResult.error);
-    }
+    applyNextRunOverlay(nextRunResult, byRunNumber, today, horizon, errors);
 
     if (byRunNumber.size === 0) {
-      const message = errors[0] ?? "No upcoming events found";
-      return { events: [], errors: [message], structureHash };
+      return {
+        events: [],
+        errors: [errors[0] ?? "No upcoming events found"],
+        structureHash,
+      };
     }
 
     const events = [...byRunNumber.values()].sort((a, b) => a.date.localeCompare(b.date));
