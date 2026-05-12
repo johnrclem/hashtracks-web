@@ -509,8 +509,10 @@ const mapsUrl = googleMapsSearchUrl;
 /** Instruction phrases that indicate a GCal location field is direction text. */
 const NON_ADDRESS_INSTRUCTION_RE = /^(?:use the|check the|see the|see description|click|follow the|refer to|details in)/i;
 /** Single-word sibling labels — leak when `WHERE:` is left blank in a template
- *  (#1329 Flour City: `Where:\nWhen: 5:69` would otherwise capture "When: 5:69"). */
-const NON_ADDRESS_SINGLE_LABEL_RE = /^(?:when|why|hare|what|who|cost|how)\s*:/i;
+ *  (#1329 Flour City: `Where:\nWhen: 5:69` would otherwise capture "When: 5:69").
+ *  `hare(?:s|\(s\))?` catches the plural / parenthesized variants
+ *  (`Hares:`, `Hare(s):`) that the cleanup script's prefix list already covers. */
+const NON_ADDRESS_SINGLE_LABEL_RE = /^(?:when|why|hare(?:s|\(s\))?|what|who|cost|how)\s*:/i;
 /** Multi-word sibling labels — split into two smaller regexes so each stays
  *  under SonarQube S5843's complexity threshold of 20. */
 const NON_ADDRESS_LABEL_CASH_RE = /^(?:how\s+much|hash\s+cash|on[\s-]?after)\s*:/i;

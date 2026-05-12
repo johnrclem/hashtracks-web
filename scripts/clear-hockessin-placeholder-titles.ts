@@ -27,7 +27,7 @@ async function main() {
     process.exit(1);
   }
 
-  type Row = { id: string; title: string | null; runNumber: number | null };
+  interface Row { id: string; title: string | null; runNumber: number | null }
   const events: Row[] = await prisma.event.findMany({
     where: { kennelId: kennel.id, title: { not: null } },
     select: { id: true, title: true, runNumber: true },

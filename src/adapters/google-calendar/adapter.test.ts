@@ -1487,13 +1487,16 @@ describe("extractLocationFromDescription", () => {
   });
 
   // BARE_LABEL_RE widening regression coverage — sibling labels other than `When:`
-  // that could appear as the first line under an empty `Where:` (Codex review).
+  // that could appear as the first line under an empty `Where:` (Codex + CodeRabbit review).
   it.each([
     ["How: $5 hash cash", "Where:\nHow: $5 hash cash"],
     ["Hash Cash: $5", "Where:\nHash Cash: $5"],
     ["Venmo or PayPal: trails@example.com", "Where:\nVenmo or PayPal: trails@example.com"],
     ["Pre-Lube: Bar X", "Where:\nPre-Lube: Bar X"],
     ["On-After: Tavern", "Where:\nOn-After: Tavern"],
+    // CodeRabbit catch: plural / parenthesized Hare variants.
+    ["Hares: Alice and Bob", "Where:\nHares: Alice and Bob"],
+    ["Hare(s): Alice", "Where:\nHare(s): Alice"],
   ])("(#1329) rejects empty WHERE: followed by sibling label %j", (_label, desc) => {
     expect(extractLocationFromDescription(desc)).toBeUndefined();
   });

@@ -38,13 +38,13 @@ const TEMPLATE_LABEL_RE = /^\s*(?:when|why|hares?|what|who|cost)\s*:/i;
 const TEMPLATE_LABEL_PREFIXES = ["When:", "Why:", "Hare:", "Hares:", "What:", "Who:", "Cost:"];
 
 async function main() {
-  type Row = {
+  interface Row {
     id: string;
     kennelId: string;
     locationName: string | null;
     date: Date;
     title: string | null;
-  };
+  }
   // DB-side filter narrows the pull to candidates that start with one of the
   // template labels — the Node-side regex is the final source of truth and
   // catches any whitespace/case variations the prefix list might miss.

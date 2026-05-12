@@ -34,7 +34,7 @@ async function main() {
     process.exit(1);
   }
 
-  type Row = { id: string; date: Date; locationName: string | null; title: string | null };
+  interface Row { id: string; date: Date; locationName: string | null; title: string | null }
   const phantoms: Row[] = await prisma.event.findMany({
     where: {
       kennelId: kennel.id,
