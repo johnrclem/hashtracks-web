@@ -62,13 +62,13 @@ function makeSource(overrides?: Partial<Source>): Source {
 }
 
 function mockFetchResponse(html: string) {
-  mockedSafeFetch.mockResolvedValue({
-    ok: true,
-    status: 200,
-    statusText: "OK",
-    text: () => Promise.resolve(html),
-    headers: new Headers({ "content-type": "text/html" }),
-  } as Response);
+  mockedSafeFetch.mockResolvedValue(
+    new Response(html, {
+      status: 200,
+      statusText: "OK",
+      headers: { "content-type": "text/html" },
+    }),
+  );
 }
 
 describe("parseKampongNextRun", () => {
@@ -235,6 +235,24 @@ describe("KampongH3Adapter.fetch", () => {
     const adapter = new KampongH3Adapter();
     const result = await adapter.fetch(makeSource({ scrapeDays: 365 }));
     expect(result.errors.some((e) => e.includes("Archive row 299 skipped"))).toBe(true);
+  });
+
+  it("reports skipped rows whose runNumber lies between the Next Run overlay and the lowest archive entry", async () => {
+    // Construct a fixture where:
+    //   - Next Run (overlay) is Run 297 — in-window.
+    //   - Run 298 is malformed (NOT A DATE) — skipped.
+    //   - Run 299 is in-window via the archive (so archive's lowest entry is 299).
+    // Without the post-overlay reportSkipped fix the cutoff would be 299 and
+    // Run 298's skip wouldn't surface, masking real parser drift.
+    const html = FIXTURE_HTML.replace(
+      `<tr><td>298</td><td>20 June 2026</td>`,
+      `<tr><td>298</td><td>NOT A DATE - Some June run</td>`,
+    );
+    mockFetchResponse(html);
+    const adapter = new KampongH3Adapter();
+    const result = await adapter.fetch(makeSource({ scrapeDays: 365 }));
+    expect(result.events.map((e) => e.runNumber)).toEqual([297, 299, 300, 301, 302, 303]);
+    expect(result.errors.some((e) => e.includes("Archive row 298 skipped"))).toBe(true);
   });
 
   it("reports an error and emits no events when the Next Run block is missing AND no forward rows are present", async () => {
