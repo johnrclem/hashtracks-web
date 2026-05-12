@@ -66,7 +66,50 @@ export function parsePhuketDateCell(text: string): { date: string | null; startT
   return { date, startTime };
 }
 
-/** Parse a single hareline table row. Exported for testing. */
+/** Split a `<br>`-segmented cell string (`\n`-delimited) into non-empty trimmed segments. */
+function splitCellSegments(raw: string): string[] {
+  return raw
+    .split("\n")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/** Driving-directions / GPS noise we strip from the venue segment if present. */
+const PHUKET_DIRECTIONS_RE =
+  /(?:Coming from|From the|Heading|Head toward|Turn (?:left|right)|Go past|Continue|Follow|The run|GPS\s*:)[\s\S]*/i;
+
+/** Placeholder-only venue values that should resolve to undefined location. */
+const PHUKET_PLACEHOLDER_VENUE_RE = /^(?:location:\s*tbc|tbc|tbd)$/i;
+
+/** Hares cell → comma-joined sorted list (stable fingerprint per project rule). */
+function parsePhuketHares(cell: string | undefined): string | undefined {
+  if (!cell) return undefined;
+  const segments = splitCellSegments(cell);
+  if (segments.length === 0) return undefined;
+  return normalizeHaresField(
+    [...segments].sort((a, b) => a.localeCompare(b)).join(", "),
+  );
+}
+
+/** Location cell → venue (first <br>-segment, directions stripped) + description (remaining segments). */
+function parsePhuketLocationCell(cell: string | undefined): {
+  location?: string;
+  description?: string;
+} {
+  if (!cell) return {};
+  const segments = splitCellSegments(cell);
+  if (segments.length === 0) return {};
+  const venue = segments[0].replace(PHUKET_DIRECTIONS_RE, "").trim();
+  const location =
+    venue.length > 0 && !PHUKET_PLACEHOLDER_VENUE_RE.test(venue) ? venue : undefined;
+  const rest = segments.slice(1).filter(Boolean);
+  const description = rest.length > 0 ? rest.join("\n") : undefined;
+  return { location, description };
+}
+
+/** Parse a single hareline table row. Cell strings are expected to encode
+ *  `<br>` boundaries as `\n` (see the adapter's cell extraction). Exported
+ *  for testing. */
 export function parsePhuketRow(
   cells: string[],
   rowClass: string,
@@ -84,31 +127,21 @@ export function parsePhuketRow(
   const runNumberMatch = /(\d+)/.exec(cells[2] ?? "");
   const runNumber = runNumberMatch ? Number.parseInt(runNumberMatch[1], 10) : undefined;
 
-  // Cell 3 = hares (raw text from column), Cell 4 = location
-  const haresRaw = cells.length > 3 ? cells[3].trim() : undefined;
-  const locationRaw = cells.length > 4 ? cells[4].trim() : undefined;
+  // Hares column (#1327): one hare per <br>-delimited line; sort + comma-join
+  // for stable fingerprint per project rule.
+  const hares = parsePhuketHares(cells[3]);
 
-  // Clean up location: extract location name, strip driving directions
-  let location: string | undefined;
-  if (locationRaw) {
-    // Truncate at direction prefixes (driving instructions follow the location name)
-    let cleaned = locationRaw
-      .replace(/(?:Coming from|From the|Heading|Head toward|Turn (?:left|right)|Go past|Continue|Follow|The run|GPS\s*:)[\s\S]*/i, "")
-      .trim();
-    // Also truncate at common patterns
-    if (!cleaned) cleaned = locationRaw.slice(0, 100).trim();
-    if (/^(?:location:\s*tbc|tbc|tbd)$/i.test(cleaned)) {
-      location = undefined;
-    } else if (cleaned.length > 0) {
-      location = cleaned;
-    }
-  }
+  // Location column (#1327): <venue><br>ON-ON: …<br>Theme: …<br>Bus: …
+  // First segment → locationName, rest → description.
+  const { location, description } = parsePhuketLocationCell(cells[4]);
 
   return {
     date,
-    kennelTags: [kennelTag],    runNumber,
-    hares: haresRaw ? normalizeHaresField(haresRaw) : undefined,
+    kennelTags: [kennelTag],
+    runNumber,
+    hares,
     location,
+    description,
     startTime: startTime ?? undefined,
     sourceUrl,
   };
@@ -145,10 +178,15 @@ export class PhuketHHHAdapter implements SourceAdapter {
       // Skip header rows
       if (rowClass === "head" || !rowClass) continue;
 
-      // Extract cell texts
+      // Extract cell texts, encoding `<br>` boundaries as `\n` so multi-row
+      // cells (venue + OnOn + theme + bus schedule on the location column;
+      // multi-hare lists on the hares column — #1327) don't collapse into
+      // a single run-on string.
       const cells: string[] = [];
       $row.find("td").each((_j, cell) => {
-        cells.push($(cell).text().trim());
+        const $cell = $(cell).clone();
+        $cell.find("br").replaceWith("\n");
+        cells.push($cell.text().trim());
       });
 
       if (cells.length < 3) continue;

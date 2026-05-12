@@ -114,4 +114,57 @@ describe("parsePhuketRow", () => {
     expect(event).not.toBeNull();
     expect(event!.location).toBeUndefined();
   });
+
+  // ── #1327: Iron Pussy H3 — multi-row location cell mashing ──
+  it("(#1327) splits multi-row Iron Pussy location cell on <br> boundaries", () => {
+    // The location cell from the issue body — <br> boundaries pre-converted to \n
+    // by the cell extractor.
+    const cells = [
+      "10 May 2026 @ 16:00 PM",
+      "Iron Pussy",
+      "265",
+      // 3 hares, one per <br>:
+      "BUNNYKEN PIS\nLA LASAGNA\nDOMINO CUNT",
+      [
+        "Southern Phuket",
+        "OnOn at Shakers",
+        "Theme: Bangkok city: Jeans + Thai traditional dress. There is a prize for the best dress.",
+        "Bus: Kamala 13:30 Patong 14:00 Kathu 14:30 Chalong opposite PTT 14:50 Rawai 15:05 Rawai 15:20",
+      ].join("\n"),
+    ];
+
+    const event = parsePhuketRow(cells, "ironpussy", DEFAULT_KENNEL_MAP, sourceUrl);
+
+    expect(event).not.toBeNull();
+    expect(event!.kennelTags[0]).toBe("iron-pussy");
+    // Venue only — first <br>-delimited segment.
+    expect(event!.location).toBe("Southern Phuket");
+    // Description contains the OnOn / Theme / Bus blocks joined by \n.
+    expect(event!.description).toContain("OnOn at Shakers");
+    expect(event!.description).toContain("Theme: Bangkok city");
+    expect(event!.description).toContain("Bus: Kamala 13:30");
+    // Description does NOT leak back into location.
+    expect(event!.location).not.toContain("OnOn");
+    expect(event!.location).not.toContain("Theme");
+    expect(event!.location).not.toContain("Bus");
+    // 3 hare names separated by `, ` (sorted ascending for stable fingerprint).
+    expect(event!.hares).toBe("BUNNYKEN PIS, DOMINO CUNT, LA LASAGNA");
+  });
+
+  it("(#1327) single-row hare/venue cells still parse cleanly", () => {
+    // Same shape as the existing PHHH Saturday test but routed through the
+    // new <br>-split path; confirms no regression on the happy single-line case.
+    const cells = [
+      "18 Apr 2026 @ 16:00 PM",
+      "PHHH",
+      "2062",
+      "FUNGUS",
+      "kathu - Lucky Lek's Chinese family cemetery",
+    ];
+    const event = parsePhuketRow(cells, "saturday", DEFAULT_KENNEL_MAP, sourceUrl);
+    expect(event).not.toBeNull();
+    expect(event!.location).toBe("kathu - Lucky Lek's Chinese family cemetery");
+    expect(event!.description).toBeUndefined();
+    expect(event!.hares).toBe("FUNGUS");
+  });
 });

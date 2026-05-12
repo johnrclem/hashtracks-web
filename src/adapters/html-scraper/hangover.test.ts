@@ -4,6 +4,7 @@ import {
   parseHangoverDate,
   parseHangoverBody,
   extractTrailSection,
+  cleanHangoverLocation,
   HangoverAdapter,
 } from "./hangover";
 
@@ -646,6 +647,81 @@ describe("parseHangoverBody — compact no-label format (post #212)", () => {
     expect(result.date).toBe("2026-01-01");
     expect(result.hares).toBe("Straight in the Navy");
     expect(result.location).toContain("Black Hill Regional Park");
+  });
+});
+
+// ── #1323: locationName leaking adjacent labelled fields and map-widget noise ──
+
+describe("cleanHangoverLocation (#1323)", () => {
+  it("strips 'Metro Accesibility:' (typo, single s) tail from #217", () => {
+    const raw =
+      "Bull Run-Occoquan Trail Yates Ford Road Trailhead 13249-13267 Yates Ford Rd, Clifton, VA 20124 Metro Accesibility: Nope sorry metro is quite far from here";
+    expect(cleanHangoverLocation(raw)).toBe(
+      "Bull Run-Occoquan Trail Yates Ford Road Trailhead 13249-13267 Yates Ford Rd, Clifton, VA 20124",
+    );
+  });
+
+  it("strips 'Accessibility:' (no Metro prefix) from #205", () => {
+    const raw =
+      "Howard County District Court Parking 3451 Court House Dr, Ellicott City, MD 21043 Accessibility: Nope... closest metro is 20+ miles away (Glenmont or Greenbelt)D'Erections: Click this link";
+    expect(cleanHangoverLocation(raw)).toBe(
+      "Howard County District Court Parking 3451 Court House Dr, Ellicott City, MD 21043",
+    );
+  });
+
+  it("strips no-space-before-label like ')D'Erections:' (keeps the close paren)", () => {
+    // Close paren belongs to the address — preserved so balanced parens like
+    // `(rear)` survive in real-world locations (#1323 follow-up).
+    const raw = "Glenmont or Greenbelt)D'Erections: Click this link and follow its instructions";
+    expect(cleanHangoverLocation(raw)).toBe("Glenmont or Greenbelt)");
+  });
+
+  it("preserves balanced parens like '(rear)' before a sibling label", () => {
+    const raw = "123 Main St (rear) Accessibility: Nope sorry no metro here";
+    expect(cleanHangoverLocation(raw)).toBe("123 Main St (rear)");
+  });
+
+  it("does NOT cut on a bare '·' (legitimate address punctuation)", () => {
+    const raw = "Main St · Suite B, Bethesda, MD 20814";
+    expect(cleanHangoverLocation(raw)).toBe(raw);
+  });
+
+  it("strips map-widget vomit at first '·' / '**' delimiter (#211)", () => {
+    const raw =
+      "Clarksburg Tavern 23315 Frederick Rd, MD 20871**23315 Frederick Rd · 23315 Frederick Rd, Clarksburg, MD 20871, États-Unis";
+    expect(cleanHangoverLocation(raw)).toBe(
+      "Clarksburg Tavern 23315 Frederick Rd, MD 20871",
+    );
+  });
+
+  it("strips trailing 'États-Unis' locale leak alone (Google Maps widget)", () => {
+    const raw = "Some Park, 123 Main St, Arlington, VA 22202, États-Unis";
+    expect(cleanHangoverLocation(raw)).toBe("Some Park, 123 Main St, Arlington, VA 22202");
+  });
+
+  it("leaves a clean address untouched", () => {
+    const raw = "Leesburg Town Hall Garage, 10 Loudoun St SW, Leesburg, VA 20175";
+    expect(cleanHangoverLocation(raw)).toBe(raw);
+  });
+
+  it("returns undefined for empty / under-length cleaned strings", () => {
+    expect(cleanHangoverLocation("·")).toBeUndefined();
+    expect(cleanHangoverLocation("**")).toBeUndefined();
+    expect(cleanHangoverLocation("D'Erections: only")).toBeUndefined();
+  });
+});
+
+describe("parseHangoverBody — location-leak regression (#1323)", () => {
+  it("trims the leaked 'Metro Accesibility:' tail in body parse (#217)", () => {
+    const text = [
+      "Date: Sunday, May 17, 2026",
+      "Hare(s): A Hare",
+      "Trail Start: Bull Run-Occoquan Trail Yates Ford Road Trailhead 13249-13267 Yates Ford Rd, Clifton, VA 20124 Metro Accesibility: Nope sorry metro is quite far from here",
+    ].join("\n");
+    const result = parseHangoverBody(text);
+    expect(result.location).toBe(
+      "Bull Run-Occoquan Trail Yates Ford Road Trailhead 13249-13267 Yates Ford Rd, Clifton, VA 20124",
+    );
   });
 });
 

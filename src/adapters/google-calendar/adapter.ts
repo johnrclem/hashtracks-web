@@ -176,6 +176,11 @@ const LOCATION_COORDS_ONLY_RE = /^\s*(-?\d{1,3}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.
 // pipeline. The shape-check is the only adapter-local part: it ensures the
 // entire string is coords (not "Venue, 34°...").
 const LOCATION_DMS_ONLY_RE = /^\s*\d{1,3}°\d{1,2}'[\d.]+"[NS],?\s+\d{1,3}°\d{1,2}'[\d.]+"[EW]\s*$/;
+// Decimal-degrees with cardinal letters (#1328 DeMon): `"42.34269 N, 83.0328069 W"`.
+// Distinct from `LOCATION_COORDS_ONLY_RE` (signed decimals, no letters) and
+// `LOCATION_DMS_ONLY_RE` (°'" symbols). Letters are mandatory here so signed
+// decimals aren't double-handled.
+const LOCATION_DECIMAL_CARDINAL_RE = /^\s*(\d{1,3}(?:\.\d+)?)\s*([NS]),?\s*(\d{1,3}(?:\.\d+)?)\s*([EW])\s*$/i;
 
 /**
  * Parse a coord-only location string into structured lat/lng. Returns null
@@ -185,6 +190,16 @@ const LOCATION_DMS_ONLY_RE = /^\s*\d{1,3}°\d{1,2}'[\d.]+"[NS],?\s+\d{1,3}°\d{1
  * regex engine traverses them — coord strings always start with digit, sign,
  * or whitespace.
  */
+function isValidCoord(lat: number, lng: number): boolean {
+  return (
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    Math.abs(lat) <= 90 &&
+    Math.abs(lng) <= 180 &&
+    (lat !== 0 || lng !== 0)
+  );
+}
+
 function parseCoordOnlyLocation(value: string): { lat: number; lng: number } | null {
   const first = value.codePointAt(0);
   if (first === undefined) return null;
@@ -197,10 +212,19 @@ function parseCoordOnlyLocation(value: string): { lat: number; lng: number } | n
   if (decMatch) {
     const lat = Number.parseFloat(decMatch[1]);
     const lng = Number.parseFloat(decMatch[2]);
-    if (Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 && (lat !== 0 || lng !== 0)) {
-      return { lat, lng };
-    }
-    return null;
+    return isValidCoord(lat, lng) ? { lat, lng } : null;
+  }
+  // Decimal-with-cardinal-letters shape (#1328 DeMon: `"42.34269 N, 83.0328069 W"`).
+  // Before falling through to DMS, parse the decimal-cardinal form so the
+  // raw coord string clears `location` and description-fallback can surface
+  // a human-readable address.
+  const cardMatch = LOCATION_DECIMAL_CARDINAL_RE.exec(value);
+  if (cardMatch) {
+    const latSign = cardMatch[2].toUpperCase() === "S" ? -1 : 1;
+    const lngSign = cardMatch[4].toUpperCase() === "W" ? -1 : 1;
+    const lat = latSign * Number.parseFloat(cardMatch[1]);
+    const lng = lngSign * Number.parseFloat(cardMatch[3]);
+    return isValidCoord(lat, lng) ? { lat, lng } : null;
   }
   if (LOCATION_DMS_ONLY_RE.test(value)) {
     return parseDMSFromLocation(value);
@@ -230,11 +254,18 @@ const LOCATION_LABEL_RE = new RegExp(
   String.raw`(?:^|\n)\s*(?:${LOCATION_LABEL_TOKENS.join("|")})[ \t]*:[ \t]*(.+)`,
   "im",
 );
-// Fallback: bare label (no colon) with value on subsequent line, optionally
-// after a URL line. Uses `[ \t]*` for intra-line whitespace and explicit `\n`
-// boundaries to keep the regex linear (no overlapping `\s*` runs that span
-// newlines, which Sonar S5852 flags as super-linear).
-const LOCATION_BARE_LABEL_RE = /(?:^|\n)[ \t]*(?:WHERE|LOCATION)[ \t]*\n(?:[ \t]*https?:\/\/\S+[ \t]*\n)?[ \t]*(\S.*)/im;
+// Fallback: bare label (with optional trailing colon) on a line by itself,
+// value on the subsequent non-empty line — covers both `WHERE\n<addr>` and
+// `WHERE:\n<addr>` (#1328 DeMon). Uses `[ \t]*` for intra-line whitespace and
+// explicit `\n` boundaries to keep the regex linear (no overlapping `\s*` runs
+// that span newlines, which Sonar S5852 flags as super-linear). The trailing
+// `:?` is the one-character extension; the capture-rejection filter at line
+// 406 (`isNonAddressText`) still kicks in if the captured value is a sibling
+// label like `When: 5:69` (#1329).
+// NOSONAR S5852 — `[ \t]*` runs are bounded by explicit `\n` boundaries
+// (not `\s*`, deliberately), so backtracking can't span across newlines.
+// The trailing `:?` is the one-character #1328 extension; pattern stays linear.
+const LOCATION_BARE_LABEL_RE = /(?:^|\n)[ \t]*(?:WHERE|LOCATION)[ \t]*:?[ \t]*\n(?:[ \t]*https?:\/\/\S+[ \t]*\n)?[ \t]*(\S.*)/im; // NOSONAR
 // Secondary fallback: "Start:" as location label (lower priority — often contains time, not location)
 const LOCATION_START_RE = /(?:^|\n)[ \t]*Start[ \t]*:[ \t]*(.+)/im;
 // Filters bare time values from location results (e.g., "6:30pm", "18:30", "7:00")
@@ -406,6 +437,13 @@ export function extractLocationFromDescription(description: string): string | un
   if (isNonAddressText(location)) return undefined;
   if (LOCATION_INSTRUCTION_RE.test(location)) return undefined;
   if (LOCATION_TIME_ONLY_RE.test(location)) return undefined;
+  // Coord-shaped captures (#1328 DeMon #22): the description's first line
+  // under WHERE: is sometimes raw coords with the human-readable venue
+  // immediately after. We reject the coord shape so the kennel-centroid
+  // fallback (or a downstream geocoder) wins instead of surfacing coords
+  // as the display name. The structured lat/lng path on `item.location`
+  // captures the numeric value separately when present.
+  if (parseCoordOnlyLocation(location) !== null) return undefined;
 
   return location;
 }
@@ -468,15 +506,35 @@ export function extractCostFromDescription(description: string): string | undefi
 
 const mapsUrl = googleMapsSearchUrl;
 
-/** Instruction phrases that indicate a GCal location field contains directions, not an address. */
-const NON_ADDRESS_RE = /^(?:use the|check the|see the|see description|click|follow the|refer to|details in|when:|why:|hare:|what:|who:|cost:)/i;
+/** Instruction phrases that indicate a GCal location field is direction text. */
+const NON_ADDRESS_INSTRUCTION_RE = /^(?:use the|check the|see the|see description|click|follow the|refer to|details in)/i;
+/** Single-word sibling labels — leak when `WHERE:` is left blank in a template
+ *  (#1329 Flour City: `Where:\nWhen: 5:69` would otherwise capture "When: 5:69").
+ *  `hare(?:s|\(s\))?` catches the plural / parenthesized variants
+ *  (`Hares:`, `Hare(s):`) that the cleanup script's prefix list already covers. */
+const NON_ADDRESS_SINGLE_LABEL_RE = /^(?:when|why|hare(?:s|\(s\))?|what|who|cost|how)\s*:/i;
+/** Multi-word sibling labels — split into two smaller regexes so each stays
+ *  under SonarQube S5843's complexity threshold of 20. */
+const NON_ADDRESS_LABEL_CASH_RE = /^(?:how\s+much|hash\s+cash|on[\s-]?after)\s*:/i;
+const NON_ADDRESS_LABEL_TRAIL_RE = /^(?:pack\s*meet|pre[\s-]?lube|trail\s*(?:type|length))\s*:/i;
+/** Bare payment keywords — `Venmo or PayPal: …` etc. */
+const NON_ADDRESS_PAYMENT_RE = /^(?:venmo|pay\s*pal|cash\s*app|zelle)\b/i;
 /** Suffix phrase indicating the field is a placeholder like "DST start location". */
 const NON_ADDRESS_SUFFIX_RE = /\bstart\s+location\s*$/i;
 
-/** Returns true if text starts with instruction phrasing rather than an address. */
+/** Returns true if text starts with instruction phrasing rather than an address.
+ *  Patterns are split across multiple small regexes so each stays under
+ *  SonarQube's S5843 complexity threshold of 20. */
 function isNonAddressText(text: string): boolean {
   const t = text.trim();
-  return NON_ADDRESS_RE.test(t) || NON_ADDRESS_SUFFIX_RE.test(t);
+  return (
+    NON_ADDRESS_INSTRUCTION_RE.test(t) ||
+    NON_ADDRESS_SINGLE_LABEL_RE.test(t) ||
+    NON_ADDRESS_LABEL_CASH_RE.test(t) ||
+    NON_ADDRESS_LABEL_TRAIL_RE.test(t) ||
+    NON_ADDRESS_PAYMENT_RE.test(t) ||
+    NON_ADDRESS_SUFFIX_RE.test(t)
+  );
 }
 
 /** Config shape for Google Calendar sources */
