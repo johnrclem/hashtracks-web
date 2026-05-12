@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
-import type { Prisma, EventStatus, SourceType } from "@/generated/prisma/client";
+import { Prisma } from "@/generated/prisma/client";
+import type { EventStatus, SourceType } from "@/generated/prisma/client";
 import { isUniqueConstraintViolation } from "@/lib/prisma-errors";
 import type { RawEventData, MergeResult } from "@/adapters/types";
 import { parseUtcNoonDate } from "@/lib/date";
@@ -369,6 +370,9 @@ interface EventBatchState {
   fuzzyPoolByKennel: Map<string, EventRow[]>;
   /** Per-kennel max event date observed; flushed as one `kennel.updateMany` per kennel. */
   kennelMaxDates: Map<string, Date>;
+  /** Mark-processed buffer: rawEventId → eventId. Flushed as one raw SQL
+   *  after the loop (Sentry JAVASCRIPT-NEXTJS-3 — write-side N+1 follow-up). */
+  processedRawEvents: Map<string, string>;
 }
 
 /** `select` for the dedup prefetch — kept as a hoisted const so the value type
@@ -1484,11 +1488,10 @@ async function upsertCanonicalEvent(
       });
     }
 
-    // Link RawEvent to existing Event
-    await prisma.rawEvent.update({
-      where: { id: rawEventId },
-      data: { processed: true, eventId: existingEvent.id },
-    });
+    // Queue the RawEvent link-to-Event write for the post-loop bulk flush
+    // (avoids the per-event N+1 flagged in Sentry JAVASCRIPT-NEXTJS-3
+    // after #1287 collapsed the read-side N+1s).
+    ctx.eventBatch.processedRawEvents.set(rawEventId, existingEvent.id);
 
     ctx.result.updated++;
     if (shouldRestore) ctx.result.restored++;
@@ -1539,11 +1542,9 @@ async function upsertCanonicalEvent(
     // the same kennel see it (#1287 — replaces the per-event findMany).
     rememberCreatedEvent(kennelId, newEvent, ctx);
 
-    // Link RawEvent to new Event
-    await prisma.rawEvent.update({
-      where: { id: rawEventId },
-      data: { processed: true, eventId: newEvent.id },
-    });
+    // Queue the RawEvent link-to-Event write for the post-loop bulk flush
+    // (see line ~1467 — same N+1 batched together).
+    ctx.eventBatch.processedRawEvents.set(rawEventId, newEvent.id);
 
     ctx.result.created++;
     ctx.result.createdEventIds.push(newEvent.id);
@@ -2167,6 +2168,7 @@ export async function processRawEvents(
       sameDayByKennel: new Map(),
       fuzzyPoolByKennel: new Map(),
       kennelMaxDates: new Map(),
+      processedRawEvents: new Map(),
     },
     result,
   };
@@ -2199,6 +2201,34 @@ export async function processRawEvents(
   }
 
   await linkMultiDaySeries(seriesGroups);
+
+  // Flush mark-processed writes for the batch as ONE correlated update —
+  // `FROM (VALUES …)` lets each row carry its own `eventId`, which
+  // Prisma's `updateMany` can't express (one shared `data` payload only).
+  // Failure is logged, not thrown — the row recovers via the next
+  // scrape's P2002 adopt-orphan path (#1286). Param-count cap is the
+  // Postgres extended-query 65535 limit ÷ 2 params/row ≈ 32K rows; well
+  // above any realistic batch.
+  if (ctx.eventBatch.processedRawEvents.size > 0) {
+    const entries = [...ctx.eventBatch.processedRawEvents];
+    try {
+      const valuesClause = Prisma.join(
+        entries.map(([rawId, eventId]) => Prisma.sql`(${rawId}, ${eventId})`),
+      );
+      await prisma.$executeRaw`
+        UPDATE "RawEvent"
+        SET "processed" = true,
+            "eventId" = update_map."eventId"
+        FROM (VALUES ${valuesClause}) AS update_map(id, "eventId")
+        WHERE "RawEvent"."id" = update_map.id
+      `;
+    } catch (err) {
+      console.error(
+        `[merge] processed-RawEvent flush failed for source ${sourceId} (${entries.length} rows):`,
+        err,
+      );
+    }
+  }
 
   // Flush per-kennel max event dates as a single batched write per kennel
   // (#1287 — replaces the per-event `$executeRaw UPDATE "Kennel"`). The

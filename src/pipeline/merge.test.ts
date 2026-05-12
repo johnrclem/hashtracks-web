@@ -249,11 +249,9 @@ describe("processRawEvents", () => {
     const result = await processRawEvents("src_1", [buildRawEvent()]);
     expect(result.created).toBe(1);
     expect(mockEventCreate).toHaveBeenCalledTimes(1);
-    expect(mockRawEventUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ processed: true, eventId: "evt_1" }),
-      }),
-    );
+    // The mark-processed write is now batched into one raw SQL after the
+    // loop (see the "batches the mark-processed flush" describe block at
+    // the bottom of this file).
   });
 
   it("dual-writes primary EventKennel alongside the new Event (#1023 step 2)", async () => {
@@ -436,12 +434,9 @@ describe("processRawEvents", () => {
     mockEventFindMany.mockResolvedValueOnce([{ id: "evt_existing", trustLevel: 3 }] as never);
     mockEventUpdate.mockResolvedValueOnce({} as never);
 
-    await processRawEvents("src_1", [buildRawEvent()]);
-    expect(mockRawEventUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ processed: true, eventId: "evt_existing" }),
-      }),
-    );
+    const result = await processRawEvents("src_1", [buildRawEvent()]);
+    expect(result.updated).toBe(1);
+    // The mark-processed write is now batched (see the dedicated test below).
   });
 
   it("never writes locationCity for HARRIER_CENTRAL sources on create (#471)", async () => {
@@ -3571,6 +3566,54 @@ describe("processRawEvents — per-kennel read batching (#1287)", () => {
 
     expect(mockKennelUpdateMany).not.toHaveBeenCalled();
   });
+
+  it("batches every per-event RawEvent.update into one raw SQL after the loop", async () => {
+    // Sentry JAVASCRIPT-NEXTJS-3 regressed after #1287 because the
+    // `prisma.rawEvent.update({ where: { id }, data: { processed: true,
+    // eventId } })` write was still firing per new event. Now collapsed
+    // into one `$executeRaw` with a `FROM (VALUES …)` correlated update
+    // — N events → 1 query, regardless of new vs. updated split.
+    const mockExecuteRaw = vi.mocked(prisma.$executeRaw);
+    mockRawEventFind.mockResolvedValue(null); // every event is new
+    mockEventCreate.mockResolvedValue({ id: "evt_new" } as never);
+    mockFingerprint
+      .mockReturnValueOnce("fp_a").mockReturnValueOnce("fp_b").mockReturnValueOnce("fp_c");
+    mockRawEventCreate
+      .mockResolvedValueOnce({ id: "raw_a" } as never)
+      .mockResolvedValueOnce({ id: "raw_b" } as never)
+      .mockResolvedValueOnce({ id: "raw_c" } as never);
+
+    await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-04-01", kennelTags: ["TestH3"] }),
+      buildRawEvent({ date: "2026-04-08", kennelTags: ["TestH3"] }),
+      buildRawEvent({ date: "2026-04-15", kennelTags: ["TestH3"] }),
+    ]);
+
+    // Exactly one $executeRaw call for the mark-processed flush.
+    // (No other $executeRaw call sites remain in merge.ts after #1287.)
+    expect(mockExecuteRaw).toHaveBeenCalledTimes(1);
+    const execCall = mockExecuteRaw.mock.calls[0];
+    // Stringify-search across the full call args avoids coupling to
+    // `Prisma.sql`'s internal `{ strings, values }` shape, which isn't a
+    // public API. Every (rawEventId, eventId) value must appear somewhere
+    // in the SQL fragment Prisma builds.
+    const serialized = JSON.stringify(execCall);
+    expect(serialized).toContain("raw_a");
+    expect(serialized).toContain("raw_b");
+    expect(serialized).toContain("raw_c");
+    expect(serialized).toContain("evt_new");
+  });
+
+  it("does not call $executeRaw when no new events are processed", async () => {
+    const mockExecuteRaw = vi.mocked(prisma.$executeRaw);
+    mockRawEventFind.mockResolvedValue({ id: "raw_seen", processed: true, eventId: "evt_seen" });
+
+    await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-04-01", kennelTags: ["TestH3"] }),
+    ]);
+
+    expect(mockExecuteRaw).not.toHaveBeenCalled();
+  });
 });
 
 describe("isAdminLocked", () => {
@@ -3644,11 +3687,12 @@ describe("processNewRawEvent — P2002 race-window fall-through (#1286)", () => 
     expect(result.created).toBe(1);
     expect(result.skipped).toBe(0);
     expect(result.eventErrors).toBe(0);
-    // The orphan's id (not a freshly-created RawEvent id) was used to
-    // process the canonical Event.
-    expect(mockRawEventUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: "raw_orphan" } }),
-    );
+    // The orphan's id (not a freshly-created RawEvent id) flowed into the
+    // batched mark-processed flush. Stringify-search avoids coupling to
+    // `Prisma.sql`'s internal `{ strings, values }` shape, which isn't a
+    // public API.
+    const execCall = vi.mocked(prisma.$executeRaw).mock.calls.at(-1);
+    expect(JSON.stringify(execCall)).toContain("raw_orphan");
   });
 
   it("re-throws if the winner row vanishes between P2002 and the re-fetch", async () => {
