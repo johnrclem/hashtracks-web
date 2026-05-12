@@ -38,6 +38,44 @@ describe("parseKCH3Time", () => {
   it("returns default for unparseable string", () => {
     expect(parseKCH3Time("early as you want")).toBe("14:00");
   });
+
+  // ── #1369 — When the source omits the AM/PM marker entirely, default to PM
+  //    (hash convention). Explicit AM tokens are still honored. The
+  //    regression case is "2:00 at: Fox & Hound" — the old regex matched the
+  //    `a` in `at` as the AM marker.
+
+  it("does not treat the `a` in `at` as an AM marker (#1369)", () => {
+    expect(parseKCH3Time("2:00 at: Fox & Hound")).toBe("14:00");
+  });
+
+  it("finds an hour token after leading filler text (PR #1382 codex P1)", () => {
+    // parseKCH3Body captures the whole meetup line as time, so "Meetup at
+    // 6 p.m." reaches this function as "at 6 p.m.". Anchoring to `^` would
+    // mis-default it to 14:00.
+    expect(parseKCH3Time("at 6 p.m.")).toBe("18:00");
+  });
+
+  it.each([
+    ["2:00", "14:00"],
+    ["5:00", "17:00"],
+    ["6:00", "18:00"],
+    ["12:00", "12:00"], // noon — no PM shift
+  ])("defaults bare %s to PM (#1369)", (input, expected) => {
+    expect(parseKCH3Time(input)).toBe(expected);
+  });
+
+  it("honors an explicit AM marker (sunrise event)", () => {
+    expect(parseKCH3Time("7:00 a.m.")).toBe("07:00");
+  });
+
+  it("honors 12 a.m. as midnight", () => {
+    expect(parseKCH3Time("12 a.m.")).toBe("00:00");
+  });
+
+  it("falls back to default for joke time '1:69' (minutes > 59)", () => {
+    // Real source data: "Meetup: 1:69" appeared in #1874 (April 2025).
+    expect(parseKCH3Time("1:69")).toBe("14:00");
+  });
 });
 
 describe("parseKCH3Body", () => {
@@ -94,7 +132,7 @@ describe("resolveKennelTag", () => {
     expect(resolveKennelTag("14 March Snake Saturday Trail")).toBe("kch3");
   });
 
-  it("returns pnh3 for Pearl Necklace title", () => {
+  it("returns kch3 for a non-PNH3 ladies trail title", () => {
     expect(
       resolveKennelTag("8 February 2026 Ladies Only Olympic Trials Trail"),
     ).toBe("kch3");
@@ -152,6 +190,67 @@ describe("processKCH3Post", () => {
 
     expect(result).not.toBeNull();
     expect(result!.description).toBe("Hash Cash: $5");
+  });
+
+  // ── #1368 — When the title omits the year, anchor on the WordPress post
+  //    publish date so "28 February" posted in 2026 resolves to 2026-02-28,
+  //    not 2027-02-28. The fix passes `post.date` as the chrono refDate.
+
+  it("anchors year-less title to publishDate (28 February → 2026-02-28)", () => {
+    const result = processKCH3Post(
+      "28 February Short, Sunny TAIL Trail",
+      "Meet Up 2:00 at: Fox & Hound",
+      "https://kansascityh3.com/x",
+      "2026-02-28T10:00:00",
+    );
+    expect(result).not.toBeNull();
+    expect(result!.date).toBe("2026-02-28");
+  });
+
+  it("anchors year-less title to publishDate (14 March → 2026-03-14)", () => {
+    const result = processKCH3Post(
+      "14 March Snake Saturday Trail",
+      "Meetup: 8 a.m.",
+      "https://kansascityh3.com/x",
+      "2026-03-11T08:00:00",
+    );
+    expect(result).not.toBeNull();
+    expect(result!.date).toBe("2026-03-14");
+  });
+
+  it("ignores a malformed publishDate and still parses an explicit-year title", () => {
+    // Defensive: an invalid `new Date("garbage")` produces NaN, which chrono
+    // would honor as a reference and drop the parse. Fall back to undefined.
+    const result = processKCH3Post(
+      "21 March 2026 SHHHHHHH Trail",
+      "Meetup: 2 p.m.",
+      "https://kansascityh3.com/x",
+      "not-a-date",
+    );
+    expect(result).not.toBeNull();
+    expect(result!.date).toBe("2026-03-21");
+  });
+
+  it("honors explicit year in title regardless of publishDate", () => {
+    const result = processKCH3Post(
+      "21 March 2026 SHHHHHHH Trail",
+      "Meetup: 2 p.m.",
+      "https://kansascityh3.com/x",
+      "2020-01-01T00:00:00",
+    );
+    expect(result).not.toBeNull();
+    expect(result!.date).toBe("2026-03-21");
+  });
+
+  it("integrates with the AM/PM fix: bare 2:00 in body → 14:00 (#1369)", () => {
+    const result = processKCH3Post(
+      "7 March 2026 Trail",
+      "Meet Up 2:00 at: Fox & Hound\nHash Cash $5\nHare PMS",
+      "https://kansascityh3.com/x",
+      "2026-03-04T12:00:00",
+    );
+    expect(result).not.toBeNull();
+    expect(result!.startTime).toBe("14:00");
   });
 });
 

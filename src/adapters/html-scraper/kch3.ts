@@ -12,29 +12,62 @@
  * Uses fetchWordPressPosts() from the shared WordPress API utility.
  */
 
-import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult } from "../types";
 import { fetchWordPressPosts } from "../wordpress-api";
-import { applyDateWindow, chronoParseDate } from "../utils";
+import {
+  applyDateWindow,
+  chronoParseDate,
+  htmlToNewlineText,
+  parsePublishDate,
+} from "../utils";
+
+/** Default start time when the meetup line is missing or unparseable. */
+const DEFAULT_START_TIME = "14:00";
 
 /**
  * Parse a time string from KCH3 post body.
- * Formats: "8 a.m.", "2 p.m.", "2:00 p.m.", "12:00p", "2:15pm CST", "12:30"
- * Returns "HH:MM" in 24-hour format, or "14:00" as default.
+ *
+ * Two-step parse so a bare hour like "2:00 at: Fox & Hound" doesn't get the
+ * `a` in `at` interpreted as the AM marker (#1369):
+ *   1. Capture the leading H or H:MM token.
+ *   2. Look for an explicit AM/PM marker immediately adjacent to it.
+ *
+ * When the source omits the AM/PM marker entirely, default to PM (hash
+ * convention — trails are afternoon events). Explicit AM tokens are honored.
+ *
+ * Returns "HH:MM" in 24-hour format, or DEFAULT_START_TIME when no hour is
+ * parseable.
  */
 export function parseKCH3Time(timeStr?: string): string {
-  if (!timeStr) return "14:00";
+  if (!timeStr) return DEFAULT_START_TIME;
+  const t = timeStr.trim();
 
-  const match = /(\d{1,2})(?::(\d{2}))?\s*([ap])\.?\s*m?\.?/i.exec(timeStr);
-  if (!match) return "14:00";
+  // Find the first hour token anywhere in the string — the meetup-line
+  // capture can include filler text like "at 6 p.m.", "the trail starts at
+  // 2:00", or "2:00 at: Fox & Hound". Anchoring to `^` would mis-fire on
+  // any post that doesn't begin with a digit (codex P1 on PR #1382).
+  const hourMatch = /(\d{1,2})(?::(\d{2}))?/.exec(t);
+  if (!hourMatch) return DEFAULT_START_TIME;
+  let hours = Number.parseInt(hourMatch[1], 10);
+  const minutes = hourMatch[2] ?? "00";
+  if (hours < 0 || hours > 23) return DEFAULT_START_TIME;
+  // KCH3 occasionally posts joke times like "Meetup: 1:69" (#1874).
+  // Reject minutes outside 00–59 so downstream UTC composition stays valid.
+  if (Number.parseInt(minutes, 10) > 59) return DEFAULT_START_TIME;
 
-  let hours = Number.parseInt(match[1], 10);
-  const minutes = match[2] || "00";
-  const ampm = match[3].toLowerCase(); // "a" or "p"
+  // `\b` after `m` / lone `a`/`p` blocks matches like the `a` in `at`
+  // (next char is `t` — a word char — so no word boundary).
+  const rest = t.slice((hourMatch.index ?? 0) + hourMatch[0].length);
+  const ampmMatch = /^\s*(a\.m\.?|p\.m\.?|am\b|pm\b|a\b|p\b)/i.exec(rest);
 
-  if (ampm === "p" && hours !== 12) hours += 12;
-  if (ampm === "a" && hours === 12) hours = 0;
+  if (ampmMatch) {
+    const ampm = ampmMatch[1][0].toLowerCase();
+    if (ampm === "p" && hours !== 12) hours += 12;
+    if (ampm === "a" && hours === 12) hours = 0;
+  } else if (hours < 12) {
+    hours += 12;
+  }
 
   return `${hours.toString().padStart(2, "0")}:${minutes}`;
 }
@@ -87,31 +120,37 @@ export function resolveKennelTag(title: string): string {
 /**
  * Process a single WordPress post into a RawEventData.
  * Returns null if the post cannot be parsed into a valid event.
+ *
+ * `publishDate` (ISO timestamp from the WordPress REST API) anchors the year
+ * when the title omits it. Without an anchor, chrono `forwardDate` would roll
+ * year-less titles past the current date — "28 February" posted in 2026
+ * resolves to 2027 instead of 2026 (#1368). Anchoring on the post's publish
+ * date lets chrono pick the year nearest to publication.
  */
 export function processKCH3Post(
   titleText: string,
   bodyText: string,
   postUrl: string,
+  publishDate?: string,
 ): RawEventData | null {
-  // Parse date from the title (e.g., "14 March Snake Saturday Trail", "21 March 2026 SHHHHHHH Trail")
-  const dateStr = chronoParseDate(titleText, "en-US", undefined, {
-    forwardDate: true,
-  });
+  // `parsePublishDate` returns undefined for missing or malformed input,
+  // sidestepping a silent parse failure when chrono is handed `Date(NaN)`.
+  const refDate = parsePublishDate(publishDate);
+  const dateStr = chronoParseDate(titleText, "en-US", refDate);
   if (!dateStr) return null;
 
   const body = parseKCH3Body(bodyText);
   const startTime = parseKCH3Time(body.time);
   const kennelTag = resolveKennelTag(titleText);
 
-  // Strip date from title to get trail name
-  // Remove leading date patterns: "14 March", "21 March 2026", "28 February"
   const trailName = titleText
     .replace(/^\d{1,2}\s+\w+\s*(?:\d{4}\s*)?/i, "")
     .trim() || titleText;
 
   return {
     date: dateStr,
-    kennelTags: [kennelTag],    title: trailName,
+    kennelTags: [kennelTag],
+    title: trailName,
     hares: body.hares,
     location: body.location,
     startTime,
@@ -135,7 +174,6 @@ export class KCH3Adapter implements SourceAdapter {
     options?: { days?: number },
   ): Promise<ScrapeResult> {
     const baseUrl = source.url || "https://kansascityh3.com/";
-    // Honor source.scrapeDays via options.days (default 365)
     const days = options?.days ?? source.scrapeDays ?? 365;
 
     const wpResult = await fetchWordPressPosts(baseUrl);
@@ -159,12 +197,8 @@ export class KCH3Adapter implements SourceAdapter {
     const events: RawEventData[] = [];
 
     for (const post of wpResult.posts) {
-      const $ = cheerio.load(post.content);
-      // Insert newlines at <br> and <p> boundaries so labeled fields parse correctly
-      $("p, br").before("\n");
-      const bodyText = $.text();
-
-      const event = processKCH3Post(post.title, bodyText, post.url);
+      const bodyText = htmlToNewlineText(post.content);
+      const event = processKCH3Post(post.title, bodyText, post.url, post.date);
       if (event) events.push(event);
     }
 
