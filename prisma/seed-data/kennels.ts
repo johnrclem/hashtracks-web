@@ -1075,10 +1075,8 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "hockessin", shortName: "Hockessin H3", fullName: "Hockessin Hash House Harriers", region: "Wilmington, DE",
       website: "https://www.hockessinhash.org/",
       logoUrl: "https://www.hockessinhash.org/logo.GIF",
-      // Seasonal split: Wednesdays 6:30 PM summer, Saturdays 3 PM winter. Schema has one cadence slot;
-      // picking summer (current season). Manual flip needed each Nov/Mar until schema supports both.
-      scheduleDayOfWeek: "Wednesday", scheduleFrequency: "Weekly", scheduleTime: "6:30 PM",
-      scheduleNotes: "Wednesdays 6:30 PM (summer); Saturdays 3 PM (winter). Runs in DE/MD/PA/NJ.",
+      scheduleFrequency: "Weekly",
+      scheduleNotes: "Wednesdays 6:30 PM (summer, ~Mar–Oct); Saturdays 3 PM (winter, ~Nov–Feb). Runs in DE/MD/PA/NJ.",
       hashCash: "$5",
       description: "Delaware's most active hash with 1,656+ trails across the tri-state area.",
       latitude: 39.78, longitude: -75.68,
