@@ -44,20 +44,54 @@ export interface KampongFields {
 }
 
 // Single-pass normalize: collapse NBSPs and runs of whitespace to one space.
-const NORMALIZE_WS_RE = /[ \s]+/g;
+const NORMALIZE_WS_RE = /[ \s]+/g;
 const RUN_NUMBER_RE = /Run\s+(\d{1,4})/i;
-const DATE_RE = /Date:\s*(?:[a-z]+,?\s*)?(\d{1,2})\s*[a-z]*\s+([a-z]+)\s+(\d{4})/i;
 const TIME_RE = /(?:Run\s*starts\s*)?(\d{1,2})(?::(\d{2}))?\s*([ap]m)/i;
-// The DOM-aware Next Run collector joins h2 blocks with " | ", so each
-// labelled field regex needs " |" as a stop boundary alongside the other
-// field markers.
-const STOP = String.raw`(?:\s+\||\s+Run\s*site:|\s+Date:|\s+On\s+On:|\s+Hares?:|\s+The\s+Kampong|$)`;
-const HARES_RE = new RegExp(`Hares?:\\s*(.+?)${STOP}`, "i");
-const RUN_SITE_RE = new RegExp(`Run\\s*site:\\s*(.+?)${STOP}`, "i");
-const ON_ON_RE = new RegExp(`On\\s+On:\\s*(.+?)${STOP}`, "i");
 const TBA_RE = /^t\.?\s*b\.?\s*a\.?$/i;
+// `collectNextRunHeaderText` joins h2 blocks with " | ", so each labelled
+// field arrives as its own chunk. Anchored `^Label:` regexes avoid the
+// STOP-boundary backtracking patterns Sonar S5852 flags, and the literals
+// avoid the dynamic-RegExp construction Semgrep flags.
+const HARES_FIELD_RE = /^Hares?:\s*(.+)/i;
+const RUN_SITE_FIELD_RE = /^Run\s*site:\s*(.+)/i;
+const ON_ON_FIELD_RE = /^On\s+On:\s*(.+)/i;
+// Ordinal-suffix strippers used before the date regex. Bounded inputs
+// (single digit OR single whitespace before the alternation) so neither
+// triggers the super-linear-backtracking heuristic.
+const ORDINAL_AFTER_DIGIT_RE = /(\d)(?:st|nd|rd|th)\b/gi;
+const ORDINAL_AFTER_SPACE_RE = /\s(?:st|nd|rd|th)\b/gi;
+const DATE_TOKEN_RE = /(\d{1,2})\s+([A-Za-z]{3,15})\s+(\d{4})/;
+const DATE_LABEL_RE = /Date:/i;
+const NEXT_RUN_HEADING_RE = /next\s*run/i;
 
-/** Parse the "Next Run" text block from kampong.hash.org.sg. */
+/**
+ * Extract YYYY-MM-DD from a "Date: …" field by stripping ordinal suffixes
+ * ("18th", "1 st") and any day-of-week prefix, then matching a simple
+ * `DD MONTH YYYY` token. Each step uses a bounded regex so Sonar's ReDoS
+ * heuristic doesn't flag adjacent quantifiers.
+ */
+function parseDateFromHeader(text: string): string | undefined {
+  const idx = text.search(DATE_LABEL_RE);
+  if (idx < 0) return undefined;
+  const slice = text
+    .slice(idx + 5, idx + 100)
+    .replace(ORDINAL_AFTER_DIGIT_RE, "$1")
+    .replace(ORDINAL_AFTER_SPACE_RE, "");
+  const m = DATE_TOKEN_RE.exec(slice);
+  if (!m) return undefined;
+  const day = Number.parseInt(m[1], 10);
+  const monthIdx = MONTHS[m[2].toLowerCase()];
+  if (!monthIdx) return undefined;
+  const year = Number.parseInt(m[3], 10);
+  return `${year}-${String(monthIdx).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+/**
+ * Parse the "Next Run" text block from kampong.hash.org.sg. Production
+ * callers pass the pipe-joined output of `collectNextRunHeaderText` (one
+ * `<h2>` per chunk separated by " | "); the parser splits on that
+ * separator so each labelled field can be matched with anchored regexes.
+ */
 export function parseKampongNextRun(rawText: string): KampongFields {
   const text = rawText.replaceAll(NORMALIZE_WS_RE, " ").trim();
   const result: KampongFields = {};
@@ -65,15 +99,7 @@ export function parseKampongNextRun(rawText: string): KampongFields {
   const runMatch = RUN_NUMBER_RE.exec(text);
   if (runMatch) result.runNumber = Number.parseInt(runMatch[1], 10);
 
-  const dateMatch = DATE_RE.exec(text);
-  if (dateMatch) {
-    const day = Number.parseInt(dateMatch[1], 10);
-    const monthIdx = MONTHS[dateMatch[2].toLowerCase()];
-    const year = Number.parseInt(dateMatch[3], 10);
-    if (monthIdx) {
-      result.date = `${year}-${String(monthIdx).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    }
-  }
+  result.date = parseDateFromHeader(text);
 
   const timeMatch = TIME_RE.exec(text);
   if (timeMatch) {
@@ -82,19 +108,24 @@ export function parseKampongNextRun(rawText: string): KampongFields {
     result.startTime = formatAmPmTime(hour, minute, timeMatch[3]);
   }
 
-  const hareMatch = HARES_RE.exec(text);
-  if (hareMatch) result.hares = hareMatch[1].trim();
-
-  const siteMatch = RUN_SITE_RE.exec(text);
-  if (siteMatch) {
-    const site = siteMatch[1].trim();
-    if (!TBA_RE.test(site)) result.location = site;
-  }
-
-  const onOnMatch = ON_ON_RE.exec(text);
-  if (onOnMatch) {
-    const onAfter = onOnMatch[1].trim();
-    if (onAfter.length > 0) result.onAfter = onAfter;
+  for (const rawChunk of text.split(" | ")) {
+    const chunk = rawChunk.trim();
+    const hareMatch = HARES_FIELD_RE.exec(chunk);
+    if (hareMatch) {
+      result.hares = hareMatch[1].trim();
+      continue;
+    }
+    const siteMatch = RUN_SITE_FIELD_RE.exec(chunk);
+    if (siteMatch) {
+      const site = siteMatch[1].trim();
+      if (!TBA_RE.test(site)) result.location = site;
+      continue;
+    }
+    const onOnMatch = ON_ON_FIELD_RE.exec(chunk);
+    if (onOnMatch) {
+      const onAfter = onOnMatch[1].trim();
+      if (onAfter.length > 0) result.onAfter = onAfter;
+    }
   }
 
   return result;
@@ -123,8 +154,10 @@ export interface KampongArchiveParseResult {
 }
 
 const ARCHIVE_ROW_RE = /^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})\b/;
-const DETAIL_SEPARATOR_RE = /\s+[-–]\s+/; // " - " or " – " (en-dash)
 const CELL_INT_RE = /^(\d{1,4})$/;
+// Detail-cell separator candidates: hyphen-minus, en-dash, em-dash. Bracketed
+// to a literal class so there's no `\s+`-on-both-sides alternation pattern.
+const DETAIL_SEPARATORS = [" - ", " – ", " — "];
 
 function parseArchiveCellDate(
   cell: string,
@@ -140,9 +173,21 @@ function parseArchiveCellDate(
 }
 
 function extractDetails(rest: string): string | undefined {
-  const sepMatch = DETAIL_SEPARATOR_RE.exec(rest);
-  if (!sepMatch) return undefined;
-  const tail = rest.slice(sepMatch.index + sepMatch[0].length).replaceAll(NORMALIZE_WS_RE, " ").trim();
+  // Find the earliest occurrence of any separator without using a regex
+  // that has `\s+` on both sides of an alternation (Sonar S5852 trigger).
+  // Input is already whitespace-normalized by the caller, so a literal
+  // " - " match is sufficient.
+  let sepStart = -1;
+  let sepLen = 0;
+  for (const sep of DETAIL_SEPARATORS) {
+    const idx = rest.indexOf(sep);
+    if (idx >= 0 && (sepStart < 0 || idx < sepStart)) {
+      sepStart = idx;
+      sepLen = sep.length;
+    }
+  }
+  if (sepStart < 0) return undefined;
+  const tail = rest.slice(sepStart + sepLen).replaceAll(NORMALIZE_WS_RE, " ").trim();
   return tail.length > 0 ? tail : undefined;
 }
 
@@ -190,7 +235,7 @@ export function parseKampongArchiveTable($: CheerioAPI): KampongArchiveParseResu
  */
 function collectNextRunHeaderText($: CheerioAPI): string | null {
   const h1 = $("h1")
-    .filter((_, el) => /next\s*run/i.test($(el).text()))
+    .filter((_, el) => NEXT_RUN_HEADING_RE.test($(el).text()))
     .first();
   if (h1.length === 0) return null;
 
@@ -282,20 +327,20 @@ export class KampongH3Adapter implements SourceAdapter {
       byRunNumber.set(row.runNumber, archiveRowToEvent(row, url));
     }
 
-    // Promote skipped rows to scrape errors only when their runNumber
-    // could plausibly be in the live window — i.e. >= the earliest emitted
-    // run, OR (when nothing emitted) anywhere in the archive. This catches
-    // format drift on a live row (e.g. Run 298's date label changes) so
-    // reconcile doesn't misread the silent drop as "event removed from
-    // source", while ignoring the known historical-archive ambiguities
-    // (Run 18 / Feb 2001 etc.) that are out of reconcile scope anyway.
-    const emittedRunNumbers = [...byRunNumber.keys()];
-    const liveCutoff = emittedRunNumbers.length > 0 ? Math.min(...emittedRunNumbers) : 0;
-    for (const skip of parsed.skipped) {
-      if (skip.runNumber < liveCutoff) continue;
-      errors.push(
-        `Archive row ${skip.runNumber} skipped (${skip.reason}): "${skip.cellText}"`,
-      );
+    // Promote skipped rows to scrape errors only when their runNumber falls
+    // within the live emission window — i.e. >= the earliest emitted run.
+    // Guard: when nothing was emitted (e.g. source temporarily empty of
+    // forward rows), keep the historical-archive ambiguities silent —
+    // they're never reconcile-relevant and would otherwise be the only
+    // error returned, masking the actual cause.
+    if (byRunNumber.size > 0) {
+      const liveCutoff = Math.min(...byRunNumber.keys());
+      for (const skip of parsed.skipped) {
+        if (skip.runNumber < liveCutoff) continue;
+        errors.push(
+          `Archive row ${skip.runNumber} skipped (${skip.reason}): "${skip.cellText}"`,
+        );
+      }
     }
 
     // Overlay the Next Run hero block (richer hares/location/on-after).
@@ -309,7 +354,6 @@ export class KampongH3Adapter implements SourceAdapter {
       if (runNumber) {
         byRunNumber.set(runNumber, nextRunResult.event);
       } else {
-        // Live page always carries a run number; warn loudly if not.
         errors.push("Next Run block parsed but missing run number — skipping overlay");
       }
     } else if (nextRunResult.error) {

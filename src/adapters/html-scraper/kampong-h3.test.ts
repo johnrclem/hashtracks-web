@@ -73,7 +73,9 @@ function mockFetchResponse(html: string) {
 
 describe("parseKampongNextRun", () => {
   it("parses the canonical Next Run block (singular Hare label)", () => {
-    const text = `Next Run Run 296 Date: Saturday, 18 th April 2026 Run starts 5:30PM Hare: Fawlty Towers Run site: T.B.A. The Kampong HHH runs once a month`;
+    // Pipe-separated chunks mirror what `collectNextRunHeaderText` produces
+    // in production (one h2 per chunk).
+    const text = `Next Run Run 296 | Date: Saturday, 18 th April 2026 Run starts 5:30PM | Hare: Fawlty Towers | Run site: T.B.A.`;
     const out = parseKampongNextRun(text);
     expect(out.runNumber).toBe(296);
     expect(out.date).toBe("2026-04-18");
@@ -83,7 +85,7 @@ describe("parseKampongNextRun", () => {
   });
 
   it("parses the plural Hares: label (regression for live layout)", () => {
-    const text = `Next Run Run 297 Date: Saturday, 16th May 2026 Run starts 5:30PM Hares: Horny Pony & Olive Oyl & Shoeless & Durian Dog Run site: Holland Green Linear Park On On: Forture Seafood Steam Boat`;
+    const text = `Next Run Run 297 | Date: Saturday, 16th May 2026 Run starts 5:30PM | Hares: Horny Pony & Olive Oyl & Shoeless & Durian Dog | Run site: Holland Green Linear Park | On On: Forture Seafood Steam Boat`;
     const out = parseKampongNextRun(text);
     expect(out.runNumber).toBe(297);
     expect(out.date).toBe("2026-05-16");
@@ -93,13 +95,13 @@ describe("parseKampongNextRun", () => {
   });
 
   it("captures a real run site when not TBA", () => {
-    const text = `Next Run Run 297 Date: Saturday, 16 May 2026 Run starts 5:30PM Hare: Sloppy Joe Run site: Bukit Timah Nature Reserve The Kampong HHH`;
+    const text = `Next Run Run 297 | Date: Saturday, 16 May 2026 Run starts 5:30PM | Hare: Sloppy Joe | Run site: Bukit Timah Nature Reserve`;
     const out = parseKampongNextRun(text);
     expect(out.location).toBe("Bukit Timah Nature Reserve");
   });
 
   it("handles times without colon (e.g. 5PM)", () => {
-    const text = `Next Run Run 298 Date: Saturday, 20 June 2026 Run starts 5PM Hare: Streaker`;
+    const text = `Next Run Run 298 | Date: Saturday, 20 June 2026 Run starts 5PM | Hare: Streaker`;
     const out = parseKampongNextRun(text);
     expect(out.startTime).toBe("17:00");
   });
