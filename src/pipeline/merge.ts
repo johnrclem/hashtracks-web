@@ -2205,29 +2205,31 @@ export async function processRawEvents(
   // Flush mark-processed writes for the batch as ONE correlated update —
   // `FROM (VALUES …)` lets each row carry its own `eventId`, which
   // Prisma's `updateMany` can't express (one shared `data` payload only).
-  // Failure is logged, not thrown — the row recovers via the next
-  // scrape's P2002 adopt-orphan path (#1286). Param-count cap is the
-  // Postgres extended-query 65535 limit ÷ 2 params/row ≈ 32K rows; well
-  // above any realistic batch.
+  // Param-count cap is the Postgres extended-query 65535 limit ÷ 2 params
+  // /row ≈ 32K rows; well above any realistic batch.
+  //
+  // Failures rethrow rather than swallow. Pre-#1287 the equivalent per-
+  // event `rawEvent.update` was inside the per-event try/catch and a
+  // failure landed as `eventErrors` while the batch continued; the
+  // batched flush moved outside that boundary, so its failure mode is
+  // now batch-level. Letting it throw surfaces the error in Sentry and
+  // hands recovery to QStash's auto-retry (minutes), whereas silently
+  // logging would wait for the next scheduled scrape (hours) to repair
+  // the orphaned RawEvents via the #1286 adopt-orphan path. The
+  // canonical Events already committed earlier in the loop; the retry
+  // sees them via dedup and only repairs the unprocessed-RawEvent state.
   if (ctx.eventBatch.processedRawEvents.size > 0) {
     const entries = [...ctx.eventBatch.processedRawEvents];
-    try {
-      const valuesClause = Prisma.join(
-        entries.map(([rawId, eventId]) => Prisma.sql`(${rawId}, ${eventId})`),
-      );
-      await prisma.$executeRaw`
-        UPDATE "RawEvent"
-        SET "processed" = true,
-            "eventId" = update_map."eventId"
-        FROM (VALUES ${valuesClause}) AS update_map(id, "eventId")
-        WHERE "RawEvent"."id" = update_map.id
-      `;
-    } catch (err) {
-      console.error(
-        `[merge] processed-RawEvent flush failed for source ${sourceId} (${entries.length} rows):`,
-        err,
-      );
-    }
+    const valuesClause = Prisma.join(
+      entries.map(([rawId, eventId]) => Prisma.sql`(${rawId}, ${eventId})`),
+    );
+    await prisma.$executeRaw`
+      UPDATE "RawEvent"
+      SET "processed" = true,
+          "eventId" = update_map."eventId"
+      FROM (VALUES ${valuesClause}) AS update_map(id, "eventId")
+      WHERE "RawEvent"."id" = update_map.id
+    `;
   }
 
   // Flush per-kennel max event dates as a single batched write per kennel

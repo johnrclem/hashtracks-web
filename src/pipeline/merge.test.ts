@@ -3604,6 +3604,28 @@ describe("processRawEvents — per-kennel read batching (#1287)", () => {
     expect(serialized).toContain("evt_new");
   });
 
+  it("rethrows when the mark-processed flush fails so QStash retries on schedule", async () => {
+    // Pre-#1287 a per-event `rawEvent.update` failure landed as
+    // `eventErrors` inside the per-event try/catch while the batch
+    // continued. The batched flush moved outside that boundary —
+    // swallowing the error here would leave the affected RawEvents
+    // unprocessed until the next scheduled scrape (hours away).
+    // Letting it throw surfaces the failure to Sentry and hands recovery
+    // to QStash's auto-retry within minutes. Canonical Events already
+    // committed; the retry sees them via dedup and only repairs the
+    // unprocessed-RawEvent state via the #1286 adopt-orphan path.
+    const mockExecuteRaw = vi.mocked(prisma.$executeRaw);
+    mockExecuteRaw.mockRejectedValueOnce(new Error("transient DB error"));
+    mockRawEventFind.mockResolvedValue(null);
+    mockEventCreate.mockResolvedValue({ id: "evt_new" } as never);
+
+    await expect(
+      processRawEvents("src_1", [
+        buildRawEvent({ date: "2026-04-01", kennelTags: ["TestH3"] }),
+      ]),
+    ).rejects.toThrow("transient DB error");
+  });
+
   it("does not call $executeRaw when no new events are processed", async () => {
     const mockExecuteRaw = vi.mocked(prisma.$executeRaw);
     mockRawEventFind.mockResolvedValue({ id: "raw_seen", processed: true, eventId: "evt_seen" });
