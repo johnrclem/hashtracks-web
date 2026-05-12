@@ -511,8 +511,10 @@ const NON_ADDRESS_INSTRUCTION_RE = /^(?:use the|check the|see the|see descriptio
 /** Single-word sibling labels — leak when `WHERE:` is left blank in a template
  *  (#1329 Flour City: `Where:\nWhen: 5:69` would otherwise capture "When: 5:69"). */
 const NON_ADDRESS_SINGLE_LABEL_RE = /^(?:when|why|hare|what|who|cost|how)\s*:/i;
-/** Multi-word sibling labels (`On-After:`, `Hash Cash:`, `Pre-lube:` etc.). */
-const NON_ADDRESS_MULTI_LABEL_RE = /^(?:how\s+much|hash\s+cash|on[\s-]?after|pack\s*meet|pre[\s-]?lube|trail\s*(?:type|length))\s*:/i;
+/** Multi-word sibling labels — split into two smaller regexes so each stays
+ *  under SonarQube S5843's complexity threshold of 20. */
+const NON_ADDRESS_LABEL_CASH_RE = /^(?:how\s+much|hash\s+cash|on[\s-]?after)\s*:/i;
+const NON_ADDRESS_LABEL_TRAIL_RE = /^(?:pack\s*meet|pre[\s-]?lube|trail\s*(?:type|length))\s*:/i;
 /** Bare payment keywords — `Venmo or PayPal: …` etc. */
 const NON_ADDRESS_PAYMENT_RE = /^(?:venmo|pay\s*pal|cash\s*app|zelle)\b/i;
 /** Suffix phrase indicating the field is a placeholder like "DST start location". */
@@ -526,7 +528,8 @@ function isNonAddressText(text: string): boolean {
   return (
     NON_ADDRESS_INSTRUCTION_RE.test(t) ||
     NON_ADDRESS_SINGLE_LABEL_RE.test(t) ||
-    NON_ADDRESS_MULTI_LABEL_RE.test(t) ||
+    NON_ADDRESS_LABEL_CASH_RE.test(t) ||
+    NON_ADDRESS_LABEL_TRAIL_RE.test(t) ||
     NON_ADDRESS_PAYMENT_RE.test(t) ||
     NON_ADDRESS_SUFFIX_RE.test(t)
   );
