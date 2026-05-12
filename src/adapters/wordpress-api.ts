@@ -295,8 +295,18 @@ export async function fetchWordPressPosts(
 /**
  * Paginated walk of the WordPress REST API. Used by one-shot historical
  * backfill scripts that need every post on a self-hosted WP site, not just
- * the latest N. Stops when the API returns 400 (past totalPages) or when
- * fewer than `perPage` items come back (final page).
+ * the latest N.
+ *
+ * Termination signals (philosophy: fail loud, never silently truncate):
+ *   - A short batch (`batch.length < perPage`) — definitive end of archive.
+ *   - HTTP 400 with `code === "rest_post_invalid_page_number"` past page 1 —
+ *     WordPress's canonical "you asked past the last page" response.
+ *
+ * Any other 400 throws. A CDN/WAF that rewrites the terminal 400 body on
+ * an exact-multiple-of-perPage archive will trigger a thrown error here
+ * even though the archive was fully fetched — that's a known limitation,
+ * and an operator-visible error is strictly better than silently returning
+ * a partial archive (which would corrupt one-shot backfills with no signal).
  *
  * Decodes title entities so callers can match against the live adapter's
  * post.title shape without re-decoding.
@@ -306,6 +316,21 @@ interface WordPressBatchItem {
   content?: { rendered?: string };
   link?: string;
   date?: string;
+}
+
+/**
+ * Try to extract a WordPress REST API error `code` from a response body.
+ * WP returns `{ code, message, data: { status } }` for known error states;
+ * misconfigured plugins / auth gateways often return plain text or HTML.
+ */
+function extractRestErrorCode(body: string): string | undefined {
+  try {
+    const parsed = JSON.parse(body) as { code?: unknown };
+    if (typeof parsed.code === "string") return parsed.code;
+  } catch {
+    // Body wasn't JSON (HTML error page, plain text, empty, etc.)
+  }
+  return undefined;
 }
 
 function toWordPressPost(item: WordPressBatchItem): WordPressPost {
@@ -365,14 +390,19 @@ export async function fetchAllWordPressPosts(
       headers: { Accept: "application/json", "User-Agent": WP_USER_AGENT },
     });
     if (response.status === 400) {
-      if (page === 1) {
-        // First-page 400 means bad URL / bad perPage, not "past last page".
-        // Returning [] would silently mask that as an empty archive.
-        throw new Error(
-          `WordPress paginator failed on first page: HTTP 400 from ${url}. Check siteUrl or perPage.`,
-        );
+      // Distinguish the canonical "past last page" signal from any other
+      // 400 (plugin error, auth gateway, rate limit, bad URL). Only the
+      // canonical code is treated as end-of-archive; anything else fails
+      // loud rather than silently truncating a one-shot backfill.
+      const body = await response.text();
+      const errorCode = extractRestErrorCode(body);
+      if (errorCode === "rest_post_invalid_page_number" && page > 1) {
+        return posts;
       }
-      return posts;
+      const detail = errorCode ? `code=${errorCode}` : `body: ${body.slice(0, 200)}`;
+      throw new Error(
+        `WordPress paginator page ${page}: HTTP 400 from ${url} (${detail}).`,
+      );
     }
     if (!response.ok) {
       throw new Error(`WordPress paginator page ${page}: HTTP ${response.status}`);

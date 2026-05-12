@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { fetchWordPressPosts, fetchWordPressComPosts } from "./wordpress-api";
+import {
+  fetchAllWordPressPosts,
+  fetchWordPressComPosts,
+  fetchWordPressPosts,
+} from "./wordpress-api";
 
 describe("fetchWordPressPosts", () => {
   beforeEach(() => {
@@ -298,5 +302,122 @@ describe("fetchWordPressComPosts", () => {
     expect(result.posts).toEqual([]);
     expect(result.found).toBe(0);
     expect(result.error?.status).toBe(404);
+  });
+});
+
+describe("fetchAllWordPressPosts", () => {
+  beforeEach(() => {
+    vi.stubGlobal("fetch", vi.fn());
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const makePost = (n: number) => ({
+    title: { rendered: `Post ${n}` },
+    content: { rendered: "<p>body</p>" },
+    link: `https://example.com/post-${n}/`,
+    date: `2026-01-${String(n).padStart(2, "0")}T00:00:00`,
+  });
+
+  it("walks pages until a short final batch", async () => {
+    const page1 = Array.from({ length: 100 }, (_, i) => makePost(i + 1));
+    const page2 = Array.from({ length: 35 }, (_, i) => makePost(i + 101));
+
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(new Response(JSON.stringify(page1), { status: 200 }) as never)
+      .mockResolvedValueOnce(new Response(JSON.stringify(page2), { status: 200 }) as never);
+
+    const posts = await fetchAllWordPressPosts("https://example.com");
+
+    expect(posts).toHaveLength(135);
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+
+  // Bodies the WP REST API (or a misconfigured WAF in front of it) might
+  // return alongside HTTP 400.
+  const EXHAUSTED_BODY = JSON.stringify({
+    code: "rest_post_invalid_page_number",
+    message: "The page number requested is larger than the number of pages available.",
+    data: { status: 400 },
+  });
+  const WAF_BODY = JSON.stringify({
+    code: "rest_forbidden",
+    message: "Sorry, you are not allowed to do that.",
+    data: { status: 400 },
+  });
+  const HTML_BODY = "<html><body>Bad Request</body></html>";
+
+  it.each([
+    {
+      name: "stops on legitimate rest_post_invalid_page_number 400",
+      priorFullPages: 2,
+      finalBody: EXHAUSTED_BODY,
+      expectPosts: 200,
+    },
+    {
+      // WAF / rate-limit / auth-plugin failure mid-walk: old code silently
+      // returned the posts so far and pretended the archive ended.
+      name: "throws on non-end-of-archive 400 mid-walk (does NOT silently truncate)",
+      priorFullPages: 2,
+      finalBody: WAF_BODY,
+      expectError: /HTTP 400.*code=rest_forbidden/,
+    },
+    {
+      // Documents intentional fail-loud behavior: if a CDN/WAF rewrites
+      // the terminal 400 body on an exact-multiple-of-perPage archive,
+      // the walk throws even though all posts were already fetched.
+      // We deliberately prefer this over any silent-truncation hazard
+      // from being permissive about non-canonical 400 bodies.
+      name: "throws on 400 with non-JSON body (e.g. HTML error page from CDN)",
+      priorFullPages: 1,
+      finalBody: HTML_BODY,
+      expectError: /HTTP 400.*body:/,
+    },
+    {
+      // First-page rest_post_invalid_page_number is almost certainly a
+      // misconfigured perPage or wrong base URL, not an empty archive.
+      name: "throws on first-page 400 even with rest_post_invalid_page_number",
+      priorFullPages: 0,
+      finalBody: EXHAUSTED_BODY,
+      expectError: /page 1.*HTTP 400/,
+    },
+  ])("$name", async ({ priorFullPages, finalBody, expectPosts, expectError }) => {
+    for (let i = 0; i < priorFullPages; i++) {
+      const page = Array.from({ length: 100 }, (_, j) => makePost(j + i * 100 + 1));
+      vi.mocked(fetch).mockResolvedValueOnce(
+        new Response(JSON.stringify(page), { status: 200 }) as never,
+      );
+    }
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(finalBody, { status: 400 }) as never,
+    );
+
+    if (expectPosts !== undefined) {
+      const posts = await fetchAllWordPressPosts("https://example.com");
+      expect(posts).toHaveLength(expectPosts);
+      expect(fetch).toHaveBeenCalledTimes(priorFullPages + 1);
+    } else {
+      await expect(fetchAllWordPressPosts("https://example.com")).rejects.toThrow(
+        expectError,
+      );
+    }
+  });
+
+  it("throws when maxPages is hit with a full final batch", async () => {
+    const fullBatch = JSON.stringify(
+      Array.from({ length: 100 }, (_, i) => makePost(i + 1)),
+    );
+
+    // mockImplementation so each page gets a fresh Response (body is single-use).
+    vi.mocked(fetch).mockImplementation(
+      async () => new Response(fullBatch, { status: 200 }) as never,
+    );
+
+    await expect(
+      fetchAllWordPressPosts("https://example.com", { maxPages: 2 }),
+    ).rejects.toThrow(/exhausted maxPages=2/);
   });
 });
