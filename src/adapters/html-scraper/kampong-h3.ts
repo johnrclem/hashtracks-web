@@ -336,6 +336,16 @@ function reportSkipped(
     .map((s) => `Archive row ${s.runNumber} skipped (${s.reason}): "${s.cellText}"`);
 }
 
+function isOverlayInWindow(
+  nextRunResult: ReturnType<typeof buildNextRunEvent>,
+  today: string,
+  horizon: string,
+): boolean {
+  if (!nextRunResult.event) return false;
+  const date = nextRunResult.event.date;
+  return date >= today && date <= horizon;
+}
+
 function applyNextRunOverlay(
   nextRunResult: ReturnType<typeof buildNextRunEvent>,
   byRunNumber: Map<number, RawEventData>,
@@ -343,16 +353,19 @@ function applyNextRunOverlay(
   horizon: string,
   errors: string[],
 ): void {
-  const event = nextRunResult.event;
-  if (!event || event.date < today || event.date > horizon) {
+  if (!isOverlayInWindow(nextRunResult, today, horizon)) {
     if (nextRunResult.error) errors.push(nextRunResult.error);
     return;
   }
-  if (event.runNumber) {
-    byRunNumber.set(event.runNumber, event);
-  } else {
+  const runNumber = nextRunResult.event?.runNumber;
+  if (runNumber == null) {
     errors.push("Next Run block parsed but missing run number — skipping overlay");
+    return;
   }
+  // nosemgrep: generic-header-injection — false positive: byRunNumber is
+  // a Map<number, RawEventData> used to dedupe parsed events by run number,
+  // not an HTTP response header collection.
+  byRunNumber.set(runNumber, nextRunResult.event!);
 }
 
 export class KampongH3Adapter implements SourceAdapter {
