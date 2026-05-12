@@ -390,15 +390,18 @@ export class KampongH3Adapter implements SourceAdapter {
 
     const parsed = parseKampongArchiveTable($);
     const archiveEntries = collectArchiveEntries(parsed, url, today, horizon);
-    const errors = reportSkipped(parsed, archiveEntries);
+    const errors: string[] = [];
 
     const nextRunResult = buildNextRunEvent($, url);
     const overlay = buildOverlayEntry(nextRunResult, today, horizon, errors);
+    const allEntries = overlay ? [...archiveEntries, overlay] : archiveEntries;
+    // reportSkipped must see the merged entry set so a Next Run overlay
+    // with a runNumber below the lowest archive entry correctly extends
+    // the live cutoff and surfaces in-window skipped rows.
+    errors.push(...reportSkipped(parsed, allEntries));
     // Map's constructor honors later entries for duplicate keys, so the
     // Next Run overlay automatically wins over its archive-table twin.
-    const byRunNumber = new Map<number, RawEventData>(
-      overlay ? [...archiveEntries, overlay] : archiveEntries,
-    );
+    const byRunNumber = new Map<number, RawEventData>(allEntries);
 
     if (byRunNumber.size === 0) {
       return {
