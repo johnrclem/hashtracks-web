@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import * as cheerio from "cheerio";
-import { parseIH3Date, parseIH3Block } from "./ithaca-h3";
+import { parseIH3Date, parseIH3Block, parseTrailLog } from "./ithaca-h3";
 
 describe("parseIH3Date", () => {
   beforeEach(() => {
@@ -50,7 +50,7 @@ describe("parseIH3Block", () => {
 
   const sourceUrl = "http://ithacah3.org/hare-line/";
 
-  it("parses a complete event block", () => {
+  it("parses a complete event block with no source title (default fallback)", () => {
     const html = `<p>
       <strong>#1119: March 15</strong><br>
       <strong>Hares:</strong> Flesh Flaps &amp; Spike<br>
@@ -67,9 +67,12 @@ describe("parseIH3Block", () => {
     expect(result!.runNumber).toBe(1119);
     expect(result!.date).toBe("2026-03-15");
     expect(result!.kennelTags[0]).toBe("ih3");
-    expect(result!.title).toBe("IH3 #1119");
+    // No source-published title → undefined; merge.ts synthesizes
+    // "Ithaca H3 Trail #1119" via friendlyKennelName (#1344).
+    expect(result!.title).toBeUndefined();
     expect(result!.hares).toBe("Flesh Flaps & Spike");
     expect(result!.startTime).toBe("14:00");
+    expect(result!.cost).toBe("$5 (first timers free)");
     expect(result!.latitude).toBeCloseTo(42.44, 1);
     expect(result!.longitude).toBeCloseTo(-76.50, 1);
   });
@@ -132,5 +135,117 @@ describe("parseIH3Block", () => {
       expect(result!.location).not.toContain("2:00");
       expect(result!.location).not.toContain("Cost:");
     }
+  });
+
+  // ---- #1123 regression: early-start trail must parse 12:00 not 2:00 ----
+  it("parses 'When: 12:00 pm' when the <br> is inside the next <span> (#1123)", () => {
+    vi.setSystemTime(new Date(2026, 4, 5)); // May 5, 2026 — #1123 is May 10
+    const html = `<p><strong>#1123: May 10</strong> (—<em><mark>early start</mark></em>—)<br><strong>Hares:</strong> OTD<br><span style="font-weight: 600;">Where</span>: <a href="https://www.google.com/maps/place/Cayuga+Plaza/@42.482,-76.486,17z">Taco Bell, Cayuga Plaza</a><br><span style="font-weight: 600;">When:</span> 12:00 pm<span style="font-weight: 600;"><br>Cost:</span> $8 (first timers free)<span style="font-weight: 600;"><br>Details</span>: <a href="https://ithacah3.org/hash-1123/">see details</a></p>`;
+
+    const $ = cheerio.load(html);
+    const result = parseIH3Block($("p").first(), $, sourceUrl);
+
+    expect(result).not.toBeNull();
+    expect(result!.runNumber).toBe(1123);
+    expect(result!.date).toBe("2026-05-10");
+    expect(result!.startTime).toBe("12:00");
+    expect(result!.cost).toBe("$8 (first timers free)");
+    expect(result!.hares).toBe("OTD");
+    expect(result!.location).toContain("Taco Bell");
+  });
+
+  // ---- #1344 regression: source-provided title must surface ----
+  it("surfaces source-provided trail name from a non-label <strong> (#1344)", () => {
+    vi.setSystemTime(new Date(2026, 4, 20));
+    const html = `<p><strong>#1125: May 30</strong> (<em>—<mark>off-week trail</mark></em>–)<br><strong><mark>RAI</mark><mark>NB</mark><mark>OW </mark><mark>DRE</mark><mark>SS</mark> <mark>RUN</mark></strong><br><strong>Hares:</strong> Penguin<br><span style="font-weight: 600;">Where</span>: <a href="https://www.google.com/maps?q=Liquid+State">Liquid State</a><br><span style="font-weight: 600;">When:</span> 12:00 pm<span style="font-weight: 600;"><br>Cost:</span> $50<span style="font-weight: 600;"><br>Details</span>: <a href="https://hashrego.com/events/ih3-2nd-annual-rainbow-dress-run-for-charity">see details</a></p>`;
+
+    const $ = cheerio.load(html);
+    const result = parseIH3Block($("p").first(), $, sourceUrl);
+
+    expect(result).not.toBeNull();
+    expect(result!.runNumber).toBe(1125);
+    expect(result!.date).toBe("2026-05-30");
+    expect(result!.title).toBe("RAINBOW DRESS RUN");
+    expect(result!.startTime).toBe("12:00");
+    expect(result!.cost).toBe("$50");
+    expect(result!.location).toBe("Liquid State");
+  });
+
+  it("leaves title undefined when only label strongs follow the header", () => {
+    vi.setSystemTime(new Date(2026, 5, 1));
+    const html = `<p><strong>#1126: June 7</strong><br><strong>Hares:</strong> TBD<br><span style="font-weight: 600;">Where</span>: TBD<br><span style="font-weight: 600;">When:</span> 2:00 pm<span style="font-weight: 600;"><br>Cost:</span> $7 (first timers free)<span style="font-weight: 600;"><br>Details</span>: TBD</p>`;
+
+    const $ = cheerio.load(html);
+    const result = parseIH3Block($("p").first(), $, sourceUrl);
+
+    expect(result).not.toBeNull();
+    expect(result!.title).toBeUndefined();
+    expect(result!.cost).toBe("$7 (first timers free)");
+  });
+
+  it("suppresses TBD cost", () => {
+    const html = `<p><strong>#1130: July 12</strong><br><span style="font-weight: 600;">When:</span> 2:00 pm<span style="font-weight: 600;"><br>Cost:</span> TBD</p>`;
+    const $ = cheerio.load(html);
+    const result = parseIH3Block($("p").first(), $, sourceUrl);
+    expect(result).not.toBeNull();
+    expect(result!.cost).toBeUndefined();
+  });
+});
+
+describe("parseTrailLog", () => {
+  const sourceUrl = "http://ithacah3.org/hair_line-trail_log/"; // NOSONAR — source has expired SSL
+
+  it("parses a complete trail log row with title + location", () => {
+    const html = `<p><strong>Hash #1097:</strong> Not at Grass Roots trail<br>2025-07-20; Mulholland Wildflower Preserve</p>`;
+    const events = parseTrailLog(html, sourceUrl);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      runNumber: 1097,
+      date: "2025-07-20",
+      title: "Not at Grass Roots trail",
+      location: "Mulholland Wildflower Preserve",
+      kennelTags: ["ih3"],
+      sourceUrl,
+    });
+  });
+
+  it("handles rows without a title (empty between </strong> and <br>)", () => {
+    const html = `<p><strong>Hash #1093:</strong> <br>2025-05-25; Hammond Hill</p>`;
+    const events = parseTrailLog(html, sourceUrl);
+    expect(events).toHaveLength(1);
+    expect(events[0].title).toBeUndefined();
+    expect(events[0].date).toBe("2025-05-25");
+    expect(events[0].location).toBe("Hammond Hill");
+  });
+
+  it("ignores the category class (event_W) but still emits the row", () => {
+    const html = `<p class="event_W"><strong>Hash #1068:</strong> Fat-boy trail<br>2024-08-25; Camp Owahta</p>`;
+    const events = parseTrailLog(html, sourceUrl);
+    expect(events).toHaveLength(1);
+    expect(events[0].runNumber).toBe(1068);
+    expect(events[0].title).toBe("Fat-boy trail");
+  });
+
+  it("decodes HTML entities in titles and locations", () => {
+    const html = `<p><strong>Hash #1086:</strong> Head&rsquo;s birthday trail!<br>2025-03-16; Lime Hollow</p>`;
+    const events = parseTrailLog(html, sourceUrl);
+    expect(events).toHaveLength(1);
+    expect(events[0].title).toBe("Head’s birthday trail!");
+  });
+
+  it("emits duplicate rows verbatim (fingerprint dedup handles it)", () => {
+    const html = `
+      <p><strong>Hash #1083:</strong> Sledding for Groundhog Day<br>2025-02-02; Mundy Wildflower Garden, Cornell Plantations</p>
+      <p><strong>Hash #1083:</strong> Sledding for Groundhog Day<br>2025-02-02; Mundy Wildflower Garden, Cornell Plantations</p>
+    `;
+    const events = parseTrailLog(html, sourceUrl);
+    expect(events).toHaveLength(2);
+  });
+
+  it("ignores non-event paragraphs", () => {
+    const html = `<p>Welcome to the Trail Log archive!</p><p><strong>Hash #1043:</strong> New Beers hash<br>2024-01-01; Lime Hollow</p>`;
+    const events = parseTrailLog(html, sourceUrl);
+    expect(events).toHaveLength(1);
+    expect(events[0].runNumber).toBe(1043);
   });
 });
