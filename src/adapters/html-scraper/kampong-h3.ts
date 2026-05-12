@@ -304,18 +304,20 @@ function addDaysISO(isoDate: string, days: number): string {
 /** Fallback when source.scrapeDays is null/0 — matches seed default. */
 const DEFAULT_SCRAPE_DAYS = 90;
 
-function collectArchiveEvents(
+type RunEntry = [number, RawEventData];
+
+function collectArchiveEntries(
   parsed: KampongArchiveParseResult,
   url: string,
   today: string,
   horizon: string,
-): Map<number, RawEventData> {
-  const map = new Map<number, RawEventData>();
+): RunEntry[] {
+  const entries: RunEntry[] = [];
   for (const row of parsed.rows) {
     if (row.date < today || row.date > horizon) continue;
-    map.set(row.runNumber, archiveRowToEvent(row, url));
+    entries.push([row.runNumber, archiveRowToEvent(row, url)]);
   }
-  return map;
+  return entries;
 }
 
 /**
@@ -327,10 +329,11 @@ function collectArchiveEvents(
  */
 function reportSkipped(
   parsed: KampongArchiveParseResult,
-  byRunNumber: Map<number, RawEventData>,
+  entries: RunEntry[],
 ): string[] {
-  if (byRunNumber.size === 0) return [];
-  const liveCutoff = Math.min(...byRunNumber.keys());
+  if (entries.length === 0) return [];
+  let liveCutoff = entries[0][0];
+  for (const [n] of entries) if (n < liveCutoff) liveCutoff = n;
   return parsed.skipped
     .filter((s) => s.runNumber >= liveCutoff)
     .map((s) => `Archive row ${s.runNumber} skipped (${s.reason}): "${s.cellText}"`);
@@ -346,26 +349,28 @@ function isOverlayInWindow(
   return date >= today && date <= horizon;
 }
 
-function applyNextRunOverlay(
+/**
+ * Resolve the Next Run hero block into an optional run-number entry,
+ * pushing any diagnostic errors to the caller-supplied list. Returning
+ * the entry (instead of mutating a Map) keeps the assembly path
+ * write-free until the final `new Map(entries)` construction.
+ */
+function buildOverlayEntry(
   nextRunResult: ReturnType<typeof buildNextRunEvent>,
-  byRunNumber: Map<number, RawEventData>,
   today: string,
   horizon: string,
   errors: string[],
-): void {
+): RunEntry | null {
   if (!isOverlayInWindow(nextRunResult, today, horizon)) {
     if (nextRunResult.error) errors.push(nextRunResult.error);
-    return;
+    return null;
   }
   const runNumber = nextRunResult.event?.runNumber;
   if (runNumber == null) {
     errors.push("Next Run block parsed but missing run number — skipping overlay");
-    return;
+    return null;
   }
-  // nosemgrep: generic-header-injection — false positive: byRunNumber is
-  // a Map<number, RawEventData> used to dedupe parsed events by run number,
-  // not an HTTP response header collection.
-  byRunNumber.set(runNumber, nextRunResult.event!);
+  return [runNumber, nextRunResult.event!];
 }
 
 export class KampongH3Adapter implements SourceAdapter {
@@ -384,11 +389,16 @@ export class KampongH3Adapter implements SourceAdapter {
     const horizon = addDaysISO(today, windowDays);
 
     const parsed = parseKampongArchiveTable($);
-    const byRunNumber = collectArchiveEvents(parsed, url, today, horizon);
-    const errors = reportSkipped(parsed, byRunNumber);
+    const archiveEntries = collectArchiveEntries(parsed, url, today, horizon);
+    const errors = reportSkipped(parsed, archiveEntries);
 
     const nextRunResult = buildNextRunEvent($, url);
-    applyNextRunOverlay(nextRunResult, byRunNumber, today, horizon, errors);
+    const overlay = buildOverlayEntry(nextRunResult, today, horizon, errors);
+    // Map's constructor honors later entries for duplicate keys, so the
+    // Next Run overlay automatically wins over its archive-table twin.
+    const byRunNumber = new Map<number, RawEventData>(
+      overlay ? [...archiveEntries, overlay] : archiveEntries,
+    );
 
     if (byRunNumber.size === 0) {
       return {
