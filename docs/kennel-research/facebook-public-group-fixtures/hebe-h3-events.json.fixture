@@ -1,0 +1,749 @@
+{
+  "__spike_fixture__": {
+    "source_url": "https://www.facebook.com/groups/HebeH3/events",
+    "fetched_at": "2026-05-11",
+    "group_status": "public (verified via 3x \"Public group\" text marker)",
+    "note": "JSON islands extracted from raw SSR HTML. User names + profile IDs + photo URLs sanitized. Outer HTML structure (UI bundle, comments widget, analytics blobs) discarded; only event-relevant islands retained.",
+    "islands_in_raw_html": 62,
+    "islands_with_event_typename": 1,
+    "raw_html_bytes": 844859,
+    "event_nodes_observed": 3,
+    "event_nodes_with_start_timestamp": 0,
+    "event_nodes_with_event_place": 0,
+    "newest_day_time_sentence_in_listing": "Sat, Jan 20, 2024"
+  },
+  "islands": [
+    {
+      "island_index": 42,
+      "island_size_bytes": 19248,
+      "data": {
+        "require": [
+          [
+            "ScheduledServerJS",
+            "handle",
+            null,
+            [
+              {
+                "__bbox": {
+                  "define": [
+                    [
+                      "cr:13865",
+                      [
+                        "FBNucleusCheckmarkCircleFilled16Icon.react"
+                      ],
+                      {
+                        "__rc": [
+                          "FBNucleusCheckmarkCircleFilled16Icon.react",
+                          null
+                        ]
+                      },
+                      -1
+                    ],
+                    [
+                      "cr:13971",
+                      [
+                        "FBNucleusCheckmarkCircleOutline16Icon.react"
+                      ],
+                      {
+                        "__rc": [
+                          "FBNucleusCheckmarkCircleOutline16Icon.react",
+                          null
+                        ]
+                      },
+                      -1
+                    ],
+                    [
+                      "cr:14249",
+                      [
+                        "FBNucleusStarOutline16Icon.react"
+                      ],
+                      {
+                        "__rc": [
+                          "FBNucleusStarOutline16Icon.react",
+                          null
+                        ]
+                      },
+                      -1
+                    ],
+                    [
+                      "cr:14694",
+                      [
+                        "FBNucleusChevronDownFilled12Icon.react"
+                      ],
+                      {
+                        "__rc": [
+                          "FBNucleusChevronDownFilled12Icon.react",
+                          null
+                        ]
+                      },
+                      -1
+                    ],
+                    [
+                      "cr:15697",
+                      [
+                        "FBNucleusStarFilled16Icon.react"
+                      ],
+                      {
+                        "__rc": [
+                          "FBNucleusStarFilled16Icon.react",
+                          null
+                        ]
+                      },
+                      -1
+                    ],
+                    [
+                      "cr:13974",
+                      [
+                        "FBNucleusCheckmarkFilled16Icon.react"
+                      ],
+                      {
+                        "__rc": [
+                          "FBNucleusCheckmarkFilled16Icon.react",
+                          null
+                        ]
+                      },
+                      -1
+                    ]
+                  ],
+                  "require": [
+                    [
+                      "EventCometGoToHorizonEventButton_renderer$normalization.graphql"
+                    ],
+                    [
+                      "EventCometGoToHorizonEventButton.react"
+                    ],
+                    [
+                      "PublicEventCometRSVPButtonGroupRenderer_rsvpStyleRenderer$normalization.graphql"
+                    ],
+                    [
+                      "PublicEventCometRSVPButtonGroupRenderer.react"
+                    ],
+                    [
+                      "PublicEventCometRSVPButtonRenderer_rsvpStyleRenderer$normalization.graphql"
+                    ],
+                    [
+                      "PublicEventCometRSVPButtonRenderer.react"
+                    ],
+                    [
+                      "emptyFunction",
+                      "thatReturns",
+                      [
+                        "RequireDeferredReference"
+                      ],
+                      [
+                        [
+                          {
+                            "__dr": "EventCometGoToHorizonEventButton_renderer$normalization.graphql"
+                          },
+                          {
+                            "__dr": "EventCometGoToHorizonEventButton.react"
+                          },
+                          {
+                            "__dr": "PublicEventCometRSVPButtonGroupRenderer_rsvpStyleRenderer$normalization.graphql"
+                          },
+                          {
+                            "__dr": "PublicEventCometRSVPButtonGroupRenderer.react"
+                          },
+                          {
+                            "__dr": "PublicEventCometRSVPButtonRenderer_rsvpStyleRenderer$normalization.graphql"
+                          },
+                          {
+                            "__dr": "PublicEventCometRSVPButtonRenderer.react"
+                          }
+                        ]
+                      ]
+                    ],
+                    [
+                      "RelayPrefetchedStreamCache",
+                      "next",
+                      [],
+                      [
+                        "adp_CometGroupEventsRootQueryRelayPreloader_6a01f1373ac0f2a21957882",
+                        {
+                          "__bbox": {
+                            "complete": true,
+                            "result": {
+                              "data": {
+                                "group": {
+                                  "if_viewer_can_create_event": null,
+                                  "if_viewer_can_post": null,
+                                  "id": "PROFILE_ID_000",
+                                  "cover_photo": {
+                                    "photo": {
+                                      "focus": {
+                                        "x": 0.5,
+                                        "y": 0.33
+                                      },
+                                      "small_image": {
+                                        "width": 600,
+                                        "height": 288,
+                                        "uri": "https://example.com/photo-1.jpg"
+                                      },
+                                      "id": "PROFILE_ID_001"
+                                    }
+                                  },
+                                  "upcoming_events": {
+                                    "edges": [],
+                                    "page_info": {
+                                      "end_cursor": null,
+                                      "has_next_page": false
+                                    }
+                                  },
+                                  "past_events": {
+                                    "edges": [
+                                      {
+                                        "node": {
+                                          "id": "PROFILE_ID_002",
+                                          "rsvp_button_renderer": {
+                                            "__typename": "PublicRsvpStyleRenderer",
+                                            "event": {
+                                              "id": "PROFILE_ID_002",
+                                              "connection_style": "INTERESTED",
+                                              "can_viewer_join": false,
+                                              "can_viewer_watch": false,
+                                              "can_viewer_unwatch": false,
+                                              "viewer_watch_status": "UNWATCHED",
+                                              "if_viewer_can_see_going_button": null,
+                                              "event_connection_data_privacy_scope": null,
+                                              "privacy_scope_for_toast": null,
+                                              "can_join_group_chat": false,
+                                              "created_for_group": {
+                                                "id": "PROFILE_ID_000"
+                                              },
+                                              "chat": null
+                                            },
+                                            "__module_operation_EventCometUniversalRSVPButton_event": {
+                                              "__dr": "PublicEventCometRSVPButtonRenderer_rsvpStyleRenderer$normalization.graphql"
+                                            },
+                                            "__module_component_EventCometUniversalRSVPButton_event": {
+                                              "__dr": "PublicEventCometRSVPButtonRenderer.react"
+                                            }
+                                          },
+                                          "rsvp_button_group_renderer": {
+                                            "__typename": "PublicRsvpStyleRenderer",
+                                            "event": {
+                                              "should_show_recurring_event_rsvp_button": false,
+                                              "id": "PROFILE_ID_002",
+                                              "can_join_group_chat": false,
+                                              "can_viewer_watch": false,
+                                              "chat": null,
+                                              "connection_style": "INTERESTED",
+                                              "created_for_group": {
+                                                "id": "PROFILE_ID_000"
+                                              },
+                                              "if_viewer_can_see_going_button": null,
+                                              "is_past": true,
+                                              "viewer_watch_status": "UNWATCHED",
+                                              "can_viewer_unwatch": false,
+                                              "viewer_watch_all_status_for_recurring_events": null,
+                                              "event_connection_data_privacy_scope": null
+                                            },
+                                            "__module_operation_EventCometUniversalRSVPButtonGroup_event": {
+                                              "__dr": "PublicEventCometRSVPButtonGroupRenderer_rsvpStyleRenderer$normalization.graphql"
+                                            },
+                                            "__module_component_EventCometUniversalRSVPButtonGroup_event": {
+                                              "__dr": "PublicEventCometRSVPButtonGroupRenderer.react"
+                                            }
+                                          },
+                                          "privacy_scope_for_toast": null,
+                                          "rsvp_style": "PUBLIC_RSVP_STYLE",
+                                          "should_show_recurring_event_rsvp_button": false,
+                                          "viewer_guest_status": "UNKNOWN",
+                                          "viewer_watch_status": "UNWATCHED",
+                                          "should_show_horizon_rsvp_warning": false,
+                                          "event_kind": "PUBLIC_TYPE",
+                                          "can_viewer_invite": false,
+                                          "can_page_viewer_invite_as_user": false,
+                                          "can_profile_plus_viewer_invite_as_user": false,
+                                          "can_profile_plus_viewer_invite_followers": false,
+                                          "acting_account_name": null,
+                                          "acting_account_id": "0",
+                                          "if_workplace_event": null,
+                                          "eventUrl": "https://www.facebook.com/events/EVENT_ID_REDACTED/",
+                                          "can_boost_event_renderer": null,
+                                          "can_viewer_see_rsvp_button": false,
+                                          "can_viewer_share": true,
+                                          "has_header_action_menu_items": false,
+                                          "is_event_draft": false,
+                                          "profile_plus_admin_id_if_self": null,
+                                          "profile_plus_admin_name_if_self": null,
+                                          "if_viewer_can_publish_draft_event": null,
+                                          "parent_if_exists_or_self": {
+                                            "id": "PROFILE_ID_002"
+                                          },
+                                          "event_for_edit_flow": {
+                                            "if_viewer_can_edit": null,
+                                            "id": "PROFILE_ID_002"
+                                          },
+                                          "is_eligible_for_poe_view_as_visitor_button": false,
+                                          "is_past": true,
+                                          "chat": null,
+                                          "go_to_horizon_event_button_renderer": {
+                                            "event": null,
+                                            "__module_operation_useEventCometGetPermalinkActionButtons_event_go_to_horizon_event_button_renderer": {
+                                              "__dr": "EventCometGoToHorizonEventButton_renderer$normalization.graphql"
+                                            },
+                                            "__module_component_useEventCometGetPermalinkActionButtons_event_go_to_horizon_event_button_renderer": {
+                                              "__dr": "EventCometGoToHorizonEventButton.react"
+                                            }
+                                          },
+                                          "name": "Hebe Hash #51",
+                                          "is_canceled": false,
+                                          "day_time_sentence": "Sat, Jan 20, 2024",
+                                          "event_creator": {
+                                            "__typename": "User",
+                                            "__isEntity": "User",
+                                            "url": null,
+                                            "profile_picture": {
+                                              "uri": "https://example.com/photo-2.jpg"
+                                            },
+                                            "name": "USER_A",
+                                            "id": "pfbid035LqYqcH9DoaRkVC2Fpknqy1HXA31bqQNhY3AQwAmXzKFWYxmydzJedJHbrn9w1Gvl"
+                                          },
+                                          "shared_in_group_by": {
+                                            "__typename": "User",
+                                            "__isEntity": "User",
+                                            "url": null,
+                                            "profile_picture": {
+                                              "uri": "https://example.com/photo-3.jpg"
+                                            },
+                                            "name": "USER_A",
+                                            "id": "pfbid035LqYqcH9DoaRkVC2Fpknqy1HXA31bqQNhY3AQwAmXzKFWYxmydzJedJHbrn9w1Gvl"
+                                          },
+                                          "cover_photo": {
+                                            "photo": {
+                                              "focus": {
+                                                "x": 0.5,
+                                                "y": 0.33
+                                              },
+                                              "small_image": {
+                                                "width": 383,
+                                                "height": 296,
+                                                "uri": "https://example.com/photo-4.jpg"
+                                              },
+                                              "id": "PROFILE_ID_003"
+                                            }
+                                          },
+                                          "url": "https://www.facebook.com/events/EVENT_ID_REDACTED/",
+                                          "__typename": "Event"
+                                        },
+                                        "cursor": "AQHS7_-q9kXTqT9s38oheeEaxbdq-MQcLiztU14nh9-OyP_U2HFCu-8lEneMCg0rEDTwUUs-eNtcLMUKV2E9x5eu4Q"
+                                      },
+                                      {
+                                        "node": {
+                                          "id": "PROFILE_ID_004",
+                                          "rsvp_button_renderer": {
+                                            "__typename": "PublicRsvpStyleRenderer",
+                                            "event": {
+                                              "id": "PROFILE_ID_004",
+                                              "connection_style": "INTERESTED",
+                                              "can_viewer_join": false,
+                                              "can_viewer_watch": false,
+                                              "can_viewer_unwatch": false,
+                                              "viewer_watch_status": "UNWATCHED",
+                                              "if_viewer_can_see_going_button": null,
+                                              "event_connection_data_privacy_scope": null,
+                                              "privacy_scope_for_toast": null,
+                                              "can_join_group_chat": false,
+                                              "created_for_group": {
+                                                "id": "PROFILE_ID_000"
+                                              },
+                                              "chat": null
+                                            },
+                                            "__module_operation_EventCometUniversalRSVPButton_event": {
+                                              "__dr": "PublicEventCometRSVPButtonRenderer_rsvpStyleRenderer$normalization.graphql"
+                                            },
+                                            "__module_component_EventCometUniversalRSVPButton_event": {
+                                              "__dr": "PublicEventCometRSVPButtonRenderer.react"
+                                            }
+                                          },
+                                          "rsvp_button_group_renderer": {
+                                            "__typename": "PublicRsvpStyleRenderer",
+                                            "event": {
+                                              "should_show_recurring_event_rsvp_button": false,
+                                              "id": "PROFILE_ID_004",
+                                              "can_join_group_chat": false,
+                                              "can_viewer_watch": false,
+                                              "chat": null,
+                                              "connection_style": "INTERESTED",
+                                              "created_for_group": {
+                                                "id": "PROFILE_ID_000"
+                                              },
+                                              "if_viewer_can_see_going_button": null,
+                                              "is_past": true,
+                                              "viewer_watch_status": "UNWATCHED",
+                                              "can_viewer_unwatch": false,
+                                              "viewer_watch_all_status_for_recurring_events": null,
+                                              "event_connection_data_privacy_scope": null
+                                            },
+                                            "__module_operation_EventCometUniversalRSVPButtonGroup_event": {
+                                              "__dr": "PublicEventCometRSVPButtonGroupRenderer_rsvpStyleRenderer$normalization.graphql"
+                                            },
+                                            "__module_component_EventCometUniversalRSVPButtonGroup_event": {
+                                              "__dr": "PublicEventCometRSVPButtonGroupRenderer.react"
+                                            }
+                                          },
+                                          "privacy_scope_for_toast": null,
+                                          "rsvp_style": "PUBLIC_RSVP_STYLE",
+                                          "should_show_recurring_event_rsvp_button": false,
+                                          "viewer_guest_status": "UNKNOWN",
+                                          "viewer_watch_status": "UNWATCHED",
+                                          "should_show_horizon_rsvp_warning": false,
+                                          "event_kind": "PUBLIC_TYPE",
+                                          "can_viewer_invite": false,
+                                          "can_page_viewer_invite_as_user": false,
+                                          "can_profile_plus_viewer_invite_as_user": false,
+                                          "can_profile_plus_viewer_invite_followers": false,
+                                          "acting_account_name": null,
+                                          "acting_account_id": "0",
+                                          "if_workplace_event": null,
+                                          "eventUrl": "https://www.facebook.com/events/EVENT_ID_REDACTED/",
+                                          "can_boost_event_renderer": null,
+                                          "can_viewer_see_rsvp_button": false,
+                                          "can_viewer_share": true,
+                                          "has_header_action_menu_items": false,
+                                          "is_event_draft": false,
+                                          "profile_plus_admin_id_if_self": null,
+                                          "profile_plus_admin_name_if_self": null,
+                                          "if_viewer_can_publish_draft_event": null,
+                                          "parent_if_exists_or_self": {
+                                            "id": "PROFILE_ID_004"
+                                          },
+                                          "event_for_edit_flow": {
+                                            "if_viewer_can_edit": null,
+                                            "id": "PROFILE_ID_004"
+                                          },
+                                          "is_eligible_for_poe_view_as_visitor_button": false,
+                                          "is_past": true,
+                                          "chat": null,
+                                          "go_to_horizon_event_button_renderer": {
+                                            "event": null,
+                                            "__module_operation_useEventCometGetPermalinkActionButtons_event_go_to_horizon_event_button_renderer": {
+                                              "__dr": "EventCometGoToHorizonEventButton_renderer$normalization.graphql"
+                                            },
+                                            "__module_component_useEventCometGetPermalinkActionButtons_event_go_to_horizon_event_button_renderer": {
+                                              "__dr": "EventCometGoToHorizonEventButton.react"
+                                            }
+                                          },
+                                          "name": "Hebe H3 #50!",
+                                          "is_canceled": false,
+                                          "day_time_sentence": "Sat, Dec 16, 2023",
+                                          "event_creator": {
+                                            "__typename": "User",
+                                            "__isEntity": "User",
+                                            "url": null,
+                                            "profile_picture": {
+                                              "uri": "https://example.com/photo-5.jpg"
+                                            },
+                                            "name": "USER_A",
+                                            "id": "pfbid035LqYqcH9DoaRkVC2Fpknqy1HXA31bqQNhY3AQwAmXzKFWYxmydzJedJHbrn9w1Gvl"
+                                          },
+                                          "shared_in_group_by": null,
+                                          "cover_photo": {
+                                            "photo": {
+                                              "focus": {
+                                                "x": 0.5,
+                                                "y": 0.33
+                                              },
+                                              "small_image": {
+                                                "width": 383,
+                                                "height": 296,
+                                                "uri": "https://example.com/photo-6.jpg"
+                                              },
+                                              "id": "PROFILE_ID_005"
+                                            }
+                                          },
+                                          "url": "https://www.facebook.com/events/EVENT_ID_REDACTED/",
+                                          "__typename": "Event"
+                                        },
+                                        "cursor": "AQHSqP7ViTOgT6mJfsJ3f8EqmpG4yrMqUmwl056fIPwyAyBWvywgfqxV33KBUqoSE6Ie3aOjxNyuKrqGBY4HPWPOeA"
+                                      },
+                                      {
+                                        "node": {
+                                          "id": "PROFILE_ID_006",
+                                          "rsvp_button_renderer": {
+                                            "__typename": "PublicRsvpStyleRenderer",
+                                            "event": {
+                                              "id": "PROFILE_ID_006",
+                                              "connection_style": "INTERESTED",
+                                              "can_viewer_join": false,
+                                              "can_viewer_watch": false,
+                                              "can_viewer_unwatch": false,
+                                              "viewer_watch_status": "UNWATCHED",
+                                              "if_viewer_can_see_going_button": null,
+                                              "event_connection_data_privacy_scope": null,
+                                              "privacy_scope_for_toast": null,
+                                              "can_join_group_chat": false,
+                                              "created_for_group": {
+                                                "id": "PROFILE_ID_000"
+                                              },
+                                              "chat": null
+                                            },
+                                            "__module_operation_EventCometUniversalRSVPButton_event": {
+                                              "__dr": "PublicEventCometRSVPButtonRenderer_rsvpStyleRenderer$normalization.graphql"
+                                            },
+                                            "__module_component_EventCometUniversalRSVPButton_event": {
+                                              "__dr": "PublicEventCometRSVPButtonRenderer.react"
+                                            }
+                                          },
+                                          "rsvp_button_group_renderer": {
+                                            "__typename": "PublicRsvpStyleRenderer",
+                                            "event": {
+                                              "should_show_recurring_event_rsvp_button": false,
+                                              "id": "PROFILE_ID_006",
+                                              "can_join_group_chat": false,
+                                              "can_viewer_watch": false,
+                                              "chat": null,
+                                              "connection_style": "INTERESTED",
+                                              "created_for_group": {
+                                                "id": "PROFILE_ID_000"
+                                              },
+                                              "if_viewer_can_see_going_button": null,
+                                              "is_past": true,
+                                              "viewer_watch_status": "UNWATCHED",
+                                              "can_viewer_unwatch": false,
+                                              "viewer_watch_all_status_for_recurring_events": null,
+                                              "event_connection_data_privacy_scope": null
+                                            },
+                                            "__module_operation_EventCometUniversalRSVPButtonGroup_event": {
+                                              "__dr": "PublicEventCometRSVPButtonGroupRenderer_rsvpStyleRenderer$normalization.graphql"
+                                            },
+                                            "__module_component_EventCometUniversalRSVPButtonGroup_event": {
+                                              "__dr": "PublicEventCometRSVPButtonGroupRenderer.react"
+                                            }
+                                          },
+                                          "privacy_scope_for_toast": null,
+                                          "rsvp_style": "PUBLIC_RSVP_STYLE",
+                                          "should_show_recurring_event_rsvp_button": false,
+                                          "viewer_guest_status": "UNKNOWN",
+                                          "viewer_watch_status": "UNWATCHED",
+                                          "should_show_horizon_rsvp_warning": false,
+                                          "event_kind": "PUBLIC_TYPE",
+                                          "can_viewer_invite": false,
+                                          "can_page_viewer_invite_as_user": false,
+                                          "can_profile_plus_viewer_invite_as_user": false,
+                                          "can_profile_plus_viewer_invite_followers": false,
+                                          "acting_account_name": null,
+                                          "acting_account_id": "0",
+                                          "if_workplace_event": null,
+                                          "eventUrl": "https://www.facebook.com/events/EVENT_ID_REDACTED/",
+                                          "can_boost_event_renderer": null,
+                                          "can_viewer_see_rsvp_button": false,
+                                          "can_viewer_share": true,
+                                          "has_header_action_menu_items": false,
+                                          "is_event_draft": false,
+                                          "profile_plus_admin_id_if_self": null,
+                                          "profile_plus_admin_name_if_self": null,
+                                          "if_viewer_can_publish_draft_event": null,
+                                          "parent_if_exists_or_self": {
+                                            "id": "PROFILE_ID_006"
+                                          },
+                                          "event_for_edit_flow": {
+                                            "if_viewer_can_edit": null,
+                                            "id": "PROFILE_ID_006"
+                                          },
+                                          "is_eligible_for_poe_view_as_visitor_button": false,
+                                          "is_past": true,
+                                          "chat": null,
+                                          "go_to_horizon_event_button_renderer": {
+                                            "event": null,
+                                            "__module_operation_useEventCometGetPermalinkActionButtons_event_go_to_horizon_event_button_renderer": {
+                                              "__dr": "EventCometGoToHorizonEventButton_renderer$normalization.graphql"
+                                            },
+                                            "__module_component_useEventCometGetPermalinkActionButtons_event_go_to_horizon_event_button_renderer": {
+                                              "__dr": "EventCometGoToHorizonEventButton.react"
+                                            }
+                                          },
+                                          "name": "Hebe H3 #50!",
+                                          "is_canceled": false,
+                                          "day_time_sentence": "Sat, Dec 16, 2023",
+                                          "event_creator": {
+                                            "__typename": "User",
+                                            "__isEntity": "User",
+                                            "url": null,
+                                            "profile_picture": {
+                                              "uri": "https://example.com/photo-7.jpg"
+                                            },
+                                            "name": "USER_A",
+                                            "id": "pfbid035LqYqcH9DoaRkVC2Fpknqy1HXA31bqQNhY3AQwAmXzKFWYxmydzJedJHbrn9w1Gvl"
+                                          },
+                                          "shared_in_group_by": {
+                                            "__typename": "User",
+                                            "__isEntity": "User",
+                                            "url": null,
+                                            "profile_picture": {
+                                              "uri": "https://example.com/photo-8.jpg"
+                                            },
+                                            "name": "USER_A",
+                                            "id": "pfbid035LqYqcH9DoaRkVC2Fpknqy1HXA31bqQNhY3AQwAmXzKFWYxmydzJedJHbrn9w1Gvl"
+                                          },
+                                          "cover_photo": {
+                                            "photo": {
+                                              "focus": {
+                                                "x": 0.5,
+                                                "y": 0.33
+                                              },
+                                              "small_image": {
+                                                "width": 383,
+                                                "height": 296,
+                                                "uri": "https://example.com/photo-9.jpg"
+                                              },
+                                              "id": "PROFILE_ID_007"
+                                            }
+                                          },
+                                          "url": "https://www.facebook.com/events/EVENT_ID_REDACTED/",
+                                          "__typename": "Event"
+                                        },
+                                        "cursor": "AQHSUztyL0_OMinUOp-AuM5Eij92Z9ln92MFDNyhSAXawGy2r4asVXzpKszYYrfO_ivpf7PKkP4odPLAtlrUha4v5w"
+                                      }
+                                    ],
+                                    "page_info": {
+                                      "end_cursor": "AQHSSz9G3DJyJIhhNbFm_fomQPr9Y6vui1DOwHOIjw3W3phVUyEeoyFAVSdstaPACF4KFQQB3n1_agY8dpUhU4jh-g",
+                                      "has_next_page": true
+                                    }
+                                  },
+                                  "all_past_events": {
+                                    "nodes": [
+                                      {
+                                        "id": "PROFILE_ID_002"
+                                      }
+                                    ]
+                                  }
+                                }
+                              },
+                              "errors": [
+                                {
+                                  "message": "A server error field_exception occured. Check server logs for details.",
+                                  "severity": "ERROR",
+                                  "mids": [
+                                    "26e780294c3a4e19019e49c16108db7c"
+                                  ],
+                                  "debug_link": "https://www.meta.com/debug/?mid=26e780294c3a4e19019e49c16108db7c",
+                                  "path": [
+                                    "group",
+                                    "past_events",
+                                    "edges",
+                                    0,
+                                    "node",
+                                    "acting_account_name"
+                                  ]
+                                },
+                                {
+                                  "message": "A server error field_exception occured. Check server logs for details.",
+                                  "severity": "ERROR",
+                                  "mids": [
+                                    "26e780294c3a4e19019e49c16108db7c"
+                                  ],
+                                  "debug_link": "https://www.meta.com/debug/?mid=26e780294c3a4e19019e49c16108db7c",
+                                  "path": [
+                                    "group",
+                                    "past_events",
+                                    "edges",
+                                    1,
+                                    "node",
+                                    "acting_account_name"
+                                  ]
+                                },
+                                {
+                                  "message": "A server error field_exception occured. Check server logs for details.",
+                                  "severity": "ERROR",
+                                  "mids": [
+                                    "26e780294c3a4e19019e49c16108db7c"
+                                  ],
+                                  "debug_link": "https://www.meta.com/debug/?mid=26e780294c3a4e19019e49c16108db7c",
+                                  "path": [
+                                    "group",
+                                    "past_events",
+                                    "edges",
+                                    2,
+                                    "node",
+                                    "acting_account_name"
+                                  ]
+                                }
+                              ],
+                              "extensions": {
+                                "is_final": true
+                              }
+                            },
+                            "sequence_number": 0
+                          }
+                        }
+                      ]
+                    ],
+                    [
+                      "Bootloader",
+                      "markComponentsAsImmediate",
+                      [],
+                      [
+                        [
+                          "CometPrivacySelectorDialog.react",
+                          "CometPrivacySelectorPickerContainer.react"
+                        ]
+                      ]
+                    ],
+                    [
+                      "RequireDeferredReference",
+                      "unblock",
+                      [],
+                      [
+                        [
+                          "EventCometGoToHorizonEventButton_renderer$normalization.graphql",
+                          "EventCometGoToHorizonEventButton.react",
+                          "PublicEventCometRSVPButtonGroupRenderer_rsvpStyleRenderer$normalization.graphql",
+                          "PublicEventCometRSVPButtonGroupRenderer.react",
+                          "PublicEventCometRSVPButtonRenderer_rsvpStyleRenderer$normalization.graphql",
+                          "PublicEventCometRSVPButtonRenderer.react",
+                          "FDSTooltipDeferredImpl.react"
+                        ],
+                        "sd"
+                      ]
+                    ],
+                    [
+                      "RequireDeferredReference",
+                      "unblock",
+                      [],
+                      [
+                        [
+                          "EventCometGoToHorizonEventButton_renderer$normalization.graphql",
+                          "EventCometGoToHorizonEventButton.react",
+                          "PublicEventCometRSVPButtonGroupRenderer_rsvpStyleRenderer$normalization.graphql",
+                          "PublicEventCometRSVPButtonGroupRenderer.react",
+                          "PublicEventCometRSVPButtonRenderer_rsvpStyleRenderer$normalization.graphql",
+                          "PublicEventCometRSVPButtonRenderer.react",
+                          "FDSTooltipDeferredImpl.react"
+                        ],
+                        "css"
+                      ]
+                    ],
+                    [
+                      "CometResourceScheduler",
+                      "registerHighPriHashes",
+                      null,
+                      [
+                        [
+                          "MaHhERz",
+                          "0nE0kzY",
+                          "w3YTaJd",
+                          "3lOyOAd",
+                          "eyz57A7",
+                          "3wySPFB"
+                        ]
+                      ]
+                    ]
+                  ],
+                  "phd2_indexes": ":1608,1606,1607,1609,1275,1274,1347,1644,1346,1345,1348,1350"
+                }
+              },
+              {
+                "__bbox": null
+              },
+              {
+                "__bbox": null
+              }
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

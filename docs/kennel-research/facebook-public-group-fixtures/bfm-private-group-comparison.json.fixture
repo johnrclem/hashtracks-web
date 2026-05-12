@@ -1,0 +1,24 @@
+{
+  "__spike_fixture__": {
+    "source_url": "https://www.facebook.com/groups/bfmh3",
+    "fetched_at": "2026-05-11",
+    "group_status": "private (verified via 1x \"Private group\" text marker)",
+    "note": "For comparison only \u2014 what a typical hash kennel private group SSR looks like to a logged-out client. Group metadata (name, member count, banner) is exposed; post bodies are NOT (0 message.text islands, 0 Event __typename nodes).",
+    "raw_html_bytes": 437489,
+    "islands_in_raw_html": 64,
+    "markers": {
+      "private_group_marker_count": 1,
+      "public_group_marker_count": 0,
+      "message_text_count": 0,
+      "event_typename_count": 0,
+      "start_timestamp_count": 1
+    },
+    "og_title": "Ben Franklin Mob Hash House Harriers | Facebook",
+    "page_title": "Ben Franklin Mob Hash House Harriers",
+    "private_group_string_context": [
+      {
+        "context": "oin_restriction_reason\":null,\"privacy_info\":{\"icon_name\":\"privacy\",\"title\":{\"delight_ranges\":[],\"image_ranges\":[],\"inline_style_ranges\":[],\"aggregated_ranges\":[],\"ranges\":[],\"color_ranges\":[],\"text\":\"Private group\"}},\"group_member_profiles\":{\"formatted_count_text\":\"1.4K members\"},\"if_viewer_can_see_group_streaks\":null,\"if_viewer_can_see_wayfinding_topics\":null,\"group_pending_action_card_renderer\":null,\"__isPro"
+      }
+    ]
+  }
+}
