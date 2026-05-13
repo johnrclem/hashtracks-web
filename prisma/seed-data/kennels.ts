@@ -1258,7 +1258,9 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "h4-tx", shortName: "Houston H3", fullName: "Houston Hash House Harriers", region: "Houston, TX",
       website: "https://h4.org",
       logoUrl: "/kennel-logos/h4-tx.jpg",
-      facebookUrl: "https://www.facebook.com/groups/HoustonHash/",
+      // Canonical FB group per h4.org header/footer (numeric-id group, not the
+      // older vanity-handle `groups/HoustonHash/` — see #1389).
+      facebookUrl: "https://www.facebook.com/groups/567061830081997",
       mailingListUrl: "https://groups.io/g/h4/join",
       foundedYear: 1979,
       scheduleDayOfWeek: "Sunday", scheduleTime: "3:00 PM", scheduleFrequency: "Weekly",
