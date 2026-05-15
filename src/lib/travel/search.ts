@@ -536,6 +536,11 @@ async function runStopSearch(
     startTime: r.startTime,
     confidence: r.confidence,
     notes: r.notes,
+    // #1390: thread seasonal anchors + label through so projectTrails can gate
+    // by season and surface "(Winter, Nov–Feb)" hints in the explanation.
+    label: r.label,
+    validFrom: r.validFrom,
+    validUntil: r.validUntil,
   }));
   const projections = projectTrails(ruleInputs, startDate, projectionEndDate);
 

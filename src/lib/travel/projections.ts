@@ -18,6 +18,11 @@ import {
   generateOccurrences,
 } from "@/adapters/static-schedule/adapter";
 import { formatTime, ordinal } from "@/lib/format";
+import {
+  isWithinSeason,
+  windowOverlapsSeason,
+  formatSeasonHint,
+} from "@/lib/schedule-season";
 import type { ScheduleConfidence } from "@/generated/prisma/client";
 
 // ============================================================================
@@ -32,6 +37,14 @@ export interface ScheduleRuleInput {
   startTime: string | null;
   confidence: ScheduleConfidence;
   notes: string | null;
+  // #1390: multi-cadence seasonality. When `validFrom`/`validUntil` are set,
+  // the projection engine emits dates only inside that MM-DD window (with
+  // wrap-around support for winter spans). `label` becomes part of the
+  // explanation so the user sees e.g. "Wednesdays at 6:30 PM (Summer)" on a
+  // July search, not just "Wednesdays at 6:30 PM".
+  label: string | null;
+  validFrom: string | null;
+  validUntil: string | null;
 }
 
 export interface KennelContext {
@@ -142,15 +155,31 @@ function projectScheduledRule(
       ? "Based on a known schedule source"
       : "Based on known schedule pattern";
 
-    return dateStrings.map((dateStr) => ({
-      kennelId: rule.kennelId,
-      date: new Date(dateStr + "T12:00:00Z"),
-      startTime: rule.startTime,
-      confidence,
-      scheduleRuleId: rule.id,
-      explanation,
-      evidenceWindow,
-    }));
+    // #1390: seasonal gating. When the rule carries `validFrom`/`validUntil`
+    // MM-DD anchors, drop any generated date that falls outside the season
+    // (with wrap-around support for winter spans). Without this, a July search
+    // would project Hockessin's winter-Saturday cadence as well as its
+    // summer-Wednesday cadence, double-listing the kennel with the wrong
+    // season's run text. We materialize the Date once, filter, then map — vs.
+    // the previous filter→map which built `new Date(dateStr + "T12:00:00Z")`
+    // twice per occurrence.
+    const hasSeasonality = !!(rule.validFrom || rule.validUntil);
+    return dateStrings
+      .map((dateStr) => new Date(dateStr + "T12:00:00Z"))
+      .filter(
+        (date) =>
+          !hasSeasonality ||
+          isWithinSeason(date, rule.validFrom, rule.validUntil),
+      )
+      .map((date) => ({
+        kennelId: rule.kennelId,
+        date,
+        startTime: rule.startTime,
+        confidence,
+        scheduleRuleId: rule.id,
+        explanation,
+        evidenceWindow,
+      }));
   } catch {
     // Unparseable rrule — surface as possible activity rather than crashing.
     return [projectAsLowConfidence(rule)];
@@ -171,6 +200,15 @@ export function projectTrails(
   const results: ProjectedTrail[] = [];
   for (const rule of rules) {
     if (!rule.rrule) continue;
+    // #1390 (Codex review): rule-level season gate. Without this, LOW-confidence
+    // rules (CADENCE sentinels, interval-without-anchor demotions, parse-error
+    // fallbacks) emit a date-null "possible activity" entry regardless of
+    // season — so a winter-only biweekly-without-anchor would show up as
+    // possible in a July search. Gating at the rule level catches every path
+    // before any ProjectedTrail is emitted.
+    if (!windowOverlapsSeason(windowStart, windowEnd, rule.validFrom, rule.validUntil)) {
+      continue;
+    }
     if (rule.confidence === "LOW") {
       results.push(projectAsLowConfidence(rule));
     } else {
@@ -457,6 +495,20 @@ export function generateExplanationFromRule(
   // Optional: callers that already parsed the rrule (projectScheduledRule)
   // can pass the result to avoid a second parse. parseRRule is cheap but
   // skipping it is free.
+  parsed?: ReturnType<typeof parseRRule>,
+): string {
+  const base = buildExplanationBody(rule, parsed);
+  // #1390: append a "(Summer, Mar–Oct)" hint when the rule carries seasonality
+  // anchors. Lives outside buildExplanationBody so every explanation path
+  // (sentinel, parsed-rrule, generic-fallback) picks up the hint uniformly.
+  const seasonHint = formatSeasonHint(rule.label, rule.validFrom, rule.validUntil);
+  return seasonHint ? `${base} (${seasonHint})` : base;
+}
+
+/** Internal body of generateExplanationFromRule — split out so the season-hint
+ *  append logic stays out of every branch's tail. */
+function buildExplanationBody(
+  rule: ScheduleRuleInput,
   parsed?: ReturnType<typeof parseRRule>,
 ): string {
   const { rrule, startTime, notes, confidence } = rule;

@@ -144,6 +144,37 @@ export function isWithinSeason(
 }
 
 /**
+ * Does the [windowStart, windowEnd] range overlap the [validFrom, validUntil]
+ * MM-DD season? Used by Travel Mode to gate off ENTIRE rules (including
+ * possible-activity LOW-confidence rules that produce no individual dates) when
+ * the search window is wholly out of season. Without this gate, a winter-only
+ * rule with confidence=LOW would emit a date-null "possible activity" entry on
+ * a July search because the per-date filter only fires when there ARE dates.
+ *
+ * When BOTH anchors are null/missing, returns true (always-on rule). When the
+ * window is ≥ 1 year, returns true unconditionally — any season necessarily
+ * overlaps a year-long window. Otherwise walks daily and short-circuits on
+ * first in-season day.
+ */
+export function windowOverlapsSeason(
+  windowStart: Date,
+  windowEnd: Date,
+  validFrom: string | null | undefined,
+  validUntil: string | null | undefined,
+): boolean {
+  if (!validFrom && !validUntil) return true;
+  const ms = windowEnd.getTime() - windowStart.getTime();
+  if (ms >= 366 * 86_400_000) return true;
+  const days = Math.ceil(ms / 86_400_000);
+  for (let i = 0; i <= days; i++) {
+    const d = new Date(windowStart.getTime() + i * 86_400_000);
+    if (d.getTime() > windowEnd.getTime()) break;
+    if (isWithinSeason(d, validFrom, validUntil)) return true;
+  }
+  return false;
+}
+
+/**
  * Format a season hint suitable for display. Examples:
  *   ("Summer", "03-01", "10-31") → "Summer, Mar–Oct"
  *   ("Winter", "11-01", "02-28") → "Winter, Nov–Feb"

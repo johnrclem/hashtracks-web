@@ -25,6 +25,9 @@ function makeRule(overrides: Partial<ScheduleRuleInput> = {}): ScheduleRuleInput
     startTime: "14:00",
     confidence: "MEDIUM",
     notes: null,
+    label: null,
+    validFrom: null,
+    validUntil: null,
     ...overrides,
   };
 }
@@ -533,5 +536,170 @@ describe("filterProjectionsByHorizon", () => {
     // trails" copy with a stray Possible row.
     expect(filterProjectionsByHorizon(mixed, "none")).toEqual([]);
     expect(filterProjectionsByHorizon([{ confidence: "low" as const }], "none")).toEqual([]);
+  });
+});
+
+// ============================================================================
+// #1390: seasonal gating — Hockessin Wed/summer ↔ Sat/winter is the proving case
+// ============================================================================
+
+describe("projectTrails — seasonal gating (#1390)", () => {
+  // Hockessin's structured-cadence shape: Wed at 18:30 from Mar 1 → Oct 31,
+  // Sat at 15:00 from Nov 1 → Feb 28.
+  const summerWednesdayRule = makeRule({
+    id: "rule-summer",
+    rrule: "FREQ=WEEKLY;BYDAY=WE",
+    startTime: "18:30",
+    confidence: "HIGH",
+    label: "Summer",
+    validFrom: "03-01",
+    validUntil: "10-31",
+  });
+  const winterSaturdayRule = makeRule({
+    id: "rule-winter",
+    rrule: "FREQ=WEEKLY;BYDAY=SA",
+    startTime: "15:00",
+    confidence: "HIGH",
+    label: "Winter",
+    validFrom: "11-01",
+    validUntil: "02-29",
+  });
+
+  it("emits ONLY summer Wednesdays in a July search window", () => {
+    // July is mid-summer; winter rule should produce zero projections.
+    const projections = projectTrails(
+      [summerWednesdayRule, winterSaturdayRule],
+      utcNoon("2026-07-01"),
+      utcNoon("2026-07-31"),
+    );
+    expect(projections.length).toBeGreaterThan(0);
+    expect(projections.every((p) => p.scheduleRuleId === "rule-summer")).toBe(true);
+    // Every projected date should be a Wednesday (day=3).
+    expect(projections.every((p) => p.date?.getUTCDay() === 3)).toBe(true);
+  });
+
+  it("emits ONLY winter Saturdays in a January search window (wrap-around)", () => {
+    const projections = projectTrails(
+      [summerWednesdayRule, winterSaturdayRule],
+      utcNoon("2026-01-01"),
+      utcNoon("2026-01-31"),
+    );
+    expect(projections.length).toBeGreaterThan(0);
+    expect(projections.every((p) => p.scheduleRuleId === "rule-winter")).toBe(true);
+    expect(projections.every((p) => p.date?.getUTCDay() === 6)).toBe(true);
+  });
+
+  it("emits BOTH cadences in a search window that straddles the season boundary", () => {
+    // Oct 25 → Nov 10 covers the summer-Wed Oct 28 AND the winter-Sat Nov 7.
+    const projections = projectTrails(
+      [summerWednesdayRule, winterSaturdayRule],
+      utcNoon("2026-10-25"),
+      utcNoon("2026-11-10"),
+    );
+    const ruleIds = new Set(projections.map((p) => p.scheduleRuleId));
+    expect(ruleIds.has("rule-summer")).toBe(true);
+    expect(ruleIds.has("rule-winter")).toBe(true);
+  });
+
+  it("includes the season label in the explanation string", () => {
+    const explanation = generateExplanationFromRule(summerWednesdayRule);
+    expect(explanation).toContain("Summer");
+    expect(explanation).toContain("Mar"); // Mar–Oct range
+  });
+
+  it("works for rules with only validFrom (open-ended end)", () => {
+    const openEndedRule = makeRule({
+      rrule: "FREQ=WEEKLY;BYDAY=MO",
+      confidence: "HIGH",
+      validFrom: "06-01",
+      validUntil: null,
+    });
+    // May → before season → no projections
+    const beforeSeason = projectTrails(
+      [openEndedRule],
+      utcNoon("2026-05-01"),
+      utcNoon("2026-05-31"),
+    );
+    expect(beforeSeason).toEqual([]);
+    // July → in season
+    const inSeason = projectTrails(
+      [openEndedRule],
+      utcNoon("2026-07-01"),
+      utcNoon("2026-07-31"),
+    );
+    expect(inSeason.length).toBeGreaterThan(0);
+  });
+
+  it("skips LOW-confidence rule entirely when window is wholly off-season (Codex P2)", () => {
+    // Winter-only CADENCE sentinel rule (LOW confidence — no date generation).
+    // A July search must NOT emit a date-null "possible activity" entry for it.
+    const winterOnlyLowRule = makeRule({
+      rrule: "CADENCE=BIWEEKLY;BYDAY=SA",
+      confidence: "LOW",
+      notes: "Biweekly without anchor",
+      label: "Winter",
+      validFrom: "11-01",
+      validUntil: "02-28",
+    });
+    const julyProjections = projectTrails(
+      [winterOnlyLowRule],
+      utcNoon("2026-07-01"),
+      utcNoon("2026-07-31"),
+    );
+    expect(julyProjections).toEqual([]);
+  });
+
+  it("still emits LOW-confidence possible-activity when window IS in-season", () => {
+    const winterOnlyLowRule = makeRule({
+      rrule: "CADENCE=BIWEEKLY;BYDAY=SA",
+      confidence: "LOW",
+      notes: "Biweekly without anchor",
+      label: "Winter",
+      validFrom: "11-01",
+      validUntil: "02-28",
+    });
+    const januaryProjections = projectTrails(
+      [winterOnlyLowRule],
+      utcNoon("2026-01-01"),
+      utcNoon("2026-01-31"),
+    );
+    expect(januaryProjections).toHaveLength(1);
+    expect(januaryProjections[0].date).toBeNull();
+    expect(januaryProjections[0].confidence).toBe("low");
+  });
+
+  it("skips interval-without-anchor demoted rules when wholly off-season (Codex P2)", () => {
+    // Biweekly without anchorDate is demoted to LOW inside projectScheduledRule.
+    // The rule-level season gate should catch it BEFORE projectScheduledRule
+    // runs.
+    const winterBiweeklyNoAnchor = makeRule({
+      rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA",
+      confidence: "HIGH",
+      anchorDate: null,
+      label: "Winter",
+      validFrom: "11-01",
+      validUntil: "02-28",
+    });
+    const julyProjections = projectTrails(
+      [winterBiweeklyNoAnchor],
+      utcNoon("2026-07-01"),
+      utcNoon("2026-07-31"),
+    );
+    expect(julyProjections).toEqual([]);
+  });
+
+  it("rules without season anchors continue to project normally", () => {
+    // Pre-PR behavior preservation: a rule with label=null/validFrom=null
+    // emits every occurrence in the window.
+    const noSeasonRule = makeRule({
+      rrule: "FREQ=WEEKLY;BYDAY=SA",
+      confidence: "HIGH",
+    });
+    const projections = projectTrails(
+      [noSeasonRule],
+      utcNoon("2026-07-01"),
+      utcNoon("2026-07-31"),
+    );
+    expect(projections.length).toBeGreaterThan(0);
   });
 });
