@@ -57,17 +57,24 @@ const DEFAULT_LOCALE = "en-NZ";
 // ceiling); process-local, rebuilds on restart.
 const CF_COOKIE_TTL_MS = 25 * 60 * 1000;
 // Single source of truth for the title markers that signal a CF challenge.
-// Kept as a string array so the in-browser `waitForFunction` callback can
-// do a plain `Array#some(includes)` rather than build a dynamic RegExp
-// from a passed-in pattern source. The Node-side RegExp below is built
-// from the same array so the two contexts can't drift.
+// Used by both the Node-side `isCfChallengeTitle()` check below and the
+// in-browser `waitForFunction` callback. Kept as a plain string array so
+// neither side needs `new RegExp()` (which Semgrep/Codacy flag as a DoS
+// hazard when the pattern isn't a literal — false positive here, but
+// using a literal-string array sidesteps the lint AND keeps both contexts
+// locked to the same marker list).
 const CF_CHALLENGE_TITLE_MARKERS = [
   "just a moment",
   "attention required",
   "checking your browser",
 ];
-// nosemgrep: detect-non-literal-regexp — source is a hard-coded constant array (CF_CHALLENGE_TITLE_MARKERS above), not user input. Kept dynamic so Node + page-context matchers can't drift apart.
-const CF_CHALLENGE_TITLE_RE = new RegExp(CF_CHALLENGE_TITLE_MARKERS.join("|"), "i");
+
+/** True iff `title` matches any CF challenge marker (case-insensitive). */
+function isCfChallengeTitle(title) {
+  if (!title) return false;
+  const lower = title.toLowerCase();
+  return CF_CHALLENGE_TITLE_MARKERS.some((m) => lower.includes(m));
+}
 const cfCookieCache = new Map(); // "hostname|userAgent" → { cookies, expiresAt }
 
 /** Build the cache key for a (hostname, UA) pair. */
@@ -156,7 +163,7 @@ async function getBrowser() {
  */
 async function clearCloudflareChallenge(page, maxWaitMs) {
   const titleNow = await page.title().catch(() => "");
-  if (!CF_CHALLENGE_TITLE_RE.test(titleNow)) return "none";
+  if (!isCfChallengeTitle(titleNow)) return "none";
   console.log(
     `[${new Date().toISOString()}] Cloudflare challenge detected (title: "${titleNow}"), waiting up to ${maxWaitMs}ms`,
   );
@@ -177,7 +184,7 @@ async function clearCloudflareChallenge(page, maxWaitMs) {
     });
   // Re-read the title; only report "cleared" if the marker is actually gone.
   const titleAfter = await page.title().catch(() => titleNow);
-  return CF_CHALLENGE_TITLE_RE.test(titleAfter) ? "timeout" : "cleared";
+  return isCfChallengeTitle(titleAfter) ? "timeout" : "cleared";
 }
 
 /** Extract CF-bypass cookies (cf_clearance + any __cf_* helpers) for a context's origin. */
