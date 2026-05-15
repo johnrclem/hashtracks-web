@@ -231,9 +231,12 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   // ── Denmark ──
   { pattern: /ch4\.dk/i, name: "Ch4DkAdapter", factory: () => new Ch4DkAdapter() },
   // ── New Zealand (Phase 1) ──
-  { pattern: /gardencityhash\.co\.nz/i,    name: "MiteriHarelineAdapter", factory: () => new MiteriHarelineAdapter() },
-  { pattern: /christchurchhash\.net\.nz/i, name: "MiteriHarelineAdapter", factory: () => new MiteriHarelineAdapter() },
-  { pattern: /aucklandhussies\.co\.nz/i,   name: "AucklandHussiesAdapter", factory: () => new AucklandHussiesAdapter() },
+  // CHH3 deliberately not registered yet — see prisma/seed-data/sources.ts
+  // for the rationale (special events live on /events/, needs a separate
+  // parser planned for Phase 2). The Miteri adapter only covers the
+  // gardencityhash.co.nz homepage hareline today.
+  { pattern: /gardencityhash\.co\.nz/i,  name: "MiteriHarelineAdapter", factory: () => new MiteriHarelineAdapter() },
+  { pattern: /aucklandhussies\.co\.nz/i, name: "AucklandHussiesAdapter", factory: () => new AucklandHussiesAdapter() },
 ];
 
 /** URL-based routing for HTML_SCRAPER — derived from htmlScraperEntries (single source of truth). */

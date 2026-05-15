@@ -5148,16 +5148,12 @@ export const SOURCES = [
       config: { kennelTag: "garden-city-h3" },
       kennelCodes: ["garden-city-h3"],
     },
-    {
-      name: "Christchurch H3 Website",
-      url: "https://christchurchhash.net.nz/",
-      type: "HTML_SCRAPER" as const,
-      trustLevel: 6,
-      scrapeFreq: "daily",
-      scrapeDays: 180,
-      config: { kennelTag: "christchurch-h3" },
-      kennelCodes: ["christchurch-h3"],
-    },
+    // CHH3 homepage HTML source intentionally omitted from Phase 1: the
+    // homepage Miteri table is empty (CHH3 maintains their special events
+    // on /events/ as plain <ul>/<li>, not in the homepage table). Special-
+    // event scraping needs a dedicated /events/ parser — scoped as Phase 2
+    // follow-up. STATIC weekly Monday baseline below covers the recurring
+    // cadence.
     staticScheduleSource({
       name: "Christchurch H3 Static Schedule",
       url: "https://christchurchhash.net.nz/",
@@ -5171,11 +5167,12 @@ export const SOURCES = [
     }),
     // Hibiscus Coast: hareline lives on a published-to-web Google Sheet.
     // The /export?format=csv path returns a sign-in wall, but the published
-    // /pub?output=csv variant works. Columns: 0=row#, 1=When ("May-18"),
-    // 2=Where, 3=Who. First 4 sheet rows are header / banner; data starts
-    // at row 5. The "row#" is sequential (not a hash run number), but the
-    // adapter requires runNumber as a row-validity discriminator and only
-    // dedups by (kennel, date) downstream — slight cosmetic drift is OK.
+    // /pub?output=csv variant works. Columns: 1=When ("May-18"), 2=Where,
+    // 3=Who. Column 0 is a sequential row counter (1, 2, 3, ...) that
+    // shifts when the kennel adds/removes rows — feeding it into
+    // `runNumber` would re-fingerprint events on every sheet edit, so it's
+    // omitted. Empty-date rows ("No run yet") are filtered upstream by
+    // processRows(). 3 banner rows precede the column-header row.
     {
       name: "Hibiscus H3 Hareline Sheet",
       url: "https://docs.google.com/spreadsheets/d/1NcX991wiqvH0RmRzngaeFReeBKCTkJPxE1aoWIXYot8/pubhtml?gid=1&single=true",
@@ -5186,11 +5183,8 @@ export const SOURCES = [
       config: {
         sheetId: "1NcX991wiqvH0RmRzngaeFReeBKCTkJPxE1aoWIXYot8",
         csvUrl: "https://docs.google.com/spreadsheets/d/1NcX991wiqvH0RmRzngaeFReeBKCTkJPxE1aoWIXYot8/pub?output=csv&gid=1&single=true",
-        // 3 banner rows precede the column-header row; processRows() treats
-        // its row[0] as the header (rowIdx starts at 1), so skipRows=3 lines
-        // up the header on idx 0 and the first data row on idx 1.
         skipRows: 3,
-        columns: { runNumber: 0, date: 1, location: 2, hares: 3 },
+        columns: { date: 1, location: 2, hares: 3 },
         kennelTagRules: { default: "hibiscus-h3" },
         startTimeRules: { default: "18:30" },
       },

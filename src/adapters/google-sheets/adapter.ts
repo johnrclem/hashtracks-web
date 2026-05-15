@@ -39,7 +39,16 @@ export interface GoogleSheetsConfig {
   /** Optional explicit tab names. If omitted, auto-discovers year-prefixed tabs. */
   tabs?: string[];
   columns: {
-    runNumber: number;
+    /**
+     * Optional. Column index for the kennel's authentic hash run number.
+     * If your source only carries a sequential row counter (which becomes
+     * unstable when rows are inserted or deleted above), leave this
+     * undefined. `runNumber` participates in the fingerprint hash, so
+     * feeding in an unstable counter re-fingerprints unchanged events on
+     * every sheet edit. When undefined, the row's validity is gated by
+     * the date column instead (rows with empty dates are skipped upstream).
+     */
+    runNumber?: number;
     specialRun?: number;
     date: number;
     hares: number;
@@ -372,7 +381,9 @@ function resolveKennelTagFromSheetRow(
   row: string[],
   config: GoogleSheetsConfig,
 ): { kennelTag: string; runNumber: number | undefined } | null {
-  const runNumberCell = row[config.columns.runNumber]?.trim();
+  const runNumberCell = config.columns.runNumber != null
+    ? row[config.columns.runNumber]?.trim()
+    : undefined;
   const specialRunCell = config.columns.specialRun != null
     ? row[config.columns.specialRun]?.trim()
     : undefined;
@@ -397,6 +408,12 @@ function resolveKennelTagFromSheetRow(
       kennelTag: config.kennelTagRules.default,
       runNumber: Number.parseInt(runNumberCell, 10),
     };
+  }
+  // No runNumber column configured: row validity is gated entirely by the
+  // date column (already filtered upstream in processRows), so emit the row
+  // with the default kennelTag and a null runNumber.
+  if (config.columns.runNumber == null) {
+    return { kennelTag: config.kennelTagRules.default, runNumber: undefined };
   }
   return null;
 }

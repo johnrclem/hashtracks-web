@@ -33,16 +33,10 @@ const probes: Probe[] = [
     },
     days: 365,
   },
-  {
-    label: "Christchurch H3 (Miteri / Gutenberg)",
-    adapter: new MiteriHarelineAdapter(),
-    source: {
-      id: "verify-chh3",
-      url: "https://christchurchhash.net.nz/",
-      config: { kennelTag: "christchurch-h3" },
-    },
-    days: 365,
-  },
+  // CHH3 deliberately not probed: the homepage Miteri table is empty and
+  // CHH3's special events live on /events/, which needs a separate parser
+  // (Phase 2 follow-up). STATIC weekly Monday baseline covers the recurring
+  // cadence — STATIC adapter is well-tested elsewhere.
   {
     label: "Auckland Hussies (Excel-exported HTML)",
     adapter: new AucklandHussiesAdapter(),
@@ -63,7 +57,7 @@ const probes: Probe[] = [
         sheetId: "1NcX991wiqvH0RmRzngaeFReeBKCTkJPxE1aoWIXYot8",
         csvUrl: "https://docs.google.com/spreadsheets/d/1NcX991wiqvH0RmRzngaeFReeBKCTkJPxE1aoWIXYot8/pub?output=csv&gid=1&single=true",
         skipRows: 3,
-        columns: { runNumber: 0, date: 1, location: 2, hares: 3 },
+        columns: { date: 1, location: 2, hares: 3 },
         kennelTagRules: { default: "hibiscus-h3" },
         startTimeRules: { default: "18:30" },
       },
