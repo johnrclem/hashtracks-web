@@ -551,6 +551,9 @@ describe("validateSourceConfig", () => {
       [{ kennelTag: "Rumson", rrule: "BYDAY=SA" }, "FREQ="],
       [{ kennelTag: "Rumson", rrule: "FREQ=WEEKLY;BYDAY=SA", startTime: 123 }, "startTime"],
       [{ kennelTag: "Rumson", rrule: "FREQ=WEEKLY;BYDAY=SA", startTime: "10:17 AM" }, "HH:MM"],
+      // #1390 BYSETPOS write-path guard — Hebe H3 silent-ignore regression.
+      [{ kennelTag: "Hebe H3", rrule: "FREQ=MONTHLY;BYDAY=SA;BYSETPOS=3" }, "BYSETPOS"],
+      [{ kennelTag: "Hebe H3", rrule: "FREQ=MONTHLY;BYDAY=SA;BYSETPOS=1" }, "BYSETPOS"],
     ])("rejects invalid STATIC_SCHEDULE config: expects error containing %s", (config, expectedField) => {
       const errors = validateSourceConfig("STATIC_SCHEDULE", config);
       expect(errors.some((e) => e.includes(expectedField as string))).toBe(true);

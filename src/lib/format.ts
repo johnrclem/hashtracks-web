@@ -1,4 +1,10 @@
 import { regionNameToSlug } from "@/lib/region";
+import { formatSeasonHint, type ScheduleSlot } from "@/lib/schedule-season";
+import { parseRRule } from "@/adapters/static-schedule/rrule-parser";
+
+// Re-export ScheduleSlot from format.ts for backward compat with existing
+// component imports. The canonical home is now @/lib/schedule-season.
+export type { ScheduleSlot };
 
 /**
  * Convert 24-hour "HH:MM" string to 12-hour AM/PM format.
@@ -193,12 +199,28 @@ export function getDayOfWeek(iso: string): string {
  * Combine schedule fields into a natural sentence.
  * "Wednesdays at 7:00 PM · Weekly", "Saturdays · Biweekly", "Monthly", etc.
  * Returns null if no schedule fields are populated.
+ *
+ * Multi-cadence path (#1390): when `scheduleRules` is non-empty, it overrides
+ * the flat fields. Each slot renders as "<weekday day-text> at <time> (<hint>)"
+ * and slots are joined by " / " in displayOrder ascending. The legacy flat-field
+ * path remains the fallback for ~190 kennels that haven't migrated yet.
  */
 export function formatSchedule(kennel: {
   scheduleDayOfWeek?: string | null;
   scheduleTime?: string | null;
   scheduleFrequency?: string | null;
+  scheduleRules?: ScheduleSlot[] | null;
 }): string | null {
+  if (kennel.scheduleRules && kennel.scheduleRules.length > 0) {
+    const rulesText = formatScheduleRules(kennel.scheduleRules);
+    // Fall through to legacy flat-field rendering ONLY if scheduleRules
+    // produced nothing displayable (e.g. all slots had unrecognized RRULE
+    // shapes like FREQ=LUNAR with no other content). This preserves the
+    // override semantics for the common case while preventing a kennel
+    // with valid legacy fields from rendering empty when scheduleRules
+    // were present but unrenderable. (Codex review on PR #1406.)
+    if (rulesText !== null) return rulesText;
+  }
   const parts: string[] = [];
   if (kennel.scheduleDayOfWeek) {
     parts.push(kennel.scheduleDayOfWeek + "s");
@@ -210,6 +232,102 @@ export function formatSchedule(kennel: {
     parts.push(parts.length ? `· ${kennel.scheduleFrequency}` : kennel.scheduleFrequency);
   }
   return parts.length ? parts.join(" ") : null;
+}
+
+function formatScheduleRules(rules: ScheduleSlot[]): string | null {
+  const ordered = [...rules].sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+  const rendered = ordered.map(formatScheduleSlot).filter((s): s is string => s !== null);
+  return rendered.length > 0 ? rendered.join(" / ") : null;
+}
+
+function formatScheduleSlot(slot: ScheduleSlot): string | null {
+  const dayLabel = describeRruleDay(slot.rrule);
+  const timeText = slot.startTime ? formatTime(slot.startTime) : null;
+  const head = [dayLabel, timeText ? `at ${timeText}` : null].filter(Boolean).join(" ");
+  const seasonHint = formatSeasonHint(slot.label, slot.validFrom, slot.validUntil);
+  if (!head && !seasonHint) return null;
+  if (head && seasonHint) return `${head} (${seasonHint})`;
+  return head || seasonHint;
+}
+
+/**
+ * Human-readable weekday phrase from a calendar-rule RRULE. Delegates the RRULE
+ * shape interpretation to `parseRRule` from the static-schedule adapter — the
+ * same parser that drives event generation and Travel Mode projection. This
+ * means format.ts inherits the parser's contract for free (e.g. BYSETPOS
+ * rejection, multi-day BYDAY rejection, FREQ=LUNAR rejection).
+ *
+ * Returns null on shapes we can't summarize (the caller falls through to other
+ * slot text or to the legacy flat-field path).
+ */
+function describeRruleDay(rrule: string): string | null {
+  let parsed: ReturnType<typeof parseRRule>;
+  try {
+    parsed = parseRRule(rrule);
+  } catch {
+    return null;
+  }
+  if (parsed.freq === "WEEKLY" && parsed.byDay) {
+    return `${WEEKDAY_NAMES[parsed.byDay.day]}s`;
+  }
+  if (parsed.freq === "MONTHLY" && parsed.byDay) {
+    const day = WEEKDAY_NAMES[parsed.byDay.day];
+    if (parsed.byDay.nth === undefined) return `${day}s`;
+    const ord = ordinalWord(parsed.byDay.nth);
+    return ord ? `${ord} ${day}` : `${day}s`;
+  }
+  if (parsed.freq === "MONTHLY" && parsed.byMonthDay !== undefined) {
+    return `${ordinal(parsed.byMonthDay)} of the month`;
+  }
+  return null;
+}
+
+const WEEKDAY_NAMES = [
+  "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday",
+] as const;
+
+/**
+ * Ordinal WORD for the small set used in nth-weekday display ("1st", "last",
+ * etc.). Distinct from `ordinal()` because past 5th we degrade to "5th Saturday"
+ * isn't a real schedule shape — we render plain plural day name instead.
+ */
+function ordinalWord(n: number): string | null {
+  if (n === -1) return "last";
+  switch (n) {
+    case 1: return "1st";
+    case 2: return "2nd";
+    case 3: return "3rd";
+    case 4: return "4th";
+    case 5: return "5th";
+    default: return null;
+  }
+}
+
+/**
+ * Collect every weekday name this kennel runs on, considering both the legacy
+ * flat `scheduleDayOfWeek` and any `scheduleRules`. Single source of truth for
+ * the KennelDirectory day filter and the region-page intro/metadata "days"
+ * computations — keeping these in lockstep avoids the kennel-vanishes-from-
+ * filter-but-shows-on-card drift that previously hit migrated kennels.
+ *
+ * Rejects multi-day BYDAY values (`BYDAY=SA,SU`) so it stays in lockstep with
+ * `describeRruleDay()` — only single-weekday slots round-trip through the UI.
+ */
+// `collectKennelWeekdays` / `collectKennelFrequencies` moved to
+// `@/lib/schedule-season` (canonical home, co-located with ScheduleSlot +
+// SCHEDULE_RULES_SELECT). Re-exported here so existing imports don't break.
+export { collectKennelWeekdays, collectKennelFrequencies } from "@/lib/schedule-season";
+
+/** English ordinal suffix: 1 → "1st", 22 → "22nd", 113 → "113th". */
+export function ordinal(n: number): string {
+  const mod100 = n % 100;
+  if (mod100 >= 11 && mod100 <= 13) return `${n}th`;
+  switch (n % 10) {
+    case 1: return `${n}st`;
+    case 2: return `${n}nd`;
+    case 3: return `${n}rd`;
+    default: return `${n}th`;
+  }
 }
 
 /** Build Instagram profile URL from handle, stripping leading @ if present. */

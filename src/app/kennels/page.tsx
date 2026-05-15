@@ -6,6 +6,7 @@ import { KennelDirectory } from "@/components/kennels/KennelDirectory";
 import Link from "next/link";
 import { regionAbbrev, regionNameToSlug } from "@/lib/region";
 import { buildNextEventMap, serializeKennelWithNext } from "@/lib/kennel-directory";
+import { SCHEDULE_RULES_SELECT } from "@/lib/schedule-season";
 import { buildRegionItemListJsonLd, safeJsonLd } from "@/lib/seo";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -54,6 +55,7 @@ export default async function KennelsPage() {
         scheduleDayOfWeek: true,
         scheduleTime: true,
         scheduleFrequency: true,
+        scheduleRules: SCHEDULE_RULES_SELECT,
         lastEventDate: true,
       },
     }),

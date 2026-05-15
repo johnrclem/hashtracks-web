@@ -17,7 +17,7 @@ import {
   parseRRule,
   generateOccurrences,
 } from "@/adapters/static-schedule/adapter";
-import { formatTime } from "@/lib/format";
+import { formatTime, ordinal } from "@/lib/format";
 import type { ScheduleConfidence } from "@/generated/prisma/client";
 
 // ============================================================================
@@ -492,12 +492,7 @@ function dayNumberToName(dayNum: number): string {
   return names[dayNum] ?? "day";
 }
 
-/** Ordinal suffix: 1st, 2nd, 3rd, 4th, ... */
-function ordinal(n: number): string {
-  const s = ["th", "st", "nd", "rd"];
-  const v = n % 100;
-  return n + (s[(v - 20) % 10] || s[v] || s[0]);
-}
+// ordinal moved to @/lib/format (shared with format.ts's RRULE display path).
 
 /**
  * Projection horizon tiers — how far ahead each confidence level can be

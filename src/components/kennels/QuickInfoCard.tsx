@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { formatSchedule, displayDomain } from "@/lib/format";
+import { formatSchedule, displayDomain, type ScheduleSlot } from "@/lib/format";
 import { SocialLinks } from "@/components/kennels/SocialLinks";
 import {
   Calendar,
@@ -18,6 +18,7 @@ interface QuickInfoCardProps {
     scheduleDayOfWeek: string | null;
     scheduleTime: string | null;
     scheduleFrequency: string | null;
+    scheduleRules?: ScheduleSlot[] | null;
     scheduleNotes: string | null;
     hashCash: string | null;
     paymentLink: string | null;

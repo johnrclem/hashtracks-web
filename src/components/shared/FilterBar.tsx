@@ -24,7 +24,7 @@ import { RegionFilterPopover } from "@/components/shared/RegionFilterPopover";
 import { DayOfWeekSelect } from "@/components/shared/DayOfWeekSelect";
 import { ClearFilterButton } from "@/components/shared/ClearFilterButton";
 import { KennelOptionLabel } from "@/components/kennels/KennelOptionLabel";
-import { toggleArrayItem } from "@/lib/format";
+import { toggleArrayItem, collectKennelFrequencies, type ScheduleSlot } from "@/lib/format";
 import { regionDisplayName } from "@/lib/region";
 import type { GeoState } from "@/hooks/useGeolocation";
 
@@ -34,6 +34,9 @@ interface FilterBarProps {
     region: string;
     scheduleDayOfWeek?: string | null;
     scheduleFrequency?: string | null;
+    /** #1390: multi-cadence schedule slots — when present, derive frequency
+     *  dropdown choices from these too so migrated kennels stay filterable. */
+    scheduleRules?: ScheduleSlot[] | null;
     id: string;
     latitude?: number | null;
     longitude?: number | null;
@@ -113,12 +116,16 @@ export function FilterBar({
     return Array.from(regionSet).sort((a, b) => a.localeCompare(b));
   }, [items]);
 
-  // Derive available frequencies
+  // Derive available frequencies — union of legacy `scheduleFrequency` flat
+  // fields AND any `scheduleRules`-derived labels (#1390). A migrated kennel
+  // with nulled flat fields must still surface its frequency in the dropdown.
   const frequencies = useMemo(() => {
     if (!onFrequencyChange) return [];
     const freqSet = new Set<string>();
     for (const i of items) {
-      if (i.scheduleFrequency) freqSet.add(i.scheduleFrequency);
+      for (const label of collectKennelFrequencies(i)) {
+        freqSet.add(label);
+      }
     }
     return Array.from(freqSet).sort((a, b) => a.localeCompare(b));
   }, [items, onFrequencyChange]);

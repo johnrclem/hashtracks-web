@@ -3492,11 +3492,20 @@ export const KENNELS: KennelSeed[] = [
       latitude: 22.3000, longitude: 114.1700,
     },
     {
+      // #1388 / #1390: first kennel migrated to structured `scheduleRules`.
       kennelCode: "hebe-h3", shortName: "Hebe H3", fullName: "Hebe Hash House Harriers",
       region: "Hong Kong", country: "Hong Kong",
       facebookUrl: "https://www.facebook.com/groups/HebeH3",
       contactEmail: "jamesahk@gmail.com",
       scheduleDayOfWeek: "Saturday", scheduleTime: "3:00 PM", scheduleFrequency: "Monthly",
+      scheduleRules: [
+        {
+          rrule: "FREQ=MONTHLY;BYDAY=1SA",
+          startTime: "15:00",
+          label: "Monthly",
+          displayOrder: 0,
+        },
+      ],
       scheduleNotes: "1st Saturday of the month at 3:00 PM in the Sai Kung area. Founded 2019.",
       foundedYear: 2019,
       description: "Hong Kong's Sai Kung-area hash, founded in 2019. Monthly Saturday afternoon trails in the scenic eastern New Territories.",
