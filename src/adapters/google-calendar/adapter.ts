@@ -123,7 +123,34 @@ const PERSONAL_TITLE_PATTERNS: readonly RegExp[] = [
   /^\s*pick\s+up\s+\S/i,
   /^\s*drop\s+off\s+\S/i,
   /^\s*call\s+(?:with|to)\b/i,
+  // #1418 Aloha: "Ciara training" — proper-noun + personal activity word.
+  // Tight allowlist of activities so this never matches a hash title like
+  // "Hash Training Run" (proper noun would be a kennel name, not activity).
+  /^\s*[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?\s+(?:training|practice|lesson|class|workout|tutoring|rehearsal)\b/i,
 ];
+
+/**
+ * Non-hash domain markers (#1426). Pairing a sport with a game/practice
+ * qualifier strongly suggests a non-hash sports event. Used together with
+ * the runNumber/hares/hash-keyword gate at the call site — when ANY of
+ * those three hash-confirming signals is present, the filter is skipped
+ * (Codex review on this PR).
+ *
+ * Bare sport names ("Rugby") are deliberately NOT in this list — kennel
+ * names and punning titles sometimes contain them. Always require the
+ * qualifier pairing.
+ */
+const NON_HASH_DOMAIN_PATTERNS: readonly RegExp[] = [
+  /\b(?:rugby|soccer|basketball|baseball|football|hockey|lacrosse|volleyball|tennis|cricket|softball)\s+(?:game|match|practice|tournament|league|scrimmage)\b/i,
+];
+
+/**
+ * Title-level hash-vocabulary markers. Hash events themed around a sport
+ * often spell "hash" / "h3" / "h4" / "h5" / "hhh" verbatim ("Annual Rugby
+ * Tournament Hash"). When present, the sport+qualifier filter is bypassed
+ * since the kennel admin's intent is unambiguous.
+ */
+const HASH_KEYWORD_RE = /\b(?:hash|h[345]|hhh)\b/i;
 
 /** Strip leading day/date prefixes like "Wed April 1st", "Sat 3/28" from titles. */
 export function stripDatePrefix(text: string): string {
@@ -293,9 +320,54 @@ const TITLE_TIME_RE = /\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/i;
 const TITLE_W_HARE_LOCATION_RE = / w\/ (.+?) - (.+)$/i;
 const TITLE_TRAILING_PAREN_RE = /\s*\(([^)]+)\)$/;
 const INSTRUCTIONAL_PAREN_RE = /\b(?:posted|website|email|check|details|usually|info)\b/i;
-/** Reject parentheticals that look descriptive rather than name-like (e.g., "(A to B)", "(No Dogs)") */
-const NON_NAME_PAREN_RE = /\b(?:to|from|no|not|only|all|free|via|and back)\b/i;
+/**
+ * Reject parentheticals that look descriptive rather than name-like
+ * (e.g. "(A to B)", "(No Dogs)"). Extended in #1444 with status words
+ * ("(canceled)", "(postponed)") that were slipping through and being
+ * stored as hare names.
+ */
+const NON_NAME_PAREN_RE = /\b(?:to|from|no|not|only|all|free|via|and back|cancel(?:l?ed)?|postponed)\b/i;
+/**
+ * Allowlist of acronym/numeric tokens that are CTAs or units, never hash
+ * names: "(5K)", "(10K)", "(AM)", "(PM)", "(BYOB)", "(TBD)", "(TBA)",
+ * "(TBC)", "(FYI)", "(NSFW)". The list is deliberately enumerated rather
+ * than `[A-Z]{2,5}` (#1444 Codex review) — hashers DO use 2-3-char hash
+ * names like "DJ", "MJ", "FBI", and a blanket all-caps reject would FN
+ * them.
+ */
+const ACRONYM_PAREN_RE = /^(?:\d+\s*[A-Za-z]{0,2}|AM|PM|BYOB|TBD|TBA|TBC|FYI|NSFW|DNF|DNS|RIP)$/i;
 const MAX_HARE_PAREN_LENGTH = 40;
+
+/**
+ * #1444 Larryville: detect "initials wordplay" parentheticals like
+ * `LH3 #670 DP (dirtier pickle)` where the parenthetical is a punning
+ * lowercase expansion of the uppercase token immediately preceding it.
+ * The signal stack — uppercase initials + lowercase first letter +
+ * matching first-letter sequence + matching word count — is highly
+ * specific to wordplay; it leaves Title-Case hash names like
+ * `JB (Just Bob)` and unrelated lowercase parens like `(banana boat)`
+ * untouched.
+ */
+function isInitialsWordplay(title: string, inner: string, parenIndex: number): boolean {
+  const beforeParen = title.slice(0, parenIndex).trim();
+  const lastWordMatch = /\S+$/.exec(beforeParen);
+  if (!lastWordMatch) return false;
+  const initials = lastWordMatch[0];
+  if (!/^[A-Z]{2,5}$/.test(initials)) return false;
+  const trimmedInner = inner.trim();
+  if (!/^[a-z]/.test(trimmedInner)) return false;
+  const innerWords = trimmedInner.split(/\s+/);
+  if (innerWords.length !== initials.length) return false;
+  const innerInitials = innerWords.map((w) => w[0]?.toLowerCase() ?? "").join("");
+  return innerInitials === initials.toLowerCase();
+}
+
+/**
+ * Minimum plausible hash-event title length. Below this, with no other
+ * structured field, the summary is almost certainly a data-entry artifact
+ * (e.g. #1303 Houston had a hare's initials "PC" typed into the summary).
+ */
+const MIN_PLAUSIBLE_HASH_TITLE_LEN = 3;
 
 // Pre-compiled regexes for dash-separated title cleanup
 /** " - Hare(s): Name" or " - Hare: Name" suffix in title */
@@ -1086,7 +1158,15 @@ export function buildRawEventFromGCalItem(
   if (parenMatch) {
     const inner = parenMatch[1].trim();
     const isInstructional = inner.length > MAX_HARE_PAREN_LENGTH || INSTRUCTIONAL_PAREN_RE.test(inner);
-    const isNameLike = !NON_NAME_PAREN_RE.test(inner);
+    // #1444 — three independent reject checks. NON_NAME catches descriptive
+    // and status words; ACRONYM catches CTAs/units; isInitialsWordplay
+    // catches the Larryville pattern (preceding caps + matching lowercase
+    // expansion). Real hash names — Title Case, lowercase-multi-word,
+    // mixed-case — still pass through.
+    const isNameLike =
+      !NON_NAME_PAREN_RE.test(inner) &&
+      !ACRONYM_PAREN_RE.test(inner) &&
+      !isInitialsWordplay(title, inner, parenMatch.index);
     if (!isInstructional && isNameLike && !hares) {
       hares = inner;
       title = title.slice(0, parenMatch.index).trim();
@@ -1213,16 +1293,39 @@ export function buildRawEventFromGCalItem(
   const cost = rawDescription ? extractCostFromDescription(rawDescription) : undefined;
   const runNumber = extractRunNumber(summary, rawDescription, compiledRunNumberPatterns);
 
+  // #1426 — sport-domain title (e.g. "Lansing Crisis Rugby Game") with no
+  // hash-confirming signal. Three signals override: runNumber, hares, or
+  // the literal word "hash" / "h3"-"h5" / "hhh" in the title (Codex round
+  // 2). Location alone doesn't override — a kennel admin can plausibly
+  // attach a venue to a stray non-hash event by mistake.
+  if (
+    runNumber === undefined &&
+    !hares &&
+    !HASH_KEYWORD_RE.test(summary) &&
+    NON_HASH_DOMAIN_PATTERNS.some((re) => re.test(summary))
+  ) {
+    return null;
+  }
+
   // #1271 — drop personal-calendar drift only when no structured signal.
   // `runNumber !== undefined` covers both clean numbers and placeholder
   // markers (kennel admin's intent was a hash run, even if number is TBD).
+  // #1303 ultra-short heuristic: titles ≤ 2 chars with no other signal are
+  // almost always data-entry artifacts (e.g. a hare's initials typed into
+  // the summary by mistake). Real hash titles are at least 3 chars even
+  // when terse ("BFM", "AH3", "DC4"); kennel-tag fallback handles the
+  // 3-char codes elsewhere.
   const hasStructuredField = !!(
     runNumber !== undefined ||
     hares ||
     location ||
     description?.trim()
   );
-  if (!hasStructuredField && PERSONAL_TITLE_PATTERNS.some((re) => re.test(summary))) {
+  const isUltraShort = summary.trim().length < MIN_PLAUSIBLE_HASH_TITLE_LEN;
+  if (
+    !hasStructuredField &&
+    (isUltraShort || PERSONAL_TITLE_PATTERNS.some((re) => re.test(summary)))
+  ) {
     return null;
   }
 

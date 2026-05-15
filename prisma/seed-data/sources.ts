@@ -2567,7 +2567,14 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "every_6h",
       scrapeDays: 90,
-      config: { defaultKennelTag: "jhav-h3" },
+      config: {
+        defaultKennelTag: "jhav-h3",
+        // #1429: jHav summaries trail with `-Jhav Trail #NNNN`, `--Jhav Trail
+        // #NNNN`, or `: JHav Trail #NNNN`. The run number is already extracted
+        // upstream from the unmodified summary; the suffix duplicates it on
+        // the displayed title. Strip after the dash/colon delimiter.
+        titleStripPatterns: ["[\\s\\-:]+jhav\\s+trail\\s+#?\\d+\\.*\\s*$"],
+      },
       kennelCodes: ["jhav-h3"],
     },
     {

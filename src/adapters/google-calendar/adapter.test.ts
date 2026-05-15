@@ -359,6 +359,11 @@ describe("non-hash event filter (#1271)", () => {
     "Pick up dry cleaning",
     "Drop off the kids",
     "Call with the lawyer",
+    // #1418 Aloha — "Ciara training" leaked through cycle-3 filter.
+    "Ciara training",
+    "Marcus practice",
+    "Alex Jones rehearsal",
+    "Sarah lesson",
   ])("skips personal-verb pattern: %s", (summary) => {
     const result = buildRawEventFromGCalItem(
       testGCalEvent({ summary }),
@@ -404,6 +409,122 @@ describe("non-hash event filter (#1271)", () => {
     if (expectedRunNumber !== undefined) {
       expect(result!.runNumber).toBe(expectedRunNumber);
     }
+  });
+});
+
+// #1426 — sports-domain events leaked through #1271 because they had a real
+// location (Frances Park 2701 Moores River Dr). Drop when sport+qualifier
+// matches AND there's no run number / hares — the two hash-confirming
+// signals override (Codex review on this PR).
+describe("non-hash domain filter (#1426)", () => {
+  it.each([
+    "Lansing Crisis Rugby Game",
+    "Soccer Practice",
+    "Basketball Tournament",
+    "Volleyball League",
+    "Baseball Scrimmage",
+    "Hockey Match",
+  ])("drops sport+qualifier title with location only: %s", (summary) => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        summary,
+        location: "Frances Park, 2701 Moores River Dr, Lansing, MI 48911",
+      }),
+      { defaultKennelTag: "glh3" },
+    );
+    expect(result).toBeNull();
+  });
+
+  // Hash-confirming signals override the sport filter — a real themed hash
+  // ("Hash #88 Soccer Tournament w/ Banana") must stay visible even though
+  // the title matches NON_HASH_DOMAIN_PATTERNS.
+  it("preserves sport+qualifier title when runNumber is present", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "Hash #88 Soccer Tournament", location: "Some Field" }),
+      { defaultKennelTag: "h4-tx" },
+    );
+    expect(result).not.toBeNull();
+    expect(result!.runNumber).toBe(88);
+  });
+
+  it("preserves sport+qualifier title when hares are set", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        summary: "Annual Rugby Tournament Hash",
+        description: "Hare: Banana Boat",
+      }),
+      { defaultKennelTag: "h4-tx" },
+    );
+    expect(result).not.toBeNull();
+    expect(result!.hares).toBe("Banana Boat");
+  });
+
+  // Third hash-confirming signal: the title itself contains "hash" / "h3" /
+  // "hhh" — themed hash events without runNumber or hares (Codex round 2).
+  it.each([
+    "Annual Rugby Tournament Hash",
+    "H4 Soccer Practice Theme",
+    "Basketball Game Hash Trail",
+    "HHH Football Match",
+  ])("preserves sport+qualifier title with explicit hash keyword: %s", (summary) => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary }),
+      { defaultKennelTag: "h4-tx" },
+    );
+    expect(result).not.toBeNull();
+  });
+
+  it.each([
+    // Bare sport name without qualifier — pun titles / kennel names. Must
+    // pass through (the qualifier pairing is the FP shield).
+    "Rugby Trail",
+    "Soccer Mom Hash",
+    "Football Sunday Run",
+    // Normal hash titles must not match.
+    "Hash Run #88",
+    "Trail w/ Banana",
+    "Annual Campout",
+  ])("preserves title without sport+qualifier pairing: %s", (summary) => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary, location: "Some Park" }),
+      { defaultKennelTag: "h4-tx" },
+    );
+    expect(result).not.toBeNull();
+  });
+});
+
+// #1303 — ultra-short summary (≤2 chars) with no structured signal is almost
+// always a data-entry artifact (e.g. hare initials accidentally placed in the
+// summary field). The Houston "PC" event surfaces with hares + location set,
+// so it still passes — the ultra-short heuristic only fires on the sparse
+// case. PR comment on the issue should ask the kennel to rename "PC".
+describe("ultra-short title filter (#1303)", () => {
+  it.each([
+    ["bare initials", "PC"],
+    ["one letter", "X"],
+    ["padded one letter", " A "],
+  ])("drops ultra-short title with no structured signal: %s", (_, summary) => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary }),
+      { defaultKennelTag: "h4-tx" },
+    );
+    expect(result).toBeNull();
+  });
+
+  it("preserves ultra-short title when hares + location are set (Houston PC live case)", () => {
+    // Adapter cannot recover from "PC" being typed in the summary; the
+    // hares+location signal proves it IS a hash event, just badly titled.
+    // Practical resolution path is a kennel rename.
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        summary: "PC",
+        description: "Hares: Horsefly",
+        location: "3801 Hickok Ln, Houston, TX 77047",
+      }),
+      { defaultKennelTag: "h4-tx" },
+    );
+    expect(result).not.toBeNull();
+    expect(result!.hares).toBe("Horsefly");
   });
 });
 
@@ -1752,6 +1873,72 @@ describe("buildRawEventFromGCalItem — parenthetical hare extraction", () => {
     expect(event!.title).toBe("Hash #200 (No Dogs)");
     expect(event!.hares).toBeUndefined();
   });
+
+  // #1444 — Larryville "DP (dirtier pickle)": uppercase initials immediately
+  // before the parenthetical, lowercase expansion whose word-count and
+  // first-letter sequence match the initials. The wordplay detector is
+  // narrow enough that legit hash names — including lowercase-multi-word
+  // names that don't follow the initials pattern — still extract.
+  it("(#1444) rejects initials-wordplay parenthetical (DP / dirtier pickle)", () => {
+    const event = buildRawEventFromGCalItem(
+      {
+        summary: "LH3 #670 DP (dirtier pickle)",
+        start: { dateTime: "2026-02-19T18:30:00-06:00" },
+        status: "confirmed",
+      },
+      { defaultKennelTag: "lh3-ks" },
+    );
+    expect(event).not.toBeNull();
+    expect(event!.title).toBe("LH3 #670 DP (dirtier pickle)");
+    expect(event!.hares).toBeUndefined();
+  });
+
+  // Acronym + status-word parentheticals never extract as hares.
+  it.each<[string, string]>([
+    ["trail distance acronym", "Tropical Trail (5K)"],
+    ["AM time marker", "Beach Trail (AM)"],
+    ["PM time marker", "Beach Trail (PM)"],
+    ["BYOB acronym", "Hash Run (BYOB)"],
+    ["TBD placeholder", "Mystery Trail (TBD)"],
+    ["cancellation status", "Spring Trail (canceled)"],
+    ["UK cancellation status", "Spring Trail (cancelled)"],
+    ["postponed status", "Spring Trail (postponed)"],
+  ])("(#1444) preserves %s in title", (_, summary) => {
+    const event = buildRawEventFromGCalItem(
+      { summary, start: { dateTime: "2026-04-01T18:30:00-04:00" }, status: "confirmed" },
+      { defaultKennelTag: "TEST" },
+    );
+    expect(event).not.toBeNull();
+    expect(event!.title).toBe(summary);
+    expect(event!.hares).toBeUndefined();
+  });
+
+  // Legit hash-name parentheticals — Title Case, lowercase, mixed-case
+  // 2-char acronym — must keep extracting. Hashers commonly use short
+  // all-caps names like "DJ" / "MJ" / "FBI" (Codex review on this PR).
+  it.each<[string, string, string, string]>([
+    ["two-word Title Case", "Trail #100 (Banana Boat)", "Trail #100", "Banana Boat"],
+    ["Just Bob hash name", "Hash #50 (Just Bob)", "Hash #50", "Just Bob"],
+    ["The Iceman", "Voodoo #1032 (The Iceman)", "Voodoo #1032", "The Iceman"],
+    // Lowercase-multi-word that is NOT an initials expansion (no preceding
+    // all-caps token). Real lowercase hash names survive.
+    ["lowercase phrase, no initials prefix", "Trail #100 (banana boat)", "Trail #100", "banana boat"],
+    ["lowercase phrase, kennel-code prefix", "Hashville Trail (dirty whore)", "Hashville Trail", "dirty whore"],
+    // 2-char all-caps hash names — common in hashing (DJ, MJ, JFK refs).
+    // The ACRONYM_PAREN_RE allowlist is narrow enough that these survive.
+    ["2-char all-caps initials hash name", "Hash #200 (DJ)", "Hash #200", "DJ"],
+    // Initials-wordplay shape but Title-Case expansion → NOT wordplay,
+    // extract as real hares.
+    ["matching initials with Title-Case expansion", "JB (Just Bob)", "JB", "Just Bob"],
+  ])("(#1444) extracts %s as hares", (_, summary, expectedTitle, expectedHares) => {
+    const event = buildRawEventFromGCalItem(
+      { summary, start: { dateTime: "2026-04-01T18:30:00-04:00" }, status: "confirmed" },
+      { defaultKennelTag: "TEST" },
+    );
+    expect(event).not.toBeNull();
+    expect(event!.title).toBe(expectedTitle);
+    expect(event!.hares).toBe(expectedHares);
+  });
 });
 
 describe("buildRawEventFromGCalItem — w/ hare-location extraction", () => {
@@ -1908,6 +2095,61 @@ describe("buildRawEventFromGCalItem — dash-separated hare/location extraction"
     expect(event).not.toBeNull();
     expect(event!.title).toBe("Hash Run #100");
     expect(event!.location).toBe("Central Park");
+  });
+});
+
+// ── #1397 + #1420 Flour City regression fixtures (live descriptions) ──
+//
+// Both issues reported the same kennel template (Hare/Where/When/Why/How/What
+// labels with some lines blank). Issue snapshots predate the #1329 / sibling-
+// label fix; lock these exact live descriptions into the suite so the
+// mis-routing never reappears.
+describe("buildRawEventFromGCalItem — Flour City template (#1397, #1420)", () => {
+  // Live event 2026-05-14: "How: Vowel Movement" template prefix, no Hare: line.
+  // Bug #1397: summary "Vowel movement" had been leaking into haresText.
+  it("(#1397) does not leak summary into haresText when description has no Hare: line", () => {
+    const description = [
+      `How: Vowel Movement `,
+      `In celebration of colonoscopy prep day, I've decided to lay a shitty trail.`,
+      `Where:`,
+      `Powder Mill Park: That big parking lot off of Woolston Road (you know the one)`,
+      `When: 5:69pm, hare off soon after.`,
+      `How: $5 hash cash`,
+    ].join("\n");
+    const item = {
+      summary: "Vowel movement",
+      description,
+      location: "https://maps.app.goo.gl/kere3FAcvUzzLQFZ7?g_st=ic",
+      start: { dateTime: "2026-05-14T18:10:00-04:00" },
+      status: "confirmed",
+    };
+    const event = buildRawEventFromGCalItem(item, { defaultKennelTag: "flour-city" });
+    expect(event).not.toBeNull();
+    expect(event!.hares).toBeUndefined();
+    expect(event!.title).toBe("Vowel movement");
+  });
+
+  // Live event 2026-05-21: blank Where: line, populated How: line — bug #1420
+  // had "How: $5 hash cash Venmo or PayPal: …" leaking as locationName.
+  it("(#1420) does not surface 'How:' template line as locationName when Where: is empty", () => {
+    const description = [
+      `What: Asserole Trail `,
+      `Where: `,
+      ``,
+      ``,
+      `How: $5 hash cash Venmo or PayPal: fch3trails@gmail.com`,
+    ].join("\n");
+    const item = {
+      summary: "Asserole Trail",
+      description,
+      location: "",
+      start: { dateTime: "2026-05-21T18:09:00-04:00" },
+      status: "confirmed",
+    };
+    const event = buildRawEventFromGCalItem(item, { defaultKennelTag: "flour-city" });
+    expect(event).not.toBeNull();
+    expect(event!.location).toBeUndefined();
+    expect(event!.title).toBe("Asserole Trail");
   });
 });
 
@@ -3422,6 +3664,30 @@ describe("buildRawEventFromGCalItem — Eugene H3 emoji-delimited title parsing 
       { defaultKennelTag: "test" },
     );
     expect(event).toBeNull();
+  });
+});
+
+describe("buildRawEventFromGCalItem — jHav title suffix strip (#1429)", () => {
+  // Mirrors the seed config for "jHavelina H3 Google Calendar".
+  const config = {
+    defaultKennelTag: "jhav-h3",
+    titleStripPatterns: [String.raw`[\s\-:]+jhav\s+trail\s+#?\d+\.*\s*$`],
+  };
+  const compiledTitleStripPatterns = [/[\s\-:]+jhav\s+trail\s+#?\d+\.*\s*$/i];
+  const opts = { compiledTitleStripPatterns };
+
+  it.each<[string, string, string, number | undefined]>([
+    // Run number must still parse from the unstripped summary.
+    ["single-dash suffix", "If it wasn't for your Mother.... -Jhav Trail #2080", "If it wasn't for your Mother....", 2080],
+    ["double-dash suffix", "She Just Grabbed It.... --Jhav Trail #2078", "She Just Grabbed It....", 2078],
+    ["colon suffix mixed-case", "Equi-Stava-Ganza: JHav Trail #2073", "Equi-Stava-Ganza", 2073],
+    // No suffix → no strip, no false-positive.
+    ["no suffix preserved verbatim", "If It Hurts, Sweetie, Be Sure To Tell Mommy", "If It Hurts, Sweetie, Be Sure To Tell Mommy", undefined],
+  ])("%s", (_, summary, expectedTitle, expectedRunNumber) => {
+    const event = buildRawEventFromGCalItem(testGCalEvent({ summary }), config, opts);
+    expect(event).not.toBeNull();
+    expect(event!.title).toBe(expectedTitle);
+    expect(event!.runNumber).toBe(expectedRunNumber);
   });
 });
 
