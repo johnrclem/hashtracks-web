@@ -86,15 +86,12 @@ export function parseKjHarimauBody(bodyText: string): {
   // the lookahead consumed too much (the #1446 "Maps:" leak); reject it.
   const labelOnlyRe = /^(?:Run\s*#|Date|Time|Hare|Runsite|GPS|Maps|Waze|Guest\s*Fee|Birthdays|Wedding)\s*:?$/i;
 
+  // Allow the value either on the same line OR on the next line. `\S` forces a
+  // non-whitespace first char so a doubly-blank field (`Runsite:\n\nMaps:`)
+  // can't latch onto the next label.
   const grab = (label: string): string | undefined => {
-    // Allow the value either on the same line OR on the next line — KJ
-    // Harimau bodies use the same-line form today, but the multi-line form
-    // is a valid Blogger shape Codex flagged on PR review. `\S` forces a
-    // non-whitespace first char so a doubly-blank field (`Runsite:\n\nMaps:`)
-    // can't latch onto the next label.
-    // nosemgrep: detect-non-literal-regexp — labels come from the hard-coded
-    // constant above, not user input. (Mirrors hare-extraction.ts suppression.)
-    const re = new RegExp(`${label}\\s*:[ \\t]*(?:\\n[ \\t]*)?(\\S.*?)${stop}`, "i"); // NOSONAR
+    // nosemgrep: detect-non-literal-regexp — `label` is a hard-coded literal from the constant above, not user input (mirrors hare-extraction.ts suppression)
+    const re = new RegExp(`${label}\\s*:[ \\t]*(?:\\n[ \\t]*)?(\\S.*?)${stop}`, "i"); // NOSONAR nosemgrep
     const m = re.exec(text);
     if (!m) return undefined;
     const value = m[1].trim().replace(/\s+/g, " ");
