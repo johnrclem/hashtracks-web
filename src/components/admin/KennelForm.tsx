@@ -67,6 +67,22 @@ interface KennelFormProps {
   trigger: React.ReactNode;
 }
 
+// #1415: Layout for the Profile section — two two-up rows + one full-width row.
+type ProfileFieldName = "gm" | "hareRaiser" | "founder" | "parentKennelCode" | "signatureEvent";
+const PROFILE_FIELD_GROUPS: Array<Array<{ name: ProfileFieldName; label: string; placeholder: string }>> = [
+  [
+    { name: "gm", label: "GM", placeholder: "Titty Kitty" },
+    { name: "hareRaiser", label: "Hare Raiser", placeholder: "Rock Hard" },
+  ],
+  [
+    { name: "founder", label: "Founder", placeholder: "Wrap It Up" },
+    { name: "parentKennelCode", label: "Parent Kennel Code", placeholder: "mh3-tn (use kennelCode, not short name)" },
+  ],
+  [
+    { name: "signatureEvent", label: "Signature Event / Annual Turnover", placeholder: "Humpin campout, June/July" },
+  ],
+];
+
 interface SimilarKennel {
   id: string;
   shortName: string;
@@ -580,55 +596,21 @@ export function KennelForm({ kennel, regions, trigger }: Readonly<KennelFormProp
               !!kennel?.parentKennelCode
             }
           >
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="gm">GM</Label>
-                <Input
-                  id="gm"
-                  name="gm"
-                  defaultValue={kennel?.gm ?? ""}
-                  placeholder="Titty Kitty"
-                />
+            {PROFILE_FIELD_GROUPS.map((group, groupIdx) => (
+              <div key={groupIdx} className={group.length > 1 ? "grid gap-4 sm:grid-cols-2" : "space-y-2"}>
+                {group.map(({ name, label, placeholder }) => (
+                  <div key={name} className="space-y-2">
+                    <Label htmlFor={name}>{label}</Label>
+                    <Input
+                      id={name}
+                      name={name}
+                      defaultValue={kennel?.[name] ?? ""}
+                      placeholder={placeholder}
+                    />
+                  </div>
+                ))}
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="hareRaiser">Hare Raiser</Label>
-                <Input
-                  id="hareRaiser"
-                  name="hareRaiser"
-                  defaultValue={kennel?.hareRaiser ?? ""}
-                  placeholder="Rock Hard"
-                />
-              </div>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="founder">Founder</Label>
-                <Input
-                  id="founder"
-                  name="founder"
-                  defaultValue={kennel?.founder ?? ""}
-                  placeholder="Wrap It Up"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="parentKennelCode">Parent Kennel Code</Label>
-                <Input
-                  id="parentKennelCode"
-                  name="parentKennelCode"
-                  defaultValue={kennel?.parentKennelCode ?? ""}
-                  placeholder="mh3-tn (use kennelCode, not short name)"
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="signatureEvent">Signature Event / Annual Turnover</Label>
-              <Input
-                id="signatureEvent"
-                name="signatureEvent"
-                defaultValue={kennel?.signatureEvent ?? ""}
-                placeholder="Humpin campout, June/July"
-              />
-            </div>
+            ))}
           </FormSection>
 
           {/* ── Details Section ── */}

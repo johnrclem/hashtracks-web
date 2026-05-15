@@ -17,6 +17,7 @@ import {
   PartyPopper,
   Sparkles,
   GitFork,
+  type LucideIcon,
 } from "lucide-react";
 
 interface QuickInfoCardProps {
@@ -57,7 +58,16 @@ interface QuickInfoCardProps {
 
 const DESC_TRUNCATE_LENGTH = 200;
 
-export function QuickInfoCard({ kennel, parentKennel, regionColor }: QuickInfoCardProps) {
+function ProfileInfoRow({ icon: Icon, label, value }: Readonly<{ icon: LucideIcon; label: string; value: string }>) {
+  return (
+    <div className="flex items-center gap-2.5 text-sm">
+      <Icon className="h-4 w-4 shrink-0 text-muted-foreground/70" />
+      <span>{label}: {value}</span>
+    </div>
+  );
+}
+
+export function QuickInfoCard({ kennel, parentKennel, regionColor }: Readonly<QuickInfoCardProps>) {
   const [descExpanded, setDescExpanded] = useState(false);
   const schedule = formatSchedule(kennel);
 
@@ -173,32 +183,13 @@ export function QuickInfoCard({ kennel, parentKennel, regionColor }: QuickInfoCa
               </div>
             )}
 
-            {kennel.gm && (
-              <div className="flex items-center gap-2.5 text-sm">
-                <Crown className="h-4 w-4 shrink-0 text-muted-foreground/70" />
-                <span>GM: {kennel.gm}</span>
-              </div>
-            )}
-
-            {kennel.hareRaiser && (
-              <div className="flex items-center gap-2.5 text-sm">
-                <Megaphone className="h-4 w-4 shrink-0 text-muted-foreground/70" />
-                <span>Hare raiser: {kennel.hareRaiser}</span>
-              </div>
-            )}
-
-            {kennel.signatureEvent && (
-              <div className="flex items-center gap-2.5 text-sm">
-                <PartyPopper className="h-4 w-4 shrink-0 text-muted-foreground/70" />
-                <span>Signature event: {kennel.signatureEvent}</span>
-              </div>
-            )}
-
-            {kennel.founder && (
-              <div className="flex items-center gap-2.5 text-sm">
-                <Sparkles className="h-4 w-4 shrink-0 text-muted-foreground/70" />
-                <span>Founder: {kennel.founder}</span>
-              </div>
+            {([
+              ["GM", Crown, kennel.gm],
+              ["Hare raiser", Megaphone, kennel.hareRaiser],
+              ["Signature event", PartyPopper, kennel.signatureEvent],
+              ["Founder", Sparkles, kennel.founder],
+            ] as const).map(([label, icon, value]) =>
+              value ? <ProfileInfoRow key={label} icon={icon} label={label} value={value} /> : null,
             )}
 
             {kennel.parentKennelCode && (
