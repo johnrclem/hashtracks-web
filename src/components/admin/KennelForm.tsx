@@ -560,8 +560,8 @@ export function KennelForm({ kennel, regions, trigger }: Readonly<KennelFormProp
               !!kennel?.parentKennelCode
             }
           >
-            {PROFILE_FIELD_GROUPS.map((group, groupIdx) => (
-              <div key={groupIdx} className={group.length > 1 ? "grid gap-4 sm:grid-cols-2" : "space-y-2"}>
+            {PROFILE_FIELD_GROUPS.map((group) => (
+              <div key={group[0].name} className={group.length > 1 ? "grid gap-4 sm:grid-cols-2" : "space-y-2"}>
                 {group.map(({ name, label, placeholder }) => (
                   <div key={name} className="space-y-2">
                     <Label htmlFor={name}>{label}</Label>
