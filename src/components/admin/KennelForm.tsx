@@ -44,6 +44,12 @@ type KennelData = {
   mailingListUrl: string | null;
   contactEmail: string | null;
   contactName: string | null;
+  // Profile fields (#1415)
+  gm: string | null;
+  hareRaiser: string | null;
+  signatureEvent: string | null;
+  founder: string | null;
+  parentKennelCode: string | null;
   hashCash: string | null;
   paymentLink: string | null;
   foundedYear: number | null;
@@ -559,6 +565,68 @@ export function KennelForm({ kennel, regions, trigger }: Readonly<KennelFormProp
                 name="contactName"
                 defaultValue={kennel?.contactName ?? ""}
                 placeholder="Grand Master: Mudflap"
+              />
+            </div>
+          </FormSection>
+
+          {/* ── Profile Section (#1415) ── */}
+          <FormSection
+            label="Profile"
+            defaultOpen={
+              !!kennel?.gm ||
+              !!kennel?.hareRaiser ||
+              !!kennel?.signatureEvent ||
+              !!kennel?.founder ||
+              !!kennel?.parentKennelCode
+            }
+          >
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="gm">GM</Label>
+                <Input
+                  id="gm"
+                  name="gm"
+                  defaultValue={kennel?.gm ?? ""}
+                  placeholder="Titty Kitty"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="hareRaiser">Hare Raiser</Label>
+                <Input
+                  id="hareRaiser"
+                  name="hareRaiser"
+                  defaultValue={kennel?.hareRaiser ?? ""}
+                  placeholder="Rock Hard"
+                />
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="founder">Founder</Label>
+                <Input
+                  id="founder"
+                  name="founder"
+                  defaultValue={kennel?.founder ?? ""}
+                  placeholder="Wrap It Up"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="parentKennelCode">Parent Kennel Code</Label>
+                <Input
+                  id="parentKennelCode"
+                  name="parentKennelCode"
+                  defaultValue={kennel?.parentKennelCode ?? ""}
+                  placeholder="mh3-tn (use kennelCode, not short name)"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="signatureEvent">Signature Event / Annual Turnover</Label>
+              <Input
+                id="signatureEvent"
+                name="signatureEvent"
+                defaultValue={kennel?.signatureEvent ?? ""}
+                placeholder="Humpin campout, June/July"
               />
             </div>
           </FormSection>

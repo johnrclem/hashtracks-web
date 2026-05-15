@@ -62,6 +62,12 @@ type Kennel = {
   mailingListUrl: string | null;
   contactEmail: string | null;
   contactName: string | null;
+  // Profile fields (#1415)
+  gm: string | null;
+  hareRaiser: string | null;
+  signatureEvent: string | null;
+  founder: string | null;
+  parentKennelCode: string | null;
   hashCash: string | null;
   paymentLink: string | null;
   foundedYear: number | null;

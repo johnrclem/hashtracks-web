@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { formatSchedule, displayDomain, type ScheduleSlot } from "@/lib/format";
 import { SocialLinks } from "@/components/kennels/SocialLinks";
@@ -11,6 +12,11 @@ import {
   Dog,
   Footprints,
   ChevronDown,
+  Crown,
+  Megaphone,
+  PartyPopper,
+  Sparkles,
+  GitFork,
 } from "lucide-react";
 
 interface QuickInfoCardProps {
@@ -34,15 +40,24 @@ interface QuickInfoCardProps {
     mailingListUrl: string | null;
     contactEmail: string | null;
     contactName: string | null;
+    // Profile fields (#1415)
+    gm: string | null;
+    hareRaiser: string | null;
+    signatureEvent: string | null;
+    founder: string | null;
+    parentKennelCode: string | null;
     // Description
     description: string | null;
   };
+  // Resolved parent kennel for parentKennelCode lookup (#1415). Null when the
+  // code references a kennel not present in our DB — falls back to raw text.
+  parentKennel?: { slug: string; shortName: string } | null;
   regionColor?: string;
 }
 
 const DESC_TRUNCATE_LENGTH = 200;
 
-export function QuickInfoCard({ kennel, regionColor }: QuickInfoCardProps) {
+export function QuickInfoCard({ kennel, parentKennel, regionColor }: QuickInfoCardProps) {
   const [descExpanded, setDescExpanded] = useState(false);
   const schedule = formatSchedule(kennel);
 
@@ -52,7 +67,12 @@ export function QuickInfoCard({ kennel, regionColor }: QuickInfoCardProps) {
     kennel.website ||
     kennel.foundedYear ||
     kennel.dogFriendly === true ||
-    kennel.walkersWelcome === true;
+    kennel.walkersWelcome === true ||
+    kennel.gm ||
+    kennel.hareRaiser ||
+    kennel.signatureEvent ||
+    kennel.founder ||
+    kennel.parentKennelCode;
 
   const hasSocialData =
     kennel.facebookUrl ||
@@ -150,6 +170,50 @@ export function QuickInfoCard({ kennel, regionColor }: QuickInfoCardProps) {
                     Walkers welcome
                   </span>
                 )}
+              </div>
+            )}
+
+            {kennel.gm && (
+              <div className="flex items-center gap-2.5 text-sm">
+                <Crown className="h-4 w-4 shrink-0 text-muted-foreground/70" />
+                <span>GM: {kennel.gm}</span>
+              </div>
+            )}
+
+            {kennel.hareRaiser && (
+              <div className="flex items-center gap-2.5 text-sm">
+                <Megaphone className="h-4 w-4 shrink-0 text-muted-foreground/70" />
+                <span>Hare raiser: {kennel.hareRaiser}</span>
+              </div>
+            )}
+
+            {kennel.signatureEvent && (
+              <div className="flex items-center gap-2.5 text-sm">
+                <PartyPopper className="h-4 w-4 shrink-0 text-muted-foreground/70" />
+                <span>Signature event: {kennel.signatureEvent}</span>
+              </div>
+            )}
+
+            {kennel.founder && (
+              <div className="flex items-center gap-2.5 text-sm">
+                <Sparkles className="h-4 w-4 shrink-0 text-muted-foreground/70" />
+                <span>Founder: {kennel.founder}</span>
+              </div>
+            )}
+
+            {kennel.parentKennelCode && (
+              <div className="flex items-center gap-2.5 text-sm">
+                <GitFork className="h-4 w-4 shrink-0 text-muted-foreground/70" />
+                <span>
+                  Parent kennel:{" "}
+                  {parentKennel ? (
+                    <Link href={`/kennels/${parentKennel.slug}`} className="text-primary hover:underline">
+                      {parentKennel.shortName}
+                    </Link>
+                  ) : (
+                    kennel.parentKennelCode
+                  )}
+                </span>
               </div>
             )}
           </div>
