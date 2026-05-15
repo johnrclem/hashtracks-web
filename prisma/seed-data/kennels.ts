@@ -1107,10 +1107,31 @@ export const KENNELS: KennelSeed[] = [
     },
     // ===== DELAWARE =====
     {
+      // #1390: second kennel migrated to structured `scheduleRules` — Hockessin
+      // is the proving ground for the seasonal-swap case (Wed/summer ↔
+      // Sat/winter). Pass 2 backfill opts out structurally (PR #1405).
       kennelCode: "hockessin", shortName: "Hockessin H3", fullName: "Hockessin Hash House Harriers", region: "Wilmington, DE",
       website: "https://www.hockessinhash.org/",
       logoUrl: "https://www.hockessinhash.org/logo.GIF",
       scheduleFrequency: "Weekly",
+      scheduleRules: [
+        {
+          rrule: "FREQ=WEEKLY;BYDAY=WE",
+          startTime: "18:30",
+          label: "Summer",
+          validFrom: "03-01",
+          validUntil: "10-31",
+          displayOrder: 0,
+        },
+        {
+          rrule: "FREQ=WEEKLY;BYDAY=SA",
+          startTime: "15:00",
+          label: "Winter",
+          validFrom: "11-01",
+          validUntil: "02-28",
+          displayOrder: 1,
+        },
+      ],
       scheduleNotes: "Wednesdays 6:30 PM (summer, ~Mar–Oct); Saturdays 3 PM (winter, ~Nov–Feb). Runs in DE/MD/PA/NJ.",
       hashCash: "$5",
       description: "Delaware's most active hash with 1,656+ trails across the tri-state area.",
