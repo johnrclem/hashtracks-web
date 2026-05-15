@@ -90,10 +90,15 @@ const DAY_MAP: Record<string, string> = {
  * compilation removes both the scanner warning and per-iteration cost.
  * Inputs are hardcoded English day names — there's no untrusted text in
  * the regex source — but the precompiled form documents that intent.
+ *
+ * SonarCloud S2631 (dynamic regex injection) is a false positive here: the
+ * `name` interpolated into the pattern is keyed off the module-scope DAY_MAP
+ * literal — fully static, no user input ever reaches this construction.
  */
 const DAY_REGEXES: ReadonlyArray<{ token: string; re: RegExp }> = Object.entries(
   DAY_MAP,
-).map(([name, token]) => ({ token, re: new RegExp(String.raw`\b${name}\b`, "i") }));
+  // NOSONAR S2631 — inputs are hardcoded DAY_MAP keys, no injection surface.
+).map(([name, token]) => ({ token, re: new RegExp(String.raw`\b${name}\b`, "i") })); // NOSONAR
 
 /**
  * Parse a scheduleTime display string into HH:MM 24-hour format.
@@ -822,8 +827,10 @@ export async function runKennelSeedPass(
         confidence: "HIGH",
         source: "SEED_DATA",
         sourceReference: SOURCE_REF.kennelSeed(seed.kennelCode),
-        // The seed author owns this; treat the seed file as the validation
-        // moment. Re-runs don't bump this; admin re-validation would.
+        // First-create timestamp. applyUpserts excludes lastValidatedAt from
+        // the UPDATE clause for SEED_DATA rules, so this `new Date()` is only
+        // written when the row is first created — re-runs preserve the
+        // original first-seen value (and admin re-validations stick).
         lastValidatedAt: new Date(),
         notes: rule.notes ?? null,
         label: rule.label?.trim() || null,
@@ -837,7 +844,9 @@ export async function runKennelSeedPass(
 
   console.log(`  ✓ ${count} rules planned from ${seedsWithRules.length} kennel(s) with scheduleRules`);
   if (skippedKennels > 0) console.log(`  ⊘ ${skippedKennels} kennel(s) skipped (not in DB / hidden)`);
-  if (skippedRules > 0) console.log(`  ⊘ ${skippedRules} rule(s) skipped (empty rrule)`);
+  if (skippedRules > 0) {
+    console.warn(`  ⊘ ${skippedRules} rule(s) skipped (empty or unparseable rrule)`);
+  }
   console.log("");
   return { count, skippedKennels, skippedRules };
 }
@@ -917,13 +926,19 @@ export async function applyUpserts(
           startTime: r.startTime,
           confidence: r.confidence,
           sourceReference: r.sourceReference,
-          lastValidatedAt: r.lastValidatedAt,
           notes: r.notes,
           label: r.label,
           validFrom: r.validFrom,
           validUntil: r.validUntil,
           displayOrder: r.displayOrder,
           isActive: true,
+          // Only STATIC_SCHEDULE rules bump lastValidatedAt on every run —
+          // the scrape's lastSuccessAt IS the validation moment. SEED_DATA
+          // (Pass 2 display strings + Pass 3 scheduleRules) preserves the
+          // first-create timestamp so admin re-validations and seed-author
+          // moments aren't clobbered by routine re-runs. (Codex P2 + Gemini
+          // + Claude review on PR #1405.)
+          ...(r.source === "STATIC_SCHEDULE" ? { lastValidatedAt: r.lastValidatedAt } : {}),
         },
       });
       if (preExistingIds.has(result.id)) {

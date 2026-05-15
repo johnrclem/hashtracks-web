@@ -6,6 +6,7 @@ import {
   runStaticSchedulePass,
   runKennelSeedPass,
   runKennelDisplayPass,
+  applyUpserts,
 } from "./backfill-schedule-rules";
 import type { KennelScheduleRuleSeed } from "../prisma/seed-data/kennels";
 
@@ -773,5 +774,81 @@ describe("runKennelDisplayPass — Pass 3 opt-out", () => {
     expect(result.count).toBe(expectedCount);
     expect(result.optedOut).toBe(expectedOptedOut);
     expect(planned.map((p) => p.kennelId)).toEqual(expectedKennelIds);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applyUpserts — lastValidatedAt is bumped for STATIC_SCHEDULE only
+// ---------------------------------------------------------------------------
+//
+// Codex P2 + Gemini + Claude review on PR #1405 flagged that the original
+// applyUpserts UPDATE clause unconditionally included `lastValidatedAt`, which
+// meant every backfill re-run overwrote admin-set timestamps and Pass 3's
+// "first seed-validation moment" with `new Date()` or null. The fix: only
+// include `lastValidatedAt` in UPDATE for STATIC_SCHEDULE rules (where the
+// scrape's lastSuccessAt IS the validation moment). Lock the contract here.
+
+describe("applyUpserts — lastValidatedAt update semantics", () => {
+  function makePlanned(overrides: {
+    source: "STATIC_SCHEDULE" | "SEED_DATA";
+    lastValidatedAt: Date | null;
+  }) {
+    return {
+      kennelId: "k_x",
+      kennelDisplay: "X",
+      rrule: "FREQ=WEEKLY;BYDAY=SA",
+      anchorDate: null,
+      startTime: null,
+      confidence: "HIGH" as const,
+      source: overrides.source,
+      sourceReference: null,
+      lastValidatedAt: overrides.lastValidatedAt,
+      notes: null,
+      label: null,
+      validFrom: null,
+      validUntil: null,
+      displayOrder: 0,
+    };
+  }
+
+  function makeSpyingPrisma() {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const upsertCalls: any[] = [];
+    return {
+      prisma: {
+        scheduleRule: {
+          findMany: async () => [],
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          upsert: async (args: any) => {
+            upsertCalls.push(args);
+            return { id: `id_${upsertCalls.length}` };
+          },
+        },
+      } as unknown as Parameters<typeof applyUpserts>[0],
+      upsertCalls,
+    };
+  }
+
+  it("INCLUDES lastValidatedAt in update clause for STATIC_SCHEDULE rules", async () => {
+    const { prisma, upsertCalls } = makeSpyingPrisma();
+    const validatedAt = new Date("2026-05-01T00:00:00Z");
+    await applyUpserts(prisma, [
+      makePlanned({ source: "STATIC_SCHEDULE", lastValidatedAt: validatedAt }),
+    ]);
+    expect(upsertCalls).toHaveLength(1);
+    expect(upsertCalls[0].update).toHaveProperty("lastValidatedAt", validatedAt);
+    // Create always carries it
+    expect(upsertCalls[0].create.lastValidatedAt).toEqual(validatedAt);
+  });
+
+  it("EXCLUDES lastValidatedAt from update clause for SEED_DATA rules (preserves admin timestamps)", async () => {
+    const { prisma, upsertCalls } = makeSpyingPrisma();
+    await applyUpserts(prisma, [
+      makePlanned({ source: "SEED_DATA", lastValidatedAt: new Date() }),
+    ]);
+    expect(upsertCalls).toHaveLength(1);
+    expect(upsertCalls[0].update).not.toHaveProperty("lastValidatedAt");
+    // Create always carries it — first-seen moment is recorded.
+    expect(upsertCalls[0].create).toHaveProperty("lastValidatedAt");
   });
 });

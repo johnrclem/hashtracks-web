@@ -8,9 +8,13 @@
  *
  * MM-DD anchors on validFrom/validUntil wrap across years — "11-01" → "02-28" is
  * the wintertime cadence. Omit a rule for a hiatus period (don't encode hiatus
- * negatively). All fields except `rrule` are optional; the same RRULE shapes the
- * static-schedule adapter parses are accepted (FREQ=WEEKLY|MONTHLY, BYDAY with
- * optional nth prefix, INTERVAL, BYMONTH, FREQ=LUNAR sentinel).
+ * negatively). All fields except `rrule` are optional; only the calendar-rule
+ * RRULE shapes the static-schedule adapter parses are accepted here
+ * (FREQ=WEEKLY|MONTHLY, BYDAY with optional nth prefix, INTERVAL, BYMONTH).
+ * Lunar cadences (`FREQ=LUNAR`) require phase + timezone metadata not
+ * representable on this contract — declare those via `Source.config.lunar` on
+ * a STATIC_SCHEDULE source row instead. Pass 3 rejects `FREQ=LUNAR` with a
+ * clear warning so the mismatch is visible at backfill time.
  */
 export interface KennelScheduleRuleSeed {
   rrule: string;             // e.g. "FREQ=WEEKLY;BYDAY=WE", "FREQ=MONTHLY;BYDAY=1SA"
