@@ -18,7 +18,11 @@ import {
   generateOccurrences,
 } from "@/adapters/static-schedule/adapter";
 import { formatTime, ordinal } from "@/lib/format";
-import { isWithinSeason, formatSeasonHint } from "@/lib/schedule-season";
+import {
+  isWithinSeason,
+  windowOverlapsSeason,
+  formatSeasonHint,
+} from "@/lib/schedule-season";
 import type { ScheduleConfidence } from "@/generated/prisma/client";
 
 // ============================================================================
@@ -196,6 +200,15 @@ export function projectTrails(
   const results: ProjectedTrail[] = [];
   for (const rule of rules) {
     if (!rule.rrule) continue;
+    // #1390 (Codex review): rule-level season gate. Without this, LOW-confidence
+    // rules (CADENCE sentinels, interval-without-anchor demotions, parse-error
+    // fallbacks) emit a date-null "possible activity" entry regardless of
+    // season — so a winter-only biweekly-without-anchor would show up as
+    // possible in a July search. Gating at the rule level catches every path
+    // before any ProjectedTrail is emitted.
+    if (!windowOverlapsSeason(windowStart, windowEnd, rule.validFrom, rule.validUntil)) {
+      continue;
+    }
     if (rule.confidence === "LOW") {
       results.push(projectAsLowConfidence(rule));
     } else {

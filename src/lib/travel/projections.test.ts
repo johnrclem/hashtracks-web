@@ -630,6 +630,64 @@ describe("projectTrails — seasonal gating (#1390)", () => {
     expect(inSeason.length).toBeGreaterThan(0);
   });
 
+  it("skips LOW-confidence rule entirely when window is wholly off-season (Codex P2)", () => {
+    // Winter-only CADENCE sentinel rule (LOW confidence — no date generation).
+    // A July search must NOT emit a date-null "possible activity" entry for it.
+    const winterOnlyLowRule = makeRule({
+      rrule: "CADENCE=BIWEEKLY;BYDAY=SA",
+      confidence: "LOW",
+      notes: "Biweekly without anchor",
+      label: "Winter",
+      validFrom: "11-01",
+      validUntil: "02-28",
+    });
+    const julyProjections = projectTrails(
+      [winterOnlyLowRule],
+      utcNoon("2026-07-01"),
+      utcNoon("2026-07-31"),
+    );
+    expect(julyProjections).toEqual([]);
+  });
+
+  it("still emits LOW-confidence possible-activity when window IS in-season", () => {
+    const winterOnlyLowRule = makeRule({
+      rrule: "CADENCE=BIWEEKLY;BYDAY=SA",
+      confidence: "LOW",
+      notes: "Biweekly without anchor",
+      label: "Winter",
+      validFrom: "11-01",
+      validUntil: "02-28",
+    });
+    const januaryProjections = projectTrails(
+      [winterOnlyLowRule],
+      utcNoon("2026-01-01"),
+      utcNoon("2026-01-31"),
+    );
+    expect(januaryProjections).toHaveLength(1);
+    expect(januaryProjections[0].date).toBeNull();
+    expect(januaryProjections[0].confidence).toBe("low");
+  });
+
+  it("skips interval-without-anchor demoted rules when wholly off-season (Codex P2)", () => {
+    // Biweekly without anchorDate is demoted to LOW inside projectScheduledRule.
+    // The rule-level season gate should catch it BEFORE projectScheduledRule
+    // runs.
+    const winterBiweeklyNoAnchor = makeRule({
+      rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA",
+      confidence: "HIGH",
+      anchorDate: null,
+      label: "Winter",
+      validFrom: "11-01",
+      validUntil: "02-28",
+    });
+    const julyProjections = projectTrails(
+      [winterBiweeklyNoAnchor],
+      utcNoon("2026-07-01"),
+      utcNoon("2026-07-31"),
+    );
+    expect(julyProjections).toEqual([]);
+  });
+
   it("rules without season anchors continue to project normally", () => {
     // Pre-PR behavior preservation: a rule with label=null/validFrom=null
     // emits every occurrence in the window.

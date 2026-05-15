@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   parseMonthDay,
   isWithinSeason,
+  windowOverlapsSeason,
   formatSeasonHint,
 } from "./schedule-season";
 
@@ -115,5 +116,45 @@ describe("formatSeasonHint", () => {
   it("ignores malformed anchors (label-only output)", () => {
     expect(formatSeasonHint("Summer", "13-99", null)).toBe("Summer");
     expect(formatSeasonHint(null, "13-99", "99-99")).toBeNull();
+  });
+});
+
+describe("windowOverlapsSeason", () => {
+  const noon = (s: string) => new Date(s + "T12:00:00Z");
+
+  it("returns true when both anchors are null (always-on rule)", () => {
+    expect(windowOverlapsSeason(noon("2026-07-01"), noon("2026-07-31"), null, null)).toBe(true);
+  });
+
+  it("returns true when window contains an in-season day (non-wrapping)", () => {
+    expect(windowOverlapsSeason(noon("2026-07-01"), noon("2026-07-31"), "03-01", "10-31")).toBe(true);
+  });
+
+  it("returns false when window is wholly off-season (non-wrapping)", () => {
+    // Window in December, season is Mar–Oct → no overlap.
+    expect(windowOverlapsSeason(noon("2026-12-01"), noon("2026-12-31"), "03-01", "10-31")).toBe(false);
+  });
+
+  it("returns true when window straddles into the season (wrap-around winter)", () => {
+    // Window Oct 25 → Nov 10 hits winter (Nov–Feb) on Nov 1+.
+    expect(windowOverlapsSeason(noon("2026-10-25"), noon("2026-11-10"), "11-01", "02-29")).toBe(true);
+  });
+
+  it("returns false when window is wholly off-season (wrap-around winter)", () => {
+    // July is mid-summer, season is winter (Nov–Feb) → no overlap.
+    expect(windowOverlapsSeason(noon("2026-07-01"), noon("2026-07-31"), "11-01", "02-29")).toBe(false);
+  });
+
+  it("returns true for windows ≥ 1 year (any season necessarily overlaps)", () => {
+    expect(windowOverlapsSeason(noon("2026-01-01"), noon("2027-01-15"), "11-01", "02-28")).toBe(true);
+  });
+
+  it("returns true for single-day in-season window", () => {
+    // Apr 15 is within Mar–Oct.
+    expect(windowOverlapsSeason(noon("2026-04-15"), noon("2026-04-15"), "03-01", "10-31")).toBe(true);
+  });
+
+  it("returns false for single-day off-season window", () => {
+    expect(windowOverlapsSeason(noon("2026-12-15"), noon("2026-12-15"), "03-01", "10-31")).toBe(false);
   });
 });
