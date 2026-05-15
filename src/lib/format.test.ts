@@ -540,7 +540,7 @@ describe("collectKennelFrequencies", () => {
       collectKennelFrequencies({
         scheduleFrequency: "Weekly",
         scheduleRules: [{ rrule: "FREQ=MONTHLY;BYDAY=1SA" }],
-      }).sort(),
+      }).sort((a, b) => a.localeCompare(b)),
     ).toEqual(["Monthly", "Weekly"]);
   });
 
