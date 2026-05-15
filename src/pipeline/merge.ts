@@ -244,21 +244,34 @@ const SCHEDULE_DESC_RE = new RegExp(
 const isAdminTitle = (s: string) => ADMIN_TITLE_PATTERNS.some(re => re.test(s));
 
 /**
- * Create EventLink records for an event from externalLinks + alternate sourceUrls.
- * Uses upsert with eventId+url unique key to prevent duplicates.
+ * Queue EventLink inserts for the batch. The post-loop flush in
+ * `processRawEvents` emits a single `createMany({ skipDuplicates: true })`
+ * keyed off the `@@unique([eventId, url])` index — behavior-equivalent to the
+ * prior per-link `upsert` with `update: {}` (no-op on conflict), but one
+ * round-trip instead of N (Sentry JAVASCRIPT-NEXTJS-3 follow-up to #1287).
+ *
+ * In-batch dedup uses a `${eventId}|${url}` key. cuids are alphanumeric, so
+ * the only theoretical collision is a URL containing a literal `|` that
+ * coincidentally matched another entry — vanishingly unlikely, and the DB
+ * `@@unique([eventId, url])` + `skipDuplicates` catches any real duplicate
+ * at flush time anyway.
  */
-async function createEventLinks(
+function queueEventLinks(
   eventId: string,
-  sourceId: string,
-  externalLinks?: { url: string; label: string }[],
-) {
+  externalLinks: { url: string; label: string }[] | undefined,
+  ctx: MergeContext,
+): void {
   if (!externalLinks?.length) return;
   for (const link of externalLinks) {
-    await prisma.eventLink.upsert({
-      where: { eventId_url: { eventId, url: link.url } },
-      create: { eventId, url: link.url, label: link.label, sourceId },
-      update: {}, // No-op if already exists
-    });
+    const key = `${eventId}|${link.url}`;
+    if (!ctx.eventBatch.pendingEventLinks.has(key)) {
+      ctx.eventBatch.pendingEventLinks.set(key, {
+        eventId,
+        url: link.url,
+        label: link.label,
+        sourceId: ctx.sourceId,
+      });
+    }
   }
 }
 
@@ -373,6 +386,11 @@ interface EventBatchState {
   /** Mark-processed buffer: rawEventId → eventId. Flushed as one raw SQL
    *  after the loop (Sentry JAVASCRIPT-NEXTJS-3 — write-side N+1 follow-up). */
   processedRawEvents: Map<string, string>;
+  /** Pending EventLink inserts keyed by `${eventId}|${url}` to dedupe within
+   *  the batch. Flushed as a single `createMany({ skipDuplicates: true })`
+   *  after the per-event loop (Sentry JAVASCRIPT-NEXTJS-3 — EventLink
+   *  write-side N+1 follow-up to #1287). */
+  pendingEventLinks: Map<string, { eventId: string; url: string; label: string; sourceId: string }>;
 }
 
 /** `select` for the dedup prefetch — kept as a hoisted const so the value type
@@ -1479,13 +1497,14 @@ async function upsertCanonicalEvent(
       }
     }
 
-    // If this source provides a different sourceUrl, create an EventLink for it
+    // If this source provides a different sourceUrl, queue an EventLink for it.
+    // Flushed with the rest of the batch via `eventLink.createMany` after the loop.
     if (event.sourceUrl && existingEvent.sourceUrl && event.sourceUrl !== existingEvent.sourceUrl) {
-      await prisma.eventLink.upsert({
-        where: { eventId_url: { eventId: existingEvent.id, url: event.sourceUrl } },
-        create: { eventId: existingEvent.id, url: event.sourceUrl, label: getLabelForUrl(event.sourceUrl), sourceId: ctx.sourceId },
-        update: {},
-      });
+      queueEventLinks(
+        existingEvent.id,
+        [{ url: event.sourceUrl, label: getLabelForUrl(event.sourceUrl) }],
+        ctx,
+      );
     }
 
     // Queue the RawEvent link-to-Event write for the post-loop bulk flush
@@ -1707,7 +1726,7 @@ async function processNewRawEvent(
       rawEvent = winner;
     } else {
       if (!dupId) return null;
-      await createEventLinks(dupId, sourceId, event.externalLinks);
+      queueEventLinks(dupId, event.externalLinks, ctx);
       return dupId;
     }
   }
@@ -1730,7 +1749,7 @@ async function processNewRawEvent(
 
   const targetEventId = await upsertCanonicalEvent(event, kennelId, rawEvent.id, ctx);
   // Mirror DB state into the dedup map *immediately* after upsertCanonicalEvent
-  // marks the RawEvent processed. If a later side-effect (createEventLinks, the
+  // marks the RawEvent processed. If a later side-effect (queueEventLinks, the
   // kennel cache update) throws, the per-event try/catch records the error but
   // the row is already `processed: true` in the DB — keeping map ↔ DB aligned
   // means a later in-batch duplicate still takes the existing-Event branch
@@ -1742,7 +1761,7 @@ async function processNewRawEvent(
     eventId: targetEventId,
   });
 
-  await createEventLinks(targetEventId, sourceId, event.externalLinks);
+  queueEventLinks(targetEventId, event.externalLinks, ctx);
 
   // Track the max event date per kennel — flushed as one batched
   // `kennel.updateMany` per kennel after the loop in `processRawEvents`
@@ -2169,6 +2188,7 @@ export async function processRawEvents(
       fuzzyPoolByKennel: new Map(),
       kennelMaxDates: new Map(),
       processedRawEvents: new Map(),
+      pendingEventLinks: new Map(),
     },
     result,
   };
@@ -2184,7 +2204,7 @@ export async function processRawEvents(
     try {
       const dupResult = await handleDuplicateFingerprint(event, fingerprint, ctx);
       if (dupResult !== false) {
-        if (dupResult) await createEventLinks(dupResult, sourceId, event.externalLinks);
+        if (dupResult) queueEventLinks(dupResult, event.externalLinks, ctx);
         continue;
       }
 
@@ -2230,6 +2250,20 @@ export async function processRawEvents(
       FROM (VALUES ${valuesClause}) AS update_map(id, "eventId")
       WHERE "RawEvent"."id" = update_map.id
     `;
+  }
+
+  // Flush queued EventLink inserts as a single `createMany` keyed off the
+  // `@@unique([eventId, url])` index (Sentry JAVASCRIPT-NEXTJS-3 — EventLink
+  // write-side N+1 follow-up to #1287). One round-trip per scrape replaces
+  // N per-link `upsert({ update: {} })` calls. Rethrows on failure to match
+  // the `processedRawEvents` flush above — QStash auto-retry repairs on
+  // the next attempt and dedup prefetch correctly classifies the second
+  // run as duplicates.
+  if (ctx.eventBatch.pendingEventLinks.size > 0) {
+    await prisma.eventLink.createMany({
+      data: [...ctx.eventBatch.pendingEventLinks.values()],
+      skipDuplicates: true,
+    });
   }
 
   // Flush per-kennel max event dates as a single batched write per kennel

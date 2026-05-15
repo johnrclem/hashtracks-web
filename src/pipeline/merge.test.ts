@@ -8,7 +8,7 @@ vi.mock("@/lib/db", () => ({
     rawEvent: { findFirst: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
     event: { findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     eventKennel: { create: vi.fn(), upsert: vi.fn() },
-    eventLink: { upsert: vi.fn() },
+    eventLink: { upsert: vi.fn(), createMany: vi.fn() },
     kennel: { findUnique: vi.fn(), updateMany: vi.fn() },
     $executeRaw: vi.fn().mockResolvedValue(0),
     $transaction: vi.fn(),
@@ -110,6 +110,13 @@ beforeEach(() => {
   // preceding test would now be consumed by the prefetch instead of the
   // intended caller.
   vi.mocked(prisma.event.findMany).mockReset();
+  // Fingerprint mock impl can leak across tests because `vi.clearAllMocks()`
+  // clears call history but does NOT restore the factory's default. A test
+  // that swaps in a per-event `mockImplementation` (e.g. unique fingerprints
+  // for batch-size assertions) would otherwise poison every subsequent test
+  // that relies on the "fp_abc123" default.
+  mockFingerprint.mockReset();
+  mockFingerprint.mockReturnValue(DEFAULT_MOCK_FINGERPRINT);
   mockSourceFind.mockResolvedValue({
     trustLevel: 5,
     type: "HTML_SCRAPER",
@@ -121,6 +128,7 @@ beforeEach(() => {
   // tests are unaffected; per-test overrides exercise the same-source guard.
   vi.mocked(prisma.rawEvent.findMany).mockResolvedValue([] as never);
   vi.mocked(prisma.eventLink.upsert).mockResolvedValue({} as never);
+  vi.mocked(prisma.eventLink.createMany).mockResolvedValue({ count: 0 } as never);
   mockResolve.mockResolvedValue({ kennelId: "kennel_1", matched: true });
   // recomputeCanonical calls findMany once per successful upsert AFTER the
   // existing disambiguation findMany. Tests queue responses for the first
@@ -847,9 +855,76 @@ describe("double-header support", () => {
     // Cross-source: first time seeing this kennel+date in batch → match existing + create EventLink
     expect(result.updated).toBe(1);
     expect(result.created).toBe(0);
-    expect(vi.mocked(prisma.eventLink.upsert)).toHaveBeenCalledWith(
+    // Batched via end-of-loop createMany (Sentry JAVASCRIPT-NEXTJS-3 follow-up):
+    // exactly one flush call carrying the alternate-source EventLink.
+    expect(vi.mocked(prisma.eventLink.upsert)).not.toHaveBeenCalled();
+    expect(vi.mocked(prisma.eventLink.createMany)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(prisma.eventLink.createMany)).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { eventId_url: { eventId: "evt_1", url: "https://source-b.com/event" } },
+        skipDuplicates: true,
+        data: expect.arrayContaining([
+          expect.objectContaining({ eventId: "evt_1", url: "https://source-b.com/event" }),
+        ]),
+      }),
+    );
+  });
+
+  it("batches EventLink inserts across the batch into a single createMany call (Sentry JAVASCRIPT-NEXTJS-3)", async () => {
+    // 10 fresh events, each carrying 2 unique externalLinks. The pre-fix
+    // path issued one `eventLink.upsert` per link per event (20 round-trips).
+    // The post-fix path queues them all and flushes a single
+    // `eventLink.createMany({ skipDuplicates: true })` after the loop.
+    const N = 10;
+    // Each event gets its own fingerprint so they're all "new" (not dedup
+    // hits), exercising the create-path queueEventLinks call site at
+    // upsertCanonicalEvent. The dedup prefetch (mocked findMany) returns
+    // [] so none of them collide with existing RawEvents.
+    mockFingerprint.mockImplementation((e) => `fp_${e.title ?? "blank"}`);
+    vi.mocked(prisma.rawEvent.findMany).mockResolvedValue([] as never);
+    // `ensureKennelEventCache` returns no existing events on this kennel +
+    // dates so each event takes the create path in `upsertCanonicalEvent`.
+    mockEventFindMany.mockResolvedValue([] as never);
+    const events = Array.from({ length: N }, (_, i) =>
+      buildRawEvent({
+        date: `2026-04-${String(i + 1).padStart(2, "0")}`,
+        title: `Trail ${i}`,
+        sourceUrl: `https://source-a.com/event-${i}`,
+        externalLinks: [
+          { url: `https://meetup.com/event-${i}`, label: "Meetup" },
+          { url: `https://hashrego.com/event-${i}`, label: "Hash Rego" },
+        ],
+      }),
+    );
+    const expectedLinkCount = events.flatMap((e) => e.externalLinks ?? []).length;
+    // Each `event.create` returns a unique id AND its own date so subsequent
+    // events in the batch see a populated cache but `getSameDayEvents`
+    // filters them out by strict Date equality. Omitting the date triggers
+    // the loose-mode filter (test-mock compat) and would silently route 9
+    // of 10 through the update path instead of create.
+    for (let i = 0; i < N; i++) {
+      const eventDate = new Date(`${events[i].date}T12:00:00.000Z`);
+      mockEventCreate.mockResolvedValueOnce({ id: `evt_${i + 1}`, date: eventDate } as never);
+      mockRawEventCreate.mockResolvedValueOnce({ id: `raw_${i + 1}` } as never);
+    }
+
+    const result = await processRawEvents("src_1", events);
+
+    expect(result.created).toBe(N);
+    expect(vi.mocked(prisma.eventLink.upsert)).not.toHaveBeenCalled();
+    expect(vi.mocked(prisma.eventLink.createMany)).toHaveBeenCalledTimes(1);
+    const call = vi.mocked(prisma.eventLink.createMany).mock.calls[0][0] as {
+      data: { eventId: string; url: string; label: string; sourceId: string }[];
+      skipDuplicates: boolean;
+    };
+    expect(call.skipDuplicates).toBe(true);
+    expect(call.data).toHaveLength(expectedLinkCount);
+    // Spot-check one entry to confirm shape.
+    expect(call.data).toContainEqual(
+      expect.objectContaining({
+        eventId: "evt_1",
+        url: "https://meetup.com/event-0",
+        label: "Meetup",
+        sourceId: "src_1",
       }),
     );
   });
@@ -3180,10 +3255,15 @@ describe("fuzzy ±48h cross-source dedup (#990)", () => {
 
     expect(result.updated).toBe(1);
     expect(result.created).toBe(0);
-    // EventLink for the cross-source URL
-    expect(vi.mocked(prisma.eventLink.upsert)).toHaveBeenCalledWith(
+    // EventLink for the cross-source URL — batched via createMany (Sentry
+    // JAVASCRIPT-NEXTJS-3 follow-up).
+    expect(vi.mocked(prisma.eventLink.upsert)).not.toHaveBeenCalled();
+    expect(vi.mocked(prisma.eventLink.createMany)).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { eventId_url: { eventId: "evt_existing", url: "https://hashrego.com/event/123" } },
+        skipDuplicates: true,
+        data: expect.arrayContaining([
+          expect.objectContaining({ eventId: "evt_existing", url: "https://hashrego.com/event/123" }),
+        ]),
       }),
     );
 
