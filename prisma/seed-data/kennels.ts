@@ -2096,7 +2096,7 @@ export const KENNELS: KennelSeed[] = [
     },
     {
       kennelCode: "kimchi-h3", shortName: "Kimchi", fullName: "Colorado Kimchi Hash House Harriers", region: "Colorado Springs, CO",
-      website: "http://www.cspringsh3.com",
+      website: "http://www.cspringsh3.com", // NOSONAR — source is HTTP-only; HTTPS returns ERR_SSL_VERSION_OR_CIPHER_MISMATCH (#1380)
       facebookUrl: "https://www.facebook.com/groups/2147541855493092/",
       scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Biweekly",
       scheduleNotes: "Alternating Saturdays with PPH4",

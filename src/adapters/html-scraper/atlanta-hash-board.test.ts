@@ -1,8 +1,8 @@
-vi.mock("../safe-fetch", () => ({
+vi.mock("@/adapters/safe-fetch", () => ({
   safeFetch: vi.fn(),
 }));
 
-import { safeFetch } from "../safe-fetch";
+import { safeFetch } from "@/adapters/safe-fetch";
 import {
   parseAtomFeed,
   isReplyEntry,
@@ -315,7 +315,7 @@ describe("AtlantaHashBoardAdapter", () => {
     if (configValue !== undefined) config.useResidentialProxy = configValue;
     const source = {
       id: "test-source",
-      url: "http://board.atlantahash.com",
+      url: "https://board.atlantahash.com",
       config,
     } as never;
 
