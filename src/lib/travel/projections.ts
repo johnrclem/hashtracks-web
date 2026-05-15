@@ -151,23 +151,25 @@ function projectScheduledRule(
       ? "Based on a known schedule source"
       : "Based on known schedule pattern";
 
+    // #1390: seasonal gating. When the rule carries `validFrom`/`validUntil`
+    // MM-DD anchors, drop any generated date that falls outside the season
+    // (with wrap-around support for winter spans). Without this, a July search
+    // would project Hockessin's winter-Saturday cadence as well as its
+    // summer-Wednesday cadence, double-listing the kennel with the wrong
+    // season's run text. We materialize the Date once, filter, then map — vs.
+    // the previous filter→map which built `new Date(dateStr + "T12:00:00Z")`
+    // twice per occurrence.
+    const hasSeasonality = !!(rule.validFrom || rule.validUntil);
     return dateStrings
-      // #1390: seasonal gating. When the rule carries `validFrom`/`validUntil`
-      // MM-DD anchors, drop any generated date that falls outside the season
-      // (with wrap-around support for winter spans). Without this, a July
-      // search would project Hockessin's winter-Saturday cadence as well as
-      // its summer-Wednesday cadence, double-listing the kennel with the
-      // wrong season's run text.
-      .filter((dateStr) =>
-        isWithinSeason(
-          new Date(dateStr + "T12:00:00Z"),
-          rule.validFrom,
-          rule.validUntil,
-        ),
+      .map((dateStr) => new Date(dateStr + "T12:00:00Z"))
+      .filter(
+        (date) =>
+          !hasSeasonality ||
+          isWithinSeason(date, rule.validFrom, rule.validUntil),
       )
-      .map((dateStr) => ({
+      .map((date) => ({
         kennelId: rule.kennelId,
-        date: new Date(dateStr + "T12:00:00Z"),
+        date,
         startTime: rule.startTime,
         confidence,
         scheduleRuleId: rule.id,
