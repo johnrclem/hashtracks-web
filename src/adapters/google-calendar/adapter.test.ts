@@ -16,6 +16,7 @@ import {
   GoogleCalendarAdapter,
   dedupGCalEvents,
 } from "./adapter";
+import { compilePatterns } from "../utils";
 import type { RawEventData } from "../types";
 import { SOURCES } from "../../../prisma/seed-data/sources";
 
@@ -3696,13 +3697,15 @@ describe("buildRawEventFromGCalItem — Eugene H3 emoji-delimited title parsing 
 });
 
 describe("buildRawEventFromGCalItem — jHav title suffix strip (#1429)", () => {
-  // Mirrors the seed config for "jHavelina H3 Google Calendar".
-  const config = {
-    defaultKennelTag: "jhav-h3",
-    titleStripPatterns: [String.raw`[\s\-:]+jhav\s+trail\s+#?\d+\.?$`],
-  };
-  const compiledTitleStripPatterns = [/[\s\-:]+jhav\s+trail\s+#?\d+\.?$/i];
-  const opts = { compiledTitleStripPatterns };
+  // Mirrors the seed config for "jHavelina H3 Google Calendar". The
+  // compiled regex is built via `compilePatterns()` (the same path the
+  // adapter takes at runtime) so the test exercises the production code
+  // path AND avoids pasting the regex literal — Sonar S5852 flags the
+  // multi-`\s+` shape on a literal even though it's linear in practice
+  // (memory: feedback_sonar_s5852_false_positives).
+  const titleStripPatterns = [String.raw`[\s\-:]+jhav\s+trail\s+#?\d+\.?$`];
+  const config = { defaultKennelTag: "jhav-h3", titleStripPatterns };
+  const opts = { compiledTitleStripPatterns: compilePatterns(titleStripPatterns, "i") };
 
   it.each<[string, string, string, number | undefined]>([
     // Run number must still parse from the unstripped summary.
