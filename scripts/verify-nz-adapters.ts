@@ -72,7 +72,10 @@ const probes: Probe[] = [
 ];
 
 async function runProbe(probe: Probe): Promise<void> {
-  const result = (await probe.adapter.fetch(probe.source as Source, { days: probe.days ?? 180 })) as {
+  // `probe.source as Source` is required — Probe.source is Partial<Source>
+  // (the probe literals omit timestamps + flags that fetch() doesn't read).
+  // Sonar's TS analyzer disagrees with tsc, so suppress S4325 here.
+  const result = (await probe.adapter.fetch(probe.source as Source, { days: probe.days ?? 180 })) as { // NOSONAR S4325
     events: { date: string; runNumber?: number; hares?: string; location?: string; startTime?: string; description?: string }[];
     errors: string[];
     diagnosticContext?: Record<string, unknown>;
