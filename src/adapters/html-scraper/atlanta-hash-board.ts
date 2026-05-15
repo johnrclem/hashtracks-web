@@ -314,8 +314,14 @@ export class AtlantaHashBoardAdapter implements SourceAdapter {
       { forums: "object" },
     );
 
-    const baseUrl = source.url || "http://board.atlantahash.com";
-    const useResidentialProxy = config.useResidentialProxy ?? false;
+    const baseUrl = source.url || "https://board.atlantahash.com";
+    const rawProxyFlag = config.useResidentialProxy;
+    if (rawProxyFlag !== undefined && typeof rawProxyFlag !== "boolean") {
+      throw new Error(
+        `AtlantaHashBoardAdapter: config.useResidentialProxy must be a boolean, got ${typeof rawProxyFlag}`,
+      );
+    }
+    const useResidentialProxy = rawProxyFlag ?? false;
     const { minDate, maxDate } = buildDateWindow(options?.days);
 
     const allEvents: RawEventData[] = [];

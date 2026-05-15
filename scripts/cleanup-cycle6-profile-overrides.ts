@@ -28,7 +28,7 @@ import { createScriptPool } from "./lib/db-pool";
 const EXECUTE = process.argv.includes("--execute");
 
 type OverrideField = "fullName" | "description";
-type FieldRewrite = { expected: string | null; target: string };
+type FieldRewrite = { expected: string; target: string };
 type Override = {
   kennelCode: string;
   rewrites: Partial<Record<OverrideField, FieldRewrite>>;
@@ -46,7 +46,8 @@ const OVERRIDES: Override[] = [
         target: "Gyrls Night Out Hash House Harriers",
       },
       description: {
-        expected: null,
+        expected:
+          "Memphis harriette kennel. Monthly events appearing on the Memphis H3 calendar.",
         target:
           "Women-only kennel in Memphis, TN, supported by Memphis Hash House Harriers. Founded October 20, 2025. Monthly trail on 3rd Mondays at 6:00 PM, with a Harriette Happy Hour the 1st Thursday of each month.",
       },

@@ -232,8 +232,8 @@ describe("AtlantaHashBoardAdapter", () => {
       url: "https://board.atlantahash.com",
       config: {
         forums: {
-          "2": { kennelTags: ["ah4"], hashDay: "Saturday" },
-          "8": { kennelTags: ["mlh4"], hashDay: "Monday" },
+          "2": { kennelTag: "ah4", hashDay: "Saturday" },
+          "8": { kennelTag: "mlh4", hashDay: "Monday" },
         },
       },
     } as never;
@@ -255,6 +255,10 @@ describe("AtlantaHashBoardAdapter", () => {
     expect(result.diagnosticContext?.skippedReplies).toBe(2);
     // Each forum has 2 non-reply entries; events within date window should be parsed
     expect(result.events.length).toBeGreaterThan(0);
+    // Attribution check — every event must carry the kennelTag from its forum config
+    const tags = new Set(result.events.flatMap((e) => e.kennelTags));
+    expect(tags.has("ah4") || tags.has("mlh4")).toBe(true);
+    expect(tags.has(undefined as unknown as string)).toBe(false);
   });
 
   it("handles fetch errors gracefully", async () => {
@@ -270,7 +274,7 @@ describe("AtlantaHashBoardAdapter", () => {
       url: "https://board.atlantahash.com",
       config: {
         forums: {
-          "2": { kennelTags: ["ah4"], hashDay: "Saturday" },
+          "2": { kennelTag: "ah4", hashDay: "Saturday" },
         },
       },
     } as never;
@@ -306,7 +310,7 @@ describe("AtlantaHashBoardAdapter", () => {
 
     const adapter = new AtlantaHashBoardAdapter();
     const config: Record<string, unknown> = {
-      forums: { "2": { kennelTags: ["ah4"], hashDay: "Saturday" } },
+      forums: { "2": { kennelTag: "ah4", hashDay: "Saturday" } },
     };
     if (configValue !== undefined) config.useResidentialProxy = configValue;
     const source = {
