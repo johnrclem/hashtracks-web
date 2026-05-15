@@ -3699,9 +3699,9 @@ describe("buildRawEventFromGCalItem — jHav title suffix strip (#1429)", () => 
   // Mirrors the seed config for "jHavelina H3 Google Calendar".
   const config = {
     defaultKennelTag: "jhav-h3",
-    titleStripPatterns: [String.raw`[\s\-:]+jhav\s+trail\s+#?\d+\.?\s*$`],
+    titleStripPatterns: [String.raw`[\s\-:]+jhav\s+trail\s+#?\d+\.?$`],
   };
-  const compiledTitleStripPatterns = [/[\s\-:]+jhav\s+trail\s+#?\d+\.?\s*$/i];
+  const compiledTitleStripPatterns = [/[\s\-:]+jhav\s+trail\s+#?\d+\.?$/i];
   const opts = { compiledTitleStripPatterns };
 
   it.each<[string, string, string, number | undefined]>([
