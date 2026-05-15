@@ -2,6 +2,8 @@ import { ImageResponse } from "next/og";
 import { prisma } from "@/lib/db";
 import { getActivityStatus } from "@/lib/activity-status";
 import { getTodayUtcNoon } from "@/lib/date";
+import { formatSchedule } from "@/lib/format";
+import { SCHEDULE_RULES_SELECT } from "@/lib/schedule-season";
 
 // Must use nodejs runtime (not edge) because Prisma requires Node.js
 export const runtime = "nodejs";
@@ -20,7 +22,9 @@ export default async function OgImage({ params }: { params: Promise<{ slug: stri
       region: true,
       lastEventDate: true,
       scheduleDayOfWeek: true,
+      scheduleTime: true,
       scheduleFrequency: true,
+      scheduleRules: SCHEDULE_RULES_SELECT,
       isHidden: true,
       // #1023 spec D8: count co-hosted events too — go through the
       // EventKennel join so a kennel that's only a secondary on upcoming
@@ -49,7 +53,7 @@ export default async function OgImage({ params }: { params: Promise<{ slug: stri
   const status = getActivityStatus(kennel.lastEventDate, kennel._count.eventKennels > 0);
   const statusText = status === "active" ? "Active" : status === "possibly-inactive" ? "Possibly Inactive" : status === "inactive" ? "Inactive" : "";
   const statusColor = status === "active" ? "#4ade80" : status === "possibly-inactive" ? "#facc15" : status === "inactive" ? "#f87171" : "#71717a";
-  const schedule = [kennel.scheduleFrequency, kennel.scheduleDayOfWeek].filter(Boolean).join(" · ");
+  const schedule = formatSchedule(kennel) ?? "";
 
   return new ImageResponse(
     (

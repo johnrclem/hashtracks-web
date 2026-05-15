@@ -18,6 +18,7 @@ import { RegionQuickChips } from "@/components/hareline/RegionQuickChips";
 import { getLocationPref, resolveLocationDefault, clearLocationPref } from "@/lib/location-pref";
 import { parseList, parseRegionParam } from "@/lib/format";
 import { getActivityStatus } from "@/lib/activity-status";
+import { collectKennelWeekdays, collectKennelFrequencies } from "@/lib/format";
 
 const KennelMapView = dynamic(() => import("./KennelMapView"), {
   ssr: false,
@@ -230,15 +231,22 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
       if (selectedRegions.length > 0 && !expandedRegions.has(k.region)) {
         return false;
       }
-      // Run day (match on scheduleDayOfWeek)
+      // Run day (#1390: match the legacy flat field OR any active scheduleRule's
+      // BYDAY token. A kennel migrated to scheduleRules-only must still answer
+      // day filters; a kennel with both keeps working via either path.)
       if (fullDaySet) {
-        if (!k.scheduleDayOfWeek || !fullDaySet.has(k.scheduleDayOfWeek)) {
+        const daysOnKennel = collectKennelWeekdays(k);
+        if (!daysOnKennel.some((d) => fullDaySet.has(d))) {
           return false;
         }
       }
-      // Frequency
-      if (selectedFrequency && k.scheduleFrequency !== selectedFrequency) {
-        return false;
+      // Frequency (#1390: same OR-semantics — legacy flat field OR any rule's
+      // derived frequency label.)
+      if (selectedFrequency) {
+        const freqsOnKennel = collectKennelFrequencies(k);
+        if (!freqsOnKennel.includes(selectedFrequency)) {
+          return false;
+        }
       }
       // Upcoming only
       if (showUpcomingOnly && !k.nextEvent) {

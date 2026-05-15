@@ -150,6 +150,10 @@ describe("parseRRule", () => {
     ["FREQ=WEEKLY;BYDAY=TH;BYMONTH=5,", "Invalid BYMONTH"],
     ["FREQ=WEEKLY;BYDAY=TH;BYMONTH=,5", "Invalid BYMONTH"],
     ["FREQ=WEEKLY;BYDAY=TH;BYMONTH=005", "Invalid BYMONTH"],
+    // #1390: BYSETPOS rejected — Hebe H3 silent-ignore time-bomb regression guard.
+    ["FREQ=MONTHLY;BYDAY=SA;BYSETPOS=3", "BYSETPOS is not supported"],
+    ["FREQ=MONTHLY;BYDAY=SA;BYSETPOS=1", "BYSETPOS is not supported"],
+    ["FREQ=MONTHLY;BYDAY=FR;BYSETPOS=-1", "BYSETPOS is not supported"],
   ])("throws on invalid input: %s", (rrule, expectedError) => {
     expect(() => parseRRule(rrule)).toThrow(expectedError);
   });

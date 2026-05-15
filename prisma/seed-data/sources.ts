@@ -1978,7 +1978,8 @@ export const SOURCES = [
       scrapeDays: 90,
       config: {
         kennelTag: "poofh3",
-        rrule: "FREQ=MONTHLY;BYDAY=SA;BYSETPOS=3",
+        // #1390: canonical nth-prefix BYDAY (was BYSETPOS=3, silently ignored).
+        rrule: "FREQ=MONTHLY;BYDAY=3SA",
         startTime: "14:00",
         timezone: "America/New_York",
         defaultTitle: "PooFH3 Monthly Run",
@@ -4348,7 +4349,8 @@ export const SOURCES = [
       scrapeDays: 90,
       config: {
         kennelTag: "hkfh3",
-        rrule: "FREQ=MONTHLY;BYDAY=FR;BYSETPOS=1",
+        // #1390: canonical nth-prefix BYDAY (was BYSETPOS=1, redundant).
+        rrule: "FREQ=MONTHLY;BYDAY=1FR",
         startTime: "19:00",
         defaultTitle: "HKFH3 Monthly Run",
         defaultLocation: "Hong Kong",
@@ -4366,7 +4368,8 @@ export const SOURCES = [
       scrapeDays: 90,
       config: {
         kennelTag: "fch3-hk",
-        rrule: "FREQ=MONTHLY;BYDAY=SA;BYSETPOS=1",
+        // #1390: canonical nth-prefix BYDAY (was BYSETPOS=1, redundant).
+        rrule: "FREQ=MONTHLY;BYDAY=1SA",
         startTime: "13:00",
         defaultTitle: "Free China H3 Monthly Run",
         defaultLocation: "Jaffe Rd & Fenwick St junction, Wan Chai, Hong Kong",
@@ -4384,7 +4387,10 @@ export const SOURCES = [
       scrapeDays: 90,
       config: {
         kennelTag: "hebe-h3",
-        rrule: "FREQ=MONTHLY;BYDAY=SA;BYSETPOS=3",
+        // #1388 / #1390: canonical 1st-Saturday RRULE (was misleading BYSETPOS=3;
+        // parser silently ignored it and emitted 1st Saturdays anyway). No event-
+        // date change.
+        rrule: "FREQ=MONTHLY;BYDAY=1SA",
         startTime: "15:00",
         defaultTitle: "Hebe H3 Monthly Run",
         defaultLocation: "Sai Kung, Hong Kong",

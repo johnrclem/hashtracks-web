@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { RegionBadge } from "@/components/hareline/RegionBadge";
 import { ActivityStatusBadge } from "@/components/kennels/ActivityStatusBadge";
-import { formatSchedule, formatDateShort } from "@/lib/format";
+import { formatSchedule, formatDateShort, type ScheduleSlot } from "@/lib/format";
 
 export interface KennelCardData {
   id: string;
@@ -18,6 +18,7 @@ export interface KennelCardData {
   scheduleDayOfWeek: string | null;
   scheduleTime: string | null;
   scheduleFrequency: string | null;
+  scheduleRules?: ScheduleSlot[] | null;
   nextEvent: { date: string; title: string | null } | null;
   lastEventDate: string | null;
 }

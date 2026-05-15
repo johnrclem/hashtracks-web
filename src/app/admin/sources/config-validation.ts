@@ -294,9 +294,23 @@ function validateRecurrenceBlock(obj: Record<string, unknown>, errors: string[])
     return;
   }
   if (hasRrule) {
-    const rrule = obj.rrule as string;
-    if (!/^FREQ=/i.test(rrule.trim())) {
+    const rrule = (obj.rrule as string).trim();
+    if (!/^FREQ=/i.test(rrule)) {
       errors.push("Static Schedule rrule must start with FREQ= (e.g. FREQ=WEEKLY;BYDAY=SA)");
+      return;
+    }
+    // #1390: reject BYSETPOS. The in-repo parseRRule silently ignores it and
+    // falls through to "first weekday of month" generation — Hebe H3 shipped
+    // with `BYSETPOS=3` for ~year of stale events on the wrong dates. Force
+    // authors to use the nth-prefix BYDAY syntax (e.g. `BYDAY=1SA`) so the
+    // intent is parseable AND matches the events the adapter actually emits.
+    if (/(^|;)\s*BYSETPOS\s*=/i.test(rrule)) {
+      errors.push(
+        "Static Schedule rrule cannot use BYSETPOS (not supported by the parser; " +
+          "it would silently degrade to the first weekday of month). Encode the " +
+          'ordinal in BYDAY instead: e.g. BYDAY=1SA for "1st Saturday", BYDAY=-1FR ' +
+          'for "last Friday".',
+      );
     }
     return;
   }

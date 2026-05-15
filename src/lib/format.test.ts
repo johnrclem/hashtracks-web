@@ -19,6 +19,8 @@ import {
   formatRelativeTime,
   parseList,
   parseRegionParam,
+  collectKennelWeekdays,
+  collectKennelFrequencies,
 } from "./format";
 
 describe("formatTime", () => {
@@ -151,6 +153,129 @@ describe("formatSchedule", () => {
     for (const day of days) {
       expect(formatSchedule({ scheduleDayOfWeek: day })).toBe(day + "s");
     }
+  });
+
+  // Multi-cadence path (#1390): scheduleRules overrides the flat fields.
+  describe("scheduleRules (multi-cadence path)", () => {
+    it("renders a single weekly slot with label hint", () => {
+      expect(
+        formatSchedule({
+          scheduleRules: [
+            { rrule: "FREQ=WEEKLY;BYDAY=WE", startTime: "18:30", label: "Summer" },
+          ],
+        }),
+      ).toBe("Wednesdays at 6:30 PM (Summer)");
+    });
+
+    it("renders seasonal hint with month range", () => {
+      expect(
+        formatSchedule({
+          scheduleRules: [
+            { rrule: "FREQ=WEEKLY;BYDAY=WE", startTime: "18:30", label: "Summer", validFrom: "03-01", validUntil: "10-31" },
+          ],
+        }),
+      ).toBe("Wednesdays at 6:30 PM (Summer, Mar–Oct)");
+    });
+
+    it("joins two cadences with ' / ' in displayOrder", () => {
+      expect(
+        formatSchedule({
+          scheduleRules: [
+            { rrule: "FREQ=WEEKLY;BYDAY=SA", startTime: "15:00", label: "Winter", validFrom: "11-01", validUntil: "02-28", displayOrder: 1 },
+            { rrule: "FREQ=WEEKLY;BYDAY=WE", startTime: "18:30", label: "Summer", validFrom: "03-01", validUntil: "10-31", displayOrder: 0 },
+          ],
+        }),
+      ).toBe("Wednesdays at 6:30 PM (Summer, Mar–Oct) / Saturdays at 3:00 PM (Winter, Nov–Feb)");
+    });
+
+    it("renders monthly nth-weekday RRULE (Hebe-style 1st Saturday)", () => {
+      expect(
+        formatSchedule({
+          scheduleRules: [
+            { rrule: "FREQ=MONTHLY;BYDAY=1SA", startTime: "15:00", label: "Monthly" },
+          ],
+        }),
+      ).toBe("1st Saturday at 3:00 PM (Monthly)");
+    });
+
+    it("renders monthly by-month-day RRULE", () => {
+      expect(
+        formatSchedule({
+          scheduleRules: [
+            { rrule: "FREQ=MONTHLY;BYMONTHDAY=15", startTime: "19:00" },
+          ],
+        }),
+      ).toBe("15th of the month at 7:00 PM");
+    });
+
+    it("falls through to flat fields when scheduleRules is an empty array", () => {
+      expect(
+        formatSchedule({
+          scheduleDayOfWeek: "Wednesday",
+          scheduleFrequency: "Weekly",
+          scheduleRules: [],
+        }),
+      ).toBe("Wednesdays · Weekly");
+    });
+
+    it("falls through to flat fields when scheduleRules is null", () => {
+      expect(
+        formatSchedule({
+          scheduleDayOfWeek: "Wednesday",
+          scheduleFrequency: "Weekly",
+          scheduleRules: null,
+        }),
+      ).toBe("Wednesdays · Weekly");
+    });
+
+    it("scheduleRules overrides flat fields when both are present (migration path)", () => {
+      // A kennel that has Pass 3 entries AND legacy flat fields populated:
+      // scheduleRules wins. Legacy flat-field rendering is the fallback only
+      // when scheduleRules is absent.
+      expect(
+        formatSchedule({
+          scheduleDayOfWeek: "Wednesday",
+          scheduleTime: "7:00 PM",
+          scheduleFrequency: "Weekly",
+          scheduleRules: [
+            { rrule: "FREQ=WEEKLY;BYDAY=SA", startTime: "15:00", label: "Winter" },
+          ],
+        }),
+      ).toBe("Saturdays at 3:00 PM (Winter)");
+    });
+
+    it("returns null when slot has unrecognized RRULE and no other content + no flat-field fallback", () => {
+      // FREQ=LUNAR isn't a calendar-rule shape describeRruleDay handles, and
+      // there's no time/label or flat field to fall through to.
+      expect(
+        formatSchedule({
+          scheduleRules: [{ rrule: "FREQ=LUNAR" }],
+        }),
+      ).toBeNull();
+    });
+
+    it("rejects multi-day BYDAY as unrenderable (lockstep with KennelDirectory filter)", () => {
+      // `BYDAY=SA,SU` isn't a shape describeRruleDay handles. With no other
+      // content and no flat fields, the formatter returns null.
+      expect(
+        formatSchedule({
+          scheduleRules: [{ rrule: "FREQ=WEEKLY;BYDAY=SA,SU" }],
+        }),
+      ).toBeNull();
+    });
+
+    it("falls back to legacy flat fields when scheduleRules are present but unrenderable", () => {
+      // Codex review on PR #1406: a kennel with `scheduleRules` that fail to
+      // render AND valid legacy flat fields should NOT render empty. The
+      // legacy display is the safety net for that case.
+      expect(
+        formatSchedule({
+          scheduleDayOfWeek: "Saturday",
+          scheduleFrequency: "Monthly",
+          scheduleRules: [{ rrule: "FREQ=LUNAR" }],
+        }),
+      ).toBe("Saturdays · Monthly");
+    });
   });
 });
 
@@ -345,5 +470,81 @@ describe("parseRegionParam", () => {
   });
   it("returns single plain value", () => {
     expect(parseRegionParam("NYC")).toEqual(["NYC"]);
+  });
+});
+
+describe("collectKennelWeekdays", () => {
+  it("returns the flat scheduleDayOfWeek when scheduleRules is absent", () => {
+    expect(collectKennelWeekdays({ scheduleDayOfWeek: "Saturday" })).toEqual(["Saturday"]);
+  });
+
+  it("returns the union of flat field + scheduleRules BYDAY tokens", () => {
+    expect(
+      collectKennelWeekdays({
+        scheduleDayOfWeek: "Wednesday",
+        scheduleRules: [
+          { rrule: "FREQ=WEEKLY;BYDAY=SA" },
+          { rrule: "FREQ=MONTHLY;BYDAY=1SU" },
+        ],
+      }),
+    ).toEqual(["Wednesday", "Saturday", "Sunday"]);
+  });
+
+  it("deduplicates when flat field equals a scheduleRules BYDAY token", () => {
+    expect(
+      collectKennelWeekdays({
+        scheduleDayOfWeek: "Saturday",
+        scheduleRules: [{ rrule: "FREQ=WEEKLY;BYDAY=SA" }],
+      }),
+    ).toEqual(["Saturday"]);
+  });
+
+  it("rejects multi-day BYDAY (BYDAY=SA,SU) so filter/display stay in lockstep", () => {
+    expect(
+      collectKennelWeekdays({
+        scheduleRules: [{ rrule: "FREQ=WEEKLY;BYDAY=SA,SU" }],
+      }),
+    ).toEqual([]);
+  });
+
+  it("returns empty array when nothing is populated", () => {
+    expect(collectKennelWeekdays({})).toEqual([]);
+  });
+});
+
+describe("collectKennelFrequencies", () => {
+  it("derives 'Weekly' from FREQ=WEEKLY", () => {
+    expect(
+      collectKennelFrequencies({ scheduleRules: [{ rrule: "FREQ=WEEKLY;BYDAY=SA" }] }),
+    ).toEqual(["Weekly"]);
+  });
+
+  it("derives 'Biweekly' from FREQ=WEEKLY;INTERVAL=2", () => {
+    expect(
+      collectKennelFrequencies({
+        scheduleRules: [{ rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA" }],
+      }),
+    ).toEqual(["Biweekly"]);
+  });
+
+  it("derives 'Monthly' from FREQ=MONTHLY", () => {
+    expect(
+      collectKennelFrequencies({
+        scheduleRules: [{ rrule: "FREQ=MONTHLY;BYDAY=1SA" }],
+      }),
+    ).toEqual(["Monthly"]);
+  });
+
+  it("returns the union of flat scheduleFrequency + scheduleRules-derived labels", () => {
+    expect(
+      collectKennelFrequencies({
+        scheduleFrequency: "Weekly",
+        scheduleRules: [{ rrule: "FREQ=MONTHLY;BYDAY=1SA" }],
+      }).sort(),
+    ).toEqual(["Monthly", "Weekly"]);
+  });
+
+  it("returns empty array when nothing is populated", () => {
+    expect(collectKennelFrequencies({})).toEqual([]);
   });
 });

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { formatSchedule, stripMarkdown } from "@/lib/format";
+import { SCHEDULE_RULES_SELECT } from "@/lib/schedule-season";
 import { getOrCreateUser } from "@/lib/auth";
 import { Users } from "lucide-react";
 import { SubscribeButton } from "@/components/kennels/SubscribeButton";
@@ -36,6 +37,7 @@ export async function generateMetadata({
       scheduleDayOfWeek: true,
       scheduleTime: true,
       scheduleFrequency: true,
+      scheduleRules: SCHEDULE_RULES_SELECT,
     },
   });
   if (!kennel || kennel.isHidden) return { title: "Kennel · HashTracks" };
@@ -74,6 +76,7 @@ export default async function KennelDetailPage({
     where: { slug },
     include: {
       _count: { select: { members: true } },
+      scheduleRules: SCHEDULE_RULES_SELECT,
     },
   });
 

@@ -7,6 +7,7 @@ import { buildNextEventMap, serializeKennelWithNext } from "@/lib/kennel-directo
 import { getActivityStatus } from "@/lib/activity-status";
 import { getTodayUtcNoon } from "@/lib/date";
 import { generateRegionIntro, buildRegionItemListJsonLd, safeJsonLd } from "@/lib/seo";
+import { collectKennelWeekdays, SCHEDULE_RULES_SELECT } from "@/lib/schedule-season";
 import { KennelDirectory } from "@/components/kennels/KennelDirectory";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { FadeInSection } from "@/components/home/HeroAnimations";
@@ -33,6 +34,10 @@ export async function generateMetadata({
       id: true,
       lastEventDate: true,
       scheduleDayOfWeek: true,
+      scheduleRules: {
+        where: { isActive: true },
+        select: { rrule: true },
+      },
       // #1023 spec D8: directory counts include co-hosted events for both
       // kennels — go through the EventKennel join so a kennel that's only
       // a secondary co-host on upcoming events still reads as "active".
@@ -51,7 +56,10 @@ export async function generateMetadata({
   const activeCount = kennels.filter(
     (k) => getActivityStatus(k.lastEventDate, k._count.eventKennels > 0) === "active",
   ).length;
-  const days = kennels.map((k) => k.scheduleDayOfWeek).filter(Boolean) as string[];
+  // #1390: include both legacy flat `scheduleDayOfWeek` AND any scheduleRules
+  // BYDAY days. A kennel migrated to scheduleRules-only must still contribute
+  // to the region intro/metadata day list.
+  const days = kennels.flatMap((k) => collectKennelWeekdays(k));
   const intro = generateRegionIntro(region.name, activeCount, days);
 
   const title = `Hash House Harriers in ${region.name} | HashTracks`;
@@ -103,6 +111,7 @@ export default async function RegionPage({
         scheduleDayOfWeek: true,
         scheduleTime: true,
         scheduleFrequency: true,
+        scheduleRules: SCHEDULE_RULES_SELECT,
         lastEventDate: true,
       },
     }),
@@ -137,7 +146,8 @@ export default async function RegionPage({
   const activeCount = kennels.filter(
     (k) => getActivityStatus(k.lastEventDate, nextEventMap.has(k.id)) === "active",
   ).length;
-  const days = kennels.map((k) => k.scheduleDayOfWeek).filter(Boolean) as string[];
+  // #1390: same union semantics as the metadata-side `days` derivation above.
+  const days = kennels.flatMap((k) => collectKennelWeekdays(k));
   const intro = generateRegionIntro(region.name, activeCount, days);
 
   // JSON-LD

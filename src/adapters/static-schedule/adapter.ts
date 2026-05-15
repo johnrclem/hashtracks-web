@@ -157,6 +157,17 @@ export function parseRRule(rrule: string): {
     throw new Error(`Unsupported FREQ: ${freq} (supported: WEEKLY, MONTHLY)`);
   }
 
+  // #1390: BYSETPOS is RFC 5545 valid but THIS parser doesn't honor it — and
+  // silently ignoring it caused Hebe H3 to ship "3rd Saturday" RRULEs that
+  // generated 1st-Saturday events instead. Fail loud so admins can't introduce
+  // the same drift again. The fix is BYDAY nth-prefix (e.g. BYDAY=1SA).
+  if (parts.BYSETPOS !== undefined) {
+    throw new Error(
+      "BYSETPOS is not supported (parser silently ignores it). " +
+        'Use BYDAY nth-prefix instead: BYDAY=1SA for "1st Saturday", BYDAY=-1FR for "last Friday".',
+    );
+  }
+
   const interval = parseInterval(parts);
   const byDay = parseByDay(parts);
   const byMonthDay = parseByMonthDay(parts);
