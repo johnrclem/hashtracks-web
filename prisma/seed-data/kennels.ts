@@ -1,3 +1,28 @@
+/**
+ * One structured schedule slot for a kennel — primary input to ScheduleRule rows.
+ *
+ * Use this for kennels with multi-cadence schedules (Hockessin: Wed/summer ↔
+ * Sat/winter; KCH3: Sat + Wed-summer + Full-Moon-winter; Hogtown: biweekly Sat +
+ * monthly Thu + monthly Fri) where the single legacy schedule slot on Kennel
+ * silently misrepresents reality.
+ *
+ * MM-DD anchors on validFrom/validUntil wrap across years — "11-01" → "02-28" is
+ * the wintertime cadence. Omit a rule for a hiatus period (don't encode hiatus
+ * negatively). All fields except `rrule` are optional; the same RRULE shapes the
+ * static-schedule adapter parses are accepted (FREQ=WEEKLY|MONTHLY, BYDAY with
+ * optional nth prefix, INTERVAL, BYMONTH, FREQ=LUNAR sentinel).
+ */
+export interface KennelScheduleRuleSeed {
+  rrule: string;             // e.g. "FREQ=WEEKLY;BYDAY=WE", "FREQ=MONTHLY;BYDAY=1SA"
+  startTime?: string;        // "HH:MM" 24h
+  label?: string;            // "Summer", "Winter", "Full Moon Special"
+  validFrom?: string;        // "MM-DD"
+  validUntil?: string;       // "MM-DD"
+  displayOrder?: number;     // Render order on kennel page; default 0
+  anchorDate?: string;       // YYYY-MM-DD, for INTERVAL > 1 stability
+  notes?: string;
+}
+
 export interface KennelSeed {
   kennelCode: string;
   shortName: string;
@@ -10,6 +35,10 @@ export interface KennelSeed {
   scheduleTime?: string;
   scheduleFrequency?: string;
   scheduleNotes?: string;
+  // Multi-cadence schedule slots (#1390). When set, these are authoritative for
+  // kennel-page display + Travel Mode projection; the flat scheduleDay/Time/Frequency
+  // fields above remain for legacy kennels that haven't been migrated.
+  scheduleRules?: KennelScheduleRuleSeed[];
   hashCash?: string;
   facebookUrl?: string;
   instagramHandle?: string;

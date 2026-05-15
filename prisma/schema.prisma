@@ -1106,6 +1106,12 @@ model ScheduleRule {
   lastValidatedAt DateTime? // When the rule was last confirmed still accurate (drives confidence decay)
   notes           String? // Free text context, e.g. "Phase alignment unknown"
   isActive        Boolean            @default(true)
+  // Multi-cadence display fields (#1390). Authoritative for kennel-page rendering
+  // when ≥1 rule exists; legacy flat fields on Kennel are the fallback otherwise.
+  label           String? // Human label for the cadence: "Summer", "Winter", "Full Moon Special"
+  validFrom       String? // "MM-DD" anchor (e.g. "03-01") for seasonal start. Wraps across years.
+  validUntil      String? // "MM-DD" anchor (e.g. "10-31") for seasonal end.
+  displayOrder    Int                @default(0) // Render order when a kennel has ≥2 active rules
   kennel          Kennel             @relation(fields: [kennelId], references: [id])
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
