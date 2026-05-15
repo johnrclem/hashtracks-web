@@ -95,6 +95,8 @@ import { BangkokH3Adapter } from "./html-scraper/bangkok-h3";
 import { LVH3Adapter } from "./html-scraper/lvh3";
 import { BoulderH3Adapter } from "./html-scraper/boulder-h3";
 import { Ch4DkAdapter } from "./html-scraper/ch4-dk";
+import { MiteriHarelineAdapter } from "./html-scraper/miteri-hareline";
+import { AucklandHussiesAdapter } from "./html-scraper/auckland-hussies";
 import { GoogleCalendarAdapter } from "./google-calendar/adapter";
 import { GoogleSheetsAdapter } from "./google-sheets/adapter";
 import { ICalAdapter } from "./ical/adapter";
@@ -228,6 +230,13 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /boulderh3\.com/i, name: "BoulderH3Adapter", factory: () => new BoulderH3Adapter() },
   // ── Denmark ──
   { pattern: /ch4\.dk/i, name: "Ch4DkAdapter", factory: () => new Ch4DkAdapter() },
+  // ── New Zealand (Phase 1) ──
+  // CHH3 deliberately not registered yet — see prisma/seed-data/sources.ts
+  // for the rationale (special events live on /events/, needs a separate
+  // parser planned for Phase 2). The Miteri adapter only covers the
+  // gardencityhash.co.nz homepage hareline today.
+  { pattern: /gardencityhash\.co\.nz/i,  name: "MiteriHarelineAdapter", factory: () => new MiteriHarelineAdapter() },
+  { pattern: /aucklandhussies\.co\.nz/i, name: "AucklandHussiesAdapter", factory: () => new AucklandHussiesAdapter() },
 ];
 
 /** URL-based routing for HTML_SCRAPER — derived from htmlScraperEntries (single source of truth). */

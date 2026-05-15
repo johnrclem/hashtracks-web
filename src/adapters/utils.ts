@@ -809,6 +809,45 @@ export function stripPlaceholder(value: string | undefined | null): string | und
 }
 
 /**
+ * Walk a chronologically-sorted run list and bump a date's year forward
+ * until it strictly exceeds the previous row's date. Used when the source
+ * page omits the year and rows roll past December → January mid-list (NZ
+ * hareline pages like Auckland Hussies and the Miteri-themed Christchurch
+ * sites).
+ *
+ * Returns the input verbatim when `prevDate` is undefined or already
+ * earlier. Both arguments use the "YYYY-MM-DD" string shape; lexicographic
+ * comparison matches calendar order. Feb 29 inputs that would land on a
+ * non-leap year after bumping are clamped to Feb 28 instead of silently
+ * rolling over to March 1 (which JS `new Date()` would otherwise do).
+ */
+export function bumpYearIfBefore(date: string, prevDate: string | undefined): string {
+  // Strict `<` (not `<=`): same-day rows on a chronologically-sorted page
+  // are most commonly typos/duplicates rather than a year roll, so leaving
+  // them in the current year is the safer default. A genuine same-day
+  // year-roll (vanishingly rare) would need explicit year metadata anyway.
+  if (!prevDate || date >= prevDate) return date;
+  const [origY, m, d] = date.split("-").map(Number);
+  let year = origY;
+  let result = date;
+  // The (m, d) anchor stays fixed; we only walk the year forward. This
+  // preserves Feb 29 across leap-year bumps — the final emission re-checks
+  // leap-year validity and clamps Feb 29 → Feb 28 only when the landing
+  // year is non-leap (otherwise downstream `new Date()` silently rolls to
+  // March 1).
+  while (result < prevDate) {
+    year += 1;
+    let day = d;
+    if (m === 2 && d === 29) {
+      const leap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+      if (!leap) day = 28;
+    }
+    result = `${year}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  }
+  return result;
+}
+
+/**
  * Append a static suffix to an event description.
  * Used by adapters that support `descriptionSuffix` config (e.g., Facebook page note).
  * Returns the original description if no suffix is provided.

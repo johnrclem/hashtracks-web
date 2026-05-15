@@ -39,7 +39,16 @@ export interface GoogleSheetsConfig {
   /** Optional explicit tab names. If omitted, auto-discovers year-prefixed tabs. */
   tabs?: string[];
   columns: {
-    runNumber: number;
+    /**
+     * Optional. Column index for the kennel's authentic hash run number.
+     * If your source only carries a sequential row counter (which becomes
+     * unstable when rows are inserted or deleted above), leave this
+     * undefined. `runNumber` participates in the fingerprint hash, so
+     * feeding in an unstable counter re-fingerprints unchanged events on
+     * every sheet edit. When undefined, the row's validity is gated by
+     * the date column instead (rows with empty dates are skipped upstream).
+     */
+    runNumber?: number;
     specialRun?: number;
     date: number;
     hares: number;
@@ -112,24 +121,12 @@ function parseDMonDate(cleaned: string): string | null {
 }
 
 /**
- * Parse "Day-name DD MonthName" (no year) — e.g. "Thu 7 May", "Mon 14 Sep".
- * Year is inferred from `today`: among the candidate years (this year, next,
- * or last) whose resulting date is no more than 30 days behind today, pick
- * the one whose absolute distance from today is smallest. This correctly
- * handles dates near the year boundary (a Dec date scraped on Jan 1 resolves
- * to the previous-year December within the grace window, not next December).
- *
- * Gated by the explicit day-name prefix so we don't mis-parse generic
- * "DD MonthName" cells from other layouts.
+ * Pick the year (from {today-1, today, today+1}) for which `month/day` is no
+ * more than 30 days behind today, then return the closest such date.
+ * Shared by the year-less date parsers below (`Day-name DD MonthName`,
+ * `Mon-DD`). Returns null if no candidate is valid.
  */
-function parseDayNameDMonNoYear(cleaned: string, today: Date): string | null {
-  const match = /^[A-Za-z]{3,9}\s+(\d{1,2})\s+([A-Za-z]{3,9})$/.exec(cleaned);
-  if (!match) return null;
-  const day = Number.parseInt(match[1], 10);
-  const monthKey = match[2].slice(0, 3).toLowerCase();
-  const month = MONTH_NAMES[monthKey];
-  if (!month) return null;
-
+function inferYearForMonthDay(month: number, day: number, today: Date): string | null {
   const todayUtc = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
   const graceCutoff = todayUtc - 30 * 86_400_000;
 
@@ -149,6 +146,36 @@ function parseDayNameDMonNoYear(cleaned: string, today: Date): string | null {
 }
 
 /**
+ * Parse "Mon-DD" or "Mon-D" (no year, hyphen-separated) — e.g. "May-18",
+ * "Dec-5". Year is inferred via {@link inferYearForMonthDay}.
+ * Used by Hibiscus H3's hareline sheet.
+ */
+function parseMonDDate(cleaned: string, today: Date): string | null {
+  const match = /^([A-Za-z]{3})-(\d{1,2})$/.exec(cleaned);
+  if (!match) return null;
+  const month = MONTH_NAMES[match[1].toLowerCase()];
+  if (!month) return null;
+  const day = Number.parseInt(match[2], 10);
+  return inferYearForMonthDay(month, day, today);
+}
+
+/**
+ * Parse "Day-name DD MonthName" (no year) — e.g. "Thu 7 May", "Mon 14 Sep".
+ * Year is inferred via {@link inferYearForMonthDay} (same 30-day grace
+ * window). Gated by the explicit day-name prefix so we don't mis-parse
+ * generic "DD MonthName" cells from other layouts.
+ */
+function parseDayNameDMonNoYear(cleaned: string, today: Date): string | null {
+  const match = /^[A-Za-z]{3,9}\s+(\d{1,2})\s+([A-Za-z]{3,9})$/.exec(cleaned);
+  if (!match) return null;
+  const day = Number.parseInt(match[1], 10);
+  const monthKey = match[2].slice(0, 3).toLowerCase();
+  const month = MONTH_NAMES[monthKey];
+  if (!month) return null;
+  return inferYearForMonthDay(month, day, today);
+}
+
+/**
  * Parse dates in multiple formats found across hash kennel spreadsheets:
  * - "6-15-25" (M-D-YY with hyphens)
  * - "7/1/2024" (M/D/YYYY with slashes)
@@ -157,6 +184,7 @@ function parseDayNameDMonNoYear(cleaned: string, today: Date): string | null {
  * - "2026/03/07" (YYYY/MM/DD)
  * - "2026/03/07 (Sat)" (YYYY/MM/DD with day-name suffix)
  * - "Thu 7 May" (Day-name DD MonthName, year inferred from `today`)
+ * - "May-18" (Mon-DD, year inferred from `today`)
  *
  * `today` is injectable for testability; defaults to the current UTC date.
  */
@@ -170,6 +198,10 @@ export function parseDate(dateStr: string, today: Date = new Date()): string | n
   // D-Mon-YY or DD-Mon-YYYY: "3-Jan-26", "20-Dec-25", "15-Mar-2026"
   const dMonResult = parseDMonDate(cleaned);
   if (dMonResult) return dMonResult;
+
+  // "Mon-DD" no year: "May-18", "Dec-5" — Hibiscus H3 layout
+  const monDResult = parseMonDDate(cleaned, today);
+  if (monDResult) return monDResult;
 
   // "Thu 7 May" / "Mon 14 Sep" — year inferred from today
   const dayNameResult = parseDayNameDMonNoYear(cleaned, today);
@@ -344,15 +376,21 @@ async function discoverSheetTabs(sheetId: string, apiKey: string): Promise<{ tab
   }
 }
 
+/** Read and trim the cell at the configured column index, or `undefined` if
+ *  the column isn't configured. Avoids repeated `colIdx != null ? ... : undefined`
+ *  ternaries and keeps callers free of Sonar's "negated condition" lint. */
+function cellByOptionalIndex(row: string[], colIdx: number | undefined): string | undefined {
+  if (colIdx === undefined) return undefined;
+  return row[colIdx]?.trim();
+}
+
 /** Resolve kennel tag and run number from a sheet row. Returns null if the row should be skipped. */
 function resolveKennelTagFromSheetRow(
   row: string[],
   config: GoogleSheetsConfig,
 ): { kennelTag: string; runNumber: number | undefined } | null {
-  const runNumberCell = row[config.columns.runNumber]?.trim();
-  const specialRunCell = config.columns.specialRun != null
-    ? row[config.columns.specialRun]?.trim()
-    : undefined;
+  const runNumberCell = cellByOptionalIndex(row, config.columns.runNumber);
+  const specialRunCell = cellByOptionalIndex(row, config.columns.specialRun);
 
   if (specialRunCell && config.kennelTagRules.specialRunMap) {
     const mapped = new Map(Object.entries(config.kennelTagRules.specialRunMap)).get(specialRunCell);
@@ -374,6 +412,12 @@ function resolveKennelTagFromSheetRow(
       kennelTag: config.kennelTagRules.default,
       runNumber: Number.parseInt(runNumberCell, 10),
     };
+  }
+  // No runNumber column configured: row validity is gated entirely by the
+  // date column (already filtered upstream in processRows), so emit the row
+  // with the default kennelTag and a null runNumber.
+  if (config.columns.runNumber == null) {
+    return { kennelTag: config.kennelTagRules.default, runNumber: undefined };
   }
   return null;
 }
@@ -464,15 +508,6 @@ export class GoogleSheetsAdapter implements SourceAdapter {
       return { events: [], errors: [message], errorDetails: { fetch: [{ message }] } };
     }
 
-    const apiKey = process.env.GOOGLE_CALENDAR_API_KEY;
-    if (!apiKey) {
-      return {
-        events: [],
-        errors: ["Missing GOOGLE_CALENDAR_API_KEY environment variable"],
-        errorDetails: { fetch: [{ message: "Missing GOOGLE_CALENDAR_API_KEY environment variable" }] },
-      };
-    }
-
     const days = options?.days ?? 90;
     const now = new Date();
     const minDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
@@ -480,9 +515,19 @@ export class GoogleSheetsAdapter implements SourceAdapter {
     const minISO = minDate.toISOString().slice(0, 10);
     const maxISO = maxDate.toISOString().slice(0, 10);
 
-    // ── Direct CSV URL mode — skip tab discovery entirely ──
+    // ── Direct CSV URL mode — skip tab discovery (and the API key check).
+    // Published-to-web `/pub?output=csv` URLs don't require an API key. ──
     if (config.csvUrl) {
       return this.fetchDirectCsv(config, source.url, minISO, maxISO, now);
+    }
+
+    const apiKey = process.env.GOOGLE_CALENDAR_API_KEY;
+    if (!apiKey) {
+      return {
+        events: [],
+        errors: ["Missing GOOGLE_CALENDAR_API_KEY environment variable"],
+        errorDetails: { fetch: [{ message: "Missing GOOGLE_CALENDAR_API_KEY environment variable" }] },
+      };
     }
 
     const events: RawEventData[] = [];

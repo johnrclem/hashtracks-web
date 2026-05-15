@@ -5140,5 +5140,107 @@ export const SOURCES = [
       },
       kennelCodes: ["vth3"],
     },
+    // ── New Zealand (Phase 1) ──
+    // Garden City + Christchurch: shared Miteri-theme adapter on the WordPress
+    // homepage hareline section. Christchurch's hareline is currently empty so
+    // the STATIC_SCHEDULE row below provides the weekly Monday baseline.
+    {
+      name: "Garden City H3 Website",
+      url: "https://gardencityhash.co.nz/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 180,
+      config: { kennelTag: "garden-city-h3" },
+      kennelCodes: ["garden-city-h3"],
+    },
+    // CHH3 homepage HTML source intentionally omitted from Phase 1: the
+    // homepage Miteri table is empty (CHH3 maintains their special events
+    // on /events/ as plain <ul>/<li>, not in the homepage table). Special-
+    // event scraping needs a dedicated /events/ parser — scoped as Phase 2
+    // follow-up. STATIC weekly Monday baseline below covers the recurring
+    // cadence.
+    staticScheduleSource({
+      name: "Christchurch H3 Static Schedule",
+      url: "https://christchurchhash.net.nz/",
+      kennelTag: "christchurch-h3",
+      rrule: "FREQ=WEEKLY;BYDAY=MO",
+      startTime: "18:30",
+      defaultTitle: "Christchurch H3 Weekly Run",
+      defaultLocation: "Christchurch, NZ",
+      defaultDescription: "Weekly Monday evening trail in the Canterbury region. $7 hash cash includes food. Run details posted at https://christchurchhash.net.nz/.",
+      extra: { trustLevel: 4 },
+    }),
+    // Hibiscus Coast: hareline lives on a published-to-web Google Sheet.
+    // The /export?format=csv path returns a sign-in wall, but the published
+    // /pub?output=csv variant works. Columns: 1=When ("May-18"), 2=Where,
+    // 3=Who. Column 0 is a sequential row counter (1, 2, 3, ...) that
+    // shifts when the kennel adds/removes rows — feeding it into
+    // `runNumber` would re-fingerprint events on every sheet edit, so it's
+    // omitted. Empty-date rows ("No run yet") are filtered upstream by
+    // processRows(). 3 banner rows precede the column-header row.
+    {
+      name: "Hibiscus H3 Hareline Sheet",
+      url: "https://docs.google.com/spreadsheets/d/1NcX991wiqvH0RmRzngaeFReeBKCTkJPxE1aoWIXYot8/pubhtml?gid=1&single=true",
+      type: "GOOGLE_SHEETS" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 180,
+      config: {
+        sheetId: "1NcX991wiqvH0RmRzngaeFReeBKCTkJPxE1aoWIXYot8",
+        csvUrl: "https://docs.google.com/spreadsheets/d/1NcX991wiqvH0RmRzngaeFReeBKCTkJPxE1aoWIXYot8/pub?output=csv&gid=1&single=true",
+        skipRows: 3,
+        columns: { date: 1, location: 2, hares: 3 },
+        kennelTagRules: { default: "hibiscus-h3" },
+        startTimeRules: { default: "18:30" },
+      },
+      kennelCodes: ["hibiscus-h3"],
+    },
+    // Tokoroa H3: dual seasonal STATIC_SCHEDULE. NZ daylight savings runs
+    // roughly Oct → early Apr, so Wed evenings cover Oct–Mar and Sun
+    // afternoons cover Apr–Sep. FB page surfaced in description for users
+    // to look up each week's start location.
+    staticScheduleSource({
+      name: "Tokoroa H3 Static Schedule (Summer Wednesdays)",
+      url: "https://www.facebook.com/TokoroaHHH",
+      kennelTag: "tokoroa-h3",
+      rrule: "FREQ=WEEKLY;BYDAY=WE;BYMONTH=10,11,12,1,2,3",
+      startTime: "18:00",
+      defaultTitle: "Tokoroa H3 Weekly Run",
+      defaultLocation: "Tokoroa, NZ",
+      defaultDescription: "Daylight-savings schedule: Wednesday 6pm. Start location posted each week on https://www.facebook.com/TokoroaHHH/.",
+    }),
+    staticScheduleSource({
+      name: "Tokoroa H3 Static Schedule (Winter Sundays)",
+      url: "https://www.facebook.com/TokoroaHHH#winter-sun",
+      kennelTag: "tokoroa-h3",
+      rrule: "FREQ=WEEKLY;BYDAY=SU;BYMONTH=4,5,6,7,8,9",
+      startTime: "16:00",
+      defaultTitle: "Tokoroa H3 Weekly Run",
+      defaultLocation: "Tokoroa, NZ",
+      defaultDescription: "Winter schedule: Sunday 4pm. Start location posted each week on https://www.facebook.com/TokoroaHHH/.",
+    }),
+    // T3H3 (Wellington Thirsty Thursday Taniwha): monthly 2nd Thursday.
+    staticScheduleSource({
+      name: "T3H3 Wellington Static Schedule",
+      url: "https://www.facebook.com/ThirstyThursdayTaniwhaH3",
+      kennelTag: "t3h3-nz",
+      rrule: "FREQ=MONTHLY;BYDAY=2TH",
+      startTime: "18:30",
+      defaultTitle: "T3H3 Monthly Run",
+      defaultLocation: "Wellington, NZ",
+      defaultDescription: "2nd Thursday of every month, 6:30 PM. ~5km urban trails accessible by public transport. Check https://www.facebook.com/ThirstyThursdayTaniwhaH3 for each month's start location.",
+    }),
+    // Auckland Hussies: Excel-exported static HTML run list.
+    {
+      name: "Auckland Hussies Run List",
+      url: "https://aucklandhussies.co.nz/Run%20List.html",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 5,
+      scrapeFreq: "daily",
+      scrapeDays: 180,
+      config: { kennelTag: "auckland-hussies" },
+      kennelCodes: ["auckland-hussies"],
+    },
   ];
 

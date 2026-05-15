@@ -2748,6 +2748,65 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: 100.3649,
     aliases: ["Butterworth", "Butterworth, Malaysia"],
   },
+  // ── New Zealand (Phase 1: Auckland + Christchurch + Hamilton/Waikato + Wellington founder kennels) ──
+  // Follows the Singapore/Hong Kong pattern: country → metro, no state-province
+  // intermediate. NZ regions map cleanly to metros tied to a single timezone.
+  {
+    name: "New Zealand",
+    country: "New Zealand",
+    level: "COUNTRY",
+    timezone: "Pacific/Auckland",
+    abbrev: "NZ",
+    colorClasses: "bg-sky-100 text-sky-700",
+    pinColor: "#0284c7",
+    centroidLat: -41,
+    centroidLng: 173,
+    aliases: ["NZ", "Aotearoa"],
+  },
+  {
+    name: "Auckland, NZ",
+    country: "New Zealand",
+    timezone: "Pacific/Auckland",
+    abbrev: "AKL",
+    colorClasses: "bg-sky-200 text-sky-800",
+    pinColor: "#0369a1",
+    centroidLat: -36.8485,
+    centroidLng: 174.7633,
+    aliases: ["Auckland", "Auckland, New Zealand"],
+  },
+  {
+    name: "Wellington, NZ",
+    country: "New Zealand",
+    timezone: "Pacific/Auckland",
+    abbrev: "WLG",
+    colorClasses: "bg-cyan-200 text-cyan-800",
+    pinColor: "#0e7490",
+    centroidLat: -41.2866,
+    centroidLng: 174.7756,
+    aliases: ["Wellington", "Wellington, New Zealand"],
+  },
+  {
+    name: "Christchurch, NZ",
+    country: "New Zealand",
+    timezone: "Pacific/Auckland",
+    abbrev: "CHC",
+    colorClasses: "bg-teal-200 text-teal-800",
+    pinColor: "#0f766e",
+    centroidLat: -43.5321,
+    centroidLng: 172.6362,
+    aliases: ["Christchurch", "Christchurch, New Zealand", "ChCh"],
+  },
+  {
+    name: "Hamilton, NZ",
+    country: "New Zealand",
+    timezone: "Pacific/Auckland",
+    abbrev: "HLZ",
+    colorClasses: "bg-emerald-100 text-emerald-700",
+    pinColor: "#047857",
+    centroidLat: -37.787,
+    centroidLng: 175.2793,
+    aliases: ["Hamilton", "Waikato", "Hamilton, New Zealand", "Hamilton/Waikato"],
+  },
 ];
 
 // ── Sync fallback map (built from REGION_SEED_DATA at module load) ──
@@ -2929,28 +2988,46 @@ export function regionNameToData(name: string): RegionData {
   };
 }
 
+/**
+ * Country inference table. Order-sensitive: the first match wins, so more
+ * specific suffix-gated rules (e.g. NZ's `, nz` matcher for ambiguous city
+ * names) precede broader country/city lists.
+ *
+ * Naming conventions baked into these patterns:
+ *   - Avoid short abbreviations that collide with US state codes (\bwa\b vs
+ *     Washington State, \bsa\b for South Australia, \bnt\b for Northern
+ *     Territory, \bnz\b for New Zealand).
+ *   - Stick to full names and city names so "Seattle, WA" still resolves
+ *     to USA, not Australia.
+ *   - For ambiguous NZ city names (Auckland/Wellington/Hamilton/...) that
+ *     collide with US cities, require a `, nz` suffix.
+ */
+const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
+  [/\b(ireland|dublin|cork|galway|limerick)\b/, "IE"],
+  [/\b(uk|england|scotland|wales|london|surrey|sussex)\b/, "UK"],
+  [/\b(australia|sydney|melbourne|brisbane|perth|adelaide|canberra|darwin|hobart|gold coast|newcastle|wollongong|geelong|tasmania|queensland|victoria|western australia|northern territory|australian capital territory|new south wales)\b/, "Australia"],
+  [/\b(canada|toronto|vancouver|montreal|calgary|edmonton|ottawa|winnipeg)\b/, "Canada"],
+  [/\b(germany|berlin|munich|münchen|muenchen|hamburg|stuttgart|frankfurt)\b/, "Germany"],
+  [/\b(japan|tokyo|osaka)\b/, "Japan"],
+  [/\b(belgium|brussels|bruxelles|antwerp|ghent)\b/, "Belgium"],
+  [/\b(netherlands|amsterdam|rotterdam|den haag|the hague|holland)\b/, "Netherlands"],
+  [/\b(denmark|copenhagen|københavn|aarhus)\b/, "Denmark"],
+  [/\b(sweden|stockholm|göteborg|gothenburg|malmö)\b/, "Sweden"],
+  [/\b(norway|oslo|bergen|stavanger)\b/, "Norway"],
+  [/\b(singapore)\b/, "Singapore"],
+  [/\b(thailand|bangkok|pattaya|chiang mai|chiang rai|phuket|hua hin|samui|krabi)\b/, "Thailand"],
+  [/\b(hong kong|kowloon|lantau|new territories|wan\s?chai|sai kung|sek kong)\b/, "Hong Kong"],
+  [/\b(malaysia|kuala lumpur|\bkl\b|petaling|penang|pulau pinang|george town|selangor|johor|sabah|sarawak|melaka|malacca|ipoh|kuching|kota kinabalu|miri|kelana jaya|butterworth|kluang)\b/, "Malaysia"],
+  [/\b(new zealand|aotearoa|christchurch|otepoti|tokoroa|whangarei|whakatane|invercargill|dunedin|tauranga|rotorua|hibiscus coast|coromandel|manawat[uū])\b/, "New Zealand"],
+  [/\b(auckland|wellington|hamilton|nelson|napier|hastings|palmerston north|new plymouth),\s*nz\b/, "New Zealand"],
+];
+
 /** Infer country from region name heuristics. Defaults to "USA". */
 export function inferCountry(name: string): string {
   const lower = name.toLowerCase();
-  if (/\b(ireland|dublin|cork|galway|limerick)\b/.test(lower)) return "IE";
-  if (/\b(uk|england|scotland|wales|london|surrey|sussex)\b/.test(lower)) return "UK";
-  // NOTE: avoid short abbreviations that collide with US state codes —
-  // \bwa\b collides with Washington, \bsa\b with South America-related
-  // strings, \bnt\b is ambiguous. Stick to full names and city names so
-  // "Seattle, WA" still resolves to USA, not Australia.
-  if (/\b(australia|sydney|melbourne|brisbane|perth|adelaide|canberra|darwin|hobart|gold coast|newcastle|wollongong|geelong|tasmania|queensland|victoria|western australia|northern territory|australian capital territory|new south wales)\b/.test(lower)) return "Australia";
-  if (/\b(canada|toronto|vancouver|montreal|calgary|edmonton|ottawa|winnipeg)\b/.test(lower)) return "Canada";
-  if (/\b(germany|berlin|munich|münchen|muenchen|hamburg|stuttgart|frankfurt)\b/.test(lower)) return "Germany";
-  if (/\b(japan|tokyo|osaka)\b/.test(lower)) return "Japan";
-  if (/\b(belgium|brussels|bruxelles|antwerp|ghent)\b/.test(lower)) return "Belgium";
-  if (/\b(netherlands|amsterdam|rotterdam|den haag|the hague|holland)\b/.test(lower)) return "Netherlands";
-  if (/\b(denmark|copenhagen|københavn|aarhus)\b/.test(lower)) return "Denmark";
-  if (/\b(sweden|stockholm|göteborg|gothenburg|malmö)\b/.test(lower)) return "Sweden";
-  if (/\b(norway|oslo|bergen|stavanger)\b/.test(lower)) return "Norway";
-  if (/\b(singapore)\b/.test(lower)) return "Singapore";
-  if (/\b(thailand|bangkok|pattaya|chiang mai|chiang rai|phuket|hua hin|samui|krabi)\b/.test(lower)) return "Thailand";
-  if (/\b(hong kong|kowloon|lantau|new territories|wan\s?chai|sai kung|sek kong)\b/.test(lower)) return "Hong Kong";
-  if (/\b(malaysia|kuala lumpur|\bkl\b|petaling|penang|pulau pinang|george town|selangor|johor|sabah|sarawak|melaka|malacca|ipoh|kuching|kota kinabalu|miri|kelana jaya|butterworth|kluang)\b/.test(lower)) return "Malaysia";
+  for (const [pattern, country] of COUNTRY_INFERENCE_RULES) {
+    if (pattern.test(lower)) return country;
+  }
   return "USA";
 }
 
@@ -3203,6 +3280,11 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Adelaide, SA": "South Australia",
   "Gold Coast, QLD": "Queensland",
   "Melbourne, VIC": "Victoria",
+  // New Zealand — country → metro (Singapore/Hong Kong pattern; no state-province intermediate)
+  "Auckland, NZ": "New Zealand",
+  "Wellington, NZ": "New Zealand",
+  "Christchurch, NZ": "New Zealand",
+  "Hamilton, NZ": "New Zealand",
 };
 
 /** Get the state/country group for a region name (for kennel directory grouping). */
@@ -3355,6 +3437,12 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   "Adelaide, SA": "Australia",
   "Gold Coast, QLD": "Australia",
   "Melbourne, VIC": "Australia",
+  // New Zealand — country → metro (Singapore/Hong Kong pattern; no state-province intermediate)
+  "New Zealand": "New Zealand",
+  "Auckland, NZ": "New Zealand",
+  "Wellington, NZ": "New Zealand",
+  "Christchurch, NZ": "New Zealand",
+  "Hamilton, NZ": "New Zealand",
 };
 
 /** Get the country for a state group name (for 3-level region hierarchy). */
@@ -3404,6 +3492,7 @@ const COUNTRY_CODE_TO_NAME: Record<string, string> = {
   TH: "Thailand",
   HK: "Hong Kong",
   MY: "Malaysia",
+  NZ: "New Zealand",
 };
 
 /** All canonical country names used in COUNTRY_GROUP_MAP values. */

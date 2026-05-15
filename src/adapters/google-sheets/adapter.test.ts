@@ -124,6 +124,25 @@ describe("parseDate", () => {
       expect(parseDate(input, today)).toBe(expected);
     });
   });
+
+  // ── "Mon-DD" (no year) — Hibiscus H3 format ──
+
+  describe("Mon-DD (no year)", () => {
+    type Case = readonly [Date, string, string | null];
+    const cases: Record<string, Case> = {
+      "May-18 on May 15 → current year (in grace)": [new Date(Date.UTC(2026, 4, 15)), "May-18", "2026-05-18"],
+      "Dec-5 on Jan 1 → previous year (grace)": [new Date(Date.UTC(2026, 0, 1)), "Dec-5", "2025-12-05"],
+      "Jan-5 on Dec 15 → next year (rolls forward)": [new Date(Date.UTC(2026, 11, 15)), "Jan-5", "2027-01-05"],
+      "May-1 on May 15 → current year": [new Date(Date.UTC(2026, 4, 15)), "May-1", "2026-05-01"],
+      "Jun-30 → current year": [new Date(Date.UTC(2026, 4, 15)), "Jun-30", "2026-06-30"],
+      "unknown month 'Xyz-5'": [new Date(Date.UTC(2026, 4, 15)), "Xyz-5", null],
+      "impossible day 'Feb-30'": [new Date(Date.UTC(2026, 4, 15)), "Feb-30", null],
+    };
+
+    it.each(Object.entries(cases))("%s", (_label, [today, input, expected]) => {
+      expect(parseDate(input, today)).toBe(expected);
+    });
+  });
 });
 
 // ── inferStartTime ──
@@ -230,6 +249,26 @@ describe("buildEventFromSheetRow", () => {
     expect(event!.hares).toBeUndefined();
     expect(event!.location).toBeUndefined();
     expect(event!.title).toBe("Real Title");
+  });
+
+  it("emits runNumber: undefined when columns.runNumber is not configured (Hibiscus pattern)", () => {
+    // Hibiscus's sheet has a sequential row counter (1, 2, 3, ...) in col 0
+    // that shifts when the kennel adds/removes rows above. Feeding that
+    // into runNumber would re-fingerprint events on every sheet edit, so
+    // we omit the column entirely and rely on the date column to gate
+    // row validity (already filtered upstream by processRows).
+    const config = {
+      sheetId: "test",
+      columns: { date: 1, location: 2, hares: 3 },
+      kennelTagRules: { default: "hibiscus-h3" },
+    };
+    const row = ["1", "May-18", "The Mercant, Albany", "Nature&Teddy"];
+    const event = buildEventFromSheetRow(row, config, "https://example.com", "2026-05-18");
+    expect(event).not.toBeNull();
+    expect(event!.runNumber).toBeUndefined();
+    expect(event!.kennelTags).toEqual(["hibiscus-h3"]);
+    expect(event!.hares).toBe("Nature&Teddy");
+    expect(event!.location).toBe("The Mercant, Albany");
   });
 
   it("drops all-lowercase single-token city shorthands like 'sheperdstown' (#893)", () => {
