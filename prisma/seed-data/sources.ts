@@ -5014,6 +5014,9 @@ export const SOURCES = [
       name: "MiHi-HuHa Facebook Hosted Events",
       url: "https://www.facebook.com/MileHighH3/upcoming_hosted_events",
       type: "FACEBOOK_HOSTED_EVENTS" as const,
+      // FB page exposes zero events; kennel's About text directs users to
+      // coloradoh3.com + private FB group. GCal is the canonical feed. (#1391)
+      enabled: false,
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 90,
