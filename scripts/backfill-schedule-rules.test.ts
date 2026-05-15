@@ -670,7 +670,7 @@ describe("runKennelSeedPass", () => {
       startTime: null,
       confidence: "HIGH",
       source: "STATIC_SCHEDULE",
-      sourceReference: "http://x",
+      sourceReference: "https://example.test/x",
       lastValidatedAt: null,
       notes: null,
       label: null,
