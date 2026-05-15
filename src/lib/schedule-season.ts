@@ -14,7 +14,7 @@
  * (1–366) is used internally so leap days (Feb 29) are accepted cleanly.
  */
 
-import { parseRRule } from "@/adapters/static-schedule/adapter";
+import { parseRRule } from "@/adapters/static-schedule/rrule-parser";
 
 const MONTH_DAY_RE = /^(\d{2})-(\d{2})$/;
 

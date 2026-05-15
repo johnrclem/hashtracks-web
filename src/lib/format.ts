@@ -1,6 +1,6 @@
 import { regionNameToSlug } from "@/lib/region";
 import { formatSeasonHint, type ScheduleSlot } from "@/lib/schedule-season";
-import { parseRRule } from "@/adapters/static-schedule/adapter";
+import { parseRRule } from "@/adapters/static-schedule/rrule-parser";
 
 // Re-export ScheduleSlot from format.ts for backward compat with existing
 // component imports. The canonical home is now @/lib/schedule-season.
