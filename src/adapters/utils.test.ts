@@ -14,6 +14,7 @@ import {
   chronoParseDate,
   isPlaceholder,
   stripPlaceholder,
+  bumpYearIfBefore,
   extractAddressWithAi,
   stripNonEnglishCountry,
   applyWeekdayShift,
@@ -526,6 +527,37 @@ describe("stripPlaceholder", () => {
     expect(stripPlaceholder("  Central Park  ")).toBe("Central Park");
     expect(stripPlaceholder("TBD - check back")).toBe("TBD - check back");
     expect(stripPlaceholder("Location TBD")).toBe("Location TBD");
+  });
+});
+
+describe("bumpYearIfBefore", () => {
+  it("returns input unchanged when prevDate is undefined", () => {
+    expect(bumpYearIfBefore("2026-05-15", undefined)).toBe("2026-05-15");
+  });
+
+  it("returns input unchanged when already after prevDate", () => {
+    expect(bumpYearIfBefore("2026-06-01", "2026-05-15")).toBe("2026-06-01");
+  });
+
+  it("bumps year forward when date is on or before prevDate", () => {
+    expect(bumpYearIfBefore("2026-01-05", "2026-12-15")).toBe("2027-01-05");
+    expect(bumpYearIfBefore("2026-05-15", "2026-05-15")).toBe("2027-05-15");
+  });
+
+  it("loops to clear a multi-year wrap defensively", () => {
+    expect(bumpYearIfBefore("2024-01-05", "2026-12-15")).toBe("2027-01-05");
+  });
+
+  it("clamps Feb 29 → Feb 28 when bumping into a non-leap year", () => {
+    // 2024-02-29 is valid; bump targets 2025 (non-leap) so Feb 28 is the
+    // safe substitute. Without clamping, `new Date("2025-02-29T12:00:00Z")`
+    // silently rolls to March 1.
+    expect(bumpYearIfBefore("2024-02-29", "2024-12-31")).toBe("2025-02-28");
+  });
+
+  it("preserves Feb 29 when bumping into a leap year", () => {
+    // 2024 → 2028 is a leap year, so the day stays.
+    expect(bumpYearIfBefore("2024-02-29", "2027-12-31")).toBe("2028-02-29");
   });
 });
 

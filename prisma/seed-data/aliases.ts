@@ -505,5 +505,12 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "lds-h3": ["LDS H3", "LDSH3", "Lotsa Damn Shiggy", "Lotsa Damn Shiggy H3"],
     "slosh-h3": ["SLOSH", "SLOSH H3", "Salt Lake Old School", "Salt Lake Old School H3"],
     "slut-h3": ["SL,UT Discovery", "SLUT Discovery", "SL UT Discovery", "SLUT H3", "SL,UT H3"],
+    // New Zealand (Phase 1)
+    "christchurch-h3": ["CHH3", "Christchurch H3", "Christchurch Hash", "ChCh Hash", "ChCh H3"],
+    "garden-city-h3": ["GCH3", "Garden City Hash", "Garden City H3", "Garden City HHH"],
+    "hibiscus-h3": ["Hibiscus H3", "Hibiscus HHH", "Hibiscus Coast Hash", "Hibiscus Coast H3"],
+    "tokoroa-h3": ["Tokoroa H3", "Tokoroa HHH", "Tokoroa Hash"],
+    "t3h3-nz": ["T3H3", "Thirsty Thursday Taniwha", "Wellington Thursday Hash", "Wellington Taniwha H3"],
+    "auckland-hussies": ["Auckland Hussies", "Auckland Hash Hussies", "AK Hash Harriets", "Auckland Hussies HHH"],
   };
 

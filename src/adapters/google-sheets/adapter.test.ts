@@ -124,6 +124,25 @@ describe("parseDate", () => {
       expect(parseDate(input, today)).toBe(expected);
     });
   });
+
+  // ── "Mon-DD" (no year) — Hibiscus H3 format ──
+
+  describe("Mon-DD (no year)", () => {
+    type Case = readonly [Date, string, string | null];
+    const cases: Record<string, Case> = {
+      "May-18 on May 15 → current year (in grace)": [new Date(Date.UTC(2026, 4, 15)), "May-18", "2026-05-18"],
+      "Dec-5 on Jan 1 → previous year (grace)": [new Date(Date.UTC(2026, 0, 1)), "Dec-5", "2025-12-05"],
+      "Jan-5 on Dec 15 → next year (rolls forward)": [new Date(Date.UTC(2026, 11, 15)), "Jan-5", "2027-01-05"],
+      "May-1 on May 15 → current year": [new Date(Date.UTC(2026, 4, 15)), "May-1", "2026-05-01"],
+      "Jun-30 → current year": [new Date(Date.UTC(2026, 4, 15)), "Jun-30", "2026-06-30"],
+      "unknown month 'Xyz-5'": [new Date(Date.UTC(2026, 4, 15)), "Xyz-5", null],
+      "impossible day 'Feb-30'": [new Date(Date.UTC(2026, 4, 15)), "Feb-30", null],
+    };
+
+    it.each(Object.entries(cases))("%s", (_label, [today, input, expected]) => {
+      expect(parseDate(input, today)).toBe(expected);
+    });
+  });
 });
 
 // ── inferStartTime ──

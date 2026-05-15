@@ -2748,6 +2748,65 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: 100.3649,
     aliases: ["Butterworth", "Butterworth, Malaysia"],
   },
+  // ── New Zealand (Phase 1: Auckland + Christchurch + Hamilton/Waikato + Wellington founder kennels) ──
+  // Follows the Singapore/Hong Kong pattern: country → metro, no state-province
+  // intermediate. NZ regions map cleanly to metros tied to a single timezone.
+  {
+    name: "New Zealand",
+    country: "New Zealand",
+    level: "COUNTRY",
+    timezone: "Pacific/Auckland",
+    abbrev: "NZ",
+    colorClasses: "bg-sky-100 text-sky-700",
+    pinColor: "#0284c7",
+    centroidLat: -41.0,
+    centroidLng: 173.0,
+    aliases: ["NZ", "Aotearoa"],
+  },
+  {
+    name: "Auckland, NZ",
+    country: "New Zealand",
+    timezone: "Pacific/Auckland",
+    abbrev: "AKL",
+    colorClasses: "bg-sky-200 text-sky-800",
+    pinColor: "#0369a1",
+    centroidLat: -36.8485,
+    centroidLng: 174.7633,
+    aliases: ["Auckland", "Auckland, New Zealand"],
+  },
+  {
+    name: "Wellington, NZ",
+    country: "New Zealand",
+    timezone: "Pacific/Auckland",
+    abbrev: "WLG",
+    colorClasses: "bg-cyan-200 text-cyan-800",
+    pinColor: "#0e7490",
+    centroidLat: -41.2866,
+    centroidLng: 174.7756,
+    aliases: ["Wellington", "Wellington, New Zealand"],
+  },
+  {
+    name: "Christchurch, NZ",
+    country: "New Zealand",
+    timezone: "Pacific/Auckland",
+    abbrev: "CHC",
+    colorClasses: "bg-teal-200 text-teal-800",
+    pinColor: "#0f766e",
+    centroidLat: -43.5321,
+    centroidLng: 172.6362,
+    aliases: ["Christchurch", "Christchurch, New Zealand", "ChCh"],
+  },
+  {
+    name: "Hamilton, NZ",
+    country: "New Zealand",
+    timezone: "Pacific/Auckland",
+    abbrev: "HLZ",
+    colorClasses: "bg-emerald-100 text-emerald-700",
+    pinColor: "#047857",
+    centroidLat: -37.7870,
+    centroidLng: 175.2793,
+    aliases: ["Hamilton", "Waikato", "Hamilton, New Zealand", "Hamilton/Waikato"],
+  },
 ];
 
 // ── Sync fallback map (built from REGION_SEED_DATA at module load) ──
@@ -2951,6 +3010,12 @@ export function inferCountry(name: string): string {
   if (/\b(thailand|bangkok|pattaya|chiang mai|chiang rai|phuket|hua hin|samui|krabi)\b/.test(lower)) return "Thailand";
   if (/\b(hong kong|kowloon|lantau|new territories|wan\s?chai|sai kung|sek kong)\b/.test(lower)) return "Hong Kong";
   if (/\b(malaysia|kuala lumpur|\bkl\b|petaling|penang|pulau pinang|george town|selangor|johor|sabah|sarawak|melaka|malacca|ipoh|kuching|kota kinabalu|miri|kelana jaya|butterworth|kluang)\b/.test(lower)) return "Malaysia";
+  // New Zealand — avoid bare \bnz\b (collides with state abbreviations
+  // elsewhere) and bare \bwellington\b (US has Wellington, FL/KS/OH). Match
+  // full "wellington, nz" / country / Aotearoa, plus other distinctive NZ
+  // metros that don't collide with US city names.
+  if (/\b(new zealand|aotearoa|christchurch|otepoti|tokoroa|whangarei|whakatane|invercargill|dunedin|tauranga|rotorua|hibiscus coast|coromandel|manawat[uū])\b/.test(lower)) return "New Zealand";
+  if (/\b(auckland|wellington|hamilton|nelson|napier|hastings|palmerston north|new plymouth),\s*nz\b/.test(lower)) return "New Zealand";
   return "USA";
 }
 
@@ -3203,6 +3268,11 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Adelaide, SA": "South Australia",
   "Gold Coast, QLD": "Queensland",
   "Melbourne, VIC": "Victoria",
+  // New Zealand — country → metro (Singapore/Hong Kong pattern; no state-province intermediate)
+  "Auckland, NZ": "New Zealand",
+  "Wellington, NZ": "New Zealand",
+  "Christchurch, NZ": "New Zealand",
+  "Hamilton, NZ": "New Zealand",
 };
 
 /** Get the state/country group for a region name (for kennel directory grouping). */
@@ -3355,6 +3425,12 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   "Adelaide, SA": "Australia",
   "Gold Coast, QLD": "Australia",
   "Melbourne, VIC": "Australia",
+  // New Zealand — country → metro (Singapore/Hong Kong pattern; no state-province intermediate)
+  "New Zealand": "New Zealand",
+  "Auckland, NZ": "New Zealand",
+  "Wellington, NZ": "New Zealand",
+  "Christchurch, NZ": "New Zealand",
+  "Hamilton, NZ": "New Zealand",
 };
 
 /** Get the country for a state group name (for 3-level region hierarchy). */
@@ -3404,6 +3480,7 @@ const COUNTRY_CODE_TO_NAME: Record<string, string> = {
   TH: "Thailand",
   HK: "Hong Kong",
   MY: "Malaysia",
+  NZ: "New Zealand",
 };
 
 /** All canonical country names used in COUNTRY_GROUP_MAP values. */

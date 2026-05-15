@@ -6,7 +6,7 @@ globs:
   - src/pipeline/**
 ---
 
-# Active Sources (189)
+# Active Sources (197)
 
 ## NYC / NJ / Philly (9 sources)
 - **hashnyc.com** -> HTML_SCRAPER -> 11 NYC-area kennels
@@ -283,6 +283,16 @@ globs:
 - **KFMH3 Google Calendar** → GOOGLE_CALENDAR → KFMH3 (Osaka, monthly full moon)
 - **Kyoto H3 Google Calendar** → GOOGLE_CALENDAR → Kyoto H3
 - **Osaka H3 Google Calendar** → GOOGLE_CALENDAR → Osaka H3
+
+## New Zealand (8 sources — Phase 1: Auckland + Christchurch + Hamilton/Waikato + Wellington founders)
+- **Garden City H3 Website** -> HTML_SCRAPER (Miteri-hareline, SiteOrigin Page Builder grid) -> garden-city-h3 (Tuesday, Christchurch, founded 1984)
+- **Christchurch H3 Website** -> HTML_SCRAPER (Miteri-hareline, Gutenberg wp-block-table) -> christchurch-h3 (Monday, oldest South Island kennel, founded 1979)
+- **Christchurch H3 Static Schedule** -> STATIC_SCHEDULE -> christchurch-h3 (weekly Monday 18:30 baseline; site scraper enriches when hareline rows populate)
+- **Hibiscus H3 Hareline Sheet** -> GOOGLE_SHEETS (published-to-web `/pub?output=csv`) -> hibiscus-h3 (Monday, Hibiscus Coast, founded 1987)
+- **Tokoroa H3 Static Schedule (Summer Wednesdays)** -> STATIC_SCHEDULE (BYMONTH=10–3, NZ daylight savings) -> tokoroa-h3 (founded 1983)
+- **Tokoroa H3 Static Schedule (Winter Sundays)** -> STATIC_SCHEDULE (BYMONTH=4–9) -> tokoroa-h3 (Sunday 16:00 winter cadence)
+- **T3H3 Wellington Static Schedule** -> STATIC_SCHEDULE -> t3h3-nz (2nd Thursday monthly 18:30, founded 2016)
+- **Auckland Hussies Run List** -> HTML_SCRAPER (Excel-export static table) -> auckland-hussies (Tuesday, founded 1978)
 
 See `docs/source-onboarding-playbook.md` for how to add new sources.
 See `docs/roadmap.md` for implementation roadmap.
