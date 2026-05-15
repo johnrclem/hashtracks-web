@@ -2578,7 +2578,7 @@ export const SOURCES = [
         // trimmed multiple times before titleStripPatterns runs, so trailing
         // whitespace can't be present, and adjacent `\.?\s*$` is the shape
         // SonarCloud S5852 flags as a potential ReDoS.
-        titleStripPatterns: ["[\\s\\-:]+jhav\\s+trail\\s+#?\\d+\\.?$"],
+        titleStripPatterns: [String.raw`[\s\-:]+jhav\s+trail\s+#?\d+\.?$`],
       },
       kennelCodes: ["jhav-h3"],
     },

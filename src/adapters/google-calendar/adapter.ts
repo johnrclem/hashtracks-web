@@ -342,7 +342,7 @@ const NON_NAME_PAREN_RE = /\b(?:to|from|no|not|only|all|free|via|and back|cancel
  * names like "DJ", "MJ", "FBI", and a blanket all-caps reject would FN
  * them.
  */
-const ACRONYM_PAREN_RE = /^(?:\d+\s*[A-Za-z]{0,2}|AM|PM|BYOB|TBD|TBA|TBC|FYI|NSFW|DNF|DNS|RIP)$/i;
+const ACRONYM_PAREN_RE = /^(?:\d+\s*[a-z]{0,2}|AM|PM|BYOB|TBD|TBA|TBC|FYI|NSFW|DNF|DNS|RIP)$/i;
 const MAX_HARE_PAREN_LENGTH = 40;
 
 /**
