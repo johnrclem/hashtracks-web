@@ -38,7 +38,14 @@ const DEFAULT_LOCALE = "en-NZ";
 // Per-hostname cf_clearance cookie cache. cf_clearance is bound to (IP, UA)
 // and typically valid ~30 min from Cloudflare; we cache 25 min for a safety
 // margin so subsequent renders within that window skip the puzzle solve.
+// Eviction is lazy (on same-host re-access of an expired entry) — fine in
+// practice since we scrape a bounded set of sources (~150 entries × few
+// hundred bytes = ~50 KB ceiling); process-local, rebuilds on restart.
 const CF_COOKIE_TTL_MS = 25 * 60 * 1000;
+// Single source of truth for the title markers that signal a CF challenge.
+// `pageRe` is reconstructed from `.source` inside the in-browser
+// `waitForFunction` callback so we never drift between Node-side and
+// page-side matchers when CF's challenge wording shifts.
 const CF_CHALLENGE_TITLE_RE = /just a moment|attention required|checking your browser/i;
 const cfCookieCache = new Map(); // hostname → { cookies: SetCookieArray, expiresAt: epochMs }
 
@@ -120,37 +127,69 @@ async function getBrowser() {
 /**
  * Wait for Cloudflare's "Just a moment…" / Bot Fight Mode JS challenge to
  * resolve. Fast no-op when the current page isn't challenged. When it is,
- * polls the page title every 500 ms until the challenge marker disappears
+ * polls the page title every 250 ms until the challenge marker disappears
  * (CF redirects post-challenge to the real page), capped at `maxWaitMs`.
  *
- * Returns `true` if a challenge was observed (whether or not it cleared),
- * `false` if the page was never challenged. Callers use the boolean to
- * decide whether to cache cf_clearance cookies.
+ * Returns `"cleared"` when the challenge was observed and resolved within
+ * the budget, `"timeout"` when it was observed but never cleared (don't
+ * cache the resulting cookies — they're bogus), and `"none"` when the
+ * page was never challenged.
  */
 async function clearCloudflareChallenge(page, maxWaitMs) {
   const titleNow = await page.title().catch(() => "");
-  if (!CF_CHALLENGE_TITLE_RE.test(titleNow)) return false;
+  if (!CF_CHALLENGE_TITLE_RE.test(titleNow)) return "none";
   console.log(
     `[${new Date().toISOString()}] Cloudflare challenge detected (title: "${titleNow}"), waiting up to ${maxWaitMs}ms`,
   );
+  // Reconstruct the matcher inside the page context using the Node-side
+  // regex source so the two sides can't drift.
+  const pattern = CF_CHALLENGE_TITLE_RE.source;
+  const flags = CF_CHALLENGE_TITLE_RE.flags;
   await page
     .waitForFunction(
-      () => !/just a moment|attention required|checking your browser/i.test(document.title || ""),
-      null,
-      { timeout: maxWaitMs, polling: 500 },
+      ({ pattern, flags }) => !new RegExp(pattern, flags).test(document.title || ""),
+      { pattern, flags },
+      { timeout: maxWaitMs, polling: 250 },
     )
     .catch(() => {
-      // Timeout — let the caller inspect the resulting HTML and report.
+      // Timeout — fall through to the post-check below.
     });
-  // The CF flow finishes with a navigation reload; give it a beat to settle.
-  await page.waitForLoadState("domcontentloaded").catch(() => {});
-  return true;
+  // Re-read the title; only report "cleared" if the marker is actually gone.
+  const titleAfter = await page.title().catch(() => titleNow);
+  return CF_CHALLENGE_TITLE_RE.test(titleAfter) ? "timeout" : "cleared";
 }
 
 /** Extract CF-bypass cookies (cf_clearance + any __cf_* helpers) for a context's origin. */
 async function readCfCookies(context, origin) {
   const cookies = await context.cookies(origin).catch(() => []);
   return cookies.filter((c) => c.name === "cf_clearance" || c.name.startsWith("__cf"));
+}
+
+/** Prime a fresh browser context with cached CF cookies for `hostname`,
+ *  if a fresh cache entry exists. Evicts expired entries. */
+async function primeCfCookies(context, hostname) {
+  const cached = cfCookieCache.get(hostname);
+  if (!cached) return;
+  if (cached.expiresAt <= Date.now()) {
+    cfCookieCache.delete(hostname);
+    return;
+  }
+  await context.addCookies(cached.cookies).catch(() => {});
+}
+
+/** Read fresh CF cookies from the context and cache them by hostname for the
+ *  configured TTL. Called only after we know the challenge actually cleared
+ *  (otherwise the cookies are bogus and would waste the next request). */
+async function captureCfCookies(context, parsedUrl) {
+  const cfCookies = await readCfCookies(context, parsedUrl.origin);
+  if (cfCookies.length === 0) return;
+  cfCookieCache.set(parsedUrl.hostname, {
+    cookies: cfCookies,
+    expiresAt: Date.now() + CF_COOKIE_TTL_MS,
+  });
+  console.log(
+    `[${new Date().toISOString()}] Cached ${cfCookies.length} CF cookie(s) for ${parsedUrl.hostname} (TTL ${CF_COOKIE_TTL_MS / 60000}min)`,
+  );
 }
 
 /**
@@ -237,19 +276,22 @@ const server = http.createServer(async (req, res) => {
       });
     }
 
-    // Optional caller-supplied UA. Same charset/length sanity-checks as
-    // timezoneId (keep the surface small, fail closed on garbage). The
-    // request handler defaults to DEFAULT_USER_AGENT when omitted.
+    // Optional caller-supplied UA. Length-bounded and control-char-rejecting
+    // — real Chrome UAs need `()`, `;`, `,`, `/` so a strict allowlist won't
+    // fit, but `\x00-\x1f\x7f` are never valid in a header value and rejecting
+    // them prevents request-smuggling-style injection when Playwright sets
+    // the UA on the outbound request. Defaults to DEFAULT_USER_AGENT.
     let safeUserAgent;
     if (userAgent !== undefined) {
       if (
         typeof userAgent !== "string" ||
         userAgent.length === 0 ||
-        userAgent.length > 256
+        userAgent.length > 256 ||
+        /[\x00-\x1f\x7f]/.test(userAgent)
       ) {
         busy = false;
         return jsonResponse(res, 400, {
-          error: `Invalid userAgent (length 1-256 required)`,
+          error: `Invalid userAgent (length 1-256, no control chars)`,
         });
       }
       safeUserAgent = userAgent;
@@ -328,15 +370,7 @@ const server = http.createServer(async (req, res) => {
       ...(safeTimezoneId ? { timezoneId: safeTimezoneId } : {}),
     };
     context = await b.newContext(contextOpts);
-
-    // Prime the context with cached cf_clearance cookies if we've cleared
-    // this host's challenge recently — skips the 5-15s puzzle solve.
-    const cached = cfCookieCache.get(parsedUrl.hostname);
-    if (cached && cached.expiresAt > Date.now()) {
-      await context.addCookies(cached.cookies).catch(() => {});
-    } else if (cached) {
-      cfCookieCache.delete(parsedUrl.hostname); // evict expired entry
-    }
+    await primeCfCookies(context, parsedUrl.hostname);
 
     page = await context.newPage();
 
@@ -351,19 +385,12 @@ const server = http.createServer(async (req, res) => {
     // Clear Cloudflare's "Just a moment…" JS challenge if the response
     // landed on one. No-op for non-CF sites (single title read). Use the
     // remaining page-timeout budget so we never exceed PAGE_TIMEOUT_MS.
+    // Only cache cookies when the challenge actually cleared — caching on
+    // timeout would prime the next request with bogus cookies.
     const cfRemaining = Math.max(pageTimeout - (Date.now() - renderStart), 5_000);
-    const wasChallenged = await clearCloudflareChallenge(page, cfRemaining);
-    if (wasChallenged) {
-      const cfCookies = await readCfCookies(context, parsedUrl.origin);
-      if (cfCookies.length > 0) {
-        cfCookieCache.set(parsedUrl.hostname, {
-          cookies: cfCookies,
-          expiresAt: Date.now() + CF_COOKIE_TTL_MS,
-        });
-        console.log(
-          `[${new Date().toISOString()}] Cached ${cfCookies.length} CF cookie(s) for ${parsedUrl.hostname} (TTL ${CF_COOKIE_TTL_MS / 60000}min)`,
-        );
-      }
+    const cfOutcome = await clearCloudflareChallenge(page, cfRemaining);
+    if (cfOutcome === "cleared") {
+      await captureCfCookies(context, parsedUrl);
     }
 
     // Wait for the requested selector
