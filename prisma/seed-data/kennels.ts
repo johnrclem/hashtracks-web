@@ -6,7 +6,7 @@
  * monthly Thu + monthly Fri) where the single legacy schedule slot on Kennel
  * silently misrepresents reality.
  *
- * MM-DD anchors on validFrom/validUntil wrap across years — "11-01" → "02-28" is
+ * MM-DD anchors on validFrom/validUntil wrap across years — "11-01" → "02-29" is
  * the wintertime cadence. Omit a rule for a hiatus period (don't encode hiatus
  * negatively). All fields except `rrule` are optional; only the calendar-rule
  * RRULE shapes the static-schedule adapter parses are accepted here
@@ -1128,7 +1128,7 @@ export const KENNELS: KennelSeed[] = [
           startTime: "15:00",
           label: "Winter",
           validFrom: "11-01",
-          validUntil: "02-28",
+          validUntil: "02-29",
           displayOrder: 1,
         },
       ],

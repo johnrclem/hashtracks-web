@@ -562,7 +562,7 @@ describe("projectTrails — seasonal gating (#1390)", () => {
     confidence: "HIGH",
     label: "Winter",
     validFrom: "11-01",
-    validUntil: "02-28",
+    validUntil: "02-29",
   });
 
   it("emits ONLY summer Wednesdays in a July search window", () => {
