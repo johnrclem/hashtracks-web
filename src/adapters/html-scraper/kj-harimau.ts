@@ -91,6 +91,7 @@ export function parseKjHarimauBody(bodyText: string): {
   // can't latch onto the next label.
   const grab = (label: string): string | undefined => {
     // nosemgrep: detect-non-literal-regexp — `label` is a hard-coded literal from the constant above, not user input (mirrors hare-extraction.ts suppression)
+    // eslint-disable-next-line -- security/detect-non-literal-regexp + security-node/non-literal-reg-expr (Codacy ESLint plugins not loaded locally); `label` is a hard-coded literal
     const re = new RegExp(`${label}\\s*:[ \\t]*(?:\\n[ \\t]*)?(\\S.*?)${stop}`, "i"); // NOSONAR nosemgrep
     const m = re.exec(text);
     if (!m) return undefined;
