@@ -4,7 +4,11 @@ import {
   parseFrequencyDay,
   normalizeRRule,
   runStaticSchedulePass,
+  runKennelSeedPass,
+  runKennelDisplayPass,
+  applyUpserts,
 } from "./backfill-schedule-rules";
+import type { KennelScheduleRuleSeed } from "../prisma/seed-data/kennels";
 
 describe("parseScheduleTime", () => {
   it("parses PM times to 24-hour", () => {
@@ -445,5 +449,406 @@ describe("runStaticSchedulePass — lunar branch", () => {
       anchorDate: "2026-03-07",
       confidence: "HIGH",
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// runKennelSeedPass — Pass 3, multi-cadence seed rules (#1390)
+// ---------------------------------------------------------------------------
+
+interface FakeKennelRow {
+  id: string;
+  kennelCode: string;
+  shortName: string;
+}
+
+/**
+ * Minimal prisma stub for Pass 3 — only `kennel.findMany` is exercised. Returns
+ * rows whose kennelCode is in the `where.kennelCode.in` clause.
+ */
+function fakePrismaForSeed(kennels: FakeKennelRow[]) {
+  return {
+    kennel: {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      findMany: async (args: any) => {
+        const codes: string[] = args?.where?.kennelCode?.in ?? [];
+        return kennels.filter((k) => codes.includes(k.kennelCode));
+      },
+    },
+  } as unknown as Parameters<typeof runKennelSeedPass>[0];
+}
+
+describe("runKennelSeedPass", () => {
+  it("emits one HIGH-confidence rule per scheduleRules entry, threading label/validFrom/validUntil/displayOrder", async () => {
+    const planned: Parameters<typeof runKennelSeedPass>[1] = [];
+    const prisma = fakePrismaForSeed([
+      { id: "k_hockessin", kennelCode: "hockessin", shortName: "Hockessin H3" },
+    ]);
+    const seeds = [
+      {
+        kennelCode: "hockessin",
+        scheduleRules: [
+          {
+            rrule: "FREQ=WEEKLY;BYDAY=WE",
+            startTime: "18:30",
+            label: "Summer",
+            validFrom: "03-01",
+            validUntil: "10-31",
+            displayOrder: 0,
+          },
+          {
+            rrule: "FREQ=WEEKLY;BYDAY=SA",
+            startTime: "15:00",
+            label: "Winter",
+            validFrom: "11-01",
+            validUntil: "02-28",
+            displayOrder: 1,
+          },
+        ] satisfies KennelScheduleRuleSeed[],
+      },
+    ];
+    const result = await runKennelSeedPass(prisma, planned, {}, seeds);
+    expect(result.count).toBe(2);
+    expect(result.skippedKennels).toBe(0);
+    expect(result.skippedRules).toBe(0);
+
+    expect(planned).toHaveLength(2);
+    expect(planned[0]).toMatchObject({
+      kennelId: "k_hockessin",
+      rrule: "FREQ=WEEKLY;BYDAY=WE",
+      startTime: "18:30",
+      confidence: "HIGH",
+      source: "SEED_DATA",
+      sourceReference: "KennelSeed.scheduleRules[hockessin]",
+      label: "Summer",
+      validFrom: "03-01",
+      validUntil: "10-31",
+      displayOrder: 0,
+    });
+    expect(planned[0].lastValidatedAt).toBeInstanceOf(Date);
+    expect(planned[1]).toMatchObject({
+      rrule: "FREQ=WEEKLY;BYDAY=SA",
+      label: "Winter",
+      validFrom: "11-01",
+      validUntil: "02-28",
+      displayOrder: 1,
+    });
+  });
+
+  it("emits one rule per Hebe-style single-slot seed (no seasonality metadata)", async () => {
+    const planned: Parameters<typeof runKennelSeedPass>[1] = [];
+    const prisma = fakePrismaForSeed([
+      { id: "k_hebe", kennelCode: "hebe-h3", shortName: "Hebe H3" },
+    ]);
+    const seeds = [
+      {
+        kennelCode: "hebe-h3",
+        scheduleRules: [
+          { rrule: "FREQ=MONTHLY;BYDAY=1SA", startTime: "15:00", label: "Monthly" },
+        ] satisfies KennelScheduleRuleSeed[],
+      },
+    ];
+    await runKennelSeedPass(prisma, planned, {}, seeds);
+    expect(planned).toHaveLength(1);
+    expect(planned[0]).toMatchObject({
+      rrule: "FREQ=MONTHLY;BYDAY=1SA",
+      confidence: "HIGH",
+      source: "SEED_DATA",
+      label: "Monthly",
+      validFrom: null,
+      validUntil: null,
+      displayOrder: 0,
+    });
+  });
+
+  it("drops malformed MM-DD anchors with a warning instead of writing garbage", async () => {
+    const planned: Parameters<typeof runKennelSeedPass>[1] = [];
+    const prisma = fakePrismaForSeed([
+      { id: "k_x", kennelCode: "x", shortName: "X" },
+    ]);
+    const seeds = [
+      {
+        kennelCode: "x",
+        scheduleRules: [
+          {
+            rrule: "FREQ=WEEKLY;BYDAY=MO",
+            // Invalid: month 13 (validates against 1-12 and last-day-of-month).
+            validFrom: "13-01",
+            validUntil: "02-30",
+          },
+        ] satisfies KennelScheduleRuleSeed[],
+      },
+    ];
+    await runKennelSeedPass(prisma, planned, {}, seeds);
+    expect(planned).toHaveLength(1);
+    expect(planned[0].validFrom).toBeNull();
+    expect(planned[0].validUntil).toBeNull();
+  });
+
+  it("accepts Feb 29 (leap-year-aware date validation)", async () => {
+    const planned: Parameters<typeof runKennelSeedPass>[1] = [];
+    const prisma = fakePrismaForSeed([
+      { id: "k_x", kennelCode: "x", shortName: "X" },
+    ]);
+    const seeds = [
+      {
+        kennelCode: "x",
+        scheduleRules: [
+          { rrule: "FREQ=WEEKLY;BYDAY=SA", validUntil: "02-29" },
+        ] satisfies KennelScheduleRuleSeed[],
+      },
+    ];
+    await runKennelSeedPass(prisma, planned, {}, seeds);
+    expect(planned[0].validUntil).toBe("02-29");
+  });
+
+  it("skips kennels missing from the DB (e.g. hidden / deleted) without crashing", async () => {
+    const planned: Parameters<typeof runKennelSeedPass>[1] = [];
+    const prisma = fakePrismaForSeed([]); // empty DB
+    const seeds = [
+      {
+        kennelCode: "ghost",
+        scheduleRules: [{ rrule: "FREQ=WEEKLY;BYDAY=SA" }] satisfies KennelScheduleRuleSeed[],
+      },
+    ];
+    const result = await runKennelSeedPass(prisma, planned, {}, seeds);
+    expect(planned).toHaveLength(0);
+    expect(result.skippedKennels).toBe(1);
+  });
+
+  it("skips rule entries with empty rrule (defensive guard against seed typos)", async () => {
+    const planned: Parameters<typeof runKennelSeedPass>[1] = [];
+    const prisma = fakePrismaForSeed([
+      { id: "k_y", kennelCode: "y", shortName: "Y" },
+    ]);
+    const seeds = [
+      {
+        kennelCode: "y",
+        scheduleRules: [
+          { rrule: "" },
+          { rrule: "   " },
+          { rrule: "FREQ=WEEKLY;BYDAY=SU" },
+        ] satisfies KennelScheduleRuleSeed[],
+      },
+    ];
+    const result = await runKennelSeedPass(prisma, planned, {}, seeds);
+    expect(result.count).toBe(1);
+    expect(result.skippedRules).toBe(2);
+    expect(planned[0].rrule).toBe("FREQ=WEEKLY;BYDAY=SU");
+  });
+
+  it("skips rule entries whose RRULE doesn't parse (fail-loud on malformed seed input)", async () => {
+    const planned: Parameters<typeof runKennelSeedPass>[1] = [];
+    const prisma = fakePrismaForSeed([
+      { id: "k_z", kennelCode: "z", shortName: "Z" },
+    ]);
+    const seeds = [
+      {
+        kennelCode: "z",
+        scheduleRules: [
+          { rrule: "FREQ=YEARLY" }, // unsupported FREQ — parseRRule throws
+          { rrule: "FREQ=WEEKLY" }, // WEEKLY without BYDAY — parseRRule throws
+          { rrule: "FREQ=WEEKLY;BYDAY=SA" }, // valid
+        ] satisfies KennelScheduleRuleSeed[],
+      },
+    ];
+    const result = await runKennelSeedPass(prisma, planned, {}, seeds);
+    expect(result.count).toBe(1);
+    expect(result.skippedRules).toBe(2);
+    expect(planned[0].rrule).toBe("FREQ=WEEKLY;BYDAY=SA");
+  });
+
+  it("returns immediately when no kennel carries scheduleRules (isolation from passes 1 + 2)", async () => {
+    const planned: Parameters<typeof runKennelSeedPass>[1] = [];
+    // Seed pre-populated with a Pass 1-shaped rule to confirm Pass 3 leaves
+    // existing planned entries untouched when there's nothing to add.
+    planned.push({
+      kennelId: "k_other",
+      kennelDisplay: "OTHER",
+      rrule: "FREQ=WEEKLY;BYDAY=MO",
+      anchorDate: null,
+      startTime: null,
+      confidence: "HIGH",
+      source: "STATIC_SCHEDULE",
+      sourceReference: "https://example.test/x",
+      lastValidatedAt: null,
+      notes: null,
+      label: null,
+      validFrom: null,
+      validUntil: null,
+      displayOrder: 0,
+    });
+    const prisma = fakePrismaForSeed([]);
+    const result = await runKennelSeedPass(prisma, planned, {}, []);
+    expect(result).toEqual({ count: 0, skippedKennels: 0, skippedRules: 0 });
+    expect(planned).toHaveLength(1); // unchanged
+  });
+});
+
+// ---------------------------------------------------------------------------
+// runKennelDisplayPass — Pass 2 opt-out for kennels that declare scheduleRules
+// ---------------------------------------------------------------------------
+
+interface FakeKennelDisplayRow {
+  id: string;
+  kennelCode: string;
+  shortName: string;
+  scheduleDayOfWeek: string | null;
+  scheduleTime: string | null;
+  scheduleFrequency: string | null;
+  scheduleNotes: string | null;
+}
+
+function fakePrismaForDisplay(kennels: FakeKennelDisplayRow[]) {
+  return {
+    kennel: {
+      findMany: async () => kennels,
+    },
+  } as unknown as Parameters<typeof runKennelDisplayPass>[0];
+}
+
+describe("runKennelDisplayPass — Pass 3 opt-out", () => {
+  const FAKE_KENNELS: FakeKennelDisplayRow[] = [
+    {
+      id: "k_legacy",
+      kennelCode: "legacy",
+      shortName: "Legacy",
+      scheduleDayOfWeek: "Saturday",
+      scheduleTime: "3:00 PM",
+      scheduleFrequency: "Weekly",
+      scheduleNotes: null,
+    },
+    {
+      id: "k_migrated",
+      kennelCode: "migrated",
+      shortName: "Migrated",
+      scheduleDayOfWeek: "Saturday",
+      scheduleTime: "3:00 PM",
+      scheduleFrequency: "Weekly",
+      scheduleNotes: null,
+    },
+  ];
+
+  it.each<{
+    label: string;
+    seeds: Array<{ kennelCode: string; scheduleRules?: KennelScheduleRuleSeed[] }>;
+    expectedCount: number;
+    expectedOptedOut: number;
+    expectedKennelIds: string[];
+  }>([
+    {
+      label: "skips kennels whose seed declares non-empty scheduleRules",
+      seeds: [
+        { kennelCode: "legacy" },
+        { kennelCode: "migrated", scheduleRules: [{ rrule: "FREQ=WEEKLY;BYDAY=SA" }] },
+      ],
+      expectedCount: 1,
+      expectedOptedOut: 1,
+      expectedKennelIds: ["k_legacy"],
+    },
+    {
+      label: "does NOT opt out when scheduleRules is an empty array",
+      seeds: [
+        { kennelCode: "legacy", scheduleRules: [] },
+        { kennelCode: "migrated" },
+      ],
+      expectedCount: 2,
+      expectedOptedOut: 0,
+      expectedKennelIds: ["k_legacy", "k_migrated"],
+    },
+    {
+      label: "processes all kennels when no seed list is provided (empty injection)",
+      seeds: [],
+      expectedCount: 2,
+      expectedOptedOut: 0,
+      expectedKennelIds: ["k_legacy", "k_migrated"],
+    },
+  ])("$label", async ({ seeds, expectedCount, expectedOptedOut, expectedKennelIds }) => {
+    const planned: Parameters<typeof runKennelDisplayPass>[1] = [];
+    const result = await runKennelDisplayPass(
+      fakePrismaForDisplay(FAKE_KENNELS),
+      planned,
+      {},
+      seeds,
+    );
+    expect(result.count).toBe(expectedCount);
+    expect(result.optedOut).toBe(expectedOptedOut);
+    expect(planned.map((p) => p.kennelId)).toEqual(expectedKennelIds);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applyUpserts — lastValidatedAt is bumped for STATIC_SCHEDULE only
+// ---------------------------------------------------------------------------
+//
+// Codex P2 + Gemini + Claude review on PR #1405 flagged that the original
+// applyUpserts UPDATE clause unconditionally included `lastValidatedAt`, which
+// meant every backfill re-run overwrote admin-set timestamps and Pass 3's
+// "first seed-validation moment" with `new Date()` or null. The fix: only
+// include `lastValidatedAt` in UPDATE for STATIC_SCHEDULE rules (where the
+// scrape's lastSuccessAt IS the validation moment). Lock the contract here.
+
+function makePlannedRuleForUpsert(overrides: {
+  source: "STATIC_SCHEDULE" | "SEED_DATA";
+  lastValidatedAt: Date | null;
+}) {
+  return {
+    kennelId: "k_x",
+    kennelDisplay: "X",
+    rrule: "FREQ=WEEKLY;BYDAY=SA",
+    anchorDate: null,
+    startTime: null,
+    confidence: "HIGH" as const,
+    source: overrides.source,
+    sourceReference: null,
+    lastValidatedAt: overrides.lastValidatedAt,
+    notes: null,
+    label: null,
+    validFrom: null,
+    validUntil: null,
+    displayOrder: 0,
+  };
+}
+
+function makeSpyingPrismaForUpsert() {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const upsertCalls: any[] = [];
+  return {
+    prisma: {
+      scheduleRule: {
+        findMany: async () => [],
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        upsert: async (args: any) => {
+          upsertCalls.push(args);
+          return { id: `id_${upsertCalls.length}` };
+        },
+      },
+    } as unknown as Parameters<typeof applyUpserts>[0],
+    upsertCalls,
+  };
+}
+
+describe("applyUpserts — lastValidatedAt update semantics", () => {
+  it("INCLUDES lastValidatedAt in update clause for STATIC_SCHEDULE rules", async () => {
+    const { prisma, upsertCalls } = makeSpyingPrismaForUpsert();
+    const validatedAt = new Date("2026-05-01T00:00:00Z");
+    await applyUpserts(prisma, [
+      makePlannedRuleForUpsert({ source: "STATIC_SCHEDULE", lastValidatedAt: validatedAt }),
+    ]);
+    expect(upsertCalls).toHaveLength(1);
+    expect(upsertCalls[0].update).toHaveProperty("lastValidatedAt", validatedAt);
+    // Create always carries it
+    expect(upsertCalls[0].create.lastValidatedAt).toEqual(validatedAt);
+  });
+
+  it("EXCLUDES lastValidatedAt from update clause for SEED_DATA rules (preserves admin timestamps)", async () => {
+    const { prisma, upsertCalls } = makeSpyingPrismaForUpsert();
+    await applyUpserts(prisma, [
+      makePlannedRuleForUpsert({ source: "SEED_DATA", lastValidatedAt: new Date() }),
+    ]);
+    expect(upsertCalls).toHaveLength(1);
+    expect(upsertCalls[0].update).not.toHaveProperty("lastValidatedAt");
+    // Create always carries it — first-seen moment is recorded.
+    expect(upsertCalls[0].create).toHaveProperty("lastValidatedAt");
   });
 });

@@ -51,7 +51,18 @@ import {
 } from "@/generated/prisma/client";
 import { createScriptPool } from "./lib/db-pool";
 import { ANCHOR_WEEKDAYS, ANCHOR_RULES } from "@/adapters/static-schedule/lunar";
+import { parseRRule } from "@/adapters/static-schedule/adapter";
 import { isValidTimezone } from "@/lib/timezone";
+import { KENNELS, type KennelScheduleRuleSeed } from "../prisma/seed-data/kennels";
+
+/**
+ * Source-reference strings persisted on `ScheduleRule.sourceReference`. Centralized
+ * here so the admin UI / verify-fixes tooling has one place to grep for the conventions.
+ */
+const SOURCE_REF = {
+  kennelDisplay: "Kennel.scheduleDayOfWeek/Frequency",
+  kennelSeed: (code: string) => `KennelSeed.scheduleRules[${code}]`,
+} as const;
 
 interface BackfillOptions {
   verbose?: boolean;
@@ -79,10 +90,15 @@ const DAY_MAP: Record<string, string> = {
  * compilation removes both the scanner warning and per-iteration cost.
  * Inputs are hardcoded English day names — there's no untrusted text in
  * the regex source — but the precompiled form documents that intent.
+ *
+ * SonarCloud S2631 (dynamic regex injection) is a false positive here: the
+ * `name` interpolated into the pattern is keyed off the module-scope DAY_MAP
+ * literal — fully static, no user input ever reaches this construction.
  */
 const DAY_REGEXES: ReadonlyArray<{ token: string; re: RegExp }> = Object.entries(
   DAY_MAP,
-).map(([name, token]) => ({ token, re: new RegExp(String.raw`\b${name}\b`, "i") }));
+  // NOSONAR S2631 — inputs are hardcoded DAY_MAP keys, no injection surface.
+).map(([name, token]) => ({ token, re: new RegExp(String.raw`\b${name}\b`, "i") })); // NOSONAR
 
 /**
  * Parse a scheduleTime display string into HH:MM 24-hour format.
@@ -350,6 +366,13 @@ interface PlannedRule {
   sourceReference: string | null;
   lastValidatedAt: Date | null;
   notes: string | null;
+  // Multi-cadence display fields (#1390). Only Pass 3 sets these; passes 1 + 2
+  // leave them at null / 0 so existing upserts don't accidentally clobber values
+  // written by a later Pass 3 with the same (kennelId, rrule, source) key.
+  label: string | null;
+  validFrom: string | null;
+  validUntil: string | null;
+  displayOrder: number;
 }
 
 type PrismaClientLike = InstanceType<typeof PrismaClient>;
@@ -449,6 +472,10 @@ function processSourceKennel(
     sourceReference: src.url || src.name,
     lastValidatedAt: src.lastSuccessAt ?? src.lastScrapeAt ?? null,
     notes: overrides?.notes ?? null,
+    label: null,
+    validFrom: null,
+    validUntil: null,
+    displayOrder: 0,
   });
   return true;
 }
@@ -570,20 +597,117 @@ export async function runStaticSchedulePass(
 }
 
 /**
+ * Shared shape for the seed-driven passes. The full `KennelSeed` interface
+ * lives in `prisma/seed-data/kennels.ts`; we only need these two fields here.
+ */
+interface KennelSeedLike {
+  kennelCode: string;
+  scheduleRules?: KennelScheduleRuleSeed[];
+}
+
+/**
  * Pass 2 of the backfill: derive MEDIUM/LOW rules from per-kennel display
  * strings (Kennel.scheduleDayOfWeek/Frequency). Mutates `planned` in place.
+ *
+ * Pass 2 SKIPS any kennel whose seed declares `scheduleRules` — those kennels
+ * are owned by Pass 3 (structured multi-cadence path), and Pass 2's parse would
+ * otherwise risk colliding on the (kennelId, rrule, source=SEED_DATA) unique key.
+ * On a re-run, a Pass 2 upsert with all-default multi-cadence fields would
+ * silently overwrite Pass 3's label/validFrom/validUntil with nulls before
+ * Pass 3's later upsert restored them — and if a seed `scheduleRules` entry is
+ * later removed, the restoration never happens and the metadata is lost.
+ * Making the opt-out structural (declare `scheduleRules` → skip Pass 2) makes
+ * the collision impossible regardless of pass ordering or apply order.
+ *
+ * The `seedKennels` parameter is injectable for testability; defaults to the
+ * exported KENNELS array.
  */
+interface DisplayKennel {
+  id: string;
+  kennelCode: string;
+  shortName: string;
+  scheduleDayOfWeek: string | null;
+  scheduleTime: string | null;
+  scheduleFrequency: string | null;
+  scheduleNotes: string | null;
+}
+
+interface DisplayRowResult {
+  emitted: number;
+  status: "emitted" | "unparseable" | "opted-out";
+  reason?: string;
+}
+
+/**
+ * Process one Pass 2 kennel row. Extracted from `runKennelDisplayPass` to keep
+ * the outer function's cognitive complexity under SonarCloud's cap of 15.
+ */
+function processDisplayKennel(
+  k: DisplayKennel,
+  optedOutCodes: ReadonlySet<string>,
+  planned: PlannedRule[],
+  options: BackfillOptions,
+): DisplayRowResult {
+  if (optedOutCodes.has(k.kennelCode)) {
+    if (options.verbose) {
+      console.log(`  ⤼ ${k.shortName} — opted out of Pass 2 (declares scheduleRules in seed)`);
+    }
+    return { emitted: 0, status: "opted-out" };
+  }
+  const parsed = parseFrequencyDay(k.scheduleFrequency, k.scheduleDayOfWeek);
+  if (parsed.length === 0) {
+    if (options.verbose) {
+      console.log(
+        `  ⊘ ${k.shortName} — unparseable: freq=${JSON.stringify(k.scheduleFrequency)} day=${JSON.stringify(k.scheduleDayOfWeek)}`,
+      );
+    }
+    return {
+      emitted: 0,
+      status: "unparseable",
+      reason: `${k.scheduleFrequency} / ${k.scheduleDayOfWeek ?? "null"}`,
+    };
+  }
+  const startTime = parseScheduleTime(k.scheduleTime);
+  for (const rule of parsed) {
+    planned.push({
+      kennelId: k.id,
+      kennelDisplay: k.shortName,
+      rrule: rule.rrule,
+      anchorDate: null,
+      startTime,
+      confidence: rule.confidence,
+      source: "SEED_DATA",
+      sourceReference: SOURCE_REF.kennelDisplay,
+      lastValidatedAt: null,
+      notes: rule.notes ?? null,
+      label: null,
+      validFrom: null,
+      validUntil: null,
+      displayOrder: 0,
+    });
+  }
+  return { emitted: parsed.length, status: "emitted" };
+}
+
 export async function runKennelDisplayPass(
   prisma: PrismaClientLike,
   planned: PlannedRule[],
   options: BackfillOptions = {},
-): Promise<{ count: number; skipped: number; total: number }> {
+  seedKennels: ReadonlyArray<KennelSeedLike> = KENNELS,
+): Promise<{ count: number; skipped: number; total: number; optedOut: number }> {
   console.log("━━━ Pass 2: Kennel display strings → MEDIUM/LOW ━━━");
+
+  const optedOutCodes = new Set(
+    seedKennels
+      .filter((k) => Array.isArray(k.scheduleRules) && k.scheduleRules.length > 0)
+      .map((k) => k.kennelCode),
+  );
 
   const kennels = await prisma.kennel.findMany({
     where: { scheduleFrequency: { not: null }, isHidden: false },
     select: {
       id: true,
+      kennelCode: true,
       shortName: true,
       scheduleDayOfWeek: true,
       scheduleTime: true,
@@ -594,38 +718,21 @@ export async function runKennelDisplayPass(
 
   let count = 0;
   let skipped = 0;
+  let optedOut = 0;
   const skipReasons = new Map<string, number>();
   for (const k of kennels) {
-    const parsed = parseFrequencyDay(k.scheduleFrequency, k.scheduleDayOfWeek);
-    if (parsed.length === 0) {
+    const result = processDisplayKennel(k, optedOutCodes, planned, options);
+    count += result.emitted;
+    if (result.status === "opted-out") optedOut++;
+    else if (result.status === "unparseable" && result.reason) {
       skipped++;
-      const reason = `${k.scheduleFrequency} / ${k.scheduleDayOfWeek ?? "null"}`;
-      skipReasons.set(reason, (skipReasons.get(reason) ?? 0) + 1);
-      if (options.verbose) {
-        console.log(
-          `  ⊘ ${k.shortName} — unparseable: freq=${JSON.stringify(k.scheduleFrequency)} day=${JSON.stringify(k.scheduleDayOfWeek)}`,
-        );
-      }
-      continue;
-    }
-    const startTime = parseScheduleTime(k.scheduleTime);
-    for (const rule of parsed) {
-      planned.push({
-        kennelId: k.id,
-        kennelDisplay: k.shortName,
-        rrule: rule.rrule,
-        anchorDate: null,
-        startTime,
-        confidence: rule.confidence,
-        source: "SEED_DATA",
-        sourceReference: "Kennel.scheduleDayOfWeek/Frequency",
-        lastValidatedAt: null,
-        notes: rule.notes ?? null,
-      });
-      count++;
+      skipReasons.set(result.reason, (skipReasons.get(result.reason) ?? 0) + 1);
     }
   }
-  console.log(`  ✓ ${count} rules planned from ${kennels.length} kennels (${skipped} unparseable)`);
+  console.log(
+    `  ✓ ${count} rules planned from ${kennels.length} kennels ` +
+      `(${skipped} unparseable, ${optedOut} opted-out via scheduleRules)`,
+  );
   if (skipped > 0) {
     console.log("  Top skip reasons:");
     const sortedReasons = [...skipReasons.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
@@ -634,7 +741,193 @@ export async function runKennelDisplayPass(
     }
   }
   console.log("");
-  return { count, skipped, total: kennels.length };
+  return { count, skipped, total: kennels.length, optedOut };
+}
+
+/**
+ * Validate a "MM-DD" anchor used in seasonal scheduleRules. Rejects malformed
+ * strings ("13-01", "02-30", "summer") so a typo doesn't end up as opaque text
+ * in the ScheduleRule row. Returns the trimmed string on success, null otherwise.
+ */
+function validateMonthDayAnchor(raw: string | undefined): string | null {
+  if (raw === undefined || raw === null) return null;
+  const s = String(raw).trim();
+  const match = /^(\d{2})-(\d{2})$/.exec(s);
+  if (!match) return null;
+  const month = Number.parseInt(match[1], 10);
+  const day = Number.parseInt(match[2], 10);
+  if (month < 1 || month > 12) return null;
+  // Use a leap year (2024) as the upper-bound calendar so Feb 29 is permitted
+  // — seasonal cadences span Feb and we'd rather accept "02-29" than reject it.
+  const lastDayOfMonth = new Date(Date.UTC(2024, month, 0)).getUTCDate();
+  if (day < 1 || day > lastDayOfMonth) return null;
+  return s;
+}
+
+/**
+ * Pass 3 of the backfill: kennel seed `scheduleRules` → HIGH-confidence rules
+ * with multi-cadence display metadata (label / validFrom / validUntil / displayOrder).
+ *
+ * Pass 3 is the structured-data path that supersedes Pass 2 for migrated kennels:
+ * - Pass 1 (STATIC_SCHEDULE source) provides the HIGH-confidence single-RRULE
+ *   case for kennels driven by a Source.config.rrule.
+ * - Pass 2 (Kennel display strings) provides a best-effort MEDIUM rule for the
+ *   ~190 unmigrated kennels.
+ * - Pass 3 (this) is the new authoritative path for kennels that explicitly
+ *   declare one-or-more cadences in their seed entry. Confidence is HIGH because
+ *   the seed author wrote it down explicitly.
+ *
+ * Collision handling: the upsert is keyed on (kennelId, rrule, source). If Pass 1
+ * or Pass 2 emitted the same key earlier, Pass 3's later emission wins on the
+ * second upsert pass (same source enum + same rrule string). In practice the
+ * keys rarely collide because Pass 3 emits canonical RRULE shapes (e.g.
+ * "FREQ=MONTHLY;BYDAY=1SA") while Pass 2 emits CADENCE sentinels for monthly
+ * patterns without ordinals.
+ */
+/**
+ * Validate one seed RRULE against the static-schedule adapter's parser. Returns
+ * the normalized RRULE string on success, null on failure (already logged).
+ * Fail-loud guard: better to skip at backfill time than to persist a value
+ * Travel Mode's projection engine silently falls back to "possible activity".
+ */
+function normalizeAndValidateSeedRrule(
+  rawRrule: string,
+  kennelCode: string,
+): string | null {
+  const normalized = normalizeRRule(rawRrule);
+  try {
+    parseRRule(normalized);
+    return normalized;
+  } catch (err) {
+    console.warn(
+      `  ⚠ ${kennelCode} — unparseable rrule ${JSON.stringify(rawRrule)}: ` +
+        `${err instanceof Error ? err.message : String(err)}, skipping`,
+    );
+    return null;
+  }
+}
+
+/**
+ * Validate the MM-DD season anchors on a seed rule, logging warnings for
+ * malformed values. Returns the validated anchors (null when missing/invalid).
+ */
+function resolveSeasonAnchors(
+  rule: KennelScheduleRuleSeed,
+  kennelCode: string,
+): { validFrom: string | null; validUntil: string | null } {
+  const validFrom = validateMonthDayAnchor(rule.validFrom);
+  const validUntil = validateMonthDayAnchor(rule.validUntil);
+  if (rule.validFrom && !validFrom) {
+    console.warn(`  ⚠ ${kennelCode} — invalid validFrom ${JSON.stringify(rule.validFrom)}, dropping`);
+  }
+  if (rule.validUntil && !validUntil) {
+    console.warn(`  ⚠ ${kennelCode} — invalid validUntil ${JSON.stringify(rule.validUntil)}, dropping`);
+  }
+  return { validFrom, validUntil };
+}
+
+type SeedRuleResult = "emitted" | "skipped-empty" | "skipped-unparseable";
+
+interface SeedKennelMeta {
+  id: string;
+  kennelCode: string;
+  shortName: string;
+}
+
+/**
+ * Plan one Pass 3 rule. Extracted to keep `runKennelSeedPass` under SonarCloud's
+ * cognitive-complexity cap.
+ */
+function planSeedRule(
+  rule: KennelScheduleRuleSeed,
+  dbKennel: SeedKennelMeta,
+  kennelCode: string,
+  planned: PlannedRule[],
+  options: BackfillOptions,
+): SeedRuleResult {
+  const rrule = rule.rrule?.trim();
+  if (!rrule) {
+    if (options.verbose) {
+      console.log(`  ⊘ ${kennelCode} — empty rrule, skipping rule`);
+    }
+    return "skipped-empty";
+  }
+  const normalizedRrule = normalizeAndValidateSeedRrule(rrule, kennelCode);
+  if (!normalizedRrule) return "skipped-unparseable";
+  const { validFrom, validUntil } = resolveSeasonAnchors(rule, kennelCode);
+  planned.push({
+    kennelId: dbKennel.id,
+    kennelDisplay: dbKennel.shortName,
+    rrule: normalizedRrule,
+    anchorDate: rule.anchorDate?.trim() || null,
+    startTime: rule.startTime?.trim() || null,
+    confidence: "HIGH",
+    source: "SEED_DATA",
+    sourceReference: SOURCE_REF.kennelSeed(kennelCode),
+    // First-create timestamp. applyUpserts excludes lastValidatedAt from
+    // the UPDATE clause for SEED_DATA rules, so this `new Date()` is only
+    // written when the row is first created — re-runs preserve the
+    // original first-seen value (and admin re-validations stick).
+    lastValidatedAt: new Date(),
+    notes: rule.notes ?? null,
+    label: rule.label?.trim() || null,
+    validFrom,
+    validUntil,
+    displayOrder: typeof rule.displayOrder === "number" ? rule.displayOrder : 0,
+  });
+  return "emitted";
+}
+
+export async function runKennelSeedPass(
+  prisma: PrismaClientLike,
+  planned: PlannedRule[],
+  options: BackfillOptions = {},
+  seedKennels: ReadonlyArray<KennelSeedLike> = KENNELS,
+): Promise<{ count: number; skippedKennels: number; skippedRules: number }> {
+  console.log("━━━ Pass 3: Kennel seed scheduleRules → HIGH confidence ━━━");
+
+  const seedsWithRules = seedKennels.filter(
+    (k) => Array.isArray(k.scheduleRules) && k.scheduleRules.length > 0,
+  );
+  if (seedsWithRules.length === 0) {
+    console.log("  ✓ 0 kennels carry scheduleRules in the seed — nothing to plan\n");
+    return { count: 0, skippedKennels: 0, skippedRules: 0 };
+  }
+
+  const codes = seedsWithRules.map((k) => k.kennelCode);
+  const dbKennels = await prisma.kennel.findMany({
+    where: { kennelCode: { in: codes }, isHidden: false },
+    select: { id: true, kennelCode: true, shortName: true },
+  });
+  const byCode = new Map(dbKennels.map((k) => [k.kennelCode, k]));
+
+  let count = 0;
+  let skippedKennels = 0;
+  let skippedRules = 0;
+
+  for (const seed of seedsWithRules) {
+    const dbKennel = byCode.get(seed.kennelCode);
+    if (!dbKennel) {
+      skippedKennels++;
+      if (options.verbose) {
+        console.log(`  ⊘ ${seed.kennelCode} — not found in DB (or hidden)`);
+      }
+      continue;
+    }
+    for (const rule of seed.scheduleRules ?? []) {
+      const result = planSeedRule(rule, dbKennel, seed.kennelCode, planned, options);
+      if (result === "emitted") count++;
+      else skippedRules++;
+    }
+  }
+
+  console.log(`  ✓ ${count} rules planned from ${seedsWithRules.length} kennel(s) with scheduleRules`);
+  if (skippedKennels > 0) console.log(`  ⊘ ${skippedKennels} kennel(s) skipped (not in DB / hidden)`);
+  if (skippedRules > 0) {
+    console.warn(`  ⊘ ${skippedRules} rule(s) skipped (empty or unparseable rrule)`);
+  }
+  console.log("");
+  return { count, skippedKennels, skippedRules };
 }
 
 /**
@@ -702,15 +995,29 @@ export async function applyUpserts(
           sourceReference: r.sourceReference,
           lastValidatedAt: r.lastValidatedAt,
           notes: r.notes,
+          label: r.label,
+          validFrom: r.validFrom,
+          validUntil: r.validUntil,
+          displayOrder: r.displayOrder,
         },
         update: {
           anchorDate: r.anchorDate,
           startTime: r.startTime,
           confidence: r.confidence,
           sourceReference: r.sourceReference,
-          lastValidatedAt: r.lastValidatedAt,
           notes: r.notes,
+          label: r.label,
+          validFrom: r.validFrom,
+          validUntil: r.validUntil,
+          displayOrder: r.displayOrder,
           isActive: true,
+          // Only STATIC_SCHEDULE rules bump lastValidatedAt on every run —
+          // the scrape's lastSuccessAt IS the validation moment. SEED_DATA
+          // (Pass 2 display strings + Pass 3 scheduleRules) preserves the
+          // first-create timestamp so admin re-validations and seed-author
+          // moments aren't clobbered by routine re-runs. (Codex P2 + Gemini
+          // + Claude review on PR #1405.)
+          ...(r.source === "STATIC_SCHEDULE" ? { lastValidatedAt: r.lastValidatedAt } : {}),
         },
       });
       if (preExistingIds.has(result.id)) {
@@ -793,6 +1100,7 @@ export async function runScheduleRuleBackfill(
   const planned: PlannedRule[] = [];
   await runStaticSchedulePass(prisma, planned, options);
   await runKennelDisplayPass(prisma, planned, options);
+  await runKennelSeedPass(prisma, planned, options);
   const result = await applyUpserts(prisma, planned);
   await deactivateStaleRules(prisma, planned, result.errored);
   return result;
@@ -813,6 +1121,7 @@ async function main() {
   const planned: PlannedRule[] = [];
   await runStaticSchedulePass(prisma, planned, options);
   await runKennelDisplayPass(prisma, planned, options);
+  await runKennelSeedPass(prisma, planned, options);
   printPlanSummary(planned, options);
 
   if (dryRun) {
