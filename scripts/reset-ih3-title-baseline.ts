@@ -24,22 +24,23 @@
  */
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "@/generated/prisma/client";
+import { PrismaClient, SourceType } from "@/generated/prisma/client";
 import { createScriptPool } from "./lib/db-pool";
 
 const dryRun = !process.argv.includes("--apply");
 const SOURCE_NAME = "IH3 Website Hareline";
 
 async function main() {
-  const pool = createScriptPool();
-  const adapter = new PrismaPg(pool);
-  const prisma = new PrismaClient({ adapter } as never);
-
+  let pool: ReturnType<typeof createScriptPool> | undefined;
   try {
+    pool = createScriptPool();
+    const adapter = new PrismaPg(pool);
+    const prisma = new PrismaClient({ adapter });
+
     console.log(dryRun ? "🔍 DRY RUN — no changes will be made\n" : "✏️  APPLYING changes\n");
 
-    const source = await prisma.source.findFirst({
-      where: { name: SOURCE_NAME, type: "HTML_SCRAPER" },
+    const source = await prisma.source.findUnique({
+      where: { name_type: { name: SOURCE_NAME, type: SourceType.HTML_SCRAPER } },
       select: { id: true, name: true, url: true, baselineResetAt: true },
     });
 
@@ -66,7 +67,7 @@ async function main() {
     console.log(`\n✅ Set baselineResetAt = ${now.toISOString()} on "${SOURCE_NAME}".`);
     console.log("   Alert #1385 will auto-resolve at the next scheduled scrape.");
   } finally {
-    await pool.end();
+    await pool?.end();
   }
 }
 
