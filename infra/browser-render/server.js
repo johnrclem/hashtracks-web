@@ -59,15 +59,14 @@ const CF_COOKIE_TTL_MS = 25 * 60 * 1000;
 // Single source of truth for the title markers that signal a CF challenge.
 // Kept as a string array so the in-browser `waitForFunction` callback can
 // do a plain `Array#some(includes)` rather than build a dynamic RegExp
-// from a passed-in pattern source (Codacy/Semgrep flag dynamic RegExp
-// construction as a DoS hazard — false positive here since the array is
-// a hardcoded literal, but the includes-on-array form sidesteps the lint
-// entirely AND keeps Node + page sides locked to the same marker list).
+// from a passed-in pattern source. The Node-side RegExp below is built
+// from the same array so the two contexts can't drift.
 const CF_CHALLENGE_TITLE_MARKERS = [
   "just a moment",
   "attention required",
   "checking your browser",
 ];
+// nosemgrep: detect-non-literal-regexp — source is a hard-coded constant array (CF_CHALLENGE_TITLE_MARKERS above), not user input. Kept dynamic so Node + page-context matchers can't drift apart.
 const CF_CHALLENGE_TITLE_RE = new RegExp(CF_CHALLENGE_TITLE_MARKERS.join("|"), "i");
 const cfCookieCache = new Map(); // "hostname|userAgent" → { cookies, expiresAt }
 
