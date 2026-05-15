@@ -2,26 +2,14 @@
  * One-shot historical backfill for IRH3 (Iron Rule Hash House Harriers, San Diego).
  * Issue #1425.
  *
- * `https://sdh3.com/history.shtml` lists every San Diego–area hash since 2007.
- * Filtering for `(Iron Rule)` gives the IRH3 archive (~39 events Jan 2024 →
- * Aug 2025 alone, 462 total back to Dec 2006). HashTracks tracked only events
- * from Aug 21 2025 onward before this backfill because the live SDH3 source
- * uses a 90-day reconcile window and the back catalog can never enter via a
- * wider hareline scrape (same reasoning as HAH3 / #1314).
+ * `https://sdh3.com/history.shtml` lists every San Diego–area hash back to
+ * Dec 2006. Filtering for `(Iron Rule)` gives 346 total events. HashTracks
+ * tracked only events from Aug 21 2025 forward before this backfill because
+ * the live SDH3 source uses a 90-day reconcile window and the back catalog
+ * can never enter via a wider hareline scrape (same reasoning as HAH3 #1314).
  *
- * Strategy:
- *   1. Fetch history.shtml via `fetchSDH3Page` (UTF-8-forced).
- *   2. Reuse `parseHistoryEvents` from the SDH3 adapter — it already handles
- *      the `<ol><li>date: <a>title (Kennel)</a></li>` shape and routes the
- *      `(Iron Rule)` parenthetical to `irh3-sd` via `kennelNameMap`.
- *   3. Defense-in-depth filter: keep only `kennelTags[0] === "irh3-sd"`.
- *   4. `runBackfillScript` partitions to past-only (date < today
- *      America/Los_Angeles), routes through the merge pipeline.
- *
- * Idempotency:
- *   The merge pipeline dedupes RawEvents by `(sourceId, fingerprint)`. The
- *   fingerprint is deterministic over the parsed payload, so a second apply
- *   pass is a no-op on every row.
+ * Strategy: delegated to `backfillSdh3HistoryKennel` (scripts/lib/sdh3-history-backfill.ts).
+ * The shared helper handles fetch, parse, partition, and merge-pipeline routing.
  *
  * Why attribute to "SDH3 Hareline":
  *   That source already has the 10-kennel SourceKennel link including
@@ -42,46 +30,12 @@
  */
 
 import "dotenv/config";
-import { runBackfillScript } from "./lib/backfill-runner";
-import { fetchSDH3Page, parseHistoryEvents } from "@/adapters/html-scraper/sdh3";
-import type { RawEventData } from "@/adapters/types";
+import { backfillSdh3HistoryKennel } from "./lib/sdh3-history-backfill";
 
-const SOURCE_NAME = "SDH3 Hareline";
-const KENNEL_CODE = "irh3-sd";
-const KENNEL_TIMEZONE = "America/Los_Angeles";
-const HISTORY_URL = "https://sdh3.com/history.shtml";
-
-async function fetchEvents(): Promise<RawEventData[]> {
-  console.log(`Fetching ${HISTORY_URL}`);
-  const page = await fetchSDH3Page(HISTORY_URL);
-  if (!page.ok) {
-    throw new Error(`History fetch failed: ${page.result.errors.join("; ")}`);
-  }
-
-  // Hand parseHistoryEvents a one-key kennelNameMap: only "(Iron Rule)" rows
-  // become events with kennelTag = "irh3-sd". Other parentheticals fall off
-  // because parseHistoryEvents requires a kennelNameMap match to emit a row.
-  const events = parseHistoryEvents(
-    page.html,
-    {
-      kennelCodeMap: {},
-      kennelNameMap: { "Iron Rule": KENNEL_CODE },
-    },
-    "https://sdh3.com",
-  );
-
-  // Defense in depth — parseHistoryEvents already filters by kennelNameMap.
-  const irh3Events = events.filter((e) => e.kennelTags[0] === KENNEL_CODE);
-  irh3Events.sort((a, b) => a.date.localeCompare(b.date));
-  console.log(`  Parsed ${events.length} total history rows; ${irh3Events.length} are IRH3.`);
-  return irh3Events;
-}
-
-runBackfillScript({
-  sourceName: SOURCE_NAME,
-  kennelTimezone: KENNEL_TIMEZONE,
+backfillSdh3HistoryKennel({
+  kennelCode: "irh3-sd",
+  kennelDisplayName: "Iron Rule",
   label: "Walking SDH3 history.shtml for Iron Rule entries",
-  fetchEvents,
 }).catch((err) => {
   console.error(err);
   process.exit(1);
