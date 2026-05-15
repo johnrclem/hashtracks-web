@@ -13,6 +13,10 @@ import {
 
 const mockSafeFetch = vi.mocked(safeFetch);
 
+// Adapter only touches a small surface of Response (`ok`, `status`, `text`),
+// so build a partial stub and cast once here rather than per call site.
+const mockResponse = (init: Partial<Response>): Response => init as Response;
+
 // ── Sample Atom XML fixtures ──
 
 const SAMPLE_ATOM_FEED = `<?xml version="1.0" encoding="UTF-8"?>
@@ -221,10 +225,10 @@ describe("AtlantaHashBoardAdapter", () => {
   });
 
   it("fetches and parses events from multiple forums", async () => {
-    mockSafeFetch.mockResolvedValue({
+    mockSafeFetch.mockResolvedValue(mockResponse({
       ok: true,
       text: () => Promise.resolve(SAMPLE_ATOM_FEED),
-    } as Response);
+    }));
 
     const adapter = new AtlantaHashBoardAdapter();
     const source = {
@@ -262,11 +266,11 @@ describe("AtlantaHashBoardAdapter", () => {
   });
 
   it("handles fetch errors gracefully", async () => {
-    mockSafeFetch.mockResolvedValue({
+    mockSafeFetch.mockResolvedValue(mockResponse({
       ok: false,
       status: 503,
       statusText: "Service Unavailable",
-    } as Response);
+    }));
 
     const adapter = new AtlantaHashBoardAdapter();
     const source = {
@@ -303,10 +307,10 @@ describe("AtlantaHashBoardAdapter", () => {
     { configValue: true, expectedForwarded: true, label: "true forwards through" },
     { configValue: undefined, expectedForwarded: false, label: "undefined defaults to false" },
   ])("useResidentialProxy: $label", async ({ configValue, expectedForwarded }) => {
-    mockSafeFetch.mockResolvedValue({
+    mockSafeFetch.mockResolvedValue(mockResponse({
       ok: true,
       text: () => Promise.resolve(SAMPLE_ATOM_FEED),
-    } as Response);
+    }));
 
     const adapter = new AtlantaHashBoardAdapter();
     const config: Record<string, unknown> = {
