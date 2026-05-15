@@ -376,17 +376,21 @@ async function discoverSheetTabs(sheetId: string, apiKey: string): Promise<{ tab
   }
 }
 
+/** Read and trim the cell at the configured column index, or `undefined` if
+ *  the column isn't configured. Avoids repeated `colIdx != null ? ... : undefined`
+ *  ternaries and keeps callers free of Sonar's "negated condition" lint. */
+function cellByOptionalIndex(row: string[], colIdx: number | undefined): string | undefined {
+  if (colIdx === undefined) return undefined;
+  return row[colIdx]?.trim();
+}
+
 /** Resolve kennel tag and run number from a sheet row. Returns null if the row should be skipped. */
 function resolveKennelTagFromSheetRow(
   row: string[],
   config: GoogleSheetsConfig,
 ): { kennelTag: string; runNumber: number | undefined } | null {
-  const runNumberCell = config.columns.runNumber != null
-    ? row[config.columns.runNumber]?.trim()
-    : undefined;
-  const specialRunCell = config.columns.specialRun != null
-    ? row[config.columns.specialRun]?.trim()
-    : undefined;
+  const runNumberCell = cellByOptionalIndex(row, config.columns.runNumber);
+  const specialRunCell = cellByOptionalIndex(row, config.columns.specialRun);
 
   if (specialRunCell && config.kennelTagRules.specialRunMap) {
     const mapped = new Map(Object.entries(config.kennelTagRules.specialRunMap)).get(specialRunCell);

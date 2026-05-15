@@ -3836,7 +3836,7 @@ export const KENNELS: KennelSeed[] = [
       scheduleFrequency: "Weekly",
       scheduleNotes: "Dual schedule: Wednesday 6pm during NZ daylight savings (Oct–Mar), Sunday 4pm in winter (Apr–Sep). Trail start locations posted on Facebook each week.",
       description: "Founded 1983, restarted 2009 — Waikato's Tokoroa hash. Seasonal schedule: Wednesday evenings in summer, Sunday afternoons in winter. Active Facebook page with trail announcements.",
-      latitude: -38.2230, longitude: 175.8627,
+      latitude: -38.223, longitude: 175.8627,
     },
     {
       kennelCode: "t3h3-nz", shortName: "T3H3", fullName: "Thirsty Thursday Taniwha Hash House Harriers",

@@ -35,6 +35,9 @@ function makeSource(overrides: Partial<Source> = {}): Source {
 }
 
 function mockFetch(html: string) {
+  // NOSONAR S4325: `as Response` is required — vitest's typed mock won't accept
+  // a structural subset of Response without an assertion. Sonar's TS analyzer
+  // disagrees with tsc here.
   mockedSafeFetch.mockResolvedValue({
     ok: true,
     status: 200,

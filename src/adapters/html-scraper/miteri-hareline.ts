@@ -265,6 +265,7 @@ export class MiteriHarelineAdapter implements SourceAdapter {
     const events: RawEventData[] = [];
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
+    const parseErrors: NonNullable<ErrorDetails["parse"]> = [];
     const { minDate, maxDate } = buildDateWindow(options?.days ?? 180);
 
     let prevDate: string | undefined;
@@ -280,13 +281,15 @@ export class MiteriHarelineAdapter implements SourceAdapter {
         events.push(event);
       } catch (err) {
         errors.push(`Row ${i}: ${err}`);
-        (errorDetails.parse ??= []).push({
+        parseErrors.push({
           row: i,
           section: "hareline",
           error: String(err),
         });
       }
     }
+
+    if (parseErrors.length > 0) errorDetails.parse = parseErrors;
 
     return {
       events,

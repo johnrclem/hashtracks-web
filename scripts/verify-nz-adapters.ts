@@ -72,7 +72,7 @@ const probes: Probe[] = [
 ];
 
 async function runProbe(probe: Probe): Promise<void> {
-  const result = await probe.adapter.fetch(probe.source as Source, { days: probe.days ?? 180 }) as {
+  const result = (await probe.adapter.fetch(probe.source as Source, { days: probe.days ?? 180 })) as {
     events: { date: string; runNumber?: number; hares?: string; location?: string; startTime?: string; description?: string }[];
     errors: string[];
     diagnosticContext?: Record<string, unknown>;

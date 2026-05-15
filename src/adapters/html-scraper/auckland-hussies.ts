@@ -1,3 +1,5 @@
+import type * as cheerio from "cheerio";
+import type { AnyNode } from "domhandler";
 import type { Source } from "@/generated/prisma/client";
 import type {
   SourceAdapter,
@@ -82,6 +84,23 @@ export function parseAucklandHussiesRow(
   };
 }
 
+/**
+ * Extract the date-bearing cells from a single `<tr>`. Returns null if the
+ * row isn't a date-shaped run row (annotation / phone / cost / blank).
+ * Lifted out of {@link AucklandHussiesAdapter.fetch} purely to keep that
+ * method below SonarCloud's cognitive-complexity threshold.
+ */
+function extractRunRowCells(
+  $: cheerio.CheerioAPI,
+  rowEl: AnyNode,
+): { dateText: string; hareText?: string; locationText?: string } | null {
+  const cells = $(rowEl).find("td").toArray().map((td) => $(td).text());
+  if (cells.length < 5) return null;
+  const dateCell = cells.at(0)?.trim() ?? "";
+  if (!DATE_CELL_RE.test(dateCell)) return null;
+  return { dateText: dateCell, hareText: cells.at(3), locationText: cells.at(4) };
+}
+
 export class AucklandHussiesAdapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
 
@@ -106,6 +125,7 @@ export class AucklandHussiesAdapter implements SourceAdapter {
     const events: RawEventData[] = [];
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
+    const parseErrors: NonNullable<ErrorDetails["parse"]> = [];
     const { minDate, maxDate } = buildDateWindow(options?.days ?? 180);
 
     // Excel-exported tables don't have semantic <th>; iterate all rows
@@ -116,18 +136,12 @@ export class AucklandHussiesAdapter implements SourceAdapter {
     for (let i = 0; i < rows.length; i++) {
       const row = rows.at(i);
       if (!row) continue;
-      const cells = $(row).find("td").toArray().map((td) => $(td).text());
-      if (cells.length < 5) continue;
-      const dateCell = cells.at(0)?.trim() ?? "";
-      const dateMatch = DATE_CELL_RE.exec(dateCell);
-      if (!dateMatch) continue;
+      const parsedCells = extractRunRowCells($, row);
+      if (!parsedCells) continue;
       rowsConsidered += 1;
 
       try {
-        const event = parseAucklandHussiesRow(
-          { dateText: dateCell, hareText: cells.at(3), locationText: cells.at(4) },
-          { kennelTag, sourceUrl, prevDate },
-        );
+        const event = parseAucklandHussiesRow(parsedCells, { kennelTag, sourceUrl, prevDate });
         if (!event) continue;
         prevDate = event.date;
         const eventDate = new Date(`${event.date}T12:00:00Z`);
@@ -135,7 +149,7 @@ export class AucklandHussiesAdapter implements SourceAdapter {
         events.push(event);
       } catch (err) {
         errors.push(`Row ${i}: ${err}`);
-        (errorDetails.parse ??= []).push({
+        parseErrors.push({
           row: i,
           section: "run-list",
           error: String(err),
@@ -143,6 +157,8 @@ export class AucklandHussiesAdapter implements SourceAdapter {
         });
       }
     }
+
+    if (parseErrors.length > 0) errorDetails.parse = parseErrors;
 
     return {
       events,
