@@ -1,3 +1,8 @@
+vi.mock("@/adapters/safe-fetch", () => ({
+  safeFetch: vi.fn(),
+}));
+
+import { safeFetch } from "@/adapters/safe-fetch";
 import {
   parseAtomFeed,
   isReplyEntry,
@@ -5,6 +10,12 @@ import {
   extractEventFields,
   AtlantaHashBoardAdapter,
 } from "./atlanta-hash-board";
+
+const mockSafeFetch = vi.mocked(safeFetch);
+
+// Adapter only touches a small surface of Response (`ok`, `status`, `text`),
+// so build a partial stub and cast once here rather than per call site.
+const mockResponse = (init: Partial<Response>): Response => init as Response;
 
 // ── Sample Atom XML fixtures ──
 
@@ -205,7 +216,7 @@ describe("extractEventFields", () => {
 
 describe("AtlantaHashBoardAdapter", () => {
   beforeEach(() => {
-    vi.stubGlobal("fetch", vi.fn());
+    mockSafeFetch.mockReset();
   });
 
   it("has correct type", () => {
@@ -214,11 +225,10 @@ describe("AtlantaHashBoardAdapter", () => {
   });
 
   it("fetches and parses events from multiple forums", async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
+    mockSafeFetch.mockResolvedValue(mockResponse({
       ok: true,
       text: () => Promise.resolve(SAMPLE_ATOM_FEED),
-    });
-    vi.stubGlobal("fetch", mockFetch);
+    }));
 
     const adapter = new AtlantaHashBoardAdapter();
     const source = {
@@ -226,21 +236,21 @@ describe("AtlantaHashBoardAdapter", () => {
       url: "https://board.atlantahash.com",
       config: {
         forums: {
-          "2": { kennelTags: ["ah4"], hashDay: "Saturday" },
-          "8": { kennelTags: ["mlh4"], hashDay: "Monday" },
+          "2": { kennelTag: "ah4", hashDay: "Saturday" },
+          "8": { kennelTag: "mlh4", hashDay: "Monday" },
         },
       },
     } as never;
 
     const result = await adapter.fetch(source, { days: 90 });
 
-    // Should have made 2 fetch calls (one per forum)
-    expect(mockFetch).toHaveBeenCalledTimes(2);
-    expect(mockFetch).toHaveBeenCalledWith(
+    // Should have made 2 safeFetch calls (one per forum)
+    expect(mockSafeFetch).toHaveBeenCalledTimes(2);
+    expect(mockSafeFetch).toHaveBeenCalledWith(
       expect.stringContaining("/app.php/feed/forum/2"),
       expect.any(Object),
     );
-    expect(mockFetch).toHaveBeenCalledWith(
+    expect(mockSafeFetch).toHaveBeenCalledWith(
       expect.stringContaining("/app.php/feed/forum/8"),
       expect.any(Object),
     );
@@ -249,15 +259,18 @@ describe("AtlantaHashBoardAdapter", () => {
     expect(result.diagnosticContext?.skippedReplies).toBe(2);
     // Each forum has 2 non-reply entries; events within date window should be parsed
     expect(result.events.length).toBeGreaterThan(0);
+    // Attribution check — every event must carry the kennelTag from its forum config
+    const tags = new Set(result.events.flatMap((e) => e.kennelTags));
+    expect(tags.has("ah4") || tags.has("mlh4")).toBe(true);
+    expect(tags.has(undefined as unknown as string)).toBe(false);
   });
 
   it("handles fetch errors gracefully", async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
+    mockSafeFetch.mockResolvedValue(mockResponse({
       ok: false,
       status: 503,
       statusText: "Service Unavailable",
-    });
-    vi.stubGlobal("fetch", mockFetch);
+    }));
 
     const adapter = new AtlantaHashBoardAdapter();
     const source = {
@@ -265,7 +278,7 @@ describe("AtlantaHashBoardAdapter", () => {
       url: "https://board.atlantahash.com",
       config: {
         forums: {
-          "2": { kennelTags: ["ah4"], hashDay: "Saturday" },
+          "2": { kennelTag: "ah4", hashDay: "Saturday" },
         },
       },
     } as never;
@@ -286,5 +299,35 @@ describe("AtlantaHashBoardAdapter", () => {
     } as never;
 
     await expect(adapter.fetch(source)).rejects.toThrow("source.config is null");
+  });
+
+  // Per-source useResidentialProxy flag — origin WAF blocks cloud-egress IPs (#633);
+  // adapter forwards the flag to safeFetch when the source row opts in, else defaults false.
+  it.each([
+    { configValue: true, expectedForwarded: true, label: "true forwards through" },
+    { configValue: undefined, expectedForwarded: false, label: "undefined defaults to false" },
+  ])("useResidentialProxy: $label", async ({ configValue, expectedForwarded }) => {
+    mockSafeFetch.mockResolvedValue(mockResponse({
+      ok: true,
+      text: () => Promise.resolve(SAMPLE_ATOM_FEED),
+    }));
+
+    const adapter = new AtlantaHashBoardAdapter();
+    const config: Record<string, unknown> = {
+      forums: { "2": { kennelTag: "ah4", hashDay: "Saturday" } },
+    };
+    if (configValue !== undefined) config.useResidentialProxy = configValue;
+    const source = {
+      id: "test-source",
+      url: "https://board.atlantahash.com",
+      config,
+    } as never;
+
+    await adapter.fetch(source);
+
+    expect(mockSafeFetch).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ useResidentialProxy: expectedForwarded }),
+    );
   });
 });

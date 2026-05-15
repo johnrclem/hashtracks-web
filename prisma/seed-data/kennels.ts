@@ -769,7 +769,9 @@ export const KENNELS: KennelSeed[] = [
     },
     {
       kennelCode: "humpin-sd", shortName: "Humpin'", fullName: "Humpin' Hash House Harriers", region: "San Diego, CA",
+      contactEmail: "HumpinHashCash@gmail.com",
       scheduleDayOfWeek: "Sunday", scheduleFrequency: "Weekly",
+      hashCash: "$8",
       description: "San Diego Sunday hash.",
       latitude: 32.72, longitude: -117.16,
     },
@@ -2129,9 +2131,12 @@ export const KENNELS: KennelSeed[] = [
     },
     {
       kennelCode: "kimchi-h3", shortName: "Kimchi", fullName: "Colorado Kimchi Hash House Harriers", region: "Colorado Springs, CO",
+      website: "http://www.cspringsh3.com", // NOSONAR — source is HTTP-only; HTTPS returns ERR_SSL_VERSION_OR_CIPHER_MISMATCH (#1380)
+      facebookUrl: "https://www.facebook.com/groups/2147541855493092/",
       scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Biweekly",
       scheduleNotes: "Alternating Saturdays with PPH4",
-      description: "Colorado Springs biweekly Saturday afternoon hash, alternating weeks with Pikes Peak.",
+      foundedYear: 2002,
+      description: "Colorado Springs biweekly Saturday afternoon hash, alternating weeks with Pikes Peak. Founded in 2002 by Yongsan Kimchi H3 (Korea) alumni to offset PPH4 with a Saturday hash; name lineage from the original Seoul Kimchi kennel.",
       latitude: 38.83, longitude: -104.82,
     },
     {
@@ -2594,9 +2599,11 @@ export const KENNELS: KennelSeed[] = [
       latitude: 35.15, longitude: -90.05,
     },
     {
-      kennelCode: "gynoh3", shortName: "GyNO H3", fullName: "GyNO Hash House Harriers", region: "Memphis, TN",
-      scheduleFrequency: "Monthly",
-      description: "Memphis harriette kennel. Monthly events appearing on the Memphis H3 calendar.",
+      kennelCode: "gynoh3", shortName: "GyNO H3", fullName: "Gyrls Night Out Hash House Harriers", region: "Memphis, TN",
+      scheduleDayOfWeek: "Monday", scheduleTime: "6:00 PM", scheduleFrequency: "Monthly",
+      scheduleNotes: "3rd Monday of each month. Plus 1st Thursday Harriette Happy Hour at 6:00 PM.",
+      foundedYear: 2025,
+      description: "Women-only kennel in Memphis, TN, supported by Memphis Hash House Harriers. Founded October 20, 2025. Monthly trail on 3rd Mondays at 6:00 PM, with a Harriette Happy Hour the 1st Thursday of each month.",
       latitude: 35.15, longitude: -90.05,
     },
 

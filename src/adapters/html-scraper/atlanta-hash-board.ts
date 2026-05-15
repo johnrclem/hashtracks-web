@@ -24,6 +24,13 @@ interface ForumConfig {
 
 interface AtlantaHashBoardConfig {
   forums: Record<string, ForumConfig>;
+  /**
+   * Route fetches through the NAS residential proxy. The origin WAF blocks
+   * cloud-egress IPs entirely; this flag opts a source into proxy routing.
+   * Not a guaranteed bypass — some residential IPs (including the NAS at
+   * times) are also blocked. (#633)
+   */
+  useResidentialProxy?: boolean;
 }
 
 // ── Atom feed types ──
@@ -308,6 +315,13 @@ export class AtlantaHashBoardAdapter implements SourceAdapter {
     );
 
     const baseUrl = source.url || "https://board.atlantahash.com";
+    const rawProxyFlag = config.useResidentialProxy;
+    if (rawProxyFlag !== undefined && typeof rawProxyFlag !== "boolean") {
+      throw new Error(
+        `AtlantaHashBoardAdapter: config.useResidentialProxy must be a boolean, got ${typeof rawProxyFlag}`,
+      );
+    }
+    const useResidentialProxy = rawProxyFlag ?? false;
     const { minDate, maxDate } = buildDateWindow(options?.days);
 
     const allEvents: RawEventData[] = [];
@@ -325,6 +339,7 @@ export class AtlantaHashBoardAdapter implements SourceAdapter {
         try {
           const response = await safeFetch(feedUrl, {
             headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
+            useResidentialProxy,
           });
           if (!response.ok) {
             return {
