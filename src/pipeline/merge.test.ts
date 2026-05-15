@@ -128,7 +128,7 @@ beforeEach(() => {
   // tests are unaffected; per-test overrides exercise the same-source guard.
   vi.mocked(prisma.rawEvent.findMany).mockResolvedValue([] as never);
   vi.mocked(prisma.eventLink.upsert).mockResolvedValue({} as never);
-  vi.mocked(prisma.eventLink.createMany).mockResolvedValue({ count: 0 } as never);
+  vi.mocked(prisma.eventLink.createMany).mockResolvedValue({ count: 0 });
   mockResolve.mockResolvedValue({ kennelId: "kennel_1", matched: true });
   // recomputeCanonical calls findMany once per successful upsert AFTER the
   // existing disambiguation findMany. Tests queue responses for the first
@@ -903,8 +903,8 @@ describe("double-header support", () => {
     // of 10 through the update path instead of create.
     for (let i = 0; i < N; i++) {
       const eventDate = new Date(`${events[i].date}T12:00:00.000Z`);
-      mockEventCreate.mockResolvedValueOnce({ id: `evt_${i + 1}`, date: eventDate } as never);
-      mockRawEventCreate.mockResolvedValueOnce({ id: `raw_${i + 1}` } as never);
+      mockEventCreate.mockResolvedValueOnce({ id: `evt_${i + 1}`, date: eventDate } as never); // NOSONAR S4325
+      mockRawEventCreate.mockResolvedValueOnce({ id: `raw_${i + 1}` } as never); // NOSONAR S4325
     }
 
     const result = await processRawEvents("src_1", events);
