@@ -291,69 +291,59 @@ interface ParsedDetails {
 
 /** Word-bounded so "TBA Park" isn't a placeholder. */
 const LOCATION_PLACEHOLDER_RE = /^(TBD|TBA|TBC)\b/i;
+const MAPS_HREF_RE = /maps\.|google\.\w+\/maps/i;
+
+/** Slice the cell HTML at the first `Transit:` or `<br>` after `Start:` —
+ *  whichever comes first. Returns the empty string when no `Start:` is found. */
+function extractStartBlock(cellHtml: string): string {
+  const startMatch = /Start:\s*/i.exec(cellHtml);
+  if (!startMatch) return "";
+  const remainder = cellHtml.slice(startMatch.index + startMatch[0].length);
+  const transitIdx = remainder.search(/Transit:/i);
+  const brMatch = /<br\b[^>]*>/i.exec(remainder);
+  const brIdx = brMatch ? brMatch.index : -1;
+  const candidateBounds = [transitIdx, brIdx].filter((n) => n >= 0);
+  if (candidateBounds.length === 0) return remainder;
+  return remainder.slice(0, Math.min(...candidateBounds));
+}
+
+/** Normalize a location text — uppercase TBD/TBA/TBC placeholders to their
+ *  canonical token, otherwise collapse whitespace and dangling commas. */
+function normalizeLocationText(text: string): string | undefined {
+  if (!text) return undefined;
+  const placeholder = LOCATION_PLACEHOLDER_RE.exec(text);
+  if (placeholder) return placeholder[1].toUpperCase();
+  return text.replace(/\s+,/g, ",").replace(/\s+/g, " ").trim();
+}
+
+/** Find the first `a[href]` link inside `scope` whose href looks like Google Maps. */
+function findMapsHref($scope: cheerio.CheerioAPI, scope: cheerio.Cheerio<AnyNode>): string | undefined {
+  let href: string | undefined;
+  scope.find("a[href]").each((_i, el) => {
+    const candidate = $scope(el).attr("href") ?? "";
+    if (MAPS_HREF_RE.test(candidate)) {
+      href = candidate;
+      return false;
+    }
+  });
+  return href;
+}
 
 /** Extract location and location URL from the "Start:" block in cell HTML.
  *
  * Bounds the location capture at the first `<br>` after `Start:` so the
  * description paragraph below doesn't bleed into the location field (#1396).
- * Both `Transit:` and a top-level `<br>` mark the end of the location block;
- * we take whichever comes first.
  */
 function extractLocationAndUrl(
   cellHtml: string,
   $: cheerio.CheerioAPI,
   cell: cheerio.Cheerio<AnyNode>,
 ): { location: string | undefined; locationUrl: string | undefined } {
-  let location: string | undefined;
-  let locationUrl: string | undefined;
-
-  const startIdx = cellHtml.search(/Start:\s*/i);
-  const startLabelMatch = startIdx >= 0 ? /Start:\s*/i.exec(cellHtml) : null;
-  if (startIdx >= 0 && startLabelMatch) {
-    const blockStart = startIdx + startLabelMatch[0].length;
-    const remainder = cellHtml.slice(blockStart);
-    const transitIdx = remainder.search(/Transit:/i);
-    // First top-level <br> ends the location segment for rows that don't carry
-    // a Transit: line (e.g. GGFM full-moon rows with a description paragraph).
-    const brMatch = /<br\b[^>]*>/i.exec(remainder);
-    const brIdx = brMatch ? brMatch.index : -1;
-    const candidateBounds = [transitIdx, brIdx].filter((n) => n >= 0);
-    const endIdx = candidateBounds.length > 0 ? Math.min(...candidateBounds) : -1;
-    const locationBlock = endIdx >= 0 ? remainder.slice(0, endIdx) : remainder;
-
-    const $block = cheerio.load(`<div>${locationBlock}</div>`);
-    const mapsLink = $block("a[href]").filter((_i, el) => {
-      const href = $block(el).attr("href") ?? "";
-      return /maps\./i.test(href) || /google\.\w+\/maps/i.test(href);
-    }).first();
-
-    if (mapsLink.length) {
-      locationUrl = mapsLink.attr("href");
-    }
-
-    const locationText = decodeHtmlEntities(locationBlock).trim();
-    if (locationText) {
-      const placeholderMatch = LOCATION_PLACEHOLDER_RE.exec(locationText);
-      if (placeholderMatch) {
-        // Normalize TBA / TBD / TBC to the literal token so downstream code
-        // can detect "no venue yet" without re-parsing free-form prose.
-        location = placeholderMatch[1].toUpperCase();
-      } else {
-        location = locationText.replace(/\s+,/g, ",").replace(/\s+/g, " ").trim();
-      }
-    }
-  }
-
-  if (!locationUrl) {
-    cell.find("a[href]").each((_i, el) => {
-      const href = $(el).attr("href") ?? "";
-      if (/maps\./i.test(href) || /google\.\w+\/maps/i.test(href)) {
-        locationUrl = href;
-        return false;
-      }
-    });
-  }
-
+  const locationBlock = extractStartBlock(cellHtml);
+  const $block = cheerio.load(`<div>${locationBlock}</div>`);
+  const location = normalizeLocationText(decodeHtmlEntities(locationBlock).trim());
+  const locationUrl =
+    findMapsHref($block, $block.root()) ?? findMapsHref($, cell);
   return { location, locationUrl };
 }
 

@@ -78,22 +78,23 @@ export function parseKjHarimauBody(bodyText: string): {
   wazeUrl?: string;
   guestFee?: string;
 } {
-  const labels = "(?:Run\\s*#|Date|Time|Hare|Runsite|GPS|Maps|Waze|Guest\\s*Fee|Birthdays|Wedding)";
+  const labels = String.raw`(?:Run\s*#|Date|Time|Hare|Runsite|GPS|Maps|Waze|Guest\s*Fee|Birthdays|Wedding)`;
   const stop = `(?=\\n|${labels}\\s*:|$)`;
   const text = bodyText.replace(/\r/g, "");
 
-  // Reject captures that are themselves a bare label (e.g. "Maps:", "Runsite") —
-  // these only appear when an empty source field over-matches into the next
-  // labeled line. Defense-in-depth for the empty-Runsite republish in #1446.
+  // A bare label captured as a value means the previous field was empty and
+  // the lookahead consumed too much (the #1446 "Maps:" leak); reject it.
   const labelOnlyRe = /^(?:Run\s*#|Date|Time|Hare|Runsite|GPS|Maps|Waze|Guest\s*Fee|Birthdays|Wedding)\s*:?$/i;
 
   const grab = (label: string): string | undefined => {
-    // Labels are hard-coded string literals above — not user input. No ReDoS risk.
-    // Match horizontal whitespace ([ \t]) after the colon instead of `\s` so an
-    // empty source field (`Runsite:\n`) doesn't consume the trailing newline
-    // and over-run into the next labeled line. Then use a normal (non-s-flag)
-    // dot so the lazy match stays line-bounded. (#1446)
-    const re = new RegExp(`${label}\\s*:[ \\t]*(.+?)${stop}`, "i");
+    // Allow the value either on the same line OR on the next line — KJ
+    // Harimau bodies use the same-line form today, but the multi-line form
+    // is a valid Blogger shape Codex flagged on PR review. `\S` forces a
+    // non-whitespace first char so a doubly-blank field (`Runsite:\n\nMaps:`)
+    // can't latch onto the next label.
+    // nosemgrep: detect-non-literal-regexp — labels come from the hard-coded
+    // constant above, not user input. (Mirrors hare-extraction.ts suppression.)
+    const re = new RegExp(`${label}\\s*:[ \\t]*(?:\\n[ \\t]*)?(\\S.*?)${stop}`, "i"); // NOSONAR
     const m = re.exec(text);
     if (!m) return undefined;
     const value = m[1].trim().replace(/\s+/g, " ");
@@ -181,6 +182,55 @@ function scoreCompleteness(
   );
 }
 
+type BloggerPost = { title: string; content: string; url: string };
+type Candidate = { event: RawEventData; score: number };
+
+/** Build a RawEventData candidate (with completeness score) from a single
+ *  Blogger post. Returns `{ skip: true }` when the post is a non-run notice
+ *  (birthday, holiday greeting) or `{ error }` when the date can't be parsed. */
+function buildKjCandidate(post: BloggerPost):
+  | { skip: true }
+  | { error: { titleDecoded: string } }
+  | { candidate: Candidate; key: string } {
+  const titleDecoded = decodeEntities(post.title);
+  if (!RUN_TITLE_RE.test(titleDecoded)) return { skip: true };
+
+  const bodyText = stripHtmlTags(post.content, "\n");
+  const body = parseKjHarimauBody(bodyText);
+  const titleFields = parseKjHarimauTitle(titleDecoded);
+
+  const date = body.date ?? titleFields.date;
+  if (!date) return { error: { titleDecoded } };
+
+  const runNumber = body.runNumber ?? titleFields.runNumber;
+  const hares = normalizeHaresField(body.hare ?? titleFields.hare);
+  const location = body.runsite ?? titleFields.runsite;
+
+  const externalLinks = body.wazeUrl
+    ? [{ url: body.wazeUrl, label: "Waze" }]
+    : undefined;
+
+  const event: RawEventData = {
+    date,
+    kennelTags: [KENNEL_TAG],
+    runNumber,
+    hares,
+    location,
+    locationUrl: body.mapsUrl,
+    latitude: body.latitude,
+    longitude: body.longitude,
+    startTime: body.startTime ?? DEFAULT_START_TIME,
+    sourceUrl: post.url,
+    description: body.guestFee ? `Guest Fee: ${body.guestFee}` : undefined,
+    externalLinks,
+  };
+
+  return {
+    candidate: { event, score: scoreCompleteness(body, location, hares) },
+    key: `${date}|${runNumber ?? ""}`,
+  };
+}
+
 export class KjHarimauAdapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
 
@@ -206,34 +256,20 @@ export class KjHarimauAdapter implements SourceAdapter {
 
     // KJ Harimau occasionally republishes the same run as a second Blogger
     // post — sometimes the FIRST post seen still has an empty `Runsite:` /
-    // `Maps:` because the kennel posted an announcement before details were
-    // finalized. Picking the first-seen post (newest published) is NOT
-    // sufficient: the announcement is what got republished last. (#1446)
-    //
-    // Strategy: collect all run-shaped posts per (date, runNumber), then keep
-    // the candidate with the highest field-completeness score.
-    type Candidate = {
-      event: RawEventData;
-      score: number;
-    };
+    // `Maps:`. Pick the most-complete candidate per (date, runNumber). (#1446)
     const groups = new Map<string, Candidate>();
     let duplicatesSkipped = 0;
     let filteredOut = 0;
     for (let i = 0; i < bloggerResult.posts.length; i++) {
-      const post = bloggerResult.posts[i];
-      const titleDecoded = decodeEntities(post.title);
-      if (!RUN_TITLE_RE.test(titleDecoded)) {
+      const result = buildKjCandidate(bloggerResult.posts[i]);
+      if ("skip" in result) {
         filteredOut++;
         continue;
       }
-
-      const bodyText = stripHtmlTags(post.content, "\n");
-      const body = parseKjHarimauBody(bodyText);
-      const titleFields = parseKjHarimauTitle(titleDecoded);
-
-      const date = body.date ?? titleFields.date;
-      if (!date) {
-        errors.push(`KJ Harimau post "${titleDecoded.slice(0, 80)}" has no parseable date`);
+      if ("error" in result) {
+        errors.push(
+          `KJ Harimau post "${result.error.titleDecoded.slice(0, 80)}" has no parseable date`,
+        );
         errorDetails.parse = [
           ...(errorDetails.parse ?? []),
           {
@@ -241,46 +277,17 @@ export class KjHarimauAdapter implements SourceAdapter {
             section: "post",
             field: "date",
             error: "No parseable date",
-            rawText: `Title: ${titleDecoded}`.slice(0, 500),
+            rawText: `Title: ${result.error.titleDecoded}`.slice(0, 500),
           },
         ];
         continue;
       }
-
-      const runNumber = body.runNumber ?? titleFields.runNumber;
-      const hares = normalizeHaresField(body.hare ?? titleFields.hare);
-      const location = body.runsite ?? titleFields.runsite;
-
-      const externalLinks: { url: string; label: string }[] = [];
-      if (body.wazeUrl) externalLinks.push({ url: body.wazeUrl, label: "Waze" });
-
-      const description = body.guestFee ? `Guest Fee: ${body.guestFee}` : undefined;
-
-      const event: RawEventData = {
-        date,
-        kennelTags: [KENNEL_TAG],
-        runNumber,
-        hares,
-        location,
-        locationUrl: body.mapsUrl,
-        latitude: body.latitude,
-        longitude: body.longitude,
-        startTime: body.startTime ?? DEFAULT_START_TIME,
-        sourceUrl: post.url,
-        description,
-        externalLinks: externalLinks.length > 0 ? externalLinks : undefined,
-      };
-
-      const score = scoreCompleteness(body, location, hares);
-      const key = `${date}|${runNumber ?? ""}`;
-      const existing = groups.get(key);
-      if (!existing) {
-        groups.set(key, { event, score });
-      } else {
+      const existing = groups.get(result.key);
+      if (existing) {
         duplicatesSkipped++;
-        if (score > existing.score) {
-          groups.set(key, { event, score });
-        }
+        if (result.candidate.score > existing.score) groups.set(result.key, result.candidate);
+      } else {
+        groups.set(result.key, result.candidate);
       }
     }
 

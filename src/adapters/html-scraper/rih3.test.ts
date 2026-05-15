@@ -214,6 +214,24 @@ describe("parseHarelineRow", () => {
     expect(result?.locationUrl).toBeUndefined();
   });
 
+  it("captures addresses with abbreviation periods like St./Rd./Ave. (PR #1451 review)", () => {
+    // Gemini flagged that the original `[^.<>\n]` exclusion would truncate at
+    // any period — meaning `2203 St. John's Rd, Providence, RI` would only see
+    // `John's Rd, Providence, RI`, fail the digit check, and fall back to the
+    // wrong link text. Periods are now allowed inside the captured run.
+    const dirHtml = `
+      <h2>Trail of the Saints</h2>
+      The start is at 2203 St. John's Rd, Providence, RI.
+      <br/>
+      <a href="https://www.google.com/maps/place/some+wrong+place" target="new">
+        <font color="#cc0000">Park anywhere you can find a spot.</font>
+      </a>
+    `;
+    const cells = ["Mon June 1", "6:30 PM", "2099"];
+    const result = parseHarelineRow(cells, HARE_SINGLE, dirHtml, SOURCE_URL);
+    expect(result?.location).toBe("2203 St. John's Rd, Providence, RI");
+  });
+
   it("strips navigation instructions from Maps link text", () => {
     const dirHtml = `
       <h2><strong>Test Run</strong></h2>

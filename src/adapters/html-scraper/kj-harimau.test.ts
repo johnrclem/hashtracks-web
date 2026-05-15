@@ -81,6 +81,37 @@ Details at khhhkj.blogspot.com
   // by `Maps:` (also empty). The labeled-field regex over-matched across the
   // newline and captured the literal "Maps:" as the runsite value. Now empty
   // fields and label-only captures both resolve to `undefined`.
+  it("extracts values that appear on the line after the label (Codex review)", () => {
+    // Some Blogger posts put the value on the next line below the label.
+    // The single-line form (per the main fixture) must keep working, but the
+    // multi-line form should also resolve to the same fields.
+    const multiline = `
+*Kelab Hash House Harimau Kelana Jaya*
+Run#: 1549
+Date:
+20/04/26
+Time:
+6:00 pm
+Hare:
+Test Hare
+Runsite:
+Bukit Gasing Car Park
+GPS:
+3.1,101.6
+Guest Fee:
+RM 60
+`;
+    const fields = parseKjHarimauBody(multiline);
+    expect(fields.runNumber).toBe(1549);
+    expect(fields.date).toBe("2026-04-20");
+    expect(fields.startTime).toBe("18:00");
+    expect(fields.hare).toBe("Test Hare");
+    expect(fields.runsite).toBe("Bukit Gasing Car Park");
+    expect(fields.latitude).toBeCloseTo(3.1);
+    expect(fields.longitude).toBeCloseTo(101.6);
+    expect(fields.guestFee).toBe("RM 60");
+  });
+
   it("rejects label-only over-matches when an earlier field is empty (#1446)", () => {
     const earlyAnnouncement = `
 *Kelab Hash House Harimau Kelana Jaya*

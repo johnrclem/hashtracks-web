@@ -170,9 +170,13 @@ export function cleanKljTitle(title: string): string | undefined {
   rest = rest.replace(/^[–\-—:]\s*/, "");
 
   // Strip a trailing " @ <placeholder>" — Shape B titles can carry "@ TBD"
-  // (or TBA / TBC) when the venue isn't finalized; that's a placeholder, not
-  // part of the themed name.
-  rest = rest.replace(/\s+@\s+(?:TBD|TBA|TBC)\b\s*$/i, "").trim();
+  // (or TBA / TBC) when the venue isn't finalized. Split into two regex passes
+  // so `\s+` never sits adjacent to alternation (Sonar S5852 false-positive
+  // shape — see memory `feedback_sonar_s5852_false_positives.md`).
+  const tailMatch = /(.+?)\s+@\s+(\S+)\s*$/i.exec(rest);
+  if (tailMatch && /^(?:TBD|TBA|TBC)$/i.test(tailMatch[2])) {
+    rest = tailMatch[1].trim();
+  }
 
   // Empty trailer or one that opens with a venue marker ("@ …", ", …",
   // "near <Place>") means the post title carries no themed name —
