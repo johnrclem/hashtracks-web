@@ -2,6 +2,11 @@
 
 # dependencies
 /node_modules
+# NAS sidecar services (proxy-relay, browser-render) install their own node_modules
+# at build time inside the Docker container; lockfiles aren't committed (matches
+# the existing convention — see infra/proxy-relay which has no lockfile either).
+infra/*/node_modules
+infra/*/package-lock.json
 /.pnp
 .pnp.*
 .yarn/*

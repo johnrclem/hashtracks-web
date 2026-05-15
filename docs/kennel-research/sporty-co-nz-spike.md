@@ -1,10 +1,19 @@
-# sporty.co.nz WAF bypass spike — Phase 1.5 findings
+# sporty.co.nz WAF bypass spike — Phase 1.5 findings (resolved)
 
 **Date:** 2026-05-15
 **Targets:** Capital H3, Mooloo HHH, Geriatrix H3 (three NZ kennels publishing harelines on `sporty.co.nz`)
-**Verdict:** ❌ **Phase 2 blocked on existing infrastructure.** Cloudflare's "I'm Under Attack" / Bot Fight Mode is applied platform-wide to sporty.co.nz; every dynamic path (the kennel homepages, hareline sub-pages, even the platform's own JS bundle) returns the JS challenge regardless of headers, IP, or whether the request originates from a server-side Playwright session.
+**Original verdict:** ❌ Phase 2 blocked on existing infrastructure.
+**Resolved verdict (after 1.5-B stealth upgrade):** ✅ **All three pages render cleanly via `browserRender()` — Phase 2 unblocked.**
 
-The good news, from inspecting the real pages via Claude in Chrome: **the hareline data is server-side-rendered HTML, varies in layout per kennel, and is straightforward to parse once we have an HTML response.** If we ever clear the CF challenge — by adding `playwright-extra` + stealth plugin to the NAS render service, paying for a commercial CF-bypassing scraping API, or running the scrape from an authenticated user's browser — the adapter work is a few hours, not days.
+The initial round confirmed Cloudflare's "I'm Under Attack" / Bot Fight Mode was applied platform-wide to sporty.co.nz; every dynamic path returned the JS challenge regardless of headers, IP, or whether the request originated from a server-side Playwright session. The follow-up infra upgrade in **Phase 1.5-B** added `playwright-extra` + `puppeteer-extra-plugin-stealth` to the NAS browser-render service, plus a realistic Chrome 130 UA / 1440×900 viewport / `en-NZ` locale at the context level. Result: Cloudflare doesn't even gate the request — the challenge is never triggered, the page returns directly with the real HTML.
+
+Live verification after deploy (`scripts/spike-sporty-co-nz.ts`):
+- **Capital H3**: 108–111 KB real HTML, hareline (`2326 – 18 May 2026 – …` through `2330 – 15 Jun 2026 – Hare required!`) present in the response
+- **Mooloo HHH**: 54–60 KB real HTML
+- **Geriatrix H3**: 91 KB real HTML
+- **NAS docker logs**: zero "Cloudflare challenge detected" entries on both runs — the stealth fingerprint passes CF transparently
+- **Wix regression (Northboro)**: 475 KB real HTML, no regression on non-CF sites
+- **Per-render time**: ~3–5 s (no puzzle solve needed)
 
 ---
 
@@ -124,11 +133,20 @@ Long-term option: a one-off admin UI / bookmarklet that the user (or a kennel ad
 
 ---
 
-## Phase 2 decision
+## Phase 2 decision (updated)
 
-**Cancel Phase 2 as a standalone PR. Roll Capital/Mooloo/Geriatrix into Phase 3 STATIC bulk** (Option A). Track Option B as a candidate "stealth-Playwright NAS upgrade" infra PR — the same one would unblock any future CF-protected kennels we hit, so the cost/benefit improves with each region.
+**Phase 2 is now unblocked.** Option B (stealth upgrade) shipped as **Phase 1.5-B** in this same PR — see `infra/browser-render/server.js` for the implementation (stealth plugin, default Chrome 130 UA / viewport / locale, `clearCloudflareChallenge()` helper, per-hostname `cf_clearance` cookie cache). Live verification against all three sporty.co.nz pages is green.
 
-The three kennels are also priority entries on the **Phase 4 FB Page audit**: if `facebook.com/Capitalhhh` / `facebook.com/mooloohhh` / `facebook.com/GeriatrixHHH` publishes scrapeable FB Events, the `FACEBOOK_HOSTED_EVENTS` adapter is our only remaining path to live data without touching sporty.co.nz.
+**Phase 2 (follow-up PR)** will:
+- Add `Kennel` records for Capital H3 / Mooloo HHH / Geriatrix H3 with their metadata
+- Add per-kennel `HTML_SCRAPER` adapters — three different layouts:
+  - Capital H3: parse the homepage `<div id="notices-prevContent-*">` panel; each row is a `<p>` of `<span>RUN# – DD MMM YYYY – LOCATION – HARE</span>`
+  - Geriatrix H3: parse `/Receding-Hareline/NewTab1` — 4-line repeating blocks of `<date>` / `Venue: …` / `Hare: …` / `Map: …`
+  - Mooloo HHH: parse `/UpCumming-Runs` — freeform `<p>` paragraphs (lower fidelity)
+- Live-verify each adapter via `npm test` + `scripts/verify-nz-adapters.ts` extension
+- Optionally migrate `Tokoroa H3` / `Auckland H3` / any other CF-protected NZ kennel from STATIC to HTML_SCRAPER if their pages are also on Cloudflare (cf_clearance cache makes this cheap).
+
+The three kennels remain priority entries on the **Phase 4 FB Page audit** as a defensive layer: if sporty.co.nz ever tightens CF further (or moves off Sporty), `FACEBOOK_HOSTED_EVENTS` against `facebook.com/Capitalhhh` / `facebook.com/mooloohhh` / `facebook.com/GeriatrixHHH` is our fallback path.
 
 ---
 

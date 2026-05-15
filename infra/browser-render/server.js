@@ -26,6 +26,22 @@ const PAGE_TIMEOUT_MS = 30_000;
 const MAX_RESPONSE_SIZE = 5 * 1024 * 1024; // 5 MB
 const MAX_REQUEST_BODY_SIZE = 1 * 1024 * 1024; // 1 MB
 
+// Default context options. The realistic Chrome 130 UA + viewport + locale
+// pair with the stealth plugin's fingerprint overrides so Cloudflare's
+// "I'm Under Attack" / Bot Fight Mode JS challenge can't see headless tells.
+// Callers may override `userAgent` per request.
+const DEFAULT_USER_AGENT =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36";
+const DEFAULT_VIEWPORT = { width: 1440, height: 900 };
+const DEFAULT_LOCALE = "en-NZ";
+
+// Per-hostname cf_clearance cookie cache. cf_clearance is bound to (IP, UA)
+// and typically valid ~30 min from Cloudflare; we cache 25 min for a safety
+// margin so subsequent renders within that window skip the puzzle solve.
+const CF_COOKIE_TTL_MS = 25 * 60 * 1000;
+const CF_CHALLENGE_TITLE_RE = /just a moment|attention required|checking your browser/i;
+const cfCookieCache = new Map(); // hostname → { cookies: SetCookieArray, expiresAt: epochMs }
+
 let browser = null;
 let launching = false;
 let busy = false;
@@ -71,16 +87,26 @@ async function getBrowser() {
 
   launching = true;
   try {
-    const { chromium } = require("playwright");
+    // playwright-extra is a drop-in wrapper around playwright that lets us
+    // register puppeteer-style plugins. Stealth applies a curated set of
+    // fingerprint overrides (navigator.webdriver = false, normalised
+    // plugin list, chrome.runtime gap, Permissions API fix, etc.) so the
+    // Bot Fight Mode JS challenge can't see headless tells.
+    const { chromium } = require("playwright-extra");
+    const StealthPlugin = require("puppeteer-extra-plugin-stealth");
+    chromium.use(StealthPlugin());
     browser = await chromium.launch({
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
         "--disable-dev-shm-usage",
         "--disable-gpu",
+        // Blink feature flag — disables one CDP-exposed surface that
+        // some bot-detectors (incl. Cloudflare's heuristics) read.
+        "--disable-blink-features=AutomationControlled",
       ],
     });
-    console.log(`[${new Date().toISOString()}] Browser launched`);
+    console.log(`[${new Date().toISOString()}] Browser launched (stealth)`);
     browser.on("disconnected", () => {
       console.log(`[${new Date().toISOString()}] Browser disconnected`);
       browser = null;
@@ -89,6 +115,42 @@ async function getBrowser() {
   } finally {
     launching = false;
   }
+}
+
+/**
+ * Wait for Cloudflare's "Just a moment…" / Bot Fight Mode JS challenge to
+ * resolve. Fast no-op when the current page isn't challenged. When it is,
+ * polls the page title every 500 ms until the challenge marker disappears
+ * (CF redirects post-challenge to the real page), capped at `maxWaitMs`.
+ *
+ * Returns `true` if a challenge was observed (whether or not it cleared),
+ * `false` if the page was never challenged. Callers use the boolean to
+ * decide whether to cache cf_clearance cookies.
+ */
+async function clearCloudflareChallenge(page, maxWaitMs) {
+  const titleNow = await page.title().catch(() => "");
+  if (!CF_CHALLENGE_TITLE_RE.test(titleNow)) return false;
+  console.log(
+    `[${new Date().toISOString()}] Cloudflare challenge detected (title: "${titleNow}"), waiting up to ${maxWaitMs}ms`,
+  );
+  await page
+    .waitForFunction(
+      () => !/just a moment|attention required|checking your browser/i.test(document.title || ""),
+      null,
+      { timeout: maxWaitMs, polling: 500 },
+    )
+    .catch(() => {
+      // Timeout — let the caller inspect the resulting HTML and report.
+    });
+  // The CF flow finishes with a navigation reload; give it a beat to settle.
+  await page.waitForLoadState("domcontentloaded").catch(() => {});
+  return true;
+}
+
+/** Extract CF-bypass cookies (cf_clearance + any __cf_* helpers) for a context's origin. */
+async function readCfCookies(context, origin) {
+  const cookies = await context.cookies(origin).catch(() => []);
+  return cookies.filter((c) => c.name === "cf_clearance" || c.name.startsWith("__cf"));
 }
 
 /**
@@ -167,12 +229,30 @@ const server = http.createServer(async (req, res) => {
       return jsonResponse(res, 400, { error: "Invalid JSON body" });
     }
 
-    const { url, waitFor, selector, frameUrl, timeout, timezoneId } = parsed;
+    const { url, waitFor, selector, frameUrl, timeout, timezoneId, userAgent } = parsed;
     if (!url || typeof url !== "string") {
       busy = false;
       return jsonResponse(res, 400, {
         error: "Missing or invalid 'url' field",
       });
+    }
+
+    // Optional caller-supplied UA. Same charset/length sanity-checks as
+    // timezoneId (keep the surface small, fail closed on garbage). The
+    // request handler defaults to DEFAULT_USER_AGENT when omitted.
+    let safeUserAgent;
+    if (userAgent !== undefined) {
+      if (
+        typeof userAgent !== "string" ||
+        userAgent.length === 0 ||
+        userAgent.length > 256
+      ) {
+        busy = false;
+        return jsonResponse(res, 400, {
+          error: `Invalid userAgent (length 1-256 required)`,
+        });
+      }
+      safeUserAgent = userAgent;
     }
 
     // Validate timezoneId — Playwright accepts any IANA timezone identifier.
@@ -237,11 +317,27 @@ const server = http.createServer(async (req, res) => {
     // Always create an explicit context so cleanup is uniform across the
     // timezone and no-timezone paths. When timezoneId is supplied, the context
     // makes JS calendars (Wix, Google Sites) format dates in the kennel's
-    // local zone rather than the server's UTC default. Without it, BCH3 events
-    // authored as "Thursday 8 PM CDT" rendered as "Friday 12 AM" (rounded
-    // UTC). See #960.
-    const contextOpts = safeTimezoneId ? { timezoneId: safeTimezoneId } : {};
+    // local zone rather than the server's UTC default (#960). The stealth
+    // plugin only shapes the browser globally — context-level fields (UA,
+    // viewport, locale) must be set per-context so they match the stealth
+    // plugin's claim that the browser is a real Chrome.
+    const contextOpts = {
+      userAgent: safeUserAgent ?? DEFAULT_USER_AGENT,
+      viewport: DEFAULT_VIEWPORT,
+      locale: DEFAULT_LOCALE,
+      ...(safeTimezoneId ? { timezoneId: safeTimezoneId } : {}),
+    };
     context = await b.newContext(contextOpts);
+
+    // Prime the context with cached cf_clearance cookies if we've cleared
+    // this host's challenge recently — skips the 5-15s puzzle solve.
+    const cached = cfCookieCache.get(parsedUrl.hostname);
+    if (cached && cached.expiresAt > Date.now()) {
+      await context.addCookies(cached.cookies).catch(() => {});
+    } else if (cached) {
+      cfCookieCache.delete(parsedUrl.hostname); // evict expired entry
+    }
+
     page = await context.newPage();
 
     // Use domcontentloaded instead of networkidle — Wix/SPA sites have
@@ -251,6 +347,24 @@ const server = http.createServer(async (req, res) => {
       waitUntil: "domcontentloaded",
       timeout: pageTimeout,
     });
+
+    // Clear Cloudflare's "Just a moment…" JS challenge if the response
+    // landed on one. No-op for non-CF sites (single title read). Use the
+    // remaining page-timeout budget so we never exceed PAGE_TIMEOUT_MS.
+    const cfRemaining = Math.max(pageTimeout - (Date.now() - renderStart), 5_000);
+    const wasChallenged = await clearCloudflareChallenge(page, cfRemaining);
+    if (wasChallenged) {
+      const cfCookies = await readCfCookies(context, parsedUrl.origin);
+      if (cfCookies.length > 0) {
+        cfCookieCache.set(parsedUrl.hostname, {
+          cookies: cfCookies,
+          expiresAt: Date.now() + CF_COOKIE_TTL_MS,
+        });
+        console.log(
+          `[${new Date().toISOString()}] Cached ${cfCookies.length} CF cookie(s) for ${parsedUrl.hostname} (TTL ${CF_COOKIE_TTL_MS / 60000}min)`,
+        );
+      }
+    }
 
     // Wait for the requested selector
     await page.waitForSelector(waitForSelector, {
