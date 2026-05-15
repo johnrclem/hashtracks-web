@@ -372,6 +372,21 @@ describe("non-hash event filter (#1271)", () => {
     expect(result).toBeNull();
   });
 
+  // Codex review: lowercase "hash practice" / "trail class" must NOT match
+  // the proper-noun activity pattern — the case-sensitive `[A-Z][a-z]+`
+  // prefix is what enforces the "proper noun" semantic.
+  it.each([
+    "hash practice",
+    "trail class",
+    "banana training",
+  ])("preserves lowercase activity-word title (proper-noun guard): %s", (summary) => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary }),
+      { defaultKennelTag: "h4-tx" },
+    );
+    expect(result).not.toBeNull();
+  });
+
   it.each([
     ["bare proper noun", "Rex Manning Day"],
     ["short title", "TGIF Friday"],
@@ -459,19 +474,32 @@ describe("non-hash domain filter (#1426)", () => {
     expect(result!.hares).toBe("Banana Boat");
   });
 
-  // Third hash-confirming signal: the title itself contains "hash" / "h3" /
-  // "hhh" — themed hash events without runNumber or hares (Codex round 2).
+  // Third hash-confirming signal: the title itself contains the literal
+  // word "hash" — themed hash events without runNumber or hares (Codex
+  // round 2). H3/H4/H5/HHH were rejected as keywords because they false-
+  // matched kennel-code prefixes like `H4-TX: Soccer Practice` (Codex
+  // round 3 on this PR).
   it.each([
     "Annual Rugby Tournament Hash",
-    "H4 Soccer Practice Theme",
     "Basketball Game Hash Trail",
-    "HHH Football Match",
+    "Hash Soccer Practice Theme",
   ])("preserves sport+qualifier title with explicit hash keyword: %s", (summary) => {
     const result = buildRawEventFromGCalItem(
       testGCalEvent({ summary }),
       { defaultKennelTag: "h4-tx" },
     );
     expect(result).not.toBeNull();
+  });
+
+  // Regression: kennel-code prefixes (H4-TX, H3-NYC, HHH-LA) must not
+  // bypass the sport filter on their own. The earlier draft used
+  // `\bh[345]\b` which false-matched these.
+  it("drops sport+qualifier title with H4-style kennel prefix only", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "H4-TX: Soccer Practice" }),
+      { defaultKennelTag: "h4-tx" },
+    );
+    expect(result).toBeNull();
   });
 
   it.each([
@@ -3671,9 +3699,9 @@ describe("buildRawEventFromGCalItem — jHav title suffix strip (#1429)", () => 
   // Mirrors the seed config for "jHavelina H3 Google Calendar".
   const config = {
     defaultKennelTag: "jhav-h3",
-    titleStripPatterns: [String.raw`[\s\-:]+jhav\s+trail\s+#?\d+\.*\s*$`],
+    titleStripPatterns: [String.raw`[\s\-:]+jhav\s+trail\s+#?\d+\.?\s*$`],
   };
-  const compiledTitleStripPatterns = [/[\s\-:]+jhav\s+trail\s+#?\d+\.*\s*$/i];
+  const compiledTitleStripPatterns = [/[\s\-:]+jhav\s+trail\s+#?\d+\.?\s*$/i];
   const opts = { compiledTitleStripPatterns };
 
   it.each<[string, string, string, number | undefined]>([

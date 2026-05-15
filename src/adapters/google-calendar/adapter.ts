@@ -124,9 +124,11 @@ const PERSONAL_TITLE_PATTERNS: readonly RegExp[] = [
   /^\s*drop\s+off\s+\S/i,
   /^\s*call\s+(?:with|to)\b/i,
   // #1418 Aloha: "Ciara training" — proper-noun + personal activity word.
-  // Tight allowlist of activities so this never matches a hash title like
-  // "Hash Training Run" (proper noun would be a kennel name, not activity).
-  /^\s*[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?\s+(?:training|practice|lesson|class|workout|tutoring|rehearsal)\b/i,
+  // Case-sensitive `[A-Z][a-z]+` enforces the "proper noun" semantic so
+  // bare lowercase summaries like "hash practice" or "trail class" never
+  // match (Codex review). The activity-word alternation keeps `/i` so
+  // mixed-case typos like "Practice" still register.
+  /^\s*[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?\s+(?:training|practice|lesson|class|workout|tutoring|rehearsal)\b/,
 ];
 
 /**
@@ -145,12 +147,17 @@ const NON_HASH_DOMAIN_PATTERNS: readonly RegExp[] = [
 ];
 
 /**
- * Title-level hash-vocabulary markers. Hash events themed around a sport
- * often spell "hash" / "h3" / "h4" / "h5" / "hhh" verbatim ("Annual Rugby
- * Tournament Hash"). When present, the sport+qualifier filter is bypassed
- * since the kennel admin's intent is unambiguous.
+ * Title-level "hash" keyword. Used as a third hash-confirming signal when
+ * the sport+qualifier filter would otherwise drop a themed hash event.
+ *
+ * Deliberately just the literal word `hash` — the original draft also
+ * accepted `h3` / `h4` / `h5` / `hhh`, but those false-matched kennel-code
+ * prefixes like `H4-TX: Soccer Practice` (Codex review). The `H4-TX`
+ * prefix is so common across multi-kennel calendars that the false
+ * positives outweighed the rare themed-hash titles using a bare
+ * `H4`-style keyword.
  */
-const HASH_KEYWORD_RE = /\b(?:hash|h[345]|hhh)\b/i;
+const HASH_KEYWORD_RE = /\bhash\b/i;
 
 /** Strip leading day/date prefixes like "Wed April 1st", "Sat 3/28" from titles. */
 export function stripDatePrefix(text: string): string {
@@ -350,10 +357,16 @@ const MAX_HARE_PAREN_LENGTH = 40;
  */
 function isInitialsWordplay(title: string, inner: string, parenIndex: number): boolean {
   const beforeParen = title.slice(0, parenIndex).trim();
-  const lastWordMatch = /\S+$/.exec(beforeParen);
-  if (!lastWordMatch) return false;
-  const initials = lastWordMatch[0];
-  if (!/^[A-Z]{2,5}$/.test(initials)) return false;
+  // Walk backward to the last whitespace boundary instead of `/\S+$/` —
+  // Sonar S5852 flags greedy `\S+` followed by an end anchor as a
+  // potential ReDoS shape even though it's linear in practice.
+  const lastSpace = Math.max(
+    beforeParen.lastIndexOf(" "),
+    beforeParen.lastIndexOf("\t"),
+    beforeParen.lastIndexOf("\n"),
+  );
+  const initials = lastSpace >= 0 ? beforeParen.slice(lastSpace + 1) : beforeParen;
+  if (!initials || !/^[A-Z]{2,5}$/.test(initials)) return false;
   const trimmedInner = inner.trim();
   if (!/^[a-z]/.test(trimmedInner)) return false;
   const innerWords = trimmedInner.split(/\s+/);
