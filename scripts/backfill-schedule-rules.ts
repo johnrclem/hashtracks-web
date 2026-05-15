@@ -622,6 +622,73 @@ interface KennelSeedLike {
  * The `seedKennels` parameter is injectable for testability; defaults to the
  * exported KENNELS array.
  */
+interface DisplayKennel {
+  id: string;
+  kennelCode: string;
+  shortName: string;
+  scheduleDayOfWeek: string | null;
+  scheduleTime: string | null;
+  scheduleFrequency: string | null;
+  scheduleNotes: string | null;
+}
+
+interface DisplayRowResult {
+  emitted: number;
+  status: "emitted" | "unparseable" | "opted-out";
+  reason?: string;
+}
+
+/**
+ * Process one Pass 2 kennel row. Extracted from `runKennelDisplayPass` to keep
+ * the outer function's cognitive complexity under SonarCloud's cap of 15.
+ */
+function processDisplayKennel(
+  k: DisplayKennel,
+  optedOutCodes: ReadonlySet<string>,
+  planned: PlannedRule[],
+  options: BackfillOptions,
+): DisplayRowResult {
+  if (optedOutCodes.has(k.kennelCode)) {
+    if (options.verbose) {
+      console.log(`  ⤼ ${k.shortName} — opted out of Pass 2 (declares scheduleRules in seed)`);
+    }
+    return { emitted: 0, status: "opted-out" };
+  }
+  const parsed = parseFrequencyDay(k.scheduleFrequency, k.scheduleDayOfWeek);
+  if (parsed.length === 0) {
+    if (options.verbose) {
+      console.log(
+        `  ⊘ ${k.shortName} — unparseable: freq=${JSON.stringify(k.scheduleFrequency)} day=${JSON.stringify(k.scheduleDayOfWeek)}`,
+      );
+    }
+    return {
+      emitted: 0,
+      status: "unparseable",
+      reason: `${k.scheduleFrequency} / ${k.scheduleDayOfWeek ?? "null"}`,
+    };
+  }
+  const startTime = parseScheduleTime(k.scheduleTime);
+  for (const rule of parsed) {
+    planned.push({
+      kennelId: k.id,
+      kennelDisplay: k.shortName,
+      rrule: rule.rrule,
+      anchorDate: null,
+      startTime,
+      confidence: rule.confidence,
+      source: "SEED_DATA",
+      sourceReference: SOURCE_REF.kennelDisplay,
+      lastValidatedAt: null,
+      notes: rule.notes ?? null,
+      label: null,
+      validFrom: null,
+      validUntil: null,
+      displayOrder: 0,
+    });
+  }
+  return { emitted: parsed.length, status: "emitted" };
+}
+
 export async function runKennelDisplayPass(
   prisma: PrismaClientLike,
   planned: PlannedRule[],
@@ -654,44 +721,12 @@ export async function runKennelDisplayPass(
   let optedOut = 0;
   const skipReasons = new Map<string, number>();
   for (const k of kennels) {
-    if (optedOutCodes.has(k.kennelCode)) {
-      optedOut++;
-      if (options.verbose) {
-        console.log(`  ⤼ ${k.shortName} — opted out of Pass 2 (declares scheduleRules in seed)`);
-      }
-      continue;
-    }
-    const parsed = parseFrequencyDay(k.scheduleFrequency, k.scheduleDayOfWeek);
-    if (parsed.length === 0) {
+    const result = processDisplayKennel(k, optedOutCodes, planned, options);
+    count += result.emitted;
+    if (result.status === "opted-out") optedOut++;
+    else if (result.status === "unparseable" && result.reason) {
       skipped++;
-      const reason = `${k.scheduleFrequency} / ${k.scheduleDayOfWeek ?? "null"}`;
-      skipReasons.set(reason, (skipReasons.get(reason) ?? 0) + 1);
-      if (options.verbose) {
-        console.log(
-          `  ⊘ ${k.shortName} — unparseable: freq=${JSON.stringify(k.scheduleFrequency)} day=${JSON.stringify(k.scheduleDayOfWeek)}`,
-        );
-      }
-      continue;
-    }
-    const startTime = parseScheduleTime(k.scheduleTime);
-    for (const rule of parsed) {
-      planned.push({
-        kennelId: k.id,
-        kennelDisplay: k.shortName,
-        rrule: rule.rrule,
-        anchorDate: null,
-        startTime,
-        confidence: rule.confidence,
-        source: "SEED_DATA",
-        sourceReference: SOURCE_REF.kennelDisplay,
-        lastValidatedAt: null,
-        notes: rule.notes ?? null,
-        label: null,
-        validFrom: null,
-        validUntil: null,
-        displayOrder: 0,
-      });
-      count++;
+      skipReasons.set(result.reason, (skipReasons.get(result.reason) ?? 0) + 1);
     }
   }
   console.log(
@@ -749,6 +784,100 @@ function validateMonthDayAnchor(raw: string | undefined): string | null {
  * "FREQ=MONTHLY;BYDAY=1SA") while Pass 2 emits CADENCE sentinels for monthly
  * patterns without ordinals.
  */
+/**
+ * Validate one seed RRULE against the static-schedule adapter's parser. Returns
+ * the normalized RRULE string on success, null on failure (already logged).
+ * Fail-loud guard: better to skip at backfill time than to persist a value
+ * Travel Mode's projection engine silently falls back to "possible activity".
+ */
+function normalizeAndValidateSeedRrule(
+  rawRrule: string,
+  kennelCode: string,
+): string | null {
+  const normalized = normalizeRRule(rawRrule);
+  try {
+    parseRRule(normalized);
+    return normalized;
+  } catch (err) {
+    console.warn(
+      `  ⚠ ${kennelCode} — unparseable rrule ${JSON.stringify(rawRrule)}: ` +
+        `${err instanceof Error ? err.message : String(err)}, skipping`,
+    );
+    return null;
+  }
+}
+
+/**
+ * Validate the MM-DD season anchors on a seed rule, logging warnings for
+ * malformed values. Returns the validated anchors (null when missing/invalid).
+ */
+function resolveSeasonAnchors(
+  rule: KennelScheduleRuleSeed,
+  kennelCode: string,
+): { validFrom: string | null; validUntil: string | null } {
+  const validFrom = validateMonthDayAnchor(rule.validFrom);
+  const validUntil = validateMonthDayAnchor(rule.validUntil);
+  if (rule.validFrom && !validFrom) {
+    console.warn(`  ⚠ ${kennelCode} — invalid validFrom ${JSON.stringify(rule.validFrom)}, dropping`);
+  }
+  if (rule.validUntil && !validUntil) {
+    console.warn(`  ⚠ ${kennelCode} — invalid validUntil ${JSON.stringify(rule.validUntil)}, dropping`);
+  }
+  return { validFrom, validUntil };
+}
+
+type SeedRuleResult = "emitted" | "skipped-empty" | "skipped-unparseable";
+
+interface SeedKennelMeta {
+  id: string;
+  kennelCode: string;
+  shortName: string;
+}
+
+/**
+ * Plan one Pass 3 rule. Extracted to keep `runKennelSeedPass` under SonarCloud's
+ * cognitive-complexity cap.
+ */
+function planSeedRule(
+  rule: KennelScheduleRuleSeed,
+  dbKennel: SeedKennelMeta,
+  kennelCode: string,
+  planned: PlannedRule[],
+  options: BackfillOptions,
+): SeedRuleResult {
+  const rrule = rule.rrule?.trim();
+  if (!rrule) {
+    if (options.verbose) {
+      console.log(`  ⊘ ${kennelCode} — empty rrule, skipping rule`);
+    }
+    return "skipped-empty";
+  }
+  const normalizedRrule = normalizeAndValidateSeedRrule(rrule, kennelCode);
+  if (!normalizedRrule) return "skipped-unparseable";
+  const { validFrom, validUntil } = resolveSeasonAnchors(rule, kennelCode);
+  planned.push({
+    kennelId: dbKennel.id,
+    kennelDisplay: dbKennel.shortName,
+    rrule: normalizedRrule,
+    anchorDate: rule.anchorDate?.trim() || null,
+    startTime: rule.startTime?.trim() || null,
+    confidence: "HIGH",
+    source: "SEED_DATA",
+    sourceReference: SOURCE_REF.kennelSeed(kennelCode),
+    // First-create timestamp. applyUpserts excludes lastValidatedAt from
+    // the UPDATE clause for SEED_DATA rules, so this `new Date()` is only
+    // written when the row is first created — re-runs preserve the
+    // original first-seen value (and admin re-validations stick).
+    lastValidatedAt: new Date(),
+    notes: rule.notes ?? null,
+    label: rule.label?.trim() || null,
+    validFrom,
+    validUntil,
+    displayOrder: typeof rule.displayOrder === "number" ? rule.displayOrder : 0,
+  });
+  return "emitted";
+}
+
 export async function runKennelSeedPass(
   prisma: PrismaClientLike,
   planned: PlannedRule[],
@@ -785,60 +914,10 @@ export async function runKennelSeedPass(
       }
       continue;
     }
-    const rules = seed.scheduleRules ?? [];
-    for (const rule of rules) {
-      const rrule = rule.rrule?.trim();
-      if (!rrule) {
-        skippedRules++;
-        if (options.verbose) {
-          console.log(`  ⊘ ${seed.kennelCode} — empty rrule, skipping rule`);
-        }
-        continue;
-      }
-      const normalizedRrule = normalizeRRule(rrule);
-      // Fail loud on malformed RRULEs: better to skip a row at backfill time than
-      // to persist a value Travel Mode's projection engine will silently fall
-      // back to "possible activity" on (LOW confidence, null date). The static-
-      // schedule adapter's parser is the canonical write-path validator.
-      try {
-        parseRRule(normalizedRrule);
-      } catch (err) {
-        skippedRules++;
-        console.warn(
-          `  ⚠ ${seed.kennelCode} — unparseable rrule ${JSON.stringify(rrule)}: ` +
-            `${err instanceof Error ? err.message : String(err)}, skipping`,
-        );
-        continue;
-      }
-      const validFrom = validateMonthDayAnchor(rule.validFrom);
-      const validUntil = validateMonthDayAnchor(rule.validUntil);
-      if (rule.validFrom && !validFrom) {
-        console.warn(`  ⚠ ${seed.kennelCode} — invalid validFrom ${JSON.stringify(rule.validFrom)}, dropping`);
-      }
-      if (rule.validUntil && !validUntil) {
-        console.warn(`  ⚠ ${seed.kennelCode} — invalid validUntil ${JSON.stringify(rule.validUntil)}, dropping`);
-      }
-      planned.push({
-        kennelId: dbKennel.id,
-        kennelDisplay: dbKennel.shortName,
-        rrule: normalizedRrule,
-        anchorDate: rule.anchorDate?.trim() || null,
-        startTime: rule.startTime?.trim() || null,
-        confidence: "HIGH",
-        source: "SEED_DATA",
-        sourceReference: SOURCE_REF.kennelSeed(seed.kennelCode),
-        // First-create timestamp. applyUpserts excludes lastValidatedAt from
-        // the UPDATE clause for SEED_DATA rules, so this `new Date()` is only
-        // written when the row is first created — re-runs preserve the
-        // original first-seen value (and admin re-validations stick).
-        lastValidatedAt: new Date(),
-        notes: rule.notes ?? null,
-        label: rule.label?.trim() || null,
-        validFrom,
-        validUntil,
-        displayOrder: typeof rule.displayOrder === "number" ? rule.displayOrder : 0,
-      });
-      count++;
+    for (const rule of seed.scheduleRules ?? []) {
+      const result = planSeedRule(rule, dbKennel, seed.kennelCode, planned, options);
+      if (result === "emitted") count++;
+      else skippedRules++;
     }
   }
 
