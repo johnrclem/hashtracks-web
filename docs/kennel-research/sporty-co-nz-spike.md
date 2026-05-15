@@ -2,95 +2,145 @@
 
 **Date:** 2026-05-15
 **Targets:** Capital H3, Mooloo HHH, Geriatrix H3 (three NZ kennels publishing harelines on `sporty.co.nz`)
-**Verdict:** ❌ **Phase 2 blocked.** All available bypass mechanisms hit Cloudflare's "I'm Under Attack" JS challenge.
+**Verdict:** ❌ **Phase 2 blocked on existing infrastructure.** Cloudflare's "I'm Under Attack" / Bot Fight Mode is applied platform-wide to sporty.co.nz; every dynamic path (the kennel homepages, hareline sub-pages, even the platform's own JS bundle) returns the JS challenge regardless of headers, IP, or whether the request originates from a server-side Playwright session.
+
+The good news, from inspecting the real pages via Claude in Chrome: **the hareline data is server-side-rendered HTML, varies in layout per kennel, and is straightforward to parse once we have an HTML response.** If we ever clear the CF challenge — by adding `playwright-extra` + stealth plugin to the NAS render service, paying for a commercial CF-bypassing scraping API, or running the scrape from an authenticated user's browser — the adapter work is a few hours, not days.
 
 ---
 
 ## What we tested
 
-`scripts/spike-sporty-co-nz.ts` probes each of the three kennel URLs with five strategies in order of escalation:
+### From the NAS render service / our backend (everything we tried)
 
 | # | Strategy | Result |
 |---|---|---|
-| 1 | Plain `safeFetch` | HTTP 403 — Cloudflare "Just a moment..." (5,413 bytes) |
-| 2 | `safeFetch({ useResidentialProxy: true })` (NAS residential proxy) | HTTP 403 — same Cloudflare challenge page |
-| 3 | `browserRender({ waitFor: "footer", timeout: 30s })` | NAS render service 502 (Playwright timeout — challenge never resolved) |
-| 4 | `browserRender({ waitFor: "nav, [class*=nav]", timeout: 30s })` | Same 502 timeout |
-| 5 | `browserRender({ waitFor: "a[href*=sporty.co.nz], #footer", timeout: 30s })` | 31,458 bytes — STILL the Cloudflare challenge HTML (selector false-matched a link in the challenge template) |
+| 1 | Plain `safeFetch` (default User-Agent) | 403 — Cloudflare "Just a moment…" (5,413 bytes) |
+| 2 | `safeFetch` with full Chrome 130 UA + `sec-ch-ua-*` + `Accept-Language: en-NZ` + `sec-fetch-*` navigation headers | Still 403 challenge (3,440 bytes) |
+| 3 | `safeFetch({ useResidentialProxy: true })` (NAS residential proxy) | 403 — same challenge body |
+| 4 | `browserRender({ waitFor: "footer", timeout: 30s })` | 502 timeout — challenge never resolved in headless Chromium |
+| 5 | `browserRender({ waitFor: "nav, [class*=nav]", timeout: 30s })` | Same 502 timeout |
+| 6 | `browserRender({ waitFor: "a[href*=sporty.co.nz], #footer", timeout: 30s })` | 31 KB but still challenge HTML (selector false-matched a link inside the challenge template) |
 
-All three kennels (`capitalh3`, `mooloohhh`, `geriatrixhhh`) returned identical Cloudflare challenge pages across all five strategies. Re-run the script via `npx tsx scripts/spike-sporty-co-nz.ts` to reproduce.
+Reproducible via `npx tsx scripts/spike-sporty-co-nz.ts` (~3-minute wall time).
+
+### What paths CF *does* leave open (probed via curl)
+
+| Path | Status | Notes |
+|---|---|---|
+| `/robots.txt` | 200, 207 bytes | Real robots.txt, no challenge |
+| `/favicon.ico` | 200, 3,608 bytes | Static asset, no challenge |
+| `/.well-known/security.txt` | 302 redirect | Not the actual file |
+| `/sitemap.xml` | 404 | Sporty doesn't ship one |
+| `/capitalh3.rss`, `/capitalh3.ics`, `/capitalh3.xml` | 404 | No kennel-level feeds |
+| `/capitalh3/feed`, `/capitalh3/calendar.ics`, `/capitalh3/notices` | 200 but page-shell HTML | All return the same homepage shell, not a feed |
+| Every guessed CMS API path (`/notice/Public/GetNotices?moduleId=242832`, `/api/notice/...`, `/Module/Notice/...`) | 403 challenge | Cloudflare challenges them too |
+| `/bundles/sporty-scripts` (the platform's own JS bundle) | 403 challenge | Even Sporty's static-ish assets are behind the challenge |
+
+**Conclusion:** Cloudflare is configured to challenge every path except whitelisted static assets. There is no API-bypass shortcut.
+
+### What real users see (Claude in Chrome — driving the user's Chrome session)
+
+Because the user's browser holds a valid `cf_clearance` cookie, it gets through the challenge transparently. From that session I confirmed:
+
+**Capital H3 — homepage embeds the hareline directly in a CMS "notices" panel:**
+```
+2326 – 18 May 2026 – The Bond Sports Bar – Geestring
+2327 – 25 May 2026 – The Bridge Bar – Scrac Thing
+2328 – 1 Jun 2026 – 5pm? Kings B'day – Hare required! –
+2329 – 8 Jun 2026 – Hare required! –
+2330 – 15 Jun 2026 – Hare required! –
+```
+DOM: `<span>` per run, inside `<p>` inside `<div id="notices-prevContent-242832">` inside `.panel-body-text` (CMS module ID 242832).
+
+**Geriatrix H3 — homepage shows only "Next Run"; full hareline at `/Receding-Hareline/NewTab1`:**
+```
+05/05/2026 — Chapman Taylor Cafe, Molesworth St., Thorndon — GATECRASHER + Maps link
+12/05/2026 — The Cutting Sports Cafe, 32 Miramar Avenue, Miramar — Hey Baby + Maps link
+19/05/2026 — TBA — Hare Required
+26/05/2026 — TBA — Hare Required
+02/06/2026 — TBA — Hare Required
+```
+4-line repeating block (`<date>` / `Venue: …` / `Hare: …` / `Map: …`).
+
+**Mooloo HHH — `/UpCumming-Runs` is more of a newsletter than a structured hareline:**
+```
+25 May 2026 RUN# 1886 Tittannic's Trail from ReefUnder and Shunter's 8 Joffre St. 6PM.
+… Next run, your place? …
+```
+Free-form `<p>` paragraphs with one explicit run + placeholders. Lowest-fidelity layout of the three.
+
+The page bundles call only Facebook tracking, Google ads, and Cloudflare RUM — **no app-level XHR fetches the hareline data**. The HTML is fully server-rendered.
 
 ---
 
-## Why it's blocked
+## Why Cloudflare wins here
 
-sporty.co.nz fronts every account page with **Cloudflare "I'm Under Attack" mode** (also called Bot Fight Mode / Turnstile JS challenge). The challenge page:
+sporty.co.nz fronts every account page with **Cloudflare "I'm Under Attack"** mode (also called Bot Fight Mode / Turnstile JS challenge). The challenge:
 
-1. Loads minimal HTML (`<title>Just a moment...</title>`, `<head>` only — no real content).
-2. Runs a 5–10 second cryptographic JS puzzle that fingerprints the browser (TLS handshake, `navigator.webdriver`, canvas/WebGL signatures, mouse-movement signals).
-3. Posts the result to Cloudflare's `cf_chl_chk_v8` endpoint.
-4. Sets a `cf_clearance` cookie scoped to the IP+UA pair, then reloads to the real page.
+1. Returns minimal HTML (`<title>Just a moment...</title>`, `<head>` only — no real content)
+2. Runs a 5–15 s cryptographic JS puzzle that fingerprints the browser (TLS handshake, `navigator.webdriver`, canvas/WebGL signatures, mouse-movement signals)
+3. Posts the result to Cloudflare's `cf_chl_chk_v8` endpoint
+4. Sets a `cf_clearance` cookie scoped to the IP+UA pair, then reloads to the real page
 
 Our infrastructure fails at step 2:
 
-- **Residential proxy** only changes the source IP. Cloudflare's challenge fingerprints the *browser*, not just the IP — IP rotation alone doesn't pass.
-- **NAS headless Playwright** is detected by Cloudflare's heuristics (`navigator.webdriver === true`, default Chromium TLS fingerprint, missing/abnormal mouse-movement signals). Even with 30 s waits, the challenge never resolves in headless Chromium — it just keeps spinning until Playwright times out.
+- **Residential proxy** only changes the source IP. CF challenges fingerprint the *browser*, not just the IP — IP rotation alone doesn't pass.
+- **NAS headless Playwright** is detected by `navigator.webdriver === true`, default Chromium TLS fingerprint, and absence of human-like mouse-movement signals. The challenge JS never resolves, so the page never loads, so Playwright eventually times out.
 
-The 31 KB "success" from variant 5 is a false positive: our looks-like-real-page check matched `<head>` text on the challenge template; the page has no kennel content.
-
----
-
-## Options for Phase 2
-
-### A. **Recommended: downgrade Capital / Mooloo / Geriatrix to STATIC_SCHEDULE in Phase 3** ✅
-
-Ship the three kennels with the same `STATIC_SCHEDULE` + Facebook-page-URL-in-description pattern we already use for Tokoroa H3 (Phase 1) and the HK/Singapore static kennels. Each kennel gets:
-
-- A `Kennel` record with metadata
-- A `STATIC_SCHEDULE` source row matching the kennel's known weekly cadence (Capital Mon 18:30, Mooloo Mon 18:00, Geriatrix Tue 18:30)
-- `defaultDescription` pointing to the kennel's Facebook page so users find each week's start
-
-**Trade-off:** No live hareline data (run number, hares, location). Users see "scheduled run" stubs with FB deep-link for details.
-
-**Why this is the right call:** Capital/Mooloo/Geriatrix's FB pages are all active. Trustlevel 3 (FB-only) is honest about the data limits. The kennels remain on the hareline so users can discover them; richer enrichment can come later if we ever unblock sporty.
-
-### B. Add `playwright-extra` + stealth plugin to NAS browser-render service ⚠️
-
-Patch the NAS render service with [`playwright-extra`](https://www.npmjs.com/package/playwright-extra) + [`puppeteer-extra-plugin-stealth`](https://www.npmjs.com/package/puppeteer-extra-plugin-stealth) (the latter works with Playwright too). Stealth plugins remove the `navigator.webdriver` flag, override common fingerprint properties, and emulate human-like timing — clears most Cloudflare JS challenges.
-
-**Trade-off:** Real NAS infrastructure change (Dockerfile + server.js edit + cf-clearance cookie persistence to avoid hitting the puzzle on every scrape). Cloudflare regularly updates its detection, so this becomes a maintenance treadmill. **Not in scope for any NZ-onboarding PR** — would be its own infra PR.
-
-### C. Use a commercial scraping API (ScraperAPI, ScrapingBee, ZenRows) ⚠️
-
-These services maintain stealth-Playwright fleets + cf-clearance pools and handle CF challenges as a service. Costs ~$50–200/month for the volume we'd need.
-
-**Trade-off:** Recurring cost, new external dependency, key/secret management. Worth the spend only if sporty.co.nz onboarding unlocks ≥10 kennels (currently 3).
-
-### D. Find a non-Cloudflare alternative source per kennel ⚠️
-
-- **Capital H3** — facebook.com/Capitalhhh is public. If the page maintains `/upcoming_hosted_events`, the FACEBOOK_HOSTED_EVENTS adapter could ingest it. Worth probing during Phase 3.
-- **Mooloo HHH** — facebook.com/mooloohhh is public. Same probe.
-- **Geriatrix H3** — facebook.com/GeriatrixHHH is public. Same probe.
-
-If any of the three publish real FB Events (not just posts), we get live data without ever touching sporty.co.nz.
+Realistic Chrome 130 headers (UA, `sec-ch-ua-*`, `sec-fetch-*`) make no difference: CF's check happens at the JS-execution layer, not the request-header layer.
 
 ---
 
-## Phase 2 path forward
+## Path forward — four options
 
-**Roll Capital/Mooloo/Geriatrix into Phase 3 (the STATIC bulk PR) with FB-described STATIC_SCHEDULE sources.** Add the three kennels to the Phase 4 FB Page audit list — if any of them publishes scrapeable FB Events, upgrade that kennel's source from STATIC to FACEBOOK_HOSTED_EVENTS at that time.
+### A. **Recommended for this round: roll Capital/Mooloo/Geriatrix into Phase 3 STATIC bulk** ✅
 
-**Do NOT** invest in playwright-extra/stealth or a commercial scraping API for just these three kennels. The cost/benefit only makes sense if sporty.co.nz turns out to host many more H3 kennels (currently we've found only these three on the platform across all of NZ).
+Ship the three kennels with the same `STATIC_SCHEDULE` + FB-page-in-description pattern Tokoroa H3 uses in Phase 1. Each gets:
+- A `Kennel` record with metadata (founded year, run day/time, region)
+- A `STATIC_SCHEDULE` source with the known recurring cadence:
+  - Capital H3 — `FREQ=WEEKLY;BYDAY=MO` at 18:30, FB description → `facebook.com/Capitalhhh`
+  - Mooloo HHH — `FREQ=WEEKLY;BYDAY=MO;INTERVAL=2` (biweekly) at 18:00, FB description → `facebook.com/mooloohhh`
+  - Geriatrix H3 — `FREQ=WEEKLY;BYDAY=TU` at 18:30, FB description → `facebook.com/GeriatrixHHH`
+
+**Trade-off:** No live hareline data (run number, hare, venue). Users see scheduled-run stubs with an FB deep-link.
+
+**Why this is the right call right now:** All three kennels have active FB pages; trust-level 3 (FB-only) is honest about the data limits; the kennels remain visible on the hareline so users can discover them. Richer enrichment can come later if Option B or C lands.
+
+### B. Stealth-Playwright on NAS browser-render service ⚠️ (separate infra PR)
+
+Add [`playwright-extra`](https://www.npmjs.com/package/playwright-extra) + [`puppeteer-extra-plugin-stealth`](https://www.npmjs.com/package/puppeteer-extra-plugin-stealth) (works with Playwright too) to the NAS render service. Stealth plugins remove `navigator.webdriver`, override common fingerprint properties (`chrome` runtime, plugin list, language vector), and emulate human-like timing — clears most Cloudflare JS challenges. Also need `cf_clearance` cookie persistence so we don't burn 10 s on every scrape.
+
+**Trade-off:** Real NAS infra change (Dockerfile + server.js edit + cookie-cache). CF regularly updates detection — becomes a maintenance treadmill. Worth doing as a separate infra-track PR if we hit more CF-protected sites in future onboarding rounds (likely, given how widespread Bot Fight Mode is becoming).
+
+**Triggering criteria:** Pull the trigger when we have ≥2 future kennel-onboarding regions blocked by CF, not just for these 3 kennels.
+
+### C. Commercial scraping API (ScraperAPI, ScrapingBee, ZenRows) ⚠️
+
+Pay-for-CF-bypass as a service (~$30–50/month for our volume). Recurring cost + new external dependency + key management. Not justified for 3 kennels.
+
+### D. Browser-assisted snapshot import 🟡
+
+Long-term option: a one-off admin UI / bookmarklet that the user (or a kennel admin) periodically pastes the rendered hareline HTML into, parsed server-side. Closer to "manual data entry with browser help" than scraping. Worth considering if Option B keeps getting deferred.
+
+---
+
+## Phase 2 decision
+
+**Cancel Phase 2 as a standalone PR. Roll Capital/Mooloo/Geriatrix into Phase 3 STATIC bulk** (Option A). Track Option B as a candidate "stealth-Playwright NAS upgrade" infra PR — the same one would unblock any future CF-protected kennels we hit, so the cost/benefit improves with each region.
+
+The three kennels are also priority entries on the **Phase 4 FB Page audit**: if `facebook.com/Capitalhhh` / `facebook.com/mooloohhh` / `facebook.com/GeriatrixHHH` publishes scrapeable FB Events, the `FACEBOOK_HOSTED_EVENTS` adapter is our only remaining path to live data without touching sporty.co.nz.
 
 ---
 
 ## Reproduction
+
+The spike script tests strategies 1, 3, 4, 5, 6 above against all three kennel URLs:
 
 ```bash
 set -a; source /Users/johnclem/Developer/hashtracks-web/.env; set +a
 npx tsx scripts/spike-sporty-co-nz.ts
 ```
 
-Requires `RESIDENTIAL_PROXY_URL`, `RESIDENTIAL_PROXY_KEY`, `BROWSER_RENDER_URL`, `BROWSER_RENDER_KEY` in the env (already set in `.env`).
+Requires `RESIDENTIAL_PROXY_URL`, `RESIDENTIAL_PROXY_KEY`, `BROWSER_RENDER_URL`, `BROWSER_RENDER_KEY` in the env. Expected wall time: ~3 minutes.
 
-Expected wall time: ~3 minutes (each browserRender variant burns its full 30 s timeout, × 3 variants × 3 kennels).
+When NAS stealth-Playwright lands (Option B), re-run the script as the post-deploy gate — if it succeeds, Phase 2 unblocks immediately. The script is intentionally retained in `scripts/` for exactly this purpose.
