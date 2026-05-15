@@ -12,6 +12,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { RegionCombobox, type RegionOption } from "./RegionCombobox";
+import type { AdminKennelData } from "./kennel-data-types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -22,44 +23,7 @@ import { generateAliases } from "@/lib/auto-aliases";
 import { GeocodeButton } from "./GeocodeButton";
 import { geocodeAction } from "@/app/admin/geocode-action";
 
-type KennelData = {
-  id: string;
-  shortName: string;
-  fullName: string;
-  region: string;
-  regionId: string | null;
-  country: string;
-  description: string | null;
-  website: string | null;
-  aliases: string[];
-  // Profile fields
-  scheduleDayOfWeek: string | null;
-  scheduleTime: string | null;
-  scheduleFrequency: string | null;
-  scheduleNotes: string | null;
-  facebookUrl: string | null;
-  instagramHandle: string | null;
-  twitterHandle: string | null;
-  discordUrl: string | null;
-  mailingListUrl: string | null;
-  contactEmail: string | null;
-  contactName: string | null;
-  // Profile fields (#1415)
-  gm: string | null;
-  hareRaiser: string | null;
-  signatureEvent: string | null;
-  founder: string | null;
-  parentKennelCode: string | null;
-  hashCash: string | null;
-  paymentLink: string | null;
-  foundedYear: number | null;
-  logoUrl: string | null;
-  dogFriendly: boolean | null;
-  walkersWelcome: boolean | null;
-  isHidden: boolean;
-  latitude: number | null;
-  longitude: number | null;
-};
+type KennelData = AdminKennelData;
 
 interface KennelFormProps {
   kennel?: KennelData;
