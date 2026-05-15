@@ -527,6 +527,16 @@ describe("collectKennelFrequencies", () => {
     ).toEqual(["Biweekly"]);
   });
 
+  it("contributes NOTHING for intervals other than 1 or 2 (Gemini review)", () => {
+    // Triweekly / quadweekly aren't in the FilterBar's dropdown vocabulary;
+    // fabricating "Weekly" for them would silently misclassify the cadence.
+    expect(
+      collectKennelFrequencies({
+        scheduleRules: [{ rrule: "FREQ=WEEKLY;INTERVAL=3;BYDAY=SA" }],
+      }),
+    ).toEqual([]);
+  });
+
   it("derives 'Monthly' from FREQ=MONTHLY", () => {
     expect(
       collectKennelFrequencies({

@@ -16,9 +16,13 @@ import { groupRegionsByState, expandRegionSelections, regionAbbrev, resolveCount
 import { LocationPrompt } from "@/components/hareline/LocationPrompt";
 import { RegionQuickChips } from "@/components/hareline/RegionQuickChips";
 import { getLocationPref, resolveLocationDefault, clearLocationPref } from "@/lib/location-pref";
-import { parseList, parseRegionParam } from "@/lib/format";
+import {
+  parseList,
+  parseRegionParam,
+  collectKennelWeekdays,
+  collectKennelFrequencies,
+} from "@/lib/format";
 import { getActivityStatus } from "@/lib/activity-status";
-import { collectKennelWeekdays, collectKennelFrequencies } from "@/lib/format";
 
 const KennelMapView = dynamic(() => import("./KennelMapView"), {
   ssr: false,

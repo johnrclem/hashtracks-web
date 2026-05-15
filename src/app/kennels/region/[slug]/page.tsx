@@ -59,7 +59,7 @@ export async function generateMetadata({
   // #1390: include both legacy flat `scheduleDayOfWeek` AND any scheduleRules
   // BYDAY days. A kennel migrated to scheduleRules-only must still contribute
   // to the region intro/metadata day list.
-  const days = kennels.flatMap((k) => collectKennelWeekdays(k));
+  const days = [...new Set(kennels.flatMap((k) => collectKennelWeekdays(k)))];
   const intro = generateRegionIntro(region.name, activeCount, days);
 
   const title = `Hash House Harriers in ${region.name} | HashTracks`;
@@ -147,7 +147,7 @@ export default async function RegionPage({
     (k) => getActivityStatus(k.lastEventDate, nextEventMap.has(k.id)) === "active",
   ).length;
   // #1390: same union semantics as the metadata-side `days` derivation above.
-  const days = kennels.flatMap((k) => collectKennelWeekdays(k));
+  const days = [...new Set(kennels.flatMap((k) => collectKennelWeekdays(k)))];
   const intro = generateRegionIntro(region.name, activeCount, days);
 
   // JSON-LD

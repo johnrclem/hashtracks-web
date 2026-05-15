@@ -9,12 +9,12 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult } from "../types";
 import { validateSourceConfig } from "../utils";
-import { parseRRule, type ParsedRRule } from "./rrule-parser";
+import { parseRRule } from "./rrule-parser";
 
 // Re-export the pure RRULE parser from its leaf module for callers that still
 // import from this file (Travel Mode projection, the existing test surface).
 export { parseRRule } from "./rrule-parser";
-export type { ParsedRRule };
+export type { ParsedRRule } from "./rrule-parser";
 import {
   generateLunarOccurrences,
   ANCHOR_WEEKDAYS,

@@ -211,7 +211,12 @@ export function collectKennelFrequencies(k: {
     const parsed = safeParseRrule(rule.rrule);
     if (!parsed) continue;
     if (parsed.freq === "WEEKLY") {
-      labels.add(parsed.interval === 2 ? "Biweekly" : "Weekly");
+      // Map only interval=1 → Weekly and interval=2 → Biweekly. Higher
+      // intervals (triweekly, quadweekly, etc.) aren't part of the
+      // FilterBar's dropdown vocabulary, so we don't fabricate a label for
+      // them — the rule simply doesn't contribute to the frequency dropdown.
+      if (parsed.interval === 1) labels.add("Weekly");
+      else if (parsed.interval === 2) labels.add("Biweekly");
     } else if (parsed.freq === "MONTHLY") {
       labels.add("Monthly");
     }
