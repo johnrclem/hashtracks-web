@@ -27,10 +27,10 @@ HashTracks has zero New Zealand coverage in prod. NZ has a small, tight-knit H3 
 
 ---
 
-## Access Blockers (resolve before Phase 2)
+## Access Blockers (status)
 
-1. **sporty.co.nz returns HTTP 403** to plain `fetch` — blocks Capital H3, Mooloo H3, Geriatrix H3 (three highest-value Wellington/Hamilton targets). Mitigation: residential proxy via NAS, or `browserRender()`. Pre-Phase-2 spike: test which works.
-2. **aucklandhussies.co.nz returns HTTP 403** — same WAF behavior.
+1. ✅ **sporty.co.nz** (Capital H3, Mooloo HHH, Geriatrix H3) — Cloudflare Bot Fight Mode. **Resolved** in Phase 1.5-B via stealth-Playwright on the NAS browser-render service. All three kennels return real HTML in ~3-5 s via `browserRender()`.
+2. **aucklandhussies.co.nz returns HTTP 403** — same WAF pattern but historically intermittent. Re-test with stealth-Playwright before Phase 2; if still blocked, fall back to STATIC_SCHEDULE.
 3. **aucklandhashhouseharriers.co.nz TLS cert/SNI mismatch on `www.` host** — needs browserRender + apex domain test, or fall back to STATIC_SCHEDULE.
 4. **Dead hosts** (50webs.com, mysite.com, webs.com, hashinwellington.co.nz, geriatrix.org.nz apex) — permanent fallback to STATIC_SCHEDULE.
 
@@ -116,25 +116,26 @@ These are ready to ship with no infra unlocks needed.
 
 ---
 
-## Phase 2: sporty.co.nz Unlock — BLOCKED ❌
+## Phase 2: sporty.co.nz Unlock — UNBLOCKED ✅
 
-**Verdict:** Phase 1.5 spike (see [sporty-co-nz-spike.md](sporty-co-nz-spike.md)) confirmed that all three of our infrastructure options — plain fetch, NAS residential proxy, NAS headless Playwright — hit Cloudflare's "I'm Under Attack" JS challenge and cannot retrieve real page content. sporty.co.nz fingerprints the browser (not just IP), so neither IP rotation nor default headless Chromium gets through.
+**Verdict:** The Phase 1.5 spike originally confirmed Cloudflare's Bot Fight Mode JS challenge defeated all three of our infrastructure paths (plain fetch, NAS residential proxy, NAS headless Playwright). The **Phase 1.5-B stealth upgrade** that landed alongside the spike (see [sporty-co-nz-spike.md](sporty-co-nz-spike.md) and `infra/browser-render/server.js`) adds `playwright-extra` + `puppeteer-extra-plugin-stealth` to the NAS browser-render service, plus a realistic Chrome 130 UA / 1440×900 viewport / `en-NZ` locale and per-`(hostname, UA)` `cf_clearance` cookie cache. Result: Cloudflare doesn't gate stealth-Chromium at all — the real HTML returns directly in ~3–5 s. All three sporty kennels are now scrapeable via `browserRender()`.
 
-**Phase 2 roll-up:** Capital H3, Mooloo HHH, and Geriatrix H3 move into Phase 3 (STATIC bulk) with FB-page-described `STATIC_SCHEDULE` sources, same pattern as Tokoroa H3 in Phase 1. The three kennels join the Phase 4 FB Page audit so we can upgrade to FACEBOOK_HOSTED_EVENTS if any of them publishes scrapeable FB Events.
-
-Reopening Phase 2 would require either (a) adding `playwright-extra` + stealth plugin to the NAS render service, or (b) paying for a commercial CF-bypassing scraping API. Neither is justified for just 3 kennels — defer indefinitely.
+**Phase 2 PR** (follow-up after this stealth-upgrade lands) ships three `HTML_SCRAPER` adapters + kennel/source seed entries. Each kennel has a distinct page layout — they all share the same browser-render entry point but parse different DOM shapes.
 
 ### Capital H3 (Wellington) — `capital-h3-nz`
-- Phase 3 source: STATIC_SCHEDULE — Monday 18:30, FB description → `facebook.com/Capitalhhh`
-- Founded 1981, ~mid-size weekly club
+- Source: HTML_SCRAPER (browserRender) on `https://www.sporty.co.nz/capitalh3`
+- Hareline lives on the homepage in a CMS "notices" panel (`<div id="notices-prevContent-*">`). Each row is a `<p>` of `<span>RUN# – DD MMM YYYY – LOCATION – HARE</span>`.
+- Run cadence: weekly Monday 18:30. Founded 1981.
 
 ### Mooloo HHH (Hamilton) — `mooloo-h3`
-- Phase 3 source: STATIC_SCHEDULE — Monday 18:00 (DST) / Monday 18:30 (winter); FB description → `facebook.com/mooloohhh`
-- Founder of Waikato hash scene
+- Source: HTML_SCRAPER (browserRender) on `https://www.sporty.co.nz/mooloohhh/UpCumming-Runs`
+- Page is more newsletter than structured hareline — freeform `<p>` paragraphs with run lines like `25 May 2026 RUN# 1886 Tittannic's Trail from ReefUnder and Shunter's 8 Joffre St. 6PM.` mixed with announcements. Lower fidelity than Capital or Geriatrix.
+- Run cadence: **biweekly Monday 18:00 all year** (RRULE `FREQ=WEEKLY;BYDAY=MO;INTERVAL=2`). The page literally states "Changed to 6:00 PM trail starts ALL YEAR" and "every 2nd Monday". Founder of the Waikato hash scene.
 
 ### Geriatrix H3 (Wellington) — `geriatrix-h3`
-- Phase 3 source: STATIC_SCHEDULE — Tuesday 18:30, FB description → `facebook.com/GeriatrixHHH`
-- Founded October 1985, **largest Wellington club** (30–40 weekly attendees). Highest-impact kennel still without live data; revisit in Phase 4 FB audit.
+- Source: HTML_SCRAPER (browserRender) on `https://www.sporty.co.nz/geriatrixhhh/Receding-Hareline/NewTab1` (NOT the homepage, which only shows "Next Run")
+- 4-line repeating block per run: `<date>` / `Venue: …` / `Hare: …` / `Map: …` (with Google Maps URL).
+- Run cadence: weekly Tuesday 18:30. Founded October 1985, **largest Wellington club** (30–40 weekly attendees) — highest-impact NZ unlock.
 
 ---
 
@@ -199,12 +200,12 @@ Revisit in 6 months.
 ## Recommended Onboarding Sequence
 
 1. ✅ **Phase 1** (PR #1434, 7 sources, 6 kennels) — shipped: region hierarchy + first NZ adapters.
-2. ✅ **Phase 1.5 sporty.co.nz spike** — completed: Cloudflare Bot Fight Mode confirmed unblockable with current infra. Capital/Mooloo/Geriatrix roll into Phase 3 instead. See [sporty-co-nz-spike.md](sporty-co-nz-spike.md).
-3. ❌ **Phase 2** — cancelled (sporty.co.nz blocked). The 3 kennels are now in Phase 3.
-4. **Phase 3 STATIC bulk** — single PR with all ~19 remaining static schedules (the original ~16 + Capital + Mooloo + Geriatrix as STATIC). Adds the FB-page-deep-link pattern to each so users can find weekly start locations.
-5. **Phase 4 FB Page audit** — after Phase 3 lands, probe each STATIC kennel's FB page for `/upcoming_hosted_events` and upgrade to FACEBOOK_HOSTED_EVENTS where supported. Capital/Mooloo/Geriatrix are the highest-priority entries on this list since they're our only path to live data for them.
+2. ✅ **Phase 1.5 sporty.co.nz spike** — completed: identified Cloudflare Bot Fight Mode as the blocker. See [sporty-co-nz-spike.md](sporty-co-nz-spike.md).
+3. ✅ **Phase 1.5-B stealth-Playwright NAS upgrade** (PR #1450) — added `playwright-extra` + stealth plugin to the NAS browser-render service. All three sporty.co.nz kennels now return real HTML via `browserRender()` in ~3–5 s.
+4. **Phase 2** — Capital H3 / Mooloo HHH / Geriatrix H3 HTML_SCRAPER adapters + kennel/source seed entries. Three distinct page layouts (see Phase 2 section above). Ships as the follow-up PR after Phase 1.5-B lands.
+5. **Phase 3 STATIC bulk** — single PR with the ~16 remaining static schedules from `nzhhh.nz`. Can ship in parallel with Phase 2 since it touches different kennels.
+6. **Phase 4 FB Page audit** — after Phase 3 lands, probe each STATIC kennel's FB page for `/upcoming_hosted_events` and upgrade to FACEBOOK_HOSTED_EVENTS where supported.
 
 **Open questions for user:**
 - Does NZ region hierarchy match the proposed metros, or roll smaller towns up into broader regions (e.g. all of Northland under one metro)?
-- Phase 3: do we want the STATIC_SCHEDULE bulk seed shipped before or after Phase 2 sporty unlock?
 - Wellington Bikers Hash — does a "bike hash" count as in-scope for HashTracks, or skip?

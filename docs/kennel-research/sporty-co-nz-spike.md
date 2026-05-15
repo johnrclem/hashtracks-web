@@ -155,10 +155,9 @@ The three kennels remain priority entries on the **Phase 4 FB Page audit** as a 
 The spike script tests strategies 1, 3, 4, 5, 6 above against all three kennel URLs:
 
 ```bash
-set -a; source /Users/johnclem/Developer/hashtracks-web/.env; set +a
 npx tsx scripts/spike-sporty-co-nz.ts
 ```
 
-Requires `RESIDENTIAL_PROXY_URL`, `RESIDENTIAL_PROXY_KEY`, `BROWSER_RENDER_URL`, `BROWSER_RENDER_KEY` in the env. Expected wall time: ~3 minutes.
+The script calls `import "dotenv/config"` so it reads `.env` from the project root automatically. Requires `RESIDENTIAL_PROXY_URL`, `RESIDENTIAL_PROXY_KEY`, `BROWSER_RENDER_URL`, `BROWSER_RENDER_KEY` in that file. Expected wall time: ~3 minutes (each browserRender variant burns its full 30-s timeout against the still-blocked variants × 3 kennels). Fixtures are written under `os.tmpdir()`.
 
-When NAS stealth-Playwright lands (Option B), re-run the script as the post-deploy gate — if it succeeds, Phase 2 unblocks immediately. The script is intentionally retained in `scripts/` for exactly this purpose.
+This script is retained as the post-deploy gate for the stealth browser-render upgrade (Option B) — if it returns real HTML for all three kennels after a NAS stealth/Playwright rebuild, Phase 2 unblocks immediately.

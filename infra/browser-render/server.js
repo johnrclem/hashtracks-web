@@ -11,6 +11,17 @@
 const crypto = require("crypto");
 const http = require("http");
 
+// playwright-extra wraps playwright's chromium so we can register puppeteer
+// extras. Stealth applies a curated set of fingerprint overrides
+// (navigator.webdriver = false, normalised plugin list, chrome.runtime
+// gap, Permissions API fix, etc.) so Cloudflare's Bot Fight Mode JS
+// challenge can't see headless tells. Registering at module load (not
+// inside getBrowser) makes the intent obvious and avoids any edge case if
+// playwright-extra's internal double-registration guard ever changes.
+const { chromium } = require("playwright-extra");
+const StealthPlugin = require("puppeteer-extra-plugin-stealth");
+chromium.use(StealthPlugin());
+
 const PORT = parseInt(process.env.PORT || "3200", 10);
 const API_KEY = process.env.RENDER_API_KEY;
 
@@ -46,10 +57,18 @@ const DEFAULT_LOCALE = "en-NZ";
 // ceiling); process-local, rebuilds on restart.
 const CF_COOKIE_TTL_MS = 25 * 60 * 1000;
 // Single source of truth for the title markers that signal a CF challenge.
-// The matcher is reconstructed from `.source` + `.flags` inside the in-browser
-// `waitForFunction` callback so we never drift between Node-side and
-// page-side matchers when CF's challenge wording shifts.
-const CF_CHALLENGE_TITLE_RE = /just a moment|attention required|checking your browser/i;
+// Kept as a string array so the in-browser `waitForFunction` callback can
+// do a plain `Array#some(includes)` rather than build a dynamic RegExp
+// from a passed-in pattern source (Codacy/Semgrep flag dynamic RegExp
+// construction as a DoS hazard — false positive here since the array is
+// a hardcoded literal, but the includes-on-array form sidesteps the lint
+// entirely AND keeps Node + page sides locked to the same marker list).
+const CF_CHALLENGE_TITLE_MARKERS = [
+  "just a moment",
+  "attention required",
+  "checking your browser",
+];
+const CF_CHALLENGE_TITLE_RE = new RegExp(CF_CHALLENGE_TITLE_MARKERS.join("|"), "i");
 const cfCookieCache = new Map(); // "hostname|userAgent" → { cookies, expiresAt }
 
 /** Build the cache key for a (hostname, UA) pair. */
@@ -102,14 +121,7 @@ async function getBrowser() {
 
   launching = true;
   try {
-    // playwright-extra is a drop-in wrapper around playwright that lets us
-    // register puppeteer-style plugins. Stealth applies a curated set of
-    // fingerprint overrides (navigator.webdriver = false, normalised
-    // plugin list, chrome.runtime gap, Permissions API fix, etc.) so the
-    // Bot Fight Mode JS challenge can't see headless tells.
-    const { chromium } = require("playwright-extra");
-    const StealthPlugin = require("puppeteer-extra-plugin-stealth");
-    chromium.use(StealthPlugin());
+    // Stealth plugin registered at module load (see top of file).
     browser = await chromium.launch({
       args: [
         "--no-sandbox",
@@ -149,14 +161,16 @@ async function clearCloudflareChallenge(page, maxWaitMs) {
   console.log(
     `[${new Date().toISOString()}] Cloudflare challenge detected (title: "${titleNow}"), waiting up to ${maxWaitMs}ms`,
   );
-  // Reconstruct the matcher inside the page context using the Node-side
-  // regex source so the two sides can't drift.
-  const pattern = CF_CHALLENGE_TITLE_RE.source;
-  const flags = CF_CHALLENGE_TITLE_RE.flags;
+  // Pass the marker array verbatim into the page context; the callback
+  // does case-insensitive substring checks. Same array as Node-side so the
+  // two can't drift, and no `new RegExp(pattern)` to upset DoS linters.
   await page
     .waitForFunction(
-      ({ pattern, flags }) => !new RegExp(pattern, flags).test(document.title || ""),
-      { pattern, flags },
+      (markers) => {
+        const t = (document.title || "").toLowerCase();
+        return !markers.some((m) => t.includes(m));
+      },
+      CF_CHALLENGE_TITLE_MARKERS,
       { timeout: maxWaitMs, polling: 250 },
     )
     .catch(() => {

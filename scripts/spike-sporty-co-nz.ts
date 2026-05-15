@@ -19,8 +19,12 @@
 
 import "dotenv/config";
 import { writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { safeFetch } from "@/adapters/safe-fetch";
 import { browserRender } from "@/lib/browser-render";
+
+const FIXTURE_DIR = tmpdir();
 
 const KENNELS = [
   { slug: "capitalh3",   shortName: "Capital H3" },
@@ -28,7 +32,7 @@ const KENNELS = [
   { slug: "geriatrixhhh", shortName: "Geriatrix H3" },
 ] as const;
 
-type Outcome = {
+interface Outcome {
   approach: string;
   ok: boolean;
   status?: number | string;
@@ -36,7 +40,7 @@ type Outcome = {
   excerpt: string;
   error?: string;
   fixturePath?: string;
-};
+}
 
 /** Quick sniff: is this real-looking HTML (a page that has actual content) or
  *  a WAF/challenge wall? Returns true only when the body has both a `<head>`
@@ -84,7 +88,7 @@ async function tryProxy(url: string, slug: string): Promise<Outcome> {
       excerpt: body.slice(0, 500),
     };
     if (ok) {
-      const path = `/tmp/sporty-${slug}-proxy.html`;
+      const path = join(FIXTURE_DIR, `sporty-${slug}-proxy.html`);
       writeFileSync(path, body);
       out.fixturePath = path;
     }
@@ -115,7 +119,7 @@ async function tryBrowserRender(
       excerpt: html.slice(0, 500),
     };
     if (ok) {
-      const path = `/tmp/sporty-${slug}-${variant.label}.html`;
+      const path = join(FIXTURE_DIR, `sporty-${slug}-${variant.label}.html`);
       writeFileSync(path, html);
       out.fixturePath = path;
     }
