@@ -82,11 +82,23 @@ export function parseKjHarimauBody(bodyText: string): {
   const stop = `(?=\\n|${labels}\\s*:|$)`;
   const text = bodyText.replace(/\r/g, "");
 
+  // Reject captures that are themselves a bare label (e.g. "Maps:", "Runsite") —
+  // these only appear when an empty source field over-matches into the next
+  // labeled line. Defense-in-depth for the empty-Runsite republish in #1446.
+  const labelOnlyRe = /^(?:Run\s*#|Date|Time|Hare|Runsite|GPS|Maps|Waze|Guest\s*Fee|Birthdays|Wedding)\s*:?$/i;
+
   const grab = (label: string): string | undefined => {
     // Labels are hard-coded string literals above — not user input. No ReDoS risk.
-    const re = new RegExp(`${label}\\s*:\\s*(.+?)${stop}`, "is");
+    // Match horizontal whitespace ([ \t]) after the colon instead of `\s` so an
+    // empty source field (`Runsite:\n`) doesn't consume the trailing newline
+    // and over-run into the next labeled line. Then use a normal (non-s-flag)
+    // dot so the lazy match stays line-bounded. (#1446)
+    const re = new RegExp(`${label}\\s*:[ \\t]*(.+?)${stop}`, "i");
     const m = re.exec(text);
-    return m ? m[1].trim().replace(/\s+/g, " ") : undefined;
+    if (!m) return undefined;
+    const value = m[1].trim().replace(/\s+/g, " ");
+    if (!value || labelOnlyRe.test(value)) return undefined;
+    return value;
   };
 
   const runNumRaw = grab("Run\\s*#");
@@ -151,6 +163,24 @@ export function parseKjHarimauTitle(title: string): { runNumber?: number; date?:
   return { runNumber, date: date ?? undefined, hare, runsite };
 }
 
+/** Rank a candidate post by how many bug-relevant fields it filled in. The
+ *  #1446 bug class is empty/leaked `location`, so location and the
+ *  coordinate-equivalent fields (maps URL, GPS pair) outweigh hares/Waze/fee. */
+function scoreCompleteness(
+  body: ReturnType<typeof parseKjHarimauBody>,
+  location: string | undefined,
+  hares: string | undefined,
+): number {
+  return (
+    (location ? 4 : 0) +
+    (body.mapsUrl ? 2 : 0) +
+    (body.latitude !== undefined && body.longitude !== undefined ? 2 : 0) +
+    (hares ? 1 : 0) +
+    (body.wazeUrl ? 1 : 0) +
+    (body.guestFee ? 1 : 0)
+  );
+}
+
 export class KjHarimauAdapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
 
@@ -174,13 +204,19 @@ export class KjHarimauAdapter implements SourceAdapter {
       return { events: [], errors: [bloggerResult.error.message], errorDetails };
     }
 
-    const events: RawEventData[] = [];
-    // KJ Harimau occasionally publishes the same run as two nearly
-    // identical Blogger posts (e.g. Run 1548 with and without a URL
-    // suffix). Dedupe by (date, runNumber), keeping the first post
-    // encountered — Blogger returns posts newest-first, so the first
-    // hit is the most recent edit and the canonical version.
-    const seenRuns = new Set<string>();
+    // KJ Harimau occasionally republishes the same run as a second Blogger
+    // post — sometimes the FIRST post seen still has an empty `Runsite:` /
+    // `Maps:` because the kennel posted an announcement before details were
+    // finalized. Picking the first-seen post (newest published) is NOT
+    // sufficient: the announcement is what got republished last. (#1446)
+    //
+    // Strategy: collect all run-shaped posts per (date, runNumber), then keep
+    // the candidate with the highest field-completeness score.
+    type Candidate = {
+      event: RawEventData;
+      score: number;
+    };
+    const groups = new Map<string, Candidate>();
     let duplicatesSkipped = 0;
     let filteredOut = 0;
     for (let i = 0; i < bloggerResult.posts.length; i++) {
@@ -212,14 +248,6 @@ export class KjHarimauAdapter implements SourceAdapter {
       }
 
       const runNumber = body.runNumber ?? titleFields.runNumber;
-
-      const dedupKey = `${date}|${runNumber ?? ""}`;
-      if (seenRuns.has(dedupKey)) {
-        duplicatesSkipped++;
-        continue;
-      }
-      seenRuns.add(dedupKey);
-
       const hares = normalizeHaresField(body.hare ?? titleFields.hare);
       const location = body.runsite ?? titleFields.runsite;
 
@@ -228,7 +256,7 @@ export class KjHarimauAdapter implements SourceAdapter {
 
       const description = body.guestFee ? `Guest Fee: ${body.guestFee}` : undefined;
 
-      events.push({
+      const event: RawEventData = {
         date,
         kennelTags: [KENNEL_TAG],
         runNumber,
@@ -241,8 +269,22 @@ export class KjHarimauAdapter implements SourceAdapter {
         sourceUrl: post.url,
         description,
         externalLinks: externalLinks.length > 0 ? externalLinks : undefined,
-      });
+      };
+
+      const score = scoreCompleteness(body, location, hares);
+      const key = `${date}|${runNumber ?? ""}`;
+      const existing = groups.get(key);
+      if (!existing) {
+        groups.set(key, { event, score });
+      } else {
+        duplicatesSkipped++;
+        if (score > existing.score) {
+          groups.set(key, { event, score });
+        }
+      }
     }
+
+    const events: RawEventData[] = Array.from(groups.values()).map((c) => c.event);
 
     const days = options?.days ?? source.scrapeDays ?? 365;
     return applyDateWindow(

@@ -46,6 +46,18 @@ const MAX_H2_TITLE_LEN = 80;
  *  shortly after the event. */
 const RECENT_EVENT_TOLERANCE_DAYS = 7;
 
+/** Match a street-address-shaped substring inside a directions paragraph —
+ *  some prose followed by `, <City>, <STATE>` (e.g. `2203 Boston Neck Rd,
+ *  Saunderstown, RI`). Used by #1427 to prefer the address sentence over
+ *  the (sometimes jokey) anchor text of the first maps link in the cell. */
+const ADDRESS_PATTERN_RE =
+  /([^.<>\n]{6,150}?,\s*[A-Z][A-Za-z\s'.\-]{2,30},\s*[A-Z]{2})\b/;
+const STREET_ADDRESS_HINT_RE = /\d|St\.|Street|Rd\.|Road|Ave|Avenue|Blvd|Lane|Ln\.|Way|Park|Beach|Drive|Dr\./i;
+/** Strip everything up to and including the last "at"/"from"/"near" when it sits
+ *  immediately before the street number — keeps `2203 Boston Neck Rd, …` and
+ *  drops `The start is from the small (again) parking lot at`. */
+const ADDRESS_LEADIN_RE = /^.*?\b(?:at|from|near)\s+(?=\d)/i;
+
 /**
  * Extract hare name(s) from the hare cell HTML.
  *
@@ -142,25 +154,67 @@ export function parseHarelineRow(
     h2Text ||
     (runNumber ? `RIH3 #${runNumber}` : "RIH3 Monday Trail");
 
-  // Location from Google Maps link
+  // Location preferred from the address-shaped sentence in the directions
+  // body (#1427) — the first maps link's anchor text is sometimes a joke,
+  // and even the URL can point at the wrong place ("Julia's Trail Parking"
+  // instead of the actual start). Fall back to the link's anchor text when
+  // no address-shaped match is found.
   const mapsLink = dir$(
     'a[href*="google.com/maps"], a[href*="maps.google"]',
   ).first();
-  const locationUrl = mapsLink.length
+  let location: string | undefined;
+  let locationUrl: string | undefined = mapsLink.length
     ? mapsLink.attr("href")?.trim()
     : undefined;
-  const locationText = mapsLink.length
-    ? mapsLink.text().trim()
-      // Strip leading navigation instructions (e.g., "Park Here. Just a short bit from the dog park at Melville Park, ...")
-      .replace(/^Park\s+Here\.?\s*/i, "")
-      .replace(/^(?:Get\s+directions?\s+to|Walk\s+to|Head\s+to|Just\s+)\s*/i, "")
-      .replace(/^(?:a\s+)?(?:short\s+)?(?:bit\s+)?(?:from|near|by)\s+(?:the\s+)?/i, "")
-      .trim()
-    : undefined;
-  const location =
-    locationText && locationText.length > 3 && !PROSE_LEAD_RE.test(locationText)
-      ? locationText
+
+  // 1. Pull the directions body text (stripped HTML, h2 + all <a> anchor
+  //    text removed) and scan for a "<text>, <City>, <ST>" substring —
+  //    that's the canonical address when the kennel writes one in plain
+  //    prose. We remove the link text first so the previous behavior of
+  //    extracting from the maps-link anchor still wins when the address
+  //    ONLY appears inside the link.
+  const bodyForAddress = dir$("body").clone();
+  bodyForAddress.find("h2").remove();
+  bodyForAddress.find("a").remove();
+  const bodyText = bodyForAddress.text().replace(/\s+/g, " ").trim();
+  const addressMatch = ADDRESS_PATTERN_RE.exec(bodyText);
+  if (addressMatch) {
+    const candidate = addressMatch[1]
+      .replace(ADDRESS_LEADIN_RE, "")
+      .trim();
+    // Require a digit somewhere in the candidate so we only latch onto
+    // numeric street addresses, not "the dog park at <Proper Noun>".
+    if (
+      candidate.length >= 8 &&
+      candidate.length <= 150 &&
+      /\d/.test(candidate) &&
+      STREET_ADDRESS_HINT_RE.test(candidate)
+    ) {
+      location = candidate;
+      // Address-text path: the first maps link's URL is often wrong (see #1427
+      // map-pin landing at Julia's Trail Parking), so drop it and let
+      // downstream geocoding resolve coords from the address text.
+      locationUrl = undefined;
+    }
+  }
+
+  // 2. Fallback — use the maps link's anchor text (legacy behavior).
+  if (!location) {
+    const linkText = mapsLink.length
+      ? mapsLink
+          .text()
+          .trim()
+          // Strip leading navigation instructions (e.g., "Park Here. Just a short bit from the dog park at Melville Park, ...")
+          .replace(/^Park\s+Here\.?\s*/i, "")
+          .replace(/^(?:Get\s+directions?\s+to|Walk\s+to|Head\s+to|Just\s+)\s*/i, "")
+          .replace(/^(?:a\s+)?(?:short\s+)?(?:bit\s+)?(?:from|near|by)\s+(?:the\s+)?/i, "")
+          .trim()
       : undefined;
+    location =
+      linkText && linkText.length > 3 && !PROSE_LEAD_RE.test(linkText)
+        ? linkText
+        : undefined;
+  }
 
   // Description: body text minus title and song links; preserve Facebook link
   const descRoot = dir$("body").clone();

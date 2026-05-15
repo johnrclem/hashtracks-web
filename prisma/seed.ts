@@ -7,6 +7,11 @@ import { KENNEL_ALIASES } from "./seed-data/aliases";
 import { SOURCES } from "./seed-data/sources";
 import { runScheduleRuleBackfill } from "../scripts/backfill-schedule-rules";
 import { composeUtcStart } from "../src/lib/timezone";
+import { toSlug } from "./seed-utils";
+// Re-exported so any historical caller of `prisma/seed.ts`'s `toSlug` keeps working;
+// the helper itself now lives in `./seed-utils` so tests can import it without
+// triggering this file's top-level `main()`.
+export { toSlug };
 
 /** JSON.stringify with sorted keys — prevents false diffs from key ordering differences between seed objects and DB-returned JSON. */
 function stableStringify(obj: unknown): string {
@@ -15,15 +20,6 @@ function stableStringify(obj: unknown): string {
       ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => a.localeCompare(b)))
       : v,
   );
-}
-
-function toSlug(shortName: string): string {
-  return shortName
-    .toLowerCase()
-    .replace(/[()]/g, "")    // Remove parens
-    .replace(/\s+/g, "-")    // Spaces to hyphens
-    .replace(/-+/g, "-")     // Collapse multiple hyphens
-    .replace(/^-|-$/g, "");  // Trim leading/trailing hyphens
 }
 
 const PROFILE_FIELDS = new Set([

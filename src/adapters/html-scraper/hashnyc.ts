@@ -289,7 +289,16 @@ interface ParsedDetails {
   description?: string;
 }
 
-/** Extract location and location URL from the "Start:" block in cell HTML. */
+/** Word-bounded so "TBA Park" isn't a placeholder. */
+const LOCATION_PLACEHOLDER_RE = /^(TBD|TBA|TBC)\b/i;
+
+/** Extract location and location URL from the "Start:" block in cell HTML.
+ *
+ * Bounds the location capture at the first `<br>` after `Start:` so the
+ * description paragraph below doesn't bleed into the location field (#1396).
+ * Both `Transit:` and a top-level `<br>` mark the end of the location block;
+ * we take whichever comes first.
+ */
 function extractLocationAndUrl(
   cellHtml: string,
   $: cheerio.CheerioAPI,
@@ -302,10 +311,15 @@ function extractLocationAndUrl(
   const startLabelMatch = startIdx >= 0 ? /Start:\s*/i.exec(cellHtml) : null;
   if (startIdx >= 0 && startLabelMatch) {
     const blockStart = startIdx + startLabelMatch[0].length;
-    const transitIdx = cellHtml.slice(blockStart).search(/Transit:/i);
-    const locationBlock = transitIdx >= 0
-      ? cellHtml.slice(blockStart, blockStart + transitIdx)
-      : cellHtml.slice(blockStart);
+    const remainder = cellHtml.slice(blockStart);
+    const transitIdx = remainder.search(/Transit:/i);
+    // First top-level <br> ends the location segment for rows that don't carry
+    // a Transit: line (e.g. GGFM full-moon rows with a description paragraph).
+    const brMatch = /<br\b[^>]*>/i.exec(remainder);
+    const brIdx = brMatch ? brMatch.index : -1;
+    const candidateBounds = [transitIdx, brIdx].filter((n) => n >= 0);
+    const endIdx = candidateBounds.length > 0 ? Math.min(...candidateBounds) : -1;
+    const locationBlock = endIdx >= 0 ? remainder.slice(0, endIdx) : remainder;
 
     const $block = cheerio.load(`<div>${locationBlock}</div>`);
     const mapsLink = $block("a[href]").filter((_i, el) => {
@@ -319,8 +333,11 @@ function extractLocationAndUrl(
 
     const locationText = decodeHtmlEntities(locationBlock).trim();
     if (locationText) {
-      if (/^TBD/i.test(locationText)) {
-        location = "TBD";
+      const placeholderMatch = LOCATION_PLACEHOLDER_RE.exec(locationText);
+      if (placeholderMatch) {
+        // Normalize TBA / TBD / TBC to the literal token so downstream code
+        // can detect "no venue yet" without re-parsing free-form prose.
+        location = placeholderMatch[1].toUpperCase();
       } else {
         location = locationText.replace(/\s+,/g, ",").replace(/\s+/g, " ").trim();
       }
@@ -360,6 +377,17 @@ function extractDescriptionFromCell(
   const restMatch = /Transit:[^<]*(?:<span[^>]*>[^<]*<\/span>[^<]*)*(?:<br\s*\/?>)([\s\S]*)/i.exec(cellHtml);
   if (restMatch) {
     const rest = decodeHtmlEntities(restMatch[1]).trim();
+    if (rest) return rest;
+  }
+
+  // Rows with `Start: <placeholder>` (TBA / TBD / TBC) followed by description
+  // prose (no Transit:, no <p> tags) — capture everything after the first
+  // <br> following the placeholder so the paragraph isn't lost. (#1396)
+  const placeholderStartMatch = /Start:\s*(?:TBA|TBD|TBC)\b[^<]*<br\s*\/?>([\s\S]*)/i.exec(cellHtml);
+  if (placeholderStartMatch) {
+    const rest = decodeHtmlEntities(placeholderStartMatch[1])
+      .replace(/\s+/g, " ")
+      .trim();
     if (rest) return rest;
   }
 

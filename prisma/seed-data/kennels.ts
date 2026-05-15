@@ -3549,6 +3549,10 @@ export const KENNELS: KennelSeed[] = [
     },
     {
       kennelCode: "cah3", shortName: "H2H3 / Cha-Am H3", fullName: "Hua Hin H3 & Cha-Am Hash House Harriers",
+      // Explicit slug — `shortName` contains "/" which Next.js treats as a path
+      // separator and 404s. Helper fixes alone don't repair the persisted row;
+      // pair this with the slug-repair migration. (#1422)
+      slug: "h2h3-cha-am-h3",
       region: "Hua Hin", country: "Thailand",
       website: "https://cah3.net",
       logoUrl: "https://cah3.net/wp-content/uploads/2025/08/CAH3-Anchor-Logo.png",

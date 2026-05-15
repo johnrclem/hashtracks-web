@@ -139,22 +139,27 @@ export function parseKljTitleDate(title: string, publishDateIso: string): string
 
 /**
  * Strip the "Run # N, <date> ..." prefix from a post title, leaving just
- * the themed title (e.g. "Halloween @ TBD", "Christmas Party"). Also
- * decodes HTML entities left by WordPress (–, &amp;, …).
+ * the themed title (e.g. "Halloween", "Christmas Party"). Also decodes HTML
+ * entities left by WordPress (–, &amp;, …).
  *
- * When the post-date trailer is purely a venue (e.g.
- * "Run # 526, 7th June @ Nambee estate, near Rasa") with no themed-event
- * content, synthesize a clean "Run #N" string — the venue is already
- * stored separately in `RawEventData.location`. (#1213)
+ * Returns `undefined` when the post-date trailer is purely a venue (e.g.
+ * "Run # 526, 7th June @ Nambee estate, near Rasa") or absent — letting the
+ * merge pipeline synthesize a friendlier default like "KLJ H3 Trail #526"
+ * with the venue carried separately on `RawEventData.location`. Earlier
+ * iterations returned `"Run #N"` here, but the merge pipeline treats that
+ * as a stale-default placeholder and re-synthesizes anyway. (#1442)
+ *
+ * Also strips trailing ` @ <placeholder>` (TBD / TBA / TBC) from themed
+ * titles so Shape-B posts like "Halloween @ TBD" don't leak the venue
+ * placeholder into the title.
  *
  * Exported for unit testing.
  */
-export function cleanKljTitle(title: string): string {
+export function cleanKljTitle(title: string): string | undefined {
   const decoded = decodeEntities(title);
   const withoutTags = decoded.replace(/<[^>]+>/g, "").trim();
   const runMatch = /^Run\s*#\s*(\d+)/i.exec(withoutTags);
-  if (!runMatch) return withoutTags;
-  const runNum = runMatch[1];
+  if (!runMatch) return withoutTags || undefined;
 
   let rest = withoutTags.slice(runMatch[0].length).trim();
   // Drop the leading separator after the run number ("Run # 532, …").
@@ -164,14 +169,18 @@ export function cleanKljTitle(title: string): string {
   // Drop the dash separator between date and themed title ("– Christmas Party").
   rest = rest.replace(/^[–\-—:]\s*/, "");
 
+  // Strip a trailing " @ <placeholder>" — Shape B titles can carry "@ TBD"
+  // (or TBA / TBC) when the venue isn't finalized; that's a placeholder, not
+  // part of the themed name.
+  rest = rest.replace(/\s+@\s+(?:TBD|TBA|TBC)\b\s*$/i, "").trim();
+
   // Empty trailer or one that opens with a venue marker ("@ …", ", …",
   // "near <Place>") means the post title carries no themed name —
-  // synthesize a stable "Run #N" instead of leaving date + venue in the
-  // title. The "near" branch requires a following capitalized word so a
-  // legitimate themed title like "Near Death Experience" isn't rewritten
-  // (PR #1236 review).
+  // return undefined so the merge pipeline picks its own default. The
+  // "near" branch requires a following capitalized word so a legitimate
+  // themed title like "Near Death Experience" isn't dropped.
   if (!rest || /^[@,]\s/.test(rest) || /^near\s+[A-Z][a-zA-Z]+/.test(rest)) {
-    return `Run #${runNum}`;
+    return undefined;
   }
   return rest;
 }
@@ -212,7 +221,7 @@ export function parseKljPost(post: KljPostInput): ParseKljPostResult {
   const date = body.date ?? parseKljTitleDate(rawTitle, post.date);
   if (!date) return { ok: false, reason: "no-date", title: rawTitle };
 
-  const title = cleanKljTitle(rawTitle) || undefined;
+  const title = cleanKljTitle(rawTitle);
   // Combine the source's "probably <venue>" hedge (stripped from the
   // location field for clean geocoding — see parseKljBody) with the
   // registration line so neither signal is lost downstream. Sorted in

@@ -1,13 +1,14 @@
 import { prisma } from "@/lib/db";
 import { isUniqueConstraintViolation } from "@/lib/prisma-errors";
 
-/** Generate a URL-safe slug from a kennel shortName. Strips parens, collapses hyphens. */
+/** Generate a URL-safe slug from a kennel shortName. Normalizes any non-alphanumeric
+ *  run (spaces, slashes, ampersands, hyphens, parens, …) to a single "-". Must reject `/`
+ *  in particular — Next.js treats it as a path separator and silently 404s the page (#1422). */
 export function toSlug(shortName: string): string {
   return shortName
     .toLowerCase()
     .replaceAll(/[()]/g, "")
-    .replaceAll(/\s+/g, "-")
-    .replaceAll(/-+/g, "-")
+    .replaceAll(/[^a-z0-9]+/g, "-")
     .replaceAll(/^-|-$/g, "");
 }
 
