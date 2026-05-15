@@ -539,9 +539,12 @@ describe("bumpYearIfBefore", () => {
     expect(bumpYearIfBefore("2026-06-01", "2026-05-15")).toBe("2026-06-01");
   });
 
-  it("bumps year forward when date is on or before prevDate", () => {
+  it("bumps year forward when date is strictly before prevDate", () => {
     expect(bumpYearIfBefore("2026-01-05", "2026-12-15")).toBe("2027-01-05");
-    expect(bumpYearIfBefore("2026-05-15", "2026-05-15")).toBe("2027-05-15");
+  });
+
+  it("returns same-day duplicates unchanged (typo/duplicate row, not a year roll)", () => {
+    expect(bumpYearIfBefore("2026-05-15", "2026-05-15")).toBe("2026-05-15");
   });
 
   it("loops to clear a multi-year wrap defensively", () => {

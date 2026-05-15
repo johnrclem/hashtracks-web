@@ -51,11 +51,11 @@ describe("parseAucklandHussiesRow", () => {
     );
     expect(row).not.toBeNull();
     // Year is inferred from refDate (2026-05-15); no forwardDate bump.
-    expect(row!.date).toBe("2026-05-05");
+    expect(row?.date).toBe("2026-05-05");
     // normalizeHaresField only splits on commas, so "X & Y" stays joined.
-    expect(row!.hares).toBe("Triple One & Cross Dresser");
-    expect(row!.location).toBe("111 Walker Rd, Pt Chevalier");
-    expect(row!.kennelTags).toEqual(["auckland-hussies"]);
+    expect(row?.hares).toBe("Triple One & Cross Dresser");
+    expect(row?.location).toBe("111 Walker Rd, Pt Chevalier");
+    expect(row?.kennelTags).toEqual(["auckland-hussies"]);
   });
 
   it("bumps year monotonically when a later row goes backwards", () => {
@@ -65,7 +65,7 @@ describe("parseAucklandHussiesRow", () => {
       { dateText: "5-Jan", hareText: "", locationText: "" },
       { kennelTag: "k", referenceDate: refDate, sourceUrl: "https://x", prevDate: "2026-12-15" },
     );
-    expect(second!.date).toBe("2027-01-05");
+    expect(second?.date).toBe("2027-01-05");
   });
 
   it("returns null when the date cell is unparseable", () => {
@@ -81,7 +81,7 @@ describe("parseAucklandHussiesRow", () => {
       { dateText: "16-Jun", hareText: "Demon", locationText: " " },
       { kennelTag: "auckland-hussies", referenceDate: refDate, sourceUrl: "https://x" },
     );
-    expect(row!.location).toBeUndefined();
+    expect(row?.location).toBeUndefined();
   });
 });
 

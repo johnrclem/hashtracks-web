@@ -114,16 +114,18 @@ export class AucklandHussiesAdapter implements SourceAdapter {
     let rowsConsidered = 0;
     let prevDate: string | undefined;
     for (let i = 0; i < rows.length; i++) {
-      const cells = $(rows[i]).find("td").toArray().map((td) => $(td).text());
+      const row = rows.at(i);
+      if (!row) continue;
+      const cells = $(row).find("td").toArray().map((td) => $(td).text());
       if (cells.length < 5) continue;
-      const dateCell = cells[0]?.trim() ?? "";
+      const dateCell = cells.at(0)?.trim() ?? "";
       const dateMatch = DATE_CELL_RE.exec(dateCell);
       if (!dateMatch) continue;
       rowsConsidered += 1;
 
       try {
         const event = parseAucklandHussiesRow(
-          { dateText: dateCell, hareText: cells[3], locationText: cells[4] },
+          { dateText: dateCell, hareText: cells.at(3), locationText: cells.at(4) },
           { kennelTag, sourceUrl, prevDate },
         );
         if (!event) continue;
@@ -137,7 +139,7 @@ export class AucklandHussiesAdapter implements SourceAdapter {
           row: i,
           section: "run-list",
           error: String(err),
-          rawText: $(rows[i]).text().trim().slice(0, 500),
+          rawText: $(row).text().trim().slice(0, 500),
         });
       }
     }

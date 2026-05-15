@@ -78,10 +78,10 @@ async function runProbe(probe: Probe): Promise<void> {
     diagnosticContext?: Record<string, unknown>;
   };
 
-  const dates = result.events.map((e) => e.date).sort();
+  const dates = result.events.map((e) => e.date).sort((a, b) => a.localeCompare(b));
   console.log(`\n── ${probe.label} ──`);
   console.log(`  Events: ${result.events.length}`);
-  console.log(`  Range:  ${dates[0] ?? "n/a"} → ${dates.at(-1) ?? "n/a"}`);
+  console.log(`  Range:  ${dates.at(0) ?? "n/a"} → ${dates.at(-1) ?? "n/a"}`);
   console.log(`  Errors: ${result.errors.length}`);
   if (result.errors.length) {
     result.errors.slice(0, 3).forEach((e) => console.log(`    - ${e}`));

@@ -43,7 +43,9 @@ import {
 function cleanCellText(value: string | undefined): string | undefined {
   if (value == null) return undefined;
   // Normalize U+00A0 (&nbsp;) → space before collapsing runs of whitespace.
-  const collapsed = value.replace(/ /g, " ").replace(/\s+/g, " ");
+  // Use \u00A0 escape, not a literal NBSP character, to keep ESLint's
+  // no-irregular-whitespace happy.
+  const collapsed = value.replaceAll("\u00A0", " ").replaceAll(/\s+/g, " ");
   return stripPlaceholder(collapsed);
 }
 
@@ -79,9 +81,14 @@ export function parseMiteriRow(
   const date = bumpYearIfBefore(parsed, opts.prevDate);
 
   const runClean = cleanCellText(row.runText);
-  const runNumber =
-    extractHashRunNumber(row.runText)
-    ?? (runClean ? Number.parseInt(runClean, 10) || undefined : undefined);
+  let runNumber = extractHashRunNumber(row.runText);
+  if (runNumber === undefined && runClean) {
+    // Number.isFinite(NaN) === false, so non-numeric cells fall through.
+    // Use explicit Number.isFinite (not `|| undefined`) so a legitimate
+    // run number 0 isn't silently dropped by the falsy check.
+    const parsed = Number.parseInt(runClean, 10);
+    if (Number.isFinite(parsed)) runNumber = parsed;
+  }
 
   const hares = normalizeHaresField(cleanCellText(row.hareText));
   const location = cleanCellText(row.locationText);
@@ -102,7 +109,7 @@ export function parseMiteriRow(
  */
 function findColumnIndex(headers: string[], patterns: RegExp[]): number {
   for (let i = 0; i < headers.length; i++) {
-    const h = headers[i].toLowerCase();
+    const h = (headers.at(i) ?? "").toLowerCase();
     if (patterns.some((p) => p.test(h))) return i;
   }
   return -1;
@@ -122,7 +129,9 @@ export function parseGutenbergTable(
   if (rows.length === 0) return [];
 
   // Header row = first row with bold cells (covers `<th>` or `<td><strong>`).
-  const headerCells = $(rows[0]).find("th, td").toArray().map((el) => $(el).text().trim());
+  const headerRow = rows.at(0);
+  if (!headerRow) return [];
+  const headerCells = $(headerRow).find("th, td").toArray().map((el) => $(el).text().trim());
   const runIdx = findColumnIndex(headerCells, [/run/i]);
   const dateIdx = findColumnIndex(headerCells, [/date/i]);
   const hareIdx = findColumnIndex(headerCells, [/hare/i]);
@@ -133,12 +142,14 @@ export function parseGutenbergTable(
 
   const out: ReturnType<typeof parseGutenbergTable> = [];
   for (let i = 1; i < rows.length; i++) {
-    const cells = $(rows[i]).find("td, th").toArray().map((el) => $(el).text());
+    const row = rows.at(i);
+    if (!row) continue;
+    const cells = $(row).find("td, th").toArray().map((el) => $(el).text());
     out.push({
-      runText: runIdx >= 0 ? cells[runIdx] : undefined,
-      dateText: dateIdx >= 0 ? cells[dateIdx] : undefined,
-      hareText: hareIdx >= 0 ? cells[hareIdx] : undefined,
-      locationText: locIdx >= 0 ? cells[locIdx] : undefined,
+      runText: runIdx >= 0 ? cells.at(runIdx) : undefined,
+      dateText: dateIdx >= 0 ? cells.at(dateIdx) : undefined,
+      hareText: hareIdx >= 0 ? cells.at(hareIdx) : undefined,
+      locationText: locIdx >= 0 ? cells.at(locIdx) : undefined,
     });
   }
   return out;
@@ -197,10 +208,10 @@ export function parseSiteOriginGrid(
   const out: ReturnType<typeof parseSiteOriginGrid> = [];
   for (let i = 0; i < length; i++) {
     out.push({
-      runText: runCol[i],
-      dateText: dateCol[i],
-      hareText: hareCol[i],
-      locationText: locCol[i],
+      runText: runCol.at(i),
+      dateText: dateCol.at(i),
+      hareText: hareCol.at(i),
+      locationText: locCol.at(i),
     });
   }
   return out;
@@ -258,8 +269,10 @@ export class MiteriHarelineAdapter implements SourceAdapter {
 
     let prevDate: string | undefined;
     for (let i = 0; i < rows.length; i++) {
+      const row = rows.at(i);
+      if (!row) continue;
       try {
-        const event = parseMiteriRow(rows[i], { kennelTag, sourceUrl, prevDate });
+        const event = parseMiteriRow(row, { kennelTag, sourceUrl, prevDate });
         if (!event) continue;
         prevDate = event.date;
         const eventDate = new Date(`${event.date}T12:00:00Z`);

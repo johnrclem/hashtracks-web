@@ -53,12 +53,12 @@ describe("parseMiteriRow", () => {
       { kennelTag: "garden-city-h3", referenceDate: refDate, sourceUrl: "https://gardencityhash.co.nz/" },
     );
     expect(row).not.toBeNull();
-    expect(row!.date).toBe("2026-06-02");
-    expect(row!.runNumber).toBe(2358);
+    expect(row?.date).toBe("2026-06-02");
+    expect(row?.runNumber).toBe(2358);
     // normalizeHaresField only splits on commas, so the ampersand-joined string is preserved.
-    expect(row!.hares).toBe("Tabasco & Hoover");
-    expect(row!.location).toBe("Hagley Park");
-    expect(row!.kennelTags).toEqual(["garden-city-h3"]);
+    expect(row?.hares).toBe("Tabasco & Hoover");
+    expect(row?.location).toBe("Hagley Park");
+    expect(row?.kennelTags).toEqual(["garden-city-h3"]);
   });
 
   it("collapses multi-day ranges to the start date", () => {
@@ -66,7 +66,7 @@ describe("parseMiteriRow", () => {
       { runText: "2356", dateText: "22-24 May", hareText: "Hurunui Hotel", locationText: "Weekend Away" },
       { kennelTag: "garden-city-h3", referenceDate: refDate, sourceUrl: "https://x" },
     );
-    expect(row!.date).toBe("2026-05-22");
+    expect(row?.date).toBe("2026-05-22");
   });
 
   it("handles en-dash and em-dash range separators", () => {
@@ -74,7 +74,7 @@ describe("parseMiteriRow", () => {
       { runText: "2356", dateText: "22 – 24 May", hareText: "Hares", locationText: "Loc" },
       { kennelTag: "garden-city-h3", referenceDate: refDate, sourceUrl: "https://x" },
     );
-    expect(row!.date).toBe("2026-05-22");
+    expect(row?.date).toBe("2026-05-22");
   });
 
   it("returns null for empty date cell", () => {
@@ -93,8 +93,8 @@ describe("parseMiteriRow", () => {
       { runText: "2360", dateText: "16 June", hareText: "TBC", locationText: "??" },
       { kennelTag: "garden-city-h3", referenceDate: refDate, sourceUrl: "https://x" },
     );
-    expect(row!.hares).toBeUndefined();
-    expect(row!.location).toBeUndefined();
+    expect(row?.hares).toBeUndefined();
+    expect(row?.location).toBeUndefined();
   });
 
   it("sorts hares deterministically (fingerprint stability)", () => {
@@ -106,8 +106,8 @@ describe("parseMiteriRow", () => {
       { runText: "1", dateText: "2 June", hareText: "Mike, Alpha, Zebra", locationText: "" },
       { kennelTag: "k", referenceDate: refDate, sourceUrl: "https://x" },
     );
-    expect(a!.hares).toBe(b!.hares);
-    expect(a!.hares).toBe("Alpha, Mike, Zebra");
+    expect(a?.hares).toBe(b?.hares);
+    expect(a?.hares).toBe("Alpha, Mike, Zebra");
   });
 });
 

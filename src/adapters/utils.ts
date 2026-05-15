@@ -822,7 +822,11 @@ export function stripPlaceholder(value: string | undefined | null): string | und
  * rolling over to March 1 (which JS `new Date()` would otherwise do).
  */
 export function bumpYearIfBefore(date: string, prevDate: string | undefined): string {
-  if (!prevDate || date > prevDate) return date;
+  // Strict `<` (not `<=`): same-day rows on a chronologically-sorted page
+  // are most commonly typos/duplicates rather than a year roll, so leaving
+  // them in the current year is the safer default. A genuine same-day
+  // year-roll (vanishingly rare) would need explicit year metadata anyway.
+  if (!prevDate || date >= prevDate) return date;
   const [origY, m, d] = date.split("-").map(Number);
   let year = origY;
   let result = date;
@@ -831,7 +835,7 @@ export function bumpYearIfBefore(date: string, prevDate: string | undefined): st
   // leap-year validity and clamps Feb 29 → Feb 28 only when the landing
   // year is non-leap (otherwise downstream `new Date()` silently rolls to
   // March 1).
-  while (result <= prevDate) {
+  while (result < prevDate) {
     year += 1;
     let day = d;
     if (m === 2 && d === 29) {
