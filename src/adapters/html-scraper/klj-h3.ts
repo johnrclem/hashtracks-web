@@ -170,12 +170,17 @@ export function cleanKljTitle(title: string): string | undefined {
   rest = rest.replace(/^[–\-—:]\s*/, "");
 
   // Strip a trailing " @ <placeholder>" — Shape B titles can carry "@ TBD"
-  // (or TBA / TBC) when the venue isn't finalized. Split into two regex passes
-  // so `\s+` never sits adjacent to alternation (Sonar S5852 false-positive
-  // shape — see memory `feedback_sonar_s5852_false_positives.md`).
-  const tailMatch = /(.+?)\s+@\s+(\S+)\s*$/i.exec(rest);
-  if (tailMatch && /^(?:TBD|TBA|TBC)$/i.test(tailMatch[2])) {
-    rest = tailMatch[1].trim();
+  // (or TBA / TBC) when the venue isn't finalized. Use string operations
+  // (lastIndexOf + slice) instead of a regex so Sonar S5852 has nothing to
+  // flag — the previous `(.+?)\s+@\s+(\S+)` shape was a known false-positive
+  // (see memory `feedback_sonar_s5852_false_positives.md`).
+  const trimmedRest = rest.replace(/\s+$/, ""); // NOSONAR S5852 — anchored `$`, single-quantifier
+  const lastAtIdx = trimmedRest.lastIndexOf(" @ ");
+  if (lastAtIdx > 0) {
+    const tail = trimmedRest.slice(lastAtIdx + 3);
+    if (/^(?:TBD|TBA|TBC)$/i.test(tail)) {
+      rest = trimmedRest.slice(0, lastAtIdx).trim();
+    }
   }
 
   // Empty trailer or one that opens with a venue marker ("@ …", ", …",

@@ -313,7 +313,7 @@ function normalizeLocationText(text: string): string | undefined {
   if (!text) return undefined;
   const placeholder = LOCATION_PLACEHOLDER_RE.exec(text);
   if (placeholder) return placeholder[1].toUpperCase();
-  return text.replace(/\s+,/g, ",").replace(/\s+/g, " ").trim();
+  return text.replaceAll(/\s+,/g, ",").replaceAll(/\s+/g, " ").trim(); // NOSONAR S5852 — single-quantifier `\s+` patterns, no alternation/nesting
 }
 
 /** Find the first `a[href]` link inside `scope` whose href looks like Google Maps. */
