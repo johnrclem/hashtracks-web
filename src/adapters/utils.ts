@@ -706,11 +706,13 @@ export function stripNonEnglishCountry(location: string): string {
  * Match `#NNN` in free-form text and return the integer. Lookahead requires a
  * clean delimiter after the digits so ambiguous tokens like `#30X?` (kennel
  * signaling unknown run number) reject instead of being parsed as 30 (#1147).
- * Shared by the Google Calendar summary path (`extractRunNumber` in
- * `google-calendar/adapter.ts`) and the Phoenix HHH HTML scraper which
- * preempts a stale-WordPress-slug fallback (#1211).
+ * Accepts both ASCII `#` (U+0023) and fullwidth `＃` (U+FF03) — Japanese
+ * kennels (Kyoto/Tokyo/Osaka) routinely encode "Run＃132" with the fullwidth
+ * variant (#1440). Shared by the Google Calendar summary path
+ * (`extractRunNumber` in `google-calendar/adapter.ts`) and the Phoenix HHH
+ * HTML scraper which preempts a stale-WordPress-slug fallback (#1211).
  */
-const HASH_RUN_NUMBER_RE = /#\s*(\d+)(?=$|[\s:\-–—,.()/])/;
+const HASH_RUN_NUMBER_RE = /[#＃]\s*(\d+)(?=$|[\s:\-–—,.()/])/;
 export function extractHashRunNumber(text: string | undefined): number | undefined {
   if (!text) return undefined;
   const m = HASH_RUN_NUMBER_RE.exec(text);
@@ -737,9 +739,9 @@ export function extractHashRunNumber(text: string | undefined): number | undefin
 // duplicated inline across both regexes — extracting it forces template
 // literals or `new RegExp(...)` which Sonar S7780 then flags.
 const HASH_RUN_NUMBER_PLACEHOLDER_DIGITS_RE =
-  /#\d+[ \t]*(?:X+\??|TB[ADC]|\?+)(?=$|[^A-Z0-9])/i;
+  /[#＃]\d+[ \t]*(?:X+\??|TB[ADC]|\?+)(?=$|[^A-Z0-9])/i;
 const HASH_RUN_NUMBER_PLACEHOLDER_BARE_RE =
-  /#(?:X+\??|TB[ADC]|\?+)(?=$|[^A-Z0-9])/i;
+  /[#＃](?:X+\??|TB[ADC]|\?+)(?=$|[^A-Z0-9])/i;
 export function hasPlaceholderRunNumber(text: string | undefined): boolean {
   if (!text) return false;
   return HASH_RUN_NUMBER_PLACEHOLDER_DIGITS_RE.test(text)

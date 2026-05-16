@@ -19,6 +19,7 @@ import {
   stripNonEnglishCountry,
   applyWeekdayShift,
   hasPlaceholderRunNumber,
+  extractHashRunNumber,
 } from "./utils";
 import { validateSourceUrlWithDns } from "./ssrf-dns";
 
@@ -907,6 +908,34 @@ describe("applyWeekdayShift", () => {
 
   it("throws on malformed date input", () => {
     expect(() => applyWeekdayShift("not-a-date", "00:00", { from: "Friday", to: "Thursday" })).toThrow(/invalid date/);
+  });
+});
+
+// #1440 — Japanese kennels (Kyoto/Tokyo/Osaka) encode `Run＃132` with the
+// fullwidth `＃` (U+FF03). The shared helper must accept both the ASCII and
+// fullwidth variants without changing behavior on existing ASCII callers
+// (Phoenix HHH, every GCal source).
+describe("extractHashRunNumber", () => {
+  it.each<[string, string | undefined, number | undefined]>([
+    // ASCII baseline (existing callers must not regress)
+    ["ASCII basic", "Run #132", 132],
+    ["ASCII with space", "FCH3 # 88", 88],
+    ["ASCII with trailing colon", "BH3 #2781:", 2781],
+    ["ASCII with comma delimiter", "Hash #100, hare needed", 100],
+    // Fullwidth ＃ (U+FF03) — Japanese kennels
+    ["fullwidth Kyoto", `Run＃132 Sunday June 25th "Bunter's North Side Trail!"`, 132],
+    ["fullwidth with space", "＃55 trail", 55],
+    ["fullwidth Tokyo style", "Tokyo H3 Run＃2080", 2080],
+    // Placeholder forms still rejected (#1147 delimiter guard)
+    ["ASCII placeholder X rejected", "Run #30X?", undefined],
+    ["fullwidth placeholder X rejected", "Run＃30X?", undefined],
+    // No run number present
+    ["no hash", "Just a regular run", undefined],
+    ["bare digits", "Event 100", undefined],
+    ["empty", "", undefined],
+    ["undefined", undefined, undefined],
+  ])("%s: %j → %p", (_, input, expected) => {
+    expect(extractHashRunNumber(input)).toBe(expected);
   });
 });
 

@@ -2567,7 +2567,19 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "every_6h",
       scrapeDays: 90,
-      config: { defaultKennelTag: "jhav-h3" },
+      config: {
+        defaultKennelTag: "jhav-h3",
+        // #1429: jHav summaries trail with `-Jhav Trail #NNNN`, `--Jhav Trail
+        // #NNNN`, or `: JHav Trail #NNNN`. The run number is already extracted
+        // upstream from the unmodified summary; the suffix duplicates it on
+        // the displayed title. Strip after the dash/colon delimiter.
+        //
+        // The trailing `\.?$` (no `\s*$`) is intentional — `title` is already
+        // trimmed multiple times before titleStripPatterns runs, so trailing
+        // whitespace can't be present, and adjacent `\.?\s*$` is the shape
+        // SonarCloud S5852 flags as a potential ReDoS.
+        titleStripPatterns: [String.raw`[\s\-:]+jhav\s+trail\s+#?\d+\.?$`],
+      },
       kennelCodes: ["jhav-h3"],
     },
     {
