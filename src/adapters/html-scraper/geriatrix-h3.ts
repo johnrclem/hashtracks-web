@@ -118,7 +118,7 @@ export class GeriatrixH3Adapter implements SourceAdapter {
     const editorFound = $editor.length > 0;
     if (editorFound) {
       $editor.find("p").each((_i, el) => {
-        const text = $(el).text().replace(/ /g, " ").replace(/\s+/g, " ").trim();
+        const text = $(el).text().replaceAll("\u00a0", " ").replace(/\s+/g, " ").trim();
         const firstHref = $(el).find("a").first().attr("href");
         paragraphs.push({ text, firstHref });
       });

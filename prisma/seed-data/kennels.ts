@@ -3918,7 +3918,7 @@ export const KENNELS: KennelSeed[] = [
       scheduleDayOfWeek: "Monday", scheduleTime: "6:00 PM", scheduleFrequency: "Biweekly",
       scheduleNotes: "Roughly every 2nd Monday at 6:00 PM (year-round per the kennel's UpCumming Runs newsletter). Trails alternate setters; specific runs announced on the website.",
       description: "Hamilton/Waikato men's hash. Trail starts shifted to 6:00 PM year-round; runs published as a freeform newsletter on the kennel website.",
-      latitude: -37.7870, longitude: 175.2793,
+      latitude: -37.787, longitude: 175.2793,
     },
     {
       kennelCode: "geriatrix-h3", shortName: "Geriatrix H3", fullName: "Port Nicholson Geriatrix Hash House Harriers",
