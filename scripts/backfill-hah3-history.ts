@@ -8,19 +8,8 @@
  * uses a 90-day reconcile window and the back catalog can never enter via
  * a wider hareline scrape (#1314 walks through this in detail).
  *
- * Strategy:
- *   1. Fetch history.shtml via `fetchSDH3Page` (UTF-8-forced, #1315).
- *   2. Reuse `parseHistoryEvents` from the SDH3 adapter — it already handles
- *      the `<ol><li>date: <a>title (Kennel)</a></li>` shape and routes the
- *      `(Half-Assed)` parenthetical to `hah3-sd` via `kennelNameMap`.
- *   3. Defense-in-depth filter: keep only `kennelTags[0] === "hah3-sd"`.
- *   4. `runBackfillScript` partitions to past-only (date < today
- *      America/Los_Angeles), routes through the merge pipeline.
- *
- * Idempotency:
- *   The merge pipeline dedupes RawEvents by `(sourceId, fingerprint)` (WS5
- *   composite unique constraint). The fingerprint is deterministic over the
- *   parsed payload, so a second apply pass is a no-op on every row.
+ * Strategy: delegated to `backfillSdh3HistoryKennel` (scripts/lib/sdh3-history-backfill.ts).
+ * The shared helper handles fetch, parse, partition, and merge-pipeline routing.
  *
  * Why attribute to "SDH3 Hareline":
  *   That source already has the 10-kennel SourceKennel link including
@@ -40,46 +29,12 @@
  */
 
 import "dotenv/config";
-import { runBackfillScript } from "./lib/backfill-runner";
-import { fetchSDH3Page, parseHistoryEvents } from "@/adapters/html-scraper/sdh3";
-import type { RawEventData } from "@/adapters/types";
+import { backfillSdh3HistoryKennel } from "./lib/sdh3-history-backfill";
 
-const SOURCE_NAME = "SDH3 Hareline";
-const KENNEL_CODE = "hah3-sd";
-const KENNEL_TIMEZONE = "America/Los_Angeles";
-const HISTORY_URL = "https://sdh3.com/history.shtml";
-
-async function fetchEvents(): Promise<RawEventData[]> {
-  console.log(`Fetching ${HISTORY_URL}`);
-  const page = await fetchSDH3Page(HISTORY_URL);
-  if (!page.ok) {
-    throw new Error(`History fetch failed: ${page.result.errors.join("; ")}`);
-  }
-
-  // Hand parseHistoryEvents a one-key kennelNameMap: only "(Half-Assed)" rows
-  // become events with kennelTag = "hah3-sd". Other parentheticals fall off
-  // because parseHistoryEvents requires a kennelNameMap match to emit a row.
-  const events = parseHistoryEvents(
-    page.html,
-    {
-      kennelCodeMap: {},
-      kennelNameMap: { "Half-Assed": KENNEL_CODE },
-    },
-    "https://sdh3.com",
-  );
-
-  // Defense in depth — parseHistoryEvents already filters by kennelNameMap.
-  const hahEvents = events.filter((e) => e.kennelTags[0] === KENNEL_CODE);
-  hahEvents.sort((a, b) => a.date.localeCompare(b.date));
-  console.log(`  Parsed ${events.length} total history rows; ${hahEvents.length} are HAH3.`);
-  return hahEvents;
-}
-
-runBackfillScript({
-  sourceName: SOURCE_NAME,
-  kennelTimezone: KENNEL_TIMEZONE,
+backfillSdh3HistoryKennel({
+  kennelCode: "hah3-sd",
+  kennelDisplayName: "Half-Assed",
   label: "Walking SDH3 history.shtml for Half-Assed Hash entries",
-  fetchEvents,
 }).catch((err) => {
   console.error(err);
   process.exit(1);
