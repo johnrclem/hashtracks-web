@@ -93,7 +93,7 @@ export default async function KennelDetailPage({
     website: kennel.website,
   }, baseUrl);
 
-  const [user, events] = await Promise.all([
+  const [user, events, parentKennel] = await Promise.all([
     getOrCreateUser(),
     prisma.event.findMany({
       // #1023 step 5: filter via EventKennel join so co-host events
@@ -116,6 +116,13 @@ export default async function KennelDetailPage({
       },
       orderBy: { date: "asc" },
     }),
+    // Skip hidden parents — linking would 404. Card falls back to raw text.
+    kennel.parentKennelCode
+      ? prisma.kennel.findFirst({
+          where: { kennelCode: kennel.parentKennelCode, isHidden: false },
+          select: { slug: true, shortName: true },
+        })
+      : Promise.resolve(null),
   ]);
 
   let isSubscribed = false;
@@ -286,7 +293,7 @@ export default async function KennelDetailPage({
 
       {/* ── About Card (schedule, info, social, description) ── */}
       <FadeInSection delay={100}>
-        <QuickInfoCard kennel={kennel} regionColor={regionColor} />
+        <QuickInfoCard kennel={kennel} parentKennel={parentKennel} regionColor={regionColor} />
       </FadeInSection>
 
       {/* ── Stats Achievement Cards ── */}

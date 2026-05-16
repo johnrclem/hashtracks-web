@@ -25,8 +25,9 @@ function stableStringify(obj: unknown): string {
 const PROFILE_FIELDS = new Set([
   "website", "scheduleDayOfWeek", "scheduleTime", "scheduleFrequency",
   "scheduleNotes", "hashCash", "facebookUrl", "instagramHandle",
-  "twitterHandle", "discordUrl", "mailingListUrl", "contactEmail", "foundedYear", "description",
-  "logoUrl", "latitude", "longitude",
+  "twitterHandle", "discordUrl", "mailingListUrl", "contactEmail",
+  "contactName", "gm", "hareRaiser", "signatureEvent", "founder", "parentKennelCode",
+  "foundedYear", "description", "logoUrl", "latitude", "longitude",
 ]);
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

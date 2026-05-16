@@ -51,6 +51,12 @@ export default async function AdminKennelsPage() {
     mailingListUrl: k.mailingListUrl,
     contactEmail: k.contactEmail,
     contactName: k.contactName,
+    // Profile fields (#1415)
+    gm: k.gm,
+    hareRaiser: k.hareRaiser,
+    signatureEvent: k.signatureEvent,
+    founder: k.founder,
+    parentKennelCode: k.parentKennelCode,
     hashCash: k.hashCash,
     paymentLink: k.paymentLink,
     foundedYear: k.foundedYear,

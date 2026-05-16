@@ -42,6 +42,18 @@ function extractProfileFields(formData: FormData) {
   str("mailingListUrl");
   str("contactEmail");
   str("contactName");
+  // #1415: Profile fields surfaced from chrome-kennel audits.
+  str("gm");
+  str("hareRaiser");
+  str("signatureEvent");
+  str("founder");
+  // Normalize to the canonical lowercase-hyphenated kennelCode shape. Lookup
+  // on the public profile is exact-match, so short names like "Memphis H3"
+  // (whose real code is "mh3-tn") still fall back to plain text.
+  str("parentKennelCode");
+  if (typeof result.parentKennelCode === "string") {
+    result.parentKennelCode = toKennelCode(result.parentKennelCode) || null;
+  }
   str("hashCash");
   str("paymentLink");
   int("foundedYear");

@@ -50,6 +50,13 @@ export interface KennelSeed {
   discordUrl?: string;
   mailingListUrl?: string;
   contactEmail?: string;
+  contactName?: string;        // #1337
+  // Profile fields surfaced from chrome-kennel audits (#1415).
+  gm?: string;                  // Current GM (e.g., "Titty Kitty")
+  hareRaiser?: string;          // Hare raiser (e.g., "Rock Hard")
+  signatureEvent?: string;      // Annual event / turnover (e.g., "Humpin campout, June/July")
+  founder?: string;             // Founder (e.g., "Wrap It Up")
+  parentKennelCode?: string;    // kennelCode of parent/sponsor kennel
   foundedYear?: number;
   description?: string;
   logoUrl?: string;

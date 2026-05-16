@@ -138,6 +138,13 @@ model Kennel {
   contactEmail    String?
   contactName     String? // "Grand Master: Mudflap"
 
+  // ── PROFILE (#1415) ──
+  gm                String? // Current GM (e.g., "Titty Kitty")
+  hareRaiser        String? // Hare raiser (e.g., "Rock Hard")
+  signatureEvent    String? // Annual event / turnover (e.g., "Humpin campout, June/July")
+  founder           String? // Founder (e.g., "Wrap It Up")
+  parentKennelCode  String? // kennelCode of parent/sponsor kennel
+
   // ── DETAILS ──
   hashCash    String? // "$5", "Free", "$7/$10 visitor"
   paymentLink String? // Venmo/PayPal/CashApp URL

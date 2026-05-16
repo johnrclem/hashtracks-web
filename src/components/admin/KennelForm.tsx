@@ -12,6 +12,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { RegionCombobox, type RegionOption } from "./RegionCombobox";
+import type { AdminKennelData } from "./kennel-data-types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -22,44 +23,29 @@ import { generateAliases } from "@/lib/auto-aliases";
 import { GeocodeButton } from "./GeocodeButton";
 import { geocodeAction } from "@/app/admin/geocode-action";
 
-type KennelData = {
-  id: string;
-  shortName: string;
-  fullName: string;
-  region: string;
-  regionId: string | null;
-  country: string;
-  description: string | null;
-  website: string | null;
-  aliases: string[];
-  // Profile fields
-  scheduleDayOfWeek: string | null;
-  scheduleTime: string | null;
-  scheduleFrequency: string | null;
-  scheduleNotes: string | null;
-  facebookUrl: string | null;
-  instagramHandle: string | null;
-  twitterHandle: string | null;
-  discordUrl: string | null;
-  mailingListUrl: string | null;
-  contactEmail: string | null;
-  contactName: string | null;
-  hashCash: string | null;
-  paymentLink: string | null;
-  foundedYear: number | null;
-  logoUrl: string | null;
-  dogFriendly: boolean | null;
-  walkersWelcome: boolean | null;
-  isHidden: boolean;
-  latitude: number | null;
-  longitude: number | null;
-};
+type KennelData = AdminKennelData;
 
 interface KennelFormProps {
   kennel?: KennelData;
   regions: RegionOption[];
   trigger: React.ReactNode;
 }
+
+// #1415: Layout for the Profile section — two two-up rows + one full-width row.
+type ProfileFieldName = "gm" | "hareRaiser" | "founder" | "parentKennelCode" | "signatureEvent";
+const PROFILE_FIELD_GROUPS: Array<Array<{ name: ProfileFieldName; label: string; placeholder: string }>> = [
+  [
+    { name: "gm", label: "GM", placeholder: "Titty Kitty" },
+    { name: "hareRaiser", label: "Hare Raiser", placeholder: "Rock Hard" },
+  ],
+  [
+    { name: "founder", label: "Founder", placeholder: "Wrap It Up" },
+    { name: "parentKennelCode", label: "Parent Kennel Code", placeholder: "mh3-tn (use kennelCode, not short name)" },
+  ],
+  [
+    { name: "signatureEvent", label: "Signature Event / Annual Turnover", placeholder: "Humpin campout, June/July" },
+  ],
+];
 
 interface SimilarKennel {
   id: string;
@@ -561,6 +547,34 @@ export function KennelForm({ kennel, regions, trigger }: Readonly<KennelFormProp
                 placeholder="Grand Master: Mudflap"
               />
             </div>
+          </FormSection>
+
+          {/* ── Profile Section (#1415) ── */}
+          <FormSection
+            label="Profile"
+            defaultOpen={
+              !!kennel?.gm ||
+              !!kennel?.hareRaiser ||
+              !!kennel?.signatureEvent ||
+              !!kennel?.founder ||
+              !!kennel?.parentKennelCode
+            }
+          >
+            {PROFILE_FIELD_GROUPS.map((group) => (
+              <div key={group[0].name} className={group.length > 1 ? "grid gap-4 sm:grid-cols-2" : "space-y-2"}>
+                {group.map(({ name, label, placeholder }) => (
+                  <div key={name} className="space-y-2">
+                    <Label htmlFor={name}>{label}</Label>
+                    <Input
+                      id={name}
+                      name={name}
+                      defaultValue={kennel?.[name] ?? ""}
+                      placeholder={placeholder}
+                    />
+                  </div>
+                ))}
+              </div>
+            ))}
           </FormSection>
 
           {/* ── Details Section ── */}

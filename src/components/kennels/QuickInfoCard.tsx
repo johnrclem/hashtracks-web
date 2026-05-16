@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { formatSchedule, displayDomain, type ScheduleSlot } from "@/lib/format";
 import { SocialLinks } from "@/components/kennels/SocialLinks";
@@ -11,6 +12,12 @@ import {
   Dog,
   Footprints,
   ChevronDown,
+  Crown,
+  Megaphone,
+  PartyPopper,
+  Sparkles,
+  GitFork,
+  type LucideIcon,
 } from "lucide-react";
 
 interface QuickInfoCardProps {
@@ -34,15 +41,33 @@ interface QuickInfoCardProps {
     mailingListUrl: string | null;
     contactEmail: string | null;
     contactName: string | null;
+    // Profile fields (#1415)
+    gm: string | null;
+    hareRaiser: string | null;
+    signatureEvent: string | null;
+    founder: string | null;
+    parentKennelCode: string | null;
     // Description
     description: string | null;
   };
+  // Resolved parent kennel for parentKennelCode lookup (#1415). Null when the
+  // code references a kennel not present in our DB — falls back to raw text.
+  parentKennel?: { slug: string; shortName: string } | null;
   regionColor?: string;
 }
 
 const DESC_TRUNCATE_LENGTH = 200;
 
-export function QuickInfoCard({ kennel, regionColor }: QuickInfoCardProps) {
+function ProfileInfoRow({ icon: Icon, label, value }: Readonly<{ icon: LucideIcon; label: string; value: string }>) {
+  return (
+    <div className="flex items-center gap-2.5 text-sm">
+      <Icon className="h-4 w-4 shrink-0 text-muted-foreground/70" />
+      <span>{label}: {value}</span>
+    </div>
+  );
+}
+
+export function QuickInfoCard({ kennel, parentKennel, regionColor }: Readonly<QuickInfoCardProps>) {
   const [descExpanded, setDescExpanded] = useState(false);
   const schedule = formatSchedule(kennel);
 
@@ -52,7 +77,12 @@ export function QuickInfoCard({ kennel, regionColor }: QuickInfoCardProps) {
     kennel.website ||
     kennel.foundedYear ||
     kennel.dogFriendly === true ||
-    kennel.walkersWelcome === true;
+    kennel.walkersWelcome === true ||
+    kennel.gm ||
+    kennel.hareRaiser ||
+    kennel.signatureEvent ||
+    kennel.founder ||
+    kennel.parentKennelCode;
 
   const hasSocialData =
     kennel.facebookUrl ||
@@ -150,6 +180,31 @@ export function QuickInfoCard({ kennel, regionColor }: QuickInfoCardProps) {
                     Walkers welcome
                   </span>
                 )}
+              </div>
+            )}
+
+            {([
+              ["GM", Crown, kennel.gm],
+              ["Hare raiser", Megaphone, kennel.hareRaiser],
+              ["Signature event", PartyPopper, kennel.signatureEvent],
+              ["Founder", Sparkles, kennel.founder],
+            ] as const).map(([label, icon, value]) =>
+              value ? <ProfileInfoRow key={label} icon={icon} label={label} value={value} /> : null,
+            )}
+
+            {kennel.parentKennelCode && (
+              <div className="flex items-center gap-2.5 text-sm">
+                <GitFork className="h-4 w-4 shrink-0 text-muted-foreground/70" />
+                <span>
+                  Parent kennel:{" "}
+                  {parentKennel ? (
+                    <Link href={`/kennels/${parentKennel.slug}`} className="text-primary hover:underline">
+                      {parentKennel.shortName}
+                    </Link>
+                  ) : (
+                    kennel.parentKennelCode
+                  )}
+                </span>
               </div>
             )}
           </div>
