@@ -61,6 +61,18 @@ async function fetchEvents(): Promise<RawEventData[]> {
     days: WIDE_DAYS,
     maxResults: MAX_BLOGGER_POSTS,
   });
+  // Fail fast on Blogger fetch failures (API key missing, network error,
+  // 403/404). Without this, a fetch error returns empty events and the
+  // runner exits with "no events to insert" — silent success that's
+  // indistinguishable from a kennel with no archive.
+  const fetchErr = result.errorDetails?.fetch?.[0];
+  if (fetchErr) {
+    const statusPart = fetchErr.status ? ` (status ${fetchErr.status})` : "";
+    throw new Error(`Adapter fetch failed${statusPart}: ${fetchErr.message}`);
+  }
+  // Per-post parse errors are non-fatal — Blogger archives mix run posts
+  // with birthday/wedding/holiday posts, and the adapter logs malformed
+  // run posts here without aborting the whole backfill.
   if (result.errors.length > 0) {
     console.warn(`  Adapter reported ${result.errors.length} parse errors (non-fatal):`);
     for (const e of result.errors.slice(0, 5)) console.warn(`    - ${e}`);

@@ -229,12 +229,19 @@ function buildKjCandidate(post: BloggerPost):
   };
 }
 
+export interface KjHarimauFetchOptions {
+  /** Reconcile/scrape window in days, forwarded to applyDateWindow. */
+  days?: number;
+  /** Blogger API page size. Defaults to fetchBloggerPosts' own default (25). Backfill scripts pass higher. */
+  maxResults?: number;
+}
+
 export class KjHarimauAdapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
 
   async fetch(
     source: Source,
-    options?: { days?: number; maxResults?: number },
+    options?: KjHarimauFetchOptions,
   ): Promise<ScrapeResult> {
     const baseUrl = source.url || "https://khhhkj.blogspot.com";
     const errors: string[] = [];
