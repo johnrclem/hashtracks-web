@@ -1,18 +1,7 @@
 import type { Source } from "@/generated/prisma/client";
-import type {
-  SourceAdapter,
-  RawEventData,
-  ScrapeResult,
-  ErrorDetails,
-} from "../types";
-import { hasAnyErrors } from "../types";
-import {
-  buildDateWindow,
-  chronoParseDate,
-  configString,
-  fetchBrowserRenderedPage,
-  parse12HourTime,
-} from "../utils";
+import type { SourceAdapter, RawEventData, ScrapeResult } from "../types";
+import { chronoParseDate, parse12HourTime } from "../utils";
+import { runSportyAdapter } from "./sporty-co-nz";
 
 /**
  * Mooloo Hash House Harriers (Hamilton, NZ) — sporty.co.nz newsletter parser.
@@ -31,15 +20,12 @@ import {
  * is too messy to parse reliably; the paired STATIC_SCHEDULE source
  * supplies the biweekly recurrence anyway).
  *
- * sporty.co.nz is behind Cloudflare Bot Fight Mode → route through the
- * stealth NAS browser-render service.
+ * Cloudflare bypass + boilerplate is delegated to {@link runSportyAdapter}.
  */
-
-const SPORTY_READY_SELECTOR = ".cms-nav-link, .panel-body-text";
 
 // "DD Mon YYYY RUN# NNNN <body>". Tolerant of unicode dashes and
 // "RUN#NNNN" / "RUN # NNNN" spacing. Trailing period stripped post-match.
-const MOOLOO_RUN_LINE_RE = /^(\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4})\s+RUN\s*#?\s*(\d+)\s+(.+?)\.?\s*$/;
+const MOOLOO_RUN_LINE_RE = /^(\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4})\s+RUN\s*#?\s*(\d+)\s+(.+?)\.?\s*$/; // NOSONAR S5852
 
 /** Pull a 12-hour time out of free-form text, normalizing bare-hour forms
  *  like "6PM" / "6 pm" (which parse12HourTime requires minutes for) into
@@ -81,72 +67,21 @@ export function parseMoolooRunLine(
 export class MoolooHhhAdapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
 
-  async fetch(
-    source: Source,
-    options?: { days?: number },
-  ): Promise<ScrapeResult> {
-    const sourceUrl = source.url;
-    const kennelTag = configString(source.config, "kennelTag", "mooloo-h3");
-
-    const page = await fetchBrowserRenderedPage(sourceUrl, {
-      waitFor: SPORTY_READY_SELECTOR,
-      timeout: 25_000,
-      timezoneId: "Pacific/Auckland",
-    });
-    if (!page.ok) return page.result;
-    const { $, structureHash, fetchDurationMs } = page;
-
-    const events: RawEventData[] = [];
-    const errors: string[] = [];
-    const errorDetails: ErrorDetails = {};
-    const parseErrors: NonNullable<ErrorDetails["parse"]> = [];
-    const { minDate, maxDate } = buildDateWindow(options?.days ?? 180);
-
-    // Sporty pages nest the same run line in both `<p>` and `<p><b>...</b></p>`,
-    // so dedupe by `(date, runNumber)` before emitting.
-    const paragraphs = $(".panel-body-text p").toArray();
-    const seen = new Set<string>();
-    let rowsConsidered = 0;
-    let i = 0;
-    for (const el of paragraphs) {
-      const text = $(el).text();
-      if (text && /RUN/i.test(text)) {
-        rowsConsidered += 1;
-        try {
-          const event = parseMoolooRunLine(text, { sourceUrl, kennelTag });
-          if (event) {
-            const eventDate = new Date(`${event.date}T12:00:00Z`);
-            const dedupKey = `${event.date}|${event.runNumber ?? ""}`;
-            if (eventDate >= minDate && eventDate <= maxDate && !seen.has(dedupKey)) {
-              seen.add(dedupKey);
-              events.push(event);
-            }
-          }
-        } catch (err) {
-          errors.push(`Row ${i}: ${err}`);
-          parseErrors.push({
-            row: i,
-            section: "newsletter",
-            error: String(err),
-            rawText: text.slice(0, 500),
-          });
-        }
-      }
-      i += 1;
-    }
-
-    if (parseErrors.length > 0) errorDetails.parse = parseErrors;
-
-    return {
-      events,
-      errors,
-      structureHash,
-      errorDetails: hasAnyErrors(errorDetails) ? errorDetails : undefined,
-      diagnosticContext: {
-        rowsConsidered,
-        eventsParsed: events.length,
-        fetchDurationMs,
+  fetch(source: Source, options?: { days?: number }): Promise<ScrapeResult> {
+    return runSportyAdapter(source, options, {
+      defaultKennelTag: "mooloo-h3",
+      contentSelector: ".panel-body-text",
+      section: "newsletter",
+      collect: ($) => {
+        // Every `<p>` is a candidate; parseMoolooRunLine() filters newsletter
+        // prose by requiring the "DD Mon YYYY RUN# NNNN ..." prefix.
+        const rows = $(".panel-body-text p")
+          .toArray()
+          .map((el) => $(el).text())
+          .filter((text) => text && /RUN/i.test(text));
+        return { rows, missingContainer: null };
       },
-    };
+      parse: parseMoolooRunLine,
+    });
   }
 }
