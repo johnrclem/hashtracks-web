@@ -185,7 +185,12 @@ export function ConfirmedCard({ result }: ConfirmedCardProps) {
             {result.kennelRegion && (
               <RegionBadge region={result.kennelRegion} size="sm" />
             )}
-            {result.runNumber && (
+            {/* Suppress when the headline already names the run (e.g.
+                "London Hash Run #2832"). Many adapters bake the run
+                number into the title, so showing it again as a pill is
+                visual noise. The pill stays for sources whose titles
+                use a different pattern (or none at all). */}
+            {result.runNumber && !headline.includes(`#${result.runNumber}`) && (
               <span className="flex-shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground/50">
                 #{result.runNumber}
               </span>
