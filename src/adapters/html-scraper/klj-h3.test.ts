@@ -6,11 +6,21 @@ describe("cleanKljTitle", () => {
       "Christmas Party",
     );
   });
-  it("decodes HTML entities", () => {
+  it("strips trailing '@ TBD' placeholder venue (#1442 Shape B)", () => {
+    // Source: "Run # 531, 1st November – Halloween @ TBD"
+    // Without the strip, the venue placeholder leaks into the title.
     expect(cleanKljTitle("Run # 531, 1st November &#8211; Halloween @ TBD")).toBe(
-      "Halloween @ TBD",
+      "Halloween",
     );
   });
+  it.each(["TBD", "TBA", "TBC", "tbd"])(
+    "strips trailing '@ %s' regardless of case",
+    (placeholder) => {
+      expect(
+        cleanKljTitle(`Run # 531, 1st November – Halloween @ ${placeholder}`),
+      ).toBe("Halloween");
+    },
+  );
   it("strips inline font tags", () => {
     expect(
       cleanKljTitle('<font color="red">Run # 532, 6th December 2026 – Christmas Party</font>'),
@@ -19,16 +29,20 @@ describe("cleanKljTitle", () => {
   it("leaves titles without a run prefix alone", () => {
     expect(cleanKljTitle("Welcome to KLJ H3")).toBe("Welcome to KLJ H3");
   });
-  it("synthesizes 'Run #N' when trailer is just '@ <venue>' (#1213)", () => {
-    expect(cleanKljTitle("Run # 526, 7th June @ Nambee estate, near Rasa")).toBe(
-      "Run #526",
-    );
+  it("returns undefined when trailer is just '@ <venue>' (#1442 Shape A)", () => {
+    // The merge pipeline treats "Run #N" as a stale-default placeholder, so
+    // returning it just makes the kennel page show "KLJ H3 — Run #N". Return
+    // undefined instead — merge synthesizes a friendly default with location.
+    expect(cleanKljTitle("Run # 526, 7th June @ Nambee estate, near Rasa")).toBeUndefined();
   });
-  it("synthesizes 'Run #N' when trailer is just a venue (no @ separator) (#1213)", () => {
-    expect(cleanKljTitle("Run # 527, 5th July near KL")).toBe("Run #527");
+  it("returns undefined when trailer is '@ TBD' (Shape A with placeholder venue)", () => {
+    expect(cleanKljTitle("Run # 527, 5th July @ TBD")).toBeUndefined();
   });
-  it("synthesizes 'Run #N' when title is bare run number without trailer (#1213)", () => {
-    expect(cleanKljTitle("Run # 528")).toBe("Run #528");
+  it("returns undefined when trailer is just a venue (no @ separator)", () => {
+    expect(cleanKljTitle("Run # 527, 5th July near KL")).toBeUndefined();
+  });
+  it("returns undefined when title is bare run number without trailer", () => {
+    expect(cleanKljTitle("Run # 528")).toBeUndefined();
   });
   it("preserves themed titles that legitimately start with 'near' (PR #1236 review)", () => {
     // "near" alone isn't a venue marker — only "near <CapitalizedPlace>" is.

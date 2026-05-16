@@ -303,6 +303,31 @@ describe("parseDetailsCell", () => {
     expect(result.kennelTag).toBe("brh3");
     expect(result.runNumber).toBe(2);
   });
+
+  it("treats Start: TBA as a placeholder and does not absorb the following paragraph (#1396)", () => {
+    // GGFM Strawberry Moon #435 fixture from hashnyc.com — `Start: TBA`
+    // is followed by a description paragraph and a "Show … | Go …" timing
+    // line. Earlier behavior absorbed all of that into `location`.
+    const html = `<table><tr><td><b>Strawberry Moon</b><br>GGFM #435<br>Start: TBA<br>Join NYC's full moon kennel as we explore the darker side of Gotham. This is your chance to get a proper trail in before the weekend wrecks you.<br>Show 7:15 PM | Go 7:30 PM.</td></tr></table>`;
+    const $ = cheerio.load(html);
+    const result = parseDetailsCell($, $("td").first());
+    expect(result.location).toBe("TBA");
+    // The description paragraph is captured separately and should contain
+    // the full-moon prose (and NOT a "Run #N" prefix).
+    expect(result.description).toContain("full moon kennel");
+  });
+
+  it.each([
+    ["TBA", "TBA"],
+    ["TBD", "TBD"],
+    ["TBC", "TBC"],
+    ["tba", "TBA"],
+  ])("normalizes Start: %s placeholders to %s (case-insensitive)", (input, expected) => {
+    const html = `<table><tr><td>NYCH3 Run #100 Start: ${input}<br>Some description</td></tr></table>`;
+    const $ = cheerio.load(html);
+    const result = parseDetailsCell($, $("td").first());
+    expect(result.location).toBe(expected);
+  });
 });
 
 // ── extractRawDesignation ──

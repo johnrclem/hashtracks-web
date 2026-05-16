@@ -13,6 +13,7 @@
  */
 
 import * as cheerio from "cheerio";
+import type { AnyNode } from "domhandler";
 import type { Source } from "@/generated/prisma/client";
 import type {
   SourceAdapter,
@@ -46,6 +47,23 @@ const MAX_H2_TITLE_LEN = 80;
  *  shortly after the event. */
 const RECENT_EVENT_TOLERANCE_DAYS = 7;
 
+/** Match a street-address-shaped substring inside a directions paragraph —
+ *  some prose followed by `, <City>, <STATE>` (e.g. `2203 Boston Neck Rd,
+ *  Saunderstown, RI`). Used by #1427 to prefer the address sentence over
+ *  the (sometimes jokey) anchor text of the first maps link in the cell.
+ *
+ *  Allows `.` inside the captured run so abbreviations like `St.`, `Rd.`,
+ *  and `Ave.` parse correctly (Gemini PR review). The trailing `, <City>,
+ *  <ST>` anchor + digit/street-hint guards in the caller filter out prose
+ *  sentences that happen to contain a comma-separated proper-noun list. */
+const ADDRESS_PATTERN_RE =
+  /([^<>\n]{6,150}?,\s*[A-Z][A-Za-z\s'.-]{2,30},\s*[A-Z]{2})\b/;
+const STREET_ADDRESS_HINT_RE = /\d|St\.|Street|Rd\.|Road|Ave|Avenue|Blvd|Lane|Ln\.|Way|Park|Beach|Drive|Dr\./i;
+/** Strip everything up to and including the last "at"/"from"/"near" when it sits
+ *  immediately before the street number — keeps `2203 Boston Neck Rd, …` and
+ *  drops `The start is from the small (again) parking lot at`. */
+const ADDRESS_LEADIN_RE = /^.*?\b(?:at|from|near)\s+(?=\d)/i;
+
 /**
  * Extract hare name(s) from the hare cell HTML.
  *
@@ -71,6 +89,79 @@ export function extractHares(hareHtml: string): string | undefined {
     .filter((n) => n.length > 1 && !isPlaceholder(n));
 
   return names.length > 0 ? names.join(", ") : undefined;
+}
+
+/** Extract the H2 title from a RIH3 directions cell, collapsing multi-segment
+ *  bleed (#816) and falling back to a synthetic "RIH3 #N" / "RIH3 Monday Trail". */
+function extractRih3Title(
+  dir$: cheerio.CheerioAPI,
+  runNumber: number | undefined,
+): string {
+  // Normalize raw CRLF/LF in the HTML source to spaces so formatting line
+  // wraps don't get mistaken for <br>-delimited segments. CodeRabbit PR #824.
+  const h2Html = (dir$("h2").first().html() ?? "").replace(/\r?\n/g, " ");
+  const h2Segments = stripHtmlTags(h2Html, "\n")
+    .split("\n")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const h2Joined = h2Segments.join(" ");
+  const h2Text =
+    h2Joined.length > MAX_H2_TITLE_LEN && h2Segments[0]
+      ? h2Segments[0]
+      : h2Joined;
+  return h2Text || (runNumber ? `RIH3 #${runNumber}` : "RIH3 Monday Trail");
+}
+
+/** Scan a RIH3 directions body (with `<h2>` and `<a>` text removed) for an
+ *  address-shaped substring like `<text>, <City>, <ST>` and return it only if
+ *  it has a digit and a road/street hint — otherwise prose like "the dog park
+ *  at <Proper Noun>" sneaks through. (#1427) */
+function findAddressInBody(dir$: cheerio.CheerioAPI): string | undefined {
+  const bodyForAddress = dir$("body").clone();
+  bodyForAddress.find("h2").remove();
+  bodyForAddress.find("a").remove();
+  const bodyText = bodyForAddress.text().replace(/\s+/g, " ").trim();
+  const match = ADDRESS_PATTERN_RE.exec(bodyText);
+  if (!match) return undefined;
+  const candidate = match[1].replace(ADDRESS_LEADIN_RE, "").trim();
+  const valid =
+    candidate.length >= 8 &&
+    candidate.length <= 150 &&
+    /\d/.test(candidate) &&
+    STREET_ADDRESS_HINT_RE.test(candidate);
+  return valid ? candidate : undefined;
+}
+
+/** Clean up the maps-link anchor text by stripping common navigation lead-ins. */
+function cleanMapsLinkText(mapsLink: cheerio.Cheerio<AnyNode>): string | undefined {
+  if (!mapsLink.length) return undefined;
+  const cleaned = mapsLink
+    .text()
+    .trim()
+    .replace(/^Park\s+Here\.?\s*/i, "")
+    .replace(/^(?:Get\s+directions?\s+to|Walk\s+to|Head\s+to|Just\s+)\s*/i, "")
+    .replace(/^(?:a\s+)?(?:short\s+)?(?:bit\s+)?(?:from|near|by)\s+(?:the\s+)?/i, "")
+    .trim();
+  if (!cleaned || cleaned.length <= 3 || PROSE_LEAD_RE.test(cleaned)) return undefined;
+  return cleaned;
+}
+
+/** Resolve location + locationUrl from a RIH3 directions cell. Prefers the
+ *  address-shaped sentence in the body over the maps-link anchor text (#1427);
+ *  drops the maps URL when the address path wins because the first maps link
+ *  often points at the wrong place (Julia's Trail Parking vs the actual start). */
+function resolveRih3Location(
+  dir$: cheerio.CheerioAPI,
+  mapsLink: cheerio.Cheerio<AnyNode>,
+): { location: string | undefined; locationUrl: string | undefined } {
+  const addressLocation = findAddressInBody(dir$);
+  if (addressLocation) {
+    return { location: addressLocation, locationUrl: undefined };
+  }
+  return {
+    location: cleanMapsLinkText(mapsLink),
+    locationUrl: mapsLink.length ? mapsLink.attr("href")?.trim() : undefined,
+  };
 }
 
 /**
@@ -122,45 +213,11 @@ export function parseHarelineRow(
 
   // --- Directions cell: title, location, description ---
   const dir$ = cheerio.load(directionHtml);
-
-  // Title from <h2>. If h2 has multiple <br>-separated segments and the full
-  // joined text runs long (prose bleed from unstructured authoring), fall back
-  // to the first segment only. #816.
-  // Normalize raw CRLF/LF in the HTML source to spaces so formatting line
-  // wraps don't get mistaken for <br>-delimited segments. CodeRabbit PR #824.
-  const h2Html = (dir$("h2").first().html() ?? "").replace(/\r?\n/g, " ");
-  const h2Segments = stripHtmlTags(h2Html, "\n")
-    .split("\n")
-    .map((s) => s.trim())
-    .filter(Boolean);
-  const h2Joined = h2Segments.join(" ");
-  const h2Text =
-    h2Joined.length > MAX_H2_TITLE_LEN && h2Segments[0]
-      ? h2Segments[0]
-      : h2Joined;
-  const title =
-    h2Text ||
-    (runNumber ? `RIH3 #${runNumber}` : "RIH3 Monday Trail");
-
-  // Location from Google Maps link
+  const title = extractRih3Title(dir$, runNumber);
   const mapsLink = dir$(
     'a[href*="google.com/maps"], a[href*="maps.google"]',
   ).first();
-  const locationUrl = mapsLink.length
-    ? mapsLink.attr("href")?.trim()
-    : undefined;
-  const locationText = mapsLink.length
-    ? mapsLink.text().trim()
-      // Strip leading navigation instructions (e.g., "Park Here. Just a short bit from the dog park at Melville Park, ...")
-      .replace(/^Park\s+Here\.?\s*/i, "")
-      .replace(/^(?:Get\s+directions?\s+to|Walk\s+to|Head\s+to|Just\s+)\s*/i, "")
-      .replace(/^(?:a\s+)?(?:short\s+)?(?:bit\s+)?(?:from|near|by)\s+(?:the\s+)?/i, "")
-      .trim()
-    : undefined;
-  const location =
-    locationText && locationText.length > 3 && !PROSE_LEAD_RE.test(locationText)
-      ? locationText
-      : undefined;
+  const { location, locationUrl } = resolveRih3Location(dir$, mapsLink);
 
   // Description: body text minus title and song links; preserve Facebook link
   const descRoot = dir$("body").clone();

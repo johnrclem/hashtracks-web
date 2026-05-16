@@ -193,6 +193,45 @@ describe("parseHarelineRow", () => {
     expect(result?.location).toBe("dog park");
   });
 
+  it("prefers a plain-text address sentence over the maps link's anchor text (#1427)", () => {
+    // RIH3 Run #2098 fixture: the first <a href="google.com/maps"> link's
+    // anchor text is a humorous parking advisory and its URL points at the
+    // wrong place. The actual start address is in the plain-text sentence
+    // BEFORE the link.
+    const dirHtml = `
+      <h2>The Ladies of the RIH3 Hash host a mother's day delight</h2>
+      The start is from the small (again) parking lot at 2203 Boston Neck Rd, Saunderstown, RI.
+      <br/>
+      <a href="https://www.google.com/maps/place/Julia's+Trail+Parking/@41.5159878,-71.4230701,274m/data=foo" target="new">
+        <font color="#cc0000">The Hare recommends parking 'Smart' so we don't get shotgun shootin' again.</font>
+      </a>
+    `;
+    const cells = ["Mon May 11", "6:30 PM", "2098"];
+    const result = parseHarelineRow(cells, HARE_SINGLE, dirHtml, SOURCE_URL);
+    expect(result?.location).toBe("2203 Boston Neck Rd, Saunderstown, RI");
+    // The first maps link's URL is also wrong; drop it so downstream
+    // geocoding works off the address text instead.
+    expect(result?.locationUrl).toBeUndefined();
+  });
+
+  it("captures addresses with abbreviation periods like St./Rd./Ave. (PR #1451 review)", () => {
+    // Gemini flagged that the original `[^.<>\n]` exclusion would truncate at
+    // any period — meaning `2203 St. John's Rd, Providence, RI` would only see
+    // `John's Rd, Providence, RI`, fail the digit check, and fall back to the
+    // wrong link text. Periods are now allowed inside the captured run.
+    const dirHtml = `
+      <h2>Trail of the Saints</h2>
+      The start is at 2203 St. John's Rd, Providence, RI.
+      <br/>
+      <a href="https://www.google.com/maps/place/some+wrong+place" target="new">
+        <font color="#cc0000">Park anywhere you can find a spot.</font>
+      </a>
+    `;
+    const cells = ["Mon June 1", "6:30 PM", "2099"];
+    const result = parseHarelineRow(cells, HARE_SINGLE, dirHtml, SOURCE_URL);
+    expect(result?.location).toBe("2203 St. John's Rd, Providence, RI");
+  });
+
   it("strips navigation instructions from Maps link text", () => {
     const dirHtml = `
       <h2><strong>Test Run</strong></h2>

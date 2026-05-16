@@ -78,15 +78,26 @@ export function parseKjHarimauBody(bodyText: string): {
   wazeUrl?: string;
   guestFee?: string;
 } {
-  const labels = "(?:Run\\s*#|Date|Time|Hare|Runsite|GPS|Maps|Waze|Guest\\s*Fee|Birthdays|Wedding)";
+  const labels = String.raw`(?:Run\s*#|Date|Time|Hare|Runsite|GPS|Maps|Waze|Guest\s*Fee|Birthdays|Wedding)`;
   const stop = `(?=\\n|${labels}\\s*:|$)`;
   const text = bodyText.replace(/\r/g, "");
 
+  // A bare label captured as a value means the previous field was empty and
+  // the lookahead consumed too much (the #1446 "Maps:" leak); reject it.
+  const labelOnlyRe = /^(?:Run\s*#|Date|Time|Hare|Runsite|GPS|Maps|Waze|Guest\s*Fee|Birthdays|Wedding)\s*:?$/i;
+
+  // Allow the value either on the same line OR on the next line. `\S` forces a
+  // non-whitespace first char so a doubly-blank field (`Runsite:\n\nMaps:`)
+  // can't latch onto the next label.
   const grab = (label: string): string | undefined => {
-    // Labels are hard-coded string literals above — not user input. No ReDoS risk.
-    const re = new RegExp(`${label}\\s*:\\s*(.+?)${stop}`, "is");
+    // nosemgrep: detect-non-literal-regexp — `label` is a hard-coded literal from the constant above, not user input (mirrors hare-extraction.ts suppression)
+    // eslint-disable-next-line -- security/detect-non-literal-regexp + security-node/non-literal-reg-expr (Codacy ESLint plugins not loaded locally); `label` is a hard-coded literal
+    const re = new RegExp(`${label}\\s*:[ \\t]*(?:\\n[ \\t]*)?(\\S.*?)${stop}`, "i"); // NOSONAR nosemgrep
     const m = re.exec(text);
-    return m ? m[1].trim().replace(/\s+/g, " ") : undefined;
+    if (!m) return undefined;
+    const value = m[1].trim().replace(/\s+/g, " ");
+    if (!value || labelOnlyRe.test(value)) return undefined;
+    return value;
   };
 
   const runNumRaw = grab("Run\\s*#");
@@ -151,6 +162,73 @@ export function parseKjHarimauTitle(title: string): { runNumber?: number; date?:
   return { runNumber, date: date ?? undefined, hare, runsite };
 }
 
+/** Rank a candidate post by how many bug-relevant fields it filled in. The
+ *  #1446 bug class is empty/leaked `location`, so location and the
+ *  coordinate-equivalent fields (maps URL, GPS pair) outweigh hares/Waze/fee. */
+function scoreCompleteness(
+  body: ReturnType<typeof parseKjHarimauBody>,
+  location: string | undefined,
+  hares: string | undefined,
+): number {
+  return (
+    (location ? 4 : 0) +
+    (body.mapsUrl ? 2 : 0) +
+    (body.latitude !== undefined && body.longitude !== undefined ? 2 : 0) +
+    (hares ? 1 : 0) +
+    (body.wazeUrl ? 1 : 0) +
+    (body.guestFee ? 1 : 0)
+  );
+}
+
+type BloggerPost = { title: string; content: string; url: string };
+type Candidate = { event: RawEventData; score: number };
+
+/** Build a RawEventData candidate (with completeness score) from a single
+ *  Blogger post. Returns `{ skip: true }` when the post is a non-run notice
+ *  (birthday, holiday greeting) or `{ error }` when the date can't be parsed. */
+function buildKjCandidate(post: BloggerPost):
+  | { skip: true }
+  | { error: { titleDecoded: string } }
+  | { candidate: Candidate; key: string } {
+  const titleDecoded = decodeEntities(post.title);
+  if (!RUN_TITLE_RE.test(titleDecoded)) return { skip: true };
+
+  const bodyText = stripHtmlTags(post.content, "\n");
+  const body = parseKjHarimauBody(bodyText);
+  const titleFields = parseKjHarimauTitle(titleDecoded);
+
+  const date = body.date ?? titleFields.date;
+  if (!date) return { error: { titleDecoded } };
+
+  const runNumber = body.runNumber ?? titleFields.runNumber;
+  const hares = normalizeHaresField(body.hare ?? titleFields.hare);
+  const location = body.runsite ?? titleFields.runsite;
+
+  const externalLinks = body.wazeUrl
+    ? [{ url: body.wazeUrl, label: "Waze" }]
+    : undefined;
+
+  const event: RawEventData = {
+    date,
+    kennelTags: [KENNEL_TAG],
+    runNumber,
+    hares,
+    location,
+    locationUrl: body.mapsUrl,
+    latitude: body.latitude,
+    longitude: body.longitude,
+    startTime: body.startTime ?? DEFAULT_START_TIME,
+    sourceUrl: post.url,
+    description: body.guestFee ? `Guest Fee: ${body.guestFee}` : undefined,
+    externalLinks,
+  };
+
+  return {
+    candidate: { event, score: scoreCompleteness(body, location, hares) },
+    key: `${date}|${runNumber ?? ""}`,
+  };
+}
+
 export class KjHarimauAdapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
 
@@ -174,30 +252,22 @@ export class KjHarimauAdapter implements SourceAdapter {
       return { events: [], errors: [bloggerResult.error.message], errorDetails };
     }
 
-    const events: RawEventData[] = [];
-    // KJ Harimau occasionally publishes the same run as two nearly
-    // identical Blogger posts (e.g. Run 1548 with and without a URL
-    // suffix). Dedupe by (date, runNumber), keeping the first post
-    // encountered — Blogger returns posts newest-first, so the first
-    // hit is the most recent edit and the canonical version.
-    const seenRuns = new Set<string>();
+    // KJ Harimau occasionally republishes the same run as a second Blogger
+    // post — sometimes the FIRST post seen still has an empty `Runsite:` /
+    // `Maps:`. Pick the most-complete candidate per (date, runNumber). (#1446)
+    const groups = new Map<string, Candidate>();
     let duplicatesSkipped = 0;
     let filteredOut = 0;
     for (let i = 0; i < bloggerResult.posts.length; i++) {
-      const post = bloggerResult.posts[i];
-      const titleDecoded = decodeEntities(post.title);
-      if (!RUN_TITLE_RE.test(titleDecoded)) {
+      const result = buildKjCandidate(bloggerResult.posts[i]);
+      if ("skip" in result) {
         filteredOut++;
         continue;
       }
-
-      const bodyText = stripHtmlTags(post.content, "\n");
-      const body = parseKjHarimauBody(bodyText);
-      const titleFields = parseKjHarimauTitle(titleDecoded);
-
-      const date = body.date ?? titleFields.date;
-      if (!date) {
-        errors.push(`KJ Harimau post "${titleDecoded.slice(0, 80)}" has no parseable date`);
+      if ("error" in result) {
+        errors.push(
+          `KJ Harimau post "${result.error.titleDecoded.slice(0, 80)}" has no parseable date`,
+        );
         errorDetails.parse = [
           ...(errorDetails.parse ?? []),
           {
@@ -205,44 +275,21 @@ export class KjHarimauAdapter implements SourceAdapter {
             section: "post",
             field: "date",
             error: "No parseable date",
-            rawText: `Title: ${titleDecoded}`.slice(0, 500),
+            rawText: `Title: ${result.error.titleDecoded}`.slice(0, 500),
           },
         ];
         continue;
       }
-
-      const runNumber = body.runNumber ?? titleFields.runNumber;
-
-      const dedupKey = `${date}|${runNumber ?? ""}`;
-      if (seenRuns.has(dedupKey)) {
+      const existing = groups.get(result.key);
+      if (existing) {
         duplicatesSkipped++;
-        continue;
+        if (result.candidate.score > existing.score) groups.set(result.key, result.candidate);
+      } else {
+        groups.set(result.key, result.candidate);
       }
-      seenRuns.add(dedupKey);
-
-      const hares = normalizeHaresField(body.hare ?? titleFields.hare);
-      const location = body.runsite ?? titleFields.runsite;
-
-      const externalLinks: { url: string; label: string }[] = [];
-      if (body.wazeUrl) externalLinks.push({ url: body.wazeUrl, label: "Waze" });
-
-      const description = body.guestFee ? `Guest Fee: ${body.guestFee}` : undefined;
-
-      events.push({
-        date,
-        kennelTags: [KENNEL_TAG],
-        runNumber,
-        hares,
-        location,
-        locationUrl: body.mapsUrl,
-        latitude: body.latitude,
-        longitude: body.longitude,
-        startTime: body.startTime ?? DEFAULT_START_TIME,
-        sourceUrl: post.url,
-        description,
-        externalLinks: externalLinks.length > 0 ? externalLinks : undefined,
-      });
     }
+
+    const events: RawEventData[] = Array.from(groups.values()).map((c) => c.event);
 
     const days = options?.days ?? source.scrapeDays ?? 365;
     return applyDateWindow(
