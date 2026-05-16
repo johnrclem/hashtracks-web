@@ -97,6 +97,9 @@ import { BoulderH3Adapter } from "./html-scraper/boulder-h3";
 import { Ch4DkAdapter } from "./html-scraper/ch4-dk";
 import { MiteriHarelineAdapter } from "./html-scraper/miteri-hareline";
 import { AucklandHussiesAdapter } from "./html-scraper/auckland-hussies";
+import { CapitalH3Adapter } from "./html-scraper/capital-h3";
+import { MoolooHhhAdapter } from "./html-scraper/mooloo-hhh";
+import { GeriatrixH3Adapter } from "./html-scraper/geriatrix-h3";
 import { GoogleCalendarAdapter } from "./google-calendar/adapter";
 import { GoogleSheetsAdapter } from "./google-sheets/adapter";
 import { ICalAdapter } from "./ical/adapter";
@@ -237,6 +240,12 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   // gardencityhash.co.nz homepage hareline today.
   { pattern: /gardencityhash\.co\.nz/i,  name: "MiteriHarelineAdapter", factory: () => new MiteriHarelineAdapter() },
   { pattern: /aucklandhussies\.co\.nz/i, name: "AucklandHussiesAdapter", factory: () => new AucklandHussiesAdapter() },
+  // sporty.co.nz CMS subsites — Cloudflare Bot Fight Mode is cleared
+  // transparently by the stealth-upgraded NAS browser-render service
+  // (see infra/browser-render/server.js + docs/browser-render-spec.md).
+  { pattern: /sporty\.co\.nz\/capitalh3/i,         name: "CapitalH3Adapter",   factory: () => new CapitalH3Adapter() },
+  { pattern: /sporty\.co\.nz\/mooloohhh/i,         name: "MoolooHhhAdapter",   factory: () => new MoolooHhhAdapter() },
+  { pattern: /sporty\.co\.nz\/geriatrixhhh/i,      name: "GeriatrixH3Adapter", factory: () => new GeriatrixH3Adapter() },
 ];
 
 /** URL-based routing for HTML_SCRAPER — derived from htmlScraperEntries (single source of truth). */

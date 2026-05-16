@@ -1,5 +1,5 @@
 /**
- * Live verification harness for the Phase 1 New Zealand adapters.
+ * Live verification harness for the Phase 1 + Phase 2 New Zealand adapters.
  *
  * Runs each NZ source's adapter against its production URL and prints:
  *   - event count + date range
@@ -12,6 +12,9 @@
 import "dotenv/config";
 import { MiteriHarelineAdapter } from "@/adapters/html-scraper/miteri-hareline";
 import { AucklandHussiesAdapter } from "@/adapters/html-scraper/auckland-hussies";
+import { CapitalH3Adapter } from "@/adapters/html-scraper/capital-h3";
+import { MoolooHhhAdapter } from "@/adapters/html-scraper/mooloo-hhh";
+import { GeriatrixH3Adapter } from "@/adapters/html-scraper/geriatrix-h3";
 import { GoogleSheetsAdapter } from "@/adapters/google-sheets/adapter";
 import type { Source } from "@/generated/prisma/client";
 
@@ -64,11 +67,42 @@ const probes: Probe[] = [
     },
     days: 365,
   },
-  // STATIC_SCHEDULE sources (Tokoroa × 2, T3H3) generate occurrences from
-  // RRULE — covered by static-schedule's own unit tests. Skipped here to
+  // STATIC_SCHEDULE sources (Tokoroa × 2, T3H3, Mooloo) generate occurrences
+  // from RRULE — covered by static-schedule's own unit tests. Skipped here to
   // avoid pulling in `suncalc` which lives under the workspace root rather
   // than the worktree, and because they don't depend on a live network
   // fetch.
+  // ── Phase 2: sporty.co.nz CMS (CF Bot Fight Mode → NAS browser-render) ──
+  {
+    label: "Capital H3 (sporty.co.nz CMS notices panel)",
+    adapter: new CapitalH3Adapter(),
+    source: {
+      id: "verify-capitalh3",
+      url: "https://www.sporty.co.nz/capitalh3",
+      config: { kennelTag: "capital-h3-nz" },
+    },
+    days: 365,
+  },
+  {
+    label: "Mooloo HHH (sporty.co.nz UpCumming-Runs newsletter)",
+    adapter: new MoolooHhhAdapter(),
+    source: {
+      id: "verify-mooloo",
+      url: "https://www.sporty.co.nz/mooloohhh/UpCumming-Runs",
+      config: { kennelTag: "mooloo-h3" },
+    },
+    days: 365,
+  },
+  {
+    label: "Geriatrix H3 (sporty.co.nz Receding Hareline)",
+    adapter: new GeriatrixH3Adapter(),
+    source: {
+      id: "verify-geriatrix",
+      url: "https://www.sporty.co.nz/geriatrixhhh/Receding-Hareline/NewTab1",
+      config: { kennelTag: "geriatrix-h3" },
+    },
+    days: 365,
+  },
 ];
 
 async function runProbe(probe: Probe): Promise<void> {
