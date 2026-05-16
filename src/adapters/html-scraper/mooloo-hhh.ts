@@ -75,11 +75,19 @@ export class MoolooHhhAdapter implements SourceAdapter {
       collect: ($) => {
         // Every `<p>` is a candidate; parseMoolooRunLine() filters newsletter
         // prose by requiring the "DD Mon YYYY RUN# NNNN ..." prefix.
-        const rows = $(".panel-body-text p")
+        const container = $(".panel-body-text");
+        const rows = container
+          .find("p")
           .toArray()
           .map((el) => $(el).text())
           .filter((text) => text && /RUN/i.test(text));
-        return { rows, missingContainer: null };
+        return {
+          rows,
+          missingContainer:
+            container.length === 0
+              ? "Mooloo HHH: .panel-body-text container not found on page"
+              : null,
+        };
       },
       parse: parseMoolooRunLine,
     });

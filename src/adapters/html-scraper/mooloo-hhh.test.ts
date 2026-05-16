@@ -105,4 +105,14 @@ describe("MoolooHhhAdapter.fetch", () => {
     expect(result.events).toEqual([]);
     expect(result.errors[0]).toMatch(/Browser render failed/);
   });
+
+  it("fails closed when the .panel-body-text container is absent", async () => {
+    // Render succeeded but the CMS panel is missing. Surface as error so
+    // reconcile doesn't cancel live events on a clean-but-empty scrape.
+    mockedBrowserRender.mockResolvedValue('<!DOCTYPE html><html><body><div class="cms-nav-link"></div><p>Maintenance window</p></body></html>');
+    const adapter = new MoolooHhhAdapter();
+    const result = await adapter.fetch(makeSource(), { days: 180 });
+    expect(result.events).toEqual([]);
+    expect(result.errors[0]).toMatch(/\.panel-body-text container not found/);
+  });
 });
