@@ -46,6 +46,8 @@ Renders a URL with Chromium and returns the HTML.
 | `waitFor` | string | `"body"` | CSS selector to wait for before capturing |
 | `selector` | string | full page | CSS selector to extract (returns only that element's HTML) |
 | `timeout` | number | 15000 | Max wait in ms (capped at 30000) |
+| `timezoneId` | string | UTC | IANA timezone identifier (e.g. `"America/Chicago"`). See #960. |
+| `userAgent` | string | Chrome 130 macOS | Override the context UA. Default matches the stealth fingerprint. |
 
 **Response:**
 - `200` — Rendered HTML (`text/html`)
@@ -68,6 +70,20 @@ Returns service status.
   "timestamp": "2026-03-08T12:00:00.000Z"
 }
 ```
+
+## Cloudflare bypass (Bot Fight Mode / "Just a moment…" challenge)
+
+The service auto-clears Cloudflare's JS challenge when it lands on a challenged page. Two pieces combine to make this work:
+
+1. **Stealth shaping** via [`playwright-extra`](https://www.npmjs.com/package/playwright-extra) + [`puppeteer-extra-plugin-stealth`](https://www.npmjs.com/package/puppeteer-extra-plugin-stealth). The stealth plugin removes the standard headless tells (`navigator.webdriver = false`, normalised plugin list, fixed `chrome.runtime` gap, Permissions API fix, etc.) so the challenge JS can complete its fingerprint check. Plus a realistic Chrome 130 macOS UA + 1440×900 viewport + `en-NZ` locale set at context level so the stealth claim is consistent.
+
+2. **Challenge-aware wait** in `clearCloudflareChallenge()`. After `page.goto()`, if the title matches `/just a moment|attention required|checking your browser/i`, the service polls the page title every 500 ms until the marker disappears (CF redirects post-challenge to the real page). Capped at the remaining page-timeout budget. Fast no-op for non-CF pages (single title read).
+
+3. **Per-hostname `cf_clearance` cookie cache** (25-minute TTL — 5-min safety margin under CF's typical 30-min expiry). When the challenge clears, the service grabs `cf_clearance` + `__cf_*` cookies from the context and caches them keyed by hostname. Subsequent renders of the same host within the TTL prime the new context with these cookies before navigation, skipping the puzzle solve entirely. Memory cost is trivial (~few hundred bytes per cached host); cache is process-local and rebuilds on container restart.
+
+The bypass is on by default for every render — callers don't need to opt in. Non-CF sites pay no perceptible cost (one title read after `domcontentloaded`).
+
+**Limitations:** Cloudflare regularly updates its detection. If the stealth plugin starts failing for a specific site, the falling-back pattern is FlareSolverr as a sidecar service — currently deferred.
 
 ## Security
 

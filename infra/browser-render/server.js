@@ -11,6 +11,17 @@
 const crypto = require("crypto");
 const http = require("http");
 
+// playwright-extra wraps playwright's chromium so we can register puppeteer
+// extras. Stealth applies a curated set of fingerprint overrides
+// (navigator.webdriver = false, normalised plugin list, chrome.runtime
+// gap, Permissions API fix, etc.) so Cloudflare's Bot Fight Mode JS
+// challenge can't see headless tells. Registering at module load (not
+// inside getBrowser) makes the intent obvious and avoids any edge case if
+// playwright-extra's internal double-registration guard ever changes.
+const { chromium } = require("playwright-extra");
+const StealthPlugin = require("puppeteer-extra-plugin-stealth");
+chromium.use(StealthPlugin());
+
 const PORT = parseInt(process.env.PORT || "3200", 10);
 const API_KEY = process.env.RENDER_API_KEY;
 
@@ -25,6 +36,51 @@ const API_KEY_BUFFER = Buffer.from(API_KEY);
 const PAGE_TIMEOUT_MS = 30_000;
 const MAX_RESPONSE_SIZE = 5 * 1024 * 1024; // 5 MB
 const MAX_REQUEST_BODY_SIZE = 1 * 1024 * 1024; // 1 MB
+
+// Default context options. The realistic Chrome 130 UA + viewport + locale
+// pair with the stealth plugin's fingerprint overrides so Cloudflare's
+// "I'm Under Attack" / Bot Fight Mode JS challenge can't see headless tells.
+// Callers may override `userAgent` per request.
+const DEFAULT_USER_AGENT =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36";
+const DEFAULT_VIEWPORT = { width: 1440, height: 900 };
+const DEFAULT_LOCALE = "en-NZ";
+
+// Per-(hostname, UA) cf_clearance cookie cache. cf_clearance is bound to
+// (IP, UA) by Cloudflare; the IP component is fixed (single NAS host) but
+// callers can supply a custom userAgent per-request, so the cache key MUST
+// include the effective UA — otherwise a default-UA render warms the cache
+// and a later custom-UA render reuses cookies CF will reject.
+// TTL: 25 min (5-min safety margin under CF's typical 30-min cookie expiry).
+// Eviction is lazy (on re-access of an expired entry) — fine since we scrape
+// a bounded set of sources (~150 entries × few hundred bytes = ~50 KB
+// ceiling); process-local, rebuilds on restart.
+const CF_COOKIE_TTL_MS = 25 * 60 * 1000;
+// Single source of truth for the title markers that signal a CF challenge.
+// Used by both the Node-side `isCfChallengeTitle()` check below and the
+// in-browser `waitForFunction` callback. Kept as a plain string array so
+// neither side needs `new RegExp()` (which Semgrep/Codacy flag as a DoS
+// hazard when the pattern isn't a literal — false positive here, but
+// using a literal-string array sidesteps the lint AND keeps both contexts
+// locked to the same marker list).
+const CF_CHALLENGE_TITLE_MARKERS = [
+  "just a moment",
+  "attention required",
+  "checking your browser",
+];
+
+/** True iff `title` matches any CF challenge marker (case-insensitive). */
+function isCfChallengeTitle(title) {
+  if (!title) return false;
+  const lower = title.toLowerCase();
+  return CF_CHALLENGE_TITLE_MARKERS.some((m) => lower.includes(m));
+}
+const cfCookieCache = new Map(); // "hostname|userAgent" → { cookies, expiresAt }
+
+/** Build the cache key for a (hostname, UA) pair. */
+function cfCacheKey(hostname, userAgent) {
+  return `${hostname}|${userAgent}`;
+}
 
 let browser = null;
 let launching = false;
@@ -71,16 +127,19 @@ async function getBrowser() {
 
   launching = true;
   try {
-    const { chromium } = require("playwright");
+    // Stealth plugin registered at module load (see top of file).
     browser = await chromium.launch({
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
         "--disable-dev-shm-usage",
         "--disable-gpu",
+        // Blink feature flag — disables one CDP-exposed surface that
+        // some bot-detectors (incl. Cloudflare's heuristics) read.
+        "--disable-blink-features=AutomationControlled",
       ],
     });
-    console.log(`[${new Date().toISOString()}] Browser launched`);
+    console.log(`[${new Date().toISOString()}] Browser launched (stealth)`);
     browser.on("disconnected", () => {
       console.log(`[${new Date().toISOString()}] Browser disconnected`);
       browser = null;
@@ -89,6 +148,81 @@ async function getBrowser() {
   } finally {
     launching = false;
   }
+}
+
+/**
+ * Wait for Cloudflare's "Just a moment…" / Bot Fight Mode JS challenge to
+ * resolve. Fast no-op when the current page isn't challenged. When it is,
+ * polls the page title every 250 ms until the challenge marker disappears
+ * (CF redirects post-challenge to the real page), capped at `maxWaitMs`.
+ *
+ * Returns `"cleared"` when the challenge was observed and resolved within
+ * the budget, `"timeout"` when it was observed but never cleared (don't
+ * cache the resulting cookies — they're bogus), and `"none"` when the
+ * page was never challenged.
+ */
+async function clearCloudflareChallenge(page, maxWaitMs) {
+  const titleNow = await page.title().catch(() => "");
+  if (!isCfChallengeTitle(titleNow)) return "none";
+  console.log(
+    `[${new Date().toISOString()}] Cloudflare challenge detected (title: "${titleNow}"), waiting up to ${maxWaitMs}ms`,
+  );
+  // Pass the marker array verbatim into the page context; the callback
+  // does case-insensitive substring checks. Same array as Node-side so the
+  // two can't drift, and no `new RegExp(pattern)` to upset DoS linters.
+  await page
+    .waitForFunction(
+      (markers) => {
+        const t = (document.title || "").toLowerCase();
+        return !markers.some((m) => t.includes(m));
+      },
+      CF_CHALLENGE_TITLE_MARKERS,
+      { timeout: maxWaitMs, polling: 250 },
+    )
+    .catch(() => {
+      // Timeout — fall through to the post-check below.
+    });
+  // Re-read the title; only report "cleared" if the marker is actually gone.
+  const titleAfter = await page.title().catch(() => titleNow);
+  return isCfChallengeTitle(titleAfter) ? "timeout" : "cleared";
+}
+
+/** Extract CF-bypass cookies (cf_clearance + any __cf_* helpers) for a context's origin. */
+async function readCfCookies(context, origin) {
+  const cookies = await context.cookies(origin).catch(() => []);
+  return cookies.filter((c) => c.name === "cf_clearance" || c.name.startsWith("__cf"));
+}
+
+/** Prime a fresh browser context with cached CF cookies for the
+ *  (hostname, UA) pair, if a fresh cache entry exists. Evicts expired
+ *  entries. The UA must be the *effective* UA the new context will use,
+ *  since CF binds cf_clearance to (IP, UA). */
+async function primeCfCookies(context, hostname, userAgent) {
+  const key = cfCacheKey(hostname, userAgent);
+  const cached = cfCookieCache.get(key);
+  if (!cached) return;
+  if (cached.expiresAt <= Date.now()) {
+    cfCookieCache.delete(key);
+    return;
+  }
+  await context.addCookies(cached.cookies).catch(() => {});
+}
+
+/** Read fresh CF cookies from the context and cache them by (hostname, UA)
+ *  for the configured TTL. Called only after we know the challenge actually
+ *  cleared (otherwise the cookies are bogus and would waste the next
+ *  request). UA must be the same one the cleared context used. */
+async function captureCfCookies(context, parsedUrl, userAgent) {
+  const cfCookies = await readCfCookies(context, parsedUrl.origin);
+  if (cfCookies.length === 0) return;
+  const key = cfCacheKey(parsedUrl.hostname, userAgent);
+  cfCookieCache.set(key, {
+    cookies: cfCookies,
+    expiresAt: Date.now() + CF_COOKIE_TTL_MS,
+  });
+  console.log(
+    `[${new Date().toISOString()}] Cached ${cfCookies.length} CF cookie(s) for ${parsedUrl.hostname} (TTL ${CF_COOKIE_TTL_MS / 60000}min)`,
+  );
 }
 
 /**
@@ -167,12 +301,33 @@ const server = http.createServer(async (req, res) => {
       return jsonResponse(res, 400, { error: "Invalid JSON body" });
     }
 
-    const { url, waitFor, selector, frameUrl, timeout, timezoneId } = parsed;
+    const { url, waitFor, selector, frameUrl, timeout, timezoneId, userAgent } = parsed;
     if (!url || typeof url !== "string") {
       busy = false;
       return jsonResponse(res, 400, {
         error: "Missing or invalid 'url' field",
       });
+    }
+
+    // Optional caller-supplied UA. Length-bounded and control-char-rejecting
+    // — real Chrome UAs need `()`, `;`, `,`, `/` so a strict allowlist won't
+    // fit, but `\x00-\x1f\x7f` are never valid in a header value and rejecting
+    // them prevents request-smuggling-style injection when Playwright sets
+    // the UA on the outbound request. Defaults to DEFAULT_USER_AGENT.
+    let safeUserAgent;
+    if (userAgent !== undefined) {
+      if (
+        typeof userAgent !== "string" ||
+        userAgent.length === 0 ||
+        userAgent.length > 256 ||
+        /[\x00-\x1f\x7f]/.test(userAgent)
+      ) {
+        busy = false;
+        return jsonResponse(res, 400, {
+          error: `Invalid userAgent (length 1-256, no control chars)`,
+        });
+      }
+      safeUserAgent = userAgent;
     }
 
     // Validate timezoneId — Playwright accepts any IANA timezone identifier.
@@ -237,11 +392,20 @@ const server = http.createServer(async (req, res) => {
     // Always create an explicit context so cleanup is uniform across the
     // timezone and no-timezone paths. When timezoneId is supplied, the context
     // makes JS calendars (Wix, Google Sites) format dates in the kennel's
-    // local zone rather than the server's UTC default. Without it, BCH3 events
-    // authored as "Thursday 8 PM CDT" rendered as "Friday 12 AM" (rounded
-    // UTC). See #960.
-    const contextOpts = safeTimezoneId ? { timezoneId: safeTimezoneId } : {};
+    // local zone rather than the server's UTC default (#960). The stealth
+    // plugin only shapes the browser globally — context-level fields (UA,
+    // viewport, locale) must be set per-context so they match the stealth
+    // plugin's claim that the browser is a real Chrome.
+    const effectiveUserAgent = safeUserAgent ?? DEFAULT_USER_AGENT;
+    const contextOpts = {
+      userAgent: effectiveUserAgent,
+      viewport: DEFAULT_VIEWPORT,
+      locale: DEFAULT_LOCALE,
+      ...(safeTimezoneId ? { timezoneId: safeTimezoneId } : {}),
+    };
     context = await b.newContext(contextOpts);
+    await primeCfCookies(context, parsedUrl.hostname, effectiveUserAgent);
+
     page = await context.newPage();
 
     // Use domcontentloaded instead of networkidle — Wix/SPA sites have
@@ -251,6 +415,29 @@ const server = http.createServer(async (req, res) => {
       waitUntil: "domcontentloaded",
       timeout: pageTimeout,
     });
+
+    // Clear Cloudflare's "Just a moment…" JS challenge if the response
+    // landed on one. No-op for non-CF sites (single title read). Use the
+    // remaining page-timeout budget so we never exceed PAGE_TIMEOUT_MS.
+    const cfRemaining = Math.max(pageTimeout - (Date.now() - renderStart), 5_000);
+    const cfOutcome = await clearCloudflareChallenge(page, cfRemaining);
+    if (cfOutcome === "cleared") {
+      await captureCfCookies(context, parsedUrl, effectiveUserAgent);
+    } else if (cfOutcome === "timeout") {
+      // The default `waitFor: "body"` selector would otherwise succeed on
+      // the challenge page itself, causing us to return Cloudflare's wall
+      // HTML with a 200 status. Fail fast and explicitly so downstream
+      // parsers don't silently see the wrong document.
+      await page.close().catch(() => {});
+      page = null;
+      await context.close().catch(() => {});
+      context = null;
+      busy = false;
+      return jsonResponse(res, 502, {
+        error: "Cloudflare challenge did not clear within page timeout",
+        detail: `Title still matched challenge markers after ${cfRemaining}ms wait`,
+      });
+    }
 
     // Wait for the requested selector
     await page.waitForSelector(waitForSelector, {
