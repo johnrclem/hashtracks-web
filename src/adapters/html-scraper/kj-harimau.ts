@@ -229,18 +229,27 @@ function buildKjCandidate(post: BloggerPost):
   };
 }
 
+export interface KjHarimauFetchOptions {
+  /** Reconcile/scrape window in days, forwarded to applyDateWindow. */
+  days?: number;
+  /** Blogger API page size. Defaults to fetchBloggerPosts' own default (25). Backfill scripts pass higher. */
+  maxResults?: number;
+}
+
 export class KjHarimauAdapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
 
   async fetch(
     source: Source,
-    options?: { days?: number },
+    options?: KjHarimauFetchOptions,
   ): Promise<ScrapeResult> {
     const baseUrl = source.url || "https://khhhkj.blogspot.com";
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
 
-    const bloggerResult = await fetchBloggerPosts(baseUrl);
+    // maxResults defaults to fetchBloggerPosts' own default (25) when omitted.
+    // Backfill scripts pass a higher value to walk the visible archive.
+    const bloggerResult = await fetchBloggerPosts(baseUrl, options?.maxResults);
     if (bloggerResult.error) {
       errorDetails.fetch = [
         {
