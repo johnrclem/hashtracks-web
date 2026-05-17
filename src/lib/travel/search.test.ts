@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // Mock Prisma
 vi.mock("@/lib/db", () => ({ prisma: {} }));
@@ -217,6 +217,17 @@ const baseParams: TravelSearchParams = {
 describe("executeTravelSearch", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Freeze "today" inside the baseParams window (2026-04-12 → 2026-04-26)
+    // so the 12-week evidence lookback covers the hardcoded evidence event
+    // at 2026-02-21. Otherwise this test silently flakes as the real-world
+    // calendar advances past the lookback boundary. Matches the convention
+    // already used in save-intent.test.ts.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-14T12:00:00Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("returns confirmed events within date + distance window", async () => {

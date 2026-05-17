@@ -800,6 +800,22 @@ export function isPlaceholder(value: string): boolean {
 }
 
 /**
+ * Read a string field off a Source's JSON `config`, falling back to the
+ * provided default if the field is missing, non-string, or the config
+ * itself is null/non-object. Removes the boilerplate `typeof config === "object" && ... ?? default`
+ * dance that adapters were repeating per-field.
+ */
+export function configString(
+  config: unknown,
+  field: string,
+  fallback: string,
+): string {
+  if (typeof config !== "object" || config === null) return fallback;
+  const value = (config as Record<string, unknown>)[field];
+  return typeof value === "string" && value.length > 0 ? value : fallback;
+}
+
+/**
  * Return the value if it's non-empty and not a placeholder, otherwise undefined.
  * Convenience wrapper: `stripPlaceholder(cell) ?? fallback`
  */

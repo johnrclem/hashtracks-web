@@ -512,5 +512,9 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "tokoroa-h3": ["Tokoroa H3", "Tokoroa HHH", "Tokoroa Hash"],
     "t3h3-nz": ["T3H3", "Thirsty Thursday Taniwha", "Wellington Thursday Hash", "Wellington Taniwha H3"],
     "auckland-hussies": ["Auckland Hussies", "Auckland Hash Hussies", "AK Hash Harriets", "Auckland Hussies HHH"],
+    // New Zealand — sporty.co.nz subsites
+    "capital-h3-nz": ["Capital H3", "Capital HHH", "Capital Hash", "Wellington Capital H3", "Capital Wellington H3"],
+    "mooloo-h3": ["Mooloo H3", "Mooloo HHH", "Mooloo Hash", "Hamilton Mooloo H3", "Waikato Mooloo H3"],
+    "geriatrix-h3": ["Geriatrix H3", "Geriatrix HHH", "Port Nicholson Geriatrix", "Port Nicholson H3", "Geriatrix Hash"],
   };
 

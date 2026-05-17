@@ -5254,5 +5254,59 @@ export const SOURCES = [
       config: { kennelTag: "auckland-hussies" },
       kennelCodes: ["auckland-hussies"],
     },
+    // ── New Zealand — sporty.co.nz CMS subsites (Wellington + Hamilton) ──
+    // All three live behind Cloudflare Bot Fight Mode and are scraped via the
+    // stealth-upgraded NAS browser-render service. Capital + Geriatrix expose
+    // structured run rows; Mooloo is a freeform newsletter, so its HTML
+    // scraper covers explicit "DD Mon YYYY RUN# NNNN ..." lines and a
+    // STATIC_SCHEDULE row guarantees the biweekly Monday baseline when the
+    // newsletter is silent.
+    {
+      name: "Capital H3 Website",
+      url: "https://www.sporty.co.nz/capitalh3",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 180,
+      config: { kennelTag: "capital-h3-nz" },
+      kennelCodes: ["capital-h3-nz"],
+    },
+    {
+      name: "Mooloo HHH UpCumming Runs",
+      url: "https://www.sporty.co.nz/mooloohhh/UpCumming-Runs",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 5,
+      scrapeFreq: "daily",
+      scrapeDays: 180,
+      config: { kennelTag: "mooloo-h3" },
+      kennelCodes: ["mooloo-h3"],
+    },
+    staticScheduleSource({
+      name: "Mooloo H3 Static Schedule",
+      url: "https://www.sporty.co.nz/mooloohhh",
+      kennelTag: "mooloo-h3",
+      rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=MO",
+      // RUN# 1886 = 2026-05-25 (Mon), verified live against
+      // sporty.co.nz/mooloohhh/UpCumming-Runs. Anchors the biweekly parity
+      // so the fallback schedule doesn't drift as the scrape window moves
+      // (without an anchor, INTERVAL=2 derives from the current window
+      // start and can flip to the wrong Monday series).
+      anchorDate: "2026-05-25",
+      startTime: "18:00",
+      defaultTitle: "Mooloo H3 Run",
+      defaultLocation: "Hamilton, NZ",
+      defaultDescription: "Biweekly Monday trail at 6:00 PM. Specific start location and hare details posted at https://www.sporty.co.nz/mooloohhh/UpCumming-Runs.",
+      extra: { trustLevel: 3 },
+    }),
+    {
+      name: "Geriatrix H3 Receding Hareline",
+      url: "https://www.sporty.co.nz/geriatrixhhh/Receding-Hareline/NewTab1",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 180,
+      config: { kennelTag: "geriatrix-h3" },
+      kennelCodes: ["geriatrix-h3"],
+    },
   ];
 

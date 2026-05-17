@@ -3914,5 +3914,34 @@ export const KENNELS: KennelSeed[] = [
       description: "Auckland's women-founded hash, established 1978. Weekly Tuesday evening trails across Auckland with a published run list. Mixed attendance though women-led.",
       latitude: -36.8485, longitude: 174.7633,
     },
+    // ── sporty.co.nz CMS subsites — Wellington + Hamilton ──
+    {
+      kennelCode: "capital-h3-nz", shortName: "Capital H3", fullName: "Capital Hash House Harriers",
+      region: "Wellington, NZ", country: "New Zealand",
+      website: "https://www.sporty.co.nz/capitalh3",
+      foundedYear: 1979,
+      scheduleDayOfWeek: "Monday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Weekly Monday evenings at 6:30 PM unless otherwise noted. Run list maintained on the homepage notices panel with run number, date, location, and hare.",
+      description: "Wellington's longest-running hash kennel — founded 1979 and still ticking past run 2,300. Weekly Monday evening trails across Wellington and the wider Hutt Valley.",
+      latitude: -41.2866, longitude: 174.7756,
+    },
+    {
+      kennelCode: "mooloo-h3", shortName: "Mooloo H3", fullName: "Mooloo Hash House Harriers",
+      region: "Hamilton, NZ", country: "New Zealand",
+      website: "https://www.sporty.co.nz/mooloohhh",
+      scheduleDayOfWeek: "Monday", scheduleTime: "6:00 PM", scheduleFrequency: "Biweekly",
+      scheduleNotes: "Roughly every 2nd Monday at 6:00 PM (year-round per the kennel's UpCumming Runs newsletter). Trails alternate setters; specific runs announced on the website.",
+      description: "Hamilton/Waikato men's hash. Trail starts shifted to 6:00 PM year-round; runs published as a freeform newsletter on the kennel website.",
+      latitude: -37.787, longitude: 175.2793,
+    },
+    {
+      kennelCode: "geriatrix-h3", shortName: "Geriatrix H3", fullName: "Port Nicholson Geriatrix Hash House Harriers",
+      region: "Wellington, NZ", country: "New Zealand",
+      website: "https://www.sporty.co.nz/geriatrixhhh",
+      scheduleDayOfWeek: "Tuesday", scheduleTime: "5:30 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Weekly Tuesday afternoons. Hareline maintained as a CKEditor block on /Receding-Hareline/NewTab1 — date / venue / hare / map URL per run.",
+      description: "Wellington's relaxed-pace Tuesday hash with regular venue + hare + map information per run. Focuses on shorter, accessible trails around Wellington and Lower Hutt.",
+      latitude: -41.2866, longitude: 174.7756,
+    },
   ];
 
