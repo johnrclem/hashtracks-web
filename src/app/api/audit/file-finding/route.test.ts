@@ -95,6 +95,39 @@ function buildReq(opts: ApiPostInit = {}): Request {
 }
 
 const fetchMock = vi.fn();
+const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+/** Recur-tier existing issue used across the postComment failure tests. */
+const RECUR_ISSUE = {
+  id: "ai_existing",
+  githubNumber: 42,
+  htmlUrl: "https://github.com/x/y/issues/42",
+  recurrenceCount: 0,
+} as never;
+
+/**
+ * Build a minimal mock of `Response.body.getReader()` that yields `text`
+ * in a single chunk. `safeErrorBody` uses streaming reads (#1468 follow-up
+ * — Gemini + Codex pass on PR #1482) instead of `await res.text()` so the
+ * defensive truncation bound applies before the full body is buffered.
+ */
+function mockResponseBody(text: string) {
+  const chunk = new TextEncoder().encode(text);
+  return {
+    body: {
+      getReader: () => {
+        let emitted = false;
+        return {
+          read: async () =>
+            emitted
+              ? { done: true, value: undefined }
+              : ((emitted = true), { done: false, value: chunk }),
+          cancel: async () => {},
+        };
+      },
+    },
+  };
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -107,6 +140,7 @@ beforeEach(() => {
   mockFindManyIssue.mockResolvedValue([] as never);
   mockUpdateIssue.mockResolvedValue({ recurrenceCount: 1 } as never);
   mockUpdateManyIssue.mockResolvedValue({ count: 0 } as never);
+  consoleErrorSpy.mockClear();
 });
 
 describe("POST /api/audit/file-finding", () => {
@@ -335,10 +369,108 @@ describe("POST /api/audit/file-finding", () => {
     expect(requestBody.labels).toContain("kennel:nych3");
   });
 
-  it("returns 502 when GitHub issue creation fails", async () => {
-    fetchMock.mockResolvedValue({ ok: false });
+  it("returns 502 when GitHub issue creation fails — logs status and body for triage (#1468)", async () => {
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 401,
+      ...mockResponseBody('{"message":"Bad credentials"}'),
+    });
     const res = await POST(buildReq());
     expect(res.status).toBe(502);
+    // Lock the existing failure-envelope contract — a regression away from
+    // this body would silently change the caller's retry behavior.
+    const json = (await res.json()) as { error: string };
+    expect(json.error).toBe("GitHub issue creation failed");
+    // Operators need the status + body to diagnose. Without these logs, every
+    // failing filing surfaces only as `{"error":"GitHub issue creation failed"}`
+    // with zero signal about whether it's auth, rate-limit, or payload shape.
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("createIssue GitHub API 401"),
+    );
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Bad credentials"),
+    );
+  });
+
+  it("truncates oversized upstream bodies before logging (#1468 — streaming read bound)", async () => {
+    // Defense against an intermediary returning a multi-megabyte HTML error
+    // page that reflects request content. The streaming reader caps at
+    // LOG_BODY_MAX BYTES BEFORE the body is fully buffered — verified here
+    // by mocking a 50KB body and asserting the logged string is much shorter.
+    const huge = "x".repeat(50_000);
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 502,
+      ...mockResponseBody(huge),
+    });
+    await POST(buildReq());
+    const logged = consoleErrorSpy.mock.calls
+      .map((call) => String(call[0]))
+      .find((s) => s.includes("createIssue GitHub API 502"));
+    expect(logged).toBeDefined();
+    expect(logged).toContain("(truncated)");
+    expect(logged!.length).toBeLessThan(huge.length);
+  });
+
+  it("logs thrown errors from createIssue (#1468)", async () => {
+    fetchMock.mockRejectedValue(new Error("ECONNRESET"));
+    const res = await POST(buildReq());
+    expect(res.status).toBe(502);
+    const json = (await res.json()) as { error: string };
+    expect(json.error).toBe("GitHub issue creation failed");
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      "[audit-file-finding] createIssue fetch threw:",
+      expect.objectContaining({ message: "ECONNRESET" }),
+    );
+  });
+
+  it("logs when GITHUB_TOKEN is missing (#1468)", async () => {
+    delete process.env.GITHUB_TOKEN;
+    const res = await POST(buildReq());
+    expect(res.status).toBe(502);
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      "[audit-file-finding] createIssue: GITHUB_TOKEN not set",
+    );
+  });
+
+  it("logs failed postComment status + body on recur-comment path (#1468)", async () => {
+    mockFindIssue.mockResolvedValue(RECUR_ISSUE);
+    fetchMock.mockResolvedValueOnce({
+      ok: false,
+      status: 410,
+      ...mockResponseBody('{"message":"Issue is locked"}'),
+    });
+    const res = await POST(buildReq());
+    expect(res.status).toBe(502);
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("postComment GitHub API #42 410"),
+    );
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Issue is locked"),
+    );
+  });
+
+  it("logs when GITHUB_TOKEN is missing on recur-comment path (#1468)", async () => {
+    mockFindIssue.mockResolvedValue(RECUR_ISSUE);
+    delete process.env.GITHUB_TOKEN;
+    const res = await POST(buildReq());
+    expect(res.status).toBe(502);
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      "[audit-file-finding] postComment: GITHUB_TOKEN not set",
+    );
+    // No fetch attempted — the no-token guard short-circuits.
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("logs thrown errors from postComment on recur-comment path (#1468)", async () => {
+    mockFindIssue.mockResolvedValue(RECUR_ISSUE);
+    fetchMock.mockRejectedValueOnce(new Error("ETIMEDOUT"));
+    const res = await POST(buildReq());
+    expect(res.status).toBe(502);
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      "[audit-file-finding] postComment fetch threw:",
+      expect.objectContaining({ message: "ETIMEDOUT" }),
+    );
   });
 
   it("does not look up an existing issue by fingerprint for non-fingerprintable rules", async () => {

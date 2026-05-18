@@ -268,6 +268,39 @@ async function persistFilingResult(
 
 // ── GitHub IO ────────────────────────────────────────────────────────
 
+const LOG_PREFIX = "[audit-file-finding]";
+
+/**
+ * Read an upstream error response body for safe logging, capped at
+ * `LOG_BODY_MAX` bytes. GitHub error responses are normally tiny JSON
+ * `{message, documentation_url}` bodies, but a proxy or intermediary could
+ * return a multi-megabyte HTML error page that reflects request content
+ * (#1468). We stream the body and stop reading once we have enough — this
+ * keeps the defensive bound on the read itself rather than post-decode
+ * slicing, so a misbehaving upstream cannot pressure memory or latency
+ * even before truncation (Gemini + Codex pass on PR #1482).
+ */
+const LOG_BODY_MAX = 500;
+async function safeErrorBody(res: Response): Promise<string> {
+  try {
+    const reader = res.body?.getReader();
+    if (!reader) return "<empty body>";
+    const decoder = new TextDecoder("utf-8", { fatal: false });
+    let collected = "";
+    while (collected.length < LOG_BODY_MAX) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) collected += decoder.decode(value, { stream: true });
+    }
+    void reader.cancel();
+    return collected.length > LOG_BODY_MAX
+      ? `${collected.slice(0, LOG_BODY_MAX)}…(truncated)`
+      : collected;
+  } catch {
+    return "<unreadable body>";
+  }
+}
+
 /** Standard POST init for any GitHub repos/* call. */
 function githubPostInit(token: string, body: unknown): RequestInit {
   return {
@@ -296,7 +329,10 @@ function buildApiActions(): FilerActions {
   return {
     createIssue: async ({ title, body, labels }) => {
       const token = process.env.GITHUB_TOKEN;
-      if (!token) return null;
+      if (!token) {
+        console.error(`${LOG_PREFIX} createIssue: GITHUB_TOKEN not set`);
+        return null;
+      }
       const repo = getValidatedRepo();
       try {
         // SSRF-safe: URL constructor anchors the request to the
@@ -306,7 +342,12 @@ function buildApiActions(): FilerActions {
           url,
           githubPostInit(token, { title, body, labels }),
         );
-        if (!res.ok) return null;
+        if (!res.ok) {
+          console.error(
+            `${LOG_PREFIX} createIssue GitHub API ${res.status}: ${await safeErrorBody(res)}`,
+          );
+          return null;
+        }
         // Local name carries "Html" so the xss/no-mixed-html rule
         // doesn't flag the typed-cast local as "non-HTML variable
         // storing raw HTML" — Codacy tracks the source field name
@@ -316,13 +357,17 @@ function buildApiActions(): FilerActions {
           number: number;
         };
         return { htmlUrl: issueHtml.html_url, number: issueHtml.number };
-      } catch {
+      } catch (err) {
+        console.error(`${LOG_PREFIX} createIssue fetch threw:`, err);
         return null;
       }
     },
     postComment: async (issueNumber, body) => {
       const token = process.env.GITHUB_TOKEN;
-      if (!token) return false;
+      if (!token) {
+        console.error(`${LOG_PREFIX} postComment: GITHUB_TOKEN not set`);
+        return false;
+      }
       if (!Number.isInteger(issueNumber) || issueNumber <= 0) return false;
       const repo = getValidatedRepo();
       try {
@@ -332,8 +377,14 @@ function buildApiActions(): FilerActions {
           "https://api.github.com",
         );
         const res = await fetch(url, githubPostInit(token, { body }));
+        if (!res.ok) {
+          console.error(
+            `${LOG_PREFIX} postComment GitHub API #${issueNumber} ${res.status}: ${await safeErrorBody(res)}`,
+          );
+        }
         return res.ok;
-      } catch {
+      } catch (err) {
+        console.error(`${LOG_PREFIX} postComment fetch threw:`, err);
         return false;
       }
     },
