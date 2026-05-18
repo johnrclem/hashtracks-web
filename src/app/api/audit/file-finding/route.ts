@@ -271,16 +271,31 @@ async function persistFilingResult(
 const LOG_PREFIX = "[audit-file-finding]";
 
 /**
- * Truncate an upstream response body for safe logging. GitHub error responses
- * are normally tiny JSON `{message, documentation_url}` bodies, but a proxy or
- * intermediary could return an HTML error page that reflects request content
- * (Codex pass — #1468). Cap defensively so logs never grow unbounded.
+ * Read an upstream error response body for safe logging, capped at
+ * `LOG_BODY_MAX` bytes. GitHub error responses are normally tiny JSON
+ * `{message, documentation_url}` bodies, but a proxy or intermediary could
+ * return a multi-megabyte HTML error page that reflects request content
+ * (#1468). We stream the body and stop reading once we have enough — this
+ * keeps the defensive bound on the read itself rather than post-decode
+ * slicing, so a misbehaving upstream cannot pressure memory or latency
+ * even before truncation (Gemini + Codex pass on PR #1482).
  */
 const LOG_BODY_MAX = 500;
 async function safeErrorBody(res: Response): Promise<string> {
   try {
-    const text = await res.text();
-    return text.length > LOG_BODY_MAX ? `${text.slice(0, LOG_BODY_MAX)}…(truncated)` : text;
+    const reader = res.body?.getReader();
+    if (!reader) return "<empty body>";
+    const decoder = new TextDecoder("utf-8", { fatal: false });
+    let collected = "";
+    while (collected.length < LOG_BODY_MAX) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) collected += decoder.decode(value, { stream: true });
+    }
+    void reader.cancel();
+    return collected.length > LOG_BODY_MAX
+      ? `${collected.slice(0, LOG_BODY_MAX)}…(truncated)`
+      : collected;
   } catch {
     return "<unreadable body>";
   }

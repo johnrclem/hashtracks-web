@@ -97,6 +97,30 @@ function buildReq(opts: ApiPostInit = {}): Request {
 const fetchMock = vi.fn();
 const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
+/**
+ * Build a minimal mock of `Response.body.getReader()` that yields `text`
+ * in a single chunk. `safeErrorBody` uses streaming reads (#1468 follow-up
+ * — Gemini + Codex pass on PR #1482) instead of `await res.text()` so the
+ * defensive truncation bound applies before the full body is buffered.
+ */
+function mockResponseBody(text: string) {
+  const chunk = new TextEncoder().encode(text);
+  return {
+    body: {
+      getReader: () => {
+        let emitted = false;
+        return {
+          read: async () =>
+            emitted
+              ? { done: true, value: undefined }
+              : ((emitted = true), { done: false, value: chunk }),
+          cancel: async () => {},
+        };
+      },
+    },
+  };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   vi.stubGlobal("fetch", fetchMock);
@@ -341,7 +365,7 @@ describe("POST /api/audit/file-finding", () => {
     fetchMock.mockResolvedValue({
       ok: false,
       status: 401,
-      text: async () => '{"message":"Bad credentials"}',
+      ...mockResponseBody('{"message":"Bad credentials"}'),
     });
     const res = await POST(buildReq());
     expect(res.status).toBe(502);
@@ -360,14 +384,16 @@ describe("POST /api/audit/file-finding", () => {
     );
   });
 
-  it("truncates oversized upstream bodies before logging (#1468 Codex pass)", async () => {
-    // Defense against an intermediary returning an HTML error page that
-    // reflects request content. Cap at 500 chars so logs stay bounded.
-    const huge = "x".repeat(2000);
+  it("truncates oversized upstream bodies before logging (#1468 — streaming read bound)", async () => {
+    // Defense against an intermediary returning a multi-megabyte HTML error
+    // page that reflects request content. The streaming reader caps at
+    // LOG_BODY_MAX BYTES BEFORE the body is fully buffered — verified here
+    // by mocking a 50KB body and asserting the logged string is much shorter.
+    const huge = "x".repeat(50_000);
     fetchMock.mockResolvedValue({
       ok: false,
       status: 502,
-      text: async () => huge,
+      ...mockResponseBody(huge),
     });
     await POST(buildReq());
     const logged = consoleErrorSpy.mock.calls
@@ -375,7 +401,6 @@ describe("POST /api/audit/file-finding", () => {
       .find((s) => s.includes("createIssue GitHub API 502"));
     expect(logged).toBeDefined();
     expect(logged).toContain("(truncated)");
-    // Logged tail should be a strict prefix of the upstream body plus the marker.
     expect(logged!.length).toBeLessThan(huge.length);
   });
 
@@ -410,7 +435,7 @@ describe("POST /api/audit/file-finding", () => {
     fetchMock.mockResolvedValueOnce({
       ok: false,
       status: 410,
-      text: async () => '{"message":"Issue is locked"}',
+      ...mockResponseBody('{"message":"Issue is locked"}'),
     });
     const res = await POST(buildReq());
     expect(res.status).toBe(502);
@@ -420,6 +445,23 @@ describe("POST /api/audit/file-finding", () => {
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       expect.stringContaining("Issue is locked"),
     );
+  });
+
+  it("logs when GITHUB_TOKEN is missing on recur-comment path (#1468)", async () => {
+    mockFindIssue.mockResolvedValue({
+      id: "ai_existing",
+      githubNumber: 42,
+      htmlUrl: "https://github.com/x/y/issues/42",
+      recurrenceCount: 0,
+    } as never);
+    delete process.env.GITHUB_TOKEN;
+    const res = await POST(buildReq());
+    expect(res.status).toBe(502);
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      "[audit-file-finding] postComment: GITHUB_TOKEN not set",
+    );
+    // No fetch attempted — the no-token guard short-circuits.
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("logs thrown errors from postComment on recur-comment path (#1468)", async () => {
