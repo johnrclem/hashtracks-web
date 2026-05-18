@@ -1248,6 +1248,18 @@ export const KENNELS: KennelSeed[] = [
       website: "https://www.carolinalarrikins.com/",
       scheduleDayOfWeek: "Wednesday", scheduleFrequency: "Biweekly", scheduleTime: "6:30 PM",
       scheduleNotes: "1st and 3rd Wednesday, 6:30 PM.",
+      scheduleRules: [
+        {
+          rrule: "FREQ=MONTHLY;BYDAY=1WE",
+          startTime: "18:30",
+          displayOrder: 0,
+        },
+        {
+          rrule: "FREQ=MONTHLY;BYDAY=3WE",
+          startTime: "18:30",
+          displayOrder: 1,
+        },
+      ],
       hashCash: "$1",
       description: "Biweekly Wednesday evening hash in the Triangle area.",
       latitude: 35.78, longitude: -78.64,
