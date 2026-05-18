@@ -17,13 +17,21 @@ import { Prisma } from "@/generated/prisma/client";
  * Build a P2002 unique-constraint-violation error matching what the Prisma
  * client raises when an INSERT collides with a unique index. Pass `target`
  * to populate `err.meta.target`, which `isUniqueConstraintViolation` reads
- * when the caller wants to narrow to a specific constraint.
+ * when the caller wants to narrow to a specific constraint. Accepts either
+ * the array-of-columns shape (some engines) or the constraint-name string
+ * shape that the production Postgres engine actually emits (#1464).
  */
-export function buildPrismaUniqueViolation(target: string[]): Prisma.PrismaClientKnownRequestError {
-  return new Prisma.PrismaClientKnownRequestError(
-    `Unique constraint failed on the fields: ${target.join(", ")}`,
-    { code: "P2002", clientVersion: "0.0.0", meta: { target } },
-  );
+export function buildPrismaUniqueViolation(
+  target: string[] | string,
+): Prisma.PrismaClientKnownRequestError {
+  const message = Array.isArray(target)
+    ? `Unique constraint failed on the fields: ${target.join(", ")}`
+    : `Unique constraint failed on the constraint: \`${target}\``;
+  return new Prisma.PrismaClientKnownRequestError(message, {
+    code: "P2002",
+    clientVersion: "0.0.0",
+    meta: { target },
+  });
 }
 
 /**

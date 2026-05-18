@@ -1714,6 +1714,19 @@ async function processNewRawEvent(
 
     ctx.existingByFingerprint.set(fingerprint, winner);
     const dupId = await handleDuplicateFingerprint(event, fingerprint, ctx);
+    // Trace the race-window branch we took so production surprises are
+    // visible in Vercel logs (#1464 follow-up — operators previously had
+    // no signal once the catch was entered). Info level: a handled race
+    // is normal at concurrent-worker scale, not an operational problem.
+    let branch: "adopt-orphan" | "skip" | "use-existing-event";
+    if (dupId === false) branch = "adopt-orphan";
+    else if (dupId === null) branch = "skip";
+    else branch = "use-existing-event";
+    console.log(
+      `[merge] race-window P2002 sourceId=${sourceId} fingerprint=${fingerprint} ` +
+        `winner.processed=${winner.processed} winner.eventId=${winner.eventId ?? "null"} ` +
+        `branch=${branch}`,
+    );
     if (dupId === false) {
       // Orphan-reprocess signal: the racing worker's row is unprocessed
       // and unlinked. Pre-#1286 the caller would have created its own
