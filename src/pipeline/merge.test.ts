@@ -3855,36 +3855,41 @@ describe("processNewRawEvent — P2002 race-window fall-through (#1286)", () => 
     // returned false and the race-window catch re-threw. Lock the
     // string-shape path so a future helper regression surfaces here.
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-    mockRawEventCreate.mockRejectedValueOnce(
-      buildPrismaUniqueViolation("RawEvent_sourceId_fingerprint_key"),
-    );
-    vi.mocked(prisma.rawEvent.findUnique).mockResolvedValueOnce({
-      id: "raw_winner",
-      fingerprint: "fp_abc123",
-      processed: true,
-      eventId: "evt_winner",
-    } as never);
-    vi.mocked(prisma.event.findUnique).mockResolvedValueOnce({
-      id: "evt_winner",
-      kennelId: "kennel_1",
-      trustLevel: 5,
-    } as never);
+    try {
+      mockRawEventCreate.mockRejectedValueOnce(
+        buildPrismaUniqueViolation("RawEvent_sourceId_fingerprint_key"),
+      );
+      vi.mocked(prisma.rawEvent.findUnique).mockResolvedValueOnce({
+        id: "raw_winner",
+        fingerprint: "fp_abc123",
+        processed: true,
+        eventId: "evt_winner",
+      } as never);
+      vi.mocked(prisma.event.findUnique).mockResolvedValueOnce({
+        id: "evt_winner",
+        kennelId: "kennel_1",
+        trustLevel: 5,
+      } as never);
 
-    const result = await processRawEvents("src_1", [
-      buildRawEvent({ date: "2026-04-01", kennelTags: ["TestH3"] }),
-    ]);
+      const result = await processRawEvents("src_1", [
+        buildRawEvent({ date: "2026-04-01", kennelTags: ["TestH3"] }),
+      ]);
 
-    expect(result.created).toBe(0);
-    expect(result.skipped).toBe(1);
-    expect(result.eventErrors).toBe(0);
-    expect(result.mergeErrorDetails).toEqual([]);
-    // Operator-facing trace: one log per handled race with the branch label.
-    const raceLog = logSpy.mock.calls
-      .map((call) => String(call[0]))
-      .find((s) => s.includes("[merge] race-window P2002"));
-    expect(raceLog).toBeDefined();
-    expect(raceLog).toContain("branch=use-existing-event");
-    logSpy.mockRestore();
+      expect(result.created).toBe(0);
+      expect(result.skipped).toBe(1);
+      expect(result.eventErrors).toBe(0);
+      expect(result.mergeErrorDetails).toEqual([]);
+      // Operator-facing trace: one log per handled race with the branch label.
+      const raceLog = logSpy.mock.calls
+        .map((call) => String(call[0]))
+        .find((s) => s.includes("[merge] race-window P2002"));
+      expect(raceLog).toBeDefined();
+      expect(raceLog).toContain("branch=use-existing-event");
+    } finally {
+      // Restore even on assertion failure so later tests aren't polluted
+      // by a stuck `console.log` mock (CodeRabbit pass).
+      logSpy.mockRestore();
+    }
   });
 
   it("does not double-count: a successful create after a P2002 in the same batch counts as 1 created + 1 skipped", async () => {
