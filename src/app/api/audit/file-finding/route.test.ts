@@ -97,6 +97,14 @@ function buildReq(opts: ApiPostInit = {}): Request {
 const fetchMock = vi.fn();
 const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
+/** Recur-tier existing issue used across the postComment failure tests. */
+const RECUR_ISSUE = {
+  id: "ai_existing",
+  githubNumber: 42,
+  htmlUrl: "https://github.com/x/y/issues/42",
+  recurrenceCount: 0,
+} as never;
+
 /**
  * Build a minimal mock of `Response.body.getReader()` that yields `text`
  * in a single chunk. `safeErrorBody` uses streaming reads (#1468 follow-up
@@ -426,12 +434,7 @@ describe("POST /api/audit/file-finding", () => {
   });
 
   it("logs failed postComment status + body on recur-comment path (#1468)", async () => {
-    mockFindIssue.mockResolvedValue({
-      id: "ai_existing",
-      githubNumber: 42,
-      htmlUrl: "https://github.com/x/y/issues/42",
-      recurrenceCount: 0,
-    } as never);
+    mockFindIssue.mockResolvedValue(RECUR_ISSUE);
     fetchMock.mockResolvedValueOnce({
       ok: false,
       status: 410,
@@ -448,12 +451,7 @@ describe("POST /api/audit/file-finding", () => {
   });
 
   it("logs when GITHUB_TOKEN is missing on recur-comment path (#1468)", async () => {
-    mockFindIssue.mockResolvedValue({
-      id: "ai_existing",
-      githubNumber: 42,
-      htmlUrl: "https://github.com/x/y/issues/42",
-      recurrenceCount: 0,
-    } as never);
+    mockFindIssue.mockResolvedValue(RECUR_ISSUE);
     delete process.env.GITHUB_TOKEN;
     const res = await POST(buildReq());
     expect(res.status).toBe(502);
@@ -465,12 +463,7 @@ describe("POST /api/audit/file-finding", () => {
   });
 
   it("logs thrown errors from postComment on recur-comment path (#1468)", async () => {
-    mockFindIssue.mockResolvedValue({
-      id: "ai_existing",
-      githubNumber: 42,
-      htmlUrl: "https://github.com/x/y/issues/42",
-      recurrenceCount: 0,
-    } as never);
+    mockFindIssue.mockResolvedValue(RECUR_ISSUE);
     fetchMock.mockRejectedValueOnce(new Error("ETIMEDOUT"));
     const res = await POST(buildReq());
     expect(res.status).toBe(502);
