@@ -3847,6 +3847,46 @@ describe("processNewRawEvent — P2002 race-window fall-through (#1286)", () => 
     expect(vi.mocked(prisma.rawEvent.findUnique)).not.toHaveBeenCalled();
   });
 
+  it("routes string-shaped meta.target through the duplicate path + emits branch-trace log (#1464)", async () => {
+    // Issue #1464: HashNYC was leaking 9 eventErrors per scrape because
+    // the production Postgres driver emits `meta.target` as the constraint
+    // NAME string ("RawEvent_sourceId_fingerprint_key"), not the column
+    // tuple. Pre-fix `isUniqueConstraintViolation` array-only check
+    // returned false and the race-window catch re-threw. Lock the
+    // string-shape path so a future helper regression surfaces here.
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    mockRawEventCreate.mockRejectedValueOnce(
+      buildPrismaUniqueViolation("RawEvent_sourceId_fingerprint_key"),
+    );
+    vi.mocked(prisma.rawEvent.findUnique).mockResolvedValueOnce({
+      id: "raw_winner",
+      fingerprint: "fp_abc123",
+      processed: true,
+      eventId: "evt_winner",
+    } as never);
+    vi.mocked(prisma.event.findUnique).mockResolvedValueOnce({
+      id: "evt_winner",
+      kennelId: "kennel_1",
+      trustLevel: 5,
+    } as never);
+
+    const result = await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-04-01", kennelTags: ["TestH3"] }),
+    ]);
+
+    expect(result.created).toBe(0);
+    expect(result.skipped).toBe(1);
+    expect(result.eventErrors).toBe(0);
+    expect(result.mergeErrorDetails).toEqual([]);
+    // Operator-facing trace: one log per handled race with the branch label.
+    const raceLog = logSpy.mock.calls
+      .map((call) => String(call[0]))
+      .find((s) => s.includes("[merge] race-window P2002"));
+    expect(raceLog).toBeDefined();
+    expect(raceLog).toContain("branch=use-existing-event");
+    logSpy.mockRestore();
+  });
+
   it("does not double-count: a successful create after a P2002 in the same batch counts as 1 created + 1 skipped", async () => {
     // Two events. First hits P2002, falls through to duplicate path. Second
     // creates normally. Verifies the per-event try/catch boundary doesn't
