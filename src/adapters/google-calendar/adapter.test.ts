@@ -974,6 +974,23 @@ describe("Austin H3 title pass-through (#1466)", () => {
     expect(result!.title).toBe(summary);
     expect(result!.hares).toBeUndefined();
   });
+
+  it("still extracts hares from description when titleHarePattern is absent", () => {
+    // Without titleHarePattern, hares still come from the description's
+    // labeled `Hare:` / `Hares:` line (the default extractHares path).
+    // Guards against accidental regressions if anyone re-disables that.
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        summary: "VSP Red Dress Run Hangover - AH3 #493",
+        description: "Hare: Banana Boat",
+        start: { dateTime: "2026-04-04T14:00:00-05:00" },
+      }),
+      austinConfig,
+    );
+    expect(result).not.toBeNull();
+    expect(result!.title).toBe("VSP Red Dress Run Hangover - AH3 #493");
+    expect(result!.hares).toBe("Banana Boat");
+  });
 });
 
 // #1458 — opt-in guard against doubled kennelCode prefix in title.
@@ -986,6 +1003,7 @@ describe("doubled kennelCode prefix guard (#1458)", () => {
   it.each([
     ["MoA2H3 MoA2H3 Red Dress Run", "MoA2H3 Red Dress Run", "doubled prefix stripped (case-insensitive)"],
     ["MoA2H3 moa2h3 Red Dress Run", "MoA2H3 Red Dress Run", "typed casing of surviving prefix preserved"],
+    ["MoA2H3 MoA2H3", "MoA2H3", "exact-doubled placeholder (no trailing content)"],
     ["MoA2H3 Red Dress Run", "MoA2H3 Red Dress Run", "no-op when title is already single-prefixed"],
     ["Brain Fart", "Brain Fart", "no-op when title is unrelated to the kennelCode"],
   ])("summary %j → title %j (%s)", (summary, expectedTitle) => {

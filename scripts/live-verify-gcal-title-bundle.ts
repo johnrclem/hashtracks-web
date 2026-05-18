@@ -3,6 +3,9 @@
  *
  * Run: `set -a && source .env && set +a && npx tsx scripts/live-verify-gcal-title-bundle.ts`
  *
+ * Exits non-zero when any check detects a regression OR when a fetch
+ * fails — usable as a CI gate.
+ *
  * Read-only — does not mutate the DB.
  */
 import "dotenv/config";
@@ -11,6 +14,24 @@ import type { RawEventData } from "@/adapters/types";
 import { SOURCES } from "../prisma/seed-data/sources";
 import type { Source } from "@/generated/prisma/client";
 
+interface Check {
+  /** Label shown next to the count; the "(expect 0)" suffix is added automatically. */
+  label: string;
+  /** Predicate over a single event; events matching count toward `failedChecks`. */
+  predicate: (e: RawEventData) => boolean;
+}
+
+interface Target {
+  sourceName: string;
+  describe: string;
+  /** Per-event regression predicates. Any non-zero count fails the script. */
+  checks: Check[];
+  /** Optional summary lines (counts, etc.) appended before samples. */
+  summary?: (events: RawEventData[]) => string[];
+  /** How many sample events to print after the checks/summary lines. */
+  sampleLimit?: number;
+}
+
 function formatSample(e: RawEventData): string {
   const time = e.startTime ?? "all-day";
   const titleSlice = (e.title ?? "").slice(0, 80);
@@ -18,62 +39,77 @@ function formatSample(e: RawEventData): string {
   return `[${e.date} ${time}] title=${JSON.stringify(titleSlice)} | hares=${e.hares ?? "—"}${runSuffix}`;
 }
 
-interface Target {
-  sourceName: string;
-  describe: string;
-  inspect: (events: RawEventData[]) => string[];
-}
+/** Trail-vocab keywords that should never appear in a `hares` value. Used
+ *  by the Austin H3 check to detect title-text leaking into haresText. */
+const TRAIL_VOCAB_RE = /\b(?:Run Hangover|Red Dress|Hash Trash|Mardi Hash)\b/i;
 
 const TARGETS: Target[] = [
   {
     sourceName: "Dead Whores H3 Calendar",
     describe: "#1471 — no trailing '/' in title; hares still extracted",
-    inspect: (events) => {
-      const slashTitles = events.filter((e) => e.title && /\/\s*$/.test(e.title));
-      const lines = [
-        `events: ${events.length}`,
-        `with hares: ${events.filter((e) => !!e.hares).length}`,
-        `titles ending in '/': ${slashTitles.length} (expect 0)`,
-      ];
-      for (const e of events.slice(0, 10)) lines.push(`  ${formatSample(e)}`);
-      return lines;
-    },
+    checks: [
+      { label: "titles ending in '/'", predicate: (e) => !!e.title && /\/\s*$/.test(e.title) },
+    ],
+    summary: (events) => [`with hares: ${events.filter((e) => !!e.hares).length}`],
   },
   {
     sourceName: "Austin H3 Calendar",
-    describe: "#1466 — stub-revert preserves descriptive titles; bogus hares cleared",
-    inspect: (events) => {
-      // Detect both pre-fix shapes ("- AH3 #N") and any residual bare
-      // "AH3 #N" stub that the prefix-cleanup might leave behind if the
-      // opt-in flag isn't seeded.
-      const stubTitles = events.filter((e) => e.title && /^-?\s*AH3\s*#\s*\d+\s*$/i.test(e.title));
-      // After stub-revert, hares should not contain trail-title text. Look
-      // for trail-vocab keywords leaking into haresText.
-      const haresLeakage = events.filter((e) => e.hares && /\b(?:Run Hangover|Red Dress|Hash Trash|Mardi Hash)\b/i.test(e.hares));
-      const lines = [
-        `events: ${events.length}`,
-        `with hares: ${events.filter((e) => !!e.hares).length}`,
-        `bare 'AH3 #N' / '- AH3 #N' stub titles: ${stubTitles.length} (expect 0)`,
-        `trail-vocab leakage in hares: ${haresLeakage.length} (expect 0)`,
-      ];
-      for (const e of events.slice(0, 12)) lines.push(`  ${formatSample(e)}`);
-      return lines;
-    },
+    describe: "#1466 — descriptive titles preserved; bogus hares cleared",
+    checks: [
+      // Both pre-fix shape "- AH3 #N" and bare "AH3 #N" stub.
+      { label: "bare 'AH3 #N' / '- AH3 #N' stub titles", predicate: (e) => !!e.title && /^-?\s*AH3\s*#\s*\d+\s*$/i.test(e.title) },
+      { label: "trail-vocab leakage in hares", predicate: (e) => !!e.hares && TRAIL_VOCAB_RE.test(e.hares) },
+    ],
+    summary: (events) => [`with hares: ${events.filter((e) => !!e.hares).length}`],
+    sampleLimit: 12,
   },
   {
     sourceName: "MoA2H3 Google Calendar",
     describe: "#1458 — no doubled 'MoA2H3 MoA2H3' prefix",
-    inspect: (events) => {
-      const doubled = events.filter((e) => e.title && /^moa2h3\s+moa2h3\b/i.test(e.title));
-      const lines = [
-        `events: ${events.length}`,
-        `with doubled 'MoA2H3 MoA2H3' prefix: ${doubled.length} (expect 0)`,
-      ];
-      for (const e of events.slice(0, 10)) lines.push(`  ${formatSample(e)}`);
-      return lines;
-    },
+    checks: [
+      { label: "doubled 'MoA2H3 MoA2H3' prefix", predicate: (e) => !!e.title && /^moa2h3\s+moa2h3\b/i.test(e.title) },
+    ],
   },
 ];
+
+async function runTarget(adapter: GoogleCalendarAdapter, target: Target): Promise<number> {
+  const seedRow = SOURCES.find((s) => s.name === target.sourceName);
+  console.log(`\n## ${target.sourceName}`);
+  console.log(`   ${target.describe}`);
+  if (!seedRow) {
+    console.log(`   NOT FOUND IN SEED`);
+    return 1;
+  }
+  const source = {
+    id: "stub",
+    name: seedRow.name,
+    url: seedRow.url,
+    type: seedRow.type as Source["type"],
+    enabled: true,
+    config: (seedRow as { config?: unknown }).config ?? null,
+  } as unknown as Source;
+  try {
+    const result = await adapter.fetch(source, { days: 365 });
+    console.log(`   diag: ${JSON.stringify(result.diagnosticContext)}`);
+    console.log(`   events: ${result.events.length}`);
+    for (const line of target.summary?.(result.events) ?? []) console.log(`   ${line}`);
+    let failedChecks = 0;
+    for (const check of target.checks) {
+      const violators = result.events.filter(check.predicate);
+      console.log(`   ${check.label}: ${violators.length} (expect 0)`);
+      if (violators.length > 0) {
+        failedChecks += violators.length;
+        for (const e of violators.slice(0, 5)) console.log(`     VIOLATION ${formatSample(e)}`);
+      }
+    }
+    for (const e of result.events.slice(0, target.sampleLimit ?? 10)) console.log(`   ${formatSample(e)}`);
+    if (failedChecks > 0) console.log(`   ✗ ${failedChecks} regression(s) detected`);
+    return failedChecks;
+  } catch (err) {
+    console.log(`   FAILED: ${err instanceof Error ? err.message : String(err)}`);
+    return 1;
+  }
+}
 
 async function main() {
   if (!process.env.GOOGLE_CALENDAR_API_KEY) {
@@ -81,35 +117,8 @@ async function main() {
   }
   const adapter = new GoogleCalendarAdapter();
   let failures = 0;
-  for (const target of TARGETS) {
-    const seedRow = SOURCES.find((s) => s.name === target.sourceName);
-    if (!seedRow) {
-      console.log(`\n## ${target.sourceName} — NOT FOUND IN SEED`);
-      failures++;
-      continue;
-    }
-    const source = {
-      id: "stub",
-      name: seedRow.name,
-      url: seedRow.url,
-      type: seedRow.type as Source["type"],
-      enabled: true,
-      config: (seedRow as { config?: unknown }).config ?? null,
-    } as unknown as Source;
-    console.log(`\n## ${target.sourceName}`);
-    console.log(`   ${target.describe}`);
-    try {
-      const result = await adapter.fetch(source, { days: 365 });
-      console.log(`   diag: ${JSON.stringify(result.diagnosticContext)}`);
-      for (const line of target.inspect(result.events)) {
-        console.log(`   ${line}`);
-      }
-    } catch (err) {
-      failures++;
-      console.log(`   FAILED: ${err instanceof Error ? err.message : String(err)}`);
-    }
-  }
-  console.log(failures === 0 ? "\n✓ All targets fetched" : `\n✗ ${failures} failed`);
+  for (const target of TARGETS) failures += await runTarget(adapter, target);
+  console.log(failures === 0 ? "\n✓ All targets clean" : `\n✗ ${failures} regression(s) / fetch failure(s)`);
   process.exit(failures === 0 ? 0 : 1);
 }
 

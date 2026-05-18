@@ -1079,18 +1079,22 @@ export function buildRawEventFromGCalItem(
   // title shipped to users as "… -" / "… :".
   title = title.replace(/\s*[-–—:]\s*$/, "").trim(); // NOSONAR — anchored end-of-string strip, no nested quantifiers
   // #1458 — opt-in: strip a doubled kennelCode prefix at title start
-  // ("MoA2H3 MoA2H3 Red Dress Run" → "MoA2H3 Red Dress Run"). Some kennels
-  // double-paste the prefix on the GCal admin side. merge.ts's
-  // rewriteStaleDefaultTitle only handles "<kennelCode> Trail #N" patterns,
-  // not free-form titles. Gated on per-source config to avoid rewriting
-  // legitimate "X X News" titles where the kennelCode happens to be a
-  // common word. Keep the first occurrence (preserves typed casing) and
-  // drop the second.
+  // ("MoA2H3 MoA2H3 Red Dress Run" → "MoA2H3 Red Dress Run", or the bare
+  // placeholder "MoA2H3 MoA2H3" → "MoA2H3"). Some kennels double-paste
+  // the prefix on the GCal admin side. merge.ts's rewriteStaleDefaultTitle
+  // only handles "<kennelCode> Trail #N" patterns, not free-form titles.
+  // Gated on per-source config to avoid rewriting legitimate "X X News"
+  // titles where the kennelCode happens to be a common word.
   if (sourceConfig?.stripDoubledKennelPrefix && kennelTag) {
     const tagLen = kennelTag.length;
     const tagLc = kennelTag.toLowerCase();
-    if (title.toLowerCase().startsWith(`${tagLc} ${tagLc} `)) {
-      title = (title.slice(0, tagLen + 1) + title.slice(tagLen * 2 + 2)).trim();
+    const lc = title.toLowerCase();
+    const doubledLen = tagLen * 2 + 1; // "<tag> <tag>"
+    // Match exact doubled prefix OR doubled prefix followed by a space + rest.
+    if (lc.startsWith(`${tagLc} ${tagLc}`) && (title.length === doubledLen || title[doubledLen] === " ")) {
+      // Keep the first occurrence (preserves typed casing), drop the
+      // second and the separator space.
+      title = (title.slice(0, tagLen) + title.slice(doubledLen)).trim();
     }
   }
   // Stale-default detection: equality is whitespace-insensitive so a SUMMARY
