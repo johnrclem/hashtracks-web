@@ -699,6 +699,15 @@ interface CalendarSourceConfig {
    * Undefined preserves the legacy raw-slice behavior.
    */
   timezone?: string;
+  /**
+   * Opt-in: strip a doubled kennelCode prefix from the start of the title
+   * (e.g. "MoA2H3 MoA2H3 Red Dress Run" → "MoA2H3 Red Dress Run"). #1458.
+   * Off by default — set true only for sources whose admins are known to
+   * paste the prefix twice. Generic enablement risks rewriting legitimate
+   * brand titles like "X X News" when the kennelCode happens to be a
+   * common word.
+   */
+  stripDoubledKennelPrefix?: boolean;
 }
 
 /**
@@ -1069,6 +1078,21 @@ export function buildRawEventFromGCalItem(
   // an empty string with a configured fallback; without this strip the
   // title shipped to users as "… -" / "… :".
   title = title.replace(/\s*[-–—:]\s*$/, "").trim(); // NOSONAR — anchored end-of-string strip, no nested quantifiers
+  // #1458 — opt-in: strip a doubled kennelCode prefix at title start
+  // ("MoA2H3 MoA2H3 Red Dress Run" → "MoA2H3 Red Dress Run"). Some kennels
+  // double-paste the prefix on the GCal admin side. merge.ts's
+  // rewriteStaleDefaultTitle only handles "<kennelCode> Trail #N" patterns,
+  // not free-form titles. Gated on per-source config to avoid rewriting
+  // legitimate "X X News" titles where the kennelCode happens to be a
+  // common word. Keep the first occurrence (preserves typed casing) and
+  // drop the second.
+  if (sourceConfig?.stripDoubledKennelPrefix && kennelTag) {
+    const tagLen = kennelTag.length;
+    const tagLc = kennelTag.toLowerCase();
+    if (title.toLowerCase().startsWith(`${tagLc} ${tagLc} `)) {
+      title = (title.slice(0, tagLen + 1) + title.slice(tagLen * 2 + 2)).trim();
+    }
+  }
   // Stale-default detection: equality is whitespace-insensitive so a SUMMARY
   // of "4X2 H4" still matches kennelTag "4x2h4".
   if (titleMatchesKennelTag(title, kennelTag) && rawDescription) {
@@ -1101,14 +1125,21 @@ export function buildRawEventFromGCalItem(
       if (spansEntireTitle) {
         // Regex anchors entire title (Aloha `^AH3\s*#\d+.*-\s+(.+)$`):
         // strip only the capture group so the non-hare prefix survives.
+        // #1471 — include `/` so DWH3's slash-delimited variant
+        // ("Dead Whores H3/Milkbone…") trims its trailing separator.
         cleaned = title
           .slice(0, captureStart)
-          .replace(/\s*[-–—]\s*$/, "")
+          .replace(/\s*[-–—/]\s*$/, "") // NOSONAR — anchored end-of-string strip, no nested quantifiers
           .trim();
       } else if (start === 0 && captureStart === 0) {
         // Pure prefix capture (e.g. "Alice AH3 #2269"): strip the hare
-        // text from the start, preserve the match's trailing delimiter.
-        cleaned = title.slice(hareText.length).trimStart();
+        // text from the start, then drop any leading separator delimiter
+        // left behind by patterns that require " - " (or "/", "—" …)
+        // between the hare list and the rest of the title (#1466).
+        cleaned = title
+          .slice(hareText.length)
+          .trimStart()
+          .replace(/^[-–—:/]+\s*/, ""); // NOSONAR — anchored start-of-string strip, no nested quantifiers
       } else {
         // Mid- or partial-suffix match: strip the full regex span (label
         // + name) and collapse leftover delimiters. Handles Stuttgart

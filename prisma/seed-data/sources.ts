@@ -882,12 +882,15 @@ export const SOURCES = [
       scrapeDays: 365,
       config: {
         defaultKennelTag: "ah3",
-        // Title format: "{Hare1 and Hare2} - AH3 #N". Requiring an explicit
-        // " - " separator keeps the dash out of the capture group (#1210 —
-        // lazy match `(.+?)\s+AH3\s+#` left a trailing " -" on every event)
-        // and avoids matching titles where the slot before AH3 isn't a hare
-        // (e.g. titles whose author wrote a trail-type name in the hare slot).
-        titleHarePattern: String.raw`^(.+?)\s+-\s+AH3\s+#`,
+        // #1466 — no titleHarePattern. Kennel admins use the prefix slot
+        // ambiguously for both hare lists ("Alice & Bob - AH3 #N") and
+        // trail titles ("VSP Red Dress Run Hangover - AH3 #N"), and no
+        // regex shape distinguishes them safely. Letting the lazy
+        // `^(.+?) - AH3 #` capture run silently routed trail titles into
+        // `haresText` and truncated the user-visible title to a stub
+        // ("- AH3 #493"). With no titleHarePattern, all summaries pass
+        // through verbatim; hares come from the description path only
+        // (which already handles the common formats Austin uses).
       },
       kennelCodes: ["ah3"],
     },
@@ -2494,7 +2497,13 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "every_6h",
       scrapeDays: 90,
-      config: { defaultKennelTag: "moa2h3" },
+      config: {
+        defaultKennelTag: "moa2h3",
+        // #1458 — kennel admins double-paste "MoA2H3" into event titles on
+        // the source side. Opt in to the doubled-prefix strip so titles
+        // like "MoA2H3 MoA2H3 Red Dress Run" surface as a single prefix.
+        stripDoubledKennelPrefix: true,
+      },
       kennelCodes: ["moa2h3"],
     },
     {
