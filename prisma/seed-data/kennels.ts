@@ -1251,7 +1251,7 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "larrikins", shortName: "Larrikins", fullName: "Carolina Larrikins Hash House Harriers", region: "Raleigh, NC",
       website: "https://www.carolinalarrikins.com/",
       contactEmail: "Carolina.Larrikins@gmail.com",
-      mailingListUrl: "https://groups.google.com/forum/?fromgroups#!forum/carolinalarrikins",
+      mailingListUrl: "https://groups.google.com/g/carolinalarrikins",
       scheduleDayOfWeek: "Wednesday", scheduleFrequency: "Biweekly", scheduleTime: "6:30 PM",
       scheduleRules: [
         {
