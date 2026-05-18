@@ -95,6 +95,7 @@ function buildReq(opts: ApiPostInit = {}): Request {
 }
 
 const fetchMock = vi.fn();
+const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -107,6 +108,7 @@ beforeEach(() => {
   mockFindManyIssue.mockResolvedValue([] as never);
   mockUpdateIssue.mockResolvedValue({ recurrenceCount: 1 } as never);
   mockUpdateManyIssue.mockResolvedValue({ count: 0 } as never);
+  consoleErrorSpy.mockClear();
 });
 
 describe("POST /api/audit/file-finding", () => {
@@ -335,10 +337,105 @@ describe("POST /api/audit/file-finding", () => {
     expect(requestBody.labels).toContain("kennel:nych3");
   });
 
-  it("returns 502 when GitHub issue creation fails", async () => {
-    fetchMock.mockResolvedValue({ ok: false });
+  it("returns 502 when GitHub issue creation fails — logs status and body for triage (#1468)", async () => {
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 401,
+      text: async () => '{"message":"Bad credentials"}',
+    });
     const res = await POST(buildReq());
     expect(res.status).toBe(502);
+    // Lock the existing failure-envelope contract — a regression away from
+    // this body would silently change the caller's retry behavior.
+    const json = (await res.json()) as { error: string };
+    expect(json.error).toBe("GitHub issue creation failed");
+    // Operators need the status + body to diagnose. Without these logs, every
+    // failing filing surfaces only as `{"error":"GitHub issue creation failed"}`
+    // with zero signal about whether it's auth, rate-limit, or payload shape.
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("createIssue GitHub API 401"),
+    );
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Bad credentials"),
+    );
+  });
+
+  it("truncates oversized upstream bodies before logging (#1468 Codex pass)", async () => {
+    // Defense against an intermediary returning an HTML error page that
+    // reflects request content. Cap at 500 chars so logs stay bounded.
+    const huge = "x".repeat(2000);
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 502,
+      text: async () => huge,
+    });
+    await POST(buildReq());
+    const logged = consoleErrorSpy.mock.calls
+      .map((call) => String(call[0]))
+      .find((s) => s.includes("createIssue GitHub API 502"));
+    expect(logged).toBeDefined();
+    expect(logged).toContain("(truncated)");
+    // Logged tail should be a strict prefix of the upstream body plus the marker.
+    expect(logged!.length).toBeLessThan(huge.length);
+  });
+
+  it("logs thrown errors from createIssue (#1468)", async () => {
+    fetchMock.mockRejectedValue(new Error("ECONNRESET"));
+    const res = await POST(buildReq());
+    expect(res.status).toBe(502);
+    const json = (await res.json()) as { error: string };
+    expect(json.error).toBe("GitHub issue creation failed");
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      "[audit-file-finding] createIssue fetch threw:",
+      expect.objectContaining({ message: "ECONNRESET" }),
+    );
+  });
+
+  it("logs when GITHUB_TOKEN is missing (#1468)", async () => {
+    delete process.env.GITHUB_TOKEN;
+    const res = await POST(buildReq());
+    expect(res.status).toBe(502);
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      "[audit-file-finding] createIssue: GITHUB_TOKEN not set",
+    );
+  });
+
+  it("logs failed postComment status + body on recur-comment path (#1468)", async () => {
+    mockFindIssue.mockResolvedValue({
+      id: "ai_existing",
+      githubNumber: 42,
+      htmlUrl: "https://github.com/x/y/issues/42",
+      recurrenceCount: 0,
+    } as never);
+    fetchMock.mockResolvedValueOnce({
+      ok: false,
+      status: 410,
+      text: async () => '{"message":"Issue is locked"}',
+    });
+    const res = await POST(buildReq());
+    expect(res.status).toBe(502);
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("postComment GitHub API #42 410"),
+    );
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Issue is locked"),
+    );
+  });
+
+  it("logs thrown errors from postComment on recur-comment path (#1468)", async () => {
+    mockFindIssue.mockResolvedValue({
+      id: "ai_existing",
+      githubNumber: 42,
+      htmlUrl: "https://github.com/x/y/issues/42",
+      recurrenceCount: 0,
+    } as never);
+    fetchMock.mockRejectedValueOnce(new Error("ETIMEDOUT"));
+    const res = await POST(buildReq());
+    expect(res.status).toBe(502);
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      "[audit-file-finding] postComment fetch threw:",
+      expect.objectContaining({ message: "ETIMEDOUT" }),
+    );
   });
 
   it("does not look up an existing issue by fingerprint for non-fingerprintable rules", async () => {
