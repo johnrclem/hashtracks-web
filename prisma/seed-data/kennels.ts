@@ -3452,7 +3452,7 @@ export const KENNELS: KennelSeed[] = [
       region: "Johor", country: "Malaysia",
       logoUrl: "https://www.malaysiahash.com/logos/12.jpg",
       scheduleDayOfWeek: "Saturday", scheduleTime: "5:00 PM", scheduleFrequency: "Weekly",
-      scheduleNotes: "One of Malaysia's oldest hash kennels. Schedule details available via Facebook.",
+      scheduleNotes: "Weekly Saturday runs through the palm oil plantations and jungle trails around Kluang. Founded 1967.",
       foundedYear: 1967,
       founder: "Richard C. A. McAllister [RCT]",
       description: "Founded in 1967 in the Johor interior, Kluang H3 predates the larger Johor Bahru kennel by two years. Weekly Saturday runs through the palm oil plantations and jungle trails around Kluang.",
