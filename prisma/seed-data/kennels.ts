@@ -1247,7 +1247,6 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "larrikins", shortName: "Larrikins", fullName: "Carolina Larrikins Hash House Harriers", region: "Raleigh, NC",
       website: "https://www.carolinalarrikins.com/",
       scheduleDayOfWeek: "Wednesday", scheduleFrequency: "Biweekly", scheduleTime: "6:30 PM",
-      scheduleNotes: "1st and 3rd Wednesday, 6:30 PM.",
       scheduleRules: [
         {
           rrule: "FREQ=MONTHLY;BYDAY=1WE",
@@ -1261,7 +1260,7 @@ export const KENNELS: KennelSeed[] = [
         },
       ],
       hashCash: "$1",
-      description: "Biweekly Wednesday evening hash in the Triangle area.",
+      description: "Triangle-area kennel covering Raleigh, Durham, and Chapel Hill.",
       latitude: 35.78, longitude: -78.64,
     },
     // --- Charlotte ---
