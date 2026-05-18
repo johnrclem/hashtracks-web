@@ -36,18 +36,18 @@ export function isUniqueConstraintViolation(
   }
   if (typeof target === "string") {
     // Postgres-shaped constraint name (e.g. `RawEvent_sourceId_fingerprint_key`).
-    // Match each column with `_`-or-string-boundary anchors on both sides so:
-    //   - `fingerprintVersion` does NOT shadow `fingerprint` (Codex pass — #1464)
-    //   - snake_case column names like `user_id` still match cleanly inside
-    //     constraint names like `User_user_id_email_key` (Gemini pass — #1483)
+    // Wrap with `_` on both sides and require each column to appear bracketed
+    // by `_` boundaries — equivalent to a `(?:^|_)col(?:_|$)` regex but
+    // expressed as plain `String.includes` to avoid dynamic-regex construction
+    // (Codacy security pass — #1483) and any ReDoS surface. This:
+    //   - rejects `fingerprintVersion` shadowing `fingerprint` (Codex pass)
+    //   - matches snake_case columns like `user_id` cleanly inside
+    //     constraint names like `User_user_id_email_key` (Gemini pass)
     // Subset semantics are intentional: the constraint name always carries
     // the model prefix and `_key`/`_idx` suffix as non-column tokens, so we
-    // can't require length parity the way the array path does — anchored
-    // membership is the strongest check available without knowing the model.
-    return requiredTargetColumns.every((col) => {
-      const escaped = col.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      return new RegExp(`(?:^|_)${escaped}(?:_|$)`).test(target);
-    });
+    // can't require length parity the way the array path does.
+    const padded = `_${target}_`;
+    return requiredTargetColumns.every((col) => padded.includes(`_${col}_`));
   }
   return false;
 }
