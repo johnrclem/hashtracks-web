@@ -75,6 +75,46 @@ const SAMPLE_EVENT_NO_DATE = `
   <a class="em-item-read-more" href="https://www.phoenixhhh.org/?event=tbd-event">Read More</a>
 </div>`;
 
+// Multi-day event with a long-form date range (#1473 — Annual Whiskey Row
+// Hash Campout shape on the live calendar). The adapter must take the FIRST
+// embedded MM/DD/YYYY, which is the event start date — handing the full
+// range string to chrono would be ambiguous.
+const SAMPLE_EVENT_MULTI_DAY = `
+<div class="em-item em-event">
+  <div class="em-item-image"></div>
+  <div class="em-item-info">
+    <div class="em-item-name"><a href="https://www.phoenixhhh.org/?event=campout">Annual Campout</a></div>
+    <div class="em-item-meta">
+      <div class="em-item-meta-line em-event-date">Thursday - 04/30/2026 - Sunday - 05/03/2026</div>
+      <div class="em-item-meta-line em-event-time">2:00 pm</div>
+    </div>
+    <a class="em-item-read-more" href="https://www.phoenixhhh.org/?event=campout">Read More</a>
+  </div>
+</div>`;
+
+// Live HTML captured from the Events Manager calendar (#1473). The plugin
+// renders some events in the compact `D MMM YY` row form instead of the
+// long `Weekday - MM/DD/YYYY` form. Prior to the fix, half of every month's
+// grid failed `Could not extract date from event item` parse errors.
+const SAMPLE_EVENT_COMPACT_DATE = `
+<div class="em-item em-event">
+  <div class="em-item-image has-placeholder">
+    <div class="em-item-image-placeholder">
+      <div class="date"><span class="day">27</span><span class="month">Apr</span></div>
+    </div>
+  </div>
+  <div class="em-item-info">
+    <div class="em-item-name"><a href="https://www.phoenixhhh.org/?event=lbh-741">LBH #741</a></div>
+    <div class="em-item-meta">
+      <div class="em-item-meta-line em-event-date em-event-meta-datetime"><span class="em-icon em-icon-calendar"></span><span>27 Apr 26</span></div>
+      <div class="em-item-meta-line em-event-time"><span>6:30 pm</span></div>
+      <div class="em-item-meta-line em-event-location em-event-meta-location"><a href="https://maps.google.com/?q=Groggys">Groggy's</a></div>
+    </div>
+    <div class="em-item-desc">Join us for the 741st running of LBH! Hare: Crayon.</div>
+    <a class="em-item-read-more" href="https://www.phoenixhhh.org/?event=lbh-741">More Info</a>
+  </div>
+</div>`;
+
 const DEFAULT_CONFIG = {
   kennelPatterns: [
     ["^LBH\\b|Lost Boobs", "LBH"],
@@ -146,6 +186,33 @@ describe("parseEventFromItem", () => {
     const event = parseEventFromItem($item, $, DEFAULT_CONFIG, compiled);
 
     expect(event!.date).toBe("2026-03-02");
+  });
+
+  it("takes the start date from a multi-day long-form range (#1473)", () => {
+    // "Thursday - 04/30/2026 - Sunday - 05/03/2026" must resolve to the
+    // first embedded MM/DD/YYYY (event start), not the second.
+    const $ = cheerio.load(SAMPLE_EVENT_MULTI_DAY);
+    const $item = $(".em-item").first();
+    const compiled = makeCompiledPatterns(DEFAULT_CONFIG);
+    const event = parseEventFromItem($item, $, DEFAULT_CONFIG, compiled);
+
+    expect(event!.date).toBe("2026-04-30");
+  });
+
+  it("extracts date from compact `D MMM YY` Events Manager row form (#1473)", () => {
+    // The Events Manager plugin renders calendar rows in two formats —
+    // the long `Weekday - MM/DD/YYYY` shape and the compact `D MMM YY`
+    // shape (e.g. "27 Apr 26"). Pre-fix, the latter failed the regex
+    // and ~half the month's grid was dropped as "Could not extract date".
+    const $ = cheerio.load(SAMPLE_EVENT_COMPACT_DATE);
+    const $item = $(".em-item").first();
+    const compiled = makeCompiledPatterns(DEFAULT_CONFIG);
+    const event = parseEventFromItem($item, $, DEFAULT_CONFIG, compiled);
+
+    expect(event).not.toBeNull();
+    expect(event!.date).toBe("2026-04-27");
+    expect(event!.startTime).toBe("18:30");
+    expect(event!.location).toBe("Groggy's");
   });
 
   it("extracts start time", () => {

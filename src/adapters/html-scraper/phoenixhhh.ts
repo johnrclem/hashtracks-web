@@ -14,7 +14,7 @@ import type { AnyNode } from "domhandler";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails, ParseError } from "../types";
 import { safeFetch } from "../safe-fetch";
-import { parse12HourTime, validateSourceConfig, compilePatterns, buildDateWindow, stripHtmlTags, decodeEntities, extractHashRunNumber } from "../utils";
+import { parse12HourTime, validateSourceConfig, compilePatterns, buildDateWindow, stripHtmlTags, decodeEntities, extractHashRunNumber, chronoParseDate } from "../utils";
 import { extractHares } from "../hare-extraction";
 
 // ── Config shape ──
@@ -90,12 +90,26 @@ export function parseEventFromItem(
   }
   // If no title from img alt, it will be fetched from the detail page later
 
-  // Date extraction: "Monday - 03/02/2026"
+  // Date extraction. Events Manager emits two shapes:
+  //   - Long: "Monday - 03/02/2026" (single-day events with weekday prefix,
+  //     or "Thursday - 04/30/2026 - Sunday - 05/03/2026" multi-day spans)
+  //   - Compact: "27 Apr 26" (#1473 — appears for events the plugin renders
+  //     in the compact calendar row form; broke the legacy `MM/DD/YYYY`-only
+  //     regex against ~half of the May 2026 month grid)
+  // Try the long form first (matches an embedded `MM/DD/YYYY` even in the
+  // multi-day case — first date wins, matching prior behavior). Fall back to
+  // `chronoParseDate` which has a `D MMM YY` fast-path baked in.
   const dateText = $item.find(".em-item-meta-line.em-event-date").text().trim();
   const dateMatch = /(\d{2})\/(\d{2})\/(\d{4})/.exec(dateText);
-  if (!dateMatch) return null;
-  const [, mm, dd, yyyy] = dateMatch;
-  const date = `${yyyy}-${mm}-${dd}`;
+  let date: string;
+  if (dateMatch) {
+    const [, mm, dd, yyyy] = dateMatch;
+    date = `${yyyy}-${mm}-${dd}`;
+  } else {
+    const parsed = chronoParseDate(dateText);
+    if (!parsed) return null;
+    date = parsed;
+  }
 
   // Time extraction: "6:30 pm - 9:30 pm"
   const timeText = $item.find(".em-item-meta-line.em-event-time").text().trim();
