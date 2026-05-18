@@ -56,6 +56,27 @@ describe("isUniqueConstraintViolation", () => {
       false,
     ],
     [
+      // Gemini pass (#1483): a naive `target.split("_")` would explode the
+      // column `user_id` into `["user","id"]` and miss the actual column.
+      // The boundary-anchored regex must match the multi-token column whole.
+      "string-target shape — snake_case column matches inside constraint name",
+      buildPrismaUniqueViolation("User_user_id_email_key"),
+      ["user_id", "email"],
+      true,
+    ],
+    [
+      // Defensive: a future Prisma version could emit some other shape
+      // (number, null, object). Fall through to false rather than crash.
+      "unknown target shape (number) falls through to false",
+      new Prisma.PrismaClientKnownRequestError("weird shape", {
+        code: "P2002",
+        clientVersion: "0.0.0",
+        meta: { target: 42 },
+      }),
+      ["sourceId", "fingerprint"],
+      false,
+    ],
+    [
       "non-P2002 error never matches",
       new Prisma.PrismaClientKnownRequestError("not found", {
         code: "P2025",
