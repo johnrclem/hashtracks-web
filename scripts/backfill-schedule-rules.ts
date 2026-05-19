@@ -634,7 +634,7 @@ interface DisplayKennel {
 
 interface DisplayRowResult {
   emitted: number;
-  status: "emitted" | "unparseable" | "opted-out";
+  status: "emitted" | "unparseable" | "opted-out" | "covered";
   reason?: string;
 }
 
@@ -645,6 +645,7 @@ interface DisplayRowResult {
 function processDisplayKennel(
   k: DisplayKennel,
   optedOutCodes: ReadonlySet<string>,
+  coveredKeys: ReadonlySet<string>,
   planned: PlannedRule[],
   options: BackfillOptions,
 ): DisplayRowResult {
@@ -668,7 +669,23 @@ function processDisplayKennel(
     };
   }
   const startTime = parseScheduleTime(k.scheduleTime);
+  let emitted = 0;
   for (const rule of parsed) {
+    // Skip when an earlier pass (typically Pass 1, STATIC_SCHEDULE) already
+    // emitted a HIGH-confidence rule for this same (kennelId, rrule). Without
+    // this guard Pass 2 produces a redundant MEDIUM SEED_DATA row with the
+    // same RRULE; the @@unique constraint on (kennelId, rrule, source) lets
+    // both rows survive (different `source` enums), and the UI then renders
+    // them as duplicate "Mondays at 6:00 PM / Mondays at 6:00 PM" via
+    // formatScheduleRules. See #1486 (HHHS symptom in #1475).
+    if (coveredKeys.has(`${k.id}|${rule.rrule}`)) {
+      if (options.verbose) {
+        console.log(
+          `  ⤼ ${k.shortName} — ${rule.rrule} already covered by an earlier HIGH-confidence pass (skipping Pass 2 emit)`,
+        );
+      }
+      continue;
+    }
     planned.push({
       kennelId: k.id,
       kennelDisplay: k.shortName,
@@ -685,8 +702,12 @@ function processDisplayKennel(
       validUntil: null,
       displayOrder: 0,
     });
+    emitted++;
   }
-  return { emitted: parsed.length, status: "emitted" };
+  if (emitted === 0) {
+    return { emitted: 0, status: "covered" };
+  }
+  return { emitted, status: "emitted" };
 }
 
 export async function runKennelDisplayPass(
@@ -694,13 +715,22 @@ export async function runKennelDisplayPass(
   planned: PlannedRule[],
   options: BackfillOptions = {},
   seedKennels: ReadonlyArray<KennelSeedLike> = KENNELS,
-): Promise<{ count: number; skipped: number; total: number; optedOut: number }> {
+): Promise<{ count: number; skipped: number; total: number; optedOut: number; coveredByEarlierPass: number }> {
   console.log("━━━ Pass 2: Kennel display strings → MEDIUM/LOW ━━━");
 
   const optedOutCodes = new Set(
     seedKennels
       .filter((k) => Array.isArray(k.scheduleRules) && k.scheduleRules.length > 0)
       .map((k) => k.kennelCode),
+  );
+
+  // Pre-compute (kennelId|rrule) keys for HIGH-confidence rules already planned
+  // by an earlier pass (typically Pass 1 / STATIC_SCHEDULE). Pass 2 skips its
+  // own emit for any (kennelId, rrule) in this set — see #1486.
+  const coveredKeys = new Set(
+    planned
+      .filter((p) => p.confidence === "HIGH")
+      .map((p) => `${p.kennelId}|${p.rrule}`),
   );
 
   const kennels = await prisma.kennel.findMany({
@@ -719,11 +749,13 @@ export async function runKennelDisplayPass(
   let count = 0;
   let skipped = 0;
   let optedOut = 0;
+  let coveredByEarlierPass = 0;
   const skipReasons = new Map<string, number>();
   for (const k of kennels) {
-    const result = processDisplayKennel(k, optedOutCodes, planned, options);
+    const result = processDisplayKennel(k, optedOutCodes, coveredKeys, planned, options);
     count += result.emitted;
     if (result.status === "opted-out") optedOut++;
+    else if (result.status === "covered") coveredByEarlierPass++;
     else if (result.status === "unparseable" && result.reason) {
       skipped++;
       skipReasons.set(result.reason, (skipReasons.get(result.reason) ?? 0) + 1);
@@ -731,7 +763,8 @@ export async function runKennelDisplayPass(
   }
   console.log(
     `  ✓ ${count} rules planned from ${kennels.length} kennels ` +
-      `(${skipped} unparseable, ${optedOut} opted-out via scheduleRules)`,
+      `(${skipped} unparseable, ${optedOut} opted-out via scheduleRules, ` +
+      `${coveredByEarlierPass} covered by an earlier HIGH-confidence pass)`,
   );
   if (skipped > 0) {
     console.log("  Top skip reasons:");
@@ -741,7 +774,7 @@ export async function runKennelDisplayPass(
     }
   }
   console.log("");
-  return { count, skipped, total: kennels.length, optedOut };
+  return { count, skipped, total: kennels.length, optedOut, coveredByEarlierPass };
 }
 
 /**
