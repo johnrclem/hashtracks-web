@@ -1,12 +1,14 @@
 import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import {
-  fetchEventTitle as _fetchEventTitle,
+  fetchEventDetail,
   buildMonthFormData,
   parseEventFromItem,
+  PHOENIX_HARE_PATTERNS,
   PhoenixHHHAdapter,
 } from "./phoenixhhh";
 import { extractHashRunNumber } from "../utils";
+import { extractHares } from "../hare-extraction";
 
 // ── Sample HTML fixtures ──
 
@@ -458,5 +460,209 @@ describe("PhoenixHHHAdapter", () => {
   it("has correct type", () => {
     const adapter = new PhoenixHHHAdapter();
     expect(adapter.type).toBe("HTML_SCRAPER");
+  });
+});
+
+// ── PHOENIX_HARE_PATTERNS (#1472, #1192) ──
+
+describe("PHOENIX_HARE_PATTERNS — list-view extraction", () => {
+  it("captures `Hare(s):` after `Harriers!!! ` sentence boundary (#1472)", () => {
+    // List-view excerpt: labels run together because <p> tags are collapsed.
+    // The Phoenix-scoped patterns allow mid-line `Hare:` after sentence
+    // punctuation. The age-restriction line ("Who: People …") must NOT
+    // be returned even though the generic default `Who:` catchall would
+    // have matched it.
+    const desc =
+      "Join us for the 744th running of the Lost Boobs Hash House Harriers!!! " +
+      "Hare(s): Prostitutor, Just Rick, Just Christin " +
+      "Who: People that are at least 21 years old (no exceptions).";
+    expect(extractHares(desc, PHOENIX_HARE_PATTERNS as RegExp[])).toBe(
+      "Prostitutor, Just Rick, Just Christin",
+    );
+  });
+
+  it("returns undefined when only an age-restriction `Who:` line is present (#1472)", () => {
+    // No Hare label at all — Phoenix patterns must NOT fall back to a
+    // generic Who: capture. Returning undefined is the correct behavior;
+    // an empty hares field is preferable to the age-restriction prose.
+    const desc =
+      "Join us for the 745th running. Who: People that are at least 21 years old (no exceptions).";
+    expect(extractHares(desc, PHOENIX_HARE_PATTERNS as RegExp[])).toBeUndefined();
+  });
+
+  it("captures FDTDD `With your Hares:` mid-paragraph (#1192)", () => {
+    const desc =
+      'The From Dusk Till Down-Down Hash presents My Bloody Hashentine! ' +
+      'With your Hares: Chew Oyster Cult & Cumming to Dinner "The most evil hash …"';
+    expect(extractHares(desc, PHOENIX_HARE_PATTERNS as RegExp[])).toBe(
+      "Chew Oyster Cult & Cumming to Dinner",
+    );
+  });
+
+  it("captures FDTDD singular `With your Hare:` (#1192)", () => {
+    const desc = "The From Dusk Till Down-Downs Hash presents Foo. With your Hare: Makin' Me Gay …";
+    expect(extractHares(desc, PHOENIX_HARE_PATTERNS as RegExp[])).toBe("Makin' Me Gay");
+  });
+
+  it("captures literal `With your Hare(s):` parenthesized form (codex P1 follow-up to #1192)", () => {
+    // The FDTDD kennel uses three label variants — singular, plural, and the
+    // parenthesized `Hare(s):` literal. All three must extract.
+    const desc = "The From Dusk Till Down-Downs Hash presents Bar. With your Hare(s): Spermin Williams, 1000 Cock Stare";
+    expect(extractHares(desc, PHOENIX_HARE_PATTERNS as RegExp[])).toBe(
+      "Spermin Williams, 1000 Cock Stare",
+    );
+  });
+
+  it("captures `Hare(s):` block on its own line (detail-page <p>-separated form)", () => {
+    const desc = "LBH #744\n\nHare(s): Prostitutor, Just Rick, Just Christin\n\nWho: People that are at least 21";
+    expect(extractHares(desc, PHOENIX_HARE_PATTERNS as RegExp[])).toBe(
+      "Prostitutor, Just Rick, Just Christin",
+    );
+  });
+});
+
+describe("parseEventFromItem — list-view hare fallback uses Phoenix patterns (#1472)", () => {
+  it("does not capture `Who:` age-restriction line as hares", () => {
+    const html = `
+      <div class="em-item em-event">
+        <div class="em-item-image"><img src="/img/lbh.jpg" alt="LBH #744 Hares Needed" /></div>
+        <div class="em-item-meta-line em-event-date">Monday - 05/18/2026</div>
+        <div class="em-item-meta-line em-event-time">6:30 pm</div>
+        <div class="em-item-desc">
+          <p>Join us for the 744th running of the Lost Boobs Hash House Harriers!!! Hare(s): Prostitutor, Just Rick, Just Christin Who: People that are at least 21 years old (no exceptions).</p>
+        </div>
+        <a class="em-item-read-more" href="/?event=lbh-744">Read More</a>
+      </div>
+    `;
+    const $ = cheerio.load(html);
+    const $item = $(".em-item").first();
+    const compiled: [RegExp, string][] = [[/LBH/i, "LBH"]];
+    const event = parseEventFromItem(
+      $item,
+      $,
+      { kennelPatterns: [["LBH", "LBH"]], defaultKennelTag: "Wrong Way" },
+      compiled,
+    );
+
+    expect(event).not.toBeNull();
+    expect(event!.hares).toBe("Prostitutor, Just Rick, Just Christin");
+    expect(event!.hares).not.toContain("Who:");
+    expect(event!.hares).not.toContain("People that are");
+  });
+});
+
+// ── fetchEventDetail (#1193) ──
+
+const SAMPLE_DETAIL_PAGE_HTML = `
+<!DOCTYPE html>
+<html>
+<head><title>LBH #744 – HashTracks Test</title></head>
+<body>
+<article>
+  <h1 class="entry-title">LBH #744: Hares Needed - Be the Hero We Don't Deserve</h1>
+  <div class="entry-content">
+    <p><strong>Hare(s):</strong> Prostitutor, Just Rick, Just Christin</p>
+    <p><strong>Who:</strong> People that are at least 21 years old (no exceptions).</p>
+    <p><strong>What:</strong> A 4-5 mile trail with beer stops.</p>
+    <p><strong>Where:</strong> See the location field above.</p>
+  </div>
+</article>
+</body>
+</html>`;
+
+describe("fetchEventDetail", () => {
+  it("extracts title, full description, and hares from the detail page (#1193)", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(SAMPLE_DETAIL_PAGE_HTML, { status: 200 }),
+    );
+
+    const detail = await fetchEventDetail("https://www.phoenixhhh.org/?event=lbh-744");
+    vi.restoreAllMocks();
+
+    expect(detail.title).toContain("LBH #744");
+    expect(detail.description).toContain("Prostitutor, Just Rick, Just Christin");
+    expect(detail.description).toContain("People that are at least 21 years old");
+    // The detail-page description does NOT carry the WordPress `[...]`
+    // truncation marker that the list-view excerpt does.
+    expect(detail.description).not.toContain("[...]");
+    // The hare extraction uses Phoenix-scoped patterns, which means
+    // the `Who:` age-restriction line is NOT captured as a hare.
+    expect(detail.hares).toBe("Prostitutor, Just Rick, Just Christin");
+  });
+
+  it("throws on HTTP error so the post-loop can record the failure", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response("Not Found", { status: 404 }),
+    );
+    await expect(fetchEventDetail("https://www.phoenixhhh.org/?event=missing")).rejects.toThrow(/HTTP 404/);
+    vi.restoreAllMocks();
+  });
+
+  it("propagates network failures so the post-loop can distinguish error modes", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new Error("ECONNRESET"));
+    await expect(fetchEventDetail("https://www.phoenixhhh.org/?event=any")).rejects.toThrow(/ECONNRESET/);
+    vi.restoreAllMocks();
+  });
+
+  it("returns null content fields when the detail page lacks `.entry-content`", async () => {
+    const html = `<html><body><article><h1 class="entry-title">Bare Page</h1></article></body></html>`;
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(html, { status: 200 }));
+    const detail = await fetchEventDetail("https://www.phoenixhhh.org/?event=bare");
+    vi.restoreAllMocks();
+    expect(detail.title).toBe("Bare Page");
+    expect(detail.description).toBeNull();
+    expect(detail.hares).toBeNull();
+  });
+});
+
+// ── Detail-fetch failures surface in errorDetails (codex follow-up) ──
+
+describe("PhoenixHHHAdapter.fetch — detail-fetch failures are visible", () => {
+  it("records detail-fetch failures in errorDetails.fetch (bounded sample)", async () => {
+    // Build a fixture with TODAY's date so it falls inside the
+    // adapter's date window regardless of when the test runs.
+    const now = new Date();
+    const mm = String(now.getUTCMonth() + 1).padStart(2, "0");
+    const dd = String(now.getUTCDate()).padStart(2, "0");
+    const yyyy = now.getUTCFullYear();
+    const sampleAjaxResponse = `
+      <div class="em-calendar-wrap">
+        <div class="em-item em-event">
+          <div class="em-item-image">
+            <img src="/img/lbh.jpg" alt="Lost Boobs Hash Test" />
+          </div>
+          <div class="em-item-meta-line em-event-date">Today - ${mm}/${dd}/${yyyy}</div>
+          <div class="em-item-meta-line em-event-time">6:30 pm</div>
+          <a class="em-item-read-more" href="https://www.phoenixhhh.org/?event=test">Read More</a>
+        </div>
+      </div>
+    `;
+
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    // First call: the month AJAX returns the list HTML.
+    fetchSpy.mockResolvedValueOnce(new Response(sampleAjaxResponse, { status: 200 }));
+    // Every detail-page fetch returns 503 (origin rate-limit / outage).
+    fetchSpy.mockImplementation(async () => new Response("Service Unavailable", { status: 503 }));
+
+    const adapter = new PhoenixHHHAdapter();
+    const source = {
+      id: "test",
+      url: "https://www.phoenixhhh.org/?page_id=21",
+      config: DEFAULT_CONFIG,
+    } as unknown as Source;
+
+    const result = await adapter.fetch(source, { days: 1 });
+    vi.restoreAllMocks();
+
+    // Events still parse (list-view fallback).
+    expect(result.events.length).toBeGreaterThan(0);
+    // BUT the detail-fetch failures are surfaced — fail-loud over silent
+    // truncated-description regressions.
+    expect(result.errorDetails?.fetch).toBeDefined();
+    expect(result.errorDetails!.fetch!.length).toBeGreaterThan(0);
+    expect(result.errorDetails!.fetch!.length).toBeLessThanOrEqual(5);
+    expect(result.errorDetails!.fetch![0].message).toMatch(/Detail fetch/i);
+    expect(result.diagnosticContext?.detailFetchFailures).toBeGreaterThan(0);
+    expect(result.diagnosticContext?.detailsFetched).toBe(0);
   });
 });

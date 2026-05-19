@@ -27,24 +27,77 @@ interface PhoenixHHHConfig {
 
 // ── Exported helpers (for unit testing) ──
 
+// Phoenix-cluster hare patterns. The default `extractHares` set includes a
+// generic `Who:` catchall that would capture the age-restriction line
+// (#1472 — "Who: People that are at least 21 years old"). The cluster
+// always uses `Hare:` / `Hares:` / `Hare(s):` / `With your Hare(s):`, so
+// `Who:` is reserved for restrictions and deliberately excluded here.
+//
+// Capture excludes newline, quote/curly-quote (FDTDD's `"The most evil hash"`
+// blurb runs straight off the hare list) and ellipsis. Terminator stops at
+// the next labeled section, a quote, or end-of-line.
+//
+// Both patterns are regex literals — `new RegExp(<expression>)` trips
+// Codacy's `security/detect-non-literal-regexp` rule on new code (the
+// shared `PHOENIX_HARE_TERMINATOR` was inlined to avoid this).
+export const PHOENIX_HARE_PATTERNS: readonly RegExp[] = [
+  // FDTDD: "With your Hare: X" / "With your Hares: X, Y" / "With your Hare(s): X" (#1192).
+  // The `(?:\(s\))?` group matches the literal `(s)` form alongside `Hare` / `Hares`
+  // (codex P1: the kennel uses all three; bare `Hares?` would miss the parenthesized form).
+  // S5852 false-positive — Sonar flags `\s*` near alternation; engine
+  // anchored to finite label set + character-class exclusion (`[^\n"”…]+?`)
+  // makes catastrophic backtracking impossible.
+  /\bWith\s+your\s+Hares?\s*(?:\(s\))?\s*:\s*([^\n"”…]+?)(?=\s*(?:Who|What|When|Where|Wear|Why|How|Theme)\s*:|["”…]|\.{3}|\n|$)/i, // NOSONAR S5852
+  // Standard `Hare:` / `Hares:` / `Hare(s):` — anchored to line start OR a
+  // sentence boundary so list-view excerpts like "…Harriers!!! Hare(s): …"
+  // resolve before detail-page enrichment lands.
+  /(?:^|\n|[.!;]\s+)Hares?\s*(?:\(s\))?\s*:\s*([^\n"”…]+?)(?=\s*(?:Who|What|When|Where|Wear|Why|How|Theme)\s*:|["”…]|\.{3}|\n|$)/i, // NOSONAR S5852
+];
+
+/** Detail-page extraction result. Null fields mean "missing on the page"
+ *  (adapter falls back to list-view values). */
+export interface PhoenixEventDetail {
+  title: string | null;
+  description: string | null;
+  hares: string | null;
+}
+
 /**
- * Fetch the event detail page and extract the title from the `<h1>` heading.
- * Returns null if fetch fails or no title found.
+ * Fetch the per-event detail page and extract title, description, and hares.
+ *
+ * The Big Ass Calendar list view emits a WordPress excerpt that's truncated
+ * with `[...]` (#1193) and lacks `<p>` boundaries needed for line-anchored
+ * hare patterns (#1192, #1472). The detail page carries the full body with
+ * `<p>`-separated labels.
+ *
+ * Throws on HTTP errors and network failures so the adapter post-loop can
+ * distinguish failure modes in `errorDetails.fetch`.
  */
-export async function fetchEventTitle(eventUrl: string): Promise<string | null> {
-  try {
-    const res = await safeFetch(eventUrl, {
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
-    });
-    if (!res.ok) return null;
-    const html = await res.text();
-    const $ = cheerio.load(html);
-    const h1 = $("article h1, .entry-title, h1.tribe-events-single-event-title").first();
-    const title = h1.text().trim();
-    return title ? decodeEntities(title) : null;
-  } catch {
-    return null;
+export async function fetchEventDetail(eventUrl: string): Promise<PhoenixEventDetail> {
+  const res = await safeFetch(eventUrl, {
+    headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const html = await res.text();
+  const $ = cheerio.load(html);
+
+  const h1 = $("article h1, .entry-title, h1.tribe-events-single-event-title").first();
+  const titleText = h1.text().trim();
+  const title = titleText ? decodeEntities(titleText) : null;
+
+  const contentEl = $(".entry-content, article .em-event-content, .em-event-content").first();
+  let description: string | null = null;
+  let hares: string | null = null;
+  if (contentEl.length > 0) {
+    const text = stripHtmlTags(contentEl.html() ?? "", "\n").trim();
+    description = text || null;
+    if (text) {
+      hares = extractHares(text, PHOENIX_HARE_PATTERNS as RegExp[]) ?? null;
+    }
   }
+
+  return { title, description, hares };
 }
 
 /**
@@ -124,8 +177,11 @@ export function parseEventFromItem(
   const descHtml = $item.find(".em-item-desc").html() ?? "";
   const description = stripHtmlTags(descHtml, "\n").trim() || undefined;
 
-  // Hares from description
-  const hares = description ? extractHares(description) : undefined;
+  // List-view fallback (post-loop detail fetch usually overrides this).
+  // Phoenix-scoped patterns omit the generic `Who:` catchall — see #1472.
+  const hares = description
+    ? extractHares(description, PHOENIX_HARE_PATTERNS as RegExp[])
+    : undefined;
 
   // Source URL from read-more link
   const readMoreHref = $item.find("a.em-item-read-more").attr("href");
@@ -286,27 +342,49 @@ export class PhoenixHHHAdapter implements SourceAdapter {
       }
     }
 
-    // Fetch titles for events that don't have one (no img.alt — need detail page)
-    const needsTitle = allEvents.filter((e) => !e.title && e.sourceUrl);
+    // Detail-page enrichment for every event with a sourceUrl. See
+    // `fetchEventDetail` docblock for the #1192/#1193/#1472 rationale.
+    const needsDetail = allEvents.filter((e) => e.sourceUrl);
+    let detailsFetched = 0;
+    let detailFetchFailures = 0;
     let titlesFetched = 0;
-    const TITLE_CONCURRENCY = 3;
-    const TITLE_BATCH_DELAY = 300;
+    const DETAIL_CONCURRENCY = 3;
+    const DETAIL_BATCH_DELAY = 300;
+    const MAX_DETAIL_FETCH_ERROR_SAMPLES = 5;
 
-    for (let i = 0; i < needsTitle.length; i += TITLE_CONCURRENCY) {
-      if (i > 0) await new Promise((r) => setTimeout(r, TITLE_BATCH_DELAY));
+    for (let i = 0; i < needsDetail.length; i += DETAIL_CONCURRENCY) {
+      if (i > 0) await new Promise((r) => setTimeout(r, DETAIL_BATCH_DELAY));
 
-      const batch = needsTitle.slice(i, i + TITLE_CONCURRENCY);
+      const batch = needsDetail.slice(i, i + DETAIL_CONCURRENCY);
       const results = await Promise.allSettled(
-        batch.map((e) => fetchEventTitle(e.sourceUrl!)),
+        batch.map((e) => fetchEventDetail(e.sourceUrl!)),
       );
 
       for (let j = 0; j < batch.length; j++) {
         const result = results[j];
-        if (result.status === "fulfilled" && result.value) {
-          batch[j].title = result.value;
+        if (result.status === "rejected") {
+          // Detail-fetch enrichment failed — fall back to the list-view
+          // excerpt. Surface a bounded sample in `errorDetails.fetch` so a
+          // sustained failure rate (origin rate-limit, outage) doesn't
+          // silently re-introduce truncated descriptions across the cluster.
+          detailFetchFailures++;
+          if (detailFetchFailures <= MAX_DETAIL_FETCH_ERROR_SAMPLES) {
+            errorDetails.fetch ??= [];
+            errorDetails.fetch.push({
+              url: batch[j].sourceUrl!,
+              message: `Detail fetch failed: ${String(result.reason).slice(0, 120)}`,
+            });
+          }
+          continue;
+        }
+        const detail = result.value;
+        detailsFetched++;
+
+        if (detail.title) {
+          batch[j].title = detail.title;
           // Re-resolve kennel tag now that we have the real title
           for (const [pattern, tag] of compiledPatterns) {
-            if (pattern.test(result.value)) {
+            if (pattern.test(detail.title)) {
               batch[j].kennelTags[0] = tag;
               break;
             }
@@ -317,10 +395,12 @@ export class PhoenixHHHAdapter implements SourceAdapter {
           // #1155 need hares") that the kennel later corrected on the detail
           // page (#1156). Falling back to the previous value only when the
           // detail title yields nothing keeps us no worse than before.
-          const detailRun = extractHashRunNumber(result.value);
+          const detailRun = extractHashRunNumber(detail.title);
           if (detailRun !== undefined) batch[j].runNumber = detailRun;
           titlesFetched++;
         }
+        if (detail.description) batch[j].description = detail.description;
+        if (detail.hares) batch[j].hares = detail.hares;
       }
     }
 
@@ -338,8 +418,11 @@ export class PhoenixHHHAdapter implements SourceAdapter {
         monthsFetched,
         totalItems,
         eventsParsed: allEvents.length,
+        detailsFetched,
+        detailFetchFailures,
+        eventsWithoutDetail: needsDetail.length - detailsFetched,
         titlesFetched,
-        eventsWithoutTitle: needsTitle.length - titlesFetched,
+        eventsWithoutTitle: needsDetail.length - titlesFetched,
         parseErrors: allParseErrors.length,
       },
     };
