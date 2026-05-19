@@ -15,6 +15,7 @@ import { OCH3Adapter } from "./html-scraper/och3";
 import { SlashHashAdapter } from "./html-scraper/slash-hash";
 import { EnfieldHashAdapter } from "./html-scraper/enfield-hash";
 import { SFH3Adapter } from "./html-scraper/sfh3";
+import { HHHSAdapter } from "./html-scraper/hhhs";
 import { RssAdapter } from "./rss/adapter";
 import { StaticScheduleAdapter } from "./static-schedule/adapter";
 
@@ -49,6 +50,12 @@ describe("getAdapter", () => {
 
   it("returns SFH3Adapter for sfh3.com URL", () => {
     expect(getAdapter("HTML_SCRAPER", "https://www.sfh3.com/runs?kennels=all")).toBeInstanceOf(SFH3Adapter);
+  });
+
+  it("returns HHHSAdapter for hhhs.org.sg URL (not the HashNYCAdapter default)", () => {
+    const adapter = getAdapter("HTML_SCRAPER", "https://www.hhhs.org.sg/hareline");
+    expect(adapter).toBeInstanceOf(HHHSAdapter);
+    expect(adapter).not.toBeInstanceOf(HashNYCAdapter);
   });
 
   it("returns GoogleCalendarAdapter for GOOGLE_CALENDAR", () => {

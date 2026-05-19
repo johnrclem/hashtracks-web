@@ -3447,10 +3447,12 @@ export const SOURCES = [
       kennelCodes: ["kampong-h3"],
     },
 
-    // 4. HHHS (Father Hash) — STATIC_SCHEDULE under historic-kennel exception
-    // (per feedback_sourceless_kennels memory). Founded 1962, the 2nd hash kennel
-    // in the world ever. The Wix hareline iframe is richer but out of scope for
-    // this PR; STATIC_SCHEDULE covers the weekly Monday recurrence.
+    // 4. HHHS (Father Hash) — STATIC_SCHEDULE low-trust fallback.
+    // Founded 1962, the 2nd hash kennel in the world ever. The Wix Table Master
+    // hareline iframe (HHHS Hareline source below) is the primary, trust-8 source
+    // and fills run number, hares, and street address per-event. This static row
+    // remains enabled at trust 3 so a Wix outage doesn't black out coverage for
+    // a founder kennel — GSH3 (Grand Strand) is the canonical precedent (#1474).
     {
       name: "HHHS Father Hash Static Schedule",
       url: "https://www.hhhs.org.sg/hareline",
@@ -3464,8 +3466,21 @@ export const SOURCES = [
         startTime: "18:00",
         defaultTitle: "HHHS Monday Run",
         defaultLocation: "Singapore",
-        defaultDescription: "Weekly Monday evening run for the Father Hash (founded 1962, the 2nd hash kennel in the world). Run number, hares, and exact location are published on the HHHS hareline at https://www.hhhs.org.sg/hareline. Men only.",
+        defaultDescription: "Weekly Monday evening run for the Father Hash, founded 1962 — the 2nd hash kennel in the world. Men only.",
       },
+      kennelCodes: ["hhhs"],
+    },
+    // 4b. HHHS Hareline — primary trust-8 HTML scraper for the Wix Table Master
+    // iframe at /hareline. Provides run#, hares, street address, and theme
+    // (Notes column) per event. Browser-render is required because the table
+    // lives in a cross-origin Wix iframe.
+    {
+      name: "HHHS Hareline",
+      url: "https://www.hhhs.org.sg/hareline",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
       kennelCodes: ["hhhs"],
     },
 
