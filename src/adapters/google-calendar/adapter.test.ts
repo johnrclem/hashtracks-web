@@ -703,6 +703,23 @@ describe("titleHarePattern — hare extraction from summary", () => {
       expect(result).not.toBeNull();
       expect(result!.hares).toBe(expectedHares);
     });
+
+    // #1471 — slash-delimited variants left a trailing "/" in the title
+    // after the hare capture was stripped, because the spansEntireTitle
+    // cleanup didn't include `/` in the trailing-delimiter strip.
+    it("strips trailing '/' from DWH3 title after slash-delimited hare capture", () => {
+      const result = buildRawEventFromGCalItem(
+        testGCalEvent({
+          summary: "Dead Whores H3/Milkbone and Strippin in the Rain",
+          start: { dateTime: "2026-05-17T13:00:00-07:00" },
+        }),
+        { defaultKennelTag: "dwh3", titleHarePattern: dwh3Pattern },
+        { compiledTitleHarePatterns: [dwh3RE] },
+      );
+      expect(result).not.toBeNull();
+      expect(result!.hares).toBe("Milkbone and Strippin in the Rain");
+      expect(result!.title).toBe("Dead Whores H3");
+    });
   });
 
   it("handles SUFFIX-style titleHarePattern (hares at end of title, not start) (#575)", () => {
@@ -922,6 +939,99 @@ describe("titleHarePattern trailing-dash strip on capture (#1210)", () => {
     expect(result).not.toBeNull();
     expect(result!.hares).toBe("Crusty Beaver and Pissfull Ignorinse");
     expect(result!.hares).not.toMatch(/[-–—]\s*$/);
+  });
+});
+
+// #1466 — Austin H3's titleHarePattern was removed because no regex shape
+// safely distinguishes hare lists ("Alice & Bob - AH3 #N") from trail
+// titles ("VSP Red Dress Run Hangover - AH3 #N") in the prefix slot.
+// Verify the production config has no titleHarePattern and the summary
+// passes through verbatim. Hares are still extracted from the description
+// path for events that have them there.
+describe("Austin H3 title pass-through (#1466)", () => {
+  const austinSource = SOURCES.find((s) => s.name === "Austin H3 Calendar");
+  if (!austinSource) throw new Error("Austin H3 Calendar seed source missing");
+  const austinConfig = austinSource.config as { defaultKennelTag: string; titleHarePattern?: string };
+
+  it("seed config has no titleHarePattern", () => {
+    expect(austinConfig.titleHarePattern).toBeUndefined();
+    expect(austinConfig.defaultKennelTag).toBe("ah3");
+  });
+
+  it.each<[string, string]>([
+    ["VSP Red Dress Run Hangover - AH3 #493", "trail title preserved"],
+    ["Alice & Bob - AH3 #2269", "hare-list-shaped title still preserved (no hare extraction from title)"],
+    ["AH3 - Trail #2226 Ditch, Sweet Thighs, and F*cktronix", "modern format preserved"],
+  ])("summary %j → title kept verbatim (%s)", (summary) => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        summary,
+        start: { dateTime: "2026-04-04T14:00:00-05:00" },
+      }),
+      austinConfig,
+    );
+    expect(result).not.toBeNull();
+    expect(result!.title).toBe(summary);
+    expect(result!.hares).toBeUndefined();
+  });
+
+  it("still extracts hares from description when titleHarePattern is absent", () => {
+    // Without titleHarePattern, hares still come from the description's
+    // labeled `Hare:` / `Hares:` line (the default extractHares path).
+    // Guards against accidental regressions if anyone re-disables that.
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        summary: "VSP Red Dress Run Hangover - AH3 #493",
+        description: "Hare: Banana Boat",
+        start: { dateTime: "2026-04-04T14:00:00-05:00" },
+      }),
+      austinConfig,
+    );
+    expect(result).not.toBeNull();
+    expect(result!.title).toBe("VSP Red Dress Run Hangover - AH3 #493");
+    expect(result!.hares).toBe("Banana Boat");
+  });
+});
+
+// #1458 — opt-in guard against doubled kennelCode prefix in title.
+// Some kennel admins paste the prefix twice on the source side
+// ("MoA2H3 MoA2H3 Red Dress Run"); the adapter de-dups symptom-side. Gated
+// per-source so unrelated kennels' legitimate titles aren't rewritten.
+describe("doubled kennelCode prefix guard (#1458)", () => {
+  const moa2Cfg = { defaultKennelTag: "moa2h3", stripDoubledKennelPrefix: true };
+
+  it.each([
+    ["MoA2H3 MoA2H3 Red Dress Run", "MoA2H3 Red Dress Run", "doubled prefix stripped (case-insensitive)"],
+    ["MoA2H3 moa2h3 Red Dress Run", "MoA2H3 Red Dress Run", "typed casing of surviving prefix preserved"],
+    ["MoA2H3 MoA2H3", "MoA2H3", "exact-doubled placeholder (no trailing content)"],
+    ["MoA2H3 Red Dress Run", "MoA2H3 Red Dress Run", "no-op when title is already single-prefixed"],
+    ["Brain Fart", "Brain Fart", "no-op when title is unrelated to the kennelCode"],
+  ])("summary %j → title %j (%s)", (summary, expectedTitle) => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        summary,
+        start: { dateTime: "2026-06-07T13:00:00-04:00" },
+      }),
+      moa2Cfg,
+    );
+    expect(result).not.toBeNull();
+    expect(result!.title).toBe(expectedTitle);
+  });
+
+  it("guard is no-op when stripDoubledKennelPrefix flag is not set", () => {
+    // Defensive: confirms the opt-in. Without the flag, a doubled prefix
+    // passes through untouched (relying on description-side fallback or
+    // admin cleanup at the source). Prevents accidental scope creep to
+    // other sources whose admins haven't been observed double-pasting.
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        summary: "MoA2H3 MoA2H3 Red Dress Run",
+        start: { dateTime: "2026-06-07T13:00:00-04:00" },
+      }),
+      { defaultKennelTag: "moa2h3" },
+    );
+    expect(result).not.toBeNull();
+    expect(result!.title).toBe("MoA2H3 MoA2H3 Red Dress Run");
   });
 });
 
