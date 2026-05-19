@@ -639,6 +639,54 @@ interface DisplayRowResult {
 }
 
 /**
+ * If an earlier pass (typically Pass 1, STATIC_SCHEDULE) already emitted a
+ * HIGH-confidence rule for (kennelId, rrule), return true so the caller skips
+ * the Pass 2 emit — without this guard Pass 2 produces a redundant MEDIUM
+ * SEED_DATA row with the same RRULE; the @@unique constraint on
+ * (kennelId, rrule, source) lets both rows survive (different `source` enums),
+ * and the UI then renders them as duplicate "Mondays at 6:00 PM /
+ * Mondays at 6:00 PM" via formatScheduleRules. See #1486 (HHHS symptom in
+ * #1475).
+ *
+ * Side effect: if the covering Pass 1 rule has a null startTime but Pass 2's
+ * parse produced one, fill it in on the covered entry before returning true
+ * (Codex P2 on PR #1491). STATIC_SCHEDULE source configs that omit
+ * `startTime` would otherwise lose the time-of-day inferred from
+ * Kennel.scheduleTime. Pass 1's non-null startTime is always preferred — the
+ * source config is the authoritative shape and a flat-field divergence
+ * ("18:00" vs "17:00") usually means stale flat data.
+ *
+ * Returns false if the rule is NOT covered (caller should emit).
+ *
+ * Extracted from `processDisplayKennel` to keep that function's cognitive
+ * complexity under SonarCloud's cap of 15 (S3776).
+ */
+function tryCoverPass2Rule(
+  kennelId: string,
+  kennelShortName: string,
+  rule: { rrule: string },
+  pass2StartTime: string | null,
+  coveredRules: ReadonlyMap<string, PlannedRule>,
+  options: BackfillOptions,
+): boolean {
+  const coveredRule = coveredRules.get(`${kennelId}|${rule.rrule}`);
+  if (!coveredRule) return false;
+  if (coveredRule.startTime === null && pass2StartTime !== null) {
+    coveredRule.startTime = pass2StartTime;
+    if (options.verbose) {
+      console.log(
+        `  ↻ ${kennelShortName} — ${rule.rrule} covered by Pass 1, enriching its null startTime with Pass 2's ${pass2StartTime}`,
+      );
+    }
+  } else if (options.verbose) {
+    console.log(
+      `  ⤼ ${kennelShortName} — ${rule.rrule} already covered by an earlier HIGH-confidence pass (skipping Pass 2 emit)`,
+    );
+  }
+  return true;
+}
+
+/**
  * Process one Pass 2 kennel row. Extracted from `runKennelDisplayPass` to keep
  * the outer function's cognitive complexity under SonarCloud's cap of 15.
  */
@@ -671,35 +719,7 @@ function processDisplayKennel(
   const startTime = parseScheduleTime(k.scheduleTime);
   let emitted = 0;
   for (const rule of parsed) {
-    // Skip when an earlier pass (typically Pass 1, STATIC_SCHEDULE) already
-    // emitted a HIGH-confidence rule for this same (kennelId, rrule). Without
-    // this guard Pass 2 produces a redundant MEDIUM SEED_DATA row with the
-    // same RRULE; the @@unique constraint on (kennelId, rrule, source) lets
-    // both rows survive (different `source` enums), and the UI then renders
-    // them as duplicate "Mondays at 6:00 PM / Mondays at 6:00 PM" via
-    // formatScheduleRules. See #1486 (HHHS symptom in #1475).
-    //
-    // startTime enrichment (Codex P2 on PR #1491): if the covering Pass 1 rule
-    // has a null startTime but Pass 2's parse has one, fill it in on the
-    // covered entry before skipping. Otherwise STATIC_SCHEDULE source configs
-    // that omit `startTime` would lose the time-of-day inferred from
-    // Kennel.scheduleTime. Pass 1's non-null startTime is always preferred —
-    // the source config is the authoritative shape and a flat-field divergence
-    // ("18:00" vs "17:00") usually means stale flat data.
-    const coveredRule = coveredRules.get(`${k.id}|${rule.rrule}`);
-    if (coveredRule) {
-      if (coveredRule.startTime === null && startTime !== null) {
-        coveredRule.startTime = startTime;
-        if (options.verbose) {
-          console.log(
-            `  ↻ ${k.shortName} — ${rule.rrule} covered by Pass 1, enriching its null startTime with Pass 2's ${startTime}`,
-          );
-        }
-      } else if (options.verbose) {
-        console.log(
-          `  ⤼ ${k.shortName} — ${rule.rrule} already covered by an earlier HIGH-confidence pass (skipping Pass 2 emit)`,
-        );
-      }
+    if (tryCoverPass2Rule(k.id, k.shortName, rule, startTime, coveredRules, options)) {
       continue;
     }
     planned.push({
