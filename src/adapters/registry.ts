@@ -69,6 +69,7 @@ import { LionCityH3Adapter } from "./html-scraper/lion-city-h3";
 import { KampongH3Adapter } from "./html-scraper/kampong-h3";
 import { HashHorrorsAdapter } from "./html-scraper/hash-horrors";
 import { SeletarH3Adapter } from "./html-scraper/seletar-h3";
+import { HHHSAdapter } from "./html-scraper/hhhs";
 import { MotherHashAdapter } from "./html-scraper/mother-hash";
 import { YiiHarelineAdapter } from "./html-scraper/yii-hareline";
 import { KljH3Adapter } from "./html-scraper/klj-h3";
@@ -198,6 +199,7 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /kampong\.hash\.org\.sg/i, name: "KampongH3Adapter", factory: () => new KampongH3Adapter() },
   { pattern: /hashhousehorrors\.com/i, name: "HashHorrorsAdapter", factory: () => new HashHorrorsAdapter() },
   { pattern: /sh3app\.hash\.org\.sg/i, name: "SeletarH3Adapter", factory: () => new SeletarH3Adapter() },
+  { pattern: /hhhs\.org\.sg/i, name: "HHHSAdapter", factory: () => new HHHSAdapter() },
   // ── Malaysia (Phase 1: KL + Penang founder pack) ──
   { pattern: /motherhash\.org/i, name: "MotherHashAdapter", factory: () => new MotherHashAdapter() },
   { pattern: /ph3\.org/i, name: "YiiHarelineAdapter", factory: () => new YiiHarelineAdapter() },
