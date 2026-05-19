@@ -18,15 +18,14 @@
  * with logistics-only blurbs ("Pizza on site") that would publish as ugly
  * card titles and churn the raw-event fingerprint on every harmless edit.
  */
-import type { CheerioAPI } from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult } from "../types";
 import {
-  MONTHS,
   stripPlaceholder,
   buildDateWindow,
   fetchBrowserRenderedPage,
 } from "../utils";
+import { extractWixTableRows, parseDayMonthYearDate } from "./wix-table-master";
 
 const KENNEL_CODE = "hhhs";
 const DISPLAY_NAME = "HHHS";
@@ -48,26 +47,11 @@ const TABLE_MASTER_COMP_ID = "comp-jxzijgcm";
 const HHHS_DATE_RE = /^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/;
 
 /**
- * Strict "D MMMM YYYY" parse → `YYYY-MM-DD` or `null`. We avoid chrono here
- * so off-format input fails loud instead of resolving to a guessed date.
+ * Strict "D MMMM YYYY" parse → `YYYY-MM-DD` or `null`. Delegates to the
+ * shared `parseDayMonthYearDate` helper with an HHHS-specific regex.
  */
 export function parseHHHSDate(text: string): string | null {
-  const match = HHHS_DATE_RE.exec(text.trim());
-  if (!match) return null;
-
-  const day = Number.parseInt(match[1], 10);
-  const monthStr = match[2].toLowerCase();
-  const year = Number.parseInt(match[3], 10);
-
-  const month = MONTHS[monthStr];
-  if (month === undefined) return null;
-
-  const maxDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
-  if (day < 1 || day > maxDay) return null;
-
-  const mm = String(month).padStart(2, "0");
-  const dd = String(day).padStart(2, "0");
-  return `${year}-${mm}-${dd}`;
+  return parseDayMonthYearDate(text, HHHS_DATE_RE);
 }
 
 // ---------------------------------------------------------------------------
@@ -143,46 +127,6 @@ export function parseHHHSRow(
 }
 
 // ---------------------------------------------------------------------------
-// Table extraction
-// ---------------------------------------------------------------------------
-
-function extractTableRows($: CheerioAPI): { headers: string[]; rows: string[][] } {
-  const tables = $("table").toArray();
-  if (tables.length === 0) return { headers: [], rows: [] };
-
-  const tableEl = tables.find((t) => $(t).find("th").length >= 2) ?? tables[0];
-  const table = $(tableEl);
-
-  const headers: string[] = [];
-  table.find("thead th, tr:first-child th").each((_, el) => {
-    headers.push($(el).text().trim());
-  });
-
-  if (headers.length === 0) {
-    table.find("tr:first-child td").each((_, el) => {
-      headers.push($(el).text().trim());
-    });
-  }
-
-  const rows: string[][] = [];
-  const trSelector = table.find("tbody").length > 0 ? "tbody tr" : "tr:not(:first-child)";
-
-  for (const row of table.find(trSelector).toArray()) {
-    const cells: string[] = [];
-    $(row)
-      .find("td")
-      .each((_, el) => {
-        cells.push($(el).text().trim());
-      });
-    if (cells.some((c) => c.length > 0)) {
-      rows.push(cells);
-    }
-  }
-
-  return { headers, rows };
-}
-
-// ---------------------------------------------------------------------------
 // Event building
 // ---------------------------------------------------------------------------
 
@@ -241,7 +185,7 @@ export class HHHSAdapter implements SourceAdapter {
     }
 
     const events: RawEventData[] = [];
-    const { headers, rows } = extractTableRows(page.$);
+    const { headers, rows } = extractWixTableRows(page.$);
     const columnMap = buildColumnMap(headers);
 
     for (const cells of rows) {

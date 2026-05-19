@@ -207,10 +207,9 @@ describe("HHHSAdapter", () => {
       } else {
         vi.mocked(browserRender).mockResolvedValueOnce(FIXTURE_HTML);
       }
-      return new HHHSAdapter().fetch(
-        source,
-        opts?.days !== undefined ? { days: opts.days } : undefined,
-      );
+      const fetchOpts =
+        opts?.days === undefined ? undefined : { days: opts.days };
+      return new HHHSAdapter().fetch(source, fetchOpts);
     }
 
     it("parses the hareline table end-to-end", async () => {
