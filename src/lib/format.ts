@@ -237,7 +237,15 @@ export function formatSchedule(kennel: {
 function formatScheduleRules(rules: ScheduleSlot[]): string | null {
   const ordered = [...rules].sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
   const rendered = ordered.map(formatScheduleSlot).filter((s): s is string => s !== null);
-  return rendered.length > 0 ? rendered.join(" / ") : null;
+  // Dedupe by rendered display string (#1486): two ScheduleRule rows with the
+  // same RRULE + startTime but different `source` enums (e.g. STATIC_SCHEDULE
+  // from Pass 1 + SEED_DATA from Pass 2 in backfill-schedule-rules.ts) render
+  // identically. Without this guard, the join produces strings like
+  // "Mondays at 6:00 PM / Mondays at 6:00 PM". The upstream Pass-2-skip fix
+  // prevents new duplicates from being created, but this is a defense-in-depth
+  // guard for any historical duplicates and any future duplicate-rule shapes.
+  const deduped = [...new Set(rendered)];
+  return deduped.length > 0 ? deduped.join(" / ") : null;
 }
 
 function formatScheduleSlot(slot: ScheduleSlot): string | null {

@@ -634,8 +634,62 @@ interface DisplayKennel {
 
 interface DisplayRowResult {
   emitted: number;
-  status: "emitted" | "unparseable" | "opted-out";
+  // Per-rule counter for rules suppressed because an earlier pass already
+  // emitted a HIGH/STATIC_SCHEDULE rule for the same (kennelId, rrule).
+  // Tracked at the rule grain so the outer summary catches mixed cases —
+  // a kennel with 2 parsed rules where 1 is covered + 1 emits contributes
+  // both to `count` and to `coveredByEarlierPass`. See CodeRabbit on #1491.
+  covered: number;
+  status: "emitted" | "unparseable" | "opted-out" | "covered";
   reason?: string;
+}
+
+/**
+ * If an earlier pass (typically Pass 1, STATIC_SCHEDULE) already emitted a
+ * HIGH-confidence rule for (kennelId, rrule), return true so the caller skips
+ * the Pass 2 emit — without this guard Pass 2 produces a redundant MEDIUM
+ * SEED_DATA row with the same RRULE; the @@unique constraint on
+ * (kennelId, rrule, source) lets both rows survive (different `source` enums),
+ * and the UI then renders them as duplicate "Mondays at 6:00 PM /
+ * Mondays at 6:00 PM" via formatScheduleRules. See #1486 (HHHS symptom in
+ * #1475).
+ *
+ * Side effect: if the covering Pass 1 rule has a null startTime but Pass 2's
+ * parse produced one, fill it in on the covered entry before returning true
+ * (Codex P2 on PR #1491). STATIC_SCHEDULE source configs that omit
+ * `startTime` would otherwise lose the time-of-day inferred from
+ * Kennel.scheduleTime. Pass 1's non-null startTime is always preferred — the
+ * source config is the authoritative shape and a flat-field divergence
+ * ("18:00" vs "17:00") usually means stale flat data.
+ *
+ * Returns false if the rule is NOT covered (caller should emit).
+ *
+ * Extracted from `processDisplayKennel` to keep that function's cognitive
+ * complexity under SonarCloud's cap of 15 (S3776).
+ */
+function tryCoverPass2Rule(
+  kennelId: string,
+  kennelShortName: string,
+  rule: { rrule: string },
+  pass2StartTime: string | null,
+  coveredRules: ReadonlyMap<string, PlannedRule>,
+  options: BackfillOptions,
+): boolean {
+  const coveredRule = coveredRules.get(`${kennelId}|${rule.rrule}`);
+  if (!coveredRule) return false;
+  if (coveredRule.startTime === null && pass2StartTime !== null) {
+    coveredRule.startTime = pass2StartTime;
+    if (options.verbose) {
+      console.log(
+        `  ↻ ${kennelShortName} — ${rule.rrule} covered by Pass 1, enriching its null startTime with Pass 2's ${pass2StartTime}`,
+      );
+    }
+  } else if (options.verbose) {
+    console.log(
+      `  ⤼ ${kennelShortName} — ${rule.rrule} already covered by an earlier HIGH-confidence pass (skipping Pass 2 emit)`,
+    );
+  }
+  return true;
 }
 
 /**
@@ -645,6 +699,7 @@ interface DisplayRowResult {
 function processDisplayKennel(
   k: DisplayKennel,
   optedOutCodes: ReadonlySet<string>,
+  coveredRules: ReadonlyMap<string, PlannedRule>,
   planned: PlannedRule[],
   options: BackfillOptions,
 ): DisplayRowResult {
@@ -652,7 +707,7 @@ function processDisplayKennel(
     if (options.verbose) {
       console.log(`  ⤼ ${k.shortName} — opted out of Pass 2 (declares scheduleRules in seed)`);
     }
-    return { emitted: 0, status: "opted-out" };
+    return { emitted: 0, covered: 0, status: "opted-out" };
   }
   const parsed = parseFrequencyDay(k.scheduleFrequency, k.scheduleDayOfWeek);
   if (parsed.length === 0) {
@@ -663,12 +718,19 @@ function processDisplayKennel(
     }
     return {
       emitted: 0,
+      covered: 0,
       status: "unparseable",
       reason: `${k.scheduleFrequency} / ${k.scheduleDayOfWeek ?? "null"}`,
     };
   }
   const startTime = parseScheduleTime(k.scheduleTime);
+  let emitted = 0;
+  let covered = 0;
   for (const rule of parsed) {
+    if (tryCoverPass2Rule(k.id, k.shortName, rule, startTime, coveredRules, options)) {
+      covered++;
+      continue;
+    }
     planned.push({
       kennelId: k.id,
       kennelDisplay: k.shortName,
@@ -685,8 +747,12 @@ function processDisplayKennel(
       validUntil: null,
       displayOrder: 0,
     });
+    emitted++;
   }
-  return { emitted: parsed.length, status: "emitted" };
+  if (emitted === 0) {
+    return { emitted: 0, covered, status: "covered" };
+  }
+  return { emitted, covered, status: "emitted" };
 }
 
 export async function runKennelDisplayPass(
@@ -694,13 +760,31 @@ export async function runKennelDisplayPass(
   planned: PlannedRule[],
   options: BackfillOptions = {},
   seedKennels: ReadonlyArray<KennelSeedLike> = KENNELS,
-): Promise<{ count: number; skipped: number; total: number; optedOut: number }> {
+): Promise<{ count: number; skipped: number; total: number; optedOut: number; coveredByEarlierPass: number }> {
   console.log("━━━ Pass 2: Kennel display strings → MEDIUM/LOW ━━━");
 
   const optedOutCodes = new Set(
     seedKennels
       .filter((k) => Array.isArray(k.scheduleRules) && k.scheduleRules.length > 0)
       .map((k) => k.kennelCode),
+  );
+
+  // Pre-compute (kennelId|rrule) → PlannedRule lookup for Pass 1
+  // (STATIC_SCHEDULE / HIGH) rules already planned. Pass 2 skips its own emit
+  // when the key matches (see #1486), and may also enrich the covered rule's
+  // null startTime from Pass 2's parsed value (Codex P2 on PR #1491).
+  //
+  // Restricted to `source === "STATIC_SCHEDULE"` (CodeRabbit on PR #1491):
+  // the dedup intent is specifically the Pass 1 ↔ Pass 2 collision, not
+  // "any HIGH rule blocks Pass 2". Pass 3 emits HIGH SEED_DATA rules with
+  // richer metadata (label / validFrom / validUntil) and runs AFTER Pass 2
+  // in `runBackfill`, so it shouldn't land here today — but if pass ordering
+  // ever shifts or a test caller pre-populates `planned`, this filter makes
+  // the intent explicit.
+  const coveredRules = new Map(
+    planned
+      .filter((p) => p.confidence === "HIGH" && p.source === "STATIC_SCHEDULE")
+      .map((p) => [`${p.kennelId}|${p.rrule}`, p] as const),
   );
 
   const kennels = await prisma.kennel.findMany({
@@ -719,10 +803,14 @@ export async function runKennelDisplayPass(
   let count = 0;
   let skipped = 0;
   let optedOut = 0;
+  let coveredByEarlierPass = 0;
   const skipReasons = new Map<string, number>();
   for (const k of kennels) {
-    const result = processDisplayKennel(k, optedOutCodes, planned, options);
+    const result = processDisplayKennel(k, optedOutCodes, coveredRules, planned, options);
     count += result.emitted;
+    // Per-rule sum so mixed cases (kennel with 1 covered + 1 emitted)
+    // contribute to both counters. CodeRabbit on PR #1491.
+    coveredByEarlierPass += result.covered;
     if (result.status === "opted-out") optedOut++;
     else if (result.status === "unparseable" && result.reason) {
       skipped++;
@@ -731,7 +819,8 @@ export async function runKennelDisplayPass(
   }
   console.log(
     `  ✓ ${count} rules planned from ${kennels.length} kennels ` +
-      `(${skipped} unparseable, ${optedOut} opted-out via scheduleRules)`,
+      `(${skipped} unparseable, ${optedOut} opted-out via scheduleRules, ` +
+      `${coveredByEarlierPass} covered by an earlier HIGH-confidence pass)`,
   );
   if (skipped > 0) {
     console.log("  Top skip reasons:");
@@ -741,7 +830,7 @@ export async function runKennelDisplayPass(
     }
   }
   console.log("");
-  return { count, skipped, total: kennels.length, optedOut };
+  return { count, skipped, total: kennels.length, optedOut, coveredByEarlierPass };
 }
 
 /**

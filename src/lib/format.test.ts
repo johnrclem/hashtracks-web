@@ -208,6 +208,33 @@ describe("formatSchedule", () => {
       ).toBe("15th of the month at 7:00 PM");
     });
 
+    it("dedupes identical rendered display strings before joining (#1486)", () => {
+      // Two ScheduleRule rows with the same RRULE + startTime but different
+      // `source` enums (STATIC_SCHEDULE from Pass 1 + SEED_DATA from Pass 2)
+      // render identically. Without the dedupe, the join produces
+      // "Mondays at 6:00 PM / Mondays at 6:00 PM" (the HHHS symptom in #1475).
+      expect(
+        formatSchedule({
+          scheduleRules: [
+            { rrule: "FREQ=WEEKLY;BYDAY=MO", startTime: "18:00", displayOrder: 0 },
+            { rrule: "FREQ=WEEKLY;BYDAY=MO", startTime: "18:00", displayOrder: 1 },
+          ],
+        }),
+      ).toBe("Mondays at 6:00 PM");
+    });
+
+    it("keeps distinct cadences after dedupe (only removes exact-string duplicates)", () => {
+      // Same RRULE but different startTime → different rendered strings → both kept.
+      expect(
+        formatSchedule({
+          scheduleRules: [
+            { rrule: "FREQ=WEEKLY;BYDAY=MO", startTime: "18:00", displayOrder: 0 },
+            { rrule: "FREQ=WEEKLY;BYDAY=MO", startTime: "19:00", displayOrder: 1 },
+          ],
+        }),
+      ).toBe("Mondays at 6:00 PM / Mondays at 7:00 PM");
+    });
+
     it("falls through to flat fields when scheduleRules is an empty array", () => {
       expect(
         formatSchedule({
