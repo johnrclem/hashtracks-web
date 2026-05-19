@@ -824,6 +824,73 @@ describe("runKennelDisplayPass — Pass 3 opt-out", () => {
     expect(migratedRules[0].source).toBe("SEED_DATA");
   });
 
+  // Codex P2 on PR #1491: if Pass 1's HIGH rule has a null startTime but Pass 2's
+  // parsed display string would have supplied one (Kennel.scheduleTime is set),
+  // mutate the covered Pass 1 entry to carry the Pass 2 startTime before skipping.
+  // Without this, kennels with a STATIC_SCHEDULE source config that omits
+  // `startTime` would lose the time-of-day inferred from the flat fields.
+  it("enriches the covered Pass 1 rule's null startTime from Pass 2's parsed value", async () => {
+    const pass1Rule: Parameters<typeof runKennelDisplayPass>[1][number] = {
+      kennelId: "k_legacy",
+      kennelDisplay: "Legacy",
+      rrule: "FREQ=WEEKLY;BYDAY=SA",
+      anchorDate: null,
+      startTime: null, // Pass 1 source config omitted startTime
+      confidence: "HIGH",
+      source: "STATIC_SCHEDULE",
+      sourceReference: null,
+      lastValidatedAt: new Date(),
+      notes: null,
+      label: null,
+      validFrom: null,
+      validUntil: null,
+      displayOrder: 0,
+    };
+    const planned: Parameters<typeof runKennelDisplayPass>[1] = [pass1Rule];
+    const result = await runKennelDisplayPass(
+      fakePrismaForDisplay(FAKE_KENNELS),
+      planned,
+      {},
+      [],
+    );
+
+    // legacy was covered → no SEED_DATA emit, but its Pass 1 row gained 15:00
+    // from the flat-field parse (FAKE_KENNELS sets scheduleTime: "3:00 PM").
+    expect(result.coveredByEarlierPass).toBe(1);
+    expect(pass1Rule.startTime).toBe("15:00");
+    // migrated still emits normally
+    expect(planned).toHaveLength(2);
+    const migratedRules = planned.filter((p) => p.kennelId === "k_migrated");
+    expect(migratedRules).toHaveLength(1);
+    expect(migratedRules[0].source).toBe("SEED_DATA");
+  });
+
+  // Pass 1's non-null startTime is authoritative — flat-field divergence is
+  // usually stale data. Do NOT overwrite an existing startTime on the covered rule.
+  it("preserves Pass 1's non-null startTime even when Pass 2 parses a different value", async () => {
+    const pass1Rule: Parameters<typeof runKennelDisplayPass>[1][number] = {
+      kennelId: "k_legacy",
+      kennelDisplay: "Legacy",
+      rrule: "FREQ=WEEKLY;BYDAY=SA",
+      anchorDate: null,
+      startTime: "14:00", // STATIC_SCHEDULE source config explicitly says 2 PM
+      confidence: "HIGH",
+      source: "STATIC_SCHEDULE",
+      sourceReference: null,
+      lastValidatedAt: new Date(),
+      notes: null,
+      label: null,
+      validFrom: null,
+      validUntil: null,
+      displayOrder: 0,
+    };
+    const planned: Parameters<typeof runKennelDisplayPass>[1] = [pass1Rule];
+    await runKennelDisplayPass(fakePrismaForDisplay(FAKE_KENNELS), planned, {}, []);
+
+    // FAKE_KENNELS' flat field says "3:00 PM" → 15:00 — but Pass 1's 14:00 wins.
+    expect(pass1Rule.startTime).toBe("14:00");
+  });
+
   // Only HIGH-confidence rules in `planned` block Pass 2 — a MEDIUM rule
   // sitting in `planned` (e.g. from a prior Pass 2 run in the same process)
   // must NOT block re-emission. This keeps the guard precise to the

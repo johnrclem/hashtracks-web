@@ -645,7 +645,7 @@ interface DisplayRowResult {
 function processDisplayKennel(
   k: DisplayKennel,
   optedOutCodes: ReadonlySet<string>,
-  coveredKeys: ReadonlySet<string>,
+  coveredRules: ReadonlyMap<string, PlannedRule>,
   planned: PlannedRule[],
   options: BackfillOptions,
 ): DisplayRowResult {
@@ -678,8 +678,24 @@ function processDisplayKennel(
     // both rows survive (different `source` enums), and the UI then renders
     // them as duplicate "Mondays at 6:00 PM / Mondays at 6:00 PM" via
     // formatScheduleRules. See #1486 (HHHS symptom in #1475).
-    if (coveredKeys.has(`${k.id}|${rule.rrule}`)) {
-      if (options.verbose) {
+    //
+    // startTime enrichment (Codex P2 on PR #1491): if the covering Pass 1 rule
+    // has a null startTime but Pass 2's parse has one, fill it in on the
+    // covered entry before skipping. Otherwise STATIC_SCHEDULE source configs
+    // that omit `startTime` would lose the time-of-day inferred from
+    // Kennel.scheduleTime. Pass 1's non-null startTime is always preferred —
+    // the source config is the authoritative shape and a flat-field divergence
+    // ("18:00" vs "17:00") usually means stale flat data.
+    const coveredRule = coveredRules.get(`${k.id}|${rule.rrule}`);
+    if (coveredRule) {
+      if (coveredRule.startTime === null && startTime !== null) {
+        coveredRule.startTime = startTime;
+        if (options.verbose) {
+          console.log(
+            `  ↻ ${k.shortName} — ${rule.rrule} covered by Pass 1, enriching its null startTime with Pass 2's ${startTime}`,
+          );
+        }
+      } else if (options.verbose) {
         console.log(
           `  ⤼ ${k.shortName} — ${rule.rrule} already covered by an earlier HIGH-confidence pass (skipping Pass 2 emit)`,
         );
@@ -724,13 +740,16 @@ export async function runKennelDisplayPass(
       .map((k) => k.kennelCode),
   );
 
-  // Pre-compute (kennelId|rrule) keys for HIGH-confidence rules already planned
-  // by an earlier pass (typically Pass 1 / STATIC_SCHEDULE). Pass 2 skips its
-  // own emit for any (kennelId, rrule) in this set — see #1486.
-  const coveredKeys = new Set(
+  // Pre-compute (kennelId|rrule) → PlannedRule lookup for HIGH-confidence rules
+  // already planned by an earlier pass (typically Pass 1 / STATIC_SCHEDULE).
+  // Pass 2 skips its own emit when the key matches (see #1486), and may also
+  // enrich the covered rule's null startTime from Pass 2's parsed value
+  // (Codex P2 on PR #1491). Map (not Set) so the inner check can read the
+  // covered rule.
+  const coveredRules = new Map(
     planned
       .filter((p) => p.confidence === "HIGH")
-      .map((p) => `${p.kennelId}|${p.rrule}`),
+      .map((p) => [`${p.kennelId}|${p.rrule}`, p] as const),
   );
 
   const kennels = await prisma.kennel.findMany({
@@ -752,7 +771,7 @@ export async function runKennelDisplayPass(
   let coveredByEarlierPass = 0;
   const skipReasons = new Map<string, number>();
   for (const k of kennels) {
-    const result = processDisplayKennel(k, optedOutCodes, coveredKeys, planned, options);
+    const result = processDisplayKennel(k, optedOutCodes, coveredRules, planned, options);
     count += result.emitted;
     if (result.status === "opted-out") optedOut++;
     else if (result.status === "covered") coveredByEarlierPass++;
