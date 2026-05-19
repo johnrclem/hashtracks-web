@@ -152,6 +152,62 @@ describe("parseBodyFields", () => {
     expect(result.hares).toBe("Solo Runner");
     expect(result.location).toBeUndefined();
   });
+
+  // ── #1467: leading-dash artifact strip ──
+
+  it.each([
+    {
+      label: "leading '- ' inside colon-delimited Hares",
+      body: "Hares: - Antiques Load Show & Ritalin Cum Bubble  Hash Cash: $10",
+      expected: "Antiques Load Show & Ritalin Cum Bubble",
+    },
+    {
+      label: "en-dash separator instead of colon (Memorial Day post format)",
+      body: "Hares – Antiques Load Show & Ritalin Cum Bubble  Hash Cash: $10",
+      expected: "Antiques Load Show & Ritalin Cum Bubble",
+    },
+    {
+      label: "em-dash separator instead of colon",
+      body: "Hares — Antiques Load Show & Ritalin Cum Bubble",
+      expected: "Antiques Load Show & Ritalin Cum Bubble",
+    },
+    {
+      label: "mixed leading bullets and dashes are all stripped",
+      body: "Hares: –— • * Some Name",
+      expected: "Some Name",
+    },
+    {
+      label: "single hyphen separator (Hares - Name)",
+      body: "Hares - Antiques Load Show",
+      expected: "Antiques Load Show",
+    },
+  ])("strips leading dash/bullet artifact: $label (#1467)", ({ body, expected }) => {
+    const result = parseBodyFields(body);
+    expect(result.hares).toBe(expected);
+    expect(result.hares).not.toMatch(/^[-–—•*\s]/);
+  });
+
+  it("strips leading dash from non-hare fields too (#1467 consistency)", () => {
+    const body = "Venue: - The Pub  Hares: Someone  Hash Cash: - $5";
+    const result = parseBodyFields(body);
+    expect(result.location).toBe("The Pub");
+    expect(result.hashCash).toBe("$5");
+  });
+
+  it("terminates dash-separated Hares at a subsequent dash-separated label (#1467 codex follow-up)", () => {
+    // If the source escalates from "Hares –" to also using "Venue –", the
+    // colon-only terminator would let Hares overrun into the next field.
+    // The terminator lookahead now matches `(?:label)\s*[:–—-]` so Hares
+    // stops at "Venue" even when the next separator is a dash. Venue value
+    // extraction itself is still colon-only (opt-in per label), so it
+    // stays undefined when the source uses a dash there — better to lose
+    // a venue than to leak it into the hare list.
+    const body = "Hares – Alice Venue – The Pub Hash Cash: $5";
+    const result = parseBodyFields(body);
+    expect(result.hares).toBe("Alice");
+    expect(result.location).toBeUndefined();
+    expect(result.hashCash).toBe("$5");
+  });
 });
 
 const SAMPLE_HTML = `

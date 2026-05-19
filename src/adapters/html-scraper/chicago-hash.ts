@@ -22,6 +22,34 @@ export function parseDateFromText(text: string): string | null {
   return chronoParseDate(text, "en-US");
 }
 
+// Strip leading dash/bullet artifacts (#1467 — CH3 Memorial Day post used
+// `<strong>Hares –</strong>` and `Hares: -` formats that leaked the
+// separator into the captured value). Safe for all CH3 fields: no
+// legitimate value starts with a hyphen, dash, or bullet character.
+const LEADING_BULLET_RE = /^[\s\-–—•*]+/;
+
+// Label set + terminator inlined as regex literals to avoid Codacy's
+// `security/detect-non-literal-regexp` / `security-node/non-literal-reg-expr`
+// findings on `new RegExp(<expression>)` — these only fire on the constructor
+// form. The terminator recognizes both `:` and dash separators so a dash-
+// separated Hares value can't overrun into a subsequent dash-separated label
+// (codex review follow-up). `[\s\S]+?` is used in place of `.+?` because the
+// tsconfig target (ES2017) predates the `s` (dotall) regex flag.
+// S5852 false-positive — the `\s*` adjacent to a literal-alternation lookahead
+// is flagged by Sonar's ReDoS heuristic, but the engine doesn't backtrack
+// into a non-capturing lookahead anchored to a finite label set. Inputs come
+// from a small WordPress excerpt (<2KB), not user-supplied text.
+const CH3_VENUE_RE = /(?:Venue|Where):\s*([\s\S]+?)(?=(?:Venue|Hares?|Event|Hash Cash|Transit|Shag Wagon|When|Where|Time)\s*[:–—\-]|$)/i; // NOSONAR S5852
+const CH3_HARES_RE = /Hares?\s*[:–—\-]\s*([\s\S]+?)(?=(?:Venue|Hares?|Event|Hash Cash|Transit|Shag Wagon|When|Where|Time)\s*[:–—\-]|$)/i; // NOSONAR S5852
+const CH3_CASH_RE = /Hash Cash:\s*([\s\S]+?)(?=(?:Venue|Hares?|Event|Hash Cash|Transit|Shag Wagon|When|Where|Time)\s*[:–—\-]|$)/i; // NOSONAR S5852
+const CH3_EVENT_RE = /Event:\s*([\s\S]+?)(?=(?:Venue|Hares?|Event|Hash Cash|Transit|Shag Wagon|When|Where|Time)\s*[:–—\-]|$)/i; // NOSONAR S5852
+const CH3_TIME_RE = /(?:When|Time):\s*([\s\S]+?)(?=(?:Venue|Hares?|Event|Hash Cash|Transit|Shag Wagon|When|Where|Time)\s*[:–—\-]|$)/i; // NOSONAR S5852
+
+function cleanFieldValue(raw: string): string | undefined {
+  const cleaned = raw.trim().replace(/\s+/g, " ").replace(LEADING_BULLET_RE, "").trim();
+  return cleaned || undefined;
+}
+
 /**
  * Parse the body content of a CH3 WordPress post to extract labeled fields.
  * Fields are delimited by labels like "Venue:", "Hare:", "Hash Cash:", etc.
@@ -42,49 +70,23 @@ export function parseBodyFields(bodyText: string): {
     startTime?: string;
   } = {};
 
-  // Known labels as delimiters (lookahead-based splitting)
-  const labels = ["Venue", "Hares?", "Event", "Hash Cash", "Transit", "Shag Wagon", "When", "Where", "Time"];
-  const labelPattern = labels.join("|");
+  const venueMatch = CH3_VENUE_RE.exec(bodyText);
+  if (venueMatch) result.location = cleanFieldValue(venueMatch[1]);
 
-  // Extract "Venue:" or "Where:" field
-  const venueMatch = bodyText.match(
-    new RegExp(`(?:Venue|Where):\\s*(.+?)(?=(?:${labelPattern}):|$)`, "is"),
-  );
-  if (venueMatch) {
-    result.location = venueMatch[1].trim().replace(/\s+/g, " ");
-  }
+  // `Hares –` (no colon) is accepted alongside `Hares:` — Memorial Day post
+  // shape (#1467). `cleanFieldValue` strips any residual leading bullet.
+  const hareMatch = CH3_HARES_RE.exec(bodyText);
+  if (hareMatch) result.hares = cleanFieldValue(hareMatch[1]);
 
-  // Extract "Hare:" or "Hares:" field
-  const hareMatch = bodyText.match(
-    new RegExp(`Hares?:\\s*(.+?)(?=(?:${labelPattern}):|$)`, "is"),
-  );
-  if (hareMatch) {
-    result.hares = hareMatch[1].trim().replace(/\s+/g, " ");
-  }
+  const cashMatch = CH3_CASH_RE.exec(bodyText);
+  if (cashMatch) result.hashCash = cleanFieldValue(cashMatch[1]);
 
-  // Extract "Hash Cash:" field
-  const cashMatch = bodyText.match(
-    new RegExp(`Hash Cash:\\s*(.+?)(?=(?:${labelPattern}):|$)`, "is"),
-  );
-  if (cashMatch) {
-    result.hashCash = cashMatch[1].trim().replace(/\s+/g, " ");
-  }
+  const eventMatch = CH3_EVENT_RE.exec(bodyText);
+  if (eventMatch) result.eventName = cleanFieldValue(eventMatch[1]);
 
-  // Extract "Event:" field
-  const eventMatch = bodyText.match(
-    new RegExp(`Event:\\s*(.+?)(?=(?:${labelPattern}):|$)`, "is"),
-  );
-  if (eventMatch) {
-    result.eventName = eventMatch[1].trim().replace(/\s+/g, " ");
-  }
-
-  // Extract start time from "When:" or "Time:" field
-  const timeMatch = bodyText.match(
-    new RegExp(`(?:When|Time):\\s*(.+?)(?=(?:${labelPattern}):|$)`, "is"),
-  );
+  const timeMatch = CH3_TIME_RE.exec(bodyText);
   if (timeMatch) {
-    const timeText = timeMatch[1].trim();
-    const parsed = parseTimeString(timeText);
+    const parsed = parseTimeString(timeMatch[1].trim());
     if (parsed) result.startTime = parsed;
   }
 
