@@ -57,7 +57,7 @@ async function main() {
 
   const sorted = [...result.events].sort((a, b) => a.date.localeCompare(b.date));
   const first = sorted[0];
-  const last = sorted[sorted.length - 1];
+  const last = sorted.at(-1)!;
   console.log(`\n── Date range ──`);
   console.log(`  ${first.date} → ${last.date}`);
 

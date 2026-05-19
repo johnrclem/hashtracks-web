@@ -130,6 +130,13 @@ describe("HHHSAdapter", () => {
       expect(buildTitle({ date: "2026-02-16" })).toBe("HHHS Run");
     });
 
+    it("preserves runNumber: 0 (Number.isFinite, not truthiness)", () => {
+      // HHHS in practice is #3300+, but the contract must match
+      // parseHHHSRow's `Number.isFinite` guard so a hypothetical 0 still
+      // renders as "HHHS Trail #0" rather than falling back.
+      expect(buildTitle({ date: "2026-02-16", runNumber: 0 })).toBe("HHHS Trail #0");
+    });
+
     it("ignores notes — title is always synthesized, not promoted", () => {
       // Codex flagged the earlier code that mapped Notes -> title. Both
       // logistics blurbs and real-event-name shapes must collapse to the
@@ -193,11 +200,21 @@ describe("HHHSAdapter", () => {
       type: "HTML_SCRAPER",
     } as unknown as Source;
 
-    it("parses the hareline table end-to-end", async () => {
+    async function runFetch(opts?: { days?: number; reject?: Error }) {
       const { browserRender } = await import("@/lib/browser-render");
-      vi.mocked(browserRender).mockResolvedValueOnce(FIXTURE_HTML);
+      if (opts?.reject) {
+        vi.mocked(browserRender).mockRejectedValueOnce(opts.reject);
+      } else {
+        vi.mocked(browserRender).mockResolvedValueOnce(FIXTURE_HTML);
+      }
+      return new HHHSAdapter().fetch(
+        source,
+        opts?.days !== undefined ? { days: opts.days } : undefined,
+      );
+    }
 
-      const result = await new HHHSAdapter().fetch(source);
+    it("parses the hareline table end-to-end", async () => {
+      const result = await runFetch();
 
       expect(result.events).toHaveLength(4);
       expect(result.errors).toEqual([]);
@@ -222,10 +239,7 @@ describe("HHHSAdapter", () => {
     });
 
     it("synthesizes title and leaves description undefined when Notes is blank", async () => {
-      const { browserRender } = await import("@/lib/browser-render");
-      vi.mocked(browserRender).mockResolvedValueOnce(FIXTURE_HTML);
-
-      const result = await new HHHSAdapter().fetch(source);
+      const result = await runFetch();
 
       const depotLane = result.events.find((e) => e.runNumber === 3295);
       expect(depotLane?.title).toBe("HHHS Trail #3295");
@@ -234,10 +248,7 @@ describe("HHHSAdapter", () => {
     });
 
     it("synthesizes title for an event-name-shaped Notes row (still not promoted)", async () => {
-      const { browserRender } = await import("@/lib/browser-render");
-      vi.mocked(browserRender).mockResolvedValueOnce(FIXTURE_HTML);
-
-      const result = await new HHHSAdapter().fetch(source);
+      const result = await runFetch();
 
       const agm = result.events.find((e) => e.runNumber === 3289);
       expect(agm?.title).toBe("HHHS Trail #3289");
@@ -245,21 +256,14 @@ describe("HHHSAdapter", () => {
     });
 
     it("filters events outside the date window", async () => {
-      const { browserRender } = await import("@/lib/browser-render");
-      vi.mocked(browserRender).mockResolvedValueOnce(FIXTURE_HTML);
-
-      // Narrow window: 10 days from 2026-05-18 → only events between
-      // 2026-05-08 and 2026-05-28 would pass. None of the fixture rows
-      // (all Feb/Mar 2026) fall in that window.
-      const result = await new HHHSAdapter().fetch(source, { days: 10 });
+      // Narrow window: 10 days from 2026-05-18 — fixture rows are all
+      // Feb/Mar 2026 so none survive.
+      const result = await runFetch({ days: 10 });
       expect(result.events).toHaveLength(0);
     });
 
     it("surfaces a fetch error when browser-render throws", async () => {
-      const { browserRender } = await import("@/lib/browser-render");
-      vi.mocked(browserRender).mockRejectedValueOnce(new Error("frame not found"));
-
-      const result = await new HHHSAdapter().fetch(source);
+      const result = await runFetch({ reject: new Error("frame not found") });
       expect(result.events).toEqual([]);
       expect(result.errors[0]).toMatch(/Browser render failed/);
     });

@@ -130,7 +130,7 @@ export function parseHHHSRow(
   if (!date) return null;
 
   const runNumText = getCell(cells, columnMap, "runNumber");
-  const parsedRun = runNumText ? Number.parseInt(runNumText, 10) : NaN;
+  const parsedRun = runNumText ? Number.parseInt(runNumText, 10) : Number.NaN;
   const runNumber = Number.isFinite(parsedRun) ? parsedRun : undefined;
 
   return {
@@ -174,7 +174,7 @@ function extractTableRows($: CheerioAPI): { headers: string[]; rows: string[][] 
       .each((_, el) => {
         cells.push($(el).text().trim());
       });
-    if (cells.length > 0 && cells.some((c) => c.length > 0)) {
+    if (cells.some((c) => c.length > 0)) {
       rows.push(cells);
     }
   }
@@ -192,7 +192,9 @@ function extractTableRows($: CheerioAPI): { headers: string[]; rows: string[][] 
  * `"Hash House Harriers Singapore H3 Trail #N"` when notes are blank.
  */
 export function buildTitle(parsed: ParsedHHHSRun): string {
-  return parsed.runNumber
+  // Number.isFinite (not truthiness) so a hypothetical runNumber: 0 still
+  // renders as `"HHHS Trail #0"` — matches the contract in parseHHHSRow.
+  return Number.isFinite(parsed.runNumber)
     ? `${DISPLAY_NAME} Trail #${parsed.runNumber}`
     : `${DISPLAY_NAME} Run`;
 }
