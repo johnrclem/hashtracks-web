@@ -634,6 +634,12 @@ interface DisplayKennel {
 
 interface DisplayRowResult {
   emitted: number;
+  // Per-rule counter for rules suppressed because an earlier pass already
+  // emitted a HIGH/STATIC_SCHEDULE rule for the same (kennelId, rrule).
+  // Tracked at the rule grain so the outer summary catches mixed cases —
+  // a kennel with 2 parsed rules where 1 is covered + 1 emits contributes
+  // both to `count` and to `coveredByEarlierPass`. See CodeRabbit on #1491.
+  covered: number;
   status: "emitted" | "unparseable" | "opted-out" | "covered";
   reason?: string;
 }
@@ -701,7 +707,7 @@ function processDisplayKennel(
     if (options.verbose) {
       console.log(`  ⤼ ${k.shortName} — opted out of Pass 2 (declares scheduleRules in seed)`);
     }
-    return { emitted: 0, status: "opted-out" };
+    return { emitted: 0, covered: 0, status: "opted-out" };
   }
   const parsed = parseFrequencyDay(k.scheduleFrequency, k.scheduleDayOfWeek);
   if (parsed.length === 0) {
@@ -712,14 +718,17 @@ function processDisplayKennel(
     }
     return {
       emitted: 0,
+      covered: 0,
       status: "unparseable",
       reason: `${k.scheduleFrequency} / ${k.scheduleDayOfWeek ?? "null"}`,
     };
   }
   const startTime = parseScheduleTime(k.scheduleTime);
   let emitted = 0;
+  let covered = 0;
   for (const rule of parsed) {
     if (tryCoverPass2Rule(k.id, k.shortName, rule, startTime, coveredRules, options)) {
+      covered++;
       continue;
     }
     planned.push({
@@ -741,9 +750,9 @@ function processDisplayKennel(
     emitted++;
   }
   if (emitted === 0) {
-    return { emitted: 0, status: "covered" };
+    return { emitted: 0, covered, status: "covered" };
   }
-  return { emitted, status: "emitted" };
+  return { emitted, covered, status: "emitted" };
 }
 
 export async function runKennelDisplayPass(
@@ -760,15 +769,21 @@ export async function runKennelDisplayPass(
       .map((k) => k.kennelCode),
   );
 
-  // Pre-compute (kennelId|rrule) → PlannedRule lookup for HIGH-confidence rules
-  // already planned by an earlier pass (typically Pass 1 / STATIC_SCHEDULE).
-  // Pass 2 skips its own emit when the key matches (see #1486), and may also
-  // enrich the covered rule's null startTime from Pass 2's parsed value
-  // (Codex P2 on PR #1491). Map (not Set) so the inner check can read the
-  // covered rule.
+  // Pre-compute (kennelId|rrule) → PlannedRule lookup for Pass 1
+  // (STATIC_SCHEDULE / HIGH) rules already planned. Pass 2 skips its own emit
+  // when the key matches (see #1486), and may also enrich the covered rule's
+  // null startTime from Pass 2's parsed value (Codex P2 on PR #1491).
+  //
+  // Restricted to `source === "STATIC_SCHEDULE"` (CodeRabbit on PR #1491):
+  // the dedup intent is specifically the Pass 1 ↔ Pass 2 collision, not
+  // "any HIGH rule blocks Pass 2". Pass 3 emits HIGH SEED_DATA rules with
+  // richer metadata (label / validFrom / validUntil) and runs AFTER Pass 2
+  // in `runBackfill`, so it shouldn't land here today — but if pass ordering
+  // ever shifts or a test caller pre-populates `planned`, this filter makes
+  // the intent explicit.
   const coveredRules = new Map(
     planned
-      .filter((p) => p.confidence === "HIGH")
+      .filter((p) => p.confidence === "HIGH" && p.source === "STATIC_SCHEDULE")
       .map((p) => [`${p.kennelId}|${p.rrule}`, p] as const),
   );
 
@@ -793,8 +808,10 @@ export async function runKennelDisplayPass(
   for (const k of kennels) {
     const result = processDisplayKennel(k, optedOutCodes, coveredRules, planned, options);
     count += result.emitted;
+    // Per-rule sum so mixed cases (kennel with 1 covered + 1 emitted)
+    // contribute to both counters. CodeRabbit on PR #1491.
+    coveredByEarlierPass += result.covered;
     if (result.status === "opted-out") optedOut++;
-    else if (result.status === "covered") coveredByEarlierPass++;
     else if (result.status === "unparseable" && result.reason) {
       skipped++;
       skipReasons.set(result.reason, (skipReasons.get(result.reason) ?? 0) + 1);

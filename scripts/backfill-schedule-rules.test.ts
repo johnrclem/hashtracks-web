@@ -891,6 +891,92 @@ describe("runKennelDisplayPass — Pass 3 opt-out", () => {
     expect(pass1Rule.startTime).toBe("14:00");
   });
 
+  // CodeRabbit on PR #1491: only STATIC_SCHEDULE / HIGH rules block Pass 2.
+  // A HIGH SEED_DATA rule (e.g. a pre-loaded Pass 3 entry, or a future
+  // reordering of passes) must NOT suppress the Pass 2 emit — the dedup
+  // intent is precisely the Pass 1 ↔ Pass 2 collision.
+  it("does NOT skip Pass 2 emit when the HIGH rule is from a non-Pass-1 source", async () => {
+    const planned: Parameters<typeof runKennelDisplayPass>[1] = [
+      {
+        kennelId: "k_legacy",
+        kennelDisplay: "Legacy",
+        rrule: "FREQ=WEEKLY;BYDAY=SA",
+        anchorDate: null,
+        startTime: "15:00",
+        confidence: "HIGH",
+        source: "SEED_DATA", // not STATIC_SCHEDULE — should NOT block Pass 2
+        sourceReference: null,
+        lastValidatedAt: null,
+        notes: null,
+        label: "Monthly",
+        validFrom: null,
+        validUntil: null,
+        displayOrder: 0,
+      },
+    ];
+    const result = await runKennelDisplayPass(
+      fakePrismaForDisplay(FAKE_KENNELS),
+      planned,
+      {},
+      [],
+    );
+
+    // Both kennels emit normally; nothing was treated as covered.
+    expect(result.count).toBe(2);
+    expect(result.coveredByEarlierPass).toBe(0);
+    expect(planned).toHaveLength(3);
+  });
+
+  // CodeRabbit on PR #1491: `coveredByEarlierPass` must count individual
+  // covered rules, not whole kennels. A kennel with parsed.length === 2
+  // where 1 rule is covered and 1 emits should contribute to BOTH counters.
+  it("counts covered rules per-rule, not per-kennel (mixed-case kennel)", async () => {
+    // "Biweekly (1st & 3rd Saturdays)" parses to two monthly nth rules
+    // (FREQ=MONTHLY;BYDAY=1SA and FREQ=MONTHLY;BYDAY=3SA). Pre-populate Pass 1
+    // with a STATIC_SCHEDULE rule covering only the first; the second should
+    // still emit, and `result.coveredByEarlierPass` should report 1.
+    const MIXED_KENNEL: FakeKennelDisplayRow = {
+      id: "k_mixed",
+      kennelCode: "mixed",
+      shortName: "Mixed",
+      scheduleDayOfWeek: "Saturday",
+      scheduleTime: "3:00 PM",
+      scheduleFrequency: "Biweekly (1st & 3rd Saturdays)",
+      scheduleNotes: null,
+    };
+    const planned: Parameters<typeof runKennelDisplayPass>[1] = [
+      {
+        kennelId: "k_mixed",
+        kennelDisplay: "Mixed",
+        rrule: "FREQ=MONTHLY;BYDAY=1SA",
+        anchorDate: null,
+        startTime: "15:00",
+        confidence: "HIGH",
+        source: "STATIC_SCHEDULE",
+        sourceReference: null,
+        lastValidatedAt: new Date(),
+        notes: null,
+        label: null,
+        validFrom: null,
+        validUntil: null,
+        displayOrder: 0,
+      },
+    ];
+    const result = await runKennelDisplayPass(
+      fakePrismaForDisplay([MIXED_KENNEL]),
+      planned,
+      {},
+      [],
+    );
+
+    // 1 rule covered (1SA), 1 rule emitted (3SA).
+    expect(result.count).toBe(1);
+    expect(result.coveredByEarlierPass).toBe(1);
+    const newSeedRules = planned.filter((p) => p.source === "SEED_DATA");
+    expect(newSeedRules).toHaveLength(1);
+    expect(newSeedRules[0].rrule).toBe("FREQ=MONTHLY;BYDAY=3SA");
+  });
+
   // Only HIGH-confidence rules in `planned` block Pass 2 — a MEDIUM rule
   // sitting in `planned` (e.g. from a prior Pass 2 run in the same process)
   // must NOT block re-emission. This keeps the guard precise to the
