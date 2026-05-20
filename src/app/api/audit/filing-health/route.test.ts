@@ -25,7 +25,9 @@ const okRepoWithPush = () =>
 beforeEach(() => {
   vi.resetAllMocks();
   fetchSpy = vi.spyOn(globalThis, "fetch");
-  mockedAdmin.mockResolvedValue({ id: "u1" } as never);
+  // Cast-to-Awaited matches the documented codebase convention but avoids
+  // Sonar S4325 by naming the precise expected type instead of `as never`.
+  mockedAdmin.mockResolvedValue({ id: "u1" } as Awaited<ReturnType<typeof getAdminUser>>);
   process.env.GITHUB_TOKEN = "test-token";
 });
 
@@ -94,7 +96,7 @@ describe("GET /api/audit/filing-health", () => {
     const res = await GET();
     const body = await res.json();
     expect(body.status).toBe("error");
-    expect(body.message).toMatch(/lacks write access/);
+    expect(body.message).toMatch(/lacks any issue-management role/);
   });
 
   it("returns error when token has admin permission instead of push", async () => {
@@ -105,6 +107,22 @@ describe("GET /api/audit/filing-health", () => {
     const res = await GET();
     const body = await res.json();
     // admin implies push at the GitHub-API contract level; we accept it.
+    expect(body.status).toBe("ok");
+  });
+
+  // Regression for Codex P1 on PR #1509: fine-grained PATs scoped to
+  // `Issues: Read+Write` but `Contents: Read` typically report at the
+  // `triage` collaborator level. Such tokens CAN file issues — flagging
+  // them as "Filing broken" would be a persistent false alarm.
+  it("accepts triage permission (covers fine-grained PATs with Issues:Write)", async () => {
+    fetchSpy.mockResolvedValueOnce(okRateLimit());
+    fetchSpy.mockResolvedValueOnce(
+      Response.json({
+        permissions: { admin: false, push: false, triage: true, pull: true },
+      }),
+    );
+    const res = await GET();
+    const body = await res.json();
     expect(body.status).toBe("ok");
   });
 
@@ -124,7 +142,7 @@ describe("GET /api/audit/filing-health", () => {
     const body = await res.json();
     // No permissions block means we can't confirm write access — fail closed.
     expect(body.status).toBe("error");
-    expect(body.message).toMatch(/lacks write access/);
+    expect(body.message).toMatch(/lacks any issue-management role/);
   });
 
   // Regression for CodeRabbit/Gemini/Claude-bot reviews on PR #1509:

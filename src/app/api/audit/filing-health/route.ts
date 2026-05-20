@@ -192,17 +192,31 @@ export async function GET(): Promise<NextResponse<FilingHealthResult>> {
       );
     }
     const json = (await res.json()) as RepoResponse;
-    // `permissions.push: true` means the calling token can write to the
-    // repo, which covers issue creation and comments. `admin`/`maintain`
-    // imply push. Read-only tokens (`pull`-only) explicitly fail here so
-    // we don't ship a green chip while filings 401 silently.
+    // The `permissions` block on `/repos/{repo}` reflects the calling
+    // identity's repo-collaborator role. We accept any role that grants
+    // issue-management capability for our purposes:
+    //   - `admin` / `maintain` / `push` — write-class roles (classic PATs
+    //     with `repo`/`public_repo` and the repo owner identity all fall here)
+    //   - `triage` — explicitly grants issue / PR management without code
+    //     push. Fine-grained PATs scoped to `Issues: Read+Write` but
+    //     `Contents: Read` typically report at this level, and they CAN
+    //     file issues — flagging them red would be a false positive
+    //     (Codex P1 on PR #1509).
+    //
+    // Pure `pull` (read-only collaborator) or no permissions block at
+    // all falls through to the error branch — we can't confirm write
+    // capability without a mutating probe, so fail closed.
     const perms = json.permissions ?? {};
-    const canWrite = perms.push === true || perms.maintain === true || perms.admin === true;
+    const canWrite =
+      perms.admin === true ||
+      perms.maintain === true ||
+      perms.push === true ||
+      perms.triage === true;
     if (!canWrite) {
       return NextResponse.json(
         {
           status: "error",
-          message: `Token can read ${repo} but lacks write access (permissions.push !== true). Rotate to a token with Issues: Read+Write on the repo.`,
+          message: `Token can read ${repo} but lacks any issue-management role (admin/maintain/push/triage). Rotate to a token with Issues: Read+Write on the repo.`,
           repo,
           remaining: rateLimit.remaining,
           resetAt: rateLimit.reset,
