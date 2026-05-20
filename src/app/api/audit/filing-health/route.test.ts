@@ -126,4 +126,26 @@ describe("GET /api/audit/filing-health", () => {
     expect(body.status).toBe("error");
     expect(body.message).toMatch(/lacks write access/);
   });
+
+  // Regression for CodeRabbit/Gemini/Claude-bot reviews on PR #1509:
+  // a non-numeric `x-ratelimit-reset` header used to throw RangeError
+  // and silently flip the rate-limit response into a generic catch-path
+  // error. The guard must keep the actionable rate-limit message.
+  it("handles non-numeric x-ratelimit-reset header without throwing", async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response("rate limited", {
+        status: 403,
+        headers: {
+          "x-ratelimit-remaining": "0",
+          "x-ratelimit-reset": "not-a-number",
+        },
+      }),
+    );
+    const res = await GET();
+    const body = await res.json();
+    expect(body.status).toBe("error");
+    expect(body.message).toMatch(/rate-limited/);
+    // No resets-at suffix when the header is garbage — better than throwing.
+    expect(body.message).not.toMatch(/resets at/);
+  });
 });

@@ -41,6 +41,7 @@
 import { NextResponse } from "next/server";
 
 import { authorizeAuditApi } from "@/lib/audit-api-auth";
+import { safeErrorBody } from "@/lib/safe-error-body";
 import { reportAuditFilerFailure } from "@/pipeline/audit-filer-telemetry";
 import { prisma } from "@/lib/db";
 import {
@@ -270,37 +271,6 @@ async function persistFilingResult(
 // ── GitHub IO ────────────────────────────────────────────────────────
 
 const LOG_PREFIX = "[audit-file-finding]";
-
-/**
- * Read an upstream error response body for safe logging, capped at
- * `LOG_BODY_MAX` bytes. GitHub error responses are normally tiny JSON
- * `{message, documentation_url}` bodies, but a proxy or intermediary could
- * return a multi-megabyte HTML error page that reflects request content
- * (#1468). We stream the body and stop reading once we have enough — this
- * keeps the defensive bound on the read itself rather than post-decode
- * slicing, so a misbehaving upstream cannot pressure memory or latency
- * even before truncation (Gemini + Codex pass on PR #1482).
- */
-const LOG_BODY_MAX = 500;
-async function safeErrorBody(res: Response): Promise<string> {
-  try {
-    const reader = res.body?.getReader();
-    if (!reader) return "<empty body>";
-    const decoder = new TextDecoder("utf-8", { fatal: false });
-    let collected = "";
-    while (collected.length < LOG_BODY_MAX) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (value) collected += decoder.decode(value, { stream: true });
-    }
-    void reader.cancel();
-    return collected.length > LOG_BODY_MAX
-      ? `${collected.slice(0, LOG_BODY_MAX)}…(truncated)`
-      : collected;
-  } catch {
-    return "<unreadable body>";
-  }
-}
 
 /** Standard POST init for any GitHub repos/* call. */
 function githubPostInit(token: string, body: unknown): RequestInit {

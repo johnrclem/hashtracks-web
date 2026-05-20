@@ -25,6 +25,7 @@
 import { NextResponse } from "next/server";
 import { getAdminUser } from "@/lib/auth";
 import { getValidatedRepo } from "@/lib/github-repo";
+import { safeErrorBody } from "@/lib/safe-error-body";
 
 const FETCH_TIMEOUT_MS = 5_000;
 const LOW_REMAINING_THRESHOLD = 100;
@@ -76,8 +77,15 @@ function rateLimitErrorMessageFor(res: Response, body: string): string {
     return "GitHub rejected the token (401 Bad Credentials). Rotate GITHUB_TOKEN in Vercel prod env.";
   }
   if (res.status === 403 && res.headers.get("x-ratelimit-remaining") === "0") {
+    // Guard: a misbehaving GitHub proxy or future format change could ship a
+    // non-numeric `x-ratelimit-reset` header; `new Date(NaN).toISOString()`
+    // throws RangeError and converts a 403 rate-limit response into a
+    // generic catch-path error — exactly the diagnostic we lose.
     const reset = res.headers.get("x-ratelimit-reset");
-    const resetHint = reset ? ` (resets at ${new Date(Number(reset) * 1000).toISOString()})` : "";
+    const resetEpoch = reset ? Number(reset) : Number.NaN;
+    const resetHint = Number.isFinite(resetEpoch)
+      ? ` (resets at ${new Date(resetEpoch * 1000).toISOString()})`
+      : "";
     return `Token works but is rate-limited${resetHint}. Wait for the reset window or rotate to a token with higher quota.`;
   }
   return `GitHub /rate_limit returned ${res.status}: ${body.slice(0, 200)}`;
@@ -132,7 +140,7 @@ export async function GET(): Promise<NextResponse<FilingHealthResult>> {
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
     if (!res.ok) {
-      const body = await res.text().catch(() => "");
+      const body = await safeErrorBody(res);
       return NextResponse.json(
         { status: "error", message: rateLimitErrorMessageFor(res, body), repo },
         { status: 200 },
@@ -171,7 +179,7 @@ export async function GET(): Promise<NextResponse<FilingHealthResult>> {
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
     if (!res.ok) {
-      const body = await res.text().catch(() => "");
+      const body = await safeErrorBody(res);
       return NextResponse.json(
         {
           status: "error",

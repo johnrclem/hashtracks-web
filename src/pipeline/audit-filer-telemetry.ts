@@ -31,8 +31,27 @@ export interface FilerFailureDetail {
 const DEDUP_WINDOW_MS = 60_000;
 const recentlyReported = new Map<string, number>();
 
-function shouldReport(origin: FilerOrigin, stage: FilerStage, status?: number): boolean {
-  const key = `${origin}:${stage}:${status ?? "noerr"}`;
+/**
+ * Build a discriminator that distinguishes the failure modes a single
+ * `(origin, stage)` pair can experience. Without this, `githubStatus`
+ * being absent collapses every non-HTTP failure into one bucket — a
+ * missing-token alert can be suppressed for 60s by an earlier
+ * fetch-throw, or vice versa — defeating the dedup's whole point of
+ * letting operators see "what changed".
+ */
+function failureDiscriminator(detail: FilerFailureDetail): string {
+  if (detail.githubStatus !== undefined) return `status:${detail.githubStatus}`;
+  if (detail.error instanceof Error) return `error:${detail.error.name}`;
+  if (typeof detail.error === "string") return `error:${detail.error}`;
+  return "noerr";
+}
+
+function shouldReport(
+  origin: FilerOrigin,
+  stage: FilerStage,
+  detail: FilerFailureDetail,
+): boolean {
+  const key = `${origin}:${stage}:${failureDiscriminator(detail)}`;
   const now = Date.now();
   const last = recentlyReported.get(key);
   if (last !== undefined && now - last < DEDUP_WINDOW_MS) return false;
@@ -45,7 +64,7 @@ export function reportAuditFilerFailure(
   stage: FilerStage,
   detail: FilerFailureDetail,
 ): void {
-  if (!shouldReport(origin, stage, detail.githubStatus)) return;
+  if (!shouldReport(origin, stage, detail)) return;
   Sentry.captureMessage(`audit-filer/${origin} ${stage} failed`, {
     level: "error",
     tags: {

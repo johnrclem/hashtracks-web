@@ -20,6 +20,7 @@
 import type { AuditGroup } from "./audit-runner";
 import { formatGroupIssueTitle, formatGroupIssueBody } from "./audit-format";
 import { reportAuditFilerFailure } from "./audit-filer-telemetry";
+import { safeErrorBody } from "@/lib/safe-error-body";
 import {
   AUDIT_LABEL,
   ALERT_LABEL,
@@ -90,7 +91,7 @@ function buildCronActions(): FilerActions {
         const url = new URL(`/repos/${repo}/issues`, "https://api.github.com");
         const res = await fetch(url, githubPostInit(token, { title, body, labels }));
         if (!res.ok) {
-          const errBody = await res.text();
+          const errBody = await safeErrorBody(res);
           console.error(`[audit-issue] GitHub API ${res.status}: ${errBody}`);
           reportAuditFilerFailure("cron", "createIssue", {
             githubStatus: res.status,

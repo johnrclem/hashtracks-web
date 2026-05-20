@@ -749,6 +749,12 @@ interface FilingHealthState {
   message: string;
 }
 
+function isFilingHealthApiStatus(
+  value: unknown,
+): value is FilingHealthResult["status"] {
+  return value === "ok" || value === "warn" || value === "error";
+}
+
 const FILING_HEALTH_STYLES: Record<
   FilingHealthStatus,
   { palette: string; Icon: typeof CircleCheck; label: string }
@@ -795,10 +801,13 @@ function FilingHealthChip() {
       .then(async (res) => {
         const body = (await res.json().catch(() => null)) as Partial<FilingHealthResult> | null;
         if (cancelled) return;
-        if (!body || typeof body.status === "undefined") {
+        if (!body || !isFilingHealthApiStatus(body.status)) {
+          // Fail closed on an unrecognized status string so the chip
+          // render's `FILING_HEALTH_STYLES[state.status]` lookup can
+          // never index off the end of the map.
           setState({
             status: "error",
-            message: `Health probe failed (${res.status})`,
+            message: `Health probe returned unexpected payload (HTTP ${res.status})`,
           });
           return;
         }
