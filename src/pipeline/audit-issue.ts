@@ -19,6 +19,7 @@
  */
 import type { AuditGroup } from "./audit-runner";
 import { formatGroupIssueTitle, formatGroupIssueBody } from "./audit-format";
+import { reportAuditFilerFailure } from "./audit-filer-telemetry";
 import {
   AUDIT_LABEL,
   ALERT_LABEL,
@@ -78,7 +79,10 @@ function buildCronActions(): FilerActions {
   return {
     createIssue: async ({ title, body, labels }) => {
       const token = process.env.GITHUB_TOKEN;
-      if (!token) return null;
+      if (!token) {
+        reportAuditFilerFailure("cron", "createIssue", { error: "GITHUB_TOKEN not set" });
+        return null;
+      }
       const repo = getValidatedRepo();
       try {
         // SSRF-safe: URL constructor anchors the request to the
@@ -86,7 +90,12 @@ function buildCronActions(): FilerActions {
         const url = new URL(`/repos/${repo}/issues`, "https://api.github.com");
         const res = await fetch(url, githubPostInit(token, { title, body, labels }));
         if (!res.ok) {
-          console.error(`[audit-issue] GitHub API ${res.status}: ${await res.text()}`);
+          const errBody = await res.text();
+          console.error(`[audit-issue] GitHub API ${res.status}: ${errBody}`);
+          reportAuditFilerFailure("cron", "createIssue", {
+            githubStatus: res.status,
+            body: errBody,
+          });
           return null;
         }
         // Local name carries "Html" so the xss/no-mixed-html rule
@@ -100,12 +109,19 @@ function buildCronActions(): FilerActions {
         return { htmlUrl: issueHtml.html_url, number: issueHtml.number };
       } catch (err) {
         console.error("[audit-issue] Failed to create GitHub issue:", err);
+        reportAuditFilerFailure("cron", "createIssue", { error: err });
         return null;
       }
     },
     postComment: async (issueNumber, body) => {
       const token = process.env.GITHUB_TOKEN;
-      if (!token) return false;
+      if (!token) {
+        reportAuditFilerFailure("cron", "postComment", {
+          error: "GITHUB_TOKEN not set",
+          issueNumber,
+        });
+        return false;
+      }
       if (!Number.isInteger(issueNumber) || issueNumber <= 0) return false;
       const repo = getValidatedRepo();
       try {
@@ -119,11 +135,16 @@ function buildCronActions(): FilerActions {
           console.error(
             `[audit-issue] Comment failed (#${issueNumber}, ${res.status})`,
           );
+          reportAuditFilerFailure("cron", "postComment", {
+            githubStatus: res.status,
+            issueNumber,
+          });
           return false;
         }
         return true;
       } catch (err) {
         console.error("[audit-issue] Comment threw:", err);
+        reportAuditFilerFailure("cron", "postComment", { error: err, issueNumber });
         return false;
       }
     },

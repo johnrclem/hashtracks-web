@@ -12,6 +12,9 @@ import {
   Telescope,
   Copy,
   Check,
+  CircleAlert,
+  CircleCheck,
+  CircleHelp,
 } from "lucide-react";
 import {
   LineChart,
@@ -83,6 +86,7 @@ interface KennelOption {
   shortName: string;
 }
 
+import type { FilingHealthResult } from "@/app/api/audit/filing-health/route";
 import type {
   MintedQueueToken,
   MintedQueueTokens,
@@ -188,7 +192,10 @@ export function AuditDashboard({
             title="Data Quality Audit"
             color="bg-blue-500/10 text-blue-500"
           />
-          {harelinePrompt && <CopyHarelinePromptButton prompt={harelinePrompt} />}
+          <div className="flex items-center gap-2">
+            <FilingHealthChip />
+            {harelinePrompt && <CopyHarelinePromptButton prompt={harelinePrompt} />}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -730,6 +737,98 @@ function SuppressionDialog({
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ── Filing-Health Chip ──────────────────────────────────────────────
+
+type FilingHealthStatus = FilingHealthResult["status"] | "loading";
+
+interface FilingHealthState {
+  status: FilingHealthStatus;
+  message: string;
+}
+
+const FILING_HEALTH_STYLES: Record<
+  FilingHealthStatus,
+  { palette: string; Icon: typeof CircleCheck; label: string }
+> = {
+  ok: {
+    palette: "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+    Icon: CircleCheck,
+    label: "Filing OK",
+  },
+  warn: {
+    palette: "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400",
+    Icon: CircleAlert,
+    label: "Filing low budget",
+  },
+  error: {
+    palette: "border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400",
+    Icon: CircleAlert,
+    label: "Filing broken",
+  },
+  loading: {
+    palette: "border-border bg-muted text-muted-foreground",
+    Icon: CircleHelp,
+    label: "Filing…",
+  },
+};
+
+/**
+ * Probes `/api/audit/filing-health` on mount and renders a colored chip
+ * summarizing whether the GitHub filing token is still valid. Exists so
+ * that an expired/revoked `GITHUB_TOKEN` (the #1494 outage root cause)
+ * surfaces the moment an admin loads the audit dashboard — without it,
+ * chrome agents are the first to discover the failure when they hit 502
+ * on a fresh nonce.
+ */
+function FilingHealthChip() {
+  const [state, setState] = useState<FilingHealthState>({
+    status: "loading",
+    message: "Checking GitHub token…",
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/audit/filing-health")
+      .then(async (res) => {
+        const body = (await res.json().catch(() => null)) as Partial<FilingHealthResult> | null;
+        if (cancelled) return;
+        if (!body || typeof body.status === "undefined") {
+          setState({
+            status: "error",
+            message: `Health probe failed (${res.status})`,
+          });
+          return;
+        }
+        setState({
+          status: body.status,
+          message: body.message ?? "no message",
+        });
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setState({
+          status: "error",
+          message:
+            err instanceof Error ? err.message : "Health probe network error",
+        });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const { palette, Icon, label } = FILING_HEALTH_STYLES[state.status];
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium ${palette}`}
+      title={state.message}
+    >
+      <Icon className="h-3.5 w-3.5" />
+      {label}
+    </span>
   );
 }
 

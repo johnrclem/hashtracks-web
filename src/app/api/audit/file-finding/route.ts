@@ -41,6 +41,7 @@
 import { NextResponse } from "next/server";
 
 import { authorizeAuditApi } from "@/lib/audit-api-auth";
+import { reportAuditFilerFailure } from "@/pipeline/audit-filer-telemetry";
 import { prisma } from "@/lib/db";
 import {
   hashNonce,
@@ -331,6 +332,7 @@ function buildApiActions(): FilerActions {
       const token = process.env.GITHUB_TOKEN;
       if (!token) {
         console.error(`${LOG_PREFIX} createIssue: GITHUB_TOKEN not set`);
+        reportAuditFilerFailure("chrome", "createIssue", { error: "GITHUB_TOKEN not set" });
         return null;
       }
       const repo = getValidatedRepo();
@@ -343,9 +345,14 @@ function buildApiActions(): FilerActions {
           githubPostInit(token, { title, body, labels }),
         );
         if (!res.ok) {
+          const errBody = await safeErrorBody(res);
           console.error(
-            `${LOG_PREFIX} createIssue GitHub API ${res.status}: ${await safeErrorBody(res)}`,
+            `${LOG_PREFIX} createIssue GitHub API ${res.status}: ${errBody}`,
           );
+          reportAuditFilerFailure("chrome", "createIssue", {
+            githubStatus: res.status,
+            body: errBody,
+          });
           return null;
         }
         // Local name carries "Html" so the xss/no-mixed-html rule
@@ -359,6 +366,7 @@ function buildApiActions(): FilerActions {
         return { htmlUrl: issueHtml.html_url, number: issueHtml.number };
       } catch (err) {
         console.error(`${LOG_PREFIX} createIssue fetch threw:`, err);
+        reportAuditFilerFailure("chrome", "createIssue", { error: err });
         return null;
       }
     },
@@ -366,6 +374,10 @@ function buildApiActions(): FilerActions {
       const token = process.env.GITHUB_TOKEN;
       if (!token) {
         console.error(`${LOG_PREFIX} postComment: GITHUB_TOKEN not set`);
+        reportAuditFilerFailure("chrome", "postComment", {
+          error: "GITHUB_TOKEN not set",
+          issueNumber,
+        });
         return false;
       }
       if (!Number.isInteger(issueNumber) || issueNumber <= 0) return false;
@@ -378,13 +390,20 @@ function buildApiActions(): FilerActions {
         );
         const res = await fetch(url, githubPostInit(token, { body }));
         if (!res.ok) {
+          const errBody = await safeErrorBody(res);
           console.error(
-            `${LOG_PREFIX} postComment GitHub API #${issueNumber} ${res.status}: ${await safeErrorBody(res)}`,
+            `${LOG_PREFIX} postComment GitHub API #${issueNumber} ${res.status}: ${errBody}`,
           );
+          reportAuditFilerFailure("chrome", "postComment", {
+            githubStatus: res.status,
+            body: errBody,
+            issueNumber,
+          });
         }
         return res.ok;
       } catch (err) {
         console.error(`${LOG_PREFIX} postComment fetch threw:`, err);
+        reportAuditFilerFailure("chrome", "postComment", { error: err, issueNumber });
         return false;
       }
     },
