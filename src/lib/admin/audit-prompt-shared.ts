@@ -117,7 +117,13 @@ Use this whenever Option 1 returns 502 twice in a row, or any non-401 error you 
 https://github.com/${HASHTRACKS_REPO}/issues/new?labels=audit,alert,audit:${input.stream},kennel:${input.kennelLabel}&title={URL-ENCODED TITLE}&body={URL-ENCODED BODY}
 \`\`\`
 
-The next sync round's bridging tier (5c-A) detects URL-filed audit issues by the matching kennel + ruleSlug bracket in the title and back-links them to the dedup graph, so you don't fork duplicates. Use the same title format the API flow would have used: \`[Audit] <Kennel> — <ruleSlug>: <short summary>\`.
+The next sync round's bridging tier (5c-A) detects URL-filed audit issues by parsing the rule slug out of the title. **Use this exact title shape so the bridge fires:**
+
+\`\`\`text
+Finding: <KENNEL_SHORTNAME> <short prose summary> <rule-slug>
+\`\`\`
+
+The trailing token MUST be the rule slug (lowercase, hyphenated, e.g. \`hares-theme-leak\`, \`title-raw-kennel-code\`). Anything goes between, but \`Finding:\` must be the prefix and the slug must be the last whitespace-delimited token — see \`extractRuleSlugFromChromeTitle\` in \`src/pipeline/audit-issue-sync.ts\`. Get this wrong and your URL-filed issue will not back-link to the dedup graph; later filings for the same finding will fork duplicates and lose recurrence history.
 
 **Option 3 (manual fallback when no browser path lands the issue): paste the finding for an admin to file**
 

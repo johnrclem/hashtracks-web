@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("@/lib/auth", () => ({ getAdminUser: vi.fn() }));
 vi.mock("@/lib/github-repo", () => ({
@@ -13,6 +13,14 @@ const mockedAdmin = vi.mocked(getAdminUser);
 const ORIGINAL_TOKEN = process.env.GITHUB_TOKEN;
 
 let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+const okRateLimit = (remaining = 4321) =>
+  Response.json({
+    resources: { core: { limit: 5000, remaining, reset: 9999 } },
+  });
+
+const okRepoWithPush = () =>
+  Response.json({ permissions: { admin: false, push: true, pull: true } });
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -55,27 +63,67 @@ describe("GET /api/audit/filing-health", () => {
     expect(body.message).toMatch(/Rotate GITHUB_TOKEN/);
   });
 
-  it("returns ok with remaining budget when the token works", async () => {
-    fetchSpy.mockResolvedValueOnce(
-      Response.json({
-        resources: { core: { limit: 5000, remaining: 4321, reset: 9999 } },
-      }),
-    );
+  it("returns ok with remaining budget when both probes succeed and token has push", async () => {
+    fetchSpy.mockResolvedValueOnce(okRateLimit());
+    fetchSpy.mockResolvedValueOnce(okRepoWithPush());
     const res = await GET();
     const body = await res.json();
     expect(body.status).toBe("ok");
     expect(body.remaining).toBe(4321);
     expect(body.resetAt).toBe(9999);
+    expect(body.message).toMatch(/can write to johnrclem\/hashtracks-web/);
   });
 
-  it("returns warn when remaining budget is dangerously low", async () => {
-    fetchSpy.mockResolvedValueOnce(
-      Response.json({
-        resources: { core: { limit: 5000, remaining: 12, reset: 1 } },
-      }),
-    );
+  it("returns warn when remaining budget is dangerously low but token can still write", async () => {
+    fetchSpy.mockResolvedValueOnce(okRateLimit(12));
+    fetchSpy.mockResolvedValueOnce(okRepoWithPush());
     const res = await GET();
     const body = await res.json();
     expect(body.status).toBe("warn");
+    expect(body.message).toMatch(/can write to johnrclem\/hashtracks-web/);
+  });
+
+  // Codex adversarial review on PR #1509: /rate_limit alone could green-light
+  // a token that has zero write capability on the target repo. The repo-probe
+  // closes that hole by checking `permissions.push`.
+  it("returns error when token is valid but lacks push permission on the repo", async () => {
+    fetchSpy.mockResolvedValueOnce(okRateLimit());
+    fetchSpy.mockResolvedValueOnce(
+      Response.json({ permissions: { admin: false, push: false, pull: true } }),
+    );
+    const res = await GET();
+    const body = await res.json();
+    expect(body.status).toBe("error");
+    expect(body.message).toMatch(/lacks write access/);
+  });
+
+  it("returns error when token has admin permission instead of push", async () => {
+    fetchSpy.mockResolvedValueOnce(okRateLimit());
+    fetchSpy.mockResolvedValueOnce(
+      Response.json({ permissions: { admin: true, push: false, pull: true } }),
+    );
+    const res = await GET();
+    const body = await res.json();
+    // admin implies push at the GitHub-API contract level; we accept it.
+    expect(body.status).toBe("ok");
+  });
+
+  it("returns error with 404 hint when the repo is invisible to the token", async () => {
+    fetchSpy.mockResolvedValueOnce(okRateLimit());
+    fetchSpy.mockResolvedValueOnce(new Response("Not Found", { status: 404 }));
+    const res = await GET();
+    const body = await res.json();
+    expect(body.status).toBe("error");
+    expect(body.message).toMatch(/cannot see repo/);
+  });
+
+  it("returns error when /repos returns 200 but no permissions block", async () => {
+    fetchSpy.mockResolvedValueOnce(okRateLimit());
+    fetchSpy.mockResolvedValueOnce(Response.json({ name: "hashtracks-web" }));
+    const res = await GET();
+    const body = await res.json();
+    // No permissions block means we can't confirm write access — fail closed.
+    expect(body.status).toBe("error");
+    expect(body.message).toMatch(/lacks write access/);
   });
 });

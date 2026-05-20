@@ -1,4 +1,5 @@
 import { renderFilingInstructions } from "./audit-prompt-shared";
+import { extractRuleSlugFromChromeTitle } from "@/pipeline/audit-issue-sync";
 
 const HARELINE = renderFilingInstructions({
   stream: "chrome-event",
@@ -30,6 +31,26 @@ describe("renderFilingInstructions — hareline (chrome-event)", () => {
     for (const substring of expected) {
       expect(HARELINE).toContain(substring);
     }
+  });
+});
+
+describe("renderFilingInstructions — fallback title contract", () => {
+  // Regression for the Codex adversarial review on PR #1509: an
+  // earlier version recommended `[Audit] <Kennel> — <ruleSlug>:
+  // <summary>` for the URL-prefill fallback, which silently failed
+  // `extractRuleSlugFromChromeTitle` and broke the bridging promise.
+  // The recommended title shape MUST round-trip through the actual
+  // production extractor so URL-filed issues bridge into the dedup
+  // graph on the next sync round.
+  it("recommended Option 2 title shape parses through extractRuleSlugFromChromeTitle", () => {
+    const sampleTitle = "Finding: NYCH3 hares column missing for #2143 hares-theme-leak";
+    expect(extractRuleSlugFromChromeTitle(sampleTitle)).toBe("hares-theme-leak");
+  });
+
+  it("hareline prompt names the extractor + the exact required shape", () => {
+    expect(HARELINE).toContain("extractRuleSlugFromChromeTitle");
+    expect(HARELINE).toContain("Finding: <KENNEL_SHORTNAME>");
+    expect(HARELINE).toContain("trailing token MUST be the rule slug");
   });
 });
 
