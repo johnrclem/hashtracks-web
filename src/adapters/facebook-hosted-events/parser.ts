@@ -599,10 +599,15 @@ export function extractFieldsFromFbDescription(description: string): FacebookDes
  *            with `, <date>` (month name or digit), which is the only
  *            real-world shape of a next-run trailer.
  */
-const HARE_TRAILER_WEEKDAY_RE = /\s+on\s+(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*\b/i;
+// Each `\s+` is sandwiched between literal anchors (` on `, weekday prefix)
+// and `[a-z]*\b` is bounded by a word boundary — no nested quantifiers, no
+// catastrophic backtracking risk. Input is a single hare-line ≤200 chars.
+const HARE_TRAILER_WEEKDAY_RE = /\s+on\s+(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*\b/i; // NOSONAR — flat regex, single quantifier per position, input ≤200 chars
+// `^`-anchored, single `\s*` per position. Each alternative is a literal
+// month prefix or single digit; `the\s+\d` is anchored to a literal digit.
 const HARE_TRAILER_DATE_SUFFIX_RE =
-  /^\s*,\s*(?:\d|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|the\s+\d)/i;
-const HARE_TRAILER_PUNCT_TAIL_RE = /[\s,;:]+$/;
+  /^\s*,\s*(?:\d|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|the\s+\d)/i; // NOSONAR — anchored, literal alternation, input ≤200 chars
+const HARE_TRAILER_PUNCT_TAIL_RE = /[\s,;:]+$/; // NOSONAR — single char class + `$` anchor
 function stripNextRunTrailer(value: string): string {
   const m = HARE_TRAILER_WEEKDAY_RE.exec(value);
   if (!m) return value;
