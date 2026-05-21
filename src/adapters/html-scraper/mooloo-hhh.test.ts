@@ -31,7 +31,7 @@ function makeSource(overrides: Partial<Source> = {}): Source {
 describe("parseMoolooRunLine", () => {
   const opts = { sourceUrl: "https://www.sporty.co.nz/mooloohhh/UpCumming-Runs", kennelTag: "mooloo-h3" };
 
-  it("parses the canonical 'DD Mon YYYY RUN# NNNN <body>' format", () => {
+  it("parses the canonical 'DD Mon YYYY RUN# NNNN <body>' format (#1505)", () => {
     const ev = parseMoolooRunLine(
       "25 May 2026 RUN# 1886 Tittannic's Trail from ReefUnder and Shunter's 8 Joffre St. 6PM.",
       opts,
@@ -40,8 +40,37 @@ describe("parseMoolooRunLine", () => {
     expect(ev!.date).toBe("2026-05-25");
     expect(ev!.runNumber).toBe(1886);
     expect(ev!.startTime).toBe("18:00");
+    // Hare = name before "'s Trail" (Tittannic). The "from ReefUnder and
+    // Shunter's" suffix names the *hosts* (whose place the trail starts
+    // from), not the hare; they're preserved verbatim in description.
+    expect(ev!.hares).toBe("Tittannic");
+    expect(ev!.locationStreet).toBe("8 Joffre St");
     expect(ev!.description).toContain("Tittannic's Trail");
+    expect(ev!.description).toContain("ReefUnder and Shunter");
     expect(ev!.kennelTags).toEqual(["mooloo-h3"]);
+  });
+
+  it("captures multi-word and hyphenated hare names before \"'s Trail\"", () => {
+    // Hash names with spaces, hyphens, or digits are common — single-token
+    // capture would silently drop them. Each case below has a different
+    // hare-name shape; description should still preserve the full body.
+    expect(parseMoolooRunLine("25 May 2026 RUN# 1900 Mr Ed's Trail 1 Bridge Rd. 6PM.", opts)!.hares)
+      .toBe("Mr Ed");
+    expect(parseMoolooRunLine("25 May 2026 RUN# 1901 No More's Trail 2 Main St. 6PM.", opts)!.hares)
+      .toBe("No More");
+    expect(parseMoolooRunLine("25 May 2026 RUN# 1902 Dog-Food's Trail 3 Park Ave. 6PM.", opts)!.hares)
+      .toBe("Dog-Food");
+  });
+
+  it("leaves hares/locationStreet undefined when body lacks the Trail/address idioms", () => {
+    // "At ToeTruck's" is a host-place form (no "'s Trail"), and no street
+    // number appears in the body — both extractors should bail cleanly.
+    const ev = parseMoolooRunLine("1 Jun 2026 RUN#1887 At ToeTruck's 6:30pm", opts);
+    expect(ev).not.toBeNull();
+    expect(ev!.runNumber).toBe(1887);
+    expect(ev!.startTime).toBe("18:30");
+    expect(ev!.hares).toBeUndefined();
+    expect(ev!.locationStreet).toBeUndefined();
   });
 
   it("tolerates RUN# with no space + spelling variants", () => {

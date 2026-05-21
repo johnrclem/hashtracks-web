@@ -62,6 +62,32 @@ export interface ParsedGeriatrixRow {
   mapUrl?: string;
 }
 
+// Accept "Hare:" AND "Hares:" — sporty editors swap labels depending on
+// trail-setter count. The captured label is passed back to valueAfterLabel
+// so the slice lands at the right offset.
+const GERIATRIX_LABEL_RE = /^\s*(venue|hares?|map)\b/i;
+
+/** Apply one non-date paragraph to the in-progress row by matching its
+ *  label prefix. Extracted from {@link parseGeriatrixParagraphs} to keep
+ *  that function under Sonar S3776's cognitive-complexity threshold. */
+function applyGeriatrixLabel(
+  row: ParsedGeriatrixRow,
+  p: { text: string; firstHref?: string },
+): void {
+  const labelMatch = GERIATRIX_LABEL_RE.exec(p.text);
+  if (!labelMatch) return;
+  const label = labelMatch[1].toLowerCase();
+  if (label === "venue") {
+    row.venue = valueAfterLabel(p.text, "Venue");
+  } else if (label === "map") {
+    // Prefer the <a href> over visible text — Geriatrix duplicates the
+    // URL into the visible text but it may be visually truncated.
+    row.mapUrl = p.firstHref ?? valueAfterLabel(p.text, "Map");
+  } else {
+    row.hare = valueAfterLabel(p.text, labelMatch[1]);
+  }
+}
+
 /** Walk the ordered `<p>` list and group consecutive runs into 4-line
  *  blocks anchored by a DD/MM/YYYY paragraph. Exported for unit tests. */
 export function parseGeriatrixParagraphs(
@@ -76,17 +102,8 @@ export function parseGeriatrixParagraphs(
     if (dateIso) {
       if (current) out.push(current);
       current = { date: dateIso };
-      continue;
-    }
-    if (!current) continue;
-    if (/^\s*venue\b/i.test(p.text)) {
-      current.venue = valueAfterLabel(p.text, "Venue");
-    } else if (/^\s*hare\b/i.test(p.text)) {
-      current.hare = valueAfterLabel(p.text, "Hare");
-    } else if (/^\s*map\b/i.test(p.text)) {
-      // Prefer the <a href> over the visible text — visible text on Geriatrix
-      // duplicates the URL but may be visually truncated.
-      current.mapUrl = p.firstHref ?? valueAfterLabel(p.text, "Map");
+    } else if (current) {
+      applyGeriatrixLabel(current, p);
     }
   }
   if (current) out.push(current);
