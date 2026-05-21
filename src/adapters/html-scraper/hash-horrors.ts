@@ -3,67 +3,99 @@ import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "..
 import { fetchWordPressComPage } from "../wordpress-api";
 import { MONTHS, decodeEntities, buildDateWindow, stripHtmlTags } from "../utils";
 import { generateStructureHash } from "@/pipeline/structure-hash";
+import { todayInTimezone } from "@/lib/timezone";
 
 const DEFAULT_SITE_DOMAIN = "hashhousehorrors.com";
-const HARELINE_SLUG = "hareline";
+const HARELINE_ARCHIVE_SLUG = "hareline";
+const HARELINE_UPCOMING_SLUG = "hareline-2";
 const KENNEL_TAG = "hhhorrors";
 const DEFAULT_START_TIME = "16:30";
+// Hash House Horrors runs in Singapore (UTC+8). The /hareline-2/ upcoming
+// page has no year heading, so we default to the kennel's local year — using
+// UTC would mis-date the first ~8 hours of January 1 every year.
+const KENNEL_TIMEZONE = "Asia/Singapore";
 
 /**
  * Hash House Horrors (Singapore) adapter.
  *
- * The kennel uses a WordPress.com hosted blog (NOT self-hosted), so the
- * standard `/wp-json/` endpoint returns 404. Instead we use the WordPress.com
- * Public REST API to fetch the `/hareline` page (page id 18, "Previous Runs"),
- * which contains the entire run history grouped by year.
+ * The kennel publishes runs across two WordPress.com hosted pages:
+ *   - `/hareline`     → the year-grouped historical archive (1993 → present).
+ *                       Most-recent past runs are at the top, oldest at the bottom.
+ *   - `/hareline-2/`  → the small "upcoming" list (typically 4-6 future runs).
+ *                       No year heading; the current calendar year is implied,
+ *                       with auto-rollover when the date sequence wraps.
  *
- * Format inside the page content:
+ * Both pages share the same per-row format:
+ *   `<runNumber> – <month> <day> – <hares>[ – <location>]`
  *
- *   2026
- *   1016 – May 17 – Wade Family
- *   1015 – May 3 – Baudoux, Guthrie and Poyner Families
- *   1014 – April 19 – Hares Needed
- *   1013 – April 5 – Campbell Family
- *   ...
- *   2025
- *   1006 – December 14 – Dew, Jones, Petrocelli and Waage Families – Bukit Batok East Avenue 2 Heavy Vehicle Park
- *   ...
- *
- * - Year sections (`2026`, `2025`, ...) act as parser anchors
- * - Per-run line: `<runNumber> – <month> <day> – <hares>[ – <location>]`
- * - "Hares Needed" sentinel for unfilled future runs (drop the value)
- * - Some lines omit the location
+ * Quirks we handle here (see #1253):
+ *   - "BREAK" notices (`<p>NNNN – Mon D – Hash Committee</p><p>BREAK</p>`)
+ *     are informational no-run markers and emit no event.
+ *   - "*Hares Needed*" / "***Hares Needed***" — the kennel sometimes wraps
+ *     the sentinel in asterisks; we strip them before the sentinel check.
  *
  * Children's hash, biweekly Sundays starting 4:30 PM.
  */
 
-// Match en-dash, em-dash, and ASCII hyphen as field separators (the live page
-// uses en-dash, but defensive coverage in case the kennel changes formatting).
-const RUN_LINE_RE = /^(\d{3,4})\s*[–—-]\s*([a-z]+)\s+(\d{1,2})(?:\s*[–—-]\s*(.+))?$/i;
+// Each run line begins with the run number followed by a separator (en-dash,
+// em-dash, ASCII hyphen, or colon — older archive entries use ":"). The body
+// after the separator carries the month/day in either "Month D" (post-2019)
+// or "D Month" order (2018-2019 hareline rewrite), optionally suffixed with
+// an ordinal (1st/2nd/3rd/Nth), an inline year (1900-2099), and/or a
+// parenthetical themed-run annotation, then an optional tail with hares and
+// location.
+const RUN_PREFIX_RE = /^(\d{3,4})\s*[–—:-]\s*/i;
+const MONTH_DAY_RE =
+  /^([a-z]+)\s+(\d{1,2})(?:st|nd|rd|th)?\s*(?:(?:19|20)\d{2})?\s*(?:\(([^)]*)\))?\s*(?:[–—-]\s*(.+))?$/i;
+const DAY_MONTH_RE =
+  /^(\d{1,2})(?:st|nd|rd|th)?\s+([a-z]+)\s*(?:(?:19|20)\d{2})?\s*(?:\(([^)]*)\))?\s*(?:[–—-]\s*(.+))?$/i;
 
 interface ParsedRunLine {
   runNumber: number;
   monthIdx: number;
   day: number;
+  /** Theme annotation from parentheses after the day (e.g. "Christmas Hash"). */
+  theme?: string;
   hares?: string;
   location?: string;
+  /** Source emitted an informational no-run marker (e.g. BREAK) — emit no event. */
+  isBreak?: true;
 }
 
 /** Parse a single line like "1016 – May 17 – Wade Family – Pearl Hill". */
 export function parseHashHorrorsRunLine(line: string): ParsedRunLine | null {
   const cleaned = line.trim();
-  const m = RUN_LINE_RE.exec(cleaned);
-  if (!m) return null;
+  const prefix = RUN_PREFIX_RE.exec(cleaned);
+  if (!prefix) return null;
+  const runNumber = Number.parseInt(prefix[1], 10);
+  const body = cleaned.slice(prefix[0].length);
 
-  const runNumber = Number.parseInt(m[1], 10);
-  const monthIdx = MONTHS[m[2].toLowerCase()];
+  // Try "Month D" first (post-2019 format), fall back to "D Month" used by
+  // the 2018-2019 hareline rewrite. Whichever matches gives us month, day,
+  // optional themed-run annotation, and the optional tail with hares ± loc.
+  let monthStr: string;
+  let dayStr: string;
+  let theme: string | undefined;
+  let tail: string | undefined;
+  const md = MONTH_DAY_RE.exec(body);
+  if (md) {
+    monthStr = md[1];
+    dayStr = md[2];
+    theme = md[3]?.trim() || undefined;
+    tail = md[4]?.trim();
+  } else {
+    const dm = DAY_MONTH_RE.exec(body);
+    if (!dm) return null;
+    dayStr = dm[1];
+    monthStr = dm[2];
+    theme = dm[3]?.trim() || undefined;
+    tail = dm[4]?.trim();
+  }
+
+  const monthIdx = MONTHS[monthStr.toLowerCase()];
   if (!monthIdx) return null;
-  const day = Number.parseInt(m[3], 10);
+  const day = Number.parseInt(dayStr, 10);
   if (day < 1 || day > 31) return null;
-
-  // Split tail on the LAST dash so multi-family hare lists with internal "–"
-  // don't get sliced. Cover all three dash characters used in the wild.
-  const tail = m[4]?.trim();
   let hares: string | undefined;
   let location: string | undefined;
   if (tail) {
@@ -85,72 +117,160 @@ export function parseHashHorrorsRunLine(line: string): ParsedRunLine | null {
     }
   }
 
-  // "Hares Needed" sentinel — drop the value
-  if (hares && /^Hares\s+Needed$/i.test(hares)) hares = undefined;
+  // BREAK detection — kennel publishes the marker in a separate <p> from the
+  // run line; after HTML strip + whitespace collapse it tails the hares field
+  // ("Hash Committee BREAK"). Treat the whole row as an informational marker,
+  // not a parse failure (don't increment skippedLines or surface to alerts).
+  if (hares && /\bBREAK\s*$/i.test(hares)) {
+    return { runNumber, monthIdx, day, theme, isBreak: true };
+  }
 
-  return { runNumber, monthIdx, day, hares, location };
+  // "Hares Needed" sentinel — drop the value. Strip wrapping asterisks first
+  // (the kennel sometimes writes it as "*Hares Needed*" or "***Hares Needed***").
+  if (hares) {
+    const unstarred = hares.replace(/^\*+\s*|\s*\*+$/g, "").trim();
+    if (/^Hares\s+Needed$/i.test(unstarred)) hares = undefined;
+  }
+
+  return { runNumber, monthIdx, day, theme, hares, location };
 }
 
 export interface ParseHarelineResult {
   events: RawEventData[];
-  /** Run lines that matched the year-anchor tokenizer but failed the line parser. */
+  /** Run lines that matched the run-start tokenizer but failed the line parser. */
   skippedLines: number;
+  /** Run lines that were recognised but intentionally emit no event (e.g. BREAK). */
+  skippedMarkers: number;
 }
 
 /**
- * Walk the rendered hareline text and emit events. Years act as parser
- * anchors — each `2026` / `2025` / etc. token resets the active year.
+ * Find year-heading positions in the archive text.
+ *
+ * After HTML strip + whitespace collapse, real year headings appear as a
+ * standalone 4-digit number immediately followed by the next run line
+ * ("…2017 871 – December 17th – Coke Family…"), whereas inline year usages
+ * inside a row ("April 23rd 2017 – The Mitchell Family") never have a run
+ * number right after the year. Anchoring on the following run number filters
+ * out the inline year noise that previously chopped the 2017 archive section
+ * into 14 unparseable fragments. The followed-by-token can be a month name
+ * (post-2019 layout) or a day number (2018-2019 layout).
  */
-/** Find all standalone 4-digit year headings (1900-2099) with their positions. */
 function findYearHeadings(text: string): Array<{ year: number; start: number; end: number }> {
   const headings: Array<{ year: number; start: number; end: number }> = [];
-  for (const m of text.matchAll(/\b((?:19|20)\d{2})\b/g)) {
+  for (const m of text.matchAll(/\b((?:19|20)\d{2})\s+\d{3,4}\s*[–—:-]\s*(?:[a-z]+|\d{1,2})/gi)) {
     const start = m.index ?? 0;
-    headings.push({ year: Number.parseInt(m[1], 10), start, end: start + m[0].length });
+    headings.push({ year: Number.parseInt(m[1], 10), start, end: start + m[1].length });
   }
   return headings;
 }
 
-/** Find run-line start positions (`1016 – May`) within a year section. */
+/**
+ * Find run-line start positions within a year section. Each candidate match
+ * begins with the run number and the field separator (dash or colon). The
+ * follow-up token can be a month name (post-2019 layout) or a day number
+ * (2018-2019 layout). Year-shaped numbers (1900-2099) are filtered out to
+ * prevent inline year tokens from being treated as run-number prefixes when
+ * the surrounding row is "23rd 2017 – The Mitchell Family"-style.
+ */
 function findRunLineStarts(section: string): number[] {
   const starts: number[] = [];
-  for (const m of section.matchAll(/\d{3,4}\s*[–—-]\s*[a-z]+/gi)) {
+  for (const m of section.matchAll(/(\d{3,4})\s*[–—:-]\s*(?:[a-z]+|\d{1,2})/gi)) {
+    const n = Number.parseInt(m[1], 10);
+    if (n >= 1900 && n <= 2099) continue;
     if (m.index !== undefined) starts.push(m.index);
   }
   return starts;
 }
 
+function buildEvent(parsed: ParsedRunLine, year: number): RawEventData {
+  const date = `${year}-${String(parsed.monthIdx).padStart(2, "0")}-${String(parsed.day).padStart(2, "0")}`;
+  const baseTitle = `Hash Horrors ${parsed.runNumber}`;
+  const title = parsed.theme ? `${baseTitle} — ${parsed.theme}` : baseTitle;
+  return {
+    date,
+    startTime: DEFAULT_START_TIME,
+    kennelTags: [KENNEL_TAG],
+    runNumber: parsed.runNumber,
+    title,
+    hares: parsed.hares,
+    location: parsed.location,
+  };
+}
+
+/**
+ * Walk a run-line region of text. The `yearForLine` callback owns year
+ * selection: the archive page returns a section's fixed year heading, the
+ * upcoming page maintains a rolling year that bumps when the calendar wraps.
+ * Skip markers (BREAK rows) are still passed to the callback so the
+ * upcoming-page rollover detector stays in sync across no-event rows.
+ */
+function walkRunLines(
+  text: string,
+  yearForLine: (parsed: ParsedRunLine) => number,
+): ParseHarelineResult {
+  const events: RawEventData[] = [];
+  let skippedLines = 0;
+  let skippedMarkers = 0;
+  const starts = findRunLineStarts(text);
+  for (let i = 0; i < starts.length; i++) {
+    const lineEnd = starts[i + 1] ?? text.length;
+    const line = text.slice(starts[i], lineEnd).trim();
+    const parsed = parseHashHorrorsRunLine(line);
+    if (!parsed) {
+      skippedLines++;
+      continue;
+    }
+    const year = yearForLine(parsed);
+    if (parsed.isBreak) {
+      skippedMarkers++;
+      continue;
+    }
+    events.push(buildEvent(parsed, year));
+  }
+  return { events, skippedLines, skippedMarkers };
+}
+
+/**
+ * Walk the year-grouped archive page. Each `2026` / `2025` / etc. heading
+ * acts as the active year for the run lines that follow until the next.
+ */
 export function parseHashHorrorsHareline(text: string): ParseHarelineResult {
   const events: RawEventData[] = [];
   let skippedLines = 0;
+  let skippedMarkers = 0;
   const headings = findYearHeadings(text);
-
   for (let i = 0; i < headings.length; i++) {
     const { year, end } = headings[i];
     const sectionEnd = headings[i + 1]?.start ?? text.length;
     const section = text.slice(end, sectionEnd);
-    const starts = findRunLineStarts(section);
-    for (let j = 0; j < starts.length; j++) {
-      const lineEnd = starts[j + 1] ?? section.length;
-      const line = section.slice(starts[j], lineEnd).trim();
-      const parsed = parseHashHorrorsRunLine(line);
-      if (!parsed) {
-        skippedLines++;
-        continue;
-      }
-      const date = `${year}-${String(parsed.monthIdx).padStart(2, "0")}-${String(parsed.day).padStart(2, "0")}`;
-      events.push({
-        date,
-        startTime: DEFAULT_START_TIME,
-        kennelTags: [KENNEL_TAG],
-        runNumber: parsed.runNumber,
-        title: `Hash Horrors ${parsed.runNumber}`,
-        hares: parsed.hares,
-        location: parsed.location,
-      });
-    }
+    const sectionResult = walkRunLines(section, () => year);
+    events.push(...sectionResult.events);
+    skippedLines += sectionResult.skippedLines;
+    skippedMarkers += sectionResult.skippedMarkers;
   }
-  return { events, skippedLines };
+  return { events, skippedLines, skippedMarkers };
+}
+
+/**
+ * Walk the `/hareline-2/` upcoming page. There is no year heading — the
+ * implied year is `currentYear`, advancing by one whenever the calendar
+ * date wraps backwards (e.g. Dec → Jan crossing).
+ */
+export function parseHashHorrorsUpcoming(text: string, currentYear: number): ParseHarelineResult {
+  let year = currentYear;
+  let prev: { month: number; day: number } | null = null;
+  return walkRunLines(text, (parsed) => {
+    const cur = { month: parsed.monthIdx, day: parsed.day };
+    if (prev && (cur.month < prev.month || (cur.month === prev.month && cur.day < prev.day))) {
+      year++;
+    }
+    prev = cur;
+    return year;
+  });
+}
+
+function flattenPageText(content: string): string {
+  return decodeEntities(stripHtmlTags(content)).replaceAll(/\s+/g, " ").trim();
 }
 
 export class HashHorrorsAdapter implements SourceAdapter {
@@ -173,56 +293,107 @@ export class HashHorrorsAdapter implements SourceAdapter {
       }
     }
 
-    const result = await fetchWordPressComPage(siteDomain, HARELINE_SLUG);
-    if (result.error || !result.page) {
-      const message = result.error?.message ?? "WordPress.com API returned no page";
-      errorDetails.fetch = [{ url: `https://${siteDomain}/${HARELINE_SLUG}/`, message, status: result.error?.status }];
+    // Fetch archive and upcoming pages concurrently. Archive is the primary
+    // feed (full 1993→present history); the upcoming page carries the 4-6
+    // future runs that haven't yet been promoted into the archive.
+    const [archiveResult, upcomingResult] = await Promise.all([
+      fetchWordPressComPage(siteDomain, HARELINE_ARCHIVE_SLUG),
+      fetchWordPressComPage(siteDomain, HARELINE_UPCOMING_SLUG),
+    ]);
+
+    // Archive failure is a hard error — the bulk of the data lives there.
+    if (archiveResult.error || !archiveResult.page) {
+      const message = archiveResult.error?.message ?? "WordPress.com API returned no archive page";
+      errorDetails.fetch = [
+        {
+          url: `https://${siteDomain}/${HARELINE_ARCHIVE_SLUG}/`,
+          message,
+          status: archiveResult.error?.status,
+        },
+      ];
       return { events: [], errors: [message], errorDetails };
     }
 
-    const pageUrl = result.page.URL || `https://${siteDomain}/${HARELINE_SLUG}/`;
-    // Collapse whitespace so the year/run-line tokenizer works on a flat string.
-    const text = decodeEntities(stripHtmlTags(result.page.content)).replaceAll(/\s+/g, " ").trim();
+    const archiveUrl = archiveResult.page.URL || `https://${siteDomain}/${HARELINE_ARCHIVE_SLUG}/`;
+    const archiveText = flattenPageText(archiveResult.page.content);
+    const archive = parseHashHorrorsHareline(archiveText);
 
-    const { events: allEvents, skippedLines } = parseHashHorrorsHareline(text);
-    // The hareline page is the ONLY feed for Hash Horrors and contains the
-    // full archive back to Hash 1. Default to a 50-year window so the
-    // recurring scrape ingests the entire historical archive regardless
-    // of founding date — the filter is a no-op for events before the
-    // kennel existed, so going wide has no cost.
-    const { minDate, maxDate } = buildDateWindow(options?.days ?? 365 * 50);
-    const events = allEvents
-      .map((e) => ({ ...e, sourceUrl: pageUrl }))
-      .filter((e) => {
-        const d = new Date(`${e.date}T12:00:00Z`);
-        return d >= minDate && d <= maxDate;
-      });
-
+    // Upcoming-page failure is soft — archive still provides the historical
+    // data; we surface the warning so monitoring sees the partial fetch.
     const errors: string[] = [];
+    const fetchErrors: NonNullable<ErrorDetails["fetch"]> = [];
+    let upcomingUrl: string | undefined;
+    let upcomingText = "";
+    let upcoming: ParseHarelineResult = { events: [], skippedLines: 0, skippedMarkers: 0 };
+
+    if (upcomingResult.error || !upcomingResult.page) {
+      const message = upcomingResult.error?.message ?? "WordPress.com API returned no upcoming page";
+      errors.push(message);
+      fetchErrors.push({
+        url: `https://${siteDomain}/${HARELINE_UPCOMING_SLUG}/`,
+        message,
+        status: upcomingResult.error?.status,
+      });
+    } else {
+      upcomingUrl = upcomingResult.page.URL || `https://${siteDomain}/${HARELINE_UPCOMING_SLUG}/`;
+      upcomingText = flattenPageText(upcomingResult.page.content);
+      // Pin the implied year to Singapore-local "today" so a 2027-01-01
+      // SGT scrape doesn't mis-date January upcoming rows as 2026 just
+      // because UTC hasn't ticked over yet.
+      const currentYear = Number.parseInt(todayInTimezone(KENNEL_TIMEZONE).slice(0, 4), 10);
+      upcoming = parseHashHorrorsUpcoming(upcomingText, currentYear);
+    }
+
+    // The hareline pages between them carry the full archive back to Hash 1.
+    // Default to a 50-year window so the recurring scrape ingests the entire
+    // historical archive regardless of founding date — the filter is a no-op
+    // for events before the kennel existed, so going wide has no cost.
+    const { minDate, maxDate } = buildDateWindow(options?.days ?? 365 * 50);
+    const allEvents = [
+      ...archive.events.map((e) => ({ ...e, sourceUrl: archiveUrl })),
+      ...(upcomingUrl ? upcoming.events.map((e) => ({ ...e, sourceUrl: upcomingUrl })) : []),
+    ];
+    const events = allEvents.filter((e) => {
+      const d = new Date(`${e.date}T12:00:00Z`);
+      return d >= minDate && d <= maxDate;
+    });
+
+    const skippedLines = archive.skippedLines + upcoming.skippedLines;
+    const skippedMarkers = archive.skippedMarkers + upcoming.skippedMarkers;
 
     // Surface dropped lines as scrape errors so the reconciler doesn't cancel
     // events on a partial parse (it only runs when errors.length === 0). A
     // single dropped line is enough to suppress reconciliation since the format
     // is fragile and silent drops would be indistinguishable from real removals.
+    const parseErrors: NonNullable<ErrorDetails["parse"]> = [];
     if (skippedLines > 0) {
       const message = `Hash Horrors hareline parser dropped ${skippedLines} line(s) — possible format drift`;
       errors.push(message);
-      errorDetails.parse = [{ row: 0, error: message }];
+      parseErrors.push({ row: 0, error: message });
     }
 
-    const structureHash = generateStructureHash(text);
+    if (fetchErrors.length > 0) errorDetails.fetch = fetchErrors;
+    if (parseErrors.length > 0) errorDetails.parse = parseErrors;
+
+    const structureHash = generateStructureHash(archiveText + upcomingText);
     return {
       events,
       errors,
       structureHash,
       errorDetails: errors.length > 0 ? errorDetails : undefined,
       diagnosticContext: {
-        pageId: result.page.ID,
-        pageModified: result.page.modified,
-        runsParsed: allEvents.length,
+        archivePageId: archiveResult.page.ID,
+        archivePageModified: archiveResult.page.modified,
+        upcomingPageId: upcomingResult.page?.ID,
+        upcomingPageModified: upcomingResult.page?.modified,
+        runsParsed: archive.events.length + upcoming.events.length,
+        archiveRunsParsed: archive.events.length,
+        upcomingRunsParsed: upcoming.events.length,
         skippedLines,
+        skippedMarkers,
         eventsInWindow: events.length,
-        fetchDurationMs: result.fetchDurationMs,
+        archiveFetchDurationMs: archiveResult.fetchDurationMs,
+        upcomingFetchDurationMs: upcomingResult.fetchDurationMs,
       },
     };
   }

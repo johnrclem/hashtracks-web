@@ -1,4 +1,8 @@
-import { parseHashHorrorsRunLine, parseHashHorrorsHareline } from "./hash-horrors";
+import {
+  parseHashHorrorsRunLine,
+  parseHashHorrorsHareline,
+  parseHashHorrorsUpcoming,
+} from "./hash-horrors";
 
 describe("parseHashHorrorsRunLine", () => {
   it("parses a complete line with run/date/hares/location", () => {
@@ -21,10 +25,46 @@ describe("parseHashHorrorsRunLine", () => {
     });
   });
 
+  it("keeps the full hare list when '&' joins two families (#1253 1016)", () => {
+    const out = parseHashHorrorsRunLine("1016 – May 17 – Wade & Child Families");
+    expect(out).toMatchObject({
+      runNumber: 1016,
+      hares: "Wade & Child Families",
+      location: undefined,
+    });
+  });
+
+  it("keeps hyphenated family names intact (#1253 1017)", () => {
+    const out = parseHashHorrorsRunLine("1017 – May 31 – Fanjul-Lemaistre Family");
+    expect(out).toMatchObject({
+      runNumber: 1017,
+      hares: "Fanjul-Lemaistre Family",
+      location: undefined,
+    });
+  });
+
+  it("flags BREAK markers with isBreak (#1253 1018)", () => {
+    const out = parseHashHorrorsRunLine("1018 – June 14 – Hash Committee BREAK");
+    expect(out).toMatchObject({ runNumber: 1018, isBreak: true });
+    expect(out?.hares).toBeUndefined();
+  });
+
   it("treats 'Hares Needed' as no hares", () => {
     const out = parseHashHorrorsRunLine("1014 – April 19 – Hares Needed");
     expect(out?.hares).toBeUndefined();
     expect(out?.runNumber).toBe(1014);
+  });
+
+  it("treats '*Hares Needed*' (asterisk-wrapped) as no hares (#1253 1019)", () => {
+    const out = parseHashHorrorsRunLine("1019 – August 9 – *Hares Needed*");
+    expect(out?.hares).toBeUndefined();
+    expect(out?.runNumber).toBe(1019);
+  });
+
+  it("treats '***Hares Needed***' (triple-asterisk) as no hares", () => {
+    const out = parseHashHorrorsRunLine("1020 – August 23 – ***Hares Needed***");
+    expect(out?.hares).toBeUndefined();
+    expect(out?.runNumber).toBe(1020);
   });
 
   it("preserves multi-family hare lists with internal em dashes by splitting on the LAST one", () => {
@@ -37,16 +77,52 @@ describe("parseHashHorrorsRunLine", () => {
     expect(out?.location).toBe("Pearl Hill & Chinatown");
   });
 
+  it("tolerates ordinal day suffixes used in the pre-2018 archive", () => {
+    const out = parseHashHorrorsRunLine("890 – September 23rd – Fire Tornado & Liu Family – Dempsey Road");
+    expect(out).toMatchObject({
+      runNumber: 890,
+      monthIdx: 9,
+      day: 23,
+      hares: "Fire Tornado & Liu Family",
+      location: "Dempsey Road",
+    });
+  });
+
+  it("captures parenthetical themed-run titles after the day", () => {
+    const out = parseHashHorrorsRunLine(
+      "985 – December 15 (Christmas Hash) – Poyner Family – Gillman Barracks",
+    );
+    expect(out).toMatchObject({
+      runNumber: 985,
+      monthIdx: 12,
+      day: 15,
+      theme: "Christmas Hash",
+      hares: "Poyner Family",
+      location: "Gillman Barracks",
+    });
+  });
+
+  it("tolerates a missing space before the leading dash (legacy archive rows)", () => {
+    const out = parseHashHorrorsRunLine("881 -May 20th – Harvie Family – Seah Im");
+    expect(out).toMatchObject({
+      runNumber: 881,
+      monthIdx: 5,
+      day: 20,
+      hares: "Harvie Family",
+      location: "Seah Im",
+    });
+  });
+
   it("returns null on unparseable input", () => {
     expect(parseHashHorrorsRunLine("nothing useful here")).toBeNull();
   });
 });
 
-describe("parseHashHorrorsHareline", () => {
+describe("parseHashHorrorsHareline (year-grouped archive)", () => {
   it("walks year sections and emits one event per run line with the correct year", () => {
-    const text = "2026 1016 – May 17 – Wade Family 1015 – May 3 – Baudoux Family 2025 1006 – December 14 – Dew Family – Bukit Batok";
-    const events = parseHashHorrorsHareline(text).events;
-    expect(events.length).toBeGreaterThanOrEqual(3);
+    const text =
+      "2026 1016 – May 17 – Wade Family 1015 – May 3 – Baudoux Family 2025 1006 – December 14 – Dew Family – Bukit Batok";
+    const { events } = parseHashHorrorsHareline(text);
     const map = new Map(events.map((e) => [e.runNumber, e]));
     expect(map.get(1016)?.date).toBe("2026-05-17");
     expect(map.get(1015)?.date).toBe("2026-05-03");
@@ -56,15 +132,90 @@ describe("parseHashHorrorsHareline", () => {
 
   it("tags every event with kennelTag 'hhhorrors' and default startTime", () => {
     const text = "2026 1016 – May 17 – Wade Family";
-    const events = parseHashHorrorsHareline(text).events;
+    const { events } = parseHashHorrorsHareline(text);
     expect(events[0].kennelTags[0]).toBe("hhhorrors");
     expect(events[0].startTime).toBe("16:30");
   });
 
   it("ignores run lines that appear before any year heading", () => {
     const text = "1016 – May 17 – Wade Family 2026 1015 – May 3 – Baudoux Family";
-    const events = parseHashHorrorsHareline(text).events;
+    const { events } = parseHashHorrorsHareline(text);
     expect(events.find((e) => e.runNumber === 1016)).toBeUndefined();
     expect(events.find((e) => e.runNumber === 1015)?.date).toBe("2026-05-03");
+  });
+
+  it("counts BREAK rows as skippedMarkers, not skippedLines (no parse-error alert)", () => {
+    const text = "2026 1018 – June 14 – Hash Committee BREAK 1017 – May 31 – Fanjul-Lemaistre Family";
+    const out = parseHashHorrorsHareline(text);
+    expect(out.events.find((e) => e.runNumber === 1018)).toBeUndefined();
+    expect(out.events.find((e) => e.runNumber === 1017)?.hares).toBe("Fanjul-Lemaistre Family");
+    expect(out.skippedLines).toBe(0);
+    expect(out.skippedMarkers).toBe(1);
+  });
+
+  it("appends themed-run titles to the default kennel title", () => {
+    const text = "2015 985 – December 15 (Christmas Hash) – Poyner Family – Gillman Barracks";
+    const { events } = parseHashHorrorsHareline(text);
+    expect(events[0]).toMatchObject({
+      runNumber: 985,
+      title: "Hash Horrors 985 — Christmas Hash",
+    });
+  });
+});
+
+describe("parseHashHorrorsUpcoming (no year heading, current-year default)", () => {
+  // Live /hareline-2/ snapshot (2026-05-05): exercises every #1253 case in one fixture.
+  const liveFixture =
+    "1015 – May 3 – Baudoux, Guthrie and Poyner Families " +
+    "1016 – May 17 – Wade & Child Families " +
+    "1017 – May 31 – Fanjul-Lemaistre Family " +
+    "1018 – June 14 – Hash Committee BREAK " +
+    "1019 – August 9 – *Hares Needed*";
+
+  it("emits an event per upcoming run with the provided year", () => {
+    const { events } = parseHashHorrorsUpcoming(liveFixture, 2026);
+    const map = new Map(events.map((e) => [e.runNumber, e]));
+    expect(map.get(1015)).toMatchObject({
+      date: "2026-05-03",
+      hares: "Baudoux, Guthrie and Poyner Families",
+    });
+    expect(map.get(1016)).toMatchObject({
+      date: "2026-05-17",
+      hares: "Wade & Child Families",
+    });
+    expect(map.get(1017)).toMatchObject({
+      date: "2026-05-31",
+      hares: "Fanjul-Lemaistre Family",
+    });
+    // BREAK row is intentionally not emitted as a calendar event.
+    expect(map.get(1018)).toBeUndefined();
+    // *Hares Needed* normalises to no hares but the event still ships.
+    expect(map.get(1019)).toMatchObject({ date: "2026-08-09" });
+    expect(map.get(1019)?.hares).toBeUndefined();
+  });
+
+  it("counts BREAK as a marker, not a parse error", () => {
+    const out = parseHashHorrorsUpcoming(liveFixture, 2026);
+    expect(out.skippedLines).toBe(0);
+    expect(out.skippedMarkers).toBe(1);
+  });
+
+  it("rolls the year forward when the calendar date wraps backwards", () => {
+    // Hypothetical December-into-January transition.
+    const text = "1020 – December 6 – A Family 1021 – January 3 – B Family";
+    const { events } = parseHashHorrorsUpcoming(text, 2026);
+    const map = new Map(events.map((e) => [e.runNumber, e]));
+    expect(map.get(1020)?.date).toBe("2026-12-06");
+    expect(map.get(1021)?.date).toBe("2027-01-03");
+  });
+
+  it("keeps rollover detection in sync when a BREAK row falls between calendar months", () => {
+    // BREAK in the middle of the sequence must still update prev-month state so a
+    // downstream Jan row after a Dec BREAK rolls the year.
+    const text =
+      "1020 – December 6 – A Family 1021 – December 20 – Committee BREAK 1022 – January 3 – B Family";
+    const { events } = parseHashHorrorsUpcoming(text, 2026);
+    expect(events.find((e) => e.runNumber === 1021)).toBeUndefined();
+    expect(events.find((e) => e.runNumber === 1022)?.date).toBe("2027-01-03");
   });
 });
