@@ -4151,11 +4151,17 @@ export const SOURCES = [
       scrapeDays: 90,
       config: {
         kennelTag: "ipoh-h3",
-        rrule: "FREQ=WEEKLY;BYDAY=SA",
-        startTime: "17:00",
+        // #1477: malaysiahash.com directory entry — "Men: Mondays @6:00pm".
+        // The original SA/17:00 was a placeholder cut-and-paste from the
+        // JB/Penang neighbors; every emitted event was on the wrong day AND
+        // wrong time. startTime is HH:MM local; the kennel's Region
+        // ("Ipoh, MY" → Asia/Kuala_Lumpur in src/lib/region.ts) supplies the
+        // timezone at display time — matches the JB/Penang pattern below.
+        rrule: "FREQ=WEEKLY;BYDAY=MO",
+        startTime: "18:00",
         defaultTitle: "Ipoh H3 Weekly Run",
         defaultLocation: "Ipoh, Perak, Malaysia",
-        defaultDescription: "Weekly Saturday evening trail. Founded 1965, one of Malaysia's oldest hash kennels. Check the malaysiahash.com directory for contact details.",
+        defaultDescription: "Weekly Monday evening trail (men's chapter). Founded 31 Jan 1965, one of Malaysia's oldest hash kennels. Check the malaysiahash.com directory for contact details.",
       },
       kennelCodes: ["ipoh-h3"],
     },
