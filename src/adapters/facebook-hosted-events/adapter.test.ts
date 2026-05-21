@@ -503,6 +503,121 @@ describe("FacebookHostedEventsAdapter — fetch", () => {
     expect(bandoleros?.description).toMatch(/Hare:/);
   });
 
+  // #1496 / #1499 / #1500 — Source-coverage-gap signal: SSR envelope intact
+  // but every event candidate was filtered for content reasons. Distinguishes
+  // "this kennel doesn't use FB Events" / "the Page admin posted notices
+  // instead of trails" from the normal "Page has nothing scheduled" case.
+  it("flags a coverage-gap error when every candidate is filtered as an admin notice", async () => {
+    const adminNoticeHtml =
+      `<html><body>` +
+      `<script type="application/json">{"require":[["RelayPrefetchedStreamCache","next",[],[]]]}</script>` +
+      `<script type="application/json">{
+        "rich":{"__typename":"Event","id":"123456789012345","name":"Moving to a new website site - Last day in Meetup is March 10th"},
+        "time":{"id":"123456789012345","start_timestamp":1778353200}
+      }</script>` +
+      `</body></html>`;
+    mockedFetch.mockResolvedValueOnce(htmlResponse(adminNoticeHtml));
+    const adapter = new FacebookHostedEventsAdapter();
+    const result = await adapter.fetch(
+      makeSource({
+        kennelTag: "narwhal-h3",
+        pageHandle: "HashNarwhal",
+        timezone: "America/New_York",
+        upcomingOnly: true,
+      }),
+    );
+    expect(result.events).toEqual([]);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toMatch(/all were filtered/i);
+    expect(result.errors[0]).toMatch(/admin-notice=1/);
+    expect(result.diagnosticContext).toMatchObject({
+      parserFiltered: expect.objectContaining({ "admin-notice": 1 }),
+    });
+  });
+
+  it("does NOT flag coverage-gap when the page genuinely has no events (no candidates filtered)", async () => {
+    // Distinguishes #1496's "Page exists but no Hosted Events feature" case:
+    // SSR intact, parser sees zero candidate bags. This is the legitimate
+    // empty-page case and must not surface the coverage-gap error.
+    const emptyHtml =
+      `<html><body>` +
+      `<script type="application/json">{"require":[["RelayPrefetchedStreamCache","next",[],[]]]}</script>` +
+      `</body></html>`;
+    mockedFetch.mockResolvedValueOnce(htmlResponse(emptyHtml));
+    const adapter = new FacebookHostedEventsAdapter();
+    const result = await adapter.fetch(
+      makeSource({
+        kennelTag: "swh3",
+        pageHandle: "sirwaltersh3",
+        timezone: "America/New_York",
+        upcomingOnly: true,
+      }),
+    );
+    expect(result.events).toEqual([]);
+    expect(result.errors).toEqual([]);
+  });
+
+  it("flags a coverage-gap when every candidate is a placeholder (#1497-style)", async () => {
+    const placeholderOnlyHtml =
+      `<html><body>` +
+      `<script type="application/json">{"require":[["RelayPrefetchedStreamCache","next",[],[]]]}</script>` +
+      `<script type="application/json">{
+        "rich":{"__typename":"Event","id":"123456789012345","name":"Test"},
+        "time":{"id":"123456789012345","start_timestamp":1778353200}
+      }</script>` +
+      `</body></html>`;
+    mockedFetch.mockResolvedValueOnce(htmlResponse(placeholderOnlyHtml));
+    const adapter = new FacebookHostedEventsAdapter();
+    const result = await adapter.fetch(
+      makeSource({
+        kennelTag: "swh3",
+        pageHandle: "sirwaltersh3",
+        timezone: "America/New_York",
+        upcomingOnly: true,
+      }),
+    );
+    expect(result.events).toEqual([]);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toMatch(/placeholder=1/);
+  });
+
+  it("does NOT flag coverage-gap when at least one real event is emitted alongside filtered ones", async () => {
+    const mixedHtml =
+      `<html><body>` +
+      `<script type="application/json">{"require":[["RelayPrefetchedStreamCache","next",[],[]]]}</script>` +
+      `<script type="application/json">{
+        "rich":{"__typename":"Event","id":"100000000000001","name":"Test"},
+        "time":{"id":"100000000000001","start_timestamp":1778353200}
+      }</script>` +
+      `<script type="application/json">{
+        "rich":{"__typename":"Event","id":"100000000000002","name":"Real Trail #42","event_place":{"contextual_name":"Bar"}},
+        "time":{"id":"100000000000002","start_timestamp":1778353200}
+      }</script>` +
+      `</body></html>`;
+    // Detail-page fetches for the real event will 404 (we don't mock them) —
+    // that's fine, the listing data still emits.
+    mockedFetch.mockImplementation((url: string | URL) => {
+      const u = typeof url === "string" ? url : url.toString();
+      if (u.endsWith("/upcoming_hosted_events")) {
+        return Promise.resolve(htmlResponse(mixedHtml));
+      }
+      return Promise.resolve({ ok: false, status: 404, text: async () => "" } as Response);
+    });
+    const adapter = new FacebookHostedEventsAdapter();
+    const result = await adapter.fetch(
+      makeSource({
+        kennelTag: "swh3",
+        pageHandle: "sirwaltersh3",
+        timezone: "America/New_York",
+        upcomingOnly: true,
+      }),
+    );
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].runNumber).toBe(42);
+    // No coverage-gap error — real events made it through.
+    expect(result.errors.filter((e) => /all were filtered/i.test(e))).toEqual([]);
+  });
+
   it("does NOT flag shape-break when a fat empty-Page response carries SSR envelope markers (#1294 audit fix)", async () => {
     // Real-world: empty FB Pages still ship 600KB+ SSR bundles with the
     // RelayPrefetchedStreamCache / __bbox envelope intact. The byte-count
