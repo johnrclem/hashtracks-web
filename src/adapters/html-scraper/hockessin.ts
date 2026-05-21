@@ -17,7 +17,11 @@ import { fetchHTMLPage, parse12HourTime, chronoParseDate } from "../utils";
  *   <font color="..."><b>Hash #1661: Asshopper</b></font> <br>
  *   SATURDAY, April 18, 2026, 3:00pm, 715 Art Lane, Newark, DE <br>
  *
- * The post-colon header text is the hare name(s) — NOT the event title (#797).
+ * Three post-colon shapes are supported:
+ *   1. `Hash #1661: Asshopper` — single segment is the hare(s) (#797)
+ *   2. `Hash #1700:` — empty segment, both hares and title left undefined (#1326)
+ *   3. `Hash #1665: Circle Jerk ... - Is It Summer Already??` — split on first
+ *      space-dash-space: left is hares, right is the theme/title (#1493)
  *
  * @param headerText - The text from the <b> tag (e.g., "Hash #1661: Asshopper")
  * @param detailText - The raw text node after the header (date, time, location info)
@@ -33,7 +37,23 @@ export function parseHockessinEvent(
   if (!headerMatch) return null;
 
   const runNumber = Number.parseInt(headerMatch[1], 10);
-  const hares = headerMatch[2]?.trim() || undefined;
+  const postColon = headerMatch[2]?.trim();
+
+  // #1493: normalize en/em dashes so future copy changes don't silently
+  // regress to the "everything is hares" shape.
+  const DASH_SEP = " - ";
+  let hares: string | undefined;
+  let title: string | undefined;
+  if (postColon) {
+    const normalized = postColon.replace(/\s+[–—]\s+/g, DASH_SEP);
+    const dashIdx = normalized.indexOf(DASH_SEP);
+    if (dashIdx >= 0) {
+      hares = normalized.slice(0, dashIdx).trim() || undefined;
+      title = normalized.slice(dashIdx + DASH_SEP.length).trim() || undefined;
+    } else {
+      hares = postColon;
+    }
+  }
 
   const cleaned = detailText.replace(/\s+/g, " ").trim();
   if (!cleaned) return null;
@@ -61,9 +81,11 @@ export function parseHockessinEvent(
     date,
     kennelTags: ["hockessin"],
     runNumber: !Number.isNaN(runNumber) ? runNumber : undefined,
-    // Source format is `Hash #N: <hares>` — no source-distinct title (#1326).
-    // Leave undefined so the UI/merge pipeline synthesizes from kennel + run #.
-    title: undefined,
+    // Title is populated only when the source has a distinct theme separated
+    // from the hares by " - " (#1493); the bare `Hash #N: <hares>` shape leaves
+    // it undefined so the UI/merge pipeline synthesizes from kennel + run #
+    // (#1326).
+    title,
     hares,
     location,
     startTime,

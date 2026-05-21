@@ -54,8 +54,11 @@ export function EventDetailPanel({ event, attendance, isAuthenticated, onDismiss
   const isUserLocal = preference === "USER_LOCAL";
   const displayTz = isUserLocal ? getBrowserTimezone() : (event.timezone ?? "America/New_York");
 
+  // Format the date in the kennel's region — answers "what day is this run on"
+  // in the source's local sense, matching the EventCard chip + aria-label.
+  // Browser TZ still drives the time line below. (#1502)
   const displayDateStr = event.dateUtc
-    ? formatDateInZone(event.dateUtc, displayTz, "EEEE, MMMM d, yyyy")
+    ? formatDateInZone(event.dateUtc, event.timezone ?? displayTz, "EEEE, MMMM d, yyyy")
     : formatDateLong(event.date);
 
   const displayTimeStr = (event.dateUtc && event.startTime)

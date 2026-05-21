@@ -60,7 +60,7 @@ function cleanCellText(value: string | undefined): string | undefined {
  */
 export function parseMiteriRow(
   row: { runText?: string; dateText?: string; hareText?: string; locationText?: string },
-  opts: { kennelTag: string; referenceDate?: Date; sourceUrl: string; prevDate?: string },
+  opts: { kennelTag: string; referenceDate?: Date; sourceUrl: string; prevDate?: string; forwardDate?: boolean },
 ): RawEventData | null {
   const dateClean = cleanCellText(row.dateText);
   if (!dateClean) return null;
@@ -71,11 +71,16 @@ export function parseMiteriRow(
   const rangeMatch = /^(\d+)\s*-\s*\d+\s+(.+)/.exec(normalizedRange);
   const dateToParse = rangeMatch ? `${rangeMatch[1]} ${rangeMatch[2]}` : normalizedRange;
 
+  // forwardDate=false is the table default because the monotonic year-walk in
+  // the caller anchors each row from the previous one. For standalone rows
+  // (Next Run panel — no chronological neighbour) the caller passes
+  // forwardDate=true so a yearless "3 January" parsed on Dec 30 doesn't land
+  // in the past and get dropped by the date window. (#1503 year-rollover)
   const parsed = chronoParseDate(
     dateToParse,
     "en-GB",
     opts.referenceDate,
-    { forwardDate: false },
+    { forwardDate: opts.forwardDate ?? false },
   );
   if (!parsed) return null;
   const date = bumpYearIfBefore(parsed, opts.prevDate);
@@ -217,6 +222,89 @@ export function parseSiteOriginGrid(
   return out;
 }
 
+/**
+ * Parse the "Next Run" panel that some Miteri sites render above the
+ * Receding Hareline table (GCH3 layout). The panel is a single tinymce widget
+ * with labeled `<p>` rows:
+ *
+ *   <p><strong>Next Run: # 2356</strong></p>
+ *   <p><strong>Date:</strong> <strong>Saturday 23 May</strong></p>
+ *   <p><strong>Hare(s):</strong> Small Black</p>
+ *   <p><strong>Location:</strong> Historic Hurunui Hotel</p>
+ *
+ * The panel matters for two reasons:
+ *  1. It frequently carries hare + location info that the table downstream
+ *     still has as `TBC` / `??` for the same week.
+ *  2. Special-event runs (campouts, Saturday socials) sometimes only appear
+ *     here and not in the regular Tuesday-cadence table — most prominently
+ *     GCH3 #2356 (Sat 23 May, Historic Hurunui Hotel). (#1503)
+ *
+ * Returns a single row in the same shape as the table parsers, or null when
+ * the panel isn't present / can't be parsed.
+ */
+export function parseNextRunPanel(
+  $: cheerio.CheerioAPI,
+): { runText?: string; dateText?: string; hareText?: string; locationText?: string } | null {
+  let result: ReturnType<typeof parseNextRunPanel> = null;
+
+  $(".textwidget").each((_idx, widget) => {
+    if (result) return;
+    // Cheap pre-filter — most widgets on the page (welcome blurb, hareline
+    // columns, footer) don't contain "Next Run" and shouldn't pay the cost
+    // of a per-paragraph regex scan.
+    if (!$(widget).text().includes("Next Run")) return;
+
+    const paragraphs = $(widget).find("p").toArray();
+    if (paragraphs.length === 0) return;
+
+    let runText: string | undefined;
+    let dateText: string | undefined;
+    let hareText: string | undefined;
+    let locationText: string | undefined;
+    let sawNextRun = false;
+
+    for (const p of paragraphs) {
+      // `\s` in JS regex covers U+00A0 (NBSP) since ES2018, so tinymce's
+      // non-breaking spaces collapse with everything else.
+      const text = $(p).text().replace(/\s+/g, " ").trim();
+      if (!text) continue;
+
+      // "Next Run: # 2356" — first labeled paragraph identifies the panel.
+      const nextRunMatch = /^Next\s+Run\s*:?\s*#?\s*(\d+)/i.exec(text);
+      if (nextRunMatch) {
+        sawNextRun = true;
+        runText = nextRunMatch[1];
+        continue;
+      }
+      if (!sawNextRun) continue;
+
+      const dateMatch = /^Date\s*:\s*(.+)$/i.exec(text);
+      if (dateMatch) {
+        dateText = dateMatch[1].trim();
+        continue;
+      }
+      const hareMatch = /^Hare(?:\(s\)|s)?\s*:\s*(.+)$/i.exec(text);
+      if (hareMatch) {
+        hareText = hareMatch[1].trim();
+        continue;
+      }
+      const locMatch = /^Location\s*:\s*(.+)$/i.exec(text);
+      if (locMatch) {
+        locationText = locMatch[1].trim();
+        continue;
+      }
+    }
+
+    // Require at least Next-Run + Date to consider the panel parsed — the
+    // adapter still needs a date to bin the event. Hare/location are optional.
+    if (sawNextRun && dateText) {
+      result = { runText, dateText, hareText, locationText };
+    }
+  });
+
+  return result;
+}
+
 export interface MiteriHarelineConfig {
   kennelTag: string;
 }
@@ -262,28 +350,59 @@ export class MiteriHarelineAdapter implements SourceAdapter {
       layout = "siteorigin";
     }
 
+    // GCH3-style "Next Run" panel sits above the table and is the only place
+    // the upcoming run's hare + location appear (the table is still TBC/??
+    // for the same row). Some special events (Saturday socials, campouts)
+    // also appear ONLY here. Prepend so the chronological year-walk in
+    // parseMiteriRow sees it first. (#1503)
+    const nextRunRow = parseNextRunPanel($);
+    let panelEventsEmitted = 0;
+    if (nextRunRow) rows = [nextRunRow, ...rows];
+
     const events: RawEventData[] = [];
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
     const parseErrors: NonNullable<ErrorDetails["parse"]> = [];
     const { minDate, maxDate } = buildDateWindow(options?.days ?? 180);
+    // Dedup by `${runNumber}|${date}` so a Next-Run panel row that's also
+    // present in the table (when the source eventually fills the hare/location
+    // for the same week) doesn't emit twice. Panel rows win because they're
+    // processed first and tend to carry the richer fields. Rows without a
+    // runNumber are NOT deduped — collapsing same-day entries could drop
+    // legitimate paired runs (e.g. a campout weekend with two trails).
+    const seenKeys = new Set<string>();
 
     let prevDate: string | undefined;
     for (let i = 0; i < rows.length; i++) {
       const row = rows.at(i);
       if (!row) continue;
+      const isPanelRow = row === nextRunRow;
       try {
-        const event = parseMiteriRow(row, { kennelTag, sourceUrl, prevDate });
+        // Panel rows have no neighbour to anchor the year, so opt into
+        // forwardDate to keep a yearless "Saturday 3 January" parsed on
+        // Dec 30 from landing in the past. (#1503)
+        const event = parseMiteriRow(row, {
+          kennelTag,
+          sourceUrl,
+          prevDate,
+          forwardDate: isPanelRow,
+        });
         if (!event) continue;
         prevDate = event.date;
         const eventDate = new Date(`${event.date}T12:00:00Z`);
         if (eventDate < minDate || eventDate > maxDate) continue;
+        if (event.runNumber !== undefined) {
+          const dedupKey = `${event.runNumber}|${event.date}`;
+          if (seenKeys.has(dedupKey)) continue;
+          seenKeys.add(dedupKey);
+        }
+        if (isPanelRow) panelEventsEmitted++;
         events.push(event);
       } catch (err) {
         errors.push(`Row ${i}: ${err}`);
         parseErrors.push({
           row: i,
-          section: "hareline",
+          section: isPanelRow ? "next-run-panel" : "hareline",
           error: String(err),
         });
       }
@@ -300,6 +419,8 @@ export class MiteriHarelineAdapter implements SourceAdapter {
         layout,
         rowsFound: rows.length,
         eventsParsed: events.length,
+        nextRunPanelDetected: nextRunRow !== null,
+        nextRunPanelEmitted: panelEventsEmitted,
         fetchDurationMs,
       },
     };

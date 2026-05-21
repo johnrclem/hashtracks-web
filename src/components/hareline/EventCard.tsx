@@ -220,9 +220,12 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
   const isUserLocal = preference === "USER_LOCAL";
   const displayTz = isUserLocal ? getBrowserTimezone() : (event.timezone ?? "America/New_York");
 
-  // Choose standard date parsing if there's no reliable UTC timestamp, otherwise compute timezone
+  // Choose standard date parsing if there's no reliable UTC timestamp, otherwise format in
+  // the kennel's region — the date chip answers "what day is this run on" and must match
+  // the source's local day, not the viewer's browser day. Browser TZ stays in charge of the
+  // time display below. (#1502)
   const displayDateStr = event.dateUtc
-    ? formatDateInZone(event.dateUtc, displayTz)
+    ? formatDateInZone(event.dateUtc, event.timezone ?? displayTz)
     : formatDate(event.date);
 
   const displayTimeStr = (event.dateUtc && event.startTime)
