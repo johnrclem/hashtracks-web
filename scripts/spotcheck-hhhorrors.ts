@@ -6,7 +6,7 @@ async function main() {
   if (!kennel) throw new Error("kennel not found");
 
   const fmt = (e: { runNumber: number | null; date: Date; title: string | null; locationName: string | null; haresText: string | null }) =>
-    `  #${e.runNumber} ${e.date.toISOString().slice(0, 10)} | ${e.title ?? "—"} | hares=${e.haresText ?? "—"} | loc=${e.locationName ?? "—"}`;
+    "  #" + (e.runNumber ?? "?") + " " + e.date.toISOString().slice(0, 10) + " | " + (e.title ?? "—") + " | hares=" + (e.haresText ?? "—") + " | loc=" + (e.locationName ?? "—");
 
   const oldest = await prisma.event.findMany({
     where: { eventKennels: { some: { kennelId: kennel.id } } },
@@ -35,9 +35,10 @@ async function main() {
       date: { gte: new Date("2026-05-21T00:00:00Z") },
     },
     orderBy: { date: "asc" },
+    take: 5,
     select: { runNumber: true, date: true, title: true, locationName: true, haresText: true },
   });
-  console.log("\nUpcoming:");
+  console.log("\nUpcoming (next 5):");
   for (const e of upcoming) console.log(fmt(e));
 
   await prisma.$disconnect();
