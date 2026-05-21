@@ -26,7 +26,7 @@
 ## What's excluded
 
 `sonar-project.properties` lists exclusions for:
-- `sonar.cpd.exclusions`: `prisma/seed.ts`, `prisma/seed-data/**/*.ts`, `**/*.test.ts` — duplication only. Test code is intentionally repetitive (clear, locally-readable cases beat DRY); seed data is a hand-curated dataset where every kennel record shares the same shape.
+- `sonar.cpd.exclusions`: `prisma/seed.ts`, `prisma/seed-data/**/*.ts`, `**/*.test.ts`, `prisma/migrations/**/*.sql` — duplication only. Test code is intentionally repetitive (clear, locally-readable cases beat DRY); seed data is a hand-curated dataset where every kennel record shares the same shape; migration SQL is structurally repetitive (data-repair migrations like #1477 and #1565 share UPDATE/DELETE/UPSERT scaffolding by design) and is immutable once applied so CPD has no remediation path.
 - `sonar.exclusions`: `docs/mockups/**` — full analysis (static design references, not shipped code)
 
 > **Important:** SonarCloud Automatic Analysis ignores `sonar-project.properties` — the same patterns must also be set in the SonarCloud UI under Project Settings → Analysis Scope → Duplications. The repo file exists for in-repo parity; the UI is the source of truth.

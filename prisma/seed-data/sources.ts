@@ -4110,35 +4110,43 @@ export const SOURCES = [
     // applies per feedback_sourceless_kennels memory.
     {
       name: "Kuching H3 Static Schedule",
-      url: "https://www.malaysiahash.com/#kuching",
+      url: "https://www.malaysiahash.com/index.php?r=chapters&state=Sarawak",
       type: "STATIC_SCHEDULE" as const,
       trustLevel: 3,
       scrapeFreq: "weekly",
       scrapeDays: 90,
       config: {
         kennelTag: "kuching-h3",
-        rrule: "FREQ=WEEKLY;BYDAY=SA",
-        startTime: "17:00",
+        // #1535: malaysiahash.com Sarawak listing — Tuesdays evening, first
+        // run 21 May 1963, founded by Harry Howell. gthhh.com (2011) and
+        // gotothehash.net (2020) both confirm Tuesday. The earlier SA/17:00
+        // config was a placeholder cut-and-paste from neighboring sources.
+        rrule: "FREQ=WEEKLY;BYDAY=TU",
+        startTime: "17:30",
         defaultTitle: "Kuching H3 Weekly Run",
         defaultLocation: "Kuching, Sarawak, Malaysia",
-        defaultDescription: "Weekly Saturday evening trail. Founded 1963, one of Malaysia's oldest hash kennels. Check the malaysiahash.com directory for contact details.",
+        defaultDescription: "Weekly Tuesday evening trail (men's chapter). Founded 21 May 1963 by Harry Howell — one of Malaysia's oldest hash kennels. Check the malaysiahash.com directory for contact details.",
       },
       kennelCodes: ["kuching-h3"],
     },
     {
       name: "KK H3 Static Schedule",
-      url: "https://www.malaysiahash.com/#kota-kinabalu",
+      url: "https://www.malaysiahash.com/index.php?r=chapters&state=Sabah",
       type: "STATIC_SCHEDULE" as const,
       trustLevel: 3,
       scrapeFreq: "weekly",
       scrapeDays: 90,
       config: {
         kennelTag: "kk-h3",
-        rrule: "FREQ=WEEKLY;BYDAY=SA",
-        startTime: "17:00",
+        // #1537: malaysiahash.com Sabah listing — Mondays @ 4:30pm, first
+        // run 22 Jun 1964, founded by George Will (gthhh.com adds Jim Ambler
+        // as co-founder). Three sibling Kota Kinabalu kennels share name
+        // prefixes; this row tracks the men-only KKHHH founder kennel.
+        rrule: "FREQ=WEEKLY;BYDAY=MO",
+        startTime: "16:30",
         defaultTitle: "KK H3 Weekly Run",
         defaultLocation: "Kota Kinabalu, Sabah, Malaysia",
-        defaultDescription: "Weekly Saturday evening trail. Founded 1964, one of Sabah's earliest hash kennels. Check the malaysiahash.com directory for contact details.",
+        defaultDescription: "Weekly Monday afternoon trail (men's chapter). Founded 22 June 1964 by George Will and Jim Ambler — one of Sabah's earliest hash kennels. Check the malaysiahash.com directory for contact details.",
       },
       kennelCodes: ["kk-h3"],
     },
@@ -4211,11 +4219,15 @@ export const SOURCES = [
       scrapeDays: 90,
       config: {
         kennelTag: "kluang-h3",
-        rrule: "FREQ=WEEKLY;BYDAY=SA",
-        startTime: "17:00",
+        // #1431: malaysiahash.com Johor listing — Wednesdays @ 6:00pm, first
+        // run 23 Feb 1967, founded by Richard C. A. McAllister. The earlier
+        // SA/17:00 was a placeholder cut-and-paste from neighboring sources;
+        // every emitted event was on the wrong day AND wrong time.
+        rrule: "FREQ=WEEKLY;BYDAY=WE",
+        startTime: "18:00",
         defaultTitle: "Kluang H3 Weekly Run",
         defaultLocation: "Kluang, Johor, Malaysia",
-        defaultDescription: "Weekly Saturday evening trail. Founded 1967, one of Malaysia's oldest hash kennels. Check the malaysiahash.com directory for contact details.",
+        defaultDescription: "Weekly Wednesday evening trail. Founded 23 Feb 1967, one of Malaysia's oldest hash kennels. Check the malaysiahash.com directory for contact details.",
       },
       kennelCodes: ["kluang-h3"],
     },
