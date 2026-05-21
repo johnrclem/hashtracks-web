@@ -15,7 +15,7 @@ import type { AttendanceData } from "@/components/logbook/CheckInButton";
 import { RegionBadge } from "./RegionBadge";
 import { useTimePreference } from "@/components/providers/time-preference-provider";
 import { getRegionColor } from "@/lib/region";
-import { formatTimeInZone, formatDateInZone, getTimezoneAbbreviation, getBrowserTimezone } from "@/lib/timezone";
+import { formatTimeInZone, getTimezoneAbbreviation, getBrowserTimezone } from "@/lib/timezone";
 import { useUnitsPreference } from "@/components/providers/units-preference-provider";
 import type { DailyWeather } from "@/lib/weather";
 import { getConditionEmoji, cToF } from "@/lib/weather-display";
@@ -99,7 +99,23 @@ function formatDate(iso: string): string {
   });
 }
 
-export { formatDate };
+/**
+ * Compute the display string for the event-card date chip.
+ *
+ * Always formats `event.date` as UTC. `event.date` is stored as UTC noon of
+ * the kennel-local day (PRD F.4), so UTC formatting yields the correct
+ * kennel-local day regardless of viewer or kennel timezone. This matches
+ * `buildAriaLabel`'s date emission and avoids the trap where merge.ts
+ * falls back to `dateUtc = event.date` (UTC noon) for startTime-less events
+ * and `formatDateInZone(dateUtc, kennelTZ)` rolls forward a day for kennels
+ * east of UTC (#1510, #1517, #1522).
+ *
+ * Exported as a single source of truth so the regression test exercises the
+ * same code the chip renders.
+ */
+export function computeChipDate(event: { date: string }): string {
+  return formatDate(event.date);
+}
 
 /**
  * Render a co-host kennel link with its own region-color underline accent
@@ -183,7 +199,9 @@ function buildAriaLabel(event: HarelineEvent, attendance?: AttendanceData | null
   }
   const { title, isFallback } = getDisplayTitle({ ...event, kennel: event.kennel ?? { shortName: "", fullName: "" } });
   if (!isFallback) parts.push(title);
-  parts.push(formatDate(event.date));
+  // Route through `computeChipDate` so chip + aria-label can never drift
+  // (per claude[bot] PR #1566 review).
+  parts.push(computeChipDate(event));
   if (event.runNumber) parts.push(`Run #${event.runNumber}`);
   if (event.startTime) parts.push(formatTime(event.startTime));
   // #1316 — surface card-visible structured fields to screen readers.
@@ -220,13 +238,10 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
   const isUserLocal = preference === "USER_LOCAL";
   const displayTz = isUserLocal ? getBrowserTimezone() : (event.timezone ?? "America/New_York");
 
-  // Choose standard date parsing if there's no reliable UTC timestamp, otherwise format in
-  // the kennel's region — the date chip answers "what day is this run on" and must match
-  // the source's local day, not the viewer's browser day. Browser TZ stays in charge of the
-  // time display below. (#1502)
-  const displayDateStr = event.dateUtc
-    ? formatDateInZone(event.dateUtc, event.timezone ?? displayTz)
-    : formatDate(event.date);
+  // See `computeChipDate` above for why we always format `event.date` as UTC
+  // and intentionally don't use `event.dateUtc` here (#1510, #1517, #1522).
+  // Time formatting below still uses `displayTz`. (#1502)
+  const displayDateStr = computeChipDate(event);
 
   const displayTimeStr = (event.dateUtc && event.startTime)
     ? formatTimeInZone(event.dateUtc, displayTz)
