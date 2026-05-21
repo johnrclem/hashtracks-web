@@ -152,7 +152,7 @@ function HeatmapOverlay({
     if (!map) return;
     let overlay: GoogleMapsOverlay | null = null;
     let attached = false;
-    let pollHandle: number | null = null;
+    let pollHandle: ReturnType<typeof globalThis.setTimeout> | null = null;
 
     const attach = () => {
       if (attached) return;
@@ -171,16 +171,16 @@ function HeatmapOverlay({
       if (map.getProjection()) {
         attach();
       } else {
-        pollHandle = window.setTimeout(pollForReady, ATTACH_POLL_MS);
+        pollHandle = globalThis.setTimeout(pollForReady, ATTACH_POLL_MS);
       }
     };
-    pollHandle = window.setTimeout(pollForReady, ATTACH_FALLBACK_MS);
+    pollHandle = globalThis.setTimeout(pollForReady, ATTACH_FALLBACK_MS);
 
     return () => {
       // Teardown order matters: cancel pending attach paths (poll timer
       // + idle listener) BEFORE finalizing the overlay, otherwise either
       // could fire against a finalized instance.
-      if (pollHandle !== null) window.clearTimeout(pollHandle);
+      if (pollHandle !== null) globalThis.clearTimeout(pollHandle);
       google.maps.event.removeListener(idleListener);
       overlay?.finalize();
       overlayRef.current = null;
@@ -322,7 +322,10 @@ function HeatmapSurface({
   );
 }
 
-export function TrailLocationMap({ locations, region }: TrailLocationMapProps) {
+export function TrailLocationMap({
+  locations,
+  region,
+}: Readonly<TrailLocationMapProps>) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const { colorScheme } = useMapColorScheme();
   const regionColor = getRegionColor(region);

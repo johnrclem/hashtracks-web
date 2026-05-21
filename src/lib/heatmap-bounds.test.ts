@@ -19,12 +19,12 @@ describe("computeHeatmapBounds", () => {
   it("skips IQR filtering when fewer than 8 samples (small-set keeps outliers)", () => {
     // 5 points + 1 wild outlier — small-set path keeps the outlier
     const locations = [
-      { lat: 40.0, lng: -74.0 },
+      { lat: 40, lng: -74 },
       { lat: 40.1, lng: -74.1 },
       { lat: 40.2, lng: -74.2 },
       { lat: 40.3, lng: -74.3 },
       { lat: 40.4, lng: -74.4 },
-      { lat: 80.0, lng: 50.0 },
+      { lat: 80, lng: 50 },
     ];
     const bounds = computeHeatmapBounds(locations)!;
     expect(bounds.north).toBeGreaterThanOrEqual(80);
@@ -55,13 +55,13 @@ describe("computeHeatmapBounds", () => {
 
   it("respects a custom padding value", () => {
     const bounds = computeHeatmapBounds([{ lat: 0, lng: 0 }], 0.5)!;
-    expect(bounds.north - bounds.south).toBeCloseTo(1.0, 5);
+    expect(bounds.north - bounds.south).toBeCloseTo(1, 5);
   });
 
-  it("filters NaN / ±Infinity coordinates before computing bounds", () => {
+  it("filters Number.NaN / ±Infinity coordinates before computing bounds", () => {
     const bounds = computeHeatmapBounds([
       { lat: 40, lng: -74 },
-      { lat: NaN, lng: -74 },
+      { lat: Number.NaN, lng: -74 },
       { lat: 40, lng: Infinity },
       { lat: -Infinity, lng: 0 },
       { lat: 40.1, lng: -74.1 },
@@ -76,7 +76,7 @@ describe("computeHeatmapBounds", () => {
   it("returns undefined when every coordinate is non-finite", () => {
     expect(
       computeHeatmapBounds([
-        { lat: NaN, lng: NaN },
+        { lat: Number.NaN, lng: Number.NaN },
         { lat: Infinity, lng: -Infinity },
       ]),
     ).toBeUndefined();
