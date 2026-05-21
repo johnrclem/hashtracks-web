@@ -88,6 +88,30 @@ describe("parseHashHorrorsRunLine", () => {
     });
   });
 
+  it("parses day-first format with ordinal suffix used in the 2018-2019 rewrite", () => {
+    const out = parseHashHorrorsRunLine("952 – 9th April – Merette Family – Bukit Timah MTB Trail");
+    expect(out).toMatchObject({
+      runNumber: 952,
+      monthIdx: 4,
+      day: 9,
+      hares: "Merette Family",
+      location: "Bukit Timah MTB Trail",
+    });
+  });
+
+  it("parses day-first format with inline year + ordinal", () => {
+    const out = parseHashHorrorsRunLine("897 – 13th January – Jonas Family – Old Holland and Blakemore Dr. 2018");
+    expect(out).toMatchObject({
+      runNumber: 897,
+      monthIdx: 1,
+      day: 13,
+      hares: "Jonas Family",
+    });
+    // Trailing year inside location text stays in the location field (no
+    // procedural strip after the tail).
+    expect(out?.location).toContain("Old Holland");
+  });
+
   it("captures parenthetical themed-run titles after the day", () => {
     const out = parseHashHorrorsRunLine(
       "985 – December 15 (Christmas Hash) – Poyner Family – Gillman Barracks",
@@ -173,7 +197,8 @@ describe("parseHashHorrorsUpcoming (no year heading, current-year default)", () 
     "1019 – August 9 – *Hares Needed*";
 
   it("emits an event per upcoming run with the provided year", () => {
-    const { events } = parseHashHorrorsUpcoming(liveFixture, 2026);
+    // Scrape on 2026-05-05 → currentYear=2026, currentMonth=5.
+    const { events } = parseHashHorrorsUpcoming(liveFixture, 2026, 5);
     const map = new Map(events.map((e) => [e.runNumber, e]));
     expect(map.get(1015)).toMatchObject({
       date: "2026-05-03",
@@ -195,15 +220,15 @@ describe("parseHashHorrorsUpcoming (no year heading, current-year default)", () 
   });
 
   it("counts BREAK as a marker, not a parse error", () => {
-    const out = parseHashHorrorsUpcoming(liveFixture, 2026);
+    const out = parseHashHorrorsUpcoming(liveFixture, 2026, 5);
     expect(out.skippedLines).toBe(0);
     expect(out.skippedMarkers).toBe(1);
   });
 
   it("rolls the year forward when the calendar date wraps backwards", () => {
-    // Hypothetical December-into-January transition.
+    // Hypothetical December-into-January transition (Dec scrape).
     const text = "1020 – December 6 – A Family 1021 – January 3 – B Family";
-    const { events } = parseHashHorrorsUpcoming(text, 2026);
+    const { events } = parseHashHorrorsUpcoming(text, 2026, 12);
     const map = new Map(events.map((e) => [e.runNumber, e]));
     expect(map.get(1020)?.date).toBe("2026-12-06");
     expect(map.get(1021)?.date).toBe("2027-01-03");
@@ -214,8 +239,26 @@ describe("parseHashHorrorsUpcoming (no year heading, current-year default)", () 
     // downstream Jan row after a Dec BREAK rolls the year.
     const text =
       "1020 – December 6 – A Family 1021 – December 20 – Committee BREAK 1022 – January 3 – B Family";
-    const { events } = parseHashHorrorsUpcoming(text, 2026);
+    const { events } = parseHashHorrorsUpcoming(text, 2026, 12);
     expect(events.find((e) => e.runNumber === 1021)).toBeUndefined();
     expect(events.find((e) => e.runNumber === 1022)?.date).toBe("2027-01-03");
+  });
+
+  it("seeds the first run to next year when its month is earlier than today's month", () => {
+    // Late-December scrape with an upcoming page that's already pivoted to
+    // January runs — gemini-code-assist review on PR #1536. Without seeding
+    // currentMonth, January rows would be dated to the wrong year.
+    const text = "1021 – January 3 – B Family 1022 – January 17 – C Family";
+    const { events } = parseHashHorrorsUpcoming(text, 2026, 12);
+    expect(events.find((e) => e.runNumber === 1021)?.date).toBe("2027-01-03");
+    expect(events.find((e) => e.runNumber === 1022)?.date).toBe("2027-01-17");
+  });
+
+  it("keeps the first run in the current year when its month is the current month", () => {
+    // Same-month scrape — no rollover needed.
+    const text = "1015 – May 3 – A Family 1016 – May 17 – B Family";
+    const { events } = parseHashHorrorsUpcoming(text, 2026, 5);
+    expect(events.find((e) => e.runNumber === 1015)?.date).toBe("2026-05-03");
+    expect(events.find((e) => e.runNumber === 1016)?.date).toBe("2026-05-17");
   });
 });

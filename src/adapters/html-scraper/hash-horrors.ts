@@ -1,8 +1,8 @@
+import { createHash } from "node:crypto";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { fetchWordPressComPage } from "../wordpress-api";
 import { MONTHS, decodeEntities, buildDateWindow, stripHtmlTags } from "../utils";
-import { generateStructureHash } from "@/pipeline/structure-hash";
 import { todayInTimezone } from "@/lib/timezone";
 
 const DEFAULT_SITE_DOMAIN = "hashhousehorrors.com";
@@ -40,15 +40,25 @@ const KENNEL_TIMEZONE = "Asia/Singapore";
 // Each run line begins with the run number followed by a separator (en-dash,
 // em-dash, ASCII hyphen, or colon — older archive entries use ":"). The body
 // after the separator carries the month/day in either "Month D" (post-2019)
-// or "D Month" order (2018-2019 hareline rewrite), optionally suffixed with
-// an ordinal (1st/2nd/3rd/Nth), an inline year (1900-2099), and/or a
-// parenthetical themed-run annotation, then an optional tail with hares and
-// location.
+// or "D Month" order (2018-2019 hareline rewrite). Optional decorations
+// (ordinal suffixes, inline year, parenthetical themed-run annotation) and
+// the tail (hares ± location) are stripped procedurally rather than via one
+// catastrophic-backtracking regex — Sonar S5852 flags any `\s*` adjacent to
+// optional alternation, so the linear shape below avoids the analyzer
+// hotspot without sacrificing coverage. See burlington-hash.ts for the same
+// pattern.
 const RUN_PREFIX_RE = /^(\d{3,4})\s*[–—:-]\s*/i;
-const MONTH_DAY_RE =
-  /^([a-z]+)\s+(\d{1,2})(?:st|nd|rd|th)?\s*(?:(?:19|20)\d{2})?\s*(?:\(([^)]*)\))?\s*(?:[–—-]\s*(.+))?$/i;
-const DAY_MONTH_RE =
-  /^(\d{1,2})(?:st|nd|rd|th)?\s+([a-z]+)\s*(?:(?:19|20)\d{2})?\s*(?:\(([^)]*)\))?\s*(?:[–—-]\s*(.+))?$/i;
+// Day in "Month D" order is captured *before* the optional ordinal so
+// `afterHead` can strip "rd" / "th" procedurally. In "D Month" order the
+// ordinal sits between digit and month, so it has to be in the head regex
+// (e.g. "9th April"). Both heads are linear — no `\s*`-adjacent alternation
+// that would trip Sonar S5852.
+const MONTH_DAY_HEAD = /^([a-z]+)\s+(\d{1,2})/i;
+const DAY_MONTH_HEAD = /^(\d{1,2})(?:st|nd|rd|th)?\s+([a-z]+)/i;
+const ORDINAL_SUFFIX_RE = /^(?:st|nd|rd|th)\b/i;
+const INLINE_YEAR_RE = /^(?:19|20)\d{2}\b/;
+const PAREN_THEME_RE = /^\(([^)]*)\)/;
+const TAIL_DASH_RE = /^[–—-]\s*(.+)$/;
 
 interface ParsedRunLine {
   runNumber: number;
@@ -62,6 +72,32 @@ interface ParsedRunLine {
   isBreak?: true;
 }
 
+/** Strip leading and trailing asterisks (and any whitespace they wrap) from
+ *  a string. Procedural rather than regex-based so we don't trip Sonar S5852
+ *  on the `\s*`-adjacent-to-alternation pattern. */
+function stripWrappingAsterisks(value: string): string {
+  let s = value;
+  while (s.startsWith("*")) s = s.slice(1);
+  s = s.trimStart();
+  while (s.endsWith("*")) s = s.slice(0, -1);
+  return s.trimEnd();
+}
+
+/** Consume any optional ordinal/year/whitespace/parenthetical theme prefix
+ *  from `remainder`, returning what's left plus an extracted theme (if any). */
+function stripDecorations(remainder: string): { rest: string; theme: string | undefined } {
+  let rest = remainder.trimStart();
+  rest = rest.replace(ORDINAL_SUFFIX_RE, "").trimStart();
+  rest = rest.replace(INLINE_YEAR_RE, "").trimStart();
+  const paren = PAREN_THEME_RE.exec(rest);
+  let theme: string | undefined;
+  if (paren) {
+    theme = paren[1].trim() || undefined;
+    rest = rest.slice(paren[0].length).trimStart();
+  }
+  return { rest, theme };
+}
+
 /** Parse a single line like "1016 – May 17 – Wade Family – Pearl Hill". */
 export function parseHashHorrorsRunLine(line: string): ParsedRunLine | null {
   const cleaned = line.trim();
@@ -71,31 +107,34 @@ export function parseHashHorrorsRunLine(line: string): ParsedRunLine | null {
   const body = cleaned.slice(prefix[0].length);
 
   // Try "Month D" first (post-2019 format), fall back to "D Month" used by
-  // the 2018-2019 hareline rewrite. Whichever matches gives us month, day,
-  // optional themed-run annotation, and the optional tail with hares ± loc.
+  // the 2018-2019 hareline rewrite. Whichever head matches gives us month +
+  // day; remaining decorations (ordinal/year/paren-theme) and the tail get
+  // stripped procedurally below so the regex pieces stay linear (Sonar S5852).
   let monthStr: string;
   let dayStr: string;
-  let theme: string | undefined;
-  let tail: string | undefined;
-  const md = MONTH_DAY_RE.exec(body);
+  let afterHead: string;
+  const md = MONTH_DAY_HEAD.exec(body);
   if (md) {
     monthStr = md[1];
     dayStr = md[2];
-    theme = md[3]?.trim() || undefined;
-    tail = md[4]?.trim();
+    afterHead = body.slice(md[0].length);
   } else {
-    const dm = DAY_MONTH_RE.exec(body);
+    const dm = DAY_MONTH_HEAD.exec(body);
     if (!dm) return null;
     dayStr = dm[1];
     monthStr = dm[2];
-    theme = dm[3]?.trim() || undefined;
-    tail = dm[4]?.trim();
+    afterHead = body.slice(dm[0].length);
   }
 
   const monthIdx = MONTHS[monthStr.toLowerCase()];
   if (!monthIdx) return null;
   const day = Number.parseInt(dayStr, 10);
   if (day < 1 || day > 31) return null;
+
+  const { rest, theme } = stripDecorations(afterHead);
+  const tailMatch = TAIL_DASH_RE.exec(rest);
+  const tail = tailMatch?.[1]?.trim() || undefined;
+
   let hares: string | undefined;
   let location: string | undefined;
   if (tail) {
@@ -127,8 +166,10 @@ export function parseHashHorrorsRunLine(line: string): ParsedRunLine | null {
 
   // "Hares Needed" sentinel — drop the value. Strip wrapping asterisks first
   // (the kennel sometimes writes it as "*Hares Needed*" or "***Hares Needed***").
+  // Procedural strip avoids Sonar S5852 on the `\s*`-adjacent-to-alternation
+  // shape the regex form trips.
   if (hares) {
-    const unstarred = hares.replace(/^\*+\s*|\s*\*+$/g, "").trim();
+    const unstarred = stripWrappingAsterisks(hares);
     if (/^Hares\s+Needed$/i.test(unstarred)) hares = undefined;
   }
 
@@ -171,6 +212,12 @@ function findYearHeadings(text: string): Array<{ year: number; start: number; en
  * (2018-2019 layout). Year-shaped numbers (1900-2099) are filtered out to
  * prevent inline year tokens from being treated as run-number prefixes when
  * the surrounding row is "23rd 2017 – The Mitchell Family"-style.
+ *
+ * LIMIT: at ~26 runs/year, the kennel reaches run #1900 around 2060 (~34
+ * years out). When run numbers approach 1900, replace this numeric filter
+ * with a context-aware check (e.g. look backwards from the candidate for an
+ * ordinal/space pattern) or shift to a per-row tokenizer. Codex flagged
+ * this on PR #1536 as a long-horizon correctness regression.
  */
 function findRunLineStarts(section: string): number[] {
   const starts: number[] = [];
@@ -255,13 +302,25 @@ export function parseHashHorrorsHareline(text: string): ParseHarelineResult {
  * Walk the `/hareline-2/` upcoming page. There is no year heading — the
  * implied year is `currentYear`, advancing by one whenever the calendar
  * date wraps backwards (e.g. Dec → Jan crossing).
+ *
+ * `currentMonth` (1-12) seeds the year for the FIRST run on the page. When
+ * the upcoming list begins in a month earlier than today's month, those
+ * runs belong to next year (e.g. a Dec-15 scrape sees a Jan-3 run as 2027,
+ * not 2026). Without this seed, January-only upcoming pages would be
+ * mis-dated for the last ~6 weeks of every year.
  */
-export function parseHashHorrorsUpcoming(text: string, currentYear: number): ParseHarelineResult {
+export function parseHashHorrorsUpcoming(
+  text: string,
+  currentYear: number,
+  currentMonth: number,
+): ParseHarelineResult {
   let year = currentYear;
   let prev: { month: number; day: number } | null = null;
   return walkRunLines(text, (parsed) => {
     const cur = { month: parsed.monthIdx, day: parsed.day };
-    if (prev && (cur.month < prev.month || (cur.month === prev.month && cur.day < prev.day))) {
+    if (prev === null) {
+      if (cur.month < currentMonth) year++;
+    } else if (cur.month < prev.month || (cur.month === prev.month && cur.day < prev.day)) {
       year++;
     }
     prev = cur;
@@ -337,11 +396,14 @@ export class HashHorrorsAdapter implements SourceAdapter {
     } else {
       upcomingUrl = upcomingResult.page.URL || `https://${siteDomain}/${HARELINE_UPCOMING_SLUG}/`;
       upcomingText = flattenPageText(upcomingResult.page.content);
-      // Pin the implied year to Singapore-local "today" so a 2027-01-01
-      // SGT scrape doesn't mis-date January upcoming rows as 2026 just
-      // because UTC hasn't ticked over yet.
-      const currentYear = Number.parseInt(todayInTimezone(KENNEL_TIMEZONE).slice(0, 4), 10);
-      upcoming = parseHashHorrorsUpcoming(upcomingText, currentYear);
+      // Pin the implied year + month to Singapore-local "today" so a late-Dec
+      // scrape that finds only January upcoming rows seeds them to next year
+      // (gemini-code-assist review on PR #1536). UTC would also mis-date the
+      // first 8h of January every year.
+      const ymd = todayInTimezone(KENNEL_TIMEZONE);
+      const currentYear = Number.parseInt(ymd.slice(0, 4), 10);
+      const currentMonth = Number.parseInt(ymd.slice(5, 7), 10);
+      upcoming = parseHashHorrorsUpcoming(upcomingText, currentYear, currentMonth);
     }
 
     // The hareline pages between them carry the full archive back to Hash 1.
@@ -375,7 +437,16 @@ export class HashHorrorsAdapter implements SourceAdapter {
     if (fetchErrors.length > 0) errorDetails.fetch = fetchErrors;
     if (parseErrors.length > 0) errorDetails.parse = parseErrors;
 
-    const structureHash = generateStructureHash(archiveText + upcomingText);
+    // Content-based fingerprint of the raw page HTML. The shared
+    // `generateStructureHash` helper is hashnyc-specific (it looks for
+    // `table.past_hashes` / `table.future_hashes` CSS classes that don't
+    // exist on WordPress.com) and would return a constant for this adapter,
+    // which is strictly worse than no signal at all. A SHA-256 over the raw
+    // HTML changes on every edit — useful for diffing successive scrapes
+    // even though it's noisier than a true structural fingerprint.
+    const structureHash = createHash("sha256")
+      .update(archiveResult.page.content + (upcomingResult.page?.content ?? ""))
+      .digest("hex");
     return {
       events,
       errors,
