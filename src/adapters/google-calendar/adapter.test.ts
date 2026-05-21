@@ -1770,6 +1770,45 @@ describe("extractLocationFromDescription", () => {
     const desc = "WHERE:\n42.38948, -83.0508\nHamtramck Stadium\nHamtramck, MI";
     expect(extractLocationFromDescription(desc)).toBeUndefined();
   });
+
+  // ── #1495 Flour City H3 — empty `Where: ` (trailing space + blank line) must not fall through ──
+  // Live description fetched from flourcitymismanagement@gmail.com on 2026-05-20 for the
+  // "Fetch" event (Thu May 28 2026). LOCATION_LABEL_RE captures a whitespace-only value;
+  // the explicit early-return guards against BARE_LABEL_RE scanning forward to the next
+  // template label and surfacing `How: ...` / `Venmo or PayPal: ...` as the venue name.
+  it("(#1495) rejects empty `Where: ` with trailing space (Flour City live fixture)", () => {
+    const desc = [
+      "Hare:",
+      "",
+      "Where: ",
+      "",
+      "When: 5:69",
+      "",
+      "Why:",
+      "",
+      "How: $5 hash cash ",
+      "",
+      "Venmo or PayPal: fch3trails@gmail.com",
+    ].join("\n");
+    expect(extractLocationFromDescription(desc)).toBeUndefined();
+  });
+
+  // #1495 — equivalent shapes the parse must not capture as locationName.
+  it.each([
+    ["trailing space only", "Where: \n\nHow: $5 hash cash"],
+    ["multiple spaces", "Where:   \n\nHow: $5 hash cash"],
+    ["tab after colon", "Where:\t\n\nHow: $5 hash cash"],
+  ])("(#1495) rejects whitespace-only `Where:` value (%s)", (_label, desc) => {
+    expect(extractLocationFromDescription(desc)).toBeUndefined();
+  });
+
+  // #1495 — guard that the well-formed Flour City case (a real venue between
+  // quotes) still works. Locks in the live "Asserole Trail" description so the
+  // empty-Where early-return doesn't over-fire.
+  it("(#1495) still extracts a real `Where:` value when the venue is present", () => {
+    const desc = 'What: Asserole Trail \nWhere: "Oatka Creek Park"\n\n\n\nHow: $5 hash cash Venmo or PayPal: fch3trails@gmail.com';
+    expect(extractLocationFromDescription(desc)).toBe('"Oatka Creek Park"');
+  });
 });
 
 // ── extractTimeFromDescription ──
