@@ -29,4 +29,20 @@ describe("backfillLastEventDates", () => {
     const result = await backfillLastEventDates();
     expect(result).toBe(0);
   });
+
+  // #1567: lastEventDate must include EventKennel co-host secondaries, but
+  // still exclude CANCELLED + manual entries. Introspect the tagged-template
+  // strings to lock in the SQL shape.
+  it("(#1567) joins through EventKennel so co-host secondaries are counted", async () => {
+    await backfillLastEventDates();
+    const [strings] = vi.mocked(prisma.$executeRaw).mock.calls[0] as unknown as [readonly string[]];
+    const sql = strings.join("?");
+    expect(sql).toContain(`"EventKennel"`);
+    expect(sql).toContain(`"kennelId"`);
+    expect(sql).toContain("CANCELLED");
+    expect(sql).toContain("isManualEntry");
+    // Lock the UNION ALL shape — a future regression to `OR EXISTS (...)`
+    // would reintroduce the per-Kennel nested-loop over Event.
+    expect(sql).toMatch(/UNION ALL/i);
+  });
 });
