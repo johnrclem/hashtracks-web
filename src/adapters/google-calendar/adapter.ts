@@ -280,12 +280,13 @@ const LOCATION_LABEL_TOKENS = [
   String.raw`Direcshits`,
   String.raw`Where\s+to\s+gather`,
 ];
-// `[ \t]*` after the label colon — NOT `\s*` — keeps the value capture on the
-// same line as the label. With `\s*` an empty `Where: ` line was consuming the
-// trailing newline and capturing the next line's content (e.g. Flour City's
-// `When: 5:69` template line, #1129).
+// `[ \t]*` after the colon (NOT `\s*`) keeps the value capture on the same
+// line as the label; `\s*` would consume the trailing newline and grab the
+// next line's content (#1129). `(.*)` (NOT `(.+)`) matches the empty-value
+// shape so `extractLocationFromDescription` can discard it explicitly rather
+// than relying on a silent no-match.
 const LOCATION_LABEL_RE = new RegExp(
-  String.raw`(?:^|\n)\s*(?:${LOCATION_LABEL_TOKENS.join("|")})[ \t]*:[ \t]*(.+)`,
+  String.raw`(?:^|\n)\s*(?:${LOCATION_LABEL_TOKENS.join("|")})[ \t]*:[ \t]*(.*)`,
   "im",
 );
 // Fallback: bare label (with optional trailing colon) on a line by itself,
@@ -503,6 +504,11 @@ export function extractTitleFromDescription(description: string): string | undef
  */
 export function extractLocationFromDescription(description: string): string | undefined {
   let match = LOCATION_LABEL_RE.exec(description);
+  // Discard whitespace-only `Where:` captures so multi-line venues
+  // (`WHERE:\n<addr>`) reach BARE_LABEL_RE. Sibling-label leaks on the
+  // next line (`How: $5 cash`, `Venmo or PayPal: …`) are filtered by
+  // isNonAddressText below.
+  if (match && !match[1]?.trim()) match = null;
   if (!match?.[1]) match = LOCATION_BARE_LABEL_RE.exec(description);
   if (!match?.[1]) match = LOCATION_START_RE.exec(description);
   if (!match?.[1]) return undefined;
