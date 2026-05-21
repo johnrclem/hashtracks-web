@@ -3401,21 +3401,32 @@ export const KENNELS: KennelSeed[] = [
     },
     // ===== MALAYSIA Phase 2 — Historic Regional kennels =====
     {
+      // #1535: schedule strings, description, founder, and facebookUrl are
+      // mirrored in prisma/migrations/20260521020000_fix_se_asia_static_schedules/migration.sql
+      // so seed and prod stay in sync. Edits here must update the migration
+      // (or author a follow-up) — `ensureKennelRecords` only fills NULLs.
       kennelCode: "kuching-h3", shortName: "Kuching H3", fullName: "Kuching Hash House Harriers",
       region: "Kuching, MY", country: "Malaysia",
-      scheduleDayOfWeek: "Saturday", scheduleTime: "5:00 PM", scheduleFrequency: "Weekly",
-      scheduleNotes: "Weekly Saturday runs around Kuching in Sarawak (East Malaysia). Founded 1963.",
+      scheduleDayOfWeek: "Tuesday", scheduleTime: "5:30 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Weekly Tuesday runs around Kuching in Sarawak (East Malaysia). Founded 21 May 1963 by Harry Howell.",
       foundedYear: 1963,
-      description: "Founded in 1963 in Sarawak (East Malaysia), Kuching H3 is one of the oldest hash kennels in Borneo and among the earliest in Malaysia outside the peninsula.",
+      founder: "Harry Howell",
+      facebookUrl: "https://www.facebook.com/kuchinghashhouseharrier/",
+      description: "Founded 21 May 1963 in Sarawak (East Malaysia), Kuching H3 is one of the oldest hash kennels in Borneo and among the earliest in Malaysia outside the peninsula. Weekly Tuesday evening trails around Kuching (men's chapter).",
       latitude: 1.5497, longitude: 110.3444,
     },
     {
+      // #1537: schedule strings, description, and founder are mirrored in
+      // prisma/migrations/20260521020000_fix_se_asia_static_schedules/migration.sql
+      // so seed and prod stay in sync. Three sibling Kota Kinabalu kennels
+      // share name prefixes; this row tracks the men-only KKHHH founder kennel.
       kennelCode: "kk-h3", shortName: "KK H3", fullName: "Kota Kinabalu Hash House Harriers",
       region: "Kota Kinabalu, MY", country: "Malaysia",
-      scheduleDayOfWeek: "Saturday", scheduleTime: "5:00 PM", scheduleFrequency: "Weekly",
-      scheduleNotes: "Weekly Saturday runs through the hills and trails around Kota Kinabalu. Founded 1964.",
+      scheduleDayOfWeek: "Monday", scheduleTime: "4:30 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Weekly Monday runs through the hills and trails around Kota Kinabalu. Founded 22 June 1964 by George Will and Jim Ambler.",
       foundedYear: 1964,
-      description: "Founded in 1964 in Sabah (East Malaysia), KK H3 is one of the earliest hash kennels in Borneo. Weekly Saturday runs through the hills and trails around Kota Kinabalu.",
+      founder: "George Will & Jim Ambler",
+      description: "Founded 22 June 1964 in Sabah (East Malaysia), KK H3 is one of the earliest hash kennels in Borneo. Weekly Monday afternoon trails through the hills and trails around Kota Kinabalu (men's chapter).",
       latitude: 5.9804, longitude: 116.0735,
     },
     {
@@ -3456,14 +3467,18 @@ export const KENNELS: KennelSeed[] = [
       latitude: 5.3987, longitude: 100.3649,
     },
     {
+      // #1431: schedule strings + description are mirrored in
+      // prisma/migrations/20260521020000_fix_se_asia_static_schedules/migration.sql
+      // so seed and prod stay in sync. Edits here must update the migration
+      // (or author a follow-up) — `ensureKennelRecords` only fills NULLs.
       kennelCode: "kluang-h3", shortName: "Kluang H3", fullName: "Kluang Hash House Harriers",
       region: "Johor", country: "Malaysia",
       logoUrl: "https://www.malaysiahash.com/logos/12.jpg",
-      scheduleDayOfWeek: "Saturday", scheduleTime: "5:00 PM", scheduleFrequency: "Weekly",
-      scheduleNotes: "Weekly Saturday runs through the palm oil plantations and jungle trails around Kluang. Founded 1967.",
+      scheduleDayOfWeek: "Wednesday", scheduleTime: "6:00 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Weekly Wednesday runs through the palm oil plantations and jungle trails around Kluang. Founded 23 Feb 1967 by Richard C. A. McAllister.",
       foundedYear: 1967,
       founder: "Richard C. A. McAllister [RCT]",
-      description: "Founded in 1967 in the Johor interior, Kluang H3 predates the larger Johor Bahru kennel by two years. Weekly Saturday runs through the palm oil plantations and jungle trails around Kluang.",
+      description: "Founded 23 Feb 1967 in the Johor interior, Kluang H3 predates the larger Johor Bahru kennel by two years. Weekly Wednesday evening runs through the palm oil plantations and jungle trails around Kluang.",
       latitude: 2.0251, longitude: 103.3328,
     },
     // ===== HONG KONG =====
