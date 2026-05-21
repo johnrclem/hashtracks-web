@@ -503,13 +503,20 @@ export function extractTitleFromDescription(description: string): string | undef
  */
 export function extractLocationFromDescription(description: string): string | undefined {
   let match = LOCATION_LABEL_RE.exec(description);
-  // #1495 Flour City: when `Where:` is on its own line with a whitespace-only
-  // (or empty) value — e.g. `Where: \n\nHow: $5 hash cash` — treat it as an
-  // intentional blank and return undefined. Do NOT fall through to
-  // BARE_LABEL_RE, which would scan to the next non-empty line and could
-  // surface sibling template labels (`How: ...`, `Venmo or PayPal: ...`).
+  // #1495 Flour City: when `Where:` captures a whitespace-only value (e.g.
+  // `Where: \n\nHow: $5 hash cash`), discard that match and let BARE_LABEL_RE
+  // take over. BARE handles the multiline conventions —
+  //   - DeMon-style `WHERE:\n<venue>` (no space, address on next line)
+  //   - Flour City's trailing-space variant `Where: \n<venue>` (Codex
+  //     adversarial review on PR #1513 flagged this as a pre-existing
+  //     silently-broken path; the discard recovers it)
+  // The Flour City leak (`Where: \n\nHow: ...`) is still rejected: BARE
+  // requires the immediate next line to start with `\S`, so a blank line
+  // between `Where:` and the next field makes BARE fail; and even when
+  // BARE captures a sibling label on the next line (`How: ...`,
+  // `Venmo or PayPal: ...`), `isNonAddressText` below filters it out.
   // The `How:` line is never a candidate for locationName.
-  if (match && !match[1]?.trim()) return undefined;
+  if (match && !match[1]?.trim()) match = null;
   if (!match?.[1]) match = LOCATION_BARE_LABEL_RE.exec(description);
   if (!match?.[1]) match = LOCATION_START_RE.exec(description);
   if (!match?.[1]) return undefined;

@@ -1809,6 +1809,40 @@ describe("extractLocationFromDescription", () => {
     const desc = 'What: Asserole Trail \nWhere: "Oatka Creek Park"\n\n\n\nHow: $5 hash cash Venmo or PayPal: fch3trails@gmail.com';
     expect(extractLocationFromDescription(desc)).toBe('"Oatka Creek Park"');
   });
+
+  // #1495 Codex finding: `Where:` (with trailing space) followed by the venue
+  // on the next line is a multiline shape that pre-PR1 silently returned
+  // undefined (LABEL captured " " and short-circuited the BARE fallback).
+  // The discard-and-retry pattern in extractLocationFromDescription now
+  // recovers the venue while still rejecting the Flour City sibling-label
+  // leak below.
+  it("(#1495 Codex) recovers `Where: \\n<venue>` (trailing space before newline)", () => {
+    expect(extractLocationFromDescription("Where: \nOatka Creek Park")).toBe("Oatka Creek Park");
+  });
+
+  it("(#1495 Codex) recovers `Where: \\n<maps-url>\\n<venue>` (intervening Maps URL line)", () => {
+    const desc = "Where: \nhttps://maps.google.com/foo\nOatka Creek Park";
+    expect(extractLocationFromDescription(desc)).toBe("Oatka Creek Park");
+  });
+
+  // Counter-test: the multiline recovery MUST NOT re-open the original #1495
+  // leak path. Empty `Where: ` followed by a blank line + sibling label
+  // (`How:`, `Venmo or PayPal:`, etc.) stays rejected because BARE_LABEL_RE
+  // requires the immediate next line to start with non-whitespace, and the
+  // blank line breaks it. Pinned here so a future BARE_LABEL_RE relaxation
+  // can't silently re-introduce the leak.
+  it("(#1495 Codex) recovery still rejects `Where: \\n\\n<sibling-label>` (Flour City leak shape)", () => {
+    const desc = [
+      "Hare:",
+      "",
+      "Where: ",
+      "",
+      "When: 5:69",
+      "",
+      "How: $5 hash cash",
+    ].join("\n");
+    expect(extractLocationFromDescription(desc)).toBeUndefined();
+  });
 });
 
 // ── extractTimeFromDescription ──
