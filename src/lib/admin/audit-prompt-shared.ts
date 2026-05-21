@@ -104,14 +104,30 @@ Response: \`{ "nonce": "<base64url>" }\` (5-minute TTL, single-use).
 Response shapes:
 - \`{ "action": "created", "issueNumber": N, "issueHtmlUrl": "..." }\` — fresh issue filed.
 - \`{ "action": "recurred", "tier": "strict" | "bridging" | "coarse", "existingIssueNumber": N, "existingIssueHtmlUrl": "...", "recurrenceCount": N }\` — same finding already had an open issue; we commented "still recurring" instead of forking. **Don't refile.** (\`coarse\` is the dedup path for non-fingerprintable rules — see #964.)
-- \`{ "error": "...", "existingIssueNumber"?: N }\` (502) — GitHub side effect failed; safe to retry the same nonce.
+- \`{ "error": "...", "existingIssueNumber"?: N }\` (502) — GitHub side effect failed. **Retry the same nonce exactly once.** If the second attempt also returns 502, do not loop — the server-side filer is degraded (typically an expired GITHUB_TOKEN or rate-limit exhaustion). **Stop the API flow and switch to Option 2 (URL prefill)** so the finding still lands as a GitHub issue. The next daily sync round's bridging tier will auto-link the URL-filed issue back to the dedup graph. Never repeat-loop the API past two attempts — silent retry storms make the outage harder to diagnose.
 - \`{ "error": "Nonce invalid, expired, or payload tampered" }\` (401) — nonce mismatch; mint a fresh one and retry.
 
 The labels (\`audit\`, \`alert\`, \`audit:${input.stream}\`, \`kennel:${input.kennelLabel}\`) are applied server-side; you don't set them yourself.
 
-**Option 2 (fallback): paste the finding for an admin to file manually**
+**Option 2 (automatic fallback when Option 1 errors): GitHub URL prefill**
 
-Use this only if the API call fails after a fresh nonce. Output the finding in this format:
+Use this whenever Option 1 returns 502 twice in a row, or any non-401 error you can't recover from. Navigate to a prefilled new-issue URL — this always works as long as github.com itself is up. Both \`title\` and \`body\` MUST be URL-encoded with \`encodeURIComponent\` — raw newlines, \`&\`, or \`#\` will break the query string.
+
+\`\`\`text
+https://github.com/${HASHTRACKS_REPO}/issues/new?labels=audit,alert,audit:${input.stream},kennel:${input.kennelLabel}&title={URL-ENCODED TITLE}&body={URL-ENCODED BODY}
+\`\`\`
+
+The next sync round's bridging tier (5c-A) detects URL-filed audit issues by parsing the rule slug out of the title. **Use this exact title shape so the bridge fires:**
+
+\`\`\`text
+Finding: <KENNEL_SHORTNAME> <short prose summary> <rule-slug>
+\`\`\`
+
+The trailing token MUST be the rule slug (lowercase, hyphenated, e.g. \`hares-theme-leak\`, \`title-raw-kennel-code\`). Anything goes between, but \`Finding:\` must be the prefix and the slug must be the last whitespace-delimited token — see \`extractRuleSlugFromChromeTitle\` in \`src/pipeline/audit-issue-sync.ts\`. Get this wrong and your URL-filed issue will not back-link to the dedup graph; later filings for the same finding will fork duplicates and lose recurrence history.
+
+**Option 3 (manual fallback when no browser path lands the issue): paste the finding for an admin to file**
+
+Last-resort path when both Option 1 and Option 2 fail (e.g. GitHub itself is down, or you're sandboxed with no nav permission). Output the finding in this format and stop — an admin will pick it up:
 
 ### [Kennel] — [Issue Category]
 * **HashTracks Event URL:** [link]
@@ -120,9 +136,5 @@ Use this only if the API call fails after a fresh nonce. Output the finding in t
 * **Field(s) Affected:** [field name]
 * **Current Extracted Value:** "[exact text from the HashTracks page, verbatim]"
 * **Expected Value:** "[verbatim text from the source — **not** a synthesized cleanup or inference. If the source says "2FC Takes Fenton", that's the expected value; don't 'clean it up' to "2FC" unless the source literally shows that string somewhere.]"
-* **Fix Hypothesis:** [brief guess on root cause]
-
-**Option 3 (legacy fallback): GitHub URL flow**
-
-Old prompts used to direct agents to a prefilled \`https://github.com/${HASHTRACKS_REPO}/issues/new?...\` URL. That path is still supported and will be detected by the bridging tier on the next sync round, but **prefer Option 1** so cross-stream coalescing fires immediately and you don't fork a duplicate.`;
+* **Fix Hypothesis:** [brief guess on root cause]`;
 }

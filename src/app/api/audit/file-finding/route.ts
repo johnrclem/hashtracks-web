@@ -41,6 +41,8 @@
 import { NextResponse } from "next/server";
 
 import { authorizeAuditApi } from "@/lib/audit-api-auth";
+import { safeErrorBody } from "@/lib/safe-error-body";
+import { reportAuditFilerFailure } from "@/pipeline/audit-filer-telemetry";
 import { prisma } from "@/lib/db";
 import {
   hashNonce,
@@ -270,37 +272,6 @@ async function persistFilingResult(
 
 const LOG_PREFIX = "[audit-file-finding]";
 
-/**
- * Read an upstream error response body for safe logging, capped at
- * `LOG_BODY_MAX` bytes. GitHub error responses are normally tiny JSON
- * `{message, documentation_url}` bodies, but a proxy or intermediary could
- * return a multi-megabyte HTML error page that reflects request content
- * (#1468). We stream the body and stop reading once we have enough — this
- * keeps the defensive bound on the read itself rather than post-decode
- * slicing, so a misbehaving upstream cannot pressure memory or latency
- * even before truncation (Gemini + Codex pass on PR #1482).
- */
-const LOG_BODY_MAX = 500;
-async function safeErrorBody(res: Response): Promise<string> {
-  try {
-    const reader = res.body?.getReader();
-    if (!reader) return "<empty body>";
-    const decoder = new TextDecoder("utf-8", { fatal: false });
-    let collected = "";
-    while (collected.length < LOG_BODY_MAX) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (value) collected += decoder.decode(value, { stream: true });
-    }
-    void reader.cancel();
-    return collected.length > LOG_BODY_MAX
-      ? `${collected.slice(0, LOG_BODY_MAX)}…(truncated)`
-      : collected;
-  } catch {
-    return "<unreadable body>";
-  }
-}
-
 /** Standard POST init for any GitHub repos/* call. */
 function githubPostInit(token: string, body: unknown): RequestInit {
   return {
@@ -331,6 +302,7 @@ function buildApiActions(): FilerActions {
       const token = process.env.GITHUB_TOKEN;
       if (!token) {
         console.error(`${LOG_PREFIX} createIssue: GITHUB_TOKEN not set`);
+        reportAuditFilerFailure("chrome", "createIssue", { error: "GITHUB_TOKEN not set" });
         return null;
       }
       const repo = getValidatedRepo();
@@ -343,9 +315,14 @@ function buildApiActions(): FilerActions {
           githubPostInit(token, { title, body, labels }),
         );
         if (!res.ok) {
+          const errBody = await safeErrorBody(res);
           console.error(
-            `${LOG_PREFIX} createIssue GitHub API ${res.status}: ${await safeErrorBody(res)}`,
+            `${LOG_PREFIX} createIssue GitHub API ${res.status}: ${errBody}`,
           );
+          reportAuditFilerFailure("chrome", "createIssue", {
+            githubStatus: res.status,
+            body: errBody,
+          });
           return null;
         }
         // Local name carries "Html" so the xss/no-mixed-html rule
@@ -359,6 +336,7 @@ function buildApiActions(): FilerActions {
         return { htmlUrl: issueHtml.html_url, number: issueHtml.number };
       } catch (err) {
         console.error(`${LOG_PREFIX} createIssue fetch threw:`, err);
+        reportAuditFilerFailure("chrome", "createIssue", { error: err });
         return null;
       }
     },
@@ -366,6 +344,10 @@ function buildApiActions(): FilerActions {
       const token = process.env.GITHUB_TOKEN;
       if (!token) {
         console.error(`${LOG_PREFIX} postComment: GITHUB_TOKEN not set`);
+        reportAuditFilerFailure("chrome", "postComment", {
+          error: "GITHUB_TOKEN not set",
+          issueNumber,
+        });
         return false;
       }
       if (!Number.isInteger(issueNumber) || issueNumber <= 0) return false;
@@ -378,13 +360,20 @@ function buildApiActions(): FilerActions {
         );
         const res = await fetch(url, githubPostInit(token, { body }));
         if (!res.ok) {
+          const errBody = await safeErrorBody(res);
           console.error(
-            `${LOG_PREFIX} postComment GitHub API #${issueNumber} ${res.status}: ${await safeErrorBody(res)}`,
+            `${LOG_PREFIX} postComment GitHub API #${issueNumber} ${res.status}: ${errBody}`,
           );
+          reportAuditFilerFailure("chrome", "postComment", {
+            githubStatus: res.status,
+            body: errBody,
+            issueNumber,
+          });
         }
         return res.ok;
       } catch (err) {
         console.error(`${LOG_PREFIX} postComment fetch threw:`, err);
+        reportAuditFilerFailure("chrome", "postComment", { error: err, issueNumber });
         return false;
       }
     },
