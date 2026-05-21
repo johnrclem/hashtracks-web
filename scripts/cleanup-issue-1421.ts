@@ -29,6 +29,9 @@ async function main() {
   }
   console.log(`Found: ${existing.title} on ${existing.date.toISOString()}`);
 
+  // EventLink rows for this event are deleted automatically by Postgres
+  // (EventLink.event has onDelete: Cascade in prisma/schema.prisma) — no
+  // explicit delete needed. Event 2 had zero EventLinks anyway.
   await prisma.$transaction(async (tx) => {
     const rawDeleted = await tx.rawEvent.deleteMany({ where: { eventId: EVENT_TO_DELETE } });
     const ekDeleted = await tx.eventKennel.deleteMany({ where: { eventId: EVENT_TO_DELETE } });
