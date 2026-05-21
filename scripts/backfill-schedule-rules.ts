@@ -373,6 +373,13 @@ interface PlannedRule {
   validFrom: string | null;
   validUntil: string | null;
   displayOrder: number;
+  // #1492: set when a Pass 3 SEED_DATA rule absorbed an overlapping Pass 1
+  // STATIC_SCHEDULE row (same kennelId + rrule, both HIGH confidence). The
+  // Pass 1 row is dropped from `planned` so `deactivateStaleRules` marks its
+  // DB row inactive; `applyUpserts` honors this flag to keep bumping
+  // lastValidatedAt on the surviving Pass 3 row, because the scrape moment
+  // is still the validation moment for the source the Pass 1 row represented.
+  absorbsStaticSchedule?: boolean;
 }
 
 type PrismaClientLike = InstanceType<typeof PrismaClient>;
@@ -926,6 +933,15 @@ interface SeedKennelMeta {
 /**
  * Plan one Pass 3 rule. Extracted to keep `runKennelSeedPass` under SonarCloud's
  * cognitive-complexity cap.
+ *
+ * #1492: when Pass 1 already emitted a HIGH STATIC_SCHEDULE row for the same
+ * (kennelId, rrule), Pass 3 absorbs it — copies any null Pass-3 fields from
+ * the Pass-1 row (startTime, anchorDate), adopts the Pass 1 scrape timestamp,
+ * marks itself `absorbsStaticSchedule`, and removes the Pass 1 row from
+ * `planned`. `deactivateStaleRules` then marks the orphaned Pass-1 DB row
+ * inactive (history preserved, not deleted). Pass 3 is the authoritative
+ * shape because it carries the seed author's explicit metadata
+ * (`label`, `validFrom`/`validUntil`, `displayOrder`).
  */
 function planSeedRule(
   rule: KennelScheduleRuleSeed,
@@ -944,7 +960,7 @@ function planSeedRule(
   const normalizedRrule = normalizeAndValidateSeedRrule(rrule, kennelCode);
   if (!normalizedRrule) return "skipped-unparseable";
   const { validFrom, validUntil } = resolveSeasonAnchors(rule, kennelCode);
-  planned.push({
+  const seedRow: PlannedRule = {
     kennelId: dbKennel.id,
     kennelDisplay: dbKennel.shortName,
     rrule: normalizedRrule,
@@ -957,14 +973,59 @@ function planSeedRule(
     // the UPDATE clause for SEED_DATA rules, so this `new Date()` is only
     // written when the row is first created — re-runs preserve the
     // original first-seen value (and admin re-validations stick).
+    // Exception (#1492): when this row absorbs a Pass 1 STATIC_SCHEDULE
+    // row, we adopt Pass 1's scrape timestamp below and applyUpserts then
+    // keeps bumping it on each scrape.
     lastValidatedAt: new Date(),
     notes: rule.notes ?? null,
     label: rule.label?.trim() || null,
     validFrom,
     validUntil,
     displayOrder: typeof rule.displayOrder === "number" ? rule.displayOrder : 0,
-  });
+  };
+  absorbOverlappingPass1Rule(seedRow, planned, options);
+  planned.push(seedRow);
   return "emitted";
+}
+
+/**
+ * #1492: if `planned` already contains a Pass 1 HIGH STATIC_SCHEDULE row for
+ * the same (kennelId, rrule) as this Pass 3 SEED_DATA row, fold it in. Pass 3
+ * inherits any non-null Pass-1 fields the seed left blank (startTime,
+ * anchorDate) and adopts Pass 1's `lastValidatedAt` so the surviving row keeps
+ * tracking the scrape moment. The Pass 1 entry is spliced out so it no longer
+ * upserts; its DB row will be deactivated by `deactivateStaleRules`.
+ */
+function absorbOverlappingPass1Rule(
+  seedRow: PlannedRule,
+  planned: PlannedRule[],
+  options: BackfillOptions,
+): void {
+  const idx = planned.findIndex(
+    (p) =>
+      p.kennelId === seedRow.kennelId &&
+      p.rrule === seedRow.rrule &&
+      p.source === "STATIC_SCHEDULE" &&
+      p.confidence === "HIGH",
+  );
+  if (idx === -1) return;
+  const pass1Row = planned[idx];
+  if (seedRow.startTime === null && pass1Row.startTime !== null) {
+    seedRow.startTime = pass1Row.startTime;
+  }
+  if (seedRow.anchorDate === null && pass1Row.anchorDate !== null) {
+    seedRow.anchorDate = pass1Row.anchorDate;
+  }
+  if (pass1Row.lastValidatedAt !== null) {
+    seedRow.lastValidatedAt = pass1Row.lastValidatedAt;
+  }
+  seedRow.absorbsStaticSchedule = true;
+  planned.splice(idx, 1);
+  if (options.verbose) {
+    console.log(
+      `  ⤴ ${seedRow.kennelDisplay} — ${seedRow.rrule}: Pass 3 absorbs overlapping Pass 1 STATIC_SCHEDULE row (Pass 1 will deactivate)`,
+    );
+  }
 }
 
 export async function runKennelSeedPass(
@@ -1106,7 +1167,16 @@ export async function applyUpserts(
           // first-create timestamp so admin re-validations and seed-author
           // moments aren't clobbered by routine re-runs. (Codex P2 + Gemini
           // + Claude review on PR #1405.)
-          ...(r.source === "STATIC_SCHEDULE" ? { lastValidatedAt: r.lastValidatedAt } : {}),
+          //
+          // #1492 exception: a SEED_DATA row that absorbed an overlapping
+          // Pass 1 STATIC_SCHEDULE row inherits Pass 1's scrape-validated
+          // semantics — its predecessor row is being deactivated, so the
+          // surviving row must keep tracking the scrape moment or the
+          // kennel loses its "actively validated" signal in travel
+          // projections (see lib/travel/search.ts scoreProjections).
+          ...(r.source === "STATIC_SCHEDULE" || r.absorbsStaticSchedule
+            ? { lastValidatedAt: r.lastValidatedAt }
+            : {}),
         },
       });
       if (preExistingIds.has(result.id)) {
