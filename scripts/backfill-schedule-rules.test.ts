@@ -826,6 +826,138 @@ describe("runKennelSeedPass", () => {
     expect(hebe?.source).toBe("SEED_DATA");
     expect(hebe?.absorbsStaticSchedule).toBeUndefined(); // no Pass 1 to absorb
   });
+
+  // #1492 Codex HIGH: when Pass 1's lastValidatedAt is null (scrape never
+  // succeeded — `Source.lastSuccessAt ?? lastScrapeAt ?? null`), the absorbed
+  // Pass 3 row must NOT inherit scrape-validated semantics. Otherwise the
+  // synthetic `new Date()` default from `planSeedRule` would be bumped on
+  // every `applyUpserts` run, claiming "freshly validated" for a rule no
+  // scrape has ever confirmed.
+  it("(#1492 Codex HIGH) does NOT claim scrape validation when Pass 1's lastValidatedAt is null", async () => {
+    const planned: Parameters<typeof runKennelSeedPass>[1] = [
+      {
+        kennelId: "k_hebe",
+        kennelDisplay: "Hebe H3",
+        rrule: "FREQ=MONTHLY;BYDAY=1SA",
+        anchorDate: null,
+        startTime: "15:00",
+        confidence: "HIGH",
+        source: "STATIC_SCHEDULE",
+        sourceReference: "https://www.facebook.com/hebehash",
+        lastValidatedAt: null, // scrape never succeeded
+        notes: null,
+        label: null,
+        validFrom: null,
+        validUntil: null,
+        displayOrder: 0,
+      },
+    ];
+    const prisma = fakePrismaForSeed([
+      { id: "k_hebe", kennelCode: "hebe-h3", shortName: "Hebe H3" },
+    ]);
+    const seeds = [
+      {
+        kennelCode: "hebe-h3",
+        scheduleRules: [
+          { rrule: "FREQ=MONTHLY;BYDAY=1SA", startTime: "15:00", label: "Monthly" },
+        ] satisfies KennelScheduleRuleSeed[],
+      },
+    ];
+    await runKennelSeedPass(prisma, planned, {}, seeds);
+
+    // Pass 1 still spliced (Pass 3 wins identity), but absorbsStaticSchedule
+    // stays unset so applyUpserts keeps the standard SEED_DATA behavior
+    // (first-create timestamp, no bump).
+    expect(planned).toHaveLength(1);
+    expect(planned[0].source).toBe("SEED_DATA");
+    expect(planned[0].absorbsStaticSchedule).toBeUndefined();
+  });
+
+  // #1492 Codex HIGH: when Pass 1 and Pass 3 disagree on startTime (e.g. seed
+  // author overrode the source config), Pass 3 wins on identity but must NOT
+  // inherit Pass 1's lastValidatedAt — that timestamp was earned by a DIFFERENT
+  // shape (the Pass 1 startTime) and would mislead travel scoring into trusting
+  // the new shape as scrape-validated when it hasn't been.
+  it("(#1492 Codex HIGH) does NOT claim scrape validation when startTime conflicts", async () => {
+    const pass1ValidatedAt = new Date("2026-05-01T00:00:00Z");
+    const planned: Parameters<typeof runKennelSeedPass>[1] = [
+      {
+        kennelId: "k_x",
+        kennelDisplay: "X",
+        rrule: "FREQ=WEEKLY;BYDAY=MO",
+        anchorDate: null,
+        startTime: "18:00", // scrape says 18:00
+        confidence: "HIGH",
+        source: "STATIC_SCHEDULE",
+        sourceReference: "https://example.test/x",
+        lastValidatedAt: pass1ValidatedAt,
+        notes: null,
+        label: null,
+        validFrom: null,
+        validUntil: null,
+        displayOrder: 0,
+      },
+    ];
+    const prisma = fakePrismaForSeed([{ id: "k_x", kennelCode: "x", shortName: "X" }]);
+    const seeds = [
+      {
+        kennelCode: "x",
+        scheduleRules: [
+          { rrule: "FREQ=WEEKLY;BYDAY=MO", startTime: "19:00", label: "Monday" }, // seed says 19:00
+        ] satisfies KennelScheduleRuleSeed[],
+      },
+    ];
+    await runKennelSeedPass(prisma, planned, {}, seeds);
+
+    expect(planned).toHaveLength(1);
+    const survivor = planned[0];
+    expect(survivor.startTime).toBe("19:00"); // Pass 3 wins identity
+    expect(survivor.absorbsStaticSchedule).toBeUndefined(); // but no scrape inheritance
+    expect(survivor.lastValidatedAt).not.toBe(pass1ValidatedAt);
+  });
+
+  // #1492 Codex HIGH: anchorDate conflict — same gate as startTime, separate
+  // test so a future regression that only checks one field surfaces explicitly.
+  it("(#1492 Codex HIGH) does NOT claim scrape validation when anchorDate conflicts", async () => {
+    const pass1ValidatedAt = new Date("2026-05-01T00:00:00Z");
+    const planned: Parameters<typeof runKennelSeedPass>[1] = [
+      {
+        kennelId: "k_x",
+        kennelDisplay: "X",
+        rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=MO",
+        anchorDate: "2026-01-05", // scrape says Jan 5
+        startTime: "18:00",
+        confidence: "HIGH",
+        source: "STATIC_SCHEDULE",
+        sourceReference: "https://example.test/x",
+        lastValidatedAt: pass1ValidatedAt,
+        notes: null,
+        label: null,
+        validFrom: null,
+        validUntil: null,
+        displayOrder: 0,
+      },
+    ];
+    const prisma = fakePrismaForSeed([{ id: "k_x", kennelCode: "x", shortName: "X" }]);
+    const seeds = [
+      {
+        kennelCode: "x",
+        scheduleRules: [
+          {
+            rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=MO",
+            anchorDate: "2026-01-12", // seed says Jan 12 (different)
+            startTime: "18:00",
+          },
+        ] satisfies KennelScheduleRuleSeed[],
+      },
+    ];
+    await runKennelSeedPass(prisma, planned, {}, seeds);
+
+    expect(planned).toHaveLength(1);
+    const survivor = planned[0];
+    expect(survivor.anchorDate).toBe("2026-01-12");
+    expect(survivor.absorbsStaticSchedule).toBeUndefined();
+  });
 });
 
 // ---------------------------------------------------------------------------
