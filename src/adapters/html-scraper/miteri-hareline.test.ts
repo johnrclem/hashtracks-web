@@ -256,6 +256,19 @@ describe("parseNextRunPanel (GCH3 Next Run widget)", () => {
     expect(parseNextRunPanel($)).toBeNull();
   });
 
+  it("parses lowercase / NBSP variants of the 'Next Run' label", () => {
+    // TinyMCE / WordPress occasionally emit `Next&nbsp;Run` (NBSP between
+    // words) or rewrite to a different case after a Gutenberg upgrade. The
+    // case-sensitive `.includes("Next Run")` pre-filter would silently skip
+    // either variant. Pre-filter must normalize whitespace + casing first.
+    const $ = cheerio.load(`<div class="textwidget">
+      <p><strong>next run: # 2356</strong></p>
+      <p><strong>Date:</strong> 23 May</p>
+      <p><strong>Hare(s):</strong> Small Black</p>
+    </div>`);
+    expect(parseNextRunPanel($)?.runText).toBe("2356");
+  });
+
   it("tolerates 'Hares:' singular variant alongside 'Hare(s):'", () => {
     const $ = cheerio.load(`<div class="textwidget">
       <p><strong>Next Run: # 2400</strong></p>

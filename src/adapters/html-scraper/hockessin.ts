@@ -39,17 +39,25 @@ export function parseHockessinEvent(
   const runNumber = Number.parseInt(headerMatch[1], 10);
   const postColon = headerMatch[2]?.trim();
 
-  // #1493: normalize en/em dashes so future copy changes don't silently
-  // regress to the "everything is hares" shape.
+  // #1493: split on the first dash-with-spaces separator. ASCII " - "
+  // appears in current Hockessin copy; en/em-dash variants are also accepted
+  // so future copy edits don't silently regress to "everything is hares".
+  // String search (not regex) avoids Sonar S5852's super-linear-shape flag
+  // on `\s+[–—]\s+` (linear in practice but the analyzer can't prove it).
   const DASH_SEP = " - ";
+  const DASH_SEP_LEN = DASH_SEP.length;
+  const DASH_CANDIDATES = [DASH_SEP, " – ", " — "]; // -, en-dash, em-dash
   let hares: string | undefined;
   let title: string | undefined;
   if (postColon) {
-    const normalized = postColon.replace(/\s+[–—]\s+/g, DASH_SEP);
-    const dashIdx = normalized.indexOf(DASH_SEP);
+    let dashIdx = -1;
+    for (const sep of DASH_CANDIDATES) {
+      const idx = postColon.indexOf(sep);
+      if (idx >= 0 && (dashIdx === -1 || idx < dashIdx)) dashIdx = idx;
+    }
     if (dashIdx >= 0) {
-      hares = normalized.slice(0, dashIdx).trim() || undefined;
-      title = normalized.slice(dashIdx + DASH_SEP.length).trim() || undefined;
+      hares = postColon.slice(0, dashIdx).trim() || undefined;
+      title = postColon.slice(dashIdx + DASH_SEP_LEN).trim() || undefined;
     } else {
       hares = postColon;
     }

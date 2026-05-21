@@ -242,6 +242,31 @@ export function parseSiteOriginGrid(
  * Returns a single row in the same shape as the table parsers, or null when
  * the panel isn't present / can't be parsed.
  */
+/**
+ * Strip a case-insensitive label prefix (e.g. `Date:`) from a normalized line
+ * and return the trimmed value, or null if the label doesn't match.
+ *
+ * Pure string operations — Sonar S5852 flags any `\s*` adjacent to a literal
+ * in regex alternation as ReDoS-shaped even when linear (see MEMORY
+ * `feedback_sonar_s5852_false_positives`). `startsWith` + `slice` avoids
+ * fighting the analyzer.
+ */
+function stripLabel(text: string, label: string): string | null {
+  const lower = text.toLowerCase();
+  if (!lower.startsWith(label.toLowerCase())) return null;
+  let cursor = label.length;
+  // Optional whitespace, then a `:` delimiter, then optional whitespace.
+  while (cursor < text.length && text.charCodeAt(cursor) === 32) cursor++;
+  if (text.charCodeAt(cursor) !== 58 /* ':' */) return null;
+  cursor++;
+  while (cursor < text.length && text.charCodeAt(cursor) === 32) cursor++;
+  const value = text.slice(cursor).trim();
+  return value || null;
+}
+
+/** Linear regex; no nested quantifiers around alternation. */
+const NEXT_RUN_DIGITS_RE = /\d+/;
+
 export function parseNextRunPanel(
   $: cheerio.CheerioAPI,
 ): { runText?: string; dateText?: string; hareText?: string; locationText?: string } | null {
@@ -249,10 +274,12 @@ export function parseNextRunPanel(
 
   $(".textwidget").each((_idx, widget) => {
     if (result) return;
-    // Cheap pre-filter — most widgets on the page (welcome blurb, hareline
-    // columns, footer) don't contain "Next Run" and shouldn't pay the cost
-    // of a per-paragraph regex scan.
-    if (!$(widget).text().includes("Next Run")) return;
+    // Cheap pre-filter on a single normalized text read. Sites occasionally
+    // emit `Next&nbsp;Run` (TinyMCE/WordPress) or rewrite to a different
+    // case — collapse whitespace (incl. NBSP via `\s`) and lowercase before
+    // testing so neither variant silently skips the panel.
+    const widgetText = $(widget).text().replace(/\s+/g, " ").trim().toLowerCase();
+    if (!widgetText.includes("next run")) return;
 
     const paragraphs = $(widget).find("p").toArray();
     if (paragraphs.length === 0) return;
@@ -270,27 +297,29 @@ export function parseNextRunPanel(
       if (!text) continue;
 
       // "Next Run: # 2356" — first labeled paragraph identifies the panel.
-      const nextRunMatch = /^Next\s+Run\s*:?\s*#?\s*(\d+)/i.exec(text);
-      if (nextRunMatch) {
+      // case-insensitive prefix match, then pull the first digit run.
+      if (text.toLowerCase().startsWith("next run")) {
+        const digits = NEXT_RUN_DIGITS_RE.exec(text);
         sawNextRun = true;
-        runText = nextRunMatch[1];
+        if (digits) runText = digits[0];
         continue;
       }
       if (!sawNextRun) continue;
 
-      const dateMatch = /^Date\s*:\s*(.+)$/i.exec(text);
-      if (dateMatch) {
-        dateText = dateMatch[1].trim();
+      const dateValue = stripLabel(text, "Date");
+      if (dateValue !== null) {
+        dateText = dateValue;
         continue;
       }
-      const hareMatch = /^Hare(?:\(s\)|s)?\s*:\s*(.+)$/i.exec(text);
-      if (hareMatch) {
-        hareText = hareMatch[1].trim();
+      // Try "Hare(s)" first since "Hare" is a prefix of it.
+      const hareValue = stripLabel(text, "Hare(s)") ?? stripLabel(text, "Hares") ?? stripLabel(text, "Hare");
+      if (hareValue !== null) {
+        hareText = hareValue;
         continue;
       }
-      const locMatch = /^Location\s*:\s*(.+)$/i.exec(text);
-      if (locMatch) {
-        locationText = locMatch[1].trim();
+      const locValue = stripLabel(text, "Location");
+      if (locValue !== null) {
+        locationText = locValue;
         continue;
       }
     }
