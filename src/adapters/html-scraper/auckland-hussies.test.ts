@@ -175,6 +175,47 @@ describe("AucklandHussiesAdapter.fetch", () => {
     expect(second.hares).not.toContain("�");
   });
 
+  it("falls back to windows-1252 when the meta tag advertises a bogus charset", async () => {
+    // Defence against a misdeclared meta tag — TextDecoder would throw
+    // RangeError on `charset=not-a-real-charset` and kill the scrape.
+    // The fallback must keep the adapter alive (logs a warning).
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const head = Buffer.from(
+      '<!DOCTYPE html><html><head><meta charset="not-a-real-charset"></head><body><table>' +
+        '<tr><td>5-May</td><td></td><td></td><td>Triple One</td><td>',
+      "ascii",
+    );
+    const eAcute = Buffer.from([0xe9]); // windows-1252 é — survives if fallback fired
+    const tail = Buffer.from("clair St</td></tr></table></body></html>", "ascii");
+    mockFetchBytes(new Uint8Array(Buffer.concat([head, eAcute, tail])));
+    const adapter = new AucklandHussiesAdapter();
+    const result = await adapter.fetch(makeSource(), { days: 365 });
+    expect(result.errors).toEqual([]);
+    expect(result.events.length).toBe(1);
+    expect(result.events[0].location).toBe("éclair St");
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("not-a-real-charset"),
+      expect.anything(),
+    );
+    warnSpy.mockRestore();
+  });
+
+  it("rejects responses larger than the body cap", async () => {
+    // 3 MB declared length blows the 2 MB cap; safeFetch returns the
+    // header alone (the body never gets consumed). The adapter must not
+    // crash and must surface the rejection as a fetch error.
+    mockedSafeFetch.mockResolvedValue(
+      new Response("<html></html>", {
+        status: 200,
+        headers: { "content-type": "text/html", "content-length": String(3 * 1024 * 1024) },
+      }),
+    );
+    const adapter = new AucklandHussiesAdapter();
+    const result = await adapter.fetch(makeSource(), { days: 365 });
+    expect(result.events).toEqual([]);
+    expect(result.errors[0]).toMatch(/Response too large/);
+  });
+
   it("prefers the Content-Type header charset when it is present", async () => {
     // If the header advertises utf-8, trust the header (proper bytes) and
     // skip the meta-tag sniff. Modern servers do this; the legacy Auckland
