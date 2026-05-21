@@ -114,6 +114,16 @@ function extractHaresFromTitlePart(harePart: string): string | undefined {
   );
   if (anniversaryMatch) return anniversaryMatch[1].trim();
 
+  // Rule 5b: "<hare> <action-verb> ..." (#1550 — "Perpencockular Asks For
+  // Help To Move"). Narrow allowlist of 3rd-person action verbs the kennel
+  // uses to compose trail subtitles. Lazy `(.+?)` lets multi-word hare names
+  // ("Captain Hook Says Goodbye" → "Captain Hook") survive. Sonar S5852-safe:
+  // the literal verb alternation acts as a hard right anchor for backtracking.
+  const actionVerbMatch = /^(.+?)\s+(?:Asks|Says|Wants|Needs|Hosts|Brings|Throws|Calls|Welcomes|Loves|Hates|Returns|Visits|Moves|Goes|Takes|Gives|Pays|Buys|Sells|Runs)\s+/i.exec(
+    harePart,
+  );
+  if (actionVerbMatch) return actionVerbMatch[1].trim();
+
   // Rule 6: clean short name — no colons, no emoji.
   // Accept 1–2 word names, or a pair-joined form ("X & Y", "X and Y") where
   // each side is 1–2 words. Bounded sides prevent long theme phrases like
@@ -211,6 +221,9 @@ function parseHaresFromDescription(text: string): string | undefined {
   const name = match[1].trim();
   // "away: …" is departure time, not a hare name
   if (/^away/i.test(name)) return undefined;
+  // #1550: "Open" is a "hare slot available" placeholder, not a real name.
+  // Mirrors the upstream h4 "Open @ ???" guard in the adapter fetch().
+  if (/^open$/i.test(name)) return undefined;
   return name || undefined;
 }
 
@@ -475,8 +488,17 @@ export class BigHumpAdapter implements SourceAdapter {
           const descLocation = parseLocationFromDescription(descText);
           const descHares = parseHaresFromDescription(descText);
 
-          const hares = descHares || titleHares;
           const location = descLocation || titleLocation;
+          // #1550: "Open - <theme> @ ???" rows split via Rule 4 (dash) in
+          // extractHaresFromTitlePart and produced titleHares="Open". The
+          // upstream Open@??? guard only catches bare "Open @ ???" (no
+          // subtitle). Treat "Open" as a placeholder at the resolved-hares
+          // boundary, but gate on the venue also being unknown so a real
+          // hasher literally named "Open" at a known venue still survives.
+          const rawHares = descHares || titleHares;
+          const venueUnknown = !location || isPlaceholder(location);
+          const hares =
+            rawHares && venueUnknown && /^open$/i.test(rawHares) ? undefined : rawHares;
 
           // #828: "Open @ ???" placeholder rows — skip. Key off raw h4Text so
           // a real hasher literally named "Open" still gets ingested if their
@@ -489,10 +511,21 @@ export class BigHumpAdapter implements SourceAdapter {
           const isUnknownVenue = placeholderVenues.has(h4Venue) || allQuestionMarks;
           if (h4Hare.trim().toLowerCase() === "open" && isUnknownVenue) return;
 
-          // #828: h4 is "Hare @ Venue" — rebuild as "BH4 #N @ Venue" so hares don't double as title.
+          // #828: h4 is "Hare @ Venue" — rebuild as "BH4 #N @ Venue" so hares
+          // don't double as title. #1550: when the h4 has descriptive content
+          // beyond the bare hare name ("Perpencockular Asks For Help To Move
+          // @ Brentwood"), the trail subtitle is meaningful and we preserve
+          // titleFromH4. The harePart-before-` @ ` is the title's hare-side;
+          // if it equals `hares` (case-insensitive), there's no subtitle.
           let title = titleFromH4;
           if (runNumber) {
-            title = location ? `BH4 #${runNumber} @ ${location}` : `BH4 #${runNumber}`;
+            const atIdx = h4Text.lastIndexOf(" @ ");
+            const h4HarePart = (atIdx >= 0 ? h4Text.slice(0, atIdx) : h4Text).trim();
+            const isBareHareTitle =
+              !hares || h4HarePart.toLowerCase() === hares.toLowerCase();
+            if (isBareHareTitle) {
+              title = location ? `BH4 #${runNumber} @ ${location}` : `BH4 #${runNumber}`;
+            }
           }
 
           harelineEvents.push({

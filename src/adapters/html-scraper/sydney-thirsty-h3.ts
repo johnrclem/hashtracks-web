@@ -41,6 +41,12 @@ const KENNEL_TAG = "sth3-au";
 const SOURCE_URL_DEFAULT = "https://www.sth3.org/upcoming-runs";
 
 const EM_DASH_RE = /^[—–-]$/;
+// Source data-entry boilerplate (#1548): the kennel writes "at the map
+// location below" into the Location: field on sth3.org, referring to an
+// embedded map that follows. The phrase is editorial, not part of the
+// geocodable venue. Anchored to end-of-string, tolerates optional leading
+// comma + trailing period.
+const MAP_BOILERPLATE_RE = /\s*,?\s*at the map location below\.?\s*$/i;
 
 interface ThirstyParagraph {
   text: string;
@@ -120,7 +126,8 @@ export function parseThirstyBlock(
 
     const locMatch = /^Location:\s*(.+)$/i.exec(t);
     if (locMatch && !location) {
-      location = stripPlaceholder(locMatch[1]);
+      const raw = locMatch[1].replace(MAP_BOILERPLATE_RE, "").trim();
+      location = stripPlaceholder(raw);
       continue;
     }
     if (/^Map:/i.test(t) && p.href && !locationUrl) {

@@ -344,6 +344,11 @@ const NON_NAME_PAREN_RE = /\b(?:to|from|no|not|only|all|free|via|and back|cancel
  * them.
  */
 const ACRONYM_PAREN_RE = /^(?:\d+\s*[a-z]{0,2}|AM|PM|BYOB|TBD|TBA|TBC|FYI|NSFW|DNF|DNS|RIP)$/i;
+// #1547 ABQ: parenthetical date-range strings like "(Friday 5/22-Monday 5/25)"
+// are multi-day campout date hints, not hare names. M/D digit pair is the
+// reliable signal — real hare names never contain slash-separated date
+// tokens. Mirrors the same DATE_RANGE_RE in hare-extraction.ts.
+const DATE_RANGE_PAREN_RE = /\b\d{1,2}\s*\/\s*\d{1,2}\b/;
 const MAX_HARE_PAREN_LENGTH = 40;
 
 /**
@@ -1211,7 +1216,13 @@ export function buildRawEventFromGCalItem(
   const parenMatch = TITLE_TRAILING_PAREN_RE.exec(title);
   if (parenMatch) {
     const inner = parenMatch[1].trim();
-    const isInstructional = inner.length > MAX_HARE_PAREN_LENGTH || INSTRUCTIONAL_PAREN_RE.test(inner);
+    // #1547: a parenthetical date-range like "(Friday 5/22-Monday 5/25)" is
+    // a multi-day campout date hint, not a hare name OR a title element —
+    // treat it as instructional ("(posted Sunday)" etc.) so it gets stripped.
+    const isInstructional =
+      inner.length > MAX_HARE_PAREN_LENGTH ||
+      INSTRUCTIONAL_PAREN_RE.test(inner) ||
+      DATE_RANGE_PAREN_RE.test(inner);
     // #1444 — three independent reject checks. NON_NAME catches descriptive
     // and status words; ACRONYM catches CTAs/units; isInitialsWordplay
     // catches the Larryville pattern (preceding caps + matching lowercase

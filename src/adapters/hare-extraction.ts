@@ -60,6 +60,22 @@ const COHARE_COMMENTARY_RE = /\s*(?:could|need)\s+.*?co-?hares?\b.*$/i; // NOSON
 // end-of-string; `[a-z]` rules out names whose 2nd token starts uppercase
 // (e.g. "Alice - Bob" — second hare survives the existing comma split).
 const TRAILING_LOWERCASE_COMMENTARY_RE = /\s+[-–—]\s+[a-z][^A-Z]*$/; // NOSONAR — anchored, single char class
+// Date-range shape rejection (#1547 ABQ): multi-day campouts embed lines like
+// "Friday 5/22-Monday 5/25" as the first description line. The pre-existing
+// hare extractor captured the whole string as `hares`. Real hare names don't
+// contain `<digits>/<digits>` slash-separated date tokens.
+const DATE_RANGE_RE = /\b\d{1,2}\s*\/\s*\d{1,2}\b/;
+// Description-sentence leak (#1551 Wasatch): kennel uses "hare: NAME. event
+// description..." on one line. The greedy `(.*)` capture pulls the entire
+// remainder. Truncate at the first ". " when the post-period tail is sentence-
+// shaped — 3+ tokens AND at least one token starts with a lowercase letter.
+// Hash names use Title Case; sentence tails contain lowercase function words
+// like "crossover", "is", "and". This refinement preserves period-prefixed
+// names like "Dr. Strange. Captain Hook" (tail all Title Case → no truncate)
+// while still catching "Nipples. A Wasarch/Bash crossover event…" (Codex
+// review on this PR).
+const HARE_SENTENCE_BOUNDARY_RE = /\.\s+/;
+const LOWERCASE_TOKEN_RE = /(?:^|\s)[a-z]/;
 // Sibling Co-Hare label scan (#1212): when the primary `Hare:` capture
 // succeeded, also look for separate `Co-Hare:` / `Co-Hares:` lines in the
 // same description. Both forms exposed: single-match (used internally as a
@@ -156,8 +172,25 @@ function cleanAndFilterHares(raw: string): string | undefined {
     hares = hares.replace(TRAILING_LOWERCASE_COMMENTARY_RE, "").trim();
   }
 
+  // Description-sentence trailer strip (#1551 Wasatch). Truncate at first
+  // ". " when the tail is sentence-shaped (3+ tokens, at least one starting
+  // with a lowercase letter). Preserves period-prefixed names like
+  // "Dr. Strange" and even "Dr. Strange. Captain Hook" — tails of pure
+  // Title-Case tokens are kept.
+  const periodIdx = hares.search(HARE_SENTENCE_BOUNDARY_RE);
+  if (periodIdx >= 0) {
+    const tail = hares.slice(periodIdx).replace(HARE_SENTENCE_BOUNDARY_RE, "");
+    const tailTokens = tail.split(/\s+/).filter(Boolean);
+    if (tailTokens.length >= 3 && LOWERCASE_TOKEN_RE.test(tail)) {
+      hares = hares.slice(0, periodIdx).trim();
+    }
+  }
+
   if (GENERIC_WHO_ANSWER_RE.test(hares)) return undefined;
   if (PROSE_PREFIX_RE.test(hares)) return undefined;
+  // Date-range rejection (#1547 ABQ): "Friday 5/22-Monday 5/25" is a campout
+  // date range, not a hare name.
+  if (DATE_RANGE_RE.test(hares)) return undefined;
   if (hares.length === 0 || hares.length >= MAX_HARES_LEN) return undefined;
   return hares;
 }

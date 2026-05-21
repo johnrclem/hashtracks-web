@@ -223,6 +223,34 @@ describe("formatSchedule", () => {
       ).toBe("Mondays at 6:00 PM");
     });
 
+    it("drops bare-day fragment subsumed by a peer with the same day + time (#1552 LRH3)", () => {
+      // LRH3 symptom: 3 ScheduleRule rows render as "Wednesdays at 7:00 PM /
+      // Sundays at 3:00 PM / Sundays". The bare-day "Sundays" peer comes from
+      // a stale row with `startTime: null` and is redundant. Drop it.
+      expect(
+        formatSchedule({
+          scheduleRules: [
+            { rrule: "FREQ=WEEKLY;BYDAY=WE", startTime: "19:00", displayOrder: 0 },
+            { rrule: "FREQ=WEEKLY;BYDAY=SU", startTime: "15:00", displayOrder: 1 },
+            { rrule: "FREQ=WEEKLY;BYDAY=SU", startTime: null, displayOrder: 2 },
+          ],
+        }),
+      ).toBe("Wednesdays at 7:00 PM / Sundays at 3:00 PM");
+    });
+
+    it("keeps standalone bare-day fragment when no peer with that day has a time (#1552 boundary)", () => {
+      // Defensive: if "Sundays" is the only Sunday slot, keep it. The dedupe
+      // only fires when a more-specific peer subsumes the bare-day fragment.
+      expect(
+        formatSchedule({
+          scheduleRules: [
+            { rrule: "FREQ=WEEKLY;BYDAY=WE", startTime: "19:00", displayOrder: 0 },
+            { rrule: "FREQ=WEEKLY;BYDAY=SU", startTime: null, displayOrder: 1 },
+          ],
+        }),
+      ).toBe("Wednesdays at 7:00 PM / Sundays");
+    });
+
     it("keeps distinct cadences after dedupe (only removes exact-string duplicates)", () => {
       // Same RRULE but different startTime → different rendered strings → both kept.
       expect(

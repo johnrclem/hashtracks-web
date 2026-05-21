@@ -238,6 +238,62 @@ describe("extractHares — anchored single-case scenarios", () => {
   });
 });
 
+describe("extractHares — description-sentence trailer strip (#1551 Wasatch)", () => {
+  it.each([
+    {
+      name: "single name + sentence description",
+      desc: "hare: Nipples. A Wasarch/Bash crossover event. Bring your bike and ride the trails around Bingham Creek Regional park.",
+      expected: "Nipples",
+    },
+    {
+      name: "Dr. <name> survives — only 1 word after period",
+      desc: "Hare: Dr. Strange",
+      expected: "Dr. Strange",
+    },
+    {
+      name: "St. <name> survives — only 1 word after period",
+      desc: "Hare: St. John",
+      expected: "St. John",
+    },
+    {
+      name: "two short words after period strip threshold not met",
+      desc: "Hare: Alice. Bob",
+      expected: "Alice. Bob",
+    },
+    {
+      name: "Title-Case-only tail preserved — 'Dr. Strange. Captain Hook' (Codex review)",
+      desc: "Hare: Dr. Strange. Captain Hook",
+      expected: "Dr. Strange. Captain Hook",
+    },
+    {
+      name: "Title-Case-only tail preserved — 'Mr. Happy. Big Fun Bob' (Codex review)",
+      desc: "Hare: Mr. Happy. Big Fun Bob",
+      expected: "Mr. Happy. Big Fun Bob",
+    },
+  ])("$name", ({ desc, expected }) => {
+    expect(extractHares(desc)).toBe(expected);
+  });
+});
+
+describe("extractHares — date-range rejection (#1547 ABQ)", () => {
+  it.each([
+    {
+      name: "weekday + slash-date range rejected",
+      desc: "hare: Friday 5/22-Monday 5/25",
+    },
+    {
+      name: "bare slash-date range rejected",
+      desc: "Hares: 5/22-5/25",
+    },
+    {
+      name: "date range embedded after a name still rejects (whole captured value is a date range)",
+      desc: "Who: 12/31 - 1/2",
+    },
+  ])("$name", ({ desc }) => {
+    expect(extractHares(desc)).toBeUndefined();
+  });
+});
+
 describe("extractHares — Co-Hare merge + annotation strip (#1212 GLH3)", () => {
   // Each row is independent — no shared object state between them. Note that
   // the annotation-strip cases stand alone (no Co-Hare line) and the
