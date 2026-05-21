@@ -114,6 +114,52 @@ describe("HockessinAdapter", () => {
       expect(event!.runNumber).toBe(999);
     });
 
+    it("splits hares from theme on ' - ' (#1493 / #1665 fixture)", () => {
+      // Verbatim from hockessinhash.org on 2026-05-19. The post-colon segment
+      // carries both hare names and a theme — split on first space-dash-space.
+      const header = "Hash #1665: Circle Jerk and Do Me On The Beach - Is It Summer Already??";
+      const detail = "WEDNESDAY, May 20, 2026, 6:30pm, White Clay Creek preserve - Lot 3";
+
+      const event = parseHockessinEvent(header, detail, "https://www.hockessinhash.org/");
+
+      expect(event).not.toBeNull();
+      expect(event!.runNumber).toBe(1665);
+      expect(event!.hares).toBe("Circle Jerk and Do Me On The Beach");
+      expect(event!.title).toBe("Is It Summer Already??");
+      expect(event!.date).toBe("2026-05-20");
+      expect(event!.startTime).toBe("18:30");
+      // Location parser splits on the first dash, but the residual after the
+      // last time match still includes the lot number — verify it survives.
+      expect(event!.location).toContain("White Clay Creek preserve");
+    });
+
+    it("normalizes en/em dash variants in the title separator (#1493)", () => {
+      // Hockessin currently uses ASCII " - " but future copy edits could swap
+      // to en/em dashes — normalize so the split still works.
+      const header = "Hash #1680: Hares Name – Theme Goes Here";
+      const detail = "SATURDAY, August 1, 2026, 3:00pm, Test Location";
+
+      const event = parseHockessinEvent(header, detail, "https://www.hockessinhash.org/");
+
+      expect(event).not.toBeNull();
+      expect(event!.hares).toBe("Hares Name");
+      expect(event!.title).toBe("Theme Goes Here");
+    });
+
+    it("treats single-segment post-colon text as hares with no title (#797)", () => {
+      // Existing #797 behavior must not regress: when there's no " - "
+      // separator, the whole post-colon segment is hares and title is left
+      // undefined for the UI to synthesize from kennel + run #.
+      const header = "Hash #1670: Some Hare Name";
+      const detail = "SATURDAY, June 6, 2026, 3:00pm, Test Location";
+
+      const event = parseHockessinEvent(header, detail, "https://www.hockessinhash.org/");
+
+      expect(event).not.toBeNull();
+      expect(event!.hares).toBe("Some Hare Name");
+      expect(event!.title).toBeUndefined();
+    });
+
     it("emits empty hares when the header has no post-colon text", () => {
       // #1326: title is always undefined (let UI synthesize); missing
       // post-colon segment just leaves hares undefined too.

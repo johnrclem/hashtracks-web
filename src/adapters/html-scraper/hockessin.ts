@@ -9,6 +9,37 @@ import type {
 import { hasAnyErrors } from "../types";
 import { fetchHTMLPage, parse12HourTime, chronoParseDate } from "../utils";
 
+// All candidates are length-3 (space + 1 dash code unit + space) so the
+// slice offset is uniform regardless of which separator matched. String
+// search (not regex) avoids Sonar S5852's flag on `\s+[–—]\s+`.
+const HOCKESSIN_DASH_CANDIDATES = [" - ", " – ", " — "];
+const HOCKESSIN_DASH_LEN = 3;
+
+/**
+ * Split a Hash-header post-colon segment into hares + optional title. Handles
+ * three shapes (#797, #1326, #1493) — see {@link parseHockessinEvent} JSDoc.
+ * Extracted to keep `parseHockessinEvent` under the project's Sonar cognitive-
+ * complexity threshold (S3776).
+ */
+function splitHaresAndTitle(postColon: string | undefined): {
+  hares: string | undefined;
+  title: string | undefined;
+} {
+  if (!postColon) return { hares: undefined, title: undefined };
+
+  let dashIdx = -1;
+  for (const sep of HOCKESSIN_DASH_CANDIDATES) {
+    const idx = postColon.indexOf(sep);
+    if (idx >= 0 && (dashIdx === -1 || idx < dashIdx)) dashIdx = idx;
+  }
+  if (dashIdx === -1) return { hares: postColon, title: undefined };
+
+  return {
+    hares: postColon.slice(0, dashIdx).trim() || undefined,
+    title: postColon.slice(dashIdx + HOCKESSIN_DASH_LEN).trim() || undefined,
+  };
+}
+
 /**
  * Parse a single event block from the Hockessin Hash homepage.
  *
@@ -17,7 +48,11 @@ import { fetchHTMLPage, parse12HourTime, chronoParseDate } from "../utils";
  *   <font color="..."><b>Hash #1661: Asshopper</b></font> <br>
  *   SATURDAY, April 18, 2026, 3:00pm, 715 Art Lane, Newark, DE <br>
  *
- * The post-colon header text is the hare name(s) — NOT the event title (#797).
+ * Three post-colon shapes are supported:
+ *   1. `Hash #1661: Asshopper` — single segment is the hare(s) (#797)
+ *   2. `Hash #1700:` — empty segment, both hares and title left undefined (#1326)
+ *   3. `Hash #1665: Circle Jerk ... - Is It Summer Already??` — split on first
+ *      space-dash-space: left is hares, right is the theme/title (#1493)
  *
  * @param headerText - The text from the <b> tag (e.g., "Hash #1661: Asshopper")
  * @param detailText - The raw text node after the header (date, time, location info)
@@ -33,7 +68,7 @@ export function parseHockessinEvent(
   if (!headerMatch) return null;
 
   const runNumber = Number.parseInt(headerMatch[1], 10);
-  const hares = headerMatch[2]?.trim() || undefined;
+  const { hares, title } = splitHaresAndTitle(headerMatch[2]?.trim());
 
   const cleaned = detailText.replace(/\s+/g, " ").trim();
   if (!cleaned) return null;
@@ -61,9 +96,11 @@ export function parseHockessinEvent(
     date,
     kennelTags: ["hockessin"],
     runNumber: !Number.isNaN(runNumber) ? runNumber : undefined,
-    // Source format is `Hash #N: <hares>` — no source-distinct title (#1326).
-    // Leave undefined so the UI/merge pipeline synthesizes from kennel + run #.
-    title: undefined,
+    // Title is populated only when the source has a distinct theme separated
+    // from the hares by " - " (#1493); the bare `Hash #N: <hares>` shape leaves
+    // it undefined so the UI/merge pipeline synthesizes from kennel + run #
+    // (#1326).
+    title,
     hares,
     location,
     startTime,
