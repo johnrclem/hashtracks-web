@@ -69,7 +69,24 @@ export interface GoogleSheetsConfig {
      * day-of-week inference. Empty cells fall through to the rules. (#923)
      */
     startTime?: number;
+    /**
+     * Optional column index for a per-row "group" / "kennel" label used by
+     * shared multi-kennel sheets (e.g. Munich H3's hareline lists MH3, MFMH3,
+     * MASS H3, and BNH rows in the same tab — #1542). When set with
+     * `groupFilter`, rows whose cell value (trimmed, case-insensitive) is not
+     * in the filter list are skipped — they belong to a sibling kennel that
+     * should be routed via its own source row.
+     */
+    group?: number;
   };
+  /**
+   * Required group-cell value(s) for rows to be ingested when `columns.group`
+   * is configured. String or string[] — first match wins. Empty cells never
+   * match (a row with no group label is treated as ambiguous and skipped to
+   * avoid silent cross-kennel conflation). Comparison is trimmed +
+   * case-insensitive so "MH3", " mh3 ", and "Mh3" all hit the same filter. (#1542)
+   */
+  groupFilter?: string | string[];
   kennelTagRules: {
     default: string;
     specialRunMap?: Record<string, string>;
@@ -384,6 +401,38 @@ function cellByOptionalIndex(row: string[], colIdx: number | undefined): string 
   return row[colIdx]?.trim();
 }
 
+/**
+ * Normalize a `groupFilter` config value into a Set of lower-cased tokens, or
+ * `null` when no filter is configured. Blank / non-string entries are dropped
+ * so a misconfigured `[""]` doesn't silently disable the filter. (#1542)
+ *
+ * Exported for unit testing.
+ */
+export function normalizeGroupFilter(raw: string | string[] | undefined): Set<string> | null {
+  if (raw == null) return null;
+  const list = Array.isArray(raw) ? raw : [raw];
+  const tokens = list
+    .filter((v): v is string => typeof v === "string")
+    .map((v) => v.trim().toLowerCase())
+    .filter((v) => v.length > 0);
+  return tokens.length === 0 ? null : new Set(tokens);
+}
+
+/**
+ * Split a Group-column cell value into normalized lowercased tokens, splitting
+ * on `/ , ;` so co-branded cells like "MH3 / BNH" match either member. Whole-
+ * token equality (no substring) prevents "MH3FAKE" matching "MH3". (#1542)
+ *
+ * Exported for unit testing.
+ */
+export function tokenizeGroupCell(raw: string | undefined): string[] {
+  if (!raw) return [];
+  return raw
+    .split(/[/,;]/)
+    .map((tok) => tok.trim().toLowerCase())
+    .filter((tok) => tok.length > 0);
+}
+
 /** Resolve kennel tag and run number from a sheet row. Returns null if the row should be skipped. */
 function resolveKennelTagFromSheetRow(
   row: string[],
@@ -639,6 +688,9 @@ export class GoogleSheetsAdapter implements SourceAdapter {
     const parseErrors: ParseError[] = [];
     let hasEventsInWindow = false;
 
+    // Pre-normalize once so the row loop is an O(1) Set lookup. (#1542)
+    const groupFilterSet = normalizeGroupFilter(config.groupFilter);
+
     for (let rowIdx = 1; rowIdx < rows.length; rowIdx++) {
       const row = rows[rowIdx];
       try {
@@ -650,6 +702,15 @@ export class GoogleSheetsAdapter implements SourceAdapter {
 
         if (dateStr < minISO || dateStr > maxISO) continue;
         hasEventsInWindow = true;
+
+        // Group-column routing: skip rows belonging to a sibling kennel on a
+        // shared sheet (#1542). Empty cells are ambiguous and skipped rather
+        // than silently leaking into the configured kennel.
+        if (groupFilterSet && config.columns.group !== undefined) {
+          const tokens = tokenizeGroupCell(row[config.columns.group]);
+          if (tokens.length === 0) continue;
+          if (!tokens.some((t) => groupFilterSet.has(t))) continue;
+        }
 
         const event = buildEventFromSheetRow(row, config, sourceUrl, dateStr);
         if (event) events.push(event);
