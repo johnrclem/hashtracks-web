@@ -173,25 +173,15 @@ BEGIN
     );
 
   -- Part 5: recompute Kennel.lastEventDate for every kennel touched by
-  -- the deletions (primary + co-host secondaries). Predicate intentionally
-  -- broader than src/pipeline/backfill-last-event.ts's single-FK MAX: the
-  -- affected_kennels set explicitly includes EventKennel secondaries, so a
-  -- pure-secondary co-host could be silently downgraded if we only looked
-  -- at Event.kennelId. Including EventKennel-linked events guarantees the
-  -- cache reflects every event the kennel is actually attached to.
+  -- the deletions (primary + co-host secondaries). Predicate matches
+  -- src/pipeline/backfill-last-event.ts.
   UPDATE "Kennel"
   SET "lastEventDate" = (
-    SELECT MAX(e.date)
-    FROM "Event" e
-    WHERE (
-      e."kennelId" = "Kennel".id
-      OR EXISTS (  -- NOSONAR plsql:S1138 — semi-join, no row multiplication
-        SELECT 1 FROM "EventKennel" ek
-        WHERE ek."eventId" = e.id AND ek."kennelId" = "Kennel".id
-      )
-    )
-    AND e.status::text <> 'CANCELLED'
-    AND NOT e."isManualEntry"
+    SELECT MAX(date)
+    FROM "Event"
+    WHERE "kennelId" = "Kennel".id
+      AND status::text <> 'CANCELLED'
+      AND NOT "isManualEntry"
   )
   WHERE id IN (SELECT "kennelId" FROM kluang_affected_kennels);
 END $$;
@@ -343,21 +333,14 @@ BEGIN
   WHERE "kennelCode" = v_kennel_code
     AND (founder IS NULL OR "facebookUrl" IS NULL);
 
-  -- Part 5: recompute Kennel.lastEventDate. See Kluang block for predicate
-  -- rationale (EventKennel-aware to cover co-host secondaries).
+  -- Part 5: recompute Kennel.lastEventDate.
   UPDATE "Kennel"
   SET "lastEventDate" = (
-    SELECT MAX(e.date)
-    FROM "Event" e
-    WHERE (
-      e."kennelId" = "Kennel".id
-      OR EXISTS (  -- NOSONAR plsql:S1138
-        SELECT 1 FROM "EventKennel" ek
-        WHERE ek."eventId" = e.id AND ek."kennelId" = "Kennel".id
-      )
-    )
-    AND e.status::text <> 'CANCELLED'
-    AND NOT e."isManualEntry"
+    SELECT MAX(date)
+    FROM "Event"
+    WHERE "kennelId" = "Kennel".id
+      AND status::text <> 'CANCELLED'
+      AND NOT "isManualEntry"
   )
   WHERE id IN (SELECT "kennelId" FROM kuching_affected_kennels);
 END $$;
@@ -504,21 +487,14 @@ BEGIN
   WHERE "kennelCode" = v_kennel_code
     AND founder IS NULL;
 
-  -- Part 5: recompute Kennel.lastEventDate. See Kluang block for predicate
-  -- rationale (EventKennel-aware to cover co-host secondaries).
+  -- Part 5: recompute Kennel.lastEventDate.
   UPDATE "Kennel"
   SET "lastEventDate" = (
-    SELECT MAX(e.date)
-    FROM "Event" e
-    WHERE (
-      e."kennelId" = "Kennel".id
-      OR EXISTS (  -- NOSONAR plsql:S1138
-        SELECT 1 FROM "EventKennel" ek
-        WHERE ek."eventId" = e.id AND ek."kennelId" = "Kennel".id
-      )
-    )
-    AND e.status::text <> 'CANCELLED'
-    AND NOT e."isManualEntry"
+    SELECT MAX(date)
+    FROM "Event"
+    WHERE "kennelId" = "Kennel".id
+      AND status::text <> 'CANCELLED'
+      AND NOT "isManualEntry"
   )
   WHERE id IN (SELECT "kennelId" FROM kk_affected_kennels);
 END $$;
