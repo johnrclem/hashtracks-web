@@ -1750,6 +1750,7 @@ describe("extractLocationFromDescription", () => {
   // `Where:` — the next-line scan must not surface them as the venue.
   // BARE_LABEL_RE captures them but isNonAddressText (or the trailing-space
   // discard for whitespace-only LABEL captures) rejects them downstream.
+  // Covers every entry in LABEL_NAMES that's a plausible sibling field.
   it.each([
     // No-trailing-space variants (BARE_LABEL_RE captures the next line directly).
     ["How: $5 hash cash", "Where:\nHow: $5 hash cash"],
@@ -1759,11 +1760,25 @@ describe("extractLocationFromDescription", () => {
     ["On-After: Tavern", "Where:\nOn-After: Tavern"],
     ["Hares: Alice and Bob", "Where:\nHares: Alice and Bob"],
     ["Hare(s): Alice", "Where:\nHare(s): Alice"],
+    // Codex on PR #1513: Start/Time/Price/Registration/Directions/Circle/
+    // Meeting/Chalk Talk weren't covered by the original NON_ADDRESS regexes
+    // and slipped through BARE_LABEL_RE → would surface as the venue.
+    ["Start: 7:00 PM", "Where:\nStart: 7:00 PM"],
+    ["Time: 6:30 PM", "Where:\nTime: 6:30 PM"],
+    ["Price: $5", "Where:\nPrice: $5"],
+    ["Registration: open", "Where:\nRegistration: open"],
+    ["Directions: turn left at the oak", "Where:\nDirections: turn left at the oak"],
+    ["Circle: 8 PM at the firepit", "Where:\nCircle: 8 PM at the firepit"],
+    ["Chalk Talk: 6:45", "Where:\nChalk Talk: 6:45"],
     // Trailing-whitespace + blank-line variants — empty LABEL capture
     // discards, BARE then fails on the blank line (#1495).
-    ["trailing space", "Where: \n\nHow: $5 hash cash"],
-    ["multiple spaces", "Where:   \n\nHow: $5 hash cash"],
-    ["tab", "Where:\t\n\nHow: $5 hash cash"],
+    ["trailing space + How:", "Where: \n\nHow: $5 hash cash"],
+    ["multiple spaces + How:", "Where:   \n\nHow: $5 hash cash"],
+    ["tab + How:", "Where:\t\n\nHow: $5 hash cash"],
+    // Trailing-whitespace + sibling label on the immediate next line (no
+    // intervening blank) — the discard path now reaches BARE_LABEL_RE; the
+    // sibling-label filter has to catch the leak (Codex finding extended).
+    ["trailing space + Start:", "Where: \nStart: 7:00 PM"],
   ])("rejects empty WHERE: followed by sibling label %j", (_label, desc) => {
     expect(extractLocationFromDescription(desc)).toBeUndefined();
   });
@@ -1801,13 +1816,22 @@ describe("extractLocationFromDescription", () => {
   });
 
   // Multi-line venue conventions: `Where:` (with or without trailing
-  // whitespace) followed by the real address on the next line must still
-  // surface the venue. Empty LABEL captures discard and retry against
-  // BARE_LABEL_RE, which captures the next non-empty line.
+  // whitespace) followed by the real address — either as a bare next-line
+  // value (BARE_LABEL_RE) or under a sibling location label like
+  // `Location:` / `Address:` / `Meeting:` (LABEL_RE iteration finds the
+  // first non-empty capture).
   it.each([
+    // BARE_LABEL_RE path — next non-empty line is the bare venue.
     ["no trailing space", "Where:\nOatka Creek Park", "Oatka Creek Park"],
     ["trailing space", "Where: \nOatka Creek Park", "Oatka Creek Park"],
     ["intervening Maps URL line", "Where: \nhttps://maps.google.com/foo\nOatka Creek Park", "Oatka Creek Park"],
+    // Codex on PR #1513: LABEL_RE iteration skips empty `Where:` and finds
+    // the later populated location label, so the venue (not the label) is
+    // returned.
+    ["sibling Location: label", "Where:\nLocation: Oatka Creek Park", "Oatka Creek Park"],
+    ["sibling Address: label", "Where:\nAddress: 123 Main St", "123 Main St"],
+    ["sibling Meeting: label", "Where:\nMeeting: at the gazebo", "at the gazebo"],
+    ["sibling Meeting spot: label", "Where:\nMeeting spot: 123 Park Ave", "123 Park Ave"],
     // Same-line quoted venue (live Flour City "Asserole Trail" description).
     [
       "same-line quoted venue",
