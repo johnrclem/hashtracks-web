@@ -62,6 +62,32 @@ export interface ParsedGeriatrixRow {
   mapUrl?: string;
 }
 
+// Accept "Hare:" AND "Hares:" — sporty editors swap labels depending on
+// trail-setter count. The captured label is passed back to valueAfterLabel
+// so the slice lands at the right offset.
+const GERIATRIX_LABEL_RE = /^\s*(venue|hares?|map)\b/i;
+
+/** Apply one non-date paragraph to the in-progress row by matching its
+ *  label prefix. Extracted from {@link parseGeriatrixParagraphs} to keep
+ *  that function under Sonar S3776's cognitive-complexity threshold. */
+function applyGeriatrixLabel(
+  row: ParsedGeriatrixRow,
+  p: { text: string; firstHref?: string },
+): void {
+  const labelMatch = GERIATRIX_LABEL_RE.exec(p.text);
+  if (!labelMatch) return;
+  const label = labelMatch[1].toLowerCase();
+  if (label === "venue") {
+    row.venue = valueAfterLabel(p.text, "Venue");
+  } else if (label === "map") {
+    // Prefer the <a href> over visible text — Geriatrix duplicates the
+    // URL into the visible text but it may be visually truncated.
+    row.mapUrl = p.firstHref ?? valueAfterLabel(p.text, "Map");
+  } else {
+    row.hare = valueAfterLabel(p.text, labelMatch[1]);
+  }
+}
+
 /** Walk the ordered `<p>` list and group consecutive runs into 4-line
  *  blocks anchored by a DD/MM/YYYY paragraph. Exported for unit tests. */
 export function parseGeriatrixParagraphs(
@@ -76,23 +102,8 @@ export function parseGeriatrixParagraphs(
     if (dateIso) {
       if (current) out.push(current);
       current = { date: dateIso };
-      continue;
-    }
-    if (!current) continue;
-    // Accept "Hare:" AND "Hares:" — sporty editors swap labels depending on
-    // trail-setter count. We capture the actual matched label so the slice
-    // in valueAfterLabel lands at the right offset.
-    const labelMatch = /^\s*(venue|hares?|map)\b/i.exec(p.text);
-    if (!labelMatch) continue;
-    const label = labelMatch[1].toLowerCase();
-    if (label === "venue") {
-      current.venue = valueAfterLabel(p.text, "Venue");
-    } else if (label === "map") {
-      // Prefer the <a href> over visible text — visible text on Geriatrix
-      // duplicates the URL but may be visually truncated.
-      current.mapUrl = p.firstHref ?? valueAfterLabel(p.text, "Map");
-    } else {
-      current.hare = valueAfterLabel(p.text, labelMatch[1]);
+    } else if (current) {
+      applyGeriatrixLabel(current, p);
     }
   }
   if (current) out.push(current);

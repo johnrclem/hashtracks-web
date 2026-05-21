@@ -36,16 +36,27 @@ const MOOLOO_RUN_LINE_RE = /^(\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4})\s+RUN\s*#?\s*(\d+
 // starts from. We deliberately only extract the "<Name>'s Trail" form so
 // hosts aren't mislabelled as hares; the full body remains in description.
 //
-// `[\w \-]` accepts multi-word hash names ("Mr Ed", "No More", "Dog-Food")
+// `[\w -]` accepts multi-word hash names ("Mr Ed", "No More", "Dog-Food")
 // without admitting apostrophes (which would race the trailing `'s`).
-// Bounded to 40 chars to keep this backtrack-safe under Sonar S5852.
-const MOOLOO_HARE_RE = /^([A-Za-z][\w \-]{0,40})'s\s+Trail\b/i;
+// `\w` already covers a-z/A-Z/0-9/_ — no separate `[A-Za-z]` anchor needed
+// under /i (S5869). Bounded to 40 chars to stay backtrack-safe (S5852).
+const MOOLOO_HARE_RE = /^([A-Z][\w -]{0,40})'s\s+Trail\b/i;
 
 // Street address shape: 1–4 digit street number + 1–4 capitalised words +
-// a NZ/AU/UK street-type suffix. Bounded quantifiers + leading word
-// boundary keep this Sonar S5852-safe and prevent grabbing run numbers
+// a final word that we post-check against {@link STREET_SUFFIXES}. The
+// post-check keeps the regex complexity under Sonar S5843's threshold of
+// 20 (the alternation list alone pushed it to 35). Bounded quantifiers +
+// leading word boundary stay S5852-safe and avoid grabbing run numbers
 // or distances mid-sentence.
-const MOOLOO_ADDRESS_RE = /\b(\d{1,4}(?:\s+[A-Z][\w']+){1,4}\s+(?:St|Rd|Ave|Cres|Way|Dr|Pl|Cl|Ln|Cct|Blvd|Tce|Crt|Ct|Pde|Lane|Street|Road|Avenue|Drive|Place|Close))\.?(?=$|[\s,])/;
+const MOOLOO_ADDRESS_RE = /\b(\d{1,4}\s+(?:[A-Z][\w']+\s+){1,4}[A-Za-z]+)\.?(?=$|[\s,])/;
+
+const STREET_SUFFIXES = new Set(
+  [
+    "St", "Rd", "Ave", "Cres", "Way", "Dr", "Pl", "Cl", "Ln", "Cct", "Blvd",
+    "Tce", "Crt", "Ct", "Pde", "Lane", "Street", "Road", "Avenue", "Drive",
+    "Place", "Close",
+  ].map((s) => s.toLowerCase()),
+);
 
 /** Pull a 12-hour time out of free-form text, normalizing bare-hour forms
  *  like "6PM" / "6 pm" (which parse12HourTime requires minutes for) into
@@ -65,7 +76,10 @@ function extractHares(body: string): string | undefined {
 
 function extractStreetAddress(body: string): string | undefined {
   const m = MOOLOO_ADDRESS_RE.exec(body);
-  return m ? m[1] : undefined;
+  if (!m) return undefined;
+  const lastWord = m[1].split(/\s+/).pop();
+  if (!lastWord || !STREET_SUFFIXES.has(lastWord.toLowerCase())) return undefined;
+  return m[1];
 }
 
 /** Parse one Mooloo run-line `<p>` text into a RawEventData, or null. Exported for unit tests. */
