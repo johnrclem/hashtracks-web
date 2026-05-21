@@ -341,7 +341,7 @@ export function parseHashHorrorsUpcoming(
   });
 }
 
-function flattenPageText(content: string): string {
+export function flattenHashHorrorsPageText(content: string): string {
   return decodeEntities(stripHtmlTags(content)).replaceAll(/\s+/g, " ").trim();
 }
 
@@ -387,7 +387,7 @@ export class HashHorrorsAdapter implements SourceAdapter {
     }
 
     const archiveUrl = archiveResult.page.URL || `https://${siteDomain}/${HARELINE_ARCHIVE_SLUG}/`;
-    const archiveText = flattenPageText(archiveResult.page.content);
+    const archiveText = flattenHashHorrorsPageText(archiveResult.page.content);
     const archive = parseHashHorrorsHareline(archiveText);
 
     // Upcoming-page failure is soft — archive still provides the historical
@@ -408,7 +408,7 @@ export class HashHorrorsAdapter implements SourceAdapter {
       });
     } else {
       upcomingUrl = upcomingResult.page.URL || `https://${siteDomain}/${HARELINE_UPCOMING_SLUG}/`;
-      upcomingText = flattenPageText(upcomingResult.page.content);
+      upcomingText = flattenHashHorrorsPageText(upcomingResult.page.content);
       // Pin the implied year + month to Singapore-local "today" so a late-Dec
       // scrape that finds only January upcoming rows seeds them to next year
       // (gemini-code-assist review on PR #1536). UTC would also mis-date the
