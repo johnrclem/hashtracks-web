@@ -58,7 +58,10 @@ const DAY_MONTH_HEAD = /^(\d{1,2})(?:st|nd|rd|th)?\s+([a-z]+)/i;
 const ORDINAL_SUFFIX_RE = /^(?:st|nd|rd|th)\b/i;
 const INLINE_YEAR_RE = /^(?:19|20)\d{2}\b/;
 const PAREN_THEME_RE = /^\(([^)]*)\)/;
-const TAIL_DASH_RE = /^[–—-]\s*(.+)$/;
+// `\s*(.+)` together is the canonical S5852 false-positive shape (memory:
+// feedback_sonar_s5852_false_positives). Anchoring on `\S` keeps the match
+// unambiguously linear without losing any input we'd otherwise capture.
+const TAIL_DASH_RE = /^[–—-]\s*(\S.*)$/;
 
 interface ParsedRunLine {
   runNumber: number;
