@@ -12,7 +12,7 @@ import type { HarelineEvent } from "@/components/hareline/EventCard";
 import { MismanManagementSection } from "@/components/kennels/MismanManagementSection";
 import { QuickInfoCard } from "@/components/kennels/QuickInfoCard";
 import { KennelStats } from "@/components/kennels/KennelStats";
-import { TrailLocationMap } from "@/components/kennels/TrailLocationMap";
+import { TrailLocationMapClient } from "@/components/kennels/TrailLocationMapClient";
 import { EventTabs } from "@/components/kennels/EventTabs";
 import { RegionBadge } from "@/components/hareline/RegionBadge";
 import { getRegionColor } from "@/lib/region";
@@ -316,7 +316,7 @@ export default async function KennelDetailPage({
 
       {/* ── Trail Location Map ── */}
       {kennel.region && (
-        <TrailLocationMap locations={trailLocations} region={kennel.region} />
+        <TrailLocationMapClient locations={trailLocations} region={kennel.region} />
       )}
 
       {/* ── Misman Management (role-gated) ── */}
