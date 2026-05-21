@@ -199,7 +199,9 @@ function buildAriaLabel(event: HarelineEvent, attendance?: AttendanceData | null
   }
   const { title, isFallback } = getDisplayTitle({ ...event, kennel: event.kennel ?? { shortName: "", fullName: "" } });
   if (!isFallback) parts.push(title);
-  parts.push(formatDate(event.date));
+  // Route through `computeChipDate` so chip + aria-label can never drift
+  // (per claude[bot] PR #1566 review).
+  parts.push(computeChipDate(event));
   if (event.runNumber) parts.push(`Run #${event.runNumber}`);
   if (event.startTime) parts.push(formatTime(event.startTime));
   // #1316 — surface card-visible structured fields to screen readers.

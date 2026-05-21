@@ -38,6 +38,12 @@ const GERIATRIX_TUE_MAY_19 = { date: "2026-05-19T12:00:00.000Z" };
 // #1517 that independently rules out a Tuesday-specific hypothesis.
 const HUSSIES_FRI_APR_24 = { date: "2026-04-24T12:00:00.000Z" };
 
+// US west-of-UTC sanity check (claude[bot] PR #1566 review). NY is UTC-5/-4;
+// the common-case kennel that was working before this PR must still work
+// after. UTC noon in NY is morning-same-day, never the previous day, so
+// `formatDate(event.date)` UTC-formatting always lands on the right day.
+const NYC_THU_MAY_28 = { date: "2026-05-28T12:00:00.000Z" };
+
 describe("EventCard chip + EventDetailPanel heading — NZ TZ regression (#1510/#1517/#1522)", () => {
   it("Capital H3 Mon Jun 1: chip reads 'Mon, Jun 1' (matches aria-label)", () => {
     expect(computeChipDate(CAPITAL_H3_MON_JUN_1)).toBe("Mon, Jun 1");
@@ -49,6 +55,10 @@ describe("EventCard chip + EventDetailPanel heading — NZ TZ regression (#1510/
 
   it("Auckland Hussies Fri Apr 24 (Mangawhai special): chip reads 'Fri, Apr 24'", () => {
     expect(computeChipDate(HUSSIES_FRI_APR_24)).toBe("Fri, Apr 24");
+  });
+
+  it("US west-of-UTC kennel Thu May 28: chip still reads 'Thu, May 28' (no regression on the common case)", () => {
+    expect(computeChipDate(NYC_THU_MAY_28)).toBe("Thu, May 28");
   });
 
   it("EventDetailPanel heading Capital H3 Mon Jun 1: reads 'Monday, June 1, 2026'", () => {
