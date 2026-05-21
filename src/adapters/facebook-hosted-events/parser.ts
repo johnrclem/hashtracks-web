@@ -486,7 +486,9 @@ function projectBag(bag: EventBag, kennelTag: string, timezone: string): BagOutc
     ],
   };
   if (location !== undefined) event.location = location;
-  if (typeof lat === "number" && typeof lng === "number") {
+  // `Number.isFinite` guards `NaN` / `Infinity` that a schema-drift node
+  // could ship — `typeof NaN === "number"` is true.
+  if (Number.isFinite(lat) && Number.isFinite(lng)) {
     event.latitude = lat;
     event.longitude = lng;
   }
@@ -587,21 +589,28 @@ export function extractFieldsFromFbDescription(description: string): FacebookDes
  * Some Page admins format the Hare line as
  *   `Hare: Comfort and Tight Lips on Saturday, March 14`
  * where `on Saturday, March 14` is the NEXT trail's date, not part of the
- * attribution (#1498). Strip everything from the first ` on <weekday>` token
- * onward when it's followed by a date-shaped suffix — date suffix gates the
- * strip so legitimate hare names containing the word "on" don't get
- * truncated (e.g. "On On Lee", "Ronnie On the Run").
+ * attribution (#1498). Two-stage match keeps the regex provably linear
+ * (Sonar S5852 safe) AND guards against false positives on hare names
+ * that happen to contain ` on <weekday>` followed by non-date prose
+ * ("Born on Saturday Night" → don't truncate to "Born", Codex P2):
  *
- * The required date-shape suffix is a comma, a month name, an "the Nth",
- * or end-of-string within a few words. Anchored bounded lookahead so the
- * regex is provably linear (Sonar S5852 safe).
+ *   Stage 1: a flat regex locates the candidate ` on <weekday>` token.
+ *   Stage 2: a procedural check confirms the suffix is empty OR begins
+ *            with `, <date>` (month name or digit), which is the only
+ *            real-world shape of a next-run trailer.
  */
-const HARE_NEXT_RUN_TRAILER_RE =
-  /\s+on\s+(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*(?=\b)(?:[\s,]|$)/i;
+const HARE_TRAILER_WEEKDAY_RE = /\s+on\s+(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*\b/i;
+const HARE_TRAILER_DATE_SUFFIX_RE =
+  /^\s*,\s*(?:\d|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|the\s+\d)/i;
+const HARE_TRAILER_PUNCT_TAIL_RE = /[\s,;:]+$/;
 function stripNextRunTrailer(value: string): string {
-  const m = HARE_NEXT_RUN_TRAILER_RE.exec(value);
+  const m = HARE_TRAILER_WEEKDAY_RE.exec(value);
   if (!m) return value;
-  return value.slice(0, m.index).replace(/[\s,;:]+$/, "");
+  const suffix = value.slice(m.index + m[0].length);
+  // Empty suffix (end-of-string) OR ", <date>" — anything else is prose,
+  // not a trailer. Leave the original untouched in the prose case.
+  if (suffix.length > 0 && !HARE_TRAILER_DATE_SUFFIX_RE.test(suffix)) return value;
+  return value.slice(0, m.index).replace(HARE_TRAILER_PUNCT_TAIL_RE, "");
 }
 
 function stripLeadingDecoration(value: string): string {

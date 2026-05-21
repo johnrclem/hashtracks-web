@@ -147,7 +147,13 @@ export class FacebookHostedEventsAdapter implements SourceAdapter {
     });
     const allEvents = parseResult.events;
     const filteredCounts = parseResult.filtered;
-    const filteredTotal = Object.values(filteredCounts).reduce((a, b) => a + b, 0);
+    // Only `admin-notice` and `placeholder` reflect content-quality drops
+    // ("this Page admin posts non-trails on the events feed"). The other
+    // reject reasons (missing-half, no-title, invalid-time, cancelled)
+    // reflect shape drift or normal cancellations and must NOT raise the
+    // coverage-gap signal — those would create false alerts on Pages with
+    // legitimate cancelled events or partial graph payloads (Codex P1).
+    const contentFilteredTotal = filteredCounts["admin-notice"] + filteredCounts.placeholder;
 
     // Shape-break heuristic: 0 parsed events AND none of FB's SSR envelope
     // markers present → the GraphQL shape rotated. If at least one marker
@@ -163,21 +169,22 @@ export class FacebookHostedEventsAdapter implements SourceAdapter {
       );
     }
 
-    // Coverage-gap signal (#1496, #1499): SSR envelope intact AND every
-    // event candidate was filtered for content reasons (admin notices,
-    // placeholder rows). This is distinct from "Page genuinely has nothing
-    // scheduled" and worth surfacing so an operator can re-evaluate the
-    // FB source vs. switching to MEETUP / website / static schedule.
-    // EVENT_COUNT_ANOMALY only fires once a baseline accrues — this signal
-    // fires on first scrape too. Routed via the standard `errors[]` channel
-    // so the existing SCRAPE_FAILURE / health pipeline can pick it up.
-    if (allEvents.length === 0 && hasEnvelopeMarker && filteredTotal > 0) {
-      const reasonSummary = Object.entries(filteredCounts)
-        .filter(([, n]) => n > 0)
-        .map(([reason, n]) => `${reason}=${n}`)
+    // Coverage-gap signal (#1496, #1499): SSR envelope intact AND at least
+    // one event candidate was content-filtered (admin notices, placeholder
+    // rows) and zero real events made it through. This is distinct from
+    // "Page genuinely has nothing scheduled" and worth surfacing so an
+    // operator can re-evaluate the FB source vs. switching to MEETUP /
+    // website / static schedule. EVENT_COUNT_ANOMALY only fires once a
+    // baseline accrues — this signal fires on first scrape too. Routed
+    // via the standard `errors[]` channel so the existing SCRAPE_FAILURE /
+    // health pipeline can pick it up.
+    if (allEvents.length === 0 && hasEnvelopeMarker && contentFilteredTotal > 0) {
+      const reasonSummary = (["admin-notice", "placeholder"] as const)
+        .filter((reason) => filteredCounts[reason] > 0)
+        .map((reason) => `${reason}=${filteredCounts[reason]}`)
         .join(", ");
       errors.push(
-        `FB hosted_events page returned ${filteredTotal} candidate events but all were filtered (${reasonSummary}). Source likely does not use FB Hosted Events for runs — consider replacing with a website / Meetup source.`,
+        `FB hosted_events page returned ${contentFilteredTotal} candidate events but all were content-filtered (${reasonSummary}). Source likely does not use FB Hosted Events for runs — consider replacing with a website / Meetup source.`,
       );
     }
 

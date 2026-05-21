@@ -528,7 +528,7 @@ describe("FacebookHostedEventsAdapter — fetch", () => {
     );
     expect(result.events).toEqual([]);
     expect(result.errors).toHaveLength(1);
-    expect(result.errors[0]).toMatch(/all were filtered/i);
+    expect(result.errors[0]).toMatch(/all were content-filtered/i);
     expect(result.errors[0]).toMatch(/admin-notice=1/);
     expect(result.diagnosticContext).toMatchObject({
       parserFiltered: expect.objectContaining({ "admin-notice": 1 }),
@@ -581,6 +581,56 @@ describe("FacebookHostedEventsAdapter — fetch", () => {
     expect(result.errors[0]).toMatch(/placeholder=1/);
   });
 
+  // Codex P1: cancelled / missing-half / no-title / invalid-time are NOT
+  // content quality issues — they're shape drift or legitimate FB state.
+  // The coverage-gap signal must NOT fire on a Page where every candidate
+  // happens to be cancelled (which is a real, normal state).
+  it("does NOT flag coverage-gap when every candidate is cancelled (Codex P1)", async () => {
+    const allCancelledHtml =
+      `<html><body>` +
+      `<script type="application/json">{"require":[["RelayPrefetchedStreamCache","next",[],[]]]}</script>` +
+      `<script type="application/json">{
+        "rich":{"__typename":"Event","id":"100000000000001","name":"Real Trail #42","is_canceled":true},
+        "time":{"id":"100000000000001","start_timestamp":1778353200}
+      }</script>` +
+      `</body></html>`;
+    mockedFetch.mockResolvedValueOnce(htmlResponse(allCancelledHtml));
+    const adapter = new FacebookHostedEventsAdapter();
+    const result = await adapter.fetch(
+      makeSource({
+        kennelTag: "x",
+        pageHandle: "x",
+        timezone: "America/New_York",
+        upcomingOnly: true,
+      }),
+    );
+    expect(result.events).toEqual([]);
+    expect(result.errors.filter((e) => /content-filtered/i.test(e))).toEqual([]);
+  });
+
+  it("does NOT flag coverage-gap when every candidate is missing-half (Codex P1)", async () => {
+    // Time-only nodes (no rich __typename:Event) are shape drift, not a
+    // content-quality issue. EVENT_COUNT_ANOMALY + the shape-break
+    // heuristic cover this — coverage-gap must not double-fire.
+    const missingHalfHtml =
+      `<html><body>` +
+      `<script type="application/json">{"require":[["RelayPrefetchedStreamCache","next",[],[]]]}</script>` +
+      `<script type="application/json">{"e":{"id":"100000000000001","start_timestamp":1778353200}}</script>` +
+      `</body></html>`;
+    mockedFetch.mockResolvedValueOnce(htmlResponse(missingHalfHtml));
+    const adapter = new FacebookHostedEventsAdapter();
+    const result = await adapter.fetch(
+      makeSource({
+        kennelTag: "x",
+        pageHandle: "x",
+        timezone: "America/New_York",
+        upcomingOnly: true,
+      }),
+    );
+    expect(result.events).toEqual([]);
+    expect(result.errors.filter((e) => /content-filtered/i.test(e))).toEqual([]);
+  });
+
   it("does NOT flag coverage-gap when at least one real event is emitted alongside filtered ones", async () => {
     const mixedHtml =
       `<html><body>` +
@@ -615,7 +665,7 @@ describe("FacebookHostedEventsAdapter — fetch", () => {
     expect(result.events).toHaveLength(1);
     expect(result.events[0].runNumber).toBe(42);
     // No coverage-gap error — real events made it through.
-    expect(result.errors.filter((e) => /all were filtered/i.test(e))).toEqual([]);
+    expect(result.errors.filter((e) => /all were content-filtered/i.test(e))).toEqual([]);
   });
 
   it("does NOT flag shape-break when a fat empty-Page response carries SSR envelope markers (#1294 audit fix)", async () => {

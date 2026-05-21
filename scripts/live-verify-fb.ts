@@ -1,4 +1,5 @@
 import "dotenv/config";
+import type { Source } from "../src/generated/prisma/client";
 import { FacebookHostedEventsAdapter } from "../src/adapters/facebook-hosted-events/adapter";
 
 interface TestCase {
@@ -35,7 +36,7 @@ async function main() {
   for (const tc of cases) {
     console.log(`\n=== ${tc.label} ===`);
     try {
-      const source = { config: tc.config } as never;
+      const source = { config: tc.config } as unknown as Source;
       const result = await adapter.fetch(source, { days: 90 });
       console.log("events:", result.events.length);
       if (result.events.length > 0) {

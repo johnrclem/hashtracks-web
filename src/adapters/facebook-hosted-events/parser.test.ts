@@ -197,6 +197,31 @@ describe("parseFacebookHostedEvents — edge cases", () => {
     expect(event.location).toBe("Real Place");
   });
 
+  it("drops NaN / Infinity coordinates (Number.isFinite guard, Gemini review)", () => {
+    // typeof NaN === "number" is true — a typeof guard would let a NaN
+    // coordinate slip through and pollute lat/lng on the canonical Event.
+    const html = `<script type="application/json">{
+      "rich":{"__typename":"Event","id":"123456789012345","name":"Trail #1","event_place":{"contextual_name":"V","location":{"latitude":"not-a-number","longitude":"not-a-number"}}},
+      "time":{"id":"123456789012345","start_timestamp":1778353200}
+    }</script>`;
+    const [event] = parseFacebookHostedEvents(html, { kennelTag: "x" });
+    expect(event.latitude).toBeUndefined();
+    expect(event.longitude).toBeUndefined();
+  });
+
+  it("accepts 0,0 as a real coordinate (Number.isFinite admits zero)", () => {
+    // Equator/prime-meridian intersection — improbable for a hash trail
+    // but the typeof check would already let this through; verifying
+    // Number.isFinite preserves the same behavior.
+    const html = `<script type="application/json">{
+      "rich":{"__typename":"Event","id":"123456789012345","name":"Trail #1","event_place":{"contextual_name":"V","location":{"latitude":0,"longitude":0}}},
+      "time":{"id":"123456789012345","start_timestamp":1778353200}
+    }</script>`;
+    const [event] = parseFacebookHostedEvents(html, { kennelTag: "x" });
+    expect(event.latitude).toBe(0);
+    expect(event.longitude).toBe(0);
+  });
+
   it("merges location lat/lng per axis (one ref has latitude, the other has longitude)", () => {
     const html = `<script type="application/json">{
       "lat":{"__typename":"Event","id":"123456789012345","name":"T","event_place":{"contextual_name":"V","location":{"latitude":33.69}}},
@@ -561,6 +586,17 @@ describe("extractFieldsFromFbDescription (#1319)", () => {
     // weekday, so the strip must not fire.
     const fields = extractFieldsFromFbDescription("Hare: Ronnie On the Run");
     expect(fields.hares).toBe("Ronnie On the Run");
+  });
+
+  it.each([
+    // Codex P2: 'on <weekday>' followed by prose (not a date) — must NOT
+    // truncate. Without the date-suffix gate, "Born on Saturday Night"
+    // would silently collapse to "Born".
+    ["Hare: Born on Saturday Night", "Born on Saturday Night"],
+    ["Hare: Made on Friday Adventures", "Made on Friday Adventures"],
+    ["Hare: Closed on Sunday Brunch", "Closed on Sunday Brunch"],
+  ])("leaves the hare line untouched for %p (prose, not a date trailer)", (desc, expected) => {
+    expect(extractFieldsFromFbDescription(desc).hares).toBe(expected);
   });
 });
 
