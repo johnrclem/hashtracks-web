@@ -177,6 +177,23 @@ describe("parseHashHorrorsHareline (year-grouped archive)", () => {
     expect(out.skippedMarkers).toBe(1);
   });
 
+  it("flags non-empty pages with no year headings as a parse failure (#1536 review)", () => {
+    // If the WP.com template drops the year heading shape entirely, the
+    // adapter must surface a scrape error rather than silently emit zero
+    // events (which would cause the reconciler to cancel the whole archive).
+    const text = "1016 – May 17 – Wade Family 1015 – May 3 – Baudoux Family";
+    const out = parseHashHorrorsHareline(text);
+    expect(out.events).toEqual([]);
+    expect(out.skippedLines).toBe(1);
+  });
+
+  it("returns an empty success result for genuinely empty input (no spurious skippedLines)", () => {
+    const out = parseHashHorrorsHareline("");
+    expect(out.events).toEqual([]);
+    expect(out.skippedLines).toBe(0);
+    expect(out.skippedMarkers).toBe(0);
+  });
+
   it("appends themed-run titles to the default kennel title", () => {
     const text = "2015 985 – December 15 (Christmas Hash) – Poyner Family – Gillman Barracks";
     const { events } = parseHashHorrorsHareline(text);

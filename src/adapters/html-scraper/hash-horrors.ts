@@ -285,12 +285,20 @@ function walkRunLines(
 /**
  * Walk the year-grouped archive page. Each `2026` / `2025` / etc. heading
  * acts as the active year for the run lines that follow until the next.
+ *
+ * If `findYearHeadings` returns nothing for a non-empty page, count it as a
+ * skippedLine so the adapter's drift signal fires (and the reconciler
+ * doesn't cancel every event). Otherwise a future WP.com template change
+ * that drops the year heading shape would silently empty the archive feed.
  */
 export function parseHashHorrorsHareline(text: string): ParseHarelineResult {
   const events: RawEventData[] = [];
   let skippedLines = 0;
   let skippedMarkers = 0;
   const headings = findYearHeadings(text);
+  if (text.trim() && headings.length === 0) {
+    return { events: [], skippedLines: 1, skippedMarkers: 0 };
+  }
   for (let i = 0; i < headings.length; i++) {
     const { year, end } = headings[i];
     const sectionEnd = headings[i + 1]?.start ?? text.length;
