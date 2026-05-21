@@ -15,12 +15,29 @@ import { getFullLocationDisplay } from "@/lib/event-display";
 import type { HarelineEvent } from "./EventCard";
 import { ShiggyLevelFlames, TrailLengthLine, formatTrailLength } from "./TrailDifficulty";
 import { useTimePreference } from "@/components/providers/time-preference-provider";
-import { formatTimeInZone, formatDateInZone, getTimezoneAbbreviation, getBrowserTimezone } from "@/lib/timezone";
+import { formatTimeInZone, getTimezoneAbbreviation, getBrowserTimezone } from "@/lib/timezone";
 import { CheckInButton } from "@/components/logbook/CheckInButton";
 import type { AttendanceData } from "@/components/logbook/CheckInButton";
 import { CalendarExportButton } from "./CalendarExportButton";
 import { EventLocationMap } from "./EventLocationMap";
 import { getRegionColor } from "@/lib/region";
+
+/**
+ * Compute the long-form display string for the detail-panel heading.
+ *
+ * Always formats `event.date` as UTC via `formatDateLong`. `event.date` is
+ * stored as UTC noon of the kennel-local day (PRD F.4), so UTC formatting
+ * yields the correct kennel-local day. We intentionally do NOT format
+ * `event.dateUtc` in the kennel's TZ — merge.ts falls back to
+ * `dateUtc = event.date` (UTC noon) when an event lacks a `startTime`, and
+ * `formatDateInZone(UTC-noon, Pacific/Auckland)` rolls the heading forward
+ * a day for kennels east of UTC (#1510, #1517, #1522).
+ *
+ * Exported so the regression test exercises the same code the heading renders.
+ */
+export function computeHeadingDate(event: { date: string }): string {
+  return formatDateLong(event.date);
+}
 
 interface EventDetailPanelProps {
   event: HarelineEvent | null;
@@ -54,12 +71,10 @@ export function EventDetailPanel({ event, attendance, isAuthenticated, onDismiss
   const isUserLocal = preference === "USER_LOCAL";
   const displayTz = isUserLocal ? getBrowserTimezone() : (event.timezone ?? "America/New_York");
 
-  // Format the date in the kennel's region — answers "what day is this run on"
-  // in the source's local sense, matching the EventCard chip + aria-label.
-  // Browser TZ still drives the time line below. (#1502)
-  const displayDateStr = event.dateUtc
-    ? formatDateInZone(event.dateUtc, event.timezone ?? displayTz, "EEEE, MMMM d, yyyy")
-    : formatDateLong(event.date);
+  // See `computeHeadingDate` above for why we always format `event.date` as
+  // UTC and intentionally don't use `event.dateUtc` here (#1510, #1517,
+  // #1522). Time line below still uses `displayTz`. (#1502)
+  const displayDateStr = computeHeadingDate(event);
 
   const displayTimeStr = (event.dateUtc && event.startTime)
     ? formatTimeInZone(event.dateUtc, displayTz)
