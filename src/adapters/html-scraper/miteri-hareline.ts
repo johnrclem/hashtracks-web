@@ -1,4 +1,5 @@
 import * as cheerio from "cheerio";
+import type { Element } from "domhandler";
 import type { Source } from "@/generated/prisma/client";
 import type {
   SourceAdapter,
@@ -251,15 +252,18 @@ export function parseSiteOriginGrid(
  * `feedback_sonar_s5852_false_positives`). `startsWith` + `slice` avoids
  * fighting the analyzer.
  */
+const SPACE_CP = 32;
+const COLON_CP = 58;
+
 function stripLabel(text: string, label: string): string | null {
   const lower = text.toLowerCase();
   if (!lower.startsWith(label.toLowerCase())) return null;
   let cursor = label.length;
   // Optional whitespace, then a `:` delimiter, then optional whitespace.
-  while (cursor < text.length && text.charCodeAt(cursor) === 32) cursor++;
-  if (text.charCodeAt(cursor) !== 58 /* ':' */) return null;
+  while (cursor < text.length && text.codePointAt(cursor) === SPACE_CP) cursor++;
+  if (text.codePointAt(cursor) !== COLON_CP) return null;
   cursor++;
-  while (cursor < text.length && text.charCodeAt(cursor) === 32) cursor++;
+  while (cursor < text.length && text.codePointAt(cursor) === SPACE_CP) cursor++;
   const value = text.slice(cursor).trim();
   return value || null;
 }
@@ -267,10 +271,65 @@ function stripLabel(text: string, label: string): string | null {
 /** Linear regex; no nested quantifiers around alternation. */
 const NEXT_RUN_DIGITS_RE = /\d+/;
 
-export function parseNextRunPanel(
+type PanelRow = { runText?: string; dateText?: string; hareText?: string; locationText?: string };
+
+/**
+ * Walk the labeled `<p>` rows of a single Next-Run widget. Returns a row when
+ * the sentinel "Next Run" + a Date label are both present, otherwise null.
+ * Extracted from {@link parseNextRunPanel} to keep cognitive complexity
+ * within the project's Sonar threshold (S3776, default 15).
+ */
+function parsePanelParagraphs(
   $: cheerio.CheerioAPI,
-): { runText?: string; dateText?: string; hareText?: string; locationText?: string } | null {
-  let result: ReturnType<typeof parseNextRunPanel> = null;
+  paragraphs: Element[],
+): PanelRow | null {
+  let runText: string | undefined;
+  let dateText: string | undefined;
+  let hareText: string | undefined;
+  let locationText: string | undefined;
+  let sawNextRun = false;
+
+  for (const p of paragraphs) {
+    // `\s` in JS regex covers U+00A0 (NBSP) since ES2018, so tinymce's
+    // non-breaking spaces collapse with everything else.
+    const text = $(p).text().replace(/\s+/g, " ").trim();
+    if (!text) continue;
+
+    // "Next Run: # 2356" — first labeled paragraph identifies the panel.
+    if (text.toLowerCase().startsWith("next run")) {
+      sawNextRun = true;
+      runText = NEXT_RUN_DIGITS_RE.exec(text)?.[0] ?? runText;
+      continue;
+    }
+    if (!sawNextRun) continue;
+
+    const dateValue = stripLabel(text, "Date");
+    if (dateValue !== null) {
+      dateText = dateValue;
+      continue;
+    }
+    // "Hare(s)" must be tried before "Hare" — "Hare" is a prefix of it.
+    const hareValue = stripLabel(text, "Hare(s)") ?? stripLabel(text, "Hares") ?? stripLabel(text, "Hare");
+    if (hareValue !== null) {
+      hareText = hareValue;
+      continue;
+    }
+    const locValue = stripLabel(text, "Location");
+    if (locValue !== null) {
+      locationText = locValue;
+    }
+  }
+
+  // Require at least Next-Run + Date to consider the panel parsed — the
+  // adapter still needs a date to bin the event. Hare/location are optional.
+  if (sawNextRun && dateText) {
+    return { runText, dateText, hareText, locationText };
+  }
+  return null;
+}
+
+export function parseNextRunPanel($: cheerio.CheerioAPI): PanelRow | null {
+  let result: PanelRow | null = null;
 
   $(".textwidget").each((_idx, widget) => {
     if (result) return;
@@ -284,51 +343,7 @@ export function parseNextRunPanel(
     const paragraphs = $(widget).find("p").toArray();
     if (paragraphs.length === 0) return;
 
-    let runText: string | undefined;
-    let dateText: string | undefined;
-    let hareText: string | undefined;
-    let locationText: string | undefined;
-    let sawNextRun = false;
-
-    for (const p of paragraphs) {
-      // `\s` in JS regex covers U+00A0 (NBSP) since ES2018, so tinymce's
-      // non-breaking spaces collapse with everything else.
-      const text = $(p).text().replace(/\s+/g, " ").trim();
-      if (!text) continue;
-
-      // "Next Run: # 2356" — first labeled paragraph identifies the panel.
-      // case-insensitive prefix match, then pull the first digit run.
-      if (text.toLowerCase().startsWith("next run")) {
-        const digits = NEXT_RUN_DIGITS_RE.exec(text);
-        sawNextRun = true;
-        if (digits) runText = digits[0];
-        continue;
-      }
-      if (!sawNextRun) continue;
-
-      const dateValue = stripLabel(text, "Date");
-      if (dateValue !== null) {
-        dateText = dateValue;
-        continue;
-      }
-      // Try "Hare(s)" first since "Hare" is a prefix of it.
-      const hareValue = stripLabel(text, "Hare(s)") ?? stripLabel(text, "Hares") ?? stripLabel(text, "Hare");
-      if (hareValue !== null) {
-        hareText = hareValue;
-        continue;
-      }
-      const locValue = stripLabel(text, "Location");
-      if (locValue !== null) {
-        locationText = locValue;
-        continue;
-      }
-    }
-
-    // Require at least Next-Run + Date to consider the panel parsed — the
-    // adapter still needs a date to bin the event. Hare/location are optional.
-    if (sawNextRun && dateText) {
-      result = { runText, dateText, hareText, locationText };
-    }
+    result = parsePanelParagraphs($, paragraphs);
   });
 
   return result;
@@ -340,6 +355,57 @@ export interface MiteriHarelineConfig {
 
 function isMiteriConfig(cfg: unknown): cfg is MiteriHarelineConfig {
   return typeof cfg === "object" && cfg !== null && typeof (cfg as { kennelTag?: unknown }).kennelTag === "string";
+}
+
+type RowAcc = {
+  events: RawEventData[];
+  seenKeys: Set<string>;
+  prevDate: string | undefined;
+  panelEventsEmitted: number;
+};
+
+/**
+ * Parse + dedup + window-filter a single Miteri row, mutating the accumulator
+ * in place. Extracted from {@link MiteriHarelineAdapter.fetch} to keep its
+ * cognitive complexity within the project's Sonar threshold (S3776).
+ *
+ * Returns "skipped" when the row should produce no event (parse miss / out
+ * of window / dedup hit), "emitted" when an event was appended.
+ */
+function processMiteriRow(
+  row: { runText?: string; dateText?: string; hareText?: string; locationText?: string },
+  ctx: {
+    kennelTag: string;
+    sourceUrl: string;
+    isPanelRow: boolean;
+    minDate: Date;
+    maxDate: Date;
+    acc: RowAcc;
+  },
+): "emitted" | "skipped" {
+  // Panel rows have no neighbour to anchor the year, so opt into forwardDate
+  // to keep a yearless "Saturday 3 January" parsed on Dec 30 from landing in
+  // the past. (#1503)
+  const event = parseMiteriRow(row, {
+    kennelTag: ctx.kennelTag,
+    sourceUrl: ctx.sourceUrl,
+    prevDate: ctx.acc.prevDate,
+    forwardDate: ctx.isPanelRow,
+  });
+  if (!event) return "skipped";
+  ctx.acc.prevDate = event.date;
+
+  const eventDate = new Date(`${event.date}T12:00:00Z`);
+  if (eventDate < ctx.minDate || eventDate > ctx.maxDate) return "skipped";
+
+  if (event.runNumber !== undefined) {
+    const dedupKey = `${event.runNumber}|${event.date}`;
+    if (ctx.acc.seenKeys.has(dedupKey)) return "skipped";
+    ctx.acc.seenKeys.add(dedupKey);
+  }
+  if (ctx.isPanelRow) ctx.acc.panelEventsEmitted++;
+  ctx.acc.events.push(event);
+  return "emitted";
 }
 
 export class MiteriHarelineAdapter implements SourceAdapter {
@@ -385,48 +451,26 @@ export class MiteriHarelineAdapter implements SourceAdapter {
     // also appear ONLY here. Prepend so the chronological year-walk in
     // parseMiteriRow sees it first. (#1503)
     const nextRunRow = parseNextRunPanel($);
-    let panelEventsEmitted = 0;
     if (nextRunRow) rows = [nextRunRow, ...rows];
 
-    const events: RawEventData[] = [];
-    const errors: string[] = [];
-    const errorDetails: ErrorDetails = {};
-    const parseErrors: NonNullable<ErrorDetails["parse"]> = [];
-    const { minDate, maxDate } = buildDateWindow(options?.days ?? 180);
     // Dedup by `${runNumber}|${date}` so a Next-Run panel row that's also
     // present in the table (when the source eventually fills the hare/location
     // for the same week) doesn't emit twice. Panel rows win because they're
     // processed first and tend to carry the richer fields. Rows without a
     // runNumber are NOT deduped — collapsing same-day entries could drop
     // legitimate paired runs (e.g. a campout weekend with two trails).
-    const seenKeys = new Set<string>();
+    const acc: RowAcc = { events: [], seenKeys: new Set(), prevDate: undefined, panelEventsEmitted: 0 };
+    const errors: string[] = [];
+    const errorDetails: ErrorDetails = {};
+    const parseErrors: NonNullable<ErrorDetails["parse"]> = [];
+    const { minDate, maxDate } = buildDateWindow(options?.days ?? 180);
 
-    let prevDate: string | undefined;
     for (let i = 0; i < rows.length; i++) {
       const row = rows.at(i);
       if (!row) continue;
       const isPanelRow = row === nextRunRow;
       try {
-        // Panel rows have no neighbour to anchor the year, so opt into
-        // forwardDate to keep a yearless "Saturday 3 January" parsed on
-        // Dec 30 from landing in the past. (#1503)
-        const event = parseMiteriRow(row, {
-          kennelTag,
-          sourceUrl,
-          prevDate,
-          forwardDate: isPanelRow,
-        });
-        if (!event) continue;
-        prevDate = event.date;
-        const eventDate = new Date(`${event.date}T12:00:00Z`);
-        if (eventDate < minDate || eventDate > maxDate) continue;
-        if (event.runNumber !== undefined) {
-          const dedupKey = `${event.runNumber}|${event.date}`;
-          if (seenKeys.has(dedupKey)) continue;
-          seenKeys.add(dedupKey);
-        }
-        if (isPanelRow) panelEventsEmitted++;
-        events.push(event);
+        processMiteriRow(row, { kennelTag, sourceUrl, isPanelRow, minDate, maxDate, acc });
       } catch (err) {
         errors.push(`Row ${i}: ${err}`);
         parseErrors.push({
@@ -440,16 +484,16 @@ export class MiteriHarelineAdapter implements SourceAdapter {
     if (parseErrors.length > 0) errorDetails.parse = parseErrors;
 
     return {
-      events,
+      events: acc.events,
       errors,
       structureHash,
       errorDetails: hasAnyErrors(errorDetails) ? errorDetails : undefined,
       diagnosticContext: {
         layout,
         rowsFound: rows.length,
-        eventsParsed: events.length,
+        eventsParsed: acc.events.length,
         nextRunPanelDetected: nextRunRow !== null,
-        nextRunPanelEmitted: panelEventsEmitted,
+        nextRunPanelEmitted: acc.panelEventsEmitted,
         fetchDurationMs,
       },
     };

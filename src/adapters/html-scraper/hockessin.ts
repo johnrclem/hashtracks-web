@@ -9,6 +9,37 @@ import type {
 import { hasAnyErrors } from "../types";
 import { fetchHTMLPage, parse12HourTime, chronoParseDate } from "../utils";
 
+// All candidates are length-3 (space + 1 dash code unit + space) so the
+// slice offset is uniform regardless of which separator matched. String
+// search (not regex) avoids Sonar S5852's flag on `\s+[–—]\s+`.
+const HOCKESSIN_DASH_CANDIDATES = [" - ", " – ", " — "];
+const HOCKESSIN_DASH_LEN = 3;
+
+/**
+ * Split a Hash-header post-colon segment into hares + optional title. Handles
+ * three shapes (#797, #1326, #1493) — see {@link parseHockessinEvent} JSDoc.
+ * Extracted to keep `parseHockessinEvent` under the project's Sonar cognitive-
+ * complexity threshold (S3776).
+ */
+function splitHaresAndTitle(postColon: string | undefined): {
+  hares: string | undefined;
+  title: string | undefined;
+} {
+  if (!postColon) return { hares: undefined, title: undefined };
+
+  let dashIdx = -1;
+  for (const sep of HOCKESSIN_DASH_CANDIDATES) {
+    const idx = postColon.indexOf(sep);
+    if (idx >= 0 && (dashIdx === -1 || idx < dashIdx)) dashIdx = idx;
+  }
+  if (dashIdx === -1) return { hares: postColon, title: undefined };
+
+  return {
+    hares: postColon.slice(0, dashIdx).trim() || undefined,
+    title: postColon.slice(dashIdx + HOCKESSIN_DASH_LEN).trim() || undefined,
+  };
+}
+
 /**
  * Parse a single event block from the Hockessin Hash homepage.
  *
@@ -37,31 +68,7 @@ export function parseHockessinEvent(
   if (!headerMatch) return null;
 
   const runNumber = Number.parseInt(headerMatch[1], 10);
-  const postColon = headerMatch[2]?.trim();
-
-  // #1493: split on the first dash-with-spaces separator. ASCII " - "
-  // appears in current Hockessin copy; en/em-dash variants are also accepted
-  // so future copy edits don't silently regress to "everything is hares".
-  // String search (not regex) avoids Sonar S5852's super-linear-shape flag
-  // on `\s+[–—]\s+` (linear in practice but the analyzer can't prove it).
-  const DASH_SEP = " - ";
-  const DASH_SEP_LEN = DASH_SEP.length;
-  const DASH_CANDIDATES = [DASH_SEP, " – ", " — "]; // -, en-dash, em-dash
-  let hares: string | undefined;
-  let title: string | undefined;
-  if (postColon) {
-    let dashIdx = -1;
-    for (const sep of DASH_CANDIDATES) {
-      const idx = postColon.indexOf(sep);
-      if (idx >= 0 && (dashIdx === -1 || idx < dashIdx)) dashIdx = idx;
-    }
-    if (dashIdx >= 0) {
-      hares = postColon.slice(0, dashIdx).trim() || undefined;
-      title = postColon.slice(dashIdx + DASH_SEP_LEN).trim() || undefined;
-    } else {
-      hares = postColon;
-    }
-  }
+  const { hares, title } = splitHaresAndTitle(headerMatch[2]?.trim());
 
   const cleaned = detailText.replace(/\s+/g, " ").trim();
   if (!cleaned) return null;
