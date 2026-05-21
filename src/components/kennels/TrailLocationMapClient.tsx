@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import type { TrailLocation } from "./TrailLocationMap";
 
 const TrailLocationMap = dynamic(
   () => import("./TrailLocationMap").then((m) => m.TrailLocationMap),
@@ -21,14 +22,12 @@ const TrailLocationMap = dynamic(
   },
 );
 
-interface TrailLocation {
-  lat: number;
-  lng: number;
-}
-
 export function TrailLocationMapClient({
   locations,
   region,
 }: Readonly<{ locations: TrailLocation[]; region: string }>) {
+  // Short-circuit before the dynamic import fires so kennels with no
+  // geocoded events don't fetch the deck.gl chunk just to render `null`.
+  if (locations.length === 0) return null;
   return <TrailLocationMap locations={locations} region={region} />;
 }

@@ -25,12 +25,19 @@ export function computeHeatmapBounds(
   locations: readonly LatLng[],
   padding: number = DEFAULT_PADDING,
 ): MapBounds | undefined {
-  if (locations.length === 0) return undefined;
+  // Drop any NaN / ±Infinity coordinates upfront — bad geocoding output
+  // (rare but possible) would otherwise propagate through sort + min/max
+  // and produce a `NaN` bounding box, which Google Maps then refuses to
+  // fit to. Filter first, then short-circuit if nothing usable remains.
+  const finite = locations.filter(
+    (l) => Number.isFinite(l.lat) && Number.isFinite(l.lng),
+  );
+  if (finite.length === 0) return undefined;
 
-  let pts: readonly LatLng[] = locations;
-  if (locations.length >= IQR_MIN_SAMPLES) {
-    const lats = locations.map((l) => l.lat).sort((a, b) => a - b);
-    const lngs = locations.map((l) => l.lng).sort((a, b) => a - b);
+  let pts: readonly LatLng[] = finite;
+  if (finite.length >= IQR_MIN_SAMPLES) {
+    const lats = finite.map((l) => l.lat).sort((a, b) => a - b);
+    const lngs = finite.map((l) => l.lng).sort((a, b) => a - b);
     const q1 = (arr: number[]) => arr[Math.floor(arr.length * 0.25)];
     const q3 = (arr: number[]) => arr[Math.floor(arr.length * 0.75)];
 
@@ -41,7 +48,7 @@ export function computeHeatmapBounds(
     const latIqr = latQ3 - latQ1;
     const lngIqr = lngQ3 - lngQ1;
 
-    const inliers = locations.filter(
+    const inliers = finite.filter(
       (l) =>
         l.lat >= latQ1 - IQR_FENCE * latIqr &&
         l.lat <= latQ3 + IQR_FENCE * latIqr &&

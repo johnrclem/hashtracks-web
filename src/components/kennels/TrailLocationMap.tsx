@@ -102,7 +102,7 @@ const ATTACH_FALLBACK_MS = 800;
 /** Cadence at which we re-check `map.getProjection()` while polling. */
 const ATTACH_POLL_MS = 150;
 
-interface TrailLocation {
+export interface TrailLocation {
   lat: number;
   lng: number;
 }
@@ -225,7 +225,11 @@ function ResetViewControl({ bounds }: Readonly<{ bounds: MapBounds }>) {
 interface HeatmapHeaderProps {
   regionColor: string;
   locationLabel: string;
-  /** Title element — `h3` for the card, `DialogTitle` for the fullscreen dialog. */
+  /**
+   * Title element — defaults to `span` so the header is valid phrasing
+   * content inside the card's `<button>` trigger. The dialog passes
+   * `DialogTitle` (Radix handles the heading semantics there).
+   */
   TitleAs?: ElementType;
   /** Tailwind tone class for the title (e.g. `"text-foreground/70"`). */
   titleToneClass?: string;
@@ -243,7 +247,7 @@ interface HeatmapHeaderProps {
 function HeatmapHeader({
   regionColor,
   locationLabel,
-  TitleAs = "h3",
+  TitleAs = "span",
   titleToneClass = "text-foreground/70",
   accentClass = "w-[3px]",
   adornment,
@@ -376,8 +380,9 @@ export function TrailLocationMap({ locations, region }: TrailLocationMapProps) {
           </button>
         </DialogTrigger>
         <DialogContent
+          aria-describedby={undefined}
           showCloseButton={false}
-          className="grid h-[100dvh] max-h-[100dvh] w-screen max-w-[100vw] translate-x-[-50%] translate-y-[-50%] grid-rows-[auto_1fr] gap-0 rounded-none border-0 bg-background p-0 sm:max-w-[100vw]"
+          className="grid h-[100dvh] max-h-[100dvh] w-screen max-w-[100vw] translate-x-[-50%] translate-y-[-50%] grid-rows-[auto_1fr] gap-0 rounded-none border-0 bg-background p-0"
         >
           <div className="border-b border-border/60 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
             <HeatmapHeader
@@ -390,7 +395,7 @@ export function TrailLocationMap({ locations, region }: TrailLocationMapProps) {
                 <button
                   type="button"
                   onClick={() => setFullscreenOpen(false)}
-                  className="ring-offset-background focus:ring-ring inline-flex h-12 w-12 items-center justify-center text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground focus:ring-2 focus:ring-offset-2 focus:outline-none"
+                  className="ring-offset-background focus-visible:ring-ring inline-flex h-12 w-12 items-center justify-center text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
                   aria-label="Close fullscreen"
                 >
                   <X className="h-4 w-4" />

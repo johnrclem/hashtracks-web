@@ -57,4 +57,28 @@ describe("computeHeatmapBounds", () => {
     const bounds = computeHeatmapBounds([{ lat: 0, lng: 0 }], 0.5)!;
     expect(bounds.north - bounds.south).toBeCloseTo(1.0, 5);
   });
+
+  it("filters NaN / ±Infinity coordinates before computing bounds", () => {
+    const bounds = computeHeatmapBounds([
+      { lat: 40, lng: -74 },
+      { lat: NaN, lng: -74 },
+      { lat: 40, lng: Infinity },
+      { lat: -Infinity, lng: 0 },
+      { lat: 40.1, lng: -74.1 },
+    ])!;
+    expect(Number.isFinite(bounds.north)).toBe(true);
+    expect(Number.isFinite(bounds.south)).toBe(true);
+    expect(Number.isFinite(bounds.east)).toBe(true);
+    expect(Number.isFinite(bounds.west)).toBe(true);
+    expect(bounds.north).toBeCloseTo(40.1 + 0.015, 5);
+  });
+
+  it("returns undefined when every coordinate is non-finite", () => {
+    expect(
+      computeHeatmapBounds([
+        { lat: NaN, lng: NaN },
+        { lat: Infinity, lng: -Infinity },
+      ]),
+    ).toBeUndefined();
+  });
 });
