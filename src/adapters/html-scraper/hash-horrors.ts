@@ -86,6 +86,21 @@ function stripWrappingAsterisks(value: string): string {
   return s.trimEnd();
 }
 
+/** Match either head shape ("Month D" then "D Month") against `body` and
+ *  return the parts plus the body suffix to keep parsing. Extracted from
+ *  `parseHashHorrorsRunLine` to keep that function under Sonar S3776. */
+function matchHead(
+  body: string,
+): { monthStr: string; dayStr: string; afterHead: string } | null {
+  const md = MONTH_DAY_HEAD.exec(body);
+  if (md) {
+    return { monthStr: md[1], dayStr: md[2], afterHead: body.slice(md[0].length) };
+  }
+  const dm = DAY_MONTH_HEAD.exec(body);
+  if (!dm) return null;
+  return { monthStr: dm[2], dayStr: dm[1], afterHead: body.slice(dm[0].length) };
+}
+
 /** Consume any optional ordinal/year/whitespace/parenthetical theme prefix
  *  from `remainder`, returning what's left plus an extracted theme (if any). */
 function stripDecorations(remainder: string): { rest: string; theme: string | undefined } {
@@ -110,25 +125,12 @@ export function parseHashHorrorsRunLine(line: string): ParsedRunLine | null {
   const body = cleaned.slice(prefix[0].length);
 
   // Try "Month D" first (post-2019 format), fall back to "D Month" used by
-  // the 2018-2019 hareline rewrite. Whichever head matches gives us month +
-  // day; remaining decorations (ordinal/year/paren-theme) and the tail get
+  // the 2018-2019 hareline rewrite. `matchHead` returns the body suffix; the
+  // remaining decorations (ordinal/year/paren-theme) and the tail get
   // stripped procedurally below so the regex pieces stay linear (Sonar S5852).
-  let monthStr: string;
-  let dayStr: string;
-  let afterHead: string;
-  const md = MONTH_DAY_HEAD.exec(body);
-  if (md) {
-    monthStr = md[1];
-    dayStr = md[2];
-    afterHead = body.slice(md[0].length);
-  } else {
-    const dm = DAY_MONTH_HEAD.exec(body);
-    if (!dm) return null;
-    dayStr = dm[1];
-    monthStr = dm[2];
-    afterHead = body.slice(dm[0].length);
-  }
-
+  const head = matchHead(body);
+  if (!head) return null;
+  const { monthStr, dayStr, afterHead } = head;
   const monthIdx = MONTHS[monthStr.toLowerCase()];
   if (!monthIdx) return null;
   const day = Number.parseInt(dayStr, 10);
