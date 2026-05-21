@@ -234,7 +234,6 @@ describe("parseNextRunPanel (GCH3 Next Run widget)", () => {
   </body></html>`;
 
   it("extracts run / date / hare / location from the labeled panel", () => {
-    // eslint-disable-next-line -- security/detect-non-literal-html-method (Codacy ESLint plugin not loaded locally); fixture HTML is a hard-coded test string, not user input
     const $ = cheerio.load(nextRunHtml);
     const row = parseNextRunPanel($);
     expect(row).not.toBeNull();
@@ -245,7 +244,6 @@ describe("parseNextRunPanel (GCH3 Next Run widget)", () => {
   });
 
   it("returns null when the panel is absent", () => {
-    // eslint-disable-next-line -- security/detect-non-literal-html-method (Codacy ESLint plugin not loaded locally); fixture HTML is a hard-coded test string, not user input
     const $ = cheerio.load("<div><p>Welcome to GCH3.</p></div>");
     expect(parseNextRunPanel($)).toBeNull();
   });
@@ -308,7 +306,6 @@ describe("MiteriHarelineAdapter.fetch (GCH3-style page)", () => {
         </div>
       </div>
     </body></html>`;
-    // eslint-disable-next-line -- security/detect-non-literal-html-method (Codacy ESLint plugin not loaded locally); fixture HTML is a hard-coded test string, not user input
     mockFetch(html);
 
     const adapter = new MiteriHarelineAdapter();

@@ -2,5 +2,15 @@
 # once applied — we cannot edit existing files without breaking deploys.
 # Codacy's SQL checks (e.g. `SET QUOTED_IDENTIFIER ON`) are SQL Server / T-SQL
 # conventions that don't apply to PostgreSQL, so they're false positives here.
+#
+# Test files feed hand-crafted HTML fixtures to `cheerio.load()` / `mockFetch()`
+# as their primary purpose. Codacy's security/detect-non-literal-html-method
+# flags every such call as a potential XSS sink even though the input is a
+# const literal under our control. Per-line suppressions trip SonarCloud's
+# S7724 "Specify the rules you want to disable" (we can't name an unknown
+# rule without breaking local ESLint). Excluding tests entirely is the
+# cleaner trade-off — production code is still fully covered.
 exclude_paths:
   - "prisma/migrations/**"
+  - "**/*.test.ts"
+  - "**/*.test.tsx"
