@@ -25,6 +25,12 @@ export function computeHeatmapBounds(
   locations: readonly LatLng[],
   padding: number = DEFAULT_PADDING,
 ): MapBounds | undefined {
+  // Sanitize `padding` — it's a public parameter, and negative or non-finite
+  // values would produce inverted (`south > north`) or `NaN` bounds that
+  // Google Maps refuses to fit. Fall back to `DEFAULT_PADDING` for both.
+  const safePadding =
+    Number.isFinite(padding) && padding >= 0 ? padding : DEFAULT_PADDING;
+
   // Drop any NaN / ±Infinity coordinates upfront — bad geocoding output
   // (rare but possible) would otherwise propagate through sort + min/max
   // and produce a `NaN` bounding box, which Google Maps then refuses to
@@ -69,9 +75,9 @@ export function computeHeatmapBounds(
     if (loc.lng > east) east = loc.lng;
   }
   return {
-    south: south - padding,
-    north: north + padding,
-    west: west - padding,
-    east: east + padding,
+    south: south - safePadding,
+    north: north + safePadding,
+    west: west - safePadding,
+    east: east + safePadding,
   };
 }

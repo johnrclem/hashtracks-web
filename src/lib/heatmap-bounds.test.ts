@@ -81,4 +81,17 @@ describe("computeHeatmapBounds", () => {
       ]),
     ).toBeUndefined();
   });
+
+  it("falls back to default padding when given a negative or non-finite value", () => {
+    const single = { lat: 40, lng: -74 };
+    const expected = {
+      south: 40 - 0.015,
+      north: 40 + 0.015,
+      west: -74 - 0.015,
+      east: -74 + 0.015,
+    };
+    expect(computeHeatmapBounds([single], -1)).toEqual(expected);
+    expect(computeHeatmapBounds([single], Number.NaN)).toEqual(expected);
+    expect(computeHeatmapBounds([single], Infinity)).toEqual(expected);
+  });
 });
