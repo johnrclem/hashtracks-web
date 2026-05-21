@@ -223,7 +223,13 @@ export function formatSchedule(kennel: {
   }
   const parts: string[] = [];
   if (kennel.scheduleDayOfWeek) {
-    parts.push(kennel.scheduleDayOfWeek + "s");
+    // Only pluralize recognized weekday names — guards against free-text
+    // values like "Varies" rendering as "Variess" (#1538). The seed
+    // currently forbids non-weekday values, but `collectKennelWeekdays`
+    // and the day filter would also misbehave if one slipped in, so this
+    // is defense-in-depth.
+    const isWeekday = WEEKDAY_NAMES.includes(kennel.scheduleDayOfWeek as (typeof WEEKDAY_NAMES)[number]);
+    parts.push(isWeekday ? kennel.scheduleDayOfWeek + "s" : kennel.scheduleDayOfWeek);
   }
   if (kennel.scheduleTime) {
     parts.push(parts.length ? `at ${kennel.scheduleTime}` : kennel.scheduleTime);

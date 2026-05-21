@@ -154,6 +154,15 @@ describe("formatSchedule", () => {
       expect(formatSchedule({ scheduleDayOfWeek: day })).toBe(day + "s");
     }
   });
+  it("does not pluralize non-weekday day text (e.g. KLFMH3 'Varies' #1538)", () => {
+    expect(
+      formatSchedule({
+        scheduleDayOfWeek: "Varies",
+        scheduleTime: "6:00 PM",
+        scheduleFrequency: "Monthly",
+      }),
+    ).toBe("Varies at 6:00 PM · Monthly");
+  });
 
   // Multi-cadence path (#1390): scheduleRules overrides the flat fields.
   describe("scheduleRules (multi-cadence path)", () => {
