@@ -4653,7 +4653,11 @@ export const SOURCES = [
     // ── Nevada + Utah (US gap fill) ──
 
     // Las Vegas H3 — Tribe Events Calendar REST API at lvh3.org
-    // Covers LVH3 + ASS H3 via WordPress category routing
+    // Covers LVH3 + ASS H3 via WordPress category routing.
+    // `sharedCalendarCategory: "lvhhh"` marks LVHHH as a co-tag that's also
+    // applied to cross-kennel events (Rat Pack #27, joint Green Mess). The
+    // adapter routes to `lv-h3` only when no other configured kennel pattern
+    // and none of `otherKennelCategories` are present (issue #1479).
     {
       name: "Las Vegas H3 Events",
       url: "https://lvh3.org",
@@ -4663,7 +4667,9 @@ export const SOURCES = [
       scrapeDays: 180,
       config: {
         kennelPatterns: [["lvhhh", "lv-h3"], ["assh3", "ass-h3"]],
-        defaultKennelTag: "lv-h3",
+        sharedCalendarCategory: "lvhhh",
+        otherKennelCategories: ["rphhh", "bashhh", "lvrdr"],
+        defaultKennelTag: null,
       },
       kennelCodes: ["lv-h3", "ass-h3"],
     },

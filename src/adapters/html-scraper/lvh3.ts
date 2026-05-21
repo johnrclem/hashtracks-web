@@ -26,15 +26,75 @@ import { fetchTribeEvents, type TribeEvent } from "../tribe-events";
  * uses the REST API at /wp-json/tribe/events/v1/events/ instead.
  */
 
-/** Resolve a kennel tag from event categories using source config patterns. */
+/**
+ * Routing config read from `Source.config` — describes how to map Tribe
+ * category slugs to HashTracks kennel tags. Shared between the recurring
+ * adapter and `scripts/backfill-lvh3-history.ts` so both honor the same
+ * "most-specific-wins" rule (issue #1479).
+ */
+export interface Lvh3RoutingConfig {
+  baseUrl: string;
+  kennelPatterns: [string, string][];
+  sharedCalendarCategory: string | undefined;
+  otherKennelCategories: string[];
+}
+
+/**
+ * Read the LVH3 routing config from a seeded Source row. Centralizes the
+ * `Source.config` key shape so adding a new routing knob only requires
+ * updating this helper + the seed entry.
+ */
+export function readLvh3RoutingConfig(source: Source): Lvh3RoutingConfig {
+  const config = (source.config ?? {}) as Record<string, unknown>;
+  return {
+    baseUrl: source.url || "https://lvh3.org",
+    kennelPatterns: (config.kennelPatterns as [string, string][] | undefined) ?? [],
+    sharedCalendarCategory: config.sharedCalendarCategory as string | undefined,
+    otherKennelCategories:
+      (config.otherKennelCategories as string[] | undefined) ?? [],
+  };
+}
+
+/**
+ * Resolve a kennel tag from event categories using source config patterns.
+ *
+ * lvh3.org's calendar is shared across multiple kennels and uses `LVHHH` as
+ * a co-tag on cross-kennel events (e.g. Rat Pack #27 is tagged both `LVHHH`
+ * and `RPHHH`). To stop those events from being misfiled under Las Vegas H3
+ * (issue #1479), the resolver implements "most-specific-wins":
+ *
+ *   1. If any non-shared kennel pattern matches, route to that kennel.
+ *   2. Otherwise, if the shared category (`sharedCalendarCategory`) matches
+ *      AND no `otherKennelCategories` (kennels we don't ingest yet —
+ *      RPHHH, BASHHH, LVRDR) are present, route to the shared kennel.
+ *   3. Otherwise return `defaultTag` (typically `null` → skip).
+ *
+ * Set `sharedCalendarCategory: undefined` for sources where every kennel
+ * category is equally specific (legacy first-match-wins behavior).
+ */
 export function resolveKennelTag(
   categories: string[],
   kennelPatterns: [string, string][],
   defaultTag: string | null,
+  options?: { sharedCalendarCategory?: string; otherKennelCategories?: string[] },
 ): string | null {
-  const lowerCats = categories.map((c) => c.toLowerCase());
+  const lowerCats = new Set(categories.map((c) => c.toLowerCase()));
+  const shared = options?.sharedCalendarCategory?.toLowerCase();
+  const otherKennels = (options?.otherKennelCategories ?? []).map((s) => s.toLowerCase());
+
+  let sharedTag: string | null = null;
   for (const [slug, tag] of kennelPatterns) {
-    if (lowerCats.includes(slug.toLowerCase())) return tag;
+    const lowerSlug = slug.toLowerCase();
+    if (!lowerCats.has(lowerSlug)) continue;
+    if (shared && lowerSlug === shared) {
+      sharedTag = tag;
+      continue;
+    }
+    return tag;
+  }
+  if (sharedTag !== null) {
+    const hasOtherKennel = otherKennels.some((s) => lowerCats.has(s));
+    if (!hasOtherKennel) return sharedTag;
   }
   return defaultTag;
 }
@@ -131,9 +191,8 @@ export class LVH3Adapter implements SourceAdapter {
     source: Source,
     options?: { days?: number },
   ): Promise<ScrapeResult> {
-    const baseUrl = source.url || "https://lvh3.org";
-    const config = (source.config ?? {}) as Record<string, unknown>;
-    const kennelPatterns = (config.kennelPatterns as [string, string][] | undefined) ?? [];
+    const { baseUrl, kennelPatterns, sharedCalendarCategory, otherKennelCategories } =
+      readLvh3RoutingConfig(source);
 
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
@@ -158,7 +217,13 @@ export class LVH3Adapter implements SourceAdapter {
       // Skip events whose categories don't match any configured kennel —
       // lvh3.org also hosts RPHHH (Rat Pack) and BASHHH (specials) which
       // are not seeded. Defaulting would misfile them under Las Vegas H3.
-      const kennelTag = resolveKennelTag(e.categorySlugs, kennelPatterns, null);
+      // LVHHH is co-tagged on cross-kennel events (Rat Pack #27, joint Green
+      // Mess), so `sharedCalendarCategory` + `otherKennelCategories` make
+      // routing "most-specific-wins" — see resolveKennelTag's docstring.
+      const kennelTag = resolveKennelTag(e.categorySlugs, kennelPatterns, null, {
+        sharedCalendarCategory,
+        otherKennelCategories,
+      });
       if (!kennelTag) {
         categorySkipped++;
         continue;

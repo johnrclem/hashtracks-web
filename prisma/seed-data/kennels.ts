@@ -3802,9 +3802,20 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "lv-h3", shortName: "Las Vegas H3", fullName: "Las Vegas Hash House Harriers",
       region: "Las Vegas, NV",
       website: "https://lvh3.org",
+      logoUrl: "/kennel-logos/lvh3.jpg",
+      // The kennel describes itself as "running since the 1990s" without a
+      // precise year. 1990 is the earliest year that copy supports — picking
+      // it over leaving the column null avoids the misleading "1 YEAR ACTIVE"
+      // UI stat (issue #1481). Revise if a more precise founding is found.
+      foundedYear: 1990,
+      hashCash: "$5",
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly",
-      scheduleNotes: "1st, 3rd, and 5th Saturdays.",
-      description: "Las Vegas's main hash kennel, running since the 1990s. Part of the lvh3.org hub covering multiple LV kennels.",
+      // Start time alternates seasonally: summer-half (Onniversary→RDR, ~Apr–Oct)
+      // is 5:00 PM show / 5:30 PM go; winter-half (RDR→Onniversary, ~Oct–Apr)
+      // is 3:00 PM show / 3:30 PM go. Leave scheduleTime unset to avoid asserting
+      // one value year-round.
+      scheduleNotes: "1st, 3rd, and 5th Saturdays. Start times shift seasonally: 5:00 PM in summer, 3:00 PM in winter.",
+      description: "Las Vegas's main hash kennel, running since the 1990s. Biweekly trails through Vegas-area desert and shiggy.",
       latitude: 36.17, longitude: -115.14,
     },
     {

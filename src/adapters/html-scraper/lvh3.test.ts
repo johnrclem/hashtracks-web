@@ -34,6 +34,45 @@ describe("resolveKennelTag", () => {
   it("falls back to string default when provided", () => {
     expect(resolveKennelTag(["RPHHH"], patterns, "lv-h3")).toBe("lv-h3");
   });
+
+  // ── Most-specific-wins routing (#1479) ────────────────────────────────────
+  describe("with sharedCalendarCategory + otherKennelCategories", () => {
+    const opts = {
+      sharedCalendarCategory: "lvhhh",
+      otherKennelCategories: ["rphhh", "bashhh", "lvrdr"],
+    };
+
+    it("routes Rat Pack #27 (LVHHH + RPHHH co-tagged) to null — not lv-h3", () => {
+      // The exact bug from #1479: API returns ["LVHHH","RPHHH","Trails"];
+      // RPHHH isn't in patterns but is listed in otherKennelCategories, so
+      // the LVHHH fallback is suppressed and the event is skipped.
+      expect(resolveKennelTag(["LVHHH", "RPHHH", "Trails"], patterns, null, opts)).toBeNull();
+    });
+
+    it("routes lone-LVHHH events to lv-h3 (typical Trail #NNNN)", () => {
+      expect(resolveKennelTag(["LVHHH", "Trails"], patterns, null, opts)).toBe("lv-h3");
+    });
+
+    it("routes ASSH3-only events to ass-h3", () => {
+      expect(resolveKennelTag(["ASSH3", "Trails"], patterns, null, opts)).toBe("ass-h3");
+    });
+
+    it("prefers a specific kennel pattern over the shared category (ASSH3 + LVHHH joint)", () => {
+      // True joint Green Mess events carry both ASSH3 and LVHHH — ass-h3
+      // is the more specific match and wins regardless of pattern order.
+      expect(resolveKennelTag(["ASSH3", "LVHHH", "Trails"], patterns, null, opts)).toBe("ass-h3");
+    });
+
+    it("suppresses lv-h3 fallback when BASHHH (other-kennel) is co-tagged", () => {
+      // BASHHH isn't ingested as a separate kennel yet, but flagging it as
+      // an "other kennel category" prevents misfiling under lv-h3.
+      expect(resolveKennelTag(["BASHHH", "LVHHH", "Trails"], patterns, null, opts)).toBeNull();
+    });
+
+    it("returns null when categories are empty (no LVHHH co-tag)", () => {
+      expect(resolveKennelTag([], patterns, null, opts)).toBeNull();
+    });
+  });
 });
 
 describe("extractLvRunNumber", () => {
