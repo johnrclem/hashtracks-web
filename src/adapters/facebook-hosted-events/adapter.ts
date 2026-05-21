@@ -24,7 +24,7 @@ import { validateSourceConfig, applyDateWindow } from "../utils";
 import { safeFetch } from "../safe-fetch";
 import { isValidTimezone } from "@/lib/timezone";
 import {
-  parseFacebookHostedEvents,
+  parseFacebookHostedEventsWithStats,
   parseFacebookEventDetail,
   extractFieldsFromFbDescription,
 } from "./parser";
@@ -141,10 +141,19 @@ export class FacebookHostedEventsAdapter implements SourceAdapter {
     // shape drift (returns [] rather than throwing) so a 0-event result
     // here means EITHER the page genuinely has no upcoming events OR FB's
     // SSR shape changed.
-    const allEvents = parseFacebookHostedEvents(html, {
+    const parseResult = parseFacebookHostedEventsWithStats(html, {
       kennelTag: config.kennelTag,
       timezone: config.timezone,
     });
+    const allEvents = parseResult.events;
+    const filteredCounts = parseResult.filtered;
+    // Only `admin-notice` and `placeholder` reflect content-quality drops
+    // ("this Page admin posts non-trails on the events feed"). The other
+    // reject reasons (missing-half, no-title, invalid-time, cancelled)
+    // reflect shape drift or normal cancellations and must NOT raise the
+    // coverage-gap signal — those would create false alerts on Pages with
+    // legitimate cancelled events or partial graph payloads (Codex P1).
+    const contentFilteredTotal = filteredCounts["admin-notice"] + filteredCounts.placeholder;
 
     // Shape-break heuristic: 0 parsed events AND none of FB's SSR envelope
     // markers present → the GraphQL shape rotated. If at least one marker
@@ -157,6 +166,25 @@ export class FacebookHostedEventsAdapter implements SourceAdapter {
     if (allEvents.length === 0 && !hasEnvelopeMarker) {
       errors.push(
         `FB hosted_events page returned ${html.length} chars but parser found 0 events and the SSR envelope markers are absent — likely a GraphQL shape change. Refresh the parser fixture and re-test.`,
+      );
+    }
+
+    // Coverage-gap signal (#1496, #1499): SSR envelope intact AND at least
+    // one event candidate was content-filtered (admin notices, placeholder
+    // rows) and zero real events made it through. This is distinct from
+    // "Page genuinely has nothing scheduled" and worth surfacing so an
+    // operator can re-evaluate the FB source vs. switching to MEETUP /
+    // website / static schedule. EVENT_COUNT_ANOMALY only fires once a
+    // baseline accrues — this signal fires on first scrape too. Routed
+    // via the standard `errors[]` channel so the existing SCRAPE_FAILURE /
+    // health pipeline can pick it up.
+    if (allEvents.length === 0 && hasEnvelopeMarker && contentFilteredTotal > 0) {
+      const reasonSummary = (["admin-notice", "placeholder"] as const)
+        .filter((reason) => filteredCounts[reason] > 0)
+        .map((reason) => `${reason}=${filteredCounts[reason]}`)
+        .join(", ");
+      errors.push(
+        `FB hosted_events page returned ${contentFilteredTotal} candidate events but all were content-filtered (${reasonSummary}). Source likely does not use FB Hosted Events for runs — consider replacing with a website / Meetup source.`,
       );
     }
 
@@ -173,6 +201,7 @@ export class FacebookHostedEventsAdapter implements SourceAdapter {
           timezone: config.timezone,
           windowDays: days,
           htmlBytes: html.length,
+          parserFiltered: filteredCounts,
         },
       },
       days,

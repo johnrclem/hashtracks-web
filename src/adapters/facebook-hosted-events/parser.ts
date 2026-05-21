@@ -26,7 +26,7 @@
 
 import type { RawEventData } from "../types";
 import { formatYmdInTimezone, formatTimeInZone, isValidTimezone } from "@/lib/timezone";
-import { FB_EVENT_ID_RE } from "./constants";
+import { FB_EVENT_ID_RE, isAdminNoticeTitle, isPlaceholderTitle } from "./constants";
 import { extractHashRunNumber, hasPlaceholderRunNumber } from "../utils";
 import { extractHares } from "../hare-extraction";
 
@@ -43,6 +43,42 @@ export interface ParseFacebookOptions {
 }
 
 /**
+ * Reasons `bagToRawEvent` may drop a candidate. Surfaced via
+ * `parseFacebookHostedEventsWithStats` so the adapter can tell "FB Page
+ * returned zero usable events because they were all placeholders/admin
+ * notices" apart from "FB Page genuinely has nothing scheduled" — the
+ * former is signal-worthy (per-source-config drift), the latter is normal.
+ */
+export type FbBagRejectReason =
+  | "missing-half"
+  | "cancelled"
+  | "no-title"
+  | "invalid-time"
+  | "admin-notice"
+  | "placeholder";
+
+export interface ParseFacebookResult {
+  events: RawEventData[];
+  /**
+   * Per-reason counts of bags rejected during projection. Zero values
+   * preserved so callers can JSON-serialize the entire shape into
+   * diagnosticContext without branching on undefined keys.
+   */
+  filtered: Record<FbBagRejectReason, number>;
+}
+
+function emptyFilteredCounts(): Record<FbBagRejectReason, number> {
+  return {
+    "missing-half": 0,
+    cancelled: 0,
+    "no-title": 0,
+    "invalid-time": 0,
+    "admin-notice": 0,
+    placeholder: 0,
+  };
+}
+
+/**
  * Parse Facebook hosted_events HTML into RawEventData[].
  *
  * Returns `[]` when no script tags contain Event payloads; never throws
@@ -54,6 +90,20 @@ export function parseFacebookHostedEvents(
   html: string,
   options: ParseFacebookOptions,
 ): RawEventData[] {
+  return parseFacebookHostedEventsWithStats(html, options).events;
+}
+
+/**
+ * Same as `parseFacebookHostedEvents`, but also returns per-reason
+ * rejection counts (#1497, #1500). The adapter consumes this to surface
+ * a `source-coverage-gap` signal when every parsed candidate was filtered
+ * for content reasons (admin-notice / placeholder) rather than when the
+ * Page genuinely had nothing on the listing tab.
+ */
+export function parseFacebookHostedEventsWithStats(
+  html: string,
+  options: ParseFacebookOptions,
+): ParseFacebookResult {
   const tz = options.timezone && isValidTimezone(options.timezone) ? options.timezone : "UTC";
 
   // Collect both halves of each event by id across all JSON islands.
@@ -64,12 +114,17 @@ export function parseFacebookHostedEvents(
     walkAndCollect(parsed, byId);
   }
 
-  const results: RawEventData[] = [];
+  const events: RawEventData[] = [];
+  const filtered = emptyFilteredCounts();
   for (const bag of byId.values()) {
-    const evt = bagToRawEvent(bag, options.kennelTag, tz);
-    if (evt) results.push(evt);
+    const outcome = projectBag(bag, options.kennelTag, tz);
+    if (outcome.kind === "event") {
+      events.push(outcome.event);
+    } else {
+      filtered[outcome.reason] += 1;
+    }
   }
-  return results;
+  return { events, filtered };
 }
 
 interface EventBag {
@@ -379,33 +434,61 @@ export function facebookEventToRawEvent(
   );
 }
 
-function bagToRawEvent(bag: EventBag, kennelTag: string, timezone: string): RawEventData | null {
-  if (!bag.time || !bag.rich) return null;
-  if (bag.rich.is_canceled === true) return null;
+type BagOutcome =
+  | { kind: "event"; event: RawEventData }
+  | { kind: "rejected"; reason: FbBagRejectReason };
+
+function projectBag(bag: EventBag, kennelTag: string, timezone: string): BagOutcome {
+  if (!bag.time || !bag.rich) return { kind: "rejected", reason: "missing-half" };
+  if (bag.rich.is_canceled === true) return { kind: "rejected", reason: "cancelled" };
   const title = bag.rich.name?.trim() || undefined;
-  if (!title) return null;
+  if (!title) return { kind: "rejected", reason: "no-title" };
   const ms = bag.time.start_timestamp * 1000;
   const instant = new Date(ms);
-  if (Number.isNaN(instant.getTime())) return null;
+  if (Number.isNaN(instant.getTime())) return { kind: "rejected", reason: "invalid-time" };
 
-  const date = formatYmdInTimezone(instant, timezone);
-  const startTime = formatTimeInZone(instant, timezone, "HH:mm");
+  // Admin-notice filter (#1500): titles like "Moving to a new website" are
+  // Page-admin announcements, not trails. Drop unconditionally — no field
+  // combo can rehabilitate a notice into a real run.
+  if (isAdminNoticeTitle(title)) return { kind: "rejected", reason: "admin-notice" };
+
   const location = bag.rich.event_place?.contextual_name?.trim() || undefined;
   const lat = bag.rich.event_place?.location?.latitude;
   const lng = bag.rich.event_place?.location?.longitude;
+  const parsedRunNumber = extractHashRunNumber(title);
+  const placeholderRun = parsedRunNumber === undefined && hasPlaceholderRunNumber(title);
+
+  // Placeholder-event filter (#1497): single-word titles like "Test" with
+  // no run number AND no location AND no parseable run marker. Hares come
+  // from the detail-page enrichment step which the parser doesn't run, so
+  // we deliberately don't require their absence — a real test event would
+  // not have hares either.
+  if (
+    isPlaceholderTitle(title) &&
+    parsedRunNumber === undefined &&
+    !placeholderRun &&
+    !location
+  ) {
+    return { kind: "rejected", reason: "placeholder" };
+  }
+
+  const date = formatYmdInTimezone(instant, timezone);
+  const startTime = formatTimeInZone(instant, timezone, "HH:mm");
 
   const event: RawEventData = {
     date,
     kennelTags: [kennelTag],
+    title,
     startTime,
     sourceUrl: `https://www.facebook.com/events/${bag.id}/`,
     externalLinks: [
       { url: `https://www.facebook.com/events/${bag.id}/`, label: "Facebook event" },
     ],
   };
-  if (title !== undefined) event.title = title;
   if (location !== undefined) event.location = location;
-  if (typeof lat === "number" && typeof lng === "number") {
+  // `Number.isFinite` guards `NaN` / `Infinity` that a schema-drift node
+  // could ship — `typeof NaN === "number"` is true.
+  if (Number.isFinite(lat) && Number.isFinite(lng)) {
     event.latitude = lat;
     event.longitude = lng;
   }
@@ -413,16 +496,18 @@ function bagToRawEvent(bag: EventBag, kennelTag: string, timezone: string): RawE
   // Placeholder titles ("H6#28?") emit `runNumber: null` so the merge
   // pipeline's tri-state clears any stale value from a prior non-placeholder
   // scrape — see the `runNumber?: number | null` contract on RawEventData.
-  if (title) {
-    const parsed = extractHashRunNumber(title);
-    if (typeof parsed === "number") {
-      event.runNumber = parsed;
-    } else if (hasPlaceholderRunNumber(title)) {
-      event.runNumber = null;
-    }
+  if (typeof parsedRunNumber === "number") {
+    event.runNumber = parsedRunNumber;
+  } else if (placeholderRun) {
+    event.runNumber = null;
   }
-  // Cancelled events are filtered above (return null when is_canceled).
-  return event;
+  return { kind: "event", event };
+}
+
+/** Back-compat shim for the existing `facebookEventToRawEvent` external API. */
+function bagToRawEvent(bag: EventBag, kennelTag: string, timezone: string): RawEventData | null {
+  const outcome = projectBag(bag, kennelTag, timezone);
+  return outcome.kind === "event" ? outcome.event : null;
 }
 
 /**
@@ -482,7 +567,7 @@ export function extractFieldsFromFbDescription(description: string): FacebookDes
 
   const haresRaw = extractHares(trimmed);
   if (haresRaw) {
-    const cleaned = stripLeadingDecoration(haresRaw).trim();
+    const cleaned = stripNextRunTrailer(stripLeadingDecoration(haresRaw).trim()).trim();
     if (cleaned.length > 0) out.hares = cleaned;
   }
 
@@ -496,6 +581,41 @@ export function extractFieldsFromFbDescription(description: string): FacebookDes
   }
 
   return out;
+}
+
+/**
+ * Truncate a hare-names string at the first next-run announcement teaser.
+ *
+ * Some Page admins format the Hare line as
+ *   `Hare: Comfort and Tight Lips on Saturday, March 14`
+ * where `on Saturday, March 14` is the NEXT trail's date, not part of the
+ * attribution (#1498). Two-stage match keeps the regex provably linear
+ * (Sonar S5852 safe) AND guards against false positives on hare names
+ * that happen to contain ` on <weekday>` followed by non-date prose
+ * ("Born on Saturday Night" → don't truncate to "Born", Codex P2):
+ *
+ *   Stage 1: a flat regex locates the candidate ` on <weekday>` token.
+ *   Stage 2: a procedural check confirms the suffix is empty OR begins
+ *            with `, <date>` (month name or digit), which is the only
+ *            real-world shape of a next-run trailer.
+ */
+// Each `\s+` is sandwiched between literal anchors (` on `, weekday prefix)
+// and `[a-z]*\b` is bounded by a word boundary — no nested quantifiers, no
+// catastrophic backtracking risk. Input is a single hare-line ≤200 chars.
+const HARE_TRAILER_WEEKDAY_RE = /\s+on\s+(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*\b/i; // NOSONAR — flat regex, single quantifier per position, input ≤200 chars
+// `^`-anchored, single `\s*` per position. Each alternative is a literal
+// month prefix or single digit; `the\s+\d` is anchored to a literal digit.
+const HARE_TRAILER_DATE_SUFFIX_RE =
+  /^\s*,\s*(?:\d|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|the\s+\d)/i; // NOSONAR — anchored, literal alternation, input ≤200 chars
+const HARE_TRAILER_PUNCT_TAIL_RE = /[\s,;:]+$/; // NOSONAR — single char class + `$` anchor
+function stripNextRunTrailer(value: string): string {
+  const m = HARE_TRAILER_WEEKDAY_RE.exec(value);
+  if (!m) return value;
+  const suffix = value.slice(m.index + m[0].length);
+  // Empty suffix (end-of-string) OR ", <date>" — anything else is prose,
+  // not a trailer. Leave the original untouched in the prose case.
+  if (suffix.length > 0 && !HARE_TRAILER_DATE_SUFFIX_RE.test(suffix)) return value;
+  return value.slice(0, m.index).replace(HARE_TRAILER_PUNCT_TAIL_RE, "");
 }
 
 function stripLeadingDecoration(value: string): string {

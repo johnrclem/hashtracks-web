@@ -5095,6 +5095,9 @@ export const SOURCES = [
       name: "Narwhal H3 Facebook Hosted Events",
       url: "https://www.facebook.com/HashNarwhal/upcoming_hosted_events",
       type: "FACEBOOK_HOSTED_EVENTS" as const,
+      // FB Page shows "No events to show" and an admin post announcing
+      // departure from Meetup. Kennel does not use FB Hosted Events. (#1500)
+      enabled: false,
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 90,
@@ -5126,6 +5129,10 @@ export const SOURCES = [
       name: "RH3 Columbus Facebook Hosted Events",
       url: "https://www.facebook.com/rh3columbus/upcoming_hosted_events",
       type: "FACEBOOK_HOSTED_EVENTS" as const,
+      // FB Page shows "No events to show". Kennel does not use FB Hosted
+      // Events; their canonical site is renegadeh3.com — follow-up to
+      // onboard an HTML_SCRAPER source for it. (#1499)
+      enabled: false,
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 90,
@@ -5156,6 +5163,10 @@ export const SOURCES = [
       name: "Sir Walters H3 Facebook Hosted Events",
       url: "https://www.facebook.com/sirwaltersh3/upcoming_hosted_events",
       type: "FACEBOOK_HOSTED_EVENTS" as const,
+      // FB Page shows "No events to show". SWH3 announces runs via posts on
+      // their WordPress blog (already wired as the swh3.wordpress.com source
+      // above) rather than Hosted Events. (#1496)
+      enabled: false,
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 90,

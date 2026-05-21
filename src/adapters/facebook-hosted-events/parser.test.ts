@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   parseFacebookHostedEvents,
+  parseFacebookHostedEventsWithStats,
   parseFacebookEventDetail,
   facebookEventToRawEvent,
   extractFieldsFromFbDescription,
@@ -196,6 +197,31 @@ describe("parseFacebookHostedEvents — edge cases", () => {
     expect(event.location).toBe("Real Place");
   });
 
+  it("drops NaN / Infinity coordinates (Number.isFinite guard, Gemini review)", () => {
+    // typeof NaN === "number" is true — a typeof guard would let a NaN
+    // coordinate slip through and pollute lat/lng on the canonical Event.
+    const html = `<script type="application/json">{
+      "rich":{"__typename":"Event","id":"123456789012345","name":"Trail #1","event_place":{"contextual_name":"V","location":{"latitude":"not-a-number","longitude":"not-a-number"}}},
+      "time":{"id":"123456789012345","start_timestamp":1778353200}
+    }</script>`;
+    const [event] = parseFacebookHostedEvents(html, { kennelTag: "x" });
+    expect(event.latitude).toBeUndefined();
+    expect(event.longitude).toBeUndefined();
+  });
+
+  it("accepts 0,0 as a real coordinate (Number.isFinite admits zero)", () => {
+    // Equator/prime-meridian intersection — improbable for a hash trail
+    // but the typeof check would already let this through; verifying
+    // Number.isFinite preserves the same behavior.
+    const html = `<script type="application/json">{
+      "rich":{"__typename":"Event","id":"123456789012345","name":"Trail #1","event_place":{"contextual_name":"V","location":{"latitude":0,"longitude":0}}},
+      "time":{"id":"123456789012345","start_timestamp":1778353200}
+    }</script>`;
+    const [event] = parseFacebookHostedEvents(html, { kennelTag: "x" });
+    expect(event.latitude).toBe(0);
+    expect(event.longitude).toBe(0);
+  });
+
   it("merges location lat/lng per axis (one ref has latitude, the other has longitude)", () => {
     const html = `<script type="application/json">{
       "lat":{"__typename":"Event","id":"123456789012345","name":"T","event_place":{"contextual_name":"V","location":{"latitude":33.69}}},
@@ -208,8 +234,9 @@ describe("parseFacebookHostedEvents — edge cases", () => {
   });
 
   it("survives invalid JSON in a script tag without throwing", () => {
+    // Title with run number so the #1497 placeholder filter doesn't fire.
     const html = `<script type="application/json">{ invalid </script><script type="application/json">{
-      "rich":{"__typename":"Event","id":"123456789012345","name":"Test"},
+      "rich":{"__typename":"Event","id":"123456789012345","name":"Trail #1"},
       "time":{"id":"123456789012345","start_timestamp":1778353200}
     }</script>`;
     expect(() => parseFacebookHostedEvents(html, { kennelTag: "any" })).not.toThrow();
@@ -221,8 +248,9 @@ describe("parseFacebookHostedEvents — edge cases", () => {
     // 1778295600 = 2026-05-09 03:00 UTC.
     //   PDT (UTC-7) → 2026-05-08 20:00 (previous day)
     //   JST (UTC+9) → 2026-05-09 12:00 (same day)
+    // Title with run number so the #1497 placeholder filter doesn't fire.
     const html = `<script type="application/json">{
-      "rich":{"__typename":"Event","id":"123456789012345","name":"Test"},
+      "rich":{"__typename":"Event","id":"123456789012345","name":"Trail #1"},
       "time":{"id":"123456789012345","start_timestamp":1778295600}
     }</script>`;
     const laEvents = parseFacebookHostedEvents(html, { kennelTag: "la", timezone: "America/Los_Angeles" });
@@ -536,5 +564,171 @@ describe("extractFieldsFromFbDescription (#1319)", () => {
     const desc = "Location: 📍 123 Main St, Anytown, NY 10001";
     const fields = extractFieldsFromFbDescription(desc);
     expect(fields.locationStreet).toBe("123 Main St, Anytown, NY 10001");
+  });
+
+  // #1498 — SWH3 Run #1781 leaked the next-run announcement after the hare names.
+  it("strips an `on <weekday>` next-run trailer from the hare names (#1498 SWH3)", () => {
+    const desc = "Hare: Comfort and Tight Lips on Saturday, March 14";
+    const fields = extractFieldsFromFbDescription(desc);
+    expect(fields.hares).toBe("Comfort and Tight Lips");
+  });
+
+  it.each([
+    ["Hare: Alice on Sunday, April 5", "Alice"],
+    ["Hare: Alice and Bob on Friday, June 12th", "Alice and Bob"],
+    ["Hare: Big Hare on Wednesday\nLocation: …", "Big Hare"],
+  ])("strips next-run trailer for %p → %p", (desc, expected) => {
+    expect(extractFieldsFromFbDescription(desc).hares).toBe(expected);
+  });
+
+  it("leaves the hare line untouched when no weekday-trailer follows", () => {
+    // Defensive: a hare name like "Ronnie On the Run" contains "on" but no
+    // weekday, so the strip must not fire.
+    const fields = extractFieldsFromFbDescription("Hare: Ronnie On the Run");
+    expect(fields.hares).toBe("Ronnie On the Run");
+  });
+
+  it.each([
+    // Codex P2: 'on <weekday>' followed by prose (not a date) — must NOT
+    // truncate. Without the date-suffix gate, "Born on Saturday Night"
+    // would silently collapse to "Born".
+    ["Hare: Born on Saturday Night", "Born on Saturday Night"],
+    ["Hare: Made on Friday Adventures", "Made on Friday Adventures"],
+    ["Hare: Closed on Sunday Brunch", "Closed on Sunday Brunch"],
+  ])("leaves the hare line untouched for %p (prose, not a date trailer)", (desc, expected) => {
+    expect(extractFieldsFromFbDescription(desc).hares).toBe(expected);
+  });
+});
+
+describe("parseFacebookHostedEvents — quality gate (#1497)", () => {
+  // #1497 — SWH3 ingested a one-word "Test" event with no run number,
+  // no location, no hares.
+  const TEST_EVENT_HTML = `<script type="application/json">{
+    "rich":{"__typename":"Event","id":"123456789012345","name":"Test"},
+    "time":{"id":"123456789012345","start_timestamp":1778353200}
+  }</script>`;
+
+  it("rejects a one-word placeholder title with no run number and no location", () => {
+    const events = parseFacebookHostedEvents(TEST_EVENT_HTML, { kennelTag: "swh3" });
+    expect(events).toEqual([]);
+  });
+
+  it("counts the rejection under the `placeholder` reason in the stats result", () => {
+    const result = parseFacebookHostedEventsWithStats(TEST_EVENT_HTML, { kennelTag: "swh3" });
+    expect(result.events).toEqual([]);
+    expect(result.filtered.placeholder).toBe(1);
+  });
+
+  it.each(["Test", "Testing", "Draft", "Placeholder", "Untitled", "New Event", "SAMPLE"])(
+    "rejects placeholder title %p when no other identifying field is present",
+    (title) => {
+      const html = `<script type="application/json">{
+        "rich":{"__typename":"Event","id":"123456789012345","name":${JSON.stringify(title)}},
+        "time":{"id":"123456789012345","start_timestamp":1778353200}
+      }</script>`;
+      expect(parseFacebookHostedEvents(html, { kennelTag: "swh3" })).toEqual([]);
+    },
+  );
+
+  it("does NOT reject a placeholder-shaped title that has a location", () => {
+    // A real one-off event titled "Test" with a venue name is not a test
+    // artifact and should not be silently dropped — better a noisy hareline
+    // entry than silent corruption of real events.
+    const html = `<script type="application/json">{
+      "rich":{"__typename":"Event","id":"123456789012345","name":"Test","event_place":{"contextual_name":"Some Bar"}},
+      "time":{"id":"123456789012345","start_timestamp":1778353200}
+    }</script>`;
+    const events = parseFacebookHostedEvents(html, { kennelTag: "swh3" });
+    expect(events).toHaveLength(1);
+    expect(events[0].location).toBe("Some Bar");
+  });
+
+  it("does NOT reject a title that contains 'Test' as a substring (e.g. 'Test Trail #186')", () => {
+    const html = `<script type="application/json">{
+      "rich":{"__typename":"Event","id":"123456789012345","name":"Test Trail #186"},
+      "time":{"id":"123456789012345","start_timestamp":1778353200}
+    }</script>`;
+    const events = parseFacebookHostedEvents(html, { kennelTag: "swh3" });
+    expect(events).toHaveLength(1);
+    expect(events[0].title).toBe("Test Trail #186");
+    expect(events[0].runNumber).toBe(186);
+  });
+});
+
+describe("parseFacebookHostedEvents — admin-notice filter (#1500)", () => {
+  // #1500 — Narwhal H3 admin posted "Moving to a new website site - Last day
+  // in Meetup is March 10th" — verbatim title from the issue.
+  it("rejects 'Moving to a new website site - Last day in Meetup …' verbatim (#1500 Narwhal)", () => {
+    const html = `<script type="application/json">{
+      "rich":{"__typename":"Event","id":"123456789012345","name":"Moving to a new website site - Last day in Meetup is March 10th"},
+      "time":{"id":"123456789012345","start_timestamp":1778353200}
+    }</script>`;
+    const result = parseFacebookHostedEventsWithStats(html, { kennelTag: "narwhal-h3" });
+    expect(result.events).toEqual([]);
+    expect(result.filtered["admin-notice"]).toBe(1);
+  });
+
+  it.each([
+    "Moving to a new website",
+    "Moving to a new platform - last day in Meetup",
+    "Farewell trail — wrapping up",
+    "Please use our new website at example.com",
+    "DEPRECATED: see new Page",
+    "Goodbye Hashers",
+    "RIP Hash Cash",
+  ])("rejects admin/meta title %p unconditionally", (title) => {
+    const html = `<script type="application/json">{
+      "rich":{"__typename":"Event","id":"123456789012345","name":${JSON.stringify(title)},"event_place":{"contextual_name":"Real Venue"}},
+      "time":{"id":"123456789012345","start_timestamp":1778353200}
+    }</script>`;
+    // Even with a location present — admin notices are never real runs.
+    expect(parseFacebookHostedEvents(html, { kennelTag: "x" })).toEqual([]);
+  });
+
+  it("does NOT reject a real trail title that contains 'new' or 'website' in passing", () => {
+    const html = `<script type="application/json">{
+      "rich":{"__typename":"Event","id":"123456789012345","name":"New Year's Day Trail — visit our website"},
+      "time":{"id":"123456789012345","start_timestamp":1778353200}
+    }</script>`;
+    const events = parseFacebookHostedEvents(html, { kennelTag: "x" });
+    expect(events).toHaveLength(1);
+  });
+});
+
+describe("parseFacebookHostedEventsWithStats — counts", () => {
+  it("returns zero counts when the page is empty", () => {
+    const result = parseFacebookHostedEventsWithStats("<html></html>", { kennelTag: "x" });
+    expect(result.events).toEqual([]);
+    expect(Object.values(result.filtered).every((n) => n === 0)).toBe(true);
+  });
+
+  it("counts mixed reasons in a single scrape", () => {
+    const html = [
+      // Admin notice
+      `<script type="application/json">{
+        "rich":{"__typename":"Event","id":"100000000000001","name":"Moving to a new website"},
+        "time":{"id":"100000000000001","start_timestamp":1778353200}
+      }</script>`,
+      // Placeholder
+      `<script type="application/json">{
+        "rich":{"__typename":"Event","id":"100000000000002","name":"Test"},
+        "time":{"id":"100000000000002","start_timestamp":1778353200}
+      }</script>`,
+      // Cancelled
+      `<script type="application/json">{
+        "rich":{"__typename":"Event","id":"100000000000003","name":"Real Trail","is_canceled":true},
+        "time":{"id":"100000000000003","start_timestamp":1778353200}
+      }</script>`,
+      // Real event
+      `<script type="application/json">{
+        "rich":{"__typename":"Event","id":"100000000000004","name":"Real Trail #42","event_place":{"contextual_name":"Bar"}},
+        "time":{"id":"100000000000004","start_timestamp":1778353200}
+      }</script>`,
+    ].join("");
+    const result = parseFacebookHostedEventsWithStats(html, { kennelTag: "x" });
+    expect(result.events).toHaveLength(1);
+    expect(result.filtered["admin-notice"]).toBe(1);
+    expect(result.filtered.placeholder).toBe(1);
+    expect(result.filtered.cancelled).toBe(1);
   });
 });
