@@ -32,8 +32,9 @@ import { runBackfillScript } from "./lib/backfill-runner";
 import { fetchTribeEvents } from "@/adapters/tribe-events";
 import {
   buildLvh3RawEvent,
+  compileKennelRouter,
+  LVH3_MAX_EVENTS,
   readLvh3RoutingConfig,
-  resolveKennelTag,
 } from "@/adapters/html-scraper/lvh3";
 import type { RawEventData } from "@/adapters/types";
 
@@ -48,19 +49,38 @@ async function fetchEvents(): Promise<RawEventData[]> {
   // drift the moment seed changes (e.g. adding RPHHH ingest) and either
   // re-misfile historical co-tagged events or leave gaps that the recurring
   // scrape silently fills.
-  const source = await prisma.source.findFirst({ where: { name: SOURCE_NAME } });
-  if (!source) {
+  //
+  // findMany + length check mirrors the runner's own guard (`backfill-runner`
+  // throws on multi-match too): silently picking one row when the seed has
+  // duplicate names would be a worse outcome than failing here.
+  const sources = await prisma.source.findMany({
+    where: { name: SOURCE_NAME },
+    take: 2,
+  });
+  if (sources.length === 0) {
     throw new Error(`Source "${SOURCE_NAME}" not found. Run prisma db seed first.`);
   }
+  if (sources.length > 1) {
+    throw new Error(
+      `Multiple sources named "${SOURCE_NAME}" found (${sources.length}). Aborting to avoid reading config from the wrong one.`,
+    );
+  }
   const { baseUrl, kennelPatterns, sharedCalendarCategory, otherKennelCategories } =
-    readLvh3RoutingConfig(source);
+    readLvh3RoutingConfig(sources[0]);
+  const route = compileKennelRouter(kennelPatterns, null, {
+    sharedCalendarCategory,
+    otherKennelCategories,
+  });
 
   console.warn(
     `Walking ${baseUrl} Tribe API from ${START_DATE} to ${END_DATE_EXCLUSIVE} (exclusive)…`,
   );
+  // Use the same per-fetch cap as the recurring adapter so history and
+  // recurring scrapes stay behaviorally symmetric — bumping the cap on
+  // one path must bump it on the other.
   const result = await fetchTribeEvents(baseUrl, {
     perPage: 50,
-    maxEvents: 500,
+    maxEvents: LVH3_MAX_EVENTS,
     startDate: START_DATE,
   });
   if (result.error) throw new Error(`Tribe API failed: ${result.error.message}`);
@@ -69,13 +89,10 @@ async function fetchEvents(): Promise<RawEventData[]> {
   const events: RawEventData[] = [];
   for (const e of result.events) {
     if (e.date < START_DATE || e.date >= END_DATE_EXCLUSIVE) continue;
-    const kennelTag = resolveKennelTag(e.categorySlugs, kennelPatterns, null, {
-      sharedCalendarCategory,
-      otherKennelCategories,
-    });
     // Backfill the lv-h3 cohort only — ASS H3 history already ran in
     // scripts/backfill-ass-h3-history.ts and lands fingerprints we don't
     // want to overwrite with a different mapping pass.
+    const kennelTag = route(e.categorySlugs);
     if (kennelTag !== "lv-h3") continue;
     events.push(buildLvh3RawEvent(e, kennelTag, baseUrl));
   }
