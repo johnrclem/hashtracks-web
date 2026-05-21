@@ -37,4 +37,18 @@ describe("SOURCES seed data invariants (#817 regression guard)", () => {
     expect(discriminators.every((d) => d.length > 0)).toBe(true);
     expect(new Set(discriminators).size).toBe(discriminators.length);
   });
+
+  // #1477: Ipoh H3 STATIC_SCHEDULE had wrong day + wrong time before this fix
+  // (`BYDAY=SA` / `17:00` instead of the actual Monday@18:00 from malaysiahash.com).
+  // Lock the corrected schedule so a future cut-and-paste from the neighboring
+  // JB / Penang sources can't silently regress it back to Saturday.
+  it("(#1477) Ipoh H3 STATIC_SCHEDULE emits Monday @ 18:00, not Saturday @ 17:00", () => {
+    const ipoh = SOURCES.find((s) => s.name === "Ipoh H3 Static Schedule");
+    expect(ipoh).toBeDefined();
+    expect(ipoh!.type).toBe("STATIC_SCHEDULE");
+    const cfg = (ipoh!.config ?? {}) as { rrule?: string; startTime?: string; kennelTag?: string };
+    expect(cfg.kennelTag).toBe("ipoh-h3");
+    expect(cfg.rrule).toBe("FREQ=WEEKLY;BYDAY=MO");
+    expect(cfg.startTime).toBe("18:00");
+  });
 });
