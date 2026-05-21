@@ -3419,12 +3419,20 @@ export const KENNELS: KennelSeed[] = [
       latitude: 5.9804, longitude: 116.0735,
     },
     {
+      // #1478: schedule strings + description are mirrored byte-for-byte in
+      // prisma/migrations/20260521000000_fix_ipoh_h3_profile_1478/migration.sql
+      // so seed and prod stay in sync. Edits here must update the migration
+      // (or author a follow-up) — `ensureKennelRecords` only fills NULLs.
       kennelCode: "ipoh-h3", shortName: "Ipoh H3", fullName: "Ipoh Hash House Harriers",
       region: "Ipoh, MY", country: "Malaysia",
-      scheduleDayOfWeek: "Saturday", scheduleTime: "5:00 PM", scheduleFrequency: "Weekly",
-      scheduleNotes: "Weekly Saturday runs through the limestone hills and jungle trails around Ipoh. Founded 1965.",
+      scheduleDayOfWeek: "Monday", scheduleTime: "6:00 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Weekly Monday evening trails (men's chapter). Founded 31 Jan 1965.",
       foundedYear: 1965,
-      description: "Founded in 1965 in Perak, Ipoh H3 is one of Malaysia's oldest hash kennels. Weekly Saturday runs through the limestone hills and jungle trails around Ipoh.",
+      description: "Founded in 1965 in Perak, Ipoh H3 is one of Malaysia's oldest hash kennels — a men-only chapter exploring the limestone hills and jungle trails around Ipoh. Trail details are typically shared by phone or WhatsApp the day of the run; the malaysiahash.com directory is the most up-to-date public listing.",
+      founder: "David R. 'Mad Dog' Denning",
+      parentKennelCode: "motherh3",
+      contactEmail: "ipohhhh@yahoo.com",
+      logoUrl: "/kennel-logos/ipoh-h3.jpg",
       latitude: 4.5975, longitude: 101.0901,
     },
     {
