@@ -41,6 +41,9 @@ describe("backfillLastEventDates", () => {
     expect(sql).toContain(`"kennelId"`);
     expect(sql).toContain("CANCELLED");
     expect(sql).toContain("isManualEntry");
+    // Matches the display-path predicate used by src/app/kennels/* so the
+    // cached date can't diverge from what the kennel page renders.
+    expect(sql).toContain("isCanonical");
     // Lock the UNION ALL shape — a future regression to `OR EXISTS (...)`
     // would reintroduce the per-Kennel nested-loop over Event.
     expect(sql).toMatch(/UNION ALL/i);

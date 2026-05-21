@@ -20,6 +20,11 @@ import { prisma } from "@/lib/db";
  * The outer `Kennel k2 LEFT JOIN ...` wrapper preserves NULL-reset semantics:
  * kennels that lose all their events flip back to `lastEventDate = NULL`.
  *
+ * Filters (`status != CANCELLED`, `isManualEntry != true`, `isCanonical = true`)
+ * match the display-path predicate used by the kennel directory + detail page
+ * (`src/app/kennels/...`), so the cached "last active" date can't disagree
+ * with what the kennel page actually shows.
+ *
  * The UNION ALL shape (vs. `OR EXISTS (...)` inside a LEFT JOIN) avoids a
  * per-Kennel nested-loop over Event — important for the daily audit cron.
  *
@@ -39,12 +44,12 @@ export async function backfillLastEventDates(): Promise<number> {
         FROM (
           SELECT e."kennelId", e.date
           FROM "Event" e
-          WHERE e.status != 'CANCELLED' AND e."isManualEntry" != true
+          WHERE e.status != 'CANCELLED' AND e."isManualEntry" != true AND e."isCanonical" = true
           UNION ALL
           SELECT ek."kennelId", e.date
           FROM "EventKennel" ek
           JOIN "Event" e ON e.id = ek."eventId"
-          WHERE e.status != 'CANCELLED' AND e."isManualEntry" != true
+          WHERE e.status != 'CANCELLED' AND e."isManualEntry" != true AND e."isCanonical" = true
         ) attachments
         GROUP BY "kennelId"
       ) attachment_maxes ON attachment_maxes."kennelId" = k2.id
