@@ -52,6 +52,27 @@ describe("parseGeriatrixParagraphs", () => {
     expect(rows[1].mapUrl).toBe("https://maps.app.goo.gl/fFAQ9tVgaTAj97qm6");
   });
 
+  it("accepts both singular 'Hare:' and plural 'Hares:' labels (#1501)", () => {
+    // Regression: source switches between "Hare:" (one trail-setter) and
+    // "Hares:" (multiple), and the previous `\b`-anchored gate dropped the
+    // plural form because `\b` doesn't match between 'e' and 's' inside
+    // "Hares". TBA-venue rows in #1501 had hares disappear for that reason.
+    const rows = parseGeriatrixParagraphs([
+      { text: "26/05/2026" },
+      { text: "Venue: TBA" },
+      { text: "Hares: Flatbitz & Browneye" },
+      { text: "Map:" },
+      { text: "02/06/2026" },
+      { text: "Venue: TBA" },
+      { text: "Hares: Cheeky & Fishy Fingers" },
+      { text: "Map:" },
+    ]);
+    expect(rows.length).toBe(2);
+    expect(rows[0].hare).toBe("Flatbitz & Browneye");
+    expect(rows[0].venue).toBeUndefined();
+    expect(rows[1].hare).toBe("Cheeky & Fishy Fingers");
+  });
+
   it("normalises TBA/Hare Required placeholders to undefined", () => {
     const rows = parseGeriatrixParagraphs([
       { text: "19/05/2026" },

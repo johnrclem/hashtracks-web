@@ -79,14 +79,20 @@ export function parseGeriatrixParagraphs(
       continue;
     }
     if (!current) continue;
-    if (/^\s*venue\b/i.test(p.text)) {
+    // Accept "Hare:" AND "Hares:" — sporty editors swap labels depending on
+    // trail-setter count. We capture the actual matched label so the slice
+    // in valueAfterLabel lands at the right offset.
+    const labelMatch = /^\s*(venue|hares?|map)\b/i.exec(p.text);
+    if (!labelMatch) continue;
+    const label = labelMatch[1].toLowerCase();
+    if (label === "venue") {
       current.venue = valueAfterLabel(p.text, "Venue");
-    } else if (/^\s*hare\b/i.test(p.text)) {
-      current.hare = valueAfterLabel(p.text, "Hare");
-    } else if (/^\s*map\b/i.test(p.text)) {
-      // Prefer the <a href> over the visible text — visible text on Geriatrix
+    } else if (label === "map") {
+      // Prefer the <a href> over visible text — visible text on Geriatrix
       // duplicates the URL but may be visually truncated.
       current.mapUrl = p.firstHref ?? valueAfterLabel(p.text, "Map");
+    } else {
+      current.hare = valueAfterLabel(p.text, labelMatch[1]);
     }
   }
   if (current) out.push(current);

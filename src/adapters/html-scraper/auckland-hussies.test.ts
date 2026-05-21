@@ -37,6 +37,15 @@ function mockFetch(html: string) {
   );
 }
 
+function mockFetchBytes(bytes: Uint8Array, contentType = "text/html") {
+  // Copy into a fresh ArrayBuffer so the Response constructor accepts the
+  // body (Uint8Array isn't directly assignable to BodyInit under TS 5.7+).
+  const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+  mockedSafeFetch.mockResolvedValue(
+    new Response(buffer, { status: 200, headers: { "content-type": contentType } }),
+  );
+}
+
 describe("parseAucklandHussiesRow", () => {
   const refDate = new Date("2026-05-15T00:00:00Z");
 
@@ -106,5 +115,80 @@ describe("AucklandHussiesAdapter.fetch", () => {
     expect(hares).toContain("Demon");
     expect(hares).toContain("Triple One & Cross Dresser");
     expect(result.diagnosticContext?.rowsConsidered).toBe(3);
+  });
+
+  it("decodes windows-1252 bytes (NBSP = 0xA0) without U+FFFD leakage (#1506)", async () => {
+    // The live source ships bytes like:
+    //   <td>With the men on a Monday night<span ...>\xA0 </span>- 4pm</td>
+    // and declares the encoding only via `<meta charset=windows-1252>`. The
+    // previous fetchHTMLPage path decoded as UTF-8 and the 0xA0 NBSP became
+    // U+FFFD ("Monday night� - 4pm"). Build the exact byte sequence here.
+    const head = Buffer.from(
+      '<!DOCTYPE html><html><head><meta http-equiv=Content-Type content="text/html; charset=windows-1252"></head>' +
+        "<body><table>" +
+        // Row 1: location cell exercises the windows-1252 NBSP (0xA0) byte
+        // that the previous fetchHTMLPage path turned into U+FFFD.
+        "<tr><td>1-Jun</td><td></td><td></td><td>TBA</td><td>With the men on a Monday night",
+      "ascii",
+    );
+    const nbspSpan = Buffer.from([
+      0x3c, 0x73, 0x70, 0x61, 0x6e, 0x3e, // <span>
+      0xa0,                                // windows-1252 NBSP (would be U+FFFD if decoded as UTF-8)
+      0x20,                                // space
+      0x3c, 0x2f, 0x73, 0x70, 0x61, 0x6e, 0x3e, // </span>
+    ]);
+    // Row 2: hare cell contains a windows-1252 0xE9 byte (`é`) — proves the
+    // decode actually picked windows-1252, not UTF-8 + U+FFFD scrubbing
+    // (which would erase 0xE9 too instead of converting it to "é").
+    const cafeRowAscii = Buffer.from(
+      "- 4pm</td><td></td></tr>" +
+        "<tr><td>8-Jun</td><td></td><td></td><td>",
+      "ascii",
+    );
+    const cafeRowBytes = Buffer.from([
+      // "Caf" + 0xE9 (windows-1252 é) + "" (no extra chars)
+      0x43, 0x61, 0x66, 0xe9,
+    ]);
+    const cafeRowTail = Buffer.from(
+      " & Friends</td><td>1 Beach Rd, Mission Bay</td></tr></table></body></html>",
+      "ascii",
+    );
+    const bytes = Buffer.concat([head, nbspSpan, cafeRowAscii, cafeRowBytes, cafeRowTail]);
+
+    mockFetchBytes(new Uint8Array(bytes));
+    const adapter = new AucklandHussiesAdapter();
+    const result = await adapter.fetch(makeSource(), { days: 365 });
+
+    expect(result.errors).toEqual([]);
+    expect(result.events.length).toBe(2);
+    const [first, second] = result.events;
+    expect(first.location).toBeDefined();
+    expect(first.location).not.toContain("�");
+    expect(first.location).toBe("With the men on a Monday night - 4pm");
+    // TBA → undefined is the intentional placeholder behaviour, shared with
+    // Geriatrix's "Hare Required" handling. Documented here so the contract
+    // doesn't silently flip back to populating placeholders.
+    expect(first.hares).toBeUndefined();
+    // Decode must actually round-trip 0xE9 to "é" — not strip-as-U+FFFD,
+    // which would erroneously pass the no-U+FFFD assertion on row 1.
+    expect(second.hares).toBe("Café & Friends");
+    expect(second.hares).not.toContain("�");
+  });
+
+  it("prefers the Content-Type header charset when it is present", async () => {
+    // If the header advertises utf-8, trust the header (proper bytes) and
+    // skip the meta-tag sniff. Modern servers do this; the legacy Auckland
+    // Hussies Apache config doesn't.
+    const utf8 = Buffer.from(
+      '<!DOCTYPE html><html><body><table>' +
+        '<tr><td>5-May</td><td></td><td></td><td>Triple One</td><td>Café corner</td></tr>' +
+        '</table></body></html>',
+      "utf8",
+    );
+    mockFetchBytes(new Uint8Array(utf8), "text/html; charset=utf-8");
+    const adapter = new AucklandHussiesAdapter();
+    const result = await adapter.fetch(makeSource(), { days: 365 });
+    expect(result.events.length).toBe(1);
+    expect(result.events[0].location).toBe("Café corner");
   });
 });

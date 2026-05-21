@@ -1,4 +1,4 @@
-import type * as cheerio from "cheerio";
+import * as cheerio from "cheerio";
 import type { AnyNode } from "domhandler";
 import type { Source } from "@/generated/prisma/client";
 import type {
@@ -12,10 +12,11 @@ import {
   buildDateWindow,
   bumpYearIfBefore,
   chronoParseDate,
-  fetchHTMLPage,
   normalizeHaresField,
   stripPlaceholder,
 } from "../utils";
+import { safeFetch } from "../safe-fetch";
+import { generateStructureHash } from "@/pipeline/structure-hash";
 
 /**
  * Auckland Hussies HTML Scraper
@@ -28,12 +29,93 @@ import {
  *
  * Year inference uses refDate-year + monotonic-walk year bump across the
  * chronologically-sorted run list, so a Dec → Jan rollover correctly maps
- * the January row into next year.
+ * the January run into next year.
+ *
+ * Encoding: the source emits windows-1252 bytes (NBSP = 0xA0, smart quotes)
+ * but declares the charset only in `<meta http-equiv=Content-Type ...>` —
+ * never in the HTTP header. We bypass `fetchHTMLPage` (which assumes UTF-8
+ * via `response.text()`) and use {@link fetchCharsetAwareHTMLPage} to read
+ * the bytes, sniff the charset from header → meta tag → windows-1252
+ * fallback, and decode accordingly. See #1506.
  */
 
 // Allowed date shapes in column 0 — strict `D[D]-MMM` to avoid grabbing
 // stray text like "021-420209" (phone numbers in adjacent rows).
 const DATE_CELL_RE = /^\s*(\d{1,2})-([A-Za-z]{3})\s*$/;
+
+// The source is an Excel "Save as Web Page" export that emits windows-1252
+// bytes (NBSP = 0xA0, smart quotes, etc.) and declares the encoding only in
+// a `<meta http-equiv=Content-Type content="text/html; charset=windows-1252">`
+// tag — the HTTP Content-Type header itself omits the charset. The default
+// `response.text()` decodes as UTF-8 and silently turns each high byte into
+// U+FFFD ("With the men on a Monday night� - 4pm" — #1506). Detect the
+// charset from header → meta → fallback to windows-1252.
+const META_CHARSET_RE = /<meta[^>]+charset\s*=\s*["']?([\w-]+)/i;
+const CONTENT_TYPE_CHARSET_RE = /charset\s*=\s*"?([\w-]+)"?/i;
+
+function detectCharset(bytes: Uint8Array, contentType: string | null): string {
+  if (contentType) {
+    const m = CONTENT_TYPE_CHARSET_RE.exec(contentType);
+    if (m) return m[1].toLowerCase();
+  }
+  // Scan the first ~2KB as ASCII for a <meta charset> declaration.
+  const head = new TextDecoder("ascii", { fatal: false }).decode(bytes.subarray(0, 2048));
+  const m1 = META_CHARSET_RE.exec(head);
+  if (m1) return m1[1].toLowerCase();
+  return "windows-1252";
+}
+
+interface FetchSuccess {
+  ok: true;
+  $: cheerio.CheerioAPI;
+  structureHash: string;
+  fetchDurationMs: number;
+}
+type FetchOutcome = FetchSuccess | { ok: false; result: ScrapeResult };
+
+async function fetchCharsetAwareHTMLPage(url: string): Promise<FetchOutcome> {
+  const fetchStart = Date.now();
+  try {
+    const response = await safeFetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
+    });
+    if (!response.ok) {
+      const message = `HTTP ${response.status}: ${response.statusText}`;
+      return {
+        ok: false,
+        result: {
+          events: [],
+          errors: [message],
+          errorDetails: { fetch: [{ url, status: response.status, message }] },
+        },
+      };
+    }
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    const charset = detectCharset(bytes, response.headers.get("content-type"));
+    const html = new TextDecoder(charset, { fatal: false }).decode(bytes);
+    return {
+      ok: true,
+      $: cheerio.load(html),
+      structureHash: generateStructureHash(html),
+      fetchDurationMs: Date.now() - fetchStart,
+    };
+  } catch (err) {
+    const message = `Fetch failed: ${err}`;
+    return {
+      ok: false,
+      result: { events: [], errors: [message], errorDetails: { fetch: [{ url, message }] } },
+    };
+  }
+}
+
+/** Drop U+FFFD (only fires if the meta-tag sniff ever picks the wrong
+ *  charset) and collapse whitespace runs — including U+00A0 NBSP that
+ *  cheerio leaves verbatim — so the saved cell reads as one sentence. */
+function cleanCellText(text: string | undefined): string | undefined {
+  if (text == null) return undefined;
+  const cleaned = text.replaceAll('\uFFFD', '').replace(/\s+/g, ' ').trim();
+  return cleaned || undefined;
+}
 
 export interface AucklandHussiesParsedRow {
   dateText: string;
@@ -98,7 +180,11 @@ function extractRunRowCells(
   if (cells.length < 5) return null;
   const dateCell = cells.at(0)?.trim() ?? "";
   if (!DATE_CELL_RE.test(dateCell)) return null;
-  return { dateText: dateCell, hareText: cells.at(3), locationText: cells.at(4) };
+  return {
+    dateText: dateCell,
+    hareText: cleanCellText(cells.at(3)),
+    locationText: cleanCellText(cells.at(4)),
+  };
 }
 
 export class AucklandHussiesAdapter implements SourceAdapter {
@@ -118,7 +204,7 @@ export class AucklandHussiesAdapter implements SourceAdapter {
     }
     const { kennelTag } = source.config;
 
-    const page = await fetchHTMLPage(sourceUrl);
+    const page = await fetchCharsetAwareHTMLPage(sourceUrl);
     if (!page.ok) return page.result;
     const { $, structureHash, fetchDurationMs } = page;
 
