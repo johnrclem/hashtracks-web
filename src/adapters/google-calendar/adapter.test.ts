@@ -1746,18 +1746,25 @@ describe("extractLocationFromDescription", () => {
     expect(extractLocationFromDescription(desc)).toBeUndefined();
   });
 
-  // BARE_LABEL_RE widening regression coverage — sibling labels other than `When:`
-  // that could appear as the first line under an empty `Where:` (Codex + CodeRabbit review).
+  // Sibling labels that could appear as the first line under an empty
+  // `Where:` — the next-line scan must not surface them as the venue.
+  // BARE_LABEL_RE captures them but isNonAddressText (or the trailing-space
+  // discard for whitespace-only LABEL captures) rejects them downstream.
   it.each([
+    // No-trailing-space variants (BARE_LABEL_RE captures the next line directly).
     ["How: $5 hash cash", "Where:\nHow: $5 hash cash"],
     ["Hash Cash: $5", "Where:\nHash Cash: $5"],
     ["Venmo or PayPal: trails@example.com", "Where:\nVenmo or PayPal: trails@example.com"],
     ["Pre-Lube: Bar X", "Where:\nPre-Lube: Bar X"],
     ["On-After: Tavern", "Where:\nOn-After: Tavern"],
-    // CodeRabbit catch: plural / parenthesized Hare variants.
     ["Hares: Alice and Bob", "Where:\nHares: Alice and Bob"],
     ["Hare(s): Alice", "Where:\nHare(s): Alice"],
-  ])("(#1329) rejects empty WHERE: followed by sibling label %j", (_label, desc) => {
+    // Trailing-whitespace + blank-line variants — empty LABEL capture
+    // discards, BARE then fails on the blank line (#1495).
+    ["trailing space", "Where: \n\nHow: $5 hash cash"],
+    ["multiple spaces", "Where:   \n\nHow: $5 hash cash"],
+    ["tab", "Where:\t\n\nHow: $5 hash cash"],
+  ])("rejects empty WHERE: followed by sibling label %j", (_label, desc) => {
     expect(extractLocationFromDescription(desc)).toBeUndefined();
   });
 
@@ -1771,12 +1778,12 @@ describe("extractLocationFromDescription", () => {
     expect(extractLocationFromDescription(desc)).toBeUndefined();
   });
 
-  // ── #1495 Flour City H3 — empty `Where: ` (trailing space + blank line) must not fall through ──
-  // Live description fetched from flourcitymismanagement@gmail.com on 2026-05-20 for the
-  // "Fetch" event (Thu May 28 2026). LOCATION_LABEL_RE captures a whitespace-only value;
-  // the explicit early-return guards against BARE_LABEL_RE scanning forward to the next
-  // template label and surfacing `How: ...` / `Venmo or PayPal: ...` as the venue name.
-  it("(#1495) rejects empty `Where: ` with trailing space (Flour City live fixture)", () => {
+  // Live description fetched from flourcitymismanagement@gmail.com for the
+  // "Fetch" event (2026-05-28). The full template-shape fixture is pinned
+  // alongside the it.each above so a regex rewrite that re-introduces the
+  // leak surfaces with the exact production input, not just a synthetic
+  // minimal shape.
+  it("(#1495) rejects empty `Where: ` in the live Flour City description", () => {
     const desc = [
       "Hare:",
       "",
@@ -1793,55 +1800,22 @@ describe("extractLocationFromDescription", () => {
     expect(extractLocationFromDescription(desc)).toBeUndefined();
   });
 
-  // #1495 — equivalent shapes the parse must not capture as locationName.
+  // Multi-line venue conventions: `Where:` (with or without trailing
+  // whitespace) followed by the real address on the next line must still
+  // surface the venue. Empty LABEL captures discard and retry against
+  // BARE_LABEL_RE, which captures the next non-empty line.
   it.each([
-    ["trailing space only", "Where: \n\nHow: $5 hash cash"],
-    ["multiple spaces", "Where:   \n\nHow: $5 hash cash"],
-    ["tab after colon", "Where:\t\n\nHow: $5 hash cash"],
-  ])("(#1495) rejects whitespace-only `Where:` value (%s)", (_label, desc) => {
-    expect(extractLocationFromDescription(desc)).toBeUndefined();
-  });
-
-  // #1495 — guard that the well-formed Flour City case (a real venue between
-  // quotes) still works. Locks in the live "Asserole Trail" description so the
-  // empty-Where early-return doesn't over-fire.
-  it("(#1495) still extracts a real `Where:` value when the venue is present", () => {
-    const desc = 'What: Asserole Trail \nWhere: "Oatka Creek Park"\n\n\n\nHow: $5 hash cash Venmo or PayPal: fch3trails@gmail.com';
-    expect(extractLocationFromDescription(desc)).toBe('"Oatka Creek Park"');
-  });
-
-  // #1495 Codex finding: `Where:` (with trailing space) followed by the venue
-  // on the next line is a multiline shape that pre-PR1 silently returned
-  // undefined (LABEL captured " " and short-circuited the BARE fallback).
-  // The discard-and-retry pattern in extractLocationFromDescription now
-  // recovers the venue while still rejecting the Flour City sibling-label
-  // leak below.
-  it("(#1495 Codex) recovers `Where: \\n<venue>` (trailing space before newline)", () => {
-    expect(extractLocationFromDescription("Where: \nOatka Creek Park")).toBe("Oatka Creek Park");
-  });
-
-  it("(#1495 Codex) recovers `Where: \\n<maps-url>\\n<venue>` (intervening Maps URL line)", () => {
-    const desc = "Where: \nhttps://maps.google.com/foo\nOatka Creek Park";
-    expect(extractLocationFromDescription(desc)).toBe("Oatka Creek Park");
-  });
-
-  // Counter-test: the multiline recovery MUST NOT re-open the original #1495
-  // leak path. Empty `Where: ` followed by a blank line + sibling label
-  // (`How:`, `Venmo or PayPal:`, etc.) stays rejected because BARE_LABEL_RE
-  // requires the immediate next line to start with non-whitespace, and the
-  // blank line breaks it. Pinned here so a future BARE_LABEL_RE relaxation
-  // can't silently re-introduce the leak.
-  it("(#1495 Codex) recovery still rejects `Where: \\n\\n<sibling-label>` (Flour City leak shape)", () => {
-    const desc = [
-      "Hare:",
-      "",
-      "Where: ",
-      "",
-      "When: 5:69",
-      "",
-      "How: $5 hash cash",
-    ].join("\n");
-    expect(extractLocationFromDescription(desc)).toBeUndefined();
+    ["no trailing space", "Where:\nOatka Creek Park", "Oatka Creek Park"],
+    ["trailing space", "Where: \nOatka Creek Park", "Oatka Creek Park"],
+    ["intervening Maps URL line", "Where: \nhttps://maps.google.com/foo\nOatka Creek Park", "Oatka Creek Park"],
+    // Same-line quoted venue (live Flour City "Asserole Trail" description).
+    [
+      "same-line quoted venue",
+      'What: Asserole Trail \nWhere: "Oatka Creek Park"\n\n\n\nHow: $5 hash cash',
+      '"Oatka Creek Park"',
+    ],
+  ])("recovers multi-line `Where:` venue (%s)", (_label, desc, expected) => {
+    expect(extractLocationFromDescription(desc)).toBe(expected);
   });
 });
 
