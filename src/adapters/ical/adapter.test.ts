@@ -998,6 +998,39 @@ END:VCALENDAR`;
     expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 
+  it("suppresses SFH3 umbrella VEVENTs when a same-date trail exists, even with enrichSFH3Details off (#1421)", async () => {
+    const dupIcs = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Test//Test//EN
+BEGIN:VEVENT
+UID:run-9999
+DTSTAMP:20260101T000000Z
+DTSTART;TZID=America/Los_Angeles:20260515T180000
+DTEND;TZID=America/Los_Angeles:20260515T210000
+SUMMARY:SFH3 Friday Trail
+LOCATION:Trailhead
+URL;VALUE=URI:https://www.sfh3.com/runs/9999
+END:VEVENT
+BEGIN:VEVENT
+UID:event-999
+DTSTAMP:20260101T000000Z
+DTSTART;VALUE=DATE:20260515
+DTEND;VALUE=DATE:20260516
+SUMMARY:SFH3 Campout Umbrella
+LOCATION:San Francisco
+URL;VALUE=URI:https://www.sfh3.com/events/999
+END:VEVENT
+END:VCALENDAR`;
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(dupIcs, { status: 200 }),
+    );
+    const source = buildMockSource(); // no enrichSFH3Details
+    const result = await adapter.fetch(source, { days: 9999 });
+    const may15 = result.events.filter((e) => e.date === "2026-05-15");
+    expect(may15).toHaveLength(1);
+    expect(may15[0].sourceUrl).toBe("https://www.sfh3.com/runs/9999");
+  });
+
   it("works without config (defaultKennelTag fallback)", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       new Response(SAMPLE_ICS, { status: 200 }),

@@ -3,7 +3,7 @@ import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails, ParseErro
 import { hasAnyErrors } from "../types";
 import { googleMapsSearchUrl, compilePatterns, appendDescriptionSuffix, isPlaceholder } from "../utils";
 import { safeFetch } from "../safe-fetch";
-import { enrichSFH3Events } from "../html-scraper/sfh3-detail-enrichment";
+import { enrichSFH3Events, suppressSFH3UmbrellaDuplicates } from "../html-scraper/sfh3-detail-enrichment";
 import { enrichBerlinH3Events } from "../html-scraper/berlin-h3-detail-enrichment";
 import { sync as icalSync } from "node-ical";
 import type { VEvent, ParameterValue, DateWithTimeZone } from "node-ical";
@@ -528,7 +528,7 @@ export class ICalAdapter implements SourceAdapter {
       ? compilePatterns([config.titleHarePattern], "i")[0]
       : undefined;
 
-    const events: RawEventData[] = [];
+    let events: RawEventData[] = [];
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
     let totalVEvents = 0;
@@ -584,6 +584,11 @@ export class ICalAdapter implements SourceAdapter {
     if (parseErrors.length > 0) {
       errorDetails.parse = parseErrors;
     }
+
+    // SFH3 emits two VEVENTs (/events/{n} umbrella + /runs/{m} trail) for the
+    // same campout day; drop the umbrella when a same-date trail exists (#1421).
+    // No-op for feeds without sfh3.com URLs, so unconditional is safe.
+    events = suppressSFH3UmbrellaDuplicates(events);
 
     // SFH3-specific enrichment: the .ics SUMMARY omits "Run" and has no Comment
     // field. Pull the canonical title + Comment from /runs/{id} so the merge

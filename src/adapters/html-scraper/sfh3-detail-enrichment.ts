@@ -32,6 +32,9 @@ import { safeFetch } from "../safe-fetch";
 const MAX_ENRICH_PER_SCRAPE = 200;
 const BATCH_SIZE = 10;
 
+const SFH3_TRAIL_URL_RE = /sfh3\.com\/runs\/\d+/;
+const SFH3_UMBRELLA_URL_RE = /sfh3\.com\/events\/\d+/;
+
 export interface SFH3Detail {
   title?: string;
   comment?: string;
@@ -122,7 +125,7 @@ export function isGenericSFH3Title(title: string | undefined, kennelTag?: string
 
 /** True if the event still needs detail-page enrichment (missing Comment or still has a generic title). */
 function sfh3NeedsEnrichment(event: RawEventData): boolean {
-  if (!event.sourceUrl || !/sfh3\.com\/runs\/\d+/.test(event.sourceUrl)) return false;
+  if (!event.sourceUrl || !SFH3_TRAIL_URL_RE.test(event.sourceUrl)) return false;
   const descHasComment = !!event.description && /\bComment\s*:/i.test(event.description);
   // Skip the fetch entirely when both sides are already good — the detail
   // page can't improve on a descriptive hareline title + an existing Comment.
@@ -163,6 +166,42 @@ async function fetchSFH3DetailPage(event: EnrichableEvent): Promise<{ html: stri
     throw new Error(`HTTP ${response.status} for ${event.sourceUrl}`);
   }
   return { html: await response.text(), event };
+}
+
+/**
+ * SFH3's `calendar.ics` double-publishes multi-day campouts: a `/events/{n}`
+ * umbrella entry (all-day, no startTime) AND a `/runs/{m}` trail entry (timed,
+ * with hares + venue) for the same date. The umbrella slips past
+ * `upsertCanonicalEvent`'s `looksLikeSameEvent` guard (no startTime + no
+ * runNumber to match against the already-batched trail), causing a duplicate
+ * canonical Event — see #1421.
+ *
+ * Drop the umbrella only when EVERY one of its kennelTags has a same-date
+ * `/runs/{m}` trail in the same scrape. A co-hosted umbrella where some kennels
+ * lack a specific trail on that date is preserved (it's still the only signal
+ * for those kennels). Umbrellas with no overlapping trails are also kept.
+ * (The iCal adapter currently emits a single kennelTag per event, so the
+ * multi-tag branch is reachable only via direct callers + tests — kept as
+ * defensive future-proofing for a contract that may widen.)
+ *
+ * Safe to call unconditionally — the function returns early when no
+ * `sfh3.com/runs/` URLs are present, so non-SFH3 iCal feeds pass through
+ * untouched.
+ */
+export function suppressSFH3UmbrellaDuplicates(events: RawEventData[]): RawEventData[] {
+  const trailKeys = new Set<string>();
+  for (const e of events) {
+    if (!e.sourceUrl || !SFH3_TRAIL_URL_RE.test(e.sourceUrl)) continue;
+    for (const tag of e.kennelTags) {
+      trailKeys.add(`${tag.toLowerCase()}|${e.date}`);
+    }
+  }
+  if (trailKeys.size === 0) return events;
+  return events.filter((e) => {
+    if (!e.sourceUrl || !SFH3_UMBRELLA_URL_RE.test(e.sourceUrl)) return true;
+    if (e.kennelTags.length === 0) return true;
+    return !e.kennelTags.every((tag) => trailKeys.has(`${tag.toLowerCase()}|${e.date}`));
+  });
 }
 
 /**

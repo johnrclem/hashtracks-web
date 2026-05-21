@@ -6,6 +6,7 @@ import {
   parseSFH3DetailPage,
   isGenericSFH3Title,
   enrichSFH3Events,
+  suppressSFH3UmbrellaDuplicates,
 } from "./sfh3";
 import { SFH3Adapter } from "./sfh3";
 import type { RawEventData } from "../types";
@@ -788,5 +789,90 @@ describe("enrichSFH3Events — preserves descriptive titles (#545)", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(events[0].title).toBe("420 Opening Day Trail, 2026 Edition!");
     vi.restoreAllMocks();
+  });
+});
+
+function buildTrail(overrides: Partial<RawEventData> = {}): RawEventData {
+  return {
+    date: "2026-05-15",
+    kennelTags: ["sfh3"],
+    title: "SFH3: Friday Turkey / Eagle Run & Pub Crawl",
+    sourceUrl: "https://www.sfh3.com/runs/6485",
+    startTime: "18:00",
+    ...overrides,
+  };
+}
+function buildUmbrella(overrides: Partial<RawEventData> = {}): RawEventData {
+  return {
+    date: "2026-05-15",
+    kennelTags: ["sfh3"],
+    title: "Bay 2 Blackout 2026",
+    sourceUrl: "https://www.sfh3.com/events/134",
+    ...overrides,
+  };
+}
+
+describe("suppressSFH3UmbrellaDuplicates (#1421)", () => {
+  it("drops a /events/{n} umbrella when a /runs/{m} trail exists for the same kennel+date", () => {
+    const result = suppressSFH3UmbrellaDuplicates([buildTrail(), buildUmbrella()]);
+    expect(result).toHaveLength(1);
+    expect(result[0].sourceUrl).toBe("https://www.sfh3.com/runs/6485");
+  });
+
+  it("keeps an umbrella when no trail exists on that date", () => {
+    const standalone = buildUmbrella({ date: "2026-08-01", title: "BAWC5 Campout" });
+    const result = suppressSFH3UmbrellaDuplicates([buildTrail(), standalone]);
+    expect(result).toHaveLength(2);
+    expect(result.some((e) => e.sourceUrl?.includes("/events/"))).toBe(true);
+  });
+
+  it("keeps an umbrella when the trail is for a different kennel on the same date", () => {
+    const otherKennelTrail = buildTrail({ kennelTags: ["gph3"], sourceUrl: "https://www.sfh3.com/runs/6500" });
+    const result = suppressSFH3UmbrellaDuplicates([otherKennelTrail, buildUmbrella()]);
+    expect(result).toHaveLength(2);
+  });
+
+  it("keeps a co-hosted umbrella when only SOME of its kennels have a same-date trail", () => {
+    // Umbrella tagged for both sfh3 and barh3; only sfh3 has a /runs/ trail
+    // that day. Dropping the umbrella would lose barh3's only signal — keep it.
+    const cohostedUmbrella = buildUmbrella({ kennelTags: ["sfh3", "barh3"] });
+    const result = suppressSFH3UmbrellaDuplicates([buildTrail(), cohostedUmbrella]);
+    expect(result).toHaveLength(2);
+    expect(result.some((e) => e.sourceUrl?.includes("/events/"))).toBe(true);
+  });
+
+  it("drops a co-hosted umbrella when ALL of its kennels have a same-date trail", () => {
+    const sfh3Trail = buildTrail({ kennelTags: ["sfh3"] });
+    const barh3Trail = buildTrail({ kennelTags: ["barh3"], sourceUrl: "https://www.sfh3.com/runs/6600" });
+    const cohostedUmbrella = buildUmbrella({ kennelTags: ["sfh3", "barh3"] });
+    const result = suppressSFH3UmbrellaDuplicates([sfh3Trail, barh3Trail, cohostedUmbrella]);
+    expect(result).toHaveLength(2);
+    expect(result.every((e) => !e.sourceUrl?.includes("/events/"))).toBe(true);
+  });
+
+  it("is case-insensitive on kennelTags (iCal often emits 'SFH3', HTML emits 'sfh3')", () => {
+    const result = suppressSFH3UmbrellaDuplicates([
+      buildTrail({ kennelTags: ["SFH3"] }),
+      buildUmbrella({ kennelTags: ["sfh3"] }),
+    ]);
+    expect(result).toHaveLength(1);
+    expect(result[0].title).toBe("SFH3: Friday Turkey / Eagle Run & Pub Crawl");
+  });
+
+  it("returns the input unchanged when there are no trail events", () => {
+    const events = [buildUmbrella()];
+    const result = suppressSFH3UmbrellaDuplicates(events);
+    expect(result).toBe(events);
+  });
+
+  it("ignores events without sfh3.com sourceUrls", () => {
+    const otherSourced: RawEventData = {
+      date: "2026-05-15",
+      kennelTags: ["sfh3"],
+      title: "Bay 2 Blackout 2026",
+      sourceUrl: "https://example.com/events/134",
+    };
+    const result = suppressSFH3UmbrellaDuplicates([buildTrail(), otherSourced]);
+    expect(result).toHaveLength(2);
   });
 });
