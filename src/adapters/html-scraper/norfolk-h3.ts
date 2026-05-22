@@ -51,13 +51,16 @@ const KENNEL_TAG = "Norfolk H3";
 // are pre-existing notes/contact prompts. A blank line (paragraph break) is
 // also a hard stop — htmlToText emits "\n\n" for </p>.
 //
-// "Park\s+(?:on|at|near|nearby|along)" catches parking-instruction notes
-// that Norfolk authors append to the venue block ("Park on nearby roads."
-// — #1544; "Park at back of pub" — observed on Run #2149), without
-// triggering on actual park-named venues like "Park Lane" or "Hyde Park"
-// (no following preposition). `in` and `by` are intentionally excluded —
-// they appear in real venue names ("Park in the Past", "Park by the Sea")
-// and the live data so far never uses them for parking instructions.
+// "Park\s+(?:on|at)" catches parking-instruction notes that Norfolk
+// authors append to the venue block ("Park on nearby roads." — #1544;
+// "Park at back of pub" — observed on Run #2149), without triggering
+// on actual park-named venues like "Park Lane" or "Hyde Park" (no
+// following preposition). The alternation is intentionally narrow
+// (only `on` and `at` are evidenced in live data) — Sonar S5843 caps
+// the regex at complexity 20, and earlier speculative additions
+// (`near`, `nearby`, `along`, `in`, `by`) either pushed the
+// regex over the limit or created false-positives on real venue names
+// ("Park in the Past", "Park by the Sea").
 //
 // Source-layout assumption (verified against current and historical Norfolk
 // posts): each post wraps an entire section (Venue+address, Hare(s)+names,
@@ -68,7 +71,7 @@ const KENNEL_TAG = "Norfolk H3";
 // at the first newline and this regex would need to drop the blank-line
 // arm in favor of explicit-label-only stops.
 const SECTION_STOP =
-  /\n\s*(?:\n|Hare\(s\):|Venue:|Please\s+park|Park\s+(?:on|at|near|nearby|along)\b|Contact\s|Afterwards\b|Wear\s|Bring\s|On\s+down\b|On-On\b)/i;
+  /\n\s*(?:\n|Hare\(s\):|Venue:|Please\s+park|Park\s+(?:on|at)\b|Contact\s|Afterwards\b|Wear\s|Bring\s|On\s+down\b|On-On\b)/i;
 const VENUE_RE = new RegExp(
   String.raw`Venue:\s*([\s\S]*?)(?=${SECTION_STOP.source}|\s*$)`,
   "i",
