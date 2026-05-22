@@ -208,7 +208,7 @@ async function fetchTopicEvent(
   // adapter's `extractTitleName` is not exported; replicate the bullet-split
   // shape here. `split("•").pop()` returns the whole string when no bullet is
   // present, so no guard is needed.
-  const afterBullet = topic.title.replace(/·/g, "•").split("•").pop()!.trim();
+  const afterBullet = topic.title.replaceAll("·", "•").split("•").pop()!.trim();
   const titleClean = afterBullet.replace(/^Re:\s*/i, "").trim() || undefined;
 
   // Title-extracted run number takes precedence over body (#1587 ordering).

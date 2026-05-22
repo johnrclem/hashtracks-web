@@ -121,7 +121,7 @@ describe("extractFirstPostId", () => {
 //    extractEventFields as the live adapter ──
 
 describe("walker → extractEventFields parity (Codex review #1)", () => {
-  it("passes <br>-converted-to-\\n text so label regexes still match", () => {
+  it(String.raw`passes <br>-converted-to-\n text so label regexes still match`, () => {
     // Mirror the walker's body-text construction: extractFirstPostHtml() then
     // stripHtmlTags(html, "\n"). This is the parity contract that broke when
     // the walker briefly used cheerio.text() instead.

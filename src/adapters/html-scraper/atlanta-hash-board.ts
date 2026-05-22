@@ -154,14 +154,23 @@ function inferDateFromHashDay(refDate: Date, hashDay: string): string | null {
  * Implemented as line-split + per-line predicate to keep each regex provably
  * linear (Sonar S5852).
  */
-// Specific suffixes (not `[a-z]*`) avoid both Sonar S5852 super-linear-runtime
-// concern AND false positives on words like "Marching" / "Maybe" / "Decoration"
-// that share a 3-letter month prefix (Gemini + Claude-bot review on PR #1622).
-const MONTH_NAME_RE =
-  /\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\b/i;
+// Split into abbreviation + full-name regexes. Each has 12 alternations with
+// no nested optional groups → regex complexity ~12, well under Sonar S5843's
+// budget of 20. Word-boundary `\b` already prevents over-matching on words
+// like "Marching" / "Maybe" / "Decoration" (Gemini + Claude-bot review on PR
+// #1622), because the next char after the month token is still a word char
+// and `\b` requires a word→non-word transition.
+const MONTH_ABBR_RE =
+  /\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b/i;
+const MONTH_FULL_RE =
+  /\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\b/i;
 const FOUR_DIGIT_YEAR_RE = /\b\d{4}\b/;
 function isBannerLine(line: string): boolean {
-  return line.includes("»") && MONTH_NAME_RE.test(line) && FOUR_DIGIT_YEAR_RE.test(line);
+  return (
+    line.includes("»") &&
+    (MONTH_ABBR_RE.test(line) || MONTH_FULL_RE.test(line)) &&
+    FOUR_DIGIT_YEAR_RE.test(line)
+  );
 }
 export function stripPhpBbBanners(text: string): string {
   return text
