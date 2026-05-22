@@ -23,15 +23,32 @@ async function main() {
   const k = await prisma.kennel.findUnique({ where: { kennelCode: "mlh4" }, select: { id: true } });
   if (!k) { console.log("MLH4 not found"); return; }
 
+  // Predicate-driven find: ONLY targets Events whose runNumber is still 420.
+  // Codex review (#1629) caught two issues with the prior shape:
+  //   (P1) The old code nulled `runNumber` whenever the row had any non-null
+  //        value, so a re-run after a legitimate backfill (say, runNumber=1665)
+  //        would erase the real number.
+  //   (P2) `findFirst({kennelId, date})` returns an arbitrary matching row when
+  //        multiple Events exist for the same kennel/date (conflict/audit
+  //        cases). Combining the date AND the stale-value predicate makes the
+  //        target deterministic: there's at most one row matching both.
   const target = new Date("2026-04-20T12:00:00Z");
-  const ek = await prisma.eventKennel.findFirst({
-    where: { kennelId: k.id, event: { date: target } },
+  const eks = await prisma.eventKennel.findMany({
+    where: { kennelId: k.id, event: { date: target, runNumber: 420 } },
     select: { event: { select: { id: true, title: true, runNumber: true } } },
   });
-  if (!ek) { console.log("no 2026-04-20 event found"); return; }
-  const e = ek.event;
-  console.log(`Target: id=${e.id} title=${e.title} runNumber=${e.runNumber}`);
-  if (e.runNumber == null) { console.log("already cleared — no-op"); return; }
+  if (eks.length === 0) {
+    console.log("no 2026-04-20 MLH4 event with runNumber=420 found — already clean, no-op");
+  } else if (eks.length > 1) {
+    console.warn(`⚠ Found ${eks.length} matching events — refusing to write to avoid wrong-row scrub.`);
+    for (const ek of eks) console.warn(`  · id=${ek.event.id} title=${ek.event.title}`);
+    return;
+  }
+
+  const targetEvent = eks[0]?.event;
+  if (targetEvent) {
+    console.log(`Target: id=${targetEvent.id} title=${targetEvent.title} runNumber=${targetEvent.runNumber}`);
+  }
 
   // Find and scrub the matching RawEvent payload to prevent the next scrape
   // from re-writing the same wrong value.
@@ -43,24 +60,28 @@ async function main() {
     },
     select: { id: true, rawData: true },
   });
-  console.log(`Found ${raws.length} matching RawEvents for 2026-04-20.`);
+  const rawsCarrying420 = raws.filter((r) => {
+    const d = r.rawData as Record<string, unknown>;
+    return typeof d.runNumber === "number" && d.runNumber === 420;
+  });
+  console.log(`Found ${raws.length} RawEvents for 2026-04-20 (${rawsCarrying420.length} carry runNumber=420).`);
 
   if (!apply) {
     console.log("\nDry run — re-run with APPLY=1 to scrub.");
     return;
   }
 
-  await prisma.event.update({ where: { id: e.id }, data: { runNumber: null } });
-  let scrubbed = 0;
-  for (const r of raws) {
-    const d = r.rawData as Record<string, unknown>;
-    if (typeof d.runNumber === "number" && d.runNumber === 420) {
-      delete d.runNumber;
-      await prisma.rawEvent.update({ where: { id: r.id }, data: { rawData: d as never } });
-      scrubbed++;
-    }
+  if (targetEvent) {
+    await prisma.event.update({ where: { id: targetEvent.id }, data: { runNumber: null } });
   }
-  console.log(`Event.runNumber cleared. ${scrubbed} RawEvent payload(s) scrubbed.`);
+  let scrubbed = 0;
+  for (const r of rawsCarrying420) {
+    const d = r.rawData as Record<string, unknown>;
+    delete d.runNumber;
+    await prisma.rawEvent.update({ where: { id: r.id }, data: { rawData: d as never } });
+    scrubbed++;
+  }
+  console.log(`Event.runNumber cleared: ${targetEvent ? "yes" : "no-op"}. ${scrubbed} RawEvent payload(s) scrubbed.`);
 }
 main()
   .catch((e) => { console.warn(e); process.exit(1); })
