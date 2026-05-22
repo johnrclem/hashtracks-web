@@ -4092,6 +4092,10 @@ describe("linkMultiDaySeries (#1560)", () => {
     expect((childUpdateMany![0] as { where: { id: { in: string[] } } }).where.id.in).toEqual(
       expect.arrayContaining(["evt_sat", "evt_sun"]),
     );
+    // Gemini review #2 regression guard — child updateMany must clear
+    // `isSeriesParent` so events demoted from parent in a prior scrape lose
+    // the UI's tent-glyph + "+ N trails" badge treatment.
+    expect((childUpdateMany![0] as { data: { isSeriesParent?: boolean } }).data.isSeriesParent).toBe(false);
   });
 
   it("honors explicit seriesParent:true even when it's not the earliest by date", async () => {

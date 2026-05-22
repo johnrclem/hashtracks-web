@@ -40,9 +40,13 @@ async function main() {
   const apply = process.argv.includes("--apply");
   console.log(`Mode: ${apply ? "APPLY (will delete)" : "DRY-RUN"}`);
 
-  // Find canonical Events with no backing RawEvent. `parentEventId IS NULL`
-  // excludes series children — they're linked via the parent and shouldn't
-  // be evaluated by this pass even when the child has its own RawEvents.
+  // Find canonical Events with no backing RawEvent. `parentEventId: null`
+  // is enforced in the query (Codex P1 review): without this clause a child
+  // row that lost its sole backing RawEvent (upstream row churn, e.g. an
+  // adapter that stops emitting a specific day) would be hard-deleted,
+  // silently destroying valid series structure. Children with truly stale
+  // links should be cleaned by the merge pipeline's own reconciliation, not
+  // by this top-level orphan sweep.
   const orphans = await prisma.event.findMany({
     where: {
       rawEvents: { none: {} },
@@ -50,6 +54,7 @@ async function main() {
       adminCancelledAt: null,
       attendances: { none: {} },
       hares: { none: {} },
+      parentEventId: null,
     },
     select: {
       id: true,

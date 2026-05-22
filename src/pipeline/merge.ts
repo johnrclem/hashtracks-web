@@ -1715,7 +1715,13 @@ async function linkMultiDaySeries(
 
       const seriesEvents = await prisma.event.findMany({
         where: { id: { in: unique.map(m => m.eventId) } },
-        orderBy: { date: "asc" },
+        // Compound order: dates can tie when an umbrella + a same-day child
+        // both fall on the same day (SFH3 Bay 2 Blackout has the umbrella
+        // and 2 trails all at 2026-05-14). `id` is `@id @default(cuid())`
+        // which is monotonic across rows, so it's a stable secondary key
+        // that prevents Prisma/Postgres row-order luck from picking
+        // different parents across scrapes (Gemini review #1).
+        orderBy: [{ date: "asc" }, { id: "asc" }],
         // adminCancelledAt selected so the restore branch below honors the
         // admin lock (Codex P0 — without this, a series scrape silently
         // resurrects a parent an admin explicitly cancelled).
@@ -1737,14 +1743,23 @@ async function linkMultiDaySeries(
       });
       const childIds = seriesEvents.filter(e => e.id !== parentId).map(e => e.id);
       if (childIds.length > 0) {
+        // `isSeriesParent: false` is mandatory — an Event that was a series
+        // parent in a previous scrape and is now being demoted to child must
+        // clear the flag, or the UI (EventCard + EventDetailPanel both gate
+        // on `isSeriesParent === true`) will keep showing the tent glyph,
+        // `+ N trails` badge, and expand button on what is now a child row
+        // (Gemini review #2).
         await prisma.event.updateMany({
           where: { id: { in: childIds } },
-          data: { parentEventId: parentId },
+          data: { parentEventId: parentId, isSeriesParent: false },
         });
       }
 
-      // Cancellation cascade — re-query post-link so we see fresh child status
-      // (any restore that ran during this batch is reflected).
+      // Cancellation cascade — `seriesEvents` was fetched BEFORE the writes
+      // above, but those writes only touched `isSeriesParent` and
+      // `parentEventId`. The `status` field is still accurate for the
+      // cascade decision (claude[bot] review — earlier comment misleadingly
+      // claimed a re-query).
       //
       // Admin-locked parents (`adminCancelledAt != null`) are exempt from
       // BOTH branches: an admin explicitly cancelled the event and the lock
