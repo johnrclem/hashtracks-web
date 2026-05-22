@@ -983,7 +983,7 @@ describe("parseDayHeaderSections", () => {
       expected: ["2026-12-30", "2026-12-31", "2027-01-01", "2027-01-02"],
     },
   ])("$label", ({ desc, anchor, expected }) => {
-    expect(parseDayHeaderSections(desc, anchor)).toEqual(expected);
+    expect(parseDayHeaderSections(desc, anchor).map((e) => e.date)).toEqual(expected);
   });
 
   it("returns [] when only one day header is present (no false-positive series)", () => {
@@ -998,6 +998,38 @@ describe("parseDayHeaderSections", () => {
     // The required `\d+(?::|\s)\s*\d{1,2}/\d{1,2}` tail rules out bare
     // "Day" mentions that aren't day-section headers.
     expect(parseDayHeaderSections("Memorial Day weekend, Day of reckoning.", "2026-05-25")).toEqual([]);
+  });
+
+  // Codex P1 review on PR #1630 — section times stay paired with their
+  // header even when the headers are listed out of chronological order.
+  it("pairs each day's startTime with its own header even when headers are listed out of order", () => {
+    const desc =
+      "**DAY 3 1/17 —** Sunday 12:00 show, 12:30 go.\n" +
+      "**DAY 1 1/15 —** Friday 7:00 show, 7:30 go.\n" +
+      "**DAY 2 1/16 —** Saturday 10:00 show, 10:30 go.";
+    const entries = parseDayHeaderSections(desc, "2026-01-15");
+    // Sorted by date — but each entry carries the time from its own
+    // section, not the time at the matching index in document order.
+    expect(entries.map((e) => e.date)).toEqual([
+      "2026-01-15", "2026-01-16", "2026-01-17",
+    ]);
+    expect(entries.map((e) => e.startTime)).toEqual([
+      "19:00", "10:00", "12:00",
+    ]);
+    // (AM-bias adjustment: hours 1–9 bump to PM (+12). 7:00 → 19:00.
+    // 10:00 and 12:00 are outside the 1–9 range so they stay unchanged.
+    // Matches `extractPerDayStartTimes`' legacy semantics, which biases
+    // hashrego's bare "7:00 show" toward 7 PM but leaves explicit
+    // morning starts like "10:00 go" alone.)
+  });
+
+  it("returns startTime: undefined for a section that has no show/go/start time", () => {
+    const desc = "**DAY 1 4/4 —** Friday (no time given).\n**DAY 2 4/5 —** Saturday 10:00 go.";
+    const entries = parseDayHeaderSections(desc, "2026-04-04");
+    expect(entries).toEqual([
+      { date: "2026-04-04", startTime: undefined },
+      { date: "2026-04-05", startTime: "10:00" },
+    ]);
   });
 });
 

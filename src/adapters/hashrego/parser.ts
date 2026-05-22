@@ -518,34 +518,72 @@ const DAY_HEADER_RE = /\bDay\s+(\d{1,2})(?::|\s)\s*(\d{1,2})\/(\d{1,2})\b/gi;
  * following year (NYE campouts: `**DAY 1 12/31 —**`, `**DAY 2 1/1 —**`
  * starts in year N and finishes in N+1 — Gemini review on PR #1630).
  */
+/** First `HH:MM show/go/start` pattern in a slice, normalized to a 24h
+ *  string. Returns `undefined` when no time is present in the slice. Same
+ *  AM-bias adjustment as `extractPerDayStartTimes` (1–9 → +12 hours;
+ *  hashrego writes evening times bare like "7:00 show"). */
+function extractFirstTimeFromSlice(slice: string): string | undefined {
+  const tm = slice.match(/(\d{1,2}):(\d{2})\s+(show|go|start)/i);
+  if (!tm) return undefined;
+  const h = parseInt(tm[1], 10);
+  const min = parseInt(tm[2], 10);
+  const adjustedH = h < 12 && h >= 1 && h <= 9 ? h + 12 : h;
+  return `${String(adjustedH).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
+}
+
+/** One per-day entry from `parseDayHeaderSections`. */
+export interface DayHeaderSection {
+  date: string;        // YYYY-MM-DD
+  startTime?: string;  // HH:MM (24h) — undefined when the slice has no `show/go/start` time
+}
+
 export function parseDayHeaderSections(
   description: string,
   startDateStr: string,
-): string[] {
+): DayHeaderSection[] {
   const baseYear = parseInt(startDateStr.split("-")[0], 10);
   if (!baseYear) return [];
   const matches = [...description.matchAll(DAY_HEADER_RE)];
   if (matches.length < 2) return [];
-  const dates = matches.map((m) => {
+
+  // Walk headers in DOCUMENT order so each section's time can be extracted
+  // from the slice between THIS header and the next one. Sorting by date
+  // happens AFTER pairing so a description that lists headers
+  // out-of-order (admin error, "Day 3 ... Day 1 ... Day 2") still maps
+  // its 7:00 show / 10:00 show / 12:00 show times to the right days
+  // (Codex P1 review on PR #1630 — pre-fix, `extractPerDayStartTimes`
+  // returned times in raw doc order and the caller paired them by index
+  // into the sorted dates, silently shuffling them).
+  const entries: DayHeaderSection[] = matches.map((m, i) => {
     const month = parseInt(m[2], 10);
     const day = parseInt(m[3], 10);
     const candidate = `${baseYear}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     // Year-rollover: if the parsed M/D lands chronologically before the
     // event's anchor date, it must belong to the following year (the
     // anchor is always the event's earliest known day).
-    if (candidate < startDateStr) {
-      return `${baseYear + 1}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    }
-    return candidate;
+    const date = candidate < startDateStr
+      ? `${baseYear + 1}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+      : candidate;
+    // Slice between this header's end and the next header's start (or
+    // end-of-description for the last header).
+    const sliceStart = (m.index ?? 0) + m[0].length;
+    const sliceEnd = matches[i + 1]?.index ?? description.length;
+    const startTime = extractFirstTimeFromSlice(description.slice(sliceStart, sliceEnd));
+    return { date, startTime };
   });
-  // Deduplicate (a description mentioning the same day twice in two
-  // headers shouldn't double-count) then sort. After dedup we re-apply
-  // the < 2 guard: a description with two "DAY 1 1/15" headers
-  // (admin typo, same-day double bill, etc.) collapses to one unique
-  // date — which is NOT a multi-day series. Falling back to `[]` lets
-  // the caller's existing single-day path take over without spuriously
-  // marking the event as multi-day.
-  const unique = [...new Set(dates)].sort((a, b) => a.localeCompare(b));
+
+  // Deduplicate by date (a description mentioning the same day twice in
+  // two headers collapses; first occurrence wins for time). After dedup
+  // we re-apply the < 2 guard: two "DAY 1 1/15" headers — admin typo,
+  // same-day double bill, etc. — collapse to one unique date, which is
+  // NOT a multi-day series. Falling back to `[]` lets the caller's
+  // existing single-day path take over without spuriously marking the
+  // event as multi-day.
+  const byDate = new Map<string, DayHeaderSection>();
+  for (const e of entries) {
+    if (!byDate.has(e.date)) byDate.set(e.date, e);
+  }
+  const unique = [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
   return unique.length >= 2 ? unique : [];
 }
 
@@ -581,11 +619,20 @@ function parseDateRangeFromDescription(
 
   // Strategy 2 (#1560 PR B): per-day section headers — `DAY 1 M/D`, etc.
   // Fallback for NYC 5-Boro-style multi-day descriptions whose date range
-  // isn't expressible as a single `start to end` line.
-  const dayHeaderDates = parseDayHeaderSections(description, startDateStr);
-  if (dayHeaderDates.length >= 2) {
-    const startTimes = extractPerDayStartTimes(description, dayHeaderDates.length);
-    return { dates: dayHeaderDates, startTimes, isMultiDay: true };
+  // isn't expressible as a single `start to end` line. Per-section start
+  // times are extracted alongside each date in `parseDayHeaderSections`
+  // so out-of-order headers keep their times paired correctly across
+  // the post-sort (Codex P1 review).
+  const dayHeaderEntries = parseDayHeaderSections(description, startDateStr);
+  if (dayHeaderEntries.length >= 2) {
+    const dates = dayHeaderEntries.map((e) => e.date);
+    // Per-section times pair correctly with dates after sort. Where a
+    // section has no `show/go/start` time, fall back to the first
+    // populated section's time so downstream display still has a value
+    // (mirrors the legacy padding behavior in `extractPerDayStartTimes`).
+    const firstTime = dayHeaderEntries.find((e) => e.startTime)?.startTime ?? "";
+    const startTimes = dayHeaderEntries.map((e) => e.startTime ?? firstTime);
+    return { dates, startTimes, isMultiDay: true };
   }
 
   return null;
