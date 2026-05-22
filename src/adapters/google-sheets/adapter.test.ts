@@ -800,6 +800,8 @@ describe("cellMatchesFilter (#1592)", () => {
     ["MH3α", false, String.raw`Greek-letter continuation (Unicode \p{L})`],
     ["MH3Ａvent", false, "fullwidth ASCII continuation"],
     ["MH3٨", false, String.raw`Arabic-Indic digit continuation (Unicode \p{N})`],
+    ["MH3́FAKE", false, String.raw`combining-acute continuation (Unicode \p{M})`],
+    ["MH3‍Birthday", false, String.raw`zero-width joiner continuation (Unicode \p{Cf})`],
     ["MH3_v2", false, "underscore continuation"],
     ["MFMH3", false, "sibling kennel (different prefix)"],
     ["MASS H3", false, "sibling kennel"],

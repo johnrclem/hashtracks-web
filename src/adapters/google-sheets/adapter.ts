@@ -441,11 +441,13 @@ export function tokenizeGroupCell(raw: string | undefined): string[] {
  *     matches either token; `"MH3FAKE"` does NOT match `"MH3"`.
  *  2. Host-prefix relaxation (#1592) — if token equality fails, accept when a
  *     filter token is a prefix of the trimmed-lowered cell AND the next
- *     character is NOT a Unicode letter / digit / underscore. This keeps
- *     free-form sub-labels (`"MH3 - Birthday"`, `"MH3 Spec"`,
- *     `"MH3 (Hashathon)"`) while still rejecting Unicode continuations:
- *     `"MH3FAKE"`, `"MH3α"` (Greek), `"MH3Ａvent"` (fullwidth), `"MH3٨"`
- *     (Arabic-Indic digit).
+ *     character is NOT a Unicode letter (`\p{L}`), digit (`\p{N}`), combining
+ *     mark (`\p{M}`), format character / ZWJ / ZWNJ (`\p{Cf}`), or underscore.
+ *     This keeps free-form sub-labels (`"MH3 - Birthday"`, `"MH3 Spec"`,
+ *     `"MH3 (Hashathon)"`) while still rejecting any character class that
+ *     could extend the host-kennel token into something else: `"MH3FAKE"`,
+ *     `"MH3α"` (Greek), `"MH3Ａvent"` (fullwidth), `"MH3٨"` (Arabic-Indic
+ *     digit), `"MH3́FAKE"` (combining acute), `"MH3‍Birthday"` (ZWJ).
  *
  * Empty / whitespace cells return false so callers can treat them as
  * ambiguous-and-skipped without a separate check.
@@ -462,7 +464,7 @@ export function cellMatchesFilter(raw: string | undefined, filterSet: Set<string
   for (const filterToken of filterSet) {
     if (normalized.length <= filterToken.length) continue;
     if (!normalized.startsWith(filterToken)) continue;
-    if (!/[\p{L}\p{N}_]/u.test(normalized[filterToken.length])) return true;
+    if (!/[\p{L}\p{N}\p{M}\p{Cf}_]/u.test(normalized[filterToken.length])) return true;
   }
   return false;
 }
