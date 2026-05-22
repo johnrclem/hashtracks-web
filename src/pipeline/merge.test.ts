@@ -3984,6 +3984,52 @@ describe("processNewRawEvent — P2002 race-window fall-through (#1286)", () => 
   });
 });
 
+/**
+ * Shape the EVENT_CACHE_SELECT contract expects post-create: every column
+ * recomputeCanonical / rememberCreatedEvent reads must be present, or the
+ * second event's ensureKennelEventCache hit on the in-memory pool crashes.
+ * Lifted to module scope (Sonar S7721) so it's not re-allocated per describe
+ * invocation; tests pull it via `primeFreshCreate`.
+ */
+function buildCanonicalEventRow(id: string): Record<string, unknown> {
+  return {
+    id,
+    kennelId: "kennel_1",
+    date: new Date("2026-01-16T12:00:00Z"),
+    dateUtc: new Date("2026-01-16T12:00:00Z"),
+    timezone: "America/New_York",
+    runNumber: null,
+    title: "Stub Trail",
+    description: null,
+    haresText: null,
+    locationName: null,
+    locationStreet: null,
+    locationCity: null,
+    locationAddress: null,
+    latitude: null,
+    longitude: null,
+    startTime: null,
+    endTime: null,
+    cost: null,
+    trailLengthText: null,
+    trailLengthMinMiles: null,
+    trailLengthMaxMiles: null,
+    difficulty: null,
+    trailType: null,
+    dogFriendly: null,
+    prelube: null,
+    sourceUrl: null,
+    trustLevel: 5,
+    isSeriesParent: false,
+    parentEventId: null,
+    endDate: null,
+    status: "CONFIRMED",
+    adminCancelledAt: null,
+    createdAt: new Date("2026-01-01T00:00:00Z"),
+    isCanonical: true,
+  };
+}
+
 describe("linkMultiDaySeries (#1560)", () => {
   // Shared helper: prime processRawEvents to land each incoming raw as a
   // fresh canonical Event. The merge loop reads via prisma.event.findMany
@@ -3991,47 +4037,6 @@ describe("linkMultiDaySeries (#1560)", () => {
   // `where.kennelId/date`, and `linkMultiDaySeries` uses `where.id.in`.
   // We route by inspecting the where clause so post-link Once seeds aren't
   // eaten by the per-event ensureKennelEventCache call.
-  // Shape the EVENT_CACHE_SELECT contract expects post-create: every column
-  // recomputeCanonical / rememberCreatedEvent reads must be present, or the
-  // second event's ensureKennelEventCache hit on the in-memory pool crashes.
-  function buildCanonicalEventRow(id: string): Record<string, unknown> {
-    return {
-      id,
-      kennelId: "kennel_1",
-      date: new Date("2026-01-16T12:00:00Z"),
-      dateUtc: new Date("2026-01-16T12:00:00Z"),
-      timezone: "America/New_York",
-      runNumber: null,
-      title: "Stub Trail",
-      description: null,
-      haresText: null,
-      locationName: null,
-      locationStreet: null,
-      locationCity: null,
-      locationAddress: null,
-      latitude: null,
-      longitude: null,
-      startTime: null,
-      endTime: null,
-      cost: null,
-      trailLengthText: null,
-      trailLengthMinMiles: null,
-      trailLengthMaxMiles: null,
-      difficulty: null,
-      trailType: null,
-      dogFriendly: null,
-      prelube: null,
-      sourceUrl: null,
-      trustLevel: 5,
-      isSeriesParent: false,
-      parentEventId: null,
-      endDate: null,
-      status: "CONFIRMED",
-      adminCancelledAt: null,
-      createdAt: new Date("2026-01-01T00:00:00Z"),
-      isCanonical: true,
-    };
-  }
 
   function primeFreshCreate(eventIds: string[], postLinkStatuses?: Array<{ id: string; status: string }>) {
     mockEventFindMany.mockReset();
@@ -4048,16 +4053,21 @@ describe("linkMultiDaySeries (#1560)", () => {
       },
     );
     for (const id of eventIds) {
-      mockEventCreate.mockResolvedValueOnce(buildCanonicalEventRow(id) as never);
-      mockRawEventCreate.mockResolvedValueOnce({ id: `raw_${id}` } as never);
+      // The `as never` casts are required: Prisma's generated mock types
+      // demand the FULL row shape (37+ fields including JsonValue rawData),
+      // but our stubs only carry the EVENT_CACHE_SELECT-shaped subset and
+      // a synthetic raw-id. Sonar's S4325 misfires here because it doesn't
+      // see Prisma's generated overload set.
+      mockEventCreate.mockResolvedValueOnce(buildCanonicalEventRow(id) as never); // NOSONAR S4325
+      mockRawEventCreate.mockResolvedValueOnce({ id: `raw_${id}` } as never); // NOSONAR S4325
     }
     // Stub event.update to echo the row back so post-update cache patching
     // doesn't lose the EVENT_CACHE_SELECT-shaped fields recomputeCanonical needs.
     (mockEventUpdate.mockImplementation as unknown as (fn: (args?: unknown) => Promise<unknown>) => unknown)(
       async (args?: unknown) => {
         const a = args as { where?: { id?: string }; data?: Record<string, unknown> } | undefined;
-        const row = buildCanonicalEventRow((a?.where?.id) ?? "evt_unknown");
-        return { ...row, ...(a?.data ?? {}) };
+        const row = buildCanonicalEventRow(a?.where?.id ?? "evt_unknown");
+        return { ...row, ...a?.data };
       },
     );
     // Fingerprints distinct so dedup never short-circuits.

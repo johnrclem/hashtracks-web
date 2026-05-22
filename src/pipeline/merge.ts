@@ -1679,6 +1679,135 @@ async function upsertCanonicalEvent(
  */
 type SeriesMember = { eventId: string; isExplicitParent: boolean };
 
+/** Row shape returned from the series-link prefetch. */
+type SeriesLinkRow = {
+  id: string;
+  status: EventStatus;
+  adminCancelledAt: Date | null;
+};
+
+/**
+ * Deduplicate `SeriesMember` entries by `eventId`. Two raws can resolve to
+ * the same canonical Event (cross-source absorption); when that happens
+ * keep the most-permissive explicit-parent signal — any `true` wins.
+ */
+function dedupeSeriesMembers(members: SeriesMember[]): SeriesMember[] {
+  const byEventId = new Map<string, SeriesMember>();
+  for (const m of members) {
+    const prior = byEventId.get(m.eventId);
+    byEventId.set(m.eventId, {
+      eventId: m.eventId,
+      isExplicitParent: (prior?.isExplicitParent ?? false) || m.isExplicitParent,
+    });
+  }
+  return [...byEventId.values()];
+}
+
+/**
+ * Pick the parent row for a series. Explicit-parent flag wins; among
+ * multiple explicits the earliest (by the input sort order) wins. With no
+ * explicit flag, fall back to `seriesEvents[0]` — the caller queries with
+ * `orderBy: [{ date: "asc" }, { id: "asc" }]` for a deterministic
+ * tiebreaker (Gemini review #1).
+ */
+function pickSeriesParentRow(
+  unique: SeriesMember[],
+  seriesEvents: SeriesLinkRow[],
+): SeriesLinkRow {
+  const explicitIds = new Set(unique.filter(m => m.isExplicitParent).map(m => m.eventId));
+  return seriesEvents.find(e => explicitIds.has(e.id)) ?? seriesEvents[0];
+}
+
+/**
+ * Write parent/child relationships in two batched updates. The child
+ * updateMany clears `isSeriesParent` on every demoted row — an Event that
+ * was a series parent in a prior scrape and is now being linked as a
+ * child must lose the UI's tent-glyph / "+ N trails" treatment (Gemini
+ * review #2).
+ */
+async function writeSeriesLinks(
+  parentId: string,
+  childIds: string[],
+): Promise<void> {
+  await prisma.event.update({
+    where: { id: parentId },
+    data: { isSeriesParent: true, parentEventId: null },
+  });
+  if (childIds.length > 0) {
+    await prisma.event.updateMany({
+      where: { id: { in: childIds } },
+      data: { parentEventId: parentId, isSeriesParent: false },
+    });
+  }
+}
+
+/**
+ * Cancellation cascade for a series parent. Idempotent. Admin-locked
+ * parents (`adminCancelledAt != null`) are exempt from BOTH branches: an
+ * admin explicitly cancelled the event and the lock survives source
+ * re-emission (mirrors the auto-restore guard in upsertCanonicalEvent —
+ * Codex P0 review).
+ *
+ * The `seriesEvents` argument was fetched BEFORE the link writes ran but
+ * those writes only touched `isSeriesParent` / `parentEventId`. The
+ * `status` field is still accurate (claude[bot] review).
+ */
+async function cascadeSeriesCancellation(
+  parentRow: SeriesLinkRow,
+  seriesEvents: SeriesLinkRow[],
+): Promise<void> {
+  if (parentRow.adminCancelledAt != null) return;
+  const childStatuses = seriesEvents.filter(e => e.id !== parentRow.id).map(e => e.status);
+  const allChildrenCancelled =
+    childStatuses.length > 0 && childStatuses.every(s => s === "CANCELLED");
+  if (allChildrenCancelled && parentRow.status === "CONFIRMED") {
+    // Only cascade live → CANCELLED; leave TENTATIVE alone (a tentative
+    // parent shouldn't be auto-cancelled by a sourced child cancellation
+    // when an admin hasn't yet decided).
+    await prisma.event.update({
+      where: { id: parentRow.id },
+      data: { status: "CANCELLED" },
+    });
+  } else if (!allChildrenCancelled && parentRow.status === "CANCELLED") {
+    // At least one child is live → parent should not be CANCELLED.
+    // Mirrors the auto-restore semantic used in upsertCanonicalEvent.
+    await prisma.event.update({
+      where: { id: parentRow.id },
+      data: { status: "CONFIRMED" },
+    });
+  }
+}
+
+/**
+ * Process one series group end-to-end: dedup members, fetch the canonical
+ * rows, pick a parent, write the parent/child links, then run the
+ * cancellation cascade. Helpers above keep `linkMultiDaySeries` itself
+ * under Sonar's cognitive-complexity threshold.
+ */
+async function linkOneSeries(members: SeriesMember[]): Promise<void> {
+  if (members.length < 2) return;
+  const unique = dedupeSeriesMembers(members);
+  if (unique.length < 2) return;
+
+  const seriesEvents = await prisma.event.findMany({
+    where: { id: { in: unique.map(m => m.eventId) } },
+    // Compound order: dates can tie when an umbrella + a same-day child
+    // both fall on the same day (SFH3 Bay 2 Blackout). `id` is
+    // `@id @default(cuid())` which is monotonic, so it's a stable
+    // secondary key that prevents row-order luck from picking different
+    // parents across scrapes (Gemini review #1).
+    orderBy: [{ date: "asc" }, { id: "asc" }],
+    // adminCancelledAt selected so the cascade honors the admin lock.
+    select: { id: true, status: true, adminCancelledAt: true },
+  });
+  if (seriesEvents.length < 2) return;
+
+  const parentRow = pickSeriesParentRow(unique, seriesEvents);
+  const childIds = seriesEvents.filter(e => e.id !== parentRow.id).map(e => e.id);
+  await writeSeriesLinks(parentRow.id, childIds);
+  await cascadeSeriesCancellation(parentRow, seriesEvents);
+}
+
 /**
  * Link multi-day series via parentEventId.
  *
@@ -1697,95 +1826,8 @@ async function linkMultiDaySeries(
   seriesGroups: Map<string, SeriesMember[]>,
 ): Promise<void> {
   for (const [, members] of seriesGroups) {
-    if (members.length < 2) continue;
     try {
-      // Deduplicate by eventId — two raws can share a seriesId and resolve to
-      // the same canonical Event (re-scrape, cross-source absorption). Keep
-      // the most-permissive explicit-parent signal (any true → true).
-      const byEventId = new Map<string, SeriesMember>();
-      for (const m of members) {
-        const prior = byEventId.get(m.eventId);
-        byEventId.set(m.eventId, {
-          eventId: m.eventId,
-          isExplicitParent: (prior?.isExplicitParent ?? false) || m.isExplicitParent,
-        });
-      }
-      const unique = [...byEventId.values()];
-      if (unique.length < 2) continue;
-
-      const seriesEvents = await prisma.event.findMany({
-        where: { id: { in: unique.map(m => m.eventId) } },
-        // Compound order: dates can tie when an umbrella + a same-day child
-        // both fall on the same day (SFH3 Bay 2 Blackout has the umbrella
-        // and 2 trails all at 2026-05-14). `id` is `@id @default(cuid())`
-        // which is monotonic across rows, so it's a stable secondary key
-        // that prevents Prisma/Postgres row-order luck from picking
-        // different parents across scrapes (Gemini review #1).
-        orderBy: [{ date: "asc" }, { id: "asc" }],
-        // adminCancelledAt selected so the restore branch below honors the
-        // admin lock (Codex P0 — without this, a series scrape silently
-        // resurrects a parent an admin explicitly cancelled).
-        select: { id: true, status: true, adminCancelledAt: true },
-      });
-      if (seriesEvents.length < 2) continue;
-
-      // Pick parent: explicit-parent flag wins; among multiple explicits the
-      // earliest-by-date wins (deterministic — see Codex P2 #1). Fallback is
-      // earliest-by-date over all candidates.
-      const explicitIds = new Set(unique.filter(m => m.isExplicitParent).map(m => m.eventId));
-      const explicitParentRow = seriesEvents.find(e => explicitIds.has(e.id));
-      const parentRow = explicitParentRow ?? seriesEvents[0];
-      const parentId = parentRow.id;
-
-      await prisma.event.update({
-        where: { id: parentId },
-        data: { isSeriesParent: true, parentEventId: null },
-      });
-      const childIds = seriesEvents.filter(e => e.id !== parentId).map(e => e.id);
-      if (childIds.length > 0) {
-        // `isSeriesParent: false` is mandatory — an Event that was a series
-        // parent in a previous scrape and is now being demoted to child must
-        // clear the flag, or the UI (EventCard + EventDetailPanel both gate
-        // on `isSeriesParent === true`) will keep showing the tent glyph,
-        // `+ N trails` badge, and expand button on what is now a child row
-        // (Gemini review #2).
-        await prisma.event.updateMany({
-          where: { id: { in: childIds } },
-          data: { parentEventId: parentId, isSeriesParent: false },
-        });
-      }
-
-      // Cancellation cascade — `seriesEvents` was fetched BEFORE the writes
-      // above, but those writes only touched `isSeriesParent` and
-      // `parentEventId`. The `status` field is still accurate for the
-      // cascade decision (claude[bot] review — earlier comment misleadingly
-      // claimed a re-query).
-      //
-      // Admin-locked parents (`adminCancelledAt != null`) are exempt from
-      // BOTH branches: an admin explicitly cancelled the event and the lock
-      // survives source re-emission (mirrors the auto-restore guard in
-      // upsertCanonicalEvent — Codex P0 review).
-      const isAdminLocked = parentRow.adminCancelledAt != null;
-      const childStatuses = seriesEvents.filter(e => e.id !== parentId).map(e => e.status);
-      const allChildrenCancelled =
-        childStatuses.length > 0 && childStatuses.every(s => s === "CANCELLED");
-      const parentStatus = parentRow.status;
-      if (!isAdminLocked && allChildrenCancelled && parentStatus === "CONFIRMED") {
-        // Only cascade live → CANCELLED; leave TENTATIVE alone (a tentative
-        // parent shouldn't be auto-cancelled by a sourced child cancellation
-        // when an admin hasn't yet decided).
-        await prisma.event.update({
-          where: { id: parentId },
-          data: { status: "CANCELLED" },
-        });
-      } else if (!isAdminLocked && !allChildrenCancelled && parentStatus === "CANCELLED") {
-        // At least one child is live → parent should not be CANCELLED.
-        // Mirrors the auto-restore semantic used in upsertCanonicalEvent.
-        await prisma.event.update({
-          where: { id: parentId },
-          data: { status: "CONFIRMED" },
-        });
-      }
+      await linkOneSeries(members);
     } catch (err) {
       console.error(`Series linking error: ${err instanceof Error ? err.message : String(err)}`);
     }

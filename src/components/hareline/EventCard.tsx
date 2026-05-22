@@ -774,7 +774,11 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
                 aria-controls={`series-${event.id}-children`}
                 className="flex items-center gap-1 text-xs font-mono text-muted-foreground/80 hover:text-foreground transition-colors"
               >
-                {seriesExpanded ? "Hide trails" : `Show ${childCount} ${childCount === 1 ? "trail" : "trails"}`}
+                {(() => {
+                  if (seriesExpanded) return "Hide trails";
+                  const trailWord = childCount === 1 ? "trail" : "trails";
+                  return `Show ${childCount} ${trailWord}`;
+                })()}
                 <ChevronDown
                   className={`size-3 transition-transform ${seriesExpanded ? "rotate-180" : ""}`}
                   aria-hidden="true"
@@ -804,6 +808,17 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
   );
 }
 
+/**
+ * Time to render in a series child row. Prefer the timezone-aware composed
+ * value when both `dateUtc` and `startTime` are present; fall back to the
+ * raw HH:MM string when only `startTime` exists; otherwise `null`.
+ */
+function computeChildTime(child: HarelineSeriesChild, displayTz: string): string | null {
+  if (child.dateUtc && child.startTime) return formatTimeInZone(child.dateUtc, displayTz);
+  if (child.startTime) return formatTime(child.startTime);
+  return null;
+}
+
 /** One row in the expanded series children list (#1560). Compact: day chip
  *  + time + title + hares. Click navigates to the child's detail page.
  *  Stops propagation so the parent card's onClick doesn't also fire. */
@@ -817,9 +832,7 @@ function SeriesChildRow({
   readonly displayTz: string;
 }) {
   const router = useRouter();
-  const childTime = (child.dateUtc && child.startTime)
-    ? formatTimeInZone(child.dateUtc, displayTz)
-    : (child.startTime ? formatTime(child.startTime) : null);
+  const childTime = computeChildTime(child, displayTz);
   const childDate = new Date(child.date);
   const dayChip = childDate.toLocaleDateString("en-US", { weekday: "short", day: "numeric", timeZone: "UTC" });
   const isChildCancelled = child.status === "CANCELLED";

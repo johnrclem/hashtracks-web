@@ -201,11 +201,16 @@ const SFH3_UMBRELLA_ID_RE = /sfh3\.com\/events\/(\d+)/;
  * Safe to call unconditionally — returns early when no `sfh3.com/events/`
  * URLs are present, so non-SFH3 iCal feeds pass through untouched.
  */
-export function markSFH3SeriesMembership(events: RawEventData[]): RawEventData[] {
-  // Pass 1: find umbrellas, assign their seriesId / seriesParent, and build
-  // a lookup of (kennelTag, date) → seriesId for the second pass.
-  type Umbrella = { event: RawEventData; seriesId: string; eventNum: number; kennelTags: string[] };
-  const umbrellas: Umbrella[] = [];
+type SFH3Umbrella = { event: RawEventData; seriesId: string; eventNum: number; kennelTags: string[] };
+
+/**
+ * Pass 1: find `/events/N` umbrellas, mark each as series parent in place,
+ * and return a deterministically-sorted list for the trail-tagging pass.
+ * Sort key: earliest start, then lowest `/events/N` id — never the iCal
+ * feed's server-controlled VEVENT order (Codex P2 review).
+ */
+function collectSFH3Umbrellas(events: RawEventData[]): SFH3Umbrella[] {
+  const umbrellas: SFH3Umbrella[] = [];
   for (const event of events) {
     if (!event.sourceUrl) continue;
     const m = SFH3_UMBRELLA_ID_RE.exec(event.sourceUrl);
@@ -221,51 +226,78 @@ export function markSFH3SeriesMembership(events: RawEventData[]): RawEventData[]
       kennelTags: event.kennelTags.map((t) => t.toLowerCase()),
     });
   }
-  if (umbrellas.length === 0) return events;
-
-  // Sort umbrellas deterministically — overlapping windows must never depend
-  // on the iCal feed's VEVENT order, which is server-controlled and can
-  // shift between scrapes (Codex P2 review). Earliest start wins on ties;
-  // then the lower /events/N id (more stable across years than re-uses).
   umbrellas.sort((a, b) => {
     if (a.event.date !== b.event.date) return a.event.date.localeCompare(b.event.date);
     return a.eventNum - b.eventNum;
   });
+  return umbrellas;
+}
 
-  // Pass 2: walk trails; tag them with the matching umbrella's seriesId when
-  // (kennel, date) overlaps the umbrella window. Also collect candidate
-  // endDate fallbacks (max trail date per umbrella) for umbrellas that
-  // arrived without DTEND populated.
+/**
+ * Resolve the first umbrella whose window matches a trail's `(kennel, date)`.
+ * Returns `null` if the trail isn't in any umbrella's window. `umbrellas` is
+ * expected to be pre-sorted by `collectSFH3Umbrellas`. Plain-string `<` / `>`
+ * comparisons are safe for YYYY-MM-DD date strings.
+ */
+function findUmbrellaForTrail(
+  trail: RawEventData,
+  umbrellas: SFH3Umbrella[],
+): SFH3Umbrella | null {
+  const trailTags = trail.kennelTags.map((t) => t.toLowerCase());
+  for (const u of umbrellas) {
+    const sharesKennel = trailTags.some((t) => u.kennelTags.includes(t));
+    if (!sharesKennel) continue;
+    const windowStart = u.event.date;
+    const windowEnd = u.event.endDate ?? u.event.date;
+    if (trail.date < windowStart || trail.date > windowEnd) continue;
+    return u;
+  }
+  return null;
+}
+
+/**
+ * Pass 2: tag each `/runs/M` trail whose `(kennel, date)` falls inside an
+ * umbrella's window with that umbrella's seriesId. Also collect the
+ * latest-matched trail date per series for the post-hoc endDate inference
+ * pass (used only when the umbrella's DTEND came in single-day — defensive,
+ * live SFH3 always supplies DTEND).
+ */
+function tagSFH3TrailsToUmbrellas(
+  events: RawEventData[],
+  umbrellas: SFH3Umbrella[],
+): Map<string, string> {
   const inferredEndDateBySeries = new Map<string, string>();
   for (const event of events) {
     if (!event.sourceUrl || !SFH3_TRAIL_URL_RE.test(event.sourceUrl)) continue;
-    const trailTags = event.kennelTags.map((t) => t.toLowerCase());
-
-    for (const u of umbrellas) {
-      const sharesKennel = trailTags.some((t) => u.kennelTags.includes(t));
-      if (!sharesKennel) continue;
-      const windowStart = u.event.date;
-      const windowEnd = u.event.endDate ?? u.event.date;
-      // String comparison is safe for "YYYY-MM-DD" date strings.
-      if (event.date < windowStart || event.date > windowEnd) continue;
-
-      event.seriesId = u.seriesId;
-      const prior = inferredEndDateBySeries.get(u.seriesId);
-      if (!prior || event.date > prior) {
-        inferredEndDateBySeries.set(u.seriesId, event.date);
-      }
-      break; // first matching umbrella wins; trails shouldn't span umbrellas
+    const u = findUmbrellaForTrail(event, umbrellas);
+    if (!u) continue;
+    event.seriesId = u.seriesId;
+    const prior = inferredEndDateBySeries.get(u.seriesId);
+    if (!prior || event.date > prior) {
+      inferredEndDateBySeries.set(u.seriesId, event.date);
     }
   }
+  return inferredEndDateBySeries;
+}
 
-  // Pass 3: fill missing endDate on umbrellas via the inferred max trail date.
-  // Live SFH3 always emits DTEND, but defensive — without it, the umbrella's
-  // own date stays as endDate (single-day weekend with one trail).
+/** Pass 3: fill `endDate` on umbrellas that lacked DTEND, using the
+ *  latest-matched trail date discovered in pass 2. */
+function backfillUmbrellaEndDates(
+  umbrellas: SFH3Umbrella[],
+  inferredEndDateBySeries: Map<string, string>,
+): void {
   for (const u of umbrellas) {
     if (u.event.endDate) continue;
     const inferred = inferredEndDateBySeries.get(u.seriesId);
     if (inferred && inferred > u.event.date) u.event.endDate = inferred;
   }
+}
+
+export function markSFH3SeriesMembership(events: RawEventData[]): RawEventData[] {
+  const umbrellas = collectSFH3Umbrellas(events);
+  if (umbrellas.length === 0) return events;
+  const inferredEndDateBySeries = tagSFH3TrailsToUmbrellas(events, umbrellas);
+  backfillUmbrellaEndDates(umbrellas, inferredEndDateBySeries);
   return events;
 }
 
