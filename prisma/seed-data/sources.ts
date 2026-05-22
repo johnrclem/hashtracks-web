@@ -310,6 +310,11 @@ export const SOURCES = [
       scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
+        // GCal drops past events from its `singleEvents=true` window as time
+        // marches forward; without this flag reconcile interprets the
+        // disappearance as a cancellation signal and CANCELLEDs every past
+        // CONFIRMED event in the kennel — the storm root cause for #1233.
+        upcomingOnly: true,
         kennelPatterns: [
           // C2B3H4 must come before generic CH3 so it doesn't accidentally
           // match. Chicago Ballbusters H3 — sister to Boston B3H4 (#938).

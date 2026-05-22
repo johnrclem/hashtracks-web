@@ -585,6 +585,9 @@ export class GoogleSheetsAdapter implements SourceAdapter {
     const tabsProcessed: string[] = [];
     const rowsPerTab: Record<string, number> = {};
     let sampleRows: string[][] | undefined;
+    // Materialize the group filter once per fetch — `processRows` runs per
+    // tab and would otherwise re-normalize on every iteration. (#1542)
+    const groupFilterSet = normalizeGroupFilter(config.groupFilter);
 
     // Step 1: Discover tabs via Sheets API (or use explicit tabs/gid from config)
     let tabNames: string[];
@@ -643,7 +646,7 @@ export class GoogleSheetsAdapter implements SourceAdapter {
         sampleRows = rows.slice(0, 10);
       }
 
-      const processed = this.processRows(rows, config, source.url, minISO, maxISO, now, tabName);
+      const processed = this.processRows(rows, config, source.url, minISO, maxISO, now, groupFilterSet, tabName);
       events.push(...processed.events);
       errors.push(...processed.errors);
       if (processed.parseErrors.length > 0) {
@@ -673,7 +676,9 @@ export class GoogleSheetsAdapter implements SourceAdapter {
   /** Process parsed CSV rows into events, returning results + parse errors.
    * `today` is the reference timestamp for year-less date inference; pass a
    * single value per fetch so a scrape spanning midnight resolves all rows
-   * against the same anchor. */
+   * against the same anchor. `groupFilterSet` is materialized once by the
+   * caller (per fetch, not per tab) so multi-tab scrapes don't re-normalize
+   * the filter on every tab. (#1542) */
   private processRows(
     rows: string[][],
     config: GoogleSheetsConfig,
@@ -681,15 +686,13 @@ export class GoogleSheetsAdapter implements SourceAdapter {
     minISO: string,
     maxISO: string,
     today: Date,
+    groupFilterSet: Set<string> | null,
     section?: string,
   ): { events: RawEventData[]; errors: string[]; parseErrors: ParseError[]; hasEventsInWindow: boolean } {
     const events: RawEventData[] = [];
     const errors: string[] = [];
     const parseErrors: ParseError[] = [];
     let hasEventsInWindow = false;
-
-    // Pre-normalize once so the row loop is an O(1) Set lookup. (#1542)
-    const groupFilterSet = normalizeGroupFilter(config.groupFilter);
 
     for (let rowIdx = 1; rowIdx < rows.length; rowIdx++) {
       const row = rows[rowIdx];
@@ -767,8 +770,9 @@ export class GoogleSheetsAdapter implements SourceAdapter {
     }
 
     const sampleRows = rows.slice(0, 10);
+    const groupFilterSet = normalizeGroupFilter(config.groupFilter);
 
-    const processed = this.processRows(rows, config, sourceUrl, minISO, maxISO, today);
+    const processed = this.processRows(rows, config, sourceUrl, minISO, maxISO, today, groupFilterSet);
     events.push(...processed.events);
     errors.push(...processed.errors);
     const errorDetails: ErrorDetails = {};

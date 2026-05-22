@@ -29,6 +29,13 @@
  *   all 2025) were cancelled by reconcile in the storm wake — un-cancel
  *   them so the kennel page reflects actual history.
  *
+ *   IMPORTANT: this PR also adds `upcomingOnly: true` to the Chicagoland
+ *   source config so reconcile stops re-cancelling past events as the GCal
+ *   `singleEvents=true` window slides. That config change lands in prod
+ *   only after `npx prisma db seed` runs post-merge (see memory
+ *   `feedback_post_merge_seed_required`). Until then, this un-cancel may
+ *   be re-cancelled by the next scrape — re-run after the seed lands.
+ *
  * Usage:
  *   Dry run:  npx tsx scripts/cleanup-cross-kennel-conflation.ts
  *   Apply:    BACKFILL_APPLY=1 npx tsx scripts/cleanup-cross-kennel-conflation.ts
@@ -61,6 +68,44 @@ async function main() {
 }
 
 // ── #1556 GyNO H3 ────────────────────────────────────────────────────────
+
+/**
+ * Reassign an Event from one primary kennel to another in a single transaction,
+ * keeping the unique `(eventId, kennelId)` constraint on EventKennel safe.
+ * If the target kennel already has an EventKennel row on this event (legitimate
+ * co-host link), drop the source row instead of attempting an update that
+ * would collide on the composite primary key.
+ */
+async function reassignEventKennel(
+  prisma: PrismaClient,
+  eventId: string,
+  fromKennelId: string,
+  toKennelId: string,
+) {
+  const targetCoHost = await prisma.eventKennel.findUnique({
+    where: { eventId_kennelId: { eventId, kennelId: toKennelId } },
+  });
+  await prisma.$transaction([
+    prisma.event.update({ where: { id: eventId }, data: { kennelId: toKennelId } }),
+    targetCoHost
+      ? prisma.eventKennel.delete({ where: { eventId_kennelId: { eventId, kennelId: fromKennelId } } })
+      : prisma.eventKennel.updateMany({
+          where: { eventId, kennelId: fromKennelId },
+          data: { kennelId: toKennelId },
+        }),
+  ]);
+  if (targetCoHost) {
+    // The remaining row (the original co-host) now owns the kennel link.
+    // If it wasn't already marked primary, promote it so downstream queries
+    // that order by isPrimary surface the right kennel.
+    if (!targetCoHost.isPrimary) {
+      await prisma.eventKennel.update({
+        where: { eventId_kennelId: { eventId, kennelId: toKennelId } },
+        data: { isPrimary: true },
+      });
+    }
+  }
+}
 
 async function cleanupMemphisGyno(prisma: PrismaClient) {
   console.log("── #1556 Memphis GyNO H3 ──");
@@ -128,13 +173,7 @@ async function cleanupMemphisGyno(prisma: PrismaClient) {
         console.log(`    ↳ ${e.id}: gynoh3 already has a canonical at ${e.date.toISOString().slice(0, 10)} (${dupe.id}); cascade-deleting mh3-tn ghost.`);
         await cascadeDeleteEvents(prisma, [e.id]);
       } else {
-        await prisma.$transaction([
-          prisma.event.update({ where: { id: e.id }, data: { kennelId: gyno.id } }),
-          prisma.eventKennel.updateMany({
-            where: { eventId: e.id, kennelId: mh3tn.id },
-            data: { kennelId: gyno.id },
-          }),
-        ]);
+        await reassignEventKennel(prisma, e.id, mh3tn.id, gyno.id);
         console.log(`    ↳ ${e.id}: reassigned to gynoh3.`);
       }
     }
@@ -231,7 +270,6 @@ async function cleanupC2B3H4Cancellations(prisma: PrismaClient) {
   if (!APPLY) return;
 
   for (const e of events) {
-    const updates: Record<string, unknown> = {};
     const needsReassign = e.kennelId !== c2b3h4.id;
     if (needsReassign) {
       // Slot-safety: never write a duplicate canonical (kennelId, date). If
@@ -247,27 +285,20 @@ async function cleanupC2B3H4Cancellations(prisma: PrismaClient) {
         await cascadeDeleteEvents(prisma, [e.id]);
         continue;
       }
-      updates.kennelId = c2b3h4.id;
+      await reassignEventKennel(prisma, e.id, e.kennelId, c2b3h4.id);
     }
+    const statusUpdate: Record<string, unknown> = {};
     if (e.status === "CANCELLED") {
-      updates.status = "CONFIRMED";
-      updates.adminCancellationReason = null;
-      updates.adminCancelledAt = null;
-      updates.adminCancelledBy = null;
+      statusUpdate.status = "CONFIRMED";
+      statusUpdate.adminCancellationReason = null;
+      statusUpdate.adminCancelledAt = null;
+      statusUpdate.adminCancelledBy = null;
     }
-    if (Object.keys(updates).length === 0) continue;
-    await prisma.event.update({ where: { id: e.id }, data: updates });
-    // Move only the EventKennel row that pointed at the OLD primary kennel —
-    // any co-host rows on different kennelIds are legitimate and must stay
-    // (the historic C2B3H4 rows in question have no co-hosts, but other PRs
-    // re-running this script later might encounter them).
-    if (needsReassign) {
-      await prisma.eventKennel.updateMany({
-        where: { eventId: e.id, kennelId: e.kennelId },
-        data: { kennelId: c2b3h4.id },
-      });
+    if (Object.keys(statusUpdate).length > 0) {
+      await prisma.event.update({ where: { id: e.id }, data: statusUpdate });
     }
-    console.log(`    ↳ ${e.id}: applied ${Object.keys(updates).join(", ")}`);
+    const actions = [needsReassign && "reassigned", Object.keys(statusUpdate).length > 0 && "un-cancelled"].filter(Boolean).join(" + ");
+    if (actions) console.log(`    ↳ ${e.id}: ${actions}`);
   }
 }
 
