@@ -140,26 +140,45 @@ function entryContentText(html: string): string {
   return decodeEntities(entry).replaceAll(/\s+/g, " ").trim();
 }
 
-/** Field regexes for the wp-events-manager entry-content template. The
- * `Where`/`Hare(s)`/`Hash Cash` labels are highly stable across LBH events;
- * each field is bounded by the next section label (Who/What/Where/Why/
- * When/Bring/Dog-Friendly/On-after/Hash Cash/NOTE/On-safety/Categories).
- *
- * NB: the Date(s) line has NO space between year and start time —
+/** Section labels in the wp-events-manager entry-content template. Each
+ * field's value runs from its own label up to whichever of these comes
+ * next. Listed as plain strings (not a regex alternation) to keep the
+ * field extraction below S5843's regex-complexity bound. */
+const SECTION_LABELS = [
+  "Who:", "What:", "Where:", "Why:", "When:",
+  "Wear:", "Theme:", "Bring:", "Dog-Friendly", "Dog Friendly",
+  "On-after", "On after", "Hash Cash:", "NOTE:",
+  "On-safety", "On safety", "Categories",
+] as const;
+
+/** Date(s) line has NO space between year and start time —
  * `05/25/20266:30 pm` — so the year→time gap is `\s*` not `\s+`. */
-const SECTION_TERMINATOR =
-  "(?=\\s*(?:Who:|What:|Where:|Why:|When:|Wear:|Theme:|Bring:|Dog-?Friendly|On-?after|Hash Cash:|NOTE:|On-?safety|Categories)|$)";
-// nosemgrep: detect-non-literal-regexp — patterns built from hard-coded constants in this file, no user input (mirrors hare-extraction.ts suppression)
-const TIME_RE = new RegExp(
-  String.raw`Date\(s\)\s*-\s*\w+\s*-\s*\d{1,2}\/\d{1,2}\/\d{4}\s*(\d{1,2}:\d{2}\s*[ap]m)`,
-  "i",
-);
-// nosemgrep: detect-non-literal-regexp — patterns built from hard-coded constants in this file, no user input (mirrors hare-extraction.ts suppression)
-const HARES_RE = new RegExp(String.raw`Hare\(s?\)?:\s*(.+?)` + SECTION_TERMINATOR, "i"); // NOSONAR S5852 — non-greedy `(.+?)` is anchored by the literal SECTION_TERMINATOR lookahead, no super-linear backtracking on inputs we control
-// nosemgrep: detect-non-literal-regexp — patterns built from hard-coded constants in this file, no user input (mirrors hare-extraction.ts suppression)
-const WHERE_RE = new RegExp(String.raw`Where:\s*(.+?)` + SECTION_TERMINATOR, "i"); // NOSONAR S5852 — non-greedy `(.+?)` is anchored by the literal SECTION_TERMINATOR lookahead, no super-linear backtracking on inputs we control
-// nosemgrep: detect-non-literal-regexp — patterns built from hard-coded constants in this file, no user input (mirrors hare-extraction.ts suppression)
-const COST_RE = new RegExp(String.raw`Hash Cash:\s*(.+?)` + SECTION_TERMINATOR, "i"); // NOSONAR S5852 — non-greedy `(.+?)` is anchored by the literal SECTION_TERMINATOR lookahead, no super-linear backtracking on inputs we control
+const TIME_RE = /Date\(s\)\s*-\s*\w+\s*-\s*\d{1,2}\/\d{1,2}\/\d{4}\s*(\d{1,2}:\d{2}\s*[ap]m)/i;
+
+/** Index of the next section label at or after `from`, or `text.length`. */
+function findNextSectionStart(text: string, from: number): number {
+  let next = text.length;
+  for (const label of SECTION_LABELS) {
+    const idx = text.indexOf(label, from);
+    if (idx !== -1 && idx < next) next = idx;
+  }
+  return next;
+}
+
+/** Extract the value of a labeled field (tries each `label` in order).
+ * Returns the trimmed text between the label and the next section start,
+ * or `undefined` if no label matches. */
+function extractField(text: string, labels: readonly string[]): string | undefined {
+  for (const label of labels) {
+    const start = text.indexOf(label);
+    if (start === -1) continue;
+    const valueStart = start + label.length;
+    const valueEnd = findNextSectionStart(text, valueStart);
+    const value = text.slice(valueStart, valueEnd).trim();
+    if (value) return value;
+  }
+  return undefined;
+}
 
 interface DetailFields {
   startTime: string | undefined;
@@ -179,16 +198,13 @@ export function parseDetailPage(html: string): DetailFields {
   const timeMatch = TIME_RE.exec(text);
   const startTime = timeMatch ? parse12HourTime(timeMatch[1]) ?? undefined : undefined;
 
-  const haresMatch = HARES_RE.exec(text);
-  const hares = haresMatch ? haresMatch[1].trim() || undefined : undefined;
-
-  const whereMatch = WHERE_RE.exec(text);
-  const location = whereMatch ? whereMatch[1].trim() || undefined : undefined;
+  const hares = extractField(text, ["Hare(s):", "Hares:", "Hare:"]);
+  const location = extractField(text, ["Where:"]);
 
   // Cost section often runs into prose ("Please arrive on time…"). Trim
   // to the first sentence so the UI shows just the price line.
-  const costMatch = COST_RE.exec(text);
-  const cost = costMatch ? costMatch[1].split(/\.\s+/)[0]?.trim() || undefined : undefined;
+  const costRaw = extractField(text, ["Hash Cash:"]);
+  const cost = costRaw?.split(/\.\s+/)[0]?.trim() || undefined;
 
   return { startTime, hares, location, cost };
 }
@@ -201,95 +217,91 @@ async function fetchHtml(url: string): Promise<string | null> {
   return response.text();
 }
 
-async function fetchEvents(): Promise<RawEventData[]> {
-  const now = new Date();
-  const endYear = now.getUTCFullYear();
-  const endMonth = now.getUTCMonth() + 1;
+function* iterMonths(startYear: number, startMonth: number, endYear: number, endMonth: number) {
+  for (let yr = startYear; yr <= endYear; yr++) {
+    const moStart = yr === startYear ? startMonth : 1;
+    const moEnd = yr === endYear ? endMonth : 12;
+    for (let mo = moStart; mo <= moEnd; mo++) yield { yr, mo };
+  }
+}
 
-  // Pass 1: walk calendar pages, collect sightings keyed by slug.
+/** Pass 1: walk calendar pages, collect raw sightings keyed by slug. */
+async function walkCalendarPages(endYear: number, endMonth: number): Promise<Map<string, Sighting[]>> {
   const sightingsBySlug = new Map<string, Sighting[]>();
   let pagesFetched = 0;
   let pagesEmpty = 0;
-  for (let yr = ARCHIVE_START_YEAR; yr <= endYear; yr++) {
-    const moStart = yr === ARCHIVE_START_YEAR ? ARCHIVE_START_MONTH : 1;
-    const moEnd = yr === endYear ? endMonth : 12;
-    for (let mo = moStart; mo <= moEnd; mo++) {
-      const url = `${BASE_URL}/?page_id=21&mo=${mo}&yr=${yr}`;
-      const html = await fetchHtml(url);
-      pagesFetched++;
-      if (!html) {
-        pagesEmpty++;
-        continue;
-      }
-      const sightings = parseCalendarPage(html, yr, mo);
-      if (sightings.length === 0) pagesEmpty++;
-      for (const s of sightings) {
-        const arr = sightingsBySlug.get(s.slug) ?? [];
-        arr.push(s);
-        sightingsBySlug.set(s.slug, arr);
-      }
-      await sleep(POLITENESS_DELAY_MS);
+  for (const { yr, mo } of iterMonths(ARCHIVE_START_YEAR, ARCHIVE_START_MONTH, endYear, endMonth)) {
+    pagesFetched++;
+    const html = await fetchHtml(`${BASE_URL}/?page_id=21&mo=${mo}&yr=${yr}`);
+    const sightings = html ? parseCalendarPage(html, yr, mo) : [];
+    if (sightings.length === 0) pagesEmpty++;
+    for (const s of sightings) {
+      const arr = sightingsBySlug.get(s.slug) ?? [];
+      arr.push(s);
+      sightingsBySlug.set(s.slug, arr);
     }
+    await sleep(POLITENESS_DELAY_MS);
   }
   console.log(
     `  Pass 1: ${pagesFetched} calendar pages fetched (${pagesEmpty} empty), ${sightingsBySlug.size} unique LBH slugs`,
   );
+  return sightingsBySlug;
+}
 
-  // Dedup spillover sightings into canonical per-slug.
-  const canonical: Sighting[] = [];
-  for (const [, arr] of sightingsBySlug) canonical.push(pickCanonicalSighting(arr));
-
-  // Pass 2: enrich each slug with detail-page fields. Concurrent batches.
+/** Pass 2: fetch each canonical sighting's detail page, returning per-slug
+ * enrichment fields. Concurrent batches of `DETAIL_CONCURRENCY` with a
+ * politeness delay between batches. Errors are non-fatal. */
+async function enrichDetailPages(canonical: Sighting[]): Promise<Map<string, DetailFields>> {
   const detailsBySlug = new Map<string, DetailFields>();
   let detailsFetched = 0;
   let detailErrors = 0;
   for (let i = 0; i < canonical.length; i += DETAIL_CONCURRENCY) {
     const batch = canonical.slice(i, i + DETAIL_CONCURRENCY);
-    const results = await Promise.allSettled(
-      batch.map(async (s) => {
-        const url = `${BASE_URL}/?event=${s.slug}`;
-        const html = await fetchHtml(url);
-        if (!html) throw new Error(`HTTP error fetching ${url}`);
-        return { slug: s.slug, fields: parseDetailPage(html) };
-      }),
-    );
+    const results = await Promise.allSettled(batch.map(fetchDetail));
     for (const r of results) {
       detailsFetched++;
-      if (r.status === "fulfilled") {
-        detailsBySlug.set(r.value.slug, r.value.fields);
-      } else {
-        detailErrors++;
-      }
+      if (r.status === "fulfilled") detailsBySlug.set(r.value.slug, r.value.fields);
+      else detailErrors++;
     }
     await sleep(POLITENESS_DELAY_MS);
   }
   console.log(
     `  Pass 2: ${detailsFetched} detail pages fetched, ${detailErrors} errors, ${detailsBySlug.size} enriched`,
   );
+  return detailsBySlug;
+}
 
-  // Build RawEventData per slug.
-  const events: RawEventData[] = [];
-  for (const s of canonical) {
-    const date = new Date(Date.UTC(s.yr, s.mo - 1, s.day, 12, 0, 0))
-      .toISOString()
-      .slice(0, 10);
-    const details = detailsBySlug.get(s.slug);
-    // `undefined` (not `null`) on missing fields: a regex miss is "didn't
-    // find," not "source asserts blank" — preserve whatever the recurring
-    // ICS adapter already populated.
-    events.push({
-      date,
-      kennelTags: [KENNEL_TAG],
-      runNumber: s.runNumber,
-      title: s.title,
-      hares: details?.hares,
-      location: details?.location,
-      startTime: details?.startTime,
-      cost: details?.cost,
-      sourceUrl: `${BASE_URL}/?event=${s.slug}`,
-    });
-  }
-  return events;
+async function fetchDetail(s: Sighting): Promise<{ slug: string; fields: DetailFields }> {
+  const url = `${BASE_URL}/?event=${s.slug}`;
+  const html = await fetchHtml(url);
+  if (!html) throw new Error(`HTTP error fetching ${url}`);
+  return { slug: s.slug, fields: parseDetailPage(html) };
+}
+
+/** Compose a `RawEventData` row from a canonical sighting + its (optional)
+ * detail-page enrichment. Missing detail fields stay `undefined` to preserve
+ * whatever the recurring ICS adapter already populated. */
+function buildRawEvent(s: Sighting, details: DetailFields | undefined): RawEventData {
+  const date = new Date(Date.UTC(s.yr, s.mo - 1, s.day, 12, 0, 0)).toISOString().slice(0, 10);
+  return {
+    date,
+    kennelTags: [KENNEL_TAG],
+    runNumber: s.runNumber,
+    title: s.title,
+    hares: details?.hares,
+    location: details?.location,
+    startTime: details?.startTime,
+    cost: details?.cost,
+    sourceUrl: `${BASE_URL}/?event=${s.slug}`,
+  };
+}
+
+async function fetchEvents(): Promise<RawEventData[]> {
+  const now = new Date();
+  const sightingsBySlug = await walkCalendarPages(now.getUTCFullYear(), now.getUTCMonth() + 1);
+  const canonical = [...sightingsBySlug.values()].map(pickCanonicalSighting);
+  const detailsBySlug = await enrichDetailPages(canonical);
+  return canonical.map((s) => buildRawEvent(s, detailsBySlug.get(s.slug)));
 }
 
 if (process.argv[1]?.endsWith("backfill-lbh-phx-history.ts")) {
