@@ -1173,7 +1173,7 @@ describe("buildRawEventFromApollo — runNumber (#1562 Miami H3)", () => {
     ["Miami Hash #969 MisMan & Sons Honor Trail", 969],
   ])("extracts runNumber from %j when opted in", (title, expected) => {
     const ev = { __typename: "Event", id: "rn", title, dateTime: "2026-04-01T18:30:00-04:00" };
-    const event = buildRawEventFromApollo(ev as never, emptyState, "mia-h3", undefined, OPT_IN);
+    const event = buildRawEventFromApollo(ev, emptyState, "mia-h3", undefined, OPT_IN);
     expect(event.runNumber).toBe(expected);
   });
 
@@ -1184,7 +1184,7 @@ describe("buildRawEventFromApollo — runNumber (#1562 Miami H3)", () => {
       title: "MIAMI H3 @1041 CALLE OCHO",
       dateTime: "2026-04-01T18:30:00-04:00",
     };
-    const event = buildRawEventFromApollo(ev as never, emptyState, "mia-h3", undefined, OPT_IN);
+    const event = buildRawEventFromApollo(ev, emptyState, "mia-h3", undefined, OPT_IN);
     expect(event.runNumber).toBeUndefined();
   });
 
@@ -1195,7 +1195,7 @@ describe("buildRawEventFromApollo — runNumber (#1562 Miami H3)", () => {
       title: "Miami Hash House Harriers",
       dateTime: "2026-04-01T18:30:00-04:00",
     };
-    const event = buildRawEventFromApollo(ev as never, emptyState, "mia-h3", undefined, OPT_IN);
+    const event = buildRawEventFromApollo(ev, emptyState, "mia-h3", undefined, OPT_IN);
     expect(event.runNumber).toBeUndefined();
   });
 
@@ -1210,7 +1210,7 @@ describe("buildRawEventFromApollo — runNumber (#1562 Miami H3)", () => {
       title: "Miami H3 Trail #1048 MAY DAY EVE",
       dateTime: "2026-04-01T18:30:00-04:00",
     };
-    const event = buildRawEventFromApollo(ev as never, emptyState, "mia-h3");
+    const event = buildRawEventFromApollo(ev, emptyState, "mia-h3");
     expect(event.runNumber).toBeUndefined();
   });
 });
