@@ -148,8 +148,9 @@ async function collectPatches(prisma: PrismaClient): Promise<Patch[]> {
     for (const e of mhEvents) {
       if (!e.title) continue;
       const stripped = stripTitleTrailingDelimiter(e.title);
-      if (stripped !== null && stripped) {
-        patches.push({ kennelLabel: "mh3-tn/gynoh3 #1557", eventId: e.id, field: "title", before: e.title, after: stripped });
+      if (stripped !== null) {
+        // `stripped || null` matches sanitizeTitle behavior (empty → null)
+        patches.push({ kennelLabel: "mh3-tn/gynoh3 #1557", eventId: e.id, field: "title", before: e.title, after: stripped || null });
       }
     }
   }
