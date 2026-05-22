@@ -267,10 +267,16 @@ function extractHaresFromDom($: cheerio.CheerioAPI): string | undefined {
     const labelP = $(el).closest("p");
     const valueP = labelP.nextAll("p").first();
     if (valueP.length === 0) continue;
-    // Skip if the "value" paragraph is itself another labeled <strong>
-    // (e.g., `<p><strong>Shiggy:</strong></p>` directly follows an empty
-    // hare block).
-    if (valueP.find("strong").length > 0) continue;
+    // Skip if the "value" paragraph is itself another field label —
+    // `<p><strong>Shiggy:</strong></p>` directly following an empty hare
+    // block, where the inner <strong> ends with ":". Narrowed from "any
+    // <strong>" to "label-shaped <strong>" so kennels that format hare
+    // names with inline bold (e.g., `<p><strong>Slip'n'Ride</strong>,
+    // Whip It Out</p>`) still parse. (Codex PR #1626 review)
+    const innerStrongs = valueP.find("strong");
+    if (innerStrongs.length > 0 && innerStrongs.toArray().every(
+      (s) => /:\s*$/.test($(s).text()),
+    )) continue;
     const text = valueP.text().replaceAll(/\s+/g, " ").trim();
     if (text.length > 0) return text;
   }

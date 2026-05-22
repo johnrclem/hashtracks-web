@@ -362,7 +362,11 @@ function classifySegments(segments: string[]): ParsedSegments {
  * chars after cleaning return undefined.
  */
 const MILESTONE_PREFIX_RE = /^\d+(?:st|nd|rd|th)?\s+run\b/i;
-const AT_VENUE_TAIL_RE = /\bat\s+(.+)$/i;
+// `(\S.*)` instead of `(.+)` anchors the first non-space char deterministically
+// so the unbounded greedy quantifier can't backtrack — silences Sonar S5852
+// without changing the captured value (the leading char after "at " is always
+// non-space in any real venue string we'd want to extract).
+const AT_VENUE_TAIL_RE = /\bat\s+(\S.*)$/i;
 function cleanMilestoneLocation(loc: string | undefined): string | undefined {
   if (!loc) return undefined;
   let cleaned = loc.trim();

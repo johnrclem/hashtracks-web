@@ -579,6 +579,20 @@ describe("parseEventDetail", () => {
     expect(parsed.hares).toBe("Always Needs Ample Lube & Shart Tank");
   });
 
+  it("#1578: extracts hare names with inline <strong> formatting (Codex review)", () => {
+    // Defensive: the previous "any <strong>" guard would have dropped this
+    // shape too — a kennel that bolds individual hare names but isn't using
+    // them as a field label. Narrowing the guard to "label-shaped <strong>
+    // ending in ':'" keeps inline-bold hare names working.
+    const html = `<html><body>
+      <meta property="og:description" content='Event blurb with no labeled fields.' />
+      <p class="text-center"><strong>Hare(s):</strong></p>
+      <p class="text-center"><strong>Slip'n'Ride</strong>, Whip It Out</p>
+    </body></html>`;
+    const parsed = parseEventDetail(html, "moa2h3-styled-hares");
+    expect(parsed.hares).toBe("Slip'n'Ride, Whip It Out");
+  });
+
   it("#1578: scans past empty Hare(s) blocks to find the populated one", () => {
     // The live MoA2H3 Red Dress Run page emits the Hare(s) block twice
     // (responsive LG/XS variants). A defensive parser must skip a label-only
