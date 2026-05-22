@@ -23,7 +23,7 @@ const MONTH_ABBREV = [
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ] as const;
 
-const WEEKDAY_NAMES = [
+export const WEEKDAY_NAMES = [
   "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday",
 ] as const;
 

@@ -77,7 +77,9 @@ async function fetchEvents(): Promise<RawEventData[]> {
   console.warn(`  Raw rows parsed across ${maxPage} pages: ${allEvents.length}`);
 
   // Dedupe by (runNumber, date) — the recurring adapter does the same; page
-  // tails can overlap if a row is added mid-walk.
+  // tails can overlap if a row is added mid-walk. KLFMH3 is monthly so `date`
+  // alone is unique in practice, but the key shape matches the YiiHarelineAdapter
+  // dedupe so we don't drift from the canonical fingerprint surface.
   const seen = new Set<string>();
   const unique: RawEventData[] = [];
   for (const e of allEvents) {

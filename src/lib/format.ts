@@ -1,5 +1,5 @@
 import { regionNameToSlug } from "@/lib/region";
-import { formatSeasonHint, type ScheduleSlot } from "@/lib/schedule-season";
+import { formatSeasonHint, WEEKDAY_NAMES, type ScheduleSlot } from "@/lib/schedule-season";
 import { parseRRule } from "@/adapters/static-schedule/rrule-parser";
 
 // Re-export ScheduleSlot from format.ts for backward compat with existing
@@ -295,10 +295,6 @@ function describeRruleDay(rrule: string): string | null {
   }
   return null;
 }
-
-const WEEKDAY_NAMES = [
-  "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday",
-] as const;
 
 /**
  * Ordinal WORD for the small set used in nth-weekday display ("1st", "last",

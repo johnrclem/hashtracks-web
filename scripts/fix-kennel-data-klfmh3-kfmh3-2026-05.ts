@@ -13,8 +13,11 @@
  * The companion seed change adds new NULL fields (klfmh3.founder,
  * klfmh3.logoUrl, kfmh3.logoUrl) which seed-merge will handle on its own.
  *
- * Run after the PR merges:
- *   npx tsx scripts/fix-kennel-data-klfmh3-kfmh3-2026-05.ts
+ * Already applied 2026-05-21 against Railway prod (within the PR session).
+ * Kept in-repo for audit history; re-running is idempotent because every
+ * field is written to the same constant value.
+ *
+ *   BACKFILL_ALLOW_SELF_SIGNED_CERT=1 npx tsx scripts/fix-kennel-data-klfmh3-kfmh3-2026-05.ts
  */
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
