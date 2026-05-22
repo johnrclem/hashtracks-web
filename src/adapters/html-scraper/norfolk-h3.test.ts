@@ -168,9 +168,13 @@ describe("NorfolkH3Adapter", () => {
       // Location stops at the postcode; "Afterwards" blurb must NOT bleed in.
       expect(run!.location).toContain("Heathlands Social Club");
       expect(run!.location).toContain("NR13 4QH");
-      expect(run!.location).not.toMatch(/sandwich|buffet|wagon wheels|bar will be open/i);
+      expect(run!.location).not.toMatch(
+        /sandwich|buffet|wagon wheels|bar will be open/i,
+      );
       // Both hares captured, joined with comma.
-      expect(run!.hares).toBe("Fi Fi and Tweedledee ( Flori), Tweedledum (Simon)");
+      expect(run!.hares).toBe(
+        "Fi Fi and Tweedledee ( Flori), Tweedledum (Simon)",
+      );
       // Notes/description must NOT contain the second hare.
       expect(run!.notes ?? "").not.toMatch(/Tweedledum/);
     });
@@ -240,12 +244,158 @@ describe("NorfolkH3Adapter", () => {
     it("returns null for text with no date", () => {
       expect(parseNorfolkRunBlock("Just some random text")).toBeNull();
     });
+
+    it("stops venue capture at 'Park on nearby roads.' parking note (#1544)", () => {
+      // Verbatim from issue #1544 (Run #2147). The confirmed Reepham venue
+      // had a "Park on nearby roads." note appended after the postcode.
+      // Without a SECTION_STOP entry the note bled into locationName.
+      const text = [
+        "Wednesday 27th May 2026, 7pm",
+        "Venue:",
+        "The Crown",
+        "90 Ollands Road",
+        "Reepham.",
+        "NR10 4EJ",
+        "Park on nearby roads.",
+        "Hare(s):",
+        "Woolly & Bagpuss",
+      ].join("\n");
+
+      const run = parseNorfolkRunBlock(text);
+      expect(run).not.toBeNull();
+      expect(run!.date).toBe("2026-05-27");
+      expect(run!.startTime).toBe("19:00");
+      expect(run!.location).toContain("The Crown");
+      expect(run!.location).toContain("90 Ollands Road");
+      expect(run!.location).toContain("NR10 4EJ");
+      expect(run!.location).not.toMatch(/Park on nearby roads/i);
+      expect(run!.hares).toBe("Woolly & Bagpuss");
+    });
+
+    it("captures hares when venue spans multi-line free-text body (#1545)", () => {
+      // Verbatim from issue #1545 (Run #2153). Venue is a two-line free-text
+      // body ("Drayton area" + "Details to follow") with no postcode, then
+      // a Hare(s): label on the next line. The hare extraction must not be
+      // dropped just because the venue body is informal.
+      const text = [
+        "Wednesday 8th July 2026, 7pm",
+        "Venue:",
+        "Drayton area",
+        "Details to follow",
+        "Hare(s):",
+        "James & Custodian",
+      ].join("\n");
+
+      const run = parseNorfolkRunBlock(text);
+      expect(run).not.toBeNull();
+      expect(run!.date).toBe("2026-07-08");
+      expect(run!.location).toContain("Drayton area");
+      expect(run!.location).toContain("Details to follow");
+      expect(run!.hares).toBe("James & Custodian");
+    });
+
+    it("captures hares for single-line T.B.A. venue (#1545 Run #2154)", () => {
+      const text = [
+        "Wednesday 15th July 2026, 7pm",
+        "Venue:",
+        "T.B.A.",
+        "Hare(s):",
+        "Maddie Mc Madder",
+      ].join("\n");
+
+      const run = parseNorfolkRunBlock(text);
+      expect(run).not.toBeNull();
+      expect(run!.hares).toBe("Maddie Mc Madder");
+    });
+
+    it("strips leading '?' prefix from haresText (#1546)", () => {
+      // When a "???" placeholder gets split across `<br>`/`<p>` boundaries
+      // upstream, a residual "?" can prefix the hares string. The parser
+      // must strip it before storing.
+      const text = [
+        "Wednesday 24th June 2026, 7pm",
+        "Venue: T.B.A. Maybe Worstead",
+        "Hare(s): ? Woolly & Bagpuss",
+      ].join("\n");
+
+      const run = parseNorfolkRunBlock(text);
+      expect(run).not.toBeNull();
+      expect(run!.hares).toBe("Woolly & Bagpuss");
+      expect(run!.hares).not.toMatch(/^\?/);
+    });
+
+    it("strips leading '?' prefix from locationName (#1546)", () => {
+      const text = [
+        "Wednesday 1st July 2026, 7pm",
+        "Venue: ? Clint Green, Yaxham T.B.C. / updates to follow",
+        "Hare(s): Hugo & Riff Raff",
+      ].join("\n");
+
+      const run = parseNorfolkRunBlock(text);
+      expect(run).not.toBeNull();
+      expect(run!.location).toContain("Clint Green");
+      expect(run!.location).toContain("Yaxham");
+      expect(run!.location).not.toMatch(/^\?/);
+    });
+
+    it("strips '?' prefix with no following space ('?Woolly') (#1546)", () => {
+      // Tag-stripped placeholders can collapse directly against the next
+      // token with no separator, e.g. "<span>?</span>Woolly". The leading
+      // "?" must still be removed.
+      const text = [
+        "Wednesday 24th June 2026, 7pm",
+        "Venue: T.B.A. Maybe Worstead",
+        "Hare(s): ?Woolly & Bagpuss",
+      ].join("\n");
+
+      const run = parseNorfolkRunBlock(text);
+      expect(run).not.toBeNull();
+      expect(run!.hares).toBe("Woolly & Bagpuss");
+    });
+
+    it("filters 'It could be you?' volunteer prompt even when split by <br> (#1546)", () => {
+      // When the placeholder straddles a <br>/<p> boundary, htmlToText emits
+      // a newline that joinFieldSegments rejoins with a comma. The volunteer
+      // guard must still recognize it.
+      const text = [
+        "Wednesday 22nd July 2026, 7pm",
+        "Venue: ???",
+        "Hare(s): It could be",
+        "you?",
+      ].join("\n");
+
+      const run = parseNorfolkRunBlock(text);
+      expect(run).not.toBeNull();
+      expect(run!.hares).toBeUndefined();
+    });
+
+    it("filters standalone '?' lines out of multi-line venue (#1546)", () => {
+      // Simulates a "???" placeholder split across `<br>`/`<p>` boundaries
+      // where a stray "?" token ends up on its own line between real
+      // address parts.
+      const text = [
+        "Wednesday 1st July 2026, 7pm",
+        "Venue:",
+        "Clint Green,",
+        "?",
+        "Yaxham T.B.C. / updates to follow",
+        "Hare(s):",
+        "Hugo & Riff Raff",
+      ].join("\n");
+
+      const run = parseNorfolkRunBlock(text);
+      expect(run).not.toBeNull();
+      expect(run!.location).toContain("Clint Green");
+      expect(run!.location).toContain("Yaxham");
+      // The "?" line should be filtered, not joined as a fragment.
+      expect(run!.location).not.toMatch(/(?:^|, )\?(?:,|$)/);
+      expect(run!.hares).toBe("Hugo & Riff Raff");
+    });
   });
 
   describe("htmlToText", () => {
     it("converts <br> to newlines", () => {
-      const html =
-        "<p>Venue:<br>The Crown Inn<br>Front Street<br>NR28 0AH</p>";
+      const html = "<p>Venue:<br>The Crown Inn<br>Front Street<br>NR28 0AH</p>";
       const text = htmlToText(html);
       expect(text).toContain("Venue:");
       expect(text).toContain("\nThe Crown Inn");
@@ -389,6 +539,76 @@ describe("NorfolkH3Adapter", () => {
       expect(run2145!.startTime).toBe("19:00");
       expect(run2145!.location).toBeUndefined();
       expect(run2145!.hares).toBeUndefined();
+    });
+
+    it("does not leak '?' across posts when a '???'-placeholder post sits between confirmed ones (#1546)", async () => {
+      // Three posts in DOM order: a confirmed venue (#2150), a placeholder
+      // run (#2151 with `Venue: ???` / `Hare(s): It could be you?`), then a
+      // second confirmed venue (#2152). The placeholder must not leak any
+      // residual "?" into the surrounding posts' location or hares.
+      const mockHtml = `<!DOCTYPE html><html><body>
+        <ul class="wp-block-post-template">
+          <li class="wp-block-post">
+            <h3 class="wp-block-post-title"><a href="#">Run #2150</a></h3>
+            <div class="entry-content wp-block-post-content">
+              <p>Wednesday 17 June 2026, 7pm</p>
+              <p>Venue:<br>Red Lion<br>Marsh Road<br>Halvergate<br>NR13 3QB</p>
+              <p>Hare(s):<br>Saboteur &amp; Twice a day</p>
+            </div>
+          </li>
+          <li class="wp-block-post">
+            <h3 class="wp-block-post-title"><a href="#">Run #2151</a></h3>
+            <div class="entry-content wp-block-post-content">
+              <p>Wednesday 24 June 2026, 7pm</p>
+              <p>Venue: ???</p>
+              <p>Hare(s): It could be you?</p>
+            </div>
+          </li>
+          <li class="wp-block-post">
+            <h3 class="wp-block-post-title"><a href="#">Run #2152</a></h3>
+            <div class="entry-content wp-block-post-content">
+              <p>Wednesday 1 July 2026, 7pm</p>
+              <p>Venue: Clint Green, Yaxham T.B.C. / updates to follow</p>
+              <p>Hare(s): Hugo &amp; Riff Raff</p>
+            </div>
+          </li>
+        </ul>
+      </body></html>`;
+
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve(mockHtml),
+        status: 200,
+        statusText: "OK",
+      });
+      vi.stubGlobal("fetch", mockFetch);
+
+      const adapter = new NorfolkH3Adapter();
+      const source = {
+        id: "test",
+        url: "https://norfolkh3.co.uk/trails/",
+        config: {},
+      } as unknown as Source;
+
+      const result = await adapter.fetch(source, { days: 365 });
+      expect(result.events.length).toBe(3);
+
+      const run2150 = result.events.find((e) => e.runNumber === 2150);
+      expect(run2150!.location).toContain("Red Lion");
+      expect(run2150!.location).not.toMatch(/^\?/);
+      expect(run2150!.hares).toBe("Saboteur & Twice a day");
+      expect(run2150!.hares).not.toMatch(/^\?/);
+
+      const run2151 = result.events.find((e) => e.runNumber === 2151);
+      expect(run2151!.location).toBeUndefined();
+      expect(run2151!.hares).toBeUndefined();
+
+      const run2152 = result.events.find((e) => e.runNumber === 2152);
+      expect(run2152!.location).toContain("Clint Green");
+      expect(run2152!.location).toContain("Yaxham");
+      expect(run2152!.location).not.toMatch(/^\?/);
+      expect(run2152!.hares).toBe("Hugo & Riff Raff");
+      expect(run2152!.hares).not.toMatch(/^\?/);
     });
   });
 });

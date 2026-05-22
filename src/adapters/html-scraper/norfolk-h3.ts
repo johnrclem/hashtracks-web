@@ -51,6 +51,17 @@ const KENNEL_TAG = "Norfolk H3";
 // are pre-existing notes/contact prompts. A blank line (paragraph break) is
 // also a hard stop — htmlToText emits "\n\n" for </p>.
 //
+// "Park\s+(?:on|at)" catches parking-instruction notes that Norfolk
+// authors append to the venue block ("Park on nearby roads." — #1544;
+// "Park at back of pub" — observed on Run #2149), without triggering
+// on actual park-named venues like "Park Lane" or "Hyde Park" (no
+// following preposition). The alternation is intentionally narrow
+// (only `on` and `at` are evidenced in live data) — Sonar S5843 caps
+// the regex at complexity 20, and earlier speculative additions
+// (`near`, `nearby`, `along`, `in`, `by`) either pushed the
+// regex over the limit or created false-positives on real venue names
+// ("Park in the Past", "Park by the Sea").
+//
 // Source-layout assumption (verified against current and historical Norfolk
 // posts): each post wraps an entire section (Venue+address, Hare(s)+names,
 // notes) in ONE <p> with <br> separators between lines. Distinct sections
@@ -60,7 +71,7 @@ const KENNEL_TAG = "Norfolk H3";
 // at the first newline and this regex would need to drop the blank-line
 // arm in favor of explicit-label-only stops.
 const SECTION_STOP =
-  /\n\s*(?:\n|Hare\(s\):|Venue:|Please\s+park|Contact\s|Afterwards\b|Wear\s|Bring\s|On\s+down\b|On-On\b)/i;
+  /\n\s*(?:\n|Hare\(s\):|Venue:|Please\s+park|Park\s+(?:on|at)\b|Contact\s|Afterwards\b|Wear\s|Bring\s|On\s+down\b|On-On\b)/i;
 const VENUE_RE = new RegExp(
   String.raw`Venue:\s*([\s\S]*?)(?=${SECTION_STOP.source}|\s*$)`,
   "i",
@@ -69,6 +80,35 @@ const HARES_RE = new RegExp(
   String.raw`Hare\(s\):\s*([\s\S]*?)(?=${SECTION_STOP.source}|\s*$)`,
   "i",
 );
+
+// Leading "?" prefix (or whole-segment "?+") on a same-segment field
+// value, with or without an adjacent space — e.g. "? Woolly & Bagpuss",
+// "?Woolly", "??? Clint Green", or a standalone "?" line that appears
+// when a Norfolk author splits "???" across `<br>`/`<p>` boundaries
+// (#1546). Stripped per-segment after the [\n,] split; pure-"?+" segments
+// collapse to "" and are then dropped by the `s.length > 0` filter.
+const LEADING_Q_PREFIX_RE = /^\?+\s*/;
+// Volunteer-prompt placeholder Norfolk uses when no hare has signed up.
+// `[\s,]+` between "be" and "you?" tolerates the comma artifact produced
+// when the prompt straddles a `<br>`/`<p>` boundary — `[\n,]`-split would
+// otherwise rejoin it as "It could be, you?" and the literal-phrase match
+// would miss it.
+const IT_COULD_BE_YOU_RE = /^It\s+could\s+be[\s,]+you\??$/i;
+
+/**
+ * Normalize a multi-line/multi-segment field capture (Venue or Hare(s)) into a
+ * single comma-separated string. Splits on both `\n` and `,`, trims each
+ * segment, strips a leading "?" prefix (#1546 — also collapses pure-"?+"
+ * segments to ""), and filters out empty fragments.
+ * Exported for unit testing.
+ */
+export function joinFieldSegments(raw: string): string {
+  return raw
+    .split(/[\n,]/)
+    .map((s) => s.trim().replace(LEADING_Q_PREFIX_RE, "").trim())
+    .filter((s) => s.length > 0)
+    .join(", ");
+}
 
 /** Parsed fields from a single Norfolk H3 run block. */
 export interface ParsedNorfolkRun {
@@ -158,15 +198,17 @@ export function parseNorfolkRunBlock(text: string): ParsedNorfolkRun | null {
 
   const fullText = rawLines.join("\n");
 
-  // Match Venue: followed by content up to next known label or end
+  // Match Venue: followed by content up to next known label or end.
+  // Split by newline AND comma so a single-line `<span>Maybe</span>, Foo`
+  // (the `</span>` HTML-to-text shim leaves a stray space-before-comma
+  // — #2148) normalizes to the same shape as a multi-line address. Drop
+  // blanks and standalone "?" tokens (#1546 — a stray "?" from a "???"
+  // placeholder split across `<br>`/`<p>` boundaries would otherwise
+  // produce a "?," fragment in the joined output), and strip a residual
+  // "? " prefix from any same-segment capture.
   const venueMatch = VENUE_RE.exec(fullText);
   if (venueMatch) {
-    const venueText = venueMatch[1]
-      .replace(/\n/g, ", ")
-      .replace(/,\s*,/g, ",")
-      .replace(/,\s*$/, "")
-      .replace(/^\s*,\s*/, "")
-      .trim();
+    const venueText = joinFieldSegments(venueMatch[1]);
 
     const venue = stripPlaceholder(venueText);
     if (venue) {
@@ -182,16 +224,13 @@ export function parseNorfolkRunBlock(text: string): ParsedNorfolkRun | null {
   // Capture Hare(s): block as multi-line — Norfolk authors put each hare on
   // a separate line under one label (#1257 — "Tweedledum (Simon)" was being
   // dropped into notes/description because the regex only matched one line).
+  // Standalone "?" tokens are filtered and any leading "? " prefix stripped
+  // (#1546 — same `???`-split mechanic as the venue capture above).
   const haresMatch = HARES_RE.exec(fullText);
   if (haresMatch) {
-    const haresText = haresMatch[1]
-      .split("\n")
-      .map((l) => l.trim())
-      .filter(Boolean)
-      .join(", ")
-      .trim();
+    const haresText = joinFieldSegments(haresMatch[1]);
     // "It could be you?" is a Norfolk-specific volunteer prompt, not a real hare name
-    if (!/^It could be you\??$/i.test(haresText)) {
+    if (!IT_COULD_BE_YOU_RE.test(haresText)) {
       result.hares = stripPlaceholder(haresText);
     }
   }
@@ -369,9 +408,7 @@ export class NorfolkH3Adapter implements SourceAdapter {
       for (const el of posts) {
         const post = $(el);
 
-        const titleEl = post
-          .find(".wp-block-post-title, h3, h2")
-          .first();
+        const titleEl = post.find(".wp-block-post-title, h3, h2").first();
         const titleText = decodeEntities(titleEl.text().trim());
         const runNumber = extractRunNumber(titleText);
 
