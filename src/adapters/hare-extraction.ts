@@ -67,15 +67,30 @@ const TRAILING_LOWERCASE_COMMENTARY_RE = /\s+[-–—]\s+[a-z][^A-Z]*$/; // NOSO
 const DATE_RANGE_RE = /\b\d{1,2}\s*\/\s*\d{1,2}\b/;
 // Description-sentence leak (#1551 Wasatch): kennel uses "hare: NAME. event
 // description..." on one line. The greedy `(.*)` capture pulls the entire
-// remainder. Truncate at the first ". " when the post-period tail is sentence-
-// shaped — 3+ tokens AND at least one token starts with a lowercase letter.
-// Hash names use Title Case; sentence tails contain lowercase function words
-// like "crossover", "is", "and". This refinement preserves period-prefixed
-// names like "Dr. Strange. Captain Hook" (tail all Title Case → no truncate)
-// while still catching "Nipples. A Wasarch/Bash crossover event…" (Codex
-// review on this PR).
-const HARE_SENTENCE_BOUNDARY_RE = /\.\s+/;
+// remainder. Truncate at the first sentence-boundary `. ` when the tail is
+// sentence-shaped — 3+ tokens AND at least one token starts with a lowercase
+// letter. Hash names use Title Case; sentence tails contain lowercase
+// function words like "crossover", "is", "and".
+//
+// Periods after common honorifics ("Dr.", "Mr.", "St.", "Ms.", "Mrs.") are
+// skipped via per-position scan in `findHareSentenceBoundary` so
+// "Dr. Strange. A crossover event…" truncates at "A crossover" — not at
+// "Strange" — and "Dr. Strange. Captain Hook" stays intact when the tail
+// is all Title Case. (Claude bot / Gemini review on #1577.)
+const HARE_SENTENCE_BOUNDARY_RE = /\.\s+/g;
 const LOWERCASE_TOKEN_RE = /(?:^|\s)[a-z]/;
+const HONORIFICS = new Set(["dr", "mr", "ms", "mrs", "st"]);
+
+function findHareSentenceBoundary(text: string): number {
+  // Reset lastIndex on a fresh scan — the regex literal is `g`-flagged.
+  HARE_SENTENCE_BOUNDARY_RE.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = HARE_SENTENCE_BOUNDARY_RE.exec(text)) !== null) {
+    const preceding = text.slice(0, m.index).split(/\s+/).pop()?.toLowerCase() ?? "";
+    if (!HONORIFICS.has(preceding)) return m.index;
+  }
+  return -1;
+}
 // Sibling Co-Hare label scan (#1212): when the primary `Hare:` capture
 // succeeded, also look for separate `Co-Hare:` / `Co-Hares:` lines in the
 // same description. Both forms exposed: single-match (used internally as a
@@ -173,13 +188,13 @@ function cleanAndFilterHares(raw: string): string | undefined {
   }
 
   // Description-sentence trailer strip (#1551 Wasatch). Truncate at first
-  // ". " when the tail is sentence-shaped (3+ tokens, at least one starting
-  // with a lowercase letter). Preserves period-prefixed names like
-  // "Dr. Strange" and even "Dr. Strange. Captain Hook" — tails of pure
-  // Title-Case tokens are kept.
-  const periodIdx = hares.search(HARE_SENTENCE_BOUNDARY_RE);
+  // non-honorific sentence boundary when the tail is sentence-shaped (3+
+  // tokens, at least one starting with a lowercase letter). Preserves
+  // honorific-prefixed names like "Dr. Strange. A crossover event…"
+  // (truncates at "A crossover", keeping "Dr. Strange").
+  const periodIdx = findHareSentenceBoundary(hares);
   if (periodIdx >= 0) {
-    const tail = hares.slice(periodIdx).replace(HARE_SENTENCE_BOUNDARY_RE, "");
+    const tail = hares.slice(periodIdx + 1).trimStart();
     const tailTokens = tail.split(/\s+/).filter(Boolean);
     if (tailTokens.length >= 3 && LOWERCASE_TOKEN_RE.test(tail)) {
       hares = hares.slice(0, periodIdx).trim();

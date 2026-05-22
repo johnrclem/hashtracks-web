@@ -63,6 +63,32 @@ export function parseEventHeader(headerText: string): {
 }
 
 /**
+ * Narrow allowlist of 3rd-person action verbs BH4 uses to compose
+ * subtitled titles ("<Hare> Asks For Help To Move").
+ */
+const BH4_ACTION_VERBS = new Set([
+  "asks", "says", "wants", "needs", "hosts", "brings", "throws", "calls",
+  "welcomes", "loves", "hates", "returns", "visits", "moves", "goes",
+  "takes", "gives", "pays", "buys", "sells", "runs",
+]);
+
+/**
+ * Token-based "<hare> <action-verb> ..." matcher (#1550). Returns the
+ * leading hare prefix when a verb token appears after at least one prior
+ * token, else undefined. Set lookup avoids the SonarCloud S5843
+ * complexity hit a 20-branch alternation regex incurs.
+ */
+function matchActionVerbHare(harePart: string): string | undefined {
+  const tokens = harePart.split(/\s+/).filter(Boolean);
+  for (let i = 1; i < tokens.length - 1; i++) {
+    if (BH4_ACTION_VERBS.has(tokens[i].toLowerCase())) {
+      return tokens.slice(0, i).join(" ");
+    }
+  }
+  return undefined;
+}
+
+/**
  * Extract hare name(s) from a "Hare @ Location" title prefix.
  *
  * BH4 titles frequently embed theme text between the hare and the `@`:
@@ -116,13 +142,11 @@ function extractHaresFromTitlePart(harePart: string): string | undefined {
 
   // Rule 5b: "<hare> <action-verb> ..." (#1550 — "Perpencockular Asks For
   // Help To Move"). Narrow allowlist of 3rd-person action verbs the kennel
-  // uses to compose trail subtitles. Lazy `(.+?)` lets multi-word hare names
-  // ("Captain Hook Says Goodbye" → "Captain Hook") survive. Sonar S5852-safe:
-  // the literal verb alternation acts as a hard right anchor for backtracking.
-  const actionVerbMatch = /^(.+?)\s+(?:Asks|Says|Wants|Needs|Hosts|Brings|Throws|Calls|Welcomes|Loves|Hates|Returns|Visits|Moves|Goes|Takes|Gives|Pays|Buys|Sells|Runs)\s+/i.exec(
-    harePart,
-  );
-  if (actionVerbMatch) return actionVerbMatch[1].trim();
+  // uses to compose trail subtitles. Multi-word hare names are preserved
+  // ("Captain Hook Says Goodbye" → "Captain Hook"). Set lookup over a
+  // tokenized split avoids a 20-branch alternation regex (Sonar S5843).
+  const verbHare = matchActionVerbHare(harePart);
+  if (verbHare) return verbHare;
 
   // Rule 6: clean short name — no colons, no emoji.
   // Accept 1–2 word names, or a pair-joined form ("X & Y", "X and Y") where
@@ -172,6 +196,30 @@ export function parseEventTitle(h4Text: string): {
   const location = locationIsTbd ? undefined : locationPart;
 
   return { title, hares, location };
+}
+
+/**
+ * Build the title for a numbered BH4 event. Preserves the rich h4 text when
+ * its hare-side has descriptive content beyond the extracted hare name
+ * (#1550 "Perpencockular Asks For Help To Move @ Brentwood"). Rebuilds to
+ * "BH4 #N @ Venue" only when `hares` was extracted AND equals the harePart
+ * (CodeRabbit + Claude bot review on #1577): hares=undefined means the
+ * extractor could not parse the h4 — preserve the original to avoid
+ * silently dropping subtitle text.
+ */
+function buildBh4Title(
+  h4Text: string,
+  titleFromH4: string,
+  hares: string | undefined,
+  runNumber: number,
+  location: string | undefined,
+): string {
+  const atIdx = h4Text.lastIndexOf(" @ ");
+  const h4HarePart = (atIdx >= 0 ? h4Text.slice(0, atIdx) : h4Text).trim();
+  const isBareHareTitle =
+    !!hares && h4HarePart.toLowerCase() === hares.toLowerCase();
+  if (!isBareHareTitle) return titleFromH4;
+  return location ? `BH4 #${runNumber} @ ${location}` : `BH4 #${runNumber}`;
 }
 
 /**
@@ -516,17 +564,13 @@ export class BigHumpAdapter implements SourceAdapter {
           // beyond the bare hare name ("Perpencockular Asks For Help To Move
           // @ Brentwood"), the trail subtitle is meaningful and we preserve
           // titleFromH4. The harePart-before-` @ ` is the title's hare-side;
-          // if it equals `hares` (case-insensitive), there's no subtitle.
-          let title = titleFromH4;
-          if (runNumber) {
-            const atIdx = h4Text.lastIndexOf(" @ ");
-            const h4HarePart = (atIdx >= 0 ? h4Text.slice(0, atIdx) : h4Text).trim();
-            const isBareHareTitle =
-              !hares || h4HarePart.toLowerCase() === hares.toLowerCase();
-            if (isBareHareTitle) {
-              title = location ? `BH4 #${runNumber} @ ${location}` : `BH4 #${runNumber}`;
-            }
-          }
+          // only rewrite when `hares` was extracted AND equals that prefix
+          // (case-insensitive). Hare-extraction returning undefined means the
+          // h4 contains something we couldn't parse — preserve it as title
+          // rather than overwriting (CodeRabbit + Claude bot review).
+          const title = runNumber
+            ? buildBh4Title(h4Text, titleFromH4, hares, runNumber, location)
+            : titleFromH4;
 
           harelineEvents.push({
             date,

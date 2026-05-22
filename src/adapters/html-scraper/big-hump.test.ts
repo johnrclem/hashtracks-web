@@ -826,6 +826,45 @@ describe("BigHumpAdapter — #1550 Open placeholder + subtitled title", () => {
     expect(ev.location).toBe("Forest Park");
   });
 
+  it("preserves descriptive h4 title when hare extraction returns undefined (CodeRabbit + Claude bot review)", async () => {
+    // "Bungle in the Jungle @ Steelville" — extractHaresFromTitlePart returns
+    // undefined (multi-word phrase, no separator, no verb). The previous
+    // `!hares ||` short-circuit silently rewrote the title to "BH4 #N @ ...",
+    // dropping "Bungle in the Jungle". The fix requires `hares` to be truthy
+    // AND match the harePart before rewriting.
+    const html = `
+      <html><body>
+        <div class="w3-card">
+          <header class="w3-container w3-green">
+            <h3>Wednesday 04/29/2026 <span class="w3-text-amber">#1997</span></h3>
+          </header>
+          <div class="w3-row"><div class="w3-col w3-container m9 l10">
+            <h4>Bungle in the Jungle @ Steelville</h4>
+            <span class="w3-small">Circle up: 6:45 p.m.</span>
+          </div></div>
+        </div>
+      </body></html>
+    `;
+    vi.mocked(utils.fetchHTMLPage).mockResolvedValueOnce({
+      ok: true as const,
+      html,
+      $: cheerio.load(html),
+      structureHash: "unparsed-h4-preserved",
+      fetchDurationMs: 50,
+    });
+
+    const mockSource = {
+      id: "test-bh4",
+      url: "http://www.big-hump.com/hareline.php",
+      config: null,
+    } as never;
+    const result = await adapter.fetch(mockSource, { days: 36500 });
+    const ev = result.events[0];
+    expect(ev.hares).toBeUndefined();
+    expect(ev.title).toBe("Bungle in the Jungle @ Steelville");
+    expect(ev.location).toBe("Steelville");
+  });
+
   it("falls back to BH4 #N rewrite when h4 is pure 'Hare @ Venue' (existing #828 behavior preserved)", async () => {
     const html = `
       <html><body>

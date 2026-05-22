@@ -23,18 +23,14 @@ import { SOURCES } from "../prisma/seed-data/sources";
 import type { Source } from "@/generated/prisma/client";
 
 type AnyAdapter = { fetch: (source: Source, options?: { days?: number }) => Promise<{ events: RawEventData[]; diagnosticContext?: unknown }> };
-
-interface Check {
-  label: string;
-  predicate: (e: RawEventData) => boolean;
-}
+type Predicate = (e: RawEventData) => boolean;
 
 interface Target {
   sourceName: string;
   describe: string;
   adapter: AnyAdapter;
-  checks: Check[];
-  summary?: (events: RawEventData[]) => string[];
+  checks: { label: string; predicate: Predicate }[];
+  countField?: "hares" | "location";
   sampleLimit?: number;
 }
 
@@ -48,75 +44,59 @@ function formatSample(e: RawEventData): string {
 
 const DATE_RANGE_RE = /\b\d{1,2}\s*\/\s*\d{1,2}\b/;
 
+const gcal = new GoogleCalendarAdapter();
 const TARGETS: Target[] = [
   {
     sourceName: "ABQ H3 Google Calendar",
     describe: "#1547 — no slash-date date-range strings in haresText",
-    adapter: new GoogleCalendarAdapter(),
-    checks: [
-      { label: "haresText with M/D date tokens", predicate: (e) => !!e.hares && DATE_RANGE_RE.test(e.hares) },
-    ],
-    summary: (events) => [`with hares: ${events.filter((e) => !!e.hares).length}`],
+    adapter: gcal,
+    checks: [{ label: "haresText with M/D date tokens", predicate: (e) => !!e.hares && DATE_RANGE_RE.test(e.hares) }],
+    countField: "hares",
   },
   {
     sourceName: "Richmond H3 Google Calendar",
     describe: "#1549 — no 'CLAIM THIS TRAIL' placeholder events ingested",
-    adapter: new GoogleCalendarAdapter(),
-    checks: [
-      { label: "titles containing 'CLAIM THIS TRAIL'", predicate: (e) => !!e.title && /\bclaim\s+this\s+trail\b/i.test(e.title) },
-    ],
+    adapter: gcal,
+    checks: [{ label: "titles containing 'CLAIM THIS TRAIL'", predicate: (e) => !!e.title && /\bclaim\s+this\s+trail\b/i.test(e.title) }],
   },
   {
     sourceName: "Whoreman H3 Calendar",
     describe: "#1551 — haresText truncated at first sentence boundary",
-    adapter: new GoogleCalendarAdapter(),
-    checks: [
-      // Description leak signal: hare text containing a period followed by
-      // 3+ words. The new HARE_SENTENCE_TRAILER_RE should strip these.
-      { label: "haresText with sentence trailer", predicate: (e) => !!e.hares && /\.\s+\S+(?:\s+\S+){2,}/.test(e.hares) },
-    ],
-    summary: (events) => [`with hares: ${events.filter((e) => !!e.hares).length}`],
+    adapter: gcal,
+    // Description leak signal: hare text containing a period followed by 3+ words.
+    checks: [{ label: "haresText with sentence trailer", predicate: (e) => !!e.hares && /\.\s+\S+(?:\s+\S+){2,}/.test(e.hares) }],
+    countField: "hares",
   },
   {
     sourceName: "Memphis H3 Facebook Hosted Events",
     describe: "#1557 — no titles ending in ' -' / ' —' / ' :'",
     adapter: new FacebookHostedEventsAdapter(),
-    checks: [
-      { label: "titles ending in trailing delimiter", predicate: (e) => !!e.title && /\s+[-–—:]\s*$/.test(e.title) },
-    ],
+    checks: [{ label: "titles ending in trailing delimiter", predicate: (e) => !!e.title && /\s+[-–—:]\s*$/.test(e.title) }],
   },
   {
     sourceName: "Sydney Thirsty H3 Upcoming Runs",
     describe: "#1548 — 'at the map location below' boilerplate stripped",
     adapter: new SydneyThirstyH3Adapter(),
-    checks: [
-      { label: "location containing 'at the map location below'", predicate: (e) => !!e.location && /at the map location below/i.test(e.location) },
-    ],
-    summary: (events) => [`with location: ${events.filter((e) => !!e.location).length}`],
+    checks: [{ label: "location containing 'at the map location below'", predicate: (e) => !!e.location && /at the map location below/i.test(e.location) }],
+    countField: "location",
   },
   {
     sourceName: "Big Hump H3 Hareline",
-    describe: "#1550 — no haresText 'Open' placeholder; h4 subtitles preserved",
+    describe: "#1550 — no haresText 'Open' placeholder",
     adapter: new BigHumpAdapter(),
-    checks: [
-      { label: "haresText literal 'Open'", predicate: (e) => !!e.hares && /^open$/i.test(e.hares) },
-    ],
-    summary: (events) => {
-      const withSubtitle = events.filter((e) => {
-        if (!e.title || !e.hares) return false;
-        // h4 was "<hare> <verb> ... @ <venue>" → preserved title includes the verb phrase.
-        return e.title.toLowerCase().startsWith(e.hares.toLowerCase() + " ") && e.title.includes(" @ ") && !e.title.startsWith("BH4 #");
-      });
-      return [`with hares: ${events.filter((e) => !!e.hares).length}`, `with subtitle-preserved title: ${withSubtitle.length}`];
-    },
+    checks: [{ label: "haresText literal 'Open'", predicate: (e) => !!e.hares && /^open$/i.test(e.hares) }],
+    countField: "hares",
     sampleLimit: 12,
   },
 ];
 
+function countWith(events: RawEventData[], field: "hares" | "location"): number {
+  return events.filter((e) => !!e[field]).length;
+}
+
 async function runTarget(target: Target): Promise<number> {
   const seedRow = SOURCES.find((s) => s.name === target.sourceName);
-  console.log(`\n## ${target.sourceName}`);
-  console.log(`   ${target.describe}`);
+  console.log(`\n## ${target.sourceName}\n   ${target.describe}`);
   if (!seedRow) {
     console.log(`   NOT FOUND IN SEED`);
     return 1;
@@ -133,19 +113,19 @@ async function runTarget(target: Target): Promise<number> {
   try {
     const result = await target.adapter.fetch(source, { days: 365 });
     console.log(`   events: ${result.events.length}`);
-    for (const line of target.summary?.(result.events) ?? []) console.log(`   ${line}`);
-    let failedChecks = 0;
-    for (const check of target.checks) {
-      const violators = result.events.filter(check.predicate);
-      console.log(`   ${check.label}: ${violators.length} (expect 0)`);
+    if (target.countField) console.log(`   with ${target.countField}: ${countWith(result.events, target.countField)}`);
+    let failed = 0;
+    for (const { label, predicate } of target.checks) {
+      const violators = result.events.filter(predicate);
+      console.log(`   ${label}: ${violators.length} (expect 0)`);
       if (violators.length > 0) {
-        failedChecks += violators.length;
+        failed += violators.length;
         for (const e of violators.slice(0, 5)) console.log(`     VIOLATION ${formatSample(e)}`);
       }
     }
     for (const e of result.events.slice(0, target.sampleLimit ?? 6)) console.log(`   ${formatSample(e)}`);
-    if (failedChecks > 0) console.log(`   ✗ ${failedChecks} regression(s) detected`);
-    return failedChecks;
+    if (failed > 0) console.log(`   ✗ ${failed} regression(s) detected`);
+    return failed;
   } catch (err) {
     console.log(`   FAILED: ${err instanceof Error ? err.message : String(err)}`);
     return 1;

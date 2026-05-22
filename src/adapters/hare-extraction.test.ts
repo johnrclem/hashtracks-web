@@ -270,6 +270,21 @@ describe("extractHares — description-sentence trailer strip (#1551 Wasatch)", 
       desc: "Hare: Mr. Happy. Big Fun Bob",
       expected: "Mr. Happy. Big Fun Bob",
     },
+    {
+      name: "honorific period skipped — 'Dr. Strange. A crossover event…' truncates to 'Dr. Strange' (Claude bot review)",
+      desc: "Hare: Dr. Strange. A crossover event with disc golf and snacks",
+      expected: "Dr. Strange",
+    },
+    {
+      name: "honorific period skipped — 'St. Mary. The trail starts at noon' truncates to 'St. Mary'",
+      desc: "Hare: St. Mary. The trail starts at the park at noon",
+      expected: "St. Mary",
+    },
+    {
+      name: "Mrs. honorific skipped",
+      desc: "Hare: Mrs. Robinson. A trail with surprises and beverages",
+      expected: "Mrs. Robinson",
+    },
   ])("$name", ({ desc, expected }) => {
     expect(extractHares(desc)).toBe(expected);
   });
