@@ -66,6 +66,31 @@ export interface HarelineListEvent {
   dogFriendly: boolean | null;
   /** #1316 — pre-event meetup venue/time, free-form. */
   prelube: string | null;
+  /** #1560 — multi-day series + standalone date-range support. */
+  isSeriesParent: boolean | null;
+  parentEventId: string | null;
+  endDate: string | null; // ISO; null = single-day
+  /** #1560 — per-trail children for series parents. Empty array for non-parents. */
+  childEvents: HarelineChildEvent[];
+}
+
+/**
+ * Compact child shape included inline on series-parent rows. Only carries the
+ * fields the expanded "Weekend at a glance" timeline renders (#1560) — heavy
+ * fields stream lazily through `getEventDetail` if the user clicks into a
+ * specific child.
+ */
+export interface HarelineChildEvent {
+  id: string;
+  date: string;
+  dateUtc: Date | null;
+  timezone: string | null;
+  title: string | null;
+  haresText: string | null;
+  startTime: string | null;
+  status: string;
+  locationName: string | null;
+  runNumber: number | null;
 }
 
 export type TimeMode = "upcoming" | "past";
@@ -81,7 +106,12 @@ const PAST_EVENTS_LIMIT = 200;
  * string. `unstable_cache` JSON-serializes its return value; keeping this
  * twin explicit means the boundary conversion is visible at the call site.
  */
-interface CachedHarelineEvent extends Omit<HarelineListEvent, "dateUtc"> {
+interface CachedHarelineEvent extends Omit<HarelineListEvent, "dateUtc" | "childEvents"> {
+  dateUtc: string | null;
+  childEvents: CachedHarelineChildEvent[];
+}
+
+interface CachedHarelineChildEvent extends Omit<HarelineChildEvent, "dateUtc"> {
   dateUtc: string | null;
 }
 
@@ -164,6 +194,34 @@ const fetchSlimEventsCached = unstable_cache(
         trailType: true,
         dogFriendly: true,
         prelube: true,
+        // #1560 — multi-day series metadata + inline children list.
+        isSeriesParent: true,
+        parentEventId: true,
+        endDate: true,
+        childEvents: {
+          where: {
+            // Mirror DISPLAY_EVENT_WHERE's visibility predicates on the
+            // child set (parentEventId stays unset here — children all have
+            // it pointing to this row).
+            status: { not: "CANCELLED" },
+            isManualEntry: { not: true },
+            isCanonical: true,
+            kennel: { isHidden: false },
+          },
+          orderBy: { date: "asc" },
+          select: {
+            id: true,
+            date: true,
+            dateUtc: true,
+            timezone: true,
+            title: true,
+            haresText: true,
+            startTime: true,
+            status: true,
+            locationName: true,
+            runNumber: true,
+          },
+        },
         kennel: {
           select: { id: true, shortName: true, fullName: true, slug: true, region: true, country: true },
         },
@@ -206,6 +264,21 @@ const fetchSlimEventsCached = unstable_cache(
       trailType: e.trailType,
       dogFriendly: e.dogFriendly,
       prelube: e.prelube,
+      isSeriesParent: e.isSeriesParent,
+      parentEventId: e.parentEventId,
+      endDate: e.endDate ? e.endDate.toISOString() : null,
+      childEvents: e.childEvents.map((c) => ({
+        id: c.id,
+        date: c.date.toISOString(),
+        dateUtc: c.dateUtc ? c.dateUtc.toISOString() : null,
+        timezone: c.timezone,
+        title: c.title,
+        haresText: c.haresText,
+        startTime: c.startTime,
+        status: c.status,
+        locationName: c.locationName,
+        runNumber: c.runNumber,
+      })),
     }));
   },
   ["hareline:events"],
@@ -252,6 +325,10 @@ export async function loadEventsForTimeMode(
   return cached.map((e) => ({
     ...e,
     dateUtc: e.dateUtc ? new Date(e.dateUtc) : null,
+    childEvents: e.childEvents.map((c) => ({
+      ...c,
+      dateUtc: c.dateUtc ? new Date(c.dateUtc) : null,
+    })),
   }));
 }
 
@@ -267,13 +344,20 @@ export interface EventDetailFields {
 
 /**
  * Fetch heavy fields for a single event on detail-panel expand. Returns
- * `null` if the event doesn't exist or isn't visible (same
- * DISPLAY_EVENT_WHERE predicate used everywhere else).
+ * `null` if the event doesn't exist or isn't visible.
+ *
+ * #1560 — series children (`parentEventId != null`) DO resolve here because
+ * the right-side panel can navigate into a child trail from the parent's
+ * expanded timeline. We rebuild the where clause without the
+ * `parentEventId: null` predicate that DISPLAY_EVENT_WHERE adds for listings.
  */
 export async function getEventDetail(eventId: string): Promise<EventDetailFields | null> {
   if (!eventId) return null;
+  // Reuse DISPLAY_EVENT_WHERE's visibility predicates but skip the listing-
+  // only `parentEventId: null` so child rows can still be inspected.
+  const { parentEventId: _excluded, ...visibilityWhere } = DISPLAY_EVENT_WHERE;
   return prisma.event.findFirst({
-    where: { id: eventId, ...DISPLAY_EVENT_WHERE },
+    where: { id: eventId, ...visibilityWhere },
     select: {
       description: true,
       sourceUrl: true,

@@ -998,7 +998,7 @@ END:VCALENDAR`;
     expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 
-  it("suppresses SFH3 umbrella VEVENTs when a same-date trail exists, even with enrichSFH3Details off (#1421)", async () => {
+  it("models SFH3 umbrella + trail as a series with shared seriesId, even with enrichSFH3Details off (#1560)", async () => {
     const dupIcs = `BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//Test//Test//EN
@@ -1014,9 +1014,10 @@ END:VEVENT
 BEGIN:VEVENT
 UID:event-999
 DTSTAMP:20260101T000000Z
-DTSTART;VALUE=DATE:20260515
-DTEND;VALUE=DATE:20260516
+DTSTART;VALUE=DATE:20260514
+DTEND;VALUE=DATE:20260518
 SUMMARY:SFH3 Campout Umbrella
+DESCRIPTION:Weekend campout — full schedule + registration
 LOCATION:San Francisco
 URL;VALUE=URI:https://www.sfh3.com/events/999
 END:VEVENT
@@ -1026,9 +1027,26 @@ END:VCALENDAR`;
     );
     const source = buildMockSource(); // no enrichSFH3Details
     const result = await adapter.fetch(source, { days: 9999 });
-    const may15 = result.events.filter((e) => e.date === "2026-05-15");
-    expect(may15).toHaveLength(1);
-    expect(may15[0].sourceUrl).toBe("https://www.sfh3.com/runs/9999");
+
+    // Both the umbrella and the trail are preserved — series modeling
+    // replaces the pre-#1560 suppression.
+    expect(result.events).toHaveLength(2);
+    const umbrella = result.events.find((e) => e.sourceUrl === "https://www.sfh3.com/events/999");
+    const trail = result.events.find((e) => e.sourceUrl === "https://www.sfh3.com/runs/9999");
+    expect(umbrella).toBeDefined();
+    expect(trail).toBeDefined();
+
+    // Shared seriesId derived from the umbrella URL's numeric ID.
+    expect(umbrella!.seriesId).toBe("sfh3-event-999");
+    expect(trail!.seriesId).toBe("sfh3-event-999");
+
+    // Umbrella carries the explicit-parent flag + the inclusive endDate
+    // (DTEND May 18 → May 17 inclusive).
+    expect(umbrella!.seriesParent).toBe(true);
+    expect(umbrella!.endDate).toBe("2026-05-17");
+
+    // Trails do NOT carry seriesParent; they're children.
+    expect(trail!.seriesParent).toBeFalsy();
   });
 
   it("works without config (defaultKennelTag fallback)", async () => {

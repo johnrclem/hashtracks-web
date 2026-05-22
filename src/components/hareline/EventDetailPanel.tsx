@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Tent, ArrowUpLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,7 +10,7 @@ import {
   TooltipTrigger,
   TooltipContent,
 } from "@/components/ui/tooltip";
-import { formatTime, formatDateLong, getLabelForUrl, stripMarkdown, stripUrlsFromText } from "@/lib/format";
+import { formatTime, formatDateLong, formatDateRange, getLabelForUrl, stripMarkdown, stripUrlsFromText } from "@/lib/format";
 import { getFullLocationDisplay } from "@/lib/event-display";
 import type { HarelineEvent } from "./EventCard";
 import { ShiggyLevelFlames, TrailLengthLine, formatTrailLength } from "./TrailDifficulty";
@@ -87,15 +87,48 @@ export function EventDetailPanel({ event, attendance, isAuthenticated, onDismiss
   const regionColor = event.kennel?.region ? getRegionColor(event.kennel.region) : "#6b7280";
   const trailLengthDisplay = formatTrailLength(event);
 
+  // #1560 — multi-day series / date-range standalone signals. Both `date`
+  // and `endDate` are serialized as full ISO strings, so we extract
+  // YYYY-MM-DD from each before comparing (Codex P1 review — the older
+  // form compared ISO to YYYY-MM-DD and the suppression guard never fired).
+  const isSeriesParent = event.isSeriesParent === true;
+  const endDay = event.endDate ? event.endDate.split("T")[0] : null;
+  const startDay = event.date.split("T")[0];
+  const hasDateRange = !!endDay && endDay !== startDay;
+  const isMultiDay = isSeriesParent || hasDateRange;
+  const childCount = event.childEvents?.length ?? 0;
+  const isChildOfSeries = !!event.parentEventId;
+  // Heading: range for parents/date-range events, single date for children + singles.
+  const headingDateStr = isMultiDay ? formatDateRange(event.date, event.endDate) : displayDateStr;
+
   return (
     <Card className="flex max-h-[calc(100vh-4rem)] flex-col overflow-hidden border-t-[3px]" style={{ borderTopColor: regionColor }}>
       {/* Scrollable content */}
       <CardContent className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
+        {/* #1560 — child detail panel: back-link to parent series */}
+        {isChildOfSeries && event.parentEventId && (
+          <Link
+            href={`/hareline/${event.parentEventId}`}
+            className="flex items-center gap-2 px-2 py-1.5 -mx-1 mb-2 border-l-[3px] text-xs text-muted-foreground hover:text-foreground transition-colors"
+            style={{ borderColor: regionColor }}
+          >
+            <ArrowUpLeft className="size-3" aria-hidden="true" />
+            <span>Part of a multi-day series</span>
+          </Link>
+        )}
+
         {/* Header */}
         <div className="space-y-1">
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-1.5">
-              <h2 className="text-lg font-bold" suppressHydrationWarning>{displayDateStr}</h2>
+              {isMultiDay && (
+                <Tent
+                  className="size-4 shrink-0"
+                  style={{ color: regionColor }}
+                  aria-hidden="true"
+                />
+              )}
+              <h2 className="text-lg font-bold" suppressHydrationWarning>{headingDateStr}</h2>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Link
@@ -139,12 +172,75 @@ export function EventDetailPanel({ event, attendance, isAuthenticated, onDismiss
             {event.status === "TENTATIVE" && (
               <Badge variant="outline">Tentative</Badge>
             )}
+            {/* #1560 — series-parent + standalone date-range badges */}
+            {isSeriesParent && childCount > 0 && (
+              <Badge
+                className="text-[10px] px-1.5 py-0 font-mono uppercase tracking-wider border-0"
+                style={{ backgroundColor: `${regionColor}1a`, color: regionColor }}
+              >
+                + {childCount} trails
+              </Badge>
+            )}
+            {hasDateRange && !isSeriesParent && (
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-muted-foreground border-dashed">
+                Weekend
+              </Badge>
+            )}
           </div>
         </div>
 
         {/* Title */}
         {event.title && (
           <h3 className="text-base font-semibold">{event.title}</h3>
+        )}
+
+        {/* #1560 — series children mini-timeline. Renders right after the
+            title so the umbrella's description (further down) sits below
+            the at-a-glance schedule. */}
+        {isSeriesParent && childCount > 0 && (
+          <div>
+            <h4 className="mb-1.5 text-xs font-mono uppercase tracking-wider text-muted-foreground/70">
+              Weekend at a glance
+            </h4>
+            <ol
+              className="flex flex-col border-l-2 ml-1 pl-3 space-y-1.5"
+              style={{ borderColor: regionColor }}
+            >
+              {event.childEvents!.map((child) => {
+                const childDate = new Date(child.date);
+                const dayChip = childDate.toLocaleDateString("en-US", {
+                  weekday: "short", day: "numeric", timeZone: "UTC",
+                });
+                const childTime = child.startTime ? formatTime(child.startTime) : null;
+                const isChildCancelled = child.status === "CANCELLED";
+                return (
+                  <li key={child.id} className="relative">
+                    <span
+                      aria-hidden="true"
+                      className="absolute -left-[14px] top-1.5 size-2 rounded-full"
+                      style={{ backgroundColor: isChildCancelled ? "#9ca3af" : regionColor }}
+                    />
+                    <Link
+                      href={`/hareline/${child.id}`}
+                      className={`flex items-baseline gap-2 text-sm hover:text-primary transition-colors ${isChildCancelled ? "opacity-50" : ""}`}
+                    >
+                      <span className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground/80 w-14 shrink-0">
+                        {dayChip}
+                      </span>
+                      {childTime && (
+                        <span className="font-mono tabular-nums text-muted-foreground/70 w-14 shrink-0" suppressHydrationWarning>
+                          {childTime}
+                        </span>
+                      )}
+                      <span className={`truncate font-medium ${isChildCancelled ? "line-through" : ""}`}>
+                        {child.title ?? "Trail"}
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
         )}
 
         {/* Check-in */}

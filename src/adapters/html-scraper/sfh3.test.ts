@@ -6,7 +6,7 @@ import {
   parseSFH3DetailPage,
   isGenericSFH3Title,
   enrichSFH3Events,
-  suppressSFH3UmbrellaDuplicates,
+  markSFH3SeriesMembership,
 } from "./sfh3";
 import { SFH3Adapter } from "./sfh3";
 import type { RawEventData } from "../types";
@@ -804,75 +804,107 @@ function buildTrail(overrides: Partial<RawEventData> = {}): RawEventData {
 }
 function buildUmbrella(overrides: Partial<RawEventData> = {}): RawEventData {
   return {
-    date: "2026-05-15",
+    date: "2026-05-14",
+    endDate: "2026-05-17",
     kennelTags: ["sfh3"],
     title: "Bay 2 Blackout 2026",
+    description: "Weekend campout — registration at sfh3.com/events/134, lodging info attached.",
     sourceUrl: "https://www.sfh3.com/events/134",
     ...overrides,
   };
 }
 
-describe("suppressSFH3UmbrellaDuplicates (#1421)", () => {
-  it("drops a /events/{n} umbrella when a /runs/{m} trail exists for the same kennel+date", () => {
-    const result = suppressSFH3UmbrellaDuplicates([buildTrail(), buildUmbrella()]);
-    expect(result).toHaveLength(1);
-    expect(result[0].sourceUrl).toBe("https://www.sfh3.com/runs/6485");
-  });
-
-  it("keeps an umbrella when no trail exists on that date", () => {
-    const standalone = buildUmbrella({ date: "2026-08-01", title: "BAWC5 Campout" });
-    const result = suppressSFH3UmbrellaDuplicates([buildTrail(), standalone]);
-    expect(result).toHaveLength(2);
-    expect(result.some((e) => e.sourceUrl?.includes("/events/"))).toBe(true);
-  });
-
-  it("keeps an umbrella when the trail is for a different kennel on the same date", () => {
-    const otherKennelTrail = buildTrail({ kennelTags: ["gph3"], sourceUrl: "https://www.sfh3.com/runs/6500" });
-    const result = suppressSFH3UmbrellaDuplicates([otherKennelTrail, buildUmbrella()]);
-    expect(result).toHaveLength(2);
-  });
-
-  it("keeps a co-hosted umbrella when only SOME of its kennels have a same-date trail", () => {
-    // Umbrella tagged for both sfh3 and barh3; only sfh3 has a /runs/ trail
-    // that day. Dropping the umbrella would lose barh3's only signal — keep it.
-    const cohostedUmbrella = buildUmbrella({ kennelTags: ["sfh3", "barh3"] });
-    const result = suppressSFH3UmbrellaDuplicates([buildTrail(), cohostedUmbrella]);
-    expect(result).toHaveLength(2);
-    expect(result.some((e) => e.sourceUrl?.includes("/events/"))).toBe(true);
-  });
-
-  it("drops a co-hosted umbrella when ALL of its kennels have a same-date trail", () => {
-    const sfh3Trail = buildTrail({ kennelTags: ["sfh3"] });
-    const barh3Trail = buildTrail({ kennelTags: ["barh3"], sourceUrl: "https://www.sfh3.com/runs/6600" });
-    const cohostedUmbrella = buildUmbrella({ kennelTags: ["sfh3", "barh3"] });
-    const result = suppressSFH3UmbrellaDuplicates([sfh3Trail, barh3Trail, cohostedUmbrella]);
-    expect(result).toHaveLength(2);
-    expect(result.every((e) => !e.sourceUrl?.includes("/events/"))).toBe(true);
-  });
-
-  it("is case-insensitive on kennelTags (iCal often emits 'SFH3', HTML emits 'sfh3')", () => {
-    const result = suppressSFH3UmbrellaDuplicates([
-      buildTrail({ kennelTags: ["SFH3"] }),
-      buildUmbrella({ kennelTags: ["sfh3"] }),
+describe("markSFH3SeriesMembership (#1560)", () => {
+  it("tags umbrella + same-kennel trails in the window with shared seriesId", () => {
+    const events = [
+      buildUmbrella(),
+      buildTrail({ date: "2026-05-15" }),
+      buildTrail({ date: "2026-05-16", sourceUrl: "https://www.sfh3.com/runs/6490", startTime: "11:30" }),
+      buildTrail({ date: "2026-05-17", sourceUrl: "https://www.sfh3.com/runs/6488", startTime: "08:00" }),
+    ];
+    markSFH3SeriesMembership(events); // mutates in place; void return
+    expect(events.map((e) => e.seriesId)).toEqual([
+      "sfh3-event-134", "sfh3-event-134", "sfh3-event-134", "sfh3-event-134",
     ]);
-    expect(result).toHaveLength(1);
-    expect(result[0].title).toBe("SFH3: Friday Turkey / Eagle Run & Pub Crawl");
+    // Only the umbrella carries the explicit parent flag.
+    expect(events[0].seriesParent).toBe(true);
+    expect(events.slice(1).every((e) => e.seriesParent !== true)).toBe(true);
+    // Rich description preserved on the parent (was being dropped pre-#1560).
+    expect(events[0].description).toMatch(/registration|lodging/);
   });
 
-  it("returns the input unchanged when there are no trail events", () => {
-    const events = [buildUmbrella()];
-    const result = suppressSFH3UmbrellaDuplicates(events);
-    expect(result).toBe(events);
+  it("does not tag a trail outside the umbrella's [date, endDate] window", () => {
+    const events = [
+      buildUmbrella({ endDate: "2026-05-17" }),
+      buildTrail({ date: "2026-05-20", sourceUrl: "https://www.sfh3.com/runs/9999" }),
+    ];
+    markSFH3SeriesMembership(events);
+    expect(events[0].seriesId).toBe("sfh3-event-134");
+    expect(events[1].seriesId).toBeUndefined();
+  });
+
+  it("does not tag a same-date trail from a different kennel as a series sibling", () => {
+    const otherKennelTrail = buildTrail({
+      date: "2026-05-15",
+      kennelTags: ["gph3"],
+      sourceUrl: "https://www.sfh3.com/runs/6500",
+    });
+    const events = [otherKennelTrail, buildUmbrella()];
+    markSFH3SeriesMembership(events);
+    expect(otherKennelTrail.seriesId).toBeUndefined();
+    expect(events[1].seriesId).toBe("sfh3-event-134");
+  });
+
+  it("attaches co-hosted umbrella's trails for EACH co-host kennel", () => {
+    const cohostedUmbrella = buildUmbrella({ kennelTags: ["sfh3", "barh3"] });
+    const sfh3Trail = buildTrail({ date: "2026-05-15", kennelTags: ["sfh3"] });
+    const barh3Trail = buildTrail({
+      date: "2026-05-16",
+      kennelTags: ["barh3"],
+      sourceUrl: "https://www.sfh3.com/runs/6600",
+    });
+    markSFH3SeriesMembership([sfh3Trail, barh3Trail, cohostedUmbrella]);
+    expect(sfh3Trail.seriesId).toBe("sfh3-event-134");
+    expect(barh3Trail.seriesId).toBe("sfh3-event-134");
+  });
+
+  it("is case-insensitive on kennelTags (iCal emits 'SFH3', HTML emits 'sfh3')", () => {
+    const trail = buildTrail({ kennelTags: ["SFH3"] });
+    const umbrella = buildUmbrella({ kennelTags: ["sfh3"] });
+    markSFH3SeriesMembership([trail, umbrella]);
+    expect(trail.seriesId).toBe("sfh3-event-134");
+  });
+
+  it("leaves the input untouched when there are no /events/ umbrellas", () => {
+    const events = [buildTrail()];
+    markSFH3SeriesMembership(events);
+    expect(events[0].seriesId).toBeUndefined();
   });
 
   it("ignores events without sfh3.com sourceUrls", () => {
     const otherSourced: RawEventData = {
-      date: "2026-05-15",
+      date: "2026-05-14",
       kennelTags: ["sfh3"],
       title: "Bay 2 Blackout 2026",
       sourceUrl: "https://example.com/events/134",
     };
-    const result = suppressSFH3UmbrellaDuplicates([buildTrail(), otherSourced]);
-    expect(result).toHaveLength(2);
+    markSFH3SeriesMembership([buildTrail(), otherSourced]);
+    expect(otherSourced.seriesId).toBeUndefined();
+  });
+
+  it("preserves an umbrella with no in-window trails as a standalone (no children)", () => {
+    const standalone = buildUmbrella({
+      date: "2026-08-01",
+      endDate: "2026-08-03",
+      sourceUrl: "https://www.sfh3.com/events/200",
+      title: "BAWC5 Campout",
+    });
+    markSFH3SeriesMembership([buildTrail({ date: "2026-05-15" }), standalone]);
+    // Umbrella keeps its own seriesId + parent flag + endDate even with zero
+    // matched children — UI renders it as a Madison-style "weekend, no trails
+    // visible" date-range card. The May 15 trail stays untagged.
+    expect(standalone.seriesId).toBe("sfh3-event-200");
+    expect(standalone.seriesParent).toBe(true);
+    expect(standalone.endDate).toBe("2026-08-03");
   });
 });

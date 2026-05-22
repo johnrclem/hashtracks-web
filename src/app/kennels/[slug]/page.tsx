@@ -113,6 +113,29 @@ export default async function KennelDetailPage({
           },
           orderBy: { kennel: { shortName: "asc" } },
         },
+        // #1560 — per-trail children for series parents. Slim select to
+        // match the HarelineSeriesChild shape consumed by EventCard.
+        childEvents: {
+          where: {
+            status: { not: "CANCELLED" },
+            isManualEntry: { not: true },
+            isCanonical: true,
+            kennel: { isHidden: false },
+          },
+          orderBy: { date: "asc" },
+          select: {
+            id: true,
+            date: true,
+            dateUtc: true,
+            timezone: true,
+            title: true,
+            haresText: true,
+            startTime: true,
+            status: true,
+            locationName: true,
+            runNumber: true,
+          },
+        },
       },
       orderBy: { date: "asc" },
     }),
@@ -175,6 +198,21 @@ export default async function KennelDetailPage({
     dogFriendly: e.dogFriendly,
     prelube: e.prelube,
     cost: e.cost,
+    isSeriesParent: e.isSeriesParent,
+    parentEventId: e.parentEventId,
+    endDate: e.endDate ? e.endDate.toISOString() : null,
+    childEvents: e.childEvents.map((c) => ({
+      id: c.id,
+      date: c.date.toISOString(),
+      dateUtc: c.dateUtc,
+      timezone: c.timezone,
+      title: c.title,
+      haresText: c.haresText,
+      startTime: c.startTime,
+      status: c.status,
+      locationName: c.locationName,
+      runNumber: c.runNumber,
+    })),
   }));
 
   const upcoming = serialized.filter(

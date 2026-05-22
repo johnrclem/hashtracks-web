@@ -1,15 +1,16 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { MapPin, Clock, Footprints } from "lucide-react";
+import { MapPin, Clock, Footprints, Tent, ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
 } from "@/components/ui/tooltip";
-import { formatTime } from "@/lib/format";
+import { formatTime, formatDateRange } from "@/lib/format";
 import { AttendanceBadge } from "@/components/logbook/AttendanceBadge";
 import type { AttendanceData } from "@/components/logbook/CheckInButton";
 import { RegionBadge } from "./RegionBadge";
@@ -86,6 +87,43 @@ export type HarelineEvent = {
   description?: string | null;
   sourceUrl?: string | null;
   eventLinks?: { id: string; url: string; label: string }[];
+  /**
+   * Multi-day series fields (#1560).
+   *  - `isSeriesParent` flips on when `linkMultiDaySeries` made this Event
+   *    the umbrella for a multi-trail weekend; `childEvents` carries the
+   *    per-day trails ordered by date.
+   *  - `endDate` carries the inclusive last day of either a series parent
+   *    or a standalone date-range event (one-registration venue weekend,
+   *    no children — MadisonH3 case). Either signal opts a card into the
+   *    multi-day visual treatment; the absence of children differentiates
+   *    "weekend with N trails" from "weekend at one venue".
+   *  - `parentEventId` is set on child Events; the hareline + kennel page
+   *    listings filter `parentEventId: null` so children only render
+   *    inside their parent's expanded view, never as top-level cards.
+   */
+  isSeriesParent?: boolean | null;
+  parentEventId?: string | null;
+  endDate?: string | null; // ISO; null = single-day
+  childEvents?: HarelineSeriesChild[];
+};
+
+/**
+ * Slim shape for children rendered inside a series parent's expanded
+ * timeline (#1560). Only the fields the timeline row reads — heavy
+ * details (location, weather, eventLinks, etc.) stream lazily through
+ * `getEventDetail` when the user opens a specific child.
+ */
+export type HarelineSeriesChild = {
+  id: string;
+  date: string;
+  dateUtc: Date | null;
+  timezone: string | null;
+  title: string | null;
+  haresText: string | null;
+  startTime: string | null;
+  status: string;
+  locationName: string | null;
+  runNumber: number | null;
 };
 
 
@@ -243,6 +281,25 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
   // Time formatting below still uses `displayTz`. (#1502)
   const displayDateStr = computeChipDate(event);
 
+  // #1560 series rendering — `isSeriesParent` carries N child trails (Bay 2
+  // Blackout-style); `endDate` alone signals a date-range standalone (one
+  // registration covers a venue weekend, no children). Both opt into the
+  // date-range chip + tent glyph; only the former expands.
+  //
+  // `event.date` and `event.endDate` are both serialized via `toISOString()`
+  // so we extract YYYY-MM-DD from each before comparing — pre-Codex-review
+  // this compared `endDate` (ISO) to `event.date.split("T")[0]` (YYYY-MM-DD)
+  // and never matched, so the same-day suppression guard was silently
+  // unreachable.
+  const isSeriesParent = event.isSeriesParent === true;
+  const endDay = event.endDate ? event.endDate.split("T")[0] : null;
+  const startDay = event.date.split("T")[0];
+  const hasDateRange = !!endDay && endDay !== startDay;
+  const isMultiDay = isSeriesParent || hasDateRange;
+  const childCount = event.childEvents?.length ?? 0;
+  const rangeDisplay = isMultiDay ? formatDateRange(event.date, event.endDate) : displayDateStr;
+  const [seriesExpanded, setSeriesExpanded] = useState(false);
+
   const displayTimeStr = (event.dateUtc && event.startTime)
     ? formatTimeInZone(event.dateUtc, displayTz)
     : (event.startTime ? formatTime(event.startTime) : null);
@@ -310,10 +367,28 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
             style={{ backgroundColor: `${regionColor}06` }}
           />
 
-          {/* Fixed-width columns: date, kennel, run# */}
+          {/* Fixed-width columns: date, kennel, run#
+              #1560 — multi-day events show the inclusive date range in place
+              of the single-day chip. Widening the column when a range is
+              present keeps the rest of the row from reflowing. */}
           {!hideDate && (
-            <span className="relative w-24 shrink-0 font-medium text-muted-foreground" suppressHydrationWarning>
-              {displayDateStr}
+            <span
+              className={`relative shrink-0 font-medium text-muted-foreground ${isMultiDay ? "w-32" : "w-24"}`}
+              suppressHydrationWarning
+            >
+              {isMultiDay && (
+                <Tent
+                  className="inline-block size-3 mr-1 -mt-px"
+                  style={{ color: regionColor, opacity: 0.7 }}
+                  aria-hidden="true"
+                />
+              )}
+              {rangeDisplay}
+              {isSeriesParent && childCount > 0 && (
+                <span className="ml-1 font-mono text-[10px] text-muted-foreground/70" aria-label={`${childCount} trails`}>
+                  · {childCount}t
+                </span>
+              )}
             </span>
           )}
 
@@ -487,8 +562,38 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
 
               {!hideDate && (
                 <span className="text-xs text-muted-foreground/50 hidden sm:inline" suppressHydrationWarning>
-                  {displayDateStr}
+                  {isMultiDay && (
+                    <Tent
+                      className="inline-block size-3 mr-1 -mt-px align-middle"
+                      style={{ color: regionColor, opacity: 0.7 }}
+                      aria-hidden="true"
+                    />
+                  )}
+                  {rangeDisplay}
                 </span>
+              )}
+
+              {/* #1560 — series-parent "+ N trails" badge. Sibling to the
+                  existing tentative/cancelled badges so it inherits flex-wrap
+                  behavior. Hidden when childCount is 0 (Madison-style
+                  date-range standalone). */}
+              {isSeriesParent && childCount > 0 && (
+                <Badge
+                  className="text-[10px] px-1.5 py-0 font-mono uppercase tracking-wider border-0"
+                  style={{ backgroundColor: `${regionColor}1a`, color: regionColor }}
+                  aria-label={`${childCount} trails in this series`}
+                >
+                  + {childCount} trails
+                </Badge>
+              )}
+              {hasDateRange && !isSeriesParent && (
+                <Badge
+                  variant="outline"
+                  className="text-[10px] px-1.5 py-0 text-muted-foreground border-dashed"
+                  aria-label="Multi-day weekend event"
+                >
+                  Weekend
+                </Badge>
               )}
 
               {/* Status badges */}
@@ -652,8 +757,119 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
               </Tooltip>
             )}
           </div>
+
+          {/* #1560 \u2014 series children expansion. Renders below the metadata
+              strip so the card's primary scan rhythm is untouched until the
+              user expands. Children are listed as compact rows tied to the
+              parent's region color via a timeline rail. */}
+          {isSeriesParent && childCount > 0 && (
+            <div className="mt-2">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSeriesExpanded((v) => !v);
+                }}
+                aria-expanded={seriesExpanded}
+                aria-controls={`series-${event.id}-children`}
+                className="flex items-center gap-1 text-xs font-mono text-muted-foreground/80 hover:text-foreground transition-colors"
+              >
+                {(() => {
+                  if (seriesExpanded) return "Hide trails";
+                  const trailWord = childCount === 1 ? "trail" : "trails";
+                  return `Show ${childCount} ${trailWord}`;
+                })()}
+                <ChevronDown
+                  className={`size-3 transition-transform ${seriesExpanded ? "rotate-180" : ""}`}
+                  aria-hidden="true"
+                />
+              </button>
+              {seriesExpanded && (
+                <ol
+                  id={`series-${event.id}-children`}
+                  className="mt-2 flex flex-col border-l-2 ml-1.5 pl-3 space-y-1"
+                  style={{ borderColor: regionColor }}
+                >
+                  {event.childEvents!.map((child) => (
+                    <SeriesChildRow
+                      key={child.id}
+                      child={child}
+                      regionColor={regionColor}
+                      displayTz={displayTz}
+                    />
+                  ))}
+                </ol>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Time to render in a series child row. Prefer the timezone-aware composed
+ * value when both `dateUtc` and `startTime` are present; fall back to the
+ * raw HH:MM string when only `startTime` exists; otherwise `null`.
+ */
+function computeChildTime(child: HarelineSeriesChild, displayTz: string): string | null {
+  if (child.dateUtc && child.startTime) return formatTimeInZone(child.dateUtc, displayTz);
+  if (child.startTime) return formatTime(child.startTime);
+  return null;
+}
+
+/** One row in the expanded series children list (#1560). Compact: day chip
+ *  + time + title + hares. Click navigates to the child's detail page.
+ *  Stops propagation so the parent card's onClick doesn't also fire. */
+function SeriesChildRow({
+  child,
+  regionColor,
+  displayTz,
+}: {
+  readonly child: HarelineSeriesChild;
+  readonly regionColor: string;
+  readonly displayTz: string;
+}) {
+  const router = useRouter();
+  const childTime = computeChildTime(child, displayTz);
+  const childDate = new Date(child.date);
+  const dayChip = childDate.toLocaleDateString("en-US", { weekday: "short", day: "numeric", timeZone: "UTC" });
+  const isChildCancelled = child.status === "CANCELLED";
+  return (
+    <li className="relative">
+      <span
+        aria-hidden="true"
+        className="absolute -left-[14px] top-1.5 size-2 rounded-full"
+        style={{ backgroundColor: isChildCancelled ? "#9ca3af" : regionColor }}
+      />
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          router.push(`/hareline/${child.id}`);
+        }}
+        className={`group/child flex items-baseline gap-2 text-xs w-full text-left hover:text-foreground transition-colors ${
+          isChildCancelled ? "opacity-50" : ""
+        }`}
+      >
+        <span className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground/80 w-12 shrink-0">
+          {dayChip}
+        </span>
+        {childTime && (
+          <span className="font-mono tabular-nums text-muted-foreground/70 w-12 shrink-0" suppressHydrationWarning>
+            {childTime}
+          </span>
+        )}
+        <span className={`truncate font-medium ${isChildCancelled ? "line-through" : ""}`}>
+          {child.title ?? "Trail"}
+        </span>
+        {child.haresText && (
+          <span className="hidden sm:inline text-muted-foreground/60 truncate">
+            ({child.haresText})
+          </span>
+        )}
+      </button>
+    </li>
   );
 }

@@ -79,6 +79,25 @@ export function generateFingerprint(data: RawEventData): string {
     withClearSignal(data.trailLengthMinMiles, (n) => n.toString()),
     withClearSignal(data.trailLengthMaxMiles, (n) => n.toString()),
     withClearSignal(data.difficulty, (n) => n.toString()),
+    // #1560 — endDate (multi-day series). Adapters shifting an event from
+    // single-day to multi-day (or extending the range) must invalidate the
+    // RawEvent dedup so the canonical UPDATE fires.
+    //
+    // CRITICAL: we ONLY append the endDate token when endDate is set. An
+    // unconditional `endDate ?? ""` token would change the fingerprint of
+    // every existing single-day RawEvent on next scrape — doubling the
+    // RawEvent table for the entire active source set (Codex P1 review).
+    // By gating, single-day events pre-#1560 and post-#1560 fingerprint
+    // identically; only adapters that newly emit endDate (SFH3 umbrellas,
+    // future Hash Rego date-range parsers) cause a one-time re-merge of
+    // their specific multi-day rows.
+    //
+    // seriesId itself stays out of the fingerprint: it groups raws across
+    // days but every raw still carries a distinct (date, runNumber, hares)
+    // tuple, and including seriesId would couple sibling raws' dedup state.
+    // seriesParent likewise stays out: the boolean is metadata for the
+    // linker, not display content.
+    ...(data.endDate ? [`endDate=${data.endDate}`] : []),
   ].join("|");
 
   return createHash("sha256").update(input).digest("hex");

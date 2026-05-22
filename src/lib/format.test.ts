@@ -9,6 +9,7 @@ import {
   regionAbbrev,
   regionColorClasses,
   formatDateShort,
+  formatDateRange,
   formatSchedule,
   instagramUrl,
   twitterUrl,
@@ -113,6 +114,66 @@ describe("formatDateShort", () => {
   it("uses UTC to avoid date shift", () => {
     // A date stored as UTC noon should not shift to previous day
     expect(formatDateShort("2026-01-01T12:00:00.000Z")).toBe("Thu, Jan 1");
+  });
+});
+
+describe("formatDateRange (#1560)", () => {
+  // Table-driven per memory feedback_it_each_for_sonar_cpd.md — same shape
+  // shows up 5×, so a single it() with shared boilerplate would trip CPD.
+  it.each([
+    {
+      label: "single day (no endIso)",
+      start: "2026-05-14T12:00:00.000Z",
+      end: undefined,
+      expected: "Thu, May 14",
+    },
+    {
+      label: "single day (endIso null)",
+      start: "2026-05-14T12:00:00.000Z",
+      end: null,
+      expected: "Thu, May 14",
+    },
+    {
+      label: "single day (endIso === startIso)",
+      start: "2026-05-14T12:00:00.000Z",
+      end: "2026-05-14T12:00:00.000Z",
+      expected: "Thu, May 14",
+    },
+    {
+      label: "same month — SFH3 Bay 2 Blackout",
+      start: "2026-05-14T12:00:00.000Z",
+      end: "2026-05-17T12:00:00.000Z",
+      expected: "May 14 – 17",
+    },
+    {
+      label: "cross-month",
+      start: "2026-05-30T12:00:00.000Z",
+      end: "2026-06-01T12:00:00.000Z",
+      expected: "May 30 – Jun 1",
+    },
+    {
+      label: "cross-year (NYE campout)",
+      start: "2026-12-30T12:00:00.000Z",
+      end: "2027-01-02T12:00:00.000Z",
+      expected: "Dec 30, 2026 – Jan 2, 2027",
+    },
+  ])("$label → $expected", ({ start, end, expected }) => {
+    expect(formatDateRange(start, end)).toBe(expected);
+  });
+
+  it("uses en-dash (U+2013), never a hyphen", () => {
+    const result = formatDateRange("2026-05-14T12:00:00.000Z", "2026-05-17T12:00:00.000Z");
+    expect(result).toContain("–"); // en-dash
+    expect(result).not.toContain(" - "); // hyphen-as-separator
+  });
+
+  it("falls back to formatDateShort on malformed endIso (defensive)", () => {
+    expect(formatDateRange("2026-05-14T12:00:00.000Z", "not-a-date")).toBe("Thu, May 14");
+  });
+
+  it("collapses to single-day when endIso is earlier than startIso (defensive)", () => {
+    // Adapter bug or upstream data corruption shouldn't surface as "May 14 – 10".
+    expect(formatDateRange("2026-05-14T12:00:00.000Z", "2026-05-10T12:00:00.000Z")).toBe("Thu, May 14");
   });
 });
 

@@ -336,6 +336,7 @@ const EVENT_CACHE_SELECT = {
   trustLevel: true,
   isSeriesParent: true,
   parentEventId: true,
+  endDate: true,
   status: true,
   adminCancelledAt: true,
   createdAt: true,
@@ -1409,6 +1410,13 @@ async function upsertCanonicalEvent(
           ...(event.prelube === undefined
             ? {}
             : { prelube: event.prelube ?? null }),
+          // endDate (#1560): multi-day series parents + standalone date-range
+          // events. Tri-state: undefined preserve, string overwrite, "" / null
+          // clear (single-day). String parses through parseUtcNoonDate so it
+          // lands at UTC noon like `date` (DST-safe per CLAUDE.md Appendix F.4).
+          ...(event.endDate === undefined
+            ? {}
+            : { endDate: event.endDate ? parseUtcNoonDate(event.endDate) : null }),
           // Cross-window fuzzy match (#990) physically moves the row from
           // its old `date` bucket to the incoming source's date, so display
           // paths that compose `date + startTime + timezone` render the
@@ -1528,6 +1536,11 @@ async function upsertCanonicalEvent(
       if (existingEvent.prelube == null && event.prelube != null) {
         enrichData.prelube = event.prelube;
       }
+      // endDate (#1560) — lower-trust source can promote a single-day canonical
+      // to multi-day when the higher-trust source omitted the range entirely.
+      if (existingEvent.endDate == null && event.endDate) {
+        enrichData.endDate = parseUtcNoonDate(event.endDate);
+      }
       if (Object.keys(enrichData).length > 0) {
         const enriched = await prisma.event.update({
           where: { id: existingEvent.id },
@@ -1570,6 +1583,9 @@ async function upsertCanonicalEvent(
     const newEvent = await createEventWithKennel(prisma, {
       kennelId,
       date: eventDate,
+      // endDate (#1560) — set on series parents + standalone date-range events.
+      // Adapter emits "YYYY-MM-DD"; parseUtcNoonDate normalizes to UTC noon.
+      endDate: event.endDate ? parseUtcNoonDate(event.endDate) : null,
       dateUtc,
       timezone,
       runNumber: event.runNumber,
@@ -1673,32 +1689,163 @@ async function upsertCanonicalEvent(
 }
 
 /**
+ * One slot per RawEvent that emitted a `seriesId`, captured at the point of
+ * canonical-Event resolution in `processRawEvents`. `eventId` is the target
+ * canonical Event the raw resolved into. `isExplicitParent` is the
+ * `RawEventData.seriesParent` flag — `true` on the SFH3-style umbrella raw
+ * that adapters explicitly designate as the series parent (#1560).
+ */
+type SeriesMember = { eventId: string; isExplicitParent: boolean };
+
+/** Row shape returned from the series-link prefetch. */
+type SeriesLinkRow = {
+  id: string;
+  status: EventStatus;
+  adminCancelledAt: Date | null;
+};
+
+/**
+ * Deduplicate `SeriesMember` entries by `eventId`. Two raws can resolve to
+ * the same canonical Event (cross-source absorption); when that happens
+ * keep the most-permissive explicit-parent signal — any `true` wins.
+ */
+function dedupeSeriesMembers(members: SeriesMember[]): SeriesMember[] {
+  const byEventId = new Map<string, SeriesMember>();
+  for (const m of members) {
+    const prior = byEventId.get(m.eventId);
+    byEventId.set(m.eventId, {
+      eventId: m.eventId,
+      isExplicitParent: (prior?.isExplicitParent ?? false) || m.isExplicitParent,
+    });
+  }
+  return [...byEventId.values()];
+}
+
+/**
+ * Pick the parent row for a series. Explicit-parent flag wins; among
+ * multiple explicits the earliest (by the input sort order) wins. With no
+ * explicit flag, fall back to `seriesEvents[0]` — the caller queries with
+ * `orderBy: [{ date: "asc" }, { id: "asc" }]` for a deterministic
+ * tiebreaker (Gemini review #1).
+ */
+function pickSeriesParentRow(
+  unique: SeriesMember[],
+  seriesEvents: SeriesLinkRow[],
+): SeriesLinkRow {
+  const explicitIds = new Set(unique.filter(m => m.isExplicitParent).map(m => m.eventId));
+  return seriesEvents.find(e => explicitIds.has(e.id)) ?? seriesEvents[0];
+}
+
+/**
+ * Write parent/child relationships in two batched updates. The child
+ * updateMany clears `isSeriesParent` on every demoted row — an Event that
+ * was a series parent in a prior scrape and is now being linked as a
+ * child must lose the UI's tent-glyph / "+ N trails" treatment (Gemini
+ * review #2).
+ */
+async function writeSeriesLinks(
+  parentId: string,
+  childIds: string[],
+): Promise<void> {
+  await prisma.event.update({
+    where: { id: parentId },
+    data: { isSeriesParent: true, parentEventId: null },
+  });
+  if (childIds.length > 0) {
+    await prisma.event.updateMany({
+      where: { id: { in: childIds } },
+      data: { parentEventId: parentId, isSeriesParent: false },
+    });
+  }
+}
+
+/**
+ * Cancellation cascade for a series parent. Idempotent. Admin-locked
+ * parents (`adminCancelledAt != null`) are exempt from BOTH branches: an
+ * admin explicitly cancelled the event and the lock survives source
+ * re-emission (mirrors the auto-restore guard in upsertCanonicalEvent —
+ * Codex P0 review).
+ *
+ * The `seriesEvents` argument was fetched BEFORE the link writes ran but
+ * those writes only touched `isSeriesParent` / `parentEventId`. The
+ * `status` field is still accurate (claude[bot] review).
+ */
+async function cascadeSeriesCancellation(
+  parentRow: SeriesLinkRow,
+  seriesEvents: SeriesLinkRow[],
+): Promise<void> {
+  if (parentRow.adminCancelledAt != null) return;
+  const childStatuses = seriesEvents.filter(e => e.id !== parentRow.id).map(e => e.status);
+  const allChildrenCancelled =
+    childStatuses.length > 0 && childStatuses.every(s => s === "CANCELLED");
+  if (allChildrenCancelled && parentRow.status === "CONFIRMED") {
+    // Only cascade live → CANCELLED; leave TENTATIVE alone (a tentative
+    // parent shouldn't be auto-cancelled by a sourced child cancellation
+    // when an admin hasn't yet decided).
+    await prisma.event.update({
+      where: { id: parentRow.id },
+      data: { status: "CANCELLED" },
+    });
+  } else if (!allChildrenCancelled && parentRow.status === "CANCELLED") {
+    // At least one child is live → parent should not be CANCELLED.
+    // Mirrors the auto-restore semantic used in upsertCanonicalEvent.
+    await prisma.event.update({
+      where: { id: parentRow.id },
+      data: { status: "CONFIRMED" },
+    });
+  }
+}
+
+/**
+ * Process one series group end-to-end: dedup members, fetch the canonical
+ * rows, pick a parent, write the parent/child links, then run the
+ * cancellation cascade. Helpers above keep `linkMultiDaySeries` itself
+ * under Sonar's cognitive-complexity threshold.
+ */
+async function linkOneSeries(members: SeriesMember[]): Promise<void> {
+  if (members.length < 2) return;
+  const unique = dedupeSeriesMembers(members);
+  if (unique.length < 2) return;
+
+  const seriesEvents = await prisma.event.findMany({
+    where: { id: { in: unique.map(m => m.eventId) } },
+    // Compound order: dates can tie when an umbrella + a same-day child
+    // both fall on the same day (SFH3 Bay 2 Blackout). `id` is
+    // `@id @default(cuid())` which is monotonic, so it's a stable
+    // secondary key that prevents row-order luck from picking different
+    // parents across scrapes (Gemini review #1).
+    orderBy: [{ date: "asc" }, { id: "asc" }],
+    // adminCancelledAt selected so the cascade honors the admin lock.
+    select: { id: true, status: true, adminCancelledAt: true },
+  });
+  if (seriesEvents.length < 2) return;
+
+  const parentRow = pickSeriesParentRow(unique, seriesEvents);
+  const childIds = seriesEvents.filter(e => e.id !== parentRow.id).map(e => e.id);
+  await writeSeriesLinks(parentRow.id, childIds);
+  await cascadeSeriesCancellation(parentRow, seriesEvents);
+}
+
+/**
  * Link multi-day series via parentEventId.
- * The earliest event in each series becomes the parent.
+ *
+ * Parent selection rules (in order, #1560):
+ *   1. If any raw in the group set `seriesParent: true` (SFH3 umbrella),
+ *      that raw's canonical Event becomes the parent — regardless of date
+ *      ordering. The umbrella's rich description + endDate need to live
+ *      on the parent, not a child.
+ *   2. Otherwise, earliest by date wins (Hash Rego fallback — no umbrella
+ *      concept, just per-day rows tied by event slug).
+ *
+ * After linking, cascade-cancel the parent if EVERY non-cancelled child is
+ * CANCELLED — an empty weekend is not a real weekend. Idempotent.
  */
 async function linkMultiDaySeries(
-  seriesGroups: Map<string, string[]>,
+  seriesGroups: Map<string, SeriesMember[]>,
 ): Promise<void> {
-  for (const [, eventIds] of seriesGroups) {
-    if (eventIds.length < 2) continue;
+  for (const [, members] of seriesGroups) {
     try {
-      // Sort by date to pick the earliest as parent
-      const seriesEvents = await prisma.event.findMany({
-        where: { id: { in: eventIds } },
-        orderBy: { date: "asc" },
-        select: { id: true },
-      });
-      const parentId = seriesEvents[0].id;
-      await prisma.event.update({
-        where: { id: parentId },
-        data: { isSeriesParent: true },
-      });
-      for (const child of seriesEvents.slice(1)) {
-        await prisma.event.update({
-          where: { id: child.id },
-          data: { parentEventId: parentId },
-        });
-      }
+      await linkOneSeries(members);
     } catch (err) {
       console.error(`Series linking error: ${err instanceof Error ? err.message : String(err)}`);
     }
@@ -1856,6 +2003,7 @@ type CanonicalCandidate = {
   trailType: string | null;
   dogFriendly: boolean | null;
   prelube: string | null;
+  endDate: Date | null;
 };
 
 /**
@@ -1888,6 +2036,9 @@ export function completenessScore(e: Omit<CanonicalCandidate, "id" | "trustLevel
   // Numeric/boolean fields where 0 / false is still "populated".
   if (e.runNumber != null) score++;
   if (e.dogFriendly != null) score++;
+  // endDate (#1560) — a row that knows it's a multi-day series carries more
+  // display value than a same-trust sibling that doesn't.
+  if (e.endDate != null) score++;
   return score;
 }
 
@@ -2247,7 +2398,7 @@ export async function processRawEvents(
     result,
   };
 
-  const seriesGroups = new Map<string, string[]>();
+  const seriesGroups = new Map<string, SeriesMember[]>();
 
   for (const event of events) {
     // Events that failed the fingerprint precompute were already recorded as
@@ -2259,6 +2410,14 @@ export async function processRawEvents(
       const dupResult = await handleDuplicateFingerprint(event, fingerprint, ctx);
       if (dupResult !== false) {
         if (dupResult) queueEventLinks(dupResult, event.externalLinks, ctx);
+        // Honor seriesParent/seriesId even on duplicate-fingerprint replays so
+        // a re-scrape of the same series still gets relinked (idempotent — the
+        // explicit-parent merge is "any true → true").
+        if (dupResult && event.seriesId) {
+          const group = seriesGroups.get(event.seriesId) ?? [];
+          group.push({ eventId: dupResult, isExplicitParent: event.seriesParent === true });
+          seriesGroups.set(event.seriesId, group);
+        }
         continue;
       }
 
@@ -2266,7 +2425,7 @@ export async function processRawEvents(
 
       if (targetEventId && event.seriesId) {
         const group = seriesGroups.get(event.seriesId) ?? [];
-        group.push(targetEventId);
+        group.push({ eventId: targetEventId, isExplicitParent: event.seriesParent === true });
         seriesGroups.set(event.seriesId, group);
       }
     } catch (err) {

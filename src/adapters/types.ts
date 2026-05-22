@@ -49,7 +49,22 @@ export interface RawEventData {
   prelube?: string | null;
   sourceUrl?: string;
   externalLinks?: { url: string; label: string }[]; // Additional links (creates EventLink records)
-  seriesId?: string; // Groups multi-day events (e.g., Hash Rego event slug)
+  seriesId?: string; // Groups multi-day events (e.g., Hash Rego event slug, SFH3 "sfh3-event-N")
+  /**
+   * Last day of a multi-day event (YYYY-MM-DD), inclusive. Set on:
+   *  - series PARENT umbrellas spanning N child days (with `seriesParent: true`)
+   *  - single-row date-range events with no children (one-registration weekend
+   *    campouts — MadisonH3 case)
+   * Omit for single-day events. Stored as `Event.endDate` on the canonical row.
+   */
+  endDate?: string;
+  /**
+   * Explicit "this raw is the series parent" marker for adapters that emit a
+   * standalone umbrella event alongside per-day children (SFH3 `/events/N`).
+   * Hash Rego doesn't set this; merge.ts falls back to earliest-by-date for
+   * groups where no raw is explicitly marked.
+   */
+  seriesParent?: boolean;
   /**
    * ISO-2 country code override used for geocoding region bias.
    * Set by adapters when a single event runs outside the kennel's home country

@@ -3,7 +3,7 @@ import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails, ParseErro
 import { hasAnyErrors } from "../types";
 import { googleMapsSearchUrl, compilePatterns, appendDescriptionSuffix, isPlaceholder } from "../utils";
 import { safeFetch } from "../safe-fetch";
-import { enrichSFH3Events, suppressSFH3UmbrellaDuplicates } from "../html-scraper/sfh3-detail-enrichment";
+import { enrichSFH3Events, markSFH3SeriesMembership } from "../html-scraper/sfh3-detail-enrichment";
 import { enrichBerlinH3Events } from "../html-scraper/berlin-h3-detail-enrichment";
 import { sync as icalSync } from "node-ical";
 import type { VEvent, ParameterValue, DateWithTimeZone } from "node-ical";
@@ -415,6 +415,24 @@ function buildRawEventFromVEvent(
   // endTime is HH:MM only, so cross-date DTEND values (overnight runs) are dropped.
   const endDt = vevent.end as DateWithTimeZone | undefined;
   const endTime = endDt && formatDate(endDt) === dateStr ? formatTime(endDt) : undefined;
+  // endDate (#1560) — populated only for multi-day ALL-DAY VEVENTs (DTSTART
+  // and DTEND both VALUE=DATE, spanning >1 day). RFC 5545 makes all-day DTEND
+  // exclusive (an event May 14–17 has DTEND=May 18), so the inclusive last day
+  // is DTEND minus one day. Timed events that just cross midnight (overnight
+  // trails) are deliberately excluded — they're single-day events with a late
+  // end, not multi-day campouts.
+  let endDate: string | undefined;
+  if (endDt && (vevent.start as DateWithTimeZone).dateOnly && endDt.dateOnly) {
+    const startMs = (vevent.start as DateWithTimeZone).getTime();
+    const endMs = endDt.getTime();
+    const DAY_MS = 86_400_000;
+    if (endMs - startMs > DAY_MS + 60_000) {
+      const inclusiveEnd = new Date(endMs - DAY_MS) as DateWithTimeZone;
+      // Preserve dateOnly flag so formatDate takes the dateOnly branch.
+      (inclusiveEnd as { dateOnly?: boolean }).dateOnly = true;
+      endDate = formatDate(inclusiveEnd);
+    }
+  }
   const description = paramValue(vevent.description);
   let hares = description ? extractHaresFromDescription(description, compiledHarePatterns) : undefined;
 
@@ -459,6 +477,7 @@ function buildRawEventFromVEvent(
     endTime,
     cost,
     sourceUrl: paramValue(vevent.url) ?? undefined,
+    endDate,
   };
 }
 
@@ -528,7 +547,7 @@ export class ICalAdapter implements SourceAdapter {
       ? compilePatterns([config.titleHarePattern], "i")[0]
       : undefined;
 
-    let events: RawEventData[] = [];
+    const events: RawEventData[] = [];
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
     let totalVEvents = 0;
@@ -585,10 +604,14 @@ export class ICalAdapter implements SourceAdapter {
       errorDetails.parse = parseErrors;
     }
 
-    // SFH3 emits two VEVENTs (/events/{n} umbrella + /runs/{m} trail) for the
-    // same campout day; drop the umbrella when a same-date trail exists (#1421).
-    // No-op for feeds without sfh3.com URLs, so unconditional is safe.
-    events = suppressSFH3UmbrellaDuplicates(events);
+    // SFH3 publishes multi-day campouts as a /events/{n} umbrella VEVENT plus
+    // per-day /runs/{m} trail VEVENTs. Mark series membership in place
+    // (#1560 — replaces the pre-existing umbrella-suppression hack from
+    // #1421). The umbrella becomes the series parent so its rich description
+    // (theme, registration, lodging) lands on the canonical parent Event;
+    // trails fall under it via parentEventId after merge.
+    // No-op for feeds without sfh3.com/events URLs, so unconditional is safe.
+    markSFH3SeriesMembership(events);
 
     // SFH3-specific enrichment: the .ics SUMMARY omits "Run" and has no Comment
     // field. Pull the canonical title + Comment from /runs/{id} so the merge
