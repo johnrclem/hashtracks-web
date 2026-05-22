@@ -60,4 +60,42 @@ describe("generateFingerprint", () => {
     const b = generateFingerprint(buildRawEvent({ startTime: "14:00" }));
     expect(a).not.toBe(b);
   });
+
+  it("distinguishes location null (explicit clear) from undefined / empty (#1516 WS6)", () => {
+    // The explicit-clear `location: null` MUST hash differently from
+    // `undefined` and `""` so a previously processed RawEvent with no
+    // location signal doesn't match a later scrape that explicitly clears
+    // the field — otherwise `handleDuplicateFingerprint` would skip the
+    // canonical UPDATE and the clear would never land.
+    const undef = generateFingerprint(buildRawEvent({ location: undefined }));
+    const empty = generateFingerprint(buildRawEvent({ location: "" }));
+    const cleared = generateFingerprint(buildRawEvent({ location: null }));
+    expect(cleared).not.toBe(undef);
+    expect(cleared).not.toBe(empty);
+    // Same invariant for hares — Capital H3 #1521 relies on it too.
+    const haresUndef = generateFingerprint(buildRawEvent({ hares: undefined }));
+    const haresCleared = generateFingerprint(buildRawEvent({ hares: null }));
+    expect(haresCleared).not.toBe(haresUndef);
+  });
+
+  it("distinguishes null from undefined for every other tri-state field (Codex round 4)", () => {
+    // The Facebook hosted-events adapter and others emit explicit `null` on
+    // fields like runNumber / description / startTime when the source signals
+    // "explicit clear" (e.g. `H6#28?` placeholder titles). WS6 generalised
+    // the fingerprint so those clears propagate too.
+    const base = buildRawEvent();
+    const baseFp = generateFingerprint(base);
+    const cases: Array<[string, Partial<typeof base>]> = [
+      ["runNumber", { runNumber: null }],
+      ["description", { description: null }],
+      ["startTime", { startTime: null }],
+      ["trailType", { trailType: null }],
+      ["dogFriendly", { dogFriendly: null }],
+      ["prelube", { prelube: null }],
+    ];
+    for (const [field, override] of cases) {
+      const cleared = generateFingerprint(buildRawEvent(override));
+      expect(cleared, `${field}: null clear should differ from undefined`).not.toBe(baseFp);
+    }
+  });
 });

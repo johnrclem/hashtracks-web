@@ -46,16 +46,37 @@ export function parseCapitalRunLine(
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
 
-  // "Hare required!" / "TBA" / "?" → undefined so the merge pipeline's
-  // atomic-bundle semantics preserve any earlier real value.
+  // Known placeholders ("Hare required!" / "TBA" / "?") become explicit
+  // `null` so the merge pipeline scrubs stale `locationName` / `haresText`
+  // from earlier scrapes (#1521/#1523 cycle-9 escape). `undefined` is
+  // reserved for "source provided nothing" (segment missing), which keeps
+  // the atomic-bundle "preserve existing" semantics.
   return {
     date,
     kennelTags: [opts.kennelTag],
     runNumber: Number.isFinite(runNumber) ? runNumber : undefined,
-    location: stripPlaceholder(parts[0]),
-    hares: normalizeHaresField(stripPlaceholder(parts[1])),
+    location: clearOrValue(parts[0], stripPlaceholder),
+    hares: clearOrValue(parts[1], (s) => normalizeHaresField(stripPlaceholder(s))),
     sourceUrl: opts.sourceUrl,
   };
+}
+
+/**
+ * Tri-state segment normalizer:
+ *   - segment missing (`undefined`)         → `undefined` (preserve existing)
+ *   - segment present + transform returns ""/null → `null` (explicit clear)
+ *   - segment present + real value          → trimmed text
+ *
+ * Used to flag placeholder cells ("Hare required!" / "TBA" / "?") so the merge
+ * pipeline scrubs stale `locationName` / `haresText` from earlier scrapes
+ * (#1521/#1523 cycle-9 escape).
+ */
+function clearOrValue(
+  segment: string | undefined,
+  transform: (s: string) => string | null | undefined,
+): string | null | undefined {
+  if (segment === undefined) return undefined;
+  return transform(segment) ?? null;
 }
 
 export class CapitalH3Adapter implements SourceAdapter {

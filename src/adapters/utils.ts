@@ -761,7 +761,9 @@ export function hasPlaceholderRunNumber(text: string | undefined): boolean {
 const PLACEHOLDER_TBD_RE = /^(?:venue[\s-]+)?(?:tbd|tba|tbc)$/i;
 const PLACEHOLDER_OTHER_RE =
   /^(?:n\/a|none|null|needed|required|registration|sign[\s\-_]*up!?|volunteer|\?{1,3})$/i;
-const PLACEHOLDER_HARES_NEEDED_RE = /^(?:hares?\s+needed|needs?\s+(?:a\s+)?hares?)\b[\s\S]*$/i;
+// "Hare(s) required(!?)" / "Hare(s) wanted" added in WS6 (#1521/#1523) —
+// Capital H3 was storing the hare-needed placeholder as the location.
+const PLACEHOLDER_HARES_NEEDED_RE = /^(?:hares?\s+(?:needed|required|wanted)|needs?\s+(?:a\s+)?hares?)\b[\s\S]*$/i;
 function isPlaceholderText(value: string): boolean {
   return PLACEHOLDER_TBD_RE.test(value)
     || PLACEHOLDER_OTHER_RE.test(value)

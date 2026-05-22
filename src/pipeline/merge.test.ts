@@ -350,6 +350,50 @@ describe("processRawEvents", () => {
     expect(mockEventUpdate).toHaveBeenCalled();
   });
 
+  it("explicit-clears stale locationName / haresText / coords / city when adapter emits null (#1516/#1521 WS6)", async () => {
+    // Pre-WS6, an adapter passing `location: undefined` made the merge UPDATE
+    // skip the field — so a previously stored "Monday night - 4pm" (Auckland
+    // Hussies #1516) or "Hare required!" (Capital H3 #1521) survived
+    // indefinitely. WS6 lets adapters emit `null` to force a clear. The clear
+    // must also propagate to lat/lng + locationCity so a row that lost its
+    // venue doesn't keep a stale pin pointing at the old address (Codex
+    // round-2 finding).
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([{
+      id: "evt_clear",
+      trustLevel: 5,
+      locationName: "stale annotation",
+      locationStreet: "6 Stale Street",
+      locationAddress: "https://maps.example.com/stale",
+      haresText: "Hare required!",
+      latitude: -36.85,
+      longitude: 174.77,
+      locationCity: "Auckland",
+    }] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    await processRawEvents("src_1", [buildRawEvent({ location: null, hares: null })]);
+
+    expect(mockEventUpdate).toHaveBeenCalled();
+    const update = mockEventUpdate.mock.calls.find(
+      (c: unknown[]) => (c[0] as { where: { id: string } }).where.id === "evt_clear",
+    );
+    expect(update).toBeDefined();
+    const data = (update![0] as { data: Record<string, unknown> }).data;
+    // Text fields cleared (the original Codex round-1 finding).
+    expect(data).toHaveProperty("locationName", null);
+    expect(data).toHaveProperty("locationStreet", null);
+    expect(data).toHaveProperty("haresText", null);
+    // Coords + city must also clear (Codex round-2 finding) so the event
+    // doesn't render a stale pin against the deleted address.
+    expect(data).toHaveProperty("latitude", null);
+    expect(data).toHaveProperty("longitude", null);
+    expect(data).toHaveProperty("locationCity", null);
+    // Map URL must also clear (Codex round-3 finding) so the UI can't link to
+    // the stale pin via `locationAddress`.
+    expect(data).toHaveProperty("locationAddress", null);
+  });
+
   it("does not full-update when trust level is lower, but enriches NULL fields", async () => {
     mockRawEventFind.mockResolvedValueOnce(null);
     // Existing event has trust 8; source trust is 5. All user-facing fields
@@ -1974,6 +2018,18 @@ describe("sanitizeHares", () => {
     expect(sanitizeHares("Needed")).toBeNull();
   });
 
+  it("returns null for hare-needed phrasings ('Hare required!', 'Hares wanted') — WS6 #1521/#1523", () => {
+    // Capital H3 emits "Hare required!" for unstaffed runs. Without WS6, this
+    // text persisted in `haresText` because sanitizeHares didn't recognize it
+    // as a placeholder. WS6 extended PLACEHOLDER_HARES_NEEDED_RE so the merge
+    // pipeline clears these on the next scrape.
+    expect(sanitizeHares("Hare required!")).toBeNull();
+    expect(sanitizeHares("Hare required")).toBeNull();
+    expect(sanitizeHares("Hares required")).toBeNull();
+    expect(sanitizeHares("Hare wanted")).toBeNull();
+    expect(sanitizeHares("Hares wanted!")).toBeNull();
+  });
+
   it("returns null for sentence-shaped CTAs (#963)", () => {
     // Live City H3 #1920 case: the source description starts "Hare - We need
     // a Hare, Contact Full Load!" and the adapter passes the value through
@@ -2326,6 +2382,13 @@ describe("sanitizeLocation", () => {
 
   it("returns null for undefined", () => {
     expect(sanitizeLocation(undefined)).toBeNull();
+  });
+
+  it("returns null for null — explicit-clear signal from adapters (#1516)", () => {
+    // Auckland Hussies #1516 classifier emits `location: null` for joint-run
+    // annotation rows so the merge UPDATE path overwrites stale `locationName`
+    // from previous scrapes (e.g. "With the men on a Monday night - 4pm").
+    expect(sanitizeLocation(null)).toBeNull();
   });
 
   it("returns null for empty/whitespace", () => {
