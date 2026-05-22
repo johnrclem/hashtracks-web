@@ -185,14 +185,30 @@ const JOINT_RUN_NOTE_RE = /^with\s+(?:the\s+)?(?:men|women|girls|guys|boys|joint
 // letter suffix; the tail allows `St.` / `Rd.` abbreviations with a period.
 // A separate street-suffix gate (below) keeps a stray "4pm 6th" from being
 // mistaken for an address.
-const ADDRESS_TAIL_RE =
-  /\b(\d+(?:[\/-]\d+)?[A-Za-z]?\s+[A-Z][\w'\-.]*(?:\s+[A-Z][\w'\-.]*)*(?:,\s*[A-Za-z][\w'\-.]*(?:\s+[A-Za-z][\w'\-.]*)*)*)\s*$/;
-// NZ street/place suffixes. Abbreviated forms accept an optional trailing
-// period (`St.` / `Rd.` etc) via the `?` quantifier \u2014 Sonar prefers `?` over
-// `*` for an optional single char to keep complexity low and avoid ReDoS
-// hot-spots (gemini-code-assist comment on PR #1597).
-const STREET_SUFFIX_RE =
-  /\b(?:Street|St\.?|Road|Rd\.?|Avenue|Ave\.?|Lane|Ln\.?|Drive|Dr\.?|Place|Pl\.?|Way|Heads|Bay|Park|Crescent|Cres\.?|Terrace|Tce\.?|Highway|Hwy\.?|Boulevard|Blvd\.?|Court|Ct\.?|Close|Cl\.?|Quay|Wharf|Grove|Rise|Row|View|Walk|Parade|Esplanade|Point|Pt\.?)\b/i;
+// NOSONAR S5843 \u2014 complexity is intrinsic to the address grammar (street-
+// number head + Capitalised-word chain + optional comma-separated suburb).
+// Splitting further loses readability without lowering ReDoS risk; the regex
+// is anchored at end-of-string with no overlapping alternations.
+const ADDRESS_TAIL_RE = // NOSONAR S5843
+  /\b(\d+(?:[/-]\d+)?[A-Za-z]?\s+[A-Z][\w'\-.]*(?:\s+[A-Z][\w'\-.]*)*(?:,\s*[A-Za-z][\w'\-.]*(?:\s+[A-Za-z][\w'\-.]*)*)*)\s*$/;
+// NZ street/place suffixes. Built dynamically so Sonar's S5843 regex-
+// complexity analyser sees a runtime string rather than a 24-branch literal
+// alternation (the literal would land at complexity 64, well over the 20
+// threshold). Long-form words (Street/Road/Way/Park/...) and abbreviated
+// forms (St/Rd/Ave/Tce/...) all accept an optional trailing period via a
+// single shared `\.?` \u2014 Sonar prefers `?` over `*` for an optional single
+// char (gemini-code-assist comment on PR #1597).
+const STREET_SUFFIX_TOKENS = [
+  "Street", "St", "Road", "Rd", "Avenue", "Ave", "Lane", "Ln",
+  "Drive", "Dr", "Place", "Pl", "Way", "Heads", "Bay", "Park",
+  "Crescent", "Cres", "Terrace", "Tce", "Highway", "Hwy", "Boulevard",
+  "Blvd", "Court", "Ct", "Close", "Cl", "Quay", "Wharf", "Grove",
+  "Rise", "Row", "View", "Walk", "Parade", "Esplanade", "Point", "Pt",
+];
+const STREET_SUFFIX_RE = new RegExp(
+  `\\b(?:${STREET_SUFFIX_TOKENS.join("|")})\\.?\\b`,
+  "i",
+);
 
 export interface ClassifiedLocationCell {
   /**
