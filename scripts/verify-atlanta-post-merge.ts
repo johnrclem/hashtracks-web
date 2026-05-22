@@ -54,17 +54,25 @@ async function verifySourceUrls(): Promise<void> {
 async function verifyGhostEvents(mlh4Id: string): Promise<void> {
   console.log("\n═══ MLH4 ghost-events spot check ═══\n");
   for (const date of MLH4_GHOST_DATES) {
-    const ek = await prisma.eventKennel.findFirst({
+    // findMany not findFirst — multiple Event rows can exist for a single
+    // kennel/date in conflict/audit cases. If any of them still carries a
+    // wrong value, the date isn't clean (CodeRabbit PR #1629 review).
+    const eks = await prisma.eventKennel.findMany({
       where: { kennelId: mlh4Id, event: { date: new Date(date + "T12:00:00Z") } },
-      select: { event: { select: { runNumber: true, startTime: true, title: true } } },
+      select: { event: { select: { id: true, runNumber: true, startTime: true, title: true } } },
     });
-    if (!ek) { console.log(`  ${date}: (no event)`); continue; }
-    const { runNumber, startTime, title } = ek.event;
-    const wrong = (runNumber != null && WRONG_RUN_NUMBERS.has(runNumber))
-      || (startTime != null && WRONG_START_TIMES.has(startTime));
+    if (eks.length === 0) { console.log(`  ${date}: (no event)`); continue; }
+    const wrong = eks.some(({ event }) =>
+      (event.runNumber != null && WRONG_RUN_NUMBERS.has(event.runNumber))
+      || (event.startTime != null && WRONG_START_TIMES.has(event.startTime))
+    );
     const status = wrong ? "✗ STILL WRONG" : "✓ clean";
-    console.log(`  ${date}  runNumber=${runNumber ?? "(null)"}  startTime=${startTime ?? "(null)"}  ${status}`);
-    console.log(`           ${(title ?? "").slice(0, 60)}`);
+    console.log(`  ${date}  rows=${eks.length}  ${status}`);
+    for (const { event } of eks) {
+      console.log(
+        `           id=${event.id}  runNumber=${event.runNumber ?? "(null)"}  startTime=${event.startTime ?? "(null)"}  ${(event.title ?? "").slice(0, 60)}`,
+      );
+    }
   }
 }
 

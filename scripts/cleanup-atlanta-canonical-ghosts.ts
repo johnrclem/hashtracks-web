@@ -41,6 +41,16 @@ import { prisma } from "@/lib/db";
 
 const STALE_RUN_NUMBERS = new Set([2000, 946]);
 const STALE_START_TIMES = new Set(["22:36", "15:19"]);
+// Hard-scope the cleanup to the four known ghost dates from issues #1587/#1588.
+// Without this, a future re-run could erase a legitimate runNumber/startTime
+// that happens to land on the stale value cohort (e.g. if MLH4 ever runs trail
+// #2000 for real, or holds an event at 22:36). CodeRabbit PR #1629 review.
+const GHOST_DATES = new Set([
+  "2026-03-30",
+  "2026-04-20",
+  "2026-05-04",
+  "2026-05-11",
+]);
 
 interface RunNumberHit { id: string; date: Date; runNumber: number | null; title: string | null }
 interface StartTimeHit { id: string; date: Date; startTime: string | null; title: string | null }
@@ -60,6 +70,10 @@ async function findStaleEvents(kennelId: string): Promise<{ runNumberHits: RunNu
   const startTimeHits: StartTimeHit[] = [];
   for (const ek of eventKennels) {
     const e = ek.event;
+    // Hard-scope to known ghost dates (#1629 review): both value and date
+    // must match so re-runs can't erase legitimate future data.
+    const dateKey = e.date.toISOString().slice(0, 10);
+    if (!GHOST_DATES.has(dateKey)) continue;
     if (e.runNumber != null && STALE_RUN_NUMBERS.has(e.runNumber)) {
       runNumberHits.push({ id: e.id, date: e.date, runNumber: e.runNumber, title: e.title });
     }
@@ -119,7 +133,12 @@ async function findStaleRawEvents(kennelId: string): Promise<RawEventHit[]> {
     },
     select: { id: true, rawData: true },
   });
-  return raws.map((r) => ({ id: r.id, rawData: r.rawData as Record<string, unknown> }));
+  // Filter to known ghost dates so re-runs can't strip legitimate future
+  // payloads that happen to carry one of these specific stale values
+  // (CodeRabbit PR #1629 review).
+  return raws
+    .map((r) => ({ id: r.id, rawData: r.rawData as Record<string, unknown> }))
+    .filter((r) => typeof r.rawData.date === "string" && GHOST_DATES.has(r.rawData.date));
 }
 
 async function scrubRawEventPayloads(raws: RawEventHit[]): Promise<number> {
