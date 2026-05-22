@@ -2446,15 +2446,16 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "mfmh3", shortName: "MFMH3", fullName: "Munich Full Moon Hash House Harriers", region: "Munich", country: "Germany",
       website: "https://mh3.beer",
-      scheduleFrequency: "Monthly",
-      description: "Munich monthly full moon hash.",
+      scheduleTime: "7:00 PM", scheduleFrequency: "Monthly",
+      description: "Munich's monthly trail under the full moon.",
       latitude: 48.14, longitude: 11.58,
     },
     {
-      kennelCode: "massh3", shortName: "MASS H3", fullName: "MASS Hash House Harriers", region: "Munich", country: "Germany",
+      kennelCode: "massh3", shortName: "MASS H3", fullName: "Munich AsiaSammstagsHasch", region: "Munich", country: "Germany",
       website: "https://mh3.beer",
-      scheduleFrequency: "Irregular",
-      description: "Munich special events hash.",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "3:00 PM", scheduleFrequency: "Biweekly",
+      foundedYear: 2021,
+      description: "Munich's alternate-Saturday afternoon trail.",
       latitude: 48.14, longitude: 11.58,
     },
     // --- Frankfurt ---
