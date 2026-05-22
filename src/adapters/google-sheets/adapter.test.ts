@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Source } from "@/generated/prisma/client";
-import { parseDate, inferStartTime, parseCSV, buildEventFromSheetRow, parseSheetStartTimeCell, GoogleSheetsAdapter, normalizeGroupFilter, tokenizeGroupCell } from "./adapter";
+import { parseDate, inferStartTime, parseCSV, buildEventFromSheetRow, parseSheetStartTimeCell, GoogleSheetsAdapter, normalizeGroupFilter, tokenizeGroupCell, cellMatchesFilter } from "./adapter";
 import type { GoogleSheetsConfig } from "./adapter";
 
 // Mock safeFetch
@@ -776,6 +776,61 @@ describe("tokenizeGroupCell (#1542)", () => {
   });
 });
 
+describe("cellMatchesFilter (#1592)", () => {
+  const mh3 = new Set(["mh3"]);
+
+  it.each([
+    // Cycle-10 #1542 token-equality cases (must keep working)
+    ["MH3", true, "bare token"],
+    ["mh3", true, "lowercased"],
+    ["  MH3 ", true, "whitespace-padded"],
+    ["MH3 / BNH", true, "co-host via /-split"],
+    ["MH3,MFMH3", true, "comma-split keeps host"],
+    ["MH3; BNH; Hashathon", true, "semicolon-split keeps host"],
+    ["MH3/ Hashathon", true, "slash-split with trailing label"],
+    // #1592 host-prefix relaxation
+    ["MH3 Spec", true, "space-separated sub-label"],
+    ["MH3 - Birthday", true, "hyphen-delimited sub-label"],
+    ["MH3 (Hashathon)", true, "paren-delimited sub-label"],
+    ["MH3: Anniversary", true, "colon-delimited sub-label"],
+    ["MH3.5", true, "period-delimited sub-label"],
+    // Cycle-10 rejection guarantees (must STILL reject after the relaxation)
+    ["MH3FAKE", false, "substring no-match (next char ASCII letter)"],
+    ["MH3event", false, "ASCII letter continuation"],
+    ["MH3α", false, "Greek-letter continuation (Unicode \\p{L})"],
+    ["MH3Ａvent", false, "fullwidth ASCII continuation"],
+    ["MH3٨", false, "Arabic-Indic digit continuation (Unicode \\p{N})"],
+    ["MH3_v2", false, "underscore continuation"],
+    ["MFMH3", false, "sibling kennel (different prefix)"],
+    ["MASS H3", false, "sibling kennel"],
+    ["BNH", false, "deferred per #1542"],
+    ["", false, "empty cell"],
+    ["   ", false, "whitespace-only cell"],
+  ])("filter \"mh3\" on cell %j → %s (%s)", (cell, expected) => {
+    expect(cellMatchesFilter(cell, mh3)).toBe(expected);
+  });
+
+  it("supports multi-value filter sets (host + co-host)", () => {
+    const set = new Set(["mh3", "bnh"]);
+    expect(cellMatchesFilter("BNH", set)).toBe(true);
+    expect(cellMatchesFilter("BNH - co-host", set)).toBe(true);
+    expect(cellMatchesFilter("MASS H3", set)).toBe(false);
+  });
+
+  it("multi-token filter values (e.g. \"MASS H3\") still match exactly", () => {
+    const set = new Set(["mass h3"]);
+    expect(cellMatchesFilter("MASS H3", set)).toBe(true);
+    expect(cellMatchesFilter("MASS H3 / Special", set)).toBe(true);
+    expect(cellMatchesFilter("MASS H3 - 5th Birthday", set)).toBe(true);
+    expect(cellMatchesFilter("MASSH3", set)).toBe(false); // no space → no prefix match
+    expect(cellMatchesFilter("MH3", set)).toBe(false);
+  });
+
+  it("returns false for undefined", () => {
+    expect(cellMatchesFilter(undefined, mh3)).toBe(false);
+  });
+});
+
 describe("GoogleSheetsAdapter.fetch — groupFilter (#1542)", () => {
   beforeEach(() => {
     vi.stubEnv("GOOGLE_CALENDAR_API_KEY", "test-key");
@@ -907,6 +962,66 @@ describe("GoogleSheetsAdapter.fetch — groupFilter (#1542)", () => {
 
     expect(result.events.length).toBe(2);
     expect(result.events.map((e) => e.runNumber)).toEqual([939, 940]);
+  });
+
+  it("MFMH3 sibling config: no runNumber column captures all rows (#1591)", async () => {
+    // Path B sibling onboarding: the shared Munich sheet has 1 MFMH3 row with
+    // an explicit run number (#264) and ~12 with empty # cells. Dropping the
+    // runNumber column from the source config trades that 1 numbered row's
+    // runNumber for keeping all 13 rows, since `resolveKennelTagFromSheetRow`
+    // returns null when columns.runNumber is configured but the cell is
+    // empty. Tracked for resolver follow-up.
+    const csv = [
+      "#,Date,Group,Start time,Hared by,Location,Notes",
+      `,${testDateMDY},MFMH3,19:00,Cumming Numb,Nomannenplatz,(empty # — kept)`,
+      `264,${testDateMDY},MFMH3,19:00,Moose Diver,Hundingstr.,Pink Moon — # ignored`,
+      `930,${testDateMDY},MH3,15:00,Half Monty,Munich,sibling host — must drop`,
+    ].join("\n");
+
+    mockedSafeFetch.mockResolvedValueOnce(mockFetchResponse(csv));
+
+    const config: GoogleSheetsConfig = {
+      sheetId: "munich",
+      csvUrl: "https://example.com/pub?output=csv",
+      columns: { date: 1, group: 2, startTime: 3, hares: 4, location: 5, description: 6 },
+      groupFilter: "MFMH3",
+      kennelTagRules: { default: "mfmh3" },
+    };
+    const adapter = new GoogleSheetsAdapter();
+    const result = await adapter.fetch(makeSource({ config: config as unknown as null }));
+
+    expect(result.events.length).toBe(2);
+    expect(result.events.every((e) => e.kennelTags[0] === "mfmh3")).toBe(true);
+    expect(result.events.every((e) => e.runNumber === undefined)).toBe(true);
+  });
+
+  it("keeps host-prefix cells without a /-separator (#1592)", async () => {
+    // The cycle-10 token-equality matcher dropped cells like "MH3 - Birthday"
+    // because the whole-token check sees them as a single unknown token.
+    // #1592 relaxes this: filter token as a prefix + non-alphanumeric next
+    // char keeps the row attributed to the host kennel.
+    const csv = [
+      "#,Date,Group,Start time,Hared by,Location,Notes",
+      `930,${testDateMDY},MH3,15:00,Half Monty,Munich,plain host`,
+      `931,${testDateMDY},MH3 - Birthday,15:00,Anal Weiss,Munich,host with sub-label`,
+      `932,${testDateMDY},MH3 Spec,17:00,Birdbrian,Munich,host with sub-label`,
+      `933,${testDateMDY},MFMH3,21:00,Moose Diver,Olympic Park,sibling — must still drop`,
+    ].join("\n");
+
+    mockedSafeFetch.mockResolvedValueOnce(mockFetchResponse(csv));
+
+    const config: GoogleSheetsConfig = {
+      sheetId: "munich",
+      csvUrl: "https://example.com/pub?output=csv",
+      columns: { runNumber: 0, date: 1, group: 2, startTime: 3, hares: 4, location: 5, description: 6 },
+      groupFilter: "MH3",
+      kennelTagRules: { default: "mh3-de" },
+    };
+    const adapter = new GoogleSheetsAdapter();
+    const result = await adapter.fetch(makeSource({ config: config as unknown as null }));
+
+    expect(result.events.length).toBe(3);
+    expect(result.events.map((e) => e.runNumber)).toEqual([930, 931, 932]);
   });
 
   it("fails fast when groupFilter is set but columns.group is missing", async () => {

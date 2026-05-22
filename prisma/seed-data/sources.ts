@@ -2985,6 +2985,53 @@ export const SOURCES = [
       },
       kennelCodes: ["mh3-de"],
     },
+    // Munich Full Moon (Path B sibling — same shared sheet, groupFilter routes
+    // Group="MFMH3" rows to mfmh3). #1591 follow-up to #1542/#1576: previous
+    // cycle blocked MFMH3 rows off mh3-de via `groupFilter: "MH3"`; this row
+    // gives the displaced kennel a real source.
+    //
+    // Run-number column intentionally omitted. The shared sheet's # column is
+    // empty on ~12/13 MFMH3 rows; `resolveKennelTagFromSheetRow` returns null
+    // when columns.runNumber is configured but the cell is empty, which would
+    // drop those 12 rows. Trade-off: lose the 1 explicit number (e.g. #264
+    // Pink Moon) in exchange for keeping every MFMH3 event. Tracked for
+    // follow-up: relax the resolver to fall through to default tag with
+    // undefined runNumber when the cell is empty.
+    {
+      name: "Munich Full Moon H3 Hareline Sheet",
+      url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtbizBGgic04azrTshlhcpRolA73yaiIijIFUSV0Gq7gU7KKchGWl0JRPHeIYspoq1PAx5XlyLTBfr/pub",
+      type: "GOOGLE_SHEETS" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        sheetId: "anonymous",
+        csvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtbizBGgic04azrTshlhcpRolA73yaiIijIFUSV0Gq7gU7KKchGWl0JRPHeIYspoq1PAx5XlyLTBfr/pub?output=csv&gid=2100367947",
+        columns: { date: 1, hares: 4, location: 5, description: 6, startTime: 3, group: 2 },
+        groupFilter: "MFMH3",
+        kennelTagRules: { default: "mfmh3" },
+      },
+      kennelCodes: ["mfmh3"],
+    },
+    // MASS H3 (Path B sibling — same shared sheet, groupFilter routes
+    // Group="MASS H3" rows to massh3). Run numbers track an independent #27+
+    // sequence in column 0.
+    {
+      name: "MASS H3 Hareline Sheet",
+      url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtbizBGgic04azrTshlhcpRolA73yaiIijIFUSV0Gq7gU7KKchGWl0JRPHeIYspoq1PAx5XlyLTBfr/pub",
+      type: "GOOGLE_SHEETS" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        sheetId: "anonymous",
+        csvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtbizBGgic04azrTshlhcpRolA73yaiIijIFUSV0Gq7gU7KKchGWl0JRPHeIYspoq1PAx5XlyLTBfr/pub?output=csv&gid=2100367947",
+        columns: { runNumber: 0, date: 1, hares: 4, location: 5, description: 6, startTime: 3, group: 2 },
+        groupFilter: "MASS H3",
+        kennelTagRules: { default: "massh3" },
+      },
+      kennelCodes: ["massh3"],
+    },
     // Frankfurt (HTML Scraper — JEM archive, 1098 events)
     {
       name: "Frankfurt H3 Hareline",

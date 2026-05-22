@@ -118,10 +118,12 @@ globs:
 ## Ireland (1 source)
 - **Dublin H3 Website Hareline** -> HTML_SCRAPER -> DH3
 
-## Germany (4 sources)
+## Germany (6 sources)
 - **Berlin H3 iCal Feed** -> ICAL_FEED -> BH3, BH3FM (2 Berlin kennels)
 - **Stuttgart H3 Google Calendar** -> GOOGLE_CALENDAR -> SH3, DST, FM, SUPER (4 Stuttgart kennels)
-- **Munich H3 Hareline Sheet** -> GOOGLE_SHEETS -> MH3 (Munich)
+- **Munich H3 Hareline Sheet** -> GOOGLE_SHEETS -> MH3 (Munich, host; shared sheet, `groupFilter: "MH3"`)
+- **Munich Full Moon H3 Hareline Sheet** -> GOOGLE_SHEETS -> MFMH3 (Munich, shared sheet, `groupFilter: "MFMH3"`)
+- **MASS H3 Hareline Sheet** -> GOOGLE_SHEETS -> MASS H3 (Munich, alternate Saturdays, shared sheet, `groupFilter: "MASS H3"`)
 - **Frankfurt H3 Hareline** -> HTML_SCRAPER -> FH3, FFMH3, SHITS, DOM, Bike Hash (5 Frankfurt kennels)
 
 ## Hong Kong (13 sources, 11 kennels)

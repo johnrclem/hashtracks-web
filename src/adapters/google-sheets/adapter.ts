@@ -433,6 +433,40 @@ export function tokenizeGroupCell(raw: string | undefined): string[] {
     .filter((tok) => tok.length > 0);
 }
 
+/**
+ * Decide whether a Group-column cell value matches the configured filter set.
+ *
+ * Two-stage match:
+ *  1. Whole-token equality after splitting on `/ , ;` (#1542) — `"MH3 / BNH"`
+ *     matches either token; `"MH3FAKE"` does NOT match `"MH3"`.
+ *  2. Host-prefix relaxation (#1592) — if token equality fails, accept when a
+ *     filter token is a prefix of the trimmed-lowered cell AND the next
+ *     character is NOT a Unicode letter / digit / underscore. This keeps
+ *     free-form sub-labels (`"MH3 - Birthday"`, `"MH3 Spec"`,
+ *     `"MH3 (Hashathon)"`) while still rejecting Unicode continuations:
+ *     `"MH3FAKE"`, `"MH3α"` (Greek), `"MH3Ａvent"` (fullwidth), `"MH3٨"`
+ *     (Arabic-Indic digit).
+ *
+ * Empty / whitespace cells return false so callers can treat them as
+ * ambiguous-and-skipped without a separate check.
+ *
+ * Exported for unit testing.
+ */
+export function cellMatchesFilter(raw: string | undefined, filterSet: Set<string>): boolean {
+  if (!raw) return false;
+  const tokens = tokenizeGroupCell(raw);
+  if (tokens.length === 0) return false;
+  if (tokens.some((t) => filterSet.has(t))) return true;
+
+  const normalized = raw.trim().toLowerCase();
+  for (const filterToken of filterSet) {
+    if (normalized.length <= filterToken.length) continue;
+    if (!normalized.startsWith(filterToken)) continue;
+    if (!/[\p{L}\p{N}_]/u.test(normalized[filterToken.length])) return true;
+  }
+  return false;
+}
+
 /** Resolve kennel tag and run number from a sheet row. Returns null if the row should be skipped. */
 function resolveKennelTagFromSheetRow(
   row: string[],
@@ -726,11 +760,11 @@ export class GoogleSheetsAdapter implements SourceAdapter {
 
         // Group-column routing: skip rows belonging to a sibling kennel on a
         // shared sheet (#1542). Empty cells are ambiguous and skipped rather
-        // than silently leaking into the configured kennel.
+        // than silently leaking into the configured kennel. Host-kennel cells
+        // with free-form sub-labels (e.g. "MH3 - Birthday") stay attributed
+        // via cellMatchesFilter's prefix relaxation (#1592).
         if (groupFilterSet && config.columns.group !== undefined) {
-          const tokens = tokenizeGroupCell(row[config.columns.group]);
-          if (tokens.length === 0) continue;
-          if (!tokens.some((t) => groupFilterSet.has(t))) continue;
+          if (!cellMatchesFilter(row[config.columns.group], groupFilterSet)) continue;
         }
 
         const event = buildEventFromSheetRow(row, config, sourceUrl, dateStr);
