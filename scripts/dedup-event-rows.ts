@@ -49,6 +49,7 @@ async function main() {
         startTime: true, endTime: true, cost: true, sourceUrl: true,
         runNumber: true, description: true,
         trailType: true, dogFriendly: true, prelube: true,
+        endDate: true,
       },
     });
 

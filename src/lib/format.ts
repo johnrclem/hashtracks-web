@@ -193,6 +193,61 @@ export function getDayOfWeek(iso: string): string {
   return d.toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" });
 }
 
+/**
+ * Format a multi-day series / campout date range, collapsing redundant parts
+ * (#1560). Output forms:
+ *
+ *   formatDateRange("2026-05-14")                       → "Wed, May 14"
+ *   formatDateRange("2026-05-14", "2026-05-17")         → "May 14 – 17"
+ *   formatDateRange("2026-05-30", "2026-06-01")         → "May 30 – Jun 1"
+ *   formatDateRange("2026-12-30", "2027-01-02")         → "Dec 30, 2026 – Jan 2, 2027"
+ *   formatDateRange("2026-05-14", "2026-05-14")         → "Wed, May 14"  (single day)
+ *
+ * Uses an en-dash (U+2013) between the two endpoints, never a hyphen. Single
+ * day matches `formatDateShort` output exactly. Cross-year always shows both
+ * full years for unambiguous reading.
+ *
+ * Storage convention: dates are UTC noon (CLAUDE.md §F.4), so all date math
+ * runs in UTC — no DST surprises.
+ */
+export function formatDateRange(startIso: string, endIso?: string | null): string {
+  if (!endIso || endIso === startIso) return formatDateShort(startIso);
+  const start = new Date(startIso);
+  const end = new Date(endIso);
+  // Defensive: malformed input → fall back to start only.
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return formatDateShort(startIso);
+  }
+  // Same-day collapse (handles ISO strings that differ by time of day).
+  if (end.getTime() <= start.getTime()) return formatDateShort(startIso);
+
+  const startYear = start.getUTCFullYear();
+  const endYear = end.getUTCFullYear();
+  const startMonth = start.getUTCMonth();
+  const endMonth = end.getUTCMonth();
+
+  if (startYear !== endYear) {
+    // Cross-year: full date including year on both sides.
+    const fmt = (d: Date) => d.toLocaleDateString("en-US", {
+      year: "numeric", month: "short", day: "numeric", timeZone: "UTC",
+    });
+    return `${fmt(start)} – ${fmt(end)}`;
+  }
+  if (startMonth !== endMonth) {
+    // Cross-month, same year: month + day on both sides.
+    const fmt = (d: Date) => d.toLocaleDateString("en-US", {
+      month: "short", day: "numeric", timeZone: "UTC",
+    });
+    return `${fmt(start)} – ${fmt(end)}`;
+  }
+  // Same month: "May 14 – 17" (month only on the left, bare day on the right).
+  const leftFmt = start.toLocaleDateString("en-US", {
+    month: "short", day: "numeric", timeZone: "UTC",
+  });
+  const rightDay = end.getUTCDate().toString();
+  return `${leftFmt} – ${rightDay}`;
+}
+
 // ── Kennel profile helpers ──
 
 /**

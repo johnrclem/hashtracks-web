@@ -2743,6 +2743,7 @@ const EMPTY_DISPLAY_FIELDS = {
   trailType: null,
   dogFriendly: null,
   prelube: null,
+  endDate: null,
 };
 
 type Candidate = Parameters<typeof pickCanonicalEventId>[0][number];
@@ -3980,5 +3981,310 @@ describe("processNewRawEvent — P2002 race-window fall-through (#1286)", () => 
     expect(result.created).toBe(1);
     expect(result.skipped).toBe(1);
     expect(result.eventErrors).toBe(0);
+  });
+});
+
+describe("linkMultiDaySeries (#1560)", () => {
+  // Shared helper: prime processRawEvents to land each incoming raw as a
+  // fresh canonical Event. The merge loop reads via prisma.event.findMany
+  // through TWO distinct query shapes — `ensureKennelEventCache` uses
+  // `where.kennelId/date`, and `linkMultiDaySeries` uses `where.id.in`.
+  // We route by inspecting the where clause so post-link Once seeds aren't
+  // eaten by the per-event ensureKennelEventCache call.
+  // Shape the EVENT_CACHE_SELECT contract expects post-create: every column
+  // recomputeCanonical / rememberCreatedEvent reads must be present, or the
+  // second event's ensureKennelEventCache hit on the in-memory pool crashes.
+  function buildCanonicalEventRow(id: string): Record<string, unknown> {
+    return {
+      id,
+      kennelId: "kennel_1",
+      date: new Date("2026-01-16T12:00:00Z"),
+      dateUtc: new Date("2026-01-16T12:00:00Z"),
+      timezone: "America/New_York",
+      runNumber: null,
+      title: "Stub Trail",
+      description: null,
+      haresText: null,
+      locationName: null,
+      locationStreet: null,
+      locationCity: null,
+      locationAddress: null,
+      latitude: null,
+      longitude: null,
+      startTime: null,
+      endTime: null,
+      cost: null,
+      trailLengthText: null,
+      trailLengthMinMiles: null,
+      trailLengthMaxMiles: null,
+      difficulty: null,
+      trailType: null,
+      dogFriendly: null,
+      prelube: null,
+      sourceUrl: null,
+      trustLevel: 5,
+      isSeriesParent: false,
+      parentEventId: null,
+      endDate: null,
+      status: "CONFIRMED",
+      adminCancelledAt: null,
+      createdAt: new Date("2026-01-01T00:00:00Z"),
+      isCanonical: true,
+    };
+  }
+
+  function primeFreshCreate(eventIds: string[], postLinkStatuses?: Array<{ id: string; status: string }>) {
+    mockEventFindMany.mockReset();
+    // Loose typing on the impl — Prisma's generated client types are too
+    // strict for a router-style mock; the actual call shapes we route on
+    // are stable enough (the merge pipeline drives them).
+    (mockEventFindMany.mockImplementation as unknown as (fn: (args?: unknown) => Promise<unknown>) => unknown)(
+      async (args?: unknown) => {
+        const w = (args as { where?: { id?: { in?: string[] } } } | undefined)?.where;
+        if (w?.id && typeof w.id === "object" && Array.isArray(w.id.in) && postLinkStatuses) {
+          return postLinkStatuses;
+        }
+        return [];
+      },
+    );
+    for (const id of eventIds) {
+      mockEventCreate.mockResolvedValueOnce(buildCanonicalEventRow(id) as never);
+      mockRawEventCreate.mockResolvedValueOnce({ id: `raw_${id}` } as never);
+    }
+    // Stub event.update to echo the row back so post-update cache patching
+    // doesn't lose the EVENT_CACHE_SELECT-shaped fields recomputeCanonical needs.
+    (mockEventUpdate.mockImplementation as unknown as (fn: (args?: unknown) => Promise<unknown>) => unknown)(
+      async (args?: unknown) => {
+        const a = args as { where?: { id?: string }; data?: Record<string, unknown> } | undefined;
+        const row = buildCanonicalEventRow((a?.where?.id) ?? "evt_unknown");
+        return { ...row, ...(a?.data ?? {}) };
+      },
+    );
+    // Fingerprints distinct so dedup never short-circuits.
+    mockFingerprint.mockReset();
+    eventIds.forEach((id, i) => mockFingerprint.mockReturnValueOnce(`fp_${id}_${i}`));
+  }
+
+  it("picks earliest event as parent when no raw is marked seriesParent", async () => {
+    primeFreshCreate(["evt_fri", "evt_sat", "evt_sun"], [
+      { id: "evt_fri", status: "CONFIRMED" },
+      { id: "evt_sat", status: "CONFIRMED" },
+      { id: "evt_sun", status: "CONFIRMED" },
+    ]);
+
+    await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-01-16", seriesId: "5boro-2026", title: "Day 1" }),
+      buildRawEvent({ date: "2026-01-17", seriesId: "5boro-2026", title: "Day 2" }),
+      buildRawEvent({ date: "2026-01-18", seriesId: "5boro-2026", title: "Day 3" }),
+    ]);
+
+    // Parent is the first (earliest) event; it gets isSeriesParent set.
+    const parentUpdate = mockEventUpdate.mock.calls.find(
+      ([args]) => (args as { where?: { id?: string } }).where?.id === "evt_fri"
+        && (args as { data?: { isSeriesParent?: boolean } }).data?.isSeriesParent === true,
+    );
+    expect(parentUpdate).toBeDefined();
+    // Children get parentEventId via the batched updateMany.
+    const childUpdateMany = vi.mocked(prisma.event.updateMany).mock.calls.find(
+      ([args]) => (args as { data?: { parentEventId?: string } }).data?.parentEventId === "evt_fri",
+    );
+    expect(childUpdateMany).toBeDefined();
+    expect((childUpdateMany![0] as { where: { id: { in: string[] } } }).where.id.in).toEqual(
+      expect.arrayContaining(["evt_sat", "evt_sun"]),
+    );
+  });
+
+  it("honors explicit seriesParent:true even when it's not the earliest by date", async () => {
+    // SFH3 umbrella case: umbrella DTSTART is May 14 (earliest), and that IS
+    // also the explicit parent. But if a series ever emitted the umbrella
+    // mid-window (defensive), the explicit flag must still win.
+    primeFreshCreate(["evt_child", "evt_umbrella", "evt_child2"], [
+      // post-link findMany returns rows sorted by date asc; evt_child (5/14)
+      // is earliest, but the seriesParent flag must override that pick.
+      { id: "evt_child", status: "CONFIRMED" },
+      { id: "evt_umbrella", status: "CONFIRMED" },
+      { id: "evt_child2", status: "CONFIRMED" },
+    ]);
+
+    await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-05-14", seriesId: "sfh3-event-99", title: "Friday trail" }),
+      buildRawEvent({
+        date: "2026-05-15",
+        seriesId: "sfh3-event-99",
+        seriesParent: true,
+        endDate: "2026-05-17",
+        title: "Bay 2 Blackout 2026",
+        startTime: undefined,
+      }),
+      buildRawEvent({ date: "2026-05-16", seriesId: "sfh3-event-99", title: "Saturday trail" }),
+    ]);
+
+    // Parent should be the explicit one (evt_umbrella), NOT evt_child (earliest).
+    const parentUpdate = mockEventUpdate.mock.calls.find(
+      ([args]) => (args as { where?: { id?: string } }).where?.id === "evt_umbrella"
+        && (args as { data?: { isSeriesParent?: boolean } }).data?.isSeriesParent === true,
+    );
+    expect(parentUpdate).toBeDefined();
+    const childUpdateMany = vi.mocked(prisma.event.updateMany).mock.calls.find(
+      ([args]) => (args as { data?: { parentEventId?: string } }).data?.parentEventId === "evt_umbrella",
+    );
+    expect(childUpdateMany).toBeDefined();
+    expect((childUpdateMany![0] as { where: { id: { in: string[] } } }).where.id.in).toEqual(
+      expect.arrayContaining(["evt_child", "evt_child2"]),
+    );
+  });
+
+  it("cascades CANCELLED to parent when every child is cancelled", async () => {
+    primeFreshCreate(["evt_p", "evt_c1", "evt_c2"], [
+      { id: "evt_p", status: "CONFIRMED" },
+      { id: "evt_c1", status: "CANCELLED" },
+      { id: "evt_c2", status: "CANCELLED" },
+    ]);
+
+    await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-06-01", seriesId: "campout-x" }),
+      buildRawEvent({ date: "2026-06-02", seriesId: "campout-x" }),
+      buildRawEvent({ date: "2026-06-03", seriesId: "campout-x" }),
+    ]);
+
+    const cancelUpdate = mockEventUpdate.mock.calls.find(
+      ([args]) => (args as { where?: { id?: string } }).where?.id === "evt_p"
+        && (args as { data?: { status?: string } }).data?.status === "CANCELLED",
+    );
+    expect(cancelUpdate).toBeDefined();
+  });
+
+  it("does NOT cascade-cancel an admin-locked parent (Codex P0 review)", async () => {
+    // Admin used the UI to cancel the parent (adminCancelledAt set). Next
+    // scrape comes back with all children CONFIRMED — pre-Codex-fix the
+    // linker would clobber the admin lock back to CONFIRMED.
+    primeFreshCreate(["evt_p", "evt_c1", "evt_c2"], [
+      { id: "evt_p", status: "CANCELLED", adminCancelledAt: new Date("2026-06-01") } as never,
+      { id: "evt_c1", status: "CONFIRMED" },
+      { id: "evt_c2", status: "CONFIRMED" },
+    ]);
+
+    await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-06-01", seriesId: "campout-locked" }),
+      buildRawEvent({ date: "2026-06-02", seriesId: "campout-locked" }),
+      buildRawEvent({ date: "2026-06-03", seriesId: "campout-locked" }),
+    ]);
+
+    const restoreUpdate = mockEventUpdate.mock.calls.find(
+      ([args]) => (args as { where?: { id?: string } }).where?.id === "evt_p"
+        && (args as { data?: { status?: string } }).data?.status === "CONFIRMED",
+    );
+    expect(restoreUpdate).toBeUndefined();
+  });
+
+  it("does NOT cascade-cancel an admin-locked CONFIRMED parent (mirror case)", async () => {
+    // Admin un-cancelled but the lock stays set (lock survives uncancel by
+    // design). All children cancelled — without the admin-lock guard the
+    // linker would still flip to CANCELLED here.
+    primeFreshCreate(["evt_p", "evt_c1", "evt_c2"], [
+      { id: "evt_p", status: "CONFIRMED", adminCancelledAt: new Date("2026-06-01") } as never,
+      { id: "evt_c1", status: "CANCELLED" },
+      { id: "evt_c2", status: "CANCELLED" },
+    ]);
+
+    await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-06-01", seriesId: "campout-locked-2" }),
+      buildRawEvent({ date: "2026-06-02", seriesId: "campout-locked-2" }),
+      buildRawEvent({ date: "2026-06-03", seriesId: "campout-locked-2" }),
+    ]);
+
+    const cancelUpdate = mockEventUpdate.mock.calls.find(
+      ([args]) => (args as { where?: { id?: string } }).where?.id === "evt_p"
+        && (args as { data?: { status?: string } }).data?.status === "CANCELLED",
+    );
+    expect(cancelUpdate).toBeUndefined();
+  });
+
+  it("does NOT cascade-cancel parent when at least one child is live", async () => {
+    primeFreshCreate(["evt_p", "evt_c1", "evt_c2"], [
+      { id: "evt_p", status: "CONFIRMED" },
+      { id: "evt_c1", status: "CANCELLED" },
+      { id: "evt_c2", status: "CONFIRMED" }, // one survivor → series stays alive
+    ]);
+
+    await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-06-01", seriesId: "campout-y" }),
+      buildRawEvent({ date: "2026-06-02", seriesId: "campout-y" }),
+      buildRawEvent({ date: "2026-06-03", seriesId: "campout-y" }),
+    ]);
+
+    const cancelUpdate = mockEventUpdate.mock.calls.find(
+      ([args]) => (args as { where?: { id?: string } }).where?.id === "evt_p"
+        && (args as { data?: { status?: string } }).data?.status === "CANCELLED",
+    );
+    expect(cancelUpdate).toBeUndefined();
+  });
+
+  it("restores parent from CANCELLED → CONFIRMED when a child comes back alive", async () => {
+    // Mirrors auto-restore semantic in upsertCanonicalEvent: if any child is
+    // live, the parent shouldn't be stuck CANCELLED from a previous cascade.
+    primeFreshCreate(["evt_p", "evt_c1", "evt_c2"], [
+      { id: "evt_p", status: "CANCELLED" }, // previously cascaded
+      { id: "evt_c1", status: "CONFIRMED" }, // back from the dead
+      { id: "evt_c2", status: "CANCELLED" },
+    ]);
+
+    await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-06-01", seriesId: "campout-z" }),
+      buildRawEvent({ date: "2026-06-02", seriesId: "campout-z" }),
+      buildRawEvent({ date: "2026-06-03", seriesId: "campout-z" }),
+    ]);
+
+    const restoreUpdate = mockEventUpdate.mock.calls.find(
+      ([args]) => (args as { where?: { id?: string } }).where?.id === "evt_p"
+        && (args as { data?: { status?: string } }).data?.status === "CONFIRMED",
+    );
+    expect(restoreUpdate).toBeDefined();
+  });
+
+  it("skips linking for groups with only one event (umbrella-only or single-child)", async () => {
+    primeFreshCreate(["evt_alone"]);
+    // No post-link findMany should run — linkMultiDaySeries early-exits on length<2.
+    await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-07-04", seriesId: "lonely-umbrella", seriesParent: true }),
+    ]);
+
+    // No event should have parentEventId set; no updateMany call from the linker.
+    const childLinking = vi.mocked(prisma.event.updateMany).mock.calls.find(
+      ([args]) => (args as { data?: { parentEventId?: unknown } }).data?.parentEventId !== undefined,
+    );
+    expect(childLinking).toBeUndefined();
+    // No isSeriesParent flag flip either — the raw's seriesParent flag alone
+    // doesn't promote a single-event series (UI degrades gracefully to a
+    // standalone date-range card via Event.endDate).
+    const parentFlip = mockEventUpdate.mock.calls.find(
+      ([args]) => (args as { data?: { isSeriesParent?: boolean } }).data?.isSeriesParent === true,
+    );
+    expect(parentFlip).toBeUndefined();
+  });
+
+  it("deduplicates members that resolved to the same canonical event (cross-source absorption)", async () => {
+    // Scenario: hashrego Friday raw lands first → creates evt_fri.
+    // hashrego Saturday raw lands → creates evt_sat.
+    // Hypothetical re-emission of Friday raw lands on the SAME canonical event
+    // (dedup via fingerprint OR cross-source same-day match). seriesGroups
+    // captures both entries pointing to evt_fri; linker should dedup before
+    // picking parent so the eventCount-2 guard still fires correctly.
+    primeFreshCreate(["evt_fri", "evt_sat"], [
+      { id: "evt_fri", status: "CONFIRMED" },
+      { id: "evt_sat", status: "CONFIRMED" },
+    ]);
+
+    await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-01-16", seriesId: "5boro-dup" }),
+      buildRawEvent({ date: "2026-01-17", seriesId: "5boro-dup" }),
+    ]);
+
+    // Parent = earliest (evt_fri); child (evt_sat) gets parentEventId.
+    const parentUpdate = mockEventUpdate.mock.calls.find(
+      ([args]) => (args as { where?: { id?: string } }).where?.id === "evt_fri"
+        && (args as { data?: { isSeriesParent?: boolean } }).data?.isSeriesParent === true,
+    );
+    expect(parentUpdate).toBeDefined();
   });
 });

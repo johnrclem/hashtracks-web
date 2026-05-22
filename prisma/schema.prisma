@@ -330,6 +330,10 @@ model Event {
   kennelId          String
   date              DateTime // Event date (UTC noon to avoid DST issues)
   dateUtc           DateTime? // Same moment in UTC (for cross-timezone queries)
+  /// Last day of a multi-day event (UTC noon), inclusive. Set on series PARENTS
+  /// (umbrella that spans children) and on single-row date-range events that
+  /// have no children (e.g. one-registration weekend campouts). null = single-day.
+  endDate           DateTime?
   timezone          String? // IANA timezone (e.g., "America/New_York")
   runNumber         Int? // Kennel-specific sequential number
   title             String? // Trail/event name
