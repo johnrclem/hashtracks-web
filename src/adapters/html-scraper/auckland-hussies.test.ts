@@ -317,6 +317,8 @@ describe("AucklandHussiesAdapter.fetch", () => {
 
     it.each([
       ["With the men on a Monday night - 4pm 1/23 Main St", "1/23 Main St"],
+      // chatgpt-codex-connector on PR #1597 flagged unit-style NZ addresses.
+      ["With the men on a Monday night - 4pm 3/31 Craig Rd, Milford", "3/31 Craig Rd, Milford"],
       ["With the men on a Monday night - 4pm 84A Church St", "84A Church St"],
       ["With the men on a Monday night - 4pm 23-25 Main Rd", "23-25 Main Rd"],
       ["With the men on a Monday night - 4pm 5 Pine Grove", "5 Pine Grove"],
