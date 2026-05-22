@@ -1,5 +1,5 @@
 import { regionNameToSlug } from "@/lib/region";
-import { formatSeasonHint, type ScheduleSlot } from "@/lib/schedule-season";
+import { formatSeasonHint, WEEKDAY_NAMES, type ScheduleSlot } from "@/lib/schedule-season";
 import { parseRRule } from "@/adapters/static-schedule/rrule-parser";
 
 // Re-export ScheduleSlot from format.ts for backward compat with existing
@@ -223,7 +223,13 @@ export function formatSchedule(kennel: {
   }
   const parts: string[] = [];
   if (kennel.scheduleDayOfWeek) {
-    parts.push(kennel.scheduleDayOfWeek + "s");
+    // Only pluralize recognized weekday names — guards against free-text
+    // values like "Varies" rendering as "Variess" (#1538). The seed
+    // currently forbids non-weekday values, but `collectKennelWeekdays`
+    // and the day filter would also misbehave if one slipped in, so this
+    // is defense-in-depth.
+    const isWeekday = WEEKDAY_NAMES.includes(kennel.scheduleDayOfWeek as (typeof WEEKDAY_NAMES)[number]);
+    parts.push(isWeekday ? kennel.scheduleDayOfWeek + "s" : kennel.scheduleDayOfWeek);
   }
   if (kennel.scheduleTime) {
     parts.push(parts.length ? `at ${kennel.scheduleTime}` : kennel.scheduleTime);
@@ -289,10 +295,6 @@ function describeRruleDay(rrule: string): string | null {
   }
   return null;
 }
-
-const WEEKDAY_NAMES = [
-  "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday",
-] as const;
 
 /**
  * Ordinal WORD for the small set used in nth-weekday display ("1st", "last",

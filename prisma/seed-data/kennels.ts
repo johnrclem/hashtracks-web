@@ -2563,7 +2563,8 @@ export const KENNELS: KennelSeed[] = [
     // ── Japan: Kansai ──
     {
       kennelCode: "kfmh3", shortName: "KFMH3", fullName: "Kinky Fully Mooned Hash House Harriers", region: "Kansai", country: "Japan",
-      website: "https://kfmh3.github.io/Home",
+      website: "https://kfmh3.github.io/Home/",
+      logoUrl: "https://kfmh3.github.io/Home/KFMH3.GIF",
       scheduleFrequency: "Monthly",
       scheduleNotes: "Sunday nearest full moon",
       hashCash: "¥1,000", foundedYear: 1994,
@@ -3251,10 +3252,12 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "klfmh3", shortName: "KL Full Moon", fullName: "KL Full Moon Hash House Harriers",
       region: "Kuala Lumpur, MY", country: "Malaysia",
       website: "https://klfullmoonhash.com",
-      scheduleDayOfWeek: "Varies", scheduleTime: "6:00 PM", scheduleFrequency: "Monthly",
-      scheduleNotes: "Runs once per lunar month on the night closest to the full moon. Hareline at klfullmoonhash.com/index.php?r=site/hareline.",
+      logoUrl: "https://klfullmoonhash.com/klfm_images/icon-klfm.png",
+      founder: "Chuck 'Titanic' Pollock",
+      scheduleDayOfWeek: "Sunday", scheduleTime: "6:00 PM", scheduleFrequency: "Monthly",
+      scheduleNotes: "Runs once per lunar month on the Sunday closest to the full moon. Hareline at klfullmoonhash.com/index.php?r=site/hareline.",
       foundedYear: 1992,
-      description: "Founded 11 September 1992 in Kuala Lumpur. A monthly full-moon hash — runs are scheduled around the lunar calendar rather than a fixed weekday. Approximately 144 runs since founding.",
+      description: "Founded 11 September 1992 in Kuala Lumpur by Chuck 'Titanic' Pollock. A monthly full-moon hash — runs are scheduled on the Sunday closest to the full moon rather than a fixed weekday. Approximately 144 runs since founding.",
       latitude: 3.139, longitude: 101.687,
     },
     {
