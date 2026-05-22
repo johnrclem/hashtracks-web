@@ -33,7 +33,7 @@ DECLARE
   v_logo_url            text := 'https://prodcdn.sporty.co.nz/cms/3076/logo.png';
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM "Kennel" WHERE "kennelCode" = v_kennel_code) THEN  -- NOSONAR plsql:S1138
-    RAISE NOTICE 'Kennel "%" not found — UPDATE will no-op (run prisma db seed)', v_kennel_code;
+    RAISE NOTICE 'Kennel "%" not found — UPDATE will no-op (run prisma db seed)', v_kennel_code;  -- NOSONAR plsql:S1192
   END IF;
 
   UPDATE "Kennel"
@@ -65,7 +65,7 @@ DECLARE
   v_logo_url            text := 'https://prodcdn.sporty.co.nz/cms/5181/logo.gif';
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM "Kennel" WHERE "kennelCode" = v_kennel_code) THEN  -- NOSONAR plsql:S1138
-    RAISE NOTICE 'Kennel "%" not found — UPDATE will no-op (run prisma db seed)', v_kennel_code;
+    RAISE NOTICE 'Kennel "%" not found — UPDATE will no-op (run prisma db seed)', v_kennel_code;  -- NOSONAR plsql:S1192
   END IF;
 
   UPDATE "Kennel"
@@ -96,7 +96,7 @@ DECLARE
   v_contact_email       text := 'trailmaster@aucklandhussies.co.nz';
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM "Kennel" WHERE "kennelCode" = v_kennel_code) THEN  -- NOSONAR plsql:S1138
-    RAISE NOTICE 'Kennel "%" not found — UPDATE will no-op (run prisma db seed)', v_kennel_code;
+    RAISE NOTICE 'Kennel "%" not found — UPDATE will no-op (run prisma db seed)', v_kennel_code;  -- NOSONAR plsql:S1192
   END IF;
 
   UPDATE "Kennel"
@@ -119,7 +119,7 @@ DECLARE
   v_correct_description text := 'Hibiscus Coast hash kennel covering Orewa, Whangaparaoa, and the northern Auckland coast. Weekly Monday evening trails since 1987. No fees, no committee — an optional post-run meal and drinks are pay-as-you-go.';
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM "Kennel" WHERE "kennelCode" = v_kennel_code) THEN  -- NOSONAR plsql:S1138
-    RAISE NOTICE 'Kennel "%" not found — UPDATE will no-op (run prisma db seed)', v_kennel_code;
+    RAISE NOTICE 'Kennel "%" not found — UPDATE will no-op (run prisma db seed)', v_kennel_code;  -- NOSONAR plsql:S1192
   END IF;
 
   UPDATE "Kennel"
@@ -136,7 +136,7 @@ DECLARE
   v_facebook_url text := 'https://www.facebook.com/groups/155409764478320/';
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM "Kennel" WHERE "kennelCode" = v_kennel_code) THEN  -- NOSONAR plsql:S1138
-    RAISE NOTICE 'Kennel "%" not found — UPDATE will no-op (run prisma db seed)', v_kennel_code;
+    RAISE NOTICE 'Kennel "%" not found — UPDATE will no-op (run prisma db seed)', v_kennel_code;  -- NOSONAR plsql:S1192
   END IF;
 
   UPDATE "Kennel"
