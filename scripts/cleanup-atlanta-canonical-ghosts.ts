@@ -1,0 +1,155 @@
+/**
+ * Post-merge cleanup for PR #1622 (Atlanta Hash Board parser fix).
+ *
+ * Before the parser fix, the adapter mis-extracted:
+ *   - body `#NNN` tokens from street addresses and cross-kennel references
+ *     (#2000 from "Kroger 8465 Holcomb Bridge Rd #2000", #946 from a Black
+ *     Sheep cross-reference in a Moonlite post) → wrong `runNumber` on
+ *     canonical Event rows;
+ *   - phpBB post-banner timestamps as `startTime` (10:36 PM = last-post
+ *     banner Sat May 02, 3:19 PM = first-post banner Sat Mar 28) → wrong
+ *     `startTime` on canonical Event rows.
+ *
+ * A fresh scrape after merge will produce CORRECT RawEvents but the merge
+ * pipeline upserts canonical Events keyed by (kennelId, date) — and Memory
+ * `feedback_parser_fix_canonical_ghosts` documents that stale fields are
+ * NOT automatically overwritten on UPDATE because the merge pipeline uses
+ * `undefined` (preserve) vs `null` (clear) semantics. A new RawEvent with
+ * `runNumber: 1664` (real number, from a fixed title-prefer path) will
+ * land alongside the old wrong RawEvent and the canonical Event slot
+ * won't be re-seeded with the correct fields until the merge pipeline
+ * re-runs with a strict "drop and rebuild" path.
+ *
+ * Simplest cleanup: scrub the stale `runNumber` and `startTime` on the
+ * affected MLH4 canonical Events. The next scrape (or backfill) then
+ * populates the fields fresh.
+ *
+ * Targets:
+ *   - MLH4 events with `runNumber` ∈ {2000, 946}     → clear runNumber
+ *   - MLH4 events with `startTime` ∈ {22:36, 15:19}  → clear startTime
+ *
+ * We narrow to MLH4 (kennelCode = mlh4) to avoid touching any other
+ * kennel that legitimately runs at 22:36 / 15:19 or has a real run #946 /
+ * #2000.
+ *
+ * Usage:
+ *   Dry run:  npx tsx scripts/cleanup-atlanta-canonical-ghosts.ts
+ *   Apply:    APPLY=1 npx tsx scripts/cleanup-atlanta-canonical-ghosts.ts
+ */
+import "dotenv/config";
+import { prisma } from "@/lib/db";
+
+async function main() {
+  const apply = process.env.APPLY === "1";
+  console.log(`Mode: ${apply ? "APPLY (writing to prod)" : "DRY RUN"}`);
+
+  const kennel = await prisma.kennel.findUnique({
+    where: { kennelCode: "mlh4" },
+    select: { id: true, shortName: true },
+  });
+  if (!kennel) {
+    console.error("mlh4 kennel not found — aborting");
+    process.exit(1);
+  }
+  console.log(`Target kennel: ${kennel.shortName} (id ${kennel.id})\n`);
+
+  // Find candidate Events. EventKennel join gives us per-kennel attribution.
+  const eventKennels = await prisma.eventKennel.findMany({
+    where: { kennelId: kennel.id },
+    select: {
+      event: {
+        select: {
+          id: true, date: true, runNumber: true, startTime: true, title: true, sourceUrl: true,
+        },
+      },
+    },
+  });
+  console.log(`Inspecting ${eventKennels.length} MLH4-linked events…\n`);
+
+  const stallNumbers = new Set([2000, 946]);
+  const stallTimes = new Set(["22:36", "15:19"]);
+
+  const runNumberHits: Array<{ id: string; date: Date; runNumber: number | null; title: string | null }> = [];
+  const startTimeHits: Array<{ id: string; date: Date; startTime: string | null; title: string | null }> = [];
+
+  for (const ek of eventKennels) {
+    const e = ek.event;
+    if (e.runNumber != null && stallNumbers.has(e.runNumber)) {
+      runNumberHits.push({ id: e.id, date: e.date, runNumber: e.runNumber, title: e.title });
+    }
+    if (e.startTime != null && stallTimes.has(e.startTime)) {
+      startTimeHits.push({ id: e.id, date: e.date, startTime: e.startTime, title: e.title });
+    }
+  }
+
+  console.log(`Found ${runNumberHits.length} stale runNumber events:`);
+  for (const h of runNumberHits) {
+    console.log(`  · ${h.date.toISOString().slice(0, 10)} runNumber=${h.runNumber}  title=${h.title ?? "(null)"}`);
+  }
+  console.log(`\nFound ${startTimeHits.length} stale startTime events:`);
+  for (const h of startTimeHits) {
+    console.log(`  · ${h.date.toISOString().slice(0, 10)} startTime=${h.startTime}  title=${h.title ?? "(null)"}`);
+  }
+
+  if (!apply) {
+    console.log("\nRe-run with APPLY=1 to scrub fields.");
+    return;
+  }
+
+  let cleared = 0;
+  for (const h of runNumberHits) {
+    await prisma.event.update({ where: { id: h.id }, data: { runNumber: null } });
+    cleared++;
+  }
+  for (const h of startTimeHits) {
+    await prisma.event.update({ where: { id: h.id }, data: { startTime: null } });
+    cleared++;
+  }
+  console.log(`\nCleared ${cleared} field(s).`);
+
+  // Also scrub the underlying RawEvent rows so a re-scrape doesn't immediately
+  // re-write the wrong values via the same fingerprint. Find RawEvents whose
+  // `data` payload carries the bad runNumber / startTime AND belong to a MLH4
+  // SourceKennel link.
+  const mlh4Sources = await prisma.sourceKennel.findMany({
+    where: { kennelId: kennel.id },
+    select: { sourceId: true },
+  });
+  const sourceIds = mlh4Sources.map((s) => s.sourceId);
+  if (sourceIds.length === 0) {
+    console.log("\nNo MLH4 sources linked — skipping RawEvent scrub.");
+    return;
+  }
+
+  const raws = await prisma.rawEvent.findMany({
+    where: {
+      sourceId: { in: sourceIds },
+      OR: [
+        { rawData: { path: ["runNumber"], equals: 2000 } },
+        { rawData: { path: ["runNumber"], equals: 946 } },
+        { rawData: { path: ["startTime"], equals: "22:36" } },
+        { rawData: { path: ["startTime"], equals: "15:19" } },
+      ],
+    },
+    select: { id: true, rawData: true },
+  });
+  console.log(`\nFound ${raws.length} stale RawEvent rows.`);
+  let scrubbed = 0;
+  for (const r of raws) {
+    const d = r.rawData as Record<string, unknown>;
+    let dirty = false;
+    if (typeof d.runNumber === "number" && stallNumbers.has(d.runNumber)) {
+      delete d.runNumber; dirty = true;
+    }
+    if (typeof d.startTime === "string" && stallTimes.has(d.startTime)) {
+      delete d.startTime; dirty = true;
+    }
+    if (dirty) {
+      await prisma.rawEvent.update({ where: { id: r.id }, data: { rawData: d as never } });
+      scrubbed++;
+    }
+  }
+  console.log(`Scrubbed ${scrubbed} RawEvent payload(s).`);
+}
+
+main().catch((e) => { console.error(e); process.exit(1); }).finally(() => prisma.$disconnect());
