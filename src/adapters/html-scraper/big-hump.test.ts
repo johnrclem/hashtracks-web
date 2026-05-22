@@ -790,6 +790,45 @@ describe("BigHumpAdapter — #1550 Open placeholder + subtitled title", () => {
     expect(ev.location).toBe("Brentwood");
   });
 
+  it("preserves real hasher named 'Open' from description when venue is known (Codex P1)", async () => {
+    // Codex P1 review on #1577: a real hasher literally named "Open" with
+    // `Hare: Open` in description and a known venue must survive. The
+    // earlier parseHaresFromDescription filter dropped the description
+    // value unconditionally. Now: filter at the convergence point only
+    // when venue is also unknown. Multi-word h4 below skips title-side
+    // rules and lets descHares win.
+    const html = `
+      <html><body>
+        <div class="w3-card">
+          <header class="w3-container w3-green">
+            <h3>Wednesday 04/22/2026 <span class="w3-text-amber">#1996</span></h3>
+          </header>
+          <div class="w3-row"><div class="w3-col w3-container m9 l10">
+            <h4>A Long Themed Trail Description @ Forest Park</h4>
+            <span class="w3-small"><p>Circle up: 6:45 p.m.<p>Hare: Open</span>
+          </div></div>
+        </div>
+      </body></html>
+    `;
+    vi.mocked(utils.fetchHTMLPage).mockResolvedValueOnce({
+      ok: true as const,
+      html,
+      $: cheerio.load(html),
+      structureHash: "open-from-desc-known-venue",
+      fetchDurationMs: 50,
+    });
+
+    const mockSource = {
+      id: "test-bh4",
+      url: "http://www.big-hump.com/hareline.php",
+      config: null,
+    } as never;
+    const result = await adapter.fetch(mockSource, { days: 36500 });
+    const ev = result.events[0];
+    expect(ev.hares).toBe("Open");
+    expect(ev.location).toBe("Forest Park");
+  });
+
   it("preserves real hasher named 'Open' when venue is known (Codex review carve-out)", async () => {
     // A real hasher literally named "Open" with a known venue should NOT be
     // cleared by the placeholder filter. Mirrors the upstream

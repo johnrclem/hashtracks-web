@@ -263,15 +263,33 @@ function parseLocationFromDescription(text: string): string | undefined {
  * The caller must preserve paragraph newlines — cheerio's `.text()` strips
  * them, which defeats the `\n` anchor here; use `stripHtmlTags(.., "\n")`.
  */
+/**
+ * Pick the better of description-side and title-side hares. Default
+ * preference is description (it's the more structured field), but a
+ * description value of literal "Open" (placeholder for unfilled hare
+ * slot) yields to a non-Open title-side value when both are present.
+ * Codex P1 review on #1577.
+ */
+function pickHaresPreferringRealName(
+  descHares: string | undefined,
+  titleHares: string | undefined,
+): string | undefined {
+  const descIsOpen = !!descHares && /^open$/i.test(descHares);
+  const titleIsReal = !!titleHares && !/^open$/i.test(titleHares);
+  if (descIsOpen && titleIsReal) return titleHares;
+  return descHares ?? titleHares;
+}
+
 function parseHaresFromDescription(text: string): string | undefined {
   const match = /^\s*Hares?\s*(?:\([^)]*\))?\s*:\s*(.+?)$/im.exec(text);
   if (!match) return undefined;
   const name = match[1].trim();
   // "away: …" is departure time, not a hare name
   if (/^away/i.test(name)) return undefined;
-  // #1550: "Open" is a "hare slot available" placeholder, not a real name.
-  // Mirrors the upstream h4 "Open @ ???" guard in the adapter fetch().
-  if (/^open$/i.test(name)) return undefined;
+  // #1550: "Open" placeholder is filtered at the convergence point in
+  // `fetch()` where venue context is known — a real hasher literally named
+  // "Open" at a known venue must survive even when title-side extraction
+  // returned undefined (Codex P1 review on #1577).
   return name || undefined;
 }
 
@@ -537,13 +555,14 @@ export class BigHumpAdapter implements SourceAdapter {
           const descHares = parseHaresFromDescription(descText);
 
           const location = descLocation || titleLocation;
-          // #1550: "Open - <theme> @ ???" rows split via Rule 4 (dash) in
-          // extractHaresFromTitlePart and produced titleHares="Open". The
-          // upstream Open@??? guard only catches bare "Open @ ???" (no
-          // subtitle). Treat "Open" as a placeholder at the resolved-hares
-          // boundary, but gate on the venue also being unknown so a real
-          // hasher literally named "Open" at a known venue still survives.
-          const rawHares = descHares || titleHares;
+          // #1550: "Open" is a "hare slot available" placeholder used both
+          // in h4 ("Open - Skanksgiving @ ???") and in description
+          // ("Hare: Open"). Resolution:
+          //   - prefer description hare normally, BUT skip a descHares of
+          //     "Open" when titleHares has a non-Open value (Codex P1 review)
+          //   - final clear only when venue is also unknown — a real hasher
+          //     literally named "Open" at a known venue survives.
+          const rawHares = pickHaresPreferringRealName(descHares, titleHares);
           const venueUnknown = !location || isPlaceholder(location);
           const hares =
             rawHares && venueUnknown && /^open$/i.test(rawHares) ? undefined : rawHares;
