@@ -60,6 +60,16 @@ export interface GoogleSheetsConfig {
      */
     extraHares?: number[];
     location: number;
+    /**
+     * Optional column index for a separate street-address column. Some sheets
+     * split the location across two cells: a short venue/city label (e.g.
+     * "Orlando") and a full street address (e.g. "215 Chapin St, Ann Arbor,
+     * MI, 48103"). When configured, the cell populates `locationStreet` on
+     * the RawEventData (and gets combined into the maps query). When blank,
+     * `location` still flows to `locationName` independently — neither
+     * column is gated on the other being populated (#1579).
+     */
+    address?: number;
     title?: number;
     description?: number;
     /**
@@ -541,6 +551,18 @@ export function buildEventFromSheetRow(
   if (location && isCityShorthand(location)) {
     location = undefined;
   }
+  // Optional separate street-address column (#1579). Independent of `location`
+  // — either or both may be populated. Placeholder values (TBD/TBA/N/A) are
+  // stripped via stripPlaceholder.
+  const locationStreet = config.columns.address != null
+    ? stripPlaceholder(row[config.columns.address])
+    : undefined;
+  // Build the maps URL from whichever address fragment is most specific:
+  // combine venue + street when both present (Google geocodes the full
+  // string), street alone when only that exists, venue alone otherwise.
+  const mapsQuery = location && locationStreet
+    ? `${location}, ${locationStreet}`
+    : (locationStreet || location);
   let title = config.columns.title != null ? stripPlaceholder(row[config.columns.title]) : undefined;
 
   if (title && INSTRUCTION_TITLE_RE.test(title)) {
@@ -573,7 +595,8 @@ export function buildEventFromSheetRow(
     description,
     hares,
     location,
-    locationUrl: location ? mapsUrl(location) : undefined,
+    locationStreet,
+    locationUrl: mapsQuery ? mapsUrl(mapsQuery) : undefined,
     startTime,
     sourceUrl,
   };

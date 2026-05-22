@@ -181,17 +181,27 @@ export function parseEventDetail(
   // by a sibling `<p>` with the comma/&-joined hare names.
   const hares = haresFromDescription || extractHaresFromDom($);
   const cost = extractField(rawDescription, "Cost") || indexEntry?.cost;
-  const location = extractLocationFromDescription(rawDescription);
-  const locationAddress = extractAddressFromDescription(rawDescription);
+
+  // og:description-based location extraction (legacy path — only fires for
+  // events whose host kennel writes labeled fields into the description).
+  const descLocation = extractLocationFromDescription(rawDescription);
+  const descAddress = extractAddressFromDescription(rawDescription);
+  const mapsMatch = rawDescription.match(/maps\.google\.com\/maps\?q=([^)\s"]+)/);
+  const descLocationUrl = mapsMatch
+    ? `https://maps.google.com/maps?q=${mapsMatch[1]}`
+    : undefined;
+
+  // DOM fallback for the `.location` column (#1578). Many events publish only
+  // the structured `<h4>Start Location Details</h4>` block in markup, with no
+  // labeled fields in og:description — that path used to drop venue + address
+  // entirely.
+  const domLocation = extractLocationFromDom($);
+  const location = descLocation || domLocation.venue;
+  const locationAddress = descAddress || domLocation.address;
+  const locationUrl = descLocationUrl || domLocation.mapsUrl;
 
   // Parse dates from the description or index entry
   const { dates, startTimes, isMultiDay } = extractDates(rawDescription, indexEntry);
-
-  // Location URL from Google Maps link in description
-  const mapsMatch = rawDescription.match(/maps\.google\.com\/maps\?q=([^)\s"]+)/);
-  const locationUrl = mapsMatch
-    ? `https://maps.google.com/maps?q=${mapsMatch[1]}`
-    : undefined;
 
   // Clean description: remove structured fields we already extracted
   const description = cleanDescription(rawDescription);
@@ -244,16 +254,88 @@ function extractHostKennelName($: cheerio.CheerioAPI): string | undefined {
  * Extract hares from the detail-page DOM when `Hare(s):` is missing from
  * og:description. Layout: `<strong>Hare(s):</strong>` inside a `<p>`,
  * followed by a sibling `<p>` with the comma/&-joined names. See #806.
+ *
+ * The page emits the Hare(s) block twice (responsive LG/XS variants); we scan
+ * all matches and return the first that has a non-label sibling `<p>`, so a
+ * DOM reshuffle that leaves the first block empty still finds the value.
  */
 function extractHaresFromDom($: cheerio.CheerioAPI): string | undefined {
-  const label = $("strong")
+  const labels = $("strong")
     .filter((_, el) => /^\s*hare\(?s\)?:?\s*$/i.test($(el).text()))
+    .toArray();
+  for (const el of labels) {
+    const labelP = $(el).closest("p");
+    const valueP = labelP.nextAll("p").first();
+    if (valueP.length === 0) continue;
+    // Skip if the "value" paragraph is itself another labeled <strong>
+    // (e.g., `<p><strong>Shiggy:</strong></p>` directly follows an empty
+    // hare block).
+    if (valueP.find("strong").length > 0) continue;
+    const text = valueP.text().replaceAll(/\s+/g, " ").trim();
+    if (text.length > 0) return text;
+  }
+  return undefined;
+}
+
+/**
+ * Extract venue + address + maps URL from the `<h4>Start Location Details</h4>`
+ * block in the `.location` column (#1578). Most hashrego events render their
+ * location DOM-only — og:description carries the event blurb, not labeled
+ * `Location:` fields — so without this fallback we drop venue/address entirely.
+ *
+ * Layout:
+ *   <div class="col-sm-6 location">
+ *     <h4 class="text-center"><strong>Start Location Details</strong></h4>
+ *     <div class="tab-content">
+ *       <div class="tab-pane active" id="location">
+ *         <p>West Park</p>                              ← venue (no <a>)
+ *         <p><a href="//maps.google.com/maps?q=215 Chapin St, …">…</a></p>
+ *       </div>
+ *     </div>
+ *   </div>
+ *
+ * Returns the first non-empty text `<p>` without a maps link as `venue`, the
+ * first `<p>` whose `<a>` points at `maps.google.com/maps?q=` as `address`
+ * (the link text), and the absolute URL as `mapsUrl`. Empty/missing fields
+ * are returned undefined so callers can mix with og:description-derived
+ * values.
+ */
+function extractLocationFromDom(
+  $: cheerio.CheerioAPI,
+): { venue?: string; address?: string; mapsUrl?: string } {
+  const heading = $("h4")
+    .filter((_, el) => /Start\s+Location\s+Details/i.test($(el).text()))
     .first();
-  if (label.length === 0) return undefined;
-  const labelP = label.closest("p");
-  const valueP = labelP.nextAll("p").first();
-  const text = valueP.text().replaceAll(/\s+/g, " ").trim();
-  return text.length > 0 ? text : undefined;
+  if (heading.length === 0) return {};
+
+  const column = heading.closest(".location, .col-sm-6").first();
+  const scope = column.length > 0 ? column : heading.parent();
+
+  let venue: string | undefined;
+  let address: string | undefined;
+  let mapsUrl: string | undefined;
+
+  scope.find("p").each((_i, el) => {
+    const $p = $(el);
+    const text = $p.text().replaceAll(/\s+/g, " ").trim();
+    if (!text) return;
+    const mapsAnchor = $p
+      .find("a")
+      .filter((_j, a) => /maps\.google\.com\/maps\?q=/i.test($(a).attr("href") || ""))
+      .first();
+    if (mapsAnchor.length > 0) {
+      if (!address) address = text;
+      if (!mapsUrl) {
+        const href = mapsAnchor.attr("href") || "";
+        // Normalize protocol-relative `//maps.google.com/…` to https://.
+        mapsUrl = href.startsWith("//") ? `https:${href}` : href;
+      }
+    } else if (!venue) {
+      venue = text;
+    }
+  });
+
+  return { venue, address, mapsUrl };
 }
 
 /**

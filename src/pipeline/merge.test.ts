@@ -350,6 +350,42 @@ describe("processRawEvents", () => {
     expect(mockEventUpdate).toHaveBeenCalled();
   });
 
+  it("persists locationStreet on its own when adapter emits address-only (#1579 OKissMe)", async () => {
+    // OKissMe H3 has rows where `Location` (col D) is blank but `Address`
+    // (col E) is populated — and vice versa. The merge UPDATE path must
+    // accept `locationStreet` independently of `location`. Pre-fix the
+    // locationStreet write was nested inside the `event.location !== undefined`
+    // branch, so address-only updates silently dropped the street.
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([{
+      id: "evt_addr_only",
+      trustLevel: 5,
+      locationName: "Orlando",
+      locationStreet: null,
+    }] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    // Address-only update: `location` undefined (preserve existing
+    // locationName), but `locationStreet` defined.
+    await processRawEvents("src_1", [buildRawEvent({
+      location: undefined,
+      locationStreet: "215 Chapin St, Ann Arbor, MI, 48103",
+    })]);
+
+    const update = mockEventUpdate.mock.calls.find(
+      (c: unknown[]) => (c[0] as { where: { id: string } }).where.id === "evt_addr_only",
+    );
+    expect(update).toBeDefined();
+    const data = (update![0] as { data: Record<string, unknown> }).data;
+    expect(data).toHaveProperty(
+      "locationStreet",
+      "215 Chapin St, Ann Arbor, MI, 48103",
+    );
+    // locationName must NOT have been touched — `location: undefined` means
+    // preserve.
+    expect(data.locationName).toBeUndefined();
+  });
+
   it("explicit-clears stale locationName / haresText / coords / city when adapter emits null (#1516/#1521 WS6)", async () => {
     // Pre-WS6, an adapter passing `location: undefined` made the merge UPDATE
     // skip the field — so a previously stored "Monday night - 4pm" (Auckland

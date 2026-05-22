@@ -1353,10 +1353,18 @@ async function upsertCanonicalEvent(
           ...(event.location !== undefined
             ? {
                 locationName: locName,
-                // Clear stale street when location changes but no street provided
-                locationStreet: event.locationStreet ?? null,
               }
             : {}),
+          // locationStreet is independent of locationName (#1579) — sources
+          // like OKissMe split venue from address across separate columns and
+          // may publish only the street. Persist on every scrape where the
+          // adapter emits the field; `undefined` preserves existing.
+          ...(event.locationStreet !== undefined
+            ? { locationStreet: event.locationStreet ?? null }
+            : event.location !== undefined
+              ? // Clear stale street when location changes but no street provided.
+                { locationStreet: null }
+              : {}),
           // Map URL: write when adapter supplies one; clear when adapter sends
           // an explicit `location: null` and no replacement URL (WS6 / #1516
           // Codex round 3 — without this, an event whose venue was scrubbed
@@ -1479,6 +1487,12 @@ async function upsertCanonicalEvent(
       if (!existingEvent.locationName && event.location) {
         const sanitized = sanitizeLocation(event.location);
         if (sanitized) enrichData.locationName = sanitized;
+      }
+      // #1579 — locationStreet enriches independently (sources like OKissMe
+      // split venue from street across separate columns; an address-only
+      // secondary source must be able to backfill the street).
+      if (!existingEvent.locationStreet && event.locationStreet) {
+        enrichData.locationStreet = event.locationStreet;
       }
       if (!existingEvent.startTime && event.startTime) {
         enrichData.startTime = event.startTime;

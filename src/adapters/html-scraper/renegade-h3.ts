@@ -52,6 +52,12 @@ export function parseEventHeader(
 }
 
 /**
+ * "Muster" label prefix — accepts both colon and bare-space forms
+ * (the source mixes both, e.g. run #295 "Muster:" vs run #296 "Muster ").
+ */
+const MUSTER_PREFIX_RE = /^muster[:\s]\s*/i;
+
+/**
  * Parse detail lines from an event's description paragraph.
  * Extracts hares, location, start time, hash cash, and other details.
  */
@@ -71,6 +77,10 @@ export function parseEventDetails(text: string): {
   let location: string | undefined;
   let locationUrl: string | undefined;
   let startTime: string | undefined;
+  // Precedence rank for whichever time label set startTime — higher beats
+  // lower regardless of line order. Muster (gather) > Pack Away (cutoff) >
+  // Chalk Talk (briefing). (#1581)
+  let timeRank = 0;
   const descParts: string[] = [];
 
   for (const line of lines) {
@@ -84,13 +94,17 @@ export function parseEventDetails(text: string): {
       if (location) {
         locationUrl = googleMapsSearchUrl(location);
       }
+    } else if (MUSTER_PREFIX_RE.test(line)) {
+      // Accepts both "Muster:" and "Muster " (the source mixes both — see
+      // run #295 vs run #296).
+      const candidate = parseTimeToHHMM(line.replace(MUSTER_PREFIX_RE, "").trim());
+      if (candidate && timeRank < 3) { startTime = candidate; timeRank = 3; }
     } else if (lower.startsWith("pack away:")) {
-      const timeText = line.replace(/^pack away:\s*/i, "").trim();
-      startTime = parseTimeToHHMM(timeText);
-    } else if (lower.startsWith("chalk talk:") && !startTime) {
-      // Use chalk talk as fallback if no "Pack Away" time
-      const timeText = line.replace(/^chalk talk:\s*/i, "").trim();
-      startTime = parseTimeToHHMM(timeText);
+      const candidate = parseTimeToHHMM(line.replace(/^pack away:\s*/i, "").trim());
+      if (candidate && timeRank < 2) { startTime = candidate; timeRank = 2; }
+    } else if (lower.startsWith("chalk talk:")) {
+      const candidate = parseTimeToHHMM(line.replace(/^chalk talk:\s*/i, "").trim());
+      if (candidate && timeRank < 1) { startTime = candidate; timeRank = 1; }
     } else {
       // Accumulate remaining lines as description
       descParts.push(line);
@@ -157,15 +171,21 @@ export class RenegadeH3Adapter implements SourceAdapter {
       headerCount++;
 
       try {
-        // Look at the next <p> for details
-        const $next = $p.next("p");
-        // Replace <br> with newlines before extracting text (Webador uses <br> separators)
-        if ($next.length > 0) $next.find("br").replaceWith("\n");
-        const detailText = $next.length > 0 ? $next.text().trim() : "";
-
-        // Only parse details if it looks like event info (not another header)
-        const hasDetails = detailText && !parseEventHeader(detailText);
-        const details = hasDetails ? parseEventDetails(detailText) : {};
+        // Walk forward through following <p> siblings, accumulating detail
+        // text until the next event header (or end of section). Run #295's
+        // details are split across TWO <p> blocks — Where/Hares in one, then
+        // Muster/Chalk Talk/Pack away/etc. in the next — so a single
+        // `$p.next("p")` lookup dropped startTime entirely. (#1581)
+        const detailParts: string[] = [];
+        for (let $sib = $p.next("p"); $sib.length > 0; $sib = $sib.next("p")) {
+          const sibText = $sib.text().trim();
+          if (!sibText) continue;
+          if (parseEventHeader(sibText)) break;
+          $sib.find("br").replaceWith("\n");
+          detailParts.push($sib.text().trim());
+        }
+        const detailText = detailParts.join("\n");
+        const details = detailText ? parseEventDetails(detailText) : {};
 
         const event: RawEventData = {
           date: header.date,
