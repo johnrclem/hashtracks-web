@@ -63,6 +63,9 @@ interface Candidate {
 async function findCandidates(prisma: PrismaClient): Promise<Candidate[]> {
   // Step 1: pull all candidate stale rows + kennelCode in one query
   // (drop the per-row kennel.findUnique — Gemini review on #1598).
+  // No `take` cap — this is a cleanup script and must be exhaustive
+  // (Codex P2 review on #1598). The ScheduleRule table is small
+  // (~400 rows total) so a full scan is trivial.
   const staleRows = await prisma.scheduleRule.findMany({
     where: {
       isActive: false,
@@ -78,7 +81,6 @@ async function findCandidates(prisma: PrismaClient): Promise<Candidate[]> {
       source: true,
       kennel: { select: { kennelCode: true } },
     },
-    take: 1000,
   });
 
   if (staleRows.length === 0) return [];
@@ -93,7 +95,6 @@ async function findCandidates(prisma: PrismaClient): Promise<Candidate[]> {
       startTime: { not: null },
     },
     select: { id: true, kennelId: true, rrule: true, startTime: true },
-    take: 1000,
   });
 
   const peersByKennel = new Map<string, typeof activePeers>();
