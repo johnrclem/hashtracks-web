@@ -1,5 +1,17 @@
 import { describe, it, expect, vi } from "vitest";
+import type { Source } from "@/generated/prisma/client";
 import { parseEventHeader, parseEventDetails, RenegadeH3Adapter } from "./renegade-h3";
+
+/**
+ * Minimal Source stub for adapter.fetch() — the real Prisma `Source` has many
+ * required fields the test doesn't care about, and the adapter only reads
+ * `id` and `url`. Hoisted to a single typed cast (vs inline `as never` at every
+ * call site) so the cast lives in one place. (#1626 Sonar S4325)
+ */
+const FAKE_SOURCE = {
+  id: "test",
+  url: "https://www.renegadeh3.com/events",
+} as unknown as Source;
 
 describe("RenegadeH3Adapter", () => {
   describe("parseEventHeader", () => {
@@ -142,10 +154,7 @@ describe("RenegadeH3Adapter", () => {
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
         new Response(html, { status: 200 }),
       );
-      const result = await new RenegadeH3Adapter().fetch({
-        id: "test",
-        url: "https://www.renegadeh3.com/events",
-      } as never); // NOSONAR S4325 — Prisma `Source` has many required fields the stub omits
+      const result = await new RenegadeH3Adapter().fetch(FAKE_SOURCE);
       const run295 = result.events.find((e) => e.runNumber === 295);
       expect(run295).toBeDefined();
       expect(run295!.date).toBe("2026-05-23");
@@ -173,10 +182,7 @@ describe("RenegadeH3Adapter", () => {
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
         new Response(html, { status: 200 }),
       );
-      const result = await new RenegadeH3Adapter().fetch({
-        id: "test",
-        url: "https://www.renegadeh3.com/events",
-      } as never); // NOSONAR S4325 — Prisma `Source` has many required fields the stub omits
+      const result = await new RenegadeH3Adapter().fetch(FAKE_SOURCE);
       const run295 = result.events.find((e) => e.runNumber === 295);
       const run294 = result.events.find((e) => e.runNumber === 294);
       expect(run295!.location).toBe("Nelson Park");
