@@ -155,11 +155,11 @@ const TIME_RE = new RegExp(
   "i",
 );
 // nosemgrep: detect-non-literal-regexp — patterns built from hard-coded constants in this file, no user input (mirrors hare-extraction.ts suppression)
-const HARES_RE = new RegExp(String.raw`Hare\(s?\)?:\s*(.+?)` + SECTION_TERMINATOR, "i");
+const HARES_RE = new RegExp(String.raw`Hare\(s?\)?:\s*(.+?)` + SECTION_TERMINATOR, "i"); // NOSONAR S5852 — non-greedy `(.+?)` is anchored by the literal SECTION_TERMINATOR lookahead, no super-linear backtracking on inputs we control
 // nosemgrep: detect-non-literal-regexp — patterns built from hard-coded constants in this file, no user input (mirrors hare-extraction.ts suppression)
-const WHERE_RE = new RegExp(String.raw`Where:\s*(.+?)` + SECTION_TERMINATOR, "i");
+const WHERE_RE = new RegExp(String.raw`Where:\s*(.+?)` + SECTION_TERMINATOR, "i"); // NOSONAR S5852 — non-greedy `(.+?)` is anchored by the literal SECTION_TERMINATOR lookahead, no super-linear backtracking on inputs we control
 // nosemgrep: detect-non-literal-regexp — patterns built from hard-coded constants in this file, no user input (mirrors hare-extraction.ts suppression)
-const COST_RE = new RegExp(String.raw`Hash Cash:\s*(.+?)` + SECTION_TERMINATOR, "i");
+const COST_RE = new RegExp(String.raw`Hash Cash:\s*(.+?)` + SECTION_TERMINATOR, "i"); // NOSONAR S5852 — non-greedy `(.+?)` is anchored by the literal SECTION_TERMINATOR lookahead, no super-linear backtracking on inputs we control
 
 interface DetailFields {
   startTime: string | undefined;
