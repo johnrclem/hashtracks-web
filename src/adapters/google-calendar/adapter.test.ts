@@ -3107,9 +3107,34 @@ describe("Chicagoland Hash Calendar routing (#938)", () => {
     expect(result?.kennelTags[0]).toBe(expectedTag);
   });
 
-  it("drops C2B3H4 placeholder 'HARE NEEDED' events (CTA filter)", () => {
+  // #1233: Kennel-attributed CTA placeholders ("C2B3H4 - HARE NEEDED") are real
+  // scheduled runs awaiting a hare, not calendar-wide reminders. They survive
+  // the adapter's CTA filter and pass the title through verbatim — the
+  // downstream merge-pipeline sanitizer (`isAdminTitle` in `merge.ts`) is the
+  // authoritative gate that drops admin verbiage and triggers synthesis to
+  // "<KennelName> Trail #N", so the adapter doesn't make a duplicate
+  // judgement call here.
+  it.each<[string, string]>([
+    ["C2B3H4 - HARE NEEDED", "c2b3h4"],
+    ["C2B3H4 #3: HARE NEEDED", "c2b3h4"],
+    ["C2B3H4 #5 - HARE NEEDED", "c2b3h4"],
+  ])("keeps kennel-attributed CTA placeholder %j → %s (#1233)", (summary, expectedTag) => {
     const result = buildRawEventFromGCalItem(
-      { summary: "C2B3H4 - HARE NEEDED", start: { dateTime: "2026-04-15T19:00:00-05:00" }, status: "confirmed" },
+      { summary, start: { dateTime: "2026-04-15T19:00:00-05:00" }, status: "confirmed" },
+      config,
+    );
+    expect(result).not.toBeNull();
+    expect(result?.kennelTags[0]).toBe(expectedTag);
+    // Raw title passes through; merge.ts handles the admin-verbiage strip.
+    expect(result?.title).toContain("C2B3H4");
+  });
+
+  // The CTA filter still rejects calendar-wide recruitment reminders that
+  // don't carry a kennel-specific prefix — those would fall through to the
+  // defaultKennelTag (ch3) and pollute Chicago H3's calendar.
+  it("still drops kennel-less CTA reminder (no pattern match → defaults to ch3)", () => {
+    const result = buildRawEventFromGCalItem(
+      { summary: "Hares Needed for August!", start: { dateTime: "2026-08-15T19:00:00-05:00" }, status: "confirmed" },
       config,
     );
     expect(result).toBeNull();

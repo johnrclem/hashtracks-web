@@ -310,6 +310,11 @@ export const SOURCES = [
       scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
+        // GCal drops past events from its `singleEvents=true` window as time
+        // marches forward; without this flag reconcile interprets the
+        // disappearance as a cancellation signal and CANCELLEDs every past
+        // CONFIRMED event in the kennel — the storm root cause for #1233.
+        upcomingOnly: true,
         kennelPatterns: [
           // C2B3H4 must come before generic CH3 so it doesn't accidentally
           // match. Chicago Ballbusters H3 — sister to Boston B3H4 (#938).
@@ -2934,14 +2939,19 @@ export const SOURCES = [
       config: {
         sheetId: "anonymous",
         csvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtbizBGgic04azrTshlhcpRolA73yaiIijIFUSV0Gq7gU7KKchGWl0JRPHeIYspoq1PAx5XlyLTBfr/pub?output=csv&gid=2100367947",
-        // #923: source has 6 cols (#, Date, Group, Start time, Hared by,
+        // #923: source has 7 cols (#, Date, Group, Start time, Hared by,
         // Location, Notes — col index 0..6). Wire startTime to col 3 so
         // Munich H3 events surface their actual start (15:00 / 17:00 /
         // 19:00 vary per event). Drop the dead `title: 7` mapping.
-        columns: { runNumber: 0, date: 1, hares: 4, location: 5, description: 6, startTime: 3 },
+        //
+        // #1542: Sheet is shared with MFMH3 + MASS H3 + BNH rows. Filter on the
+        // `Group` column so only Group="MH3" rows land on mh3-de. Sibling
+        // kennels will be onboarded as separate Source rows reading the same
+        // sheet with their own groupFilter.
+        columns: { runNumber: 0, date: 1, hares: 4, location: 5, description: 6, startTime: 3, group: 2 },
+        groupFilter: "MH3",
         kennelTagRules: { default: "mh3-de" },
       },
-      // Group column has MH3/MFMH3/MASS H3 but Sheets adapter can't route by column — all events tagged MH3
       kennelCodes: ["mh3-de"],
     },
     // Frankfurt (HTML Scraper — JEM archive, 1098 events)

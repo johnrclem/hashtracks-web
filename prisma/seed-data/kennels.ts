@@ -2653,10 +2653,12 @@ export const KENNELS: KennelSeed[] = [
       latitude: 35.15, longitude: -90.05,
     },
     {
-      kennelCode: "gynoh3", shortName: "GyNO H3", fullName: "Gyrls Night Out Hash House Harriers", region: "Memphis, TN",
+      kennelCode: "gynoh3", shortName: "GyNO H3", fullName: "Gyrls Night Out Hash House Harriettes", region: "Memphis, TN",
       scheduleDayOfWeek: "Monday", scheduleTime: "6:00 PM", scheduleFrequency: "Monthly",
       scheduleNotes: "3rd Monday of each month. Plus 1st Thursday Harriette Happy Hour at 6:00 PM.",
       foundedYear: 2025,
+      founder: "Wrap It Up",
+      parentKennelCode: "mh3-tn",
       description: "Women-only kennel in Memphis, TN, supported by Memphis Hash House Harriers. Founded October 20, 2025. Monthly trail on 3rd Mondays at 6:00 PM, with a Harriette Happy Hour the 1st Thursday of each month.",
       latitude: 35.15, longitude: -90.05,
     },

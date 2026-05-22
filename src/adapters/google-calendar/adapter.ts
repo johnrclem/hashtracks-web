@@ -896,22 +896,26 @@ export function normalizeGCalDescription(rawDesc: string | undefined): { rawDesc
  * When no pattern matches and no default is set, returns the summary as kennelTag
  * so the merge pipeline records distinct UNMATCHED_TAG samples per unique title
  * (empty strings would collapse every unmatched event into a single alert).
+ *
+ * `matchedPattern` is true only when an explicit `kennelPatterns` entry hit;
+ * default-fallback and bare-summary routes return false. Used by the CTA
+ * placeholder filter (#1233) to keep kennel-attributed reminders.
  */
 function resolveKennelTagFromSummary(
   summary: string,
   sourceConfig: CalendarSourceConfig | null,
   compiledKennelPatterns?: CompiledKennelPattern[],
-): { kennelTags: string[]; useFullTitle: boolean } | null {
+): { kennelTags: string[]; useFullTitle: boolean; matchedPattern: boolean } | null {
   if (sourceConfig?.kennelPatterns) {
     const matched = matchConfigPatterns(summary, sourceConfig.kennelPatterns, compiledKennelPatterns);
-    if (matched.length > 0) return { kennelTags: matched, useFullTitle: true };
+    if (matched.length > 0) return { kennelTags: matched, useFullTitle: true, matchedPattern: true };
     if (sourceConfig.strictKennelRouting) return null;
-    return { kennelTags: [sourceConfig.defaultKennelTag ?? summary], useFullTitle: true };
+    return { kennelTags: [sourceConfig.defaultKennelTag ?? summary], useFullTitle: true, matchedPattern: false };
   }
   if (sourceConfig?.defaultKennelTag) {
-    return { kennelTags: [sourceConfig.defaultKennelTag], useFullTitle: true };
+    return { kennelTags: [sourceConfig.defaultKennelTag], useFullTitle: true, matchedPattern: false };
   }
-  return { kennelTags: [summary], useFullTitle: true };
+  return { kennelTags: [summary], useFullTitle: true, matchedPattern: false };
 }
 
 /** Parse source.config into CalendarSourceConfig or null. */
@@ -986,12 +990,8 @@ export function buildRawEventFromGCalItem(
       if (re.test(summary)) return null;
     }
   }
-  // Skip placeholder recruitment events whose title is a CTA ("Hares needed",
-  // "Hare wanted", etc.) — never real trails. Mirrors the `title-cta-text`
-  // audit rule so placeholders never reach ingestion.
-  for (const re of CTA_EMBEDDED_PATTERNS) {
-    if (re.test(summary)) return null;
-  }
+  // Note: CTA recruitment-placeholder filter moved below resolveKennelTagFromSummary
+  // so kennel-attributed placeholders ("C2B3H4 - HARE NEEDED") survive (#1233).
   // Skip events from Google's imported holiday calendars (organizer.email has
   // the form `…holiday…@group.v.calendar.google.com`).
   const organizerEmail = item.organizer?.email ?? item.creator?.email;
@@ -1027,11 +1027,18 @@ export function buildRawEventFromGCalItem(
   }
   const resolved = resolveKennelTagFromSummary(summary, sourceConfig, compiledKennelPatterns);
   if (!resolved) return null;
-  const { kennelTags, useFullTitle } = resolved;
+  const { kennelTags, useFullTitle, matchedPattern } = resolved;
   // The first resolved tag is the primary kennel for routing/title fallback
   // logic below. Co-host secondaries (#1023) ride along in `kennelTags` and
   // are written to EventKennel rows by the merge pipeline.
   const kennelTag = kennelTags[0];
+  // CTA recruitment-placeholder filter (#1233). Drop calendar-wide reminders
+  // ("Hares needed for July") with no kennel signal, but keep kennel-attributed
+  // placeholders ("C2B3H4 - HARE NEEDED") — those are real runs awaiting a hare,
+  // and merge.ts's `isAdminTitle` path will synthesize a clean title.
+  if (!matchedPattern && CTA_EMBEDDED_PATTERNS.some((re) => re.test(summary))) {
+    return null;
+  }
   // Location: prefer item.location (unless placeholder or instruction text), fall back to description extraction.
   // #743: strip trailing phone numbers and contact-CTA parentheticals from the
   // raw GCal location field. Trailing only — a bare "1 800 ..." in the middle
@@ -1076,7 +1083,10 @@ export function buildRawEventFromGCalItem(
   // rather show the coords than the kennel-default fallback (#1195 GAL).
   if (!location && coordOnlyDisplay) location = coordOnlyDisplay;
 
-  // Determine title: if title matches kennel tag, try description fallback
+  // Determine title: if title matches kennel tag, try description fallback.
+  // CTA-bearing summaries pass through verbatim so merge.ts's `isAdminTitle`
+  // path can preserve any theme prefix ("C2B3H4 #5 Turkey Trot - Hares Needed"
+  // → "Turkey Trot") rather than the adapter making a duplicate strip (#1233).
   let title = useFullTitle ? summary : extractTitle(summary);
   title = stripDatePrefix(title);
   // Strip a trailing dash/delimiter (#756 "Moooouston H3 Trail -" /

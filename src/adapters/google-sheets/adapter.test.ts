@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Source } from "@/generated/prisma/client";
-import { parseDate, inferStartTime, parseCSV, buildEventFromSheetRow, parseSheetStartTimeCell, GoogleSheetsAdapter } from "./adapter";
+import { parseDate, inferStartTime, parseCSV, buildEventFromSheetRow, parseSheetStartTimeCell, GoogleSheetsAdapter, normalizeGroupFilter, tokenizeGroupCell } from "./adapter";
 import type { GoogleSheetsConfig } from "./adapter";
 
 // Mock safeFetch
@@ -720,5 +720,233 @@ describe("GoogleSheetsAdapter.fetch — csvUrl", () => {
     expect(result.events).toEqual([]);
     expect(result.errors.length).toBe(1);
     expect(result.errors[0]).toContain("403");
+  });
+});
+
+// ── #1542 group_filter: shared multi-kennel sheets ──
+
+describe("normalizeGroupFilter (#1542)", () => {
+  it("returns null when filter is undefined", () => {
+    expect(normalizeGroupFilter(undefined)).toBeNull();
+  });
+
+  it("returns null when filter is an empty array", () => {
+    expect(normalizeGroupFilter([])).toBeNull();
+  });
+
+  it("returns null when filter contains only blank strings", () => {
+    expect(normalizeGroupFilter(["", "   "])).toBeNull();
+  });
+
+  it("wraps a bare string into a single-item lowercased set", () => {
+    const set = normalizeGroupFilter("MH3");
+    expect(set).not.toBeNull();
+    expect(set?.has("mh3")).toBe(true);
+    expect(set?.size).toBe(1);
+  });
+
+  it("accepts multi-value arrays and trims/lowercases each", () => {
+    const set = normalizeGroupFilter([" MH3 ", "Mfmh3"]);
+    expect(set?.size).toBe(2);
+    expect(set?.has("mh3")).toBe(true);
+    expect(set?.has("mfmh3")).toBe(true);
+  });
+});
+
+describe("tokenizeGroupCell (#1542)", () => {
+  it("returns [] for undefined / empty / whitespace cells", () => {
+    expect(tokenizeGroupCell(undefined)).toEqual([]);
+    expect(tokenizeGroupCell("")).toEqual([]);
+    expect(tokenizeGroupCell("   ")).toEqual([]);
+  });
+
+  it("returns a single lowercased token for a plain value", () => {
+    expect(tokenizeGroupCell("MH3")).toEqual(["mh3"]);
+    expect(tokenizeGroupCell("  Mfmh3 ")).toEqual(["mfmh3"]);
+  });
+
+  it("splits multi-value cells on /, comma, semicolon", () => {
+    expect(tokenizeGroupCell("MH3 / BNH")).toEqual(["mh3", "bnh"]);
+    expect(tokenizeGroupCell("MH3,MFMH3")).toEqual(["mh3", "mfmh3"]);
+    expect(tokenizeGroupCell("MH3; BNH; Hashathon")).toEqual(["mh3", "bnh", "hashathon"]);
+  });
+
+  it("does NOT substring-match (MH3FAKE stays MH3FAKE, not MH3)", () => {
+    expect(tokenizeGroupCell("MH3FAKE")).toEqual(["mh3fake"]);
+  });
+});
+
+describe("GoogleSheetsAdapter.fetch — groupFilter (#1542)", () => {
+  beforeEach(() => {
+    vi.stubEnv("GOOGLE_CALENDAR_API_KEY", "test-key");
+    mockedSafeFetch.mockReset();
+  });
+
+  it("keeps only rows whose Group cell matches groupFilter", async () => {
+    // Mirrors the Munich H3 sheet layout: # | Date | Group | Start | Hares | Location | Notes
+    const csv = [
+      "#,Date,Group,Start time,Hared by,Location,Notes",
+      `930,${testDateMDY},MH3,15:00,Half Monty,Englischer Garten,MH3 trail`,
+      `27,${testDateMDY},MASS H3,15:00,Bushy G,Munich,MASS H3 trail (sibling)`,
+      `264,${testDateMDY},MFMH3,21:00,Moose Diver,Olympic Park,Full Moon (sibling)`,
+      `,${testDateMDY},BNH,12:00,Various,Region,Joint Bayern Nash`,
+      `931,${testDateMDY},MH3,17:00,Banana Beater,Marienplatz,MH3 trail`,
+    ].join("\n");
+
+    mockedSafeFetch.mockResolvedValueOnce(mockFetchResponse(csv));
+
+    const config: GoogleSheetsConfig = {
+      sheetId: "munich",
+      csvUrl: "https://example.com/pub?output=csv",
+      columns: { runNumber: 0, date: 1, group: 2, startTime: 3, hares: 4, location: 5, description: 6 },
+      groupFilter: "MH3",
+      kennelTagRules: { default: "mh3-de" },
+    };
+    const adapter = new GoogleSheetsAdapter();
+    const result = await adapter.fetch(makeSource({ config: config as unknown as null }));
+
+    expect(result.events.length).toBe(2);
+    expect(result.events.map((e) => e.runNumber)).toEqual([930, 931]);
+    expect(result.events.every((e) => e.kennelTags[0] === "mh3-de")).toBe(true);
+  });
+
+  it("matches case-insensitively after trimming whitespace", async () => {
+    const csv = [
+      "#,Date,Group,Start time,Hared by,Location,Notes",
+      `930,${testDateMDY}, mh3 ,15:00,Half Monty,Englischer Garten,trimmed`,
+      `931,${testDateMDY},Mh3,17:00,Banana Beater,Marienplatz,mixed case`,
+      `27,${testDateMDY},MASS H3,15:00,Bushy G,Munich,sibling`,
+    ].join("\n");
+
+    mockedSafeFetch.mockResolvedValueOnce(mockFetchResponse(csv));
+
+    const config: GoogleSheetsConfig = {
+      sheetId: "munich",
+      csvUrl: "https://example.com/pub?output=csv",
+      columns: { runNumber: 0, date: 1, group: 2, startTime: 3, hares: 4, location: 5, description: 6 },
+      groupFilter: "MH3",
+      kennelTagRules: { default: "mh3-de" },
+    };
+    const adapter = new GoogleSheetsAdapter();
+    const result = await adapter.fetch(makeSource({ config: config as unknown as null }));
+
+    expect(result.events.length).toBe(2);
+    expect(result.events.map((e) => e.runNumber)).toEqual([930, 931]);
+  });
+
+  it("skips rows with an empty Group cell when groupFilter is configured", async () => {
+    // An unlabeled row is ambiguous — preserve the kennel's run list integrity
+    // rather than risk a silent cross-kennel leak (#1542).
+    const csv = [
+      "#,Date,Group,Start time,Hared by,Location,Notes",
+      `930,${testDateMDY},MH3,15:00,Half Monty,Munich,kept`,
+      `931,${testDateMDY},,17:00,Mystery,Unknown,dropped`,
+    ].join("\n");
+
+    mockedSafeFetch.mockResolvedValueOnce(mockFetchResponse(csv));
+
+    const config: GoogleSheetsConfig = {
+      sheetId: "munich",
+      csvUrl: "https://example.com/pub?output=csv",
+      columns: { runNumber: 0, date: 1, group: 2, startTime: 3, hares: 4, location: 5, description: 6 },
+      groupFilter: "MH3",
+      kennelTagRules: { default: "mh3-de" },
+    };
+    const adapter = new GoogleSheetsAdapter();
+    const result = await adapter.fetch(makeSource({ config: config as unknown as null }));
+
+    expect(result.events.length).toBe(1);
+    expect(result.events[0].runNumber).toBe(930);
+  });
+
+  it("supports multi-value filter (host kennel + co-host alias)", async () => {
+    const csv = [
+      "#,Date,Group,Start time,Hared by,Location,Notes",
+      `930,${testDateMDY},MH3,15:00,Half Monty,Munich,host`,
+      `940,${testDateMDY},BNH,12:00,Various,Region,co-host (MH3 hosting)`,
+      `27,${testDateMDY},MASS H3,15:00,Bushy G,Munich,sibling`,
+    ].join("\n");
+
+    mockedSafeFetch.mockResolvedValueOnce(mockFetchResponse(csv));
+
+    const config: GoogleSheetsConfig = {
+      sheetId: "munich",
+      csvUrl: "https://example.com/pub?output=csv",
+      columns: { runNumber: 0, date: 1, group: 2, startTime: 3, hares: 4, location: 5, description: 6 },
+      groupFilter: ["MH3", "BNH"],
+      kennelTagRules: { default: "mh3-de" },
+    };
+    const adapter = new GoogleSheetsAdapter();
+    const result = await adapter.fetch(makeSource({ config: config as unknown as null }));
+
+    expect(result.events.length).toBe(2);
+    expect(result.events.map((e) => e.runNumber)).toEqual([930, 940]);
+  });
+
+  it("keeps multi-value cells when one token matches (MH3 / Hashathon)", async () => {
+    // Live Munich sheet has rows like "MH3/ Hashathon" — those are real MH3
+    // events with a co-host annotation, not sibling-kennel rows.
+    const csv = [
+      "#,Date,Group,Start time,Hared by,Location,Notes",
+      `939,${testDateMDY},MH3/ Hashathon,15:00,BirdBrian,Bavaria,host annotation`,
+      `940,${testDateMDY},MH3 / BNH,12:00,Various,Munich,joint trail`,
+      `27,${testDateMDY},MASS H3,15:00,Bushy G,Munich,sibling only — drop`,
+    ].join("\n");
+
+    mockedSafeFetch.mockResolvedValueOnce(mockFetchResponse(csv));
+
+    const config: GoogleSheetsConfig = {
+      sheetId: "munich",
+      csvUrl: "https://example.com/pub?output=csv",
+      columns: { runNumber: 0, date: 1, group: 2, startTime: 3, hares: 4, location: 5, description: 6 },
+      groupFilter: "MH3",
+      kennelTagRules: { default: "mh3-de" },
+    };
+    const adapter = new GoogleSheetsAdapter();
+    const result = await adapter.fetch(makeSource({ config: config as unknown as null }));
+
+    expect(result.events.length).toBe(2);
+    expect(result.events.map((e) => e.runNumber)).toEqual([939, 940]);
+  });
+
+  it("fails fast when groupFilter is set but columns.group is missing", async () => {
+    // Silent skip on this misconfig would re-introduce sibling-kennel
+    // conflation. The adapter must surface it as an error instead.
+    const config: GoogleSheetsConfig = {
+      sheetId: "munich",
+      csvUrl: "https://example.com/pub?output=csv",
+      columns: { runNumber: 0, date: 1, hares: 4, location: 5, description: 6, startTime: 3 },
+      groupFilter: "MH3",
+      kennelTagRules: { default: "mh3-de" },
+    };
+    const adapter = new GoogleSheetsAdapter();
+    const result = await adapter.fetch(makeSource({ config: config as unknown as null }));
+
+    expect(result.events).toEqual([]);
+    expect(result.errors[0]).toContain("groupFilter configured without columns.group");
+    // No CSV fetch should have occurred — we reject before hitting the network.
+    expect(mockedSafeFetch).not.toHaveBeenCalled();
+  });
+
+  it("backwards-compatible: no groupFilter → existing behavior unchanged", async () => {
+    const csv = [
+      "#,Date,Group,Start time,Hared by,Location,Notes",
+      `930,${testDateMDY},MH3,15:00,Half Monty,Munich,row1`,
+      `27,${testDateMDY},MASS H3,15:00,Bushy G,Munich,row2`,
+    ].join("\n");
+
+    mockedSafeFetch.mockResolvedValueOnce(mockFetchResponse(csv));
+
+    const config: GoogleSheetsConfig = {
+      sheetId: "munich",
+      csvUrl: "https://example.com/pub?output=csv",
+      columns: { runNumber: 0, date: 1, group: 2, startTime: 3, hares: 4, location: 5, description: 6 },
+      // no groupFilter — all rows pass through
+      kennelTagRules: { default: "mh3-de" },
+    };
+    const adapter = new GoogleSheetsAdapter();
+    const result = await adapter.fetch(makeSource({ config: config as unknown as null }));
+
+    expect(result.events.length).toBe(2);
   });
 });
