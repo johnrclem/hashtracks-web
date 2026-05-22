@@ -611,7 +611,7 @@ export class ICalAdapter implements SourceAdapter {
     // (theme, registration, lodging) lands on the canonical parent Event;
     // trails fall under it via parentEventId after merge.
     // No-op for feeds without sfh3.com/events URLs, so unconditional is safe.
-    events = markSFH3SeriesMembership(events);
+    markSFH3SeriesMembership(events);
 
     // SFH3-specific enrichment: the .ics SUMMARY omits "Run" and has no Comment
     // field. Pull the canonical title + Comment from /runs/{id} so the merge

@@ -822,16 +822,15 @@ describe("markSFH3SeriesMembership (#1560)", () => {
       buildTrail({ date: "2026-05-16", sourceUrl: "https://www.sfh3.com/runs/6490", startTime: "11:30" }),
       buildTrail({ date: "2026-05-17", sourceUrl: "https://www.sfh3.com/runs/6488", startTime: "08:00" }),
     ];
-    const result = markSFH3SeriesMembership(events);
-    expect(result).toBe(events); // mutates in place
-    expect(result.map((e) => e.seriesId)).toEqual([
+    markSFH3SeriesMembership(events); // mutates in place; void return
+    expect(events.map((e) => e.seriesId)).toEqual([
       "sfh3-event-134", "sfh3-event-134", "sfh3-event-134", "sfh3-event-134",
     ]);
     // Only the umbrella carries the explicit parent flag.
-    expect(result[0].seriesParent).toBe(true);
-    expect(result.slice(1).every((e) => e.seriesParent !== true)).toBe(true);
+    expect(events[0].seriesParent).toBe(true);
+    expect(events.slice(1).every((e) => e.seriesParent !== true)).toBe(true);
     // Rich description preserved on the parent (was being dropped pre-#1560).
-    expect(result[0].description).toMatch(/registration|lodging/);
+    expect(events[0].description).toMatch(/registration|lodging/);
   });
 
   it("does not tag a trail outside the umbrella's [date, endDate] window", () => {
@@ -876,10 +875,9 @@ describe("markSFH3SeriesMembership (#1560)", () => {
     expect(trail.seriesId).toBe("sfh3-event-134");
   });
 
-  it("returns the input unchanged when there are no /events/ umbrellas", () => {
+  it("leaves the input untouched when there are no /events/ umbrellas", () => {
     const events = [buildTrail()];
-    const result = markSFH3SeriesMembership(events);
-    expect(result).toBe(events);
+    markSFH3SeriesMembership(events);
     expect(events[0].seriesId).toBeUndefined();
   });
 

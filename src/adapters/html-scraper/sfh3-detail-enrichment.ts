@@ -192,11 +192,12 @@ const SFH3_UMBRELLA_ID_RE = /sfh3\.com\/events\/(\d+)/;
  *    (no `seriesParent` flag). The merge pipeline's `linkMultiDaySeries`
  *    then links them via `parentEventId`.
  *
- * Returns the same `events` array (mutated in place) for chainable API symmetry
- * with `suppressSFH3UmbrellaDuplicates`. Trails outside any umbrella window
- * are untouched. Co-hosted umbrellas (multiple kennelTags) attach trails for
- * every overlapping (kennel, date) — a sibling kennel's standalone trail
- * is not pulled into the series.
+ * Mutates `events` in place; returns `void` (Sonar S3516 — when every return
+ * path returns the same reference, the return is just noise). Callers
+ * continue using the same array reference they passed in. Trails outside
+ * any umbrella window are untouched. Co-hosted umbrellas (multiple
+ * kennelTags) attach trails for every overlapping (kennel, date) — a
+ * sibling kennel's standalone trail is not pulled into the series.
  *
  * Safe to call unconditionally — returns early when no `sfh3.com/events/`
  * URLs are present, so non-SFH3 iCal feeds pass through untouched.
@@ -293,12 +294,11 @@ function backfillUmbrellaEndDates(
   }
 }
 
-export function markSFH3SeriesMembership(events: RawEventData[]): RawEventData[] {
+export function markSFH3SeriesMembership(events: RawEventData[]): void {
   const umbrellas = collectSFH3Umbrellas(events);
-  if (umbrellas.length === 0) return events;
+  if (umbrellas.length === 0) return;
   const inferredEndDateBySeries = tagSFH3TrailsToUmbrellas(events, umbrellas);
   backfillUmbrellaEndDates(umbrellas, inferredEndDateBySeries);
-  return events;
 }
 
 /**

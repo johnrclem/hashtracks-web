@@ -4030,50 +4030,55 @@ function buildCanonicalEventRow(id: string): Record<string, unknown> {
   };
 }
 
-describe("linkMultiDaySeries (#1560)", () => {
-  // Shared helper: prime processRawEvents to land each incoming raw as a
-  // fresh canonical Event. The merge loop reads via prisma.event.findMany
-  // through TWO distinct query shapes — `ensureKennelEventCache` uses
-  // `where.kennelId/date`, and `linkMultiDaySeries` uses `where.id.in`.
-  // We route by inspecting the where clause so post-link Once seeds aren't
-  // eaten by the per-event ensureKennelEventCache call.
-
-  function primeFreshCreate(eventIds: string[], postLinkStatuses?: Array<{ id: string; status: string }>) {
-    mockEventFindMany.mockReset();
-    // Loose typing on the impl — Prisma's generated client types are too
-    // strict for a router-style mock; the actual call shapes we route on
-    // are stable enough (the merge pipeline drives them).
-    (mockEventFindMany.mockImplementation as unknown as (fn: (args?: unknown) => Promise<unknown>) => unknown)(
-      async (args?: unknown) => {
-        const w = (args as { where?: { id?: { in?: string[] } } } | undefined)?.where;
-        if (w?.id && typeof w.id === "object" && Array.isArray(w.id.in) && postLinkStatuses) {
-          return postLinkStatuses;
-        }
-        return [];
-      },
-    );
-    for (const id of eventIds) {
-      // The `as never` casts are required: Prisma's generated mock types
-      // demand the FULL row shape (37+ fields including JsonValue rawData),
-      // but our stubs only carry the EVENT_CACHE_SELECT-shaped subset and
-      // a synthetic raw-id. Sonar's S4325 misfires here because it doesn't
-      // see Prisma's generated overload set.
-      mockEventCreate.mockResolvedValueOnce(buildCanonicalEventRow(id) as never); // NOSONAR S4325
-      mockRawEventCreate.mockResolvedValueOnce({ id: `raw_${id}` } as never); // NOSONAR S4325
-    }
-    // Stub event.update to echo the row back so post-update cache patching
-    // doesn't lose the EVENT_CACHE_SELECT-shaped fields recomputeCanonical needs.
-    (mockEventUpdate.mockImplementation as unknown as (fn: (args?: unknown) => Promise<unknown>) => unknown)(
-      async (args?: unknown) => {
-        const a = args as { where?: { id?: string }; data?: Record<string, unknown> } | undefined;
-        const row = buildCanonicalEventRow(a?.where?.id ?? "evt_unknown");
-        return { ...row, ...a?.data };
-      },
-    );
-    // Fingerprints distinct so dedup never short-circuits.
-    mockFingerprint.mockReset();
-    eventIds.forEach((id, i) => mockFingerprint.mockReturnValueOnce(`fp_${id}_${i}`));
+/**
+ * Prime `processRawEvents` to land each incoming raw as a fresh canonical
+ * Event. The merge loop reads via `prisma.event.findMany` through TWO
+ * distinct query shapes — `ensureKennelEventCache` uses `where.kennelId/date`,
+ * and `linkMultiDaySeries` uses `where.id.in`. We route by inspecting the
+ * where clause so post-link `Once` seeds aren't eaten by the per-event
+ * ensureKennelEventCache call.
+ *
+ * Lifted to module scope (Sonar S7721) so the closure isn't re-allocated
+ * per `describe` invocation; reads from the module-level mock handles.
+ */
+function primeFreshCreate(eventIds: string[], postLinkStatuses?: Array<{ id: string; status: string }>) {
+  mockEventFindMany.mockReset();
+  // Loose typing on the impl — Prisma's generated client types are too
+  // strict for a router-style mock; the actual call shapes we route on
+  // are stable enough (the merge pipeline drives them).
+  (mockEventFindMany.mockImplementation as unknown as (fn: (args?: unknown) => Promise<unknown>) => unknown)(
+    async (args?: unknown) => {
+      const w = (args as { where?: { id?: { in?: string[] } } } | undefined)?.where;
+      if (w?.id && typeof w.id === "object" && Array.isArray(w.id.in) && postLinkStatuses) {
+        return postLinkStatuses;
+      }
+      return [];
+    },
+  );
+  for (const id of eventIds) {
+    // The `as never` casts are required: Prisma's generated mock types
+    // demand the FULL row shape (37+ fields including JsonValue rawData),
+    // but our stubs only carry the EVENT_CACHE_SELECT-shaped subset and
+    // a synthetic raw-id. Sonar's S4325 misfires here because it doesn't
+    // see Prisma's generated overload set.
+    mockEventCreate.mockResolvedValueOnce(buildCanonicalEventRow(id) as never); // NOSONAR S4325
+    mockRawEventCreate.mockResolvedValueOnce({ id: `raw_${id}` } as never); // NOSONAR S4325
   }
+  // Stub event.update to echo the row back so post-update cache patching
+  // doesn't lose the EVENT_CACHE_SELECT-shaped fields recomputeCanonical needs.
+  (mockEventUpdate.mockImplementation as unknown as (fn: (args?: unknown) => Promise<unknown>) => unknown)(
+    async (args?: unknown) => {
+      const a = args as { where?: { id?: string }; data?: Record<string, unknown> } | undefined;
+      const row = buildCanonicalEventRow(a?.where?.id ?? "evt_unknown");
+      return { ...row, ...a?.data };
+    },
+  );
+  // Fingerprints distinct so dedup never short-circuits.
+  mockFingerprint.mockReset();
+  eventIds.forEach((id, i) => mockFingerprint.mockReturnValueOnce(`fp_${id}_${i}`));
+}
+
+describe("linkMultiDaySeries (#1560)", () => {
 
   it("picks earliest event as parent when no raw is marked seriesParent", async () => {
     primeFreshCreate(["evt_fri", "evt_sat", "evt_sun"], [
