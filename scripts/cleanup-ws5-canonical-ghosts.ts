@@ -46,6 +46,7 @@
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
+import { stripMapBoilerplate } from "../src/adapters/html-scraper/sydney-thirsty-h3";
 import { createScriptPool } from "./lib/db-pool";
 
 const dryRun = !process.argv.includes("--apply");
@@ -71,25 +72,6 @@ function truncateAtSentence(value: string): string | null {
   if (tailTokens.length < 3) return null;
   if (!/(?:^|\s)[a-z]/.test(tail)) return null;
   return value.slice(0, idx).trim();
-}
-
-/** Mirrors sydney-thirsty-h3.ts: strip "at the map location below" + trailing comma. */
-const MAP_BOILERPLATE_PHRASE = "at the map location below";
-
-function stripTrailingCommas(value: string): string {
-  let s = value;
-  while (s.endsWith(",")) s = s.slice(0, -1).trimEnd();
-  return s;
-}
-
-function stripMapBoilerplate(value: string): string {
-  let s = value.trimEnd();
-  if (s.endsWith(".")) s = s.slice(0, -1).trimEnd();
-  if (s.toLowerCase().endsWith(MAP_BOILERPLATE_PHRASE)) {
-    s = s.slice(0, -MAP_BOILERPLATE_PHRASE.length).trimEnd();
-    s = stripTrailingCommas(s);
-  }
-  return s;
 }
 
 /** Mirrors fb parser TITLE_TRAILING_DELIMITER_RE. Returns null when no change. */

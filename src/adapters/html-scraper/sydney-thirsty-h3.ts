@@ -54,7 +54,10 @@ function stripTrailingCommas(value: string): string {
   return s;
 }
 
-function stripMapBoilerplate(value: string): string {
+// Exported for the one-shot cleanup script that backfills the same
+// transformation onto canonical Event.locationName values (see
+// scripts/cleanup-ws5-canonical-ghosts.ts).
+export function stripMapBoilerplate(value: string): string {
   let s = value.trimEnd();
   if (s.endsWith(".")) s = s.slice(0, -1).trimEnd();
   if (s.toLowerCase().endsWith(MAP_BOILERPLATE_PHRASE)) {
