@@ -53,11 +53,11 @@ const KENNEL_TAG = "Norfolk H3";
 //
 // "Park\s+(?:on|at|near|nearby|along)" catches parking-instruction notes
 // that Norfolk authors append to the venue block ("Park on nearby roads."
-// — #1544; "Park at back of pub" — #2149), without triggering on actual
-// park-named venues like "Park Lane" or "Hyde Park" (no following
-// preposition). `in` and `by` are intentionally excluded — they appear in
-// real venue names ("Park in the Past", "Park by the Sea") and the live
-// data so far never uses them for parking instructions.
+// — #1544; "Park at back of pub" — observed on Run #2149), without
+// triggering on actual park-named venues like "Park Lane" or "Hyde Park"
+// (no following preposition). `in` and `by` are intentionally excluded —
+// they appear in real venue names ("Park in the Past", "Park by the Sea")
+// and the live data so far never uses them for parking instructions.
 //
 // Source-layout assumption (verified against current and historical Norfolk
 // posts): each post wraps an entire section (Venue+address, Hare(s)+names,
@@ -78,14 +78,12 @@ const HARES_RE = new RegExp(
   "i",
 );
 
-// Standalone "?" lines that appear when a Norfolk author splits "???" across
-// `<br>`/`<p>` boundaries (or leaves a residual "?" between address parts).
-// Used to filter those tokens out of multi-line Venue/Hare captures so they
-// don't bleed in as prefixes (#1546).
-const STANDALONE_Q_RE = /^\?+$/;
-// Leading "?" prefix on a same-segment field value, with or without an
-// adjacent space — e.g. "? Woolly & Bagpuss", "?Woolly", "??? Clint Green"
-// (#1546). Stripped after the per-segment split.
+// Leading "?" prefix (or whole-segment "?+") on a same-segment field
+// value, with or without an adjacent space — e.g. "? Woolly & Bagpuss",
+// "?Woolly", "??? Clint Green", or a standalone "?" line that appears
+// when a Norfolk author splits "???" across `<br>`/`<p>` boundaries
+// (#1546). Stripped per-segment after the [\n,] split; pure-"?+" segments
+// collapse to "" and are then dropped by the `s.length > 0` filter.
 const LEADING_Q_PREFIX_RE = /^\?+\s*/;
 // Volunteer-prompt placeholder Norfolk uses when no hare has signed up.
 // `[\s,]+` between "be" and "you?" tolerates the comma artifact produced
@@ -97,15 +95,15 @@ const IT_COULD_BE_YOU_RE = /^It\s+could\s+be[\s,]+you\??$/i;
 /**
  * Normalize a multi-line/multi-segment field capture (Venue or Hare(s)) into a
  * single comma-separated string. Splits on both `\n` and `,`, trims each
- * segment, strips a residual leading "?" prefix (#1546), and filters out
- * standalone "?" / "??" / "???" tokens and empty fragments.
+ * segment, strips a leading "?" prefix (#1546 — also collapses pure-"?+"
+ * segments to ""), and filters out empty fragments.
  * Exported for unit testing.
  */
 export function joinFieldSegments(raw: string): string {
   return raw
     .split(/[\n,]/)
     .map((s) => s.trim().replace(LEADING_Q_PREFIX_RE, "").trim())
-    .filter((s) => s.length > 0 && !STANDALONE_Q_RE.test(s))
+    .filter((s) => s.length > 0)
     .join(", ");
 }
 
