@@ -8,6 +8,7 @@ import {
   isReplyEntry,
   extractEventDate,
   extractEventFields,
+  stripPhpBbBanners,
   AtlantaHashBoardAdapter,
 } from "./atlanta-hash-board";
 
@@ -209,6 +210,102 @@ describe("extractEventFields", () => {
     expect(fields.hares).toBeUndefined();
     expect(fields.location).toBeUndefined();
     expect(fields.startTime).toBeUndefined();
+  });
+
+  // ── #1587: body run-number must require "Run #NNN" prose marker, not just
+  // bare #NNN — street-address suite numbers (#2000) and cross-kennel
+  // references (#946 was Black Sheep's) were leaking through the old loose
+  // regex. Inputs derived verbatim from issue #1587 evidence.
+  it.each([
+    {
+      name: "rejects street-address suite number",
+      body: "Hares: Lunar Eclipse\nWhere: Kroger 8465 Holcomb Bridge Rd #2000, Johns Creek, GA",
+      expected: undefined,
+    },
+    {
+      name: "rejects cross-kennel reference in prose",
+      body: "Black Sheep Hash House Harriers; running strong since 3/11/91, every other Sunday, now all the way to #946",
+      expected: undefined,
+    },
+    {
+      name: "accepts explicit Run #NNN marker",
+      body: "Run #1638\nHares: Someone",
+      expected: 1638,
+    },
+    {
+      name: "accepts Run NNN without hash",
+      body: "Run 1644\nHares: Someone",
+      expected: 1644,
+    },
+    {
+      name: "ignores small numbers but extractor returns single match",
+      body: "Hares: Eclipse\nLocation: 8465 Holcomb Bridge Rd",
+      expected: undefined,
+    },
+  ])("extractEventFields runNumber: $name", ({ body, expected }) => {
+    const fields = extractEventFields(body);
+    expect(fields.runNumber).toBe(expected);
+  });
+
+  // ── #1588: phpBB post-banner lines must not leak into startTime. Inputs
+  // derived verbatim from issue #1588 evidence (Mar 28 first-post banner,
+  // May 02 last-post banner).
+  it.each([
+    {
+      name: "rejects banner timestamp, accepts body Meet/Trail prose",
+      body: "by mtmedori » Sat Mar 28, 2026 3:19 pm\n\nHares: Eclipse\nMeet at 6:30 PM, Trail at 7:30 PM",
+      expected: "18:30",
+    },
+    {
+      name: "emits undefined when only banner timestamp is present",
+      body: "by Jackass » Sat May 02, 2026 10:36 pm\n\nMay the 4th be with You",
+      expected: undefined,
+    },
+    {
+      // Banner predicate requires `»` — a line without it is treated as
+      // legitimate prose (Codex review: avoid stripping event copy like
+      // "Time: Saturday March 8, 2026, meet 1:30 PM"). When the body
+      // contains BOTH a banner and a regular Meet line, banner is stripped
+      // and the Meet line wins.
+      name: "preserves date-bearing prose lines without » separator",
+      body: "by mtmedori » Sat Mar 28, 2026 3:19 pm\nMeet at 7:00 PM",
+      expected: "19:00",
+    },
+  ])("extractEventFields startTime: $name", ({ body, expected }) => {
+    const fields = extractEventFields(body);
+    expect(fields.startTime).toBe(expected);
+  });
+});
+
+// ── stripPhpBbBanners ──
+
+describe("stripPhpBbBanners", () => {
+  it("strips first-post banner line with month + year", () => {
+    const text = "by mtmedori » Sat Mar 28, 2026 3:19 pm\nMeet at 7:25 PM";
+    expect(stripPhpBbBanners(text)).toBe("Meet at 7:25 PM");
+  });
+
+  it("preserves event-time lines that lack a year", () => {
+    const text = "Time: Gather 1:30 Hounds out at 2:00 PM";
+    expect(stripPhpBbBanners(text)).toBe("Time: Gather 1:30 Hounds out at 2:00 PM");
+  });
+
+  it("collapses extra blank lines after stripping", () => {
+    const text = "by user » Sat Mar 28, 2026 3:19 pm\n\nHares: Foo\n\nLocation: Bar";
+    expect(stripPhpBbBanners(text)).toBe("Hares: Foo\nLocation: Bar");
+  });
+
+  it("strips multiple banner lines (first-post + last-post)", () => {
+    const text = "by user » Sat Mar 28, 2026 3:19 pm\nReal content\nby other » Sat Apr 04, 2026 10:36 pm";
+    expect(stripPhpBbBanners(text)).toBe("Real content");
+  });
+
+  it("preserves event prose that happens to mention a month + year (no » separator)", () => {
+    // Codex review: predicate must not nuke legitimate event copy like
+    // "Time: Saturday March 8, 2026, meet 1:30 PM" — only true phpBB banner
+    // lines (carrying the » separator) should be stripped.
+    const text = "Time: Saturday March 8, 2026, meet 1:30 PM";
+    expect(stripPhpBbBanners(text)).toBe(text);
   });
 });
 

@@ -1719,9 +1719,14 @@ export const KENNELS: KennelSeed[] = [
       description: "Alternate Saturday runs in the Atlanta metro area.",
     },
     {
+      // #1572: scheduleTime 1:30 → 1:00 PM (atlantahash.com pages/black-sheep.html
+      // "On-out is every other Sunday, at 1PM"). Hash cash $10 captured in prose
+      // per cycle-10 pattern (structured `hashCash` field rollout tracked in #1571).
+      // Old `blacksheephash.com` website has lapsed (HugeDomains parking) — leaving
+      // website blank rather than pointing at the umbrella site.
       kennelCode: "bsh3", shortName: "Black Sheep", fullName: "Black Sheep Hash House Harriers", region: "Atlanta, GA",
-      scheduleDayOfWeek: "Sunday", scheduleTime: "1:30 PM", scheduleFrequency: "Biweekly",
-      description: "Alternate Sunday runs in Atlanta.",
+      scheduleDayOfWeek: "Sunday", scheduleTime: "1:00 PM", scheduleFrequency: "Biweekly",
+      description: "Alternate Sunday high-shiggy trails in Atlanta — also known as Rainbow Sheep, where any color of the rainbow is fine as long as it's black. Come for the shiggy; stay for more shiggy. Hash cash $10.",
     },
     {
       kennelCode: "sobh3", shortName: "SOBH3", fullName: "Slow Old Bastards Hash House Harriers", region: "Atlanta, GA",
@@ -1729,9 +1734,13 @@ export const KENNELS: KennelSeed[] = [
       description: "Alternate Sunday runs in Atlanta. Easy-going pace.",
     },
     {
+      // #1589: scheduleTime 7:00 → 7:25 PM ("Meet at 7, on-out at 7:25" — consistent
+      // across atlantahash.com/pages/moonlite.html, forum tagline, and trail posts).
+      // Description sourced from forum tagline at viewforum.php?f=8.
       kennelCode: "mlh4", shortName: "MLH4", fullName: "Atlanta Moonlite Hash House Harriers", region: "Atlanta, GA",
-      scheduleDayOfWeek: "Monday", scheduleTime: "7:00 PM", scheduleFrequency: "Weekly",
-      description: "Weekly Monday evening trail runs in Atlanta.",
+      scheduleDayOfWeek: "Monday", scheduleTime: "7:25 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Meet at 7, on-out at 7:25.",
+      description: "Monday evenings under the moonlight in Atlanta. Typically an A-to-A trail of four-ish miles, ending at a bar or restaurant that will put up with us on a Monday.",
     },
     {
       kennelCode: "whh3", shortName: "WHH3", fullName: "Wheelhopper Mountain Bike H3", region: "Atlanta, GA",
@@ -1759,13 +1768,22 @@ export const KENNELS: KennelSeed[] = [
       description: "Alternate Friday evening runs in Atlanta.",
     },
     {
+      // #1585: move schedule out of scheduleNotes into structured fields.
+      // Cadence is 1st or occasionally 2nd Sunday (HashRego cross-ref) — anchored
+      // on 1st in `Source.config.rrule`, noted here for the kennel card.
+      // Hash cash $8 from HashRego ("Average Shiggy: $8").
       kennelCode: "hmh3", shortName: "HMH3", fullName: "Hog Mountain Hash House Harriers", region: "Atlanta, GA",
-      scheduleFrequency: "Monthly", scheduleNotes: "1st Sunday, 1:30 PM.",
-      description: "Monthly Sunday runs in the north Georgia foothills.",
+      scheduleDayOfWeek: "Sunday", scheduleTime: "1:30 PM", scheduleFrequency: "Monthly",
+      scheduleNotes: "1st (occasionally 2nd) Sunday of the month.",
+      hashCash: "$8",
+      description: "Monthly Sunday trails in the north Georgia foothills outside Atlanta.",
     },
     {
+      // #1582: move schedule out of scheduleNotes into structured fields.
+      // No upstream source for socials/contact/branding (see #1583).
       kennelCode: "cunth3-atl", shortName: "CUNT H3", fullName: "C U Next Tuesday H3", region: "Atlanta, GA",
-      scheduleFrequency: "Monthly", scheduleNotes: "1st Tuesday, 7:00 PM.",
+      scheduleDayOfWeek: "Tuesday", scheduleTime: "7:00 PM", scheduleFrequency: "Monthly",
+      scheduleNotes: "1st Tuesday of the month.",
       description: "Monthly Tuesday evening trail in Atlanta.",
     },
     {

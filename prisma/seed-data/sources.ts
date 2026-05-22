@@ -1642,15 +1642,26 @@ export const SOURCES = [
       },
       kennelCodes: ["sch3-atl"],
     },
+    // HMH3 + CUNT H3 ATL static-schedule sources: prior URLs were dead anchors
+    // (`board.atlantahash.com#hmh3` / `#cunth3` — neither kennel has a dedicated
+    // sub-forum on the phpBB board, verified by site-wide search returning
+    // 0 matches; #1583, #1586). No real upstream source exists for either
+    // kennel today — both run as STATIC_SCHEDULE generators. URL points at the
+    // regional umbrella (atlantahash.com) so the health-check signal is
+    // honest rather than misleading. If a real source surfaces (FB group,
+    // mailing list, dedicated page), swap the URL here.
     {
       name: "HMH3 Static Schedule",
-      url: "https://board.atlantahash.com#hmh3",
+      url: "https://atlantahash.com",
       type: "STATIC_SCHEDULE" as const,
       trustLevel: 3,
       scrapeFreq: "weekly",
       scrapeDays: 90,
       config: {
         kennelTag: "hmh3",
+        // Cadence varies between 1st and 2nd Sunday (#1585); 1st Sunday is the
+        // canonical anchor — misses on 2nd-Sunday months are documented in the
+        // kennel profile rather than expressed as parallel RRULEs.
         rrule: "FREQ=MONTHLY;BYDAY=1SU",
         anchorDate: "2026-03-01",
         startTime: "13:30",
@@ -1662,7 +1673,7 @@ export const SOURCES = [
     },
     {
       name: "CUNT H3 ATL Static Schedule",
-      url: "https://board.atlantahash.com#cunth3",
+      url: "https://atlantahash.com",
       type: "STATIC_SCHEDULE" as const,
       trustLevel: 3,
       scrapeFreq: "weekly",

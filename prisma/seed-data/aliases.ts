@@ -205,7 +205,7 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     // Georgia
     "ah4": ["Atlanta Hash", "Atlanta H4", "Atlanta HHH", "AH4 Hash", "Atlanta Hash (Saturdays)", "AHHH"],
     "ph3-atl": ["Pinelake Hash", "Pinelake H3", "PH3 ATL"],
-    "bsh3": ["Black Sheep Hash", "Black Sheep H3", "BSH3 Hash"],
+    "bsh3": ["Black Sheep Hash", "Black Sheep H3", "BSH3 Hash", "Rainbow Sheep"],
     "sobh3": ["Slow Old Bastards", "SOB Hash", "SOB H3", "SOBH3 Hash"],
     "mlh4": ["Moonlite Hash", "Atlanta Moonlite", "Moonlite H3", "Moonlite H4"],
     "whh3": ["Wheelhopper Hash", "Wheelhopper H3", "Mountain Bike Hash"],
