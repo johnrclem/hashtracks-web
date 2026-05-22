@@ -44,9 +44,9 @@ const EM_DASH_RE = /^[—–-]$/;
 // Source data-entry boilerplate (#1548): the kennel writes "at the map
 // location below" into the Location: field on sth3.org, referring to an
 // embedded map that follows. The phrase is editorial, not part of the
-// geocodable venue. Anchored to end-of-string, tolerates optional leading
-// comma + trailing period.
-const MAP_BOILERPLATE_RE = /\s*,?\s*at the map location below\.?\s*$/i;
+// geocodable venue. Single `[,\s]*` char class avoids the Sonar S5852
+// "adjacent `\s*` + optional" backtracking heuristic.
+const MAP_BOILERPLATE_RE = /[,\s]*at the map location below\.?\s*$/i;
 
 interface ThirstyParagraph {
   text: string;

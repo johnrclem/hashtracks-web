@@ -64,6 +64,7 @@ const TARGETS: Target[] = [
     describe: "#1551 — haresText truncated at first sentence boundary",
     adapter: gcal,
     // Description leak signal: hare text containing a period followed by 3+ words.
+    // NOSONAR S5852 — verification script, bounded input, not a server hot path.
     checks: [{ label: "haresText with sentence trailer", predicate: (e) => !!e.hares && /\.\s+\S+(?:\s+\S+){2,}/.test(e.hares) }],
     countField: "hares",
   },

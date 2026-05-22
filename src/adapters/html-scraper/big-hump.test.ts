@@ -18,6 +18,12 @@ vi.mock("../utils", async () => {
   };
 });
 
+// big-hump.com runs on http (no https variant available). Centralized so
+// SonarCloud's S5332 "Using http protocol is insecure" rule sees one
+// declaration instead of repeated literals across test fixtures.
+// NOSONAR typescript:S5332 — production source is http, mirrored here for fidelity.
+const BH4_HARELINE_URL = "http://www.big-hump.com/hareline.php"; // NOSONAR
+
 describe("parseEventHeader", () => {
   it("parses date and run number", () => {
     const result = parseEventHeader("Wednesday 04/01/2026 #1991");
@@ -569,7 +575,7 @@ describe("BigHumpAdapter", () => {
   it("parses events from hareline page (no history)", async () => {
     const mockSource = {
       id: "test-bh4",
-      url: "http://www.big-hump.com/hareline.php",
+      url: BH4_HARELINE_URL,
       config: null,
     } as never;
 
@@ -591,7 +597,7 @@ describe("BigHumpAdapter", () => {
   it("fetches history when includeHistory is true", async () => {
     const mockSource = {
       id: "test-bh4",
-      url: "http://www.big-hump.com/hareline.php",
+      url: BH4_HARELINE_URL,
       config: { includeHistory: true, historyYearRange: [2026, 2026] },
     } as never;
 
@@ -613,7 +619,7 @@ describe("BigHumpAdapter", () => {
   it("deduplicates: hareline events win over history", async () => {
     const mockSource = {
       id: "test-bh4",
-      url: "http://www.big-hump.com/hareline.php",
+      url: BH4_HARELINE_URL,
       config: { includeHistory: true, historyYearRange: [2026, 2026] },
     } as never;
 
@@ -636,7 +642,7 @@ describe("BigHumpAdapter", () => {
   it("returns error on fetch failure", async () => {
     const mockSource = {
       id: "test-bh4",
-      url: "http://www.big-hump.com/hareline.php",
+      url: BH4_HARELINE_URL,
       config: null,
     } as never;
 
@@ -645,7 +651,7 @@ describe("BigHumpAdapter", () => {
       result: {
         events: [],
         errors: ["HTTP 500"],
-        errorDetails: { fetch: [{ url: "http://www.big-hump.com/hareline.php", message: "HTTP 500" }] },
+        errorDetails: { fetch: [{ url: BH4_HARELINE_URL, message: "HTTP 500" }] },
       },
     });
 
@@ -675,7 +681,7 @@ describe("BigHumpAdapter", () => {
       structureHash: "828-test",
       fetchDurationMs: 50,
     });
-    const mockSource = { id: "test-bh4", url: "http://www.big-hump.com/hareline.php", config: null } as never;
+    const mockSource = { id: "test-bh4", url: BH4_HARELINE_URL, config: null } as never;
     return adapter.fetch(mockSource, { days: 36500 });
   }
 
@@ -727,7 +733,7 @@ describe("BigHumpAdapter", () => {
 
     const mockSource = {
       id: "test-bh4",
-      url: "http://www.big-hump.com/hareline.php",
+      url: BH4_HARELINE_URL,
       config: null,
     } as never;
     const result = await adapter.fetch(mockSource, { days: 36500 });
@@ -777,7 +783,7 @@ describe("BigHumpAdapter — #1550 Open placeholder + subtitled title", () => {
 
     const mockSource = {
       id: "test-bh4",
-      url: "http://www.big-hump.com/hareline.php",
+      url: BH4_HARELINE_URL,
       config: null,
     } as never;
     const result = await adapter.fetch(mockSource, { days: 36500 });
@@ -820,7 +826,7 @@ describe("BigHumpAdapter — #1550 Open placeholder + subtitled title", () => {
 
     const mockSource = {
       id: "test-bh4",
-      url: "http://www.big-hump.com/hareline.php",
+      url: BH4_HARELINE_URL,
       config: null,
     } as never;
     const result = await adapter.fetch(mockSource, { days: 36500 });
@@ -856,7 +862,7 @@ describe("BigHumpAdapter — #1550 Open placeholder + subtitled title", () => {
 
     const mockSource = {
       id: "test-bh4",
-      url: "http://www.big-hump.com/hareline.php",
+      url: BH4_HARELINE_URL,
       config: null,
     } as never;
     const result = await adapter.fetch(mockSource, { days: 36500 });
@@ -894,7 +900,7 @@ describe("BigHumpAdapter — #1550 Open placeholder + subtitled title", () => {
 
     const mockSource = {
       id: "test-bh4",
-      url: "http://www.big-hump.com/hareline.php",
+      url: BH4_HARELINE_URL,
       config: null,
     } as never;
     const result = await adapter.fetch(mockSource, { days: 36500 });
@@ -928,7 +934,7 @@ describe("BigHumpAdapter — #1550 Open placeholder + subtitled title", () => {
 
     const mockSource = {
       id: "test-bh4",
-      url: "http://www.big-hump.com/hareline.php",
+      url: BH4_HARELINE_URL,
       config: null,
     } as never;
     const result = await adapter.fetch(mockSource, { days: 36500 });
@@ -946,7 +952,7 @@ describe.skip("BigHumpAdapter live", () => {
     const adapter = new LiveAdapter();
     const source = {
       id: "live-bh4",
-      url: "http://www.big-hump.com/hareline.php",
+      url: BH4_HARELINE_URL,
       config: null,
     } as never;
 
