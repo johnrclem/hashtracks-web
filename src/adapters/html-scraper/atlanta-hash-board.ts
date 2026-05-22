@@ -226,7 +226,11 @@ export function extractEventFields(
   // references ("Black Sheep ... all the way to #946…") (#1587). Title-extracted
   // run number is preferred at the call site; this body fallback only fires
   // when the title has no #NNN.
-  const runMatch = /\bRun\s*#?\s*(\d{2,})\b/i.exec(text);
+  //
+  // `[\s#]+` between "Run" and the digits handles "Run #1638", "Run 1644",
+  // and "Run#1638" with a single quantifier — avoids the nested `\s*…\s*`
+  // shape Sonar S5852 flags as ReDoS-prone (Memory feedback_sonar_s5852_false_positives).
+  const runMatch = /\bRun[\s#]+(\d{2,})\b/i.exec(text);
   if (runMatch) {
     const n = Number.parseInt(runMatch[1], 10);
     if (Number.isFinite(n) && n > 0) fields.runNumber = n;
