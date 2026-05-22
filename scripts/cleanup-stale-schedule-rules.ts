@@ -38,9 +38,15 @@ import { createScriptPool } from "./lib/db-pool";
 
 const dryRun = !process.argv.includes("--apply");
 
-/** Extract the BYDAY value from an RRULE string. Returns null if missing. */
+/**
+ * Extract the BYDAY value from an RRULE string. Returns null if missing.
+ * Char class includes digits + `+`/`-` so monthly nth-weekday shapes
+ * (`BYDAY=1SA`, `BYDAY=-1SU`) extract cleanly (Gemini review on #1598).
+ * Quantifier stays `+` (not `*`) — an empty BYDAY is not a usable day
+ * signal and must skip rather than match across rows.
+ */
 function extractByDay(rrule: string): string | null {
-  const m = /BYDAY=([A-Z,]+)/.exec(rrule);
+  const m = /BYDAY=([0-9A-Z,+-]+)/.exec(rrule);
   return m ? m[1] : null;
 }
 
@@ -55,7 +61,8 @@ interface Candidate {
 }
 
 async function findCandidates(prisma: PrismaClient): Promise<Candidate[]> {
-  // Step 1: pull all candidate stale rows (inactive, bare-day, no season hint).
+  // Step 1: pull all candidate stale rows + kennelCode in one query
+  // (drop the per-row kennel.findUnique — Gemini review on #1598).
   const staleRows = await prisma.scheduleRule.findMany({
     where: {
       isActive: false,
@@ -64,43 +71,55 @@ async function findCandidates(prisma: PrismaClient): Promise<Candidate[]> {
       validFrom: null,
       validUntil: null,
     },
-    select: { id: true, kennelId: true, rrule: true, source: true },
+    select: {
+      id: true,
+      kennelId: true,
+      rrule: true,
+      source: true,
+      kennel: { select: { kennelCode: true } },
+    },
+    take: 1000,
   });
 
   if (staleRows.length === 0) return [];
 
-  // Step 2: for each, find an ACTIVE peer on the same kennel with the same BYDAY + a startTime.
+  // Step 2: bulk-fetch active timed peers for the relevant kennels once,
+  // group by kennelId in memory. Avoids the prior N+1 per stale row.
+  const kennelIds = [...new Set(staleRows.map((s) => s.kennelId))];
+  const activePeers = await prisma.scheduleRule.findMany({
+    where: {
+      kennelId: { in: kennelIds },
+      isActive: true,
+      startTime: { not: null },
+    },
+    select: { id: true, kennelId: true, rrule: true, startTime: true },
+    take: 1000,
+  });
+
+  const peersByKennel = new Map<string, typeof activePeers>();
+  for (const peer of activePeers) {
+    const list = peersByKennel.get(peer.kennelId) ?? [];
+    list.push(peer);
+    peersByKennel.set(peer.kennelId, list);
+  }
+
   const candidates: Candidate[] = [];
   for (const stale of staleRows) {
     const staleByDay = extractByDay(stale.rrule);
     if (!staleByDay) continue;
 
-    const peers = await prisma.scheduleRule.findMany({
-      where: {
-        kennelId: stale.kennelId,
-        isActive: true,
-        startTime: { not: null },
-        id: { not: stale.id },
-      },
-      select: { id: true, rrule: true, startTime: true },
-    });
-
+    const peers = peersByKennel.get(stale.kennelId) ?? [];
     const matchingPeer = peers.find((p) => extractByDay(p.rrule) === staleByDay);
-    if (!matchingPeer) continue;
-
-    const kennel = await prisma.kennel.findUnique({
-      where: { id: stale.kennelId },
-      select: { kennelCode: true },
-    });
+    if (!matchingPeer?.startTime) continue;
 
     candidates.push({
-      kennelCode: kennel?.kennelCode ?? "?",
+      kennelCode: stale.kennel?.kennelCode ?? "?",
       staleId: stale.id,
       staleRrule: stale.rrule,
       staleSource: stale.source,
       peerId: matchingPeer.id,
       peerRrule: matchingPeer.rrule,
-      peerStartTime: matchingPeer.startTime!,
+      peerStartTime: matchingPeer.startTime,
     });
   }
   return candidates;
