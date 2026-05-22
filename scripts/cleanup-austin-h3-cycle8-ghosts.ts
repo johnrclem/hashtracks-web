@@ -36,82 +36,84 @@ const apply = process.env.BACKFILL_APPLY === "1";
 
 async function main() {
   const pool = createScriptPool();
-  const adapter = new PrismaPg(pool);
-  const prisma = new PrismaClient({ adapter } as never);
+  try {
+    const adapter = new PrismaPg(pool);
+    const prisma = new PrismaClient({ adapter } as never);
 
-  console.log(apply ? "✏️  APPLYING changes\n" : "🔍 DRY RUN — no changes will be made\n");
+    console.log(apply ? "✏️  APPLYING changes\n" : "🔍 DRY RUN — no changes will be made\n");
 
-  const source = await prisma.source.findFirst({
-    where: { name: SOURCE_NAME, type: "GOOGLE_CALENDAR" },
-    select: { id: true, name: true, scrapeDays: true, baselineResetAt: true },
-  });
-  if (!source) {
-    console.error(`Source "${SOURCE_NAME}" not found.`);
-    process.exit(1);
-  }
-
-  const windowStart = new Date(Date.now() - source.scrapeDays * 24 * 60 * 60 * 1000);
-  console.log(`Source: ${source.name} (${source.id})`);
-  console.log(`Cycle-8 cutoff:    ${CYCLE8_MERGE_DATE.toISOString()}`);
-  console.log(`Scrape window:     ${source.scrapeDays} days (event date >= ${windowStart.toISOString()})\n`);
-
-  // Pre-cutoff RawEvents *within* the scrape window — these will be
-  // re-emitted on the next GCal scrape. Linked Event.date is required for
-  // the join; processed RawEvents must have eventId set.
-  const inWindow = await prisma.rawEvent.findMany({
-    where: {
-      sourceId: source.id,
-      scrapedAt: { lt: CYCLE8_MERGE_DATE },
-      event: { date: { gte: windowStart } },
-    },
-    select: { id: true },
-  });
-  // Pre-cutoff RawEvents *outside* the window — informational only; we'll
-  // still delete them (immutable audit-trail rule notwithstanding, they're
-  // already corrupt) but their canonical Events won't be refreshed because
-  // GCal's scrape window doesn't reach back that far.
-  const outOfWindow = await prisma.rawEvent.findMany({
-    where: {
-      sourceId: source.id,
-      scrapedAt: { lt: CYCLE8_MERGE_DATE },
-      OR: [
-        { event: { date: { lt: windowStart } } },
-        { event: null }, // unprocessed pre-cutoff RawEvents
-      ],
-    },
-    select: { id: true },
-  });
-
-  console.log(`Pre-cutoff RawEvents in scrape window:  ${inWindow.length}  (will be re-emitted)`);
-  console.log(`Pre-cutoff RawEvents OUTSIDE window:    ${outOfWindow.length}  (canonical Events stay as-is)`);
-
-  const totalDeletable = inWindow.length + outOfWindow.length;
-  if (totalDeletable === 0) {
-    console.log("\nNothing to delete.");
-    await pool.end();
-    return;
-  }
-
-  if (apply) {
-    // Atomic: delete + baselineResetAt together. If either fails the other
-    // is rolled back, so we never end up with partial cleanup.
-    await prisma.$transaction(async (tx) => {
-      const result = await tx.rawEvent.deleteMany({
-        where: { sourceId: source.id, scrapedAt: { lt: CYCLE8_MERGE_DATE } },
-      });
-      await tx.source.update({
-        where: { id: source.id },
-        data: { baselineResetAt: new Date() },
-      });
-      console.log(`\nDeleted ${result.count} RawEvent(s) + bumped Source.baselineResetAt (transactional).`);
+    const source = await prisma.source.findFirst({
+      where: { name: SOURCE_NAME, type: "GOOGLE_CALENDAR" },
+      select: { id: true, name: true, scrapeDays: true, baselineResetAt: true },
     });
-    console.log("\nNext step: trigger an Austin H3 re-scrape (POST to /api/cron/scrape/<sourceId>).");
-  } else {
-    console.log(`\nWould delete ${totalDeletable} RawEvent(s) and bump baselineResetAt (transactional).`);
-    console.log("Re-run with BACKFILL_APPLY=1 to commit.");
-  }
+    if (!source) {
+      throw new Error(`Source "${SOURCE_NAME}" not found.`);
+    }
 
-  await pool.end();
+    const windowStart = new Date(Date.now() - source.scrapeDays * 24 * 60 * 60 * 1000);
+    console.log(`Source: ${source.name} (${source.id})`);
+    console.log(`Cycle-8 cutoff:    ${CYCLE8_MERGE_DATE.toISOString()}`);
+    console.log(`Scrape window:     ${source.scrapeDays} days (event date >= ${windowStart.toISOString()})\n`);
+
+    // Pre-cutoff RawEvents *within* the scrape window — these will be
+    // re-emitted on the next GCal scrape. Linked Event.date is required for
+    // the join; processed RawEvents must have eventId set.
+    const inWindow = await prisma.rawEvent.findMany({
+      where: {
+        sourceId: source.id,
+        scrapedAt: { lt: CYCLE8_MERGE_DATE },
+        event: { date: { gte: windowStart } },
+      },
+      select: { id: true },
+    });
+    // Pre-cutoff RawEvents *outside* the window — informational only; we'll
+    // still delete them (immutable audit-trail rule notwithstanding, they're
+    // already corrupt) but their canonical Events won't be refreshed because
+    // GCal's scrape window doesn't reach back that far.
+    const outOfWindow = await prisma.rawEvent.findMany({
+      where: {
+        sourceId: source.id,
+        scrapedAt: { lt: CYCLE8_MERGE_DATE },
+        OR: [
+          { event: { date: { lt: windowStart } } },
+          { event: null }, // unprocessed pre-cutoff RawEvents
+        ],
+      },
+      select: { id: true },
+    });
+
+    console.log(`Pre-cutoff RawEvents in scrape window:  ${inWindow.length}  (will be re-emitted)`);
+    console.log(`Pre-cutoff RawEvents OUTSIDE window:    ${outOfWindow.length}  (canonical Events stay as-is)`);
+
+    const totalDeletable = inWindow.length + outOfWindow.length;
+    if (totalDeletable === 0) {
+      console.log("\nNothing to delete.");
+      return;
+    }
+
+    if (apply) {
+      // Atomic: delete + baselineResetAt together. If either fails the other
+      // is rolled back, so we never end up with partial cleanup.
+      await prisma.$transaction(async (tx) => {
+        const result = await tx.rawEvent.deleteMany({
+          where: { sourceId: source.id, scrapedAt: { lt: CYCLE8_MERGE_DATE } },
+        });
+        await tx.source.update({
+          where: { id: source.id },
+          data: { baselineResetAt: new Date() },
+        });
+        console.log(`\nDeleted ${result.count} RawEvent(s) + bumped Source.baselineResetAt (transactional).`);
+      });
+      console.log("\nNext step: trigger an Austin H3 re-scrape (POST to /api/cron/scrape/<sourceId>).");
+    } else {
+      console.log(`\nWould delete ${totalDeletable} RawEvent(s) and bump baselineResetAt (transactional).`);
+      console.log("Re-run with BACKFILL_APPLY=1 to commit.");
+    }
+  } finally {
+    // Always close the pool — pre-emptive `process.exit(1)` paths skipped
+    // cleanup before (CodeRabbit PR #1612 review).
+    await pool.end();
+  }
 }
 
 main().catch((err) => {

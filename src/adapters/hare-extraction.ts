@@ -67,8 +67,11 @@ const PROSE_PREFIX_RE = /^(?:away|at|from|drop|is|was|has|had|can|will|would|sho
 // extractHares returning the placeholder preserves the existing contract for
 // the WHO ARE THE HARES: TBD case (#1082), and downstream filters
 // (isPlaceholderText in utils.ts, merge.ts placeholder check) demote them
-// without populating Event.haresText.
-const HARES_ARE_PROSE_FIRST_WORD_RE = /^(?:Needed|Wanted|Required|Welcome|Available|Looking|Volunteer|Still|Always|Currently|Hiding|Setting|Going|Coming|Ready|Now|Out|Off)\b/; // NOSONAR — anchored literal alternation
+// without populating Event.haresText. Plural forms (Volunteers?, Needs?)
+// matter — `Volunteer\b` does not match "Volunteers" because `s` is a word
+// char (Gemini PR #1612 review). Case-insensitive via `/i` to reject the
+// all-caps "Hares are NEEDED for July" form (Codex P2 review).
+const HARES_ARE_PROSE_FIRST_WORD_RE = /^(?:Needed|Needs?|Wanted|Required|Welcome|Available|Looking|Volunteers?|Still|Always|Currently|Hiding|Setting|Going|Coming|Ready|Now|Out|Off)\b/i; // NOSONAR — anchored literal alternation
 const URL_PREFIX_RE = /^https?:\/\//i;
 const SENTENCE_PUNCT_RE = /[:.!?]\s/;
 const SENTENCE_END_RE = /[.!?]$/;

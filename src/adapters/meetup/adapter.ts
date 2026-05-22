@@ -580,7 +580,11 @@ export class MeetupAdapter implements SourceAdapter {
           cancelledSkipped++;
           continue;
         }
-        events.push(buildRawEventFromApollo(ev, mergedState, config.kennelTag, compiledPatterns, config.extractRunNumber));
+        // Strict-boolean check (CodeRabbit PR #1612 review): the config is
+        // hydrated from persisted JSON, where any truthy value would pass
+        // through unintentionally. Only literal `true` opts in.
+        const shouldExtractRunNumber = config.extractRunNumber === true;
+        events.push(buildRawEventFromApollo(ev, mergedState, config.kennelTag, compiledPatterns, shouldExtractRunNumber));
       } catch (err) {
         const msg = `Failed to parse event "${ev.id}": ${err instanceof Error ? err.message : String(err)}`;
         errors.push(msg);

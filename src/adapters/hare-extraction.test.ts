@@ -179,6 +179,15 @@ const UNDEFINED_GROUPS: UndefinedGroup[] = [
       ["'Hares are Wanted'", "Hares are Wanted — apply within."],
       ["'Hares are Going to set early'", "Hares are Going to set early."],
       ["'Hares are Looking for help'", "Hares are Looking for help."],
+      // Plural forms — Gemini PR #1612 review: `Volunteer\b` does NOT match
+      // "Volunteers" because `s` is a word char. Denylist now uses
+      // `Volunteers?` / `Needs?` to cover both singular + plural.
+      ["'Hares are Volunteers for July'", "Hares are Volunteers for July."],
+      ["'Hares are Needs more volunteers'", "Hares are Needs more volunteers."],
+      // Case-insensitive — Codex P2 review: all-caps "NEEDED" must reject
+      // too. Denylist regex now uses /i.
+      ["all-caps 'Hares are NEEDED for July'", "Hares are NEEDED for July."],
+      ["all-caps 'Hares are WELCOME at the party'", "Hares are WELCOME at the party."],
       // Verb-form lowercase rejection — the `[A-Z*]` regex anchor already
       // bars these; this confirms it.
       ["'Hares are getting ready'", "Hares are getting ready for the trail."],
