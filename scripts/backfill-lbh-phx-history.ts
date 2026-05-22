@@ -84,14 +84,17 @@ export function parseCalendarPage(
 ): Sighting[] {
   const $ = cheerio.load(html);
   const out: Sighting[] = [];
-  $('a[href*="event=lbh-"]').each((_i, el) => {
+  // Key on title ("LBH #N…"), not slug prefix — handles legacy/typo slugs
+  // like `?event=bh-706-…` where the post slug drifted from the canonical
+  // `lbh-` prefix.
+  $('a[href*="?event="]').each((_i, el) => {
     const $a = $(el);
     const dayText = $a.text().trim();
     if (!/^\d{1,2}$/.test(dayText)) return; // skip "More Info" + title-line dupes
     const title = decodeEntities($a.attr("title") ?? "");
     const runMatch = /^LBH\s+#?(\d+)/.exec(title);
     if (!runMatch) return; // only keep anchors whose title is a real LBH #N event
-    const slug = ($a.attr("href")?.match(/event=(lbh-[^&"']+)/) ?? ["", ""])[1];
+    const slug = ($a.attr("href")?.match(/[?&]event=([^&"'#]+)/) ?? ["", ""])[1];
     if (!slug) return;
     out.push({
       slug,
