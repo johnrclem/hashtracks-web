@@ -64,15 +64,14 @@ const TARGETS: Target[] = [
     describe: "#1551 — haresText truncated at first sentence boundary",
     adapter: gcal,
     // Description leak signal: hare text containing a period followed by 3+ words.
-    // NOSONAR S5852 — verification script, bounded input, not a server hot path.
-    checks: [{ label: "haresText with sentence trailer", predicate: (e) => !!e.hares && /\.\s+\S+(?:\s+\S+){2,}/.test(e.hares) }],
+    checks: [{ label: "haresText with sentence trailer", predicate: (e) => !!e.hares && /\.\s+\S+(?:\s+\S+){2,}/.test(e.hares) }], // NOSONAR S5852 — verification script, bounded input, not a server hot path
     countField: "hares",
   },
   {
     sourceName: "Memphis H3 Facebook Hosted Events",
     describe: "#1557 — no titles ending in ' -' / ' —' / ' :'",
     adapter: new FacebookHostedEventsAdapter(),
-    checks: [{ label: "titles ending in trailing delimiter", predicate: (e) => !!e.title && /\s+[-–—:]\s*$/.test(e.title) }],
+    checks: [{ label: "titles ending in trailing delimiter", predicate: (e) => !!e.title && /\s+[-–—:]\s*$/.test(e.title) }], // NOSONAR S5852 — verification script, anchored end-of-string char class
   },
   {
     sourceName: "Sydney Thirsty H3 Upcoming Runs",

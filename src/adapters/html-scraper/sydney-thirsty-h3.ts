@@ -43,10 +43,21 @@ const SOURCE_URL_DEFAULT = "https://www.sth3.org/upcoming-runs";
 const EM_DASH_RE = /^[—–-]$/;
 // Source data-entry boilerplate (#1548): the kennel writes "at the map
 // location below" into the Location: field on sth3.org, referring to an
-// embedded map that follows. The phrase is editorial, not part of the
-// geocodable venue. Single `[,\s]*` char class avoids the Sonar S5852
-// "adjacent `\s*` + optional" backtracking heuristic.
-const MAP_BOILERPLATE_RE = /[,\s]*at the map location below\.?\s*$/i;
+// embedded map that follows. Stripped via string operations to keep the
+// regex shape Sonar S5852-safe (memory: feedback_sonar_s5852_false_positives
+// — prefer string ops over `\s*` + optional adjacency).
+const MAP_BOILERPLATE_PHRASE = "at the map location below";
+
+function stripMapBoilerplate(value: string): string {
+  let s = value.replace(/\s+$/, "");
+  if (s.endsWith(".")) s = s.slice(0, -1).replace(/\s+$/, "");
+  const lc = s.toLowerCase();
+  if (lc.endsWith(MAP_BOILERPLATE_PHRASE)) {
+    s = s.slice(0, -MAP_BOILERPLATE_PHRASE.length);
+    s = s.replace(/[,\s]+$/, "");
+  }
+  return s;
+}
 
 interface ThirstyParagraph {
   text: string;
@@ -126,7 +137,7 @@ export function parseThirstyBlock(
 
     const locMatch = /^Location:\s*(.+)$/i.exec(t);
     if (locMatch && !location) {
-      const raw = locMatch[1].replace(MAP_BOILERPLATE_RE, "").trim();
+      const raw = stripMapBoilerplate(locMatch[1]).trim();
       location = stripPlaceholder(raw);
       continue;
     }
