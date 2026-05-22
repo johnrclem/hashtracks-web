@@ -3908,6 +3908,7 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "christchurch-h3", shortName: "CHH3", fullName: "Christchurch Hash House Harriers",
       region: "Christchurch, NZ", country: "New Zealand",
       website: "https://christchurchhash.net.nz",
+      facebookUrl: "https://www.facebook.com/groups/155409764478320/",
       foundedYear: 1979,
       scheduleDayOfWeek: "Monday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
       hashCash: "$7 (includes food)",
@@ -3932,7 +3933,7 @@ export const KENNELS: KennelSeed[] = [
       foundedYear: 1987,
       scheduleDayOfWeek: "Monday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
       scheduleNotes: "Weekly Monday evenings at 6:30 PM on Auckland's Hibiscus Coast (Orewa). Hareline published as a public Google Sheet.",
-      description: "Hibiscus Coast hash kennel covering Orewa, Whangaparaoa, and the northern Auckland coast. Weekly Monday evening trails since 1987.",
+      description: "Hibiscus Coast hash kennel covering Orewa, Whangaparaoa, and the northern Auckland coast. Weekly Monday evening trails since 1987. No fees, no committee — an optional post-run meal and drinks are pay-as-you-go.",
       latitude: -36.5868, longitude: 174.6968,
     },
     {
@@ -3960,21 +3961,28 @@ export const KENNELS: KennelSeed[] = [
       region: "Auckland, NZ", country: "New Zealand",
       website: "https://aucklandhussies.co.nz",
       facebookUrl: "https://www.facebook.com/AK.HASH.HARRIETS",
+      contactEmail: "trailmaster@aucklandhussies.co.nz",
       foundedYear: 1978,
       scheduleDayOfWeek: "Tuesday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
       scheduleNotes: "Weekly Tuesday evenings at 6:30 PM. Run list published as a static HTML table at /Run%20List.html.",
-      description: "Auckland's women-founded hash, established 1978. Weekly Tuesday evening trails across Auckland with a published run list. Mixed attendance though women-led.",
+      description: "Auckland's women-founded hash, established 1978. Weekly Tuesday evening trails across Auckland with a published run list. Mixed attendance though women-led. Hash cash is $15 when starting from home or a park (pay-as-you-go at restaurants and pubs), plus $5 for drinks.",
       latitude: -36.8485, longitude: 174.7633,
     },
     // ── sporty.co.nz CMS subsites — Wellington + Hamilton ──
     {
+      // #1520: these fields are also UPDATE'd in
+      // prisma/migrations/20260521210000_fix_nz_quick_win_profiles/migration.sql
+      // because `ensureKennelRecords` only fills NULLs. Edits here must
+      // update that migration (or author a follow-up) to reach prod.
       kennelCode: "capital-h3-nz", shortName: "Capital H3", fullName: "Capital Hash House Harriers",
       region: "Wellington, NZ", country: "New Zealand",
       website: "https://www.sporty.co.nz/capitalh3",
-      foundedYear: 1979,
+      facebookUrl: "https://www.facebook.com/Capitalhhh/",
+      logoUrl: "https://prodcdn.sporty.co.nz/cms/3076/logo.png",
+      foundedYear: 1981,
       scheduleDayOfWeek: "Monday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
       scheduleNotes: "Weekly Monday evenings at 6:30 PM unless otherwise noted. Run list maintained on the homepage notices panel with run number, date, location, and hare.",
-      description: "Wellington's longest-running hash kennel — founded 1979 and still ticking past run 2,300. Weekly Monday evening trails across Wellington and the wider Hutt Valley.",
+      description: "Founded 2 February 1981 by Mad Max with an inaugural run from the Thorndon Tavern (briefly in recess Nov 1981 until re-erected Sept 1983). Weekly Monday evening trails across Wellington and the wider Hutt Valley. Hash cash is $2 per run; food and drinks at the on-on are BYO.",
       latitude: -41.2866, longitude: 174.7756,
     },
     {
@@ -3987,12 +3995,18 @@ export const KENNELS: KennelSeed[] = [
       latitude: -37.787, longitude: 175.2793,
     },
     {
+      // #1507: these fields are also UPDATE'd in
+      // prisma/migrations/20260521210000_fix_nz_quick_win_profiles/migration.sql
+      // because `ensureKennelRecords` only fills NULLs. Edits here must
+      // update that migration (or author a follow-up) to reach prod.
       kennelCode: "geriatrix-h3", shortName: "Geriatrix H3", fullName: "Port Nicholson Geriatrix Hash House Harriers",
       region: "Wellington, NZ", country: "New Zealand",
       website: "https://www.sporty.co.nz/geriatrixhhh",
-      scheduleDayOfWeek: "Tuesday", scheduleTime: "5:30 PM", scheduleFrequency: "Weekly",
-      scheduleNotes: "Weekly Tuesday afternoons. Hareline maintained as a CKEditor block on /Receding-Hareline/NewTab1 — date / venue / hare / map URL per run.",
-      description: "Wellington's relaxed-pace Tuesday hash with regular venue + hare + map information per run. Focuses on shorter, accessible trails around Wellington and Lower Hutt.",
+      logoUrl: "https://prodcdn.sporty.co.nz/cms/5181/logo.gif",
+      foundedYear: 1985,
+      scheduleDayOfWeek: "Tuesday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Weekly Tuesday evenings at 6:30 PM. Each run lists venue, hare, and a map link.",
+      description: "Wellington's relaxed-pace Tuesday hash — \"the drinking club with a running problem,\" founded 24 September 1985. Shorter, accessible trails around Wellington and Lower Hutt. Hash cash is $2 (non piss-stop) or $4 (piss-stop) per run; home runs are $15–$20 (cashless, direct credit preferred).",
       latitude: -41.2866, longitude: 174.7756,
     },
   ];
