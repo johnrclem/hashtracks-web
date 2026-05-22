@@ -1,0 +1,311 @@
+/**
+ * Partial historical backfill for LBH-PHX (Phoenix Lost Boobs Hash) — issue
+ * #1595.
+ *
+ * Findings from source reconnaissance:
+ *   - The live ICS feed (`?plugin=events-manager&page=events.ics`) is
+ *     upcoming-only — no `scope=past` support.
+ *   - WordPress REST API (`/wp-json/...`) is disabled / 404.
+ *   - The wp-events-manager Big Ass Calendar at `?page_id=21` accepts
+ *     month-navigation params `?page_id=21&mo=M&yr=YYYY` (confirmed by
+ *     inspecting the calendar's `em-calnav-prev` / `em-calnav-next`
+ *     anchors — the `calendar=YYYY-M` form is silently ignored).
+ *   - The plugin's database only carries LBH events back to ~2023. Earlier
+ *     years return empty calendar grids — the pre-2023 archive is not
+ *     reachable from the public site. Filling that gap would require a
+ *     WP admin CSV export from the LBH kennel (left as a follow-up).
+ *
+ * What this script does fetch:
+ *   - Calendar pages from 2023-01 → today (the reachable window).
+ *   - For each LBH anchor `<a href="...?event=<slug>" title="LBH #N: …">D</a>`
+ *     extract slug, runNumber, hash-name (title), and day. Compose date
+ *     with the URL's year/month.
+ *   - Dedup by slug, accounting for calendar grid spillover. Each LBH
+ *     event appears in two months' grids (canonical + previous- or next-
+ *     month spillover) — see `pickCanonicalSighting` below.
+ *   - Pass 2: for each unique slug, fetch the detail page in concurrent
+ *     batches of 5 with a 250 ms inter-batch delay. Parse the entry-
+ *     content text for `Hare(s):`, `Where:`, `Hash Cash:`, and start time.
+ *     Best-effort — missing regex matches emit `undefined` (preserve
+ *     whatever the recurring ICS adapter already populated), not `null`
+ *     (which would overwrite-clear).
+ *
+ * Yield estimate: ~120-150 events reachable (2023-01 → today). Of those,
+ * ~60 are already in HashTracks via the live ICS adapter; the merge
+ * pipeline dedupes by fingerprint, so the net gain is ~80-90 new events.
+ *
+ * Usage:
+ *   Dry run: npx tsx scripts/backfill-lbh-phx-history.ts
+ *   Apply:   BACKFILL_APPLY=1 npx tsx scripts/backfill-lbh-phx-history.ts
+ */
+
+import "dotenv/config";
+import * as cheerio from "cheerio";
+import { safeFetch } from "@/adapters/safe-fetch";
+import { parse12HourTime } from "@/adapters/utils";
+import type { RawEventData } from "@/adapters/types";
+import { runBackfillScript } from "./lib/backfill-runner";
+
+// Bind to the HTML_SCRAPER source (`?page_id=21` Big Ass Calendar, trust=8)
+// rather than the ICS feed (trust=7) — the calendar IS the page this script
+// scrapes. Keeps provenance honest and lets the merge pipeline apply the
+// correct per-field trust resolution against the recurring ICS rows.
+const SOURCE_NAME = "Phoenix H3 Big Ass Calendar";
+const BASE_URL = "https://www.phoenixhhh.org";
+const KENNEL_TAG = "lbh-phx";
+const KENNEL_TIMEZONE = "America/Phoenix";
+
+const ARCHIVE_START_YEAR = 2023;
+const ARCHIVE_START_MONTH = 1;
+const POLITENESS_DELAY_MS = 250;
+const DETAIL_CONCURRENCY = 5;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Decode HTML entities from `title` attribute values. */
+function decode(s: string): string {
+  return s
+    .replaceAll("&#8217;", "'")
+    .replaceAll("&#8211;", "–")
+    .replaceAll("&amp;", "&")
+    .replaceAll("&quot;", '"')
+    .replaceAll("&#039;", "'")
+    .replaceAll("&lt;", "<")
+    .replaceAll("&gt;", ">");
+}
+
+/** Anchor sighting from a calendar page. */
+interface Sighting {
+  slug: string;
+  runNumber: number;
+  title: string;
+  day: number;
+  yr: number;
+  mo: number;
+}
+
+/** Parse one calendar month's HTML for LBH anchors.
+ *
+ * Exported for unit testing. */
+export function parseCalendarPage(
+  html: string,
+  yr: number,
+  mo: number,
+): Sighting[] {
+  const $ = cheerio.load(html);
+  const out: Sighting[] = [];
+  $('a[href*="event=lbh-"]').each((_i, el) => {
+    const $a = $(el);
+    const dayText = $a.text().trim();
+    if (!/^\d{1,2}$/.test(dayText)) return; // skip "More Info" + title-line dupes
+    const title = decode($a.attr("title") ?? "");
+    const runMatch = /^LBH\s+#?(\d+)/.exec(title);
+    if (!runMatch) return; // only keep anchors whose title is a real LBH #N event
+    const slug = ($a.attr("href")?.match(/event=(lbh-[^&"']+)/) ?? ["", ""])[1];
+    if (!slug) return;
+    out.push({
+      slug,
+      runNumber: Number.parseInt(runMatch[1], 10),
+      title: title.replace(/^LBH\s+#?\d+(?::\s*|\s*[-–]\s*)?/, "").trim() || title,
+      day: Number.parseInt(dayText, 10),
+      yr,
+      mo,
+    });
+  });
+  return out;
+}
+
+/** Calendar grid spillover dedup. Each LBH event renders in two months'
+ * grids: the canonical month + the adjacent month (previous-trailing or
+ * next-leading).
+ *
+ *   - day in [8, 21] → mid-month, only one sighting exists, take it.
+ *   - day ≤ 7        → canonical is the LATER (yr, mo); the earlier one is
+ *                       the next-month-leading spillover.
+ *   - day ≥ 22       → canonical is the EARLIER (yr, mo); the later one is
+ *                       the previous-month-trailing spillover.
+ *
+ * Exported for unit testing. */
+export function pickCanonicalSighting(sightings: Sighting[]): Sighting {
+  if (sightings.length === 1) return sightings[0];
+  const middle = sightings.find((s) => s.day >= 8 && s.day <= 21);
+  if (middle) return middle;
+  const sorted = [...sightings].sort((a, b) =>
+    a.yr === b.yr ? a.mo - b.mo : a.yr - b.yr,
+  );
+  return sorted[0].day <= 7 ? sorted.at(-1)! : sorted[0];
+}
+
+/** Strip HTML, decode entities, collapse whitespace. Suitable for
+ * applying field regexes against the entry-content paragraph block. */
+function entryContentText(html: string): string {
+  const $ = cheerio.load(html);
+  const entry =
+    $(".entry-content").first().text() ||
+    $("article").first().text() ||
+    $("main").text();
+  return entry.replace(/ /g, " ").replace(/\s+/g, " ").trim();
+}
+
+/** Field regexes for the wp-events-manager entry-content template. The
+ * `Where`/`Hare(s)`/`Hash Cash` labels are highly stable across LBH events;
+ * each field is bounded by the next section label (Who/What/Where/Why/
+ * When/Bring/Dog-Friendly/On-after/Hash Cash/NOTE/On-safety/Categories).
+ *
+ * NB: the Date(s) line has NO space between year and start time —
+ * `05/25/20266:30 pm` — so the year→time gap is `\s*` not `\s+`. */
+const SECTION_TERMINATOR =
+  "(?=\\s*(?:Who:|What:|Where:|Why:|When:|Wear:|Theme:|Bring:|Dog-?Friendly|On-?after|Hash Cash:|NOTE:|On-?safety|Categories)|$)";
+const TIME_RE = new RegExp(
+  String.raw`Date\(s\)\s*-\s*\w+\s*-\s*\d{1,2}\/\d{1,2}\/\d{4}\s*(\d{1,2}:\d{2}\s*[ap]m)`,
+  "i",
+);
+const HARES_RE = new RegExp(String.raw`Hare\(s?\)?:\s*(.+?)` + SECTION_TERMINATOR, "i");
+const WHERE_RE = new RegExp(String.raw`Where:\s*(.+?)` + SECTION_TERMINATOR, "i");
+const COST_RE = new RegExp(String.raw`Hash Cash:\s*(.+?)` + SECTION_TERMINATOR, "i");
+
+interface DetailFields {
+  startTime: string | undefined;
+  hares: string | undefined;
+  location: string | undefined;
+  cost: string | undefined;
+}
+
+/** Parse a single detail page's entry-content. A regex MISS emits
+ * `undefined` (preserve-existing) rather than `null` (explicit-clear) — the
+ * source doesn't *assert* the field is blank, the parser just didn't find
+ * it. Letting the merge layer keep whatever the recurring ICS adapter
+ * already populated. Exported for unit testing. */
+export function parseDetailPage(html: string): DetailFields {
+  const text = entryContentText(html);
+
+  const timeMatch = TIME_RE.exec(text);
+  const startTime = timeMatch ? parse12HourTime(timeMatch[1]) ?? undefined : undefined;
+
+  const haresMatch = HARES_RE.exec(text);
+  const hares = haresMatch ? haresMatch[1].trim() || undefined : undefined;
+
+  const whereMatch = WHERE_RE.exec(text);
+  const location = whereMatch ? whereMatch[1].trim() || undefined : undefined;
+
+  // Cost section often runs into prose ("Please arrive on time…"). Trim
+  // to the first sentence so the UI shows just the price line.
+  const costMatch = COST_RE.exec(text);
+  const cost = costMatch ? costMatch[1].split(/\.\s+/)[0]?.trim() || undefined : undefined;
+
+  return { startTime, hares, location, cost };
+}
+
+async function fetchHtml(url: string): Promise<string | null> {
+  const response = await safeFetch(url, {
+    headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Backfill)" },
+  });
+  if (!response.ok) return null;
+  return response.text();
+}
+
+async function fetchEvents(): Promise<RawEventData[]> {
+  const now = new Date();
+  const endYear = now.getUTCFullYear();
+  const endMonth = now.getUTCMonth() + 1;
+
+  // Pass 1: walk calendar pages, collect sightings keyed by slug.
+  const sightingsBySlug = new Map<string, Sighting[]>();
+  let pagesFetched = 0;
+  let pagesEmpty = 0;
+  for (let yr = ARCHIVE_START_YEAR; yr <= endYear; yr++) {
+    const moStart = yr === ARCHIVE_START_YEAR ? ARCHIVE_START_MONTH : 1;
+    const moEnd = yr === endYear ? endMonth : 12;
+    for (let mo = moStart; mo <= moEnd; mo++) {
+      const url = `${BASE_URL}/?page_id=21&mo=${mo}&yr=${yr}`;
+      const html = await fetchHtml(url);
+      pagesFetched++;
+      if (!html) {
+        pagesEmpty++;
+        continue;
+      }
+      const sightings = parseCalendarPage(html, yr, mo);
+      if (sightings.length === 0) pagesEmpty++;
+      for (const s of sightings) {
+        const arr = sightingsBySlug.get(s.slug) ?? [];
+        arr.push(s);
+        sightingsBySlug.set(s.slug, arr);
+      }
+      await sleep(POLITENESS_DELAY_MS);
+    }
+  }
+  console.log(
+    `  Pass 1: ${pagesFetched} calendar pages fetched (${pagesEmpty} empty), ${sightingsBySlug.size} unique LBH slugs`,
+  );
+
+  // Dedup spillover sightings into canonical per-slug.
+  const canonical: Sighting[] = [];
+  for (const [, arr] of sightingsBySlug) canonical.push(pickCanonicalSighting(arr));
+
+  // Pass 2: enrich each slug with detail-page fields. Concurrent batches.
+  const detailsBySlug = new Map<string, DetailFields>();
+  let detailsFetched = 0;
+  let detailErrors = 0;
+  for (let i = 0; i < canonical.length; i += DETAIL_CONCURRENCY) {
+    const batch = canonical.slice(i, i + DETAIL_CONCURRENCY);
+    const results = await Promise.allSettled(
+      batch.map(async (s) => {
+        const url = `${BASE_URL}/?event=${s.slug}`;
+        const html = await fetchHtml(url);
+        if (!html) throw new Error(`HTTP error fetching ${url}`);
+        return { slug: s.slug, fields: parseDetailPage(html) };
+      }),
+    );
+    for (const r of results) {
+      detailsFetched++;
+      if (r.status === "fulfilled") {
+        detailsBySlug.set(r.value.slug, r.value.fields);
+      } else {
+        detailErrors++;
+      }
+    }
+    await sleep(POLITENESS_DELAY_MS);
+  }
+  console.log(
+    `  Pass 2: ${detailsFetched} detail pages fetched, ${detailErrors} errors, ${detailsBySlug.size} enriched`,
+  );
+
+  // Build RawEventData per slug.
+  const events: RawEventData[] = [];
+  for (const s of canonical) {
+    const date = new Date(Date.UTC(s.yr, s.mo - 1, s.day, 12, 0, 0))
+      .toISOString()
+      .slice(0, 10);
+    const details = detailsBySlug.get(s.slug);
+    // `undefined` (not `null`) on missing fields: a regex miss is "didn't
+    // find," not "source asserts blank" — preserve whatever the recurring
+    // ICS adapter already populated.
+    events.push({
+      date,
+      kennelTags: [KENNEL_TAG],
+      runNumber: s.runNumber,
+      title: s.title,
+      hares: details?.hares,
+      location: details?.location,
+      startTime: details?.startTime,
+      cost: details?.cost,
+      sourceUrl: `${BASE_URL}/?event=${s.slug}`,
+    });
+  }
+  return events;
+}
+
+if (process.argv[1]?.endsWith("backfill-lbh-phx-history.ts")) {
+  runBackfillScript({
+    sourceName: SOURCE_NAME,
+    kennelTimezone: KENNEL_TIMEZONE,
+    label: `Walking phoenixhhh.org calendar ${ARCHIVE_START_YEAR}-01 → today for LBH events`,
+    fetchEvents,
+  }).catch((err: unknown) => {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("FAILED:", message);
+    process.exit(1);
+  });
+}
