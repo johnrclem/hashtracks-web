@@ -107,6 +107,37 @@ async function reassignEventKennel(
   }
 }
 
+/** Build the diff of gynoh3 profile fields that still need patching. */
+function gynoProfilePatch(gyno: { fullName: string; founder: string | null; parentKennelCode: string | null }): Record<string, string> {
+  const patch: Record<string, string> = {};
+  if (gyno.fullName !== "Gyrls Night Out Hash House Harriettes") {
+    patch.fullName = "Gyrls Night Out Hash House Harriettes";
+  }
+  if (!gyno.founder) patch.founder = "Wrap It Up";
+  if (!gyno.parentKennelCode) patch.parentKennelCode = "mh3-tn";
+  return patch;
+}
+
+/** Reassign one misattributed GyNO event from mh3-tn to gynoh3, or
+ *  cascade-delete it if gynoh3 already has a canonical on that date. */
+async function reassignOrDeleteGynoEvent(
+  prisma: PrismaClient,
+  event: { id: string; date: Date },
+  mh3tnId: string,
+  gynoId: string,
+) {
+  const dupe = await prisma.event.findFirst({
+    where: { kennelId: gynoId, date: event.date, isCanonical: true },
+  });
+  if (dupe) {
+    console.log(`    ↳ ${event.id}: gynoh3 already has a canonical at ${event.date.toISOString().slice(0, 10)} (${dupe.id}); cascade-deleting mh3-tn ghost.`);
+    await cascadeDeleteEvents(prisma, [event.id]);
+  } else {
+    await reassignEventKennel(prisma, event.id, mh3tnId, gynoId);
+    console.log(`    ↳ ${event.id}: reassigned to gynoh3.`);
+  }
+}
+
 async function cleanupMemphisGyno(prisma: PrismaClient) {
   console.log("── #1556 Memphis GyNO H3 ──");
 
@@ -117,24 +148,14 @@ async function cleanupMemphisGyno(prisma: PrismaClient) {
     return;
   }
 
-  // Profile patches: only set fields that are still wrong/null in prod.
-  const profilePatch: Record<string, string> = {};
-  if (gyno.fullName !== "Gyrls Night Out Hash House Harriettes") {
-    profilePatch.fullName = "Gyrls Night Out Hash House Harriettes";
-  }
-  if (!gyno.founder) profilePatch.founder = "Wrap It Up";
-  if (!gyno.parentKennelCode) profilePatch.parentKennelCode = "mh3-tn";
-
-  if (Object.keys(profilePatch).length > 0) {
-    console.log(`  Patching gynoh3 profile fields: ${Object.keys(profilePatch).join(", ")}`);
-    if (APPLY) {
-      await prisma.kennel.update({ where: { id: gyno.id }, data: profilePatch });
-    }
+  const patch = gynoProfilePatch(gyno);
+  if (Object.keys(patch).length > 0) {
+    console.log(`  Patching gynoh3 profile fields: ${Object.keys(patch).join(", ")}`);
+    if (APPLY) await prisma.kennel.update({ where: { id: gyno.id }, data: patch });
   } else {
     console.log("  gynoh3 profile already up to date.");
   }
 
-  // Reassign misattributed canonical events from mh3-tn → gynoh3.
   // The source's own description self-identifies as GyNO H3, so anything
   // matching the kennel's name pattern in title or description belongs to
   // gynoh3, not mh3-tn.
@@ -159,24 +180,10 @@ async function cleanupMemphisGyno(prisma: PrismaClient) {
   for (const e of misattributed) {
     console.log(`    - ${e.id} "${e.title}" ${e.date.toISOString().slice(0, 10)}`);
   }
+  if (!APPLY) return;
 
-  if (APPLY) {
-    // Reassign Event.kennelId + EventKennel.kennelId. Skip if the target slot
-    // (gynoh3 + same date) already has a canonical row — that means a later
-    // scrape created the real GyNO event and the mh3-tn one is a duplicate
-    // ghost; delete instead.
-    for (const e of misattributed) {
-      const dupe = await prisma.event.findFirst({
-        where: { kennelId: gyno.id, date: e.date, isCanonical: true },
-      });
-      if (dupe) {
-        console.log(`    ↳ ${e.id}: gynoh3 already has a canonical at ${e.date.toISOString().slice(0, 10)} (${dupe.id}); cascade-deleting mh3-tn ghost.`);
-        await cascadeDeleteEvents(prisma, [e.id]);
-      } else {
-        await reassignEventKennel(prisma, e.id, mh3tn.id, gyno.id);
-        console.log(`    ↳ ${e.id}: reassigned to gynoh3.`);
-      }
-    }
+  for (const e of misattributed) {
+    await reassignOrDeleteGynoEvent(prisma, e, mh3tn.id, gyno.id);
   }
 }
 
@@ -268,38 +275,44 @@ async function cleanupC2B3H4Cancellations(prisma: PrismaClient) {
   }
 
   if (!APPLY) return;
-
   for (const e of events) {
-    const needsReassign = e.kennelId !== c2b3h4.id;
-    if (needsReassign) {
-      // Slot-safety: never write a duplicate canonical (kennelId, date). If
-      // c2b3h4 already has a row on this date (a fresh scrape may have
-      // recreated it), keep the existing canonical and cascade-delete this
-      // legacy ghost instead.
-      const slotTaken = await prisma.event.findFirst({
-        where: { kennelId: c2b3h4.id, date: e.date, isCanonical: true, id: { not: e.id } },
-        select: { id: true },
-      });
-      if (slotTaken) {
-        console.log(`    ↳ ${e.id}: c2b3h4 already has canonical at ${e.date.toISOString().slice(0, 10)} (${slotTaken.id}); cascade-deleting legacy ghost.`);
-        await cascadeDeleteEvents(prisma, [e.id]);
-        continue;
-      }
-      await reassignEventKennel(prisma, e.id, e.kennelId, c2b3h4.id);
-    }
-    const statusUpdate: Record<string, unknown> = {};
-    if (e.status === "CANCELLED") {
-      statusUpdate.status = "CONFIRMED";
-      statusUpdate.adminCancellationReason = null;
-      statusUpdate.adminCancelledAt = null;
-      statusUpdate.adminCancelledBy = null;
-    }
-    if (Object.keys(statusUpdate).length > 0) {
-      await prisma.event.update({ where: { id: e.id }, data: statusUpdate });
-    }
-    const actions = [needsReassign && "reassigned", Object.keys(statusUpdate).length > 0 && "un-cancelled"].filter(Boolean).join(" + ");
-    if (actions) console.log(`    ↳ ${e.id}: ${actions}`);
+    await applyC2B3H4Fix(prisma, e, c2b3h4.id);
   }
+}
+
+/** Per-event: reassign off ch3 (if needed) and un-cancel (if needed). Slot-safe. */
+async function applyC2B3H4Fix(
+  prisma: PrismaClient,
+  event: { id: string; date: Date; status: string; kennelId: string },
+  c2b3h4Id: string,
+) {
+  const needsReassign = event.kennelId !== c2b3h4Id;
+  if (needsReassign) {
+    const slotTaken = await prisma.event.findFirst({
+      where: { kennelId: c2b3h4Id, date: event.date, isCanonical: true, id: { not: event.id } },
+      select: { id: true },
+    });
+    if (slotTaken) {
+      console.log(`    ↳ ${event.id}: c2b3h4 already has canonical at ${event.date.toISOString().slice(0, 10)} (${slotTaken.id}); cascade-deleting legacy ghost.`);
+      await cascadeDeleteEvents(prisma, [event.id]);
+      return;
+    }
+    await reassignEventKennel(prisma, event.id, event.kennelId, c2b3h4Id);
+  }
+  const needsUncancel = event.status === "CANCELLED";
+  if (needsUncancel) {
+    await prisma.event.update({
+      where: { id: event.id },
+      data: {
+        status: "CONFIRMED",
+        adminCancellationReason: null,
+        adminCancelledAt: null,
+        adminCancelledBy: null,
+      },
+    });
+  }
+  const actions = [needsReassign && "reassigned", needsUncancel && "un-cancelled"].filter(Boolean).join(" + ");
+  if (actions) console.log(`    ↳ ${event.id}: ${actions}`);
 }
 
 main().catch((err) => {

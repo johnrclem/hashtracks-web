@@ -909,6 +909,25 @@ describe("GoogleSheetsAdapter.fetch — groupFilter (#1542)", () => {
     expect(result.events.map((e) => e.runNumber)).toEqual([939, 940]);
   });
 
+  it("fails fast when groupFilter is set but columns.group is missing", async () => {
+    // Silent skip on this misconfig would re-introduce sibling-kennel
+    // conflation. The adapter must surface it as an error instead.
+    const config: GoogleSheetsConfig = {
+      sheetId: "munich",
+      csvUrl: "https://example.com/pub?output=csv",
+      columns: { runNumber: 0, date: 1, hares: 4, location: 5, description: 6, startTime: 3 },
+      groupFilter: "MH3",
+      kennelTagRules: { default: "mh3-de" },
+    };
+    const adapter = new GoogleSheetsAdapter();
+    const result = await adapter.fetch(makeSource({ config: config as unknown as null }));
+
+    expect(result.events).toEqual([]);
+    expect(result.errors[0]).toContain("groupFilter configured without columns.group");
+    // No CSV fetch should have occurred — we reject before hitting the network.
+    expect(mockedSafeFetch).not.toHaveBeenCalled();
+  });
+
   it("backwards-compatible: no groupFilter → existing behavior unchanged", async () => {
     const csv = [
       "#,Date,Group,Start time,Hared by,Location,Notes",

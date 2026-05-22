@@ -539,6 +539,19 @@ export function buildEventFromSheetRow(
   };
 }
 
+/** Per-fetch context for `processRows`. Bundled to keep the method arity
+ *  below the Sonar S107 limit (max 7 params) while still threading the
+ *  pre-normalized `groupFilterSet` through per-tab calls. */
+interface ProcessRowsCtx {
+  sourceUrl: string;
+  minISO: string;
+  maxISO: string;
+  today: Date;
+  groupFilterSet: Set<string> | null;
+  /** Tab name for diagnostic labels — omitted for single-CSV fetches. */
+  section?: string;
+}
+
 /** Google Sheets CSV adapter. Fetches published spreadsheet tabs as CSV and parses config-driven column mappings. */
 export class GoogleSheetsAdapter implements SourceAdapter {
   type = "GOOGLE_SHEETS" as const;
@@ -554,6 +567,15 @@ export class GoogleSheetsAdapter implements SourceAdapter {
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : "Invalid source config";
+      return { events: [], errors: [message], errorDetails: { fetch: [{ message }] } };
+    }
+    // Fail loud rather than silently leak sibling-kennel rows: a `groupFilter`
+    // without a `columns.group` mapping cannot possibly filter anything, so the
+    // shared-multi-kennel-sheet pattern (#1542) would silently regress into the
+    // original cross-kennel conflation. Reject the scrape so the misconfig
+    // surfaces as an alert instead of as dirty data.
+    if (config.groupFilter != null && config.columns.group === undefined) {
+      const message = "groupFilter configured without columns.group — cannot route rows; fix the source config";
       return { events: [], errors: [message], errorDetails: { fetch: [{ message }] } };
     }
 
@@ -646,7 +668,7 @@ export class GoogleSheetsAdapter implements SourceAdapter {
         sampleRows = rows.slice(0, 10);
       }
 
-      const processed = this.processRows(rows, config, source.url, minISO, maxISO, now, groupFilterSet, tabName);
+      const processed = this.processRows(rows, config, { sourceUrl: source.url, minISO, maxISO, today: now, groupFilterSet, section: tabName });
       events.push(...processed.events);
       errors.push(...processed.errors);
       if (processed.parseErrors.length > 0) {
@@ -674,21 +696,17 @@ export class GoogleSheetsAdapter implements SourceAdapter {
   }
 
   /** Process parsed CSV rows into events, returning results + parse errors.
-   * `today` is the reference timestamp for year-less date inference; pass a
-   * single value per fetch so a scrape spanning midnight resolves all rows
-   * against the same anchor. `groupFilterSet` is materialized once by the
+   * `ctx.today` is the reference timestamp for year-less date inference; pass
+   * a single value per fetch so a scrape spanning midnight resolves all rows
+   * against the same anchor. `ctx.groupFilterSet` is materialized once by the
    * caller (per fetch, not per tab) so multi-tab scrapes don't re-normalize
    * the filter on every tab. (#1542) */
   private processRows(
     rows: string[][],
     config: GoogleSheetsConfig,
-    sourceUrl: string,
-    minISO: string,
-    maxISO: string,
-    today: Date,
-    groupFilterSet: Set<string> | null,
-    section?: string,
+    ctx: ProcessRowsCtx,
   ): { events: RawEventData[]; errors: string[]; parseErrors: ParseError[]; hasEventsInWindow: boolean } {
+    const { sourceUrl, minISO, maxISO, today, groupFilterSet, section } = ctx;
     const events: RawEventData[] = [];
     const errors: string[] = [];
     const parseErrors: ParseError[] = [];
@@ -772,7 +790,7 @@ export class GoogleSheetsAdapter implements SourceAdapter {
     const sampleRows = rows.slice(0, 10);
     const groupFilterSet = normalizeGroupFilter(config.groupFilter);
 
-    const processed = this.processRows(rows, config, sourceUrl, minISO, maxISO, today, groupFilterSet);
+    const processed = this.processRows(rows, config, { sourceUrl, minISO, maxISO, today, groupFilterSet });
     events.push(...processed.events);
     errors.push(...processed.errors);
     const errorDetails: ErrorDetails = {};
