@@ -315,6 +315,20 @@ describe("AucklandHussiesAdapter.fetch", () => {
       expect(c.description).toBe("With the men on a Monday night - 4pm");
     });
 
+    it.each([
+      ["With the men on a Monday night - 4pm 1/23 Main St", "1/23 Main St"],
+      ["With the men on a Monday night - 4pm 84A Church St", "84A Church St"],
+      ["With the men on a Monday night - 4pm 23-25 Main Rd", "23-25 Main Rd"],
+      ["With the men on a Monday night - 4pm 5 Pine Grove", "5 Pine Grove"],
+      ["With the men on a Monday night - 4pm 12 Lake View", "12 Lake View"],
+      ["With the men on a Monday night - 4pm 8 Marine Parade", "8 Marine Parade"],
+      ["With the men on a Monday night - 4pm 6 Church St.", "6 Church St."],
+    ])("peels NZ-specific address shapes (%s)", (cell, expected) => {
+      const c = classifyLocationCell(cell);
+      expect(c.location).toBe(expected);
+      expect(c.description).toBe("With the men on a Monday night - 4pm");
+    });
+
     it("returns empty object for undefined / empty input", () => {
       expect(classifyLocationCell(undefined)).toEqual({});
       expect(classifyLocationCell("")).toEqual({});
@@ -331,7 +345,7 @@ describe("AucklandHussiesAdapter.fetch", () => {
   it("decodes the live windows-1252 source with no U+FFFD anywhere (#1515)", async () => {
     const fixturePath = path.join(
       __dirname,
-      "__fixtures__/auckland-hussies-live-2026-05-22.html",
+      "fixtures/auckland-hussies-live-2026-05-22.html.fixture",
     );
     const bytes = new Uint8Array(readFileSync(fixturePath));
     mockFetchBytes(bytes);

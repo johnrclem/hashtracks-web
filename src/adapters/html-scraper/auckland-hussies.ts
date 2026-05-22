@@ -179,14 +179,20 @@ function cleanCellText(text: string | undefined): string | undefined {
 
 const TIME_PREFIX_RE = /^(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b\s*[-\u2013\u2014]?\s*/i;
 const JOINT_RUN_NOTE_RE = /^with\s+(?:the\s+)?(?:men|women|girls|guys|boys|joint|other)\b/i;
-// "12 Foo St", "6 Waterstone Way, Henderson", "111 Walker Rd, Pt Chevalier".
-// Anchored at street-number \u2192 capitalised words \u2192 optional comma-separated
-// suburb. A separate street-suffix gate (below) keeps a stray "4pm 6th" from
-// being mistaken for an address.
+// "12 Foo St", "6 Waterstone Way, Henderson", "111 Walker Rd, Pt Chevalier",
+// "1/23 Main St" (NZ unit prefix), "84A Church St" (letter suffix). The
+// street-number head accepts an optional unit/range prefix and a single
+// letter suffix; the tail allows `St.` / `Rd.` abbreviations with a period.
+// A separate street-suffix gate (below) keeps a stray "4pm 6th" from being
+// mistaken for an address.
 const ADDRESS_TAIL_RE =
-  /\b(\d+\s+[A-Z][\w'\-]*(?:\s+[A-Z][\w'\-]*)*(?:,\s*[A-Za-z][\w'\-]*(?:\s+[A-Za-z][\w'\-]*)*)*)\s*$/;
+  /\b(\d+(?:[\/-]\d+)?[A-Za-z]?\s+[A-Z][\w'\-.]*(?:\s+[A-Z][\w'\-.]*)*(?:,\s*[A-Za-z][\w'\-.]*(?:\s+[A-Za-z][\w'\-.]*)*)*)\s*$/;
+// NZ street/place suffixes. Abbreviated forms accept an optional trailing
+// period (`St.` / `Rd.` etc) via the `?` quantifier \u2014 Sonar prefers `?` over
+// `*` for an optional single char to keep complexity low and avoid ReDoS
+// hot-spots (gemini-code-assist comment on PR #1597).
 const STREET_SUFFIX_RE =
-  /\b(?:Street|St|Road|Rd|Avenue|Ave|Lane|Ln|Drive|Dr|Place|Pl|Way|Heads|Bay|Park|Crescent|Cres|Terrace|Tce|Highway|Hwy|Boulevard|Blvd|Court|Ct|Close|Cl|Quay|Wharf)\b/i;
+  /\b(?:Street|St\.?|Road|Rd\.?|Avenue|Ave\.?|Lane|Ln\.?|Drive|Dr\.?|Place|Pl\.?|Way|Heads|Bay|Park|Crescent|Cres\.?|Terrace|Tce\.?|Highway|Hwy\.?|Boulevard|Blvd\.?|Court|Ct\.?|Close|Cl\.?|Quay|Wharf|Grove|Rise|Row|View|Walk|Parade|Esplanade|Point|Pt\.?)\b/i;
 
 export interface ClassifiedLocationCell {
   /**
@@ -198,6 +204,16 @@ export interface ClassifiedLocationCell {
   location?: string | null;
   description?: string;
   startTime?: string;
+}
+
+/** Set of characters considered trailing "note separator" runs — whitespace
+ *  plus the ASCII hyphen and the two unicode dashes the source uses. */
+const TRAILING_NOTE_SEPARATORS = new Set([" ", "\t", "\n", "\r", "-", "–", "—"]);
+
+function stripTrailingNoteSeparators(s: string): string {
+  let end = s.length;
+  while (end > 0 && TRAILING_NOTE_SEPARATORS.has(s[end - 1])) end--;
+  return s.slice(0, end);
 }
 
 /** Convert a bare-time pair (e.g. `3` + `00` + `pm`) into HH:MM. */
@@ -244,7 +260,11 @@ export function classifyLocationCell(text: string | undefined): ClassifiedLocati
     const addrMatch = ADDRESS_TAIL_RE.exec(cleaned);
     if (addrMatch && STREET_SUFFIX_RE.test(addrMatch[1])) {
       const addr = addrMatch[1].trim();
-      const note = cleaned.slice(0, addrMatch.index).replace(/[\s\-\u2013\u2014]+$/, "").trim();
+      // Strip trailing whitespace + dash separators (`- `, `\u2013 `, `\u2014`) from the
+      // note half. Procedural strip avoids the `[\s\-\u2013\u2014]+$` regex shape that
+      // Sonar S5852 flags as ReDoS even though it's linear (see memory:
+      // feedback_sonar_s5852_false_positives).
+      const note = stripTrailingNoteSeparators(cleaned.slice(0, addrMatch.index)).trim();
       return { location: addr, description: note || undefined, startTime };
     }
     return { location: null, description: cleaned, startTime };
@@ -308,17 +328,23 @@ export function parseAucklandHussiesRow(
   };
 }
 
+/** Read the row's `<td>` text contents once. Callers reuse the array for
+ *  both date-row detection and col-4 continuation extraction (gemini-code-
+ *  assist review on PR #1597 — avoids redundant DOM traversal per row). */
+function readRowCells($: cheerio.CheerioAPI, rowEl: AnyNode): string[] {
+  return $(rowEl).find("td").toArray().map((td) => $(td).text());
+}
+
 /**
- * Extract the date-bearing cells from a single `<tr>`. Returns null if the
- * row isn't a date-shaped run row (annotation / phone / cost / blank).
- * Lifted out of {@link AucklandHussiesAdapter.fetch} purely to keep that
- * method below SonarCloud's cognitive-complexity threshold.
+ * Parse a single `<tr>` into date-bearing cells. Returns null if the row
+ * isn't a date-shaped run row (annotation / phone / cost / blank). Lifted
+ * out of {@link AucklandHussiesAdapter.fetch} for SonarCloud's cognitive-
+ * complexity threshold. Accepts pre-extracted `cells` so callers can share
+ * the array with continuation-row detection.
  */
-function extractRunRowCells(
-  $: cheerio.CheerioAPI,
-  rowEl: AnyNode,
+function parseRunRowFromCells(
+  cells: string[],
 ): { dateText: string; hareText?: string; locationText?: string } | null {
-  const cells = $(rowEl).find("td").toArray().map((td) => $(td).text());
   if (cells.length < 5) return null;
   const dateCell = cells.at(0)?.trim() ?? "";
   if (!DATE_CELL_RE.test(dateCell)) return null;
@@ -330,22 +356,17 @@ function extractRunRowCells(
 }
 
 /**
- * Read col-4 content from a non-date "continuation" `<tr>` — rows where col 0
- * is blank/empty so the Excel export visually wraps the previous date row's
- * cell. Joint-run rows often put the real street address on the continuation
- * line and the note on the dated line ("With the men on a Monday night - 4pm"
- * → next row → "6 Waterstone Way, Henderson"). Returns the col-4 text or
- * undefined if the row is itself a date row, lacks col 4, or carries only a
- * CTA / phone number rather than an address-shaped string.
+ * Read col-4 content from a "continuation" `<tr>` — rows where col 0 is
+ * blank/empty so the Excel export visually wraps the previous date row's
+ * cell. Joint-run rows often put the real street address on the
+ * continuation line and the note on the dated line ("With the men on a
+ * Monday night - 4pm" → next row → "6 Waterstone Way, Henderson"). Returns
+ * `undefined` if the row is itself a date row or lacks col 4.
  */
-function extractContinuationLocation(
-  $: cheerio.CheerioAPI,
-  rowEl: AnyNode,
-): string | undefined {
-  const cells = $(rowEl).find("td").toArray().map((td) => $(td).text());
+function continuationLocationFromCells(cells: string[]): string | undefined {
   if (cells.length < 5) return undefined;
   const dateCell = cells.at(0)?.trim() ?? "";
-  if (DATE_CELL_RE.test(dateCell)) return undefined; // a new run row, not a continuation
+  if (DATE_CELL_RE.test(dateCell)) return undefined;
   return cleanCellText(cells.at(4));
 }
 
@@ -354,7 +375,8 @@ function extractContinuationLocation(
  * concatenate their col-4 text into the location string. The classifier's
  * ADDRESS_TAIL_RE peel-back then extracts the street address. For non-
  * annotation rows (normal venue names), this is a no-op — merging would pull
- * in phone/cost/CTA noise (Codex round-2 finding on #1516).
+ * in phone/cost/CTA noise (Codex round-2 finding on #1516). Cells are read
+ * once per row and threaded through both predicates (gemini-code-assist).
  */
 function mergeContinuationRows(
   $: cheerio.CheerioAPI,
@@ -369,8 +391,9 @@ function mergeContinuationRows(
   for (let j = 1; j <= CONTINUATION_LOOKAHEAD && i + j < rows.length; j++) {
     const peek = rows.at(i + j);
     if (!peek) break;
-    if (extractRunRowCells($, peek)) break;
-    const tail = extractContinuationLocation($, peek);
+    const peekCells = readRowCells($, peek);
+    if (parseRunRowFromCells(peekCells)) break;
+    const tail = continuationLocationFromCells(peekCells);
     // Only fold the continuation row in when it actually looks like an
     // address (digit + Capitalised word + recognised street suffix). Pure
     // CTA / phone-number / catering-note continuations stay outside the
@@ -421,7 +444,8 @@ export class AucklandHussiesAdapter implements SourceAdapter {
     for (let i = 0; i < rows.length; i++) {
       const row = rows.at(i);
       if (!row) continue;
-      const parsedCells = extractRunRowCells($, row);
+      const cells = readRowCells($, row);
+      const parsedCells = parseRunRowFromCells(cells);
       if (!parsedCells) continue;
       rowsConsidered += 1;
 
