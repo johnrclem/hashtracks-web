@@ -39,49 +39,38 @@
 import "dotenv/config";
 import { prisma } from "@/lib/db";
 
-async function main() {
-  const apply = process.env.APPLY === "1";
-  console.log(`Mode: ${apply ? "APPLY (writing to prod)" : "DRY RUN"}`);
+const STALE_RUN_NUMBERS = new Set([2000, 946]);
+const STALE_START_TIMES = new Set(["22:36", "15:19"]);
 
-  const kennel = await prisma.kennel.findUnique({
-    where: { kennelCode: "mlh4" },
-    select: { id: true, shortName: true },
-  });
-  if (!kennel) {
-    console.error("mlh4 kennel not found — aborting");
-    process.exit(1);
-  }
-  console.log(`Target kennel: ${kennel.shortName} (id ${kennel.id})\n`);
+interface RunNumberHit { id: string; date: Date; runNumber: number | null; title: string | null }
+interface StartTimeHit { id: string; date: Date; startTime: string | null; title: string | null }
 
-  // Find candidate Events. EventKennel join gives us per-kennel attribution.
+async function findStaleEvents(kennelId: string): Promise<{ runNumberHits: RunNumberHit[]; startTimeHits: StartTimeHit[] }> {
   const eventKennels = await prisma.eventKennel.findMany({
-    where: { kennelId: kennel.id },
+    where: { kennelId },
     select: {
       event: {
-        select: {
-          id: true, date: true, runNumber: true, startTime: true, title: true, sourceUrl: true,
-        },
+        select: { id: true, date: true, runNumber: true, startTime: true, title: true, sourceUrl: true },
       },
     },
   });
   console.log(`Inspecting ${eventKennels.length} MLH4-linked events…\n`);
 
-  const stallNumbers = new Set([2000, 946]);
-  const stallTimes = new Set(["22:36", "15:19"]);
-
-  const runNumberHits: Array<{ id: string; date: Date; runNumber: number | null; title: string | null }> = [];
-  const startTimeHits: Array<{ id: string; date: Date; startTime: string | null; title: string | null }> = [];
-
+  const runNumberHits: RunNumberHit[] = [];
+  const startTimeHits: StartTimeHit[] = [];
   for (const ek of eventKennels) {
     const e = ek.event;
-    if (e.runNumber != null && stallNumbers.has(e.runNumber)) {
+    if (e.runNumber != null && STALE_RUN_NUMBERS.has(e.runNumber)) {
       runNumberHits.push({ id: e.id, date: e.date, runNumber: e.runNumber, title: e.title });
     }
-    if (e.startTime != null && stallTimes.has(e.startTime)) {
+    if (e.startTime != null && STALE_START_TIMES.has(e.startTime)) {
       startTimeHits.push({ id: e.id, date: e.date, startTime: e.startTime, title: e.title });
     }
   }
+  return { runNumberHits, startTimeHits };
+}
 
+function reportHits(runNumberHits: RunNumberHit[], startTimeHits: StartTimeHit[]): void {
   console.log(`Found ${runNumberHits.length} stale runNumber events:`);
   for (const h of runNumberHits) {
     console.log(`  · ${h.date.toISOString().slice(0, 10)} runNumber=${h.runNumber}  title=${h.title ?? "(null)"}`);
@@ -90,12 +79,9 @@ async function main() {
   for (const h of startTimeHits) {
     console.log(`  · ${h.date.toISOString().slice(0, 10)} startTime=${h.startTime}  title=${h.title ?? "(null)"}`);
   }
+}
 
-  if (!apply) {
-    console.log("\nRe-run with APPLY=1 to scrub fields.");
-    return;
-  }
-
+async function clearEventFields(runNumberHits: RunNumberHit[], startTimeHits: StartTimeHit[]): Promise<number> {
   let cleared = 0;
   for (const h of runNumberHits) {
     await prisma.event.update({ where: { id: h.id }, data: { runNumber: null } });
@@ -105,20 +91,21 @@ async function main() {
     await prisma.event.update({ where: { id: h.id }, data: { startTime: null } });
     cleared++;
   }
-  console.log(`\nCleared ${cleared} field(s).`);
+  return cleared;
+}
 
-  // Also scrub the underlying RawEvent rows so a re-scrape doesn't immediately
-  // re-write the wrong values via the same fingerprint. Find RawEvents whose
-  // `data` payload carries the bad runNumber / startTime AND belong to a MLH4
-  // SourceKennel link.
+async function scrubRawEventPayloads(kennelId: string): Promise<number> {
+  // Find RawEvents whose payload carries the bad runNumber / startTime AND
+  // belong to a MLH4 SourceKennel link — so a re-scrape doesn't immediately
+  // re-write the wrong values via the same fingerprint.
   const mlh4Sources = await prisma.sourceKennel.findMany({
-    where: { kennelId: kennel.id },
+    where: { kennelId },
     select: { sourceId: true },
   });
   const sourceIds = mlh4Sources.map((s) => s.sourceId);
   if (sourceIds.length === 0) {
     console.log("\nNo MLH4 sources linked — skipping RawEvent scrub.");
-    return;
+    return 0;
   }
 
   const raws = await prisma.rawEvent.findMany({
@@ -134,21 +121,53 @@ async function main() {
     select: { id: true, rawData: true },
   });
   console.log(`\nFound ${raws.length} stale RawEvent rows.`);
+
   let scrubbed = 0;
   for (const r of raws) {
     const d = r.rawData as Record<string, unknown>;
     let dirty = false;
-    if (typeof d.runNumber === "number" && stallNumbers.has(d.runNumber)) {
-      delete d.runNumber; dirty = true;
+    if (typeof d.runNumber === "number" && STALE_RUN_NUMBERS.has(d.runNumber)) {
+      delete d.runNumber;
+      dirty = true;
     }
-    if (typeof d.startTime === "string" && stallTimes.has(d.startTime)) {
-      delete d.startTime; dirty = true;
+    if (typeof d.startTime === "string" && STALE_START_TIMES.has(d.startTime)) {
+      delete d.startTime;
+      dirty = true;
     }
     if (dirty) {
       await prisma.rawEvent.update({ where: { id: r.id }, data: { rawData: d as never } });
       scrubbed++;
     }
   }
+  return scrubbed;
+}
+
+async function main() {
+  const apply = process.env.APPLY === "1";
+  console.log(`Mode: ${apply ? "APPLY (writing to prod)" : "DRY RUN"}`);
+
+  const kennel = await prisma.kennel.findUnique({
+    where: { kennelCode: "mlh4" },
+    select: { id: true, shortName: true },
+  });
+  if (!kennel) {
+    console.error("mlh4 kennel not found — aborting");
+    process.exit(1);
+  }
+  console.log(`Target kennel: ${kennel.shortName} (id ${kennel.id})\n`);
+
+  const { runNumberHits, startTimeHits } = await findStaleEvents(kennel.id);
+  reportHits(runNumberHits, startTimeHits);
+
+  if (!apply) {
+    console.log("\nRe-run with APPLY=1 to scrub fields.");
+    return;
+  }
+
+  const cleared = await clearEventFields(runNumberHits, startTimeHits);
+  console.log(`\nCleared ${cleared} field(s).`);
+
+  const scrubbed = await scrubRawEventPayloads(kennel.id);
   console.log(`Scrubbed ${scrubbed} RawEvent payload(s).`);
 }
 
