@@ -137,6 +137,51 @@ function inferDateFromHashDay(refDate: Date, hashDay: string): string | null {
 }
 
 /**
+ * Strip phpBB post-banner lines (e.g. `by mtmedori » Sat Mar 28, 2026 3:19 pm`)
+ * from the extracted text. These banner lines bleed into stripHtmlTags() output
+ * and leak post-timestamps into start-time extraction (#1588).
+ *
+ * Heuristic: a banner line carries ALL THREE of:
+ *   1. the U+00BB right-pointing double angle quotation mark (`»`), phpBB's
+ *      signature author-vs-date separator;
+ *   2. a month name (Jan…Dec);
+ *   3. a 4-digit year.
+ *
+ * Requiring `»` keeps legitimate prose lines like
+ * `Time: Saturday March 8, 2026, meet 1:30 PM` from being stripped — that's
+ * event copy, not a banner (Codex review).
+ *
+ * Implemented as line-split + per-line predicate to keep each regex provably
+ * linear (Sonar S5852).
+ */
+// Split into abbreviation + full-name regexes. Each has 12 alternations with
+// no nested optional groups → regex complexity ~12, well under Sonar S5843's
+// budget of 20. Word-boundary `\b` already prevents over-matching on words
+// like "Marching" / "Maybe" / "Decoration" (Gemini + Claude-bot review on PR
+// #1622), because the next char after the month token is still a word char
+// and `\b` requires a word→non-word transition.
+const MONTH_ABBR_RE =
+  /\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b/i;
+const MONTH_FULL_RE =
+  /\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\b/i;
+const FOUR_DIGIT_YEAR_RE = /\b\d{4}\b/;
+function isBannerLine(line: string): boolean {
+  return (
+    line.includes("»") &&
+    (MONTH_ABBR_RE.test(line) || MONTH_FULL_RE.test(line)) &&
+    FOUR_DIGIT_YEAR_RE.test(line)
+  );
+}
+export function stripPhpBbBanners(text: string): string {
+  return text
+    .split("\n")
+    .filter((line) => !isBannerLine(line))
+    .join("\n")
+    .replace(/\n{2,}/g, "\n")
+    .trim();
+}
+
+/**
  * Extract structured event fields from pre-parsed content.
  * Accepts pre-computed plain text (to avoid re-parsing HTML) and Cheerio instance
  * for link extraction.
@@ -147,7 +192,9 @@ export function extractEventFields(
   preloaded$?: cheerio.CheerioAPI,
 ): Partial<RawEventData> {
   const fields: Partial<RawEventData> = {};
-  const text = precomputedText ?? stripHtmlTags(htmlContent, "\n");
+  // Strip phpBB post-banner lines BEFORE label-based extraction so banner
+  // timestamps like "Sat Mar 28, 2026 3:19 pm" can't leak into startTime (#1588).
+  const text = stripPhpBbBanners(precomputedText ?? stripHtmlTags(htmlContent, "\n"));
 
   // Hares
   const hareMatch = /Hares?\s*:\s*([^\n]*)(?:\n|$)/i.exec(text);
@@ -182,10 +229,20 @@ export function extractEventFields(
     if (parsed) fields.startTime = parsed;
   }
 
-  // Run number from text (e.g., "#1638" or "Run #123")
-  const runMatch = /#(\d{2,})/.exec(text) ?? /Run\s*#?\s*(\d{2,})/i.exec(text);
+  // Run number from body — require explicit "Run #NNN" prose marker. The
+  // earlier loose `/#(\d{2,})/` regex pulled #2000 from street-address suite
+  // numbers ("Kroger 8465 Holcomb Bridge Rd #2000") and #946 from cross-kennel
+  // references ("Black Sheep ... all the way to #946…") (#1587). Title-extracted
+  // run number is preferred at the call site; this body fallback only fires
+  // when the title has no #NNN.
+  //
+  // `[\s#]+` between "Run" and the digits handles "Run #1638", "Run 1644",
+  // and "Run#1638" with a single quantifier — avoids the nested `\s*…\s*`
+  // shape Sonar S5852 flags as ReDoS-prone (Memory feedback_sonar_s5852_false_positives).
+  const runMatch = /\bRun[\s#]+(\d{2,})\b/i.exec(text);
   if (runMatch) {
-    fields.runNumber = Number.parseInt(runMatch[1], 10);
+    const n = Number.parseInt(runMatch[1], 10);
+    if (Number.isFinite(n) && n > 0) fields.runNumber = n;
   }
 
   // Cost
@@ -270,7 +327,10 @@ function processForumEntries(
       events.push({
         date,
         kennelTags: [forumConfig.kennelTag],
-        runNumber: fields.runNumber ?? titleRunNumber,
+        // Title is canonical when present: "Moonlite #1644 - The Wisening"
+        // is ground truth; only fall back to body extraction when the title
+        // carries no #NNN (#1587).
+        runNumber: titleRunNumber ?? fields.runNumber,
         title: titleName,
         hares: fields.hares,
         location: fields.location,
