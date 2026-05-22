@@ -579,6 +579,83 @@ describe("parseEventDetail", () => {
     expect(parsed.hares).toBe("Always Needs Ample Lube & Shart Tank");
   });
 
+  it("#1578: extracts hare names with inline <strong> formatting (Codex review)", () => {
+    // Defensive: the previous "any <strong>" guard would have dropped this
+    // shape too — a kennel that bolds individual hare names but isn't using
+    // them as a field label. Narrowing the guard to "label-shaped <strong>
+    // ending in ':'" keeps inline-bold hare names working.
+    const html = `<html><body>
+      <meta property="og:description" content='Event blurb with no labeled fields.' />
+      <p class="text-center"><strong>Hare(s):</strong></p>
+      <p class="text-center"><strong>Slip'n'Ride</strong>, Whip It Out</p>
+    </body></html>`;
+    const parsed = parseEventDetail(html, "moa2h3-styled-hares");
+    expect(parsed.hares).toBe("Slip'n'Ride, Whip It Out");
+  });
+
+  it("#1578: scans past empty Hare(s) blocks to find the populated one", () => {
+    // The live MoA2H3 Red Dress Run page emits the Hare(s) block twice
+    // (responsive LG/XS variants). A defensive parser must skip a label-only
+    // <p> followed by another label (Shiggy:) and walk to the next match.
+    const html = `<html><body>
+      <meta property="og:description" content='Event blurb with no labeled fields.' />
+      <div>
+        <p class="text-center"><strong>Hare(s):</strong></p>
+        <p class="text-center"><strong>Shiggy: </strong></p>
+      </div>
+      <div>
+        <p class="text-center"><strong>Hare(s):</strong></p>
+        <p class="text-center">Slip'n'Ride, Whip It Out</p>
+      </div>
+    </body></html>`;
+    const parsed = parseEventDetail(html, "moa2h3-moa2h3-red-dress-run");
+    expect(parsed.hares).toBe("Slip'n'Ride, Whip It Out");
+  });
+
+  it("#1578: extracts venue + address + maps URL from Start Location Details DOM block", () => {
+    // MoA2H3 Red Dress Run live layout: og:description is plain prose with no
+    // labeled `Location:` field, and the structured venue lives in a
+    // `.col-sm-6.location` column with an `<h4>Start Location Details</h4>`
+    // heading. Without the DOM fallback, both location and address fell
+    // through to undefined.
+    const html = `<html><body>
+      <meta property="og:description" content='Wanks! Join the wonderful Motown Ann Arbor Hash House Harriers for our first red dress run in many years.' />
+      <div class="col-sm-6 location">
+        <h4 class="text-center"><strong>Start Location Details</strong></h4>
+        <div class="tab-content">
+          <div class="tab-pane active" id="location">
+            <p>West Park</p>
+            <p><a href="//maps.google.com/maps?q=215 Chapin St, Ann Arbor, MI, 48103" target="_blank">215 Chapin St, Ann Arbor, MI, 48103</a></p>
+          </div>
+        </div>
+      </div>
+    </body></html>`;
+    const parsed = parseEventDetail(html, "moa2h3-moa2h3-red-dress-run");
+    expect(parsed.location).toBe("West Park");
+    expect(parsed.locationAddress).toBe("215 Chapin St, Ann Arbor, MI, 48103");
+    expect(parsed.locationUrl).toBe(
+      "https://maps.google.com/maps?q=215 Chapin St, Ann Arbor, MI, 48103",
+    );
+  });
+
+  it("#1578: prefers og:description location over DOM fallback when both present", () => {
+    // Defensive: if a future event publishes both labeled fields and the DOM
+    // block, the labeled fields are still authoritative (they're typed by
+    // the host kennel; the DOM block is the form-rendered version).
+    const html = `<html><body>
+      <meta property="og:description" content='Prelube at the usual spot.
+
+Location of event: 9405 Alpine Ct, Norfolk, VA 23503' />
+      <div class="col-sm-6 location">
+        <h4 class="text-center"><strong>Start Location Details</strong></h4>
+        <p>Fallback Venue</p>
+        <p><a href="//maps.google.com/maps?q=Wrong+Address">Wrong Address</a></p>
+      </div>
+    </body></html>`;
+    const parsed = parseEventDetail(html, "doubled-location");
+    expect(parsed.locationAddress).toBe("9405 Alpine Ct, Norfolk, VA 23503");
+  });
+
   it("#806: prefers 'Location of event:' address over 'Parking:' block", () => {
     const html = `<html><body>
       <meta property="og:description" content='Cum celebrate AGM 2026.

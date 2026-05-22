@@ -337,6 +337,21 @@ describe("parseEventsPage", () => {
     expect(events[0].location).not.toContain("overnight stay");
   });
 
+  it("#1580: strips milestone prefix when venue carries a city/region suffix", () => {
+    // Variant the audit saw: the suffix ", Hampton, England" defeats the
+    // existing atVenue regex (which only matches "The \w[^.]*"). After the
+    // cleanMilestoneLocation post-processor, both shapes converge on a
+    // description-free venue string.
+    const html = `<html><body><div class="paragraph"><strong>OCH3 Events</strong><ul>
+      <li>23rd May 2026 - 2000th run and overnight stay at The Pheasantry, Hampton, England.</li>
+    </ul></div></body></html>`;
+    const events = parseEventsPage(html, "http://test.com");
+    expect(events).toHaveLength(1);
+    expect(events[0].location).toBe("The Pheasantry, Hampton, England");
+    expect(events[0].location).not.toContain("2000th run");
+    expect(events[0].location).not.toContain("overnight stay");
+  });
+
   it("skips items without parseable dates", () => {
     const html = `<html><body><div class="paragraph"><strong>OCH3 Events</strong><ul>
       <li>Some non-date text about the club</li>

@@ -52,6 +52,36 @@ export function parseEventHeader(
 }
 
 /**
+ * "Muster" label prefix — accepts both colon and bare-space forms
+ * (the source mixes both, e.g. run #295 "Muster:" vs run #296 "Muster ").
+ */
+const MUSTER_PREFIX_RE = /^muster[:\s]\s*/i;
+
+/**
+ * Time-label precedence ladder (#1581). Higher rank beats lower regardless of
+ * line order: Muster (gather) > Pack Away (cutoff) > Chalk Talk (briefing).
+ * Lookup table keeps `parseEventDetails` flat and below Sonar's cognitive-
+ * complexity threshold.
+ */
+const TIME_LABELS: ReadonlyArray<{ re: RegExp; rank: number }> = [
+  { re: MUSTER_PREFIX_RE, rank: 3 },
+  { re: /^pack away:\s*/i, rank: 2 },
+  { re: /^chalk talk:\s*/i, rank: 1 },
+];
+
+/** Match a line against the time-label ladder. Returns the highest-rank
+ *  candidate that parses, or null if no label fires. */
+function matchTimeLabel(line: string): { rank: number; time: string } | null {
+  for (const { re, rank } of TIME_LABELS) {
+    if (!re.test(line)) continue;
+    const time = parseTimeToHHMM(line.replace(re, "").trim());
+    if (time) return { rank, time };
+    return null; // label matched but value unparseable — fall through to description
+  }
+  return null;
+}
+
+/**
  * Parse detail lines from an event's description paragraph.
  * Extracts hares, location, start time, hash cash, and other details.
  */
@@ -71,6 +101,7 @@ export function parseEventDetails(text: string): {
   let location: string | undefined;
   let locationUrl: string | undefined;
   let startTime: string | undefined;
+  let timeRank = 0;
   const descParts: string[] = [];
 
   for (const line of lines) {
@@ -78,23 +109,23 @@ export function parseEventDetails(text: string): {
 
     if (lower.startsWith("hares:") || lower.startsWith("hare:")) {
       hares = stripPlaceholder(line.replace(/^hares?:\s*/i, "").trim()) || undefined;
-    } else if (lower.startsWith("where:")) {
+      continue;
+    }
+    if (lower.startsWith("where:")) {
       const raw = line.replace(/^where:\s*/i, "").trim();
       location = stripPlaceholder(raw) || undefined;
-      if (location) {
-        locationUrl = googleMapsSearchUrl(location);
-      }
-    } else if (lower.startsWith("pack away:")) {
-      const timeText = line.replace(/^pack away:\s*/i, "").trim();
-      startTime = parseTimeToHHMM(timeText);
-    } else if (lower.startsWith("chalk talk:") && !startTime) {
-      // Use chalk talk as fallback if no "Pack Away" time
-      const timeText = line.replace(/^chalk talk:\s*/i, "").trim();
-      startTime = parseTimeToHHMM(timeText);
-    } else {
-      // Accumulate remaining lines as description
-      descParts.push(line);
+      if (location) locationUrl = googleMapsSearchUrl(location);
+      continue;
     }
+    const timeMatch = matchTimeLabel(line);
+    if (timeMatch) {
+      if (timeMatch.rank > timeRank) {
+        startTime = timeMatch.time;
+        timeRank = timeMatch.rank;
+      }
+      continue;
+    }
+    descParts.push(line);
   }
 
   return {
@@ -157,15 +188,21 @@ export class RenegadeH3Adapter implements SourceAdapter {
       headerCount++;
 
       try {
-        // Look at the next <p> for details
-        const $next = $p.next("p");
-        // Replace <br> with newlines before extracting text (Webador uses <br> separators)
-        if ($next.length > 0) $next.find("br").replaceWith("\n");
-        const detailText = $next.length > 0 ? $next.text().trim() : "";
-
-        // Only parse details if it looks like event info (not another header)
-        const hasDetails = detailText && !parseEventHeader(detailText);
-        const details = hasDetails ? parseEventDetails(detailText) : {};
+        // Walk forward through following <p> siblings, accumulating detail
+        // text until the next event header (or end of section). Run #295's
+        // details are split across TWO <p> blocks — Where/Hares in one, then
+        // Muster/Chalk Talk/Pack away/etc. in the next — so a single
+        // `$p.next("p")` lookup dropped startTime entirely. (#1581)
+        const detailParts: string[] = [];
+        for (let $sib = $p.next("p"); $sib.length > 0; $sib = $sib.next("p")) {
+          const sibText = $sib.text().trim();
+          if (!sibText) continue;
+          if (parseEventHeader(sibText)) break;
+          $sib.find("br").replaceWith("\n");
+          detailParts.push($sib.text().trim());
+        }
+        const detailText = detailParts.join("\n");
+        const details = detailText ? parseEventDetails(detailText) : {};
 
         const event: RawEventData = {
           date: header.date,

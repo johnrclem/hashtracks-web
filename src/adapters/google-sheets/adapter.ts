@@ -60,6 +60,16 @@ export interface GoogleSheetsConfig {
      */
     extraHares?: number[];
     location: number;
+    /**
+     * Optional column index for a separate street-address column. Some sheets
+     * split the location across two cells: a short venue/city label (e.g.
+     * "Orlando") and a full street address (e.g. "215 Chapin St, Ann Arbor,
+     * MI, 48103"). When configured, the cell populates `locationStreet` on
+     * the RawEventData (and gets combined into the maps query). When blank,
+     * `location` still flows to `locationName` independently — neither
+     * column is gated on the other being populated (#1579).
+     */
+    address?: number;
     title?: number;
     description?: number;
     /**
@@ -511,6 +521,39 @@ function resolveKennelTagFromSheetRow(
   return null;
 }
 
+/**
+ * Resolve location/locationStreet/locationUrl from sheet row + config.
+ *
+ * Encapsulates the three-field bundle: a city-shorthand-filtered `location`
+ * (col `columns.location`), an independent `locationStreet` (col
+ * `columns.address` — optional, #1579), and a maps query built from whichever
+ * fragment is most specific (combined venue+street > street alone > venue
+ * alone). Extracted from `buildEventFromSheetRow` to keep that function under
+ * Sonar's cognitive-complexity threshold.
+ */
+function resolveLocationFields(
+  row: string[],
+  config: GoogleSheetsConfig,
+): { location: string | undefined; locationStreet: string | undefined; locationUrl: string | undefined } {
+  let location = stripPlaceholder(row[config.columns.location]);
+  // Drop all-lowercase single-token "city shorthand" values (e.g. "sheperdstown")
+  // that aren't real venue names. The merge pipeline still has the kennel's
+  // region/country bias for geocoding. See #893.
+  if (location && isCityShorthand(location)) location = undefined;
+  const addressIdx = config.columns.address;
+  const locationStreet = addressIdx == null
+    ? undefined
+    : stripPlaceholder(row[addressIdx]);
+  const mapsQuery = location && locationStreet
+    ? `${location}, ${locationStreet}`
+    : (locationStreet || location);
+  return {
+    location,
+    locationStreet,
+    locationUrl: mapsQuery ? mapsUrl(mapsQuery) : undefined,
+  };
+}
+
 /** Build a RawEventData from a sheet row. Returns null if the row should be skipped. */
 export function buildEventFromSheetRow(
   row: string[],
@@ -534,13 +577,7 @@ export function buildEventFromSheetRow(
         all.sort((a, b) => a.localeCompare(b));
         return all.join(" / ");
       })();
-  let location = stripPlaceholder(row[config.columns.location]);
-  // Drop all-lowercase single-token "city shorthand" values (e.g. "sheperdstown")
-  // that aren't real venue names. The merge pipeline still has the kennel's
-  // region/country bias for geocoding. See #893.
-  if (location && isCityShorthand(location)) {
-    location = undefined;
-  }
+  const { location, locationStreet, locationUrl } = resolveLocationFields(row, config);
   let title = config.columns.title != null ? stripPlaceholder(row[config.columns.title]) : undefined;
 
   if (title && INSTRUCTION_TITLE_RE.test(title)) {
@@ -573,7 +610,8 @@ export function buildEventFromSheetRow(
     description,
     hares,
     location,
-    locationUrl: location ? mapsUrl(location) : undefined,
+    locationStreet,
+    locationUrl,
     startTime,
     sourceUrl,
   };

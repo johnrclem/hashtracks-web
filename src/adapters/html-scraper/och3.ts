@@ -262,6 +262,11 @@ export function parseEventsPage(html: string, baseUrl: string): RawEventData[] {
       const atVenue = withoutDate.match(/\bat\s+(The\s+\w[^.]*)/i);
       if (atVenue) location = atVenue[1].replace(/\.\s*$/, "").trim();
     }
+    // Defensive milestone-prefix strip (#1580): when an entry reads "Nth run
+    // [and overnight stay] at <venue>", the description text leaks into
+    // location through any of the three branches above. cleanMilestoneLocation
+    // removes the leading "<N>th run … at " framing and trailing period.
+    location = cleanMilestoneLocation(location);
 
     // Description: everything after the first sentence or two
     const sentences = fullText.split(/\.\s+/);
@@ -339,6 +344,41 @@ function classifySegments(segments: string[]): ParsedSegments {
   };
 }
 
+/**
+ * Strip description framing from a milestone-run location string (#1580).
+ *
+ * OCH3 special-event entries are typed as free-form `<li>` text on the
+ * `eventslinks.html` page and as dash-delimited segments on the run-list
+ * page. When the source labels the venue with milestone framing — e.g.
+ * `"2000th run and overnight stay at The Pheasantry"` or
+ * `"2000th Run - <prose mentioning venue> - <hare>"` — the framing leaks
+ * into the location because the existing extractors keep whichever slice
+ * mentions the venue.
+ *
+ * This post-processor matches a leading milestone marker (`Nth run`) and
+ * the FIRST ` at ` token, returning everything after it (the venue + any
+ * city/region suffix). If the input has no milestone marker, it's returned
+ * unchanged except for trailing-period cleanup. Strings shorter than 3
+ * chars after cleaning return undefined.
+ */
+const MILESTONE_PREFIX_RE = /^\d+(?:st|nd|rd|th)?\s+run\b/i;
+// `(\S.*)` instead of `(.+)` anchors the first non-space char deterministically
+// so the unbounded greedy quantifier can't backtrack — silences Sonar S5852
+// without changing the captured value (the leading char after "at " is always
+// non-space in any real venue string we'd want to extract).
+const AT_VENUE_TAIL_RE = /\bat\s+(\S.*)$/i;
+function cleanMilestoneLocation(loc: string | undefined): string | undefined {
+  if (!loc) return undefined;
+  let cleaned = loc.trim();
+  if (MILESTONE_PREFIX_RE.test(cleaned)) {
+    const atMatch = AT_VENUE_TAIL_RE.exec(cleaned);
+    if (!atMatch) return undefined;
+    cleaned = atMatch[1].trim();
+  }
+  cleaned = cleaned.replace(/\.\s*$/, "").trim();
+  return cleaned.length >= 3 ? cleaned : undefined;
+}
+
 /** Strip a leading boilerplate/nav fragment off a parsed title, if present. */
 function stripNavBleed(title: string | undefined): string | undefined {
   if (!title) return undefined;
@@ -399,8 +439,14 @@ function parseRunEntry(
     .map((s) => s.trim())
     .filter(Boolean);
 
-  const { title: rawTitle, location, hares } = classifySegments(segments);
+  const { title: rawTitle, location: rawLocation, hares } = classifySegments(segments);
   const title = stripNavBleed(rawTitle);
+  // Defensive milestone-prefix strip (#1580): the 3+ segment branch of
+  // classifySegments joins middle segments verbatim, which leaks "<N>th run
+  // and overnight stay at …" description text into location when the source
+  // formats a milestone entry as "<date> - <milestone label> - <description-
+  // that-mentions-venue> - <hares>".
+  const location = cleanMilestoneLocation(rawLocation);
 
   return {
     entry: {

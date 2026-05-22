@@ -1330,6 +1330,19 @@ async function upsertCanonicalEvent(
         locationCity = null;
       }
 
+      // locationStreet is independent of locationName (#1579). Tri-state:
+      // - adapter emitted a value → persist (or clear if null)
+      // - adapter omitted street but emitted a new location → clear stale street
+      // - adapter omitted both → preserve existing
+      const explicitStreet = event.locationStreet !== undefined;
+      const explicitLocation = event.location !== undefined;
+      let locationStreetUpdate: { locationStreet?: string | null } = {};
+      if (explicitStreet) {
+        locationStreetUpdate = { locationStreet: event.locationStreet ?? null };
+      } else if (explicitLocation) {
+        locationStreetUpdate = { locationStreet: null };
+      }
+
       const updated = await prisma.event.update({
         where: { id: existingEvent.id },
         data: {
@@ -1353,10 +1366,9 @@ async function upsertCanonicalEvent(
           ...(event.location !== undefined
             ? {
                 locationName: locName,
-                // Clear stale street when location changes but no street provided
-                locationStreet: event.locationStreet ?? null,
               }
             : {}),
+          ...locationStreetUpdate,
           // Map URL: write when adapter supplies one; clear when adapter sends
           // an explicit `location: null` and no replacement URL (WS6 / #1516
           // Codex round 3 — without this, an event whose venue was scrubbed
@@ -1479,6 +1491,12 @@ async function upsertCanonicalEvent(
       if (!existingEvent.locationName && event.location) {
         const sanitized = sanitizeLocation(event.location);
         if (sanitized) enrichData.locationName = sanitized;
+      }
+      // #1579 — locationStreet enriches independently (sources like OKissMe
+      // split venue from street across separate columns; an address-only
+      // secondary source must be able to backfill the street).
+      if (!existingEvent.locationStreet && event.locationStreet) {
+        enrichData.locationStreet = event.locationStreet;
       }
       if (!existingEvent.startTime && event.startTime) {
         enrichData.startTime = event.startTime;

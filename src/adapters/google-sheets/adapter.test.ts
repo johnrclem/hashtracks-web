@@ -356,6 +356,61 @@ describe("buildEventFromSheetRow", () => {
     expect(event!.location).toBe("Joe's Tavern");
   });
 
+  // #1579: OKissMe H3 layout splits venue/city from full street address across
+  // two columns. Either column may be blank — the adapter must populate
+  // `location` and `locationStreet` independently, and combine them when
+  // building the maps query.
+  describe("columns.address (#1579)", () => {
+    const okConfig = {
+      sheetId: "okissme",
+      // [#, Date, Hares, Location, Address, Theme]
+      columns: { runNumber: 0, date: 1, hares: 2, location: 3, address: 4 },
+      kennelTagRules: { default: "okissme-h3" },
+    };
+
+    it("location only → location populated, locationStreet undefined", () => {
+      const row = ["53", "5/22/26", "Fire in the Hole", "Orlando", ""];
+      const event = buildEventFromSheetRow(row, okConfig, "https://example.com", "2026-05-22");
+      expect(event!.location).toBe("Orlando");
+      expect(event!.locationStreet).toBeUndefined();
+      expect(event!.locationUrl).toContain("Orlando");
+    });
+
+    it("address only → locationStreet populated, location undefined", () => {
+      const row = ["52", "5/15/26", "Slip", "", "West Oaks Mall-West, Ocoee, FL 34761"];
+      const event = buildEventFromSheetRow(row, okConfig, "https://example.com", "2026-05-15");
+      expect(event!.location).toBeUndefined();
+      expect(event!.locationStreet).toBe("West Oaks Mall-West, Ocoee, FL 34761");
+      // googleMapsSearchUrl percent-encodes the query, so spaces → %20.
+      expect(event!.locationUrl).toContain("West%20Oaks%20Mall-West");
+    });
+
+    it("both populated → both flow through, locationUrl combines them", () => {
+      const row = ["54", "5/29/26", "Whip It Out", "Orlando", "123 Lake Eola Dr"];
+      const event = buildEventFromSheetRow(row, okConfig, "https://example.com", "2026-05-29");
+      expect(event!.location).toBe("Orlando");
+      expect(event!.locationStreet).toBe("123 Lake Eola Dr");
+      // Maps query joins venue + street ("Orlando, 123 Lake Eola Dr") and
+      // googleMapsSearchUrl percent-encodes ", " → "%2C%20".
+      expect(event!.locationUrl).toContain("Orlando%2C%20123%20Lake%20Eola%20Dr");
+    });
+
+    it("both blank → both undefined, no maps URL", () => {
+      const row = ["55", "6/5/26", "Hare", "", ""];
+      const event = buildEventFromSheetRow(row, okConfig, "https://example.com", "2026-06-05");
+      expect(event!.location).toBeUndefined();
+      expect(event!.locationStreet).toBeUndefined();
+      expect(event!.locationUrl).toBeUndefined();
+    });
+
+    it("address column strips TBD/TBA placeholders", () => {
+      const row = ["56", "6/12/26", "Hare", "Orlando", "TBD"];
+      const event = buildEventFromSheetRow(row, okConfig, "https://example.com", "2026-06-12");
+      expect(event!.location).toBe("Orlando");
+      expect(event!.locationStreet).toBeUndefined();
+    });
+  });
+
   it("applies defaultTitle with run number when title is placeholder", () => {
     const config = { ...baseConfig, defaultTitle: "Wild & Wonderful Wednesday Trail" };
     const row = ["42", "3/11/26", "Alice", "Park", "TBD"];
