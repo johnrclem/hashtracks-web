@@ -788,6 +788,9 @@ describe("cellMatchesFilter (#1592)", () => {
     ["MH3,MFMH3", true, "comma-split keeps host"],
     ["MH3; BNH; Hashathon", true, "semicolon-split keeps host"],
     ["MH3/ Hashathon", true, "slash-split with trailing label"],
+    ["BNH / MH3", true, "host listed second via token-equality"],
+    ["BNH / MH3 - Birthday", true, "host-prefix sub-label in second token"],
+    ["MASS H3, MH3 Spec", true, "comma-split with host-prefix in second token"],
     // #1592 host-prefix relaxation
     ["MH3 Spec", true, "space-separated sub-label"],
     ["MH3 - Birthday", true, "hyphen-delimited sub-label"],
