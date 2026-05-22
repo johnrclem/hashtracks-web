@@ -48,13 +48,18 @@ const EM_DASH_RE = /^[—–-]$/;
 // — prefer string ops over `\s*` + optional adjacency).
 const MAP_BOILERPLATE_PHRASE = "at the map location below";
 
+function stripTrailingCommas(value: string): string {
+  let s = value;
+  while (s.endsWith(",")) s = s.slice(0, -1).trimEnd();
+  return s;
+}
+
 function stripMapBoilerplate(value: string): string {
-  let s = value.replace(/\s+$/, "");
-  if (s.endsWith(".")) s = s.slice(0, -1).replace(/\s+$/, "");
-  const lc = s.toLowerCase();
-  if (lc.endsWith(MAP_BOILERPLATE_PHRASE)) {
-    s = s.slice(0, -MAP_BOILERPLATE_PHRASE.length);
-    s = s.replace(/[,\s]+$/, "");
+  let s = value.trimEnd();
+  if (s.endsWith(".")) s = s.slice(0, -1).trimEnd();
+  if (s.toLowerCase().endsWith(MAP_BOILERPLATE_PHRASE)) {
+    s = s.slice(0, -MAP_BOILERPLATE_PHRASE.length).trimEnd();
+    s = stripTrailingCommas(s);
   }
   return s;
 }
