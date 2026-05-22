@@ -417,6 +417,39 @@ function rawFromTitle(title: string) {
   return parseFacebookHostedEvents(html, { kennelTag: "h6" })[0];
 }
 
+describe("facebookEventToRawEvent — title trailing-delimiter strip (#1557 Memphis)", () => {
+  const baseEvent = {
+    id: "1234567890123456",
+    startTimestamp: 1714521600,
+    isCanceled: false,
+  };
+
+  it.each([
+    ["GyNO H3 Trail 8 -", "GyNO H3 Trail 8"],
+    ["MH3 Trail -", "MH3 Trail"],
+    ["Trail #42 —", "Trail #42"],
+    ["Trail #42 –", "Trail #42"],
+    ["Trail #42 :", "Trail #42"],
+    ["Trail #42 - ", "Trail #42"],
+  ])("strips trailing delimiter from %s", (raw, expected) => {
+    const result = facebookEventToRawEvent(
+      { ...baseEvent, name: raw },
+      "mh3-tn",
+      "America/New_York",
+    );
+    expect(result?.title).toBe(expected);
+  });
+
+  it("preserves a real mid-string dash", () => {
+    const result = facebookEventToRawEvent(
+      { ...baseEvent, name: "Trail - Red Dress Run" },
+      "mh3-tn",
+      "America/New_York",
+    );
+    expect(result?.title).toBe("Trail - Red Dress Run");
+  });
+});
+
 describe("bagToRawEvent — runNumber extraction (#1319)", () => {
   it.each([
     ["…HapPy Hour ~ Boston Johnny's May's Birthday Party ~ H6#307", 307],

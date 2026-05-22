@@ -251,7 +251,15 @@ function formatScheduleRules(rules: ScheduleSlot[]): string | null {
   // prevents new duplicates from being created, but this is a defense-in-depth
   // guard for any historical duplicates and any future duplicate-rule shapes.
   const deduped = [...new Set(rendered)];
-  return deduped.length > 0 ? deduped.join(" / ") : null;
+  // Drop bare-day fragments subsumed by a peer with a time (#1552 LRH3): a
+  // stale ScheduleRule with `startTime: null` renders as "Sundays", which
+  // gets concatenated alongside the real "Sundays at 3:00 PM" peer and
+  // produces a dangling fragment. The `" at "` boundary keeps unique
+  // day-only slots intact when no peer with that day has a time.
+  const final = deduped.filter(
+    (s) => !deduped.some((other) => other !== s && other.startsWith(`${s} at `)),
+  );
+  return final.length > 0 ? final.join(" / ") : null;
 }
 
 function formatScheduleSlot(slot: ScheduleSlot): string | null {

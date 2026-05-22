@@ -18,6 +18,12 @@ vi.mock("../utils", async () => {
   };
 });
 
+// big-hump.com runs on http (no https variant available). Centralized so
+// SonarCloud's S5332 "Using http protocol is insecure" rule sees one
+// declaration instead of repeated literals across test fixtures.
+// NOSONAR typescript:S5332 — production source is http, mirrored here for fidelity.
+const BH4_HARELINE_URL = "http://www.big-hump.com/hareline.php"; // NOSONAR
+
 describe("parseEventHeader", () => {
   it("parses date and run number", () => {
     const result = parseEventHeader("Wednesday 04/01/2026 #1991");
@@ -216,6 +222,22 @@ describe("parseEventTitle", () => {
     const result = parseEventTitle("2FC's Trail @ Lemay");
     expect(result.hares).toBe("2FC");
     expect(result.location).toBe("Lemay");
+  });
+
+  // ─── #1550: <hare> <action-verb> ... pattern ───
+
+  it.each([
+    ["Perpencockular Asks For Help To Move @ Brentwood", "Perpencockular", "Brentwood"],
+    ["Captain Says Goodbye To Summer @ Forest Park", "Captain", "Forest Park"],
+    ["Whiney Needs A Win @ Lemay", "Whiney", "Lemay"],
+    ["Beaver Hosts The Annual Hashapalooza @ South City", "Beaver", "South City"],
+    // Codex review: multi-word hare name before verb is preserved
+    ["Captain Hook Says Goodbye @ Forest Park", "Captain Hook", "Forest Park"],
+    ["Just Bob Hosts The Trail @ Lemay", "Just Bob", "Lemay"],
+  ])("#1550: extracts hare from action-verb phrase: %s", (h4, hare, loc) => {
+    const result = parseEventTitle(h4);
+    expect(result.hares).toBe(hare);
+    expect(result.location).toBe(loc);
   });
 });
 
@@ -553,7 +575,7 @@ describe("BigHumpAdapter", () => {
   it("parses events from hareline page (no history)", async () => {
     const mockSource = {
       id: "test-bh4",
-      url: "http://www.big-hump.com/hareline.php",
+      url: BH4_HARELINE_URL,
       config: null,
     } as never;
 
@@ -575,7 +597,7 @@ describe("BigHumpAdapter", () => {
   it("fetches history when includeHistory is true", async () => {
     const mockSource = {
       id: "test-bh4",
-      url: "http://www.big-hump.com/hareline.php",
+      url: BH4_HARELINE_URL,
       config: { includeHistory: true, historyYearRange: [2026, 2026] },
     } as never;
 
@@ -597,7 +619,7 @@ describe("BigHumpAdapter", () => {
   it("deduplicates: hareline events win over history", async () => {
     const mockSource = {
       id: "test-bh4",
-      url: "http://www.big-hump.com/hareline.php",
+      url: BH4_HARELINE_URL,
       config: { includeHistory: true, historyYearRange: [2026, 2026] },
     } as never;
 
@@ -620,7 +642,7 @@ describe("BigHumpAdapter", () => {
   it("returns error on fetch failure", async () => {
     const mockSource = {
       id: "test-bh4",
-      url: "http://www.big-hump.com/hareline.php",
+      url: BH4_HARELINE_URL,
       config: null,
     } as never;
 
@@ -629,7 +651,7 @@ describe("BigHumpAdapter", () => {
       result: {
         events: [],
         errors: ["HTTP 500"],
-        errorDetails: { fetch: [{ url: "http://www.big-hump.com/hareline.php", message: "HTTP 500" }] },
+        errorDetails: { fetch: [{ url: BH4_HARELINE_URL, message: "HTTP 500" }] },
       },
     });
 
@@ -659,7 +681,7 @@ describe("BigHumpAdapter", () => {
       structureHash: "828-test",
       fetchDurationMs: 50,
     });
-    const mockSource = { id: "test-bh4", url: "http://www.big-hump.com/hareline.php", config: null } as never;
+    const mockSource = { id: "test-bh4", url: BH4_HARELINE_URL, config: null } as never;
     return adapter.fetch(mockSource, { days: 36500 });
   }
 
@@ -711,7 +733,7 @@ describe("BigHumpAdapter", () => {
 
     const mockSource = {
       id: "test-bh4",
-      url: "http://www.big-hump.com/hareline.php",
+      url: BH4_HARELINE_URL,
       config: null,
     } as never;
     const result = await adapter.fetch(mockSource, { days: 36500 });
@@ -727,6 +749,201 @@ describe("BigHumpAdapter", () => {
   });
 });
 
+// ─── #1550: "Open" placeholder + subtitled-title preservation ──
+
+describe("BigHumpAdapter — #1550 Open placeholder + subtitled title", () => {
+  const adapter = new BigHumpAdapter();
+  beforeEach(() => vi.resetAllMocks());
+
+  it("preserves descriptive h4 title and extracts first-word hare when 'Open' leaks from description", async () => {
+    // Production-shaped fixture: #2002 has a multi-word h4 with verb subtitle.
+    // Description has "Hare: Open" leaking from the template, but the title's
+    // first word is the real hare. Title rewrite skipped because h4 has
+    // meaningful subtitle content.
+    const html = `
+      <html><body>
+        <div class="w3-card">
+          <header class="w3-container w3-green">
+            <h3>Saturday 05/23/2026 <span class="w3-text-amber">#2002</span></h3>
+          </header>
+          <div class="w3-row"><div class="w3-col w3-container m9 l10">
+            <h4>Perpencockular Asks For Help To Move @ Brentwood</h4>
+            <span class="w3-small"><p>Circle up: 3:00 p.m.<p>Hare: Open</span>
+          </div></div>
+        </div>
+      </body></html>
+    `;
+    vi.mocked(utils.fetchHTMLPage).mockResolvedValueOnce({
+      ok: true as const,
+      html,
+      $: cheerio.load(html),
+      structureHash: "open-placeholder-test",
+      fetchDurationMs: 50,
+    });
+
+    const mockSource = {
+      id: "test-bh4",
+      url: BH4_HARELINE_URL,
+      config: null,
+    } as never;
+    const result = await adapter.fetch(mockSource, { days: 36500 });
+
+    expect(result.events).toHaveLength(1);
+    const ev = result.events[0];
+    expect(ev.runNumber).toBe(2002);
+    expect(ev.hares).toBe("Perpencockular");
+    expect(ev.title).toBe("Perpencockular Asks For Help To Move @ Brentwood");
+    expect(ev.location).toBe("Brentwood");
+  });
+
+  it("preserves real hasher named 'Open' from description when venue is known (Codex P1)", async () => {
+    // Codex P1 review on #1577: a real hasher literally named "Open" with
+    // `Hare: Open` in description and a known venue must survive. The
+    // earlier parseHaresFromDescription filter dropped the description
+    // value unconditionally. Now: filter at the convergence point only
+    // when venue is also unknown. Multi-word h4 below skips title-side
+    // rules and lets descHares win.
+    const html = `
+      <html><body>
+        <div class="w3-card">
+          <header class="w3-container w3-green">
+            <h3>Wednesday 04/22/2026 <span class="w3-text-amber">#1996</span></h3>
+          </header>
+          <div class="w3-row"><div class="w3-col w3-container m9 l10">
+            <h4>A Long Themed Trail Description @ Forest Park</h4>
+            <span class="w3-small"><p>Circle up: 6:45 p.m.<p>Hare: Open</span>
+          </div></div>
+        </div>
+      </body></html>
+    `;
+    vi.mocked(utils.fetchHTMLPage).mockResolvedValueOnce({
+      ok: true as const,
+      html,
+      $: cheerio.load(html),
+      structureHash: "open-from-desc-known-venue",
+      fetchDurationMs: 50,
+    });
+
+    const mockSource = {
+      id: "test-bh4",
+      url: BH4_HARELINE_URL,
+      config: null,
+    } as never;
+    const result = await adapter.fetch(mockSource, { days: 36500 });
+    const ev = result.events[0];
+    expect(ev.hares).toBe("Open");
+    expect(ev.location).toBe("Forest Park");
+  });
+
+  it("preserves real hasher named 'Open' when venue is known (Codex review carve-out)", async () => {
+    // A real hasher literally named "Open" with a known venue should NOT be
+    // cleared by the placeholder filter. Mirrors the upstream
+    // `h4Hare === 'open'` carve-out that requires an unknown venue.
+    const html = `
+      <html><body>
+        <div class="w3-card">
+          <header class="w3-container w3-green">
+            <h3>Wednesday 04/15/2026 <span class="w3-text-amber">#1995</span></h3>
+          </header>
+          <div class="w3-row"><div class="w3-col w3-container m9 l10">
+            <h4>Open's Trail @ Forest Park</h4>
+            <span class="w3-small">Circle up: 6:45 p.m.</span>
+          </div></div>
+        </div>
+      </body></html>
+    `;
+    vi.mocked(utils.fetchHTMLPage).mockResolvedValueOnce({
+      ok: true as const,
+      html,
+      $: cheerio.load(html),
+      structureHash: "open-real-hasher",
+      fetchDurationMs: 50,
+    });
+
+    const mockSource = {
+      id: "test-bh4",
+      url: BH4_HARELINE_URL,
+      config: null,
+    } as never;
+    const result = await adapter.fetch(mockSource, { days: 36500 });
+    const ev = result.events[0];
+    expect(ev.hares).toBe("Open");
+    expect(ev.location).toBe("Forest Park");
+  });
+
+  it("preserves descriptive h4 title when hare extraction returns undefined (CodeRabbit + Claude bot review)", async () => {
+    // "Bungle in the Jungle @ Steelville" — extractHaresFromTitlePart returns
+    // undefined (multi-word phrase, no separator, no verb). The previous
+    // `!hares ||` short-circuit silently rewrote the title to "BH4 #N @ ...",
+    // dropping "Bungle in the Jungle". The fix requires `hares` to be truthy
+    // AND match the harePart before rewriting.
+    const html = `
+      <html><body>
+        <div class="w3-card">
+          <header class="w3-container w3-green">
+            <h3>Wednesday 04/29/2026 <span class="w3-text-amber">#1997</span></h3>
+          </header>
+          <div class="w3-row"><div class="w3-col w3-container m9 l10">
+            <h4>Bungle in the Jungle @ Steelville</h4>
+            <span class="w3-small">Circle up: 6:45 p.m.</span>
+          </div></div>
+        </div>
+      </body></html>
+    `;
+    vi.mocked(utils.fetchHTMLPage).mockResolvedValueOnce({
+      ok: true as const,
+      html,
+      $: cheerio.load(html),
+      structureHash: "unparsed-h4-preserved",
+      fetchDurationMs: 50,
+    });
+
+    const mockSource = {
+      id: "test-bh4",
+      url: BH4_HARELINE_URL,
+      config: null,
+    } as never;
+    const result = await adapter.fetch(mockSource, { days: 36500 });
+    const ev = result.events[0];
+    expect(ev.hares).toBeUndefined();
+    expect(ev.title).toBe("Bungle in the Jungle @ Steelville");
+    expect(ev.location).toBe("Steelville");
+  });
+
+  it("falls back to BH4 #N rewrite when h4 is pure 'Hare @ Venue' (existing #828 behavior preserved)", async () => {
+    const html = `
+      <html><body>
+        <div class="w3-card">
+          <header class="w3-container w3-green">
+            <h3>Wednesday 04/01/2026 <span class="w3-text-amber">#1991</span></h3>
+          </header>
+          <div class="w3-row"><div class="w3-col w3-container m9 l10">
+            <h4>Whiney @ Forest Park</h4>
+            <span class="w3-small">Circle up: 6:45 p.m.</span>
+          </div></div>
+        </div>
+      </body></html>
+    `;
+    vi.mocked(utils.fetchHTMLPage).mockResolvedValueOnce({
+      ok: true as const,
+      html,
+      $: cheerio.load(html),
+      structureHash: "bare-rewrite",
+      fetchDurationMs: 50,
+    });
+
+    const mockSource = {
+      id: "test-bh4",
+      url: BH4_HARELINE_URL,
+      config: null,
+    } as never;
+    const result = await adapter.fetch(mockSource, { days: 36500 });
+    const ev = result.events[0];
+    expect(ev.hares).toBe("Whiney");
+    expect(ev.title).toBe("BH4 #1991 @ Forest Park");
+  });
+});
+
 // ─── Live integration test (run manually with `vitest run --testNamePattern live`) ──
 
 describe.skip("BigHumpAdapter live", () => {
@@ -735,7 +952,7 @@ describe.skip("BigHumpAdapter live", () => {
     const adapter = new LiveAdapter();
     const source = {
       id: "live-bh4",
-      url: "http://www.big-hump.com/hareline.php",
+      url: BH4_HARELINE_URL,
       config: null,
     } as never;
 

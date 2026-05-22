@@ -2127,6 +2127,39 @@ describe("buildRawEventFromGCalItem — parenthetical hare extraction", () => {
   });
 });
 
+describe("buildRawEventFromGCalItem — #1547 date-range parenthetical rejection", () => {
+  it("strips '(Friday 5/22-Monday 5/25)' date range from ABQ campout title and does NOT set hares", () => {
+    const event = buildRawEventFromGCalItem(
+      {
+        summary: "DoT Birthday Weekend Campout (Friday 5/22-Monday 5/25)",
+        start: { dateTime: "2026-05-22T12:00:00-06:00" },
+        status: "confirmed",
+      },
+      { defaultKennelTag: "abqh3" },
+    );
+    expect(event).not.toBeNull();
+    expect(event!.title).toBe("DoT Birthday Weekend Campout");
+    expect(event!.hares).toBeUndefined();
+  });
+
+  it.each<[string]>([
+    ["Trail Camp (May 22-25)"],         // word-range, no slashes — preserved (not a M/D pair)
+    ["Trail Camp (5/22-5/25)"],         // bare slash range
+    ["Trail #100 (Fri 5/22 - Mon 5/25)"], // weekday-abbreviated slash range
+  ])("strips slash-date paren from %s", (summary) => {
+    const event = buildRawEventFromGCalItem(
+      { summary, start: { dateTime: "2026-05-22T12:00:00-06:00" }, status: "confirmed" },
+      { defaultKennelTag: "abqh3" },
+    );
+    expect(event).not.toBeNull();
+    if (summary.includes("/")) {
+      // Slash pattern: paren is treated as instructional date hint → stripped, no hares.
+      expect(event!.title).not.toMatch(/\(/);
+      expect(event!.hares).toBeUndefined();
+    }
+  });
+});
+
 describe("buildRawEventFromGCalItem — w/ hare-location extraction", () => {
   it("extracts hares and location from 'w/' pattern", () => {
     const item = {

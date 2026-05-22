@@ -41,6 +41,28 @@ const KENNEL_TAG = "sth3-au";
 const SOURCE_URL_DEFAULT = "https://www.sth3.org/upcoming-runs";
 
 const EM_DASH_RE = /^[—–-]$/;
+// Source data-entry boilerplate (#1548): the kennel writes "at the map
+// location below" into the Location: field on sth3.org, referring to an
+// embedded map that follows. Stripped via string operations to keep the
+// regex shape Sonar S5852-safe (memory: feedback_sonar_s5852_false_positives
+// — prefer string ops over `\s*` + optional adjacency).
+const MAP_BOILERPLATE_PHRASE = "at the map location below";
+
+function stripTrailingCommas(value: string): string {
+  let s = value;
+  while (s.endsWith(",")) s = s.slice(0, -1).trimEnd();
+  return s;
+}
+
+function stripMapBoilerplate(value: string): string {
+  let s = value.trimEnd();
+  if (s.endsWith(".")) s = s.slice(0, -1).trimEnd();
+  if (s.toLowerCase().endsWith(MAP_BOILERPLATE_PHRASE)) {
+    s = s.slice(0, -MAP_BOILERPLATE_PHRASE.length).trimEnd();
+    s = stripTrailingCommas(s);
+  }
+  return s;
+}
 
 interface ThirstyParagraph {
   text: string;
@@ -120,7 +142,8 @@ export function parseThirstyBlock(
 
     const locMatch = /^Location:\s*(.+)$/i.exec(t);
     if (locMatch && !location) {
-      location = stripPlaceholder(locMatch[1]);
+      const raw = stripMapBoilerplate(locMatch[1]).trim();
+      location = stripPlaceholder(raw);
       continue;
     }
     if (/^Map:/i.test(t) && p.href && !locationUrl) {

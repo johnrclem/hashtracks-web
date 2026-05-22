@@ -299,6 +299,13 @@ describe("checkTitleQuality", () => {
     expect(findings[0].rule).toBe("title-cta-text");
   });
 
+  it("flags title-cta-text for RVA 'CLAIM THIS TRAIL' placeholder (#1549)", () => {
+    const event = makeEvent({ title: "Richmond H3 Trail #1695: CLAIM THIS TRAIL" });
+    const findings = checkTitleQuality(event);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].rule).toBe("title-cta-text");
+  });
+
   it("flags title-schedule-description as warning for schedule language", () => {
     const event = makeEvent({
       title: "Mosquito H3 runs on the first and third Wednesdays",

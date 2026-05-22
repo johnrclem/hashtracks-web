@@ -680,6 +680,9 @@ export const CTA_EMBEDDED_PATTERNS = [
   /\bhares?\s+(?:needed|wanted|required|volunteer\w*)\b/i,
   /\bneed(?:ed)?\s+(?:a\s+)?hares?\b/i,
   /\blooking\s+for\s+(?:a\s+)?hares?\b/i,
+  // RVA's hare-wanted placeholder (#1549). Kennel uses "CLAIM THIS TRAIL"
+  // in the GCal summary when a trail is open for volunteer hares.
+  /\bclaim\s+this\s+trail\b/i,
 ] as const;
 
 // ---------------------------------------------------------------------------

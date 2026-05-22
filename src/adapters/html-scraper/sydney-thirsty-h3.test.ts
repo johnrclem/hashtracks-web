@@ -73,6 +73,34 @@ describe("sydney-thirsty-h3 parseThirstyBlock", () => {
     expect(events[0].locationUrl).toBe("https://maps.app.goo.gl/y");
   });
 
+  // #1548: source data-entry boilerplate stripped from Location field.
+  it.each([
+    [
+      "Location: Petersham Park, at the map location below",
+      "Petersham Park",
+    ],
+    [
+      "Location: St Leonards at the map location below.",
+      "St Leonards",
+    ],
+    [
+      "Location: Centennial Park, At The Map Location Below",
+      "Centennial Park",
+    ],
+  ])("#1548: strips 'at the map location below' boilerplate from location: %s", (locLine, expected) => {
+    const events = parseThirstyBlock(
+      [
+        { text: "Thursday April 9th at 6:30pm" },
+        { text: "Run #1842" },
+        { text: locLine },
+      ],
+      URL,
+      REF,
+    );
+    expect(events).toHaveLength(1);
+    expect(events[0].location).toBe(expected);
+  });
+
   it("emits two events for multi-day AGPU-style 'Runs (Sat and Sun) N & M'", () => {
     const events = parseThirstyBlock(
       [

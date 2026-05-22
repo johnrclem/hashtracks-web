@@ -63,6 +63,32 @@ export function parseEventHeader(headerText: string): {
 }
 
 /**
+ * Narrow allowlist of 3rd-person action verbs BH4 uses to compose
+ * subtitled titles ("<Hare> Asks For Help To Move").
+ */
+const BH4_ACTION_VERBS = new Set([
+  "asks", "says", "wants", "needs", "hosts", "brings", "throws", "calls",
+  "welcomes", "loves", "hates", "returns", "visits", "moves", "goes",
+  "takes", "gives", "pays", "buys", "sells", "runs",
+]);
+
+/**
+ * Token-based "<hare> <action-verb> ..." matcher (#1550). Returns the
+ * leading hare prefix when a verb token appears after at least one prior
+ * token, else undefined. Set lookup avoids the SonarCloud S5843
+ * complexity hit a 20-branch alternation regex incurs.
+ */
+function matchActionVerbHare(harePart: string): string | undefined {
+  const tokens = harePart.split(/\s+/).filter(Boolean);
+  for (let i = 1; i < tokens.length - 1; i++) {
+    if (BH4_ACTION_VERBS.has(tokens[i].toLowerCase())) {
+      return tokens.slice(0, i).join(" ");
+    }
+  }
+  return undefined;
+}
+
+/**
  * Extract hare name(s) from a "Hare @ Location" title prefix.
  *
  * BH4 titles frequently embed theme text between the hare and the `@`:
@@ -113,6 +139,14 @@ function extractHaresFromTitlePart(harePart: string): string | undefined {
     harePart,
   );
   if (anniversaryMatch) return anniversaryMatch[1].trim();
+
+  // Rule 5b: "<hare> <action-verb> ..." (#1550 — "Perpencockular Asks For
+  // Help To Move"). Narrow allowlist of 3rd-person action verbs the kennel
+  // uses to compose trail subtitles. Multi-word hare names are preserved
+  // ("Captain Hook Says Goodbye" → "Captain Hook"). Set lookup over a
+  // tokenized split avoids a 20-branch alternation regex (Sonar S5843).
+  const verbHare = matchActionVerbHare(harePart);
+  if (verbHare) return verbHare;
 
   // Rule 6: clean short name — no colons, no emoji.
   // Accept 1–2 word names, or a pair-joined form ("X & Y", "X and Y") where
@@ -165,6 +199,30 @@ export function parseEventTitle(h4Text: string): {
 }
 
 /**
+ * Build the title for a numbered BH4 event. Preserves the rich h4 text when
+ * its hare-side has descriptive content beyond the extracted hare name
+ * (#1550 "Perpencockular Asks For Help To Move @ Brentwood"). Rebuilds to
+ * "BH4 #N @ Venue" only when `hares` was extracted AND equals the harePart
+ * (CodeRabbit + Claude bot review on #1577): hares=undefined means the
+ * extractor could not parse the h4 — preserve the original to avoid
+ * silently dropping subtitle text.
+ */
+function buildBh4Title(
+  h4Text: string,
+  titleFromH4: string,
+  hares: string | undefined,
+  runNumber: number,
+  location: string | undefined,
+): string {
+  const atIdx = h4Text.lastIndexOf(" @ ");
+  const h4HarePart = (atIdx >= 0 ? h4Text.slice(0, atIdx) : h4Text).trim();
+  const isBareHareTitle =
+    !!hares && h4HarePart.toLowerCase() === hares.toLowerCase();
+  if (!isBareHareTitle) return titleFromH4;
+  return location ? `BH4 #${runNumber} @ ${location}` : `BH4 #${runNumber}`;
+}
+
+/**
  * Parse a start time from the description text.
  * Looks for "Circle up: 6:45 p.m." or "Meet to hash: 3pm" patterns.
  * Returns "HH:MM" or undefined.
@@ -205,12 +263,33 @@ function parseLocationFromDescription(text: string): string | undefined {
  * The caller must preserve paragraph newlines — cheerio's `.text()` strips
  * them, which defeats the `\n` anchor here; use `stripHtmlTags(.., "\n")`.
  */
+/**
+ * Pick the better of description-side and title-side hares. Default
+ * preference is description (it's the more structured field), but a
+ * description value of literal "Open" (placeholder for unfilled hare
+ * slot) yields to a non-Open title-side value when both are present.
+ * Codex P1 review on #1577.
+ */
+function pickHaresPreferringRealName(
+  descHares: string | undefined,
+  titleHares: string | undefined,
+): string | undefined {
+  const descIsOpen = !!descHares && /^open$/i.test(descHares);
+  const titleIsReal = !!titleHares && !/^open$/i.test(titleHares);
+  if (descIsOpen && titleIsReal) return titleHares;
+  return descHares ?? titleHares;
+}
+
 function parseHaresFromDescription(text: string): string | undefined {
   const match = /^\s*Hares?\s*(?:\([^)]*\))?\s*:\s*(.+?)$/im.exec(text);
   if (!match) return undefined;
   const name = match[1].trim();
   // "away: …" is departure time, not a hare name
   if (/^away/i.test(name)) return undefined;
+  // #1550: "Open" placeholder is filtered at the convergence point in
+  // `fetch()` where venue context is known — a real hasher literally named
+  // "Open" at a known venue must survive even when title-side extraction
+  // returned undefined (Codex P1 review on #1577).
   return name || undefined;
 }
 
@@ -475,8 +554,18 @@ export class BigHumpAdapter implements SourceAdapter {
           const descLocation = parseLocationFromDescription(descText);
           const descHares = parseHaresFromDescription(descText);
 
-          const hares = descHares || titleHares;
           const location = descLocation || titleLocation;
+          // #1550: "Open" is a "hare slot available" placeholder used both
+          // in h4 ("Open - Skanksgiving @ ???") and in description
+          // ("Hare: Open"). Resolution:
+          //   - prefer description hare normally, BUT skip a descHares of
+          //     "Open" when titleHares has a non-Open value (Codex P1 review)
+          //   - final clear only when venue is also unknown — a real hasher
+          //     literally named "Open" at a known venue survives.
+          const rawHares = pickHaresPreferringRealName(descHares, titleHares);
+          const venueUnknown = !location || isPlaceholder(location);
+          const hares =
+            rawHares && venueUnknown && /^open$/i.test(rawHares) ? undefined : rawHares;
 
           // #828: "Open @ ???" placeholder rows — skip. Key off raw h4Text so
           // a real hasher literally named "Open" still gets ingested if their
@@ -489,11 +578,18 @@ export class BigHumpAdapter implements SourceAdapter {
           const isUnknownVenue = placeholderVenues.has(h4Venue) || allQuestionMarks;
           if (h4Hare.trim().toLowerCase() === "open" && isUnknownVenue) return;
 
-          // #828: h4 is "Hare @ Venue" — rebuild as "BH4 #N @ Venue" so hares don't double as title.
-          let title = titleFromH4;
-          if (runNumber) {
-            title = location ? `BH4 #${runNumber} @ ${location}` : `BH4 #${runNumber}`;
-          }
+          // #828: h4 is "Hare @ Venue" — rebuild as "BH4 #N @ Venue" so hares
+          // don't double as title. #1550: when the h4 has descriptive content
+          // beyond the bare hare name ("Perpencockular Asks For Help To Move
+          // @ Brentwood"), the trail subtitle is meaningful and we preserve
+          // titleFromH4. The harePart-before-` @ ` is the title's hare-side;
+          // only rewrite when `hares` was extracted AND equals that prefix
+          // (case-insensitive). Hare-extraction returning undefined means the
+          // h4 contains something we couldn't parse — preserve it as title
+          // rather than overwriting (CodeRabbit + Claude bot review).
+          const title = runNumber
+            ? buildBh4Title(h4Text, titleFromH4, hares, runNumber, location)
+            : titleFromH4;
 
           harelineEvents.push({
             date,

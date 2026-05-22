@@ -438,10 +438,19 @@ type BagOutcome =
   | { kind: "event"; event: RawEventData }
   | { kind: "rejected"; reason: FbBagRejectReason };
 
+// Title trailing-delimiter strip (#1557 Memphis): Page admins frequently
+// leave templated suffixes like " - " in the FB event name when the theme
+// segment is empty ("MH3 Trail -", "GyNO H3 Trail 8 -"). Anchored to
+// end-of-string, single char class — Sonar S5852 safe. Mirrors the GCal
+// adapter strip in `google-calendar/adapter.ts` (#756 / #1060).
+const TITLE_TRAILING_DELIMITER_RE = /\s*[-–—:]\s*$/; // NOSONAR — anchored end-of-string strip, single char class
+
 function projectBag(bag: EventBag, kennelTag: string, timezone: string): BagOutcome {
   if (!bag.time || !bag.rich) return { kind: "rejected", reason: "missing-half" };
   if (bag.rich.is_canceled === true) return { kind: "rejected", reason: "cancelled" };
-  const title = bag.rich.name?.trim() || undefined;
+  // Inner `.trim()` is needed before the regex so the anchored `\s*$` strip
+  // sees a delimiter at the end; the regex itself absorbs surrounding spaces.
+  const title = bag.rich.name?.trim().replace(TITLE_TRAILING_DELIMITER_RE, "") || undefined;
   if (!title) return { kind: "rejected", reason: "no-title" };
   const ms = bag.time.start_timestamp * 1000;
   const instant = new Date(ms);
