@@ -94,104 +94,104 @@ interface Patch {
   after: string | null;
 }
 
-async function collectPatches(prisma: PrismaClient): Promise<Patch[]> {
-  const patches: Patch[] = [];
-
-  // ── ABQ haresText with slash-date (#1547) ──────────────────────────
-  const abqKennel = await prisma.kennel.findUnique({ where: { kennelCode: "abqh3" }, select: { id: true } });
-  if (abqKennel) {
-    const abqEvents = await prisma.event.findMany({
-      where: { kennelId: abqKennel.id, haresText: { contains: "/" } },
-      select: { id: true, haresText: true, date: true },
-    });
-    for (const e of abqEvents) {
-      if (e.haresText && isDateRangeHares(e.haresText)) {
-        patches.push({ kennelLabel: "abqh3 #1547", eventId: e.id, field: "haresText", before: e.haresText, after: null });
-      }
-    }
-  }
-
-  // ── Wasatch haresText sentence trailer (#1551) ─────────────────────
-  const wasKennel = await prisma.kennel.findUnique({ where: { kennelCode: "wasatch-h3" }, select: { id: true } });
-  if (wasKennel) {
-    const wasEvents = await prisma.event.findMany({
-      where: { kennelId: wasKennel.id, haresText: { contains: ". " } },
-      select: { id: true, haresText: true, date: true },
-    });
-    for (const e of wasEvents) {
-      if (!e.haresText) continue;
-      const truncated = truncateAtSentence(e.haresText);
-      if (truncated !== null && truncated !== e.haresText) {
-        patches.push({ kennelLabel: "wasatch-h3 #1551", eventId: e.id, field: "haresText", before: e.haresText, after: truncated || null });
-      }
-    }
-  }
-
-  // ── Memphis FB title trailing delimiter (#1557) ────────────────────
-  // mh3-tn + gynoh3 — via EventKennel join because GyNO events are routed via kennelPatterns
-  const mhKennels = await prisma.kennel.findMany({
-    where: { kennelCode: { in: ["mh3-tn", "gynoh3"] } },
-    select: { id: true, kennelCode: true },
+/** ABQ haresText with slash-date (#1547). */
+async function collectAbqPatches(prisma: PrismaClient): Promise<Patch[]> {
+  const kennel = await prisma.kennel.findUnique({ where: { kennelCode: "abqh3" }, select: { id: true } });
+  if (!kennel) return [];
+  const events = await prisma.event.findMany({
+    where: { kennelId: kennel.id, haresText: { contains: "/" } },
+    select: { id: true, haresText: true },
   });
-  const mhKennelIds = mhKennels.map((k) => k.id);
-  if (mhKennelIds.length > 0) {
-    const mhEvents = await prisma.event.findMany({
-      where: {
-        title: { not: null },
-        OR: [
-          { kennelId: { in: mhKennelIds } },
-          { eventKennels: { some: { kennelId: { in: mhKennelIds } } } },
-        ],
-      },
-      select: { id: true, title: true, date: true, kennelId: true },
-    });
-    for (const e of mhEvents) {
-      if (!e.title) continue;
-      const stripped = stripTitleTrailingDelimiter(e.title);
-      if (stripped !== null) {
-        // `stripped || null` matches sanitizeTitle behavior (empty → null)
-        patches.push({ kennelLabel: "mh3-tn/gynoh3 #1557", eventId: e.id, field: "title", before: e.title, after: stripped || null });
-      }
-    }
-  }
+  return events
+    .filter((e) => e.haresText && isDateRangeHares(e.haresText))
+    .map((e) => ({ kennelLabel: "abqh3 #1547", eventId: e.id, field: "haresText" as const, before: e.haresText, after: null }));
+}
 
-  // ── STH3-AU locationName boilerplate (#1548) ───────────────────────
-  const sthKennel = await prisma.kennel.findUnique({ where: { kennelCode: "sth3-au" }, select: { id: true } });
-  if (sthKennel) {
-    const sthEvents = await prisma.event.findMany({
-      where: { kennelId: sthKennel.id, locationName: { contains: "at the map location below", mode: "insensitive" } },
-      select: { id: true, locationName: true, date: true },
-    });
-    for (const e of sthEvents) {
-      if (!e.locationName) continue;
-      const stripped = stripMapBoilerplate(e.locationName);
-      if (stripped !== e.locationName) {
-        patches.push({ kennelLabel: "sth3-au #1548", eventId: e.id, field: "locationName", before: e.locationName, after: stripped || null });
-      }
-    }
+/** Wasatch haresText sentence trailer (#1551). */
+async function collectWasatchPatches(prisma: PrismaClient): Promise<Patch[]> {
+  const kennel = await prisma.kennel.findUnique({ where: { kennelCode: "wasatch-h3" }, select: { id: true } });
+  if (!kennel) return [];
+  const events = await prisma.event.findMany({
+    where: { kennelId: kennel.id, haresText: { contains: ". " } },
+    select: { id: true, haresText: true },
+  });
+  const patches: Patch[] = [];
+  for (const e of events) {
+    if (!e.haresText) continue;
+    const truncated = truncateAtSentence(e.haresText);
+    if (truncated === null || truncated === e.haresText) continue;
+    patches.push({ kennelLabel: "wasatch-h3 #1551", eventId: e.id, field: "haresText", before: e.haresText, after: truncated || null });
   }
-
-  // ── BH4 haresText "Open" placeholder (#1550) ───────────────────────
-  // BH4 events are routed via EventKennel (multi-kennel pattern). Match
-  // via either primary or secondary kennel link to catch both shapes.
-  const bh4Kennel = await prisma.kennel.findUnique({ where: { kennelCode: "bh4" }, select: { id: true } });
-  if (bh4Kennel) {
-    const bh4Events = await prisma.event.findMany({
-      where: {
-        haresText: { equals: "Open", mode: "insensitive" },
-        OR: [
-          { kennelId: bh4Kennel.id },
-          { eventKennels: { some: { kennelId: bh4Kennel.id } } },
-        ],
-      },
-      select: { id: true, haresText: true, date: true },
-    });
-    for (const e of bh4Events) {
-      patches.push({ kennelLabel: "bh4 #1550", eventId: e.id, field: "haresText", before: e.haresText ?? null, after: null });
-    }
-  }
-
   return patches;
+}
+
+/** Memphis FB title trailing delimiter (#1557). mh3-tn + gynoh3 via EventKennel join (GyNO via kennelPatterns). */
+async function collectMemphisPatches(prisma: PrismaClient): Promise<Patch[]> {
+  const kennels = await prisma.kennel.findMany({
+    where: { kennelCode: { in: ["mh3-tn", "gynoh3"] } },
+    select: { id: true },
+  });
+  const ids = kennels.map((k) => k.id);
+  if (ids.length === 0) return [];
+  const events = await prisma.event.findMany({
+    where: {
+      title: { not: null },
+      OR: [{ kennelId: { in: ids } }, { eventKennels: { some: { kennelId: { in: ids } } } }],
+    },
+    select: { id: true, title: true },
+  });
+  const patches: Patch[] = [];
+  for (const e of events) {
+    if (!e.title) continue;
+    const stripped = stripTitleTrailingDelimiter(e.title);
+    if (stripped === null) continue;
+    // `stripped || null` matches sanitizeTitle behavior (empty → null)
+    patches.push({ kennelLabel: "mh3-tn/gynoh3 #1557", eventId: e.id, field: "title", before: e.title, after: stripped || null });
+  }
+  return patches;
+}
+
+/** STH3-AU locationName boilerplate (#1548). */
+async function collectSthAuPatches(prisma: PrismaClient): Promise<Patch[]> {
+  const kennel = await prisma.kennel.findUnique({ where: { kennelCode: "sth3-au" }, select: { id: true } });
+  if (!kennel) return [];
+  const events = await prisma.event.findMany({
+    where: { kennelId: kennel.id, locationName: { contains: "at the map location below", mode: "insensitive" } },
+    select: { id: true, locationName: true },
+  });
+  const patches: Patch[] = [];
+  for (const e of events) {
+    if (!e.locationName) continue;
+    const stripped = stripMapBoilerplate(e.locationName);
+    if (stripped === e.locationName) continue;
+    patches.push({ kennelLabel: "sth3-au #1548", eventId: e.id, field: "locationName", before: e.locationName, after: stripped || null });
+  }
+  return patches;
+}
+
+/** BH4 haresText "Open" placeholder (#1550). Routed via EventKennel (multi-kennel pattern). */
+async function collectBh4Patches(prisma: PrismaClient): Promise<Patch[]> {
+  const kennel = await prisma.kennel.findUnique({ where: { kennelCode: "bh4" }, select: { id: true } });
+  if (!kennel) return [];
+  const events = await prisma.event.findMany({
+    where: {
+      haresText: { equals: "Open", mode: "insensitive" },
+      OR: [{ kennelId: kennel.id }, { eventKennels: { some: { kennelId: kennel.id } } }],
+    },
+    select: { id: true, haresText: true },
+  });
+  return events.map((e) => ({ kennelLabel: "bh4 #1550", eventId: e.id, field: "haresText" as const, before: e.haresText ?? null, after: null }));
+}
+
+async function collectPatches(prisma: PrismaClient): Promise<Patch[]> {
+  const blocks = await Promise.all([
+    collectAbqPatches(prisma),
+    collectWasatchPatches(prisma),
+    collectMemphisPatches(prisma),
+    collectSthAuPatches(prisma),
+    collectBh4Patches(prisma),
+  ]);
+  return blocks.flat();
 }
 
 function summarize(patches: Patch[]): void {
@@ -222,12 +222,14 @@ async function applyPatches(prisma: PrismaClient, patches: Patch[]): Promise<voi
 }
 
 async function main() {
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) throw new Error("DATABASE_URL is required");
   const pool = createScriptPool();
   const adapter = new PrismaPg(pool);
-  const prisma = new PrismaClient({ adapter } as never);
+  const prisma = new PrismaClient({ adapter });
 
   console.log(dryRun ? "🔍 DRY RUN — no changes will be made" : "✏️  APPLYING changes");
-  console.log(`DATABASE_URL host: ${new URL(process.env.DATABASE_URL!).host}\n`);
+  console.log(`DATABASE_URL host: ${new URL(databaseUrl).host}\n`);
 
   const patches = await collectPatches(prisma);
   summarize(patches);
