@@ -991,6 +991,26 @@ describe("Austin H3 title pass-through (#1466)", () => {
     expect(result!.title).toBe("VSP Red Dress Run Hangover - AH3 #493");
     expect(result!.hares).toBe("Banana Boat");
   });
+
+  // #1584 — AH3 #2278: "Hares are Smegma Balls and Dry Hose" in the
+  // description. The natural-language "Hares are X" form was previously
+  // unrecognized, so the cycle-8 stale-data ghost displayed wrong field
+  // mapping. With the new DEFAULT_HARE_PATTERN added in hare-extraction.ts,
+  // re-emitting this RawEvent now lands the correct title + haresText.
+  it("extracts hares from natural-language 'Hares are X and Y' form", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        summary: "Smeg's Pinata Pool Party Birthday Cook Out - AH3 #2278",
+        description: "Hares are Smegma Balls and Dry Hose. Pool party at the park, BYO swimsuit.",
+        start: { dateTime: "2026-05-24T14:00:00-05:00" },
+      }),
+      austinConfig,
+    );
+    expect(result).not.toBeNull();
+    expect(result!.title).toBe("Smeg's Pinata Pool Party Birthday Cook Out - AH3 #2278");
+    expect(result!.hares).toBe("Smegma Balls and Dry Hose");
+    expect(result!.runNumber).toBe(2278);
+  });
 });
 
 // #1458 — opt-in guard against doubled kennelCode prefix in title.

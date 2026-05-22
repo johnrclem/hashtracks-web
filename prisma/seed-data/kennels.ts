@@ -1482,8 +1482,11 @@ export const KENNELS: KennelSeed[] = [
       website: "https://miamih3.com",
       facebookUrl: "https://www.facebook.com/groups/miami.hash.house.harriers",
       instagramHandle: "miami_h3",
-      scheduleDayOfWeek: "Thursday", scheduleFrequency: "Weekly",
+      contactEmail: "miamihashhouseharriers@gmail.com",
+      scheduleDayOfWeek: "Thursday", scheduleFrequency: "Weekly", scheduleTime: "6:30 PM",
+      scheduleNotes: "Mostly Thursdays but sometimes on weekends — see Facebook for special weekend events.",
       hashCash: "$5",
+      logoUrl: "/kennel-logos/mia-h3.jpg",
       description: "Weekly Thursday runs in the Miami/Dade County area.",
     },
     {

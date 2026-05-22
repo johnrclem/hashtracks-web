@@ -1156,6 +1156,65 @@ describe("buildRawEventFromApollo — kennelPatterns", () => {
   });
 });
 
+// ── buildRawEventFromApollo — runNumber extraction (#1562) ──
+
+describe("buildRawEventFromApollo — runNumber (#1562 Miami H3)", () => {
+  const emptyState = {} as Record<string, Record<string, unknown>>;
+  // 5th positional arg is `extractRunNumber` — opt-in per source. Miami
+  // sets `extractRunNumber: true` in its source config (#1562); other
+  // Meetup sources stay at the safe default of `undefined`/`false`.
+  const OPT_IN = true;
+
+  it.each([
+    ["Miami H3 Trail #1048 MAY DAY EVE IN VIZCAYA", 1048],
+    ["MIAMI H3 #1047 North Miami Beach Picnic Trail", 1047],
+    ["TRAIL #1031 KING MANGO STRUT PARADE", 1031],
+    ["Miami H3 Trail #703", 703],
+    ["Miami Hash #969 MisMan & Sons Honor Trail", 969],
+  ])("extracts runNumber from %j when opted in", (title, expected) => {
+    const ev = { __typename: "Event", id: "rn", title, dateTime: "2026-04-01T18:30:00-04:00" };
+    const event = buildRawEventFromApollo(ev as never, emptyState, "mia-h3", undefined, OPT_IN);
+    expect(event.runNumber).toBe(expected);
+  });
+
+  it("leaves runNumber undefined when title uses '@' typo instead of '#'", () => {
+    const ev = {
+      __typename: "Event",
+      id: "typo",
+      title: "MIAMI H3 @1041 CALLE OCHO",
+      dateTime: "2026-04-01T18:30:00-04:00",
+    };
+    const event = buildRawEventFromApollo(ev as never, emptyState, "mia-h3", undefined, OPT_IN);
+    expect(event.runNumber).toBeUndefined();
+  });
+
+  it("leaves runNumber undefined when title has no run number token", () => {
+    const ev = {
+      __typename: "Event",
+      id: "no-rn",
+      title: "Miami Hash House Harriers",
+      dateTime: "2026-04-01T18:30:00-04:00",
+    };
+    const event = buildRawEventFromApollo(ev as never, emptyState, "mia-h3", undefined, OPT_IN);
+    expect(event.runNumber).toBeUndefined();
+  });
+
+  it("leaves runNumber undefined when source did NOT opt in (default behavior)", () => {
+    // Codex review on the #1562 PR — protect non-Miami Meetup sources from
+    // false-positive run-number tokens like "Pub Crawl #2" / "Stop #1" by
+    // defaulting extraction off. Only sources whose admins opt in via
+    // `extractRunNumber: true` get the promotion.
+    const ev = {
+      __typename: "Event",
+      id: "no-opt",
+      title: "Miami H3 Trail #1048 MAY DAY EVE",
+      dateTime: "2026-04-01T18:30:00-04:00",
+    };
+    const event = buildRawEventFromApollo(ev as never, emptyState, "mia-h3");
+    expect(event.runNumber).toBeUndefined();
+  });
+});
+
 describe("extractHaresFromMeetupDescription (#953 CHH3 dash separator)", () => {
   it("captures 'Hares - X and Y' (plural, dash, ASCII hyphen)", () => {
     expect(extractHaresFromMeetupDescription("Hares - FAW and Just Jim\n\nGo see the rail yards"))

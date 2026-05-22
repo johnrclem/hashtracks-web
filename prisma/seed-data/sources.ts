@@ -1440,6 +1440,37 @@ export const SOURCES = [
       config: {
         groupUrlname: "miami-hash-house-harriers",
         kennelTag: "mia-h3",
+        // #1562 — Miami's title convention is unambiguously "Miami H3 Trail
+        // #NNNN ..." / "MIAMI H3 #NNNN ..." / "TRAIL #NNNN ...". Opting in
+        // lets the Meetup adapter promote the embedded `#NNNN` into the
+        // canonical `runNumber` column. Gated per-source because most Meetup
+        // sources have looser title conventions and the shared
+        // extractHashRunNumber helper isn't tight enough to use globally.
+        extractRunNumber: true,
+      },
+      kennelCodes: ["mia-h3"],
+    },
+    {
+      // #1563 — Meetup source goes dark 2026-05-31. STATIC_SCHEDULE keeps Miami
+      // emitting weekly Thursday placeholders post-deadline. Trust 3 lets the
+      // higher-trust Meetup source win title/location enrichment until 5/31;
+      // afterwards this becomes the sole source of placeholder events. Flip
+      // Miami Meetup `enabled: false` post-deadline as a manual follow-up.
+      name: "Miami H3 Static Schedule",
+      url: "https://www.facebook.com/groups/miami.hash.house.harriers",
+      type: "STATIC_SCHEDULE" as const,
+      trustLevel: 3,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "mia-h3",
+        rrule: "FREQ=WEEKLY;BYDAY=TH",
+        anchorDate: "2026-05-21",
+        startTime: "18:30",
+        timezone: "America/New_York",
+        defaultTitle: "Miami H3 Weekly Run",
+        defaultLocation: "Miami, FL",
+        defaultDescription: "Weekly Thursday trail. Check Facebook for location and hare details.",
       },
       kennelCodes: ["mia-h3"],
     },

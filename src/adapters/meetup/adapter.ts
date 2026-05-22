@@ -2,7 +2,7 @@ import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
-import { validateSourceConfig, stripHtmlTags, buildDateWindow, HARE_BOILERPLATE_RE } from "../utils";
+import { validateSourceConfig, stripHtmlTags, buildDateWindow, extractHashRunNumber, HARE_BOILERPLATE_RE } from "../utils";
 import { safeFetch } from "../safe-fetch";
 import { extractHares as extractHaresFromDescription } from "../hare-extraction";
 
@@ -69,6 +69,15 @@ export interface MeetupConfig {
   kennelTag: string;
   /** Optional per-event kennel routing: [[regexPattern, kennelTag], ...] */
   kennelPatterns?: [string, string][];
+  /**
+   * Opt-in: extract `#NNN` from event titles into `runNumber` (#1562). Off by
+   * default — Meetup titles are free-form user prose and the shared
+   * `extractHashRunNumber` helper can promote non-hash tokens (e.g. "Pub Crawl
+   * #2") into a runNumber, which then participates in fingerprinting and
+   * same-day dedup. Enable per-source after confirming the kennel's title
+   * conventions are unambiguous (e.g. always "Miami H3 Trail #NNNN").
+   */
+  extractRunNumber?: boolean;
 }
 
 /** Shape of an event entry in Meetup's __NEXT_DATA__ Apollo state. */
@@ -341,6 +350,7 @@ export function buildRawEventFromApollo(
   state: Record<string, Record<string, unknown>>,
   kennelTag: string,
   compiledPatterns?: [RegExp, string][],
+  extractRunNumber = false,
 ): RawEventData {
   const { date, startTime } = ev.dateTime
     ? extractDateTime(ev.dateTime)
@@ -381,6 +391,7 @@ export function buildRawEventFromApollo(
     date,
     kennelTags: [resolvedKennelTag],
     title: ev.title || undefined,
+    runNumber: extractRunNumber ? extractHashRunNumber(ev.title) : undefined,
     description: cleanedDesc,
     hares,
     location: venueInfo.location,
@@ -569,7 +580,7 @@ export class MeetupAdapter implements SourceAdapter {
           cancelledSkipped++;
           continue;
         }
-        events.push(buildRawEventFromApollo(ev, mergedState, config.kennelTag, compiledPatterns));
+        events.push(buildRawEventFromApollo(ev, mergedState, config.kennelTag, compiledPatterns, config.extractRunNumber));
       } catch (err) {
         const msg = `Failed to parse event "${ev.id}": ${err instanceof Error ? err.message : String(err)}`;
         errors.push(msg);
