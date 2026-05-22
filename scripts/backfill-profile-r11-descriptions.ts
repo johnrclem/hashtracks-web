@@ -47,7 +47,7 @@ async function main() {
   const dryRun = !process.argv.includes("--apply");
   const pool = createScriptPool();
   const adapter = new PrismaPg(pool);
-  const prisma = new PrismaClient({ adapter } as never);
+  const prisma = new PrismaClient({ adapter });
 
   console.log(dryRun ? "DRY RUN -- no changes will be made\n" : "APPLYING changes\n");
 
