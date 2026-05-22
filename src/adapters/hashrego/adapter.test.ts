@@ -774,6 +774,43 @@ const FIVE_BORO_INDEX_ENTRY = {
   cost: "$75",
 };
 
+// #1630 PR B Gemini review — Strategy 1 (`MM/DD ... to MM/DD`) had a
+// silent year-rollover bug. A 12/31 → 1/1 NYE campout would emit endDate
+// before startDate, producing an empty `generateDatesInRange` result.
+const NYE_RANGE_HTML = `
+<html>
+<head>
+  <title>New Year's Eve Campout 2026</title>
+  <meta property="og:title" content="12/31 New Year's Eve Campout 2026" />
+  <meta property="og:description" content='12/31 06:00 PM to 1/1 10:00 AM
+
+Two-day NYE campout — Friday eve trail + Saturday recovery hike.
+
+**Cost:** $50' />
+</head>
+<body>
+  <a href="/kennels/NYCH3/">NYC H3</a>
+</body>
+</html>`;
+
+const NYE_INDEX_ENTRY = {
+  slug: "nye-campout-2026",
+  kennelSlug: "NYCH3",
+  title: "New Year's Eve Campout 2026",
+  startDate: "12/31/26",
+  startTime: "06:00 PM",
+  type: "Hash Weekend",
+  cost: "$50",
+};
+
+describe("parseEventDetail — Strategy 1 NYE year rollover (#1630 review)", () => {
+  it("12/31 → 1/1 range produces 2 dates spanning the year boundary", () => {
+    const parsed = parseEventDetail(NYE_RANGE_HTML, "nye-campout-2026", NYE_INDEX_ENTRY);
+    expect(parsed.isMultiDay).toBe(true);
+    expect(parsed.dates).toEqual(["2026-12-31", "2027-01-01"]);
+  });
+});
+
 describe("parseEventDetail + splitToRawEvents — `DAY N M/D` headers (#1560 PR B)", () => {
   it("recognizes the multi-day description and emits three children", () => {
     const parsed = parseEventDetail(FIVE_BORO_HTML, "5-boro-2026", FIVE_BORO_INDEX_ENTRY);
@@ -902,49 +939,65 @@ describe("parseDayHeaderSections", () => {
     {
       label: "NYC 5-Boro Pub Crawl — markdown bold + em-dash",
       desc: "**DAY 1 1/15 —** Friday night, Manhattan...\n**DAY 2 1/16 —** Saturday brunch, Brooklyn...\n**DAY 3 1/17 —** Sunday recovery, Queens...",
-      year: 2026,
+      anchor: "2026-01-15",
       expected: ["2026-01-15", "2026-01-16", "2026-01-17"],
     },
     {
       label: "Mixed case 'Day N: M/D'",
       desc: "Day 1: 2/14 — Valentine's trail\nDay 2: 2/15 — Recovery brunch",
-      year: 2026,
+      anchor: "2026-02-14",
       expected: ["2026-02-14", "2026-02-15"],
     },
     {
       label: "Bare 'Day N M/D' without colon or em-dash",
       desc: "Day 1 3/21 evening run\nDay 2 3/22 morning hike\nDay 3 3/23 brunch",
-      year: 2026,
+      anchor: "2026-03-21",
       expected: ["2026-03-21", "2026-03-22", "2026-03-23"],
     },
     {
       label: "Sorts mis-ordered headers by date",
       desc: "**DAY 3 1/17 —** Sunday\n**DAY 1 1/15 —** Friday\n**DAY 2 1/16 —** Saturday",
-      year: 2026,
+      anchor: "2026-01-15",
       expected: ["2026-01-15", "2026-01-16", "2026-01-17"],
     },
     {
       label: "Deduplicates same-date headers",
       desc: "**DAY 1 1/15 —** Friday morning\n**DAY 1 1/15 —** Friday evening",
-      year: 2026,
+      anchor: "2026-01-15",
       expected: [],
     },
-  ])("$label", ({ desc, year, expected }) => {
-    expect(parseDayHeaderSections(desc, year)).toEqual(expected);
+    {
+      // Gemini review on PR #1630 — year-rollover regression. Without the
+      // anchor-based year bump the parser would emit Jan 1 alongside Dec
+      // 31 under the SAME year, so the sort would produce the wrong
+      // chronological order.
+      label: "NYE rollover — 12/31 → 1/1 lands in following year",
+      desc: "**DAY 1 12/31 —** Friday NYE\n**DAY 2 1/1 —** Saturday New Year",
+      anchor: "2026-12-31",
+      expected: ["2026-12-31", "2027-01-01"],
+    },
+    {
+      label: "NYE rollover — 12/30 / 12/31 / 1/1 / 1/2 four-day campout",
+      desc: "**DAY 1 12/30 —**\n**DAY 2 12/31 —**\n**DAY 3 1/1 —**\n**DAY 4 1/2 —**",
+      anchor: "2026-12-30",
+      expected: ["2026-12-30", "2026-12-31", "2027-01-01", "2027-01-02"],
+    },
+  ])("$label", ({ desc, anchor, expected }) => {
+    expect(parseDayHeaderSections(desc, anchor)).toEqual(expected);
   });
 
   it("returns [] when only one day header is present (no false-positive series)", () => {
-    expect(parseDayHeaderSections("**DAY 1 4/4 —** opening only", 2026)).toEqual([]);
+    expect(parseDayHeaderSections("**DAY 1 4/4 —** opening only", "2026-04-04")).toEqual([]);
   });
 
   it("returns [] when description has no Day N M/D headers at all", () => {
-    expect(parseDayHeaderSections("Just a normal trail description, no days.", 2026)).toEqual([]);
+    expect(parseDayHeaderSections("Just a normal trail description, no days.", "2026-01-01")).toEqual([]);
   });
 
   it("does not match 'Memorial Day' / 'Day of' / other 'Day' false positives", () => {
-    // The required `\d+\s*:?\s+\d{1,2}/\d{1,2}` tail rules out bare
+    // The required `\d+(?::|\s)\s*\d{1,2}/\d{1,2}` tail rules out bare
     // "Day" mentions that aren't day-section headers.
-    expect(parseDayHeaderSections("Memorial Day weekend, Day of reckoning.", 2026)).toEqual([]);
+    expect(parseDayHeaderSections("Memorial Day weekend, Day of reckoning.", "2026-05-25")).toEqual([]);
   });
 });
 

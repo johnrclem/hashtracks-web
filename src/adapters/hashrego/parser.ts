@@ -492,14 +492,14 @@ function extractPerDayStartTimes(description: string, dateCount: number): string
 
 /**
  * Match per-day section headers like `**DAY 1 1/15 —**`, `Day 2: 2/16`,
- * or `Day 3 1/17`. The `\s*:?\s*` between the day number and the M/D
- * tolerates with-colon and without-colon variants; markdown `**` bolds
- * around the whole phrase are absorbed because they're just whitespace
- * to `\s+`. Em-dash / en-dash / hyphen separators after the date are NOT
- * required — keeps the regex simple and the Sonar S5843 complexity low
- * (per memory `feedback_sonar_s5852_false_positives.md`).
+ * or `Day 3 1/17`. The separator between the day number and the M/D is
+ * `(?::|\s)` — exactly ONE colon-or-whitespace char, then `\s*` for any
+ * trailing whitespace. The original `\s*:?\s*` form had overlapping
+ * `\s` quantifiers around an optional `:` that Sonar S5852 flagged as
+ * ReDoS-prone (memory `feedback_sonar_s5852_false_positives.md`); the
+ * new form has no `\s*` adjacent to another `\s` quantifier.
  */
-const DAY_HEADER_RE = /\bDay\s+(\d{1,2})\s*:?\s+(\d{1,2})\/(\d{1,2})\b/gi;
+const DAY_HEADER_RE = /\bDay\s+(\d{1,2})(?::|\s)\s*(\d{1,2})\/(\d{1,2})\b/gi;
 
 /**
  * Parse per-day section headers from a Hash Rego event description (used
@@ -509,22 +509,34 @@ const DAY_HEADER_RE = /\bDay\s+(\d{1,2})\s*:?\s+(\d{1,2})\/(\d{1,2})\b/gi;
  *
  * Returns `[]` for < 2 matches (avoids false positives where the
  * description happens to mention a single "Day 1" but doesn't describe
- * a multi-day event). Output is sorted by date ascending. The reference
- * `year` comes from the event's start-date column (`indexEntry.startDate`)
- * — Hash Rego always carries a 4-digit year there, so we never need to
- * guess (avoids chrono's forwardDate trap from memory
- * `feedback_chrono_forward_date_explicit_year.md`).
+ * a multi-day event). Output is sorted by date ascending.
+ *
+ * `startDateStr` is the full YYYY-MM-DD anchor from the event index
+ * (parsed via `parseHashRegoDate(indexEntry.startDate)`). It serves both
+ * as the year source AND the year-rollover detector: when a parsed M/D
+ * is chronologically BEFORE the anchor, that day belongs to the
+ * following year (NYE campouts: `**DAY 1 12/31 —**`, `**DAY 2 1/1 —**`
+ * starts in year N and finishes in N+1 — Gemini review on PR #1630).
  */
 export function parseDayHeaderSections(
   description: string,
-  year: number,
+  startDateStr: string,
 ): string[] {
+  const baseYear = parseInt(startDateStr.split("-")[0], 10);
+  if (!baseYear) return [];
   const matches = [...description.matchAll(DAY_HEADER_RE)];
   if (matches.length < 2) return [];
   const dates = matches.map((m) => {
     const month = parseInt(m[2], 10);
     const day = parseInt(m[3], 10);
-    return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const candidate = `${baseYear}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    // Year-rollover: if the parsed M/D lands chronologically before the
+    // event's anchor date, it must belong to the following year (the
+    // anchor is always the event's earliest known day).
+    if (candidate < startDateStr) {
+      return `${baseYear + 1}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    }
+    return candidate;
   });
   // Deduplicate (a description mentioning the same day twice in two
   // headers shouldn't double-count) then sort. After dedup we re-apply
@@ -542,8 +554,9 @@ function parseDateRangeFromDescription(
   description: string,
   indexEntry: IndexEntry,
 ): { dates: string[]; startTimes: string[]; isMultiDay: boolean } | null {
-  const year = parseYearFromIndex(indexEntry.startDate);
-  if (!year) return null;
+  const startDateStr = parseHashRegoDate(indexEntry.startDate);
+  if (!startDateStr) return null;
+  const year = parseInt(startDateStr.split("-")[0], 10);
 
   // Strategy 1: `MM/DD HH:MM PM to MM/DD HH:MM PM` (existing path).
   const rangeMatch = description.match(
@@ -554,8 +567,13 @@ function parseDateRangeFromDescription(
     const startDay = parseInt(rangeMatch[2], 10);
     const endMonth = parseInt(rangeMatch[3], 10);
     const endDay = parseInt(rangeMatch[4], 10);
+    // Year-rollover guard (Gemini review on PR #1630): if the end month
+    // is strictly earlier than the start month (12/31 → 1/1), the end
+    // date must be in the following year. Strict inequality — same-month
+    // events stay in the same year regardless of day ordering.
+    const endYear = endMonth < startMonth ? year + 1 : year;
     const startDate = new Date(Date.UTC(year, startMonth - 1, startDay));
-    const endDate = new Date(Date.UTC(year, endMonth - 1, endDay));
+    const endDate = new Date(Date.UTC(endYear, endMonth - 1, endDay));
     const dates = generateDatesInRange(startDate, endDate);
     const startTimes = extractPerDayStartTimes(description, dates.length);
     return { dates, startTimes, isMultiDay: dates.length > 1 };
@@ -564,7 +582,7 @@ function parseDateRangeFromDescription(
   // Strategy 2 (#1560 PR B): per-day section headers — `DAY 1 M/D`, etc.
   // Fallback for NYC 5-Boro-style multi-day descriptions whose date range
   // isn't expressible as a single `start to end` line.
-  const dayHeaderDates = parseDayHeaderSections(description, year);
+  const dayHeaderDates = parseDayHeaderSections(description, startDateStr);
   if (dayHeaderDates.length >= 2) {
     const startTimes = extractPerDayStartTimes(description, dayHeaderDates.length);
     return { dates: dayHeaderDates, startTimes, isMultiDay: true };
