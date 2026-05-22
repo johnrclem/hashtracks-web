@@ -41,22 +41,40 @@ describe("parseCapitalRunLine", () => {
     expect(ev!.kennelTags).toEqual(["capital-h3-nz"]);
   });
 
-  it("normalises Hare required! placeholder to undefined", () => {
+  it("clears stale location when row omits location and only carries Hare required! placeholder (#1521/#1523)", () => {
+    // 3-segment row: source intent is "no venue assigned, no hare assigned".
+    // Pre-WS6, "Hare required!" landed in `location` (and persisted there
+    // indefinitely because subsequent scrapes returned undefined → preserve).
+    // WS6 now emits `location: null` so the merge pipeline scrubs the stale
+    // `locationName`. `hares` stays undefined since the source didn't supply
+    // a hare segment at all — there's nothing to clear.
     const ev = parseCapitalRunLine("2329 – 8 Jun 2026 – Hare required! –", opts);
     expect(ev).not.toBeNull();
     expect(ev!.runNumber).toBe(2329);
     expect(ev!.date).toBe("2026-06-08");
-    // "Hare required!" lands in the LOCATION slot since it's the first token
-    // after the date. stripPlaceholder doesn't drop arbitrary "TBD-ish" text
-    // (it's anchored to known markers like TBD/TBA/?), so this stays as the
-    // visible location. The trailing empty hare token is filtered.
+    expect(ev!.location).toBeNull();
     expect(ev!.hares).toBeUndefined();
   });
 
-  it("handles location-with-dash in run #2328 (location includes 'Kings Bday')", () => {
+  it("clears stale hares when 4-segment row has placeholder in the hare slot (#1521 row 2328)", () => {
+    // 4-segment row. Per #1521 issue notes, the source-data-entry "5pm? Kings
+    // B'day" remains in location (out of scope for WS6); the trailing
+    // "Hare required!" must emit `hares: null` so any previously stored hare
+    // value is overwritten.
     const ev = parseCapitalRunLine("2328 – 1 Jun 2026 – 5pm? Kings B'day – Hare required! –", opts);
     expect(ev).not.toBeNull();
     expect(ev!.location).toBe("5pm? Kings B'day");
+    expect(ev!.hares).toBeNull();
+  });
+
+  it("handles bare Hare required (no exclamation) and Hare wanted variants (#1521)", () => {
+    const a = parseCapitalRunLine("2330 – 15 Jun 2026 – Hare required –", opts);
+    expect(a?.location).toBeNull();
+    expect(a?.hares).toBeUndefined();
+
+    const b = parseCapitalRunLine("2331 – 22 Jun 2026 – Hare wanted –", opts);
+    expect(b?.location).toBeNull();
+    expect(b?.hares).toBeUndefined();
   });
 
   it("returns null for non-run lines", () => {
@@ -75,6 +93,7 @@ describe("CapitalH3Adapter.fetch", () => {
         <p><span>2326</span> – <span>18 May 2026</span> – <span>The Bond Sports Bar</span> – <span>Geestring</span></p>
         <p><span>2327</span> – <span>25 May 2026</span> – <span>The Bridge Bar</span> – <span>Scrac Thing</span></p>
         <p><span>2328</span> – <span>1 Jun 2026</span> – <span>5pm? Kings B'day</span> – <span>Hare required!</span> –</p>
+        <p><span>2329</span> – <span>8 Jun 2026</span> – <span>Hare required!</span> –</p>
       </div>
     </div>
   </body></html>`;
@@ -85,12 +104,19 @@ describe("CapitalH3Adapter.fetch", () => {
     const result = await adapter.fetch(makeSource(), { days: 365 });
 
     expect(result.errors).toEqual([]);
-    expect(result.events.length).toBe(3);
+    expect(result.events.length).toBe(4);
     expect(result.events[0].date).toBe("2026-05-18");
     expect(result.events[0].runNumber).toBe(2326);
     expect(result.events[0].hares).toBe("Geestring");
     expect(result.events[1].location).toBe("The Bridge Bar");
-    expect(result.diagnosticContext?.eventsParsed).toBe(3);
+    // Row 2329 (#1523): source has only 3 segments — Hare required! must emit
+    // `location: null` (explicit clear, scrubs stale data) rather than slotting
+    // into location. `hares` stays undefined (segment missing in source).
+    const row2329 = result.events.find((e) => e.runNumber === 2329);
+    expect(row2329).toBeDefined();
+    expect(row2329!.location).toBeNull();
+    expect(row2329!.hares).toBeUndefined();
+    expect(result.diagnosticContext?.eventsParsed).toBe(4);
   });
 
   it("returns the fetch failure when browserRender errors", async () => {

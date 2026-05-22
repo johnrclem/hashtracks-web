@@ -13,8 +13,19 @@ export interface RawEventData {
   runNumber?: number | null; // null = explicit clear signal (e.g. HC eventNumber=0 for socials)
   title?: string;
   description?: string | null; // null = explicit clear signal (see merge.ts UPDATE path)
-  hares?: string;
-  location?: string;
+  /**
+   * Hare names. `undefined` = no signal (preserve existing). `null` =
+   * explicit clear (overwrite stale `haresText`). Adapters that detect a
+   * known placeholder ("Hare required!", "Hares Needed") should emit `null`
+   * so the merge pipeline scrubs previously stored hare text.
+   */
+  hares?: string | null;
+  /**
+   * Display location. `undefined` = preserve existing. `null` = explicit
+   * clear (e.g., a row whose location cell turned out to be a joint-run note
+   * not a venue — Auckland Hussies #1516).
+   */
+  location?: string | null;
   locationStreet?: string; // Full street address (multi-line address blocks)
   locationUrl?: string; // Google Maps or other maps URL
   latitude?: number;

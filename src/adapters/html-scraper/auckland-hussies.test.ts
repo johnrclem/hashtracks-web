@@ -1,7 +1,10 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, it, expect, vi } from "vitest";
 import type { Source } from "@/generated/prisma/client";
 import {
   AucklandHussiesAdapter,
+  classifyLocationCell,
   parseAucklandHussiesRow,
 } from "./auckland-hussies";
 
@@ -104,6 +107,58 @@ describe("AucklandHussiesAdapter.fetch", () => {
     </table>
   </body></html>`;
 
+  it("recovers the street address from a continuation row on joint-run annotation rows (#1516)", async () => {
+    // Live source pattern: Apr 27 Butcher has the "With the men…" note in the
+    // dated row's col-4 and the actual street address "6 Waterstone Way,
+    // Henderson" on the next blank-date row. The classifier must end up with
+    // location="6 Waterstone Way…", description="With the men…".
+    const html = `<!DOCTYPE html><html><body><table>
+      <tr><td>27-Apr</td><td></td><td></td><td>Butcher</td><td>With the men on a Monday night - 4pm</td><td></td></tr>
+      <tr><td></td><td></td><td></td><td></td><td>6 Waterstone Way, Henderson</td><td></td></tr>
+    </table></body></html>`;
+    mockFetch(html);
+    const adapter = new AucklandHussiesAdapter();
+    const result = await adapter.fetch(makeSource(), { days: 365 });
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].location).toBe("6 Waterstone Way, Henderson");
+    expect(result.events[0].description).toBe("With the men on a Monday night - 4pm");
+  });
+
+  it("does NOT merge continuation rows when the dated row already has a real venue", async () => {
+    // Mangawhai / Café-style rows must stay untouched — continuation rows in
+    // these cases contain phone numbers / cost notes / CTAs that would pollute
+    // the address. Only joint-run annotation rows get the continuation merge.
+    const html = `<!DOCTYPE html><html><body><table>
+      <tr><td>24-Apr</td><td></td><td></td><td>Mangawhai HH</td><td>3pm 5 Olsen Ave, Mangawhai Heads</td><td></td></tr>
+      <tr><td></td><td></td><td></td><td>Phantom &amp; Plunder</td><td>0274555753</td><td></td></tr>
+      <tr><td>12-May</td><td></td><td></td><td>Demon</td><td>Chang Thai Caf&eacute;, Queens Road, Panmure</td><td></td></tr>
+      <tr><td></td><td></td><td></td><td></td><td>Pay your own way + $5 for the run</td><td></td></tr>
+    </table></body></html>`;
+    mockFetch(html);
+    const adapter = new AucklandHussiesAdapter();
+    const result = await adapter.fetch(makeSource(), { days: 365 });
+    expect(result.events).toHaveLength(2);
+    expect(result.events[0].location).toBe("5 Olsen Ave, Mangawhai Heads");
+    expect(result.events[0].startTime).toBe("15:00");
+    expect(result.events[1].location).toBe("Chang Thai Café, Queens Road, Panmure");
+  });
+
+  it("emits location: null when joint-run annotation has no address on the continuation row (#1516)", async () => {
+    // Jun 1 TBA shape: annotation + a non-address CTA continuation. The
+    // classifier should clear `location` (null) so the merge pipeline scrubs
+    // any previously stored locationName.
+    const html = `<!DOCTYPE html><html><body><table>
+      <tr><td>1-Jun</td><td></td><td></td><td>TBA</td><td>With the men on a Monday night - 4pm</td><td></td></tr>
+      <tr><td></td><td></td><td></td><td></td><td>Please text the hare prior to Monday that you are coming:</td><td></td></tr>
+    </table></body></html>`;
+    mockFetch(html);
+    const adapter = new AucklandHussiesAdapter();
+    const result = await adapter.fetch(makeSource(), { days: 365 });
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].location).toBeNull();
+    expect(result.events[0].description).toBe("With the men on a Monday night - 4pm");
+  });
+
   it("extracts only the 3 date-shaped rows, ignoring annotation rows", async () => {
     mockFetch(html);
     const adapter = new AucklandHussiesAdapter();
@@ -162,9 +217,13 @@ describe("AucklandHussiesAdapter.fetch", () => {
     expect(result.errors).toEqual([]);
     expect(result.events.length).toBe(2);
     const [first, second] = result.events;
-    expect(first.location).toBeDefined();
-    expect(first.location).not.toContain("�");
-    expect(first.location).toBe("With the men on a Monday night - 4pm");
+    // Joint-run note routes to description, with `location: null` to scrub
+    // any stale `locationName` from previous scrapes (#1516, Codex review).
+    // The cell must still contain a properly-decoded NBSP (0xA0) — no U+FFFD
+    // leakage — which proves the windows-1252 path is exercised.
+    expect(first.location).toBeNull();
+    expect(first.description).toBe("With the men on a Monday night - 4pm");
+    expect(first.description).not.toContain("�");
     // TBA → undefined is the intentional placeholder behaviour, shared with
     // Geriatrix's "Hare Required" handling. Documented here so the contract
     // doesn't silently flip back to populating placeholders.
@@ -214,6 +273,112 @@ describe("AucklandHussiesAdapter.fetch", () => {
     const result = await adapter.fetch(makeSource(), { days: 365 });
     expect(result.events).toEqual([]);
     expect(result.errors[0]).toMatch(/Response too large/);
+  });
+
+  // -------------------------------------------------------------------------
+  // WS6 — #1516 location classifier
+  // -------------------------------------------------------------------------
+
+  describe("classifyLocationCell (#1516)", () => {
+    it("routes joint-run notes to description with explicit null location (clears stale data)", () => {
+      const c = classifyLocationCell("With the men on a Monday night - 4pm");
+      expect(c.location).toBeNull();
+      expect(c.description).toBe("With the men on a Monday night - 4pm");
+      expect(c.startTime).toBeUndefined();
+    });
+
+    it("strips a bare-time prefix into startTime and keeps the address as location", () => {
+      const c = classifyLocationCell("3pm 5 Olsen Ave, Mangawhai Heads");
+      expect(c.startTime).toBe("15:00");
+      expect(c.location).toBe("5 Olsen Ave, Mangawhai Heads");
+      expect(c.description).toBeUndefined();
+    });
+
+    it("accepts H:MM am/pm shapes (6:30pm) and collapses extra whitespace", () => {
+      const c = classifyLocationCell("6:30pm  12 Foo St, Bar");
+      expect(c.startTime).toBe("18:30");
+      expect(c.location).toBe("12 Foo St, Bar");
+    });
+
+    it("falls through unchanged for plain venue names with no annotation", () => {
+      const c = classifyLocationCell("The Bond Sports Bar");
+      expect(c.location).toBe("The Bond Sports Bar");
+      expect(c.description).toBeUndefined();
+      expect(c.startTime).toBeUndefined();
+    });
+
+    it("peels the trailing address out of an annotation + address cell", () => {
+      const c = classifyLocationCell(
+        "With the men on a Monday night - 4pm  6 Waterstone Way, Henderson",
+      );
+      expect(c.location).toBe("6 Waterstone Way, Henderson");
+      expect(c.description).toBe("With the men on a Monday night - 4pm");
+    });
+
+    it.each([
+      ["With the men on a Monday night - 4pm 1/23 Main St", "1/23 Main St"],
+      // chatgpt-codex-connector on PR #1597 flagged unit-style NZ addresses.
+      ["With the men on a Monday night - 4pm 3/31 Craig Rd, Milford", "3/31 Craig Rd, Milford"],
+      ["With the men on a Monday night - 4pm 84A Church St", "84A Church St"],
+      ["With the men on a Monday night - 4pm 23-25 Main Rd", "23-25 Main Rd"],
+      ["With the men on a Monday night - 4pm 5 Pine Grove", "5 Pine Grove"],
+      ["With the men on a Monday night - 4pm 12 Lake View", "12 Lake View"],
+      ["With the men on a Monday night - 4pm 8 Marine Parade", "8 Marine Parade"],
+      ["With the men on a Monday night - 4pm 6 Church St.", "6 Church St."],
+    ])("peels NZ-specific address shapes (%s)", (cell, expected) => {
+      const c = classifyLocationCell(cell);
+      expect(c.location).toBe(expected);
+      expect(c.description).toBe("With the men on a Monday night - 4pm");
+    });
+
+    it("returns empty object for undefined / empty input", () => {
+      expect(classifyLocationCell(undefined)).toEqual({});
+      expect(classifyLocationCell("")).toEqual({});
+      expect(classifyLocationCell("   ")).toEqual({});
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // WS6 — #1515 live-bytes regression (no U+FFFD leakage from the production
+  // source). Fixture captured 2026-05-22 via `curl -s aucklandhussies.co.nz/Run%20List.html`.
+  // High bytes present in the fixture: 0xA0 (NBSP) + 0xE9 (é).
+  // -------------------------------------------------------------------------
+
+  it("decodes the live windows-1252 source with no U+FFFD anywhere (#1515)", async () => {
+    const fixturePath = path.join(
+      __dirname,
+      "fixtures/auckland-hussies-live-2026-05-22.html.fixture",
+    );
+    const bytes = new Uint8Array(readFileSync(fixturePath));
+    mockFetchBytes(bytes);
+
+    const adapter = new AucklandHussiesAdapter();
+    const result = await adapter.fetch(makeSource(), { days: 365 });
+
+    expect(result.errors).toEqual([]);
+    expect(result.events.length).toBeGreaterThan(0);
+    for (const ev of result.events) {
+      // Every field that could carry text must be U+FFFD-free.
+      expect(ev.location ?? "").not.toContain("�");
+      expect(ev.hares ?? "").not.toContain("�");
+      expect(ev.description ?? "").not.toContain("�");
+    }
+
+    // The May 12 Chang Thai Café row exercises the 0xE9 byte. We don't know
+    // its exact bucket in the fixture without re-parsing the date, but at
+    // least one location must contain the decoded "é".
+    const cafe = result.events.find((e) => e.location?.includes("Café"));
+    expect(cafe).toBeDefined();
+    expect(cafe!.location).toContain("Chang Thai Café");
+
+    // At least one joint-run note row must end up with `location: null`
+    // (explicit clear) — that's the Jun 1 TBA shape (annotation + non-address
+    // continuation row). The Apr 27 Butcher shape recovers a street address
+    // from its continuation row, so its location is set, not null.
+    const cleared = result.events.find((e) =>
+      e.description?.startsWith("With the men on a Monday night") && e.location === null,
+    );
+    expect(cleared).toBeDefined();
   });
 
   it("prefers the Content-Type header charset when it is present", async () => {

@@ -313,7 +313,7 @@ describe("parseEventRow", () => {
     function parseLocation(
       cell: string,
       configOverride: Partial<GenericHtmlConfig> = {},
-    ): string | undefined {
+    ): string | null | undefined {
       const $row = cheerio.load(buildRow(cell));
       return parseEventRow(
         $row,

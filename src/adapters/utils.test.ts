@@ -500,7 +500,25 @@ describe("isPlaceholder", () => {
     expect(isPlaceholder(" tba ")).toBe(true);
   });
 
-  it.each(["Real Title", "TBD - check back", "Location TBD", "hash run", "123", "Hare required please"])(
+  // WS6 (#1521/#1523): "Hare required" / "Hares wanted" / "Hare required please"
+  // are placeholder phrasings — Capital H3 emits "Hare required! –" when the
+  // hare slot is empty. PLACEHOLDER_HARES_NEEDED_RE matches any "hare(s)
+  // (needed|required|wanted)" prefix + arbitrary tail.
+  it.each([
+    "Hare required",
+    "Hare required!",
+    "Hare required please",
+    "Hares required",
+    "Hare wanted",
+    "Hares wanted!",
+    "Hares needed",
+    "needs a hare",
+    "Need hares",
+  ])("returns true for hare-needed phrasing '%s'", (val) => {
+    expect(isPlaceholder(val)).toBe(true);
+  });
+
+  it.each(["Real Title", "TBD - check back", "Location TBD", "hash run", "123"])(
     "returns false for '%s'",
     (val) => {
       expect(isPlaceholder(val)).toBe(false);

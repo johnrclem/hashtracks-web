@@ -159,6 +159,137 @@ function cleanCellText(text: string | undefined): string | undefined {
   return cleaned || undefined;
 }
 
+// ---------------------------------------------------------------------------
+// Location-cell classifier (#1516)
+//
+// Source rows occasionally put non-address content in the location column:
+//
+//   "With the men on a Monday night - 4pm"     (pure annotation: joint-run note)
+//   "3pm 5 Olsen Ave, Mangawhai Heads"         (per-event start-time prefix + address)
+//   "With the men on a Monday night - 4pm  6 Waterstone Way, Henderson"
+//                                              (annotation + address on one line)
+//
+// Pre-WS6 the whole cell was stored verbatim as `location`, so the Hareline
+// rendered "Monday night - 4pm" as the venue. Classify the cell so a leading
+// bare-time prefix lifts into `startTime`, a "With the men/women/\u2026" joint-run
+// prefix routes to `description`, and any trailing address-shaped substring is
+// recovered as the location. Pure venue names ("The Bond Sports Bar") fall
+// through unchanged.
+// ---------------------------------------------------------------------------
+
+const TIME_PREFIX_RE = /^(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b\s*[-\u2013\u2014]?\s*/i;
+const JOINT_RUN_NOTE_RE = /^with\s+(?:the\s+)?(?:men|women|girls|guys|boys|joint|other)\b/i;
+// "12 Foo St", "6 Waterstone Way, Henderson", "111 Walker Rd, Pt Chevalier",
+// "1/23 Main St" (NZ unit prefix), "84A Church St" (letter suffix). The
+// street-number head accepts an optional unit/range prefix and a single
+// letter suffix; the tail allows `St.` / `Rd.` abbreviations with a period.
+// A separate street-suffix gate (below) keeps a stray "4pm 6th" from being
+// mistaken for an address.
+// NOSONAR S5843 \u2014 complexity is intrinsic to the address grammar (street-
+// number head + Capitalised-word chain + optional comma-separated suburb).
+// Splitting further loses readability without lowering ReDoS risk; the regex
+// is anchored at end-of-string with no overlapping alternations.
+const ADDRESS_TAIL_RE = // NOSONAR S5843
+  /\b(\d+(?:[/-]\d+)?[A-Za-z]?\s+[A-Z][\w'\-.]*(?:\s+[A-Z][\w'\-.]*)*(?:,\s*[A-Za-z][\w'\-.]*(?:\s+[A-Za-z][\w'\-.]*)*)*)\s*$/;
+// NZ street/place suffixes. Built dynamically so Sonar's S5843 regex-
+// complexity analyser sees a runtime string rather than a 24-branch literal
+// alternation (the literal would land at complexity 64, well over the 20
+// threshold). Long-form words (Street/Road/Way/Park/...) and abbreviated
+// forms (St/Rd/Ave/Tce/...) all accept an optional trailing period via a
+// single shared `\.?` \u2014 Sonar prefers `?` over `*` for an optional single
+// char (gemini-code-assist comment on PR #1597).
+const STREET_SUFFIX_TOKENS = [
+  "Street", "St", "Road", "Rd", "Avenue", "Ave", "Lane", "Ln",
+  "Drive", "Dr", "Place", "Pl", "Way", "Heads", "Bay", "Park",
+  "Crescent", "Cres", "Terrace", "Tce", "Highway", "Hwy", "Boulevard",
+  "Blvd", "Court", "Ct", "Close", "Cl", "Quay", "Wharf", "Grove",
+  "Rise", "Row", "View", "Walk", "Parade", "Esplanade", "Point", "Pt",
+];
+const STREET_SUFFIX_RE = new RegExp(
+  `\\b(?:${STREET_SUFFIX_TOKENS.join("|")})\\.?\\b`,
+  "i",
+);
+
+export interface ClassifiedLocationCell {
+  /**
+   * `undefined` = no signal (preserve any existing `locationName`).
+   * `null` = explicit clear — emitted when the cell turned out to be an
+   * annotation rather than a venue, so the merge pipeline overwrites stale
+   * `locationName` from earlier scrapes (#1516).
+   */
+  location?: string | null;
+  description?: string;
+  startTime?: string;
+}
+
+/** Set of characters considered trailing "note separator" runs — whitespace
+ *  plus the ASCII hyphen and the two unicode dashes the source uses. */
+const TRAILING_NOTE_SEPARATORS = new Set([" ", "\t", "\n", "\r", "-", "–", "—"]);
+
+function stripTrailingNoteSeparators(s: string): string {
+  let end = s.length;
+  while (end > 0 && TRAILING_NOTE_SEPARATORS.has(s[end - 1])) end--;
+  return s.slice(0, end);
+}
+
+/** Convert a bare-time pair (e.g. `3` + `00` + `pm`) into HH:MM. */
+function formatBareTime(hours: number, mins: number, ampm: string): string | undefined {
+  if (hours > 23 || mins > 59) return undefined;
+  let h24 = hours;
+  const lower = ampm.toLowerCase();
+  if (lower === "pm" && h24 !== 12) h24 += 12;
+  if (lower === "am" && h24 === 12) h24 = 0;
+  if (h24 > 23) return undefined;
+  return `${String(h24).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
+}
+
+/**
+ * Classify a location-cell value into venue vs annotation vs time prefix.
+ * Closes #1516. See block comment above for the patterns covered.
+ */
+export function classifyLocationCell(text: string | undefined): ClassifiedLocationCell {
+  if (text == null) return {};
+  let cleaned = text.trim();
+  if (!cleaned) return {};
+
+  // 1. Strip a leading bare-time prefix ("3pm 5 Olsen Ave\u2026") into startTime.
+  let startTime: string | undefined;
+  const tMatch = TIME_PREFIX_RE.exec(cleaned);
+  if (tMatch) {
+    const hh = Number.parseInt(tMatch[1], 10);
+    const mm = tMatch[2] ? Number.parseInt(tMatch[2], 10) : 0;
+    const formatted = formatBareTime(hh, mm, tMatch[3]);
+    if (formatted) {
+      startTime = formatted;
+      cleaned = cleaned.slice(tMatch[0].length).trim();
+    }
+  }
+  if (!cleaned) return { startTime };
+
+  // 2. Joint-run annotation prefix routes prose to `description`. When the
+  //    annotation also carries a trailing street address, peel it back into
+  //    `location`. Otherwise emit `location: null` so the merge pipeline
+  //    scrubs any stale `locationName` from earlier scrapes (#1516 cycle-9
+  //    escape \u2014 Codex adversarial review caught the undefined-preserves
+  //    pitfall).
+  if (JOINT_RUN_NOTE_RE.test(cleaned)) {
+    const addrMatch = ADDRESS_TAIL_RE.exec(cleaned);
+    if (addrMatch && STREET_SUFFIX_RE.test(addrMatch[1])) {
+      const addr = addrMatch[1].trim();
+      // Strip trailing whitespace + dash separators (`- `, `\u2013 `, `\u2014`) from the
+      // note half. Procedural strip avoids the `[\s\-\u2013\u2014]+$` regex shape that
+      // Sonar S5852 flags as ReDoS even though it's linear (see memory:
+      // feedback_sonar_s5852_false_positives).
+      const note = stripTrailingNoteSeparators(cleaned.slice(0, addrMatch.index)).trim();
+      return { location: addr, description: note || undefined, startTime };
+    }
+    return { location: null, description: cleaned, startTime };
+  }
+
+  // 3. Default: treat the cell as a venue/location name (current behaviour).
+  return { location: cleaned, startTime };
+}
+
 export interface AucklandHussiesParsedRow {
   dateText: string;
   hareText?: string;
@@ -197,28 +328,39 @@ export function parseAucklandHussiesRow(
   const hares = normalizeHaresField(stripPlaceholder(row.hareText));
   // Cheerio decodes &nbsp; to U+00A0, which String#trim already strips, so
   // `stripPlaceholder` cleanly drops cells that hold nothing but &nbsp;.
-  const location = stripPlaceholder(row.locationText);
+  // Then route the residual through classifyLocationCell so per-event time
+  // prefixes and joint-run annotations don't masquerade as the venue (#1516).
+  const stripped = stripPlaceholder(row.locationText);
+  const { location, description, startTime } = classifyLocationCell(stripped);
 
   return {
     date,
     kennelTags: [opts.kennelTag],
     hares,
     location,
+    description,
+    startTime,
     sourceUrl: opts.sourceUrl,
   };
 }
 
+/** Read the row's `<td>` text contents once. Callers reuse the array for
+ *  both date-row detection and col-4 continuation extraction (gemini-code-
+ *  assist review on PR #1597 — avoids redundant DOM traversal per row). */
+function readRowCells($: cheerio.CheerioAPI, rowEl: AnyNode): string[] {
+  return $(rowEl).find("td").toArray().map((td) => $(td).text());
+}
+
 /**
- * Extract the date-bearing cells from a single `<tr>`. Returns null if the
- * row isn't a date-shaped run row (annotation / phone / cost / blank).
- * Lifted out of {@link AucklandHussiesAdapter.fetch} purely to keep that
- * method below SonarCloud's cognitive-complexity threshold.
+ * Parse a single `<tr>` into date-bearing cells. Returns null if the row
+ * isn't a date-shaped run row (annotation / phone / cost / blank). Lifted
+ * out of {@link AucklandHussiesAdapter.fetch} for SonarCloud's cognitive-
+ * complexity threshold. Accepts pre-extracted `cells` so callers can share
+ * the array with continuation-row detection.
  */
-function extractRunRowCells(
-  $: cheerio.CheerioAPI,
-  rowEl: AnyNode,
+function parseRunRowFromCells(
+  cells: string[],
 ): { dateText: string; hareText?: string; locationText?: string } | null {
-  const cells = $(rowEl).find("td").toArray().map((td) => $(td).text());
   if (cells.length < 5) return null;
   const dateCell = cells.at(0)?.trim() ?? "";
   if (!DATE_CELL_RE.test(dateCell)) return null;
@@ -227,6 +369,56 @@ function extractRunRowCells(
     hareText: cleanCellText(cells.at(3)),
     locationText: cleanCellText(cells.at(4)),
   };
+}
+
+/**
+ * Read col-4 content from a "continuation" `<tr>` — rows where col 0 is
+ * blank/empty so the Excel export visually wraps the previous date row's
+ * cell. Joint-run rows often put the real street address on the
+ * continuation line and the note on the dated line ("With the men on a
+ * Monday night - 4pm" → next row → "6 Waterstone Way, Henderson"). Returns
+ * `undefined` if the row is itself a date row or lacks col 4.
+ */
+function continuationLocationFromCells(cells: string[]): string | undefined {
+  if (cells.length < 5) return undefined;
+  const dateCell = cells.at(0)?.trim() ?? "";
+  if (DATE_CELL_RE.test(dateCell)) return undefined;
+  return cleanCellText(cells.at(4));
+}
+
+/**
+ * For joint-run annotation rows, peek up to N follow-on blank-date rows and
+ * concatenate their col-4 text into the location string. The classifier's
+ * ADDRESS_TAIL_RE peel-back then extracts the street address. For non-
+ * annotation rows (normal venue names), this is a no-op — merging would pull
+ * in phone/cost/CTA noise (Codex round-2 finding on #1516). Cells are read
+ * once per row and threaded through both predicates (gemini-code-assist).
+ */
+function mergeContinuationRows(
+  $: cheerio.CheerioAPI,
+  rows: AnyNode[],
+  i: number,
+  parsedCells: { dateText: string; hareText?: string; locationText?: string },
+): { dateText: string; hareText?: string; locationText?: string } {
+  if (!parsedCells.locationText || !JOINT_RUN_NOTE_RE.test(parsedCells.locationText)) {
+    return parsedCells;
+  }
+  const CONTINUATION_LOOKAHEAD = 3;
+  for (let j = 1; j <= CONTINUATION_LOOKAHEAD && i + j < rows.length; j++) {
+    const peek = rows.at(i + j);
+    if (!peek) break;
+    const peekCells = readRowCells($, peek);
+    if (parseRunRowFromCells(peekCells)) break;
+    const tail = continuationLocationFromCells(peekCells);
+    // Only fold the continuation row in when it actually looks like an
+    // address (digit + Capitalised word + recognised street suffix). Pure
+    // CTA / phone-number / catering-note continuations stay outside the
+    // event payload so the joint-run description doesn't bloat.
+    if (tail && ADDRESS_TAIL_RE.test(tail) && STREET_SUFFIX_RE.test(tail)) {
+      return { ...parsedCells, locationText: `${parsedCells.locationText} ${tail}` };
+    }
+  }
+  return parsedCells;
 }
 
 export class AucklandHussiesAdapter implements SourceAdapter {
@@ -257,19 +449,32 @@ export class AucklandHussiesAdapter implements SourceAdapter {
     const { minDate, maxDate } = buildDateWindow(options?.days ?? 180);
 
     // Excel-exported tables don't have semantic <th>; iterate all rows
-    // and rely on the date-shape discriminator in column 0.
+    // and rely on the date-shape discriminator in column 0. Joint-run rows
+    // often place the actual street address on a follow-on row with a blank
+    // date cell (Codex #1516 round 2) — walk forward and concatenate that
+    // text into the current row's locationText so the classifier's address-
+    // tail peel-back can recover the venue.
     const rows = $("tr").toArray();
     let rowsConsidered = 0;
     let prevDate: string | undefined;
     for (let i = 0; i < rows.length; i++) {
       const row = rows.at(i);
       if (!row) continue;
-      const parsedCells = extractRunRowCells($, row);
+      const cells = readRowCells($, row);
+      const parsedCells = parseRunRowFromCells(cells);
       if (!parsedCells) continue;
       rowsConsidered += 1;
 
+      // For joint-run annotation rows ("With the men on a Monday night - 4pm"),
+      // the real street address often sits on the next blank-date row. Merge
+      // those continuation rows in so the classifier's address-tail peel-back
+      // can recover the venue. For normal rows whose location cell already
+      // looks like a venue, do NOT merge — the continuation rows in that case
+      // are cost / phone-number / CTA noise that would pollute the address.
+      const cellsWithMerged = mergeContinuationRows($, rows, i, parsedCells);
+
       try {
-        const event = parseAucklandHussiesRow(parsedCells, { kennelTag, sourceUrl, prevDate });
+        const event = parseAucklandHussiesRow(cellsWithMerged, { kennelTag, sourceUrl, prevDate });
         if (!event) continue;
         prevDate = event.date;
         const eventDate = new Date(`${event.date}T12:00:00Z`);

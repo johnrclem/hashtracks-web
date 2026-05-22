@@ -20,8 +20,9 @@ export interface PreviewEvent {
   title?: string;
   description?: string;
   runNumber?: number;
-  location?: string;
-  hares?: string;
+  /** `null` carries the adapter's explicit-clear signal (#1516) into the preview. */
+  location?: string | null;
+  hares?: string | null;
   startTime?: string;
   resolved: boolean;
   /** DB kennel ID when tag resolved — enables reliable auto-selection */

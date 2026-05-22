@@ -883,9 +883,11 @@ function deduplicateAddressPrefix(location: string): string {
 
 /**
  * Sanitize location names: filter placeholders (TBA/TBD) and bare URLs.
- * Returns null for locations that are not meaningful display text.
+ * Returns null for locations that are not meaningful display text. Accepts
+ * `null` as an explicit-clear signal from adapters (#1516 — annotation rows
+ * route through here so the merge UPDATE path overwrites stale `locationName`).
  */
-export function sanitizeLocation(location: string | undefined): string | null {
+export function sanitizeLocation(location: string | null | undefined): string | null {
   if (!location) return null;
   let t = location.trim();
   if (!t) return null;
@@ -1003,8 +1005,13 @@ async function resolveCoords(
   // Adapters can opt out via `dropCachedCoords` when they know the stored coords are
   // stale (e.g. Harrier Central's geocode-failure fallback pin — #957) and need a
   // fresh geocode even though `locationUrl` hasn't changed (HC events have it null).
+  // WS6 (#1516): when the adapter emits `event.location === null` (explicit
+  // clear), don't preserve cached coords either — a row that lost its venue
+  // text should also lose any stale lat/lng / city it inherited from the
+  // previous scrape.
   if (
     !event.dropCachedCoords &&
+    event.location !== null &&
     existingCoords &&
     existingCoords.latitude != null &&
     existingCoords.longitude != null &&
@@ -1291,6 +1298,10 @@ async function upsertCanonicalEvent(
       }, ctx.shortUrlCache, kennelData, resolveRegionBias(event, kennelData.country));
 
       const locName = coords.normalizedLocation ?? sanitizeLocation(event.location);
+      // WS6 (#1516): adapters signal "this row lost its venue" via
+      // `event.location === null`. Used below to clear city + locationAddress
+      // + coords so a row whose venue was scrubbed doesn't keep stale data.
+      const isExplicitLocationClear = event.location === null;
 
       // Reverse-geocode city when we have new coords and locationCity isn't already set.
       // Canonical-location sources (HARRIER_CENTRAL) skip the reverse-geocode entirely on
@@ -1309,11 +1320,13 @@ async function upsertCanonicalEvent(
         }
       } else if (
         (event.locationUrl !== undefined && (event.locationUrl ?? null) !== (existingEvent.locationAddress ?? null)) ||
-        event.dropCachedCoords
+        event.dropCachedCoords ||
+        isExplicitLocationClear
       ) {
-        // Coords cleared (either via locationUrl change or adapter dropCachedCoords
-        // signal — #957) — also clear city so we don't display a stale Tokyo
-        // "Chiyoda" against a now-uncoordinated event.
+        // Coords cleared (locationUrl change, adapter dropCachedCoords #957,
+        // or adapter explicit-clear `event.location === null` from WS6 #1516)
+        // — also clear city so we don't display a stale Tokyo "Chiyoda"
+        // against a now-uncoordinated event.
         locationCity = null;
       }
 
@@ -1344,9 +1357,16 @@ async function upsertCanonicalEvent(
                 locationStreet: event.locationStreet ?? null,
               }
             : {}),
+          // Map URL: write when adapter supplies one; clear when adapter sends
+          // an explicit `location: null` and no replacement URL (WS6 / #1516
+          // Codex round 3 — without this, an event whose venue was scrubbed
+          // could still keep the prior `locationAddress` so the UI links to
+          // the stale map pin).
           ...(event.locationUrl !== undefined
             ? { locationAddress: sanitizeLocationUrl(event.locationUrl) }
-            : {}),
+            : isExplicitLocationClear
+              ? { locationAddress: null }
+              : {}),
           ...(event.startTime !== undefined
             ? { startTime: event.startTime ?? null }
             : {}),
@@ -1391,12 +1411,15 @@ async function upsertCanonicalEvent(
           trustLevel: ctx.trustLevel,
           // Write coords if resolved; clear if locationAddress changed and no new coords
           // (prevents stale pins when an event moves to an unparseable location URL),
-          // or when the adapter signalled the cached coords are stale and the
-          // re-geocode came up empty (HC fallback-pin recovery — #957).
+          // when the adapter signalled the cached coords are stale and the
+          // re-geocode came up empty (HC fallback-pin recovery — #957), or when
+          // the adapter sent an explicit-clear `event.location === null` (WS6
+          // #1516 — joint-run annotation rows must drop stale lat/lng too).
           ...(coords.latitude != null && coords.longitude != null
             ? { latitude: coords.latitude, longitude: coords.longitude }
             : (event.locationUrl !== undefined && (event.locationUrl ?? null) !== (existingEvent.locationAddress ?? null)) ||
-                event.dropCachedCoords
+                event.dropCachedCoords ||
+                isExplicitLocationClear
               ? { latitude: null, longitude: null }
               : {}),
           // Reverse-geocoded city (only set when computed above)
