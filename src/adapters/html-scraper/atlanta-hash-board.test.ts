@@ -307,6 +307,15 @@ describe("stripPhpBbBanners", () => {
     const text = "Time: Saturday March 8, 2026, meet 1:30 PM";
     expect(stripPhpBbBanners(text)).toBe(text);
   });
+
+  it("does not match month-prefix words like 'Marching' / 'Maybe' / 'Decoration'", () => {
+    // Gemini + claude-bot review on PR #1622: a quoted line with `»` plus a
+    // word starting with a month-prefix plus a year must NOT be treated as a
+    // banner. Switching MONTH_NAME_RE from `[a-z]*` to specific suffixes
+    // (Jan(uary)?, Feb(ruary)?, ...) closes the false-positive window.
+    const text = "Quote: \"the Marching Band 2026 was epic\" » she said";
+    expect(stripPhpBbBanners(text)).toBe(text);
+  });
 });
 
 // ── AtlantaHashBoardAdapter.fetch ──

@@ -154,7 +154,11 @@ function inferDateFromHashDay(refDate: Date, hashDay: string): string | null {
  * Implemented as line-split + per-line predicate to keep each regex provably
  * linear (Sonar S5852).
  */
-const MONTH_NAME_RE = /\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\b/i;
+// Specific suffixes (not `[a-z]*`) avoid both Sonar S5852 super-linear-runtime
+// concern AND false positives on words like "Marching" / "Maybe" / "Decoration"
+// that share a 3-letter month prefix (Gemini + Claude-bot review on PR #1622).
+const MONTH_NAME_RE =
+  /\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\b/i;
 const FOUR_DIGIT_YEAR_RE = /\b\d{4}\b/;
 function isBannerLine(line: string): boolean {
   return line.includes("»") && MONTH_NAME_RE.test(line) && FOUR_DIGIT_YEAR_RE.test(line);
