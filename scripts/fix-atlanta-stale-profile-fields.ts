@@ -66,17 +66,13 @@ const UPDATES: FieldUpdate[] = [
     issue: "#1585",
   },
 
-  // #1582 CUNT H3 ATL
+  // #1582 CUNT H3 ATL — only scheduleNotes needs updating; description is
+  // already correct (Gemini PR #1629 review: dropped the no-op description
+  // entry that was an artifact of copying the structure from other kennels).
   {
     kennelCode: "cunth3-atl", field: "scheduleNotes",
     expectStale: "1st Tuesday, 7:00 PM.",
     setTo: "1st Tuesday of the month.",
-    issue: "#1582",
-  },
-  {
-    kennelCode: "cunth3-atl", field: "description",
-    expectStale: "Monthly Tuesday evening trail in Atlanta.",
-    setTo: "Monthly Tuesday evening trail in Atlanta.",
     issue: "#1582",
   },
 ];

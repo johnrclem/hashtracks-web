@@ -62,4 +62,6 @@ async function main() {
   }
   console.log(`Event.runNumber cleared. ${scrubbed} RawEvent payload(s) scrubbed.`);
 }
-main().finally(() => prisma.$disconnect());
+main()
+  .catch((e) => { console.warn(e); process.exit(1); })
+  .finally(() => prisma.$disconnect());

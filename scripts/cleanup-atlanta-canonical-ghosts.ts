@@ -94,7 +94,9 @@ async function clearEventFields(runNumberHits: RunNumberHit[], startTimeHits: St
   return cleared;
 }
 
-async function scrubRawEventPayloads(kennelId: string): Promise<number> {
+interface RawEventHit { id: string; rawData: Record<string, unknown> }
+
+async function findStaleRawEvents(kennelId: string): Promise<RawEventHit[]> {
   // Find RawEvents whose payload carries the bad runNumber / startTime AND
   // belong to a MLH4 SourceKennel link — so a re-scrape doesn't immediately
   // re-write the wrong values via the same fingerprint.
@@ -103,10 +105,7 @@ async function scrubRawEventPayloads(kennelId: string): Promise<number> {
     select: { sourceId: true },
   });
   const sourceIds = mlh4Sources.map((s) => s.sourceId);
-  if (sourceIds.length === 0) {
-    console.log("\nNo MLH4 sources linked — skipping RawEvent scrub.");
-    return 0;
-  }
+  if (sourceIds.length === 0) return [];
 
   const raws = await prisma.rawEvent.findMany({
     where: {
@@ -120,11 +119,13 @@ async function scrubRawEventPayloads(kennelId: string): Promise<number> {
     },
     select: { id: true, rawData: true },
   });
-  console.log(`\nFound ${raws.length} stale RawEvent rows.`);
+  return raws.map((r) => ({ id: r.id, rawData: r.rawData as Record<string, unknown> }));
+}
 
+async function scrubRawEventPayloads(raws: RawEventHit[]): Promise<number> {
   let scrubbed = 0;
   for (const r of raws) {
-    const d = r.rawData as Record<string, unknown>;
+    const d = r.rawData;
     let dirty = false;
     if (typeof d.runNumber === "number" && STALE_RUN_NUMBERS.has(d.runNumber)) {
       delete d.runNumber;
@@ -159,16 +160,23 @@ async function main() {
   const { runNumberHits, startTimeHits } = await findStaleEvents(kennel.id);
   reportHits(runNumberHits, startTimeHits);
 
+  // Discover RawEvents BEFORE the dry-run early-return so operators see
+  // both layers' impact in dry-run mode (Gemini PR #1629 review).
+  const rawHits = await findStaleRawEvents(kennel.id);
+  console.log(`\nFound ${rawHits.length} stale RawEvent rows.`);
+
   if (!apply) {
     console.log("\nRe-run with APPLY=1 to scrub fields.");
     return;
   }
 
   const cleared = await clearEventFields(runNumberHits, startTimeHits);
-  console.log(`\nCleared ${cleared} field(s).`);
+  console.log(`\nCleared ${cleared} Event field(s).`);
 
-  const scrubbed = await scrubRawEventPayloads(kennel.id);
+  const scrubbed = await scrubRawEventPayloads(rawHits);
   console.log(`Scrubbed ${scrubbed} RawEvent payload(s).`);
 }
 
-main().catch((e) => { console.error(e); process.exit(1); }).finally(() => prisma.$disconnect());
+main()
+  .catch((e) => { console.warn(e); process.exit(1); })
+  .finally(() => prisma.$disconnect());

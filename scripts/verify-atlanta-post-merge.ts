@@ -113,4 +113,6 @@ async function main() {
     await printLatestRunNumber(mlh4.id);
   }
 }
-main().finally(() => prisma.$disconnect());
+main()
+  .catch((e) => { console.warn(e); process.exit(1); })
+  .finally(() => prisma.$disconnect());
