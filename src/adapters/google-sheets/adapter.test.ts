@@ -797,9 +797,9 @@ describe("cellMatchesFilter (#1592)", () => {
     // Cycle-10 rejection guarantees (must STILL reject after the relaxation)
     ["MH3FAKE", false, "substring no-match (next char ASCII letter)"],
     ["MH3event", false, "ASCII letter continuation"],
-    ["MH3α", false, "Greek-letter continuation (Unicode \\p{L})"],
+    ["MH3α", false, String.raw`Greek-letter continuation (Unicode \p{L})`],
     ["MH3Ａvent", false, "fullwidth ASCII continuation"],
-    ["MH3٨", false, "Arabic-Indic digit continuation (Unicode \\p{N})"],
+    ["MH3٨", false, String.raw`Arabic-Indic digit continuation (Unicode \p{N})`],
     ["MH3_v2", false, "underscore continuation"],
     ["MFMH3", false, "sibling kennel (different prefix)"],
     ["MASS H3", false, "sibling kennel"],
