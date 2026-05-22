@@ -1720,12 +1720,13 @@ export const KENNELS: KennelSeed[] = [
     },
     {
       // #1572: scheduleTime 1:30 → 1:00 PM (atlantahash.com pages/black-sheep.html
-      // "On-out is every other Sunday, at 1PM"). Hash cash $10 captured in prose
-      // per cycle-10 pattern (structured `hashCash` field rollout tracked in #1571).
-      // Old `blacksheephash.com` website has lapsed (HugeDomains parking) — leaving
-      // website blank rather than pointing at the umbrella site.
+      // "On-out is every other Sunday, at 1PM"). Hash cash $10 set as structured
+      // field (per issue #1572) AND mirrored in the description for kennel-card
+      // readability. Old `blacksheephash.com` website has lapsed (HugeDomains
+      // parking) — leaving website blank rather than pointing at the umbrella site.
       kennelCode: "bsh3", shortName: "Black Sheep", fullName: "Black Sheep Hash House Harriers", region: "Atlanta, GA",
       scheduleDayOfWeek: "Sunday", scheduleTime: "1:00 PM", scheduleFrequency: "Biweekly",
+      hashCash: "$10",
       description: "Alternate Sunday high-shiggy trails in Atlanta — also known as Rainbow Sheep, where any color of the rainbow is fine as long as it's black. Come for the shiggy; stay for more shiggy. Hash cash $10.",
     },
     {
