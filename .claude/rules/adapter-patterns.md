@@ -61,7 +61,7 @@ The merge pipeline treats `undefined` as "preserve existing" and `null` as "expl
 ## Shared-Source Kennel Routing
 A single Source row often feeds multiple kennels (aggregator calendars, multi-kennel spreadsheets). HashTracks treats this as a first-class pattern with two distinct routing mechanisms — pick by source type, not invention:
 
-- **`kennelPatterns` (GOOGLE_CALENDAR + others)** — Array of `[regex, kennelCode | kennelCode[]]` tuples. Matched against the event summary; most-specific pattern wins (see cycle-9 #1479 LVH3 most-specific-wins fix). Pre-compiled via `compilePatterns()` at fetch start so the hot path is O(n_patterns) per event, not per-row regex compilation. Reference: `prisma/seed-data/sources.ts:306` (Chicagoland — 12 kennels off one calendar), `src/adapters/google-calendar/adapter.ts:resolveKennelTagFromSummary`.
+- **`kennelPatterns` (GOOGLE_CALENDAR + others)** — Array of `[regex, kennelCode | kennelCode[]]` tuples. Matched against the event summary. Engine semantics (see `matchCompiledKennelPatterns` in `src/adapters/kennel-patterns.ts`): for string-tuple values it's **first-match wins by order** — the author lists specific patterns *before* generic ones (cycle-9 #1479 LVH3 fix was a re-ordering for exactly this reason). Array-tuple values (`["pattern", ["kennelA", "kennelB"]]`) opt into multi-kennel co-host emission and override any string-tuple matches in the list (spec §2 D15). Pre-compile via `compileKennelPatterns()` at fetch start so the hot path is O(n_patterns) per event, not per-row regex compilation. Reference: `prisma/seed-data/sources.ts:306` (Chicagoland — 12 kennels off one calendar), `src/adapters/google-calendar/adapter.ts:resolveKennelTagFromSummary`.
 
   ```ts
   config: {
