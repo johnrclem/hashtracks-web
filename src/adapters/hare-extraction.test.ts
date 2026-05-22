@@ -30,6 +30,10 @@ const EXPECTED_GROUPS: ExpectedGroup[] = [
       ["Hare(s): pattern (jHavelina format)", "Trail info\nHare(s): Splat!\nLocation: Park", "Splat!"],
       ["'Hare [Name]' without colon (MH3 format)", "Details\nHare C*ck Swap\nLocation: Park", "C*ck Swap"],
       ["preserves names starting with 'the' (e.g. 'The Pope')", "Hare: The Pope", "The Pope"],
+      // #1584 — natural-language "Hares are X and Y" form (Austin H3 #2278).
+      ["'Hares are X and Y' form", "Hares are Smegma Balls and Dry Hose. Pool party at the park.", "Smegma Balls and Dry Hose"],
+      ["'Hares are X and Y' to end of line", "Some intro.\nHares are Alice and Bob\nLocation: Park", "Alice and Bob"],
+      ["lowercase 'hares are X and Y'", "hares are Cool Beans and Banana Boat.", "Cool Beans and Banana Boat"],
     ],
   },
   {
@@ -167,6 +171,27 @@ const UNDEFINED_GROUPS: UndefinedGroup[] = [
       ["preposition 'from' prefix", "Hare: from the old pub to the new one"],
       ["false-match 'hare off at'", "Pack off at 7:30, hare off at 7:15"],
       ["song lyric after 'Hare drop'", "Some intro\nHare drop another for the prince of this\nMore lyrics"],
+      // #1584 — natural-language "Hares are X" pattern is liberal by design
+      // (Austin H3 #2278). These prose forms must NOT promote to a hare list.
+      // First-word denylist (HARES_ARE_PROSE_FIRST_WORD_RE) rejects each.
+      ["'Hares are Needed for volunteers'", "Hares are Needed for July volunteers."],
+      ["'Hares are Welcome'", "Hares are Welcome at the pool party."],
+      ["'Hares are Wanted'", "Hares are Wanted — apply within."],
+      ["'Hares are Going to set early'", "Hares are Going to set early."],
+      ["'Hares are Looking for help'", "Hares are Looking for help."],
+      // Plural forms — Gemini PR #1612 review: `Volunteer\b` does NOT match
+      // "Volunteers" because `s` is a word char. Denylist now uses
+      // `Volunteers?` / `Needs?` to cover both singular + plural.
+      ["'Hares are Volunteers for July'", "Hares are Volunteers for July."],
+      ["'Hares are Needs more volunteers'", "Hares are Needs more volunteers."],
+      // Case-insensitive — Codex P2 review: all-caps "NEEDED" must reject
+      // too. Denylist regex now uses /i.
+      ["all-caps 'Hares are NEEDED for July'", "Hares are NEEDED for July."],
+      ["all-caps 'Hares are WELCOME at the party'", "Hares are WELCOME at the party."],
+      // Verb-form lowercase rejection — the `[A-Z*]` regex anchor already
+      // bars these; this confirms it.
+      ["'Hares are getting ready'", "Hares are getting ready for the trail."],
+      ["'Hares are running tomorrow'", "Hares are running tomorrow."],
     ],
   },
   {

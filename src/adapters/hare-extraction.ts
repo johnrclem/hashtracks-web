@@ -40,6 +40,13 @@ const DEFAULT_HARE_PATTERNS = [
   /(?:^|\n)[ \t]*WHO\s+ARE\s+THE\s+HARES?\s*:[ \t]*(.+?)(?=(?:WHO|WHAT|WHEN|WHERE|HOW)\s+\w+|\n|$)/im, // NOSONAR — non-greedy, bounded by literal lookahead alternation; description is trusted GCal field
   /(?:^|\n)[ \t]*Who\s*\(?(?:hares?)?\)?:[ \t]*(.*)/im,  // Who:, WHO (hares):, Who(hare):
   /(?:^|\n)[ \t]*Hare[ \t]+([A-Z*].+)/im,  // "Hare C*ck Swap" (no colon, name starts uppercase/special)
+  // Natural-language form (#1584 Austin H3 #2278): "Hares are Smegma Balls and
+  // Dry Hose." Line-anchored, with an explicit-uppercase guard so
+  // "Hares are getting ready" (lowercase next word, normal prose) does NOT
+  // match. The `[Hh]ares?` literal label avoids /i (which would let `[A-Z*]`
+  // also match lowercase). The lazy `.+?` plus a sentence-end lookahead
+  // bound the capture so we stop at the next sentence terminator or newline.
+  /(?:^|\n)[ \t]*[Hh]ares?\s+are\s+([A-Z*].+?)(?=[.!?](?:\s|$)|\n|$)/m,  // NOSONAR — bounded non-greedy, anchored to sentence/line end
 ];
 /* eslint-enable */
 
@@ -48,6 +55,23 @@ const MAX_LINE_LEN = 80;
 const MAX_HARES_LEN = 200;
 const GENERIC_WHO_ANSWER_RE = /^(?:that be you|your|all|everyone)/i;
 const PROSE_PREFIX_RE = /^(?:away|at|from|drop|is|was|has|had|can|will|would|should|could|for|and|or|off)\b/i;
+// First-word prose denylist — captured "hares" text whose first token is one
+// of these common kennel-prose words is grammatical filler, not a name list.
+// Catches false positives from the natural-language "Hares are X" pattern
+// (#1584) — e.g. "Hares are Needed for July volunteers", "Hares are Welcome
+// at the pool party". Strictly capitalized first letter so legit names like
+// "Banana", "Cookie", "Crusty" pass through (lowercase / verb forms wouldn't
+// have reached this branch — the pattern's `[A-Z*]` anchor already rejects
+// lowercase prose). Listed in NOSONAR to satisfy S5852 complexity budget.
+// Placeholder tokens (TBD/TBA/TBC) are intentionally NOT in this list —
+// extractHares returning the placeholder preserves the existing contract for
+// the WHO ARE THE HARES: TBD case (#1082), and downstream filters
+// (isPlaceholderText in utils.ts, merge.ts placeholder check) demote them
+// without populating Event.haresText. Plural forms (Volunteers?, Needs?)
+// matter — `Volunteer\b` does not match "Volunteers" because `s` is a word
+// char (Gemini PR #1612 review). Case-insensitive via `/i` to reject the
+// all-caps "Hares are NEEDED for July" form (Codex P2 review).
+const HARES_ARE_PROSE_FIRST_WORD_RE = /^(?:Needed|Needs?|Wanted|Required|Welcome|Available|Looking|Volunteers?|Still|Always|Currently|Hiding|Setting|Going|Coming|Ready|Now|Out|Off)\b/i; // NOSONAR — anchored literal alternation
 const URL_PREFIX_RE = /^https?:\/\//i;
 const SENTENCE_PUNCT_RE = /[:.!?]\s/;
 const SENTENCE_END_RE = /[.!?]$/;
@@ -203,6 +227,7 @@ function cleanAndFilterHares(raw: string): string | undefined {
 
   if (GENERIC_WHO_ANSWER_RE.test(hares)) return undefined;
   if (PROSE_PREFIX_RE.test(hares)) return undefined;
+  if (HARES_ARE_PROSE_FIRST_WORD_RE.test(hares)) return undefined;
   // Date-range rejection (#1547 ABQ): "Friday 5/22-Monday 5/25" is a campout
   // date range, not a hare name.
   if (DATE_RANGE_RE.test(hares)) return undefined;
