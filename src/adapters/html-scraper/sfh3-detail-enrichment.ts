@@ -33,7 +33,6 @@ const MAX_ENRICH_PER_SCRAPE = 200;
 const BATCH_SIZE = 10;
 
 const SFH3_TRAIL_URL_RE = /sfh3\.com\/runs\/\d+/;
-const SFH3_UMBRELLA_URL_RE = /sfh3\.com\/events\/\d+/;
 
 export interface SFH3Detail {
   title?: string;

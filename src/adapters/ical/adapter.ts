@@ -547,7 +547,7 @@ export class ICalAdapter implements SourceAdapter {
       ? compilePatterns([config.titleHarePattern], "i")[0]
       : undefined;
 
-    let events: RawEventData[] = [];
+    const events: RawEventData[] = [];
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
     let totalVEvents = 0;
