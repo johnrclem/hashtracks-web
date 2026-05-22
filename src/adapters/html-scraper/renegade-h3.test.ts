@@ -145,7 +145,7 @@ describe("RenegadeH3Adapter", () => {
       const result = await new RenegadeH3Adapter().fetch({
         id: "test",
         url: "https://www.renegadeh3.com/events",
-      } as never);
+      } as never); // NOSONAR S4325 — Prisma `Source` has many required fields the stub omits
       const run295 = result.events.find((e) => e.runNumber === 295);
       expect(run295).toBeDefined();
       expect(run295!.date).toBe("2026-05-23");
@@ -176,7 +176,7 @@ describe("RenegadeH3Adapter", () => {
       const result = await new RenegadeH3Adapter().fetch({
         id: "test",
         url: "https://www.renegadeh3.com/events",
-      } as never);
+      } as never); // NOSONAR S4325 — Prisma `Source` has many required fields the stub omits
       const run295 = result.events.find((e) => e.runNumber === 295);
       const run294 = result.events.find((e) => e.runNumber === 294);
       expect(run295!.location).toBe("Nelson Park");

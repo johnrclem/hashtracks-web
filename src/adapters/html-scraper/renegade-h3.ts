@@ -58,6 +58,30 @@ export function parseEventHeader(
 const MUSTER_PREFIX_RE = /^muster[:\s]\s*/i;
 
 /**
+ * Time-label precedence ladder (#1581). Higher rank beats lower regardless of
+ * line order: Muster (gather) > Pack Away (cutoff) > Chalk Talk (briefing).
+ * Lookup table keeps `parseEventDetails` flat and below Sonar's cognitive-
+ * complexity threshold.
+ */
+const TIME_LABELS: ReadonlyArray<{ re: RegExp; rank: number }> = [
+  { re: MUSTER_PREFIX_RE, rank: 3 },
+  { re: /^pack away:\s*/i, rank: 2 },
+  { re: /^chalk talk:\s*/i, rank: 1 },
+];
+
+/** Match a line against the time-label ladder. Returns the highest-rank
+ *  candidate that parses, or null if no label fires. */
+function matchTimeLabel(line: string): { rank: number; time: string } | null {
+  for (const { re, rank } of TIME_LABELS) {
+    if (!re.test(line)) continue;
+    const time = parseTimeToHHMM(line.replace(re, "").trim());
+    if (time) return { rank, time };
+    return null; // label matched but value unparseable — fall through to description
+  }
+  return null;
+}
+
+/**
  * Parse detail lines from an event's description paragraph.
  * Extracts hares, location, start time, hash cash, and other details.
  */
@@ -77,9 +101,6 @@ export function parseEventDetails(text: string): {
   let location: string | undefined;
   let locationUrl: string | undefined;
   let startTime: string | undefined;
-  // Precedence rank for whichever time label set startTime — higher beats
-  // lower regardless of line order. Muster (gather) > Pack Away (cutoff) >
-  // Chalk Talk (briefing). (#1581)
   let timeRank = 0;
   const descParts: string[] = [];
 
@@ -88,27 +109,23 @@ export function parseEventDetails(text: string): {
 
     if (lower.startsWith("hares:") || lower.startsWith("hare:")) {
       hares = stripPlaceholder(line.replace(/^hares?:\s*/i, "").trim()) || undefined;
-    } else if (lower.startsWith("where:")) {
+      continue;
+    }
+    if (lower.startsWith("where:")) {
       const raw = line.replace(/^where:\s*/i, "").trim();
       location = stripPlaceholder(raw) || undefined;
-      if (location) {
-        locationUrl = googleMapsSearchUrl(location);
-      }
-    } else if (MUSTER_PREFIX_RE.test(line)) {
-      // Accepts both "Muster:" and "Muster " (the source mixes both — see
-      // run #295 vs run #296).
-      const candidate = parseTimeToHHMM(line.replace(MUSTER_PREFIX_RE, "").trim());
-      if (candidate && timeRank < 3) { startTime = candidate; timeRank = 3; }
-    } else if (lower.startsWith("pack away:")) {
-      const candidate = parseTimeToHHMM(line.replace(/^pack away:\s*/i, "").trim());
-      if (candidate && timeRank < 2) { startTime = candidate; timeRank = 2; }
-    } else if (lower.startsWith("chalk talk:")) {
-      const candidate = parseTimeToHHMM(line.replace(/^chalk talk:\s*/i, "").trim());
-      if (candidate && timeRank < 1) { startTime = candidate; timeRank = 1; }
-    } else {
-      // Accumulate remaining lines as description
-      descParts.push(line);
+      if (location) locationUrl = googleMapsSearchUrl(location);
+      continue;
     }
+    const timeMatch = matchTimeLabel(line);
+    if (timeMatch) {
+      if (timeMatch.rank > timeRank) {
+        startTime = timeMatch.time;
+        timeRank = timeMatch.rank;
+      }
+      continue;
+    }
+    descParts.push(line);
   }
 
   return {
