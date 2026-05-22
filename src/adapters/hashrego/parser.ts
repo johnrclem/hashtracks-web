@@ -377,14 +377,20 @@ export function splitToRawEvents(
     ];
   }
 
-  // Multi-day event: one RawEventData per date
+  // Multi-day event: one RawEventData per date. The earliest day is marked
+  // as the explicit series parent (#1560 PR B) — it carries the umbrella
+  // title without the "(Day N)" suffix and the inclusive `endDate` so the
+  // UI's date-range chip + "+ N trails" badge render on the parent. Later
+  // days are explicit children with their per-day title suffix.
   const seriesId = slug; // Use the Hash Rego slug as series identifier
+  const lastDate = parsed.dates[parsed.dates.length - 1];
   return parsed.dates.map((date, i) => {
+    const isParent = i === 0;
     const dayLabel = `Day ${i + 1}`;
     return {
       date,
       kennelTags: [parsed.hostKennelName || parsed.kennelSlug],
-      title: `${parsed.title} (${dayLabel})`,
+      title: isParent ? parsed.title : `${parsed.title} (${dayLabel})`,
       description: parsed.description,
       hares: parsed.hares,
       location: parsed.location,
@@ -393,6 +399,7 @@ export function splitToRawEvents(
       sourceUrl: hashRegoUrl,
       externalLinks,
       seriesId,
+      ...(isParent ? { seriesParent: true, endDate: lastDate } : {}),
     };
   });
 }
@@ -483,31 +490,87 @@ function extractPerDayStartTimes(description: string, dateCount: number): string
   return startTimes;
 }
 
+/**
+ * Match per-day section headers like `**DAY 1 1/15 —**`, `Day 2: 2/16`,
+ * or `Day 3 1/17`. The `\s*:?\s*` between the day number and the M/D
+ * tolerates with-colon and without-colon variants; markdown `**` bolds
+ * around the whole phrase are absorbed because they're just whitespace
+ * to `\s+`. Em-dash / en-dash / hyphen separators after the date are NOT
+ * required — keeps the regex simple and the Sonar S5843 complexity low
+ * (per memory `feedback_sonar_s5852_false_positives.md`).
+ */
+const DAY_HEADER_RE = /\bDay\s+(\d{1,2})\s*:?\s+(\d{1,2})\/(\d{1,2})\b/gi;
+
+/**
+ * Parse per-day section headers from a Hash Rego event description (used
+ * for multi-day events like NYC H3 5-Boro Pub Crawl whose description
+ * carries `**DAY 1 1/15 —** ...` / `**DAY 2 1/16 —** ...` blocks instead
+ * of a `MM/DD HH:MM PM to MM/DD HH:MM PM` range — #1560 PR B).
+ *
+ * Returns `[]` for < 2 matches (avoids false positives where the
+ * description happens to mention a single "Day 1" but doesn't describe
+ * a multi-day event). Output is sorted by date ascending. The reference
+ * `year` comes from the event's start-date column (`indexEntry.startDate`)
+ * — Hash Rego always carries a 4-digit year there, so we never need to
+ * guess (avoids chrono's forwardDate trap from memory
+ * `feedback_chrono_forward_date_explicit_year.md`).
+ */
+export function parseDayHeaderSections(
+  description: string,
+  year: number,
+): string[] {
+  const matches = [...description.matchAll(DAY_HEADER_RE)];
+  if (matches.length < 2) return [];
+  const dates = matches.map((m) => {
+    const month = parseInt(m[2], 10);
+    const day = parseInt(m[3], 10);
+    return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  });
+  // Deduplicate (a description mentioning the same day twice in two
+  // headers shouldn't double-count) then sort. After dedup we re-apply
+  // the < 2 guard: a description with two "DAY 1 1/15" headers
+  // (admin typo, same-day double bill, etc.) collapses to one unique
+  // date — which is NOT a multi-day series. Falling back to `[]` lets
+  // the caller's existing single-day path take over without spuriously
+  // marking the event as multi-day.
+  const unique = [...new Set(dates)].sort((a, b) => a.localeCompare(b));
+  return unique.length >= 2 ? unique : [];
+}
+
 /** Try to parse a date range from the description and index entry. */
 function parseDateRangeFromDescription(
   description: string,
   indexEntry: IndexEntry,
 ): { dates: string[]; startTimes: string[]; isMultiDay: boolean } | null {
-  const rangeMatch = description.match(
-    /(\d{1,2})\/(\d{1,2})\s+\d{1,2}:\d{2}\s*(?:AM|PM)\s+to\s+(\d{1,2})\/(\d{1,2})\s+\d{1,2}:\d{2}\s*(?:AM|PM)/i,
-  );
-  if (!rangeMatch) return null;
-
   const year = parseYearFromIndex(indexEntry.startDate);
   if (!year) return null;
 
-  const startMonth = parseInt(rangeMatch[1], 10);
-  const startDay = parseInt(rangeMatch[2], 10);
-  const endMonth = parseInt(rangeMatch[3], 10);
-  const endDay = parseInt(rangeMatch[4], 10);
+  // Strategy 1: `MM/DD HH:MM PM to MM/DD HH:MM PM` (existing path).
+  const rangeMatch = description.match(
+    /(\d{1,2})\/(\d{1,2})\s+\d{1,2}:\d{2}\s*(?:AM|PM)\s+to\s+(\d{1,2})\/(\d{1,2})\s+\d{1,2}:\d{2}\s*(?:AM|PM)/i,
+  );
+  if (rangeMatch) {
+    const startMonth = parseInt(rangeMatch[1], 10);
+    const startDay = parseInt(rangeMatch[2], 10);
+    const endMonth = parseInt(rangeMatch[3], 10);
+    const endDay = parseInt(rangeMatch[4], 10);
+    const startDate = new Date(Date.UTC(year, startMonth - 1, startDay));
+    const endDate = new Date(Date.UTC(year, endMonth - 1, endDay));
+    const dates = generateDatesInRange(startDate, endDate);
+    const startTimes = extractPerDayStartTimes(description, dates.length);
+    return { dates, startTimes, isMultiDay: dates.length > 1 };
+  }
 
-  const startDate = new Date(Date.UTC(year, startMonth - 1, startDay));
-  const endDate = new Date(Date.UTC(year, endMonth - 1, endDay));
+  // Strategy 2 (#1560 PR B): per-day section headers — `DAY 1 M/D`, etc.
+  // Fallback for NYC 5-Boro-style multi-day descriptions whose date range
+  // isn't expressible as a single `start to end` line.
+  const dayHeaderDates = parseDayHeaderSections(description, year);
+  if (dayHeaderDates.length >= 2) {
+    const startTimes = extractPerDayStartTimes(description, dayHeaderDates.length);
+    return { dates: dayHeaderDates, startTimes, isMultiDay: true };
+  }
 
-  const dates = generateDatesInRange(startDate, endDate);
-  const startTimes = extractPerDayStartTimes(description, dates.length);
-
-  return { dates, startTimes, isMultiDay: dates.length > 1 };
+  return null;
 }
 
 /** Extract dates and detect multi-day events */
