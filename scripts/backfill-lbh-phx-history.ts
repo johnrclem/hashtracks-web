@@ -42,7 +42,7 @@
 import "dotenv/config";
 import * as cheerio from "cheerio";
 import { safeFetch } from "@/adapters/safe-fetch";
-import { parse12HourTime } from "@/adapters/utils";
+import { decodeEntities, parse12HourTime } from "@/adapters/utils";
 import type { RawEventData } from "@/adapters/types";
 import { runBackfillScript } from "./lib/backfill-runner";
 
@@ -62,18 +62,6 @@ const DETAIL_CONCURRENCY = 5;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/** Decode HTML entities from `title` attribute values. */
-function decode(s: string): string {
-  return s
-    .replaceAll("&#8217;", "'")
-    .replaceAll("&#8211;", "–")
-    .replaceAll("&amp;", "&")
-    .replaceAll("&quot;", '"')
-    .replaceAll("&#039;", "'")
-    .replaceAll("&lt;", "<")
-    .replaceAll("&gt;", ">");
 }
 
 /** Anchor sighting from a calendar page. */
@@ -100,7 +88,7 @@ export function parseCalendarPage(
     const $a = $(el);
     const dayText = $a.text().trim();
     if (!/^\d{1,2}$/.test(dayText)) return; // skip "More Info" + title-line dupes
-    const title = decode($a.attr("title") ?? "");
+    const title = decodeEntities($a.attr("title") ?? "");
     const runMatch = /^LBH\s+#?(\d+)/.exec(title);
     if (!runMatch) return; // only keep anchors whose title is a real LBH #N event
     const slug = ($a.attr("href")?.match(/event=(lbh-[^&"']+)/) ?? ["", ""])[1];
@@ -146,7 +134,7 @@ function entryContentText(html: string): string {
     $(".entry-content").first().text() ||
     $("article").first().text() ||
     $("main").text();
-  return entry.replace(/ /g, " ").replace(/\s+/g, " ").trim();
+  return decodeEntities(entry).replaceAll(/\s+/g, " ").trim();
 }
 
 /** Field regexes for the wp-events-manager entry-content template. The
@@ -158,12 +146,16 @@ function entryContentText(html: string): string {
  * `05/25/20266:30 pm` — so the year→time gap is `\s*` not `\s+`. */
 const SECTION_TERMINATOR =
   "(?=\\s*(?:Who:|What:|Where:|Why:|When:|Wear:|Theme:|Bring:|Dog-?Friendly|On-?after|Hash Cash:|NOTE:|On-?safety|Categories)|$)";
+// nosemgrep: detect-non-literal-regexp — patterns built from hard-coded constants in this file, no user input (mirrors hare-extraction.ts suppression)
 const TIME_RE = new RegExp(
   String.raw`Date\(s\)\s*-\s*\w+\s*-\s*\d{1,2}\/\d{1,2}\/\d{4}\s*(\d{1,2}:\d{2}\s*[ap]m)`,
   "i",
 );
+// nosemgrep: detect-non-literal-regexp — patterns built from hard-coded constants in this file, no user input (mirrors hare-extraction.ts suppression)
 const HARES_RE = new RegExp(String.raw`Hare\(s?\)?:\s*(.+?)` + SECTION_TERMINATOR, "i");
+// nosemgrep: detect-non-literal-regexp — patterns built from hard-coded constants in this file, no user input (mirrors hare-extraction.ts suppression)
 const WHERE_RE = new RegExp(String.raw`Where:\s*(.+?)` + SECTION_TERMINATOR, "i");
+// nosemgrep: detect-non-literal-regexp — patterns built from hard-coded constants in this file, no user input (mirrors hare-extraction.ts suppression)
 const COST_RE = new RegExp(String.raw`Hash Cash:\s*(.+?)` + SECTION_TERMINATOR, "i");
 
 interface DetailFields {

@@ -39,7 +39,7 @@ describe("parseArchiveRows", () => {
       wrapTable([LIL_1_ROW, NYC_NON_LIL_ROW, LIL_49_ROW]),
       "https://hashnyc.com",
     );
-    expect(events.map((e) => e.runNumber).sort()).toEqual([1, 49]);
+    expect(events.map((e) => e.runNumber).sort((a, b) => (a ?? 0) - (b ?? 0))).toEqual([1, 49]);
     expect(events.every((e) => e.kennelTags[0] === "lil")).toBe(true);
   });
 
