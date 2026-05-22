@@ -58,6 +58,43 @@ Adapter authors should opportunistically populate these when the source exposes 
 **Atomic-bundle semantics for `trailLengthText` / `min` / `max` and `difficulty`:**
 The merge pipeline treats `undefined` as "preserve existing" and `null` as "explicit clear". When an adapter sees a label with an unparseable value (e.g. `Length: TBD` or `Shiggy Scale: 7`), it must emit explicit `null` for the affected numeric fields rather than `undefined`. Without this, a transition like `3-5 Miles → TBD` leaves stale `min=3, max=5` wired to fresh `text="TBD"` (silent corruption — Codex caught this on PR #1266). Reference pattern: `parseTrailLength` + `parseShiggyScale` in `burlington-hash.ts`.
 
+## Shared-Source Kennel Routing
+A single Source row often feeds multiple kennels (aggregator calendars, multi-kennel spreadsheets). HashTracks treats this as a first-class pattern with two distinct routing mechanisms — pick by source type, not invention:
+
+- **`kennelPatterns` (GOOGLE_CALENDAR + others)** — Array of `[regex, kennelCode | kennelCode[]]` tuples. Matched against the event summary. Engine semantics (see `matchCompiledKennelPatterns` in `src/adapters/kennel-patterns.ts`): for string-tuple values it's **first-match wins by order** — the author lists specific patterns *before* generic ones (cycle-9 #1479 LVH3 fix was a re-ordering for exactly this reason). Array-tuple values (`["pattern", ["kennelA", "kennelB"]]`) opt into multi-kennel co-host emission and override any string-tuple matches in the list (spec §2 D15). Pre-compile via `compileKennelPatterns()` at fetch start so the hot path is O(n_patterns) per event, not per-row regex compilation. Reference: `prisma/seed-data/sources.ts:306` (Chicagoland — 12 kennels off one calendar), `src/adapters/google-calendar/adapter.ts:resolveKennelTagFromSummary`.
+
+  ```ts
+  config: {
+    kennelPatterns: [
+      // ORDER MATTERS — C2B3H4 must come before generic CH3 so the
+      // shorter pattern doesn't shadow the more-specific one.
+      ["C2B3H4|C2B3", "c2b3h4"],
+      ["CH3|Chicago Hash|Chicago H3", "ch3"],
+    ],
+    defaultKennelTag: "ch3", // unmatched events fall through to the host kennel
+  }
+  ```
+
+  The resolver returns `matchedPattern: boolean` — `true` only when an explicit pattern hit, `false` for default fallback. Downstream filters that should respect kennel attribution (e.g. the CTA recruitment-placeholder filter, #1233) gate on `matchedPattern` so kennel-attributed reminders survive while calendar-wide chatter still drops.
+
+- **`groupFilter` + `columns.group` (GOOGLE_SHEETS)** — For shared hareline spreadsheets where a `Group` / `Kennel` column distinguishes per-row attribution (Munich H3's sheet carries MH3 + MFMH3 + MASS H3 + BNH rows; PR #1576 / #1542). Config takes a string or `string[]`; `tokenizeGroupCell` splits multi-value cells on `/ , ;` so co-branded labels like `"MH3 / BNH"` match either token.
+
+  ```ts
+  config: {
+    columns: { ..., group: 2 },  // 0-indexed column carrying the Group label
+    groupFilter: "MH3",          // or ["MH3", "BNH"] for host + co-host
+    kennelTagRules: { default: "mh3-de" },
+  }
+  ```
+
+  - Whole-token equality after split — `"MH3FAKE"` does NOT match `"MH3"`.
+  - Empty cells are treated as ambiguous and **skipped**, never silently routed to the default kennel.
+  - **Fail-loud guard**: `groupFilter` without `columns.group` returns an error from `fetch()` before any network call (#1576 Codex review). Misconfig surfaces as an alert, not as dirty data.
+
+**When to onboard sibling kennels:** Each sibling needs its own Source row reading the same CSV URL with its own `groupFilter` and `kennelTagRules.default`. Distinct run-number sequences and active hashers are the trigger; sourceless directory entries violate the no-sourceless-kennels rule.
+
+**Joint-trail / co-host rows:** A row like `Group = "MH3 / BNH"` legitimately belongs to both kennels — `tokenizeGroupCell` keeps it under whichever filter is active. The merge pipeline records both via `EventKennel` rows when `RawEventData.kennelTags` carries both codes; see "kennelTags" in Required Conventions.
+
 ## Testing Pattern
 - Test file lives next to source: `{adapter}.test.ts`
 - Save representative HTML as a string constant fixture
