@@ -19,7 +19,7 @@
 
 import "dotenv/config";
 import { runBackfillScript } from "./lib/backfill-runner";
-import { walkAtlantaForum } from "./lib/atlanta-forum-walker";
+import { walkAtlantaForum } from "@/lib/atlanta-forum-walker";
 
 runBackfillScript({
   sourceName: "Atlanta Hash Board",
