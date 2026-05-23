@@ -79,6 +79,13 @@ export function generateFingerprint(data: RawEventData): string {
     withClearSignal(data.trailLengthMinMiles, (n) => n.toString()),
     withClearSignal(data.trailLengthMaxMiles, (n) => n.toString()),
     withClearSignal(data.difficulty, (n) => n.toString()),
+    // #1579 follow-up — locationStreet (independent of location, see GSheets
+    // `columns.address`). Without this, OKissMe-style adapters that newly
+    // emit `locationStreet` for an existing event get fingerprint-deduped
+    // against the prior RawEvent row, so the canonical UPDATE never fires
+    // and `Event.locationStreet` stays null forever. Triggers a one-time
+    // re-merge wave on first deploy (same comment block as #1316 above).
+    triStateStringToken(data.locationStreet),
     // #1560 — endDate (multi-day series). Adapters shifting an event from
     // single-day to multi-day (or extending the range) must invalidate the
     // RawEvent dedup so the canonical UPDATE fires.

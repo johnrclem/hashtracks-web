@@ -273,7 +273,9 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "mh3-mn": ["Minneapolis Hash", "Minneapolis H3", "MH3", "MplsH3"],
     "t3h3": ["Twin Titties Hash", "Twin Titties Thirstday", "T3H3", "TTTH3"],
     // ===== MICHIGAN =====
-    "moa2h3": ["Motown Ann Arbor Hash", "MoA2H3", "Motown Hash", "Ann Arbor Hash", "A2H3"],
+    // "Motown/Ann Arbor H3" added so the Hash Rego detail page's
+    // hostKennelName resolves to moa2h3 (#1578 follow-up).
+    "moa2h3": ["Motown Ann Arbor Hash", "MoA2H3", "Motown Hash", "Ann Arbor Hash", "A2H3", "Motown/Ann Arbor H3"],
     "demon-h3": ["DeMon Hash", "DeMon H3", "Detroit Monday Hash"],
     "glh3": ["Greater Lansing Hash", "Greater Lansing H3", "GLH3", "Lansing Hash"],
     // ===== ARIZONA =====

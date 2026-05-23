@@ -43,6 +43,24 @@ describe("generateFingerprint", () => {
     expect(a).not.toBe(b);
   });
 
+  // #1579 follow-up — locationStreet is independent of location. Without
+  // this field in the fingerprint, OKissMe-style adapters that newly emit a
+  // street address would dedup against the prior RawEvent row and the
+  // canonical UPDATE would never persist locationStreet.
+  it("different locationStreet values produce different fingerprints", () => {
+    const a = generateFingerprint(buildRawEvent({ locationStreet: undefined }));
+    const b = generateFingerprint(buildRawEvent({
+      locationStreet: "215 Chapin St, Ann Arbor, MI, 48103",
+    }));
+    expect(a).not.toBe(b);
+  });
+
+  it("locationStreet null (explicit clear) differs from undefined", () => {
+    const a = generateFingerprint(buildRawEvent({ locationStreet: undefined }));
+    const b = generateFingerprint(buildRawEvent({ locationStreet: null }));
+    expect(a).not.toBe(b);
+  });
+
   it("different hares produce different fingerprints", () => {
     const a = generateFingerprint(buildRawEvent({ hares: undefined }));
     const b = generateFingerprint(buildRawEvent({ hares: "Mudflap, Just Simon" }));

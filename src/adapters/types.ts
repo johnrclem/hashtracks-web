@@ -26,7 +26,13 @@ export interface RawEventData {
    * not a venue — Auckland Hussies #1516).
    */
   location?: string | null;
-  locationStreet?: string; // Full street address (multi-line address blocks)
+  /**
+   * Street address (multi-line address blocks). Tri-state matching `location`:
+   * undefined = preserve existing, null = explicit clear, string = overwrite.
+   * The fingerprint includes this via `withClearSignal` so an adapter that
+   * newly emits or clears the street re-fingerprints (#1579 follow-up).
+   */
+  locationStreet?: string | null;
   locationUrl?: string; // Google Maps or other maps URL
   latitude?: number;
   longitude?: number;
