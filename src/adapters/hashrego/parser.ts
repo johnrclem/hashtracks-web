@@ -661,11 +661,30 @@ function parseDateRangeFromDescription(
 const VENUE_WEEKEND_TRIGGER_RE = /\b(?:camp\s?out|weekend|retreat|rendezvous)\b/i;
 
 /**
- * Weekday-name matcher. Captures both full ("Saturday") and abbreviated
- * ("Sat") forms; the abbreviated form's word-boundary `\b` keeps it from
- * matching inside larger words ("Satellite", "Frison").
+ * Word-boundary matcher for any 3–9 letter token. We then filter against
+ * the explicit weekday allow-list `WEEKDAY_NAMES_SET` below. This split
+ * (broad regex + Set lookup) keeps the regex complexity under Sonar's
+ * S5843 threshold of 20 — the previous form had 7 alternatives × nested
+ * optional suffixes, which counted as ~24 complexity. The Set lookup is
+ * O(1) and reads more transparently than a long alternation.
  */
-const WEEKDAY_NAME_RE = /\b(Sun(?:day)?|Mon(?:day)?|Tues?(?:day)?|Wed(?:nesday)?|Thurs?(?:day)?|Fri(?:day)?|Sat(?:urday)?)\b/gi;
+const WEEKDAY_NAME_RE = /\b([A-Za-z]{3,9})\b/g;
+
+/**
+ * Allow-list of every form `detectVenueWeekendEndDate` accepts. Lowercase
+ * so case-insensitive matching works without a global `i` flag. "Tues"
+ * and "Thurs" are common 4–5 letter abbreviations in hashing descriptions
+ * (alongside the canonical 3-letter abbrevs and full names).
+ */
+const WEEKDAY_NAMES_SET: ReadonlySet<string> = new Set([
+  "sun", "sunday",
+  "mon", "monday",
+  "tue", "tues", "tuesday",
+  "wed", "wednesday",
+  "thu", "thurs", "thursday",
+  "fri", "friday",
+  "sat", "saturday",
+]);
 
 /** Indexed 0=Sun, 6=Sat — matches `Date.getUTCDay()`. */
 const WEEKDAY_PREFIXES: ReadonlyArray<string> = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
@@ -698,7 +717,9 @@ export function detectVenueWeekendEndDate(
   }
   const mentioned = new Set<number>();
   for (const m of description.matchAll(WEEKDAY_NAME_RE)) {
-    const prefix = m[1].slice(0, 3).toLowerCase();
+    const lc = m[1].toLowerCase();
+    if (!WEEKDAY_NAMES_SET.has(lc)) continue;
+    const prefix = lc.slice(0, 3);
     const dow = WEEKDAY_PREFIXES.indexOf(prefix);
     if (dow >= 0) mentioned.add(dow);
   }
