@@ -151,8 +151,13 @@ export async function POST(request: Request) {
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    const stack = err instanceof Error ? err.stack?.split("\n").slice(0, 6).join("\n") : undefined;
-    console.error(`[atlanta-deep-backfill] error: ${msg}`, stack);
-    return NextResponse.json({ data: null, error: msg, stack }, { status: 500 });
+    // Stack stays in server logs only — not returned to the client. Even on a
+    // CRON_SECRET-gated admin endpoint, leaking file paths and library
+    // versions is unnecessary attack surface (Gemini PR #1634 review).
+    console.warn(
+      `[atlanta-deep-backfill] error: ${msg}`,
+      err instanceof Error ? err.stack : undefined,
+    );
+    return NextResponse.json({ data: null, error: msg }, { status: 500 });
   }
 }
