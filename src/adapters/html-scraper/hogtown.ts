@@ -177,6 +177,35 @@ function finalizeEntry(d: DraftEntry, sourcePageUrl: string): RawEventData | nul
  *
  * Exported for unit testing.
  */
+/** Apply a single content paragraph to an in-progress draft entry,
+ * setting the matching field. Extracted to keep `parseHogtownEvents`
+ * under the cognitive-complexity bound (Sonar S3776). */
+function applyParagraphToDraft(draft: DraftEntry, p: string): void {
+  if (WEEKDAY_PREFIXES.some((w) => p.startsWith(w))) {
+    draft.dateLine = p;
+    return;
+  }
+  const hares = tryExtractLabel(p, "Hares:", "Hare:");
+  if (hares !== undefined) {
+    draft.hares = hares;
+    return;
+  }
+  const location = tryExtractLabel(p, "Start Location:");
+  if (location !== undefined) {
+    draft.location = location;
+    return;
+  }
+  const cost = tryExtractLabel(p, "Cost:");
+  if (cost !== undefined) {
+    draft.cost = cost;
+    return;
+  }
+  if (/^RSVP\b/i.test(p)) {
+    const url = URL_RE.exec(p);
+    if (url) draft.sourceUrl = url[0];
+  }
+}
+
 export function parseHogtownEvents(html: string, sourcePageUrl: string): RawEventData[] {
   const paragraphs = collectParagraphs(html);
   const out: RawEventData[] = [];
@@ -194,32 +223,8 @@ export function parseHogtownEvents(html: string, sourcePageUrl: string): RawEven
     if (header) {
       flush();
       draft = { series: header.series, runNumber: header.runNumber, rawTitle: header.title };
-      continue;
-    }
-    if (!draft) continue;
-
-    if (WEEKDAY_PREFIXES.some((w) => p.startsWith(w))) {
-      draft.dateLine = p;
-      continue;
-    }
-    const hares = tryExtractLabel(p, "Hares:", "Hare:");
-    if (hares !== undefined) {
-      draft.hares = hares;
-      continue;
-    }
-    const location = tryExtractLabel(p, "Start Location:");
-    if (location !== undefined) {
-      draft.location = location;
-      continue;
-    }
-    const cost = tryExtractLabel(p, "Cost:");
-    if (cost !== undefined) {
-      draft.cost = cost;
-      continue;
-    }
-    if (/^RSVP\b/i.test(p)) {
-      const url = URL_RE.exec(p);
-      if (url) draft.sourceUrl = url[0];
+    } else if (draft) {
+      applyParagraphToDraft(draft, p);
     }
   }
   flush();
