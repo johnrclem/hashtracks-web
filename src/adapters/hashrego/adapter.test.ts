@@ -1125,6 +1125,35 @@ describe("detectVenueWeekendEndDate", () => {
     ).toBeNull();
   });
 
+  // Codex P1 review on PR #1637 — Fri-start campouts that mention a
+  // "Thursday prelube" had `(Thu - Fri + 7) % 7 = 6` and inflated endDate
+  // to next Thursday. The MAX_FORWARD_OFFSET=4 cap treats the backward
+  // mention as a prelube reference and keeps the inferred end at Sunday.
+  it("Fri-start with 'Thursday prelube' mention does not wrap to next Thursday", () => {
+    // 2026-01-16 = Friday. The prelube Thursday (2026-01-15) is the day
+    // BEFORE the start and should be ignored.
+    expect(
+      detectVenueWeekendEndDate(
+        "Token Run Campout! Thursday prelube 7pm onwards, Friday arrival, Saturday main trail, Sunday brunch.",
+        "Token Run Campout 2026",
+        "2026-01-16",
+      ),
+    ).toBe("2026-01-18"); // Sunday, NOT next Thursday
+  });
+
+  // Inverse regression: a legitimate 4-day Thu→Mon campout should still
+  // produce Monday as the end date (offset 4 stays under the cap).
+  it("Thu-start through Monday — 4-day campout still resolves to Monday", () => {
+    // 2026-02-12 = Thursday.
+    expect(
+      detectVenueWeekendEndDate(
+        "Long weekend retreat. Thursday arrival, Friday relax, Saturday hike, Sunday brunch, Monday departure.",
+        "Long Weekend Retreat",
+        "2026-02-12",
+      ),
+    ).toBe("2026-02-16"); // Monday, offset 4
+  });
+
   it("ignores 'Sat' inside larger words (Saturn / Satellite)", () => {
     // No real weekend trigger should fire — only "Saturday" as a word.
     expect(

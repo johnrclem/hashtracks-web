@@ -732,19 +732,31 @@ export function detectVenueWeekendEndDate(
   if (Number.isNaN(startDate.getTime())) return null;
   const startDow = startDate.getUTCDay();
 
+  // Cap the forward-wrap on each weekday's offset. Without this, a
+  // description mentioning a "Thursday prelube" on a Friday-start campout
+  // (`(Thu - Fri + 7) % 7 = 6`) would inflate endDate to NEXT Thursday
+  // instead of the actual Sunday (Codex P1 review). 4 days is the
+  // practical ceiling for "weekend campout" lengths — Thu→Mon, Fri→Tue,
+  // etc. Beyond 4 we treat the mention as a backward reference
+  // (prelube/teaser), not as an end-of-range signal. 7+ day events that
+  // really need a longer span should use Strategy 1's explicit
+  // `MM/DD ... to MM/DD` format.
+  const MAX_FORWARD_OFFSET = 4;
   let maxOffset = 0;
   for (const dow of mentioned) {
     const offset = (dow - startDow + 7) % 7;
+    if (offset > MAX_FORWARD_OFFSET) continue;
     if (offset > maxOffset) maxOffset = offset;
   }
-  if (maxOffset === 0) return null; // every mention collapsed onto the start day
+  if (maxOffset === 0) return null; // every kept mention collapsed onto the start day
 
-  const endMs = startDate.getTime() + maxOffset * 86_400_000;
-  const end = new Date(endMs);
-  const y = end.getUTCFullYear();
-  const mo = end.getUTCMonth() + 1;
-  const d = end.getUTCDate();
-  return `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  // Date math via `setUTCDate` + `toISOString` is shorter and idiomatic
+  // (Gemini review). Centralizing into a shared util would also work but
+  // this is a one-shot end-of-range computation, not a repeated pattern
+  // anywhere else in this file.
+  const end = new Date(startDate);
+  end.setUTCDate(end.getUTCDate() + maxOffset);
+  return end.toISOString().split("T")[0];
 }
 
 /** Extract dates and detect multi-day events */
