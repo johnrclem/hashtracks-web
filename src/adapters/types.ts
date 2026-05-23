@@ -29,8 +29,10 @@ export interface RawEventData {
   /**
    * Street address (multi-line address blocks). Tri-state matching `location`:
    * undefined = preserve existing, null = explicit clear, string = overwrite.
-   * The fingerprint includes this via `withClearSignal` so an adapter that
-   * newly emits or clears the street re-fingerprints (#1579 follow-up).
+   * The fingerprint includes this via a gated spread so an adapter that
+   * newly emits or clears the street re-fingerprints — without triggering a
+   * global re-merge wave for events that never had the field (#1579
+   * follow-up; same gating pattern as `endDate`).
    */
   locationStreet?: string | null;
   locationUrl?: string; // Google Maps or other maps URL
