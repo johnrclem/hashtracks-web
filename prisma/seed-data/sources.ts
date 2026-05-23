@@ -869,11 +869,16 @@ export const SOURCES = [
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      kennelCodes: ["bfm", "ewh3", "wh4", "gfh3", "ch3", "dch4", "dcfmh3", "fch3", "oh3", "wsh3", "mrh3", "bfh3"],
+      // #1578 follow-up — added moa2h3 so MoA2H3 events (e.g. Red Dress Run)
+      // on the Hash Rego index get scraped instead of being filtered out by
+      // the source-kennel guard. The detail page hostKennelName is
+      // "Motown/Ann Arbor H3" — added as an alias in `aliases.ts` so the
+      // kennel resolver maps it to moa2h3.
+      kennelCodes: ["bfm", "ewh3", "wh4", "gfh3", "ch3", "dch4", "dcfmh3", "fch3", "oh3", "wsh3", "mrh3", "bfh3", "moa2h3"],
       kennelSlugMap: {
         bfm: "BFMH3", ewh3: "EWH3", wh4: "WH4", gfh3: "GFH3",
         ch3: "CH3", dch4: "DCH4", dcfmh3: "DCFMH3", fch3: "FCH3", oh3: "OregonH3",
-        wsh3: "WSH3", mrh3: "MRH3", bfh3: "BFH3",
+        wsh3: "WSH3", mrh3: "MRH3", bfh3: "BFH3", moa2h3: "MoA2H3",
       },
     },
     // ===== TEXAS =====

@@ -79,6 +79,27 @@ export function generateFingerprint(data: RawEventData): string {
     withClearSignal(data.trailLengthMinMiles, (n) => n.toString()),
     withClearSignal(data.trailLengthMaxMiles, (n) => n.toString()),
     withClearSignal(data.difficulty, (n) => n.toString()),
+    // #1579 follow-up — locationStreet (independent of location, see GSheets
+    // `columns.address`). Without this, OKissMe-style adapters that newly
+    // emit `locationStreet` for an existing event get fingerprint-deduped
+    // against the prior RawEvent row, so the canonical UPDATE never fires
+    // and `Event.locationStreet` stays null forever.
+    //
+    // CRITICAL: gated via spread (same pattern as `endDate` below — Codex P1
+    // review on #1560). An unconditional `triStateStringToken(...)` token
+    // would change the fingerprint of every existing RawEvent on next scrape
+    // (since most events have `locationStreet: undefined`), doubling the
+    // RawEvent table for the entire active source set. By gating, events
+    // that don't carry a street fingerprint identically pre/post-deploy;
+    // only adapters that newly emit or explicit-clear the street (OKissMe
+    // after its config update; future address-aware adapters) re-fingerprint
+    // their specific rows. The `=== undefined` check preserves tri-state
+    // semantics: `null` still distinguishes from `undefined` and contributes
+    // the EXPLICIT_CLEAR_TOKEN, so a flip from "had street" → "explicit
+    // clear" still re-fingerprints.
+    ...(data.locationStreet === undefined
+      ? []
+      : [`locationStreet=${triStateStringToken(data.locationStreet)}`]),
     // #1560 — endDate (multi-day series). Adapters shifting an event from
     // single-day to multi-day (or extending the range) must invalidate the
     // RawEvent dedup so the canonical UPDATE fires.

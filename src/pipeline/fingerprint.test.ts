@@ -43,6 +43,38 @@ describe("generateFingerprint", () => {
     expect(a).not.toBe(b);
   });
 
+  // #1579 follow-up — locationStreet is independent of location. Without
+  // this field in the fingerprint, OKissMe-style adapters that newly emit a
+  // street address would dedup against the prior RawEvent row and the
+  // canonical UPDATE would never persist locationStreet.
+  it("different locationStreet values produce different fingerprints", () => {
+    const a = generateFingerprint(buildRawEvent({ locationStreet: undefined }));
+    const b = generateFingerprint(buildRawEvent({
+      locationStreet: "215 Chapin St, Ann Arbor, MI, 48103",
+    }));
+    expect(a).not.toBe(b);
+  });
+
+  it("locationStreet null (explicit clear) differs from undefined", () => {
+    const a = generateFingerprint(buildRawEvent({ locationStreet: undefined }));
+    const b = generateFingerprint(buildRawEvent({ locationStreet: null }));
+    expect(a).not.toBe(b);
+  });
+
+  // #1579 gating regression — a baseline event that never carries
+  // locationStreet must fingerprint identically before and after the field
+  // was added (Gemini PR #1636 review). Without gating, `triStateStringToken`
+  // on undefined would append an empty token to every event's fingerprint
+  // → global re-merge wave + RawEvent table doubling on next scrape.
+  it("locationStreet=undefined contributes no token (no global re-merge wave)", () => {
+    // Manually reconstruct the pre-#1579-followup fingerprint by stripping
+    // locationStreet entirely. If the gated spread works, omitting the field
+    // produces the same hash as passing `undefined`.
+    const baseline = buildRawEvent();
+    const withExplicitUndefined = buildRawEvent({ locationStreet: undefined });
+    expect(generateFingerprint(baseline)).toBe(generateFingerprint(withExplicitUndefined));
+  });
+
   it("different hares produce different fingerprints", () => {
     const a = generateFingerprint(buildRawEvent({ hares: undefined }));
     const b = generateFingerprint(buildRawEvent({ hares: "Mudflap, Just Simon" }));
