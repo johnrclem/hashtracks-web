@@ -101,6 +101,7 @@ import { AucklandHussiesAdapter } from "./html-scraper/auckland-hussies";
 import { CapitalH3Adapter } from "./html-scraper/capital-h3";
 import { MoolooHhhAdapter } from "./html-scraper/mooloo-hhh";
 import { GeriatrixH3Adapter } from "./html-scraper/geriatrix-h3";
+import { HogtownAdapter } from "./html-scraper/hogtown";
 import { GoogleCalendarAdapter } from "./google-calendar/adapter";
 import { GoogleSheetsAdapter } from "./google-sheets/adapter";
 import { ICalAdapter } from "./ical/adapter";
@@ -248,6 +249,11 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /sporty\.co\.nz\/capitalh3/i,         name: "CapitalH3Adapter",   factory: () => new CapitalH3Adapter() },
   { pattern: /sporty\.co\.nz\/mooloohhh/i,         name: "MoolooHhhAdapter",   factory: () => new MoolooHhhAdapter() },
   { pattern: /sporty\.co\.nz\/geriatrixhhh/i,      name: "GeriatrixH3Adapter", factory: () => new GeriatrixH3Adapter() },
+  // ── Canada (Toronto) ──
+  // Hogtown H3 (#1331) — Google Sites SPA, browser-rendered. Three sub-series
+  // (HOGTOWN / TWAT / HOGANS) share one kennel; the series prefix lives in
+  // the title since the schema has no sub-series field.
+  { pattern: /hogtownh3\.com/i, name: "HogtownAdapter", factory: () => new HogtownAdapter() },
 ];
 
 /** URL-based routing for HTML_SCRAPER — derived from htmlScraperEntries (single source of truth). */
