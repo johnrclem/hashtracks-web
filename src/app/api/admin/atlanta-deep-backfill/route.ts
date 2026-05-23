@@ -67,12 +67,12 @@ export async function POST(request: Request) {
   console.log(`[atlanta-deep-backfill] kennel=${kennel} apply=${apply} forumId=${cfg.forumId}`);
 
   try {
-    // 1. Walk the forum
+    // 1. Walk the forum — walker reads `maxPages = 30` default for undefined.
     const events = await walkAtlantaForum({
       forumId: cfg.forumId,
       kennelTag: kennel,
       hashDay: cfg.hashDay,
-      ...(body.maxPages != null ? { maxPages: body.maxPages } : {}),
+      maxPages: body.maxPages,
     });
 
     // 2. Partition past-only (matches runBackfillScript semantics)
