@@ -93,13 +93,13 @@ export function generateFingerprint(data: RawEventData): string {
     // that don't carry a street fingerprint identically pre/post-deploy;
     // only adapters that newly emit or explicit-clear the street (OKissMe
     // after its config update; future address-aware adapters) re-fingerprint
-    // their specific rows. The `!== undefined` check preserves tri-state
+    // their specific rows. The `=== undefined` check preserves tri-state
     // semantics: `null` still distinguishes from `undefined` and contributes
     // the EXPLICIT_CLEAR_TOKEN, so a flip from "had street" → "explicit
     // clear" still re-fingerprints.
-    ...(data.locationStreet !== undefined
-      ? [`locationStreet=${triStateStringToken(data.locationStreet)}`]
-      : []),
+    ...(data.locationStreet === undefined
+      ? []
+      : [`locationStreet=${triStateStringToken(data.locationStreet)}`]),
     // #1560 — endDate (multi-day series). Adapters shifting an event from
     // single-day to multi-day (or extending the range) must invalidate the
     // RawEvent dedup so the canonical UPDATE fires.
