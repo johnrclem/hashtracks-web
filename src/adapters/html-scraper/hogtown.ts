@@ -34,21 +34,50 @@ const BASE_URL = "https://www.hogtownh3.com";
 const UPCOMING_PATH = "/upcoming-trails";
 const HOME_PATH = "/";
 
-/** Series prefix regex — matches the trail-header line. Case-insensitive
- * because the kennel mixes "Hogtown #" and "HOGTOWN -" capitalization. */
-const SERIES_HEADER_RE = /^\s*(?:\d+\s*\/\s*)?(HOGTOWN|HOGANS|TWAT|Hogtown|Hogans|Twat)\s*#?\s*(\d+)\s*[-–]?\s*(.*?)\s*$/;
-const WEEKDAY_PREFIX_RE = /^(Sun|Mon|Tue|Wed|Thu|Fri|Sat)[a-z]*\b/i;
-const HARES_LABEL_RE = /^Hares?\s*:\s*(.+)$/i;
-const LOCATION_LABEL_RE = /^Start\s+Location\s*:\s*(.+)$/i;
-const COST_LABEL_RE = /^Cost\s*:\s*(.+)$/i;
-const RSVP_URL_RE = /^RSVP\s+(?:here\s*:?\s*)?(https?:\/\/\S+)/i;
+/** Series prefix detector. Run separately from the title extraction below
+ * to keep each regex below the complexity bound — combining series +
+ * run-number + title in one regex tripped Sonar S5843 (#1635 review). */
+const SERIES_TOKEN_RE = /^(HOGTOWN|HOGANS|TWAT)\s*#?\s*(\d+)/i;
+const MEETUP_ID_PREFIX_RE = /^\d+\s*\/\s*/;
+const TITLE_DASH_PREFIX_RE = /^\s*[-–]\s*/;
+const WEEKDAY_PREFIX_RE = /^(?:Sun|Mon|Tue|Wed|Thu|Fri|Sat)/i;
+const URL_RE = /https?:\/\/\S+/;
 const BARE_TIME_RE = /(\d{1,2})(?::(\d{2}))?\s*([ap])m/i;
 
-/** Extract HH:MM start time from a date line like
- * "Saturday, May 23, 2026, 5pm" or "Thursday, April 30, 2026, 7:30pm". */
-function extractStartTime(line: string): string | undefined {
-  const m = BARE_TIME_RE.exec(line);
-  if (!m) return undefined;
+/** Try to extract a label-prefixed value. Case-insensitive label match,
+ * skips one optional `:` and any leading whitespace before the value.
+ * Returns undefined if none of the labels matched the text's prefix. */
+function tryExtractLabel(text: string, ...labels: string[]): string | undefined {
+  const lower = text.toLowerCase();
+  for (const label of labels) {
+    if (!lower.startsWith(label.toLowerCase())) continue;
+    const rest = text.slice(label.length).replace(/^\s*:?\s*/, "").trim();
+    return rest || undefined;
+  }
+  return undefined;
+}
+
+interface SeriesHeader {
+  series: string;
+  runNumber: number;
+  title: string;
+}
+
+/** Parse a trail-header paragraph (e.g., `"Hogtown #2071 - GDU Saves the
+ * Day!"` or `"6795/TWAT#582 - Naughty's Birthday Trail"`) into its three
+ * components. Returns null if the text isn't a recognizable header. */
+function parseSeriesHeader(text: string): SeriesHeader | null {
+  const stripped = text.trim().replace(MEETUP_ID_PREFIX_RE, "");
+  const m = SERIES_TOKEN_RE.exec(stripped);
+  if (!m) return null;
+  const runNumber = Number.parseInt(m[2], 10);
+  const series = normalizeSeries(m[1]);
+  const title = stripped.slice(m[0].length).replace(TITLE_DASH_PREFIX_RE, "").trim();
+  return { series, runNumber, title };
+}
+
+/** Convert a `BARE_TIME_RE` match to an HH:MM string. */
+function buildStartTime(m: RegExpExecArray): string {
   let hours = Number.parseInt(m[1], 10);
   const mins = m[2] ? Number.parseInt(m[2], 10) : 0;
   const ampm = m[3].toLowerCase();
@@ -87,7 +116,7 @@ function collectParagraphs(html: string): string[] {
   $("script, style").remove();
   const out: string[] = [];
   $("p").each((_i, el) => {
-    const text = $(el).text().replace(/ /g, " ").replace(/\s+/g, " ").trim();
+    const text = $(el).text().replaceAll(/\s+/g, " ").trim();
     if (text) out.push(text);
   });
   return out;
@@ -98,16 +127,17 @@ function collectParagraphs(html: string): string[] {
 function finalizeEntry(d: DraftEntry, sourcePageUrl: string): RawEventData | null {
   if (!d.dateLine) return null;
 
-  // Strip the leading weekday (e.g., "Saturday, May 23, 2026, 5pm") so
-  // chrono-node sees a clean "May 23, 2026" plus the time token.
-  const dateText = d.dateLine.replace(/\s*,?\s*(\d{1,2}(?::\d{2})?\s*[ap]m)\s*$/i, "").trim();
-  const dateStr = chronoParseDate(dateText, "en-US");
+  // Hogtown writes "Saturday, May 23, 2026, 5pm" — split the time off so
+  // chrono-node sees a clean date part. Sliced via indexOf rather than a
+  // strip-regex to keep this file under the Sonar S5852 ReDoS threshold.
+  const timeMatch = BARE_TIME_RE.exec(d.dateLine);
+  const datePart = timeMatch
+    ? d.dateLine.slice(0, timeMatch.index).replace(/,\s*$/, "").trim()
+    : d.dateLine.trim();
+  const dateStr = chronoParseDate(datePart, "en-US");
   if (!dateStr) return null;
 
-  // Pull the time token from the original line. Hogtown writes both
-  // bare-hour ("5pm") and minute-precise ("4:30pm") forms; parse12HourTime
-  // requires a colon, so handle the bare form ourselves.
-  const startTime = extractStartTime(d.dateLine);
+  const startTime = timeMatch ? buildStartTime(timeMatch) : undefined;
 
   // Title: "<SERIES> #N - <name>" — preserves the sub-series prefix per
   // #1331 spec. Falls back to "<SERIES> #N" when the kennel didn't fill
@@ -158,14 +188,10 @@ export function parseHogtownEvents(html: string, sourcePageUrl: string): RawEven
   };
 
   for (const p of paragraphs) {
-    const header = SERIES_HEADER_RE.exec(p);
+    const header = parseSeriesHeader(p);
     if (header) {
       flush();
-      draft = {
-        series: normalizeSeries(header[1]),
-        runNumber: Number.parseInt(header[2], 10),
-        rawTitle: header[3] ?? "",
-      };
+      draft = { series: header.series, runNumber: header.runNumber, rawTitle: header.title };
       continue;
     }
     if (!draft) continue;
@@ -174,25 +200,24 @@ export function parseHogtownEvents(html: string, sourcePageUrl: string): RawEven
       draft.dateLine = p;
       continue;
     }
-    const haresMatch = HARES_LABEL_RE.exec(p);
-    if (haresMatch) {
-      draft.hares = haresMatch[1];
+    const hares = tryExtractLabel(p, "Hares:", "Hare:");
+    if (hares !== undefined) {
+      draft.hares = hares;
       continue;
     }
-    const locMatch = LOCATION_LABEL_RE.exec(p);
-    if (locMatch) {
-      draft.location = locMatch[1];
+    const location = tryExtractLabel(p, "Start Location:");
+    if (location !== undefined) {
+      draft.location = location;
       continue;
     }
-    const costMatch = COST_LABEL_RE.exec(p);
-    if (costMatch) {
-      draft.cost = costMatch[1];
+    const cost = tryExtractLabel(p, "Cost:");
+    if (cost !== undefined) {
+      draft.cost = cost;
       continue;
     }
-    const rsvpMatch = RSVP_URL_RE.exec(p);
-    if (rsvpMatch) {
-      draft.sourceUrl = rsvpMatch[1];
-      continue;
+    if (/^RSVP\b/i.test(p)) {
+      const url = URL_RE.exec(p);
+      if (url) draft.sourceUrl = url[0];
     }
   }
   flush();

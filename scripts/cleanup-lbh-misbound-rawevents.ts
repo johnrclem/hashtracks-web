@@ -53,78 +53,55 @@ function eventKey(rawData: unknown): string | null {
   return `${tag}|${date}|${run}`;
 }
 
-async function main(): Promise<void> {
-  const apply = process.env.CLEANUP_APPLY === "1";
-  console.log(`Mode: ${apply ? "APPLY (will delete)" : "DRY RUN (no writes)"}`);
-
+async function loadSources(): Promise<{ icsId: string; calId: string }> {
   const ics = await prisma.source.findFirst({ where: { name: ICS_SOURCE }, select: { id: true } });
   const cal = await prisma.source.findFirst({ where: { name: CALENDAR_SOURCE }, select: { id: true } });
   if (!ics || !cal) throw new Error("Missing one or both source rows");
+  return { icsId: ics.id, calId: cal.id };
+}
 
+async function findMisboundCandidates(sourceId: string): Promise<RawEventLike[]> {
   const start = new Date(`${APPLY_DATE}T00:00:00Z`);
   const end = new Date(`${APPLY_DATE}T23:59:59Z`);
-
-  // Misbound candidates: all lbh-phx RawEvents under the ICS source scraped on
-  // the apply date.
-  const candidates: RawEventLike[] = await prisma.rawEvent.findMany({
+  return prisma.rawEvent.findMany({
     where: {
-      sourceId: ics.id,
+      sourceId,
       scrapedAt: { gte: start, lte: end },
       rawData: { path: ["kennelTags"], array_contains: KENNEL_TAG },
     },
     select: { id: true, fingerprint: true, scrapedAt: true, eventId: true, rawData: true },
   });
-  console.log(`Found ${candidates.length} misbound candidates under "${ICS_SOURCE}" scraped on ${APPLY_DATE}.`);
+}
 
-  // Build a key set of canonical-source RawEvents for the same kennel.
-  const canonicalRaws: { rawData: unknown }[] = await prisma.rawEvent.findMany({
+async function buildCanonicalKeySet(sourceId: string): Promise<Set<string>> {
+  const rows = await prisma.rawEvent.findMany({
     where: {
-      sourceId: cal.id,
+      sourceId,
       rawData: { path: ["kennelTags"], array_contains: KENNEL_TAG },
     },
     select: { rawData: true },
   });
-  const canonicalKeys = new Set<string>();
-  for (const r of canonicalRaws) {
+  const keys = new Set<string>();
+  for (const r of rows) {
     const k = eventKey(r.rawData);
-    if (k) canonicalKeys.add(k);
+    if (k) keys.add(k);
   }
-  console.log(`Canonical source has ${canonicalKeys.size} keyed LBH RawEvents available as backstop.`);
+  return keys;
+}
 
-  const safeToDelete: RawEventLike[] = [];
+function partitionByTwin(candidates: RawEventLike[], canonicalKeys: Set<string>) {
+  const safe: RawEventLike[] = [];
   const unsafe: RawEventLike[] = [];
   for (const c of candidates) {
     const k = eventKey(c.rawData);
-    if (k && canonicalKeys.has(k)) safeToDelete.push(c);
+    if (k && canonicalKeys.has(k)) safe.push(c);
     else unsafe.push(c);
   }
+  return { safe, unsafe };
+}
 
-  console.log(`Safe to delete (twin exists under "${CALENDAR_SOURCE}"): ${safeToDelete.length}`);
-  console.log(`UNSAFE (no canonical twin, will NOT delete): ${unsafe.length}`);
-  if (unsafe.length > 0) {
-    console.log("  Unsafe sample (first 3):");
-    for (const u of unsafe.slice(0, 3)) {
-      console.log("   ", u.id, "key=", eventKey(u.rawData));
-    }
-  }
-
-  if (!apply) {
-    console.log("\nDry run complete. Re-run with CLEANUP_APPLY=1 to delete.");
-    return;
-  }
-  if (safeToDelete.length === 0) {
-    console.log("\nNothing to delete.");
-    return;
-  }
-
-  const ids = safeToDelete.map((r) => r.id);
-  const result = await prisma.rawEvent.deleteMany({ where: { id: { in: ids } } });
-  console.log(`\nDeleted ${result.count} RawEvents.`);
-
-  // Sanity check: confirm canonical Events still have at least one RawEvent
-  // backing them. Only Events that the deleted RawEvents pointed to need
-  // checking.
-  const eventIds = [...new Set(safeToDelete.map((r) => r.eventId).filter((v): v is string => v != null))];
+async function verifyNoOrphans(deleted: RawEventLike[]): Promise<void> {
+  const eventIds = [...new Set(deleted.map((r) => r.eventId).filter((v): v is string => v != null))];
   if (eventIds.length === 0) {
     console.log("No deleted rows referenced a canonical Event; nothing to verify.");
     return;
@@ -133,14 +110,44 @@ async function main(): Promise<void> {
     where: { id: { in: eventIds }, rawEvents: { none: {} } },
     select: { id: true, date: true, runNumber: true },
   });
-  if (orphans.length > 0) {
-    console.warn(`WARNING: ${orphans.length} canonical Events lost all RawEvent backing:`);
-    for (const o of orphans.slice(0, 5)) {
-      console.warn(`  ${o.id} | ${o.date.toISOString().slice(0, 10)} #${o.runNumber}`);
-    }
-  } else {
+  if (orphans.length === 0) {
     console.log(`Verified: all ${eventIds.length} touched canonical Events still have at least one RawEvent backing.`);
+    return;
   }
+  console.warn(`WARNING: ${orphans.length} canonical Events lost all RawEvent backing:`);
+  for (const o of orphans.slice(0, 5)) {
+    console.warn(`  ${o.id} | ${o.date.toISOString().slice(0, 10)} #${o.runNumber}`);
+  }
+}
+
+async function main(): Promise<void> {
+  const apply = process.env.CLEANUP_APPLY === "1";
+  console.log(`Mode: ${apply ? "APPLY (will delete)" : "DRY RUN (no writes)"}`);
+
+  const { icsId, calId } = await loadSources();
+
+  const candidates = await findMisboundCandidates(icsId);
+  console.log(`Found ${candidates.length} misbound candidates under "${ICS_SOURCE}" scraped on ${APPLY_DATE}.`);
+
+  const canonicalKeys = await buildCanonicalKeySet(calId);
+  console.log(`Canonical source has ${canonicalKeys.size} keyed LBH RawEvents available as backstop.`);
+
+  const { safe, unsafe } = partitionByTwin(candidates, canonicalKeys);
+  console.log(`Safe to delete (twin exists under "${CALENDAR_SOURCE}"): ${safe.length}`);
+  console.log(`UNSAFE (no canonical twin, will NOT delete): ${unsafe.length}`);
+
+  if (!apply) {
+    console.log("\nDry run complete. Re-run with CLEANUP_APPLY=1 to delete.");
+    return;
+  }
+  if (safe.length === 0) {
+    console.log("\nNothing to delete.");
+    return;
+  }
+
+  const result = await prisma.rawEvent.deleteMany({ where: { id: { in: safe.map((r) => r.id) } } });
+  console.log(`\nDeleted ${result.count} RawEvents.`);
+  await verifyNoOrphans(safe);
 }
 
 main()
