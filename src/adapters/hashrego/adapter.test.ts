@@ -7,6 +7,7 @@ import {
   parseEventDetail,
   splitToRawEvents,
   parseDayHeaderSections,
+  detectVenueWeekendEndDate,
 } from "./parser";
 import { HashRegoAdapter, apiToIndexEntry } from "./adapter";
 import { HashRegoApiError, type HashRegoKennelEvent } from "./api";
@@ -1030,6 +1031,163 @@ describe("parseDayHeaderSections", () => {
       { date: "2026-04-04", startTime: undefined },
       { date: "2026-04-05", startTime: "10:00" },
     ]);
+  });
+});
+
+// ── detectVenueWeekendEndDate (#1560 PR C) ──
+
+describe("detectVenueWeekendEndDate", () => {
+  // Table-driven per memory `feedback_it_each_for_sonar_cpd.md`.
+  it.each([
+    {
+      label: "MadisonH3 Token Run — Friday/Saturday/Sunday weekend",
+      // 2026-01-16 is a Friday; Sunday is +2 days.
+      desc: "Token Run Campout! Friday arrival 6pm, Saturday trail at 10am, Sunday brunch then home.",
+      title: "Token Run Campout 2026",
+      start: "2026-01-16",
+      expected: "2026-01-18",
+    },
+    {
+      label: "Trigger word in TITLE alone — description has no trigger but does mention weekdays",
+      desc: "Friday arrival, Saturday main trail, Sunday brunch.",
+      title: "Annual Weekend Retreat",
+      start: "2026-01-16",
+      expected: "2026-01-18",
+    },
+    {
+      label: "Trigger word `camp out` (with space) matches",
+      desc: "Two-night camp out. Fri pre-lube, Sat main trail, Sun departure.",
+      title: "Spring Camp Out",
+      start: "2026-03-20",
+      expected: "2026-03-22",
+    },
+    {
+      label: "Abbreviated weekday names",
+      desc: "Retreat schedule: Fri kickoff, Sat hike, Sun cooldown.",
+      title: "Spring Retreat",
+      start: "2026-04-10",
+      expected: "2026-04-12",
+    },
+    {
+      label: "Trigger 'rendezvous' counts",
+      desc: "Annual rendezvous. Friday meet & greet, Saturday trail, Sunday brunch.",
+      title: "Annual Rendezvous",
+      start: "2026-06-12",
+      expected: "2026-06-14",
+    },
+    {
+      label: "Start on Saturday, mentions Sunday only — wraps forward 1 day",
+      // 2026-07-04 is Saturday.
+      desc: "Saturday/Sunday weekend campout. Sat lead-off, Sun recovery.",
+      title: "July 4 Campout",
+      start: "2026-07-04",
+      expected: "2026-07-05",
+    },
+    {
+      label: "Year boundary — NYE campout Fri 12/31 → Sun 1/2",
+      // 2026-12-31 is Thursday actually. Let me pick a real NYE Fri:
+      // 2027-12-31 is Friday. End Sun = 2028-01-02.
+      desc: "NYE weekend! Friday party, Saturday hangover trail, Sunday brunch.",
+      title: "NYE Weekend Campout",
+      start: "2027-12-31",
+      expected: "2028-01-02",
+    },
+  ])("$label", ({ desc, title, start, expected }) => {
+    expect(detectVenueWeekendEndDate(desc, title, start)).toBe(expected);
+  });
+
+  // Non-trigger negatives — the heuristic must NOT expand single-day trails
+  // whose descriptions happen to name a weekday.
+  it("returns null when description has no trigger word", () => {
+    expect(
+      detectVenueWeekendEndDate(
+        "Join us Friday for a great trail. Saturday brunch optional.",
+        "Friday Trail",
+        "2026-01-16",
+      ),
+    ).toBeNull();
+  });
+
+  it("returns null with trigger but only one weekday mentioned", () => {
+    expect(
+      detectVenueWeekendEndDate("Annual campout — Saturday only.", "Saturday Campout", "2026-01-17"),
+    ).toBeNull();
+  });
+
+  it("returns null when every weekday mention collapses to the start day", () => {
+    // 2026-01-17 is Saturday. "Saturday" twice → all offsets = 0.
+    expect(
+      detectVenueWeekendEndDate(
+        "Weekend campout. Saturday lead-off, Saturday afterparty.",
+        "Campout",
+        "2026-01-17",
+      ),
+    ).toBeNull();
+  });
+
+  it("ignores 'Sat' inside larger words (Saturn / Satellite)", () => {
+    // No real weekend trigger should fire — only "Saturday" as a word.
+    expect(
+      detectVenueWeekendEndDate(
+        "Campout weekend — Saturn-themed party. No real day mentions.",
+        "Saturn Campout",
+        "2026-01-17",
+      ),
+    ).toBeNull();
+  });
+});
+
+// ── splitToRawEvents — venue-weekend (#1560 PR C) ──
+
+const MADISON_TOKEN_RUN_HTML = `
+<html>
+<head>
+  <title>Token Run Campout 2026</title>
+  <meta property="og:title" content="1/16 Token Run Campout 2026" />
+  <meta property="og:description" content='Annual Token Run Campout!
+
+Friday arrival, fire pit & registration 6pm onwards.
+Saturday main trail 10am, BBQ + bonfire after.
+Sunday recovery hike, then departure by 11am.
+
+**Cost:** $85' />
+</head>
+<body>
+  <a href="/kennels/MadisonH3/">Madison H3</a>
+</body>
+</html>`;
+
+const MADISON_INDEX_ENTRY = {
+  slug: "madison-token-run-2026",
+  kennelSlug: "MadisonH3",
+  title: "Token Run Campout 2026",
+  // 2026-01-16 = Friday
+  startDate: "01/16/26",
+  startTime: "06:00 PM",
+  type: "Hash Campout",
+  cost: "$85",
+};
+
+describe("splitToRawEvents — venue-weekend campout (#1560 PR C)", () => {
+  it("emits ONE row with endDate set (no children, no seriesParent)", () => {
+    const parsed = parseEventDetail(MADISON_TOKEN_RUN_HTML, "madison-token-run-2026", MADISON_INDEX_ENTRY);
+    expect(parsed.isMultiDay).toBe(false);
+    expect(parsed.endDate).toBe("2026-01-18"); // Fri → Sun, +2 days
+
+    const events = splitToRawEvents(parsed, "madison-token-run-2026");
+    expect(events).toHaveLength(1);
+    expect(events[0].date).toBe("2026-01-16");
+    expect(events[0].endDate).toBe("2026-01-18");
+    // No series machinery — this is a single registration covering a weekend.
+    expect(events[0].seriesId).toBeUndefined();
+    expect(events[0].seriesParent).toBeUndefined();
+  });
+
+  it("a single-day event without weekend triggers leaves endDate undefined", () => {
+    const parsed = parseEventDetail(SINGLE_DAY_HTML, "bfmh3-agm-2026", BFMH3_INDEX_ENTRY);
+    expect(parsed.endDate).toBeUndefined();
+    const events = splitToRawEvents(parsed, "bfmh3-agm-2026");
+    expect(events[0].endDate).toBeUndefined();
   });
 });
 
