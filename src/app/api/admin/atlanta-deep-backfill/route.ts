@@ -59,7 +59,7 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
-    body = parsed as { kennel?: string; apply?: boolean; maxPages?: number };
+    body = parsed;
   } catch {
     return NextResponse.json({ data: null, error: "Invalid JSON body" }, { status: 400 });
   }
