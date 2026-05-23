@@ -383,7 +383,7 @@ export function splitToRawEvents(
   // UI's date-range chip + "+ N trails" badge render on the parent. Later
   // days are explicit children with their per-day title suffix.
   const seriesId = slug; // Use the Hash Rego slug as series identifier
-  const lastDate = parsed.dates[parsed.dates.length - 1];
+  const lastDate = parsed.dates.at(-1);
   return parsed.dates.map((date, i) => {
     const isParent = i === 0;
     const dayLabel = `Day ${i + 1}`;
@@ -523,10 +523,10 @@ const DAY_HEADER_RE = /\bDay\s+(\d{1,2})(?::|\s)\s*(\d{1,2})\/(\d{1,2})\b/gi;
  *  AM-bias adjustment as `extractPerDayStartTimes` (1–9 → +12 hours;
  *  hashrego writes evening times bare like "7:00 show"). */
 function extractFirstTimeFromSlice(slice: string): string | undefined {
-  const tm = slice.match(/(\d{1,2}):(\d{2})\s+(show|go|start)/i);
+  const tm = /(\d{1,2}):(\d{2})\s+(show|go|start)/i.exec(slice);
   if (!tm) return undefined;
-  const h = parseInt(tm[1], 10);
-  const min = parseInt(tm[2], 10);
+  const h = Number.parseInt(tm[1], 10);
+  const min = Number.parseInt(tm[2], 10);
   const adjustedH = h < 12 && h >= 1 && h <= 9 ? h + 12 : h;
   return `${String(adjustedH).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
 }
@@ -541,7 +541,7 @@ export function parseDayHeaderSections(
   description: string,
   startDateStr: string,
 ): DayHeaderSection[] {
-  const baseYear = parseInt(startDateStr.split("-")[0], 10);
+  const baseYear = Number.parseInt(startDateStr.split("-")[0], 10);
   if (!baseYear) return [];
   const matches = [...description.matchAll(DAY_HEADER_RE)];
   if (matches.length < 2) return [];
@@ -555,8 +555,8 @@ export function parseDayHeaderSections(
   // returned times in raw doc order and the caller paired them by index
   // into the sorted dates, silently shuffling them).
   const entries: DayHeaderSection[] = matches.map((m, i) => {
-    const month = parseInt(m[2], 10);
-    const day = parseInt(m[3], 10);
+    const month = Number.parseInt(m[2], 10);
+    const day = Number.parseInt(m[3], 10);
     const candidate = `${baseYear}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     // Year-rollover: if the parsed M/D lands chronologically before the
     // event's anchor date, it must belong to the following year (the
@@ -594,17 +594,17 @@ function parseDateRangeFromDescription(
 ): { dates: string[]; startTimes: string[]; isMultiDay: boolean } | null {
   const startDateStr = parseHashRegoDate(indexEntry.startDate);
   if (!startDateStr) return null;
-  const year = parseInt(startDateStr.split("-")[0], 10);
+  const year = Number.parseInt(startDateStr.split("-")[0], 10);
 
   // Strategy 1: `MM/DD HH:MM PM to MM/DD HH:MM PM` (existing path).
   const rangeMatch = description.match(
     /(\d{1,2})\/(\d{1,2})\s+\d{1,2}:\d{2}\s*(?:AM|PM)\s+to\s+(\d{1,2})\/(\d{1,2})\s+\d{1,2}:\d{2}\s*(?:AM|PM)/i,
   );
   if (rangeMatch) {
-    const startMonth = parseInt(rangeMatch[1], 10);
-    const startDay = parseInt(rangeMatch[2], 10);
-    const endMonth = parseInt(rangeMatch[3], 10);
-    const endDay = parseInt(rangeMatch[4], 10);
+    const startMonth = Number.parseInt(rangeMatch[1], 10);
+    const startDay = Number.parseInt(rangeMatch[2], 10);
+    const endMonth = Number.parseInt(rangeMatch[3], 10);
+    const endDay = Number.parseInt(rangeMatch[4], 10);
     // Year-rollover guard (Gemini review on PR #1630): if the end month
     // is strictly earlier than the start month (12/31 → 1/1), the end
     // date must be in the following year. Strict inequality — same-month
