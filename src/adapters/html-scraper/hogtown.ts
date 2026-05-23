@@ -44,7 +44,7 @@ const HOME_PATH = "/";
  * startsWith — see `parseSeriesHeader` — rather than a single
  * alternation regex, which trips Sonar S5852 on its alternation pattern. */
 const SERIES_PREFIXES = ["HOGTOWN", "HOGANS", "TWAT"] as const;
-const SERIES_RUN_RE = /^\s*#?\s*(\d+)/;
+const LEADING_DIGITS_RE = /^(\d+)/;
 const MEETUP_ID_PREFIX_RE = /^\d+\s*\/\s*/;
 const TITLE_DASH_PREFIX_RE = /^\s*[-–]\s*/;
 const WEEKDAY_PREFIXES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
@@ -78,8 +78,12 @@ function parseSeriesHeader(text: string): SeriesHeader | null {
   const upper = stripped.toUpperCase();
   const matchedPrefix = SERIES_PREFIXES.find((prefix) => upper.startsWith(prefix));
   if (!matchedPrefix) return null;
-  const after = stripped.slice(matchedPrefix.length);
-  const runMatch = SERIES_RUN_RE.exec(after);
+  // Skip whitespace + optional `#` + whitespace procedurally so the
+  // anchored regex below has no `\s*` quantifier — keeps Sonar S5852
+  // off this line.
+  let after = stripped.slice(matchedPrefix.length).trimStart();
+  if (after.startsWith("#")) after = after.slice(1).trimStart();
+  const runMatch = LEADING_DIGITS_RE.exec(after);
   if (!runMatch) return null;
   const runNumber = Number.parseInt(runMatch[1], 10);
   const title = after.slice(runMatch[0].length).replace(TITLE_DASH_PREFIX_RE, "").trim();
