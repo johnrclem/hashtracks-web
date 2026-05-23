@@ -3885,6 +3885,22 @@ export const SOURCES = [
       },
       kennelCodes: ["hogtownh3"],
     },
+    {
+      // Closes #1331 — Google Sites SPA, browser-rendered. Carries per-event
+      // hash names + hares + costs that the Meetup adapter loses behind
+      // recycled template titles. Three sub-series (HOGTOWN / TWAT / HOGANS)
+      // share one kennel; the series prefix lives in the title.
+      name: "Hogtown H3 Website",
+      url: "https://www.hogtownh3.com/upcoming-trails",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 120,
+      config: {
+        kennelTag: "hogtownh3",
+      },
+      kennelCodes: ["hogtownh3"],
+    },
     // --- Edmonton: EH3 multi-kennel (7 kennels) ---
     {
       name: "EH3 Edmonton Area Harelines",
