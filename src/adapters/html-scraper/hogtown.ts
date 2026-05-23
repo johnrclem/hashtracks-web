@@ -7,7 +7,13 @@ import type {
   ErrorDetails,
 } from "../types";
 import { hasAnyErrors } from "../types";
-import { chronoParseDate, fetchBrowserRenderedPage } from "../utils";
+import {
+  buildDateWindow,
+  chronoParseDate,
+  decodeEntities,
+  fetchBrowserRenderedPage,
+  stripPlaceholder,
+} from "../utils";
 
 /**
  * Hogtown H3 (Toronto) — Google Sites SPA at hogtownh3.com. Resolves
@@ -34,13 +40,14 @@ const BASE_URL = "https://www.hogtownh3.com";
 const UPCOMING_PATH = "/upcoming-trails";
 const HOME_PATH = "/";
 
-/** Series prefix detector. Run separately from the title extraction below
- * to keep each regex below the complexity bound — combining series +
- * run-number + title in one regex tripped Sonar S5843 (#1635 review). */
-const SERIES_TOKEN_RE = /^(HOGTOWN|HOGANS|TWAT)\s*#?\s*(\d+)/i;
+/** Series prefixes the kennel publishes. Matched via case-insensitive
+ * startsWith — see `parseSeriesHeader` — rather than a single
+ * alternation regex, which trips Sonar S5852 on its alternation pattern. */
+const SERIES_PREFIXES = ["HOGTOWN", "HOGANS", "TWAT"] as const;
+const SERIES_RUN_RE = /^\s*#?\s*(\d+)/;
 const MEETUP_ID_PREFIX_RE = /^\d+\s*\/\s*/;
 const TITLE_DASH_PREFIX_RE = /^\s*[-–]\s*/;
-const WEEKDAY_PREFIX_RE = /^(?:Sun|Mon|Tue|Wed|Thu|Fri|Sat)/i;
+const WEEKDAY_PREFIXES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 const URL_RE = /https?:\/\/\S+/;
 const BARE_TIME_RE = /(\d{1,2})(?::(\d{2}))?\s*([ap])m/i;
 
@@ -68,12 +75,15 @@ interface SeriesHeader {
  * components. Returns null if the text isn't a recognizable header. */
 function parseSeriesHeader(text: string): SeriesHeader | null {
   const stripped = text.trim().replace(MEETUP_ID_PREFIX_RE, "");
-  const m = SERIES_TOKEN_RE.exec(stripped);
-  if (!m) return null;
-  const runNumber = Number.parseInt(m[2], 10);
-  const series = normalizeSeries(m[1]);
-  const title = stripped.slice(m[0].length).replace(TITLE_DASH_PREFIX_RE, "").trim();
-  return { series, runNumber, title };
+  const upper = stripped.toUpperCase();
+  const matchedPrefix = SERIES_PREFIXES.find((prefix) => upper.startsWith(prefix));
+  if (!matchedPrefix) return null;
+  const after = stripped.slice(matchedPrefix.length);
+  const runMatch = SERIES_RUN_RE.exec(after);
+  if (!runMatch) return null;
+  const runNumber = Number.parseInt(runMatch[1], 10);
+  const title = after.slice(runMatch[0].length).replace(TITLE_DASH_PREFIX_RE, "").trim();
+  return { series: matchedPrefix, runNumber, title };
 }
 
 /** Convert a `BARE_TIME_RE` match to an HH:MM string. */
@@ -97,26 +107,16 @@ interface DraftEntry {
   sourceUrl?: string;
 }
 
-/** Normalize a series token to a consistent display label embedded in the
- * event title. The source mixes casing (Hogtown vs HOGTOWN). */
-function normalizeSeries(s: string): string {
-  const upper = s.toUpperCase();
-  if (upper === "HOGTOWN") return "HOGTOWN";
-  if (upper === "HOGANS") return "HOGANS";
-  if (upper === "TWAT") return "TWAT";
-  return upper;
-}
-
-/** Read every `<p>` element in document order, returning its trimmed text
- * with ` ` (NBSP) collapsed to regular spaces. Defensive against
- * Google Sites rotating its `zfr3Q`-style class names — we key on content
- * shape, not class. */
+/** Read every <p> element in document order, returning its trimmed text
+ * with NBSP/named entities decoded and whitespace collapsed. Defensive
+ * against Google Sites rotating its `zfr3Q`-style class names — we key on
+ * content shape, not class. */
 function collectParagraphs(html: string): string[] {
   const $ = cheerio.load(html);
   $("script, style").remove();
   const out: string[] = [];
   $("p").each((_i, el) => {
-    const text = $(el).text().replaceAll(/\s+/g, " ").trim();
+    const text = decodeEntities($(el).text()).replaceAll(/\s+/g, " ").trim();
     if (text) out.push(text);
   });
   return out;
@@ -145,12 +145,10 @@ function finalizeEntry(d: DraftEntry, sourcePageUrl: string): RawEventData | nul
   const titleSuffix = d.rawTitle.trim();
   const title = titleSuffix ? `${d.series} #${d.runNumber} - ${titleSuffix}` : `${d.series} #${d.runNumber}`;
 
-  // Treat literal TBD/TBA/TBC strings as "no value yet" — the Meetup link
-  // typically fills in later, but we don't want "TBD" in the canonical
-  // location field.
-  const cleanLocation = d.location && !/^TBD|^TBA|^TBC/i.test(d.location.trim())
-    ? d.location.trim()
-    : undefined;
+  // Drop TBD/TBA placeholder locations through the shared helper — keeps
+  // canonical location fields free of "TBD" until the kennel posts the
+  // real venue (typically a few days before the trail).
+  const cleanLocation = stripPlaceholder(d.location);
 
   return {
     date: dateStr,
@@ -196,7 +194,7 @@ export function parseHogtownEvents(html: string, sourcePageUrl: string): RawEven
     }
     if (!draft) continue;
 
-    if (WEEKDAY_PREFIX_RE.test(p)) {
+    if (WEEKDAY_PREFIXES.some((w) => p.startsWith(w))) {
       draft.dateLine = p;
       continue;
     }
@@ -228,10 +226,18 @@ export function parseHogtownEvents(html: string, sourcePageUrl: string): RawEven
 export class HogtownAdapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
 
-  async fetch(source: Source, _options?: { days?: number }): Promise<ScrapeResult> {
-    const baseUrl = source.url?.replace(/\/$/, "") || BASE_URL;
-    const upcomingUrl = `${baseUrl}${UPCOMING_PATH}`;
-    const homeUrl = `${baseUrl}${HOME_PATH}`;
+  async fetch(source: Source, options?: { days?: number }): Promise<ScrapeResult> {
+    // Build URLs from the source URL's *origin* — the seeded source.url
+    // points at `/upcoming-trails` directly, so naive string concatenation
+    // would produce `/upcoming-trails/upcoming-trails`.
+    let origin = BASE_URL;
+    try {
+      if (source.url) origin = new URL(source.url).origin;
+    } catch {
+      origin = BASE_URL;
+    }
+    const upcomingUrl = `${origin}${UPCOMING_PATH}`;
+    const homeUrl = `${origin}${HOME_PATH}`;
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
     const all: RawEventData[] = [];
@@ -252,9 +258,10 @@ export class HogtownAdapter implements SourceAdapter {
       all.push(...events);
     }
 
-    // Dedup by (series prefix in title + runNumber) — the home page
-    // typically repeats the next trail also on /upcoming-trails. Keep the
-    // first occurrence (chronologically ordered on the source).
+    // Dedup by (runNumber + title + date) — the home page typically
+    // repeats the next trail that's also on /upcoming-trails. Title
+    // already carries the series prefix, so cross-series collisions on
+    // a shared run number can't happen.
     const seen = new Set<string>();
     const deduped: RawEventData[] = [];
     for (const ev of all) {
@@ -264,8 +271,16 @@ export class HogtownAdapter implements SourceAdapter {
       deduped.push(ev);
     }
 
+    // Honor `options.days` per the adapter-patterns rule: a tight admin
+    // re-scrape probe shouldn't pull events outside its requested window.
+    // Default to 120 days (matches seed.scrapeDays). minDate is open-ended
+    // on the past side — the source itself is upcoming-only.
+    const days = options?.days ?? source.scrapeDays ?? 120;
+    const { maxDate } = buildDateWindow(days);
+    const filtered = deduped.filter((ev) => new Date(ev.date) <= maxDate);
+
     return {
-      events: deduped,
+      events: filtered,
       errors,
       errorDetails: hasAnyErrors(errorDetails) ? errorDetails : undefined,
     };

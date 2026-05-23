@@ -84,4 +84,16 @@ describe("parseHogtownEvents", () => {
     const html = `<html><body><p>Welcome to Hogtown</p><p>Runs every other Saturday.</p></body></html>`;
     expect(parseHogtownEvents(html, "https://www.hogtownh3.com/")).toEqual([]);
   });
+
+  it("handles the optional Meetup-ID prefix (e.g. '6795/TWAT#582 - …')", () => {
+    const html = `<html><body>
+      <p>6795/TWAT#582 - Naughty's Birthday Trail</p>
+      <p>Thursday, May 28, 2026, 7pm</p>
+      <p>Hare: Naughty</p>
+    </body></html>`;
+    const events = parseHogtownEvents(html, "https://www.hogtownh3.com/upcoming-trails");
+    expect(events).toHaveLength(1);
+    expect(events[0].runNumber).toBe(582);
+    expect(events[0].title).toBe("TWAT #582 - Naughty's Birthday Trail");
+  });
 });
