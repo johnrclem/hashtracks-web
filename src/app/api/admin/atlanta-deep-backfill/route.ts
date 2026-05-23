@@ -47,9 +47,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });
   }
 
+  // `request.json()` accepts `null`, primitives, and arrays as valid JSON — all
+  // of which would throw TypeError on field access. Guard to a plain object
+  // shape before reading any field (Codex PR #1634 review).
   let body: { kennel?: string; apply?: boolean; maxPages?: number };
   try {
-    body = await request.json();
+    const parsed: unknown = await request.json();
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+      return NextResponse.json(
+        { data: null, error: "Body must be a JSON object" },
+        { status: 400 },
+      );
+    }
+    body = parsed as { kennel?: string; apply?: boolean; maxPages?: number };
   } catch {
     return NextResponse.json({ data: null, error: "Invalid JSON body" }, { status: 400 });
   }
