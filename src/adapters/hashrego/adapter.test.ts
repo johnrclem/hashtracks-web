@@ -6,6 +6,7 @@ import {
   parseHashRegoTime,
   parseEventDetail,
   splitToRawEvents,
+  parseDayHeaderSections,
 } from "./parser";
 import { HashRegoAdapter, apiToIndexEntry } from "./adapter";
 import { HashRegoApiError, type HashRegoKennelEvent } from "./api";
@@ -741,6 +742,103 @@ const ANTHRAX_INDEX_ENTRY = {
   cost: "$119",
 };
 
+// #1560 PR B — NYC H3 5-Boro Pub Crawl: description uses per-day section
+// headers (`**DAY N M/D —**`) instead of a single `MM/DD ... to MM/DD`
+// range. Pre-PR-B the parser dropped Day 2 / Day 3 silently because no
+// strategy recognized that format. Note the `og:description` is just a
+// teaser — no time-range present — so the existing strategy 1 fails and
+// strategy 2 (parseDayHeaderSections) takes over.
+const FIVE_BORO_HTML = `
+<html>
+<head>
+  <title>5-Boro Pub Crawl 2026</title>
+  <meta property="og:title" content="1/15 5-Boro Pub Crawl 2026" />
+  <meta property="og:description" content='**DAY 1 1/15 —** Friday night, Manhattan kickoff. Hares: Mudflap, Just Simon. 7:00 show, 7:30 go.
+**DAY 2 1/16 —** Saturday morning, Brooklyn run. Hares: Cocktail Sausage. 10:00 show, 10:30 go.
+**DAY 3 1/17 —** Sunday recovery, Queens brunch. Hares: TBD. 12:00 show, 12:30 go.
+
+**Cost:** $75 for all three days' />
+</head>
+<body>
+  <a href="/kennels/NYCH3/">NYC H3</a>
+</body>
+</html>`;
+
+const FIVE_BORO_INDEX_ENTRY = {
+  slug: "5-boro-2026",
+  kennelSlug: "NYCH3",
+  title: "5-Boro Pub Crawl 2026",
+  startDate: "01/15/26",
+  startTime: "07:00 PM",
+  type: "Hash Weekend",
+  cost: "$75",
+};
+
+// #1630 PR B Gemini review — Strategy 1 (`MM/DD ... to MM/DD`) had a
+// silent year-rollover bug. A 12/31 → 1/1 NYE campout would emit endDate
+// before startDate, producing an empty `generateDatesInRange` result.
+const NYE_RANGE_HTML = `
+<html>
+<head>
+  <title>New Year's Eve Campout 2026</title>
+  <meta property="og:title" content="12/31 New Year's Eve Campout 2026" />
+  <meta property="og:description" content='12/31 06:00 PM to 1/1 10:00 AM
+
+Two-day NYE campout — Friday eve trail + Saturday recovery hike.
+
+**Cost:** $50' />
+</head>
+<body>
+  <a href="/kennels/NYCH3/">NYC H3</a>
+</body>
+</html>`;
+
+const NYE_INDEX_ENTRY = {
+  slug: "nye-campout-2026",
+  kennelSlug: "NYCH3",
+  title: "New Year's Eve Campout 2026",
+  startDate: "12/31/26",
+  startTime: "06:00 PM",
+  type: "Hash Weekend",
+  cost: "$50",
+};
+
+describe("parseEventDetail — Strategy 1 NYE year rollover (#1630 review)", () => {
+  it("12/31 → 1/1 range produces 2 dates spanning the year boundary", () => {
+    const parsed = parseEventDetail(NYE_RANGE_HTML, "nye-campout-2026", NYE_INDEX_ENTRY);
+    expect(parsed.isMultiDay).toBe(true);
+    expect(parsed.dates).toEqual(["2026-12-31", "2027-01-01"]);
+  });
+});
+
+describe("parseEventDetail + splitToRawEvents — `DAY N M/D` headers (#1560 PR B)", () => {
+  it("recognizes the multi-day description and emits three children", () => {
+    const parsed = parseEventDetail(FIVE_BORO_HTML, "5-boro-2026", FIVE_BORO_INDEX_ENTRY);
+    expect(parsed.isMultiDay).toBe(true);
+    expect(parsed.dates).toEqual(["2026-01-15", "2026-01-16", "2026-01-17"]);
+  });
+
+  it("series parent (Day 1) carries seriesParent + endDate; later days are children", () => {
+    const parsed = parseEventDetail(FIVE_BORO_HTML, "5-boro-2026", FIVE_BORO_INDEX_ENTRY);
+    const events = splitToRawEvents(parsed, "5-boro-2026");
+    expect(events).toHaveLength(3);
+
+    // All three share the slug-based seriesId.
+    expect(events.every((e) => e.seriesId === "5-boro-2026")).toBe(true);
+
+    // Day 1 = parent; carries endDate; title without "(Day N)" suffix.
+    expect(events[0].seriesParent).toBe(true);
+    expect(events[0].endDate).toBe("2026-01-17");
+    expect(events[0].title).not.toContain("(Day");
+
+    // Days 2 + 3 are children.
+    expect(events[1].seriesParent).toBeUndefined();
+    expect(events[1].title).toContain("(Day 2)");
+    expect(events[2].seriesParent).toBeUndefined();
+    expect(events[2].title).toContain("(Day 3)");
+  });
+});
+
 describe("parseEventDetail (multi-day)", () => {
   it("detects multi-day event from date range", () => {
     const parsed = parseEventDetail(MULTI_DAY_HTML, "anthrax-2025", ANTHRAX_INDEX_ENTRY);
@@ -796,12 +894,29 @@ describe("splitToRawEvents", () => {
     expect(events[2].seriesId).toBe("anthrax-2025");
   });
 
-  it("adds day labels to multi-day event titles", () => {
+  it("first day is the series parent (no day suffix); later days carry the suffix", () => {
+    // #1560 PR B — the earliest day represents the whole series, so it
+    // keeps the umbrella title verbatim. Later days get the "(Day N)"
+    // suffix so they're recognizable inside the parent's expanded
+    // timeline.
     const parsed = parseEventDetail(MULTI_DAY_HTML, "anthrax-2025", ANTHRAX_INDEX_ENTRY);
     const events = splitToRawEvents(parsed, "anthrax-2025");
-    expect(events[0].title).toContain("(Day 1)");
+    expect(events[0].title).not.toContain("(Day");
     expect(events[1].title).toContain("(Day 2)");
     expect(events[2].title).toContain("(Day 3)");
+  });
+
+  it("first day is marked seriesParent and carries the inclusive endDate", () => {
+    // #1560 PR B — explicit parent flag + endDate give the UI's
+    // date-range chip + "+ N trails" badge a deterministic anchor.
+    const parsed = parseEventDetail(MULTI_DAY_HTML, "anthrax-2025", ANTHRAX_INDEX_ENTRY);
+    const events = splitToRawEvents(parsed, "anthrax-2025");
+    expect(events[0].seriesParent).toBe(true);
+    expect(events[0].endDate).toBe("2025-12-14");
+    expect(events[1].seriesParent).toBeUndefined();
+    expect(events[1].endDate).toBeUndefined();
+    expect(events[2].seriesParent).toBeUndefined();
+    expect(events[2].endDate).toBeUndefined();
   });
 
   it("all multi-day events share the same Hash Rego link", () => {
@@ -812,6 +927,109 @@ describe("splitToRawEvents", () => {
         { url: "https://hashrego.com/events/anthrax-2025", label: "Hash Rego" },
       ]);
     }
+  });
+});
+
+// ── parseDayHeaderSections (#1560 PR B) ──
+
+describe("parseDayHeaderSections", () => {
+  // Table-driven per memory `feedback_it_each_for_sonar_cpd.md` — single
+  // it() blocks with shared boilerplate would trip CPD.
+  it.each([
+    {
+      label: "NYC 5-Boro Pub Crawl — markdown bold + em-dash",
+      desc: "**DAY 1 1/15 —** Friday night, Manhattan...\n**DAY 2 1/16 —** Saturday brunch, Brooklyn...\n**DAY 3 1/17 —** Sunday recovery, Queens...",
+      anchor: "2026-01-15",
+      expected: ["2026-01-15", "2026-01-16", "2026-01-17"],
+    },
+    {
+      label: "Mixed case 'Day N: M/D'",
+      desc: "Day 1: 2/14 — Valentine's trail\nDay 2: 2/15 — Recovery brunch",
+      anchor: "2026-02-14",
+      expected: ["2026-02-14", "2026-02-15"],
+    },
+    {
+      label: "Bare 'Day N M/D' without colon or em-dash",
+      desc: "Day 1 3/21 evening run\nDay 2 3/22 morning hike\nDay 3 3/23 brunch",
+      anchor: "2026-03-21",
+      expected: ["2026-03-21", "2026-03-22", "2026-03-23"],
+    },
+    {
+      label: "Sorts mis-ordered headers by date",
+      desc: "**DAY 3 1/17 —** Sunday\n**DAY 1 1/15 —** Friday\n**DAY 2 1/16 —** Saturday",
+      anchor: "2026-01-15",
+      expected: ["2026-01-15", "2026-01-16", "2026-01-17"],
+    },
+    {
+      label: "Deduplicates same-date headers",
+      desc: "**DAY 1 1/15 —** Friday morning\n**DAY 1 1/15 —** Friday evening",
+      anchor: "2026-01-15",
+      expected: [],
+    },
+    {
+      // Gemini review on PR #1630 — year-rollover regression. Without the
+      // anchor-based year bump the parser would emit Jan 1 alongside Dec
+      // 31 under the SAME year, so the sort would produce the wrong
+      // chronological order.
+      label: "NYE rollover — 12/31 → 1/1 lands in following year",
+      desc: "**DAY 1 12/31 —** Friday NYE\n**DAY 2 1/1 —** Saturday New Year",
+      anchor: "2026-12-31",
+      expected: ["2026-12-31", "2027-01-01"],
+    },
+    {
+      label: "NYE rollover — 12/30 / 12/31 / 1/1 / 1/2 four-day campout",
+      desc: "**DAY 1 12/30 —**\n**DAY 2 12/31 —**\n**DAY 3 1/1 —**\n**DAY 4 1/2 —**",
+      anchor: "2026-12-30",
+      expected: ["2026-12-30", "2026-12-31", "2027-01-01", "2027-01-02"],
+    },
+  ])("$label", ({ desc, anchor, expected }) => {
+    expect(parseDayHeaderSections(desc, anchor).map((e) => e.date)).toEqual(expected);
+  });
+
+  it("returns [] when only one day header is present (no false-positive series)", () => {
+    expect(parseDayHeaderSections("**DAY 1 4/4 —** opening only", "2026-04-04")).toEqual([]);
+  });
+
+  it("returns [] when description has no Day N M/D headers at all", () => {
+    expect(parseDayHeaderSections("Just a normal trail description, no days.", "2026-01-01")).toEqual([]);
+  });
+
+  it("does not match 'Memorial Day' / 'Day of' / other 'Day' false positives", () => {
+    // The required `\d+(?::|\s)\s*\d{1,2}/\d{1,2}` tail rules out bare
+    // "Day" mentions that aren't day-section headers.
+    expect(parseDayHeaderSections("Memorial Day weekend, Day of reckoning.", "2026-05-25")).toEqual([]);
+  });
+
+  // Codex P1 review on PR #1630 — section times stay paired with their
+  // header even when the headers are listed out of chronological order.
+  it("pairs each day's startTime with its own header even when headers are listed out of order", () => {
+    const desc =
+      "**DAY 3 1/17 —** Sunday 12:00 show, 12:30 go.\n" +
+      "**DAY 1 1/15 —** Friday 7:00 show, 7:30 go.\n" +
+      "**DAY 2 1/16 —** Saturday 10:00 show, 10:30 go.";
+    const entries = parseDayHeaderSections(desc, "2026-01-15");
+    // Sorted by date — but each entry carries the time from its own
+    // section, not the time at the matching index in document order.
+    expect(entries.map((e) => e.date)).toEqual([
+      "2026-01-15", "2026-01-16", "2026-01-17",
+    ]);
+    expect(entries.map((e) => e.startTime)).toEqual([
+      "19:00", "10:00", "12:00",
+    ]);
+    // (AM-bias adjustment: hours 1–9 bump to PM (+12). 7:00 → 19:00.
+    // 10:00 and 12:00 are outside the 1–9 range so they stay unchanged.
+    // Matches `extractPerDayStartTimes`' legacy semantics, which biases
+    // hashrego's bare "7:00 show" toward 7 PM but leaves explicit
+    // morning starts like "10:00 go" alone.)
+  });
+
+  it("returns startTime: undefined for a section that has no show/go/start time", () => {
+    const desc = "**DAY 1 4/4 —** Friday (no time given).\n**DAY 2 4/5 —** Saturday 10:00 go.";
+    const entries = parseDayHeaderSections(desc, "2026-04-04");
+    expect(entries).toEqual([
+      { date: "2026-04-04", startTime: undefined },
+      { date: "2026-04-05", startTime: "10:00" },
+    ]);
   });
 });
 

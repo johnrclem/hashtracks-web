@@ -377,14 +377,20 @@ export function splitToRawEvents(
     ];
   }
 
-  // Multi-day event: one RawEventData per date
+  // Multi-day event: one RawEventData per date. The earliest day is marked
+  // as the explicit series parent (#1560 PR B) — it carries the umbrella
+  // title without the "(Day N)" suffix and the inclusive `endDate` so the
+  // UI's date-range chip + "+ N trails" badge render on the parent. Later
+  // days are explicit children with their per-day title suffix.
   const seriesId = slug; // Use the Hash Rego slug as series identifier
+  const lastDate = parsed.dates.at(-1);
   return parsed.dates.map((date, i) => {
+    const isParent = i === 0;
     const dayLabel = `Day ${i + 1}`;
     return {
       date,
       kennelTags: [parsed.hostKennelName || parsed.kennelSlug],
-      title: `${parsed.title} (${dayLabel})`,
+      title: isParent ? parsed.title : `${parsed.title} (${dayLabel})`,
       description: parsed.description,
       hares: parsed.hares,
       location: parsed.location,
@@ -393,6 +399,7 @@ export function splitToRawEvents(
       sourceUrl: hashRegoUrl,
       externalLinks,
       seriesId,
+      ...(isParent ? { seriesParent: true, endDate: lastDate } : {}),
     };
   });
 }
@@ -483,31 +490,152 @@ function extractPerDayStartTimes(description: string, dateCount: number): string
   return startTimes;
 }
 
+/**
+ * Match per-day section headers like `**DAY 1 1/15 —**`, `Day 2: 2/16`,
+ * or `Day 3 1/17`. The separator between the day number and the M/D is
+ * `(?::|\s)` — exactly ONE colon-or-whitespace char, then `\s*` for any
+ * trailing whitespace. The original `\s*:?\s*` form had overlapping
+ * `\s` quantifiers around an optional `:` that Sonar S5852 flagged as
+ * ReDoS-prone (memory `feedback_sonar_s5852_false_positives.md`); the
+ * new form has no `\s*` adjacent to another `\s` quantifier.
+ */
+const DAY_HEADER_RE = /\bDay\s+(\d{1,2})(?::|\s)\s*(\d{1,2})\/(\d{1,2})\b/gi;
+
+/**
+ * Parse per-day section headers from a Hash Rego event description (used
+ * for multi-day events like NYC H3 5-Boro Pub Crawl whose description
+ * carries `**DAY 1 1/15 —** ...` / `**DAY 2 1/16 —** ...` blocks instead
+ * of a `MM/DD HH:MM PM to MM/DD HH:MM PM` range — #1560 PR B).
+ *
+ * Returns `[]` for < 2 matches (avoids false positives where the
+ * description happens to mention a single "Day 1" but doesn't describe
+ * a multi-day event). Output is sorted by date ascending.
+ *
+ * `startDateStr` is the full YYYY-MM-DD anchor from the event index
+ * (parsed via `parseHashRegoDate(indexEntry.startDate)`). It serves both
+ * as the year source AND the year-rollover detector: when a parsed M/D
+ * is chronologically BEFORE the anchor, that day belongs to the
+ * following year (NYE campouts: `**DAY 1 12/31 —**`, `**DAY 2 1/1 —**`
+ * starts in year N and finishes in N+1 — Gemini review on PR #1630).
+ */
+/** First `HH:MM show/go/start` pattern in a slice, normalized to a 24h
+ *  string. Returns `undefined` when no time is present in the slice. Same
+ *  AM-bias adjustment as `extractPerDayStartTimes` (1–9 → +12 hours;
+ *  hashrego writes evening times bare like "7:00 show"). */
+function extractFirstTimeFromSlice(slice: string): string | undefined {
+  const tm = /(\d{1,2}):(\d{2})\s+(show|go|start)/i.exec(slice);
+  if (!tm) return undefined;
+  const h = Number.parseInt(tm[1], 10);
+  const min = Number.parseInt(tm[2], 10);
+  const adjustedH = h < 12 && h >= 1 && h <= 9 ? h + 12 : h;
+  return `${String(adjustedH).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
+}
+
+/** One per-day entry from `parseDayHeaderSections`. */
+export interface DayHeaderSection {
+  date: string;        // YYYY-MM-DD
+  startTime?: string;  // HH:MM (24h) — undefined when the slice has no `show/go/start` time
+}
+
+export function parseDayHeaderSections(
+  description: string,
+  startDateStr: string,
+): DayHeaderSection[] {
+  const baseYear = Number.parseInt(startDateStr.split("-")[0], 10);
+  if (!baseYear) return [];
+  const matches = [...description.matchAll(DAY_HEADER_RE)];
+  if (matches.length < 2) return [];
+
+  // Walk headers in DOCUMENT order so each section's time can be extracted
+  // from the slice between THIS header and the next one. Sorting by date
+  // happens AFTER pairing so a description that lists headers
+  // out-of-order (admin error, "Day 3 ... Day 1 ... Day 2") still maps
+  // its 7:00 show / 10:00 show / 12:00 show times to the right days
+  // (Codex P1 review on PR #1630 — pre-fix, `extractPerDayStartTimes`
+  // returned times in raw doc order and the caller paired them by index
+  // into the sorted dates, silently shuffling them).
+  const entries: DayHeaderSection[] = matches.map((m, i) => {
+    const month = Number.parseInt(m[2], 10);
+    const day = Number.parseInt(m[3], 10);
+    const candidate = `${baseYear}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    // Year-rollover: if the parsed M/D lands chronologically before the
+    // event's anchor date, it must belong to the following year (the
+    // anchor is always the event's earliest known day).
+    const date = candidate < startDateStr
+      ? `${baseYear + 1}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+      : candidate;
+    // Slice between this header's end and the next header's start (or
+    // end-of-description for the last header).
+    const sliceStart = (m.index ?? 0) + m[0].length;
+    const sliceEnd = matches[i + 1]?.index ?? description.length;
+    const startTime = extractFirstTimeFromSlice(description.slice(sliceStart, sliceEnd));
+    return { date, startTime };
+  });
+
+  // Deduplicate by date (a description mentioning the same day twice in
+  // two headers collapses; first occurrence wins for time). After dedup
+  // we re-apply the < 2 guard: two "DAY 1 1/15" headers — admin typo,
+  // same-day double bill, etc. — collapse to one unique date, which is
+  // NOT a multi-day series. Falling back to `[]` lets the caller's
+  // existing single-day path take over without spuriously marking the
+  // event as multi-day.
+  const byDate = new Map<string, DayHeaderSection>();
+  for (const e of entries) {
+    if (!byDate.has(e.date)) byDate.set(e.date, e);
+  }
+  const unique = [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
+  return unique.length >= 2 ? unique : [];
+}
+
 /** Try to parse a date range from the description and index entry. */
 function parseDateRangeFromDescription(
   description: string,
   indexEntry: IndexEntry,
 ): { dates: string[]; startTimes: string[]; isMultiDay: boolean } | null {
+  const startDateStr = parseHashRegoDate(indexEntry.startDate);
+  if (!startDateStr) return null;
+  const year = Number.parseInt(startDateStr.split("-")[0], 10);
+
+  // Strategy 1: `MM/DD HH:MM PM to MM/DD HH:MM PM` (existing path).
   const rangeMatch = description.match(
     /(\d{1,2})\/(\d{1,2})\s+\d{1,2}:\d{2}\s*(?:AM|PM)\s+to\s+(\d{1,2})\/(\d{1,2})\s+\d{1,2}:\d{2}\s*(?:AM|PM)/i,
   );
-  if (!rangeMatch) return null;
+  if (rangeMatch) {
+    const startMonth = Number.parseInt(rangeMatch[1], 10);
+    const startDay = Number.parseInt(rangeMatch[2], 10);
+    const endMonth = Number.parseInt(rangeMatch[3], 10);
+    const endDay = Number.parseInt(rangeMatch[4], 10);
+    // Year-rollover guard (Gemini review on PR #1630): if the end month
+    // is strictly earlier than the start month (12/31 → 1/1), the end
+    // date must be in the following year. Strict inequality — same-month
+    // events stay in the same year regardless of day ordering.
+    const endYear = endMonth < startMonth ? year + 1 : year;
+    const startDate = new Date(Date.UTC(year, startMonth - 1, startDay));
+    const endDate = new Date(Date.UTC(endYear, endMonth - 1, endDay));
+    const dates = generateDatesInRange(startDate, endDate);
+    const startTimes = extractPerDayStartTimes(description, dates.length);
+    return { dates, startTimes, isMultiDay: dates.length > 1 };
+  }
 
-  const year = parseYearFromIndex(indexEntry.startDate);
-  if (!year) return null;
+  // Strategy 2 (#1560 PR B): per-day section headers — `DAY 1 M/D`, etc.
+  // Fallback for NYC 5-Boro-style multi-day descriptions whose date range
+  // isn't expressible as a single `start to end` line. Per-section start
+  // times are extracted alongside each date in `parseDayHeaderSections`
+  // so out-of-order headers keep their times paired correctly across
+  // the post-sort (Codex P1 review).
+  const dayHeaderEntries = parseDayHeaderSections(description, startDateStr);
+  if (dayHeaderEntries.length >= 2) {
+    const dates = dayHeaderEntries.map((e) => e.date);
+    // Per-section times pair correctly with dates after sort. Where a
+    // section has no `show/go/start` time, fall back to the first
+    // populated section's time so downstream display still has a value
+    // (mirrors the legacy padding behavior in `extractPerDayStartTimes`).
+    const firstTime = dayHeaderEntries.find((e) => e.startTime)?.startTime ?? "";
+    const startTimes = dayHeaderEntries.map((e) => e.startTime ?? firstTime);
+    return { dates, startTimes, isMultiDay: true };
+  }
 
-  const startMonth = parseInt(rangeMatch[1], 10);
-  const startDay = parseInt(rangeMatch[2], 10);
-  const endMonth = parseInt(rangeMatch[3], 10);
-  const endDay = parseInt(rangeMatch[4], 10);
-
-  const startDate = new Date(Date.UTC(year, startMonth - 1, startDay));
-  const endDate = new Date(Date.UTC(year, endMonth - 1, endDay));
-
-  const dates = generateDatesInRange(startDate, endDate);
-  const startTimes = extractPerDayStartTimes(description, dates.length);
-
-  return { dates, startTimes, isMultiDay: dates.length > 1 };
+  return null;
 }
 
 /** Extract dates and detect multi-day events */
