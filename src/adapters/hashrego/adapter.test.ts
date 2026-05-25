@@ -840,6 +840,151 @@ describe("parseEventDetail + splitToRawEvents — `DAY N M/D` headers (#1560 PR 
   });
 });
 
+// #1560 PR D — Real-world 5-Boro 2026 format. Uses **WEEKDAY M/D —**
+// (not **DAY N M/D**) AND Friday's section names GGFM as the per-day host.
+// The umbrella event registers on hashrego under NYCH3 but Friday's trail
+// is hosted by the sibling GGFM kennel.
+const FIVE_BORO_2026_HTML = `
+<html>
+<head>
+  <title>NYCH3 5-Boro Pub Crawl 2026</title>
+  <meta property="og:title" content="6/26 NYCH3 5-Boro Pub Crawl 2026" />
+  <meta property="og:description" content='**FRIDAY 6/26 — GGFM Strawberry Moon Trail**
+Manhattan kickoff. 7:00 show, 7:30 go.
+**SATURDAY 6/27 — 12th Annual 5-Borough Pub Crawl**
+The main event. 12:00 show, 12:30 go.
+**SUNDAY 6/28 — NYC Pride March Watch Party!**
+Final day. 1:00 show, 1:30 go.
+
+**Cost:** $75 for all three days' />
+</head>
+<body>
+  <a href="/kennels/NYCH3/">NYC H3</a>
+</body>
+</html>`;
+
+const FIVE_BORO_2026_INDEX_ENTRY = {
+  slug: "nych3-5-boro-pub-crawl-2026",
+  kennelSlug: "NYCH3",
+  title: "NYCH3 5-Boro Pub Crawl 2026",
+  startDate: "06/26/26",
+  startTime: "07:00 PM",
+  type: "Hash Weekend",
+  cost: "$75",
+};
+
+const FIVE_BORO_KENNEL_PATTERNS = [
+  ["Greater Gotham", "ggfm"],
+  ["GGFM", "ggfm"],
+  ["NYC\\s*H3", "nych3"],
+  ["NYCH3", "nych3"],
+] as const;
+
+describe("parseEventDetail + splitToRawEvents — 5-Boro 2026 weekday-form + per-day kennel (#1560 PR D)", () => {
+  it("parses three children with weekday section headers", () => {
+    const parsed = parseEventDetail(
+      FIVE_BORO_2026_HTML,
+      "nych3-5-boro-pub-crawl-2026",
+      FIVE_BORO_2026_INDEX_ENTRY,
+      FIVE_BORO_KENNEL_PATTERNS,
+    );
+    expect(parsed.isMultiDay).toBe(true);
+    expect(parsed.dates).toEqual(["2026-06-26", "2026-06-27", "2026-06-28"]);
+  });
+
+  it("Friday's perDayKennelCode is ggfm; Sat + Sun sections name no kennel → undefined", () => {
+    const parsed = parseEventDetail(
+      FIVE_BORO_2026_HTML,
+      "nych3-5-boro-pub-crawl-2026",
+      FIVE_BORO_2026_INDEX_ENTRY,
+      FIVE_BORO_KENNEL_PATTERNS,
+    );
+    expect(parsed.perDayKennelCodes).toEqual(["ggfm", undefined, undefined]);
+  });
+
+  it("splitToRawEvents: synthetic parent (host kennel) + 3 day-children when Day 1 has per-day override", () => {
+    // Day 1 (Friday) matches a `kennelPatterns` entry for `ggfm`, which
+    // differs from the host kennel (NYCH3). The parser splits the umbrella
+    // off into a SYNTHETIC parent row on Day 1's date, tagged with the host
+    // kennel — and Day 1 becomes a regular child carrying the GGFM tag.
+    const parsed = parseEventDetail(
+      FIVE_BORO_2026_HTML,
+      "nych3-5-boro-pub-crawl-2026",
+      FIVE_BORO_2026_INDEX_ENTRY,
+      FIVE_BORO_KENNEL_PATTERNS,
+    );
+    const events = splitToRawEvents(parsed, "nych3-5-boro-pub-crawl-2026");
+    expect(events).toHaveLength(4);
+
+    // Index 0 — synthetic host-kennel parent on Day 1's date.
+    expect(events[0].seriesParent).toBe(true);
+    expect(events[0].endDate).toBe("2026-06-28");
+    expect(events[0].date).toBe("2026-06-26");
+    expect(events[0].kennelTags).toEqual(["NYCH3"]);
+    // Parent title carries NO "(Day N)" suffix (umbrella name).
+    expect(events[0].title).not.toContain("(Day");
+    // Parent has NO per-day fields (hares, startTime, location) — those
+    // belong on the day's child row.
+    expect(events[0].hares).toBeUndefined();
+    expect(events[0].startTime).toBeUndefined();
+
+    // Index 1 — Friday child overrides to GGFM.
+    expect(events[1].seriesParent).toBeUndefined();
+    expect(events[1].date).toBe("2026-06-26");
+    expect(events[1].kennelTags).toEqual(["ggfm"]);
+    expect(events[1].title).toContain("(Day 1)");
+
+    // Index 2 — Saturday child falls back to host kennel.
+    expect(events[2].seriesParent).toBeUndefined();
+    expect(events[2].date).toBe("2026-06-27");
+    expect(events[2].kennelTags).toEqual(["NYCH3"]);
+    expect(events[2].title).toContain("(Day 2)");
+
+    // Index 3 — Sunday child falls back to host kennel.
+    expect(events[3].seriesParent).toBeUndefined();
+    expect(events[3].date).toBe("2026-06-28");
+    expect(events[3].kennelTags).toEqual(["NYCH3"]);
+    expect(events[3].title).toContain("(Day 3)");
+  });
+
+  it("splitToRawEvents: ggfm-named Friday child rides on its sibling kennel even though parent is NYCH3-hosted", () => {
+    // Tighter assertion of the cross-kennel child mechanic — this is the
+    // whole point of PR D.5. Cross-source dedup with HashNYC's standalone
+    // Friday GGFM row depends on the (kennel, date) match landing on the
+    // child, not the parent.
+    const parsed = parseEventDetail(
+      FIVE_BORO_2026_HTML,
+      "nych3-5-boro-pub-crawl-2026",
+      FIVE_BORO_2026_INDEX_ENTRY,
+      FIVE_BORO_KENNEL_PATTERNS,
+    );
+    const events = splitToRawEvents(parsed, "nych3-5-boro-pub-crawl-2026");
+    // Find the non-parent Friday row.
+    const fridayChild = events.find(
+      (e) => e.date === "2026-06-26" && e.seriesParent !== true,
+    );
+    expect(fridayChild).toBeDefined();
+    expect(fridayChild?.kennelTags).toEqual(["ggfm"]);
+  });
+
+  it("without kennelPatterns, Day 1 doubles as parent (3 events, all host kennel)", () => {
+    // Backward-compat check: when no source patterns are declared, the
+    // adapter falls back to the original PR B shape — Day 1 IS the parent,
+    // no synthetic row prepended. All 3 events land on the host kennel.
+    const parsed = parseEventDetail(
+      FIVE_BORO_2026_HTML,
+      "nych3-5-boro-pub-crawl-2026",
+      FIVE_BORO_2026_INDEX_ENTRY,
+      // No kennelPatterns argument.
+    );
+    const events = splitToRawEvents(parsed, "nych3-5-boro-pub-crawl-2026");
+    expect(events).toHaveLength(3);
+    expect(events[0].seriesParent).toBe(true);
+    expect(events[0].date).toBe("2026-06-26");
+    expect(events.every((e) => e.kennelTags[0] === "NYCH3")).toBe(true);
+  });
+});
+
 describe("parseEventDetail (multi-day)", () => {
   it("detects multi-day event from date range", () => {
     const parsed = parseEventDetail(MULTI_DAY_HTML, "anthrax-2025", ANTHRAX_INDEX_ENTRY);
@@ -1031,6 +1176,146 @@ describe("parseDayHeaderSections", () => {
       { date: "2026-04-04", startTime: undefined },
       { date: "2026-04-05", startTime: "10:00" },
     ]);
+  });
+
+  // ── PR D.4 — Weekday-form section headers (5-Boro Pub Crawl) ──
+  it.each([
+    {
+      label: "NYC 5-Boro 2026 — **FRIDAY 6/26 —** / **SATURDAY 6/27 —** / **SUNDAY 6/28 —**",
+      desc:
+        "**FRIDAY 6/26 — GGFM Strawberry Moon Trail**\n" +
+        "**SATURDAY 6/27 — 12th Annual 5-Borough Pub Crawl**\n" +
+        "**SUNDAY 6/28 — NYC Pride March Watch Party!**",
+      anchor: "2026-06-26",
+      expected: ["2026-06-26", "2026-06-27", "2026-06-28"],
+    },
+    {
+      label: "Mixed Day-form + Weekday-form merged into one series",
+      desc: "**DAY 1 1/15 —** Friday\n**SATURDAY 1/16 —** Saturday",
+      anchor: "2026-01-15",
+      expected: ["2026-01-15", "2026-01-16"],
+    },
+    {
+      label: "Abbreviated weekday forms (Mon/Tues/Wed/Thu/Fri/Sat/Sun)",
+      desc: "**FRI 3/13 —** Friday\n**SAT 3/14 —** Saturday\n**SUN 3/15 —** Sunday",
+      anchor: "2026-03-13",
+      expected: ["2026-03-13", "2026-03-14", "2026-03-15"],
+    },
+    {
+      label: "Lowercase weekday names still match (case-insensitive) when bold-anchored",
+      desc: "**friday 4/3 —** trail\n**saturday 4/4 —** brunch",
+      anchor: "2026-04-03",
+      expected: ["2026-04-03", "2026-04-04"],
+    },
+  ])("weekday form — $label", ({ desc, anchor, expected }) => {
+    expect(parseDayHeaderSections(desc, anchor).map((e) => e.date)).toEqual(expected);
+  });
+
+  // Codex review on PR D — the previous unanchored WEEKDAY regex would
+  // bogusly match prose like "Friday 4/3 trail, Saturday 4/4 brunch" and
+  // emit a multi-day series for any event whose description happens to
+  // mention two weekday-form date references. Tightening to require `**`
+  // markdown bold anchor + dash/colon delimiter after M/D blocks that.
+  it.each([
+    {
+      label: "free-form prose with two weekday-form dates emits NO series",
+      desc: "Friday 4/3 trail at Central Park, Saturday 4/4 brunch follow-up",
+      anchor: "2026-04-03",
+    },
+    {
+      label: "weekday + M/D without bold markers (one mention) emits no series",
+      desc: "Meet Friday 4/3 at 7pm",
+      anchor: "2026-04-03",
+    },
+    {
+      label: "weekday + M/D in bold but missing trailing delimiter emits no series",
+      desc: "**Friday 4/3** Trail name\n**Saturday 4/4** Trail name",
+      anchor: "2026-04-03",
+    },
+  ])("WEEKDAY anchoring guards prose: $label", ({ desc, anchor }) => {
+    expect(parseDayHeaderSections(desc, anchor)).toEqual([]);
+  });
+
+  // ── PR D.5 — Per-day kennel attribution via section text patterns ──
+  describe("per-day kennel attribution", () => {
+    const FIVE_BORO_PATTERNS = [
+      ["Greater Gotham", "ggfm"],
+      ["GGFM", "ggfm"],
+      ["NYC\\s*H3", "nych3"],
+      ["NYCH3", "nych3"],
+    ] as const;
+
+    it("overrides Friday's kennelCode to ggfm when section text names GGFM", () => {
+      const desc =
+        "**FRIDAY 6/26 — GGFM Strawberry Moon Trail**\n" +
+        "Meet at the bar.\n" +
+        "**SATURDAY 6/27 — 12th Annual 5-Borough Pub Crawl**\n" +
+        "Bring cash.\n" +
+        "**SUNDAY 6/28 — NYC Pride March Watch Party!**\n" +
+        "Hosted by NYCH3.";
+      const entries = parseDayHeaderSections(desc, "2026-06-26", FIVE_BORO_PATTERNS);
+      expect(entries.map((e) => ({ date: e.date, kennelCode: e.kennelCode }))).toEqual([
+        { date: "2026-06-26", kennelCode: "ggfm" },
+        { date: "2026-06-27", kennelCode: undefined },
+        { date: "2026-06-28", kennelCode: "nych3" },
+      ]);
+    });
+
+    it("returns kennelCode: undefined for every day when no source patterns are provided", () => {
+      const desc =
+        "**FRIDAY 6/26 — GGFM Strawberry Moon Trail**\n" +
+        "**SATURDAY 6/27 — 5-Borough Pub Crawl**\n";
+      const entries = parseDayHeaderSections(desc, "2026-06-26");
+      expect(entries.every((e) => e.kennelCode === undefined)).toBe(true);
+    });
+
+    it("returns kennelCode: undefined when section text doesn't match any pattern", () => {
+      const desc =
+        "**SATURDAY 6/27 — Generic kickoff**\n" +
+        "**SUNDAY 6/28 — Recovery brunch**\n";
+      const entries = parseDayHeaderSections(desc, "2026-06-27", FIVE_BORO_PATTERNS);
+      expect(entries.every((e) => e.kennelCode === undefined)).toBe(true);
+    });
+
+    it("first-match-wins when multiple patterns hit the same section", () => {
+      // Section text names BOTH GGFM and NYCH3; first pattern in the list wins.
+      const desc =
+        "**FRIDAY 6/26 — GGFM trail, hosted by NYCH3**\n" +
+        "**SATURDAY 6/27 — Recovery**\n";
+      const entries = parseDayHeaderSections(desc, "2026-06-26", FIVE_BORO_PATTERNS);
+      expect(entries[0].kennelCode).toBe("ggfm");
+    });
+
+    // Codex review on PR D — `compileKennelPatterns` must be fail-soft.
+    // A single invalid regex source must NOT throw during detail parsing
+    // (which would strip the per-day attribution for every multi-day event
+    // until the config is fixed).
+    it("ignores invalid regex patterns instead of throwing", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const BAD_PATTERNS = [
+        ["[unclosed", "broken"], // invalid regex source
+        ["GGFM", "ggfm"],         // valid — should still apply
+      ] as const;
+      const desc =
+        "**FRIDAY 6/26 — GGFM Strawberry Moon Trail**\n" +
+        "**SATURDAY 6/27 — Recovery**\n";
+      const entries = parseDayHeaderSections(desc, "2026-06-26", BAD_PATTERNS);
+      expect(entries[0].kennelCode).toBe("ggfm");
+      expect(warn).toHaveBeenCalled();
+      warn.mockRestore();
+    });
+
+    it("returns no kennel codes (but still parses dates) when ALL patterns are invalid", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const ALL_BAD = [["[", "x"], ["(", "y"]] as const;
+      const desc =
+        "**FRIDAY 6/26 — GGFM Strawberry Moon Trail**\n" +
+        "**SATURDAY 6/27 — Recovery**\n";
+      const entries = parseDayHeaderSections(desc, "2026-06-26", ALL_BAD);
+      expect(entries.map((e) => e.date)).toEqual(["2026-06-26", "2026-06-27"]);
+      expect(entries.every((e) => e.kennelCode === undefined)).toBe(true);
+      warn.mockRestore();
+    });
   });
 });
 

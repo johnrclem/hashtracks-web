@@ -40,6 +40,15 @@ export interface ParsedEvent {
    * motivating case. Single-day events leave this undefined.
    */
   endDate?: string;
+  /**
+   * Per-day kennel-code override (PR D.5). Populated only when the source
+   * declares `kennelPatterns` AND the multi-day section parser matched one
+   * of them against a day's section text (e.g. NYC 5-Boro's Friday section
+   * names "GGFM Strawberry Moon Trail" → `ggfm`). Aligned with `dates` by
+   * index. Entries are `undefined` for days that didn't match any pattern;
+   * `splitToRawEvents` falls back to the host kennel for those days.
+   */
+  perDayKennelCodes?: ReadonlyArray<string | undefined>;
 }
 
 /**
@@ -158,6 +167,7 @@ export function parseEventDetail(
   html: string,
   slug: string,
   indexEntry?: IndexEntry,
+  kennelPatterns?: KennelPatternConfig,
 ): ParsedEvent {
   const $ = cheerio.load(html);
 
@@ -209,7 +219,12 @@ export function parseEventDetail(
   const locationUrl = descLocationUrl || domLocation.mapsUrl;
 
   // Parse dates from the description or index entry
-  const { dates, startTimes, isMultiDay, endDate } = extractDates(rawDescription, indexEntry, title);
+  const { dates, startTimes, isMultiDay, endDate, perDayKennelCodes } = extractDates(
+    rawDescription,
+    indexEntry,
+    title,
+    kennelPatterns,
+  );
 
   // Clean description: remove structured fields we already extracted
   const description = cleanDescription(rawDescription);
@@ -228,6 +243,7 @@ export function parseEventDetail(
     hostKennelName,
     isMultiDay,
     endDate,
+    perDayKennelCodes,
   };
 }
 
@@ -391,20 +407,39 @@ export function splitToRawEvents(
     ];
   }
 
-  // Multi-day event: one RawEventData per date. The earliest day is marked
-  // as the explicit series parent (#1560 PR B) — it carries the umbrella
-  // title without the "(Day N)" suffix and the inclusive `endDate` so the
-  // UI's date-range chip + "+ N trails" badge render on the parent. Later
-  // days are explicit children with their per-day title suffix.
+  // Multi-day event. Two emission shapes:
+  //
+  //   (1) No per-day kennel override on Day 1 — Day 1 IS the parent. The
+  //       earliest day carries the umbrella title (no "(Day N)" suffix)
+  //       and the inclusive `endDate`. Later days are children with the
+  //       "(Day N)" suffix. This is the original PR B behavior, used by
+  //       campouts where every day's section text resolves to the host
+  //       kennel (or where the source declares no `kennelPatterns`).
+  //
+  //   (2) Day 1 has a per-day kennel override different from host (PR D.5
+  //       — NYC 5-Boro Friday is GGFM, not the umbrella's host NYCH3).
+  //       We prepend a SYNTHETIC parent row on Day 1's date, tagged with
+  //       the host kennel. Day 1 then becomes a regular child with its
+  //       GGFM tag, alongside the other day-children. This shape lets
+  //       cross-source dedup work: HashNYC's standalone Friday GGFM row
+  //       merges into the GGFM child via the same-day matcher, instead
+  //       of producing a duplicate canonical Event.
+  //
+  // The parent always stays on the host kennel — the umbrella belongs to
+  // whoever registered it on hashrego, not to a single day.
   const seriesId = slug; // Use the Hash Rego slug as series identifier
   const lastDate = parsed.dates.at(-1);
-  return parsed.dates.map((date, i) => {
-    const isParent = i === 0;
+  const hostKennelTag = parsed.hostKennelName || parsed.kennelSlug;
+  const day1Code = parsed.perDayKennelCodes?.[0];
+  const needsSyntheticParent = day1Code !== undefined && day1Code !== hostKennelTag;
+
+  const buildChild = (date: string, i: number): RawEventData => {
     const dayLabel = `Day ${i + 1}`;
+    const perDayCode = parsed.perDayKennelCodes?.[i];
     return {
       date,
-      kennelTags: [parsed.hostKennelName || parsed.kennelSlug],
-      title: isParent ? parsed.title : `${parsed.title} (${dayLabel})`,
+      kennelTags: [perDayCode ?? hostKennelTag],
+      title: `${parsed.title} (${dayLabel})`,
       description: parsed.description,
       hares: parsed.hares,
       location: parsed.location,
@@ -413,8 +448,49 @@ export function splitToRawEvents(
       sourceUrl: hashRegoUrl,
       externalLinks,
       seriesId,
-      ...(isParent ? { seriesParent: true, endDate: lastDate } : {}),
     };
+  };
+
+  if (needsSyntheticParent) {
+    // Shape (2): synthetic host-kennel parent + N children.
+    // Parent carries the umbrella description but NO per-day fields (hares,
+    // location, startTime) — those belong to the day's child row. Without
+    // this split, the merge pipeline's same-day matcher would absorb the
+    // parent into a sibling event using its hares/startTime.
+    const parent: RawEventData = {
+      date: parsed.dates[0],
+      kennelTags: [hostKennelTag],
+      title: parsed.title,
+      description: parsed.description,
+      sourceUrl: hashRegoUrl,
+      externalLinks,
+      seriesId,
+      seriesParent: true,
+      endDate: lastDate,
+    };
+    return [parent, ...parsed.dates.map((date, i) => buildChild(date, i))];
+  }
+
+  // Shape (1): Day 1 doubles as parent (original PR B behavior).
+  return parsed.dates.map((date, i) => {
+    if (i === 0) {
+      return {
+        date,
+        kennelTags: [hostKennelTag],
+        title: parsed.title,
+        description: parsed.description,
+        hares: parsed.hares,
+        location: parsed.location,
+        locationUrl: parsed.locationAddress || parsed.locationUrl,
+        startTime: parsed.startTimes[0] || undefined,
+        sourceUrl: hashRegoUrl,
+        externalLinks,
+        seriesId,
+        seriesParent: true,
+        endDate: lastDate,
+      };
+    }
+    return buildChild(date, i);
   });
 }
 
@@ -505,15 +581,37 @@ function extractPerDayStartTimes(description: string, dateCount: number): string
 }
 
 /**
- * Match per-day section headers like `**DAY 1 1/15 —**`, `Day 2: 2/16`,
- * or `Day 3 1/17`. The separator between the day number and the M/D is
- * `(?::|\s)` — exactly ONE colon-or-whitespace char, then `\s*` for any
- * trailing whitespace. The original `\s*:?\s*` form had overlapping
- * `\s` quantifiers around an optional `:` that Sonar S5852 flagged as
- * ReDoS-prone (memory `feedback_sonar_s5852_false_positives.md`); the
- * new form has no `\s*` adjacent to another `\s` quantifier.
+ * Match per-day section headers in two shapes (one regex each to stay
+ * under Sonar S5843 complexity 20; combining both forms into a single
+ * alternation pushed complexity to ~24).
+ *
+ * 1. `**DAY 1 1/15 —**`, `Day 2: 2/16`, `Day 3 1/17` (the original
+ *    PR B pattern for events that use a `Day N` ordinal).
+ * 2. `**FRIDAY 6/26 — title**`, `**Saturday 6/27 — title**` (PR D —
+ *    needed for NYC H3 5-Boro Pub Crawl which numbers days by
+ *    weekday name instead of `Day N`).
+ *
+ * Both regexes capture month + day in the same group positions (m[1] /
+ * m[2]) so the caller treats them uniformly. The separator after the
+ * leading token is `(?::|\s)` — exactly one colon-or-whitespace char —
+ * then `\s*` for trailing whitespace. The original `\s*:?\s*` form had
+ * overlapping `\s` quantifiers around an optional `:` that Sonar S5852
+ * flagged as ReDoS-prone (memory `feedback_sonar_s5852_false_positives.md`);
+ * the new form has no `\s*` adjacent to another `\s` quantifier.
+ *
+ * **WEEKDAY_HEADER_RE is intentionally strict** (Codex review on PR D).
+ * Hash Rego descriptions are user-authored prose, so an unanchored weekday
+ * regex like `\bFRIDAY 6/26\b` would match free-form text such as
+ * `"Friday 4/3 trail, Saturday 4/4 brunch"` and bogusly emit a multi-day
+ * series for any event whose blurb happens to mention two weekday-form
+ * date references. We require the weekday be preceded by a markdown bold
+ * marker `**` AND followed by a delimiter (em-dash, hyphen, en-dash, or
+ * colon) after the M/D — the actual section-header shape used by NYC
+ * 5-Boro and other Hash Rego campouts. The Day-form is more constrained
+ * by its `Day N` literal, so it stays anchored on `\b`.
  */
-const DAY_HEADER_RE = /\bDay\s+(\d{1,2})(?::|\s)\s*(\d{1,2})\/(\d{1,2})\b/gi;
+const DAY_NUMBER_HEADER_RE = /\bDay\s+\d{1,2}(?::|\s)\s*(\d{1,2})\/(\d{1,2})\b/gi;
+const WEEKDAY_HEADER_RE = /\*\*\s*(?:MON(?:DAY)?|TUES?(?:DAY)?|WED(?:NESDAY)?|THURS?(?:DAY)?|FRI(?:DAY)?|SAT(?:URDAY)?|SUN(?:DAY)?)(?::|\s)\s*(\d{1,2})\/(\d{1,2})\s*(?:[—–-]|:)/gi;
 
 /**
  * Parse per-day section headers from a Hash Rego event description (used
@@ -549,28 +647,88 @@ function extractFirstTimeFromSlice(slice: string): string | undefined {
 export interface DayHeaderSection {
   date: string;        // YYYY-MM-DD
   startTime?: string;  // HH:MM (24h) — undefined when the slice has no `show/go/start` time
+  /**
+   * Per-day kennel override (PR D.5). Set when the section's text matches
+   * one of the source's `kennelPatterns` (e.g. NYC 5-Boro's Friday section
+   * names "GGFM Strawberry Moon Trail" → `ggfm`). Undefined when no
+   * pattern matched; the caller falls back to the host kennel.
+   */
+  kennelCode?: string;
+}
+
+/**
+ * Per-day kennel-attribution config (PR D.5). Hash Rego sources can
+ * declare patterns that override the day's `kennelTags` when matched
+ * against the section text between two day-headers.
+ *
+ * Stored as `[regexSource, kennelCode]` tuples on `Source.config.kennelPatterns`.
+ * Compiled once per scrape via `compileKennelPatterns`. Patterns are
+ * unanchored and case-insensitive. First-match wins.
+ */
+export type KennelPatternConfig = ReadonlyArray<readonly [string, string]>;
+
+/**
+ * Compile per-day kennel patterns. **Fail-soft**: invalid regex sources are
+ * dropped with a `console.warn` rather than thrown — a single typo in source
+ * config must not strip enriched multi-day behavior from an entire scrape
+ * (Codex review on PR D). Returns `undefined` when nothing compiled cleanly.
+ */
+function compileKennelPatterns(
+  patterns: KennelPatternConfig | undefined,
+): ReadonlyArray<readonly [RegExp, string]> | undefined {
+  if (!patterns || patterns.length === 0) return undefined;
+  const compiled: Array<readonly [RegExp, string]> = [];
+  for (const [src, code] of patterns) {
+    try {
+      compiled.push([new RegExp(src, "i"), code] as const);
+    } catch (err) {
+      console.warn(
+        `[hashrego] invalid kennelPattern source ${JSON.stringify(src)} for code ${code}: ${err}`,
+      );
+    }
+  }
+  return compiled.length > 0 ? compiled : undefined;
+}
+
+function matchPerDayKennel(
+  slice: string,
+  compiled: ReadonlyArray<readonly [RegExp, string]> | undefined,
+): string | undefined {
+  if (!compiled) return undefined;
+  for (const [re, code] of compiled) {
+    if (re.test(slice)) return code;
+  }
+  return undefined;
 }
 
 export function parseDayHeaderSections(
   description: string,
   startDateStr: string,
+  kennelPatterns?: KennelPatternConfig,
 ): DayHeaderSection[] {
   const baseYear = Number.parseInt(startDateStr.split("-")[0], 10);
   if (!baseYear) return [];
-  const matches = [...description.matchAll(DAY_HEADER_RE)];
-  if (matches.length < 2) return [];
 
-  // Walk headers in DOCUMENT order so each section's time can be extracted
-  // from the slice between THIS header and the next one. Sorting by date
-  // happens AFTER pairing so a description that lists headers
-  // out-of-order (admin error, "Day 3 ... Day 1 ... Day 2") still maps
-  // its 7:00 show / 10:00 show / 12:00 show times to the right days
-  // (Codex P1 review on PR #1630 — pre-fix, `extractPerDayStartTimes`
-  // returned times in raw doc order and the caller paired them by index
-  // into the sorted dates, silently shuffling them).
-  const entries: DayHeaderSection[] = matches.map((m, i) => {
-    const month = Number.parseInt(m[2], 10);
-    const day = Number.parseInt(m[3], 10);
+  // Match BOTH header shapes (Day N M/D AND Weekday M/D). Merge results,
+  // then walk in document order. Both regexes share capture-group
+  // positions (m[1] = month, m[2] = day) by construction.
+  const dayNumberMatches = [...description.matchAll(DAY_NUMBER_HEADER_RE)];
+  const weekdayMatches = [...description.matchAll(WEEKDAY_HEADER_RE)];
+  const allMatches = [...dayNumberMatches, ...weekdayMatches]
+    .sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
+  if (allMatches.length < 2) return [];
+
+  const compiled = compileKennelPatterns(kennelPatterns);
+
+  // Walk headers in DOCUMENT order so each section's time + kennel can
+  // be extracted from the slice between THIS header and the next one.
+  // Sorting by date happens AFTER pairing so a description that lists
+  // headers out-of-order (admin error, "Day 3 ... Day 1 ... Day 2")
+  // still maps its 7:00 show / 10:00 show / 12:00 show times to the
+  // right days (Codex P1 review on PR #1630).
+  const entries: DayHeaderSection[] = allMatches.map((m, i) => {
+    const month = Number.parseInt(m[1], 10);
+    const day = Number.parseInt(m[2], 10);
     const candidate = `${baseYear}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     // Year-rollover: if the parsed M/D lands chronologically before the
     // event's anchor date, it must belong to the following year (the
@@ -579,20 +737,23 @@ export function parseDayHeaderSections(
       ? `${baseYear + 1}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`
       : candidate;
     // Slice between this header's end and the next header's start (or
-    // end-of-description for the last header).
+    // end-of-description for the last header). Carries both the per-day
+    // start time AND the per-day kennel pattern match.
     const sliceStart = (m.index ?? 0) + m[0].length;
-    const sliceEnd = matches[i + 1]?.index ?? description.length;
-    const startTime = extractFirstTimeFromSlice(description.slice(sliceStart, sliceEnd));
-    return { date, startTime };
+    const sliceEnd = allMatches[i + 1]?.index ?? description.length;
+    const slice = description.slice(sliceStart, sliceEnd);
+    const startTime = extractFirstTimeFromSlice(slice);
+    const kennelCode = matchPerDayKennel(slice, compiled);
+    return { date, startTime, kennelCode };
   });
 
   // Deduplicate by date (a description mentioning the same day twice in
-  // two headers collapses; first occurrence wins for time). After dedup
-  // we re-apply the < 2 guard: two "DAY 1 1/15" headers — admin typo,
-  // same-day double bill, etc. — collapse to one unique date, which is
-  // NOT a multi-day series. Falling back to `[]` lets the caller's
-  // existing single-day path take over without spuriously marking the
-  // event as multi-day.
+  // two headers collapses; first occurrence wins for time + kennel).
+  // After dedup we re-apply the < 2 guard: two "DAY 1 1/15" headers —
+  // admin typo, same-day double bill, etc. — collapse to one unique
+  // date, which is NOT a multi-day series. Falling back to `[]` lets
+  // the caller's existing single-day path take over without spuriously
+  // marking the event as multi-day.
   const byDate = new Map<string, DayHeaderSection>();
   for (const e of entries) {
     if (!byDate.has(e.date)) byDate.set(e.date, e);
@@ -601,11 +762,27 @@ export function parseDayHeaderSections(
   return unique.length >= 2 ? unique : [];
 }
 
+/**
+ * Range extractor return shape. `perDayKennelCodes` carries the per-day
+ * kennel override (PR D.5) and is populated only by Strategy 2 (DAY/WEEKDAY
+ * section headers — Strategy 1's contiguous date range has no section text
+ * to scan). The caller falls back to host kennel when undefined.
+ */
+type DateRangeResult = {
+  dates: string[];
+  startTimes: string[];
+  isMultiDay: boolean;
+  /** Inclusive last day of a single-registration venue weekend (#1560 PR C). */
+  endDate?: string;
+  perDayKennelCodes?: ReadonlyArray<string | undefined>;
+};
+
 /** Try to parse a date range from the description and index entry. */
 function parseDateRangeFromDescription(
   description: string,
   indexEntry: IndexEntry,
-): { dates: string[]; startTimes: string[]; isMultiDay: boolean } | null {
+  kennelPatterns?: KennelPatternConfig,
+): DateRangeResult | null {
   const startDateStr = parseHashRegoDate(indexEntry.startDate);
   if (!startDateStr) return null;
   const year = Number.parseInt(startDateStr.split("-")[0], 10);
@@ -632,12 +809,10 @@ function parseDateRangeFromDescription(
   }
 
   // Strategy 2 (#1560 PR B): per-day section headers — `DAY 1 M/D`, etc.
-  // Fallback for NYC 5-Boro-style multi-day descriptions whose date range
-  // isn't expressible as a single `start to end` line. Per-section start
-  // times are extracted alongside each date in `parseDayHeaderSections`
-  // so out-of-order headers keep their times paired correctly across
-  // the post-sort (Codex P1 review).
-  const dayHeaderEntries = parseDayHeaderSections(description, startDateStr);
+  // PR D extends this to also match `**FRIDAY 6/26 —**` and other weekday
+  // names (NYC 5-Boro format). When the source declares `kennelPatterns`,
+  // each section's text is also scanned for a per-day kennel override.
+  const dayHeaderEntries = parseDayHeaderSections(description, startDateStr, kennelPatterns);
   if (dayHeaderEntries.length >= 2) {
     const dates = dayHeaderEntries.map((e) => e.date);
     // Per-section times pair correctly with dates after sort. Where a
@@ -646,7 +821,8 @@ function parseDateRangeFromDescription(
     // (mirrors the legacy padding behavior in `extractPerDayStartTimes`).
     const firstTime = dayHeaderEntries.find((e) => e.startTime)?.startTime ?? "";
     const startTimes = dayHeaderEntries.map((e) => e.startTime ?? firstTime);
-    return { dates, startTimes, isMultiDay: true };
+    const perDayKennelCodes = dayHeaderEntries.map((e) => e.kennelCode);
+    return { dates, startTimes, isMultiDay: true, perDayKennelCodes };
   }
 
   return null;
@@ -764,9 +940,10 @@ function extractDates(
   description: string,
   indexEntry?: IndexEntry,
   title?: string,
-): { dates: string[]; startTimes: string[]; isMultiDay: boolean; endDate?: string } {
+  kennelPatterns?: KennelPatternConfig,
+): DateRangeResult {
   if (indexEntry) {
-    const rangeResult = parseDateRangeFromDescription(description, indexEntry);
+    const rangeResult = parseDateRangeFromDescription(description, indexEntry, kennelPatterns);
     if (rangeResult) return rangeResult;
 
     const date = parseHashRegoDate(indexEntry.startDate);

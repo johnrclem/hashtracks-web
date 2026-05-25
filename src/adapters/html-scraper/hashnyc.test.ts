@@ -328,6 +328,40 @@ describe("parseDetailsCell", () => {
     const result = parseDetailsCell($, $("td").first());
     expect(result.location).toBe(expected);
   });
+
+  // PR D.1 (#1560) — `Special` is a hashnyc.com SECTION label, not a kennel.
+  // Before PR D it emitted pseudo-tag `special-nyc` that failed kennel
+  // resolution (100% of matched raws stayed `processed: false, eventId: null`
+  // — verified against prod the day before PR D). It now resolves to `nych3`,
+  // the NYC-wide host that publishes these events.
+  //
+  // `Drinking Practice` keeps its own kennel `drinking-practice-nyc` (a real
+  // seeded kennel with aliases — see prisma/seed-data/kennels.ts:112 and
+  // aliases.ts:20). Codex caught that remapping this would silently change
+  // ownership of an established kennel.
+  // CONTEXTUAL_PATTERNS matches `pattern + \s*(?:Run|Trail|#) + \s*\d+` so
+  // fixtures need the kennel name DIRECTLY followed by a run designator —
+  // `Pattern #N`, `Pattern Run N`, or `Pattern Trail N`. The `<b>Section</b>
+  // Pattern Run #N` shape with the `#` between Run and N doesn't satisfy
+  // `Run\s*\d+` (the # breaks the chain) — those tests pass via the nych3
+  // fallback at the end of `extractKennelTag`, not the pattern itself.
+  it.each([
+    {
+      label: "Special section → nych3 (anchored at start of cell)",
+      cellText: "Special #252 Start: TBA",
+      expectedKennelTag: "nych3",
+    },
+    {
+      label: "Drinking Practice keeps its own kennel `drinking-practice-nyc` (anchored)",
+      cellText: "Drinking Practice #88 Start: TBA",
+      expectedKennelTag: "drinking-practice-nyc",
+    },
+  ])("$label", ({ cellText, expectedKennelTag }) => {
+    const html = `<table><tr><td>${cellText}</td></tr></table>`;
+    const $ = cheerio.load(html);
+    const result = parseDetailsCell($, $("td").first());
+    expect(result.kennelTag).toBe(expectedKennelTag);
+  });
 });
 
 // ── extractRawDesignation ──
