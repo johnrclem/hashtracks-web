@@ -32,6 +32,14 @@ export interface ParsedEvent {
    * Tidewater H3 — hashrego #806). The display name is unambiguous. */
   hostKennelName?: string;
   isMultiDay: boolean;
+  /**
+   * Inclusive last day of a single-registration venue weekend (#1560 PR C).
+   * Populated by `detectVenueWeekendEndDate` when the description mentions
+   * a weekend / campout / retreat trigger word plus ≥2 weekday labels but
+   * no explicit per-day dates. MadisonH3 Token Run Campout is the
+   * motivating case. Single-day events leave this undefined.
+   */
+  endDate?: string;
 }
 
 /**
@@ -201,7 +209,7 @@ export function parseEventDetail(
   const locationUrl = descLocationUrl || domLocation.mapsUrl;
 
   // Parse dates from the description or index entry
-  const { dates, startTimes, isMultiDay } = extractDates(rawDescription, indexEntry);
+  const { dates, startTimes, isMultiDay, endDate } = extractDates(rawDescription, indexEntry, title);
 
   // Clean description: remove structured fields we already extracted
   const description = cleanDescription(rawDescription);
@@ -219,6 +227,7 @@ export function parseEventDetail(
     kennelSlug,
     hostKennelName,
     isMultiDay,
+    endDate,
   };
 }
 
@@ -357,7 +366,11 @@ export function splitToRawEvents(
   const externalLinks = [{ url: hashRegoUrl, label: "Hash Rego" }];
 
   if (!parsed.isMultiDay || parsed.dates.length <= 1) {
-    // Single-day event
+    // Single-day event — or a venue-weekend campout that registers as ONE
+    // row but spans multiple days (#1560 PR C — MadisonH3 Token Run). The
+    // venue-weekend branch surfaces `parsed.endDate`; the merge pipeline
+    // writes it onto the canonical Event so the UI renders the
+    // date-range pill without the "+ N trails" expansion (no children).
     const date = parsed.dates[0];
     if (!date) return [];
 
@@ -373,6 +386,7 @@ export function splitToRawEvents(
         startTime: parsed.startTimes[0] || undefined,
         sourceUrl: hashRegoUrl,
         externalLinks,
+        ...(parsed.endDate ? { endDate: parsed.endDate } : {}),
       },
     ];
   }
@@ -638,11 +652,119 @@ function parseDateRangeFromDescription(
   return null;
 }
 
+/**
+ * Trigger words that opt-in to the venue-weekend heuristic (#1560 PR C).
+ * A description has to mention at least one of these for the
+ * weekday-mention scan to fire — keeps the false-positive rate low on
+ * single-day trails whose descriptions happen to name a weekday.
+ */
+const VENUE_WEEKEND_TRIGGER_RE = /\b(?:camp\s?out|weekend|retreat|rendezvous)\b/i;
+
+/**
+ * Word-boundary matcher for any 3–9 letter token. We then filter against
+ * the explicit weekday allow-list `WEEKDAY_NAMES_SET` below. This split
+ * (broad regex + Set lookup) keeps the regex complexity under Sonar's
+ * S5843 threshold of 20 — the previous form had 7 alternatives × nested
+ * optional suffixes, which counted as ~24 complexity. The Set lookup is
+ * O(1) and reads more transparently than a long alternation.
+ */
+const WEEKDAY_NAME_RE = /\b([A-Za-z]{3,9})\b/g;
+
+/**
+ * Allow-list of every form `detectVenueWeekendEndDate` accepts. Lowercase
+ * so case-insensitive matching works without a global `i` flag. "Tues"
+ * and "Thurs" are common 4–5 letter abbreviations in hashing descriptions
+ * (alongside the canonical 3-letter abbrevs and full names).
+ */
+const WEEKDAY_NAMES_SET: ReadonlySet<string> = new Set([
+  "sun", "sunday",
+  "mon", "monday",
+  "tue", "tues", "tuesday",
+  "wed", "wednesday",
+  "thu", "thurs", "thursday",
+  "fri", "friday",
+  "sat", "saturday",
+]);
+
+/** Indexed 0=Sun, 6=Sat — matches `Date.getUTCDay()`. */
+const WEEKDAY_PREFIXES: ReadonlyArray<string> = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+
+/**
+ * Detect a venue-weekend campout (#1560 PR C — MadisonH3 Token Run-style).
+ *
+ * Trigger criteria, ALL required:
+ *   1. The title OR description contains `camp(out)|weekend|retreat|rendezvous`.
+ *   2. The description mentions ≥ 2 DISTINCT weekday names.
+ *   3. Counting forward from `startDateStr`'s weekday, the latest mentioned
+ *      weekday is at least 1 day in the future (i.e. not all mentions
+ *      collapse to the start day).
+ *
+ * Returns the inclusive last day (YYYY-MM-DD) — the offset from
+ * `startDateStr` to the latest mentioned weekday, counted forward through
+ * the week. Returns `null` when criteria aren't met.
+ *
+ * Wrapping convention: each mentioned weekday's offset = `(dow - startDow + 7) % 7`.
+ * That keeps the heuristic to a single 7-day window, the longest a
+ * reasonable hashing weekend would be.
+ */
+export function detectVenueWeekendEndDate(
+  description: string,
+  title: string,
+  startDateStr: string,
+): string | null {
+  if (!VENUE_WEEKEND_TRIGGER_RE.test(title) && !VENUE_WEEKEND_TRIGGER_RE.test(description)) {
+    return null;
+  }
+  const mentioned = new Set<number>();
+  for (const m of description.matchAll(WEEKDAY_NAME_RE)) {
+    const lc = m[1].toLowerCase();
+    if (!WEEKDAY_NAMES_SET.has(lc)) continue;
+    const prefix = lc.slice(0, 3);
+    const dow = WEEKDAY_PREFIXES.indexOf(prefix);
+    if (dow >= 0) mentioned.add(dow);
+  }
+  if (mentioned.size < 2) return null;
+
+  // Anchor in UTC noon so the offset arithmetic doesn't slip across a
+  // DST boundary (matches the project's UTC-noon date convention from
+  // CLAUDE.md §F.4).
+  const startDate = new Date(`${startDateStr}T12:00:00Z`);
+  if (Number.isNaN(startDate.getTime())) return null;
+  const startDow = startDate.getUTCDay();
+
+  // Cap the forward-wrap on each weekday's offset. Without this, a
+  // description mentioning a "Thursday prelube" on a Friday-start campout
+  // (`(Thu - Fri + 7) % 7 = 6`) would inflate endDate to NEXT Thursday
+  // instead of the actual Sunday (Codex P1 review). 4 days is the
+  // practical ceiling for "weekend campout" lengths — Thu→Mon, Fri→Tue,
+  // etc. Beyond 4 we treat the mention as a backward reference
+  // (prelube/teaser), not as an end-of-range signal. 7+ day events that
+  // really need a longer span should use Strategy 1's explicit
+  // `MM/DD ... to MM/DD` format.
+  const MAX_FORWARD_OFFSET = 4;
+  let maxOffset = 0;
+  for (const dow of mentioned) {
+    const offset = (dow - startDow + 7) % 7;
+    if (offset > MAX_FORWARD_OFFSET) continue;
+    if (offset > maxOffset) maxOffset = offset;
+  }
+  if (maxOffset === 0) return null; // every kept mention collapsed onto the start day
+
+  // Date math via `setUTCDate` + `toISOString` is shorter and idiomatic
+  // (Gemini review). Centralizing into a shared util would also work but
+  // this is a one-shot end-of-range computation, not a repeated pattern
+  // anywhere else in this file.
+  const end = new Date(startDate);
+  end.setUTCDate(end.getUTCDate() + maxOffset);
+  return end.toISOString().split("T")[0];
+}
+
 /** Extract dates and detect multi-day events */
 function extractDates(
   description: string,
   indexEntry?: IndexEntry,
-): { dates: string[]; startTimes: string[]; isMultiDay: boolean } {
+  title?: string,
+): { dates: string[]; startTimes: string[]; isMultiDay: boolean; endDate?: string } {
   if (indexEntry) {
     const rangeResult = parseDateRangeFromDescription(description, indexEntry);
     if (rangeResult) return rangeResult;
@@ -650,10 +772,17 @@ function extractDates(
     const date = parseHashRegoDate(indexEntry.startDate);
     const time = parseHashRegoTime(indexEntry.startTime);
     if (date) {
+      // Try the venue-weekend campout heuristic (#1560 PR C) before
+      // committing to a single-day result. When it fires, the row stays
+      // single (no children) but carries an `endDate` so the UI renders
+      // a date-range pill — Madison-style "Jan 16 – 18" without the
+      // "+ N trails" expansion.
+      const endDate = detectVenueWeekendEndDate(description, title ?? "", date);
       return {
         dates: [date],
         startTimes: time ? [time] : [],
         isMultiDay: false,
+        ...(endDate ? { endDate } : {}),
       };
     }
   }
