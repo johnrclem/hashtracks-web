@@ -1,3 +1,12 @@
+---
+description: Active data sources catalog — 330 sources across 17 countries
+globs:
+  - src/adapters/**
+  - prisma/seed.ts
+  - prisma/seed-data/**
+  - src/pipeline/**
+---
+
 # Active Sources (330)
 
 Last synced from `prisma/seed-data/sources.ts` via the `/update-sources-rule` skill.
