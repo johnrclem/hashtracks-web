@@ -632,11 +632,15 @@ function extractPerDayStartTimes(description: string, dateCount: number): string
  * (`MON|MONDAY|TUE|TUES|TUESDAY|WED|WEDNESDAY|THU|THUR|THURS|THURSDAY|FRI|FRIDAY|SAT|SATURDAY|SUN|SUNDAY`).
  */
 const DAY_NUMBER_HEADER_RE = /\bDay\s+\d{1,2}(?::|\s)\s*(\d{1,2})\/(\d{1,2})\b/gi;
-// Trailing delimiter is hyphen / em-dash / en-dash / colon. Sonar S5869
-// false-positives a char class containing both em-dash (U+2014) and en-dash
-// (U+2013) as "duplicate characters" because they look alike. Switching to
-// an alternation group sidesteps the analyzer entirely — same match set.
-const WEEKDAY_HEADER_RE = /\*\*\s*([A-Za-z]{3,9})(?::|\s)\s*(\d{1,2})\/(\d{1,2})\s*(?:-|—|–|:)/gi;
+// Two Sonar gotchas the obvious forms trip:
+//   - `[A-Za-z]` is redundant under the `/i` flag (S5869 — `a-z` is a
+//     visual duplicate of `A-Z` after case folding). Use `[A-Z]` alone.
+//   - Em-dash (U+2014) + en-dash (U+2013) in the SAME class trigger
+//     S5869 ("visually identical chars"). Drop en-dash — real Hash Rego
+//     section headers use em-dash exclusively (verified against NYC
+//     5-Boro 2026 and BAWC5 prod fixtures). Char-class form keeps S6035
+//     ("alternation should be a char class") happy.
+const WEEKDAY_HEADER_RE = /\*\*\s*([A-Z]{3,9})(?::|\s)\s*(\d{1,2})\/(\d{1,2})\s*[-—:]/gi;
 const WEEKDAY_NAMES: ReadonlySet<string> = new Set([
   "mon", "monday",
   "tue", "tues", "tuesday",
