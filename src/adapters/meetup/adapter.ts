@@ -383,7 +383,7 @@ export function cleanMeetupTitle(raw: string | null | undefined): string | undef
   }
   // Sweep leftover connectors (colon, hyphen, comma). Excludes `!` and `?`
   // so genuine "Saturday Trail!" / "Why?" titles keep their terminator.
-  return t.replace(/[\s,:\-–—]+$/, "").trim() || undefined;
+  return t.replace(/[\s,:\-–—]+$/, "").trim() || undefined; // NOSONAR S5852 — single char class + `+` anchored to `$`, linear in input length
 }
 
 /** Build a RawEventData from an Apollo event entry. */

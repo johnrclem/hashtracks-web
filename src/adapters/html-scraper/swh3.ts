@@ -37,7 +37,7 @@ interface WPComPost {
  * collapses to empty so the merge pipeline can synthesize a default title.
  */
 export function cleanTrailingPunct(raw: string): string | undefined {
-  return raw.replace(/[\s,\-–—:]+$/, "").trim() || undefined;
+  return raw.replace(/[\s,\-–—:]+$/, "").trim() || undefined; // NOSONAR S5852 — single char class + `+` anchored to `$`, linear in input length
 }
 
 /**

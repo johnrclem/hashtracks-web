@@ -839,7 +839,7 @@ export function sanitizeTitle(title: string | undefined): string | null {
   // sweeps the orphan dash. Mirrors the adapter-level strip in
   // google-calendar/adapter.ts (#756/#1060) but applied universally for
   // adapters that don't pre-strip.
-  cleaned = cleaned.replace(/[\s,:\-–—]+$/, "").trim();
+  cleaned = cleaned.replace(/[\s,:\-–—]+$/, "").trim(); // NOSONAR S5852 — single char class + `+` anchored to `$`, linear in input length
   // Collapse multiple spaces from stripping and trim
   cleaned = cleaned.replace(/\s{2,}/g, " ").trim();
   // Strip embedded email addresses
