@@ -115,6 +115,13 @@ describe("Denver H3 Google Calendar — cross-post routing (#1649)", () => {
     // True Denver events fall through to defaultKennelTag
     ["Tuesday Trail", "dh3-co", "fallback to default for unmatched titles"],
     ["DH3 #1109", "dh3-co", "Denver own runs"],
+    // Anchored patterns — mid-summary mentions of sister-kennel names must
+    // NOT mis-route. "Boulder H3" inside a Denver event description stays
+    // attributed to Denver.
+    ["DH3 #1110 visiting Boulder H3 area for joint trail", "dh3-co", "mid-summary 'Boulder H3' stays Denver"],
+    ["DH3 trail with MiHiHuHa friends joining", "dh3-co", "mid-summary 'MiHiHuHa' stays Denver"],
+    // Compound-token boundary — "BH3FM" / "BH3rd" must NOT match BH3.
+    ["BH3FM #5 Full Moon", "dh3-co", "BH3FM compound token does not match BH3"],
   ])("routes %j → %s (%s)", (summary, expectedTag) => {
     const result = buildRawEventFromGCalItem(
       { summary, start: { dateTime: "2026-05-25T09:00:00-06:00" }, status: "confirmed" },

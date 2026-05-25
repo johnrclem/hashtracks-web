@@ -833,6 +833,13 @@ export function sanitizeTitle(title: string | undefined): string | null {
   );
   // Strip trailing " - Location TBD" suffixes (e.g., EWH3 calendar: "Hare Names - Location TBD")
   cleaned = cleaned.replace(/\s*-\s*Location\s+TBD\s*$/i, "").trim();
+  // #1647 — strip trailing connector punctuation left over after the date/
+  // Location-TBD suffix strips above. SWH3 emits "SWH3 #1792- Sunday, May
+  // 24"; after the trailing-day-of-week strip leaves "SWH3 #1792-", this
+  // sweeps the orphan dash. Mirrors the adapter-level strip in
+  // google-calendar/adapter.ts (#756/#1060) but applied universally for
+  // adapters that don't pre-strip.
+  cleaned = cleaned.replace(/[\s,:\-–—]+$/, "").trim();
   // Collapse multiple spaces from stripping and trim
   cleaned = cleaned.replace(/\s{2,}/g, " ").trim();
   // Strip embedded email addresses

@@ -367,9 +367,11 @@ export function cleanMeetupTitle(raw: string | null | undefined): string | undef
   if (!raw) return undefined;
   // Stacked CTAs ("Trail 300 - Hares Needed - Claim This Trail!") need
   // multiple passes — each iteration peels one trailing CTA until stable.
+  // Hard iteration cap (10) defends against a hypothetical future zero-width
+  // CTA pattern that would otherwise spin the loop forever.
   let t = raw;
   let changed = true;
-  while (changed) {
+  for (let pass = 0; pass < 10 && changed; pass++) {
     changed = false;
     for (const trailing of TRAILING_CTA_RES) {
       const next = t.replace(trailing, "");

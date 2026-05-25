@@ -2451,9 +2451,13 @@ export const SOURCES = [
       scrapeDays: 90,
       config: {
         defaultKennelTag: "dh3-co",
+        // Patterns are start-anchored so a Denver event whose summary
+        // mentions "Boulder H3" mid-text (e.g. "DH3 #1110 visiting Boulder
+        // H3 area for joint trail") doesn't mis-route to bh3-co. `(?!\w)`
+        // (negative lookahead) excludes compound tokens like "BH3FM".
         kennelPatterns: [
-          ["Boulder H3|^BH3\\b", "bh3-co"],
-          ["MiHiHuHa|MiHiHUHa|Mile High Humpin", "mihi-huha"],
+          ["^(?:Boulder H3|BH3)(?!\\w)", "bh3-co"],
+          ["^(?:MiHiHuHa|MiHiHUHa|Mile High Humpin)\\b", "mihi-huha"],
         ],
       },
       kennelCodes: ["dh3-co", "bh3-co", "mihi-huha"],
