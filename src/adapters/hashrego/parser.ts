@@ -632,10 +632,11 @@ function extractPerDayStartTimes(description: string, dateCount: number): string
  * (`MON|MONDAY|TUE|TUES|TUESDAY|WED|WEDNESDAY|THU|THUR|THURS|THURSDAY|FRI|FRIDAY|SAT|SATURDAY|SUN|SUNDAY`).
  */
 const DAY_NUMBER_HEADER_RE = /\bDay\s+\d{1,2}(?::|\s)\s*(\d{1,2})\/(\d{1,2})\b/gi;
-// Dash char class is hyphen-first (always literal there) + em-dash + en-dash.
-// Sonar S5869 reads `–-` as a Unicode range start, so put `-` at position 0
-// (no range ambiguity) and follow with the two Unicode dashes.
-const WEEKDAY_HEADER_RE = /\*\*\s*([A-Za-z]{3,9})(?::|\s)\s*(\d{1,2})\/(\d{1,2})\s*(?:[-—–]|:)/gi;
+// Trailing delimiter is hyphen / em-dash / en-dash / colon. Sonar S5869
+// false-positives a char class containing both em-dash (U+2014) and en-dash
+// (U+2013) as "duplicate characters" because they look alike. Switching to
+// an alternation group sidesteps the analyzer entirely — same match set.
+const WEEKDAY_HEADER_RE = /\*\*\s*([A-Za-z]{3,9})(?::|\s)\s*(\d{1,2})\/(\d{1,2})\s*(?:-|—|–|:)/gi;
 const WEEKDAY_NAMES: ReadonlySet<string> = new Set([
   "mon", "monday",
   "tue", "tues", "tuesday",
