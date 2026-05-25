@@ -1116,7 +1116,7 @@ export function buildRawEventFromGCalItem(
   // `$1` preserves the typed casing of the first occurrence.
   if (sourceConfig?.stripDoubledKennelPrefix && kennelTag) {
     const tagEsc = kennelTag.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
-    const doubled = new RegExp(`^(${tagEsc})\\s+${tagEsc}(?=\\s|$)`, "iu"); // nosemgrep // NOSONAR — `tagEsc` is regex-escaped from kennelTag; anchored, bounded by lookahead
+    const doubled = new RegExp(String.raw`^(${tagEsc})\s+${tagEsc}(?=\s|$)`, "iu"); // nosemgrep // NOSONAR — `tagEsc` is regex-escaped from kennelTag; anchored, bounded by lookahead
     title = title.replace(doubled, "$1").trim();
   }
   // Stale-default detection: equality is whitespace-insensitive so a SUMMARY
