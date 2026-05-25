@@ -96,6 +96,34 @@ describe("Colorado H3 Aggregator multi-kennel routing (#850)", () => {
   });
 });
 
+// ── Denver H3 Google Calendar cross-post routing (#1649) ──
+
+describe("Denver H3 Google Calendar — cross-post routing (#1649)", () => {
+  const dhSource = SOURCES.find((s) => s.name === "Denver H3 Google Calendar");
+  if (!dhSource?.config) throw new Error("Denver H3 Google Calendar seed config missing");
+  const config = dhSource.config as {
+    kennelPatterns: [string, string][];
+    defaultKennelTag: string;
+  };
+
+  it.each([
+    // Cross-posted BH3 events must route to bh3-co, not Denver
+    ["BH3 #969 12th Anal Toga Hash", "bh3-co", "BH3 cross-post (#1649 root cause)"],
+    ["Boulder H3 #970 Memorial Trail", "bh3-co", "Boulder H3 full name cross-post"],
+    // Cross-posted MiHiHuHa events route to mihi-huha
+    ["MiHiHuHa #599 Trail", "mihi-huha", "MiHiHuHa cross-post"],
+    // True Denver events fall through to defaultKennelTag
+    ["Tuesday Trail", "dh3-co", "fallback to default for unmatched titles"],
+    ["DH3 #1109", "dh3-co", "Denver own runs"],
+  ])("routes %j → %s (%s)", (summary, expectedTag) => {
+    const result = buildRawEventFromGCalItem(
+      { summary, start: { dateTime: "2026-05-25T09:00:00-06:00" }, status: "confirmed" },
+      config,
+    );
+    expect(result?.kennelTags[0]).toBe(expectedTag);
+  });
+});
+
 // ── Oregon Hashing Calendar multi-kennel co-host pattern (#1023 step 4 / #991) ──
 
 describe("Oregon Hashing Calendar multi-kennel routing (#1023 step 4)", () => {
@@ -1026,6 +1054,18 @@ describe("doubled kennelCode prefix guard (#1458)", () => {
     ["MoA2H3 MoA2H3", "MoA2H3", "exact-doubled placeholder (no trailing content)"],
     ["MoA2H3 Red Dress Run", "MoA2H3 Red Dress Run", "no-op when title is already single-prefixed"],
     ["Brain Fart", "Brain Fart", "no-op when title is unrelated to the kennelCode"],
+    // #1653 follow-up — the literal-space check missed whitespace variants
+    // that the kennel admin sometimes types. \s+ in the new regex covers
+    // NBSP (U+00A0), double-space, and tab.
+    ["MoA2H3 MoA2H3 Red Dress Run", "MoA2H3 Red Dress Run", "NBSP separator (#1653)"],
+    ["MoA2H3  MoA2H3 Red Dress Run", "MoA2H3 Red Dress Run", "double-space separator (#1653)"],
+    ["MoA2H3\tMoA2H3 Red Dress Run", "MoA2H3 Red Dress Run", "tab separator (#1653)"],
+    // Boundary guard — `(?=\s|$)` prevents stripping inside a compound token.
+    // "MoA2H3 MoA2H3FM ..." must NOT collapse to "MoA2H3FM ..." because that
+    // would conflate two distinct kennelCodes (the strip is conceptually a
+    // double-paste cleanup, not a free substring removal).
+    ["MoA2H3 MoA2H3FM Run", "MoA2H3 MoA2H3FM Run", "compound-token boundary (no strip)"],
+    ["MoA2H3 MoA2H3rd Birthday", "MoA2H3 MoA2H3rd Birthday", "alphanumeric boundary (no strip)"],
   ])("summary %j → title %j (%s)", (summary, expectedTitle) => {
     const result = buildRawEventFromGCalItem(
       testGCalEvent({

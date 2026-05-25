@@ -1,5 +1,31 @@
 import { describe, it, expect } from "vitest";
-import { parseSWH3Title, parseSWH3Body } from "./swh3";
+import { parseSWH3Title, parseSWH3Body, cleanTrailingPunct } from "./swh3";
+
+describe("cleanTrailingPunct (#1647)", () => {
+  it("strips trailing dash from 'SWH3 #1792-'", () => {
+    expect(cleanTrailingPunct("SWH3 #1792-")).toBe("SWH3 #1792");
+  });
+
+  it("strips trailing comma + spaces", () => {
+    expect(cleanTrailingPunct("SWH3 #1782, ")).toBe("SWH3 #1782");
+  });
+
+  it("strips trailing colon", () => {
+    expect(cleanTrailingPunct("Trail Name:")).toBe("Trail Name");
+  });
+
+  it("returns undefined for empty string", () => {
+    expect(cleanTrailingPunct("")).toBeUndefined();
+  });
+
+  it("returns undefined when input is only punctuation", () => {
+    expect(cleanTrailingPunct(" - ")).toBeUndefined();
+  });
+
+  it("preserves clean titles unchanged", () => {
+    expect(cleanTrailingPunct("Crispy Creamer Invasion")).toBe("Crispy Creamer Invasion");
+  });
+});
 
 describe("parseSWH3Title", () => {
   it("extracts run number and date from standard format", () => {

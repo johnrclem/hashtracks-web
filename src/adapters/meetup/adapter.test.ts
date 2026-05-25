@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { MeetupAdapter, extractApolloEvents, resolveVenue, isNumericId, dedupByDate, stripTrailingState, deduplicateWords, isStateFullName, buildRawEventFromApollo, extractHaresFromMeetupDescription } from "./adapter";
+import { MeetupAdapter, extractApolloEvents, resolveVenue, isNumericId, dedupByDate, stripTrailingState, deduplicateWords, isStateFullName, buildRawEventFromApollo, extractHaresFromMeetupDescription, cleanMeetupTitle } from "./adapter";
 import type { Source } from "@/generated/prisma/client";
 
 vi.mock("../safe-fetch", () => ({
@@ -1153,6 +1153,48 @@ describe("buildRawEventFromApollo — kennelPatterns", () => {
     };
     const event = buildRawEventFromApollo(ev as never, emptyState, "rch3");
     expect(event.hares).toBeUndefined();
+  });
+});
+
+// ── cleanMeetupTitle — trailing CTA strip (#1645 RH3 / #1646 TMFMH3) ──
+
+describe("cleanMeetupTitle", () => {
+  it.each([
+    // #1645 RH3 — "CLAIM THIS TRAIL" trailing placeholder
+    ["RH3 # 1698 CLAIM THIS TRAIL", "RH3 # 1698"],
+    ["RH3 # 1701 CLAIM THIS TRAIL", "RH3 # 1701"],
+    ["RH3 # 1703 CLAIM THIS TRAIL", "RH3 # 1703"],
+    // #1646 TMFMH3 — case + punctuation variant
+    ["TMFMH3 Trail 300: Claim this Trail!", "TMFMH3 Trail 300"],
+    // Other CTA forms covered by CTA_EMBEDDED_PATTERNS
+    ["Saturday Trail - Hares Needed", "Saturday Trail"],
+    ["Friday Run - Looking for a hare", "Friday Run"],
+    // Stacked trailing CTAs — iteration over CTA_EMBEDDED_PATTERNS strips
+    // each pass; trailing-connector cleanup runs once at the end.
+    ["Trail 300 - Hares Needed - Claim This Trail!", "Trail 300"],
+  ])("strips trailing CTA: %q → %q", (raw, expected) => {
+    expect(cleanMeetupTitle(raw)).toBe(expected);
+  });
+
+  it.each([
+    // Themed titles where CTA-shaped text appears mid-title legitimately must NOT be stripped
+    ["Hares Needed Hash Theme: Costume Night", "Hares Needed Hash Theme: Costume Night"],
+    ["Claim This Trail Anniversary Edition", "Claim This Trail Anniversary Edition"],
+    ["Saturday Trail", "Saturday Trail"],
+    ["MH3 Trail #1048 MAY DAY EVE IN VIZCAYA", "MH3 Trail #1048 MAY DAY EVE IN VIZCAYA"],
+  ])("preserves legitimate titles: %q", (raw, expected) => {
+    expect(cleanMeetupTitle(raw)).toBe(expected);
+  });
+
+  it("returns undefined for null/undefined/empty inputs", () => {
+    expect(cleanMeetupTitle(null)).toBeUndefined();
+    expect(cleanMeetupTitle(undefined)).toBeUndefined();
+    expect(cleanMeetupTitle("")).toBeUndefined();
+  });
+
+  it("returns undefined when title collapses to empty after strip", () => {
+    expect(cleanMeetupTitle("Hares Needed")).toBeUndefined();
+    expect(cleanMeetupTitle("CLAIM THIS TRAIL")).toBeUndefined();
   });
 });
 

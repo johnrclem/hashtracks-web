@@ -2436,6 +2436,12 @@ export const SOURCES = [
     },
     // ===== COLORADO =====
     // --- Denver H3 (Google Calendar) ---
+    // #1649 — Boulder Hash cross-posts BH3/Toga events to the Denver kennel
+    // calendar; without kennelPatterns every event blindly tagged as dh3-co
+    // (e.g. "BH3 #969 12th Anal Toga Hash" routed to Denver H3). Mirrors the
+    // Colorado H3 Aggregator pattern set below so BH3 / MiHiHuHa cross-posts
+    // route to their actual kennel; unmatched titles still fall back to
+    // defaultKennelTag = "dh3-co" (the host kennel's own runs).
     {
       name: "Denver H3 Google Calendar",
       url: "denverkennel@gmail.com",
@@ -2443,8 +2449,14 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "every_6h",
       scrapeDays: 90,
-      config: { defaultKennelTag: "dh3-co" },
-      kennelCodes: ["dh3-co"],
+      config: {
+        defaultKennelTag: "dh3-co",
+        kennelPatterns: [
+          ["Boulder H3|^BH3\\b", "bh3-co"],
+          ["MiHiHuHa|MiHiHUHa|Mile High Humpin", "mihi-huha"],
+        ],
+      },
+      kennelCodes: ["dh3-co", "bh3-co", "mihi-huha"],
     },
     // --- Mile High Humpin' Hash (Google Calendar) ---
     {

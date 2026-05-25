@@ -40,13 +40,16 @@ const DEFAULT_HARE_PATTERNS = [
   /(?:^|\n)[ \t]*WHO\s+ARE\s+THE\s+HARES?\s*:[ \t]*(.+?)(?=(?:WHO|WHAT|WHEN|WHERE|HOW)\s+\w+|\n|$)/im, // NOSONAR — non-greedy, bounded by literal lookahead alternation; description is trusted GCal field
   /(?:^|\n)[ \t]*Who\s*\(?(?:hares?)?\)?:[ \t]*(.*)/im,  // Who:, WHO (hares):, Who(hare):
   /(?:^|\n)[ \t]*Hare[ \t]+([A-Z*].+)/im,  // "Hare C*ck Swap" (no colon, name starts uppercase/special)
-  // Natural-language form (#1584 Austin H3 #2278): "Hares are Smegma Balls and
-  // Dry Hose." Line-anchored, with an explicit-uppercase guard so
-  // "Hares are getting ready" (lowercase next word, normal prose) does NOT
-  // match. The `[Hh]ares?` literal label avoids /i (which would let `[A-Z*]`
-  // also match lowercase). The lazy `.+?` plus a sentence-end lookahead
-  // bound the capture so we stop at the next sentence terminator or newline.
-  /(?:^|\n)[ \t]*[Hh]ares?\s+are\s+([A-Z*].+?)(?=[.!?](?:\s|$)|\n|$)/m,  // NOSONAR — bounded non-greedy, anchored to sentence/line end
+  // Natural-language form (#1584 Austin H3 #2278, #1615 mid-sentence follow-up):
+  // "Hares are Smegma Balls and Dry Hose." Anchored to start-of-line OR after a
+  // sentence terminator (period/exclam/question + whitespace) so forms like
+  // "Birthday Hash! Hares are Smegma Balls..." also match. Explicit-uppercase
+  // guard on the capture (`[A-Z*]`) keeps "The hares are bringing dogs" out;
+  // `HARES_ARE_PROSE_FIRST_WORD_RE` catches "Hares are Needed/Welcome/...".
+  // The `[Hh]ares?` literal label avoids /i (which would let `[A-Z*]` also
+  // match lowercase). The lazy `.+?` plus a sentence-end lookahead bound the
+  // capture so we stop at the next sentence terminator or newline.
+  /(?:^|\n|(?<=[.!?]\s))[ \t]*[Hh]ares?\s+are\s+([A-Z*].+?)(?=[.!?](?:\s|$)|\n|$)/m,  // NOSONAR — bounded non-greedy, anchored to sentence/line end
 ];
 /* eslint-enable */
 

@@ -29,6 +29,18 @@ interface WPComPost {
 }
 
 /**
+ * #1647 — strip trailing punctuation that survives the SWH3 title path. The
+ * raw WordPress heading is "SWH3 #1792- Sunday, May 24"; parseSWH3Title
+ * carves off the date portion ("Sunday, May 24") but the connector dash
+ * remains on the title side. When bodyFields has no trail name, the dashed
+ * remainder leaks through verbatim. Returns undefined when the whole input
+ * collapses to empty so the merge pipeline can synthesize a default title.
+ */
+export function cleanTrailingPunct(raw: string): string | undefined {
+  return raw.replace(/[\s,\-–—:]+$/, "").trim() || undefined;
+}
+
+/**
  * Parse SWH3 post title into run number and trail date.
  *
  * Observed formats:
@@ -211,11 +223,13 @@ function processPost(
   if (bodyFields.trailName) descParts.push(bodyFields.trailName);
   if (bodyFields.onAfter) descParts.push(`On-After: ${bodyFields.onAfter}`);
 
+  const title = cleanTrailingPunct(bodyFields.trailName || titleText);
+
   return {
     date,
     kennelTags: ["swh3"],
     runNumber: titleFields.runNumber,
-    title: bodyFields.trailName || titleText,
+    title,
     hares: bodyFields.hares,
     location,
     locationUrl,

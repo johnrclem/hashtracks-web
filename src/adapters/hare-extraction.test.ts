@@ -34,6 +34,13 @@ const EXPECTED_GROUPS: ExpectedGroup[] = [
       ["'Hares are X and Y' form", "Hares are Smegma Balls and Dry Hose. Pool party at the park.", "Smegma Balls and Dry Hose"],
       ["'Hares are X and Y' to end of line", "Some intro.\nHares are Alice and Bob\nLocation: Park", "Alice and Bob"],
       ["lowercase 'hares are X and Y'", "hares are Cool Beans and Banana Boat.", "Cool Beans and Banana Boat"],
+      // #1615 mid-sentence follow-up — Austin H3 publishes "...Birthday Hash! Hares are X..."
+      // after a sentence terminator (exclam/period/question + space). The line-start
+      // anchor in #1584 missed these. Lookbehind `(?<=[.!?]\s)` covers it. Capture
+      // still bounded by the next `[.!?]\s` / newline / end-of-string.
+      ["mid-sentence after exclamation", "Cookout - Birthday Hash! Hares are Smegma Balls and Dry Hose. Pool party after.", "Smegma Balls and Dry Hose"],
+      ["mid-sentence after period", "Welcome to the trail. Hares are Alice and Bob. Meet at 6pm.", "Alice and Bob"],
+      ["mid-sentence after question mark", "Ready for fun? Hares are Crusty Crab and Pearl. Bring water.", "Crusty Crab and Pearl"],
     ],
   },
   {
@@ -192,6 +199,11 @@ const UNDEFINED_GROUPS: UndefinedGroup[] = [
       // bars these; this confirms it.
       ["'Hares are getting ready'", "Hares are getting ready for the trail."],
       ["'Hares are running tomorrow'", "Hares are running tomorrow."],
+      // #1615 mid-sentence follow-up — denylist must still reject prose
+      // forms after a sentence terminator + space.
+      ["mid-sentence 'Hares are Needed'", "Sign up now! Hares are Needed for July."],
+      ["mid-sentence 'Hares are Welcome'", "Bring friends. Hares are Welcome to the pool party."],
+      ["mid-sentence lowercase 'the hares are bringing'", "Tonight the hares are bringing dogs and friends."],
     ],
   },
   {
