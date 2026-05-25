@@ -93,7 +93,7 @@ logbook + kennel directory.
 
 ## Important Files
 - `prisma/schema.prisma` — Full data model, 27 models + 20 enums (THE source of truth for types)
-- `prisma/seed.ts` — 193 kennels, 600 aliases, 111 sources, 97 regions (first-class model with hierarchy)
+- `prisma/seed.ts` — 430 kennels, 1660 aliases, 330 enabled sources (first-class model with hierarchy)
 - `prisma.config.ts` — Prisma 7 config (datasource URL, seed command)
 - `src/lib/db.ts` — PrismaClient singleton (PrismaPg adapter + SSL)
 - `src/lib/auth.ts` — `getOrCreateUser()` + `getAdminUser()` + `getMismanUser()` + `getRosterGroupId()` (Clerk→DB sync + admin/misman role checks)
@@ -503,7 +503,7 @@ See `docs/roadmap.md` for implementation roadmap.
 
 ## On-Demand Context
 Large reference lists are in `.claude/rules/`. They load automatically when you touch matching files:
-- `rules/active-sources.md` — 146 active data sources by region (loads for adapter/pipeline work)
+- `rules/active-sources.md` — 330 enabled data sources grouped by country and region (loads for adapter/pipeline work)
 - `rules/important-files.md` — 200+ file references by domain area
 - `rules/database.md` — Railway DB connection and Prisma workflow (loads for `prisma/*` and `.env*`)
 - `rules/nas-deployment.md` — NAS Docker deployment commands (loads for `infra/*`)
