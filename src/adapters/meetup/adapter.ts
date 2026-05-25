@@ -359,8 +359,7 @@ export function extractHaresFromMeetupDescription(
 // `CTA_EMBEDDED_PATTERNS` entry with a connector-punctuation prefix and `$`
 // anchor so only end-of-string CTAs strip ("Hares Needed Hash" stays intact).
 const TRAILING_CTA_RES = CTA_EMBEDDED_PATTERNS.map(
-  // nosemgrep: javascript.dos.rule-non-literal-regexp, detect-non-literal-regexp — source patterns are hard-coded literals in utils.ts
-  (re) => new RegExp(`[\\s.,!?:;\\-–—]*(?:${re.source})[\\s.,!?:;\\-–—]*$`, "i"), // NOSONAR — bounded char class + literal alternation source + `$` anchor
+  (re) => new RegExp(`[\\s.,!?:;\\-–—]*(?:${re.source})[\\s.,!?:;\\-–—]*$`, "i"), // nosemgrep // NOSONAR — source patterns are hard-coded literals in utils.ts; anchored to `$`
 );
 
 export function cleanMeetupTitle(raw: string | null | undefined): string | undefined {
