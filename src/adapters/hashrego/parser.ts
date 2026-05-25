@@ -431,7 +431,15 @@ export function splitToRawEvents(
   const lastDate = parsed.dates.at(-1);
   const hostKennelTag = parsed.hostKennelName || parsed.kennelSlug;
   const day1Code = parsed.perDayKennelCodes?.[0];
-  const needsSyntheticParent = day1Code !== undefined && day1Code !== hostKennelTag;
+  // Compare Day-1 override against the host kennel CODE (kennelSlug), not the
+  // display-name `hostKennelTag` (Codex/CodeRabbit P1, PR #1667). day1Code is
+  // a lowercase kennelCode from kennelPatterns ("ggfm", "nych3", …) whereas
+  // hostKennelTag is often a display name like "NYC H3" or an uppercase slug
+  // like "NYCH3". A direct string comparison would emit a spurious synthetic
+  // parent any time the patterns match the host kennel by name.
+  const hostKennelCode = parsed.kennelSlug.toLowerCase();
+  const needsSyntheticParent =
+    day1Code !== undefined && day1Code.toLowerCase() !== hostKennelCode;
 
   const buildChild = (date: string, i: number): RawEventData => {
     const dayLabel = `Day ${i + 1}`;
@@ -591,13 +599,18 @@ function extractPerDayStartTimes(description: string, dateCount: number): string
  *    needed for NYC H3 5-Boro Pub Crawl which numbers days by
  *    weekday name instead of `Day N`).
  *
- * Both regexes capture month + day in the same group positions (m[1] /
- * m[2]) so the caller treats them uniformly. The separator after the
- * leading token is `(?::|\s)` — exactly one colon-or-whitespace char —
- * then `\s*` for trailing whitespace. The original `\s*:?\s*` form had
- * overlapping `\s` quantifiers around an optional `:` that Sonar S5852
- * flagged as ReDoS-prone (memory `feedback_sonar_s5852_false_positives.md`);
- * the new form has no `\s*` adjacent to another `\s` quantifier.
+ * Both regexes share capture-group positions for month + day so the caller
+ * treats them uniformly:
+ *   - DAY_NUMBER_HEADER_RE: m[1] = month, m[2] = day
+ *   - WEEKDAY_HEADER_RE:    m[1] = weekday word (validated via WEEKDAY_NAMES),
+ *                            m[2] = month, m[3] = day
+ *
+ * The separator after the leading token is `(?::|\s)` — exactly one
+ * colon-or-whitespace char — then `\s*` for trailing whitespace. The
+ * original `\s*:?\s*` form had overlapping `\s` quantifiers around an
+ * optional `:` that Sonar S5852 flagged as ReDoS-prone (memory
+ * `feedback_sonar_s5852_false_positives.md`); this form has no `\s*`
+ * adjacent to another `\s` quantifier.
  *
  * **WEEKDAY_HEADER_RE is intentionally strict** (Codex review on PR D).
  * Hash Rego descriptions are user-authored prose, so an unanchored weekday
@@ -609,9 +622,26 @@ function extractPerDayStartTimes(description: string, dateCount: number): string
  * colon) after the M/D — the actual section-header shape used by NYC
  * 5-Boro and other Hash Rego campouts. The Day-form is more constrained
  * by its `Day N` literal, so it stays anchored on `\b`.
+ *
+ * **Two-step weekday matching** (Sonar S5843, Gemini review): the prior
+ * inline alternation `(?:MON(?:DAY)?|TUES?(?:DAY)?|WED(?:NESDAY)?|...)`
+ * pushed regex complexity to 32 (limit 20) AND silently dropped common
+ * three-letter abbreviations like `THU` and `TUE`. Capture a generic 3-9
+ * letter word and validate it against `WEEKDAY_NAMES` in JS — drops
+ * complexity to ~8 AND covers every common abbreviation
+ * (`MON|MONDAY|TUE|TUES|TUESDAY|WED|WEDNESDAY|THU|THUR|THURS|THURSDAY|FRI|FRIDAY|SAT|SATURDAY|SUN|SUNDAY`).
  */
 const DAY_NUMBER_HEADER_RE = /\bDay\s+\d{1,2}(?::|\s)\s*(\d{1,2})\/(\d{1,2})\b/gi;
-const WEEKDAY_HEADER_RE = /\*\*\s*(?:MON(?:DAY)?|TUES?(?:DAY)?|WED(?:NESDAY)?|THURS?(?:DAY)?|FRI(?:DAY)?|SAT(?:URDAY)?|SUN(?:DAY)?)(?::|\s)\s*(\d{1,2})\/(\d{1,2})\s*(?:[—–-]|:)/gi;
+const WEEKDAY_HEADER_RE = /\*\*\s*([A-Za-z]{3,9})(?::|\s)\s*(\d{1,2})\/(\d{1,2})\s*(?:[—–-]|:)/gi;
+const WEEKDAY_NAMES: ReadonlySet<string> = new Set([
+  "mon", "monday",
+  "tue", "tues", "tuesday",
+  "wed", "weds", "wednesday",
+  "thu", "thur", "thurs", "thursday",
+  "fri", "friday",
+  "sat", "saturday",
+  "sun", "sunday",
+]);
 
 /**
  * Parse per-day section headers from a Hash Rego event description (used
@@ -701,6 +731,37 @@ function matchPerDayKennel(
   return undefined;
 }
 
+/** Internal normalized header match — `month`/`day` regardless of source regex. */
+type HeaderMatch = { index: number; length: number; month: number; day: number };
+
+/**
+ * Normalize a regex match from either header regex into `HeaderMatch`. The
+ * two source regexes capture month/day in different group positions
+ * (DAY_NUMBER: m[1]/m[2]; WEEKDAY: m[2]/m[3] because m[1] is the weekday
+ * word). For WEEKDAY matches the captured word is also validated against
+ * `WEEKDAY_NAMES` — `\b[A-Za-z]{3,9}\b` is intentionally permissive so the
+ * regex stays under Sonar S5843 complexity, but only real weekday words
+ * (incl. common abbreviations like THU, TUE, THUR) should be accepted.
+ * Returns `null` for matches that fail validation.
+ */
+function normalizeHeaderMatch(
+  m: RegExpMatchArray,
+  shape: "day-number" | "weekday",
+): HeaderMatch | null {
+  const monthGroup = shape === "day-number" ? 1 : 2;
+  const dayGroup = shape === "day-number" ? 2 : 3;
+  if (shape === "weekday") {
+    const word = m[1]?.toLowerCase();
+    if (!word || !WEEKDAY_NAMES.has(word)) return null;
+  }
+  return {
+    index: m.index ?? 0,
+    length: m[0].length,
+    month: Number.parseInt(m[monthGroup], 10),
+    day: Number.parseInt(m[dayGroup], 10),
+  };
+}
+
 export function parseDayHeaderSections(
   description: string,
   startDateStr: string,
@@ -709,13 +770,18 @@ export function parseDayHeaderSections(
   const baseYear = Number.parseInt(startDateStr.split("-")[0], 10);
   if (!baseYear) return [];
 
-  // Match BOTH header shapes (Day N M/D AND Weekday M/D). Merge results,
-  // then walk in document order. Both regexes share capture-group
-  // positions (m[1] = month, m[2] = day) by construction.
-  const dayNumberMatches = [...description.matchAll(DAY_NUMBER_HEADER_RE)];
-  const weekdayMatches = [...description.matchAll(WEEKDAY_HEADER_RE)];
+  // Match BOTH header shapes (Day N M/D AND Weekday M/D). Normalize into a
+  // shared shape, drop weekday matches whose leading word isn't a real
+  // weekday name (the regex captures `[A-Za-z]{3,9}` — JS-side validation
+  // keeps complexity under Sonar S5843 while still rejecting random words).
+  const dayNumberMatches = [...description.matchAll(DAY_NUMBER_HEADER_RE)]
+    .map((m) => normalizeHeaderMatch(m, "day-number"))
+    .filter((m): m is HeaderMatch => m !== null);
+  const weekdayMatches = [...description.matchAll(WEEKDAY_HEADER_RE)]
+    .map((m) => normalizeHeaderMatch(m, "weekday"))
+    .filter((m): m is HeaderMatch => m !== null);
   const allMatches = [...dayNumberMatches, ...weekdayMatches]
-    .sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
+    .sort((a, b) => a.index - b.index);
   if (allMatches.length < 2) return [];
 
   const compiled = compileKennelPatterns(kennelPatterns);
@@ -727,19 +793,17 @@ export function parseDayHeaderSections(
   // still maps its 7:00 show / 10:00 show / 12:00 show times to the
   // right days (Codex P1 review on PR #1630).
   const entries: DayHeaderSection[] = allMatches.map((m, i) => {
-    const month = Number.parseInt(m[1], 10);
-    const day = Number.parseInt(m[2], 10);
-    const candidate = `${baseYear}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const candidate = `${baseYear}-${String(m.month).padStart(2, "0")}-${String(m.day).padStart(2, "0")}`;
     // Year-rollover: if the parsed M/D lands chronologically before the
     // event's anchor date, it must belong to the following year (the
     // anchor is always the event's earliest known day).
     const date = candidate < startDateStr
-      ? `${baseYear + 1}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+      ? `${baseYear + 1}-${String(m.month).padStart(2, "0")}-${String(m.day).padStart(2, "0")}`
       : candidate;
     // Slice between this header's end and the next header's start (or
     // end-of-description for the last header). Carries both the per-day
     // start time AND the per-day kennel pattern match.
-    const sliceStart = (m.index ?? 0) + m[0].length;
+    const sliceStart = m.index + m.length;
     const sliceEnd = allMatches[i + 1]?.index ?? description.length;
     const slice = description.slice(sliceStart, sliceEnd);
     const startTime = extractFirstTimeFromSlice(slice);

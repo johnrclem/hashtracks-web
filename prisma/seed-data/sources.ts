@@ -897,8 +897,9 @@ export const SOURCES = [
         kennelPatterns: [
           ["Greater Gotham", "ggfm"],
           ["GGFM", "ggfm"],
-          ["NYC\\s*H3", "nych3"],
-          ["NYCH3", "nych3"],
+          // `\s*` allows zero spaces so this also covers the no-space form
+          // "NYCH3" — no separate entry needed (Claude bot review).
+          [String.raw`NYC\s*H3`, "nych3"],
         ],
       },
     },

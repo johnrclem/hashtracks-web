@@ -876,8 +876,7 @@ const FIVE_BORO_2026_INDEX_ENTRY = {
 const FIVE_BORO_KENNEL_PATTERNS = [
   ["Greater Gotham", "ggfm"],
   ["GGFM", "ggfm"],
-  ["NYC\\s*H3", "nych3"],
-  ["NYCH3", "nych3"],
+  [String.raw`NYC\s*H3`, "nych3"],
 ] as const;
 
 describe("parseEventDetail + splitToRawEvents — 5-Boro 2026 weekday-form + per-day kennel (#1560 PR D)", () => {
@@ -982,6 +981,51 @@ describe("parseEventDetail + splitToRawEvents — 5-Boro 2026 weekday-form + per
     expect(events[0].seriesParent).toBe(true);
     expect(events[0].date).toBe("2026-06-26");
     expect(events.every((e) => e.kennelTags[0] === "NYCH3")).toBe(true);
+  });
+
+  // Codex/CodeRabbit P1 review (PR #1667) — when Day 1's per-day pattern
+  // matches the host kennel itself (e.g. NYCH3 section header on an NYCH3-
+  // hosted weekend), the comparison must compare kennelCODES, not the host
+  // display name. Otherwise the parser emits a spurious synthetic parent +
+  // duplicate Day 1 row.
+  it("does NOT emit synthetic parent when Day 1 override matches host kennelCode", () => {
+    // Synthetic fixture: NYCH3-hosted weekend whose Day 1 section happens
+    // to name NYCH3 directly. day1Code resolves to "nych3"; hostKennelCode
+    // also resolves to "nych3" (parsed.kennelSlug.toLowerCase()). The
+    // comparison must therefore be false → original 3-event Shape (1).
+    const NYCH3_DAY1_HTML = `
+      <html>
+        <head>
+          <meta property="og:title" content="6/26 NYCH3 Self-Hosted Weekend" />
+          <meta property="og:description" content='**FRIDAY 6/26 — NYCH3 opening trail**
+Manhattan kickoff.
+**SATURDAY 6/27 — Brooklyn shenanigans**
+Recovery day.' />
+        </head>
+        <body><a href="/kennels/NYCH3/">NYC H3</a></body>
+      </html>`;
+    const parsed = parseEventDetail(
+      NYCH3_DAY1_HTML,
+      "nych3-weekend",
+      {
+        slug: "nych3-weekend",
+        kennelSlug: "NYCH3",
+        title: "NYCH3 Self-Hosted Weekend",
+        startDate: "06/26/26",
+        startTime: "",
+        type: "Hash Weekend",
+        cost: "",
+      },
+      FIVE_BORO_KENNEL_PATTERNS,
+    );
+    // Day 1's kennelCode matches the host kennelCode → no synthetic parent.
+    expect(parsed.perDayKennelCodes?.[0]).toBe("nych3");
+    const events = splitToRawEvents(parsed, "nych3-weekend");
+    expect(events).toHaveLength(2); // Shape (1): Day 1 IS the parent.
+    expect(events[0].seriesParent).toBe(true);
+    expect(events[0].date).toBe("2026-06-26");
+    // No duplicate Day 1 row.
+    expect(events.filter((e) => e.date === "2026-06-26")).toHaveLength(1);
   });
 });
 
@@ -1241,8 +1285,7 @@ describe("parseDayHeaderSections", () => {
     const FIVE_BORO_PATTERNS = [
       ["Greater Gotham", "ggfm"],
       ["GGFM", "ggfm"],
-      ["NYC\\s*H3", "nych3"],
-      ["NYCH3", "nych3"],
+      [String.raw`NYC\s*H3`, "nych3"],
     ] as const;
 
     it("overrides Friday's kennelCode to ggfm when section text names GGFM", () => {

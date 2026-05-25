@@ -892,6 +892,55 @@ describe("markSFH3SeriesMembership (#1560)", () => {
     expect(umbrella.seriesParent).toBe(true);
   });
 
+  // CodeRabbit review on PR D — overlapping umbrellas disambiguation. Live
+  // SFH3 publishes one umbrella per weekend so this branch fires ~never,
+  // but defense-in-depth: if two umbrellas' date windows overlap, the
+  // trail's kennel-tag determines which umbrella wins. No kennel overlap →
+  // null (fail loud, don't silently re-parent the wrong trail).
+  it("disambiguates overlapping umbrellas by trail's kennel overlap", () => {
+    const sfh3Umbrella = buildUmbrella({
+      date: "2026-06-19",
+      endDate: "2026-06-21",
+      sourceUrl: "https://www.sfh3.com/events/133",
+      kennelTags: ["sfh3"],
+    });
+    const barh3Umbrella = buildUmbrella({
+      date: "2026-06-19",
+      endDate: "2026-06-21",
+      sourceUrl: "https://www.sfh3.com/events/201",
+      kennelTags: ["barh3"],
+    });
+    const barTrail = buildTrail({
+      date: "2026-06-20",
+      kennelTags: ["barh3"],
+      sourceUrl: "https://www.sfh3.com/runs/7010",
+    });
+    markSFH3SeriesMembership([barTrail, sfh3Umbrella, barh3Umbrella]);
+    expect(barTrail.seriesId).toBe("sfh3-event-201");
+  });
+
+  it("leaves trail untagged when overlapping umbrellas have no kennel overlap (fail loud)", () => {
+    const sfh3Umbrella = buildUmbrella({
+      date: "2026-06-19",
+      endDate: "2026-06-21",
+      sourceUrl: "https://www.sfh3.com/events/133",
+      kennelTags: ["sfh3"],
+    });
+    const barh3Umbrella = buildUmbrella({
+      date: "2026-06-19",
+      endDate: "2026-06-21",
+      sourceUrl: "https://www.sfh3.com/events/201",
+      kennelTags: ["barh3"],
+    });
+    const marinTrail = buildTrail({
+      date: "2026-06-20",
+      kennelTags: ["marinh3"], // neither umbrella's kennel
+      sourceUrl: "https://www.sfh3.com/runs/7011",
+    });
+    markSFH3SeriesMembership([marinTrail, sfh3Umbrella, barh3Umbrella]);
+    expect(marinTrail.seriesId).toBeUndefined();
+  });
+
   it("attaches co-hosted umbrella's trails for EACH co-host kennel", () => {
     const cohostedUmbrella = buildUmbrella({ kennelTags: ["sfh3", "barh3"] });
     const sfh3Trail = buildTrail({ date: "2026-05-15", kennelTags: ["sfh3"] });
