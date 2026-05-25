@@ -802,10 +802,26 @@ export function parseDayHeaderSections(
   // right days (Codex P1 review on PR #1630).
   const entries: DayHeaderSection[] = allMatches.map((m, i) => {
     const candidate = `${baseYear}-${String(m.month).padStart(2, "0")}-${String(m.day).padStart(2, "0")}`;
-    // Year-rollover: if the parsed M/D lands chronologically before the
-    // event's anchor date, it must belong to the following year (the
-    // anchor is always the event's earliest known day).
-    const date = candidate < startDateStr
+    // Year-rollover heuristic: only bump to the following year when the
+    // parsed M/D is **far enough before** the anchor date that it can't
+    // plausibly be earlier in the same event.
+    //
+    // Original rule (PR B #1630) was "any candidate < anchor → year+1",
+    // assuming the anchor is the event's earliest day. That broke when
+    // Hash Rego's index startDate is the MAIN event day (Saturday) instead
+    // of the kickoff (Friday) — verified against prod for the NYC 5-Boro
+    // Pub Crawl 2026 (index startDate 6/27, description says 6/26/6/27/6/28).
+    // Friday's `6/26` was wrongly bumped to 2027, scattering the series.
+    //
+    // 90-day gate: NYE campouts (12/31 → 1/1) have a calendar gap of ~365
+    // days when treated as same-year (1/1 minus 12/31 = -364 in same-year),
+    // so the bump fires. Within-month admin off-by-one days (6/26 vs 6/27)
+    // have a gap of ~1 day — stays in the same year.
+    const YEAR_BUMP_GAP_DAYS = 90;
+    const candidateMs = Date.parse(`${candidate}T00:00:00Z`);
+    const anchorMs = Date.parse(`${startDateStr}T00:00:00Z`);
+    const daysBeforeAnchor = (anchorMs - candidateMs) / (1000 * 60 * 60 * 24);
+    const date = daysBeforeAnchor > YEAR_BUMP_GAP_DAYS
       ? `${baseYear + 1}-${String(m.month).padStart(2, "0")}-${String(m.day).padStart(2, "0")}`
       : candidate;
     // Slice between this header's end and the next header's start (or

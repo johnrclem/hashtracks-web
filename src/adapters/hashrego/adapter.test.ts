@@ -1172,6 +1172,24 @@ describe("parseDayHeaderSections", () => {
       anchor: "2026-12-30",
       expected: ["2026-12-30", "2026-12-31", "2027-01-01", "2027-01-02"],
     },
+    {
+      // Prod validation finding post-PR D (#1667): Hash Rego registered NYC
+      // 5-Boro Pub Crawl 2026 with index startDate `6/27/26` (Saturday — the
+      // main pub-crawl day), NOT `6/26/26` (Friday — the kickoff). The
+      // pre-#1668 year-rollover heuristic ("any candidate < anchor → year+1")
+      // wrongly promoted Friday's `6/26` to 2027. The 90-day gap guard
+      // ensures within-month admin off-by-one days stay in the same year.
+      label: "5-Boro 2026: Friday 6/26 stays in 2026 when anchor is Saturday 6/27",
+      desc: "**FRIDAY 6/26 — GGFM trail**\n**SATURDAY 6/27 — Pub Crawl**\n**SUNDAY 6/28 — Watch Party**",
+      anchor: "2026-06-27",
+      expected: ["2026-06-26", "2026-06-27", "2026-06-28"],
+    },
+    {
+      label: "60-day gap stays in same year (not far enough for year bump)",
+      desc: "**DAY 1 1/1 —** January start\n**DAY 2 2/15 —** Feb middle",
+      anchor: "2026-02-15", // ~45 days before 2/15
+      expected: ["2026-01-01", "2026-02-15"],
+    },
   ])("$label", ({ desc, anchor, expected }) => {
     expect(parseDayHeaderSections(desc, anchor).map((e) => e.date)).toEqual(expected);
   });
