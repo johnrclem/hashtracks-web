@@ -1,5 +1,5 @@
 export const KENNEL_ALIASES: Record<string, string[]> = {
-    "nych3": ["NYC", "HashNYC", "NYC Hash", "NYCH3", "New York Hash", "NYC H3"],
+    "nych3": ["NYC", "HashNYC", "NYC Hash", "NYCH3", "New York Hash", "NYC H3", "New York City Hash House Harriers"],
     "boh3": ["Boston", "BH3", "BoH3", "Boston Hash"],
     "brh3": ["Brooklyn", "BrH3", "Brooklyn Hash", "Brooklyn H3"],
     "bobbh3": ["Ballbuster", "BoBBH3", "Boston Ballbuster", "Ballbuster Hash", "B3H4", "Boston Ballbuster Hardcore", "Boston Ballbuster H4"],
