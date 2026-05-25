@@ -234,25 +234,56 @@ function collectSFH3Umbrellas(events: RawEventData[]): SFH3Umbrella[] {
 }
 
 /**
- * Resolve the first umbrella whose window matches a trail's `(kennel, date)`.
- * Returns `null` if the trail isn't in any umbrella's window. `umbrellas` is
- * expected to be pre-sorted by `collectSFH3Umbrellas`. Plain-string `<` / `>`
- * comparisons are safe for YYYY-MM-DD date strings.
+ * Resolve the first umbrella whose window matches a trail's date. Returns
+ * `null` if the trail isn't in any umbrella's date window. `umbrellas` is
+ * expected to be pre-sorted by `collectSFH3Umbrellas` (earliest start +
+ * lowest `/events/N` id tiebreaker).
+ *
+ * Plain-string `<` / `>` comparisons are safe for YYYY-MM-DD date strings.
+ *
+ * #1560 PR D — the previous version also required `trailTags ∩ umbrella.kennelTags
+ * ≠ ∅` (`sharesKennel`). That rejected BAWC5-style weekends where the umbrella
+ * VEVENT is tagged with the host kennel `["sfh3"]` but the actual weekend
+ * trails happen at sibling Bay Area kennels (`marinh3`, `svh3`, `gph3`,
+ * `fhac-u`, `ebh3` — verified against prod RawEvent rows for the Jun 19-21
+ * BAWC5 2026 weekend). The SFH3 iCal feed is already pre-scoped to SF Bay
+ * kennels via `kennels=all` so any `/runs/M` in an umbrella's date window is
+ * by construction a participating sibling. Dropping the filter unlocks the
+ * full series-parent + sibling-kennel-children rendering on `/kennels/sfh3`.
+ *
+ * **Overlap disambiguation** (Codex review on PR D): if two umbrellas'
+ * date windows overlap on the trail's date, fall back to kennel-overlap as
+ * a discriminator. This protects against the edge case where a regular
+ * trail happens to share dates with a campout AND a second umbrella (e.g.
+ * an Interhash registration window that overlaps SFH3's weekly cadence).
+ * Single-umbrella matches stay unconditional (the BAWC5 / Bay 2 Blackout
+ * happy path). Ambiguous matches with no kennel overlap return `null` and
+ * fail loud rather than silently re-parent the wrong trail.
+ *
+ * Real-world SFH3 publishes one umbrella per weekend, so the disambiguation
+ * branch fires ~never; this is purely defense in depth.
  */
 function findUmbrellaForTrail(
   trail: RawEventData,
   umbrellas: SFH3Umbrella[],
 ): SFH3Umbrella | null {
-  const trailTags = trail.kennelTags.map((t) => t.toLowerCase());
+  const candidates: SFH3Umbrella[] = [];
   for (const u of umbrellas) {
-    const sharesKennel = trailTags.some((t) => u.kennelTags.includes(t));
-    if (!sharesKennel) continue;
     const windowStart = u.event.date;
     const windowEnd = u.event.endDate ?? u.event.date;
     if (trail.date < windowStart || trail.date > windowEnd) continue;
-    return u;
+    candidates.push(u);
   }
-  return null;
+  if (candidates.length === 0) return null;
+  if (candidates.length === 1) return candidates[0];
+
+  // Multiple overlapping umbrellas — disambiguate by kennel overlap.
+  // Lowercase both sides so `["SFH3"]` from iCal matches `["sfh3"]` from HTML.
+  const trailTags = new Set(trail.kennelTags.map((t) => t.toLowerCase()));
+  const matched = candidates.find((u) =>
+    u.event.kennelTags.some((t) => trailTags.has(t.toLowerCase())),
+  );
+  return matched ?? null;
 }
 
 /**

@@ -16,6 +16,7 @@ import {
   parseHashRegoDate,
   parseHashRegoTime,
   type IndexEntry,
+  type KennelPatternConfig,
 } from "./parser";
 import {
   fetchKennelEvents,
@@ -57,6 +58,12 @@ export class HashRegoAdapter implements SourceAdapter {
       return { events: [], errors: ["No kennel slugs provided — check SourceKennel.externalSlug is populated for this source"] };
     }
     const kennelSlugs = new Set(slugList.map((s) => s.toUpperCase()));
+
+    // Per-day kennel-attribution patterns from source config (PR D.5). Used
+    // by the multi-day section parser to override a child day's kennelTag
+    // when the section text names a sibling kennel (e.g. NYC 5-Boro's Friday
+    // section names "GGFM Strawberry Moon Trail" → `ggfm`).
+    const kennelPatterns = readKennelPatterns(source);
 
     const events: RawEventData[] = [];
     const errors: string[] = [];
@@ -203,7 +210,7 @@ export class HashRegoAdapter implements SourceAdapter {
       }
       const batch = matchingEntries.slice(i, i + BATCH_SIZE);
       const results = await Promise.allSettled(
-        batch.map((entry) => fetchAndParseDetail(entry, errors, errorDetails)),
+        batch.map((entry) => fetchAndParseDetail(entry, errors, errorDetails, kennelPatterns)),
       );
       for (const result of results) {
         detailPagesFetched++;
@@ -259,6 +266,7 @@ async function fetchAndParseDetail(
   entry: IndexEntry,
   errors: string[],
   errorDetails: ErrorDetails,
+  kennelPatterns: KennelPatternConfig | undefined,
 ): Promise<RawEventData[]> {
   try {
     const detailUrl = eventDetailUrl(entry.slug);
@@ -275,7 +283,7 @@ async function fetchAndParseDetail(
     }
 
     const detailHtml = await detailRes.text();
-    const parsed = parseEventDetail(detailHtml, entry.slug, entry);
+    const parsed = parseEventDetail(detailHtml, entry.slug, entry, kennelPatterns);
     return splitToRawEvents(parsed, entry.slug);
   } catch (err) {
     // Use the same string in both errors[] and ParseError.error so AI
@@ -431,6 +439,31 @@ async function fetchAndConvertKennelEvents(
   });
 
   return { kind: "ok", entries, rowParseErrors };
+}
+
+/**
+ * Read per-day kennel-attribution patterns from `Source.config.kennelPatterns`
+ * (PR D.5). Stored as `[regexSource, kennelCode]` string tuples in JSON so the
+ * column type is plain `Json`. Returns `undefined` when absent or malformed
+ * (fail-soft: a bad config shouldn't break the whole scrape — the default
+ * host-kennel attribution still works).
+ */
+function readKennelPatterns(source: Source): KennelPatternConfig | undefined {
+  const config = source.config as { kennelPatterns?: unknown } | null;
+  const raw = config?.kennelPatterns;
+  if (!Array.isArray(raw)) return undefined;
+  const valid: Array<readonly [string, string]> = [];
+  for (const tuple of raw) {
+    if (
+      Array.isArray(tuple) &&
+      tuple.length === 2 &&
+      typeof tuple[0] === "string" &&
+      typeof tuple[1] === "string"
+    ) {
+      valid.push([tuple[0], tuple[1]] as const);
+    }
+  }
+  return valid.length > 0 ? valid : undefined;
 }
 
 /**

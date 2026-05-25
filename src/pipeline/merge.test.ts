@@ -4297,21 +4297,42 @@ describe("linkMultiDaySeries (#1560)", () => {
     expect(restoreUpdate).toBeDefined();
   });
 
-  it("skips linking for groups with only one event (umbrella-only or single-child)", async () => {
+  it("standalone umbrella with explicit seriesParent: true gets isSeriesParent: true (PR D follow-up)", async () => {
+    // PR D validation finding: prod showed 5 events with `endDate` set but
+    // 0 series parents. Root cause was `linkOneSeries` early-returning on
+    // size-1 groups, dropping the `seriesParent: true` flag on the floor.
+    // MadisonH3-style standalone weekend campouts + SFH3 umbrellas with no
+    // in-window sibling trails both need this promotion path.
     primeFreshCreate(["evt_alone"]);
-    // No post-link findMany should run — linkMultiDaySeries early-exits on length<2.
     await processRawEvents("src_1", [
       buildRawEvent({ date: "2026-07-04", seriesId: "lonely-umbrella", seriesParent: true }),
     ]);
 
-    // No event should have parentEventId set; no updateMany call from the linker.
+    // No child linking — there are no children.
     const childLinking = vi.mocked(prisma.event.updateMany).mock.calls.find(
       ([args]) => (args as { data?: { parentEventId?: unknown } }).data?.parentEventId !== undefined,
     );
     expect(childLinking).toBeUndefined();
-    // No isSeriesParent flag flip either — the raw's seriesParent flag alone
-    // doesn't promote a single-event series (UI degrades gracefully to a
-    // standalone date-range card via Event.endDate).
+
+    // BUT the umbrella itself gets `isSeriesParent: true` so the UI renders
+    // the parent-card treatment (tent glyph + date-range marquee).
+    const parentFlip = mockEventUpdate.mock.calls.find(
+      ([args]) => (args as { where?: { id?: string } }).where?.id === "evt_alone"
+        && (args as { data?: { isSeriesParent?: boolean } }).data?.isSeriesParent === true,
+    );
+    expect(parentFlip).toBeDefined();
+  });
+
+  it("single-child group WITHOUT an explicit parent stays unlinked (no spurious promotion)", async () => {
+    // Hash Rego-style fallback: per-day rows from a single registration
+    // with seriesId but no `seriesParent` flag. If only one such raw lands
+    // (a one-day "weekend" — adapter bug or first-day-of-multiday race),
+    // we must NOT promote it. Earliest-by-date promotion requires ≥2.
+    primeFreshCreate(["evt_orphan"]);
+    await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-07-04", seriesId: "lonely-no-flag" }),
+    ]);
+
     const parentFlip = mockEventUpdate.mock.calls.find(
       ([args]) => (args as { data?: { isSeriesParent?: boolean } }).data?.isSeriesParent === true,
     );

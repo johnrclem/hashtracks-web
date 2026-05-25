@@ -874,11 +874,33 @@ export const SOURCES = [
       // the source-kennel guard. The detail page hostKennelName is
       // "Motown/Ann Arbor H3" — added as an alias in `aliases.ts` so the
       // kennel resolver maps it to moa2h3.
-      kennelCodes: ["bfm", "ewh3", "wh4", "gfh3", "ch3", "dch4", "dcfmh3", "fch3", "oh3", "wsh3", "mrh3", "bfh3", "moa2h3"],
+      //
+      // #1560 PR D — added `nych3` + `ggfm` for the NYC H3 5-Boro Pub Crawl
+      // (Jun 26-28). NYCH3 hosts the umbrella event + Sat/Sun trails; GGFM
+      // hosts the Friday "Strawberry Moon" trail referenced in the
+      // umbrella's `**FRIDAY 6/26 —**` section header. Per-day kennel
+      // attribution from section text routes Friday to ggfm while
+      // Sat/Sun stay at nych3 (the host kennel for the umbrella).
+      kennelCodes: ["bfm", "ewh3", "wh4", "gfh3", "ch3", "dch4", "dcfmh3", "fch3", "oh3", "wsh3", "mrh3", "bfh3", "moa2h3", "nych3", "ggfm"],
       kennelSlugMap: {
         bfm: "BFMH3", ewh3: "EWH3", wh4: "WH4", gfh3: "GFH3",
         ch3: "CH3", dch4: "DCH4", dcfmh3: "DCFMH3", fch3: "FCH3", oh3: "OregonH3",
         wsh3: "WSH3", mrh3: "MRH3", bfh3: "BFH3", moa2h3: "MoA2H3",
+        nych3: "NYCH3", ggfm: "GGFM",
+      },
+      // Per-day kennel attribution config (PR D.5). Patterns matched
+      // against each day's section text in a multi-day event's
+      // description. First-match-wins; falls back to host kennel when
+      // no pattern matches. Patterns are stored as `[regexSource, code]`
+      // tuples (case-insensitive). Lands on `Source.config.kennelPatterns`.
+      config: {
+        kennelPatterns: [
+          ["Greater Gotham", "ggfm"],
+          ["GGFM", "ggfm"],
+          // `\s*` allows zero spaces so this also covers the no-space form
+          // "NYCH3" — no separate entry needed (Claude bot review).
+          [String.raw`NYC\s*H3`, "nych3"],
+        ],
       },
     },
     // ===== TEXAS =====

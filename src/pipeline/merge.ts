@@ -1801,11 +1801,27 @@ async function cascadeSeriesCancellation(
  * rows, pick a parent, write the parent/child links, then run the
  * cancellation cascade. Helpers above keep `linkMultiDaySeries` itself
  * under Sonar's cognitive-complexity threshold.
+ *
+ * Group-of-one with an explicit parent: when a single RawEvent in this
+ * group set `seriesParent: true` (SFH3-style umbrella with no in-window
+ * sibling trails, MadisonH3-style standalone weekend campout) we still
+ * promote that Event to `isSeriesParent: true` so the UI renders the
+ * date-range parent card. The size-≥2 path stays for normal parent/child
+ * linking. Without this, post-scrape prod state showed 0 series parents
+ * despite 5 events carrying `endDate` (PR D validation finding).
  */
 async function linkOneSeries(members: SeriesMember[]): Promise<void> {
-  if (members.length < 2) return;
   const unique = dedupeSeriesMembers(members);
-  if (unique.length < 2) return;
+  if (unique.length === 0) return;
+
+  // Standalone umbrella (no children): promote the explicit parent in
+  // place and skip the cancellation cascade (no children to cascade from).
+  if (unique.length === 1) {
+    const sole = unique[0];
+    if (!sole.isExplicitParent) return;
+    await writeSeriesLinks(sole.eventId, []);
+    return;
+  }
 
   const seriesEvents = await prisma.event.findMany({
     where: { id: { in: unique.map(m => m.eventId) } },

@@ -843,16 +843,102 @@ describe("markSFH3SeriesMembership (#1560)", () => {
     expect(events[1].seriesId).toBeUndefined();
   });
 
-  it("does not tag a same-date trail from a different kennel as a series sibling", () => {
-    const otherKennelTrail = buildTrail({
+  // PR D.2 (#1560) — sibling-kennel trails in window DO get linked. The SFH3
+  // iCal feed is pre-filtered to SF Bay kennels via `kennels=all`, so any
+  // `/runs/N` trail inside an umbrella's `[date, endDate]` window IS a
+  // participating sibling — regardless of kennel tag. BAWC5 (June 19–21) is
+  // the canonical real-world case: umbrella is SFH3, children are MarinH3 /
+  // SVH3 / EBH3 trails. Before PR D the `sharesKennel` filter rejected them
+  // and the trails rendered as 3 unrelated standalone cards.
+  it("tags sibling-kennel trails inside the umbrella's window (PR D.2 / BAWC5 fix)", () => {
+    const siblingTrail = buildTrail({
       date: "2026-05-15",
       kennelTags: ["gph3"],
       sourceUrl: "https://www.sfh3.com/runs/6500",
     });
-    const events = [otherKennelTrail, buildUmbrella()];
+    const events = [siblingTrail, buildUmbrella()];
     markSFH3SeriesMembership(events);
-    expect(otherKennelTrail.seriesId).toBeUndefined();
+    expect(siblingTrail.seriesId).toBe("sfh3-event-134");
     expect(events[1].seriesId).toBe("sfh3-event-134");
+  });
+
+  it("tags BAWC5-style 3-sibling-kennel weekend (MarinH3 / SVH3 / EBH3) under SFH3 umbrella", () => {
+    const umbrella = buildUmbrella({
+      date: "2026-06-19",
+      endDate: "2026-06-21",
+      sourceUrl: "https://www.sfh3.com/events/133",
+      title: "Fifth Anal Bay Area Weekend Campout (BAWC5)",
+      kennelTags: ["sfh3"],
+    });
+    const friday = buildTrail({
+      date: "2026-06-19",
+      kennelTags: ["marinh3"],
+      sourceUrl: "https://www.sfh3.com/runs/7001",
+    });
+    const saturday = buildTrail({
+      date: "2026-06-20",
+      kennelTags: ["svh3"],
+      sourceUrl: "https://www.sfh3.com/runs/7002",
+    });
+    const sunday = buildTrail({
+      date: "2026-06-21",
+      kennelTags: ["ebh3"],
+      sourceUrl: "https://www.sfh3.com/runs/7003",
+    });
+    markSFH3SeriesMembership([friday, saturday, sunday, umbrella]);
+    expect([friday.seriesId, saturday.seriesId, sunday.seriesId]).toEqual([
+      "sfh3-event-133", "sfh3-event-133", "sfh3-event-133",
+    ]);
+    expect(umbrella.seriesParent).toBe(true);
+  });
+
+  // CodeRabbit review on PR D — overlapping umbrellas disambiguation. Live
+  // SFH3 publishes one umbrella per weekend so this branch fires ~never,
+  // but defense-in-depth: if two umbrellas' date windows overlap, the
+  // trail's kennel-tag determines which umbrella wins. No kennel overlap →
+  // null (fail loud, don't silently re-parent the wrong trail).
+  it("disambiguates overlapping umbrellas by trail's kennel overlap", () => {
+    const sfh3Umbrella = buildUmbrella({
+      date: "2026-06-19",
+      endDate: "2026-06-21",
+      sourceUrl: "https://www.sfh3.com/events/133",
+      kennelTags: ["sfh3"],
+    });
+    const barh3Umbrella = buildUmbrella({
+      date: "2026-06-19",
+      endDate: "2026-06-21",
+      sourceUrl: "https://www.sfh3.com/events/201",
+      kennelTags: ["barh3"],
+    });
+    const barTrail = buildTrail({
+      date: "2026-06-20",
+      kennelTags: ["barh3"],
+      sourceUrl: "https://www.sfh3.com/runs/7010",
+    });
+    markSFH3SeriesMembership([barTrail, sfh3Umbrella, barh3Umbrella]);
+    expect(barTrail.seriesId).toBe("sfh3-event-201");
+  });
+
+  it("leaves trail untagged when overlapping umbrellas have no kennel overlap (fail loud)", () => {
+    const sfh3Umbrella = buildUmbrella({
+      date: "2026-06-19",
+      endDate: "2026-06-21",
+      sourceUrl: "https://www.sfh3.com/events/133",
+      kennelTags: ["sfh3"],
+    });
+    const barh3Umbrella = buildUmbrella({
+      date: "2026-06-19",
+      endDate: "2026-06-21",
+      sourceUrl: "https://www.sfh3.com/events/201",
+      kennelTags: ["barh3"],
+    });
+    const marinTrail = buildTrail({
+      date: "2026-06-20",
+      kennelTags: ["marinh3"], // neither umbrella's kennel
+      sourceUrl: "https://www.sfh3.com/runs/7011",
+    });
+    markSFH3SeriesMembership([marinTrail, sfh3Umbrella, barh3Umbrella]);
+    expect(marinTrail.seriesId).toBeUndefined();
   });
 
   it("attaches co-hosted umbrella's trails for EACH co-host kennel", () => {

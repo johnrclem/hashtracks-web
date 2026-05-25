@@ -9,6 +9,20 @@ import { safeFetch } from "../safe-fetch";
 
 // Kennel regex patterns — LONGER strings before shorter substrings
 // Output values are kennelCodes (immutable identifiers), not shortNames
+//
+// `Special` resolves to `nych3` (#1560 PR D) rather than to a pseudo-kennel
+// — `Special` is a hashnyc.com SECTION HEADING (not a kennel name), and the
+// previous emit `special-nyc` didn't resolve to any registered Kennel, so
+// 100% of matched raws stayed `processed: false, eventId: null` (orphaned
+// in the merge pipeline — verified against prod). Funnelling into `nych3`
+// (the NYC-wide host that publishes these events) lets them land canonical
+// Events on the NYCH3 kennel page where users actually expect them.
+// `Drinking Practice` keeps its own kennel `drinking-practice-nyc` — that
+// kennel IS seeded with aliases `[Drinking Practice, NYC Drinking Practice,
+// NYC DP, DP]` and resolution works. If hashnyc later attributes Special
+// rows to specific kennels (e.g. "Train Spike H3 — 5-Boro"), add a more
+// specific pattern ABOVE the `Special` catch-all; the order is
+// longest-substring-first by convention.
 const KENNEL_PATTERNS: [RegExp, string][] = [
   [/Knickerbocker/i, "knick"],
   [/Queens Black Knights/i, "qbk"],
@@ -30,7 +44,7 @@ const KENNEL_PATTERNS: [RegExp, string][] = [
   [/SI\b/i, "si"],
   [/NYC(?:H3)?/i, "nych3"],
   [/Queens/i, "qbk"],
-  [/Special/i, "special-nyc"],
+  [/Special/i, "nych3"],
 ];
 
 // Pre-compiled patterns derived from KENNEL_PATTERNS (avoid per-call RegExp construction)
