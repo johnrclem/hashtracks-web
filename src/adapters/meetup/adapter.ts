@@ -359,7 +359,7 @@ export function extractHaresFromMeetupDescription(
 // `CTA_EMBEDDED_PATTERNS` entry with a connector-punctuation prefix and `$`
 // anchor so only end-of-string CTAs strip ("Hares Needed Hash" stays intact).
 const TRAILING_CTA_RES = CTA_EMBEDDED_PATTERNS.map(
-  // eslint-disable-next-line -- security/detect-non-literal-regexp + security-node/non-literal-reg-expr (Codacy ESLint plugins not loaded locally); source patterns are hard-coded literals in utils.ts. NOSONAR S7724 — rule names omitted because the plugins aren't loaded locally; naming them errors as "rule not found"
+  // eslint-disable-next-line -- security/detect-non-literal-regexp + security-node/non-literal-reg-expr; source patterns are hard-coded literals in utils.ts. Rule names omitted because the Codacy security plugins aren't loaded locally and naming them errors as "rule not found". // NOSONAR S7724
   (re) => new RegExp(`[\\s.,!?:;\\-–—]*(?:${re.source})[\\s.,!?:;\\-–—]*$`, "i"), // NOSONAR — bounded char class + literal alternation source + `$` anchor
 );
 
