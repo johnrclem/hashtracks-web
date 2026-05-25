@@ -1115,8 +1115,8 @@ export function buildRawEventFromGCalItem(
   // tokens (e.g. "BH3 BH3FM" must not collapse to "BH3FM"). Capture group
   // `$1` preserves the typed casing of the first occurrence.
   if (sourceConfig?.stripDoubledKennelPrefix && kennelTag) {
-    const tagEsc = kennelTag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    // eslint-disable-next-line -- security/detect-non-literal-regexp + security-node/non-literal-reg-expr (Codacy ESLint plugins not loaded locally); `tagEsc` is regex-escaped from the source config's kennelTag string
+    const tagEsc = kennelTag.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+    // eslint-disable-next-line -- security/detect-non-literal-regexp + security-node/non-literal-reg-expr (Codacy ESLint plugins not loaded locally); `tagEsc` is regex-escaped from the source config's kennelTag string. NOSONAR S7724 — rule names omitted because the plugins aren't loaded locally; naming them errors as "rule not found"
     const doubled = new RegExp(`^(${tagEsc})\\s+${tagEsc}(?=\\s|$)`, "iu"); // NOSONAR — escaped kennelTag (alphanumeric in practice), anchored, bounded by lookahead
     title = title.replace(doubled, "$1").trim();
   }

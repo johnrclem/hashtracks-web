@@ -2456,8 +2456,8 @@ export const SOURCES = [
         // H3 area for joint trail") doesn't mis-route to bh3-co. `(?!\w)`
         // (negative lookahead) excludes compound tokens like "BH3FM".
         kennelPatterns: [
-          ["^(?:Boulder H3|BH3)(?!\\w)", "bh3-co"],
-          ["^(?:MiHiHuHa|MiHiHUHa|Mile High Humpin)\\b", "mihi-huha"],
+          [String.raw`^(?:Boulder H3|BH3)(?!\w)`, "bh3-co"],
+          [String.raw`^(?:MiHiHuHa|MiHiHUHa|Mile High Humpin)\b`, "mihi-huha"],
         ],
       },
       kennelCodes: ["dh3-co", "bh3-co", "mihi-huha"],
