@@ -1106,17 +1106,18 @@ export function buildRawEventFromGCalItem(
   // only handles "<kennelCode> Trail #N" patterns, not free-form titles.
   // Gated on per-source config to avoid rewriting legitimate "X X News"
   // titles where the kennelCode happens to be a common word.
+  //
+  // #1653 — original literal-space `startsWith(`${tag} ${tag} `)` check
+  // missed whitespace variants the source side sometimes types (NBSP,
+  // double-space, tab). Switched to a regex with `\s+` and the `u` flag so
+  // Unicode whitespace (NBSP / em-space / ideographic space) all qualify.
+  // The trailing `(?=\s|$)` boundary prevents stripping inside compound
+  // tokens (e.g. "BH3 BH3FM" must not collapse to "BH3FM"). Capture group
+  // `$1` preserves the typed casing of the first occurrence.
   if (sourceConfig?.stripDoubledKennelPrefix && kennelTag) {
-    const tagLen = kennelTag.length;
-    const tagLc = kennelTag.toLowerCase();
-    const lc = title.toLowerCase();
-    const doubledLen = tagLen * 2 + 1; // "<tag> <tag>"
-    // Match exact doubled prefix OR doubled prefix followed by a space + rest.
-    if (lc.startsWith(`${tagLc} ${tagLc}`) && (title.length === doubledLen || title[doubledLen] === " ")) {
-      // Keep the first occurrence (preserves typed casing), drop the
-      // second and the separator space.
-      title = (title.slice(0, tagLen) + title.slice(doubledLen)).trim();
-    }
+    const tagEsc = kennelTag.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+    const doubled = new RegExp(String.raw`^(${tagEsc})\s+${tagEsc}(?=\s|$)`, "iu"); // nosemgrep // NOSONAR — `tagEsc` is regex-escaped from kennelTag; anchored, bounded by lookahead
+    title = title.replace(doubled, "$1").trim();
   }
   // Stale-default detection: equality is whitespace-insensitive so a SUMMARY
   // of "4X2 H4" still matches kennelTag "4x2h4".

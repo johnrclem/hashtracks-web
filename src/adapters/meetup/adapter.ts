@@ -2,7 +2,7 @@ import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
-import { validateSourceConfig, stripHtmlTags, buildDateWindow, extractHashRunNumber, HARE_BOILERPLATE_RE } from "../utils";
+import { validateSourceConfig, stripHtmlTags, buildDateWindow, extractHashRunNumber, HARE_BOILERPLATE_RE, CTA_EMBEDDED_PATTERNS } from "../utils";
 import { safeFetch } from "../safe-fetch";
 import { extractHares as extractHaresFromDescription } from "../hare-extraction";
 
@@ -344,6 +344,47 @@ export function extractHaresFromMeetupDescription(
   return undefined;
 }
 
+/**
+ * Strip CTA boilerplate ("CLAIM THIS TRAIL", "Hares Needed", "Looking for a
+ * hare", etc.) from the trailing end of a Meetup title and trim dangling
+ * punctuation left by the strip. The Meetup adapter previously shipped titles
+ * verbatim; RVA's RH3 (#1645) and TMFMH3 (#1646) used trailing CTAs as
+ * placeholder text. Strip is anchored to end-of-string only — mid-title CTA
+ * tokens are likely legitimate theme names ("Hares Needed Hash") and stay
+ * intact. Returns undefined when the strip empties the title so merge.ts
+ * synthesizes a default. Source list is the shared `CTA_EMBEDDED_PATTERNS`
+ * from `utils.ts` — already includes /\bclaim\s+this\s+trail\b/i from #1549.
+ */
+// Trailing-CTA regexes — precompiled once at module load. Each wraps a
+// `CTA_EMBEDDED_PATTERNS` entry with a connector-punctuation prefix and `$`
+// anchor so only end-of-string CTAs strip ("Hares Needed Hash" stays intact).
+const TRAILING_CTA_RES = CTA_EMBEDDED_PATTERNS.map(
+  (re) => new RegExp(String.raw`[\s.,!?:;\-–—]*(?:${re.source})[\s.,!?:;\-–—]*$`, "i"), // nosemgrep // NOSONAR — source patterns are hard-coded literals in utils.ts; anchored to `$`
+);
+
+export function cleanMeetupTitle(raw: string | null | undefined): string | undefined {
+  if (!raw) return undefined;
+  // Stacked CTAs ("Trail 300 - Hares Needed - Claim This Trail!") need
+  // multiple passes — each iteration peels one trailing CTA until stable.
+  // Hard iteration cap (10) defends against a hypothetical future zero-width
+  // CTA pattern that would otherwise spin the loop forever.
+  let t = raw;
+  let changed = true;
+  for (let pass = 0; pass < 10 && changed; pass++) {
+    changed = false;
+    for (const trailing of TRAILING_CTA_RES) {
+      const next = t.replace(trailing, "");
+      if (next !== t) {
+        t = next;
+        changed = true;
+      }
+    }
+  }
+  // Sweep leftover connectors (colon, hyphen, comma). Excludes `!` and `?`
+  // so genuine "Saturday Trail!" / "Why?" titles keep their terminator.
+  return t.replace(/[\s,:\-–—]+$/, "").trim() || undefined; // NOSONAR S5852 — single char class + `+` anchored to `$`, linear in input length
+}
+
 /** Build a RawEventData from an Apollo event entry. */
 export function buildRawEventFromApollo(
   ev: ApolloEvent,
@@ -390,7 +431,7 @@ export function buildRawEventFromApollo(
   return {
     date,
     kennelTags: [resolvedKennelTag],
-    title: ev.title || undefined,
+    title: cleanMeetupTitle(ev.title),
     runNumber: extractRunNumber ? extractHashRunNumber(ev.title) : undefined,
     description: cleanedDesc,
     hares,

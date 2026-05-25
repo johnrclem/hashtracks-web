@@ -1903,6 +1903,18 @@ describe("sanitizeTitle", () => {
     expect(sanitizeTitle("Trail Name <foo@bar.com> details")).toBe("Trail Name details");
   });
 
+  // #1647 — SWH3 WordPress headings are "SWH3 #NNNN- Sunday, Month DD". The
+  // trailing-day-of-week strip in sanitizeTitle removes the date portion but
+  // previously left the connector dash orphaned. Followup strip sweeps it.
+  it.each([
+    ["SWH3 #1792- Sunday, May 24", "SWH3 #1792"],
+    ["SWH3 #1782- Saturday, March 14", "SWH3 #1782"],
+    ["SWH3 #1779, Sunday, Feb 22", "SWH3 #1779"],
+    ["Trail Name - Sunday, May 24", "Trail Name"],
+  ])("strips orphan connector punct after trailing date: %j → %j (#1647)", (input, expected) => {
+    expect(sanitizeTitle(input)).toBe(expected);
+  });
+
   it("returns null for undefined", () => {
     expect(sanitizeTitle(undefined)).toBeNull();
   });
