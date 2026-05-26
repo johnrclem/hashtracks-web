@@ -3059,15 +3059,11 @@ export const SOURCES = [
     // Munich Full Moon (Path B sibling — same shared sheet, groupFilter routes
     // Group="MFMH3" rows to mfmh3). #1591 follow-up to #1542/#1576: previous
     // cycle blocked MFMH3 rows off mh3-de via `groupFilter: "MH3"`; this row
-    // gives the displaced kennel a real source.
-    //
-    // Run-number column intentionally omitted. The shared sheet's # column is
-    // empty on ~12/13 MFMH3 rows; `resolveKennelTagFromSheetRow` returns null
-    // when columns.runNumber is configured but the cell is empty, which would
-    // drop those 12 rows. Trade-off: lose the 1 explicit number (e.g. #264
-    // Pink Moon) in exchange for keeping every MFMH3 event. Tracked for
-    // follow-up: relax the resolver to fall through to default tag with
-    // undefined runNumber when the cell is empty.
+    // gives the displaced kennel a real source. #1657: `columns.runNumber: 0`
+    // is now safe — `resolveKennelTagFromSheetRow` falls through to
+    // `runNumber: undefined` when the cell is empty (#1625), so the 12
+    // unnumbered MFMH3 rows still ingest and the one explicit number
+    // (#264 Pink Moon) is no longer silently lost.
     {
       name: "Munich Full Moon H3 Hareline Sheet",
       url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtbizBGgic04azrTshlhcpRolA73yaiIijIFUSV0Gq7gU7KKchGWl0JRPHeIYspoq1PAx5XlyLTBfr/pub",
@@ -3078,7 +3074,7 @@ export const SOURCES = [
       config: {
         sheetId: "anonymous",
         csvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtbizBGgic04azrTshlhcpRolA73yaiIijIFUSV0Gq7gU7KKchGWl0JRPHeIYspoq1PAx5XlyLTBfr/pub?output=csv&gid=2100367947",
-        columns: { date: 1, hares: 4, location: 5, description: 6, startTime: 3, group: 2 },
+        columns: { runNumber: 0, date: 1, hares: 4, location: 5, description: 6, startTime: 3, group: 2 },
         groupFilter: "MFMH3",
         kennelTagRules: { default: "mfmh3" },
       },

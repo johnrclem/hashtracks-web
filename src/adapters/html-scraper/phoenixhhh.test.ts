@@ -6,6 +6,7 @@ import {
   parseEventFromItem,
   PHOENIX_HARE_PATTERNS,
   PhoenixHHHAdapter,
+  extractVenueFromDescription,
 } from "./phoenixhhh";
 import { extractHashRunNumber } from "../utils";
 import { extractHares } from "../hare-extraction";
@@ -350,6 +351,23 @@ describe("hare extraction", () => {
     expect(event!.hares).toBe("Desert Rat");
   });
 
+  // #1651 — Wrong Way descriptions occasionally collapse to a single line
+  // with no `<p>` boundary between labeled fields. The hare-pattern
+  // terminator must stop at `Bring:` (and friends), not just `Who:` /
+  // `What:` etc. — otherwise haresText trails into the rest of the body.
+  it("stops hare capture at Bring: in single-line description (#1651)", () => {
+    const single = "Hares: Probably you! Bring: H20, a whistle, and head(!)lamp. Beer on trail is provided.";
+    expect(extractHares(single, PHOENIX_HARE_PATTERNS as RegExp[])).toBe("Probably you!");
+  });
+
+  it("stops hare capture at Cost: / Hash Cash: / Location: / Start: (#1651)", () => {
+    expect(extractHares("Hares: Foo Bar Hash Cash: $5", PHOENIX_HARE_PATTERNS as RegExp[])).toBe("Foo Bar");
+    expect(extractHares("Hares: Foo Bar Cost: free", PHOENIX_HARE_PATTERNS as RegExp[])).toBe("Foo Bar");
+    expect(extractHares("Hares: Foo Bar Location: Park", PHOENIX_HARE_PATTERNS as RegExp[])).toBe("Foo Bar");
+    expect(extractHares("Hares: Foo Bar Start: 6:30pm", PHOENIX_HARE_PATTERNS as RegExp[])).toBe("Foo Bar");
+    expect(extractHares("Hares: Foo Bar On On: Pub", PHOENIX_HARE_PATTERNS as RegExp[])).toBe("Foo Bar");
+  });
+
   it("returns undefined when no hares in description", () => {
     const $ = cheerio.load(SAMPLE_EVENT_FDTDD);
     const $item = $(".em-item").first();
@@ -357,6 +375,85 @@ describe("hare extraction", () => {
     const event = parseEventFromItem($item, $, DEFAULT_CONFIG, compiled);
 
     expect(event!.hares).toBeUndefined();
+  });
+});
+
+// ── Venue extraction from description (#1651) ──
+
+describe("extractVenueFromDescription (#1651)", () => {
+  it("extracts venue from `Location: <venue>` single line", () => {
+    expect(extractVenueFromDescription("Hares: Foo Bar\nLocation: Roses by the Stairs Brewing\nStart: 7pm"))
+      .toBe("Roses by the Stairs Brewing");
+  });
+
+  it("extracts venue from bare `Location` label on its own line", () => {
+    expect(extractVenueFromDescription("Hares: Foo Bar\nLocation\nRoses by the Stairs Brewing\n"))
+      .toBe("Roses by the Stairs Brewing");
+  });
+
+  it("extracts venue from `Location:\\n<venue>` (colon on label line, value on next line)", () => {
+    // Shape between Shape 1 and Shape 2: colon sits on the label line but
+    // no value follows on the same line. Pre-Codex-review-fix neither
+    // regex matched this; now Shape 2's optional `:?` covers it.
+    expect(extractVenueFromDescription("Hares: Foo Bar\nLocation:\nRoses by the Stairs Brewing"))
+      .toBe("Roses by the Stairs Brewing");
+  });
+
+  it("returns undefined when no Location label", () => {
+    expect(extractVenueFromDescription("Hares: Foo Bar\nHash Cash: $5")).toBeUndefined();
+  });
+
+  it("returns undefined when Location is followed by a blank line", () => {
+    // A bare `Location` label followed by a blank line (then content) has no
+    // adjacent venue on the next line — Shape 2's `\n([^\n]+)` requires a
+    // non-newline char immediately after the label-line newline.
+    expect(extractVenueFromDescription("Location\n\nNext block")).toBeUndefined();
+  });
+
+  it("returns undefined when ONLY a `Location:` label appears with no following non-blank line", () => {
+    // Trailing-only label, end of description.
+    expect(extractVenueFromDescription("Hares: Foo\nLocation:")).toBeUndefined();
+    expect(extractVenueFromDescription("Hares: Foo\nLocation: ")).toBeUndefined();
+  });
+});
+
+describe("parseEventFromItem — prefers description venue over city meta (#1651)", () => {
+  it("uses Location: <venue> from description over generic city meta", () => {
+    const html = `
+      <div class="em-item em-event">
+        <div class="em-item-image"></div>
+        <div class="em-item-meta-line em-event-date">Saturday - 03/07/2026</div>
+        <div class="em-item-meta-line em-event-time">2:00 pm</div>
+        <div class="em-item-meta-line em-event-location">Phoenix</div>
+        <div class="em-item-desc">
+          <p>Hares: Probably you!</p>
+          <p>Bring: H20, a whistle</p>
+          <p>Location: Roses by the Stairs Brewing</p>
+        </div>
+        <a class="em-item-read-more" href="/?event=wrong-way">Read More</a>
+      </div>`;
+    const $ = cheerio.load(html);
+    const $item = $(".em-item").first();
+    const compiled = makeCompiledPatterns(DEFAULT_CONFIG);
+    const event = parseEventFromItem($item, $, DEFAULT_CONFIG, compiled);
+
+    expect(event!.location).toBe("Roses by the Stairs Brewing");
+    expect(event!.hares).toBe("Probably you!");
+  });
+
+  it("falls back to meta-line city when description has no Location label", () => {
+    const html = `
+      <div class="em-item em-event">
+        <div class="em-item-meta-line em-event-date">Saturday - 03/07/2026</div>
+        <div class="em-item-meta-line em-event-location">Tempe Town Lake Park</div>
+        <div class="em-item-desc"><p>Hare: Foo</p></div>
+      </div>`;
+    const $ = cheerio.load(html);
+    const $item = $(".em-item").first();
+    const compiled = makeCompiledPatterns(DEFAULT_CONFIG);
+    const event = parseEventFromItem($item, $, DEFAULT_CONFIG, compiled);
+
+    expect(event!.location).toBe("Tempe Town Lake Park");
   });
 });
 

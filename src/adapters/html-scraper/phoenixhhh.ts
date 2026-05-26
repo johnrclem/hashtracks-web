@@ -47,12 +47,63 @@ export const PHOENIX_HARE_PATTERNS: readonly RegExp[] = [
   // S5852 false-positive — Sonar flags `\s*` near alternation; engine
   // anchored to finite label set + character-class exclusion (`[^\n"”…]+?`)
   // makes catastrophic backtracking impossible.
-  /\bWith\s+your\s+Hares?\s*(?:\(s\))?\s*:\s*([^\n"”…]+?)(?=\s*(?:Who|What|When|Where|Wear|Why|How|Theme)\s*:|["”…]|\.{3}|\n|$)/i, // NOSONAR S5852
+  //
+  // #1651: Wrong Way descriptions occasionally collapse to a single line with
+  // no `<p>` boundary, so "Hares: Probably you!Bring: H20…" appears verbatim.
+  // The terminator set now also includes the body-text labels that follow the
+  // hare line (Bring, Cost, Hash Cash, Location, Start, On On, On-after) so
+  // the capture stops at "Bring:" instead of trailing into the description.
+  /\bWith\s+your\s+Hares?\s*(?:\(s\))?\s*:\s*([^\n"”…]+?)(?=\s*(?:Who|What|When|Where|Wear|Why|How|Theme|Bring|Cost|Hash\s*Cash|Location|Start|On[\s-]?[OAoa]n|On[\s-]?after)\s*:|["”…]|\.{3}|\n|$)/i, // NOSONAR S5852
   // Standard `Hare:` / `Hares:` / `Hare(s):` — anchored to line start OR a
   // sentence boundary so list-view excerpts like "…Harriers!!! Hare(s): …"
   // resolve before detail-page enrichment lands.
-  /(?:^|\n|[.!;]\s+)Hares?\s*(?:\(s\))?\s*:\s*([^\n"”…]+?)(?=\s*(?:Who|What|When|Where|Wear|Why|How|Theme)\s*:|["”…]|\.{3}|\n|$)/i, // NOSONAR S5852
+  /(?:^|\n|[.!;]\s+)Hares?\s*(?:\(s\))?\s*:\s*([^\n"”…]+?)(?=\s*(?:Who|What|When|Where|Wear|Why|How|Theme|Bring|Cost|Hash\s*Cash|Location|Start|On[\s-]?[OAoa]n|On[\s-]?after)\s*:|["”…]|\.{3}|\n|$)/i, // NOSONAR S5852
 ];
+
+/**
+ * Extract a venue string from a Phoenix HHH description block when the
+ * scribe embeds a `Location: <venue>` line. The Big Ass Calendar's
+ * `.em-event-location` meta line frequently carries only a city name
+ * ("Phoenix") while the actual venue lives in the description body
+ * (#1651 — Wrong Way's "Roses by the Stairs Brewing").
+ *
+ * Two shapes are accepted:
+ *   1. `Location: <venue>` on a single line.
+ *   2. `Location` on its own line, with `<venue>` on the next non-empty
+ *      line — common when scribes paste from a WYSIWYG and the colon
+ *      ends up on the label line.
+ *
+ * Stops at the next labeled section, the next blank line, or a
+ * sentence-final punctuation followed by whitespace. Returns undefined
+ * when no usable venue line is found so the caller can fall back to the
+ * meta-line value.
+ *
+ * Exported for unit testing.
+ */
+export function extractVenueFromDescription(description: string): string | undefined {
+  // Shape 1: `Location: <venue>` — single line. Anchor the colon variant
+  // first because shape 2's bare-label regex would also match a colon-
+  // suffixed label if its terminator slipped onto the next line.
+  // Use horizontal whitespace `[ \t]*` after the colon so an empty
+  // `Location:   \nNext line` doesn't slurp the following line as the
+  // venue.
+  const colonMatch = /(?:^|\n)[ \t]*Location[ \t]*:[ \t]*([^\n]+)/i.exec(description);
+  if (colonMatch) {
+    const value = colonMatch[1].trim();
+    if (value) return value;
+  }
+  // Shape 2: bare `Location` label (optional trailing colon) on its own
+  // line, then `<venue>` on the next non-empty line. The optional `:?`
+  // covers the `Location:\n<venue>` shape where the colon stays on the
+  // label line — Shape 1 fails on that because there's no non-newline
+  // char after the colon to capture.
+  const labelMatch = /(?:^|\n)[ \t]*Location[ \t]*:?[ \t]*\n([^\n]+)/i.exec(description);
+  if (labelMatch) {
+    const value = labelMatch[1].trim();
+    if (value) return value;
+  }
+  return undefined;
+}
 
 /** Detail-page extraction result. Null fields mean "missing on the page"
  *  (adapter falls back to list-view values). */
@@ -171,11 +222,20 @@ export function parseEventFromItem(
   // Location — try link text first, fall back to plain text in meta line
   const locationMeta = $item.find(".em-item-meta-line.em-event-location");
   const locationLink = locationMeta.find("a");
-  const location = (locationLink.length > 0 ? locationLink.text().trim() : locationMeta.text().trim()) || undefined;
+  const metaLocation = (locationLink.length > 0 ? locationLink.text().trim() : locationMeta.text().trim()) || undefined;
 
   // Description
   const descHtml = $item.find(".em-item-desc").html() ?? "";
   const description = stripHtmlTags(descHtml, "\n").trim() || undefined;
+
+  // #1651: prefer a specific venue from the description's "Location:" block
+  // over the meta-line value when the meta is just a city/area name. Wrong
+  // Way's list-view location is often "Phoenix" while the description
+  // carries the actual venue ("Roses by the Stairs Brewing"). Two shapes
+  // covered: `Location: <venue>` on the same line, and a bare `Location\n
+  // <venue>` block where the label sits on its own line.
+  const venue = description ? extractVenueFromDescription(description) : undefined;
+  const location = venue ?? metaLocation;
 
   // List-view fallback (post-loop detail fetch usually overrides this).
   // Phoenix-scoped patterns omit the generic `Who:` catchall — see #1472.

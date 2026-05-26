@@ -1515,6 +1515,29 @@ async function upsertCanonicalEvent(
       }
       if (!existingEvent.startTime && event.startTime) {
         enrichData.startTime = event.startTime;
+        // #1654: keep dateUtc in sync with the newly-enriched startTime.
+        // When the higher-trust primary lacks a startTime, dateUtc is
+        // initially set to noon-UTC (the eventDate fallback) and the upper
+        // branch's "dateUtc intentionally NOT updated here" comment keeps
+        // that stable on enrichment for non-time fields. But the moment we
+        // backfill startTime, the noon-UTC anchor goes stale: the hareline
+        // card formats `dateUtc` directly via formatTimeInZone (renders the
+        // noon value), while the detail panel recomposes from startTime+tz
+        // and renders the real time — producing the SeaMon Trail #556
+        // card/detail mismatch (card 5:00 AM PDT vs. detail 5:30 PM PDT).
+        // Recompose here so both render paths agree.
+        const enrichedComposed = composeUtcStart(eventDate, event.startTime, timezone);
+        if (enrichedComposed) {
+          enrichData.dateUtc = enrichedComposed;
+          // Always write timezone alongside dateUtc so the two stay in sync
+          // (the upper full-update branch at ~L1434 does the same). If a
+          // stale region->timezone mapping persisted on the canonical Event,
+          // the recompose above anchored dateUtc to the *current*
+          // regionTimezone(region) value, so leaving an out-of-date timezone
+          // string would silently fork dateUtc and Event.timezone apart —
+          // exactly the same data-layer divergence #1654 fixes.
+          enrichData.timezone = timezone;
+        }
       }
       // #890 — fill the trail-length bundle when the canonical event has
       // it unset, so a higher-trust primary that lacks these fields

@@ -249,10 +249,19 @@ export function extractEvents(
     }
   }
 
-  // Parse Future Dates section if present
+  // Parse Future Dates section if present.
+  //
+  // #1641: the Future Dates section is a glance-summary; structured Hash
+  // blocks above are canonical for any date they cover. Without this guard
+  // the adapter emits a second phantom event for the same date with hares
+  // like "available" or "reserved", which then competes with the structured
+  // event in the merge pipeline (run #2347 → "Hare: no volunteer" got
+  // overwritten by "May 23 - available" in prod).
   if (futureDatesText) {
     try {
-      const futureEvents = parseFutureDates(futureDatesText, sourceUrl);
+      const structuredDates = new Set(events.map((e) => e.date));
+      const futureEvents = parseFutureDates(futureDatesText, sourceUrl)
+        .filter((e) => !structuredDates.has(e.date));
       events.push(...futureEvents);
     } catch (err) {
       errors.push({

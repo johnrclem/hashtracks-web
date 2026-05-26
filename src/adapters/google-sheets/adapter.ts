@@ -512,13 +512,14 @@ function resolveKennelTagFromSheetRow(
       runNumber: Number.parseInt(runNumberCell, 10),
     };
   }
-  // No runNumber column configured: row validity is gated entirely by the
-  // date column (already filtered upstream in processRows), so emit the row
-  // with the default kennelTag and a null runNumber.
-  if (config.columns.runNumber == null) {
-    return { kennelTag: config.kennelTagRules.default, runNumber: undefined };
-  }
-  return null;
+  // Either the runNumber column is unconfigured, or it's configured but the
+  // cell is empty / non-numeric. In both cases the date column has already
+  // validated the row upstream in processRows, so emit with the default
+  // kennelTag and an undefined runNumber rather than dropping the row.
+  // (#1625) Empty-# rows like MASS H3's 5th Birthday (#1639) and MFMH3's
+  // 12-of-13 unnumbered rows (#1657) used to fall through here and get
+  // silently filtered.
+  return { kennelTag: config.kennelTagRules.default, runNumber: undefined };
 }
 
 /**

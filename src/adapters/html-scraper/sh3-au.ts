@@ -52,12 +52,78 @@ function captureLabel(text: string, re: RegExp): string | undefined {
 }
 
 /**
- * Strip the "CLICK HERE FOR MAP" sentinel that the editors append to the
- * Start field. Returns undefined when the residual is empty.
+ * Strip the "CLICK HERE FOR MAP" anchor text that the editors embed inline
+ * inside the Start field, then tidy stray separators. Returns undefined when
+ * the residual is empty.
+ *
+ * #1650: the previous implementation used `\bCLICK...\b.*$/i` which failed
+ * on two production shapes:
+ *   1. `"…Pennant HillsCLICK HERE FOR MAP…"` — there is no `\b` between two
+ *      word characters (`s` → `C`), so the sentinel survived intact.
+ *   2. `"…Pennant Hills CLICK HERE FOR MAP, Pennant Hills, NSW"` — `.*$`
+ *      swallowed the valid city/state suffix after the link.
+ * The replacement uses anchor-text-only stripping with whitespace + dangling
+ * separator cleanup so address detail downstream of the link survives.
  */
 function cleanStart(raw: string | undefined): string | undefined {
   if (!raw) return undefined;
-  const cleaned = raw.replace(/\bCLICK\s*HERE\s*FOR\s*MAP\b.*$/i, "").trim();
+  const cleaned = raw
+    .replace(/CLICK\s*HERE\s*FOR\s*MAP/gi, "")
+    .replace(/\s+/g, " ")
+    .replace(/\s+,/g, ",")
+    .replace(/^[\s,]+|[\s,]+$/g, "");
+  return cleaned || undefined;
+}
+
+/**
+ * Sanitize the captured Hares field by stripping inline URLs and the
+ * promotional lead-in some scribes append to the same line (#1644). The
+ * Sydney H3 editors often paste a JotForm shirt-order link on the line
+ * immediately under `Hares:` — after `text()` collapses the paragraph the
+ * promo trails the hare name with no obvious boundary.
+ *
+ * Heuristic: find the earliest truncation point and chop from there:
+ *  - any `http(s)://…` URL token (always a promo signal in this position)
+ *  - explicit two-word promo phrases (`Special Tshirt`, `Order here`,
+ *    `Buy here`) that pair a promo modifier with a context word — `T-Shirt
+ *    Bandit` as a hare name survives because there's no following promo
+ *    modifier.
+ *
+ * Implemented procedurally with `indexOf` + `Math.min` instead of a single
+ * regex with leading `\s*` adjacent to alternation, which trips Sonar's
+ * S5852 ReDoS heuristic (Memory feedback_sonar_s5852_procedural_over_regex).
+ */
+const SH3_PROMO_PHRASES = [
+  "Special Tshirt",
+  "Special T-shirt",
+  "Special T Shirt",
+  "Order here",
+  "Buy here",
+];
+const SH3_URL_RE = /https?:\/\/\S+/i;
+
+function findFirstPromoIndex(text: string): number {
+  let best = -1;
+  const lower = text.toLowerCase();
+  for (const phrase of SH3_PROMO_PHRASES) {
+    const idx = lower.indexOf(phrase.toLowerCase());
+    if (idx !== -1 && (best === -1 || idx < best)) best = idx;
+  }
+  const urlMatch = SH3_URL_RE.exec(text);
+  if (urlMatch && (best === -1 || urlMatch.index < best)) best = urlMatch.index;
+  return best;
+}
+
+const TRAILING_PUNCT = new Set(["-", "–", "—", " "]);
+
+function cleanHares(raw: string | undefined): string | undefined {
+  if (!raw) return undefined;
+  const cutoff = findFirstPromoIndex(raw);
+  let cleaned = (cutoff !== -1 ? raw.slice(0, cutoff) : raw).trimEnd();
+  // Collapse trailing punctuation left behind by truncation (en-dash, hyphen).
+  while (cleaned.length > 0 && TRAILING_PUNCT.has(cleaned[cleaned.length - 1])) {
+    cleaned = cleaned.slice(0, -1).trimEnd();
+  }
   return cleaned || undefined;
 }
 
@@ -87,7 +153,7 @@ export function parseSh3Paragraph(
   const date = chronoParseDate(dateField, "en-GB", referenceDate, { forwardDate: true });
   if (!date) return null;
 
-  const hares = captureLabel(text, HARES_RE);
+  const hares = cleanHares(captureLabel(text, HARES_RE));
   const start = cleanStart(captureLabel(text, START_RE));
   const onOn = captureLabel(text, ON_ON_RE);
 
@@ -95,7 +161,7 @@ export function parseSh3Paragraph(
     date,
     kennelTags: [KENNEL_TAG],
     runNumber,
-    hares: hares || undefined,
+    hares,
     location: start,
     description: onOn,
     sourceUrl,

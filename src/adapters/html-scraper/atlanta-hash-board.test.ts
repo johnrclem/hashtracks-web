@@ -275,6 +275,55 @@ describe("extractEventFields", () => {
     const fields = extractEventFields(body);
     expect(fields.startTime).toBe(expected);
   });
+
+  // ── #1640: Pinelake markdown bold/italic asterisks + time-as-location bug ──
+
+  it("strips markdown ** asterisks from hares (#1640 Pinelake)", () => {
+    const fields = extractEventFields("Hares: ** *Debbie Does Digits*<br>Start: bankhead station");
+    expect(fields.hares).toBe("Debbie Does Digits");
+  });
+
+  it("strips ** asterisks from location values (#1640)", () => {
+    const fields = extractEventFields("Where: **Piedmont Park**<br>");
+    expect(fields.location).toBe("Piedmont Park");
+  });
+
+  it("promotes time-only Start: value to startTime — lowercase 'pm' (#1640 case-insensitivity)", () => {
+    // Mixed-case scribes are common; TIME_ONLY_RE must be case-insensitive
+    // to match parse12HourTime's contract.
+    const fields = extractEventFields(
+      "Hares: Foo<br>Start: ** 2:15 pm<br>Location: Park",
+    );
+    expect(fields.startTime).toBe("14:15");
+    expect(fields.location).toBe("Park");
+  });
+
+  it("promotes time-only Start: value to startTime, not location (#1640 Pinelake)", () => {
+    // Source body shape from the Pinelake post (issue #1640 evidence):
+    // Hares: ** *Debbie Does Digits*
+    // Start: ** 1:30 PM
+    // Location: bankhead station
+    const fields = extractEventFields(
+      "Hares: ** *Debbie Does Digits*<br>Start: ** 1:30 PM<br>Location: bankhead station",
+    );
+    expect(fields.hares).toBe("Debbie Does Digits");
+    expect(fields.startTime).toBe("13:30");
+    expect(fields.location).toBe("bankhead station");
+  });
+
+  it("leaves location undefined when only a time-only Start: is present (#1640)", () => {
+    const fields = extractEventFields("Start: ** 1:30 PM");
+    expect(fields.startTime).toBe("13:30");
+    expect(fields.location).toBeUndefined();
+  });
+
+  it("non-time Start: value still flows to location for other Atlanta kennels (regression)", () => {
+    // The existing "extracts location with Start prefix" test covers the
+    // common path; this asserts the demote-time-only branch hasn't broken it.
+    const fields = extractEventFields("Start: Lake City, GA -- Parking lot");
+    expect(fields.location).toBe("Lake City, GA -- Parking lot");
+    expect(fields.startTime).toBeUndefined();
+  });
 });
 
 // ── stripPhpBbBanners ──
