@@ -103,6 +103,13 @@ export type HarelineEvent = {
    */
   isSeriesParent?: boolean | null;
   parentEventId?: string | null;
+  /**
+   * Slim parent record for children, used by the back-link copy
+   * (`"Part of {parentEvent.title}"` — PR E.5). The hareline list query
+   * + the umbrella detail page both `select` `parentEvent: { id, title }`
+   * when present. Undefined on non-children.
+   */
+  parentEvent?: { id: string; title: string | null } | null;
   endDate?: string | null; // ISO; null = single-day
   childEvents?: HarelineSeriesChild[];
 };

@@ -49,6 +49,15 @@ export interface ParsedEvent {
    * `splitToRawEvents` falls back to the host kennel for those days.
    */
   perDayKennelCodes?: ReadonlyArray<string | undefined>;
+  /**
+   * Per-day section-header title (PR E.1). Pulled from the text AFTER the
+   * `WEEKDAY/Day N M/D` delimiter on the same line (`**FRIDAY 6/26 — GGFM
+   * Strawberry Moon Trail**` → "GGFM Strawberry Moon Trail"). Aligned with
+   * `dates` by index. Entries are `undefined` when the slice has no title
+   * after the delimiter; `splitToRawEvents` falls back to
+   * `"${title} (Day N)"` for those days (the pre-E.1 behavior).
+   */
+  perDayTitles?: ReadonlyArray<string | undefined>;
 }
 
 /**
@@ -219,7 +228,7 @@ export function parseEventDetail(
   const locationUrl = descLocationUrl || domLocation.mapsUrl;
 
   // Parse dates from the description or index entry
-  const { dates, startTimes, isMultiDay, endDate, perDayKennelCodes } = extractDates(
+  const { dates, startTimes, isMultiDay, endDate, perDayKennelCodes, perDayTitles } = extractDates(
     rawDescription,
     indexEntry,
     title,
@@ -244,6 +253,7 @@ export function parseEventDetail(
     isMultiDay,
     endDate,
     perDayKennelCodes,
+    perDayTitles,
   };
 }
 
@@ -444,10 +454,17 @@ export function splitToRawEvents(
   const buildChild = (date: string, i: number): RawEventData => {
     const dayLabel = `Day ${i + 1}`;
     const perDayCode = parsed.perDayKennelCodes?.[i];
+    // PR E.1: prefer the section-header title from the source description
+    // ("Strawberry Moon Trail" — already kennel-prefix-stripped by
+    // `parseDayHeaderSections` when a matching kennel pattern was hit, per
+    // PR E.2) over the legacy "(Day N)" suffix. The suffix remains the
+    // fallback when the description had no parseable section title.
+    const sectionTitle = parsed.perDayTitles?.[i];
+    const childTitle = sectionTitle ?? `${parsed.title} (${dayLabel})`;
     return {
       date,
       kennelTags: [perDayCode ?? hostKennelTag],
-      title: `${parsed.title} (${dayLabel})`,
+      title: childTitle,
       description: parsed.description,
       hares: parsed.hares,
       location: parsed.location,
@@ -681,6 +698,37 @@ function extractFirstTimeFromSlice(slice: string): string | undefined {
   return `${String(adjustedH).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
 }
 
+/**
+ * Extract a per-day section-header title from the slice immediately after
+ * a `WEEKDAY/Day N M/D` header match (PR E.1).
+ *
+ * Real Hash Rego section headers look like
+ *   `**FRIDAY 6/26 — GGFM Strawberry Moon Trail**`
+ * Our `WEEKDAY_HEADER_RE` consumes up through the trailing dash (`—`), so
+ * the slice handed to this helper starts with " GGFM Strawberry Moon Trail**\n..."
+ * The title is everything up to the first closing `**` or first newline,
+ * whichever comes first. Trailing punctuation (commas, periods, em-dashes)
+ * is stripped so we don't render "Strawberry Moon Trail." with a dangling dot.
+ *
+ * Returns `undefined` when the slice has no title text on the header line —
+ * e.g. `**DAY 1 12/30 —**\nblurb...` where the header carries the date only.
+ * The caller then falls back to the legacy `"${title} (Day N)"` form.
+ */
+function extractSectionTitle(slice: string): string | undefined {
+  // Strip leading whitespace + a possible leading delimiter that the header
+  // regex's `[-—:]` already captured but might have an adjacent dup-char
+  // (defensive: harmless to skip another leading dash here).
+  const trimmed = slice.replace(/^\s+/, "");
+  // Take up to the first closing `**` (markdown bold) or newline.
+  const endMatch = /[*\n]/.exec(trimmed);
+  const raw = endMatch ? trimmed.slice(0, endMatch.index) : trimmed;
+  // Drop trailing whitespace and trailing punctuation runs (`.`, `,`, `;`,
+  // `:`, `—`, `–`, `-`). Stops short of full sentence-end stripping so
+  // titles like "Pub Crawl!" keep the bang.
+  const cleaned = raw.replace(/[\s.,;:—–-]+$/, "").trim();
+  return cleaned.length > 0 ? cleaned : undefined;
+}
+
 /** One per-day entry from `parseDayHeaderSections`. */
 export interface DayHeaderSection {
   date: string;        // YYYY-MM-DD
@@ -692,6 +740,15 @@ export interface DayHeaderSection {
    * pattern matched; the caller falls back to the host kennel.
    */
   kennelCode?: string;
+  /**
+   * Per-day section-header title (PR E.1). The text on the header line
+   * AFTER the trailing dash/colon delimiter, before the closing `**` or
+   * the end-of-line — e.g. `"GGFM Strawberry Moon Trail"` for
+   * `**FRIDAY 6/26 — GGFM Strawberry Moon Trail**`. Undefined when the
+   * header line carries no title (e.g. `**DAY 1 12/30 —**` followed by
+   * a blank line); the caller falls back to `"${title} (Day N)"`.
+   */
+  sectionTitle?: string;
 }
 
 /**
@@ -737,6 +794,54 @@ function matchPerDayKennel(
     if (re.test(slice)) return code;
   }
   return undefined;
+}
+
+/**
+ * Minimum length (in chars) the title must retain AFTER prefix stripping.
+ * Prevents a too-aggressive strip from leaving a 2-char fragment like "Tr".
+ */
+const MIN_STRIPPED_TITLE_LENGTH = 4;
+
+/**
+ * Strip a kennel-name prefix from a section title when the kennel pill on
+ * the card is going to surface that same identity right next to it (PR E.2).
+ *
+ * E.g. for NYC 5-Boro Friday: title `"GGFM Strawberry Moon Trail"` + kennel
+ * pill GGFM → "Strawberry Moon Trail". The kennel pattern that matched
+ * (`compiled[i][0]`) is the canonical pattern for "GGFM" / "Greater Gotham",
+ * so we test the title against the same compiled pattern, anchored to the
+ * start, and remove the matched run plus any trailing separators.
+ *
+ * Safety guards (per the plan):
+ * - Falls through (returns input verbatim) when no compiled patterns match
+ *   the matched code (defensive — `matchedCode` should always come from
+ *   `compiled`).
+ * - Falls through when the prefix-removed remainder would be <
+ *   MIN_STRIPPED_TITLE_LENGTH chars — we'd rather show "GGFM ✨" than "✨".
+ */
+function stripKennelPrefixFromTitle(
+  title: string,
+  matchedCode: string,
+  compiled: ReadonlyArray<readonly [RegExp, string]>,
+): string {
+  // Find every compiled pattern that maps to this kennelCode. Multiple
+  // patterns can point at the same code ("GGFM" + "Greater Gotham" → ggfm)
+  // so we try them all in declared order and take the first hit at the
+  // start of the title.
+  for (const [re, code] of compiled) {
+    if (code !== matchedCode) continue;
+    // Anchor the pattern to the start of the title. Build a fresh regex
+    // because `re` is unanchored + has the `i` flag from compileKennelPatterns.
+    const anchored = new RegExp(`^\\s*${re.source}`, "i");
+    const m = anchored.exec(title);
+    if (!m) continue;
+    // Drop the matched prefix + any trailing separators (space, dash, colon,
+    // em-dash, en-dash, comma) that link the kennel name to the trail name.
+    const rest = title.slice(m[0].length).replace(/^[\s—–\-:,]+/, "");
+    if (rest.length >= MIN_STRIPPED_TITLE_LENGTH) return rest;
+    return title;
+  }
+  return title;
 }
 
 /** Internal normalized header match — `month`/`day` regardless of source regex. */
@@ -832,7 +937,15 @@ export function parseDayHeaderSections(
     const slice = description.slice(sliceStart, sliceEnd);
     const startTime = extractFirstTimeFromSlice(slice);
     const kennelCode = matchPerDayKennel(slice, compiled);
-    return { date, startTime, kennelCode };
+    const rawTitle = extractSectionTitle(slice);
+    // PR E.2: when the title leads with the kennel name that's already
+    // surfacing on the kennel pill (e.g. "GGFM Strawberry Moon Trail" +
+    // GGFM pill), strip the prefix so the card reads "Strawberry Moon Trail".
+    // No-op when no per-day kennel match OR no compiled patterns.
+    const sectionTitle = rawTitle && kennelCode && compiled
+      ? stripKennelPrefixFromTitle(rawTitle, kennelCode, compiled)
+      : rawTitle;
+    return { date, startTime, kennelCode, sectionTitle };
   });
 
   // Deduplicate by date (a description mentioning the same day twice in
@@ -863,6 +976,8 @@ type DateRangeResult = {
   /** Inclusive last day of a single-registration venue weekend (#1560 PR C). */
   endDate?: string;
   perDayKennelCodes?: ReadonlyArray<string | undefined>;
+  /** Per-day section-header titles (PR E.1). Aligned with `dates` by index. */
+  perDayTitles?: ReadonlyArray<string | undefined>;
 };
 
 /** Try to parse a date range from the description and index entry. */
@@ -910,7 +1025,8 @@ function parseDateRangeFromDescription(
     const firstTime = dayHeaderEntries.find((e) => e.startTime)?.startTime ?? "";
     const startTimes = dayHeaderEntries.map((e) => e.startTime ?? firstTime);
     const perDayKennelCodes = dayHeaderEntries.map((e) => e.kennelCode);
-    return { dates, startTimes, isMultiDay: true, perDayKennelCodes };
+    const perDayTitles = dayHeaderEntries.map((e) => e.sectionTitle);
+    return { dates, startTimes, isMultiDay: true, perDayKennelCodes, perDayTitles };
   }
 
   return null;
