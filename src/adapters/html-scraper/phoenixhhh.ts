@@ -101,14 +101,17 @@ export function extractVenueFromDescription(description: string): string | undef
     if (value) return value;
   }
   // Shape 2: bare `Location` label (optional trailing colon) on its own
-  // line, then `<venue>` on the next non-empty line. The optional `:?`
-  // covers the `Location:\n<venue>` shape where the colon stays on the
-  // label line — Shape 1 fails on that because there's no non-newline
-  // char after the colon to capture.
-  const labelMatch = /(?:^|\n)[ \t]*Location[ \t]*:?[ \t]*\n([^\n]+)/i.exec(description); // NOSONAR S5852
-  if (labelMatch) {
-    const value = labelMatch[1].trim();
-    if (value) return value;
+  // line, then `<venue>` on the IMMEDIATELY next line (no blank line in
+  // between). Walk lines procedurally rather than relying on a single
+  // regex with adjacent `[ \t]*` quantifiers and an optional `:?` near
+  // an alternation — that shape trips Sonar S5852 (#1695 review).
+  const lines = description.split("\n");
+  for (let i = 0; i < lines.length - 1; i++) {
+    const trimmed = lines[i].trim();
+    if (trimmed.toLowerCase() === "location" || trimmed.toLowerCase() === "location:") {
+      const next = lines[i + 1].trim();
+      if (next) return next;
+    }
   }
   return undefined;
 }

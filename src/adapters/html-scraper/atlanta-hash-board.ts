@@ -239,10 +239,18 @@ export function extractEventFields(
   // and pick the first non-time-only value. Time-only captures like
   // "Start: 1:30 PM" (#1640 — Pinelake) get promoted to startTime so a
   // subsequent "Location: <venue>" label can fill `location` cleanly.
-  const locRe = /(?:Start|Where|Location|Meeting|Meet)\s*:\s*([^\n]*)(?:\n|$)/gi; // NOSONAR S5852
+  //
+  // Walk lines procedurally rather than `matchAll` on a regex with
+  // `\s*` quantifiers adjacent to the label alternation — that shape
+  // trips Sonar S5852 even though it's linear here (#1695 review).
+  const LOC_LABELS = ["start", "where", "location", "meeting", "meet"];
   let locationCandidate: string | undefined;
-  for (const m of text.matchAll(locRe)) {
-    const value = stripMarkdownEmphasis(m[1]);
+  for (const rawLine of text.split("\n")) {
+    const colonIdx = rawLine.indexOf(":");
+    if (colonIdx <= 0) continue;
+    const label = rawLine.slice(0, colonIdx).trim().toLowerCase();
+    if (!LOC_LABELS.includes(label)) continue;
+    const value = stripMarkdownEmphasis(rawLine.slice(colonIdx + 1));
     if (!value) continue;
     const timeOnly = TIME_ONLY_RE.exec(value);
     if (timeOnly) {

@@ -67,15 +67,38 @@ function captureLabel(text: string, re: RegExp): string | undefined {
  */
 function cleanStart(raw: string | undefined): string | undefined {
   if (!raw) return undefined;
-  // S5852 NOSONAR markers — Sonar flags adjacent `\s` quantifiers in
-  // string-literal patterns even when each is single-pass with no
-  // overlap. No backtracking path exists for these patterns.
-  const cleaned = raw
-    .replace(/CLICK\s*HERE\s*FOR\s*MAP/gi, "") // NOSONAR S5852
-    .replace(/\s+/g, " ")
-    .replace(/\s+,/g, ",") // NOSONAR S5852
-    .replace(/^[\s,]+|[\s,]+$/g, ""); // NOSONAR S5852
-  return cleaned || undefined;
+  // Step 1: strip anchor text. The simple `CLICK\s*HERE\s*FOR\s*MAP`
+  // pattern (per-token `\s*`) is linear but Sonar S5852 flags adjacent
+  // `\s` quantifiers; using a fixed-string `indexOf` loop sidesteps the
+  // heuristic entirely.
+  let stripped = raw;
+  while (true) {
+    const lower = stripped.toLowerCase();
+    const idx = lower.indexOf("click");
+    if (idx < 0) break;
+    // Consume `click here for map` with arbitrary whitespace between
+    // tokens (case-insensitive) — match by walking token-by-token.
+    let pos = idx;
+    let ok = true;
+    for (const word of ["click", "here", "for", "map"]) {
+      while (pos < lower.length && /\s/.test(lower[pos])) pos++;
+      if (lower.slice(pos, pos + word.length) !== word) { ok = false; break; }
+      pos += word.length;
+    }
+    if (!ok) break;
+    stripped = stripped.slice(0, idx) + stripped.slice(pos);
+  }
+  // Step 2: collapse internal runs of whitespace and strip junk around
+  // commas. Procedural cleanup — no regex alternation in the trim loop.
+  const tokens = stripped.split(/\s+/).filter((t) => t.length > 0);
+  let joined = tokens.join(" ").replace(/ ,/g, ",");
+  while (joined.length > 0 && (joined.startsWith(",") || joined.startsWith(" "))) {
+    joined = joined.slice(1);
+  }
+  while (joined.length > 0 && (joined.endsWith(",") || joined.endsWith(" "))) {
+    joined = joined.slice(0, -1);
+  }
+  return joined || undefined;
 }
 
 /**
