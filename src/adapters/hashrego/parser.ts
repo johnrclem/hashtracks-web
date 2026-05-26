@@ -853,8 +853,10 @@ function compileKennelPatterns(
       // being kept. Invalid or unsafe patterns are dropped fail-soft with
       // a console.warn so a single typo in source config can't strip
       // enriched multi-day behavior from the whole scrape (Codex review
-      // on PR D). Mirrors src/app/admin/sources/config-validation.ts:33.
-      // nosemgrep: detect-non-literal-regexp
+      // on PR D). Mirrors src/app/admin/sources/config-validation.ts:33
+      // and the suppression pattern from hare-extraction.ts:27-29.
+      // nosemgrep: detect-non-literal-regexp — source is operator-curated config, ReDoS-validated below
+      // eslint-disable-next-line -- security/detect-non-literal-regexp + security-node/non-literal-reg-expr (Codacy ESLint plugins not loaded locally); source is operator-curated and ReDoS-validated
       const re = new RegExp(src, "i"); // NOSONAR nosemgrep
       if (!isSafeRegex(re)) {
         console.warn(
