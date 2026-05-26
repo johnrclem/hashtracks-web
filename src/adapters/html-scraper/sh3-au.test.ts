@@ -94,4 +94,15 @@ describe("sh3-au parseSh3Paragraph", () => {
       "Run #3082Date: 7th JulyHares: OrderStart: Park", URL, REF,
     )!.hares).toBe("Order");
   });
+
+  it("recovers from a false-positive 'click' match and still strips later CLICK HERE FOR MAP (#1702 gemini HIGH)", () => {
+    // Pre-fix the cleanStart loop broke on any partial 'click' match
+    // (e.g. 'click to enlarge'), terminating before later valid
+    // 'CLICK HERE FOR MAP' sentinels could be stripped.
+    const text =
+      "Run #3083Date: 14th JulyHares: FooStart: Carpark (click to enlarge image) CLICK HERE FOR MAP, Sydney NSW";
+    const e = parseSh3Paragraph(text, URL, REF);
+    expect(e).not.toBeNull();
+    expect(e!.location).toBe("Carpark (click to enlarge image), Sydney NSW");
+  });
 });

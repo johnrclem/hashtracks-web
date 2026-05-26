@@ -187,9 +187,15 @@ export function stripPhpBbBanners(text: string): string {
  * board) heavily use markdown-bold/italic wrapping that bleeds verbatim into
  * label captures (#1640 — haresText was `** *Debbie Does Digits*`).
  *
- * Conservative on internal `*` characters: only strips runs of one or more
- * `*` at word boundaries (start/end of token), so a literal asterisk inside
- * a hash name survives if needed. Trailing/leading whitespace is trimmed.
+ * Strips every `*` character globally (any literal asterisk in a scribe-
+ * authored field is collateral damage — Pinelake posts have no
+ * known-good asterisk-bearing hash names, and the markdown emphasis
+ * cleanup is more valuable than preserving rare in-name asterisks).
+ * Trailing/leading whitespace is trimmed and internal runs collapsed.
+ *
+ * (#1695 review: gemini flagged a docstring claim about word-boundary
+ * conservatism that the implementation never did — the blanket strip
+ * was always the intent; only the doc text was misleading.)
  */
 function stripMarkdownEmphasis(s: string): string {
   return s
@@ -233,10 +239,22 @@ export function extractEventFields(
   // and pick the first non-time-only value. Time-only captures like
   // "Start: 1:30 PM" (#1640 — Pinelake) get promoted to startTime so a
   // subsequent "Location: <venue>" label can fill `location` cleanly.
-  const locRe = /(?:Start|Where|Location|Meeting|Meet)\s*:\s*([^\n]*)(?:\n|$)/gi;
+  //
+  // Walk lines procedurally rather than `matchAll` on a regex with
+  // `\s*` quantifiers adjacent to the label alternation — that shape
+  // trips Sonar S5852 even though it's linear here (#1695 review).
+  // Set for O(1) membership (Sonar S7776). Normalize non-breaking
+  // whitespace (` `, `&nbsp;`) before comparison — phpBB editors
+  // sometimes pad labels with NBSP that survives `.text()` extraction
+  // (#1702 gemini medium).
+  const LOC_LABELS = new Set(["start", "where", "location", "meeting", "meet"]);
   let locationCandidate: string | undefined;
-  for (const m of text.matchAll(locRe)) {
-    const value = stripMarkdownEmphasis(m[1]);
+  for (const rawLine of text.split("\n")) {
+    const colonIdx = rawLine.indexOf(":");
+    if (colonIdx <= 0) continue;
+    const label = rawLine.slice(0, colonIdx).replaceAll(" ", " ").replaceAll("&nbsp;", " ").trim().toLowerCase();
+    if (!LOC_LABELS.has(label)) continue;
+    const value = stripMarkdownEmphasis(rawLine.slice(colonIdx + 1));
     if (!value) continue;
     const timeOnly = TIME_ONLY_RE.exec(value);
     if (timeOnly) {

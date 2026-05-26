@@ -65,14 +65,57 @@ function captureLabel(text: string, re: RegExp): string | undefined {
  * The replacement uses anchor-text-only stripping with whitespace + dangling
  * separator cleanup so address detail downstream of the link survives.
  */
+/**
+ * Strip every "CLICK HERE FOR MAP" anchor-text occurrence (case-
+ * insensitive, arbitrary whitespace between tokens) from `s`. False
+ * matches of the leading word "click" (e.g. "click to enlarge") advance
+ * the search past the false hit instead of terminating the loop, so
+ * later valid sentinels in the same string are still stripped. Gemini
+ * caught the original break-on-false logic in PR #1702.
+ */
+function stripClickHereForMap(s: string): string {
+  const TOKENS = ["click", "here", "for", "map"];
+  let out = s;
+  let startIdx = 0;
+  while (startIdx < out.length) {
+    const lower = out.toLowerCase();
+    const idx = lower.indexOf("click", startIdx);
+    if (idx < 0) break;
+    let pos = idx;
+    let matched = true;
+    for (const word of TOKENS) {
+      while (pos < lower.length && /\s/.test(lower[pos])) pos++;
+      if (lower.slice(pos, pos + word.length) !== word) { matched = false; break; }
+      pos += word.length;
+    }
+    if (matched) {
+      out = out.slice(0, idx) + out.slice(pos);
+      startIdx = idx;
+    } else {
+      startIdx = idx + 1;
+    }
+  }
+  return out;
+}
+
 function cleanStart(raw: string | undefined): string | undefined {
   if (!raw) return undefined;
-  const cleaned = raw
-    .replace(/CLICK\s*HERE\s*FOR\s*MAP/gi, "")
-    .replace(/\s+/g, " ")
-    .replace(/\s+,/g, ",")
-    .replace(/^[\s,]+|[\s,]+$/g, "");
-  return cleaned || undefined;
+  // Step 1: strip anchor text. The simple `CLICK\s*HERE\s*FOR\s*MAP`
+  // pattern (per-token `\s*`) is linear but Sonar S5852 flags adjacent
+  // `\s` quantifiers; the helper above sidesteps the heuristic and
+  // recovers from false matches of the leading word "click".
+  const stripped = stripClickHereForMap(raw);
+  // Step 2: collapse internal runs of whitespace and strip junk around
+  // commas. Procedural cleanup — no regex alternation in the trim loop.
+  const tokens = stripped.split(/\s+/).filter((t) => t.length > 0);
+  let joined = tokens.join(" ").replaceAll(" ,", ",");
+  while (joined.length > 0 && (joined.startsWith(",") || joined.startsWith(" "))) {
+    joined = joined.slice(1);
+  }
+  while (joined.length > 0 && (joined.endsWith(",") || joined.endsWith(" "))) {
+    joined = joined.slice(0, -1);
+  }
+  return joined || undefined;
 }
 
 /**

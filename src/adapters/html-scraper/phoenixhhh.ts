@@ -87,20 +87,34 @@ export function extractVenueFromDescription(description: string): string | undef
   // Use horizontal whitespace `[ \t]*` after the colon so an empty
   // `Location:   \nNext line` doesn't slurp the following line as the
   // venue.
-  const colonMatch = /(?:^|\n)[ \t]*Location[ \t]*:[ \t]*([^\n]+)/i.exec(description);
+  //
+  // Codex P1 (#1695 review): `.em-item-desc` is sometimes flattened to a
+  // single line ("Hares: …Bring: …Location: Roses by the Stairs Brewing
+  // Time: 6:30 PM Hash Cash: $5"). Without a label terminator, `[^\n]+`
+  // would absorb the trailing sections into the venue text and overwrite
+  // the cleaner meta-line value via `parseEventFromItem`'s `venue ??
+  // metaLocation` fallback. Lazy capture + a label-set lookahead mirrors
+  // the terminator strategy in `PHOENIX_HARE_PATTERNS`.
+  const colonMatch = /(?:^|\n)[ \t]*Location[ \t]*:[ \t]*([^\n]+?)(?=\s*(?:Who|What|When|Where|Wear|Why|How|Theme|Bring|Cost|Hash\s*Cash|Time|Start|On[\s-]?[OAoa]n|On[\s-]?after)\s*:|\n|$)/i.exec(description); // NOSONAR S5852
   if (colonMatch) {
     const value = colonMatch[1].trim();
     if (value) return value;
   }
   // Shape 2: bare `Location` label (optional trailing colon) on its own
-  // line, then `<venue>` on the next non-empty line. The optional `:?`
-  // covers the `Location:\n<venue>` shape where the colon stays on the
-  // label line — Shape 1 fails on that because there's no non-newline
-  // char after the colon to capture.
-  const labelMatch = /(?:^|\n)[ \t]*Location[ \t]*:?[ \t]*\n([^\n]+)/i.exec(description);
-  if (labelMatch) {
-    const value = labelMatch[1].trim();
-    if (value) return value;
+  // line, then `<venue>` on the IMMEDIATELY next line (no blank line in
+  // between). Walk lines procedurally rather than relying on a single
+  // regex with adjacent `[ \t]*` quantifiers and an optional `:?` near
+  // an alternation — that shape trips Sonar S5852 (#1695 review).
+  // Normalize NBSP (` `, `&nbsp;`) before label comparison — WordPress
+  // / TinyMCE editors sometimes pad labels with NBSP that survive
+  // `.text()` extraction (#1702 gemini medium).
+  const lines = description.split("\n");
+  for (let i = 0; i < lines.length - 1; i++) {
+    const trimmed = lines[i].replaceAll(" ", " ").replaceAll("&nbsp;", " ").trim().toLowerCase();
+    if (trimmed === "location" || trimmed === "location:") {
+      const next = lines[i + 1].trim();
+      if (next) return next;
+    }
   }
   return undefined;
 }
