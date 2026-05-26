@@ -24,6 +24,27 @@ const COORD_THRESHOLD = 0.01; // ~1km
 /** TBA / placeholder titles that should fall back to the synthesized default. */
 const TITLE_PLACEHOLDER_RE = /^(?:to be announced|tba|tbc|tbd|details to be announced)$/i;
 
+/** `nextrun.php?run=NNN` → captures NNN. */
+const RUN_ID_RE = /run=(\d+)/;
+
+/** Google Maps `?q=LAT,LNG` href coords. */
+const MAPS_QUERY_COORDS_RE = /\?q=(-?[\d.]+),(-?[\d.]+)/;
+
+/** Inline JS coord object: `{ lat: 51.5, lng: -0.1 }`. */
+const JS_COORDS_RE = /\{\s*lat:\s*(-?[\d.]+),\s*lng:\s*(-?[\d.]+)\s*\}/g;
+
+/** "London hash number NNN" run-number extractor. */
+const RUN_NUM_RE = /(?:London\s+hash\s+number|hash\s+number)?\s*(\d+)/i;
+const RUN_NUM_FALLBACK_RE = /(?:London\s+hash\s+number|hash\s+number)\s+(\d+)/i;
+
+/** "85 metres from <station>" distance line. */
+const DISTANCE_RE = /(\d+\s*(?:meters?|metres?)\s+from\s+.+?)(?:\n|$)/i;
+
+/** On-Inn body line (stops at quote so JS marker title doesn't leak). */
+const ON_INN_RE = /On\s+Inn\s+to\s+([^\n"]+)/i;
+const ON_INN_MARKER_RE = /title:\s*"On\s+Inn\s+to\s+(.+?)"/i;
+const ON_INN_TRAILING_RE = /[,;]\s*$/;
+
 /**
  * Represents a parsed run block from the London Hash run list page.
  *
@@ -81,9 +102,9 @@ export function parseRunBlocks(html: string): RunBlock[] {
       const $link = $block.find('a[href*="nextrun.php"]').first();
       if (!$link.length) return;
 
-      const runId = ($link.attr("href")?.match(/run=(\d+)/) ?? ["", ""])[1];
-      const runNumber = parseInt($link.text().trim(), 10);
-      if (!runId || isNaN(runNumber)) return;
+      const runId = (RUN_ID_RE.exec($link.attr("href") ?? "") ?? ["", ""])[1];
+      const runNumber = Number.parseInt($link.text().trim(), 10);
+      if (!runId || Number.isNaN(runNumber)) return;
 
       padBlock($block);
 
@@ -113,10 +134,10 @@ export function parseRunBlocks(html: string): RunBlock[] {
   const runLinks = $('a[href*="nextrun.php"]');
   runLinks.each((i, el) => {
     const $link = $(el);
-    const runId = ($link.attr("href")?.match(/run=(\d+)/) ?? ["", ""])[1];
+    const runId = (RUN_ID_RE.exec($link.attr("href") ?? "") ?? ["", ""])[1];
     const linkText = $link.text().trim();
-    const runNumber = parseInt(linkText, 10);
-    if (!runId || isNaN(runNumber)) return;
+    const runNumber = Number.parseInt(linkText, 10);
+    if (!runId || Number.isNaN(runNumber)) return;
 
     let text = "";
     const $parent = $link.closest("p, li, section, body");
@@ -375,89 +396,84 @@ export function parseLH3DetailPage(
     }
   }
 
-  // Extract Google Maps link: href="http://maps.google.com/?q=LAT,LNG"
+  applyDetailCoords(result, $, html);
+
+  const labels = buildDetailLabelMap($);
+  applyDetailRunNumber(result, labels, fullText);
+  applyDetailLocation(result, labels, fullText);
+  applyDetailHares(result, labels, fullText);
+  applyDetailDistance(result, labels, fullText);
+  applyDetailOnOn(result, fullText, html);
+
+  return result;
+}
+
+/** Try Google Maps href first; fall back to inline JS `{lat,lng}`. */
+function applyDetailCoords(result: LH3DetailPageData, $: cheerio.CheerioAPI, html: string): void {
   const mapsLink = $('a[href*="maps.google.com/?q="]').attr("href");
   if (mapsLink) {
-    const qMatch = mapsLink.match(/\?q=(-?[\d.]+),(-?[\d.]+)/);
+    const qMatch = MAPS_QUERY_COORDS_RE.exec(mapsLink);
     if (qMatch) {
-      const lat = parseFloat(qMatch[1]);
-      const lng = parseFloat(qMatch[2]);
-      if (!isNaN(lat) && !isNaN(lng) && !isDefaultLondonCoords(lat, lng)) {
+      const lat = Number.parseFloat(qMatch[1]);
+      const lng = Number.parseFloat(qMatch[2]);
+      if (Number.isFinite(lat) && Number.isFinite(lng) && !isDefaultLondonCoords(lat, lng)) {
         result.locationUrl = mapsLink;
         result.latitude = lat;
         result.longitude = lng;
+        return;
       }
     }
   }
-
-  // Also try JS coords: { lat: X, lng: Y } (center or marker positions)
-  if (result.latitude == null) {
-    for (const m of html.matchAll(/\{\s*lat:\s*(-?[\d.]+),\s*lng:\s*(-?[\d.]+)\s*\}/g)) {
-      const lat = parseFloat(m[1]);
-      const lng = parseFloat(m[2]);
-      if (!isNaN(lat) && !isNaN(lng) && !isDefaultLondonCoords(lat, lng)) {
-        result.latitude = lat;
-        result.longitude = lng;
-        break;
-      }
+  // No usable Maps link — scan JS for the first non-placeholder coord pair.
+  for (const m of html.matchAll(JS_COORDS_RE)) {
+    const lat = Number.parseFloat(m[1]);
+    const lng = Number.parseFloat(m[2]);
+    if (Number.isFinite(lat) && Number.isFinite(lng) && !isDefaultLondonCoords(lat, lng)) {
+      result.latitude = lat;
+      result.longitude = lng;
+      return;
     }
   }
+}
 
-  // Structured field map keyed on .runlistCat labels.
-  const labels = buildDetailLabelMap($);
-
-  // "What" → run number: "London hash number XXXX"
+function applyDetailRunNumber(result: LH3DetailPageData, labels: Map<string, string>, fullText: string): void {
   const whatValue = labels.get("What");
-  if (whatValue) {
-    const runNumMatch = whatValue.match(/(?:London\s+hash\s+number|hash\s+number)?\s*(\d+)/i);
-    if (runNumMatch) result.runNumber = parseInt(runNumMatch[1], 10);
+  const fromLabel = whatValue ? RUN_NUM_RE.exec(whatValue) : null;
+  if (fromLabel) {
+    result.runNumber = Number.parseInt(fromLabel[1], 10);
+    return;
   }
-  // Fallback: scan full text if no structured What row was present.
-  if (result.runNumber == null) {
-    const runNumMatch = fullText.match(/(?:London\s+hash\s+number|hash\s+number)\s+(\d+)/i);
-    if (runNumMatch) result.runNumber = parseInt(runNumMatch[1], 10);
-  }
+  const fromBody = RUN_NUM_FALLBACK_RE.exec(fullText);
+  if (fromBody) result.runNumber = Number.parseInt(fromBody[1], 10);
+}
 
-  // "Where" → location parser (isolated, no cross-section bleed).
-  const whereValue = labels.get("Where");
-  if (whereValue) {
-    const { location, station } = parseLocationFromBlock(whereValue);
-    if (location) result.location = location;
-    if (station) result.station = station;
-  } else {
-    const { location, station } = parseLocationFromBlock(fullText);
-    if (location) result.location = location;
-    if (station) result.station = station;
-  }
+function applyDetailLocation(result: LH3DetailPageData, labels: Map<string, string>, fullText: string): void {
+  const whereValue = labels.get("Where") ?? fullText;
+  const { location, station } = parseLocationFromBlock(whereValue);
+  if (location) result.location = location;
+  if (station) result.station = station;
+}
 
-  // "Who" → hare parser (isolated).
-  const whoValue = labels.get("Who");
-  if (whoValue) {
-    const hares = parseHaresFromBlock(whoValue);
-    if (hares) result.hares = hares;
-  } else {
-    const hares = parseHaresFromBlock(fullText);
-    if (hares) result.hares = hares;
-  }
+function applyDetailHares(result: LH3DetailPageData, labels: Map<string, string>, fullText: string): void {
+  const whoValue = labels.get("Who") ?? fullText;
+  const hares = parseHaresFromBlock(whoValue);
+  if (hares) result.hares = hares;
+}
 
-  // "How Far" → distance text.
+function applyDetailDistance(result: LH3DetailPageData, labels: Map<string, string>, fullText: string): void {
   const howFarValue = labels.get("How Far") ?? fullText;
-  const distMatch = howFarValue.match(/(\d+\s*(?:meters?|metres?)\s+from\s+.+?)(?:\n|$)/i);
+  const distMatch = DISTANCE_RE.exec(howFarValue);
   if (distMatch) result.distance = distMatch[1].trim();
+}
 
-  // On-On / On Inn: from a body line or the JS marker title.
-  // Stop at a quote too — cheerio's body.text() includes <script> content,
-  // so the `marker.title: "On Inn to Cork n Cask",` JS line otherwise
-  // captures the trailing `",` quote-comma into the value.
-  const onOnMatch = fullText.match(/On\s+Inn\s+to\s+([^\n"]+)/i);
+function applyDetailOnOn(result: LH3DetailPageData, fullText: string, html: string): void {
+  const onOnMatch = ON_INN_RE.exec(fullText);
   if (onOnMatch) {
-    result.onOn = onOnMatch[1].trim().replace(/[,;]\s*$/, "");
-  } else {
-    const markerOnOn = html.match(/title:\s*"On\s+Inn\s+to\s+(.+?)"/i);
-    if (markerOnOn) result.onOn = markerOnOn[1].trim();
+    result.onOn = onOnMatch[1].trim().replace(ON_INN_TRAILING_RE, "");
+    return;
   }
-
-  return result;
+  const markerOnOn = ON_INN_MARKER_RE.exec(html);
+  if (markerOnOn) result.onOn = markerOnOn[1].trim();
 }
 
 /**
@@ -521,104 +537,25 @@ export class LondonHashAdapter implements SourceAdapter {
     if (!page.ok) return page.result;
     const { html, structureHash, fetchDurationMs } = page;
 
-    const events: RawEventData[] = [];
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
-    const currentYear = new Date().getFullYear();
     const blocks = parseRunBlocks(html);
     const baseUrlObj = new URL(baseUrl);
     const detailBase = `${baseUrlObj.protocol}//${baseUrlObj.host}`;
 
-    for (let i = 0; i < blocks.length; i++) {
-      const block = blocks[i];
-      try {
-        const date = parseDateFromBlock(block.dateText, currentYear);
-        if (!date) {
-          (errorDetails.parse ??= []).push(
-            { row: i, section: "runlist", field: "date", error: `No date in block for run #${block.runNumber}`, rawText: block.dateText.slice(0, 2000) },
-          );
-          continue;
-        }
-
-        const hares = parseHaresFromBlock(block.hareText);
-        const { location, station } = parseLocationFromBlock(block.locText);
-        const startTime = parseTimeFromBlock(block.dateText) ?? "12:00";
-        const title = parseTitleFromBlock(block.titleText, block.runNumber);
-
-        // Build description with station info
-        const descParts: string[] = [];
-        if (station) descParts.push(`Nearest station: ${station}`);
-        const description = descParts.length > 0 ? descParts.join(". ") : undefined;
-
-        const sourceUrl = `${detailBase}/nextrun.php?run=${block.runId}`;
-
-        events.push({
-          date,
-          kennelTags: ["lh3"],
-          runNumber: block.runNumber,
-          title,
-          hares: hares ?? undefined,
-          location: location ?? undefined,
-          startTime,
-          sourceUrl,
-          description,
-        });
-      } catch (err) {
-        errors.push(`Error parsing run #${block.runNumber}: ${err}`);
-        (errorDetails.parse ??= []).push(
-          { row: i, section: "runlist", error: String(err), rawText: block.titleText.slice(0, 2000) },
-        );
-      }
-    }
-
-    // Phase 2: Fetch detail pages for first N events
-    let detailPagesFetched = 0;
-    let detailPagesEnriched = 0;
-    const detailBlocks = blocks.slice(0, MAX_DETAIL_FETCHES);
-
-    if (detailBlocks.length > 0) {
-      const detailResults = await Promise.allSettled(
-        detailBlocks.map(async (block) => {
-          const detailUrl = `${detailBase}/nextrun.php?run=${block.runId}`;
-          const resp = await fetchHTMLPage(detailUrl);
-          return { block, resp, detailUrl };
-        }),
-      );
-
-      for (const settled of detailResults) {
-        if (settled.status !== "fulfilled") continue;
-        const { block, resp, detailUrl } = settled.value;
-        detailPagesFetched++;
-
-        if (!resp.ok) {
-          errors.push(`Detail page fetch failed for run #${block.runNumber}`);
-          continue;
-        }
-
-        const detail = parseLH3DetailPage(resp.$, resp.html, detailUrl);
-        if (!detail) continue;
-
-        // Verify run number matches before merging
-        if (detail.runNumber != null && detail.runNumber !== block.runNumber) {
-          errors.push(`Detail page run number mismatch for run #${block.runNumber}: got ${detail.runNumber}`);
-          continue;
-        }
-
-        const matchIdx = events.findIndex((e) => e.runNumber === block.runNumber);
-        if (matchIdx >= 0) {
-          events[matchIdx] = mergeLH3DetailIntoEvent(events[matchIdx], detail);
-          detailPagesEnriched++;
-        }
-      }
-    }
-
-    const hasErrorDetails = hasAnyErrors(errorDetails);
+    const events = parseRunListEvents(blocks, detailBase, errorDetails, errors);
+    const { detailPagesFetched, detailPagesEnriched } = await enrichWithDetailPages(
+      blocks,
+      events,
+      detailBase,
+      errors,
+    );
 
     return {
       events,
       errors,
       structureHash,
-      errorDetails: hasErrorDetails ? errorDetails : undefined,
+      errorDetails: hasAnyErrors(errorDetails) ? errorDetails : undefined,
       diagnosticContext: {
         blocksFound: blocks.length,
         eventsParsed: events.length,
@@ -628,4 +565,126 @@ export class LondonHashAdapter implements SourceAdapter {
       },
     };
   }
+}
+
+/** Phase 1: walk parsed `RunBlock[]` and synthesize `RawEventData[]`. Push
+ * parse failures into `errorDetails.parse` / `errors`. */
+function parseRunListEvents(
+  blocks: RunBlock[],
+  detailBase: string,
+  errorDetails: ErrorDetails,
+  errors: string[],
+): RawEventData[] {
+  const events: RawEventData[] = [];
+  const currentYear = new Date().getFullYear();
+  for (let i = 0; i < blocks.length; i++) {
+    const block = blocks[i];
+    try {
+      const event = buildEventFromBlock(block, currentYear, detailBase);
+      if (event) {
+        events.push(event);
+      } else {
+        (errorDetails.parse ??= []).push({
+          row: i,
+          section: "runlist",
+          field: "date",
+          error: `No date in block for run #${block.runNumber}`,
+          rawText: block.dateText.slice(0, 2000),
+        });
+      }
+    } catch (err) {
+      errors.push(`Error parsing run #${block.runNumber}: ${err}`);
+      (errorDetails.parse ??= []).push({
+        row: i,
+        section: "runlist",
+        error: String(err),
+        rawText: block.titleText.slice(0, 2000),
+      });
+    }
+  }
+  return events;
+}
+
+/** Build a single RawEventData from a RunBlock, or null if the date can't
+ * be parsed. Other field misses are non-fatal (left undefined). */
+function buildEventFromBlock(
+  block: RunBlock,
+  currentYear: number,
+  detailBase: string,
+): RawEventData | null {
+  const date = parseDateFromBlock(block.dateText, currentYear);
+  if (!date) return null;
+  const hares = parseHaresFromBlock(block.hareText);
+  const { location, station } = parseLocationFromBlock(block.locText);
+  const startTime = parseTimeFromBlock(block.dateText) ?? "12:00";
+  const title = parseTitleFromBlock(block.titleText, block.runNumber);
+  const description = station ? `Nearest station: ${station}` : undefined;
+  return {
+    date,
+    kennelTags: ["lh3"],
+    runNumber: block.runNumber,
+    title,
+    hares: hares ?? undefined,
+    location: location ?? undefined,
+    startTime,
+    sourceUrl: `${detailBase}/nextrun.php?run=${block.runId}`,
+    description,
+  };
+}
+
+/** Phase 2: fetch detail pages for the first `MAX_DETAIL_FETCHES` blocks
+ * and merge into the matching events. Returns diagnostic counters. */
+async function enrichWithDetailPages(
+  blocks: RunBlock[],
+  events: RawEventData[],
+  detailBase: string,
+  errors: string[],
+): Promise<{ detailPagesFetched: number; detailPagesEnriched: number }> {
+  const detailBlocks = blocks.slice(0, MAX_DETAIL_FETCHES);
+  if (detailBlocks.length === 0) {
+    return { detailPagesFetched: 0, detailPagesEnriched: 0 };
+  }
+  const detailResults = await Promise.allSettled(
+    detailBlocks.map(async (block) => {
+      const detailUrl = `${detailBase}/nextrun.php?run=${block.runId}`;
+      const resp = await fetchHTMLPage(detailUrl);
+      return { block, resp, detailUrl };
+    }),
+  );
+  let detailPagesFetched = 0;
+  let detailPagesEnriched = 0;
+  for (const settled of detailResults) {
+    if (settled.status !== "fulfilled") continue;
+    detailPagesFetched++;
+    if (applyDetailToEvents(settled.value, events, errors)) {
+      detailPagesEnriched++;
+    }
+  }
+  return { detailPagesFetched, detailPagesEnriched };
+}
+
+/** Merge one detail-page result into the matching event in-place. Returns
+ * true if a merge occurred. Records soft errors via `errors`. */
+function applyDetailToEvents(
+  result: { block: RunBlock; resp: Awaited<ReturnType<typeof fetchHTMLPage>>; detailUrl: string },
+  events: RawEventData[],
+  errors: string[],
+): boolean {
+  const { block, resp, detailUrl } = result;
+  if (!resp.ok) {
+    errors.push(`Detail page fetch failed for run #${block.runNumber}`);
+    return false;
+  }
+  const detail = parseLH3DetailPage(resp.$, resp.html, detailUrl);
+  if (!detail) return false;
+  if (detail.runNumber != null && detail.runNumber !== block.runNumber) {
+    errors.push(
+      `Detail page run number mismatch for run #${block.runNumber}: got ${detail.runNumber}`,
+    );
+    return false;
+  }
+  const matchIdx = events.findIndex((e) => e.runNumber === block.runNumber);
+  if (matchIdx < 0) return false;
+  events[matchIdx] = mergeLH3DetailIntoEvent(events[matchIdx], detail);
+  return true;
 }
