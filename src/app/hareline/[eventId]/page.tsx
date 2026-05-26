@@ -30,6 +30,15 @@ import type { HarelineSeriesChild } from "@/components/hareline/EventCard";
 import { getFullLocationDisplay } from "@/lib/event-display";
 import { buildEventJsonLd, safeJsonLd } from "@/lib/seo";
 import { getCanonicalSiteUrl } from "@/lib/site-url";
+import { DISPLAY_EVENT_WHERE } from "@/lib/event-filters";
+
+// #1560 PR E.6 — `childEvents` rendered on the umbrella page mirror the
+// hareline list visibility filters (status / isManualEntry / isCanonical /
+// kennel.isHidden) but DROP the `parentEventId: null` predicate (children
+// always have parentEventId set). Centralized here so the detail-page query
+// can't drift from the list query (Gemini PR #1697 review). Same pattern
+// `getEventDetail` uses in src/app/hareline/actions.ts.
+const { parentEventId: _excludedParentFilter, ...CHILD_EVENT_WHERE } = DISPLAY_EVENT_WHERE;
 
 export async function generateMetadata({
   params,
@@ -118,12 +127,7 @@ export default async function EventDetailPage({
       // (Codex PR E.6 review).
       parentEvent: { select: { id: true, title: true } },
       childEvents: {
-        where: {
-          status: { not: "CANCELLED" },
-          isManualEntry: { not: true },
-          isCanonical: true,
-          kennel: { isHidden: false },
-        },
+        where: CHILD_EVENT_WHERE,
         orderBy: { date: "asc" },
         select: {
           id: true,

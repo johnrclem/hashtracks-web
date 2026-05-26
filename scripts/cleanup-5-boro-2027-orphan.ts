@@ -57,28 +57,27 @@ async function main() {
   }
 
   // Safety guards — all must pass before we'll touch the row.
+  // Throw rather than `process.exit` so the `.finally(prisma.$disconnect)`
+  // below still runs and releases the DB connection cleanly (Gemini review).
   if (event.date < TARGET_DATE_MIN) {
-    console.error(
-      `[cleanup] REFUSING: target Event date=${event.date.toISOString()} is BEFORE 2027-01-01. ` +
-        `The orphan we're chasing is at 2027-06-26; this row doesn't match. Aborting.`,
+    throw new Error(
+      `REFUSING: target Event date=${event.date.toISOString()} is BEFORE 2027-01-01. ` +
+        `The orphan we're chasing is at 2027-06-26; this row doesn't match.`,
     );
-    process.exit(2);
   }
   if (!event.title?.toLowerCase().includes(TARGET_TITLE_FRAGMENT)) {
-    console.error(
-      `[cleanup] REFUSING: target Event title=${JSON.stringify(event.title)} doesn't contain ` +
-        `"${TARGET_TITLE_FRAGMENT}". Aborting.`,
+    throw new Error(
+      `REFUSING: target Event title=${JSON.stringify(event.title)} doesn't contain ` +
+        `"${TARGET_TITLE_FRAGMENT}".`,
     );
-    process.exit(2);
   }
   // Defensive: never delete a series parent or a child of an active series.
   // The known orphan satisfies parentEventId=null AND isSeriesParent=false.
   if (event.isSeriesParent || event.parentEventId) {
-    console.error(
-      `[cleanup] REFUSING: target Event is part of an active series (parentEventId=` +
-        `${event.parentEventId} isSeriesParent=${event.isSeriesParent}). Aborting.`,
+    throw new Error(
+      `REFUSING: target Event is part of an active series (parentEventId=` +
+        `${event.parentEventId} isSeriesParent=${event.isSeriesParent}).`,
     );
-    process.exit(2);
   }
 
   console.log(`[cleanup] target found:`);
@@ -93,9 +92,12 @@ async function main() {
     return;
   }
 
-  // Delete in a transaction: RawEvents first (FK from RawEvent.eventId would
-  // block the Event delete otherwise, depending on schema cascade rules), then
-  // the Event row itself.
+  // Delete in a transaction: RawEvents first, then the Event row.
+  // `RawEvent.event` is an optional relation in prisma/schema.prisma WITHOUT
+  // an explicit `onDelete: Cascade`, so the default behavior is SetNull on
+  // the FK — deleting the Event would orphan the RawEvent at
+  // `eventId: null` instead of removing it. Explicit RawEvent.deleteMany
+  // is necessary here (Gemini PR #1697 review — verified against schema).
   const result = await prisma.$transaction(async (tx) => {
     const rawDel = await tx.rawEvent.deleteMany({ where: { eventId: event.id } });
     const eventDel = await tx.event.delete({ where: { id: event.id } });

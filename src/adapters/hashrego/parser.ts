@@ -719,14 +719,41 @@ function extractSectionTitle(slice: string): string | undefined {
   // regex's `[-—:]` already captured but might have an adjacent dup-char
   // (defensive: harmless to skip another leading dash here).
   const trimmed = slice.replace(/^\s+/, "");
-  // Take up to the first closing `**` (markdown bold) or newline.
-  const endMatch = /[*\n]/.exec(trimmed);
-  const raw = endMatch ? trimmed.slice(0, endMatch.index) : trimmed;
-  // Drop trailing whitespace and trailing punctuation runs (`.`, `,`, `;`,
-  // `:`, `—`, `–`, `-`). Stops short of full sentence-end stripping so
-  // titles like "Pub Crawl!" keep the bang.
-  const cleaned = raw.replace(/[\s.,;:—–-]+$/, "").trim();
+  // Take up to the first closing `**` (markdown bold) or newline, whichever
+  // comes first. We deliberately use indexOf for `**` rather than a regex
+  // character class — Gemini PR #1697 caught that `/[*\n]/` would match a
+  // SINGLE `*`, so a title with markdown emphasis like "GGFM *Strawberry*
+  // Moon Trail**" would truncate at the first inline asterisk. indexOf
+  // matches the literal closing-bold pair.
+  const starsIdx = trimmed.indexOf("**");
+  const newlineIdx = trimmed.indexOf("\n");
+  const endIdx =
+    starsIdx === -1
+      ? newlineIdx
+      : newlineIdx === -1
+        ? starsIdx
+        : Math.min(starsIdx, newlineIdx);
+  const raw = endIdx === -1 ? trimmed : trimmed.slice(0, endIdx);
+  // Drop trailing whitespace + trailing punctuation runs (`.`, `,`, `;`,
+  // `:`, `—`, `–`, `-`). Procedural strip rather than a regex with `\s`
+  // inside a char class with `+$` — Sonar S5852 false-positives that shape
+  // as ReDoS-prone (memory: `feedback_sonar_s5852_procedural_over_regex`).
+  // Stops short of full sentence-end stripping so titles like "Pub Crawl!"
+  // keep the bang.
+  let cleaned = raw.trim();
+  while (cleaned.length > 0 && isTrailingPunct(cleaned[cleaned.length - 1])) {
+    cleaned = cleaned.slice(0, -1);
+  }
+  cleaned = cleaned.trim();
   return cleaned.length > 0 ? cleaned : undefined;
+}
+
+/** Trailing-punctuation set used by `extractSectionTitle`'s procedural strip. */
+const TRAILING_PUNCT_CHARS: ReadonlySet<string> = new Set([
+  ".", ",", ";", ":", "—", "–", "-",
+]);
+function isTrailingPunct(ch: string): boolean {
+  return TRAILING_PUNCT_CHARS.has(ch);
 }
 
 /** One per-day entry from `parseDayHeaderSections`. */
