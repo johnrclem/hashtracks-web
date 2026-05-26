@@ -893,7 +893,9 @@ function stripKennelPrefixFromTitle(
     const m = re.exec(title);
     // Require an at-start match (the title is already left-trimmed by
     // `extractSectionTitle`, so a real prefix-match lands at index 0).
-    if (!m || m.index !== 0) continue;
+    // Optional-chain form: when `m` is null, `m?.index` is undefined and
+    // `undefined !== 0` is true → continue (Sonar S6582).
+    if (m?.index !== 0) continue;
     // Drop the matched prefix + any trailing separators (space, dash, colon,
     // em-dash, en-dash, comma) that link the kennel name to the trail name.
     const rest = title.slice(m[0].length).replace(/^[\s—–\-:,]+/, "");
