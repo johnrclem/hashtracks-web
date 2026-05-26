@@ -1,9 +1,16 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import type { Source } from "@/generated/prisma/client";
 import { parseOfh3Date, parseOfh3Body, cleanOfh3Title, extractBloggerYearAnchor } from "./ofh3";
 import { OFH3Adapter } from "./ofh3";
 import * as bloggerApi from "../blogger-api";
 
 vi.mock("../blogger-api");
+
+// Typed factory so tests can pass a partial Source without per-call
+// `as never` — Source has 14+ required fields the adapter never reads.
+function fakeSource(overrides: Partial<Source> & Pick<Source, "id" | "url">): Source {
+  return overrides as unknown as Source;
+}
 
 describe("parseOfh3Date", () => {
   it("parses 'Saturday, March 14, 2026'", () => {
@@ -442,11 +449,11 @@ describe("OFH3Adapter year-rollover guard (#1643)", () => {
       fetchDurationMs: 100,
     });
 
-    const result = await adapter.fetch({
+    const result = await adapter.fetch(fakeSource({
       id: "test-ofh3",
       url: "https://www.ofh3.com/",
       scrapeDays: 365 * 10,
-    } as never);
+    }));
 
     expect(result.events).toHaveLength(1);
     expect(result.events[0].date).toBe("2025-06-01");
@@ -470,11 +477,11 @@ describe("OFH3Adapter year-rollover guard (#1643)", () => {
       fetchDurationMs: 100,
     });
 
-    const result = await adapter.fetch({
+    const result = await adapter.fetch(fakeSource({
       id: "test-ofh3",
       url: "https://www.ofh3.com/",
       scrapeDays: 365 * 10,
-    } as never);
+    }));
 
     expect(result.events).toHaveLength(1);
     expect(result.events[0].date).toBe("2025-06-01");
