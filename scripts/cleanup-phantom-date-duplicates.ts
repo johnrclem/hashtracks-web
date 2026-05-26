@@ -178,116 +178,134 @@ function pickWinnerLoser(a: ScanRow, b: ScanRow): { winner: ScanRow; loser: Scan
   return a.date.getTime() > b.date.getTime() ? { winner: a, loser: b } : { winner: b, loser: a };
 }
 
+interface CleanupState {
+  lossesById: Map<string, ScanRow>;
+  winsById: Map<string, ScanRow>;
+  blockingAttendance: { event: ScanRow; pair: PairRow }[];
+}
+
+function fmtScanRow(e: ScanRow): string {
+  return `${e.id} date=${e.date.toISOString().slice(0, 10)} trust=${e.trustLevel} ` +
+    `att=${e.attendanceCount}+${e.kennelAttendanceCount} ` +
+    `lastScrape=${e.latestScrapedAt?.toISOString() ?? "<none>"} ` +
+    `title=${JSON.stringify(e.title)}`;
+}
+
+async function ingestAutoPairs(pairs: PairRow[], state: CleanupState): Promise<void> {
+  for (const pair of pairs) {
+    const [a, b] = await Promise.all([inspectEvent(pair.a_id), inspectEvent(pair.b_id)]);
+    const { winner, loser } = pickWinnerLoser(a, b);
+
+    if (loser.attendanceCount + loser.kennelAttendanceCount > 0) {
+      state.blockingAttendance.push({ event: loser, pair });
+    }
+    if (!state.lossesById.has(loser.id)) state.lossesById.set(loser.id, loser);
+    if (!state.winsById.has(winner.id)) state.winsById.set(winner.id, winner);
+
+    console.log(
+      `[${pair.kennel_code}] sourceUrl=${pair.a_source_url}\n` +
+      `  KEEP : ${fmtScanRow(winner)}\n` +
+      `  DROP : ${fmtScanRow(loser)}\n`,
+    );
+  }
+}
+
+async function ingestNamedPhantoms(state: CleanupState): Promise<void> {
+  if (NAMED_PHANTOMS.length === 0) return;
+  console.log(`\nNamed-phantom purges (${NAMED_PHANTOMS.length}):`);
+  for (const entry of NAMED_PHANTOMS) {
+    const exists = await prisma.event.findUnique({
+      where: { id: entry.loserId },
+      select: { id: true },
+    });
+    if (!exists) {
+      console.log(`  [#${entry.issue} ${entry.kennelCode}] ${entry.loserId}  ALREADY CLEANED — skip`);
+      continue;
+    }
+    const ev = await inspectEvent(entry.loserId);
+    if (ev.attendanceCount + ev.kennelAttendanceCount > 0) {
+      // Synthesize a PairRow-shaped record so the attendance-error block
+      // can print one consistent format for both auto and named entries.
+      state.blockingAttendance.push({
+        event: ev,
+        pair: {
+          a_id: ev.id, a_date: ev.date,
+          a_source_url: ev.sourceUrl ?? "(named)",
+          b_id: "(named-purge)", b_date: ev.date,
+          kennel_code: entry.kennelCode,
+        },
+      });
+    }
+    if (!state.lossesById.has(ev.id)) state.lossesById.set(ev.id, ev);
+    console.log(
+      `  [#${entry.issue} ${entry.kennelCode}] ${entry.reason}\n` +
+      `    DROP : ${fmtScanRow(ev)}`,
+    );
+  }
+}
+
+function reportAttendanceBlocks(blocks: { event: ScanRow; pair: PairRow }[]): void {
+  console.error(
+    `\nABORT: ${blocks.length} losing Event(s) carry attendance rows. ` +
+    `Reassign attendance to the surviving canonical (via misman or admin tools) ` +
+    `before re-running this cleanup. Affected:`,
+  );
+  for (const { event, pair } of blocks) {
+    console.error(
+      `  ${pair.kennel_code} eventId=${event.id} date=${event.date.toISOString().slice(0, 10)} ` +
+      `attendance=${event.attendanceCount} kennelAttendance=${event.kennelAttendanceCount}`,
+    );
+  }
+}
+
+function findWinnerLoserCollision(state: CleanupState): string | null {
+  for (const id of state.lossesById.keys()) {
+    if (state.winsById.has(id)) return id;
+  }
+  return null;
+}
+
 async function main() {
   const pairs = await findPhantomPairs();
   console.log(`Mode: ${APPLY ? "APPLY (writing to prod)" : "DRY RUN"}`);
   console.log(`Found ${pairs.length} candidate phantom-date pair(s) within ±${WINDOW_DAYS} days.\n`);
 
-  if (pairs.length === 0) {
+  if (pairs.length === 0 && NAMED_PHANTOMS.length === 0) {
     console.log("Nothing to clean.");
     await prisma.$disconnect();
     return;
   }
 
-  // De-dupe loser IDs across pairs — a 3-way cluster could nominate the
-  // same event as the loser twice.
-  const lossesById = new Map<string, ScanRow>();
-  const winsById = new Map<string, ScanRow>();
-  const blockingAttendance: { event: ScanRow; pair: PairRow }[] = [];
+  const state: CleanupState = {
+    lossesById: new Map(),
+    winsById: new Map(),
+    blockingAttendance: [],
+  };
 
-  const fmt = (e: ScanRow) =>
-    `${e.id} date=${e.date.toISOString().slice(0, 10)} trust=${e.trustLevel} ` +
-    `att=${e.attendanceCount}+${e.kennelAttendanceCount} ` +
-    `lastScrape=${e.latestScrapedAt?.toISOString() ?? "<none>"} ` +
-    `title=${JSON.stringify(e.title)}`;
+  await ingestAutoPairs(pairs, state);
+  await ingestNamedPhantoms(state);
 
-  for (const pair of pairs) {
-    const [a, b] = await Promise.all([inspectEvent(pair.a_id), inspectEvent(pair.b_id)]);
-    const { winner, loser } = pickWinnerLoser(a, b);
-
-    const totalAttendance = loser.attendanceCount + loser.kennelAttendanceCount;
-    if (totalAttendance > 0) {
-      blockingAttendance.push({ event: loser, pair });
-    }
-
-    if (!lossesById.has(loser.id)) lossesById.set(loser.id, loser);
-    if (!winsById.has(winner.id)) winsById.set(winner.id, winner);
-
-    console.log(
-      `[${pair.kennel_code}] sourceUrl=${pair.a_source_url}\n` +
-      `  KEEP : ${fmt(winner)}\n` +
-      `  DROP : ${fmt(loser)}\n`,
-    );
-  }
-
-  // Named-phantom purges (see NAMED_PHANTOMS comment for rationale).
-  if (NAMED_PHANTOMS.length > 0) {
-    console.log(`\nNamed-phantom purges (${NAMED_PHANTOMS.length}):`);
-    for (const entry of NAMED_PHANTOMS) {
-      const exists = await prisma.event.findUnique({
-        where: { id: entry.loserId },
-        select: { id: true },
-      });
-      if (!exists) {
-        console.log(`  [#${entry.issue} ${entry.kennelCode}] ${entry.loserId}  ALREADY CLEANED — skip`);
-        continue;
-      }
-      const ev = await inspectEvent(entry.loserId);
-      if (ev.attendanceCount + ev.kennelAttendanceCount > 0) {
-        blockingAttendance.push({
-          event: ev,
-          // Synthesize a PairRow-shaped record for the attendance-error block.
-          pair: {
-            a_id: ev.id, a_date: ev.date,
-            a_source_url: ev.sourceUrl ?? "(named)",
-            b_id: "(named-purge)", b_date: ev.date,
-            kennel_code: entry.kennelCode,
-          },
-        });
-      }
-      if (!lossesById.has(ev.id)) lossesById.set(ev.id, ev);
-      console.log(
-        `  [#${entry.issue} ${entry.kennelCode}] ${entry.reason}\n` +
-        `    DROP : ${fmt(ev)}`,
-      );
-    }
-  }
-
-  if (blockingAttendance.length > 0) {
-    console.error(
-      `\nABORT: ${blockingAttendance.length} losing Event(s) carry attendance rows. ` +
-      `Reassign attendance to the surviving canonical (via misman or admin tools) ` +
-      `before re-running this cleanup. Affected:`,
-    );
-    for (const { event, pair } of blockingAttendance) {
-      console.error(
-        `  ${pair.kennel_code} eventId=${event.id} date=${event.date.toISOString().slice(0, 10)} ` +
-        `attendance=${event.attendanceCount} kennelAttendance=${event.kennelAttendanceCount}`,
-      );
-    }
+  if (state.blockingAttendance.length > 0) {
+    reportAttendanceBlocks(state.blockingAttendance);
     await prisma.$disconnect();
     process.exit(1);
   }
 
-  // Belt-and-suspenders: refuse to delete an Event that's also nominated as
-  // a winner in another pair (impossible by current discovery shape but
-  // cheap to assert before a destructive write).
-  for (const id of lossesById.keys()) {
-    if (winsById.has(id)) {
-      console.error(`ABORT: event ${id} is both a winner and a loser across pairs. Aborting to avoid data loss.`);
-      await prisma.$disconnect();
-      process.exit(1);
-    }
+  const collision = findWinnerLoserCollision(state);
+  if (collision !== null) {
+    console.error(`ABORT: event ${collision} is both a winner and a loser across pairs. Aborting to avoid data loss.`);
+    await prisma.$disconnect();
+    process.exit(1);
   }
 
   if (!APPLY) {
-    console.log(`\nDry-run only — ${lossesById.size} Event(s) would be cascade-deleted.`);
+    console.log(`\nDry-run only — ${state.lossesById.size} Event(s) would be cascade-deleted.`);
     console.log("Re-run with --apply to write changes.");
     await prisma.$disconnect();
     return;
   }
 
-  const deleted = await cascadeDeleteEvents(prisma, [...lossesById.keys()]);
+  const deleted = await cascadeDeleteEvents(prisma, [...state.lossesById.keys()]);
   console.log(`\nDeleted ${deleted} Event row(s) (dependents removed, RawEvent history unlinked).`);
   await prisma.$disconnect();
 }

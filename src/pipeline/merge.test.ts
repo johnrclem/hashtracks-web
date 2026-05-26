@@ -139,7 +139,7 @@ beforeEach(() => {
   // Same-sourceUrl date-correction probe (#1613 / #1648) defaults to "no match"
   // so existing tests are unaffected; per-test overrides exercise the
   // correction path itself.
-  vi.mocked(prisma.event.findFirst).mockResolvedValue(null as never);
+  vi.mocked(prisma.event.findFirst).mockResolvedValue(null);
   vi.mocked(prisma.eventKennel.create).mockResolvedValue({} as never);
   // $transaction supports two call shapes: array of ops (returns Promise.all)
   // and callback (invoked with the tx client). The dual-write helper added
@@ -4381,38 +4381,39 @@ describe("linkMultiDaySeries (#1560)", () => {
   });
 });
 
-describe("same-sourceUrl date-correction dedup (#1613 / #1648)", () => {
-  // Builds the EventRow shape EVENT_CACHE_SELECT returns from the correction
-  // probe. Date defaults to MarinH3's pre-correction date so the +14d shape
-  // is the natural call site.
-  function existingCorrectionRow(overrides?: Record<string, unknown>) {
-    return {
-      id: "evt_phantom",
-      kennelId: "kennel_1",
-      date: new Date("2026-05-23T12:00:00.000Z"),
-      trustLevel: 5,
-      sourceUrl: "https://www.sfh3.com/runs/6443",
-      title: "Marin H3 Run #291",
-      runNumber: 291,
-      startTime: "13:00",
-      locationName: null,
-      parentEventId: null,
-      isSeriesParent: false,
-      isCanonical: true,
-      status: "CONFIRMED",
-      adminCancelledAt: null,
-      ...overrides,
-    };
-  }
+// Builds the EventRow shape EVENT_CACHE_SELECT returns from the same-sourceUrl
+// correction probe (#1613 / #1648). Date defaults to MarinH3's pre-correction
+// date so the +14d shape is the natural call site. Hoisted to module scope
+// per Sonar S7721.
+function buildCorrectionCandidate(overrides?: Record<string, unknown>) {
+  return {
+    id: "evt_phantom",
+    kennelId: "kennel_1",
+    date: new Date("2026-05-23T12:00:00.000Z"),
+    trustLevel: 5,
+    sourceUrl: "https://www.sfh3.com/runs/6443",
+    title: "Marin H3 Run #291",
+    runNumber: 291,
+    startTime: "13:00",
+    locationName: null,
+    parentEventId: null,
+    isSeriesParent: false,
+    isCanonical: true,
+    status: "CONFIRMED",
+    adminCancelledAt: null,
+    ...overrides,
+  };
+}
 
+describe("same-sourceUrl date-correction dedup (#1613 / #1648)", () => {
   it("MarinH3-shape: +14d sourceUrl match moves canonical, does not create phantom (#1613)", async () => {
     mockRawEventFind.mockResolvedValueOnce(null);
     // Cache prefetch: empty same-day pool for the corrected date.
-    mockEventFindMany.mockResolvedValueOnce([] as never);
+    mockEventFindMany.mockResolvedValueOnce([]);
     // Old-bucket recanonicalize refetch.
-    mockEventFindMany.mockResolvedValueOnce([] as never);
+    mockEventFindMany.mockResolvedValueOnce([]);
     // Same-sourceUrl correction probe returns the phantom from May 23.
-    vi.mocked(prisma.event.findFirst).mockResolvedValueOnce(existingCorrectionRow() as never);
+    vi.mocked(prisma.event.findFirst).mockResolvedValueOnce(buildCorrectionCandidate() as never);
     mockEventUpdate.mockResolvedValueOnce({ id: "evt_phantom" } as never);
 
     const result = await processRawEvents("src_sfh3_html", [
@@ -4456,8 +4457,8 @@ describe("same-sourceUrl date-correction dedup (#1613 / #1648)", () => {
     expect(probeWhere.eventKennels.some.kennelId).toBe("kennel_1");
     expect(probeWhere.date.not).toEqual(new Date("2026-05-09T12:00:00.000Z"));
     // ±30d window
-    const expectedLo = new Date("2026-05-09T12:00:00.000Z").getTime() - 30 * 86400_000;
-    const expectedHi = new Date("2026-05-09T12:00:00.000Z").getTime() + 30 * 86400_000;
+    const expectedLo = new Date("2026-05-09T12:00:00.000Z").getTime() - 30 * 86_400_000;
+    const expectedHi = new Date("2026-05-09T12:00:00.000Z").getTime() + 30 * 86_400_000;
     expect(probeWhere.date.gte.getTime()).toBe(expectedLo);
     expect(probeWhere.date.lte.getTime()).toBe(expectedHi);
   });
@@ -4469,7 +4470,7 @@ describe("same-sourceUrl date-correction dedup (#1613 / #1648)", () => {
     // adjacent events for those adapters. runNumber acts as a required
     // second signal — when an event lacks it, the probe MUST be skipped.
     mockRawEventFind.mockResolvedValueOnce(null);
-    mockEventFindMany.mockResolvedValueOnce([] as never);
+    mockEventFindMany.mockResolvedValueOnce([]);
     mockEventCreate.mockResolvedValueOnce({ id: "evt_no_runnumber" } as never);
 
     const result = await processRawEvents("src_baseurl_adapter", [
@@ -4494,11 +4495,11 @@ describe("same-sourceUrl date-correction dedup (#1613 / #1648)", () => {
     // enforces this; we assert that filter is in the WHERE clause so it
     // can't regress to a sourceUrl-only probe.
     mockRawEventFind.mockResolvedValueOnce(null);
-    mockEventFindMany.mockResolvedValueOnce([] as never);
+    mockEventFindMany.mockResolvedValueOnce([]);
     // Mock returns null because the WHERE includes runNumber=43 and no
     // candidate matches — but the probe MUST have been issued with that
     // filter for the DB constraint to do its job.
-    vi.mocked(prisma.event.findFirst).mockResolvedValueOnce(null as never);
+    vi.mocked(prisma.event.findFirst).mockResolvedValueOnce(null);
     mockEventCreate.mockResolvedValueOnce({ id: "evt_runnumber_distinct" } as never);
 
     const result = await processRawEvents("src_shith3", [
@@ -4519,10 +4520,10 @@ describe("same-sourceUrl date-correction dedup (#1613 / #1648)", () => {
 
   it("Narwhal-shape: +4d sourceUrl match moves canonical, does not create phantom (#1648)", async () => {
     mockRawEventFind.mockResolvedValueOnce(null);
-    mockEventFindMany.mockResolvedValueOnce([] as never); // cache prefetch empty
-    mockEventFindMany.mockResolvedValueOnce([] as never); // old-bucket refetch
+    mockEventFindMany.mockResolvedValueOnce([]); // cache prefetch empty
+    mockEventFindMany.mockResolvedValueOnce([]); // old-bucket refetch
     vi.mocked(prisma.event.findFirst).mockResolvedValueOnce(
-      existingCorrectionRow({
+      buildCorrectionCandidate({
         id: "evt_narwhal_phantom",
         date: new Date("2023-06-21T12:00:00.000Z"), // Wednesday phantom
         sourceUrl: "https://www.meetup.com/narwhal-h3/events/293000000",
@@ -4549,11 +4550,11 @@ describe("same-sourceUrl date-correction dedup (#1613 / #1648)", () => {
 
   it("OFH3-shape: year-rollover gap (>30d) does NOT match — leaves the adapter fix to resolve (#1643)", async () => {
     mockRawEventFind.mockResolvedValueOnce(null);
-    mockEventFindMany.mockResolvedValueOnce([] as never);
+    mockEventFindMany.mockResolvedValueOnce([]);
     // Probe returns null because the gap (365d) exceeds the ±30d window
     // when applied as a DB-level date filter. We assert no correction
     // happens, even if the mock would otherwise allow it.
-    vi.mocked(prisma.event.findFirst).mockResolvedValueOnce(null as never);
+    vi.mocked(prisma.event.findFirst).mockResolvedValueOnce(null);
     mockEventCreate.mockResolvedValueOnce({ id: "evt_new_2025" } as never);
 
     const result = await processRawEvents("src_ofh3", [
@@ -4573,9 +4574,9 @@ describe("same-sourceUrl date-correction dedup (#1613 / #1648)", () => {
 
   it("does NOT dedup when sourceUrls differ — distinct events stay split", async () => {
     mockRawEventFind.mockResolvedValueOnce(null);
-    mockEventFindMany.mockResolvedValueOnce([] as never);
+    mockEventFindMany.mockResolvedValueOnce([]);
     // Probe finds nothing because sourceUrl is unique per event.
-    vi.mocked(prisma.event.findFirst).mockResolvedValueOnce(null as never);
+    vi.mocked(prisma.event.findFirst).mockResolvedValueOnce(null);
     mockEventCreate.mockResolvedValueOnce({ id: "evt_distinct" } as never);
 
     const result = await processRawEvents("src_a", [
@@ -4592,7 +4593,7 @@ describe("same-sourceUrl date-correction dedup (#1613 / #1648)", () => {
 
   it("does NOT run probe when incoming event has seriesId (multi-day series share parent URLs)", async () => {
     mockRawEventFind.mockResolvedValueOnce(null);
-    mockEventFindMany.mockResolvedValueOnce([] as never);
+    mockEventFindMany.mockResolvedValueOnce([]);
     mockEventCreate.mockResolvedValueOnce({ id: "evt_series" } as never);
 
     const result = await processRawEvents("src_a", [
@@ -4620,10 +4621,10 @@ describe("same-sourceUrl date-correction dedup (#1613 / #1648)", () => {
       kennels: [{ kennelId: "kennel_1" }],
     } as never);
     mockRawEventFind.mockResolvedValueOnce(null);
-    mockEventFindMany.mockResolvedValueOnce([] as never);
-    mockEventFindMany.mockResolvedValueOnce([] as never);
+    mockEventFindMany.mockResolvedValueOnce([]);
+    mockEventFindMany.mockResolvedValueOnce([]);
     vi.mocked(prisma.event.findFirst).mockResolvedValueOnce(
-      existingCorrectionRow({ trustLevel: 9 }) as never,
+      buildCorrectionCandidate({ trustLevel: 9 }) as never,
     );
     mockEventCreate.mockResolvedValueOnce({ id: "evt_new_phantom" } as never);
 
