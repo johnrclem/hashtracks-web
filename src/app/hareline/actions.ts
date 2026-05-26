@@ -102,6 +102,15 @@ export type TimeMode = "upcoming" | "past";
 const PAST_EVENTS_LIMIT = 200;
 
 /**
+ * Defensive cap on the kennel-filter list (#1560 PR F, CodeRabbit review).
+ * Caps cache-key cardinality and bounds the Prisma `IN` clause size against
+ * pathological inputs. 50 comfortably covers any realistic regional filter
+ * — Chicago has 12 kennels, NYC ~11, SF Bay ~13. Above this, the user is
+ * almost certainly browsing globally, not filtering.
+ */
+const MAX_KENNEL_FILTER_IDS = 50;
+
+/**
  * Cache-shape twin of `HarelineListEvent` with `dateUtc` serialized to ISO
  * string. `unstable_cache` JSON-serializes its return value; keeping this
  * twin explicit means the boundary conversion is visible at the call site.
@@ -354,13 +363,20 @@ export async function loadEventsForTimeMode(
   const todayDateStr = new Date(nowMs ?? Date.now()).toISOString().slice(0, 10);
 
   // #1560 PR F — normalize the kennel filter into a stable cache key.
-  // Sorted-joined so [a,b] and [b,a] hit the same cache entry; empty string
-  // for the unfiltered path so existing cache entries (no kennel filter)
-  // remain valid post-deploy. `localeCompare` over default sort to satisfy
-  // Sonar S2871 — kennel IDs are ASCII-only cuids so the order is identical
-  // in practice, but the explicit comparator makes the intent obvious.
-  const kennelIdsKey = (kennelIds && kennelIds.length > 0)
-    ? [...kennelIds].sort((a, b) => a.localeCompare(b)).join(",")
+  // - Trim each ID (URL decoders sometimes leave stray whitespace)
+  // - Drop empties (e.g. `?kennels=a,,b`)
+  // - Dedupe (e.g. `?kennels=a&kennels=a`) so the cache key is canonical
+  //   regardless of how callers compose the URL
+  // - Cap at MAX_KENNEL_FILTER_IDS to bound cache cardinality + Prisma `IN`
+  //   list size against pathological inputs (CodeRabbit PR #1712 review)
+  // - Sort with `localeCompare` so [a,b] and [b,a] hit the same cache entry
+  //   (Sonar S2871). Empty string when no filter — preserves existing
+  //   unfiltered cache entries post-deploy.
+  const normalizedKennelIds = Array.from(
+    new Set((kennelIds ?? []).map((id) => id.trim()).filter(Boolean)),
+  ).slice(0, MAX_KENNEL_FILTER_IDS);
+  const kennelIdsKey = normalizedKennelIds.length > 0
+    ? [...normalizedKennelIds].sort((a, b) => a.localeCompare(b)).join(",")
     : "";
 
   const cached = await fetchSlimEventsCached(mode, todayDateStr, kennelIdsKey);

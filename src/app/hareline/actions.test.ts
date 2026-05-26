@@ -103,6 +103,28 @@ describe("loadEventsForTimeMode kennel-scoping (#1560 PR F)", () => {
     expect(where).not.toHaveProperty("OR");
   });
 
+  it("normalizes kennelIds: trims whitespace, drops empties, dedupes", async () => {
+    // Same logical filter as ["a", "b"] — verify normalization collapses to
+    // the canonical Prisma `IN` shape regardless of caller noise.
+    await loadEventsForTimeMode("upcoming", NOW_MS, [" a ", "b", "", "a", "b  "]);
+
+    const where = mockFindMany.mock.calls[0][0]?.where as Record<string, unknown>;
+    expect(where.OR).toEqual([
+      { kennelId: { in: ["a", "b"] } },
+      { eventKennels: { some: { kennelId: { in: ["a", "b"] } } } },
+    ]);
+  });
+
+  it("caps kennelIds at MAX_KENNEL_FILTER_IDS to bound cache cardinality + IN size", async () => {
+    // 60 distinct IDs in → capped at 50 in the query.
+    const sixty = Array.from({ length: 60 }, (_, i) => `k${i.toString().padStart(2, "0")}`);
+    await loadEventsForTimeMode("upcoming", NOW_MS, sixty);
+
+    const where = mockFindMany.mock.calls[0][0]?.where as Record<string, unknown>;
+    const orClause = where.OR as Array<{ kennelId?: { in: string[] } }>;
+    expect(orClause[0].kennelId!.in).toHaveLength(50);
+  });
+
   it("drops children from top-level when their parent is also in the result (avoids double-render)", async () => {
     // NYCH3 5-Boro case: parent + Sat/Sun children all hosted by NYCH3.
     // Both surface from the query when kennel-filtered, but children must
