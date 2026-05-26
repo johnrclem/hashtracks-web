@@ -1282,6 +1282,17 @@ async function upsertCanonicalEvent(
   // update branch physically writes `date: eventDate`, then the abandoned
   // bucket is recanonicalized at the end of upsertCanonicalEvent.
   //
+  // **`runNumber` is a required second signal.** Multiple adapters reuse a
+  // single sourceUrl across many events (BFM, OCH3, SHITH3, STATIC_SCHEDULE,
+  // Bangkok, HashPhilly all emit a fixed baseUrl as `sourceUrl`). Probing
+  // by sourceUrl alone would falsely collapse distinct adjacent events for
+  // those adapters (Codex review on PR #1696). All three of the issue cases
+  // (#1613 Marin #291/#292, #1648 Narwhal #53, #1643 OFH3 #387) carry an
+  // explicit runNumber, so requiring it as a co-match preserves coverage
+  // while eliminating the URL-collision false-positive class. Adapters that
+  // don't emit a runNumber give up auto-dedup; they need a manual cleanup
+  // or a per-event sourceUrl emission to opt in.
+  //
   // Trust gate: only adopt when our trust ≥ the canonical's. A lower-trust
   // re-emission of a higher-trust canonical's URL with a wrong date must not
   // move the date — fall through to the regular flow (which would today
@@ -1290,12 +1301,14 @@ async function upsertCanonicalEvent(
     !existingEvent
     && event.sourceUrl
     && !event.seriesId
+    && event.runNumber != null
   ) {
     const windowMs = SAME_SOURCE_URL_DEDUP_WINDOW_DAYS * 24 * 60 * 60 * 1000;
     const correction = await prisma.event.findFirst({
       where: {
         sourceUrl: event.sourceUrl,
         eventKennels: { some: { kennelId } },
+        runNumber: event.runNumber,
         date: {
           gte: new Date(eventDate.getTime() - windowMs),
           lte: new Date(eventDate.getTime() + windowMs),
@@ -1311,6 +1324,7 @@ async function upsertCanonicalEvent(
     if (correction && ctx.trustLevel >= correction.trustLevel) {
       console.info(
         `[merge.date-correction] kennelId=${kennelId} sourceUrl=${event.sourceUrl} ` +
+          `runNumber=${event.runNumber} ` +
           `oldDate=${correction.date.toISOString()} newDate=${eventDate.toISOString()} ` +
           `eventId=${correction.id}`,
       );

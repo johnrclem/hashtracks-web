@@ -4443,6 +4443,7 @@ describe("same-sourceUrl date-correction dedup (#1613 / #1648)", () => {
     const probeWhere = (probeCall[0] as {
       where: {
         sourceUrl: string;
+        runNumber: number;
         date: { gte: Date; lte: Date; not: Date };
         eventKennels: { some: { kennelId: string } };
         parentEventId: null;
@@ -4451,6 +4452,7 @@ describe("same-sourceUrl date-correction dedup (#1613 / #1648)", () => {
       };
     }).where;
     expect(probeWhere.sourceUrl).toBe("https://www.sfh3.com/runs/6443");
+    expect(probeWhere.runNumber).toBe(291); // required second signal — protects shared-URL adapters
     expect(probeWhere.eventKennels.some.kennelId).toBe("kennel_1");
     expect(probeWhere.date.not).toEqual(new Date("2026-05-09T12:00:00.000Z"));
     // ±30d window
@@ -4458,6 +4460,61 @@ describe("same-sourceUrl date-correction dedup (#1613 / #1648)", () => {
     const expectedHi = new Date("2026-05-09T12:00:00.000Z").getTime() + 30 * 86400_000;
     expect(probeWhere.date.gte.getTime()).toBe(expectedLo);
     expect(probeWhere.date.lte.getTime()).toBe(expectedHi);
+  });
+
+  it("does NOT run probe when incoming event has no runNumber (protects shared-URL adapters)", async () => {
+    // Codex review on PR #1696: many adapters (BFM, OCH3, SHITH3, Bangkok,
+    // STATIC_SCHEDULE, HashPhilly) emit a single baseUrl as sourceUrl for
+    // every event. Probing by sourceUrl alone would falsely merge distinct
+    // adjacent events for those adapters. runNumber acts as a required
+    // second signal — when an event lacks it, the probe MUST be skipped.
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([] as never);
+    mockEventCreate.mockResolvedValueOnce({ id: "evt_no_runnumber" } as never);
+
+    const result = await processRawEvents("src_baseurl_adapter", [
+      buildRawEvent({
+        date: "2026-05-09",
+        kennelTags: ["TestH3"],
+        sourceUrl: "https://www.bfmh3.com/", // baseUrl reused across events
+        runNumber: undefined,
+      }),
+    ]);
+
+    expect(result.created).toBe(1);
+    // The findFirst correction probe MUST NOT have been called.
+    expect(vi.mocked(prisma.event.findFirst)).not.toHaveBeenCalled();
+  });
+
+  it("does NOT match when runNumber differs (SHITH3-style: distinct events share baseUrl)", async () => {
+    // SHITH3 emits `${BASE_URL}/events.php` as sourceUrl for every event.
+    // A new event with runNumber=43 must not match an existing canonical
+    // with the same baseUrl but runNumber=42, even though everything else
+    // (kennel, ±30d window) lines up. The DB-side runNumber filter
+    // enforces this; we assert that filter is in the WHERE clause so it
+    // can't regress to a sourceUrl-only probe.
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([] as never);
+    // Mock returns null because the WHERE includes runNumber=43 and no
+    // candidate matches — but the probe MUST have been issued with that
+    // filter for the DB constraint to do its job.
+    vi.mocked(prisma.event.findFirst).mockResolvedValueOnce(null as never);
+    mockEventCreate.mockResolvedValueOnce({ id: "evt_runnumber_distinct" } as never);
+
+    const result = await processRawEvents("src_shith3", [
+      buildRawEvent({
+        date: "2026-05-09",
+        kennelTags: ["TestH3"],
+        sourceUrl: "https://shith3.com/events.php", // shared across events
+        runNumber: 43, // a different run from the canonical at /events.php
+      }),
+    ]);
+
+    expect(result.created).toBe(1);
+    expect(result.updated).toBe(0);
+    const probeCall = vi.mocked(prisma.event.findFirst).mock.calls[0];
+    const probeWhere = (probeCall[0] as { where: { runNumber: number } }).where;
+    expect(probeWhere.runNumber).toBe(43);
   });
 
   it("Narwhal-shape: +4d sourceUrl match moves canonical, does not create phantom (#1648)", async () => {

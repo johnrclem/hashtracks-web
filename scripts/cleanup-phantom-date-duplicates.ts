@@ -31,6 +31,7 @@
  *   npm run tsx scripts/cleanup-phantom-date-duplicates.ts -- --apply
  */
 import "dotenv/config";
+import { Prisma } from "../src/generated/prisma/client";
 import { prisma } from "../src/lib/db";
 import { cascadeDeleteEvents } from "./lib/cascade-delete";
 
@@ -121,7 +122,7 @@ async function findPhantomPairs(): Promise<PairRow[]> {
     JOIN "EventKennel" ka ON ka."eventId" = a.id
     JOIN "EventKennel" kb ON kb."eventId" = b.id AND kb."kennelId" = ka."kennelId"
     JOIN "Kennel" k       ON k.id = ka."kennelId"
-    WHERE k."kennelCode" = ANY (${[...AFFECTED_KENNEL_CODES]}::text[])
+    WHERE k."kennelCode" IN (${Prisma.join([...AFFECTED_KENNEL_CODES])})
       AND a."sourceUrl" IS NOT NULL AND a."sourceUrl" <> ''
       AND a.status <> 'CANCELLED' AND b.status <> 'CANCELLED'
       AND a."parentEventId" IS NULL AND b."parentEventId" IS NULL
