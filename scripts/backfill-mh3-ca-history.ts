@@ -155,6 +155,42 @@ export function parseYearIndex(html: string, year: number): IndexRow[] {
  * We flatten the body to text and use anchored label regexes. Returns an
  * empty object if no labels match — the caller falls back to the index row.
  */
+const ORDINAL_SUFFIXES = ["st", "nd", "rd", "th"];
+
+/**
+ * Strip ordinal day suffixes ("July 6th" → "July 6"). Procedural rather than
+ * `/(\d+)(?:st|nd|rd|th)\b/` per `feedback_sonar_s5852_procedural_over_regex.md`
+ * — the alternation + word-boundary pattern triggers SonarCloud S5852 as a
+ * potential backtracking shape. Walks the string once, swapping any
+ * digit-run + recognized suffix that lands at a non-letter boundary for just
+ * the digit run.
+ */
+function stripOrdinalSuffixes(input: string): string {
+  let out = "";
+  let i = 0;
+  while (i < input.length) {
+    const ch = input[i];
+    if (ch >= "0" && ch <= "9") {
+      let j = i;
+      while (j < input.length && input[j] >= "0" && input[j] <= "9") j++;
+      out += input.slice(i, j);
+      const sfx = input.slice(j, j + 2).toLowerCase();
+      const after = input[j + 2];
+      const atBoundary = after === undefined
+        || !((after >= "a" && after <= "z") || (after >= "A" && after <= "Z"));
+      if (ORDINAL_SUFFIXES.includes(sfx) && atBoundary) {
+        i = j + 2;
+      } else {
+        i = j;
+      }
+    } else {
+      out += ch;
+      i++;
+    }
+  }
+  return out;
+}
+
 /**
  * Read a labelled line (e.g. `Date: …`, `Location: …`) out of a flattened
  * detail page. Procedural rather than regex per
@@ -212,7 +248,7 @@ export function parseDetailPage(html: string): DetailEnrichment {
     // label-line regexes).
     const atIdx = dateLine.indexOf("@");
     const beforeAt = atIdx >= 0 ? dateLine.slice(0, atIdx) : dateLine;
-    const dateOnly = beforeAt.replace(/(\d+)(?:st|nd|rd|th)\b/gi, "$1").trim();
+    const dateOnly = stripOrdinalSuffixes(beforeAt).trim();
     date = chronoParseDate(dateOnly) ?? undefined;
   }
 
