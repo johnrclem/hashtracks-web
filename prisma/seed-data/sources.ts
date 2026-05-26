@@ -2452,10 +2452,13 @@ export const SOURCES = [
       type: "GOOGLE_SHEETS" as const,
       trustLevel: 5,
       scrapeFreq: "daily",
-      // #1601: Leap Year runs every 4 years; sheet carries placeholders out to
-      // #16 in 2048. 800d window stopped at ~2028. Widened to cover the full
-      // century-spanning placeholder sequence (matches Summit's 9999 pattern).
-      scrapeDays: 9999,
+      // #1601 (partial): past runs #6-#8 (2008/2012/2016) ship via the WA Hash
+      // Google Calendar's widened window above. The 2 future placeholders
+      // #15-#16 (2044/2048) on this sheet are deferred — GoogleSheetsAdapter
+      // applies `days` symmetrically, so bumping scrapeDays past 22yr would
+      // surface every interstitial "??" placeholder row through 2048 as
+      // canonical data (Codex review pushback).
+      scrapeDays: 800,
       config: {
         sheetId: "anonymous",
         csvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ_z30ZkQNOwcAka4qU22bAGYIVjJFc5NyICst9OeUWPvi27lNK8ICkZllzLI0gjLwQDjVvlt3mMlDM/pub?output=csv",

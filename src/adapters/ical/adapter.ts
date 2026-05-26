@@ -497,15 +497,17 @@ export class ICalAdapter implements SourceAdapter {
 
   async fetch(
     source: Source,
-    _options?: { days?: number },
+    options?: { days?: number },
   ): Promise<ScrapeResult> {
-    // Symmetric lookback/lookforward derived from source.scrapeDays so wide-window
-    // backfills (e.g. ICH3 #1339) actually pick up past events; iCal feeds often
-    // publish events 6+ months in advance, so the forward window tracks it too.
-    // Note: scrapeSource() passes source.scrapeDays as options.days, so we read
-    // source.scrapeDays directly to avoid double-applying the window.
-    const lookbackDays = source.scrapeDays ?? 90;
-    const lookforwardDays = source.scrapeDays ?? 365;
+    // Honor options.days so admin one-shot wide-window scrapes
+    // (e.g. ICH3 #1339 historical recovery) actually pick up past events.
+    // CRITICAL: scrapeSource() passes the same `days` to both fetch and
+    // reconcileStaleEvents — if fetch caps narrower than reconcile, reconcile
+    // would cancel every event in the gap as "missing from scrape". Falls
+    // back to source.scrapeDays then 90 (preserving prior default).
+    const days = options?.days ?? source.scrapeDays ?? 90;
+    const lookbackDays = days;
+    const lookforwardDays = options?.days ?? source.scrapeDays ?? 365;
     const fetchStart = Date.now();
 
     const now = new Date();
