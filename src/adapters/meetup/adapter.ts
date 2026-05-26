@@ -265,9 +265,86 @@ export function resolveVenue(
   };
 }
 
-/** Strip HTML tags from Meetup description and truncate. */
-function cleanMeetupDescription(desc: string | undefined): string | undefined {
+/**
+ * Apollo back-reference shape — a bare `$XX` string that points elsewhere in the
+ * normalized cache (Meetup deduplicates long shared values like the boilerplate
+ * "Structure / This event..." across many Event entries). See #1659: when the
+ * extractor casts an Apollo entry to `ApolloEvent` without resolving these,
+ * canonical Event.description ends up storing `"$44"` instead of prose.
+ */
+const APOLLO_REF_RE = /^\$[0-9a-fA-F]+$/;
+
+/** True if the resolved string looks like real prose (≥20 chars, has a word). */
+function looksLikeProse(value: string): boolean {
+  if (value.length < 20) return false;
+  return /[A-Za-z]{3,}/.test(value);
+}
+
+/**
+ * Resolve an Apollo back-reference string against the cache state. Follows
+ * up to MAX_REF_HOPS chained `$XX -> $YY -> "..."` indirections — Apollo's
+ * normalized format permits chains when the same string is referenced from
+ * multiple cache layers. Returns the prose target if any link in the chain
+ * dereferences to a real string with prose content; otherwise returns
+ * `undefined` to signal "no usable target." Tracks visited refs to defend
+ * against pathological self-referential cycles.
+ */
+const MAX_REF_HOPS = 4;
+function resolveApolloDescriptionRef(
+  ref: string,
+  state: Record<string, unknown>,
+): string | undefined {
+  const visited = new Set<string>();
+  let cursor: string | undefined = ref;
+  for (let hop = 0; hop < MAX_REF_HOPS && cursor; hop++) {
+    if (visited.has(cursor)) return undefined;
+    visited.add(cursor);
+    const target: unknown = state[cursor];
+    // Direct string hit — accept if it's prose, otherwise treat as a ref-shape
+    // to keep chasing (a string like "$45" is itself a ref).
+    if (typeof target === "string") {
+      if (looksLikeProse(target)) return target;
+      if (APOLLO_REF_RE.test(target)) {
+        cursor = target;
+        continue;
+      }
+      return undefined;
+    }
+    // Wrapper object — the common shape is { value: <string-or-ref> }, but
+    // some Apollo variants nest under `data`. Probe both.
+    if (target && typeof target === "object" && !Array.isArray(target)) {
+      const obj = target as Record<string, unknown>;
+      const wrapped = (typeof obj.value === "string" ? obj.value : undefined)
+        ?? (typeof obj.data === "string" ? obj.data : undefined);
+      if (typeof wrapped !== "string") return undefined;
+      if (looksLikeProse(wrapped)) return wrapped;
+      if (APOLLO_REF_RE.test(wrapped)) {
+        cursor = wrapped;
+        continue;
+      }
+      return undefined;
+    }
+    return undefined;
+  }
+  return undefined;
+}
+
+/**
+ * Clean a Meetup description: dereference Apollo back-refs, strip HTML, truncate.
+ * Returns `null` (explicit clear, per merge.ts contract) when the raw value is
+ * an Apollo ref that doesn't resolve to prose — prevents `$XX` literals from
+ * persisting on canonical Events. Returns `undefined` only for missing input.
+ */
+function cleanMeetupDescription(
+  desc: string | undefined,
+  state: Record<string, unknown>,
+): string | null | undefined {
   if (!desc) return undefined;
+  if (APOLLO_REF_RE.test(desc)) {
+    const resolved = resolveApolloDescriptionRef(desc, state);
+    if (!resolved) return null;
+    return stripHtmlTags(resolved).slice(0, 2000) || null;
+  }
   return stripHtmlTags(desc).slice(0, 2000) || undefined;
 }
 
@@ -426,7 +503,7 @@ export function buildRawEventFromApollo(
   const hares =
     (descForHares ? extractHaresFromDescription(descForHares) : undefined)
     ?? extractHaresFromMeetupDescription(descForHares);
-  const cleanedDesc = cleanMeetupDescription(ev.description);
+  const cleanedDesc = cleanMeetupDescription(ev.description, state);
 
   return {
     date,

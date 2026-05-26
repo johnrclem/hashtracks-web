@@ -3909,6 +3909,22 @@ export const SOURCES = [
       },
       kennelCodes: ["mh3-ca"],
     },
+    {
+      // #1660: mhhh.ca exposes per-event hares + neighborhood that Meetup
+      // hides ("Location not specified yet"). Trust 9 (above Meetup's 7) so
+      // the website wins on conflicting fields. Hareline-only — historical
+      // /trash/YYYY/ archive is handled by scripts/backfill-mh3-ca-history.ts.
+      name: "MH3 Montreal Website Hareline",
+      url: "https://mhhh.ca/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 9,
+      scrapeFreq: "daily",
+      scrapeDays: 60,
+      config: {
+        kennelTag: "mh3-ca",
+      },
+      kennelCodes: ["mh3-ca"],
+    },
     // --- Toronto ---
     {
       name: "Hogtown H3 Meetup",
