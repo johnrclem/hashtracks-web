@@ -14,20 +14,28 @@ const MONTH_NAMES: Record<string, number> = {
 
 /**
  * Parse a date string like "09 Apr 25", "23 Jul 26", "DD Mon YY".
+ * Also accepts 4–9 char month names ("Sept", "September") — the LSW
+ * previousruns.htm archive uses "Sept" for some 1983-era rows.
  * Returns YYYY-MM-DD or null.
  */
 export function parseLswDate(text: string): string | null {
-  const match = /(\d{1,2})\s+([A-Za-z]{3})\s+(\d{2,4})/.exec(text.trim());
+  const match = /(\d{1,2})\s+([A-Za-z]{3,9})\s+(\d{2,4})/.exec(text.trim());
   if (!match) return null;
 
   const day = parseInt(match[1], 10);
-  const monthStr = match[2].toLowerCase();
+  // Normalize to first 3 letters — every month has a unique 3-letter prefix.
+  const monthStr = match[2].slice(0, 3).toLowerCase();
   const rawYear = parseInt(match[3], 10);
 
   const month = MONTH_NAMES[monthStr];
   if (!month) return null;
 
-  const year = rawYear < 100 ? 2000 + rawYear : rawYear;
+  // Y2K pivot at 70: 00-69 → 2000-2069, 70-99 → 1970-1999.
+  // LSW founded 1979 and previousruns.htm carries dates back to "17 Jan 79".
+  // The original adapter assumed 20xx only (upcoming hareline never spans
+  // 19xx); the pivot is needed for the historical archive.
+  const year =
+    rawYear < 100 ? (rawYear < 70 ? 2000 + rawYear : 1900 + rawYear) : rawYear;
 
   if (day < 1 || day > 31 || month < 1 || month > 12) return null;
 
