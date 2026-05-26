@@ -274,20 +274,20 @@ export function resolveVenue(
  */
 const APOLLO_REF_RE = /^\$[0-9a-fA-F]+$/;
 
-/** True if the resolved string looks like real prose (≥20 chars, has a word). */
-function looksLikeProse(value: string): boolean {
-  if (value.length < 20) return false;
-  return /[A-Za-z]{3,}/.test(value);
-}
-
 /**
  * Resolve an Apollo back-reference string against the cache state. Follows
  * up to MAX_REF_HOPS chained `$XX -> $YY -> "..."` indirections — Apollo's
  * normalized format permits chains when the same string is referenced from
- * multiple cache layers. Returns the prose target if any link in the chain
- * dereferences to a real string with prose content; otherwise returns
- * `undefined` to signal "no usable target." Tracks visited refs to defend
- * against pathological self-referential cycles.
+ * multiple cache layers. Returns the first non-ref string at the end of the
+ * chain; otherwise returns `undefined` to signal "no usable target." Tracks
+ * visited refs to defend against pathological self-referential cycles.
+ *
+ * Reviewer pushback (PR #1688, gemini-code-assist + codex P1): an earlier
+ * version of this helper required a `looksLikeProse` heuristic (≥20 chars +
+ * ASCII `[A-Za-z]{3,}` match) on the resolved value. That dropped legitimate
+ * short descriptions and any non-Latin (e.g. Japanese, French) prose. The
+ * design contract for ref resolution is just "follow indirection until you
+ * land on a literal" — accept any non-ref string the chain bottoms out on.
  */
 const MAX_REF_HOPS = 4;
 function resolveApolloDescriptionRef(
@@ -300,15 +300,12 @@ function resolveApolloDescriptionRef(
     if (visited.has(cursor)) return undefined;
     visited.add(cursor);
     const target: unknown = state[cursor];
-    // Direct string hit — accept if it's prose, otherwise treat as a ref-shape
-    // to keep chasing (a string like "$45" is itself a ref).
     if (typeof target === "string") {
-      if (looksLikeProse(target)) return target;
       if (APOLLO_REF_RE.test(target)) {
         cursor = target;
         continue;
       }
-      return undefined;
+      return target;
     }
     // Wrapper object — the common shape is { value: <string-or-ref> }, but
     // some Apollo variants nest under `data`. Probe both.
@@ -317,12 +314,11 @@ function resolveApolloDescriptionRef(
       const wrapped = (typeof obj.value === "string" ? obj.value : undefined)
         ?? (typeof obj.data === "string" ? obj.data : undefined);
       if (typeof wrapped !== "string") return undefined;
-      if (looksLikeProse(wrapped)) return wrapped;
       if (APOLLO_REF_RE.test(wrapped)) {
         cursor = wrapped;
         continue;
       }
-      return undefined;
+      return wrapped;
     }
     return undefined;
   }
@@ -331,19 +327,22 @@ function resolveApolloDescriptionRef(
 
 /**
  * Clean a Meetup description: dereference Apollo back-refs, strip HTML, truncate.
- * Returns `null` (explicit clear, per merge.ts contract) when the raw value is
- * an Apollo ref that doesn't resolve to prose — prevents `$XX` literals from
- * persisting on canonical Events. Returns `undefined` only for missing input.
+ * Returns `undefined` (preserve existing canonical value, per merge.ts contract)
+ * when the raw value is an Apollo ref that doesn't resolve — adapter convention
+ * prefers `undefined` over `null` so failed lookups don't wipe legitimately
+ * stored prose. A separate one-shot script (`scripts/cleanup-mh3-ca-stale-descriptions.ts`)
+ * handles the inverse — clearing already-corrupted `$XX` rows that pre-date
+ * the fix in this PR.
  */
 function cleanMeetupDescription(
   desc: string | undefined,
   state: Record<string, unknown>,
-): string | null | undefined {
+): string | undefined {
   if (!desc) return undefined;
   if (APOLLO_REF_RE.test(desc)) {
     const resolved = resolveApolloDescriptionRef(desc, state);
-    if (!resolved) return null;
-    return stripHtmlTags(resolved).slice(0, 2000) || null;
+    if (!resolved) return undefined;
+    return stripHtmlTags(resolved).slice(0, 2000) || undefined;
   }
   return stripHtmlTags(desc).slice(0, 2000) || undefined;
 }

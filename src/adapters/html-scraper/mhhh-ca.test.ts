@@ -54,6 +54,17 @@ describe("parseDateTimeCost", () => {
     expect(out).toEqual({ date: "2026-06-07", startTime: undefined, cost: "$15" });
   });
 
+  it("accepts Québécois suffix-dollar notation (13$ / 13 $)", () => {
+    // gemini-code-assist flag on PR #1688: French-Canadian sites commonly
+    // place the dollar sign after the amount. Strip both forms so the cost
+    // doesn't leak into the date-parse remainder.
+    expect(parseDateTimeCost("May 3, 2026 13h00 13$")?.cost).toBe("13$");
+    expect(parseDateTimeCost("May 3, 2026 13h00 13 $")?.cost).toBe("13 $");
+    expect(parseDateTimeCost("May 3, 2026 13h00 13,50 $")?.cost).toBe("13,50 $");
+    // Date still parses cleanly after the cost is stripped.
+    expect(parseDateTimeCost("May 3, 2026 13h00 13$")?.date).toBe("2026-05-03");
+  });
+
   it("rejects rows without a parseable date", () => {
     expect(parseDateTimeCost("")).toBeNull();
     expect(parseDateTimeCost("TBD")).toBeNull();

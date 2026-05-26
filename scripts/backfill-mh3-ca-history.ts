@@ -155,24 +155,46 @@ export function parseYearIndex(html: string, year: number): IndexRow[] {
  * We flatten the body to text and use anchored label regexes. Returns an
  * empty object if no labels match — the caller falls back to the index row.
  */
+/**
+ * Read a labelled line (e.g. `Date: …`, `Location: …`) out of a flattened
+ * detail page. Procedural rather than regex per
+ * `feedback_sonar_s5852_procedural_over_regex.md` — `^\s*Label\s*:\s*(...)`
+ * shapes get flagged by SonarCloud S5852 even when linear in practice.
+ */
+function readLabelledLine(text: string, label: string): string | undefined {
+  const needle = `${label.toLowerCase()}:`;
+  for (const rawLine of text.split("\n")) {
+    const line = rawLine.trimStart();
+    if (line.toLowerCase().startsWith(needle)) {
+      return line.slice(label.length + 1).trim();
+    }
+  }
+  return undefined;
+}
+
 export function parseDetailPage(html: string): DetailEnrichment {
   const $ = cheerio.load(html);
   // Replace <br> with newline so label regexes can terminate at line ends.
   $("br").replaceWith("\n");
   const text = $("body").text().replace(/&nbsp;/gi, " ").replace(/ /g, " ");
 
-  const dateLineMatch = text.match(/^\s*Date\s*:\s*([^\n]+)/im);
-  const locLineMatch = text.match(/^\s*Location\s*:\s*([^\n]+)/im);
-  const haresLineMatch = text.match(/^\s*Hares?\s*:\s*([^\n]+)/im);
+  // Label-line extraction is procedural (not regex) per
+  // `feedback_sonar_s5852_procedural_over_regex.md` — `^\s*Label\s*:\s*(...)`
+  // shapes get flagged by SonarCloud S5852 as backtracking-prone even when
+  // linear in practice. The archive uses both "Hares:" and singular "Hare:"
+  // interchangeably; readLabelledLine() probes the longer form first so the
+  // "Hare:" prefix doesn't shadow real "Hares: ..." rows.
+  const dateLine = readLabelledLine(text, "Date");
+  const locLine = readLabelledLine(text, "Location");
+  const haresLine = readLabelledLine(text, "Hares") ?? readLabelledLine(text, "Hare");
 
   let date: string | undefined;
   let startTime: string | undefined;
-  if (dateLineMatch) {
-    const dateText = dateLineMatch[1].trim();
+  if (dateLine) {
     // Extract "@ HH:MM[AM/PM]" before parsing — chrono handles full dates but
     // its time parsing is inconsistent across the archive's 30 years of
     // typographic variation. Strip the time fragment and parse date alone.
-    const timeMatch = dateText.match(/(\d{1,2})(?::(\d{2}))?\s*([AaPp]\.?\s*[Mm]\.?)/);
+    const timeMatch = dateLine.match(/(\d{1,2})(?::(\d{2}))?\s*([AaPp]\.?\s*[Mm]\.?)/);
     if (timeMatch) {
       let h = parseInt(timeMatch[1], 10);
       const m = timeMatch[2] ? parseInt(timeMatch[2], 10) : 0;
@@ -184,23 +206,28 @@ export function parseDetailPage(html: string): DetailEnrichment {
       }
     }
     // Strip ordinal suffixes ("July 6th" → "July 6") which chrono handles but
-    // also strip the time fragment to keep the parse focused on the date.
-    const dateOnly = dateText
-      .replace(/(\d+)(st|nd|rd|th)\b/gi, "$1")
-      .replace(/@.*$/, "")
-      .trim();
+    // also strip the @-time fragment to keep the parse focused on the date.
+    // indexOf("@") instead of /@.*$/ — keeps Sonar S5852 clean (bare-greedy
+    // anchored regex falls under the same DoS-shape rule that hit the
+    // label-line regexes).
+    const atIdx = dateLine.indexOf("@");
+    const beforeAt = atIdx >= 0 ? dateLine.slice(0, atIdx) : dateLine;
+    const dateOnly = beforeAt.replace(/(\d+)(?:st|nd|rd|th)\b/gi, "$1").trim();
     date = chronoParseDate(dateOnly) ?? undefined;
   }
 
-  const location = locLineMatch?.[1].trim() || undefined;
+  const location = locLine || undefined;
 
   // Hares are comma-separated on the detail page. Sort before joining for
   // fingerprint stability (feedback_fingerprint_stability.md).
   let hares: string | undefined;
-  if (haresLineMatch) {
-    const parts = haresLineMatch[1]
+  if (haresLine) {
+    const parts = haresLine
       .split(",")
-      .map((s) => s.replace(/\bAnd\b/g, "").trim())
+      // Case-insensitive strip of stray "and" connectors ("Yogi, and LBM" →
+      // "Yogi, LBM"). gemini-code-assist flag on PR #1688: the original
+      // `/\bAnd\b/g` only matched capitalized form.
+      .map((s) => s.replace(/\band\b/gi, "").trim())
       .filter((s) => s.length > 0 && !/^(?:tbd|tba)$/i.test(s));
     if (parts.length > 0) {
       parts.sort((a, b) => a.localeCompare(b, "en"));

@@ -491,8 +491,8 @@ describe("MeetupAdapter", () => {
   // entry, with the prose target stored separately under the same key in
   // __APOLLO_STATE__. Until #1659, the adapter passed the bare ref through to
   // canonical Event.description verbatim, producing the visible pattern
-  // (run #1683 -> "$44", #1684 -> "$43", ...). Two regression shapes:
-  it("resolves Apollo back-reference description to prose when state has the target", async () => {
+  // (run #1683 -> "$44", #1684 -> "$43", ...). Regression shapes below.
+  it("resolves Apollo back-reference description to its target when state has it", async () => {
     const html = buildMeetupHtml({
       "Event:1": buildApolloEvent({ description: "$44" }),
       "Venue:123": VENUE_ENTRY,
@@ -510,11 +510,11 @@ describe("MeetupAdapter", () => {
     );
   });
 
-  it("emits null description when Apollo back-reference doesn't resolve to prose", async () => {
+  it("preserves existing description (undefined) when Apollo back-reference doesn't resolve", async () => {
     const html = buildMeetupHtml({
       "Event:1": buildApolloEvent({ description: "$44" }),
       "Venue:123": VENUE_ENTRY,
-      // No $44 entry in state -> unresolvable -> explicit clear.
+      // No $44 entry in state -> unresolvable.
     });
     mockHtmlResponse(html);
 
@@ -523,21 +523,44 @@ describe("MeetupAdapter", () => {
       makeSource({ groupUrlname: "test-hash", kennelTag: "NYCH3" }),
       { days: 365 },
     );
-    // null (explicit clear) is the contract from merge.ts; never let the
-    // raw "$44" string persist.
-    expect(result.events[0].description).toBeNull();
+    // undefined (preserve existing) is the adapter convention — never let the
+    // raw "$44" string persist, but don't clear legitimately stored prose
+    // either. Reviewer feedback on PR #1688 (gemini-code-assist + codex P1):
+    // prefer undefined over null in adapters.
+    expect(result.events[0].description).toBeUndefined();
   });
 
-  it("follows chained Apollo back-references to the final prose target", async () => {
+  it("accepts short non-English back-reference targets (no English-prose heuristic)", async () => {
+    // Reviewer feedback (PR #1688): an earlier `looksLikeProse` guard required
+    // ≥20 chars + ASCII letters, which would drop short or non-Latin
+    // descriptions. The fix is that resolveApolloDescriptionRef accepts any
+    // string the chain bottoms out on. Verify with a short French/Japanese
+    // string that the prior heuristic would have rejected.
+    const html = buildMeetupHtml({
+      "Event:1": buildApolloEvent({ description: "$44" }),
+      "Venue:123": VENUE_ENTRY,
+      $44: "ハッシュラン",
+    });
+    mockHtmlResponse(html);
+
+    const adapter = new MeetupAdapter();
+    const result = await adapter.fetch(
+      makeSource({ groupUrlname: "test-hash", kennelTag: "NYCH3" }),
+      { days: 365 },
+    );
+    expect(result.events[0].description).toBe("ハッシュラン");
+  });
+
+  it("follows chained Apollo back-references to the final target", async () => {
     // Real Apollo state can hop through multiple dedup layers — $44 → $45 →
     // wrapped { value: "actual prose" }. Without chain following, a perfectly
-    // good description would get NULLed (Codex finding on the cleanMeetupDescription
-    // fix). Anchor a 3-hop chain in regression tests.
+    // good description would get dropped (Codex finding on the
+    // cleanMeetupDescription fix). Anchor a 3-hop chain in regression tests.
     const html = buildMeetupHtml({
       "Event:1": buildApolloEvent({ description: "$44" }),
       "Venue:123": VENUE_ENTRY,
       $44: "$45",
-      $45: { value: "Structure: weekly Sunday run, 13h00 start, all welcome. Hares lead the trail." },
+      $45: { value: "Trail #42 — pace yourself, watch for falsies, BYO drink." },
     });
     mockHtmlResponse(html);
 
@@ -547,7 +570,7 @@ describe("MeetupAdapter", () => {
       { days: 365 },
     );
     expect(result.events[0].description).toBe(
-      "Structure: weekly Sunday run, 13h00 start, all welcome. Hares lead the trail.",
+      "Trail #42 — pace yourself, watch for falsies, BYO drink.",
     );
   });
 
@@ -565,7 +588,7 @@ describe("MeetupAdapter", () => {
       makeSource({ groupUrlname: "test-hash", kennelTag: "NYCH3" }),
       { days: 365 },
     );
-    expect(result.events[0].description).toBeNull();
+    expect(result.events[0].description).toBeUndefined();
   });
 
   it("filters events outside the lookback window", async () => {

@@ -57,10 +57,15 @@ export function parseDateTimeCost(raw: string): {
     timeRest = cleaned.replace(timeMatch[0], " ").trim();
   }
 
-  // Extract & strip the cost ($13 / $13.50 / $13 cash).
+  // Extract & strip the cost. Supports both Anglo prefix ($13 / $13.50 / $13
+  // cash) and the Québécois suffix notation common on French-Canadian sites
+  // (13$ / 13 $ / 13,50 $). Reviewer flag (PR #1688): the original prefix-only
+  // regex would leave a trailing "$" on dateRest for any row using suffix form.
   let dateRest = timeRest;
   let cost: string | undefined;
-  const costMatch = timeRest.match(/\$\d+(?:\.\d{2})?(?:\s*(?:cash|cad|usd)\b)?/i);
+  const costMatch =
+    timeRest.match(/\$\d+(?:[.,]\d{2})?(?:\s*(?:cash|cad|usd)\b)?/i)
+    ?? timeRest.match(/\b\d+(?:[.,]\d{2})?\s*\$(?:\s*(?:cash|cad|usd)\b)?/i);
   if (costMatch) {
     cost = costMatch[0].trim();
     dateRest = timeRest.replace(costMatch[0], " ").trim();
