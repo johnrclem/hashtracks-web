@@ -339,9 +339,11 @@ export async function loadEventsForTimeMode(
   // #1560 PR F — normalize the kennel filter into a stable cache key.
   // Sorted-joined so [a,b] and [b,a] hit the same cache entry; empty string
   // for the unfiltered path so existing cache entries (no kennel filter)
-  // remain valid post-deploy.
+  // remain valid post-deploy. `localeCompare` over default sort to satisfy
+  // Sonar S2871 — kennel IDs are ASCII-only cuids so the order is identical
+  // in practice, but the explicit comparator makes the intent obvious.
   const kennelIdsKey = (kennelIds && kennelIds.length > 0)
-    ? [...kennelIds].sort().join(",")
+    ? [...kennelIds].sort((a, b) => a.localeCompare(b)).join(",")
     : "";
 
   const cached = await fetchSlimEventsCached(mode, todayDateStr, kennelIdsKey);
