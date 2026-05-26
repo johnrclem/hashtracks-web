@@ -834,13 +834,13 @@ function compileKennelPatterns(
   const compiled: CompiledKennelPattern[] = [];
   for (const [src, code] of patterns) {
     try {
-      // nosemgrep: detect-non-literal-regexp — intentional: each source is
-      // ReDoS-validated via `safe-regex2` before construction (mirrors the
-      // pattern in src/app/admin/sources/config-validation.ts:33). Invalid
-      // or unsafe patterns are dropped fail-soft with a console.warn so
-      // a single typo in source config can't strip enriched multi-day
-      // behavior from the whole scrape (Codex review on PR D).
-      const re = new RegExp(src, "i"); // NOSONAR
+      // Each source is ReDoS-validated via `safe-regex2` (below) before
+      // being kept. Invalid or unsafe patterns are dropped fail-soft with
+      // a console.warn so a single typo in source config can't strip
+      // enriched multi-day behavior from the whole scrape (Codex review
+      // on PR D). Mirrors src/app/admin/sources/config-validation.ts:33.
+      // nosemgrep: detect-non-literal-regexp
+      const re = new RegExp(src, "i"); // NOSONAR nosemgrep
       if (!isSafeRegex(re)) {
         console.warn(
           `[hashrego] kennelPattern source ${JSON.stringify(src)} for code ${code} is ReDoS-prone (rejected by safe-regex2); skipping`,
