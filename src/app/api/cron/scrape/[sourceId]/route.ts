@@ -3,7 +3,13 @@ import { prisma } from "@/lib/db";
 import { verifyCronAuth } from "@/lib/cron-auth";
 import { scrapeSource, type ScrapeSourceResult } from "@/pipeline/scrape";
 
-export const maxDuration = 120; // seconds — needed for browser-rendered adapters (Hash Rego, Wix, etc.)
+// 300s matches Vercel's platform-wide default (2026-02 platform update).
+// Needed for wide-window scrapes — PR #1693 saw 120s timeouts on Madison H3 and
+// LBH3 GCal scrapes (scrapeDays=9999), and for browser-rendered adapters (Hash
+// Rego, Wix, etc.). Cron-dispatched scrapes default to `source.scrapeDays` so
+// the longer ceiling matters here even though body overrides are still capped
+// at 1825 below.
+export const maxDuration = 300;
 
 /**
  * Per-source scrape handler invoked by QStash. Validates the source exists and is enabled,

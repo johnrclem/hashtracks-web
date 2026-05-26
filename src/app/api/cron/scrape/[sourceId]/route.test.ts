@@ -110,8 +110,10 @@ describe("POST /api/cron/scrape/[sourceId]", () => {
     expect(data.data.errors).toContain("Connection timeout");
   });
 
-  it("exports maxDuration of 120 for Vercel function timeout", () => {
-    expect(maxDuration).toBe(120);
+  it("exports maxDuration of 300 for Vercel function timeout", () => {
+    // 300s is Vercel's platform default since the 2026-02 update; needed for
+    // wide-window scrapes (#1693 saw Madison + LBH3 time out at the prior 120s).
+    expect(maxDuration).toBe(300);
   });
 
   it("returns 500 when scrapeSource throws an unhandled error", async () => {
