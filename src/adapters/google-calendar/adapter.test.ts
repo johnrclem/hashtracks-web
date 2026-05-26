@@ -549,6 +549,25 @@ describe("medical appointment filter (#1690)", () => {
     );
     expect(result).not.toBeNull();
   });
+
+  // Codex P1 review on PR #1713 (comment 3307074387): the start-anchored
+  // medical patterns get bypassed if a contributor accidentally typed a
+  // kennel prefix on the appointment summary (`"H4-TX: Sleep study"`).
+  // The filter now evaluates against both raw `summary` and the
+  // `extractTitle()`-stripped variant so the prefix doesn't shield PII.
+  it.each([
+    "H4-TX: Sleep study",
+    "Moooouston H3: Medical appointment with Dr. Smith",
+    "GAL: Telehealth visit",
+    // Sanity: the bare shape from the original issue still drops.
+    "Sleep Study - Christine Kuhl Remote visit",
+  ])("drops medical-pattern title regardless of kennel prefix: %s", (summary) => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary }),
+      { defaultKennelTag: "h4-tx" },
+    );
+    expect(result).toBeNull();
+  });
 });
 
 // #1426 — sports-domain events leaked through #1271 because they had a real

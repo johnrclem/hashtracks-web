@@ -1456,11 +1456,20 @@ export function buildRawEventFromGCalItem(
   // appointment to a shared calendar usually types description prose
   // (clinic name, prep notes); allowing description to override would
   // re-open the PII leak that #1690 exposed.
+  //
+  // Evaluate against BOTH `summary` and `extractTitle(summary)` (Codex
+  // P1 on PR #1713 — comment 3307074387). Two of the three medical
+  // patterns are start-anchored, so a kennel-prefixed contributor
+  // typo like `"H4-TX: Sleep study"` would otherwise slip past them
+  // even though the prefix-stripped title matches. Checking both
+  // surfaces catches both the bare and prefixed shapes without
+  // weakening the anchors.
+  const strippedSummary = extractTitle(summary);
   if (
     runNumber === undefined &&
     !hares &&
     !HASH_KEYWORD_RE.test(summary) &&
-    MEDICAL_TITLE_PATTERNS.some((re) => re.test(summary))
+    MEDICAL_TITLE_PATTERNS.some((re) => re.test(summary) || re.test(strippedSummary))
   ) {
     return null;
   }
