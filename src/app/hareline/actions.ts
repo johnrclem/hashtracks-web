@@ -102,6 +102,15 @@ export type TimeMode = "upcoming" | "past";
 const PAST_EVENTS_LIMIT = 200;
 
 /**
+ * Defensive cap on the kennel-filter list (#1560 PR F, CodeRabbit review).
+ * Caps cache-key cardinality and bounds the Prisma `IN` clause size against
+ * pathological inputs. 50 comfortably covers any realistic regional filter
+ * — Chicago has 12 kennels, NYC ~11, SF Bay ~13. Above this, the user is
+ * almost certainly browsing globally, not filtering.
+ */
+const MAX_KENNEL_FILTER_IDS = 50;
+
+/**
  * Cache-shape twin of `HarelineListEvent` with `dateUtc` serialized to ISO
  * string. `unstable_cache` JSON-serializes its return value; keeping this
  * twin explicit means the boundary conversion is visible at the call site.
@@ -143,6 +152,7 @@ const fetchSlimEventsCached = unstable_cache(
   async (
     mode: TimeMode,
     todayDateStr: string,
+    kennelIdsKey: string,
   ): Promise<CachedHarelineEvent[]> => {
     // Reconstruct UTC boundaries from the date string so the cached function
     // is a pure function of its args. (No reading Date.now() here —
@@ -165,10 +175,30 @@ const fetchSlimEventsCached = unstable_cache(
     const tomorrowUtc = new Date(startOfTodayUtc.getTime() + 24 * 60 * 60 * 1000);
     const isPast = mode === "past";
 
-    const where = {
-      ...DISPLAY_EVENT_WHERE,
-      date: isPast ? { lt: tomorrowUtc } : { gte: yesterdayUtc },
-    };
+    // #1560 PR F — kennel-scoped fetches must include series children whose
+    // primary kennel matches the filter (e.g. GGFM Friday Strawberry Moon,
+    // a child of NYCH3's 5-Boro umbrella). When unfiltered, the original
+    // `parentEventId: null` exclusion stays so children only render inside
+    // their parent's expanded timeline. When filtered, swap the exclusion
+    // for a kennel OR-match: parents whose own kennel matches AND children
+    // whose own kennel matches both surface.
+    //
+    // Destructure `parentEventId` out of `DISPLAY_EVENT_WHERE` and reuse the
+    // remaining visibility predicates verbatim so the two branches can't drift
+    // (mirrors `getEventDetail` below). Gemini PR review #1712.
+    const kennelIds = kennelIdsKey ? kennelIdsKey.split(",") : [];
+    const dateFilter = isPast ? { lt: tomorrowUtc } : { gte: yesterdayUtc };
+    const { parentEventId: _excluded, ...visibilityWhere } = DISPLAY_EVENT_WHERE;
+    const where = kennelIds.length === 0
+      ? { ...DISPLAY_EVENT_WHERE, date: dateFilter }
+      : {
+          ...visibilityWhere,
+          date: dateFilter,
+          OR: [
+            { kennelId: { in: kennelIds } },
+            { eventKennels: { some: { kennelId: { in: kennelIds } } } },
+          ],
+        };
 
     const events = await prisma.event.findMany({
       where,
@@ -240,7 +270,22 @@ const fetchSlimEventsCached = unstable_cache(
       ...(isPast ? { take: PAST_EVENTS_LIMIT } : {}),
     });
 
-    return events.map((e) => ({
+    // #1560 PR F — when both a series parent AND its children are returned
+    // (kennel-filtered query where the umbrella's host kennel matches the
+    // filter, e.g. NYCH3 viewing `/hareline?kennels=nych3-id` sees the 5-Boro
+    // umbrella + its Sat/Sun children), drop the children from the top-level
+    // list. They still appear in the parent's expanded timeline via
+    // `childEvents`. Without this dedup, the same trail renders twice on the
+    // same scroll page (Gemini PR #1712 review). When the parent is NOT in
+    // the result (GGFM viewing /hareline?kennels=ggfm-id sees only Friday's
+    // child of the NYCH3-hosted umbrella), the child correctly stays at the
+    // top level since `parentIdsInResult` doesn't contain its parentEventId.
+    const idsInResult = new Set(events.map((e) => e.id));
+    const visibleEvents = events.filter(
+      (e) => !e.parentEventId || !idsInResult.has(e.parentEventId),
+    );
+
+    return visibleEvents.map((e) => ({
       id: e.id,
       date: e.date.toISOString(),
       dateUtc: e.dateUtc ? e.dateUtc.toISOString() : null,
@@ -312,11 +357,30 @@ const fetchSlimEventsCached = unstable_cache(
 export async function loadEventsForTimeMode(
   mode: TimeMode,
   nowMs?: number,
+  kennelIds?: ReadonlyArray<string>,
 ): Promise<HarelineListEvent[]> {
   // YYYY-MM-DD in UTC — the cache key that rotates at UTC midnight.
   const todayDateStr = new Date(nowMs ?? Date.now()).toISOString().slice(0, 10);
 
-  const cached = await fetchSlimEventsCached(mode, todayDateStr);
+  // #1560 PR F — normalize the kennel filter into a stable cache key.
+  // - Trim each ID (URL decoders sometimes leave stray whitespace)
+  // - Drop empties (e.g. `?kennels=a,,b`)
+  // - Dedupe (e.g. `?kennels=a&kennels=a`) so the cache key is canonical
+  //   regardless of how callers compose the URL
+  // - Cap at MAX_KENNEL_FILTER_IDS to bound cache cardinality + Prisma `IN`
+  //   list size against pathological inputs (CodeRabbit PR #1712 review)
+  // - Sort with `localeCompare` so [a,b] and [b,a] hit the same cache entry
+  //   (Sonar S2871). Empty string when no filter — a distinct cache entry
+  //   from any kennel-filtered key (the 3-arg signature is new in PR F, so
+  //   the unfiltered path cold-starts once on deploy regardless).
+  const normalizedKennelIds = Array.from(
+    new Set((kennelIds ?? []).map((id) => id.trim()).filter(Boolean)),
+  ).slice(0, MAX_KENNEL_FILTER_IDS);
+  const kennelIdsKey = normalizedKennelIds.length > 0
+    ? [...normalizedKennelIds].sort((a, b) => a.localeCompare(b)).join(",")
+    : "";
+
+  const cached = await fetchSlimEventsCached(mode, todayDateStr, kennelIdsKey);
 
   // Rehydrate `dateUtc` from ISO string back to `Date` at the cache
   // boundary. Keeps `HarelineListEvent` stable across the project so

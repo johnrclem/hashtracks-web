@@ -98,7 +98,15 @@ export default async function KennelDetailPage({
     prisma.event.findMany({
       // #1023 step 5: filter via EventKennel join so co-host events
       // (where this kennel is a secondary, not the primary) appear here too.
-      where: { eventKennels: { some: { kennelId: kennel.id } }, status: { not: "CANCELLED" }, isManualEntry: { not: true }, isCanonical: true, parentEventId: null },
+      // #1560 PR F: NO `parentEventId: null` filter — series children whose
+      // primary kennel is this kennel (e.g. GGFM Friday Strawberry Moon as
+      // a child of NYCH3's 5-Boro umbrella) must appear on this kennel's
+      // page. The `eventKennels.some` join correctly fans out to children
+      // because each child gets its own primary `EventKennel` row per
+      // #1023 step 2. The umbrella itself only appears on its host kennel's
+      // page (its `kennelId` is the host's), so dropping the filter doesn't
+      // pollute other kennel pages with parents they don't host.
+      where: { eventKennels: { some: { kennelId: kennel.id } }, status: { not: "CANCELLED" }, isManualEntry: { not: true }, isCanonical: true },
       include: {
         kennel: {
           select: { id: true, shortName: true, fullName: true, slug: true, region: true, country: true },
@@ -168,7 +176,20 @@ export default async function KennelDetailPage({
   const now = new Date();
   const todayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12, 0, 0);
 
-  const serialized: HarelineEvent[] = events.map((e) => ({
+  // #1560 PR F — when both a series parent AND its children belong to this
+  // kennel (e.g. NYCH3 hosts the 5-Boro umbrella AND its Saturday + Sunday
+  // children), drop the children from the top-level list. They still surface
+  // in the parent's expanded "Weekend at a glance" timeline. Without this
+  // dedup, the Sat/Sun trails would render twice on the same page (Gemini
+  // PR #1712 review). The GGFM case (child whose parent is NOT in this
+  // kennel's events) is unaffected — the child stays as a flat row because
+  // its `parentEventId` isn't in `parentIdsInResult`.
+  const idsInResult = new Set(events.map((e) => e.id));
+  const visibleEvents = events.filter(
+    (e) => !e.parentEventId || !idsInResult.has(e.parentEventId),
+  );
+
+  const serialized: HarelineEvent[] = visibleEvents.map((e) => ({
     id: e.id,
     date: e.date.toISOString(),
     dateUtc: e.dateUtc,

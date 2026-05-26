@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { getWeatherForEvents } from "@/lib/weather";
 import { getOrCreateUser } from "@/lib/auth";
 import { regionAbbrev } from "@/lib/region";
+import { parseList } from "@/lib/format";
 import { HarelineView } from "@/components/hareline/HarelineView";
 import HarelineLoading from "./loading";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -38,6 +39,24 @@ export default async function HarelinePage({
   const params = await searchParams;
   const timeParam = typeof params.time === "string" ? params.time : null;
   const initialTimeMode: TimeMode = timeParam === "past" ? "past" : "upcoming";
+  // #1560 PR F — read `?kennels` from the URL so the SSR fetch can scope
+  // the payload to a specific kennel set. Without this, kennel filtering
+  // stayed client-side and series children (excluded from the default
+  // unfiltered payload) never reached the client — GGFM Friday
+  // Strawberry Moon went missing from /hareline?kennels=<ggfm-id>.
+  //
+  // Delegates to `parseList` so SSR + client use identical parse rules.
+  // HarelineView writes `?kennels=a|b` (pipe-separated); `parseList` also
+  // accepts comma for legacy bookmarked URLs. Without sharing this helper
+  // (Codex PR #1712 review), pipe-separated deep links parsed as `["a|b"]`
+  // — a single bogus ID — and SSR returned an empty payload on refresh.
+  const kennelsParam = params.kennels;
+  let initialKennelIds: string[] = [];
+  if (typeof kennelsParam === "string") {
+    initialKennelIds = parseList(kennelsParam);
+  } else if (Array.isArray(kennelsParam)) {
+    initialKennelIds = kennelsParam.flatMap((v) => parseList(v));
+  }
 
   return (
     <div>
@@ -50,7 +69,10 @@ export default async function HarelinePage({
 
       <FadeInSection delay={100}>
         <Suspense fallback={<HarelineLoading />}>
-          <HarelineData initialTimeMode={initialTimeMode} />
+          <HarelineData
+            initialTimeMode={initialTimeMode}
+            initialKennelIds={initialKennelIds}
+          />
         </Suspense>
       </FadeInSection>
     </div>
@@ -68,7 +90,8 @@ export default async function HarelinePage({
  */
 async function HarelineData({
   initialTimeMode,
-}: Readonly<{ initialTimeMode: TimeMode }>) {
+  initialKennelIds,
+}: Readonly<{ initialTimeMode: TimeMode; initialKennelIds: string[] }>) {
   // Capture `now` before awaiting and thread it into `loadEventsForTimeMode`
   // so the server query boundary, the `serverNowMs` prop, and the client's
   // hydrated bucket split all derive from the same instant. Without a shared
@@ -77,8 +100,14 @@ async function HarelineData({
   const now = new Date();
   const nowMs = now.getTime();
 
+  // #1560 PR F — pass `initialKennelIds` through so the SSR query can scope
+  // to a specific kennel set when `?kennels=<id>` is in the URL. Without
+  // this, kennel filtering stayed client-side and series children whose
+  // primary kennel matches the filter (excluded from the default unfiltered
+  // payload because the global hareline still uses `parentEventId: null`)
+  // never reached the client.
   const [events, user] = await Promise.all([
-    loadEventsForTimeMode(initialTimeMode, nowMs),
+    loadEventsForTimeMode(initialTimeMode, nowMs, initialKennelIds),
     getOrCreateUser(),
   ]);
 
