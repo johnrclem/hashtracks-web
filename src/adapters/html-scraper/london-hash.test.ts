@@ -6,6 +6,7 @@ import {
   parseHaresFromBlock,
   parseLocationFromBlock,
   parseTimeFromBlock,
+  parseTitleFromBlock,
   parseLH3DetailPage,
   mergeLH3DetailIntoEvent,
 } from "./london-hash";
@@ -53,6 +54,14 @@ describe("parseDateFromBlock", () => {
 
   it("returns null for empty text", () => {
     expect(parseDateFromBlock("")).toBeNull();
+  });
+
+  it("resolves year-less dates forward of reference year (live runlist behavior)", () => {
+    // Live runlist rows omit the year — chrono must pick the next-future
+    // occurrence (forwardDate semantics). Reference Jan 1 2026 + "6th of June"
+    // → June 6 2026, not June 6 2025.
+    expect(parseDateFromBlock("Saturday 6th of June", 2026)).toBe("2026-06-06");
+    expect(parseDateFromBlock("Saturday 14th of February", 2026)).toBe("2026-02-14");
   });
 });
 
@@ -158,6 +167,16 @@ describe("parseLocationFromBlock", () => {
     expect(result.location).toBe("The Red Lion");
     expect(result.station).toBe("Clapham");
   });
+
+  it("extracts station-only when no destination is given (live layout)", () => {
+    // Live runlist `.runlistLoc` for a TBA-destination row contains just
+    // "Follow the P trail from Rotherhithe station" — no "to PUB" clause.
+    const result = parseLocationFromBlock(
+      "Follow the P trail from Rotherhithe station",
+    );
+    expect(result.station).toBe("Rotherhithe");
+    expect(result.location).toBeUndefined();
+  });
 });
 
 describe("parseTimeFromBlock", () => {
@@ -183,6 +202,45 @@ describe("parseTimeFromBlock", () => {
 
   it("returns null for no time", () => {
     expect(parseTimeFromBlock("Some text")).toBeNull();
+  });
+});
+
+describe("parseTitleFromBlock", () => {
+  it("uses plain location heading as title", () => {
+    expect(parseTitleFromBlock("Bromley South", 2834)).toBe("Bromley South");
+  });
+
+  it("strips ** wrappers from themed-run titles", () => {
+    expect(
+      parseTitleFromBlock("**Sweetheart's 4th of July Hash**", 2839),
+    ).toBe("Sweetheart's 4th of July Hash");
+  });
+
+  it("strips stray leading ** on placeholders", () => {
+    // Live source ships `"**To Be Announced"` (unmatched markdown) — the
+    // sanitizer should strip the ** and recognize TBA → fall back to default.
+    expect(parseTitleFromBlock("**To Be Announced", 2838)).toBe("London Hash Run #2838");
+  });
+
+  it("strips all ** markers and collapses spaces in combined location+theme headings", () => {
+    expect(
+      parseTitleFromBlock("Hampstead Heath **Sweetheart's 4th of July Hash**", 2839),
+    ).toBe("Hampstead Heath Sweetheart's 4th of July Hash");
+  });
+
+  it.each([
+    ["To Be Announced"],
+    ["TBA"],
+    ["tba"],
+    ["TBD"],
+    ["details to be announced"],
+  ])("falls back to default for placeholder %s", (placeholder) => {
+    expect(parseTitleFromBlock(placeholder, 2837)).toBe("London Hash Run #2837");
+  });
+
+  it("falls back to default for empty title", () => {
+    expect(parseTitleFromBlock("", 2820)).toBe("London Hash Run #2820");
+    expect(parseTitleFromBlock("   ", 2821)).toBe("London Hash Run #2821");
   });
 });
 
@@ -231,7 +289,9 @@ const SAMPLE_HTML = `
 </body></html>
 `;
 
-// Sample detail page HTML (realistic, based on actual londonhash.org/nextrun.php structure)
+// Sample detail page mirroring the live nextrun.php structure — labels in
+// `.runlistCat`, values in `.runlistDetail`. Includes the "What Else"
+// section that historically bled into the hares field (issue #1606).
 const SAMPLE_LH3_DETAIL_HTML = `
 <html><head>
 <script>
@@ -240,41 +300,30 @@ async function initMap() {
   map = new Map(document.getElementById("mapId"), {
     center: { lat: 51.546173, lng: -0.178557 },
     zoom: 16,
-    mapTypeId: google.maps.MapTypeId.ROADMAP,
-  });
-  const marker1 = new google.maps.Marker({
-    position: { lat: 51.546826, lng: -0.179815 },
-    icon: "./images/train.png",
-    title: "P trail from Finchley Road",
   });
   const marker2 = new google.maps.Marker({
     position: { lat: 51.546173, lng: -0.178557 },
-    icon: "./images/beerbottle.png",
     title: "On Inn to The North Star",
   });
 }
 </script>
 </head><body>
-<h1>Finchley Road</h1>
-<hr />
-<p>London hash number 2823</p>
-<hr />
-<p>Follow the P trail from Finchley Road station to The North Star</p>
-<hr />
-<p>Saturday 14th of March at 12 Noon for 12:30 (5 days time)</p>
-<hr />
-<p>The North Star is 113 meters from Finchley Road station as the Skylark flies</p>
-<hr />
-<p>Hared by Not Out and Big In Japan</p>
-<hr />
-<p>Bring your hash cups as there may be a DS. Dogs welcome but must be kept on the lead.</p>
-<hr />
-<p><a href="http://maps.google.com/?q=51.546173,-0.178557">open in Google Maps</a></p>
-<div id="mapId"></div>
+<div id="titleHolder">
+  <h2 id="title">Finchley Road<br />Saturday 14th of March</h2>
+</div>
+<div id="nextRunDetailsHolder">
+  <div class="nextRunlistRow"><div class="runlistCat">What</div><div class="runlistDetail">London hash number <span class="bold">2823</span></div></div>
+  <div class="nextRunlistRow"><div class="runlistCat">Where</div><div class="runlistDetail">Follow the P trail from<br /> Finchley Road station <br />to The North Star</div></div>
+  <div class="nextRunlistRow"><div class="runlistCat">When</div><div class="runlistDetail">Saturday 14th of March at 12 Noon for 12:30 (5 days time)</div></div>
+  <div class="nextRunlistRow"><div class="runlistCat">How Far</div><div class="runlistDetail">The North Star is 113 meters from Finchley Road station as the Skylark flies</div></div>
+  <div class="nextRunlistRow"><div class="runlistCat">Who</div><div class="runlistDetail">Hared by Not Out and Big In Japan</div></div>
+  <div class="nextRunlistRow"><div class="runlistCat">What Else</div><div class="runlistDetail">Bring your hash cups as there may be a DS.</div></div>
+</div>
+<div id="mapOpenPrompt"><a href="http://maps.google.com/?q=51.546173,-0.178557">open in Google Maps</a></div>
 </body></html>
 `;
 
-// Detail page with run number 2820 (matches first run list block)
+// Detail page for run #2820 (matches first run list block) — same structured layout.
 const SAMPLE_LH3_DETAIL_HTML_2820 = `
 <html><head>
 <script>
@@ -282,38 +331,24 @@ async function initMap() {
   const { Map } = await google.maps.importLibrary("maps");
   map = new Map(document.getElementById("mapId"), {
     center: { lat: 51.427391, lng: -0.054509 },
-    zoom: 16,
-    mapTypeId: google.maps.MapTypeId.ROADMAP,
-  });
-  const marker1 = new google.maps.Marker({
-    position: { lat: 51.427121, lng: -0.055213 },
-    icon: "./images/train.png",
-    title: "P trail from Sydenham",
   });
   const marker2 = new google.maps.Marker({
     position: { lat: 51.427391, lng: -0.054509 },
-    icon: "./images/beerbottle.png",
     title: "On Inn to The Dolphin",
   });
 }
 </script>
 </head><body>
-<h1>Sydenham</h1>
-<hr />
-<p>London hash number 2820</p>
-<hr />
-<p>Follow the P trail from Sydenham station to The Dolphin</p>
-<hr />
-<p>Saturday 21st of February at 12 Noon for 12:30 (5 days time)</p>
-<hr />
-<p>The Dolphin is 85 metres from Sydenham station as the Skylark flies</p>
-<hr />
-<p>Hared by Tuna Melt and Opee</p>
-<hr />
-<p>** 50th Anniversary Special **</p>
-<hr />
-<p><a href="http://maps.google.com/?q=51.427391,-0.054509">open in Google Maps</a></p>
-<div id="mapId"></div>
+<div id="titleHolder"><h2 id="title">Sydenham<br />Saturday 21st of February</h2></div>
+<div id="nextRunDetailsHolder">
+  <div class="nextRunlistRow"><div class="runlistCat">What</div><div class="runlistDetail">London hash number <span class="bold">2820</span></div></div>
+  <div class="nextRunlistRow"><div class="runlistCat">Where</div><div class="runlistDetail">Follow the P trail from Sydenham station to The Dolphin</div></div>
+  <div class="nextRunlistRow"><div class="runlistCat">When</div><div class="runlistDetail">Saturday 21st of February at 12 Noon for 12:30</div></div>
+  <div class="nextRunlistRow"><div class="runlistCat">How Far</div><div class="runlistDetail">The Dolphin is 85 metres from Sydenham station as the Skylark flies</div></div>
+  <div class="nextRunlistRow"><div class="runlistCat">Who</div><div class="runlistDetail">Hared by Tuna Melt and Opee</div></div>
+  <div class="nextRunlistRow"><div class="runlistCat">What Else</div><div class="runlistDetail">** 50th Anniversary Special **</div></div>
+</div>
+<div id="mapOpenPrompt"><a href="http://maps.google.com/?q=51.427391,-0.054509">open in Google Maps</a></div>
 </body></html>
 `;
 
@@ -337,7 +372,7 @@ async function initMap() {
 `;
 
 describe("parseRunBlocks", () => {
-  it("splits page into run blocks", () => {
+  it("splits page into structured per-field blocks", () => {
     const blocks = parseRunBlocks(SAMPLE_HTML);
     expect(blocks.length).toBeGreaterThanOrEqual(4);
     expect(blocks[0].runNumber).toBe(2820);
@@ -347,19 +382,35 @@ describe("parseRunBlocks", () => {
     expect(blocks[3].runNumber).toBe(2823);
   });
 
-  it("captures text content for each block", () => {
+  it("extracts .titleRow content into titleText (per-field, not block-text)", () => {
     const blocks = parseRunBlocks(SAMPLE_HTML);
-    expect(blocks[0].text).toContain("Sydenham");
-    expect(blocks[0].text).toContain("Tuna Melt");
-    expect(blocks[0].text).toContain("February");
+    expect(blocks[0].titleText).toBe("Sydneham");
+    expect(blocks[1].titleText).toBe("Finsbury Park");
+    expect(blocks[2].titleText).toBe("**To Be Announced");
+    expect(blocks[3].titleText).toBe("Ealing Broadway");
+  });
+
+  it("extracts .runlistHare without bleeding into adjacent notes", () => {
+    const blocks = parseRunBlocks(SAMPLE_HTML);
+    expect(blocks[0].hareText).toContain("Tuna Melt and Opee");
+    expect(blocks[0].hareText).not.toMatch(/anniversary|special|note/i);
+    expect(blocks[1].hareText).toContain("Captain Adventures");
+  });
+
+  it("captures .runlistDate and .runlistLoc fields independently", () => {
+    const blocks = parseRunBlocks(SAMPLE_HTML);
+    expect(blocks[0].dateText).toContain("February");
+    expect(blocks[0].locText).toContain("Sydenham");
+    expect(blocks[0].locText).toContain("Dolphin");
   });
 });
 
 describe("parseLH3DetailPage", () => {
-  it("extracts all fields from a full detail page", () => {
+  it("extracts all fields from a structured detail page", () => {
     const detail = parseDetail(SAMPLE_LH3_DETAIL_HTML, "https://www.londonhash.org/nextrun.php?run=4092");
     expect(detail).not.toBeNull();
     expect(detail!.runNumber).toBe(2823);
+    expect(detail!.title).toBe("Finchley Road");
     expect(detail!.latitude).toBeCloseTo(51.546173, 4);
     expect(detail!.longitude).toBeCloseTo(-0.178557, 4);
     expect(detail!.locationUrl).toBe("http://maps.google.com/?q=51.546173,-0.178557");
@@ -369,6 +420,53 @@ describe("parseLH3DetailPage", () => {
     expect(detail!.distance).toBe("113 meters from Finchley Road station as the Skylark flies");
     expect(detail!.onOn).toBe("The North Star");
     expect(detail!.sourceUrl).toBe("https://www.londonhash.org/nextrun.php?run=4092");
+  });
+
+  it("does NOT bleed 'What Else' label into hares (#1606)", () => {
+    // Regression test: with the prior body-text-regex parser, the `Hared by K4`
+    // value would over-consume into the next "What Else" section because divs
+    // are siblings with no whitespace separator in the source HTML.
+    const html = `
+<html><body>
+<div id="nextRunDetailsHolder">
+  <div class="nextRunlistRow"><div class="runlistCat">What</div><div class="runlistDetail">London hash number 2833</div></div>
+  <div class="nextRunlistRow"><div class="runlistCat">Who</div><div class="runlistDetail">Hared by K4</div></div>
+  <div class="nextRunlistRow"><div class="runlistCat">What Else</div><div class="runlistDetail">Travel info: see TfL.</div></div>
+</div>
+</body></html>`;
+    const detail = parseDetail(html, "https://www.londonhash.org/nextrun.php?run=4106");
+    expect(detail).not.toBeNull();
+    expect(detail!.hares).toBe("K4");
+    expect(detail!.hares).not.toContain("What Else");
+  });
+
+  it("does NOT bleed travel-line into hares when 'What Else' section is absent (#1606)", () => {
+    const html = `
+<html><body>
+<div id="nextRunDetailsHolder">
+  <div class="nextRunlistRow"><div class="runlistCat">Who</div><div class="runlistDetail">Hared by Knickers</div></div>
+</div>
+<p>Travel details are yet to be announced</p>
+</body></html>`;
+    const detail = parseDetail(html, "https://www.londonhash.org/nextrun.php?run=4106");
+    expect(detail).not.toBeNull();
+    expect(detail!.hares).toBe("Knickers");
+    expect(detail!.hares).not.toContain("Travel");
+  });
+
+  it("tolerates the live-site class typo (`runlistRow` missing the `next` prefix)", () => {
+    // Verified on https://www.londonhash.org/nextrun.php?run=4108 — one row
+    // ships `class="runlistRow"` instead of `class="nextRunlistRow"`.
+    const html = `
+<html><body>
+<div id="nextRunDetailsHolder">
+  <div class="nextRunlistRow"><div class="runlistCat">Who</div><div class="runlistDetail">Hared by Boy Blunder</div></div>
+  <div class="runlistRow"><div class="runlistCat">What Else</div><div class="runlistDetail">Trail will be A to B</div></div>
+</div>
+</body></html>`;
+    const detail = parseDetail(html, "https://www.londonhash.org/nextrun.php?run=4108");
+    expect(detail).not.toBeNull();
+    expect(detail!.hares).toBe("Boy Blunder");
   });
 
   it("returns null for placeholder/TBA pages", () => {
@@ -381,10 +479,12 @@ describe("parseLH3DetailPage", () => {
     const html = `<html><head><script>
       map = new Map(el, { center: { lat: 51.508, lng: -0.128 }, zoom: 13 });
     </script></head><body>
-    <h1>Some Run</h1>
-    <p>London hash number 2825</p>
-    <p>Follow the P trail from Ealing Broadway station to The Red Lion</p>
-    <p>Hared by Pope</p>
+    <div id="titleHolder"><h2 id="title">Some Run</h2></div>
+    <div id="nextRunDetailsHolder">
+      <div class="nextRunlistRow"><div class="runlistCat">What</div><div class="runlistDetail">London hash number 2825</div></div>
+      <div class="nextRunlistRow"><div class="runlistCat">Where</div><div class="runlistDetail">Follow the P trail from Ealing Broadway station to The Red Lion</div></div>
+      <div class="nextRunlistRow"><div class="runlistCat">Who</div><div class="runlistDetail">Hared by Pope</div></div>
+    </div>
     </body></html>`;
     const detail = parseDetail(html, "https://www.londonhash.org/nextrun.php?run=4097");
     expect(detail).not.toBeNull();
@@ -399,7 +499,7 @@ describe("parseLH3DetailPage", () => {
 
   it("handles missing sections gracefully", () => {
     const html = `<html><body>
-    <h1>Partial Run</h1>
+    <div id="titleHolder"><h2 id="title">Partial Run</h2></div>
     <p>London hash number 2830</p>
     </body></html>`;
     const detail = parseDetail(html, "https://www.londonhash.org/nextrun.php?run=9999");
@@ -411,14 +511,14 @@ describe("parseLH3DetailPage", () => {
     expect(detail!.onOn).toBeUndefined();
   });
 
-  it("extracts coords from JS when no Maps link present", () => {
+  it("extracts coords from JS marker when no Maps link present", () => {
     const html = `<html><head><script>
       const marker = new google.maps.Marker({
         position: { lat: 51.6, lng: -0.2 },
         title: "On Inn to The Crown",
       });
     </script></head><body>
-    <h1>Test Run</h1>
+    <div id="titleHolder"><h2 id="title">Test Run</h2></div>
     <p>London hash number 2840</p>
     </body></html>`;
     const detail = parseDetail(html, "https://www.londonhash.org/nextrun.php?run=5000");
@@ -501,14 +601,33 @@ describe("mergeLH3DetailIntoEvent", () => {
     expect(merged.description).toContain("Nearest station: Some Station");
     expect(merged.description).toContain("On-On: The Crown");
   });
+
+  it("upgrades synthesized default title to detail-page title", () => {
+    const detail: LH3DetailPageData = {
+      title: "Finchley Road",
+      sourceUrl: "https://www.londonhash.org/nextrun.php?run=4092",
+    };
+    const merged = mergeLH3DetailIntoEvent(baseEvent, detail);
+    expect(merged.title).toBe("Finchley Road");
+  });
+
+  it("does NOT overwrite a real run-list title with detail-page title", () => {
+    const detail: LH3DetailPageData = {
+      title: "Different Title From Detail",
+      sourceUrl: "https://www.londonhash.org/nextrun.php?run=4092",
+    };
+    const merged = mergeLH3DetailIntoEvent(
+      { ...baseEvent, title: "Bromley South" }, // real title from run list
+      detail,
+    );
+    expect(merged.title).toBe("Bromley South");
+  });
 });
 
 describe("LondonHashAdapter.fetch", () => {
-  it("parses sample HTML and returns events", async () => {
-    // Run list + 3 detail page fetches (first 3 blocks)
+  it("parses sample HTML and emits per-block titles from .titleRow (no synthesized defaults)", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     fetchSpy.mockResolvedValueOnce(new Response(SAMPLE_HTML, { status: 200 }));
-    // Detail pages return placeholder HTML for simplicity
     fetchSpy.mockResolvedValue(new Response(SAMPLE_LH3_PLACEHOLDER_HTML, { status: 200 }));
 
     const adapter = new LondonHashAdapter();
@@ -520,9 +639,9 @@ describe("LondonHashAdapter.fetch", () => {
     expect(result.events.length).toBeGreaterThanOrEqual(3);
     expect(result.structureHash).toBeDefined();
 
-    // Check first event
     const first = result.events.find((e) => e.runNumber === 2820);
     expect(first).toBeDefined();
+    expect(first!.title).toBe("Sydneham"); // from .titleRow, NOT synthesized "London Hash Run #2820"
     expect(first!.date).toBe("2026-02-21");
     expect(first!.kennelTags[0]).toBe("lh3");
     expect(first!.hares).toBe("Tuna Melt and Opee");
@@ -531,16 +650,18 @@ describe("LondonHashAdapter.fetch", () => {
     expect(first!.description).toContain("Nearest station: Sydenham");
     expect(first!.sourceUrl).toContain("nextrun.php?run=3840");
 
+    // Placeholder `**To Be Announced` title falls back to synthesized default.
+    const placeholder = result.events.find((e) => e.runNumber === 2822);
+    expect(placeholder).toBeDefined();
+    expect(placeholder!.title).toBe("London Hash Run #2822");
+
     vi.restoreAllMocks();
   });
 
   it("enriches events from detail pages", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
-    // Run list page
     fetchSpy.mockResolvedValueOnce(new Response(SAMPLE_HTML, { status: 200 }));
-    // First detail page (run 3840 → run number 2820) — enriched with matching fixture
     fetchSpy.mockResolvedValueOnce(new Response(SAMPLE_LH3_DETAIL_HTML_2820, { status: 200 }));
-    // Remaining detail pages — placeholder
     fetchSpy.mockResolvedValue(new Response(SAMPLE_LH3_PLACEHOLDER_HTML, { status: 200 }));
 
     const adapter = new LondonHashAdapter();
@@ -549,13 +670,14 @@ describe("LondonHashAdapter.fetch", () => {
       url: "https://www.londonhash.org/runlist.php",
     } as never);
 
-    // The first event (2820) should be enriched from the detail page
     const enriched = result.events.find((e) => e.runNumber === 2820);
     expect(enriched).toBeDefined();
     expect(enriched!.latitude).toBeCloseTo(51.427391, 4);
     expect(enriched!.longitude).toBeCloseTo(-0.054509, 4);
     expect(enriched!.locationUrl).toBe("http://maps.google.com/?q=51.427391,-0.054509");
     expect(enriched!.description).toContain("On-On: The Dolphin");
+    // Run-list title "Sydneham" preserved over detail "Sydenham" (different spelling — keep authoritative run-list copy)
+    expect(enriched!.title).toBe("Sydneham");
 
     expect(result.diagnosticContext?.detailPagesEnriched).toBeGreaterThanOrEqual(1);
 
@@ -564,9 +686,7 @@ describe("LondonHashAdapter.fetch", () => {
 
   it("handles detail page fetch failures gracefully", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
-    // Run list succeeds
     fetchSpy.mockResolvedValueOnce(new Response(SAMPLE_HTML, { status: 200 }));
-    // All detail pages fail
     fetchSpy.mockRejectedValue(new Error("Detail fetch failed"));
 
     const adapter = new LondonHashAdapter();
@@ -575,7 +695,6 @@ describe("LondonHashAdapter.fetch", () => {
       url: "https://www.londonhash.org/runlist.php",
     } as never);
 
-    // Events from run list should still be present
     expect(result.events.length).toBeGreaterThanOrEqual(3);
     expect(result.diagnosticContext?.detailPagesEnriched).toBe(0);
 
@@ -665,6 +784,7 @@ describe("parseRunBlocks — inline element spacing", () => {
       <html><body>
       <div id="runListHolder">
         <div class="runListDetails">
+          <div class="runlistRow titleRow">Test Heading</div>
           <div class="runlistRow">
             <div class="runlistCat runlistNo"><a href="nextrun.php?run=2285">2285</a></div>
             <div class="runlistDate">Saturday 22nd of February 2026<br />12 Noon</div>
@@ -676,8 +796,8 @@ describe("parseRunBlocks — inline element spacing", () => {
     `;
     const blocks = parseRunBlocks(html);
     expect(blocks).toHaveLength(1);
-    // Hare names should be separated by space, not concatenated
-    expect(blocks[0].text).toContain("Not Out and Big In Japan");
-    expect(blocks[0].text).not.toContain("JapanWhat");
+    // Hare names should be separated by space, not concatenated.
+    expect(blocks[0].hareText).toContain("Not Out and Big In Japan");
+    expect(blocks[0].hareText).not.toContain("JapanWhat");
   });
 });
