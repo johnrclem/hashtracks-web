@@ -832,7 +832,7 @@ function stripKennelPrefixFromTitle(
     if (code !== matchedCode) continue;
     // Anchor the pattern to the start of the title. Build a fresh regex
     // because `re` is unanchored + has the `i` flag from compileKennelPatterns.
-    const anchored = new RegExp(`^\\s*${re.source}`, "i");
+    const anchored = new RegExp(String.raw`^\s*${re.source}`, "i");
     const m = anchored.exec(title);
     if (!m) continue;
     // Drop the matched prefix + any trailing separators (space, dash, colon,

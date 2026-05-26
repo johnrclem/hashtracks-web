@@ -17,10 +17,10 @@ import type { HarelineSeriesChild } from "./EventCard";
 export function SeriesChildTimeline({
   childEvents,
   parentRegionColor,
-}: {
+}: Readonly<{
   childEvents: HarelineSeriesChild[];
   parentRegionColor: string;
-}) {
+}>) {
   if (childEvents.length === 0) return null;
   return (
     <div>
