@@ -1,4 +1,5 @@
 import * as cheerio from "cheerio";
+import isSafeRegex from "safe-regex2";
 import type { RawEventData } from "../types";
 
 const BASE_URL = "https://hashrego.com";
@@ -833,7 +834,20 @@ function compileKennelPatterns(
   const compiled: CompiledKennelPattern[] = [];
   for (const [src, code] of patterns) {
     try {
-      compiled.push({ re: new RegExp(src, "i"), code });
+      // nosemgrep: detect-non-literal-regexp — intentional: each source is
+      // ReDoS-validated via `safe-regex2` before construction (mirrors the
+      // pattern in src/app/admin/sources/config-validation.ts:33). Invalid
+      // or unsafe patterns are dropped fail-soft with a console.warn so
+      // a single typo in source config can't strip enriched multi-day
+      // behavior from the whole scrape (Codex review on PR D).
+      const re = new RegExp(src, "i"); // NOSONAR
+      if (!isSafeRegex(re)) {
+        console.warn(
+          `[hashrego] kennelPattern source ${JSON.stringify(src)} for code ${code} is ReDoS-prone (rejected by safe-regex2); skipping`,
+        );
+        continue;
+      }
+      compiled.push({ re, code });
     } catch (err) {
       console.warn(
         `[hashrego] invalid kennelPattern source ${JSON.stringify(src)} for code ${code}: ${err}`,

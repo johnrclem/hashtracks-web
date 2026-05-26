@@ -1518,6 +1518,29 @@ describe("parseDayHeaderSections", () => {
       // a backtracking regex on a ~20KB input would push 10s+.
       expect(elapsedMs).toBeLessThan(500);
     });
+
+    // Codacy ReDoS review on PR #1697 — `compileKennelPatterns` now runs
+    // every operator-supplied source through `safe-regex2.isSafeRegex` and
+    // rejects ReDoS-prone patterns fail-soft. Verifies the catastrophic-
+    // backtracking shape `(a+)+$` is skipped (with warn), while neighboring
+    // safe patterns still compile + apply.
+    it("rejects ReDoS-prone patterns fail-soft via safe-regex2", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const UNSAFE_MIX = [
+        ["(a+)+$", "bad"],            // classic catastrophic backtracking shape
+        ["GGFM", "ggfm"],             // safe — should still apply
+      ] as const;
+      const desc =
+        "**FRIDAY 6/26 — GGFM Strawberry Moon Trail**\n" +
+        "**SATURDAY 6/27 — Recovery**";
+      const entries = parseDayHeaderSections(desc, "2026-06-26", UNSAFE_MIX);
+      // GGFM prefix-strip still works — the safe pattern survives compile.
+      expect(entries[0].sectionTitle).toBe("Strawberry Moon Trail");
+      // The unsafe pattern logged a warn (specific copy contains "ReDoS-prone").
+      const warnCalls = warn.mock.calls.flatMap((args) => args.map(String));
+      expect(warnCalls.some((s) => s.includes("ReDoS-prone"))).toBe(true);
+      warn.mockRestore();
+    });
   });
 
   // ── PR E.1 + E.2 integration with splitToRawEvents ──
