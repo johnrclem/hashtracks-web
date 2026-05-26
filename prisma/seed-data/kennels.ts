@@ -704,8 +704,19 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "lbh3", shortName: "Long Beach H3", fullName: "Long Beach Hash House Harriers", region: "Long Beach, CA",
       website: "https://www.lbh3.org",
+      // Legacy flat fields kept for fallback only — scheduleRules below are
+      // authoritative for display + Travel Mode (Codex review on PR #1684).
       scheduleDayOfWeek: "Sunday", scheduleTime: "10:00 AM", scheduleFrequency: "Weekly",
-      hashCash: "$5", description: "Long Beach weekly Sunday morning hash. Also hosts the SoCal calendar aggregator at lbh3.org/socal.",
+      scheduleRules: [
+        { rrule: "FREQ=WEEKLY;BYDAY=TH", label: "Spring/Summer", validFrom: "04-01", validUntil: "09-30", displayOrder: 0 },
+        { rrule: "FREQ=WEEKLY;BYDAY=SU", startTime: "10:00", label: "Fall/Winter", validFrom: "10-01", validUntil: "03-31", displayOrder: 1 },
+      ],
+      scheduleNotes: "Thursday evening during Spring/Summer & Sunday morning in the Fall/Winter.",
+      hashCash: "$5",
+      contactEmail: "contact@lbh3.org",
+      logoUrl: "/kennel-logos/lbh3.png",
+      foundedYear: 1985,
+      description: "Founded January 6, 1985 by Dal \"Jock\" Trader, Jerry \"Eject\" Templeman, and Andy \"Zapata\" Limon. Runs Thursday evening during Spring/Summer and Sunday morning in the Fall/Winter, often with 50+ attendance. Visitors and virgins always welcome. Hash cash is $5 via cash or Venmo. Also hosts the SoCal calendar aggregator at lbh3.org/socal.",
       latitude: 33.77, longitude: -118.19,
     },
     {
@@ -1826,8 +1837,18 @@ export const KENNELS: KennelSeed[] = [
     // --- Macon ---
     {
       kennelCode: "mgh4", shortName: "MGH4", fullName: "Middle Georgia Hash House Harriers", region: "Macon, GA",
+      // Legacy flat fields kept for fallback only — scheduleRules below are
+      // authoritative for display + Travel Mode (Codex review on PR #1684).
       scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Biweekly",
-      description: "Alternate Saturday runs in the Macon area.",
+      scheduleRules: [
+        { rrule: "FREQ=WEEKLY;BYDAY=WE", displayOrder: 0 },
+        { rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA", startTime: "14:00", displayOrder: 1 },
+      ],
+      scheduleNotes: "Every Wednesday, every other Saturday.",
+      hashCash: "$5",
+      foundedYear: 2001,
+      facebookUrl: "https://www.facebook.com/groups/middlegeorgiahash",
+      description: "Middle Georgia's hash kennel, established 2001. Runs every Wednesday plus alternate Saturdays in the Macon area.",
     },
     {
       kennelCode: "w3h3-ga", shortName: "W3H3", fullName: "Wednesday Wednesday Wednesday H3", region: "Macon, GA",
@@ -2233,10 +2254,12 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "mh3-mn", shortName: "MH3", fullName: "Minneapolis Hash House Harriers", region: "Minneapolis, MN",
       website: "https://www.minneapolish3.com",
       facebookUrl: "https://www.facebook.com/MinneapolisHashHouseHarriers",
+      contactEmail: "minneapolishash@gmail.com",
+      logoUrl: "/kennel-logos/mh3-mn.jpg",
       scheduleDayOfWeek: "Sunday", scheduleTime: "3:00 PM", scheduleFrequency: "Weekly",
-      scheduleNotes: "3 PM during DST, 2 PM in winter",
-      hashCash: "$6", foundedYear: 1989,
-      description: "Minneapolis's flagship weekly Sunday hash. Minnesota's oldest kennel, founded 1989. Visitors and virgins hash free.",
+      scheduleNotes: "3 PM during DST; 2 PM when DST ends (fall).",
+      hashCash: "$6", foundedYear: 1990,
+      description: "Minneapolis's flagship weekly Sunday hash — \"Drink, R*n, Be Merry.\" Founded May 1990. A drinking club with a running problem: hashers meet roughly once a week and run/jog/walk a short course, then stand around chatting and drinking. Hash cash: visitors and virgins are free; returning visitors and members are $6.",
       latitude: 44.98, longitude: -93.27,
     },
     {
@@ -2470,15 +2493,18 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "mfmh3", shortName: "MFMH3", fullName: "Munich Full Moon Hash House Harriers", region: "Munich", country: "Germany",
       website: "https://mh3.beer",
       scheduleTime: "7:00 PM", scheduleFrequency: "Monthly",
-      description: "Munich's monthly trail under the full moon.",
+      scheduleNotes: "Meets once a month, on a Friday nearest the full moon.",
+      contactEmail: "fullmoon@munich-h3.com",
+      description: "Munich's monthly full-moon hash — a drinking club with a running problem that meets in and around the Munich city center on the Friday nearest the full moon. A separate kennel from Munich H3.",
       latitude: 48.14, longitude: 11.58,
     },
     {
       kennelCode: "massh3", shortName: "MASS H3", fullName: "Munich AsiaSammstagsHasch", region: "Munich", country: "Germany",
       website: "https://mh3.beer",
-      scheduleDayOfWeek: "Saturday", scheduleTime: "3:00 PM", scheduleFrequency: "Biweekly",
+      scheduleFrequency: "Irregular",
+      scheduleNotes: "Non-regular hash — trails are announced short-notice via the Munich H3 Facebook group.",
       foundedYear: 2021,
-      description: "Munich's alternate-Saturday afternoon trail.",
+      description: "MASS H3 — Munich's Alternative Sunday Service. A non-regular Munich-area kennel with sporadic trails announced short-notice through the Munich H3 FB group.",
       latitude: 48.14, longitude: 11.58,
     },
     // --- Frankfurt ---
@@ -3443,9 +3469,10 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "mel-new-moon", shortName: "Melbourne New Moon", fullName: "Melbourne New Moon Hash House Harriers",
       region: "Melbourne, VIC", country: "Australia",
       website: "https://www.meetup.com/melbourne-new-moon-running-group/",
-      scheduleDayOfWeek: "Saturday", scheduleFrequency: "Monthly",
-      scheduleNotes: "Monthly Saturday closest to the new moon. 936 members on Meetup. Events at meetup.com/melbourne-new-moon-running-group/",
-      description: "Melbourne's new moon hash — runs on the Saturday closest to each new moon. Active community with 936+ members on Meetup.",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "3:00 PM", scheduleFrequency: "Monthly",
+      scheduleNotes: "Saturday nearest the new moon.",
+      contactName: "John 0411 143744",
+      description: "Melbourne New Moon HHH — Melbourne's city-runners new-moon kennel. A drinking club with a running problem: each run is a mystery fun run, with a known start but trail marks leading you somewhere unknown (beware false trails). Hash cash is $5 to cover the circle beers.",
       latitude: -37.8136, longitude: 144.9631,
     },
     // ===== MALAYSIA Phase 2 — Historic Regional kennels =====
