@@ -12,6 +12,15 @@ describe("parseLswDate", () => {
     expect(parseLswDate("09 Apr 2025")).toBe("2025-04-09");
   });
 
+  it("parses 4-char month abbreviations (Sept)", () => {
+    // previousruns.htm uses "Sept" for some 1983-era rows.
+    expect(parseLswDate("10 Sept 83")).toBe("1983-09-10");
+  });
+
+  it("parses full month names", () => {
+    expect(parseLswDate("01 February 26")).toBe("2026-02-01");
+  });
+
   it("returns null for invalid input", () => {
     expect(parseLswDate("")).toBeNull();
     expect(parseLswDate("not a date")).toBeNull();
