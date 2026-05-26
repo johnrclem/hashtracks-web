@@ -1498,6 +1498,26 @@ describe("parseDayHeaderSections", () => {
       const entries = parseDayHeaderSections(desc, "2026-06-26");
       expect(entries[0].sectionTitle).toBe("GGFM Strawberry Moon Trail");
     });
+
+    // Codacy ReDoS review on PR #1697 — the anchored regex used to strip
+    // a kennel prefix is now pre-built in `compileKennelPatterns` rather
+    // than dynamically constructed at the strip site. This regression test
+    // exercises a pathological title length to confirm the matcher stays
+    // linear-time on operator-curated patterns. (Patterns themselves are
+    // seed-controlled, but the test pins the linear behavior so a future
+    // pattern change won't silently introduce a backtracking shape.)
+    it("strip handles pathological title length without runaway backtracking", () => {
+      const longTitle = "GGFM " + "Strawberry ".repeat(2000) + "Trail";
+      const desc = `**FRIDAY 6/26 — ${longTitle}**\n**SATURDAY 6/27 — Recovery**`;
+      const start = Date.now();
+      const entries = parseDayHeaderSections(desc, "2026-06-26", PATTERNS);
+      const elapsedMs = Date.now() - start;
+      // GGFM prefix stripped; title body preserved.
+      expect(entries[0].sectionTitle?.startsWith("Strawberry")).toBe(true);
+      // Linear-time bound — should be way under 500ms even on slow CI;
+      // a backtracking regex on a ~20KB input would push 10s+.
+      expect(elapsedMs).toBeLessThan(500);
+    });
   });
 
   // ── PR E.1 + E.2 integration with splitToRawEvents ──
