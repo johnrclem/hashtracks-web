@@ -1179,7 +1179,10 @@ export const SOURCES = [
       type: "ICAL_FEED" as const,
       trustLevel: 7,
       scrapeFreq: "daily",
-      scrapeDays: 180,
+      // #1339: feed carries ~40+ past events; widened from 180 to 1500 to recover
+      // the historical archive. Paired with the iCal adapter's lookback derivation
+      // (lookbackDays = source.scrapeDays ?? 90) so this also expands the past window.
+      scrapeDays: 1500,
       config: {
         defaultKennelTag: "ich3",
       },
@@ -2342,7 +2345,10 @@ export const SOURCES = [
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
       scrapeFreq: "every_6h",
-      scrapeDays: 90,
+      // #1601: Leap Year #6-#8 (2008/2012/2016) sit far outside the default
+      // 90d window. Bumped to 1500 to recover them plus historical context for
+      // the other 12 WA kennels on this calendar (audit bonus).
+      scrapeDays: 1500,
       config: {
         kennelPatterns: [
           ["^SH3\\b|Seattle H3", "sh3-wa"],
@@ -2446,7 +2452,10 @@ export const SOURCES = [
       type: "GOOGLE_SHEETS" as const,
       trustLevel: 5,
       scrapeFreq: "daily",
-      scrapeDays: 800,
+      // #1601: Leap Year runs every 4 years; sheet carries placeholders out to
+      // #16 in 2048. 800d window stopped at ~2028. Widened to cover the full
+      // century-spanning placeholder sequence (matches Summit's 9999 pattern).
+      scrapeDays: 9999,
       config: {
         sheetId: "anonymous",
         csvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ_z30ZkQNOwcAka4qU22bAGYIVjJFc5NyICst9OeUWPvi27lNK8ICkZllzLI0gjLwQDjVvlt3mMlDM/pub?output=csv",
@@ -2569,7 +2578,10 @@ export const SOURCES = [
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
       scrapeFreq: "every_6h",
-      scrapeDays: 90,
+      // #1633: calendar carries ~120 MH3 numbered trails spanning the kennel's
+      // history. 90d window indexed only 60 numbered runs. Wide window
+      // (matches LBH3 / Madison) so full archive is reachable.
+      scrapeDays: 9999,
       config: {
         kennelPatterns: [
           ["\\bT3H3\\b|Twin Titties", "t3h3"],
@@ -2768,7 +2780,9 @@ export const SOURCES = [
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
       scrapeFreq: "every_6h",
-      scrapeDays: 90,
+      // #1609: calendar archive spans 2006-2027 (1,172 VEVENTs). 90d window
+      // indexed only 35 events. Wide window to recover the full LBH3 history.
+      scrapeDays: 9999,
       config: { defaultKennelTag: "lbh3" },
       kennelCodes: ["lbh3"],
     },
@@ -3876,7 +3890,10 @@ export const SOURCES = [
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
       scrapeFreq: "every_6h",
-      scrapeDays: 365,
+      // #1559: kennel founded 1977 with weekly runs (#2503+ as of 2026).
+      // 365d window indexed only recent events. Wide window to reach the
+      // full history exposed by the calendar.
+      scrapeDays: 9999,
       config: {
         calendarId: "q206h4gbp4cfg5m13ip95vch88@group.calendar.google.com",
         defaultKennelTag: "madisonh3",
@@ -4871,7 +4888,10 @@ export const SOURCES = [
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
       scrapeFreq: "every_6h",
-      scrapeDays: 365,
+      // #1600: LDS H3 #579-#627 (Feb-Jul 2024) sit ~22 months back, outside
+      // the 365d window. Widened to 1500 to recover those events plus extra
+      // history for wasatch-h3 / slosh-h3 / slut-h3 (4 kennels share calendar).
+      scrapeDays: 1500,
       config: {
         kennelPatterns: [
           ["^wasatch", "wasatch-h3"],
