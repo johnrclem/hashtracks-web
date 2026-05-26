@@ -927,23 +927,30 @@ describe("parseEventDetail + splitToRawEvents — 5-Boro 2026 weekday-form + per
     expect(events[0].hares).toBeUndefined();
     expect(events[0].startTime).toBeUndefined();
 
-    // Index 1 — Friday child overrides to GGFM.
+    // Index 1 — Friday child overrides to GGFM. Title comes from the
+    // section header ("GGFM Strawberry Moon Trail" — PR E.1) and the GGFM
+    // prefix is stripped because the kennel pill already surfaces it
+    // (PR E.2). No legacy "(Day N)" suffix.
     expect(events[1].seriesParent).toBeUndefined();
     expect(events[1].date).toBe("2026-06-26");
     expect(events[1].kennelTags).toEqual(["ggfm"]);
-    expect(events[1].title).toContain("(Day 1)");
+    expect(events[1].title).toBe("Strawberry Moon Trail");
 
-    // Index 2 — Saturday child falls back to host kennel.
+    // Index 2 — Saturday child falls back to host kennel. Section title
+    // "12th Annual 5-Borough Pub Crawl" doesn't lead with a kennel name,
+    // so no prefix stripping applies.
     expect(events[2].seriesParent).toBeUndefined();
     expect(events[2].date).toBe("2026-06-27");
     expect(events[2].kennelTags).toEqual(["NYCH3"]);
-    expect(events[2].title).toContain("(Day 2)");
+    expect(events[2].title).toBe("12th Annual 5-Borough Pub Crawl");
 
-    // Index 3 — Sunday child falls back to host kennel.
+    // Index 3 — Sunday child falls back to host kennel. Section title
+    // "NYC Pride March Watch Party!" starts with "NYC" but the kennel
+    // pattern requires `NYC\s*H3`, so the prefix stays.
     expect(events[3].seriesParent).toBeUndefined();
     expect(events[3].date).toBe("2026-06-28");
     expect(events[3].kennelTags).toEqual(["NYCH3"]);
-    expect(events[3].title).toContain("(Day 3)");
+    expect(events[3].title).toBe("NYC Pride March Watch Party!");
   });
 
   it("splitToRawEvents: ggfm-named Friday child rides on its sibling kennel even though parent is NYCH3-hosted", () => {
@@ -1376,6 +1383,225 @@ describe("parseDayHeaderSections", () => {
       expect(entries.map((e) => e.date)).toEqual(["2026-06-26", "2026-06-27"]);
       expect(entries.every((e) => e.kennelCode === undefined)).toBe(true);
       warn.mockRestore();
+    });
+  });
+
+  // ── PR E.1 — Per-day section title extraction ──
+  describe("per-day section title (PR E.1)", () => {
+    it("captures the section header text after the M/D delimiter", () => {
+      const desc =
+        "**FRIDAY 6/26 — GGFM Strawberry Moon Trail**\n" +
+        "**SATURDAY 6/27 — 12th Annual 5-Borough Pub Crawl**\n" +
+        "**SUNDAY 6/28 — NYC Pride March Watch Party!**";
+      const entries = parseDayHeaderSections(desc, "2026-06-26");
+      // No kennel patterns → no prefix stripping → titles verbatim from source.
+      expect(entries.map((e) => e.sectionTitle)).toEqual([
+        "GGFM Strawberry Moon Trail",
+        "12th Annual 5-Borough Pub Crawl",
+        "NYC Pride March Watch Party!",
+      ]);
+    });
+
+    it("returns sectionTitle: undefined when the header line carries no title", () => {
+      // `**DAY 1 12/30 —**` followed by a newline → no title on the
+      // header line. The blurb on the next line belongs to the section
+      // body, not the header.
+      const desc =
+        "**DAY 1 12/30 —**\nBlurb describing day one.\n" +
+        "**DAY 2 12/31 —**\nMore blurb here.";
+      const entries = parseDayHeaderSections(desc, "2026-12-30");
+      expect(entries.every((e) => e.sectionTitle === undefined)).toBe(true);
+    });
+
+    it("strips trailing punctuation but preserves bang/question", () => {
+      // ", " gets dropped; "!" stays. Both behaviors are intentional —
+      // the camp's emphatic punctuation is part of the trail's identity.
+      const desc =
+        "**FRIDAY 6/26 — Strawberry Moon Trail,**\n" +
+        "**SATURDAY 6/27 — Pub Crawl!**";
+      const entries = parseDayHeaderSections(desc, "2026-06-26");
+      expect(entries[0].sectionTitle).toBe("Strawberry Moon Trail");
+      expect(entries[1].sectionTitle).toBe("Pub Crawl!");
+    });
+
+    // CodeRabbit PR #1697 review — DAY_NUMBER_HEADER_RE ends at `\b` after
+    // the day digit and does NOT consume the trailing `—` delimiter (unlike
+    // WEEKDAY_HEADER_RE which explicitly eats `\s*[-—:]`). The slice handed
+    // to `extractSectionTitle` for `**DAY 1 6/26 — Friday Kickoff**` starts
+    // at ` — Friday Kickoff**`, so the helper must strip the leading
+    // delimiter or the title lands as "— Friday Kickoff".
+    it("strips leading delimiter on Day-form headers (asymmetry with WEEKDAY-form)", () => {
+      const desc =
+        "**DAY 1 6/26 — Friday Kickoff**\n" +
+        "**DAY 2 6/27 — Saturday Main**";
+      const entries = parseDayHeaderSections(desc, "2026-06-26");
+      expect(entries[0].sectionTitle).toBe("Friday Kickoff");
+      expect(entries[1].sectionTitle).toBe("Saturday Main");
+    });
+
+    it("strips multiple leading delimiter chars + whitespace combos", () => {
+      // Defensive: a typo'd `— — title` or `:– title` should still produce
+      // a clean title rather than carrying delimiter cruft.
+      const desc =
+        "**DAY 1 6/26 —— Double Dash**\n" +
+        "**DAY 2 6/27 :– Mixed Delim**";
+      const entries = parseDayHeaderSections(desc, "2026-06-26");
+      expect(entries[0].sectionTitle).toBe("Double Dash");
+      expect(entries[1].sectionTitle).toBe("Mixed Delim");
+    });
+
+    // CodeRabbit PR #1697 review — bare `Day N M/D` headers (no `—` / `:`
+    // delimiter) carry description content after the date, NOT a title.
+    // Pre-fix, the parser would emit "evening run" as Day 1's title and
+    // rewrite the Event.title + fingerprint on every existing such row.
+    // Post-fix, day-number headers require an explicit trailing delimiter
+    // before extractSectionTitle returns a title; bare forms get
+    // sectionTitle: undefined so the caller falls back to "(Day N)".
+    it("day-number header without trailing delimiter returns sectionTitle: undefined", () => {
+      const desc =
+        "Day 1 3/21 evening run\n" +
+        "Day 2 3/22 morning hike\n" +
+        "Day 3 3/23 brunch";
+      const entries = parseDayHeaderSections(desc, "2026-03-21");
+      expect(entries.map((e) => e.sectionTitle)).toEqual([undefined, undefined, undefined]);
+    });
+
+    it("day-number header WITH trailing delimiter still extracts the title", () => {
+      // Same shape as the regression for bare Day-form (above) but each
+      // header has an explicit `—` delimiter — title extraction fires.
+      const desc =
+        "Day 1 3/21 — Friday Kickoff\n" +
+        "Day 2 3/22 — Saturday Main";
+      const entries = parseDayHeaderSections(desc, "2026-03-21");
+      expect(entries.map((e) => e.sectionTitle)).toEqual([
+        "Friday Kickoff",
+        "Saturday Main",
+      ]);
+    });
+  });
+
+  // ── PR E.2 — Kennel-prefix stripping ──
+  describe("kennel-prefix stripping from section title (PR E.2)", () => {
+    const PATTERNS = [
+      ["Greater Gotham", "ggfm"],
+      ["GGFM", "ggfm"],
+      [String.raw`NYC\s*H3`, "nych3"],
+    ] as const;
+
+    it("strips a leading kennel name when the kennel pill carries the same identity", () => {
+      // Friday: "GGFM Strawberry Moon Trail" + ggfm pill → "Strawberry Moon Trail"
+      const desc = "**FRIDAY 6/26 — GGFM Strawberry Moon Trail**\n**SATURDAY 6/27 — Recovery**";
+      const entries = parseDayHeaderSections(desc, "2026-06-26", PATTERNS);
+      expect(entries[0].sectionTitle).toBe("Strawberry Moon Trail");
+      // Saturday has no kennel match → no strip.
+      expect(entries[1].sectionTitle).toBe("Recovery");
+    });
+
+    it("matches alternate kennel-name spellings via the same kennelCode", () => {
+      // "Greater Gotham" and "GGFM" both map to `ggfm`. Either prefix
+      // should strip cleanly.
+      const desc = "**FRIDAY 6/26 — Greater Gotham Moon Trail**\n**SATURDAY 6/27 — Recovery**";
+      const entries = parseDayHeaderSections(desc, "2026-06-26", PATTERNS);
+      expect(entries[0].sectionTitle).toBe("Moon Trail");
+    });
+
+    it("preserves the prefix when stripping would leave under MIN_STRIPPED_TITLE_LENGTH chars", () => {
+      // "GGFM ✨" → stripped would be "✨" (1 char). Better to keep the prefix
+      // than render a 1-char card.
+      const desc = "**FRIDAY 6/26 — GGFM ✨**\n**SATURDAY 6/27 — Recovery**";
+      const entries = parseDayHeaderSections(desc, "2026-06-26", PATTERNS);
+      expect(entries[0].sectionTitle).toBe("GGFM ✨");
+    });
+
+    it("no-op when no kennel pattern matches", () => {
+      // Saturday's section text doesn't name any kennel in PATTERNS.
+      const desc = "**SATURDAY 6/27 — Generic Saturday Trail**\n**SUNDAY 6/28 — More**";
+      const entries = parseDayHeaderSections(desc, "2026-06-27", PATTERNS);
+      expect(entries[0].sectionTitle).toBe("Generic Saturday Trail");
+    });
+
+    it("no-op when no patterns are configured", () => {
+      // Without kennelPatterns, the section title flows through verbatim
+      // even when it leads with what looks like a kennel name.
+      const desc = "**FRIDAY 6/26 — GGFM Strawberry Moon Trail**\n**SATURDAY 6/27 — Recovery**";
+      const entries = parseDayHeaderSections(desc, "2026-06-26");
+      expect(entries[0].sectionTitle).toBe("GGFM Strawberry Moon Trail");
+    });
+
+    // Codacy ReDoS review on PR #1697 — the anchored regex used to strip
+    // a kennel prefix is now pre-built in `compileKennelPatterns` rather
+    // than dynamically constructed at the strip site. This regression test
+    // exercises a pathological title length to confirm the matcher stays
+    // linear-time on operator-curated patterns. (Patterns themselves are
+    // seed-controlled, but the test pins the linear behavior so a future
+    // pattern change won't silently introduce a backtracking shape.)
+    it("strip handles pathological title length without runaway backtracking", () => {
+      const longTitle = "GGFM " + "Strawberry ".repeat(2000) + "Trail";
+      const desc = `**FRIDAY 6/26 — ${longTitle}**\n**SATURDAY 6/27 — Recovery**`;
+      const start = Date.now();
+      const entries = parseDayHeaderSections(desc, "2026-06-26", PATTERNS);
+      const elapsedMs = Date.now() - start;
+      // GGFM prefix stripped; title body preserved.
+      expect(entries[0].sectionTitle?.startsWith("Strawberry")).toBe(true);
+      // Linear-time bound — should be way under 500ms even on slow CI;
+      // a backtracking regex on a ~20KB input would push 10s+.
+      expect(elapsedMs).toBeLessThan(500);
+    });
+
+    // Codacy ReDoS review on PR #1697 — `compileKennelPatterns` now runs
+    // every operator-supplied source through `safe-regex2.isSafeRegex` and
+    // rejects ReDoS-prone patterns fail-soft. Verifies the catastrophic-
+    // backtracking shape `(a+)+$` is skipped (with warn), while neighboring
+    // safe patterns still compile + apply.
+    it("rejects ReDoS-prone patterns fail-soft via safe-regex2", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const UNSAFE_MIX = [
+        ["(a+)+$", "bad"],            // classic catastrophic backtracking shape
+        ["GGFM", "ggfm"],             // safe — should still apply
+      ] as const;
+      const desc =
+        "**FRIDAY 6/26 — GGFM Strawberry Moon Trail**\n" +
+        "**SATURDAY 6/27 — Recovery**";
+      const entries = parseDayHeaderSections(desc, "2026-06-26", UNSAFE_MIX);
+      // GGFM prefix-strip still works — the safe pattern survives compile.
+      expect(entries[0].sectionTitle).toBe("Strawberry Moon Trail");
+      // The unsafe pattern logged a warn (specific copy contains "ReDoS-prone").
+      const warnCalls = warn.mock.calls.flatMap((args) => args.map(String));
+      expect(warnCalls.some((s) => s.includes("ReDoS-prone"))).toBe(true);
+      warn.mockRestore();
+    });
+  });
+
+  // ── PR E.1 + E.2 integration with splitToRawEvents ──
+  describe("splitToRawEvents uses section titles as child titles (PR E.1)", () => {
+    it("falls back to '(Day N)' when description has no section titles", () => {
+      // `**DAY 1 6/26 —**` with no title on the header line → fallback to
+      // legacy "${parent.title} (Day N)" form for every child.
+      const HTML = `
+        <html>
+          <head>
+            <meta property="og:title" content="06/26 NYE Campout Title" />
+            <meta property="og:description" content='**DAY 1 6/26 —**
+First day, no title on this line.
+**DAY 2 6/27 —**
+Second day, also bare.' />
+          </head>
+          <body><a href="/kennels/NYCH3/">NYC H3</a></body>
+        </html>`;
+      const parsed = parseEventDetail(HTML, "nye-bare", {
+        slug: "nye-bare",
+        kennelSlug: "NYCH3",
+        title: "NYE Campout Title",
+        startDate: "06/26/26",
+        startTime: "",
+        type: "Hash Weekend",
+        cost: "",
+      });
+      const events = splitToRawEvents(parsed, "nye-bare");
+      // Shape (1) — Day 1 is the parent, Day 2 is the child.
+      expect(events).toHaveLength(2);
+      expect(events[0].title).toBe("NYE Campout Title"); // parent
+      expect(events[1].title).toBe("NYE Campout Title (Day 2)"); // child fallback
     });
   });
 });

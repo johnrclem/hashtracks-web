@@ -13,6 +13,7 @@ import {
 import { formatTime, formatDateLong, formatDateRange, getLabelForUrl, stripMarkdown, stripUrlsFromText } from "@/lib/format";
 import { getFullLocationDisplay } from "@/lib/event-display";
 import type { HarelineEvent } from "./EventCard";
+import { SeriesChildTimeline } from "./SeriesChildTimeline";
 import { ShiggyLevelFlames, TrailLengthLine, formatTrailLength } from "./TrailDifficulty";
 import { useTimePreference } from "@/components/providers/time-preference-provider";
 import { formatTimeInZone, getTimezoneAbbreviation, getBrowserTimezone } from "@/lib/timezone";
@@ -105,7 +106,10 @@ export function EventDetailPanel({ event, attendance, isAuthenticated, onDismiss
     <Card className="flex max-h-[calc(100vh-4rem)] flex-col overflow-hidden border-t-[3px]" style={{ borderTopColor: regionColor }}>
       {/* Scrollable content */}
       <CardContent className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
-        {/* #1560 — child detail panel: back-link to parent series */}
+        {/* #1560 — child detail panel: back-link to parent series. PR E.5
+            — uses `parentEvent.title` when populated so the user knows
+            which umbrella weekend this child belongs to; falls back to
+            the generic copy when the query didn't include `parentEvent`. */}
         {isChildOfSeries && event.parentEventId && (
           <Link
             href={`/hareline/${event.parentEventId}`}
@@ -113,7 +117,7 @@ export function EventDetailPanel({ event, attendance, isAuthenticated, onDismiss
             style={{ borderColor: regionColor }}
           >
             <ArrowUpLeft className="size-3" aria-hidden="true" />
-            <span>Part of a multi-day series</span>
+            <span>Part of {event.parentEvent?.title ?? "a multi-day series"}</span>
           </Link>
         )}
 
@@ -196,51 +200,13 @@ export function EventDetailPanel({ event, attendance, isAuthenticated, onDismiss
 
         {/* #1560 — series children mini-timeline. Renders right after the
             title so the umbrella's description (further down) sits below
-            the at-a-glance schedule. */}
+            the at-a-glance schedule. Shared with the full umbrella detail
+            page (`/hareline/[eventId]`) via `SeriesChildTimeline` — PR E.4. */}
         {isSeriesParent && childCount > 0 && (
-          <div>
-            <h4 className="mb-1.5 text-xs font-mono uppercase tracking-wider text-muted-foreground/70">
-              Weekend at a glance
-            </h4>
-            <ol
-              className="flex flex-col border-l-2 ml-1 pl-3 space-y-1.5"
-              style={{ borderColor: regionColor }}
-            >
-              {event.childEvents!.map((child) => {
-                const childDate = new Date(child.date);
-                const dayChip = childDate.toLocaleDateString("en-US", {
-                  weekday: "short", day: "numeric", timeZone: "UTC",
-                });
-                const childTime = child.startTime ? formatTime(child.startTime) : null;
-                const isChildCancelled = child.status === "CANCELLED";
-                return (
-                  <li key={child.id} className="relative">
-                    <span
-                      aria-hidden="true"
-                      className="absolute -left-[14px] top-1.5 size-2 rounded-full"
-                      style={{ backgroundColor: isChildCancelled ? "#9ca3af" : regionColor }}
-                    />
-                    <Link
-                      href={`/hareline/${child.id}`}
-                      className={`flex items-baseline gap-2 text-sm hover:text-primary transition-colors ${isChildCancelled ? "opacity-50" : ""}`}
-                    >
-                      <span className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground/80 w-14 shrink-0">
-                        {dayChip}
-                      </span>
-                      {childTime && (
-                        <span className="font-mono tabular-nums text-muted-foreground/70 w-14 shrink-0" suppressHydrationWarning>
-                          {childTime}
-                        </span>
-                      )}
-                      <span className={`truncate font-medium ${isChildCancelled ? "line-through" : ""}`}>
-                        {child.title ?? "Trail"}
-                      </span>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ol>
-          </div>
+          <SeriesChildTimeline
+            childEvents={event.childEvents!}
+            parentRegionColor={regionColor}
+          />
         )}
 
         {/* Check-in */}

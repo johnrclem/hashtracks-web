@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { ArrowUpLeft, Tent } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { getOrCreateUser, getAdminUser, getMismanUserForEvent } from "@/lib/auth";
 import { getStravaConnection } from "@/app/strava/actions";
@@ -23,10 +24,21 @@ import { getEventDayWeather } from "@/lib/weather";
 import { REGION_CENTROIDS } from "@/lib/geo";
 import { InfoPopover } from "@/components/ui/info-popover";
 import { RestoreEventButton } from "@/components/admin/RestoreEventButton";
-import { stripMarkdown, stripUrlsFromText, formatRelativeTime } from "@/lib/format";
+import { stripMarkdown, stripUrlsFromText, formatRelativeTime, formatDateRange } from "@/lib/format";
+import { SeriesChildTimeline } from "@/components/hareline/SeriesChildTimeline";
+import type { HarelineSeriesChild } from "@/components/hareline/EventCard";
 import { getFullLocationDisplay } from "@/lib/event-display";
 import { buildEventJsonLd, safeJsonLd } from "@/lib/seo";
 import { getCanonicalSiteUrl } from "@/lib/site-url";
+import { DISPLAY_EVENT_WHERE } from "@/lib/event-filters";
+
+// #1560 PR E.6 — `childEvents` rendered on the umbrella page mirror the
+// hareline list visibility filters (status / isManualEntry / isCanonical /
+// kennel.isHidden) but DROP the `parentEventId: null` predicate (children
+// always have parentEventId set). Centralized here so the detail-page query
+// can't drift from the list query (Gemini PR #1697 review). Same pattern
+// `getEventDetail` uses in src/app/hareline/actions.ts.
+const { parentEventId: _excludedParentFilter, ...CHILD_EVENT_WHERE } = DISPLAY_EVENT_WHERE;
 
 export async function generateMetadata({
   params,
@@ -105,6 +117,31 @@ export default async function EventDetailPage({
         select: { id: true, url: true, label: true },
         orderBy: { createdAt: "asc" },
       },
+      // #1560 PR E.6 — series-parent surface needs child events (rendered as
+      // the "Weekend at a glance" rail timeline below the umbrella name) and
+      // the parent's own back-link target for children. The child `where`
+      // mirrors the hareline list visibility predicates from `actions.ts`
+      // (DISPLAY_EVENT_WHERE) — without this, cancelled / manual / hidden-
+      // kennel / non-canonical children would leak into the timeline and
+      // inflate the `+ N TRAILS` badge on the umbrella's public page
+      // (Codex PR E.6 review).
+      parentEvent: { select: { id: true, title: true } },
+      childEvents: {
+        where: CHILD_EVENT_WHERE,
+        orderBy: { date: "asc" },
+        select: {
+          id: true,
+          date: true,
+          dateUtc: true,
+          timezone: true,
+          title: true,
+          haresText: true,
+          startTime: true,
+          status: true,
+          locationName: true,
+          runNumber: true,
+        },
+      },
     },
   });
 
@@ -179,6 +216,34 @@ export default async function EventDetailPage({
   const regionColor = getRegionColor(event.kennel.region);
   const trailLengthDisplay = formatTrailLength(event);
 
+  // #1560 PR E.6 — series-parent rendering. The umbrella detail page
+  // surfaces a date-range header (in place of the single-day `dateFormatted`),
+  // a `+ N TRAILS` badge with Tent glyph, the umbrella name as a secondary
+  // `<h2>`, and the shared `SeriesChildTimeline` rail BEFORE the description
+  // blob. Single-day events render unchanged (all the new branches gate on
+  // `isSeriesParent === true`). Children carry a parameterized back-link to
+  // their parent at the top of the page.
+  const isSeriesParent = event.isSeriesParent === true;
+  const childEvents: HarelineSeriesChild[] = isSeriesParent
+    ? event.childEvents.map((c) => ({
+        id: c.id,
+        date: c.date.toISOString(),
+        dateUtc: c.dateUtc ?? null,
+        timezone: c.timezone,
+        title: c.title,
+        haresText: c.haresText,
+        startTime: c.startTime,
+        status: c.status,
+        locationName: c.locationName,
+        runNumber: c.runNumber,
+      }))
+    : [];
+  const childCount = childEvents.length;
+  const headerDateStr = isSeriesParent
+    ? formatDateRange(event.date.toISOString(), event.endDate?.toISOString() ?? null)
+    : dateFormatted;
+  const isChildOfSeries = !!event.parentEventId;
+
   function getAttendancePrompt(eventDate: Date, status: string | null): string {
     // Compare at UTC noon to match date storage convention (Appendix F.4)
     const now = new Date();
@@ -238,9 +303,32 @@ export default async function EventDetailPage({
         <span className="text-foreground">{event.kennel.shortName} — {breadcrumbDate}</span>
       </nav>
 
+      {/* #1560 PR E.5/E.6 — child back-link to the parent series. Mirrors
+          `EventDetailPanel.tsx` and uses the parameterized parent title
+          when available so the user knows which weekend the child belongs to. */}
+      {isChildOfSeries && event.parentEventId && (
+        <Link
+          href={`/hareline/${event.parentEventId}`}
+          className="flex w-fit items-center gap-2 px-2 py-1.5 -mx-1 border-l-[3px] text-xs text-muted-foreground hover:text-foreground transition-colors"
+          style={{ borderColor: regionColor }}
+        >
+          <ArrowUpLeft className="size-3" aria-hidden="true" />
+          <span>Part of {event.parentEvent?.title ?? "a multi-day series"}</span>
+        </Link>
+      )}
+
       {/* Header */}
       <div className="space-y-2">
-        <h1 className="text-2xl font-bold">{dateFormatted}</h1>
+        <h1 className="text-2xl font-bold flex items-center gap-2 flex-wrap">
+          {isSeriesParent && (
+            <Tent
+              className="size-6 shrink-0"
+              style={{ color: regionColor }}
+              aria-hidden="true"
+            />
+          )}
+          <span suppressHydrationWarning>{headerDateStr}</span>
+        </h1>
 
         <div className="flex flex-wrap items-center gap-2">
           <Link
@@ -259,6 +347,16 @@ export default async function EventDetailPage({
           {event.status === "TENTATIVE" && (
             <Badge variant="outline">Tentative</Badge>
           )}
+          {/* #1560 PR E.6 — `+ N TRAILS` pill mirrors EventDetailPanel's
+              series-parent badge styling. */}
+          {isSeriesParent && childCount > 0 && (
+            <Badge
+              className="text-[10px] px-1.5 py-0 font-mono uppercase tracking-wider border-0"
+              style={{ backgroundColor: `${regionColor}1a`, color: regionColor }}
+            >
+              + {childCount} trails
+            </Badge>
+          )}
           {(event.status === "CANCELLED" || event.status === "TENTATIVE") && (
             <span className="text-xs text-muted-foreground">·</span>
           )}
@@ -273,45 +371,71 @@ export default async function EventDetailPage({
         <h2 className="text-xl font-semibold">{event.title}</h2>
       )}
 
-      {/* Check-in */}
-      <div>
-        <div className="flex items-center gap-3">
-          <CheckInButton
-            eventId={event.id}
-            eventDate={event.date.toISOString()}
-            isAuthenticated={!!user}
-            attendance={attendance}
-            stravaConnected={stravaConnected}
-            eventContext={{
-              kennelShortName: event.kennel.shortName,
-              runNumber: event.runNumber,
-              date: event.date.toISOString(),
-            }}
-          />
-          {(confirmedCount > 0 || goingCount > 0) && (
-            <div className="flex items-center gap-1.5">
-              {confirmedCount > 0 && (
-                <Badge variant="secondary" className="text-xs font-normal">
-                  {confirmedCount} checked in
-                </Badge>
-              )}
-              {goingCount > 0 && (
-                <Badge variant="secondary" className="text-xs font-normal">
-                  {goingCount} going
-                </Badge>
-              )}
-            </div>
-          )}
-        </div>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {getAttendancePrompt(event.date, attendance?.status ?? null)}
-        </p>
-      </div>
+      {/* #1560 PR E.6 — Weekend-at-a-glance timeline. Placed HERE, BEFORE
+          the check-in card and the detail blob, because the umbrella's
+          three days are the lede on a series-parent page; the description
+          (registration, lodging, theme) is supporting context below. */}
+      {isSeriesParent && childCount > 0 && (
+        <SeriesChildTimeline
+          childEvents={childEvents}
+          parentRegionColor={regionColor}
+        />
+      )}
 
-      {/* Side-by-side: detail fields + description (left) | map (right) */}
-      <div className={`grid grid-cols-1 gap-0 ${hasLocation ? "md:grid-cols-[3fr_2fr] rounded-xl border overflow-hidden" : ""}`}>
+      {/* Check-in. #1560 PR E.6 — suppressed on series-parent umbrellas
+          (Codex review). An umbrella event isn't a real trail; users who
+          want to RSVP / check in pick a specific child from the timeline
+          above. Allowing attendance on the parent record fragments per-day
+          counts and produces misleading "N going" badges on a non-runnable
+          row. */}
+      {!isSeriesParent && (
+        <div>
+          <div className="flex items-center gap-3">
+            <CheckInButton
+              eventId={event.id}
+              eventDate={event.date.toISOString()}
+              isAuthenticated={!!user}
+              attendance={attendance}
+              stravaConnected={stravaConnected}
+              eventContext={{
+                kennelShortName: event.kennel.shortName,
+                runNumber: event.runNumber,
+                date: event.date.toISOString(),
+              }}
+            />
+            {(confirmedCount > 0 || goingCount > 0) && (
+              <div className="flex items-center gap-1.5">
+                {confirmedCount > 0 && (
+                  <Badge variant="secondary" className="text-xs font-normal">
+                    {confirmedCount} checked in
+                  </Badge>
+                )}
+                {goingCount > 0 && (
+                  <Badge variant="secondary" className="text-xs font-normal">
+                    {goingCount} going
+                  </Badge>
+                )}
+              </div>
+            )}
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {getAttendancePrompt(event.date, attendance?.status ?? null)}
+          </p>
+        </div>
+      )}
+
+      {/* Side-by-side: detail fields + description (left) | map (right).
+          #1560 PR E.6 — on a series-parent page we drop the entire <dl>
+          (run number / start time / hares / trail length / Shiggy / hash
+          cash / trail type / dog-friendly / pre-lube / location), the
+          weather card, AND the right-column map — none of those fields
+          apply to an umbrella event (children carry them per-day). The
+          description blob below still renders because that's where the
+          umbrella's registration / lodging / theme prose lives. */}
+      <div className={`grid grid-cols-1 gap-0 ${!isSeriesParent && hasLocation ? "md:grid-cols-[3fr_2fr] rounded-xl border overflow-hidden" : ""}`}>
             {/* Left column: detail fields + description */}
-            <div className={`space-y-4 ${hasLocation ? "p-5 md:p-6" : ""}`}>
+            <div className={`space-y-4 ${!isSeriesParent && hasLocation ? "p-5 md:p-6" : ""}`}>
+              {!isSeriesParent && (
               <dl className="grid gap-4 sm:grid-cols-2">
                 {event.runNumber && (
                   <DetailItem label="Run Number" value={`#${event.runNumber}`} />
@@ -422,6 +546,7 @@ export default async function EventDetailPage({
                   </div>
                 )}
               </dl>
+              )}
               {event.description && (
                 <div>
                   <h2 className="mb-1 text-sm font-medium text-muted-foreground">
@@ -432,8 +557,9 @@ export default async function EventDetailPage({
               )}
             </div>
 
-            {/* Right column: map */}
-            {hasLocation && (
+            {/* Right column: map. #1560 PR E.6 — suppressed on series parents
+                (the umbrella has no specific venue). */}
+            {!isSeriesParent && hasLocation && (
               <EventLocationMap
                 lat={event.latitude ?? undefined}
                 lng={event.longitude ?? undefined}

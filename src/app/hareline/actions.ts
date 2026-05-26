@@ -340,6 +340,13 @@ export interface EventDetailFields {
   /** #1316 — Hash Cash. Detail-only because card has no room for a chip. */
   cost: string | null;
   eventLinks: { id: string; url: string; label: string }[];
+  /**
+   * Slim parent record for children opened in the detail panel (PR E.5).
+   * Powers the parameterized back-link copy `"Part of {parent.title}"` so
+   * users know which umbrella weekend a child belongs to. Null for events
+   * that aren't part of a series (`parentEventId IS NULL`).
+   */
+  parentEvent: { id: string; title: string | null } | null;
 }
 
 /**
@@ -365,6 +372,8 @@ export async function getEventDetail(eventId: string): Promise<EventDetailFields
       locationAddress: true,
       cost: true,
       eventLinks: { select: { id: true, url: true, label: true } },
+      // PR E.5 — parent title for the back-link copy on child detail panels.
+      parentEvent: { select: { id: true, title: true } },
     },
   });
 }

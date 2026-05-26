@@ -1,4 +1,5 @@
 import * as cheerio from "cheerio";
+import isSafeRegex from "safe-regex2";
 import type { RawEventData } from "../types";
 
 const BASE_URL = "https://hashrego.com";
@@ -49,6 +50,15 @@ export interface ParsedEvent {
    * `splitToRawEvents` falls back to the host kennel for those days.
    */
   perDayKennelCodes?: ReadonlyArray<string | undefined>;
+  /**
+   * Per-day section-header title (PR E.1). Pulled from the text AFTER the
+   * `WEEKDAY/Day N M/D` delimiter on the same line (`**FRIDAY 6/26 — GGFM
+   * Strawberry Moon Trail**` → "GGFM Strawberry Moon Trail"). Aligned with
+   * `dates` by index. Entries are `undefined` when the slice has no title
+   * after the delimiter; `splitToRawEvents` falls back to
+   * `"${title} (Day N)"` for those days (the pre-E.1 behavior).
+   */
+  perDayTitles?: ReadonlyArray<string | undefined>;
 }
 
 /**
@@ -219,7 +229,7 @@ export function parseEventDetail(
   const locationUrl = descLocationUrl || domLocation.mapsUrl;
 
   // Parse dates from the description or index entry
-  const { dates, startTimes, isMultiDay, endDate, perDayKennelCodes } = extractDates(
+  const { dates, startTimes, isMultiDay, endDate, perDayKennelCodes, perDayTitles } = extractDates(
     rawDescription,
     indexEntry,
     title,
@@ -244,6 +254,7 @@ export function parseEventDetail(
     isMultiDay,
     endDate,
     perDayKennelCodes,
+    perDayTitles,
   };
 }
 
@@ -444,10 +455,17 @@ export function splitToRawEvents(
   const buildChild = (date: string, i: number): RawEventData => {
     const dayLabel = `Day ${i + 1}`;
     const perDayCode = parsed.perDayKennelCodes?.[i];
+    // PR E.1: prefer the section-header title from the source description
+    // ("Strawberry Moon Trail" — already kennel-prefix-stripped by
+    // `parseDayHeaderSections` when a matching kennel pattern was hit, per
+    // PR E.2) over the legacy "(Day N)" suffix. The suffix remains the
+    // fallback when the description had no parseable section title.
+    const sectionTitle = parsed.perDayTitles?.[i];
+    const childTitle = sectionTitle ?? `${parsed.title} (${dayLabel})`;
     return {
       date,
       kennelTags: [perDayCode ?? hostKennelTag],
-      title: `${parsed.title} (${dayLabel})`,
+      title: childTitle,
       description: parsed.description,
       hares: parsed.hares,
       location: parsed.location,
@@ -681,6 +699,87 @@ function extractFirstTimeFromSlice(slice: string): string | undefined {
   return `${String(adjustedH).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
 }
 
+/**
+ * Extract a per-day section-header title from the slice immediately after
+ * a `WEEKDAY/Day N M/D` header match (PR E.1).
+ *
+ * Real Hash Rego section headers look like
+ *   `**FRIDAY 6/26 — GGFM Strawberry Moon Trail**`
+ * Our `WEEKDAY_HEADER_RE` consumes up through the trailing dash (`—`), so
+ * the slice handed to this helper starts with " GGFM Strawberry Moon Trail**\n..."
+ * The title is everything up to the first closing `**` or first newline,
+ * whichever comes first. Trailing punctuation (commas, periods, em-dashes)
+ * is stripped so we don't render "Strawberry Moon Trail." with a dangling dot.
+ *
+ * Returns `undefined` when:
+ *   - The slice has no title text on the header line
+ *     (e.g. `**DAY 1 12/30 —**\nblurb...`)
+ *   - The header is a `shape: "day-number"` form WITHOUT a trailing
+ *     delimiter (e.g. legacy `Day 1 3/21 evening run` — no `—`/`:`).
+ *     In that case the trailing text is description content, not a
+ *     title, and emitting it as `Event.title` would rewrite the title
+ *     on every existing such row (CodeRabbit PR #1697 review).
+ *
+ * The caller falls back to the legacy `"${title} (Day N)"` form on
+ * undefined.
+ */
+function extractSectionTitle(
+  slice: string,
+  shape: "day-number" | "weekday",
+): string | undefined {
+  // The two header shapes hand us slices with different leading structure:
+  //
+  //   - WEEKDAY_HEADER_RE consumes `\s*[-—:]` so the slice STARTS with
+  //     the title text directly (no leading delimiter remains).
+  //   - DAY_NUMBER_HEADER_RE ends at `\b` after the day digit, so the
+  //     slice MAY start with ` — title…` (delimited title present) OR
+  //     ` evening run…` (no delimiter; trailing text is description).
+  //
+  // For day-number forms, REQUIRE an explicit leading delimiter — without
+  // it, treat the slice as having no title and let the caller fall back
+  // to the legacy `(Day N)` suffix. This preserves backward-compatibility
+  // for descriptions that use `Day 1 3/21 evening run` as plain prose.
+  let trimmed = slice.replace(/^\s+/, "");
+  if (shape === "day-number") {
+    if (!/^[-—–:]/.test(trimmed)) return undefined;
+  }
+  trimmed = trimmed.replace(/^[-—–:]+/, "").replace(/^\s+/, "");
+  // Take up to the first closing `**` (markdown bold) or newline, whichever
+  // comes first. We deliberately use indexOf for `**` rather than a regex
+  // character class — Gemini PR #1697 caught that `/[*\n]/` would match a
+  // SINGLE `*`, so a title with markdown emphasis like "GGFM *Strawberry*
+  // Moon Trail**" would truncate at the first inline asterisk. indexOf
+  // matches the literal closing-bold pair.
+  const starsIdx = trimmed.indexOf("**");
+  const newlineIdx = trimmed.indexOf("\n");
+  // Pick the earliest terminator. Sonar S3358 doesn't like the chained-ternary
+  // form; build a candidate list and take the min, treating "missing" as
+  // `Infinity` so it loses any actual hit.
+  const candidates = [starsIdx, newlineIdx].filter((i) => i !== -1);
+  const endIdx = candidates.length === 0 ? -1 : Math.min(...candidates);
+  const raw = endIdx === -1 ? trimmed : trimmed.slice(0, endIdx);
+  // Drop trailing whitespace + trailing punctuation runs (`.`, `,`, `;`,
+  // `:`, `—`, `–`, `-`). Procedural strip rather than a regex with `\s`
+  // inside a char class with `+$` — Sonar S5852 false-positives that shape
+  // as ReDoS-prone (memory: `feedback_sonar_s5852_procedural_over_regex`).
+  // Stops short of full sentence-end stripping so titles like "Pub Crawl!"
+  // keep the bang.
+  let cleaned = raw.trim();
+  while (cleaned.length > 0 && isTrailingPunct(cleaned.at(-1) ?? "")) {
+    cleaned = cleaned.slice(0, -1);
+  }
+  cleaned = cleaned.trim();
+  return cleaned.length > 0 ? cleaned : undefined;
+}
+
+/** Trailing-punctuation set used by `extractSectionTitle`'s procedural strip. */
+const TRAILING_PUNCT_CHARS: ReadonlySet<string> = new Set([
+  ".", ",", ";", ":", "—", "–", "-",
+]);
+function isTrailingPunct(ch: string): boolean {
+  return TRAILING_PUNCT_CHARS.has(ch);
+}
+
 /** One per-day entry from `parseDayHeaderSections`. */
 export interface DayHeaderSection {
   date: string;        // YYYY-MM-DD
@@ -692,6 +791,15 @@ export interface DayHeaderSection {
    * pattern matched; the caller falls back to the host kennel.
    */
   kennelCode?: string;
+  /**
+   * Per-day section-header title (PR E.1). The text on the header line
+   * AFTER the trailing dash/colon delimiter, before the closing `**` or
+   * the end-of-line — e.g. `"GGFM Strawberry Moon Trail"` for
+   * `**FRIDAY 6/26 — GGFM Strawberry Moon Trail**`. Undefined when the
+   * header line carries no title (e.g. `**DAY 1 12/30 —**` followed by
+   * a blank line); the caller falls back to `"${title} (Day N)"`.
+   */
+  sectionTitle?: string;
 }
 
 /**
@@ -706,19 +814,57 @@ export interface DayHeaderSection {
 export type KennelPatternConfig = ReadonlyArray<readonly [string, string]>;
 
 /**
+ * Compiled form of one source-configured kennel pattern. We hold the
+ * compiled regex (unanchored, case-insensitive) and the kennelCode it
+ * resolves to. The strip site enforces "anchored at start" via
+ * `m.index === 0` rather than building a second anchored regex — that
+ * avoids a `new RegExp(<interpolated>, …)` call at the strip site, which
+ * Codacy/Opengrep flags as a ReDoS surface even though our sources are
+ * operator-curated (PR E #1697 review).
+ *
+ * The implicit precondition for the `m.index === 0` check is that the
+ * caller has already left-trimmed the title — see `extractSectionTitle`,
+ * which strips leading whitespace + delimiter runs before this is reached.
+ */
+interface CompiledKennelPattern {
+  readonly re: RegExp;
+  readonly code: string;
+}
+
+/**
  * Compile per-day kennel patterns. **Fail-soft**: invalid regex sources are
  * dropped with a `console.warn` rather than thrown — a single typo in source
  * config must not strip enriched multi-day behavior from an entire scrape
  * (Codex review on PR D). Returns `undefined` when nothing compiled cleanly.
+ *
+ * Each pattern is compiled ONCE per scrape (not once per child title) with
+ * the `i` flag so casing is consistent. Consumers use the unanchored regex
+ * for both body-text scanning AND leading-kennel-name stripping — the
+ * latter enforces anchoring via `m.index === 0`.
  */
 function compileKennelPatterns(
   patterns: KennelPatternConfig | undefined,
-): ReadonlyArray<readonly [RegExp, string]> | undefined {
+): ReadonlyArray<CompiledKennelPattern> | undefined {
   if (!patterns || patterns.length === 0) return undefined;
-  const compiled: Array<readonly [RegExp, string]> = [];
+  const compiled: CompiledKennelPattern[] = [];
   for (const [src, code] of patterns) {
     try {
-      compiled.push([new RegExp(src, "i"), code] as const);
+      // Each source is ReDoS-validated via `safe-regex2` (below) before
+      // being kept. Invalid or unsafe patterns are dropped fail-soft with
+      // a console.warn so a single typo in source config can't strip
+      // enriched multi-day behavior from the whole scrape (Codex review
+      // on PR D). Mirrors src/app/admin/sources/config-validation.ts:33
+      // and the suppression pattern from hare-extraction.ts:27-29.
+      // nosemgrep: detect-non-literal-regexp — source is operator-curated config, ReDoS-validated below
+      // eslint-disable-next-line -- security/detect-non-literal-regexp + security-node/non-literal-reg-expr (Codacy ESLint plugins not loaded locally); source is operator-curated and ReDoS-validated by safe-regex2 immediately below // NOSONAR S7724
+      const re = new RegExp(src, "i"); // NOSONAR nosemgrep
+      if (!isSafeRegex(re)) {
+        console.warn(
+          `[hashrego] kennelPattern source ${JSON.stringify(src)} for code ${code} is ReDoS-prone (rejected by safe-regex2); skipping`,
+        );
+        continue;
+      }
+      compiled.push({ re, code });
     } catch (err) {
       console.warn(
         `[hashrego] invalid kennelPattern source ${JSON.stringify(src)} for code ${code}: ${err}`,
@@ -730,17 +876,80 @@ function compileKennelPatterns(
 
 function matchPerDayKennel(
   slice: string,
-  compiled: ReadonlyArray<readonly [RegExp, string]> | undefined,
+  compiled: ReadonlyArray<CompiledKennelPattern> | undefined,
 ): string | undefined {
   if (!compiled) return undefined;
-  for (const [re, code] of compiled) {
+  for (const { re, code } of compiled) {
     if (re.test(slice)) return code;
   }
   return undefined;
 }
 
-/** Internal normalized header match — `month`/`day` regardless of source regex. */
-type HeaderMatch = { index: number; length: number; month: number; day: number };
+/**
+ * Minimum length (in chars) the title must retain AFTER prefix stripping.
+ * Prevents a too-aggressive strip from leaving a 2-char fragment like "Tr".
+ */
+const MIN_STRIPPED_TITLE_LENGTH = 4;
+
+/**
+ * Strip a kennel-name prefix from a section title when the kennel pill on
+ * the card is going to surface that same identity right next to it (PR E.2).
+ *
+ * E.g. for NYC 5-Boro Friday: title `"GGFM Strawberry Moon Trail"` + kennel
+ * pill GGFM → "Strawberry Moon Trail". Walks every compiled pattern that
+ * maps to `matchedCode` (multiple sources can point at one code:
+ * "GGFM" + "Greater Gotham" → ggfm) and takes the first hit AT THE START
+ * of the title.
+ *
+ * Anchoring is enforced via `m.index === 0` rather than a second anchored
+ * regex — Codacy/Opengrep flags `new RegExp(<interpolated>, …)` calls as
+ * a ReDoS surface, even for operator-curated sources (PR E #1697 review).
+ * The `m.index === 0` check is sound because `extractSectionTitle` left-
+ * trims the title before this is reached (whitespace + delimiter runs).
+ *
+ * Safety guards (per the plan):
+ * - Falls through (returns input verbatim) when no compiled patterns match
+ *   the matched code (defensive — `matchedCode` should always come from
+ *   `compiled`).
+ * - Falls through when the prefix-removed remainder would be <
+ *   MIN_STRIPPED_TITLE_LENGTH chars — we'd rather show "GGFM ✨" than "✨".
+ */
+function stripKennelPrefixFromTitle(
+  title: string,
+  matchedCode: string,
+  compiled: ReadonlyArray<CompiledKennelPattern>,
+): string {
+  for (const { re, code } of compiled) {
+    if (code !== matchedCode) continue;
+    const m = re.exec(title);
+    // Require an at-start match (the title is already left-trimmed by
+    // `extractSectionTitle`, so a real prefix-match lands at index 0).
+    // Optional-chain form: when `m` is null, `m?.index` is undefined and
+    // `undefined !== 0` is true → continue (Sonar S6582).
+    if (m?.index !== 0) continue;
+    // Drop the matched prefix + any trailing separators (space, dash, colon,
+    // em-dash, en-dash, comma) that link the kennel name to the trail name.
+    const rest = title.slice(m[0].length).replace(/^[\s—–\-:,]+/, "");
+    if (rest.length >= MIN_STRIPPED_TITLE_LENGTH) return rest;
+    return title;
+  }
+  return title;
+}
+
+/**
+ * Internal normalized header match — `month`/`day` and the originating
+ * shape regardless of which source regex matched. `shape` is preserved so
+ * `extractSectionTitle` can apply the right delimiter-gating semantics
+ * (weekday-form: title flows verbatim; day-number form: title only when a
+ * trailing delimiter was present — CodeRabbit PR #1697 review).
+ */
+type HeaderMatch = {
+  index: number;
+  length: number;
+  month: number;
+  day: number;
+  shape: "day-number" | "weekday";
+};
 
 /**
  * Normalize a regex match from either header regex into `HeaderMatch`. The
@@ -767,6 +976,7 @@ function normalizeHeaderMatch(
     length: m[0].length,
     month: Number.parseInt(m[monthGroup], 10),
     day: Number.parseInt(m[dayGroup], 10),
+    shape,
   };
 }
 
@@ -832,7 +1042,15 @@ export function parseDayHeaderSections(
     const slice = description.slice(sliceStart, sliceEnd);
     const startTime = extractFirstTimeFromSlice(slice);
     const kennelCode = matchPerDayKennel(slice, compiled);
-    return { date, startTime, kennelCode };
+    const rawTitle = extractSectionTitle(slice, m.shape);
+    // PR E.2: when the title leads with the kennel name that's already
+    // surfacing on the kennel pill (e.g. "GGFM Strawberry Moon Trail" +
+    // GGFM pill), strip the prefix so the card reads "Strawberry Moon Trail".
+    // No-op when no per-day kennel match OR no compiled patterns.
+    const sectionTitle = rawTitle && kennelCode && compiled
+      ? stripKennelPrefixFromTitle(rawTitle, kennelCode, compiled)
+      : rawTitle;
+    return { date, startTime, kennelCode, sectionTitle };
   });
 
   // Deduplicate by date (a description mentioning the same day twice in
@@ -863,6 +1081,8 @@ type DateRangeResult = {
   /** Inclusive last day of a single-registration venue weekend (#1560 PR C). */
   endDate?: string;
   perDayKennelCodes?: ReadonlyArray<string | undefined>;
+  /** Per-day section-header titles (PR E.1). Aligned with `dates` by index. */
+  perDayTitles?: ReadonlyArray<string | undefined>;
 };
 
 /** Try to parse a date range from the description and index entry. */
@@ -910,7 +1130,8 @@ function parseDateRangeFromDescription(
     const firstTime = dayHeaderEntries.find((e) => e.startTime)?.startTime ?? "";
     const startTimes = dayHeaderEntries.map((e) => e.startTime ?? firstTime);
     const perDayKennelCodes = dayHeaderEntries.map((e) => e.kennelCode);
-    return { dates, startTimes, isMultiDay: true, perDayKennelCodes };
+    const perDayTitles = dayHeaderEntries.map((e) => e.sectionTitle);
+    return { dates, startTimes, isMultiDay: true, perDayKennelCodes, perDayTitles };
   }
 
   return null;
