@@ -105,10 +105,13 @@ export function extractVenueFromDescription(description: string): string | undef
   // between). Walk lines procedurally rather than relying on a single
   // regex with adjacent `[ \t]*` quantifiers and an optional `:?` near
   // an alternation — that shape trips Sonar S5852 (#1695 review).
+  // Normalize NBSP (` `, `&nbsp;`) before label comparison — WordPress
+  // / TinyMCE editors sometimes pad labels with NBSP that survive
+  // `.text()` extraction (#1702 gemini medium).
   const lines = description.split("\n");
   for (let i = 0; i < lines.length - 1; i++) {
-    const trimmed = lines[i].trim();
-    if (trimmed.toLowerCase() === "location" || trimmed.toLowerCase() === "location:") {
+    const trimmed = lines[i].replaceAll(" ", " ").replaceAll("&nbsp;", " ").trim().toLowerCase();
+    if (trimmed === "location" || trimmed === "location:") {
       const next = lines[i + 1].trim();
       if (next) return next;
     }

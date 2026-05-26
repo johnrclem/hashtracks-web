@@ -435,6 +435,15 @@ describe("extractVenueFromDescription (#1651)", () => {
       "Roses by the Stairs Brewing",
     );
   });
+
+  it("matches Location label padded with non-breaking spaces (#1702 gemini medium)", () => {
+    // WordPress / TinyMCE pad bare labels with NBSP that survives
+    // `stripHtmlTags`. Plain `.trim()` doesn't catch ` `.
+    const nbsp = " ";
+    expect(
+      extractVenueFromDescription(`Hares: Foo\n${nbsp}Location${nbsp}\nRoses by the Stairs Brewing`),
+    ).toBe("Roses by the Stairs Brewing");
+  });
 });
 
 describe("parseEventFromItem — prefers description venue over city meta (#1651)", () => {

@@ -243,13 +243,17 @@ export function extractEventFields(
   // Walk lines procedurally rather than `matchAll` on a regex with
   // `\s*` quantifiers adjacent to the label alternation — that shape
   // trips Sonar S5852 even though it's linear here (#1695 review).
-  const LOC_LABELS = ["start", "where", "location", "meeting", "meet"];
+  // Set for O(1) membership (Sonar S7776). Normalize non-breaking
+  // whitespace (` `, `&nbsp;`) before comparison — phpBB editors
+  // sometimes pad labels with NBSP that survives `.text()` extraction
+  // (#1702 gemini medium).
+  const LOC_LABELS = new Set(["start", "where", "location", "meeting", "meet"]);
   let locationCandidate: string | undefined;
   for (const rawLine of text.split("\n")) {
     const colonIdx = rawLine.indexOf(":");
     if (colonIdx <= 0) continue;
-    const label = rawLine.slice(0, colonIdx).trim().toLowerCase();
-    if (!LOC_LABELS.includes(label)) continue;
+    const label = rawLine.slice(0, colonIdx).replaceAll(" ", " ").replaceAll("&nbsp;", " ").trim().toLowerCase();
+    if (!LOC_LABELS.has(label)) continue;
     const value = stripMarkdownEmphasis(rawLine.slice(colonIdx + 1));
     if (!value) continue;
     const timeOnly = TIME_ONLY_RE.exec(value);

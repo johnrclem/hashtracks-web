@@ -212,6 +212,15 @@ describe("extractEventFields", () => {
     expect(fields.startTime).toBeUndefined();
   });
 
+  it("matches labels padded with non-breaking spaces (#1702 gemini medium)", () => {
+    // phpBB editors sometimes emit `Start :` or `&nbsp;` in the
+    // padding around labels; the bare `.trim()` left these intact and
+    // the label whitelist missed them.
+    const nbsp = " ";
+    const fields = extractEventFields(`Start${nbsp}: Piedmont Park, Atlanta`);
+    expect(fields.location).toBe("Piedmont Park, Atlanta");
+  });
+
   // ── #1587: body run-number must require "Run #NNN" prose marker, not just
   // bare #NNN — street-address suite numbers (#2000) and cross-kennel
   // references (#946 was Black Sheep's) were leaking through the old loose
