@@ -18,6 +18,26 @@ import "dotenv/config";
 import { GoogleCalendarAdapter } from "@/adapters/google-calendar/adapter";
 import { MeetupAdapter } from "@/adapters/meetup/adapter";
 import type { Source } from "@/generated/prisma/client";
+import type { RawEventData } from "@/adapters/types";
+
+/** Quote a sample event title for diagnostic logging. Defined at module
+ *  scope so the call sites don't nest a template literal inside another
+ *  template literal (Sonar S4624). */
+function formatTitleSample(event: RawEventData): string {
+  return `"${event.title ?? ""}"`;
+}
+
+/** `diagnosticContext` is typed as `Record<string, unknown>`. Coerce the
+ *  numeric counters into actual numbers for safe stringification — Sonar
+ *  S6551 otherwise flags the `unknown ?? 0` shape because non-numeric
+ *  payloads would print as `[object Object]`. */
+function readNumericCounter(
+  ctx: Record<string, unknown> | undefined,
+  key: string,
+): number {
+  const value = ctx?.[key];
+  return typeof value === "number" ? value : 0;
+}
 
 function buildHoustonSource(): Source {
   return {
@@ -32,7 +52,7 @@ function buildHoustonSource(): Source {
     config: {
       kennelPatterns: [
         ["Brass Monkey H3|Brass Monkey", "bmh3-tx"],
-        ["GALVESTON H3|Galveston H3|GH3\\s*#|#\\d+\\s*Galveston", "galh3"],
+        [String.raw`GALVESTON H3|Galveston H3|GH3\s*#|#\d+\s*Galveston`, "galh3"],
         ["Space City H3|Space City Hash|SCH3", "space-city-h3"],
         ["Moooouston H3|Moooo?uston", "moooouston-h3"],
         ["Mosquito H3|Mosquito", "mosquito-h3"],
@@ -95,7 +115,8 @@ async function verifyHouston() {
     console.log("  OK  #1677: no leaked '**update**' titles for moooouston-h3");
   }
   // Sample a few moooouston titles
-  console.log(`  Sample moooouston titles: ${moo.slice(0, 3).map((e) => `"${e.title}"`).join(", ")}`);
+  const mooSamples = moo.slice(0, 3).map(formatTitleSample).join(", ");
+  console.log(`  Sample moooouston titles: ${mooSamples}`);
 
   // #1705 — verify Mosquito bare-SUMMARY → "Mosquito H3 Trail"
   const mos = result.events.filter((e) => e.kennelTags.includes("mosquito-h3"));
@@ -106,7 +127,8 @@ async function verifyHouston() {
   } else {
     console.log("  OK  #1705: no leaked 'Broke back ranger' titles for mosquito-h3");
   }
-  console.log(`  Sample mosquito titles: ${mos.slice(0, 3).map((e) => `"${e.title}"`).join(", ")}`);
+  const mosSamples = mos.slice(0, 3).map(formatTitleSample).join(", ");
+  console.log(`  Sample mosquito titles: ${mosSamples}`);
 
   // Explicit fix verification — bare-SUMMARY events should now resolve
   // to the configured `Moooouston H3 Trail` / `Mosquito H3 Trail` default.
@@ -121,8 +143,8 @@ async function verifyNarwhal() {
   const adapter = new MeetupAdapter();
   const result = await adapter.fetch(buildNarwhalSource(), { days: 180 });
   console.log(`events: ${result.events.length}, errors: ${result.errors.length}`);
-  console.log(`  adminNoticeSkipped: ${result.diagnosticContext?.adminNoticeSkipped ?? 0}`);
-  console.log(`  cancelledSkipped: ${result.diagnosticContext?.cancelledSkipped ?? 0}`);
+  console.log(`  adminNoticeSkipped: ${readNumericCounter(result.diagnosticContext, "adminNoticeSkipped")}`);
+  console.log(`  cancelledSkipped: ${readNumericCounter(result.diagnosticContext, "cancelledSkipped")}`);
   const adminHit = result.events.find((e) => /moving to a new website/i.test(e.title ?? ""));
   if (adminHit) {
     console.error(`  FAIL #1689: admin notice leaked — title="${adminHit.title}"`);
@@ -137,4 +159,7 @@ async function main() {
   await verifyNarwhal();
 }
 
-main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
+main().catch((e) => {
+  console.error(e);
+  process.exitCode = 1;
+});
