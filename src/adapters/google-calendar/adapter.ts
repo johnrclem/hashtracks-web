@@ -139,15 +139,20 @@ const PERSONAL_TITLE_PATTERNS: readonly RegExp[] = [
  * almost certainly type description text for themselves (clinic name,
  * prep notes). The PERSONAL_TITLE_PATTERNS gate (`hasStructuredField`)
  * treats any non-empty description as a hash signal — too permissive
- * for PII titles. These patterns ride a tighter gate: only runNumber
- * or hares can override (mirrors NON_HASH_DOMAIN_PATTERNS below).
+ * for PII titles. These patterns ride a tighter gate: only runNumber,
+ * hares, or the literal `hash` keyword override (mirrors
+ * NON_HASH_DOMAIN_PATTERNS below).
  *
- * Patterns are narrow on purpose. A real hash titled "Sleep Study Trail"
- * with a hare assigned still passes thanks to the gate.
+ * Patterns use `\b` word boundaries (not `^\s*` anchors) so a leaked
+ * appointment with a kennel prefix (`"H4-TX: Sleep study"`) or a theme
+ * suffix doesn't slip past — flagged by Codex review (PR #1713 P1) and
+ * by claude[bot] code review. The tighter override gate keeps false-
+ * positive risk low: a real "Sleep Study Theme Trail" with hares or
+ * a runNumber still ingests.
  */
 const MEDICAL_TITLE_PATTERNS: readonly RegExp[] = [
-  /^\s*sleep\s+study\b/i,
-  /^\s*(?:medical|telehealth|virtual)\s+(?:appointment|visit|consultation|consult)\b/i,
+  /\bsleep\s+study\b/i,
+  /\b(?:medical|telehealth|virtual)\s+(?:appointment|visit|consultation|consult)\b/i,
   /\bremote\s+visit\b/i,
 ];
 
@@ -1457,19 +1462,16 @@ export function buildRawEventFromGCalItem(
   // (clinic name, prep notes); allowing description to override would
   // re-open the PII leak that #1690 exposed.
   //
-  // Evaluate against BOTH `summary` and `extractTitle(summary)` (Codex
-  // P1 on PR #1713 — comment 3307074387). Two of the three medical
-  // patterns are start-anchored, so a kennel-prefixed contributor
-  // typo like `"H4-TX: Sleep study"` would otherwise slip past them
-  // even though the prefix-stripped title matches. Checking both
-  // surfaces catches both the bare and prefixed shapes without
-  // weakening the anchors.
-  const strippedSummary = extractTitle(summary);
+  // Patterns use `\b` word boundaries so kennel-prefixed shapes like
+  // `"H4-TX: Sleep study"` are caught (Codex P1 / claude-review on
+  // PR #1713). The tighter override gate (runNumber / hares / `hash`
+  // keyword in the summary) keeps false-positives in check — themed
+  // hash trails always have at least one of those signals.
   if (
     runNumber === undefined &&
     !hares &&
     !HASH_KEYWORD_RE.test(summary) &&
-    MEDICAL_TITLE_PATTERNS.some((re) => re.test(summary) || re.test(strippedSummary))
+    MEDICAL_TITLE_PATTERNS.some((re) => re.test(summary))
   ) {
     return null;
   }
