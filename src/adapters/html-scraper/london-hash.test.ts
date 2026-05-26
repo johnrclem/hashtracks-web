@@ -10,6 +10,8 @@ import {
   parseLH3DetailPage,
   mergeLH3DetailIntoEvent,
   extractStationOnly,
+  extractDistance,
+  extractOnInnMarker,
 } from "./london-hash";
 import type { LH3DetailPageData } from "./london-hash";
 import type { RawEventData } from "../types";
@@ -190,6 +192,61 @@ describe("parseLocationFromBlock", () => {
     );
     expect(result.station).toBe("Rotherhithe");
     expect(result.location).toBeUndefined();
+  });
+});
+
+describe("extractDistance (procedural)", () => {
+  it("captures `<digits> meters from <rest-of-line>`", () => {
+    expect(extractDistance("The North Star is 113 meters from Finchley Road station as the Skylark flies")).toBe(
+      "113 meters from Finchley Road station as the Skylark flies",
+    );
+  });
+
+  it("accepts British 'metres'", () => {
+    expect(extractDistance("85 metres from Sydenham station")).toBe(
+      "85 metres from Sydenham station",
+    );
+  });
+
+  it("stops at newline", () => {
+    expect(extractDistance("100 meters from X station\nfollowed by curry")).toBe(
+      "100 meters from X station",
+    );
+  });
+
+  it("returns undefined when no distance phrase is present", () => {
+    expect(extractDistance("Some random text without a pattern")).toBeUndefined();
+  });
+
+  it("returns undefined when the unit is preceded by no digits", () => {
+    expect(extractDistance("walking meters from somewhere")).toBeUndefined();
+  });
+});
+
+describe("extractOnInnMarker (procedural)", () => {
+  it("returns the pub name from a `title:` JS line", () => {
+    expect(extractOnInnMarker('title: "On Inn to Cork n Cask"')).toBe("Cork n Cask");
+  });
+
+  it("skips earlier non-OnInn `title:` keys (multi-marker pages)", () => {
+    // Real nextrun.php emits a train-trail marker title BEFORE the on-inn one.
+    const html = `
+title: "P trail from Bromley South",
+title: "On Inn to Cork n Cask",
+`;
+    expect(extractOnInnMarker(html)).toBe("Cork n Cask");
+  });
+
+  it("tolerates extra whitespace between `title:` and the opening quote", () => {
+    expect(extractOnInnMarker('title:    "On Inn to The Crown"')).toBe("The Crown");
+  });
+
+  it("returns undefined when no `On Inn` marker is present", () => {
+    expect(extractOnInnMarker('title: "Something else"')).toBeUndefined();
+  });
+
+  it("returns undefined when there's no `title:` at all", () => {
+    expect(extractOnInnMarker("not a marker")).toBeUndefined();
   });
 });
 

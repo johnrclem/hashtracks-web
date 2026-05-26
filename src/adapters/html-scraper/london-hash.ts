@@ -40,17 +40,17 @@ const JS_COORDS_RE = /\{\s*lat:\s*(-?[\d.]+),\s*lng:\s*(-?[\d.]+)\s*\}/g;
 const RUN_NUM_LABELED_RE = /(?:London\s+hash\s+number|hash\s+number)\s+(\d+)/i;
 const RUN_NUM_BARE_RE = /\b(\d+)\b/;
 
-/** "85 metres from <station>" distance line. `[^\n]+` is greedy with a
- * single-char negated class — no nested quantifier backtracking. */
-const DISTANCE_RE = /(\d+\s*(?:meters?|metres?)\s+from\s+[^\n]+)/i;
-
 /** On-Inn body line. `[^\n"]+` stops at newline or JS-quote so the
  * cheerio body.text() pickup of `marker.title: "..."` doesn't leak. */
 const ON_INN_RE = /On\s+Inn\s+to\s+([^\n"]+)/i;
-/** JS marker title: `title: "On Inn to <pub>"` — `[^"]+` stops at the
- * closing quote, no non-greedy backtracking. */
-const ON_INN_MARKER_RE = /title:\s*"On\s+Inn\s+to\s+([^"]+)"/i;
 const ON_INN_TRAILING_RE = /[,;]\s*$/;
+/** Distance/On-Inn pattern needles for procedural slicing — `\s+`-heavy
+ * regexes here keep tripping Sonar S5852 even when linear in practice
+ * (per feedback_sonar_s5852_procedural_over_regex.md). Pre-compute the
+ * lowercase needles for case-insensitive searches. */
+const DISTANCE_UNITS = ["metres", "meters", "metre", "meter"] as const;
+const ON_INN_MARKER_PREFIX = 'title:';
+const ON_INN_MARKER_VALUE_PREFIX = '"On Inn to ';
 
 /** Match a leading `from <prefix>` block; the station-only fallback then
  * uses procedural slicing (avoids Sonar S5852 on `[^\n*]+?\s+station\b`). */
@@ -551,11 +551,11 @@ function applyDetailHares(result: LH3DetailPageData, labels: Map<string, string>
 }
 
 function applyDetailDistance(result: LH3DetailPageData, labels: Map<string, string>, fullText: string): void {
-  // Prefer the structured "How Far" label so the greedy `[^\n]+` in
-  // DISTANCE_RE doesn't trip past the field boundary in the fullText fallback.
+  // Prefer the structured "How Far" label so the procedural extractor
+  // doesn't trip past field boundaries in the fullText fallback.
   const howFarValue = labels.get("How Far") ?? fullText;
-  const distMatch = DISTANCE_RE.exec(howFarValue);
-  if (distMatch) result.distance = distMatch[1].trim();
+  const dist = extractDistance(howFarValue);
+  if (dist) result.distance = dist;
 }
 
 function applyDetailOnOn(result: LH3DetailPageData, fullText: string, html: string): void {
@@ -564,8 +564,62 @@ function applyDetailOnOn(result: LH3DetailPageData, fullText: string, html: stri
     result.onOn = onOnMatch[1].trim().replace(ON_INN_TRAILING_RE, "");
     return;
   }
-  const markerOnOn = ON_INN_MARKER_RE.exec(html);
-  if (markerOnOn) result.onOn = markerOnOn[1].trim();
+  const markerOnOn = extractOnInnMarker(html);
+  if (markerOnOn) result.onOn = markerOnOn;
+}
+
+/** Find a `"<digits> meter(s)/metre(s) from <rest-of-line>"` phrase and
+ * return it verbatim (trimmed). Procedural to avoid Sonar S5852 on the
+ * prior `\d+\s*(?:meters?|metres?)\s+from\s+[^\n]+` shape — the unit
+ * alternation flanked by `\s+/\s*` was the trip pattern. Exported for
+ * unit testing. */
+export function extractDistance(text: string): string | undefined {
+  const lower = text.toLowerCase();
+  for (const unit of DISTANCE_UNITS) {
+    const needle = ` ${unit} from `;
+    const phraseIdx = lower.indexOf(needle);
+    if (phraseIdx < 0) continue;
+    // Walk back to the start of the number that precedes the unit.
+    let numStart = phraseIdx;
+    while (numStart > 0 && text[numStart - 1] === " ") numStart--;
+    let digitStart = numStart;
+    while (digitStart > 0 && text[digitStart - 1] >= "0" && text[digitStart - 1] <= "9") {
+      digitStart--;
+    }
+    if (digitStart === numStart) continue; // no digits found
+    const eol = text.indexOf("\n", phraseIdx);
+    const end = eol < 0 ? text.length : eol;
+    return text.slice(digitStart, end).trim();
+  }
+  return undefined;
+}
+
+/** Parse `title: "On Inn to <PUB>"` from an HTML/JS source string and return
+ * `<PUB>` (trimmed). Procedural to avoid Sonar S5852 on the prior
+ * `title:\s*"On\s+Inn\s+to\s+([^"]+)"` shape — multiple `\s+` runs around
+ * literal tokens kept tripping the analyzer.
+ *
+ * The page emits multiple `title:` keys (one per Google Maps marker). Walk
+ * each occurrence and return the first whose value starts with
+ * `"On Inn to ` — the train-trail marker title comes first, the On-Inn
+ * marker comes second. Exported for unit testing. */
+export function extractOnInnMarker(html: string): string | undefined {
+  let searchFrom = 0;
+  while (searchFrom < html.length) {
+    const titleIdx = html.indexOf(ON_INN_MARKER_PREFIX, searchFrom);
+    if (titleIdx < 0) return undefined;
+    let cursor = titleIdx + ON_INN_MARKER_PREFIX.length;
+    while (cursor < html.length && (html[cursor] === " " || html[cursor] === "\t")) cursor++;
+    if (html.startsWith(ON_INN_MARKER_VALUE_PREFIX, cursor)) {
+      const valueStart = cursor + ON_INN_MARKER_VALUE_PREFIX.length;
+      const closeQuote = html.indexOf('"', valueStart);
+      if (closeQuote >= 0) {
+        return html.slice(valueStart, closeQuote).trim() || undefined;
+      }
+    }
+    searchFrom = titleIdx + ON_INN_MARKER_PREFIX.length;
+  }
+  return undefined;
 }
 
 /**
