@@ -61,7 +61,7 @@ export function parseHashtoryDate(cellText: string, year: number): string | null
   const match = /([A-Za-z]{3,9})\s+(\d{1,2})(?:st|nd|rd|th)?/.exec(cellText.trim());
   if (!match) return null;
   const monthStr = match[1].slice(0, 3).toLowerCase();
-  const day = parseInt(match[2], 10);
+  const day = Number.parseInt(match[2], 10);
   const month = MONTH_NAMES[monthStr];
   if (!month || day < 1 || day > 31) return null;
   // Calendar-validate (rejects Feb 30, etc.)
@@ -100,7 +100,7 @@ export function parseHrlistRow(
   // Run number — text of the anchor in .htRunNo.
   const $runAnchor = $row.find(".htRunNo a").first();
   const runText = $runAnchor.text().trim();
-  const runNumber = parseInt(runText, 10);
+  const runNumber = Number.parseInt(runText, 10);
   if (!runNumber || runNumber <= 0) return null;
 
   // Date — .htDate text, parsed against the year-context.
