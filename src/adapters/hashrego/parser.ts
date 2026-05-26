@@ -727,12 +727,11 @@ function extractSectionTitle(slice: string): string | undefined {
   // matches the literal closing-bold pair.
   const starsIdx = trimmed.indexOf("**");
   const newlineIdx = trimmed.indexOf("\n");
-  const endIdx =
-    starsIdx === -1
-      ? newlineIdx
-      : newlineIdx === -1
-        ? starsIdx
-        : Math.min(starsIdx, newlineIdx);
+  // Pick the earliest terminator. Sonar S3358 doesn't like the chained-ternary
+  // form; build a candidate list and take the min, treating "missing" as
+  // `Infinity` so it loses any actual hit.
+  const candidates = [starsIdx, newlineIdx].filter((i) => i !== -1);
+  const endIdx = candidates.length === 0 ? -1 : Math.min(...candidates);
   const raw = endIdx === -1 ? trimmed : trimmed.slice(0, endIdx);
   // Drop trailing whitespace + trailing punctuation runs (`.`, `,`, `;`,
   // `:`, `—`, `–`, `-`). Procedural strip rather than a regex with `\s`
@@ -741,7 +740,7 @@ function extractSectionTitle(slice: string): string | undefined {
   // Stops short of full sentence-end stripping so titles like "Pub Crawl!"
   // keep the bang.
   let cleaned = raw.trim();
-  while (cleaned.length > 0 && isTrailingPunct(cleaned[cleaned.length - 1])) {
+  while (cleaned.length > 0 && isTrailingPunct(cleaned.at(-1) ?? "")) {
     cleaned = cleaned.slice(0, -1);
   }
   cleaned = cleaned.trim();
