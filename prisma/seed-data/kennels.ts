@@ -704,7 +704,13 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "lbh3", shortName: "Long Beach H3", fullName: "Long Beach Hash House Harriers", region: "Long Beach, CA",
       website: "https://www.lbh3.org",
+      // Legacy flat fields kept for fallback only — scheduleRules below are
+      // authoritative for display + Travel Mode (Codex review on PR #1684).
       scheduleDayOfWeek: "Sunday", scheduleTime: "10:00 AM", scheduleFrequency: "Weekly",
+      scheduleRules: [
+        { rrule: "FREQ=WEEKLY;BYDAY=TH", label: "Spring/Summer", validFrom: "04-01", validUntil: "09-30", displayOrder: 0 },
+        { rrule: "FREQ=WEEKLY;BYDAY=SU", startTime: "10:00", label: "Fall/Winter", validFrom: "10-01", validUntil: "03-31", displayOrder: 1 },
+      ],
       scheduleNotes: "Thursday evening during Spring/Summer & Sunday morning in the Fall/Winter.",
       hashCash: "$5",
       contactEmail: "contact@lbh3.org",
@@ -1827,7 +1833,13 @@ export const KENNELS: KennelSeed[] = [
     // --- Macon ---
     {
       kennelCode: "mgh4", shortName: "MGH4", fullName: "Middle Georgia Hash House Harriers", region: "Macon, GA",
+      // Legacy flat fields kept for fallback only — scheduleRules below are
+      // authoritative for display + Travel Mode (Codex review on PR #1684).
       scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Biweekly",
+      scheduleRules: [
+        { rrule: "FREQ=WEEKLY;BYDAY=WE", displayOrder: 0 },
+        { rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA", startTime: "14:00", displayOrder: 1 },
+      ],
       scheduleNotes: "Every Wednesday, every other Saturday.",
       hashCash: "$5",
       foundedYear: 2001,
