@@ -66,7 +66,8 @@ export function parseIndexRow(
   // "Run #204 / Ile-Perrot October 2000 Kristal Tits"
   // "Run #194 - Karaoke Hash / South Shore August 2000 Numbskull"
   // Some legacy rows omit the leading "Run #": skip those.
-  const runMatch = /Run\s*#?\s*(\d+)\b/i.exec(text);
+  // Anchored, no `\s*` adjacent to optional `#` — keeps Sonar S5852 happy.
+  const runMatch = /\bRun\s+#?(\d+)\b/i.exec(text);
   if (!runMatch) return null;
   const runNumber = Number.parseInt(runMatch[1], 10);
 
@@ -145,13 +146,20 @@ export function parseDetailPage(html: string): {
     }
   }
 
-  // "Hares: Yogi, Little Big Man, Anon"
-  const haresMatch = /Hares?:\s*([^\n]+?)(?:\(|Location:|Trail|$)/i.exec(text);
+  // "Hares: Yogi, Little Big Man, Anon" — single-line capture, then trim at
+  // the first downstream label / paren. Procedural slice avoids the lazy +
+  // alternation shape that trips Sonar S5852 even though it's linear here.
+  const haresMatch = /\bHares?:\s*(.+)/i.exec(text);
   if (haresMatch) {
-    const haresRaw = haresMatch[1].replace(/\s+/g, " ").trim();
+    let raw = haresMatch[1];
+    for (const stop of ["(", "Location:", "Trail", "\n"]) {
+      const i = raw.indexOf(stop);
+      if (i >= 0) raw = raw.slice(0, i);
+    }
+    const haresRaw = raw.replace(/\s+/g, " ").trim();
     if (haresRaw && haresRaw.length < 200) {
       // Sort multi-value joined fields for stable fingerprints (memory).
-      const list = haresRaw.split(/\s*,\s*/).filter(Boolean);
+      const list = haresRaw.split(",").map((s) => s.trim()).filter(Boolean);
       list.sort((a, b) => a.localeCompare(b));
       out.hares = list.join(", ");
     }

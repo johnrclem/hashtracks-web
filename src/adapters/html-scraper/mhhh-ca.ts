@@ -102,8 +102,11 @@ export function parseMhhhHomepage(html: string): ParsedRun[] {
     if (!rawText) return;
 
     // Month header — e.g. "Show May 2026 Hide " or "May 2026". Strip the
-    // optional Show/Hide toggle wrapper before matching.
-    const headerText = rawText.replace(/^Show\s+|\s+Hide\s*$/g, "");
+    // optional Show/Hide toggle wrapper procedurally; a single regex with
+    // alternation + `\s*$` trips Sonar S5852 even though it's linear here.
+    let headerText = rawText;
+    if (headerText.startsWith("Show ")) headerText = headerText.slice(5).trimStart();
+    if (headerText.endsWith(" Hide")) headerText = headerText.slice(0, -5).trimEnd();
     const monthHeader = MONTH_HEADER_RE.exec(headerText);
     if (monthHeader) {
       const month = MONTHS[monthHeader[1].toLowerCase()];
@@ -184,13 +187,23 @@ export function parseMhhhHomepage(html: string): ParsedRun[] {
 function buildRawEvent(run: ParsedRun, kennelTag: string, sourceUrl: string): RawEventData {
   const m = String(run.month).padStart(2, "0");
   const d = String(run.day).padStart(2, "0");
+  // Resolve relative hrefs (defensive — observed hrefs today are absolute Meetup
+  // URLs, but FrontPage-era markup occasionally emits relative paths).
+  let locationUrl = run.locationUrl;
+  if (locationUrl) {
+    try {
+      locationUrl = new URL(locationUrl, sourceUrl).href;
+    } catch {
+      /* keep original if URL parsing throws */
+    }
+  }
   return {
     date: `${run.year}-${m}-${d}`,
     kennelTags: [kennelTag],
     runNumber: run.runNumber,
     hares: run.hares,
     location: run.location,
-    locationUrl: run.locationUrl,
+    locationUrl,
     startTime: run.startTime,
     cost: run.cost,
     sourceUrl,
