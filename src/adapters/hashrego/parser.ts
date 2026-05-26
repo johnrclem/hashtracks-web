@@ -798,23 +798,20 @@ export interface DayHeaderSection {
 export type KennelPatternConfig = ReadonlyArray<readonly [string, string]>;
 
 /**
- * Compiled form of one source-configured kennel pattern. We carry BOTH
- * forms upfront so consumers can pick the right one without dynamically
- * rebuilding a RegExp from `re.source` at call time:
+ * Compiled form of one source-configured kennel pattern. We hold the
+ * compiled regex (unanchored, case-insensitive) and the kennelCode it
+ * resolves to. The strip site enforces "anchored at start" via
+ * `m.index === 0` rather than building a second anchored regex — that
+ * avoids a `new RegExp(<interpolated>, …)` call at the strip site, which
+ * Codacy/Opengrep flags as a ReDoS surface even though our sources are
+ * operator-curated (PR E #1697 review).
  *
- *  - `unanchored`: used to scan a section's body text for a kennel mention
- *    (`matchPerDayKennel`).
- *  - `anchored`: same pattern with `^\s*` prepended, used to detect AND
- *    strip a leading kennel-name from a section title
- *    (`stripKennelPrefixFromTitle`). The anchored form is fully built at
- *    config compile time so the strip site never calls
- *    `new RegExp(<interpolated>, …)` — Codacy/Opengrep flagged that as a
- *    ReDoS surface even though `re.source` is operator-curated (PR E
- *    review).
+ * The implicit precondition for the `m.index === 0` check is that the
+ * caller has already left-trimmed the title — see `extractSectionTitle`,
+ * which strips leading whitespace + delimiter runs before this is reached.
  */
 interface CompiledKennelPattern {
-  readonly unanchored: RegExp;
-  readonly anchored: RegExp;
+  readonly re: RegExp;
   readonly code: string;
 }
 
@@ -824,10 +821,10 @@ interface CompiledKennelPattern {
  * config must not strip enriched multi-day behavior from an entire scrape
  * (Codex review on PR D). Returns `undefined` when nothing compiled cleanly.
  *
- * Each entry builds BOTH an unanchored AND an anchored regex from the same
- * source so downstream consumers can pick the right one without
- * dynamically constructing regexes at the call site (Codacy ReDoS review
- * on PR E #1697). Both share the `i` flag so casing is consistent.
+ * Each pattern is compiled ONCE per scrape (not once per child title) with
+ * the `i` flag so casing is consistent. Consumers use the unanchored regex
+ * for both body-text scanning AND leading-kennel-name stripping — the
+ * latter enforces anchoring via `m.index === 0`.
  */
 function compileKennelPatterns(
   patterns: KennelPatternConfig | undefined,
@@ -836,12 +833,7 @@ function compileKennelPatterns(
   const compiled: CompiledKennelPattern[] = [];
   for (const [src, code] of patterns) {
     try {
-      const unanchored = new RegExp(src, "i");
-      // Build the anchored form from the same operator-supplied source.
-      // Both regexes are constructed at config time — strip-site never
-      // touches the constructor.
-      const anchored = new RegExp(String.raw`^\s*(?:${src})`, "i");
-      compiled.push({ unanchored, anchored, code });
+      compiled.push({ re: new RegExp(src, "i"), code });
     } catch (err) {
       console.warn(
         `[hashrego] invalid kennelPattern source ${JSON.stringify(src)} for code ${code}: ${err}`,
@@ -856,8 +848,8 @@ function matchPerDayKennel(
   compiled: ReadonlyArray<CompiledKennelPattern> | undefined,
 ): string | undefined {
   if (!compiled) return undefined;
-  for (const { unanchored, code } of compiled) {
-    if (unanchored.test(slice)) return code;
+  for (const { re, code } of compiled) {
+    if (re.test(slice)) return code;
   }
   return undefined;
 }
@@ -875,15 +867,14 @@ const MIN_STRIPPED_TITLE_LENGTH = 4;
  * E.g. for NYC 5-Boro Friday: title `"GGFM Strawberry Moon Trail"` + kennel
  * pill GGFM → "Strawberry Moon Trail". Walks every compiled pattern that
  * maps to `matchedCode` (multiple sources can point at one code:
- * "GGFM" + "Greater Gotham" → ggfm) and takes the first hit of the
- * pre-built anchored regex at the start of the title.
+ * "GGFM" + "Greater Gotham" → ggfm) and takes the first hit AT THE START
+ * of the title.
  *
- * The anchored regex is built ONCE in `compileKennelPatterns` rather than
- * dynamically here — Codacy/Opengrep flagged the previous in-loop
- * `new RegExp(String.raw\`^\\s*${re.source}\`, "i")` call as a ReDoS surface
- * (operator-curated sources, but the rule is correct in principle and the
- * pre-built form is also faster — patterns compile once per scrape, not
- * once per child title).
+ * Anchoring is enforced via `m.index === 0` rather than a second anchored
+ * regex — Codacy/Opengrep flags `new RegExp(<interpolated>, …)` calls as
+ * a ReDoS surface, even for operator-curated sources (PR E #1697 review).
+ * The `m.index === 0` check is sound because `extractSectionTitle` left-
+ * trims the title before this is reached (whitespace + delimiter runs).
  *
  * Safety guards (per the plan):
  * - Falls through (returns input verbatim) when no compiled patterns match
@@ -897,10 +888,12 @@ function stripKennelPrefixFromTitle(
   matchedCode: string,
   compiled: ReadonlyArray<CompiledKennelPattern>,
 ): string {
-  for (const { anchored, code } of compiled) {
+  for (const { re, code } of compiled) {
     if (code !== matchedCode) continue;
-    const m = anchored.exec(title);
-    if (!m) continue;
+    const m = re.exec(title);
+    // Require an at-start match (the title is already left-trimmed by
+    // `extractSectionTitle`, so a real prefix-match lands at index 0).
+    if (!m || m.index !== 0) continue;
     // Drop the matched prefix + any trailing separators (space, dash, colon,
     // em-dash, en-dash, comma) that link the kennel name to the trail name.
     const rest = title.slice(m[0].length).replace(/^[\s—–\-:,]+/, "");
