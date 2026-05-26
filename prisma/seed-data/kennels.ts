@@ -844,9 +844,13 @@ export const KENNELS: KennelSeed[] = [
     // London, UK
     {
       kennelCode: "lh3", shortName: "London H3", fullName: "London Hash House Harriers", region: "London", country: "UK",
-      website: "https://www.londonhash.org", foundedYear: 1970,
+      website: "https://www.londonhash.org", foundedYear: 1975,
       scheduleDayOfWeek: "Saturday", scheduleTime: "12:00 PM", scheduleFrequency: "Weekly",
-      scheduleNotes: "Summer: sometimes Monday evenings at 7pm",
+      scheduleNotes: "Meets Saturdays at noon. Occasional summer Monday evening runs.",
+      description: "London H3 was the first London hash, still going strong with an average pack size of 33.",
+      hashCash: "£2 / £30 annual membership (card preferred, cash accepted)",
+      logoUrl: "/kennel-logos/lh3.jpg",
+      facebookUrl: "https://www.facebook.com/groups/309871752440044/",
       instagramHandle: "london_hash_house_harriers",
     },
     {
