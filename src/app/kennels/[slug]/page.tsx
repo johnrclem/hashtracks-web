@@ -98,7 +98,15 @@ export default async function KennelDetailPage({
     prisma.event.findMany({
       // #1023 step 5: filter via EventKennel join so co-host events
       // (where this kennel is a secondary, not the primary) appear here too.
-      where: { eventKennels: { some: { kennelId: kennel.id } }, status: { not: "CANCELLED" }, isManualEntry: { not: true }, isCanonical: true, parentEventId: null },
+      // #1560 PR F: NO `parentEventId: null` filter — series children whose
+      // primary kennel is this kennel (e.g. GGFM Friday Strawberry Moon as
+      // a child of NYCH3's 5-Boro umbrella) must appear on this kennel's
+      // page. The `eventKennels.some` join correctly fans out to children
+      // because each child gets its own primary `EventKennel` row per
+      // #1023 step 2. The umbrella itself only appears on its host kennel's
+      // page (its `kennelId` is the host's), so dropping the filter doesn't
+      // pollute other kennel pages with parents they don't host.
+      where: { eventKennels: { some: { kennelId: kennel.id } }, status: { not: "CANCELLED" }, isManualEntry: { not: true }, isCanonical: true },
       include: {
         kennel: {
           select: { id: true, shortName: true, fullName: true, slug: true, region: true, country: true },

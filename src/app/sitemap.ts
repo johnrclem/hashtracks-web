@@ -30,7 +30,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         date: { gte: now },
         status: { not: "CANCELLED" },
         isCanonical: true,
-        parentEventId: null,
+        // #1560 PR F — NO `parentEventId: null` filter. Series children have
+        // their own detail pages (`/hareline/[eventId]`) post-PR E.6, so they
+        // belong in the sitemap. Including them helps search engines index
+        // per-day trail pages (Strawberry Moon Trail, NYC Pride Watch Party!,
+        // etc.) rather than only the umbrella parent.
         kennel: { isHidden: false },
       },
       select: { id: true, updatedAt: true },

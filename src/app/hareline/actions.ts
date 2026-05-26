@@ -143,6 +143,7 @@ const fetchSlimEventsCached = unstable_cache(
   async (
     mode: TimeMode,
     todayDateStr: string,
+    kennelIdsKey: string,
   ): Promise<CachedHarelineEvent[]> => {
     // Reconstruct UTC boundaries from the date string so the cached function
     // is a pure function of its args. (No reading Date.now() here —
@@ -165,10 +166,28 @@ const fetchSlimEventsCached = unstable_cache(
     const tomorrowUtc = new Date(startOfTodayUtc.getTime() + 24 * 60 * 60 * 1000);
     const isPast = mode === "past";
 
-    const where = {
-      ...DISPLAY_EVENT_WHERE,
-      date: isPast ? { lt: tomorrowUtc } : { gte: yesterdayUtc },
-    };
+    // #1560 PR F — kennel-scoped fetches must include series children whose
+    // primary kennel matches the filter (e.g. GGFM Friday Strawberry Moon,
+    // a child of NYCH3's 5-Boro umbrella). When unfiltered, the original
+    // `parentEventId: null` exclusion stays so children only render inside
+    // their parent's expanded timeline. When filtered, swap the exclusion
+    // for a kennel OR-match: parents whose own kennel matches AND children
+    // whose own kennel matches both surface.
+    const kennelIds = kennelIdsKey ? kennelIdsKey.split(",") : [];
+    const dateFilter = isPast ? { lt: tomorrowUtc } : { gte: yesterdayUtc };
+    const where = kennelIds.length === 0
+      ? { ...DISPLAY_EVENT_WHERE, date: dateFilter }
+      : {
+          status: { not: "CANCELLED" as const },
+          isManualEntry: { not: true },
+          isCanonical: true,
+          kennel: { isHidden: false },
+          date: dateFilter,
+          OR: [
+            { kennelId: { in: kennelIds } },
+            { eventKennels: { some: { kennelId: { in: kennelIds } } } },
+          ],
+        };
 
     const events = await prisma.event.findMany({
       where,
@@ -312,11 +331,20 @@ const fetchSlimEventsCached = unstable_cache(
 export async function loadEventsForTimeMode(
   mode: TimeMode,
   nowMs?: number,
+  kennelIds?: ReadonlyArray<string>,
 ): Promise<HarelineListEvent[]> {
   // YYYY-MM-DD in UTC — the cache key that rotates at UTC midnight.
   const todayDateStr = new Date(nowMs ?? Date.now()).toISOString().slice(0, 10);
 
-  const cached = await fetchSlimEventsCached(mode, todayDateStr);
+  // #1560 PR F — normalize the kennel filter into a stable cache key.
+  // Sorted-joined so [a,b] and [b,a] hit the same cache entry; empty string
+  // for the unfiltered path so existing cache entries (no kennel filter)
+  // remain valid post-deploy.
+  const kennelIdsKey = (kennelIds && kennelIds.length > 0)
+    ? [...kennelIds].sort().join(",")
+    : "";
+
+  const cached = await fetchSlimEventsCached(mode, todayDateStr, kennelIdsKey);
 
   // Rehydrate `dateUtc` from ISO string back to `Date` at the cache
   // boundary. Keeps `HarelineListEvent` stable across the project so

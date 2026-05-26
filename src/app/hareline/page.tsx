@@ -38,6 +38,19 @@ export default async function HarelinePage({
   const params = await searchParams;
   const timeParam = typeof params.time === "string" ? params.time : null;
   const initialTimeMode: TimeMode = timeParam === "past" ? "past" : "upcoming";
+  // #1560 PR F — read `?kennels` from the URL so the SSR fetch can scope
+  // the payload to a specific kennel set. Without this, kennel filtering
+  // stayed client-side and series children (excluded from the default
+  // unfiltered payload) never reached the client — GGFM Friday
+  // Strawberry Moon went missing from /hareline?kennels=<ggfm-id>.
+  // Accepts both `?kennels=a,b` and `?kennels=a&kennels=b`.
+  const kennelsParam = params.kennels;
+  let initialKennelIds: string[] = [];
+  if (typeof kennelsParam === "string") {
+    initialKennelIds = kennelsParam.split(",").filter(Boolean);
+  } else if (Array.isArray(kennelsParam)) {
+    initialKennelIds = kennelsParam.flatMap((v) => v.split(",")).filter(Boolean);
+  }
 
   return (
     <div>
@@ -50,7 +63,10 @@ export default async function HarelinePage({
 
       <FadeInSection delay={100}>
         <Suspense fallback={<HarelineLoading />}>
-          <HarelineData initialTimeMode={initialTimeMode} />
+          <HarelineData
+            initialTimeMode={initialTimeMode}
+            initialKennelIds={initialKennelIds}
+          />
         </Suspense>
       </FadeInSection>
     </div>
@@ -68,7 +84,8 @@ export default async function HarelinePage({
  */
 async function HarelineData({
   initialTimeMode,
-}: Readonly<{ initialTimeMode: TimeMode }>) {
+  initialKennelIds,
+}: Readonly<{ initialTimeMode: TimeMode; initialKennelIds: string[] }>) {
   // Capture `now` before awaiting and thread it into `loadEventsForTimeMode`
   // so the server query boundary, the `serverNowMs` prop, and the client's
   // hydrated bucket split all derive from the same instant. Without a shared
@@ -77,8 +94,14 @@ async function HarelineData({
   const now = new Date();
   const nowMs = now.getTime();
 
+  // #1560 PR F — pass `initialKennelIds` through so the SSR query can scope
+  // to a specific kennel set when `?kennels=<id>` is in the URL. Without
+  // this, kennel filtering stayed client-side and series children whose
+  // primary kennel matches the filter (excluded from the default unfiltered
+  // payload because the global hareline still uses `parentEventId: null`)
+  // never reached the client.
   const [events, user] = await Promise.all([
-    loadEventsForTimeMode(initialTimeMode, nowMs),
+    loadEventsForTimeMode(initialTimeMode, nowMs, initialKennelIds),
     getOrCreateUser(),
   ]);
 
