@@ -33,17 +33,32 @@ const MAPS_QUERY_COORDS_RE = /\?q=(-?[\d.]+),(-?[\d.]+)/;
 /** Inline JS coord object: `{ lat: 51.5, lng: -0.1 }`. */
 const JS_COORDS_RE = /\{\s*lat:\s*(-?[\d.]+),\s*lng:\s*(-?[\d.]+)\s*\}/g;
 
-/** "London hash number NNN" run-number extractor. */
-const RUN_NUM_RE = /(?:London\s+hash\s+number|hash\s+number)?\s*(\d+)/i;
-const RUN_NUM_FALLBACK_RE = /(?:London\s+hash\s+number|hash\s+number)\s+(\d+)/i;
+/** "London hash number NNN" run-number extractor. Required prefix in
+ * structured-label values; the bare-number fallback is a separate regex
+ * applied only when the prefix variant misses. Each pattern has fixed
+ * structure so backtracking is linear (avoids Sonar S5852). */
+const RUN_NUM_LABELED_RE = /(?:London\s+hash\s+number|hash\s+number)\s+(\d+)/i;
+const RUN_NUM_BARE_RE = /\b(\d+)\b/;
 
-/** "85 metres from <station>" distance line. */
-const DISTANCE_RE = /(\d+\s*(?:meters?|metres?)\s+from\s+.+?)(?:\n|$)/i;
+/** "85 metres from <station>" distance line. `[^\n]+` is greedy with a
+ * single-char negated class — no nested quantifier backtracking. */
+const DISTANCE_RE = /(\d+\s*(?:meters?|metres?)\s+from\s+[^\n]+)/i;
 
-/** On-Inn body line (stops at quote so JS marker title doesn't leak). */
+/** On-Inn body line. `[^\n"]+` stops at newline or JS-quote so the
+ * cheerio body.text() pickup of `marker.title: "..."` doesn't leak. */
 const ON_INN_RE = /On\s+Inn\s+to\s+([^\n"]+)/i;
-const ON_INN_MARKER_RE = /title:\s*"On\s+Inn\s+to\s+(.+?)"/i;
+/** JS marker title: `title: "On Inn to <pub>"` — `[^"]+` stops at the
+ * closing quote, no non-greedy backtracking. */
+const ON_INN_MARKER_RE = /title:\s*"On\s+Inn\s+to\s+([^"]+)"/i;
 const ON_INN_TRAILING_RE = /[,;]\s*$/;
+
+/** Match a leading `from <prefix>` block; the station-only fallback then
+ * uses procedural slicing (avoids Sonar S5852 on `[^\n*]+?\s+station\b`). */
+const STATION_FROM_PREFIX_RE = /\bfrom\s+/i;
+
+/** "Nearest station: X" prefix in run-list / merged descriptions.
+ * `[^.]+` is a single-char negated class (linear, no Sonar S5852 risk). */
+const BASE_STATION_RE = /Nearest station: ([^.]+)/;
 
 /**
  * Represents a parsed run block from the London Hash run list page.
@@ -81,6 +96,26 @@ function readField(
   return $(node).text().trim().replace(/[ \t]{2,}/g, " ");
 }
 
+/** Source ships per-event note containers with skeleton template markers
+ * (`*Travel info -`, `*Other info -`, `Travel details are yet to be announced`)
+ * that hares fill in over time. Drop notes that are *only* the template
+ * with no real content — they're noise in the description.
+ *
+ * Returns the cleaned note, or empty string when the note carries no
+ * value-add content. Exported for unit testing. */
+export function stripNoteSkeleton(raw: string): string {
+  // Drop the bare "Travel details are yet to be announced" placeholder.
+  if (/^Travel details are yet to be announced\.?$/i.test(raw.trim())) return "";
+  // Strip the `*Travel info -` / `*Other info -` markers individually and
+  // see if any prose remains.
+  const stripped = raw
+    .replace(/\*\s*Travel info\s*-/gi, "")
+    .replace(/\*\s*Other info\s*-/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return stripped;
+}
+
 /**
  * Split the London Hash run list page into individual run blocks.
  * Each block is anchored by a <a href="nextrun.php?run=XXXX"> link.
@@ -111,8 +146,9 @@ export function parseRunBlocks(html: string): RunBlock[] {
       const noteNodes = $block.find(".runlistNote");
       const noteTexts: string[] = [];
       noteNodes.each((_j, noteEl) => {
-        const t = $(noteEl).text().trim().replace(/[ \t]{2,}/g, " ");
-        if (t) noteTexts.push(t);
+        const raw = $(noteEl).text().trim().replace(/[ \t]{2,}/g, " ");
+        const cleaned = stripNoteSkeleton(raw);
+        if (cleaned) noteTexts.push(cleaned);
       });
 
       blocks.push({
@@ -178,16 +214,21 @@ export function parseRunBlocks(html: string): RunBlock[] {
  * Handles: "Saturday 21st of February 2026", "21/02/2026", "Monday 22nd June", etc.
  *
  * Live runlist rows omit the year ("Saturday 6th of June" + "(12 days time)").
- * Without `forwardDate`, chrono interprets ambiguous "6th of June" with refDate
- * Jan 1, 2026 as 2025-06-06 (closest match) instead of the intended 2026-06-06.
+ * Without `forwardDate`, chrono interprets ambiguous "6th of June" with the
+ * default refDate as the past June 6 instead of the intended next June 6.
  * Pass `forwardDate: true` since runlist is an upcoming-only page — every
  * date is at or after the reference.
+ *
+ * `referenceDate` is the scrape-time anchor for ambiguous year-less dates.
+ * Production callers pass `new Date()` (the real scrape instant) so a late-
+ * December scrape resolves "Saturday 10th of January" to the *next* January,
+ * not the past one. Passing `Date.UTC(year, 0, 1)` here used to cause that
+ * year-end transition bug (cf. PR #1682 review feedback + memory
+ * `feedback_chrono_forward_date_explicit_year.md`). Tests can pass a fixed
+ * Date for determinism.
  */
-export function parseDateFromBlock(text: string, referenceYear?: number): string | null {
-  const refDate = referenceYear
-    ? new Date(Date.UTC(referenceYear, 0, 1)) // Jan 1 of reference year
-    : undefined;
-  return chronoParseDate(text, "en-GB", refDate, { forwardDate: true });
+export function parseDateFromBlock(text: string, referenceDate?: Date): string | null {
+  return chronoParseDate(text, "en-GB", referenceDate, { forwardDate: true });
 }
 
 /**
@@ -256,13 +297,29 @@ export function parseLocationFromBlock(text: string): { location?: string; stati
   }
 
   // Fallback: "P trail from STATION" (no destination — common when pub TBA).
-  // Only fires when no destination phrase was matched above.
-  const stationOnlyMatch = text.match(/from\s+([^\n*]+?)\s+station\b/i);
-  if (stationOnlyMatch) {
-    return { station: stationOnlyMatch[1].trim() };
-  }
+  // Procedural slice instead of `from\s+([^\n*]+?)\s+station\b` to avoid
+  // Sonar S5852 (the non-greedy + adjacent quantifier shape gets flagged
+  // even when linear in practice; per feedback_sonar_s5852_procedural_over_regex.md).
+  const station = extractStationOnly(text);
+  if (station) return { station };
 
   return {};
+}
+
+/** "Follow the P trail from <station> station" — return `<station>` or
+ * undefined if the shape isn't there. Exported for unit testing. */
+export function extractStationOnly(text: string): string | undefined {
+  const fromMatch = STATION_FROM_PREFIX_RE.exec(text);
+  if (!fromMatch) return undefined;
+  const valueStart = fromMatch.index + fromMatch[0].length;
+  // Look for the closing " station" boundary. Case-insensitive needle.
+  const lower = text.toLowerCase();
+  const stationIdx = lower.indexOf(" station", valueStart);
+  if (stationIdx < 0) return undefined;
+  const candidate = text.slice(valueStart, stationIdx).trim();
+  // Reject empty or pollution from upstream layout (newline / `*` markers).
+  if (!candidate || candidate.includes("\n") || candidate.includes("*")) return undefined;
+  return candidate;
 }
 
 /**
@@ -326,6 +383,10 @@ export interface LH3DetailPageData {
   hares?: string;
   distance?: string;
   onOn?: string;
+  /** Free-form text from the "What Else" label row (travel info, theme,
+   * anniversary marker, etc). Merged into the event description so the
+   * structured-but-misc content the source ships actually surfaces. */
+  notes?: string;
   locationUrl?: string;
   sourceUrl: string;
 }
@@ -376,6 +437,13 @@ export function parseLH3DetailPage(
   html: string,
   detailUrl: string,
 ): LH3DetailPageData | null {
+  // Strip `<script>` / `<style>` content from the cheerio tree before
+  // pulling `body.text()` — cheerio includes those tag bodies in `.text()`
+  // by default. The On-On regex already uses `[^\n"]+` to stop at JS
+  // string boundaries, but removing the script/style content entirely is
+  // cleaner and prevents future regex leaks (Gemini review on #1682).
+  $("script, style").remove();
+
   const fullText = $("body").text();
 
   // Detect placeholder pages: "next run to be announced" heading and no P-trail content
@@ -404,8 +472,21 @@ export function parseLH3DetailPage(
   applyDetailHares(result, labels, fullText);
   applyDetailDistance(result, labels, fullText);
   applyDetailOnOn(result, fullText, html);
+  applyDetailNotes(result, labels);
 
   return result;
+}
+
+/** Surface the "What Else" label content (travel info / theme / anniversary
+ * marker) so it doesn't get silently dropped — addresses the discarded-
+ * `noteTexts` finding from CodeRabbit review on PR #1682. Run through
+ * `stripNoteSkeleton` so the source's empty `*Travel info -` / `*Other
+ * info -` template skeletons don't pollute the description. */
+function applyDetailNotes(result: LH3DetailPageData, labels: Map<string, string>): void {
+  const value = labels.get("What Else");
+  if (!value) return;
+  const cleaned = stripNoteSkeleton(value);
+  if (cleaned) result.notes = cleaned;
 }
 
 /** Try Google Maps href first; fall back to inline JS `{lat,lng}`. */
@@ -437,13 +518,22 @@ function applyDetailCoords(result: LH3DetailPageData, $: cheerio.CheerioAPI, htm
 }
 
 function applyDetailRunNumber(result: LH3DetailPageData, labels: Map<string, string>, fullText: string): void {
+  // Prefer the labeled-prefix variant first; fall back to bare-number inside
+  // structured `What` value, then to labeled-prefix anywhere in the body.
   const whatValue = labels.get("What");
-  const fromLabel = whatValue ? RUN_NUM_RE.exec(whatValue) : null;
-  if (fromLabel) {
-    result.runNumber = Number.parseInt(fromLabel[1], 10);
-    return;
+  if (whatValue) {
+    const labeled = RUN_NUM_LABELED_RE.exec(whatValue);
+    if (labeled) {
+      result.runNumber = Number.parseInt(labeled[1], 10);
+      return;
+    }
+    const bare = RUN_NUM_BARE_RE.exec(whatValue);
+    if (bare) {
+      result.runNumber = Number.parseInt(bare[1], 10);
+      return;
+    }
   }
-  const fromBody = RUN_NUM_FALLBACK_RE.exec(fullText);
+  const fromBody = RUN_NUM_LABELED_RE.exec(fullText);
   if (fromBody) result.runNumber = Number.parseInt(fromBody[1], 10);
 }
 
@@ -461,6 +551,8 @@ function applyDetailHares(result: LH3DetailPageData, labels: Map<string, string>
 }
 
 function applyDetailDistance(result: LH3DetailPageData, labels: Map<string, string>, fullText: string): void {
+  // Prefer the structured "How Far" label so the greedy `[^\n]+` in
+  // DISTANCE_RE doesn't trip past the field boundary in the fullText fallback.
   const howFarValue = labels.get("How Far") ?? fullText;
   const distMatch = DISTANCE_RE.exec(howFarValue);
   if (distMatch) result.distance = distMatch[1].trim();
@@ -502,12 +594,30 @@ export function mergeLH3DetailIntoEvent(event: RawEventData, detail: LH3DetailPa
     merged.title = detail.title;
   }
 
-  // Enrich description with detail page info, preserving base station if detail lacks one
+  // Enrich description with detail page info. Preserve base station + any
+  // run-list `.runlistNote` paragraphs the base description carried — only
+  // the station prefix is structured ("Nearest station: X."), the rest is
+  // free-form note content that should survive a detail-page merge.
   const descParts: string[] = [];
-  const station = detail.station ?? event.description?.match(/Nearest station: (.+?)(?:\.|$)/)?.[1];
+  const baseDesc = event.description ?? "";
+  const baseStationMatch = BASE_STATION_RE.exec(baseDesc);
+  const station = detail.station ?? baseStationMatch?.[1];
   if (station) descParts.push(`Nearest station: ${station}`);
   if (detail.onOn) descParts.push(`On-On: ${detail.onOn}`);
   if (detail.distance) descParts.push(`Distance: ${detail.distance}`);
+  // Detail-page "What Else" content (travel info, theme, anniversary). Avoid
+  // duplicating a station prefix that's already captured above.
+  if (detail.notes && !BASE_STATION_RE.test(detail.notes)) descParts.push(detail.notes);
+  // Append any base-description notes that weren't the structured station
+  // line (split on ". " then drop the station prefix). Preserves runlist
+  // `.runlistNote` content through detail-page enrichment.
+  for (const segment of baseDesc.split(". ")) {
+    const t = segment.trim().replace(/\.\s*$/, "");
+    if (!t) continue;
+    if (BASE_STATION_RE.test(t)) continue;
+    if (descParts.includes(t)) continue;
+    descParts.push(t);
+  }
   if (descParts.length > 0) {
     merged.description = descParts.join(". ");
   }
@@ -576,11 +686,15 @@ function parseRunListEvents(
   errors: string[],
 ): RawEventData[] {
   const events: RawEventData[] = [];
-  const currentYear = new Date().getFullYear();
+  // Scrape-time anchor for year-less date strings ("Saturday 6th of June").
+  // Using the actual `new Date()` (not Jan 1 of the calendar year) lets a
+  // late-December scrape correctly resolve "10th of January" to the next
+  // January, not the prior one. See parseDateFromBlock for the full note.
+  const referenceDate = new Date();
   for (let i = 0; i < blocks.length; i++) {
     const block = blocks[i];
     try {
-      const event = buildEventFromBlock(block, currentYear, detailBase);
+      const event = buildEventFromBlock(block, referenceDate, detailBase);
       if (event) {
         events.push(event);
       } else {
@@ -609,16 +723,25 @@ function parseRunListEvents(
  * be parsed. Other field misses are non-fatal (left undefined). */
 function buildEventFromBlock(
   block: RunBlock,
-  currentYear: number,
+  referenceDate: Date,
   detailBase: string,
 ): RawEventData | null {
-  const date = parseDateFromBlock(block.dateText, currentYear);
+  const date = parseDateFromBlock(block.dateText, referenceDate);
   if (!date) return null;
   const hares = parseHaresFromBlock(block.hareText);
   const { location, station } = parseLocationFromBlock(block.locText);
   const startTime = parseTimeFromBlock(block.dateText) ?? "12:00";
   const title = parseTitleFromBlock(block.titleText, block.runNumber);
-  const description = station ? `Nearest station: ${station}` : undefined;
+  // Build description: station first, then any `.runlistNote` content the
+  // runlist row carried (travel info, anniversary themes, joint-trail
+  // announcements). Previously parsed into `block.noteTexts` and discarded
+  // (per CodeRabbit review on #1682 — "structured notes parsed and then
+  // discarded"). Joining with `. ` matches the existing detail-page
+  // description shape ("Nearest station: X. On-On: Y. Distance: Z").
+  const descParts: string[] = [];
+  if (station) descParts.push(`Nearest station: ${station}`);
+  for (const note of block.noteTexts) descParts.push(note);
+  const description = descParts.length > 0 ? descParts.join(". ") : undefined;
   return {
     date,
     kennelTags: ["lh3"],

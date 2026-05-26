@@ -9,6 +9,7 @@ import {
   parseTitleFromBlock,
   parseLH3DetailPage,
   mergeLH3DetailIntoEvent,
+  extractStationOnly,
 } from "./london-hash";
 import type { LH3DetailPageData } from "./london-hash";
 import type { RawEventData } from "../types";
@@ -28,8 +29,10 @@ describe("parseDateFromBlock", () => {
     expect(parseDateFromBlock("Saturday 21st of February 2026")).toBe("2026-02-21");
   });
 
-  it("parses ordinal with 'of' without year (uses reference)", () => {
-    expect(parseDateFromBlock("Saturday 21st of February", 2026)).toBe("2026-02-21");
+  it("parses ordinal with 'of' without year (uses reference date)", () => {
+    expect(
+      parseDateFromBlock("Saturday 21st of February", new Date(Date.UTC(2026, 0, 1))),
+    ).toBe("2026-02-21");
   });
 
   it("parses ordinal without 'of'", () => {
@@ -56,12 +59,23 @@ describe("parseDateFromBlock", () => {
     expect(parseDateFromBlock("")).toBeNull();
   });
 
-  it("resolves year-less dates forward of reference year (live runlist behavior)", () => {
+  it("resolves year-less dates forward of reference date (live runlist behavior)", () => {
     // Live runlist rows omit the year — chrono must pick the next-future
     // occurrence (forwardDate semantics). Reference Jan 1 2026 + "6th of June"
     // → June 6 2026, not June 6 2025.
-    expect(parseDateFromBlock("Saturday 6th of June", 2026)).toBe("2026-06-06");
-    expect(parseDateFromBlock("Saturday 14th of February", 2026)).toBe("2026-02-14");
+    const refJan2026 = new Date(Date.UTC(2026, 0, 1));
+    expect(parseDateFromBlock("Saturday 6th of June", refJan2026)).toBe("2026-06-06");
+    expect(parseDateFromBlock("Saturday 14th of February", refJan2026)).toBe("2026-02-14");
+  });
+
+  it("rolls year-less January date forward when scraped in late December", () => {
+    // Year-end regression (Gemini + CodeRabbit reviews on PR #1682): a
+    // December 2026 scrape sees "Saturday 10th of January" on runlist and
+    // must resolve it to *next* January (2027), not the current-year past.
+    const refLateDec = new Date(Date.UTC(2026, 11, 28)); // Dec 28 2026
+    expect(parseDateFromBlock("Saturday 10th of January", refLateDec)).toBe(
+      "2027-01-10",
+    );
   });
 });
 
@@ -176,6 +190,27 @@ describe("parseLocationFromBlock", () => {
     );
     expect(result.station).toBe("Rotherhithe");
     expect(result.location).toBeUndefined();
+  });
+});
+
+describe("extractStationOnly (procedural fallback)", () => {
+  it("captures the station name from `from X station`", () => {
+    expect(extractStationOnly("Follow the P trail from Sydenham station")).toBe(
+      "Sydenham",
+    );
+  });
+
+  it("returns undefined when there's no `station` keyword", () => {
+    expect(extractStationOnly("Follow the P trail from somewhere")).toBeUndefined();
+  });
+
+  it("returns undefined when the prefix is missing", () => {
+    expect(extractStationOnly("Sydenham station is closed")).toBeUndefined();
+  });
+
+  it("rejects multi-line / star-polluted captures", () => {
+    expect(extractStationOnly("from Some\nstation station")).toBeUndefined();
+    expect(extractStationOnly("from *theme* station")).toBeUndefined();
   });
 });
 
@@ -403,6 +438,13 @@ describe("parseRunBlocks", () => {
     expect(blocks[0].locText).toContain("Sydenham");
     expect(blocks[0].locText).toContain("Dolphin");
   });
+
+  it("captures .runlistNote paragraphs into noteTexts", () => {
+    const blocks = parseRunBlocks(SAMPLE_HTML);
+    // Sydenham block ships a single note "** 50th Anniversary Special **".
+    expect(blocks[0].noteTexts.length).toBeGreaterThanOrEqual(1);
+    expect(blocks[0].noteTexts[0]).toContain("Anniversary");
+  });
 });
 
 describe("parseLH3DetailPage", () => {
@@ -452,6 +494,22 @@ describe("parseLH3DetailPage", () => {
     expect(detail).not.toBeNull();
     expect(detail!.hares).toBe("Knickers");
     expect(detail!.hares).not.toContain("Travel");
+  });
+
+  it("captures 'What Else' label content into detail.notes (#1606)", () => {
+    // Source ships event-specific notes in the "What Else" section
+    // (travel info, theme, anniversary marker). They should surface on
+    // the detail object instead of being silently dropped.
+    const html = `
+<html><body>
+<div id="nextRunDetailsHolder">
+  <div class="nextRunlistRow"><div class="runlistCat">Who</div><div class="runlistDetail">Hared by Sweetheart</div></div>
+  <div class="nextRunlistRow"><div class="runlistCat">What Else</div><div class="runlistDetail">Bring your hash cups as there may be a DS.</div></div>
+</div>
+</body></html>`;
+    const detail = parseDetail(html, "https://www.londonhash.org/nextrun.php?run=4112");
+    expect(detail).not.toBeNull();
+    expect(detail!.notes).toBe("Bring your hash cups as there may be a DS.");
   });
 
   it("tolerates the live-site class typo (`runlistRow` missing the `next` prefix)", () => {
@@ -648,6 +706,9 @@ describe("LondonHashAdapter.fetch", () => {
     expect(first!.location).toBe("The Dolphin");
     expect(first!.startTime).toBe("12:00");
     expect(first!.description).toContain("Nearest station: Sydenham");
+    // Runlist `.runlistNote` content is now propagated into description
+    // (per CodeRabbit review on PR #1682 — was previously discarded).
+    expect(first!.description).toContain("Anniversary");
     expect(first!.sourceUrl).toContain("nextrun.php?run=3840");
 
     // Placeholder `**To Be Announced` title falls back to synthesized default.
