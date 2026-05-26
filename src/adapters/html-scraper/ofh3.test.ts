@@ -1,9 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { parseOfh3Date, parseOfh3Body, cleanOfh3Title } from "./ofh3";
-import { OFH3Adapter } from "./ofh3";
+import type { Source } from "@/generated/prisma/client";
+import { parseOfh3Date, parseOfh3Body, cleanOfh3Title, extractBloggerYearAnchor, OFH3Adapter } from "./ofh3";
 import * as bloggerApi from "../blogger-api";
 
 vi.mock("../blogger-api");
+
+// Typed factory so tests can pass a partial Source without per-call
+// `as never` — Source has 14+ required fields the adapter never reads.
+function fakeSource(overrides: Partial<Source> & Pick<Source, "id" | "url">): Source {
+  return overrides as unknown as Source;
+}
 
 describe("parseOfh3Date", () => {
   it("parses 'Saturday, March 14, 2026'", () => {
@@ -391,5 +397,92 @@ describe("parseOfh3Body — newline-delimited fields", () => {
     const result = parseOfh3Body(text);
     expect(result.location).toBe("Blue Heron Elementary");
     expect(result.trailType).toBe("A-A");
+  });
+});
+
+describe("extractBloggerYearAnchor (#1643)", () => {
+  it("extracts year+month from a standard Blogspot URL", () => {
+    const anchor = extractBloggerYearAnchor(
+      "https://www.ofh3.com/2025/05/ofh3-trail-387-june-tour-duh-hash-trail.html",
+    );
+    expect(anchor).toEqual(new Date(Date.UTC(2025, 4, 1, 12, 0, 0)));
+  });
+
+  it("returns null when URL lacks /YYYY/MM/ path", () => {
+    expect(extractBloggerYearAnchor("https://www.ofh3.com/")).toBeNull();
+    expect(extractBloggerYearAnchor("https://www.ofh3.com/some-page.html")).toBeNull();
+  });
+
+  it("rejects implausible years and months", () => {
+    expect(extractBloggerYearAnchor("https://example.com/1999/05/post.html")).toBeNull();
+    expect(extractBloggerYearAnchor("https://example.com/2025/13/post.html")).toBeNull();
+  });
+});
+
+describe("OFH3Adapter year-rollover guard (#1643)", () => {
+  let adapter: OFH3Adapter;
+
+  beforeEach(() => {
+    adapter = new OFH3Adapter();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("anchors bare 'June 1' in a 2025 post to 2025-06-01, NOT 2026-06-01 (regression for #1643)", async () => {
+    // The phantom: a 2025 blog post whose body says "When: Sunday, June 1st"
+    // — chrono without an anchor parses that as June 1 of the current year
+    // (2026 at scrape time), creating a 2026-06-01 phantom on next year's
+    // hareline. Anchoring to the URL's publication month (2025-05) fixes it.
+    vi.mocked(bloggerApi.fetchBloggerPosts).mockResolvedValueOnce({
+      posts: [
+        {
+          title: "OFH3 Trail #387 - June 1, 2025 - Tour Duh Hash Trail",
+          content: "<p><b>Hares:</b> Mudflap</p><p><b>When:</b> Sunday, June 1st</p><p><b>Where:</b> Frederick, MD</p>",
+          url: "https://www.ofh3.com/2025/05/ofh3-trail-387-june-tour-duh-hash-trail.html",
+          published: "2025-05-15T12:00:00Z",
+        },
+      ],
+      blogId: "67890",
+      fetchDurationMs: 100,
+    });
+
+    const result = await adapter.fetch(fakeSource({
+      id: "test-ofh3",
+      url: "https://www.ofh3.com/",
+      scrapeDays: 365 * 10,
+    }));
+
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].date).toBe("2025-06-01");
+  });
+
+  it("explicit dot-format date in the body wins over URL anchor", async () => {
+    // Body carries "6.1.25" — the dot-format branch produces an explicit year
+    // (2025) regardless of the URL anchor. Guards against the anchor
+    // accidentally overriding precise data.
+    vi.mocked(bloggerApi.fetchBloggerPosts).mockResolvedValueOnce({
+      posts: [
+        {
+          title: "OFH3 Trail #387",
+          content: "<p><b>When:</b> 6.1.25</p><p><b>Where:</b> Frederick, MD</p>",
+          // Note: URL year is 2026 but body wins — explicit > anchor.
+          url: "https://www.ofh3.com/2026/05/trail-387.html",
+          published: "2025-05-15T12:00:00Z",
+        },
+      ],
+      blogId: "67890",
+      fetchDurationMs: 100,
+    });
+
+    const result = await adapter.fetch(fakeSource({
+      id: "test-ofh3",
+      url: "https://www.ofh3.com/",
+      scrapeDays: 365 * 10,
+    }));
+
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].date).toBe("2025-06-01");
   });
 });

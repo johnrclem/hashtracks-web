@@ -6,7 +6,7 @@ vi.mock("@/lib/db", () => ({
     source: { findUnique: vi.fn(), update: vi.fn() },
     sourceKennel: { findMany: vi.fn() },
     rawEvent: { findFirst: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
-    event: { findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
+    event: { findUnique: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     eventKennel: { create: vi.fn(), upsert: vi.fn() },
     eventLink: { upsert: vi.fn(), createMany: vi.fn() },
     kennel: { findUnique: vi.fn(), updateMany: vi.fn() },
@@ -96,6 +96,21 @@ const mockEventUpdate = vi.mocked(prisma.event.update);
 const mockResolve = vi.mocked(resolveKennelTag);
 const mockFingerprint = vi.mocked(generateFingerprint);
 
+// Typed factories for new tests — let call sites pass `eventRow("evt_x")`
+// instead of `eventRow("evt_x")`. The cast inside is structurally
+// necessary (Event has 30+ fields the mock doesn't populate); isolating it
+// here keeps each call site cast-free and quiets Sonar S4325.
+type EventCreateReturn = Awaited<ReturnType<typeof prisma.event.create>>;
+type SourceFindReturn = Awaited<ReturnType<typeof prisma.source.findUnique>>;
+
+function eventRow(id: string, overrides?: Record<string, unknown>): EventCreateReturn {
+  return { id, ...overrides } as unknown as EventCreateReturn;
+}
+
+function sourceRow(overrides: Record<string, unknown>): SourceFindReturn {
+  return overrides as unknown as SourceFindReturn;
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   // `vi.clearAllMocks()` clears call history but does NOT drain `mockResolvedValueOnce`
@@ -136,6 +151,10 @@ beforeEach(() => {
   // recomputeCanonical early-exits on length 0 and doesn't consume the
   // next test's queued response.
   mockEventFindMany.mockResolvedValue([] as never);
+  // Same-sourceUrl date-correction probe (#1613 / #1648) defaults to "no match"
+  // so existing tests are unaffected; per-test overrides exercise the
+  // correction path itself.
+  vi.mocked(prisma.event.findFirst).mockResolvedValue(null);
   vi.mocked(prisma.eventKennel.create).mockResolvedValue({} as never);
   // $transaction supports two call shapes: array of ops (returns Promise.all)
   // and callback (invoked with the tx client). The dual-write helper added
@@ -190,7 +209,7 @@ describe("processRawEvents", () => {
     // proceeds.
     mockRawEventFind.mockResolvedValue(null);
     mockEventFindMany.mockResolvedValueOnce([] as never);
-    mockEventCreate.mockResolvedValueOnce({ id: "evt_good" } as never);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_good"));
     mockRawEventCreate.mockResolvedValueOnce({ id: "raw_good" } as never);
     // First event: fingerprint throws. Second event: fingerprint succeeds.
     mockFingerprint
@@ -215,7 +234,7 @@ describe("processRawEvents", () => {
     // and treat it as a duplicate — no second canonical Event is created.
     mockRawEventFind.mockResolvedValueOnce(null);
     mockEventFindMany.mockResolvedValueOnce([] as never);
-    mockEventCreate.mockResolvedValueOnce({ id: "evt_first" } as never);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_first"));
     // mockReturnValueOnce (not mockReturnValue) so the implementation override
     // doesn't persist into the next test's default fingerprint.
     mockFingerprint.mockReturnValueOnce("fp_dup").mockReturnValueOnce("fp_dup");
@@ -243,7 +262,7 @@ describe("processRawEvents", () => {
   it("re-processes orphaned RawEvent (processed=false, eventId=null) after admin delete", async () => {
     mockRawEventFind.mockResolvedValueOnce({ id: "existing", processed: false, eventId: null } as never);
     mockEventFindMany.mockResolvedValueOnce([] as never);
-    mockEventCreate.mockResolvedValueOnce({ id: "evt_new" } as never);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_new"));
     const result = await processRawEvents("src_1", [buildRawEvent()]);
     expect(result.created).toBe(1);
     expect(result.skipped).toBe(0);
@@ -252,7 +271,7 @@ describe("processRawEvents", () => {
   it("creates new canonical event", async () => {
     mockRawEventFind.mockResolvedValueOnce(null);
     mockEventFindMany.mockResolvedValueOnce([] as never);
-    mockEventCreate.mockResolvedValueOnce({ id: "evt_1" } as never);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_1"));
 
     const result = await processRawEvents("src_1", [buildRawEvent()]);
     expect(result.created).toBe(1);
@@ -435,7 +454,7 @@ describe("processRawEvents", () => {
     // Existing event has trust 8; source trust is 5. All user-facing fields
     // are null/undefined so the lower-trust enrichment path fills them.
     mockEventFindMany.mockResolvedValueOnce([{ id: "evt_1", trustLevel: 8 }] as never);
-    mockEventUpdate.mockResolvedValue({ id: "evt_1" } as never);
+    mockEventUpdate.mockResolvedValue(eventRow("evt_1"));
 
     const result = await processRawEvents("src_1", [buildRawEvent()]);
     // updated is 1 (the matched-event counter at line 850). The enrichment
@@ -547,7 +566,7 @@ describe("processRawEvents", () => {
     mockRawEventCreate.mockRejectedValueOnce(new Error("DB error"));
     mockRawEventCreate.mockResolvedValueOnce({ id: "raw_2" } as never);
     mockEventFindMany.mockResolvedValueOnce([] as never);
-    mockEventCreate.mockResolvedValueOnce({ id: "evt_1" } as never);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_1"));
     mockFingerprint.mockReturnValueOnce("fp_1").mockReturnValueOnce("fp_2");
 
     const result = await processRawEvents("src_1", [
@@ -569,7 +588,7 @@ describe("processRawEvents", () => {
   it("parses date correctly as UTC noon", async () => {
     mockRawEventFind.mockResolvedValueOnce(null);
     mockEventFindMany.mockResolvedValueOnce([] as never);
-    mockEventCreate.mockResolvedValueOnce({ id: "evt_1" } as never);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_1"));
 
     await processRawEvents("src_1", [buildRawEvent({ date: "2026-02-14" })]);
 
@@ -598,7 +617,7 @@ describe("processRawEvents", () => {
     } as never);
     mockRawEventFind.mockResolvedValueOnce(null);
     mockEventFindMany.mockResolvedValueOnce([] as never);
-    mockEventCreate.mockResolvedValueOnce({ id: "evt_new" } as never);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_new"));
 
     await processRawEvents("src_1", [
       buildRawEvent({ location: "Sobu line, West exit", kennelTags: ["tokyo-h3" ]}),
@@ -685,7 +704,7 @@ describe("source-kennel guard", () => {
   it("allows event when resolved kennel IS linked to source", async () => {
     mockRawEventFind.mockResolvedValueOnce(null);
     mockEventFindMany.mockResolvedValueOnce([] as never);
-    mockEventCreate.mockResolvedValueOnce({ id: "evt_1" } as never);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_1"));
     // kennel_1 is in the linked set (default mock)
 
     const result = await processRawEvents("src_1", [buildRawEvent()]);
@@ -713,7 +732,7 @@ describe("source-kennel guard", () => {
     // linked `kennels` relation in the same round-trip.
     mockRawEventFind.mockResolvedValue(null);
     mockEventFindMany.mockResolvedValue([] as never);
-    mockEventCreate.mockResolvedValue({ id: "evt_1" } as never);
+    mockEventCreate.mockResolvedValue(eventRow("evt_1"));
     mockFingerprint.mockReturnValueOnce("fp_1").mockReturnValueOnce("fp_2");
 
     await processRawEvents("src_1", [
@@ -848,13 +867,13 @@ describe("double-header support", () => {
     // First event: no fingerprint match, no existing events → create
     mockRawEventFind.mockResolvedValueOnce(null);
     mockEventFindMany.mockResolvedValueOnce([] as never);
-    mockEventCreate.mockResolvedValueOnce({ id: "evt_1" } as never);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_1"));
     // Second event: no fingerprint match, one existing with different sourceUrl → create new (double-header)
     mockRawEventFind.mockResolvedValueOnce(null);
     mockEventFindMany.mockResolvedValueOnce([
       { id: "evt_1", trustLevel: 5, sourceUrl: "https://example.com/trail-a", startTime: "10:30", title: "Trail A" },
     ] as never);
-    mockEventCreate.mockResolvedValueOnce({ id: "evt_2" } as never);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_2"));
 
     const result = await processRawEvents("src_1", [
       buildRawEvent({ date: "2026-03-08", sourceUrl: "https://example.com/trail-a", startTime: "10:30", title: "Trail A" }),
@@ -873,7 +892,7 @@ describe("double-header support", () => {
       { id: "evt_1", trustLevel: 5, sourceUrl: "https://example.com/trail-a", startTime: "10:30", title: "Trail A" },
       { id: "evt_2", trustLevel: 5, sourceUrl: "https://example.com/trail-b", startTime: "14:30", title: "Trail B" },
     ] as never);
-    mockEventCreate.mockResolvedValueOnce({ id: "evt_3" } as never);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_3"));
 
     const result = await processRawEvents("src_1", [
       buildRawEvent({ date: "2026-03-08", sourceUrl: "https://example.com/trail-c", startTime: "18:00", title: "Trail C" }),
@@ -973,7 +992,7 @@ describe("double-header support", () => {
     mockEventFindMany.mockResolvedValueOnce([
       { id: "evt_1", trustLevel: 5, sourceUrl: "https://example.com/a", startTime: "10:30", runNumber: 100, title: "Morning Trail" },
     ] as never);
-    mockEventCreate.mockResolvedValueOnce({ id: "evt_2" } as never);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_2"));
 
     const result = await processRawEvents("src_1", [
       buildRawEvent({ date: "2026-03-08", startTime: "10:30", runNumber: 100, sourceUrl: "https://example.com/a", title: "Morning Trail" }),
@@ -1145,7 +1164,7 @@ describe("double-header support", () => {
       { id: "part_b", trustLevel: 5, sourceUrl: "https://meetup.com/a", startTime: "10:00", runNumber: 786, title: "AVLH3 #786 Part B" },
       { id: "part_c", trustLevel: 5, sourceUrl: "https://meetup.com/b", startTime: "18:00", runNumber: 786, title: "AVLH3 #786 Part C" },
     ] as never);
-    mockEventCreate.mockResolvedValueOnce({ id: "evt_new" } as never);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_new"));
 
     const result = await processRawEvents("src_1", [
       buildRawEvent({
@@ -1318,7 +1337,7 @@ describe("empty event guard", () => {
   it("generates default title using kennel display name (not raw tag)", async () => {
     mockRawEventFind.mockResolvedValueOnce(null);
     mockEventFindMany.mockResolvedValueOnce([] as never);
-    mockEventCreate.mockResolvedValueOnce({ id: "evt_1" } as never);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_1"));
     vi.mocked(prisma.kennel.findUnique).mockResolvedValueOnce({
       shortName: "DUHHH", fullName: "DUHHH", region: "Dallas-Fort Worth, TX",
       latitude: null, longitude: null, country: "US", regionRef: null,
@@ -1345,7 +1364,7 @@ describe("empty event guard", () => {
   it("uses friendlyKennelName for short kennel codes in default title", async () => {
     mockRawEventFind.mockResolvedValueOnce(null);
     mockEventFindMany.mockResolvedValueOnce([] as never);
-    mockEventCreate.mockResolvedValueOnce({ id: "evt_1" } as never);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_1"));
     vi.mocked(prisma.kennel.findUnique).mockResolvedValueOnce({
       shortName: "H5", fullName: "Harrisburg-Hershey Hash House Harriers", region: "Harrisburg, PA",
       latitude: null, longitude: null, country: "US", regionRef: null,
@@ -1372,7 +1391,7 @@ describe("empty event guard", () => {
   it("synthesizes 'Bristol Greyhound H3 Trail' for empty-title GREY events", async () => {
     mockRawEventFind.mockResolvedValueOnce(null);
     mockEventFindMany.mockResolvedValueOnce([] as never);
-    mockEventCreate.mockResolvedValueOnce({ id: "evt_grey_1" } as never);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_grey_1"));
     vi.mocked(prisma.kennel.findUnique).mockResolvedValueOnce({
       shortName: "GREY", fullName: "Bristol Greyhound Hash House Harriers", region: "Bristol",
       latitude: null, longitude: null, country: "UK", regionRef: null,
@@ -1399,7 +1418,7 @@ describe("empty event guard", () => {
   it("includes run number in default title when available", async () => {
     mockRawEventFind.mockResolvedValueOnce(null);
     mockEventFindMany.mockResolvedValueOnce([] as never);
-    mockEventCreate.mockResolvedValueOnce({ id: "evt_1" } as never);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_1"));
     vi.mocked(prisma.kennel.findUnique).mockResolvedValueOnce({
       shortName: "Houston H3", fullName: "Houston Hash House Harriers", region: "Houston, TX",
       latitude: null, longitude: null, country: "US", regionRef: null,
@@ -1426,7 +1445,7 @@ describe("empty event guard", () => {
   it("preserves adapter-provided title over default", async () => {
     mockRawEventFind.mockResolvedValueOnce(null);
     mockEventFindMany.mockResolvedValueOnce([] as never);
-    mockEventCreate.mockResolvedValueOnce({ id: "evt_1" } as never);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_1"));
 
     const result = await processRawEvents("src_1", [
       buildRawEvent({
@@ -1449,7 +1468,7 @@ describe("empty event guard", () => {
   it("processes events that have at least a runNumber", async () => {
     mockRawEventFind.mockResolvedValueOnce(null);
     mockEventFindMany.mockResolvedValueOnce([] as never);
-    mockEventCreate.mockResolvedValueOnce({ id: "evt_1" } as never);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_1"));
 
     const result = await processRawEvents("src_1", [
       buildRawEvent({
@@ -1872,7 +1891,7 @@ describe("time/cost field clearing on update (#530)", () => {
     async (field, newValue) => {
       mockRawEventFind.mockResolvedValueOnce(null);
       mockEventFindMany.mockResolvedValueOnce([] as never);
-      mockEventCreate.mockResolvedValueOnce({ id: "evt_new" } as never);
+      mockEventCreate.mockResolvedValueOnce(eventRow("evt_new"));
 
       await processRawEvents("src_1", [buildRawEvent({ [field]: newValue })]);
 
@@ -1886,7 +1905,7 @@ describe("sanitizeLocationUrl", () => {
   it("filters Google My Maps viewer URLs from locationAddress on create", async () => {
     mockRawEventFind.mockResolvedValueOnce(null);
     mockEventFindMany.mockResolvedValueOnce([] as never);
-    mockEventCreate.mockResolvedValueOnce({ id: "evt_1" } as never);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_1"));
 
     await processRawEvents("src_1", [
       buildRawEvent({ locationUrl: "https://www.google.com/maps/d/u/0/viewer?mid=abc123" }),
@@ -1914,7 +1933,7 @@ describe("sanitizeLocationUrl", () => {
   it("filters Google My Maps URLs with multi-part TLDs (google.co.uk)", async () => {
     mockRawEventFind.mockResolvedValueOnce(null);
     mockEventFindMany.mockResolvedValueOnce([] as never);
-    mockEventCreate.mockResolvedValueOnce({ id: "evt_1" } as never);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_1"));
 
     await processRawEvents("src_1", [
       buildRawEvent({ locationUrl: "https://www.google.co.uk/maps/d/viewer?mid=abc123" }),
@@ -1927,7 +1946,7 @@ describe("sanitizeLocationUrl", () => {
   it("passes through valid Google Maps URLs", async () => {
     mockRawEventFind.mockResolvedValueOnce(null);
     mockEventFindMany.mockResolvedValueOnce([] as never);
-    mockEventCreate.mockResolvedValueOnce({ id: "evt_1" } as never);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_1"));
 
     const mapsUrl = "https://www.google.com/maps/search/?api=1&query=The+Pub";
     await processRawEvents("src_1", [
@@ -3392,7 +3411,7 @@ describe("fuzzy ±48h cross-source dedup (#990)", () => {
     mockRawEventFind.mockResolvedValueOnce(null);
     mockEventFindMany.mockResolvedValueOnce([] as never); // same-day empty
     // No second findMany — fuzzy probe MUST NOT run.
-    mockEventCreate.mockResolvedValueOnce({ id: "evt_new" } as never);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_new"));
 
     const result = await processRawEvents("src_b", [
       buildRawEvent({
@@ -3416,7 +3435,7 @@ describe("fuzzy ±48h cross-source dedup (#990)", () => {
     // its own findMany after the cross-window date update + cache invalidate.
     mockEventFindMany.mockResolvedValueOnce([existingFuzzyRow()] as never); // cache prefetch
     mockEventFindMany.mockResolvedValueOnce([] as never); // old-bucket recanonicalize refetch
-    mockEventUpdate.mockResolvedValueOnce({ id: "evt_existing" } as never);
+    mockEventUpdate.mockResolvedValueOnce(eventRow("evt_existing"));
 
     const result = await processRawEvents("src_hashrego", [
       buildRawEvent({
@@ -3474,7 +3493,7 @@ describe("fuzzy ±48h cross-source dedup (#990)", () => {
     ] as never);
     mockEventFindMany.mockResolvedValueOnce([] as never); // old-bucket refetch
 
-    mockEventUpdate.mockResolvedValue({ id: "evt_was_noncanonical" } as never);
+    mockEventUpdate.mockResolvedValue(eventRow("evt_was_noncanonical"));
 
     const result = await processRawEvents("src_b", [
       buildRawEvent({
@@ -3513,7 +3532,7 @@ describe("fuzzy ±48h cross-source dedup (#990)", () => {
     vi.mocked(prisma.rawEvent.findMany).mockResolvedValueOnce([
       { eventId: "evt_same_source_yesterday" },
     ] as never);
-    mockEventCreate.mockResolvedValueOnce({ id: "evt_new" } as never);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_new"));
 
     const result = await processRawEvents("src_b", [
       buildRawEvent({
@@ -3538,7 +3557,7 @@ describe("fuzzy ±48h cross-source dedup (#990)", () => {
     mockEventFindMany.mockResolvedValueOnce([
       existingFuzzyRow({ runNumber: 786, title: "Annual Bash Trail" }),
     ] as never); // fuzzy probe candidate, but runNumber will conflict
-    mockEventCreate.mockResolvedValueOnce({ id: "evt_new" } as never);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_new"));
 
     const result = await processRawEvents("src_b", [
       buildRawEvent({
@@ -3557,7 +3576,7 @@ describe("fuzzy ±48h cross-source dedup (#990)", () => {
     mockRawEventFind.mockResolvedValueOnce(null);
     mockEventFindMany.mockResolvedValueOnce([] as never); // same-day empty
     // No second findMany — fuzzy probe MUST NOT run for series events.
-    mockEventCreate.mockResolvedValueOnce({ id: "evt_new" } as never);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_new"));
 
     const result = await processRawEvents("src_b", [
       buildRawEvent({
@@ -3580,7 +3599,7 @@ describe("fuzzy ±48h cross-source dedup (#990)", () => {
     mockEventFindMany.mockResolvedValueOnce([
       existingFuzzyRow({ locationName: "Central Park" }),
     ] as never); // fuzzy probe candidate, location will conflict
-    mockEventCreate.mockResolvedValueOnce({ id: "evt_new" } as never);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_new"));
 
     const result = await processRawEvents("src_b", [
       buildRawEvent({
@@ -3603,7 +3622,7 @@ describe("fuzzy ±48h cross-source dedup (#990)", () => {
     mockEventFindMany.mockResolvedValueOnce([
       existingFuzzyRow({ startTime: "10:00" }),
     ] as never);
-    mockEventCreate.mockResolvedValueOnce({ id: "evt_new" } as never);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_new"));
 
     const result = await processRawEvents("src_b", [
       buildRawEvent({
@@ -3627,7 +3646,7 @@ describe("fuzzy ±48h cross-source dedup (#990)", () => {
 describe("processRawEvents — per-kennel read batching (#1287)", () => {
   it("issues at most one event.findMany per distinct kennel across a multi-event batch (fuzzy off)", async () => {
     mockRawEventFind.mockResolvedValue(null); // every event is new
-    mockEventCreate.mockResolvedValue({ id: "evt_new" } as never);
+    mockEventCreate.mockResolvedValue(eventRow("evt_new"));
     mockFingerprint
       .mockReturnValueOnce("fp_a").mockReturnValueOnce("fp_b").mockReturnValueOnce("fp_c");
 
@@ -3658,7 +3677,7 @@ describe("processRawEvents — per-kennel read batching (#1287)", () => {
     process.env.MERGE_FUZZY_DEDUP = "true";
     try {
       mockRawEventFind.mockResolvedValue(null);
-      mockEventCreate.mockResolvedValue({ id: "evt_new" } as never);
+      mockEventCreate.mockResolvedValue(eventRow("evt_new"));
       mockFingerprint.mockReturnValueOnce("fp_a").mockReturnValueOnce("fp_b");
 
       await processRawEvents("src_1", [
@@ -3682,7 +3701,7 @@ describe("processRawEvents — per-kennel read batching (#1287)", () => {
     const mockKennelUpdateMany = vi.mocked(prisma.kennel.updateMany);
     mockKennelUpdateMany.mockResolvedValue({ count: 1 } as never);
     mockRawEventFind.mockResolvedValue(null);
-    mockEventCreate.mockResolvedValue({ id: "evt_new" } as never);
+    mockEventCreate.mockResolvedValue(eventRow("evt_new"));
     mockFingerprint
       .mockReturnValueOnce("fp_a").mockReturnValueOnce("fp_b").mockReturnValueOnce("fp_c");
 
@@ -3720,7 +3739,7 @@ describe("processRawEvents — per-kennel read batching (#1287)", () => {
     const mockKennelUpdateMany = vi.mocked(prisma.kennel.updateMany);
     mockKennelUpdateMany.mockRejectedValueOnce(new Error("transient DB error"));
     mockRawEventFind.mockResolvedValue(null);
-    mockEventCreate.mockResolvedValue({ id: "evt_new" } as never);
+    mockEventCreate.mockResolvedValue(eventRow("evt_new"));
     const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     await expect(
@@ -3830,7 +3849,7 @@ describe("processRawEvents — per-kennel read batching (#1287)", () => {
     // — N events → 1 query, regardless of new vs. updated split.
     const mockExecuteRaw = vi.mocked(prisma.$executeRaw);
     mockRawEventFind.mockResolvedValue(null); // every event is new
-    mockEventCreate.mockResolvedValue({ id: "evt_new" } as never);
+    mockEventCreate.mockResolvedValue(eventRow("evt_new"));
     mockFingerprint
       .mockReturnValueOnce("fp_a").mockReturnValueOnce("fp_b").mockReturnValueOnce("fp_c");
     mockRawEventCreate
@@ -3872,7 +3891,7 @@ describe("processRawEvents — per-kennel read batching (#1287)", () => {
     const mockExecuteRaw = vi.mocked(prisma.$executeRaw);
     mockExecuteRaw.mockRejectedValueOnce(new Error("transient DB error"));
     mockRawEventFind.mockResolvedValue(null);
-    mockEventCreate.mockResolvedValue({ id: "evt_new" } as never);
+    mockEventCreate.mockResolvedValue(eventRow("evt_new"));
 
     await expect(
       processRawEvents("src_1", [
@@ -3955,7 +3974,7 @@ describe("processNewRawEvent — P2002 race-window fall-through (#1286)", () => 
       eventId: null,
     } as never);
     mockEventFindMany.mockResolvedValue([] as never);
-    mockEventCreate.mockResolvedValue({ id: "evt_adopted" } as never);
+    mockEventCreate.mockResolvedValue(eventRow("evt_adopted"));
 
     const result = await processRawEvents("src_1", [
       buildRawEvent({ date: "2026-04-01", kennelTags: ["TestH3"] }),
@@ -4082,7 +4101,7 @@ describe("processNewRawEvent — P2002 race-window fall-through (#1286)", () => 
       trustLevel: 5,
     } as never);
     mockEventFindMany.mockResolvedValue([] as never);
-    mockEventCreate.mockResolvedValue({ id: "evt_normal" } as never);
+    mockEventCreate.mockResolvedValue(eventRow("evt_normal"));
 
     const result = await processRawEvents("src_1", [
       buildRawEvent({ date: "2026-04-01", kennelTags: ["TestH3"] }),
@@ -4437,5 +4456,273 @@ describe("linkMultiDaySeries (#1560)", () => {
         && (args as { data?: { isSeriesParent?: boolean } }).data?.isSeriesParent === true,
     );
     expect(parentUpdate).toBeDefined();
+  });
+});
+
+// Builds the EventRow shape EVENT_CACHE_SELECT returns from the same-sourceUrl
+// correction probe (#1613 / #1648). Date defaults to MarinH3's pre-correction
+// date so the +14d shape is the natural call site. Hoisted to module scope
+// per Sonar S7721; returns the typed findFirst result so call sites can drop
+// their own `as never` (Sonar S4325).
+type EventFindFirstReturn = Awaited<ReturnType<typeof prisma.event.findFirst>>;
+function buildCorrectionCandidate(overrides?: Record<string, unknown>): EventFindFirstReturn {
+  return {
+    id: "evt_phantom",
+    kennelId: "kennel_1",
+    date: new Date("2026-05-23T12:00:00.000Z"),
+    trustLevel: 5,
+    sourceUrl: "https://www.sfh3.com/runs/6443",
+    title: "Marin H3 Run #291",
+    runNumber: 291,
+    startTime: "13:00",
+    locationName: null,
+    parentEventId: null,
+    isSeriesParent: false,
+    isCanonical: true,
+    status: "CONFIRMED",
+    adminCancelledAt: null,
+    ...overrides,
+  } as unknown as EventFindFirstReturn;
+}
+
+describe("same-sourceUrl date-correction dedup (#1613 / #1648)", () => {
+  it("MarinH3-shape: +14d sourceUrl match moves canonical, does not create phantom (#1613)", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    // Cache prefetch: empty same-day pool for the corrected date.
+    mockEventFindMany.mockResolvedValueOnce([]);
+    // Old-bucket recanonicalize refetch.
+    mockEventFindMany.mockResolvedValueOnce([]);
+    // Same-sourceUrl correction probe returns the phantom from May 23.
+    vi.mocked(prisma.event.findFirst).mockResolvedValueOnce(buildCorrectionCandidate());
+    mockEventUpdate.mockResolvedValueOnce(eventRow("evt_phantom"));
+
+    const result = await processRawEvents("src_sfh3_html", [
+      buildRawEvent({
+        date: "2026-05-09", // 14 days earlier than existing 2026-05-23
+        kennelTags: ["marinh3"],
+        sourceUrl: "https://www.sfh3.com/runs/6443",
+        runNumber: 291,
+        title: "Marin H3 Run #291",
+      }),
+    ]);
+
+    expect(result.updated).toBe(1);
+    expect(result.created).toBe(0);
+    expect(mockEventCreate).not.toHaveBeenCalled();
+
+    // The update writes the corrected date back to the existing canonical
+    // (crossWindowMatch plumbing reused — #990).
+    const updateCall = mockEventUpdate.mock.calls.find(
+      c => (c[0] as { where: { id: string } }).where.id === "evt_phantom",
+    );
+    expect(updateCall).toBeDefined();
+    const updateData = (updateCall![0] as { data: Record<string, unknown> }).data;
+    expect(updateData.date).toEqual(new Date("2026-05-09T12:00:00.000Z"));
+
+    // The probe was actually issued with the expected window + filters.
+    const probeCall = vi.mocked(prisma.event.findFirst).mock.calls[0];
+    const probeWhere = (probeCall[0] as {
+      where: {
+        sourceUrl: string;
+        runNumber: number;
+        date: { gte: Date; lte: Date; not: Date };
+        eventKennels: { some: { kennelId: string } };
+        parentEventId: null;
+        isSeriesParent: false;
+        status: { not: string };
+      };
+    }).where;
+    expect(probeWhere.sourceUrl).toBe("https://www.sfh3.com/runs/6443");
+    expect(probeWhere.runNumber).toBe(291); // required second signal — protects shared-URL adapters
+    expect(probeWhere.eventKennels.some.kennelId).toBe("kennel_1");
+    expect(probeWhere.date.not).toEqual(new Date("2026-05-09T12:00:00.000Z"));
+    // ±30d window
+    const expectedLo = new Date("2026-05-09T12:00:00.000Z").getTime() - 30 * 86_400_000;
+    const expectedHi = new Date("2026-05-09T12:00:00.000Z").getTime() + 30 * 86_400_000;
+    expect(probeWhere.date.gte.getTime()).toBe(expectedLo);
+    expect(probeWhere.date.lte.getTime()).toBe(expectedHi);
+  });
+
+  it("does NOT run probe when incoming event has no runNumber (protects shared-URL adapters)", async () => {
+    // Codex review on PR #1696: many adapters (BFM, OCH3, SHITH3, Bangkok,
+    // STATIC_SCHEDULE, HashPhilly) emit a single baseUrl as sourceUrl for
+    // every event. Probing by sourceUrl alone would falsely merge distinct
+    // adjacent events for those adapters. runNumber acts as a required
+    // second signal — when an event lacks it, the probe MUST be skipped.
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([]);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_no_runnumber"));
+
+    const result = await processRawEvents("src_baseurl_adapter", [
+      buildRawEvent({
+        date: "2026-05-09",
+        kennelTags: ["TestH3"],
+        sourceUrl: "https://www.bfmh3.com/", // baseUrl reused across events
+        runNumber: undefined,
+      }),
+    ]);
+
+    expect(result.created).toBe(1);
+    // The findFirst correction probe MUST NOT have been called.
+    expect(vi.mocked(prisma.event.findFirst)).not.toHaveBeenCalled();
+  });
+
+  it("does NOT match when runNumber differs (SHITH3-style: distinct events share baseUrl)", async () => {
+    // SHITH3 emits `${BASE_URL}/events.php` as sourceUrl for every event.
+    // A new event with runNumber=43 must not match an existing canonical
+    // with the same baseUrl but runNumber=42, even though everything else
+    // (kennel, ±30d window) lines up. The DB-side runNumber filter
+    // enforces this; we assert that filter is in the WHERE clause so it
+    // can't regress to a sourceUrl-only probe.
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([]);
+    // Mock returns null because the WHERE includes runNumber=43 and no
+    // candidate matches — but the probe MUST have been issued with that
+    // filter for the DB constraint to do its job.
+    vi.mocked(prisma.event.findFirst).mockResolvedValueOnce(null);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_runnumber_distinct"));
+
+    const result = await processRawEvents("src_shith3", [
+      buildRawEvent({
+        date: "2026-05-09",
+        kennelTags: ["TestH3"],
+        sourceUrl: "https://shith3.com/events.php", // shared across events
+        runNumber: 43, // a different run from the canonical at /events.php
+      }),
+    ]);
+
+    expect(result.created).toBe(1);
+    expect(result.updated).toBe(0);
+    const probeCall = vi.mocked(prisma.event.findFirst).mock.calls[0];
+    const probeWhere = (probeCall[0] as { where: { runNumber: number } }).where;
+    expect(probeWhere.runNumber).toBe(43);
+  });
+
+  it("Narwhal-shape: +4d sourceUrl match moves canonical, does not create phantom (#1648)", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([]); // cache prefetch empty
+    mockEventFindMany.mockResolvedValueOnce([]); // old-bucket refetch
+    vi.mocked(prisma.event.findFirst).mockResolvedValueOnce(
+      buildCorrectionCandidate({
+        id: "evt_narwhal_phantom",
+        date: new Date("2023-06-21T12:00:00.000Z"), // Wednesday phantom
+        sourceUrl: "https://www.meetup.com/narwhal-h3/events/293000000",
+        title: "Trail #53 - Spawning Narwhals",
+        runNumber: 53,
+      }),
+    );
+    mockEventUpdate.mockResolvedValueOnce(eventRow("evt_narwhal_phantom"));
+
+    const result = await processRawEvents("src_meetup", [
+      buildRawEvent({
+        date: "2023-06-25", // 4 days later than phantom
+        kennelTags: ["narwhal-h3"],
+        sourceUrl: "https://www.meetup.com/narwhal-h3/events/293000000",
+        runNumber: 53,
+        title: "Trail #53 - Spawning Narwhals",
+      }),
+    ]);
+
+    expect(result.updated).toBe(1);
+    expect(result.created).toBe(0);
+    expect(mockEventCreate).not.toHaveBeenCalled();
+  });
+
+  it("OFH3-shape: year-rollover gap (>30d) does NOT match — leaves the adapter fix to resolve (#1643)", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([]);
+    // Probe returns null because the gap (365d) exceeds the ±30d window
+    // when applied as a DB-level date filter. We assert no correction
+    // happens, even if the mock would otherwise allow it.
+    vi.mocked(prisma.event.findFirst).mockResolvedValueOnce(null);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_new_2025"));
+
+    const result = await processRawEvents("src_ofh3", [
+      buildRawEvent({
+        date: "2025-06-01", // correct year (after adapter fix lands)
+        kennelTags: ["ofh3"],
+        sourceUrl: "https://www.ofh3.com/2025/05/ofh3-trail-387-june-tour-duh-hash-trail.html",
+        runNumber: 387,
+      }),
+    ]);
+
+    expect(result.created).toBe(1);
+    expect(result.updated).toBe(0);
+    // The probe ran — but its result was null, so the regular CREATE path took over.
+    expect(vi.mocked(prisma.event.findFirst)).toHaveBeenCalled();
+  });
+
+  it("does NOT dedup when sourceUrls differ — distinct events stay split", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([]);
+    // Probe finds nothing because sourceUrl is unique per event.
+    vi.mocked(prisma.event.findFirst).mockResolvedValueOnce(null);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_distinct"));
+
+    const result = await processRawEvents("src_a", [
+      buildRawEvent({
+        date: "2026-05-09",
+        kennelTags: ["TestH3"],
+        sourceUrl: "https://example.com/runs/A",
+      }),
+    ]);
+
+    expect(result.created).toBe(1);
+    expect(result.updated).toBe(0);
+  });
+
+  it("does NOT run probe when incoming event has seriesId (multi-day series share parent URLs)", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([]);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_series"));
+
+    const result = await processRawEvents("src_a", [
+      buildRawEvent({
+        date: "2026-05-09",
+        kennelTags: ["TestH3"],
+        sourceUrl: "https://example.com/series/X",
+        seriesId: "series-x",
+      }),
+    ]);
+
+    expect(result.created).toBe(1);
+    // The findFirst correction probe must NOT have been called — the
+    // seriesId guard short-circuits before the DB query.
+    expect(vi.mocked(prisma.event.findFirst)).not.toHaveBeenCalled();
+  });
+
+  it("does NOT dedup when ctx.trustLevel < correction.trustLevel — protects higher-trust canonical", async () => {
+    // Source has trust 3 but the existing canonical was written by trust 9 —
+    // a low-trust re-emission of the high-trust URL with a wrong date must
+    // NOT shift the canonical date. Falls through to current behavior.
+    mockSourceFind.mockResolvedValueOnce(sourceRow({
+      trustLevel: 3,
+      type: "HTML_SCRAPER",
+      kennels: [{ kennelId: "kennel_1" }],
+    }));
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([]);
+    mockEventFindMany.mockResolvedValueOnce([]);
+    vi.mocked(prisma.event.findFirst).mockResolvedValueOnce(
+      buildCorrectionCandidate({ trustLevel: 9 }),
+    );
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_new_phantom"));
+
+    const result = await processRawEvents("src_low_trust", [
+      buildRawEvent({
+        date: "2026-05-09",
+        kennelTags: ["marinh3"],
+        sourceUrl: "https://www.sfh3.com/runs/6443",
+      }),
+    ]);
+
+    // Low-trust source falls through to the regular CREATE path.
+    expect(result.created).toBe(1);
+    expect(result.updated).toBe(0);
+    // Verify no update against the higher-trust canonical's date.
+    const phantomUpdate = mockEventUpdate.mock.calls.find(
+      c => (c[0] as { where: { id: string } }).where.id === "evt_phantom",
+    );
+    expect(phantomUpdate).toBeUndefined();
   });
 });

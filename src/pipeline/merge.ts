@@ -1080,6 +1080,13 @@ async function resolveCoords(
 const FUZZY_WINDOW_MS = 2 * 24 * 60 * 60 * 1000; // ±48h
 const FUZZY_TITLE_DISTANCE = 4;
 const FUZZY_LOCATION_DISTANCE = 8;
+// Same-sourceUrl date-correction window (#1613 / #1648). When an existing
+// canonical Event shares this raw's sourceUrl on a nearby date, the source
+// has corrected the date in place — move the canonical instead of forking
+// a phantom duplicate. Window chosen to cover observed corrections (#1613
+// MarinH3 +14d, #1648 Narwhal +4d) without colliding with annual recurrences
+// (#1643 OFH3 year-rollover is ~365d apart — handled by the adapter fix).
+const SAME_SOURCE_URL_DEDUP_WINDOW_DAYS = 30;
 // 120 min: setup-day vs main-day in #886 diverges by 60 min (14:00 vs 15:00),
 // AM/PM ambiguity can shift 12h but title/location gates catch those, and
 // >2h dayparts are reliably distinct trails worth keeping split.
@@ -1264,6 +1271,67 @@ async function upsertCanonicalEvent(
       sameDayEvents.push(fuzzy);
       crossWindowMatch = true;
       crossWindowOldDate = fuzzy.date;
+    }
+  }
+
+  // Same-sourceUrl date-correction (#1613, #1648). When the incoming row's
+  // sourceUrl already lives on a canonical Event within ±N days for this
+  // kennel, the source has corrected the event's date in place — move the
+  // existing canonical instead of forking a phantom duplicate at the new
+  // date. Reuses the crossWindowMatch plumbing (#990): the higher/equal-trust
+  // update branch physically writes `date: eventDate`, then the abandoned
+  // bucket is recanonicalized at the end of upsertCanonicalEvent.
+  //
+  // **`runNumber` is a required second signal.** Multiple adapters reuse a
+  // single sourceUrl across many events (BFM, OCH3, SHITH3, STATIC_SCHEDULE,
+  // Bangkok, HashPhilly all emit a fixed baseUrl as `sourceUrl`). Probing
+  // by sourceUrl alone would falsely collapse distinct adjacent events for
+  // those adapters (Codex review on PR #1696). All three of the issue cases
+  // (#1613 Marin #291/#292, #1648 Narwhal #53, #1643 OFH3 #387) carry an
+  // explicit runNumber, so requiring it as a co-match preserves coverage
+  // while eliminating the URL-collision false-positive class. Adapters that
+  // don't emit a runNumber give up auto-dedup; they need a manual cleanup
+  // or a per-event sourceUrl emission to opt in.
+  //
+  // Trust gate: only adopt when our trust ≥ the canonical's. A lower-trust
+  // re-emission of a higher-trust canonical's URL with a wrong date must not
+  // move the date — fall through to the regular flow (which would today
+  // create a phantom; preferable to silently shifting a trusted canonical).
+  if (
+    !existingEvent
+    && event.sourceUrl
+    && !event.seriesId
+    && event.runNumber != null
+  ) {
+    const windowMs = SAME_SOURCE_URL_DEDUP_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+    const correction = await prisma.event.findFirst({
+      where: {
+        sourceUrl: event.sourceUrl,
+        eventKennels: { some: { kennelId } },
+        runNumber: event.runNumber,
+        date: {
+          gte: new Date(eventDate.getTime() - windowMs),
+          lte: new Date(eventDate.getTime() + windowMs),
+          not: eventDate,
+        },
+        parentEventId: null,
+        isSeriesParent: false,
+        status: { not: "CANCELLED" },
+      },
+      orderBy: { updatedAt: "desc" },
+      select: EVENT_CACHE_SELECT,
+    });
+    if (correction && ctx.trustLevel >= correction.trustLevel) {
+      console.info(
+        `[merge.date-correction] kennelId=${kennelId} sourceUrl=${event.sourceUrl} ` +
+          `runNumber=${event.runNumber} ` +
+          `oldDate=${correction.date.toISOString()} newDate=${eventDate.toISOString()} ` +
+          `eventId=${correction.id}`,
+      );
+      existingEvent = correction;
+      sameDayEvents.push(correction);
+      crossWindowMatch = true;
+      crossWindowOldDate = correction.date;
     }
   }
 
