@@ -102,4 +102,56 @@ describe("loadEventsForTimeMode kennel-scoping (#1560 PR F)", () => {
     expect(where).toHaveProperty("parentEventId", null);
     expect(where).not.toHaveProperty("OR");
   });
+
+  it("drops children from top-level when their parent is also in the result (avoids double-render)", async () => {
+    // NYCH3 5-Boro case: parent + Sat/Sun children all hosted by NYCH3.
+    // Both surface from the query when kennel-filtered, but children must
+    // not render at the top level when their parent IS in the result —
+    // they already appear in the parent's expanded timeline.
+    const minimalEvent = (id: string, parentId: string | null, isSeriesParent: boolean) => ({
+      id,
+      date: new Date("2026-06-26T12:00:00Z"),
+      dateUtc: new Date("2026-06-26T22:00:00Z"),
+      timezone: "America/New_York",
+      kennelId: "nych3",
+      runNumber: null,
+      title: id,
+      haresText: null,
+      startTime: null,
+      locationName: null,
+      locationCity: null,
+      status: "SCHEDULED",
+      latitude: null,
+      longitude: null,
+      trailLengthText: null,
+      trailLengthMinMiles: null,
+      trailLengthMaxMiles: null,
+      difficulty: null,
+      trailType: null,
+      dogFriendly: null,
+      prelube: null,
+      isSeriesParent,
+      parentEventId: parentId,
+      endDate: null,
+      childEvents: [],
+      kennel: { id: "nych3", shortName: "NYCH3", fullName: "NYC", slug: "nych3", region: "NY", country: "USA" },
+      eventKennels: [],
+    });
+    mockFindMany.mockResolvedValueOnce([
+      minimalEvent("umbrella", null, true),
+      minimalEvent("sat-child", "umbrella", false),
+      minimalEvent("sun-child", "umbrella", false),
+      // Child whose parent is NOT in result (GGFM Friday case viewed from
+      // GGFM's kennel filter). Must NOT be dropped.
+      minimalEvent("ggfm-child", "external-parent", false),
+    ] as never);
+
+    const result = await loadEventsForTimeMode("upcoming", NOW_MS, ["nych3"]);
+
+    const ids = result.map((e) => e.id);
+    expect(ids).toContain("umbrella");
+    expect(ids).toContain("ggfm-child"); // parent NOT in result → kept
+    expect(ids).not.toContain("sat-child"); // parent IS in result → dropped
+    expect(ids).not.toContain("sun-child"); // parent IS in result → dropped
+  });
 });

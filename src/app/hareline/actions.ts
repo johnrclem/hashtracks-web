@@ -173,15 +173,17 @@ const fetchSlimEventsCached = unstable_cache(
     // their parent's expanded timeline. When filtered, swap the exclusion
     // for a kennel OR-match: parents whose own kennel matches AND children
     // whose own kennel matches both surface.
+    //
+    // Destructure `parentEventId` out of `DISPLAY_EVENT_WHERE` and reuse the
+    // remaining visibility predicates verbatim so the two branches can't drift
+    // (mirrors `getEventDetail` below). Gemini PR review #1712.
     const kennelIds = kennelIdsKey ? kennelIdsKey.split(",") : [];
     const dateFilter = isPast ? { lt: tomorrowUtc } : { gte: yesterdayUtc };
+    const { parentEventId: _excluded, ...visibilityWhere } = DISPLAY_EVENT_WHERE;
     const where = kennelIds.length === 0
       ? { ...DISPLAY_EVENT_WHERE, date: dateFilter }
       : {
-          status: { not: "CANCELLED" as const },
-          isManualEntry: { not: true },
-          isCanonical: true,
-          kennel: { isHidden: false },
+          ...visibilityWhere,
           date: dateFilter,
           OR: [
             { kennelId: { in: kennelIds } },
@@ -259,7 +261,22 @@ const fetchSlimEventsCached = unstable_cache(
       ...(isPast ? { take: PAST_EVENTS_LIMIT } : {}),
     });
 
-    return events.map((e) => ({
+    // #1560 PR F — when both a series parent AND its children are returned
+    // (kennel-filtered query where the umbrella's host kennel matches the
+    // filter, e.g. NYCH3 viewing `/hareline?kennels=nych3-id` sees the 5-Boro
+    // umbrella + its Sat/Sun children), drop the children from the top-level
+    // list. They still appear in the parent's expanded timeline via
+    // `childEvents`. Without this dedup, the same trail renders twice on the
+    // same scroll page (Gemini PR #1712 review). When the parent is NOT in
+    // the result (GGFM viewing /hareline?kennels=ggfm-id sees only Friday's
+    // child of the NYCH3-hosted umbrella), the child correctly stays at the
+    // top level since `parentIdsInResult` doesn't contain its parentEventId.
+    const idsInResult = new Set(events.map((e) => e.id));
+    const visibleEvents = events.filter(
+      (e) => !e.parentEventId || !idsInResult.has(e.parentEventId),
+    );
+
+    return visibleEvents.map((e) => ({
       id: e.id,
       date: e.date.toISOString(),
       dateUtc: e.dateUtc ? e.dateUtc.toISOString() : null,

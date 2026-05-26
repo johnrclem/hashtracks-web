@@ -176,7 +176,20 @@ export default async function KennelDetailPage({
   const now = new Date();
   const todayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12, 0, 0);
 
-  const serialized: HarelineEvent[] = events.map((e) => ({
+  // #1560 PR F — when both a series parent AND its children belong to this
+  // kennel (e.g. NYCH3 hosts the 5-Boro umbrella AND its Saturday + Sunday
+  // children), drop the children from the top-level list. They still surface
+  // in the parent's expanded "Weekend at a glance" timeline. Without this
+  // dedup, the Sat/Sun trails would render twice on the same page (Gemini
+  // PR #1712 review). The GGFM case (child whose parent is NOT in this
+  // kennel's events) is unaffected — the child stays as a flat row because
+  // its `parentEventId` isn't in `parentIdsInResult`.
+  const idsInResult = new Set(events.map((e) => e.id));
+  const visibleEvents = events.filter(
+    (e) => !e.parentEventId || !idsInResult.has(e.parentEventId),
+  );
+
+  const serialized: HarelineEvent[] = visibleEvents.map((e) => ({
     id: e.id,
     date: e.date.toISOString(),
     dateUtc: e.dateUtc,
