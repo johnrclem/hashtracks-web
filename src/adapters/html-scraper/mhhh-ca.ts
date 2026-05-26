@@ -24,6 +24,7 @@
  */
 
 import * as cheerio from "cheerio";
+import type { AnyNode } from "domhandler";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import {
@@ -63,11 +64,17 @@ export function parseDateCost(
   if (day < 1 || day > 31) return null;
   const year = dateMatch[3] ? Number.parseInt(dateMatch[3], 10) : undefined;
 
-  // Kennel uses 24h "HHhMM" verbatim; no AM/PM variants observed.
+  // Kennel uses 24h "HHhMM" verbatim; no AM/PM variants observed. Bound-check
+  // hour/minute so a malformed cell like "25h99" doesn't poison startTime.
   const timeMatch = /\b(\d{1,2})h(\d{2})\b/.exec(cleaned);
-  const time = timeMatch
-    ? `${timeMatch[1].padStart(2, "0")}:${timeMatch[2]}`
-    : undefined;
+  let time: string | undefined;
+  if (timeMatch) {
+    const hh = Number.parseInt(timeMatch[1], 10);
+    const mm = Number.parseInt(timeMatch[2], 10);
+    if (hh >= 0 && hh <= 23 && mm >= 0 && mm <= 59) {
+      time = `${String(hh).padStart(2, "0")}:${timeMatch[2]}`;
+    }
+  }
 
   const cost = /\$\d+(?:\.\d{2})?/.exec(cleaned)?.[0];
 
@@ -84,6 +91,79 @@ interface ParsedRun {
   hares?: string;
   location?: string;
   locationUrl?: string;
+}
+
+/** "Show May 2026 Hide" / "May 2026" → { month: 5, year: 2026 } or null. */
+function parseMonthHeader(rawText: string): { month: number; year: number } | null {
+  // Strip optional Show/Hide toggle wrapper procedurally (Sonar S5852 dodge).
+  let text = rawText;
+  if (text.startsWith("Show ")) text = text.slice(5).trimStart();
+  if (text.endsWith(" Hide")) text = text.slice(0, -5).trimEnd();
+  const match = MONTH_HEADER_RE.exec(text);
+  if (!match) return null;
+  const month = MONTHS[match[1].toLowerCase()];
+  if (month === undefined) return null;
+  return { month, year: Number.parseInt(match[2], 10) };
+}
+
+/** Pull label + value cells from a row (always columns 2 and 3 of the table). */
+function extractRowCells(
+  $: cheerio.CheerioAPI,
+  $tr: cheerio.Cheerio<AnyNode>,
+): { labelText: string; valueText: string; valueCell: cheerio.Cheerio<AnyNode> | null } | null {
+  const tds = $tr.find("td");
+  if (tds.length < 2) return null;
+  const labelText = decodeEntities($(tds[1]).text()).replace(/\s+/g, " ").trim();
+  const valueCell = tds.length >= 3 ? $(tds[2]) : null;
+  const valueText = valueCell
+    ? decodeEntities(valueCell.text()).replace(/\s+/g, " ").trim()
+    : "";
+  return { labelText, valueText, valueCell };
+}
+
+/** Extract the neighborhood text from a "Location:" cell, stripping the directions link. */
+function extractLocation(
+  valueText: string,
+  valueCell: cheerio.Cheerio<AnyNode> | null,
+): { neighborhood: string | undefined; href: string | undefined } {
+  const link = valueCell?.find("a").first();
+  const linkText = link ? decodeEntities(link.text()).trim() : "";
+  const neighborhood = (linkText
+    ? valueText.replace(linkText, "")
+    : valueText.replace(/\bClick for directions\b.*$/i, "")
+  ).trim();
+  return { neighborhood: neighborhood || undefined, href: link?.attr("href") };
+}
+
+/** Push the in-progress block into `runs` if every required field is set. */
+function finalizeRun(current: Partial<ParsedRun>, runs: ParsedRun[]): void {
+  if (
+    current.runNumber !== undefined &&
+    current.day !== undefined &&
+    current.month !== undefined &&
+    current.year !== undefined
+  ) {
+    runs.push(current as ParsedRun);
+  }
+}
+
+/** Apply a parsed Date/Cost value to the in-progress block. */
+function applyDateCost(
+  current: Partial<ParsedRun>,
+  valueText: string,
+  activeMonth: number | undefined,
+  activeYear: number | undefined,
+): void {
+  const dc = parseDateCost(valueText);
+  if (!dc) return;
+  const month = dc.month ?? activeMonth;
+  const year = dc.year ?? activeYear;
+  if (month === undefined || year === undefined) return;
+  current.day = dc.day;
+  current.month = month;
+  current.year = year;
+  current.startTime = dc.time;
+  current.cost = dc.cost;
 }
 
 /**
@@ -107,81 +187,34 @@ export function parseMhhhHomepage(html: string): ParsedRun[] {
     const rawText = decodeEntities($tr.text()).replace(/\s+/g, " ").trim();
     if (!rawText) return;
 
-    // Month header — e.g. "Show May 2026 Hide " or "May 2026". Strip the
-    // optional Show/Hide toggle wrapper procedurally; a single regex with
-    // alternation + `\s*$` trips Sonar S5852 even though it's linear here.
-    let headerText = rawText;
-    if (headerText.startsWith("Show ")) headerText = headerText.slice(5).trimStart();
-    if (headerText.endsWith(" Hide")) headerText = headerText.slice(0, -5).trimEnd();
-    const monthHeader = MONTH_HEADER_RE.exec(headerText);
+    const monthHeader = parseMonthHeader(rawText);
     if (monthHeader) {
-      const month = MONTHS[monthHeader[1].toLowerCase()];
-      if (month !== undefined) {
-        activeMonth = month;
-        activeYear = Number.parseInt(monthHeader[2], 10);
-      }
+      activeMonth = monthHeader.month;
+      activeYear = monthHeader.year;
       return;
     }
 
-    // Pull all <td> cells of this row
-    const tds = $tr.find("td");
-    if (tds.length < 2) return;
-
-    // The label-bearing cell is always the 2nd td (index 1) in the homepage
-    // table — the first td is a 142px spacer. Reading it directly keeps the
-    // parser tight and dodges the run-into-month-header false positives we'd
-    // hit with full-row text matching.
-    const labelCell = $(tds[1]);
-    const labelText = decodeEntities(labelCell.text()).replace(/\s+/g, " ").trim();
-    const valueCell = tds.length >= 3 ? $(tds[2]) : null;
-    const valueText = valueCell
-      ? decodeEntities(valueCell.text()).replace(/\s+/g, " ").trim()
-      : "";
+    const cells = extractRowCells($, $tr);
+    if (!cells) return;
+    const { labelText, valueText, valueCell } = cells;
 
     const runNumberFromLabel = extractHashRunNumber(labelText);
     if (runNumberFromLabel !== undefined) {
       current = { runNumber: runNumberFromLabel };
       return;
     }
-
-    if (!current) return; // ignore stray rows outside a block
+    if (!current) return;
 
     if (/^Date\/Cost:/i.test(labelText)) {
-      const dc = parseDateCost(valueText);
-      if (dc) {
-        const month = dc.month ?? activeMonth;
-        const year = dc.year ?? activeYear;
-        if (month !== undefined && year !== undefined) {
-          current.day = dc.day;
-          current.month = month;
-          current.year = year;
-          current.startTime = dc.time;
-          current.cost = dc.cost;
-        }
-      }
+      applyDateCost(current, valueText, activeMonth, activeYear);
     } else if (/^Hare\(s\):/i.test(labelText)) {
       current.hares = valueText || undefined;
     } else if (/^Location:/i.test(labelText)) {
-      // Neighborhood text comes before the "Click for directions" link. Strip
-      // the link text (or its boilerplate variant) off the end and keep what's left.
-      const link = valueCell?.find("a").first();
-      const linkText = link ? decodeEntities(link.text()).trim() : "";
-      const neighborhood = (linkText
-        ? valueText.replace(linkText, "")
-        : valueText.replace(/\bClick for directions\b.*$/i, "")
-      ).trim();
-      current.location = neighborhood || undefined;
-      const href = link?.attr("href");
+      const { neighborhood, href } = extractLocation(valueText, valueCell);
+      current.location = neighborhood;
       if (href) current.locationUrl = href;
       // Location row terminates a run block in MH3's table.
-      if (
-        current.runNumber !== undefined &&
-        current.day !== undefined &&
-        current.month !== undefined &&
-        current.year !== undefined
-      ) {
-        runs.push(current as ParsedRun);
-      }
+      finalizeRun(current, runs);
       current = null;
     }
   });

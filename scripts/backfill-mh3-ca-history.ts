@@ -115,129 +115,164 @@ export function parseYearIndex(html: string, year: number): IndexRow[] {
   return rows;
 }
 
-/** Parse a detail page to upgrade date precision and pick up hares. */
-export function parseDetailPage(html: string): {
+interface DetailParse {
   day?: number;
   month?: number;
   year?: number;
   hares?: string;
   startTime?: string;
   scribe?: string;
-} {
+}
+
+const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+
+/** "Date: Sunday, July 6th, 2008 @ 1:00PM" → { day, month, year, startTime? }. */
+export function parseDetailDate(text: string): Pick<DetailParse, "day" | "month" | "year" | "startTime"> | null {
+  // Strip the weekday prefix procedurally (Sonar S5843 dodge — a single regex
+  // with 7-way weekday alternation + month + day + year + optional time blew
+  // past the complexity cap of 20).
+  const idx = text.search(/\bDate:/i);
+  if (idx < 0) return null;
+  let body = text.slice(idx + "Date:".length).trimStart();
+  for (const wd of WEEKDAYS) {
+    if (body.toLowerCase().startsWith(wd)) {
+      body = body.slice(wd.length);
+      if (body.startsWith(",")) body = body.slice(1);
+      body = body.trimStart();
+      break;
+    }
+  }
+  const dateMatch = /^([A-Za-z]+)\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})(?:\s*@\s*(\d{1,2}):(\d{2})\s*(AM|PM))?/i.exec(body);
+  if (!dateMatch) return null;
+  const month = MONTHS[dateMatch[1].toLowerCase()];
+  if (month === undefined) return null;
+  const day = Number.parseInt(dateMatch[2], 10);
+  const year = Number.parseInt(dateMatch[3], 10);
+  let startTime: string | undefined;
+  if (dateMatch[4] && dateMatch[5] && dateMatch[6]) {
+    let hours = Number.parseInt(dateMatch[4], 10);
+    const minutes = dateMatch[5];
+    const ampm = dateMatch[6].toUpperCase();
+    if (ampm === "PM" && hours !== 12) hours += 12;
+    if (ampm === "AM" && hours === 12) hours = 0;
+    startTime = `${String(hours).padStart(2, "0")}:${minutes}`;
+  }
+  return { day, month, year, startTime };
+}
+
+/** "Hares: Yogi, Little Big Man, Anon" → "Anon, Little Big Man, Yogi" (sorted). */
+export function parseDetailHares(text: string): string | undefined {
+  const match = /\bHares?:\s*(.+)/i.exec(text);
+  if (!match) return undefined;
+  let raw = match[1];
+  for (const stop of ["(", "Location:", "Trail", "\n"]) {
+    const i = raw.indexOf(stop);
+    if (i >= 0) raw = raw.slice(0, i);
+  }
+  const cleaned = raw.replace(/\s+/g, " ").trim();
+  if (!cleaned || cleaned.length >= 200) return undefined;
+  // Sort multi-value joined fields for stable fingerprints (memory).
+  const list = cleaned.split(",").map((s) => s.trim()).filter(Boolean);
+  list.sort((a, b) => a.localeCompare(b));
+  return list.join(", ");
+}
+
+/** Parse a detail page to upgrade date precision and pick up hares/scribe. */
+export function parseDetailPage(html: string): DetailParse {
   const $ = cheerio.load(html);
   const text = decodeEntities($("body").text()).replace(/\s+/g, " ").trim();
-
-  const out: { day?: number; month?: number; year?: number; hares?: string; startTime?: string; scribe?: string } = {};
-
-  // "Date: Sunday, July 6th, 2008 @ 1:00PM"
-  const dateMatch = /Date:\s*(?:Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday),?\s*([A-Z][a-z]+)\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})(?:\s*@\s*(\d{1,2}):(\d{2})\s*(AM|PM))?/i.exec(text);
-  if (dateMatch) {
-    const monthName = dateMatch[1];
-    out.month = MONTHS[monthName.toLowerCase()];
-    out.day = Number.parseInt(dateMatch[2], 10);
-    out.year = Number.parseInt(dateMatch[3], 10);
-    if (dateMatch[4] && dateMatch[5] && dateMatch[6]) {
-      let hours = Number.parseInt(dateMatch[4], 10);
-      const minutes = dateMatch[5];
-      const ampm = dateMatch[6].toUpperCase();
-      if (ampm === "PM" && hours !== 12) hours += 12;
-      if (ampm === "AM" && hours === 12) hours = 0;
-      out.startTime = `${String(hours).padStart(2, "0")}:${minutes}`;
-    }
-  }
-
-  // "Hares: Yogi, Little Big Man, Anon" — single-line capture, then trim at
-  // the first downstream label / paren. Procedural slice avoids the lazy +
-  // alternation shape that trips Sonar S5852 even though it's linear here.
-  const haresMatch = /\bHares?:\s*(.+)/i.exec(text);
-  if (haresMatch) {
-    let raw = haresMatch[1];
-    for (const stop of ["(", "Location:", "Trail", "\n"]) {
-      const i = raw.indexOf(stop);
-      if (i >= 0) raw = raw.slice(0, i);
-    }
-    const haresRaw = raw.replace(/\s+/g, " ").trim();
-    if (haresRaw && haresRaw.length < 200) {
-      // Sort multi-value joined fields for stable fingerprints (memory).
-      const list = haresRaw.split(",").map((s) => s.trim()).filter(Boolean);
-      list.sort((a, b) => a.localeCompare(b));
-      out.hares = list.join(", ");
-    }
-  }
-
-  // "written by Clit On"
+  const out: DetailParse = {};
+  const date = parseDetailDate(text);
+  if (date) Object.assign(out, date);
+  out.hares = parseDetailHares(text);
   const scribeMatch = /written by\s+([A-Z][^\n.(]{1,40})/i.exec(text);
-  if (scribeMatch) {
-    out.scribe = scribeMatch[1].trim();
-  }
-
+  if (scribeMatch) out.scribe = scribeMatch[1].trim();
   return out;
 }
 
 const pad2 = (n: number): string => String(n).padStart(2, "0");
 
+/** Merge detail-page enrichment over the index-row baseline. */
+function mergeDetail(row: IndexRow, detail: DetailParse | null): {
+  day?: number;
+  month: number;
+  year: number;
+  hares?: string;
+  startTime?: string;
+  scribe?: string;
+} {
+  const hasDetailDate = !!(detail?.day && detail?.month && detail?.year);
+  return {
+    day: hasDetailDate ? detail!.day : undefined,
+    month: hasDetailDate ? detail!.month! : row.month,
+    year: hasDetailDate ? detail!.year! : row.year,
+    hares: detail?.hares,
+    startTime: detail?.startTime,
+    scribe: detail?.scribe ?? row.scribe,
+  };
+}
+
+/** Build the RawEventData for one index row (with optional detail-page enrichment). */
+function buildBackfillEvent(
+  row: IndexRow,
+  detail: DetailParse | null,
+  year: number,
+  indexUrl: string,
+): RawEventData {
+  const merged = mergeDetail(row, detail);
+  // Same-day merge disambiguation in `src/pipeline/merge.ts`
+  // (`sameDayEvents.length > 1`) matches by sourceUrl BEFORE runNumber, so
+  // every month-precision row must carry a unique sourceUrl or sibling rows
+  // would collapse onto the first. The `#run-NNN` anchor keeps each row
+  // provenance-distinct while still pointing back to the archive.
+  const date = `${merged.year}-${pad2(merged.month)}-${pad2(merged.day ?? 1)}`;
+  const sourceUrl = row.detailPath
+    ? `${ARCHIVE_BASE}/${year}/${row.detailPath}`
+    : `${indexUrl}#run-${row.runNumber}`;
+  const descParts: string[] = [];
+  if (merged.scribe) descParts.push(`Trash written by ${merged.scribe}.`);
+  if (!merged.day) descParts.push("Day-precision unavailable; date approximated to first of month.");
+  return {
+    date,
+    kennelTags: [KENNEL_TAG],
+    runNumber: row.runNumber,
+    hares: merged.hares,
+    location: row.location,
+    startTime: merged.startTime,
+    sourceUrl,
+    description: descParts.length > 0 ? descParts.join(" ") : undefined,
+  };
+}
+
+/** Fetch + parse one year's index page and its detail pages. */
+async function fetchYearEvents(year: number): Promise<RawEventData[]> {
+  const indexUrl = `${ARCHIVE_BASE}/${year}/index.html`;
+  process.stdout.write(`  ${year}: `);
+  const indexHtml = await fetchText(indexUrl);
+  if (indexHtml === null) {
+    console.log("fetch failed");
+    return [];
+  }
+  const rows = parseYearIndex(indexHtml, year);
+  console.log(`${rows.length} rows`);
+
+  const events: RawEventData[] = [];
+  for (const row of rows) {
+    let detail: DetailParse | null = null;
+    if (row.detailPath) {
+      await new Promise((r) => setTimeout(r, FETCH_DELAY_MS));
+      const detailHtml = await fetchText(`${ARCHIVE_BASE}/${year}/${row.detailPath}`);
+      if (detailHtml) detail = parseDetailPage(detailHtml);
+    }
+    events.push(buildBackfillEvent(row, detail, year, indexUrl));
+  }
+  return events;
+}
+
 async function fetchEvents(): Promise<RawEventData[]> {
   const all: RawEventData[] = [];
   for (const year of YEARS) {
-    const indexUrl = `${ARCHIVE_BASE}/${year}/index.html`;
-    process.stdout.write(`  ${year}: `);
-    const indexHtml = await fetchText(indexUrl);
-    if (indexHtml === null) {
-      console.log("fetch failed");
-      continue;
-    }
-    const rows = parseYearIndex(indexHtml, year);
-    console.log(`${rows.length} rows`);
-
-    for (const row of rows) {
-      let day: number | undefined;
-      let month = row.month;
-      let detailYear = row.year;
-      let hares: string | undefined;
-      let startTime: string | undefined;
-      let scribe = row.scribe;
-
-      if (row.detailPath) {
-        await new Promise((r) => setTimeout(r, FETCH_DELAY_MS));
-        const detailHtml = await fetchText(`${ARCHIVE_BASE}/${year}/${row.detailPath}`);
-        if (detailHtml) {
-          const parsed = parseDetailPage(detailHtml);
-          if (parsed.day && parsed.month && parsed.year) {
-            day = parsed.day;
-            month = parsed.month;
-            detailYear = parsed.year;
-          }
-          if (parsed.hares) hares = parsed.hares;
-          if (parsed.startTime) startTime = parsed.startTime;
-          if (parsed.scribe) scribe = parsed.scribe;
-        }
-      }
-
-      // Same-day merge disambiguation in `src/pipeline/merge.ts`
-      // (`sameDayEvents.length > 1`) matches by sourceUrl BEFORE runNumber, so
-      // every month-precision row must carry a unique sourceUrl or sibling
-      // rows would collapse onto the first. The `#run-NNN` anchor keeps each
-      // row provenance-distinct while still pointing back to the archive.
-      const date = `${detailYear}-${pad2(month)}-${pad2(day ?? 1)}`;
-      const sourceUrl = row.detailPath
-        ? `${ARCHIVE_BASE}/${year}/${row.detailPath}`
-        : `${indexUrl}#run-${row.runNumber}`;
-
-      const descParts: string[] = [];
-      if (scribe) descParts.push(`Trash written by ${scribe}.`);
-      if (!day) descParts.push("Day-precision unavailable; date approximated to first of month.");
-
-      all.push({
-        date,
-        kennelTags: [KENNEL_TAG],
-        runNumber: row.runNumber,
-        hares,
-        location: row.location,
-        startTime,
-        sourceUrl,
-        description: descParts.length > 0 ? descParts.join(" ") : undefined,
-      });
-    }
+    all.push(...(await fetchYearEvents(year)));
   }
   return all;
 }
