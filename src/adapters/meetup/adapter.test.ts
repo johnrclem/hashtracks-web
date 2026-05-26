@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { MeetupAdapter, extractApolloEvents, resolveVenue, isNumericId, dedupByDate, stripTrailingState, deduplicateWords, isStateFullName, buildRawEventFromApollo, extractHaresFromMeetupDescription, cleanMeetupTitle } from "./adapter";
+import { MeetupAdapter, extractApolloEvents, resolveVenue, isNumericId, dedupByDate, stripTrailingState, deduplicateWords, isStateFullName, buildRawEventFromApollo, extractHaresFromMeetupDescription, cleanMeetupTitle, cleanMeetupDescription } from "./adapter";
 import type { Source } from "@/generated/prisma/client";
 
 vi.mock("../safe-fetch", () => ({
@@ -314,6 +314,34 @@ describe("resolveVenue — name cleanup integration", () => {
     // "California" is a city in Missouri — should not be suppressed just because it's also a state name
     const result = resolveVenue({}, { name: "Some Bar", city: "California", state: "MO" });
     expect(result.location).toBe("Some Bar, California, MO");
+  });
+});
+
+describe("cleanMeetupDescription — #1659 hex placeholder filter", () => {
+  it.each([
+    ["$44", undefined],
+    ["$3f", undefined],
+    ["$FF", undefined],
+    ["$00", undefined],
+    ["  $43  ", undefined], // whitespace tolerated
+    ["<p>$42</p>", undefined], // HTML-wrapped placeholder
+  ])("drops placeholder-token %p", (input, expected) => {
+    expect(cleanMeetupDescription(input)).toBe(expected);
+  });
+
+  it.each([
+    "Trail #42 — meet at the pub. Cost: $13 cash.",
+    "**Structure**\n\nThis event will be a run/walk, followed by a social gathering.",
+    "$13 hash cash includes food and beer",
+    "Run 1683 — meet at the bar",
+  ])("preserves prose %p", (input) => {
+    expect(cleanMeetupDescription(input)).toContain(input.slice(0, 10));
+  });
+
+  it("returns undefined for empty / whitespace-only input", () => {
+    expect(cleanMeetupDescription(undefined)).toBeUndefined();
+    expect(cleanMeetupDescription("")).toBeUndefined();
+    expect(cleanMeetupDescription("   ")).toBeUndefined();
   });
 });
 

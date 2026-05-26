@@ -265,10 +265,26 @@ export function resolveVenue(
   };
 }
 
+/**
+ * Placeholder-token shape that Meetup occasionally surfaces in `description`
+ * instead of real prose. Observed on MH3 Montreal (#1659): six consecutive
+ * runs (#1683-#1688) each carried a single `$XX` hex token with no other
+ * content, satisfying `runNumber + parseInt(hex, 16) === 1751`. The current
+ * Meetup payload no longer reproduces it, but the stored shape is real and
+ * the live source is opaque — drop it defensively at ingest so the same
+ * shape can't slip through again on any Meetup kennel. A bare `$` followed
+ * only by hex is never a meaningful trail description; a real description
+ * starting with `$` (e.g. "$13 cash") has trailing prose and survives.
+ */
+const MEETUP_PLACEHOLDER_TOKEN_RE = /^\$[0-9a-f]+$/i;
+
 /** Strip HTML tags from Meetup description and truncate. */
-function cleanMeetupDescription(desc: string | undefined): string | undefined {
+export function cleanMeetupDescription(desc: string | undefined): string | undefined {
   if (!desc) return undefined;
-  return stripHtmlTags(desc).slice(0, 2000) || undefined;
+  const stripped = stripHtmlTags(desc).slice(0, 2000);
+  if (!stripped) return undefined;
+  if (MEETUP_PLACEHOLDER_TOKEN_RE.test(stripped.trim())) return undefined;
+  return stripped;
 }
 
 /**

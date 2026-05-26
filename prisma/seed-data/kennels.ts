@@ -2897,10 +2897,12 @@ export const KENNELS: KennelSeed[] = [
     // ── Canada: Quebec — Montreal ──
     {
       kennelCode: "mh3-ca", shortName: "MH3", fullName: "Montreal Hash House Harriers", region: "Montreal, QC", country: "Canada",
-      website: "https://www.mhhh.ca",
+      website: "https://mhhh.ca",
+      contactEmail: "montrealhhh@gmail.com",
       scheduleDayOfWeek: "Sunday", scheduleTime: "1:00 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Weekly Sunday 1pm runs, plus occasional Saturday or weeknight trails.",
       foundedYear: 1995,
-      description: "Montreal's weekly Sunday hash since 1995.",
+      description: "Montreal's hash since 1995 — Sunday trails go off every week rain or shine, with the odd Saturday or weeknight bonus run. Hash cash is $13 and covers food and beer. Casual, easygoing vibe; virgins welcome.",
       latitude: 45.50, longitude: -73.57,
     },
 

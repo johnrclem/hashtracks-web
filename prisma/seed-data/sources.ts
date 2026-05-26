@@ -3909,6 +3909,22 @@ export const SOURCES = [
       },
       kennelCodes: ["mh3-ca"],
     },
+    // mhhh.ca homepage carries the neighborhood + per-event hares that the
+    // Meetup listing usually leaves as "Location not specified yet" (#1660).
+    // Higher trustLevel than the Meetup source so the website wins those
+    // fields when both feed the same (kennel, date) row in the merge pipeline.
+    {
+      name: "Montreal H3 Website",
+      url: "https://mhhh.ca/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 60,
+      config: {
+        kennelTag: "mh3-ca",
+      },
+      kennelCodes: ["mh3-ca"],
+    },
     // --- Toronto ---
     {
       name: "Hogtown H3 Meetup",
