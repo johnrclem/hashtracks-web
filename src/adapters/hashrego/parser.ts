@@ -715,10 +715,19 @@ function extractFirstTimeFromSlice(slice: string): string | undefined {
  * The caller then falls back to the legacy `"${title} (Day N)"` form.
  */
 function extractSectionTitle(slice: string): string | undefined {
-  // Strip leading whitespace + a possible leading delimiter that the header
-  // regex's `[-—:]` already captured but might have an adjacent dup-char
-  // (defensive: harmless to skip another leading dash here).
-  const trimmed = slice.replace(/^\s+/, "");
+  // Strip leading whitespace + a leading delimiter (em-dash, en-dash,
+  // hyphen, colon) before extracting the title text.
+  //
+  // The asymmetry matters: `WEEKDAY_HEADER_RE` ends with `\s*[-—:]` so the
+  // delimiter is already CONSUMED by the time we see the slice. But
+  // `DAY_NUMBER_HEADER_RE` ends at `\b` after the day digit, so the slice
+  // for `**DAY 1 6/26 — Friday Kickoff**` starts at ` — Friday…`. Without
+  // an explicit leading-delimiter strip, the title would land as
+  // "— Friday Kickoff" (CodeRabbit PR #1697 review).
+  const trimmed = slice
+    .replace(/^\s+/, "")
+    .replace(/^[-—–:]+/, "")
+    .replace(/^\s+/, "");
   // Take up to the first closing `**` (markdown bold) or newline, whichever
   // comes first. We deliberately use indexOf for `**` rather than a regex
   // character class — Gemini PR #1697 caught that `/[*\n]/` would match a

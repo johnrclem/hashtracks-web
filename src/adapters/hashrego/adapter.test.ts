@@ -1423,6 +1423,32 @@ describe("parseDayHeaderSections", () => {
       expect(entries[0].sectionTitle).toBe("Strawberry Moon Trail");
       expect(entries[1].sectionTitle).toBe("Pub Crawl!");
     });
+
+    // CodeRabbit PR #1697 review — DAY_NUMBER_HEADER_RE ends at `\b` after
+    // the day digit and does NOT consume the trailing `—` delimiter (unlike
+    // WEEKDAY_HEADER_RE which explicitly eats `\s*[-—:]`). The slice handed
+    // to `extractSectionTitle` for `**DAY 1 6/26 — Friday Kickoff**` starts
+    // at ` — Friday Kickoff**`, so the helper must strip the leading
+    // delimiter or the title lands as "— Friday Kickoff".
+    it("strips leading delimiter on Day-form headers (asymmetry with WEEKDAY-form)", () => {
+      const desc =
+        "**DAY 1 6/26 — Friday Kickoff**\n" +
+        "**DAY 2 6/27 — Saturday Main**";
+      const entries = parseDayHeaderSections(desc, "2026-06-26");
+      expect(entries[0].sectionTitle).toBe("Friday Kickoff");
+      expect(entries[1].sectionTitle).toBe("Saturday Main");
+    });
+
+    it("strips multiple leading delimiter chars + whitespace combos", () => {
+      // Defensive: a typo'd `— — title` or `:– title` should still produce
+      // a clean title rather than carrying delimiter cruft.
+      const desc =
+        "**DAY 1 6/26 —— Double Dash**\n" +
+        "**DAY 2 6/27 :– Mixed Delim**";
+      const entries = parseDayHeaderSections(desc, "2026-06-26");
+      expect(entries[0].sectionTitle).toBe("Double Dash");
+      expect(entries[1].sectionTitle).toBe("Mixed Delim");
+    });
   });
 
   // ── PR E.2 — Kennel-prefix stripping ──
