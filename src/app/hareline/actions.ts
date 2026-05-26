@@ -370,8 +370,9 @@ export async function loadEventsForTimeMode(
   // - Cap at MAX_KENNEL_FILTER_IDS to bound cache cardinality + Prisma `IN`
   //   list size against pathological inputs (CodeRabbit PR #1712 review)
   // - Sort with `localeCompare` so [a,b] and [b,a] hit the same cache entry
-  //   (Sonar S2871). Empty string when no filter — preserves existing
-  //   unfiltered cache entries post-deploy.
+  //   (Sonar S2871). Empty string when no filter — a distinct cache entry
+  //   from any kennel-filtered key (the 3-arg signature is new in PR F, so
+  //   the unfiltered path cold-starts once on deploy regardless).
   const normalizedKennelIds = Array.from(
     new Set((kennelIds ?? []).map((id) => id.trim()).filter(Boolean)),
   ).slice(0, MAX_KENNEL_FILTER_IDS);
