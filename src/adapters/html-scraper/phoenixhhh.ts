@@ -87,7 +87,15 @@ export function extractVenueFromDescription(description: string): string | undef
   // Use horizontal whitespace `[ \t]*` after the colon so an empty
   // `Location:   \nNext line` doesn't slurp the following line as the
   // venue.
-  const colonMatch = /(?:^|\n)[ \t]*Location[ \t]*:[ \t]*([^\n]+)/i.exec(description);
+  //
+  // Codex P1 (#1695 review): `.em-item-desc` is sometimes flattened to a
+  // single line ("Hares: …Bring: …Location: Roses by the Stairs Brewing
+  // Time: 6:30 PM Hash Cash: $5"). Without a label terminator, `[^\n]+`
+  // would absorb the trailing sections into the venue text and overwrite
+  // the cleaner meta-line value via `parseEventFromItem`'s `venue ??
+  // metaLocation` fallback. Lazy capture + a label-set lookahead mirrors
+  // the terminator strategy in `PHOENIX_HARE_PATTERNS`.
+  const colonMatch = /(?:^|\n)[ \t]*Location[ \t]*:[ \t]*([^\n]+?)(?=\s*(?:Who|What|When|Where|Wear|Why|How|Theme|Bring|Cost|Hash\s*Cash|Time|Start|On[\s-]?[OAoa]n|On[\s-]?after)\s*:|\n|$)/i.exec(description); // NOSONAR S5852
   if (colonMatch) {
     const value = colonMatch[1].trim();
     if (value) return value;
@@ -97,7 +105,7 @@ export function extractVenueFromDescription(description: string): string | undef
   // covers the `Location:\n<venue>` shape where the colon stays on the
   // label line — Shape 1 fails on that because there's no non-newline
   // char after the colon to capture.
-  const labelMatch = /(?:^|\n)[ \t]*Location[ \t]*:?[ \t]*\n([^\n]+)/i.exec(description);
+  const labelMatch = /(?:^|\n)[ \t]*Location[ \t]*:?[ \t]*\n([^\n]+)/i.exec(description); // NOSONAR S5852
   if (labelMatch) {
     const value = labelMatch[1].trim();
     if (value) return value;

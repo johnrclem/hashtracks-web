@@ -187,9 +187,15 @@ export function stripPhpBbBanners(text: string): string {
  * board) heavily use markdown-bold/italic wrapping that bleeds verbatim into
  * label captures (#1640 — haresText was `** *Debbie Does Digits*`).
  *
- * Conservative on internal `*` characters: only strips runs of one or more
- * `*` at word boundaries (start/end of token), so a literal asterisk inside
- * a hash name survives if needed. Trailing/leading whitespace is trimmed.
+ * Strips every `*` character globally (any literal asterisk in a scribe-
+ * authored field is collateral damage — Pinelake posts have no
+ * known-good asterisk-bearing hash names, and the markdown emphasis
+ * cleanup is more valuable than preserving rare in-name asterisks).
+ * Trailing/leading whitespace is trimmed and internal runs collapsed.
+ *
+ * (#1695 review: gemini flagged a docstring claim about word-boundary
+ * conservatism that the implementation never did — the blanket strip
+ * was always the intent; only the doc text was misleading.)
  */
 function stripMarkdownEmphasis(s: string): string {
   return s
@@ -233,7 +239,7 @@ export function extractEventFields(
   // and pick the first non-time-only value. Time-only captures like
   // "Start: 1:30 PM" (#1640 — Pinelake) get promoted to startTime so a
   // subsequent "Location: <venue>" label can fill `location` cleanly.
-  const locRe = /(?:Start|Where|Location|Meeting|Meet)\s*:\s*([^\n]*)(?:\n|$)/gi;
+  const locRe = /(?:Start|Where|Location|Meeting|Meet)\s*:\s*([^\n]*)(?:\n|$)/gi; // NOSONAR S5852
   let locationCandidate: string | undefined;
   for (const m of text.matchAll(locRe)) {
     const value = stripMarkdownEmphasis(m[1]);

@@ -415,6 +415,26 @@ describe("extractVenueFromDescription (#1651)", () => {
     expect(extractVenueFromDescription("Hares: Foo\nLocation:")).toBeUndefined();
     expect(extractVenueFromDescription("Hares: Foo\nLocation: ")).toBeUndefined();
   });
+
+  it("stops at next labeled section when trailing labels share the Location line (#1695 codex P1)", () => {
+    // Codex P1 on PR #1695: when a scribe packs trailing sections onto
+    // the same line as `Location:` (common when the prelude is `<p>`-
+    // separated but the venue line concatenates `Location: X Time: Y
+    // Hash Cash: Z`), the pre-fix `[^\n]+` capture absorbed the rest.
+    // `parseEventFromItem` prefers `venue ?? metaLocation`, so the
+    // polluted string overwrote the cleaner meta-line location value.
+    expect(
+      extractVenueFromDescription(
+        "Hares: Probably you!\nBring: H20\nLocation: Roses by the Stairs Brewing Time: 6:30 PM Hash Cash: $5",
+      ),
+    ).toBe("Roses by the Stairs Brewing");
+  });
+
+  it("stops at end-of-string when no terminator label follows (single-line)", () => {
+    expect(extractVenueFromDescription("Location: Roses by the Stairs Brewing")).toBe(
+      "Roses by the Stairs Brewing",
+    );
+  });
 });
 
 describe("parseEventFromItem — prefers description venue over city meta (#1651)", () => {
