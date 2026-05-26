@@ -49,7 +49,7 @@ describe("parseLswRow", () => {
     // (event themes, district hints, etc.) — never write it to `location`.
     expect(result!.location).toBeUndefined();
     expect(result!.description).toBe("Chai Wan");
-    expect(result!.startTime).toBe("18:30");
+    expect(result!.startTime).toBe("19:00");
     expect(result!.sourceUrl).toBe(sourceUrl);
   });
 

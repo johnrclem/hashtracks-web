@@ -4,7 +4,10 @@ import { hasAnyErrors } from "../types";
 import { fetchHTMLPage, applyDateWindow, isPlaceholder } from "../utils";
 
 const KENNEL_TAG = "lsw-h3";
-const DEFAULT_START_TIME = "18:30"; // Wednesdays in HK, typical evening start
+// Source /info.htm: "Meets every Wednesday. Start 6:45 for 7pm." 19:00 is
+// the actual run start; the 6:45 meet time lives in kennel.scheduleNotes
+// rather than being asserted per-event.
+const DEFAULT_START_TIME = "19:00";
 
 /** Month abbreviation → 1-based month number lookup. */
 const MONTH_NAMES: Record<string, number> = {
