@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { getWeatherForEvents } from "@/lib/weather";
 import { getOrCreateUser } from "@/lib/auth";
 import { regionAbbrev } from "@/lib/region";
+import { parseList } from "@/lib/format";
 import { HarelineView } from "@/components/hareline/HarelineView";
 import HarelineLoading from "./loading";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -43,13 +44,18 @@ export default async function HarelinePage({
   // stayed client-side and series children (excluded from the default
   // unfiltered payload) never reached the client — GGFM Friday
   // Strawberry Moon went missing from /hareline?kennels=<ggfm-id>.
-  // Accepts both `?kennels=a,b` and `?kennels=a&kennels=b`.
+  //
+  // Delegates to `parseList` so SSR + client use identical parse rules.
+  // HarelineView writes `?kennels=a|b` (pipe-separated); `parseList` also
+  // accepts comma for legacy bookmarked URLs. Without sharing this helper
+  // (Codex PR #1712 review), pipe-separated deep links parsed as `["a|b"]`
+  // — a single bogus ID — and SSR returned an empty payload on refresh.
   const kennelsParam = params.kennels;
   let initialKennelIds: string[] = [];
   if (typeof kennelsParam === "string") {
-    initialKennelIds = kennelsParam.split(",").filter(Boolean);
+    initialKennelIds = parseList(kennelsParam);
   } else if (Array.isArray(kennelsParam)) {
-    initialKennelIds = kennelsParam.flatMap((v) => v.split(",")).filter(Boolean);
+    initialKennelIds = kennelsParam.flatMap((v) => parseList(v));
   }
 
   return (
