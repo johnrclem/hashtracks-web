@@ -41,7 +41,13 @@ interface MhhhCaConfig {
 
 const KENNEL_TAG_DEFAULT = "mh3-ca";
 
-/** Recognize the "Month YYYY" header rows that separate run blocks. */
+/**
+ * Recognize the "Month YYYY" header rows that separate run blocks. The
+ * `[A-Za-z]+` capture is intentionally broad — non-month names like
+ * "Spring 2026" are rejected downstream by the `MONTHS` Set lookup. Don't
+ * "tighten" the regex to a literal month alternation; the broad-capture +
+ * Set-validation form is the lower-complexity option (Sonar S5843).
+ */
 const MONTH_HEADER_RE = /^([A-Za-z]+)\s+(\d{4})$/;
 
 /** "May 3, 2026 13h00 $13" → { day: 3, time: "13:00", cost: "$13" } */

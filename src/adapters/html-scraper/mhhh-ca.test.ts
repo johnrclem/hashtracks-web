@@ -94,6 +94,8 @@ describe("parseDateCost", () => {
   });
 
   it("normalizes nbsp + extra whitespace", () => {
+    // Fixture uses real U+00A0 (NBSP) between tokens, not regular spaces —
+    // matches the &nbsp; entities mhhh.ca emits in its Date/Cost cells.
     const out = parseDateCost("May 3, 2026 13h00 $13");
     expect(out?.day).toBe(3);
     expect(out?.time).toBe("13:00");

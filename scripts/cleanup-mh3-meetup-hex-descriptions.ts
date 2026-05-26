@@ -30,6 +30,10 @@ import { prisma } from "../src/lib/db";
 const APPLY = process.argv.includes("--apply");
 const ALL_KENNELS = process.argv.includes("--all-kennels");
 
+// Mirrors `MEETUP_PLACEHOLDER_TOKEN_RE` in `src/adapters/meetup/adapter.ts`.
+// The adapter version asserts on already-trimmed input; this one tolerates
+// surrounding whitespace because we're querying historical DB rows whose
+// content predates the trimming guard. Keep them in sync if either changes.
 const HEX_TOKEN_RE = /^\s*\$[0-9a-f]+\s*$/i;
 
 async function main() {
