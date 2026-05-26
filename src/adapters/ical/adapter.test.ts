@@ -667,6 +667,39 @@ END:VCALENDAR`;
     expect(result.diagnosticContext!.skippedDateRange).toBe(2);
   });
 
+  it("honors options.days for fetch window (matches reconcile window)", async () => {
+    // Regression: scrapeSource() passes the same `days` to both adapter.fetch
+    // and reconcileStaleEvents. If fetch capped narrower than reconcile, the
+    // reconciler would cancel everything in the gap as "missing from scrape"
+    // — a critical data-loss risk during admin one-shot wide-window scrapes
+    // (e.g. #1339 ICH3 historical recovery).
+    const wideWindowIcs = `BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:past-3-years
+DTSTART:20230601T190000Z
+SUMMARY:Three Years Back Trail
+END:VEVENT
+BEGIN:VEVENT
+UID:future-2-years
+DTSTART:20280601T190000Z
+SUMMARY:Two Years Forward Trail
+END:VEVENT
+END:VCALENDAR`;
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(wideWindowIcs, { status: 200 }),
+    );
+
+    // Source.scrapeDays=90 would filter both events out; admin passes
+    // options.days=1500 (~4 years), which must widen the fetch window.
+    const source = buildMockSource({ scrapeDays: 90 });
+    const result = await adapter.fetch(source, { days: 1500 });
+
+    expect(result.errors).toHaveLength(0);
+    expect(result.events).toHaveLength(2);
+    expect(result.diagnosticContext!.skippedDateRange).toBe(0);
+  });
+
   it("detects HTML response (deactivated calendar plugin)", async () => {
     const html = `<!DOCTYPE html>
 <html lang="en-US">
