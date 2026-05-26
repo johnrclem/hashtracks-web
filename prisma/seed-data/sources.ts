@@ -962,6 +962,11 @@ export const SOURCES = [
           // "Space City Hash:" — adapter strips the trailing ":" then we
           // surface the friendly default title across all 24 events.
           "space-city-h3": "Space City H3 Trail",
+          // #1705: Mosquito events on the umbrella calendar carry bare
+          // "Mosquito H3" SUMMARYs. Mirror the moooouston defaultTitle so
+          // bare-SUMMARY VEVENTs land on a kennel-name default rather than
+          // leaking a description first line.
+          "mosquito-h3": "Mosquito H3 Trail",
         },
         staleTitleAliases: {
           // #1060: "Space City Hash" doesn't normalize to "space-city-h3"
@@ -969,6 +974,12 @@ export const SOURCES = [
           // explicitly so the colon-stripped title triggers defaultTitles.
           "space-city-h3": ["Space City Hash"],
         },
+        // #1677 / #1705: umbrella calendar admins use the description as
+        // scratch space (`**update**` markers, freeform sentences). Skip
+        // the description-first-line fallback when the SUMMARY collapses
+        // to a bare kennel tag — the per-kennel `defaultTitles` above is
+        // the source of truth for those placeholder events.
+        preferDefaultTitleOverDescription: true,
       },
       kennelCodes: ["h4-tx", "bmh3-tx", "mosquito-h3", "moooouston-h3", "space-city-h3", "galh3"],
     },
@@ -2132,12 +2143,18 @@ export const SOURCES = [
     },
     // ===== CONNECTICUT =====
     {
+      // #1689 — Narwhal H3 fully migrated off Meetup; the group
+      // `meetup-group-cwrnpwpc` returns "Group not found" (deleted by
+      // the kennel after the cthashing.com migration on 2026-03-10).
+      // Disabling per the SWH3 / RH3 Columbus precedent in PR #1527.
+      // A future cthashing.com adapter will reattach the kennel.
       name: "Narwhal H3 Meetup (CTH3)",
       url: "https://www.meetup.com/meetup-group-cwrnpwpc/",
       type: "MEETUP" as const,
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 180,
+      enabled: false,
       config: {
         groupUrlname: "meetup-group-cwrnpwpc",
         kennelTag: "narwhal-h3",

@@ -389,6 +389,39 @@ describe("MeetupAdapter", () => {
     expect(result.diagnosticContext?.cancelledSkipped).toBe(1);
   });
 
+  it("filters out admin-notice posts (#1689 Narwhal H3)", async () => {
+    // Narwhal H3 fully migrated off Meetup to cthashing.com and posted a
+    // farewell event titled "Moving to a new website site - Last day in
+    // Meetup is March 10th". ADMIN_NOTICE_PATTERNS (shared with FB hosted
+    // events, PR #1527) must drop this kind of post.
+    const html = buildMeetupHtml({
+      "Event:admin": buildApolloEvent({
+        id: "313638944",
+        title: "Moving to a new website site - Last day in Meetup is March 10th",
+        dateTime: "2026-03-10T07:00:00-05:00",
+        status: "ACTIVE",
+      }),
+      "Event:trail": buildApolloEvent({
+        id: "real-trail",
+        title: "Narwhal H3 #54 - Real Trail",
+        dateTime: "2026-03-08T13:00:00-05:00",
+        status: "ACTIVE",
+      }),
+      "Venue:123": VENUE_ENTRY,
+    });
+    mockHtmlResponse(html);
+
+    const adapter = new MeetupAdapter();
+    const result = await adapter.fetch(
+      makeSource({ groupUrlname: "meetup-group-cwrnpwpc", kennelTag: "narwhal-h3" }),
+      { days: 365 },
+    );
+
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].title).toMatch(/Real Trail/);
+    expect(result.diagnosticContext?.adminNoticeSkipped).toBe(1);
+  });
+
   it("parses events and assigns kennelTag", async () => {
     const html = buildMeetupHtml({
       "Event:1": buildApolloEvent(),
