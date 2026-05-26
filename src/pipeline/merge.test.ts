@@ -6,7 +6,7 @@ vi.mock("@/lib/db", () => ({
     source: { findUnique: vi.fn(), update: vi.fn() },
     sourceKennel: { findMany: vi.fn() },
     rawEvent: { findFirst: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
-    event: { findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
+    event: { findUnique: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     eventKennel: { create: vi.fn(), upsert: vi.fn() },
     eventLink: { upsert: vi.fn(), createMany: vi.fn() },
     kennel: { findUnique: vi.fn(), updateMany: vi.fn() },
@@ -136,6 +136,10 @@ beforeEach(() => {
   // recomputeCanonical early-exits on length 0 and doesn't consume the
   // next test's queued response.
   mockEventFindMany.mockResolvedValue([] as never);
+  // Same-sourceUrl date-correction probe (#1613 / #1648) defaults to "no match"
+  // so existing tests are unaffected; per-test overrides exercise the
+  // correction path itself.
+  vi.mocked(prisma.event.findFirst).mockResolvedValue(null as never);
   vi.mocked(prisma.eventKennel.create).mockResolvedValue({} as never);
   // $transaction supports two call shapes: array of ops (returns Promise.all)
   // and callback (invoked with the tx client). The dual-write helper added
@@ -4374,5 +4378,213 @@ describe("linkMultiDaySeries (#1560)", () => {
         && (args as { data?: { isSeriesParent?: boolean } }).data?.isSeriesParent === true,
     );
     expect(parentUpdate).toBeDefined();
+  });
+});
+
+describe("same-sourceUrl date-correction dedup (#1613 / #1648)", () => {
+  // Builds the EventRow shape EVENT_CACHE_SELECT returns from the correction
+  // probe. Date defaults to MarinH3's pre-correction date so the +14d shape
+  // is the natural call site.
+  function existingCorrectionRow(overrides?: Record<string, unknown>) {
+    return {
+      id: "evt_phantom",
+      kennelId: "kennel_1",
+      date: new Date("2026-05-23T12:00:00.000Z"),
+      trustLevel: 5,
+      sourceUrl: "https://www.sfh3.com/runs/6443",
+      title: "Marin H3 Run #291",
+      runNumber: 291,
+      startTime: "13:00",
+      locationName: null,
+      parentEventId: null,
+      isSeriesParent: false,
+      isCanonical: true,
+      status: "CONFIRMED",
+      adminCancelledAt: null,
+      ...overrides,
+    };
+  }
+
+  it("MarinH3-shape: +14d sourceUrl match moves canonical, does not create phantom (#1613)", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    // Cache prefetch: empty same-day pool for the corrected date.
+    mockEventFindMany.mockResolvedValueOnce([] as never);
+    // Old-bucket recanonicalize refetch.
+    mockEventFindMany.mockResolvedValueOnce([] as never);
+    // Same-sourceUrl correction probe returns the phantom from May 23.
+    vi.mocked(prisma.event.findFirst).mockResolvedValueOnce(existingCorrectionRow() as never);
+    mockEventUpdate.mockResolvedValueOnce({ id: "evt_phantom" } as never);
+
+    const result = await processRawEvents("src_sfh3_html", [
+      buildRawEvent({
+        date: "2026-05-09", // 14 days earlier than existing 2026-05-23
+        kennelTags: ["marinh3"],
+        sourceUrl: "https://www.sfh3.com/runs/6443",
+        runNumber: 291,
+        title: "Marin H3 Run #291",
+      }),
+    ]);
+
+    expect(result.updated).toBe(1);
+    expect(result.created).toBe(0);
+    expect(mockEventCreate).not.toHaveBeenCalled();
+
+    // The update writes the corrected date back to the existing canonical
+    // (crossWindowMatch plumbing reused — #990).
+    const updateCall = mockEventUpdate.mock.calls.find(
+      c => (c[0] as { where: { id: string } }).where.id === "evt_phantom",
+    );
+    expect(updateCall).toBeDefined();
+    const updateData = (updateCall![0] as { data: Record<string, unknown> }).data;
+    expect(updateData.date).toEqual(new Date("2026-05-09T12:00:00.000Z"));
+
+    // The probe was actually issued with the expected window + filters.
+    const probeCall = vi.mocked(prisma.event.findFirst).mock.calls[0];
+    const probeWhere = (probeCall[0] as {
+      where: {
+        sourceUrl: string;
+        date: { gte: Date; lte: Date; not: Date };
+        eventKennels: { some: { kennelId: string } };
+        parentEventId: null;
+        isSeriesParent: false;
+        status: { not: string };
+      };
+    }).where;
+    expect(probeWhere.sourceUrl).toBe("https://www.sfh3.com/runs/6443");
+    expect(probeWhere.eventKennels.some.kennelId).toBe("kennel_1");
+    expect(probeWhere.date.not).toEqual(new Date("2026-05-09T12:00:00.000Z"));
+    // ±30d window
+    const expectedLo = new Date("2026-05-09T12:00:00.000Z").getTime() - 30 * 86400_000;
+    const expectedHi = new Date("2026-05-09T12:00:00.000Z").getTime() + 30 * 86400_000;
+    expect(probeWhere.date.gte.getTime()).toBe(expectedLo);
+    expect(probeWhere.date.lte.getTime()).toBe(expectedHi);
+  });
+
+  it("Narwhal-shape: +4d sourceUrl match moves canonical, does not create phantom (#1648)", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([] as never); // cache prefetch empty
+    mockEventFindMany.mockResolvedValueOnce([] as never); // old-bucket refetch
+    vi.mocked(prisma.event.findFirst).mockResolvedValueOnce(
+      existingCorrectionRow({
+        id: "evt_narwhal_phantom",
+        date: new Date("2023-06-21T12:00:00.000Z"), // Wednesday phantom
+        sourceUrl: "https://www.meetup.com/narwhal-h3/events/293000000",
+        title: "Trail #53 - Spawning Narwhals",
+        runNumber: 53,
+      }) as never,
+    );
+    mockEventUpdate.mockResolvedValueOnce({ id: "evt_narwhal_phantom" } as never);
+
+    const result = await processRawEvents("src_meetup", [
+      buildRawEvent({
+        date: "2023-06-25", // 4 days later than phantom
+        kennelTags: ["narwhal-h3"],
+        sourceUrl: "https://www.meetup.com/narwhal-h3/events/293000000",
+        runNumber: 53,
+        title: "Trail #53 - Spawning Narwhals",
+      }),
+    ]);
+
+    expect(result.updated).toBe(1);
+    expect(result.created).toBe(0);
+    expect(mockEventCreate).not.toHaveBeenCalled();
+  });
+
+  it("OFH3-shape: year-rollover gap (>30d) does NOT match — leaves the adapter fix to resolve (#1643)", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([] as never);
+    // Probe returns null because the gap (365d) exceeds the ±30d window
+    // when applied as a DB-level date filter. We assert no correction
+    // happens, even if the mock would otherwise allow it.
+    vi.mocked(prisma.event.findFirst).mockResolvedValueOnce(null as never);
+    mockEventCreate.mockResolvedValueOnce({ id: "evt_new_2025" } as never);
+
+    const result = await processRawEvents("src_ofh3", [
+      buildRawEvent({
+        date: "2025-06-01", // correct year (after adapter fix lands)
+        kennelTags: ["ofh3"],
+        sourceUrl: "https://www.ofh3.com/2025/05/ofh3-trail-387-june-tour-duh-hash-trail.html",
+        runNumber: 387,
+      }),
+    ]);
+
+    expect(result.created).toBe(1);
+    expect(result.updated).toBe(0);
+    // The probe ran — but its result was null, so the regular CREATE path took over.
+    expect(vi.mocked(prisma.event.findFirst)).toHaveBeenCalled();
+  });
+
+  it("does NOT dedup when sourceUrls differ — distinct events stay split", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([] as never);
+    // Probe finds nothing because sourceUrl is unique per event.
+    vi.mocked(prisma.event.findFirst).mockResolvedValueOnce(null as never);
+    mockEventCreate.mockResolvedValueOnce({ id: "evt_distinct" } as never);
+
+    const result = await processRawEvents("src_a", [
+      buildRawEvent({
+        date: "2026-05-09",
+        kennelTags: ["TestH3"],
+        sourceUrl: "https://example.com/runs/A",
+      }),
+    ]);
+
+    expect(result.created).toBe(1);
+    expect(result.updated).toBe(0);
+  });
+
+  it("does NOT run probe when incoming event has seriesId (multi-day series share parent URLs)", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([] as never);
+    mockEventCreate.mockResolvedValueOnce({ id: "evt_series" } as never);
+
+    const result = await processRawEvents("src_a", [
+      buildRawEvent({
+        date: "2026-05-09",
+        kennelTags: ["TestH3"],
+        sourceUrl: "https://example.com/series/X",
+        seriesId: "series-x",
+      }),
+    ]);
+
+    expect(result.created).toBe(1);
+    // The findFirst correction probe must NOT have been called — the
+    // seriesId guard short-circuits before the DB query.
+    expect(vi.mocked(prisma.event.findFirst)).not.toHaveBeenCalled();
+  });
+
+  it("does NOT dedup when ctx.trustLevel < correction.trustLevel — protects higher-trust canonical", async () => {
+    // Source has trust 3 but the existing canonical was written by trust 9 —
+    // a low-trust re-emission of the high-trust URL with a wrong date must
+    // NOT shift the canonical date. Falls through to current behavior.
+    mockSourceFind.mockResolvedValueOnce({
+      trustLevel: 3,
+      type: "HTML_SCRAPER",
+      kennels: [{ kennelId: "kennel_1" }],
+    } as never);
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([] as never);
+    mockEventFindMany.mockResolvedValueOnce([] as never);
+    vi.mocked(prisma.event.findFirst).mockResolvedValueOnce(
+      existingCorrectionRow({ trustLevel: 9 }) as never,
+    );
+    mockEventCreate.mockResolvedValueOnce({ id: "evt_new_phantom" } as never);
+
+    const result = await processRawEvents("src_low_trust", [
+      buildRawEvent({
+        date: "2026-05-09",
+        kennelTags: ["marinh3"],
+        sourceUrl: "https://www.sfh3.com/runs/6443",
+      }),
+    ]);
+
+    // Low-trust source falls through to the regular CREATE path.
+    expect(result.created).toBe(1);
+    expect(result.updated).toBe(0);
+    // Verify no update against the higher-trust canonical's date.
+    const phantomUpdate = mockEventUpdate.mock.calls.find(
+      c => (c[0] as { where: { id: string } }).where.id === "evt_phantom",
+    );
+    expect(phantomUpdate).toBeUndefined();
   });
 });

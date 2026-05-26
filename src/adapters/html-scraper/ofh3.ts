@@ -13,7 +13,7 @@ import { applyDateWindow, chronoParseDate, decodeEntities, isPlaceholder, stripH
  * Tries dot-separated format first (specific to OFH3) to avoid chrono picking
  * up a stray month name before the dot-separated date in title text.
  */
-export function parseOfh3Date(text: string): string | null {
+export function parseOfh3Date(text: string, referenceDate?: Date): string | null {
   // Try dot-separated format first: "3.14.26" or "03.14.2026"
   const dotMatch = text.match(/(\d{1,2})\.(\d{1,2})\.(\d{2,4})/);
   if (dotMatch) {
@@ -25,8 +25,11 @@ export function parseOfh3Date(text: string): string | null {
       return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     }
   }
-  // Fall back to chrono-node for standard date formats
-  return chronoParseDate(text, "en-US");
+  // Fall back to chrono-node for standard date formats. `referenceDate`
+  // anchors year-less inputs ("June 1st") to the post's publication month
+  // (#1643) — chronoParseDate defaults to `forwardDate: false` so the
+  // anchor's literal year wins.
+  return chronoParseDate(text, "en-US", referenceDate);
 }
 
 /**
@@ -42,7 +45,7 @@ export function parseOfh3Date(text: string): string | null {
  *   Shiggy rating (1-10): 5
  *   On-After: Venue Name
  */
-export function parseOfh3Body(text: string): {
+export function parseOfh3Body(text: string, referenceDate?: Date): {
   date?: string;
   hares?: string;
   cost?: string;
@@ -65,7 +68,7 @@ export function parseOfh3Body(text: string): {
   const shiggyMatch = text.match(/Shiggy\s*(?:rating)?\s*(?:\(1-10\))?\s*:\s*(.+?)(?=(?:Hares?|When|Cost|Where|Trail Type|Distances?|On[- ]?After)|\n|$)/i);
   const onAfterMatch = text.match(new RegExp(`On[- ]?After:\\s*(.+?)${stopPattern}`, "i"));
 
-  const date = whenMatch ? parseOfh3Date(whenMatch[1].trim()) : undefined;
+  const date = whenMatch ? parseOfh3Date(whenMatch[1].trim(), referenceDate) : undefined;
 
   return {
     date: date ?? undefined,
@@ -83,13 +86,39 @@ export function parseOfh3Body(text: string): {
  * Process a single OFH3 blog post into a RawEventData.
  * Returns null if the post cannot be parsed (e.g., missing date).
  */
-/** Resolve the event date from body fields or title text. Returns null if unresolvable. */
+/**
+ * Extract the year anchor from a Blogspot post URL: `/YYYY/MM/...` → Date.
+ * Returns null if the URL doesn't carry the standard Blogger path shape.
+ *
+ * Used to anchor chrono's reference date when the post body/title carries a
+ * bare month+day (e.g. "June 1") with no explicit year. Without an anchor
+ * chrono parses against the *current* date so a 2025 post seen in 2026
+ * rescheduled to 2026-06-01 — the #1643 phantom.
+ */
+export function extractBloggerYearAnchor(postUrl: string): Date | null {
+  const match = /\/(\d{4})\/(\d{1,2})\//.exec(postUrl);
+  if (!match) return null;
+  const year = Number.parseInt(match[1], 10);
+  const month = Number.parseInt(match[2], 10);
+  if (year < 2000 || year > 2100) return null;
+  if (month < 1 || month > 12) return null;
+  return new Date(Date.UTC(year, month - 1, 1, 12, 0, 0));
+}
+
+/**
+ * Resolve the event date from body fields or title text. Returns null if
+ * unresolvable. Both code paths are anchored to the post's publication
+ * month (via the referenceDate threaded through `parseOfh3Body` /
+ * `parseOfh3Date`) so a 2025 post's bare "June 1" resolves to 2025-06-01,
+ * not 2026-06-01 (#1643).
+ */
 function resolveOfh3EventDate(
   bodyFields: ReturnType<typeof parseOfh3Body>,
   titleText: string,
+  referenceDate?: Date,
 ): string | null {
   if (bodyFields.date) return bodyFields.date;
-  return parseOfh3Date(titleText);
+  return parseOfh3Date(titleText, referenceDate);
 }
 
 /** Build a description string from OFH3 body fields. */
@@ -129,9 +158,13 @@ function processPost(
   errors: string[],
   errorDetails: ErrorDetails,
 ): RawEventData | null {
-  const bodyFields = parseOfh3Body(bodyText);
+  // Anchor chrono to the post's publication month (extracted from the
+  // canonical Blogspot URL) so a year-less "June 1" in body/title resolves
+  // against the post's own year, not the scraper's clock (#1643).
+  const referenceDate = extractBloggerYearAnchor(postUrl) ?? undefined;
+  const bodyFields = parseOfh3Body(bodyText, referenceDate);
 
-  const eventDate = resolveOfh3EventDate(bodyFields, titleText);
+  const eventDate = resolveOfh3EventDate(bodyFields, titleText, referenceDate);
   if (!eventDate) {
     if (bodyText.trim().length > 0) {
       const dateError = `No date found in post: ${titleText || "(untitled)"}`;
