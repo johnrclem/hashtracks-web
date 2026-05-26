@@ -2485,7 +2485,7 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "massh3", shortName: "MASS H3", fullName: "Munich AsiaSammstagsHasch", region: "Munich", country: "Germany",
       website: "https://mh3.beer",
-      scheduleDayOfWeek: "Saturday", scheduleTime: "3:00 PM", scheduleFrequency: "Biweekly",
+      scheduleFrequency: "Irregular",
       scheduleNotes: "Non-regular hash — trails are announced short-notice via the Munich H3 Facebook group.",
       foundedYear: 2021,
       description: "MASS H3 — Munich's Alternative Sunday Service. A non-regular Munich-area kennel with sporadic trails announced short-notice through the Munich H3 FB group.",

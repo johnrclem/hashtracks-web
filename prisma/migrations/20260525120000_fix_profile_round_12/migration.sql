@@ -183,22 +183,37 @@ BEGIN
     AND ("scheduleNotes" IS NULL OR "contactEmail" IS NULL);
 END $$;
 
--- ── #1638: MASS H3 — description (expansion), scheduleNotes ──────────────────
+-- ── #1638: MASS H3 — description (expansion), scheduleNotes, structured schedule reconcile ──
+-- Codex P2 (PR #1684 review): prior prod row carried `scheduleDayOfWeek=Saturday`,
+-- `scheduleTime=3:00 PM`, `scheduleFrequency=Biweekly`, but the verbatim source
+-- (Bavaria HHH FB group description; shared hareline sheet shows 3 events/12mo)
+-- describes a non-regular hash. Clear the misleading day/time fields and mark
+-- frequency as Irregular to match the prose. fullName "AsiaSammstagsHasch"
+-- (Sammstag = German "Saturday") still records the kennel-name etymology.
 DO $$
 DECLARE
   v_kennel_code         text := 'massh3';
   v_correct_description text := 'MASS H3 — Munich''s Alternative Sunday Service. A non-regular Munich-area kennel with sporadic trails announced short-notice through the Munich H3 FB group.';
   v_correct_notes       text := 'Non-regular hash — trails are announced short-notice via the Munich H3 Facebook group.';
+  v_correct_frequency   text := 'Irregular';
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM "Kennel" WHERE "kennelCode" = v_kennel_code) THEN  -- NOSONAR plsql:S1138
     RAISE NOTICE 'Kennel "%" not found — UPDATE will no-op (run prisma db seed)', v_kennel_code;  -- NOSONAR plsql:S1192
   END IF;
 
   UPDATE "Kennel"
-  SET description = v_correct_description,
-      "updatedAt" = NOW()
+  SET description       = v_correct_description,
+      "scheduleFrequency" = v_correct_frequency,
+      "scheduleDayOfWeek" = NULL,
+      "scheduleTime"      = NULL,
+      "updatedAt"         = NOW()
   WHERE "kennelCode" = v_kennel_code
-    AND description IS DISTINCT FROM v_correct_description;
+    AND (
+      description           IS DISTINCT FROM v_correct_description
+      OR "scheduleFrequency" IS DISTINCT FROM v_correct_frequency
+      OR "scheduleDayOfWeek" IS NOT NULL
+      OR "scheduleTime"      IS NOT NULL
+    );
 
   UPDATE "Kennel"
   SET "scheduleNotes" = COALESCE("scheduleNotes", v_correct_notes),
