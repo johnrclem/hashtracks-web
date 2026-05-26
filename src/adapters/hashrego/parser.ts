@@ -711,24 +711,39 @@ function extractFirstTimeFromSlice(slice: string): string | undefined {
  * whichever comes first. Trailing punctuation (commas, periods, em-dashes)
  * is stripped so we don't render "Strawberry Moon Trail." with a dangling dot.
  *
- * Returns `undefined` when the slice has no title text on the header line —
- * e.g. `**DAY 1 12/30 —**\nblurb...` where the header carries the date only.
- * The caller then falls back to the legacy `"${title} (Day N)"` form.
+ * Returns `undefined` when:
+ *   - The slice has no title text on the header line
+ *     (e.g. `**DAY 1 12/30 —**\nblurb...`)
+ *   - The header is a `shape: "day-number"` form WITHOUT a trailing
+ *     delimiter (e.g. legacy `Day 1 3/21 evening run` — no `—`/`:`).
+ *     In that case the trailing text is description content, not a
+ *     title, and emitting it as `Event.title` would rewrite the title
+ *     on every existing such row (CodeRabbit PR #1697 review).
+ *
+ * The caller falls back to the legacy `"${title} (Day N)"` form on
+ * undefined.
  */
-function extractSectionTitle(slice: string): string | undefined {
-  // Strip leading whitespace + a leading delimiter (em-dash, en-dash,
-  // hyphen, colon) before extracting the title text.
+function extractSectionTitle(
+  slice: string,
+  shape: "day-number" | "weekday",
+): string | undefined {
+  // The two header shapes hand us slices with different leading structure:
   //
-  // The asymmetry matters: `WEEKDAY_HEADER_RE` ends with `\s*[-—:]` so the
-  // delimiter is already CONSUMED by the time we see the slice. But
-  // `DAY_NUMBER_HEADER_RE` ends at `\b` after the day digit, so the slice
-  // for `**DAY 1 6/26 — Friday Kickoff**` starts at ` — Friday…`. Without
-  // an explicit leading-delimiter strip, the title would land as
-  // "— Friday Kickoff" (CodeRabbit PR #1697 review).
-  const trimmed = slice
-    .replace(/^\s+/, "")
-    .replace(/^[-—–:]+/, "")
-    .replace(/^\s+/, "");
+  //   - WEEKDAY_HEADER_RE consumes `\s*[-—:]` so the slice STARTS with
+  //     the title text directly (no leading delimiter remains).
+  //   - DAY_NUMBER_HEADER_RE ends at `\b` after the day digit, so the
+  //     slice MAY start with ` — title…` (delimited title present) OR
+  //     ` evening run…` (no delimiter; trailing text is description).
+  //
+  // For day-number forms, REQUIRE an explicit leading delimiter — without
+  // it, treat the slice as having no title and let the caller fall back
+  // to the legacy `(Day N)` suffix. This preserves backward-compatibility
+  // for descriptions that use `Day 1 3/21 evening run` as plain prose.
+  let trimmed = slice.replace(/^\s+/, "");
+  if (shape === "day-number") {
+    if (!/^[-—–:]/.test(trimmed)) return undefined;
+  }
+  trimmed = trimmed.replace(/^[-—–:]+/, "").replace(/^\s+/, "");
   // Take up to the first closing `**` (markdown bold) or newline, whichever
   // comes first. We deliberately use indexOf for `**` rather than a regex
   // character class — Gemini PR #1697 caught that `/[*\n]/` would match a
@@ -919,8 +934,20 @@ function stripKennelPrefixFromTitle(
   return title;
 }
 
-/** Internal normalized header match — `month`/`day` regardless of source regex. */
-type HeaderMatch = { index: number; length: number; month: number; day: number };
+/**
+ * Internal normalized header match — `month`/`day` and the originating
+ * shape regardless of which source regex matched. `shape` is preserved so
+ * `extractSectionTitle` can apply the right delimiter-gating semantics
+ * (weekday-form: title flows verbatim; day-number form: title only when a
+ * trailing delimiter was present — CodeRabbit PR #1697 review).
+ */
+type HeaderMatch = {
+  index: number;
+  length: number;
+  month: number;
+  day: number;
+  shape: "day-number" | "weekday";
+};
 
 /**
  * Normalize a regex match from either header regex into `HeaderMatch`. The
@@ -947,6 +974,7 @@ function normalizeHeaderMatch(
     length: m[0].length,
     month: Number.parseInt(m[monthGroup], 10),
     day: Number.parseInt(m[dayGroup], 10),
+    shape,
   };
 }
 
@@ -1012,7 +1040,7 @@ export function parseDayHeaderSections(
     const slice = description.slice(sliceStart, sliceEnd);
     const startTime = extractFirstTimeFromSlice(slice);
     const kennelCode = matchPerDayKennel(slice, compiled);
-    const rawTitle = extractSectionTitle(slice);
+    const rawTitle = extractSectionTitle(slice, m.shape);
     // PR E.2: when the title leads with the kennel name that's already
     // surfacing on the kennel pill (e.g. "GGFM Strawberry Moon Trail" +
     // GGFM pill), strip the prefix so the card reads "Strawberry Moon Trail".

@@ -859,7 +859,7 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
  * startTime enrichment lands. Falls back to `dateUtc` when timezone is
  * missing, then to the raw HH:MM string, then `null`.
  */
-function computeChildTime(child: HarelineSeriesChild, displayTz: string): string | null {
+export function computeChildTime(child: HarelineSeriesChild, displayTz: string): string | null {
   if (child.startTime && child.timezone) {
     const composed = composeUtcStart(new Date(child.date), child.startTime, child.timezone);
     if (composed) return formatTimeInZone(composed, displayTz);

@@ -1449,6 +1449,35 @@ describe("parseDayHeaderSections", () => {
       expect(entries[0].sectionTitle).toBe("Double Dash");
       expect(entries[1].sectionTitle).toBe("Mixed Delim");
     });
+
+    // CodeRabbit PR #1697 review — bare `Day N M/D` headers (no `—` / `:`
+    // delimiter) carry description content after the date, NOT a title.
+    // Pre-fix, the parser would emit "evening run" as Day 1's title and
+    // rewrite the Event.title + fingerprint on every existing such row.
+    // Post-fix, day-number headers require an explicit trailing delimiter
+    // before extractSectionTitle returns a title; bare forms get
+    // sectionTitle: undefined so the caller falls back to "(Day N)".
+    it("day-number header without trailing delimiter returns sectionTitle: undefined", () => {
+      const desc =
+        "Day 1 3/21 evening run\n" +
+        "Day 2 3/22 morning hike\n" +
+        "Day 3 3/23 brunch";
+      const entries = parseDayHeaderSections(desc, "2026-03-21");
+      expect(entries.map((e) => e.sectionTitle)).toEqual([undefined, undefined, undefined]);
+    });
+
+    it("day-number header WITH trailing delimiter still extracts the title", () => {
+      // Same shape as the regression for bare Day-form (above) but each
+      // header has an explicit `—` delimiter — title extraction fires.
+      const desc =
+        "Day 1 3/21 — Friday Kickoff\n" +
+        "Day 2 3/22 — Saturday Main";
+      const entries = parseDayHeaderSections(desc, "2026-03-21");
+      expect(entries.map((e) => e.sectionTitle)).toEqual([
+        "Friday Kickoff",
+        "Saturday Main",
+      ]);
+    });
   });
 
   // ── PR E.2 — Kennel-prefix stripping ──

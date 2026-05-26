@@ -110,6 +110,10 @@ async function main() {
 main()
   .catch((err) => {
     console.error("[cleanup] fatal:", err);
-    process.exit(1);
+    // Set exitCode rather than calling process.exit(1) — the latter
+    // terminates Node synchronously and prevents the `.finally` cleanup
+    // (prisma.$disconnect) from running. Node will exit with code 1 once
+    // the event loop drains (CodeRabbit PR #1697 review).
+    process.exitCode = 1;
   })
   .finally(() => prisma.$disconnect());

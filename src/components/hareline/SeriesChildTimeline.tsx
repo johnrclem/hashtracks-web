@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { formatTime } from "@/lib/format";
-import type { HarelineSeriesChild } from "./EventCard";
+import { useTimePreference } from "@/components/providers/time-preference-provider";
+import { getBrowserTimezone } from "@/lib/timezone";
+import { computeChildTime, type HarelineSeriesChild } from "./EventCard";
 
 /**
  * "Weekend at a glance" mini-timeline shown on series-parent surfaces
@@ -13,6 +14,18 @@ import type { HarelineSeriesChild } from "./EventCard";
  * Renders a region-colored vertical rail on the left with one filled dot
  * per child date. Each row links to `/hareline/{child.id}`. Cancelled
  * children render at 50% opacity with a strikethrough title + muted dot.
+ *
+ * Time formatting routes through `computeChildTime` (CodeRabbit PR #1697
+ * review) so it matches the top-level card's #1654 anchor logic:
+ *   1. `composeUtcStart(date, startTime, timezone)` when both startTime
+ *      and timezone are present (the canonical anchor — guards against
+ *      stale `dateUtc` after lower-trust startTime enrichment)
+ *   2. Stored `dateUtc` paired with `startTime` (pre-#1654 fallback)
+ *   3. Raw `HH:MM` (defensive — when timezone + dateUtc are both null)
+ *
+ * `displayTz` honors the user's "Local vs Kennel" time preference so the
+ * timeline matches both the EventCard row above it AND the child's own
+ * detail page on click.
  */
 export function SeriesChildTimeline({
   childEvents,
@@ -21,6 +34,7 @@ export function SeriesChildTimeline({
   childEvents: HarelineSeriesChild[];
   parentRegionColor: string;
 }>) {
+  const { preference } = useTimePreference();
   if (childEvents.length === 0) return null;
   return (
     <div>
@@ -38,7 +52,15 @@ export function SeriesChildTimeline({
             day: "numeric",
             timeZone: "UTC",
           });
-          const childTime = child.startTime ? formatTime(child.startTime) : null;
+          // #1654 — per-child timezone preference. USER_LOCAL renders in the
+          // viewer's browser TZ; KENNEL_LOCAL renders in the child's stored
+          // timezone (falls back to America/New_York if the child has none,
+          // matching EventCard's defaulting).
+          const displayTz =
+            preference === "USER_LOCAL"
+              ? getBrowserTimezone()
+              : (child.timezone ?? "America/New_York");
+          const childTime = computeChildTime(child, displayTz);
           const isChildCancelled = child.status === "CANCELLED";
           return (
             <li key={child.id} className="relative">
