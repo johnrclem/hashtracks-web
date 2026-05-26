@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { Source } from "@/generated/prisma/client";
-import { parseOfh3Date, parseOfh3Body, cleanOfh3Title, extractBloggerYearAnchor } from "./ofh3";
-import { OFH3Adapter } from "./ofh3";
+import { parseOfh3Date, parseOfh3Body, cleanOfh3Title, extractBloggerYearAnchor, OFH3Adapter } from "./ofh3";
 import * as bloggerApi from "../blogger-api";
 
 vi.mock("../blogger-api");
