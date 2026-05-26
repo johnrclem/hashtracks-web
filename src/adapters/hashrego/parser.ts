@@ -856,7 +856,7 @@ function compileKennelPatterns(
       // on PR D). Mirrors src/app/admin/sources/config-validation.ts:33
       // and the suppression pattern from hare-extraction.ts:27-29.
       // nosemgrep: detect-non-literal-regexp — source is operator-curated config, ReDoS-validated below
-      // eslint-disable-next-line security/detect-non-literal-regexp, security-node/non-literal-reg-expr -- Codacy ESLint plugins not loaded locally; source is operator-curated and ReDoS-validated by safe-regex2 immediately below
+      // eslint-disable-next-line -- security/detect-non-literal-regexp + security-node/non-literal-reg-expr (Codacy ESLint plugins not loaded locally); source is operator-curated and ReDoS-validated by safe-regex2 immediately below // NOSONAR S7724
       const re = new RegExp(src, "i"); // NOSONAR nosemgrep
       if (!isSafeRegex(re)) {
         console.warn(
