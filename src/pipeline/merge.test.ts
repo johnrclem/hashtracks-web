@@ -454,6 +454,69 @@ describe("processRawEvents", () => {
     expect(enrichData).not.toHaveProperty("trustLevel");
   });
 
+  it("lower-trust enrichment recomposes dateUtc when backfilling startTime (#1654)", async () => {
+    // SeaMon Trail #556 shape: higher-trust GSheets created the row without a
+    // startTime (so dateUtc = eventDate = UTC noon). Lower-trust GCal later
+    // enriches startTime="17:30" — pre-fix the enrichData included only
+    // startTime, leaving dateUtc stale at noon-UTC and producing the
+    // card/detail mismatch in the renderer. The fix recomposes dateUtc here.
+    mockRawEventFind.mockResolvedValueOnce(null);
+    // Existing event: trust 8, no startTime, no timezone yet (timezone is set
+    // alongside dateUtc on the recompose so we exercise the timezone-write).
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_seamon", trustLevel: 8, startTime: null, timezone: null },
+    ] as never);
+    mockEventUpdate.mockResolvedValue({ id: "evt_seamon" } as never);
+
+    const result = await processRawEvents("src_1", [
+      buildRawEvent({
+        date: "2026-05-25",
+        startTime: "17:30",
+        // The test's source mock has trustLevel: 5, lower than the existing 8,
+        // forcing the enrichment branch.
+      }),
+    ]);
+    expect(result.updated).toBe(1);
+
+    const enrichCall = mockEventUpdate.mock.calls.find(
+      (call: unknown[]) => (call[0] as { data?: { startTime?: string } })?.data?.startTime === "17:30",
+    );
+    expect(enrichCall).toBeDefined();
+    const enrichData = (enrichCall![0] as { data: Record<string, unknown> }).data;
+    expect(enrichData.startTime).toBe("17:30");
+    expect(enrichData.dateUtc).toBeInstanceOf(Date);
+    // Composed UTC should NOT equal noon-UTC of the event date (the stale
+    // fallback). The exact value depends on the kennel's timezone; the
+    // critical assertion is "not equal to noon-UTC of the date".
+    const noonUtc = new Date("2026-05-25T12:00:00.000Z").getTime();
+    expect((enrichData.dateUtc as Date).getTime()).not.toBe(noonUtc);
+    // Timezone is written alongside dateUtc when existingEvent.timezone was null.
+    expect(enrichData).toHaveProperty("timezone");
+  });
+
+  it("lower-trust enrichment leaves dateUtc untouched when the existing row already has a startTime (#1654)", async () => {
+    // Don't trample a previously-correct dateUtc: when the canonical row
+    // already carries a startTime, enrichment must NOT backfill startTime
+    // (the `!existingEvent.startTime` guard) and therefore must NOT touch
+    // dateUtc either.
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_existing", trustLevel: 8, startTime: "17:30", timezone: "America/Los_Angeles" },
+    ] as never);
+    mockEventUpdate.mockResolvedValue({ id: "evt_existing" } as never);
+
+    await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-05-25", startTime: "10:00" }),
+    ]);
+
+    // The startTime enrichment path should NOT fire (existing.startTime is
+    // already set), and consequently no dateUtc rewrite should be queued.
+    const dateUtcCall = mockEventUpdate.mock.calls.find(
+      (call: unknown[]) => "dateUtc" in ((call[0] as { data?: Record<string, unknown> })?.data ?? {}),
+    );
+    expect(dateUtcCall).toBeUndefined();
+  });
+
   it("tracks unmatched kennel tags", async () => {
     mockRawEventFind.mockResolvedValueOnce(null);
     mockResolve.mockResolvedValueOnce({ kennelId: null, matched: false });

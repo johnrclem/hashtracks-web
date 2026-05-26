@@ -182,6 +182,31 @@ export function stripPhpBbBanners(text: string): string {
 }
 
 /**
+ * Strip phpBB markdown emphasis (`**bold**`, `*italic*`, `***both***`) from a
+ * captured field value. The Pinelake H3 subforum (and others on the Atlanta
+ * board) heavily use markdown-bold/italic wrapping that bleeds verbatim into
+ * label captures (#1640 — haresText was `** *Debbie Does Digits*`).
+ *
+ * Conservative on internal `*` characters: only strips runs of one or more
+ * `*` at word boundaries (start/end of token), so a literal asterisk inside
+ * a hash name survives if needed. Trailing/leading whitespace is trimmed.
+ */
+function stripMarkdownEmphasis(s: string): string {
+  return s
+    .replace(/\*+/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Detect a value that is purely a time pattern (e.g. "1:30 PM", "1:30 pm",
+ *  "1:30 Am"). Case-insensitive on AM/PM to match `parse12HourTime`'s own
+ *  contract (mixed-case scribes — the cycle-12 issue used uppercase, but
+ *  lowercase "pm" is just as common in scribe-typed phpBB posts). Used to
+ *  redirect a `Start: 1:30 PM` capture into `startTime` instead of
+ *  `location` (#1640). */
+const TIME_ONLY_RE = /^\s*(\d{1,2}:\d{2}\s*[ap]m)\s*$/i;
+
+/**
  * Extract structured event fields from pre-parsed content.
  * Accepts pre-computed plain text (to avoid re-parsing HTML) and Cheerio instance
  * for link extraction.
@@ -196,16 +221,35 @@ export function extractEventFields(
   // timestamps like "Sat Mar 28, 2026 3:19 pm" can't leak into startTime (#1588).
   const text = stripPhpBbBanners(precomputedText ?? stripHtmlTags(htmlContent, "\n"));
 
-  // Hares
+  // Hares — strip markdown bold/italic asterisks the scribes wrap names in
+  // (#1640: "Hares: ** *Debbie Does Digits*" → "Debbie Does Digits").
   const hareMatch = /Hares?\s*:\s*([^\n]*)(?:\n|$)/i.exec(text);
   if (hareMatch) {
-    fields.hares = hareMatch[1].trim();
+    const cleaned = stripMarkdownEmphasis(hareMatch[1]);
+    if (cleaned) fields.hares = cleaned;
   }
 
-  // Location — look for labeled fields first
-  const locMatch = /(?:Start|Where|Location|Meeting|Meet)\s*:\s*([^\n]*)(?:\n|$)/i.exec(text);
-  if (locMatch) {
-    let loc = locMatch[1].trim();
+  // Location — scan ALL labeled matches (Start/Where/Location/Meeting/Meet)
+  // and pick the first non-time-only value. Time-only captures like
+  // "Start: 1:30 PM" (#1640 — Pinelake) get promoted to startTime so a
+  // subsequent "Location: <venue>" label can fill `location` cleanly.
+  const locRe = /(?:Start|Where|Location|Meeting|Meet)\s*:\s*([^\n]*)(?:\n|$)/gi;
+  let locationCandidate: string | undefined;
+  for (const m of text.matchAll(locRe)) {
+    const value = stripMarkdownEmphasis(m[1]);
+    if (!value) continue;
+    const timeOnly = TIME_ONLY_RE.exec(value);
+    if (timeOnly) {
+      if (!fields.startTime) {
+        const parsed = parse12HourTime(timeOnly[1]);
+        if (parsed) fields.startTime = parsed;
+      }
+      continue;
+    }
+    if (!locationCandidate) locationCandidate = value;
+  }
+  if (locationCandidate) {
+    let loc = locationCandidate;
     // Strip embedded time patterns: "bankhead station at 1:30" → "bankhead station"
     loc = loc.replace(/\s+at\s+\d{1,2}:\d{2}(?:\s*[AP]M)?/i, "").trim();
     // Insert comma between venue name and street number when concatenated:

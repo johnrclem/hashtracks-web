@@ -388,6 +388,49 @@ ___________________________________________
     expect(events).toHaveLength(1);
     expect(events[0].runNumber).toBe(2339);
   });
+
+  it("suppresses future-dates entry when structured block covers same date (#1641)", () => {
+    // Run #2347 has Hare="no volunteer" in the structured block; the Future
+    // Dates summary lists the same date as "available". Pre-fix both events
+    // were emitted and the future-dates phantom ("available") would beat the
+    // structured event in the merge pipeline. The fix drops future-dates
+    // entries whose date already has a structured block.
+    const text = `
+___________________________________________
+Hash 2347?:     23.05.26
+Hare:     no volunteer
+Start & après:    Car park (TBC) DIY acres
+___________________________________________
+Hash 2348:     30.05.26
+Hare:     Jono & Pascale & Thomas
+Start & après:    Brusselsesteenweg 139
+___________________________________________
+Future Dates: please volunteer
+
+2026
+
+May 23     - available
+May 30     - Jono, Pascale & Thomas
+June 6     - Wim
+___________________________________________
+    `.trim();
+
+    const { events } = extractEvents(text, SOURCE_URL);
+
+    // 2 structured events + 1 future date (June 6, not covered by a block).
+    // The May 23 and May 30 future-date entries are suppressed.
+    expect(events).toHaveLength(3);
+    const may23 = events.filter((e) => e.date === "2026-05-23");
+    expect(may23).toHaveLength(1);
+    expect(may23[0].runNumber).toBe(2347);
+    expect(may23[0].hares).toBe("no volunteer");
+    const may30 = events.filter((e) => e.date === "2026-05-30");
+    expect(may30).toHaveLength(1);
+    expect(may30[0].runNumber).toBe(2348);
+    const june6 = events.find((e) => e.date === "2026-06-06");
+    expect(june6).toBeDefined();
+    expect(june6!.hares).toBe("Wim");
+  });
 });
 
 // ── Integration tests: BruH3Adapter.fetch ──

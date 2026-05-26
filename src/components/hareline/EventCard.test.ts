@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeChipDate } from "./EventCard";
+import { computeChipDate, computeDisplayTime } from "./EventCard";
 import { computeHeadingDate } from "./EventDetailPanel";
 import { formatDateInZone } from "@/lib/timezone";
 
@@ -72,5 +72,70 @@ describe("EventCard chip + EventDetailPanel heading — NZ TZ regression (#1510/
     // will diverge from aria-label. This assertion documents the trap.
     const trapOutput = formatDateInZone(new Date(CAPITAL_H3_MON_JUN_1.date), NZ_TZ);
     expect(trapOutput).toBe("Tue, Jun 2");
+  });
+});
+
+/**
+ * #1654 — SeaMon Trail #556 card/detail time mismatch. The merge pipeline can
+ * leave `dateUtc` stale at UTC noon when a lower-trust source backfills
+ * `startTime`. Pre-fix the card formatted that stale `dateUtc` directly
+ * (rendering noon-UTC = 5:00 AM PDT) while the detail panel recomposed from
+ * startTime+timezone (rendering 5:30 PM PDT). The fix: `computeDisplayTime`
+ * mirrors EventTimeDisplay — always prefer composed UTC over stored dateUtc
+ * when both startTime + timezone are available.
+ */
+describe("EventCard time derivation — SeaMon stale-dateUtc regression (#1654)", () => {
+  const PDT = "America/Los_Angeles";
+  // SeaMon Trail #556 — May 25 2026, 5:30 PM PDT. Real prod row had
+  // dateUtc=2026-05-25T12:00:00Z (UTC noon = 5:00 AM PDT) while startTime
+  // was correctly "17:30" from the GCal enrichment.
+  const SEAMON_556 = {
+    date: "2026-05-25T12:00:00.000Z",
+    startTime: "17:30",
+    timezone: PDT,
+    dateUtc: new Date("2026-05-25T12:00:00.000Z"), // STALE noon-UTC
+  };
+
+  it("recomposes from startTime+timezone, ignoring stale noon-UTC dateUtc", () => {
+    const { displayTimeStr } = computeDisplayTime(SEAMON_556, PDT);
+    expect(displayTimeStr).toBe("5:30 PM");
+  });
+
+  it("emits the correct timezone abbreviation for the composed anchor", () => {
+    const { tzAbbrev } = computeDisplayTime(SEAMON_556, PDT);
+    expect(tzAbbrev).toBe("PDT");
+  });
+
+  it("regression guard: a refactor that reads event.dateUtc directly would render 5:00 AM (the bug)", () => {
+    // Reading the stale noon-UTC value via formatTimeInZone(dateUtc, PDT) ==
+    // 12:00 UTC → 5:00 AM PDT. If a future refactor undoes the recompose
+    // step in computeDisplayTime, the assertions above will start failing.
+    // This documents the trap.
+    const trapDate = SEAMON_556.dateUtc; // intentionally NOT recomposed
+    const trapOutput = new Intl.DateTimeFormat("en-US", {
+      hour: "numeric", minute: "2-digit", timeZone: PDT,
+    }).format(trapDate);
+    expect(trapOutput).toBe("5:00 AM");
+  });
+
+  it("falls back to dateUtc + startTime when timezone is missing (pre-#1654 behavior)", () => {
+    const noTz = { ...SEAMON_556, timezone: null };
+    const { displayTimeStr } = computeDisplayTime(noTz, PDT);
+    // Without a timezone we can't recompose; format the stored anchor.
+    expect(displayTimeStr).toBe("5:00 AM");
+  });
+
+  it("falls back to raw HH:MM formatting when both timezone and dateUtc are missing", () => {
+    const startOnly = { ...SEAMON_556, timezone: null, dateUtc: null };
+    const { displayTimeStr, tzAbbrev } = computeDisplayTime(startOnly, PDT);
+    expect(displayTimeStr).toBe("5:30 PM");
+    expect(tzAbbrev).toBe("");
+  });
+
+  it("returns null displayTimeStr when no startTime at all", () => {
+    const noTime = { ...SEAMON_556, startTime: null };
+    const { displayTimeStr, tzAbbrev } = computeDisplayTime(noTime, PDT);
+    expect(displayTimeStr).toBeNull();
+    expect(tzAbbrev).toBe("");
   });
 });

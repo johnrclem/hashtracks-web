@@ -16,7 +16,7 @@ import type { AttendanceData } from "@/components/logbook/CheckInButton";
 import { RegionBadge } from "./RegionBadge";
 import { useTimePreference } from "@/components/providers/time-preference-provider";
 import { getRegionColor } from "@/lib/region";
-import { formatTimeInZone, getTimezoneAbbreviation, getBrowserTimezone } from "@/lib/timezone";
+import { composeUtcStart, formatTimeInZone, getTimezoneAbbreviation, getBrowserTimezone } from "@/lib/timezone";
 import { useUnitsPreference } from "@/components/providers/units-preference-provider";
 import type { DailyWeather } from "@/lib/weather";
 import { getConditionEmoji, cToF } from "@/lib/weather-display";
@@ -153,6 +153,48 @@ function formatDate(iso: string): string {
  */
 export function computeChipDate(event: { date: string }): string {
   return formatDate(event.date);
+}
+
+/**
+ * Compute the display string + timezone abbreviation for the event-card time.
+ *
+ * #1654 — when an event has both a `startTime` and a `timezone`, the canonical
+ * render anchor is `composeUtcStart(date, startTime, timezone)`, NOT the
+ * stored `event.dateUtc`. The merge pipeline can leave `dateUtc` stale at
+ * noon-UTC when a lower-trust source backfills `startTime` after a
+ * higher-trust primary created the row without one (SeaMon Trail #556 — card
+ * showed 5:00 AM PDT while the detail panel showed 5:30 PM PDT). The
+ * companion `merge.ts` fix keeps the stored value consistent going forward;
+ * this helper makes the renderer resilient to any historical row in the same
+ * shape and is the same derivation the detail panel's `EventTimeDisplay`
+ * already does.
+ *
+ * Fallback order:
+ *   1. composed UTC from `date + startTime + timezone` (the canonical anchor)
+ *   2. stored `dateUtc` paired with `startTime` (pre-#1654 behavior, used when
+ *      timezone is missing on the row)
+ *   3. raw `HH:MM` string formatted via `formatTime` (no tz abbreviation)
+ *
+ * Exported so the regression test exercises the same derivation the card
+ * renders.
+ */
+export function computeDisplayTime(
+  event: { date: string; startTime: string | null; timezone: string | null; dateUtc: Date | null },
+  displayTz: string,
+): { displayTimeStr: string | null; tzAbbrev: string } {
+  const composedAnchor =
+    event.startTime && event.timezone
+      ? composeUtcStart(new Date(event.date), event.startTime, event.timezone)
+      : null;
+  const timeAnchor = composedAnchor ?? (event.startTime ? event.dateUtc : null);
+  let displayTimeStr: string | null = null;
+  if (timeAnchor) {
+    displayTimeStr = formatTimeInZone(timeAnchor, displayTz);
+  } else if (event.startTime) {
+    displayTimeStr = formatTime(event.startTime);
+  }
+  const tzAbbrev = timeAnchor ? getTimezoneAbbreviation(timeAnchor, displayTz) : "";
+  return { displayTimeStr, tzAbbrev };
 }
 
 /**
@@ -300,13 +342,7 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
   const rangeDisplay = isMultiDay ? formatDateRange(event.date, event.endDate) : displayDateStr;
   const [seriesExpanded, setSeriesExpanded] = useState(false);
 
-  const displayTimeStr = (event.dateUtc && event.startTime)
-    ? formatTimeInZone(event.dateUtc, displayTz)
-    : (event.startTime ? formatTime(event.startTime) : null);
-
-  const tzAbbrev = (event.dateUtc && event.startTime)
-    ? getTimezoneAbbreviation(event.dateUtc, displayTz)
-    : "";
+  const { displayTimeStr, tzAbbrev } = computeDisplayTime(event, displayTz);
 
   function handleClick() {
     // On desktop (lg+), select the event for the detail panel
@@ -809,11 +845,18 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
 }
 
 /**
- * Time to render in a series child row. Prefer the timezone-aware composed
- * value when both `dateUtc` and `startTime` are present; fall back to the
- * raw HH:MM string when only `startTime` exists; otherwise `null`.
+ * Time to render in a series child row. Same recompose-from-source guard as
+ * the top-level card (#1654): when startTime + timezone are both present, the
+ * canonical anchor is `composeUtcStart(date, startTime, timezone)` — not the
+ * stored `dateUtc`, which can drift out of sync after a lower-trust
+ * startTime enrichment lands. Falls back to `dateUtc` when timezone is
+ * missing, then to the raw HH:MM string, then `null`.
  */
 function computeChildTime(child: HarelineSeriesChild, displayTz: string): string | null {
+  if (child.startTime && child.timezone) {
+    const composed = composeUtcStart(new Date(child.date), child.startTime, child.timezone);
+    if (composed) return formatTimeInZone(composed, displayTz);
+  }
   if (child.dateUtc && child.startTime) return formatTimeInZone(child.dateUtc, displayTz);
   if (child.startTime) return formatTime(child.startTime);
   return null;

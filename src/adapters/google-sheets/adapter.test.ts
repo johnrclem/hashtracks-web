@@ -454,7 +454,12 @@ describe("buildEventFromSheetRow", () => {
     expect(result!.title).toBe("MH3 #932");
   });
 
-  it("uses defaultTitle without run number when both are empty", () => {
+  it("keeps row + falls back to bare defaultTitle when runNumber column is configured but cell is empty (#1625)", () => {
+    // Pre-#1625: resolveKennelTagFromSheetRow returned null on empty `#`
+    // cells when columns.runNumber was configured, dropping legitimate
+    // unnumbered events (MASS H3 5th Birthday #1639, MFMH3 #1657). Post-fix:
+    // row is kept with runNumber=undefined; defaultTitle renders without a
+    // run-number suffix.
     const config = {
       sheetId: "test",
       columns: { runNumber: 0, date: 1, hares: 2, location: 3 },
@@ -463,7 +468,41 @@ describe("buildEventFromSheetRow", () => {
     };
     const row = ["", "2026-04-01", "Some Hare", "Munich"];
     const result = buildEventFromSheetRow(row, config as GoogleSheetsConfig, "https://example.com", "2026-04-01");
-    expect(result).toBeNull();
+    expect(result).not.toBeNull();
+    expect(result!.runNumber).toBeUndefined();
+    expect(result!.title).toBe("MH3");
+    expect(result!.kennelTags).toEqual(["MH3"]);
+  });
+
+  it("keeps row + emits runNumber: undefined when runNumber column is configured but cell is empty (#1625, no defaultTitle)", () => {
+    // Same fall-through path as above, but without a defaultTitle.
+    // Row still ingests; title stays undefined.
+    const config = {
+      sheetId: "test",
+      columns: { runNumber: 0, date: 1, hares: 2, location: 3 },
+      kennelTagRules: { default: "massh3" },
+    };
+    const row = ["", "6/27/26", "Poor me, water!", "Höllriegelskreuth"];
+    const event = buildEventFromSheetRow(row, config as GoogleSheetsConfig, "https://example.com", "2026-06-27");
+    expect(event).not.toBeNull();
+    expect(event!.runNumber).toBeUndefined();
+    expect(event!.kennelTags).toEqual(["massh3"]);
+    expect(event!.hares).toBe("Poor me, water!");
+    expect(event!.location).toBe("Höllriegelskreuth");
+  });
+
+  it("keeps row + emits runNumber: undefined when runNumber cell is non-numeric (#1625)", () => {
+    // Non-numeric cells (e.g. notes, placeholder dashes) take the same
+    // fall-through path as empty cells.
+    const config = {
+      sheetId: "test",
+      columns: { runNumber: 0, date: 1, hares: 2, location: 3 },
+      kennelTagRules: { default: "test-h3" },
+    };
+    const row = ["-", "2026-04-01", "Some Hare", "Park"];
+    const event = buildEventFromSheetRow(row, config as GoogleSheetsConfig, "https://example.com", "2026-04-01");
+    expect(event).not.toBeNull();
+    expect(event!.runNumber).toBeUndefined();
   });
 
   // ── extraHares (multi-column hare merging — KH3 Hare1/Hare2 layout) ──
@@ -1025,12 +1064,12 @@ describe("GoogleSheetsAdapter.fetch — groupFilter (#1542)", () => {
   });
 
   it("MFMH3 sibling config: no runNumber column captures all rows (#1591)", async () => {
-    // Path B sibling onboarding: the shared Munich sheet has 1 MFMH3 row with
-    // an explicit run number (#264) and ~12 with empty # cells. Dropping the
-    // runNumber column from the source config trades that 1 numbered row's
-    // runNumber for keeping all 13 rows, since `resolveKennelTagFromSheetRow`
-    // returns null when columns.runNumber is configured but the cell is
-    // empty. Tracked for resolver follow-up.
+    // Path B sibling onboarding: the shared Munich sheet has 1 MFMH3 row
+    // with an explicit run number (#264) and ~12 with empty # cells. This
+    // test covers the legacy "drop columns.runNumber entirely" config
+    // shape; #1625 + #1657 fix the resolver so the seed config now sets
+    // `columns.runNumber: 0` again — see "MFMH3 with runNumber column"
+    // test below for the post-fix shape that captures #264.
     const csv = [
       "#,Date,Group,Start time,Hared by,Location,Notes",
       `,${testDateMDY},MFMH3,19:00,Cumming Numb,Nomannenplatz,(empty # — kept)`,
@@ -1053,6 +1092,38 @@ describe("GoogleSheetsAdapter.fetch — groupFilter (#1542)", () => {
     expect(result.events.length).toBe(2);
     expect(result.events.every((e) => e.kennelTags[0] === "mfmh3")).toBe(true);
     expect(result.events.every((e) => e.runNumber === undefined)).toBe(true);
+  });
+
+  it("MFMH3 with runNumber column captures #264 AND keeps empty-# rows (#1657, #1625)", async () => {
+    // Post-#1625 fix: configuring columns.runNumber: 0 alongside groupFilter
+    // captures the one numbered MFMH3 row (#264 Pink Moon) without dropping
+    // the unnumbered rows. This mirrors the real seed config shape and
+    // simultaneously closes #1657 (lost runNumber) and unblocks the
+    // analogous #1639 (MASS H3 5th Birthday) ingestion path.
+    const csv = [
+      "#,Date,Group,Start time,Hared by,Location,Notes",
+      `,${testDateMDY},MFMH3,19:00,Cumming Numb,Nomannenplatz,(empty # — kept)`,
+      `264,${testDateMDY},MFMH3,19:00,Moose Diver,Hundingstr. 8,Pink Moon`,
+      `930,${testDateMDY},MH3,15:00,Half Monty,Munich,sibling host — must drop`,
+    ].join("\n");
+
+    mockedSafeFetch.mockResolvedValueOnce(mockFetchResponse(csv));
+
+    const config: GoogleSheetsConfig = {
+      sheetId: "munich",
+      csvUrl: "https://example.com/pub?output=csv",
+      columns: { runNumber: 0, date: 1, group: 2, startTime: 3, hares: 4, location: 5, description: 6 },
+      groupFilter: "MFMH3",
+      kennelTagRules: { default: "mfmh3" },
+    };
+    const adapter = new GoogleSheetsAdapter();
+    const result = await adapter.fetch(makeSource({ config: config as unknown as null }));
+
+    expect(result.events.length).toBe(2);
+    expect(result.events.every((e) => e.kennelTags[0] === "mfmh3")).toBe(true);
+    const runNumbers = result.events.map((e) => e.runNumber);
+    expect(runNumbers).toContain(264);
+    expect(runNumbers).toContain(undefined);
   });
 
   it("keeps host-prefix cells without a /-separator (#1592)", async () => {
