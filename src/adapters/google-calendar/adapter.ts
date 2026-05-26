@@ -132,6 +132,26 @@ const PERSONAL_TITLE_PATTERNS: readonly RegExp[] = [
 ];
 
 /**
+ * Medical / telehealth appointment patterns (#1690 Houston PII).
+ *
+ * Kept separate from PERSONAL_TITLE_PATTERNS because a real contributor
+ * adding their own medical appointment to a shared kennel calendar will
+ * almost certainly type description text for themselves (clinic name,
+ * prep notes). The PERSONAL_TITLE_PATTERNS gate (`hasStructuredField`)
+ * treats any non-empty description as a hash signal — too permissive
+ * for PII titles. These patterns ride a tighter gate: only runNumber
+ * or hares can override (mirrors NON_HASH_DOMAIN_PATTERNS below).
+ *
+ * Patterns are narrow on purpose. A real hash titled "Sleep Study Trail"
+ * with a hare assigned still passes thanks to the gate.
+ */
+const MEDICAL_TITLE_PATTERNS: readonly RegExp[] = [
+  /^\s*sleep\s+study\b/i,
+  /^\s*(?:medical|telehealth|virtual)\s+(?:appointment|visit|consultation|consult)\b/i,
+  /\bremote\s+visit\b/i,
+];
+
+/**
  * Non-hash domain markers (#1426). Pairing a sport with a game/practice
  * qualifier strongly suggests a non-hash sports event. Used together with
  * the runNumber/hares/hash-keyword gate at the call site — when ANY of
@@ -191,6 +211,13 @@ const TITLE_SCHEDULE_LINE_RE = /:\s*\d{1,2}:\d{2}\s*(?:am|pm)/i;
 // acronyms a kennel typed into the description, not real event titles. Reject
 // as title candidates so a 4-char "BYOB" doesn't become the displayed title.
 const TITLE_ACRONYM_ONLY_RE = /^[A-Z]{2,6}$/;
+// #1677 Moooouston: kennel admins use `**update**` / `**EDIT**` / `**note**`
+// as "this got revised" markers at the top of descriptions. They render as
+// literal markdown bolds when surfaced as a title. Reject any candidate whose
+// non-marker payload is a single edit/update/note/notice token — same shape
+// the FB ADMIN_NOTICE_PATTERNS handles for sentence-level admin posts.
+// Anchored start/end + bounded payload length keeps backtracking linear.
+const TITLE_MARKDOWN_ADMIN_MARKER_RE = /^\*{1,3}\s*(?:update|edit|note|notice)\s*\*{1,3}$/i;
 
 // Hash-vernacular CTAs we strip from locationName (#743): parenthetical
 // suffixes like "(text for details)" that creep in via Google Calendar.
@@ -497,6 +524,9 @@ export function extractTitleFromDescription(description: string): string | undef
     if (TITLE_PURE_TIME_RE.test(text)) continue;
     if (TITLE_SCHEDULE_LINE_RE.test(text)) continue;
     if (TITLE_ACRONYM_ONLY_RE.test(text)) continue;
+    // #1677: reject `**update**` / `**EDIT**` admin markers — they render
+    // as literal markdown when surfaced as a title and never describe a trail.
+    if (TITLE_MARKDOWN_ADMIN_MARKER_RE.test(text)) continue;
     return text;
   }
   return undefined;
@@ -719,6 +749,23 @@ interface CalendarSourceConfig {
    * common word.
    */
   stripDoubledKennelPrefix?: boolean;
+  /**
+   * Opt-in: when the calendar SUMMARY collapses to the bare kennel tag
+   * (post-trailing-dash strip), skip the `titleFromDescription` fallback
+   * and let `defaultTitle` / `defaultTitles[kennelTag]` win instead.
+   *
+   * Set this on umbrella calendars whose admins use the description as
+   * scratch space — `**update**` / `EDIT:` / freeform sentences leak into
+   * the title because they happen to be the first non-label line (#1677
+   * Moooouston, #1705 Mosquito). Off by default so single-kennel calendars
+   * that genuinely encode the trail name in the description (4X2 H4 /
+   * Chicagoland) keep their existing behavior.
+   *
+   * Only effective when a `defaultTitle` or per-kennel `defaultTitles`
+   * entry is configured — otherwise the description fallback is still
+   * the only path to a usable title.
+   */
+  preferDefaultTitleOverDescription?: boolean;
 }
 
 /**
@@ -1121,8 +1168,27 @@ export function buildRawEventFromGCalItem(
   }
   // Stale-default detection: equality is whitespace-insensitive so a SUMMARY
   // of "4X2 H4" still matches kennelTag "4x2h4".
+  //
+  // `preferDefaultTitleOverDescription` (#1677 / #1705): umbrella calendars
+  // whose admins use the description as scratch space leak `**update**` /
+  // freeform sentences into the title via the description-first-line path.
+  // When the flag is set AND a per-kennel `defaultTitles` (or generic
+  // `defaultTitle`) is configured, skip the description fallback so the
+  // existing defaultTitle path (line ~1311) wins instead.
   if (titleMatchesKennelTag(title, kennelTag) && rawDescription) {
-    title = titleFromDescription(rawDescription) ?? title;
+    // Strict-boolean check on `preferDefaultTitleOverDescription`: the
+    // config is hydrated from persisted JSON, where any truthy value
+    // would otherwise opt in unintentionally (same convention as the
+    // Meetup `extractRunNumber === true` check, CodeRabbit PR #1612).
+    const hasConfiguredFallback =
+      sourceConfig?.defaultTitles?.[kennelTag] != null
+      || sourceConfig?.defaultTitle != null;
+    const skipDescriptionFallback =
+      sourceConfig?.preferDefaultTitleOverDescription === true
+      && hasConfiguredFallback;
+    if (!skipDescriptionFallback) {
+      title = titleFromDescription(rawDescription) ?? title;
+    }
   }
   // If title looks like a bare kennel code (2-10 alphanumeric chars, no spaces),
   // try extracting a better title from the description
@@ -1379,6 +1445,22 @@ export function buildRawEventFromGCalItem(
     !hares &&
     !HASH_KEYWORD_RE.test(summary) &&
     NON_HASH_DOMAIN_PATTERNS.some((re) => re.test(summary))
+  ) {
+    return null;
+  }
+
+  // #1690 — medical / telehealth appointment title with no hash signal.
+  // Same override semantics as the sport filter above, deliberately
+  // STRICTER than the #1271 personal-title gate: description / location
+  // do not rescue. A contributor accidentally adding a medical
+  // appointment to a shared calendar usually types description prose
+  // (clinic name, prep notes); allowing description to override would
+  // re-open the PII leak that #1690 exposed.
+  if (
+    runNumber === undefined &&
+    !hares &&
+    !HASH_KEYWORD_RE.test(summary) &&
+    MEDICAL_TITLE_PATTERNS.some((re) => re.test(summary))
   ) {
     return null;
   }

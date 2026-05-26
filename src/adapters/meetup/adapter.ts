@@ -5,6 +5,7 @@ import { hasAnyErrors } from "../types";
 import { validateSourceConfig, stripHtmlTags, buildDateWindow, extractHashRunNumber, HARE_BOILERPLATE_RE, CTA_EMBEDDED_PATTERNS } from "../utils";
 import { safeFetch } from "../safe-fetch";
 import { extractHares as extractHaresFromDescription } from "../hare-extraction";
+import { isAdminNoticeTitle } from "../facebook-hosted-events/constants";
 
 /** US state abbreviation → full name mapping (50 states + DC). */
 const US_STATE_ABBREV_TO_NAME: Record<string, string> = {
@@ -682,6 +683,7 @@ export class MeetupAdapter implements SourceAdapter {
 
     const compiledPatterns = compileKennelPatterns(config.kennelPatterns);
     let cancelledSkipped = 0;
+    let adminNoticeSkipped = 0;
     for (const [i, ev] of allApolloEvents.entries()) {
       try {
         if (!ev.dateTime) continue;
@@ -695,6 +697,16 @@ export class MeetupAdapter implements SourceAdapter {
         // is no longer in the active set. See #917.
         if (ev.status === "CANCELLED") {
           cancelledSkipped++;
+          continue;
+        }
+        // Drop admin-notice posts (kennel migration announcements, farewell
+        // posts). Same pattern set used by FACEBOOK_HOSTED_EVENTS (#1500 /
+        // PR #1527); Narwhal H3 surfaced the identical "Moving to a new
+        // website site - Last day in Meetup is March 10th" notice via the
+        // Meetup path (#1689). Patterns intentionally narrow — see
+        // ADMIN_NOTICE_PATTERNS docstring.
+        if (ev.title && isAdminNoticeTitle(ev.title)) {
+          adminNoticeSkipped++;
           continue;
         }
         // Strict-boolean check (CodeRabbit PR #1612 review): the config is
@@ -723,6 +735,7 @@ export class MeetupAdapter implements SourceAdapter {
         pastEventsIngested: allApolloEvents.filter((ev) => pastOnlyIds.has(ev.id)).length,
         eventsAfterDedup: allApolloEvents.length,
         cancelledSkipped,
+        adminNoticeSkipped,
         detailPagesFetched,
         detailPagesEnriched,
       },

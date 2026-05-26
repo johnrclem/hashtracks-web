@@ -463,6 +463,94 @@ describe("non-hash event filter (#1271)", () => {
   });
 });
 
+// #1690 Houston PII — a medical appointment ("Sleep Study - Christine Kuhl
+// Remote visit") was added to the shared Houston H3 GCal by a contributor.
+// Patterns live in MEDICAL_TITLE_PATTERNS with a tighter gate than the
+// #1271 personal-verb path: only runNumber / hares / the literal word
+// "hash" override. Description and location intentionally don't rescue —
+// a contributor adding their own medical appointment usually types
+// description text (clinic name, prep notes) and that shouldn't bypass.
+describe("medical appointment filter (#1690)", () => {
+  it.each([
+    // Verbatim issue title.
+    "Sleep Study - Christine Kuhl Remote visit",
+    // Pattern coverage — anchored medical/telehealth appointment shapes.
+    "Sleep study",
+    "Medical appointment",
+    "Telehealth visit with Dr. Banana",
+    "Virtual consultation tomorrow",
+    "Annual physical Remote visit",
+  ])("drops medical/personal appointment title: %s", (summary) => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary }),
+      { defaultKennelTag: "h4-tx" },
+    );
+    expect(result).toBeNull();
+  });
+
+  // Tighter gate than #1271 — even with description present, the medical
+  // title still drops. The verbatim Houston PII event had no description,
+  // but a contributor's real medical entry usually does.
+  it("drops medical-pattern title even when description is present", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        summary: "Sleep Study - Jane Doe Remote visit",
+        description: "Telehealth via Zoom. Bring water and prep paperwork.",
+      }),
+      { defaultKennelTag: "h4-tx" },
+    );
+    expect(result).toBeNull();
+  });
+
+  it("drops medical-pattern title even when location is present", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        summary: "Medical appointment with Dr. Smith",
+        location: "123 Clinic Way",
+      }),
+      { defaultKennelTag: "h4-tx" },
+    );
+    expect(result).toBeNull();
+  });
+
+  // Negative fixtures — hash titles that share words with medical terms must
+  // still ingest when a structured hash signal (hares / runNumber / `hash`
+  // keyword) is present.
+  it.each([
+    ["beer appointment is not medical", "Beer Appointment Trail"],
+    ["doctor as theme noun", "Doctor Bingo Trail"],
+    ["telehealth as theme", "Telehealth Theme Run"],
+    ["sleep as theme", "Sleep Deprivation Hash"],
+    ["remote as adjective", "Remote Mountain Trail"],
+  ])("preserves non-medical hash title: %s", (_, summary) => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary, location: "Memorial Park" }),
+      { defaultKennelTag: "h4-tx" },
+    );
+    expect(result).not.toBeNull();
+  });
+
+  it("preserves medical-pattern title when hares are set", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        summary: "Sleep Study Trail",
+        description: "Hare: Banana Boat",
+      }),
+      { defaultKennelTag: "h4-tx" },
+    );
+    expect(result).not.toBeNull();
+    expect(result!.hares).toBe("Banana Boat");
+  });
+
+  it("preserves medical-pattern title when summary contains the literal 'hash' keyword", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "Sleep Study Hash Trail" }),
+      { defaultKennelTag: "h4-tx" },
+    );
+    expect(result).not.toBeNull();
+  });
+});
+
 // #1426 — sports-domain events leaked through #1271 because they had a real
 // location (Frances Park 2701 Moores River Dr). Drop when sport+qualifier
 // matches AND there's no run number / hares — the two hash-confirming
@@ -1689,6 +1777,124 @@ describe("buildRawEventFromGCalItem — title fallback from description", () => 
     expect(event).not.toBeNull();
     expect(event!.location).toBeUndefined();
     expect(event!.locationUrl).toBe("https://maps.app.goo.gl/zpyewJa4kXbu2pnd9");
+  });
+
+  // #1677 Moooouston + #1705 Mosquito — umbrella calendar admins use the
+  // description as scratch space, so `**update**` / freeform sentences leaked
+  // into titles via the description-first-line fallback. The new
+  // `preferDefaultTitleOverDescription` flag skips description fallback when
+  // SUMMARY collapses to the bare kennel tag AND a defaultTitle is configured.
+  describe("preferDefaultTitleOverDescription (#1677, #1705)", () => {
+    it("uses defaultTitles[kennelTag] over description first line — #1677 Moooouston `**update**`", () => {
+      const item = {
+        summary: "Moooouston H3 -",
+        description:
+          "**update** \n\nStart is the parking lot by the Sam Houston statue, roughly 6101 Fannin St, as there's no street address in Google Maps when you select that lot.",
+        start: { dateTime: "2026-04-27T19:00:00-05:00" },
+        status: "confirmed",
+      };
+      const config = {
+        kennelPatterns: [["Moooouston H3|Moooo?uston", "moooouston-h3"]] as [string, string][],
+        defaultKennelTag: "h4-tx",
+        defaultTitles: { "moooouston-h3": "Moooouston H3 Trail" },
+        preferDefaultTitleOverDescription: true,
+      };
+      const event = buildRawEventFromGCalItem(item, config);
+      expect(event).not.toBeNull();
+      expect(event!.title).toBe("Moooouston H3 Trail");
+      expect(event!.kennelTags).toContain("moooouston-h3");
+    });
+
+    it("uses defaultTitles[kennelTag] over description first line — #1705 Mosquito sentence leak", () => {
+      const item = {
+        summary: "Mosquito H3",
+        description:
+          "Broke back ranger is laying a 3 mil3 a to a.\n\n\nMosquito H3 runs on the first and third Wednesdays of the month on the west side of Houston.",
+        start: { dateTime: "2025-08-06T19:00:00-05:00" },
+        status: "confirmed",
+      };
+      const config = {
+        kennelPatterns: [["Mosquito H3|Mosquito", "mosquito-h3"]] as [string, string][],
+        defaultKennelTag: "h4-tx",
+        defaultTitles: { "mosquito-h3": "Mosquito H3 Trail" },
+        preferDefaultTitleOverDescription: true,
+      };
+      const event = buildRawEventFromGCalItem(item, config);
+      expect(event).not.toBeNull();
+      expect(event!.title).toBe("Mosquito H3 Trail");
+      expect(event!.kennelTags).toContain("mosquito-h3");
+    });
+
+    it("preserves description first-line title when flag is OFF (default behaviour for single-kennel calendars)", () => {
+      // Regression guard for 4X2 H4 / Chicagoland — without the opt-in flag
+      // the existing description-fallback path stays intact.
+      const item = {
+        summary: "C2H3",
+        description: "Green Dresses!! 👗 Hare: Ant Farmer!",
+        start: { dateTime: "2026-03-14T19:00:00-05:00" },
+        status: "confirmed",
+      };
+      const event = buildRawEventFromGCalItem(item, { defaultKennelTag: "C2H3", defaultTitle: "C2H3 Trail" });
+      expect(event).not.toBeNull();
+      expect(event!.title).toBe("Green Dresses!");
+    });
+
+    it("falls through to description fallback when flag is set but no defaultTitle configured", () => {
+      // Safety: an opt-in source that forgets to configure defaultTitle/
+      // defaultTitles[kennelTag] still gets the description fallback —
+      // otherwise the title would silently equal the kennel slug.
+      const item = {
+        summary: "C2H3",
+        description: "Green Dresses!! 👗 Hare: Ant Farmer!",
+        start: { dateTime: "2026-03-14T19:00:00-05:00" },
+        status: "confirmed",
+      };
+      const event = buildRawEventFromGCalItem(item, {
+        defaultKennelTag: "C2H3",
+        preferDefaultTitleOverDescription: true,
+      });
+      expect(event).not.toBeNull();
+      expect(event!.title).toBe("Green Dresses!");
+    });
+  });
+
+  // #1677 — even without the opt-in flag, the description-first-line path
+  // must reject obvious markdown admin markers so non-umbrella calendars
+  // get the same protection.
+  describe("extractTitleFromDescription markdown admin marker rejection (#1677)", () => {
+    it.each([
+      "**update**",
+      "**EDIT**",
+      "**Note**",
+      "*update*",
+      "***notice***",
+    ])("rejects %s as a candidate title", (marker) => {
+      const item = {
+        summary: "C2H3",
+        description: `${marker}\n\nGreen Dresses!! 👗`,
+        start: { dateTime: "2026-03-14T19:00:00-05:00" },
+        status: "confirmed",
+      };
+      const event = buildRawEventFromGCalItem(item, { defaultKennelTag: "C2H3" });
+      expect(event).not.toBeNull();
+      // Marker rejected → next line wins, not the marker itself.
+      expect(event!.title).toBe("Green Dresses!");
+    });
+
+    it("preserves real titles that happen to contain markdown bold mid-string", () => {
+      // Conservative: only WHOLE-line `*name*` markers with admin keywords
+      // get rejected. A real title like "**Green Dresses** Anniversary" passes
+      // through (`anniversary` isn't an admin keyword).
+      const item = {
+        summary: "C2H3",
+        description: "**Green Dresses** Anniversary Trail\n\nMeet at the park.",
+        start: { dateTime: "2026-03-14T19:00:00-05:00" },
+        status: "confirmed",
+      };
+      const event = buildRawEventFromGCalItem(item, { defaultKennelTag: "C2H3" });
+      expect(event).not.toBeNull();
+      expect(event!.title).toBe("**Green Dresses** Anniversary Trail");
+    });
   });
 });
 
