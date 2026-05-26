@@ -633,27 +633,34 @@ export function mergeLH3DetailIntoEvent(event: RawEventData, detail: LH3DetailPa
     merged.latitude = detail.latitude;
     merged.longitude = detail.longitude;
   }
-  if (detail.locationUrl) {
-    merged.locationUrl = detail.locationUrl;
-  }
-  if (detail.location) {
-    merged.location = detail.location;
-  }
-  if (detail.hares) {
-    merged.hares = detail.hares;
-  }
+  if (detail.locationUrl) merged.locationUrl = detail.locationUrl;
+  if (detail.location) merged.location = detail.location;
+  if (detail.hares) merged.hares = detail.hares;
   // Title from detail page wins over the run-list `.titleRow` only when the
   // run-list synthesized the default (i.e. the .titleRow was TBA/blank).
-  if (detail.title && /^London Hash Run #\d+$/.test(event.title ?? "")) {
+  if (detail.title && SYNTHESIZED_TITLE_RE.test(event.title ?? "")) {
     merged.title = detail.title;
   }
 
-  // Enrich description with detail page info. Preserve base station + any
-  // run-list `.runlistNote` paragraphs the base description carried — only
-  // the station prefix is structured ("Nearest station: X."), the rest is
-  // free-form note content that should survive a detail-page merge.
+  const description = buildMergedDescription(event.description ?? "", detail);
+  if (description) merged.description = description;
+
+  merged.sourceUrl = detail.sourceUrl;
+  return merged;
+}
+
+/** Synthesized default title format: `London Hash Run #NNN`. */
+const SYNTHESIZED_TITLE_RE = /^London Hash Run #\d+$/;
+
+/** Compose the merged event description from base + detail-page info.
+ *
+ * Structured parts (station / On-On / distance) come first in fixed order,
+ * then any detail-page note, then any free-form note segments the base
+ * description carried that aren't already represented (preserves
+ * `.runlistNote` content through detail-page enrichment).
+ */
+function buildMergedDescription(baseDesc: string, detail: LH3DetailPageData): string {
   const descParts: string[] = [];
-  const baseDesc = event.description ?? "";
   const baseStationMatch = BASE_STATION_RE.exec(baseDesc);
   const station = detail.station ?? baseStationMatch?.[1];
   if (station) descParts.push(`Nearest station: ${station}`);
@@ -662,23 +669,20 @@ export function mergeLH3DetailIntoEvent(event: RawEventData, detail: LH3DetailPa
   // Detail-page "What Else" content (travel info, theme, anniversary). Avoid
   // duplicating a station prefix that's already captured above.
   if (detail.notes && !BASE_STATION_RE.test(detail.notes)) descParts.push(detail.notes);
-  // Append any base-description notes that weren't the structured station
-  // line (split on ". " then drop the station prefix). Preserves runlist
-  // `.runlistNote` content through detail-page enrichment.
+  appendBaseNoteSegments(descParts, baseDesc);
+  return descParts.length > 0 ? descParts.join(". ") : "";
+}
+
+/** Append base-description segments (split on ". ") that aren't the
+ * structured station prefix and aren't already in `parts`. */
+function appendBaseNoteSegments(parts: string[], baseDesc: string): void {
   for (const segment of baseDesc.split(". ")) {
     const t = segment.trim().replace(/\.\s*$/, "");
     if (!t) continue;
     if (BASE_STATION_RE.test(t)) continue;
-    if (descParts.includes(t)) continue;
-    descParts.push(t);
+    if (parts.includes(t)) continue;
+    parts.push(t);
   }
-  if (descParts.length > 0) {
-    merged.description = descParts.join(". ");
-  }
-
-  merged.sourceUrl = detail.sourceUrl;
-
-  return merged;
 }
 
 /**
@@ -752,7 +756,8 @@ function parseRunListEvents(
       if (event) {
         events.push(event);
       } else {
-        (errorDetails.parse ??= []).push({
+        const parseErrors = (errorDetails.parse ??= []);
+        parseErrors.push({
           row: i,
           section: "runlist",
           field: "date",
@@ -762,7 +767,8 @@ function parseRunListEvents(
       }
     } catch (err) {
       errors.push(`Error parsing run #${block.runNumber}: ${err}`);
-      (errorDetails.parse ??= []).push({
+      const parseErrors = (errorDetails.parse ??= []);
+      parseErrors.push({
         row: i,
         section: "runlist",
         error: String(err),
