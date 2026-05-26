@@ -102,6 +102,7 @@ import { CapitalH3Adapter } from "./html-scraper/capital-h3";
 import { MoolooHhhAdapter } from "./html-scraper/mooloo-hhh";
 import { GeriatrixH3Adapter } from "./html-scraper/geriatrix-h3";
 import { HogtownAdapter } from "./html-scraper/hogtown";
+import { MhhhCaAdapter } from "./html-scraper/mhhh-ca";
 import { GoogleCalendarAdapter } from "./google-calendar/adapter";
 import { GoogleSheetsAdapter } from "./google-sheets/adapter";
 import { ICalAdapter } from "./ical/adapter";
@@ -254,6 +255,13 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   // (HOGTOWN / TWAT / HOGANS) share one kennel; the series prefix lives in
   // the title since the schema has no sub-series field.
   { pattern: /hogtownh3\.com/i, name: "HogtownAdapter", factory: () => new HogtownAdapter() },
+  // ── Canada (Montreal) ──
+  // MH3 Montreal (#1660) — hand-edited static HTML keyed on <!--RunNumber-->
+  // / <!--DateTimeCost--> / <!--HaresList--> / <!--Location--> comment anchors.
+  // Wins on Meetup when both fire (trustLevel 9 vs Meetup's 7) — see PR for
+  // the four bundled issues including a description-leak fix in the Meetup
+  // adapter (#1659) that gated this PR.
+  { pattern: /mhhh\.ca/i, name: "MhhhCaAdapter", factory: () => new MhhhCaAdapter() },
 ];
 
 /** URL-based routing for HTML_SCRAPER — derived from htmlScraperEntries (single source of truth). */

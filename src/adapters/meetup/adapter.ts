@@ -265,9 +265,85 @@ export function resolveVenue(
   };
 }
 
-/** Strip HTML tags from Meetup description and truncate. */
-function cleanMeetupDescription(desc: string | undefined): string | undefined {
+/**
+ * Apollo back-reference shape — a bare `$XX` string that points elsewhere in the
+ * normalized cache (Meetup deduplicates long shared values like the boilerplate
+ * "Structure / This event..." across many Event entries). See #1659: when the
+ * extractor casts an Apollo entry to `ApolloEvent` without resolving these,
+ * canonical Event.description ends up storing `"$44"` instead of prose.
+ */
+const APOLLO_REF_RE = /^\$[0-9a-fA-F]+$/;
+
+/**
+ * Resolve an Apollo back-reference string against the cache state. Follows
+ * up to MAX_REF_HOPS chained `$XX -> $YY -> "..."` indirections — Apollo's
+ * normalized format permits chains when the same string is referenced from
+ * multiple cache layers. Returns the first non-ref string at the end of the
+ * chain; otherwise returns `undefined` to signal "no usable target." Tracks
+ * visited refs to defend against pathological self-referential cycles.
+ *
+ * Reviewer pushback (PR #1688, gemini-code-assist + codex P1): an earlier
+ * version of this helper required a `looksLikeProse` heuristic (≥20 chars +
+ * ASCII `[A-Za-z]{3,}` match) on the resolved value. That dropped legitimate
+ * short descriptions and any non-Latin (e.g. Japanese, French) prose. The
+ * design contract for ref resolution is just "follow indirection until you
+ * land on a literal" — accept any non-ref string the chain bottoms out on.
+ */
+const MAX_REF_HOPS = 4;
+function resolveApolloDescriptionRef(
+  ref: string,
+  state: Record<string, unknown>,
+): string | undefined {
+  const visited = new Set<string>();
+  let cursor: string | undefined = ref;
+  for (let hop = 0; hop < MAX_REF_HOPS && cursor; hop++) {
+    if (visited.has(cursor)) return undefined;
+    visited.add(cursor);
+    const target: unknown = state[cursor];
+    if (typeof target === "string") {
+      if (APOLLO_REF_RE.test(target)) {
+        cursor = target;
+        continue;
+      }
+      return target;
+    }
+    // Wrapper object — the common shape is { value: <string-or-ref> }, but
+    // some Apollo variants nest under `data`. Probe both.
+    if (target && typeof target === "object" && !Array.isArray(target)) {
+      const obj = target as Record<string, unknown>;
+      const wrapped = (typeof obj.value === "string" ? obj.value : undefined)
+        ?? (typeof obj.data === "string" ? obj.data : undefined);
+      if (typeof wrapped !== "string") return undefined;
+      if (APOLLO_REF_RE.test(wrapped)) {
+        cursor = wrapped;
+        continue;
+      }
+      return wrapped;
+    }
+    return undefined;
+  }
+  return undefined;
+}
+
+/**
+ * Clean a Meetup description: dereference Apollo back-refs, strip HTML, truncate.
+ * Returns `undefined` (preserve existing canonical value, per merge.ts contract)
+ * when the raw value is an Apollo ref that doesn't resolve — adapter convention
+ * prefers `undefined` over `null` so failed lookups don't wipe legitimately
+ * stored prose. A separate one-shot script (`scripts/cleanup-mh3-ca-stale-descriptions.ts`)
+ * handles the inverse — clearing already-corrupted `$XX` rows that pre-date
+ * the fix in this PR.
+ */
+function cleanMeetupDescription(
+  desc: string | undefined,
+  state: Record<string, unknown>,
+): string | undefined {
   if (!desc) return undefined;
+  if (APOLLO_REF_RE.test(desc)) {
+    const resolved = resolveApolloDescriptionRef(desc, state);
+    if (!resolved) return undefined;
+    return stripHtmlTags(resolved).slice(0, 2000) || undefined;
+  }
   return stripHtmlTags(desc).slice(0, 2000) || undefined;
 }
 
@@ -426,7 +502,7 @@ export function buildRawEventFromApollo(
   const hares =
     (descForHares ? extractHaresFromDescription(descForHares) : undefined)
     ?? extractHaresFromMeetupDescription(descForHares);
-  const cleanedDesc = cleanMeetupDescription(ev.description);
+  const cleanedDesc = cleanMeetupDescription(ev.description, state);
 
   return {
     date,

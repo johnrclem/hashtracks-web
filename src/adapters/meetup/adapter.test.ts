@@ -485,6 +485,112 @@ describe("MeetupAdapter", () => {
     expect(result.events[0].description).toBe("Join us for a fun trail!");
   });
 
+  // #1659: Meetup's Apollo cache deduplicates long shared strings (like the
+  // boilerplate "Structure / This event..." block reused across every MH3
+  // Montreal event) by storing a bare back-reference like "$44" on the Event
+  // entry, with the prose target stored separately under the same key in
+  // __APOLLO_STATE__. Until #1659, the adapter passed the bare ref through to
+  // canonical Event.description verbatim, producing the visible pattern
+  // (run #1683 -> "$44", #1684 -> "$43", ...). Regression shapes below.
+  it("resolves Apollo back-reference description to its target when state has it", async () => {
+    const html = buildMeetupHtml({
+      "Event:1": buildApolloEvent({ description: "$44" }),
+      "Venue:123": VENUE_ENTRY,
+      $44: "Structure / This event will be a run/walk, followed by a social gathering at a nearby venue. All are welcome — hashers and virgins alike.",
+    });
+    mockHtmlResponse(html);
+
+    const adapter = new MeetupAdapter();
+    const result = await adapter.fetch(
+      makeSource({ groupUrlname: "test-hash", kennelTag: "NYCH3" }),
+      { days: 365 },
+    );
+    expect(result.events[0].description).toBe(
+      "Structure / This event will be a run/walk, followed by a social gathering at a nearby venue. All are welcome — hashers and virgins alike.",
+    );
+  });
+
+  it("preserves existing description (undefined) when Apollo back-reference doesn't resolve", async () => {
+    const html = buildMeetupHtml({
+      "Event:1": buildApolloEvent({ description: "$44" }),
+      "Venue:123": VENUE_ENTRY,
+      // No $44 entry in state -> unresolvable.
+    });
+    mockHtmlResponse(html);
+
+    const adapter = new MeetupAdapter();
+    const result = await adapter.fetch(
+      makeSource({ groupUrlname: "test-hash", kennelTag: "NYCH3" }),
+      { days: 365 },
+    );
+    // undefined (preserve existing) is the adapter convention — never let the
+    // raw "$44" string persist, but don't clear legitimately stored prose
+    // either. Reviewer feedback on PR #1688 (gemini-code-assist + codex P1):
+    // prefer undefined over null in adapters.
+    expect(result.events[0].description).toBeUndefined();
+  });
+
+  it("accepts short non-English back-reference targets (no English-prose heuristic)", async () => {
+    // Reviewer feedback (PR #1688): an earlier `looksLikeProse` guard required
+    // ≥20 chars + ASCII letters, which would drop short or non-Latin
+    // descriptions. The fix is that resolveApolloDescriptionRef accepts any
+    // string the chain bottoms out on. Verify with a short French/Japanese
+    // string that the prior heuristic would have rejected.
+    const html = buildMeetupHtml({
+      "Event:1": buildApolloEvent({ description: "$44" }),
+      "Venue:123": VENUE_ENTRY,
+      $44: "ハッシュラン",
+    });
+    mockHtmlResponse(html);
+
+    const adapter = new MeetupAdapter();
+    const result = await adapter.fetch(
+      makeSource({ groupUrlname: "test-hash", kennelTag: "NYCH3" }),
+      { days: 365 },
+    );
+    expect(result.events[0].description).toBe("ハッシュラン");
+  });
+
+  it("follows chained Apollo back-references to the final target", async () => {
+    // Real Apollo state can hop through multiple dedup layers — $44 → $45 →
+    // wrapped { value: "actual prose" }. Without chain following, a perfectly
+    // good description would get dropped (Codex finding on the
+    // cleanMeetupDescription fix). Anchor a 3-hop chain in regression tests.
+    const html = buildMeetupHtml({
+      "Event:1": buildApolloEvent({ description: "$44" }),
+      "Venue:123": VENUE_ENTRY,
+      $44: "$45",
+      $45: { value: "Trail #42 — pace yourself, watch for falsies, BYO drink." },
+    });
+    mockHtmlResponse(html);
+
+    const adapter = new MeetupAdapter();
+    const result = await adapter.fetch(
+      makeSource({ groupUrlname: "test-hash", kennelTag: "NYCH3" }),
+      { days: 365 },
+    );
+    expect(result.events[0].description).toBe(
+      "Trail #42 — pace yourself, watch for falsies, BYO drink.",
+    );
+  });
+
+  it("rejects a cyclic Apollo ref chain rather than looping forever", async () => {
+    const html = buildMeetupHtml({
+      "Event:1": buildApolloEvent({ description: "$44" }),
+      "Venue:123": VENUE_ENTRY,
+      $44: "$45",
+      $45: "$44", // pathological loop
+    });
+    mockHtmlResponse(html);
+
+    const adapter = new MeetupAdapter();
+    const result = await adapter.fetch(
+      makeSource({ groupUrlname: "test-hash", kennelTag: "NYCH3" }),
+      { days: 365 },
+    );
+    expect(result.events[0].description).toBeUndefined();
+  });
+
   it("filters events outside the lookback window", async () => {
     const futureDate = new Date(Date.now() + 200 * 24 * 60 * 60 * 1000);
     const futureIso = futureDate.toISOString().slice(0, 19) + "-05:00";
