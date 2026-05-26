@@ -70,20 +70,28 @@ export function parseHashtoryDate(cellText: string, year: number): string | null
   return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
+/** Hare-name placeholder tokens to drop. Single alternation, no flanking
+ * quantifiers — safe shape for Sonar S5852. */
+const PLACEHOLDER_HARE_RE = /required|volunteer|tba|tbd|tbc/i;
+
 /** Sort comma-separated hare names so re-runs produce identical fingerprints.
  * Source row order isn't guaranteed stable across scrapes
- * (per `feedback_fingerprint_stability.md`). Exported for unit testing. */
+ * (per `feedback_fingerprint_stability.md`). Source uses "X and Y" / "X, Y
+ * and Z" / "X, Y, Z" formats — split on "," then on " and " (case-
+ * insensitive literal, no flanking `\s*` quantifier so Sonar S5852 stays
+ * clean). Exported for unit testing. */
 export function normalizeHares(raw: string): string | undefined {
   const trimmed = raw.trim();
   if (!trimmed) return undefined;
-  // Source uses "X and Y" / "X, Y and Z" formats. Normalize on "and" + ","
-  // then sort. "Hare required" / placeholder check happens after.
-  const tokens = trimmed
-    .split(/\s*(?:,|\band\b)\s*/i)
-    .map((t) => t.trim())
-    .filter((t) => t.length > 0 && !/required|volunteer|tba|tbd|tbc/i.test(t));
+  const tokens: string[] = [];
+  for (const piece of trimmed.split(",")) {
+    for (const t of piece.split(/ and /i)) {
+      const cleaned = t.trim();
+      if (cleaned && !PLACEHOLDER_HARE_RE.test(cleaned)) tokens.push(cleaned);
+    }
+  }
   if (tokens.length === 0) return undefined;
-  return [...tokens].sort((a, b) => a.localeCompare(b, "en")).join(", ");
+  return tokens.sort((a, b) => a.localeCompare(b, "en")).join(", ");
 }
 
 /** Parse one `.hrlistRow` + adjacent `.packHolder` into RawEventData,
