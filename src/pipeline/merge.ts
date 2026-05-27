@@ -2507,10 +2507,19 @@ export async function processRawEvents(
   // we ran this later (e.g. inside `processNewRawEvent`), stale rows
   // would dedup against their old fingerprint and never re-merge with
   // the freshly inferred endDate. Codex review on PR H caught this.
-  // The call is idempotent for sanitized events, so an inner re-sanitize
-  // in `processNewRawEvent` would be a no-op — we drop it there.
-  for (const event of events) {
-    sanitizeRawFields(event);
+  //
+  // Each call is wrapped so a single malformed event records as an
+  // isolated `eventError` and is dropped from the batch — matching the
+  // resilience contract previously provided by `processNewRawEvent`'s
+  // outer try/catch (Gemini PR review #1740). Iterating in reverse lets
+  // `splice` not shift indexes we haven't visited yet.
+  for (let i = events.length - 1; i >= 0; i--) {
+    try {
+      sanitizeRawFields(events[i]);
+    } catch (err) {
+      recordMergeError(events[i], err, result, "<sanitize-error>");
+      events.splice(i, 1);
+    }
   }
 
   // Sync fingerprint precompute keyed by event identity. Runs first so the
