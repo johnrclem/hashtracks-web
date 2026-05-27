@@ -66,14 +66,21 @@ interface SquarespaceLocation {
   addressLine2?: string | null;
   addressCountry?: string | null;
   /**
-   * Map pin coordinates of the venue. NOTE: the JSON also exposes
-   * `markerLat`/`markerLng` — those are a default fallback (often NYC) when
-   * the user pins the map but skips an explicit address, so we read
-   * `mapLat`/`mapLng` exclusively to avoid wiring 40.72/-74.00 onto trails
-   * across the country.
+   * Venue pin coordinates. CAUTION: Squarespace populates BOTH `mapLat`/`mapLng`
+   * AND `markerLat`/`markerLng` for every event. When the user pins the venue
+   * on the map, `mapLat`/`mapLng` reflect the pin and `markerLat`/`markerLng`
+   * stay at the tenant's default position (~40.7207559, -74.0007613 — Manhattan
+   * for English-language sites). When the user doesn't pin a venue,
+   * `mapLat`/`mapLng` ALSO fall back to the tenant default — making them equal
+   * to `markerLat`/`markerLng`. We detect the unset state by comparing the two
+   * pairs (see `parseSquarespaceEvent`); without this check 16 of 38 SACH3
+   * events on first scrape landed with Manhattan coords despite having
+   * Sacramento street addresses.
    */
   mapLat?: number | null;
   mapLng?: number | null;
+  markerLat?: number | null;
+  markerLng?: number | null;
 }
 
 interface SquarespaceEvent {
@@ -92,6 +99,47 @@ interface SquarespaceEventsPayload {
   website?: { timeZone?: string; baseUrl?: string };
   upcoming?: SquarespaceEvent[];
   past?: SquarespaceEvent[];
+}
+
+/**
+ * Extract venue coordinates from a Squarespace location, rejecting the
+ * tenant-default pin. Squarespace populates both `mapLat`/`mapLng` and
+ * `markerLat`/`markerLng` for every event; when no venue pin is set the
+ * map-pair falls back to the same default as the marker-pair (typically
+ * Manhattan for English-language sites). Equality between the two pairs
+ * is the canonical "unset pin" signal — see SquarespaceLocation docstring.
+ *
+ * Comparison uses a 6-decimal epsilon (≈11cm at the equator) since both
+ * pairs are stored at the same precision in the JSON payload; the float
+ * comparison would otherwise be brittle against round-trip noise.
+ */
+const DEFAULT_PIN_EPSILON = 1e-6;
+function extractVenueCoords(
+  loc: SquarespaceLocation,
+): [number | undefined, number | undefined] {
+  const mapLat = loc.mapLat;
+  const mapLng = loc.mapLng;
+  if (
+    typeof mapLat !== "number" ||
+    typeof mapLng !== "number" ||
+    !Number.isFinite(mapLat) ||
+    !Number.isFinite(mapLng)
+  ) {
+    return [undefined, undefined];
+  }
+  const markerLat = loc.markerLat;
+  const markerLng = loc.markerLng;
+  if (
+    typeof markerLat === "number" &&
+    typeof markerLng === "number" &&
+    Math.abs(mapLat - markerLat) < DEFAULT_PIN_EPSILON &&
+    Math.abs(mapLng - markerLng) < DEFAULT_PIN_EPSILON
+  ) {
+    // Both pairs match → user never positioned the venue. The mapLat/mapLng
+    // is the tenant default, not a real venue location.
+    return [undefined, undefined];
+  }
+  return [mapLat, mapLng];
 }
 
 /**
@@ -240,10 +288,12 @@ export function parseSquarespaceEvent(
     ? decodeEntities(stripHtmlTags(event.body))
     : undefined;
 
-  const latitude =
-    typeof loc.mapLat === "number" && Number.isFinite(loc.mapLat) ? loc.mapLat : undefined;
-  const longitude =
-    typeof loc.mapLng === "number" && Number.isFinite(loc.mapLng) ? loc.mapLng : undefined;
+  // Coord extraction with default-pin detection. See SquarespaceLocation
+  // docstring: when the user doesn't drop a venue pin, mapLat/mapLng fall
+  // back to the same tenant default as markerLat/markerLng. Treat that
+  // equality as "no real coords" and emit undefined so downstream geocoding
+  // can derive coords from `locationStreet` instead.
+  const [latitude, longitude] = extractVenueCoords(loc);
 
   return {
     date,

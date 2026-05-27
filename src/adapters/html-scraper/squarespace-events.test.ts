@@ -37,10 +37,37 @@ const CAMPOUT_EVENT = {
     addressLine2: "Folsom, CA, 95630",
     mapLat: 38.6844644,
     mapLng: -121.1788914,
-    markerLat: 40.7207559,  // Squarespace's NYC fallback pin — must NOT be used
+    // Squarespace populates `markerLat`/`markerLng` with the tenant default
+    // (Manhattan, NY) for every event regardless of where the user pins the
+    // venue. Since this fixture has a real venue pin, the map pair differs
+    // from the marker pair → the adapter should emit the real Folsom coords.
+    markerLat: 40.7207559,
     markerLng: -74.0007613,
   },
   body: "<p>Three-day campout. Dog friendly. 21+.</p>",
+};
+
+// Real-world Squarespace shape when the user enters a street address but
+// doesn't drop a map pin — both lat/lng pairs collapse to the tenant
+// default (Manhattan, NY). 16 of 38 SACH3 events on first scrape landed
+// with these coords despite having Sacramento street addresses (#1742
+// follow-up).
+const UNSET_PIN_EVENT = {
+  id: "ghi-unset",
+  title: "Saturday Trail (no pin)",
+  fullUrl: "/events/saturday-trail-no-pin",
+  startDate: Date.UTC(2026, 6, 11, 1, 30, 0),
+  endDate: Date.UTC(2026, 6, 11, 4, 30, 0),
+  location: {
+    addressTitle: "",
+    addressLine1: "11351 S Bridge St,",
+    addressLine2: "Gold River, CA 95670",
+    mapLat: 40.7207559,
+    mapLng: -74.0007613,
+    markerLat: 40.7207559,
+    markerLng: -74.0007613,
+  },
+  body: "",
 };
 
 const NUMBERED_PAST_EVENT = {
@@ -85,7 +112,7 @@ describe("parseSquarespaceEvent", () => {
     expect(ev?.endDate).toBeUndefined();
   });
 
-  it("reads latitude/longitude from mapLat/mapLng (NOT markerLat/markerLng)", () => {
+  it("reads latitude/longitude from mapLat/mapLng when the user pinned a venue", () => {
     const ev = parseSquarespaceEvent(CAMPOUT_EVENT, CONFIG, BASE, PT);
     expect(ev?.latitude).toBe(38.6844644);
     expect(ev?.longitude).toBe(-121.1788914);
@@ -95,6 +122,43 @@ describe("parseSquarespaceEvent", () => {
     const ev = parseSquarespaceEvent(WEDNESDAY_EVENT, CONFIG, BASE, PT);
     expect(ev?.latitude).toBeUndefined();
     expect(ev?.longitude).toBeUndefined();
+  });
+
+  it("rejects the tenant-default pin when mapLat/mapLng equal markerLat/markerLng", () => {
+    // Regression test for the 16-of-38 Manhattan-coord leak on the initial
+    // SACH3 scrape: Squarespace's mapLat/mapLng silently fall back to the
+    // tenant default (~40.72/-74.00 Manhattan) when no venue pin is set.
+    // Equality between mapLat/mapLng and markerLat/markerLng is the canonical
+    // "unset pin" signal — those coords must not be emitted.
+    const ev = parseSquarespaceEvent(UNSET_PIN_EVENT, CONFIG, BASE, PT);
+    expect(ev?.latitude).toBeUndefined();
+    expect(ev?.longitude).toBeUndefined();
+    // But the address still flows through so the downstream geocoder can
+    // derive correct coords.
+    expect(ev?.locationStreet).toBe("11351 S Bridge St,, Gold River, CA 95670");
+  });
+
+  it("emits coords when mapLat/mapLng differ from markerLat/markerLng even by a small margin", () => {
+    // Defense against false-positives: a kennel whose real venue happens to
+    // be near the Squarespace default must still get coords if the user
+    // actively positioned the pin (mapLat ≠ markerLat).
+    const ev = parseSquarespaceEvent(
+      {
+        ...UNSET_PIN_EVENT,
+        location: {
+          ...UNSET_PIN_EVENT.location,
+          mapLat: 40.7300000, // user nudged pin ~1km north of default
+          mapLng: -74.0050000,
+          markerLat: 40.7207559,
+          markerLng: -74.0007613,
+        },
+      },
+      CONFIG,
+      BASE,
+      PT,
+    );
+    expect(ev?.latitude).toBe(40.73);
+    expect(ev?.longitude).toBe(-74.005);
   });
 
   it("leaves location/locationStreet undefined when address fields are blank", () => {
