@@ -107,10 +107,15 @@ describe("linkSameTitleConsecutiveClusters", () => {
       // mock; resolve to an array of their resolutions.
       $transaction: vi.fn(async (calls: unknown[]) => calls),
     } as never;
+    evCounter = 0;
   });
 
+  // Monotonic counter for default test IDs — deterministic across runs and
+  // doesn't trip Sonar S2245 (pseudorandom-in-tests is harmless but the rule
+  // doesn't distinguish). Most tests pass explicit `id` overrides anyway.
+  let evCounter = 0;
   const ev = (overrides: Partial<EvShape>): EvShape => ({
-    id: `id-${Math.random()}`,
+    id: `id-${++evCounter}`,
     date: new Date("2026-06-12T12:00:00Z"),
     title: "Default",
     kennelId: "kennel-1",
