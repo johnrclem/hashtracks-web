@@ -75,6 +75,26 @@ function resolveRegionBias(
  * Sanitize raw event fields: decode HTML entities in text fields.
  * Applied at the top of processNewRawEvent() so all downstream sanitizers receive clean text.
  */
+/**
+ * Build the `endDate` patch fragment for the higher-trust update path
+ * (PR H.7 — Sonar S3358 extraction of the nested ternary). Tri-state:
+ *   - `event.endDate === undefined` AND fallback set → write fallback
+ *   - `event.endDate === undefined` AND no fallback  → no patch (preserve)
+ *   - `event.endDate === ""` / `null` → explicit clear
+ *   - `event.endDate` string → overwrite
+ */
+function resolveEndDateUpdate(
+  rawEndDate: string | undefined | null,
+  canonicalFallback: string | null,
+): { endDate?: Date | null } {
+  if (rawEndDate === undefined) {
+    return canonicalFallback
+      ? { endDate: parseUtcNoonDate(canonicalFallback) }
+      : {};
+  }
+  return { endDate: rawEndDate ? parseUtcNoonDate(rawEndDate) : null };
+}
+
 function sanitizeRawFields(event: RawEventData): void {
   if (event.title) event.title = decodeEntities(event.title);
   if (event.hares) event.hares = decodeEntities(event.hares);
@@ -1549,11 +1569,7 @@ async function upsertCanonicalEvent(
           // When the raw is silent (`undefined`) but the canonical-description
           // fallback inferred a date (PR H.7 — Oregon HHH same-source rescrape),
           // promote that here so the IF branch doesn't leave endDate stale.
-          ...(event.endDate === undefined
-            ? (canonicalFallbackEndDate
-                ? { endDate: parseUtcNoonDate(canonicalFallbackEndDate) }
-                : {})
-            : { endDate: event.endDate ? parseUtcNoonDate(event.endDate) : null }),
+          ...resolveEndDateUpdate(event.endDate, canonicalFallbackEndDate),
           // Cross-window fuzzy match (#990) physically moves the row from
           // its old `date` bucket to the incoming source's date, so display
           // paths that compose `date + startTime + timezone` render the
