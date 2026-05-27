@@ -248,6 +248,31 @@ function formatLocalTime(epochMs: number, timezone: string): string | undefined 
 }
 
 /**
+ * Resolve `endDate` (different day) vs `endTime` (same day) from a
+ * Squarespace event's `endDate` epoch. Extracted from
+ * `parseSquarespaceEvent` so the parser stays under Sonar S3776's
+ * cognitive-complexity budget; mirrors the multi-day vs same-day split
+ * documented at the call site.
+ *
+ * Returns `{}` (both undefined) when `endDate` is missing, ≤ startDate,
+ * or unparseable. Same-day → `{ endTime }`. Different-day → `{ endDate }`.
+ */
+function resolveEndDateOrTime(
+  endMs: number | undefined,
+  startMs: number,
+  startDate: string,
+  timezone: string,
+): { endDate?: string; endTime?: string } {
+  if (typeof endMs !== "number" || !Number.isFinite(endMs) || endMs <= startMs) {
+    return {};
+  }
+  const endYmd = formatYmdInTimezone(new Date(endMs), timezone);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(endYmd)) return {};
+  if (endYmd > startDate) return { endDate: endYmd };
+  return { endTime: formatLocalTime(endMs, timezone) };
+}
+
+/**
  * Convert one Squarespace event row into RawEventData. Returns null when
  * `startDate` is missing or unparseable — date is the minimum viable field
  * for downstream dedup.
@@ -273,30 +298,10 @@ export function parseSquarespaceEvent(
   const date = formatYmdInTimezone(new Date(startMs), timezone);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
 
-  // Multi-day events (campouts spanning Friday → Sunday) carry an endDate
-  // epoch on a later calendar day. RawEventData.endDate is the canonical
-  // "single-row date-range" field; emit only when the end day is strictly
-  // after the start day so normal evening trails (start 18:30, end 21:30
-  // same day) don't get a spurious endDate that re-fingerprints them.
-  //
-  // Same-day endDate populates RawEventData.endTime ("21:30") which the
-  // EventCard renders as "18:30 – 21:30". Different-day endDate populates
-  // RawEventData.endDate (multi-day umbrella) and leaves endTime undefined
-  // because "ends 12:00 on a different day" isn't a meaningful per-day
-  // trail time.
-  const endMs = event.endDate;
-  let endDate: string | undefined;
-  let endTime: string | undefined;
-  if (typeof endMs === "number" && Number.isFinite(endMs) && endMs > startMs) {
-    const endYmd = formatYmdInTimezone(new Date(endMs), timezone);
-    if (/^\d{4}-\d{2}-\d{2}$/.test(endYmd)) {
-      if (endYmd > date) {
-        endDate = endYmd;
-      } else {
-        endTime = formatLocalTime(endMs, timezone);
-      }
-    }
-  }
+  // Multi-day events (campouts spanning Friday → Sunday) emit `endDate`;
+  // same-day events emit `endTime` instead so the EventCard renders
+  // "18:30 – 21:30". See `resolveEndDateOrTime`.
+  const { endDate, endTime } = resolveEndDateOrTime(event.endDate, startMs, date, timezone);
 
   const title = event.title?.trim() || undefined;
   const loc = event.location ?? {};
@@ -414,6 +419,84 @@ async function fetchSquarespacePage(url: string): Promise<PageFetchResult> {
   return { ok: true, payload, fetchDurationMs };
 }
 
+interface PaginationAccumulator {
+  events: RawEventData[];
+  upcomingCount: number;
+  pastCount: number;
+  pagesFetched: number;
+  totalFetchMs: number;
+}
+
+/**
+ * Walk the Squarespace `?offset=NNN` pagination chain starting from a
+ * known-good first page, processing each page's events and aggregating
+ * counts. Extracted from `fetchSquarespaceEvents` to keep that function
+ * under Sonar S3776's cognitive-complexity budget.
+ *
+ * Stop conditions, checked AFTER processing each page but BEFORE the
+ * next request:
+ *   1. `pagesFetched >= maxPages` — don't fetch a page we won't process.
+ *   2. Current payload has no `nextPage` link.
+ *   3. Deeper-page transient failure (5xx, network glitch) — preserve
+ *      everything harvested so far rather than discarding.
+ */
+async function walkPagination(
+  firstPayload: SquarespaceEventsPayload,
+  firstFetchMs: number,
+  collectionUrl: string,
+  maxPages: number,
+  parseEvent: (ev: SquarespaceEvent) => RawEventData | null,
+): Promise<PaginationAccumulator> {
+  const acc: PaginationAccumulator = {
+    events: [],
+    upcomingCount: 0,
+    pastCount: 0,
+    pagesFetched: 0,
+    totalFetchMs: 0,
+  };
+
+  let currentPayload: SquarespaceEventsPayload = firstPayload;
+  let currentFetchMs = firstFetchMs;
+
+  while (true) {
+    const upcoming = Array.isArray(currentPayload.upcoming) ? currentPayload.upcoming : [];
+    const past = Array.isArray(currentPayload.past) ? currentPayload.past : [];
+    acc.upcomingCount += upcoming.length;
+    acc.pastCount += past.length;
+    acc.pagesFetched++;
+    acc.totalFetchMs += currentFetchMs;
+
+    // Per-event try/catch: `parseSquarespaceEvent` is defensive (typeof
+    // checks, returns null on bad input) but a future bug or unexpected
+    // payload shape shouldn't take down the entire batch — keep harvesting
+    // siblings and log the offender for follow-up.
+    for (const ev of [...upcoming, ...past]) {
+      try {
+        const parsed = parseEvent(ev);
+        if (parsed) acc.events.push(parsed);
+      } catch (err) {
+        console.warn(
+          "SquarespaceEventsAdapter: failed to parse one event row:",
+          err instanceof Error ? err.message : String(err),
+        );
+      }
+    }
+
+    if (acc.pagesFetched >= maxPages) break;
+    const pagination = currentPayload.pagination;
+    if (!pagination?.nextPage || typeof pagination.nextPageOffset !== "number") break;
+
+    const nextUrl = appendOffset(collectionUrl, pagination.nextPageOffset);
+    const pageResult = await fetchSquarespacePage(nextUrl);
+    if (!pageResult.ok) break;
+
+    currentPayload = pageResult.payload;
+    currentFetchMs = pageResult.fetchDurationMs;
+  }
+
+  return acc;
+}
+
 /**
  * Fetch + parse a Squarespace events collection, following the platform's
  * `?offset=NNN` pagination chain up to `config.maxPages` pages.
@@ -443,12 +526,17 @@ export async function fetchSquarespaceEvents(
     source.url,
     config.collectionPath ?? "/events",
   );
-  const maxPages = Math.max(1, Math.floor(config.maxPages ?? 20));
+  // Guard against a misconfigured `maxPages` (e.g. seeded as a string or
+  // NaN). Without this, `Math.floor(NaN)` propagates and the loop's
+  // `pagesFetched >= maxPages` check would always be false → on a tenant
+  // that returns `nextPage: true` indefinitely the loop would never exit.
+  const maxPages =
+    typeof config.maxPages === "number" && Number.isFinite(config.maxPages)
+      ? Math.max(1, Math.floor(config.maxPages))
+      : 20;
 
   // First page: fail loud on shape mismatch (tenant disabled the
   // collection, etc.) so the reconciler doesn't cancel live events.
-  // Subsequent pages: tolerate a single transient failure by stopping
-  // pagination — the events we've already harvested still flow through.
   const firstPageResult = await fetchSquarespacePage(collectionUrl);
   if (!firstPageResult.ok) {
     return {
@@ -479,59 +567,27 @@ export async function fetchSquarespaceEvents(
   }
 
   const timezone = resolveTimezone(config.timezone, firstPayload.website?.timeZone);
-  let upcomingCount = 0;
-  let pastCount = 0;
-  let pagesFetched = 0;
-  let totalFetchMs = 0;
-  const events: RawEventData[] = [];
-
-  let nextUrl: string | undefined = collectionUrl;
-  let currentPayload: SquarespaceEventsPayload | undefined = firstPayload;
-  let currentFetchMs = firstPageResult.fetchDurationMs;
-
-  while (currentPayload) {
-    const upcoming = Array.isArray(currentPayload.upcoming) ? currentPayload.upcoming : [];
-    const past = Array.isArray(currentPayload.past) ? currentPayload.past : [];
-    upcomingCount += upcoming.length;
-    pastCount += past.length;
-    pagesFetched++;
-    totalFetchMs += currentFetchMs;
-
-    for (const ev of [...upcoming, ...past]) {
-      const parsed = parseSquarespaceEvent(ev, config, source.url, timezone);
-      if (parsed) events.push(parsed);
-    }
-
-    // Stop conditions, checked AFTER processing the current page but
-    // BEFORE issuing the next request:
-    //   1. We've fetched `maxPages` pages already — don't fetch a page we
-    //      won't process.
-    //   2. The current payload has no `nextPage` link.
-    if (pagesFetched >= maxPages) break;
-    const pagination = currentPayload.pagination;
-    if (!pagination?.nextPage || typeof pagination.nextPageOffset !== "number") break;
-
-    nextUrl = appendOffset(collectionUrl, pagination.nextPageOffset);
-    const pageResult = await fetchSquarespacePage(nextUrl);
-    if (!pageResult.ok) break; // transient failure on a deeper page — keep what we have
-
-    currentPayload = pageResult.payload;
-    currentFetchMs = pageResult.fetchDurationMs;
-  }
+  const acc = await walkPagination(
+    firstPayload,
+    firstPageResult.fetchDurationMs,
+    collectionUrl,
+    maxPages,
+    (ev) => parseSquarespaceEvent(ev, config, source.url, timezone),
+  );
 
   return {
-    events,
+    events: acc.events,
     errors: [],
     diagnosticContext: {
       fetchMethod: "squarespace-events-json",
       collectionUrl,
       timezone,
-      pagesFetched,
-      upcomingCount,
-      pastCount,
-      eventsParsed: events.length,
-      eventsSkipped: upcomingCount + pastCount - events.length,
-      fetchDurationMs: totalFetchMs,
+      pagesFetched: acc.pagesFetched,
+      upcomingCount: acc.upcomingCount,
+      pastCount: acc.pastCount,
+      eventsParsed: acc.events.length,
+      eventsSkipped: acc.upcomingCount + acc.pastCount - acc.events.length,
+      fetchDurationMs: acc.totalFetchMs,
     },
   };
 }

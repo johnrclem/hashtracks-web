@@ -430,4 +430,64 @@ describe("SquarespaceEventsAdapter.fetch", () => {
     expect(result.events.length).toBeGreaterThanOrEqual(2);
     expect(result.errors).toEqual([]);
   });
+
+  it("isolates a per-event parse failure so siblings still flow through", async () => {
+    // Use a payload that survives JSON round-trip but breaks parseSquarespaceEvent:
+    // a numeric `title` value triggers `title?.trim is not a function` inside the
+    // parser. Without the loop's try/catch this would abort the whole batch
+    // (campout event would never be emitted).
+    const explodingBody = JSON.stringify({
+      website: { timeZone: PT },
+      upcoming: [
+        { ...WEDNESDAY_EVENT, title: 42 }, // 42.trim() throws TypeError
+        CAMPOUT_EVENT,
+      ],
+    });
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(explodingBody, {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    const source = buildSource({ url: BASE }) as unknown as Source;
+    (source as unknown as { config: unknown }).config = { kennelTag: "sach3" };
+
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const result = await adapter.fetch(source);
+
+    // The campout still gets through; the TypeError is logged, not thrown.
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0]?.title).toBe("Hash Olympdicks Campout");
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("failed to parse one event row"),
+      expect.stringContaining("trim is not a function"),
+    );
+  });
+
+  it("falls back to the 20-page default when maxPages is misconfigured (NaN / non-number)", async () => {
+    // A seed row that types `maxPages: "lots"` would `Math.floor` to NaN
+    // and (without the guard) cause an infinite loop on a tenant that
+    // always returns `nextPage: true`. Bound to default 20 instead.
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    for (let i = 0; i < 25; i++) {
+      fetchSpy.mockResolvedValueOnce(
+        mockJsonResponse({
+          website: { timeZone: PT },
+          past: [NUMBERED_PAST_EVENT],
+          pagination: { nextPage: true, nextPageOffset: 100 + i },
+        }),
+      );
+    }
+
+    const source = buildSource({ url: BASE }) as unknown as Source;
+    (source as unknown as { config: unknown }).config = {
+      kennelTag: "sach3",
+      maxPages: "not a number" as unknown as number, // simulates bad seed config
+    };
+
+    const result = await adapter.fetch(source);
+    expect(result.diagnosticContext?.pagesFetched).toBe(20);
+    expect(fetchSpy).toHaveBeenCalledTimes(20);
+  });
 });
