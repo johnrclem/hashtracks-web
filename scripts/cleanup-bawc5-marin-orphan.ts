@@ -51,7 +51,12 @@ async function main() {
     return;
   }
 
-  const umbrella = await prisma.event.findFirst({
+  // findMany + exactly-one check (instead of findFirst) — Prisma's findFirst
+  // doesn't guarantee deterministic ordering without an orderBy, so on the
+  // off chance the predicate matched 2+ rows we'd silently bind to whichever
+  // one happened to come first. For a write script, fail closed when the
+  // anchor isn't unambiguous. CodeRabbit review on this PR.
+  const umbrellas = await prisma.event.findMany({
     where: {
       kennelId: sfh3Kennel.id,
       isSeriesParent: true,
@@ -59,19 +64,26 @@ async function main() {
     },
     select: { id: true, title: true, date: true },
   });
-  if (!umbrella) {
-    console.error(`BAWC5 umbrella Event not found in SFH3 between ${UMBRELLA_DATE_LO.toISOString()} and ${UMBRELLA_DATE_HI.toISOString()}. Aborting.`);
+  if (umbrellas.length !== 1) {
+    console.error(
+      `Expected exactly 1 BAWC5 umbrella Event in SFH3 between ${UMBRELLA_DATE_LO.toISOString()} and ${UMBRELLA_DATE_HI.toISOString()}, found ${umbrellas.length}. Aborting.`,
+    );
+    if (umbrellas.length > 1) {
+      for (const u of umbrellas) {
+        console.error(`  candidate: ${u.id}  ${u.date.toISOString().slice(0, 10)}  ${JSON.stringify(u.title)}`);
+      }
+    }
     process.exitCode = 1;
     return;
   }
+  const umbrella = umbrellas[0];
   console.log(`Umbrella: ${umbrella.id}  ${umbrella.date.toISOString().slice(0, 10)}  ${JSON.stringify(umbrella.title)}`);
 
   // Marin #292 on 2026-06-20. Strict (kennelId + runNumber + exact date)
-  // match — no date-window fallback. A write script should fail closed
-  // when the anchor row is missing rather than silently auto-pick from a
-  // multi-row date window (Codex review on the original draft).
+  // match — no date-window fallback, fail closed when not exactly one row
+  // matches (a write script should never auto-pick from an ambiguous set).
   const marinDateEnd = new Date(MARIN_DATE.getTime() + 86_400_000 - 1);
-  const marin = await prisma.event.findFirst({
+  const marins = await prisma.event.findMany({
     where: {
       kennelId: marinKennel.id,
       runNumber: MARIN_RUN_NUMBER,
@@ -79,15 +91,20 @@ async function main() {
     },
     select: { id: true, title: true, date: true, parentEventId: true, runNumber: true },
   });
-  if (!marin) {
+  if (marins.length !== 1) {
     console.error(
-      `Marin H3 #${MARIN_RUN_NUMBER} Event not found on ${MARIN_DATE.toISOString().slice(0, 10)}. ` +
-        "Refusing to auto-pick a different Marin event by date alone. " +
-        "Investigate manually (RawEvent state, possible kennel rename) and re-run with the correct anchor.",
+      `Expected exactly 1 Marin H3 #${MARIN_RUN_NUMBER} Event on ${MARIN_DATE.toISOString().slice(0, 10)}, found ${marins.length}. ` +
+        "Refusing to auto-pick. Investigate manually (RawEvent state, possible kennel rename) and re-run with the correct anchor.",
     );
+    if (marins.length > 1) {
+      for (const m of marins) {
+        console.error(`  candidate: ${m.id}  ${m.date.toISOString().slice(0, 10)}  ${JSON.stringify(m.title)}  parent=${m.parentEventId}`);
+      }
+    }
     process.exitCode = 1;
     return;
   }
+  const marin = marins[0];
   console.log(`Marin:    ${marin.id}  ${marin.date.toISOString().slice(0, 10)}  runNumber=${marin.runNumber}  title=${JSON.stringify(marin.title)}  parentEventId=${marin.parentEventId}`);
 
   if (marin.parentEventId === umbrella.id) {
