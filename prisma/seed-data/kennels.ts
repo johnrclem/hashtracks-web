@@ -1336,7 +1336,7 @@ export const KENNELS: KennelSeed[] = [
       ],
       scheduleNotes: "1st, 3rd, and 5th Saturdays, 2:00 PM.",
       hashCash: "$5", foundedYear: 2006,
-      description: "Biweekly Saturday runs in the Wilmington/Cape Fear area.",
+      description: "Runs on the 1st, 3rd, and 5th Saturday of each month in the Wilmington/Cape Fear area.",
       latitude: 34.24, longitude: -77.95,
     },
     // --- Fayetteville ---
