@@ -3555,7 +3555,8 @@ describe("fuzzy ±48h cross-source dedup (#990)", () => {
 
     expect(result.created).toBe(1);
     expect(result.updated).toBe(0);
-    expect(mockEventFindMany).toHaveBeenCalledTimes(1); // only same-day, no fuzzy probe
+    // 1 same-day cache prefetch + 1 same-title-cluster linker scan (PR I).
+    expect(mockEventFindMany).toHaveBeenCalledTimes(2);
   });
 
   it("merges into ±24h row with fuzzy-matching title (the BurlyH3 Invihash case from #886)", async () => {
@@ -3718,7 +3719,8 @@ describe("fuzzy ±48h cross-source dedup (#990)", () => {
     ]);
 
     expect(result.created).toBe(1);
-    expect(mockEventFindMany).toHaveBeenCalledTimes(1); // only same-day query
+    // 1 same-day cache prefetch + 1 same-title-cluster linker scan (PR I).
+    expect(mockEventFindMany).toHaveBeenCalledTimes(2);
   });
 
   it("does NOT merge when locationName diverges sharply (different venues)", async () => {
@@ -3792,7 +3794,8 @@ describe("processRawEvents — per-kennel read batching (#1287)", () => {
     // — narrow query, never pulls non-batch events for the kennel (avoids
     // the SDH3-backfill pathology where one scrape would otherwise load 7K+
     // historical rows because batchDates spans a year).
-    expect(mockEventFindMany).toHaveBeenCalledTimes(1);
+    // PR I: +1 same-title-cluster linker scan at end of processRawEvents.
+    expect(mockEventFindMany).toHaveBeenCalledTimes(2);
     const cacheCall = mockEventFindMany.mock.calls[0];
     const cacheWhere = (cacheCall[0] as { where: { kennelId: string; date: { in: Date[] } } }).where;
     expect(cacheWhere.kennelId).toBe("kennel_1");
@@ -3816,7 +3819,8 @@ describe("processRawEvents — per-kennel read batching (#1287)", () => {
         buildRawEvent({ date: "2026-04-08", kennelTags: ["TestH3"] }),
       ]);
 
-      expect(mockEventFindMany).toHaveBeenCalledTimes(1);
+      // 1 cache prefetch + 1 same-title-cluster linker scan (PR I).
+      expect(mockEventFindMany).toHaveBeenCalledTimes(2);
       const cacheCall = mockEventFindMany.mock.calls[0];
       const cacheWhere = (cacheCall[0] as { where: { date: { gte: Date; lte: Date } } }).where;
       // ±48h around 2026-04-01 (min) and 2026-04-08 (max)

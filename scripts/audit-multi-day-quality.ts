@@ -18,6 +18,11 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
 import { createScriptPool } from "./lib/db-pool";
 import { detectVenueWeekendEndDate } from "../src/pipeline/venue-weekend";
+import {
+  normalizeTitleForCluster,
+  clusterGroupKey,
+  isConsecutiveCluster,
+} from "../src/pipeline/same-title-cluster";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -285,26 +290,11 @@ function bucketA4(rows: AuditRow[]): Finding[] {
     .filter((f): f is Finding => f !== null);
 }
 
-// Title normalization for A.5 grouping. Per-day suffixes ("Pub Crawl!" /
-// "Hangover Trail!" / "Trail #2051") differ across days; the leading
-// event-name tokens stay stable. Example:
-//   "BMPH3: Trail #2051 – Belgian Nash Hash 2026 Pub Crawl!" →
-//   first-4 normalized tokens → "bmph3 belgian nash hash"
-function normTitleForA5(t: string): string {
-  return t
-    .toLowerCase()
-    .replaceAll(/[#\-–—:]/g, " ")
-    .replaceAll(/\btrail\b/g, "")
-    .replaceAll(/\b\d+\b/g, "") // strip standalone run numbers + year suffixes
-    .replaceAll(/\s+/g, " ")
-    .trim();
-}
-
-function a5GroupKey(norm: string): string | null {
-  const tokens = norm.split(/\s+/).filter(Boolean);
-  if (tokens.length < 2) return null;
-  return tokens.slice(0, 4).join(" ");
-}
+// A.5 cluster grouping shares its helpers with the production linker
+// (`src/pipeline/same-title-cluster.ts`, PR I). Same normalization + group
+// key + consecutive-cluster check so the audit count always reflects what
+// the linker would act on. To check membership we need to call the same
+// helpers per-row, so wrap the imports in adapter-style helpers below.
 
 interface A5Group { kennelId: string; norm: string; events: AuditRow[]; }
 
@@ -312,9 +302,9 @@ function clusterA5Groups(rows: AuditRow[]): Map<string, A5Group> {
   const groups = new Map<string, A5Group>();
   for (const r of rows) {
     if (r.isSeriesParent || r.parentEventId) continue;
-    const norm = normTitleForA5(r.title);
-    const prefix = a5GroupKey(norm);
-    if (!prefix || prefix.length < 8) continue;
+    const norm = normalizeTitleForCluster(r.title);
+    const prefix = clusterGroupKey(norm);
+    if (!prefix) continue;
     const key = `${r.kennel.id}::${prefix}`;
     const g = groups.get(key) ?? { kennelId: r.kennel.id, norm: prefix, events: [] };
     g.events.push(r);
@@ -323,14 +313,9 @@ function clusterA5Groups(rows: AuditRow[]): Map<string, A5Group> {
   return groups;
 }
 
-function isConsecutiveCluster(sorted: AuditRow[]): boolean {
-  const DAY_MS = 1000 * 60 * 60 * 24;
-  for (let i = 1; i < sorted.length; i++) {
-    const gap = (sorted[i].date.getTime() - sorted[i - 1].date.getTime()) / DAY_MS;
-    if (gap >= 1 && gap <= 2) return true;
-  }
-  return false;
-}
+// `isConsecutiveCluster` in the linker takes `{ date: Date }[]` — our
+// `AuditRow` is a structural superset so we can pass it directly.
+const DAY_MS_A5 = 1000 * 60 * 60 * 24;
 
 function bucketA5(rows: AuditRow[]): Finding[] {
   // Same kennel + similar title + consecutive dates, not linked as series.
