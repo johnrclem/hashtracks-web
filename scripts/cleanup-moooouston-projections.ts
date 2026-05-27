@@ -24,6 +24,11 @@ cleanupDormantProjections(
     kennelCode: "moooouston-h3",
     issues: [1676],
     sourceUrlPrefixes: ["https://www.google.com/calendar/event?eid=NnNyamlkajU2cGhqZWI5"],
+    // titleEquals defends against a RECURRENCE-ID exception override under
+    // the same eid prefix being mis-classified as a phantom (codex PR #1720
+    // adversarial review). All 106 prod-discovered phantoms carry this title
+    // (the kennel-shortName fallback after #756's trailing-dash strip).
+    titleEquals: "Moooouston H3 Trail",
   },
   APPLY,
 ).catch(async (err) => {

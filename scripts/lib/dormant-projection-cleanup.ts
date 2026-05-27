@@ -14,25 +14,28 @@
  *        - `runNumber IS NULL`, AND
  *        - `haresText IS NULL OR ''` (placeholder shape — guards against
  *          deleting any titled trail that happened to share a sourceUrl), AND
- *        - optional `title` exact match (used when a kennel's static-schedule
- *          phantoms share their sourceUrl with the real HTML_SCRAPER source,
- *          e.g. Mooloo H3 — see `cleanup-mooloo-projections.ts`).
- *   3. **Attendance preflight** — count `attendances` + `kennelAttendances`
- *      across the candidate set. Abort with a listing if any non-zero — the
- *      misman/RSVP audit trail is unrecoverable. (Closes #1419, #1692, #1676,
- *      #1704, #1663, #1673.)
- *   4. Dry-run logs the candidate IDs / dates / titles. `--apply` calls
- *      `cascadeDeleteEvents()` which orphans the linked RawEvents
- *      (`eventId=null, processed=false`) so the audit trail survives and the
- *      next scrape will re-link them to a real titled VEVENT if the source
- *      publishes one at the same date.
+ *        - optional `titleEquals` exact match (the recommended belt-and-
+ *          suspenders defense against RECURRENCE-ID exception overrides that
+ *          could share a dormant series' eid prefix with a real title — see
+ *          codex review of PR #1720).
+ *   3. **Attendance preflight (atomic, isolation=Serializable)** — the
+ *      candidate set is re-counted inside the same transaction that performs
+ *      the delete. If attendance appears between the initial discovery and
+ *      the transaction start, the in-tx recheck catches it and rolls back.
+ *      Without this, the window between `findMany()` and `cascadeDeleteEvents`
+ *      let concurrent writes slip through and get silently deleted alongside
+ *      the phantom Events.
+ *   4. Dry-run logs the candidate IDs / dates / titles. `--apply` runs the
+ *      transactional delete in batches, unlinking RawEvents (`eventId=null,
+ *      processed=false`) so the audit trail survives and the next scrape can
+ *      re-link them if a real titled VEVENT appears at the same date.
  *
  * Idempotent: re-runs after `--apply` find zero candidates and exit cleanly,
  * because the sourceUrl + placeholder-shape filter excludes anything the
  * adapter would re-create with non-NULL `runNumber` / `haresText`.
  */
+import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
-import { cascadeDeleteEvents } from "./cascade-delete";
 
 export interface DormantCleanupConfig {
   /** Human-readable identifier surfaced in logs (e.g. "knightvillian"). */
@@ -162,9 +165,37 @@ export async function cleanupDormantProjections(
   }
 
   if (apply && candidates.length > 0) {
-    const deleted = await cascadeDeleteEvents(
-      prisma,
-      candidates.map((c) => c.id),
+    const candidateIds = candidates.map((c) => c.id);
+    const deleted = await prisma.$transaction(
+      async (tx) => {
+        // In-transaction recheck — closes the TOCTOU window between the
+        // outer `findMany` and the delete. With Serializable isolation,
+        // any concurrent writer that adds attendance to a candidate row
+        // after our snapshot triggers a serialization-failure abort.
+        const recheck = await tx.event.findMany({
+          where: { id: { in: candidateIds } },
+          select: {
+            id: true,
+            _count: { select: { attendances: true, kennelAttendances: true } },
+          },
+        });
+        const newAttendance = recheck.filter(
+          (e) => e._count.attendances > 0 || e._count.kennelAttendances > 0,
+        );
+        if (newAttendance.length > 0) {
+          // Thrown errors roll the whole transaction back — no rows deleted.
+          throw new Error(
+            `Concurrent attendance detected on ${newAttendance.length} candidate(s); ` +
+              `rolling back. IDs: ${newAttendance.map((e) => e.id).join(", ")}`,
+          );
+        }
+        return cascadeDeleteEventsTx(tx, candidateIds);
+      },
+      {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        timeout: 60_000,
+        maxWait: 10_000,
+      },
     );
     console.log(
       `\nDeleted ${deleted} Event row(s). RawEvents unlinked (eventId=null, processed=false) ` +
@@ -175,4 +206,38 @@ export async function cleanupDormantProjections(
   }
 
   await prisma.$disconnect();
+}
+
+/**
+ * Tx-scoped variant of `cascadeDeleteEvents`. Same semantics as the standalone
+ * helper but uses an injected `Prisma.TransactionClient` so the recheck +
+ * delete share an atomic boundary. Reusing `cascadeDeleteEvents(prisma, ...)`
+ * directly inside an outer interactive transaction would open a *separate*
+ * connection and defeat the isolation guarantee — that's why we duplicate
+ * the cascade body here instead of calling the shared helper.
+ */
+async function cascadeDeleteEventsTx(
+  tx: Prisma.TransactionClient,
+  eventIds: string[],
+): Promise<number> {
+  if (eventIds.length === 0) return 0;
+  const BATCH_SIZE = 100;
+  let deleted = 0;
+  for (let i = 0; i < eventIds.length; i += BATCH_SIZE) {
+    const batch = eventIds.slice(i, i + BATCH_SIZE);
+    await tx.rawEvent.updateMany({
+      where: { eventId: { in: batch } },
+      data: { eventId: null, processed: false },
+    });
+    await tx.event.updateMany({
+      where: { parentEventId: { in: batch } },
+      data: { parentEventId: null },
+    });
+    await tx.eventHare.deleteMany({ where: { eventId: { in: batch } } });
+    await tx.attendance.deleteMany({ where: { eventId: { in: batch } } });
+    await tx.kennelAttendance.deleteMany({ where: { eventId: { in: batch } } });
+    const res = await tx.event.deleteMany({ where: { id: { in: batch } } });
+    deleted += res.count;
+  }
+  return deleted;
 }

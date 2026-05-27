@@ -29,6 +29,10 @@ cleanupDormantProjections(
     issues: [1419, 1692],
     // Dormant weekly RRULE in pormeh3hashcash@gmail.com — single series.
     sourceUrlPrefixes: ["https://www.google.com/calendar/event?eid=MG5ybW4zMjhzbjdjOWc0"],
+    // titleEquals defends against a RECURRENCE-ID exception override under
+    // the same eid prefix being mis-classified as a phantom (codex PR #1720
+    // adversarial review). Every prod-discovered phantom carries this title.
+    titleEquals: "Knightvillain H3",
   },
   APPLY,
 ).catch(async (err) => {

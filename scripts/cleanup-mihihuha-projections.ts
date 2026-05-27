@@ -25,6 +25,12 @@ cleanupDormantProjections(
     kennelCode: "mihi-huha",
     issues: [1663],
     sourceUrlPrefixes: ["https://www.google.com/calendar/event?eid=azR2ajNnY2E2YXRma3F1"],
+    // titleEquals defends against a RECURRENCE-ID exception override under
+    // the same eid prefix being mis-classified as a phantom (codex PR #1720
+    // adversarial review). All 23 prod-discovered phantoms carry the bare
+    // kennel-name title because the dormant calendar's RRULE master VEVENT
+    // had no theme set.
+    titleEquals: "Mile High Humpin' Hash",
   },
   APPLY,
 ).catch(async (err) => {
