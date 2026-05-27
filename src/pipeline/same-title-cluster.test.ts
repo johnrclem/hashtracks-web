@@ -246,6 +246,8 @@ describe("linkSameTitleConsecutiveClusters", () => {
     expect(result.eventsLinked).toBe(6);
     // Confirm two distinct umbrellas (y26-1 and y27-1).
     const parentUpdates = updates.filter((u) => "id" in u.where && u.data.isSeriesParent === true);
-    expect(parentUpdates.map((u) => (u.where as { id: string }).id).sort()).toEqual(["y26-1", "y27-1"]);
+    expect(
+      parentUpdates.map((u) => (u.where as { id: string }).id).sort((a, b) => a.localeCompare(b)),
+    ).toEqual(["y26-1", "y27-1"]);
   });
 });
