@@ -112,6 +112,39 @@ describe("parseSquarespaceEvent", () => {
     expect(ev?.endDate).toBeUndefined();
   });
 
+  it("emits endTime for same-day events when endDate epoch is later than start", () => {
+    // 2026-05-27 18:30 PDT → 2026-05-27 21:30 PDT (3-hour Wednesday trail).
+    // EventCard renders "18:30 – 21:30" once endTime is populated.
+    const ev = parseSquarespaceEvent(WEDNESDAY_EVENT, CONFIG, BASE, PT);
+    expect(ev?.startTime).toBe("18:30");
+    expect(ev?.endTime).toBe("21:30");
+  });
+
+  it("omits endTime for multi-day events (endDate flows instead)", () => {
+    // Multi-day Hash Olympdicks Campout — endDate populates instead of endTime
+    // so the UI knows this is a 3-day umbrella, not a single evening trail.
+    const ev = parseSquarespaceEvent(CAMPOUT_EVENT, CONFIG, BASE, PT);
+    expect(ev?.endDate).toBe("2026-06-07");
+    expect(ev?.endTime).toBeUndefined();
+  });
+
+  it("omits endTime when endDate is missing or ≤ startDate", () => {
+    const ev1 = parseSquarespaceEvent(
+      { ...WEDNESDAY_EVENT, endDate: undefined },
+      CONFIG,
+      BASE,
+      PT,
+    );
+    expect(ev1?.endTime).toBeUndefined();
+    const ev2 = parseSquarespaceEvent(
+      { ...WEDNESDAY_EVENT, endDate: WEDNESDAY_EVENT.startDate }, // equal, not >
+      CONFIG,
+      BASE,
+      PT,
+    );
+    expect(ev2?.endTime).toBeUndefined();
+  });
+
   it("reads latitude/longitude from mapLat/mapLng when the user pinned a venue", () => {
     const ev = parseSquarespaceEvent(CAMPOUT_EVENT, CONFIG, BASE, PT);
     expect(ev?.latitude).toBe(38.6844644);
@@ -136,6 +169,32 @@ describe("parseSquarespaceEvent", () => {
     // But the address still flows through so the downstream geocoder can
     // derive correct coords.
     expect(ev?.locationStreet).toBe("11351 S Bridge St,, Gold River, CA 95670");
+  });
+
+  it("emits dropCachedCoords when the tenant-default pin is rejected", () => {
+    // Without this signal the merge pipeline's existing-coords cache
+    // short-circuit preserves the previously-stored Manhattan default
+    // forever (#957 precedent). The post-merge re-scrape after PR #1745
+    // landed with 16 events still on Manhattan coords for exactly this
+    // reason — the adapter was emitting `latitude: undefined` but not
+    // signaling that the OLD coords were stale.
+    const ev = parseSquarespaceEvent(UNSET_PIN_EVENT, CONFIG, BASE, PT);
+    expect(ev?.dropCachedCoords).toBe(true);
+  });
+
+  it("does NOT emit dropCachedCoords when the user actually pinned a venue", () => {
+    // Real venue pin → coords are legit, no need to invalidate any cache.
+    const ev = parseSquarespaceEvent(CAMPOUT_EVENT, CONFIG, BASE, PT);
+    expect(ev?.dropCachedCoords).toBeUndefined();
+    expect(ev?.latitude).toBe(38.6844644);
+  });
+
+  it("does NOT emit dropCachedCoords when location has no coord fields at all", () => {
+    // No mapLat/mapLng → no upstream coords to reject; legitimate
+    // "geocode from address" case, not a stale-pin scenario.
+    const ev = parseSquarespaceEvent(WEDNESDAY_EVENT, CONFIG, BASE, PT);
+    expect(ev?.dropCachedCoords).toBeUndefined();
+    expect(ev?.latitude).toBeUndefined();
   });
 
   it("emits coords when mapLat/mapLng differ from markerLat/markerLng even by a small margin", () => {
@@ -203,6 +262,15 @@ function mockJsonResponse(payload: unknown): Response {
 
 describe("SquarespaceEventsAdapter.fetch", () => {
   const adapter = new SquarespaceEventsAdapter();
+
+  // Reset the global fetch spy between tests — `vi.spyOn(globalThis, "fetch")`
+  // returns the SAME underlying spy across re-spy calls, so .mock.calls
+  // accumulates across tests and assertions like `toHaveBeenCalledTimes(2)`
+  // see counts from earlier tests too. Restore-all clears both the call
+  // history and any queued `mockResolvedValueOnce` responses.
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it("parses upcoming + past arrays into RawEvents", async () => {
     const payload = {
@@ -301,5 +369,205 @@ describe("SquarespaceEventsAdapter.fetch", () => {
     await expect(adapter.fetch(source)).rejects.toThrow(
       /missing required config field "kennelTag"/,
     );
+  });
+
+  it("paginates via nextPageOffset and merges past arrays across pages", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    // Page 1 — has nextPage, links to offset=999
+    fetchSpy.mockResolvedValueOnce(
+      mockJsonResponse({
+        website: { timeZone: PT },
+        upcoming: [WEDNESDAY_EVENT],
+        past: [CAMPOUT_EVENT],
+        pagination: { nextPage: true, nextPageOffset: 999, pageSize: 30 },
+      }),
+    );
+    // Page 2 — no more pages
+    fetchSpy.mockResolvedValueOnce(
+      mockJsonResponse({
+        website: { timeZone: PT },
+        upcoming: [],
+        past: [NUMBERED_PAST_EVENT],
+        pagination: { pageSize: 30 },
+      }),
+    );
+
+    const source = buildSource({ url: BASE, scrapeDays: 365 }) as unknown as Source;
+    (source as unknown as { config: unknown }).config = { kennelTag: "sach3" };
+
+    const result = await adapter.fetch(source, { days: 365 });
+    expect(result.events).toHaveLength(3);
+    expect(result.diagnosticContext?.pagesFetched).toBe(2);
+
+    // Second fetch should hit the offset URL
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    const secondCall = fetchSpy.mock.calls[1][0];
+    expect(String(secondCall)).toContain("offset=999");
+    expect(String(secondCall)).toContain("format=json");
+  });
+
+  it("stops pagination at maxPages even when nextPage is still true", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    // Both pages claim more available; maxPages=2 caps the loop
+    for (let i = 0; i < 2; i++) {
+      fetchSpy.mockResolvedValueOnce(
+        mockJsonResponse({
+          website: { timeZone: PT },
+          past: [NUMBERED_PAST_EVENT],
+          pagination: { nextPage: true, nextPageOffset: 100 + i },
+        }),
+      );
+    }
+
+    const source = buildSource({ url: BASE }) as unknown as Source;
+    (source as unknown as { config: unknown }).config = {
+      kennelTag: "sach3",
+      maxPages: 2,
+    };
+
+    const result = await adapter.fetch(source);
+    expect(result.diagnosticContext?.pagesFetched).toBe(2);
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps page-1 events when a deeper page transiently fails AND signals reconciliation suppression", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    fetchSpy.mockResolvedValueOnce(
+      mockJsonResponse({
+        website: { timeZone: PT },
+        upcoming: [WEDNESDAY_EVENT],
+        past: [CAMPOUT_EVENT],
+        pagination: { nextPage: true, nextPageOffset: 999 },
+      }),
+    );
+    // Page 2 fails with 500
+    fetchSpy.mockResolvedValueOnce(
+      new Response("oops", {
+        status: 500,
+        headers: { "content-type": "text/plain" },
+      }),
+    );
+
+    const source = buildSource({ url: BASE }) as unknown as Source;
+    (source as unknown as { config: unknown }).config = { kennelTag: "sach3" };
+
+    const result = await adapter.fetch(source);
+    // Page 1 events flow through; pagination loop just stops on the deeper failure
+    expect(result.events.length).toBeGreaterThanOrEqual(2);
+    expect(result.errors).toEqual([]);
+    // Reconciliation-suppression signals MUST fire so scrape.ts:432-438
+    // doesn't cancel events from the unreached page (Codex P1, #1746).
+    expect(result.diagnosticContext?.kennelPageFetchErrors).toBe(1);
+    expect(result.diagnosticContext?.kennelPagesStopReason).toBe(
+      "deeper_page_fetch_failed",
+    );
+  });
+
+  it("does NOT suppress reconciliation when the maxPages cap is hit (intentional truncation)", async () => {
+    // The maxPages cap is by design — events past the cap are legitimately
+    // "outside our configured window" and reconciliation should still run.
+    // Only TRANSIENT pagination failures (deeper_page_fetch_failed) suppress.
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    for (let i = 0; i < 2; i++) {
+      fetchSpy.mockResolvedValueOnce(
+        mockJsonResponse({
+          website: { timeZone: PT },
+          past: [NUMBERED_PAST_EVENT],
+          pagination: { nextPage: true, nextPageOffset: 100 + i },
+        }),
+      );
+    }
+
+    const source = buildSource({ url: BASE }) as unknown as Source;
+    (source as unknown as { config: unknown }).config = {
+      kennelTag: "sach3",
+      maxPages: 2,
+    };
+
+    const result = await adapter.fetch(source);
+    expect(result.diagnosticContext?.pagesFetched).toBe(2);
+    expect(result.diagnosticContext?.kennelPageFetchErrors).toBe(0);
+    expect(result.diagnosticContext?.kennelPagesStopReason).toBeNull();
+  });
+
+  it("emits clean reconciliation signals on a successful single-page scrape", async () => {
+    // Sanity check: a clean walk to the natural end (no nextPage) must NOT
+    // set the suppression signals — otherwise reconciliation never fires
+    // and stale events accumulate forever.
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      mockJsonResponse({
+        website: { timeZone: PT },
+        upcoming: [WEDNESDAY_EVENT],
+        past: [CAMPOUT_EVENT],
+        pagination: { pageSize: 30 }, // no nextPage flag
+      }),
+    );
+
+    const source = buildSource({ url: BASE }) as unknown as Source;
+    (source as unknown as { config: unknown }).config = { kennelTag: "sach3" };
+
+    const result = await adapter.fetch(source);
+    expect(result.diagnosticContext?.kennelPageFetchErrors).toBe(0);
+    expect(result.diagnosticContext?.kennelPagesStopReason).toBeNull();
+  });
+
+  it("isolates a per-event parse failure so siblings still flow through", async () => {
+    // Use a payload that survives JSON round-trip but breaks parseSquarespaceEvent:
+    // a numeric `title` value triggers `title?.trim is not a function` inside the
+    // parser. Without the loop's try/catch this would abort the whole batch
+    // (campout event would never be emitted).
+    const explodingBody = JSON.stringify({
+      website: { timeZone: PT },
+      upcoming: [
+        { ...WEDNESDAY_EVENT, title: 42 }, // 42.trim() throws TypeError
+        CAMPOUT_EVENT,
+      ],
+    });
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(explodingBody, {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    const source = buildSource({ url: BASE }) as unknown as Source;
+    (source as unknown as { config: unknown }).config = { kennelTag: "sach3" };
+
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const result = await adapter.fetch(source);
+
+    // The campout still gets through; the TypeError is logged, not thrown.
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0]?.title).toBe("Hash Olympdicks Campout");
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("failed to parse one event row"),
+      expect.stringContaining("trim is not a function"),
+    );
+  });
+
+  it("falls back to the 20-page default when maxPages is misconfigured (NaN / non-number)", async () => {
+    // A seed row that types `maxPages: "lots"` would `Math.floor` to NaN
+    // and (without the guard) cause an infinite loop on a tenant that
+    // always returns `nextPage: true`. Bound to default 20 instead.
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    for (let i = 0; i < 25; i++) {
+      fetchSpy.mockResolvedValueOnce(
+        mockJsonResponse({
+          website: { timeZone: PT },
+          past: [NUMBERED_PAST_EVENT],
+          pagination: { nextPage: true, nextPageOffset: 100 + i },
+        }),
+      );
+    }
+
+    const source = buildSource({ url: BASE }) as unknown as Source;
+    (source as unknown as { config: unknown }).config = {
+      kennelTag: "sach3",
+      maxPages: "not a number" as unknown as number, // simulates bad seed config
+    };
+
+    const result = await adapter.fetch(source);
+    expect(result.diagnosticContext?.pagesFetched).toBe(20);
+    expect(fetchSpy).toHaveBeenCalledTimes(20);
   });
 });
