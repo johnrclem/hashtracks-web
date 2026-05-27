@@ -832,7 +832,7 @@ export function configString(
 export function normalizeCostSigil(value: string): string {
   let v = value.trim();
   // Drop a leading markdown-bullet token: "* $10" or "- $10".
-  v = v.replace(/^[*\-]\s+/, "");
+  v = v.replace(/^[-*]\s+/, "");
   // Collapse runs of leading `$` to one ("$$10" → "$10").
   v = v.replace(/^\$+/, "$");
   return v;

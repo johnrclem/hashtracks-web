@@ -2647,8 +2647,8 @@ export const SOURCES = [
         // expected alerts during the backfill are the right surface: admin
         // reviews and dismisses.
         kennelPatterns: [
-          ["^DeMon\\s*H?3?\\b", "demon-h3"],
-          ["^GLH3\\b|^Greater\\s+Lansing", "glh3"],
+          [String.raw`^DeMon\s*H?3?\b`, "demon-h3"],
+          [String.raw`^GLH3\b|^Greater\s+Lansing`, "glh3"],
         ],
       },
       kennelCodes: ["moa2h3"],
