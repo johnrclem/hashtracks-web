@@ -1193,9 +1193,26 @@ export const SOURCES = [
       // #1339: feed carries ~40+ past events; widened from 180 to 1500 to recover
       // the historical archive. Paired with the iCal adapter's lookback derivation
       // (lookbackDays = source.scrapeDays ?? 90) so this also expands the past window.
+      //
+      // Known upstream quirk (observed 2026-05-26): when the kennel has zero
+      // upcoming events, this URL returns HTTP 200 + Content-Length: 0 (the WP
+      // plugin's "list" template throws on empty result rather than rendering
+      // an empty VCALENDAR). When upcoming events resume being scheduled, the
+      // feed returns proper content. The historical backfill went through the
+      // `events/list/?eventDisplay=past&ical=1` variant via a script-side URL
+      // override in scripts/backfill-ich3-history.ts — kept out of seed because
+      // the past-tab URL doesn't surface upcoming events for the live cron.
       scrapeDays: 1500,
       config: {
         defaultKennelTag: "ich3",
+        // upcomingOnly:true — REQUIRED so reconcile won't cancel the
+        // backfilled past events (#1339) once the kennel starts publishing
+        // new upcoming runs again. The seeded URL is `?eventDisplay=list`
+        // (upcoming-only), so an upcoming-only scrape returning N events
+        // would otherwise reconcile against ALL ich3 canonical events in
+        // the ±1500d window — flipping every backfilled past row to
+        // CANCELLED on the next successful cron tick.
+        upcomingOnly: true,
       },
       kennelCodes: ["ich3"],
     },
