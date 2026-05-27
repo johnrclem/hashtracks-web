@@ -130,15 +130,15 @@ describe("parseSquarespaceEvent", () => {
   });
 });
 
+function mockJsonResponse(payload: unknown): Response {
+  return new Response(JSON.stringify(payload), {
+    status: 200,
+    headers: { "content-type": "application/json; charset=utf-8" },
+  });
+}
+
 describe("SquarespaceEventsAdapter.fetch", () => {
   const adapter = new SquarespaceEventsAdapter();
-
-  function mockJsonResponse(payload: unknown): Response {
-    return new Response(JSON.stringify(payload), {
-      status: 200,
-      headers: { "content-type": "application/json; charset=utf-8" },
-    });
-  }
 
   it("parses upcoming + past arrays into RawEvents", async () => {
     const payload = {
@@ -158,15 +158,42 @@ describe("SquarespaceEventsAdapter.fetch", () => {
     const result = await adapter.fetch(source, { days: 365 });
     expect(result.errors).toEqual([]);
     expect(result.events).toHaveLength(3);
-    expect(result.events.map((e) => e.date).sort()).toEqual([
-      "2026-04-29",
-      "2026-05-27",
-      "2026-06-05",
-    ]);
+    expect(
+      result.events.map((e) => e.date).sort((a, b) => a.localeCompare(b)),
+    ).toEqual(["2026-04-29", "2026-05-27", "2026-06-05"]);
     expect(result.diagnosticContext?.fetchMethod).toBe(
       "squarespace-events-json",
     );
     expect(result.diagnosticContext?.timezone).toBe(PT);
+  });
+
+  it("fails loud when the JSON parses to null or a non-object", async () => {
+    // `JSON.parse("null")` succeeds with the literal `null`. Without the
+    // guard the subsequent payload.upcoming access throws TypeError.
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(mockJsonResponse(null));
+
+    const source = buildSource({ url: BASE }) as unknown as Source;
+    (source as unknown as { config: unknown }).config = { kennelTag: "sach3" };
+
+    const result = await adapter.fetch(source);
+    expect(result.events).toEqual([]);
+    expect(result.errors[0]).toMatch(/is not an object/);
+  });
+
+  it("skips null entries inside upcoming/past arrays without crashing", async () => {
+    const payload = {
+      website: { timeZone: PT },
+      upcoming: [WEDNESDAY_EVENT, null, "not an event"],
+      past: [null],
+    };
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(mockJsonResponse(payload));
+
+    const source = buildSource({ url: BASE }) as unknown as Source;
+    (source as unknown as { config: unknown }).config = { kennelTag: "sach3" };
+
+    const result = await adapter.fetch(source);
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0]?.date).toBe("2026-05-27");
   });
 
   it("fails loud when the JSON has neither upcoming nor past arrays", async () => {

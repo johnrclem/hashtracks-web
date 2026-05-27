@@ -8,6 +8,7 @@ import type {
 import { safeFetch } from "../safe-fetch";
 import {
   applyDateWindow,
+  decodeEntities,
   extractHashRunNumber,
   stripHtmlTags,
   validateSourceConfig,
@@ -93,13 +94,36 @@ interface SquarespaceEventsPayload {
   past?: SquarespaceEvent[];
 }
 
-/** Resolve the collection JSON URL the adapter should fetch. */
+/**
+ * Strip trailing slashes via procedural slice (NOT regex). Sonar S5852
+ * false-positives any `/\/+$/`-shape regex as ReDoS even though the anchor
+ * makes it linear; the procedural form satisfies the analyzer without
+ * resorting to `// NOSONAR` (see `feedback_sonar_s5852_procedural_over_regex`).
+ */
+function trimTrailingSlashes(s: string): string {
+  let end = s.length;
+  while (end > 0 && s.charAt(end - 1) === "/") end--;
+  return s.slice(0, end);
+}
+
+/**
+ * Resolve the collection JSON URL the adapter should fetch.
+ *
+ * Defensive: if the base URL's pathname already includes the collection
+ * path (e.g. a seed row that stores `https://example.com/events`), don't
+ * double-append it. The collectionPath argument wins when present.
+ */
 function resolveCollectionUrl(baseUrl: string, collectionPath: string): string {
-  const cleanBase = baseUrl.replace(/\/+$/, "");
+  const url = new URL(baseUrl);
+  const basePath = trimTrailingSlashes(url.pathname);
   const cleanPath = collectionPath.startsWith("/")
     ? collectionPath
     : `/${collectionPath}`;
-  const url = new URL(cleanBase + cleanPath);
+  const finalPath =
+    trimTrailingSlashes(basePath) === trimTrailingSlashes(cleanPath)
+      ? cleanPath
+      : basePath + cleanPath;
+  url.pathname = finalPath;
   // Squarespace requires the query param even when the path already has one.
   url.searchParams.set("format", "json");
   return url.toString();
@@ -108,8 +132,8 @@ function resolveCollectionUrl(baseUrl: string, collectionPath: string): string {
 /** Resolve the absolute URL for an event detail page. */
 function resolveEventUrl(baseUrl: string, fullUrl: string | undefined): string | undefined {
   if (!fullUrl) return undefined;
-  if (/^https?:/i.test(fullUrl)) return fullUrl;
-  const cleanBase = baseUrl.replace(/\/+$/, "");
+  if (fullUrl.startsWith("http://") || fullUrl.startsWith("https://")) return fullUrl;
+  const cleanBase = trimTrailingSlashes(baseUrl);
   const cleanPath = fullUrl.startsWith("/") ? fullUrl : `/${fullUrl}`;
   return cleanBase + cleanPath;
 }
@@ -164,6 +188,11 @@ export function parseSquarespaceEvent(
   baseUrl: string,
   timezone: string,
 ): RawEventData | null {
+  // Defensive: Squarespace responses occasionally include `null` entries
+  // alongside real events (e.g. mid-rotation drafts). TS interface narrowing
+  // is compile-time only and won't filter at runtime.
+  if (!event || typeof event !== "object") return null;
+
   const startMs = event.startDate;
   if (typeof startMs !== "number" || !Number.isFinite(startMs) || startMs <= 0) {
     return null;
@@ -188,7 +217,13 @@ export function parseSquarespaceEvent(
 
   const title = event.title?.trim() || undefined;
   const loc = event.location ?? {};
-  const description = event.body ? stripHtmlTags(event.body) : undefined;
+  // `decodeEntities` after `stripHtmlTags` is the documented convention
+  // (`feedback_use_decode_entities`). Cheerio's `.text()` decodes most
+  // entities natively, but defense-in-depth covers numeric (`&#039;`) and
+  // less-common named entities that may slip through.
+  const description = event.body
+    ? decodeEntities(stripHtmlTags(event.body))
+    : undefined;
 
   const latitude =
     typeof loc.mapLat === "number" && Number.isFinite(loc.mapLat) ? loc.mapLat : undefined;
@@ -285,6 +320,19 @@ export async function fetchSquarespaceEvents(
     payload = (await response.json()) as SquarespaceEventsPayload;
   } catch (err) {
     const message = `JSON parse failed: ${err instanceof Error ? err.message : String(err)}`;
+    return {
+      events: [],
+      errors: [message],
+      errorDetails: { parse: [{ row: 0, error: message }] },
+      diagnosticContext: { fetchMethod: "squarespace-events-json", fetchDurationMs },
+    };
+  }
+
+  // Valid JSON can still be `null` (literal "null"), a primitive, or an
+  // array — none of which carry `upcoming`/`past`. Subsequent property
+  // access on a non-object would throw at runtime; fail loud here instead.
+  if (payload === null || typeof payload !== "object" || Array.isArray(payload)) {
+    const message = `Squarespace payload from ${collectionUrl} is not an object`;
     return {
       events: [],
       errors: [message],
