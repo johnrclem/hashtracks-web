@@ -60,6 +60,13 @@ export type HarelineEvent = {
   coHosts?: HarelineEventKennel[];
   runNumber: number | null;
   title: string | null;
+  /**
+   * Shared-sheet sub-event badge label (#1624). Surfaces when a shared
+   * Google Sheet row uses host-prefix syntax in its Group column, e.g.
+   * "MH3 - Bayern Nash Hash" → eventLabel: "Bayern Nash Hash". Renders as
+   * a small chip next to the run number on the event card.
+   */
+  eventLabel?: string | null;
   haresText: string | null;
   startTime: string | null;
   locationName: string | null;
@@ -475,6 +482,13 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
 
           {/* Right cluster */}
           <div className="relative ml-auto flex items-center gap-2 shrink-0">
+            {/* #1624 — shared-sheet sub-event badge (e.g. "Bayern Nash Hash") */}
+            {event.eventLabel && (
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-medium">
+                {event.eventLabel}
+              </Badge>
+            )}
+
             {weather && (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -648,6 +662,13 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
               {event.status === "TENTATIVE" && (
                 <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-muted-foreground border-dashed">
                   Tentative
+                </Badge>
+              )}
+
+              {/* #1624 — shared-sheet sub-event badge (e.g. "Bayern Nash Hash") */}
+              {event.eventLabel && (
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-medium">
+                  {event.eventLabel}
                 </Badge>
               )}
 

@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/db";
 import { Prisma } from "@/generated/prisma/client";
 import type { EventStatus, SourceType } from "@/generated/prisma/client";
-import { isUniqueConstraintViolation } from "@/lib/prisma-errors";
 import type { RawEventData, MergeResult } from "@/adapters/types";
 import { parseUtcNoonDate } from "@/lib/date";
 import { regionTimezone, getLabelForUrl, stripUrlsFromText, timeToMinutes } from "@/lib/format";
@@ -315,6 +314,7 @@ const EVENT_CACHE_SELECT = {
   runNumber: true,
   title: true,
   description: true,
+  eventLabel: true,
   haresText: true,
   locationName: true,
   locationStreet: true,
@@ -1436,6 +1436,9 @@ async function upsertCanonicalEvent(
           ...(event.description !== undefined
             ? { description: event.description ?? null }
             : {}),
+          ...(event.eventLabel !== undefined
+            ? { eventLabel: event.eventLabel ?? null }
+            : {}),
           ...(event.hares !== undefined
             ? { haresText: sanitizeHares(event.hares) }
             : {}),
@@ -1567,6 +1570,15 @@ async function upsertCanonicalEvent(
       if (!existingEvent.description && event.description) {
         enrichData.description = event.description;
       }
+      // #1624 — eventLabel enriches like other nullable display fields. A
+      // higher-trust primary (e.g. Google Calendar) frequently lacks the
+      // shared-sheet sub-event badge that the GSheets adapter surfaces;
+      // without this backfill the badge would never render even though the
+      // signal exists on a secondary source. Only fills when canonical is
+      // empty — lower-trust sources cannot overwrite an existing label.
+      if (!existingEvent.eventLabel && event.eventLabel) {
+        enrichData.eventLabel = event.eventLabel;
+      }
       if (!existingEvent.haresText && event.hares) {
         const sanitized = sanitizeHares(event.hares);
         if (sanitized) enrichData.haresText = sanitized;
@@ -1689,6 +1701,7 @@ async function upsertCanonicalEvent(
       runNumber: event.runNumber,
       title: sanitizeTitle(event.title),
       description: event.description,
+      eventLabel: event.eventLabel,
       haresText: sanitizeHares(event.hares),
       locationName: locName,
       locationStreet: event.locationStreet ?? null,
@@ -1992,9 +2005,21 @@ async function processNewRawEvent(
     return null;
   }
 
-  // Race-window guard for #1286: concurrent QStash workers can both miss
-  // the per-batch dedup prefetch; the @@unique constraint makes the loser
-  // raise P2002 and we route via the duplicate-fingerprint path.
+  // Race-window guard for #1286 + #1464 + #1699: concurrent QStash workers can
+  // both miss the per-batch dedup prefetch; the @@unique constraint makes the
+  // loser raise P2002 and we route via the duplicate-fingerprint path.
+  //
+  // Target-shape-agnostic (#1699): we gate on the stable err.code === "P2002"
+  // (Prisma's documented contract for unique-constraint violations) but do NOT
+  // try to parse `meta.target` to confirm the constraint columns. That parser
+  // is what previously failed under engine drift and silently rethrew known
+  // races. If the lookup-by-fingerprint finds a row, it was our race; if not,
+  // the P2002 was on a different unique constraint and must surface.
+  //
+  // Crucially we do NOT widen this to "any error from create()" — a connection
+  // reset or timeout could find a stale row from a previous successful insert
+  // and would otherwise be masked as a clean duplicate-skip, hiding real
+  // write-path outages (Codex review on #1699).
   let rawEvent: { id: string };
   try {
     rawEvent = await prisma.rawEvent.create({
@@ -2006,8 +2031,9 @@ async function processNewRawEvent(
       },
     });
   } catch (err) {
-    if (!isUniqueConstraintViolation(err, ["sourceId", "fingerprint"])) throw err;
-
+    if (!(err instanceof Prisma.PrismaClientKnownRequestError) || err.code !== "P2002") {
+      throw err;
+    }
     const winner = await prisma.rawEvent.findUnique({
       where: { sourceId_fingerprint: { sourceId, fingerprint } },
       select: RAW_EVENT_DEDUP_SELECT,
@@ -2020,14 +2046,20 @@ async function processNewRawEvent(
     // visible in Vercel logs (#1464 follow-up — operators previously had
     // no signal once the catch was entered). Info level: a handled race
     // is normal at concurrent-worker scale, not an operational problem.
+    // Log the original error's code + target shape so future drift is visible
+    // (#1699 — the pre-shape-agnostic guard silently rethrew unrecognized P2002s).
     let branch: "adopt-orphan" | "skip" | "use-existing-event";
     if (dupId === false) branch = "adopt-orphan";
     else if (dupId === null) branch = "skip";
     else branch = "use-existing-event";
+    // Log the `meta.target` shape so future engine drift is observable —
+    // even though we no longer parse it, knowing what variants are in the
+    // wild is what would let us tighten this back up if needed.
+    const errTarget = JSON.stringify(err.meta?.target ?? null);
     console.log(
-      `[merge] race-window P2002 sourceId=${sourceId} fingerprint=${fingerprint} ` +
+      `[merge] race-window resolved sourceId=${sourceId} fingerprint=${fingerprint} ` +
         `winner.processed=${winner.processed} winner.eventId=${winner.eventId ?? "null"} ` +
-        `branch=${branch}`,
+        `branch=${branch} errTarget=${errTarget}`,
     );
     if (dupId === false) {
       // Orphan-reprocess signal: the racing worker's row is unprocessed
@@ -2114,6 +2146,8 @@ type CanonicalCandidate = {
   sourceUrl: string | null;
   runNumber: number | null;
   description: string | null;
+  /** Shared-sheet sub-event badge — see #1624. */
+  eventLabel: string | null;
   trailType: string | null;
   dogFriendly: boolean | null;
   prelube: string | null;

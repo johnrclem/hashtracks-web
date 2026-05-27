@@ -119,6 +119,14 @@ export function generateFingerprint(data: RawEventData): string {
     // seriesParent likewise stays out: the boolean is metadata for the
     // linker, not display content.
     ...(data.endDate ? [`endDate=${data.endDate}`] : []),
+    // #1624 — eventLabel (shared-sheet sub-event badge). Same gated-spread
+    // pattern as locationStreet/endDate above: most existing events have no
+    // label, so an unconditional token would re-fingerprint every row on the
+    // next scrape. Only rows whose adapter actually emits `eventLabel` (or
+    // explicit-clears it via `null`) re-fingerprint.
+    ...(data.eventLabel === undefined
+      ? []
+      : [`eventLabel=${triStateStringToken(data.eventLabel)}`]),
   ].join("|");
 
   return createHash("sha256").update(input).digest("hex");

@@ -75,6 +75,31 @@ describe("generateFingerprint", () => {
     expect(generateFingerprint(baseline)).toBe(generateFingerprint(withExplicitUndefined));
   });
 
+  // #1624 — eventLabel must participate in the fingerprint so a label edit
+  // (e.g. "Birthday" → "Pink Moon") re-fingerprints and the canonical UPDATE
+  // fires; otherwise the dedup map silently swallows the new label.
+  it("different eventLabel values produce different fingerprints (#1624)", () => {
+    const a = generateFingerprint(buildRawEvent({ eventLabel: undefined }));
+    const b = generateFingerprint(buildRawEvent({ eventLabel: "Bayern Nash Hash" }));
+    expect(a).not.toBe(b);
+  });
+
+  it("eventLabel null (explicit clear) differs from undefined (#1624)", () => {
+    const a = generateFingerprint(buildRawEvent({ eventLabel: undefined }));
+    const b = generateFingerprint(buildRawEvent({ eventLabel: null }));
+    expect(a).not.toBe(b);
+  });
+
+  // Gating regression — same shape as the #1579 locationStreet guard.
+  // An event with no eventLabel signal must hash identically before and
+  // after the field was added; otherwise rolling out eventLabel re-
+  // fingerprints every existing event and doubles the RawEvent table.
+  it("eventLabel=undefined contributes no token (no global re-merge wave)", () => {
+    const baseline = buildRawEvent();
+    const withExplicitUndefined = buildRawEvent({ eventLabel: undefined });
+    expect(generateFingerprint(baseline)).toBe(generateFingerprint(withExplicitUndefined));
+  });
+
   it("different hares produce different fingerprints", () => {
     const a = generateFingerprint(buildRawEvent({ hares: undefined }));
     const b = generateFingerprint(buildRawEvent({ hares: "Mudflap, Just Simon" }));

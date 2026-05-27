@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Source } from "@/generated/prisma/client";
-import { parseDate, inferStartTime, parseCSV, buildEventFromSheetRow, parseSheetStartTimeCell, GoogleSheetsAdapter, normalizeGroupFilter, tokenizeGroupCell, cellMatchesFilter } from "./adapter";
+import { parseDate, inferStartTime, parseCSV, buildEventFromSheetRow, parseSheetStartTimeCell, GoogleSheetsAdapter, normalizeGroupFilter, tokenizeGroupCell, cellMatchesFilter, extractEventLabelFromCell } from "./adapter";
 import type { GoogleSheetsConfig } from "./adapter";
 
 // Mock safeFetch
@@ -269,6 +269,41 @@ describe("buildEventFromSheetRow", () => {
     expect(event!.kennelTags).toEqual(["hibiscus-h3"]);
     expect(event!.hares).toBe("Nature&Teddy");
     expect(event!.location).toBe("The Mercant, Albany");
+  });
+
+  it("#1625 falls through to default kennelTag when columns.runNumber is configured but cell is empty", () => {
+    // PR #1695 landed the resolver-level fix (adapter.ts:509-522). This locks
+    // it in as a direct unit test so a future regression of the empty-#-cell
+    // branch surfaces here instead of silently dropping rows like the
+    // MASS H3 5th-Birthday (#1639) and MFMH3 12-of-13 unnumbered rows (#1657)
+    // it originally affected.
+    const config = {
+      sheetId: "munich",
+      columns: { runNumber: 0, date: 1, hares: 2, location: 3, title: 4 },
+      kennelTagRules: { default: "mh3-de" },
+    };
+    // Empty runNumber cell; everything else valid.
+    const row = ["", "3/11/26", "Alice", "Some Park", "5th Birthday"];
+    const event = buildEventFromSheetRow(row, config, "https://example.com", "2026-03-11");
+    expect(event).not.toBeNull();
+    expect(event!.kennelTags).toEqual(["mh3-de"]);
+    expect(event!.runNumber).toBeUndefined();
+    expect(event!.title).toBe("5th Birthday");
+  });
+
+  it("#1625 falls through to default kennelTag when columns.runNumber cell is non-numeric", () => {
+    // Same relaxation: a non-numeric cell ("TBD", whitespace) is treated as
+    // "no run number known" rather than "this row doesn't belong to us".
+    const config = {
+      sheetId: "munich",
+      columns: { runNumber: 0, date: 1, hares: 2, location: 3, title: 4 },
+      kennelTagRules: { default: "mh3-de" },
+    };
+    const row = ["TBD", "3/11/26", "Alice", "Some Park", "Pink Moon"];
+    const event = buildEventFromSheetRow(row, config, "https://example.com", "2026-03-11");
+    expect(event).not.toBeNull();
+    expect(event!.kennelTags).toEqual(["mh3-de"]);
+    expect(event!.runNumber).toBeUndefined();
   });
 
   it("drops all-lowercase single-token city shorthands like 'sheperdstown' (#893)", () => {
@@ -927,6 +962,48 @@ describe("cellMatchesFilter (#1592)", () => {
 
   it("returns false for undefined", () => {
     expect(cellMatchesFilter(undefined, mh3)).toBe(false);
+  });
+});
+
+describe("extractEventLabelFromCell (#1624)", () => {
+  const mh3 = new Set(["mh3"]);
+
+  it.each([
+    // Whole-token equality → no label (the cell IS the host kennel, nothing trailing)
+    ["MH3", undefined, "whole-token equality"],
+    ["mh3", undefined, "lowercased whole-token equality"],
+    ["  MH3 ", undefined, "padded whole-token equality"],
+    // Host-prefix mode with separators
+    ["MH3 - Birthday", "Birthday", "hyphen separator preserves casing"],
+    ["MH3 — Bayern Nash Hash", "Bayern Nash Hash", "em-dash separator"],
+    ["MH3 – Pink Moon", "Pink Moon", "en-dash separator"],
+    ["MH3: Anniversary", "Anniversary", "colon separator"],
+    ["MH3 Spec", "Spec", "space-only separator"],
+    ["MH3 | Spec", "Spec", "pipe separator"],
+    // Co-host cells — label sits on the matched token, not the co-host one
+    ["BNH / MH3 - Birthday", "Birthday", "co-host first, host-prefix second"],
+    ["MASS H3, MH3 Spec", "Spec", "comma-split co-host with host-prefix in second token"],
+    // Cells that should not produce a label
+    ["MH3 / BNH", undefined, "co-host on the other side, no trailing label"],
+    ["MH3,MFMH3", undefined, "comma-split without trailing label"],
+    ["MFMH3", undefined, "sibling kennel that doesn't match the filter"],
+    ["MH3FAKE", undefined, "substring no-match continuation"],
+    ["", undefined, "empty cell"],
+    ["   ", undefined, "whitespace-only cell"],
+  ])("filter \"mh3\" on cell %j → %s (%s)", (cell, expected, _label) => {
+    expect(extractEventLabelFromCell(cell, mh3)).toBe(expected);
+  });
+
+  it("returns undefined for an undefined cell", () => {
+    expect(extractEventLabelFromCell(undefined, mh3)).toBeUndefined();
+  });
+
+  it("preserves trailing whitespace handling (trimmed both sides)", () => {
+    expect(extractEventLabelFromCell("MH3 -   Pink Moon   ", mh3)).toBe("Pink Moon");
+  });
+
+  it("returns undefined when the trailing portion is empty after stripping the separator", () => {
+    expect(extractEventLabelFromCell("MH3 - ", mh3)).toBeUndefined();
   });
 });
 

@@ -14,6 +14,14 @@ export interface RawEventData {
   title?: string;
   description?: string | null; // null = explicit clear signal (see merge.ts UPDATE path)
   /**
+   * Short badge label for shared-sheet sub-events — e.g. an MH3 sheet row
+   * whose Group cell reads "MH3 - Bayern Nash Hash" emits
+   * `eventLabel: "Bayern Nash Hash"`. Surfaces as a Badge chip on the event
+   * card. Tri-state: `undefined` = preserve existing, `null` = explicit clear,
+   * string = overwrite. See #1624.
+   */
+  eventLabel?: string | null;
+  /**
    * Hare names. `undefined` = no signal (preserve existing). `null` =
    * explicit clear (overwrite stale `haresText`). Adapters that detect a
    * known placeholder ("Hare required!", "Hares Needed") should emit `null`

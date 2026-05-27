@@ -483,6 +483,48 @@ export function cellMatchesFilter(raw: string | undefined, filterSet: Set<string
   });
 }
 
+/**
+ * Extract the trailing sub-event label from a Group cell that matched a
+ * filter via host-prefix mode (#1624). Examples (filter = "mh3"):
+ *   "MH3"                       → undefined (whole-token equality, no label)
+ *   "MH3 - Bayern Nash Hash"    → "Bayern Nash Hash"
+ *   "MH3 — Birthday"            → "Birthday" (em-dash)
+ *   "BNH / MH3 - Pink Moon"     → "Pink Moon" (co-host cell, label on matched token)
+ *
+ * Returns `undefined` when the cell doesn't match, matches via whole-token
+ * equality, or the trailing portion is empty after stripping the separator.
+ * Preserves original casing of the label (the lowercased filter is only used
+ * for matching).
+ *
+ * Exported for unit testing.
+ */
+export function extractEventLabelFromCell(
+  raw: string | undefined,
+  filterSet: Set<string>,
+): string | undefined {
+  if (!raw) return undefined;
+  // Same split as tokenizeGroupCell but preserve original casing for the label.
+  const segments = raw.split(/[/,;]/).map((s) => s.trim()).filter((s) => s.length > 0);
+  for (const segment of segments) {
+    const lower = segment.toLowerCase();
+    // Whole-token equality on this segment → no label here; keep looking
+    // (co-host cells may carry the label on a different segment).
+    if (filterSet.has(lower)) continue;
+    for (const filterToken of filterSet) {
+      if (lower.length <= filterToken.length) continue;
+      if (!lower.startsWith(filterToken)) continue;
+      const continuation = lower[filterToken.length];
+      if (/[\p{L}\p{N}\p{M}\p{Cf}_]/u.test(continuation)) continue;
+      // Prefix matched — slice the original-casing segment past the filter
+      // token, then strip leading separators (-, –, —, :, |) + whitespace.
+      const rest = segment.slice(filterToken.length).trimStart();
+      const stripped = rest.replace(/^[-–—:|]\s*/u, "").trim();
+      return stripped || undefined;
+    }
+  }
+  return undefined;
+}
+
 /** Resolve kennel tag and run number from a sheet row. Returns null if the row should be skipped. */
 function resolveKennelTagFromSheetRow(
   row: string[],
@@ -555,12 +597,18 @@ function resolveLocationFields(
   };
 }
 
-/** Build a RawEventData from a sheet row. Returns null if the row should be skipped. */
+/** Build a RawEventData from a sheet row. Returns null if the row should be skipped.
+ *
+ * `eventLabel` (#1624) is surfaced by `processRows` when the Group cell matched
+ * via host-prefix mode (see `extractEventLabelFromCell`). Passed in rather than
+ * recomputed here so the helper doesn't need to know about `groupFilterSet`.
+ */
 export function buildEventFromSheetRow(
   row: string[],
   config: GoogleSheetsConfig,
   sourceUrl: string,
   dateStr: string,
+  eventLabel?: string,
 ): RawEventData | null {
   const resolved = resolveKennelTagFromSheetRow(row, config);
   if (!resolved) return null;
@@ -609,6 +657,7 @@ export function buildEventFromSheetRow(
     runNumber: resolved.runNumber,
     title,
     description,
+    eventLabel,
     hares,
     location,
     locationStreet,
@@ -808,11 +857,17 @@ export class GoogleSheetsAdapter implements SourceAdapter {
         // than silently leaking into the configured kennel. Host-kennel cells
         // with free-form sub-labels (e.g. "MH3 - Birthday") stay attributed
         // via cellMatchesFilter's prefix relaxation (#1592).
+        let eventLabel: string | undefined;
         if (groupFilterSet && config.columns.group !== undefined) {
-          if (!cellMatchesFilter(row[config.columns.group], groupFilterSet)) continue;
+          const groupCell = row[config.columns.group];
+          if (!cellMatchesFilter(groupCell, groupFilterSet)) continue;
+          // #1624 — surface the trailing portion of a host-prefix match (e.g.
+          // "MH3 - Bayern Nash Hash" → "Bayern Nash Hash") as the event badge
+          // label. Returns undefined on whole-token equality matches.
+          eventLabel = extractEventLabelFromCell(groupCell, groupFilterSet);
         }
 
-        const event = buildEventFromSheetRow(row, config, sourceUrl, dateStr);
+        const event = buildEventFromSheetRow(row, config, sourceUrl, dateStr, eventLabel);
         if (event) events.push(event);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
