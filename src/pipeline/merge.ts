@@ -1436,9 +1436,9 @@ async function upsertCanonicalEvent(
           ...(event.description !== undefined
             ? { description: event.description ?? null }
             : {}),
-          ...(event.eventLabel !== undefined
-            ? { eventLabel: event.eventLabel ?? null }
-            : {}),
+          ...(event.eventLabel === undefined
+            ? {}
+            : { eventLabel: event.eventLabel ?? null }),
           ...(event.hares !== undefined
             ? { haresText: sanitizeHares(event.hares) }
             : {}),
