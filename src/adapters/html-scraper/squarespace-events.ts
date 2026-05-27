@@ -54,10 +54,12 @@ export interface SquarespaceEventsConfig {
    */
   timezone?: string;
   /**
-   * Optional fallback startTime ("HH:MM") for events whose startDate has
-   * a degenerate time-of-day component (e.g. midnight epoch placeholders).
+   * Maximum pages to walk via Squarespace's `?offset=NNN` pagination when
+   * harvesting historical events. Default 20 — sufficient for ~600 events
+   * at the platform's pageSize of 30, and tenants with deeper history
+   * usually hit the date-window cutoff first. Tune up for backfills.
    */
-  fallbackStartTime?: string;
+  maxPages?: number;
 }
 
 interface SquarespaceLocation {
@@ -95,10 +97,17 @@ interface SquarespaceEvent {
   location?: SquarespaceLocation | null;
 }
 
+interface SquarespacePagination {
+  nextPage?: boolean;
+  nextPageOffset?: number;
+  pageSize?: number;
+}
+
 interface SquarespaceEventsPayload {
   website?: { timeZone?: string; baseUrl?: string };
   upcoming?: SquarespaceEvent[];
   past?: SquarespaceEvent[];
+  pagination?: SquarespacePagination;
 }
 
 /**
@@ -269,12 +278,23 @@ export function parseSquarespaceEvent(
   // "single-row date-range" field; emit only when the end day is strictly
   // after the start day so normal evening trails (start 18:30, end 21:30
   // same day) don't get a spurious endDate that re-fingerprints them.
+  //
+  // Same-day endDate populates RawEventData.endTime ("21:30") which the
+  // EventCard renders as "18:30 – 21:30". Different-day endDate populates
+  // RawEventData.endDate (multi-day umbrella) and leaves endTime undefined
+  // because "ends 12:00 on a different day" isn't a meaningful per-day
+  // trail time.
   const endMs = event.endDate;
   let endDate: string | undefined;
+  let endTime: string | undefined;
   if (typeof endMs === "number" && Number.isFinite(endMs) && endMs > startMs) {
     const endYmd = formatYmdInTimezone(new Date(endMs), timezone);
-    if (/^\d{4}-\d{2}-\d{2}$/.test(endYmd) && endYmd > date) {
-      endDate = endYmd;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(endYmd)) {
+      if (endYmd > date) {
+        endDate = endYmd;
+      } else {
+        endTime = formatLocalTime(endMs, timezone);
+      }
     }
   }
 
@@ -306,15 +326,101 @@ export function parseSquarespaceEvent(
     locationStreet: composeLocationStreet(loc),
     latitude,
     longitude,
-    startTime: formatLocalTime(startMs, timezone) ?? config.fallbackStartTime,
+    startTime: formatLocalTime(startMs, timezone),
+    endTime,
     sourceUrl: resolveEventUrl(baseUrl, event.fullUrl),
   };
 }
 
+/** Discriminated result of a single Squarespace page fetch. */
+type PageFetchResult =
+  | { ok: true; payload: SquarespaceEventsPayload; fetchDurationMs: number }
+  | {
+      ok: false;
+      errors: string[];
+      errorDetails: ErrorDetails;
+      fetchDurationMs: number;
+    };
+
 /**
- * Fetch + parse a Squarespace events collection. Exported so a one-shot
- * historical backfill script can paginate via `?offset=NNNN` without
- * re-implementing the per-event mapping.
+ * Fetch + validate one page of the Squarespace events JSON endpoint.
+ * Splits out the four guard-clause error returns (network, !ok status,
+ * wrong Content-Type, malformed JSON, payload-not-object, shape-mismatch)
+ * so the main `fetchSquarespaceEvents` body stays under Sonar's cognitive
+ * complexity budget for the pagination loop.
+ */
+async function fetchSquarespacePage(url: string): Promise<PageFetchResult> {
+  const t0 = Date.now();
+  let response: Response;
+  try {
+    response = await safeFetch(url, { headers: { Accept: "application/json" } });
+  } catch (err) {
+    const message = `Fetch failed: ${err instanceof Error ? err.message : String(err)}`;
+    return {
+      ok: false,
+      errors: [message],
+      errorDetails: { fetch: [{ url, message }] },
+      fetchDurationMs: Date.now() - t0,
+    };
+  }
+  const fetchDurationMs = Date.now() - t0;
+
+  if (!response.ok) {
+    const message = `HTTP ${response.status} from ${url}`;
+    return {
+      ok: false,
+      errors: [message],
+      errorDetails: { fetch: [{ url, status: response.status, message }] },
+      fetchDurationMs,
+    };
+  }
+
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.includes("json")) {
+    const message =
+      `Expected JSON from ${url} but got Content-Type "${contentType}". ` +
+      "The tenant's events collection probably doesn't expose ?format=json.";
+    return {
+      ok: false,
+      errors: [message],
+      errorDetails: { fetch: [{ url, status: response.status, message }] },
+      fetchDurationMs,
+    };
+  }
+
+  let payload: SquarespaceEventsPayload;
+  try {
+    payload = (await response.json()) as SquarespaceEventsPayload;
+  } catch (err) {
+    const message = `JSON parse failed: ${err instanceof Error ? err.message : String(err)}`;
+    return {
+      ok: false,
+      errors: [message],
+      errorDetails: { parse: [{ row: 0, error: message }] },
+      fetchDurationMs,
+    };
+  }
+
+  if (payload === null || typeof payload !== "object" || Array.isArray(payload)) {
+    const message = `Squarespace payload from ${url} is not an object`;
+    return {
+      ok: false,
+      errors: [message],
+      errorDetails: { parse: [{ row: 0, error: message }] },
+      fetchDurationMs,
+    };
+  }
+
+  return { ok: true, payload, fetchDurationMs };
+}
+
+/**
+ * Fetch + parse a Squarespace events collection, following the platform's
+ * `?offset=NNN` pagination chain up to `config.maxPages` pages.
+ *
+ * Exported so a one-shot historical backfill script can pass a high
+ * `maxPages` (or override `collectionPath`) and harvest deeper history
+ * without re-implementing the per-event mapping or the shape guards.
  */
 export async function fetchSquarespaceEvents(
   source: Source,
@@ -337,81 +443,27 @@ export async function fetchSquarespaceEvents(
     source.url,
     config.collectionPath ?? "/events",
   );
+  const maxPages = Math.max(1, Math.floor(config.maxPages ?? 20));
 
-  const t0 = Date.now();
-  let response: Response;
-  try {
-    response = await safeFetch(collectionUrl, {
-      headers: { Accept: "application/json" },
-    });
-  } catch (err) {
-    const message = `Fetch failed: ${err instanceof Error ? err.message : String(err)}`;
+  // First page: fail loud on shape mismatch (tenant disabled the
+  // collection, etc.) so the reconciler doesn't cancel live events.
+  // Subsequent pages: tolerate a single transient failure by stopping
+  // pagination — the events we've already harvested still flow through.
+  const firstPageResult = await fetchSquarespacePage(collectionUrl);
+  if (!firstPageResult.ok) {
     return {
       events: [],
-      errors: [message],
-      errorDetails: { fetch: [{ url: collectionUrl, message }] },
-      diagnosticContext: { fetchMethod: "squarespace-events-json" },
-    };
-  }
-  const fetchDurationMs = Date.now() - t0;
-
-  if (!response.ok) {
-    const message = `HTTP ${response.status} from ${collectionUrl}`;
-    return {
-      events: [],
-      errors: [message],
-      errorDetails: {
-        fetch: [{ url: collectionUrl, status: response.status, message }],
+      errors: firstPageResult.errors,
+      errorDetails: firstPageResult.errorDetails,
+      diagnosticContext: {
+        fetchMethod: "squarespace-events-json",
+        fetchDurationMs: firstPageResult.fetchDurationMs,
       },
-      diagnosticContext: { fetchMethod: "squarespace-events-json", fetchDurationMs },
     };
   }
 
-  const contentType = response.headers.get("content-type") ?? "";
-  if (!contentType.includes("json")) {
-    const message =
-      `Expected JSON from ${collectionUrl} but got Content-Type "${contentType}". ` +
-      "The tenant's events collection probably doesn't expose ?format=json.";
-    return {
-      events: [],
-      errors: [message],
-      errorDetails: { fetch: [{ url: collectionUrl, status: response.status, message }] },
-      diagnosticContext: { fetchMethod: "squarespace-events-json", fetchDurationMs },
-    };
-  }
-
-  let payload: SquarespaceEventsPayload;
-  try {
-    payload = (await response.json()) as SquarespaceEventsPayload;
-  } catch (err) {
-    const message = `JSON parse failed: ${err instanceof Error ? err.message : String(err)}`;
-    return {
-      events: [],
-      errors: [message],
-      errorDetails: { parse: [{ row: 0, error: message }] },
-      diagnosticContext: { fetchMethod: "squarespace-events-json", fetchDurationMs },
-    };
-  }
-
-  // Valid JSON can still be `null` (literal "null"), a primitive, or an
-  // array — none of which carry `upcoming`/`past`. Subsequent property
-  // access on a non-object would throw at runtime; fail loud here instead.
-  if (payload === null || typeof payload !== "object" || Array.isArray(payload)) {
-    const message = `Squarespace payload from ${collectionUrl} is not an object`;
-    return {
-      events: [],
-      errors: [message],
-      errorDetails: { parse: [{ row: 0, error: message }] },
-      diagnosticContext: { fetchMethod: "squarespace-events-json", fetchDurationMs },
-    };
-  }
-
-  // Shape-mismatch guard. Squarespace tenants who disable the Events
-  // collection (or rotate the JSON shape) return valid JSON with neither
-  // `upcoming` nor `past`. If we treated that as "0 events" the reconciler
-  // would silently cancel every live event for this source on the next
-  // scrape. Fail loud — surface as a SCRAPE_FAILURE alert instead.
-  if (!Array.isArray(payload.upcoming) && !Array.isArray(payload.past)) {
+  const firstPayload = firstPageResult.payload;
+  if (!Array.isArray(firstPayload.upcoming) && !Array.isArray(firstPayload.past)) {
     const message =
       `Squarespace payload from ${collectionUrl} has no 'upcoming' or 'past' arrays — ` +
       "tenant may have disabled the Events collection or rotated the JSON shape.";
@@ -419,17 +471,53 @@ export async function fetchSquarespaceEvents(
       events: [],
       errors: [message],
       errorDetails: { parse: [{ row: 0, error: message }] },
-      diagnosticContext: { fetchMethod: "squarespace-events-json", fetchDurationMs },
+      diagnosticContext: {
+        fetchMethod: "squarespace-events-json",
+        fetchDurationMs: firstPageResult.fetchDurationMs,
+      },
     };
   }
 
-  const timezone = resolveTimezone(config.timezone, payload.website?.timeZone);
+  const timezone = resolveTimezone(config.timezone, firstPayload.website?.timeZone);
+  let upcomingCount = 0;
+  let pastCount = 0;
+  let pagesFetched = 0;
+  let totalFetchMs = 0;
+  const events: RawEventData[] = [];
 
-  const upcoming = Array.isArray(payload.upcoming) ? payload.upcoming : [];
-  const past = Array.isArray(payload.past) ? payload.past : [];
-  const events = [...upcoming, ...past]
-    .map((ev) => parseSquarespaceEvent(ev, config, source.url, timezone))
-    .filter((ev): ev is RawEventData => ev !== null);
+  let nextUrl: string | undefined = collectionUrl;
+  let currentPayload: SquarespaceEventsPayload | undefined = firstPayload;
+  let currentFetchMs = firstPageResult.fetchDurationMs;
+
+  while (currentPayload) {
+    const upcoming = Array.isArray(currentPayload.upcoming) ? currentPayload.upcoming : [];
+    const past = Array.isArray(currentPayload.past) ? currentPayload.past : [];
+    upcomingCount += upcoming.length;
+    pastCount += past.length;
+    pagesFetched++;
+    totalFetchMs += currentFetchMs;
+
+    for (const ev of [...upcoming, ...past]) {
+      const parsed = parseSquarespaceEvent(ev, config, source.url, timezone);
+      if (parsed) events.push(parsed);
+    }
+
+    // Stop conditions, checked AFTER processing the current page but
+    // BEFORE issuing the next request:
+    //   1. We've fetched `maxPages` pages already — don't fetch a page we
+    //      won't process.
+    //   2. The current payload has no `nextPage` link.
+    if (pagesFetched >= maxPages) break;
+    const pagination = currentPayload.pagination;
+    if (!pagination?.nextPage || typeof pagination.nextPageOffset !== "number") break;
+
+    nextUrl = appendOffset(collectionUrl, pagination.nextPageOffset);
+    const pageResult = await fetchSquarespacePage(nextUrl);
+    if (!pageResult.ok) break; // transient failure on a deeper page — keep what we have
+
+    currentPayload = pageResult.payload;
+    currentFetchMs = pageResult.fetchDurationMs;
+  }
 
   return {
     events,
@@ -438,13 +526,24 @@ export async function fetchSquarespaceEvents(
       fetchMethod: "squarespace-events-json",
       collectionUrl,
       timezone,
-      upcomingCount: upcoming.length,
-      pastCount: past.length,
+      pagesFetched,
+      upcomingCount,
+      pastCount,
       eventsParsed: events.length,
-      eventsSkipped: upcoming.length + past.length - events.length,
-      fetchDurationMs,
+      eventsSkipped: upcomingCount + pastCount - events.length,
+      fetchDurationMs: totalFetchMs,
     },
   };
+}
+
+/**
+ * Add or replace the `offset` query param on the collection URL so the
+ * next page request preserves `format=json` (and any other tenant params).
+ */
+function appendOffset(collectionUrl: string, offset: number): string {
+  const url = new URL(collectionUrl);
+  url.searchParams.set("offset", String(offset));
+  return url.toString();
 }
 
 export class SquarespaceEventsAdapter implements SourceAdapter {
