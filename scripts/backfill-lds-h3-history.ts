@@ -36,8 +36,8 @@
 import "dotenv/config";
 import { prisma } from "@/lib/db";
 import { ICalAdapter } from "@/adapters/ical/adapter";
-import { processRawEvents } from "@/pipeline/merge";
 import { todayInTimezone } from "@/lib/timezone";
+import { logPerKennelTally, mergeAndReport } from "./lib/backfill-reporting";
 
 const SOURCE_NAME = "Whoreman H3 Calendar";
 const TIMEZONE = "America/Denver";
@@ -91,16 +91,7 @@ async function main(): Promise<void> {
     const historical = result.events.filter((e) => e.date < todayIso);
     console.log(`  Historical (date < ${todayIso}): ${historical.length}`);
 
-    const byKennel = new Map<string, number>();
-    for (const ev of historical) {
-      byKennel.set(ev.kennelTags[0], (byKennel.get(ev.kennelTags[0]) ?? 0) + 1);
-    }
-    if (byKennel.size > 0) {
-      console.log("  Per-kennel:");
-      for (const [tag, n] of [...byKennel.entries()].sort((a, b) => b[1] - a[1])) {
-        console.log(`    ${tag}: ${n}`);
-      }
-    }
+    logPerKennelTally(historical);
 
     historical.sort((a, b) => a.date.localeCompare(b.date));
     if (historical.length > 0) {
@@ -124,22 +115,7 @@ async function main(): Promise<void> {
       return;
     }
 
-    console.log(`\nDelegating ${historical.length} events to merge pipeline...`);
-    const merge = await processRawEvents(source.id, historical);
-    console.log(
-      `Done. created=${merge.created} updated=${merge.updated} skipped=${merge.skipped} ` +
-        `unmatched=${merge.unmatched.length} blocked=${merge.blocked} errors=${merge.eventErrors}`,
-    );
-    if (merge.unmatched.length > 0) console.log(`  Unmatched tags: ${merge.unmatched.join(", ")}`);
-    if (merge.blocked > 0) {
-      console.log(
-        `  Blocked: ${merge.blocked} events rejected by source-kennel guard (tags: ${merge.blockedTags.join(", ")}).`,
-      );
-    }
-    if (merge.eventErrors > 0) {
-      const sampleErrors = merge.eventErrorMessages.slice(0, 5).join("\n    ");
-      console.log(`  Errors:\n    ${sampleErrors}`);
-    }
+    await mergeAndReport(source.id, historical);
   } finally {
     await prisma.$disconnect();
   }

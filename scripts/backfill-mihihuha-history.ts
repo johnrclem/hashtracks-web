@@ -35,8 +35,8 @@
 import "dotenv/config";
 import { prisma } from "@/lib/db";
 import { GoogleCalendarAdapter } from "@/adapters/google-calendar/adapter";
-import { processRawEvents } from "@/pipeline/merge";
 import type { RawEventData } from "@/adapters/types";
+import { mergeAndReport } from "./lib/backfill-reporting";
 
 const SOURCE_NAME = "Mile High Humpin Hash Calendar";
 const WINDOW_DAYS = 4000;
@@ -150,25 +150,7 @@ async function main(): Promise<void> {
       return;
     }
 
-    console.log(`\nDelegating ${handEdited.length} events to merge pipeline...`);
-    const merge = await processRawEvents(source.id, handEdited);
-    console.log(
-      `Done. created=${merge.created} updated=${merge.updated} skipped=${merge.skipped} ` +
-        `unmatched=${merge.unmatched.length} blocked=${merge.blocked} errors=${merge.eventErrors}`,
-    );
-    if (merge.unmatched.length > 0) {
-      console.log(`  Unmatched tags: ${merge.unmatched.join(", ")}`);
-    }
-    if (merge.blocked > 0) {
-      console.log(
-        `  Blocked: ${merge.blocked} events were rejected by source-kennel guard ` +
-          `(SourceKennel link missing for tag(s): ${merge.blockedTags.join(", ")}).`,
-      );
-    }
-    if (merge.eventErrors > 0) {
-      const sampleErrors = merge.eventErrorMessages.slice(0, 5).join("\n    ");
-      console.log(`  Errors:\n    ${sampleErrors}`);
-    }
+    await mergeAndReport(source.id, handEdited);
   } finally {
     await prisma.$disconnect();
   }

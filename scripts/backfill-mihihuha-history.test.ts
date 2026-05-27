@@ -1,4 +1,3 @@
-import { describe, it, expect } from "vitest";
 import { filterHandEditedMihiHuHa } from "./backfill-mihihuha-history";
 import type { RawEventData } from "@/adapters/types";
 
@@ -35,6 +34,11 @@ describe("filterHandEditedMihiHuHa", () => {
 
   it("keeps a 2017 event with hares + a non-phantom bare title variant", () => {
     const kept = ev({ date: "2017-08-12", title: "MiHiHuHa Annual Trail", hares: "Tainted Glove" });
+    expect(filterHandEditedMihiHuHa([kept])).toEqual([kept]);
+  });
+
+  it("keeps a 2017 event with only hares set (no runNumber, no theme, non-phantom title)", () => {
+    const kept = ev({ date: "2017-08-12", title: "MiHiHuHa Annual Theme", hares: "Tainted Glove" });
     expect(filterHandEditedMihiHuHa([kept])).toEqual([kept]);
   });
 

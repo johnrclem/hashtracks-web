@@ -31,8 +31,8 @@
 import "dotenv/config";
 import { prisma } from "@/lib/db";
 import { ICalAdapter } from "@/adapters/ical/adapter";
-import { processRawEvents } from "@/pipeline/merge";
 import { todayInTimezone } from "@/lib/timezone";
+import { logPerKennelTally, mergeAndReport } from "./lib/backfill-reporting";
 
 const SOURCE_NAME = "Iron City H3 iCal Feed";
 const WINDOW_DAYS = 1500;
@@ -87,18 +87,9 @@ async function main(): Promise<void> {
     const future = result.events.filter((e) => e.date >= todayIso);
     console.log(`  Past: ${past.length} | Upcoming: ${future.length}`);
 
-    // Tally per-kennel — primarily `ich3`, but log distinct tags in case
+    // Per-kennel tally — primarily `ich3`, but logs distinct tags in case
     // the kennel map gains siblings later.
-    const byKennel = new Map<string, number>();
-    for (const ev of result.events) {
-      byKennel.set(ev.kennelTags[0], (byKennel.get(ev.kennelTags[0]) ?? 0) + 1);
-    }
-    if (byKennel.size > 0) {
-      console.log("  Per-kennel:");
-      for (const [tag, n] of [...byKennel.entries()].sort((a, b) => b[1] - a[1])) {
-        console.log(`    ${tag}: ${n}`);
-      }
-    }
+    logPerKennelTally(result.events);
 
     const sortedAll = [...result.events].sort((a, b) => a.date.localeCompare(b.date));
     if (sortedAll.length > 0) {
@@ -140,25 +131,7 @@ async function main(): Promise<void> {
       console.log(`  Source.config.upcomingOnly already true — skipping config update.`);
     }
 
-    console.log(`\nDelegating ${result.events.length} events to merge pipeline...`);
-    const merge = await processRawEvents(source.id, result.events);
-    console.log(
-      `Done. created=${merge.created} updated=${merge.updated} skipped=${merge.skipped} ` +
-        `unmatched=${merge.unmatched.length} blocked=${merge.blocked} errors=${merge.eventErrors}`,
-    );
-    if (merge.unmatched.length > 0) {
-      console.log(`  Unmatched tags: ${merge.unmatched.join(", ")}`);
-    }
-    if (merge.blocked > 0) {
-      console.log(
-        `  Blocked: ${merge.blocked} events were rejected by source-kennel guard ` +
-          `(SourceKennel link missing for tag(s): ${merge.blockedTags.join(", ")}).`,
-      );
-    }
-    if (merge.eventErrors > 0) {
-      const sampleErrors = merge.eventErrorMessages.slice(0, 5).join("\n    ");
-      console.log(`  Errors:\n    ${sampleErrors}`);
-    }
+    await mergeAndReport(source.id, result.events);
   } finally {
     await prisma.$disconnect();
   }
