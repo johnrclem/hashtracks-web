@@ -102,6 +102,8 @@ const mockFingerprint = vi.mocked(generateFingerprint);
 // here keeps each call site cast-free and quiets Sonar S4325.
 type EventCreateReturn = Awaited<ReturnType<typeof prisma.event.create>>;
 type SourceFindReturn = Awaited<ReturnType<typeof prisma.source.findUnique>>;
+type RawEventFindUniqueReturn = Awaited<ReturnType<typeof prisma.rawEvent.findUnique>>;
+type EventFindUniqueReturn = Awaited<ReturnType<typeof prisma.event.findUnique>>;
 
 function eventRow(id: string, overrides?: Record<string, unknown>): EventCreateReturn {
   return { id, ...overrides } as unknown as EventCreateReturn;
@@ -109,6 +111,31 @@ function eventRow(id: string, overrides?: Record<string, unknown>): EventCreateR
 
 function sourceRow(overrides: Record<string, unknown>): SourceFindReturn {
   return overrides as unknown as SourceFindReturn;
+}
+
+/** Mock return for `prisma.rawEvent.findUnique` in race-window tests. The
+ *  full Prisma payload has dozens of columns; the race-window catch only
+ *  reads `id`, `fingerprint`, `processed`, `eventId` via
+ *  `RAW_EVENT_DEDUP_SELECT`, so a partial row is sufficient. Factory keeps
+ *  the `as unknown as` cast on a single line (Sonar S4325). */
+function rawEventWinner(overrides: {
+  id: string;
+  fingerprint: string;
+  processed: boolean;
+  eventId: string | null;
+}): RawEventFindUniqueReturn {
+  return overrides as unknown as RawEventFindUniqueReturn;
+}
+
+/** Mock return for `prisma.event.findUnique` in race-window tests — the
+ *  caller only reads `id`, `kennelId`, `trustLevel`. Same shape rationale
+ *  as `rawEventWinner`. */
+function eventWinner(overrides: {
+  id: string;
+  kennelId: string;
+  trustLevel: number;
+}): EventFindUniqueReturn {
+  return overrides as unknown as EventFindUniqueReturn;
 }
 
 beforeEach(() => {
@@ -4234,17 +4261,17 @@ describe("processNewRawEvent — P2002 race-window fall-through (#1286)", () => 
       meta: { target: { someFutureShape: true } as unknown as string },
     });
     mockRawEventCreate.mockRejectedValueOnce(opaqueErr);
-    vi.mocked(prisma.rawEvent.findUnique).mockResolvedValueOnce({
-      id: "raw_winner",
-      fingerprint: "fp_abc123",
-      processed: true,
-      eventId: "evt_winner",
-    } as never);
-    vi.mocked(prisma.event.findUnique).mockResolvedValueOnce({
-      id: "evt_winner",
-      kennelId: "kennel_1",
-      trustLevel: 5,
-    } as never);
+    vi.mocked(prisma.rawEvent.findUnique).mockResolvedValueOnce(
+      rawEventWinner({
+        id: "raw_winner",
+        fingerprint: "fp_abc123",
+        processed: true,
+        eventId: "evt_winner",
+      }),
+    );
+    vi.mocked(prisma.event.findUnique).mockResolvedValueOnce(
+      eventWinner({ id: "evt_winner", kennelId: "kennel_1", trustLevel: 5 }),
+    );
 
     const result = await processRawEvents("src_1", [
       buildRawEvent({ date: "2026-04-01", kennelTags: ["TestH3"] }),
@@ -4289,17 +4316,17 @@ describe("processNewRawEvent — P2002 race-window fall-through (#1286)", () => 
       .mockRejectedValueOnce(buildPrismaUniqueViolation(["sourceId", "fingerprint"]));
 
     // Worker B's catch path: the winner row is now visible.
-    vi.mocked(prisma.rawEvent.findUnique).mockResolvedValueOnce({
-      id: "raw_winner",
-      fingerprint: "fp_abc123",
-      processed: true,
-      eventId: "evt_winner",
-    } as never);
-    vi.mocked(prisma.event.findUnique).mockResolvedValueOnce({
-      id: "evt_winner",
-      kennelId: "kennel_1",
-      trustLevel: 5,
-    } as never);
+    vi.mocked(prisma.rawEvent.findUnique).mockResolvedValueOnce(
+      rawEventWinner({
+        id: "raw_winner",
+        fingerprint: "fp_abc123",
+        processed: true,
+        eventId: "evt_winner",
+      }),
+    );
+    vi.mocked(prisma.event.findUnique).mockResolvedValueOnce(
+      eventWinner({ id: "evt_winner", kennelId: "kennel_1", trustLevel: 5 }),
+    );
 
     const sameEvent = buildRawEvent({ date: "2026-04-01", kennelTags: ["TestH3"] });
     const [resultA, resultB] = await Promise.all([
