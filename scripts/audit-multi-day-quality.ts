@@ -43,7 +43,43 @@ const RE_DAY_M_D_HEADER = /\*\*[A-Z][a-z]*\s+\d{1,2}\/\d{1,2}\b/; // **DAY M/D �
 const RE_FRI_SAT_SUN_LABEL = /(?:^|\n|\s)(friday|saturday|sunday|fri|sat|sun)\s*:/i; // informal labels (Madison pattern)
 const RE_DATE_RANGE_NUM = /\b\d{1,2}\/\d{1,2}\s*[-–]\s*\d{1,2}\/\d{1,2}\b/; // 6/19 - 6/21
 const RE_KENNEL_SHORTHAND_TITLE = /^[A-Z]{2,}\d*\s*#\s*\d+\s*$/; // NAWW #391
-const RE_RUN_NUMBER_SUFFIX = /[-–\s]\s*#?\s*\d+\s*$/; // " - #436" / " #436" / " - 436"
+// Sonar S5852 flags any `\s*…$` anchored regex as ReDoS-shaped even when
+// linear. Procedural detection keeps the same semantics (was
+// `/[-–\s]\s*#?\s*\d+\s*$/`) without tripping the heuristic.
+//
+// Original regex shape: `[-–\s]` (one boundary char), then `\s*#?\s*\d+\s*$`.
+// Equivalent walk right-to-left: digits → optional whitespace → optional `#`
+// → optional whitespace → boundary char in `{-, –, whitespace}`. If we
+// consumed any whitespace during the strips, the boundary is implicitly
+// satisfied (one of those whitespaces IS the `[-–\s]` the regex anchored on).
+const TRAILING_DIGITS = /\d+$/;
+function getRunNumberSuffix(title: string): string | null {
+  const t = title.trimEnd();
+  const m = TRAILING_DIGITS.exec(t);
+  if (!m) return null;
+  let pos = t.length - m[0].length;
+  let consumedWhitespace = false;
+  while (pos > 0 && (t[pos - 1] === " " || t[pos - 1] === "\t")) {
+    pos--;
+    consumedWhitespace = true;
+  }
+  if (pos > 0 && t[pos - 1] === "#") pos--;
+  while (pos > 0 && (t[pos - 1] === " " || t[pos - 1] === "\t")) {
+    pos--;
+    consumedWhitespace = true;
+  }
+  if (pos === 0) return null;
+  const boundary = t[pos - 1];
+  if (boundary === "-" || boundary === "–") {
+    return title.slice(pos - 1).trim();
+  }
+  if (consumedWhitespace) {
+    // The boundary char IS one of the whitespaces we already stripped;
+    // anchor the suffix at the current `pos`.
+    return title.slice(pos).trim();
+  }
+  return null;
+}
 // URL extraction is split into a simple bounded-quantifier regex + a
 // Set-based host filter so Sonar S5852 (ReDoS) stays clean. A single
 // alternation `(hashrego\.com|...)` inside the regex tripped the ReDoS
@@ -60,10 +96,18 @@ const KNOWN_SOURCE_HOSTS = new Set([
 ]);
 const RE_ANY_URL = /https?:\/\/[^\s/)>"']{1,200}\/[^\s)>"']{1,500}/gi;
 
+// Strip trailing chars from a string procedurally (Sonar S5852 avoids the
+// `[chars]+$` regex shape on hot string-trimming paths).
+function stripTrailingChars(s: string, chars: string): string {
+  let end = s.length;
+  while (end > 0 && chars.includes(s[end - 1])) end--;
+  return s.slice(0, end);
+}
+
 function extractKnownSourceUrls(text: string): string[] {
   const out: string[] = [];
   for (const m of text.matchAll(RE_ANY_URL)) {
-    const url = m[0].replace(/[.,;:)]+$/, "");
+    const url = stripTrailingChars(m[0], ".,;:)");
     const hostMatch = /^https?:\/\/(?:www\.)?([^/]{1,200})\//.exec(url);
     if (!hostMatch) continue;
     if (KNOWN_SOURCE_HOSTS.has(hostMatch[1].toLowerCase())) {
@@ -299,7 +343,7 @@ function extractB1Path(url: string): string | null {
   // Bounded quantifiers (Sonar S5852) — host ≤200 chars, path ≤500 chars.
   const m = /^https?:\/\/[^/]{1,200}(\/[^?#\s)]{1,500})/.exec(url);
   if (!m) return null;
-  const path = m[1].replace(/\/+$/, "").toLowerCase();
+  const path = stripTrailingChars(m[1], "/").toLowerCase();
   // Ignore generic non-event paths (root, /runs without an id, etc.)
   if (!/\/(events|runs)\/[\w-]+/.test(path)) return null;
   return path;
@@ -490,20 +534,22 @@ function bucketC1(rows: AuditRow[]): Finding[] {
 function bucketC2(rows: AuditRow[]): Finding[] {
   // Title has run-number-looking suffix when runNumber is non-null.
   // " - #436" / " - 436" / " #436" patterns.
-  return rows
-    .filter((r) => r.runNumber !== null && RE_RUN_NUMBER_SUFFIX.test(r.title))
-    .map((r) => {
-      const m = RE_RUN_NUMBER_SUFFIX.exec(r.title);
-      return {
-        bucket: "C.2",
-        eventId: r.id,
-        kennel: r.kennel.shortName,
-        title: r.title,
-        date: fmtDate(r.date),
-        sourceUrl: r.sourceUrl,
-        detail: `runNumber=${r.runNumber}, suffix "${m?.[0]?.trim() ?? ""}" is redundant`,
-      };
+  const findings: Finding[] = [];
+  for (const r of rows) {
+    if (r.runNumber === null) continue;
+    const suffix = getRunNumberSuffix(r.title);
+    if (suffix === null) continue;
+    findings.push({
+      bucket: "C.2",
+      eventId: r.id,
+      kennel: r.kennel.shortName,
+      title: r.title,
+      date: fmtDate(r.date),
+      sourceUrl: r.sourceUrl,
+      detail: `runNumber=${r.runNumber}, suffix "${suffix}" is redundant`,
     });
+  }
+  return findings;
 }
 
 function bucketC3(rows: AuditRow[]): Finding[] {
@@ -563,7 +609,7 @@ function bucketC6(rows: AuditRow[]): Finding[] {
       const short = r.kennel.shortName;
       if (!short || short.length < 2) return false;
       if (!r.title.includes(short)) return false;
-      return RE_RUN_NUMBER_SUFFIX.test(r.title);
+      return getRunNumberSuffix(r.title) !== null;
     })
     .map((r) => ({
       bucket: "C.6",
