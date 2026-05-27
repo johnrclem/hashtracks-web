@@ -53,8 +53,8 @@ const RE_KENNEL_SHORTHAND_TITLE = /^[A-Z]{2,}\d*\s*#\s*\d+\s*$/; // NAWW #391
 // consumed any whitespace during the strips, the boundary is implicitly
 // satisfied (one of those whitespaces IS the `[-–\s]` the regex anchored on).
 function isAsciiDigit(ch: string): boolean {
-  const code = ch.charCodeAt(0);
-  return code >= 0x30 && code <= 0x39;
+  const code = ch.codePointAt(0);
+  return code !== undefined && code >= 0x30 && code <= 0x39;
 }
 function getRunNumberSuffix(title: string): string | null {
   const t = title.trimEnd();
@@ -586,7 +586,7 @@ function bucketC4(rows: AuditRow[]): Finding[] {
       title: r.title,
       date: fmtDate(r.date),
       sourceUrl: r.sourceUrl,
-      detail: `title === description.split('\\n')[0]`,
+      detail: String.raw`title === description.split('\n')[0]`,
     }));
 }
 
@@ -839,9 +839,8 @@ async function runAudit(prisma: PrismaClient): Promise<void> {
   for (const spec of BUCKETS) {
     md.push(renderBucket(spec, byBucket.get(spec.id) ?? []));
   }
-  md.push(renderAnchors(byBucket));
-
   md.push(
+    renderAnchors(byBucket),
     "## Lower-impact observations (not bucketed)",
     "",
     "- **`/kennels/sfh3` 404** — kennel slug doesn't match user's guess (SF H3 exists in the data per BAWC5 attribution).",
