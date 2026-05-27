@@ -43,8 +43,8 @@ const RE_DAY_M_D_HEADER = /\*\*[A-Z][a-z]*\s+\d{1,2}\/\d{1,2}\b/; // **DAY M/D �
 const RE_FRI_SAT_SUN_LABEL = /(?:^|\n|\s)(friday|saturday|sunday|fri|sat|sun)\s*:/i; // informal labels (Madison pattern)
 const RE_DATE_RANGE_NUM = /\b\d{1,2}\/\d{1,2}\s*[-–]\s*\d{1,2}\/\d{1,2}\b/; // 6/19 - 6/21
 const RE_KENNEL_SHORTHAND_TITLE = /^[A-Z]{2,}\d*\s*#\s*\d+\s*$/; // NAWW #391
-// Sonar S5852 flags any `\s*…$` anchored regex as ReDoS-shaped even when
-// linear. Procedural detection keeps the same semantics (was
+// Sonar S5852 flags any `\s*…$` or `\d+$` anchored regex as ReDoS-shaped
+// even when linear. Procedural detection keeps the same semantics (was
 // `/[-–\s]\s*#?\s*\d+\s*$/`) without tripping the heuristic.
 //
 // Original regex shape: `[-–\s]` (one boundary char), then `\s*#?\s*\d+\s*$`.
@@ -52,12 +52,16 @@ const RE_KENNEL_SHORTHAND_TITLE = /^[A-Z]{2,}\d*\s*#\s*\d+\s*$/; // NAWW #391
 // → optional whitespace → boundary char in `{-, –, whitespace}`. If we
 // consumed any whitespace during the strips, the boundary is implicitly
 // satisfied (one of those whitespaces IS the `[-–\s]` the regex anchored on).
-const TRAILING_DIGITS = /\d+$/;
+function isAsciiDigit(ch: string): boolean {
+  const code = ch.charCodeAt(0);
+  return code >= 0x30 && code <= 0x39;
+}
 function getRunNumberSuffix(title: string): string | null {
   const t = title.trimEnd();
-  const m = TRAILING_DIGITS.exec(t);
-  if (!m) return null;
-  let pos = t.length - m[0].length;
+  let digitsStart = t.length;
+  while (digitsStart > 0 && isAsciiDigit(t[digitsStart - 1])) digitsStart--;
+  if (digitsStart === t.length) return null;
+  let pos = digitsStart;
   let consumedWhitespace = false;
   while (pos > 0 && (t[pos - 1] === " " || t[pos - 1] === "\t")) {
     pos--;
