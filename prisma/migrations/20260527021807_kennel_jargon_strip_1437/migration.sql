@@ -35,7 +35,6 @@ BEGIN
       ('rch3',             'Akron''s hash kennel with a 1,000+ member community. Also runs summer Thursday evening trails.'),
       ('lh4-hk',           'Hong Kong''s ladies hash. Weekly Tuesday evening runs with a published hareline showing dates, hares, locations, and on-on venues.'),
       ('tokoroa-h3',       'Founded 1983, restarted 2009 — Waikato''s Tokoroa hash. Seasonal schedule: Wednesday evenings in summer, Sunday afternoons in winter. Trail announcements posted on Facebook.'),
-      ('mooloo-h3',        'Hamilton/Waikato men''s hash. Trail starts shifted to 6:00 PM year-round; runs posted on the kennel website.'),
       ('cfh3',             'Runs on the 1st, 3rd, and 5th Saturday of each month in the Wilmington/Cape Fear area.')
     ) AS x("kennelCode", new_description)
   LOOP
