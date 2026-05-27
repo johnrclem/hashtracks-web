@@ -4,6 +4,7 @@ import {
   normalizeTitleForCluster,
   clusterGroupKey,
   isConsecutiveCluster,
+  splitIntoConsecutiveRuns,
   linkSameTitleConsecutiveClusters,
 } from "./same-title-cluster";
 
@@ -41,7 +42,7 @@ describe("clusterGroupKey", () => {
   });
 });
 
-describe("isConsecutiveCluster", () => {
+describe("isConsecutiveCluster (per-run span check)", () => {
   const ev = (d: string) => ({
     id: d,
     date: new Date(`${d}T12:00:00Z`),
@@ -53,17 +54,46 @@ describe("isConsecutiveCluster", () => {
   it("returns true for 3 consecutive days", () => {
     expect(isConsecutiveCluster([ev("2026-06-12"), ev("2026-06-13"), ev("2026-06-14")])).toBe(true);
   });
-  it("returns true for Fri/Sat/Sun + Mon recovery (2-day gap allowed)", () => {
-    expect(isConsecutiveCluster([ev("2026-05-29"), ev("2026-05-30"), ev("2026-06-01")])).toBe(true);
-  });
   it("returns false when total span exceeds 7 days", () => {
     expect(isConsecutiveCluster([ev("2026-05-29"), ev("2026-06-06")])).toBe(false);
   });
   it("returns false for single event", () => {
     expect(isConsecutiveCluster([ev("2026-05-29")])).toBe(false);
   });
-  it("returns false for two events 3+ days apart", () => {
-    expect(isConsecutiveCluster([ev("2026-05-29"), ev("2026-06-02")])).toBe(false);
+});
+
+describe("splitIntoConsecutiveRuns", () => {
+  const ev = (d: string) => ({
+    id: d,
+    date: new Date(`${d}T12:00:00Z`),
+    title: "Foo",
+    isSeriesParent: false,
+    parentEventId: null,
+  });
+
+  it("returns one run for a tight cluster", () => {
+    const runs = splitIntoConsecutiveRuns([ev("2026-06-12"), ev("2026-06-13"), ev("2026-06-14")]);
+    expect(runs).toHaveLength(1);
+    expect(runs[0]).toHaveLength(3);
+  });
+  it("allows 2-day gap (Fri/Sat/Sun + Mon recovery as one run)", () => {
+    const runs = splitIntoConsecutiveRuns([ev("2026-05-29"), ev("2026-05-30"), ev("2026-06-01")]);
+    expect(runs).toHaveLength(1);
+    expect(runs[0]).toHaveLength(3);
+  });
+  it("splits at gaps larger than 2 days", () => {
+    const runs = splitIntoConsecutiveRuns([ev("2026-05-29"), ev("2026-06-02")]);
+    expect(runs).toHaveLength(2);
+  });
+  it("Codex P2 case: annual recurrence splits into independent runs", () => {
+    // BMPH3 Belgian Nash Hash 2026 (Jul 10-12) + same series 2027 (Jul 9-11)
+    const runs = splitIntoConsecutiveRuns([
+      ev("2026-07-10"), ev("2026-07-11"), ev("2026-07-12"),
+      ev("2027-07-09"), ev("2027-07-10"), ev("2027-07-11"),
+    ]);
+    expect(runs).toHaveLength(2);
+    expect(runs[0]).toHaveLength(3);
+    expect(runs[1]).toHaveLength(3);
   });
 });
 
@@ -196,5 +226,26 @@ describe("linkSameTitleConsecutiveClusters", () => {
     ];
     const result = await linkSameTitleConsecutiveClusters(mockPrisma, new Set(["kennel-1"]));
     expect(result.clustersLinked).toBe(0);
+  });
+
+  it("Codex P2: links 2026 cluster AND 2027 recurrence as separate series", async () => {
+    // BMPH3 Belgian Nash Hash 2026 + 2027 — share group key "bmph3 belgian
+    // nash hash" but year-apart gap means they should be independent runs.
+    // Before PR fix: whole-bucket span check rejected both. After: each
+    // weekend links independently.
+    mockEvents = [
+      ev({ id: "y26-1", date: new Date("2026-07-10T12:00:00Z"), title: "BMPH3 Belgian Nash Hash 2026 Pub Crawl" }),
+      ev({ id: "y26-2", date: new Date("2026-07-11T12:00:00Z"), title: "BMPH3 Belgian Nash Hash 2026 Trail" }),
+      ev({ id: "y26-3", date: new Date("2026-07-12T12:00:00Z"), title: "BMPH3 Belgian Nash Hash 2026 Hangover" }),
+      ev({ id: "y27-1", date: new Date("2027-07-09T12:00:00Z"), title: "BMPH3 Belgian Nash Hash 2027 Pub Crawl" }),
+      ev({ id: "y27-2", date: new Date("2027-07-10T12:00:00Z"), title: "BMPH3 Belgian Nash Hash 2027 Trail" }),
+      ev({ id: "y27-3", date: new Date("2027-07-11T12:00:00Z"), title: "BMPH3 Belgian Nash Hash 2027 Hangover" }),
+    ];
+    const result = await linkSameTitleConsecutiveClusters(mockPrisma, new Set(["kennel-1"]));
+    expect(result.clustersLinked).toBe(2);
+    expect(result.eventsLinked).toBe(6);
+    // Confirm two distinct umbrellas (y26-1 and y27-1).
+    const parentUpdates = updates.filter((u) => "id" in u.where && u.data.isSeriesParent === true);
+    expect(parentUpdates.map((u) => (u.where as { id: string }).id).sort()).toEqual(["y26-1", "y27-1"]);
   });
 });

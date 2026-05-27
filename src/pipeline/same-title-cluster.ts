@@ -84,22 +84,42 @@ const MAX_CLUSTER_SPAN_DAYS = 7; // longest reasonable hashing weekend
 const MAX_CONSECUTIVE_GAP_DAYS = 2; // allow Fri + Sat + recovery Mon
 
 /**
- * Returns true when the sorted-by-date events form at least one
- * consecutive-pair (gap ∈ [1, MAX_CONSECUTIVE_GAP_DAYS]) AND the total
- * span across the cluster is ≤ MAX_CLUSTER_SPAN_DAYS. Mirrors the audit's
- * A.5 check.
+ * Split a date-sorted group of events into "runs" where each run is a
+ * maximal contiguous slice whose internal gaps are all in
+ * `[1, MAX_CONSECUTIVE_GAP_DAYS]`. Codex P2 review on PR #1743 caught
+ * that evaluating the whole bucket as one cluster causes false negatives
+ * when a recurring annual event sits in the same 365-day window as the
+ * current-year cluster (e.g. BMPH3 Belgian Nash Hash 2026 + 2027 share
+ * the same first-4-token key but the year-apart gap makes total span
+ * 365 days, which exceeds MAX_CLUSTER_SPAN_DAYS). Splitting into runs
+ * lets each recurrence's weekend link independently.
  */
-export function isConsecutiveCluster(sorted: ClusterEvent[]): boolean {
-  if (sorted.length < 2) return false;
-  let hasConsecutivePair = false;
+export function splitIntoConsecutiveRuns(sorted: ClusterEvent[]): ClusterEvent[][] {
+  if (sorted.length === 0) return [];
+  const runs: ClusterEvent[][] = [];
+  let currentRun: ClusterEvent[] = [sorted[0]];
   for (let i = 1; i < sorted.length; i++) {
     const gap = (sorted[i].date.getTime() - sorted[i - 1].date.getTime()) / DAY_MS;
     if (gap >= 1 && gap <= MAX_CONSECUTIVE_GAP_DAYS) {
-      hasConsecutivePair = true;
-      break;
+      currentRun.push(sorted[i]);
+    } else {
+      runs.push(currentRun);
+      currentRun = [sorted[i]];
     }
   }
-  if (!hasConsecutivePair) return false;
+  runs.push(currentRun);
+  return runs;
+}
+
+/**
+ * Returns true when a single run (already known to have gaps ≤
+ * MAX_CONSECUTIVE_GAP_DAYS by construction) has at least 2 events AND
+ * spans ≤ MAX_CLUSTER_SPAN_DAYS. The span check is the "weekend cap" —
+ * a run of 10 single-day-gap events would still be rejected as too long
+ * to be a single weekend.
+ */
+export function isConsecutiveCluster(sorted: ClusterEvent[]): boolean {
+  if (sorted.length < 2) return false;
   const last = sorted.at(-1)!;
   const totalDays = (last.date.getTime() - sorted[0].date.getTime()) / DAY_MS;
   return totalDays <= MAX_CLUSTER_SPAN_DAYS;
@@ -174,40 +194,46 @@ export async function linkSameTitleConsecutiveClusters(
     buckets.set(bucketKey, arr);
   }
 
-  for (const cluster of buckets.values()) {
-    if (cluster.length < 2) continue;
-    const sorted = [...cluster].sort((a, b) => a.date.getTime() - b.date.getTime());
-    if (!isConsecutiveCluster(sorted)) continue;
+  for (const bucket of buckets.values()) {
+    if (bucket.length < 2) continue;
+    const sorted = [...bucket].sort((a, b) => a.date.getTime() - b.date.getTime());
 
-    // Skip if ANY member is already part of a series — adapter-emitted
-    // seriesId or a prior linker run owns this group.
-    if (sorted.some((e) => e.isSeriesParent || e.parentEventId != null)) continue;
+    // Split the bucket into consecutive runs so a year-apart recurrence
+    // doesn't disqualify the current weekend (Codex P2 review on PR #1743).
+    for (const run of splitIntoConsecutiveRuns(sorted)) {
+      if (!isConsecutiveCluster(run)) continue;
 
-    const parent = sorted[0];
-    const children = sorted.slice(1);
-    const lastDate = sorted.at(-1)!.date;
+      // Skip if ANY member of THIS run is already part of a series. The
+      // gate is run-local — another year's run can be already-linked or
+      // not without affecting this year's link.
+      if (run.some((e) => e.isSeriesParent || e.parentEventId != null)) continue;
 
-    // Two writes wrapped in `$transaction` so a write failure can't leave
-    // a half-linked cluster (Codex P1 review on PR #1742). If the parent
-    // promotion succeeded but the children update failed, future runs
-    // would PERMANENTLY skip this cluster because the parent now satisfies
-    // the "any member already linked" gate. Atomic commit prevents that.
-    //
-    // Mirrors `writeSeriesLinks` but also writes endDate — this linker
-    // can't rely on an adapter-emitted endDate because there's no
-    // umbrella raw.
-    await prisma.$transaction([
-      prisma.event.update({
-        where: { id: parent.id },
-        data: { isSeriesParent: true, parentEventId: null, endDate: lastDate },
-      }),
-      prisma.event.updateMany({
-        where: { id: { in: children.map((c) => c.id) } },
-        data: { parentEventId: parent.id, isSeriesParent: false },
-      }),
-    ]);
-    result.clustersLinked++;
-    result.eventsLinked += sorted.length;
+      const parent = run[0];
+      const children = run.slice(1);
+      const lastDate = run.at(-1)!.date;
+
+      // Two writes wrapped in `$transaction` so a write failure can't leave
+      // a half-linked cluster (Codex P1 review on PR #1742). If the parent
+      // promotion succeeded but the children update failed, future runs
+      // would PERMANENTLY skip this cluster because the parent now satisfies
+      // the "any member already linked" gate. Atomic commit prevents that.
+      //
+      // Mirrors `writeSeriesLinks` but also writes endDate — this linker
+      // can't rely on an adapter-emitted endDate because there's no
+      // umbrella raw.
+      await prisma.$transaction([
+        prisma.event.update({
+          where: { id: parent.id },
+          data: { isSeriesParent: true, parentEventId: null, endDate: lastDate },
+        }),
+        prisma.event.updateMany({
+          where: { id: { in: children.map((c) => c.id) } },
+          data: { parentEventId: parent.id, isSeriesParent: false },
+        }),
+      ]);
+      result.clustersLinked++;
+      result.eventsLinked += run.length;
+    }
   }
 
   return result;
