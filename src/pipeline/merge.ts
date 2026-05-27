@@ -75,6 +75,26 @@ function resolveRegionBias(
  * Sanitize raw event fields: decode HTML entities in text fields.
  * Applied at the top of processNewRawEvent() so all downstream sanitizers receive clean text.
  */
+/**
+ * Build the `endDate` patch fragment for the higher-trust update path
+ * (PR H.7 — Sonar S3358 extraction of the nested ternary). Tri-state:
+ *   - `event.endDate === undefined` AND fallback set → write fallback
+ *   - `event.endDate === undefined` AND no fallback  → no patch (preserve)
+ *   - `event.endDate === ""` / `null` → explicit clear
+ *   - `event.endDate` string → overwrite
+ */
+function resolveEndDateUpdate(
+  rawEndDate: string | undefined | null,
+  canonicalFallback: string | null,
+): { endDate?: Date | null } {
+  if (rawEndDate === undefined) {
+    return canonicalFallback
+      ? { endDate: parseUtcNoonDate(canonicalFallback) }
+      : {};
+  }
+  return { endDate: rawEndDate ? parseUtcNoonDate(rawEndDate) : null };
+}
+
 function sanitizeRawFields(event: RawEventData): void {
   if (event.title) event.title = decodeEntities(event.title);
   if (event.hares) event.hares = decodeEntities(event.hares);
@@ -1386,6 +1406,38 @@ async function upsertCanonicalEvent(
       existingEvent.status = "CONFIRMED";
     }
 
+    // endDate canonical-description fallback (PR H.7 → PR #1741):
+    // when neither the existing canonical NOR the incoming raw carries
+    // endDate but the CANONICAL Event.description carries the venue-
+    // weekend pattern (Oregon HHH Spring Campout case — canonical was
+    // enriched by an earlier scrape with a richer description than the
+    // latest raw emits), infer endDate from the canonical text.
+    //
+    // Computed ONCE here so both the higher-trust full-update branch and
+    // the lower-trust enrich branch can apply it consistently. Codex P1
+    // + Gemini high reviews on PR #1741 caught that placing the fallback
+    // only in the else branch silently skipped it on same-source
+    // re-scrapes (which run the if branch).
+    //
+    // `existingEvent.date` may not be a Date instance under some test
+    // mocks — guard with `instanceof` and fall back to the incoming
+    // event.date string. Gemini robustness note.
+    let canonicalFallbackEndDate: string | null = null;
+    if (
+      existingEvent.endDate == null &&
+      !event.endDate &&
+      existingEvent.description
+    ) {
+      const dateStr = existingEvent.date instanceof Date
+        ? existingEvent.date.toISOString().slice(0, 10)
+        : event.date;
+      canonicalFallbackEndDate = detectVenueWeekendEndDate(
+        existingEvent.description,
+        existingEvent.title ?? event.title ?? "",
+        dateStr,
+      );
+    }
+
     // Update only if our source trust level >= existing; lower-trust
     // sources get the null-field enrichment path in the else branch.
     if (ctx.trustLevel >= existingEvent.trustLevel) {
@@ -1514,9 +1566,10 @@ async function upsertCanonicalEvent(
           // events. Tri-state: undefined preserve, string overwrite, "" / null
           // clear (single-day). String parses through parseUtcNoonDate so it
           // lands at UTC noon like `date` (DST-safe per CLAUDE.md Appendix F.4).
-          ...(event.endDate === undefined
-            ? {}
-            : { endDate: event.endDate ? parseUtcNoonDate(event.endDate) : null }),
+          // When the raw is silent (`undefined`) but the canonical-description
+          // fallback inferred a date (PR H.7 — Oregon HHH same-source rescrape),
+          // promote that here so the IF branch doesn't leave endDate stale.
+          ...resolveEndDateUpdate(event.endDate, canonicalFallbackEndDate),
           // Cross-window fuzzy match (#990) physically moves the row from
           // its old `date` bucket to the incoming source's date, so display
           // paths that compose `date + startTime + timezone` render the
@@ -1672,6 +1725,12 @@ async function upsertCanonicalEvent(
       // to multi-day when the higher-trust source omitted the range entirely.
       if (existingEvent.endDate == null && event.endDate) {
         enrichData.endDate = parseUtcNoonDate(event.endDate);
+      }
+      // endDate fallback (PR H.7) — see `canonicalFallbackEndDate` computed
+      // before the trust branch. Use the precomputed value so both branches
+      // share the same source of truth (Codex/Gemini PR #1741 review).
+      if (canonicalFallbackEndDate) {
+        enrichData.endDate = parseUtcNoonDate(canonicalFallbackEndDate);
       }
       if (Object.keys(enrichData).length > 0) {
         const enriched = await prisma.event.update({
