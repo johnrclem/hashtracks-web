@@ -171,6 +171,32 @@ describe("parseSquarespaceEvent", () => {
     expect(ev?.locationStreet).toBe("11351 S Bridge St,, Gold River, CA 95670");
   });
 
+  it("emits dropCachedCoords when the tenant-default pin is rejected", () => {
+    // Without this signal the merge pipeline's existing-coords cache
+    // short-circuit preserves the previously-stored Manhattan default
+    // forever (#957 precedent). The post-merge re-scrape after PR #1745
+    // landed with 16 events still on Manhattan coords for exactly this
+    // reason — the adapter was emitting `latitude: undefined` but not
+    // signaling that the OLD coords were stale.
+    const ev = parseSquarespaceEvent(UNSET_PIN_EVENT, CONFIG, BASE, PT);
+    expect(ev?.dropCachedCoords).toBe(true);
+  });
+
+  it("does NOT emit dropCachedCoords when the user actually pinned a venue", () => {
+    // Real venue pin → coords are legit, no need to invalidate any cache.
+    const ev = parseSquarespaceEvent(CAMPOUT_EVENT, CONFIG, BASE, PT);
+    expect(ev?.dropCachedCoords).toBeUndefined();
+    expect(ev?.latitude).toBe(38.6844644);
+  });
+
+  it("does NOT emit dropCachedCoords when location has no coord fields at all", () => {
+    // No mapLat/mapLng → no upstream coords to reject; legitimate
+    // "geocode from address" case, not a stale-pin scenario.
+    const ev = parseSquarespaceEvent(WEDNESDAY_EVENT, CONFIG, BASE, PT);
+    expect(ev?.dropCachedCoords).toBeUndefined();
+    expect(ev?.latitude).toBeUndefined();
+  });
+
   it("emits coords when mapLat/mapLng differ from markerLat/markerLng even by a small margin", () => {
     // Defense against false-positives: a kennel whose real venue happens to
     // be near the Squarespace default must still get coords if the user

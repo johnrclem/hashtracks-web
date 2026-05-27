@@ -121,11 +121,20 @@ interface SquarespaceEventsPayload {
  * Comparison uses a 6-decimal epsilon (≈11cm at the equator) since both
  * pairs are stored at the same precision in the JSON payload; the float
  * comparison would otherwise be brittle against round-trip noise.
+ *
+ * Returns `defaultPinRejected: true` when the upstream coords were a
+ * tenant default — the caller emits `dropCachedCoords: true` so the
+ * merge pipeline clears any previously-stored bad pin instead of
+ * preserving it via the existing-coords cache short-circuit (see #957
+ * Harrier Central precedent + `RawEventData.dropCachedCoords` docs).
  */
 const DEFAULT_PIN_EPSILON = 1e-6;
-function extractVenueCoords(
-  loc: SquarespaceLocation,
-): [number | undefined, number | undefined] {
+interface ExtractedCoords {
+  latitude?: number;
+  longitude?: number;
+  defaultPinRejected: boolean;
+}
+function extractVenueCoords(loc: SquarespaceLocation): ExtractedCoords {
   const mapLat = loc.mapLat;
   const mapLng = loc.mapLng;
   if (
@@ -134,7 +143,7 @@ function extractVenueCoords(
     !Number.isFinite(mapLat) ||
     !Number.isFinite(mapLng)
   ) {
-    return [undefined, undefined];
+    return { defaultPinRejected: false };
   }
   const markerLat = loc.markerLat;
   const markerLng = loc.markerLng;
@@ -146,9 +155,9 @@ function extractVenueCoords(
   ) {
     // Both pairs match → user never positioned the venue. The mapLat/mapLng
     // is the tenant default, not a real venue location.
-    return [undefined, undefined];
+    return { defaultPinRejected: true };
   }
-  return [mapLat, mapLng];
+  return { latitude: mapLat, longitude: mapLng, defaultPinRejected: false };
 }
 
 /**
@@ -318,7 +327,12 @@ export function parseSquarespaceEvent(
   // back to the same tenant default as markerLat/markerLng. Treat that
   // equality as "no real coords" and emit undefined so downstream geocoding
   // can derive coords from `locationStreet` instead.
-  const [latitude, longitude] = extractVenueCoords(loc);
+  //
+  // When we DETECT and reject the default pin (defaultPinRejected=true),
+  // also emit `dropCachedCoords: true` so the merge pipeline clears any
+  // previously-stored bad pin. Without this flag the existing-coords cache
+  // short-circuit preserves the stored Manhattan default forever (#957).
+  const { latitude, longitude, defaultPinRejected } = extractVenueCoords(loc);
 
   return {
     date,
@@ -334,6 +348,7 @@ export function parseSquarespaceEvent(
     startTime: formatLocalTime(startMs, timezone),
     endTime,
     sourceUrl: resolveEventUrl(baseUrl, event.fullUrl),
+    ...(defaultPinRejected ? { dropCachedCoords: true } : {}),
   };
 }
 
