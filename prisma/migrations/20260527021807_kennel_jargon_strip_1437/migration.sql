@@ -98,7 +98,7 @@ SET "scheduleFrequency" = 'Biweekly',
     "scheduleDayOfWeek" = 'Wednesday',
     "scheduleTime"      = '6:30 PM',
     "updatedAt"         = NOW()
-WHERE "kennelCode" = 'mosquito-h3'
+WHERE "kennelCode" = 'mosquito-h3'  -- NOSONAR plsql:S1192 — same kennel code reused in INSERT block below; deduplication would obscure the row's standalone purpose
   AND (
     "scheduleFrequency" IS DISTINCT FROM 'Biweekly'
     OR "scheduleDayOfWeek" IS DISTINCT FROM 'Wednesday'
@@ -126,7 +126,7 @@ DECLARE
   v_missing text[];
 BEGIN
   SELECT ARRAY_AGG(c) INTO v_missing
-  FROM unnest(ARRAY['mosquito-h3', 'cfh3']) AS c
+  FROM unnest(ARRAY['mosquito-h3', 'cfh3']) AS c  -- NOSONAR plsql:S1192 — kennel codes reused in the INSERT VALUES below; data-row duplication
   WHERE NOT EXISTS (SELECT 1 FROM "Kennel" WHERE "kennelCode" = c);  -- NOSONAR plsql:S1138
   IF v_missing IS NOT NULL THEN
     RAISE NOTICE 'Kennels not found: % — ScheduleRule INSERT will no-op for them (run prisma db seed)', v_missing;  -- NOSONAR plsql:S1192
@@ -155,14 +155,16 @@ SELECT
   NOW(),
   NOW()
 FROM (
+  -- VALUES rows duplicate kennel_code / start_time / source_ref by design — each
+  -- row maps one ScheduleRule. SonarCloud plsql:S1192 suppressed per-line.
   VALUES
     -- mosquito-h3 — 1st & 3rd Wednesday at 6:30 PM (mirror of larrikins).
-    ('mig_1438_mosquito_1we', 'mosquito-h3', 'FREQ=MONTHLY;BYDAY=1WE', '18:30', 0, 'KennelSeed.scheduleRules[mosquito-h3]'),
-    ('mig_1438_mosquito_3we', 'mosquito-h3', 'FREQ=MONTHLY;BYDAY=3WE', '18:30', 1, 'KennelSeed.scheduleRules[mosquito-h3]'),
+    ('mig_1438_mosquito_1we', 'mosquito-h3', 'FREQ=MONTHLY;BYDAY=1WE', '18:30', 0, 'KennelSeed.scheduleRules[mosquito-h3]'),  -- NOSONAR plsql:S1192
+    ('mig_1438_mosquito_3we', 'mosquito-h3', 'FREQ=MONTHLY;BYDAY=3WE', '18:30', 1, 'KennelSeed.scheduleRules[mosquito-h3]'),  -- NOSONAR plsql:S1192
     -- cfh3 — 1st, 3rd, 5th Saturday at 2:00 PM.
-    ('mig_1438_cfh3_1sa',     'cfh3',        'FREQ=MONTHLY;BYDAY=1SA', '14:00', 0, 'KennelSeed.scheduleRules[cfh3]'),
-    ('mig_1438_cfh3_3sa',     'cfh3',        'FREQ=MONTHLY;BYDAY=3SA', '14:00', 1, 'KennelSeed.scheduleRules[cfh3]'),
-    ('mig_1438_cfh3_5sa',     'cfh3',        'FREQ=MONTHLY;BYDAY=5SA', '14:00', 2, 'KennelSeed.scheduleRules[cfh3]')
+    ('mig_1438_cfh3_1sa',     'cfh3',        'FREQ=MONTHLY;BYDAY=1SA', '14:00', 0, 'KennelSeed.scheduleRules[cfh3]'),  -- NOSONAR plsql:S1192
+    ('mig_1438_cfh3_3sa',     'cfh3',        'FREQ=MONTHLY;BYDAY=3SA', '14:00', 1, 'KennelSeed.scheduleRules[cfh3]'),  -- NOSONAR plsql:S1192
+    ('mig_1438_cfh3_5sa',     'cfh3',        'FREQ=MONTHLY;BYDAY=5SA', '14:00', 2, 'KennelSeed.scheduleRules[cfh3]')   -- NOSONAR plsql:S1192
 ) AS v(id, kennel_code, rrule, start_time, display_order, source_ref)
 JOIN "Kennel" k ON k."kennelCode" = v.kennel_code
 ON CONFLICT ("kennelId", rrule, source) DO UPDATE SET
