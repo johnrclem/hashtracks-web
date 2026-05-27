@@ -439,8 +439,26 @@ const TRAILING_CTA_RES = CTA_EMBEDDED_PATTERNS.map(
   (re) => new RegExp(String.raw`[\s.,!?:;\-–—]*(?:${re.source})[\s.,!?:;\-–—]*$`, "i"), // nosemgrep // NOSONAR — source patterns are hard-coded literals in utils.ts; anchored to `$`
 );
 
+// #1618 — Meetup occasionally promotes the group-level recurrence blurb
+// ("Every Wednesday @ 6:30pm from tbd") into the event title when the
+// per-occurrence title is missing. These are pure schedule template
+// strings, not real event names. Two narrow shapes catch the observed
+// Mel-NM corpus without false-positiving real trail names:
+//   1. Starts with "Every <weekday>" AND contains "@" — that "@" is
+//      almost always the time separator in the template, never used in
+//      organic hash titles starting with "Every Saturday Trail".
+//   2. Ends with "from TBA/TBC/TBD" — placeholder venue token that
+//      doesn't appear in real titles.
+const TEMPLATE_TITLE_PATTERNS: readonly RegExp[] = [
+  /^every\s+(?:sun|mon|tue|wed|thu|fri|sat)\w*\s*@/i,
+  /\bfrom\s+tb[adc]\.?\s*$/i,
+];
+
 export function cleanMeetupTitle(raw: string | null | undefined): string | undefined {
   if (!raw) return undefined;
+  // Drop template-shaped titles before any CTA stripping — merge.ts then
+  // synthesizes a "<KennelName> Trail #N" so users see something real.
+  if (TEMPLATE_TITLE_PATTERNS.some((re) => re.test(raw))) return undefined;
   // Stacked CTAs ("Trail 300 - Hares Needed - Claim This Trail!") need
   // multiple passes — each iteration peels one trailing CTA until stable.
   // Hard iteration cap (10) defends against a hypothetical future zero-width

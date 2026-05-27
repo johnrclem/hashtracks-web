@@ -570,6 +570,92 @@ describe("medical appointment filter (#1690)", () => {
   });
 });
 
+// #1632 — MH3-MN's calendar carried synthetic test entries ("Trail # Test
+// Event" with `123 Fake St`) and admin-internal ("PC Meeting") events.
+// Unconditional drop — no plausible real hash event has exactly those
+// titles, so we don't gate on hash signals.
+describe("synthetic test / admin-internal title filter (#1632)", () => {
+  it.each([
+    "Trail # Test Event",
+    "Trail #Test Event",
+    "trail test event",
+    "PC Meeting",
+    "pc meeting",
+  ])("drops synthetic test / admin title: %s", (summary) => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary, location: "123 Fake St" }),
+      { defaultKennelTag: "mh3-mn" },
+    );
+    expect(result).toBeNull();
+  });
+
+  it.each([
+    // Real titles that contain the words but aren't admin/test entries.
+    "Trail Test - April Fools Hash",
+    "Pre-Trail Briefing at the PC Club",
+  ])("preserves legitimate title that shares words with the filter: %s", (summary) => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary, location: "Memorial Park" }),
+      { defaultKennelTag: "mh3-mn" },
+    );
+    expect(result).not.toBeNull();
+  });
+});
+
+// #1691 — Flour City May 28: source admin pasted the kennel's URL slug
+// "flour-city" as SUMMARY. Empty the title so merge.ts synthesizes a
+// "<KennelName> Trail #N" instead of surfacing the slug verbatim.
+// Gated on titleMatchesKennelTag — bare kebab-case is ambiguous (legit
+// theme titles like "red-dress-run" share the shape).
+describe("URL-slug title rejection (#1691)", () => {
+  it("empties title when summary equals the kennel URL slug", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        summary: "flour-city",
+        description: "Hare: \nWhere: \nWhen: 6:00 PM\nWhy: \nHow: $5 hash cash",
+      }),
+      { defaultKennelTag: "flour-city" },
+    );
+    expect(result).not.toBeNull();
+    expect(result!.title).toBe("");
+  });
+
+  it("empties title when summary equals another kennel's slug shape", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "lvh3-cin" }),
+      { defaultKennelTag: "lvh3-cin" },
+    );
+    expect(result).not.toBeNull();
+    expect(result!.title).toBe("");
+  });
+
+  it.each([
+    // Legit kebab-case theme titles — must NOT be emptied just because
+    // they share the URL-slug shape. The kennel-tag gate keeps them safe.
+    ["red-dress-run", "flour-city"],
+    ["pre-lube", "flour-city"],
+    ["full-moon", "flour-city"],
+    ["hash-trash", "flour-city"],
+    ["on-after", "flour-city"],
+  ])("preserves legit kebab-case title %q on kennelTag %q", (summary, kennelTag) => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary, location: "Memorial Park" }),
+      { defaultKennelTag: kennelTag },
+    );
+    expect(result).not.toBeNull();
+    expect(result!.title).toBe(summary);
+  });
+
+  it("preserves real titles that happen to contain hyphens (mixed case / spaces)", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "Inter-Hash 2026", location: "Park" }),
+      { defaultKennelTag: "flour-city" },
+    );
+    expect(result).not.toBeNull();
+    expect(result!.title).toBe("Inter-Hash 2026");
+  });
+});
+
 // #1426 — sports-domain events leaked through #1271 because they had a real
 // location (Frances Park 2701 Moores River Dr). Drop when sport+qualifier
 // matches AND there's no run number / hares — the two hash-confirming

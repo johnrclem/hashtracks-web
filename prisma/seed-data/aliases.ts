@@ -460,6 +460,13 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "sth3-au": ["Sydney Thirsty H3", "Sydney Thirsty", "Thirsty H3", "Thirsty Hash", "STH3", "Sydney Thirsty Hash House Harriers"],
     // Australia — Victoria
     "mel-new-moon": ["Melbourne New Moon H3", "Melbourne New Moon", "New Moon H3 Melbourne", "MNMH3", "Melbourne Moon Hash"],
+    // #1617 — Melbourne sibling kennels routed off the shared Mel-NM Meetup
+    // aggregator. Aliases drawn from the actual title prefixes observed in
+    // the 256-event corpus surveyed in the issue body.
+    "melbourne-full-moon": ["Melbourne Full Moon H3", "Melbourne Full Moon HHH", "Melbourne FMH3", "Full Moon Run", "Mel Full Moon"],
+    "delinquents-hhh": ["Delinquents HHH", "Delinquents H3", "Melbourne Delinquents", "Delinquent Hash"],
+    "melbourne-city-h3": ["Melbourne City H3", "Melbourne City Hash", "Mel City H3", "City Hash Melbourne", "City Hash Beer Marathon"],
+    "melbourne-bike-hash": ["Melbourne Bike Hash", "Mel Bike Hash", "Bike Hash Ride", "Melbourne Bike H3"],
     // Malaysia Phase 2 — Historic Regionals
     "kuching-h3": ["Kuching H3", "Kuching Hash", "Kuching HHH", "KuchingH3"],
     "kk-h3": ["KK H3", "Kota Kinabalu H3", "KK Hash", "Kota Kinabalu Hash", "KKH3"],

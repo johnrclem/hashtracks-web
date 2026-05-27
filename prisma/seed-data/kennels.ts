@@ -3505,6 +3505,45 @@ export const KENNELS: KennelSeed[] = [
       description: "Melbourne New Moon HHH — Melbourne's city-runners new-moon kennel. A drinking club with a running problem: each run is a mystery fun run, with a known start but trail marks leading you somewhere unknown (beware false trails). Hash cash is $5 to cover the circle beers.",
       latitude: -37.8136, longitude: 144.9631,
     },
+    // #1617 — Melbourne sibling kennels that publish through the Mel-NM
+    // Meetup aggregator (melbourne-new-moon-running-group). Stubs with
+    // minimal data; full enrichment (founded year, schedule cadence,
+    // socials) belongs to a follow-up AU research pass. See
+    // `reference_hhh_asn_au_directory` memory for the discovery surface.
+    {
+      kennelCode: "melbourne-full-moon", shortName: "Melbourne Full Moon", fullName: "Melbourne Full Moon Hash House Harriers",
+      region: "Melbourne, VIC", country: "Australia",
+      website: "https://sites.google.com/view/melbournefullmoonhash",
+      scheduleFrequency: "Monthly",
+      scheduleNotes: "Posted via Melbourne New Moon Meetup aggregator — full cadence TBD (stub).",
+      description: "Melbourne Full Moon HHH — the New Moon HHH's country cousin (per the aggregator Meetup About). Events publish through the melbourne-new-moon-running-group Meetup. Profile is a stub pending full research.",
+      latitude: -37.8136, longitude: 144.9631,
+    },
+    {
+      kennelCode: "delinquents-hhh", shortName: "Delinquents HHH", fullName: "Delinquents Hash House Harriers",
+      region: "Melbourne, VIC", country: "Australia",
+      scheduleFrequency: "Weekly",
+      scheduleNotes: "Posted via Melbourne New Moon Meetup aggregator — full schedule TBD (stub).",
+      description: "Delinquents HHH — Melbourne sibling kennel that publishes via the melbourne-new-moon-running-group Meetup aggregator. Profile is a stub pending full research.",
+      latitude: -37.8136, longitude: 144.9631,
+    },
+    {
+      kennelCode: "melbourne-city-h3", shortName: "Melbourne City H3", fullName: "Melbourne City Hash House Harriers",
+      region: "Melbourne, VIC", country: "Australia",
+      website: "https://melctyhhh.org",
+      scheduleDayOfWeek: "Thursday", scheduleFrequency: "Biweekly",
+      scheduleNotes: "Twice a month on Thursdays, within 10km of the Melbourne CBD (per Mel-NM Meetup About). Stub pending full research.",
+      description: "Melbourne City H3 — sister kennel to Melbourne New Moon. Publishes through the melbourne-new-moon-running-group Meetup aggregator. Profile is a stub pending full research.",
+      latitude: -37.8136, longitude: 144.9631,
+    },
+    {
+      kennelCode: "melbourne-bike-hash", shortName: "Melbourne Bike Hash", fullName: "Melbourne Bike Hash",
+      region: "Melbourne, VIC", country: "Australia",
+      scheduleFrequency: "Weekly",
+      scheduleNotes: "Cycling sub-group that publishes via the melbourne-new-moon-running-group Meetup aggregator. Stub pending full research.",
+      description: "Melbourne Bike Hash — a bike-hash variant operating in the Melbourne New Moon ecosystem. Publishes through the melbourne-new-moon-running-group Meetup. Profile is a stub pending full research.",
+      latitude: -37.8136, longitude: 144.9631,
+    },
     // ===== MALAYSIA Phase 2 — Historic Regional kennels =====
     {
       // #1535: schedule strings, description, founder, and facebookUrl are

@@ -341,15 +341,57 @@ export class BkkHarriettesAdapter implements SourceAdapter {
     consumeTablePage(homepageResult, SITE_BASE, "homepage", refDate, tableEvents, errors, errorDetails);
     consumeTablePage(fullResult, FULL_HARELINE_URL, "hareline-in-full", refDate, tableEvents, errors, errorDetails);
 
-    // Dedupe by runNumber; post events come last so they override table rows
-    // (post events carry the permalink sourceUrl and a parsed startTime).
-    const byRun = new Map<number, RawEventData>();
-    for (const e of [...tableEvents, ...postEvents]) {
-      if (typeof e.runNumber === "number") byRun.set(e.runNumber, e);
+    // Dedupe by runNumber. Until #1655 we had posts blindly override tables,
+    // which lost the richer hare formatting tables carry
+    // ("Bob 'Aunries Bitch' N") to the reused "Next Run" post's truncated
+    // form ("Aunties Bitch"). The fix is fieldwise coalescing rather than
+    // a flat priority — neither surface dominates. Per-field rules:
+    //   - hares / location: table wins ONLY if defined; falls back to post
+    //   - startTime: post wins if it's non-default (i.e. parsed from body);
+    //     otherwise table's DEFAULT_START_TIME
+    //   - sourceUrl: post wins (permalink) if set; otherwise table's homepage
+    //   - other fields (date, runNumber, kennelTags): same in both
+    const postByRun = new Map<number, RawEventData>();
+    for (const e of postEvents) {
+      if (typeof e.runNumber === "number") postByRun.set(e.runNumber, e);
+    }
+    const tableByRun = new Map<number, RawEventData>();
+    for (const e of tableEvents) {
+      if (typeof e.runNumber === "number") tableByRun.set(e.runNumber, e);
+    }
+    const mergedByRun: RawEventData[] = [];
+    const allRunNumbers = new Set<number>([
+      ...postByRun.keys(),
+      ...tableByRun.keys(),
+    ]);
+    for (const rn of allRunNumbers) {
+      const table = tableByRun.get(rn);
+      const post = postByRun.get(rn);
+      if (!table) {
+        mergedByRun.push(post!);
+        continue;
+      }
+      if (!post) {
+        mergedByRun.push(table);
+        continue;
+      }
+      // Start from the table row so its rich-format fields are the baseline,
+      // then promote post values for fields the table left undefined or
+      // where the post is authoritative (parsed startTime, permalink URL).
+      mergedByRun.push({
+        ...table,
+        hares: table.hares ?? post.hares,
+        location: table.location ?? post.location,
+        startTime:
+          post.startTime && post.startTime !== DEFAULT_START_TIME
+            ? post.startTime
+            : table.startTime,
+        sourceUrl: post.sourceUrl ?? table.sourceUrl,
+      });
     }
     const events: RawEventData[] = [
       ...postEvents.filter((e) => typeof e.runNumber !== "number"),
-      ...byRun.values(),
+      ...mergedByRun,
     ];
 
     const fetchDurationMs = Date.now() - fetchStart;

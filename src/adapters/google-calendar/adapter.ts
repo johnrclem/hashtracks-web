@@ -179,6 +179,39 @@ const NON_HASH_DOMAIN_PATTERNS: readonly RegExp[] = [
  */
 const HASH_KEYWORD_RE = /\bhash\b/i;
 
+/**
+ * #1632 — known synthetic-test / internal-admin titles that should never
+ * surface as runs. Compared after stripping whitespace and `#` from a
+ * lowercased summary so all the `Trail # Test Event` / `Trail #Test
+ * Event` / `trail test event` variants collapse to the same key.
+ * Deliberately Set-based, not a regex with `\s*` / `#?` adjacency —
+ * Sonar S5852 flags those as ReDoS-shaped even for linear inputs
+ * (see `feedback_sonar_s5852_procedural_over_regex`).
+ *
+ * MH3-MN's calendar carried `Trail # Test Event` (with `123 Fake St`
+ * location) and `PC Meeting`; both were leaking through to
+ * /kennels/mh3-mn before this filter landed.
+ */
+const TEST_ARTIFACT_TITLE_KEYS = new Set([
+  "trailtestevent",
+  "pcmeeting",
+]);
+
+function isTestArtifactTitle(summary: string): boolean {
+  return TEST_ARTIFACT_TITLE_KEYS.has(summary.toLowerCase().replaceAll(/[\s#]+/g, ""));
+}
+
+/**
+ * #1691 — kebab-case shape detector. Matches lowercase alphanumeric
+ * strings with at least one hyphen and no spaces. This shape is
+ * AMBIGUOUS by itself — both kennel URL slugs ("flour-city", "lvh3-cin")
+ * and legitimate theme titles ("red-dress-run", "pre-lube", "hash-trash")
+ * fit it. Callers MUST gate this check on a kennel-tag equivalence
+ * (titleMatchesKennelTag) so only the slug case actually triggers
+ * title clearing.
+ */
+const URL_SLUG_TITLE_RE = /^[a-z0-9]+(?:-[a-z0-9]+)+$/;
+
 /** Strip leading day/date prefixes like "Wed April 1st", "Sat 3/28" from titles. */
 export function stripDatePrefix(text: string): string {
   const stripped = text
@@ -1196,6 +1229,16 @@ export function buildRawEventFromGCalItem(
     const descTitle = titleFromDescription(rawDescription);
     if (descTitle) title = descTitle;
   }
+  // #1691 — title is kebab-case AND matches the kennel tag after
+  // normalization. That's the URL-slug shape (Flour City May 28: SUMMARY
+  // was literally "flour-city"). Empty the title so the defaultTitle
+  // path below or, failing that, the merge pipeline's "<KennelName>
+  // Trail #N" synthesis takes over. The kennel-tag gate is essential —
+  // bare kebab-case is ambiguous (legit theme titles like "red-dress-
+  // run" / "pre-lube" / "hash-trash" share the shape).
+  if (URL_SLUG_TITLE_RE.test(title) && titleMatchesKennelTag(title, kennelTag)) {
+    title = "";
+  }
   // Strip the hare-name capture group from the title, preserving the rest.
   // Handles both prefix patterns (hares at start: "Hare1 & Hare2 - AH3 #2269")
   // and suffix patterns (hares at end: "AH3 #1833 - Location - Hare Name").
@@ -1446,6 +1489,13 @@ export function buildRawEventFromGCalItem(
     !HASH_KEYWORD_RE.test(summary) &&
     NON_HASH_DOMAIN_PATTERNS.some((re) => re.test(summary))
   ) {
+    return null;
+  }
+
+  // #1632 — synthetic test / admin-internal titles. Unconditional drop:
+  // unlike the sport / medical filters there is no plausible real hash
+  // event whose summary is exactly "Trail # Test Event" or "PC Meeting".
+  if (isTestArtifactTitle(summary)) {
     return null;
   }
 
