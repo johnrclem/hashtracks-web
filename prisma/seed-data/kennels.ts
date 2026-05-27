@@ -821,9 +821,19 @@ export const KENNELS: KennelSeed[] = [
       latitude: 32.72, longitude: -117.16,
     },
     {
-      kennelCode: "mh4-sd", shortName: "Mission H4", fullName: "Mission Harriettes", region: "San Diego, CA",
+      // #1665: shortName rewritten "Mission H4" → "Mission Harriettes" and description
+      // expanded; also UPDATE'd in
+      // prisma/migrations/20260526120000_fix_profile_round_13/migration.sql because
+      // ensureKennelRecords only fills NULLs. `slug` pinned to preserve the existing
+      // /kennels/mission-h4 URL — without this, fresh seeds would derive
+      // "mission-harriettes" from the new shortName and diverge from prod.
+      kennelCode: "mh4-sd", shortName: "Mission Harriettes", fullName: "Mission Harriettes", region: "San Diego, CA",
+      slug: "mission-h4",
+      foundedYear: 1990,
+      contactName: "Pith Me",
+      signatureEvent: "Turnover Hash (June/Late Summer)",
       scheduleFrequency: "Monthly", scheduleNotes: "Monthly Wednesday evening",
-      description: "Monthly women's hash in San Diego.",
+      description: "Mission Harriettes — San Diego's women-only monthly hash, founded November 10, 1990 (per sdh3.com history). Wednesdays once a month, 6:30 PM start.",
       latitude: 32.72, longitude: -117.16,
     },
     {
@@ -1380,16 +1390,25 @@ export const KENNELS: KennelSeed[] = [
       latitude: 30.04, longitude: -95.46,
     },
     {
+      // #1703: description rewritten with cadence + shiggy detail; also UPDATE'd in
+      // prisma/migrations/20260526120000_fix_profile_round_13/migration.sql
+      // because ensureKennelRecords only fills NULLs.
       kennelCode: "mosquito-h3", shortName: "Mosquito H3", fullName: "Mosquito Hash House Harriers", region: "Houston, TX",
       facebookUrl: "https://www.facebook.com/groups/MosquitoH3/",
+      hashCash: "$5 USD",
       scheduleFrequency: "Bimonthly", scheduleNotes: "1st & 3rd Wednesdays, 6:30 PM",
-      description: "Runs on the 1st and 3rd Wednesday of each month in Houston.",
+      description: "Mosquito H3 runs on the first and third Wednesdays of the month on the west side of Houston, with trails outside Beltway 8 typically 3-4 miles in length and including shiggy.",
       latitude: 29.79, longitude: -95.76,
     },
     {
+      // #1675: scheduleFrequency Monthly → Weekly and description rewritten with backronym + cadence;
+      // also UPDATE'd in prisma/migrations/20260526120000_fix_profile_round_13/migration.sql
+      // because ensureKennelRecords only fills NULLs.
       kennelCode: "moooouston-h3", shortName: "Moooouston H3", fullName: "Moooouston Hash House Harriers", region: "Houston, TX",
-      scheduleFrequency: "Monthly",
-      description: "Houston monthly hash.",
+      foundedYear: 2016,
+      scheduleDayOfWeek: "Monday", scheduleTime: "7:00 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Weekly Mondays, 7:00 PM show / 7:30 PM go from a rotating Houston-area trailhead. Specific location announced per-event on the Houston Hash Calendar.",
+      description: "Houston, TX kennel founded 2016. Backronym: Moving On On Over Optimal Urban Speeds ThRU Our Neighborhoods Hash House Harriers. Weekly Monday trails, typically 7:00 PM show / 7:30 PM go from rotating Houston-area trailheads.",
       latitude: 29.76, longitude: -95.37,
     },
     {
@@ -2193,8 +2212,12 @@ export const KENNELS: KennelSeed[] = [
     },
     {
       kennelCode: "mihi-huha", shortName: "MiHiHuHa", fullName: "Mile High Humpin' Hash House Harriers", region: "Denver, CO",
+      foundedYear: 2014,
+      hashCash: "$5",
       facebookUrl: "https://www.facebook.com/MileHighH3/",
+      contactEmail: "huhahareraiser@gmail.com",
       scheduleDayOfWeek: "Wednesday", scheduleTime: "7:00 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Wednesdays. Meet at 7:00 PM, hares away at 7:15, pack away at 7:30.",
       description: "Denver's weekly Wednesday evening hash.",
       latitude: 39.74, longitude: -104.99,
     },
@@ -3186,6 +3209,7 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "mh3-wv", shortName: "Morgantown H3", fullName: "Morgantown Hash House Harriers",
       region: "Morgantown, WV",
       website: "https://morgantownh3.wordpress.com",
+      hashCash: "$5 USD",
       scheduleDayOfWeek: "Saturday",
       scheduleFrequency: "Weekly",
       scheduleNotes: "Multiple trails most weeks — daytime Saturdays plus weeknight full-moon and themed runs. Watch the calendar for what's next.",
@@ -4073,12 +4097,19 @@ export const KENNELS: KennelSeed[] = [
       latitude: -41.2866, longitude: 174.7756,
     },
     {
+      // #1672: description rewritten to drop "men's" qualifier (source lede is inclusive);
+      // also UPDATE'd in prisma/migrations/20260526120000_fix_profile_round_13/migration.sql
+      // because ensureKennelRecords only fills NULLs.
       kennelCode: "mooloo-h3", shortName: "Mooloo H3", fullName: "Mooloo Hash House Harriers",
       region: "Hamilton, NZ", country: "New Zealand",
       website: "https://www.sporty.co.nz/mooloohhh",
+      facebookUrl: "https://www.facebook.com/MoolooHHH",
+      contactEmail: "c.thomsen@hotmail.co.nz",
+      hashCash: "$10 NZD (covers home meal + 1 drink; pay online or cash to ShakesBeer)",
+      logoUrl: "/kennel-logos/mooloo-h3.jpg",
       scheduleDayOfWeek: "Monday", scheduleTime: "6:00 PM", scheduleFrequency: "Biweekly",
       scheduleNotes: "Roughly every 2nd Monday at 6:00 PM (year-round per the kennel's UpCumming Runs newsletter). Trails alternate setters; specific runs announced on the website.",
-      description: "Hamilton/Waikato men's hash. Trail starts shifted to 6:00 PM year-round; runs published as a freeform newsletter on the kennel website.",
+      description: "Fun and friendly Monday run or walk at 6 pm from Hamilton locations (roughly every 2nd Monday). Follow a trail at your own pace with us, then enjoy a meal and a free beer or wine! Plus much more — all for $10!",
       latitude: -37.787, longitude: 175.2793,
     },
     {
