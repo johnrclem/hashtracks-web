@@ -37,6 +37,25 @@ const UMBRELLA_DATE_HI = new Date("2026-06-21T23:59:59Z");
 const MARIN_RUN_NUMBER = 292;
 const MARIN_DATE = new Date("2026-06-20T12:00:00Z");
 
+/**
+ * findMany + exactly-one check (instead of findFirst) — Prisma's findFirst
+ * doesn't guarantee deterministic ordering without an orderBy, so a 2+
+ * predicate match would silently bind to whichever row came first. For a
+ * write script, fail closed when the anchor isn't unambiguous. Returns
+ * the single row, or null and sets process.exitCode after logging.
+ */
+function pickExactlyOne<T extends { id: string; title: string | null; date: Date }>(
+  label: string,
+  rows: T[],
+  formatCandidate: (row: T) => string = (r) => `${r.id}  ${r.date.toISOString().slice(0, 10)}  ${JSON.stringify(r.title)}`,
+): T | null {
+  if (rows.length === 1) return rows[0];
+  console.error(`Expected exactly 1 ${label}, found ${rows.length}. Aborting.`);
+  for (const r of rows) console.error(`  candidate: ${formatCandidate(r)}`);
+  process.exitCode = 1;
+  return null;
+}
+
 async function main() {
   const apply = process.argv.includes("--apply");
   console.log(`Mode: ${apply ? "APPLY (will UPDATE parentEventId)" : "DRY-RUN"}`);
@@ -51,11 +70,6 @@ async function main() {
     return;
   }
 
-  // findMany + exactly-one check (instead of findFirst) — Prisma's findFirst
-  // doesn't guarantee deterministic ordering without an orderBy, so on the
-  // off chance the predicate matched 2+ rows we'd silently bind to whichever
-  // one happened to come first. For a write script, fail closed when the
-  // anchor isn't unambiguous. CodeRabbit review on this PR.
   const umbrellas = await prisma.event.findMany({
     where: {
       kennelId: sfh3Kennel.id,
@@ -64,19 +78,11 @@ async function main() {
     },
     select: { id: true, title: true, date: true },
   });
-  if (umbrellas.length !== 1) {
-    console.error(
-      `Expected exactly 1 BAWC5 umbrella Event in SFH3 between ${UMBRELLA_DATE_LO.toISOString()} and ${UMBRELLA_DATE_HI.toISOString()}, found ${umbrellas.length}. Aborting.`,
-    );
-    if (umbrellas.length > 1) {
-      for (const u of umbrellas) {
-        console.error(`  candidate: ${u.id}  ${u.date.toISOString().slice(0, 10)}  ${JSON.stringify(u.title)}`);
-      }
-    }
-    process.exitCode = 1;
-    return;
-  }
-  const umbrella = umbrellas[0];
+  const umbrella = pickExactlyOne(
+    `BAWC5 umbrella Event in SFH3 between ${UMBRELLA_DATE_LO.toISOString()} and ${UMBRELLA_DATE_HI.toISOString()}`,
+    umbrellas,
+  );
+  if (!umbrella) return;
   console.log(`Umbrella: ${umbrella.id}  ${umbrella.date.toISOString().slice(0, 10)}  ${JSON.stringify(umbrella.title)}`);
 
   // Marin #292 on 2026-06-20. Strict (kennelId + runNumber + exact date)
@@ -91,27 +97,19 @@ async function main() {
     },
     select: { id: true, title: true, date: true, parentEventId: true, runNumber: true },
   });
-  if (marins.length !== 1) {
-    console.error(
-      `Expected exactly 1 Marin H3 #${MARIN_RUN_NUMBER} Event on ${MARIN_DATE.toISOString().slice(0, 10)}, found ${marins.length}. ` +
-        "Refusing to auto-pick. Investigate manually (RawEvent state, possible kennel rename) and re-run with the correct anchor.",
-    );
-    if (marins.length > 1) {
-      for (const m of marins) {
-        console.error(`  candidate: ${m.id}  ${m.date.toISOString().slice(0, 10)}  ${JSON.stringify(m.title)}  parent=${m.parentEventId}`);
-      }
-    }
-    process.exitCode = 1;
-    return;
-  }
-  const marin = marins[0];
+  const marin = pickExactlyOne(
+    `Marin H3 #${MARIN_RUN_NUMBER} Event on ${MARIN_DATE.toISOString().slice(0, 10)}`,
+    marins,
+    (m) => `${m.id}  ${m.date.toISOString().slice(0, 10)}  ${JSON.stringify(m.title)}  parent=${m.parentEventId}`,
+  );
+  if (!marin) return;
   console.log(`Marin:    ${marin.id}  ${marin.date.toISOString().slice(0, 10)}  runNumber=${marin.runNumber}  title=${JSON.stringify(marin.title)}  parentEventId=${marin.parentEventId}`);
 
   if (marin.parentEventId === umbrella.id) {
     console.log("\nMarin already linked to BAWC5 umbrella — nothing to do.");
     return;
   }
-  if (marin.parentEventId && marin.parentEventId !== umbrella.id) {
+  if (marin.parentEventId) {
     console.error(`Marin is linked to a DIFFERENT parent (${marin.parentEventId}). Refusing to overwrite — investigate manually.`);
     process.exitCode = 1;
     return;
