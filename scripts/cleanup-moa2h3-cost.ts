@@ -28,8 +28,10 @@ async function main() {
     select: { id: true, shortName: true },
   });
   if (!kennel) {
-    console.error(`Kennel ${KENNEL_CODE} not found — aborting.`);
-    process.exit(1);
+    // Throw rather than `process.exit(1)` — lets the `.finally()` at the
+    // call site run `prisma.$disconnect()` instead of cutting the connection
+    // mid-flight (Gemini + Claude PR review).
+    throw new Error(`Kennel ${KENNEL_CODE} not found — aborting.`);
   }
   console.log(`Auditing ${kennel.shortName} (${kennel.id}) events for stale cost values…`);
 
@@ -71,4 +73,14 @@ async function main() {
   console.log(`Done. Normalised ${updated} of ${candidates.length} candidate event(s).`);
 }
 
-main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
+main()
+  .catch((e: unknown) => {
+    console.error(e);
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    // Explicit disconnect so Railway logs don't show a truncated connection;
+    // `process.exitCode` (not `process.exit`) lets this `.finally` run before
+    // the event loop drains. Pattern recommended by Gemini + Claude review.
+    await prisma.$disconnect();
+  });

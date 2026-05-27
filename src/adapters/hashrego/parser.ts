@@ -572,22 +572,37 @@ export function splitToRawEvents(
  * "MoA2H3 MoA2H3 Red Dress Run" + slug "moa2h3" → "MoA2H3 Red Dress Run"
  * "BFM BFM Annual Hash"         + slug "bfm"    → "BFM Annual Hash"
  *
- * Case-insensitive match; replacement preserves the typed casing of the
- * first occurrence ($1). The lookahead `(?=\s|$)` is a hard boundary so
- * "BH3 BH3FM Trail" does not collapse to "BH3FM Trail".
+ * Case-insensitive match. The first token's typed casing is preserved.
+ * Whitespace-token boundary ("BH3 BH3FM Trail" must NOT collapse to
+ * "BH3FM Trail") is enforced by tokenizing on `\s+` instead of using a
+ * dynamic regex with interpolated slug — that pattern trips Codacy /
+ * opengrep's `detect-non-literal-regexp` as a false-positive (slug is
+ * pre-escaped, but the suppression dance is brittle across linters).
+ * Procedural string ops are both safer and clearer here (cf. memory
+ * `feedback_sonar_s5852_procedural_over_regex.md`).
  *
  * Returns the original title untouched when there's no kennel slug
- * available or no doubled prefix is present.
+ * available, no doubled prefix is present, or the second token differs
+ * from the first in any character beyond the slug length.
  */
 export function stripDoubledKennelPrefix(
   title: string,
   kennelSlug: string,
 ): string {
   if (!kennelSlug || !title) return title;
-  const slugEsc = kennelSlug.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
-  // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
-  const doubled = new RegExp(String.raw`^(${slugEsc})\s+${slugEsc}(?=\s|$)`, "iu"); // NOSONAR — slugEsc is regex-escaped; anchored + boundary lookahead
-  return title.replace(doubled, "$1").trim();
+  const tokens = title.split(/\s+/);
+  if (tokens.length < 2) return title;
+  const slugLower = kennelSlug.toLowerCase();
+  if (
+    tokens[0].toLowerCase() !== slugLower
+    || tokens[1].toLowerCase() !== slugLower
+  ) {
+    return title;
+  }
+  // Drop the second occurrence; preserve tokens[0]'s typed casing. The
+  // tokenization on `\s+` collapses arbitrary internal whitespace runs
+  // back to single spaces, which is the right shape for a title.
+  return [tokens[0], ...tokens.slice(2)].join(" ").trim();
 }
 
 /** Extract a **Field:** value from markdown-like text */

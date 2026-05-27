@@ -49,7 +49,6 @@ export interface KennelSeed {
   twitterHandle?: string;
   discordUrl?: string;
   mailingListUrl?: string;
-  stravaUrl?: string;
   contactEmail?: string;
   contactName?: string;        // #1337
   // Profile fields surfaced from chrome-kennel audits (#1415).
@@ -2277,7 +2276,9 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "moa2h3", shortName: "MoA2H3", fullName: "Motown Ann Arbor Hash House Harriers", region: "Detroit, MI",
       website: "https://moa2h3.org",
       facebookUrl: "https://www.facebook.com/MOA2H3",
-      stravaUrl: "https://www.strava.com/clubs/51157",
+      // Strava club: https://www.strava.com/clubs/51157 — Kennel model has
+      // no `stravaUrl` column today (it's on Attendance only). Tracked as
+      // schema gap for a follow-up PR — see #1668 comment thread.
       mailingListUrl: "https://moa2h3.org/join-us/",
       scheduleDayOfWeek: "Sunday", scheduleTime: "2:00 PM", scheduleFrequency: "Weekly",
       scheduleNotes: "Weekly, Saturday or Sunday early afternoon (2pm/2:30pm)",
