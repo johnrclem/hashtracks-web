@@ -12,6 +12,7 @@ import { isPlaceholder, decodeEntities, HARE_BOILERPLATE_RE, CTA_EMBEDDED_PATTER
 import { LOCATION_EMAIL_CTA_RE } from "./audit-checks";
 import { levenshtein } from "@/lib/fuzzy";
 import { createEventWithKennel } from "@/lib/event-write";
+import { detectVenueWeekendEndDate } from "./venue-weekend";
 
 /**
  * Admin lock predicate: an event whose `adminCancelledAt` is non-null has been
@@ -87,6 +88,27 @@ function sanitizeRawFields(event: RawEventData): void {
       event.hares = haredByMatch[1].trim();
       event.title = event.title.slice(0, haredByMatch.index).trim();
     }
+  }
+
+  // PR H (#1560 audit follow-up) — venue-weekend campout heuristic.
+  // Run here so it generalizes across all adapters, not just Hash Rego.
+  // Conditions:
+  //   - The adapter didn't already set endDate (don't override an explicit
+  //     date range from the source — e.g. Hash Rego's parser already runs
+  //     this same heuristic, so its RawEventData arrives with endDate set
+  //     and this call is a no-op).
+  //   - This raw isn't an explicit series parent or child — the series
+  //     logic in mergePipeline handles those endDates separately.
+  //   - We have both a description and a date string to anchor on.
+  // Surfaced 4 non-Hash-Rego A.2 audit findings (#1718): Hollyweird HapPy
+  // Hour Brewfish/Tin Fish, RIH3 40th Analversary, KWH3 Anniversary 1993.
+  if (!event.endDate && !event.seriesId && !event.seriesParent && event.description && event.date) {
+    const detected = detectVenueWeekendEndDate(
+      event.description,
+      event.title ?? "",
+      event.date,
+    );
+    if (detected) event.endDate = detected;
   }
 }
 
@@ -1989,8 +2011,9 @@ async function processNewRawEvent(
   sourceId: string,
   ctx: MergeContext,
 ): Promise<string | null> {
-  // Decode HTML entities in text fields before any downstream processing
-  sanitizeRawFields(event);
+  // `sanitizeRawFields` already ran upstream in `processRawEvents` (before
+  // `precomputeFingerprints`) so the inferred values flow into the
+  // fingerprint. Re-calling here would be a no-op.
 
   // Validate the event has at least one meaningful display field before processing.
   // kennelTag counts because we'll generate a default title from it after kennel resolution.
@@ -2477,6 +2500,27 @@ export async function processRawEvents(
     sampleBlocked: [],
     sampleSkipped: [],
   };
+
+  // Sanitize raw fields BEFORE fingerprint computation so any inferred
+  // values (HTML-decoded text, Hared-by-X extraction, venue-weekend
+  // endDate per PR H / #1718 bucket A.2) feed into the fingerprint. If
+  // we ran this later (e.g. inside `processNewRawEvent`), stale rows
+  // would dedup against their old fingerprint and never re-merge with
+  // the freshly inferred endDate. Codex review on PR H caught this.
+  //
+  // Each call is wrapped so a single malformed event records as an
+  // isolated `eventError` and is dropped from the batch — matching the
+  // resilience contract previously provided by `processNewRawEvent`'s
+  // outer try/catch (Gemini PR review #1740). Iterating in reverse lets
+  // `splice` not shift indexes we haven't visited yet.
+  for (let i = events.length - 1; i >= 0; i--) {
+    try {
+      sanitizeRawFields(events[i]);
+    } catch (err) {
+      recordMergeError(events[i], err, result, "<sanitize-error>");
+      events.splice(i, 1);
+    }
+  }
 
   // Sync fingerprint precompute keyed by event identity. Runs first so the
   // prefetch query can join the parallel batch below; the loop body reuses
