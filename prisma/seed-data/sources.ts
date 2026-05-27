@@ -1,3 +1,41 @@
+/**
+ * Source seed data — one row per ingest pipeline (HTML_SCRAPER, GOOGLE_CALENDAR,
+ * GOOGLE_SHEETS, ICAL_FEED, HASHREGO, HARRIER_CENTRAL, MEETUP, STATIC_SCHEDULE,
+ * FACEBOOK_HOSTED_EVENTS). Each row's `config: Json` carries per-adapter knobs.
+ *
+ * ── Adapter config keys (cross-cutting) ──
+ *
+ *   futureHorizonDays?: number  (GOOGLE_CALENDAR + STATIC_SCHEDULE)
+ *     Forward-window cap for RRULE / lunar / recurring-event expansion, in
+ *     days. Default **365** in both adapters. Bounds the worst case when an
+ *     audit-driven wide-window scrape (e.g. `options.days = 1500`) reaches
+ *     an unbounded RRULE — without this cap a single dormant `FREQ=WEEKLY`
+ *     materializes ~8 years of placeholder rows that persist past the
+ *     reconciler's pruning window (chicago-h3 `lastEventDate=2034` was the
+ *     original incident, #939). The historical back-window is *not* capped
+ *     so deep backfills still reach as far as the caller asks.
+ *
+ *     Override on aggregator calendars that legitimately publish annual
+ *     campouts > 12 months out. Don't override on RRULE-heavy umbrella
+ *     calendars — that's how the dormant-RRULE pathology re-enters. See
+ *     issues #1419 (policy), #1692, #1676, #1704, #1663, #1673 for the
+ *     systemic fix that established this policy.
+ *
+ *   kennelPatterns?: Array<[regex, kennelCode | kennelCode[]]>
+ *     For GOOGLE_CALENDAR / iCal / HTML_SCRAPER sources that feed multiple
+ *     kennels off one feed. First-match-wins for string tuples; array
+ *     tuples are co-host emissions (see adapter-patterns.md §D15).
+ *
+ *   defaultKennelTag?: string
+ *     Fallback kennelCode when no `kennelPatterns` entry matches. Omit on
+ *     shared umbrella calendars where unmatched titles should surface as
+ *     UNMATCHED_TAGS alerts rather than silently contaminate one kennel.
+ *
+ * Adapter-specific keys (rrule/lunar/anchorDate/startTime, columns/groupFilter,
+ * titleStripPatterns, staleTitleAliases, etc.) are documented next to their
+ * adapter implementations and admin validators — search the adapter source.
+ */
+
 // ── SHARED SFH3 CONFIG (used by both iCal and HTML sources) ──
 
 const sfh3KennelPatterns: Array<[string, string]> = [
