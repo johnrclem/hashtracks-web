@@ -829,11 +829,11 @@ export const KENNELS: KennelSeed[] = [
       // "mission-harriettes" from the new shortName and diverge from prod.
       kennelCode: "mh4-sd", shortName: "Mission Harriettes", fullName: "Mission Harriettes", region: "San Diego, CA",
       slug: "mission-h4",
-      foundedYear: 1991,
+      foundedYear: 1990,
       contactName: "Pith Me",
       signatureEvent: "Turnover Hash (June/Late Summer)",
       scheduleFrequency: "Monthly", scheduleNotes: "Monthly Wednesday evening",
-      description: "Mission Harriettes — San Diego's women-only monthly hash, founded 1991. Wednesdays once a month, 6:30 PM start.",
+      description: "Mission Harriettes — San Diego's women-only monthly hash, founded November 10, 1990 (per sdh3.com history). Wednesdays once a month, 6:30 PM start.",
       latitude: 32.72, longitude: -117.16,
     },
     {

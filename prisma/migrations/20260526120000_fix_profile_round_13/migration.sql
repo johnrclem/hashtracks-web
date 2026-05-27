@@ -56,8 +56,8 @@ DO $$
 DECLARE
   v_kennel_code         text := 'mh4-sd';
   v_correct_short_name  text := 'Mission Harriettes';
-  v_correct_description text := 'Mission Harriettes — San Diego''s women-only monthly hash, founded 1991. Wednesdays once a month, 6:30 PM start.';
-  v_founded             int  := 1991;
+  v_correct_description text := 'Mission Harriettes — San Diego''s women-only monthly hash, founded November 10, 1990 (per sdh3.com history). Wednesdays once a month, 6:30 PM start.';
+  v_founded             int  := 1990;
   v_contact_name        text := 'Pith Me';
   v_signature_event     text := 'Turnover Hash (June/Late Summer)';
 BEGIN
@@ -65,27 +65,26 @@ BEGIN
     RAISE NOTICE 'Kennel "%" not found — UPDATE will no-op (run prisma db seed)', v_kennel_code;  -- NOSONAR plsql:S1192
   END IF;
 
+  -- foundedYear treated as override (per Round 12 MH3-MN precedent): the issue
+  -- body's math-derived 1991 was wrong; sdh3.com history is canonical at 1990.
   UPDATE "Kennel"
-  SET "shortName" = v_correct_short_name,
-      description = v_correct_description,
-      "updatedAt" = NOW()
+  SET "shortName"   = v_correct_short_name,
+      description   = v_correct_description,
+      "foundedYear" = v_founded,
+      "updatedAt"   = NOW()
   WHERE "kennelCode" = v_kennel_code
     AND (
-      "shortName" IS DISTINCT FROM v_correct_short_name
-      OR description IS DISTINCT FROM v_correct_description
+      "shortName"   IS DISTINCT FROM v_correct_short_name
+      OR description   IS DISTINCT FROM v_correct_description
+      OR "foundedYear" IS DISTINCT FROM v_founded
     );
 
   UPDATE "Kennel"
-  SET "foundedYear"    = COALESCE("foundedYear",    v_founded),
-      "contactName"    = COALESCE("contactName",    v_contact_name),
+  SET "contactName"    = COALESCE("contactName",    v_contact_name),
       "signatureEvent" = COALESCE("signatureEvent", v_signature_event),
       "updatedAt"      = NOW()
   WHERE "kennelCode" = v_kennel_code
-    AND (
-      "foundedYear"    IS NULL
-      OR "contactName"    IS NULL
-      OR "signatureEvent" IS NULL
-    );
+    AND ("contactName" IS NULL OR "signatureEvent" IS NULL);
 END $$;
 
 -- ── #1672: Mooloo H3 — description rewrite (drop "men's") + null-fills ──
