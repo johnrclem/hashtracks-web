@@ -3011,6 +3011,16 @@ describe("completenessScore", () => {
     ).toBe(1);
   });
 
+  // #1624 — eventLabel must count toward completeness so equal-trust
+  // tiebreaks (recomputeCanonical / dedup-event-rows script) prefer the
+  // row that carries the shared-sheet badge (Gemini + claude[bot] review
+  // on PR #1721).
+  it("counts eventLabel as populated (#1624)", () => {
+    expect(
+      completenessScore({ ...EMPTY_DISPLAY_FIELDS, eventLabel: "Bayern Nash Hash" }),
+    ).toBe(1);
+  });
+
   // #1316 — the new structured hareline fields must count toward
   // completeness so an equal-trust sibling that carries them wins the
   // canonical tiebreak (Codex review on PR #1366).

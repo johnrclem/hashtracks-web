@@ -39,7 +39,6 @@ export default async function HomePage() {
           date: true,
           runNumber: true,
           title: true,
-          eventLabel: true,
           haresText: true,
           startTime: true,
           locationName: true,

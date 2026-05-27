@@ -1041,6 +1041,37 @@ describe("GoogleSheetsAdapter.fetch — groupFilter (#1542)", () => {
     expect(result.events.every((e) => e.kennelTags[0] === "mh3-de")).toBe(true);
   });
 
+  it("#1624 emits eventLabel: null on whole-token match so a stale prefix label clears (Codex review)", async () => {
+    // A row that previously read "MH3 - Birthday" leaves a label on the
+    // canonical Event. If the source reverts to plain "MH3", the adapter
+    // OWNS the field for filtered rows and must explicit-clear the stale
+    // label. extractEventLabelFromCell returns undefined on whole-token
+    // equality, but processRows converts it to null so the merge pipeline
+    // writes `eventLabel = null` rather than preserving the old badge.
+    const csv = [
+      "#,Date,Group,Start time,Hared by,Location,Notes",
+      `930,${testDateMDY},MH3,15:00,Half Monty,Englischer Garten,plain host`,
+      `931,${testDateMDY},MH3- Birthday,17:00,Banana Beater,Marienplatz,labeled`,
+    ].join("\n");
+
+    mockedSafeFetch.mockResolvedValueOnce(mockFetchResponse(csv));
+
+    const config: GoogleSheetsConfig = {
+      sheetId: "munich",
+      csvUrl: "https://example.com/pub?output=csv",
+      columns: { runNumber: 0, date: 1, group: 2, startTime: 3, hares: 4, location: 5, description: 6 },
+      groupFilter: "MH3",
+      kennelTagRules: { default: "mh3-de" },
+    };
+    const adapter = new GoogleSheetsAdapter();
+    const result = await adapter.fetch(makeSource({ config: config as unknown as null }));
+
+    expect(result.events).toHaveLength(2);
+    const byRun = new Map(result.events.map((e) => [e.runNumber, e.eventLabel]));
+    expect(byRun.get(930)).toBeNull(); // whole-token match → explicit clear
+    expect(byRun.get(931)).toBe("Birthday"); // host-prefix match → label
+  });
+
   it("matches case-insensitively after trimming whitespace", async () => {
     const csv = [
       "#,Date,Group,Start time,Hared by,Location,Notes",

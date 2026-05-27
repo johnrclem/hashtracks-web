@@ -2173,6 +2173,13 @@ const COMPLETENESS_TRUTHY_FIELDS: ReadonlyArray<
   "cost",
   "sourceUrl",
   "description",
+  // #1624 — eventLabel participates in equal-trust canonical tiebreaks so a
+  // recomputeCanonical pass after re-scrape prefers the row with the badge
+  // populated. Without it the dedup-event-rows.ts script and the in-pipeline
+  // tiebreak would silently drop the label whenever a labeled + unlabeled
+  // row at the same trust level race to canonicalize (Gemini + claude[bot]
+  // review on #1721).
+  "eventLabel",
   "trailType",
   "prelube",
 ];

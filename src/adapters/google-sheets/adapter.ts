@@ -602,13 +602,16 @@ function resolveLocationFields(
  * `eventLabel` (#1624) is surfaced by `processRows` when the Group cell matched
  * via host-prefix mode (see `extractEventLabelFromCell`). Passed in rather than
  * recomputed here so the helper doesn't need to know about `groupFilterSet`.
+ * Tri-state: `undefined` = preserve existing, `null` = explicit clear (used
+ * when a groupFilter-owned row reverts from "MH3 - Birthday" to "MH3"),
+ * string = overwrite.
  */
 export function buildEventFromSheetRow(
   row: string[],
   config: GoogleSheetsConfig,
   sourceUrl: string,
   dateStr: string,
-  eventLabel?: string,
+  eventLabel?: string | null,
 ): RawEventData | null {
   const resolved = resolveKennelTagFromSheetRow(row, config);
   if (!resolved) return null;
@@ -857,14 +860,22 @@ export class GoogleSheetsAdapter implements SourceAdapter {
         // than silently leaking into the configured kennel. Host-kennel cells
         // with free-form sub-labels (e.g. "MH3 - Birthday") stay attributed
         // via cellMatchesFilter's prefix relaxation (#1592).
-        let eventLabel: string | undefined;
+        let eventLabel: string | null | undefined;
         if (groupFilterSet && config.columns.group !== undefined) {
           const groupCell = row[config.columns.group];
           if (!cellMatchesFilter(groupCell, groupFilterSet)) continue;
           // #1624 — surface the trailing portion of a host-prefix match (e.g.
           // "MH3 - Bayern Nash Hash" → "Bayern Nash Hash") as the event badge
           // label. Returns undefined on whole-token equality matches.
-          eventLabel = extractEventLabelFromCell(groupCell, groupFilterSet);
+          //
+          // For matched groupFilter rows, the adapter OWNS this field: a row
+          // that drops its host-prefix suffix between scrapes (e.g.
+          // "MH3 - Birthday" → "MH3") must explicit-clear the stale label,
+          // otherwise the canonical Event keeps the old badge indefinitely
+          // (Codex P2 review on #1721). Convert undefined → null so the merge
+          // pipeline writes `eventLabel = null` rather than preserving the
+          // stale value.
+          eventLabel = extractEventLabelFromCell(groupCell, groupFilterSet) ?? null;
         }
 
         const event = buildEventFromSheetRow(row, config, sourceUrl, dateStr, eventLabel);
