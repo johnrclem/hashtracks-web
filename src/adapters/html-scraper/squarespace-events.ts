@@ -95,6 +95,21 @@ interface SquarespaceEventsPayload {
 }
 
 /**
+ * Pick a valid IANA timezone, preferring the source config over the
+ * payload's `website.timeZone`, falling back to UTC. Extracted from the
+ * main fetch flow to keep `fetchSquarespaceEvents` under Sonar's cognitive
+ * complexity budget (S3776).
+ */
+function resolveTimezone(
+  configTz: string | undefined,
+  payloadTz: string | undefined,
+): string {
+  if (configTz && isValidTimezone(configTz)) return configTz;
+  if (payloadTz && isValidTimezone(payloadTz)) return payloadTz;
+  return "UTC";
+}
+
+/**
  * Strip trailing slashes via procedural slice (NOT regex). Sonar S5852
  * false-positives any `/\/+$/`-shape regex as ReDoS even though the anchor
  * makes it linear; the procedural form satisfies the analyzer without
@@ -358,11 +373,7 @@ export async function fetchSquarespaceEvents(
     };
   }
 
-  const payloadTz = payload.website?.timeZone;
-  const timezone =
-    (config.timezone && isValidTimezone(config.timezone) && config.timezone) ||
-    (payloadTz && isValidTimezone(payloadTz) && payloadTz) ||
-    "UTC";
+  const timezone = resolveTimezone(config.timezone, payload.website?.timeZone);
 
   const upcoming = Array.isArray(payload.upcoming) ? payload.upcoming : [];
   const past = Array.isArray(payload.past) ? payload.past : [];
