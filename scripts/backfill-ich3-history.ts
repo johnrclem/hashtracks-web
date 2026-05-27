@@ -120,15 +120,15 @@ async function main(): Promise<void> {
     // after `npx prisma db seed` runs — this update bridges the gap.
     // Idempotent: a subsequent seed run will overwrite back to the same value.
     const existingConfig = (source.config as Record<string, unknown> | null) ?? {};
-    if (existingConfig.upcomingOnly !== true) {
+    if (existingConfig.upcomingOnly === true) {
+      console.log(`  Source.config.upcomingOnly already true — skipping config update.`);
+    } else {
       const newConfig = { ...existingConfig, upcomingOnly: true };
       await prisma.source.update({
         where: { id: source.id },
         data: { config: newConfig },
       });
       console.log(`  Set Source.config.upcomingOnly=true on "${source.name}" (prevents reconcile-cancel of backfilled past events).`);
-    } else {
-      console.log(`  Source.config.upcomingOnly already true — skipping config update.`);
     }
 
     await mergeAndReport(source.id, result.events);

@@ -6,7 +6,7 @@ function ev(over: Partial<RawEventData>): RawEventData {
     date: "2017-06-01",
     kennelTags: ["mihi-huha"],
     ...over,
-  } as RawEventData;
+  };
 }
 
 describe("filterHandEditedMihiHuHa", () => {
