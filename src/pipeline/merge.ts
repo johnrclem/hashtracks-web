@@ -12,6 +12,7 @@ import { isPlaceholder, decodeEntities, HARE_BOILERPLATE_RE, CTA_EMBEDDED_PATTER
 import { LOCATION_EMAIL_CTA_RE } from "./audit-checks";
 import { levenshtein } from "@/lib/fuzzy";
 import { createEventWithKennel } from "@/lib/event-write";
+import { detectVenueWeekendEndDate } from "./venue-weekend";
 
 /**
  * Admin lock predicate: an event whose `adminCancelledAt` is non-null has been
@@ -87,6 +88,27 @@ function sanitizeRawFields(event: RawEventData): void {
       event.hares = haredByMatch[1].trim();
       event.title = event.title.slice(0, haredByMatch.index).trim();
     }
+  }
+
+  // PR H (#1560 audit follow-up) — venue-weekend campout heuristic.
+  // Run here so it generalizes across all adapters, not just Hash Rego.
+  // Conditions:
+  //   - The adapter didn't already set endDate (don't override an explicit
+  //     date range from the source — e.g. Hash Rego's parser already runs
+  //     this same heuristic, so its RawEventData arrives with endDate set
+  //     and this call is a no-op).
+  //   - This raw isn't an explicit series parent or child — the series
+  //     logic in mergePipeline handles those endDates separately.
+  //   - We have both a description and a date string to anchor on.
+  // Surfaced 4 non-Hash-Rego A.2 audit findings (#1718): Hollyweird HapPy
+  // Hour Brewfish/Tin Fish, RIH3 40th Analversary, KWH3 Anniversary 1993.
+  if (!event.endDate && !event.seriesId && !event.seriesParent && event.description && event.date) {
+    const detected = detectVenueWeekendEndDate(
+      event.description,
+      event.title ?? "",
+      event.date,
+    );
+    if (detected) event.endDate = detected;
   }
 }
 
