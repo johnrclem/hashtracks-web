@@ -44,8 +44,12 @@ const RE_FRI_SAT_SUN_LABEL = /(?:^|\n|\s)(friday|saturday|sunday|fri|sat|sun)\s*
 const RE_DATE_RANGE_NUM = /\b\d{1,2}\/\d{1,2}\s*[-–]\s*\d{1,2}\/\d{1,2}\b/; // 6/19 - 6/21
 const RE_KENNEL_SHORTHAND_TITLE = /^[A-Z]{2,}\d*\s*#\s*\d+\s*$/; // NAWW #391
 const RE_RUN_NUMBER_SUFFIX = /[-–\s]\s*#?\s*\d+\s*$/; // " - #436" / " #436" / " - 436"
+// Bounded path quantifier `{1,500}` (Sonar S5852 — ReDoS hotspot guard).
+// Real-world event URLs are well under 500 chars; the cap eliminates the
+// possibility of catastrophic backtracking on pathological inputs scraped
+// from external sources.
 const RE_KNOWN_SOURCE_URL = new RegExp(
-  String.raw`https?://(?:www\.)?(hashrego\.com|sfh3\.com|hashnyc\.com|svh3\.com|ebh3\.org|marinh3\.com)/[^\s)>"']+`,
+  String.raw`https?://(?:www\.)?(hashrego\.com|sfh3\.com|hashnyc\.com|svh3\.com|ebh3\.org|marinh3\.com)/[^\s)>"']{1,500}`,
   "gi",
 );
 
@@ -612,29 +616,53 @@ function renderBucket(spec: BucketSpec, findings: Finding[]): string {
   return lines.join("\n");
 }
 
-function findAnchorBucket(
+function titleMatchInBucket(
+  bucket: Finding[] | undefined,
+  anchorMatch: string,
+): boolean {
+  return (bucket ?? []).some((f) => f.title.toLowerCase().includes(anchorMatch));
+}
+
+function findAnchorBucketAnywhere(
   anchorMatch: string,
   byBucket: Map<string, Finding[]>,
+  excludeBucketId?: string,
 ): string | null {
   for (const [bucketId, findings] of byBucket) {
-    if (findings.some((f) => f.title.toLowerCase().includes(anchorMatch))) {
-      return bucketId;
-    }
+    if (excludeBucketId && bucketId === excludeBucketId) continue;
+    if (titleMatchInBucket(findings, anchorMatch)) return bucketId;
   }
   return null;
 }
 
+function renderAnchorTail(
+  inExpected: boolean,
+  expectedBucket: string,
+  foundElsewhere: string | null,
+): string {
+  if (inExpected) return `, found in ${expectedBucket}`;
+  if (foundElsewhere) return `, found in ${foundElsewhere} (wrong bucket)`;
+  return " — NOT FOUND";
+}
+
 function renderAnchors(byBucket: Map<string, Finding[]>): string {
-  const intro = "These six events were named in the source brief and MUST appear in at least one bucket. " +
+  // Anchor verification enforces `expectedBucket` — a match in any other bucket
+  // is reported as "wrong bucket" rather than counted as a hit (CodeRabbit
+  // PR #1718 review). Without this, broad title substrings (e.g. "bawc")
+  // could mask a broken bucket query by falling into the wrong category.
+  const intro = `These ${ANCHORS.length} events were named in the source brief and MUST appear in at least one bucket. ` +
     "If any anchor is `[ ]` instead of `[x]`, the corresponding bucket query is broken.";
   const lines: string[] = ["## Anchor verification", "", intro, ""];
 
   let allHit = true;
   for (const anchor of ANCHORS) {
-    const hitBucket = findAnchorBucket(anchor.titleMatch, byBucket);
-    if (hitBucket === null) allHit = false;
-    const mark = hitBucket !== null ? "x" : " ";
-    const tail = hitBucket !== null ? `, found in ${hitBucket}` : " — NOT FOUND";
+    const inExpected = titleMatchInBucket(byBucket.get(anchor.expectedBucket), anchor.titleMatch);
+    const foundElsewhere = inExpected
+      ? null
+      : findAnchorBucketAnywhere(anchor.titleMatch, byBucket, anchor.expectedBucket);
+    if (!inExpected) allHit = false;
+    const mark = inExpected ? "x" : " ";
+    const tail = renderAnchorTail(inExpected, anchor.expectedBucket, foundElsewhere);
     lines.push(`- [${mark}] **${anchor.name}** — expected in ${anchor.expectedBucket}${tail}`);
   }
   lines.push(
@@ -649,20 +677,21 @@ function renderAnchors(byBucket: Map<string, Finding[]>): string {
 // Main.
 // ──────────────────────────────────────────────────────────────────────────
 
-async function main() {
-  const pool = createScriptPool();
-  const adapter = new PrismaPg(pool);
-  const prisma = new PrismaClient({ adapter });
-
+async function runAudit(prisma: PrismaClient): Promise<void> {
   console.log("🔍 AUDIT — multi-day quality\n");
 
-  const now = new Date();
-  const futureDate = new Date();
-  futureDate.setDate(futureDate.getDate() + 365); // wide window — series spans + AGM-distant events
+  // Day-boundary filtering (CodeRabbit PR #1718 review): events store dates
+  // as UTC noon, so a precise `gte: now` filter could exclude same-day rows
+  // depending on the wall-clock minute. Floor to start-of-today-UTC for
+  // deterministic same-day reruns.
+  const today = new Date();
+  const startOfTodayUtc = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+  const futureDate = new Date(startOfTodayUtc);
+  futureDate.setUTCDate(futureDate.getUTCDate() + 365); // wide window — series spans + AGM-distant events
 
   const events = await prisma.event.findMany({
     where: {
-      date: { gte: now, lte: futureDate },
+      date: { gte: startOfTodayUtc, lte: futureDate },
       status: { not: "CANCELLED" },
       isCanonical: true,
       kennel: { isHidden: false },
@@ -762,9 +791,21 @@ async function main() {
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
   fs.writeFileSync(outPath, md.join("\n"));
   console.log(`Wrote report → ${outPath}`);
+}
 
-  await prisma.$disconnect();
-  await pool.end();
+async function main(): Promise<void> {
+  // try/finally ensures Prisma + pool are always closed even if the audit
+  // throws partway through (CodeRabbit PR #1718 review). Without this, an
+  // exception during findMany or markdown serialization leaves DB handles open.
+  const pool = createScriptPool();
+  const adapter = new PrismaPg(pool);
+  const prisma = new PrismaClient({ adapter });
+  try {
+    await runAudit(prisma);
+  } finally {
+    await prisma.$disconnect().catch(() => undefined);
+    await pool.end().catch(() => undefined);
+  }
 }
 
 main().catch((err) => {

@@ -208,11 +208,11 @@ Total upcoming canonical events scanned: 3925
 
 ## Anchor verification
 
-These six events were named in the source brief and MUST appear in at least one bucket. If any anchor is `[ ]` instead of `[x]`, the corresponding bucket query is broken.
+These 5 events were named in the source brief and MUST appear in at least one bucket. If any anchor is `[ ]` instead of `[x]`, the corresponding bucket query is broken.
 
 - [x] **MadisonH3 Token Run Campout 2026** — expected in A.2, found in A.2
 - [x] **BAWC5 SFH3** — expected in A.4, found in A.4
-- [x] **FHAC-U BAWC 2026** — expected in B.1, found in A.4
+- [x] **FHAC-U BAWC 2026** — expected in B.1, found in B.1
 - [x] **InterScandi 2026 Oslo** — expected in A.5, found in A.5
 - [x] **BMPH3 Belgian Nash Hash 2026** — expected in A.5, found in A.5
 
