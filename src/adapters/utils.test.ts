@@ -20,6 +20,7 @@ import {
   applyWeekdayShift,
   hasPlaceholderRunNumber,
   extractHashRunNumber,
+  normalizeCostSigil,
 } from "./utils";
 import { validateSourceUrlWithDns } from "./ssrf-dns";
 
@@ -993,5 +994,33 @@ describe("hasPlaceholderRunNumber", () => {
     ["undefined", undefined, false],
   ])("%s: %j → %p", (_, input, expected) => {
     expect(hasPlaceholderRunNumber(input)).toBe(expected);
+  });
+});
+
+describe("normalizeCostSigil (#1670)", () => {
+  it.each([
+    ["$10", "$10", "single sigil unchanged"],
+    ["$$10", "$10", "double sigil collapsed (production-observed bug)"],
+    ["$$$10", "$10", "triple sigil collapsed"],
+    ["* $10", "$10", "markdown bullet stripped (production-observed bug)"],
+    ["- $10", "$10", "dash bullet stripped"],
+    ["$10 cash only", "$10 cash only", "trailing prose preserved"],
+    ["$$10 - blurb", "$10 - blurb", "double sigil + trailing prose"],
+    ["Free", "Free", "non-numeric verbatim"],
+    ["€10", "€10", "non-USD currency preserved"],
+    ["10", "10", "bare number unchanged (callers handle sigil prefixing)"],
+    ["", "", "empty unchanged"],
+    ["  $10  ", "$10", "outer whitespace trimmed"],
+  ])("'%s' → '%s' (%s)", (input, expected) => {
+    expect(normalizeCostSigil(input)).toBe(expected);
+  });
+
+  it("is idempotent (callable twice without further change)", () => {
+    const inputs = ["$10", "$$10", "* $10", "Free"];
+    for (const input of inputs) {
+      const once = normalizeCostSigil(input);
+      const twice = normalizeCostSigil(once);
+      expect(twice).toBe(once);
+    }
   });
 });

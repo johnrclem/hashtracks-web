@@ -324,6 +324,26 @@ function to12Hour(hour24: number): number {
   return hour24;
 }
 
+/**
+ * Normalize the Hash Rego API's `current_price` field to a "$N" string (#1670).
+ *
+ * TS says `number | null` but defensive coding wins: production has surfaced
+ * stored "$$10" rows whose only plausible source is a JS-side string slipping
+ * through the typed contract. Bare numbers/decimals get a `$` sigil; values
+ * that already start with a non-digit (sigil, "Free", "€") pass through.
+ * Null/empty becomes "".
+ */
+export function normalizeHashRegoPrice(raw: number | string | null | undefined): string {
+  if (raw == null || raw === "") return "";
+  const str = String(raw).trim();
+  if (str === "") return "";
+  // Bare number/decimal — prepend the sigil.
+  if (/^\d+(?:\.\d{1,2})?$/.test(str)) return `$${str}`;
+  // Otherwise (sigil/letter/etc.) pass verbatim — but collapse any
+  // double-`$` runs that may have leaked in from upstream typing.
+  return str.replace(/^\$+/, "$");
+}
+
 export function apiToIndexEntry(api: HashRegoKennelEvent, kennelSlug: string): IndexEntry {
   if (!api?.slug || !api?.event_name || !api?.start_time) {
     throw new HashRegoApiError(
@@ -362,7 +382,7 @@ export function apiToIndexEntry(api: HashRegoKennelEvent, kennelSlug: string): I
     startDate: `${mm}/${dd}/${year2}`,
     startTime: timeStr,
     type: "",
-    cost: api.current_price != null ? `$${api.current_price}` : "",
+    cost: normalizeHashRegoPrice(api.current_price),
   };
 }
 

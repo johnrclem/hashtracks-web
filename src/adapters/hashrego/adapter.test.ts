@@ -8,8 +8,9 @@ import {
   splitToRawEvents,
   parseDayHeaderSections,
   detectVenueWeekendEndDate,
+  stripDoubledKennelPrefix,
 } from "./parser";
-import { HashRegoAdapter, apiToIndexEntry } from "./adapter";
+import { HashRegoAdapter, apiToIndexEntry, normalizeHashRegoPrice } from "./adapter";
 import { HashRegoApiError, type HashRegoKennelEvent } from "./api";
 import ewh3Fixture from "./__fixtures__/api/kennel-ewh3-events.json";
 
@@ -2319,5 +2320,107 @@ describe("HashRegoAdapter", () => {
       expect(ua).not.toContain("HashTracks-Scraper");
       expect(ua).toContain("Chrome");
     }
+  });
+});
+
+// ── #1669 doubled kennel-slug prefix strip ──
+
+describe("stripDoubledKennelPrefix (#1669)", () => {
+  it.each([
+    ["MoA2H3 MoA2H3 Red Dress Run", "moa2h3", "MoA2H3 Red Dress Run", "doubled prefix stripped (case-insensitive slug)"],
+    ["BFM BFM Annual Hash", "bfm", "BFM Annual Hash", "another kennel, same shape"],
+    ["moa2h3 MoA2H3 Red Dress Run", "MoA2H3", "moa2h3 Red Dress Run", "case-insensitive match preserves first occurrence"],
+    ["MoA2H3 Red Dress Run", "moa2h3", "MoA2H3 Red Dress Run", "single-prefix title unchanged"],
+    ["Red Dress Run", "moa2h3", "Red Dress Run", "no prefix at all unchanged"],
+    ["BH3 BH3FM Run", "bh3", "BH3 BH3FM Run", "compound-token boundary — must NOT collapse"],
+    ["NYCH3 Red Dress Run", "bfm", "NYCH3 Red Dress Run", "slug mismatch — unchanged"],
+    ["MoA2H3 MoA2H3", "moa2h3", "MoA2H3", "exact doubled placeholder (no trailing content)"],
+  ])("'%s' + slug '%s' → '%s' (%s)", (input, slug, expected) => {
+    expect(stripDoubledKennelPrefix(input, slug)).toBe(expected);
+  });
+
+  it("returns input verbatim when kennelSlug is empty", () => {
+    expect(stripDoubledKennelPrefix("MoA2H3 MoA2H3 Trail", "")).toBe("MoA2H3 MoA2H3 Trail");
+  });
+
+  it("strip applies during parseEventDetail (integration)", () => {
+    // Live shape: MoA2H3 Red Dress Run detail page has og:title carrying the
+    // doubled prefix and a `/kennels/MoA2H3/` sidebar link.
+    const html = `<html><head>
+      <meta property="og:title" content="06/06 MoA2H3 MoA2H3 Red Dress Run" />
+    </head><body>
+      <a href="/kennels/MoA2H3/">link</a>
+      <meta property="og:description" content="Cum celebrate red dress.
+
+Cost: $10" />
+    </body></html>`;
+    const parsed = parseEventDetail(html, "moa2h3-moa2h3-red-dress-run");
+    expect(parsed.title).toBe("MoA2H3 Red Dress Run");
+  });
+});
+
+// ── #1670 cost normalization (Hash Rego API path + detail-page extract) ──
+
+describe("normalizeHashRegoPrice (#1670)", () => {
+  it.each([
+    [10, "$10", "bare number gets sigil"],
+    ["10", "$10", "bare string-number gets sigil"],
+    ["10.50", "$10.50", "decimal preserved"],
+    ["$10", "$10", "already-prefixed string NOT double-prefixed (was $$10)"],
+    ["$$10", "$10", "double-prefix collapsed defensively"],
+    ["Free", "Free", "word literal passes through"],
+    ["€10", "€10", "non-USD currency preserved"],
+    [null, "", "null → empty"],
+    [undefined, "", "undefined → empty"],
+    ["", "", "empty → empty"],
+    [0, "$0", "zero is a legitimate value, not null"],
+  ])("normalizeHashRegoPrice(%p) === %p (%s)", (input, expected, _label) => {
+    expect(normalizeHashRegoPrice(input)).toBe(expected);
+  });
+
+  it("apiToIndexEntry produces clean cost for already-prefixed API value (was $$10)", () => {
+    // Defensive: TS says number|null but a string-prefixed value historically
+    // produced the $$10 stored on 7 MoA2H3 events. The new normalizer fixes
+    // this path even if a future API change emits strings.
+    const entry = apiToIndexEntry(
+      {
+        slug: "test",
+        event_name: "Test",
+        host_kennel_slug: "MOA2H3",
+        start_time: "2026-05-15T14:00:00+00:00",
+        // Cast to satisfy the TS contract — the bug specifically happened
+        // when the JS runtime carried a string here.
+        current_price: "$10" as unknown as number,
+        has_hares: false,
+        opt_hares: "",
+        is_over: false,
+        rego_count: 0,
+        open_spots: 0,
+        creator: "",
+        created: "",
+        modified: "",
+      },
+      "MOA2H3",
+    );
+    expect(entry.cost).toBe("$10");
+  });
+});
+
+describe("parseEventDetail cost normalization (#1670)", () => {
+  // Mimics shapes seen in production: markdown-bullet leak ("* $10") and the
+  // doubled-sigil typo ("$$10"). Clean values must pass through idempotently.
+  it.each([
+    ["* $10", "$10", "moa2h3-mother-fer", "strips leading markdown-bullet"],
+    ["$$10", "$10", "moa2h3-mother-fer", "collapses leading $$ to $"],
+    ["$10", "$10", "moa2h3-clean-cost", "clean value passes through"],
+  ])("Cost: %s → %s (%s)", (rawCost, expected, slug) => {
+    const html = `<html><head><meta property="og:title" content="04/25 Trail" /></head><body>
+      <a href="/kennels/MoA2H3/">link</a>
+      <meta property="og:description" content="Trail blurb.
+
+Cost: ${rawCost}" />
+    </body></html>`;
+    const parsed = parseEventDetail(html, slug);
+    expect(parsed.cost).toBe(expected);
   });
 });
