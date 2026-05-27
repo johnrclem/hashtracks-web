@@ -125,10 +125,17 @@ export async function linkSameTitleConsecutiveClusters(
   if (kennelIds.size === 0) return result;
 
   // Look only at upcoming, non-cancelled, non-manual canonical events.
-  // Lookback `-1 day` so an event scraped earlier today (UTC-noon) still
-  // anchors a cluster spanning today + tomorrow.
-  const lookback = new Date(Date.now() - DAY_MS);
-  const horizon = new Date(Date.now() + 365 * DAY_MS);
+  // Anchor to start-of-today-UTC, not `Date.now()`, so the same set of
+  // events surfaces regardless of when the scrape fires (Gemini high
+  // review on PR #1743). Canonical events store `date` at UTC-noon, so a
+  // `Date.now() - DAY_MS` lookback fired at 18:00 UTC would land at
+  // 18:00 UTC of yesterday — past yesterday's noon-anchored events, so
+  // they'd be excluded from any cluster started yesterday. Floor to
+  // start-of-day UTC, then offset by ±1 day.
+  const todayStart = new Date();
+  todayStart.setUTCHours(0, 0, 0, 0);
+  const lookback = new Date(todayStart.getTime() - DAY_MS);
+  const horizon = new Date(todayStart.getTime() + 365 * DAY_MS);
   const events = await prisma.event.findMany({
     where: {
       kennelId: { in: [...kennelIds] },
