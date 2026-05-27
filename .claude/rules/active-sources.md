@@ -1,5 +1,5 @@
 ---
-description: Active data sources catalog — 330 sources across 17 countries
+description: Active data sources catalog — 340 sources across 17 countries
 globs:
   - src/adapters/**
   - prisma/seed.ts
@@ -7,11 +7,11 @@ globs:
   - src/pipeline/**
 ---
 
-# Active Sources (330)
+# Active Sources (340)
 
 Last synced from `prisma/seed-data/sources.ts` via the `/update-sources-rule` skill.
 
-## United States (205 sources)
+## United States (212 sources)
 
 ### Akron, OH (1)
 - **Rubber City H3 Meetup** -> MEETUP -> rch3
@@ -104,11 +104,13 @@ Last synced from `prisma/seed-data/sources.ts` via the `/update-sources-rule` sk
 ### Columbus, GA (1)
 - **CVH3 Static Schedule** -> STATIC_SCHEDULE -> cvh3
 
-### Columbus, OH (1)
+### Columbus, OH (2)
 - **Renegade H3 Website** -> HTML_SCRAPER -> renh3
+- **RH3 Columbus Facebook Hosted Events** -> FACEBOOK_HOSTED_EVENTS -> renh3
 
-### Connecticut (1)
+### Connecticut (2)
 - **Narwhal H3 Meetup (CTH3)** -> MEETUP -> narwhal-h3
+- **Narwhal H3 Facebook Hosted Events** -> FACEBOOK_HOSTED_EVENTS -> narwhal-h3
 
 ### Corpus Christi, TX (1)
 - **Corpus Christi H3 Calendar** -> GOOGLE_CALENDAR -> c2h3
@@ -122,8 +124,9 @@ Last synced from `prisma/seed-data/sources.ts` via the `/update-sources-rule` sk
 - **SWOT Google Calendar** -> GOOGLE_CALENDAR -> swot-h3
 - **Dayton H4 Facebook Hosted Events** -> FACEBOOK_HOSTED_EVENTS -> dh4
 
-### Denver, CO (2)
+### Denver, CO (3)
 - **Denver H3 Google Calendar** -> GOOGLE_CALENDAR -> dh3-co
+- **MiHi-HuHa Facebook Hosted Events** -> FACEBOOK_HOSTED_EVENTS -> mihi-huha
 - **Mile High Humpin Hash Calendar** -> GOOGLE_CALENDAR -> mihi-huha
 
 ### Detroit, MI (3)
@@ -160,8 +163,9 @@ Last synced from `prisma/seed-data/sources.ts` via the `/update-sources-rule` sk
 ### Fredericksburg, VA (1)
 - **FUH3 Static Schedule** -> STATIC_SCHEDULE -> fuh3
 
-### Greenville, SC (1)
+### Greenville, SC (2)
 - **Upstate H3 Static Schedule** -> STATIC_SCHEDULE -> uh3
+- **GOTH3 Static Schedule** -> STATIC_SCHEDULE -> goth3
 
 ### Hampton Roads, VA (4)
 - **Fort Eustis H3 Google Calendar** -> GOOGLE_CALENDAR -> feh3
@@ -225,8 +229,9 @@ Last synced from `prisma/seed-data/sources.ts` via the `/update-sources-rule` sk
 - **Seven Hills H3 Static Schedule** -> STATIC_SCHEDULE -> 7h4
 - **Seven Hills H3 Google Sites** -> HTML_SCRAPER -> 7h4
 
-### Macon, GA (2)
-- **MGH4 Static Schedule** -> STATIC_SCHEDULE -> mgh4
+### Macon, GA (3)
+- **MGH4 Static Schedule (Biweekly Saturday)** -> STATIC_SCHEDULE -> mgh4
+- **MGH4 Static Schedule (Weekly Wednesday)** -> STATIC_SCHEDULE -> mgh4
 - **W3H3 GA Static Schedule** -> STATIC_SCHEDULE -> w3h3-ga
 
 ### Madison, WI (2)
@@ -329,9 +334,10 @@ Last synced from `prisma/seed-data/sources.ts` via the `/update-sources-rule` sk
 - **Dead Whores H3 Calendar** -> GOOGLE_CALENDAR -> dwh3
 - **SWH3 Calendar** -> GOOGLE_CALENDAR -> swh3-or
 
-### Raleigh, NC (3)
+### Raleigh, NC (4)
 - **SWH3 Google Calendar** -> GOOGLE_CALENDAR -> swh3
 - **SWH3 Trail Announcements** -> HTML_SCRAPER -> swh3
+- **Sir Walters H3 Facebook Hosted Events** -> FACEBOOK_HOSTED_EVENTS -> swh3
 - **Carolina Larrikins Google Calendar** -> GOOGLE_CALENDAR -> larrikins
 
 ### Reading, PA (1)
@@ -353,6 +359,9 @@ Last synced from `prisma/seed-data/sources.ts` via the `/update-sources-rule` sk
 
 ### Rome, GA (1)
 - **R2H3 Static Schedule** -> STATIC_SCHEDULE -> r2h3
+
+### Sacramento, CA (1)
+- **Sacramento H3 Squarespace Events** -> HTML_SCRAPER -> sach3
 
 ### Salem, OR (2)
 - **Salem H3 Calendar** -> GOOGLE_CALENDAR -> salemh3
@@ -428,7 +437,7 @@ Last synced from `prisma/seed-data/sources.ts` via the `/update-sources-rule` sk
 - **Cape Fear H3 Website** -> HTML_SCRAPER -> cfh3
 - **Cape Fear H3 Facebook Hosted Events** -> FACEBOOK_HOSTED_EVENTS -> cfh3
 
-## Canada (9 sources)
+## Canada (10 sources)
 
 ### Calgary, AB (2)
 - **Calgary H3 Upcoming Runs** -> HTML_SCRAPER -> ch3-ab
@@ -439,8 +448,9 @@ Last synced from `prisma/seed-data/sources.ts` via the `/update-sources-rule` sk
 - **True Trail H3 Hareline** -> HTML_SCRAPER -> tth3-ab
 - **Saintly H3 Static Schedule** -> STATIC_SCHEDULE -> saintlyh3
 
-### Montreal, QC (1)
+### Montreal, QC (2)
 - **Montreal H3 Meetup** -> MEETUP -> mh3-ca
+- **MH3 Montreal Website Hareline** -> HTML_SCRAPER -> mh3-ca
 
 ### Ottawa, ON (1)
 - **OH3 Ottawa Receding Hare Line** -> HTML_SCRAPER -> oh3-ca
@@ -537,14 +547,16 @@ Last synced from `prisma/seed-data/sources.ts` via the `/update-sources-rule` sk
 ### Oslo (1)
 - **Oslo H3 iCal Feed** -> ICAL_FEED -> oh3-no
 
-## Thailand (16 sources)
+## Thailand (18 sources)
 
-### Bangkok (5)
+### Bangkok (7)
 - **BSSH3 Meetup** -> MEETUP -> bssh3
 - **Bangkok Harriettes Blog** -> HTML_SCRAPER -> bkk-harriettes
 - **Bangkok Thursday Hash** -> HTML_SCRAPER -> bth3, bfmh3
 - **Bangkok Full Moon Hash** -> HTML_SCRAPER -> bfmh3
 - **Siam Sunday Hash** -> HTML_SCRAPER -> s2h3
+- **Bangkok H3 Website** -> HTML_SCRAPER -> bkk-h3
+- **Bangkok Bikers Website** -> HTML_SCRAPER -> bhhb
 
 ### Chiang Mai (6)
 - **Chiang Mai CH3 Hareline** -> HTML_SCRAPER -> ch3-cm
