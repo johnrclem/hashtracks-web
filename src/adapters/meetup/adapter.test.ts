@@ -1293,6 +1293,58 @@ describe("buildRawEventFromApollo — kennelPatterns", () => {
     const event = buildRawEventFromApollo(ev as never, emptyState, "rch3");
     expect(event.hares).toBeUndefined();
   });
+
+  // #1617 — Mel-NM Meetup aggregator hosts events for 5 Melbourne kennels.
+  // The seed config wires kennelPatterns to split them. Verify the routing
+  // matches what `prisma/seed-data/sources.ts` ships.
+  describe("Mel-NM aggregator routing (#1617)", () => {
+    const melNmPatterns: [RegExp, string][] = [
+      [/^\s*Melbourne\s+New\s+Moon\b/i, "mel-new-moon"],
+      [/^\s*(?:Melbourne\s+)?City\s+Hash\b/i, "melbourne-city-h3"],
+      [/^\s*Bike\s+hash\b/i, "melbourne-bike-hash"],
+      [/^\s*Delinquents\s+HHH\b/i, "delinquents-hhh"],
+      [/^\s*Full\s+Moon\s+Run\b/i, "melbourne-full-moon"],
+    ];
+
+    it.each([
+      ["Melbourne New Moon #175- Klingon @ Exford Hotel", "mel-new-moon"],
+      ["Full Moon Run No. 303", "melbourne-full-moon"],
+      ["Delinquents HHH No.55 - Trail Theme", "delinquents-hhh"],
+      ["City Hash Beer Marathon", "melbourne-city-h3"],
+      ["Melbourne City Hash Thursday Run", "melbourne-city-h3"],
+      ["Bike hash ride #17", "melbourne-bike-hash"],
+    ])("routes %q → %q", (title, expectedTag) => {
+      const ev = {
+        __typename: "Event",
+        id: `mel-${expectedTag}`,
+        title,
+        dateTime: "2026-04-01T18:30:00+10:00",
+      };
+      const event = buildRawEventFromApollo(
+        ev as never,
+        emptyState,
+        "mel-new-moon",
+        melNmPatterns,
+      );
+      expect(event.kennelTags[0]).toBe(expectedTag);
+    });
+
+    it("falls back to mel-new-moon for unrouted titles", () => {
+      const ev = {
+        __typename: "Event",
+        id: "unrouted",
+        title: "Run No. 42",
+        dateTime: "2026-04-01T18:30:00+10:00",
+      };
+      const event = buildRawEventFromApollo(
+        ev as never,
+        emptyState,
+        "mel-new-moon",
+        melNmPatterns,
+      );
+      expect(event.kennelTags[0]).toBe("mel-new-moon");
+    });
+  });
 });
 
 // ── cleanMeetupTitle — trailing CTA strip (#1645 RH3 / #1646 TMFMH3) ──
@@ -1334,6 +1386,30 @@ describe("cleanMeetupTitle", () => {
   it("returns undefined when title collapses to empty after strip", () => {
     expect(cleanMeetupTitle("Hares Needed")).toBeUndefined();
     expect(cleanMeetupTitle("CLAIM THIS TRAIL")).toBeUndefined();
+  });
+
+  // #1618 — Mel-NM Meetup leaked the group recurrence blurb as event title
+  // on 13 events. Drop the template shape so merge.ts synthesizes a
+  // "<KennelName> Trail #N" replacement.
+  it.each([
+    "Every Wednesday @ 6:30pm from tbd",
+    "Every Wed @ 6:30",
+    "Every Sat @ 10am from TBA",
+    "Saturday Trail from TBD",
+    "Weekly Friday Run from TBC",
+  ])("drops template-shaped title: %q", (raw) => {
+    expect(cleanMeetupTitle(raw)).toBeUndefined();
+  });
+
+  it.each([
+    // Real titles with "every" that shouldn't false-positive.
+    "Every Saturday Trail",
+    "Every Wednesday Hash Run",
+    // Real titles that mention "from" without the TBA placeholder.
+    "Saturday Trail from Memorial Park",
+    "Friday Run from Brewery",
+  ])("preserves legitimate title that shares words with template patterns: %q", (raw) => {
+    expect(cleanMeetupTitle(raw)).toBe(raw);
   });
 });
 

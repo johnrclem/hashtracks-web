@@ -171,7 +171,14 @@ export class HarrierCentralAdapter implements SourceAdapter {
       // subway line. Null the hare but keep location; if the location text
       // is also bad, the separate location-quality audit rules will flag
       // it without this adapter erasing a potentially-valid value. See #521.
-      if (hares && location && hares.trim().toLowerCase() === location.trim().toLowerCase()) {
+      // #1642 extension: also strip when the hare text is a prefix/substring
+      // of the location AND looks address-shaped (contains a comma, a
+      // street-type token, or a leading street number). SG Sunday H3 #798
+      // had hares "Swiss Club Road, dead end old Turf City" and location
+      // "Swiss Club Road, dead end old Turf City, Singapore" — the location
+      // is just the hares value with ", Singapore" appended, but exact-match
+      // didn't catch it.
+      if (hares && location && haresLooksLikeLocation(hares, location)) {
         hares = undefined;
       }
 
@@ -239,6 +246,64 @@ export class HarrierCentralAdapter implements SourceAdapter {
 function stripTba(value: string | undefined): string | undefined {
   const trimmed = value?.trim();
   return trimmed && !/^tba$/i.test(trimmed) ? trimmed : undefined;
+}
+
+// Street-type tokens used by haresLooksLikeLocation to flag address-shaped
+// haresText. Stored as a Set + word-split (rather than a long regex
+// alternation) to keep Sonar S5843 regex complexity low and let us extend
+// the list without touching parse code.
+//
+// Intentionally narrower than a full USPS abbreviation table: "park" and
+// "court" are common in hash names (Park, Park Avenue Slut, Just Court),
+// "way" appears in nicknames, and bare directionals (N/S/E/W) are too
+// short. Stick to terms that are unambiguous as road suffixes.
+const ADDRESS_TOKENS = new Set([
+  "road", "rd",
+  "street", "st",
+  "avenue", "ave",
+  "lane", "ln",
+  "drive", "dr",
+  "boulevard", "blvd",
+  "highway", "hwy",
+]);
+
+function hasAddressToken(text: string): boolean {
+  for (const token of text.toLowerCase().split(/[\s,]+/)) {
+    if (token && ADDRESS_TOKENS.has(token)) return true;
+  }
+  return false;
+}
+
+/**
+ * #521 + #1642: detect when the source pasted address/location text into
+ * the Hares slot. Trigger shapes (intentionally narrow — false positives
+ * silently nullify real hare data):
+ *
+ *  1. Exact case-insensitive match of hares against location (Tokyo
+ *     #2578 reproduction).
+ *  2. Hares is a substring of location AND has TWO independent address
+ *     signals — the substring inclusion alone is not enough. Real hare
+ *     names like "Park" or "George Park" routinely substring-match
+ *     legitimate location text ("Central Park", "George Park Bar")
+ *     without being addresses.
+ *
+ *     Address signals counted: presence of a comma; leading digit (street
+ *     number); contains a narrow street-type token (Road/St/Ave/Lane/
+ *     Drive/Blvd/Hwy). Requiring two means a bare "Park" / "Court" / etc.
+ *     never trips the heuristic, but the SG Sunday H3 #798 case ("Swiss
+ *     Club Road, dead end old Turf City" — comma + "Road") still does.
+ */
+function haresLooksLikeLocation(hares: string, location: string): boolean {
+  const h = hares.trim().toLowerCase();
+  const l = location.trim().toLowerCase();
+  if (!h || !l) return false;
+  if (h === l) return true;
+  if (!l.includes(h)) return false;
+  let signals = 0;
+  if (h.includes(",")) signals++;
+  if (/^\d/.test(h)) signals++;
+  if (hasAddressToken(h)) signals++;
+  return signals >= 2;
 }
 
 /**

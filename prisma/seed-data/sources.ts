@@ -1767,7 +1767,7 @@ export const SOURCES = [
       kennelCodes: ["augh3"],
     },
     {
-      name: "MGH4 Static Schedule",
+      name: "MGH4 Static Schedule (Biweekly Saturday)",
       url: "https://www.facebook.com/groups/middlegeorgiahash",
       type: "STATIC_SCHEDULE" as const,
       trustLevel: 3,
@@ -1778,9 +1778,31 @@ export const SOURCES = [
         rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA",
         anchorDate: "2026-03-07",
         startTime: "14:00",
-        defaultTitle: "MGH4 Biweekly Run",
+        defaultTitle: "MGH4 Alternate Saturday Run",
         defaultLocation: "Macon, GA",
         defaultDescription: "Alternate Saturday trail. Check Facebook for start location.",
+      },
+      kennelCodes: ["mgh4"],
+    },
+    {
+      // #1620: MGH4 advertises "Every Wednesday, every other Saturday" on
+      // HashRego but only the Saturday cadence was previously seeded — the
+      // entire Wednesday stream was missing from production. Split-row pattern
+      // mirrors Mosquito H3 Static Schedule (1st Wed) / (3rd Wed).
+      name: "MGH4 Static Schedule (Weekly Wednesday)",
+      url: "https://www.facebook.com/groups/middlegeorgiahash",
+      type: "STATIC_SCHEDULE" as const,
+      trustLevel: 3,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "mgh4",
+        rrule: "FREQ=WEEKLY;BYDAY=WE",
+        anchorDate: "2026-03-04",
+        startTime: "18:30",
+        defaultTitle: "MGH4 Weekly Wednesday Run",
+        defaultLocation: "Macon, GA",
+        defaultDescription: "Weekly Wednesday evening trail. Check Facebook for start location.",
       },
       kennelCodes: ["mgh4"],
     },
@@ -4295,7 +4317,11 @@ export const SOURCES = [
     },
 
     // ===== AUSTRALIA — Victoria =====
-    // Melbourne New Moon H3 — Meetup source (existing adapter handles it)
+    // Melbourne New Moon H3 — Meetup source (aggregator hosting 5 sibling
+    // kennels per #1617). Patterns route per the title-prefix breakdown in
+    // the issue body. Order is most-specific-first (mel-new-moon's
+    // explicit "Melbourne New Moon" prefix wins over a bare "Run No."
+    // catch-all). Anything that doesn't match falls back to `kennelTag`.
     {
       name: "Melbourne New Moon Meetup",
       url: "https://www.meetup.com/melbourne-new-moon-running-group/",
@@ -4306,8 +4332,31 @@ export const SOURCES = [
       config: {
         groupUrlname: "melbourne-new-moon-running-group",
         kennelTag: "mel-new-moon",
+        kennelPatterns: [
+          // Mel-NM's own runs — anchor "Melbourne New Moon" so a bare
+          // "New Moon" prefix elsewhere doesn't shadow it.
+          ["^\\s*Melbourne\\s+New\\s+Moon\\b", "mel-new-moon"],
+          // Melbourne City H3 — match both "City Hash" prefix variants.
+          ["^\\s*(?:Melbourne\\s+)?City\\s+Hash\\b", "melbourne-city-h3"],
+          // Bike Hash — "Bike hash ride #N" / "Ride #N" patterns. The
+          // anchored "Bike Hash" form is unambiguous; a bare "Ride #N"
+          // is left to the default to avoid eating legit run names.
+          ["^\\s*Bike\\s+hash\\b", "melbourne-bike-hash"],
+          // Delinquents HHH — "Delinquents HHH No.N" form.
+          ["^\\s*Delinquents\\s+HHH\\b", "delinquents-hhh"],
+          // Melbourne Full Moon — "Full Moon Run No.N" form. Routed
+          // after Mel-NM so the more-specific "Melbourne New Moon"
+          // pattern wins on collision.
+          ["^\\s*Full\\s+Moon\\s+Run\\b", "melbourne-full-moon"],
+        ],
       },
-      kennelCodes: ["mel-new-moon"],
+      kennelCodes: [
+        "mel-new-moon",
+        "melbourne-full-moon",
+        "delinquents-hhh",
+        "melbourne-city-h3",
+        "melbourne-bike-hash",
+      ],
     },
 
     // ===== MALAYSIA Phase 2 — Historic Regional STATIC_SCHEDULE kennels =====

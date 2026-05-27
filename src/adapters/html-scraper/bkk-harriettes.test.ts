@@ -208,4 +208,25 @@ describe("parseBkkHarrietteHarelineTable", () => {
     expect(events).toHaveLength(1);
     expect(events[0].runNumber).toBe(2271);
   });
+
+  it("preserves the rich quoted hash-name format used by BKK Harriettes (#1655)", () => {
+    // Reproduction of the homepage row that drove #1655: the table carries
+    // the full "Bob &#8216;Aunries Bitch&#8217; N" form. The dedup logic in
+    // fetch() now keeps the table's richer hares text over the post's
+    // truncated nickname-only form, so the table parse must produce the
+    // full string unmodified (apart from entity decoding).
+    const refDate = new Date(Date.UTC(2026, 4, 26));
+    const events = parseBkkHarrietteHarelineTable(
+      `<table>
+        <tr><td>2265</td><td>27 May</td><td>Bob &#8216;Aunries Bitch&#8217; N</td><td>Srinakarin 44, Somtam Srinakarin</td></tr>
+       </table>`,
+      refDate,
+      "https://bangkokharriettes.wordpress.com",
+    );
+    expect(events).toHaveLength(1);
+    expect(events[0].runNumber).toBe(2265);
+    expect(events[0].date).toBe("2026-05-27");
+    expect(events[0].hares).toBe("Bob ‘Aunries Bitch’ N");
+    expect(events[0].location).toBe("Srinakarin 44, Somtam Srinakarin");
+  });
 });

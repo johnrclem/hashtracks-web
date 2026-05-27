@@ -357,6 +357,85 @@ describe("HarrierCentralAdapter", () => {
       expect(result.events[0].location).toBe("Nishiogikubo");
     });
 
+    it("nulls hares when address-shaped haresText is a prefix of location (#1642)", async () => {
+      // SG Sunday H3 #798 reproduction: hares "Swiss Club Road, dead end old
+      // Turf City" is a strict prefix of location "Swiss Club Road, dead end
+      // old Turf City, Singapore". The exact-match guard from #521 missed it
+      // because the location has ", Singapore" appended.
+      mockApiResponse([
+        buildHCEvent({
+          hares: "Swiss Club Road, dead end old Turf City",
+          locationOneLineDesc: "Swiss Club Road, dead end old Turf City",
+          eventCityAndCountry: "Singapore",
+        }),
+      ]);
+      const result = await adapter.fetch(makeSource({ defaultKennelTag: "sh3-sg" }));
+      expect(result.events).toHaveLength(1);
+      expect(result.events[0].hares).toBeUndefined();
+      // Location is preserved as-is; what matters is the haresText was nulled.
+      expect(result.events[0].location).toContain(
+        "Swiss Club Road, dead end old Turf City",
+      );
+    });
+
+    it("keeps hares when value is a substring of location but lacks address signals", async () => {
+      // Defensive: a hare named after a street tile ("George") must NOT be
+      // nulled just because the location contains the same word. The
+      // address-shape signals (comma / street token / leading digit) gate
+      // the substring path; "George" alone trips none of them.
+      mockApiResponse([
+        buildHCEvent({
+          hares: "George",
+          locationOneLineDesc: "George Street Plaza",
+        }),
+      ]);
+      const result = await adapter.fetch(makeSource({ defaultKennelTag: "tokyo-h3" }));
+      expect(result.events[0].hares).toBe("George");
+    });
+
+    it.each([
+      // Hash-name shapes that substring-match the location text but should
+      // NOT be nulled. Each fails the two-signal threshold (#1642 codex
+      // round-1 review caught this — "park"/"court" were too aggressive
+      // and are no longer in ADDRESS_TOKENS).
+      ["Park", "Central Park"],
+      ["George Park", "George Park Bar"],
+      ["Court", "Food Court"],
+      ["Way", "Way Out Bar"],
+    ])("keeps real hare name %q against location %q", async (hares, location) => {
+      mockApiResponse([
+        buildHCEvent({ hares, locationOneLineDesc: location }),
+      ]);
+      const result = await adapter.fetch(makeSource({ defaultKennelTag: "tokyo-h3" }));
+      expect(result.events[0].hares).toBe(hares);
+    });
+
+    it("nulls hares when value has BOTH a leading number AND a street-type token", async () => {
+      // Two-signal threshold: leading digit AND "Street" token both
+      // present → strong enough to be confident the hares slot was
+      // pasted with an address by mistake.
+      mockApiResponse([
+        buildHCEvent({
+          hares: "1234 Main Street",
+          locationOneLineDesc: "1234 Main Street, Springfield",
+        }),
+      ]);
+      const result = await adapter.fetch(makeSource({ defaultKennelTag: "tokyo-h3" }));
+      expect(result.events[0].hares).toBeUndefined();
+    });
+
+    it("keeps hares when only a single address signal is present", async () => {
+      // Just a leading digit ("4 Eyes" hash name) is one signal — not enough.
+      mockApiResponse([
+        buildHCEvent({
+          hares: "4 Eyes",
+          locationOneLineDesc: "4 Eyes Lounge",
+        }),
+      ]);
+      const result = await adapter.fetch(makeSource({ defaultKennelTag: "tokyo-h3" }));
+      expect(result.events[0].hares).toBe("4 Eyes");
+    });
+
     it("uses kennelPatterns to resolve kennel tag", async () => {
       const seattleEvents = [
         buildHCEvent({ kennelName: "SeaMon H3", kennelShortName: "SeaMon", kennelUniqueShortName: "SeaMon" }),
