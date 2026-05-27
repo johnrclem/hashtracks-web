@@ -3500,7 +3500,7 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "melbourne-city-h3", shortName: "Melbourne City H3", fullName: "Melbourne City Hash House Harriers",
       region: "Melbourne, VIC", country: "Australia",
-      website: "http://melctyhhh.org",
+      website: "https://melctyhhh.org",
       scheduleDayOfWeek: "Thursday", scheduleFrequency: "Biweekly",
       scheduleNotes: "Twice a month on Thursdays, within 10km of the Melbourne CBD (per Mel-NM Meetup About). Stub pending full research.",
       description: "Melbourne City H3 — sister kennel to Melbourne New Moon. Publishes through the melbourne-new-moon-running-group Meetup aggregator. Profile is a stub pending full research.",

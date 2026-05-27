@@ -4335,19 +4335,19 @@ export const SOURCES = [
         kennelPatterns: [
           // Mel-NM's own runs — anchor "Melbourne New Moon" so a bare
           // "New Moon" prefix elsewhere doesn't shadow it.
-          ["^\\s*Melbourne\\s+New\\s+Moon\\b", "mel-new-moon"],
+          [String.raw`^\s*Melbourne\s+New\s+Moon\b`, "mel-new-moon"],
           // Melbourne City H3 — match both "City Hash" prefix variants.
-          ["^\\s*(?:Melbourne\\s+)?City\\s+Hash\\b", "melbourne-city-h3"],
+          [String.raw`^\s*(?:Melbourne\s+)?City\s+Hash\b`, "melbourne-city-h3"],
           // Bike Hash — "Bike hash ride #N" / "Ride #N" patterns. The
           // anchored "Bike Hash" form is unambiguous; a bare "Ride #N"
           // is left to the default to avoid eating legit run names.
-          ["^\\s*Bike\\s+hash\\b", "melbourne-bike-hash"],
+          [String.raw`^\s*Bike\s+hash\b`, "melbourne-bike-hash"],
           // Delinquents HHH — "Delinquents HHH No.N" form.
-          ["^\\s*Delinquents\\s+HHH\\b", "delinquents-hhh"],
+          [String.raw`^\s*Delinquents\s+HHH\b`, "delinquents-hhh"],
           // Melbourne Full Moon — "Full Moon Run No.N" form. Routed
           // after Mel-NM so the more-specific "Melbourne New Moon"
           // pattern wins on collision.
-          ["^\\s*Full\\s+Moon\\s+Run\\b", "melbourne-full-moon"],
+          [String.raw`^\s*Full\s+Moon\s+Run\b`, "melbourne-full-moon"],
         ],
       },
       kennelCodes: [

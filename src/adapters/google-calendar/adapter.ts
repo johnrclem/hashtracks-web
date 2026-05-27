@@ -181,17 +181,25 @@ const HASH_KEYWORD_RE = /\bhash\b/i;
 
 /**
  * #1632 — known synthetic-test / internal-admin titles that should never
- * surface as runs. Matches the entire summary (anchored start/end) so a
- * legitimate title that happens to mention "test" or "PC" stays safe.
- * Unlike MEDICAL_TITLE_PATTERNS, no hash-signal override: these are
- * obviously not real trails regardless of what the description carries.
+ * surface as runs. Compared after stripping whitespace and `#` from a
+ * lowercased summary so all the `Trail # Test Event` / `Trail #Test
+ * Event` / `trail test event` variants collapse to the same key.
+ * Deliberately Set-based, not a regex with `\s*` / `#?` adjacency —
+ * Sonar S5852 flags those as ReDoS-shaped even for linear inputs
+ * (see `feedback_sonar_s5852_procedural_over_regex`).
+ *
  * MH3-MN's calendar carried `Trail # Test Event` (with `123 Fake St`
- * location) and `PC Meeting`; both were leaking through to /kennels/mh3-mn.
+ * location) and `PC Meeting`; both were leaking through to
+ * /kennels/mh3-mn before this filter landed.
  */
-const TEST_ARTIFACT_TITLE_PATTERNS: readonly RegExp[] = [
-  /^\s*trail\s*#?\s*test\s+event\s*$/i,
-  /^\s*pc\s+meeting\s*$/i,
-];
+const TEST_ARTIFACT_TITLE_KEYS = new Set([
+  "trailtestevent",
+  "pcmeeting",
+]);
+
+function isTestArtifactTitle(summary: string): boolean {
+  return TEST_ARTIFACT_TITLE_KEYS.has(summary.toLowerCase().replaceAll(/[\s#]+/g, ""));
+}
 
 /**
  * #1691 — kebab-case shape detector. Matches lowercase alphanumeric
@@ -1487,7 +1495,7 @@ export function buildRawEventFromGCalItem(
   // #1632 — synthetic test / admin-internal titles. Unconditional drop:
   // unlike the sport / medical filters there is no plausible real hash
   // event whose summary is exactly "Trail # Test Event" or "PC Meeting".
-  if (TEST_ARTIFACT_TITLE_PATTERNS.some((re) => re.test(summary))) {
+  if (isTestArtifactTitle(summary)) {
     return null;
   }
 

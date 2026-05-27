@@ -47,7 +47,8 @@ async function main() {
   ]);
   if (!sfh3Kennel || !marinKennel) {
     console.error(`Anchor kennel(s) missing: sfh3=${!!sfh3Kennel} marinh3=${!!marinKennel}`);
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
 
   const umbrella = await prisma.event.findFirst({
@@ -60,7 +61,8 @@ async function main() {
   });
   if (!umbrella) {
     console.error(`BAWC5 umbrella Event not found in SFH3 between ${UMBRELLA_DATE_LO.toISOString()} and ${UMBRELLA_DATE_HI.toISOString()}. Aborting.`);
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
   console.log(`Umbrella: ${umbrella.id}  ${umbrella.date.toISOString().slice(0, 10)}  ${JSON.stringify(umbrella.title)}`);
 
@@ -83,7 +85,8 @@ async function main() {
         "Refusing to auto-pick a different Marin event by date alone. " +
         "Investigate manually (RawEvent state, possible kennel rename) and re-run with the correct anchor.",
     );
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
   console.log(`Marin:    ${marin.id}  ${marin.date.toISOString().slice(0, 10)}  runNumber=${marin.runNumber}  title=${JSON.stringify(marin.title)}  parentEventId=${marin.parentEventId}`);
 
@@ -93,7 +96,8 @@ async function main() {
   }
   if (marin.parentEventId && marin.parentEventId !== umbrella.id) {
     console.error(`Marin is linked to a DIFFERENT parent (${marin.parentEventId}). Refusing to overwrite — investigate manually.`);
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
 
   if (!apply) {
@@ -111,7 +115,7 @@ async function main() {
 main()
   .catch((err) => {
     console.error(err);
-    process.exit(1);
+    process.exitCode = 1;
   })
   .finally(async () => {
     await prisma.$disconnect();

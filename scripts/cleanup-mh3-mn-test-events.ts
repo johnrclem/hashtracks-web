@@ -33,19 +33,25 @@ import { deleteLeakedEvent } from "./lib/delete-leaked-event";
 
 const KENNEL_CODE = "mh3-mn";
 
-// Match the same shapes the adapter filter catches. Title patterns are
-// anchored to whole-title to avoid bulldozing legitimate trails that
-// happen to mention "test" or "PC" mid-title. The third entry catches
-// the kennelTag-as-title leakage path: when an empty-summary calendar
-// event fell through earlier code paths, the kennelCode "mh3-mn" itself
-// surfaced as title. The adapter's `if (!item.summary) return null`
-// guard prevents new ones from being created, but existing rows still
-// need a sweep.
-const TITLE_REGEXES: readonly RegExp[] = [
-  /^\s*trail\s*#?\s*test\s+event\s*$/i,
-  /^\s*pc\s+meeting\s*$/i,
-  /^\s*mh3-mn\s*$/i,
-];
+// Match the same shapes the adapter filter catches. Comparison strips
+// whitespace and `#` from a lowercased title so all the `Trail # Test
+// Event` / `Trail #Test Event` / `trail test event` variants collapse
+// to the same key (deliberately not a regex with `\s*` / `#?` — Sonar
+// S5852 flags those as ReDoS-shaped even for linear inputs). The
+// `mh3-mn` entry catches the kennelTag-as-title leakage path: an
+// empty-summary calendar event used to fall back to the kennelCode
+// itself. The adapter's `if (!item.summary) return null` guard
+// prevents new ones; this script sweeps existing rows.
+const SUSPECT_TITLE_KEYS = new Set([
+  "trailtestevent",
+  "pcmeeting",
+  "mh3-mn",
+]);
+
+function isSuspectTitle(title: string | null): boolean {
+  if (!title) return false;
+  return SUSPECT_TITLE_KEYS.has(title.toLowerCase().replaceAll(/[\s#]+/g, ""));
+}
 
 // Location is matched case-insensitive substring — "123 Fake St" only
 // appears on the synthetic test entry, so this is safe.
@@ -72,7 +78,7 @@ async function main() {
   });
 
   const matched = candidates.filter((e) => {
-    const titleHit = TITLE_REGEXES.some((re) => e.title && re.test(e.title));
+    const titleHit = isSuspectTitle(e.title);
     const locationHit = !!e.locationName && e.locationName.toLowerCase().includes(LOCATION_SUBSTRING);
     return titleHit || locationHit;
   });
@@ -96,7 +102,7 @@ async function main() {
 main()
   .catch((err) => {
     console.error(err);
-    process.exit(1);
+    process.exitCode = 1;
   })
   .finally(async () => {
     await prisma.$disconnect();

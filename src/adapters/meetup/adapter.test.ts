@@ -1321,7 +1321,7 @@ describe("buildRawEventFromApollo — kennelPatterns", () => {
         dateTime: "2026-04-01T18:30:00+10:00",
       };
       const event = buildRawEventFromApollo(
-        ev as never,
+        ev,
         emptyState,
         "mel-new-moon",
         melNmPatterns,
@@ -1337,7 +1337,7 @@ describe("buildRawEventFromApollo — kennelPatterns", () => {
         dateTime: "2026-04-01T18:30:00+10:00",
       };
       const event = buildRawEventFromApollo(
-        ev as never,
+        ev,
         emptyState,
         "mel-new-moon",
         melNmPatterns,
