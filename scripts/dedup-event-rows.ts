@@ -47,7 +47,7 @@ async function main() {
         title: true, haresText: true, locationName: true, locationStreet: true,
         locationCity: true, locationAddress: true, latitude: true, longitude: true,
         startTime: true, endTime: true, cost: true, sourceUrl: true,
-        runNumber: true, description: true,
+        runNumber: true, description: true, eventLabel: true,
         trailType: true, dogFriendly: true, prelube: true,
         endDate: true,
       },

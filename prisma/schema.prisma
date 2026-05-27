@@ -338,6 +338,7 @@ model Event {
   runNumber         Int? // Kennel-specific sequential number
   title             String? // Trail/event name
   description       String?
+  eventLabel        String? // Short badge label for shared-sheet sub-events (e.g. "Bayern Nash Hash", "Birthday"). See #1624.
   haresText         String? // Display text: "Mudflap, Just Simon"
   locationName      String? // Start location name (venue or first line of address)
   locationStreet    String? // Full street address, e.g. "SRO Lounge, 1807 Fifth Ave, San Diego, CA 92101"

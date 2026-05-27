@@ -202,6 +202,7 @@ export default async function KennelDetailPage({
     coHosts: e.eventKennels.map((ek) => ek.kennel),
     runNumber: e.runNumber,
     title: e.title,
+    eventLabel: e.eventLabel,
     haresText: e.haresText,
     startTime: e.startTime,
     locationName: e.locationName,

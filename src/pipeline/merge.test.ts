@@ -102,6 +102,9 @@ const mockFingerprint = vi.mocked(generateFingerprint);
 // here keeps each call site cast-free and quiets Sonar S4325.
 type EventCreateReturn = Awaited<ReturnType<typeof prisma.event.create>>;
 type SourceFindReturn = Awaited<ReturnType<typeof prisma.source.findUnique>>;
+type RawEventFindUniqueReturn = Awaited<ReturnType<typeof prisma.rawEvent.findUnique>>;
+type EventFindUniqueReturn = Awaited<ReturnType<typeof prisma.event.findUnique>>;
+type RawEventCreateReturn = Awaited<ReturnType<typeof prisma.rawEvent.create>>
 
 function eventRow(id: string, overrides?: Record<string, unknown>): EventCreateReturn {
   return { id, ...overrides } as unknown as EventCreateReturn;
@@ -109,6 +112,38 @@ function eventRow(id: string, overrides?: Record<string, unknown>): EventCreateR
 
 function sourceRow(overrides: Record<string, unknown>): SourceFindReturn {
   return overrides as unknown as SourceFindReturn;
+}
+
+/** Mock return for `prisma.rawEvent.findUnique` in race-window tests. The
+ *  full Prisma payload has dozens of columns; the race-window catch only
+ *  reads `id`, `fingerprint`, `processed`, `eventId` via
+ *  `RAW_EVENT_DEDUP_SELECT`, so a partial row is sufficient. Factory keeps
+ *  the `as unknown as` cast on a single line (Sonar S4325). */
+function rawEventWinner(overrides: {
+  id: string;
+  fingerprint: string;
+  processed: boolean;
+  eventId: string | null;
+}): RawEventFindUniqueReturn {
+  return overrides as unknown as RawEventFindUniqueReturn;
+}
+
+/** Mock return for `prisma.event.findUnique` in race-window tests — the
+ *  caller only reads `id`, `kennelId`, `trustLevel`. Same shape rationale
+ *  as `rawEventWinner`. */
+function eventWinner(overrides: {
+  id: string;
+  kennelId: string;
+  trustLevel: number;
+}): EventFindUniqueReturn {
+  return overrides as unknown as EventFindUniqueReturn;
+}
+
+/** Mock return for `prisma.rawEvent.create()` in race-window tests — the
+ *  caller only reads `id` from the resolved row (see merge.ts:`rawEvent.id`
+ *  usage). Same shape rationale as `rawEventWinner`. */
+function rawEventCreated(id: string): RawEventCreateReturn {
+  return { id } as unknown as RawEventCreateReturn;
 }
 
 beforeEach(() => {
@@ -1530,6 +1565,91 @@ describe("location preservation on update", () => {
     expect(updateCall.data).not.toHaveProperty("description");
   });
 
+  // #1624 — eventLabel propagation. Tri-state contract mirrors `description`:
+  // undefined = preserve existing, string = overwrite, null = explicit clear.
+  it("writes eventLabel on the UPDATE when adapter emits a value (#1624)", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_1", trustLevel: 5, eventLabel: null },
+    ] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    await processRawEvents("src_1", [
+      buildRawEvent({ eventLabel: "Bayern Nash Hash" }),
+    ]);
+
+    const updateCall = mockEventUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(updateCall.data).toHaveProperty("eventLabel", "Bayern Nash Hash");
+  });
+
+  it("preserves existing eventLabel when adapter emits undefined (#1624)", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_1", trustLevel: 5, eventLabel: "Birthday" },
+    ] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    await processRawEvents("src_1", [
+      buildRawEvent({ eventLabel: undefined }),
+    ]);
+
+    const updateCall = mockEventUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(updateCall.data).not.toHaveProperty("eventLabel");
+  });
+
+  it("clears eventLabel when adapter emits explicit null (#1624)", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_1", trustLevel: 5, eventLabel: "Birthday" },
+    ] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    await processRawEvents("src_1", [
+      buildRawEvent({ eventLabel: null }),
+    ]);
+
+    const updateCall = mockEventUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(updateCall.data).toHaveProperty("eventLabel");
+    expect(updateCall.data.eventLabel).toBeNull();
+  });
+
+  it("#1624 lower-trust source backfills eventLabel when canonical row has none (Codex review hardening)", async () => {
+    // Concrete scenario: a Google Calendar source (trust 8) creates the
+    // canonical event without eventLabel; a Google Sheets source (trust 5,
+    // the default mock) later supplies the shared-sheet badge ("Bayern Nash
+    // Hash"). Without the enrichment branch the badge would never render
+    // even though the signal exists on a secondary source.
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_1", trustLevel: 8, eventLabel: null },
+    ] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    await processRawEvents("src_1", [
+      buildRawEvent({ eventLabel: "Bayern Nash Hash" }),
+    ]);
+
+    const updateCall = mockEventUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(updateCall.data).toHaveProperty("eventLabel", "Bayern Nash Hash");
+  });
+
+  it("#1624 lower-trust source does NOT overwrite an existing eventLabel (Codex review hardening)", async () => {
+    // The enrichment must be strictly fill-when-null. A secondary source
+    // that says "Pink Moon" cannot displace the primary's "Bayern Nash Hash".
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_1", trustLevel: 8, eventLabel: "Bayern Nash Hash" },
+    ] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    await processRawEvents("src_1", [
+      buildRawEvent({ eventLabel: "Pink Moon" }),
+    ]);
+
+    const updateCall = mockEventUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(updateCall.data).not.toHaveProperty("eventLabel");
+  });
+
   it("clears locationName when source explicitly provides empty location", async () => {
     mockRawEventFind.mockResolvedValueOnce(null);
     mockEventFindMany.mockResolvedValueOnce([
@@ -2870,6 +2990,7 @@ const EMPTY_DISPLAY_FIELDS = {
   sourceUrl: null,
   runNumber: null,
   description: null,
+  eventLabel: null,
   trailType: null,
   dogFriendly: null,
   prelube: null,
@@ -2922,6 +3043,16 @@ describe("completenessScore", () => {
     ).toBe(0);
     expect(
       completenessScore({ ...EMPTY_DISPLAY_FIELDS, latitude: 33.75, longitude: -84.39 }),
+    ).toBe(1);
+  });
+
+  // #1624 — eventLabel must count toward completeness so equal-trust
+  // tiebreaks (recomputeCanonical / dedup-event-rows script) prefer the
+  // row that carries the shared-sheet badge (Gemini + claude[bot] review
+  // on PR #1721).
+  it("counts eventLabel as populated (#1624)", () => {
+    expect(
+      completenessScore({ ...EMPTY_DISPLAY_FIELDS, eventLabel: "Bayern Nash Hash" }),
     ).toBe(1);
   });
 
@@ -4007,11 +4138,13 @@ describe("processNewRawEvent — P2002 race-window fall-through (#1286)", () => 
     expect(result.skipped).toBe(0);
   });
 
-  it("re-throws P2002 errors targeting different columns (defensive)", async () => {
+  it("re-throws P2002 errors targeting different columns when no row exists for our fingerprint (defensive)", async () => {
     // Future schema changes could add other unique constraints on RawEvent.
-    // Only the (sourceId, fingerprint) target should fall through; everything
-    // else must surface so it's not silently masked.
+    // Under the target-shape-agnostic catch (#1699), we always look up the
+    // row by (sourceId, fingerprint) — if absent, the P2002 fired on a
+    // different constraint and must surface so it's not silently masked.
     mockRawEventCreate.mockRejectedValueOnce(buildPrismaUniqueViolation(["someOtherColumn"]));
+    vi.mocked(prisma.rawEvent.findUnique).mockResolvedValueOnce(null);
 
     const result = await processRawEvents("src_1", [
       buildRawEvent({ date: "2026-04-01", kennelTags: ["TestH3"] }),
@@ -4022,10 +4155,14 @@ describe("processNewRawEvent — P2002 race-window fall-through (#1286)", () => 
     expect(result.eventErrors).toBe(1);
     expect(result.created).toBe(0);
     expect(result.skipped).toBe(0);
-    expect(vi.mocked(prisma.rawEvent.findUnique)).not.toHaveBeenCalled();
+    expect(vi.mocked(prisma.rawEvent.findUnique)).toHaveBeenCalledTimes(1);
   });
 
-  it("re-throws non-P2002 PrismaClientKnownRequestError (e.g. P2003 FK violation)", async () => {
+  it("re-throws non-P2002 PrismaClientKnownRequestError without consulting findUnique (e.g. P2003 FK violation)", async () => {
+    // The P2002 gate (#1699 — tightened after the original shape-agnostic
+    // catch was found to mask write-path outages) means non-unique-violation
+    // Prisma errors short-circuit before the row lookup. Even if a stale row
+    // existed for our fingerprint, an FK violation must surface.
     mockRawEventCreate.mockRejectedValueOnce(
       new Prisma.PrismaClientKnownRequestError("FK violation", {
         code: "P2003",
@@ -4073,11 +4210,14 @@ describe("processNewRawEvent — P2002 race-window fall-through (#1286)", () => 
     expect(result.eventErrors).toBe(0);
     expect(result.mergeErrorDetails).toEqual([]);
     // Operator-facing trace: one log per handled race with the branch label.
+    // Post-#1699: the log line uses "race-window resolved" and includes the
+    // meta.target so future engine shape drift is observable in Vercel logs.
     const raceLog = logSpy.mock.calls
       .map((call) => String(call[0]))
-      .find((s) => s.includes("[merge] race-window P2002"));
+      .find((s) => s.includes("[merge] race-window resolved"));
     expect(raceLog).toBeDefined();
     expect(raceLog).toContain("branch=use-existing-event");
+    expect(raceLog).toContain("RawEvent_sourceId_fingerprint_key");
     logSpy.mockRestore();
   });
 
@@ -4111,6 +4251,105 @@ describe("processNewRawEvent — P2002 race-window fall-through (#1286)", () => 
     expect(result.created).toBe(1);
     expect(result.skipped).toBe(1);
     expect(result.eventErrors).toBe(0);
+  });
+
+  // #1699 — production P2002 leaks persisted despite the #1286 + #1464 guards.
+  // The old gate parsed `meta.target` to decide whether to take the duplicate
+  // path; any shape the parser didn't recognize silently re-threw. The new
+  // catch is shape-agnostic — it looks the row up first and uses the DB state
+  // as the source of truth. These tests lock that contract in.
+  it("#1699 routes via duplicate path for any P2002 shape when the winner row exists", async () => {
+    // Simulate a future Prisma engine variant where meta.target is an unknown
+    // shape (e.g. an opaque object). Pre-#1699 isUniqueConstraintViolation
+    // would have returned false for this shape and the error would have
+    // surfaced as an eventError. Post-#1699 the catch consults the DB.
+    const opaqueErr = new Prisma.PrismaClientKnownRequestError("Unique violation", {
+      code: "P2002",
+      clientVersion: "0.0.0",
+      meta: { target: { someFutureShape: true } as unknown as string },
+    });
+    mockRawEventCreate.mockRejectedValueOnce(opaqueErr);
+    vi.mocked(prisma.rawEvent.findUnique).mockResolvedValueOnce(
+      rawEventWinner({
+        id: "raw_winner",
+        fingerprint: "fp_abc123",
+        processed: true,
+        eventId: "evt_winner",
+      }),
+    );
+    vi.mocked(prisma.event.findUnique).mockResolvedValueOnce(
+      eventWinner({ id: "evt_winner", kennelId: "kennel_1", trustLevel: 5 }),
+    );
+
+    const result = await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-04-01", kennelTags: ["TestH3"] }),
+    ]);
+
+    expect(result.created).toBe(0);
+    expect(result.skipped).toBe(1);
+    expect(result.eventErrors).toBe(0);
+    expect(result.mergeErrorDetails).toEqual([]);
+  });
+
+  it("#1699 re-throws non-Prisma errors WITHOUT masking them as a race-resolution (Codex review hardening)", async () => {
+    // The original PR widened the catch to "any error" + DB lookup; Codex's
+    // adversarial review caught that a connection reset / timeout could find
+    // a stale row from an earlier successful insert and be reported as a
+    // clean duplicate skip, hiding the real write-path outage. The fix is to
+    // gate on Prisma P2002 only — non-Prisma errors must rethrow regardless
+    // of whether a stale row happens to exist for our fingerprint.
+    mockRawEventCreate.mockRejectedValueOnce(new Error("connection reset by peer"));
+
+    const result = await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-04-01", kennelTags: ["TestH3"] }),
+    ]);
+
+    expect(result.eventErrors).toBe(1);
+    expect(result.created).toBe(0);
+    expect(result.skipped).toBe(0);
+    expect(vi.mocked(prisma.rawEvent.findUnique)).not.toHaveBeenCalled();
+  });
+
+  it("#1699 concurrent processRawEvents call for the same fingerprint resolves to 1 created + 1 skipped", async () => {
+    // Two parallel batches racing on the same fingerprint. The first reaches
+    // `create()` and succeeds; the second's `create()` rejects with P2002 and
+    // the shape-agnostic catch resolves it via the duplicate path. Combined
+    // result should be exactly one created event and zero leaked errors.
+    mockEventFindMany.mockResolvedValue([] as never);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_winner"));
+
+    // Worker A wins the race: create() resolves to the winning row.
+    mockRawEventCreate
+      .mockResolvedValueOnce(rawEventCreated("raw_winner"))
+      .mockRejectedValueOnce(buildPrismaUniqueViolation(["sourceId", "fingerprint"]));
+
+    // Worker B's catch path: the winner row is now visible.
+    vi.mocked(prisma.rawEvent.findUnique).mockResolvedValueOnce(
+      rawEventWinner({
+        id: "raw_winner",
+        fingerprint: "fp_abc123",
+        processed: true,
+        eventId: "evt_winner",
+      }),
+    );
+    vi.mocked(prisma.event.findUnique).mockResolvedValueOnce(
+      eventWinner({ id: "evt_winner", kennelId: "kennel_1", trustLevel: 5 }),
+    );
+
+    const sameEvent = buildRawEvent({ date: "2026-04-01", kennelTags: ["TestH3"] });
+    const [resultA, resultB] = await Promise.all([
+      processRawEvents("src_1", [sameEvent]),
+      processRawEvents("src_1", [sameEvent]),
+    ]);
+    const combined = {
+      created: resultA.created + resultB.created,
+      skipped: resultA.skipped + resultB.skipped,
+      eventErrors: resultA.eventErrors + resultB.eventErrors,
+    };
+
+    expect(combined.created).toBe(1);
+    expect(combined.skipped).toBe(1);
+    expect(combined.eventErrors).toBe(0);
   });
 });
 

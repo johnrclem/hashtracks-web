@@ -138,7 +138,9 @@ function matchesSearchText(event: HarelineEvent, query: string): boolean {
     event.kennel?.fullName.toLowerCase().includes(lower) ||
     event.haresText?.toLowerCase().includes(lower) ||
     event.locationName?.toLowerCase().includes(lower) ||
-    event.locationCity?.toLowerCase().includes(lower)
+    event.locationCity?.toLowerCase().includes(lower) ||
+    // #1624 — surfaced sub-event badge text must be discoverable via search.
+    event.eventLabel?.toLowerCase().includes(lower)
   );
 }
 
