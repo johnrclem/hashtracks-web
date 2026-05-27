@@ -430,7 +430,7 @@ describe("SquarespaceEventsAdapter.fetch", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(2);
   });
 
-  it("keeps page-1 events when a deeper page transiently fails", async () => {
+  it("keeps page-1 events when a deeper page transiently fails AND signals reconciliation suppression", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     fetchSpy.mockResolvedValueOnce(
       mockJsonResponse({
@@ -455,6 +455,60 @@ describe("SquarespaceEventsAdapter.fetch", () => {
     // Page 1 events flow through; pagination loop just stops on the deeper failure
     expect(result.events.length).toBeGreaterThanOrEqual(2);
     expect(result.errors).toEqual([]);
+    // Reconciliation-suppression signals MUST fire so scrape.ts:432-438
+    // doesn't cancel events from the unreached page (Codex P1, #1746).
+    expect(result.diagnosticContext?.kennelPageFetchErrors).toBe(1);
+    expect(result.diagnosticContext?.kennelPagesStopReason).toBe(
+      "deeper_page_fetch_failed",
+    );
+  });
+
+  it("does NOT suppress reconciliation when the maxPages cap is hit (intentional truncation)", async () => {
+    // The maxPages cap is by design — events past the cap are legitimately
+    // "outside our configured window" and reconciliation should still run.
+    // Only TRANSIENT pagination failures (deeper_page_fetch_failed) suppress.
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    for (let i = 0; i < 2; i++) {
+      fetchSpy.mockResolvedValueOnce(
+        mockJsonResponse({
+          website: { timeZone: PT },
+          past: [NUMBERED_PAST_EVENT],
+          pagination: { nextPage: true, nextPageOffset: 100 + i },
+        }),
+      );
+    }
+
+    const source = buildSource({ url: BASE }) as unknown as Source;
+    (source as unknown as { config: unknown }).config = {
+      kennelTag: "sach3",
+      maxPages: 2,
+    };
+
+    const result = await adapter.fetch(source);
+    expect(result.diagnosticContext?.pagesFetched).toBe(2);
+    expect(result.diagnosticContext?.kennelPageFetchErrors).toBe(0);
+    expect(result.diagnosticContext?.kennelPagesStopReason).toBeNull();
+  });
+
+  it("emits clean reconciliation signals on a successful single-page scrape", async () => {
+    // Sanity check: a clean walk to the natural end (no nextPage) must NOT
+    // set the suppression signals — otherwise reconciliation never fires
+    // and stale events accumulate forever.
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      mockJsonResponse({
+        website: { timeZone: PT },
+        upcoming: [WEDNESDAY_EVENT],
+        past: [CAMPOUT_EVENT],
+        pagination: { pageSize: 30 }, // no nextPage flag
+      }),
+    );
+
+    const source = buildSource({ url: BASE }) as unknown as Source;
+    (source as unknown as { config: unknown }).config = { kennelTag: "sach3" };
+
+    const result = await adapter.fetch(source);
+    expect(result.diagnosticContext?.kennelPageFetchErrors).toBe(0);
+    expect(result.diagnosticContext?.kennelPagesStopReason).toBeNull();
   });
 
   it("isolates a per-event parse failure so siblings still flow through", async () => {

@@ -440,20 +440,75 @@ interface PaginationAccumulator {
   pastCount: number;
   pagesFetched: number;
   totalFetchMs: number;
+  /**
+   * Number of deeper-page fetches that failed during pagination. Surfaces
+   * to `diagnosticContext.kennelPageFetchErrors`, which `scrape.ts`
+   * consumes to suppress stale-event reconciliation — without this the
+   * reconciler would treat events behind a transiently-broken offset as
+   * "removed from source" and cancel them (Codex P1, #1746).
+   */
+  pageFetchErrors: number;
+  /**
+   * Non-empty string signals an INCOMPLETE pagination walk (transient
+   * fetch failure, NOT the intentional maxPages cap). Surfaces to
+   * `diagnosticContext.kennelPagesStopReason`; same reconciliation
+   * suppression contract as `pageFetchErrors`. The maxPages cap is
+   * intentional truncation and does NOT set this — events past the cap
+   * are legitimately "outside our configured window".
+   */
+  paginationStopReason: string | null;
+}
+
+/**
+ * Process one Squarespace page's events into the accumulator. Each event
+ * is wrapped in try/catch so a future bug or rotated payload shape that
+ * crashes `parseSquarespaceEvent` doesn't abort the whole batch.
+ */
+function pushPageEvents(
+  payload: SquarespaceEventsPayload,
+  parseEvent: (ev: SquarespaceEvent) => RawEventData | null,
+  acc: PaginationAccumulator,
+): void {
+  const upcoming = Array.isArray(payload.upcoming) ? payload.upcoming : [];
+  const past = Array.isArray(payload.past) ? payload.past : [];
+  acc.upcomingCount += upcoming.length;
+  acc.pastCount += past.length;
+  for (const ev of [...upcoming, ...past]) {
+    try {
+      const parsed = parseEvent(ev);
+      if (parsed) acc.events.push(parsed);
+    } catch (err) {
+      console.warn(
+        "SquarespaceEventsAdapter: failed to parse one event row:",
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+}
+
+/**
+ * Decide whether pagination should continue. Returns the next-page offset
+ * or null. Returning null does NOT distinguish "no more pages" from
+ * "intentional cap reached" — both are reconciliation-safe (the cap is by
+ * design; the absence of `nextPage` means the source published nothing
+ * deeper). Transient deeper-page failures are handled separately at the
+ * call site.
+ */
+function getNextPageOffset(
+  payload: SquarespaceEventsPayload,
+  pagesFetched: number,
+  maxPages: number,
+): number | null {
+  if (pagesFetched >= maxPages) return null;
+  const pagination = payload.pagination;
+  if (!pagination?.nextPage || typeof pagination.nextPageOffset !== "number") return null;
+  return pagination.nextPageOffset;
 }
 
 /**
  * Walk the Squarespace `?offset=NNN` pagination chain starting from a
- * known-good first page, processing each page's events and aggregating
- * counts. Extracted from `fetchSquarespaceEvents` to keep that function
- * under Sonar S3776's cognitive-complexity budget.
- *
- * Stop conditions, checked AFTER processing each page but BEFORE the
- * next request:
- *   1. `pagesFetched >= maxPages` — don't fetch a page we won't process.
- *   2. Current payload has no `nextPage` link.
- *   3. Deeper-page transient failure (5xx, network glitch) — preserve
- *      everything harvested so far rather than discarding.
+ * known-good first page. See helpers above for per-page processing and
+ * stop-condition logic.
  */
 async function walkPagination(
   firstPayload: SquarespaceEventsPayload,
@@ -468,42 +523,30 @@ async function walkPagination(
     pastCount: 0,
     pagesFetched: 0,
     totalFetchMs: 0,
+    pageFetchErrors: 0,
+    paginationStopReason: null,
   };
 
   let currentPayload: SquarespaceEventsPayload = firstPayload;
   let currentFetchMs = firstFetchMs;
 
   while (true) {
-    const upcoming = Array.isArray(currentPayload.upcoming) ? currentPayload.upcoming : [];
-    const past = Array.isArray(currentPayload.past) ? currentPayload.past : [];
-    acc.upcomingCount += upcoming.length;
-    acc.pastCount += past.length;
+    pushPageEvents(currentPayload, parseEvent, acc);
     acc.pagesFetched++;
     acc.totalFetchMs += currentFetchMs;
 
-    // Per-event try/catch: `parseSquarespaceEvent` is defensive (typeof
-    // checks, returns null on bad input) but a future bug or unexpected
-    // payload shape shouldn't take down the entire batch — keep harvesting
-    // siblings and log the offender for follow-up.
-    for (const ev of [...upcoming, ...past]) {
-      try {
-        const parsed = parseEvent(ev);
-        if (parsed) acc.events.push(parsed);
-      } catch (err) {
-        console.warn(
-          "SquarespaceEventsAdapter: failed to parse one event row:",
-          err instanceof Error ? err.message : String(err),
-        );
-      }
+    const nextOffset = getNextPageOffset(currentPayload, acc.pagesFetched, maxPages);
+    if (nextOffset === null) break;
+
+    const pageResult = await fetchSquarespacePage(appendOffset(collectionUrl, nextOffset));
+    if (!pageResult.ok) {
+      // Transient deeper-page failure — preserve events harvested so far
+      // AND suppress stale-event reconciliation. Without the suppression
+      // signal `scrape.ts` would cancel events from the unreached pages.
+      acc.pageFetchErrors++;
+      acc.paginationStopReason = "deeper_page_fetch_failed";
+      break;
     }
-
-    if (acc.pagesFetched >= maxPages) break;
-    const pagination = currentPayload.pagination;
-    if (!pagination?.nextPage || typeof pagination.nextPageOffset !== "number") break;
-
-    const nextUrl = appendOffset(collectionUrl, pagination.nextPageOffset);
-    const pageResult = await fetchSquarespacePage(nextUrl);
-    if (!pageResult.ok) break;
 
     currentPayload = pageResult.payload;
     currentFetchMs = pageResult.fetchDurationMs;
@@ -603,6 +646,14 @@ export async function fetchSquarespaceEvents(
       eventsParsed: acc.events.length,
       eventsSkipped: acc.upcomingCount + acc.pastCount - acc.events.length,
       fetchDurationMs: acc.totalFetchMs,
+      // Reconciliation-suppression signals consumed by `scrape.ts:432-438`.
+      // When a deeper page failed during pagination, the events we never
+      // reached must NOT be cancelled — they're not gone, we just didn't
+      // see them this scrape. Keys mirror Hash Rego's per-kennel-page
+      // diagnostics so the existing scrape-pipeline gate works without
+      // changes (Codex P1, #1746).
+      kennelPageFetchErrors: acc.pageFetchErrors,
+      kennelPagesStopReason: acc.paginationStopReason,
     },
   };
 }
