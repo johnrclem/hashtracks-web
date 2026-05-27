@@ -291,6 +291,7 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "h5-hi": ["Honolulu Hash", "Honolulu H5", "H5 Honolulu", "Honolulu H4", "H5"],
     // ===== CALIFORNIA =====
     "sch3-ca": ["Surf City Hash", "Surf City H3", "SCH3", "Santa Cruz Hash"],
+    "sach3": ["Sac H3", "Sacramento H3", "Sacramento Hash", "SacH3", "Sacramento HHH"],
     "lah3": ["Los Angeles Hash", "LAH3 Hash", "LA Hash House Harriers"],
     "lbh3": ["Long Beach Hash", "LBH3 Hash", "Long Beach H3"],
     "tdh3-lb": ["Throw Down Hash", "Throw Down H3", "TDH3"],
