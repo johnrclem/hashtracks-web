@@ -37,7 +37,7 @@ Total upcoming canonical events scanned: 3925
 
 ### B.1 — Cross-source URL collisions (events sharing an `/events/<slug>` or `/runs/<id>` path) (P0)
 
-**Count:** 8. FHAC-U + SFH3 BAWC pattern. The two events represent the same physical event via mirrored URLs across sibling-kennel sites. Needs umbrella dedup by URL path.
+**Count:** 12. FHAC-U + SFH3 BAWC pattern. The two events represent the same physical event via mirrored URLs across sibling-kennel sites. Needs umbrella dedup by URL path.
 
 | Event | Kennel | Date | Detail |
 |---|---|---|---|
@@ -45,10 +45,14 @@ Total upcoming canonical events scanned: 3925
 | FHAC-U Run #568 ([`m6mvgz0p`](https://www.sfh3.com/runs/6376)) | FHAC-U | 2026-05-28 | URL path "/runs/6376" appears across 2 events; cross-source duplicate of the same physical event |
 | Fifth Anal Bay Area Weekend Campout (BAWC5) ([`z25y2d8h`](https://www.sfh3.com/events/133)) | SF H3 | 2026-06-19 | URL path "/events/133" appears across 2 events; cross-source duplicate of the same physical event |
 | Bay Area Weekend Campout (BAWC) 2026 ([`r1rw7vfc`](https://hashrego.com/events/bay-area-weekend-campout-bawc-2026)) | FHAC-U | 2026-06-19 | URL path "/events/133" appears across 2 events; cross-source duplicate of the same physical event |
+| SVH3 Run #1273 ([`5122rzq6`](https://www.sfh3.com/runs/6499)) | SVH3 | 2026-05-30 | URL path "/runs/6499" appears across 2 events; cross-source duplicate of the same physical event |
+| SVH3 Run #1273 ([`wnz7i75p`](https://www.sfh3.com/runs/6506)) | SVH3 | 2026-06-27 | URL path "/runs/6499" appears across 2 events; cross-source duplicate of the same physical event |
 | BigHumpH3 Bungle 2026 ([`5z1eac1b`](https://hashrego.com/events/bighumph3-bungle-2026)) | BH4 | 2026-08-21 | URL path "/events/bighumph3-bungle-2026" appears across 2 events; cross-source duplicate of the sam… |
 | Bungle in the Jungle @ Steelville-the Cancun of Missouri ([`rzikfi7v`](http://www.big-hump.com/hareline.php)) | BH4 | 2026-08-22 | URL path "/events/bighumph3-bungle-2026" appears across 2 events; cross-source duplicate of the sam… |
-| MadisonH3 Token Run Campout 2026 ([`9brb83ir`](https://hashrego.com/events/madisonh3-token-run-campout-2026)) | Madison H3 | 2026-05-29 | URL path "/events/madisonh3-token-run-campout-2026" appears across 2 events; cross-source duplicate… |
-| Token Creek Hash Run #2561 ([`dudknqph`](https://www.google.com/calendar/event?eid=NXI5cTlubnEydmlkb3MwOHM1NHYyaTBuYnZfMjAyNjA1MzBUMjIwMDAwWiBxMjA2aDRnYnA0Y2ZnNW0xM2lwOTV2Y2g4OEBn)) | Madison H3 | 2026-05-30 | URL path "/events/madisonh3-token-run-campout-2026" appears across 2 events; cross-source duplicate… |
+| OH3 Run 2001- A Hash Odyssey ([`dfhc45gc`](https://www.oh3.no/runs/28368)) | OH3 | 2026-06-15 | URL path "/events/24" appears across 2 events; cross-source duplicate of the same physical event |
+| A Hash Odyssey ([`fb3wmf4i`](https://www.oh3.no/events/24)) | OH3 | 2026-06-15 | URL path "/events/24" appears across 2 events; cross-source duplicate of the same physical event |
+
+*…and 2 more*
 
 ### A.3 — Date range in title/description, no series structure (P0)
 
@@ -164,7 +168,7 @@ Total upcoming canonical events scanned: 3925
 
 ### C.2 — Title has run-number suffix when runNumber field is set (P2)
 
-**Count:** 953. Redundant with the run-number field on the card.
+**Count:** 943. Redundant with the run-number field on the card.
 
 | Event | Kennel | Date | Detail |
 |---|---|---|---|
@@ -179,7 +183,7 @@ Total upcoming canonical events scanned: 3925
 | BurlyH3 #863 ([`oajhgpou`](https://www.burlingtonh3.com/hareline)) | BurlyH3 | 2026-07-22 | runNumber=863, suffix "#863" is redundant |
 | Wanchai H3 Trail #2054 ([`ywy0mk9a`](https://docs.google.com/spreadsheets/d/11XWd6UBa0bX176z6AvvnCiduhnlkFmvgzgmn57qOB2Q)) | Wanchai H3 | 2027-04-18 | runNumber=2054, suffix "#2054" is redundant |
 
-*…and 943 more*
+*…and 933 more*
 
 ### C.3 — Title longer than 80 characters (P2)
 

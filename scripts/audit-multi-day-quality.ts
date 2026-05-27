@@ -356,6 +356,13 @@ function extractB1Path(url: string): string | null {
 function collectKnownSourceUrls(r: AuditRow): Set<string> {
   const urls = new Set<string>();
   if (r.sourceUrl) urls.add(r.sourceUrl);
+  // Include EventLink rows too (Codex PR #1718 review): normalized provenance
+  // links stored on the event are exactly the data B.1 should be clustering.
+  // Missing them undercounts cross-source duplicates whose collision is the
+  // EventLink, not the description text.
+  for (const link of r.eventLinks) {
+    urls.add(link.url);
+  }
   if (r.description) {
     for (const url of extractKnownSourceUrls(r.description)) {
       urls.add(url);
@@ -538,11 +545,22 @@ function bucketC1(rows: AuditRow[]): Finding[] {
 function bucketC2(rows: AuditRow[]): Finding[] {
   // Title has run-number-looking suffix when runNumber is non-null.
   // " - #436" / " - 436" / " #436" patterns.
+  //
+  // Require the suffix digits to match `r.runNumber` (Codex PR #1718 review).
+  // Without this, a title ending in a year ("Strawberry Moon 2026") or any
+  // other numeric suffix would get flagged even though it's not duplicating
+  // the run-number field. C.1 already catches the year-suffix case separately.
   const findings: Finding[] = [];
   for (const r of rows) {
     if (r.runNumber === null) continue;
     const suffix = getRunNumberSuffix(r.title);
     if (suffix === null) continue;
+    // Walk over the suffix collecting only the digit run. `suffix` ends in
+    // the run-number digits per getRunNumberSuffix's contract.
+    let i = suffix.length;
+    while (i > 0 && isAsciiDigit(suffix[i - 1])) i--;
+    const digits = suffix.slice(i);
+    if (digits.length === 0 || Number(digits) !== r.runNumber) continue;
     findings.push({
       bucket: "C.2",
       eventId: r.id,
