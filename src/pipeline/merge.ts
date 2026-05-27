@@ -1673,6 +1673,23 @@ async function upsertCanonicalEvent(
       if (existingEvent.endDate == null && event.endDate) {
         enrichData.endDate = parseUtcNoonDate(event.endDate);
       }
+      // endDate fallback (PR H.7) — when neither the existing canonical nor
+      // the incoming raw carries endDate but the CANONICAL description carries
+      // the venue-weekend pattern, try the heuristic against the consolidated
+      // text. This covers events where an earlier scrape enriched the canonical
+      // with a richer description than the latest raw emits (Oregon HHH Spring
+      // Campout case — Google Calendar latest raw description is sparse but
+      // the canonical accumulated multi-day labels from an earlier import).
+      if (existingEvent.endDate == null && !event.endDate && existingEvent.description) {
+        const canonicalInferred = detectVenueWeekendEndDate(
+          existingEvent.description,
+          existingEvent.title ?? event.title ?? "",
+          existingEvent.date.toISOString().slice(0, 10),
+        );
+        if (canonicalInferred) {
+          enrichData.endDate = parseUtcNoonDate(canonicalInferred);
+        }
+      }
       if (Object.keys(enrichData).length > 0) {
         const enriched = await prisma.event.update({
           where: { id: existingEvent.id },

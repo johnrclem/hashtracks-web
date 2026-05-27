@@ -41,6 +41,14 @@ const ANCHORS: ReadonlyArray<{ name: string; titleMatch: string; expectedBucket:
 // ──────────────────────────────────────────────────────────────────────────
 const RE_DAY_M_D_HEADER = /\*\*[A-Z][a-z]*\s+\d{1,2}\/\d{1,2}\b/; // **DAY M/D — — the canonical Hash Rego header
 const RE_FRI_SAT_SUN_LABEL = /(?:^|\n|\s)(friday|saturday|sunday|fri|sat|sun)\s*:/i; // informal labels (Madison pattern)
+// Audit A.2 mirrors the merge-pipeline heuristic gate (`src/pipeline/venue-weekend.ts`
+// PR H). Without this, A.2 surfaces 4 false positives whose descriptions name
+// a weekday with a colon but never satisfy the heuristic's trigger-word gate
+// (Hollyweird HapPy Hour, RIH3 Static Schedule stub, etc. — PR H.7 post-merge
+// findings). The heuristic in production also requires this trigger; tightening
+// the audit makes the bucket reflect the same set of events the heuristic
+// will actually act on.
+const RE_VENUE_WEEKEND_TRIGGER = /\b(?:camp\s?out|weekend|retreat|rendezvous)\b/i;
 const RE_DATE_RANGE_NUM = /\b\d{1,2}\/\d{1,2}\s*[-–]\s*\d{1,2}\/\d{1,2}\b/; // 6/19 - 6/21
 const RE_KENNEL_SHORTHAND_TITLE = /^[A-Z]{2,}\d*\s*#\s*\d+\s*$/; // NAWW #391
 // Sonar S5852 flags any `\s*…$` or `\d+$` anchored regex as ReDoS-shaped
@@ -186,12 +194,16 @@ function bucketA1(rows: AuditRow[]): Finding[] {
 
 function bucketA2(rows: AuditRow[]): Finding[] {
   // Friday:/Saturday:/Sunday: informal labels, NOT recognized as series.
-  // Madison pattern.
+  // Madison pattern. Mirrors the production heuristic's trigger-word gate
+  // so the audit's count reflects the events the heuristic will actually
+  // catch (PR H.7 post-merge — eliminates 4 false positives).
   return rows
     .filter(
       (r) =>
         r.description &&
         RE_FRI_SAT_SUN_LABEL.test(r.description) &&
+        (RE_VENUE_WEEKEND_TRIGGER.test(r.description) ||
+          RE_VENUE_WEEKEND_TRIGGER.test(r.title)) &&
         r.parentEventId === null &&
         r.endDate === null &&
         !r.isSeriesParent,
