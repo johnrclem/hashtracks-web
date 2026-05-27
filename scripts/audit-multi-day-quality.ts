@@ -44,14 +44,34 @@ const RE_FRI_SAT_SUN_LABEL = /(?:^|\n|\s)(friday|saturday|sunday|fri|sat|sun)\s*
 const RE_DATE_RANGE_NUM = /\b\d{1,2}\/\d{1,2}\s*[-–]\s*\d{1,2}\/\d{1,2}\b/; // 6/19 - 6/21
 const RE_KENNEL_SHORTHAND_TITLE = /^[A-Z]{2,}\d*\s*#\s*\d+\s*$/; // NAWW #391
 const RE_RUN_NUMBER_SUFFIX = /[-–\s]\s*#?\s*\d+\s*$/; // " - #436" / " #436" / " - 436"
-// Bounded path quantifier `{1,500}` (Sonar S5852 — ReDoS hotspot guard).
-// Real-world event URLs are well under 500 chars; the cap eliminates the
-// possibility of catastrophic backtracking on pathological inputs scraped
-// from external sources.
-const RE_KNOWN_SOURCE_URL = new RegExp(
-  String.raw`https?://(?:www\.)?(hashrego\.com|sfh3\.com|hashnyc\.com|svh3\.com|ebh3\.org|marinh3\.com)/[^\s)>"']{1,500}`,
-  "gi",
-);
+// URL extraction is split into a simple bounded-quantifier regex + a
+// Set-based host filter so Sonar S5852 (ReDoS) stays clean. A single
+// alternation `(hashrego\.com|...)` inside the regex tripped the ReDoS
+// heuristic even with a bounded path quantifier; matching ANY URL and
+// post-filtering by hostname removes the alternation entirely and is
+// straightforwardly linear.
+const KNOWN_SOURCE_HOSTS = new Set([
+  "hashrego.com",
+  "sfh3.com",
+  "hashnyc.com",
+  "svh3.com",
+  "ebh3.org",
+  "marinh3.com",
+]);
+const RE_ANY_URL = /https?:\/\/[^\s/)>"']{1,200}\/[^\s)>"']{1,500}/gi;
+
+function extractKnownSourceUrls(text: string): string[] {
+  const out: string[] = [];
+  for (const m of text.matchAll(RE_ANY_URL)) {
+    const url = m[0].replace(/[.,;:)]+$/, "");
+    const hostMatch = /^https?:\/\/(?:www\.)?([^/]{1,200})\//.exec(url);
+    if (!hostMatch) continue;
+    if (KNOWN_SOURCE_HOSTS.has(hostMatch[1].toLowerCase())) {
+      out.push(url);
+    }
+  }
+  return out;
+}
 
 // Day-name labels found in description, used to count "apparent day count"
 // for A.4 (parent.childEvents.length vs description's day mentions).
@@ -276,7 +296,8 @@ function bucketA5(rows: AuditRow[]): Finding[] {
 function extractB1Path(url: string): string | null {
   // Pull /events/<slug> or /runs/<id> path off any host (sfh3.com,
   // svh3.com, hashrego.com, etc.) so siblings cluster despite different hosts.
-  const m = /^https?:\/\/[^/]+(\/[^?#\s)]+)/.exec(url);
+  // Bounded quantifiers (Sonar S5852) — host ≤200 chars, path ≤500 chars.
+  const m = /^https?:\/\/[^/]{1,200}(\/[^?#\s)]{1,500})/.exec(url);
   if (!m) return null;
   const path = m[1].replace(/\/+$/, "").toLowerCase();
   // Ignore generic non-event paths (root, /runs without an id, etc.)
@@ -288,9 +309,8 @@ function collectKnownSourceUrls(r: AuditRow): Set<string> {
   const urls = new Set<string>();
   if (r.sourceUrl) urls.add(r.sourceUrl);
   if (r.description) {
-    const re = new RegExp(RE_KNOWN_SOURCE_URL.source, "gi");
-    for (const m of r.description.matchAll(re)) {
-      urls.add(m[0].replace(/[.,;:)]+$/, ""));
+    for (const url of extractKnownSourceUrls(r.description)) {
+      urls.add(url);
     }
   }
   return urls;
@@ -420,9 +440,7 @@ function bucketB2(rows: AuditRow[]): Finding[] {
 function firstUnlinkedKnownUrl(r: AuditRow): string | null {
   if (!r.description) return null;
   const linkUrls = new Set(r.eventLinks.map((l) => l.url));
-  const re = new RegExp(RE_KNOWN_SOURCE_URL.source, "gi");
-  for (const m of r.description.matchAll(re)) {
-    const url = m[0].replace(/[.,;:)]+$/, "");
+  for (const url of extractKnownSourceUrls(r.description)) {
     if (r.sourceUrl && url === r.sourceUrl) continue;
     if (linkUrls.has(url)) continue;
     return url;
