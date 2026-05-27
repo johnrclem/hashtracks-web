@@ -2011,8 +2011,9 @@ async function processNewRawEvent(
   sourceId: string,
   ctx: MergeContext,
 ): Promise<string | null> {
-  // Decode HTML entities in text fields before any downstream processing
-  sanitizeRawFields(event);
+  // `sanitizeRawFields` already ran upstream in `processRawEvents` (before
+  // `precomputeFingerprints`) so the inferred values flow into the
+  // fingerprint. Re-calling here would be a no-op.
 
   // Validate the event has at least one meaningful display field before processing.
   // kennelTag counts because we'll generate a default title from it after kennel resolution.
@@ -2499,6 +2500,18 @@ export async function processRawEvents(
     sampleBlocked: [],
     sampleSkipped: [],
   };
+
+  // Sanitize raw fields BEFORE fingerprint computation so any inferred
+  // values (HTML-decoded text, Hared-by-X extraction, venue-weekend
+  // endDate per PR H / #1718 bucket A.2) feed into the fingerprint. If
+  // we ran this later (e.g. inside `processNewRawEvent`), stale rows
+  // would dedup against their old fingerprint and never re-merge with
+  // the freshly inferred endDate. Codex review on PR H caught this.
+  // The call is idempotent for sanitized events, so an inner re-sanitize
+  // in `processNewRawEvent` would be a no-op — we drop it there.
+  for (const event of events) {
+    sanitizeRawFields(event);
+  }
 
   // Sync fingerprint precompute keyed by event identity. Runs first so the
   // prefetch query can join the parallel batch below; the loop body reuses
