@@ -103,6 +103,7 @@ import { MoolooHhhAdapter } from "./html-scraper/mooloo-hhh";
 import { GeriatrixH3Adapter } from "./html-scraper/geriatrix-h3";
 import { HogtownAdapter } from "./html-scraper/hogtown";
 import { MhhhCaAdapter } from "./html-scraper/mhhh-ca";
+import { SquarespaceEventsAdapter } from "./html-scraper/squarespace-events";
 import { GoogleCalendarAdapter } from "./google-calendar/adapter";
 import { GoogleSheetsAdapter } from "./google-sheets/adapter";
 import { ICalAdapter } from "./ical/adapter";
@@ -262,6 +263,12 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   // the four bundled issues including a description-leak fix in the Meetup
   // adapter (#1659) that gated this PR.
   { pattern: /mhhh\.ca/i, name: "MhhhCaAdapter", factory: () => new MhhhCaAdapter() },
+  // ── Sacramento, CA ──
+  // SACH3 — Squarespace events collection (?format=json). The shared
+  // SquarespaceEventsAdapter parses any Squarespace-hosted Events tenant;
+  // additional kennels just add a URL pattern + a Source row with
+  // `kennelTag` in config.
+  { pattern: /sach3\.beer/i, name: "SquarespaceEventsAdapter", factory: () => new SquarespaceEventsAdapter() },
 ];
 
 /** URL-based routing for HTML_SCRAPER — derived from htmlScraperEntries (single source of truth). */

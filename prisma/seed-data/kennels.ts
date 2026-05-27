@@ -679,6 +679,22 @@ export const KENNELS: KennelSeed[] = [
       scheduleFrequency: "Irregular", scheduleNotes: "Marathon-themed specialty events",
       description: "Marathon-themed specialty hash in the Bay Area. Events listed on sfh3.com.",
     },
+    // Sacramento
+    {
+      kennelCode: "sach3", shortName: "SACH3", fullName: "Sacramento Hash House Harriers",
+      region: "Sacramento, CA",
+      country: "USA",
+      website: "https://sach3.beer",
+      facebookUrl: "https://www.facebook.com/groups/1678610105727812",
+      logoUrl: "https://images.squarespace-cdn.com/content/v1/68af9da8abc7d37ef93a2a5b/7ecac11b-ebf9-4e4a-a2f0-a66eea9ad58b/SacH3+color+logo.png",
+      contactEmail: "misman.sach3.beer@gmail.com",
+      scheduleDayOfWeek: "Wednesday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Weekly Wednesday 6:30 PM; occasional Saturday noon trails.",
+      hashCash: "$5",
+      foundedYear: 1980,
+      description: "Sacramento's 'drinking club with a running problem,' running since 1980. Weekly Wednesday evening trails (6:30 PM) at rotating Sacramento-area locations, plus occasional Saturday trails. Runners, walkers, and dawdlers all welcome — dog and stroller friendly.",
+      latitude: 38.5816, longitude: -121.4944,
+    },
     // Santa Cruz
     {
       kennelCode: "sch3-ca", shortName: "Surf City H3", fullName: "Surf City Hash House Harriers",

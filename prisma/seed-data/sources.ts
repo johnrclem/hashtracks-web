@@ -2885,6 +2885,22 @@ export const SOURCES = [
       config: { defaultKennelTag: "sch3-ca" },
       kennelCodes: ["sch3-ca"],
     },
+    // --- Sacramento (HTML_SCRAPER, Squarespace events ?format=json) ---
+    // The site's collection-level `?format=ical` export is disabled at the
+    // tenant — it silently 200s with HTML instead of an ICS body. The JSON
+    // endpoint is always on and exposes the full upcoming + past arrays
+    // (title, startDate epoch-ms, location, body) in one call. See
+    // src/adapters/html-scraper/squarespace-events.ts.
+    {
+      name: "Sacramento H3 Squarespace Events",
+      url: "https://sach3.beer",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: { kennelTag: "sach3" },
+      kennelCodes: ["sach3"],
+    },
     // --- Los Angeles Area (Google Calendar) ---
     {
       name: "LAH3 Google Calendar",
