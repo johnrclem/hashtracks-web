@@ -17,6 +17,7 @@ import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
 import { createScriptPool } from "./lib/db-pool";
+import { detectVenueWeekendEndDate } from "../src/pipeline/venue-weekend";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -31,7 +32,13 @@ import path from "node:path";
 const ANCHORS: ReadonlyArray<{ name: string; titleMatch: string; expectedBucket: string }> = [
   { name: "MadisonH3 Token Run Campout 2026", titleMatch: "token run campout", expectedBucket: "A.2" },
   { name: "BAWC5 SFH3", titleMatch: "bawc", expectedBucket: "A.4" }, // catches via child-count mismatch
-  { name: "FHAC-U BAWC 2026", titleMatch: "bay area weekend campout", expectedBucket: "B.1" }, // duplicate of SFH3 umbrella
+  // Stable B.1 cross-source anchor. FHAC-U BAWC 2026 was the original
+  // motivating example but got CANCELLED in prod between PR G and PR
+  // #1741, so the audit filter excluded it (CodeRabbit PR #1741 found
+  // a stale anchor self-check failure). BigHumpH3 Bungle 2026 surfaces
+  // the same cross-source pattern: Hash Rego event slug also referenced
+  // by an HTML scraper. Stable across re-scrapes.
+  { name: "BigHumpH3 Bungle 2026", titleMatch: "bighumph3 bungle 2026", expectedBucket: "B.1" },
   { name: "InterScandi 2026 Oslo", titleMatch: "interscandi", expectedBucket: "A.5" }, // same-title consecutive
   { name: "BMPH3 Belgian Nash Hash 2026", titleMatch: "belgian nash hash", expectedBucket: "A.5" }, // same-title consecutive
 ];
@@ -40,15 +47,9 @@ const ANCHORS: ReadonlyArray<{ name: string; titleMatch: string; expectedBucket:
 // Regexes for bucket detection.
 // ──────────────────────────────────────────────────────────────────────────
 const RE_DAY_M_D_HEADER = /\*\*[A-Z][a-z]*\s+\d{1,2}\/\d{1,2}\b/; // **DAY M/D — — the canonical Hash Rego header
+// Cheap pre-filter for A.2 — the expensive part (≥2 distinct weekdays +
+// trigger-word gate) is the imported `detectVenueWeekendEndDate` itself.
 const RE_FRI_SAT_SUN_LABEL = /(?:^|\n|\s)(friday|saturday|sunday|fri|sat|sun)\s*:/i; // informal labels (Madison pattern)
-// Audit A.2 mirrors the merge-pipeline heuristic gate (`src/pipeline/venue-weekend.ts`
-// PR H). Without this, A.2 surfaces 4 false positives whose descriptions name
-// a weekday with a colon but never satisfy the heuristic's trigger-word gate
-// (Hollyweird HapPy Hour, RIH3 Static Schedule stub, etc. — PR H.7 post-merge
-// findings). The heuristic in production also requires this trigger; tightening
-// the audit makes the bucket reflect the same set of events the heuristic
-// will actually act on.
-const RE_VENUE_WEEKEND_TRIGGER = /\b(?:camp\s?out|weekend|retreat|rendezvous)\b/i;
 const RE_DATE_RANGE_NUM = /\b\d{1,2}\/\d{1,2}\s*[-–]\s*\d{1,2}\/\d{1,2}\b/; // 6/19 - 6/21
 const RE_KENNEL_SHORTHAND_TITLE = /^[A-Z]{2,}\d*\s*#\s*\d+\s*$/; // NAWW #391
 // Sonar S5852 flags any `\s*…$` or `\d+$` anchored regex as ReDoS-shaped
@@ -194,19 +195,24 @@ function bucketA1(rows: AuditRow[]): Finding[] {
 
 function bucketA2(rows: AuditRow[]): Finding[] {
   // Friday:/Saturday:/Sunday: informal labels, NOT recognized as series.
-  // Madison pattern. Mirrors the production heuristic's trigger-word gate
-  // so the audit's count reflects the events the heuristic will actually
-  // catch (PR H.7 post-merge — eliminates 4 false positives).
+  // Madison pattern. Calls the production heuristic directly so the audit's
+  // count reflects exactly the events the heuristic would act on — same
+  // trigger-word gate AND ≥2 distinct weekday names (PR #1741 CodeRabbit
+  // review). Pre-filter on the cheap label regex first so we don't pay
+  // detectVenueWeekendEndDate's cost on every row.
   return rows
     .filter(
       (r) =>
         r.description &&
         RE_FRI_SAT_SUN_LABEL.test(r.description) &&
-        (RE_VENUE_WEEKEND_TRIGGER.test(r.description) ||
-          RE_VENUE_WEEKEND_TRIGGER.test(r.title)) &&
         r.parentEventId === null &&
         r.endDate === null &&
-        !r.isSeriesParent,
+        !r.isSeriesParent &&
+        detectVenueWeekendEndDate(
+          r.description,
+          r.title,
+          fmtDate(r.date),
+        ) !== null,
     )
     .map((r) => {
       // Show what the heuristic SHOULD have matched.
