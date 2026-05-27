@@ -3,6 +3,7 @@ import {
   parseRRule,
   generateOccurrences,
   renderTitleTemplate,
+  DEFAULT_FUTURE_HORIZON_DAYS,
 } from "./adapter";
 import type { StaticScheduleConfig } from "./adapter";
 import type { RawEventData } from "../types";
@@ -765,5 +766,73 @@ describe("StaticScheduleAdapter lunar mode", () => {
     for (const event of result.events) {
       expect(event.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Forward-horizon cap (#1419, #1673) — bounds RRULE expansion regardless of
+// options.days so an audit-driven wide-window scrape can't materialize years
+// of placeholder events when the underlying RRULE has no UNTIL.
+// ---------------------------------------------------------------------------
+
+describe("StaticScheduleAdapter forward-horizon cap", () => {
+  const adapter = new StaticScheduleAdapter();
+  const WEEKLY_MO = "FREQ=WEEKLY;BYDAY=MO";
+  const DAY_MS = 86_400_000;
+  const eventMs = (e: RawEventData) => new Date(e.date + "T12:00:00Z").getTime();
+  const moolooSource = (extra: Record<string, unknown> = {}) =>
+    makeSource({ kennelTag: "mooloo-h3", rrule: WEEKLY_MO, ...extra });
+
+  it("caps forward window at the default when options.days exceeds it", async () => {
+    // Unbounded weekly Monday RRULE — Mooloo H3 (#1673) pathology. Caller asks
+    // for ±1500 days; back-window honors that but forward-window must clamp.
+    const result = await adapter.fetch(moolooSource(), { days: 1500 });
+    expect(result.errors).toEqual([]);
+    const horizonMs = Date.now() + DEFAULT_FUTURE_HORIZON_DAYS * DAY_MS;
+    for (const event of result.events) {
+      expect(eventMs(event)).toBeLessThanOrEqual(horizonMs);
+    }
+    expect(result.diagnosticContext?.windowDays).toBe(1500);
+    expect(result.diagnosticContext?.forwardWindowDays).toBe(DEFAULT_FUTURE_HORIZON_DAYS);
+  });
+
+  it("preserves full back-window when forward cap engages (deep backfill unaffected)", async () => {
+    const result = await adapter.fetch(moolooSource(), { days: 1500 });
+    // Some events must land >365 days before today — confirms back-window isn't capped.
+    const cutoffMs = Date.now() - DEFAULT_FUTURE_HORIZON_DAYS * DAY_MS;
+    const oldEvents = result.events.filter((e) => eventMs(e) < cutoffMs);
+    expect(oldEvents.length).toBeGreaterThan(0);
+  });
+
+  it("honors per-source futureHorizonDays override", async () => {
+    // Override to 730 days — caller's 1500 still clamps, but to 730 not the default.
+    const OVERRIDE = 730;
+    const result = await adapter.fetch(moolooSource({ futureHorizonDays: OVERRIDE }), { days: 1500 });
+    expect(result.diagnosticContext?.forwardWindowDays).toBe(OVERRIDE);
+    const horizonMs = Date.now() + OVERRIDE * DAY_MS;
+    const beyondDefaultMs = Date.now() + DEFAULT_FUTURE_HORIZON_DAYS * DAY_MS;
+    const futureEvents = result.events.filter((e) => eventMs(e) > beyondDefaultMs);
+    expect(futureEvents.length).toBeGreaterThan(0);
+    for (const event of result.events) {
+      expect(eventMs(event)).toBeLessThanOrEqual(horizonMs);
+    }
+  });
+
+  it.each([
+    ["string", "365" as unknown as number],
+    ["NaN", Number.NaN],
+    ["negative", -1],
+    ["zero", 0],
+    ["Infinity", Infinity],
+  ])("falls back to default cap when futureHorizonDays is malformed (%s)", async (_label, bad) => {
+    const result = await adapter.fetch(moolooSource({ futureHorizonDays: bad }), { days: 1500 });
+    expect(result.diagnosticContext?.forwardWindowDays).toBe(DEFAULT_FUTURE_HORIZON_DAYS);
+  });
+
+  it("does not extend forward window when options.days is already below the cap", async () => {
+    // Caller asks for 90 days; cap stays at default → no behavior change vs pre-#1419.
+    const result = await adapter.fetch(moolooSource(), { days: 90 });
+    expect(result.diagnosticContext?.forwardWindowDays).toBe(90);
+    expect(result.diagnosticContext?.windowDays).toBe(90);
   });
 });

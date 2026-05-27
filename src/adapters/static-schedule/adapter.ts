@@ -56,7 +56,24 @@ export interface StaticScheduleConfig {
    * as literal text on per-source rows whose RRULE matches that slot.
    */
   titleTemplate?: string;
+  /**
+   * Cap on the forward window (days from "now") used when expanding RRULE /
+   * lunar rules. Mirrors GOOGLE_CALENDAR's `futureHorizonDays` — same key
+   * name, same units, same default. Bounds how far an unbounded recurrence
+   * (no UNTIL / no COUNT) can materialize when an audit-driven wide-window
+   * scrape (e.g. `options.days = 1500`) reaches the adapter. The historical
+   * back-window is unaffected so deep backfills still work. Closes #1419.
+   */
+  futureHorizonDays?: number;
 }
+
+/**
+ * Default forward-horizon cap for RRULE / lunar expansion. Matches GOOGLE_CALENDAR's
+ * `DEFAULT_FUTURE_HORIZON_DAYS` so admins can reason about both adapters with one
+ * mental model. See header comment in `prisma/seed-data/sources.ts` for the policy
+ * (#1419) and the per-source override pattern.
+ */
+export const DEFAULT_FUTURE_HORIZON_DAYS = 365;
 
 /**
  * Generate weekly occurrence dates within a window. Supports anchor-based alignment
@@ -335,8 +352,9 @@ export class StaticScheduleAdapter implements SourceAdapter {
   type = "STATIC_SCHEDULE" as const;
 
   /**
-   * Generate recurring events from the source's RRULE schedule config.
-   * Produces events within a symmetric window around today (default ±90 days).
+   * Generate recurring events from the source's RRULE schedule config. Default
+   * window is ±90 days; the forward side is capped at `futureHorizonDays` so a
+   * wide-window backfill can't materialize years of placeholder events.
    */
   async fetch(
     source: Source,
@@ -346,7 +364,9 @@ export class StaticScheduleAdapter implements SourceAdapter {
     if (!configResult.ok) return errorResult(configResult.error);
 
     const { config, validated } = configResult;
-    const window = computeScrapeWindow(options?.days ?? 90);
+    const requestedDays = options?.days ?? 90;
+    const forwardDays = Math.min(requestedDays, resolveFutureHorizonDays(config.futureHorizonDays));
+    const window = computeScrapeWindow(requestedDays, forwardDays);
 
     const occurrencesResult =
       validated.kind === "lunar"
@@ -361,6 +381,7 @@ export class StaticScheduleAdapter implements SourceAdapter {
           ...occurrencesResult.diagnostic,
           occurrencesGenerated: 0,
           windowDays: window.days,
+          forwardWindowDays: window.forwardDays,
           windowStart: window.start.toISOString(),
           windowEnd: window.end.toISOString(),
           note: "off-season: window does not overlap any BYMONTH month",
@@ -397,6 +418,7 @@ export class StaticScheduleAdapter implements SourceAdapter {
         ...diagnostic,
         occurrencesGenerated: events.length,
         windowDays: window.days,
+        forwardWindowDays: window.forwardDays,
         windowStart: window.start.toISOString(),
         windowEnd: window.end.toISOString(),
       },
@@ -412,18 +434,39 @@ function errorResult(message: string): ScrapeResult {
 interface ScrapeWindow {
   start: Date;
   end: Date;
+  /** Days of historical back-window — the original `options.days` value. */
   days: number;
+  /** Days of forward projection — `min(options.days, futureHorizonDays)`. */
+  forwardDays: number;
 }
 
-/** Compute the symmetric ±days window centered on UTC noon today. */
-function computeScrapeWindow(days: number): ScrapeWindow {
+/**
+ * Compute an asymmetric scrape window centered on UTC noon today: `days` back,
+ * `forwardDays` forward. Deep backfills set `days` large; the forward cap
+ * (#1419, #1673) keeps an unbounded RRULE from materializing years of
+ * placeholder events.
+ */
+function computeScrapeWindow(days: number, forwardDays: number): ScrapeWindow {
   const now = new Date();
   const todayNoon = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12, 0, 0);
   return {
     start: new Date(todayNoon - days * 86_400_000),
-    end: new Date(todayNoon + days * 86_400_000),
+    end: new Date(todayNoon + forwardDays * 86_400_000),
     days,
+    forwardDays,
   };
+}
+
+/**
+ * Defensive parse for `config.futureHorizonDays` — non-numeric, NaN, ±Infinity,
+ * negative, or zero falls back to the default. NaN would otherwise propagate
+ * into Date arithmetic and silently emit zero events. Mirrors the same guard
+ * inlined in the GOOGLE_CALENDAR adapter so policy stays uniform.
+ */
+function resolveFutureHorizonDays(raw: unknown): number {
+  return typeof raw === "number" && Number.isFinite(raw) && raw > 0
+    ? raw
+    : DEFAULT_FUTURE_HORIZON_DAYS;
 }
 
 type ConfigParseResult =
