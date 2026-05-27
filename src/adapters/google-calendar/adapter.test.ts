@@ -3311,6 +3311,18 @@ describe("extractCostFromDescription (#774)", () => {
     const desc = "What: Bushman HHH No. 251\nWhen: Saturday 4/18, 2:00 PM, on out at 2:30 PM\nWhere: LaBagh Woods\nHow much: $5\nHare: Back Door Bizzle";
     expect(extractCostFromDescription(desc)).toBe("$5");
   });
+
+  // #1670 — defensive sigil normalization on already-prefixed values.
+  // Production observed "$$10" on 7 MoA2H3 events even though every current
+  // code path returns "$10". `normalizeCostSigil` collapses leftover doubled
+  // sigils / markdown bullets so a future source-side typo doesn't leak.
+  it.each([
+    ["Hash Cash: $$10", "$10", "collapses leftover double-$ from source typo"],
+    ["Hash Cash: * $10", "$10", "strips leading markdown-bullet token"],
+    ["Hash Cash: $$10 - cash only", "$10 - cash only", "collapses sigil while preserving trailing prose"],
+  ])("normalizes leaky sigil shapes (#1670): %j → %p", (desc, expected) => {
+    expect(extractCostFromDescription(desc)).toBe(expected);
+  });
 });
 
 describe("buildRawEventFromGCalItem — coord-only item.location (#779 BMPH3)", () => {

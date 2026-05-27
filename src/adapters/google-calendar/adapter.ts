@@ -1,7 +1,7 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
-import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, EVENT_FIELD_LABEL_RE, EVENT_FIELD_LABEL_UPPERCASE_RE, CTA_EMBEDDED_PATTERNS, appendDescriptionSuffix, isPlaceholder, parse12HourTime, formatAmPmTime, stripNonEnglishCountry, extractHashRunNumber, hasPlaceholderRunNumber } from "../utils";
+import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, EVENT_FIELD_LABEL_RE, EVENT_FIELD_LABEL_UPPERCASE_RE, CTA_EMBEDDED_PATTERNS, appendDescriptionSuffix, isPlaceholder, parse12HourTime, formatAmPmTime, stripNonEnglishCountry, extractHashRunNumber, hasPlaceholderRunNumber, normalizeCostSigil } from "../utils";
 import { matchKennelPatterns, matchCompiledKennelPatterns, compileKennelPatterns, type KennelPattern, type CompiledKennelPattern } from "../kennel-patterns";
 import { LOCATION_EMAIL_CTA_RE } from "@/pipeline/audit-checks";
 import { parseDMSFromLocation } from "@/lib/geo";
@@ -625,7 +625,7 @@ export function extractCostFromDescription(description: string): string | undefi
     value = value.replace(EVENT_FIELD_LABEL_RE, "").replace(EVENT_FIELD_LABEL_UPPERCASE_RE, "").trim();
     if (!value || isPlaceholder(value)) return undefined;
     if (/^\d+(?:\.\d{1,2})?$/.test(value)) return `$${value}`;
-    return value;
+    return normalizeCostSigil(value);
   }
   return undefined;
 }

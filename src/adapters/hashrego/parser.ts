@@ -1,6 +1,7 @@
 import * as cheerio from "cheerio";
 import isSafeRegex from "safe-regex2";
 import type { RawEventData } from "../types";
+import { normalizeCostSigil } from "../utils";
 
 const BASE_URL = "https://hashrego.com";
 
@@ -185,13 +186,50 @@ export function parseEventDetail(
   const ogTitle = $('meta[property="og:title"]').attr("content") || "";
   // og:title format: "MM/DD EventTitle"
   const titleFromOg = ogTitle.replace(/^\d{2}\/\d{2}\s+/, "").trim();
-  const title = titleFromOg || $("title").text().trim();
+  let title = titleFromOg || $("title").text().trim();
 
   // Kennel slug from sidebar link
   const kennelLink = $('a[href^="/kennels/"]').first();
   const kennelHref = kennelLink.attr("href") || "";
   const kennelMatch = kennelHref.match(/\/kennels\/([^/]+)/);
   const kennelSlug = kennelMatch?.[1] || indexEntry?.kennelSlug || "";
+
+  // #1669 — strip a doubled kennel-slug prefix from the title.
+  // hashrego.com event slugs include the host kennel ("moa2h3-red-dress-run");
+  // when a kennel admin also types the slug into the title field, the og:title
+  // surfaces as "MoA2H3 MoA2H3 Red Dress Run" AND the URL slug becomes
+  // "moa2h3-moa2h3-red-dress-run" (a tell-tale doubled prefix). The merge
+  // pipeline picks this over the GCal SUMMARY ("MoA2H3 Red Dress Run") because
+  // Hash Rego trust=8 > GCal trust=7.
+  //
+  // We try three sources of the kennel-prefix token in order of robustness:
+  //   1. The URL slug's own doubled-prefix shape ("moa2h3-moa2h3-…") — this
+  //      is the most reliable signal because the slug always carries the
+  //      kennel code and the doubled shape is itself proof of the typo.
+  //   2. The kennelSlug extracted from the sidebar `<a href="/kennels/X/">`
+  //      — in practice often empty on the live page because the first
+  //      matching link is the nav menu's `/kennels/` index page.
+  //   3. indexEntry.kennelSlug (round-trip from the index table).
+  //
+  // The lookahead `(?=\s|$)` inside `stripDoubledKennelPrefix` prevents
+  // stripping inside compound tokens ("BH3 BH3FM Trail" must NOT collapse
+  // to "BH3FM Trail"). Mirrors the GCal `stripDoubledKennelPrefix` pattern
+  // (PR #1458, adapter.ts:~1164) but is always-on here — Hash Rego's title
+  // field is single-event scoped, so a "X X News" false positive is not a
+  // realistic shape.
+  const doubledSlugMatch = /^([a-z0-9]+)-\1-/i.exec(slug);
+  const prefixCandidates = [
+    doubledSlugMatch?.[1],
+    kennelSlug,
+    indexEntry?.kennelSlug,
+  ].filter((s): s is string => typeof s === "string" && s.length > 0);
+  for (const candidate of prefixCandidates) {
+    const next = stripDoubledKennelPrefix(title, candidate);
+    if (next !== title) {
+      title = next;
+      break;
+    }
+  }
 
   // Host Kennel display name (#806): hashrego slugs like "TH3" collide across
   // regions. The "Host Kennel:" heading is followed by an <a> to the kennel
@@ -208,7 +246,13 @@ export function parseEventDetail(
   // (#806). Detail page renders `<p><strong>Hare(s):</strong></p>` followed
   // by a sibling `<p>` with the comma/&-joined hare names.
   const hares = haresFromDescription || extractHaresFromDom($);
-  const cost = extractField(rawDescription, "Cost") || indexEntry?.cost;
+  // #1670 — strip leading markdown-bullet / repeated `$` from extracted cost.
+  // Some hashrego description blocks render the cost as `* **Cost:** $10` (or
+  // `- **Cost:** $10`) where `extractField`'s plain-pattern path can capture
+  // residual bullet artifacts. The normalization is idempotent on clean
+  // values ("$10" → "$10") and the existing index-table fallback shape.
+  const rawCost = extractField(rawDescription, "Cost") || indexEntry?.cost;
+  const cost = rawCost ? normalizeCostSigil(rawCost) : undefined;
 
   // og:description-based location extraction (legacy path — only fires for
   // events whose host kennel writes labeled fields into the description).
@@ -521,6 +565,30 @@ export function splitToRawEvents(
 }
 
 // ── Internal helpers ──
+
+/**
+ * Strip a doubled kennel-slug prefix from a title (#1669).
+ *
+ * "MoA2H3 MoA2H3 Red Dress Run" + slug "moa2h3" → "MoA2H3 Red Dress Run"
+ * "BFM BFM Annual Hash"         + slug "bfm"    → "BFM Annual Hash"
+ *
+ * Case-insensitive match; replacement preserves the typed casing of the
+ * first occurrence ($1). The lookahead `(?=\s|$)` is a hard boundary so
+ * "BH3 BH3FM Trail" does not collapse to "BH3FM Trail".
+ *
+ * Returns the original title untouched when there's no kennel slug
+ * available or no doubled prefix is present.
+ */
+export function stripDoubledKennelPrefix(
+  title: string,
+  kennelSlug: string,
+): string {
+  if (!kennelSlug || !title) return title;
+  const slugEsc = kennelSlug.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+  // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
+  const doubled = new RegExp(String.raw`^(${slugEsc})\s+${slugEsc}(?=\s|$)`, "iu"); // NOSONAR — slugEsc is regex-escaped; anchored + boundary lookahead
+  return title.replace(doubled, "$1").trim();
+}
 
 /** Extract a **Field:** value from markdown-like text */
 function extractField(text: string, fieldName: string): string | undefined {

@@ -49,6 +49,7 @@ export interface KennelSeed {
   twitterHandle?: string;
   discordUrl?: string;
   mailingListUrl?: string;
+  stravaUrl?: string;
   contactEmail?: string;
   contactName?: string;        // #1337
   // Profile fields surfaced from chrome-kennel audits (#1415).
@@ -2276,9 +2277,13 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "moa2h3", shortName: "MoA2H3", fullName: "Motown Ann Arbor Hash House Harriers", region: "Detroit, MI",
       website: "https://moa2h3.org",
       facebookUrl: "https://www.facebook.com/MOA2H3",
+      stravaUrl: "https://www.strava.com/clubs/51157",
+      mailingListUrl: "https://moa2h3.org/join-us/",
       scheduleDayOfWeek: "Sunday", scheduleTime: "2:00 PM", scheduleFrequency: "Weekly",
-      scheduleNotes: "Variable Sunday afternoon, check calendar",
-      description: "Metro Detroit and Ann Arbor's weekly Sunday hash. The largest kennel in Michigan.",
+      scheduleNotes: "Weekly, Saturday or Sunday early afternoon (2pm/2:30pm)",
+      hashCash: "$10", foundedYear: 1987,
+      founder: "John 'Dr. Death' Hain (Motown H3, 1987); Anne 'Babe' Hiltner née Kirschke (Ann Arbor H3, 1989). Kennels merged 8 May 2004.",
+      description: "Metro Detroit and Ann Arbor's weekly hash, rotating Saturday/Sunday afternoons. Founded as Motown H3 in 1987 and merged with Ann Arbor H3 in 2004 — the largest kennel in Michigan.",
       latitude: 42.33, longitude: -83.05,
     },
     {

@@ -821,6 +821,24 @@ export function configString(
 }
 
 /**
+ * Strip leading markdown-bullet (`* `, `- `) and collapse repeated leading `$`
+ * sigils on a cost value (#1670). Defends against two production-observed
+ * shapes:
+ *   - "$$10"   ← historical double-prefix (verbatim value already carried `$`)
+ *   - "* $10"  ← markdown-bullet leak when value follows a bulleted label
+ * Both collapse to "$10". A single leading `$` or "Free"/"€10" passes through.
+ * Idempotent — safe to call on already-clean values.
+ */
+export function normalizeCostSigil(value: string): string {
+  let v = value.trim();
+  // Drop a leading markdown-bullet token: "* $10" or "- $10".
+  v = v.replace(/^[*\-]\s+/, "");
+  // Collapse runs of leading `$` to one ("$$10" → "$10").
+  v = v.replace(/^\$+/, "$");
+  return v;
+}
+
+/**
  * Return the value if it's non-empty and not a placeholder, otherwise undefined.
  * Convenience wrapper: `stripPlaceholder(cell) ?? fallback`
  */

@@ -2618,13 +2618,38 @@ export const SOURCES = [
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
       scrapeFreq: "every_6h",
-      scrapeDays: 90,
+      // #1671 — bumped 90 → 800 to backfill ~45 historical events spanning
+      // Sep 2024 → Nov 2025 that landed on this calendar before MoA2H3 was
+      // onboarded to HashTracks. From today (early 2026), 800 days reaches
+      // back into mid-2024 with headroom; the originally proposed 600 only
+      // reached Oct 2024 and would have missed the start of the gap (Codex
+      // adversarial review on the PR). GCal is API-backed and safe for
+      // wide-window scrapes; triggered post-merge via the per-source admin
+      // scrape route.
+      scrapeDays: 800,
       config: {
         defaultKennelTag: "moa2h3",
         // #1458 — kennel admins double-paste "MoA2H3" into event titles on
         // the source side. Opt in to the doubled-prefix strip so titles
         // like "MoA2H3 MoA2H3 Red Dress Run" surface as a single prefix.
         stripDoubledKennelPrefix: true,
+        // #1671 — the MoA2H3 calendar carries a handful of sister-kennel
+        // events (DeMon H3 inaugural trail Nov 2025; GLH3 HashMas Jan 2025).
+        // Without routing, the wide-window backfill would file them under
+        // moa2h3 and pollute the kennel page. Patterns route them to the
+        // sister codes — those codes are intentionally NOT added to
+        // `kennelCodes` here, so the source-kennel guard blocks the rows
+        // with `SOURCE_KENNEL_MISMATCH` alerts instead of creating duplicate
+        // Event records. The merge pipeline does NOT dedup by `(kennelId,
+        // date)` across sources (known travel-pipeline gap — Codex
+        // adversarial review on #1671), so listing the codes here would
+        // produce duplicates against the kennels' own GCal sources. The 3
+        // expected alerts during the backfill are the right surface: admin
+        // reviews and dismisses.
+        kennelPatterns: [
+          ["^DeMon\\s*H?3?\\b", "demon-h3"],
+          ["^GLH3\\b|^Greater\\s+Lansing", "glh3"],
+        ],
       },
       kennelCodes: ["moa2h3"],
     },
