@@ -44,7 +44,10 @@ const RE_FRI_SAT_SUN_LABEL = /(?:^|\n|\s)(friday|saturday|sunday|fri|sat|sun)\s*
 const RE_DATE_RANGE_NUM = /\b\d{1,2}\/\d{1,2}\s*[-–]\s*\d{1,2}\/\d{1,2}\b/; // 6/19 - 6/21
 const RE_KENNEL_SHORTHAND_TITLE = /^[A-Z]{2,}\d*\s*#\s*\d+\s*$/; // NAWW #391
 const RE_RUN_NUMBER_SUFFIX = /[-–\s]\s*#?\s*\d+\s*$/; // " - #436" / " #436" / " - 436"
-const RE_KNOWN_SOURCE_URL = /https?:\/\/(?:www\.)?(hashrego\.com|sfh3\.com|hashnyc\.com|svh3\.com|ebh3\.org|marinh3\.com)\/[^\s)>"']+/gi;
+const RE_KNOWN_SOURCE_URL = new RegExp(
+  String.raw`https?://(?:www\.)?(hashrego\.com|sfh3\.com|hashnyc\.com|svh3\.com|ebh3\.org|marinh3\.com)/[^\s)>"']+`,
+  "gi",
+);
 
 // Day-name labels found in description, used to count "apparent day count"
 // for A.4 (parent.childEvents.length vs description's day mentions).
@@ -86,7 +89,7 @@ function shorten(s: string | null, n = 80): string {
 }
 
 function escapeMd(s: string): string {
-  return s.replace(/\|/g, "\\|").replace(/\n/g, " ");
+  return s.replaceAll("|", String.raw`\|`).replaceAll("\n", " ");
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -123,7 +126,7 @@ function bucketA2(rows: AuditRow[]): Finding[] {
     )
     .map((r) => {
       // Show what the heuristic SHOULD have matched.
-      const m = r.description!.match(RE_FRI_SAT_SUN_LABEL);
+      const m = RE_FRI_SAT_SUN_LABEL.exec(r.description!);
       return {
         bucket: "A.2",
         eventId: r.id,
@@ -150,7 +153,7 @@ function bucketA3(rows: AuditRow[]): Finding[] {
     })
     .map((r) => {
       const where = RE_DATE_RANGE_NUM.test(r.title) ? "title" : "description";
-      const m = (where === "title" ? r.title : r.description!).match(RE_DATE_RANGE_NUM);
+      const m = RE_DATE_RANGE_NUM.exec(where === "title" ? r.title : r.description!);
       return {
         bucket: "A.3",
         eventId: r.id,
@@ -169,10 +172,12 @@ function bucketA4(rows: AuditRow[]): Finding[] {
   return rows
     .filter((r) => r.isSeriesParent && r.description)
     .map((r) => {
-      const matches = r.description!.match(RE_DAY_NAMES_IN_DESC);
-      if (!matches) return null;
       // Dedup case-insensitively (Saturday + saturday → 1).
-      const distinctDays = new Set(matches.map((m) => m.toLowerCase()));
+      const distinctDays = new Set<string>();
+      for (const m of r.description!.matchAll(RE_DAY_NAMES_IN_DESC)) {
+        distinctDays.add(m[0].toLowerCase());
+      }
+      if (distinctDays.size === 0) return null;
       const dayCount = distinctDays.size;
       const childCount = r.childEvents.length;
       // Allow off-by-one (parent itself might count). Flag if differs by ≥2.
@@ -190,58 +195,64 @@ function bucketA4(rows: AuditRow[]): Finding[] {
     .filter((f): f is Finding => f !== null);
 }
 
-function bucketA5(rows: AuditRow[]): Finding[] {
-  // Same kennel + similar title + consecutive dates, not linked as series.
-  // Catches InterScandi (OH3 × 4 days) + BMPH3 Belgian Nash Hash (× 3 days).
-  // Heuristic: group by kennelId + normalized title token-prefix; flag groups
-  // of 2+ events on consecutive dates where none are series parents/children.
-  // Group key = first 4 tokens of the normalized title. Per-day suffixes
-  // ("Pub Crawl!" / "Hangover Trail!" / "Trail #2051") differ across days
-  // but the leading event-name tokens stay stable. Example tokens:
-  //   "BMPH3: Trail #2051 – Belgian Nash Hash 2026 Pub Crawl!" →
-  //   first-4 → "bmph3 belgian nash hash"
-  const normTitle = (t: string): string =>
-    t
-      .toLowerCase()
-      .replace(/[#\-–—:]/g, " ")
-      .replace(/\btrail\b/g, "")
-      .replace(/\b\d+\b/g, "") // strip standalone run numbers + year suffixes
-      .replace(/\s+/g, " ")
-      .trim();
+// Title normalization for A.5 grouping. Per-day suffixes ("Pub Crawl!" /
+// "Hangover Trail!" / "Trail #2051") differ across days; the leading
+// event-name tokens stay stable. Example:
+//   "BMPH3: Trail #2051 – Belgian Nash Hash 2026 Pub Crawl!" →
+//   first-4 normalized tokens → "bmph3 belgian nash hash"
+function normTitleForA5(t: string): string {
+  return t
+    .toLowerCase()
+    .replaceAll(/[#\-–—:]/g, " ")
+    .replaceAll(/\btrail\b/g, "")
+    .replaceAll(/\b\d+\b/g, "") // strip standalone run numbers + year suffixes
+    .replaceAll(/\s+/g, " ")
+    .trim();
+}
 
-  const groupKey = (norm: string): string | null => {
-    const tokens = norm.split(/\s+/).filter(Boolean);
-    if (tokens.length < 2) return null;
-    return tokens.slice(0, 4).join(" ");
-  };
+function a5GroupKey(norm: string): string | null {
+  const tokens = norm.split(/\s+/).filter(Boolean);
+  if (tokens.length < 2) return null;
+  return tokens.slice(0, 4).join(" ");
+}
 
-  type Group = { kennelId: string; norm: string; events: AuditRow[] };
-  const groups = new Map<string, Group>();
+interface A5Group { kennelId: string; norm: string; events: AuditRow[]; }
+
+function clusterA5Groups(rows: AuditRow[]): Map<string, A5Group> {
+  const groups = new Map<string, A5Group>();
   for (const r of rows) {
     if (r.isSeriesParent || r.parentEventId) continue;
-    const norm = normTitle(r.title);
-    const prefix = groupKey(norm);
-    if (!prefix || prefix.length < 8) continue; // too generic
+    const norm = normTitleForA5(r.title);
+    const prefix = a5GroupKey(norm);
+    if (!prefix || prefix.length < 8) continue;
     const key = `${r.kennel.id}::${prefix}`;
     const g = groups.get(key) ?? { kennelId: r.kennel.id, norm: prefix, events: [] };
     g.events.push(r);
     groups.set(key, g);
   }
+  return groups;
+}
 
+function isConsecutiveCluster(sorted: AuditRow[]): boolean {
+  const DAY_MS = 1000 * 60 * 60 * 24;
+  for (let i = 1; i < sorted.length; i++) {
+    const gap = (sorted[i].date.getTime() - sorted[i - 1].date.getTime()) / DAY_MS;
+    if (gap >= 1 && gap <= 2) return true;
+  }
+  return false;
+}
+
+function bucketA5(rows: AuditRow[]): Finding[] {
+  // Same kennel + similar title + consecutive dates, not linked as series.
+  // Catches InterScandi (OH3 × 4 days) + BMPH3 Belgian Nash Hash (× 3 days).
+  const DAY_MS = 1000 * 60 * 60 * 24;
   const findings: Finding[] = [];
-  for (const g of groups.values()) {
+  for (const g of clusterA5Groups(rows).values()) {
     if (g.events.length < 2) continue;
-    // Sort by date, then test for any consecutive pair (≤2-day gap allows for
-    // Fri + Sat + Sun-with-recovery-on-Mon style weekends).
     const sorted = [...g.events].sort((a, b) => a.date.getTime() - b.date.getTime());
-    let consecutive = false;
-    for (let i = 1; i < sorted.length; i++) {
-      const gap = (sorted[i].date.getTime() - sorted[i - 1].date.getTime()) / (1000 * 60 * 60 * 24);
-      if (gap >= 1 && gap <= 2) { consecutive = true; break; }
-    }
-    if (!consecutive) continue;
+    if (!isConsecutiveCluster(sorted)) continue;
     // Cluster spans more than a week → not a weekend cluster, skip.
-    const totalDays = (sorted[sorted.length - 1].date.getTime() - sorted[0].date.getTime()) / (1000 * 60 * 60 * 24);
+    const totalDays = (sorted.at(-1)!.date.getTime() - sorted[0].date.getTime()) / DAY_MS;
     if (totalDays > 7) continue;
     for (const e of sorted) {
       findings.push({
@@ -258,64 +269,66 @@ function bucketA5(rows: AuditRow[]): Finding[] {
   return findings;
 }
 
+function extractB1Path(url: string): string | null {
+  // Pull /events/<slug> or /runs/<id> path off any host (sfh3.com,
+  // svh3.com, hashrego.com, etc.) so siblings cluster despite different hosts.
+  const m = /^https?:\/\/[^/]+(\/[^?#\s)]+)/.exec(url);
+  if (!m) return null;
+  const path = m[1].replace(/\/+$/, "").toLowerCase();
+  // Ignore generic non-event paths (root, /runs without an id, etc.)
+  if (!/\/(events|runs)\/[\w-]+/.test(path)) return null;
+  return path;
+}
+
+function collectKnownSourceUrls(r: AuditRow): Set<string> {
+  const urls = new Set<string>();
+  if (r.sourceUrl) urls.add(r.sourceUrl);
+  if (r.description) {
+    const re = new RegExp(RE_KNOWN_SOURCE_URL.source, "gi");
+    for (const m of r.description.matchAll(re)) {
+      urls.add(m[0].replace(/[.,;:)]+$/, ""));
+    }
+  }
+  return urls;
+}
+
+function clusterByB1Path(rows: AuditRow[]): Map<string, Set<string>> {
+  // path → set of eventIds referencing that path
+  const byPath = new Map<string, Set<string>>();
+  for (const r of rows) {
+    for (const url of collectKnownSourceUrls(r)) {
+      const p = extractB1Path(url);
+      if (!p) continue;
+      const set = byPath.get(p) ?? new Set<string>();
+      set.add(r.id);
+      byPath.set(p, set);
+    }
+  }
+  return byPath;
+}
+
+function isLegitParentChildCluster(evts: AuditRow[]): boolean {
+  const parent = evts.find((e) => e.isSeriesParent);
+  if (!parent) return false;
+  return evts.every(
+    (e) => e.id === parent.id || e.parentEventId === parent.id,
+  );
+}
+
 function bucketB1(rows: AuditRow[]): Finding[] {
-  // Cross-source duplicates of the same underlying event.
-  // Two pathways to detect:
+  // Cross-source duplicates of the same underlying event. Two pathways:
   //  (a) Two events whose `description` contains the same external URL.
   //  (b) An event's `description` contains a URL whose path (`/events/<slug>`
   //      or `/runs/<id>`) matches another event's `sourceUrl` even if the
-  //      hostname differs (sfh3.com/events/133 ↔ svh3.com/events/133 — these
-  //      are mirrors of the same physical event published on sibling-kennel
-  //      sites). FHAC-U + SFH3 BAWC5 case.
-  //
-  // Normalize each URL into a (path) key — `/events/bawc-2026` or
-  // `/runs/6422` — and cluster by that.
-  type UrlRef = { eventId: string; rawUrl: string };
-  const byPath = new Map<string, UrlRef[]>();
-
-  const extractPath = (url: string): string | null => {
-    const m = url.match(/^https?:\/\/[^/]+(\/[^?#\s)]+)/);
-    if (!m) return null;
-    return m[1].replace(/\/$/, "").toLowerCase();
-  };
-
-  for (const r of rows) {
-    const urls = new Set<string>();
-    if (r.sourceUrl) urls.add(r.sourceUrl);
-    if (r.description) {
-      const re = new RegExp(RE_KNOWN_SOURCE_URL.source, "gi");
-      let m: RegExpExecArray | null;
-      while ((m = re.exec(r.description)) !== null) {
-        urls.add(m[0].replace(/[.,;:)]+$/, ""));
-      }
-    }
-    for (const url of urls) {
-      const p = extractPath(url);
-      if (!p) continue;
-      // Ignore generic non-event paths (root, /runs without an id, etc.)
-      if (!/\/(events|runs)\/[\w-]+/.test(p)) continue;
-      const arr = byPath.get(p) ?? [];
-      arr.push({ eventId: r.id, rawUrl: url });
-      byPath.set(p, arr);
-    }
-  }
-
+  //      hostname differs (sfh3.com/events/133 ↔ svh3.com/events/133 —
+  //      mirrors of the same physical event on sibling-kennel sites).
+  //      FHAC-U + SFH3 BAWC5 case.
   const findings: Finding[] = [];
   const rowsById = new Map(rows.map((r) => [r.id, r]));
-  for (const [path, refs] of byPath) {
-    // Distinct event IDs only.
-    const distinctIds = Array.from(new Set(refs.map((r) => r.eventId)));
-    if (distinctIds.length < 2) continue;
-    const evts = distinctIds.map((id) => rowsById.get(id)!).filter(Boolean);
-    // Skip if the cluster is a single legitimate series — i.e. one parent
-    // in the cluster and every other member is its direct child.
-    const parentInCluster = evts.find((e) => e.isSeriesParent);
-    if (parentInCluster) {
-      const restAllChildren = evts.every(
-        (e) => e.id === parentInCluster.id || e.parentEventId === parentInCluster.id,
-      );
-      if (restAllChildren) continue;
-    }
+  for (const [path, idSet] of clusterByB1Path(rows)) {
+    if (idSet.size < 2) continue;
+    const evts = Array.from(idSet).map((id) => rowsById.get(id)!).filter(Boolean);
+    if (isLegitParentChildCluster(evts)) continue;
     for (const e of evts) {
       findings.push({
         bucket: "B.1",
@@ -324,67 +337,93 @@ function bucketB1(rows: AuditRow[]): Finding[] {
         title: e.title,
         date: fmtDate(e.date),
         sourceUrl: e.sourceUrl,
-        detail: `URL path "${path}" appears across ${distinctIds.length} events; cross-source duplicate of the same physical event`,
+        detail: `URL path "${path}" appears across ${idSet.size} events; cross-source duplicate of the same physical event`,
       });
     }
   }
   return findings;
 }
 
-function bucketB2(rows: AuditRow[]): Finding[] {
-  // For each series parent, find events on dates in [date, endDate] from
-  // a different kennel that aren't children of this parent. Cross-kennel
-  // child candidate (BAWC5 ← Marin H3 6/20).
-  const findings: Finding[] = [];
-  const parents = rows.filter((r) => r.isSeriesParent && r.endDate);
-  // Index non-parent, non-child events by (yyyy-mm-dd) for fast lookup.
+// Same-region heuristic for B.2: trailing ", XX" state/country code.
+// "San Francisco, CA" and "San Jose, CA" both match on "CA" — both in the
+// SF Bay Area. "Oslo" vs "Berlin" differ on bare-city regions.
+function regionGroup(region: string): string {
+  const m = /,\s*([A-Z]{2,3})\s*$/.exec(region);
+  if (m) return m[1];
+  return region.toLowerCase().trim();
+}
+
+function indexNonParentByDate(rows: AuditRow[]): Map<string, AuditRow[]> {
   const byDate = new Map<string, AuditRow[]>();
   for (const r of rows) {
-    if (r.isSeriesParent) continue;
-    if (r.parentEventId !== null) continue;
+    if (r.isSeriesParent || r.parentEventId !== null) continue;
     const k = fmtDate(r.date);
     const arr = byDate.get(k) ?? [];
     arr.push(r);
     byDate.set(k, arr);
   }
-  // Same-region heuristic: compare the trailing ", XX" state/country code.
-  // "San Francisco, CA" and "San Jose, CA" both match on ", CA" — they're
-  // both in the SF Bay Area for cross-kennel purposes. "Oslo" vs "Berlin"
-  // differ on bare-city regions.
-  const regionGroup = (region: string): string => {
-    const m = region.match(/,\s*([A-Z]{2,3})\s*$/);
-    if (m) return m[1];
-    return region.toLowerCase().trim();
-  };
+  return byDate;
+}
 
+function* iterateUmbrellaDates(parent: AuditRow): Iterable<string> {
+  const start = new Date(Date.UTC(parent.date.getUTCFullYear(), parent.date.getUTCMonth(), parent.date.getUTCDate()));
+  const end = new Date(Date.UTC(parent.endDate!.getUTCFullYear(), parent.endDate!.getUTCMonth(), parent.endDate!.getUTCDate()));
+  for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
+    yield fmtDate(d);
+  }
+}
+
+function findB2Candidates(parent: AuditRow, byDate: Map<string, AuditRow[]>): AuditRow[] {
+  const parentGroup = regionGroup(parent.kennel.region);
+  const seenKennels = new Set<string>();
+  const out: AuditRow[] = [];
+  for (const dateKey of iterateUmbrellaDates(parent)) {
+    const candidates = byDate.get(dateKey) ?? [];
+    for (const c of candidates) {
+      if (c.kennel.id === parent.kennel.id) continue;
+      if (seenKennels.has(c.kennel.id)) continue;
+      if (regionGroup(c.kennel.region) !== parentGroup) continue;
+      seenKennels.add(c.kennel.id);
+      out.push(c);
+    }
+  }
+  return out;
+}
+
+function bucketB2(rows: AuditRow[]): Finding[] {
+  // For each series parent, find events on dates in [date, endDate] from a
+  // different kennel that aren't children of this parent. Cross-kennel
+  // child candidate (e.g. BAWC5 ← MarinH3/SVH3/FHAC-U on Bay Area trails).
+  const findings: Finding[] = [];
+  const parents = rows.filter((r) => r.isSeriesParent && r.endDate);
+  const byDate = indexNonParentByDate(rows);
   for (const p of parents) {
-    const childKennelIds = new Set<string>();
-    // Walk through dates in [start, end] inclusive.
-    const start = new Date(Date.UTC(p.date.getUTCFullYear(), p.date.getUTCMonth(), p.date.getUTCDate()));
-    const end = new Date(Date.UTC(p.endDate!.getUTCFullYear(), p.endDate!.getUTCMonth(), p.endDate!.getUTCDate()));
-    const parentGroup = regionGroup(p.kennel.region);
-    for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
-      const candidates = byDate.get(fmtDate(d)) ?? [];
-      for (const c of candidates) {
-        // Different kennel from the umbrella.
-        if (c.kennel.id === p.kennel.id) continue;
-        if (childKennelIds.has(c.kennel.id)) continue;
-        // Heuristic match: same region group (state/country tail).
-        if (regionGroup(c.kennel.region) !== parentGroup) continue;
-        childKennelIds.add(c.kennel.id);
-        findings.push({
-          bucket: "B.2",
-          eventId: c.id,
-          kennel: c.kennel.shortName,
-          title: c.title,
-          date: fmtDate(c.date),
-          sourceUrl: c.sourceUrl,
-          detail: `same date+region as umbrella "${shorten(p.title, 40)}" (${p.kennel.shortName}, id=${p.id}); not linked as child`,
-        });
-      }
+    for (const c of findB2Candidates(p, byDate)) {
+      findings.push({
+        bucket: "B.2",
+        eventId: c.id,
+        kennel: c.kennel.shortName,
+        title: c.title,
+        date: fmtDate(c.date),
+        sourceUrl: c.sourceUrl,
+        detail: `same date+region as umbrella "${shorten(p.title, 40)}" (${p.kennel.shortName}, id=${p.id}); not linked as child`,
+      });
     }
   }
   return findings;
+}
+
+function firstUnlinkedKnownUrl(r: AuditRow): string | null {
+  if (!r.description) return null;
+  const linkUrls = new Set(r.eventLinks.map((l) => l.url));
+  const re = new RegExp(RE_KNOWN_SOURCE_URL.source, "gi");
+  for (const m of r.description.matchAll(re)) {
+    const url = m[0].replace(/[.,;:)]+$/, "");
+    if (r.sourceUrl && url === r.sourceUrl) continue;
+    if (linkUrls.has(url)) continue;
+    return url;
+  }
+  return null;
 }
 
 function bucketB3(rows: AuditRow[]): Finding[] {
@@ -392,26 +431,17 @@ function bucketB3(rows: AuditRow[]): Finding[] {
   // but no EventLink row matches. Provenance gap.
   const findings: Finding[] = [];
   for (const r of rows) {
-    if (!r.description) continue;
-    const linkUrls = new Set(r.eventLinks.map((l) => l.url));
-    const re = new RegExp(RE_KNOWN_SOURCE_URL.source, "gi");
-    let m: RegExpExecArray | null;
-    while ((m = re.exec(r.description)) !== null) {
-      const url = m[0].replace(/[.,;:)]+$/, "");
-      // Skip if it's THIS event's sourceUrl (self-reference is normal).
-      if (r.sourceUrl && url === r.sourceUrl) continue;
-      if (linkUrls.has(url)) continue;
-      findings.push({
-        bucket: "B.3",
-        eventId: r.id,
-        kennel: r.kennel.shortName,
-        title: r.title,
-        date: fmtDate(r.date),
-        sourceUrl: r.sourceUrl,
-        detail: `description references ${url} without an EventLink row`,
-      });
-      break; // one finding per event is enough
-    }
+    const url = firstUnlinkedKnownUrl(r);
+    if (!url) continue;
+    findings.push({
+      bucket: "B.3",
+      eventId: r.id,
+      kennel: r.kennel.shortName,
+      title: r.title,
+      date: fmtDate(r.date),
+      sourceUrl: r.sourceUrl,
+      detail: `description references ${url} without an EventLink row`,
+    });
   }
   return findings;
 }
@@ -420,7 +450,7 @@ function bucketC1(rows: AuditRow[]): Finding[] {
   // Title ends in the same 4-digit year as Event.date year.
   return rows
     .filter((r) => {
-      const m = r.title.match(/\b(20\d{2})\s*$/);
+      const m = /\b(20\d{2})\s*$/.exec(r.title);
       if (!m) return false;
       return Number(m[1]) === r.date.getUTCFullYear();
     })
@@ -441,7 +471,7 @@ function bucketC2(rows: AuditRow[]): Finding[] {
   return rows
     .filter((r) => r.runNumber !== null && RE_RUN_NUMBER_SUFFIX.test(r.title))
     .map((r) => {
-      const m = r.title.match(RE_RUN_NUMBER_SUFFIX);
+      const m = RE_RUN_NUMBER_SUFFIX.exec(r.title);
       return {
         bucket: "C.2",
         eventId: r.id,
@@ -552,59 +582,66 @@ const BUCKETS: ReadonlyArray<BucketSpec> = [
   { id: "A.1", title: "`**DAY M/D` headers parsed correctly as series (validation anchor)", priority: "P2", hint: "Success case — confirms the parser is working on the canonical pattern." },
 ];
 
+function renderEventIdLink(eventId: string, sourceUrl: string | null): string {
+  const idCode = `\`${eventId.slice(-8)}\``;
+  return sourceUrl ? `[${idCode}](${sourceUrl})` : idCode;
+}
+
 function renderBucket(spec: BucketSpec, findings: Finding[]): string {
-  const lines: string[] = [];
-  lines.push(`### ${spec.id} — ${spec.title} (${spec.priority})`);
-  lines.push("");
-  lines.push(`**Count:** ${findings.length}. ${spec.hint}`);
-  lines.push("");
+  const lines: string[] = [
+    `### ${spec.id} — ${spec.title} (${spec.priority})`,
+    "",
+    `**Count:** ${findings.length}. ${spec.hint}`,
+    "",
+  ];
   if (findings.length === 0) {
-    lines.push("*(no findings)*");
-    lines.push("");
+    lines.push("*(no findings)*", "");
     return lines.join("\n");
   }
-  lines.push("| Event | Kennel | Date | Detail |");
-  lines.push("|---|---|---|---|");
+  lines.push("| Event | Kennel | Date | Detail |", "|---|---|---|---|");
   for (const f of findings.slice(0, 10)) {
     const titleCell = escapeMd(shorten(f.title, 60));
     const detailCell = escapeMd(shorten(f.detail, 100));
-    const idLink = f.sourceUrl ? `[\`${f.eventId.slice(-8)}\`](${f.sourceUrl})` : `\`${f.eventId.slice(-8)}\``;
+    const idLink = renderEventIdLink(f.eventId, f.sourceUrl);
     lines.push(`| ${titleCell} (${idLink}) | ${f.kennel} | ${f.date} | ${detailCell} |`);
   }
   if (findings.length > 10) {
-    lines.push("");
-    lines.push(`*…and ${findings.length - 10} more*`);
+    lines.push("", `*…and ${findings.length - 10} more*`);
   }
   lines.push("");
   return lines.join("\n");
 }
 
+function findAnchorBucket(
+  anchorMatch: string,
+  byBucket: Map<string, Finding[]>,
+): string | null {
+  for (const [bucketId, findings] of byBucket) {
+    if (findings.some((f) => f.title.toLowerCase().includes(anchorMatch))) {
+      return bucketId;
+    }
+  }
+  return null;
+}
+
 function renderAnchors(byBucket: Map<string, Finding[]>): string {
-  const lines: string[] = [];
-  lines.push("## Anchor verification");
-  lines.push("");
-  lines.push(
-    "These six events were named in the source brief and MUST appear in at least one bucket. " +
-      "If any anchor is `[ ]` instead of `[x]`, the corresponding bucket query is broken.",
-  );
-  lines.push("");
+  const intro = "These six events were named in the source brief and MUST appear in at least one bucket. " +
+    "If any anchor is `[ ]` instead of `[x]`, the corresponding bucket query is broken.";
+  const lines: string[] = ["## Anchor verification", "", intro, ""];
+
   let allHit = true;
   for (const anchor of ANCHORS) {
-    let hit = false;
-    let hitBucket = "";
-    for (const [bucketId, findings] of byBucket) {
-      if (findings.some((f) => f.title.toLowerCase().includes(anchor.titleMatch))) {
-        hit = true;
-        hitBucket = bucketId;
-        break;
-      }
-    }
-    if (!hit) allHit = false;
-    lines.push(`- [${hit ? "x" : " "}] **${anchor.name}** — expected in ${anchor.expectedBucket}${hit ? `, found in ${hitBucket}` : " — NOT FOUND"}`);
+    const hitBucket = findAnchorBucket(anchor.titleMatch, byBucket);
+    if (hitBucket === null) allHit = false;
+    const mark = hitBucket !== null ? "x" : " ";
+    const tail = hitBucket !== null ? `, found in ${hitBucket}` : " — NOT FOUND";
+    lines.push(`- [${mark}] **${anchor.name}** — expected in ${anchor.expectedBucket}${tail}`);
   }
-  lines.push("");
-  lines.push(allHit ? "✅ All anchors hit." : "❌ Some anchors missed — review bucket regexes.");
-  lines.push("");
+  lines.push(
+    "",
+    allHit ? "✅ All anchors hit." : "❌ Some anchors missed — review bucket regexes.",
+    "",
+  );
   return lines.join("\n");
 }
 
@@ -615,7 +652,7 @@ function renderAnchors(byBucket: Map<string, Finding[]>): string {
 async function main() {
   const pool = createScriptPool();
   const adapter = new PrismaPg(pool);
-  const prisma = new PrismaClient({ adapter } as never);
+  const prisma = new PrismaClient({ adapter });
 
   console.log("🔍 AUDIT — multi-day quality\n");
 
@@ -692,31 +729,34 @@ async function main() {
   // Markdown.
   const date = fmtDate(new Date());
   const md: string[] = [];
-  md.push(`# Multi-day quality audit — ${date}`);
-  md.push("");
-  md.push(`Generated by \`scripts/audit-multi-day-quality.ts\` against prod DB.`);
-  md.push(`Total upcoming canonical events scanned: ${rows.length}`);
-  md.push("");
-  md.push("## Priority buckets");
-  md.push("");
+  md.push(
+    `# Multi-day quality audit — ${date}`,
+    "",
+    `Generated by \`scripts/audit-multi-day-quality.ts\` against prod DB.`,
+    `Total upcoming canonical events scanned: ${rows.length}`,
+    "",
+    "## Priority buckets",
+    "",
+  );
   // Render in the BUCKETS order (priority-grouped).
   for (const spec of BUCKETS) {
     md.push(renderBucket(spec, byBucket.get(spec.id) ?? []));
   }
   md.push(renderAnchors(byBucket));
 
-  md.push("## Lower-impact observations (not bucketed)");
-  md.push("");
-  md.push("- **`/kennels/sfh3` 404** — kennel slug doesn't match user's guess (SF H3 exists in the data per BAWC5 attribution).");
-  md.push("- **Empty region pages** — `/kennels/region/san-francisco-ca` shows '6 kennels' but the grid renders blank.");
-  md.push("- **Blank maps in slide-out panels** — well-known venues (Mount Madonna County Park, Brown County State Park) show empty map slot. Geocoding not running or silently failing.");
-  md.push("- **Search default scope is 'My Kennels'** — searches return 0 results for unsubscribed kennels with no zero-state nudge.");
-  md.push("");
-
-  md.push("---");
-  md.push("");
-  md.push("*Re-run this audit with `npx tsx scripts/audit-multi-day-quality.ts`. Output is overwritten for the same calendar day.*");
-  md.push("");
+  md.push(
+    "## Lower-impact observations (not bucketed)",
+    "",
+    "- **`/kennels/sfh3` 404** — kennel slug doesn't match user's guess (SF H3 exists in the data per BAWC5 attribution).",
+    "- **Empty region pages** — `/kennels/region/san-francisco-ca` shows '6 kennels' but the grid renders blank.",
+    "- **Blank maps in slide-out panels** — well-known venues (Mount Madonna County Park, Brown County State Park) show empty map slot. Geocoding not running or silently failing.",
+    "- **Search default scope is 'My Kennels'** — searches return 0 results for unsubscribed kennels with no zero-state nudge.",
+    "",
+    "---",
+    "",
+    "*Re-run this audit with `npx tsx scripts/audit-multi-day-quality.ts`. Output is overwritten for the same calendar day.*",
+    "",
+  );
 
   const outPath = path.join("docs", "audits", `multi-day-quality-${date}.md`);
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
