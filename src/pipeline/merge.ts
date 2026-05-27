@@ -13,6 +13,7 @@ import { LOCATION_EMAIL_CTA_RE } from "./audit-checks";
 import { levenshtein } from "@/lib/fuzzy";
 import { createEventWithKennel } from "@/lib/event-write";
 import { detectVenueWeekendEndDate } from "./venue-weekend";
+import { linkSameTitleConsecutiveClusters } from "./same-title-cluster";
 
 /**
  * Admin lock predicate: an event whose `adminCancelledAt` is non-null has been
@@ -2692,6 +2693,25 @@ export async function processRawEvents(
   }
 
   await linkMultiDaySeries(seriesGroups);
+
+  // PR I (#1560 audit bucket A.5) — link same-title consecutive-day clusters
+  // that aren't already captured by adapter-emitted `seriesId`. Scoped to the
+  // source's linked kennels per the source-kennel guard so we never reach
+  // across into other kennels' data. Idempotent: clusters with any already-
+  // linked member skip cleanly. Wraps in try/catch so a linker failure can't
+  // block the merge batch from finalizing.
+  try {
+    const linkResult = await linkSameTitleConsecutiveClusters(prisma, linkedKennelIds);
+    if (linkResult.clustersLinked > 0) {
+      console.log(
+        `Same-title cluster linker: ${linkResult.clustersLinked} clusters / ${linkResult.eventsLinked} events linked`,
+      );
+    }
+  } catch (err) {
+    console.error(
+      `Same-title cluster linker error: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
 
   // Flush mark-processed writes for the batch as ONE correlated update —
   // `FROM (VALUES …)` lets each row carry its own `eventId`, which
