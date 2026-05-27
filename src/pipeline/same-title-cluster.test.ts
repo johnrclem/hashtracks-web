@@ -42,54 +42,49 @@ describe("clusterGroupKey", () => {
   });
 });
 
-describe("isConsecutiveCluster (per-run span check)", () => {
-  const ev = (d: string) => ({
-    id: d,
-    date: new Date(`${d}T12:00:00Z`),
-    title: "Foo",
-    isSeriesParent: false,
-    parentEventId: null,
-  });
+// Shared fixture factory for the pure-function tests below (Sonar S4144
+// — was duplicated across `isConsecutiveCluster` and
+// `splitIntoConsecutiveRuns` describe blocks).
+const evByDate = (d: string) => ({
+  id: d,
+  date: new Date(`${d}T12:00:00Z`),
+  title: "Foo",
+  isSeriesParent: false,
+  parentEventId: null,
+});
 
+describe("isConsecutiveCluster (per-run span check)", () => {
   it("returns true for 3 consecutive days", () => {
-    expect(isConsecutiveCluster([ev("2026-06-12"), ev("2026-06-13"), ev("2026-06-14")])).toBe(true);
+    expect(isConsecutiveCluster([evByDate("2026-06-12"), evByDate("2026-06-13"), evByDate("2026-06-14")])).toBe(true);
   });
   it("returns false when total span exceeds 7 days", () => {
-    expect(isConsecutiveCluster([ev("2026-05-29"), ev("2026-06-06")])).toBe(false);
+    expect(isConsecutiveCluster([evByDate("2026-05-29"), evByDate("2026-06-06")])).toBe(false);
   });
   it("returns false for single event", () => {
-    expect(isConsecutiveCluster([ev("2026-05-29")])).toBe(false);
+    expect(isConsecutiveCluster([evByDate("2026-05-29")])).toBe(false);
   });
 });
 
 describe("splitIntoConsecutiveRuns", () => {
-  const ev = (d: string) => ({
-    id: d,
-    date: new Date(`${d}T12:00:00Z`),
-    title: "Foo",
-    isSeriesParent: false,
-    parentEventId: null,
-  });
-
   it("returns one run for a tight cluster", () => {
-    const runs = splitIntoConsecutiveRuns([ev("2026-06-12"), ev("2026-06-13"), ev("2026-06-14")]);
+    const runs = splitIntoConsecutiveRuns([evByDate("2026-06-12"), evByDate("2026-06-13"), evByDate("2026-06-14")]);
     expect(runs).toHaveLength(1);
     expect(runs[0]).toHaveLength(3);
   });
   it("allows 2-day gap (Fri/Sat/Sun + Mon recovery as one run)", () => {
-    const runs = splitIntoConsecutiveRuns([ev("2026-05-29"), ev("2026-05-30"), ev("2026-06-01")]);
+    const runs = splitIntoConsecutiveRuns([evByDate("2026-05-29"), evByDate("2026-05-30"), evByDate("2026-06-01")]);
     expect(runs).toHaveLength(1);
     expect(runs[0]).toHaveLength(3);
   });
   it("splits at gaps larger than 2 days", () => {
-    const runs = splitIntoConsecutiveRuns([ev("2026-05-29"), ev("2026-06-02")]);
+    const runs = splitIntoConsecutiveRuns([evByDate("2026-05-29"), evByDate("2026-06-02")]);
     expect(runs).toHaveLength(2);
   });
   it("Codex P2 case: annual recurrence splits into independent runs", () => {
     // BMPH3 Belgian Nash Hash 2026 (Jul 10-12) + same series 2027 (Jul 9-11)
     const runs = splitIntoConsecutiveRuns([
-      ev("2026-07-10"), ev("2026-07-11"), ev("2026-07-12"),
-      ev("2027-07-09"), ev("2027-07-10"), ev("2027-07-11"),
+      evByDate("2026-07-10"), evByDate("2026-07-11"), evByDate("2026-07-12"),
+      evByDate("2027-07-09"), evByDate("2027-07-10"), evByDate("2027-07-11"),
     ]);
     expect(runs).toHaveLength(2);
     expect(runs[0]).toHaveLength(3);

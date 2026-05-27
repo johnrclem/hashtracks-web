@@ -137,6 +137,71 @@ interface LinkResult {
  * consecutive-day clusters and link them. Idempotent — a cluster whose
  * members are already linked is skipped.
  */
+/**
+ * Build the `(kennelId, clusterGroupKey)` → events map from a flat list
+ * of upcoming canonical Events. Events with missing titles or
+ * non-cluster-key-eligible titles are dropped here.
+ */
+function bucketByClusterKey(
+  events: Array<{
+    id: string;
+    date: Date;
+    title: string | null;
+    kennelId: string;
+    isSeriesParent: boolean;
+    parentEventId: string | null;
+  }>,
+): Map<string, ClusterEvent[]> {
+  const buckets = new Map<string, ClusterEvent[]>();
+  for (const e of events) {
+    if (!e.title) continue;
+    const key = clusterGroupKey(normalizeTitleForCluster(e.title));
+    if (!key) continue;
+    const bucketKey = `${e.kennelId}::${key}`;
+    const arr = buckets.get(bucketKey) ?? [];
+    arr.push({
+      id: e.id,
+      date: e.date,
+      title: e.title,
+      isSeriesParent: e.isSeriesParent,
+      parentEventId: e.parentEventId,
+    });
+    buckets.set(bucketKey, arr);
+  }
+  return buckets;
+}
+
+/**
+ * Run the link-or-skip decision for a single consecutive-day run, returning
+ * `true` when the link was written. Extracted from the linker's main loop
+ * (Sonar S3776 — keeps `linkSameTitleConsecutiveClusters` under the
+ * cognitive-complexity threshold).
+ */
+async function linkOneRun(prisma: PrismaClient, run: ClusterEvent[]): Promise<boolean> {
+  if (!isConsecutiveCluster(run)) return false;
+  // Skip if ANY member of THIS run is already part of a series. Run-local;
+  // another year's run can be already-linked or not without affecting this.
+  if (run.some((e) => e.isSeriesParent || e.parentEventId != null)) return false;
+
+  const parent = run[0];
+  const children = run.slice(1);
+  const lastDate = run.at(-1)!.date;
+
+  // Atomic via `$transaction` — partial-link state would permanently skip
+  // the cluster on subsequent runs (Codex P1 on PR #1742).
+  await prisma.$transaction([
+    prisma.event.update({
+      where: { id: parent.id },
+      data: { isSeriesParent: true, parentEventId: null, endDate: lastDate },
+    }),
+    prisma.event.updateMany({
+      where: { id: { in: children.map((c) => c.id) } },
+      data: { parentEventId: parent.id, isSeriesParent: false },
+    }),
+  ]);
+  return true;
+}
+
 export async function linkSameTitleConsecutiveClusters(
   prisma: PrismaClient,
   kennelIds: ReadonlySet<string>,
@@ -175,64 +240,16 @@ export async function linkSameTitleConsecutiveClusters(
     orderBy: { date: "asc" },
   });
 
-  // Bucket by (kennelId, clusterGroupKey).
-  const buckets = new Map<string, ClusterEvent[]>();
-  for (const e of events) {
-    if (!e.title) continue;
-    const norm = normalizeTitleForCluster(e.title);
-    const key = clusterGroupKey(norm);
-    if (!key) continue;
-    const bucketKey = `${e.kennelId}::${key}`;
-    const arr = buckets.get(bucketKey) ?? [];
-    arr.push({
-      id: e.id,
-      date: e.date,
-      title: e.title,
-      isSeriesParent: e.isSeriesParent,
-      parentEventId: e.parentEventId,
-    });
-    buckets.set(bucketKey, arr);
-  }
-
-  for (const bucket of buckets.values()) {
+  for (const bucket of bucketByClusterKey(events).values()) {
     if (bucket.length < 2) continue;
     const sorted = [...bucket].sort((a, b) => a.date.getTime() - b.date.getTime());
-
-    // Split the bucket into consecutive runs so a year-apart recurrence
-    // doesn't disqualify the current weekend (Codex P2 review on PR #1743).
+    // Split into per-weekend runs so an annual recurrence in the same window
+    // doesn't disqualify the current weekend (Codex P2 on PR #1743).
     for (const run of splitIntoConsecutiveRuns(sorted)) {
-      if (!isConsecutiveCluster(run)) continue;
-
-      // Skip if ANY member of THIS run is already part of a series. The
-      // gate is run-local — another year's run can be already-linked or
-      // not without affecting this year's link.
-      if (run.some((e) => e.isSeriesParent || e.parentEventId != null)) continue;
-
-      const parent = run[0];
-      const children = run.slice(1);
-      const lastDate = run.at(-1)!.date;
-
-      // Two writes wrapped in `$transaction` so a write failure can't leave
-      // a half-linked cluster (Codex P1 review on PR #1742). If the parent
-      // promotion succeeded but the children update failed, future runs
-      // would PERMANENTLY skip this cluster because the parent now satisfies
-      // the "any member already linked" gate. Atomic commit prevents that.
-      //
-      // Mirrors `writeSeriesLinks` but also writes endDate — this linker
-      // can't rely on an adapter-emitted endDate because there's no
-      // umbrella raw.
-      await prisma.$transaction([
-        prisma.event.update({
-          where: { id: parent.id },
-          data: { isSeriesParent: true, parentEventId: null, endDate: lastDate },
-        }),
-        prisma.event.updateMany({
-          where: { id: { in: children.map((c) => c.id) } },
-          data: { parentEventId: parent.id, isSeriesParent: false },
-        }),
-      ]);
-      result.clustersLinked++;
-      result.eventsLinked += run.length;
+      if (await linkOneRun(prisma, run)) {
+        result.clustersLinked++;
+        result.eventsLinked += run.length;
+      }
     }
   }
 
