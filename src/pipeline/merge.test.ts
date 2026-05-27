@@ -104,6 +104,7 @@ type EventCreateReturn = Awaited<ReturnType<typeof prisma.event.create>>;
 type SourceFindReturn = Awaited<ReturnType<typeof prisma.source.findUnique>>;
 type RawEventFindUniqueReturn = Awaited<ReturnType<typeof prisma.rawEvent.findUnique>>;
 type EventFindUniqueReturn = Awaited<ReturnType<typeof prisma.event.findUnique>>;
+type RawEventCreateReturn = Awaited<ReturnType<typeof prisma.rawEvent.create>>
 
 function eventRow(id: string, overrides?: Record<string, unknown>): EventCreateReturn {
   return { id, ...overrides } as unknown as EventCreateReturn;
@@ -136,6 +137,13 @@ function eventWinner(overrides: {
   trustLevel: number;
 }): EventFindUniqueReturn {
   return overrides as unknown as EventFindUniqueReturn;
+}
+
+/** Mock return for `prisma.rawEvent.create()` in race-window tests — the
+ *  caller only reads `id` from the resolved row (see merge.ts:`rawEvent.id`
+ *  usage). Same shape rationale as `rawEventWinner`. */
+function rawEventCreated(id: string): RawEventCreateReturn {
+  return { id } as unknown as RawEventCreateReturn;
 }
 
 beforeEach(() => {
@@ -4312,7 +4320,7 @@ describe("processNewRawEvent — P2002 race-window fall-through (#1286)", () => 
 
     // Worker A wins the race: create() resolves to the winning row.
     mockRawEventCreate
-      .mockResolvedValueOnce({ id: "raw_winner" } as never)
+      .mockResolvedValueOnce(rawEventCreated("raw_winner"))
       .mockRejectedValueOnce(buildPrismaUniqueViolation(["sourceId", "fingerprint"]));
 
     // Worker B's catch path: the winner row is now visible.
