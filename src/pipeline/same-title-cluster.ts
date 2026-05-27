@@ -10,12 +10,23 @@
  * top-level rows.
  *
  * Linker contract:
- *   - Within-source / within-kennel only. Cross-source clusters are PR J
- *     (B.1) territory — they need a shared identifier (URL slug, per-day
- *     kennel attribution config), not title-pattern matching.
+ *   - Within-kennel only. The query scopes by `kennelId IN linkedKennelIds`
+ *     (the source's linked kennels) but does NOT restrict by source — so
+ *     a kennel that publishes the same series across both Google Calendar
+ *     AND an HTML scraper will get the events linked together. That's
+ *     intentional: it generalizes the same-title heuristic to multi-source
+ *     kennels at zero extra implementation cost. Cross-KENNEL clusters
+ *     (e.g. Boston Marathon week where each day has a different host
+ *     kennel) need a shared identifier and are PR J (B.1) territory.
  *   - Promotes the EARLIEST event in the cluster to series parent
  *     (`isSeriesParent=true`, `endDate=lastDate`). Sets `parentEventId`
  *     on the others.
+ *   - All-or-nothing: parent + children writes happen inside a single
+ *     `$transaction` so a partial-link state can't be left behind on
+ *     a write failure (Codex P1 review on PR #1742). Without that, a
+ *     half-linked cluster would be PERMANENTLY skipped by future runs
+ *     because the "any member already linked" gate considers the
+ *     half-applied parent as "already linked".
  *   - Title rewriting is OUT OF SCOPE for this PR — the umbrella keeps
  *     the earliest event's title verbatim. PR K (title normalization)
  *     will handle synthetic umbrella names, possibly via AI per a user
@@ -169,18 +180,25 @@ export async function linkSameTitleConsecutiveClusters(
     const children = sorted.slice(1);
     const lastDate = sorted.at(-1)!.date;
 
-    // Two writes: promote parent (set isSeriesParent + endDate), link
-    // children (set parentEventId). Mirrors `writeSeriesLinks` but also
-    // writes endDate — this linker can't rely on an adapter-emitted
-    // endDate because there's no umbrella raw.
-    await prisma.event.update({
-      where: { id: parent.id },
-      data: { isSeriesParent: true, parentEventId: null, endDate: lastDate },
-    });
-    await prisma.event.updateMany({
-      where: { id: { in: children.map((c) => c.id) } },
-      data: { parentEventId: parent.id, isSeriesParent: false },
-    });
+    // Two writes wrapped in `$transaction` so a write failure can't leave
+    // a half-linked cluster (Codex P1 review on PR #1742). If the parent
+    // promotion succeeded but the children update failed, future runs
+    // would PERMANENTLY skip this cluster because the parent now satisfies
+    // the "any member already linked" gate. Atomic commit prevents that.
+    //
+    // Mirrors `writeSeriesLinks` but also writes endDate — this linker
+    // can't rely on an adapter-emitted endDate because there's no
+    // umbrella raw.
+    await prisma.$transaction([
+      prisma.event.update({
+        where: { id: parent.id },
+        data: { isSeriesParent: true, parentEventId: null, endDate: lastDate },
+      }),
+      prisma.event.updateMany({
+        where: { id: { in: children.map((c) => c.id) } },
+        data: { parentEventId: parent.id, isSeriesParent: false },
+      }),
+    ]);
     result.clustersLinked++;
     result.eventsLinked += sorted.length;
   }

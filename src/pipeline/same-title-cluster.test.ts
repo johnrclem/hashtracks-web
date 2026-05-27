@@ -90,15 +90,22 @@ describe("linkSameTitleConsecutiveClusters", () => {
     mockPrisma = {
       event: {
         findMany: vi.fn(async () => mockEvents),
-        update: vi.fn(async ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) => {
+        // Prisma's batch-API calls (used inside `$transaction([...])`) capture
+        // intent objects rather than firing; the mock just records the call
+        // shape so the test can assert it. `$transaction` then "awaits" the
+        // collected calls.
+        update: vi.fn(({ where, data }: { where: { id: string }; data: Record<string, unknown> }) => {
           updates.push({ where, data });
           return { ...mockEvents.find((e) => e.id === where.id), ...data };
         }),
-        updateMany: vi.fn(async ({ where, data }: { where: { id: { in: string[] } }; data: Record<string, unknown> }) => {
+        updateMany: vi.fn(({ where, data }: { where: { id: { in: string[] } }; data: Record<string, unknown> }) => {
           updates.push({ where: { id_in: where.id.in }, data });
           return { count: where.id.in.length };
         }),
       },
+      // `$transaction` accepts an array of (already-awaited) calls in our
+      // mock; resolve to an array of their resolutions.
+      $transaction: vi.fn(async (calls: unknown[]) => calls),
     } as never;
   });
 
