@@ -317,7 +317,7 @@ export const KENNELS: KennelSeed[] = [
       scheduleNotes: "Summer (May–Oct): Thursdays 7pm. Winter (Nov–Apr): Wednesdays 7pm.",
       facebookUrl: "https://www.facebook.com/groups/NOSEHash",
       contactEmail: "anallickitall@gmail.com",
-      description: "Active weekly kennel in North NJ (north of I-78). Facebook-only presence; runs flip from Thursdays in summer to Wednesdays in winter.",
+      description: "Active weekly kennel in North NJ (north of I-78). Runs flip from Thursdays in summer to Wednesdays in winter.",
     },
     {
       kennelCode: "rumson", shortName: "Rumson", fullName: "Rumson Hash House Harriers", region: "New Jersey",
@@ -588,7 +588,7 @@ export const KENNELS: KennelSeed[] = [
       twitterHandle: "sfh3",
       discordUrl: "https://discord.gg/eGRZMFfHtC",
       scheduleDayOfWeek: "Monday", scheduleTime: "6:15 PM", scheduleFrequency: "Weekly",
-      description: "The flagship Bay Area kennel (est. 1982). Weekly Monday evening runs in San Francisco. Hosts the sfh3.com aggregator platform.",
+      description: "The flagship Bay Area kennel (est. 1982). Weekly Monday evening runs in San Francisco. Hosts the sfh3.com Bay Area kennel directory.",
     },
     {
       kennelCode: "gph3", shortName: "GPH3", fullName: "Gypsies in the Palace Hash House Harriers", region: "San Francisco, CA",
@@ -716,7 +716,7 @@ export const KENNELS: KennelSeed[] = [
       contactEmail: "contact@lbh3.org",
       logoUrl: "/kennel-logos/lbh3.png",
       foundedYear: 1985,
-      description: "Founded January 6, 1985 by Dal \"Jock\" Trader, Jerry \"Eject\" Templeman, and Andy \"Zapata\" Limon. Runs Thursday evening during Spring/Summer and Sunday morning in the Fall/Winter, often with 50+ attendance. Visitors and virgins always welcome. Hash cash is $5 via cash or Venmo. Also hosts the SoCal calendar aggregator at lbh3.org/socal.",
+      description: "Founded January 6, 1985 by Dal \"Jock\" Trader, Jerry \"Eject\" Templeman, and Andy \"Zapata\" Limon. Runs Thursday evening during Spring/Summer and Sunday morning in the Fall/Winter, often with 50+ attendance. Visitors and virgins always welcome. Also hosts the Southern California kennel directory at lbh3.org/socal.",
       latitude: 33.77, longitude: -118.19,
     },
     {
@@ -768,7 +768,7 @@ export const KENNELS: KennelSeed[] = [
       website: "https://sdh3.com",
       scheduleDayOfWeek: "Friday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
       scheduleNotes: "Also biweekly Sunday 10am",
-      hashCash: "$10", description: "San Diego's flagship kennel. Hosts the sdh3.com multi-kennel hareline aggregator covering 15+ SD area kennels.",
+      hashCash: "$10", description: "San Diego's flagship kennel. Hosts the sdh3.com directory covering 15+ San Diego area kennels.",
       latitude: 32.72, longitude: -117.16,
     },
     {
@@ -1125,7 +1125,7 @@ export const KENNELS: KennelSeed[] = [
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Monthly", scheduleTime: "12:00 PM",
       scheduleNotes: "3rd Saturday monthly. Sub-kennels on other days.",
       hashCash: "$5",
-      description: "Monthly hash in the Allentown/Bethlehem/Easton area. Check the LVH3 Facebook page for the latest details.",
+      description: "Monthly hash in the Allentown/Bethlehem/Easton area.",
       latitude: 40.60, longitude: -75.49,
     },
     // --- Reading ---
@@ -1326,10 +1326,17 @@ export const KENNELS: KennelSeed[] = [
       logoUrl: "/kennel-logos/cfh3.png",
       facebookUrl: "https://www.facebook.com/CapeFearH3/",
       contactEmail: "capefearh3@gmail.com",
+      // Legacy flat fields kept for fallback only — scheduleRules below are
+      // authoritative for display + Travel Mode (#1438 multi-cadence migration).
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly", scheduleTime: "2:00 PM",
+      scheduleRules: [
+        { rrule: "FREQ=MONTHLY;BYDAY=1SA", startTime: "14:00", displayOrder: 0 },
+        { rrule: "FREQ=MONTHLY;BYDAY=3SA", startTime: "14:00", displayOrder: 1 },
+        { rrule: "FREQ=MONTHLY;BYDAY=5SA", startTime: "14:00", displayOrder: 2 },
+      ],
       scheduleNotes: "1st, 3rd, and 5th Saturdays, 2:00 PM.",
       hashCash: "$5", foundedYear: 2006,
-      description: "Biweekly Saturday runs in the Wilmington/Cape Fear area.",
+      description: "Runs on the 1st, 3rd, and 5th Saturday of each month in the Wilmington/Cape Fear area.",
       latitude: 34.24, longitude: -77.95,
     },
     // --- Fayetteville ---
@@ -1396,7 +1403,16 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "mosquito-h3", shortName: "Mosquito H3", fullName: "Mosquito Hash House Harriers", region: "Houston, TX",
       facebookUrl: "https://www.facebook.com/groups/MosquitoH3/",
       hashCash: "$5 USD",
-      scheduleFrequency: "Bimonthly", scheduleNotes: "1st & 3rd Wednesdays, 6:30 PM",
+      // Legacy flat fields kept for fallback only — scheduleRules below are
+      // authoritative for display + Travel Mode (#1438 multi-cadence migration).
+      // scheduleFrequency corrected "Bimonthly" → "Biweekly" (1st & 3rd Wed
+      // is twice-monthly, not every-other-month).
+      scheduleDayOfWeek: "Wednesday", scheduleTime: "6:30 PM", scheduleFrequency: "Biweekly",
+      scheduleRules: [
+        { rrule: "FREQ=MONTHLY;BYDAY=1WE", startTime: "18:30", displayOrder: 0 },
+        { rrule: "FREQ=MONTHLY;BYDAY=3WE", startTime: "18:30", displayOrder: 1 },
+      ],
+      scheduleNotes: "1st & 3rd Wednesdays, 6:30 PM.",
       description: "Mosquito H3 runs on the first and third Wednesdays of the month on the west side of Houston, with trails outside Beltway 8 typically 3-4 miles in length and including shiggy.",
       latitude: 29.79, longitude: -95.76,
     },
@@ -1522,7 +1538,7 @@ export const KENNELS: KennelSeed[] = [
       instagramHandle: "miami_h3",
       contactEmail: "miamihashhouseharriers@gmail.com",
       scheduleDayOfWeek: "Thursday", scheduleFrequency: "Weekly", scheduleTime: "6:30 PM",
-      scheduleNotes: "Mostly Thursdays but sometimes on weekends — see Facebook for special weekend events.",
+      scheduleNotes: "Mostly Thursdays, with occasional special weekend events.",
       hashCash: "$5",
       logoUrl: "/kennel-logos/mia-h3.jpg",
       description: "Weekly Thursday runs in the Miami/Dade County area.",
@@ -1827,7 +1843,7 @@ export const KENNELS: KennelSeed[] = [
     },
     {
       kennelCode: "dsh3-atl", shortName: "Dark Side H3", fullName: "Dark Side Hash House Harriers", region: "Atlanta, GA",
-      scheduleNotes: "New moon schedule — check Facebook for dates.",
+      scheduleNotes: "New moon schedule — dates posted on Facebook.",
       description: "New moon trail runs in Atlanta. Schedule follows lunar calendar.",
     },
     // --- Savannah (update existing SavH3 — region fix + profile enrichment) ---
@@ -2089,7 +2105,7 @@ export const KENNELS: KennelSeed[] = [
       facebookUrl: "https://www.facebook.com/groups/25456554474/",
       scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Biweekly",
       scheduleNotes: "2nd and 4th Saturday",
-      description: "Seattle's flagship kennel. Founded 1983. Hosts the wh3.org regional aggregator for all Puget Sound area hashes.",
+      description: "Seattle's flagship kennel. Founded 1983. Hosts wh3.org — the regional schedule for Puget Sound area hashes.",
       latitude: 47.61, longitude: -122.33,
     },
     {
@@ -2493,7 +2509,7 @@ export const KENNELS: KennelSeed[] = [
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly", scheduleTime: "3:00 PM",
       scheduleNotes: "2nd & 4th Saturday 3 PM + 1st & 3rd Thursday 6:30 PM (summer).",
       hashCash: "$15", foundedYear: 2004,
-      description: "Akron's hash kennel with 1,000+ Meetup members. Also runs summer Thursday evening trails.",
+      description: "Akron's hash kennel with a 1,000+ member community. Also runs summer Thursday evening trails.",
       latitude: 41.08, longitude: -81.52,
     },
     // --- Columbus ---
@@ -3444,7 +3460,7 @@ export const KENNELS: KennelSeed[] = [
       region: "Sydney, NSW", country: "Australia",
       website: "https://www.sh3.link",
       scheduleDayOfWeek: "Tuesday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
-      scheduleNotes: "Weekly Tuesday hash around the Sydney metro. Often called 'Posh Hash' — Sydney's senior mixed kennel, founded 1967. Hareline published as labelled paragraphs at sh3.link/?page_id=9470.",
+      scheduleNotes: "Weekly Tuesday hash around the Sydney metro. Often called 'Posh Hash' — Sydney's senior mixed kennel, founded 1967. Trail list posted at sh3.link.",
       foundedYear: 1967,
       description: "Sydney's senior mixed hash kennel, founded in 1967. Runs every Tuesday evening across the Sydney metro and northern beaches. Known affectionately as 'Posh Hash'.",
       latitude: -33.8688, longitude: 151.2093,
@@ -3470,7 +3486,7 @@ export const KENNELS: KennelSeed[] = [
       facebookUrl: "https://www.facebook.com/groups/gch3thegourmehash",
       logoUrl: "https://www.goldcoasthash.org/wp-content/uploads/The-Royal-Header1.png",
       scheduleDayOfWeek: "Monday", scheduleTime: "6:00 PM", scheduleFrequency: "Weekly",
-      scheduleNotes: "Weekly hash around the Gold Coast. Hareline published via TablePress at goldcoasthash.org/hareline.",
+      scheduleNotes: "Weekly hash around the Gold Coast. Trail list posted on goldcoasthash.org/hareline.",
       foundedYear: 1978,
       description: "The Gourmet Hash — Gold Coast's men-only Hash kennel in Queensland, established 1978. Runs every Monday night, wet or fine, starting at 6:00 pm.",
       latitude: -28.0167, longitude: 153.4000,
@@ -3481,7 +3497,7 @@ export const KENNELS: KennelSeed[] = [
       website: "https://sydney.larrikins.org",
       logoUrl: "https://sydney.larrikins.org/wp-content/uploads/2022/09/Larrikins-S2H4-Logo-transparent.gif",
       scheduleDayOfWeek: "Tuesday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
-      scheduleNotes: "Weekly Tuesday Larrikin Run. Hareline published as a server-side DataTables grid at sydney.larrikins.org.",
+      scheduleNotes: "Weekly Tuesday Larrikin Run. Trail list posted on sydney.larrikins.org.",
       description: "Sydney South Harbour HHH 'Larrikins' — the Tuesday Beers chapter. Weekly Tuesday runs around southern Sydney, currently around Run #2492+.",
       latitude: -33.8688, longitude: 151.2093,
     },
@@ -3490,7 +3506,7 @@ export const KENNELS: KennelSeed[] = [
       region: "Sydney, NSW", country: "Australia",
       website: "https://www.sth3.org",
       scheduleDayOfWeek: "Thursday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
-      scheduleNotes: "Weekly Thursday hash around inner Sydney. Hareline published as paragraph blocks (em-dash separated) at sth3.org/upcoming-runs.",
+      scheduleNotes: "Weekly Thursday hash around inner Sydney. Trail list posted on sth3.org/upcoming-runs.",
       description: "Sydney Thirsty H3 — the Thursday inner-city kennel. Weekly Thursday evening runs around Redfern, Camperdown, and the inner suburbs. Currently around Run #1842+.",
       latitude: -33.8688, longitude: 151.2093,
     },
@@ -3689,7 +3705,7 @@ export const KENNELS: KennelSeed[] = [
       region: "Hong Kong", country: "Hong Kong",
       website: "https://hkladiesh4.wixsite.com/hklh4",
       scheduleDayOfWeek: "Tuesday", scheduleTime: "6:45 PM", scheduleFrequency: "Weekly",
-      description: "Hong Kong's ladies hash. Weekly Tuesday evening runs with a Wix-hosted hareline showing dates, hares, locations and on-on venues.",
+      description: "Hong Kong's ladies hash. Weekly Tuesday evening runs with a published hareline showing dates, hares, locations, and on-on venues.",
       latitude: 22.2800, longitude: 114.1600,
     },
     {
@@ -3944,7 +3960,7 @@ export const KENNELS: KennelSeed[] = [
       website: "https://www.bangkokhhh.org",
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Weekly",
       scheduleTime: "5:00 PM",
-      scheduleNotes: "Weekly Saturday runs. Men only. Wix-hosted site requires browser rendering.",
+      scheduleNotes: "Weekly Saturday runs. Men only.",
       description: "Bangkok's Saturday hash, men only. Runs on the outskirts of the city or nearby countryside.",
       latitude: 13.76, longitude: 100.5,
     },
@@ -4082,7 +4098,7 @@ export const KENNELS: KennelSeed[] = [
       website: "https://www.edmondsfamily.co.nz/community/hibiscus-hhh",
       foundedYear: 1987,
       scheduleDayOfWeek: "Monday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
-      scheduleNotes: "Weekly Monday evenings at 6:30 PM on Auckland's Hibiscus Coast (Orewa). Hareline published as a public Google Sheet.",
+      scheduleNotes: "Weekly Monday evenings at 6:30 PM on Auckland's Hibiscus Coast (Orewa). Trail list posted as a public schedule.",
       description: "Hibiscus Coast hash kennel covering Orewa, Whangaparaoa, and the northern Auckland coast. Weekly Monday evening trails since 1987. No fees, no committee — an optional post-run meal and drinks are pay-as-you-go.",
       latitude: -36.5868, longitude: 174.6968,
     },
@@ -4093,7 +4109,7 @@ export const KENNELS: KennelSeed[] = [
       foundedYear: 1983,
       scheduleFrequency: "Weekly",
       scheduleNotes: "Dual schedule: Wednesday 6pm during NZ daylight savings (Oct–Mar), Sunday 4pm in winter (Apr–Sep). Trail start locations posted on Facebook each week.",
-      description: "Founded 1983, restarted 2009 — Waikato's Tokoroa hash. Seasonal schedule: Wednesday evenings in summer, Sunday afternoons in winter. Active Facebook page with trail announcements.",
+      description: "Founded 1983, restarted 2009 — Waikato's Tokoroa hash. Seasonal schedule: Wednesday evenings in summer, Sunday afternoons in winter. Trail announcements posted on Facebook.",
       latitude: -38.223, longitude: 175.8627,
     },
     {
@@ -4114,7 +4130,7 @@ export const KENNELS: KennelSeed[] = [
       contactEmail: "trailmaster@aucklandhussies.co.nz",
       foundedYear: 1978,
       scheduleDayOfWeek: "Tuesday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
-      scheduleNotes: "Weekly Tuesday evenings at 6:30 PM. Run list published as a static HTML table at /Run%20List.html.",
+      scheduleNotes: "Weekly Tuesday evenings at 6:30 PM. Run list posted on aucklandhussies.co.nz.",
       description: "Auckland's women-founded hash, established 1978. Weekly Tuesday evening trails across Auckland with a published run list. Mixed attendance though women-led. Hash cash is $15 when starting from home or a park (pay-as-you-go at restaurants and pubs), plus $5 for drinks.",
       latitude: -36.8485, longitude: 174.7633,
     },
