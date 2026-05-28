@@ -2238,7 +2238,7 @@ export const KENNELS: KennelSeed[] = [
       scheduleDayOfWeek: "Monday", scheduleTime: "6:40 PM", scheduleFrequency: "Weekly",
       hashCash: "$7",
       description: "Weekly Monday-night hash in Boise, Idaho. 'A drinking club with a running problem.' Part of the worldwide Hash House Harriers tradition; meets every Monday for a run and beer.",
-      latitude: 43.6150, longitude: -116.2023,
+      latitude: 43.615, longitude: -116.2023,
     },
     // ===== COLORADO =====
     // Denver Metro

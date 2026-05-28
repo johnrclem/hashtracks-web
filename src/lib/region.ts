@@ -1071,7 +1071,7 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     abbrev: "BOI",
     colorClasses: "bg-lime-100 text-lime-700",
     pinColor: "#65a30d",
-    centroidLat: 43.6150,
+    centroidLat: 43.615,
     centroidLng: -116.2023,
     aliases: ["Boise, Idaho"],
   },

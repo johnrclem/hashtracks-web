@@ -47,6 +47,10 @@ const NO_EVENT_HTML = `
 </html>
 `;
 
+function mockSource(url: string): Parameters<BoiseH3Adapter["fetch"]>[0] {
+  return { id: "test", url } as Parameters<BoiseH3Adapter["fetch"]>[0];
+}
+
 describe("parseBoiseH3Page", () => {
   it("parses run number from heading", () => {
     const { event } = parseBoiseH3Page(SAMPLE_HTML, "https://www.boiseh3.org");
@@ -119,10 +123,7 @@ describe("BoiseH3Adapter.fetch", () => {
     );
 
     const adapter = new BoiseH3Adapter();
-    const result = await adapter.fetch({
-      id: "test",
-      url: "https://www.boiseh3.org",
-    } as never);
+    const result = await adapter.fetch(mockSource("https://www.boiseh3.org"));
 
     expect(result.events).toHaveLength(1);
     expect(result.errors).toHaveLength(0);
@@ -138,10 +139,7 @@ describe("BoiseH3Adapter.fetch", () => {
     );
 
     const adapter = new BoiseH3Adapter();
-    const result = await adapter.fetch({
-      id: "test",
-      url: "https://www.boiseh3.org",
-    } as never);
+    const result = await adapter.fetch(mockSource("https://www.boiseh3.org"));
 
     expect(result.events).toHaveLength(0);
     expect(result.errors.length).toBeGreaterThan(0);
@@ -153,10 +151,7 @@ describe("BoiseH3Adapter.fetch", () => {
     );
 
     const adapter = new BoiseH3Adapter();
-    const result = await adapter.fetch({
-      id: "test",
-      url: "https://www.boiseh3.org",
-    } as never);
+    const result = await adapter.fetch(mockSource("https://www.boiseh3.org"));
 
     expect(result.events).toHaveLength(0);
     expect(result.errors.length).toBeGreaterThan(0);
@@ -168,10 +163,7 @@ describe("BoiseH3Adapter.fetch", () => {
     );
 
     const adapter = new BoiseH3Adapter();
-    const result = await adapter.fetch({
-      id: "test",
-      url: "https://www.boiseh3.org",
-    } as never);
+    const result = await adapter.fetch(mockSource("https://www.boiseh3.org"));
 
     expect(result.events).toHaveLength(0);
     expect(result.errors.length).toBeGreaterThan(0);

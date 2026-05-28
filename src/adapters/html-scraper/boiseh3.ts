@@ -5,11 +5,25 @@ import { fetchHTMLPage, chronoParseDate, parse12HourTime } from "../utils";
 
 // Heading: "Hash #1993 - Memorial Day Hash!" (also handles en-dash and ＃).
 const HEADING_RE = /Hash\s*[#＃]\s*(\d+)\s*[-–]\s*(.+)/i;
-// Date + time line: "Monday, 05/25/2026 6:40 PM" (optional weekday prefix).
-const DATE_TIME_RE = /(?:[A-Za-z]+,\s*)?(\d{1,2}\/\d{1,2}\/\d{2,4})\s+(\d{1,2}:\d{2}\s*[AP]M)/i;
-const HARES_RE = /^Hares?:\s*(.+)$/i;
+// Two simple patterns instead of one combined regex (avoids ReDoS-shape flagging).
+const DATE_RE = /(\d{1,2}\/\d{1,2}\/\d{2,4})/;
+const TIME_RE = /(\d{1,2}:\d{2}) ?(AM|PM)/i;
+const HARES_RE = /^Hares?:\s*(\S.*)$/i;
 // Lines that aren't location candidates: section labels, bullet items, hash-cash boilerplate.
 const SKIP_LINE_RE = /^(?:Trail:|Bring:|[●•]|\$\d+\s*Hash\s*Cash)/iu;
+
+function parseDateTimeLine(line: string): { dateStr: string; timeStr: string } | null {
+  const dm = DATE_RE.exec(line);
+  if (!dm) return null;
+  const tm = TIME_RE.exec(line.slice(dm.index + dm[0].length));
+  if (!tm) return null;
+  return { dateStr: dm[1], timeStr: `${tm[1]} ${tm[2]}` };
+}
+
+function mergeLocation(existing: string | undefined, line: string): string {
+  if (!existing) return line;
+  return existing.includes(line) ? existing : `${existing}, ${line}`;
+}
 
 /**
  * Parse the upcoming-hash block from BoiseH3 home-page HTML.
@@ -46,8 +60,7 @@ export function parseBoiseH3Page(
 
   const lines: string[] = [];
   $walkFrom.nextAll().each((_i, el) => {
-    const tagName = (el as { tagName?: string }).tagName?.toLowerCase() ?? "";
-    if (/^h[1-6]$/.test(tagName)) return false;
+    if ($(el).is("h1, h2, h3, h4, h5, h6")) return false;
     const text = $(el).text().replace(/\s+/g, " ").trim();
     if (text) lines.push(text);
     return true;
@@ -61,13 +74,11 @@ export function parseBoiseH3Page(
   for (const line of lines) {
     if (/we need hares/i.test(line)) break;
 
-    if (!date) {
-      const dtMatch = DATE_TIME_RE.exec(line);
-      if (dtMatch) {
-        date = chronoParseDate(dtMatch[1], "en-US");
-        startTime = parse12HourTime(dtMatch[2]);
-        continue;
-      }
+    const dt = !date ? parseDateTimeLine(line) : null;
+    if (dt) {
+      date = chronoParseDate(dt.dateStr, "en-US");
+      startTime = parse12HourTime(dt.timeStr);
+      continue;
     }
 
     const hareMatch = HARES_RE.exec(line);
@@ -77,12 +88,7 @@ export function parseBoiseH3Page(
     }
 
     if (SKIP_LINE_RE.test(line)) continue;
-
-    if (!location) {
-      location = line;
-    } else if (!location.includes(line)) {
-      location = `${location}, ${line}`;
-    }
+    location = mergeLocation(location, line);
   }
 
   if (!date) {
