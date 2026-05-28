@@ -2234,6 +2234,7 @@ export const KENNELS: KennelSeed[] = [
       region: "Boise, ID", country: "USA",
       website: "https://www.boiseh3.org",
       facebookUrl: "https://www.facebook.com/BoiseHash",
+      logoUrl: "/kennel-logos/boiseh3.png",
       scheduleDayOfWeek: "Monday", scheduleTime: "6:40 PM", scheduleFrequency: "Weekly",
       hashCash: "$7",
       description: "Weekly Monday-night hash in Boise, Idaho. 'A drinking club with a running problem.' Part of the worldwide Hash House Harriers tradition; meets every Monday for a run and beer.",
