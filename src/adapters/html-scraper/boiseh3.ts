@@ -3,8 +3,8 @@ import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult } from "../types";
 import { fetchHTMLPage, chronoParseDate, parse12HourTime } from "../utils";
 
-// Heading: "Hash #1993 - Memorial Day Hash!" (also handles en-dash and ＃).
-const HEADING_RE = /Hash\s*[#＃]\s*(\d+)\s*[-–]\s*(.+)/i;
+// Heading: "Hash #1993 - Memorial Day Hash!" — dash+title is optional (site omits it between updates).
+const HEADING_RE = /Hash\s*[#＃]\s*(\d+)(?:\s*[-–]\s*(.+))?/i;
 // Two simple patterns instead of one combined regex (avoids ReDoS-shape flagging).
 const DATE_RE = /(\d{1,2}\/\d{1,2}\/\d{2,4})/;
 const TIME_RE = /(\d{1,2}:\d{2}) ?(AM|PM)/i;
@@ -53,7 +53,7 @@ export function parseBoiseH3Page(
     return { event: null, error: `could not parse heading: ${headText.slice(0, 80)}` };
   }
   const runNumber = Number.parseInt(headMatch[1], 10);
-  const title = headMatch[2].trim();
+  const title = headMatch[2]?.trim();
 
   const $richContainer = $heading.closest('[data-testid="richTextElement"]');
   const $walkFrom = $richContainer.length ? $richContainer : $heading;
