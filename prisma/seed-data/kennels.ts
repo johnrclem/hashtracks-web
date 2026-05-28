@@ -2228,6 +2228,17 @@ export const KENNELS: KennelSeed[] = [
       description: "Biweekly Sunday hash in the Bremerton/Silverdale/Kitsap area. Founded 2012.",
       latitude: 47.57, longitude: -122.63,
     },
+    // ===== IDAHO =====
+    {
+      kennelCode: "boiseh3", shortName: "BoiseH3", fullName: "Boise Hash House Harriers",
+      region: "Boise, ID", country: "USA",
+      website: "https://www.boiseh3.org",
+      facebookUrl: "https://www.facebook.com/BoiseHash",
+      scheduleDayOfWeek: "Monday", scheduleTime: "6:40 PM", scheduleFrequency: "Weekly",
+      hashCash: "$7",
+      description: "Weekly Monday-night hash in Boise, Idaho. 'A drinking club with a running problem.' Part of the worldwide Hash House Harriers tradition; meets every Monday for a run and beer.",
+      latitude: 43.6150, longitude: -116.2023,
+    },
     // ===== COLORADO =====
     // Denver Metro
     {

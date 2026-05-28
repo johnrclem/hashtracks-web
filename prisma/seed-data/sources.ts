@@ -2562,6 +2562,16 @@ export const SOURCES = [
       },
       kennelCodes: ["leapyear-h3"],
     },
+    // ===== IDAHO =====
+    {
+      name: "BoiseH3 Website",
+      url: "https://www.boiseh3.org",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      kennelCodes: ["boiseh3"],
+    },
     // ===== COLORADO =====
     // --- Denver H3 (Google Calendar) ---
     // #1649 — Boulder Hash cross-posts BH3/Toga events to the Denver kennel
