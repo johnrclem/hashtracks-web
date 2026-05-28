@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { parseBoiseH3Page } from "./boiseh3";
-import { BoiseH3Adapter } from "./boiseh3";
+import { BoiseH3Adapter, parseBoiseH3Page } from "./boiseh3";
 
 // Static fixture: captures the live home-page event block structure as of 2026-05-28.
 // Wix wraps each content block in a [data-testid="richTextElement"] div; the
