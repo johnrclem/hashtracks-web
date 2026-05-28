@@ -261,6 +261,8 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "ssh3-wa": ["South Sound Hash", "South Sound H3", "SSH3"],
     "giggity-h3": ["Giggity Hash", "Giggity H3"],
     "hswtf-h3": ["HSWTF Hash", "HSWTF H3", "Holy Shit What The Fuck"],
+    // ===== IDAHO =====
+    "boiseh3": ["BoiseH3", "Boise H3", "Boise Hash", "Boise HHH", "Boise Hash House Harriers"],
     // ===== COLORADO =====
     "dh3-co": ["Denver Hash", "Denver H3", "DH3", "DenverH3"],
     "mihi-huha": ["Mile High Humpin Hash", "MiHiHuHa", "Mile High H3", "MHHH3"],

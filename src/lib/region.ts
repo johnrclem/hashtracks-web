@@ -1051,6 +1051,30 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: -121.32,
     aliases: ["Bend, Oregon", "Central Oregon"],
   },
+  // ── US Mountain West — Idaho ──
+  {
+    name: "Idaho",
+    country: "USA",
+    level: "STATE_PROVINCE",
+    timezone: "America/Boise",
+    abbrev: "ID",
+    colorClasses: "bg-lime-100 text-lime-700",
+    pinColor: "#65a30d",
+    centroidLat: 44.24,
+    centroidLng: -114.48,
+    aliases: ["ID"],
+  },
+  {
+    name: "Boise, ID",
+    country: "USA",
+    timezone: "America/Boise",
+    abbrev: "BOI",
+    colorClasses: "bg-lime-100 text-lime-700",
+    pinColor: "#65a30d",
+    centroidLat: 43.615,
+    centroidLng: -116.2023,
+    aliases: ["Boise, Idaho"],
+  },
   // ── US Mountain West — Colorado ──
   {
     name: "Colorado",
@@ -3161,6 +3185,8 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Salem, OR": "Oregon",
   "Eugene, OR": "Oregon",
   "Bend, OR": "Oregon",
+  // Idaho
+  "Boise, ID": "Idaho",
   "Denver, CO": "Colorado",
   "Boulder, CO": "Colorado",
   "Fort Collins, CO": "Colorado",
@@ -3375,6 +3401,7 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   "Ohio": "United States",
   "Washington": "United States",
   "Oregon": "United States",
+  "Idaho": "United States",
   "Colorado": "United States",
   "Minnesota": "United States",
   "Michigan": "United States",

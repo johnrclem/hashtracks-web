@@ -153,6 +153,7 @@ async function ensureRegionRecords(prisma: any) {
     "Utah": ["Salt Lake City, UT"],
     "Arizona": ["Phoenix, AZ", "Tucson, AZ"],
     "Colorado": ["Denver, CO", "Boulder, CO", "Fort Collins, CO", "Colorado Springs, CO"],
+    "Idaho": ["Boise, ID"],
     // ── US West Coast ──
     "Washington": ["Seattle, WA", "Tacoma, WA", "Olympia, WA", "Bremerton, WA"],
     "Oregon": ["Portland, OR", "Salem, OR", "Eugene, OR", "Bend, OR"],
