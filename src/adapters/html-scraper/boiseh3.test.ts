@@ -2,20 +2,37 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { parseBoiseH3Page } from "./boiseh3";
 import { BoiseH3Adapter } from "./boiseh3";
 
-// Static fixture: captures the home-page event block structure as of 2026-05-28.
-// Wix renders the upcoming hash inline as h-tags + paragraphs.
+// Static fixture: captures the live home-page event block structure as of 2026-05-28.
+// Wix wraps each content block in a [data-testid="richTextElement"] div; the
+// adapter climbs to that container before calling .nextAll() so siblings are found.
 const SAMPLE_HTML = `
 <html>
 <head><meta name="generator" content="Wix.com Website Builder" /></head>
 <body>
-<h1 id="comp-hash">Hash #1993 - Memorial Day Hash!</h1>
-<p>Monday, 05/25/2026 6:40 PM</p>
-<p>Castle Hills Park  5350 N Eugene St, Boise</p>
-<p>Trail: A to A</p>
-<p>Bring:  &#9679; $7 Hash Cash<br/>&#9679; Virgins<br/>&#9679; Wayward Hashers<br/>&#9679; Hashit<br/>&#9679; Hash Artifacts</p>
-<p>Hare: Stage Slut</p>
-<h2>We need Hares!</h2>
-<p>Want to hare? Contact us!</p>
+<div data-testid="mesh-container-content">
+  <div data-testid="richTextElement">
+    <h1>Hash #1993 - Memorial Day Hash!</h1>
+  </div>
+  <div data-testid="richTextElement">
+    <p>Monday, 05/25/2026 6:40 PM</p>
+  </div>
+  <div data-testid="richTextElement">
+    <p>Castle Hills Park  5350 N Eugene St, Boise</p>
+  </div>
+  <div data-testid="richTextElement">
+    <p>Trail: A to A</p>
+  </div>
+  <div data-testid="richTextElement">
+    <p>Bring:  &#9679; $7 Hash Cash<br/>&#9679; Virgins<br/>&#9679; Wayward Hashers<br/>&#9679; Hashit<br/>&#9679; Hash Artifacts</p>
+  </div>
+  <div data-testid="richTextElement">
+    <p>Hare: Stage Slut</p>
+  </div>
+  <div data-testid="richTextElement">
+    <h2>We need Hares!</h2>
+  </div>
+  <p>Want to hare? Contact us!</p>
+</div>
 </body>
 </html>
 `;

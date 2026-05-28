@@ -42,7 +42,13 @@ export function parseBoiseH3Page(
   const title = headMatch[2].trim();
 
   const lines: string[] = [];
-  $heading.nextAll().each((_i, el) => {
+
+  // Wix wraps each content block in a [data-testid="richTextElement"] div.
+  // Climb to that container and traverse its siblings; fall back to direct
+  // heading siblings for simple HTML fixtures.
+  const $richContainer = $heading.closest('[data-testid="richTextElement"]');
+  const $source = $richContainer.length ? $richContainer : $heading;
+  $source.nextAll().each((_i, el) => {
     const tagName = (el as { tagName?: string }).tagName?.toLowerCase() ?? "";
     if (/^h[1-6]$/.test(tagName)) return false;
     const text = $(el).text().replace(/\s+/g, " ").trim();
