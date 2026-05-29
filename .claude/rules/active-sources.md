@@ -1,5 +1,5 @@
 ---
-description: Active data sources catalog — 340 sources across 17 countries
+description: Active data sources catalog — 342 sources across 17 countries
 globs:
   - src/adapters/**
   - prisma/seed.ts
@@ -7,11 +7,11 @@ globs:
   - src/pipeline/**
 ---
 
-# Active Sources (340)
+# Active Sources (342)
 
 Last synced from `prisma/seed-data/sources.ts` via the `/update-sources-rule` skill.
 
-## United States (212 sources)
+## United States (214 sources)
 
 ### Akron, OH (1)
 - **Rubber City H3 Meetup** -> MEETUP -> rch3
@@ -46,6 +46,9 @@ Last synced from `prisma/seed-data/sources.ts` via the `/update-sources-rule` sk
 
 ### Bloomington, IN (1)
 - **Blooming Fools H3 Website** -> HTML_SCRAPER -> bfh3
+
+### Boise, ID (1)
+- **BoiseH3 Website** -> HTML_SCRAPER -> boiseh3
 
 ### Boston, MA (3)
 - **Boston Hash Calendar** -> GOOGLE_CALENDAR -> boh3, bobbh3, beantown, bos-moon, pink-taco, zigzag, e4b
@@ -370,8 +373,9 @@ Last synced from `prisma/seed-data/sources.ts` via the `/update-sources-rule` sk
 ### Salt Lake City, UT (1)
 - **Whoreman H3 Calendar** -> GOOGLE_CALENDAR -> wasatch-h3, lds-h3, slosh-h3, slut-h3
 
-### San Diego, CA (1)
+### San Diego, CA (2)
 - **SDH3 Hareline** -> HTML_SCRAPER -> sdh3, clh3-sd, ljh3, nch3-sd, irh3-sd, humpin-sd, fmh3-sd, hah3-sd, mh4-sd, drh3-sd
+- **NCH3 Official Microsite** -> HTML_SCRAPER -> nch3-sd
 
 ### San Francisco, CA (3)
 - **SFH3 MultiHash iCal Feed** -> ICAL_FEED -> sfh3, gph3, ebh3, svh3, fhac-u, agnews, barh3, marinh3, fch3, sffmh3, vmh3, mwh3, 262h3
