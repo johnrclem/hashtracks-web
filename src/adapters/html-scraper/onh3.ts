@@ -28,6 +28,7 @@ const WPCOM_API = "https://public-api.wordpress.com/wp/v2/sites/onh3.wordpress.c
 const KENNEL_TAG = "onh3";
 const KENNEL_TIMEZONE = "Africa/Nairobi";
 const DEFAULT_START_TIME = "17:45"; // 5:45 PM per kennel convention (registration from 5:00 PM)
+const STALE_PUBLISH_GRACE_MS = 120 * 86_400_000; // drop announcements dated >120d before publish (typo guard)
 const PER_PAGE = 100; // WordPress.com REST max
 const MAX_PAGES = 5; // 5 × 100 = 500 posts; the blog currently holds ~34
 
@@ -179,6 +180,15 @@ export function postToEvent(post: WPComPost): RawEventData | null {
   const dateField = fields.get("date");
   const date = dateField ? parseTextDate(dateField) ?? parseNumericDate(dateField) : undefined;
   if (!date) return null;
+
+  // A run announcement dated far before its own publish date is a source typo
+  // (post #1068 was labeled "16 Mar 2019" but published in March 2020 for a 2020
+  // run). Drop it rather than emit a mis-dated duplicate. The 120-day grace keeps
+  // recap-hybrid posts that go up a few days after the run (e.g. #1329).
+  const publishMs = Date.parse(post.date);
+  if (Number.isFinite(publishMs) && Date.parse(`${date}T12:00:00Z`) < publishMs - STALE_PUBLISH_GRACE_MS) {
+    return null;
+  }
 
   const { runNumber: titleRun, theme } = parseOnh3Title(post.title.rendered);
   // Body fallback uses the shared "#NNN" parser on the "Run:" field ("Run: #1068").

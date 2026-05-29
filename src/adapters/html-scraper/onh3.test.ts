@@ -11,10 +11,10 @@ import {
 
 type Post = Parameters<typeof postToEvent>[0];
 
-function post(title: string, contentHtml: string, id = 1): Post {
+function post(title: string, contentHtml: string, id = 1, publishDate = "2026-03-29T07:58:13"): Post {
   return {
     id,
-    date: "2026-03-29T07:58:13",
+    date: publishDate,
     link: `https://onh3.wordpress.com/post/${id}/`,
     title: { rendered: title },
     content: { rendered: contentHtml },
@@ -138,16 +138,17 @@ describe("postToEvent", () => {
   it("parses a 2019-era post with an abbreviated month", () => {
     const ev = postToEvent(
       post(
-        "Run 1068. Hare: Dodger. Venue: Hare&#8217;s hole.",
-        "<p>Monday’s run will be hosted by Dodger. Run: #1068 Date: 16 Mar 2019 " +
-          "Hare: Dodger Time: 5:45 PM (registration starts at 5PM) Venue: Hare’s hole, Peponi Gardens</p>",
-        289,
+        "Run 1019. Hare: Pounder. Venue: Wasp & Sprout.",
+        "<p>Monday’s run will be hosted by Pounder. Run: #1019 Date: 16 Mar 2019 " +
+          "Hare: Pounder Time: 5:45 PM (registration starts at 5PM) Venue: Wasp & Sprout, Loresho</p>",
+        191,
+        "2019-03-12T09:00:00", // genuine 2019 announcement (run is 4 days out) — not a typo
       ),
     )!;
     expect(ev.date).toBe("2019-03-16");
-    expect(ev.runNumber).toBe(1068);
-    expect(ev.hares).toBe("Dodger");
-    expect(ev.location).toBe("Hare’s hole, Peponi Gardens");
+    expect(ev.runNumber).toBe(1019);
+    expect(ev.hares).toBe("Pounder");
+    expect(ev.location).toBe("Wasp & Sprout, Loresho");
   });
 
   it("trims a sentence of directions off a verbose venue", () => {
@@ -161,6 +162,31 @@ describe("postToEvent", () => {
       ),
     )!;
     expect(ev.location).toBe("Community Cooker at the Planning House on Lower Kabete");
+  });
+
+  it("drops a run dated far before its publish date (source year typo, e.g. #1068)", () => {
+    // Published March 2020, but the body Date reads "16 Mar 2019" — a typo.
+    const ev = postToEvent(
+      post(
+        "Run 1068. Hare: Dodger.",
+        "<p>Run: #1068 Date: 16 Mar 2019 Hare: Dodger Venue: Hare’s hole</p>",
+        289,
+        "2020-03-14T10:00:00",
+      ),
+    );
+    expect(ev).toBeNull();
+  });
+
+  it("keeps a recap-hybrid run posted a few days after the run", () => {
+    const ev = postToEvent(
+      post(
+        "Run 1329 Peeping Clam’s Birthday hash",
+        "<p>Date: Monday, 20 April 2026</p><p>Hares: Peeping Clam</p><p>Venue: German Point</p>",
+        353,
+        "2026-04-22T12:00:00", // 2 days after the run — within grace
+      ),
+    )!;
+    expect(ev.date).toBe("2026-04-20");
   });
 
   it("returns null for a post with no parseable date (a social)", () => {

@@ -5825,7 +5825,12 @@ export const SOURCES = [
       scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
-        kennelPatterns: [[String.raw`Run\s*#?\s*\d{3,4}`, "onh3"]],
+        // ONH3's calendar titles runs inconsistently: "Run 1334 …", "ONH3 1328 …",
+        // and bare "1324 …". Anchor on a leading 3-4 digit run number with an
+        // optional "ONH3"/"Run" prefix so every run matches while non-run socials
+        // ("Pia visit …", "Year 3 trip meeting") stay unmatched and drop out.
+        // Single \s (not \s+) keeps it safe-regex2-clean — see kennel-patterns.ts.
+        kennelPatterns: [[String.raw`^(?:ONH3\s)?(?:Run\s)?#?\d{3,4}\b`, "onh3"]],
         defaultKennelTag: null,
       },
       kennelCodes: ["onh3"],
