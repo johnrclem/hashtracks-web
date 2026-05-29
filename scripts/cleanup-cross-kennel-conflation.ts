@@ -46,6 +46,7 @@ import { PrismaClient } from "@/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { createScriptPool } from "./lib/db-pool";
 import { cascadeDeleteEvents } from "./lib/cascade-delete";
+import { reassignEventKennel } from "./lib/event-reassign";
 
 const APPLY = process.env.BACKFILL_APPLY === "1";
 
@@ -68,44 +69,6 @@ async function main() {
 }
 
 // ── #1556 GyNO H3 ────────────────────────────────────────────────────────
-
-/**
- * Reassign an Event from one primary kennel to another in a single transaction,
- * keeping the unique `(eventId, kennelId)` constraint on EventKennel safe.
- * If the target kennel already has an EventKennel row on this event (legitimate
- * co-host link), drop the source row instead of attempting an update that
- * would collide on the composite primary key.
- */
-async function reassignEventKennel(
-  prisma: PrismaClient,
-  eventId: string,
-  fromKennelId: string,
-  toKennelId: string,
-) {
-  const targetCoHost = await prisma.eventKennel.findUnique({
-    where: { eventId_kennelId: { eventId, kennelId: toKennelId } },
-  });
-  await prisma.$transaction([
-    prisma.event.update({ where: { id: eventId }, data: { kennelId: toKennelId } }),
-    targetCoHost
-      ? prisma.eventKennel.delete({ where: { eventId_kennelId: { eventId, kennelId: fromKennelId } } })
-      : prisma.eventKennel.updateMany({
-          where: { eventId, kennelId: fromKennelId },
-          data: { kennelId: toKennelId },
-        }),
-  ]);
-  if (targetCoHost) {
-    // The remaining row (the original co-host) now owns the kennel link.
-    // If it wasn't already marked primary, promote it so downstream queries
-    // that order by isPrimary surface the right kennel.
-    if (!targetCoHost.isPrimary) {
-      await prisma.eventKennel.update({
-        where: { eventId_kennelId: { eventId, kennelId: toKennelId } },
-        data: { isPrimary: true },
-      });
-    }
-  }
-}
 
 /** Build the diff of gynoh3 profile fields that still need patching. */
 function gynoProfilePatch(gyno: { fullName: string; founder: string | null; parentKennelCode: string | null }): Record<string, string> {

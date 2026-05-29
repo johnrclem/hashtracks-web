@@ -3062,6 +3062,21 @@ export const SOURCES = [
       },
       kennelCodes: ["sdh3", "clh3-sd", "ljh3", "nch3-sd", "irh3-sd", "humpin-sd", "fmh3-sd", "hah3-sd", "mh4-sd", "drh3-sd"],
     },
+    // NCH3 official microsite — a single "current run" page (#1765). Richer
+    // than the SDH3 hareline for the live run (hares/location/cost/trail type)
+    // but it enumerates only ONE event, so `upcomingOnly: true` keeps reconcile
+    // from cancelling the many SDH3-sourced NCH3 events it can't see. NCH3 stays
+    // primarily tracked via "SDH3 Hareline"; this is a supplemental enrichment.
+    {
+      name: "NCH3 Official Microsite",
+      url: "https://nch3.com/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "weekly",
+      scrapeDays: 30,
+      config: { upcomingOnly: true },
+      kennelCodes: ["nch3-sd"],
+    },
     // ===== OHIO =====
     // --- Cleveland (Meetup) ---
     {
