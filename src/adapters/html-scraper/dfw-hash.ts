@@ -257,6 +257,15 @@ const KENNEL_NAME_PATTERNS = [
 /** Day-of-week prefix pattern (detail pages sometimes have date headings). */
 const DAY_PREFIX_PATTERN = /^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)/i;
 
+/**
+ * Hash-specific signals for accepting an <h1> as the event TITLE (#1768).
+ * Narrower than KENNEL_NAME_PATTERNS (which also matches bare city names like
+ * "Dallas"/"DFW") so a venue heading such as "Dallas Arboretum" can't hijack
+ * the title (Codex review). Every DFW kennel's event name carries one of these:
+ * "NODUH Hash", "Dallas Urban Hash", "Fort Worth Hash", "YAKH3" (→ "H3").
+ */
+const HASH_TITLE_PATTERNS = [/hash/i, /h[3-5]\b/i, /\bhhh\b/i];
+
 /** Long-form month + day + year regex for detail-page date headings. */
 const DETAIL_DATE_PATTERN =
   /\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s+(\d{4})\b/i;
@@ -342,10 +351,11 @@ function extractVenueName($: CheerioAPI): string | undefined {
  * this, the adapter left `title` undefined and merge synthesized the
  * "NODUHHH Trail #N" placeholder.
  *
- * Only kennel/event-name headings are titles: those match `KENNEL_NAME_PATTERNS`
- * (they contain "Hash"/"NODUH"/"Dallas"/…). A bare venue heading like
- * "Twin Peaks" does NOT match and is left to `extractVenueName`, so it never
- * hijacks the event title. Date-like and run-number headings are skipped too.
+ * Only event-name headings are titles: those carry a hash signal
+ * (`HASH_TITLE_PATTERNS` — "Hash"/"H3"/"HHH"). A bare venue heading like
+ * "Twin Peaks" or a city-named venue like "Dallas Arboretum" does NOT match and
+ * is left to `extractVenueName`, so it never hijacks the event title. Date-like
+ * and run-number headings are skipped too.
  */
 function extractDetailPageTitle($: CheerioAPI): string | undefined {
   let title: string | undefined;
@@ -354,7 +364,7 @@ function extractDetailPageTitle($: CheerioAPI): string | undefined {
     const text = $(el).text().trim();
     if (!text || DAY_PREFIX_PATTERN.test(text)) return;
     if (/Hash Run No/i.test(text)) return;
-    if (!KENNEL_NAME_PATTERNS.some((p) => p.test(text))) return;
+    if (!HASH_TITLE_PATTERNS.some((p) => p.test(text))) return;
     title = text;
   });
   return title;
@@ -376,11 +386,13 @@ function extractDetailPageTitle($: CheerioAPI): string | undefined {
  */
 function parseDogFriendly(value: string): boolean | undefined {
   const v = value.trim().toLowerCase();
-  if (v.includes("leash") || /^(?:yes|ok|sure|welcome|allowed)\b/.test(v)) {
-    return true;
-  }
+  // Negatives win first: "No dogs, even on leash" must be false, not true
+  // (Codex review — leash mention alone is not an affirmative signal).
   if (/^no\b/.test(v) || v.includes("no dog") || v.includes("not allow") || v.includes("not permit")) {
     return false;
+  }
+  if (v.includes("leash") || /^(?:yes|ok|sure|welcome|allowed)\b/.test(v)) {
+    return true;
   }
   return undefined;
 }

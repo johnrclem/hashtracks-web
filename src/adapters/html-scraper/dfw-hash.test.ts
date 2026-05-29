@@ -423,17 +423,37 @@ describe("parseDFWDetailPage", () => {
 
 describe("parseDFWDetailPage — title / linebreaks / dog policy", () => {
   // #1768 — the event-name <h1> becomes the title (replacing the synthesized
-  // "NODUHHH Trail #N" default), but a bare venue <h1> must NOT.
-  it("does not use a bare venue <h1> as the title (#1768)", () => {
+  // "NODUHHH Trail #N" default), but a venue <h1> must NOT — including a
+  // city-named venue ("Dallas Arboretum") that contains a kennel-region word
+  // but no hash signal (Codex review).
+  it.each([
+    "Twin Peaks",
+    "Dallas Arboretum",
+    "Fort Worth Botanic Garden",
+  ])("does not use a venue <h1> (%j) as the title (#1768)", (venue) => {
     const $ = cheerio.load(`
       <html><body>
-        <h1>Twin Peaks</h1>
+        <h1>${venue}</h1>
         <h3>Hash Run No 250</h3>
         <h5><em>Start address:</em> 5260 belt line Dallas 75254</h5>
       </body></html>
     `);
-    const detail = parseDFWDetailPage($);
-    expect(detail.title).toBeUndefined();
+    expect(parseDFWDetailPage($).title).toBeUndefined();
+  });
+
+  // #1768 — event-name headings (incl. the compound "YAKH3") are accepted.
+  it.each([
+    ["NODUH Hash", "NODUH Hash"],
+    ["Dallas Urban Hash", "Dallas Urban Hash"],
+    ["YAKH3", "YAKH3"],
+  ])("uses the event-name <h1> (%j) as the title (#1768)", (h1, expected) => {
+    const $ = cheerio.load(`
+      <html><body>
+        <h1>${h1}</h1>
+        <h3>Hash Run No 250</h3>
+      </body></html>
+    `);
+    expect(parseDFWDetailPage($).title).toBe(expected);
   });
 
   // #1769 — multi-line descriptions must read with spaces, not ", , " comma
@@ -474,6 +494,7 @@ describe("parseDFWDetailPage — title / linebreaks / dog policy", () => {
     ["OK on a leash - for their own safety", true],
     ["No", false],
     ["No dogs", false],
+    ["No dogs, even on leash", false], // negative wins over the leash mention
     ["Not allowed", false],
     ["No dogs allowed", false],
     ["Nope", undefined], // ambiguous → null → unset, not true
