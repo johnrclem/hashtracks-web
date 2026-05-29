@@ -79,7 +79,14 @@ export default async function AdminEventsPage({ searchParams }: PageProps) {
     prisma.event.findMany({
       where,
       include: {
-        kennel: { select: { shortName: true, region: true } },
+        kennel: { select: { kennelCode: true, shortName: true, region: true } },
+        eventKennels: {
+          orderBy: { isPrimary: "desc" }, // primary first — UI relies on this order
+          select: {
+            isPrimary: true,
+            kennel: { select: { kennelCode: true, shortName: true } },
+          },
+        },
         rawEvents: {
           select: {
             id: true,
@@ -95,7 +102,7 @@ export default async function AdminEventsPage({ searchParams }: PageProps) {
     }),
     prisma.kennel.findMany({
       orderBy: { shortName: "asc" },
-      select: { id: true, shortName: true, fullName: true, region: true },
+      select: { id: true, kennelCode: true, shortName: true, fullName: true, region: true },
     }),
     prisma.source.findMany({
       orderBy: { name: "asc" },
@@ -110,25 +117,41 @@ export default async function AdminEventsPage({ searchParams }: PageProps) {
   const totalPages = Math.ceil(totalCount / pageSize);
 
   // Serialize dates for client component
-  const serializedEvents = events.map((e) => ({
-    id: e.id,
-    date: e.date.toISOString(),
-    kennelId: e.kennelId,
-    kennelName: e.kennel.shortName,
-    kennelRegion: e.kennel.region,
-    title: e.title,
-    runNumber: e.runNumber,
-    startTime: e.startTime,
-    status: e.status,
-    adminCancelledAt: e.adminCancelledAt?.toISOString() ?? null,
-    adminCancelledBy: e.adminCancelledBy,
-    adminCancellationReason: e.adminCancellationReason,
-    adminAuditLogCount: Array.isArray(e.adminAuditLog) ? e.adminAuditLog.length : 0,
-    sources: [...new Set(e.rawEvents.map((r) => r.source.name))],
-    rawEventCount: e.rawEvents.length,
-    attendanceCount: e._count.attendances,
-    hareCount: e._count.hares,
-  }));
+  const serializedEvents = events.map((e) => {
+    // Co-host list for the kennel-attribution dialog, primary-first (ordered by
+    // the query). Fall back to the Event.kennelId denorm if the join table
+    // somehow has no rows.
+    const kennels =
+      e.eventKennels.length > 0
+        ? e.eventKennels.map((ek) => ({
+            kennelCode: ek.kennel.kennelCode,
+            shortName: ek.kennel.shortName,
+            isPrimary: ek.isPrimary,
+          }))
+        : [{ kennelCode: e.kennel.kennelCode, shortName: e.kennel.shortName, isPrimary: true }];
+    return {
+      id: e.id,
+      date: e.date.toISOString(),
+      kennelId: e.kennelId,
+      kennelName: e.kennel.shortName,
+      kennelRegion: e.kennel.region,
+      title: e.title,
+      runNumber: e.runNumber,
+      startTime: e.startTime,
+      status: e.status,
+      parentEventId: e.parentEventId,
+      isSeriesParent: e.isSeriesParent,
+      kennels,
+      adminCancelledAt: e.adminCancelledAt?.toISOString() ?? null,
+      adminCancelledBy: e.adminCancelledBy,
+      adminCancellationReason: e.adminCancellationReason,
+      adminAuditLogCount: Array.isArray(e.adminAuditLog) ? e.adminAuditLog.length : 0,
+      sources: [...new Set(e.rawEvents.map((r) => r.source.name))],
+      rawEventCount: e.rawEvents.length,
+      attendanceCount: e._count.attendances,
+      hareCount: e._count.hares,
+    };
+  });
 
   const rangeStart = totalCount > 0 ? skip + 1 : 0;
   const rangeEnd = Math.min(skip + pageSize, totalCount);

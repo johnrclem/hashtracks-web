@@ -21,6 +21,15 @@ vi.mock("@/lib/db", () => {
     eventHare: { deleteMany: vi.fn() },
     attendance: { deleteMany: vi.fn() },
     kennelAttendance: { deleteMany: vi.fn() },
+    kennel: { findUnique: vi.fn() },
+    eventKennel: {
+      findUnique: vi.fn(),
+      findMany: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+      deleteMany: vi.fn(),
+    },
     $executeRaw: vi.fn().mockResolvedValue(1),
     // $transaction supports both forms:
     //   - array: deleteEventsCascade pattern
@@ -52,6 +61,12 @@ import {
   deleteSelectedEvents,
   uncancelEvent,
   adminCancelEvent,
+  linkChildToUmbrella,
+  unlinkChildFromUmbrella,
+  searchEventsForUmbrella,
+  reattributeEventKennel,
+  addCoHostKennel,
+  removeCoHostKennel,
 } from "./actions";
 
 const mockAdminAuth = vi.mocked(getAdminUser);
@@ -59,6 +74,11 @@ const mockEventFindUnique = vi.mocked(prisma.event.findUnique);
 const mockEventFindMany = vi.mocked(prisma.event.findMany);
 const mockEventCount = vi.mocked(prisma.event.count);
 const mockEventUpdate = vi.mocked(prisma.event.update);
+const mockKennelFindUnique = vi.mocked(prisma.kennel.findUnique);
+const mockEkCreate = vi.mocked(prisma.eventKennel.create);
+const mockEkUpdate = vi.mocked(prisma.eventKennel.update);
+const mockEkDelete = vi.mocked(prisma.eventKennel.delete);
+const mockEkDeleteMany = vi.mocked(prisma.eventKennel.deleteMany);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -567,5 +587,408 @@ describe("uncancelEvent — extended for admin override", () => {
     };
     expect(updateArg.data.adminAuditLog).toHaveLength(3);
     expect(updateArg.data.adminAuditLog[2].action).toBe("uncancel");
+  });
+});
+
+describe("linkChildToUmbrella", () => {
+  const child = {
+    parentEventId: null,
+    isSeriesParent: false,
+    date: new Date("2026-06-07T12:00:00Z"),
+    adminAuditLog: null,
+    kennel: { shortName: "NYCH3", slug: "nych3" },
+  };
+  const umbrella = { parentEventId: null, isSeriesParent: false };
+
+  it("returns error when not admin", async () => {
+    mockAdminAuth.mockResolvedValueOnce(null);
+    expect(await linkChildToUmbrella("c1", "u1")).toEqual({ error: "Not authorized" });
+  });
+
+  it("rejects linking an event to itself", async () => {
+    expect(await linkChildToUmbrella("e1", "e1")).toEqual({
+      error: "Cannot link an event to itself",
+    });
+  });
+
+  it("returns error when child not found", async () => {
+    mockEventFindUnique.mockResolvedValueOnce(null as never); // child
+    mockEventFindUnique.mockResolvedValueOnce(umbrella as never); // umbrella
+    expect(await linkChildToUmbrella("c1", "u1")).toEqual({ error: "Child event not found" });
+  });
+
+  it("returns error when umbrella not found", async () => {
+    mockEventFindUnique.mockResolvedValueOnce(child as never);
+    mockEventFindUnique.mockResolvedValueOnce(null as never);
+    expect(await linkChildToUmbrella("c1", "u1")).toEqual({ error: "Umbrella event not found" });
+  });
+
+  it("rejects when the umbrella is itself a child", async () => {
+    mockEventFindUnique.mockResolvedValueOnce(child as never);
+    mockEventFindUnique.mockResolvedValueOnce({ ...umbrella, parentEventId: "grandparent" } as never);
+    expect(await linkChildToUmbrella("c1", "u1")).toEqual({
+      error: "Umbrella is itself a child of another event",
+    });
+  });
+
+  it("rejects attaching a series parent as a child", async () => {
+    mockEventFindUnique.mockResolvedValueOnce({ ...child, isSeriesParent: true } as never);
+    mockEventFindUnique.mockResolvedValueOnce(umbrella as never);
+    const result = await linkChildToUmbrella("c1", "u1");
+    expect(result).toEqual({
+      error: "This event is a series parent — detach its children before attaching it",
+    });
+  });
+
+  it("is idempotent when already linked to this umbrella", async () => {
+    mockEventFindUnique.mockResolvedValueOnce({ ...child, parentEventId: "u1" } as never);
+    mockEventFindUnique.mockResolvedValueOnce(umbrella as never);
+    const result = await linkChildToUmbrella("c1", "u1");
+    expect(result).toMatchObject({ success: true, kennelName: "NYCH3" });
+    expect(mockEventUpdate).not.toHaveBeenCalled();
+  });
+
+  it("rejects relinking a child already under a different umbrella", async () => {
+    mockEventFindUnique.mockResolvedValueOnce({ ...child, parentEventId: "other" } as never);
+    mockEventFindUnique.mockResolvedValueOnce(umbrella as never);
+    const result = await linkChildToUmbrella("c1", "u1");
+    expect(result).toEqual({
+      error: "Event is already linked to a different umbrella — unlink it first",
+    });
+    expect(mockEventUpdate).not.toHaveBeenCalled();
+  });
+
+  it("links child, promotes umbrella, and extends endDate to cover the child", async () => {
+    mockEventFindUnique.mockResolvedValueOnce(child as never); // child guard
+    mockEventFindUnique.mockResolvedValueOnce(umbrella as never); // umbrella guard
+    // syncUmbrellaEndDate re-reads the umbrella + its children:
+    mockEventFindUnique.mockResolvedValueOnce({ date: new Date("2026-06-05T12:00:00Z") } as never);
+    mockEventFindMany.mockResolvedValueOnce([{ date: new Date("2026-06-07T12:00:00Z") }] as never);
+    mockEventUpdate.mockResolvedValue({} as never);
+
+    const result = await linkChildToUmbrella("c1", "u1");
+    expect(result).toMatchObject({ success: true, kennelName: "NYCH3" });
+
+    const childUpdate = mockEventUpdate.mock.calls[0][0] as unknown as {
+      where: { id: string };
+      data: { parentEventId: string; adminAuditLog: Array<{ action: string; changes?: { parentEventId?: { old: unknown; new: unknown } } }> };
+    };
+    expect(childUpdate.where).toEqual({ id: "c1" });
+    expect(childUpdate.data.parentEventId).toBe("u1");
+    expect(childUpdate.data.adminAuditLog[0].action).toBe("link_series");
+    expect(childUpdate.data.adminAuditLog[0].changes?.parentEventId).toEqual({ old: null, new: "u1" });
+
+    // Second update promotes the umbrella.
+    expect(mockEventUpdate.mock.calls[1][0]).toEqual({
+      where: { id: "u1" },
+      data: { isSeriesParent: true },
+    });
+
+    // Third update (syncUmbrellaEndDate) extends the range to the child's date.
+    expect(mockEventUpdate.mock.calls[2][0]).toEqual({
+      where: { id: "u1" },
+      data: { endDate: new Date("2026-06-07T12:00:00Z") },
+    });
+  });
+
+  it("does not re-promote an umbrella that is already a series parent", async () => {
+    mockEventFindUnique.mockResolvedValueOnce(child as never); // child guard
+    mockEventFindUnique.mockResolvedValueOnce({ ...umbrella, isSeriesParent: true } as never); // umbrella guard
+    mockEventFindUnique.mockResolvedValueOnce({ date: new Date("2026-06-05T12:00:00Z") } as never); // sync read
+    mockEventFindMany.mockResolvedValueOnce([{ date: new Date("2026-06-07T12:00:00Z") }] as never);
+    mockEventUpdate.mockResolvedValue({} as never);
+
+    await linkChildToUmbrella("c1", "u1");
+
+    // child update + endDate sync, but NO isSeriesParent promotion update.
+    expect(mockEventUpdate).toHaveBeenCalledTimes(2);
+    const setsIsSeriesParent = mockEventUpdate.mock.calls.some(
+      (c) => (c[0] as { data?: { isSeriesParent?: boolean } }).data?.isSeriesParent === true,
+    );
+    expect(setsIsSeriesParent).toBe(false);
+  });
+});
+
+describe("unlinkChildFromUmbrella", () => {
+  const linkedChild = {
+    parentEventId: "u1",
+    date: new Date("2026-06-07T12:00:00Z"),
+    adminAuditLog: null,
+    kennel: { shortName: "NYCH3", slug: "nych3" },
+  };
+
+  it("returns error when not admin", async () => {
+    mockAdminAuth.mockResolvedValueOnce(null);
+    expect(await unlinkChildFromUmbrella("c1")).toEqual({ error: "Not authorized" });
+  });
+
+  it("returns error when event not found", async () => {
+    mockEventFindUnique.mockResolvedValueOnce(null);
+    expect(await unlinkChildFromUmbrella("c1")).toEqual({ error: "Event not found" });
+  });
+
+  it("returns error when event is not linked", async () => {
+    mockEventFindUnique.mockResolvedValueOnce({ ...linkedChild, parentEventId: null } as never);
+    expect(await unlinkChildFromUmbrella("c1")).toEqual({
+      error: "Event is not linked to an umbrella",
+    });
+  });
+
+  it("clears parentEventId, appends an unlink_series audit entry, and resyncs the umbrella range", async () => {
+    mockEventFindUnique.mockResolvedValueOnce(linkedChild as never); // child guard
+    // syncUmbrellaEndDate re-reads the old umbrella + its remaining children:
+    mockEventFindUnique.mockResolvedValueOnce({ date: new Date("2026-06-05T12:00:00Z") } as never);
+    mockEventFindMany.mockResolvedValueOnce([] as never); // no children left
+    mockEventUpdate.mockResolvedValue({} as never);
+
+    const result = await unlinkChildFromUmbrella("c1");
+    expect(result).toMatchObject({ success: true, kennelName: "NYCH3" });
+
+    const updateArg = mockEventUpdate.mock.calls[0][0] as unknown as {
+      data: { parentEventId: null; adminAuditLog: Array<{ action: string; changes?: { parentEventId?: { old: unknown; new: unknown } } }> };
+    };
+    expect(updateArg.data.parentEventId).toBeNull();
+    expect(updateArg.data.adminAuditLog[0].action).toBe("unlink_series");
+    expect(updateArg.data.adminAuditLog[0].changes?.parentEventId).toEqual({ old: "u1", new: null });
+
+    // With no children left, the umbrella's endDate is cleared.
+    expect(mockEventUpdate.mock.calls[1][0]).toEqual({
+      where: { id: "u1" },
+      data: { endDate: null },
+    });
+  });
+});
+
+describe("searchEventsForUmbrella", () => {
+  it("returns error when not admin", async () => {
+    mockAdminAuth.mockResolvedValueOnce(null);
+    expect(await searchEventsForUmbrella("five")).toEqual({ error: "Not authorized" });
+  });
+
+  it("returns empty list for short queries without querying", async () => {
+    const result = await searchEventsForUmbrella(" a ");
+    expect(result).toEqual({ success: true, events: [] });
+    expect(mockEventFindMany).not.toHaveBeenCalled();
+  });
+
+  it("maps matched events", async () => {
+    mockEventFindMany.mockResolvedValueOnce([
+      {
+        id: "u1",
+        date: new Date("2026-06-05T12:00:00Z"),
+        title: "5-Boro Campout",
+        isSeriesParent: true,
+        kennel: { shortName: "NYCH3" },
+      },
+    ] as never);
+
+    const result = await searchEventsForUmbrella("5-Boro", "c1");
+    expect(result).toEqual({
+      success: true,
+      events: [
+        {
+          id: "u1",
+          date: "2026-06-05T12:00:00.000Z",
+          kennelName: "NYCH3",
+          title: "5-Boro Campout",
+          isSeriesParent: true,
+        },
+      ],
+    });
+  });
+});
+
+describe("reattributeEventKennel", () => {
+  const newKennel = { id: "knl_new", shortName: "BRH3", slug: "brh3" };
+  const eventBase = {
+    kennelId: "knl_old",
+    date: new Date("2026-06-06T12:00:00Z"),
+    adminAuditLog: null,
+    kennel: { kennelCode: "nych3", shortName: "NYCH3", slug: "nych3" },
+    eventKennels: [{ kennelId: "knl_old" }],
+  };
+
+  it("returns error when not admin", async () => {
+    mockAdminAuth.mockResolvedValueOnce(null);
+    expect(await reattributeEventKennel("e1", "brh3")).toEqual({ error: "Not authorized" });
+  });
+
+  it("returns error when target kennel not found", async () => {
+    mockKennelFindUnique.mockResolvedValueOnce(null);
+    expect(await reattributeEventKennel("e1", "ghost")).toEqual({
+      error: "Kennel not found: ghost",
+    });
+  });
+
+  it("returns error when event not found", async () => {
+    mockKennelFindUnique.mockResolvedValueOnce(newKennel as never);
+    mockEventFindUnique.mockResolvedValueOnce(null);
+    expect(await reattributeEventKennel("e1", "brh3")).toEqual({ error: "Event not found" });
+  });
+
+  it("returns error when event already attributed to that kennel", async () => {
+    mockKennelFindUnique.mockResolvedValueOnce(newKennel as never);
+    mockEventFindUnique.mockResolvedValueOnce({ ...eventBase, kennelId: "knl_new" } as never);
+    expect(await reattributeEventKennel("e1", "brh3")).toEqual({
+      error: "Event is already attributed to BRH3",
+    });
+  });
+
+  it("deletes old primary BEFORE creating the new primary, mirrors kennelId, audits", async () => {
+    const callOrder: string[] = [];
+    mockKennelFindUnique.mockResolvedValueOnce(newKennel as never);
+    mockEventFindUnique.mockResolvedValueOnce(eventBase as never);
+    mockEkDeleteMany.mockImplementationOnce((() => { callOrder.push("deleteMany"); return Promise.resolve({ count: 1 }); }) as never);
+    mockEkCreate.mockImplementationOnce((() => { callOrder.push("create"); return Promise.resolve({}); }) as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    const result = await reattributeEventKennel("e1", "brh3");
+    expect(result).toMatchObject({ success: true, oldKennelName: "NYCH3", newKennelName: "BRH3" });
+    expect(callOrder).toEqual(["deleteMany", "create"]);
+    expect(mockEkDeleteMany).toHaveBeenCalledWith({ where: { eventId: "e1", isPrimary: true } });
+    expect(mockEkCreate).toHaveBeenCalledWith({ data: { eventId: "e1", kennelId: "knl_new", isPrimary: true } });
+
+    const updateArg = mockEventUpdate.mock.calls[0][0] as unknown as {
+      data: { kennelId: string; adminAuditLog: Array<{ action: string; changes?: Record<string, { old: unknown; new: unknown }> }> };
+    };
+    expect(updateArg.data.kennelId).toBe("knl_new");
+    expect(updateArg.data.adminAuditLog[0].action).toBe("reattribute_kennel");
+    expect(updateArg.data.adminAuditLog[0].changes?.kennelId).toEqual({ old: "knl_old", new: "knl_new" });
+    expect(updateArg.data.adminAuditLog[0].changes?.kennelCode).toEqual({ old: "nych3", new: "brh3" });
+  });
+
+  it("promotes an existing co-host row instead of creating one", async () => {
+    mockKennelFindUnique.mockResolvedValueOnce(newKennel as never);
+    mockEventFindUnique.mockResolvedValueOnce({
+      ...eventBase,
+      eventKennels: [{ kennelId: "knl_old" }, { kennelId: "knl_new" }],
+    } as never);
+    mockEkDeleteMany.mockResolvedValueOnce({ count: 1 } as never);
+    mockEkUpdate.mockResolvedValueOnce({} as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    const result = await reattributeEventKennel("e1", "brh3");
+    expect(result).toMatchObject({ success: true });
+    expect(mockEkUpdate).toHaveBeenCalledWith({
+      where: { eventId_kennelId: { eventId: "e1", kennelId: "knl_new" } },
+      data: { isPrimary: true },
+    });
+    expect(mockEkCreate).not.toHaveBeenCalled();
+  });
+});
+
+describe("addCoHostKennel", () => {
+  const kennel = { id: "knl_co", shortName: "BRH3", slug: "brh3" };
+  const eventBase = {
+    date: new Date("2026-06-06T12:00:00Z"),
+    adminAuditLog: null,
+    kennel: { slug: "nych3" },
+    eventKennels: [{ kennelId: "knl_primary" }],
+  };
+
+  it("returns error when not admin", async () => {
+    mockAdminAuth.mockResolvedValueOnce(null);
+    expect(await addCoHostKennel("e1", "brh3")).toEqual({ error: "Not authorized" });
+  });
+
+  it("returns error when kennel not found", async () => {
+    mockKennelFindUnique.mockResolvedValueOnce(null);
+    expect(await addCoHostKennel("e1", "ghost")).toEqual({ error: "Kennel not found: ghost" });
+  });
+
+  it("returns error when event not found", async () => {
+    mockKennelFindUnique.mockResolvedValueOnce(kennel as never);
+    mockEventFindUnique.mockResolvedValueOnce(null);
+    expect(await addCoHostKennel("e1", "brh3")).toEqual({ error: "Event not found" });
+  });
+
+  it("returns error when kennel already attributed", async () => {
+    mockKennelFindUnique.mockResolvedValueOnce(kennel as never);
+    mockEventFindUnique.mockResolvedValueOnce({
+      ...eventBase,
+      eventKennels: [{ kennelId: "knl_co" }],
+    } as never);
+    expect(await addCoHostKennel("e1", "brh3")).toEqual({
+      error: "BRH3 is already attributed to this event",
+    });
+  });
+
+  it("creates a non-primary EventKennel row and appends add_cohost audit", async () => {
+    mockKennelFindUnique.mockResolvedValueOnce(kennel as never);
+    mockEventFindUnique.mockResolvedValueOnce(eventBase as never);
+    mockEkCreate.mockResolvedValueOnce({} as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    const result = await addCoHostKennel("e1", "brh3");
+    expect(result).toMatchObject({ success: true, kennelName: "BRH3" });
+    expect(mockEkCreate).toHaveBeenCalledWith({
+      data: { eventId: "e1", kennelId: "knl_co", isPrimary: false },
+    });
+    const updateArg = mockEventUpdate.mock.calls[0][0] as unknown as {
+      data: { adminAuditLog: Array<{ action: string }> };
+    };
+    expect(updateArg.data.adminAuditLog[0].action).toBe("add_cohost");
+  });
+});
+
+describe("removeCoHostKennel", () => {
+  const kennel = { id: "knl_co", shortName: "BRH3", slug: "brh3" };
+  const eventBase = {
+    date: new Date("2026-06-06T12:00:00Z"),
+    adminAuditLog: null,
+    kennel: { slug: "nych3" },
+    eventKennels: [
+      { kennelId: "knl_primary", isPrimary: true },
+      { kennelId: "knl_co", isPrimary: false },
+    ],
+  };
+
+  it("returns error when not admin", async () => {
+    mockAdminAuth.mockResolvedValueOnce(null);
+    expect(await removeCoHostKennel("e1", "brh3")).toEqual({ error: "Not authorized" });
+  });
+
+  it("returns error when kennel not found", async () => {
+    mockKennelFindUnique.mockResolvedValueOnce(null);
+    expect(await removeCoHostKennel("e1", "ghost")).toEqual({ error: "Kennel not found: ghost" });
+  });
+
+  it("returns error when kennel is not attributed", async () => {
+    mockKennelFindUnique.mockResolvedValueOnce(kennel as never);
+    mockEventFindUnique.mockResolvedValueOnce({
+      ...eventBase,
+      eventKennels: [{ kennelId: "knl_primary", isPrimary: true }],
+    } as never);
+    expect(await removeCoHostKennel("e1", "brh3")).toEqual({
+      error: "BRH3 is not attributed to this event",
+    });
+  });
+
+  it("refuses to remove the primary kennel", async () => {
+    mockKennelFindUnique.mockResolvedValueOnce(kennel as never);
+    mockEventFindUnique.mockResolvedValueOnce({
+      ...eventBase,
+      eventKennels: [{ kennelId: "knl_co", isPrimary: true }],
+    } as never);
+    expect(await removeCoHostKennel("e1", "brh3")).toEqual({
+      error: "Cannot remove the primary kennel — use Change kennel to move it",
+    });
+  });
+
+  it("deletes the co-host row and appends remove_cohost audit", async () => {
+    mockKennelFindUnique.mockResolvedValueOnce(kennel as never);
+    mockEventFindUnique.mockResolvedValueOnce(eventBase as never);
+    mockEkDelete.mockResolvedValueOnce({} as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    const result = await removeCoHostKennel("e1", "brh3");
+    expect(result).toMatchObject({ success: true, kennelName: "BRH3" });
+    expect(mockEkDelete).toHaveBeenCalledWith({
+      where: { eventId_kennelId: { eventId: "e1", kennelId: "knl_co" } },
+    });
+    const updateArg = mockEventUpdate.mock.calls[0][0] as unknown as {
+      data: { adminAuditLog: Array<{ action: string }> };
+    };
+    expect(updateArg.data.adminAuditLog[0].action).toBe("remove_cohost");
   });
 });
