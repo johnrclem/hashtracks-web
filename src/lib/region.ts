@@ -1740,7 +1740,7 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     abbrev: "CH",
     colorClasses: "bg-red-200 text-red-800",
     pinColor: "#dc2626",
-    centroidLat: 46.80,
+    centroidLat: 46.8,
     centroidLng: 8.23,
     aliases: ["CH", "Schweiz", "Suisse", "Svizzera"],
   },
@@ -1753,7 +1753,7 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     pinColor: "#ef4444",
     centroidLat: 47.37,
     centroidLng: 8.54,
-    aliases: ["Zurich", "Zürich, Switzerland", "Zurich, CH", "Zürich, CH"],
+    aliases: ["Zurich", "Zürich, Switzerland"],
   },
   // ── Louisiana ──
   {
