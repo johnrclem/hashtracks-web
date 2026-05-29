@@ -33,6 +33,7 @@ import { generateStructureHash } from "@/pipeline/structure-hash";
 import {
   buildUrlVariantCandidates,
   chronoParseDate,
+  cleanLocationName,
   decodeEntities,
   extractUkPostcode,
   googleMapsSearchUrl,
@@ -115,7 +116,9 @@ export interface ParsedNorfolkRun {
   runNumber?: number;
   date?: string; // YYYY-MM-DD
   startTime?: string; // HH:MM (24-hour)
-  location?: string;
+  // `null` = the Venue: field was present but cleaned to non-venue text
+  // (T.B.A./CTA) → explicit clear at merge. `undefined` = no Venue: field.
+  location?: string | null;
   locationUrl?: string;
   hares?: string;
   notes?: string;
@@ -210,10 +213,18 @@ export function parseNorfolkRunBlock(text: string): ParsedNorfolkRun | null {
   if (venueMatch) {
     const venueText = joinFieldSegments(venueMatch[1]);
 
-    const venue = stripPlaceholder(venueText);
+    // Strip placeholders (the "???" / "TBD" family) first, then run the
+    // residual through the shared cleaner to peel the dotted "T.B.A./T.B.C.",
+    // leading "Maybe," and trailing "Details/updates to follow" uncertainty
+    // qualifiers the kennel writes into the venue block (#1747). Postcode
+    // extraction runs on the cleaned venue so a trailing "…NR6 7NH, T.B.C."
+    // still yields the NR6 7NH map pin.
+    const venue = cleanLocationName(stripPlaceholder(venueText));
+    // The Venue: field was present, so propagate the cleaner's result
+    // verbatim — `null` (placeholder/CTA) becomes an explicit clear at merge
+    // rather than silently preserving a stale address (#1747).
+    result.location = venue;
     if (venue) {
-      result.location = venue;
-
       const postcode = extractUkPostcode(venue);
       if (postcode) {
         result.locationUrl = googleMapsSearchUrl(postcode);
