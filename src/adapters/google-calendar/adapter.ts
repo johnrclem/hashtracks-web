@@ -191,14 +191,39 @@ const HASH_KEYWORD_RE = /\bhash\b/i;
  * MH3-MN's calendar carried `Trail # Test Event` (with `123 Fake St`
  * location) and `PC Meeting`; both were leaking through to
  * /kennels/mh3-mn before this filter landed.
+ *
+ * #1736 — a post-merge re-scrape recreated two leaks the equality check
+ * missed, handled by two distinct match modes:
+ *
+ *   - PREFIX stems (`trailtestevent`, `pcmeeting`): the source pasted a
+ *     multi-field admin blob into one SUMMARY (`Trail # Test Event Hare:
+ *     L4 Location: 123Fake St…` → the whole blob appends past the stem, so
+ *     exact equality failed but the `trailtestevent` lead still matches).
+ *     These stems are admin-internal phrases that never lead a real run
+ *     title, so `startsWith` is safe.
+ *
+ *   - EXACT titles (`mh3-mn`): an empty-SUMMARY row fell back to the
+ *     literal kennelTag. This is matched by exact equality, NOT prefix —
+ *     `mh3-mn` is the kennel's own tag, so a real title like `MH3-MN Red
+ *     Dress Run` (normalizes to `mh3-mnreddress`) must NOT be dropped
+ *     (Codex review). Only the bare fallback title is an artifact.
  */
-const TEST_ARTIFACT_TITLE_KEYS = new Set([
+const TEST_ARTIFACT_TITLE_PREFIXES = new Set([
   "trailtestevent",
   "pcmeeting",
 ]);
 
+const TEST_ARTIFACT_TITLE_EXACT = new Set([
+  "mh3-mn",
+]);
+
 function isTestArtifactTitle(summary: string): boolean {
-  return TEST_ARTIFACT_TITLE_KEYS.has(summary.toLowerCase().replaceAll(/[\s#]+/g, ""));
+  const normalized = summary.toLowerCase().replaceAll(/[\s#]+/g, "");
+  if (TEST_ARTIFACT_TITLE_EXACT.has(normalized)) return true;
+  for (const prefix of TEST_ARTIFACT_TITLE_PREFIXES) {
+    if (normalized.startsWith(prefix)) return true;
+  }
+  return false;
 }
 
 /**

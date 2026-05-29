@@ -21,6 +21,7 @@ export interface ICalSourceConfig {
   descriptionSuffix?: string;          // static text appended to every event description
   enrichSFH3Details?: boolean;         // fetch sfh3.com/runs/{id} detail pages for canonical title + Comment field
   enrichBerlinH3Details?: boolean;     // fetch berlin-h3.eu event pages for Hares field from wp-event-manager
+  allowEmptyBody?: boolean;            // treat an empty 200 body as an empty-success (0 events) instead of an error — The Events Calendar's ?ical=1 export returns 0 bytes when there are no upcoming events (ICH3 #1753)
 }
 
 /**
@@ -298,6 +299,7 @@ function icalDiagnostics(overrides: {
 async function fetchAndValidateIcsContent(
   url: string,
   fetchStart: number,
+  allowEmptyBody: boolean,
 ): Promise<{ icsText: string; contentType: string | undefined } | { error: ScrapeResult }> {
   let contentType: string | undefined;
   try {
@@ -322,6 +324,12 @@ async function fetchAndValidateIcsContent(
     const icsText = await resp.text();
 
     const trimmed = icsText.trimStart().replace(/^\uFEFF/, "");
+    // The Events Calendar's ?ical=1 export returns HTTP 200 with a 0-byte body
+    // when a kennel has no upcoming events (ICH3 #1753). Treat that as an
+    // empty-success rather than a hard failure when the source opts in.
+    if (trimmed === "" && allowEmptyBody) {
+      return { icsText: "", contentType };
+    }
     if (!trimmed.startsWith("BEGIN:VCALENDAR")) {
       const preview = icsText.substring(0, 200).replace(/\n/g, "\\n");
       const message = `Response is not valid ICS (content-type: ${contentType ?? "unknown"}, starts with: "${preview}")`;
@@ -354,6 +362,9 @@ function parseIcsCalendar(
   fetchDurationMs: number,
   contentType: string | undefined,
 ): { calendar: ReturnType<typeof icalSync.parseICS> } | { error: ScrapeResult } {
+  // An allowed empty body (ICH3 #1753) parses to an empty calendar — no VEVENTs,
+  // no error. Short-circuit so we never depend on node-ical's empty-input behavior.
+  if (icsText === "") return { calendar: {} };
   try {
     return { calendar: icalSync.parseICS(icsText) };
   } catch (err) {
@@ -514,8 +525,12 @@ export class ICalAdapter implements SourceAdapter {
     const minDate = new Date(now.getTime() - lookbackDays * 86_400_000);
     const maxDate = new Date(now.getTime() + lookforwardDays * 86_400_000);
 
+    const config = (source.config && typeof source.config === "object" && !Array.isArray(source.config))
+      ? source.config as ICalSourceConfig
+      : null;
+
     // Step 1: Fetch the ICS content
-    const fetchResult = await fetchAndValidateIcsContent(source.url, fetchStart);
+    const fetchResult = await fetchAndValidateIcsContent(source.url, fetchStart, config?.allowEmptyBody ?? false);
     if ("error" in fetchResult) return fetchResult.error;
 
     const { icsText, contentType } = fetchResult;
@@ -528,9 +543,6 @@ export class ICalAdapter implements SourceAdapter {
     const { calendar } = parseResult;
 
     // Step 3: Process VEVENT entries
-    const config = (source.config && typeof source.config === "object" && !Array.isArray(source.config))
-      ? source.config as ICalSourceConfig
-      : null;
     const skipPatterns = config?.skipPatterns?.length
       ? compilePatterns(config.skipPatterns, "i")
       : undefined;
