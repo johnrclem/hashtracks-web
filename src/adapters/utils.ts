@@ -909,16 +909,59 @@ export function stripClickHereForMap(s: string): string {
 const NON_LOCATION_LABEL_RE = /^(?:hares?|hare\(s\)|on[\s-]?on|map)\s*:/i;
 const START_LABEL_RE = /^start\s*:\s*/i;
 
-// Trailing map-anchor text: "(Link)" or a bare " Link" suffix (#1729 Hague).
-const TRAILING_PAREN_LINK_RE = /\s*\(\s*link\s*\)\s*$/i;
-const TRAILING_BARE_LINK_RE = /\s+link\s*$/i;
+// Segment-separator characters. Includes "/" because Norfolk venue blocks use
+// " / " between the address and a trailing "updates to follow" / "T.B.C."
+// marker (#1747 / Codex P2) — without it the slash blocks further stripping.
+const LOCATION_SEPARATOR_CHARS = new Set([",", "/", " ", "\t", "\n", "\r", "\f", "\v"]);
+
+/** True when `ch` is a segment boundary for qualifier stripping (edge/separator). */
+function isQualifierBoundary(ch: string | undefined): boolean {
+  return ch === undefined || LOCATION_SEPARATOR_CHARS.has(ch);
+}
+
+/** Trim leading + trailing separator chars (",", "/", whitespace) procedurally. */
+function trimLocationSeparators(s: string): string {
+  let start = 0;
+  let end = s.length;
+  while (start < end && LOCATION_SEPARATOR_CHARS.has(s[start])) start++;
+  while (end > start && LOCATION_SEPARATOR_CHARS.has(s[end - 1])) end--;
+  return s.slice(start, end);
+}
+
+/** Trim trailing whitespace only (single-char check — no quantified regex). */
+function trimTrailingWhitespace(s: string): string {
+  let end = s.length;
+  while (end > 0 && /\s/.test(s[end - 1])) end--;
+  return s.slice(0, end);
+}
+
+/**
+ * Strip a trailing Google-Maps "(Link)" or bare " Link" anchor (#1729 / #1258).
+ * Procedural rather than a `\s*\(\s*link\s*\)\s*$` regex, which Sonar S5852
+ * flags as ReDoS-prone (memory `feedback_sonar_s5852_procedural_over_regex`).
+ */
+function stripTrailingLinkAnchor(input: string): string {
+  let s = trimTrailingWhitespace(input);
+  const lower = s.toLowerCase();
+  if (lower.endsWith("(link)")) {
+    s = s.slice(0, -"(link)".length);
+  } else if (
+    lower.endsWith("link") &&
+    (s.length === 4 || /\s/.test(s[s.length - 5]))
+  ) {
+    // Bare trailing "Link" only when it's a standalone word (preceded by
+    // whitespace or at the start) — "Funlink" / "uplink" survive.
+    s = s.slice(0, -"link".length);
+  }
+  return trimTrailingWhitespace(s);
+}
 
 // Uncertainty qualifiers the kennels write to flag "not finalized" — dotted
 // "T.B.A/B/C/D" forms plus a leading "Maybe" and trailing "… to follow"
 // phrases (#1747 Norfolk). Matched as whole tokens (must be bounded by a
-// space, comma, or string edge) so a bare-word venue like "TBC Park" or a
-// venue literally named "…Maybes…" is never bitten. Stripped procedurally to
-// keep Sonar S5843/S5852 happy (no `\s*`-adjacent-to-alternation).
+// separator or string edge) so a bare-word venue like "TBC Park" or a venue
+// literally named "…Maybes…" is never bitten. Stripped procedurally to keep
+// Sonar S5843/S5852 happy (no `\s*`-adjacent-to-alternation).
 const LOCATION_QUALIFIER_TOKENS = [
   "t.b.a.",
   "t.b.c.",
@@ -930,11 +973,6 @@ const LOCATION_QUALIFIER_TOKENS = [
 ];
 const LOCATION_TRAILING_PHRASES = ["details to follow", "updates to follow"];
 
-/** True when `ch` is a token boundary for qualifier stripping (edge/space/comma). */
-function isQualifierBoundary(ch: string | undefined): boolean {
-  return ch === undefined || ch === " " || ch === ",";
-}
-
 function stripLeadingQualifiers(input: string): string {
   let s = input;
   let changed = true;
@@ -943,7 +981,7 @@ function stripLeadingQualifiers(input: string): string {
     const lower = s.toLowerCase();
     for (const tok of LOCATION_QUALIFIER_TOKENS) {
       if (lower.startsWith(tok) && isQualifierBoundary(s[tok.length])) {
-        s = s.slice(tok.length).replace(/^[,\s]+/, "");
+        s = trimLocationSeparators(s.slice(tok.length));
         changed = true;
         break;
       }
@@ -961,7 +999,7 @@ function stripTrailingQualifiers(input: string): string {
     const tryStrip = (frag: string): boolean => {
       if (!lower.endsWith(frag)) return false;
       if (!isQualifierBoundary(s[s.length - frag.length - 1])) return false;
-      s = s.slice(0, s.length - frag.length).replace(/[,\s]+$/, "");
+      s = trimLocationSeparators(s.slice(0, s.length - frag.length));
       return true;
     };
     for (const phrase of LOCATION_TRAILING_PHRASES) {
@@ -1020,16 +1058,15 @@ export function cleanLocationName(raw: string | null | undefined): string | null
   s = stripClickHereForMap(s);
   s = stripUrls(s);
   s = s.replace(EMOJI_RE, "");
-  s = s.replace(TRAILING_PAREN_LINK_RE, "").replace(TRAILING_BARE_LINK_RE, "").trim();
+  s = stripTrailingLinkAnchor(s);
 
   // 4. Peel leading/trailing uncertainty qualifiers (dotted T.B.x / Maybe /
   //    "… to follow"). Bare-word prefixes ("TBC Park") are preserved.
   s = stripLeadingQualifiers(s);
   s = stripTrailingQualifiers(s);
 
-  // 5. Tidy separators + collapse internal whitespace.
-  s = s.replace(/\s{2,}/g, " ").trim();
-  s = s.replace(/^[,\s]+/, "").replace(/[,\s]+$/, "").trim();
+  // 5. Collapse internal whitespace + trim dangling separators.
+  s = trimLocationSeparators(s.replace(/\s{2,}/g, " "));
 
   // 6. Reject pure placeholder / CTA residuals.
   if (!s) return null;

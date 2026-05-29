@@ -1087,6 +1087,11 @@ describe("cleanLocationName", () => {
         "Clint Green, Yaxham",
         "#2152 trailing T.B.C. + 'updates to follow'",
       ],
+      [
+        "Clint Green, Yaxham T.B.C. / updates to follow",
+        "Clint Green, Yaxham",
+        "#2152 slash separator before trailing phrase (Codex P2)",
+      ],
       ["Drayton area, Details to follow", "Drayton area", "#2153 trailing 'Details to follow'"],
       ["Haveringland area, Details to follow", "Haveringland area", "#2157 trailing phrase"],
       ["Station Voorburg 👣 under the viaduct", "Station Voorburg under the viaduct", "emoji stripped"],
