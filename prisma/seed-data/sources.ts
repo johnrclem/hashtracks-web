@@ -5775,7 +5775,7 @@ export const SOURCES = [
       scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
-        kennelPatterns: [["Run\\s*#?\\s*\\d{3,4}", "onh3"]],
+        kennelPatterns: [[String.raw`Run\s*#?\s*\d{3,4}`, "onh3"]],
         defaultKennelTag: null,
       },
       kennelCodes: ["onh3"],

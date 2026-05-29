@@ -28,6 +28,7 @@ const WPCOM_API = "https://public-api.wordpress.com/wp/v2/sites/onh3.wordpress.c
 const KENNEL_TAG = "onh3";
 const KENNEL_TIMEZONE = "Africa/Nairobi";
 const DEFAULT_START_TIME = "17:45"; // 5:45 PM per kennel convention (registration from 5:00 PM)
+const PER_PAGE = 100; // WordPress.com REST max
 const MAX_PAGES = 5; // 5 × 100 = 500 posts; the blog currently holds ~34
 
 // "Run 1326", "Run #1068", "Run: #1068". \D{0,3} (not \s*#?\s*) avoids the
@@ -80,14 +81,14 @@ export function parseTextDate(value: string): string | undefined {
   if (!m) return undefined;
   const month = monthNumber(m[2]);
   if (month === undefined) return undefined;
-  return iso(parseInt(m[3], 10), month, parseInt(m[1], 10));
+  return iso(Number.parseInt(m[3], 10), month, Number.parseInt(m[1], 10));
 }
 
 /** Parse "DD/MM/YYYY" (UK/Kenyan order — NOT US M/D/Y). */
 export function parseNumericDate(value: string): string | undefined {
   const m = DMY_NUMERIC_RE.exec(value);
   if (!m) return undefined;
-  return iso(parseInt(m[3], 10), parseInt(m[2], 10), parseInt(m[1], 10));
+  return iso(Number.parseInt(m[3], 10), Number.parseInt(m[2], 10), Number.parseInt(m[1], 10));
 }
 
 /**
@@ -98,7 +99,7 @@ export function parseNumericDate(value: string): string | undefined {
  * trailing field like Venue would otherwise swallow the whole write-up.
  */
 export function fieldValue(text: string, label: string): string | undefined {
-  const labelRe = new RegExp(`${label}\\s*:`, "i");
+  const labelRe = new RegExp(String.raw`${label}\s*:`, "i");
   const m = labelRe.exec(text);
   if (!m) return undefined;
   const start = m.index + m[0].length;
@@ -115,7 +116,7 @@ export function fieldValue(text: string, label: string): string | undefined {
 
 export function parseOnh3Title(title: string): { runNumber?: number; theme?: string } {
   const m = RUN_NUMBER_RE.exec(title);
-  return { runNumber: m ? parseInt(m[1], 10) : undefined, theme: deriveTheme(title) };
+  return { runNumber: m ? Number.parseInt(m[1], 10) : undefined, theme: deriveTheme(title) };
 }
 
 const THEME_EDGE_CHARS = " \t\n.-–|";
@@ -217,7 +218,7 @@ export function parseHarelineTable(post: WPComPost, today: string): RawEventData
       .get();
     if (cells.length < 5) return; // malformed / spacer row
 
-    const runNumber = /^\d+$/.test(cells[0]) ? parseInt(cells[0], 10) : undefined;
+    const runNumber = /^\d+$/.test(cells[0]) ? Number.parseInt(cells[0], 10) : undefined;
     const date = parseNumericDate(cells[2] ?? "");
     if (!date) return; // header row ("Run nr"/"Date") and blanks fall out here
     if (date < today) return; // past rows belong to the one-shot backfill
@@ -250,6 +251,28 @@ function eventsFromPost(post: WPComPost, today: string): RawEventData[] {
   return event ? [event] : [];
 }
 
+type PageResult =
+  | { kind: "posts"; posts: WPComPost[] }
+  | { kind: "end" } // 400/404 past the last page — a clean end
+  | { kind: "error"; url: string; status?: number; message: string; stopReason: string };
+
+async function fetchPostsPage(page: number): Promise<PageResult> {
+  const url = `${WPCOM_API}/posts?per_page=${PER_PAGE}&page=${page}&orderby=date&order=desc&_fields=id,date,link,title,content,categories`;
+  try {
+    const resp = await safeFetch(url, {
+      headers: { "User-Agent": "HashTracks-Scraper", Accept: "application/json" },
+    });
+    if (resp.status === 400 || resp.status === 404) return { kind: "end" };
+    if (!resp.ok) {
+      const message = `WordPress.com API returned ${resp.status}`;
+      return { kind: "error", url, status: resp.status, message, stopReason: `http-${resp.status}` };
+    }
+    return { kind: "posts", posts: (await resp.json()) as WPComPost[] };
+  } catch (err) {
+    return { kind: "error", url, message: `Fetch failed: ${err}`, stopReason: "fetch-failed" };
+  }
+}
+
 export class ONH3Adapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
 
@@ -267,35 +290,20 @@ export class ONH3Adapter implements SourceAdapter {
     const today = new Intl.DateTimeFormat("en-CA", { timeZone: KENNEL_TIMEZONE }).format(new Date());
 
     for (let page = 1; page <= MAX_PAGES; page++) {
-      const url = `${WPCOM_API}/posts?per_page=100&page=${page}&orderby=date&order=desc&_fields=id,date,link,title,content,categories`;
-      let posts: WPComPost[];
-      try {
-        const resp = await safeFetch(url, {
-          headers: { "User-Agent": "HashTracks-Scraper", Accept: "application/json" },
-        });
-        // WordPress.com returns 400 (not 404) for a page past the last — a clean end.
-        if (resp.status === 400 || resp.status === 404) break;
-        if (!resp.ok) {
-          const msg = `WordPress.com API returned ${resp.status}`;
-          errors.push(msg);
-          (errorDetails.fetch ??= []).push({ url, status: resp.status, message: msg });
-          kennelPageFetchErrors++;
-          kennelPagesStopReason = `http-${resp.status}`;
-          break;
-        }
-        posts = (await resp.json()) as WPComPost[];
-      } catch (err) {
-        const msg = `Fetch failed: ${err}`;
-        errors.push(msg);
-        (errorDetails.fetch ??= []).push({ url, message: msg });
+      const result = await fetchPostsPage(page);
+      if (result.kind === "end") break;
+      if (result.kind === "error") {
+        errors.push(result.message);
+        errorDetails.fetch ??= [];
+        errorDetails.fetch.push({ url: result.url, status: result.status, message: result.message });
         kennelPageFetchErrors++;
-        kennelPagesStopReason = "fetch-failed";
+        kennelPagesStopReason = result.stopReason;
         break;
       }
-
+      const { posts } = result;
       if (!Array.isArray(posts) || posts.length === 0) break; // empty page — clean end
       for (const post of posts) events.push(...eventsFromPost(post, today));
-      if (posts.length < 100) break; // partial last page — clean end
+      if (posts.length < PER_PAGE) break; // partial last page — clean end
       if (page === MAX_PAGES) kennelPagesStopReason = "max-pages-hit"; // full page left unfetched
     }
 
