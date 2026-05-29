@@ -64,12 +64,13 @@ function fieldRichness(e: Mth3Event): number {
 
 /** Pick the keeper: richest, tie-broken by newest updatedAt. */
 function pickKeeper(group: Mth3Event[]): Mth3Event {
-  return group.reduce((best, cur) => {
+  let best = group[0];
+  for (let i = 1; i < group.length; i++) {
+    const cur = group[i];
     const dr = fieldRichness(cur) - fieldRichness(best);
-    if (dr > 0) return cur;
-    if (dr === 0 && cur.updatedAt > best.updatedAt) return cur;
-    return best;
-  });
+    if (dr > 0 || (dr === 0 && cur.updatedAt > best.updatedAt)) best = cur;
+  }
+  return best;
 }
 
 async function main() {

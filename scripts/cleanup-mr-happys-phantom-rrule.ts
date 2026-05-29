@@ -28,6 +28,7 @@
  *   npm run tsx scripts/cleanup-mr-happys-phantom-rrule.ts -- --apply
  */
 import "dotenv/config";
+import { prisma } from "@/lib/db";
 import { cleanupDormantProjections } from "./lib/dormant-projection-cleanup";
 
 const APPLY = process.argv.includes("--apply");
@@ -42,7 +43,13 @@ cleanupDormantProjections(
     titleEquals: "Mr Happy's 69th Trail",
   },
   APPLY,
-).catch(async (err) => {
-  console.error(err);
-  process.exit(1);
-});
+)
+  .catch((err) => {
+    console.error(err);
+    // Set exitCode + let the event loop drain (vs process.exit) so the
+    // .finally disconnect runs even on the error path.
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
