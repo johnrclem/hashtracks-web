@@ -380,6 +380,50 @@ describe("CTA placeholder event skip", () => {
   });
 });
 
+describe("dormant recurring series suppression — suppressICalUids (#1708)", () => {
+  const DORMANT_UID = "20qb7gao7553kajq5de1s5kra4_R20210304T020000@google.com";
+
+  it("drops instances whose iCalUID matches the suppress list", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        summary: "Mr Happy's 69th Trail",
+        iCalUID: DORMANT_UID,
+        recurringEventId: "20qb7gao7553kajq5de1s5kra4_R20210304T020000",
+      }),
+      { defaultKennelTag: "mrhappy", suppressICalUids: [DORMANT_UID] },
+    );
+    expect(result).toBeNull();
+  });
+
+  it("matches iCalUID case-insensitively", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "Mr Happy's 69th Trail", iCalUID: DORMANT_UID.toUpperCase() }),
+      { defaultKennelTag: "mrhappy", suppressICalUids: [DORMANT_UID] },
+    );
+    expect(result).toBeNull();
+  });
+
+  it("emits a real per-occurrence VEVENT with a different UID", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        summary: "Mr Happy's Hash @Freedom Park",
+        iCalUID: "differentrealuid123@google.com",
+      }),
+      { defaultKennelTag: "mrhappy", suppressICalUids: [DORMANT_UID] },
+    );
+    expect(result).not.toBeNull();
+    expect(result?.kennelTags).toContain("mrhappy");
+  });
+
+  it("is a no-op when suppressICalUids is not configured", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "Mr Happy's 69th Trail", iCalUID: DORMANT_UID }),
+      { defaultKennelTag: "mrhappy" },
+    );
+    expect(result).not.toBeNull();
+  });
+});
+
 describe("non-hash event filter (#1271)", () => {
   it.each([
     "Meet for wedding talk", // #1271
