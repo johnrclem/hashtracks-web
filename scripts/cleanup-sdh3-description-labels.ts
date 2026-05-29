@@ -24,11 +24,8 @@ const SDH3_KENNELS = [
 
 const STRIP_LABEL_RE = /^(?:Hash Cash|Run Fee|Trail|Dog Friendly|Pre-?lube)\s*:/i;
 
-function cleanDescription(desc: string): string | null {
-  const kept = desc
-    .split(" | ")
-    .map((s) => s.trim())
-    .filter((seg) => seg && !STRIP_LABEL_RE.test(seg));
+function cleanDescription(segments: string[]): string | null {
+  const kept = segments.filter((seg) => seg && !STRIP_LABEL_RE.test(seg));
   return kept.length ? kept.join(" | ") : null;
 }
 
@@ -40,9 +37,9 @@ function parseDogFriendly(value: string): boolean | null {
 }
 
 /** Pull "Label: value" segments so we can backfill null discrete columns. */
-function extractLabels(desc: string): { cost?: string; trailType?: string; dogFriendly?: boolean | null } {
+function extractLabels(segments: string[]): { cost?: string; trailType?: string; dogFriendly?: boolean | null } {
   const out: { cost?: string; trailType?: string; dogFriendly?: boolean | null } = {};
-  for (const seg of desc.split(" | ").map((s) => s.trim())) {
+  for (const seg of segments) {
     const m = /^(.+?):\s*(.*)$/.exec(seg);
     if (!m) continue;
     const label = m[1].trim().toLowerCase();
@@ -75,13 +72,16 @@ async function main() {
   let changed = 0;
   for (const e of rows) {
     if (!e.description) continue;
-    const labels = extractLabels(e.description);
-    const newDesc = cleanDescription(e.description);
+    const segments = e.description.split(" | ").map((s) => s.trim());
+    const labels = extractLabels(segments);
+    const newDesc = cleanDescription(segments);
     const data: { description: string | null; cost?: string; trailType?: string; dogFriendly?: boolean } = {
       description: newDesc,
     };
     if (e.cost == null && labels.cost) data.cost = labels.cost;
-    if (e.trailType == null && labels.trailType) data.trailType = labels.trailType;
+    // Only backfill a short trail-type token ("A to A", "A to B"); never a
+    // prose "Trail: head north…" segment that happened to share the prefix.
+    if (e.trailType == null && labels.trailType && labels.trailType.length <= 12) data.trailType = labels.trailType;
     if (e.dogFriendly == null && typeof labels.dogFriendly === "boolean") data.dogFriendly = labels.dogFriendly;
 
     changed++;

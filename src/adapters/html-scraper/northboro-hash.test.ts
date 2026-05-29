@@ -330,6 +330,23 @@ describe("parseTrailBlock — comma-delimited title/hares (#1758)", () => {
     );
     expect(result).toMatchObject({ title: "Hangover Trail", hares: "Scrumples" });
   });
+
+  it("does not split on an incidental 'Hare:' inside the title", () => {
+    const result = parseTrailBlock(
+      ["June Trail #230, 6/15/26, Welcome to the Hare: Trap, Hares: Scrumples"],
+      SOURCE_URL,
+    );
+    expect(result).toMatchObject({ title: "Welcome to the Hare: Trap", hares: "Scrumples" });
+  });
+
+  it("does not read a numeric range in the title as a start time", () => {
+    const result = parseTrailBlock(
+      ["May Trail #240, 5/16/26, 2-4 Mile Trail, Hares: Bob"],
+      SOURCE_URL,
+    );
+    expect(result).toMatchObject({ title: "2-4 Mile Trail", hares: "Bob" });
+    expect(result?.startTime).toBeUndefined();
+  });
 });
 
 describe("parseUpcummingFreeform (#1759)", () => {
@@ -376,6 +393,24 @@ describe("parseUpcummingFreeform (#1759)", () => {
       SOURCE_URL,
     );
     expect(events).toHaveLength(0);
+  });
+
+  it("parses a month-leading line whose day carries an ordinal suffix", () => {
+    const { events, skipped } = parseUpcummingFreeform(["July 4th BBQ Hash"], SOURCE_URL);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ runNumber: null, title: "BBQ Hash" });
+    expect(events[0].date).toMatch(/-07-04$/);
+    expect(skipped).toBe(0);
+  });
+
+  it("does not surface an adjacent date line as a title", () => {
+    // Two back-to-back weekday date lines with no title between them: the
+    // second must not adopt the first date line as its title.
+    const { events } = parseUpcummingFreeform(
+      ["Fri, June 12th 5:30pm", "Sat, June 13th 2pm"],
+      SOURCE_URL,
+    );
+    expect(events.every((e) => !/^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)/.test(e.title ?? ""))).toBe(true);
   });
 });
 

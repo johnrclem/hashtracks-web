@@ -59,12 +59,11 @@ export function extractRunNumber(
   // itself and re-anchor the cleared run on the next merge.
   if (hasPlaceholderRunNumber(summary)) return null;
 
-  // 3. Dark / cancelled notices ("N2H3 is Dark", "No hash this week") carry no
-  // run. Emit null (explicit clear) so a stale number from a prior occurrence
-  // in the same RRULE series can't bleed onto the notice row (#1717). Narrow
-  // by design — only unambiguous cancellation phrasing, so a themed run like
-  // "Dark Side of the Moon Hash" still falls through to the description.
-  if (DARK_NOTICE_RE.test(summary)) return null;
+  // 3. Dark / cancelled notices ("N2H3 is Dark", "N2H3 DARK", "No hash this
+  // week") carry no run. Emit null (explicit clear) so a stale number from a
+  // prior occurrence in the same RRULE series can't bleed onto the notice row
+  // (#1717). Narrow by design — see DARK_NOTICE_RE / BARE_DARK_RE.
+  if (DARK_NOTICE_RE.test(summary) || BARE_DARK_RE.test(summary)) return null;
 
   // 4. Fall back to description patterns
   return description
@@ -73,12 +72,19 @@ export function extractRunNumber(
 }
 
 /**
- * Unambiguous "the run is off this week" phrasing. Anchored to whole words so
- * it never matches a themed trail title that merely contains "dark". Used by
- * extractRunNumber to clear (not preserve) a run number on notice rows (#1717).
+ * Unambiguous "the run is off this week" phrasing. Whole-word, and the set is
+ * deliberately tight — "no run"/"no trail" were dropped because they over-match
+ * real titles ("No Trail Left Behind Hash"). Used by extractRunNumber to clear
+ * (not preserve) a run number on notice rows (#1717).
  */
-const DARK_NOTICE_RE =
-  /\b(?:is\s+dark|no\s+hash\b|no\s+run\b|no\s+trail\b|cancell?ed)\b|\bdark[\s!.]*$/i;
+const DARK_NOTICE_RE = /\bis\s+dark\b|\bno\s+hash\b|\bcancell?ed\b/i;
+
+/**
+ * The bare "<kennel> DARK" form (live N2H3 summary). Case-SENSITIVE all-caps
+ * DARK + single-token prefix so mixed-case themed titles like "Glow Run After
+ * Dark" or "Dark Side of the Moon Hash" never trip it.
+ */
+const BARE_DARK_RE = /^\S+\s+DARK[\s!.]*$/;
 
 function resolveRunNumberPatterns(customPatterns?: string[] | RegExp[]): RegExp[] {
   if (!customPatterns || customPatterns.length === 0) return DEFAULT_RUN_NUMBER_PATTERNS;
@@ -659,14 +665,14 @@ export function extractTimeFromDescription(description: string): string | undefi
 }
 
 /**
- * Parse the first loose am/pm time in free text, including the bare-hour form
- * `parse12HourTime` rejects: "Wednesday, May 27th at 6pm" → "18:00", "6:30 PM"
- * → "18:30". Used only by the placeholder-summary promotion path (#1761), so
- * the broader match surface is scoped to that rare branch rather than the
- * label-gated `extractTimeFromDescription` used everywhere else.
+ * Parse a start time stated as "… at 6pm" / "… at 6:30 PM" in free text,
+ * including the bare-hour form `parse12HourTime` rejects. Requires the "at "
+ * lead-in so an unrelated time in the body (a kennel blurb "bar open til 11pm",
+ * an on-after note) isn't mistaken for the start. Used only by the
+ * placeholder-summary promotion path (#1761).
  */
 export function parseLooseAmPmTime(text: string): string | undefined {
-  const m = /(\d{1,2})(?::(\d{2}))?\s*([ap])\.?m\.?/i.exec(text);
+  const m = /\bat\s+(\d{1,2})(?::(\d{2}))?\s*([ap])\.?m\.?/i.exec(text);
   if (!m) return undefined;
   let hours = Number.parseInt(m[1], 10);
   if (hours < 1 || hours > 12) return undefined;
@@ -1299,11 +1305,13 @@ export function buildRawEventFromGCalItem(
   if (hasPlaceholderRunNumber(title) && rawDescription) {
     // The real header ("NBH3 #448: Time to Spill the Tea (Party)") can sit
     // mid-description, below a kennel blurb — so scan for the first body line
-    // that carries a real "#NNN" rather than taking the first non-label line.
+    // that carries a real "#NNN" followed by a title delimiter (":"/"-"). The
+    // delimiter requirement rejects retrospective references in prose
+    // ("Last week #447 was a blast") that have no delimiter after the number.
     for (const rawLine of rawDescription.split("\n")) {
       const line = rawLine.trim();
       const num = extractHashRunNumber(line);
-      if (typeof num === "number" && line.length > String(num).length + 2) {
+      if (typeof num === "number" && /#\s*\d+\s*[:–—-]/.test(line)) {
         title = line;
         promotedRunNumber = num;
         promotedStartTime = parseLooseAmPmTime(rawDescription);

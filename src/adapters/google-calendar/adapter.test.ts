@@ -348,6 +348,15 @@ describe("extractRunNumber", () => {
     expect(extractRunNumber("Dark Side of the Moon Hash")).toBeUndefined();
     expect(extractRunNumber("N2H3 #762 - Darkstar Porkestra!")).toBe(762);
   });
+
+  it("does not clear mixed-case themed titles ending in 'Dark' (only ALL-CAPS DARK)", () => {
+    expect(extractRunNumber("NBH3 Glow Run After Dark")).toBeUndefined();
+    expect(extractRunNumber("After Dark")).toBeUndefined();
+  });
+
+  it("does not over-match 'No Trail Left Behind' style titles", () => {
+    expect(extractRunNumber("No Trail Left Behind Hash")).toBeUndefined();
+  });
 });
 
 // ── #1761 — placeholder-summary description promotion ──

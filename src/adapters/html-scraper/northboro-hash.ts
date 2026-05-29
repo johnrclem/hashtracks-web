@@ -40,6 +40,15 @@ export function parseTimeMention(text: string): string | undefined {
 }
 
 /**
+ * parseTimeMention, but only when the text carries an explicit clock signal
+ * (am/pm or HH:MM). Guards against a numeric range like "24-26" or "2-4 Mile"
+ * being misread as a time by parseTimeMention's range branch.
+ */
+function strictTimeMention(text: string): string | undefined {
+  return /\d{1,2}\s*[ap]m|\d{1,2}:\d{2}/i.test(text) ? parseTimeMention(text) : undefined;
+}
+
+/**
  * Strip zero-width / BOM characters that Wix injects into rendered text
  * (U+200B–U+200F, U+FEFF). These survive String.trim() and otherwise break
  * the `^(\w+)` trail anchor and bare-year heading detection (e.g. "​2025").
@@ -127,13 +136,17 @@ export function parseTrailBlock(
   // title survive (#1758): "Hearts, Stars and Vampires, Hares: Scrumples,
   // Jesus Saves" → title "Hearts, Stars and Vampires", hares "Scrumples,
   // Jesus Saves". The trailing segment is the hare list verbatim.
-  const hareDelim = /,?\s*Hares?:\s*/i.exec(afterDate);
+  // Anchor the delimiter to start-or-comma so an incidental "Hare:" inside a
+  // title ("Welcome to the Hare: Trap") doesn't split mid-title.
+  const hareDelim = /(?:^|,)\s*Hares?:\s*/i.exec(afterDate);
   if (hareDelim) {
     hares = afterDate.slice(hareDelim.index + hareDelim[0].length).trim() || undefined;
     let titleText = afterDate.slice(0, hareDelim.index).trim();
-    // Rare leading time token before the title ("12:30pm, Theme, Hares: …").
+    // Rare leading clock-time token before the title ("12:30pm, Theme, Hares:
+    // …"). Require an am/pm or HH:MM signal so a numeric range like "2-4 Mile
+    // Trail" isn't misread as a time.
     const leadComma = titleText.indexOf(",");
-    const leadTime = leadComma > 0 ? parseTimeMention(titleText.slice(0, leadComma)) : undefined;
+    const leadTime = leadComma > 0 ? strictTimeMention(titleText.slice(0, leadComma)) : undefined;
     if (leadTime) {
       startTime = leadTime;
       titleText = titleText.slice(leadComma + 1).trim();
@@ -266,11 +279,6 @@ export function parseUpcummingFreeform(
   const seen = new Set<string>();
   let skipped = 0;
 
-  // Only read a start time when an explicit clock signal is present — a date
-  // range like "24-26" must never be misread as a time (would yield "26:00").
-  const freeformTime = (s: string): string | undefined =>
-    /\d{1,2}\s*[ap]m|\d{1,2}:\d{2}/i.test(s) ? parseTimeMention(s) : undefined;
-
   const emit = (title: string, date: string, startTime: string | undefined, nextLine: string | undefined) => {
     const cleanTitle = title.trim();
     if (!cleanTitle || FREEFORM_BOILERPLATE_RE.test(cleanTitle)) return;
@@ -293,33 +301,33 @@ export function parseUpcummingFreeform(
     if (!line || /Trail\s*#/i.test(line)) continue;
     const token = firstToken(line);
 
-    // Shape A: "<Month> <day>[-<day>] <title…>"
+    // Shape A: "<Month> <day>[-<day>] <title…>" (day may carry an ordinal:
+    // "July 4th BBQ"). A month-leading line we can't turn into a dated event
+    // is counted in `skipped`, never silently dropped.
     if (MONTHS.has(token)) {
-      const m = /^\S+\s+(\d{1,2})(?:\s*[-–]\s*\d{1,2})?\s+(\S.*)$/.exec(line);
-      if (m) {
-        const date = chronoParseDate(`${line.split(/\s+/, 1)[0]} ${m[1]}`, "en-US");
-        if (date) {
-          emit(m[2], date, freeformTime(line), lines[i + 1]);
-          continue;
-        }
-        skipped++;
-      }
+      const m = /^\S+\s+(\d{1,2})(?:st|nd|rd|th)?(?:\s*[-–]\s*\d{1,2})?\s+(\S.*)$/i.exec(line);
+      const date = m ? chronoParseDate(`${line.split(/\s+/, 1)[0]} ${m[1]}`, "en-US") : null;
+      if (m && date) emit(m[2], date, strictTimeMention(line), lines[i + 1]);
+      else skipped++;
       continue;
     }
 
-    // Shape B: weekday-leading date line, title on the previous non-boilerplate line.
+    // Shape B: weekday-leading date line, title on the previous line. Skip
+    // boilerplate AND other date lines (month/weekday-leading) so an adjacent
+    // date line is never surfaced as the title.
     if (WEEKDAYS.has(token)) {
       const date = chronoParseDate(line, "en-US");
       if (!date) { skipped++; continue; }
       let title: string | undefined;
       for (let k = i - 1; k >= 0; k--) {
         const prev = stripZeroWidth(lines[k]).trim();
-        if (prev && !FREEFORM_BOILERPLATE_RE.test(prev) && firstToken(prev) !== token) {
-          title = prev;
-          break;
-        }
+        if (!prev || FREEFORM_BOILERPLATE_RE.test(prev)) continue;
+        const prevToken = firstToken(prev);
+        if (MONTHS.has(prevToken) || WEEKDAYS.has(prevToken)) continue;
+        title = prev;
+        break;
       }
-      if (title) emit(title, date, freeformTime(line), lines[i + 1]);
+      if (title) emit(title, date, strictTimeMention(line), lines[i + 1]);
       else skipped++;
     }
   }
@@ -462,8 +470,11 @@ export class NorthboroHashAdapter implements SourceAdapter {
     const seen = new Set<number>();
     const dedupedEvents: RawEventData[] = [];
     for (const event of events) {
-      if (typeof event.runNumber === "number" && seen.has(event.runNumber)) continue;
-      if (typeof event.runNumber === "number") seen.add(event.runNumber);
+      const rn = event.runNumber;
+      if (typeof rn === "number") {
+        if (seen.has(rn)) continue;
+        seen.add(rn);
+      }
       dedupedEvents.push(event);
     }
 
