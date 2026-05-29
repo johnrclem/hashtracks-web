@@ -947,7 +947,7 @@ function stripTrailingLinkAnchor(input: string): string {
     s = s.slice(0, -"(link)".length);
   } else if (
     lower.endsWith("link") &&
-    (s.length === 4 || /\s/.test(s[s.length - 5]))
+    (s.length === 4 || /\s/.test(s.at(-5) ?? ""))
   ) {
     // Bare trailing "Link" only when it's a standalone word (preceded by
     // whitespace or at the start) — "Funlink" / "uplink" survive.
@@ -972,6 +972,12 @@ const LOCATION_QUALIFIER_TOKENS = [
   "maybe",
 ];
 const LOCATION_TRAILING_PHRASES = ["details to follow", "updates to follow"];
+// Trailing-strip order: multi-word phrases first, then dotted markers. "maybe"
+// is excluded — a trailing "Maybe" is not an uncertainty marker.
+const LOCATION_TRAILING_FRAGMENTS = [
+  ...LOCATION_TRAILING_PHRASES,
+  ...LOCATION_QUALIFIER_TOKENS.filter((t) => t !== "maybe"),
+];
 
 function stripLeadingQualifiers(input: string): string {
   let s = input;
@@ -996,22 +1002,9 @@ function stripTrailingQualifiers(input: string): string {
   while (changed) {
     changed = false;
     const lower = s.toLowerCase();
-    const tryStrip = (frag: string): boolean => {
-      if (!lower.endsWith(frag)) return false;
-      if (!isQualifierBoundary(s[s.length - frag.length - 1])) return false;
-      s = trimLocationSeparators(s.slice(0, s.length - frag.length));
-      return true;
-    };
-    for (const phrase of LOCATION_TRAILING_PHRASES) {
-      if (tryStrip(phrase)) {
-        changed = true;
-        break;
-      }
-    }
-    if (changed) continue;
-    for (const tok of LOCATION_QUALIFIER_TOKENS) {
-      if (tok === "maybe") continue; // trailing "maybe" is not a marker
-      if (tryStrip(tok)) {
+    for (const frag of LOCATION_TRAILING_FRAGMENTS) {
+      if (lower.endsWith(frag) && isQualifierBoundary(s[s.length - frag.length - 1])) {
+        s = trimLocationSeparators(s.slice(0, s.length - frag.length));
         changed = true;
         break;
       }
