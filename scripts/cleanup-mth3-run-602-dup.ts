@@ -73,6 +73,37 @@ function pickKeeper(group: Mth3Event[]): Mth3Event {
   return best;
 }
 
+/** Group events by runNumber and return the non-keeper rows of each duplicate
+ *  group (the parse-bug artifacts), logging the keep/delete decision. */
+function collectDuplicateLosers(events: Mth3Event[]): Mth3Event[] {
+  const byRun = new Map<number, Mth3Event[]>();
+  for (const e of events) {
+    if (e.runNumber == null) continue;
+    const arr = byRun.get(e.runNumber) ?? [];
+    arr.push(e);
+    byRun.set(e.runNumber, arr);
+  }
+
+  const losers: Mth3Event[] = [];
+  for (const [run, group] of byRun) {
+    if (group.length < 2) continue;
+    const keeper = pickKeeper(group);
+    const groupLosers = group.filter((e) => e.id !== keeper.id);
+    console.log(
+      `\nRun #${run}: ${group.length} rows — keeping ${keeper.id} (${keeper.date.toISOString().slice(0, 10)}), ` +
+        `deleting ${groupLosers.length}:`,
+    );
+    for (const e of groupLosers) {
+      const c = e._count;
+      console.log(
+        `  ${e.id}  ${e.date.toISOString().slice(0, 10)}  att=${c.attendances}/ka=${c.kennelAttendances}/hares=${c.hares}/raw=${c.rawEvents}  haresText=${JSON.stringify(e.haresText)}`,
+      );
+      losers.push(e);
+    }
+  }
+  return losers;
+}
+
 async function main() {
   const apply = parseApplyMode();
   const kennel = await resolveCleanupKennel(prisma, KENNEL_CODE);
@@ -97,33 +128,7 @@ async function main() {
     orderBy: [{ runNumber: "asc" }, { date: "asc" }],
   })) as Mth3Event[];
 
-  // Group by runNumber; only groups with >1 row are duplicate-bug artifacts.
-  const byRun = new Map<number, Mth3Event[]>();
-  for (const e of events) {
-    if (e.runNumber == null) continue;
-    const arr = byRun.get(e.runNumber) ?? [];
-    arr.push(e);
-    byRun.set(e.runNumber, arr);
-  }
-
-  const toDelete: Mth3Event[] = [];
-  for (const [run, group] of byRun) {
-    if (group.length < 2) continue;
-    const keeper = pickKeeper(group);
-    const losers = group.filter((e) => e.id !== keeper.id);
-    console.log(
-      `\nRun #${run}: ${group.length} rows — keeping ${keeper.id} (${keeper.date.toISOString().slice(0, 10)}), ` +
-        `deleting ${losers.length}:`,
-    );
-    for (const e of losers) {
-      const c = e._count;
-      console.log(
-        `  ${e.id}  ${e.date.toISOString().slice(0, 10)}  att=${c.attendances}/ka=${c.kennelAttendances}/hares=${c.hares}/raw=${c.rawEvents}  haresText=${JSON.stringify(e.haresText)}`,
-      );
-      toDelete.push(e);
-    }
-  }
-
+  const toDelete = collectDuplicateLosers(events);
   console.log(`\nTotal duplicate next-runs Events to delete: ${toDelete.length}`);
 
   if (!apply || toDelete.length === 0) {

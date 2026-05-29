@@ -260,7 +260,8 @@ function subSplitRunBlock(block: string): string[] {
   for (let k = 1; k < runIdxs.length; k++) {
     const runIdx = runIdxs[k];
     const dateIdx = runIdx - 1;
-    if (dateIdx <= starts[starts.length - 1] || !isRunDateHeading(lines[dateIdx])) {
+    const prevStart = starts.at(-1) ?? 0;
+    if (dateIdx <= prevStart || !isRunDateHeading(lines[dateIdx])) {
       // Date-directly-above assumption violated — refuse to split rather than
       // corrupt dates/hares across the merged runs.
       console.warn(

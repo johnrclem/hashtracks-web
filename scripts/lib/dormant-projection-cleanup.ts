@@ -82,6 +82,29 @@ export interface DormantCleanupConfig {
   createdBefore?: Date;
 }
 
+/** Build the phantom-candidate `where` clause: kennel + null runNumber + empty
+ *  hares, gated by the configured sourceUrl prefixes and/or title/exclusions. */
+function buildCandidateWhere(
+  cfg: DormantCleanupConfig,
+  kennelId: string,
+  sourceUrlOr: Array<{ sourceUrl: { startsWith: string } }>,
+): Prisma.EventWhereInput {
+  const and: Prisma.EventWhereInput[] = [
+    { OR: [{ haresText: null }, { haresText: "" }] },
+  ];
+  if (cfg.titleEquals) and.push({ title: cfg.titleEquals });
+  if (cfg.excludeSourceUrlContains) {
+    and.push({ NOT: { sourceUrl: { contains: cfg.excludeSourceUrlContains } } });
+  }
+  if (cfg.createdBefore) and.push({ createdAt: { lt: cfg.createdBefore } });
+  return {
+    kennelId,
+    runNumber: null,
+    ...(sourceUrlOr.length > 0 ? { OR: sourceUrlOr } : {}),
+    AND: and,
+  };
+}
+
 export async function cleanupDormantProjections(
   cfg: DormantCleanupConfig,
   apply: boolean,
@@ -117,19 +140,7 @@ export async function cleanupDormantProjections(
   }));
 
   const candidates = await prisma.event.findMany({
-    where: {
-      kennelId: kennel.id,
-      runNumber: null,
-      ...(hasSourceUrlGate ? { OR: sourceUrlOr } : {}),
-      AND: [
-        { OR: [{ haresText: null }, { haresText: "" }] },
-        ...(cfg.titleEquals ? [{ title: cfg.titleEquals }] : []),
-        ...(cfg.excludeSourceUrlContains
-          ? [{ NOT: { sourceUrl: { contains: cfg.excludeSourceUrlContains } } }]
-          : []),
-        ...(cfg.createdBefore ? [{ createdAt: { lt: cfg.createdBefore } }] : []),
-      ],
-    },
+    where: buildCandidateWhere(cfg, kennel.id, sourceUrlOr),
     select: {
       id: true,
       date: true,
