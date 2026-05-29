@@ -2842,6 +2842,32 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: 175.2793,
     aliases: ["Hamilton", "Waikato", "Hamilton, New Zealand", "Hamilton/Waikato"],
   },
+  // ── Africa — Kenya (first African country; country → metro, no state-province
+  // intermediate, mirroring the New Zealand/Singapore pattern). Amber palette
+  // keeps Africa visually distinct from existing continents. ──
+  {
+    name: "Kenya",
+    country: "Kenya",
+    level: "COUNTRY",
+    timezone: "Africa/Nairobi",
+    abbrev: "KE",
+    colorClasses: "bg-amber-200 text-amber-800",
+    pinColor: "#d97706",
+    centroidLat: -0.024,
+    centroidLng: 37.906,
+    aliases: ["KE"],
+  },
+  {
+    name: "Nairobi",
+    country: "Kenya",
+    timezone: "Africa/Nairobi",
+    abbrev: "NBO",
+    colorClasses: "bg-amber-100 text-amber-700",
+    pinColor: "#f59e0b",
+    centroidLat: -1.286,
+    centroidLng: 36.817,
+    aliases: ["Nairobi, Kenya"],
+  },
 ];
 
 // ── Sync fallback map (built from REGION_SEED_DATA at module load) ──
@@ -3323,6 +3349,8 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Wellington, NZ": "New Zealand",
   "Christchurch, NZ": "New Zealand",
   "Hamilton, NZ": "New Zealand",
+  // Kenya — country → metro (no state-province intermediate)
+  "Nairobi": "Kenya",
 };
 
 /** Get the state/country group for a region name (for kennel directory grouping). */
@@ -3482,6 +3510,9 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   "Wellington, NZ": "New Zealand",
   "Christchurch, NZ": "New Zealand",
   "Hamilton, NZ": "New Zealand",
+  // Kenya — both the country-level region and its metro map to "Kenya"
+  "Kenya": "Kenya",
+  "Nairobi": "Kenya",
 };
 
 /** Get the country for a state group name (for 3-level region hierarchy). */
@@ -3532,6 +3563,7 @@ const COUNTRY_CODE_TO_NAME: Record<string, string> = {
   HK: "Hong Kong",
   MY: "Malaysia",
   NZ: "New Zealand",
+  KE: "Kenya",
 };
 
 /** All canonical country names used in COUNTRY_GROUP_MAP values. */
