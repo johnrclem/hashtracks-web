@@ -4291,5 +4291,22 @@ export const KENNELS: KennelSeed[] = [
       hashCash: "KSh 900",
       description: "Founded 2000 in Nairobi, Kenya — a weekly Monday evening hash preserving the spirit of the early-1970s Nairobi Hash. Trails 4–8 km, followed by down-downs and a sit-down social dinner. 1,300+ runs since founding (1000th run in 2019), 200+ active members. KSh 900 hash cash includes dinner.",
     },
+    // ===== INDONESIA =====
+    // First Indonesia kennel — Bali. latitude/longitude is the Bali region
+    // centroid; per-run GPS coords come from the adapter's detail-page parse.
+    {
+      kennelCode: "bali-hash-2", shortName: "Bali Hash 2", fullName: "Bali Hash House Harriers 2",
+      region: "Bali", country: "Indonesia",
+      website: "https://balihash2.com",
+      facebookUrl: "https://www.facebook.com/BaliHash2",
+      twitterHandle: "balihash2",
+      logoUrl: "/kennel-logos/bali-hash-2.png",
+      gm: "Gritty Balls", hareRaiser: "Skanky Toe",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "4:00 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Saturdays — arrive 30 min early to pay the run fee; runs start promptly at 4:00 PM (occasionally 3:00 PM).",
+      hashCash: "Members Rp.100,000 / Non-drinkers Rp.50,000 / Visitors Rp.150,000 / Kids <15 Rp.10,000",
+      description: "World-famous Bali kennel — 'a drinking club with a running problem.' Weekly Saturday-afternoon trails through rice paddies, temples and villages across Bali. Runs start promptly at 4:00 PM; run number ~1,747 as of mid-2026.",
+      latitude: -8.41, longitude: 115.19,
+    },
   ];
 
