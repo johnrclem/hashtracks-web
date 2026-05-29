@@ -40,7 +40,7 @@ function parseDogFriendly(value: string): boolean | null {
 function extractLabels(segments: string[]): { cost?: string; trailType?: string; dogFriendly?: boolean | null } {
   const out: { cost?: string; trailType?: string; dogFriendly?: boolean | null } = {};
   for (const seg of segments) {
-    const m = /^([^:]+):\s*(.*)$/.exec(seg);
+    const m = /^([^:]+):(.*)$/.exec(seg);
     if (!m) continue;
     const label = m[1].trim().toLowerCase();
     const value = m[2].trim();
