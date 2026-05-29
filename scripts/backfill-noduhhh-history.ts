@@ -138,9 +138,10 @@ function parseSearchPage(html: string): ParseResult {
     const location = detailByLabel($item, $, /location:/i);
 
     const href = $item.find("a.event-link").first().attr("href");
-    const sourceUrl = href
-      ? href.startsWith("http") ? href : `${DFW_BASE_URL}/${href}`
-      : undefined;
+    let sourceUrl: string | undefined;
+    if (href) {
+      sourceUrl = href.startsWith("http") ? href : `${DFW_BASE_URL}/${href}`;
+    }
 
     events.push({
       date,
@@ -181,7 +182,7 @@ async function main(): Promise<void> {
 
   // Sort ascending for readable logs / stable ordering.
   events.sort((a, b) => a.date.localeCompare(b.date));
-  console.log(`Date range: ${events[0].date} → ${events[events.length - 1].date}`);
+  console.log(`Date range: ${events[0].date} → ${events.at(-1)!.date}`);
   console.log("First 3:");
   for (const e of events.slice(0, 3)) {
     console.log(`  ${e.date} #${e.runNumber ?? "?"} | hares=${e.hares ?? "—"} | loc=${e.location?.slice(0, 40) ?? "—"}`);
