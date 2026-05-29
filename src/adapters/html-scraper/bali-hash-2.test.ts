@@ -78,6 +78,18 @@ const DETAIL_FIXTURE = `<!doctype html><html><body><article><section class="gh-c
 <hr><h1 id="run-fees">RUN FEES</h1><h2 id="visitors">VISITORS</h2><p><em>Run with us 5 times and you automatically become a member of Bali Hash 2</em></p>
 </section></article></body></html>`;
 
+/** Mock safeFetch to serve the home fixture for the listing URL and the detail
+ *  fixture for everything else. */
+function mockFetch() {
+  vi.mocked(safeFetchModule.safeFetch).mockImplementation(async (url: string) => {
+    const body =
+      url.endsWith("balihash2.com") || url.endsWith("balihash2.com/")
+        ? HOME_FIXTURE
+        : DETAIL_FIXTURE;
+    return new Response(body, { status: 200 }) as never;
+  });
+}
+
 describe("parseBaliDate", () => {
   it.each([
     ["30-May-26", "2026-05-30"],
@@ -91,6 +103,10 @@ describe("parseBaliDate", () => {
 
   it("returns undefined when no date token present", () => {
     expect(parseBaliDate("Our runs start promptly at: 4:00 PM")).toBeUndefined();
+  });
+
+  it("rejects a non-month word in the date slot", () => {
+    expect(parseBaliDate("30-Marching-26")).toBeUndefined();
   });
 });
 
@@ -164,15 +180,6 @@ describe("BaliHash2Adapter.fetch", () => {
     vi.restoreAllMocks();
   });
 
-  function mockFetch() {
-    vi.mocked(safeFetchModule.safeFetch).mockImplementation(async (url: string) => {
-      const body = url.endsWith("balihash2.com") || url.endsWith("balihash2.com/")
-        ? HOME_FIXTURE
-        : DETAIL_FIXTURE;
-      return new Response(body, { status: 200 }) as never;
-    });
-  }
-
   it("emits deduped events with detail-enriched coords and synthesized-able titles", async () => {
     mockFetch();
     const result = await new BaliHash2Adapter().fetch(source);
@@ -196,7 +203,7 @@ describe("BaliHash2Adapter.fetch", () => {
 
   it("fails loud (error, no events) when the listing has no run posts", async () => {
     vi.mocked(safeFetchModule.safeFetch).mockResolvedValue(
-      new Response("<html><body>No posts here</body></html>", { status: 200 }) as never,
+      new Response("<html><body>No posts here</body></html>", { status: 200 }),
     );
     const result = await new BaliHash2Adapter().fetch(source);
     expect(result.events).toHaveLength(0);
@@ -205,7 +212,7 @@ describe("BaliHash2Adapter.fetch", () => {
 
   it("surfaces an HTTP error without throwing", async () => {
     vi.mocked(safeFetchModule.safeFetch).mockResolvedValue(
-      new Response("Server Error", { status: 500, statusText: "Internal Server Error" }) as never,
+      new Response("Server Error", { status: 500, statusText: "Internal Server Error" }),
     );
     const result = await new BaliHash2Adapter().fetch(source);
     expect(result.events).toHaveLength(0);

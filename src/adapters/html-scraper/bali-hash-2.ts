@@ -34,10 +34,15 @@ const KENNEL_TAG = "bali-hash-2";
 /** Run-post slug marker — distinguishes trail posts from About/static pages. */
 const POST_HREF_RE = /\/bali-hash-2-next-run-map-/i;
 /** `30-May-26` / `4-Apr-26` — hyphenated D-MMM-YY (single- or two-digit day).
- *  Explicit month names (not `[A-Za-z]{3,}`) so non-month words can't match and
- *  the literal alternation stays ReDoS-clean (Sonar S5852). */
-const RUN_DATE_RE =
-  /(\d{1,2})-(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)-(\d{2,4})/i;
+ *  A simple linear regex (ReDoS-safe, no alternation complexity) captures the
+ *  month token; parseBaliDate validates it against VALID_MONTHS so non-month
+ *  words ("30-Marching-26") can't slip through to chrono. */
+const RUN_DATE_RE = /(\d{1,2})-([A-Za-z]+)-(\d{2,4})/;
+const VALID_MONTHS = new Set([
+  "jan", "january", "feb", "february", "mar", "march", "apr", "april",
+  "may", "jun", "june", "jul", "july", "aug", "august", "sep", "sept",
+  "september", "oct", "october", "nov", "november", "dec", "december",
+]);
 /** Cap detail-page fetches per scrape so a wide window doesn't fan out. */
 const DEFAULT_DETAIL_FETCH_CAP = 10;
 const DEFAULT_DAYS = 90;
@@ -75,7 +80,7 @@ export interface BaliDetailFields {
  *  chrono `D MMM YY` fast-path fires (avoids the single-digit-day mis-parse). */
 export function parseBaliDate(text: string): string | undefined {
   const m = RUN_DATE_RE.exec(text);
-  if (!m) return undefined;
+  if (!m || !VALID_MONTHS.has(m[2].toLowerCase())) return undefined;
   const normalized = `${m[1]} ${m[2]} ${m[3]}`;
   return chronoParseDate(normalized, "en-US") ?? undefined;
 }
