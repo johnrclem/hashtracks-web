@@ -107,6 +107,20 @@ Hares: DW`;
     expect(event!.location).toBe("Rotterdamseweg near Vliet canal");
   });
 
+  it("strips trailing parenthesized (Link) anchor while keeping interior parens (#1729)", () => {
+    const text = `Run 2410
+When: Sunday, March 15
+Time: 14:00 hr
+Where: Parking Elsenburgerbos (Lange Kleiweg), Rijswijk (Link)
+Hares: DW`;
+
+    const event = parseEventBlock(text, SOURCE_URL);
+    expect(event).not.toBeNull();
+    expect(event!.location).toBe(
+      "Parking Elsenburgerbos (Lange Kleiweg), Rijswijk",
+    );
+  });
+
   it("parses Hare(s) variant", () => {
     const text = `Run 2406 (Layer takes requests run)
 When: Sunday Februari 22th

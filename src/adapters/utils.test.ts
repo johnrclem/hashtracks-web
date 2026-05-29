@@ -21,6 +21,8 @@ import {
   hasPlaceholderRunNumber,
   extractHashRunNumber,
   normalizeCostSigil,
+  cleanLocationName,
+  stripClickHereForMap,
 } from "./utils";
 import { validateSourceUrlWithDns } from "./ssrf-dns";
 
@@ -1022,5 +1024,104 @@ describe("normalizeCostSigil (#1670)", () => {
       const twice = normalizeCostSigil(once);
       expect(twice).toBe(once);
     }
+  });
+});
+
+describe("stripClickHereForMap", () => {
+  it.each([
+    ["Pennant HillsCLICK HERE FOR MAP", "Pennant Hills", "no word boundary before sentinel (#1650)"],
+    [
+      "Pennant Hills CLICK HERE FOR MAP, Pennant Hills, NSW",
+      "Pennant Hills , Pennant Hills, NSW",
+      "address suffix after the link survives",
+    ],
+    ["click to enlarge then CLICK HERE FOR MAP", "click to enlarge then ", "false 'click' hit skipped"],
+    ["7 Joffre St", "7 Joffre St", "no sentinel unchanged"],
+  ])("'%s' → '%s' (%s)", (input, expected) => {
+    expect(stripClickHereForMap(input)).toBe(expected);
+  });
+});
+
+describe("cleanLocationName", () => {
+  describe("false-positive guards (must NOT over-strip)", () => {
+    it.each([
+      ["TBC Park", "TBC Park", "bare-word TBC prefix is a real venue, not a dotted qualifier"],
+      ["The (Old) Mill", "The (Old) Mill", "interior parens that aren't '(Link)' survive"],
+      [
+        "Start: 7 Joffre St, Brookvale",
+        "7 Joffre St, Brookvale",
+        "Start: is a location label — strip prefix, keep address",
+      ],
+      [
+        "Parking Elsenburgerbos (Lange Kleiweg), Rijswijk",
+        "Parking Elsenburgerbos (Lange Kleiweg), Rijswijk",
+        "no trailing (Link) — interior parens untouched",
+      ],
+      ["Clint Green, Yaxham", "Clint Green, Yaxham", "plain real venue passes through"],
+      ["Maybes Diner", "Maybes Diner", "'Maybe' must be a whole token, not a prefix of 'Maybes'"],
+    ])("'%s' → '%s' (%s)", (input, expected) => {
+      expect(cleanLocationName(input)).toBe(expected);
+    });
+  });
+
+  describe("strips recoverable noise", () => {
+    it.each([
+      [
+        "Parking Elsenburgerbos (Lange Kleiweg), Rijswijk (Link)",
+        "Parking Elsenburgerbos (Lange Kleiweg), Rijswijk",
+        "#1729 trailing (Link) anchor",
+      ],
+      [
+        "Carpark 87 Winbourne Rd, Brookvale CLICK HERE FOR MAP",
+        "Carpark 87 Winbourne Rd, Brookvale",
+        "#1731 inline CLICK HERE FOR MAP",
+      ],
+      [
+        "Maybe, The Maids Head, 85 Spixworth Road, Old Catton, Norwich, NR6 7NH, T.B.C",
+        "The Maids Head, 85 Spixworth Road, Old Catton, Norwich, NR6 7NH",
+        "#2148 leading Maybe, + trailing T.B.C",
+      ],
+      ["T.B.A. Maybe Worstead", "Worstead", "#2151 peels both dotted T.B.A. and 'Maybe'"],
+      [
+        "Clint Green, Yaxham T.B.C., updates to follow",
+        "Clint Green, Yaxham",
+        "#2152 trailing T.B.C. + 'updates to follow'",
+      ],
+      [
+        "Clint Green, Yaxham T.B.C. / updates to follow",
+        "Clint Green, Yaxham",
+        "#2152 slash separator before trailing phrase (Codex P2)",
+      ],
+      ["Drayton area, Details to follow", "Drayton area", "#2153 trailing 'Details to follow'"],
+      ["Haveringland area, Details to follow", "Haveringland area", "#2157 trailing phrase"],
+      ["Station Voorburg 👣 under the viaduct", "Station Voorburg under the viaduct", "emoji stripped"],
+    ])("'%s' → '%s' (%s)", (input, expected) => {
+      expect(cleanLocationName(input)).toBe(expected);
+    });
+  });
+
+  describe("rejects non-venue values (→ null)", () => {
+    it.each([
+      ["Hares: Sexy Hares Needed", "#1730 hare-solicitation captured as location"],
+      ["Hare(s): Woolly", "labeled hare field"],
+      ["Map: here", "map-link label"],
+      ["On On: Brookvale Hotel", "on-after label"],
+      ["T.B.A", "#2154 standalone dotted qualifier"],
+      ["T.B.C.", "standalone dotted qualifier with dot"],
+      ["Maybe", "standalone Maybe"],
+      ["Contact Le Caniveau to set this run.", "#1749 hare-contact CTA"],
+      ["Hare wanted", "hares-needed CTA"],
+      ["???", "question-mark placeholder"],
+      ["TBD", "placeholder"],
+      ["", "empty string"],
+      ["   ", "whitespace only"],
+    ])("'%s' → null (%s)", (input) => {
+      expect(cleanLocationName(input)).toBeNull();
+    });
+
+    it("returns null for null/undefined input", () => {
+      expect(cleanLocationName(null)).toBeNull();
+      expect(cleanLocationName(undefined)).toBeNull();
+    });
   });
 });

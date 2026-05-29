@@ -190,7 +190,9 @@ describe("NorfolkH3Adapter", () => {
       expect(run).not.toBeNull();
       expect(run!.date).toBe("2026-05-13");
       expect(run!.startTime).toBe("19:00");
-      expect(run!.location).toBeUndefined();
+      // The Venue: field was present ("???") but is a placeholder → explicit
+      // clear (null) so merge wipes any stale address, not preserve (#1747).
+      expect(run!.location).toBeNull();
       expect(run!.hares).toBeUndefined();
       expect(run!.locationUrl).toBeUndefined();
     });
@@ -272,11 +274,13 @@ describe("NorfolkH3Adapter", () => {
       expect(run!.hares).toBe("Woolly & Bagpuss");
     });
 
-    it("captures hares when venue spans multi-line free-text body (#1545)", () => {
+    it("captures hares when venue spans multi-line free-text body, dropping the 'Details to follow' qualifier (#1545/#1747)", () => {
       // Verbatim from issue #1545 (Run #2153). Venue is a two-line free-text
       // body ("Drayton area" + "Details to follow") with no postcode, then
       // a Hare(s): label on the next line. The hare extraction must not be
-      // dropped just because the venue body is informal.
+      // dropped just because the venue body is informal. Per #1747 the
+      // trailing "Details to follow" uncertainty qualifier is now stripped
+      // from the location so the geocoder sees just "Drayton area".
       const text = [
         "Wednesday 8th July 2026, 7pm",
         "Venue:",
@@ -289,12 +293,12 @@ describe("NorfolkH3Adapter", () => {
       const run = parseNorfolkRunBlock(text);
       expect(run).not.toBeNull();
       expect(run!.date).toBe("2026-07-08");
-      expect(run!.location).toContain("Drayton area");
-      expect(run!.location).toContain("Details to follow");
+      expect(run!.location).toBe("Drayton area");
+      expect(run!.location).not.toMatch(/Details to follow/i);
       expect(run!.hares).toBe("James & Custodian");
     });
 
-    it("captures hares for single-line T.B.A. venue (#1545 Run #2154)", () => {
+    it("captures hares for single-line T.B.A. venue and clears the location (#1545/#1747 Run #2154)", () => {
       const text = [
         "Wednesday 15th July 2026, 7pm",
         "Venue:",
@@ -306,6 +310,34 @@ describe("NorfolkH3Adapter", () => {
       const run = parseNorfolkRunBlock(text);
       expect(run).not.toBeNull();
       expect(run!.hares).toBe("Maddie Mc Madder");
+      // "T.B.A." is a pure uncertainty marker — the Venue: field was present
+      // but cleans to non-venue text, so emit an explicit clear (#1747).
+      expect(run!.location).toBeNull();
+    });
+
+    it("peels leading 'Maybe,' and trailing 'T.B.C' qualifiers but keeps the postcode (#1747 Run #2148)", () => {
+      const text = [
+        "Sunday 1st June 2026, 11am",
+        "Venue:",
+        "Maybe, The Maids Head,",
+        "85 Spixworth Road",
+        "Old Catton",
+        "Norwich",
+        "NR6 7NH",
+        "T.B.C.",
+        "Hare(s):",
+        "Woolly",
+      ].join("\n");
+
+      const run = parseNorfolkRunBlock(text);
+      expect(run).not.toBeNull();
+      expect(run!.location).toBe(
+        "The Maids Head, 85 Spixworth Road, Old Catton, Norwich, NR6 7NH",
+      );
+      expect(run!.location).not.toMatch(/maybe/i);
+      expect(run!.location).not.toMatch(/t\.b\.c/i);
+      // Postcode survives the trailing-qualifier strip → map pin still resolves.
+      expect(run!.locationUrl).toContain("NR6");
     });
 
     it("strips leading '?' prefix from haresText (#1546)", () => {
@@ -537,7 +569,8 @@ describe("NorfolkH3Adapter", () => {
       expect(run2145).toBeDefined();
       expect(run2145!.date).toBe("2026-05-13");
       expect(run2145!.startTime).toBe("19:00");
-      expect(run2145!.location).toBeUndefined();
+      // Placeholder Venue: → explicit clear (null), not preserve (#1747).
+      expect(run2145!.location).toBeNull();
       expect(run2145!.hares).toBeUndefined();
     });
 
@@ -600,7 +633,8 @@ describe("NorfolkH3Adapter", () => {
       expect(run2150!.hares).not.toMatch(/^\?/);
 
       const run2151 = result.events.find((e) => e.runNumber === 2151);
-      expect(run2151!.location).toBeUndefined();
+      // Placeholder Venue: → explicit clear (null), not preserve (#1747).
+      expect(run2151!.location).toBeNull();
       expect(run2151!.hares).toBeUndefined();
 
       const run2152 = result.events.find((e) => e.runNumber === 2152);
