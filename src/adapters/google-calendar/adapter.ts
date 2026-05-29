@@ -59,11 +59,32 @@ export function extractRunNumber(
   // itself and re-anchor the cleared run on the next merge.
   if (hasPlaceholderRunNumber(summary)) return null;
 
-  // 3. Fall back to description patterns
+  // 3. Dark / cancelled notices ("N2H3 is Dark", "N2H3 DARK", "No hash this
+  // week") carry no run. Emit null (explicit clear) so a stale number from a
+  // prior occurrence in the same RRULE series can't bleed onto the notice row
+  // (#1717). Narrow by design — see DARK_NOTICE_RE / BARE_DARK_RE.
+  if (DARK_NOTICE_RE.test(summary) || BARE_DARK_RE.test(summary)) return null;
+
+  // 4. Fall back to description patterns
   return description
     ? extractRunNumberFromDescription(description, customPatterns)
     : undefined;
 }
+
+/**
+ * Unambiguous "the run is off this week" phrasing. Whole-word, and the set is
+ * deliberately tight — "no run"/"no trail" were dropped because they over-match
+ * real titles ("No Trail Left Behind Hash"). Used by extractRunNumber to clear
+ * (not preserve) a run number on notice rows (#1717).
+ */
+const DARK_NOTICE_RE = /\bis\s+dark\b|\bno\s+hash\b|\bcancell?ed\b/i;
+
+/**
+ * The bare "<kennel> DARK" form (live N2H3 summary). Case-SENSITIVE all-caps
+ * DARK + single-token prefix so mixed-case themed titles like "Glow Run After
+ * Dark" or "Dark Side of the Moon Hash" never trip it.
+ */
+const BARE_DARK_RE = /^\S+\s+DARK[\s!.]*$/;
 
 function resolveRunNumberPatterns(customPatterns?: string[] | RegExp[]): RegExp[] {
   if (!customPatterns || customPatterns.length === 0) return DEFAULT_RUN_NUMBER_PATTERNS;
@@ -641,6 +662,25 @@ export function extractTimeFromDescription(description: string): string | undefi
   const match = TIME_LABEL_RE.exec(description);
   if (!match?.[1]) return undefined;
   return parse12HourTime(match[1]);
+}
+
+/**
+ * Parse a start time stated as "… at 6pm" / "… at 6:30 PM" in free text,
+ * including the bare-hour form `parse12HourTime` rejects. Requires the "at "
+ * lead-in so an unrelated time in the body (a kennel blurb "bar open til 11pm",
+ * an on-after note) isn't mistaken for the start. Used only by the
+ * placeholder-summary promotion path (#1761).
+ */
+export function parseLooseAmPmTime(text: string): string | undefined {
+  const m = /\bat\s+(\d{1,2})(?::(\d{2}))?\s*([ap])\.?m\.?/i.exec(text);
+  if (!m) return undefined;
+  let hours = Number.parseInt(m[1], 10);
+  if (hours < 1 || hours > 12) return undefined;
+  const mins = m[2] ?? "00";
+  const isPm = m[3].toLowerCase() === "p";
+  if (isPm && hours !== 12) hours += 12;
+  if (!isPm && hours === 12) hours = 0;
+  return `${String(hours).padStart(2, "0")}:${mins}`;
 }
 
 /**
@@ -1285,6 +1325,34 @@ export function buildRawEventFromGCalItem(
     const descTitle = titleFromDescription(rawDescription);
     if (descTitle) title = descTitle;
   }
+  // #1761 — placeholder run-number summary ("NBH3 #? (Tea Party)") whose real
+  // header lives in the description ("NBH3 #448: Time to Spill the Tea
+  // (Party)"). Promote the description header so the placeholder isn't stuck
+  // as the title, and capture its run number + a textual start time. Gated on
+  // the placeholder marker so normal titles are never rewritten; only fires
+  // when the description header carries a real "#NNN".
+  let promotedRunNumber: number | undefined;
+  let promotedStartTime: string | undefined;
+  if (hasPlaceholderRunNumber(title) && rawDescription) {
+    // The real header ("NBH3 #448: Time to Spill the Tea (Party)") can sit
+    // mid-description, below a kennel blurb — so scan for the first body line
+    // that carries a real "#NNN" followed by a title delimiter (":"/"-"). The
+    // delimiter requirement rejects retrospective references in prose
+    // ("Last week #447 was a blast") that have no delimiter after the number.
+    const descLines = rawDescription.split("\n");
+    for (let i = 0; i < descLines.length; i++) {
+      const line = descLines[i].trim();
+      const num = extractHashRunNumber(line);
+      if (typeof num === "number" && /#\s*\d+\s*[:–—-]/.test(line)) {
+        title = line;
+        promotedRunNumber = num;
+        // Search for the start time from the header line onward, so a time in
+        // a preceding kennel blurb ("we meet at 7pm") isn't promoted.
+        promotedStartTime = parseLooseAmPmTime(descLines.slice(i).join("\n"));
+        break;
+      }
+    }
+  }
   // #1691 — title is kebab-case AND matches the kennel tag after
   // normalization. That's the URL-slug shape (Flour City May 28: SUMMARY
   // was literally "flour-city"). Empty the title so the defaultTitle
@@ -1514,6 +1582,11 @@ export function buildRawEventFromGCalItem(
   // rendering as all-day/noon events downstream. Format-guard the default
   // so a config typo can't silently inject a bad startTime string.
   let resolvedStartTime = startTime;
+  // #1761 — a start time promoted from a placeholder event's description
+  // ("…at 6pm") wins over the title/description heuristics below.
+  if (!resolvedStartTime && promotedStartTime) {
+    resolvedStartTime = promotedStartTime;
+  }
   // Title-embedded time wins over description because authors who put a time
   // in the title (NOH3 "Social @ ..., 6pm") almost always mean it as the
   // start time. Only fires for events that didn't have start.dateTime
@@ -1532,7 +1605,10 @@ export function buildRawEventFromGCalItem(
   // not stored as display location. resolveCoords handles URL → address resolution.
   const locationIsUrl = location && /^https?:\/\//i.test(location);
   const cost = rawDescription ? extractCostFromDescription(rawDescription) : undefined;
-  const runNumber = extractRunNumber(summary, rawDescription, compiledRunNumberPatterns);
+  // #1761 — a run number promoted from a placeholder summary's description
+  // header overrides the cleared placeholder (extractRunNumber returns null
+  // for "#?"). Otherwise fall back to the normal summary/description scan.
+  const runNumber = promotedRunNumber ?? extractRunNumber(summary, rawDescription, compiledRunNumberPatterns);
 
   // #1426 — sport-domain title (e.g. "Lansing Crisis Rugby Game") with no
   // hash-confirming signal. Three signals override: runNumber, hares, or
