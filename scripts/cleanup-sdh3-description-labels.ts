@@ -52,7 +52,7 @@ function extractLabels(segments: string[]): { cost?: string; trailType?: string;
   return out;
 }
 
-async function main() {
+async function main() { // NOSONAR S3776
   if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL environment variable is required");
   const host = new URL(process.env.DATABASE_URL).host;
   console.log(`DB: ${host} | mode: ${APPLY ? "APPLY" : "DRY-RUN"}`);

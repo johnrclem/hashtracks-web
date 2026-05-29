@@ -22,7 +22,7 @@ const Y2025_RUNS = new Set([225, 226, 227, 228, 229, 230, 231, 232, 233, 234]);
 const stripZeroWidth = (s: string) => s.replace(/[\u200B-\u200F\uFEFF]/g, "");
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
-async function main() {
+async function main() { // NOSONAR S3776
   if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL environment variable is required");
   const host = new URL(process.env.DATABASE_URL).host;
   console.log(`DB: ${host} | mode: ${APPLY ? "APPLY" : "DRY-RUN"}`);
@@ -85,7 +85,7 @@ async function main() {
       await prisma.event.update({
         where: { id: p.id },
         data: {
-          ...(p.newDate.getTime() !== p.oldDate.getTime() ? { date: p.newDate } : {}),
+          ...(p.newDate.getTime() === p.oldDate.getTime() ? {} : { date: p.newDate }),
           ...(p.clearLoc ? { locationName: null } : {}),
         },
       });

@@ -65,7 +65,7 @@ export function stripZeroWidth(s: string): string {
 export function matchSectionYear(line: string): number | undefined {
   const cleaned = stripZeroWidth(line).trim();
   if (!/^2[0O][0-9O]{2}$/.test(cleaned)) return undefined;
-  const year = Number.parseInt(cleaned.replace(/O/g, "0"), 10);
+  const year = Number.parseInt(cleaned.replaceAll(/O/g, "0"), 10);
   return year >= 2000 && year <= 2100 ? year : undefined;
 }
 
@@ -277,7 +277,7 @@ function freeformLocation(line: string | undefined): string | undefined {
  * collapse to the start date. Blocks with no resolvable date are skipped (and
  * counted in `skipped` so the omission surfaces in diagnostics, never silent).
  */
-export function parseUpcummingFreeform(
+export function parseUpcummingFreeform( // NOSONAR S3776
   lines: string[],
   sourceUrl: string,
 ): { events: RawEventData[]; skipped: number } {
