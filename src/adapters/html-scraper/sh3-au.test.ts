@@ -65,6 +65,19 @@ describe("sh3-au parseSh3Paragraph", () => {
     expect(e!.hares).toBe("Larrikins Joint Run 2500");
   });
 
+  // #1731 — blank Start: lets the non-greedy capture spill into the trailing
+  // "CLICK HERE FOR MAP" anchor; the Hares value must NOT become the location.
+  it("yields no location when Start: is blank, keeping the Hares value out of locationName (#1731)", () => {
+    const text =
+      "Run #3078Date: 9th June 2026 @ 6:30pm TUESDAYHares: Larrikins Joint Run 2500Special Tshirt – order here https://form.jotform.com/261247879266067Start: CLICK HERE FOR MAPOn On:";
+    const e = parseSh3Paragraph(text, URL, REF);
+    expect(e).not.toBeNull();
+    // Start: label present but blank → explicit clear (null), so a venue that
+    // disappears between scrapes wipes the stale canonical value (#1731).
+    expect(e!.location).toBeNull();
+    expect(e!.hares).toBe("Larrikins Joint Run 2500");
+  });
+
   it("strips bare http URL from hares without preceding keyword (#1644)", () => {
     const text =
       "Run #3079Date: 16th JuneHares: Dingo https://example.com/signupStart: TBA";

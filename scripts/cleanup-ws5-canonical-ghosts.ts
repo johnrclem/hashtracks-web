@@ -44,12 +44,9 @@
  * affected sources (so future scrapes don't reintroduce stale values).
  */
 import "dotenv/config";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "@/generated/prisma/client";
+import type { PrismaClient } from "@/generated/prisma/client";
 import { stripMapBoilerplate } from "../src/adapters/html-scraper/sydney-thirsty-h3";
-import { createScriptPool } from "./lib/db-pool";
-
-const dryRun = !process.argv.includes("--apply");
+import { type FieldPatch, runFieldPatchCleanup } from "./lib/cleanup-cli";
 
 /** Mirrors hare-extraction.ts: skip period boundaries preceded by an honorific. */
 const HONORIFICS = new Set(["dr", "mr", "ms", "mrs", "st"]);
@@ -86,16 +83,8 @@ function isDateRangeHares(value: string): boolean {
   return /\b\d{1,2}\s*\/\s*\d{1,2}\b/.test(value);
 }
 
-interface Patch {
-  kennelLabel: string;
-  eventId: string;
-  field: "haresText" | "title" | "locationName";
-  before: string | null;
-  after: string | null;
-}
-
 /** ABQ haresText with slash-date (#1547). */
-async function collectAbqPatches(prisma: PrismaClient): Promise<Patch[]> {
+async function collectAbqPatches(prisma: PrismaClient): Promise<FieldPatch[]> {
   const kennel = await prisma.kennel.findUnique({ where: { kennelCode: "abqh3" }, select: { id: true } });
   if (!kennel) return [];
   const events = await prisma.event.findMany({
@@ -108,14 +97,14 @@ async function collectAbqPatches(prisma: PrismaClient): Promise<Patch[]> {
 }
 
 /** Wasatch haresText sentence trailer (#1551). */
-async function collectWasatchPatches(prisma: PrismaClient): Promise<Patch[]> {
+async function collectWasatchPatches(prisma: PrismaClient): Promise<FieldPatch[]> {
   const kennel = await prisma.kennel.findUnique({ where: { kennelCode: "wasatch-h3" }, select: { id: true } });
   if (!kennel) return [];
   const events = await prisma.event.findMany({
     where: { kennelId: kennel.id, haresText: { contains: ". " } },
     select: { id: true, haresText: true },
   });
-  const patches: Patch[] = [];
+  const patches: FieldPatch[] = [];
   for (const e of events) {
     if (!e.haresText) continue;
     const truncated = truncateAtSentence(e.haresText);
@@ -126,7 +115,7 @@ async function collectWasatchPatches(prisma: PrismaClient): Promise<Patch[]> {
 }
 
 /** Memphis FB title trailing delimiter (#1557). mh3-tn + gynoh3 via EventKennel join (GyNO via kennelPatterns). */
-async function collectMemphisPatches(prisma: PrismaClient): Promise<Patch[]> {
+async function collectMemphisPatches(prisma: PrismaClient): Promise<FieldPatch[]> {
   const kennels = await prisma.kennel.findMany({
     where: { kennelCode: { in: ["mh3-tn", "gynoh3"] } },
     select: { id: true },
@@ -140,7 +129,7 @@ async function collectMemphisPatches(prisma: PrismaClient): Promise<Patch[]> {
     },
     select: { id: true, title: true },
   });
-  const patches: Patch[] = [];
+  const patches: FieldPatch[] = [];
   for (const e of events) {
     if (!e.title) continue;
     const stripped = stripTitleTrailingDelimiter(e.title);
@@ -152,14 +141,14 @@ async function collectMemphisPatches(prisma: PrismaClient): Promise<Patch[]> {
 }
 
 /** STH3-AU locationName boilerplate (#1548). */
-async function collectSthAuPatches(prisma: PrismaClient): Promise<Patch[]> {
+async function collectSthAuPatches(prisma: PrismaClient): Promise<FieldPatch[]> {
   const kennel = await prisma.kennel.findUnique({ where: { kennelCode: "sth3-au" }, select: { id: true } });
   if (!kennel) return [];
   const events = await prisma.event.findMany({
     where: { kennelId: kennel.id, locationName: { contains: "at the map location below", mode: "insensitive" } },
     select: { id: true, locationName: true },
   });
-  const patches: Patch[] = [];
+  const patches: FieldPatch[] = [];
   for (const e of events) {
     if (!e.locationName) continue;
     const stripped = stripMapBoilerplate(e.locationName);
@@ -170,7 +159,7 @@ async function collectSthAuPatches(prisma: PrismaClient): Promise<Patch[]> {
 }
 
 /** BH4 haresText "Open" placeholder (#1550). Routed via EventKennel (multi-kennel pattern). */
-async function collectBh4Patches(prisma: PrismaClient): Promise<Patch[]> {
+async function collectBh4Patches(prisma: PrismaClient): Promise<FieldPatch[]> {
   const kennel = await prisma.kennel.findUnique({ where: { kennelCode: "bh4" }, select: { id: true } });
   if (!kennel) return [];
   const events = await prisma.event.findMany({
@@ -183,7 +172,7 @@ async function collectBh4Patches(prisma: PrismaClient): Promise<Patch[]> {
   return events.map((e) => ({ kennelLabel: "bh4 #1550", eventId: e.id, field: "haresText" as const, before: e.haresText ?? null, after: null }));
 }
 
-async function collectPatches(prisma: PrismaClient): Promise<Patch[]> {
+async function collectPatches(prisma: PrismaClient): Promise<FieldPatch[]> {
   const blocks = await Promise.all([
     collectAbqPatches(prisma),
     collectWasatchPatches(prisma),
@@ -194,59 +183,9 @@ async function collectPatches(prisma: PrismaClient): Promise<Patch[]> {
   return blocks.flat();
 }
 
-function summarize(patches: Patch[]): void {
-  const byKennel = new Map<string, Patch[]>();
-  for (const p of patches) {
-    const list = byKennel.get(p.kennelLabel) ?? [];
-    list.push(p);
-    byKennel.set(p.kennelLabel, list);
-  }
-  for (const [label, list] of [...byKennel.entries()].sort(([a], [b]) => a.localeCompare(b))) {
-    console.log(`\n${label}: ${list.length} event(s)`);
-    for (const p of list.slice(0, 5)) {
-      console.log(`  ${p.eventId} ${p.field}:`);
-      console.log(`    - before: ${JSON.stringify(p.before)}`);
-      console.log(`    + after:  ${JSON.stringify(p.after)}`);
-    }
-    if (list.length > 5) console.log(`  … (${list.length - 5} more)`);
-  }
-}
-
-async function applyPatches(prisma: PrismaClient, patches: Patch[]): Promise<void> {
-  for (const p of patches) {
-    await prisma.event.update({
-      where: { id: p.eventId },
-      data: { [p.field]: p.after },
-    });
-  }
-}
-
-async function main() {
-  const databaseUrl = process.env.DATABASE_URL;
-  if (!databaseUrl) throw new Error("DATABASE_URL is required");
-  const pool = createScriptPool();
-  const adapter = new PrismaPg(pool);
-  const prisma = new PrismaClient({ adapter });
-
-  console.log(dryRun ? "🔍 DRY RUN — no changes will be made" : "✏️  APPLYING changes");
-  console.log(`DATABASE_URL host: ${new URL(databaseUrl).host}\n`);
-
-  const patches = await collectPatches(prisma);
-  summarize(patches);
-  console.log(`\nTotal: ${patches.length} event field(s) to patch.`);
-
-  if (patches.length > 0 && !dryRun) {
-    console.log("\nApplying patches...");
-    await applyPatches(prisma, patches);
-    console.log(`✓ Applied ${patches.length} patch(es).`);
-  } else if (dryRun) {
-    console.log("\nRun with --apply to commit changes.");
-  }
-
-  await pool.end();
-}
-
-main().catch((err) => {
+// summarize / apply / pool boilerplate is shared via runFieldPatchCleanup
+// (scripts/lib/cleanup-cli.ts) — keep this script to its collectors only.
+runFieldPatchCleanup(collectPatches, 5).catch((err) => {
   console.error(err);
-  process.exit(1);
+  process.exitCode = 1;
 });

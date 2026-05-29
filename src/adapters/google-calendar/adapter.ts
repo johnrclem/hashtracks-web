@@ -783,6 +783,20 @@ interface CalendarSourceConfig {
    *  compares the normalized tag, so without an explicit list the fallback
    *  doesn't fire). Compared case-insensitively against the stripped title. */
   staleTitleAliases?: Record<string, readonly string[]>;
+  /**
+   * #1708: iCalUID values of dormant recurring series — abandoned unbounded
+   * `FREQ=WEEKLY` RRULEs (no UNTIL) the kennel left in the calendar but no
+   * longer curates. Google's API keeps materializing stale-titled phantoms
+   * across the whole `[timeMin, timeMax]` window (the `futureHorizonDays` cap
+   * can't help when the phantoms fall inside the window). Instances whose
+   * `iCalUID` matches are dropped; the kennel's real per-occurrence VEVENTs
+   * (separately created events) carry distinct UIDs and flow through untouched.
+   * Matched case-insensitively. NOTE: a RECURRENCE-ID override edited *in place*
+   * on the suppressed series shares its iCalUID and would also be dropped — an
+   * accepted tradeoff for a fully-abandoned series. Reversible: remove the UID
+   * and re-scrape if the series ever goes live again.
+   */
+  suppressICalUids?: readonly string[];
   // Some calendars only populate the soonest-upcoming event's description, which
   // carries an inline schedule listing future dates and hares. After the scrape
   // finishes, back-fill `hares` on other events for the same kennelTag by
@@ -1049,6 +1063,10 @@ export interface BuildRawEventFromGCalItemOptions {
   /** Pre-compiled kennelPatterns. Production fetch path passes this so
    *  we don't re-compile every event; tests can omit. */
   compiledKennelPatterns?: CompiledKennelPattern[];
+  /** Lowercased iCalUID suppress list (#1708), precompiled once per fetch so
+   *  the per-event check is an O(1) Set lookup instead of re-lowercasing the
+   *  config array for every item. Tests can omit (falls back to sourceConfig). */
+  suppressedICalUidSet?: Set<string>;
   /** id-tracking map; the adapter populates this so the cross-call
    *  dedup at the end of `fetch` can use stable GCal ids without
    *  changing the public RawEventData shape. */
@@ -1073,10 +1091,23 @@ export function buildRawEventFromGCalItem(
     compiledTitleLocationPatterns,
     compiledTitleStripPatterns,
     compiledKennelPatterns,
+    suppressedICalUidSet,
     gcalIdMap,
     allDayEventSet,
   } = options;
   if (item.status === "cancelled") return null;
+  // #1708: drop instances of dormant recurring series the kennel abandoned but
+  // left in the calendar (real per-occurrence VEVENTs carry distinct UIDs). The
+  // production fetch path passes a precompiled lowercased set; direct/test calls
+  // fall back to building it from sourceConfig.
+  const suppressedUids =
+    suppressedICalUidSet ??
+    (sourceConfig?.suppressICalUids?.length
+      ? new Set(sourceConfig.suppressICalUids.map((u) => u.toLowerCase()))
+      : undefined);
+  if (suppressedUids && item.iCalUID && suppressedUids.has(item.iCalUID.toLowerCase())) {
+    return null;
+  }
   if (!item.summary) return null;
   if (!item.start?.dateTime && !item.start?.date) return null;
   // Skip all-day events unless config opts in (some calendars use all-day for real runs).
@@ -1646,6 +1677,9 @@ function compileSourceConfigPatterns(sourceConfig: CalendarSourceConfig | null) 
       : undefined,
     compiledKennelPatterns: sourceConfig?.kennelPatterns?.length
       ? compileKennelPatterns(sourceConfig.kennelPatterns)
+      : undefined,
+    suppressedICalUidSet: sourceConfig?.suppressICalUids?.length
+      ? new Set(sourceConfig.suppressICalUids.map((u) => u.toLowerCase()))
       : undefined,
   };
 }

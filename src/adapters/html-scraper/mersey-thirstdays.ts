@@ -193,22 +193,147 @@ export function parseMerseyNextRunBlock(block: string): ParsedMerseyRun | null {
   return result;
 }
 
+const RUN_HEADER_RE = /\bRun\s+\d+\b/i;
+
+// Month prefixes for the strict date-heading detector below. Kept as a Set
+// lookup rather than a 12-branch regex alternation (cheaper + dodges Sonar's
+// regex-complexity rule — see memory feedback_sonar_s5843).
+const MONTH_PREFIXES = new Set([
+  "jan", "feb", "mar", "apr", "may", "jun",
+  "jul", "aug", "sep", "oct", "nov", "dec",
+]);
+
+/**
+ * Strict "is this line a run-date heading?" check for segment-boundary
+ * detection. Deliberately NOT `chronoParseDate`: chrono extracts a date from
+ * any string that merely *contains* a date-ish token ("Meet 7pm" → today,
+ * "see you at 8" → today), which would make detail lines false segment
+ * boundaries. The source's date headings always lead with a day ordinal + a
+ * month name ("28th May", "18th June ** Note 6pm start! **"), so we require
+ * exactly that shape at the start of the line.
+ */
+function isRunDateHeading(line: string): boolean {
+  const m = /^\d{1,2}(?:st|nd|rd|th)?\s+([a-z]{3})/i.exec(line);
+  return !!m && MONTH_PREFIXES.has(m[1].toLowerCase());
+}
+
+/**
+ * Sub-split a dashed block that contains more than one `Run NNN` header.
+ *
+ * The dash separators are the primary delimiter, but if the source ever drops
+ * or shortens one (HTML edit, copy-paste slip) two runs land in a single block.
+ * `parseMerseyNextRunBlock` then reads the FIRST date / run / hare it finds and
+ * silently discards the second run — the mechanism behind the #1709 duplicate
+ * run-602 row and the backward hare bleed (a `Hare: TBC` run inheriting the
+ * next block's hare). Splitting on run-header boundaries makes parsing robust
+ * to a missing dash: each run anchors its own segment, and the date heading
+ * that sits just above the `Run NNN` header (this source always lists the date
+ * first) is pulled into that run's segment.
+ *
+ * Boundary rule: this source puts the date heading on the line DIRECTLY above
+ * each `Run NNN` header (verified live: "18th June …" / "Run 603"). So the
+ * split point for run k>0 is `runIdx-1` iff that line is a date heading. This
+ * is what distinguishes the date-above layout from a date-below one: in a
+ * date-below block the line directly above a header is detail (e.g. a hare),
+ * not a date, so the check fails and we don't split.
+ *
+ * Fail-safe: if any non-leading run header lacks a date heading directly above
+ * it, we DON'T split — splitting blind would corrupt dates/hares (the very
+ * failure this guards against). Returning the block whole preserves the prior
+ * single-run behavior, and we `console.warn` so the anomaly surfaces in scrape
+ * logs rather than silently mangling data (fail loud over silent corruption).
+ *
+ * Returns the block unchanged when it has 0–1 run headers.
+ */
+function subSplitRunBlock(block: string): string[] {
+  const lines = block.split("\n").map((l) => l.trim()).filter(Boolean);
+  const runIdxs: number[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (RUN_HEADER_RE.test(lines[i])) runIdxs.push(i);
+  }
+  if (runIdxs.length <= 1) return [block];
+
+  // Boundary for run k>0 is the date heading directly above its header. The
+  // first segment starts at line 0 to keep any leading detail; boundaries are
+  // exclusive so a run's trailing detail stays with it until the next date.
+  const starts: number[] = [0];
+  for (let k = 1; k < runIdxs.length; k++) {
+    const runIdx = runIdxs[k];
+    const dateIdx = runIdx - 1;
+    const prevStart = starts.at(-1) ?? 0;
+    if (dateIdx <= prevStart || !isRunDateHeading(lines[dateIdx])) {
+      // Date-directly-above assumption violated — refuse to split rather than
+      // corrupt dates/hares across the merged runs.
+      console.warn(
+        `[mersey-thirstdays] merged block with no date heading directly above ` +
+          `run header ${JSON.stringify(lines[runIdx])}; leaving block un-split.`,
+      );
+      return [block];
+    }
+    starts.push(dateIdx);
+  }
+
+  const segments: string[] = [];
+  for (let k = 0; k < starts.length; k++) {
+    const to = k + 1 < starts.length ? starts[k + 1] : lines.length;
+    segments.push(lines.slice(starts[k], to).join("\n"));
+  }
+  return segments;
+}
+
+/** Count populated detail fields — used to keep the richer of two run records. */
+function countRunFields(run: ParsedMerseyRun): number {
+  let n = 0;
+  if (run.hares) n++;
+  if (run.location) n++;
+  if (run.nearestStation) n++;
+  if (run.description) n++;
+  return n;
+}
+
+/**
+ * Drop duplicate run-number records, keeping the most detailed.
+ * A clean sub-split shouldn't produce duplicates, but this guards against the
+ * #1709 "duplicate run 602" symptom if the source ever repeats a run header.
+ */
+function dedupByRunNumber(runs: ParsedMerseyRun[]): ParsedMerseyRun[] {
+  const indexByRun = new Map<number, number>();
+  const out: ParsedMerseyRun[] = [];
+  for (const run of runs) {
+    if (run.runNumber == null) {
+      out.push(run);
+      continue;
+    }
+    const existingIdx = indexByRun.get(run.runNumber);
+    if (existingIdx === undefined) {
+      indexByRun.set(run.runNumber, out.length);
+      out.push(run);
+    } else if (countRunFields(run) > countRunFields(out[existingIdx])) {
+      out[existingIdx] = run;
+    }
+  }
+  return out;
+}
+
 /**
  * Parse the full next-runs page text into runs.
  * Exported for unit testing.
  */
 export function parseMerseyNextRuns(text: string): ParsedMerseyRun[] {
-  // Split on dashed lines (10+ hyphens)
+  // Split on dashed lines (10+ hyphens), then defensively sub-split any block
+  // that merged two runs (missing/short separator) on run-header boundaries.
   const blocks = text.split(/-{10,}/);
   const runs: ParsedMerseyRun[] = [];
 
   for (const block of blocks) {
     if (!block.trim()) continue;
-    const parsed = parseMerseyNextRunBlock(block);
-    if (parsed) runs.push(parsed);
+    for (const segment of subSplitRunBlock(block)) {
+      const parsed = parseMerseyNextRunBlock(segment);
+      if (parsed) runs.push(parsed);
+    }
   }
 
-  return runs;
+  return dedupByRunNumber(runs);
 }
 
 // ---------------------------------------------------------------------------

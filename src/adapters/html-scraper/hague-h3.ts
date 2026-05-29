@@ -34,7 +34,12 @@ import type {
   ParseError,
 } from "../types";
 import { hasAnyErrors } from "../types";
-import { fetchHTMLPage, buildDateWindow, decodeEntities, EMOJI_RE } from "../utils";
+import {
+  fetchHTMLPage,
+  buildDateWindow,
+  cleanLocationName,
+  decodeEntities,
+} from "../utils";
 
 // ── Constants ──
 
@@ -129,21 +134,17 @@ export function parseEventBlock(
     startTime = `${timeMatch[1].padStart(2, "0")}:${timeMatch[2]}`;
   }
 
-  // Extract location — strip trailing "Link" text from Google Maps links,
-  // strip any URLs, and strip pictographic emoji that the source authors
-  // sprinkle into the Where: line (e.g. "Station Voorburg 👣 under the
-  // viaduct" — the 👣 is in the source markup, #1258).
-  let location: string | undefined;
+  // Extract location and run it through the shared cleaner, which strips the
+  // trailing Google-Maps anchor text ("(Link)" / bare "Link" — #1729 / #1258),
+  // any URLs, and pictographic emoji the source authors sprinkle into the
+  // Where: line (e.g. "Station Voorburg 👣 under the viaduct"). A Where: line
+  // that cleans to non-venue text keeps the cleaner's `null` (explicit clear)
+  // rather than `undefined` so a venue→placeholder transition clears the stale
+  // canonical value at merge time. `undefined` only when there is no Where:.
+  let location: string | null | undefined;
   const whereMatch = WHERE_RE.exec(text);
   if (whereMatch) {
-    location = whereMatch[1]
-      .trim()
-      .replace(/\s*Link\s*$/i, "")
-      .replace(/\s*https?:\/\/\S+/g, "")
-      .replace(EMOJI_RE, "")
-      .replace(/\s{2,}/g, " ")
-      .trim();
-    if (!location) location = undefined;
+    location = cleanLocationName(whereMatch[1]);
   }
 
   // Extract hares

@@ -148,6 +148,129 @@ describe("MerseyThirstdaysAdapter", () => {
     it("returns empty for text with no dash separators and no dates", () => {
       expect(parseMerseyNextRuns("Just some random text")).toEqual([]);
     });
+
+    // #1709 — defensive hardening against a missing/short dash separator that
+    // merges two runs into one block (the documented duplicate-602 + backward
+    // hare-bleed mechanism).
+    describe("merged-block hardening (#1709)", () => {
+      it("sub-splits two runs sharing a block (missing separator), no bleed", () => {
+        // No dash between run 602 and run 603 — they share one block. The TBC
+        // run (603) must NOT inherit run 604's hares, and 602 must not duplicate.
+        const text = [
+          "28th May",
+          "Run 602",
+          "Hare: FCUK",
+          "Starting from: Black Cat Parr Street, 25 Parr St, Liverpool L1 4JN",
+          "A to B run.",
+          "4th June",
+          "Run 603",
+          "Hare: TBC",
+          "-------------------------------------------------",
+          "18th June",
+          "Run 604",
+          "Hares: Snoozeanne and Mad Hatter",
+        ].join("\n");
+
+        const runs = parseMerseyNextRuns(text);
+        expect(runs.map((r) => r.runNumber)).toEqual([602, 603, 604]);
+
+        const run602 = runs.find((r) => r.runNumber === 602)!;
+        expect(run602.date).toBe("2026-05-28");
+        expect(run602.hares).toBe("FCUK");
+
+        const run603 = runs.find((r) => r.runNumber === 603)!;
+        expect(run603.date).toBe("2026-06-04");
+        expect(run603.hares).toBeUndefined(); // TBC, no backward bleed from 604
+
+        const run604 = runs.find((r) => r.runNumber === 604)!;
+        expect(run604.date).toBe("2026-06-18");
+        expect(run604.hares).toBe("Snoozeanne and Mad Hatter");
+      });
+
+      it("does not duplicate a run when a block holds three merged runs", () => {
+        const text = [
+          "16th July",
+          "Run 605",
+          "Hare: Overdrive & Cleopatra",
+          "30th July",
+          "Run 606",
+          "Hare: TBC",
+          "13th August",
+          "Run 607",
+          "Hare: OTT",
+        ].join("\n");
+
+        const runs = parseMerseyNextRuns(text);
+        expect(runs.map((r) => r.runNumber)).toEqual([605, 606, 607]);
+        expect(runs.find((r) => r.runNumber === 606)!.hares).toBeUndefined();
+        expect(runs.find((r) => r.runNumber === 607)!.hares).toBe("OTT");
+      });
+
+      it("collapses a repeated run number, keeping the richer record", () => {
+        const text = [
+          "28th May",
+          "Run 602",
+          "Hare: TBC",
+          "-------------------------------------------------",
+          "28th May",
+          "Run 602",
+          "Hare: FCUK",
+          "Nearest station: Liverpool Central",
+        ].join("\n");
+
+        const runs = parseMerseyNextRuns(text);
+        expect(runs.filter((r) => r.runNumber === 602).length).toBe(1);
+        expect(runs.find((r) => r.runNumber === 602)!.hares).toBe("FCUK");
+      });
+
+      it("does not treat a detail line (e.g. 'Meet 7pm') as a date boundary", () => {
+        // The detail line between run 605's date and run 606's date must not
+        // become a false segment boundary (chrono would parse 'Meet 7pm').
+        const text = [
+          "16th July",
+          "Run 605",
+          "Hare: Overdrive",
+          "Meet 7pm at the On Inn",
+          "30th July",
+          "Run 606",
+          "Hare: OTT",
+        ].join("\n");
+
+        const runs = parseMerseyNextRuns(text);
+        expect(runs.map((r) => r.runNumber)).toEqual([605, 606]);
+        expect(runs.find((r) => r.runNumber === 605)!.date).toBe("2026-07-16");
+        expect(runs.find((r) => r.runNumber === 606)!.date).toBe("2026-07-30");
+        expect(runs.find((r) => r.runNumber === 606)!.hares).toBe("OTT");
+      });
+
+      it("fails safe (no corruption) when a merged block uses date-below layout", () => {
+        // Date sits BELOW each Run header — the date-directly-above invariant
+        // doesn't hold. Rather than mis-stitch dates/hares across runs, the
+        // sub-split bails and the block parses as a single run (prior behavior),
+        // emitting a warning so the anomaly is visible in scrape logs.
+        const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+        const text = [
+          "Run 700",
+          "10th September",
+          "Hare: Alpha",
+          "Run 701",
+          "17th September",
+          "Hare: Bravo",
+        ].join("\n");
+
+        const runs = parseMerseyNextRuns(text);
+        // No corrupted second run; first run survives intact (run 700 keeps its
+        // own date + hare, not stitched to run 701's). Date resolves to 2025 via
+        // chrono's nearest-September from the frozen 2026-03-01 ref — the point
+        // here is the absence of corruption, not the exact year.
+        expect(runs.length).toBe(1);
+        expect(runs[0].runNumber).toBe(700);
+        expect(runs[0].date).toBe("2025-09-10");
+        expect(runs[0].hares).toBe("Alpha");
+        expect(warnSpy).toHaveBeenCalledOnce();
+        warnSpy.mockRestore();
+      });
+    });
   });
 
   describe("splitByYearMarkers", () => {

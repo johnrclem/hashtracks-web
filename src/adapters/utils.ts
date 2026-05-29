@@ -849,6 +849,228 @@ export function stripPlaceholder(value: string | undefined | null): string | und
   return trimmed;
 }
 
+// ---------------------------------------------------------------------------
+// Location name cleaning — shared post-processor for HTML scrapers
+// (#1729 #1730 #1731 #1747 #1749). Adapters keep leaking non-venue text into
+// the location field: map-anchor text ("(Link)", "CLICK HERE FOR MAP"),
+// labeled-field values ("Hares: …"), uncertainty qualifiers ("T.B.A.",
+// "Maybe,", "Details to follow"), and hare-contact CTA copy ("Contact X to
+// set this run"). `cleanLocationName` strips the recoverable noise and
+// rejects (→ null) anything that isn't a real venue, composing the existing
+// placeholder/CTA infrastructure above.
+// ---------------------------------------------------------------------------
+
+/**
+ * Strip every "CLICK HERE FOR MAP" anchor-text occurrence (case-insensitive,
+ * arbitrary whitespace between tokens) from `s`. False matches of the leading
+ * word "click" (e.g. "click to enlarge") advance the search past the false hit
+ * instead of terminating the loop, so later valid sentinels in the same string
+ * are still stripped (Gemini caught the original break-on-false logic in
+ * PR #1702). Implemented procedurally rather than with a `CLICK\s*HERE\s*FOR\s*MAP`
+ * regex — the per-token `\s*` runs trip Sonar S5852's ReDoS heuristic even
+ * though they're linear (memory `feedback_sonar_s5852_procedural_over_regex`).
+ */
+export function stripClickHereForMap(s: string): string {
+  const TOKENS = ["click", "here", "for", "map"];
+  let out = s;
+  // `lower` mirrors `out` and is only recomputed when `out` is mutated, not on
+  // every loop pass (non-match advances leave `out` unchanged).
+  let lower = out.toLowerCase();
+  let startIdx = 0;
+  while (startIdx < out.length) {
+    const idx = lower.indexOf("click", startIdx);
+    if (idx < 0) break;
+    let pos = idx;
+    let matched = true;
+    for (const word of TOKENS) {
+      while (pos < lower.length && /\s/.test(lower[pos])) pos++;
+      if (lower.slice(pos, pos + word.length) !== word) {
+        matched = false;
+        break;
+      }
+      pos += word.length;
+    }
+    if (matched) {
+      out = out.slice(0, idx) + out.slice(pos);
+      lower = out.toLowerCase();
+      startIdx = idx;
+    } else {
+      startIdx = idx + 1;
+    }
+  }
+  return out;
+}
+
+// Field labels that are NOT a location — a value that is entirely
+// "<label>: …" for one of these is rejected outright (#1730 "Hares: Sexy
+// Hares Needed", #1731 "Hares: …" captured when Start: was blank). "Start:"
+// is intentionally absent: it IS a location label, so its prefix is stripped
+// and the address kept (see cleanLocationName step 2).
+const NON_LOCATION_LABEL_RE = /^(?:hares?|hare\(s\)|on[\s-]?on|map)\s*:/i;
+const START_LABEL_RE = /^start\s*:\s*/i;
+
+// Segment-separator characters. Includes "/" because Norfolk venue blocks use
+// " / " between the address and a trailing "updates to follow" / "T.B.C."
+// marker (#1747 / Codex P2) — without it the slash blocks further stripping.
+const LOCATION_SEPARATOR_CHARS = new Set([",", "/", " ", "\t", "\n", "\r", "\f", "\v"]);
+
+/** True when `ch` is a segment boundary for qualifier stripping (edge/separator). */
+function isQualifierBoundary(ch: string | undefined): boolean {
+  return ch === undefined || LOCATION_SEPARATOR_CHARS.has(ch);
+}
+
+/** Trim leading + trailing separator chars (",", "/", whitespace) procedurally. */
+function trimLocationSeparators(s: string): string {
+  let start = 0;
+  let end = s.length;
+  while (start < end && LOCATION_SEPARATOR_CHARS.has(s[start])) start++;
+  while (end > start && LOCATION_SEPARATOR_CHARS.has(s[end - 1])) end--;
+  return s.slice(start, end);
+}
+
+/** Trim trailing whitespace only (single-char check — no quantified regex). */
+function trimTrailingWhitespace(s: string): string {
+  let end = s.length;
+  while (end > 0 && /\s/.test(s[end - 1])) end--;
+  return s.slice(0, end);
+}
+
+/**
+ * Strip a trailing Google-Maps "(Link)" or bare " Link" anchor (#1729 / #1258).
+ * Procedural rather than a `\s*\(\s*link\s*\)\s*$` regex, which Sonar S5852
+ * flags as ReDoS-prone (memory `feedback_sonar_s5852_procedural_over_regex`).
+ */
+function stripTrailingLinkAnchor(input: string): string {
+  let s = trimTrailingWhitespace(input);
+  const lower = s.toLowerCase();
+  if (lower.endsWith("(link)")) {
+    s = s.slice(0, -"(link)".length);
+  } else if (
+    lower.endsWith("link") &&
+    (s.length === 4 || /\s/.test(s.at(-5) ?? ""))
+  ) {
+    // Bare trailing "Link" only when it's a standalone word (preceded by
+    // whitespace or at the start) — "Funlink" / "uplink" survive.
+    s = s.slice(0, -"link".length);
+  }
+  return trimTrailingWhitespace(s);
+}
+
+// Uncertainty qualifiers the kennels write to flag "not finalized" — dotted
+// "T.B.A/B/C/D" forms plus a leading "Maybe" and trailing "… to follow"
+// phrases (#1747 Norfolk). Matched as whole tokens (must be bounded by a
+// separator or string edge) so a bare-word venue like "TBC Park" or a venue
+// literally named "…Maybes…" is never bitten. Stripped procedurally to keep
+// Sonar S5843/S5852 happy (no `\s*`-adjacent-to-alternation).
+const LOCATION_QUALIFIER_TOKENS = [
+  "t.b.a.",
+  "t.b.c.",
+  "t.b.d.",
+  "t.b.a",
+  "t.b.c",
+  "t.b.d",
+  "maybe",
+];
+const LOCATION_TRAILING_PHRASES = ["details to follow", "updates to follow"];
+// Trailing-strip order: multi-word phrases first, then dotted markers. "maybe"
+// is excluded — a trailing "Maybe" is not an uncertainty marker.
+const LOCATION_TRAILING_FRAGMENTS = [
+  ...LOCATION_TRAILING_PHRASES,
+  ...LOCATION_QUALIFIER_TOKENS.filter((t) => t !== "maybe"),
+];
+
+function stripLeadingQualifiers(input: string): string {
+  let s = input;
+  let changed = true;
+  while (changed) {
+    changed = false;
+    const lower = s.toLowerCase();
+    for (const tok of LOCATION_QUALIFIER_TOKENS) {
+      if (lower.startsWith(tok) && isQualifierBoundary(s[tok.length])) {
+        s = trimLocationSeparators(s.slice(tok.length));
+        changed = true;
+        break;
+      }
+    }
+  }
+  return s;
+}
+
+function stripTrailingQualifiers(input: string): string {
+  let s = input;
+  let changed = true;
+  while (changed) {
+    changed = false;
+    const lower = s.toLowerCase();
+    for (const frag of LOCATION_TRAILING_FRAGMENTS) {
+      if (lower.endsWith(frag) && isQualifierBoundary(s[s.length - frag.length - 1])) {
+        s = trimLocationSeparators(s.slice(0, s.length - frag.length));
+        changed = true;
+        break;
+      }
+    }
+  }
+  return s;
+}
+
+/** The hare-contact CTA Bristol GREY emits when no hare has signed up (#1749). */
+function isContactToSetRunCta(lower: string): boolean {
+  return lower.startsWith("contact ") && lower.includes(" to set this run");
+}
+
+/**
+ * Clean a raw scraped location string into a real venue name, or return
+ * `null` when the value is not a location at all.
+ *
+ * IMPORTANT — preserve the `null`. The merge pipeline is tri-state on
+ * `location`: `undefined` = preserve existing, `null` = explicit clear, value
+ * = overwrite (merge.ts WS6 #1516). When the SOURCE PROVIDED a location field
+ * but it cleans to non-venue text (e.g. a venue that changed to "T.B.A." or a
+ * hare-contact CTA), the adapter must emit `location: null` so the stale
+ * canonical value is cleared — NOT `?? undefined`, which would silently
+ * preserve the old address forever. Only fall back to `undefined` when the
+ * source had no location field at all.
+ *
+ * Order matters: reject non-location labels first, then strip anchor/URL/emoji
+ * noise, then peel uncertainty qualifiers, then reject pure placeholder/CTA
+ * residuals. The rules are deliberately conservative and global (no per-kennel
+ * tuning) — the dotted "T.B.x" markers are universal hash phrasing.
+ */
+export function cleanLocationName(raw: string | null | undefined): string | null {
+  if (raw == null) return null;
+  let s = raw.trim();
+  if (!s) return null;
+
+  // 1. Reject whole-value non-location labeled fields ("Hares: …", "Map: …").
+  if (NON_LOCATION_LABEL_RE.test(s)) return null;
+
+  // 2. "Start:" is a location label — drop the prefix, keep the address.
+  s = s.replace(START_LABEL_RE, "").trim();
+
+  // 3. Strip map-anchor text, URLs, and emoji.
+  s = stripClickHereForMap(s);
+  s = stripUrls(s);
+  s = s.replace(EMOJI_RE, "");
+  s = stripTrailingLinkAnchor(s);
+
+  // 4. Peel leading/trailing uncertainty qualifiers (dotted T.B.x / Maybe /
+  //    "… to follow"). Bare-word prefixes ("TBC Park") are preserved.
+  s = stripLeadingQualifiers(s);
+  s = stripTrailingQualifiers(s);
+
+  // 5. Collapse internal whitespace + trim dangling separators.
+  s = trimLocationSeparators(s.replace(/\s{2,}/g, " "));
+
+  // 6. Reject pure placeholder / CTA residuals.
+  if (!s) return null;
+  if (isPlaceholder(s)) return null;
+  const lower = s.toLowerCase();
+  if (isContactToSetRunCta(lower)) return null;
+  if (CTA_EMBEDDED_PATTERNS.some((re) => re.test(s))) return null;
+
+  return s;
+}
+
 /**
  * Walk a chronologically-sorted run list and bump a date's year forward
  * until it strictly exceeds the previous row's date. Used when the source

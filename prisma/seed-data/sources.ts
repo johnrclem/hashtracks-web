@@ -2838,7 +2838,12 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "every_6h",
       scrapeDays: 90,
-      config: { defaultKennelTag: "mrhappy" },
+      config: {
+        defaultKennelTag: "mrhappy",
+        // #1708: dormant unbounded FREQ=WEEKLY RRULE (abandoned 2021, no UNTIL)
+        // still projecting stale "Mr Happy's 69th Trail" phantoms every Wed.
+        suppressICalUids: ["20qb7gao7553kajq5de1s5kra4_R20210304T020000@google.com"],
+      },
       kennelCodes: ["mrhappy"],
     },
     {
@@ -3056,6 +3061,21 @@ export const SOURCES = [
         includeHistory: true,
       },
       kennelCodes: ["sdh3", "clh3-sd", "ljh3", "nch3-sd", "irh3-sd", "humpin-sd", "fmh3-sd", "hah3-sd", "mh4-sd", "drh3-sd"],
+    },
+    // NCH3 official microsite — a single "current run" page (#1765). Richer
+    // than the SDH3 hareline for the live run (hares/location/cost/trail type)
+    // but it enumerates only ONE event, so `upcomingOnly: true` keeps reconcile
+    // from cancelling the many SDH3-sourced NCH3 events it can't see. NCH3 stays
+    // primarily tracked via "SDH3 Hareline"; this is a supplemental enrichment.
+    {
+      name: "NCH3 Official Microsite",
+      url: "https://nch3.com/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "weekly",
+      scrapeDays: 30,
+      config: { upcomingOnly: true },
+      kennelCodes: ["nch3-sd"],
     },
     // ===== OHIO =====
     // --- Cleveland (Meetup) ---
@@ -4654,7 +4674,10 @@ export const SOURCES = [
       url: "https://n2th3.org",
       kennelTag: "n2th3",
       rrule: "FREQ=WEEKLY;BYDAY=WE",
-      startTime: "19:00",
+      // 19:30 per n2th3.org About ("Runs start at 7:30pm"); see #1732 +
+      // prisma/migrations/20260529120000_fix_profile_round_14 which converges the
+      // existing ScheduleRule + future Event rows so events match the 7:30 PM profile.
+      startTime: "19:30",
       defaultTitle: "N2TH3 Weekly Run",
       defaultLocation: "Hong Kong New Territories",
       defaultDescription: "Weekly Wednesday evening trail in Hong Kong's Northern New Territories. Trail location, hare, and on-on details are posted ~1 day before each run at https://n2th3.org/.",

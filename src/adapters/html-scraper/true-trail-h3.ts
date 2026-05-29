@@ -1,6 +1,6 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ParseError } from "../types";
-import { fetchHTMLPage, decodeEntities, chronoParseDate, buildDateWindow, stripPlaceholder } from "../utils";
+import { fetchHTMLPage, decodeEntities, chronoParseDate, buildDateWindow, cleanLocationName, stripPlaceholder } from "../utils";
 
 const KENNEL_TAG = "tth3-ab";
 const DEFAULT_START_TIME = "18:30";
@@ -133,9 +133,15 @@ export class TrueTrailH3Adapter implements SourceAdapter {
           }
         }
 
-        // Hares
-        const h = extractHares(text);
-        if (h) { hares = h; continue; }
+        // Hares — a labeled "Hares:" line is always consumed here, even when
+        // the value is a placeholder ("Sexy Hares Needed" → undefined). Without
+        // this the placeholder line fell through to the venue branch below and
+        // was stored verbatim as the location (#1730).
+        if (/^Hares?\s*:/i.test(text)) {
+          const h = extractHares(text);
+          if (h) hares = h;
+          continue;
+        }
 
         // If we have a date but no venue yet, this is likely the venue name
         if (date && !venueName && !streetAddress) {
@@ -178,11 +184,18 @@ export class TrueTrailH3Adapter implements SourceAdapter {
       const eventDate = new Date(date + "T12:00:00Z");
       if (eventDate < minDate || eventDate > maxDate) continue;
 
-      // Build location
+      // Build location and run it through the shared cleaner as a final guard
+      // against any labeled/anchor/placeholder text that slipped into the
+      // venue-name slot (#1730). When a venue slot WAS captured but cleans to
+      // non-venue text, keep the cleaner's `null` so merge clears the stale
+      // value; `undefined` only when no venue paragraph was present at all.
       const locationParts: string[] = [];
       if (venueName) locationParts.push(venueName);
       if (streetAddress) locationParts.push(streetAddress);
-      const location = locationParts.length > 0 ? locationParts.join(", ") : undefined;
+      const location =
+        locationParts.length > 0
+          ? cleanLocationName(locationParts.join(", "))
+          : undefined;
 
       events.push({
         date,

@@ -1,6 +1,12 @@
 import type { Source } from "@/generated/prisma/client";
 import type { ErrorDetails, RawEventData, ScrapeResult, SourceAdapter } from "../types";
-import { applyDateWindow, chronoParseDate, fetchHTMLPage } from "../utils";
+import {
+  applyDateWindow,
+  chronoParseDate,
+  cleanLocationName,
+  fetchHTMLPage,
+  stripClickHereForMap,
+} from "../utils";
 
 /**
  * Sydney H3 ("Posh Hash") — sh3.link
@@ -64,39 +70,9 @@ function captureLabel(text: string, re: RegExp): string | undefined {
  *      swallowed the valid city/state suffix after the link.
  * The replacement uses anchor-text-only stripping with whitespace + dangling
  * separator cleanup so address detail downstream of the link survives.
+ * `stripClickHereForMap` is shared via `../utils` (also used by
+ * `cleanLocationName`) so the procedural sentinel stripper lives in one place.
  */
-/**
- * Strip every "CLICK HERE FOR MAP" anchor-text occurrence (case-
- * insensitive, arbitrary whitespace between tokens) from `s`. False
- * matches of the leading word "click" (e.g. "click to enlarge") advance
- * the search past the false hit instead of terminating the loop, so
- * later valid sentinels in the same string are still stripped. Gemini
- * caught the original break-on-false logic in PR #1702.
- */
-function stripClickHereForMap(s: string): string {
-  const TOKENS = ["click", "here", "for", "map"];
-  let out = s;
-  let startIdx = 0;
-  while (startIdx < out.length) {
-    const lower = out.toLowerCase();
-    const idx = lower.indexOf("click", startIdx);
-    if (idx < 0) break;
-    let pos = idx;
-    let matched = true;
-    for (const word of TOKENS) {
-      while (pos < lower.length && /\s/.test(lower[pos])) pos++;
-      if (lower.slice(pos, pos + word.length) !== word) { matched = false; break; }
-      pos += word.length;
-    }
-    if (matched) {
-      out = out.slice(0, idx) + out.slice(pos);
-      startIdx = idx;
-    } else {
-      startIdx = idx + 1;
-    }
-  }
-  return out;
-}
 
 function cleanStart(raw: string | undefined): string | undefined {
   if (!raw) return undefined;
@@ -197,7 +173,17 @@ export function parseSh3Paragraph(
   if (!date) return null;
 
   const hares = cleanHares(captureLabel(text, HARES_RE));
-  const start = cleanStart(captureLabel(text, START_RE));
+  // Run the captured Start: value through the shared location cleaner so a
+  // blank Start: (which lets the non-greedy capture spill into the trailing
+  // "CLICK HERE FOR MAP" / next-label text) resolves to no location instead
+  // of leaking anchor text or a sibling field's value (#1731). When the
+  // Start: label IS present but cleans to nothing, keep the cleaner's `null`
+  // so merge explicitly clears a stale value; only emit `undefined` (preserve)
+  // when the run has no Start: label at all.
+  const startLabelPresent = /Start\s*:/i.test(text);
+  const start = startLabelPresent
+    ? cleanLocationName(cleanStart(captureLabel(text, START_RE)))
+    : undefined;
   const onOn = captureLabel(text, ON_ON_RE);
 
   return {

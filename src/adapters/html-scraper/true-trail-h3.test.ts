@@ -184,4 +184,36 @@ describe("TrueTrailH3Adapter", () => {
     const unique = new Set(runNumbers);
     expect(runNumbers.length).toBe(unique.size);
   });
+
+  it("does not store a placeholder 'Hares: Sexy Hares Needed' line as the venue (#1730)", async () => {
+    // Run #175 before a venue is announced: the only post-date paragraph is a
+    // placeholder Hares: line. It must never fall through to the venue slot.
+    const PLACEHOLDER_HTML = `
+<div class="wp-block-group">
+<h2 class="wp-block-heading"><strong>#1</strong>75 &#8211; Trailer Trash Hash</h2>
+<p class="">July 2, 2026</p>
+<p class="">Hares: Sexy Hares Needed</p>
+<p class="">More Detrails to Cum!</p>
+<p class="has-text-align-left">Pack Gathers: 6:30<br>Hash Cash: $8</p>
+</div>`;
+    const { fetchHTMLPage } = await import("../utils");
+    const cheerio = await import("cheerio");
+    vi.mocked(fetchHTMLPage).mockResolvedValue({
+      ok: true,
+      html: PLACEHOLDER_HTML,
+      $: cheerio.load(PLACEHOLDER_HTML),
+      structureHash: "test-hash",
+      fetchDurationMs: 100,
+    });
+
+    const { TrueTrailH3Adapter } = await import("./true-trail-h3");
+    const adapter = new TrueTrailH3Adapter();
+    const source = { id: "test", url: "https://truetrailh3.com/", scrapeDays: 365 } as Source;
+
+    const result = await adapter.fetch(source);
+    const ev = result.events.find((e) => e.runNumber === 175);
+    expect(ev).toBeDefined();
+    expect(ev!.location).toBeUndefined();
+    expect(ev!.hares).toBeUndefined();
+  });
 });
