@@ -24,7 +24,6 @@ command -v pbcopy >/dev/null 2>&1 || { echo "pbcopy not found (macOS only)" >&2;
 target=""
 while IFS= read -r f; do
   base="$(basename "$f")"
-  [ "$base" = "README.md" ] && continue
   # Skip voided handoffs (the void marker is in the first ~5 lines)
   head -5 "$f" | grep -qi VOID && continue
   # Derive <code> from "YYYY-MM-DD-<code>.md"
@@ -34,7 +33,9 @@ while IFS= read -r f; do
     continue
   fi
   target="$f"; break
-done < <(ls -t "$HANDOFF_DIR"/*.md 2>/dev/null || true)
+# Glob is constrained to the YYYY-MM-DD-<code>.md format so README.md (and any future non-handoff
+# .md) never match.
+done < <(ls -t "$HANDOFF_DIR"/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-*.md 2>/dev/null || true)
 
 if [ -z "$target" ]; then
   echo "No un-implemented handoffs found."

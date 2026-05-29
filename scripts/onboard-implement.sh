@@ -31,7 +31,6 @@ LOG="${HASHTRACKS_BOT_LOG:-$HOME/Library/Logs/hashtracks-onboard.log}"
 PERM_FLAGS="${HASHTRACKS_PERM_FLAGS:---permission-mode acceptEdits --allowedTools Bash Edit Write Read Glob Grep WebFetch}"
 
 HANDOFF_DIR="$DEV_REPO/docs/kennel-onboarding/handoffs"
-DONE_LOG="$DEV_REPO/docs/kennel-onboarding/.implemented.log"
 
 mkdir -p "$(dirname "$LOG")"
 exec >>"$LOG" 2>&1
@@ -40,22 +39,30 @@ echo "=== $(date '+%Y-%m-%d %H:%M:%S')  onboard-implement run ==="
 
 # Make common tool paths available under launchd's minimal environment.
 export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$HOME/.fnm:$PATH"
-command -v fnm >/dev/null 2>&1 && eval "$(fnm env)" && fnm use 20 >/dev/null 2>&1 || true
+if command -v fnm >/dev/null 2>&1; then
+  eval "$(fnm env)"
+  fnm use 20 >/dev/null 2>&1 || true
+fi
 
 command -v claude >/dev/null 2>&1 || { echo "FATAL: 'claude' CLI not found in PATH"; exit 1; }
 command -v gh >/dev/null 2>&1 || echo "WARN: 'gh' not found — PR creation may fail"
 [ -d "$DEV_REPO/.git" ] || { echo "FATAL: dev repo not found at $DEV_REPO"; exit 1; }
 
-# ---- pick newest handoff: not README, not voided, not already implemented ----
-touch "$DONE_LOG"
+# ---- pick newest handoff: not voided, not already implemented ----
+# "Already implemented" = an onboard/<code>-* branch exists on origin — the same durable oracle
+# scripts/copy-newest-handoff.sh uses. No local state file, so the dev working tree stays clean.
+# The glob is constrained to the YYYY-MM-DD-<code>.md handoff format so README.md (and any future
+# non-handoff .md) never match.
 target=""
 while IFS= read -r f; do
   base="$(basename "$f")"
-  [ "$base" = "README.md" ] && continue
   if head -5 "$f" | grep -qi 'VOID'; then echo "skip (voided): $base"; continue; fi
-  if grep -qxF "$base" "$DONE_LOG"; then continue; fi
+  code="$(echo "$base" | sed -E 's/^[0-9]{4}-[0-9]{2}-[0-9]{2}-(.+)\.md$/\1/')"
+  if git -C "$DEV_REPO" ls-remote --heads origin "onboard/${code}-*" 2>/dev/null | grep -q .; then
+    echo "skip (branch exists): $base"; continue
+  fi
   target="$f"; break
-done < <(ls -t "$HANDOFF_DIR"/*.md 2>/dev/null || true)
+done < <(ls -t "$HANDOFF_DIR"/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-*.md 2>/dev/null || true)
 
 if [ -z "$target" ]; then echo "Nothing to do — no new handoff."; exit 0; fi
 target_base="$(basename "$target")"
@@ -65,6 +72,9 @@ echo "Implementing handoff: $target_base"
 if [ ! -d "$BOT_DIR/.git" ]; then
   origin="$(git -C "$DEV_REPO" remote get-url origin)"
   echo "Cloning $origin → $BOT_DIR"
+  # Clear any leftover non-git directory (e.g. an interrupted prior clone) so `git clone` doesn't
+  # fail with "destination path already exists and is not an empty directory".
+  rm -rf "$BOT_DIR"
   git clone "$origin" "$BOT_DIR"
 fi
 git -C "$BOT_DIR" fetch origin --prune
@@ -76,8 +86,10 @@ git -C "$BOT_DIR" clean -fd
 cp "$DEV_REPO/.env" "$BOT_DIR/.env" 2>/dev/null || true
 cp "$DEV_REPO/.env.local" "$BOT_DIR/.env.local" 2>/dev/null || true
 
-# install deps if missing
-[ -d "$BOT_DIR/node_modules" ] || (cd "$BOT_DIR" && npm ci)
+# install deps if missing OR if the lockfile changed since the last install (stale node_modules)
+if [ ! -d "$BOT_DIR/node_modules" ] || [ "$BOT_DIR/package-lock.json" -nt "$BOT_DIR/node_modules" ]; then
+  (cd "$BOT_DIR" && npm ci)
+fi
 
 # bring the handoff into the clone so it can be committed into the PR
 mkdir -p "$BOT_DIR/docs/kennel-onboarding/handoffs"
@@ -100,6 +112,6 @@ echo "--- claude -p starting ---"
 claude -p "$PROMPT" $PERM_FLAGS || { echo "claude run exited non-zero for $target_base"; exit 1; }
 echo "--- claude -p finished ---"
 
-# ---- mark processed so the next run skips it ----
-echo "$target_base" >> "$DONE_LOG"
+# Processed-state is durable via the onboard/<code>-* branch the run above pushes — the next
+# invocation's branch-existence check skips this handoff, so no local state file is needed.
 echo "=== done: $target_base ==="
