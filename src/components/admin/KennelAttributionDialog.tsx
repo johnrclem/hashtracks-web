@@ -118,10 +118,10 @@ export function KennelAttributionDialog({
     >
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Kennel attribution</DialogTitle>
+          <DialogTitle>Edit kennels</DialogTitle>
           <DialogDescription className="pt-1">
-            Change the primary kennel (a move — the old kennel is dropped), or
-            add and remove co-hosts. Each change is audit-logged.
+            The primary kennel is where this event shows up. Co-hosts also list
+            it on their pages. Every change here is recorded in the audit log.
           </DialogDescription>
         </DialogHeader>
 
@@ -156,6 +156,10 @@ export function KennelAttributionDialog({
                 placeholder="Change primary kennel…"
                 excludeCodes={primary ? [primary.kennelCode] : []}
               />
+              <p className="text-xs text-muted-foreground">
+                Picking another kennel moves this event there
+                {primary ? ` and removes ${primary.shortName}` : ""}.
+              </p>
             </div>
 
             {/* Co-hosts */}

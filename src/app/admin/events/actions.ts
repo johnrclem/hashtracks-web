@@ -600,8 +600,8 @@ export async function linkChildToUmbrella(
       }),
     ]);
 
-    if (!child) return { ok: false, error: "Child event not found" };
-    if (!umbrella) return { ok: false, error: "Umbrella event not found" };
+    if (!child) return { ok: false, error: "Event not found" };
+    if (!umbrella) return { ok: false, error: "Series parent not found" };
 
     // Already linked to this umbrella — idempotent success.
     if (child.parentEventId === umbrellaEventId) {
@@ -617,14 +617,14 @@ export async function linkChildToUmbrella(
     // Moving it would orphan the old umbrella's cached series view; force an
     // explicit unlink first so both umbrellas get revalidated.
     if (child.parentEventId !== null) {
-      return { ok: false, error: "Event is already linked to a different umbrella — unlink it first" };
+      return { ok: false, error: "Event is already in a different series — remove it from that one first" };
     }
 
     if (umbrella.parentEventId !== null) {
-      return { ok: false, error: "Umbrella is itself a child of another event" };
+      return { ok: false, error: "That event is itself part of another series" };
     }
     if (child.isSeriesParent) {
-      return { ok: false, error: "This event is a series parent — detach its children before attaching it" };
+      return { ok: false, error: "This event is already a series parent — remove its days first" };
     }
 
     await tx.event.update({
@@ -702,7 +702,7 @@ export async function unlinkChildFromUmbrella(
       },
     });
     if (!child) return { ok: false, error: "Event not found" };
-    if (child.parentEventId === null) return { ok: false, error: "Event is not linked to an umbrella" };
+    if (child.parentEventId === null) return { ok: false, error: "Event isn't part of a series" };
 
     const oldParentId = child.parentEventId;
     await tx.event.update({

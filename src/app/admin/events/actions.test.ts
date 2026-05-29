@@ -614,20 +614,20 @@ describe("linkChildToUmbrella", () => {
   it("returns error when child not found", async () => {
     mockEventFindUnique.mockResolvedValueOnce(null as never); // child
     mockEventFindUnique.mockResolvedValueOnce(umbrella as never); // umbrella
-    expect(await linkChildToUmbrella("c1", "u1")).toEqual({ error: "Child event not found" });
+    expect(await linkChildToUmbrella("c1", "u1")).toEqual({ error: "Event not found" });
   });
 
   it("returns error when umbrella not found", async () => {
     mockEventFindUnique.mockResolvedValueOnce(child as never);
     mockEventFindUnique.mockResolvedValueOnce(null as never);
-    expect(await linkChildToUmbrella("c1", "u1")).toEqual({ error: "Umbrella event not found" });
+    expect(await linkChildToUmbrella("c1", "u1")).toEqual({ error: "Series parent not found" });
   });
 
   it("rejects when the umbrella is itself a child", async () => {
     mockEventFindUnique.mockResolvedValueOnce(child as never);
     mockEventFindUnique.mockResolvedValueOnce({ ...umbrella, parentEventId: "grandparent" } as never);
     expect(await linkChildToUmbrella("c1", "u1")).toEqual({
-      error: "Umbrella is itself a child of another event",
+      error: "That event is itself part of another series",
     });
   });
 
@@ -636,7 +636,7 @@ describe("linkChildToUmbrella", () => {
     mockEventFindUnique.mockResolvedValueOnce(umbrella as never);
     const result = await linkChildToUmbrella("c1", "u1");
     expect(result).toEqual({
-      error: "This event is a series parent — detach its children before attaching it",
+      error: "This event is already a series parent — remove its days first",
     });
   });
 
@@ -653,7 +653,7 @@ describe("linkChildToUmbrella", () => {
     mockEventFindUnique.mockResolvedValueOnce(umbrella as never);
     const result = await linkChildToUmbrella("c1", "u1");
     expect(result).toEqual({
-      error: "Event is already linked to a different umbrella — unlink it first",
+      error: "Event is already in a different series — remove it from that one first",
     });
     expect(mockEventUpdate).not.toHaveBeenCalled();
   });
@@ -730,7 +730,7 @@ describe("unlinkChildFromUmbrella", () => {
   it("returns error when event is not linked", async () => {
     mockEventFindUnique.mockResolvedValueOnce({ ...linkedChild, parentEventId: null } as never);
     expect(await unlinkChildFromUmbrella("c1")).toEqual({
-      error: "Event is not linked to an umbrella",
+      error: "Event isn't part of a series",
     });
   });
 

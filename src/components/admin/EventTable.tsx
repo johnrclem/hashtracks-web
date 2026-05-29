@@ -305,7 +305,7 @@ export function EventTable({
         toast.error(result.error);
         return;
       }
-      toast.success(`Unlinked ${result.kennelName} — ${formatDate(result.date)} from umbrella`);
+      toast.success(`Removed ${result.kennelName} — ${formatDate(result.date)} from its series`);
       router.refresh();
     });
   }
@@ -525,28 +525,36 @@ export function EventTable({
                         {event.kennelName}
                       </Badge>
                       {event.kennels.length > 1 && (
-                        <Badge variant="secondary" className="text-[10px]">
-                          +{event.kennels.length - 1}
-                        </Badge>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Badge variant="secondary" className="text-[10px]">
+                              +{event.kennels.length - 1}
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom">
+                            {event.kennels.length - 1} co-host{event.kennels.length - 1 !== 1 ? "s" : ""}:{" "}
+                            {event.kennels.filter((k) => !k.isPrimary).map((k) => k.shortName).join(", ")}
+                          </TooltipContent>
+                        </Tooltip>
                       )}
                       {event.isSeriesParent && (
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <span aria-label="Series umbrella" className="text-muted-foreground">
+                            <span aria-label="Multi-day series parent" className="text-muted-foreground">
                               <Layers className="h-3.5 w-3.5" />
                             </span>
                           </TooltipTrigger>
-                          <TooltipContent side="bottom">Umbrella (series parent)</TooltipContent>
+                          <TooltipContent side="bottom">Multi-day series — parent</TooltipContent>
                         </Tooltip>
                       )}
                       {event.parentEventId && (
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <span aria-label="Series child" className="text-muted-foreground">
+                            <span aria-label="Day in a multi-day series" className="text-muted-foreground">
                               <Link2 className="h-3.5 w-3.5" />
                             </span>
                           </TooltipTrigger>
-                          <TooltipContent side="bottom">Child of an umbrella event</TooltipContent>
+                          <TooltipContent side="bottom">A day within a multi-day series</TooltipContent>
                         </Tooltip>
                       )}
                     </div>
@@ -653,18 +661,18 @@ export function EventTable({
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onSelect={() => setAttributionEvent(event)}>
                             <Crown className="mr-2 h-3.5 w-3.5" />
-                            Kennel attribution…
+                            Edit kennels…
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           {event.parentEventId ? (
                             <DropdownMenuItem onSelect={() => handleUnlinkUmbrella(event)}>
                               <Link2Off className="mr-2 h-3.5 w-3.5" />
-                              Unlink from umbrella
+                              Remove from series
                             </DropdownMenuItem>
                           ) : (
                             <DropdownMenuItem onSelect={() => setSeriesLinkEvent(event)}>
                               <Layers className="mr-2 h-3.5 w-3.5" />
-                              Link to umbrella…
+                              Add to multi-day series…
                             </DropdownMenuItem>
                           )}
                         </DropdownMenuContent>

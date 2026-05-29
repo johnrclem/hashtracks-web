@@ -104,7 +104,7 @@ export function SeriesLinkDialog({
         toast.error(r.error);
         return;
       }
-      toast.success(`Linked ${r.kennelName} — ${formatDateLong(r.date)} to umbrella`);
+      toast.success(`Added ${r.kennelName} — ${formatDateLong(r.date)} to the series`);
       onOpenChange(false);
       router.refresh();
     });
@@ -127,16 +127,19 @@ export function SeriesLinkDialog({
             >
               <Layers className="h-3.5 w-3.5 text-muted-foreground" />
             </span>
-            <DialogTitle>Link to umbrella</DialogTitle>
+            <DialogTitle>Add to a multi-day series</DialogTitle>
           </div>
           <DialogDescription className="pt-2">
-            Search for the umbrella (series-parent) event to attach this event
-            under. The umbrella is promoted to a series parent automatically.
+            Pick the parent event for the series (the one that spans the whole
+            weekend or campout). The event below becomes a day within it.
           </DialogDescription>
         </DialogHeader>
 
         {event && (
           <div className="rounded-lg border bg-muted/40 p-3 space-y-1">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              Adding this event
+            </p>
             <div className="flex items-baseline justify-between gap-3">
               <span className="font-medium">{event.kennelName}</span>
               <span className="text-sm text-muted-foreground">
@@ -183,7 +186,7 @@ export function SeriesLinkDialog({
                 <span className="truncate text-xs">{r.title || "Untitled"}</span>
                 {r.isSeriesParent && (
                   <Badge variant="secondary" className="ml-auto text-[10px]">
-                    umbrella
+                    existing series
                   </Badge>
                 )}
               </CommandItem>
