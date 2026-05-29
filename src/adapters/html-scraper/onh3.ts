@@ -185,8 +185,11 @@ export function postToEvent(post: WPComPost): RawEventData | null {
   // (post #1068 was labeled "16 Mar 2019" but published in March 2020 for a 2020
   // run). Drop it rather than emit a mis-dated duplicate. The 120-day grace keeps
   // recap-hybrid posts that go up a few days after the run (e.g. #1329).
-  const publishMs = Date.parse(post.date);
-  if (Number.isFinite(publishMs) && Date.parse(`${date}T12:00:00Z`) < publishMs - STALE_PUBLISH_GRACE_MS) {
+  // Compare both at UTC midnight (date-only) so the result is independent of the
+  // server timezone — post.date carries no offset, so a raw Date.parse would be local.
+  const publishMs = Date.parse(`${post.date.slice(0, 10)}T00:00:00Z`);
+  const eventMs = Date.parse(`${date}T00:00:00Z`);
+  if (Number.isFinite(publishMs) && Number.isFinite(eventMs) && eventMs < publishMs - STALE_PUBLISH_GRACE_MS) {
     return null;
   }
 
