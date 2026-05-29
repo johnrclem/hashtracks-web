@@ -120,7 +120,13 @@ export function parseTrailBlock(
     year = sectionYear ?? new Date().getUTCFullYear();
   }
   if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-  const date = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  // Round-trip through Date.UTC so an impossible source typo ("2/31") is
+  // rejected instead of silently rolling over to a different day.
+  const parsed = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+  if (parsed.getUTCFullYear() !== year || parsed.getUTCMonth() !== month - 1 || parsed.getUTCDate() !== day) {
+    return null;
+  }
+  const date = parsed.toISOString().slice(0, 10);
 
   // Extract title — text after the date on the first line
   const afterDate = firstLine
@@ -323,7 +329,11 @@ export function parseUpcummingFreeform(
         const prev = stripZeroWidth(lines[k]).trim();
         if (!prev || FREEFORM_BOILERPLATE_RE.test(prev)) continue;
         const prevToken = firstToken(prev);
-        if (MONTHS.has(prevToken) || WEEKDAYS.has(prevToken)) continue;
+        // Stop at an event boundary — another date line (the previous event's
+        // anchor) or an address line — rather than reaching across it and
+        // surfacing a different event's title or a venue as the title.
+        if (MONTHS.has(prevToken) || WEEKDAYS.has(prevToken)) break;
+        if (freeformLocation(prev) !== undefined) break;
         title = prev;
         break;
       }

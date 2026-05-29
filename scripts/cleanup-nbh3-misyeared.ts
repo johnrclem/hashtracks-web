@@ -23,7 +23,8 @@ const stripZeroWidth = (s: string) => s.replace(/[\u200B-\u200F\uFEFF]/g, "");
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
 async function main() {
-  const host = new URL(process.env.DATABASE_URL ?? "").host;
+  if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL environment variable is required");
+  const host = new URL(process.env.DATABASE_URL).host;
   console.log(`DB: ${host} | mode: ${APPLY ? "APPLY" : "DRY-RUN"}`);
 
   const kennel = await prisma.kennel.findUnique({ where: { kennelCode: "nbh3" } });
@@ -50,9 +51,16 @@ async function main() {
     }
   }
 
-  // 2. De-dup: after the shift, collapse rows sharing (runNumber, newDate),
-  //    keeping the earliest-created (first in the sorted list).
+  // 2. De-dup: collapse rows sharing (runNumber, newDate). Seed `seen` from the
+  //    UNCHANGED rows first (their date is final), so a mis-yeared row shifted
+  //    onto an already-correct existing row is detected and deleted rather than
+  //    creating a duplicate the plans-only pass would miss (Codex review).
+  const planIds = new Set(plans.map((p) => p.id));
   const seen = new Set<string>();
+  for (const e of rows) {
+    if (planIds.has(e.id) || e.runNumber == null) continue;
+    seen.add(`${e.runNumber}|${iso(e.date)}`);
+  }
   const deletes: string[] = [];
   for (const p of plans) {
     if (p.runNumber == null) continue;

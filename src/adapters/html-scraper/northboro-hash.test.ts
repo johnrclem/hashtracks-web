@@ -306,6 +306,11 @@ describe("parseTrailBlock — section-year anchor (#1757)", () => {
     );
     expect(result).toMatchObject({ date: "2026-05-10", runNumber: 238 });
   });
+
+  it("rejects an impossible date instead of rolling it over", () => {
+    // "2/31" must not silently become 2026-03-03.
+    expect(parseTrailBlock(["February Trail #237, 2/31/26, Bad Date"], SOURCE_URL)).toBeNull();
+  });
 });
 
 describe("parseTrailBlock — comma-delimited title/hares (#1758)", () => {
@@ -411,6 +416,14 @@ describe("parseUpcummingFreeform (#1759)", () => {
       SOURCE_URL,
     );
     expect(events.every((e) => !/^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)/.test(e.title ?? ""))).toBe(true);
+  });
+
+  it("does not surface an address line as a title (event-boundary break)", () => {
+    const { events } = parseUpcummingFreeform(
+      ["Empire Village 446 Main St Stubridge, MA", "Fri, June 12th 5:30pm"],
+      SOURCE_URL,
+    );
+    expect(events.every((e) => !/446 Main St/.test(e.title ?? ""))).toBe(true);
   });
 });
 

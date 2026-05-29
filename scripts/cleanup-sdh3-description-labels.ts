@@ -53,7 +53,8 @@ function extractLabels(segments: string[]): { cost?: string; trailType?: string;
 }
 
 async function main() {
-  const host = new URL(process.env.DATABASE_URL ?? "").host;
+  if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL environment variable is required");
+  const host = new URL(process.env.DATABASE_URL).host;
   console.log(`DB: ${host} | mode: ${APPLY ? "APPLY" : "DRY-RUN"}`);
 
   const kennels = await prisma.kennel.findMany({
@@ -63,7 +64,7 @@ async function main() {
   const kennelIds = kennels.map((k) => k.id);
 
   const rows = await prisma.event.findMany({
-    where: { kennelId: { in: kennelIds }, description: { contains: "Hash Cash:" } },
+    where: { kennelId: { in: kennelIds }, description: { contains: "Hash Cash:", mode: "insensitive" } },
     select: { id: true, date: true, description: true, cost: true, trailType: true, dogFriendly: true },
     orderBy: { date: "desc" },
   });

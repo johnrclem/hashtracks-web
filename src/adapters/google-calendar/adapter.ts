@@ -1308,13 +1308,16 @@ export function buildRawEventFromGCalItem(
     // that carries a real "#NNN" followed by a title delimiter (":"/"-"). The
     // delimiter requirement rejects retrospective references in prose
     // ("Last week #447 was a blast") that have no delimiter after the number.
-    for (const rawLine of rawDescription.split("\n")) {
-      const line = rawLine.trim();
+    const descLines = rawDescription.split("\n");
+    for (let i = 0; i < descLines.length; i++) {
+      const line = descLines[i].trim();
       const num = extractHashRunNumber(line);
       if (typeof num === "number" && /#\s*\d+\s*[:–—-]/.test(line)) {
         title = line;
         promotedRunNumber = num;
-        promotedStartTime = parseLooseAmPmTime(rawDescription);
+        // Search for the start time from the header line onward, so a time in
+        // a preceding kennel blurb ("we meet at 7pm") isn't promoted.
+        promotedStartTime = parseLooseAmPmTime(descLines.slice(i).join("\n"));
         break;
       }
     }
