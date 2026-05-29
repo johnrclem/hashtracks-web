@@ -41,6 +41,7 @@ import "dotenv/config";
 import { prisma } from "@/lib/db";
 import { deleteLeakedEvent } from "./lib/delete-leaked-event";
 import { verifyNoOrphans } from "./lib/verify-no-orphans";
+import { parseApplyMode, resolveCleanupKennel } from "./lib/cleanup-cli";
 
 const KENNEL_CODE = "mh3-mn";
 
@@ -81,18 +82,9 @@ function normalizeForMatch(value: string): string {
 }
 
 async function main() {
-  const apply = process.argv.includes("--apply");
-  console.log(`Mode: ${apply ? "APPLY (will hard-delete)" : "DRY-RUN"}`);
-
-  const kennel = await prisma.kennel.findUnique({
-    where: { kennelCode: KENNEL_CODE },
-    select: { id: true, shortName: true },
-  });
-  if (!kennel) {
-    console.log(`Kennel "${KENNEL_CODE}" not found — nothing to do.`);
-    return;
-  }
-  console.log(`Targeting kennel: ${kennel.shortName} (${kennel.id})`);
+  const apply = parseApplyMode();
+  const kennel = await resolveCleanupKennel(prisma, KENNEL_CODE);
+  if (!kennel) return;
 
   const candidates = await prisma.event.findMany({
     where: { kennelId: kennel.id },
