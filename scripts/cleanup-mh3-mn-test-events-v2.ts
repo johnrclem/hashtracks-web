@@ -40,6 +40,7 @@
 import "dotenv/config";
 import { prisma } from "@/lib/db";
 import { deleteLeakedEvent } from "./lib/delete-leaked-event";
+import { verifyNoOrphans } from "./lib/verify-no-orphans";
 
 const KENNEL_CODE = "mh3-mn";
 
@@ -77,22 +78,6 @@ const LOCATION_SUBSTRING = "123fakest";
 
 function normalizeForMatch(value: string): string {
   return value.toLowerCase().replaceAll(/[\s#]+/g, "");
-}
-
-async function verifyNoOrphans(deletedIds: string[]): Promise<void> {
-  if (deletedIds.length === 0) return;
-  const stillPresent = await prisma.event.count({ where: { id: { in: deletedIds } } });
-  const danglingRaw = await prisma.rawEvent.count({ where: { eventId: { in: deletedIds } } });
-  if (stillPresent === 0 && danglingRaw === 0) {
-    console.log(`Verified: all ${deletedIds.length} Event(s) gone, no dangling RawEvents.`);
-    return;
-  }
-  // Fail loud: a destructive run that left orphans behind must surface a
-  // non-zero exit code so an operator/pipeline doesn't read success.
-  console.warn(
-    `WARNING: ${stillPresent} Event(s) still present, ${danglingRaw} dangling RawEvent(s) remain.`,
-  );
-  process.exitCode = 1;
 }
 
 async function main() {
@@ -173,7 +158,7 @@ async function main() {
   }
   console.log(`\nDeleted ${matched.length} leaked Event(s).`);
 
-  await verifyNoOrphans(matched.map((e) => e.id));
+  await verifyNoOrphans(prisma, matched.map((e) => e.id));
 }
 
 main()
