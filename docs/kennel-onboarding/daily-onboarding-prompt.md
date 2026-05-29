@@ -225,9 +225,12 @@ Kennel profile (maps to the `Kennel` model): `fullName`, `shortName`, `kennelCod
   1. **`REGION_SEED_DATA`** — COUNTRY record (timezone, ISO abbrev, centroid, color classes, pin
      color, aliases) **+** METRO record under it.
   2. **`STATE_GROUP_MAP`** — metro → group (use country name as the group for country→metro
-     countries; mirror the New Zealand / Singapore precedent).
-  3. **`COUNTRY_GROUP_MAP`** — wire **both** the country **and** every metro slug to the country
-     name (this is what `groupRegionsByCountry` consumes).
+     countries; mirror the New Zealand / Singapore precedent). **Keys are canonical region
+     display names, NOT lowercase slugs** — e.g. `"Bali": "Indonesia"` (cf. `"Nairobi": "Kenya"`).
+  3. **`COUNTRY_GROUP_MAP`** — wire **both** the country **and** every metro to the country
+     name (this is what `groupRegionsByCountry` consumes). Same key convention as item 2 —
+     canonical display names, not slugs — e.g. `"Indonesia": "Indonesia"` + `"Bali": "Indonesia"`
+     (cf. `"Bangkok": "Thailand"`).
   4. **`COUNTRY_CODE_TO_NAME`** — ISO code → country name (e.g. `"ID": "Indonesia"`).
   5. **`COUNTRY_INFERENCE_RULES`** — regex → country (e.g. `/\bbali\b|\bindonesia\b/i` → "Indonesia").
      **Without this, `inferCountry()` falls through to `"USA"`** for any text mentioning the new
