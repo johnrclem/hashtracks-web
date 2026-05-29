@@ -2838,7 +2838,12 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "every_6h",
       scrapeDays: 90,
-      config: { defaultKennelTag: "mrhappy" },
+      config: {
+        defaultKennelTag: "mrhappy",
+        // #1708: dormant unbounded FREQ=WEEKLY RRULE (abandoned 2021, no UNTIL)
+        // still projecting stale "Mr Happy's 69th Trail" phantoms every Wed.
+        suppressICalUids: ["20qb7gao7553kajq5de1s5kra4_R20210304T020000@google.com"],
+      },
       kennelCodes: ["mrhappy"],
     },
     {

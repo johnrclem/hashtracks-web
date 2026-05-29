@@ -49,12 +49,17 @@ export interface DormantCleanupConfig {
    * `sourceUrl` LIKE-pattern prefixes (one per dormant series). The helper
    * matches `sourceUrl LIKE '<prefix>%'`. For Mosquito's 3 RRULEs this is a
    * three-element list; for the single-dormant-series kennels it's one.
+   * Optional: when a dormant GCal series has no shared sourceUrl prefix (each
+   * materialized instance carries a distinct `eid`, so there's nothing to
+   * anchor on — Mr. Happy's #1708), omit this and gate on `titleEquals`
+   * instead. At least one of `sourceUrlPrefixes` / `titleEquals` is required.
    */
-  sourceUrlPrefixes: readonly string[];
+  sourceUrlPrefixes?: readonly string[];
   /**
    * Optional title-exact-match guard. Use when the dormant sourceUrl is
    * shared with a real source (Mooloo's `sporty.co.nz/mooloohhh` is the
-   * static-schedule URL; the HTML_SCRAPER uses `/UpCumming-Runs`). Leaving
+   * static-schedule URL; the HTML_SCRAPER uses `/UpCumming-Runs`), or as the
+   * sole discriminator when `sourceUrlPrefixes` is omitted (#1708). Leaving
    * undefined skips the title check.
    */
   titleEquals?: string;
@@ -77,15 +82,43 @@ export interface DormantCleanupConfig {
   createdBefore?: Date;
 }
 
+/** Build the phantom-candidate `where` clause: kennel + null runNumber + empty
+ *  hares, gated by the configured sourceUrl prefixes and/or title/exclusions. */
+function buildCandidateWhere(
+  cfg: DormantCleanupConfig,
+  kennelId: string,
+  sourceUrlOr: Array<{ sourceUrl: { startsWith: string } }>,
+): Prisma.EventWhereInput {
+  const and: Prisma.EventWhereInput[] = [
+    { OR: [{ haresText: null }, { haresText: "" }] },
+  ];
+  if (cfg.titleEquals) and.push({ title: cfg.titleEquals });
+  if (cfg.excludeSourceUrlContains) {
+    and.push({ NOT: { sourceUrl: { contains: cfg.excludeSourceUrlContains } } });
+  }
+  if (cfg.createdBefore) and.push({ createdAt: { lt: cfg.createdBefore } });
+  return {
+    kennelId,
+    runNumber: null,
+    ...(sourceUrlOr.length > 0 ? { OR: sourceUrlOr } : {}),
+    AND: and,
+  };
+}
+
 export async function cleanupDormantProjections(
   cfg: DormantCleanupConfig,
   apply: boolean,
 ): Promise<void> {
-  // Misconfig guard: empty prefix list would generate `OR: []` which Prisma
-  // treats as "no row" — silent false-negative that looks like success.
-  if (cfg.sourceUrlPrefixes.length === 0) {
+  // Misconfig guard: with neither a sourceUrl anchor nor a title anchor, the
+  // query would scope only to "kennel + null runNumber + empty hares" — far
+  // too broad. Require at least one discriminator. (An empty-but-present
+  // `sourceUrlPrefixes: []` is also rejected — it would generate `OR: []`,
+  // which Prisma treats as "no row": a silent false-negative.)
+  const hasSourceUrlGate = (cfg.sourceUrlPrefixes?.length ?? 0) > 0;
+  if (!hasSourceUrlGate && !cfg.titleEquals) {
     throw new Error(
-      `cleanupDormantProjections(${cfg.kennelCode}): sourceUrlPrefixes must be non-empty`,
+      `cleanupDormantProjections(${cfg.kennelCode}): provide at least one of ` +
+        `sourceUrlPrefixes (non-empty) or titleEquals`,
     );
   }
 
@@ -102,24 +135,12 @@ export async function cleanupDormantProjections(
   // OR-chain of `startsWith` predicates — Prisma can express each cleanly,
   // and we keep the query inside the type-checked client rather than dropping
   // to raw SQL.
-  const sourceUrlOr = cfg.sourceUrlPrefixes.map((prefix) => ({
+  const sourceUrlOr = (cfg.sourceUrlPrefixes ?? []).map((prefix) => ({
     sourceUrl: { startsWith: prefix },
   }));
 
   const candidates = await prisma.event.findMany({
-    where: {
-      kennelId: kennel.id,
-      runNumber: null,
-      OR: sourceUrlOr,
-      AND: [
-        { OR: [{ haresText: null }, { haresText: "" }] },
-        ...(cfg.titleEquals ? [{ title: cfg.titleEquals }] : []),
-        ...(cfg.excludeSourceUrlContains
-          ? [{ NOT: { sourceUrl: { contains: cfg.excludeSourceUrlContains } } }]
-          : []),
-        ...(cfg.createdBefore ? [{ createdAt: { lt: cfg.createdBefore } }] : []),
-      ],
-    },
+    where: buildCandidateWhere(cfg, kennel.id, sourceUrlOr),
     select: {
       id: true,
       date: true,
