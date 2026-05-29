@@ -5844,6 +5844,12 @@ export const SOURCES = [
       trustLevel: 6,
       scrapeFreq: "daily",
       scrapeDays: 90,
+      // The adapter only emits the home page's ~12–22 most-recent posts (the
+      // backfill owns the deep archive). upcomingOnly restricts reconciliation
+      // to future dates so a past run that ages off the listing while still in
+      // the 90-day window isn't false-CANCELLED — this is the sole source for
+      // the kennel. Same guard as ONH3 above (reconcile.ts timeMin).
+      config: { upcomingOnly: true },
       kennelCodes: ["bali-hash-2"],
     },
   ];
