@@ -105,12 +105,12 @@ export function parseCdxRows(cdxText: string): Snapshot[] {
     if (!trimmed) continue;
     const [original, timestamp] = trimmed.split(/\s+/);
     if (!original || !timestamp) continue;
-    const slugMatch = original.match(/[?&]event=([^&"'#]+)/i);
+    const slugMatch = /[?&]event=([^&"'#]+)/i.exec(original);
     if (!slugMatch) continue;
     const slug = slugMatch[1].toLowerCase();
     // Only real numbered runs: `lbh-<digits>` (drops lbh-special-event,
     // lbh3-mm-meeting, lbh3-…). Require the hyphen so "lbh3" can't match.
-    const runMatch = slug.match(/^lbh-(\d{1,4})(?:-|$)/);
+    const runMatch = /^lbh-(\d{1,4})(?:-|$)/.exec(slug);
     if (!runMatch) continue;
     const runNumber = Number.parseInt(runMatch[1], 10);
     if (!Number.isFinite(runNumber) || runNumber <= 0) continue;

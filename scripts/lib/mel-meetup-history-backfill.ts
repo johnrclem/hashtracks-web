@@ -98,7 +98,7 @@ export function readBatchRows(dataDir: string = DATA_DIR): MeetupHistoryRow[] {
   for (const name of files) {
     const parsed = JSON.parse(readFileSync(`${dataDir}/${name}`, "utf-8"));
     if (!Array.isArray(parsed)) {
-      throw new Error(`Batch file ${name} is not a JSON array.`);
+      throw new TypeError(`Batch file ${name} is not a JSON array.`);
     }
     rows.push(...parsed);
   }
@@ -172,7 +172,7 @@ async function findCrossKennelCollisions(
   // (two range queries, not 2×N) and check collisions in memory.
   const dates = events.map((e) => e.date).sort((a, b) => a.localeCompare(b));
   const { day: rangeStart } = utcDayBounds(dates[0]);
-  const { next: rangeEnd } = utcDayBounds(dates[dates.length - 1]);
+  const { next: rangeEnd } = utcDayBounds(dates.at(-1)!);
 
   const [defaultEvents, targetEvents] = await Promise.all([
     prisma.event.findMany({

@@ -56,7 +56,7 @@ function readLine(lines: readonly string[], label: string): string | undefined {
 
 /** Parse a US `M/D/YY` (or `M/D/YYYY`) date to a UTC-noon `YYYY-MM-DD` string. */
 function parseUsDate(text: string): string | undefined {
-  const m = text.match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+  const m = /(\d{1,2})\/(\d{1,2})\/(\d{2,4})/.exec(text);
   if (!m) return undefined;
   const month = Number.parseInt(m[1], 10);
   const day = Number.parseInt(m[2], 10);
@@ -113,7 +113,7 @@ export function parseNCH3Page(html: string, sourceUrl = DEFAULT_URL): RawEventDa
   const startTime = timeMatch ? parse12HourTime(timeMatch[0]) ?? undefined : undefined;
 
   const runNumRaw = readLine(lines, "Run Number");
-  const runNumber = runNumRaw ? Number.parseInt(runNumRaw.match(/\d+/)?.[0] ?? "", 10) : NaN;
+  const runNumber = runNumRaw ? Number.parseInt(/\d+/.exec(runNumRaw)?.[0] ?? "", 10) : Number.NaN;
 
   const title = readLine(lines, "Name") || undefined;
   const hares = readLine(lines, "Hare(s)") || undefined;
@@ -189,12 +189,12 @@ export class NCH3Adapter implements SourceAdapter {
     const events: RawEventData[] = [];
 
     const event = parseNCH3Page(html, url);
-    if (!event) {
-      errors.push("Could not parse the current run from nch3.com (no date found).");
-    } else {
+    if (event) {
       // Honor the scrape window so a stale current-run far outside the lookback
       // doesn't resurface (defaults to 90d; seed uses 30d).
       events.push(...filterEventsByWindow([event], options?.days ?? 90));
+    } else {
+      errors.push("Could not parse the current run from nch3.com (no date found).");
     }
 
     return {

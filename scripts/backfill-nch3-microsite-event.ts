@@ -21,8 +21,7 @@
  */
 
 import "dotenv/config";
-import type { Source } from "@/generated/prisma/client";
-import type { Prisma } from "@/generated/prisma/client";
+import type { Source, Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
 import { NCH3Adapter } from "@/adapters/html-scraper/nch3";
 import { reportAndApplyBackfill } from "./lib/backfill-runner";
