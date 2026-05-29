@@ -16,13 +16,14 @@ const CDX = [
 describe("parseCdxRows", () => {
   const snaps = parseCdxRows(CDX);
 
-  it("keeps only real lbh-<N> slugs, deduped to the latest snapshot", () => {
+  it("keeps only real lbh-<N> slugs", () => {
     expect(snaps.map((s) => s.runNumber).sort((a, b) => a - b)).toEqual([511, 512, 637]);
   });
 
-  it("picks the latest timestamp per slug", () => {
+  it("carries all captures per slug, newest first", () => {
     const s512 = snaps.find((s) => s.runNumber === 512)!;
-    expect(s512.timestamp).toBe("20220220151554");
+    // both 200 captures preserved (no collapse), sorted newest→oldest
+    expect(s512.timestamps).toEqual(["20220220151554", "20220101000000"]);
   });
 
   it("derives the canonical phoenixhhh.org sourceUrl from the slug", () => {

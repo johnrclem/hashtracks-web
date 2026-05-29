@@ -47,13 +47,19 @@ const KENNEL_TAG = "lbh-phx";
 const KENNEL_TIMEZONE = "America/Phoenix";
 const ORIGIN = "https://www.phoenixhhh.org";
 
+// No `collapse=urlkey`: we want EVERY 200 capture per event URL, not just the
+// first. A given LBH page was re-archived several times, and the newest capture
+// occasionally lacks the run details an earlier one preserved — harvestSnapshot
+// falls back across captures, so we must see them all (Codex P2 on #1805).
 const CDX_URL =
   "https://web.archive.org/cdx/search/cdx?url=phoenixhhh.org&matchType=domain" +
-  "&output=text&collapse=urlkey&fl=original,timestamp,statuscode" +
+  "&output=text&fl=original,timestamp,statuscode" +
   "&filter=urlkey:.*event%3Dlbh.*&filter=statuscode:200";
 
 const BATCH_SIZE = 3;
 const POLITENESS_DELAY_MS = 600;
+/** Max captures to try per slug before giving up (newest first). */
+const MAX_CAPTURES_PER_SLUG = 4;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -83,14 +89,17 @@ async function fetchText(url: string, attempts = 3): Promise<string | null> {
 interface Snapshot {
   slug: string;
   runNumber: number;
-  timestamp: string;
+  /** All archived 200-capture timestamps for this slug, newest first. */
+  timestamps: string[];
   /** Original phoenixhhh.org URL (used as the canonical sourceUrl). */
   original: string;
 }
 
-/** Parse CDX text rows into one latest snapshot per real `lbh-<N>` slug. */
+/** Parse CDX text rows into one snapshot per real `lbh-<N>` slug, carrying ALL
+ *  capture timestamps (newest first) so the harvester can fall back across
+ *  captures when the newest lacks the run details. */
 export function parseCdxRows(cdxText: string): Snapshot[] {
-  const bySlug = new Map<string, Snapshot>();
+  const bySlug = new Map<string, { runNumber: number; timestamps: Set<string> }>();
   for (const line of cdxText.split("\n")) {
     const trimmed = line.trim();
     if (!trimmed) continue;
@@ -105,12 +114,19 @@ export function parseCdxRows(cdxText: string): Snapshot[] {
     if (!runMatch) continue;
     const runNumber = Number.parseInt(runMatch[1], 10);
     if (!Number.isFinite(runNumber) || runNumber <= 0) continue;
-    const prev = bySlug.get(slug);
-    if (!prev || timestamp > prev.timestamp) {
-      bySlug.set(slug, { slug, runNumber, timestamp, original: `${ORIGIN}/?event=${slug}` });
+    let entry = bySlug.get(slug);
+    if (!entry) {
+      entry = { runNumber, timestamps: new Set() };
+      bySlug.set(slug, entry);
     }
+    entry.timestamps.add(timestamp);
   }
-  return [...bySlug.values()];
+  return [...bySlug.entries()].map(([slug, { runNumber, timestamps }]) => ({
+    slug,
+    runNumber,
+    timestamps: [...timestamps].sort((a, b) => b.localeCompare(a)),
+    original: `${ORIGIN}/?event=${slug}`,
+  }));
 }
 
 /**
@@ -160,29 +176,31 @@ function extractTitle(html: string): string | undefined {
 }
 
 async function harvestSnapshot(snap: Snapshot): Promise<RawEventData | null> {
-  const rawUrl = `https://web.archive.org/web/${snap.timestamp}id_/${snap.original}`;
-  const html = await fetchText(rawUrl);
-  if (!html) {
-    console.warn(`  ✗ #${snap.runNumber}: snapshot fetch failed (${snap.slug})`);
-    return null;
+  // Try captures newest→oldest until one yields a parseable body date — a thin
+  // or error-shaped capture no longer dead-ends the run when another capture
+  // carries the details (Codex P2 on #1805).
+  const candidates = snap.timestamps.slice(0, MAX_CAPTURES_PER_SLUG);
+  for (let i = 0; i < candidates.length; i++) {
+    if (i > 0) await sleep(POLITENESS_DELAY_MS);
+    const html = await fetchText(`https://web.archive.org/web/${candidates[i]}id_/${snap.original}`);
+    if (!html) continue;
+    const date = extractBodyDate(html);
+    if (!date) continue;
+    const detail = parseDetailPage(html);
+    return {
+      date,
+      kennelTags: [KENNEL_TAG],
+      runNumber: snap.runNumber,
+      title: extractTitle(html),
+      hares: detail.hares,
+      location: detail.location,
+      startTime: detail.startTime,
+      cost: detail.cost,
+      sourceUrl: snap.original,
+    };
   }
-  const date = extractBodyDate(html);
-  if (!date) {
-    console.warn(`  ✗ #${snap.runNumber}: no body date found (${snap.slug}) — skipped`);
-    return null;
-  }
-  const detail = parseDetailPage(html);
-  return {
-    date,
-    kennelTags: [KENNEL_TAG],
-    runNumber: snap.runNumber,
-    title: extractTitle(html),
-    hares: detail.hares,
-    location: detail.location,
-    startTime: detail.startTime,
-    cost: detail.cost,
-    sourceUrl: snap.original,
-  };
+  console.warn(`  ✗ #${snap.runNumber}: no capture with a parseable body date (${snap.slug}) — skipped`);
+  return null;
 }
 
 async function fetchEvents(): Promise<RawEventData[]> {

@@ -52,24 +52,30 @@ async function resolveSource(apply: boolean): Promise<Source> {
   const existing = await prisma.source.findFirst({
     where: { name: SOURCE_NAME, type: "HTML_SCRAPER" },
   });
-  if (existing) return existing;
 
   if (!apply) {
+    if (existing) return existing;
     console.log("  (dry run) source not yet in DB — using synthetic row for the live fetch.");
     return { name: SEED.name, url: SEED.url, type: SEED.type } as unknown as Source;
   }
 
-  const created = await prisma.source.create({
-    data: {
-      name: SEED.name,
-      url: SEED.url,
-      type: SEED.type,
-      trustLevel: SEED.trustLevel,
-      scrapeFreq: SEED.scrapeFreq,
-      scrapeDays: SEED.scrapeDays,
-      config: SEED.config as Prisma.InputJsonValue,
-    },
-  });
+  const source =
+    existing ??
+    (await prisma.source.create({
+      data: {
+        name: SEED.name,
+        url: SEED.url,
+        type: SEED.type,
+        trustLevel: SEED.trustLevel,
+        scrapeFreq: SEED.scrapeFreq,
+        scrapeDays: SEED.scrapeDays,
+        config: SEED.config as Prisma.InputJsonValue,
+      },
+    }));
+
+  // Always (re)ensure the kennel links via idempotent upsert — covers a prior
+  // partial run that created the source but crashed before linking, which would
+  // otherwise trip reportAndApplyBackfill's "no SourceKennel links" preflight.
   const kennels = await prisma.kennel.findMany({
     where: { kennelCode: { in: SEED.kennelCodes } },
     select: { id: true, kennelCode: true },
@@ -79,13 +85,13 @@ async function resolveSource(apply: boolean): Promise<Source> {
     const kennelId = kennelIdByCode.get(code);
     if (!kennelId) throw new Error(`Kennel "${code}" not found — cannot link the new source.`);
     await prisma.sourceKennel.upsert({
-      where: { sourceId_kennelId: { sourceId: created.id, kennelId } },
+      where: { sourceId_kennelId: { sourceId: source.id, kennelId } },
       update: {},
-      create: { sourceId: created.id, kennelId },
+      create: { sourceId: source.id, kennelId },
     });
   }
-  console.log(`  + Created source "${SOURCE_NAME}" and linked ${SEED.kennelCodes.join(", ")}.`);
-  return created;
+  console.log(`  ${existing ? "✓ Ensured" : "+ Created"} source "${SOURCE_NAME}" + linked ${SEED.kennelCodes.join(", ")}.`);
+  return source;
 }
 
 async function main(): Promise<void> {
