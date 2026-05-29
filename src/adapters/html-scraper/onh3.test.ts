@@ -167,22 +167,25 @@ describe("parseHarelineTable", () => {
     '<figure class="wp-block-table"><table><tbody>' +
       "<tr><td>Run nr</td><td>Day</td><td>Date</td><td>Hare</td><td>Venue</td><td>Location</td></tr>" +
       "<tr><td>1314</td><td>Monday</td><td>05/01/2026</td><td>STFU &amp; Blown Fuse</td><td>Spring Valley Oven</td><td>Spring Valley</td></tr>" +
-      "<tr><td>1315</td><td>Monday</td><td>12/01/2026</td><td>Glossy</td><td>Matteo&#8217;s Italian Restaurant</td><td>Karen</td></tr>" +
+      "<tr><td>1340</td><td>Monday</td><td>06/07/2026</td><td>Glossy</td><td>Matteo&#8217;s Italian Restaurant</td><td>Karen</td></tr>" +
       "</tbody></table></figure>",
     338,
   );
 
-  it("emits one event per data row and skips the header", () => {
-    const events = parseHarelineTable(TABLE);
-    expect(events).toHaveLength(2);
+  it("emits only rows on/after today (past rows belong to the backfill) and skips the header", () => {
+    const events = parseHarelineTable(TABLE, "2026-05-29");
+    expect(events).toHaveLength(1); // 05/01/2026 is past → dropped; 06/07/2026 kept
     expect(events[0]).toMatchObject({
-      date: "2026-01-05",
-      runNumber: 1314,
-      hares: "STFU & Blown Fuse",
-      location: "Spring Valley Oven",
+      date: "2026-07-06",
+      runNumber: 1340,
+      hares: "Glossy",
+      location: "Matteo’s Italian Restaurant",
       startTime: "17:45",
       kennelTags: ["onh3"],
     });
-    expect(events[1]).toMatchObject({ date: "2026-01-12", runNumber: 1315, hares: "Glossy" });
+  });
+
+  it("includes a row dated exactly today", () => {
+    expect(parseHarelineTable(TABLE, "2026-01-05").map((e) => e.runNumber)).toContain(1314);
   });
 });

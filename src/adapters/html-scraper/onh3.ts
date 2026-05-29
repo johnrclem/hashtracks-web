@@ -26,6 +26,7 @@ import { safeFetch } from "../safe-fetch";
 
 const WPCOM_API = "https://public-api.wordpress.com/wp/v2/sites/onh3.wordpress.com";
 const KENNEL_TAG = "onh3";
+const KENNEL_TIMEZONE = "Africa/Nairobi";
 const DEFAULT_START_TIME = "17:45"; // 5:45 PM per kennel convention (registration from 5:00 PM)
 const MAX_PAGES = 5; // 5 × 100 = 500 posts; the blog currently holds ~34
 
@@ -180,8 +181,14 @@ export function postToEvent(post: WPComPost): RawEventData | null {
   };
 }
 
-/** An annual "Hareline YYYY" <table> post → one event per data row. */
-export function parseHarelineTable(post: WPComPost): RawEventData[] {
+/**
+ * An annual "Hareline YYYY" <table> post → one event per data row, emitting
+ * only rows on/after `today`. The table is the sole source of ONH3's forward
+ * advance schedule (the Google Calendar runs ~4 weeks ahead at most); past
+ * rows are the kennel archive and are loaded once via
+ * scripts/backfill-onh3-history.ts, so the recurring scrape stays future-only.
+ */
+export function parseHarelineTable(post: WPComPost, today: string): RawEventData[] {
   const $ = cheerio.load(post.content.rendered);
   const events: RawEventData[] = [];
 
@@ -195,6 +202,7 @@ export function parseHarelineTable(post: WPComPost): RawEventData[] {
     const runNumber = /^\d{3,4}$/.test(cells[0]) ? parseInt(cells[0], 10) : undefined;
     const date = parseNumericDate(cells[2] ?? "");
     if (!date) return; // header row ("Run nr"/"Date") and blanks fall out here
+    if (date < today) return; // past rows belong to the one-shot backfill
 
     const hares = cells[3] || undefined;
     const venue = cells[4] || undefined;
@@ -216,9 +224,9 @@ export function parseHarelineTable(post: WPComPost): RawEventData[] {
   return events;
 }
 
-function eventsFromPost(post: WPComPost): RawEventData[] {
+function eventsFromPost(post: WPComPost, today: string): RawEventData[] {
   const title = post.title.rendered;
-  if (HARELINE_TITLE_RE.test(title)) return parseHarelineTable(post);
+  if (HARELINE_TITLE_RE.test(title)) return parseHarelineTable(post, today);
   if (HASH_TRASH_TITLE_RE.test(title)) return []; // standalone recap, not an upcoming run
   const event = postToEvent(post);
   return event ? [event] : [];
@@ -237,6 +245,8 @@ export class ONH3Adapter implements SourceAdapter {
     let kennelPagesStopReason: string | null = null;
 
     const fetchStart = Date.now();
+    // ISO YYYY-MM-DD in kennel-local time — bounds the Hareline-table future filter.
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: KENNEL_TIMEZONE }).format(new Date());
 
     for (let page = 1; page <= MAX_PAGES; page++) {
       const url = `${WPCOM_API}/posts?per_page=100&page=${page}&orderby=date&order=desc&_fields=id,date,link,title,content,categories`;
@@ -266,7 +276,7 @@ export class ONH3Adapter implements SourceAdapter {
       }
 
       if (!Array.isArray(posts) || posts.length === 0) break; // empty page — clean end
-      for (const post of posts) events.push(...eventsFromPost(post));
+      for (const post of posts) events.push(...eventsFromPost(post, today));
       if (posts.length < 100) break; // partial last page — clean end
       if (page === MAX_PAGES) kennelPagesStopReason = "max-pages-hit"; // full page left unfetched
     }

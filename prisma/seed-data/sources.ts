@@ -5755,6 +5755,11 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 365,
+      // This source carries deep history (per-post archive + the one-shot
+      // scripts/backfill-onh3-history.ts insert). upcomingOnly restricts
+      // reconciliation to future dates so past events are never false-cancelled
+      // when they age off the blog's first page (reconcile.ts timeMin guard).
+      config: { upcomingOnly: true },
       kennelCodes: ["onh3"],
     },
     {
