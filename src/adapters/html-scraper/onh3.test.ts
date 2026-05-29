@@ -26,7 +26,9 @@ describe("parseTextDate", () => {
     ["full month name", "30 March 2026", "2026-03-30"],
     ["abbreviated month (2019-era post)", "16 Mar 2019", "2019-03-16"],
     ["leading weekday + comma", "Monday, 20 April 2026", "2026-04-20"],
+    ["'Sept' abbreviation", "07 Sept 2025", "2025-09-07"],
     ["impossible date", "31 February 2026", undefined],
+    ["non-month word starting like a month", "20 Maybe 2026", undefined],
     ["no date present", "see the WhatsApp group", undefined],
   ])("handles %s", (_label, input, expected) => {
     expect(parseTextDate(input)).toBe(expected);

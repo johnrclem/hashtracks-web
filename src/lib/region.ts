@@ -3081,6 +3081,7 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   [/\b(malaysia|kuala lumpur|\bkl\b|petaling|penang|pulau pinang|george town|selangor|johor|sabah|sarawak|melaka|malacca|ipoh|kuching|kota kinabalu|miri|kelana jaya|butterworth|kluang)\b/, "Malaysia"],
   [/\b(new zealand|aotearoa|christchurch|otepoti|tokoroa|whangarei|whakatane|invercargill|dunedin|tauranga|rotorua|hibiscus coast|coromandel|manawat[uū])\b/, "New Zealand"],
   [/\b(auckland|wellington|hamilton|nelson|napier|hastings|palmerston north|new plymouth),\s*nz\b/, "New Zealand"],
+  [/\b(kenya|nairobi|mombasa|kisumu)\b/, "Kenya"],
 ];
 
 /** Infer country from region name heuristics. Defaults to "USA". */

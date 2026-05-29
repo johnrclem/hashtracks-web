@@ -2,7 +2,7 @@ import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
-import { stripHtmlTags, decodeEntities, googleMapsSearchUrl, MONTHS, extractHashRunNumber } from "../utils";
+import { stripHtmlTags, decodeEntities, googleMapsSearchUrl, MONTHS, extractHashRunNumber, stripPlaceholder } from "../utils";
 import { safeFetch } from "../safe-fetch";
 
 /**
@@ -32,7 +32,8 @@ const MAX_PAGES = 5; // 5 × 100 = 500 posts; the blog currently holds ~34
 
 // "Run 1326", "Run #1068", "Run: #1068". \D{0,3} (not \s*#?\s*) avoids the
 // whitespace-bracketed-quantifier shape SonarCloud flags as ReDoS (S5852).
-const RUN_NUMBER_RE = /Run\b\D{0,3}(\d{3,4})/i;
+// \d+ (not \d{3,4}) so pre-#100 historical runs aren't silently dropped.
+const RUN_NUMBER_RE = /Run\b\D{0,3}(\d+)/i;
 const DMY_TEXT_RE = /(\d{1,2})\s+([A-Za-z]{3,9})\s+(\d{4})/; // "30 March 2026", "16 Mar 2019"
 const DMY_NUMERIC_RE = /(\d{1,2})\/(\d{1,2})\/(\d{4})/; // "05/01/2026" (DD/MM/YYYY)
 const URL_RE = /(https?:\/\/\S+)/;
@@ -63,10 +64,14 @@ function iso(y: number, m: number, d: number): string | undefined {
     : undefined;
 }
 
-/** Resolve a month name (full or abbreviated) to a 1-based number via utils.MONTHS. */
+/**
+ * Resolve a month name to a 1-based number via utils.MONTHS, which already keys
+ * both full names and 3-letter abbreviations. Only "sept" needs normalizing.
+ * Exact lookup (not a prefix slice) avoids false positives like "maybe" → "may".
+ */
 function monthNumber(word: string): number | undefined {
   const w = word.toLowerCase();
-  return MONTHS[w] ?? MONTHS[w.slice(0, 3)]; // exact, then 3-letter prefix ("Sept" → "sep")
+  return MONTHS[w === "sept" ? "sep" : w];
 }
 
 /** Parse "D Month YYYY" / "D Mon YYYY" text (weekday prefix tolerated by searching). */
@@ -113,17 +118,30 @@ export function parseOnh3Title(title: string): { runNumber?: number; theme?: str
   return { runNumber: m ? parseInt(m[1], 10) : undefined, theme: deriveTheme(title) };
 }
 
+const THEME_EDGE_CHARS = " \t\n.-–|";
+
+/** Trim leading/trailing separator chars without a regex (ReDoS-safe). */
+function trimEdgeChars(s: string): string {
+  let lo = 0;
+  let hi = s.length;
+  while (lo < hi && THEME_EDGE_CHARS.includes(s[lo])) lo++;
+  while (hi > lo && THEME_EDGE_CHARS.includes(s[hi - 1])) hi--;
+  return s.slice(lo, hi);
+}
+
 /**
  * Derive a human theme from the title, or undefined. Leaving it undefined lets
  * merge.ts synthesize the canonical "ONH3 Trail #N" title (a theme must never
  * be a hare name or a labeled-field fragment).
  */
 export function deriveTheme(title: string): string | undefined {
-  const cleaned = title
+  const stripped = title
     .replace(/^Monday\b.*?\|\s*/i, "") // "Monday 30 Mar 2026 | "
     .replace(/^ONH3\s+/i, "")
-    .replace(RUN_NUMBER_RE, "")
-    .replace(/^[\s.\-–|]+|[\s.\-–|]+$/g, "");
+    .replace(RUN_NUMBER_RE, "");
+  // Trim leading/trailing separators procedurally — a `^[…]+|[…]+$` regex trips
+  // SonarCloud's ReDoS heuristic (S5852) even though it's linear here.
+  const cleaned = trimEdgeChars(stripped);
   if (cleaned.length === 0) return undefined;
   // A remainder carrying labeled fields ("Hare: …", "Venue: …") is not a theme.
   if (/\b(?:Hares?|Venue|Date|Location)\s*:/i.test(cleaned)) return undefined;
@@ -161,8 +179,8 @@ export function postToEvent(post: WPComPost): RawEventData | null {
   // Body fallback uses the shared "#NNN" parser on the "Run:" field ("Run: #1068").
   const runNumber = titleRun ?? extractHashRunNumber(fieldValue(announcement, "Run"));
 
-  const hares = fieldValue(announcement, "Hares?");
-  const venue = cleanVenue(fieldValue(announcement, "Venue"));
+  const hares = stripPlaceholder(fieldValue(announcement, "Hares?"));
+  const venue = cleanVenue(stripPlaceholder(fieldValue(announcement, "Venue")));
   const locationField = fieldValue(announcement, "Location");
   const urlMatch = locationField ? URL_RE.exec(locationField) : null;
   const locationUrl =
@@ -199,14 +217,14 @@ export function parseHarelineTable(post: WPComPost, today: string): RawEventData
       .get();
     if (cells.length < 5) return; // malformed / spacer row
 
-    const runNumber = /^\d{3,4}$/.test(cells[0]) ? parseInt(cells[0], 10) : undefined;
+    const runNumber = /^\d+$/.test(cells[0]) ? parseInt(cells[0], 10) : undefined;
     const date = parseNumericDate(cells[2] ?? "");
     if (!date) return; // header row ("Run nr"/"Date") and blanks fall out here
     if (date < today) return; // past rows belong to the one-shot backfill
 
-    const hares = cells[3] || undefined;
-    const venue = cells[4] || undefined;
-    const area = cells[5] || undefined;
+    const hares = stripPlaceholder(cells[3]);
+    const venue = stripPlaceholder(cells[4]);
+    const area = stripPlaceholder(cells[5]);
     const venueQuery = [venue, area].filter(Boolean).join(", ");
 
     events.push({
