@@ -2417,6 +2417,88 @@ describe("extractTimeFromDescription", () => {
   it("extracts Start: time", () => {
     expect(extractTimeFromDescription("Start: 3:00 PM")).toBe("15:00");
   });
+
+  // #1775 — NOH3 "go" time: the start is the "go" time, not the "show" time,
+  // and the Start: label often carries no concrete location ("Start @ TBA").
+  it.each([
+    ["Start @ TBA. 6pm show, 6:30pm go. $8 hash cash.", "18:30"],
+    ["Start @ The Mint, 6pm show, 6:30pm go. $8 hash cash", "18:30"],
+    ["6pm show, 7pm go", "19:00"], // bare-hour go time
+    ["Doors at 5:30pm, 6:00pm go", "18:00"],
+  ])("promotes the go time from %j", (desc, expected) => {
+    expect(extractTimeFromDescription(desc)).toBe(expected);
+  });
+
+  it("does not treat 'go at <time>' (go before time) as a go time", () => {
+    // No "<time> go" shape, and no label → no time. Guards against the go
+    // pattern firing on "we go at 6:30pm".
+    expect(extractTimeFromDescription("We go at 6:30pm.")).toBeUndefined();
+  });
+});
+
+// ── NOH3 hares from description prose (#1774) — scoped seed config patterns ──
+
+describe("NOH3 Google Calendar — hares from description prose (#1774)", () => {
+  const noh3Source = SOURCES.find((s) => s.name === "NOH3 Google Calendar");
+  if (!noh3Source?.config) throw new Error("NOH3 Google Calendar seed config missing");
+  const config = noh3Source.config as { harePatterns?: string[] };
+  if (!config.harePatterns?.length) throw new Error("NOH3 harePatterns seed config missing");
+  const compiledHarePatterns = compilePatterns(config.harePatterns);
+
+  it.each([
+    [
+      "Join Cavity Search, Yank My Doodle and Lefty Loosey as we cheers to the start of Hurricane Season at The Mint.",
+      "Cavity Search, Yank My Doodle and Lefty Loosey",
+    ],
+    [
+      "Spit in My Face, I'd Pork Her and Penis Colada are leading this one.",
+      "Spit in My Face, I'd Pork Her and Penis Colada",
+    ],
+    // Real NOH3 rows repeat a "💦Monday, June 8- Hash #1961- " prefix on the
+    // hare line; the capture must skip it (hyphens/# break the char run).
+    [
+      "💦Monday, June 8- Hash #1961- Spit in My Face, I'd Pork Her and Penis Colada are leading this one. Start @ TBA. 6pm show, 6:30pm go. $8 hash cash.",
+      "Spit in My Face, I'd Pork Her and Penis Colada",
+    ],
+    [
+      "🍆Monday, June 22- Hash #1963- CUM, CumMuter and Shitty Titties are taking us on an adventure. $8 hash cash.",
+      "CUM, CumMuter and Shitty Titties",
+    ],
+    [
+      "Cops Wives Matter, Daddy's Dick and Alittle 4Clitful are your trusty hares for this one.",
+      "Cops Wives Matter, Daddy's Dick and Alittle 4Clitful",
+    ],
+    [
+      "CUM, CumMuter and Shitty Titties are taking us on an adventure.",
+      "CUM, CumMuter and Shitty Titties",
+    ],
+  ])("promotes hares from %j", (description, expected) => {
+    const result = buildRawEventFromGCalItem(
+      {
+        summary: "Hash #1963",
+        description,
+        start: { dateTime: "2026-06-22T18:30:00-05:00" },
+        status: "confirmed",
+      },
+      config,
+      { compiledHarePatterns },
+    );
+    expect(result?.hares).toBe(expected);
+  });
+
+  it("does not invent hares from generic prose", () => {
+    const result = buildRawEventFromGCalItem(
+      {
+        summary: "Hash #1964",
+        description: "Bring flashlights and bug spray. The trail is mostly pavement.",
+        start: { dateTime: "2026-07-06T18:30:00-05:00" },
+        status: "confirmed",
+      },
+      config,
+      { compiledHarePatterns },
+    );
+    expect(result?.hares).toBeUndefined();
+  });
 });
 
 // ── extractTitleFromDescription — updated label filtering ──

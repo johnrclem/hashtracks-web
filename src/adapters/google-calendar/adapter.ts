@@ -425,6 +425,12 @@ const MAPS_URL_RE = /^https?:\/\/(?:maps\.app\.goo\.gl|goo\.gl\/maps|google\.\w+
 
 // Pre-compiled regex for extractTimeFromDescription
 const TIME_LABEL_RE = /(?:^|\n)\s*(?:Pack\s*Meet|Circle|Time|Start|When|Chalk\s*Talk)\s*:?\s*.*?(\d{1,2}:\d{2}\s*[ap]m)/im;
+// "go" time (#1775): NOH3 (and other kennels) publish "6pm show, 6:30pm go" in
+// the description body — the "go" time is the actual start. Capture the time
+// immediately preceding the literal "go" so it wins over the "show" time and
+// over a `Start: TBA` label that carries no concrete location. Mirrors the
+// optional-`:MM` shape of TITLE_TIME_RE (bare "7pm go" and "6:30pm go" both).
+const GO_TIME_RE = /\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\s+go\b/i;
 // 12-hour times in titles. Optional `:MM` so both "6pm" and "7:30pm" match.
 // `:30` capture group is undefined for the bare form.
 const TITLE_TIME_RE = /\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/i;
@@ -655,10 +661,22 @@ export function extractLocationFromDescription(description: string): string | un
 
 /**
  * Extract a start time from the event description when `item.start.dateTime` yields no time.
- * Looks for common label patterns (Pack Meet:, Circle:, Time:, Start:, When:, Chalk Talk:)
+ * Prefers the hash "go" time ("6:30pm go") — the actual start — then falls back
+ * to common label patterns (Pack Meet:, Circle:, Time:, Start:, When:, Chalk Talk:)
  * and parses the first 12-hour time found.
  */
 export function extractTimeFromDescription(description: string): string | undefined {
+  // "go" time wins (#1775): NOH3's "Start @ TBA. 6pm show, 6:30pm go" carries
+  // no concrete location, so the Start: label path is unreliable — anchor on
+  // the "go" keyword instead.
+  const goMatch = GO_TIME_RE.exec(description);
+  if (goMatch) {
+    const hour = Number.parseInt(goMatch[1], 10);
+    const min = goMatch[2] ? Number.parseInt(goMatch[2], 10) : 0;
+    if (hour >= 1 && hour <= 12 && min >= 0 && min <= 59) {
+      return formatAmPmTime(hour, min, goMatch[3]);
+    }
+  }
   const match = TIME_LABEL_RE.exec(description);
   if (!match?.[1]) return undefined;
   return parse12HourTime(match[1]);

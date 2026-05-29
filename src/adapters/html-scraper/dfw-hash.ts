@@ -335,6 +335,49 @@ function extractVenueName($: CheerioAPI): string | undefined {
 }
 
 /**
+ * Extract the event-name title from a detail-page heading (#1768).
+ *
+ * Detail pages render the event name in <h1> (e.g. "NODUH Hash", "Dallas Urban
+ * Hash") — separate from the date <h2> and the "Hash Run No N" <h3>. Without
+ * this, the adapter left `title` undefined and merge synthesized the
+ * "NODUHHH Trail #N" placeholder.
+ *
+ * Only kennel/event-name headings are titles: those match `KENNEL_NAME_PATTERNS`
+ * (they contain "Hash"/"NODUH"/"Dallas"/…). A bare venue heading like
+ * "Twin Peaks" does NOT match and is left to `extractVenueName`, so it never
+ * hijacks the event title. Date-like and run-number headings are skipped too.
+ */
+function extractDetailPageTitle($: CheerioAPI): string | undefined {
+  let title: string | undefined;
+  $("h1").each((_i, el) => {
+    if (title) return;
+    const text = $(el).text().trim();
+    if (!text || DAY_PREFIX_PATTERN.test(text)) return;
+    if (/Hash Run No/i.test(text)) return;
+    if (!KENNEL_NAME_PATTERNS.some((p) => p.test(text))) return;
+    title = text;
+  });
+  return title;
+}
+
+/**
+ * Map a "TURDs? (Dogs)" detail-page value to the structured dogFriendly
+ * boolean (#1770). Affirmative values ("Yes", "OK on a leash …") → true;
+ * explicit negatives ("No", "No dogs", "Not dog friendly") → false. The
+ * "Nothing yet" placeholder never reaches here (filtered by the value guard).
+ *
+ * The boolean intentionally drops nuanced caveats like "OK on a leash - for
+ * their own safety"; a verbatim `dogPolicy` text field is a cycle-15 follow-up.
+ */
+function parseDogFriendly(value: string): boolean | null {
+  const v = value.trim().toLowerCase();
+  if (/^no\b/.test(v) || v.includes("no dogs") || v.includes("not dog")) {
+    return false;
+  }
+  return true;
+}
+
+/**
  * Parse a DFW event detail page for time, location, and other fields.
  *
  * Detail pages use <h5><em>Label:</em> Value</h5> format:
@@ -347,6 +390,7 @@ function extractVenueName($: CheerioAPI): string | undefined {
  *   - Canonical date in <h2> (e.g. "Wednesday, April 22, 2026") — see #1155
  */
 export function parseDFWDetailPage($: CheerioAPI): {
+  title?: string;
   startTime?: string;
   location?: string;
   hares?: string;
@@ -354,8 +398,10 @@ export function parseDFWDetailPage($: CheerioAPI): {
   description?: string;
   cost?: string;
   date?: string;
+  dogFriendly?: boolean | null;
 } {
   const result: {
+    title?: string;
     startTime?: string;
     location?: string;
     hares?: string;
@@ -363,6 +409,7 @@ export function parseDFWDetailPage($: CheerioAPI): {
     description?: string;
     cost?: string;
     date?: string;
+    dogFriendly?: boolean | null;
   } = {};
 
   // Extract fields from <h5><em>Label:</em> Value</h5> pattern. Multi-line
@@ -386,7 +433,10 @@ export function parseDFWDetailPage($: CheerioAPI): {
     if (label.startsWith("time:")) {
       result.startTime = parse12HourTime(value);
     } else if (label.startsWith("start address:")) {
-      result.location = value;
+      // Multi-line addresses keep ", " separators (#520), but a blank line or
+      // trailing space before a break can leave a stray " ," (#1769); drop the
+      // whitespace before the comma without collapsing the address fields.
+      result.location = value.replace(/\s+,/g, ",");
     } else if (label.startsWith("hares:") || label.startsWith("hare:")) {
       result.hares = value;
     } else if (label.startsWith("hash cash:")) {
@@ -395,9 +445,24 @@ export function parseDFWDetailPage($: CheerioAPI): {
       // separators are preserved as the source published them.
       result.cost = rawValue.replace(/^[\s:,]+/, "").trim();
     } else if (label.startsWith("description:")) {
-      result.description = rawValue.replace(/^[\s:,]+/, "").trim();
+      // Prose, not an address: join source line breaks with spaces, not ", "
+      // (#1769). The shared ", " separator injected "line1., , line2." comma
+      // artifacts into descriptions. Re-strip with a space separator and
+      // collapse the resulting whitespace runs.
+      result.description = stripHtmlTags($h5Clone.html() ?? "", " ")
+        .replace(/^[\s:,]+/, "")
+        .replace(/\s+/g, " ")
+        .trim();
+    } else if (label.startsWith("turds")) {
+      // "TURDs? (Dogs): Yes" / "OK on a leash - for their own safety" / "No".
+      // Map to the structured dogFriendly boolean (#1770). "Nothing yet" is
+      // already filtered by the value guard above.
+      result.dogFriendly = parseDogFriendly(value);
     }
   });
+
+  const detailTitle = extractDetailPageTitle($);
+  if (detailTitle) result.title = detailTitle;
 
   const detailDate = extractDetailPageDate($);
   if (detailDate) result.date = detailDate;
@@ -437,35 +502,61 @@ const DETAIL_BATCH_DELAY = 300;
 
 const USER_AGENT = "Mozilla/5.0 (compatible; HashTracks-Scraper)";
 
+/** Default forward window when the caller passes no `days` (days fallback). */
+const DEFAULT_FORWARD_DAYS = 90;
+/** Cap on monthly calendar pages fetched per scrape (≈ one year forward). */
+const MAX_MONTHS_AHEAD = 13;
+
+/**
+ * Enumerate the (year, month) calendar pages to fetch for a forward `days`
+ * window starting from `now` (#1767). Always runs forward — the current month
+ * plus enough following months to cover the window. `+1` accounts for the
+ * partial month at the far edge; clamped to [2, MAX_MONTHS_AHEAD] so a small
+ * window still fetches current+next and a huge one can't fan out unbounded.
+ */
+export function computeForwardMonths(
+  now: Date,
+  days: number,
+): { year: number; month: number }[] {
+  const currentMonth = now.getUTCMonth();
+  const currentYear = now.getUTCFullYear();
+  const monthsToFetch = Math.min(
+    MAX_MONTHS_AHEAD,
+    Math.max(2, Math.ceil(days / 30) + 1),
+  );
+  return Array.from({ length: monthsToFetch }, (_v, i) => {
+    const offset = currentMonth + i;
+    return { year: currentYear + Math.floor(offset / 12), month: offset % 12 };
+  });
+}
+
 /**
  * DFW Hash House Harriers Calendar Adapter
  *
- * Scrapes current month + next month from the PHP calendar at dfwhhh.org,
- * then enriches events with time/location from individual detail pages.
+ * Scrapes a forward window of monthly PHP calendar pages at dfwhhh.org (sized
+ * from `options.days`), then enriches events with time/location from individual
+ * detail pages. The window only ever runs forward from the current month; past
+ * months are not refetched and the source's `upcomingOnly` config keeps the
+ * reconciler from cancelling historical events (#1263).
  */
 export class DFWHashAdapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
 
   async fetch(
     _source: Source,
-    _options?: { days?: number },
+    options?: { days?: number },
   ): Promise<ScrapeResult> {
-    const now = new Date();
-    const currentMonth = now.getUTCMonth();
-    const currentYear = now.getUTCFullYear();
-
-    // Next month (handles year rollover)
-    const nextMonth = (currentMonth + 1) % 12;
-    const nextYear = currentMonth === 11 ? currentYear + 1 : currentYear;
-
-    const months = [
-      { year: currentYear, month: currentMonth },
-      { year: nextYear, month: nextMonth },
-    ];
+    // Honor options.days (#1767): the DFW source publishes biweekly runs months
+    // ahead (16 NODUH runs out to December), so a current+next-month window
+    // dropped everything past ~6 weeks. Past months are never refetched.
+    const months = computeForwardMonths(
+      new Date(),
+      options?.days ?? DEFAULT_FORWARD_DAYS,
+    );
 
     const fetchStart = Date.now();
 
-    // Fetch both months concurrently
+    // Fetch all months in the forward window concurrently
     const results = await Promise.allSettled(
       months.map(async ({ year, month }) => {
         const url = buildDFWMonthUrl(year, month);
@@ -541,12 +632,17 @@ export class DFWHashAdapter implements SourceAdapter {
           const detail = parseDFWDetailPage($detail);
           const evt = batch[b].event;
 
+          // Canonical event name from the detail page (#1768) — overrides the
+          // grid-cell title so merge uses "NODUH Hash" instead of synthesizing
+          // the "NODUHHH Trail #N" placeholder.
+          if (detail.title) evt.title = detail.title;
           if (detail.startTime) evt.startTime = detail.startTime;
           if (detail.location) evt.location = detail.location;
           if (detail.runNumber) evt.runNumber = detail.runNumber;
           if (detail.hares) evt.hares = detail.hares;
           if (detail.description) evt.description = detail.description;
           if (detail.cost) evt.cost = detail.cost;
+          if (detail.dogFriendly != null) evt.dogFriendly = detail.dogFriendly;
           // Detail-page date is canonical — overrides the grid cell date when
           // they disagree. Calendar grid can drift on multi-day cells (#1155).
           if (detail.date && detail.date !== evt.date) {
