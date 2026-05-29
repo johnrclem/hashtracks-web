@@ -466,12 +466,19 @@ describe("parseDFWDetailPage — title / linebreaks / dog policy", () => {
     expect(detail.location).toContain("A to A trail, (The parking lot");
   });
 
-  // #1770 — TURDs? (Dogs) maps to the structured dogFriendly boolean.
+  // #1770 — TURDs? (Dogs) → structured dogFriendly. Affirmatives → true,
+  // explicit negatives → false, and ambiguous/placeholder values must NOT fail
+  // open to true (they leave the field unset).
   it.each([
     ["Yes", true],
     ["OK on a leash - for their own safety", true],
     ["No", false],
     ["No dogs", false],
+    ["Not allowed", false],
+    ["No dogs allowed", false],
+    ["Nope", undefined], // ambiguous → null → unset, not true
+    ["Service dogs only", undefined],
+    ["Nothing yet", undefined], // placeholder filtered by the value guard
   ])("maps TURDs? (Dogs): %j → dogFriendly %s (#1770)", (value, expected) => {
     const $ = cheerio.load(`
       <html><body>
@@ -481,17 +488,6 @@ describe("parseDFWDetailPage — title / linebreaks / dog policy", () => {
     `);
     const detail = parseDFWDetailPage($);
     expect(detail.dogFriendly).toBe(expected);
-  });
-
-  it("leaves dogFriendly unset for 'Nothing yet' (#1770)", () => {
-    const $ = cheerio.load(`
-      <html><body>
-        <h3>Hash Run No 344</h3>
-        <h5><em>TURDs? (Dogs):</em> Nothing yet</h5>
-      </body></html>
-    `);
-    const detail = parseDFWDetailPage($);
-    expect(detail.dogFriendly).toBeUndefined();
   });
 });
 

@@ -2418,21 +2418,31 @@ describe("extractTimeFromDescription", () => {
     expect(extractTimeFromDescription("Start: 3:00 PM")).toBe("15:00");
   });
 
-  // #1775 — NOH3 "go" time: the start is the "go" time, not the "show" time,
-  // and the Start: label often carries no concrete location ("Start @ TBA").
+  // #1775 — NOH3 "go" time (goTimeWins): the start is the "go" time, not the
+  // "show" time, and the Start: label often carries no concrete location.
   it.each([
     ["Start @ TBA. 6pm show, 6:30pm go. $8 hash cash.", "18:30"],
     ["Start @ The Mint, 6pm show, 6:30pm go. $8 hash cash", "18:30"],
     ["6pm show, 7pm go", "19:00"], // bare-hour go time
     ["Doors at 5:30pm, 6:00pm go", "18:00"],
-  ])("promotes the go time from %j", (desc, expected) => {
-    expect(extractTimeFromDescription(desc)).toBe(expected);
+  ])("promotes the go time from %j when goTimeWins", (desc, expected) => {
+    expect(extractTimeFromDescription(desc, true)).toBe(expected);
   });
 
   it("does not treat 'go at <time>' (go before time) as a go time", () => {
     // No "<time> go" shape, and no label → no time. Guards against the go
     // pattern firing on "we go at 6:30pm".
-    expect(extractTimeFromDescription("We go at 6:30pm.")).toBeUndefined();
+    expect(extractTimeFromDescription("We go at 6:30pm.", true)).toBeUndefined();
+  });
+
+  it("ignores the go time when goTimeWins is off (default, ~200 calendars)", () => {
+    // Other calendars keep label-only behavior: a "<time> go" prose phrase must
+    // not be promoted to the start time.
+    expect(extractTimeFromDescription("6pm show, 6:30pm go")).toBeUndefined();
+    // The same string DOES yield the go time once goTimeWins is enabled (NOH3).
+    expect(extractTimeFromDescription("6pm show, 6:30pm go", true)).toBe("18:30");
+    // A line-start label still wins and the trailing "go" prose is ignored.
+    expect(extractTimeFromDescription("Start: 6:30 PM\n8pm go home whenever")).toBe("18:30");
   });
 });
 

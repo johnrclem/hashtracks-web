@@ -90,25 +90,46 @@ function detailByLabel(
   return value;
 }
 
-function parseSearchPage(html: string): RawEventData[] {
+interface ParseResult {
+  events: RawEventData[];
+  skipped: { nonNoduh: number; unparseableDate: number; unstructured: number };
+}
+
+function parseSearchPage(html: string): ParseResult {
   const $ = cheerio.load(html);
   const events: RawEventData[] = [];
+  const skipped = { nonNoduh: 0, unparseableDate: 0, unstructured: 0 };
+
+  // Count the "📂 Unstructured Events (2005-2012)" section we deliberately skip
+  // (legacy .html pages with truncated snippets) so the drop is logged, not
+  // silent (no-silent-caps).
+  const unstructuredSection = $("h2")
+    .filter((_i, el) => /unstructured/i.test($(el).text()))
+    .first()
+    .closest(".results-section");
+  skipped.unstructured = unstructuredSection.find(".event-item").length;
 
   // Locate the structured "📜 Past Events" section, then walk its event-items.
   const section = $("h2")
     .filter((_i, el) => /past events/i.test($(el).text()))
     .first()
     .closest(".results-section");
-  if (section.length === 0) return events;
+  if (section.length === 0) return { events, skipped };
 
   section.find(".event-item").each((_i, el) => {
     const $item = $(el);
     const kennelText = $item.find(".event-kennel").text().replace(/\s+/g, " ").trim();
     // Strict kennel filter — drop "Bike Hash"/other false positives (#1767).
-    if (!/^NODUH Hash\b/i.test(kennelText)) return;
+    if (!/^NODUH Hash\b/i.test(kennelText)) {
+      skipped.nonNoduh++;
+      return;
+    }
 
     const date = parseSearchDate($item.find(".event-date").first().text());
-    if (!date) return;
+    if (!date) {
+      skipped.unparseableDate++;
+      return;
+    }
 
     const runMatch = /Run\s*#?\s*(\d+)/i.exec(kennelText);
     const runNumber = runMatch ? Number.parseInt(runMatch[1], 10) : undefined;
@@ -132,7 +153,7 @@ function parseSearchPage(html: string): RawEventData[] {
     });
   });
 
-  return events;
+  return { events, skipped };
 }
 
 async function main(): Promise<void> {
@@ -150,8 +171,12 @@ async function main(): Promise<void> {
   if (!resp.ok) throw new Error(`Search page fetch failed: HTTP ${resp.status}`);
   const html = await resp.text();
 
-  const events = parseSearchPage(html);
+  const { events, skipped } = parseSearchPage(html);
   console.log(`Parsed ${events.length} structured past NODUH Hash events.`);
+  console.log(
+    `Skipped (not backfilled): ${skipped.unstructured} unstructured legacy events (2005-2012), ` +
+      `${skipped.nonNoduh} non-NODUH false positives, ${skipped.unparseableDate} unparseable dates.`,
+  );
   if (events.length === 0) throw new Error("No events parsed — aborting (search page shape may have changed).");
 
   // Sort ascending for readable logs / stable ordering.

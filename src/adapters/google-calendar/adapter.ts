@@ -661,21 +661,20 @@ export function extractLocationFromDescription(description: string): string | un
 
 /**
  * Extract a start time from the event description when `item.start.dateTime` yields no time.
- * Prefers the hash "go" time ("6:30pm go") — the actual start — then falls back
- * to common label patterns (Pack Meet:, Circle:, Time:, Start:, When:, Chalk Talk:)
- * and parses the first 12-hour time found.
+ * Parses common label patterns (Pack Meet:, Circle:, Time:, Start:, When:, Chalk Talk:).
+ *
+ * When `goTimeWins` is set (NOH3 only, #1775), the hash "go" time ("6:30pm go")
+ * — the actual start — is consulted FIRST. This is gated per-source because the
+ * "show/go" convention is NOH3-specific; firing it on the ~200 other calendars
+ * would mis-read prose like "drinks at 8pm, go home whenever" as a start time.
  */
-export function extractTimeFromDescription(description: string): string | undefined {
-  // "go" time wins (#1775): NOH3's "Start @ TBA. 6pm show, 6:30pm go" carries
-  // no concrete location, so the Start: label path is unreliable — anchor on
-  // the "go" keyword instead.
-  const goMatch = GO_TIME_RE.exec(description);
-  if (goMatch) {
-    const hour = Number.parseInt(goMatch[1], 10);
-    const min = goMatch[2] ? Number.parseInt(goMatch[2], 10) : 0;
-    if (hour >= 1 && hour <= 12 && min >= 0 && min <= 59) {
-      return formatAmPmTime(hour, min, goMatch[3]);
-    }
+export function extractTimeFromDescription(
+  description: string,
+  goTimeWins = false,
+): string | undefined {
+  if (goTimeWins) {
+    const goTime = timeFromAmPmMatch(GO_TIME_RE.exec(description));
+    if (goTime) return goTime;
   }
   const match = TIME_LABEL_RE.exec(description);
   if (!match?.[1]) return undefined;
@@ -702,6 +701,19 @@ export function parseLooseAmPmTime(text: string): string | undefined {
 }
 
 /**
+ * Build "HH:MM" (24h) from a 12-hour regex match whose groups are
+ * [_, hour, minute?, am/pm] (the shape shared by TITLE_TIME_RE and GO_TIME_RE).
+ * Returns undefined for no match or an out-of-range hour/minute.
+ */
+function timeFromAmPmMatch(match: RegExpExecArray | null): string | undefined {
+  if (!match) return undefined;
+  const hour = Number.parseInt(match[1], 10);
+  const min = match[2] ? Number.parseInt(match[2], 10) : 0;
+  if (hour < 1 || hour > 12 || min < 0 || min > 59) return undefined;
+  return formatAmPmTime(hour, min, match[3]);
+}
+
+/**
  * Extract a start time embedded in a calendar event title.
  *
  * NOH3 (and other kennels) post social events as all-day GCal entries with the
@@ -709,12 +721,7 @@ export function parseLooseAmPmTime(text: string): string | undefined {
  * "Hash Run 7:30pm". Returns 24-hour "HH:MM" or undefined.
  */
 export function extractTimeFromTitle(summary: string): string | undefined {
-  const match = TITLE_TIME_RE.exec(summary);
-  if (!match) return undefined;
-  const hour = Number.parseInt(match[1], 10);
-  const min = match[2] ? Number.parseInt(match[2], 10) : 0;
-  if (hour < 1 || hour > 12 || min < 0 || min > 59) return undefined;
-  return formatAmPmTime(hour, min, match[3]);
+  return timeFromAmPmMatch(TITLE_TIME_RE.exec(summary));
 }
 
 const COST_LABELS = new Set([
@@ -824,6 +831,7 @@ interface CalendarSourceConfig {
   descriptionSuffix?: string;           // appended to every event description
   includeAllDayEvents?: boolean;        // if true, don't skip all-day events (some calendars use them for real runs)
   defaultStartTime?: string;            // "HH:MM" fallback when neither the calendar item nor the description yields a start time (paired with includeAllDayEvents)
+  goTimeWins?: boolean;                 // #1775 NOH3 — promote the "go" time ("6:30pm go") over the Start:/Circle: label time. Scoped per-source (the "show/go" convention is NOH3-specific) so it can't mis-fire on the ~200 other calendars.
   /**
    * Per-source override for the future-window cap on `timeMax`. Default 180.
    * Increase for calendars that schedule legit non-RRULE events more than 6
@@ -1613,7 +1621,7 @@ export function buildRawEventFromGCalItem(
     resolvedStartTime = extractTimeFromTitle(summary);
   }
   if (!resolvedStartTime && rawDescription) {
-    resolvedStartTime = extractTimeFromDescription(rawDescription);
+    resolvedStartTime = extractTimeFromDescription(rawDescription, sourceConfig?.goTimeWins);
   }
   if (!resolvedStartTime && sourceConfig?.defaultStartTime && VALID_HHMM_RE.test(sourceConfig.defaultStartTime)) {
     resolvedStartTime = sourceConfig.defaultStartTime;

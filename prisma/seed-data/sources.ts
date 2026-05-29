@@ -3610,6 +3610,10 @@ export const SOURCES = [
         calendarId: "nolahash@gmail.com",
         defaultKennelTag: "noh3",
         includeAllDayEvents: true,
+        // NOH3 publishes all-day rows with "6pm show, 6:30pm go" in the body;
+        // the "go" time is the start (#1775). Scoped per-source — the show/go
+        // convention is NOH3-specific.
+        goTimeWins: true,
         // NOH3 names hares in description prose, not a "Hares:" label (#1774).
         // Scoped here (not GCal-wide) to avoid false positives across the ~200
         // other calendars. The four prose shapes: "Join X as we…", "X are

@@ -363,18 +363,24 @@ function extractDetailPageTitle($: CheerioAPI): string | undefined {
 /**
  * Map a "TURDs? (Dogs)" detail-page value to the structured dogFriendly
  * boolean (#1770). Affirmative values ("Yes", "OK on a leash …") → true;
- * explicit negatives ("No", "No dogs", "Not dog friendly") → false. The
- * "Nothing yet" placeholder never reaches here (filtered by the value guard).
+ * explicit negatives ("No", "No dogs", "Not allowed") → false. Anything the
+ * heuristic doesn't recognize returns `null` (unknown) — it must NOT fail open
+ * to `true`, or an ambiguous/negative value would publish a dog-hostile trail
+ * as dog-friendly (Codex review). The "Nothing yet" placeholder never reaches
+ * here (filtered by the value guard in parseDFWDetailPage).
  *
  * The boolean intentionally drops nuanced caveats like "OK on a leash - for
  * their own safety"; a verbatim `dogPolicy` text field is a cycle-15 follow-up.
  */
 function parseDogFriendly(value: string): boolean | null {
   const v = value.trim().toLowerCase();
-  if (/^no\b/.test(v) || v.includes("no dogs") || v.includes("not dog")) {
+  if (v.includes("leash") || /^(?:yes|ok|sure|welcome|allowed)\b/.test(v)) {
+    return true;
+  }
+  if (/^no\b/.test(v) || v.includes("no dog") || v.includes("not allow") || v.includes("not permit")) {
     return false;
   }
-  return true;
+  return null;
 }
 
 /**
@@ -456,8 +462,10 @@ export function parseDFWDetailPage($: CheerioAPI): {
     } else if (label.startsWith("turds")) {
       // "TURDs? (Dogs): Yes" / "OK on a leash - for their own safety" / "No".
       // Map to the structured dogFriendly boolean (#1770). "Nothing yet" is
-      // already filtered by the value guard above.
-      result.dogFriendly = parseDogFriendly(value);
+      // already filtered by the value guard above. Ambiguous values return
+      // null → leave the field unset (preserve existing) rather than clear it.
+      const dog = parseDogFriendly(value);
+      if (dog != null) result.dogFriendly = dog;
     }
   });
 
