@@ -22,6 +22,21 @@ export const DISPLAY_EVENT_WHERE = {
 } as const satisfies Prisma.EventWhereInput;
 
 /**
+ * `DISPLAY_EVENT_WHERE` without the `parentEventId: null` predicate — for
+ * surfaces that address an event (or one of its series children) directly by
+ * id but must still honor the rest of the public-visibility contract:
+ *   - the detail page's child-timeline query (`childEvents.where`)
+ *   - the per-event OG image route (a crawlable, unfurlable public URL)
+ * Children carry a `parentEventId`, so only that predicate is dropped; the
+ * status / manual-entry / canonical / hidden-kennel guards stay, keeping
+ * cancelled, private manual-entry, and non-canonical rows out of public cards.
+ */
+const { parentEventId: _omitParentFilter, ...DISPLAYABLE_EVENT_NO_PARENT } =
+  DISPLAY_EVENT_WHERE;
+export const DISPLAYABLE_EVENT_NO_PARENT_WHERE =
+  DISPLAYABLE_EVENT_NO_PARENT satisfies Prisma.EventWhereInput;
+
+/**
  * Narrower filter for server flows that already constrain `kennelId` (or
  * skip the manual-entry exclusion — Travel's confirmed-events query trusts
  * the kennel filter and doesn't need the manual-entry guard).

@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/tooltip";
 import { CheckInButton } from "@/components/logbook/CheckInButton";
 import { CalendarExportButton } from "@/components/hareline/CalendarExportButton";
+import { ShareButton } from "@/components/shared/ShareButton";
 import { EventLocationMap } from "@/components/hareline/EventLocationMap";
 import { EventWeatherCard } from "@/components/hareline/EventWeatherCard";
 import { ShiggyLevelFlames, TrailLengthLine, formatTrailLength } from "@/components/hareline/TrailDifficulty";
@@ -28,17 +29,14 @@ import { stripMarkdown, stripUrlsFromText, formatRelativeTime, formatDateRange }
 import { SeriesChildTimeline } from "@/components/hareline/SeriesChildTimeline";
 import type { HarelineSeriesChild } from "@/components/hareline/EventCard";
 import { getFullLocationDisplay } from "@/lib/event-display";
-import { buildEventJsonLd, safeJsonLd } from "@/lib/seo";
+import { buildEventJsonLd, buildBreadcrumbJsonLd, safeJsonLd } from "@/lib/seo";
 import { getCanonicalSiteUrl } from "@/lib/site-url";
-import { DISPLAY_EVENT_WHERE } from "@/lib/event-filters";
-
 // #1560 PR E.6 — `childEvents` rendered on the umbrella page mirror the
 // hareline list visibility filters (status / isManualEntry / isCanonical /
 // kennel.isHidden) but DROP the `parentEventId: null` predicate (children
-// always have parentEventId set). Centralized here so the detail-page query
-// can't drift from the list query (Gemini PR #1697 review). Same pattern
-// `getEventDetail` uses in src/app/hareline/actions.ts.
-const { parentEventId: _excludedParentFilter, ...CHILD_EVENT_WHERE } = DISPLAY_EVENT_WHERE;
+// always have parentEventId set). Shared with the per-event OG image route so
+// the detail-page query can't drift from the public-visibility contract.
+import { DISPLAYABLE_EVENT_NO_PARENT_WHERE as CHILD_EVENT_WHERE } from "@/lib/event-filters";
 
 export async function generateMetadata({
   params,
@@ -282,6 +280,18 @@ export default async function EventDetailPage({
     baseUrl,
   );
 
+  const breadcrumbDateStr = event.date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+  const breadcrumbJsonLd = buildBreadcrumbJsonLd([
+    { name: "Hareline", url: `${baseUrl}/hareline` },
+    { name: event.kennel.shortName, url: `${baseUrl}/kennels/${event.kennel.slug}` },
+    { name: breadcrumbDateStr, url: `${baseUrl}/hareline/${event.id}` },
+  ]);
+
   return (
     <div className="space-y-6">
       {/* JSON-LD for Google Event rich result. safeJsonLd() escapes </script>
@@ -289,6 +299,10 @@ export default async function EventDetailPage({
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: safeJsonLd(eventJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumbJsonLd) }}
       />
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -583,6 +597,10 @@ export default async function EventDetailPage({
           </Button>
         )}
         <CalendarExportButton event={{ ...event, date: event.date.toISOString(), kennel: event.kennel }} />
+        <ShareButton
+          url={`${baseUrl}/hareline/${event.id}`}
+          title={`${event.kennel.shortName} — ${breadcrumbDateStr}`}
+        />
         <SourcesDropdown sourceUrl={event.sourceUrl} eventLinks={event.eventLinks} />
         <Tooltip>
           <TooltipTrigger asChild>

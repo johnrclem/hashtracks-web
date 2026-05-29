@@ -62,6 +62,23 @@ export function buildRegionItemListJsonLd(
   };
 }
 
+/**
+ * Build schema.org BreadcrumbList JSON-LD for SERP breadcrumb trails.
+ * Pass items in order (root → current); `url` should be absolute.
+ */
+export function buildBreadcrumbJsonLd(items: { name: string; url: string }[]) {
+  return {
+    "@context": CONTEXT,
+    "@type": "BreadcrumbList" as const,
+    itemListElement: items.map((item, i) => ({
+      "@type": "ListItem" as const,
+      position: i + 1,
+      name: item.name,
+      item: item.url,
+    })),
+  };
+}
+
 export function buildWebSiteJsonLd(baseUrl: string) {
   return {
     "@context": CONTEXT,
@@ -154,9 +171,10 @@ export function buildEventJsonLd(
     eventStatus: mapEventStatus(event.status),
     eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode" as const,
     location: place,
-    // Required by Google for Event rich results carousel eligibility. Uses the
-    // site-wide dynamic OG image (src/app/opengraph-image.tsx, 1200x630).
-    image: `${baseUrl}/opengraph-image`,
+    // Required by Google for Event rich results carousel eligibility. Points at
+    // the per-event dynamic OG card (src/app/hareline/[eventId]/opengraph-image.tsx,
+    // 1200x630) so the structured-data image matches the social share image.
+    image: `${baseUrl}/hareline/${event.id}/opengraph-image`,
     organizer: {
       "@type": "SportsOrganization" as const,
       name: kennel.fullName,

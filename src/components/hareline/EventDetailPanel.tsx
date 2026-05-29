@@ -20,6 +20,7 @@ import { formatTimeInZone, getTimezoneAbbreviation, getBrowserTimezone } from "@
 import { CheckInButton } from "@/components/logbook/CheckInButton";
 import type { AttendanceData } from "@/components/logbook/CheckInButton";
 import { CalendarExportButton } from "./CalendarExportButton";
+import { ShareButton } from "@/components/shared/ShareButton";
 import { EventLocationMap } from "./EventLocationMap";
 import { getRegionColor } from "@/lib/region";
 
@@ -344,6 +345,10 @@ export function EventDetailPanel({ event, attendance, isAuthenticated, onDismiss
       {/* Pinned action footer */}
       <div className="flex flex-wrap gap-2 border-t px-5 py-3">
         <CalendarExportButton event={{ ...event, kennel: event.kennel ?? { shortName: "" } }} />
+        <ShareButton
+          url={`/hareline/${event.id}`}
+          title={`${event.kennel?.shortName ?? "Hash"} — ${computeHeadingDate(event)}`}
+        />
         {event.sourceUrl && (
           <Button variant="outline" size="sm" asChild>
             <a href={event.sourceUrl} target="_blank" rel="noopener noreferrer">

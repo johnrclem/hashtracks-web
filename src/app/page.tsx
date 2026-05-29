@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
@@ -13,6 +14,12 @@ import {
 } from "@/components/home/HeroAnimations";
 import { FindRunsSection } from "@/components/home/FindRunsSection";
 import { Calendar, BookOpen, Users, MapPin, ArrowRight, Beer, Zap, Globe, ClipboardList, Clock, Footprints } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "HashTracks — Find Hash House Harrier runs near you",
+  description:
+    "Discover upcoming Hash House Harrier runs worldwide, track your attendance, and explore kennels near you. The hareline you never knew you needed.",
+};
 
 export default async function HomePage() {
   const clerkUser = await currentUser();

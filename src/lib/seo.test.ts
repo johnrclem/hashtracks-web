@@ -1,4 +1,5 @@
 import {
+  buildBreadcrumbJsonLd,
   buildEventJsonLd,
   buildKennelJsonLd,
   buildRegionItemListJsonLd,
@@ -122,7 +123,7 @@ describe("buildEventJsonLd", () => {
     expect(result.url).toBe("https://hashtracks.xyz/hareline/evt_abc");
     expect(result.organizer.name).toBe("New York City Hash House Harriers");
     expect(result.organizer.url).toBe("https://hashtracks.xyz/kennels/nych3");
-    expect(result.image).toBe("https://hashtracks.xyz/opengraph-image");
+    expect(result.image).toBe("https://hashtracks.xyz/hareline/evt_abc/opengraph-image");
     expect(result.description).toBe("Trail through Central Park.");
     expect(result.location).toMatchObject({
       "@type": "Place",
@@ -178,6 +179,27 @@ describe("buildEventJsonLd", () => {
   it("omits description when missing", () => {
     const result = buildEventJsonLd({ ...baseEvent, description: null }, kennel, BASE_URL);
     expect(result.description).toBeUndefined();
+  });
+});
+
+describe("buildBreadcrumbJsonLd", () => {
+  it("builds BreadcrumbList with positioned items", () => {
+    const result = buildBreadcrumbJsonLd([
+      { name: "Hareline", url: `${BASE_URL}/hareline` },
+      { name: "NYCH3", url: `${BASE_URL}/kennels/nych3` },
+      { name: "May 9, 2026", url: `${BASE_URL}/hareline/evt_abc` },
+    ]);
+
+    expect(result["@type"]).toBe("BreadcrumbList");
+    expect(result.itemListElement).toHaveLength(3);
+    expect(result.itemListElement[0]).toMatchObject({
+      "@type": "ListItem",
+      position: 1,
+      name: "Hareline",
+      item: "https://hashtracks.xyz/hareline",
+    });
+    expect(result.itemListElement[2].position).toBe(3);
+    expect(result.itemListElement[2].item).toBe("https://hashtracks.xyz/hareline/evt_abc");
   });
 });
 

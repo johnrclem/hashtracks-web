@@ -6,7 +6,7 @@ import { regionBySlug } from "@/lib/region";
 import { buildNextEventMap, serializeKennelWithNext } from "@/lib/kennel-directory";
 import { getActivityStatus } from "@/lib/activity-status";
 import { getTodayUtcNoon } from "@/lib/date";
-import { generateRegionIntro, buildRegionItemListJsonLd, safeJsonLd } from "@/lib/seo";
+import { generateRegionIntro, buildRegionItemListJsonLd, buildBreadcrumbJsonLd, safeJsonLd } from "@/lib/seo";
 import { collectKennelWeekdays, SCHEDULE_RULES_SELECT } from "@/lib/schedule-season";
 import { KennelDirectory } from "@/components/kennels/KennelDirectory";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -156,12 +156,20 @@ export default async function RegionPage({
     kennels.map((k) => ({ slug: k.slug })),
     baseUrl,
   );
+  const breadcrumbJsonLd = buildBreadcrumbJsonLd([
+    { name: "Kennels", url: `${baseUrl}/kennels` },
+    { name: region.name, url: `${baseUrl}/kennels/region/${slug}` },
+  ]);
 
   return (
     <div>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumbJsonLd) }}
       />
 
       <FadeInSection>

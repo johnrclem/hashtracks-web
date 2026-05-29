@@ -47,6 +47,8 @@ export const metadata: Metadata = {
     siteName: "HashTracks",
     title: "HashTracks",
     description: "Discover runs, track attendance, view stats — the hareline you never knew you needed.",
+    url: getCanonicalSiteUrl(),
+    locale: "en_US",
   },
   twitter: {
     card: "summary_large_image",
