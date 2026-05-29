@@ -4654,7 +4654,10 @@ export const SOURCES = [
       url: "https://n2th3.org",
       kennelTag: "n2th3",
       rrule: "FREQ=WEEKLY;BYDAY=WE",
-      startTime: "19:00",
+      // 19:30 per n2th3.org About ("Runs start at 7:30pm"); see #1732 +
+      // prisma/migrations/20260529120000_fix_profile_round_14 which converges the
+      // existing ScheduleRule + future Event rows so events match the 7:30 PM profile.
+      startTime: "19:30",
       defaultTitle: "N2TH3 Weekly Run",
       defaultLocation: "Hong Kong New Territories",
       defaultDescription: "Weekly Wednesday evening trail in Hong Kong's Northern New Territories. Trail location, hare, and on-on details are posted ~1 day before each run at https://n2th3.org/.",
