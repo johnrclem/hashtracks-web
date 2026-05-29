@@ -4250,5 +4250,19 @@ export const KENNELS: KennelSeed[] = [
       description: "Wellington's relaxed-pace Tuesday hash — \"the drinking club with a running problem,\" founded 24 September 1985. Shorter, accessible trails around Wellington and Lower Hutt. Hash cash is $2 (non piss-stop) or $4 (piss-stop) per run; home runs are $15–$20 (cashless, direct credit preferred).",
       latitude: -41.2866, longitude: 174.7756,
     },
+    // First Africa kennel — Nairobi, Kenya. No latitude/longitude: ONH3 runs from a
+    // different venue every week, so the Nairobi region centroid handles map placement.
+    {
+      kennelCode: "onh3", shortName: "ONH3", fullName: "Original Nairobi Hash House Harriers",
+      region: "Nairobi", country: "Kenya",
+      website: "https://onh3.wordpress.com/",
+      facebookUrl: "https://www.facebook.com/groups/onhhh/",
+      logoUrl: "/kennel-logos/onh3.jpg",
+      foundedYear: 2000,
+      scheduleDayOfWeek: "Monday", scheduleTime: "5:45 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Weekly Monday 5:45 PM start (registration from 5:00 PM); occasional weekend specials. Walker-friendly short route (~4 km).",
+      hashCash: "KSh 900",
+      description: "Founded 2000 in Nairobi, Kenya — a weekly Monday evening hash preserving the spirit of the early-1970s Nairobi Hash. Trails 4–8 km, followed by down-downs and a sit-down social dinner. 1,300+ runs since founding (1000th run in 2019), 200+ active members. KSh 900 hash cash includes dinner.",
+    },
   ];
 

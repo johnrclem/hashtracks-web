@@ -5768,5 +5768,40 @@ export const SOURCES = [
       config: { kennelTag: "geriatrix-h3" },
       kennelCodes: ["geriatrix-h3"],
     },
+
+    // ===== AFRICA =====
+    // --- Nairobi, Kenya (first Africa kennel) ---
+    {
+      name: "ONH3 WordPress Trail Posts",
+      url: "https://onh3.wordpress.com/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      // This source carries deep history (per-post archive + the one-shot
+      // scripts/backfill-onh3-history.ts insert). upcomingOnly restricts
+      // reconciliation to future dates so past events are never false-cancelled
+      // when they age off the blog's first page (reconcile.ts timeMin guard).
+      config: { upcomingOnly: true },
+      kennelCodes: ["onh3"],
+    },
+    {
+      // Secondary feed: public "ONH3 Monday Runs, Social Events and Race Calendar".
+      // Filtered to "Run NNN" titles so non-run socials (e.g. resource-centre
+      // visits) don't leak into the hareline; runs are timed (17:45 EAT) so the
+      // adapter's default all-day filter is fine. Complements the WP posts —
+      // merge dedupes by kennel + date.
+      name: "ONH3 Google Calendar",
+      url: "onh3mismanagement@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "every_6h",
+      scrapeDays: 365,
+      config: {
+        kennelPatterns: [[String.raw`Run\s*#?\s*\d{3,4}`, "onh3"]],
+        defaultKennelTag: null,
+      },
+      kennelCodes: ["onh3"],
+    },
   ];
 

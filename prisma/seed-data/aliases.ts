@@ -528,5 +528,7 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "capital-h3-nz": ["Capital H3", "Capital HHH", "Capital Hash", "Wellington Capital H3", "Capital Wellington H3"],
     "mooloo-h3": ["Mooloo H3", "Mooloo HHH", "Mooloo Hash", "Hamilton Mooloo H3", "Waikato Mooloo H3"],
     "geriatrix-h3": ["Geriatrix H3", "Geriatrix HHH", "Port Nicholson Geriatrix", "Port Nicholson H3", "Geriatrix Hash"],
+    // Kenya — first Africa kennel
+    "onh3": ["Original Nairobi", "Original Nairobi H3", "Original Nairobi HHH", "Original Nairobi Hash House Harriers", "ONH3", "Nairobi Original Hash"],
   };
 
