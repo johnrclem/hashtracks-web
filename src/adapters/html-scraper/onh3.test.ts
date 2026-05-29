@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   parseTextDate,
   parseNumericDate,
-  fieldValue,
+  parseLabeledFields,
   parseOnh3Title,
   deriveTheme,
   postToEvent,
@@ -45,22 +45,27 @@ describe("parseNumericDate", () => {
   });
 });
 
-describe("fieldValue", () => {
+describe("parseLabeledFields", () => {
   const body =
     "Run 1326 on Date: 30 March 2026 Hare: Bitchcoin Venue: Spring Valley Oven Restaurant " +
     "Location: https://maps.app.goo.gl/DMF5uSdngCy6XcpV6 The run starts at 5:45pm.";
+  const fields = parseLabeledFields(body);
   it.each([
-    ["Date", "30 March 2026"],
-    ["Hares?", "Bitchcoin"],
-    ["Venue", "Spring Valley Oven Restaurant"],
-  ])("slices the %s value up to the next label", (label, expected) => {
-    expect(fieldValue(body, label)).toBe(expected);
+    ["date", "30 March 2026"],
+    ["hare", "Bitchcoin"], // "Hare"/"Hares" normalize to "hare"
+    ["venue", "Spring Valley Oven Restaurant"],
+  ])("slices the %s value up to the next label", (key, expected) => {
+    expect(fields.get(key)).toBe(expected);
   });
   it("captures the location value (URL + trailing prose) for later URL extraction", () => {
-    expect(fieldValue(body, "Location")).toContain("https://maps.app.goo.gl/DMF5uSdngCy6XcpV6");
+    expect(fields.get("location")).toContain("https://maps.app.goo.gl/DMF5uSdngCy6XcpV6");
   });
   it("returns undefined for an absent label", () => {
-    expect(fieldValue(body, "Cost")).toBeUndefined();
+    expect(fields.get("cost")).toBeUndefined();
+  });
+  it("bounds a trailing field at a newline (recap not swallowed)", () => {
+    const f = parseLabeledFields("Venue: German Point (Runda)\nThe Runda Maffia hosted a birthday hash.");
+    expect(f.get("venue")).toBe("German Point (Runda)");
   });
 });
 

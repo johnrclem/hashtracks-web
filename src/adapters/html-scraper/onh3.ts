@@ -42,7 +42,7 @@ const HARELINE_TITLE_RE = /^\s*hareline\s+\d{4}/i;
 const HASH_TRASH_TITLE_RE = /^\s*(?:past\s+)?hash\s*trash/i;
 const HASH_TRASH_SPLIT_RE = /Hash\s+Trash/i;
 // Boundary scanner for the multi-pass field tokenizer (S5852-safe: no nested quantifiers).
-const FIELD_LABELS_RE = /(?:Date|Hares?|Venue|Location|Time|Run)\s*:/gi;
+const FIELD_LABELS_RE = /(Date|Hares?|Venue|Location|Time|Run)\s*:/gi;
 
 interface WPComPost {
   id: number;
@@ -92,26 +92,29 @@ export function parseNumericDate(value: string): string | undefined {
 }
 
 /**
- * Pull a labeled field's value out of the body by slicing from the label to the
- * next known label OR the next line break, whichever comes first (multi-pass
- * tokenizer — avoids backtracking). The line break matters: ONH3 puts each field
+ * Tokenize every labeled field in one pass with the literal FIELD_LABELS_RE.
+ * Each value runs from its label to the next label OR the next line break,
+ * whichever comes first — the line break matters because ONH3 puts each field
  * in its own block element and appends an unlabeled "Hash Trash" recap, so a
  * trailing field like Venue would otherwise swallow the whole write-up.
+ * Keyed lowercase, with "hares" normalized to "hare". A single literal regex
+ * (no per-label `new RegExp`) avoids Semgrep's non-literal-regexp finding.
  */
-export function fieldValue(text: string, label: string): string | undefined {
-  const labelRe = new RegExp(String.raw`${label}\s*:`, "i");
-  const m = labelRe.exec(text);
-  if (!m) return undefined;
-  const start = m.index + m[0].length;
-  FIELD_LABELS_RE.lastIndex = start;
-  const nextLabel = FIELD_LABELS_RE.exec(text);
-  const nlIdx = text.indexOf("\n", start);
-  const end = Math.min(
-    nextLabel ? nextLabel.index : text.length,
-    nlIdx === -1 ? text.length : nlIdx,
-  );
-  const value = text.slice(start, end).trim();
-  return value.length > 0 ? value : undefined;
+export function parseLabeledFields(text: string): Map<string, string> {
+  const fields = new Map<string, string>();
+  const matches = [...text.matchAll(FIELD_LABELS_RE)];
+  for (let i = 0; i < matches.length; i++) {
+    const m = matches[i];
+    const raw = m[1].toLowerCase();
+    const key = raw === "hares" ? "hare" : raw;
+    const start = (m.index ?? 0) + m[0].length;
+    const nextLabel = i + 1 < matches.length ? matches[i + 1].index ?? text.length : text.length;
+    const nl = text.indexOf("\n", start);
+    const end = Math.min(nextLabel, nl === -1 ? text.length : nl);
+    const value = text.slice(start, end).trim();
+    if (value && !fields.has(key)) fields.set(key, value);
+  }
+  return fields;
 }
 
 export function parseOnh3Title(title: string): { runNumber?: number; theme?: string } {
@@ -171,18 +174,19 @@ function flatten(html: string): string {
 export function postToEvent(post: WPComPost): RawEventData | null {
   // Drop the embedded "Hash Trash" recap of the previous run before parsing.
   const announcement = flatten(post.content.rendered).split(HASH_TRASH_SPLIT_RE)[0];
+  const fields = parseLabeledFields(announcement);
 
-  const dateField = fieldValue(announcement, "Date");
+  const dateField = fields.get("date");
   const date = dateField ? parseTextDate(dateField) ?? parseNumericDate(dateField) : undefined;
   if (!date) return null;
 
   const { runNumber: titleRun, theme } = parseOnh3Title(post.title.rendered);
   // Body fallback uses the shared "#NNN" parser on the "Run:" field ("Run: #1068").
-  const runNumber = titleRun ?? extractHashRunNumber(fieldValue(announcement, "Run"));
+  const runNumber = titleRun ?? extractHashRunNumber(fields.get("run"));
 
-  const hares = stripPlaceholder(fieldValue(announcement, "Hares?"));
-  const venue = cleanVenue(stripPlaceholder(fieldValue(announcement, "Venue")));
-  const locationField = fieldValue(announcement, "Location");
+  const hares = stripPlaceholder(fields.get("hare"));
+  const venue = cleanVenue(stripPlaceholder(fields.get("venue")));
+  const locationField = fields.get("location");
   const urlMatch = locationField ? URL_RE.exec(locationField) : null;
   const locationUrl =
     urlMatch?.[1] ?? (venue ? googleMapsSearchUrl(`${venue} Nairobi Kenya`) : undefined);
