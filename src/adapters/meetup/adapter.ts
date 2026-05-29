@@ -702,6 +702,9 @@ export class MeetupAdapter implements SourceAdapter {
     const compiledPatterns = compileKennelPatterns(config.kennelPatterns);
     let cancelledSkipped = 0;
     let adminNoticeSkipped = 0;
+    // Collect the titles we drop as admin notices so admins can audit
+    // false positives in the scrape diagnostics (#1728).
+    const adminNoticeTitles: string[] = [];
     for (const [i, ev] of allApolloEvents.entries()) {
       try {
         if (!ev.dateTime) continue;
@@ -725,6 +728,7 @@ export class MeetupAdapter implements SourceAdapter {
         // ADMIN_NOTICE_PATTERNS docstring.
         if (ev.title && isAdminNoticeTitle(ev.title)) {
           adminNoticeSkipped++;
+          adminNoticeTitles.push(ev.title);
           continue;
         }
         // Strict-boolean check (CodeRabbit PR #1612 review): the config is
@@ -754,6 +758,7 @@ export class MeetupAdapter implements SourceAdapter {
         eventsAfterDedup: allApolloEvents.length,
         cancelledSkipped,
         adminNoticeSkipped,
+        adminNoticeTitles,
         detailPagesFetched,
         detailPagesEnriched,
       },

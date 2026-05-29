@@ -739,6 +739,37 @@ END:VCALENDAR`;
     expect(result.errors[0]).toContain("not valid ICS");
   });
 
+  it("treats an empty 200 body as empty-success when allowEmptyBody is set (#1753 Iron City)", async () => {
+    // The Events Calendar's ?ical=1 export returns HTTP 200 + 0-byte body when
+    // a kennel has no upcoming events. With allowEmptyBody, that's a clean scrape.
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response("", { status: 200, headers: { "Content-Type": "text/calendar" } }),
+    );
+
+    const source = buildMockSource({
+      config: { defaultKennelTag: "ich3", upcomingOnly: true, allowEmptyBody: true },
+    });
+    const result = await adapter.fetch(source);
+
+    expect(result.errors).toHaveLength(0);
+    expect(result.events).toHaveLength(0);
+    expect(result.diagnosticContext).toBeDefined();
+    expect(result.diagnosticContext!.totalVEvents).toBe(0);
+  });
+
+  it("still rejects an empty body when allowEmptyBody is not set", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response("", { status: 200, headers: { "Content-Type": "text/calendar" } }),
+    );
+
+    const source = buildMockSource({ config: { defaultKennelTag: "ich3" } });
+    const result = await adapter.fetch(source);
+
+    expect(result.events).toHaveLength(0);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain("not valid ICS");
+  });
+
   it("handles BOM prefix in valid ICS", async () => {
     const icsWithBom = "\uFEFF" + SAMPLE_ICS;
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(

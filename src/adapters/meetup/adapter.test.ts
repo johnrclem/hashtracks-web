@@ -422,6 +422,43 @@ describe("MeetupAdapter", () => {
     expect(result.diagnosticContext?.adminNoticeSkipped).toBe(1);
   });
 
+  it("filters Miami's 'LEAVING MEETUP' departure notice and audit-logs it (#1728)", async () => {
+    // Miami H3 posted a dummy event titled "MIAMI HASH HOUSE HARRIERS ARE
+    // LEAVING MEETUP" to announce the platform departure. The new narrow
+    // /\bleaving\s+meetup\b/i pattern drops it; the dropped title is surfaced
+    // in diagnosticContext for admin false-positive review.
+    const html = buildMeetupHtml({
+      "Event:departure": buildApolloEvent({
+        id: "314543422",
+        title: "MIAMI HASH HOUSE HARRIERS ARE LEAVING MEETUP",
+        dateTime: "2026-06-01T18:00:00-04:00",
+        status: "ACTIVE",
+      }),
+      "Event:leavingLasVegas": buildApolloEvent({
+        id: "real-trail",
+        title: "Leaving Las Vegas Trail #42",
+        dateTime: "2026-06-03T18:00:00-04:00",
+        status: "ACTIVE",
+      }),
+      "Venue:123": VENUE_ENTRY,
+    });
+    mockHtmlResponse(html);
+
+    const adapter = new MeetupAdapter();
+    const result = await adapter.fetch(
+      makeSource({ groupUrlname: "miami-hash-house-harriers", kennelTag: "mia-h3" }),
+      { days: 365 },
+    );
+
+    // Departure notice dropped; a bare-"leaving" trail title is kept (narrow pattern).
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].title).toMatch(/Leaving Las Vegas/);
+    expect(result.diagnosticContext?.adminNoticeSkipped).toBe(1);
+    expect(result.diagnosticContext?.adminNoticeTitles).toEqual([
+      "MIAMI HASH HOUSE HARRIERS ARE LEAVING MEETUP",
+    ]);
+  });
+
   it("parses events and assigns kennelTag", async () => {
     const html = buildMeetupHtml({
       "Event:1": buildApolloEvent(),

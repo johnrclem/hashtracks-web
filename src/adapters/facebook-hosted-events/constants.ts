@@ -109,6 +109,7 @@ export const ADMIN_NOTICE_PATTERNS = [
   /\bmoving\s+to\s+(?:a\s+)?new\s+(?:website|site|home|platform)\b/i,
   /\blast\s+day\s+(?:in|on|at)\b/i,
   /\bnew\s+website\b/i,
+  /\bleaving\s+meetup\b/i, // #1728: "MIAMI HASH HOUSE HARRIERS ARE LEAVING MEETUP" — platform-departure dummy event. Narrow: bare "leaving" alone is fine ("Leaving Las Vegas Trail").
   /\bfarewell\b/i,
   /\bRIP\b/, // case-sensitive — "rip" lowercase appears in real trail descriptions
   /\bgoodbye\b/i,

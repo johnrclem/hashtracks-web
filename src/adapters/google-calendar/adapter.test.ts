@@ -600,6 +600,37 @@ describe("synthetic test / admin-internal title filter (#1632)", () => {
     );
     expect(result).not.toBeNull();
   });
+
+  // #1736 — two leaks a post-merge re-scrape recreated that the original
+  // exact-equality check missed: a multi-field admin blob pasted into the
+  // SUMMARY (only the `trailtestevent` stem leads), and an empty-SUMMARY
+  // row that fell back to the literal kennelTag `mh3-mn`.
+  it.each([
+    "Trail # Test Event Hare: L4 Location: 123Fake St, Saint Paul, MN 55555",
+    "mh3-mn",
+  ])("drops re-scrape leak missed by exact-equality (#1736): %s", (summary) => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary, location: "123Fake St, Saint Paul, MN 55555" }),
+      { defaultKennelTag: "mh3-mn" },
+    );
+    expect(result).toBeNull();
+  });
+
+  it.each([
+    // Real MH3-MN trails must survive. `mh3-mn` is matched EXACTLY, not as
+    // a prefix, so a kennel-prefixed theme title normalizes to
+    // `mh3-mnreddress` and must NOT be dropped (Codex review false-positive
+    // guard) — only the bare kennelTag-fallback `mh3-mn` is an artifact.
+    "Frostbite Trail #500",
+    "Saint Paul Winter Hash",
+    "MH3-MN Red Dress Run",
+  ])("preserves legitimate MH3-MN trail title (#1736): %s", (summary) => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary, location: "Memorial Park" }),
+      { defaultKennelTag: "mh3-mn" },
+    );
+    expect(result).not.toBeNull();
+  });
 });
 
 // #1691 — Flour City May 28: source admin pasted the kennel's URL slug

@@ -1251,6 +1251,12 @@ export const SOURCES = [
         // the ±1500d window — flipping every backfilled past row to
         // CANCELLED on the next successful cron tick.
         upcomingOnly: true,
+        // allowEmptyBody:true — the WP plugin returns HTTP 200 + 0-byte body
+        // when there are no upcoming events (#1753). Treat that as an
+        // empty-success rather than 3 consecutive "not valid ICS" failures.
+        // Safe because upcomingOnly:true stops reconcile from cancelling the
+        // backfilled past events on an empty scrape.
+        allowEmptyBody: true,
       },
       kennelCodes: ["ich3"],
     },
@@ -3651,6 +3657,13 @@ export const SOURCES = [
       config: {
         calendarId: "morgantownh3@gmail.com",
         defaultKennelTag: "mh3-wv",
+        // #1735: the GCal source re-emits a verbatim "MH3:" title prefix on a
+        // subset of events (the kennel stripped it at source from 2026-04-15
+        // onward but left older entries prefixed). Strip at parse-time so the
+        // one-shot cleanup (scripts/cleanup-morgantown-mh3-prefix.ts) isn't
+        // re-leaked on the next scrape. Harrier Central source ships clean
+        // titles, so this is GCal-only.
+        titleStripPatterns: [String.raw`^MH3:\s*`],
       },
       kennelCodes: ["mh3-wv"],
     },
