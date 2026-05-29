@@ -1113,6 +1113,27 @@ export const KENNELS: KennelSeed[] = [
       description: "Stuttgart special occasions hash.",
       latitude: 48.78, longitude: 9.18,
     },
+    // ===== SWITZERLAND =====
+    {
+      kennelCode: "zh3", shortName: "ZH3", fullName: "Zurich Hash House Harriers",
+      region: "Zürich", country: "Switzerland",
+      website: "https://zh3.ch",
+      contactEmail: "zurichh3@gmail.com",
+      logoUrl: "/kennel-logos/zh3.png",
+      foundedYear: 1990,
+      hashCash: "CHF 5 (run & circle; special events priced separately)",
+      // Legacy flat fields kept for fallback only — scheduleRules below are
+      // authoritative for display + Travel Mode (matches lbh3, PR #1684).
+      scheduleDayOfWeek: "Thursday", scheduleTime: "7:00 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Every Thursday 7 PM, plus 1st Saturday 2 PM and 3rd Sunday monthly. Location each week via Meetup.",
+      scheduleRules: [
+        { rrule: "FREQ=WEEKLY;BYDAY=TH", startTime: "19:00", label: "Weekly Thursday", displayOrder: 0 },
+        { rrule: "FREQ=MONTHLY;BYDAY=1SA", startTime: "14:00", label: "1st Saturday", displayOrder: 1 },
+        { rrule: "FREQ=MONTHLY;BYDAY=3SU", label: "3rd Sunday", displayOrder: 2 },
+      ],
+      description: "Zürich's English-speaking hash — 'a drinking club with a running problem.' Reformed in 1990, ZH3 lays a new flour trail around Zürich every Thursday evening, plus the first Saturday and third Sunday of each month, finishing with a beer circle. Walkers and runners of all abilities welcome; ~4–7 km trails.",
+      latitude: 47.37, longitude: 8.54,
+    },
     // ===== PENNSYLVANIA (outside Philly) =====
     // --- Pittsburgh ---
     {

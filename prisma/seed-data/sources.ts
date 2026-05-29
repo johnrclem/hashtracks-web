@@ -3509,6 +3509,22 @@ export const SOURCES = [
       kennelCodes: ["bruh3"],
     },
 
+    // ===== SWITZERLAND =====
+    {
+      name: "Zurich H3 Meetup",
+      url: "https://www.meetup.com/the-zurich-hash-house-harriers/",
+      type: "MEETUP" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        groupUrlname: "the-zurich-hash-house-harriers",
+        kennelTag: "zh3",
+        extractRunNumber: true, // titles are "ZH3 Hash # 1731: <theme>"
+      },
+      kennelCodes: ["zh3"],
+    },
+
     // ===== NETHERLANDS =====
     {
       name: "Amsterdam H3 Website",
