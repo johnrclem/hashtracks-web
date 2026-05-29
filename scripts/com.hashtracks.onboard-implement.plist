@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  launchd job: run the kennel onboarding auto-implementer every day at 07:00 local.
+
+  PARKED — current default workflow is manual paste via scripts/copy-newest-handoff.sh.
+  This launchd job is kept as a fallback.
+
+  Install:
+    1. Edit the path below if your repo isn't at ~/Developer/hashtracks-web.
+    2. cp scripts/com.hashtracks.onboard-implement.plist ~/Library/LaunchAgents/
+    3. launchctl load -w ~/Library/LaunchAgents/com.hashtracks.onboard-implement.plist
+  Disable:  launchctl unload -w ~/Library/LaunchAgents/com.hashtracks.onboard-implement.plist
+  Run now:  launchctl start com.hashtracks.onboard-implement
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.hashtracks.onboard-implement</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>-lc</string>
+        <string>$HOME/Developer/hashtracks-web/scripts/onboard-implement.sh</string>
+    </array>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key><integer>7</integer>
+        <key>Minute</key><integer>0</integer>
+    </dict>
+
+    <!-- If the Mac is asleep at 7:00, run as soon as it wakes. -->
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/hashtracks-onboard-implement.out</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/hashtracks-onboard-implement.err</string>
+</dict>
+</plist>
