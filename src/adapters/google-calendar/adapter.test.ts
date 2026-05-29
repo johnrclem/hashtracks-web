@@ -631,6 +631,27 @@ describe("synthetic test / admin-internal title filter (#1632)", () => {
     );
     expect(result).not.toBeNull();
   });
+
+  // #1736 follow-up — the merged fix only checked the raw SUMMARY, but the
+  // artifact re-leaked post-merge from a different shape: MH3-MN's calendar
+  // had a malformed row with the whole HTML blob pasted into the SUMMARY
+  // (so summary !== "mh3-mn"), which the adapter reduced to the bare
+  // kennel-tag fallback "mh3-mn" only as the RESOLVED title. The drop must
+  // therefore evaluate the resolved title, not just the summary.
+  it("drops blob-summary row that resolves to the bare kennel-tag title", () => {
+    const blob =
+      'Minneapolis Hash House HarriersHare: Pop that Snatch<br>Location Crystal Beach: ' +
+      '1101 Crystal Lake Rd E, Burnsville, MN 55306<br>Hash Cash: $6<br>Zelle: ' +
+      '<a href="mailto:minneapolishash@gmail.com"><u>minneapolishash@gmail.com</u></a> T15:';
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: blob }),
+      {
+        kennelPatterns: [["\\bT3H3\\b|Twin Titties", "t3h3"], ["\\bMH3\\b", "mh3-mn"]],
+        defaultKennelTag: "mh3-mn",
+      },
+    );
+    expect(result).toBeNull();
+  });
 });
 
 // #1691 — Flour City May 28: source admin pasted the kennel's URL slug

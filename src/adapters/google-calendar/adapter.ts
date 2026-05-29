@@ -1520,7 +1520,17 @@ export function buildRawEventFromGCalItem(
   // #1632 — synthetic test / admin-internal titles. Unconditional drop:
   // unlike the sport / medical filters there is no plausible real hash
   // event whose summary is exactly "Trail # Test Event" or "PC Meeting".
-  if (isTestArtifactTitle(summary)) {
+  //
+  // Check BOTH the raw `summary` AND the fully-resolved `title`. The
+  // #1736 widening only tested `summary`, but the MH3-MN artifact re-leaked
+  // post-merge: a malformed calendar row pastes an HTML blob into the
+  // SUMMARY, so the summary never equals "mh3-mn" — the bare kennel-tag
+  // only emerges as the resolved `title` after the fallback path runs.
+  // Evaluating the resolved title closes that gap. Safe against false
+  // positives: TEST_ARTIFACT_TITLE_EXACT holds the bare tag exactly, so a
+  // real "MH3-MN Red Dress Run" (normalizes to "mh3-mnreddressrun") is
+  // untouched.
+  if (isTestArtifactTitle(summary) || isTestArtifactTitle(title)) {
     return null;
   }
 
