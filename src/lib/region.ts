@@ -1731,6 +1731,30 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: 4.35,
     aliases: ["Brussels, Belgium", "Bruxelles"],
   },
+  // ── Switzerland ──
+  {
+    name: "Switzerland",
+    country: "Switzerland",
+    level: "COUNTRY",
+    timezone: "Europe/Zurich",
+    abbrev: "CH",
+    colorClasses: "bg-red-200 text-red-800",
+    pinColor: "#dc2626",
+    centroidLat: 46.8,
+    centroidLng: 8.23,
+    aliases: ["CH", "Schweiz", "Suisse", "Svizzera"],
+  },
+  {
+    name: "Zürich",
+    country: "Switzerland",
+    timezone: "Europe/Zurich",
+    abbrev: "ZRH",
+    colorClasses: "bg-red-100 text-red-700",
+    pinColor: "#ef4444",
+    centroidLat: 47.37,
+    centroidLng: 8.54,
+    aliases: ["Zurich", "Zürich, Switzerland"],
+  },
   // ── Louisiana ──
   {
     name: "Louisiana",
@@ -3071,6 +3095,7 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   [/\b(germany|berlin|munich|münchen|muenchen|hamburg|stuttgart|frankfurt)\b/, "Germany"],
   [/\b(japan|tokyo|osaka)\b/, "Japan"],
   [/\b(belgium|brussels|bruxelles|antwerp|ghent)\b/, "Belgium"],
+  [/\b(switzerland|schweiz|suisse|svizzera|zurich|zürich|geneva|bern|basel)\b/, "Switzerland"],
   [/\b(netherlands|amsterdam|rotterdam|den haag|the hague|holland)\b/, "Netherlands"],
   [/\b(denmark|copenhagen|københavn|aarhus)\b/, "Denmark"],
   [/\b(sweden|stockholm|göteborg|gothenburg|malmö)\b/, "Sweden"],
@@ -3313,6 +3338,8 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Stockholm": "Sweden",
   // Norway
   "Oslo": "Norway",
+  // Switzerland
+  "Zürich": "Switzerland",
   // Malaysia — Kuala Lumpur is a Federal Territory (state-equivalent),
   // NOT part of Selangor. Penang Island is a metro under Penang state.
   "Kuala Lumpur, MY": "Kuala Lumpur, MY",
@@ -3463,6 +3490,7 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   "Denmark": "Denmark",
   "Sweden": "Sweden",
   "Norway": "Norway",
+  "Switzerland": "Switzerland",
   "Singapore": "Singapore",
   "Thailand": "Thailand",
   "Bangkok": "Thailand",
@@ -3557,6 +3585,7 @@ const COUNTRY_CODE_TO_NAME: Record<string, string> = {
   DK: "Denmark",
   SE: "Sweden",
   NO: "Norway",
+  CH: "Switzerland",
   AU: "Australia",
   CA: "Canada",
   SG: "Singapore",
