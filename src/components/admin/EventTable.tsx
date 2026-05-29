@@ -670,7 +670,10 @@ export function EventTable({
                               Remove from series
                             </DropdownMenuItem>
                           ) : (
-                            <DropdownMenuItem onSelect={() => setSeriesLinkEvent(event)}>
+                            <DropdownMenuItem
+                              onSelect={() => setSeriesLinkEvent(event)}
+                              disabled={event.isSeriesParent}
+                            >
                               <Layers className="mr-2 h-3.5 w-3.5" />
                               Add to multi-day series…
                             </DropdownMenuItem>

@@ -76,6 +76,7 @@ export function SeriesLinkDialog({
     const q = query.trim();
     if (q.length < 2) {
       setResults([]);
+      setSearching(false);
       return;
     }
     let cancelled = false;
