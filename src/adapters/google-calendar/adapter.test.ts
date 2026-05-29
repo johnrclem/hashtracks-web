@@ -631,6 +631,41 @@ describe("synthetic test / admin-internal title filter (#1632)", () => {
     );
     expect(result).not.toBeNull();
   });
+
+  // #1736 follow-up — the merged fix only checked the raw SUMMARY, but the
+  // artifact re-leaked post-merge from a different shape: MH3-MN's calendar
+  // had a malformed row with the whole HTML blob pasted into the SUMMARY
+  // (so summary !== "mh3-mn"), which the adapter reduced to the bare
+  // kennel-tag fallback "mh3-mn" only as the RESOLVED title. The follow-up
+  // also evaluates the resolved title — but gated on "no structured field"
+  // so legitimate address-only rows (below) survive.
+  const MH3MN_CFG = {
+    kennelPatterns: [[String.raw`\bT3H3\b|Twin Titties`, "t3h3"], [String.raw`\bMH3\b`, "mh3-mn"]] as [string, string][],
+    defaultKennelTag: "mh3-mn",
+  };
+
+  it("drops blob-summary row that resolves to the bare kennel-tag title", () => {
+    const blob =
+      'Minneapolis Hash House HarriersHare: Pop that Snatch<br>Location Crystal Beach: ' +
+      '1101 Crystal Lake Rd E, Burnsville, MN 55306<br>Hash Cash: $6<br>Zelle: ' +
+      '<a href="mailto:minneapolishash@gmail.com"><u>minneapolishash@gmail.com</u></a> T15:';
+    const result = buildRawEventFromGCalItem(testGCalEvent({ summary: blob }), MH3MN_CFG);
+    expect(result).toBeNull();
+  });
+
+  // Codex review #1788 (comment 3324401046) — false-positive guard. A
+  // legitimate address-only summary ALSO resolves title → kennel-tag (via
+  // ADDRESS_AS_TITLE_RE), but preserves the address as `location`. Gating the
+  // resolved-title drop on `hasStructuredField` must keep these real events.
+  it("keeps address-only row that resolves to the kennel-tag but has a location", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "123 Main Rd, Springfield, MN 55555" }),
+      MH3MN_CFG,
+    );
+    expect(result).not.toBeNull();
+    expect(result?.title).toBe("mh3-mn");
+    expect(result?.location).toBe("123 Main Rd, Springfield, MN 55555");
+  });
 });
 
 // #1691 — Flour City May 28: source admin pasted the kennel's URL slug

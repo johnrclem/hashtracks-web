@@ -1520,6 +1520,8 @@ export function buildRawEventFromGCalItem(
   // #1632 — synthetic test / admin-internal titles. Unconditional drop:
   // unlike the sport / medical filters there is no plausible real hash
   // event whose summary is exactly "Trail # Test Event" or "PC Meeting".
+  // (A second, signal-gated pass below also catches the case where the
+  // artifact only surfaces on the RESOLVED title — see the #1736 follow-up.)
   if (isTestArtifactTitle(summary)) {
     return null;
   }
@@ -1568,6 +1570,18 @@ export function buildRawEventFromGCalItem(
     !hasStructuredField &&
     (isUltraShort || PERSONAL_TITLE_PATTERNS.some((re) => re.test(summary)))
   ) {
+    return null;
+  }
+
+  // #1736 follow-up (PR #1788) — the summary-only artifact check above misses
+  // a row whose SUMMARY defies parsing and collapses to the bare kennel-tag
+  // only as the RESOLVED title (MH3-MN's HTML-blob row: the `<mailto:…>`
+  // fragment trips EMAIL_IN_TITLE_RE → `title = kennelTag`). Drop it — but
+  // ONLY when no structured field survived. A legitimate address-only summary
+  // ALSO resolves title → kennelTag (ADDRESS_AS_TITLE_RE) yet preserves the
+  // address as `location`, so gating on `hasStructuredField` keeps those real
+  // events (Codex review #1788, comment 3324401046).
+  if (!hasStructuredField && isTestArtifactTitle(title)) {
     return null;
   }
 
