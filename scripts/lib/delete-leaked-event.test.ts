@@ -93,10 +93,15 @@ describe("deleteLeakedEvent safety invariant", () => {
   });
 
   it("takes a FOR UPDATE row lock before deleting any relation", async () => {
-    const { prisma, queryRaw } = buildPrisma({});
+    const { prisma, queryRaw, tx } = buildPrisma({});
     await deleteLeakedEvent(prisma, "evt_1", ["rawEvents"]);
     const sql = String(queryRaw.mock.calls[0][0]);
     expect(sql).toContain("FOR UPDATE");
+    // The lock must be acquired BEFORE any relation delete or the TOCTOU
+    // guarantee is void — assert ordering, not just that the lock ran.
+    expect(queryRaw.mock.invocationCallOrder[0]).toBeLessThan(
+      tx.rawEvent.deleteMany.mock.invocationCallOrder[0],
+    );
   });
 
   it("short-circuits without deleting when the Event vanished before the lock", async () => {

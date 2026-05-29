@@ -61,7 +61,10 @@ async function verifyNoOrphans(deletedIds: string[]): Promise<void> {
     console.log(`Verified: all ${deletedIds.length} Event(s) gone, no dangling RawEvents.`);
     return;
   }
+  // Fail loud: a destructive run that left orphans behind must surface a
+  // non-zero exit code so an operator/pipeline doesn't read success.
   console.warn(`WARNING: ${stillPresent} Event(s) still present, ${danglingRaw} dangling RawEvent(s) remain.`);
+  process.exitCode = 1;
 }
 
 async function main() {

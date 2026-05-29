@@ -61,7 +61,7 @@ const SUSPECT_TITLE_EXACT = new Set([
 
 function isSuspectTitle(title: string | null): boolean {
   if (!title) return false;
-  const normalized = title.toLowerCase().replaceAll(/[\s#]+/g, "");
+  const normalized = normalizeForMatch(title);
   if (SUSPECT_TITLE_EXACT.has(normalized)) return true;
   for (const prefix of SUSPECT_TITLE_PREFIXES) {
     if (normalized.startsWith(prefix)) return true;
@@ -69,10 +69,15 @@ function isSuspectTitle(title: string | null): boolean {
   return false;
 }
 
-// Location matched case-insensitive substring — both "123 Fake St" and
-// the no-space "123Fake St" variant the re-leak used appear only on the
-// synthetic test entry, so this is safe.
-const LOCATION_SUBSTRING = "123fake st";
+// Location matched as a substring AFTER the same whitespace+`#` normalize
+// the titles use, so both "123 Fake St" and the no-space "123Fake St"
+// variant the re-leak used collapse to the same key. Both appear only on
+// the synthetic test entry, so this is safe.
+const LOCATION_SUBSTRING = "123fakest";
+
+function normalizeForMatch(value: string): string {
+  return value.toLowerCase().replaceAll(/[\s#]+/g, "");
+}
 
 async function verifyNoOrphans(deletedIds: string[]): Promise<void> {
   if (deletedIds.length === 0) return;
@@ -82,9 +87,12 @@ async function verifyNoOrphans(deletedIds: string[]): Promise<void> {
     console.log(`Verified: all ${deletedIds.length} Event(s) gone, no dangling RawEvents.`);
     return;
   }
+  // Fail loud: a destructive run that left orphans behind must surface a
+  // non-zero exit code so an operator/pipeline doesn't read success.
   console.warn(
     `WARNING: ${stillPresent} Event(s) still present, ${danglingRaw} dangling RawEvent(s) remain.`,
   );
+  process.exitCode = 1;
 }
 
 async function main() {
@@ -115,7 +123,7 @@ async function main() {
 
   const matched = candidates.filter((e) => {
     const titleHit = isSuspectTitle(e.title);
-    const locationHit = !!e.locationName && e.locationName.toLowerCase().includes(LOCATION_SUBSTRING);
+    const locationHit = !!e.locationName && normalizeForMatch(e.locationName).includes(LOCATION_SUBSTRING);
     return titleHit || locationHit;
   });
 
