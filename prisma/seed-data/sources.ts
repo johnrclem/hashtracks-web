@@ -1071,8 +1071,13 @@ export const SOURCES = [
       type: "HTML_SCRAPER" as const,
       trustLevel: 7,
       scrapeFreq: "daily",
-      scrapeDays: 90,
-      // Adapter scrapes only the current + next month's calendar pages — past
+      // Wide forward window: the DFW kennels publish biweekly runs ~7 months
+      // ahead, but a 90-day window dropped everything past ~3 months (#1767).
+      // The adapter sizes its monthly-page fan-out from this value (capped at
+      // ~13 months). Past months are never refetched and `upcomingOnly` keeps
+      // the reconciler from cancelling historical events on month rollover.
+      scrapeDays: 365,
+      // Adapter scrapes a forward window of monthly calendar pages — past
       // months are not refetched, so a previously-visible event is "missing"
       // on the next month rollover. Reconciler must skip past events. (#1263)
       config: { upcomingOnly: true },
@@ -3605,6 +3610,28 @@ export const SOURCES = [
         calendarId: "nolahash@gmail.com",
         defaultKennelTag: "noh3",
         includeAllDayEvents: true,
+        // NOH3 publishes all-day rows with "6pm show, 6:30pm go" in the body;
+        // the "go" time is the start (#1775). Scoped per-source — the show/go
+        // convention is NOH3-specific.
+        goTimeWins: true,
+        // NOH3 names hares in description prose, not a "Hares:" label (#1774).
+        // Scoped here (not GCal-wide) to avoid false positives across the ~200
+        // other calendars. The four prose shapes: "Join X as we…", "X are
+        // leading", "X are your trusty hares", "X are taking us…".
+        //
+        // The name capture uses an explicit char class (letters/digits/space/
+        // comma/apostrophe/ampersand) that EXCLUDES hyphens and `#`. NOH3 often
+        // prefixes the hare line with "💦Monday, June 8- Hash #1961- " — the
+        // hyphens and `#` in that prefix break the character run, so the only
+        // capture that reaches the verb starts at the actual names. This also
+        // keeps the patterns ReDoS-safe (safe-regex2) — no overlapping
+        // unbounded quantifiers.
+        harePatterns: [
+          String.raw`Join\s+([A-Za-z0-9][A-Za-z0-9 ,'’&]+?)\s+as\s+(?:we|you)\b`,
+          String.raw`([A-Za-z0-9][A-Za-z0-9 ,'’&]+?)\s+are\s+leading\b`,
+          String.raw`([A-Za-z0-9][A-Za-z0-9 ,'’&]+?)\s+are\s+(?:your |the |trusty )*hares\b`,
+          String.raw`([A-Za-z0-9][A-Za-z0-9 ,'’&]+?)\s+are\s+taking\s+us\b`,
+        ],
       },
       kennelCodes: ["noh3"],
     },

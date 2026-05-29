@@ -2417,6 +2417,104 @@ describe("extractTimeFromDescription", () => {
   it("extracts Start: time", () => {
     expect(extractTimeFromDescription("Start: 3:00 PM")).toBe("15:00");
   });
+
+  // #1775 — NOH3 "go" time (goTimeWins): the start is the "go" time, not the
+  // "show" time, and the Start: label often carries no concrete location.
+  // "go" must be terminal (punctuation or end-of-string) so prose like
+  // "8pm go home" doesn't set a wrong start time (CodeRabbit review).
+  it.each([
+    ["Start @ TBA. 6pm show, 6:30pm go. $8 hash cash.", "18:30"],
+    ["Start @ The Mint, 6pm show, 6:30pm go. $8 hash cash", "18:30"],
+    ["6pm show, 7pm go", "19:00"], // bare-hour go, end of string
+    ["Doors at 5:30pm, 6:00pm go", "18:00"],
+    ["6pm show, 6:30pm go!", "18:30"], // exclamation punctuation
+    ["6pm show, 6:30pm go,", "18:30"], // comma punctuation
+  ])("promotes the go time from %j when goTimeWins", (desc, expected) => {
+    expect(extractTimeFromDescription(desc, true)).toBe(expected);
+  });
+
+  it.each([
+    "8pm go home whenever",
+    "5pm go-kart social",
+    "We go at 6:30pm.",
+  ])("does not treat %j as a go time", (desc) => {
+    expect(extractTimeFromDescription(desc, true)).toBeUndefined();
+  });
+
+  it("ignores the go time when goTimeWins is off (default, ~200 calendars)", () => {
+    // Other calendars keep label-only behavior: a "<time> go" prose phrase must
+    // not be promoted to the start time.
+    expect(extractTimeFromDescription("6pm show, 6:30pm go")).toBeUndefined();
+    // The same string DOES yield the go time once goTimeWins is enabled (NOH3).
+    expect(extractTimeFromDescription("6pm show, 6:30pm go", true)).toBe("18:30");
+    // A line-start label still wins and the trailing "go" prose is ignored.
+    expect(extractTimeFromDescription("Start: 6:30 PM\n8pm go home whenever")).toBe("18:30");
+  });
+});
+
+// ── NOH3 hares from description prose (#1774) — scoped seed config patterns ──
+
+describe("NOH3 Google Calendar — hares from description prose (#1774)", () => {
+  const noh3Source = SOURCES.find((s) => s.name === "NOH3 Google Calendar");
+  if (!noh3Source?.config) throw new Error("NOH3 Google Calendar seed config missing");
+  const config = noh3Source.config as { harePatterns?: string[] };
+  if (!config.harePatterns?.length) throw new Error("NOH3 harePatterns seed config missing");
+  const compiledHarePatterns = compilePatterns(config.harePatterns);
+
+  it.each([
+    [
+      "Join Cavity Search, Yank My Doodle and Lefty Loosey as we cheers to the start of Hurricane Season at The Mint.",
+      "Cavity Search, Yank My Doodle and Lefty Loosey",
+    ],
+    [
+      "Spit in My Face, I'd Pork Her and Penis Colada are leading this one.",
+      "Spit in My Face, I'd Pork Her and Penis Colada",
+    ],
+    // Real NOH3 rows repeat a "💦Monday, June 8- Hash #1961- " prefix on the
+    // hare line; the capture must skip it (hyphens/# break the char run).
+    [
+      "💦Monday, June 8- Hash #1961- Spit in My Face, I'd Pork Her and Penis Colada are leading this one. Start @ TBA. 6pm show, 6:30pm go. $8 hash cash.",
+      "Spit in My Face, I'd Pork Her and Penis Colada",
+    ],
+    [
+      "🍆Monday, June 22- Hash #1963- CUM, CumMuter and Shitty Titties are taking us on an adventure. $8 hash cash.",
+      "CUM, CumMuter and Shitty Titties",
+    ],
+    [
+      "Cops Wives Matter, Daddy's Dick and Alittle 4Clitful are your trusty hares for this one.",
+      "Cops Wives Matter, Daddy's Dick and Alittle 4Clitful",
+    ],
+    [
+      "CUM, CumMuter and Shitty Titties are taking us on an adventure.",
+      "CUM, CumMuter and Shitty Titties",
+    ],
+  ])("promotes hares from %j", (description, expected) => {
+    const result = buildRawEventFromGCalItem(
+      {
+        summary: "Hash #1963",
+        description,
+        start: { dateTime: "2026-06-22T18:30:00-05:00" },
+        status: "confirmed",
+      },
+      config,
+      { compiledHarePatterns },
+    );
+    expect(result?.hares).toBe(expected);
+  });
+
+  it("does not invent hares from generic prose", () => {
+    const result = buildRawEventFromGCalItem(
+      {
+        summary: "Hash #1964",
+        description: "Bring flashlights and bug spray. The trail is mostly pavement.",
+        start: { dateTime: "2026-07-06T18:30:00-05:00" },
+        status: "confirmed",
+      },
+      config,
+      { compiledHarePatterns },
+    );
+    expect(result?.hares).toBeUndefined();
+  });
 });
 
 // ── extractTitleFromDescription — updated label filtering ──

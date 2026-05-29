@@ -6,6 +6,7 @@ import {
   extractDFWEvents,
   extractDetailPageDate,
   parseDFWDetailPage,
+  computeForwardMonths,
   DFWHashAdapter,
 } from "./dfw-hash";
 
@@ -369,6 +370,7 @@ describe("parseDFWDetailPage", () => {
     const $ = cheerio.load(html);
     const detail = parseDFWDetailPage($);
 
+    expect(detail.title).toBe("NODUH Hash");
     expect(detail.startTime).toBe("19:00");
     expect(detail.location).toBe("Sam Houston Trail Park, Irving");
     expect(detail.hares).toBe("Casting Cooch");
@@ -413,8 +415,129 @@ describe("parseDFWDetailPage", () => {
     `;
     const $ = cheerio.load(html);
     const detail = parseDFWDetailPage($);
+    expect(detail.title).toBe("Dallas Urban Hash");
     expect(detail.date).toBe("2026-04-22");
     expect(detail.runNumber).toBe(849);
+  });
+});
+
+describe("parseDFWDetailPage — title / linebreaks / dog policy", () => {
+  // #1768 — the event-name <h1> becomes the title (replacing the synthesized
+  // "NODUHHH Trail #N" default), but a venue <h1> must NOT — including a
+  // city-named venue ("Dallas Arboretum") that contains a kennel-region word
+  // but no hash signal (Codex review).
+  it.each([
+    "Twin Peaks",
+    "Dallas Arboretum",
+    "Fort Worth Botanic Garden",
+  ])("does not use a venue <h1> (%j) as the title (#1768)", (venue) => {
+    const $ = cheerio.load(`
+      <html><body>
+        <h1>${venue}</h1>
+        <h3>Hash Run No 250</h3>
+        <h5><em>Start address:</em> 5260 belt line Dallas 75254</h5>
+      </body></html>
+    `);
+    expect(parseDFWDetailPage($).title).toBeUndefined();
+  });
+
+  // #1768 — event-name headings (incl. the compound "YAKH3") are accepted.
+  it.each([
+    ["NODUH Hash", "NODUH Hash"],
+    ["Dallas Urban Hash", "Dallas Urban Hash"],
+    ["YAKH3", "YAKH3"],
+  ])("uses the event-name <h1> (%j) as the title (#1768)", (h1, expected) => {
+    const $ = cheerio.load(`
+      <html><body>
+        <h1>${h1}</h1>
+        <h3>Hash Run No 250</h3>
+      </body></html>
+    `);
+    expect(parseDFWDetailPage($).title).toBe(expected);
+  });
+
+  // #1769 — multi-line descriptions must read with spaces, not ", , " comma
+  // artifacts injected by the shared address separator.
+  it("joins description line breaks with spaces, not commas (#1769)", () => {
+    const $ = cheerio.load(`
+      <html><body>
+        <h3>Hash Run No 344</h3>
+        <h5><em>Description:</em> It's mostly pavement. Like a DUH with more scenery.<br/><br/>Bring flashlights or headlamps and bug spray.<br/><br/>A to A. 3.5 to 4 mile trail</h5>
+      </body></html>
+    `);
+    const detail = parseDFWDetailPage($);
+    expect(detail.description).toBe(
+      "It's mostly pavement. Like a DUH with more scenery. Bring flashlights or headlamps and bug spray. A to A. 3.5 to 4 mile trail",
+    );
+    expect(detail.description).not.toContain(", ,");
+  });
+
+  // #1769 — a stray space-before-comma in a multi-line address is cleaned
+  // without collapsing the legitimate address fields.
+  it("drops stray space-before-comma in location (#1769)", () => {
+    const $ = cheerio.load(`
+      <html><body>
+        <h3>Hash Run No 343</h3>
+        <h5><em>Start address:</em> Target parking lot off McDermott and 75 (southwest corner) A to A trail <br/><br/>(The parking lot between Target and Chili's is massive)</h5>
+      </body></html>
+    `);
+    const detail = parseDFWDetailPage($);
+    expect(detail.location).not.toContain(" ,");
+    expect(detail.location).toContain("A to A trail, (The parking lot");
+  });
+
+  // #1770 — TURDs? (Dogs) → structured dogFriendly. Affirmatives → true,
+  // explicit negatives → false, and ambiguous/placeholder values must NOT fail
+  // open to true (they leave the field unset).
+  it.each([
+    ["Yes", true],
+    ["OK on a leash - for their own safety", true],
+    ["No", false],
+    ["No dogs", false],
+    ["No dogs, even on leash", false], // negative wins over the leash mention
+    ["Not allowed", false],
+    ["No dogs allowed", false],
+    ["Nope", undefined], // ambiguous → null → unset, not true
+    ["Service dogs only", undefined],
+    ["Nothing yet", undefined], // placeholder filtered by the value guard
+  ])("maps TURDs? (Dogs): %j → dogFriendly %s (#1770)", (value, expected) => {
+    const $ = cheerio.load(`
+      <html><body>
+        <h3>Hash Run No 344</h3>
+        <h5><em>TURDs? (Dogs):</em> ${value}</h5>
+      </body></html>
+    `);
+    const detail = parseDFWDetailPage($);
+    expect(detail.dogFriendly).toBe(expected);
+  });
+});
+
+describe("computeForwardMonths (#1767 source-window gap)", () => {
+  const now = new Date(Date.UTC(2026, 4, 15)); // May 2026 (month index 4)
+
+  it("covers current + next month at minimum (small window)", () => {
+    const months = computeForwardMonths(now, 30);
+    expect(months).toEqual([
+      { year: 2026, month: 4 },
+      { year: 2026, month: 5 },
+    ]);
+  });
+
+  it("spans the full year window out to December for a 365-day window (#1767)", () => {
+    const months = computeForwardMonths(now, 365);
+    // May 2026 → covers June..December and into next year, capped at 13 months.
+    expect(months.length).toBe(13);
+    expect(months[0]).toEqual({ year: 2026, month: 4 }); // May
+    expect(months).toContainEqual({ year: 2026, month: 11 }); // December 2026
+    // Year rollover handled.
+    expect(months).toContainEqual({ year: 2027, month: 4 }); // May 2027
+  });
+
+  it("handles year rollover when starting in December", () => {
+    const dec = new Date(Date.UTC(2026, 11, 10));
+    const months = computeForwardMonths(dec, 90);
+    expect(months[0]).toEqual({ year: 2026, month: 11 });
+    expect(months).toContainEqual({ year: 2027, month: 0 }); // January 2027
   });
 });
 
@@ -638,35 +761,35 @@ describe("DFWHashAdapter.fetch", () => {
     vi.restoreAllMocks();
   });
 
-  it("fetches two months and combines events", async () => {
+  it("fetches the forward window of months and combines events (#1767)", async () => {
     const adapter = new DFWHashAdapter();
 
-    // Mock safeFetch for calendar pages + detail pages
+    // URL-aware mock: calendar month pages return the sample grid; everything
+    // else (detail pages) returns a minimal detail page. Robust to the forward
+    // window size (no longer fixed at two months — #1767).
     const mockModule = await import("../safe-fetch");
-    vi.spyOn(mockModule, "safeFetch")
-      // Month 1 calendar
-      .mockResolvedValueOnce(
-        new Response(SAMPLE_CALENDAR_HTML, { status: 200 }) as never,
-      )
-      // Month 2 calendar
-      .mockResolvedValueOnce(
-        new Response(SAMPLE_CALENDAR_HTML, { status: 200 }) as never,
-      )
-      // Detail pages (mocked as minimal pages)
-      .mockImplementation(
-        async () => new Response("<html><body><h5><em>Time:</em> 7:00 PM</h5></body></html>", { status: 200 }) as never,
-      );
+    vi.spyOn(mockModule, "safeFetch").mockImplementation(
+      async (url: string) =>
+        (/\$\d{2}-\d{4}\.php$/.test(url)
+          ? new Response(SAMPLE_CALENDAR_HTML, { status: 200 })
+          : new Response(
+              "<html><body><h5><em>Time:</em> 7:00 PM</h5></body></html>",
+              { status: 200 },
+            )) as never,
+    );
 
     const result = await adapter.fetch({
       id: "test-dfw",
       url: "http://www.dfwhhh.org/calendar/",
     } as never);
 
-    // Should have events from both months
-    expect(result.events.length).toBeGreaterThanOrEqual(4);
+    // The default 90-day window spans more than the old current+next pair.
+    const expectedMonths = computeForwardMonths(new Date(), 90).length;
+    expect(expectedMonths).toBeGreaterThan(2);
     expect(result.diagnosticContext).toMatchObject({
-      monthsFetched: 2,
+      monthsFetched: expectedMonths,
     });
+    expect(result.events.length).toBeGreaterThanOrEqual(4);
     expect(result.structureHash).toBeDefined();
   });
 
@@ -674,13 +797,9 @@ describe("DFWHashAdapter.fetch", () => {
     const adapter = new DFWHashAdapter();
 
     const mockModule = await import("../safe-fetch");
-    vi.spyOn(mockModule, "safeFetch")
-      .mockResolvedValueOnce(
-        new Response("Not Found", { status: 404, statusText: "Not Found" }) as never,
-      )
-      .mockResolvedValueOnce(
-        new Response("Not Found", { status: 404, statusText: "Not Found" }) as never,
-      );
+    vi.spyOn(mockModule, "safeFetch").mockResolvedValue(
+      new Response("Not Found", { status: 404, statusText: "Not Found" }) as never,
+    );
 
     const result = await adapter.fetch({
       id: "test-dfw",
@@ -704,20 +823,16 @@ describe("DFWHashAdapter.fetch", () => {
       </body></html>
     `;
 
+    // URL-aware mock: calendar month pages return the grid; detail pages return
+    // the detail HTML. This avoids the stale 2-call pattern which broke once the
+    // window grew beyond 2 months (claude[bot] review).
     const mockModule = await import("../safe-fetch");
-    vi.spyOn(mockModule, "safeFetch")
-      // Month 1 calendar
-      .mockResolvedValueOnce(
-        new Response(SAMPLE_CALENDAR_HTML, { status: 200 }) as never,
-      )
-      // Month 2 calendar
-      .mockResolvedValueOnce(
-        new Response(SAMPLE_CALENDAR_HTML, { status: 200 }) as never,
-      )
-      // All detail page requests return the same detail page
-      .mockImplementation(
-        async () => new Response(detailHtml, { status: 200 }) as never,
-      );
+    vi.spyOn(mockModule, "safeFetch").mockImplementation(
+      async (url: string) =>
+        (/\$\d{2}-\d{4}\.php$/.test(url)
+          ? new Response(SAMPLE_CALENDAR_HTML, { status: 200 })
+          : new Response(detailHtml, { status: 200 })) as never,
+    );
 
     const result = await adapter.fetch({
       id: "test-dfw",
