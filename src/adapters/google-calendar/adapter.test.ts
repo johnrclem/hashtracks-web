@@ -640,7 +640,7 @@ describe("synthetic test / admin-internal title filter (#1632)", () => {
   // also evaluates the resolved title — but gated on "no structured field"
   // so legitimate address-only rows (below) survive.
   const MH3MN_CFG = {
-    kennelPatterns: [["\\bT3H3\\b|Twin Titties", "t3h3"], ["\\bMH3\\b", "mh3-mn"]] as [string, string][],
+    kennelPatterns: [[String.raw`\bT3H3\b|Twin Titties`, "t3h3"], [String.raw`\bMH3\b`, "mh3-mn"]] as [string, string][],
     defaultKennelTag: "mh3-mn",
   };
 
