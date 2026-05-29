@@ -2868,6 +2868,32 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: 36.817,
     aliases: ["Nairobi, Kenya"],
   },
+  // ── Indonesia (first Indonesian country; country → metro, no state-province
+  // intermediate). Teal palette stays distinct from the red (Japan/Singapore)
+  // and orange (Thailand) used by other Asian regions. ──
+  {
+    name: "Indonesia",
+    country: "Indonesia",
+    level: "COUNTRY",
+    timezone: "Asia/Jakarta",
+    abbrev: "ID",
+    colorClasses: "bg-teal-200 text-teal-800",
+    pinColor: "#0d9488",
+    centroidLat: -2.55,
+    centroidLng: 118.01,
+    aliases: ["ID", "Republic of Indonesia"],
+  },
+  {
+    name: "Bali",
+    country: "Indonesia",
+    timezone: "Asia/Makassar",
+    abbrev: "DPS",
+    colorClasses: "bg-teal-100 text-teal-700",
+    pinColor: "#14b8a6",
+    centroidLat: -8.41,
+    centroidLng: 115.19,
+    aliases: ["Bali, Indonesia", "Denpasar", "Denpasar, Bali", "Bali, ID"],
+  },
 ];
 
 // ── Sync fallback map (built from REGION_SEED_DATA at module load) ──
@@ -3082,6 +3108,7 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   [/\b(new zealand|aotearoa|christchurch|otepoti|tokoroa|whangarei|whakatane|invercargill|dunedin|tauranga|rotorua|hibiscus coast|coromandel|manawat[uū])\b/, "New Zealand"],
   [/\b(auckland|wellington|hamilton|nelson|napier|hastings|palmerston north|new plymouth),\s*nz\b/, "New Zealand"],
   [/\b(kenya|nairobi|mombasa|kisumu)\b/, "Kenya"],
+  [/\b(bali|indonesia|denpasar)\b/, "Indonesia"],
 ];
 
 /** Infer country from region name heuristics. Defaults to "USA". */
@@ -3352,6 +3379,8 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Hamilton, NZ": "New Zealand",
   // Kenya — country → metro (no state-province intermediate)
   "Nairobi": "Kenya",
+  // Indonesia — country → metro (no state-province intermediate)
+  "Bali": "Indonesia",
 };
 
 /** Get the state/country group for a region name (for kennel directory grouping). */
@@ -3514,6 +3543,9 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   // Kenya — both the country-level region and its metro map to "Kenya"
   "Kenya": "Kenya",
   "Nairobi": "Kenya",
+  // Indonesia — both the country-level region and its metro map to "Indonesia"
+  "Indonesia": "Indonesia",
+  "Bali": "Indonesia",
 };
 
 /** Get the country for a state group name (for 3-level region hierarchy). */
@@ -3565,6 +3597,7 @@ const COUNTRY_CODE_TO_NAME: Record<string, string> = {
   MY: "Malaysia",
   NZ: "New Zealand",
   KE: "Kenya",
+  ID: "Indonesia",
 };
 
 /** All canonical country names used in COUNTRY_GROUP_MAP values. */

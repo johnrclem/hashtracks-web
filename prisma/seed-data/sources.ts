@@ -5835,5 +5835,16 @@ export const SOURCES = [
       },
       kennelCodes: ["onh3"],
     },
+    // ===== INDONESIA =====
+    // --- Bali (first Indonesia kennel) ---
+    {
+      name: "Bali Hash 2 Website",
+      url: "https://balihash2.com",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      kennelCodes: ["bali-hash-2"],
+    },
   ];
 
