@@ -530,18 +530,36 @@ const DEFAULT_FORWARD_DAYS = 90;
 const MAX_MONTHS_AHEAD = 13;
 
 /**
+ * Return the current year/month in the DFW (America/Chicago) timezone.
+ * The DFW calendar runs on local time, so using UTC month boundaries would
+ * roll into the "next" month several hours early on the last evening of a
+ * month, causing the adapter to miss events still live on the current-month
+ * page (CodeRabbit review).
+ */
+function getDfwLocalYearMonth(now: Date): { year: number; month: number } {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Chicago",
+    year: "numeric",
+    month: "numeric",
+  }).formatToParts(now);
+  const year = Number(parts.find((p) => p.type === "year")?.value);
+  const month = Number(parts.find((p) => p.type === "month")?.value) - 1; // 0-indexed
+  return { year, month };
+}
+
+/**
  * Enumerate the (year, month) calendar pages to fetch for a forward `days`
  * window starting from `now` (#1767). Always runs forward — the current month
  * plus enough following months to cover the window. `+1` accounts for the
  * partial month at the far edge; clamped to [2, MAX_MONTHS_AHEAD] so a small
  * window still fetches current+next and a huge one can't fan out unbounded.
+ * Uses DFW-local (America/Chicago) month boundaries (#1767 CodeRabbit).
  */
 export function computeForwardMonths(
   now: Date,
   days: number,
 ): { year: number; month: number }[] {
-  const currentMonth = now.getUTCMonth();
-  const currentYear = now.getUTCFullYear();
+  const { year: currentYear, month: currentMonth } = getDfwLocalYearMonth(now);
   const monthsToFetch = Math.min(
     MAX_MONTHS_AHEAD,
     Math.max(2, Math.ceil(days / 30) + 1),
@@ -654,10 +672,12 @@ export class DFWHashAdapter implements SourceAdapter {
           const detail = parseDFWDetailPage($detail);
           const evt = batch[b].event;
 
-          // Canonical event name from the detail page (#1768) — overrides the
-          // grid-cell title so merge uses "NODUH Hash" instead of synthesizing
-          // the "NODUHHH Trail #N" placeholder.
-          if (detail.title) evt.title = detail.title;
+          // Canonical event name from the detail page (#1768) — used when the
+          // calendar grid yielded no title, so merge uses "NODUH Hash" instead
+          // of synthesizing the "NODUHHH Trail #N" placeholder. Don't clobber a
+          // real grid title (e.g. a special-run name) that was extracted from
+          // the cell (CodeRabbit review).
+          if (detail.title && !evt.title) evt.title = detail.title;
           if (detail.startTime) evt.startTime = detail.startTime;
           if (detail.location) evt.location = detail.location;
           if (detail.runNumber) evt.runNumber = detail.runNumber;

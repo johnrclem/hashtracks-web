@@ -430,7 +430,10 @@ const TIME_LABEL_RE = /(?:^|\n)\s*(?:Pack\s*Meet|Circle|Time|Start|When|Chalk\s*
 // immediately preceding the literal "go" so it wins over the "show" time and
 // over a `Start: TBA` label that carries no concrete location. Mirrors the
 // optional-`:MM` shape of TITLE_TIME_RE (bare "7pm go" and "6:30pm go" both).
-const GO_TIME_RE = /\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\s+go\b/i;
+// "go" must end its clause — followed by punctuation or end-of-line — so phrases
+// like "8pm go home" / "5pm go-kart" don't promote a non-start time (CodeRabbit
+// review). NOH3's real form "6:30pm go. $8 hash cash" matches via the "go." case.
+const GO_TIME_RE = /\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\s+go(?:[.!?,;:]|\s*$)/i;
 // 12-hour times in titles. Optional `:MM` so both "6pm" and "7:30pm" match.
 // `:30` capture group is undefined for the bare form.
 const TITLE_TIME_RE = /\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/i;

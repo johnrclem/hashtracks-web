@@ -823,20 +823,16 @@ describe("DFWHashAdapter.fetch", () => {
       </body></html>
     `;
 
+    // URL-aware mock: calendar month pages return the grid; detail pages return
+    // the detail HTML. This avoids the stale 2-call pattern which broke once the
+    // window grew beyond 2 months (claude[bot] review).
     const mockModule = await import("../safe-fetch");
-    vi.spyOn(mockModule, "safeFetch")
-      // Month 1 calendar
-      .mockResolvedValueOnce(
-        new Response(SAMPLE_CALENDAR_HTML, { status: 200 }) as never,
-      )
-      // Month 2 calendar
-      .mockResolvedValueOnce(
-        new Response(SAMPLE_CALENDAR_HTML, { status: 200 }) as never,
-      )
-      // All detail page requests return the same detail page
-      .mockImplementation(
-        async () => new Response(detailHtml, { status: 200 }) as never,
-      );
+    vi.spyOn(mockModule, "safeFetch").mockImplementation(
+      async (url: string) =>
+        (/\$\d{2}-\d{4}\.php$/.test(url)
+          ? new Response(SAMPLE_CALENDAR_HTML, { status: 200 })
+          : new Response(detailHtml, { status: 200 })) as never,
+    );
 
     const result = await adapter.fetch({
       id: "test-dfw",

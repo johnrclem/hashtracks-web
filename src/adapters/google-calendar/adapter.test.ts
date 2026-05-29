@@ -2420,19 +2420,25 @@ describe("extractTimeFromDescription", () => {
 
   // #1775 — NOH3 "go" time (goTimeWins): the start is the "go" time, not the
   // "show" time, and the Start: label often carries no concrete location.
+  // "go" must be terminal (punctuation or end-of-string) so prose like
+  // "8pm go home" doesn't set a wrong start time (CodeRabbit review).
   it.each([
     ["Start @ TBA. 6pm show, 6:30pm go. $8 hash cash.", "18:30"],
     ["Start @ The Mint, 6pm show, 6:30pm go. $8 hash cash", "18:30"],
-    ["6pm show, 7pm go", "19:00"], // bare-hour go time
+    ["6pm show, 7pm go", "19:00"], // bare-hour go, end of string
     ["Doors at 5:30pm, 6:00pm go", "18:00"],
+    ["6pm show, 6:30pm go!", "18:30"], // exclamation punctuation
+    ["6pm show, 6:30pm go,", "18:30"], // comma punctuation
   ])("promotes the go time from %j when goTimeWins", (desc, expected) => {
     expect(extractTimeFromDescription(desc, true)).toBe(expected);
   });
 
-  it("does not treat 'go at <time>' (go before time) as a go time", () => {
-    // No "<time> go" shape, and no label → no time. Guards against the go
-    // pattern firing on "we go at 6:30pm".
-    expect(extractTimeFromDescription("We go at 6:30pm.", true)).toBeUndefined();
+  it.each([
+    "8pm go home whenever",
+    "5pm go-kart social",
+    "We go at 6:30pm.",
+  ])("does not treat %j as a go time", (desc) => {
+    expect(extractTimeFromDescription(desc, true)).toBeUndefined();
   });
 
   it("ignores the go time when goTimeWins is off (default, ~200 calendars)", () => {
