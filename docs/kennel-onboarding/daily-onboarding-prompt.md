@@ -180,6 +180,24 @@ to approve it (Chrome works for already-approved domains like `hashtracks.xyz`).
 **Capture for the handoff:** event count seen, date range, and 3–5 sample events with whatever
 fields the source exposes (date, time, title, hares, location, description, run number).
 
+**🔴 Sample ≥3 posts across YEARS (not just the latest 3) for multi-year archives.** Format drift
+is the rule, not the exception. Real source data routinely mixes: full and abbreviated months
+("16 March 2026" vs "16 Mar 2019"), weekday-prefixed dates ("Monday, 20 April 2026"), per-block
+field layouts (each `Date:`/`Hare:`/`Venue:` in its own `<p>` or `<h5>`), embedded recap blocks
+*inside* run posts, standalone "Hash Trash Run N" recap *posts*, prose-format older entries
+vs `<table>`-format newer ones, and outright **source date typos** (a 2020 post may carry a 2019
+date label). Report every variant you see in the sample so the adapter is designed for the
+distribution, not the latest post. The ONH3 retro lists each of these specifically — start there.
+
+**Past + schedule sources → call the split at research time.** If the source carries both an
+archive (past runs) AND an advance schedule, recommend the **past/future split** in the handoff:
+- **Past → one-shot backfill** (`scripts/backfill-<code>-history.ts`), run once, never touched again.
+- **Future → adapter** with `config.upcomingOnly: true` so `reconcile.ts` doesn't false-cancel
+  aged-out archive rows.
+- **Report how far ahead the live feed actually reaches** (the ONH3 Google Calendar only covered
+  ~4 weeks while the WordPress.com archive went back to 2019). Past-only vs future-only vs both
+  matters for the adapter shape — don't conflate them.
+
 **If the source is genuinely dead / has no upcoming events** (HTML listing itself is empty/gone):
 mark the target `blocked` with the reason, fall back to the next `queued` target (return to
 Step 1). A feed you simply couldn't fetch from the sandbox is **not** "dead" — flag it instead.
@@ -200,6 +218,26 @@ Kennel profile (maps to the `Kennel` model): `fullName`, `shortName`, `kennelCod
   URL** (e.g. `images.squarespace-cdn.com/.../<hash>/...`, signed S3, Wix `static.wixstatic.com/media/<hash>~mv2.<ext>`),
   flag it `⚠️ self-host` — recommend Claude Code download it into `public/kennel-logos/<code>.<ext>`
   and reference that path instead (these CDN URLs can rotate when the kennel re-uploads).
+- **New country → 5-edit `src/lib/region.ts` checklist (NOT just COUNTRY + METRO).** Listing
+  only the seed records is the gap that bit ONH3 (Kenya was first Africa, missed
+  `COUNTRY_INFERENCE_RULES`, `inferCountry()` returned `"USA"` for Kenyan kennels, caught in CI).
+  Bali Hash 2 will hit the same gap if not pre-flagged. Every new country needs **all 5**:
+  1. **`REGION_SEED_DATA`** — COUNTRY record (timezone, ISO abbrev, centroid, color classes, pin
+     color, aliases) **+** METRO record under it.
+  2. **`STATE_GROUP_MAP`** — metro → group (use country name as the group for country→metro
+     countries; mirror the New Zealand / Singapore precedent). **Keys are canonical region
+     display names, NOT lowercase slugs** — e.g. `"Bali": "Indonesia"` (cf. `"Nairobi": "Kenya"`).
+  3. **`COUNTRY_GROUP_MAP`** — wire **both** the country **and** every metro to the country
+     name (this is what `groupRegionsByCountry` consumes). Same key convention as item 2 —
+     canonical display names, not slugs — e.g. `"Indonesia": "Indonesia"` + `"Bali": "Indonesia"`
+     (cf. `"Bangkok": "Thailand"`).
+  4. **`COUNTRY_CODE_TO_NAME`** — ISO code → country name (e.g. `"ID": "Indonesia"`).
+  5. **`COUNTRY_INFERENCE_RULES`** — regex → country (e.g. `/\bbali\b|\bindonesia\b/i` → "Indonesia").
+     **Without this, `inferCountry()` falls through to `"USA"`** for any text mentioning the new
+     country. THE one that bit ONH3 in CI; do not omit.
+  Also pick a **color palette consistent with the continent** for the COUNTRY + METRO records
+  (Africa = amber per Kenya precedent; pick a similarly-distinct Asia palette by scanning
+  existing Bangkok/Singapore/Tokyo entries rather than guessing).
 - **Schedule with more than one pattern → suggest `scheduleRules`, not just `scheduleDayOfWeek`.**
   If the kennel runs e.g. "weekly Wednesday + occasional Saturday," a single `scheduleDayOfWeek`
   miscategorizes the rest in Travel Mode. Propose an RRULE array, e.g.:
@@ -256,6 +294,19 @@ Produce:
   captured HTML snippet for the test fixture **that mirrors the real DOM structure** (e.g. Wix
   wraps blocks in `[data-testid="richTextElement"]` — a flat fixture passes tests then fails
   live; see `source-platform-notes.md` → Wix), and the `htmlScrapersByUrl` registry entry to add.
+- **Adapter code shown in the handoff is ILLUSTRATIVE — not authoritative.** Show the *shape*
+  (control flow, where each field comes from, helper extraction, pagination/coord/end-time
+  handling, S5852/S3776 boundaries) and name a **reference adapter** to mirror (e.g.
+  "model on `src/adapters/html-scraper/onh3.ts` for WP.com REST; `hangover.ts` for Ghost"). Do
+  **NOT** assert field names, function signatures, or import paths in the sketch as if they're
+  canonical — the ONH3 sketch invented `kennelTag` (real type is `kennelTags: string[]`),
+  invented `walkerFriendly` (not on `Kennel`), used raw `fetch()` (must be `safeFetch`),
+  hardcoded a `title` (`merge.ts` synthesizes when undefined), and set
+  `kennelPagesStopReason` in a way that would silently disable reconciliation. Include an
+  explicit **"⚠️ Claude Code must verify against current types"** stanza listing exactly what
+  to check (RawEventData/Kennel field names, `safeFetch` vs `fetch`, `kennelPagesStopReason`
+  semantics — set only on genuine truncation, e.g. a full page left unfetched / an HTTP or
+  fetch error; a non-empty string suppresses stale-event reconciliation in `scrape.ts`).
 - Conventions to honor downstream: dates as **UTC noon**, `startTime` as `"HH:MM"` string,
   `cuid()` IDs, longer kennel-resolver patterns before shorter ones.
 
@@ -336,6 +387,23 @@ Create `docs/kennel-onboarding/handoffs/<YYYY-MM-DD>-<kennelCode>.md` with this 
 
 ## Adapter notes / new-scraper plan
 <config explanation, or full parsing plan + fixture snippet (mirror real DOM) + registry entry>
+
+**⚠️ Claude Code: verify before writing real code.** Any code snippet below is illustrative; the
+authority is the live repo. Before writing the adapter, confirm against current types/imports:
+- `RawEventData` field names — `kennelTags` is `string[]` (NOT `kennelTag`); there is no
+  `walkerFriendly` field on `Kennel`; check the actual `prisma/schema.prisma` for unexpected
+  invented fields.
+- Imports — `safeFetch` from `@/adapters/safe-fetch` (NOT raw `fetch`); date/extract helpers from
+  `@/adapters/utils`; browser-render via `browserRender` from `@/lib/browser-render`.
+- `kennelPagesStopReason` — set ONLY on genuine truncation (a full page left unfetched / HTTP or
+  fetch error); a non-empty string suppresses stale-event reconciliation. Don't set it on a clean
+  pagination end (e.g. WP.com `page=N+1` returning 400 = expected end, leave it null).
+- `title` — leave `undefined` when no clean theme exists; `merge.ts` synthesizes
+  `"<KennelName> Trail #N"`. Never let a labeled-field fragment or hare name become the title.
+- For `kennelPatterns` (when this is a multi-kennel calendar/source): list the actual sampled
+  titles you're matching against AND keep regexes `safe-regex2`-clean — single `\s` (not stacked
+  `\s+`), no `(?:…\s+)?` optional groups stacked, no nested quantifiers. S5852 will reject the
+  obvious forms.
 
 ## Deep-dive checklist (nothing deferred)
 - [x] logo (stable? else flag self-host)  [x] foundedYear  [x] socials  [x] schedule (+ scheduleRules if multi-pattern)  [x] hashCash
