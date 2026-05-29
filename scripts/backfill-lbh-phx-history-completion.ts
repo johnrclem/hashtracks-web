@@ -38,6 +38,7 @@
 import "dotenv/config";
 import * as cheerio from "cheerio";
 import type { RawEventData } from "@/adapters/types";
+import { safeFetch } from "@/adapters/safe-fetch";
 import { runBackfillScript } from "./lib/backfill-runner";
 import { parseDetailPage } from "./backfill-lbh-phx-history";
 
@@ -61,7 +62,10 @@ function sleep(ms: number): Promise<void> {
 async function fetchText(url: string, attempts = 3): Promise<string | null> {
   for (let i = 0; i < attempts; i++) {
     try {
-      const res = await fetch(url, {
+      // safeFetch (not bare fetch) applies the repo's SSRF URL validation —
+      // the Wayback URLs are built from CDX response data, so route them
+      // through the sanctioned client.
+      const res = await safeFetch(url, {
         headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Backfill)" },
         signal: AbortSignal.timeout(45_000),
       });
@@ -129,7 +133,10 @@ export function extractBodyDate(html: string): string | null {
   const day = Number.parseInt(m[2], 10);
   const year = Number.parseInt(m[3], 10);
   if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-  return new Date(Date.UTC(year, month - 1, day, 12, 0, 0)).toISOString().slice(0, 10);
+  const d = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+  // Reject overflow dates (e.g. 2/30 → Mar 2) — Date.UTC silently rolls over.
+  if (d.getUTCMonth() !== month - 1 || d.getUTCDate() !== day) return null;
+  return d.toISOString().slice(0, 10);
 }
 
 /** Best-effort event title from the archived page, with the `LBH #N:` prefix
@@ -140,7 +147,15 @@ function extractTitle(html: string): string | undefined {
   const $ = cheerio.load(html);
   const raw = ($(".entry-title").first().text() || $("h1").first().text() || "").replace(/\s+/g, " ").trim();
   if (!raw) return undefined;
-  const stripped = raw.replace(/^LBH\s*#?\s*\d+\s*[:\-–]?\s*/i, "").trim();
+  // Strip an "LBH #N:" / "LBH# N -" prefix via single-quantifier passes rather
+  // than one `^LBH\s*#?\s*\d+\s*[:\-–]?\s*` regex (adjacent `\s*` trips S5852).
+  let t = raw;
+  if (/^lbh/i.test(t)) {
+    t = t.slice("lbh".length).replace(/^[\s#]+/, ""); // "LBH" + spaces/#
+    t = t.replace(/^\d+/, ""); // run number
+    t = t.replace(/^[\s:–-]+/, ""); // trailing separators
+  }
+  const stripped = t.trim();
   return stripped.length > 0 ? stripped : raw;
 }
 

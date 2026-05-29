@@ -36,7 +36,7 @@ import { PrismaClient } from "@/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { createScriptPool } from "./lib/db-pool";
 import { cascadeDeleteEvents } from "./lib/cascade-delete";
-import { reassignEventKennel, utcDayBounds } from "./lib/event-reassign";
+import { reassignEventKennel } from "./lib/event-reassign";
 import { isBikeHashTitle } from "./backfill-mel-bike-hash-history";
 import { isCityHashTitle } from "./backfill-mel-city-h3-history";
 
@@ -74,15 +74,21 @@ async function reassignTarget(
   console.log(`\n── ${kennelCode}: ${misrouted.length} misrouted ${DEFAULT_KENNEL} canonical(s) ──`);
   if (misrouted.length === 0) return;
 
+  // Bulk-fetch the target kennel's occupied days once (one query, not one per
+  // misrouted event). A day already held by the target means the misrouted copy
+  // is a duplicate to delete; otherwise reassign — and record the day so a
+  // second misrouted event on the same date becomes a delete-dup too.
+  const targetEvents = await prisma.event.findMany({
+    where: { kennelId: target.id, isCanonical: true },
+    select: { date: true },
+  });
+  const targetDays = new Set(targetEvents.map((ev) => isoDay(ev.date)));
+
   let reassigned = 0;
   let deleted = 0;
   for (const e of misrouted) {
     const iso = isoDay(e.date);
-    const { day, next } = utcDayBounds(iso);
-    const slotTaken = await prisma.event.findFirst({
-      where: { kennelId: target.id, date: { gte: day, lt: next }, isCanonical: true, id: { not: e.id } },
-      select: { id: true },
-    });
+    const slotTaken = targetDays.has(iso);
     const action = slotTaken ? "delete-dup" : "reassign";
     console.log(`  [${action}] ${iso} #${e.runNumber ?? "?"} "${e.title}"`);
     if (!APPLY) continue;
@@ -91,6 +97,7 @@ async function reassignTarget(
       deleted++;
     } else {
       await reassignEventKennel(prisma, e.id, mnmId, target.id);
+      targetDays.add(iso);
       reassigned++;
     }
   }

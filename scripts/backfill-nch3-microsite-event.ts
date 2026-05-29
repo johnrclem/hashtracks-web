@@ -70,13 +70,18 @@ async function resolveSource(apply: boolean): Promise<Source> {
       config: SEED.config as Prisma.InputJsonValue,
     },
   });
+  const kennels = await prisma.kennel.findMany({
+    where: { kennelCode: { in: SEED.kennelCodes } },
+    select: { id: true, kennelCode: true },
+  });
+  const kennelIdByCode = new Map(kennels.map((k) => [k.kennelCode, k.id]));
   for (const code of SEED.kennelCodes) {
-    const kennel = await prisma.kennel.findUnique({ where: { kennelCode: code }, select: { id: true } });
-    if (!kennel) throw new Error(`Kennel "${code}" not found — cannot link the new source.`);
+    const kennelId = kennelIdByCode.get(code);
+    if (!kennelId) throw new Error(`Kennel "${code}" not found — cannot link the new source.`);
     await prisma.sourceKennel.upsert({
-      where: { sourceId_kennelId: { sourceId: created.id, kennelId: kennel.id } },
+      where: { sourceId_kennelId: { sourceId: created.id, kennelId } },
       update: {},
-      create: { sourceId: created.id, kennelId: kennel.id },
+      create: { sourceId: created.id, kennelId },
     });
   }
   console.log(`  + Created source "${SOURCE_NAME}" and linked ${SEED.kennelCodes.join(", ")}.`);

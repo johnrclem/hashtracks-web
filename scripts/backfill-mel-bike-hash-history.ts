@@ -20,11 +20,16 @@
 
 import { backfillMelMeetupKennel } from "./lib/mel-meetup-history-backfill";
 
-/** True for bike-hash titles: leading "Bike …" or a leading numbered "Ride #N". */
+/** True for bike-hash titles: leading "Bike …" or a leading numbered "Ride #N".
+ *  The "Ride #N" check is procedural (strip "ride", then leading spaces/#, then
+ *  require a digit) rather than `/^ride\s*#?\s*\d/` — the adjacent `\s*#?\s*`
+ *  quantifiers trip Sonar S5852's backtracking-shape check. */
 export function isBikeHashTitle(title: string): boolean {
   const t = title.trimStart();
   if (/^bike\b/i.test(t)) return true;
-  return /^ride\s*#?\s*\d/i.test(t);
+  if (!/^ride\b/i.test(t)) return false;
+  const rest = t.slice("ride".length).replace(/^[\s#]+/, "");
+  return rest.length > 0 && rest[0] >= "0" && rest[0] <= "9";
 }
 
 if (process.argv[1]?.endsWith("backfill-mel-bike-hash-history.ts")) {

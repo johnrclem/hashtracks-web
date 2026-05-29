@@ -81,14 +81,16 @@ export function isImportablePlaceholder(title: string): boolean {
  * is correct — no need for the concatenated-stream parser used by the stdin
  * importer.
  */
+/** Numeric suffix of a batch filename, e.g. "...batch-7.json" → 7. Sliced
+ *  (not regex) to avoid Sonar S5852's backtracking-shape flag on `\d+\.json$`. */
+function batchNum(name: string): number {
+  return Number(name.slice(BATCH_PREFIX.length, -".json".length)) || 0;
+}
+
 export function readBatchRows(dataDir: string = DATA_DIR): MeetupHistoryRow[] {
   const files = readdirSync(dataDir)
     .filter((name) => name.startsWith(BATCH_PREFIX) && name.endsWith(".json"))
-    .sort((a, b) => {
-      const an = Number(a.match(/(\d+)\.json$/)?.[1] ?? 0);
-      const bn = Number(b.match(/(\d+)\.json$/)?.[1] ?? 0);
-      return an - bn;
-    });
+    .sort((a, b) => batchNum(a) - batchNum(b));
   if (files.length === 0) {
     throw new Error(`No batch files matching "${BATCH_PREFIX}*.json" in ${dataDir}`);
   }
@@ -164,26 +166,37 @@ async function findCrossKennelCollisions(
 ): Promise<string[]> {
   const target = await prisma.kennel.findUnique({ where: { kennelCode }, select: { id: true } });
   const def = await prisma.kennel.findUnique({ where: { kennelCode: DEFAULT_KENNEL }, select: { id: true } });
-  if (!target || !def) return [];
+  if (!target || !def || events.length === 0) return [];
 
-  const collisions: string[] = [];
-  for (const ev of events) {
-    const { day, next } = utcDayBounds(ev.date);
-    const onDefault = await prisma.event.findMany({
-      where: { kennelId: def.id, date: { gte: day, lt: next }, isCanonical: true },
-      select: { title: true },
-    });
-    // Only the misrouted-sibling case: a default-kennel canonical whose title
-    // matches this kennel's matcher.
-    const misrouted = onDefault.some((e) => e.title != null && matcher(e.title));
-    if (!misrouted) continue;
-    const onTarget = await prisma.event.findFirst({
-      where: { kennelId: target.id, date: { gte: day, lt: next }, isCanonical: true },
-      select: { id: true },
-    });
-    if (!onTarget) collisions.push(ev.date);
+  // Bulk-fetch both kennels' canonicals across the backfill's full date span
+  // (two range queries, not 2×N) and check collisions in memory.
+  const dates = events.map((e) => e.date).sort((a, b) => a.localeCompare(b));
+  const { day: rangeStart } = utcDayBounds(dates[0]);
+  const { next: rangeEnd } = utcDayBounds(dates[dates.length - 1]);
+
+  const [defaultEvents, targetEvents] = await Promise.all([
+    prisma.event.findMany({
+      where: { kennelId: def.id, date: { gte: rangeStart, lt: rangeEnd }, isCanonical: true },
+      select: { title: true, date: true },
+    }),
+    prisma.event.findMany({
+      where: { kennelId: target.id, date: { gte: rangeStart, lt: rangeEnd }, isCanonical: true },
+      select: { date: true },
+    }),
+  ]);
+
+  // Days where the default kennel holds a canonical whose title matches this
+  // kennel's matcher (the misrouted-sibling case).
+  const misroutedDays = new Set<string>();
+  for (const e of defaultEvents) {
+    if (e.title != null && matcher(e.title)) misroutedDays.add(e.date.toISOString().slice(0, 10));
   }
-  return collisions;
+  const targetDays = new Set(targetEvents.map((e) => e.date.toISOString().slice(0, 10)));
+
+  // A collision is a backfill row on a misrouted day with no target counterpart.
+  return events
+    .filter((ev) => misroutedDays.has(ev.date) && !targetDays.has(ev.date))
+    .map((ev) => ev.date);
 }
 
 export interface MelBackfillParams {

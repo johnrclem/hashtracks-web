@@ -63,7 +63,10 @@ function parseUsDate(text: string): string | undefined {
   let year = Number.parseInt(m[3], 10);
   if (year < 100) year += 2000;
   if (month < 1 || month > 12 || day < 1 || day > 31) return undefined;
-  return new Date(Date.UTC(year, month - 1, day, 12, 0, 0)).toISOString().slice(0, 10);
+  const d = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+  // Reject overflow dates (e.g. 2/30 → Mar 2) — Date.UTC silently rolls over.
+  if (d.getUTCMonth() !== month - 1 || d.getUTCDate() !== day) return undefined;
+  return d.toISOString().slice(0, 10);
 }
 
 /** Conservative boolean: only commit on an unambiguous yes/no prefix. The
@@ -115,10 +118,15 @@ export function parseNCH3Page(html: string, sourceUrl = DEFAULT_URL): RawEventDa
   const title = readLine(lines, "Name") || undefined;
   const hares = readLine(lines, "Hare(s)") || undefined;
 
-  // Location value ends with the anchor text "Google Map" — strip it.
+  // Location value ends with the anchor text "Google Map" — strip it. Done
+  // procedurally (not a `\s*…\s*$` regex) to avoid Sonar S5852.
   let location = readLine(lines, "Location") || undefined;
   if (location) {
-    location = location.replace(/\s*google map\s*$/i, "").trim() || undefined;
+    const idx = location.toLowerCase().lastIndexOf("google map");
+    if (idx >= 0 && location.slice(idx + "google map".length).trim() === "") {
+      location = location.slice(0, idx).trim();
+    }
+    location = location || undefined;
   }
 
   // "Run Fee: $" → value is "$ $8 cash only"; drop the leading bare "$".
