@@ -324,6 +324,77 @@ describe("extractRunNumber", () => {
       ),
     ).toBeNull();
   });
+
+  // #1717 — a "dark"/cancelled notice in an RRULE series must clear (null),
+  // not preserve (undefined), so a prior occurrence's run number can't bleed
+  // forward onto the notice row.
+  it("returns null for an 'is Dark' cancellation notice", () => {
+    expect(extractRunNumber("N2H3 is Dark")).toBeNull();
+  });
+
+  it("returns null for 'No hash this week'", () => {
+    expect(extractRunNumber("No hash this week")).toBeNull();
+  });
+
+  it("still reads a real run number on a numbered run", () => {
+    expect(extractRunNumber("N2H3 #750: Granny deflours Squirts")).toBe(750);
+  });
+
+  it("returns null for the bare trailing 'DARK' form (live N2H3 summary)", () => {
+    expect(extractRunNumber("N2H3 DARK")).toBeNull();
+  });
+
+  it("does not clear a themed title that merely contains 'dark'", () => {
+    expect(extractRunNumber("Dark Side of the Moon Hash")).toBeUndefined();
+    expect(extractRunNumber("N2H3 #762 - Darkstar Porkestra!")).toBe(762);
+  });
+});
+
+// ── #1761 — placeholder-summary description promotion ──
+
+describe("buildRawEventFromGCalItem — placeholder summary promotion (#1761)", () => {
+  const config = { kennelPatterns: [["NBH3", "nbh3-wa"]] as [string, string][], includeAllDayEvents: true };
+
+  it("promotes title/runNumber/startTime from the description when the summary is '#?'", () => {
+    const result = buildRawEventFromGCalItem(
+      {
+        summary: "NBH3 #? (Tea Party)",
+        start: { date: "2026-05-27" },
+        status: "confirmed",
+        // Mirrors the live calendar: a kennel blurb precedes the real "#NNN"
+        // header, so the promotion must scan the body, not take line 1.
+        description:
+          "The Seattle-area's only female-only kennel, hosting trails every last Wednesday.\n" +
+          "- Hareline: http://wh3.org/Harelines/NoBalls.htm\n\n**********\n\n" +
+          "NBH3 #448: Time to Spill the Tea (Party)\n\n" +
+          "Wednesday, May 27th at 6pm\n\n" +
+          "Circle at 6pm, hares away at 6:30\n\n" +
+          "Hares: Flybrator and Half Eaten Taco",
+      },
+      config,
+    );
+    expect(result).toMatchObject({
+      date: "2026-05-27",
+      runNumber: 448,
+      title: "NBH3 #448: Time to Spill the Tea (Party)",
+      startTime: "18:00",
+    });
+    expect(result?.hares).toContain("Flybrator");
+  });
+
+  it("leaves a normal numbered summary untouched", () => {
+    const result = buildRawEventFromGCalItem(
+      {
+        summary: "NBH3 #449: Normal Run",
+        start: { date: "2026-06-03" },
+        status: "confirmed",
+        description: "Some other #999 reference in the body",
+      },
+      config,
+    );
+    expect(result?.runNumber).toBe(449);
+    expect(result?.title).toContain("Normal Run");
+  });
 });
 
 // ── extractTitle ──

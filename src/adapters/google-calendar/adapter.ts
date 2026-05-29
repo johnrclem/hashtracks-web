@@ -59,11 +59,26 @@ export function extractRunNumber(
   // itself and re-anchor the cleared run on the next merge.
   if (hasPlaceholderRunNumber(summary)) return null;
 
-  // 3. Fall back to description patterns
+  // 3. Dark / cancelled notices ("N2H3 is Dark", "No hash this week") carry no
+  // run. Emit null (explicit clear) so a stale number from a prior occurrence
+  // in the same RRULE series can't bleed onto the notice row (#1717). Narrow
+  // by design — only unambiguous cancellation phrasing, so a themed run like
+  // "Dark Side of the Moon Hash" still falls through to the description.
+  if (DARK_NOTICE_RE.test(summary)) return null;
+
+  // 4. Fall back to description patterns
   return description
     ? extractRunNumberFromDescription(description, customPatterns)
     : undefined;
 }
+
+/**
+ * Unambiguous "the run is off this week" phrasing. Anchored to whole words so
+ * it never matches a themed trail title that merely contains "dark". Used by
+ * extractRunNumber to clear (not preserve) a run number on notice rows (#1717).
+ */
+const DARK_NOTICE_RE =
+  /\b(?:is\s+dark|no\s+hash\b|no\s+run\b|no\s+trail\b|cancell?ed)\b|\bdark[\s!.]*$/i;
 
 function resolveRunNumberPatterns(customPatterns?: string[] | RegExp[]): RegExp[] {
   if (!customPatterns || customPatterns.length === 0) return DEFAULT_RUN_NUMBER_PATTERNS;
@@ -641,6 +656,25 @@ export function extractTimeFromDescription(description: string): string | undefi
   const match = TIME_LABEL_RE.exec(description);
   if (!match?.[1]) return undefined;
   return parse12HourTime(match[1]);
+}
+
+/**
+ * Parse the first loose am/pm time in free text, including the bare-hour form
+ * `parse12HourTime` rejects: "Wednesday, May 27th at 6pm" → "18:00", "6:30 PM"
+ * → "18:30". Used only by the placeholder-summary promotion path (#1761), so
+ * the broader match surface is scoped to that rare branch rather than the
+ * label-gated `extractTimeFromDescription` used everywhere else.
+ */
+export function parseLooseAmPmTime(text: string): string | undefined {
+  const m = /(\d{1,2})(?::(\d{2}))?\s*([ap])\.?m\.?/i.exec(text);
+  if (!m) return undefined;
+  let hours = Number.parseInt(m[1], 10);
+  if (hours < 1 || hours > 12) return undefined;
+  const mins = m[2] ?? "00";
+  const isPm = m[3].toLowerCase() === "p";
+  if (isPm && hours !== 12) hours += 12;
+  if (!isPm && hours === 12) hours = 0;
+  return `${String(hours).padStart(2, "0")}:${mins}`;
 }
 
 /**
@@ -1254,6 +1288,29 @@ export function buildRawEventFromGCalItem(
     const descTitle = titleFromDescription(rawDescription);
     if (descTitle) title = descTitle;
   }
+  // #1761 — placeholder run-number summary ("NBH3 #? (Tea Party)") whose real
+  // header lives in the description ("NBH3 #448: Time to Spill the Tea
+  // (Party)"). Promote the description header so the placeholder isn't stuck
+  // as the title, and capture its run number + a textual start time. Gated on
+  // the placeholder marker so normal titles are never rewritten; only fires
+  // when the description header carries a real "#NNN".
+  let promotedRunNumber: number | undefined;
+  let promotedStartTime: string | undefined;
+  if (hasPlaceholderRunNumber(title) && rawDescription) {
+    // The real header ("NBH3 #448: Time to Spill the Tea (Party)") can sit
+    // mid-description, below a kennel blurb — so scan for the first body line
+    // that carries a real "#NNN" rather than taking the first non-label line.
+    for (const rawLine of rawDescription.split("\n")) {
+      const line = rawLine.trim();
+      const num = extractHashRunNumber(line);
+      if (typeof num === "number" && line.length > String(num).length + 2) {
+        title = line;
+        promotedRunNumber = num;
+        promotedStartTime = parseLooseAmPmTime(rawDescription);
+        break;
+      }
+    }
+  }
   // #1691 — title is kebab-case AND matches the kennel tag after
   // normalization. That's the URL-slug shape (Flour City May 28: SUMMARY
   // was literally "flour-city"). Empty the title so the defaultTitle
@@ -1483,6 +1540,11 @@ export function buildRawEventFromGCalItem(
   // rendering as all-day/noon events downstream. Format-guard the default
   // so a config typo can't silently inject a bad startTime string.
   let resolvedStartTime = startTime;
+  // #1761 — a start time promoted from a placeholder event's description
+  // ("…at 6pm") wins over the title/description heuristics below.
+  if (!resolvedStartTime && promotedStartTime) {
+    resolvedStartTime = promotedStartTime;
+  }
   // Title-embedded time wins over description because authors who put a time
   // in the title (NOH3 "Social @ ..., 6pm") almost always mean it as the
   // start time. Only fires for events that didn't have start.dateTime
@@ -1501,7 +1563,10 @@ export function buildRawEventFromGCalItem(
   // not stored as display location. resolveCoords handles URL → address resolution.
   const locationIsUrl = location && /^https?:\/\//i.test(location);
   const cost = rawDescription ? extractCostFromDescription(rawDescription) : undefined;
-  const runNumber = extractRunNumber(summary, rawDescription, compiledRunNumberPatterns);
+  // #1761 — a run number promoted from a placeholder summary's description
+  // header overrides the cleared placeholder (extractRunNumber returns null
+  // for "#?"). Otherwise fall back to the normal summary/description scan.
+  const runNumber = promotedRunNumber ?? extractRunNumber(summary, rawDescription, compiledRunNumberPatterns);
 
   // #1426 — sport-domain title (e.g. "Lansing Crisis Rugby Game") with no
   // hash-confirming signal. Three signals override: runNumber, hares, or

@@ -1,6 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Source } from "@/generated/prisma/client";
-import { parseTrailBlock, parseTimeMention, NorthboroHashAdapter } from "./northboro-hash";
+import {
+  parseTrailBlock,
+  parseTimeMention,
+  parseUpcummingFreeform,
+  matchSectionYear,
+  stripZeroWidth,
+  NorthboroHashAdapter,
+} from "./northboro-hash";
 
 // Mock browserRender
 vi.mock("@/lib/browser-render", () => ({
@@ -237,6 +244,138 @@ describe("parseTrailBlock", () => {
       hares: "Captain Hash",
       startTime: "12:30",
     });
+  });
+});
+
+describe("stripZeroWidth / matchSectionYear", () => {
+  it("strips zero-width chars Wix injects", () => {
+    expect(stripZeroWidth("​2025")).toBe("2025");
+    expect(stripZeroWidth("﻿July Trail #231")).toBe("July Trail #231");
+  });
+
+  it("recognizes bare year headings, including the zero-width-prefixed form", () => {
+    expect(matchSectionYear("2025")).toBe(2025);
+    expect(matchSectionYear("​2025")).toBe(2025);
+    expect(matchSectionYear("2026")).toBe(2026);
+  });
+
+  it("recognizes the OCR typo '2O18' (letter O for zero)", () => {
+    expect(matchSectionYear("2O18")).toBe(2018);
+    expect(matchSectionYear("2O17")).toBe(2017);
+  });
+
+  it("rejects non-year lines and out-of-range years", () => {
+    expect(matchSectionYear("January Trail #225")).toBeUndefined();
+    expect(matchSectionYear("12345")).toBeUndefined();
+    expect(matchSectionYear("1999")).toBeUndefined();
+  });
+});
+
+describe("parseTrailBlock — section-year anchor (#1757)", () => {
+  it("anchors a year-less M/D date to the section year", () => {
+    const result = parseTrailBlock(
+      ["July Trail # 231 7/19 12:30pm, Blue Dress R*n: Leave a Message After the Bone & Swingle"],
+      SOURCE_URL,
+      2025,
+    );
+    expect(result).toMatchObject({
+      date: "2025-07-19",
+      runNumber: 231,
+      title: "Blue Dress R*n",
+      hares: "Leave a Message After the Bone & Swingle",
+      startTime: "12:30",
+    });
+  });
+
+  it("resolves later months to the section year, not the prior year", () => {
+    // Regression: chrono anchored at Jan-1 of the section year pushed "9/6"
+    // back to 2024. Deterministic M/D parsing keeps it in 2025.
+    const result = parseTrailBlock(
+      ["September Trail #233, 9/6 12pm, Red Dress R*n: Scrumples"],
+      SOURCE_URL,
+      2025,
+    );
+    expect(result).toMatchObject({ date: "2025-09-06", runNumber: 233 });
+  });
+
+  it("lets an explicit two-digit year win over the section year", () => {
+    const result = parseTrailBlock(
+      ["May Trail #238, 5/10/26, Motherless Hashers Mimosa Mile"],
+      SOURCE_URL,
+      2025,
+    );
+    expect(result).toMatchObject({ date: "2026-05-10", runNumber: 238 });
+  });
+});
+
+describe("parseTrailBlock — comma-delimited title/hares (#1758)", () => {
+  it("keeps commas inside the title when an explicit 'Hares:' delimiter is present", () => {
+    const result = parseTrailBlock(
+      ["February Trail #237, 2/15/26, Hearts, Stars and Vampires, Hares: Scrumples, Jesus Saves"],
+      SOURCE_URL,
+    );
+    expect(result).toMatchObject({
+      date: "2026-02-15",
+      runNumber: 237,
+      title: "Hearts, Stars and Vampires",
+      hares: "Scrumples, Jesus Saves",
+    });
+    expect(result?.location).toBeUndefined();
+  });
+
+  it("treats singular 'Hare:' as the delimiter too", () => {
+    const result = parseTrailBlock(
+      ["January Trail #236, 1/1/26, Hangover Trail, Hare: Scrumples"],
+      SOURCE_URL,
+    );
+    expect(result).toMatchObject({ title: "Hangover Trail", hares: "Scrumples" });
+  });
+});
+
+describe("parseUpcummingFreeform (#1759)", () => {
+  it("parses a month-leading date-range block (campout) at the start date", () => {
+    const { events } = parseUpcummingFreeform(
+      ["July 24-26 Zombie Buffett: He is Risen", "*Please rego using Google Form"],
+      SOURCE_URL,
+    );
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      kennelTags: ["nbh3"],
+      runNumber: null,
+      title: "Zombie Buffett: He is Risen",
+    });
+    // Start date of the range; year resolves relative to scrape date via chrono.
+    expect(events[0].date).toMatch(/-07-24$/);
+    // The date range "24-26" must not be misread as a time.
+    expect(events[0].startTime).toBeUndefined();
+    expect(events[0].location).toBeUndefined();
+  });
+
+  it("parses a weekday-leading date line with title on the previous line", () => {
+    const { events } = parseUpcummingFreeform(
+      [
+        "Drinking Practice",
+        "Dinner and a Shitshow (Round 2)",
+        "Fri, June 12th 5:30pm",
+        "Empire Village 446 Main St Stubridge, MA",
+      ],
+      SOURCE_URL,
+    );
+    const ev = events.find((e) => e.title === "Dinner and a Shitshow (Round 2)");
+    expect(ev).toMatchObject({
+      runNumber: null,
+      startTime: "17:30",
+      location: "Empire Village 446 Main St Stubridge, MA",
+    });
+    expect(ev?.date).toMatch(/-06-12$/);
+  });
+
+  it("skips boilerplate lines and never emits Trail #N rows", () => {
+    const { events } = parseUpcummingFreeform(
+      ["Trails are typically $7 usually paid to hare via Venmo", "March Trail #238, 3/14/26"],
+      SOURCE_URL,
+    );
+    expect(events).toHaveLength(0);
   });
 });
 
