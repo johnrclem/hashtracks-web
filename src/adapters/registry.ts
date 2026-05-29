@@ -34,6 +34,7 @@ import { HockessinAdapter } from "./html-scraper/hockessin";
 import { RenegadeH3Adapter } from "./html-scraper/renegade-h3";
 import { SWH3Adapter } from "./html-scraper/swh3";
 import { SDH3Adapter } from "./html-scraper/sdh3";
+import { NCH3Adapter } from "./html-scraper/nch3";
 import { PhoenixHHHAdapter } from "./html-scraper/phoenixhhh";
 import { EdinburghH3Adapter } from "./html-scraper/edinburgh-h3";
 import { NorfolkH3Adapter } from "./html-scraper/norfolk-h3";
@@ -167,6 +168,7 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /hockessinhash\.org/i,     name: "HockessinAdapter",         factory: () => new HockessinAdapter() },
   { pattern: /renegadeh3\.com/i,       name: "RenegadeH3Adapter",        factory: () => new RenegadeH3Adapter() },
   { pattern: /swh3\.wordpress\.com/i, name: "SWH3Adapter",              factory: () => new SWH3Adapter() },
+  { pattern: /nch3\.com/i,            name: "NCH3Adapter",              factory: () => new NCH3Adapter() },
   { pattern: /sdh3\.com/i,            name: "SDH3Adapter",              factory: () => new SDH3Adapter() },
   { pattern: /phoenixhhh\.org/i,    name: "PhoenixHHHAdapter",        factory: () => new PhoenixHHHAdapter() },
   { pattern: /edinburghh3\.com/i,  name: "EdinburghH3Adapter",       factory: () => new EdinburghH3Adapter() },
