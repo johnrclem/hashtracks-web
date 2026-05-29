@@ -45,8 +45,11 @@ const MAX_DETAIL_FAILURES = 25;
 async function fetchText(url: string): Promise<string | null> {
   const res = await safeFetch(url, { headers: FETCH_HEADERS });
   if (!res.ok) {
-    if (res.status !== 404) console.warn(`  HTTP ${res.status} for ${url}`);
-    return null;
+    // 404 = end-of-pagination / removed post (expected). Anything else is a
+    // transient failure — throw so discovery can't silently truncate the
+    // archive (the worker catches per-detail-page failures below).
+    if (res.status === 404) return null;
+    throw new Error(`HTTP ${res.status} for ${url}`);
   }
   return res.text();
 }
@@ -86,7 +89,15 @@ async function fetchAllArchive(): Promise<RawEventData[]> {
       const i = nextIdx++;
       if (i >= entries.length) return;
       const entry = entries[i];
-      const html = await fetchText(entry.url);
+      let html: string | null = null;
+      try {
+        html = await fetchText(entry.url);
+      } catch (err) {
+        // Tolerate transient per-detail-page failures (up to the cap) so one bad
+        // page doesn't abort the whole archive; pagination discovery still fails
+        // loud via fetchText's throw.
+        console.warn(`  Detail fetch failed for ${entry.url}:`, err);
+      }
       if (!html) {
         failures++;
         if (failures >= MAX_DETAIL_FAILURES) {
@@ -121,5 +132,7 @@ runBackfillScript({
   fetchEvents: fetchAllArchive,
 }).catch((err) => {
   console.error(err);
-  process.exit(1);
+  // Set exitCode (not process.exit) so the event loop drains and the runner's
+  // prisma.$disconnect() cleanup completes before the process ends.
+  process.exitCode = 1;
 });

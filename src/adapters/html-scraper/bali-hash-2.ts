@@ -2,6 +2,7 @@ import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
+import { todayInTimezone } from "@/lib/timezone";
 import { safeFetch } from "../safe-fetch";
 import {
   chronoParseDate,
@@ -32,8 +33,11 @@ const BASE_URL = "https://balihash2.com/";
 const KENNEL_TAG = "bali-hash-2";
 /** Run-post slug marker — distinguishes trail posts from About/static pages. */
 const POST_HREF_RE = /\/bali-hash-2-next-run-map-/i;
-/** `30-May-26` / `4-Apr-26` — hyphenated D-MMM-YY (single- or two-digit day). */
-const RUN_DATE_RE = /(\d{1,2})-([A-Za-z]{3,})-(\d{2,4})/;
+/** `30-May-26` / `4-Apr-26` — hyphenated D-MMM-YY (single- or two-digit day).
+ *  Explicit month names (not `[A-Za-z]{3,}`) so non-month words can't match and
+ *  the literal alternation stays ReDoS-clean (Sonar S5852). */
+const RUN_DATE_RE =
+  /(\d{1,2})-(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)-(\d{2,4})/i;
 /** Cap detail-page fetches per scrape so a wide window doesn't fan out. */
 const DEFAULT_DETAIL_FETCH_CAP = 10;
 const DEFAULT_DAYS = 90;
@@ -285,7 +289,9 @@ export class BaliHash2Adapter implements SourceAdapter {
     const inWindow = filterEventsByWindow(dated, days);
 
     // Prioritize detail fetches: future runs first, then most-recent, up to cap.
-    const today = new Date().toISOString().slice(0, 10);
+    // Bali is Asia/Makassar (UTC+8) — use the in-zone date so a late-evening run
+    // isn't mis-bucketed against a UTC "today".
+    const today = todayInTimezone("Asia/Makassar");
     const detailTargets = [...inWindow]
       .sort((a, b) => {
         const aFuture = a.date >= today;
