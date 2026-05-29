@@ -56,9 +56,12 @@ const MONTHS: Record<string, number> = {
   december: 11, dec: 11,
 };
 
-/** Parse "Mon, Apr 20, 2026" → UTC-noon ISO date "YYYY-MM-DD". */
+/** Parse "Mon, Apr 20, 2026" → UTC-noon ISO date "YYYY-MM-DD". Anchored to
+ *  explicit month names/abbreviations so words like "Marching" can't false-match
+ *  (and to keep the pattern linear, avoiding the broad `[A-Za-z]+` quantifier). */
 function parseSearchDate(text: string): string | undefined {
-  const m = /([A-Za-z]+)\s+(\d{1,2}),\s+(\d{4})/.exec(text);
+  const m =
+    /(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t|tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?\s+(\d{1,2}),\s+(\d{4})/.exec(text);
   if (!m) return undefined;
   const month = MONTHS[m[1].toLowerCase()];
   if (month === undefined) return undefined;
@@ -206,5 +209,6 @@ async function main(): Promise<void> {
 main().catch(async (err) => {
   console.error(err);
   await prisma.$disconnect();
-  process.exit(1);
+  // Set exitCode (don't process.exit) so the event loop drains cleanly.
+  process.exitCode = 1;
 });

@@ -371,8 +371,10 @@ function extractDetailPageTitle($: CheerioAPI): string | undefined {
  *
  * The boolean intentionally drops nuanced caveats like "OK on a leash - for
  * their own safety"; a verbatim `dogPolicy` text field is a cycle-15 follow-up.
+ * Returns `undefined` (not null) for unrecognized values so the merge pipeline
+ * preserves any existing value rather than treating it as an explicit clear.
  */
-function parseDogFriendly(value: string): boolean | null {
+function parseDogFriendly(value: string): boolean | undefined {
   const v = value.trim().toLowerCase();
   if (v.includes("leash") || /^(?:yes|ok|sure|welcome|allowed)\b/.test(v)) {
     return true;
@@ -380,7 +382,7 @@ function parseDogFriendly(value: string): boolean | null {
   if (/^no\b/.test(v) || v.includes("no dog") || v.includes("not allow") || v.includes("not permit")) {
     return false;
   }
-  return null;
+  return undefined;
 }
 
 /**
@@ -404,7 +406,7 @@ export function parseDFWDetailPage($: CheerioAPI): {
   description?: string;
   cost?: string;
   date?: string;
-  dogFriendly?: boolean | null;
+  dogFriendly?: boolean;
 } {
   const result: {
     title?: string;
@@ -415,7 +417,7 @@ export function parseDFWDetailPage($: CheerioAPI): {
     description?: string;
     cost?: string;
     date?: string;
-    dogFriendly?: boolean | null;
+    dogFriendly?: boolean;
   } = {};
 
   // Extract fields from <h5><em>Label:</em> Value</h5> pattern. Multi-line
@@ -463,9 +465,9 @@ export function parseDFWDetailPage($: CheerioAPI): {
       // "TURDs? (Dogs): Yes" / "OK on a leash - for their own safety" / "No".
       // Map to the structured dogFriendly boolean (#1770). "Nothing yet" is
       // already filtered by the value guard above. Ambiguous values return
-      // null → leave the field unset (preserve existing) rather than clear it.
+      // undefined → leave the field unset (preserve existing) rather than clear.
       const dog = parseDogFriendly(value);
-      if (dog != null) result.dogFriendly = dog;
+      if (dog !== undefined) result.dogFriendly = dog;
     }
   });
 
@@ -650,7 +652,7 @@ export class DFWHashAdapter implements SourceAdapter {
           if (detail.hares) evt.hares = detail.hares;
           if (detail.description) evt.description = detail.description;
           if (detail.cost) evt.cost = detail.cost;
-          if (detail.dogFriendly != null) evt.dogFriendly = detail.dogFriendly;
+          if (detail.dogFriendly !== undefined) evt.dogFriendly = detail.dogFriendly;
           // Detail-page date is canonical — overrides the grid cell date when
           // they disagree. Calendar grid can drift on multi-day cells (#1155).
           if (detail.date && detail.date !== evt.date) {
