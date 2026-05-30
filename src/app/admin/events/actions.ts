@@ -36,13 +36,20 @@ function revalidateAfterCancelToggle(eventId: string, kennelSlug: string): void 
 
 /** Revalidate every cache surface affected by a series-link or kennel-
  *  attribution change: the admin list, the hareline list + tag, this event's
- *  detail page, and each kennel page whose membership shifted (old + new, or
- *  the host + co-host). Empty/duplicate slugs are de-duped and skipped. */
+ *  detail page, the kennel directory index, and each kennel page whose
+ *  membership shifted (old + new, or the host + co-host). Empty/duplicate
+ *  slugs are de-duped and skipped.
+ *
+ *  `/kennels` (the directory) is included because attribution changes can move
+ *  a kennel's `lastEventDate` (see `refreshKennelLastEventDate`), which the
+ *  directory renders as the activity badge and the "Recently Active" sort —
+ *  matching what the kennel CRUD / region / research actions already do. */
 function revalidateAfterAttribution(eventId: string, kennelSlugs: string[]): void {
   revalidatePath("/admin/events");
   revalidatePath("/hareline");
   revalidateTag(HARELINE_EVENTS_TAG, { expire: 0 });
   revalidatePath(`/hareline/${eventId}`);
+  revalidatePath("/kennels");
   for (const slug of new Set(kennelSlugs.filter(Boolean))) {
     revalidatePath(`/kennels/${slug}`);
   }
@@ -1052,6 +1059,12 @@ async function setCoHostKennel(
         where: { eventId_kennelId: { eventId, kennelId: kennel.id } },
       });
     }
+
+    // Co-host attachments count toward lastEventDate (backfillLastEventDates
+    // unions the EventKennel path), so adding/removing one can change the
+    // co-host kennel's "last run" — recompute it authoritatively, same as the
+    // reattribution path does for the primary.
+    await refreshKennelLastEventDate(tx, kennel.id);
 
     await tx.event.update({
       where: { id: eventId },

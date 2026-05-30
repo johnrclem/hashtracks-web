@@ -969,6 +969,11 @@ describe("addCoHostKennel", () => {
       data: { adminAuditLog: Array<{ action: string }> };
     };
     expect(updateArg.data.adminAuditLog[0].action).toBe("add_cohost");
+    // The co-host's lastEventDate cache is recomputed (co-host attachments
+    // count toward it in the nightly backfill).
+    expect(mockKennelUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "knl_co" } }),
+    );
   });
 });
 
@@ -1046,5 +1051,9 @@ describe("removeCoHostKennel", () => {
       data: { adminAuditLog: Array<{ action: string }> };
     };
     expect(updateArg.data.adminAuditLog[0].action).toBe("remove_cohost");
+    // Removing a co-host can lower its lastEventDate — recompute it.
+    expect(mockKennelUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "knl_co" } }),
+    );
   });
 });
