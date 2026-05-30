@@ -115,11 +115,14 @@ function extractRunNumberFromDescription(
 // alternation adjacency, so Sonar S5852/S5843 read them as linear.
 const RUN_DESCRIPTOR_PREFIX_RE = /^\s*Run\b[\s#:]*\d+\s*/i;
 const PUBLIC_HOLIDAY_BOILERPLATE_RE = /\bPublic\s+Holiday\b/i;
-const DESCRIPTOR_EDGE_DELIMS_RE = /^[\s\-–—:.]+|[\s\-–—:.]+$/g;
+// Leading / trailing delimiters stripped as two separate anchored single
+// char-class passes — a combined `^X+|X+$` alternation trips Sonar S5852.
+const DESCRIPTOR_LEADING_DELIMS_RE = /^[\s\-–—:.]+/;
+const DESCRIPTOR_TRAILING_DELIMS_RE = /[\s\-–—:.]+$/;
 export function extractRunDescriptorTheme(summary: string): string {
   let theme = summary.replace(RUN_DESCRIPTOR_PREFIX_RE, "");
   theme = theme.replace(PUBLIC_HOLIDAY_BOILERPLATE_RE, "");
-  theme = theme.replace(DESCRIPTOR_EDGE_DELIMS_RE, "");
+  theme = theme.replace(DESCRIPTOR_LEADING_DELIMS_RE, "").replace(DESCRIPTOR_TRAILING_DELIMS_RE, "");
   return theme.trim();
 }
 

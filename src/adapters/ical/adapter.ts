@@ -158,7 +158,9 @@ const HARES_TRAILER_PHRASES = [
   "more to come",
   "details to follow",
 ];
-const HARES_ON_ON_LABEL_RE = /On[\s-]?On\s*:.*$/i;
+// No `.*$` tail — cleanHaresValue only reads `.index` (the label start), and
+// the trailing `\s*:.*$` shape trips Sonar S5852.
+const HARES_ON_ON_LABEL_RE = /On[\s-]?On\s*:/i;
 const HARES_FIELD_LABEL_RES = [EVENT_FIELD_LABEL_RE, EVENT_FIELD_LABEL_UPPERCASE_RE, HARES_ON_ON_LABEL_RE];
 const HARES_TRAILER_SEPARATORS_RE = /[\s&,;-]+$/;
 function cleanHaresValue(value: string): string {
