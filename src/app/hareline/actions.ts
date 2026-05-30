@@ -66,6 +66,8 @@ export interface HarelineListEvent {
   dogFriendly: boolean | null;
   /** #1316 — pre-event meetup venue/time, free-form. */
   prelube: string | null;
+  /** Sub-kennel label extracted from multi-kennel calendars (e.g. "Bayern Nash Hash"). */
+  eventLabel: string | null;
   /** #1560 — multi-day series + standalone date-range support. */
   isSeriesParent: boolean | null;
   parentEventId: string | null;
@@ -100,6 +102,28 @@ export type TimeMode = "upcoming" | "past";
  * enough to fill several scroll pages while staying under ~400 KB wire.
  */
 const PAST_EVENTS_LIMIT = 200;
+
+/**
+ * Global (unfiltered) upcoming events cap. The full upcoming set exceeds
+ * Next.js's 2MB `unstable_cache` limit (~5 k events × ~906 bytes = ~4.8 MB),
+ * silently bypassing the data cache on every request. 1 500 events ≈ 1.3 MB —
+ * roughly 30 % below the 2 MB ceiling. Series-parent rows carry inline
+ * `childEvents` that inflate their size beyond the per-event average, so the
+ * true margin is smaller for series-heavy periods; monitor if the warning
+ * reappears. Side-effect: kennels/regions beyond the 1 500 boundary are absent
+ * from the FilterBar kennel dropdown and RegionQuickChips counts, which derive
+ * from the returned payload rather than a separate metadata query.
+ */
+const UPCOMING_GLOBAL_LIMIT = 1500;
+
+/**
+ * Kennel-filtered upcoming events cap. At MAX_KENNEL_FILTER_IDS=50, a busy
+ * regional filter (e.g. all 13 SF Bay kennels) can return 1 000–2 000 events.
+ * 2 000 × ~906 bytes ≈ 1.8 MB — safely under the 2 MB `unstable_cache` limit.
+ * Higher than the global cap because filtered views serve subscribers who
+ * expect their kennel's full upcoming schedule.
+ */
+const UPCOMING_KENNEL_LIMIT = 2000;
 
 /**
  * Defensive cap on the kennel-filter list (#1560 PR F, CodeRabbit review).
@@ -268,7 +292,9 @@ const fetchSlimEventsCached = unstable_cache(
         },
       },
       orderBy: { date: isPast ? "desc" : "asc" },
-      ...(isPast ? { take: PAST_EVENTS_LIMIT } : {}),
+      take: isPast ? PAST_EVENTS_LIMIT
+        : kennelIds.length === 0 ? UPCOMING_GLOBAL_LIMIT
+        : UPCOMING_KENNEL_LIMIT,
     });
 
     // #1560 PR F — when both a series parent AND its children are returned
@@ -328,7 +354,9 @@ const fetchSlimEventsCached = unstable_cache(
       })),
     }));
   },
-  ["hareline:events"],
+  // Include limit values in the static key so a constant change automatically
+  // busts stale cache entries rather than serving old-sized payloads until TTL.
+  [`hareline:events:g${UPCOMING_GLOBAL_LIMIT}k${UPCOMING_KENNEL_LIMIT}`],
   { tags: [HARELINE_EVENTS_TAG], revalidate: 3600 },
 );
 
@@ -375,12 +403,12 @@ export async function loadEventsForTimeMode(
   //   (Sonar S2871). Empty string when no filter — a distinct cache entry
   //   from any kennel-filtered key (the 3-arg signature is new in PR F, so
   //   the unfiltered path cold-starts once on deploy regardless).
-  const normalizedKennelIds = Array.from(
-    new Set((kennelIds ?? []).map((id) => id.trim()).filter(Boolean)),
-  ).slice(0, MAX_KENNEL_FILTER_IDS);
-  const kennelIdsKey = normalizedKennelIds.length > 0
-    ? [...normalizedKennelIds].sort((a, b) => a.localeCompare(b)).join(",")
-    : "";
+  // Sort BEFORE slice so the canonical first-N is stable regardless of
+  // input order — [z,a] and [a,z] with 51 IDs must drop the same 51st element.
+  const normalizedKennelIds = [
+    ...new Set((kennelIds ?? []).map((id) => id.trim()).filter(Boolean)),
+  ].sort((a, b) => a.localeCompare(b)).slice(0, MAX_KENNEL_FILTER_IDS);
+  const kennelIdsKey = normalizedKennelIds.join(",");
 
   const cached = await fetchSlimEventsCached(mode, todayDateStr, kennelIdsKey);
 
