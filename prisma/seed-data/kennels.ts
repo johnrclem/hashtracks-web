@@ -924,8 +924,8 @@ export const KENNELS: KennelSeed[] = [
     // Orange County
     {
       kennelCode: "ochhh", shortName: "OCHHH", fullName: "Orange County Hash House Harriers", region: "Orange County, CA",
-      scheduleDayOfWeek: "Saturday", scheduleTime: "10:00 AM", scheduleFrequency: "Monthly",
-      description: "Orange County monthly Saturday morning hash.",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "10:00 AM", scheduleFrequency: "Biweekly",
+      description: "Orange County biweekly Saturday morning hash.",
       latitude: 33.72, longitude: -117.83,
     },
     {
@@ -2168,9 +2168,10 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "oh3", shortName: "Oregon H3", fullName: "Oregon Hash House Harriers",
       region: "Portland, OR",
       website: "https://www.oregonhhh.org/",
-      scheduleDayOfWeek: "Saturday", scheduleTime: "1:00 PM", scheduleFrequency: "Biweekly",
-      scheduleNotes: "Bi-weekly Saturdays plus full moon runs",
-      description: "Oregon's flagship kennel. Bi-weekly Saturday afternoon trails plus full moon evening runs in the Portland metro area.",
+      foundedYear: 1987,
+      scheduleDayOfWeek: "Saturday", scheduleTime: "1:00 PM", scheduleFrequency: "Biweekly + Full Moon",
+      scheduleNotes: "2nd & 4th Saturdays at 1pm plus Full Moon evening runs. Hotline 866-656-5477 for run info.",
+      description: "Founded 17 May 1987 by Wrong Way Corrigan — THE Mother Hash of Oregon. Biweekly Saturday afternoon trails plus Full Moon evening runs in the Portland metro area. Tyrant I and founder: Mark 'Wrong Way Corrigan' Cook.",
       latitude: 45.52, longitude: -122.68,
     },
     {
