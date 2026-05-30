@@ -5868,5 +5868,19 @@ export const SOURCES = [
       config: { upcomingOnly: true },
       kennelCodes: ["bali-hash-2"],
     },
+    // Spain — first Spain kennel
+    {
+      name: "Mijas H3 Hareline",
+      url: "https://www.mijash3.com/hareline",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      // Rolling current-year Squarespace hareline — past months drop off over
+      // time, so upcomingOnly keeps reconcile.ts from false-CANCELLING future
+      // rows once old months age off. Sole source for the kennel.
+      config: { upcomingOnly: true },
+      kennelCodes: ["mijash3"],
+    },
   ];
 
