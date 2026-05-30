@@ -46,8 +46,8 @@ BEGIN
     END IF;
 
     UPDATE "Kennel"
-    SET "hashCash"  = COALESCE("hashCash", r.hash_cash),
-        "updatedAt" = NOW()
+    SET "hashCash"  = r.hash_cash,
+        "updatedAt" = NOW() AT TIME ZONE 'UTC'
     WHERE "kennelCode" = r.kennel_code
       AND "hashCash" IS NULL;
   END LOOP;
