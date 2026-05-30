@@ -2,7 +2,8 @@ import { ImageResponse } from "next/og";
 
 // iOS home-screen icon (180x180). Rounded-rect mask is applied by iOS; we paint
 // the brand dark background edge-to-edge with the orange "H" mark.
-export const runtime = "edge";
+// nodejs runtime to match the working OG image routes (edge is discouraged on Vercel).
+export const runtime = "nodejs";
 export const size = { width: 180, height: 180 };
 export const contentType = "image/png";
 
