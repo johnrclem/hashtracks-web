@@ -873,7 +873,7 @@ export const KENNELS: KennelSeed[] = [
     },
     {
       kennelCode: "ochump", shortName: "OC Hump", fullName: "OC Hump Hash House Harriers", region: "Orange County, CA",
-      website: "http://www.hash.beer",
+      website: "https://hash.beer",
       logoUrl: "https://hashboyh3.com/wp-content/uploads/2018/06/OC-Hump-Logo-150x150.jpg",
       contactEmail: "dgleach2@gmail.com", contactName: "Balls Out for the Boyz",
       founder: "Small Sandpiper", foundedYear: 1995, hashCash: "$6",
