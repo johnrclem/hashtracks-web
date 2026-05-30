@@ -166,8 +166,10 @@ const HARES_TRAILER_SEPARATORS_RE = /[\s&,;-]+$/;
 function cleanHaresValue(value: string): string {
   let cut = value.length;
   for (const re of HARES_FIELD_LABEL_RES) {
-    const m = re.exec(value);
-    if (m && m.index < cut) cut = m.index;
+    // `search` is stateless (no `lastIndex`) — safe even if a shared regex
+    // ever gains the global flag; we only need the match start index.
+    const index = value.search(re);
+    if (index >= 0 && index < cut) cut = index;
   }
   const lower = value.toLowerCase();
   for (const phrase of HARES_TRAILER_PHRASES) {

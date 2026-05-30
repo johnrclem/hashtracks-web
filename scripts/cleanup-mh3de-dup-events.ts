@@ -169,4 +169,6 @@ async function main() {
   console.log(`Remaining source-less cancelled mh3-de Events: ${remaining}`);
 }
 
-main().then(() => prisma.$disconnect()).catch((e) => { console.error(e); process.exit(1); });
+main()
+  .catch((e) => { console.error(e); process.exitCode = 1; })
+  .finally(() => prisma.$disconnect());
