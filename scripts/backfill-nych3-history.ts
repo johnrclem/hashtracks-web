@@ -69,5 +69,7 @@ runBackfillScript({
 }).catch((err) => {
   const message = err instanceof Error ? err.message : String(err);
   console.error("FAILED:", message);
-  process.exit(1);
+  // Set exitCode (not process.exit) so the event loop drains and the runner's
+  // `finally { await prisma.$disconnect() }` resolves before the process ends.
+  process.exitCode = 1;
 });
