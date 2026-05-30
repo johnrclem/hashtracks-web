@@ -1,6 +1,8 @@
 import { ImageResponse } from "next/og";
 
-export const runtime = "edge";
+// nodejs runtime: edge-runtime ImageResponse routes 404 on our Vercel deploy
+// (this default card was silently 404ing); nodejs OG routes serve fine.
+export const runtime = "nodejs";
 export const alt = "HashTracks — Find your next trail before the beer gets warm";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";

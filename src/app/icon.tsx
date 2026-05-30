@@ -2,7 +2,9 @@ import { ImageResponse } from "next/og";
 
 // Dynamic app icon — orange "H" mark on the brand dark background, matching the
 // OG cards. Next.js serves this at /icon and wires it into <head>.
-export const runtime = "edge";
+// nodejs runtime: edge-runtime ImageResponse routes 404 on our Vercel deploy
+// (the nested nodejs OG images serve fine), so match that working pattern.
+export const runtime = "nodejs";
 export const size = { width: 512, height: 512 };
 export const contentType = "image/png";
 
