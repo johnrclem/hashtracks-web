@@ -16,7 +16,12 @@ export type AuditAction =
   | "import"
   | "hare_sync"
   | "cancel"
-  | "uncancel";
+  | "uncancel"
+  | "link_series"
+  | "unlink_series"
+  | "reattribute_kennel"
+  | "add_cohost"
+  | "remove_cohost";
 
 /** A single entry in the KennelAttendance audit log (stored as JSON array). */
 export interface AuditLogEntry {

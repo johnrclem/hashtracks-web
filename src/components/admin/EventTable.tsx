@@ -4,10 +4,17 @@
 import { useState, useEffect, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowUp, ArrowDown, Lock } from "lucide-react";
+import { ArrowUp, ArrowDown, Lock, MoreHorizontal, Layers, Link2, Link2Off, Crown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Table,
   TableBody,
@@ -45,8 +52,11 @@ import {
   bulkDeleteEvents,
   previewBulkDelete,
   uncancelEvent,
+  unlinkChildFromUmbrella,
 } from "@/app/admin/events/actions";
 import { CancellationOverrideDialog } from "./CancellationOverrideDialog";
+import { KennelAttributionDialog } from "./KennelAttributionDialog";
+import { SeriesLinkDialog } from "./SeriesLinkDialog";
 
 interface EventData {
   id: string;
@@ -58,6 +68,12 @@ interface EventData {
   runNumber: number | null;
   startTime: string | null;
   status: string;
+  /** Set when this event is a child of an umbrella (series) event. */
+  parentEventId: string | null;
+  /** True when this event is an umbrella (series parent) with children. */
+  isSeriesParent: boolean;
+  /** All kennels attributed to this event, primary-first. */
+  kennels: { kennelCode: string; shortName: string; isPrimary: boolean }[];
   /** ISO 8601 timestamp; null when not admin-cancelled. */
   adminCancelledAt: string | null;
   /** Clerk userId of the admin who set the override (matches User.clerkId; not the local User.id). */
@@ -73,7 +89,7 @@ interface EventData {
 
 interface EventTableProps {
   events: EventData[];
-  kennels: { id: string; shortName: string; fullName: string; region: string }[];
+  kennels: { id: string; kennelCode: string; shortName: string; fullName: string; region: string }[];
   sources: { id: string; name: string }[];
   filters: {
     kennelId?: string;
@@ -197,6 +213,8 @@ export function EventTable({
     sampleEvents: { id: string; date: string; kennelName: string; title: string | null; attendanceCount: number }[];
   } | null>(null);
   const [cancelDialogEvent, setCancelDialogEvent] = useState<EventData | null>(null);
+  const [attributionEvent, setAttributionEvent] = useState<EventData | null>(null);
+  const [seriesLinkEvent, setSeriesLinkEvent] = useState<EventData | null>(null);
 
   // Clear selection when URL params change (page navigation, filter change)
   useEffect(() => {
@@ -276,6 +294,18 @@ export function EventTable({
         return;
       }
       toast.success(`Restored ${result.kennelName} — ${formatDate(result.date)}`);
+      router.refresh();
+    });
+  }
+
+  function handleUnlinkUmbrella(event: EventData) {
+    startTransition(async () => {
+      const result = await unlinkChildFromUmbrella(event.id);
+      if ("error" in result) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success(`Removed ${result.kennelName} — ${formatDate(result.date)} from its series`);
       router.refresh();
     });
   }
@@ -490,9 +520,44 @@ export function EventTable({
                     {formatDate(event.date)}
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline" className="text-xs">
-                      {event.kennelName}
-                    </Badge>
+                    <div className="flex items-center gap-1">
+                      <Badge variant="outline" className="text-xs">
+                        {event.kennelName}
+                      </Badge>
+                      {event.kennels.length > 1 && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Badge variant="secondary" className="text-[10px]">
+                              +{event.kennels.length - 1}
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom">
+                            {event.kennels.length - 1} co-host{event.kennels.length - 1 !== 1 ? "s" : ""}:{" "}
+                            {event.kennels.filter((k) => !k.isPrimary).map((k) => k.shortName).join(", ")}
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                      {event.isSeriesParent && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span aria-label="Multi-day series parent" className="text-muted-foreground">
+                              <Layers className="h-3.5 w-3.5" />
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom">Multi-day series — parent</TooltipContent>
+                        </Tooltip>
+                      )}
+                      {event.parentEventId && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span aria-label="Day in a multi-day series" className="text-muted-foreground">
+                              <Link2 className="h-3.5 w-3.5" />
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom">A day within a multi-day series</TooltipContent>
+                        </Tooltip>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="text-xs max-w-[200px] sm:max-w-[300px] truncate">
                     {event.title ? (
@@ -580,6 +645,41 @@ export function EventTable({
                       >
                         Delete
                       </Button>
+
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0"
+                            disabled={isPending}
+                            aria-label="More actions"
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onSelect={() => setAttributionEvent(event)}>
+                            <Crown className="mr-2 h-3.5 w-3.5" />
+                            Edit kennels…
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          {event.parentEventId ? (
+                            <DropdownMenuItem onSelect={() => handleUnlinkUmbrella(event)}>
+                              <Link2Off className="mr-2 h-3.5 w-3.5" />
+                              Remove from series
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem
+                              onSelect={() => setSeriesLinkEvent(event)}
+                              disabled={event.isSeriesParent}
+                            >
+                              <Layers className="mr-2 h-3.5 w-3.5" />
+                              Add to multi-day series…
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))}
@@ -779,6 +879,41 @@ export function EventTable({
           open={cancelDialogEvent !== null}
           onOpenChange={(next) => {
             if (!next) setCancelDialogEvent(null);
+          }}
+        />
+
+        <KennelAttributionDialog
+          event={
+            attributionEvent
+              ? {
+                  id: attributionEvent.id,
+                  title: attributionEvent.title,
+                  date: attributionEvent.date,
+                  kennels: attributionEvent.kennels,
+                }
+              : null
+          }
+          kennels={kennels}
+          open={attributionEvent !== null}
+          onOpenChange={(next) => {
+            if (!next) setAttributionEvent(null);
+          }}
+        />
+
+        <SeriesLinkDialog
+          event={
+            seriesLinkEvent
+              ? {
+                  id: seriesLinkEvent.id,
+                  title: seriesLinkEvent.title,
+                  date: seriesLinkEvent.date,
+                  kennelName: seriesLinkEvent.kennelName,
+                }
+              : null
+          }
+          open={seriesLinkEvent !== null}
+          onOpenChange={(next) => {
+            if (!next) setSeriesLinkEvent(null);
           }}
         />
       </div>
