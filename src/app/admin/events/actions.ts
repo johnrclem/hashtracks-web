@@ -88,17 +88,28 @@ function adminAuditEntry(
   };
 }
 
-/** Recompute a kennel's denormalized `lastEventDate` (= MAX over its primary
- *  events) inside a tx. The merge-pipeline flush only ever raises this value,
- *  so a re-attribution that moves a kennel's latest event away needs an
- *  authoritative recompute — otherwise directory cards / activity badges show a
- *  stale "last run" until the daily backfill runs. */
+/** Recompute a kennel's denormalized `lastEventDate` inside a tx. The
+ *  merge-pipeline flush only ever raises this value, so a re-attribution that
+ *  moves a kennel's latest event away needs an authoritative recompute —
+ *  otherwise directory cards / activity badges show a stale "last run" until
+ *  the daily backfill runs.
+ *
+ *  The predicate MUST match `backfillLastEventDates` (the nightly authority):
+ *  MAX(date) over events attached via the primary FK OR a co-host
+ *  `EventKennel` row, filtered to displayable rows (not cancelled, not
+ *  manual-entry, canonical). Diverging here would let this value flip-flop
+ *  against the nightly recompute. */
 async function refreshKennelLastEventDate(
   tx: Prisma.TransactionClient,
   kennelId: string,
 ): Promise<void> {
   const agg = await tx.event.aggregate({
-    where: { kennelId },
+    where: {
+      OR: [{ kennelId }, { eventKennels: { some: { kennelId } } }],
+      status: { not: "CANCELLED" },
+      isManualEntry: { not: true },
+      isCanonical: true,
+    },
     _max: { date: true },
   });
   await tx.kennel.update({
