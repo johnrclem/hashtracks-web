@@ -347,7 +347,7 @@ export function EventDetailPanel({ event, attendance, isAuthenticated, onDismiss
         <CalendarExportButton event={{ ...event, kennel: event.kennel ?? { shortName: "" } }} />
         <ShareButton
           url={`/hareline/${event.id}`}
-          title={`${event.kennel?.shortName ?? "Hash"} — ${computeHeadingDate(event)}`}
+          title={`${event.kennel?.shortName ?? "Hash"} — ${headingDateStr}`}
         />
         {event.sourceUrl && (
           <Button variant="outline" size="sm" asChild>

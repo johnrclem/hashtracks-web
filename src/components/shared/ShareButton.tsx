@@ -41,6 +41,9 @@ export function ShareButton({ url, title, text }: ShareButtonProps) {
 
   async function copyLink(resolved: string) {
     try {
+      // navigator.clipboard is undefined in non-secure contexts / older browsers —
+      // accessing .writeText directly would throw a TypeError.
+      if (!navigator.clipboard) throw new Error("Clipboard API unavailable");
       await navigator.clipboard.writeText(resolved);
       toast.success("Link copied");
     } catch {

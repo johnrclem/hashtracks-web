@@ -36,8 +36,7 @@ describe("DISPLAYABLE_EVENT_NO_PARENT_WHERE", () => {
   });
 
   it("is otherwise identical to DISPLAY_EVENT_WHERE", () => {
-    const { parentEventId, ...expected } = DISPLAY_EVENT_WHERE;
-    void parentEventId;
+    const { parentEventId: _parentEventId, ...expected } = DISPLAY_EVENT_WHERE;
     expect(DISPLAYABLE_EVENT_NO_PARENT_WHERE).toEqual(expected);
   });
 });

@@ -80,7 +80,7 @@ export async function generateMetadata({
     title,
     description,
     alternates: { canonical: `${baseUrl}/hareline/${eventId}` },
-    openGraph: { title, description },
+    openGraph: { title, description, url: `${baseUrl}/hareline/${eventId}` },
   };
 }
 
@@ -300,9 +300,10 @@ export default async function EventDetailPage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: safeJsonLd(eventJsonLd) }}
       />
+      {/* safeJsonLd() escapes </script>; input is a server-built schema object, not user HTML */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumbJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: /* nosemgrep: react-dangerouslysetinnerhtml */ safeJsonLd(breadcrumbJsonLd) }}
       />
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -599,7 +600,7 @@ export default async function EventDetailPage({
         <CalendarExportButton event={{ ...event, date: event.date.toISOString(), kennel: event.kennel }} />
         <ShareButton
           url={`${baseUrl}/hareline/${event.id}`}
-          title={`${event.kennel.shortName} — ${breadcrumbDateStr}`}
+          title={`${event.kennel.shortName} — ${headerDateStr}`}
         />
         <SourcesDropdown sourceUrl={event.sourceUrl} eventLinks={event.eventLinks} />
         <Tooltip>

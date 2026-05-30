@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { getRegionColor } from "@/lib/region";
 import { formatDateLong } from "@/lib/format";
 import { DISPLAYABLE_EVENT_NO_PARENT_WHERE } from "@/lib/event-filters";
+import { getCanonicalSiteUrl } from "@/lib/site-url";
 
 // Must use nodejs runtime (not edge) because Prisma requires Node.js
 export const runtime = "nodejs";
@@ -93,7 +94,7 @@ export default async function OgImage({ params }: { params: Promise<{ eventId: s
         {/* Footer */}
         <div style={{ position: "absolute", bottom: "40px", display: "flex", alignItems: "center", gap: "12px", fontSize: 18, color: "#71717a" }}>
           <div style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "#f97316" }} />
-          {(process.env.NEXT_PUBLIC_APP_URL || "https://hashtracks.xyz").replace(/^https?:\/\//, "")}
+          {getCanonicalSiteUrl().replace(/^https?:\/\//, "")}
         </div>
       </div>
     ),

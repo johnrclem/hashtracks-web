@@ -62,7 +62,7 @@ export async function generateMetadata({
     title,
     description,
     alternates: { canonical: `${baseUrl}/kennels/${slug}` },
-    openGraph: { title, description },
+    openGraph: { title, description, url: `${baseUrl}/kennels/${slug}` },
   };
 }
 
@@ -287,9 +287,10 @@ export default async function KennelDetailPage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: safeJsonLd(kennelJsonLd) }}
       />
+      {/* safeJsonLd() escapes </script>; input is a server-built schema object, not user HTML */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumbJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: /* nosemgrep: react-dangerouslysetinnerhtml */ safeJsonLd(breadcrumbJsonLd) }}
       />
       {/* ── Breadcrumb ── */}
       <FadeInSection>

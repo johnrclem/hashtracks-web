@@ -47,7 +47,10 @@ export const metadata: Metadata = {
     siteName: "HashTracks",
     title: "HashTracks",
     description: "Discover runs, track attendance, view stats — the hareline you never knew you needed.",
-    url: getCanonicalSiteUrl(),
+    // NOTE: intentionally no `url` here. Next.js merges (not replaces) child
+    // openGraph, so a root `url` would make every page that doesn't set its own
+    // (e.g. /hareline, /kennels) advertise the homepage as og:url. Pages set
+    // their own og:url where it matters.
     locale: "en_US",
   },
   twitter: {
