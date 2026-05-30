@@ -459,6 +459,41 @@ describe("MeetupAdapter", () => {
     ]);
   });
 
+  it("keeps run-numbered farewell/goodbye trails (#1739 negative fixture)", async () => {
+    // The retrofit gates the broad farewell words ("farewell"/"goodbye") with a
+    // hash-signal check, so a real departing-hasher "Farewell Run" / "Goodbye
+    // Trail" that carries a run number still ingests — only un-signalled
+    // platform-departure posts drop. Without the gate these would be dropped as
+    // false positives (the exact case .claude required a negative fixture for).
+    const html = buildMeetupHtml({
+      "Event:farewell": buildApolloEvent({
+        id: "fw1",
+        title: "Farewell Run Trail #42",
+        dateTime: "2026-06-10T18:00:00-04:00",
+        status: "ACTIVE",
+      }),
+      "Event:goodbye": buildApolloEvent({
+        id: "gb1",
+        title: "Goodbye Trail #138",
+        dateTime: "2026-06-12T18:00:00-04:00",
+        status: "ACTIVE",
+      }),
+      "Venue:123": VENUE_ENTRY,
+    });
+    mockHtmlResponse(html);
+
+    const adapter = new MeetupAdapter();
+    const result = await adapter.fetch(
+      makeSource({ groupUrlname: "narwhal-h3-group", kennelTag: "narwhal-h3" }),
+      { days: 365 },
+    );
+
+    expect(result.events).toHaveLength(2);
+    expect(result.events.some((e) => /Farewell/i.test(e.title ?? ""))).toBe(true);
+    expect(result.events.some((e) => /Goodbye/i.test(e.title ?? ""))).toBe(true);
+    expect(result.diagnosticContext?.adminNoticeSkipped).toBe(0);
+  });
+
   it("parses events and assigns kennelTag", async () => {
     const html = buildMeetupHtml({
       "Event:1": buildApolloEvent(),

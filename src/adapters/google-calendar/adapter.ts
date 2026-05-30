@@ -6,6 +6,7 @@ import { matchKennelPatterns, matchCompiledKennelPatterns, compileKennelPatterns
 import { LOCATION_EMAIL_CTA_RE } from "@/pipeline/audit-checks";
 import { parseDMSFromLocation } from "@/lib/geo";
 import { extractHares, PHONE_TRAILING_RE } from "../hare-extraction";
+import { MEDICAL_SKIP_RES } from "../skip-rules";
 
 /**
  * Default cap on the future-window passed to Google Calendar's `timeMax`. With
@@ -152,25 +153,13 @@ const PERSONAL_TITLE_PATTERNS: readonly RegExp[] = [
   /^\s*[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?\s+(?:training|practice|lesson|class|workout|tutoring|rehearsal)\b/,
 ];
 
-/**
- * Medical / telehealth appointment patterns (#1690 Houston PII).
- *
- * Kept separate from PERSONAL_TITLE_PATTERNS because a real contributor
- * adding their own medical appointment to a shared kennel calendar will
- * almost certainly type description text for themselves (clinic name,
- * prep notes). The PERSONAL_TITLE_PATTERNS gate (`hasStructuredField`)
- * treats any non-empty description as a hash signal — too permissive
- * for PII titles. These patterns ride a tighter gate: only runNumber
- * or hares can override (mirrors NON_HASH_DOMAIN_PATTERNS below).
- *
- * Patterns are narrow on purpose. A real hash titled "Sleep Study Trail"
- * with a hare assigned still passes thanks to the gate.
- */
-const MEDICAL_TITLE_PATTERNS: readonly RegExp[] = [
-  /^\s*sleep\s+study\b/i,
-  /^\s*(?:medical|telehealth|virtual)\s+(?:appointment|visit|consultation|consult)\b/i,
-  /\bremote\s+visit\b/i,
-];
+// Medical / telehealth appointment patterns (#1690 Houston PII) now live in
+// the shared `skip-rules` module as MEDICAL_SKIP_RES (#1739), so per-source
+// `silentlySkipPatterns` and this global heuristic share one definition. The
+// gate below is unchanged: kept separate from PERSONAL_TITLE_PATTERNS because a
+// real contributor adding their own medical appointment will type description
+// prose; only runNumber / hares / the literal "hash" override (a real
+// "Sleep Study Trail" with a hare still ingests).
 
 /**
  * Non-hash domain markers (#1426). Pairing a sport with a game/practice
@@ -1682,7 +1671,7 @@ export function buildRawEventFromGCalItem(
     runNumber === undefined &&
     !hares &&
     !HASH_KEYWORD_RE.test(summary) &&
-    MEDICAL_TITLE_PATTERNS.some((re) => re.test(summary) || re.test(strippedSummary))
+    MEDICAL_SKIP_RES.some((re) => re.test(summary) || re.test(strippedSummary))
   ) {
     return null;
   }
