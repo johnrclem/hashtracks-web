@@ -873,7 +873,12 @@ export const KENNELS: KennelSeed[] = [
     },
     {
       kennelCode: "ochump", shortName: "OC Hump", fullName: "OC Hump Hash House Harriers", region: "Orange County, CA",
+      website: "http://www.hash.beer",
+      logoUrl: "https://hashboyh3.com/wp-content/uploads/2018/06/OC-Hump-Logo-150x150.jpg",
+      contactEmail: "dgleach2@gmail.com", contactName: "Balls Out for the Boyz",
+      founder: "Small Sandpiper", foundedYear: 1995, hashCash: "$6",
       scheduleDayOfWeek: "Wednesday", scheduleTime: "6:30 PM", scheduleFrequency: "Biweekly",
+      scheduleNotes: "Every other Wednesday at 6:30 PM in Orange County, with occasional Friday 6:30 PM trails and special runs.",
       description: "Orange County biweekly Wednesday evening hash.",
       latitude: 33.72, longitude: -117.83,
     },
@@ -1161,6 +1166,8 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "nvhhh", shortName: "NVHHH", fullName: "Nittany Valley Hash House Harriers", region: "State College, PA",
       website: "https://www.nvhhh.com/",
+      logoUrl: "https://nvhhh.com/images/nvhhh_logo.gif",
+      contactEmail: "hareraiser@nvhhh.com", twitterHandle: "nvhhh",
       scheduleDayOfWeek: "Monday", scheduleFrequency: "Weekly", scheduleTime: "6:30 PM",
       scheduleNotes: "Mondays 6:30 PM (summer); Sundays 3 PM (winter).",
       hashCash: "$5", foundedYear: 1990,
@@ -1725,7 +1732,7 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "o2h3", shortName: "O2H3", fullName: "Other Orlando Hash House Harriers", region: "Orlando, FL",
       website: "https://www.o2h3.net",
       facebookUrl: "https://www.facebook.com/OtherOrlandoH3/",
-      contactEmail: "hashcalendar@gmail.com",
+      contactEmail: "hashcalendar@gmail.com", hashCash: "$7",
       scheduleDayOfWeek: "Saturday", scheduleTime: "1:25 PM", scheduleFrequency: "Weekly",
       foundedYear: 1986,
       scheduleNotes: "Every Saturday afternoon + full moon evenings.",
@@ -2720,6 +2727,7 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "new-tokyo-katch", shortName: "NTKH4", fullName: "New Tokyo Katch the Hare Hash House Harriers", region: "Tokyo", country: "Japan",
       website: "https://newtokyohash.wixsite.com/newtokyokatchhash",
+      logoUrl: "https://static.wixstatic.com/media/74a0f6_85a0a91b884944e3a02710a8363dfeb8~mv2_d_1350_1435_s_2.jpeg/v1/fill/w_113,h_116,al_c,q_80,usm_0.66_1.00_0.01,enc_avif,quality_auto/NTKH4_design.jpeg",
       scheduleFrequency: "Monthly",
       foundedYear: 1995,
       description: "Monthly Tokyo hash with a catch-the-hare format. Mix of regular runs, onsen runs, and annual overseas events.",
