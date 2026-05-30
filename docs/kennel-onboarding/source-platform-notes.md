@@ -40,3 +40,75 @@ https://public-api.wordpress.com/wp/v2/sites/<host>/posts?per_page=100&page=N&_f
 **Detection:** WordPress.com hosting shows a `gravatar.com/blavatar/…` favicon and `meta-generator: WordPress.com` in the page `<head>`.
 
 **Effort:** ~200–280 LoC per kennel (each kennel's title + body format is bespoke; the WP REST plumbing is trivial). Once 3–4 ship, factor a shared `WordPressComAdapter` base class taking a `parseTitle`/`parseBody` config.
+
+---
+
+## Meetup — verifying upcoming events from the sandbox (learned from Paris/SCHHH + ZH3, 2026-05-29)
+
+`MeetupAdapter` is config-only (`groupUrlname` + `kennelTag`, optional `kennelPatterns`/`extractRunNumber`), but **verifying that a Meetup group actually has upcoming events is the trap** — the dynamic-source rule lives or dies here. Two lessons:
+
+- **The group *events-list* page (`/<urlname>/events/`) is JS-rendered. Its bare SSR shell always shows `Events 0 … Upcoming` from a plain fetch — that "0" is a hydration artifact, NOT a real zero.** Do not conclude "no upcoming events" from the list count. Confirmed on two groups same day: ZH3 (which *did* have an upcoming run) and Paris (which didn't) both rendered "0" in the shell.
+- **Individual event *detail* pages (`/<urlname>/events/<id>/`) ARE fully server-rendered** — title, `Sat, Jun 6 · 2:00 PM to 5:00 PM CEST`, venue + maps link, hares, cost, run number all in the HTML. **To verify upcoming events, web-search the group name for an indexed future event page and fetch that**, rather than trusting the list. A live, future-dated detail page = source confirmed. This also yields a real sample event for the handoff.
+- **"Request to join" (semi-private) groups still expose public event detail pages** (ZH3 is request-to-join yet its #1731 page is public + indexed). But flag for Claude Code to confirm the adapter's events-page/Apollo extraction returns events for such groups — a private group *could* gate the list even while detail pages are public.
+- **Telling a dead kennel from a between-postings gap:** a real 0-upcoming (Paris) usually pairs with a stale website/blog and a most-recent event already in the past. An active kennel mid-gap (hasn't posted next week yet) still shows recent past events + a live site. When the only signals are "0 upcoming + stale site," mark `blocked` (revisit), don't fabricate a source. When you find a future detail page, it's live.
+- **The kennel's own site often *is* just a Meetup funnel** — `zh3.ch` / `parishash` both say "go to Meetup for the location." In that case Meetup is the right primary source even though a WordPress/blog URL also exists; the blog carries announcements, not per-run location/date.
+
+---
+
+## Squarespace — content-page harelines ≠ Events collections (learned from Mijas H3, 2026-05-30)
+
+There are **two distinct Squarespace patterns**, and they need different adapters:
+
+- **Events collection** (SACH3, 2026-05-27): a Squarespace *Events* page backed by an events
+  collection. Fetch `?format=json` for structured event JSON → handled by the shared
+  `SquarespaceEventsAdapter`. **This is the config-only path.** (Watch the tenant-default
+  Manhattan-coord trap + pagination + endDate/endTime — see the SACH3 entry / run-log.)
+- **Content-page hareline** (Mijas H3): a *regular content page* (`/hareline`) where the committee
+  hand-maintains the season's runs as a delimited text list under month `<h2>` headings, e.g.
+  `2020 - 31 May 2026 - Shaggy & AguaSex - AGM Run`. There is **no events collection** behind it,
+  so `?format=json` returns page content blocks (not events) and `SquarespaceEventsAdapter` does
+  **not** apply. This needs a **small bespoke Cheerio scraper** with a line tokenizer
+  (`split(/\s+-\s+/)` → runNum / `DD Month YYYY` date / hares / theme). `GenericHtmlAdapter` can't
+  do it (it maps one CSS selector → one field; it can't split a single text line into 4 fields).
+
+Detection / gotchas for the content-page variant:
+- **Server-rendered** — a plain fetch returns the full list as text, so Cheerio works; no
+  browser-render needed. (Squarespace SSRs page content.)
+- **DOM order is NOT chronological** — Mijas' live page renders the **August** block *before* the
+  **May** block. Parse each line's own full date; never trust the `<h2>` month heading for the year
+  or assume source order is sorted.
+- **List wrapper:** items live in a Squarespace `.sqs-html-content` / `.sqs-block-content` block as
+  `<ul><li>` or `<p>` lines — content-keyed traversal; capture the real DOM for the test fixture.
+- **No per-event coords or times** in a hareline list (a separate "Next Run Details" page may carry
+  the single next run's pin/time) → no coord-corruption trap, but `startTime`/`location` come out
+  undefined. Set `config.upcomingOnly: true` (a rolling hareline prunes old months → protects
+  reconcile).
+- **Logo** is the usual tokenized `images.squarespace-cdn.com/.../<hash>/logo.<ext>` → self-host.
+
+#### 🔴 Third pattern — separate "Run Reports" / archive collection (learned from Mijas H3, 2026-05-30)
+
+In addition to (1) the Events collection (SACH3 path) and (2) the content-page hareline (Mijas
+upcoming-runs path), a Squarespace kennel often has a **third surface**: a separate **blog/journal
+collection** with one post per past run. **This is the historical-backfill source — but you only
+find it by probing for it explicitly.** The Mijas H3 handoff missed it and declared "no history
+available"; the same site had `/run-reports` with **389 events back to 2005** (a 353-run miss).
+
+- **EVERY Squarespace blog collection is JSON at `<path>?format=json-pretty`** (paginated via
+  `?offset=…`). The response is `{ items: [{ id, recordType, title, publishOn (epoch-ms), body
+  (HTML), urlId, … }], pagination: { nextPage: true | absent, nextPageOffset } }`.
+- **Pagination end is signaled by OMITTING `nextPage`** (not `nextPage: false`). Fail-loud: if
+  you stop early because `nextPageOffset` is undefined but the last page was full, that's a
+  truncation — log it and surface as a stop reason; don't quietly tail-prune.
+- **Discovery routine:** walk top-nav + footer links; for any that smells archival (Run Reports,
+  Trail Recap, Hash Trash, Journal, Blog), curl `<url>?format=json-pretty` and inspect:
+  ```bash
+  curl -s "https://<site>/<collection>?format=json-pretty" | python3 -c 'import sys,json; d=json.load(sys.stdin); print("items:",len(d.get("items",[])),"oldest:",min((i.get("publishOn",0) for i in d.get("items",[])), default=0),"next:",d.get("pagination",{}).get("nextPage"))'
+  ```
+- **Run number lives in the title or body** (e.g. `"Run #849 …"` or `"#849 – …"`); extract via
+  `extractHashRunNumber` from `src/adapters/utils.ts` rather than a bespoke regex.
+- **Backfill, not adapter.** Drive this from a one-shot `scripts/backfill-<code>-history.ts` per
+  the ONH3 pattern. The recurring adapter scrapes the future-facing surface (hareline or events
+  collection) and emits future-only with `config.upcomingOnly: true`.
+- **`location` is tri-state in backfill.** `cleanLocationName()` returns `null` for "TBD" / unknown;
+  preserve that null (don't coerce to empty string), so the merge pipeline can display "venue TBD"
+  properly.

@@ -180,6 +180,20 @@ to approve it (Chrome works for already-approved domains like `hashtracks.xyz`).
 **Capture for the handoff:** event count seen, date range, and 3–5 sample events with whatever
 fields the source exposes (date, time, title, hares, location, description, run number).
 
+**🔴 Fixtures must come from real `curl` output, not speculation.** When the handoff describes the
+source page structure, base it on actual `curl -s <url>` output (or `browserRender` output for
+JS-rendered sites). The Mijas H3 handoff described the page as "rendered text, not markup," which
+was wrong — a plain fetch returned full SSR'd HTML and the test fixture should have used that
+markup verbatim. Speculative DOM descriptions lead to fixture/live mismatches that only surface at
+live-verify time.
+
+**🔴 Run-number ≠ archive depth.** When a kennel says "run #1747," that's the CURRENT trail
+number, not necessarily how far back the source's archive reaches. **Walk a couple `/page/N` (or
+`?offset=…`) URLs and report the actual oldest reachable post** in the handoff. The Bali Hash 2
+handoff overstated "~1,747 archived runs" — the Ghost blog only goes back to Sept 2024 (~78 posts);
+the rest are *historical*, not *archived on this source*. Use the real depth to decide whether a
+one-shot backfill is worth scripting (and whether `upcomingOnly: true` is needed; see below).
+
 **🔴 Sample ≥3 posts across YEARS (not just the latest 3) for multi-year archives.** Format drift
 is the rule, not the exception. Real source data routinely mixes: full and abbreviated months
 ("16 March 2026" vs "16 Mar 2019"), weekday-prefixed dates ("Monday, 20 April 2026"), per-block
@@ -214,6 +228,7 @@ Kennel profile (maps to the `Kennel` model): `fullName`, `shortName`, `kennelCod
 `scheduleFrequency`, `foundedYear`, `hashCash`/payment, `dogFriendly`, `walkerFriendly`,
 `description` (short "about us"), **`logoUrl`**, and lat/lng if easily found.
 
+- **`hashCash` is the kennel-level *standard* (Two-Tier Hash Cash Model; see CLAUDE.md → Key Domain Concepts):** capture the amount a hasher normally pays at this kennel's runs into `Kennel.hashCash` (free-form, e.g. `"$5"`, `"Free"`, `"CHF 5"`, `"Members Rp.100,000 / Visitors Rp.150,000"`). Preserve the verbatim source nuance (tiers, payment methods) in the value or the `description`. Do NOT try to encode per-event price variations here — those (campouts, anniversary runs, visitor-only specials) belong on the event-level `Event.cost` field, populated by the adapter only when an event differs from this kennel default. The domain term is "hash cash" at both levels; the per-event column is named `cost` for historical reasons.
 - **`logoUrl` stability:** prefer a stable URL. If the only logo is a **tokenized/ephemeral CDN
   URL** (e.g. `images.squarespace-cdn.com/.../<hash>/...`, signed S3, Wix `static.wixstatic.com/media/<hash>~mv2.<ext>`),
   flag it `⚠️ self-host` — recommend Claude Code download it into `public/kennel-logos/<code>.<ext>`
@@ -238,6 +253,26 @@ Kennel profile (maps to the `Kennel` model): `fullName`, `shortName`, `kennelCod
   Also pick a **color palette consistent with the continent** for the COUNTRY + METRO records
   (Africa = amber per Kenya precedent; pick a similarly-distinct Asia palette by scanning
   existing Bangkok/Singapore/Tokyo entries rather than guessing).
+
+  **Region color shade + alias conventions (from ZH3 retro):**
+  - **Country = darker shade (`-200`), Metro = lighter shade (`-100`)**, and the two should use
+    **different pin colors** (not the same hex). Mirror a sibling COUNTRY+METRO pair (e.g.
+    Germany + Berlin) for the exact shade/pin pattern — don't invent.
+  - **Region aliases: 1–2 entries**, name + native spelling only (e.g.
+    `aliases: ["Zurich", "Zürich, Switzerland"]`). Mirror sibling-metro density. **Do NOT** emit
+    near-duplicate `"<Name>, <code>"` forms (e.g. both `"Zurich, CH"` and `"Zürich, CH"`) —
+    reviewer-flagged dup on PR #1816.
+  - **No trailing-zero numeric literals.** Sonar S6749 rejects `46.80`; emit `46.8`. Same for
+    `centroidLng`, `latitude`, `longitude` in any seed block.
+- **When you keep flat `scheduleDayOfWeek`/`scheduleTime` alongside `scheduleRules`, add the
+  fallback comment.** Convention (lbh3, PR #1684): flat fields are the fallback for clients that
+  don't read `scheduleRules`; `scheduleRules` is authoritative. Emit:
+  ```ts
+  // scheduleDayOfWeek/scheduleTime kept as fallback; scheduleRules is authoritative.
+  scheduleDayOfWeek: "Saturday",
+  scheduleTime: "16:00",
+  scheduleRules: [ ... ],
+  ```
 - **Schedule with more than one pattern → suggest `scheduleRules`, not just `scheduleDayOfWeek`.**
   If the kennel runs e.g. "weekly Wednesday + occasional Saturday," a single `scheduleDayOfWeek`
   miscategorizes the rest in Travel Mode. Propose an RRULE array, e.g.:
@@ -255,6 +290,27 @@ preferred path; per the ONH3 pattern, split future-only into the adapter and pas
 `scripts/backfill-<code>-history.ts` one-shot); aggregator cross-refs (Harrier Central / Hash
 Rego / hashruns.org); any secondary source worth adding; avoid stale placeholder titles like
 "`<shortName>` Trail".
+
+> 🔴 **Before concluding "no historical backfill available," PROBE for a separate archive
+> collection.** Many kennels keep a *distinct* archive section that the upcoming-runs page
+> doesn't mention — typically named "Run Reports," "Trail Recap," "Hash Trash," "History,"
+> "Archive," or just a blog. The Mijas H3 handoff declared 36 events with "no history" — the
+> same site had a `/run-reports` collection with **389 events back to 2005** (a 353-run miss,
+> 22×). Checklist:
+> - Enumerate every top-nav and footer link on the kennel's site; flag anything that smells
+>   archival (`/blog`, `/posts`, `/reports`, `/recap`, `/history`, `/archive`, `/trail-*`).
+> - **For Squarespace specifically:** EVERY blog collection is readable at
+>   `<collection-url>?format=json-pretty` (paginated via `?offset=…`). Test it — if you get a
+>   `items[]` array of posts with `publishOn` epoch-ms + `body` HTML, that's the backfill source.
+> - For WordPress / WordPress.com: same `wp-json/wp/v2/posts` and
+>   `public-api.wordpress.com/wp/v2/sites/<host>/posts` patterns from the ONH3 onboarding.
+> - For Ghost / Blogger / generic blog: walk `/page/N` and report actual oldest reachable post
+>   (NOT current run number — see "Run-number ≠ archive depth" in Step 3 above).
+>
+> Report the actual archive depth (count + date range + per-post field list) in the handoff so
+> the implementer can decide if a one-shot backfill is worth scripting. **The cost of finding a
+> backfill source after a kennel ships is high** (cleaning up the gap + a separate follow-up PR
+> is what happened with Mijas — see retro `handoffs/retros/2026-05-30-mijash3-retro.md`).
 
 ## Step 5 — Choose kennelCode + check collisions
 
@@ -282,11 +338,17 @@ in the handoff so Claude Code and John aren't surprised.
 
 Produce:
 
-- **Ready-to-paste seed blocks** following the real shapes in `prisma/seed-data/` and playbook
-  §4/§9: the `Kennel` object (or, for source-add, *which existing kennel*), the `aliases` entry,
-  and the `Source` row with `type`, `trustLevel` (GCal/HashRego 8–9, Meetup/Sheets 7–8, iCal 6–7,
-  HTML 5–6), `scrapeFreq: "daily"`, adapter `config`, and **`kennelCodes`** (the source-kennel
-  guard — list every kennel the source feeds).
+- **Ready-to-paste seed blocks following the REAL shapes in `prisma/seed-data/` — read the files
+  first.** Each file has a distinct shape; do not infer one from another:
+  - `kennels.ts` → `Kennel[]` (array of objects, `{ kennelCode, shortName, ... }`)
+  - `aliases.ts` → `Record<string, string[]>` (object keyed by slug, value is a string array).
+    **NOT** `[{kennelCode, alias}]` — this exact wrong shape was emitted on two consecutive runs
+    (ZH3 + Bali, 2026-05-29). `head -3 prisma/seed-data/aliases.ts` before emitting.
+  - `sources.ts` → `Source[]` (array of objects)
+  Then emit the `Kennel` object (or, for source-add, *which existing kennel*), the `aliases`
+  entry in the actual Record shape, and the `Source` row with `type`, `trustLevel` (GCal/HashRego
+  8–9, Meetup/Sheets 7–8, iCal 6–7, HTML 5–6), `scrapeFreq: "daily"`, adapter `config`, and
+  **`kennelCodes`** (the source-kennel guard — list every kennel the source feeds).
 - For a **new HTML scraper** (only if nothing else fits): a parsing plan — target URL, the
   fetch method (`fetchHTMLPage` from `src/adapters/utils.ts` for static HTML; `browserRender`
   from `src/lib/browser-render.ts` for JS-rendered sites — the canonical call in scrapers;
@@ -324,15 +386,28 @@ Create `docs/kennel-onboarding/handoffs/<YYYY-MM-DD>-<kennelCode>.md` with this 
 >    add/repoint the source and enrich missing kennel fields — don't duplicate the kennel). If the
 >    region isn't seeded yet, add it as noted in **Adapter notes**.
 > 3. Implement/configure the adapter exactly as in **Adapter notes** (prefer the config-only path).
-> 4. `npx prisma db seed`, then **live-verify against the real source URL** per
->    `.claude/rules/live-verification.md` — resolve every item flagged `⚠️ Claude Code must
->    confirm` in **Live source verification** (e.g. confirm the `.ics`/feed returns a valid body;
->    if it doesn't, use the documented fallback). Events non-empty + upcoming, dates UTC-noon,
->    `startTime` "HH:MM", `kennelTag` resolves with no unmatched.
+> 4. **Live-verify the adapter directly** (no DB write) per `.claude/rules/live-verification.md`
+>    — call `adapter.fetch(source)` via a throwaway `npx tsx -e '…'` snippet or a small script
+>    under `scripts/`. Resolve every item flagged `⚠️ Claude Code must confirm` in **Live source
+>    verification** (e.g. confirm the `.ics`/feed returns a valid body; if it doesn't, use the
+>    documented fallback). Validate: events non-empty + upcoming, dates UTC-noon, `startTime`
+>    "HH:MM", `kennelTag` resolves with no unmatched. **DO NOT run `npx prisma db seed` here** —
+>    seeding + prod scrape is a separate post-merge step (see step 8 below).
 > 5. Optional: the **Historical backfill** one-shot insert, only if marked worth it.
 > 6. `eval "$(fnm env)" && fnm use 20 && npx tsc --noEmit && npm run lint && npm test`.
 > 7. Commit and open a PR whose body carries the metadata, live-verification results, and the
 >    deep-dive checklist below. Follow `docs/source-onboarding-playbook.md` throughout.
+> 8. **Post-merge runbook (separate step, run after the PR merges):**
+>    - `git checkout main && git pull`
+>    - **Verify each expected file actually landed on `main`.** Squash-merge sometimes silently
+>      drops a follow-up commit from a multi-commit PR (the mijash3 backfill script was dropped
+>      this way — required PR #1837 to recover). Spot-check by name: `git log -1 -- path/to/file`
+>      for each file the PR was supposed to add. If anything's missing, open a small recovery PR
+>      with the missing files.
+>    - `eval "$(fnm env)" && fnm use 20`
+>    - `npx prisma db seed` (additive; updates changed `Source.config` and seeds new kennels/aliases/sources)
+>    - Trigger a scrape from `/admin/sources` (or the equivalent admin action) to publish events to prod
+>    - Spot-check the kennel page on hashtracks.xyz for the expected event count + sample dates
 > Everything you need is in the sections that follow.
 
 ## Summary
@@ -376,13 +451,29 @@ Create `docs/kennel-onboarding/handoffs/<YYYY-MM-DD>-<kennelCode>.md` with this 
   if relevant to suppress stale-event reconciliation)
 
 ## Ready-to-paste seed
+
+> 🔴 **`aliases.ts` is `Record<string, string[]>`, NOT an object array.** Two consecutive runs
+> (ZH3 + Bali Hash 2, 2026-05-29) emitted `[{kennelCode, alias}]` object-array form anyway,
+> requiring a manual rewrite each time. **Before emitting the aliases block, `head prisma/seed-data/aliases.ts`
+> to confirm the live shape and mirror it exactly.** Reference the retros at
+> `docs/kennel-onboarding/handoffs/retros/2026-05-29-{zh3,bali-hash-2}-retro.md`.
+
 ```ts
-// kennels.ts  (skip if source-add)
+// kennels.ts  (skip if source-add) — Kennel[] (array of objects)
 { kennelCode: "...", shortName: "...", fullName: "...", region: "...", country: "...", website: "...", ... }
-// aliases.ts
-"<code>": ["...", "..."],
-// sources.ts
-{ name: "...", url: "...", type: "..." as const, trustLevel: N, scrapeFreq: "daily", config: { ... }, kennelCodes: ["..."] }
+
+// aliases.ts — Record<string, string[]>  (slug → string[]).  Concrete shape (real entries):
+//   "bali-hash-2": ["Bali Hash 2", "BH2", "Bali H2", "Bali Hash House Harriers 2"],
+//   "zh3":         ["Zurich", "Zürich, Switzerland"],
+// ❌ WRONG (do NOT emit): [{kennelCode: "...", alias: "..."}, ...]
+// ✅ RIGHT (the file's actual shape — go read it):
+"<your-slug>": ["Alias One", "Alias Two", "Native-spelling Alias"],
+
+// sources.ts — Source[] (array of objects). Include scrapeDays!
+{ name: "...", url: "...", type: "..." as const, trustLevel: N,
+  scrapeFreq: "daily", scrapeDays: 365,   // ← REQUIRED — typical 90 for narrow feeds, 365 for archives
+  config: { upcomingOnly: true, ... },    // ← upcomingOnly:true if the feed "ages out"; see gotchas
+  kennelCodes: ["..."] }
 ```
 
 ## Adapter notes / new-scraper plan
@@ -418,9 +509,17 @@ Carry these into the build; they've each caused a follow-up fix before:
   `scrape.ts` runs stale-event reconciliation against partial data and cancels valid events. A
   non-empty `kennelPagesStopReason` suppresses stale-event reconciliation; only set it on a genuine
   truncation (full page left unfetched / HTTP or fetch error).
-- **For historical-archive sources, set `config.upcomingOnly: true`** to restrict reconciliation
-  to future dates (ONH3 pattern — prevents false-cancelling the archived backfill once it ages
-  off the source's first page).
+- **`config.upcomingOnly: true` is required for ANY "ages-out" source** — not just historical
+  archives. The rule: if scraping the source twice (a year apart) would NOT return the same old
+  events because they age off the source's display window, the source needs `upcomingOnly: true`.
+  Without it, `reconcile.ts` false-`CANCEL`s the aged-off events. Applies to:
+  - Recent-only feeds (Ghost / Wix "next run" posts that disappear after the event — Bali Hash 2
+    missed this and would have started cancelling its own events after ~30 days; ONH3 had it).
+  - Schedule-only feeds capped at ±N days (Google Calendar windows, iCal `?past_days=N`).
+  - Any source whose display window is shorter than the kennel's actual history.
+  Does NOT apply to full archives (the source itself returns the same old events on every
+  scrape — most WordPress.com REST, full iCal exports). When in doubt, add it; the cost of a
+  false negative (missed cancellation) is lower than a false positive (events disappear from prod).
 - **Tests:** `vi.spyOn(globalThis, "fetch")` accumulates `.mock.calls` across `it()` blocks — add
   `beforeEach(vi.restoreAllMocks)` for accurate per-test counts.
 - **Sonar S3776 cognitive complexity ≤ 15 — pre-plan helpers, don't inline.** Pagination, guard
@@ -435,6 +534,22 @@ Carry these into the build; they've each caused a follow-up fix before:
   - Replace `(.+)$` with `(\S.*)$` (anchor a non-space first char to bound the greedy match):
     `HARES_RE = /^Hares?:\s*(\S.*)$/i`
   - Make optional title groups truly optional: `/^Hash\s*#(\d+)(?:\s*[-–]\s*(.+))?$/i`
+- **Sonar S5843 (regex complexity) — don't pile up alternations.** Long alternation patterns
+  (12-way month names, every weekday abbreviation, "every possible date separator") trip S5843.
+  **Don't enumerate** — match a loose word boundary and let a validator do the lift:
+  ```ts
+  // ❌ Trips S5843
+  const MONTH_RE = /(?:Jan|January|Feb|February|Mar|March|Apr|…)/i;
+
+  // ✅ Match loose, validate with chrono-node
+  const DATE_LIKE_RE = /\b\d{1,2}\s+\w+\s+\d{2,4}\b/;
+  const parsed = chrono.parseDate(line);   // chrono handles the month-name validation
+  ```
+- **Code-style nits Sonar/Codacy flag in adapter PRs:**
+  - `Number.parseInt(s, 10)` (NOT bare `parseInt(s, 10)`).
+  - `s.replaceAll("a", "b")` (NOT `s.replace(/a/g, "b")` when no regex is needed).
+  - `RegExp.exec()` for capture-heavy use; `String.match` is fine for simple boolean checks.
+  - **No negated ternaries.** `a ? b : c` (NOT `!a ? c : b`) — Sonar S3358.
 - **Self-host tokenized logos** into `public/kennel-logos/<code>.<ext>` rather than referencing an
   ephemeral CDN URL.
 
