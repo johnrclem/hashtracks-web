@@ -15,10 +15,11 @@ import { KennelStats } from "@/components/kennels/KennelStats";
 import { TrailLocationMapClient } from "@/components/kennels/TrailLocationMapClient";
 import { EventTabs } from "@/components/kennels/EventTabs";
 import { RegionBadge } from "@/components/hareline/RegionBadge";
-import { getRegionColor } from "@/lib/region";
+import { getRegionColor, regionNameToSlug } from "@/lib/region";
 import { FadeInSection } from "@/components/home/HeroAnimations";
-import { buildKennelJsonLd, safeJsonLd } from "@/lib/seo";
+import { buildKennelJsonLd, buildBreadcrumbJsonLd, safeJsonLd } from "@/lib/seo";
 import { getCanonicalSiteUrl } from "@/lib/site-url";
+import { ShareButton } from "@/components/shared/ShareButton";
 
 export async function generateMetadata({
   params,
@@ -61,7 +62,7 @@ export async function generateMetadata({
     title,
     description,
     alternates: { canonical: `${baseUrl}/kennels/${slug}` },
-    openGraph: { title, description },
+    openGraph: { title, description, url: `${baseUrl}/kennels/${slug}` },
   };
 }
 
@@ -92,6 +93,15 @@ export default async function KennelDetailPage({
     description: kennel.description,
     website: kennel.website,
   }, baseUrl);
+
+  const regionSlug = regionNameToSlug(kennel.region);
+  const breadcrumbJsonLd = buildBreadcrumbJsonLd([
+    { name: "Kennels", url: `${baseUrl}/kennels` },
+    ...(regionSlug
+      ? [{ name: kennel.region, url: `${baseUrl}/kennels/region/${regionSlug}` }]
+      : []),
+    { name: kennel.shortName, url: `${baseUrl}/kennels/${kennel.slug}` },
+  ]);
 
   const [user, events, parentKennel] = await Promise.all([
     getOrCreateUser(),
@@ -277,6 +287,11 @@ export default async function KennelDetailPage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: safeJsonLd(kennelJsonLd) }}
       />
+      {/* safeJsonLd() escapes </script>; input is a server-built schema object, not user HTML */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: /* nosemgrep: react-dangerouslysetinnerhtml */ safeJsonLd(breadcrumbJsonLd) }}
+      />
       {/* ── Breadcrumb ── */}
       <FadeInSection>
         <nav className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -345,6 +360,10 @@ export default async function KennelDetailPage({
                 userRole={userRole}
                 hasPendingRequest={hasPendingMismanRequest}
                 isAuthenticated={!!user}
+              />
+              <ShareButton
+                url={`${baseUrl}/kennels/${kennel.slug}`}
+                title={`${kennel.shortName} · HashTracks`}
               />
             </div>
           </div>

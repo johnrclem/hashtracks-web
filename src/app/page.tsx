@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
@@ -5,6 +6,7 @@ import { RegionBadge } from "@/components/hareline/RegionBadge";
 import { formatDateShort, formatTimeCompact } from "@/lib/format";
 import { getDisplayTitle, getLocationDisplay } from "@/lib/event-display";
 import { getRegionColor } from "@/lib/region";
+import { getCanonicalSiteUrl } from "@/lib/site-url";
 import {
   AnimatedCounter,
   FadeInSection,
@@ -13,6 +15,23 @@ import {
 } from "@/components/home/HeroAnimations";
 import { FindRunsSection } from "@/components/home/FindRunsSection";
 import { Calendar, BookOpen, Users, MapPin, ArrowRight, Beer, Zap, Globe, ClipboardList, Clock, Footprints } from "lucide-react";
+
+const HOME_TITLE = "HashTracks — Find Hash House Harrier runs near you";
+const HOME_DESCRIPTION =
+  "Discover upcoming Hash House Harrier runs worldwide, track your attendance, and explore kennels near you. The hareline you never knew you needed.";
+
+export const metadata: Metadata = {
+  title: HOME_TITLE,
+  description: HOME_DESCRIPTION,
+  // og:title doesn't inherit the page `title`; set it explicitly (and the
+  // canonical og:url) so shared homepage links don't fall back to the bare
+  // root "HashTracks".
+  openGraph: {
+    title: HOME_TITLE,
+    description: HOME_DESCRIPTION,
+    url: getCanonicalSiteUrl(),
+  },
+};
 
 export default async function HomePage() {
   const clerkUser = await currentUser();

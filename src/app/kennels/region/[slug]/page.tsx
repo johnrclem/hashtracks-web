@@ -3,10 +3,11 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { prisma } from "@/lib/db";
 import { regionBySlug } from "@/lib/region";
+import { getCanonicalSiteUrl } from "@/lib/site-url";
 import { buildNextEventMap, serializeKennelWithNext } from "@/lib/kennel-directory";
 import { getActivityStatus } from "@/lib/activity-status";
 import { getTodayUtcNoon } from "@/lib/date";
-import { generateRegionIntro, buildRegionItemListJsonLd, safeJsonLd } from "@/lib/seo";
+import { generateRegionIntro, buildRegionItemListJsonLd, buildBreadcrumbJsonLd, safeJsonLd } from "@/lib/seo";
 import { collectKennelWeekdays, SCHEDULE_RULES_SELECT } from "@/lib/schedule-season";
 import { KennelDirectory } from "@/components/kennels/KennelDirectory";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -24,7 +25,7 @@ export async function generateMetadata({
   const region = regionBySlug(slug);
   if (!region) return { title: "Region · HashTracks" };
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://hashtracks.xyz";
+  const baseUrl = getCanonicalSiteUrl();
 
   // Count active kennels for description
   const todayMeta = new Date(getTodayUtcNoon());
@@ -88,7 +89,7 @@ export default async function RegionPage({
   const region = regionBySlug(slug);
   if (!region) notFound();
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://hashtracks.xyz";
+  const baseUrl = getCanonicalSiteUrl();
 
   const now = new Date();
   const todayUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12, 0, 0));
@@ -156,12 +157,21 @@ export default async function RegionPage({
     kennels.map((k) => ({ slug: k.slug })),
     baseUrl,
   );
+  const breadcrumbJsonLd = buildBreadcrumbJsonLd([
+    { name: "Kennels", url: `${baseUrl}/kennels` },
+    { name: region.name, url: `${baseUrl}/kennels/region/${slug}` },
+  ]);
 
   return (
     <div>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }}
+      />
+      {/* safeJsonLd() escapes </script>; input is a server-built schema object, not user HTML */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: /* nosemgrep: react-dangerouslysetinnerhtml */ safeJsonLd(breadcrumbJsonLd) }}
       />
 
       <FadeInSection>
