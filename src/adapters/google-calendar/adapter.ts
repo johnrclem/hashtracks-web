@@ -1921,6 +1921,36 @@ function mergeRunDescriptorsIntoTimed(
   return { events: filtered, mergedCount: descriptorsToRemove.size };
 }
 
+/**
+ * #1199 pre-pass: drop placeholder all-day events when a timed sibling exists
+ * for the same `(kennelTag, date)`. Sources with `includeAllDayEvents: true`
+ * (WA Hash for CUNTh) admit both placeholder shells like "Giggity H3 #? (TBD)"
+ * and real timed runs; the merge pipeline collapses them into one canonical
+ * event by `(kennelId, date)`, so whichever survives this dedup wins. Prefer
+ * the timed one — but ONLY when the all-day event LOOKS like a placeholder. A
+ * real all-day event (campout, away weekend, RDR) sharing the date with a
+ * timed trail must survive so the merge pipeline can keep both via
+ * signature-based multi-event handling.
+ */
+function collapsePlaceholderAllDayEvents(
+  events: RawEventData[],
+  allDayEventSet: WeakSet<RawEventData>,
+): { events: RawEventData[]; collapsedCount: number } {
+  const timedKeys = new Set<string>();
+  for (const e of events) {
+    if (!allDayEventSet.has(e)) timedKeys.add(`${e.kennelTags[0]}|${e.date}`);
+  }
+  let collapsedCount = 0;
+  const filtered = events.filter((e) => {
+    const isCollapsible = allDayEventSet.has(e)
+      && timedKeys.has(`${e.kennelTags[0]}|${e.date}`)
+      && isPlaceholderShell(e);
+    if (isCollapsible) collapsedCount++;
+    return !isCollapsible;
+  });
+  return { events: filtered, collapsedCount };
+}
+
 export function dedupGCalEvents(
   events: RawEventData[],
   gcalIdMap: WeakMap<RawEventData, string>,
@@ -1936,34 +1966,9 @@ export function dedupGCalEvents(
     runDescriptorMergedCount = merged.mergedCount;
   }
 
-  // #1199 pre-pass: drop placeholder all-day events when a timed sibling
-  // exists for the same `(kennelTag, date)`. Sources with
-  // `includeAllDayEvents: true` (WA Hash for CUNTh) admit both placeholder
-  // shells like "Giggity H3 #? (TBD)" and real timed runs; the merge
-  // pipeline collapses them into one canonical event by `(kennelId, date)`,
-  // so whichever survives this dedup wins. Prefer the timed one — but ONLY
-  // when the all-day event LOOKS like a placeholder. A real all-day event
-  // (campout, away weekend, RDR) sharing the date with a timed trail must
-  // survive so the merge pipeline can keep both via signature-based
-  // multi-event handling. Placeholder evidence: missing run number AND
-  // (title contains `#?`, "TBD"/"TBA"/"TBC" placeholder marker, or
-  // hares/location are placeholder strings).
-  const timedKeys = new Set<string>();
-  for (const e of events) {
-    if (!allDayEventSet.has(e)) timedKeys.add(`${e.kennelTags[0]}|${e.date}`);
-  }
-  let allDayCollapsedCount = 0;
-  const timedFiltered = events.filter(e => {
-    if (
-      allDayEventSet.has(e)
-      && timedKeys.has(`${e.kennelTags[0]}|${e.date}`)
-      && isPlaceholderShell(e)
-    ) {
-      allDayCollapsedCount++;
-      return false;
-    }
-    return true;
-  });
+  const collapsed = collapsePlaceholderAllDayEvents(events, allDayEventSet);
+  const timedFiltered = collapsed.events;
+  const allDayCollapsedCount = collapsed.collapsedCount;
 
   const seen = new Set<string>();
   const idDeduped = timedFiltered.filter(e => {
