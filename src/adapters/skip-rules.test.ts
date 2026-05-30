@@ -57,14 +57,13 @@ describe("matchSilentSkip — field targeting", () => {
     ["location", { location: "Kings B'day, no run , Yours" }],
     ["hares", { hares: "TBD admin note" }],
   ] as const)("matches on the %s field", (field, partial) => {
-    const pattern =
-      field === "title"
-        ? "^LYNNE OFF$"
-        : field === "description"
-          ? "new website"
-          : field === "location"
-            ? String.raw`\bno\s+run\b`
-            : "admin note";
+    const patternByField = {
+      title: "^LYNNE OFF$",
+      description: "new website",
+      location: String.raw`\bno\s+run\b`,
+      hares: "admin note",
+    } as const;
+    const pattern = patternByField[field];
     const rules = compileSilentSkipRules([{ pattern, field }]);
     const hit = matchSilentSkip(ev(partial), rules);
     expect(hit).toEqual({ field, pattern });

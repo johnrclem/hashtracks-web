@@ -80,10 +80,8 @@ export async function runPhantomCleanup(cfg: PhantomCleanupConfig, apply: boolea
     );
   }
 
-  log(
-    `Would delete: Event=${event ? `${event.id} (status ${event.status})` : "none"}, ` +
-      `RawEvents=${phantomRawIds.length} [${phantomRawIds.join(", ")}]`,
-  );
+  const eventDesc = event ? `${event.id} (status ${event.status})` : "none";
+  log(`Would delete: Event=${eventDesc}, RawEvents=${phantomRawIds.length} [${phantomRawIds.join(", ")}]`);
   if (!apply) {
     log("DRY-RUN complete. Re-run with CLEANUP_APPLY=1 to delete.");
     return;

@@ -74,7 +74,7 @@ export function compileSilentSkipRules(raw: unknown): CompiledSkipRule[] {
     }
     out.push({
       re,
-      field: field as SkipField,
+      field,
       unlessHashSignal: rule.unlessHashSignal === true,
       source: rule.pattern,
     });
