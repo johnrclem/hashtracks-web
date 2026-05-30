@@ -714,8 +714,13 @@ export function stripNonEnglishCountry(location: string): string {
  * variant (#1440). Shared by the Google Calendar summary path
  * (`extractRunNumber` in `google-calendar/adapter.ts`) and the Phoenix HHH
  * HTML scraper which preempts a stale-WordPress-slug fallback (#1211).
+ *
+ * The gap between the marker and the digits is `[\s:]*` so O2H3's `#: 2340`
+ * colon form parses (#1796) alongside the spaced `# 1882` and bare `#2355`
+ * variants. A single char-class quantifier (no `\s*`-adjacent alternation)
+ * keeps the pattern provably linear for Sonar S5852/S5843.
  */
-const HASH_RUN_NUMBER_RE = /[#＃]\s*(\d+)(?=$|[\s:\-–—,.()/])/;
+const HASH_RUN_NUMBER_RE = /[#＃][\s:]*(\d+)(?=$|[\s:\-–—,.()/])/;
 export function extractHashRunNumber(text: string | undefined): number | undefined {
   if (!text) return undefined;
   const m = HASH_RUN_NUMBER_RE.exec(text);
