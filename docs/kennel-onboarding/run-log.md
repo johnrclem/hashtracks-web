@@ -14,6 +14,32 @@ Format:
 
 ---
 
+## 2026-05-30 — Mijas H3 (Costa del Sol, Spain) 🇪🇸 first Spain kennel
+- Source: HTML_SCRAPER — `https://www.mijash3.com/hareline` (Squarespace *content-page* hareline, server-rendered; NEW ~150–220 LoC `MijasH3Adapter` — NOT the Events-JSON config-only path).
+- Outcome: **SHIPPED** → PR #1832 (onboarding: adapter + Spain/Costa del Sol regions + seed) + PR #1837 (historical backfill tooling). Live at https://www.hashtracks.xyz/kennels/mijash3 — **389 prod events**.
+- Dedup: full onboard — 0 Spain/Mijas slugs in live sitemap (415, Chrome MCP 2026-05-30). kennelCode `mijash3` clear.
+- Events verified: 37 hareline rows Jan–Aug 2026; upcoming **#2020 "AGM Run" Sun 31 May 2026 (Shaggy & AguaSex, Fuengirola, ~15:00)** through #2034 (30 Aug). Run#, date (`DD Month YYYY`), hares, theme per line. ⚠️ live DOM order is NOT chronological (Aug block before May) — parse per-line date.
+- Historical backfill: **~353 runs (#849 9 Jan 2005 → #1998 28 Dec 2025)** — handoff said "none" but the Squarespace "Run Reports & Gallery" collections (`/runreports-2019`…`/run-reports-gallery-2025`, via `?format=json-pretty`) hold one post per run. One-shot `scripts/backfill-mijash3-history.ts`, bound to the `upcomingOnly` source so history is reconcile-safe. **(Biggest research-prompt gap — see retro Gap A.)**
+- Follow-ups: hashCash not published (revisit). Retro at `handoffs/retros/2026-05-30-mijash3-retro.md`: probe blog/archive collections + `?format=json-pretty` before declaring "no history"; plain fetch returns SSR markup (don't speculate DOM); add Sonar S5843 to pre-empt notes; include `scrapeDays` in source seed. New-country 5-edit checklist (from ONH3 retro) **worked** — no `inferCountry` bug.
+
+## 2026-05-30 — Mauritius H3 (Mauritius) — **BLOCKED (target #3)**
+- Source attempted: HTML_SCRAPER — `mhash.com/category/hash-next-run/`.
+- Outcome: **blocked — source currently stale, no upcoming events.** Live homepage's "Next Run" = #955 dated **19 Apr 26** (6 weeks past); `/category/hash-next-run/` renders "Nothing Found"; runs #956/#957 + trash #956 don't exist (latest trash #954, 10 Apr 26); `/wp-json` posts empty (REST disabled). Kennel is active (biweekly, FB group `1944322859018859`) but the website's next-run hasn't refreshed since mid-April. Fell through to target #4 (Mijas H3). Revisit Mauritius when the next-run updates.
+
+## 2026-05-29 — Zürich H3 (Zürich, Switzerland) 🇨🇭 first Switzerland kennel
+- Source: MEETUP (config-only) — `meetup.com/the-zurich-hash-house-harriers` (kennelTag `zh3`, `extractRunNumber: true`). Kennel site `zh3.ch` (WP 6.9.4) directs all signups to Meetup.
+- Outcome: **handed-off** → `docs/kennel-onboarding/handoffs/2026-05-29-zh3.md`. Config-only — no new adapter. Branch suggestion: `onboard/zh3-20260529`.
+- Dedup: full onboard — 0 Swiss slugs in live sitemap (414, Chrome MCP 2026-05-29). kennelCode `zh3` clear.
+- Events verified: upcoming run **#1731 "Spitroast hash", Sat 2026-06-06 2–5 PM CEST, Pfadiheim Holzwiese Zürich**, hares "Premature Cocksucker", CHF 5 (SSR'd Meetup detail page). Regular cadence Thu 7PM + 1st Sat 2PM + 3rd Sun. Founded 1990.
+- Historical backfill: none worth scripting (Meetup keeps only recent events).
+- Follow-ups: ⚠️ Claude Code confirms the "Request to join" group exposes events to the public scrape path (fallback: `zh3.ch` WP `?cat=12`). Add Switzerland+Zürich regions (umlaut in `name`, ASCII alias). Self-host the WP logo. FB/IG not found.
+
+## 2026-05-29 — Paris H3 / SCHHH (Paris, FR) — **BLOCKED**
+- Attempted Rank 1. Source plan (WordPress.com `parishash.wordpress.com`) is **stale** — last post 2024-07-30; no 2025/2026 content.
+- Meetup `parish3-schhh` shows **0 upcoming** today (last event 2026-05-24, now past); new `sanscluehash.fr` is a client-rendered SPA with no sitemap/`wp-json`/identifiable feed reachable from the sandbox.
+- Outcome: **blocked** — no verifiable upcoming-events source today. Kennel is active (2,113-member Meetup), so not dead; revisit when Meetup repopulates or the `sanscluehash.fr` backend API is identified via Chrome (attended). Fell back to Rank 2 (Zürich H3).
+- Lesson: a queued "use the WP blog" plan can rot — the Paris blog went silent mid-2024 when the kennel migrated to Meetup + a custom SPA. Always re-verify recency at handoff time, not just that the URL resolves.
+
 ## 2026-05-29 — Bali Hash 2 (Bali, Indonesia) 🇮🇩 first Indonesia kennel
 - Source: HTML_SCRAPER (Ghost 6.5 blog, Cheerio) — `https://balihash2.com/`
 - Outcome: **handed-off** → `docs/kennel-onboarding/handoffs/2026-05-29-bali-hash-2.md`. NEW adapter ~250–350 LoC mirroring `hangover.ts` (Ghost) + `ofh3.ts`. Branch suggestion: `onboard/bali-hash-2-20260529`.
