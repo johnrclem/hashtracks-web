@@ -780,6 +780,14 @@ describe("StaticScheduleAdapter forward-horizon cap", () => {
   const WEEKLY_MO = "FREQ=WEEKLY;BYDAY=MO";
   const DAY_MS = 86_400_000;
   const eventMs = (e: RawEventData) => new Date(e.date + "T12:00:00Z").getTime();
+  // Anchor horizon math to UTC noon today, exactly like the adapter's
+  // computeScrapeWindow (end = todayNoon + forwardDays*DAY). Using Date.now()
+  // here under-counts by the current time-of-day, so a boundary-day event (at
+  // UTC noon) reads as "beyond horizon" whenever CI runs before noon UTC.
+  const todayNoonMs = () => {
+    const n = new Date();
+    return Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate(), 12, 0, 0);
+  };
   const moolooSource = (extra: Record<string, unknown> = {}) =>
     makeSource({ kennelTag: "mooloo-h3", rrule: WEEKLY_MO, ...extra });
 
@@ -788,7 +796,7 @@ describe("StaticScheduleAdapter forward-horizon cap", () => {
     // for ±1500 days; back-window honors that but forward-window must clamp.
     const result = await adapter.fetch(moolooSource(), { days: 1500 });
     expect(result.errors).toEqual([]);
-    const horizonMs = Date.now() + DEFAULT_FUTURE_HORIZON_DAYS * DAY_MS;
+    const horizonMs = todayNoonMs() + DEFAULT_FUTURE_HORIZON_DAYS * DAY_MS;
     for (const event of result.events) {
       expect(eventMs(event)).toBeLessThanOrEqual(horizonMs);
     }
@@ -799,7 +807,7 @@ describe("StaticScheduleAdapter forward-horizon cap", () => {
   it("preserves full back-window when forward cap engages (deep backfill unaffected)", async () => {
     const result = await adapter.fetch(moolooSource(), { days: 1500 });
     // Some events must land >365 days before today — confirms back-window isn't capped.
-    const cutoffMs = Date.now() - DEFAULT_FUTURE_HORIZON_DAYS * DAY_MS;
+    const cutoffMs = todayNoonMs() - DEFAULT_FUTURE_HORIZON_DAYS * DAY_MS;
     const oldEvents = result.events.filter((e) => eventMs(e) < cutoffMs);
     expect(oldEvents.length).toBeGreaterThan(0);
   });
@@ -809,8 +817,9 @@ describe("StaticScheduleAdapter forward-horizon cap", () => {
     const OVERRIDE = 730;
     const result = await adapter.fetch(moolooSource({ futureHorizonDays: OVERRIDE }), { days: 1500 });
     expect(result.diagnosticContext?.forwardWindowDays).toBe(OVERRIDE);
-    const horizonMs = Date.now() + OVERRIDE * DAY_MS;
-    const beyondDefaultMs = Date.now() + DEFAULT_FUTURE_HORIZON_DAYS * DAY_MS;
+    const anchorMs = todayNoonMs();
+    const horizonMs = anchorMs + OVERRIDE * DAY_MS;
+    const beyondDefaultMs = anchorMs + DEFAULT_FUTURE_HORIZON_DAYS * DAY_MS;
     const futureEvents = result.events.filter((e) => eventMs(e) > beyondDefaultMs);
     expect(futureEvents.length).toBeGreaterThan(0);
     for (const event of result.events) {
