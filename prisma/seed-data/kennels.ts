@@ -4328,5 +4328,26 @@ export const KENNELS: KennelSeed[] = [
       description: "World-famous Bali kennel — 'a drinking club with a running problem.' Weekly Saturday-afternoon trails through rice paddies, temples and villages across Bali. Runs start promptly at 4:00 PM; run number ~1,747 as of mid-2026.",
       latitude: -8.41, longitude: 115.19,
     },
+    // Spain — first Spain kennel
+    {
+      kennelCode: "mijash3",
+      shortName: "Mijas H3",
+      fullName: "Mijas Hash House Harriers",
+      region: "Costa del Sol",
+      country: "Spain",
+      website: "https://www.mijash3.com",
+      scheduleDayOfWeek: "Sunday",
+      scheduleFrequency: "Weekly",
+      scheduleNotes:
+        "Time varies seasonally (summer 'Short n Sweet' runs ~15:00; winter earlier). Originally Mondays at founding (1989), now Sundays.",
+      facebookUrl: "https://www.facebook.com/groups/MijasHHH",
+      contactEmail: "5ksmh3@gmail.com",
+      foundedYear: 1989,
+      description:
+        "The Costa del Sol 'Burro Hash' — a drinking club with a running problem. Founded in 1989 by 'Flakey' (ex-Pattaya H3), Mijas HHH runs every Sunday across the hills and coast of Andalucía. 30+ years and 2000+ runs on.",
+      logoUrl: "/kennel-logos/mijash3.gif",
+      latitude: 36.5959,
+      longitude: -4.6377,
+    },
   ];
 
