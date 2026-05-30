@@ -87,8 +87,26 @@ export const KENNELS: KennelSeed[] = [
       instagramHandle: "nychashhouse",
     },
     {
-      kennelCode: "nah3", shortName: "NAH3", fullName: "New Amsterdam Hash House Harriers", region: "New York City, NY",
-      scheduleDayOfWeek: "Saturday", scheduleTime: "3:00 PM", scheduleFrequency: "Biweekly",
+      // kennelCode stays "nah3" (immutable); slug pinned so the URL doesn't drift
+      // when shortName changes. Old "NAH3" is retained as an alias. This kennel
+      // stores only NASS-series events — display it as such (#1855 / #1858).
+      kennelCode: "nah3", slug: "nah3", shortName: "NASS H3", fullName: "New Amsterdam Summer Sundays H3", region: "New York City, NY",
+      website: "https://hashnyc.com",
+      logoUrl: "/kennel-logos/hashnyc-umbrella.png",
+      scheduleDayOfWeek: "Sunday", scheduleTime: "2:00 PM", scheduleFrequency: "Random",
+      scheduleNotes: "Random Saturdays or Sundays; mostly retired, runs occasional holiday and themed hashes (Friendsgiving, Super Bowl, Mardi Gras).",
+      foundedYear: 1997,
+      founder: "Paul Ashlin, Roy Gilbert & Joyce Saltalamachia",
+      description:
+        "Founded as New Amsterdam Summer Sunday H3 on 27 Apr 1997. Runs the outer " +
+        "boroughs of NYC, Westchester, Northern New Jersey and beyond — \"the bits " +
+        "the other kennels don't.\" Now mostly retired, running occasional themed " +
+        "and holiday hashes on random weekend afternoons. Part of the NYC hash family.",
+      contactEmail: "intrepidsquirrel@gmail.com",
+      facebookUrl: "https://www.facebook.com/groups/hashnyc/",
+      instagramHandle: "nychashhouse",
+      gm: "Cheeky Bastard",
+      hareRaiser: "What A C*nt",
     },
     { kennelCode: "knick", shortName: "Knick", fullName: "Knickerbocker Hash House Harriers", region: "New York City, NY" },
     {
@@ -114,8 +132,41 @@ export const KENNELS: KennelSeed[] = [
       facebookUrl: "https://www.facebook.com/groups/198849596348/",
       scheduleFrequency: "Full Moon",
     },
-    { kennelCode: "nawwh3", shortName: "NAWWH3", fullName: "North American Woman Woman Hash", region: "New York City, NY" },
-    { kennelCode: "drinking-practice-nyc", shortName: "Drinking Practice (NYC)", fullName: "NYC Drinking Practice", region: "New York City, NY" },
+    {
+      kennelCode: "nawwh3", shortName: "NAWWH3", fullName: "New Amsterdam Weekend Wankers", region: "New York City, NY",
+      website: "http://hashnyc.com",
+      logoUrl: "/kennel-logos/hashnyc-umbrella.png",
+      scheduleDayOfWeek: "Sunday", scheduleTime: "2:00 PM", scheduleFrequency: "Biweekly",
+      scheduleNotes: "Originally biweekly Wednesdays at 7:00 PM, Oct–Apr (\"Winter Wednesdays\"); resurrected post-COVID as \"Weekend Wankers\" running Sundays at 2:00 PM.",
+      foundedYear: 1997,
+      founder: "Geoff Baldwin & Alice Harrison",
+      description:
+        "Founded on 22 Oct 1997 as New Amsterdam Winter Wednesday H3, running " +
+        "biweekly Wednesday evenings through the colder months. Resurrected after " +
+        "COVID as the New Amsterdam Weekend Wankers, now hashing on Sundays at " +
+        "2:00 PM. Part of the NYC hash family.",
+      contactEmail: "intrepidsquirrel@gmail.com",
+      facebookUrl: "https://www.facebook.com/groups/hashnyc/",
+      instagramHandle: "nychashhouse",
+      gm: "Howl at the Poon, Rapunzel",
+      hareRaiser: "Momentarily Vertical",
+    },
+    {
+      kennelCode: "drinking-practice-nyc", shortName: "Drinking Practice (NYC)", fullName: "NYC Drinking Practice", region: "New York City, NY",
+      website: "https://hashnyc.com",
+      logoUrl: "/kennel-logos/hashnyc-umbrella.png",
+      parentKennelCode: "nych3",
+      scheduleFrequency: "Irregular",
+      scheduleNotes: "Variable days and times — bars, karaoke, brunch spots, even the occasional stoop party. Mostly weekday evenings.",
+      foundedYear: 2025,
+      contactEmail: "hareraiser@hashnyc.com",
+      facebookUrl: "https://www.facebook.com/groups/hashnyc/",
+      instagramHandle: "nychashhouse",
+      description:
+        "An NYC drinking-only mini-series — no actual hashing required — under the " +
+        "NYC hash umbrella. Started February 2025. Locations vary from bars and " +
+        "karaoke to brunch spots and stoop parties, typically on weekday evenings.",
+    },
     // ===== UPSTATE NEW YORK =====
     // --- Syracuse ---
     {

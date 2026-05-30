@@ -143,6 +143,39 @@ describe("extractKennelTag", () => {
   it("falls back to nych3 when no pattern matches", () => {
     expect(extractKennelTag("Just some random text")).toBe("nych3");
   });
+
+  // Designation-first routing (#1855 / #1859): the trailing "<kennel> #<run>"
+  // designation wins over leading event-name words that happen to start with
+  // another kennel's name.
+  it.each([
+    // NAWW events were anchoring to "New Amsterdam" → nah3 (#1855)
+    ["New Amsterdam Winter Wednesday AGM! - NAWW #298", "nawwh3"],
+    [
+      "New Amsterdam was established on Manhattan Island on this day 369 years ago (maybe?) - NAWW #356",
+      "nawwh3",
+    ],
+    // NASS must stay on nah3
+    ["Friendsgiving 2026 - NASS #304", "nah3"],
+    // NYCH3 Specials were anchoring to "Drinking Practice" → drinking-practice-nyc (#1859)
+    ["Drinking Practice - Special #137", "nych3"],
+    ["Drinking Practice - Special #232", "nych3"],
+    ["Drinking Practice - Special #234", "nych3"],
+    // Genuine Drinking Practice mini-series must NOT regress
+    ["Drinking Practice!! - Drinking Practice #1", "drinking-practice-nyc"],
+    ["Sushi Night - Drinking Practice #8", "drinking-practice-nyc"],
+    // Existing Special section behavior preserved
+    ["Red Dress Run! - Special #254", "nych3"],
+    // Validated against the full hashnyc.com archive (4,438 cells): the run
+    // designation is authoritative even when the event NAME leads with another
+    // kennel's words. These real-archive shapes regressed under the old
+    // anchored-leading routing and are now correct.
+    ["NYC Distributed Hash #3 Brooklyn #1033", "brh3"], // really Brooklyn #1033
+    ["Special 4th Saturday R*n! Columbia #112", "columbia"], // "Special" here is an adjective, not the series
+    ["Brooklyn Half Pub Crawl Special #251", "nych3"], // a NYCH3 Special, not a Brooklyn H3 run
+    ["NAWW in Summer! NYC #1650", "nych3"], // NAWW-themed NYCH3 run, not a nawwh3 run
+  ])("routes %j → %s by run designation", (text, expected) => {
+    expect(extractKennelTag(text)).toBe(expected);
+  });
 });
 
 // ── extractRunNumber ──
@@ -356,6 +389,23 @@ describe("parseDetailsCell", () => {
     {
       label: "Drinking Practice keeps its own kennel `drinking-practice-nyc` (anchored)",
       cellText: "Drinking Practice #88 Start: TBA",
+      expectedKennelTag: "drinking-practice-nyc",
+    },
+    {
+      // #1855: leading "New Amsterdam" must not steal NAWW from nawwh3
+      label: "NAWW designation → nawwh3 despite 'New Amsterdam' lead (#1855)",
+      cellText: "New Amsterdam Winter Wednesday AGM! - NAWW #298 Start: TBA",
+      expectedKennelTag: "nawwh3",
+    },
+    {
+      // #1859: leading "Drinking Practice" must not steal NYCH3 Specials
+      label: "Special designation → nych3 despite 'Drinking Practice' lead (#1859)",
+      cellText: "Drinking Practice - Special #137 Start: TBA",
+      expectedKennelTag: "nych3",
+    },
+    {
+      label: "Genuine Drinking Practice run stays drinking-practice-nyc (#1859 no-regress)",
+      cellText: "Drinking Practice!! - Drinking Practice #1 Start: TBA",
       expectedKennelTag: "drinking-practice-nyc",
     },
   ])("$label", ({ cellText, expectedKennelTag }) => {
