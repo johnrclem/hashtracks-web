@@ -227,9 +227,14 @@ const fetchSlimEventsCached = unstable_cache(
           ],
         };
 
-    const queryLimit = isPast ? PAST_EVENTS_LIMIT
-      : kennelIds.length === 0 ? UPCOMING_GLOBAL_LIMIT
-      : UPCOMING_KENNEL_LIMIT;
+    let queryLimit: number;
+    if (isPast) {
+      queryLimit = PAST_EVENTS_LIMIT;
+    } else if (kennelIds.length === 0) {
+      queryLimit = UPCOMING_GLOBAL_LIMIT;
+    } else {
+      queryLimit = UPCOMING_KENNEL_LIMIT;
+    }
 
     const events = await prisma.event.findMany({
       where,
