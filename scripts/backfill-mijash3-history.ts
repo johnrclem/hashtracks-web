@@ -66,9 +66,13 @@ const YEAR_PATHS = [
 const POLITENESS_DELAY_MS = 400;
 const MAX_PAGES_PER_YEAR = 20; // safety bound against a pagination loop
 
-/** `DD[th] Month YYYY` in either full or abbreviated month form. */
-const DATE_RE =
-  /(\d{1,2})(?:st|nd|rd|th)?[\s-]+(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)[\s-]+(\d{4})/i;
+/**
+ * Locates a `DD[th] <word> YYYY` date shape. The month is matched loosely as a
+ * 3–9 letter word rather than a 12-way alternation (which tripped Sonar's regex
+ * complexity limit) — chronoParseDate does the real month validation on the
+ * matched slice and returns null for non-dates, so a loose word is safe.
+ */
+const DATE_RE = /\d{1,2}(?:st|nd|rd|th)?[\s-]+[a-z]{3,9}[\s-]+\d{4}/i;
 
 /**
  * Labels that mark the start of the NEXT field in a report body. A captured
@@ -162,10 +166,12 @@ async function fetchYearItems(path: string): Promise<SqsItem[]> {
   throw new Error(`[${path}] exceeded ${MAX_PAGES_PER_YEAR} pages without reaching the end — aborting`);
 }
 
+const RUN_NUMBER_RE = /run[\s-]*(\d{3,4})\b/i;
+
 /** Run number from the title or slug ("Run - 1998 …" / "run-1998-…"). */
 export function parseRunNumber(title: string, urlId: string): number | undefined {
-  const m = `${title} ${urlId}`.match(/run[\s-]*(\d{3,4})\b/i);
-  return m ? parseInt(m[1], 10) : undefined;
+  const m = RUN_NUMBER_RE.exec(`${title} ${urlId}`);
+  return m ? Number.parseInt(m[1], 10) : undefined;
 }
 
 /**
@@ -179,10 +185,10 @@ export function parseDateAndTheme(
   referenceDate = new Date(),
 ): { date: string | null; theme?: string } {
   const stripped = title.replace(/^[\s-]*run[\s-]*\d{3,4}[\s-]*/i, "").trim();
-  for (const candidate of [stripped, urlId.replace(/-/g, " ")]) {
-    const m = candidate.match(DATE_RE);
-    if (!m || m.index === undefined) continue;
-    const date = chronoParseDate(m[0].replace(/-/g, " "), "en-GB", referenceDate);
+  for (const candidate of [stripped, urlId.replaceAll("-", " ")]) {
+    const m = DATE_RE.exec(candidate);
+    if (m?.index === undefined) continue;
+    const date = chronoParseDate(m[0].replaceAll("-", " "), "en-GB", referenceDate);
     if (!date) continue;
     const theme = candidate.slice(m.index + m[0].length).trim();
     return { date, theme: theme.length > 0 ? theme : undefined };
@@ -208,24 +214,29 @@ function nextStopIndex(text: string, from: number): number {
 const FIELD_SEPARATORS = new Set([":", ".", "-", "–", "—"]);
 const REJECT_VALUES = new Set(["no data", "na", "n/a", "none", "tba", "tbc", "tbd", "unknown"]);
 
+/**
+ * Capture the value at one label occurrence ending at `labelEnd`. Returns null
+ * unless a real field separator (":"/"."/"-") follows — so narrative mentions
+ * ("the Hares had laid…") are rejected — and the cleaned value is non-empty,
+ * short enough, and not a placeholder.
+ */
+function captureLabeledValue(bodyText: string, labelEnd: number): string | null {
+  let j = labelEnd;
+  while (j < bodyText.length && bodyText[j] === " ") j++;
+  if (!FIELD_SEPARATORS.has(bodyText[j])) return null;
+  while (j < bodyText.length && (bodyText[j] === " " || FIELD_SEPARATORS.has(bodyText[j]))) j++;
+  const value = cleanFieldValue(bodyText.slice(j, nextStopIndex(bodyText, j)));
+  const ok = value.length > 0 && value.length <= 120 && !REJECT_VALUES.has(value.toLowerCase());
+  return ok ? value : null;
+}
+
 export function extractField(bodyText: string, labels: string[]): string | undefined {
-  const header = bodyText.slice(0, HEADER_SCAN_CHARS);
-  const hay = header.toLowerCase();
+  const hay = bodyText.slice(0, HEADER_SCAN_CHARS).toLowerCase();
   for (const label of labels) {
     const lower = label.toLowerCase();
-    // Scan every occurrence; accept only one followed by a real field
-    // separator (":"/"."/"-"), so narrative mentions ("the Hares had laid…")
-    // don't false-match.
     for (let at = hay.indexOf(lower); at >= 0; at = hay.indexOf(lower, at + 1)) {
-      let j = at + label.length;
-      while (j < bodyText.length && bodyText[j] === " ") j++;
-      if (!FIELD_SEPARATORS.has(bodyText[j])) continue; // prose mention, keep looking
-      while (j < bodyText.length && (bodyText[j] === " " || FIELD_SEPARATORS.has(bodyText[j]))) j++;
-      const end = nextStopIndex(bodyText, j);
-      const value = cleanFieldValue(bodyText.slice(j, end));
-      if (value.length > 0 && value.length <= 120 && !REJECT_VALUES.has(value.toLowerCase())) {
-        return value;
-      }
+      const value = captureLabeledValue(bodyText, at + label.length);
+      if (value !== null) return value;
     }
   }
   return undefined;
@@ -297,7 +308,7 @@ function itemToEvent(it: SqsItem, referenceDate: Date): RawEventData | null {
   // (explicit clear of a placeholder) or a cleaned string. Collapsing null to
   // undefined would silently keep a stale location on re-run.
   const rawLocation = extractField(bodyText, ["Location"]);
-  const location = rawLocation !== undefined ? cleanLocationName(rawLocation) : undefined;
+  const location = rawLocation === undefined ? undefined : cleanLocationName(rawLocation);
 
   return {
     date,
@@ -334,7 +345,7 @@ async function fetchEvents(): Promise<RawEventData[]> {
         continue;
       }
       // Dedup across pages/years by run number (fallback to date).
-      const key = event.runNumber != null ? `r${event.runNumber}` : `d${event.date}`;
+      const key = event.runNumber == null ? `d${event.date}` : `r${event.runNumber}`;
       if (!byKey.has(key)) byKey.set(key, event);
     }
     console.log(`  ${path}: ${items.length} items`);
