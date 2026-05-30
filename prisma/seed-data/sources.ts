@@ -173,7 +173,12 @@ export const SOURCES = [
       // "Receding Hareline (Next 30 Days)" — events fall off the page once they
       // pass, so the reconciler must not interpret that as a cancellation. (#1263)
       config: { upcomingOnly: true },
-      kennelCodes: ["nych3", "brh3", "nah3", "knick", "lil", "qbk", "si", "columbia", "harriettes-nyc", "ggfm", "nawwh3"],
+      // `drinking-practice-nyc` is the 12th kennel the parser routes to
+      // (KENNEL_PATTERNS in hashnyc.ts) — hashnyc.com publishes its events, so
+      // the source must be linked or the merge guard blocks them as
+      // SOURCE_KENNEL_MISMATCH (and the archive backfill would partial-fail on
+      // the ~24 historical Drinking Practice rows). (#1793 / Codex review)
+      kennelCodes: ["nych3", "brh3", "nah3", "knick", "lil", "qbk", "si", "columbia", "harriettes-nyc", "ggfm", "nawwh3", "drinking-practice-nyc"],
     },
     {
       name: "Boston Hash Calendar",
