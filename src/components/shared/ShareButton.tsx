@@ -11,20 +11,31 @@ interface ShareButtonProps {
   text?: string;
 }
 
+async function copyLink(resolved: string) {
+  try {
+    // navigator.clipboard is undefined in non-secure contexts / older browsers —
+    // accessing .writeText directly would throw a TypeError.
+    if (!navigator.clipboard) throw new Error("Clipboard API unavailable");
+    await navigator.clipboard.writeText(resolved);
+    toast.success("Link copied");
+  } catch {
+    toast.error("Couldn't copy link");
+  }
+}
+
 /**
  * Share affordance: uses the Web Share API on devices that support it (mobile),
  * and falls back to copying the link to the clipboard on desktop. Styled to
  * match the outline action buttons in the event/kennel footers.
  */
-export function ShareButton({ url, title, text }: ShareButtonProps) {
-  // Resolve a root-relative path against the current origin. Only ever runs from
-  // the click handler, so `window` is always defined here.
-  function resolveUrl() {
-    return /^https?:\/\//.test(url) ? url : new URL(url, window.location.origin).href;
-  }
-
+export function ShareButton({ url, title, text }: Readonly<ShareButtonProps>) {
   async function handleShare() {
-    const resolved = resolveUrl();
+    // Resolve a root-relative path against the current origin. Only ever runs
+    // from the click handler, so `globalThis.location` is always defined.
+    const resolved = /^https?:\/\//.test(url)
+      ? url
+      : new URL(url, globalThis.location.origin).href;
+
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
         await navigator.share({ title, text, url: resolved });
@@ -37,18 +48,6 @@ export function ShareButton({ url, title, text }: ShareButtonProps) {
       return;
     }
     await copyLink(resolved);
-  }
-
-  async function copyLink(resolved: string) {
-    try {
-      // navigator.clipboard is undefined in non-secure contexts / older browsers —
-      // accessing .writeText directly would throw a TypeError.
-      if (!navigator.clipboard) throw new Error("Clipboard API unavailable");
-      await navigator.clipboard.writeText(resolved);
-      toast.success("Link copied");
-    } catch {
-      toast.error("Couldn't copy link");
-    }
   }
 
   return (
