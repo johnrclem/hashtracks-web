@@ -176,11 +176,12 @@ function cleanHaresValue(value: string): string {
 }
 
 export function extractHaresFromDescription(description: string, customPatterns?: string[] | RegExp[]): string | undefined {
-  const patterns = customPatterns && customPatterns.length > 0
-    ? (typeof customPatterns[0] === "string"
+  let patterns: RegExp[] = HARE_PATTERNS;
+  if (customPatterns && customPatterns.length > 0) {
+    patterns = typeof customPatterns[0] === "string"
       ? compilePatterns(customPatterns as string[])
-      : customPatterns as RegExp[])
-    : HARE_PATTERNS;
+      : (customPatterns as RegExp[]);
+  }
   const hares = extractFieldFromDescription(description, patterns);
   return hares ? cleanHaresValue(hares) || undefined : undefined;
 }
