@@ -14,6 +14,7 @@ vi.mock("@/lib/db", () => {
     ),
     update: vi.fn(),
     updateMany: vi.fn(),
+    aggregate: vi.fn().mockResolvedValue({ _max: { date: null } }),
   };
   const prismaMock = {
     event: eventMock,
@@ -21,7 +22,7 @@ vi.mock("@/lib/db", () => {
     eventHare: { deleteMany: vi.fn() },
     attendance: { deleteMany: vi.fn() },
     kennelAttendance: { deleteMany: vi.fn() },
-    kennel: { findUnique: vi.fn() },
+    kennel: { findUnique: vi.fn(), update: vi.fn() },
     eventKennel: {
       findUnique: vi.fn(),
       findMany: vi.fn(),
@@ -75,6 +76,8 @@ const mockEventFindMany = vi.mocked(prisma.event.findMany);
 const mockEventCount = vi.mocked(prisma.event.count);
 const mockEventUpdate = vi.mocked(prisma.event.update);
 const mockKennelFindUnique = vi.mocked(prisma.kennel.findUnique);
+const mockKennelUpdate = vi.mocked(prisma.kennel.update);
+const mockEventAggregate = vi.mocked(prisma.event.aggregate);
 const mockEkCreate = vi.mocked(prisma.eventKennel.create);
 const mockEkUpdate = vi.mocked(prisma.eventKennel.update);
 const mockEkDelete = vi.mocked(prisma.eventKennel.delete);
@@ -83,6 +86,9 @@ const mockEkDeleteMany = vi.mocked(prisma.eventKennel.deleteMany);
 beforeEach(() => {
   vi.clearAllMocks();
   mockAdminAuth.mockResolvedValue(mockAdmin as never);
+  // refreshKennelLastEventDate (reattribution) calls event.aggregate — keep a
+  // benign default so success-path tests don't have to wire it each time.
+  mockEventAggregate.mockResolvedValue({ _max: { date: null } } as never);
 });
 
 describe("deleteEvent", () => {
@@ -795,6 +801,19 @@ describe("searchEventsForUmbrella", () => {
         },
       ],
     });
+
+    // Candidates are constrained to displayable, non-child events: the query
+    // spreads DISPLAY_EVENT_WHERE (parentEventId: null + visibility predicates)
+    // and excludes the child itself.
+    const whereArg = (mockEventFindMany.mock.calls[0][0] as {
+      where: { AND: Array<Record<string, unknown>> };
+    }).where;
+    expect(whereArg.AND).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ parentEventId: null, isCanonical: true }),
+        { id: { not: "c1" } },
+      ]),
+    );
   });
 });
 
@@ -855,6 +874,14 @@ describe("reattributeEventKennel", () => {
     expect(updateArg.data.adminAuditLog[0].action).toBe("reattribute_kennel");
     expect(updateArg.data.adminAuditLog[0].changes?.kennelId).toEqual({ old: "knl_old", new: "knl_new" });
     expect(updateArg.data.adminAuditLog[0].changes?.kennelCode).toEqual({ old: "nych3", new: "brh3" });
+    // Create path: the promote (update) branch must NOT also fire.
+    expect(mockEkUpdate).not.toHaveBeenCalled();
+    // Both kennels' lastEventDate caches are recomputed (old loses, new gains).
+    expect(mockKennelUpdate).toHaveBeenCalledTimes(2);
+    const refreshedKennelIds = mockKennelUpdate.mock.calls.map(
+      (c) => (c[0] as { where: { id: string } }).where.id,
+    );
+    expect(refreshedKennelIds).toEqual(expect.arrayContaining(["knl_old", "knl_new"]));
   });
 
   it("promotes an existing co-host row instead of creating one", async () => {
@@ -880,10 +907,11 @@ describe("reattributeEventKennel", () => {
 describe("addCoHostKennel", () => {
   const kennel = { id: "knl_co", shortName: "BRH3", slug: "brh3" };
   const eventBase = {
+    kennelId: "knl_primary",
     date: new Date("2026-06-06T12:00:00Z"),
     adminAuditLog: null,
     kennel: { slug: "nych3" },
-    eventKennels: [{ kennelId: "knl_primary" }],
+    eventKennels: [{ kennelId: "knl_primary", isPrimary: true }],
   };
 
   it("returns error when not admin", async () => {
@@ -906,11 +934,24 @@ describe("addCoHostKennel", () => {
     mockKennelFindUnique.mockResolvedValueOnce(kennel as never);
     mockEventFindUnique.mockResolvedValueOnce({
       ...eventBase,
-      eventKennels: [{ kennelId: "knl_co" }],
+      eventKennels: [{ kennelId: "knl_co", isPrimary: false }],
     } as never);
     expect(await addCoHostKennel("e1", "brh3")).toEqual({
       error: "BRH3 is already attributed to this event",
     });
+  });
+
+  it("rejects adding the primary kennel even when the join row is missing (desync guard)", async () => {
+    mockKennelFindUnique.mockResolvedValueOnce(kennel as never);
+    mockEventFindUnique.mockResolvedValueOnce({
+      ...eventBase,
+      kennelId: "knl_co", // denorm says knl_co is primary…
+      eventKennels: [], // …but the join table has no row for it
+    } as never);
+    expect(await addCoHostKennel("e1", "brh3")).toEqual({
+      error: "BRH3 is already attributed to this event",
+    });
+    expect(mockEkCreate).not.toHaveBeenCalled();
   });
 
   it("creates a non-primary EventKennel row and appends add_cohost audit", async () => {
@@ -934,6 +975,7 @@ describe("addCoHostKennel", () => {
 describe("removeCoHostKennel", () => {
   const kennel = { id: "knl_co", shortName: "BRH3", slug: "brh3" };
   const eventBase = {
+    kennelId: "knl_primary",
     date: new Date("2026-06-06T12:00:00Z"),
     adminAuditLog: null,
     kennel: { slug: "nych3" },
@@ -973,6 +1015,20 @@ describe("removeCoHostKennel", () => {
     expect(await removeCoHostKennel("e1", "brh3")).toEqual({
       error: "Cannot remove the primary kennel — use Change kennel to move it",
     });
+    expect(mockEkDelete).not.toHaveBeenCalled();
+  });
+
+  it("refuses to remove the primary via Event.kennelId even if the join row says co-host (desync guard)", async () => {
+    mockKennelFindUnique.mockResolvedValueOnce(kennel as never);
+    mockEventFindUnique.mockResolvedValueOnce({
+      ...eventBase,
+      kennelId: "knl_co", // denorm says knl_co is primary…
+      eventKennels: [{ kennelId: "knl_co", isPrimary: false }], // …join row disagrees
+    } as never);
+    expect(await removeCoHostKennel("e1", "brh3")).toEqual({
+      error: "Cannot remove the primary kennel — use Change kennel to move it",
+    });
+    expect(mockEkDelete).not.toHaveBeenCalled();
   });
 
   it("deletes the co-host row and appends remove_cohost audit", async () => {

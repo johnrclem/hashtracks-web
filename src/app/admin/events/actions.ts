@@ -6,7 +6,8 @@ import { getAdminUser } from "@/lib/auth";
 import type { ActionResult } from "@/lib/actions";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { HARELINE_EVENTS_TAG } from "@/lib/cache-tags";
-import { appendAuditLog, type AuditLogEntry } from "@/lib/misman/audit";
+import { appendAuditLog, type AuditAction, type AuditLogEntry } from "@/lib/misman/audit";
+import { DISPLAY_EVENT_WHERE } from "@/lib/event-filters";
 import {
   CANCELLATION_REASON_MIN,
   CANCELLATION_REASON_MAX,
@@ -51,6 +52,59 @@ function revalidateAfterAttribution(eventId: string, kennelSlugs: string[]): voi
  *  concurrent admin mutation can't race the read-modify-write of its fields. */
 function lockEvent(tx: Prisma.TransactionClient, eventId: string) {
   return tx.$executeRaw`SELECT id FROM "Event" WHERE id = ${eventId} FOR UPDATE`;
+}
+
+/** Emit the structured `[admin-audit]` console line that mirrors the in-DB
+ *  `Event.adminAuditLog` append. Shared by every attribution/series action so
+ *  the actor + timestamp envelope is written one way. */
+function logAdminAudit(
+  label: string,
+  admin: { id: string; clerkId: string },
+  fields: Record<string, unknown>,
+): void {
+  console.log(
+    `[admin-audit] ${label}`,
+    JSON.stringify({
+      adminId: admin.id,
+      adminClerkId: admin.clerkId,
+      ...fields,
+      timestamp: new Date().toISOString(),
+    }),
+  );
+}
+
+/** Build an `AuditLogEntry` with the standard timestamp + actor fields filled
+ *  in, so each call site only supplies the action and its changes/details. */
+function adminAuditEntry(
+  action: AuditAction,
+  admin: { clerkId: string },
+  extra: Pick<AuditLogEntry, "changes" | "details">,
+): AuditLogEntry {
+  return {
+    action,
+    timestamp: new Date().toISOString(),
+    userId: admin.clerkId,
+    ...extra,
+  };
+}
+
+/** Recompute a kennel's denormalized `lastEventDate` (= MAX over its primary
+ *  events) inside a tx. The merge-pipeline flush only ever raises this value,
+ *  so a re-attribution that moves a kennel's latest event away needs an
+ *  authoritative recompute — otherwise directory cards / activity badges show a
+ *  stale "last run" until the daily backfill runs. */
+async function refreshKennelLastEventDate(
+  tx: Prisma.TransactionClient,
+  kennelId: string,
+): Promise<void> {
+  const agg = await tx.event.aggregate({
+    where: { kennelId },
+    _max: { date: true },
+  });
+  await tx.kennel.update({
+    where: { id: kennelId },
+    data: { lastEventDate: agg._max.date ?? null },
+  });
 }
 
 /**
@@ -631,13 +685,13 @@ export async function linkChildToUmbrella(
       where: { id: childEventId },
       data: {
         parentEventId: umbrellaEventId,
-        adminAuditLog: appendAuditLog(child.adminAuditLog, {
-          action: "link_series",
-          timestamp: new Date().toISOString(),
-          userId: admin.clerkId,
-          changes: { parentEventId: { old: child.parentEventId, new: umbrellaEventId } },
-          details: { umbrellaEventId },
-        }),
+        adminAuditLog: appendAuditLog(
+          child.adminAuditLog,
+          adminAuditEntry("link_series", admin, {
+            changes: { parentEventId: { old: child.parentEventId, new: umbrellaEventId } },
+            details: { umbrellaEventId },
+          }),
+        ),
       },
     });
 
@@ -661,14 +715,11 @@ export async function linkChildToUmbrella(
 
   if (!result.ok) return { error: result.error };
 
-  console.log("[admin-audit] linkChildToUmbrella", JSON.stringify({
-    adminId: admin.id,
-    adminClerkId: admin.clerkId,
+  logAdminAudit("linkChildToUmbrella", admin, {
     action: "link_series",
     childEventId,
     umbrellaEventId,
-    timestamp: new Date().toISOString(),
-  }));
+  });
 
   revalidateAfterAttribution(childEventId, [result.kennelSlug]);
   revalidatePath(`/hareline/${umbrellaEventId}`);
@@ -709,12 +760,12 @@ export async function unlinkChildFromUmbrella(
       where: { id: childEventId },
       data: {
         parentEventId: null,
-        adminAuditLog: appendAuditLog(child.adminAuditLog, {
-          action: "unlink_series",
-          timestamp: new Date().toISOString(),
-          userId: admin.clerkId,
-          changes: { parentEventId: { old: oldParentId, new: null } },
-        }),
+        adminAuditLog: appendAuditLog(
+          child.adminAuditLog,
+          adminAuditEntry("unlink_series", admin, {
+            changes: { parentEventId: { old: oldParentId, new: null } },
+          }),
+        ),
       },
     });
 
@@ -735,14 +786,11 @@ export async function unlinkChildFromUmbrella(
 
   if (!result.ok) return { error: result.error };
 
-  console.log("[admin-audit] unlinkChildFromUmbrella", JSON.stringify({
-    adminId: admin.id,
-    adminClerkId: admin.clerkId,
+  logAdminAudit("unlinkChildFromUmbrella", admin, {
     action: "unlink_series",
     childEventId,
     oldParentId: result.oldParentId,
-    timestamp: new Date().toISOString(),
-  }));
+  });
 
   revalidateAfterAttribution(childEventId, [result.kennelSlug]);
   revalidatePath(`/hareline/${result.oldParentId}`);
@@ -753,6 +801,13 @@ export async function unlinkChildFromUmbrella(
  * Read-only search backing the "link to umbrella" picker. Matches `title` or
  * `kennel.shortName` (case-insensitive contains), newest first, capped at 25.
  * Returns an empty list for queries shorter than 2 chars.
+ *
+ * Candidates are constrained to publicly-displayable events via
+ * `DISPLAY_EVENT_WHERE`, which also carries `parentEventId: null`. This both
+ * keeps a child event from being offered as a parent (it can't be one) AND
+ * prevents linking under a cancelled / non-canonical / manual / hidden-kennel
+ * umbrella — a child renders only inside a displayable parent, so an
+ * undisplayable parent would make the child vanish from the public Hareline.
  */
 export async function searchEventsForUmbrella(
   query: string,
@@ -770,6 +825,7 @@ export async function searchEventsForUmbrella(
   const events = await prisma.event.findMany({
     where: {
       AND: [
+        DISPLAY_EVENT_WHERE,
         excludeId ? { id: { not: excludeId } } : {},
         {
           OR: [
@@ -879,17 +935,22 @@ export async function reattributeEventKennel(
       where: { id: eventId },
       data: {
         kennelId: newKennel.id,
-        adminAuditLog: appendAuditLog(event.adminAuditLog, {
-          action: "reattribute_kennel",
-          timestamp: new Date().toISOString(),
-          userId: admin.clerkId,
-          changes: {
-            kennelId: { old: oldKennelId, new: newKennel.id },
-            kennelCode: { old: event.kennel.kennelCode, new: newKennelCode },
-          },
-        }),
+        adminAuditLog: appendAuditLog(
+          event.adminAuditLog,
+          adminAuditEntry("reattribute_kennel", admin, {
+            changes: {
+              kennelId: { old: oldKennelId, new: newKennel.id },
+              kennelCode: { old: event.kennel.kennelCode, new: newKennelCode },
+            },
+          }),
+        ),
       },
     });
+
+    // The move can lower the old kennel's latest-event date and raise the new
+    // kennel's — recompute both denorm caches authoritatively.
+    await refreshKennelLastEventDate(tx, oldKennelId);
+    await refreshKennelLastEventDate(tx, newKennel.id);
 
     return {
       ok: true,
@@ -903,14 +964,11 @@ export async function reattributeEventKennel(
 
   if (!result.ok) return { error: result.error };
 
-  console.log("[admin-audit] reattributeEventKennel", JSON.stringify({
-    adminId: admin.id,
-    adminClerkId: admin.clerkId,
+  logAdminAudit("reattributeEventKennel", admin, {
     action: "reattribute_kennel",
     eventId,
     newKennelCode,
-    timestamp: new Date().toISOString(),
-  }));
+  });
 
   revalidateAfterAttribution(eventId, [result.oldKennelSlug, result.newKennelSlug]);
   return {
@@ -922,12 +980,18 @@ export async function reattributeEventKennel(
 }
 
 /**
- * Add a co-host kennel to an Event as a non-primary `EventKennel` row. Rejects
- * kennels already attributed (primary or existing co-host).
+ * Shared implementation for the co-host add/remove actions: load the kennel +
+ * event, validate against the current attribution, mutate the `EventKennel`
+ * join, append the audit entry, and revalidate. The primary kennel is guarded
+ * via BOTH the join row's `isPrimary` AND the denormalized `Event.kennelId`, so
+ * a desynced join table can't let the primary be added as / removed as a
+ * co-host. The two exported wrappers keep the public surface (and call
+ * sites/tests) stable.
  */
-export async function addCoHostKennel(
+async function setCoHostKennel(
   eventId: string,
   kennelCode: string,
+  mode: "add" | "remove",
 ): Promise<ActionResult<{ kennelName: string; date: string }>> {
   const admin = await getAdminUser();
   if (!admin) return { error: "Not authorized" };
@@ -947,29 +1011,46 @@ export async function addCoHostKennel(
     const event = await tx.event.findUnique({
       where: { id: eventId },
       select: {
+        kennelId: true,
         date: true,
         adminAuditLog: true,
         kennel: { select: { slug: true } },
-        eventKennels: { select: { kennelId: true } },
+        eventKennels: { select: { kennelId: true, isPrimary: true } },
       },
     });
     if (!event) return { ok: false, error: "Event not found" };
-    if (event.eventKennels.some((ek) => ek.kennelId === kennel.id)) {
-      return { ok: false, error: `${kennel.shortName} is already attributed to this event` };
+
+    const row = event.eventKennels.find((ek) => ek.kennelId === kennel.id);
+    const isPrimary = (row?.isPrimary ?? false) || event.kennelId === kennel.id;
+
+    if (mode === "add") {
+      if (row || isPrimary) {
+        return { ok: false, error: `${kennel.shortName} is already attributed to this event` };
+      }
+      await tx.eventKennel.create({
+        data: { eventId, kennelId: kennel.id, isPrimary: false },
+      });
+    } else {
+      if (!row) {
+        return { ok: false, error: `${kennel.shortName} is not attributed to this event` };
+      }
+      if (isPrimary) {
+        return { ok: false, error: "Cannot remove the primary kennel — use Change kennel to move it" };
+      }
+      await tx.eventKennel.delete({
+        where: { eventId_kennelId: { eventId, kennelId: kennel.id } },
+      });
     }
 
-    await tx.eventKennel.create({
-      data: { eventId, kennelId: kennel.id, isPrimary: false },
-    });
     await tx.event.update({
       where: { id: eventId },
       data: {
-        adminAuditLog: appendAuditLog(event.adminAuditLog, {
-          action: "add_cohost",
-          timestamp: new Date().toISOString(),
-          userId: admin.clerkId,
-          details: { kennelCode, kennelId: kennel.id },
-        }),
+        adminAuditLog: appendAuditLog(
+          event.adminAuditLog,
+          adminAuditEntry(mode === "add" ? "add_cohost" : "remove_cohost", admin, {
+            details: { kennelCode, kennelId: kennel.id },
+          }),
+        ),
       },
     });
 
@@ -984,17 +1065,25 @@ export async function addCoHostKennel(
 
   if (!result.ok) return { error: result.error };
 
-  console.log("[admin-audit] addCoHostKennel", JSON.stringify({
-    adminId: admin.id,
-    adminClerkId: admin.clerkId,
-    action: "add_cohost",
+  logAdminAudit(mode === "add" ? "addCoHostKennel" : "removeCoHostKennel", admin, {
+    action: mode === "add" ? "add_cohost" : "remove_cohost",
     eventId,
     kennelCode,
-    timestamp: new Date().toISOString(),
-  }));
+  });
 
   revalidateAfterAttribution(eventId, [result.eventSlug, result.coHostSlug]);
   return { success: true, kennelName: result.coHostName, date: result.date };
+}
+
+/**
+ * Add a co-host kennel to an Event as a non-primary `EventKennel` row. Rejects
+ * kennels already attributed (primary or existing co-host).
+ */
+export async function addCoHostKennel(
+  eventId: string,
+  kennelCode: string,
+): Promise<ActionResult<{ kennelName: string; date: string }>> {
+  return setCoHostKennel(eventId, kennelCode, "add");
 }
 
 /**
@@ -1005,73 +1094,5 @@ export async function removeCoHostKennel(
   eventId: string,
   kennelCode: string,
 ): Promise<ActionResult<{ kennelName: string; date: string }>> {
-  const admin = await getAdminUser();
-  if (!admin) return { error: "Not authorized" };
-
-  type R =
-    | { ok: true; eventSlug: string; coHostName: string; coHostSlug: string; date: string }
-    | { ok: false; error: string };
-  const result: R = await prisma.$transaction(async (tx) => {
-    await lockEvent(tx, eventId);
-
-    const kennel = await tx.kennel.findUnique({
-      where: { kennelCode },
-      select: { id: true, shortName: true, slug: true },
-    });
-    if (!kennel) return { ok: false, error: `Kennel not found: ${kennelCode}` };
-
-    const event = await tx.event.findUnique({
-      where: { id: eventId },
-      select: {
-        date: true,
-        adminAuditLog: true,
-        kennel: { select: { slug: true } },
-        eventKennels: { select: { kennelId: true, isPrimary: true } },
-      },
-    });
-    if (!event) return { ok: false, error: "Event not found" };
-
-    const row = event.eventKennels.find((ek) => ek.kennelId === kennel.id);
-    if (!row) return { ok: false, error: `${kennel.shortName} is not attributed to this event` };
-    if (row.isPrimary) {
-      return { ok: false, error: "Cannot remove the primary kennel — use Change kennel to move it" };
-    }
-
-    await tx.eventKennel.delete({
-      where: { eventId_kennelId: { eventId, kennelId: kennel.id } },
-    });
-    await tx.event.update({
-      where: { id: eventId },
-      data: {
-        adminAuditLog: appendAuditLog(event.adminAuditLog, {
-          action: "remove_cohost",
-          timestamp: new Date().toISOString(),
-          userId: admin.clerkId,
-          details: { kennelCode, kennelId: kennel.id },
-        }),
-      },
-    });
-
-    return {
-      ok: true,
-      eventSlug: event.kennel.slug,
-      coHostName: kennel.shortName,
-      coHostSlug: kennel.slug,
-      date: event.date.toISOString(),
-    };
-  });
-
-  if (!result.ok) return { error: result.error };
-
-  console.log("[admin-audit] removeCoHostKennel", JSON.stringify({
-    adminId: admin.id,
-    adminClerkId: admin.clerkId,
-    action: "remove_cohost",
-    eventId,
-    kennelCode,
-    timestamp: new Date().toISOString(),
-  }));
-
-  revalidateAfterAttribution(eventId, [result.eventSlug, result.coHostSlug]);
-  return { success: true, kennelName: result.coHostName, date: result.date };
+  return setCoHostKennel(eventId, kennelCode, "remove");
 }
