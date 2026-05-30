@@ -67,7 +67,7 @@ function rawField(rawData: unknown, key: string): string | null {
  * explicit-clear convention. Char-set check (not a `[class]+$` regex) to dodge
  * the Sonar S5852 ReDoS-shape false positive (cf. merge.ts:885).
  */
-const DELIMITER_CHARS = new Set([..." \t\n\r-,.:;–—"]);
+const DELIMITER_CHARS = new Set(" \t\n\r-,.:;–—");
 function cleanValue(v: string | null): string | null {
   if (v == null) return null;
   const t = v.trim();
@@ -119,7 +119,7 @@ async function main(apply: boolean): Promise<void> {
   const survivors = linkedRaws.filter((r) => !isPhantomRaw(r.rawData));
 
   // Idempotent no-op: already healed and placeholders already gone.
-  if ((!event || event.title !== CONTAMINATED_TITLE) && phantomRawIds.length === 0) {
+  if (event?.title !== CONTAMINATED_TITLE && phantomRawIds.length === 0) {
     log("Nothing to do — Event already healed and no placeholder raws remain.");
     return;
   }
