@@ -6,6 +6,13 @@ const isPublicRoute = createRouteMatcher([
   "/sign-up(.*)",
   "/sitemap.xml",
   "/robots.txt",
+  // Extensionless metadata image routes: the matcher below only skips paths with
+  // a known file extension, so these run through middleware and must be public or
+  // Clerk's auth.protect() blocks them (manifest.webmanifest / favicon.ico are
+  // excluded by extension; nested OG images ride the /kennels & /hareline patterns).
+  "/icon",
+  "/apple-icon",
+  "/opengraph-image",
   "/api/health(.*)",
   "/api/cron(.*)",
   "/api/auth/strava(.*)",

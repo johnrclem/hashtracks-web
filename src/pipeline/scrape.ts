@@ -13,6 +13,7 @@ import { autoFileIssuesForAlerts } from "./auto-issue";
 import { verifyResolvedAutoFixes } from "./verify-fixes";
 import { attemptAiRecovery, isAiRecoveryAvailable } from "@/lib/ai/parse-recovery";
 import { validateSourceUrl } from "@/adapters/utils";
+import { compileSilentSkipRules, matchSilentSkip } from "@/adapters/skip-rules";
 import { after } from "next/server";
 import { pingIndexNow } from "@/lib/indexnow";
 import { getCanonicalSiteUrl } from "@/lib/site-url";
@@ -136,6 +137,58 @@ function buildDiagnosticContext(
     };
   }
   return diagnosticContext;
+}
+
+/** Audit summary for a source's `silentlySkipPatterns` drops (#1739). */
+interface SilentSkipSummary {
+  skipped: number;
+  /** PII-safe samples: matched field + pattern + date (+ title only for title matches). */
+  samples: Array<{ field: string; pattern: string; date: string; title?: string }>;
+}
+
+/**
+ * Filter `scrapeResult.events` in place, dropping events matched by the
+ * source's configured `silentlySkipPatterns` (#1739). Mutating the array here —
+ * before `processRawEvents` and `reconcileStaleEvents` — means matched events
+ * never become RawEvents, never raise SOURCE_KENNEL_MISMATCH, and aren't seen
+ * as "removed from source" by the reconciler. Returns a PII-safe audit summary.
+ */
+function applySilentSkipPatterns(
+  source: { config: unknown; name: string },
+  scrapeResult: ScrapeResult,
+  sourceId: string,
+): SilentSkipSummary {
+  const rules = compileSilentSkipRules(
+    (source.config as Record<string, unknown> | null)?.silentlySkipPatterns,
+  );
+  if (rules.length === 0) return { skipped: 0, samples: [] };
+
+  const samples: SilentSkipSummary["samples"] = [];
+  let skipped = 0;
+  scrapeResult.events = scrapeResult.events.filter((ev) => {
+    const hit = matchSilentSkip(ev, rules);
+    if (!hit) return true;
+    skipped++;
+    if (samples.length < 5) {
+      // PII hygiene (memory: adapter PII filter): never log a raw location /
+      // hares value. Title is safe to surface; for other fields log only the
+      // matched field name + pattern.
+      samples.push({
+        field: hit.field,
+        pattern: hit.pattern,
+        date: ev.date,
+        ...(hit.field === "title" && ev.title ? { title: ev.title } : {}),
+      });
+    }
+    return false;
+  });
+
+  if (skipped > 0) {
+    console.warn(
+      `[scrape] silentlySkipPatterns dropped ${skipped} event(s) for source "${source.name}" (${sourceId})`,
+    );
+  }
+  return { skipped, samples };
 }
 
 /** Parameters for the ScrapeLog update after merge completes. */
@@ -414,6 +467,14 @@ export async function scrapeSource(
     // AI Recovery
     const aiRecovery = await runAiRecovery(scrapeResult, source.name);
 
+    // Silently drop known source pollution (#1739) — admin notes, "no run"
+    // holiday rows, sister-kennel events with their own source — BEFORE events
+    // become RawEvents and BEFORE the reconciler sees them. No
+    // SOURCE_KENNEL_MISMATCH alert is raised; the drops are audited in the
+    // scrape diagnostics below (PII-safe: field + title + date only, never the
+    // raw location/hares value).
+    const silentSkip = applySilentSkipPatterns(source, scrapeResult, sourceId);
+
     const fillRates = computeFillRates(scrapeResult.events);
 
     const mergeStart = Date.now();
@@ -475,6 +536,7 @@ export async function scrapeSource(
     diagnosticContext.scrapeDays = days;
     if (reconcileContext) diagnosticContext.reconciliation = reconcileContext;
     if (mergeResult.restored > 0) diagnosticContext.eventsRestored = mergeResult.restored;
+    if (silentSkip.skipped > 0) diagnosticContext.silentlySkipped = silentSkip;
 
     await updateScrapeLogWithResults({
       scrapeLogId: scrapeLog.id, startedAt, scrapeResult, mergeResult,

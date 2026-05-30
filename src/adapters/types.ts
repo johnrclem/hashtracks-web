@@ -106,6 +106,30 @@ export interface RawEventData {
   dropCachedCoords?: boolean;
 }
 
+/**
+ * A single "silently skip" rule (#1739). Drops a matched event at the ingest
+ * boundary (`scrape.ts`, before it becomes a RawEvent) with no
+ * `SOURCE_KENNEL_MISMATCH` alert — for intentional, known source pollution
+ * (admin notes, "no run" holiday rows, platform-departure posts, sister-kennel
+ * events that have their own source). Per-source config lives in
+ * `Source.config.silentlySkipPatterns`. The same shape backs the global
+ * built-in rule sets in `skip-rules.ts` (medical / platform-departure /
+ * farewell) so config and adapter heuristics share one matcher.
+ */
+export interface SilentSkipRule {
+  /** Regex string; compiled case-insensitive. Must be ReDoS-safe. */
+  pattern: string;
+  /** Which RawEventData field to test. Default `"title"`. */
+  field?: "title" | "description" | "location" | "hares";
+  /**
+   * When true, the skip is suppressed if the event carries a hash-confirming
+   * signal (a real `runNumber`, `hares`, or the word "hash" in the title).
+   * Mirrors the MEDICAL_TITLE_PATTERNS gate so a real "Sleep Study Trail" with
+   * a hare still ingests. Default false (unconditional drop).
+   */
+  unlessHashSignal?: boolean;
+}
+
 /** Structured parse error with row-level context (Phase 2A) */
 export interface ParseError {
   row: number; // Which row in the source data failed

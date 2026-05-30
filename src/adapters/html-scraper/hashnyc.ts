@@ -175,6 +175,10 @@ const RAW_DESIGNATION_PATTERNS: RegExp[] = [
   /\bLIL\b\s*#\s*\d+/i,
   /\bSI\b\s*#\s*\d+/i,
   /\bQueens\b\s*#\s*\d+/i,
+  // `Special #N` is a hashnyc.com SECTION label, not a kennel — preserve it
+  // verbatim so special-event titles read "Red Dress Run! - Special #254"
+  // rather than leaking the internal kennelCode "nych3 #254" (#1791).
+  /\bSpecial\b\s*#\s*\d+/i,
 ];
 
 export function extractRawDesignation(text: string): string | undefined {
@@ -301,6 +305,58 @@ interface ParsedDetails {
   location?: string;
   locationUrl?: string;
   description?: string;
+  cost?: string;
+}
+
+/**
+ * Extract a per-event cost from the details-cell prose. Some events (e.g. the
+ * NYCH3 5-boro Pub Crawl) carry a `Cost: …` line inside the description blob,
+ * bounded by a `<br>` / `</br>` or the next labelled line. (#1792)
+ *
+ * Uses several simple `.search()` probes + `Math.min` for the boundary instead
+ * of one alternation regex to stay clear of Sonar S5852/S5843 (ReDoS-shape).
+ */
+const COST_BOUNDARY_RES: RegExp[] = [
+  /<\/?br\b[^>]*>/i,
+  /What to bring:/i,
+  /Please rego/i,
+  /Transit:/i,
+];
+
+export function extractCost(cellHtml: string): string | undefined {
+  const label = /Cost:\s*/i.exec(cellHtml);
+  if (!label) return undefined;
+  let rest = cellHtml.slice(label.index + label[0].length);
+  const bounds = COST_BOUNDARY_RES
+    .map((re) => rest.search(re))
+    .filter((i) => i >= 0);
+  if (bounds.length > 0) rest = rest.slice(0, Math.min(...bounds));
+  const text = decodeHtmlEntities(rest).replaceAll(/\s+/g, " ").trim();
+  return text || undefined;
+}
+
+const HARE_SIGNUP_RE = /sign up to hare/i;
+const ARCHIVE_UNKNOWN_RE = /^unknown$/i;
+const NON_ALNUM_RE = /[^a-z0-9]/gi;
+const normalizeAlnum = (s: string) => s.replaceAll(NON_ALNUM_RE, "").toLowerCase();
+
+/** Archive rows occasionally carry the literal "Unknown" as a not-provided
+ *  placeholder across several fields (title / hares / location). (#1793) */
+function isArchiveUnknown(text: string): boolean {
+  return ARCHIVE_UNKNOWN_RE.test(text.trim());
+}
+
+/**
+ * A hare-cell value that is not a real hasher: the "Sign up to hare!" CTA, or a
+ * bare kennel code (e.g. "NYCH3" meaning "the kennel hares it"), or the archive
+ * "Unknown" placeholder. These must clear a previously-stored real hare rather
+ * than be preserved, so the adapter emits `null` (explicit clear) for them. (#1790)
+ */
+export function isPlaceholderHare(hares: string, kennelTag: string): boolean {
+  if (!hares) return false;
+  if (HARE_SIGNUP_RE.test(hares)) return true;
+  if (isArchiveUnknown(hares)) return true;
+  return normalizeAlnum(hares) === normalizeAlnum(kennelTag);
 }
 
 /** Word-bounded so "TBA Park" isn't a placeholder. */
@@ -325,6 +381,7 @@ function extractStartBlock(cellHtml: string): string {
  *  canonical token, otherwise collapse whitespace and dangling commas. */
 function normalizeLocationText(text: string): string | undefined {
   if (!text) return undefined;
+  if (isArchiveUnknown(text)) return undefined; // archive placeholder (#1793)
   const placeholder = LOCATION_PLACEHOLDER_RE.exec(text);
   if (placeholder) return placeholder[1].toUpperCase();
   return text.replaceAll(/\s+,/g, ",").replaceAll(/\s+/g, " ").trim(); // NOSONAR S5852 — single-quantifier `\s+` patterns, no alternation/nesting
@@ -442,7 +499,12 @@ export function parseDetailsCell(
   const boldTag = cell.find("b").first();
   if (boldTag.length) {
     const boldText = boldTag.text().trim();
-    if (boldText && !/^(Run|Trail|#)\s*\d+$/i.test(boldText) && boldText.length > 1) {
+    if (
+      boldText &&
+      !/^(Run|Trail|#)\s*\d+$/i.test(boldText) &&
+      !isArchiveUnknown(boldText) && // archive placeholder, not a real event name (#1793)
+      boldText.length > 1
+    ) {
       eventName = boldText;
     }
   }
@@ -450,8 +512,11 @@ export function parseDetailsCell(
   let title: string | undefined;
   const rawDesignation = extractRawDesignation(cellText);
   if (eventName) {
-    const designation = rawDesignation ?? (runNumber ? `${kennelTag} #${runNumber}` : kennelTag);
-    title = `${eventName} - ${designation}`;
+    // Only append a designation we can render from the source verbatim (e.g.
+    // "NYC #2142", "Special #254"); never fall back to the internal kennelCode
+    // ("nych3 #254") — that leaked into user-facing titles (#1791). The run
+    // number still lives in the dedicated runNumber field.
+    title = rawDesignation ? `${eventName} - ${rawDesignation}` : eventName;
   } else if (rawDesignation) {
     title = rawDesignation;
   } else {
@@ -462,6 +527,7 @@ export function parseDetailsCell(
   const { location, locationUrl } = extractLocationAndUrl(cellHtml, $, cell);
   const rawDescription = extractDescriptionFromCell($, cell, cellHtml, cellText);
   const description = cleanEventDescription(rawDescription, eventName);
+  const cost = extractCost(cellHtml);
 
   return {
     kennelTag,
@@ -471,6 +537,7 @@ export function parseDetailsCell(
     location,
     locationUrl,
     description,
+    cost,
   };
 }
 
@@ -489,6 +556,10 @@ export function parseRows(
   baseUrl: string,
   isFuture: boolean,
   section: string = isFuture ? "future_hashes" : "past_hashes",
+  // Floor year for the live adapter (HashTracks coverage starts 2016). The
+  // one-shot archive backfill passes a lower floor to ingest pre-2016 rows
+  // from `?days=all&backwards=true` (#1793).
+  minYear: number = 2016,
 ): { events: RawEventData[]; errors: string[]; parseErrors: ParseError[] } {
   const events: RawEventData[] = [];
   const errors: string[] = [];
@@ -517,7 +588,7 @@ export function parseRows(
         year = extractYear(rowId, dateCellHtml);
       }
 
-      if (!year || year < 2016) return;
+      if (!year || year < minYear) return;
 
       const monthDay = extractMonthDay(dateCellText);
       if (!monthDay) return;
@@ -546,9 +617,17 @@ export function parseRows(
         hares = extractHares($, row);
       }
 
-      // Filter out "Sign up to hare!" placeholder text
-      if (hares && /sign up to hare/i.test(hares)) {
-        hares = "N/A";
+      // Tri-state hares (#1790): a placeholder (signup CTA / bare kennel code /
+      // "Unknown") emits `null` so the merge CLEARS a previously-stored real
+      // hare when the slot reverts to a placeholder. A genuinely empty cell
+      // emits `undefined` so cross-source enrichment is preserved.
+      let haresOut: string | null | undefined;
+      if (isPlaceholderHare(hares, parsed.kennelTag)) {
+        haresOut = null;
+      } else if (hares && hares !== "N/A") {
+        haresOut = hares;
+      } else {
+        haresOut = undefined;
       }
 
       events.push({
@@ -557,10 +636,11 @@ export function parseRows(
         runNumber: parsed.runNumber,
         title: parsed.title,
         description: parsed.description,
-        hares: hares && hares !== "N/A" ? hares : undefined,
+        hares: haresOut,
         location: parsed.location,
         locationUrl: parsed.locationUrl,
         startTime,
+        cost: parsed.cost,
         sourceUrl,
       });
     } catch (err) {

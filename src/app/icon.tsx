@@ -2,7 +2,9 @@ import { ImageResponse } from "next/og";
 
 // Dynamic app icon — orange "H" mark on the brand dark background, matching the
 // OG cards. Next.js serves this at /icon and wires it into <head>.
-export const runtime = "edge";
+// nodejs runtime to match the working OG image routes (edge is discouraged on
+// Vercel). The 404 fix itself is the proxy.ts public-route allow-list.
+export const runtime = "nodejs";
 export const size = { width: 512, height: 512 };
 export const contentType = "image/png";
 

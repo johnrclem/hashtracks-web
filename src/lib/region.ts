@@ -1731,6 +1731,30 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: 4.35,
     aliases: ["Brussels, Belgium", "Bruxelles"],
   },
+  // ── Spain ──
+  {
+    name: "Spain",
+    country: "Spain",
+    level: "COUNTRY",
+    timezone: "Europe/Madrid",
+    abbrev: "ES",
+    colorClasses: "bg-rose-200 text-rose-800",
+    pinColor: "#e11d48",
+    centroidLat: 40.4,
+    centroidLng: -3.7,
+    aliases: ["ES", "España", "Espana"],
+  },
+  {
+    name: "Costa del Sol",
+    country: "Spain",
+    timezone: "Europe/Madrid",
+    abbrev: "CDS",
+    colorClasses: "bg-rose-100 text-rose-700",
+    pinColor: "#f43f5e",
+    centroidLat: 36.6,
+    centroidLng: -4.6,
+    aliases: ["Mijas", "Costa del Sol, Spain", "Málaga"],
+  },
   // ── Switzerland ──
   {
     name: "Switzerland",
@@ -3121,6 +3145,7 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   [/\b(germany|berlin|munich|münchen|muenchen|hamburg|stuttgart|frankfurt)\b/, "Germany"],
   [/\b(japan|tokyo|osaka)\b/, "Japan"],
   [/\b(belgium|brussels|bruxelles|antwerp|ghent)\b/, "Belgium"],
+  [/\b(spain|españa|espana|costa del sol|mijas|malaga|málaga|marbella|fuengirola|andalucia|andalucía|madrid|barcelona)\b/, "Spain"],
   [/\b(switzerland|schweiz|suisse|svizzera|zurich|zürich|geneva|bern|basel)\b/, "Switzerland"],
   [/\b(netherlands|amsterdam|rotterdam|den haag|the hague|holland)\b/, "Netherlands"],
   [/\b(denmark|copenhagen|københavn|aarhus)\b/, "Denmark"],
@@ -3317,6 +3342,8 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Krabi": "Thailand",
   // Belgium
   "Brussels": "Belgium",
+  // Spain
+  "Costa del Sol": "Spain",
   // Louisiana
   "New Orleans, LA": "Louisiana",
   // Tennessee
@@ -3515,6 +3542,7 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   "Germany": "Germany",
   "Japan": "Japan",
   "Belgium": "Belgium",
+  "Spain": "Spain",
   "Netherlands": "Netherlands",
   "Denmark": "Denmark",
   "Sweden": "Sweden",
@@ -3613,6 +3641,7 @@ const COUNTRY_CODE_TO_NAME: Record<string, string> = {
   DE: "Germany",
   JP: "Japan",
   BE: "Belgium",
+  ES: "Spain",
   NL: "Netherlands",
   DK: "Denmark",
   SE: "Sweden",

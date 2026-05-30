@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { MapPin, Clock, Footprints, Tent, ChevronDown } from "lucide-react";
+import { MapPin, Clock, Footprints, Tent, ChevronDown, Banknote } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Tooltip,
@@ -86,7 +86,8 @@ export type HarelineEvent = {
   dogFriendly?: boolean | null;
   /** #1316 — pre-event meetup venue/time, free-form. Heavy field; render only on detail. */
   prelube?: string | null;
-  /** #1316 — explicit `cost` column (free-form). Used to be smashed into `description`. */
+  /** #1316 — per-event hash cash override (free-form). #1571 — now surfaced on
+   *  the medium-density card as a small chip (slim list payload carries it). */
   cost?: string | null;
   // Heavy / on-demand fields — undefined until `getEventDetail` resolves.
   locationStreet?: string | null;
@@ -301,6 +302,7 @@ function buildAriaLabel(event: HarelineEvent, attendance?: AttendanceData | null
   // #1316 — surface card-visible structured fields to screen readers.
   if (event.trailType) parts.push(`Trail type ${event.trailType}`);
   if (event.dogFriendly === true) parts.push("dog friendly");
+  if (event.cost) parts.push(`${event.cost} hash cash`);
   if (attendance?.status === "INTENDING") parts.push("Going");
   if (attendance?.status === "CONFIRMED") parts.push("Checked in");
   return parts.join(", ");
@@ -797,7 +799,25 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
               </Tooltip>
             )}
 
-            {weather && (locationDisplay || event.haresText || trailLengthDisplay || event.difficulty != null || event.trailType || event.dogFriendly === true) && (
+            {/* #1571 — per-event hash cash. Surfaces only when the source set an
+                explicit `Event.cost` override; otherwise the card inherits the
+                kennel default shown on the kennel profile (two-tier model). */}
+            {event.cost && (locationDisplay || event.haresText || trailLengthDisplay || event.difficulty != null || event.trailType || event.dogFriendly === true) && (
+              <span className="text-muted-foreground/30" aria-hidden="true">&middot;</span>
+            )}
+            {event.cost && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="flex items-center gap-1 shrink-0 max-w-[110px]">
+                    <Banknote className="h-3 w-3 shrink-0" style={{ color: `${regionColor}90` }} />
+                    <span className="truncate tabular-nums">{event.cost}</span>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>{event.cost} hash cash</TooltipContent>
+              </Tooltip>
+            )}
+
+            {weather && (locationDisplay || event.haresText || trailLengthDisplay || event.difficulty != null || event.trailType || event.dogFriendly === true || event.cost) && (
               <span className="text-muted-foreground/30" aria-hidden="true">&middot;</span>
             )}
 

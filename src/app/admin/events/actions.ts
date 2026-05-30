@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/db";
+import type { Prisma } from "@/generated/prisma/client";
 import { getAdminUser } from "@/lib/auth";
 import type { ActionResult } from "@/lib/actions";
 import { revalidatePath, revalidateTag } from "next/cache";
@@ -30,6 +31,26 @@ function revalidateAfterCancelToggle(eventId: string, kennelSlug: string): void 
   revalidateTag(HARELINE_EVENTS_TAG, { expire: 0 });
   revalidatePath(`/hareline/${eventId}`);
   revalidatePath(`/kennels/${kennelSlug}`);
+}
+
+/** Revalidate every cache surface affected by a series-link or kennel-
+ *  attribution change: the admin list, the hareline list + tag, this event's
+ *  detail page, and each kennel page whose membership shifted (old + new, or
+ *  the host + co-host). Empty/duplicate slugs are de-duped and skipped. */
+function revalidateAfterAttribution(eventId: string, kennelSlugs: string[]): void {
+  revalidatePath("/admin/events");
+  revalidatePath("/hareline");
+  revalidateTag(HARELINE_EVENTS_TAG, { expire: 0 });
+  revalidatePath(`/hareline/${eventId}`);
+  for (const slug of new Set(kennelSlugs.filter(Boolean))) {
+    revalidatePath(`/kennels/${slug}`);
+  }
+}
+
+/** Take a row-level lock on an Event for the rest of the surrounding tx, so a
+ *  concurrent admin mutation can't race the read-modify-write of its fields. */
+function lockEvent(tx: Prisma.TransactionClient, eventId: string) {
+  return tx.$executeRaw`SELECT id FROM "Event" WHERE id = ${eventId} FOR UPDATE`;
 }
 
 /**
@@ -264,7 +285,7 @@ export async function uncancelEvent(eventId: string): Promise<ActionResult<{ ken
   const result: TxResult = await prisma.$transaction(async (tx) => {
     // Row-level lock prevents two concurrent uncancel/cancel actions from
     // racing on the audit-log append. The lock is released on commit/rollback.
-    await tx.$executeRaw`SELECT id FROM "Event" WHERE id = ${eventId} FOR UPDATE`;
+    await lockEvent(tx, eventId);
 
     const event = await tx.event.findUnique({
       where: { id: eventId },
@@ -375,7 +396,7 @@ export async function adminCancelEvent(
   }
 
   const result: TxResult = await prisma.$transaction(async (tx) => {
-    await tx.$executeRaw`SELECT id FROM "Event" WHERE id = ${eventId} FOR UPDATE`;
+    await lockEvent(tx, eventId);
 
     const event = await tx.event.findUnique({
       where: { id: eventId },
@@ -495,4 +516,562 @@ function buildEventWhere(filters: {
   if (conditions.length === 0) return null;
 
   return { AND: conditions };
+}
+
+// ---------------------------------------------------------------------------
+// Umbrella series link/unlink (#1679)
+// ---------------------------------------------------------------------------
+
+/**
+ * Recompute an umbrella's `endDate` so the public series header — which renders
+ * `formatDateRange(event.date, event.endDate)` (see hareline/[eventId]/page.tsx)
+ * — always covers its current children. Sets `endDate` to the latest child
+ * date when a child extends beyond the umbrella's own date, otherwise null
+ * (single-day display). Call inside a tx with the umbrella row already locked.
+ *
+ * Manual link/unlink must maintain this because the merge pipeline's
+ * `linkMultiDaySeries` only sets parent/child pointers; endDate otherwise comes
+ * from the adapter. A re-scrape re-asserts any adapter-supplied endDate via
+ * `resolveEndDateUpdate`, so this never permanently fights a source-driven range.
+ */
+async function syncUmbrellaEndDate(
+  tx: Prisma.TransactionClient,
+  umbrellaId: string,
+): Promise<void> {
+  const [umbrella, children] = await Promise.all([
+    tx.event.findUnique({ where: { id: umbrellaId }, select: { date: true } }),
+    tx.event.findMany({ where: { parentEventId: umbrellaId }, select: { date: true } }),
+  ]);
+  if (!umbrella) return;
+  const latestChild = children.reduce<Date | null>(
+    (max, c) => (max === null || c.date > max ? c.date : max),
+    null,
+  );
+  const endDate =
+    latestChild !== null && latestChild > umbrella.date ? latestChild : null;
+  await tx.event.update({ where: { id: umbrellaId }, data: { endDate } });
+}
+
+/**
+ * Attach a standalone Event as a child of an umbrella (series-parent) Event by
+ * setting `parentEventId`. Promotes the umbrella to `isSeriesParent=true` if it
+ * isn't already (mirrors the merge pipeline's `linkMultiDaySeries`).
+ *
+ * Enforces a strict 2-level tree (parent → children): the umbrella may not
+ * itself be a child, and the child may not already be a series parent. That
+ * keeps cycles impossible and the UI grouping flat.
+ *
+ * Atomic: both rows are locked with `SELECT ... FOR UPDATE` ordered by id (so a
+ * concurrent link in the opposite direction can't deadlock), then mutated.
+ */
+export async function linkChildToUmbrella(
+  childEventId: string,
+  umbrellaEventId: string,
+): Promise<ActionResult<{ kennelName: string; date: string }>> {
+  const admin = await getAdminUser();
+  if (!admin) return { error: "Not authorized" };
+
+  if (childEventId === umbrellaEventId) {
+    return { error: "Cannot link an event to itself" };
+  }
+
+  type R =
+    | { ok: true; kennelName: string; kennelSlug: string; date: string }
+    | { ok: false; error: string };
+  const result: R = await prisma.$transaction(async (tx) => {
+    // Lock both rows in a deterministic (id-sorted) order to avoid deadlock
+    // with a concurrent link running in the opposite direction.
+    await tx.$executeRaw`SELECT id FROM "Event" WHERE id IN (${childEventId}, ${umbrellaEventId}) ORDER BY id FOR UPDATE`;
+
+    const [child, umbrella] = await Promise.all([
+      tx.event.findUnique({
+        where: { id: childEventId },
+        select: {
+          parentEventId: true,
+          isSeriesParent: true,
+          date: true,
+          adminAuditLog: true,
+          kennel: { select: KENNEL_SELECT_FOR_OVERRIDE },
+        },
+      }),
+      tx.event.findUnique({
+        where: { id: umbrellaEventId },
+        select: { parentEventId: true, isSeriesParent: true },
+      }),
+    ]);
+
+    if (!child) return { ok: false, error: "Event not found" };
+    if (!umbrella) return { ok: false, error: "Series parent not found" };
+
+    // Already linked to this umbrella — idempotent success.
+    if (child.parentEventId === umbrellaEventId) {
+      return {
+        ok: true,
+        kennelName: child.kennel.shortName,
+        kennelSlug: child.kennel.slug,
+        date: child.date.toISOString(),
+      };
+    }
+
+    // Already a child of a DIFFERENT umbrella: refuse to silently re-parent.
+    // Moving it would orphan the old umbrella's cached series view; force an
+    // explicit unlink first so both umbrellas get revalidated.
+    if (child.parentEventId !== null) {
+      return { ok: false, error: "Event is already in a different series — remove it from that one first" };
+    }
+
+    if (umbrella.parentEventId !== null) {
+      return { ok: false, error: "That event is itself part of another series" };
+    }
+    if (child.isSeriesParent) {
+      return { ok: false, error: "This event is already a series parent — remove its days first" };
+    }
+
+    await tx.event.update({
+      where: { id: childEventId },
+      data: {
+        parentEventId: umbrellaEventId,
+        adminAuditLog: appendAuditLog(child.adminAuditLog, {
+          action: "link_series",
+          timestamp: new Date().toISOString(),
+          userId: admin.clerkId,
+          changes: { parentEventId: { old: child.parentEventId, new: umbrellaEventId } },
+          details: { umbrellaEventId },
+        }),
+      },
+    });
+
+    if (!umbrella.isSeriesParent) {
+      await tx.event.update({
+        where: { id: umbrellaEventId },
+        data: { isSeriesParent: true },
+      });
+    }
+
+    // Keep the umbrella's date range covering the newly-linked child.
+    await syncUmbrellaEndDate(tx, umbrellaEventId);
+
+    return {
+      ok: true,
+      kennelName: child.kennel.shortName,
+      kennelSlug: child.kennel.slug,
+      date: child.date.toISOString(),
+    };
+  });
+
+  if (!result.ok) return { error: result.error };
+
+  console.log("[admin-audit] linkChildToUmbrella", JSON.stringify({
+    adminId: admin.id,
+    adminClerkId: admin.clerkId,
+    action: "link_series",
+    childEventId,
+    umbrellaEventId,
+    timestamp: new Date().toISOString(),
+  }));
+
+  revalidateAfterAttribution(childEventId, [result.kennelSlug]);
+  revalidatePath(`/hareline/${umbrellaEventId}`);
+  return { success: true, kennelName: result.kennelName, date: result.date };
+}
+
+/**
+ * Detach a child Event from its umbrella by clearing `parentEventId`. Does not
+ * auto-demote the umbrella's `isSeriesParent` flag (demote-parent is a separate
+ * concern, intentionally out of scope here).
+ */
+export async function unlinkChildFromUmbrella(
+  childEventId: string,
+): Promise<ActionResult<{ kennelName: string; date: string }>> {
+  const admin = await getAdminUser();
+  if (!admin) return { error: "Not authorized" };
+
+  type R =
+    | { ok: true; kennelName: string; kennelSlug: string; date: string; oldParentId: string }
+    | { ok: false; error: string };
+  const result: R = await prisma.$transaction(async (tx) => {
+    await lockEvent(tx, childEventId);
+
+    const child = await tx.event.findUnique({
+      where: { id: childEventId },
+      select: {
+        parentEventId: true,
+        date: true,
+        adminAuditLog: true,
+        kennel: { select: KENNEL_SELECT_FOR_OVERRIDE },
+      },
+    });
+    if (!child) return { ok: false, error: "Event not found" };
+    if (child.parentEventId === null) return { ok: false, error: "Event isn't part of a series" };
+
+    const oldParentId = child.parentEventId;
+    await tx.event.update({
+      where: { id: childEventId },
+      data: {
+        parentEventId: null,
+        adminAuditLog: appendAuditLog(child.adminAuditLog, {
+          action: "unlink_series",
+          timestamp: new Date().toISOString(),
+          userId: admin.clerkId,
+          changes: { parentEventId: { old: oldParentId, new: null } },
+        }),
+      },
+    });
+
+    // Shrink the old umbrella's date range to cover only its remaining
+    // children (lock it first — low-concurrency admin path, no deadlock risk
+    // vs. the pipeline which locks nothing here).
+    await lockEvent(tx, oldParentId);
+    await syncUmbrellaEndDate(tx, oldParentId);
+
+    return {
+      ok: true,
+      kennelName: child.kennel.shortName,
+      kennelSlug: child.kennel.slug,
+      date: child.date.toISOString(),
+      oldParentId,
+    };
+  });
+
+  if (!result.ok) return { error: result.error };
+
+  console.log("[admin-audit] unlinkChildFromUmbrella", JSON.stringify({
+    adminId: admin.id,
+    adminClerkId: admin.clerkId,
+    action: "unlink_series",
+    childEventId,
+    oldParentId: result.oldParentId,
+    timestamp: new Date().toISOString(),
+  }));
+
+  revalidateAfterAttribution(childEventId, [result.kennelSlug]);
+  revalidatePath(`/hareline/${result.oldParentId}`);
+  return { success: true, kennelName: result.kennelName, date: result.date };
+}
+
+/**
+ * Read-only search backing the "link to umbrella" picker. Matches `title` or
+ * `kennel.shortName` (case-insensitive contains), newest first, capped at 25.
+ * Returns an empty list for queries shorter than 2 chars.
+ */
+export async function searchEventsForUmbrella(
+  query: string,
+  excludeId?: string,
+): Promise<
+  | { success: true; events: { id: string; date: string; kennelName: string; title: string | null; isSeriesParent: boolean }[] }
+  | { error: string }
+> {
+  const admin = await getAdminUser();
+  if (!admin) return { error: "Not authorized" };
+
+  const trimmed = query.trim();
+  if (trimmed.length < 2) return { success: true, events: [] };
+
+  const events = await prisma.event.findMany({
+    where: {
+      AND: [
+        excludeId ? { id: { not: excludeId } } : {},
+        {
+          OR: [
+            { title: { contains: trimmed, mode: "insensitive" } },
+            { kennel: { shortName: { contains: trimmed, mode: "insensitive" } } },
+          ],
+        },
+      ],
+    },
+    select: {
+      id: true,
+      date: true,
+      title: true,
+      isSeriesParent: true,
+      kennel: { select: { shortName: true } },
+    },
+    orderBy: { date: "desc" },
+    take: 25,
+  });
+
+  return {
+    success: true,
+    events: events.map((e) => ({
+      id: e.id,
+      date: e.date.toISOString(),
+      kennelName: e.kennel.shortName,
+      title: e.title,
+      isSeriesParent: e.isSeriesParent,
+    })),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Kennel attribution (#1680)
+// ---------------------------------------------------------------------------
+
+/**
+ * Change an Event's PRIMARY kennel (a true move). Deletes the old primary
+ * `EventKennel` row, promotes/creates the new kennel's row as primary, and
+ * mirrors `Event.kennelId`. Any existing co-host rows are left untouched.
+ *
+ * The old primary is deleted BEFORE the new one is promoted/created — the
+ * partial unique index `EventKennel(eventId) WHERE isPrimary = true` rejects
+ * two primaries even transiently (same recipe as `deduplicateEventKennels`).
+ */
+export async function reattributeEventKennel(
+  eventId: string,
+  newKennelCode: string,
+): Promise<ActionResult<{ oldKennelName: string; newKennelName: string; date: string }>> {
+  const admin = await getAdminUser();
+  if (!admin) return { error: "Not authorized" };
+
+  type R =
+    | {
+        ok: true;
+        oldKennelName: string;
+        oldKennelSlug: string;
+        newKennelName: string;
+        newKennelSlug: string;
+        date: string;
+      }
+    | { ok: false; error: string };
+  const result: R = await prisma.$transaction(async (tx) => {
+    await lockEvent(tx, eventId);
+
+    // The kennel + event reads are independent — run them together.
+    const [newKennel, event] = await Promise.all([
+      tx.kennel.findUnique({
+        where: { kennelCode: newKennelCode },
+        select: { id: true, shortName: true, slug: true },
+      }),
+      tx.event.findUnique({
+        where: { id: eventId },
+        select: {
+          kennelId: true,
+          date: true,
+          adminAuditLog: true,
+          kennel: { select: { kennelCode: true, shortName: true, slug: true } },
+          eventKennels: { select: { kennelId: true } },
+        },
+      }),
+    ]);
+    if (!newKennel) return { ok: false, error: `Kennel not found: ${newKennelCode}` };
+    if (!event) return { ok: false, error: "Event not found" };
+    if (event.kennelId === newKennel.id) {
+      return { ok: false, error: `Event is already attributed to ${newKennel.shortName}` };
+    }
+
+    const oldKennelId = event.kennelId;
+
+    // Delete the old primary first (see partial-unique-index note above).
+    await tx.eventKennel.deleteMany({ where: { eventId, isPrimary: true } });
+
+    const newAlreadyAttached = event.eventKennels.some((ek) => ek.kennelId === newKennel.id);
+    if (newAlreadyAttached) {
+      await tx.eventKennel.update({
+        where: { eventId_kennelId: { eventId, kennelId: newKennel.id } },
+        data: { isPrimary: true },
+      });
+    } else {
+      await tx.eventKennel.create({
+        data: { eventId, kennelId: newKennel.id, isPrimary: true },
+      });
+    }
+
+    await tx.event.update({
+      where: { id: eventId },
+      data: {
+        kennelId: newKennel.id,
+        adminAuditLog: appendAuditLog(event.adminAuditLog, {
+          action: "reattribute_kennel",
+          timestamp: new Date().toISOString(),
+          userId: admin.clerkId,
+          changes: {
+            kennelId: { old: oldKennelId, new: newKennel.id },
+            kennelCode: { old: event.kennel.kennelCode, new: newKennelCode },
+          },
+        }),
+      },
+    });
+
+    return {
+      ok: true,
+      oldKennelName: event.kennel.shortName,
+      oldKennelSlug: event.kennel.slug,
+      newKennelName: newKennel.shortName,
+      newKennelSlug: newKennel.slug,
+      date: event.date.toISOString(),
+    };
+  });
+
+  if (!result.ok) return { error: result.error };
+
+  console.log("[admin-audit] reattributeEventKennel", JSON.stringify({
+    adminId: admin.id,
+    adminClerkId: admin.clerkId,
+    action: "reattribute_kennel",
+    eventId,
+    newKennelCode,
+    timestamp: new Date().toISOString(),
+  }));
+
+  revalidateAfterAttribution(eventId, [result.oldKennelSlug, result.newKennelSlug]);
+  return {
+    success: true,
+    oldKennelName: result.oldKennelName,
+    newKennelName: result.newKennelName,
+    date: result.date,
+  };
+}
+
+/**
+ * Add a co-host kennel to an Event as a non-primary `EventKennel` row. Rejects
+ * kennels already attributed (primary or existing co-host).
+ */
+export async function addCoHostKennel(
+  eventId: string,
+  kennelCode: string,
+): Promise<ActionResult<{ kennelName: string; date: string }>> {
+  const admin = await getAdminUser();
+  if (!admin) return { error: "Not authorized" };
+
+  type R =
+    | { ok: true; eventSlug: string; coHostName: string; coHostSlug: string; date: string }
+    | { ok: false; error: string };
+  const result: R = await prisma.$transaction(async (tx) => {
+    await lockEvent(tx, eventId);
+
+    const kennel = await tx.kennel.findUnique({
+      where: { kennelCode },
+      select: { id: true, shortName: true, slug: true },
+    });
+    if (!kennel) return { ok: false, error: `Kennel not found: ${kennelCode}` };
+
+    const event = await tx.event.findUnique({
+      where: { id: eventId },
+      select: {
+        date: true,
+        adminAuditLog: true,
+        kennel: { select: { slug: true } },
+        eventKennels: { select: { kennelId: true } },
+      },
+    });
+    if (!event) return { ok: false, error: "Event not found" };
+    if (event.eventKennels.some((ek) => ek.kennelId === kennel.id)) {
+      return { ok: false, error: `${kennel.shortName} is already attributed to this event` };
+    }
+
+    await tx.eventKennel.create({
+      data: { eventId, kennelId: kennel.id, isPrimary: false },
+    });
+    await tx.event.update({
+      where: { id: eventId },
+      data: {
+        adminAuditLog: appendAuditLog(event.adminAuditLog, {
+          action: "add_cohost",
+          timestamp: new Date().toISOString(),
+          userId: admin.clerkId,
+          details: { kennelCode, kennelId: kennel.id },
+        }),
+      },
+    });
+
+    return {
+      ok: true,
+      eventSlug: event.kennel.slug,
+      coHostName: kennel.shortName,
+      coHostSlug: kennel.slug,
+      date: event.date.toISOString(),
+    };
+  });
+
+  if (!result.ok) return { error: result.error };
+
+  console.log("[admin-audit] addCoHostKennel", JSON.stringify({
+    adminId: admin.id,
+    adminClerkId: admin.clerkId,
+    action: "add_cohost",
+    eventId,
+    kennelCode,
+    timestamp: new Date().toISOString(),
+  }));
+
+  revalidateAfterAttribution(eventId, [result.eventSlug, result.coHostSlug]);
+  return { success: true, kennelName: result.coHostName, date: result.date };
+}
+
+/**
+ * Remove a co-host kennel from an Event. Rejects removing the primary (use
+ * `reattributeEventKennel` to move the primary) or a kennel that isn't attached.
+ */
+export async function removeCoHostKennel(
+  eventId: string,
+  kennelCode: string,
+): Promise<ActionResult<{ kennelName: string; date: string }>> {
+  const admin = await getAdminUser();
+  if (!admin) return { error: "Not authorized" };
+
+  type R =
+    | { ok: true; eventSlug: string; coHostName: string; coHostSlug: string; date: string }
+    | { ok: false; error: string };
+  const result: R = await prisma.$transaction(async (tx) => {
+    await lockEvent(tx, eventId);
+
+    const kennel = await tx.kennel.findUnique({
+      where: { kennelCode },
+      select: { id: true, shortName: true, slug: true },
+    });
+    if (!kennel) return { ok: false, error: `Kennel not found: ${kennelCode}` };
+
+    const event = await tx.event.findUnique({
+      where: { id: eventId },
+      select: {
+        date: true,
+        adminAuditLog: true,
+        kennel: { select: { slug: true } },
+        eventKennels: { select: { kennelId: true, isPrimary: true } },
+      },
+    });
+    if (!event) return { ok: false, error: "Event not found" };
+
+    const row = event.eventKennels.find((ek) => ek.kennelId === kennel.id);
+    if (!row) return { ok: false, error: `${kennel.shortName} is not attributed to this event` };
+    if (row.isPrimary) {
+      return { ok: false, error: "Cannot remove the primary kennel — use Change kennel to move it" };
+    }
+
+    await tx.eventKennel.delete({
+      where: { eventId_kennelId: { eventId, kennelId: kennel.id } },
+    });
+    await tx.event.update({
+      where: { id: eventId },
+      data: {
+        adminAuditLog: appendAuditLog(event.adminAuditLog, {
+          action: "remove_cohost",
+          timestamp: new Date().toISOString(),
+          userId: admin.clerkId,
+          details: { kennelCode, kennelId: kennel.id },
+        }),
+      },
+    });
+
+    return {
+      ok: true,
+      eventSlug: event.kennel.slug,
+      coHostName: kennel.shortName,
+      coHostSlug: kennel.slug,
+      date: event.date.toISOString(),
+    };
+  });
+
+  if (!result.ok) return { error: result.error };
+
+  console.log("[admin-audit] removeCoHostKennel", JSON.stringify({
+    adminId: admin.id,
+    adminClerkId: admin.clerkId,
+    action: "remove_cohost",
+    eventId,
+    kennelCode,
+    timestamp: new Date().toISOString(),
+  }));
+
+  revalidateAfterAttribution(eventId, [result.eventSlug, result.coHostSlug]);
+  return { success: true, kennelName: result.coHostName, date: result.date };
 }

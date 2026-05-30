@@ -176,6 +176,45 @@ describe("validateSourceConfig", () => {
   });
 
   // ---------------------------------------------------------------------------
+  // silentlySkipPatterns validation (#1739 — object-array rules)
+  // ---------------------------------------------------------------------------
+
+  describe("silentlySkipPatterns validation", () => {
+    it("accepts valid rules across all source types", () => {
+      const config = {
+        silentlySkipPatterns: [
+          { pattern: "^LYNNE OFF$", field: "title" },
+          { pattern: String.raw`\bno\s+run\b`, field: "location" },
+          { pattern: "deprecated", unlessHashSignal: true },
+          { pattern: "^DeMon" }, // field defaults to title
+        ],
+        defaultKennelTag: "abqh3",
+      };
+      expect(validateSourceConfig("GOOGLE_CALENDAR", config)).toEqual([]);
+      expect(validateSourceConfig("MEETUP", { ...config, groupUrlname: "x", kennelTag: "y" })).toEqual([]);
+    });
+
+    it("rejects a non-array value", () => {
+      const errors = validateSourceConfig("GOOGLE_CALENDAR", { silentlySkipPatterns: "nope" });
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toContain("must be an array");
+    });
+
+    it.each([
+      [{ field: "title" }, "required non-empty string"],
+      [{ pattern: "" }, "required non-empty string"],
+      [{ pattern: "[broken(" }, "invalid regex"],
+      [{ pattern: "(x+x+)+y" }, "catastrophic backtracking"],
+      [{ pattern: "ok", field: "venue" }, "must be one of"],
+      [{ pattern: "ok", unlessHashSignal: "yes" }, "must be a boolean"],
+      ["not-an-object", 'must be an object with a "pattern" string'],
+    ])("rejects malformed rule %#", (rule, expectedMsg) => {
+      const errors = validateSourceConfig("GOOGLE_CALENDAR", { silentlySkipPatterns: [rule] });
+      expect(errors.some((e) => e.includes(expectedMsg))).toBe(true);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // titleHarePattern validation (single string, not array)
   // ---------------------------------------------------------------------------
 

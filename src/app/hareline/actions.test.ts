@@ -152,6 +152,7 @@ describe("loadEventsForTimeMode kennel-scoping (#1560 PR F)", () => {
       trailType: null,
       dogFriendly: null,
       prelube: null,
+      cost: null,
       isSeriesParent,
       parentEventId: parentId,
       endDate: null,
@@ -160,7 +161,7 @@ describe("loadEventsForTimeMode kennel-scoping (#1560 PR F)", () => {
       eventKennels: [],
     });
     mockFindMany.mockResolvedValueOnce([
-      minimalEvent("umbrella", null, true),
+      { ...minimalEvent("umbrella", null, true), cost: "$7" },
       minimalEvent("sat-child", "umbrella", false),
       minimalEvent("sun-child", "umbrella", false),
       // Child whose parent is NOT in result (GGFM Friday case viewed from
@@ -175,5 +176,6 @@ describe("loadEventsForTimeMode kennel-scoping (#1560 PR F)", () => {
     expect(ids).toContain("ggfm-child"); // parent NOT in result → kept
     expect(ids).not.toContain("sat-child"); // parent IS in result → dropped
     expect(ids).not.toContain("sun-child"); // parent IS in result → dropped
+    expect(result.find((e) => e.id === "umbrella")?.cost).toBe("$7"); // cost flows through slim payload
   });
 });

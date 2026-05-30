@@ -68,6 +68,9 @@ export interface HarelineListEvent {
   prelube: string | null;
   /** Sub-kennel label extracted from multi-kennel calendars (e.g. "Bayern Nash Hash"). */
   eventLabel: string | null;
+  /** #1316 — per-event hash cash override (two-tier model, #1571). Null ⇒
+   *  inherit the kennel default. Surfaced on the card as a small chip (#1571). */
+  cost: string | null;
   /** #1560 — multi-day series + standalone date-range support. */
   isSeriesParent: boolean | null;
   parentEventId: string | null;
@@ -224,6 +227,10 @@ const fetchSlimEventsCached = unstable_cache(
           ],
         };
 
+    const queryLimit = isPast ? PAST_EVENTS_LIMIT
+      : kennelIds.length === 0 ? UPCOMING_GLOBAL_LIMIT
+      : UPCOMING_KENNEL_LIMIT;
+
     const events = await prisma.event.findMany({
       where,
       select: {
@@ -249,6 +256,7 @@ const fetchSlimEventsCached = unstable_cache(
         trailType: true,
         dogFriendly: true,
         prelube: true,
+        cost: true,
         // #1560 — multi-day series metadata + inline children list.
         isSeriesParent: true,
         parentEventId: true,
@@ -292,9 +300,7 @@ const fetchSlimEventsCached = unstable_cache(
         },
       },
       orderBy: { date: isPast ? "desc" : "asc" },
-      take: isPast ? PAST_EVENTS_LIMIT
-        : kennelIds.length === 0 ? UPCOMING_GLOBAL_LIMIT
-        : UPCOMING_KENNEL_LIMIT,
+      take: queryLimit,
     });
 
     // #1560 PR F — when both a series parent AND its children are returned
@@ -337,6 +343,7 @@ const fetchSlimEventsCached = unstable_cache(
       trailType: e.trailType,
       dogFriendly: e.dogFriendly,
       prelube: e.prelube,
+      cost: e.cost,
       isSeriesParent: e.isSeriesParent,
       parentEventId: e.parentEventId,
       endDate: e.endDate ? e.endDate.toISOString() : null,
@@ -431,7 +438,9 @@ export interface EventDetailFields {
   sourceUrl: string | null;
   locationStreet: string | null;
   locationAddress: string | null;
-  /** #1316 — Hash Cash. Detail-only because card has no room for a chip. */
+  /** #1316 — Hash Cash (per-event override). Also in the slim list payload
+   *  (#1571) so the card can show it; kept here for the brief window where the
+   *  list cache predates the field, and for detail-panel parity. */
   cost: string | null;
   eventLinks: { id: string; url: string; label: string }[];
   /**
