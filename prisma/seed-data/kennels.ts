@@ -72,6 +72,11 @@ export const KENNELS: KennelSeed[] = [
       logoUrl: "/kennel-logos/nych3.png",
       scheduleDayOfWeek: "Wednesday", scheduleTime: "7:00 PM", scheduleFrequency: "Weekly",
       hashCash: "$3",
+      foundedYear: 1984,
+      contactEmail: "hareraiser@hashnyc.com",
+      description:
+        "New York City's original hash, hashing every Wednesday since 1984. " +
+        "Hotline: +1-212-HASH-NYC (212.427.4692), option 3.",
       facebookUrl: "https://www.facebook.com/groups/nychash",
       instagramHandle: "nychashhouse",
     },

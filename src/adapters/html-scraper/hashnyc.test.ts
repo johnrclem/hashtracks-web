@@ -10,6 +10,8 @@ import {
   extractTitle,
   extractTime,
   extractHares,
+  extractCost,
+  isPlaceholderHare,
   parseDetailsCell,
   extractSourceUrl,
   parseRows,
@@ -385,6 +387,9 @@ describe("extractRawDesignation", () => {
   it("extracts LIL #147", () => {
     expect(extractRawDesignation("Bears!LIL #147Start: Your Mother's House")).toBe("LIL #147");
   });
+  it("extracts Special #254 (section label, not a kennel) (#1791)", () => {
+    expect(extractRawDesignation("Red Dress Run!Special #254Start: TBA")).toBe("Special #254");
+  });
   it("returns undefined when no designation found", () => {
     expect(extractRawDesignation("Just some random text")).toBeUndefined();
   });
@@ -440,6 +445,24 @@ describe("parseDetailsCell title format", () => {
     const $ = cheerio.load(html);
     const result = parseDetailsCell($, $("td").first());
     expect(result.title).toBe("7-11 C*ms to Queens! - Queens #248");
+  });
+
+  it("special-event title uses the Special label, not the raw kennelCode (#1791)", () => {
+    const html = `<table><tr><td><b>Red Dress Run!</b><br>Special #254<br>Start: TBA</td></tr></table>`;
+    const $ = cheerio.load(html);
+    const result = parseDetailsCell($, $("td").first());
+    expect(result.title).toBe("Red Dress Run! - Special #254");
+    expect(result.title).not.toContain("nych3");
+    expect(result.kennelTag).toBe("nych3");
+  });
+
+  it("titled special event with no recognizable designation drops to bare title (no kennelCode leak) (#1791)", () => {
+    // "Gala #N" is not a known designation; previously fell back to "nych3 #..".
+    const html = `<table><tr><td><b>Mystery Gala</b><br>Start: TBA</td></tr></table>`;
+    const $ = cheerio.load(html);
+    const result = parseDetailsCell($, $("td").first());
+    expect(result.title).toBe("Mystery Gala");
+    expect(result.title).not.toContain("nych3");
   });
 });
 
@@ -536,6 +559,80 @@ describe("parseRows", () => {
     const result = parseRows($, rows, "https://hashnyc.com", false);
     expect(result.events).toEqual([]);
     expect(result.parseErrors).toEqual([]);
+  });
+});
+
+// ── extractCost (#1792) ──
+
+describe("extractCost", () => {
+  const FIVE_BORO_CELL =
+    `<b>5-boro Pub Crawl</b><br>Special #252<br>Start: TBA<br>` +
+    `Three days. Five boroughs. Countless bad decisions. </br>` +
+    `Cost: Free / Pay as you go &#8212; no rego fee. You cover your own drinks and food at each stop. </br>` +
+    `What to bring: ID, cash/card, comfortable shoes.`;
+
+  it("extracts the Cost line, bounded at the next break", () => {
+    expect(extractCost(FIVE_BORO_CELL)).toBe(
+      "Free / Pay as you go — no rego fee. You cover your own drinks and food at each stop.",
+    );
+  });
+
+  it("returns undefined when there is no Cost label", () => {
+    expect(extractCost("NYC #2152<br>Start: The Library")).toBeUndefined();
+  });
+
+  it("is surfaced through parseDetailsCell", () => {
+    const $ = cheerio.load(`<table><tr><td>${FIVE_BORO_CELL}</td></tr></table>`);
+    const result = parseDetailsCell($, $("td").first());
+    expect(result.cost).toContain("Free / Pay as you go");
+  });
+});
+
+// ── isPlaceholderHare (#1790) ──
+
+describe("isPlaceholderHare", () => {
+  it.each([
+    ["flags the signup CTA", "Sign up to hare!", "nych3", true],
+    ["flags a bare kennel code used as a hare", "NYCH3", "nych3", true],
+    ["flags the archive Unknown placeholder", "Unknown", "nych3", true],
+    ["does not flag a real hare name", "Shitwrecked", "nych3", false],
+  ])("%s", (_label, hares, kennelTag, expected) => {
+    expect(isPlaceholderHare(hares as string, kennelTag as string)).toBe(expected);
+  });
+});
+
+// ── parseRows tri-state hares + minYear ──
+
+describe("parseRows hares + minYear", () => {
+  it("emits null (explicit clear) for a future signup-placeholder row (#1790)", () => {
+    const html = `<table class="future_hashes">
+      <tr><td>June 10 7:00 pm</td><td>NYC #2153</td><td>Sign up to hare!</td></tr>
+    </table>`;
+    const $ = cheerio.load(html);
+    const result = parseRows($, $("tr"), "https://hashnyc.com", true);
+    expect(result.events.length).toBe(1);
+    expect(result.events[0].hares).toBeNull();
+  });
+
+  it("keeps a real future hare value", () => {
+    const html = `<table class="future_hashes">
+      <tr><td>June 3 7:00 pm</td><td>NYC #2152</td><td>Shitwrecked</td></tr>
+    </table>`;
+    const $ = cheerio.load(html);
+    const result = parseRows($, $("tr"), "https://hashnyc.com", true);
+    expect(result.events[0].hares).toBe("Shitwrecked");
+  });
+
+  it("drops pre-floor years by default but keeps them with a lower minYear (#1793)", () => {
+    const html = `<table><tr id="2002may15">
+      <td>May 15 7:00 pm</td><td>NYC #939</td><td>Fluffy Lockerman</td>
+    </tr></table>`;
+    const $ = cheerio.load(html);
+    expect(parseRows($, $("tr"), "https://hashnyc.com", false).events.length).toBe(0);
+    const kept = parseRows($, $("tr"), "https://hashnyc.com", false, "past_hashes", 1990);
+    expect(kept.events.length).toBe(1);
+    expect(kept.events[0].date).toBe("2002-05-15");
+    expect(kept.events[0].runNumber).toBe(939);
   });
 });
 
