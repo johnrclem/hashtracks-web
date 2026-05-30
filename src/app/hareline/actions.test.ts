@@ -152,6 +152,7 @@ describe("loadEventsForTimeMode kennel-scoping (#1560 PR F)", () => {
       trailType: null,
       dogFriendly: null,
       prelube: null,
+      cost: null,
       isSeriesParent,
       parentEventId: parentId,
       endDate: null,
