@@ -70,39 +70,48 @@ async function resolveKennelIds(prisma: PrismaClient, codes: string[]): Promise<
   return map;
 }
 
+type EventMove = (typeof EVENT_MOVES)[number];
+
+/** Apply one audited re-attribution: validate it's still where we expect, then
+ *  reassign to the target kennel (or cascade-delete the ghost if the target
+ *  already holds a canonical on that date). Slot-safe and idempotent. */
+async function applyEventMove(prisma: PrismaClient, move: EventMove, kennelIds: Map<string, string>) {
+  const event = await prisma.event.findUnique({
+    where: { id: move.id },
+    select: { id: true, date: true, kennelId: true },
+  });
+  if (!event) {
+    console.warn(`  ⚠ ${move.label} (${move.id}) not found — skipping.`);
+    return;
+  }
+  const fromId = kennelIds.get(move.from)!;
+  const toId = kennelIds.get(move.to)!;
+  if (event.kennelId === toId) {
+    console.log(`  ✓ ${move.label}: already on ${move.to} — no-op.`);
+    return;
+  }
+  if (event.kennelId !== fromId) {
+    console.warn(`  ⚠ ${move.label}: expected on ${move.from} but sits elsewhere (${event.kennelId}) — skipping.`);
+    return;
+  }
+  const iso = event.date.toISOString().slice(0, 10);
+  const slotTaken = await prisma.event.findFirst({
+    where: { kennelId: toId, date: event.date, isCanonical: true, id: { not: event.id } },
+    select: { id: true },
+  });
+  if (slotTaken) {
+    console.log(`  [delete-dup] ${move.label} ${iso}: ${move.to} already has a canonical (${slotTaken.id}); cascade-deleting ghost ${event.id}.`);
+    if (APPLY) await cascadeDeleteEvents(prisma, [event.id]);
+    return;
+  }
+  console.log(`  [reassign] ${move.label} ${iso}: ${move.from} → ${move.to}.`);
+  if (APPLY) await reassignEventKennel(prisma, event.id, fromId, toId);
+}
+
 async function reattributeEvents(prisma: PrismaClient, kennelIds: Map<string, string>) {
   console.log("── Re-attributing misrouted events ──");
   for (const move of EVENT_MOVES) {
-    const event = await prisma.event.findUnique({
-      where: { id: move.id },
-      select: { id: true, date: true, kennelId: true, title: true },
-    });
-    if (!event) {
-      console.warn(`  ⚠ ${move.label} (${move.id}) not found — skipping.`);
-      continue;
-    }
-    const fromId = kennelIds.get(move.from)!;
-    const toId = kennelIds.get(move.to)!;
-    if (event.kennelId === toId) {
-      console.log(`  ✓ ${move.label}: already on ${move.to} — no-op.`);
-      continue;
-    }
-    if (event.kennelId !== fromId) {
-      console.warn(`  ⚠ ${move.label}: expected on ${move.from} but sits elsewhere (${event.kennelId}) — skipping.`);
-      continue;
-    }
-    const iso = event.date.toISOString().slice(0, 10);
-    const slotTaken = await prisma.event.findFirst({
-      where: { kennelId: toId, date: event.date, isCanonical: true, id: { not: event.id } },
-      select: { id: true },
-    });
-    if (slotTaken) {
-      console.log(`  [delete-dup] ${move.label} ${iso}: ${move.to} already has a canonical (${slotTaken.id}); cascade-deleting ghost ${event.id}.`);
-      if (APPLY) await cascadeDeleteEvents(prisma, [event.id]);
-    } else {
-      console.log(`  [reassign] ${move.label} ${iso}: ${move.from} → ${move.to}.`);
-      if (APPLY) await reassignEventKennel(prisma, event.id, fromId, toId);
-    }
+    await applyEventMove(prisma, move, kennelIds);
   }
 }
 
