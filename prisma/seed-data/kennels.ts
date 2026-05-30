@@ -134,7 +134,7 @@ export const KENNELS: KennelSeed[] = [
     },
     {
       kennelCode: "nawwh3", shortName: "NAWWH3", fullName: "New Amsterdam Weekend Wankers", region: "New York City, NY",
-      website: "http://hashnyc.com",
+      website: "https://hashnyc.com",
       logoUrl: "/kennel-logos/hashnyc-umbrella.png",
       scheduleDayOfWeek: "Sunday", scheduleTime: "2:00 PM", scheduleFrequency: "Biweekly",
       scheduleNotes: "Originally biweekly Wednesdays at 7:00 PM, Oct–Apr (\"Winter Wednesdays\"); resurrected post-COVID as \"Weekend Wankers\" running Sundays at 2:00 PM.",
