@@ -355,6 +355,8 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
 
     // ===== SWITZERLAND =====
     "zh3": ["ZH3", "Zurich Hash House Harriers", "Zürich Hash House Harriers", "Zurich H3", "The Zurich Hash House Harriers"],
+    // Keyed "wsh3-ch" (NOT "wsh3" → Wandering Soul H3). Bare "WSH3" alias omitted (claimed).
+    "wsh3-ch": ["Winterthur & Schaffhausen Hash House Harriers", "Winterthur & Schaffhausen H3", "Winterthur Schaffhausen H3", "W&S H3", "WSH3 Switzerland"],
 
     // ===== LOUISIANA =====
     "noh3": ["NOH3", "New Orleans Hash", "New Orleans HHH", "New Orleans H3", "NOLA Hash"],

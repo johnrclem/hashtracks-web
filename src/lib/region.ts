@@ -1779,6 +1779,17 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: 8.54,
     aliases: ["Zurich", "Zürich, Switzerland"],
   },
+  {
+    name: "Winterthur",
+    country: "Switzerland",
+    timezone: "Europe/Zurich",
+    abbrev: "WIN",
+    colorClasses: "bg-red-100 text-red-700",
+    pinColor: "#f87171",
+    centroidLat: 47.5,
+    centroidLng: 8.72,
+    aliases: ["Winterthur, Switzerland", "Schaffhausen"],
+  },
   // ── Louisiana ──
   {
     name: "Louisiana",
@@ -3146,7 +3157,7 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   [/\b(japan|tokyo|osaka)\b/, "Japan"],
   [/\b(belgium|brussels|bruxelles|antwerp|ghent)\b/, "Belgium"],
   [/\b(spain|españa|espana|costa del sol|mijas|malaga|málaga|marbella|fuengirola|andalucia|andalucía|madrid|barcelona)\b/, "Spain"],
-  [/\b(switzerland|schweiz|suisse|svizzera|zurich|zürich|geneva|bern|basel)\b/, "Switzerland"],
+  [/\b(switzerland|schweiz|suisse|svizzera|zurich|zürich|geneva|bern|basel|winterthur|schaffhausen)\b/, "Switzerland"],
   [/\b(netherlands|amsterdam|rotterdam|den haag|the hague|holland)\b/, "Netherlands"],
   [/\b(denmark|copenhagen|københavn|aarhus)\b/, "Denmark"],
   [/\b(sweden|stockholm|göteborg|gothenburg|malmö)\b/, "Sweden"],
@@ -3394,6 +3405,7 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Oslo": "Norway",
   // Switzerland
   "Zürich": "Switzerland",
+  "Winterthur": "Switzerland",
   // Malaysia — Kuala Lumpur is a Federal Territory (state-equivalent),
   // NOT part of Selangor. Penang Island is a metro under Penang state.
   "Kuala Lumpur, MY": "Kuala Lumpur, MY",

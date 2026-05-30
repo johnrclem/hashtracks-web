@@ -1145,6 +1145,21 @@ export const KENNELS: KennelSeed[] = [
       description: "Zürich's English-speaking hash — 'a drinking club with a running problem.' Reformed in 1990, ZH3 lays a new flour trail around Zürich every Thursday evening, plus the first Saturday and third Sunday of each month, finishing with a beer circle. Walkers and runners of all abilities welcome; ~4–7 km trails.",
       latitude: 47.37, longitude: 8.54,
     },
+    {
+      // kennelCode is "wsh3-ch", NOT "wsh3" — bare "wsh3" is Wandering Soul H3
+      // (Birmingham, AL). Mirrors the swh3 → swh3-or country-suffix precedent.
+      kennelCode: "wsh3-ch", shortName: "WSH3", fullName: "Winterthur & Schaffhausen Hash House Harriers",
+      region: "Winterthur", country: "Switzerland",
+      hashCash: "CHF 5",
+      // Legacy flat fields kept for fallback only — scheduleRules below are authoritative.
+      scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Monthly",
+      scheduleNotes: "Third Saturday of the month; meeting point varies around the Schaffhausen area, usually reachable by public transport. Location each month via Meetup.",
+      scheduleRules: [
+        { rrule: "FREQ=MONTHLY;BYDAY=3SA", startTime: "14:00", label: "3rd Saturday", displayOrder: 0 },
+      ],
+      description: "Winterthur & Schaffhausen's English-speaking hash — 'a drinking club with a running problem.' WSH3 lays a flour trail on the third Saturday of each month around the Winterthur and Schaffhausen area of northern Switzerland, usually meeting at a public-transport-accessible point near Schaffhausen, and finishes with an On-After at a local restaurant. Runners and walkers of all abilities welcome.",
+      latitude: 47.5, longitude: 8.72,
+    },
     // ===== PENNSYLVANIA (outside Philly) =====
     // --- Pittsburgh ---
     {
