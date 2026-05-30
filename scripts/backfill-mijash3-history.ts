@@ -142,7 +142,15 @@ async function fetchYearItems(path: string): Promise<SqsItem[]> {
     for (const it of data.items ?? []) items.push(it);
 
     const next = data.pagination;
-    if (!next?.nextPage || next.nextPageOffset == null) return items; // clean end
+    // Clean end: the terminal page omits `nextPage` entirely (Squarespace does
+    // NOT send `nextPage: false` — verified against the 2019 collection's last
+    // page), so a falsy nextPage is the real end signal.
+    if (!next?.nextPage) return items;
+    // nextPage is truthy but there's no offset to advance — a truncated/malformed
+    // response. Fail loud rather than silently returning a partial archive.
+    if (next.nextPageOffset == null) {
+      throw new Error(`[${path}] nextPage=true but no nextPageOffset — aborting (truncated response)`);
+    }
     const offset = String(next.nextPageOffset);
     if (seenOffsets.has(offset)) {
       throw new Error(`[${path}] repeated pagination offset ${offset} — aborting (stuck cursor)`);
