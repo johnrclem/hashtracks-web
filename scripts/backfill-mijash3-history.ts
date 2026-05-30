@@ -156,7 +156,7 @@ async function fetchYearItems(path: string): Promise<SqsItem[]> {
 
 /** Run number from the title or slug ("Run - 1998 …" / "run-1998-…"). */
 export function parseRunNumber(title: string, urlId: string): number | undefined {
-  const m = `${title} ${urlId}`.match(/run\s*-?\s*(\d{3,4})\b/i);
+  const m = `${title} ${urlId}`.match(/run[\s-]*(\d{3,4})\b/i);
   return m ? parseInt(m[1], 10) : undefined;
 }
 
@@ -170,7 +170,7 @@ export function parseDateAndTheme(
   urlId: string,
   referenceDate = new Date(),
 ): { date: string | null; theme?: string } {
-  const stripped = title.replace(/^\s*run\s*-?\s*\d{3,4}\s*-?\s*/i, "").trim();
+  const stripped = title.replace(/^[\s-]*run[\s-]*\d{3,4}[\s-]*/i, "").trim();
   for (const candidate of [stripped, urlId.replace(/-/g, " ")]) {
     const m = candidate.match(DATE_RE);
     if (!m || m.index === undefined) continue;
@@ -243,7 +243,18 @@ export function cleanFieldValue(raw: string): string {
       break;
     }
   }
-  return raw.slice(0, cut).replace(/^[\s\-–—;:,]+/, "").replace(/[\s\-–—;:,.]+$/, "").trim();
+  // Trim surrounding punctuation/dash artifacts procedurally — avoids an
+  // anchored quantifier regex (Sonar flags `[...]+$` as a ReDoS shape even
+  // though a single char-class is linear). Leading set excludes "." so a
+  // legitimate leading abbreviation isn't shaved; trailing set includes it.
+  const LEAD = " \t\n\r-–—;:,";
+  const TAIL = " \t\n\r-–—;:,.";
+  const sliced = raw.slice(0, cut);
+  let a = 0;
+  let b = sliced.length;
+  while (a < b && LEAD.includes(sliced[a])) a++;
+  while (b > a && TAIL.includes(sliced[b - 1])) b--;
+  return sliced.slice(a, b);
 }
 
 function bodyToText(bodyHtml: string): string {
@@ -268,11 +279,17 @@ function itemToEvent(it: SqsItem, referenceDate: Date): RawEventData | null {
   // Split only on explicit separators ("&" / ","). The body prose often reads
   // "X and daughter Y and helpful partner" — splitting on " and " would shred
   // that into sorted fragments, so capture it verbatim as one entry instead.
-  const haresRaw = extractField(bodyText, ["Hares", "Hare"])
-    ?.replace(/&?amp;/gi, "&") // un-mangle double-encoded "&amp;amp;" residue
-    .replace(/[.\s]+$/, "");
+  // extractField already trims trailing punctuation via cleanFieldValue;
+  // here we only un-mangle double-encoded "&amp;amp;" residue. normalizeHaresField
+  // trims each split part, so no extra trailing-strip is needed.
+  const haresRaw = extractField(bodyText, ["Hares", "Hare"])?.replace(/&?amp;/gi, "&");
   const hares = haresRaw ? normalizeHaresField(haresRaw.split("&").join(",")) : undefined;
-  const location = cleanLocationName(extractField(bodyText, ["Location"]) ?? null) ?? undefined;
+  // Preserve cleanLocationName's tri-state: undefined when the Location label
+  // is absent (preserve existing), else its result — which may be null
+  // (explicit clear of a placeholder) or a cleaned string. Collapsing null to
+  // undefined would silently keep a stale location on re-run.
+  const rawLocation = extractField(bodyText, ["Location"]);
+  const location = rawLocation !== undefined ? cleanLocationName(rawLocation) : undefined;
 
   return {
     date,
