@@ -1779,6 +1779,17 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: 8.54,
     aliases: ["Zurich", "Zürich, Switzerland"],
   },
+  {
+    name: "Winterthur",
+    country: "Switzerland",
+    timezone: "Europe/Zurich",
+    abbrev: "WIN",
+    colorClasses: "bg-red-100 text-red-700",
+    pinColor: "#f87171",
+    centroidLat: 47.5,
+    centroidLng: 8.72,
+    aliases: ["Winterthur, Switzerland", "Schaffhausen"],
+  },
   // ── Louisiana ──
   {
     name: "Louisiana",
@@ -3394,6 +3405,7 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Oslo": "Norway",
   // Switzerland
   "Zürich": "Switzerland",
+  "Winterthur": "Switzerland",
   // Malaysia — Kuala Lumpur is a Federal Territory (state-equivalent),
   // NOT part of Selangor. Penang Island is a metro under Penang state.
   "Kuala Lumpur, MY": "Kuala Lumpur, MY",

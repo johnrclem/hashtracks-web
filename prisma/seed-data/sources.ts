@@ -3535,6 +3535,25 @@ export const SOURCES = [
       },
       kennelCodes: ["zh3"],
     },
+    {
+      // The queue originally proposed this Meetup; an onboarding handoff claimed
+      // it was dead and tried to pivot to a swisshash.ch Google Calendar — but
+      // swisshash.ch (and the kennel's stated schaffhausen-h3.com) are both
+      // NXDOMAIN, while this group is live (950 members, monthly hareline).
+      name: "Winterthur & Schaffhausen H3 Meetup",
+      url: "https://www.meetup.com/winterthur_schaffhausenhhh/",
+      type: "MEETUP" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365, // monthly hareline runs ~12 events out; 90d would truncate
+      config: {
+        groupUrlname: "winterthur_schaffhausenhhh",
+        kennelTag: "wsh3-ch",
+        // extractRunNumber OFF — titles are free-form prose ("WSH3 Summer
+        // Solstice Trail", "WSH3 tbd"), no "#NNN" run numbers to extract.
+      },
+      kennelCodes: ["wsh3-ch"],
+    },
 
     // ===== NETHERLANDS =====
     {
