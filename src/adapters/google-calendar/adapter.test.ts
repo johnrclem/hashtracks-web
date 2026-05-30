@@ -1645,7 +1645,7 @@ describe("mergeAllDayRunDescriptor — Capital H3 descriptor↔timed merge (#178
     id?: string,
   ) =>
     buildRawEventFromGCalItem(
-      { summary, start, status: "confirmed", id, description } as never,
+      { summary, start, status: "confirmed", id, description },
       config,
       o,
     );
@@ -1741,7 +1741,7 @@ describe("mergeAllDayRunDescriptor — Capital H3 descriptor↔timed merge (#178
     const gcalIdMap = new WeakMap<RawEventData, string>();
     const plainConfig = { defaultKennelTag: "capital-h3-au" };
     const descriptor = buildRawEventFromGCalItem(
-      { summary: "Run #2397 Public Holiday - King's birthday", start: { date: "2026-06-08" }, status: "confirmed", id: "d6" } as never,
+      { summary: "Run #2397 Public Holiday - King's birthday", start: { date: "2026-06-08" }, status: "confirmed", id: "d6" },
       plainConfig,
       { allDayEventSet, gcalIdMap },
     );

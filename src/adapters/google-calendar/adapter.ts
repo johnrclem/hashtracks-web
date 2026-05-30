@@ -1869,6 +1869,55 @@ function isPlaceholderShell(e: RawEventData): boolean {
   return false;
 }
 
+/**
+ * #1787 Capital H3 pre-pass: merge each all-day run descriptor (run number +
+ * theme title) into its same-date timed sibling (start time + hare/location in
+ * the summary). A descriptor with no timed sibling is left untouched and
+ * survives standalone (its numeric run number keeps `isPlaceholderShell` from
+ * dropping it). Returns the surviving events plus the merge count.
+ */
+function mergeRunDescriptorsIntoTimed(
+  events: RawEventData[],
+  allDayEventSet: WeakSet<RawEventData>,
+  summaryMap?: WeakMap<RawEventData, string>,
+): { events: RawEventData[]; mergedCount: number } {
+  // Index timed events by (kennelTag, date); earliest start wins (undefined last).
+  const timedByKey = new Map<string, RawEventData[]>();
+  for (const e of events) {
+    if (allDayEventSet.has(e)) continue;
+    const key = `${e.kennelTags[0]}|${e.date}`;
+    const bucket = timedByKey.get(key);
+    if (bucket) bucket.push(e);
+    else timedByKey.set(key, [e]);
+  }
+  for (const bucket of timedByKey.values()) {
+    bucket.sort((a, b) => (a.startTime ?? "99:99").localeCompare(b.startTime ?? "99:99"));
+  }
+
+  const descriptorsToRemove = new Set<RawEventData>();
+  for (const descriptor of events) {
+    if (!allDayEventSet.has(descriptor) || typeof descriptor.runNumber !== "number") continue;
+    const timed = timedByKey.get(`${descriptor.kennelTags[0]}|${descriptor.date}`)?.[0];
+    if (!timed) continue; // standalone descriptor survives
+    // Read the hare from the timed event's PRISTINE summary, not its
+    // post-pipeline title — a stray `description` ("Public holiday") can
+    // override the title via the bare-title fallback. Only fill fields the
+    // pipeline left empty so the #1222 "hare + street address" titleHarePattern
+    // (which DOES populate hares) is preserved.
+    const { hare, location } = splitTimedSummaryHareLocation(summaryMap?.get(timed) ?? timed.title ?? "");
+    if (!timed.hares && hare) timed.hares = hare;
+    if (!timed.location && location) timed.location = location;
+    // Adopt the descriptor's run number + theme. Empty theme → clear the
+    // (possibly description-corrupted) title so merge.ts synthesizes the
+    // default "<Kennel> Trail #N" rather than surfacing the hare/description.
+    timed.runNumber ??= descriptor.runNumber;
+    timed.title = descriptor.title ?? undefined;
+    descriptorsToRemove.add(descriptor);
+  }
+  const filtered = descriptorsToRemove.size ? events.filter((e) => !descriptorsToRemove.has(e)) : events;
+  return { events: filtered, mergedCount: descriptorsToRemove.size };
+}
+
 export function dedupGCalEvents(
   events: RawEventData[],
   gcalIdMap: WeakMap<RawEventData, string>,
@@ -1877,48 +1926,11 @@ export function dedupGCalEvents(
   summaryMap?: WeakMap<RawEventData, string>,
 ): { events: RawEventData[]; compositeDedupedCount: number; allDayCollapsedCount: number; runDescriptorMergedCount: number } {
   let runDescriptorMergedCount = 0;
-  // #1787 Capital H3 pre-pass: merge an all-day run descriptor (run number +
-  // theme title) into its same-date timed sibling (start time + hare/location
-  // in the summary). Runs before the #1199 placeholder collapse. A descriptor
-  // with no timed sibling is left untouched and survives standalone (its
-  // numeric run number keeps isPlaceholderShell from dropping it).
+  // #1787: merge run descriptors before the #1199 placeholder collapse.
   if (mergeAllDayRunDescriptor) {
-    const timedByKey = new Map<string, RawEventData[]>();
-    for (const e of events) {
-      if (allDayEventSet.has(e)) continue;
-      const key = `${e.kennelTags[0]}|${e.date}`;
-      const bucket = timedByKey.get(key);
-      if (bucket) bucket.push(e);
-      else timedByKey.set(key, [e]);
-    }
-    // Earliest start wins when a date has multiple timed events (undefined last).
-    for (const bucket of timedByKey.values()) {
-      bucket.sort((a, b) => (a.startTime ?? "99:99").localeCompare(b.startTime ?? "99:99"));
-    }
-    const descriptorsToRemove = new Set<RawEventData>();
-    for (const descriptor of events) {
-      if (!allDayEventSet.has(descriptor) || typeof descriptor.runNumber !== "number") continue;
-      const timed = timedByKey.get(`${descriptor.kennelTags[0]}|${descriptor.date}`)?.[0];
-      if (!timed) continue; // standalone descriptor survives
-      // Read the hare from the timed event's PRISTINE summary, not its
-      // post-pipeline title — a stray `description` ("Public holiday") can
-      // override the title via the bare-title fallback. Only fill fields the
-      // pipeline left empty so the #1222 "hare + street address"
-      // titleHarePattern (which DOES populate hares) is preserved.
-      const rawSummary = summaryMap?.get(timed) ?? timed.title ?? "";
-      const { hare, location } = splitTimedSummaryHareLocation(rawSummary);
-      if (!timed.hares && hare) timed.hares = hare;
-      if (!timed.location && location) timed.location = location;
-      // Adopt the descriptor's run number, then its theme as the title — when
-      // the theme is empty (bare "Run #2398") clear the (possibly
-      // description-corrupted) title so merge.ts synthesizes "<Kennel> Trail
-      // #N" instead of showing the hare or stray description text.
-      if (timed.runNumber == null) timed.runNumber = descriptor.runNumber;
-      timed.title = descriptor.title ?? undefined;
-      descriptorsToRemove.add(descriptor);
-      runDescriptorMergedCount++;
-    }
-    if (descriptorsToRemove.size) events = events.filter((e) => !descriptorsToRemove.has(e));
+    const merged = mergeRunDescriptorsIntoTimed(events, allDayEventSet, summaryMap);
+    events = merged.events;
+    runDescriptorMergedCount = merged.mergedCount;
   }
 
   // #1199 pre-pass: drop placeholder all-day events when a timed sibling

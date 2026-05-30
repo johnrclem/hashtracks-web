@@ -49,6 +49,69 @@ interface Candidate {
   reason: string;
 }
 
+interface CleanupEvent {
+  id: string;
+  date: Date;
+  runNumber: number | null;
+  title: string | null;
+  status: string;
+  adminCancelledAt: Date | null;
+  rawEvents: { id: string }[];
+  attendances: { id: string }[];
+}
+
+/** An Event we may delete: source-less (0 raws), attendance-free, unlocked. */
+function isSafe(e: CleanupEvent): boolean {
+  return e.rawEvents.length === 0 && e.attendances.length === 0 && e.adminCancelledAt === null;
+}
+
+const candidate = (e: CleanupEvent, reason: string): Candidate => ({
+  id: e.id,
+  date: e.date.toISOString().slice(0, 10),
+  runNumber: e.runNumber,
+  title: e.title,
+  reason,
+});
+
+/** Cancelled, source-less, attendance-free, unlocked → safe to delete. */
+function findOrphans(events: CleanupEvent[]): Candidate[] {
+  return events
+    .filter((e) => e.status === "CANCELLED" && isSafe(e))
+    .map((e) => candidate(e, "orphan (cancelled, 0 raws, 0 attns, unlocked)"));
+}
+
+/**
+ * True duplicates among LIVE events sharing (date, runNumber): keep the
+ * best-supported row, delete the rest — but only when a to-delete row is ALSO
+ * `isSafe` (a duplicate with backing RawEvents needs manual review; blind
+ * deletion would orphan its raws and force a delete→regenerate churn).
+ */
+function findDuplicates(events: CleanupEvent[]): Candidate[] {
+  const liveByKey = new Map<string, CleanupEvent[]>();
+  for (const e of events) {
+    if (e.status === "CANCELLED" || e.runNumber == null) continue;
+    const key = `${e.date.toISOString().slice(0, 10)}#${e.runNumber}`;
+    let bucket = liveByKey.get(key);
+    if (!bucket) {
+      bucket = [];
+      liveByKey.set(key, bucket);
+    }
+    bucket.push(e);
+  }
+  const support = (e: CleanupEvent) => e.rawEvents.length * 1000 + e.attendances.length;
+  const out: Candidate[] = [];
+  for (const [key, group] of liveByKey) {
+    if (group.length < 2) continue;
+    const [keep, ...rest] = [...group].sort((a, b) => support(b) - support(a));
+    console.log(`  duplicate group ${key}: keeping ${keep.id} (raws=${keep.rawEvents.length})`);
+    for (const e of rest) {
+      if (isSafe(e)) out.push(candidate(e, `duplicate of ${keep.id} (lower support)`));
+      else console.log(`    SKIP ${e.id} — has RawEvents, attendances, or admin lock; manual review`);
+    }
+  }
+  return out;
+}
+
 async function main() {
   const kennel = await prisma.kennel.findFirst({
     where: { kennelCode: "mh3-de" },
@@ -75,57 +138,7 @@ async function main() {
     orderBy: [{ date: "asc" }, { runNumber: "asc" }],
   });
 
-  const isSafe = (e: (typeof events)[number]) =>
-    e.rawEvents.length === 0 && e.attendances.length === 0 && e.adminCancelledAt === null;
-
-  const toDelete: Candidate[] = [];
-
-  // 1. Orphans: cancelled, source-less, no attendances, unlocked.
-  for (const e of events) {
-    if (e.status === "CANCELLED" && isSafe(e)) {
-      toDelete.push({
-        id: e.id,
-        date: e.date.toISOString().slice(0, 10),
-        runNumber: e.runNumber,
-        title: e.title,
-        reason: "orphan (cancelled, 0 raws, 0 attns, unlocked)",
-      });
-    }
-  }
-
-  // 2. True duplicates among LIVE events sharing (date, runNumber).
-  const liveByKey = new Map<string, typeof events>();
-  for (const e of events) {
-    if (e.status === "CANCELLED" || e.runNumber == null) continue;
-    const key = `${e.date.toISOString().slice(0, 10)}#${e.runNumber}`;
-    let bucket = liveByKey.get(key);
-    if (!bucket) liveByKey.set(key, (bucket = []));
-    bucket.push(e);
-  }
-  const support = (e: (typeof events)[number]) => e.rawEvents.length * 1000 + e.attendances.length;
-  for (const [key, group] of liveByKey) {
-    if (group.length < 2) continue;
-    const ranked = [...group].sort((a, b) => support(b) - support(a));
-    const [keep, ...rest] = ranked;
-    console.log(`  duplicate group ${key}: keeping ${keep.id} (raws=${keep.rawEvents.length})`);
-    for (const e of rest) {
-      // Honor the same contract as the orphan branch: only delete a duplicate
-      // that is ALSO source-less (0 raws), attendance-free, and unlocked. A
-      // duplicate that still has backing RawEvents needs manual review — blind
-      // deletion would orphan its RawEvents and force a delete→regenerate churn.
-      if (isSafe(e)) {
-        toDelete.push({
-          id: e.id,
-          date: e.date.toISOString().slice(0, 10),
-          runNumber: e.runNumber,
-          title: e.title,
-          reason: `duplicate of ${keep.id} (lower support)`,
-        });
-      } else {
-        console.log(`    SKIP ${e.id} — has RawEvents, attendances, or admin lock; manual review`);
-      }
-    }
-  }
+  const toDelete: Candidate[] = [...findOrphans(events), ...findDuplicates(events)];
 
   if (toDelete.length === 0) {
     console.log("\nNothing to delete — prod is clean.");
