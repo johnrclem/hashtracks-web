@@ -62,6 +62,19 @@ function rawField(rawData: unknown, key: string): string | null {
   return typeof v === "string" && v.trim() ? v.trim() : null;
 }
 
+/**
+ * Punctuation/whitespace-only leftovers → null, matching the pipeline's
+ * explicit-clear convention. Char-set check (not a `[class]+$` regex) to dodge
+ * the Sonar S5852 ReDoS-shape false positive (cf. merge.ts:885).
+ */
+const DELIMITER_CHARS = new Set([..." \t\n\r-,.:;–—"]);
+function cleanValue(v: string | null): string | null {
+  if (v == null) return null;
+  const t = v.trim();
+  if (!t) return null;
+  return [...t].some((c) => !DELIMITER_CHARS.has(c)) ? t : null;
+}
+
 function isPhantomRaw(rawData: unknown): boolean {
   const title = rawField(rawData, "title");
   return title != null && PHANTOM_TITLE_RE.test(title);
@@ -130,11 +143,17 @@ async function main(apply: boolean): Promise<void> {
 
   const rawTitle = rawField(healSource.rawData, "title") ?? "";
   const healed = {
-    title: rawTitle.replace(RUN_PREFIX_RE, "").trim() || rawTitle,
-    locationName: rawField(healSource.rawData, "location"),
-    haresText: rawField(healSource.rawData, "hares"),
-    description: rawField(healSource.rawData, "description"),
+    title: cleanValue(rawTitle.replace(RUN_PREFIX_RE, "").trim() || rawTitle),
+    locationName: cleanValue(rawField(healSource.rawData, "location")),
+    haresText: cleanValue(rawField(healSource.rawData, "hares")),
+    description: cleanValue(rawField(healSource.rawData, "description")),
   };
+  // Never patch a blank title — that would be worse than the contamination.
+  // Practically unreachable (heal source is a real "Tulip Hash" raw), but the
+  // patch is destructive, so fail loud rather than write an empty title.
+  if (!healed.title) {
+    throw new Error(`Healed title resolved to empty for raw ${healSource.id} — cannot heal safely.`);
+  }
 
   log(`Heal source raw: ${healSource.id} (completeness ${completeness(healSource)})`);
   log(`Would delete ${phantomRawIds.length} placeholder raw(s): [${phantomRawIds.join(", ")}]`);
@@ -176,7 +195,11 @@ async function main(apply: boolean): Promise<void> {
       eventId: EVENT_ID,
       healSourceRawId: healSource.id,
       rawEventsDeleted: phantomRawIds.length,
-      healedTitle: healed.title,
+      healedFields: {
+        title: healed.title,
+        locationName: healed.locationName,
+        haresText: healed.haresText,
+      },
       timestamp: new Date().toISOString(),
     }),
   );

@@ -3535,13 +3535,21 @@ export const SOURCES = [
       scrapeDays: 365,
       config: {
         previousUrl: "https://ah3.nl/previous/",
-        // On/after run-day the site flips both pages to a bare "NO RUN TODAY"
+        // On/after run-day the site flips both pages to a "NO RUN TODAY"
         // placeholder. The adapter mis-dates it onto the day's real run, so it
         // merges into that canonical and (equal trust → last-write-wins) stomps
-        // the title/location. Drop the placeholder at ingest. Unconditional —
-        // it carries no run number/hares, so no hash signal could rehabilitate
-        // it. (#1799-followup; same mechanism as Hibiscus sources.ts no-run rule.)
-        silentlySkipPatterns: [{ pattern: String.raw`^NO RUN TODAY$`, field: "title" }],
+        // the title/location. Drop the placeholder at ingest. Prod showed two
+        // variants: the bare "NO RUN TODAY" and the run-day "AH3 #1478 — NO RUN
+        // TODAY" (the adapter prefixes "AH3 #N — " when the page still carries a
+        // run id) — kept as two anchored rules rather than one optional-prefix
+        // regex because nesting `\s*` inside a `(?:…)?` group trips safe-regex2
+        // (star height 2) and compileSilentSkipRules would silently drop it.
+        // Unconditional — the placeholder is never a real trail, so a run number
+        // must NOT rehabilitate it (#1799-followup; cf. Hibiscus no-run rule).
+        silentlySkipPatterns: [
+          { pattern: String.raw`^NO RUN TODAY$`, field: "title" },
+          { pattern: String.raw`^AH3\s*#\s*\d+\s*[—–-]\s*NO RUN TODAY$`, field: "title" },
+        ],
       },
       kennelCodes: ["ah3-nl"],
     },
