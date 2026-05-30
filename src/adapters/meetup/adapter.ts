@@ -5,7 +5,7 @@ import { hasAnyErrors } from "../types";
 import { validateSourceConfig, stripHtmlTags, buildDateWindow, extractHashRunNumber, HARE_BOILERPLATE_RE, CTA_EMBEDDED_PATTERNS } from "../utils";
 import { safeFetch } from "../safe-fetch";
 import { extractHares as extractHaresFromDescription } from "../hare-extraction";
-import { isAdminNoticeTitle } from "../facebook-hosted-events/constants";
+import { isPlatformDepartureTitle } from "../skip-rules";
 
 /** US state abbreviation → full name mapping (50 states + DC). */
 const US_STATE_ABBREV_TO_NAME: Record<string, string> = {
@@ -720,13 +720,14 @@ export class MeetupAdapter implements SourceAdapter {
           cancelledSkipped++;
           continue;
         }
-        // Drop admin-notice posts (kennel migration announcements, farewell
-        // posts). Same pattern set used by FACEBOOK_HOSTED_EVENTS (#1500 /
-        // PR #1527); Narwhal H3 surfaced the identical "Moving to a new
-        // website site - Last day in Meetup is March 10th" notice via the
-        // Meetup path (#1689). Patterns intentionally narrow — see
-        // ADMIN_NOTICE_PATTERNS docstring.
-        if (ev.title && isAdminNoticeTitle(ev.title)) {
+        // Drop platform-departure admin posts (kennel migration announcements,
+        // farewell posts). Narwhal H3 surfaced "Moving to a new website site -
+        // Last day in Meetup is March 10th" (#1689); Miami posted "...ARE
+        // LEAVING MEETUP" (#1728). Routed through the shared skip-rules matcher
+        // (#1739): the specific departure phrases drop unconditionally, while
+        // the broad farewell words ("farewell"/"goodbye") are now signal-gated
+        // so a real "Farewell Run Trail #42" still ingests.
+        if (ev.title && isPlatformDepartureTitle(ev.title)) {
           adminNoticeSkipped++;
           adminNoticeTitles.push(ev.title);
           continue;

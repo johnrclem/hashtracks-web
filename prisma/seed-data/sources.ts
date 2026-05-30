@@ -2731,22 +2731,17 @@ export const SOURCES = [
         // the source side. Opt in to the doubled-prefix strip so titles
         // like "MoA2H3 MoA2H3 Red Dress Run" surface as a single prefix.
         stripDoubledKennelPrefix: true,
-        // #1671 — the MoA2H3 calendar carries a handful of sister-kennel
+        // #1671 / #1739 — the MoA2H3 calendar carries a handful of sister-kennel
         // events (DeMon H3 inaugural trail Nov 2025; GLH3 HashMas Jan 2025).
-        // Without routing, the wide-window backfill would file them under
-        // moa2h3 and pollute the kennel page. Patterns route them to the
-        // sister codes — those codes are intentionally NOT added to
-        // `kennelCodes` here, so the source-kennel guard blocks the rows
-        // with `SOURCE_KENNEL_MISMATCH` alerts instead of creating duplicate
-        // Event records. The merge pipeline does NOT dedup by `(kennelId,
-        // date)` across sources (known travel-pipeline gap — Codex
-        // adversarial review on #1671), so listing the codes here would
-        // produce duplicates against the kennels' own GCal sources. The 3
-        // expected alerts during the backfill are the right surface: admin
-        // reviews and dismisses.
-        kennelPatterns: [
-          [String.raw`^DeMon\s*H?3?\b`, "demon-h3"],
-          [String.raw`^GLH3\b|^Greater\s+Lansing`, "glh3"],
+        // DeMon H3 and GLH3 each have their OWN Google Calendar source, so these
+        // rows are pure pollution here. The original fix routed them to the
+        // sister codes, which then fired recurring `SOURCE_KENNEL_MISMATCH`
+        // alerts every 6h (intentional but noisy). Drop them silently instead
+        // (#1739) — no alert, no duplicate Events against the sisters' own
+        // sources, no kennel-page pollution.
+        silentlySkipPatterns: [
+          { pattern: String.raw`^DeMon\s*H?3?\b` },
+          { pattern: String.raw`^GLH3\b|^Greater\s+Lansing` },
         ],
       },
       kennelCodes: ["moa2h3"],
@@ -4297,6 +4292,12 @@ export const SOURCES = [
         // a proper `dateTime` and bypass this fallback. See #536.
         includeAllDayEvents: true,
         defaultStartTime: "18:00",
+        // #1783 — `includeAllDayEvents` (above) also admits the kennel admin's
+        // personal all-day OOO blocks. "LYNNE OFF" surfaced on /hareline as a
+        // phantom Friday run (ABQ doesn't run Fridays). Drop it silently
+        // (#1739). Anchored exact-title match so it can never shadow a real
+        // trail; broaden only if other OOO variants appear in prod.
+        silentlySkipPatterns: [{ pattern: String.raw`^LYNNE\s+OFF$`, field: "title" }],
       },
       kennelCodes: ["abqh3"],
     },
@@ -5708,6 +5709,12 @@ export const SOURCES = [
         columns: { date: 1, location: 2, hares: 3 },
         kennelTagRules: { default: "hibiscus-h3" },
         startTimeRules: { default: "18:30" },
+        // #1786 — holiday rows carry a real date but a "no run" note in the
+        // Where column (e.g. "Kings B'day, no run , Yours"). These ingested as
+        // phantom runs with a map + weather. Drop any row whose location says
+        // "no run" (#1739). A venue is never literally "no run", so this is
+        // false-positive-safe; `\b` + `\s+` won't match "Norun St".
+        silentlySkipPatterns: [{ pattern: String.raw`\bno\s+run\b`, field: "location" }],
       },
       kennelCodes: ["hibiscus-h3"],
     },

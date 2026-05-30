@@ -162,6 +162,42 @@ function validatePatternArray(
   }
 }
 
+/** Valid `field` values for a silentlySkipPatterns rule (#1739). */
+const SILENT_SKIP_FIELDS = new Set(["title", "description", "location", "hares"]);
+
+/**
+ * Validate the cross-cutting `silentlySkipPatterns` config (#1739): an array of
+ * `{ pattern, field?, unlessHashSignal? }` rules. Each `pattern` must be a
+ * ReDoS-safe regex; `field` (when present) must be one of the supported event
+ * fields; `unlessHashSignal` (when present) must be boolean.
+ */
+function validateSilentlySkipPatterns(obj: Record<string, unknown>, errors: string[]): void {
+  if (!("silentlySkipPatterns" in obj) || obj.silentlySkipPatterns === undefined) return;
+  if (!Array.isArray(obj.silentlySkipPatterns)) {
+    errors.push("silentlySkipPatterns must be an array of { pattern, field?, unlessHashSignal? } rules");
+    return;
+  }
+  for (const [i, raw] of (obj.silentlySkipPatterns as unknown[]).entries()) {
+    const label = `silentlySkipPatterns[${i}]`;
+    if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+      errors.push(`${label}: must be an object with a "pattern" string`);
+      continue;
+    }
+    const rule = raw as Record<string, unknown>;
+    if (typeof rule.pattern !== "string" || rule.pattern.length === 0) {
+      errors.push(`${label}.pattern: required non-empty string`);
+    } else {
+      validateRegex(rule.pattern, `${label}.pattern`, errors);
+    }
+    if (rule.field !== undefined && (typeof rule.field !== "string" || !SILENT_SKIP_FIELDS.has(rule.field))) {
+      errors.push(`${label}.field: must be one of title | description | location | hares`);
+    }
+    if (rule.unlessHashSignal !== undefined && typeof rule.unlessHashSignal !== "boolean") {
+      errors.push(`${label}.unlessHashSignal: must be a boolean`);
+    }
+  }
+}
+
 /** Validate Google Sheets required fields. */
 function validateGoogleSheetsConfig(obj: Record<string, unknown>, errors: string[]): void {
   if (!obj.sheetId || typeof obj.sheetId !== "string") {
@@ -486,6 +522,7 @@ export function validateSourceConfig(
   validatePatternArray(obj, "costPatterns", errors);
   validatePatternArray(obj, "titleStripPatterns", errors);
   validatePatternArray(obj, "locationOmitIfMatches", errors, { rejectBroad: true });
+  validateSilentlySkipPatterns(obj, errors);
 
   // Single-pattern validation (titleHarePattern is a string, not an array)
   if ("titleHarePattern" in obj && obj.titleHarePattern !== undefined) {

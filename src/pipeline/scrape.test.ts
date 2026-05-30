@@ -259,6 +259,66 @@ describe("scrapeSource", () => {
     expect(updateData.data.sampleSkipped).toEqual(sampleSkipped);
   });
 
+  // #1739 — silentlySkipPatterns drops known source pollution at the ingest
+  // boundary, before events become RawEvents and before the reconciler runs.
+  describe("silentlySkipPatterns", () => {
+    const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    afterEach(() => consoleWarnSpy.mockClear());
+
+    it("drops matched events before processRawEvents — no merge, no mismatch", async () => {
+      const skipSource = {
+        id: "src_skip", type: "GOOGLE_CALENDAR", url: "abqh3@group.calendar.google.com",
+        config: { silentlySkipPatterns: [{ pattern: "^LYNNE OFF$", field: "title" }] },
+      };
+      mockSourceFind.mockResolvedValueOnce(skipSource as never);
+      mockGetAdapter.mockReturnValueOnce({
+        type: "GOOGLE_CALENDAR",
+        fetch: vi.fn().mockResolvedValue({
+          events: [
+            { date: "2026-05-29", kennelTags: ["abqh3"], title: "LYNNE OFF" },
+            { date: "2026-05-30", kennelTags: ["abqh3"], title: "Red Dress Run #42" },
+          ],
+          errors: [],
+        }),
+      } as never);
+
+      await scrapeSource("src_skip");
+
+      // The merge pipeline only ever sees the real event — the phantom never
+      // becomes a RawEvent and so can never raise SOURCE_KENNEL_MISMATCH.
+      expect(mockProcessRaw).toHaveBeenCalledWith("src_skip", [
+        expect.objectContaining({ title: "Red Dress Run #42" }),
+      ]);
+      const merged = mockProcessRaw.mock.calls[0][1] as Array<{ title?: string }>;
+      expect(merged.some((e) => e.title === "LYNNE OFF")).toBe(false);
+    });
+
+    it("records a PII-safe silentlySkipped diagnostic (no raw location value)", async () => {
+      const skipSource = {
+        id: "src_skip2", type: "GOOGLE_SHEETS", url: "https://docs.google.com/sheet",
+        config: { silentlySkipPatterns: [{ pattern: String.raw`\bno\s+run\b`, field: "location" }] },
+      };
+      mockSourceFind.mockResolvedValueOnce(skipSource as never);
+      mockGetAdapter.mockReturnValueOnce({
+        type: "GOOGLE_SHEETS",
+        fetch: vi.fn().mockResolvedValue({
+          events: [{ date: "2026-06-01", kennelTags: ["hibiscus-h3"], location: "Kings B'day, no run , Yours" }],
+          errors: [],
+        }),
+      } as never);
+
+      await scrapeSource("src_skip2");
+
+      expect(mockProcessRaw).toHaveBeenCalledWith("src_skip2", []);
+      const updateData = mockLogUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
+      const diag = updateData.data.diagnosticContext as { silentlySkipped: { skipped: number; samples: unknown[] } };
+      expect(diag.silentlySkipped.skipped).toBe(1);
+      expect(diag.silentlySkipped.samples[0]).toMatchObject({ field: "location", date: "2026-06-01" });
+      // PII hygiene: the raw location value is never serialized into diagnostics.
+      expect(JSON.stringify(diag.silentlySkipped)).not.toContain("Kings B'day");
+    });
+  });
+
   // Regression for #1053-1056. Both `after()` and `revalidateTag()` need a
   // Next.js request scope. When something (Vercel cold-start race, library
   // wrapping a Promise chain, etc.) breaks AsyncLocalStorage tracking they
