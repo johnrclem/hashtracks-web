@@ -11,10 +11,11 @@
  *      existing call sites — same regex semantics as the old hard-coded
  *      one-offs, now centralized here.
  *
- * Pure leaf module: no DB / server-only imports, so client bundles that reach
- * `types.ts` never pull server code (memory: turbopack client-bundle leaks).
+ * Imported only by server-side adapters and the scrape pipeline — never by
+ * client components — so it can reuse the adapter `utils` helpers freely.
  */
 import isSafeRegex from "safe-regex2";
+import { compilePatterns } from "./utils";
 import type { RawEventData, SilentSkipRule } from "./types";
 
 type SkipField = NonNullable<SilentSkipRule["field"]>;
@@ -60,11 +61,10 @@ export function compileSilentSkipRules(raw: unknown): CompiledSkipRule[] {
       console.warn(`[skip-rules] dropping rule with invalid field "${field}"`);
       continue;
     }
-    let re: RegExp;
-    try {
-      // nosemgrep: detect-non-literal-regexp — config regex, ReDoS-guarded by isSafeRegex() below
-      re = new RegExp(rule.pattern, "i"); // NOSONAR
-    } catch {
+    // Compile via the shared helper so the (suppressed) dynamic-RegExp call
+    // lives in exactly one place (utils.ts). Malformed patterns yield [].
+    const [re] = compilePatterns([rule.pattern], "i");
+    if (!re) {
       console.warn(`[skip-rules] dropping rule with invalid regex "${rule.pattern}"`);
       continue;
     }
@@ -108,7 +108,7 @@ function fieldValue(ev: RawEventData, field: SkipField): string | null | undefin
   }
 }
 
-interface SkipMatch {
+export interface SkipMatch {
   field: SkipField;
   pattern: string;
 }
