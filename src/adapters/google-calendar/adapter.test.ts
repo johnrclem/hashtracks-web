@@ -15,6 +15,8 @@ import {
   normalizeGCalDescription,
   GoogleCalendarAdapter,
   dedupGCalEvents,
+  extractRunDescriptorTheme,
+  splitTimedSummaryHareLocation,
 } from "./adapter";
 import { compilePatterns } from "../utils";
 import type { RawEventData } from "../types";
@@ -1590,6 +1592,160 @@ describe("dedupGCalEvents — all-day vs timed collapse (#1199)", () => {
     );
     expect(allDayCollapsedCount).toBe(0);
     expect(deduped).toHaveLength(1);
+  });
+});
+
+describe("extractRunDescriptorTheme (#1787)", () => {
+  it.each<[string, string]>([
+    ["Run #2397 Public Holiday - King's birthday", "King's birthday"],
+    ["Run# 2396 Public Holiday - Reconciliation Day. ACT only", "Reconciliation Day. ACT only"],
+    ["Run #2395", ""],
+    ["Run #2398", ""],
+  ])("%j → %j", (input, expected) => {
+    expect(extractRunDescriptorTheme(input)).toBe(expected);
+  });
+});
+
+describe("splitTimedSummaryHareLocation (#1787)", () => {
+  it.each<[string, { hare: string; location?: string }]>([
+    ["Scarlet", { hare: "Scarlet" }],
+    ["Greasenipple - Park in Beagle Street Red Hill", { hare: "Greasenipple", location: "Park in Beagle Street Red Hill" }],
+    ["Hidden Flagon", { hare: "Hidden Flagon" }],
+  ])("%j", (input, expected) => {
+    expect(splitTimedSummaryHareLocation(input)).toEqual(expected);
+  });
+});
+
+describe("mergeAllDayRunDescriptor — Capital H3 descriptor↔timed merge (#1787)", () => {
+  // Mirrors the live Capital H3 config: run number + theme on an all-day
+  // "Run #N …" descriptor, start time + hare on a same-date timed event.
+  const config = {
+    defaultKennelTag: "capital-h3-au",
+    titleHarePattern: String.raw`^(.+?)\s+\d+\s+[A-Z]`,
+    titleLocationPattern: String.raw`(\d+\s+.+?)\.?\s*$`,
+    mergeAllDayRunDescriptor: true,
+  };
+  const opts = () => {
+    const allDayEventSet = new WeakSet<RawEventData>();
+    const gcalIdMap = new WeakMap<RawEventData, string>();
+    const summaryMap = new WeakMap<RawEventData, string>();
+    return {
+      allDayEventSet,
+      gcalIdMap,
+      summaryMap,
+      compiledTitleHarePatterns: compilePatterns([config.titleHarePattern], "i"),
+      compiledTitleLocationPatterns: compilePatterns([config.titleLocationPattern], "i"),
+    };
+  };
+  const build = (
+    summary: string,
+    start: { date: string } | { dateTime: string },
+    o: ReturnType<typeof opts>,
+    description?: string,
+    id?: string,
+  ) =>
+    buildRawEventFromGCalItem(
+      { summary, start, status: "confirmed", id, description },
+      config,
+      o,
+    );
+
+  it("merges descriptor theme + run number into the timed sibling (hare from pristine summary, not a stray description)", () => {
+    const o = opts();
+    // The timed "Scarlet" event carries description "Public holiday" — the
+    // bare-title fallback would otherwise surface that as the title.
+    const descriptor = build("Run #2397 Public Holiday - King's birthday", { date: "2026-06-08" }, o, undefined, "d1");
+    const timed = build("Scarlet", { dateTime: "2026-06-08T15:00:00+10:00" }, o, "Public holiday", "t1");
+    const { events, runDescriptorMergedCount } = dedupGCalEvents(
+      [descriptor!, timed!],
+      o.gcalIdMap,
+      o.allDayEventSet,
+      true,
+      o.summaryMap,
+    );
+    expect(runDescriptorMergedCount).toBe(1);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      runNumber: 2397,
+      title: "King's birthday",
+      hares: "Scarlet",
+      startTime: "15:00",
+    });
+  });
+
+  it("splits 'Hare - Location' from the timed summary and keeps an empty-theme descriptor's run number", () => {
+    const o = opts();
+    const descriptor = build("Run #2395", { date: "2026-05-25" }, o, undefined, "d2");
+    const timed = build("Greasenipple - Park in Beagle Street Red Hill", { dateTime: "2026-05-25T18:00:00+10:00" }, o, undefined, "t2");
+    const { events } = dedupGCalEvents([descriptor!, timed!], o.gcalIdMap, o.allDayEventSet, true, o.summaryMap);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      runNumber: 2395,
+      hares: "Greasenipple",
+      location: "Park in Beagle Street Red Hill",
+      startTime: "18:00",
+    });
+    // Empty theme → title left undefined so merge.ts synthesizes the default.
+    expect(events[0].title).toBeUndefined();
+  });
+
+  it("strips the 'Public Holiday' boilerplate but keeps a trailing note (Run# no-space variant)", () => {
+    const o = opts();
+    const descriptor = build("Run# 2396 Public Holiday - Reconciliation Day. ACT only", { date: "2026-06-01" }, o, undefined, "d3");
+    const timed = build("Hidden Flagon", { dateTime: "2026-06-01T15:00:00+10:00" }, o, undefined, "t3");
+    const { events } = dedupGCalEvents([descriptor!, timed!], o.gcalIdMap, o.allDayEventSet, true, o.summaryMap);
+    expect(events[0]).toMatchObject({ runNumber: 2396, title: "Reconciliation Day. ACT only", hares: "Hidden Flagon" });
+  });
+
+  it("keeps a descriptor standalone when no timed sibling exists", () => {
+    const o = opts();
+    const descriptor = build("Run #2398", { date: "2026-06-15" }, o, undefined, "d4");
+    const { events, runDescriptorMergedCount } = dedupGCalEvents([descriptor!], o.gcalIdMap, o.allDayEventSet, true, o.summaryMap);
+    expect(runDescriptorMergedCount).toBe(0);
+    expect(events).toHaveLength(1);
+    expect(events[0].runNumber).toBe(2398);
+  });
+
+  it("merges the descriptor into the earliest timed sibling and leaves a second same-day timed event independent", () => {
+    const o = opts();
+    const descriptor = build("Run #2500", { date: "2026-08-01" }, o, undefined, "dd1");
+    const earlier = build("FirstHare", { dateTime: "2026-08-01T10:00:00+10:00" }, o, undefined, "tt1");
+    const later = build("SecondHare", { dateTime: "2026-08-01T18:00:00+10:00" }, o, undefined, "tt2");
+    const { events, runDescriptorMergedCount } = dedupGCalEvents(
+      [descriptor!, earlier!, later!],
+      o.gcalIdMap,
+      o.allDayEventSet,
+      true,
+      o.summaryMap,
+    );
+    expect(runDescriptorMergedCount).toBe(1);
+    expect(events).toHaveLength(2);
+    const merged = events.find((e) => e.startTime === "10:00")!;
+    const independent = events.find((e) => e.startTime === "18:00")!;
+    expect(merged).toMatchObject({ runNumber: 2500, hares: "FirstHare" });
+    // The second timed event keeps its own identity and does NOT inherit the run number.
+    expect(independent.runNumber).toBeUndefined();
+    expect(independent.hares ?? independent.title).toContain("SecondHare");
+  });
+
+  it("drops a non-run all-day campout (no run number) — over-admit guard", () => {
+    const o = opts();
+    const campout = build("Bike hash weekend away - Braidwood", { date: "2026-05-30" }, o, undefined, "d5");
+    expect(campout).toBeNull();
+  });
+
+  it("flag off: a run-numbered all-day descriptor is dropped as before (no admit, no merge)", () => {
+    // Same fixtures, but mergeAllDayRunDescriptor absent → all-day descriptor
+    // drops at the gate (no includeAllDayEvents) and only the timed survives.
+    const allDayEventSet = new WeakSet<RawEventData>();
+    const gcalIdMap = new WeakMap<RawEventData, string>();
+    const plainConfig = { defaultKennelTag: "capital-h3-au" };
+    const descriptor = buildRawEventFromGCalItem(
+      { summary: "Run #2397 Public Holiday - King's birthday", start: { date: "2026-06-08" }, status: "confirmed", id: "d6" },
+      plainConfig,
+      { allDayEventSet, gcalIdMap },
+    );
+    expect(descriptor).toBeNull();
   });
 });
 
@@ -4607,6 +4763,28 @@ describe("buildRawEventFromGCalItem — jHav title suffix strip (#1429)", () => 
     ["colon suffix mixed-case", "Equi-Stava-Ganza: JHav Trail #2073", "Equi-Stava-Ganza", 2073],
     // No suffix → no strip, no false-positive.
     ["no suffix preserved verbatim", "If It Hurts, Sweetie, Be Sure To Tell Mommy", "If It Hurts, Sweetie, Be Sure To Tell Mommy", undefined],
+  ])("%s", (_, summary, expectedTitle, expectedRunNumber) => {
+    const event = buildRawEventFromGCalItem(testGCalEvent({ summary }), config, opts);
+    expect(event).not.toBeNull();
+    expect(event!.title).toBe(expectedTitle);
+    expect(event!.runNumber).toBe(expectedRunNumber);
+  });
+});
+
+describe("buildRawEventFromGCalItem — O2H3 #: colon run-number + title strip (#1796)", () => {
+  // Drive the test off the real seed config so the regression locks the
+  // shipped patterns. The `#:` colon form is parsed by the shared
+  // extractHashRunNumber ([\s:]* gap); titleStripPatterns drop the leading
+  // kennel+number+"Title:" label noise.
+  const seed = SOURCES.find((s) => s.name === "O2H3 Google Calendar");
+  const config = seed!.config as { defaultKennelTag: string; titleStripPatterns: string[] };
+  const opts = { compiledTitleStripPatterns: compilePatterns(config.titleStripPatterns, "i") };
+
+  it.each<[string, string, string, number | undefined]>([
+    ["colon + Title: label", "O2H3 #: 2340 Title: Grand Hash Ocoee 6: Hood Hustle", "Grand Hash Ocoee 6: Hood Hustle", 2340],
+    ["colon + dash prefix", "O2H3 #: 2335 -A Great Trail", "A Great Trail", 2335],
+    ["no-space hash", "O2H3# 2336 Green dress", "Green dress", 2336],
+    ["plain hash", "O2H3 #2355 Float Hash 2026", "Float Hash 2026", 2355],
   ])("%s", (_, summary, expectedTitle, expectedRunNumber) => {
     const event = buildRawEventFromGCalItem(testGCalEvent({ summary }), config, opts);
     expect(event).not.toBeNull();

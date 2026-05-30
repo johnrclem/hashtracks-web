@@ -1041,6 +1041,40 @@ describe("GoogleSheetsAdapter.fetch — groupFilter (#1542)", () => {
     expect(result.events.every((e) => e.kennelTags[0] === "mh3-de")).toBe(true);
   });
 
+  it("#1784 emits BOTH same-day MH3 runs (incl. 'MH3/ Hashathon' co-host) with distinct run numbers, skips siblings + date typos", async () => {
+    // Reproduces the live Munich sheet on the Jun-20 double-header day: a
+    // Munich-area MH3 run (#938) AND the Hashathon co-host run (#939, Group
+    // "MH3/ Hashathon") share one date. The tokenizer routes the co-host cell
+    // to mh3-de, so the adapter emits BOTH with distinct run numbers; WS1's
+    // merge same-day double-header support keeps them as two canonical events.
+    // The MFMH3 sibling is filtered out, and a date-typo row (18-Jul-02 →
+    // year 2002, far past) is dropped rather than producing a phantom.
+    const csv = [
+      "#,Date,Group,Start time,Hared by,Location,Notes",
+      `938,${testDateMDY},MH3,17:00,Loose Nutz & Motörmouth,,Munich-area trail`,
+      `939,${testDateMDY},MH3/ Hashathon,,Muddy Rucker,Gerlaser Forsthaus,Hashathon Weekend`,
+      `264,${testDateMDY},MFMH3,19:00,Moose Diver,Olympic Park,Full Moon sibling`,
+      `941,18-Jul-02,MH3,17:00,,,date typo → far past`,
+    ].join("\n");
+
+    mockedSafeFetch.mockResolvedValueOnce(mockFetchResponse(csv));
+
+    const config: GoogleSheetsConfig = {
+      sheetId: "munich",
+      csvUrl: "https://example.com/pub?output=csv",
+      columns: { runNumber: 0, date: 1, group: 2, startTime: 3, hares: 4, location: 5, description: 6 },
+      groupFilter: "MH3",
+      kennelTagRules: { default: "mh3-de" },
+    };
+    const adapter = new GoogleSheetsAdapter();
+    const result = await adapter.fetch(makeSource({ config: config as unknown as null }));
+
+    // Both Jun-20 MH3 runs survive with distinct run numbers; sibling + typo dropped.
+    expect(result.events.map((e) => e.runNumber).sort((a, b) => (a ?? 0) - (b ?? 0))).toEqual([938, 939]);
+    expect(result.events.every((e) => e.kennelTags[0] === "mh3-de")).toBe(true);
+    expect(result.events.every((e) => e.date === result.events[0].date)).toBe(true);
+  });
+
   it("#1624 emits eventLabel: null on whole-token match so a stale prefix label clears (Codex review)", async () => {
     // A row that previously read "MH3 - Birthday" leaves a label on the
     // canonical Event. If the source reverts to plain "MH3", the adapter

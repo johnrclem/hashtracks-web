@@ -1607,6 +1607,17 @@ export const SOURCES = [
       scrapeDays: 365,
       config: {
         defaultKennelTag: "o2h3",
+        // #1796: O2H3 packs run number + a literal "Title:" label into the
+        // summary ("O2H3 #: 2340 Title: Grand Hash Ocoee 6: Hood Hustle",
+        // "O2H3# 2336 Green dress"). The `#:` colon form is parsed for the run
+        // number by the shared extractHashRunNumber; these patterns strip the
+        // leading kennel+number+label noise so the display title is just the
+        // theme. Char-class gaps ([\s#:]*) keep each pattern ReDoS-safe.
+        titleStripPatterns: [
+          String.raw`^O2H3[\s#:]*\d+[\s:]*`,
+          String.raw`^Title:\s*`,
+          String.raw`^[-\s]+`,
+        ],
       },
       kennelCodes: ["o2h3"],
     },
@@ -4460,6 +4471,10 @@ export const SOURCES = [
         // captures from that digit run to end-of-string.
         titleHarePattern: String.raw`^(.+?)\s+\d+\s+[A-Z]`,
         titleLocationPattern: String.raw`(\d+\s+.+?)\.?\s*$`,
+        // #1787: run number + theme live on an all-day "Run #2397 …"
+        // descriptor; start time + hare live on a same-date timed event
+        // ("3pm Scarlet"). Merge the pair into one event.
+        mergeAllDayRunDescriptor: true,
       },
       kennelCodes: ["capital-h3-au"],
     },

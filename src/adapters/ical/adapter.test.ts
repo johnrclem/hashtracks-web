@@ -194,6 +194,26 @@ describe("parseICalSummary", () => {
     expect(result.runNumber).toBe(2274);
     expect(result.title).toBe("Nice Trail");
   });
+
+  // Reading H3 (#1785)
+  it("keeps the theme after the run number (Reading #1202)", () => {
+    const result = parseICalSummary("RH3 #1202: Clowning Around Hash", [], "rh3");
+    expect(result.kennelTag).toBe("rh3");
+    expect(result.runNumber).toBe(1202);
+    expect(result.title).toBe("Clowning Around Hash");
+  });
+
+  it("rejects an unconfirmed-run placeholder and drops the bare marker title", () => {
+    const result = parseICalSummary("RH3: #120?", [], "rh3");
+    expect(result.runNumber).toBeUndefined();
+    expect(result.title).toBeUndefined();
+  });
+
+  it("strips a leading placeholder marker but keeps the theme", () => {
+    const result = parseICalSummary("RH3: #120? Kegs & Eggs", [], "rh3");
+    expect(result.runNumber).toBeUndefined();
+    expect(result.title).toBe("Kegs & Eggs");
+  });
 });
 
 describe("extractHaresFromDescription", () => {
@@ -203,6 +223,23 @@ describe("extractHaresFromDescription", () => {
 
   it("extracts multiple hares with &", () => {
     expect(extractHaresFromDescription("Hares: Alpha & Omega")).toBe("Alpha & Omega");
+  });
+
+  // Reading H3 (#1785) — clip hares at a standing "More details to cum"
+  // notice OR at the next inline field label (On-On / Hash Cash) when the
+  // kennel packs everything onto one DESCRIPTION line with no newline.
+  it.each<[string, string]>([
+    ["Hare: Sex Toys for Everyone More details to cum", "Sex Toys for Everyone"],
+    ["Hares: Dances with Whores More details to cum", "Dances with Whores"],
+    ["Hares: Decoy & More details to cum", "Decoy"],
+    ["Hare: Decoy More to come", "Decoy"],
+    // Live #1202: hares run straight into On-On: and Hash Cash: on one line.
+    [
+      "Hares: Sex Toys & Silence of the Goats On-On: Reading Regional Airport Hash Cash: $5 Note on out at 12pm",
+      "Sex Toys & Silence of the Goats",
+    ],
+  ])("clips the description trailer/fields from %j", (desc, expected) => {
+    expect(extractHaresFromDescription(desc)).toBe(expected);
   });
 
   it("handles ICS escaped newlines", () => {

@@ -109,6 +109,32 @@ function extractRunNumberFromDescription(
   return standaloneMatch ? Number.parseInt(standaloneMatch[1], 10) : undefined;
 }
 
+// #1787 Capital H3 — strip a leading "Run #NNNN" token plus a "Public
+// Holiday" boilerplate phrase from an all-day run descriptor, leaving just
+// the theme. Each regex uses a single char-class / `\s+` run with no
+// alternation adjacency, so Sonar S5852/S5843 read them as linear.
+const RUN_DESCRIPTOR_PREFIX_RE = /^\s*Run\b[\s#:]*\d+\s*/i;
+const PUBLIC_HOLIDAY_BOILERPLATE_RE = /\bPublic\s+Holiday\b/i;
+// Leading / trailing delimiters stripped as two separate anchored single
+// char-class passes — a combined `^X+|X+$` alternation trips Sonar S5852.
+const DESCRIPTOR_LEADING_DELIMS_RE = /^[\s\-–—:.]+/;
+const DESCRIPTOR_TRAILING_DELIMS_RE = /[\s\-–—:.]+$/;
+export function extractRunDescriptorTheme(summary: string): string {
+  let theme = summary.replace(RUN_DESCRIPTOR_PREFIX_RE, "");
+  theme = theme.replace(PUBLIC_HOLIDAY_BOILERPLATE_RE, "");
+  theme = theme.replace(DESCRIPTOR_LEADING_DELIMS_RE, "").replace(DESCRIPTOR_TRAILING_DELIMS_RE, "");
+  return theme.trim();
+}
+
+/** #1787 — split a Capital H3 timed-event summary into hare (+ optional
+ *  location). The summary is the hare name, optionally "Hare - Location".
+ *  Pure `indexOf`/`slice` (no regex) — ReDoS N/A. */
+export function splitTimedSummaryHareLocation(title: string): { hare: string; location?: string } {
+  const i = title.indexOf(" - ");
+  if (i < 0) return { hare: title.trim() };
+  return { hare: title.slice(0, i).trim(), location: title.slice(i + 3).trim() || undefined };
+}
+
 /** Strip the "Kennel: " or "Kennel #N: " prefix from a calendar summary to extract the event title. */
 export function extractTitle(summary: string): string {
   // Strip "Kennel: " or "Kennel #123: " prefix to get the event name
@@ -855,6 +881,23 @@ interface CalendarSourceConfig {
    * and re-scrape if the series ever goes live again.
    */
   suppressICalUids?: readonly string[];
+  /**
+   * #1787 Capital H3 (Canberra): this calendar publishes the run number (+ an
+   * optional theme) on an ALL-DAY descriptor event ("Run #2397 Public Holiday
+   * - King's birthday") and the start time / hares / location on a SEPARATE
+   * same-date TIMED event ("Scarlet", "Greasenipple - Park in Beagle St").
+   * When true:
+   *   1. an all-day event whose summary yields a run number is admitted even
+   *      without `includeAllDayEvents`, and its title is reduced to the theme;
+   *   2. in `dedupGCalEvents`, such a descriptor is merged into its same-date
+   *      (earliest-start) timed sibling — the descriptor contributes runNumber
+   *      + theme title, the timed event keeps its startTime and contributes
+   *      hares (+ location) parsed from its summary. Descriptors with no timed
+   *      sibling survive standalone (the run number still shows).
+   * All-day events with NO run number (campouts, "weekend away") keep their
+   * existing behavior (dropped unless `includeAllDayEvents`).
+   */
+  mergeAllDayRunDescriptor?: boolean;
   // Some calendars only populate the soonest-upcoming event's description, which
   // carries an inline schedule listing future dates and hares. After the scrape
   // finishes, back-fill `hares` on other events for the same kennelTag by
@@ -1133,6 +1176,11 @@ export interface BuildRawEventFromGCalItemOptions {
    *  `dedupGCalEvents` to drop placeholder all-day rows when a timed
    *  sibling exists for the same `(kennelTag, date)` (#1199 Giggity). */
   allDayEventSet?: WeakSet<RawEventData>;
+  /** Original decoded SUMMARY per built event. Used by the #1787 descriptor
+   *  merge to read a Capital H3 timed event's hare from its pristine summary
+   *  rather than the post-pipeline title (which a stray `description` can
+   *  override, e.g. summary "Scarlet" + description "Public holiday"). */
+  summaryMap?: WeakMap<RawEventData, string>;
 }
 
 /** Build a RawEventData from a single Google Calendar event item. Returns null if the item should be skipped. */
@@ -1152,6 +1200,7 @@ export function buildRawEventFromGCalItem(
     suppressedICalUidSet,
     gcalIdMap,
     allDayEventSet,
+    summaryMap,
   } = options;
   if (item.status === "cancelled") return null;
   // #1708: drop instances of dormant recurring series the kennel abandoned but
@@ -1176,7 +1225,17 @@ export function buildRawEventFromGCalItem(
   // so a carve-out would silently ingest unwanted all-day recurring instances on
   // sources that never opted in.
   const isAllDay = !!(item.start?.date && !item.start?.dateTime);
-  if (isAllDay && !sourceConfig?.includeAllDayEvents) return null;
+  if (isAllDay && !sourceConfig?.includeAllDayEvents) {
+    // #1787 Capital H3: admit an all-day run descriptor ("Run #2397 …") even
+    // without includeAllDayEvents so dedupGCalEvents can merge it into its
+    // same-date timed sibling. A descriptor is an all-day event whose summary
+    // yields a real run number; campouts / "weekend away" (no run number)
+    // still drop here.
+    const admitRunDescriptor =
+      sourceConfig?.mergeAllDayRunDescriptor === true &&
+      typeof extractRunNumber(decodeEntities(item.summary)) === "number";
+    if (!admitRunDescriptor) return null;
+  }
 
   const { dateISO, startTime } = extractDateTimeFromGCalItem(item.start, sourceConfig?.timezone);
   if (!dateISO) return null;
@@ -1710,13 +1769,21 @@ export function buildRawEventFromGCalItem(
     return null;
   }
 
+  // #1787: an admitted all-day run descriptor carries only the run number +
+  // a noisy "Public Holiday - <theme>" title. Reduce it to the theme so the
+  // dedup merge surfaces a clean title on the paired timed event (empty theme
+  // → undefined → merge.ts synthesizes the default "<Kennel> Trail #N").
+  const isRunDescriptor =
+    sourceConfig?.mergeAllDayRunDescriptor === true && isAllDay && typeof runNumber === "number";
+  const finalTitle = isRunDescriptor ? (extractRunDescriptorTheme(summary) || undefined) : title;
+
   const event: RawEventData = {
     date: dateISO,
     // Pass the full multi-kennel set (#1023): for single-tag patterns this
     // is `[primary]`; for array patterns it's the union of all matched kennels.
     kennelTags,
     runNumber,
-    title,
+    title: finalTitle,
     description: appendDescriptionSuffix(description, sourceConfig?.descriptionSuffix),
     hares,
     location: locationIsUrl ? undefined : location,
@@ -1731,6 +1798,7 @@ export function buildRawEventFromGCalItem(
   };
   if (gcalIdMap && item.id) gcalIdMap.set(event, item.id);
   if (allDayEventSet && isAllDay) allDayEventSet.add(event);
+  if (summaryMap) summaryMap.set(event, summary);
   return event;
 }
 
@@ -1804,39 +1872,117 @@ function isPlaceholderShell(e: RawEventData): boolean {
   return false;
 }
 
-export function dedupGCalEvents(
+/**
+ * #1787 Capital H3 pre-pass: merge each all-day run descriptor (run number +
+ * theme title) into its same-date timed sibling (start time + hare/location in
+ * the summary). A descriptor with no timed sibling is left untouched and
+ * survives standalone (its numeric run number keeps `isPlaceholderShell` from
+ * dropping it). Returns the surviving events plus the merge count.
+ */
+/** Index timed (non-all-day) events by `(kennelTag, date)`, earliest start
+ *  first (undefined last) — so a descriptor merges into the day's first run. */
+function indexTimedByKennelDate(
   events: RawEventData[],
-  gcalIdMap: WeakMap<RawEventData, string>,
   allDayEventSet: WeakSet<RawEventData>,
-): { events: RawEventData[]; compositeDedupedCount: number; allDayCollapsedCount: number } {
-  // #1199 pre-pass: drop placeholder all-day events when a timed sibling
-  // exists for the same `(kennelTag, date)`. Sources with
-  // `includeAllDayEvents: true` (WA Hash for CUNTh) admit both placeholder
-  // shells like "Giggity H3 #? (TBD)" and real timed runs; the merge
-  // pipeline collapses them into one canonical event by `(kennelId, date)`,
-  // so whichever survives this dedup wins. Prefer the timed one — but ONLY
-  // when the all-day event LOOKS like a placeholder. A real all-day event
-  // (campout, away weekend, RDR) sharing the date with a timed trail must
-  // survive so the merge pipeline can keep both via signature-based
-  // multi-event handling. Placeholder evidence: missing run number AND
-  // (title contains `#?`, "TBD"/"TBA"/"TBC" placeholder marker, or
-  // hares/location are placeholder strings).
+): Map<string, RawEventData[]> {
+  const timedByKey = new Map<string, RawEventData[]>();
+  for (const e of events) {
+    if (allDayEventSet.has(e)) continue;
+    const key = `${e.kennelTags[0]}|${e.date}`;
+    const bucket = timedByKey.get(key);
+    if (bucket) bucket.push(e);
+    else timedByKey.set(key, [e]);
+  }
+  for (const bucket of timedByKey.values()) {
+    bucket.sort((a, b) => (a.startTime ?? "99:99").localeCompare(b.startTime ?? "99:99"));
+  }
+  return timedByKey;
+}
+
+/** Copy a descriptor's run number + theme onto its timed sibling. Reads the
+ *  hare from the timed event's PRISTINE summary, not its post-pipeline title —
+ *  a stray `description` ("Public holiday") can override the title via the
+ *  bare-title fallback. Only fills fields the pipeline left empty, so the #1222
+ *  "hare + street address" titleHarePattern (which DOES populate hares) wins.
+ *  Empty theme → clears the title so merge.ts synthesizes "<Kennel> Trail #N". */
+function applyDescriptorToTimed(
+  descriptor: RawEventData,
+  timed: RawEventData,
+  summaryMap?: WeakMap<RawEventData, string>,
+): void {
+  const { hare, location } = splitTimedSummaryHareLocation(summaryMap?.get(timed) ?? timed.title ?? "");
+  if (!timed.hares && hare) timed.hares = hare;
+  if (!timed.location && location) timed.location = location;
+  timed.runNumber ??= descriptor.runNumber;
+  timed.title = descriptor.title ?? undefined;
+}
+
+function mergeRunDescriptorsIntoTimed(
+  events: RawEventData[],
+  allDayEventSet: WeakSet<RawEventData>,
+  summaryMap?: WeakMap<RawEventData, string>,
+): { events: RawEventData[]; mergedCount: number } {
+  const timedByKey = indexTimedByKennelDate(events, allDayEventSet);
+  const descriptorsToRemove = new Set<RawEventData>();
+  for (const descriptor of events) {
+    if (!allDayEventSet.has(descriptor) || typeof descriptor.runNumber !== "number") continue;
+    const timed = timedByKey.get(`${descriptor.kennelTags[0]}|${descriptor.date}`)?.[0];
+    if (!timed) continue; // standalone descriptor survives
+    applyDescriptorToTimed(descriptor, timed, summaryMap);
+    descriptorsToRemove.add(descriptor);
+  }
+  const filtered = descriptorsToRemove.size ? events.filter((e) => !descriptorsToRemove.has(e)) : events;
+  return { events: filtered, mergedCount: descriptorsToRemove.size };
+}
+
+/**
+ * #1199 pre-pass: drop placeholder all-day events when a timed sibling exists
+ * for the same `(kennelTag, date)`. Sources with `includeAllDayEvents: true`
+ * (WA Hash for CUNTh) admit both placeholder shells like "Giggity H3 #? (TBD)"
+ * and real timed runs; the merge pipeline collapses them into one canonical
+ * event by `(kennelId, date)`, so whichever survives this dedup wins. Prefer
+ * the timed one — but ONLY when the all-day event LOOKS like a placeholder. A
+ * real all-day event (campout, away weekend, RDR) sharing the date with a
+ * timed trail must survive so the merge pipeline can keep both via
+ * signature-based multi-event handling.
+ */
+function collapsePlaceholderAllDayEvents(
+  events: RawEventData[],
+  allDayEventSet: WeakSet<RawEventData>,
+): { events: RawEventData[]; collapsedCount: number } {
   const timedKeys = new Set<string>();
   for (const e of events) {
     if (!allDayEventSet.has(e)) timedKeys.add(`${e.kennelTags[0]}|${e.date}`);
   }
-  let allDayCollapsedCount = 0;
-  const timedFiltered = events.filter(e => {
-    if (
-      allDayEventSet.has(e)
+  let collapsedCount = 0;
+  const filtered = events.filter((e) => {
+    const isCollapsible = allDayEventSet.has(e)
       && timedKeys.has(`${e.kennelTags[0]}|${e.date}`)
-      && isPlaceholderShell(e)
-    ) {
-      allDayCollapsedCount++;
-      return false;
-    }
-    return true;
+      && isPlaceholderShell(e);
+    if (isCollapsible) collapsedCount++;
+    return !isCollapsible;
   });
+  return { events: filtered, collapsedCount };
+}
+
+export function dedupGCalEvents(
+  events: RawEventData[],
+  gcalIdMap: WeakMap<RawEventData, string>,
+  allDayEventSet: WeakSet<RawEventData>,
+  mergeAllDayRunDescriptor = false,
+  summaryMap?: WeakMap<RawEventData, string>,
+): { events: RawEventData[]; compositeDedupedCount: number; allDayCollapsedCount: number; runDescriptorMergedCount: number } {
+  let runDescriptorMergedCount = 0;
+  // #1787: merge run descriptors before the #1199 placeholder collapse.
+  if (mergeAllDayRunDescriptor) {
+    const merged = mergeRunDescriptorsIntoTimed(events, allDayEventSet, summaryMap);
+    events = merged.events;
+    runDescriptorMergedCount = merged.mergedCount;
+  }
+
+  const collapsed = collapsePlaceholderAllDayEvents(events, allDayEventSet);
+  const timedFiltered = collapsed.events;
+  const allDayCollapsedCount = collapsed.collapsedCount;
 
   const seen = new Set<string>();
   const idDeduped = timedFiltered.filter(e => {
@@ -1860,7 +2006,7 @@ export function dedupGCalEvents(
   // Skip the rebuild when nothing collapsed — saves an O(n) array copy on
   // the typical scrape where parallel-series duplicates don't exist.
   const result = compositeDedupedCount === 0 ? idDeduped : [...compositeMap.values()];
-  return { events: result, compositeDedupedCount, allDayCollapsedCount };
+  return { events: result, compositeDedupedCount, allDayCollapsedCount, runDescriptorMergedCount };
 }
 
 /** Google Calendar API v3 adapter. Fetches events from a public calendar and extracts kennel tags via configurable patterns. */
@@ -1899,6 +2045,11 @@ export class GoogleCalendarAdapter implements SourceAdapter {
     const compiled = compileSourceConfigPatterns(sourceConfig);
     const gcalIdMap = new WeakMap<RawEventData, string>();
     const allDayEventSet = new WeakSet<RawEventData>();
+    // Only the #1787 descriptor merge reads pristine summaries; skip the map
+    // entirely for the vast majority of sources that don't opt in.
+    const summaryMap = sourceConfig?.mergeAllDayRunDescriptor === true
+      ? new WeakMap<RawEventData, string>()
+      : undefined;
 
     const buildEvents = (items: GCalEvent[], filter?: (item: GCalEvent) => boolean): void => {
       let eventIndex = 0;
@@ -1908,7 +2059,7 @@ export class GoogleCalendarAdapter implements SourceAdapter {
           continue;
         }
         try {
-          const event = buildRawEventFromGCalItem(item, sourceConfig, { ...compiled, gcalIdMap, allDayEventSet });
+          const event = buildRawEventFromGCalItem(item, sourceConfig, { ...compiled, gcalIdMap, allDayEventSet, summaryMap });
           if (event) events.push(event);
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
@@ -1974,7 +2125,8 @@ export class GoogleCalendarAdapter implements SourceAdapter {
 
     const hasErrorDetails = hasAnyErrors(errorDetails);
 
-    const { events: compositeDeduped, compositeDedupedCount, allDayCollapsedCount } = dedupGCalEvents(events, gcalIdMap, allDayEventSet);
+    const { events: compositeDeduped, compositeDedupedCount, allDayCollapsedCount, runDescriptorMergedCount } =
+      dedupGCalEvents(events, gcalIdMap, allDayEventSet, sourceConfig?.mergeAllDayRunDescriptor === true, summaryMap);
 
     return {
       events: compositeDeduped,
@@ -1988,6 +2140,7 @@ export class GoogleCalendarAdapter implements SourceAdapter {
         ...(exceptionsRecovered > 0 && { exceptionsRecovered }),
         ...(compositeDedupedCount > 0 && { compositeDeduped: compositeDedupedCount }),
         ...(allDayCollapsedCount > 0 && { allDayCollapsed: allDayCollapsedCount }),
+        ...(runDescriptorMergedCount > 0 && { runDescriptorMerged: runDescriptorMergedCount }),
       },
     };
   }

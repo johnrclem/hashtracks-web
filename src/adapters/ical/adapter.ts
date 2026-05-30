@@ -1,7 +1,7 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails, ParseError } from "../types";
 import { hasAnyErrors } from "../types";
-import { googleMapsSearchUrl, compilePatterns, appendDescriptionSuffix, isPlaceholder } from "../utils";
+import { googleMapsSearchUrl, compilePatterns, appendDescriptionSuffix, isPlaceholder, extractHashRunNumber, hasPlaceholderRunNumber, EVENT_FIELD_LABEL_RE, EVENT_FIELD_LABEL_UPPERCASE_RE } from "../utils";
 import { safeFetch } from "../safe-fetch";
 import { enrichSFH3Events, markSFH3SeriesMembership } from "../html-scraper/sfh3-detail-enrichment";
 import { enrichBerlinH3Events } from "../html-scraper/berlin-h3-detail-enrichment";
@@ -65,9 +65,11 @@ export function parseICalSummary(
     kennelTag = defaultKennelTag ?? "UNKNOWN";
   }
 
-  // Extract run number: #1234 or #1234.56 or #1234A
-  const runMatch = summary.match(/#(\d+)/);
-  const runNumber = runMatch ? parseInt(runMatch[1], 10) : undefined;
+  // Extract run number via the shared helper: enforces the #1147 delimiter
+  // guard so an unconfirmed placeholder like Reading H3's "RH3: #120?"
+  // (#1785) rejects instead of parsing as a bogus 120, and accepts the
+  // fullwidth/`#:` colon variants for free.
+  const runNumber = extractHashRunNumber(summary);
 
   // Extract title: everything after "#{number}: " or "{kennel}: " or "{kennel} #{number}: "
   let title: string | undefined;
@@ -76,7 +78,11 @@ export function parseICalSummary(
     /^[A-Za-z0-9 .'-]+(?:\s*#[\d.A-Za-z]+)?:\s*(.+)$/,
   );
   if (titleMatch) {
-    title = titleMatch[1].trim() || undefined;
+    // Drop a leading unconfirmed-run placeholder ("#120?") that the kennel
+    // uses in place of a real run number (#1785): "RH3: #120? Kegs & Eggs" →
+    // "Kegs & Eggs"; a bare "RH3: #120?" → undefined so the caller can
+    // synthesize a default rather than surfacing the placeholder marker.
+    title = titleMatch[1].replace(/^#\d+\?+\s*/, "").trim() || undefined;
   }
 
   return { kennelTag, runNumber, title };
@@ -133,16 +139,55 @@ function extractFieldFromDescription(
  * Accepts pre-compiled RegExp[] or raw string[] (compiled on the fly for one-off use).
  * The adapter fetch() pre-compiles once per scrape for efficiency.
  */
-export function extractHaresFromDescription(description: string, customPatterns?: string[] | RegExp[]): string | undefined {
-  if (customPatterns && customPatterns.length > 0) {
-    const compiled = typeof customPatterns[0] === "string"
-      ? compilePatterns(customPatterns as string[])
-      : customPatterns as RegExp[];
-    if (compiled.length > 0) {
-      return extractFieldFromDescription(description, compiled);
-    }
+// Reading H3 (#1785) packs sibling fields onto the same DESCRIPTION line as
+// the hares, with no newline to terminate the `Hares:` capture: both
+// "Hares: Dances with Whores More details to cum" (a standing "details
+// coming later" notice) and "Hares: Sex Toys & Silence of the Goats On-On:
+// Reading Regional Airport Hash Cash: $5 …" (real fields running on). Clip the
+// captured hares at the earliest inline field-label boundary OR standing
+// trailer phrase, then drop any dangling separator.
+//
+// The field-label regexes are the shared set used by the GCal/HTML adapters;
+// On-On is Reading-specific and added locally. The trailer phrases are matched
+// procedurally (lowercase indexOf) to avoid the multi-`\s+` alternation shape
+// Sonar S5852 flags (memory: feedback_sonar_s5852_procedural_over_regex).
+const HARES_TRAILER_PHRASES = [
+  "more details to cum",
+  "more details to come",
+  "more details to follow",
+  "more to come",
+  "details to follow",
+];
+// No `.*$` tail — cleanHaresValue only reads `.index` (the label start), and
+// the trailing `\s*:.*$` shape trips Sonar S5852.
+const HARES_ON_ON_LABEL_RE = /On[\s-]?On\s*:/i;
+const HARES_FIELD_LABEL_RES = [EVENT_FIELD_LABEL_RE, EVENT_FIELD_LABEL_UPPERCASE_RE, HARES_ON_ON_LABEL_RE];
+const HARES_TRAILER_SEPARATORS_RE = /[\s&,;-]+$/;
+function cleanHaresValue(value: string): string {
+  let cut = value.length;
+  for (const re of HARES_FIELD_LABEL_RES) {
+    // `search` is stateless (no `lastIndex`) — safe even if a shared regex
+    // ever gains the global flag; we only need the match start index.
+    const index = value.search(re);
+    if (index >= 0 && index < cut) cut = index;
   }
-  return extractFieldFromDescription(description, HARE_PATTERNS);
+  const lower = value.toLowerCase();
+  for (const phrase of HARES_TRAILER_PHRASES) {
+    const i = lower.indexOf(phrase);
+    if (i >= 0 && i < cut) cut = i;
+  }
+  return value.slice(0, cut).replace(HARES_TRAILER_SEPARATORS_RE, "").trim();
+}
+
+export function extractHaresFromDescription(description: string, customPatterns?: string[] | RegExp[]): string | undefined {
+  let patterns: RegExp[] = HARE_PATTERNS;
+  if (customPatterns && customPatterns.length > 0) {
+    patterns = typeof customPatterns[0] === "string"
+      ? compilePatterns(customPatterns as string[])
+      : (customPatterns as RegExp[]);
+  }
+  const hares = extractFieldFromDescription(description, patterns);
+  return hares ? cleanHaresValue(hares) || undefined : undefined;
 }
 
 /**
@@ -479,7 +524,10 @@ function buildRawEventFromVEvent(
     date: dateStr,
     kennelTags: [parsed.kennelTag],
     runNumber,
-    title: parsed.title ?? summary,
+    // A summary that is only kennel + an unconfirmed-run placeholder
+    // ("RH3: #120?") has no real title — leave it undefined so the merge
+    // pipeline synthesizes a default rather than surfacing the marker (#1785).
+    title: parsed.title ?? (hasPlaceholderRunNumber(summary) ? undefined : summary),
     description: appendDescriptionSuffix(description?.substring(0, 2000) || undefined, config?.descriptionSuffix),
     hares,
     location,

@@ -943,6 +943,14 @@ describe("extractHashRunNumber", () => {
     ["ASCII with space", "FCH3 # 88", 88],
     ["ASCII with trailing colon", "BH3 #2781:", 2781],
     ["ASCII with comma delimiter", "Hash #100, hare needed", 100],
+    // O2H3 `#:` colon form (#1796) — `#`, optional space, colon, space, digits
+    ["O2H3 colon form", "O2H3 #: 2340 Title: Grand Hash Ocoee 6: Hood Hustle", 2340],
+    ["O2H3 colon dash form", "O2H3 #: 2335 -A Great Trail", 2335],
+    ["O2H3 no-space hash", "O2H3# 2336 Green dress", 2336],
+    ["O2H3 plain hash", "O2H3 #2355 Float Hash 2026", 2355],
+    // NVHHH spaced hash form (#1782)
+    ["NVHHH spaced hash", "NVHHH # 1882 Shh! It's a virgin lay", 1882],
+    ["NVHHH double-spaced hash", "NVHHH #  1882", 1882],
     // Fullwidth ＃ (U+FF03) — Japanese kennels
     ["fullwidth Kyoto", `Run＃132 Sunday June 25th "Bunter's North Side Trail!"`, 132],
     ["fullwidth with space", "＃55 trail", 55],
