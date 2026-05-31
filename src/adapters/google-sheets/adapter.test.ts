@@ -1338,3 +1338,70 @@ describe("GoogleSheetsAdapter.fetch — groupFilter (#1542)", () => {
     expect(result.events.length).toBe(2);
   });
 });
+
+// ── #1844 ampersand-safe regression guardrails ──
+// An audit claimed OKissMe rows whose Theme contains "&" were dropped. They
+// are NOT: the hand-rolled CSV parser treats "&" as a literal character and
+// never HTML-decodes or splits on it. These fixtures pin that behavior so a
+// future parser change can't regress it, and confirm a "&"-bearing row still
+// routes correctly under a Munich-style groupFilter.
+describe("GoogleSheetsAdapter.fetch — ampersand themes are not dropped (#1844)", () => {
+  beforeEach(() => {
+    vi.stubEnv("GOOGLE_CALENDAR_API_KEY", "test-key");
+    mockedSafeFetch.mockReset();
+  });
+
+  it("ingests an OKissMe-shaped row whose Theme contains '&' with the verbatim title", async () => {
+    // OKissMe layout: Number,Date,Time,Location,Address,Primary Hare,Other Hare,Theme
+    const csv = [
+      "Number,Date,Time,Location,Address,Primary Hare,Other Hare,Theme",
+      `51,${testDateMDY},11:00 AM,Orlando,,Eat A Puss,,Birthday Girls & Ides of March - Toga Hash`,
+      `52,${testDateMDY},11:00 AM,Orlando,,Slip,,No ampersand here`,
+    ].join("\n");
+
+    mockedSafeFetch.mockResolvedValueOnce(mockFetchResponse(csv));
+
+    const config: GoogleSheetsConfig = {
+      sheetId: "okissme",
+      csvUrl: "https://example.com/pub?output=csv",
+      columns: { runNumber: 0, date: 1, location: 3, address: 4, hares: 5, title: 7 },
+      kennelTagRules: { default: "okissme-h3" },
+    } as unknown as GoogleSheetsConfig;
+    const adapter = new GoogleSheetsAdapter();
+    const result = await adapter.fetch(makeSource({ config: config as unknown as null }));
+
+    // The ampersand row is NOT dropped; both rows ingest.
+    expect(result.events.map((e) => e.runNumber).sort((a, b) => (a ?? 0) - (b ?? 0))).toEqual([51, 52]);
+    const run51 = result.events.find((e) => e.runNumber === 51);
+    expect(run51!.title).toBe("Birthday Girls & Ides of March - Toga Hash");
+  });
+
+  it("keeps a '&'-bearing MH3 row under groupFilter and still drops the sibling kennel", async () => {
+    // The ampersand sits in both the routing-relevant fields (hares + notes)
+    // of a filtered MH3 row. tokenizeGroupCell/cellMatchesFilter route on the
+    // Group cell only, so the "&" is irrelevant to routing — the MH3 row stays
+    // and the MASS H3 sibling is still filtered out (no PR #1623 regression).
+    const csv = [
+      "#,Date,Group,Start time,Hared by,Location,Notes",
+      `930,${testDateMDY},MH3,15:00,Loose Nutz & Motörmouth,Englischer Garten,Beer & Pretzels trail`,
+      `27,${testDateMDY},MASS H3,15:00,Bushy G,Munich,MASS H3 sibling`,
+    ].join("\n");
+
+    mockedSafeFetch.mockResolvedValueOnce(mockFetchResponse(csv));
+
+    const config: GoogleSheetsConfig = {
+      sheetId: "munich",
+      csvUrl: "https://example.com/pub?output=csv",
+      columns: { runNumber: 0, date: 1, group: 2, startTime: 3, hares: 4, location: 5, description: 6 },
+      groupFilter: "MH3",
+      kennelTagRules: { default: "mh3-de" },
+    };
+    const adapter = new GoogleSheetsAdapter();
+    const result = await adapter.fetch(makeSource({ config: config as unknown as null }));
+
+    expect(result.events.map((e) => e.runNumber)).toEqual([930]);
+    expect(result.events[0].hares).toBe("Loose Nutz & Motörmouth");
+    expect(result.events[0].description).toBe("Beer & Pretzels trail");
+    expect(result.events[0].kennelTags[0]).toBe("mh3-de");
+  });
+});

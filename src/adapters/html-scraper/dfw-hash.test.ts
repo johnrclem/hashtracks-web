@@ -726,6 +726,25 @@ describe("extractDetailPageDate", () => {
     expect(detail.location).toBe("123 Main St, Dallas");
   });
 
+  it("does not prepend a concatenated kennel <h1> (YAKH3) to the location (#1826)", () => {
+    // YAKH3 detail pages render the kennel acronym as the bare <h1> with no
+    // separate venue heading. The \b-anchored KENNEL_NAME_PATTERNS miss
+    // "YAKH3" (no boundary between K-H-3), so it used to leak in as a venue
+    // prefix ("YAKH3, I heard a rumor…").
+    const html = `
+      <html><body>
+        <h1>YAKH3</h1>
+        <h2>Sunday, May 31, 2026</h2>
+        <h3>Hash Run No S.9 | E.4</h3>
+        <h5><em>Start address:</em> I heard a rumor that this is at lake Ray Hubbard. Rowlett</h5>
+      </body></html>
+    `;
+    const $ = cheerio.load(html);
+    const detail = parseDFWDetailPage($);
+
+    expect(detail.location).toBe("I heard a rumor that this is at lake Ray Hubbard. Rowlett");
+  });
+
   it("does not change location when no heading exists", () => {
     const html = `
       <html><body>

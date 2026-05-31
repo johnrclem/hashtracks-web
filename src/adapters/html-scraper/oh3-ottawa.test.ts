@@ -255,6 +255,68 @@ describe("Oh3OttawaAdapter", () => {
     expect(run2204!.hares).toBe("Corkscrewer & POG");
   });
 
+  it("parses R*n detailed blocks that share a section with the planning one-liners (#1835/#1836)", async () => {
+    // Live-doc shape: the detailed June blocks and the "Planning ahead"
+    // one-liners live in ONE section (no <hr> between them). The old
+    // planningMode gate dropped the detailed blocks (→ #2212–2216 CANCELLED).
+    // Ampersands in both block shapes must survive verbatim (#1836).
+    vi.mocked(utils.fetchHTMLPage).mockResolvedValue({
+      ok: true,
+      html: "",
+      $: cheerio.load(`
+        <div id="contents"><div class="doc-content">
+          <hr>
+          <p>Receding hare line</p>
+          <hr>
+          <p>R*n # 2213 Jakarta Me Off!</p>
+          <p>When: Monday, 8 June 2026 @ 6:45 p.m.</p>
+          <p>Hares: Tie Me Up &amp; Clogged Nozzle</p>
+          <p>Start: TBD</p>
+          <p>Hash Cash: $$</p>
+          <p>R*n # 2214 Nice and Greecey!</p>
+          <p>When: Monday, 15 June 2026 @ 6:45 p.m.</p>
+          <p>Hares: Beer Floaty &amp; Dr Too Little</p>
+          <p>Start: 42 Florence</p>
+          <p>Hash Cash: $15</p>
+          <p>Planning ahead</p>
+          <p>2217        Monday, 6 July                    2026           Tie Me Up &amp; Clogged Nozzle</p>
+          <p>2218        Monday, 13 July                 2026           Shredder</p>
+          <p>2229        Monday, 28 September         2026           Finger Lickin' Good &amp; Nipoleon</p>
+        </div></div>
+      `),
+      structureHash: "ampersand-mix",
+      fetchDurationMs: 120,
+    } as FetchHTMLSuccess);
+
+    const result = await adapter.fetch(mockSource);
+    expect(result.errors).toHaveLength(0);
+
+    // Detailed R*n blocks in the planning section are now parsed, with the
+    // R*n-line title (not the hares) and ampersand hares preserved.
+    const run2213 = result.events.find((e) => e.runNumber === 2213);
+    expect(run2213).toBeDefined();
+    expect(run2213!.date).toBe("2026-06-08");
+    expect(run2213!.title).toBe("Jakarta Me Off!");
+    expect(run2213!.hares).toBe("Tie Me Up & Clogged Nozzle");
+
+    const run2214 = result.events.find((e) => e.runNumber === 2214);
+    expect(run2214!.title).toBe("Nice and Greecey!");
+    expect(run2214!.hares).toBe("Beer Floaty & Dr Too Little");
+
+    // Planning one-liners: ampersand themes land on the correct run (no
+    // off-by-one shift) with the verbatim ampersand text.
+    const run2217 = result.events.find((e) => e.runNumber === 2217);
+    expect(run2217).toBeDefined();
+    expect(run2217!.date).toBe("2026-07-06");
+    expect(run2217!.title).toBe("Tie Me Up & Clogged Nozzle");
+
+    const run2218 = result.events.find((e) => e.runNumber === 2218);
+    expect(run2218!.title).toBe("Shredder");
+
+    const run2229 = result.events.find((e) => e.runNumber === 2229);
+    expect(run2229!.title).toBe("Finger Lickin' Good & Nipoleon");
+  });
+
   it("returns error when fetch fails", async () => {
     vi.mocked(utils.fetchHTMLPage).mockResolvedValue({
       ok: false,

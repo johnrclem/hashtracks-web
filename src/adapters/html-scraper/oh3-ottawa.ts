@@ -189,45 +189,39 @@ export class Oh3OttawaAdapter implements SourceAdapter {
     // Split on <hr> to get sections
     const sections = contentHtml.split(/<hr\b[^>]*\/?>/gi);
 
-    let planningMode = false;
+    const pushIfInWindow = (event: RawEventData | null) => {
+      if (!event) return;
+      const eventDate = new Date(event.date + "T12:00:00Z");
+      if (eventDate >= minDate && eventDate <= maxDate) events.push(event);
+    };
 
+    // Both block shapes can coexist in a single section: the doc's top half is
+    // detailed `R*n #` blocks and its "Planning ahead" half is one-liners, with
+    // no <hr> between them (#1835 — the detailed June runs were dropped because
+    // the old `planningMode` gate swallowed the whole section as one-liners).
+    // Run both extractors on every section. They don't overlap: `When:`/`Hares:`/
+    // `R*n #` lines never match the one-liner regex, and one-liners never carry
+    // an `R*n #` marker.
     for (const section of sections) {
       const sectionText = stripHtmlTags(section, "\n").trim();
       if (!sectionText) continue;
 
-      // Detect planning-ahead section
-      if (/Planning\s+ahead/i.test(sectionText)) {
-        planningMode = true;
+      // 1. Detailed `R*n #` blocks. Split on the marker so each block is parsed
+      //    independently; chunks without a marker (header noise / the
+      //    pre-first-marker chunk) fail the per-chunk test and are skipped.
+      for (const block of sectionText.split(/(?=R\*n\s*#)/i)) {
+        if (!/R\*n\s*#/i.test(block)) continue;
+        try {
+          pushIfInWindow(parseDetailedBlock(block));
+        } catch (err) {
+          errors.push(`Parse error in detailed block: ${err}`);
+        }
       }
 
-      if (planningMode) {
-        // Parse each line as a planning-ahead entry
-        const lines = sectionText.split("\n");
-        for (const line of lines) {
-          if (/^\s*\d{4}\s+\w+,/.test(line)) {
-            const event = parsePlanningLine(line);
-            if (event) {
-              const eventDate = new Date(event.date + "T12:00:00Z");
-              if (eventDate >= minDate && eventDate <= maxDate) {
-                events.push(event);
-              }
-            }
-          }
-        }
-      } else {
-        // Try to parse as a detailed event block
-        if (/R\*n\s*#/i.test(sectionText)) {
-          try {
-            const event = parseDetailedBlock(sectionText);
-            if (event) {
-              const eventDate = new Date(event.date + "T12:00:00Z");
-              if (eventDate >= minDate && eventDate <= maxDate) {
-                events.push(event);
-              }
-            }
-          } catch (err) {
-            errors.push(`Parse error in detailed block: ${err}`);
-          }
+      // 2. Planning-ahead one-liners (single line per future run).
+      for (const line of sectionText.split("\n")) {
+        if (/^\s*\d{4}\s+\w+,/.test(line)) {
+          pushIfInWindow(parsePlanningLine(line));
         }
       }
     }
