@@ -190,6 +190,7 @@ describe("Oregon Hashing Calendar multi-kennel routing (#1023 step 4)", () => {
     "Kahuna pick up hash!",
     "Kahuna Revival #??? - Amazon.cum!",
     "Kah-Two-Na",
+    "Katuna: Hate Crime",
     "Ka-Three-Na H3 - Gayzelle",
   ])("skips Kahuna/okh3 cross-post %j", (summary) => {
     const result = buildRawEventFromGCalItem(

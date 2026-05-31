@@ -140,4 +140,6 @@ async function main() {
   console.log(`[cleanup] done — reassigned=${reassigned}, deletedDup=${deletedDup}, skippedDependent=${skippedDependent}${APPLY ? "" : " (dry-run, no writes)"}`);
 }
 
-main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
+main()
+  .catch((e) => { console.error(e); process.exitCode = 1; })
+  .finally(() => prisma.$disconnect());
