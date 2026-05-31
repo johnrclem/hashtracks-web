@@ -85,9 +85,21 @@ export function parseBaliTitle(postTitle: string): string | undefined {
   const hash = /#\d+/.exec(postTitle);
   if (!hash || hash.index === undefined) return undefined;
   let rest = postTitle.slice(hash.index + hash[0].length);
-  // Drop the trailing ` - D-MMM-YY` date the source appends.
+  // Drop the trailing ` - D-MMM-YY` date the source appends. Two guards so a
+  // location containing a date-like token (e.g. "Pura 12-Marching-26 …") can't
+  // be wrongly truncated: (1) the matched month must be a real month
+  // (VALID_MONTHS — same check as parseBaliDate), and (2) the match must be the
+  // trailing token (nothing but separators after it), since the date is always
+  // last in the post title.
   const date = RUN_DATE_RE.exec(rest);
-  if (date && date.index !== undefined) rest = rest.slice(0, date.index);
+  if (
+    date &&
+    date.index !== undefined &&
+    VALID_MONTHS.has(date[2].toLowerCase()) &&
+    rest.slice(date.index + date[0].length).trim() === ""
+  ) {
+    rest = rest.slice(0, date.index);
+  }
   const cleaned = trimEdgeChars(rest, TITLE_EDGE_CHARS);
   return cleaned.length > 0 ? cleaned : undefined;
 }

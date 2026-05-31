@@ -765,10 +765,17 @@ describe("PhoenixHHHAdapter.fetch — detail-fetch failures are visible", () => 
     `;
 
     const fetchSpy = vi.spyOn(globalThis, "fetch");
-    // First call: the month AJAX returns the list HTML.
-    fetchSpy.mockResolvedValueOnce(new Response(sampleAjaxResponse, { status: 200 }));
-    // Every detail-page fetch returns 503 (origin rate-limit / outage).
-    fetchSpy.mockImplementation(async () => new Response("Service Unavailable", { status: 503 }));
+    // Route by URL, not call order: month-list AJAX calls succeed (there are TWO
+    // when "today" is in the last days of a month — the date window spills into
+    // next month), and only the detail-page fetch (?event=…) returns 503. Keying
+    // on the URL keeps the surfaced error a detail-fetch failure regardless of
+    // the current date (an order-based mock flaked at month boundaries).
+    fetchSpy.mockImplementation(async (input) => {
+      const url = typeof input === "string" ? input : (input as Request).url;
+      return url.includes("?event=")
+        ? new Response("Service Unavailable", { status: 503 })
+        : new Response(sampleAjaxResponse, { status: 200 });
+    });
 
     const adapter = new PhoenixHHHAdapter();
     const source = {
