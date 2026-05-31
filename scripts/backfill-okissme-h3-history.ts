@@ -56,7 +56,9 @@ async function fetchEvents(): Promise<RawEventData[]> {
     days: WIDE_WINDOW_DAYS,
   });
   if (result.errors.length > 0) {
-    console.warn(`  adapter reported ${result.errors.length} error(s): ${result.errors.join("; ")}`);
+    // Fail fast — a partial parse (e.g. a tab 503ing mid-run) must not silently
+    // apply an incomplete history restore.
+    throw new Error(`Adapter reported ${result.errors.length} error(s): ${result.errors.join("; ")}`);
   }
   console.warn(`  Rows parsed across the full window: ${result.events.length}`);
   return result.events;

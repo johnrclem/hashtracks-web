@@ -300,6 +300,7 @@ describe("Oh3OttawaAdapter", () => {
     expect(run2213!.hares).toBe("Tie Me Up & Clogged Nozzle");
 
     const run2214 = result.events.find((e) => e.runNumber === 2214);
+    expect(run2214).toBeDefined();
     expect(run2214!.title).toBe("Nice and Greecey!");
     expect(run2214!.hares).toBe("Beer Floaty & Dr Too Little");
 
@@ -311,9 +312,11 @@ describe("Oh3OttawaAdapter", () => {
     expect(run2217!.title).toBe("Tie Me Up & Clogged Nozzle");
 
     const run2218 = result.events.find((e) => e.runNumber === 2218);
+    expect(run2218).toBeDefined();
     expect(run2218!.title).toBe("Shredder");
 
     const run2229 = result.events.find((e) => e.runNumber === 2229);
+    expect(run2229).toBeDefined();
     expect(run2229!.title).toBe("Finger Lickin' Good & Nipoleon");
   });
 

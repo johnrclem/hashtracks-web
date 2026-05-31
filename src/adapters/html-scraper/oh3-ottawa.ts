@@ -218,10 +218,15 @@ export class Oh3OttawaAdapter implements SourceAdapter {
         }
       }
 
-      // 2. Planning-ahead one-liners (single line per future run).
+      // 2. Planning-ahead one-liners (single line per future run). Isolate
+      //    per-line failures so one malformed row doesn't abort the section.
       for (const line of sectionText.split("\n")) {
         if (/^\s*\d{4}\s+\w+,/.test(line)) {
-          pushIfInWindow(parsePlanningLine(line));
+          try {
+            pushIfInWindow(parsePlanningLine(line));
+          } catch (err) {
+            errors.push(`Parse error in planning line: ${err}`);
+          }
         }
       }
     }

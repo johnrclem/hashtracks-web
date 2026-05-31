@@ -787,7 +787,9 @@ describe("PhoenixHHHAdapter.fetch — detail-fetch failures are visible", () => 
     expect(result.errorDetails?.fetch).toBeDefined();
     expect(result.errorDetails!.fetch!.length).toBeGreaterThan(0);
     expect(result.errorDetails!.fetch!.length).toBeLessThanOrEqual(5);
-    expect(result.errorDetails!.fetch![0].message).toMatch(/Detail fetch/i);
+    // A month-page fetch can also 503 and land ahead of the detail errors, so
+    // assert a detail-fetch failure is present rather than assuming index 0.
+    expect(result.errorDetails!.fetch!.some((f) => /Detail fetch/i.test(f.message))).toBe(true);
     expect(result.diagnosticContext?.detailFetchFailures).toBeGreaterThan(0);
     expect(result.diagnosticContext?.detailsFetched).toBe(0);
   });

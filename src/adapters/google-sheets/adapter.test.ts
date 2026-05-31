@@ -1366,7 +1366,7 @@ describe("GoogleSheetsAdapter.fetch — ampersand themes are not dropped (#1844)
       csvUrl: "https://example.com/pub?output=csv",
       columns: { runNumber: 0, date: 1, location: 3, address: 4, hares: 5, title: 7 },
       kennelTagRules: { default: "okissme-h3" },
-    } as unknown as GoogleSheetsConfig;
+    };
     const adapter = new GoogleSheetsAdapter();
     const result = await adapter.fetch(makeSource({ config: config as unknown as null }));
 
