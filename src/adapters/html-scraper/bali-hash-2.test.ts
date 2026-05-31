@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { Source } from "@/generated/prisma/client";
 import {
   parseBaliDate,
+  parseBaliTitle,
   parseListingCards,
   parseDetailFields,
   dedupeByRunNumber,
@@ -110,6 +111,30 @@ describe("parseBaliDate", () => {
   });
 });
 
+describe("parseBaliTitle", () => {
+  it.each([
+    [
+      "Bali Hash 2 Next Run Map - #1747 - Pura Pekemitan / Prajapati, Kediri, Tabanan - 30-May-26",
+      "Pura Pekemitan / Prajapati, Kediri, Tabanan",
+    ],
+    [
+      "Bali Hash 2 Next Run Map - #1746 - Lapangan Sepak Bola Perean, Baturiti - 23-May-26",
+      "Lapangan Sepak Bola Perean, Baturiti",
+    ],
+    // Single-digit day in the trailing date is still stripped.
+    [
+      "Bali Hash 2 Next Run Map - #1739 - Lapangan Mamed, Sindu Wati, Sidemen - 4-Apr-26",
+      "Lapangan Mamed, Sindu Wati, Sidemen",
+    ],
+  ])("strips the prefix + trailing date from %s", (title, expected) => {
+    expect(parseBaliTitle(title)).toBe(expected);
+  });
+
+  it("returns undefined when the title carries no run-number token", () => {
+    expect(parseBaliTitle("Bali Hash 2 About Us")).toBeUndefined();
+  });
+});
+
 describe("parseListingCards", () => {
   const entries = parseListingCards(HOME_FIXTURE);
 
@@ -124,6 +149,7 @@ describe("parseListingCards", () => {
     expect(e.date).toBe("2026-05-30");
     expect(e.startTime).toBe("16:00");
     expect(e.location).toBe("Pura Pekemitan / Prajapati, Kediri, Tabanan");
+    expect(e.title).toBe("Pura Pekemitan / Prajapati, Kediri, Tabanan");
     expect(e.url).toBe(
       "https://balihash2.com/bali-hash-2-next-run-map-1747-pura-pekemitan-prajapati-kediri-tabanan-30-may-26/",
     );
@@ -196,8 +222,8 @@ describe("BaliHash2Adapter.fetch", () => {
     expect(run1747.latitude).toBeCloseTo(-8.5835, 4);
     expect(run1747.longitude).toBeCloseTo(115.1270571, 4);
     expect(run1747.hares).toBe("Exit/Re Entry & Popoff Monster");
-    // Title left undefined → merge.ts synthesizes "Bali Hash 2 Trail #N".
-    expect(run1747.title).toBeUndefined();
+    // Title parsed from the post title (#1838), not the synthesized placeholder.
+    expect(run1747.title).toBe("Pura Pekemitan / Prajapati, Kediri, Tabanan");
     expect(run1747.locationUrl).toContain("google.com/maps");
   });
 

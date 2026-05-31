@@ -500,6 +500,9 @@ authority is the live repo. Before writing the adapter, confirm against current 
 - [x] logo (stable? else flag self-host)  [x] foundedYear  [x] socials  [x] schedule (+ scheduleRules if multi-pattern)  [x] hashCash
 - [x] description  [x] source live-verified (feed HEAD-checked)  [x] history depth/pagination assessed
 - [x] coord sanity checked  [x] end times noted  [x] kennelCode collision-checked  [x] kennelCodes (source guard) set
+- [x] **per-run title** extracted when the source carries one (theme/venue/post title) — NOT left on the synthesized `<Kennel> Trail #N` default
+- [x] **hares** populated from hareline table columns AND trail-post "Hare(s):" lines
+- [x] **sub-letter run numbers** (`1999a`/`1999b`) handled as distinct events (see gotcha below)
 
 ## Implementation gotchas (for Claude Code — repo knowledge, not source knowledge)
 Carry these into the build; they've each caused a follow-up fix before:
@@ -552,6 +555,18 @@ Carry these into the build; they've each caused a follow-up fix before:
   - **No negated ternaries.** `a ? b : c` (NOT `!a ? c : b`) — Sonar S3358.
 - **Self-host tokenized logos** into `public/kennel-logos/<code>.<ext>` rather than referencing an
   ephemeral CDN URL.
+- **Don't ship a kennel stuck on the synthesized `<Kennel> Trail #N` title.** If the source carries
+  a per-run descriptor — a trail-post theme, a hareline `Venue` column, or a structured post title
+  (Ghost: `… - #N - <location> - D-MMM-YY`) — extract it into `title`. Fall back to the synthesized
+  default only when the source row genuinely has none. The audit flags this as `stale-default-title`
+  (Bali #1838, ONH3 #1862). Same rule for `hares`: hareline tables put it in a dedicated column and
+  trail posts in a leading `Hare(s):` line — promote both to `RawEventData.hares` (#1863).
+- **Sub-letter run numbers (`1999a` / `1999b`) must produce DISTINCT events.** Some kennels append
+  `a`/`b` when two trails share a base run number on different dates (Mijas #1848). Keep the base
+  integer in `runNumber` and emit the suffix as `eventLabel` — do NOT silently drop it. Dropping it
+  leaves both rows at `(sourceUrl, runNumber)`, and the merge same-sourceUrl date-correction
+  (`merge.ts`) then "moves" one onto the other's date, deleting a real event. The date-correction
+  probe co-matches on `eventLabel`, so an emitted label keeps the pair separate.
 
 ---
 
