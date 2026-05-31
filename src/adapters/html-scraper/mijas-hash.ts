@@ -56,7 +56,7 @@ export function parseRunNumber(token: string): number | null {
  * a plain integer run number.
  */
 export function parseRunLabel(token: string): string | undefined {
-  const match = token.trim().match(/^\d+([ab])\b/);
+  const match = /^\d+([ab])\b/.exec(token.trim());
   return match ? match[1] : undefined;
 }
 

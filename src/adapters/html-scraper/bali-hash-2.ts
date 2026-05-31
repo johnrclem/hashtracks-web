@@ -83,7 +83,7 @@ const TITLE_EDGE_CHARS = " \t\n-–—:";
  */
 export function parseBaliTitle(postTitle: string): string | undefined {
   const hash = /#\d+/.exec(postTitle);
-  if (!hash || hash.index === undefined) return undefined;
+  if (hash?.index === undefined) return undefined;
   let rest = postTitle.slice(hash.index + hash[0].length);
   // Drop the trailing ` - D-MMM-YY` date the source appends. Two guards so a
   // location containing a date-like token (e.g. "Pura 12-Marching-26 …") can't
@@ -118,7 +118,8 @@ export interface BaliDetailFields {
  *  chrono `D MMM YY` fast-path fires (avoids the single-digit-day mis-parse). */
 export function parseBaliDate(text: string): string | undefined {
   const m = RUN_DATE_RE.exec(text);
-  if (!m || !VALID_MONTHS.has(m[2].toLowerCase())) return undefined;
+  if (!m) return undefined;
+  if (!VALID_MONTHS.has(m[2].toLowerCase())) return undefined;
   const normalized = `${m[1]} ${m[2]} ${m[3]}`;
   return chronoParseDate(normalized, "en-US") ?? undefined;
 }
