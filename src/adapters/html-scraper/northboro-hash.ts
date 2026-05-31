@@ -6,7 +6,11 @@ import type {
   ErrorDetails,
 } from "../types";
 import { hasAnyErrors } from "../types";
-import { chronoParseDate, parse12HourTime, fetchBrowserRenderedPage } from "../utils";
+import { chronoParseDate, parse12HourTime, fetchBrowserRenderedPage, stripZeroWidth } from "../utils";
+
+// Re-exported from utils.ts (shared across Wix/Weebly adapters). Kept exported
+// here for the existing northboro-hash.test.ts import.
+export { stripZeroWidth };
 
 /**
  * Parse a time mention from text like "12pm", "12:30pm", "11-12ish", "start time 11-12ish".
@@ -48,14 +52,6 @@ function strictTimeMention(text: string): string | undefined {
   return /\d{1,2}\s*[ap]m|\d{1,2}:\d{2}/i.test(text) ? parseTimeMention(text) : undefined;
 }
 
-/**
- * Strip zero-width / BOM characters that Wix injects into rendered text
- * (U+200B–U+200F, U+FEFF). These survive String.trim() and otherwise break
- * the `^(\w+)` trail anchor and bare-year heading detection (e.g. "​2025").
- */
-export function stripZeroWidth(s: string): string {
-  return s.replace(/[\u200B-\u200F\uFEFF]/g, "");
-}
 
 /**
  * A standalone ANCIENT HASHTORY year heading: "2025", or the site's

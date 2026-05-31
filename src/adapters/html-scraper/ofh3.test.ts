@@ -75,6 +75,19 @@ describe("cleanOfh3Title", () => {
   it("passes through titles without dates", () => {
     expect(cleanOfh3Title("OFH3 Special Event")).toBe("OFH3 Special Event");
   });
+
+  // #1821: keep the descriptive theme verbatim — strip only the prefix + date,
+  // never drop a trailing theme name or rewrite the kennel token.
+  it.each([
+    ["OFH3 Trail #398 - May Trail 5.9.26", "May Trail"],
+    ["OFH3 Trail #399 - June Trail 6.7.26 Tour duh Hash!", "June Trail Tour duh Hash!"],
+    ["OFH3 Trail #393 - December Annual White Elephant Trail 12.20.25", "December Annual White Elephant Trail"],
+    ["OFH3 Trail #389 - August Muumuu Dress Trail! 8.09.25", "August Muumuu Dress Trail!"],
+    ["OFH3 Trail #388 - July 12, 2025- July Trail!", "July Trail!"],
+    [" OFH3 Trail #387 - June 1, 2025 - Tour Duh Hash Trail", "Tour Duh Hash Trail"],
+  ])("keeps the theme for %s", (input, expected) => {
+    expect(cleanOfh3Title(input)).toBe(expected);
+  });
 });
 
 describe("parseOfh3Body", () => {
@@ -218,6 +231,9 @@ describe("OFH3Adapter title fallback", () => {
 
     expect(result.events).toHaveLength(1);
     expect(result.events[0].date).toBe("2026-03-14");
+    // #1821: runNumber pulled from the "#NNN" token; title keeps the theme.
+    expect(result.events[0].runNumber).toBe(396);
+    expect(result.events[0].title).toBe("March Trail");
     expect(result.errors).toHaveLength(0);
   });
 });

@@ -706,6 +706,18 @@ export function stripNonEnglishCountry(location: string): string {
 }
 
 /**
+ * Strip zero-width / BOM characters (U+200B–U+200F, U+FEFF) that Wix, Weebly,
+ * and other site builders inject into rendered text. These survive
+ * `String.trim()` and JS `\s` (U+200B is not matched by `\s`), so a leading
+ * zero-width space defeats anchored `^\d`/`^\w` regexes — e.g. a date cell
+ * leaks through as an event title (OCH3 #1814, Northboro Wix). Shared across
+ * adapters; reference: memory reference_wix_zero_width_and_chrono_anchor.
+ */
+export function stripZeroWidth(s: string): string {
+  return s.replace(/[\u200B-\u200F\uFEFF]/g, "");
+}
+
+/**
  * Match `#NNN` in free-form text and return the integer. Lookahead requires a
  * clean delimiter after the digits so ambiguous tokens like `#30X?` (kennel
  * signaling unknown run number) reject instead of being parsed as 30 (#1147).

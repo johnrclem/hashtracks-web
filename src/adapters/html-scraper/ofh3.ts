@@ -4,7 +4,7 @@ import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "..
 import { hasAnyErrors } from "../types";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 import { fetchBloggerPosts } from "../blogger-api";
-import { applyDateWindow, chronoParseDate, decodeEntities, isPlaceholder, stripHtmlTags } from "../utils";
+import { applyDateWindow, chronoParseDate, decodeEntities, extractHashRunNumber, isPlaceholder, stripHtmlTags } from "../utils";
 
 /**
  * Parse a date string from OFH3 content.
@@ -133,20 +133,34 @@ function buildOfh3Description(bodyFields: ReturnType<typeof parseOfh3Body>): str
 }
 
 /**
- * Strip date portion from OFH3 titles that include trail number + date + actual title.
- * Pattern: "OFH3 Trail #386 - June 1, 2025 - Tour Duh Hash Trail" → "Tour Duh Hash Trail"
- * Also handles: "OFH3 Trail #396 - March Trail 3.14.26" → "March Trail"
+ * Clean an OFH3 post title down to its descriptive theme, preserving the theme
+ * verbatim (#1821). The run number is captured separately into the dedicated
+ * `runNumber` column via `extractHashRunNumber`, so here we only strip the
+ * boilerplate `OFH3 Trail #NNN -` prefix and the date token(s):
+ *
+ *   "OFH3 Trail #398 - May Trail 5.9.26"                 → "May Trail"
+ *   "OFH3 Trail #399 - June Trail 6.7.26 Tour duh Hash!" → "June Trail Tour duh Hash!"
+ *   "OFH3 Trail #386 - June 1, 2025 - Tour Duh Hash Trail" → "Tour Duh Hash Trail"
+ *   "OFH3 Trail #393 - December Annual White Elephant Trail 12.20.25"
+ *                                                        → "December Annual White Elephant Trail"
+ *
+ * Titles without the OFH3 prefix pass through trimmed.
  */
 export function cleanOfh3Title(title: string): string {
-  // Strip "OFH3 Trail #NNN - <date> - <title>" → "<title>"
-  const match = /^OFH3\s+Trail\s+#\d+\s*-\s*(?:\w+\s+\d{1,2},?\s+\d{4}|\d{1,2}\.\d{1,2}\.\d{2,4})\s*-\s*(.+)$/i.exec(title);
-  if (match) return match[1].trim();
-
-  // Strip trailing date: "OFH3 Trail #396 - March Trail 3.14.26" → "March Trail"
-  const trailingDate = /^OFH3\s+Trail\s+#\d+\s*-\s*(.+?)\s+\d{1,2}\.\d{1,2}\.\d{2,4}$/i.exec(title);
-  if (trailingDate) return trailingDate[1].trim();
-
-  return title;
+  let t = title.trim();
+  // Strip the "OFH3 Trail #NNN -" boilerplate prefix.
+  t = t.replace(/^OFH3\s+Trail\s+#\d+\s*-\s*/i, "");
+  // Strip a leading long-form date ("June 1, 2025 -" / "July 12, 2025-").
+  t = t.replace(/^[A-Za-z]+\s+\d{1,2},?\s+\d{4}\s*-?\s*/, "");
+  // Strip dot-form dates ("5.9.26", "12.20.25") wherever they appear.
+  t = t.replace(/\s*\d{1,2}\.\d{1,2}\.\d{2,4}\s*/g, " ");
+  // Tidy: collapse internal whitespace, then drop any dangling leading/trailing
+  // separator left behind ("Foo - " after a stripped trailing date). Done with
+  // string ops rather than an `\s*`-adjacent-alternation regex (Sonar S5852).
+  t = t.replace(/\s{2,}/g, " ").trim();
+  if (t.startsWith("-")) t = t.slice(1).trim();
+  if (t.endsWith("-")) t = t.slice(0, -1).trim();
+  return t;
 }
 
 function processPost(
@@ -197,6 +211,9 @@ function processPost(
   return {
     date: eventDate,
     kennelTags: ["ofh3"],
+    // The OFH3 post title always carries an explicit "#NNN" — capture it into
+    // the dedicated runNumber column (#1821).
+    runNumber: extractHashRunNumber(titleText),
     title: cleanedTitle || undefined,
     hares: bodyFields.hares,
     location: bodyFields.location && !isPlaceholder(bodyFields.location) ? bodyFields.location : undefined,

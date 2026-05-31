@@ -8,6 +8,7 @@ import {
   parseDetailPage,
   parseEventsPage,
   mergeDetailIntoEvent,
+  splitHareFromOnInn,
 } from "./och3";
 import { OCH3Adapter } from "./och3";
 import * as cheerio from "cheerio";
@@ -396,6 +397,90 @@ describe("parseEventsPage", () => {
   });
 });
 
+describe("splitHareFromOnInn (#1815)", () => {
+  it("clips the hare at a no-space 'On Inn' boundary", () => {
+    expect(
+      splitHareFromOnInn("Phil 'Layby' MackOn Inn will be - The Skimmington Castle, Reigate"),
+    ).toBe("Phil 'Layby' Mack");
+  });
+
+  it("clips at 'On Inn,' with a comma", () => {
+    expect(
+      splitHareFromOnInn("Phil 'Layby' MackOn Inn, the Rambler Rest, Outwood Lane"),
+    ).toBe("Phil 'Layby' Mack");
+  });
+
+  it("leaves a clean hare untouched", () => {
+    expect(splitHareFromOnInn("Anna 'Fish N Chips' Cooper")).toBe("Anna 'Fish N Chips' Cooper");
+  });
+});
+
+describe("parseDetailPage — <br>-split Venue/Hare boundary (#1815, live DOM)", () => {
+  it("does not let the venue swallow a tag-split 'Ha' and still reads the hare", () => {
+    // Verbatim shape from the live next-run-details.html: a hard <br> inside one
+    // <strong> splits "RH1 4EU" from "Hare:", and the label itself is split
+    // across sibling <strong> tags ("Ha</strong></strong><strong>re:").
+    const html = `<html><body><div class="paragraph">
+      <br /><br /><strong>Run<strong style="color:rgb(29, 34, 40)">&nbsp;2002 - Monday 1st June at 19.30</strong><br /><strong style="color:rgb(29, 34, 40)">Venue:&nbsp; The Inn on the Pond, Nutfield Marsh Road, Redhill, RH1 4EU<br />Ha</strong></strong><strong>re:&nbsp; Jamie ' Phil the Greek' Wheadon</strong><br /><br />&#8203;</div>
+    </body></html>`;
+    const $ = cheerio.load(html);
+    const detail = parseDetailPage($, "http://www.och3.org.uk/next-run-details.html");
+    expect(detail!.runNumber).toBe(2002);
+    expect(detail!.location).toBe("The Inn on the Pond, Nutfield Marsh Road, Redhill, RH1 4EU");
+    expect(detail!.hares).toBe("Jamie ' Phil the Greek' Wheadon");
+  });
+});
+
+describe("parseDetailPage — hare/On Inn concatenation (#1815)", () => {
+  it("splits the hare from a same-node 'On Inn' line", () => {
+    const html = `<html><body>
+      <div class="paragraph">Run 1997 - Monday 4th May at 19.30</div>
+      <div class="paragraph">Venue: The start car park, Reigate</div>
+      <div class="paragraph">Hare: Phil 'Layby' MackOn Inn will be - The Skimmington Castle, Bonnys Road, Reigate, RH2 8R</div>
+    </body></html>`;
+    const $ = cheerio.load(html);
+    const detail = parseDetailPage($, "http://test.com/next-run-details.html");
+    expect(detail!.hares).toBe("Phil 'Layby' Mack");
+    expect(detail!.location).toContain("The start car park");
+  });
+});
+
+describe("zero-width title prefix (#1814)", () => {
+  it("does not emit a U+200B-prefixed date cell as a run-list title", async () => {
+    const html = `<html><body><div class="wsite-section-wrap">
+      <p>Upcoming Runs:</p>
+      <p>​10th May 2026 - The Skimmington Castle, Reigate - Phil 'Layby' Mack</p>
+    </div></body></html>`;
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(html, { status: 200 }))
+      .mockResolvedValueOnce(new Response("<html><body></body></html>", { status: 200 }))
+      .mockResolvedValueOnce(new Response("<html><body></body></html>", { status: 200 }));
+
+    const adapter = new OCH3Adapter();
+    const result = await adapter.fetch({
+      id: "test",
+      url: "https://www.och3.org.uk/upcoming-run-list.html",
+    } as never);
+
+    const may10 = result.events.find((e) => e.date === "2026-05-10");
+    expect(may10).toBeDefined();
+    expect(may10!.title).toBeUndefined();
+    expect(may10!.hares).toBe("Phil 'Layby' Mack");
+    expect(may10!.location).toBe("The Skimmington Castle, Reigate");
+    vi.restoreAllMocks();
+  });
+
+  it("strips a U+200B prefix on the events page so the date is not the title", () => {
+    const html = `<html><body><div class="paragraph"><strong>OCH3 Events</strong><ul>
+      <li>​10th May 2026 - Memorial Run for Lawrence 'Dynorod' Pearce - The Red Lion, Betchworth</li>
+    </ul></div></body></html>`;
+    const events = parseEventsPage(html, "http://test.com/eventslinks.html");
+    expect(events).toHaveLength(1);
+    expect(events[0].date).toBe("2026-05-10");
+    expect(events[0].title).toBe("Memorial Run for Lawrence 'Dynorod' Pearce");
+  });
+});
+
 describe("OCH3Adapter.fetch", () => {
   it("parses multiple upcoming runs from compact line block", async () => {
     vi.spyOn(globalThis, "fetch")
@@ -416,8 +501,11 @@ describe("OCH3Adapter.fetch", () => {
       "2026-03-22",
       "2026-03-29",
     ]);
-    expect(result.events[0].title).toContain("One in the Eye");
+    // Hare now lands in `hares` (not `title`); venue stays in `location` (#1813).
+    expect(result.events[0].hares).toContain("One in the Eye");
+    expect(result.events[0].title).toBeUndefined();
     expect(result.events[0].location).toBe("Outwood");
+    expect(result.events[0].runNumber).toBeNull();
     expect(result.events[2].location).toBeUndefined();
 
     vi.restoreAllMocks();
@@ -448,9 +536,11 @@ describe("OCH3Adapter.fetch", () => {
     expect(enriched!.description).toContain("The Bush, Dorking");
     expect(enriched!.sourceUrl).toContain("next-run-details.html");
 
-    // Non-enriched events keep run-list data
+    // Non-enriched run-list events carry an explicit null runNumber (#1813):
+    // the run list never exposes a number, and emitting null clears any stale
+    // value from a prior scrape rather than inheriting it.
     const otherEvent = result.events.find((e) => e.date === "2026-03-01");
-    expect(otherEvent!.runNumber).toBeUndefined();
+    expect(otherEvent!.runNumber).toBeNull();
     expect(otherEvent!.sourceUrl).toContain("upcoming-run-list.html");
 
     expect(result.diagnosticContext?.detailPageMerged).toBe(true);
@@ -554,14 +644,21 @@ describe("OCH3Adapter.fetch", () => {
     expect(may24!.location).toBe("The Sportsman, Mogador");
     expect(may24!.hares).toBe("Karen 'Legolas' Hedderman");
 
-    // Non-milestone entries keep the legacy {date} - {hare} - {venue} layout.
+    // Hare detected by its quoted hash-name regardless of position: the
+    // venue-first row keeps the venue on `location` and the hare on `hares`,
+    // with no number inherited from a sibling (#1813).
     const may18 = result.events.find((e) => e.date === "2026-05-18");
-    expect(may18!.title).toBe("The Fox, Coulsdon");
-    expect(may18!.location).toBe("Ray 'Sir Ray' Sterry");
+    expect(may18!.hares).toBe("Ray 'Sir Ray' Sterry");
+    expect(may18!.location).toBe("The Fox, Coulsdon");
+    expect(may18!.title).toBeUndefined();
+    expect(may18!.runNumber).toBeNull();
 
+    // The #1813 row verbatim: "{date} - {venue} - {town} - {hare}".
     const jun1 = result.events.find((e) => e.date === "2026-06-01");
-    expect(jun1!.title).toBe("Inn on the Pond");
-    expect(jun1!.location).toBe("Jamie 'Phil the Greek' Wheadon");
+    expect(jun1!.hares).toBe("Jamie 'Phil the Greek' Wheadon");
+    expect(jun1!.location).toBe("Inn on the Pond, Merstham");
+    expect(jun1!.title).toBeUndefined();
+    expect(jun1!.runNumber).toBeNull();
 
     vi.restoreAllMocks();
   });
@@ -623,9 +720,10 @@ describe("OCH3Adapter.fetch", () => {
     } as never);
 
     expect(result.events).toHaveLength(1);
-    expect(result.events[0].title).toBe("Linda 'One in the Eye' Cooper");
-    expect(result.events[0].title).not.toContain("home");
-    expect(result.events[0].title).not.toContain("about us");
+    // Hare moved to `hares` (#1813); nav/boilerplate strip now guards it there.
+    expect(result.events[0].hares).toBe("Linda 'One in the Eye' Cooper");
+    expect(result.events[0].hares).not.toContain("home");
+    expect(result.events[0].hares).not.toContain("about us");
 
     vi.restoreAllMocks();
   });

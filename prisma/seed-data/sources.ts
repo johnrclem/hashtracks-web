@@ -4111,6 +4111,10 @@ export const SOURCES = [
       scrapeDays: 365,
       config: {
         defaultKennelTag: "oh3-no",
+        // oh3.no publishes each run twice in calendar.ics — a timed /runs/{m}
+        // VEVENT and an all-day /events/{n} listing. Collapse the duplicate so
+        // the hareline shows one event with the time + richer hares (#1828).
+        coalesceEndpointDuplicates: true,
       },
       kennelCodes: ["oh3-no"],
     },
