@@ -43,7 +43,7 @@ export async function resolveCleanupKennel(
 export interface FieldPatch {
   kennelLabel: string;
   eventId: string;
-  field: "haresText" | "title" | "locationName";
+  field: "haresText" | "title" | "locationName" | "description";
   before: string | null;
   after: string | null;
 }

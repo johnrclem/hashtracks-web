@@ -1621,6 +1621,29 @@ export const SOURCES = [
       },
       kennelCodes: ["o2h3"],
     },
+    {
+      // Previously DB-only; seeded here to fix seed/prod drift (#1846). Config
+      // mirrors prod exactly — kennelTagRules.default stays the "OKissMe H3"
+      // shortName (resolved via the kennel resolver) so RawEvent fingerprints
+      // don't churn. `description: 8` wires the "Trail Notes" column so future
+      // events get a real blurb instead of the city name the old config leaked.
+      name: "OKissMe H3 Hareline",
+      url: "https://docs.google.com/spreadsheets/d/1MMS96JayUN3TBITvmLyc-TQH9RvjzcHcPwjn2cGHoVs/edit?gid=223708191#gid=223708191",
+      type: "GOOGLE_SHEETS" as const,
+      trustLevel: 9,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        sheetId: "1MMS96JayUN3TBITvmLyc-TQH9RvjzcHcPwjn2cGHoVs",
+        tabs: ["OKissMeH3 Hareline"],
+        // Number,Date,Time,Location,Address,Primary Hare,Other Hare,Theme,Trail Notes,...
+        // (Time col 2 is repurposed as attendance count on past rows — not mapped.)
+        columns: { runNumber: 0, date: 1, location: 3, address: 4, hares: 5, title: 7, description: 8 },
+        kennelTagRules: { default: "OKissMe H3" },
+        startTimeRules: { byDayOfWeek: { Sun: "11:00" } },
+      },
+      kennelCodes: ["okissme-h3"],
+    },
     // --- WCFH Calendar (11 Tampa Bay kennels) ---
     {
       name: "West Central FL Hash Calendar",

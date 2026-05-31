@@ -3144,7 +3144,8 @@ export const KENNELS: KennelSeed[] = [
     // ── Canada: Ontario — Ottawa ──
     {
       kennelCode: "oh3-ca", shortName: "OH3", fullName: "Ottawa Hash House Harriers", region: "Ottawa, ON", country: "Canada",
-      website: "https://www.oh3.info",
+      // oh3.info root is a dead redirect notice; the v1 site is the live home (#1834).
+      website: "https://www.oh3.info/v1/home.xhtml",
       contactEmail: "oh3hareraiser@gmail.com",
       scheduleDayOfWeek: "Monday", scheduleTime: "6:45 PM", scheduleFrequency: "Weekly",
       hashCash: "$5",
