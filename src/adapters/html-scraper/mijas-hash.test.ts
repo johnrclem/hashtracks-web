@@ -6,6 +6,7 @@ vi.mock("@/adapters/safe-fetch", () => ({ safeFetch: vi.fn() }));
 import { safeFetch } from "@/adapters/safe-fetch";
 import {
   parseRunNumber,
+  parseRunLabel,
   parseHares,
   parseHarelineLine,
   MijasHashAdapter,
@@ -26,6 +27,22 @@ describe("parseRunNumber", () => {
   it("returns null for non-numeric token", () => {
     expect(parseRunNumber("Glampout")).toBeNull();
   });
+});
+
+describe("parseRunLabel", () => {
+  it.each([
+    ["1999a", "a"],
+    ["1999b", "b"],
+  ])("captures the sub-letter from %s -> %s", (token, expected) => {
+    expect(parseRunLabel(token)).toBe(expected);
+  });
+
+  it.each([["2020"], ["2000"], ["Glampout"]])(
+    "returns undefined for a label-less token (%s)",
+    (token) => {
+      expect(parseRunLabel(token)).toBeUndefined();
+    },
+  );
 });
 
 describe("parseHares", () => {
@@ -77,13 +94,22 @@ describe("parseHarelineLine", () => {
     expect(event!.title).toBe("Mummy's Boy Birthday Run");
   });
 
-  it("strips a/b away-weekend suffix from the run number", () => {
+  it("splits a/b sub-runs into distinct events via eventLabel (#1848)", () => {
     const a = parseHarelineLine("1999a - 04 January 2026 - Stiffanny & From Behind", REF);
     const b = parseHarelineLine("1999b - 11 January 2026 - Big Brother & Blanka Wanka", REF);
+    // Base run number is shared; the sub-letter rides on eventLabel so the merge
+    // same-sourceUrl date-correction can't collapse the two dated sub-runs.
     expect(a!.runNumber).toBe(1999);
+    expect(a!.eventLabel).toBe("a");
     expect(a!.date).toBe("2026-01-04");
     expect(b!.runNumber).toBe(1999);
-    expect(b!.date).toBe("2026-01-11"); // distinct date keeps the two days separate
+    expect(b!.eventLabel).toBe("b");
+    expect(b!.date).toBe("2026-01-11");
+  });
+
+  it("emits no eventLabel for a plain integer run number", () => {
+    const event = parseHarelineLine("2020 - 31 May 2026 - Shaggy & AguaSex - AGM Run", REF);
+    expect(event!.eventLabel).toBeUndefined();
   });
 
   it("parses the date from the line, not from order (Aug parses independently)", () => {

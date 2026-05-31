@@ -744,9 +744,24 @@ describe("fetchEventDetail", () => {
 // ── Detail-fetch failures surface in errorDetails (codex follow-up) ──
 
 describe("PhoenixHHHAdapter.fetch — detail-fetch failures are visible", () => {
+  // Pin the clock to a mid-month date before each test (fake only `Date`,
+  // leaving real timers so async fetch mocks still resolve). Near a month
+  // boundary the adapter issues a SECOND month-AJAX fetch for the next month,
+  // which the single mockResolvedValueOnce below doesn't cover — it would fall
+  // through to the 503 mockImplementation and surface a "Month N: HTTP 503"
+  // error as fetch[0] instead of the detail-fetch error this test asserts.
+  // Cleanup in afterEach guarantees restoration even if a test throws.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(Date.UTC(2026, 5, 15, 12, 0, 0)));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("records detail-fetch failures in errorDetails.fetch (bounded sample)", async () => {
-    // Build a fixture with TODAY's date so it falls inside the
-    // adapter's date window regardless of when the test runs.
+    // Build a fixture with TODAY's (pinned) date so it falls inside the
+    // adapter's date window.
     const now = new Date();
     const mm = String(now.getUTCMonth() + 1).padStart(2, "0");
     const dd = String(now.getUTCDate()).padStart(2, "0");
@@ -765,10 +780,17 @@ describe("PhoenixHHHAdapter.fetch — detail-fetch failures are visible", () => 
     `;
 
     const fetchSpy = vi.spyOn(globalThis, "fetch");
-    // First call: the month AJAX returns the list HTML.
-    fetchSpy.mockResolvedValueOnce(new Response(sampleAjaxResponse, { status: 200 }));
-    // Every detail-page fetch returns 503 (origin rate-limit / outage).
-    fetchSpy.mockImplementation(async () => new Response("Service Unavailable", { status: 503 }));
+    // Route by URL, not call order: month-list AJAX calls succeed (there are TWO
+    // when "today" is in the last days of a month — the date window spills into
+    // next month), and only the detail-page fetch (?event=…) returns 503. Keying
+    // on the URL keeps the surfaced error a detail-fetch failure regardless of
+    // the current date (an order-based mock flaked at month boundaries).
+    fetchSpy.mockImplementation(async (input) => {
+      const url = typeof input === "string" ? input : (input as Request).url;
+      return url.includes("?event=")
+        ? new Response("Service Unavailable", { status: 503 })
+        : new Response(sampleAjaxResponse, { status: 200 });
+    });
 
     const adapter = new PhoenixHHHAdapter();
     const source = {
@@ -787,9 +809,12 @@ describe("PhoenixHHHAdapter.fetch — detail-fetch failures are visible", () => 
     expect(result.errorDetails?.fetch).toBeDefined();
     expect(result.errorDetails!.fetch!.length).toBeGreaterThan(0);
     expect(result.errorDetails!.fetch!.length).toBeLessThanOrEqual(5);
-    // A month-page fetch can also 503 and land ahead of the detail errors, so
-    // assert a detail-fetch failure is present rather than assuming index 0.
-    expect(result.errorDetails!.fetch!.some((f) => /Detail fetch/i.test(f.message))).toBe(true);
+    // Use .some() rather than [0] — on the last day of a month, `days: 1`
+    // spans two months and the month-AJAX failure lands at [0] while the
+    // detail-fetch failure lands at [1]. Order depends on test-run date.
+    expect(
+      result.errorDetails!.fetch!.some((e) => /Detail fetch/i.test(e.message)),
+    ).toBe(true);
     expect(result.diagnosticContext?.detailFetchFailures).toBeGreaterThan(0);
     expect(result.diagnosticContext?.detailsFetched).toBe(0);
   });

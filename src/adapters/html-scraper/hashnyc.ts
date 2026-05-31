@@ -110,9 +110,23 @@ export function extractMonthDay(
 
 /**
  * Extract kennel tag from the details cell text.
- * Two-stage: anchored to start → anywhere in text → fallback to NYCH3.
+ * Designation-first: the run designation ("NAWW #298", "Special #137") is the
+ * authoritative series label hashnyc.com assigns, and it lives in the SUFFIX.
+ * Anchoring on leading event-name words mis-bucketed "New Amsterdam Winter
+ * Wednesday AGM! - NAWW #298" → nah3 and "Drinking Practice - Special #137" →
+ * drinking-practice-nyc (#1855 / #1859), because the NAME starts with another
+ * kennel's words. Resolve the designation's kennel first; only fall back to the
+ * anchored → contextual → NYCH3 chain when no designation is present.
  */
 export function extractKennelTag(text: string): string {
+  // Stage 0: Authoritative run designation (trailing "<kennel> #<run>")
+  const designation = extractRawDesignation(text);
+  if (designation) {
+    for (const [pattern, tag] of ANCHORED_PATTERNS) {
+      if (pattern.test(designation)) return tag;
+    }
+  }
+
   // Stage 1: Anchored to start of text
   for (const [pattern, tag] of ANCHORED_PATTERNS) {
     if (pattern.test(text)) return tag;

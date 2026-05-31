@@ -1352,6 +1352,13 @@ async function upsertCanonicalEvent(
         sourceUrl: event.sourceUrl,
         eventKennels: { some: { kennelId } },
         runNumber: event.runNumber,
+        // #1848 — sub-letter discriminator. Mijas-style kennels reuse one base
+        // run number across two dated sub-runs (1999a / 1999b) on a fixed
+        // hareline `sourceUrl`. Without this, the second sub-run "date-corrects"
+        // (moves) the first's canonical instead of staying distinct. `?? null`
+        // keeps the normal case unchanged: label-less events (undefined → null)
+        // still match the existing label-less canonicals (#1613/#1648/#1643).
+        eventLabel: event.eventLabel ?? null,
         date: {
           gte: new Date(eventDate.getTime() - windowMs),
           lte: new Date(eventDate.getTime() + windowMs),

@@ -84,6 +84,13 @@ Detection / gotchas for the content-page variant:
   undefined. Set `config.upcomingOnly: true` (a rolling hareline prunes old months → protects
   reconcile).
 - **Logo** is the usual tokenized `images.squarespace-cdn.com/.../<hash>/logo.<ext>` → self-host.
+- **Sub-letter run numbers** (`1999a`/`1999b`): when two trails share a base run number on different
+  dates (a Memorial Run squeezed in, an away-weekend split), keep the base integer in `runNumber`
+  and emit the suffix as **`eventLabel`** (`"a"`/`"b"`). Dropping the suffix collapses both rows to
+  `(sourceUrl, runNumber)`; since a content-page hareline emits a single fixed page `sourceUrl`, the
+  merge same-sourceUrl date-correction then "moves" one onto the other's date and deletes a real
+  event (Mijas #1848). The date-correction probe co-matches on `eventLabel`, so the label keeps them
+  distinct. `parseRunLabel` in `mijas-hash.ts` is the reference.
 
 #### 🔴 Third pattern — separate "Run Reports" / archive collection (learned from Mijas H3, 2026-05-30)
 
@@ -112,3 +119,25 @@ available"; the same site had `/run-reports` with **389 events back to 2005** (a
 - **`location` is tri-state in backfill.** `cleanLocationName()` returns `null` for "TBD" / unknown;
   preserve that null (don't coerce to empty string), so the merge pipeline can display "venue TBD"
   properly.
+
+---
+
+## Ghost blog — the run descriptor lives in the post TITLE (learned from Bali Hash 2, 2026-05-30)
+
+Ghost-hosted kennels (balihash2.com) publish one post per run with a **structured title**:
+`Bali Hash 2 Next Run Map - #NNNN - <location> - D-MMM-YY`. The home page lists ~12–22 recent
+posts as `article.gh-card` / `a.gh-card-link`; the detail page (`section.gh-content`) adds GPS,
+hares, and a per-tier fee table.
+
+- **Parse the title for the `title` field**, not just the run number. The middle `<location>`
+  segment is the source's own per-run descriptor — slice off the `…#NNNN - ` prefix and the trailing
+  ` - D-MMM-YY` date (index slicing + a date regex, no `.*?`/`\s*` shapes → Sonar S5852-safe).
+  Leaving it on the synthesized `<Kennel> Trail #N` default is the `stale-default-title` finding
+  (Bali #1838). `parseBaliTitle` in `bali-hash-2.ts` is the reference.
+- **The home page is recent-only** → set `config.upcomingOnly: true` and drive deep history from a
+  one-shot `scripts/backfill-<code>-history.ts` that walks `/page/N/` reusing the adapter's own
+  `parseListingCards`/`buildEvent` (no parser fork — the title fix lands in the backfill for free).
+- **Corrected reposts** get a `…-2` slug published later (higher on the reverse-chron listing);
+  dedupe by run number keeping the first DOM occurrence so the correction wins.
+- **`hashCash`** is a per-tier fee table in every post body, not a single value — capture verbatim
+  (`Members Rp.X / Non-drinkers Rp.Y / Visitors Rp.Z / Kids <15 Rp.W`).
