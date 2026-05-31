@@ -744,16 +744,22 @@ describe("fetchEventDetail", () => {
 // ── Detail-fetch failures surface in errorDetails (codex follow-up) ──
 
 describe("PhoenixHHHAdapter.fetch — detail-fetch failures are visible", () => {
-  it("records detail-fetch failures in errorDetails.fetch (bounded sample)", async () => {
-    // Pin the clock to a mid-month date (fake only `Date`, leaving real
-    // timers so the async fetch mocks still resolve). Near a month boundary
-    // the adapter issues a SECOND month-AJAX fetch for the next month, which
-    // the single mockResolvedValueOnce below doesn't cover — it would fall
-    // through to the 503 mockImplementation and surface a "Month N: HTTP 503"
-    // error as fetch[0] instead of the detail-fetch error this test asserts.
+  // Pin the clock to a mid-month date before each test (fake only `Date`,
+  // leaving real timers so async fetch mocks still resolve). Near a month
+  // boundary the adapter issues a SECOND month-AJAX fetch for the next month,
+  // which the single mockResolvedValueOnce below doesn't cover — it would fall
+  // through to the 503 mockImplementation and surface a "Month N: HTTP 503"
+  // error as fetch[0] instead of the detail-fetch error this test asserts.
+  // Cleanup in afterEach guarantees restoration even if a test throws.
+  beforeEach(() => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date(Date.UTC(2026, 5, 15, 12, 0, 0)));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
 
+  it("records detail-fetch failures in errorDetails.fetch (bounded sample)", async () => {
     // Build a fixture with TODAY's (pinned) date so it falls inside the
     // adapter's date window.
     const now = new Date();
@@ -788,7 +794,6 @@ describe("PhoenixHHHAdapter.fetch — detail-fetch failures are visible", () => 
 
     const result = await adapter.fetch(source, { days: 1 });
     vi.restoreAllMocks();
-    vi.useRealTimers();
 
     // Events still parse (list-view fallback).
     expect(result.events.length).toBeGreaterThan(0);
