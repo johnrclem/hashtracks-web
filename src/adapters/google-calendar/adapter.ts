@@ -678,6 +678,63 @@ export function extractLocationFromDescription(description: string): string | un
 }
 
 /**
+ * #1827 — some kennel admins type the venue into the GCal LOCATION field and
+ * then paste a chunk of the run description (parking / navigation notes) right
+ * after it with NO separator, e.g.
+ *   location:    "Holiday Inn Austin-Town Lake by IHGUnder I35 by Holiday Inn Townlake"
+ *   description: "…Bring money and ID. Park under I35 by Holiday Inn Townlake."
+ * The trailing run ("Under I35 by Holiday Inn Townlake") is a verbatim echo of
+ * the description that got glued onto the venue mid-word ("IHG│Under"). Left
+ * intact it both leaks description text into the venue name and defeats
+ * geocoding.
+ *
+ * Strip the longest trailing slice of `location` that:
+ *   (a) begins at a GLUED-WORD boundary in the location: the char before the cut
+ *       is alphanumeric (no separator) AND the char at the cut is an UPPERCASE
+ *       letter. That's the fingerprint of the no-separator glue ("IHG│Under") —
+ *       a capitalised word jammed onto the venue. The uppercase requirement is
+ *       what keeps a single lowercase-continuing word intact: "Westin Hotel …"
+ *       would cut at "West│in", but 'i' is lowercase so it's rejected (likewise
+ *       "Eastman"→"East", "Northbound"→"North"); and
+ *   (b) appears in `description` at a WORD BOUNDARY (case-insensitive). The
+ *       boundary check on the description side rejects coincidental sub-token
+ *       matches: "Smith Park near the river" would otherwise cut at "n│ear the
+ *       river" because "ear the river" is a substring of "near the river", but
+ *       there that match is preceded by a word char, so it's discarded.
+ * Pure string ops — no regex over the input (ReDoS-safe, Sonar S5852/S5843).
+ */
+export function stripGluedDescriptionEcho(
+  location: string,
+  description: string | null | undefined,
+): string {
+  if (!location || !description) return location;
+  const locLower = location.toLowerCase();
+  const descLower = description.toLowerCase();
+  const isWordChar = (ch: string) => (ch >= "a" && ch <= "z") || (ch >= "0" && ch <= "9");
+  const isUpper = (ch: string) => ch >= "A" && ch <= "Z";
+  const echoesAtWordBoundary = (needle: string): boolean => {
+    let from = descLower.indexOf(needle);
+    while (from !== -1) {
+      if (from === 0 || !isWordChar(descLower[from - 1])) return true;
+      from = descLower.indexOf(needle, from + 1);
+    }
+    return false;
+  };
+  // Ascending i ⇒ the first qualifying cut is the LONGEST echoed suffix.
+  for (let i = 1; i < location.length; i++) {
+    if (!isWordChar(locLower[i - 1]) || !isUpper(location[i])) continue;
+    const candidate = locLower.slice(i);
+    if (candidate.length < 12) break; // remaining tails only get shorter
+    if (!echoesAtWordBoundary(candidate)) continue;
+    const removed = location.slice(i).trim();
+    if (removed.split(/\s+/).length < 2) return location;
+    const head = location.slice(0, i).trim();
+    return head.length >= 4 ? head : location;
+  }
+  return location;
+}
+
+/**
  * Extract a start time from the event description when `item.start.dateTime` yields no time.
  * Parses common label patterns (Pack Meet:, Circle:, Time:, Start:, When:, Chalk Talk:).
  *
@@ -1302,6 +1359,20 @@ export function buildRawEventFromGCalItem(
   // raw GCal location field. Trailing only — a bare "1 800 ..." in the middle
   // of a street fragment would otherwise be shredded.
   let location = item.location ? stripNonEnglishCountry(decodeEntities(item.location).trim()) : undefined;
+  // #1843 — some calendars (Kahuna/OKH3) paste a pre-built Google Maps URL into
+  // the LOCATION field and then append the run description after it. A
+  // well-formed URL contains no raw whitespace, so the run from the first
+  // whitespace char on is leaked description text — clip it before this value
+  // flows through to `locationUrl` (where `locationIsUrl` stores it verbatim).
+  // Only clip when the trailing run actually looks like prose (≥3 consecutive
+  // letters) so a hand-pasted coordinate URL with a raw space ("?q=30.2, -97.7")
+  // keeps its longitude rather than being truncated at the comma-space.
+  if (location && /^https?:\/\//i.test(location)) {
+    const wsIdx = location.search(/\s/);
+    if (wsIdx !== -1 && /[A-Za-z]{3,}/.test(location.slice(wsIdx))) {
+      location = location.slice(0, wsIdx).trim() || undefined;
+    }
+  }
   let latitude: number | undefined;
   let longitude: number | undefined;
   // When `item.location` is a coord-only string (decimal or DMS), parse it
@@ -1333,6 +1404,12 @@ export function buildRawEventFromGCalItem(
     location = undefined;
   }
   if (location && (isPlaceholder(location) || isNonAddressText(location))) location = undefined;
+  // #1827 — strip description text glued onto the venue without a separator
+  // (e.g. "…by IHGUnder I35 by Holiday Inn Townlake"). URLs are exempt — the
+  // #1843 clip above already handles the Maps-URL leak shape.
+  if (location && !/^https?:\/\//i.test(location)) {
+    location = stripGluedDescriptionEcho(location, rawDescription) || undefined;
+  }
   if (!location && rawDescription) {
     location = extractLocationFromDescription(rawDescription);
   }
