@@ -34,6 +34,7 @@ import { PrismaClient, type Prisma } from "@/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { createScriptPool } from "./lib/db-pool";
 import { googleMapsSearchUrl } from "@/adapters/utils";
+import { composeVenueTitle } from "@/adapters/html-scraper/onh3";
 import { generateFingerprint } from "@/pipeline/fingerprint";
 import type { RawEventData } from "@/adapters/types";
 
@@ -143,6 +144,9 @@ function rowToEvent(row: HistoryRow): RawEventData {
     date: row.date,
     kennelTags: [KENNEL_TAG],
     runNumber: row.runNumber,
+    // Venue (+ area) title repaints the stale "ONH3 Trail #N" placeholder on
+    // re-run via the merge UPDATE path (#1862); shares the adapter helper.
+    title: composeVenueTitle(row.venue, row.area),
     hares: row.hares,
     location: row.venue,
     locationUrl: venueQuery ? googleMapsSearchUrl(`${venueQuery} Nairobi Kenya`) : undefined,

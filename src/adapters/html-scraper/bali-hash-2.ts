@@ -12,6 +12,7 @@ import {
   normalizeHaresField,
   parse12HourTime,
   stripHtmlTags,
+  trimEdgeChars,
 } from "../utils";
 
 /**
@@ -61,9 +62,34 @@ export interface BaliListingEntry {
   date?: string;
   startTime?: string;
   location?: string;
+  /** Run descriptor from the post title (the location name the source titles
+   *  the post with) — `undefined` when the title doesn't parse. See #1838. */
+  title?: string;
   url: string;
   /** DOM order on the listing (0 = newest, reverse-chronological). */
   domIndex: number;
+}
+
+/** Edge characters trimmed off a parsed title segment (separators + space). */
+const TITLE_EDGE_CHARS = " \t\n-–—:";
+
+/**
+ * Parse the descriptive run title from a post title of the form
+ *   `Bali Hash 2 Next Run Map - #NNNN - <location> - D-MMM-YY`
+ * Returns the `<location>` middle segment (the source's own per-run descriptor)
+ * or undefined. Without this the adapter discards the title and merge.ts
+ * synthesizes the placeholder "Bali Hash 2 Trail #N" (#1838). Implemented with
+ * index slicing + `RUN_DATE_RE` (no `.*?`/`\s*` alternation) to stay S5852-safe.
+ */
+export function parseBaliTitle(postTitle: string): string | undefined {
+  const hash = /#\d+/.exec(postTitle);
+  if (!hash || hash.index === undefined) return undefined;
+  let rest = postTitle.slice(hash.index + hash[0].length);
+  // Drop the trailing ` - D-MMM-YY` date the source appends.
+  const date = RUN_DATE_RE.exec(rest);
+  if (date && date.index !== undefined) rest = rest.slice(0, date.index);
+  const cleaned = trimEdgeChars(rest, TITLE_EDGE_CHARS);
+  return cleaned.length > 0 ? cleaned : undefined;
 }
 
 /** Detail-page enrichment fields. */
@@ -142,6 +168,7 @@ export function parseListingCards(html: string): BaliListingEntry[] {
       date: parseBaliDate(excerpt) ?? parseBaliDate(title),
       startTime: parseStartTime(excerpt),
       location: parseLocation(excerpt),
+      title: parseBaliTitle(title),
       url,
       domIndex: domIndex++,
     });
@@ -229,7 +256,9 @@ export function buildEvent(entry: BaliListingEntry, detail: BaliDetailFields | n
     date: entry.date!,
     kennelTags: [KENNEL_TAG],
     runNumber: entry.runNumber,
-    // title left undefined → merge.ts synthesizes "Bali Hash 2 Trail #N".
+    // Descriptor from the post title (#1838); undefined → merge.ts synthesizes
+    // "Bali Hash 2 Trail #N".
+    title: entry.title,
     startTime: detail?.startTime ?? entry.startTime,
     location,
     locationUrl: location ? googleMapsSearchUrl(location) : undefined,

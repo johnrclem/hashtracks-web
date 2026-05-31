@@ -5,6 +5,7 @@ import {
   parseLabeledFields,
   parseOnh3Title,
   deriveTheme,
+  composeVenueTitle,
   postToEvent,
   parseHarelineTable,
 } from "./onh3";
@@ -89,6 +90,25 @@ describe("parseOnh3Title / deriveTheme", () => {
   });
 });
 
+describe("composeVenueTitle", () => {
+  it("returns the venue alone when no area", () => {
+    expect(composeVenueTitle("Kingfisher")).toBe("Kingfisher");
+  });
+  it("appends a distinct area in parens", () => {
+    expect(composeVenueTitle("Kingfisher", "Westlands")).toBe("Kingfisher (Westlands)");
+  });
+  it("omits a duplicate area (case-insensitive)", () => {
+    expect(composeVenueTitle("Karen", "karen")).toBe("Karen");
+  });
+  it.each([
+    [undefined, "Westlands"],
+    [null, "Westlands"],
+    ["", "Westlands"],
+  ])("returns undefined with no venue (%s)", (venue, area) => {
+    expect(composeVenueTitle(venue, area)).toBeUndefined();
+  });
+});
+
 describe("postToEvent", () => {
   // Captured live 2026-05-29 from the WordPress.com REST API (run 1326 post).
   const RUN_1326 = post(
@@ -111,7 +131,9 @@ describe("postToEvent", () => {
     expect(ev.locationUrl).toMatch(/maps\.app\.goo\.gl/);
     expect(ev.startTime).toBe("17:45");
     expect(ev.kennelTags).toEqual(["onh3"]);
-    expect(ev.title).toBeUndefined(); // no theme → merge synthesizes the canonical title
+    // No theme on this title → fall back to the venue rather than the
+    // synthesized "ONH3 Trail #N" placeholder (#1862).
+    expect(ev.title).toBe("Spring Valley Oven Restaurant");
   });
 
   it("handles per-block fields and stops the venue before an unlabeled recap", () => {
@@ -213,12 +235,15 @@ describe("parseHarelineTable", () => {
       runNumber: 1340,
       hares: "Glossy",
       location: "Matteo’s Italian Restaurant",
+      title: "Matteo’s Italian Restaurant (Karen)", // venue (+ area) title (#1862)
       startTime: "17:45",
       kennelTags: ["onh3"],
     });
   });
 
-  it("includes a row dated exactly today", () => {
-    expect(parseHarelineTable(TABLE, "2026-01-05").map((e) => e.runNumber)).toContain(1314);
+  it("includes a row dated exactly today and extracts its Hare column (#1863)", () => {
+    const row = parseHarelineTable(TABLE, "2026-01-05").find((e) => e.runNumber === 1314);
+    expect(row).toBeDefined();
+    expect(row!.hares).toBe("STFU & Blown Fuse"); // Hare column promoted to haresText
   });
 });

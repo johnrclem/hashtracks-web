@@ -4968,4 +4968,57 @@ describe("same-sourceUrl date-correction dedup (#1613 / #1648)", () => {
     );
     expect(phantomUpdate).toBeUndefined();
   });
+
+  it("Mijas-shape: distinct eventLabel prevents collapse of two same-run-number sub-runs (#1848)", async () => {
+    // 1999a (label "a") and 1999b (label "b") share a fixed hareline sourceUrl
+    // and base runNumber 1999 on dates 7d apart. The probe must filter on the
+    // incoming label so 1999a never date-corrects (moves) a 1999b canonical.
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([]); // cache prefetch empty
+    // Probe finds no candidate sharing label "a" (the only canonical is "b").
+    vi.mocked(prisma.event.findFirst).mockResolvedValueOnce(null);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_1999a"));
+
+    const result = await processRawEvents("src_mijas", [
+      buildRawEvent({
+        date: "2026-01-04",
+        kennelTags: ["mijash3"],
+        sourceUrl: "https://www.mijash3.com/hareline",
+        runNumber: 1999,
+        eventLabel: "a",
+      }),
+    ]);
+
+    // No collapse — 1999a is created as its own event.
+    expect(result.created).toBe(1);
+    expect(result.updated).toBe(0);
+    const probeWhere = (vi.mocked(prisma.event.findFirst).mock.calls[0][0] as {
+      where: { eventLabel: string | null; runNumber: number };
+    }).where;
+    expect(probeWhere.runNumber).toBe(1999);
+    expect(probeWhere.eventLabel).toBe("a"); // same-label only
+  });
+
+  it("non-regression: a label-less event probes eventLabel:null (matches existing canonicals)", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([]);
+    mockEventFindMany.mockResolvedValueOnce([]);
+    vi.mocked(prisma.event.findFirst).mockResolvedValueOnce(buildCorrectionCandidate());
+    mockEventUpdate.mockResolvedValueOnce(eventRow("evt_phantom"));
+
+    await processRawEvents("src_sfh3_html", [
+      buildRawEvent({
+        date: "2026-05-09",
+        kennelTags: ["marinh3"],
+        sourceUrl: "https://www.sfh3.com/runs/6443",
+        runNumber: 291,
+        // no eventLabel
+      }),
+    ]);
+
+    const probeWhere = (vi.mocked(prisma.event.findFirst).mock.calls[0][0] as {
+      where: { eventLabel: string | null };
+    }).where;
+    expect(probeWhere.eventLabel).toBeNull(); // undefined → null preserves legacy match
+  });
 });

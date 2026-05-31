@@ -4327,6 +4327,7 @@ export const KENNELS: KennelSeed[] = [
       region: "Nairobi", country: "Kenya",
       website: "https://onh3.wordpress.com/",
       facebookUrl: "https://www.facebook.com/groups/onhhh/",
+      contactEmail: "onh3mismanagement@gmail.com",
       logoUrl: "/kennel-logos/onh3.jpg",
       foundedYear: 2000,
       scheduleDayOfWeek: "Monday", scheduleTime: "5:45 PM", scheduleFrequency: "Weekly",
@@ -4341,7 +4342,7 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "bali-hash-2", shortName: "Bali Hash 2", fullName: "Bali Hash House Harriers 2",
       region: "Bali", country: "Indonesia",
       website: "https://balihash2.com",
-      facebookUrl: "https://www.facebook.com/BaliHash2",
+      facebookUrl: "https://www.facebook.com/groups/balihash2/",
       twitterHandle: "balihash2",
       logoUrl: "/kennel-logos/bali-hash-2.png",
       gm: "Gritty Balls", hareRaiser: "Skanky Toe",
@@ -4364,7 +4365,7 @@ export const KENNELS: KennelSeed[] = [
       scheduleNotes:
         "Time varies seasonally (summer 'Short n Sweet' runs ~15:00; winter earlier). Originally Mondays at founding (1989), now Sundays.",
       facebookUrl: "https://www.facebook.com/groups/MijasHHH",
-      contactEmail: "5ksmh3@gmail.com",
+      contactEmail: "info@mijash3.com",
       foundedYear: 1989,
       description:
         "The Costa del Sol 'Burro Hash' — a drinking club with a running problem. Founded in 1989 by 'Flakey' (ex-Pattaya H3), Mijas HHH runs every Sunday across the hills and coast of Andalucía. 30+ years and 2000+ runs on.",

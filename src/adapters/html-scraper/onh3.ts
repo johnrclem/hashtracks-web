@@ -2,7 +2,7 @@ import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
-import { stripHtmlTags, decodeEntities, googleMapsSearchUrl, MONTHS, extractHashRunNumber, stripPlaceholder } from "../utils";
+import { stripHtmlTags, decodeEntities, googleMapsSearchUrl, MONTHS, extractHashRunNumber, stripPlaceholder, trimEdgeChars } from "../utils";
 import { safeFetch } from "../safe-fetch";
 
 /**
@@ -125,15 +125,6 @@ export function parseOnh3Title(title: string): { runNumber?: number; theme?: str
 
 const THEME_EDGE_CHARS = " \t\n.-–|";
 
-/** Trim leading/trailing separator chars without a regex (ReDoS-safe). */
-function trimEdgeChars(s: string): string {
-  let lo = 0;
-  let hi = s.length;
-  while (lo < hi && THEME_EDGE_CHARS.includes(s[lo])) lo++;
-  while (hi > lo && THEME_EDGE_CHARS.includes(s[hi - 1])) hi--;
-  return s.slice(lo, hi);
-}
-
 /**
  * Derive a human theme from the title, or undefined. Leaving it undefined lets
  * merge.ts synthesize the canonical "ONH3 Trail #N" title (a theme must never
@@ -146,7 +137,7 @@ export function deriveTheme(title: string): string | undefined {
     .replace(RUN_NUMBER_RE, "");
   // Trim leading/trailing separators procedurally — a `^[…]+|[…]+$` regex trips
   // SonarCloud's ReDoS heuristic (S5852) even though it's linear here.
-  const cleaned = trimEdgeChars(stripped);
+  const cleaned = trimEdgeChars(stripped, THEME_EDGE_CHARS);
   if (cleaned.length === 0) return undefined;
   // A remainder carrying labeled fields ("Hare: …", "Venue: …") is not a theme.
   if (/\b(?:Hares?|Venue|Date|Location)\s*:/i.test(cleaned)) return undefined;
@@ -163,6 +154,23 @@ function cleanVenue(venue: string | undefined): string | undefined {
   if (!venue) return undefined;
   const period = venue.indexOf(". ");
   return period >= 15 ? venue.slice(0, period).trim() : venue;
+}
+
+/**
+ * Compose an event title from the venue (and optional area) when the source
+ * carries no theme — e.g. the Hareline table's Venue column. Without this,
+ * every hareline-sourced run falls back to the synthesized "ONH3 Trail #N"
+ * placeholder even though the venue is known (#1862). Returns undefined when
+ * there's no venue, so a truly bare row still synthesizes the default.
+ */
+export function composeVenueTitle(
+  venue: string | undefined | null,
+  area?: string | undefined | null,
+): string | undefined {
+  const v = venue?.trim();
+  if (!v) return undefined;
+  const a = area?.trim();
+  return a && a.toLowerCase() !== v.toLowerCase() ? `${v} (${a})` : v;
 }
 
 function flatten(html: string): string {
@@ -208,7 +216,9 @@ export function postToEvent(post: WPComPost): RawEventData | null {
     date,
     kennelTags: [KENNEL_TAG],
     runNumber,
-    title: theme,
+    // Real theme wins; otherwise fall back to the venue so a venue-only post
+    // gets a descriptive title instead of the synthesized "ONH3 Trail #N" (#1862).
+    title: theme ?? composeVenueTitle(venue),
     hares,
     location: venue,
     locationUrl,
@@ -249,6 +259,9 @@ export function parseHarelineTable(post: WPComPost, today: string): RawEventData
       date,
       kennelTags: [KENNEL_TAG],
       runNumber,
+      // Venue (+ area) title so hareline rows aren't stuck on the synthesized
+      // "ONH3 Trail #N" placeholder (#1862); undefined when the row has no venue.
+      title: composeVenueTitle(venue, area),
       hares,
       location: venue,
       locationUrl: venueQuery ? googleMapsSearchUrl(`${venueQuery} Nairobi Kenya`) : undefined,

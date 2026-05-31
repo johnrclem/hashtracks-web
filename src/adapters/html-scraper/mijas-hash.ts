@@ -38,12 +38,26 @@ const FIELD_DELIM_RE = /(?<=\s)-|-(?=\s)/;
 
 /**
  * Parse the leading run number, dropping any `a`/`b` away-weekend suffix
- * (e.g. `1999a`/`1999b` share base #1999; kennel+date dedup keeps the two
- * days distinct). Returns null when the segment isn't a run number.
+ * (e.g. `1999a`/`1999b` share base #1999). Returns null when the segment
+ * isn't a run number. The suffix is preserved separately via `parseRunLabel`
+ * and emitted as `eventLabel` so the two sub-runs stay distinct events.
  */
 export function parseRunNumber(token: string): number | null {
   const match = token.trim().match(/^(\d+)[ab]?\b/);
   return match ? parseInt(match[1], 10) : null;
+}
+
+/**
+ * Parse the `a`/`b` sub-letter that Mijas appends when two trails share a base
+ * run number on different dates (e.g. `1999a` Memorial Run + `1999b` the week
+ * after — issue #1848). Returned as `eventLabel`; without it both rows collapse
+ * to `(sourceUrl, runNumber=1999)` and the merge same-sourceUrl date-correction
+ * moves one onto the other's date, dropping a real event. Returns undefined for
+ * a plain integer run number.
+ */
+export function parseRunLabel(token: string): string | undefined {
+  const match = token.trim().match(/^\d+([ab])\b/);
+  return match ? match[1] : undefined;
 }
 
 /**
@@ -80,6 +94,7 @@ export function parseHarelineLine(
   if (!date) return null;
 
   const runNumber = parseRunNumber(trimmed);
+  const eventLabel = parseRunLabel(trimmed);
 
   const remainder = trimmed.slice(dateMatch.index + dateMatch[0].length);
   const tokens = remainder.split(FIELD_DELIM_RE).map((t) => t.trim());
@@ -91,6 +106,10 @@ export function parseHarelineLine(
     date,
     kennelTags: [KENNEL_TAG],
     runNumber: runNumber ?? undefined,
+    // `a`/`b` sub-letter (#1848). Distinguishes two same-run-number trails on
+    // different dates so the merge date-correction doesn't collapse them; only
+    // emitted when a suffix is present, so normal rows fingerprint unchanged.
+    eventLabel,
     // Leave title undefined when there's no real theme — merge.ts synthesizes
     // "Mijas H3 Trail #N". Never let a hare name become the title.
     title: theme.length > 0 ? theme : undefined,
