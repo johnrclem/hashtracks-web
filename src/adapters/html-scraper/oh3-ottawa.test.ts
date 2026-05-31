@@ -286,7 +286,7 @@ describe("Oh3OttawaAdapter", () => {
       `),
       structureHash: "ampersand-mix",
       fetchDurationMs: 120,
-    } as FetchHTMLSuccess);
+    } satisfies FetchHTMLSuccess);
 
     const result = await adapter.fetch(mockSource);
     expect(result.errors).toHaveLength(0);

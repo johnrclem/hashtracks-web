@@ -55,7 +55,8 @@ async function collect(prisma: PrismaClient): Promise<FieldPatch[]> {
 
   const patches: FieldPatch[] = [];
   for (const e of events) {
-    const city = e.runNumber != null ? cityByRun.get(e.runNumber) : undefined;
+    if (e.runNumber == null) continue;
+    const city = cityByRun.get(e.runNumber);
     if (city && norm(city) === norm(e.description)) {
       patches.push({ kennelLabel: kennel.shortName, eventId: e.id, field: "description", before: e.description, after: null });
     }
