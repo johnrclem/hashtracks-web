@@ -52,6 +52,60 @@ function isoDate(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
+type CleanupOutcome = "reassigned" | "deletedDup" | "skippedDependent";
+
+interface TargetEvent {
+  id: string;
+  date: Date;
+  title: string | null;
+  runNumber: number | null;
+  status: string;
+}
+
+/**
+ * Process one misrouted oh3 Kahuna event: delete it if okh3 already has a
+ * same-date event (true dup, only when it carries no dependent rows), otherwise
+ * reassign it to okh3. Returns which branch ran (for the run tally).
+ */
+async function processTarget(e: TargetEvent, oh3: string, okh3: string): Promise<CleanupOutcome> {
+  const dupOnOkh3 = await prisma.event.findFirst({
+    where: { kennelId: okh3, date: e.date, id: { not: e.id } },
+    select: { id: true },
+  });
+
+  if (dupOnOkh3) {
+    // Only an Event with no dependent rows can be hard-deleted: KennelAttendance
+    // and EventHare have RESTRICT FKs (no cascade), so delete() would throw.
+    const [kennelAtt, hares] = await Promise.all([
+      prisma.kennelAttendance.count({ where: { eventId: e.id } }),
+      prisma.eventHare.count({ where: { eventId: e.id } }),
+    ]);
+    if (kennelAtt > 0 || hares > 0) {
+      console.log(`  SKIP   ${isoDate(e.date)} "${e.title}" — dup of okh3 ${dupOnOkh3.id} but has dependent rows (kennelAtt=${kennelAtt}, hares=${hares}); needs manual merge`);
+      return "skippedDependent";
+    }
+    console.log(`  DELETE ${isoDate(e.date)} "${e.title}" — duplicate of okh3 event ${dupOnOkh3.id}`);
+    if (APPLY) {
+      await prisma.$transaction([
+        prisma.eventLink.deleteMany({ where: { eventId: e.id } }),
+        prisma.event.delete({ where: { id: e.id } }), // EventKennel cascades
+      ]);
+    }
+    return "deletedDup";
+  }
+
+  console.log(`  MOVE   ${isoDate(e.date)} "${e.title}" oh3 → okh3 (run=${e.runNumber ?? "—"}, status ${e.status}→CONFIRMED)`);
+  if (APPLY) {
+    // Shared composite-PK-safe swap (handles the okh3-already-co-host case);
+    // same helper the other cross-kennel conflation fixers use.
+    await reassignEventKennel(prisma, e.id, oh3, okh3);
+    if (e.status !== "CONFIRMED") {
+      await prisma.event.update({ where: { id: e.id }, data: { status: "CONFIRMED" } });
+    }
+  }
+  return "reassigned";
+}
+
 async function main() {
   const kennels = await prisma.kennel.findMany({
     where: { kennelCode: { in: ["oh3", "okh3"] } },
@@ -93,51 +147,12 @@ async function main() {
     console.log(`  SKIP   ${isoDate(e.date)} "${e.title}" (att=${e._count.attendances}, adminLock=${!!e.adminCancelledAt})`);
   }
 
-  let reassigned = 0;
-  let deletedDup = 0;
-  let skippedDependent = 0;
+  const counts: Record<CleanupOutcome, number> = { reassigned: 0, deletedDup: 0, skippedDependent: 0 };
   for (const e of targets) {
-    const dupOnOkh3 = await prisma.event.findFirst({
-      where: { kennelId: okh3, date: e.date, id: { not: e.id } },
-      select: { id: true, status: true },
-    });
-
-    if (dupOnOkh3) {
-      // Only an Event with no dependent rows can be hard-deleted: KennelAttendance
-      // and EventHare have RESTRICT FKs (no cascade), so delete() would throw.
-      const [kennelAtt, hares] = await Promise.all([
-        prisma.kennelAttendance.count({ where: { eventId: e.id } }),
-        prisma.eventHare.count({ where: { eventId: e.id } }),
-      ]);
-      if (kennelAtt > 0 || hares > 0) {
-        console.log(`  SKIP   ${isoDate(e.date)} "${e.title}" — dup of okh3 ${dupOnOkh3.id} but has dependent rows (kennelAtt=${kennelAtt}, hares=${hares}); needs manual merge`);
-        skippedDependent++;
-        continue;
-      }
-      console.log(`  DELETE ${isoDate(e.date)} "${e.title}" — duplicate of okh3 event ${dupOnOkh3.id}`);
-      if (APPLY) {
-        await prisma.$transaction([
-          prisma.eventLink.deleteMany({ where: { eventId: e.id } }),
-          prisma.event.delete({ where: { id: e.id } }), // EventKennel cascades
-        ]);
-      }
-      deletedDup++;
-      continue;
-    }
-
-    console.log(`  MOVE   ${isoDate(e.date)} "${e.title}" oh3 → okh3 (run=${e.runNumber ?? "—"}, status ${e.status}→CONFIRMED)`);
-    if (APPLY) {
-      // Shared composite-PK-safe swap (handles the okh3-already-co-host case);
-      // same helper the other cross-kennel conflation fixers use.
-      await reassignEventKennel(prisma, e.id, oh3, okh3);
-      if (e.status !== "CONFIRMED") {
-        await prisma.event.update({ where: { id: e.id }, data: { status: "CONFIRMED" } });
-      }
-    }
-    reassigned++;
+    counts[await processTarget(e, oh3, okh3)]++;
   }
 
-  console.log(`[cleanup] done — reassigned=${reassigned}, deletedDup=${deletedDup}, skippedDependent=${skippedDependent}${APPLY ? "" : " (dry-run, no writes)"}`);
+  console.log(`[cleanup] done — reassigned=${counts.reassigned}, deletedDup=${counts.deletedDup}, skippedDependent=${counts.skippedDependent}${APPLY ? "" : " (dry-run, no writes)"}`);
 }
 
 main()

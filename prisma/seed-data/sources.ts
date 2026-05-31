@@ -2300,14 +2300,14 @@ export const SOURCES = [
         // Anchored so joint co-host titles led by the local kennel ("OH3 #1336
         // / Kahuna combo") are NOT skipped — they stay on oh3.
         skipPatterns: [
-          "^NNH3\\b",
-          "^N2H3\\b",
-          "^No Name\\b",
-          "^Kahuna\\b",
-          "^Ka3na\\b",
-          "^Katuna\\b",
-          "^Kah-Two-Na\\b",
-          "^Ka-Three-Na\\b",
+          String.raw`^NNH3\b`,
+          String.raw`^N2H3\b`,
+          String.raw`^No Name\b`,
+          String.raw`^Kahuna\b`,
+          String.raw`^Ka3na\b`,
+          String.raw`^Katuna\b`,
+          String.raw`^Kah-Two-Na\b`,
+          String.raw`^Ka-Three-Na\b`,
         ],
       },
       kennelCodes: ["oh3", "tgif", "cch3-or"],
