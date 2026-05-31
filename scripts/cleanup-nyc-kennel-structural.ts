@@ -170,5 +170,5 @@ async function main() {
 
 main().catch((err: unknown) => {
   console.error("FAILED:", err instanceof Error ? err.message : String(err));
-  process.exit(1);
+  process.exitCode = 1;
 });
