@@ -86,9 +86,11 @@ function normalizeDescription(raw: string | undefined): string | undefined {
  * when no real start time was recorded).
  */
 export function parseHashStatsDateTime(
-  raw: string | undefined,
+  raw: unknown,
 ): { date: string; startTime?: string } | null {
-  const m = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?/.exec((raw ?? "").trim());
+  // The payload is cast from `unknown`, so a non-string EVENT_DATE is possible.
+  if (typeof raw !== "string") return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?/.exec(raw.trim());
   if (!m) return null;
 
   const year = Number(m[1]);
@@ -129,11 +131,14 @@ export function parseHashStatsDateTime(
  * (not extractHashRunNumber, which is for free-form `#NNN` text).
  */
 export function mapHashStatsRow(
-  row: HashStatsRow,
+  row: HashStatsRow | null | undefined,
   kennelTag: string,
   baseUrl: string,
   externalSlug: string,
 ): RawEventData | null {
+  // aaData is cast from `unknown` — a null / non-object element would otherwise
+  // throw on property access. Treat it as an unparseable row (caller logs + skips).
+  if (row == null || typeof row !== "object") return null;
   const parsed = parseHashStatsDateTime(row.EVENT_DATE);
   if (!parsed) return null;
 
@@ -251,8 +256,9 @@ export class HashStatsAdapter implements SourceAdapter {
       return { events: [], errors: [msg], errorDetails: { fetch: [{ message: msg }] } };
     }
 
+    // baseUrl comes from a config cast from `unknown`; tolerate a non-string.
     // Strip trailing slashes procedurally (avoids a regex ReDoS hotspot).
-    let baseUrl = config.baseUrl ?? DEFAULT_BASE_URL;
+    let baseUrl = typeof config.baseUrl === "string" ? config.baseUrl : DEFAULT_BASE_URL;
     while (baseUrl.endsWith("/")) baseUrl = baseUrl.slice(0, -1);
     const days = options?.days ?? source.scrapeDays ?? 365;
 
@@ -269,15 +275,24 @@ export class HashStatsAdapter implements SourceAdapter {
       apiRowsReturned += result.rows.length;
 
       for (const [index, row] of result.rows.entries()) {
-        const mapped = mapHashStatsRow(row, kennelTag, baseUrl, externalSlug);
-        if (!mapped) {
-          const ref = row?.KENNEL_EVENT_NUMBER ?? "?";
-          const msg = `HashStats ${externalSlug}: skipped event #${ref} — unparseable EVENT_DATE "${row?.EVENT_DATE ?? ""}"`;
-          parseErrors.push({ row: index, section: externalSlug, field: "date", error: msg });
+        // Per-row isolation: a single malformed row (unparseable date, or an
+        // unexpected field type that throws downstream) is logged and skipped,
+        // never aborting the rest of the archive.
+        try {
+          const mapped = mapHashStatsRow(row, kennelTag, baseUrl, externalSlug);
+          if (!mapped) {
+            const ref = row?.KENNEL_EVENT_NUMBER ?? "?";
+            const msg = `HashStats ${externalSlug}: skipped event #${ref} — unparseable EVENT_DATE "${row?.EVENT_DATE ?? ""}"`;
+            parseErrors.push({ row: index, section: externalSlug, field: "date", error: msg });
+            errors.push(msg);
+            continue;
+          }
+          events.push(mapped);
+        } catch (err) {
+          const msg = `HashStats ${externalSlug}: failed to process row ${index}: ${err instanceof Error ? err.message : String(err)}`;
+          parseErrors.push({ row: index, section: externalSlug, field: "row", error: msg });
           errors.push(msg);
-          continue;
         }
-        events.push(mapped);
       }
     }
 

@@ -108,6 +108,11 @@ describe("parseHashStatsDateTime", () => {
   ])("rejects %s (%s)", (input, _label) => {
     expect(parseHashStatsDateTime(input as string | undefined)).toBeNull();
   });
+
+  it("rejects non-string input (payload cast from unknown)", () => {
+    expect(parseHashStatsDateTime(20260521 as unknown)).toBeNull();
+    expect(parseHashStatsDateTime({} as unknown)).toBeNull();
+  });
 });
 
 describe("mapHashStatsRow", () => {
@@ -144,6 +149,11 @@ describe("mapHashStatsRow", () => {
   it("returns null for an unparseable EVENT_DATE", () => {
     const row: HashStatsRow = { ...SCH4_ROWS[0], EVENT_DATE: "garbage" };
     expect(mapHashStatsRow(row, "sch4", "https://hashingstats.com", "SCH4")).toBeNull();
+  });
+
+  it("returns null for a null / non-object row (aaData cast from unknown)", () => {
+    expect(mapHashStatsRow(null, "sch4", "https://hashingstats.com", "SCH4")).toBeNull();
+    expect(mapHashStatsRow(undefined, "sch4", "https://hashingstats.com", "SCH4")).toBeNull();
   });
 
   it("drops startTime for the midnight sentinel", () => {
@@ -243,6 +253,17 @@ describe("HashStatsAdapter.fetch", () => {
     expect(result.events).toHaveLength(1);
     expect(result.events[0].runNumber).toBe(1454);
     expect(result.errorDetails?.parse?.[0].error).toMatch(/unparseable EVENT_DATE/i);
+  });
+
+  it("skips a null row in aaData without aborting the kennel (no throw)", async () => {
+    const rows = [null, SCH4_ROWS[0]];
+    mockSafeFetch.mockResolvedValueOnce(jsonResponse({ aaData: rows }));
+    const adapter = new HashStatsAdapter();
+    const result = await adapter.fetch(makeSource({ kennelSlugMap: { sch4: "SCH4" } }));
+
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].runNumber).toBe(1455);
+    expect(result.errorDetails?.parse?.length).toBeGreaterThan(0);
   });
 
   it("honors options.days — old events fall outside a narrow window", async () => {
