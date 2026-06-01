@@ -75,9 +75,14 @@ describe("parseDCFMH3Schedule (#1399)", () => {
     expect(worm?.title).toBe("Worm Blood Moon OTH3");
   });
 
-  it("takes the start date of a date range (June 6-14)", () => {
+  it("emits a multi-day range (June 6-14) as one event with start + endDate", () => {
     const tour = entries.find((e) => e.title.includes("Tour Duh Hash"));
     expect(tour?.date).toBe("2026-06-06");
+    expect(tour?.endDate).toBe("2026-06-14");
+  });
+
+  it("leaves endDate undefined for single-day entries", () => {
+    expect(byTitleStarts("Full Buck Moon")?.endDate).toBeUndefined();
   });
 
   it("dedups the repeated banner entry", () => {

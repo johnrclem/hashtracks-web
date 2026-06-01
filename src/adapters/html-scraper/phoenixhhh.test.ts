@@ -918,8 +918,15 @@ describe("extractDogFriendly (#1350)", () => {
     expect(extractDogFriendly(HUMP_D_DETAIL_BLOCK)).toBe(false);
   });
 
-  it("returns undefined when the line is absent", () => {
+  it("returns undefined when the line is absent (preserve existing)", () => {
     expect(extractDogFriendly("Hares: TBD")).toBeUndefined();
+  });
+
+  it.each([
+    "Dog friendly: Depends on the hare",
+    "Dog friendly: Ask first",
+  ])("returns null (explicit clear) when present but unparseable: %s", (line) => {
+    expect(extractDogFriendly(line)).toBeNull();
   });
 });
 

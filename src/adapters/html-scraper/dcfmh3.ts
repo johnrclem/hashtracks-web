@@ -47,10 +47,12 @@ const MONTHS =
 /**
  * One schedule line: `<Month> <Day>[-<Day2>][, <Year>] <sep> <title>` where the
  * first `:` or ` - ` after the date opens the title. The optional `-<Day2>` range
- * end is consumed before the separator so `June 6-14: …` parses (start day wins).
+ * end is captured so a multi-day entry (`June 6-14: ¡Tour Duh Hash!`) emits a
+ * single Event with `endDate` set (a campout — NOT a per-day series split).
+ * Groups: 1=month, 2=startDay, 3=endDay?, 4=year?, 5=title.
  */
 const SCHEDULE_LINE_RE = new RegExp(
-  String.raw`^(${MONTHS})\s+(\d{1,2})(?:\s*-\s*\d{1,2})?(?:,?\s*(\d{4}))?\s*[:–-]\s*(\S.*)$`,
+  String.raw`^(${MONTHS})\s+(\d{1,2})(?:\s*-\s*(\d{1,2}))?(?:,?\s*(\d{4}))?\s*[:–-]\s*(\S.*)$`,
   "i",
 );
 
@@ -80,7 +82,8 @@ export function detectHostKennel(title: string): string | undefined {
 }
 
 export interface ParsedScheduleEntry {
-  date: string; // YYYY-MM-DD
+  date: string; // YYYY-MM-DD (start)
+  endDate?: string; // YYYY-MM-DD, set only for multi-day ranges (campouts)
   title: string;
   hostKennelCode?: string;
 }
@@ -105,16 +108,23 @@ export function parseDCFMH3Schedule(
     const line = rawLine.trim();
     const m = SCHEDULE_LINE_RE.exec(line);
     if (!m) continue;
-    const [, month, day, year, rawTitle] = m;
+    const [, month, startDay, endDay, year, rawTitle] = m;
     const title = rawTitle.trim();
     if (!title) continue;
-    const date = chronoParseDate(`${month} ${day}, ${year ?? fallbackYear}`, "en-US");
+    const yr = year ?? fallbackYear;
+    const date = chronoParseDate(`${month} ${startDay}, ${yr}`, "en-US");
     if (!date) continue;
+    // Multi-day range ("June 6-14") → single Event spanning to endDate (campout),
+    // not a per-day series. Only when the end day is later in the same month.
+    let endDate: string | undefined;
+    if (endDay && Number.parseInt(endDay, 10) > Number.parseInt(startDay, 10)) {
+      endDate = chronoParseDate(`${month} ${endDay}, ${yr}`, "en-US") ?? undefined;
+    }
     // Dedup repeated lines (the page echoes a "next trail" banner up top).
     const key = `${date}|${title}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    entries.push({ date, title, hostKennelCode: detectHostKennel(title) });
+    entries.push({ date, endDate, title, hostKennelCode: detectHostKennel(title) });
   }
   return entries;
 }
@@ -149,6 +159,7 @@ export class DCFMH3Adapter implements SourceAdapter {
 
     const events: RawEventData[] = entries.map((e) => ({
       date: e.date,
+      ...(e.endDate ? { endDate: e.endDate } : {}),
       // #1400: host kennel (when seeded) rides as a secondary co-host tag.
       kennelTags: e.hostKennelCode ? [kennelTag, e.hostKennelCode] : [kennelTag],
       title: e.title,

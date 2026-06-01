@@ -177,20 +177,24 @@ function normalizeCash(value: string): string {
   return value.trim().toLowerCase().replaceAll(/\s+/g, "");
 }
 
-/** `Dog friendly: <value>` line → boolean (#1350). Returns undefined when the
- *  line is absent or the value is too hedged to classify (caller leaves the
- *  raw line in the description in that case). */
+/** `Dog friendly: <value>` line → tri-state (#1350), per the RawEventData
+ *  explicit-clear contract (atomic-bundle semantics, adapter-patterns.md):
+ *    - label absent              → undefined (no signal; preserve existing)
+ *    - value classifiable        → true / false
+ *    - label present, unparseable → null (clear any stale Event.dogFriendly) */
 const DOG_LINE_RE = /(?:^|\n)[ \t]*Dog[\s-]?friendly[ \t]*:[ \t]*([^\n]+)/i;
 const DOG_NO_RE = /\b(?:no|not|never|none)\b/i;
 const DOG_YES_RE = /\b(?:yes|welcome|welcomed|ok|okay|sure|allowed|leash|leashed|friendly|encouraged|always)\b/i;
-export function extractDogFriendly(description: string): boolean | undefined {
+export function extractDogFriendly(description: string): boolean | null | undefined {
   const m = DOG_LINE_RE.exec(description);
-  const value = m?.[1]?.trim();
-  if (!value) return undefined;
+  if (m == null) return undefined;
+  const value = m[1].trim();
   // Negative wins first — "Usually not on humps" must classify as false.
   if (DOG_NO_RE.test(value)) return false;
   if (DOG_YES_RE.test(value)) return true;
-  return undefined;
+  // Label present but the value is empty or too hedged to classify → explicit
+  // clear so a stale boolean from a prior scrape doesn't linger.
+  return null;
 }
 
 /** Strip lines now promoted to structured fields so they don't duplicate in
@@ -584,6 +588,8 @@ export class PhoenixHHHAdapter implements SourceAdapter {
       const normalized = normalizePhoenixDetailBlock(e.description);
       const rawCash = extractHashCash(normalized);
       const dog = extractDogFriendly(normalized);
+      // Tri-state: undefined = no label (preserve), null = unparseable (clear),
+      // boolean = classified. null/boolean both propagate to the merge contract.
       if (dog !== undefined) e.dogFriendly = dog;
       // Two-Tier: only persist a per-event cost when it differs from the
       // kennel's standard hash cash (#1349). Hump D ($1 == $1) → cost stays null.
@@ -593,7 +599,9 @@ export class PhoenixHHHAdapter implements SourceAdapter {
       }
       e.description = cleanPhoenixDescription(normalized, {
         stripHashCash: rawCash !== undefined,
-        stripDogFriendly: dog !== undefined,
+        // Keep the raw `Dog friendly:` line when it was unparseable (dog === null)
+        // so the hedged text stays visible; only strip once classified.
+        stripDogFriendly: typeof dog === "boolean",
       });
     }
 
