@@ -237,6 +237,45 @@ async function fetchKennelArchive(
   return { ok: true, rows: rows as HashStatsRow[] };
 }
 
+/**
+ * Map one kennel's rows to events with per-row isolation: a single malformed
+ * row (unparseable date, or an unexpected field type that throws downstream) is
+ * recorded as a parse error and skipped, never aborting the rest of the archive.
+ */
+function collectKennelEvents(
+  rows: HashStatsRow[],
+  kennelTag: string,
+  baseUrl: string,
+  externalSlug: string,
+): { events: RawEventData[]; parseErrors: ParseError[] } {
+  const events: RawEventData[] = [];
+  const parseErrors: ParseError[] = [];
+  rows.forEach((row, index) => {
+    try {
+      const mapped = mapHashStatsRow(row, kennelTag, baseUrl, externalSlug);
+      if (mapped) {
+        events.push(mapped);
+        return;
+      }
+      const ref = row?.KENNEL_EVENT_NUMBER ?? "?";
+      parseErrors.push({
+        row: index,
+        section: externalSlug,
+        field: "date",
+        error: `HashStats ${externalSlug}: skipped event #${ref} — unparseable EVENT_DATE "${row?.EVENT_DATE ?? ""}"`,
+      });
+    } catch (err) {
+      parseErrors.push({
+        row: index,
+        section: externalSlug,
+        field: "row",
+        error: `HashStats ${externalSlug}: failed to process row ${index}: ${err instanceof Error ? err.message : String(err)}`,
+      });
+    }
+  });
+  return { events, parseErrors };
+}
+
 export class HashStatsAdapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
 
@@ -274,25 +313,11 @@ export class HashStatsAdapter implements SourceAdapter {
 
       apiRowsReturned += result.rows.length;
 
-      for (const [index, row] of result.rows.entries()) {
-        // Per-row isolation: a single malformed row (unparseable date, or an
-        // unexpected field type that throws downstream) is logged and skipped,
-        // never aborting the rest of the archive.
-        try {
-          const mapped = mapHashStatsRow(row, kennelTag, baseUrl, externalSlug);
-          if (!mapped) {
-            const ref = row?.KENNEL_EVENT_NUMBER ?? "?";
-            const msg = `HashStats ${externalSlug}: skipped event #${ref} — unparseable EVENT_DATE "${row?.EVENT_DATE ?? ""}"`;
-            parseErrors.push({ row: index, section: externalSlug, field: "date", error: msg });
-            errors.push(msg);
-            continue;
-          }
-          events.push(mapped);
-        } catch (err) {
-          const msg = `HashStats ${externalSlug}: failed to process row ${index}: ${err instanceof Error ? err.message : String(err)}`;
-          parseErrors.push({ row: index, section: externalSlug, field: "row", error: msg });
-          errors.push(msg);
-        }
+      const collected = collectKennelEvents(result.rows, kennelTag, baseUrl, externalSlug);
+      events.push(...collected.events);
+      for (const pe of collected.parseErrors) {
+        parseErrors.push(pe);
+        errors.push(pe.error);
       }
     }
 
