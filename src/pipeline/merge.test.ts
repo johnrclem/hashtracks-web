@@ -2456,6 +2456,8 @@ describe("friendlyKennelName", () => {
     ["HHHS", "Hash House Harriers Singapore", "Singapore H3"],
     ["SOH4", "Syracuse On-On-Dog-A Hash House Harriers & Harriettes", "Syracuse On-On-Dog-A H3"],
     ["SLH3", "SLASH (South London Hash House Harriers)", "SLASH H3"],
+    // Single-t "Harriets" trailing co-name (Gemini review #1895).
+    ["LH4", "Hong Kong Ladies Hash House Harriers & Harriets", "Hong Kong Ladies H3"],
   ])("strips mid-string HHH: %s", (short, full, expected) => {
     expect(friendlyKennelName(short, full as string)).toBe(expected);
   });

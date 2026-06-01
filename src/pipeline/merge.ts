@@ -203,10 +203,13 @@ export function friendlyKennelName(shortName: string, fullName: string | null): 
   if (shortName.length > 4) return shortName;
   if (!fullName) return shortName;
   const friendly = fullName
-    // Drop a parenthetical that wraps the token, e.g. "(South London Hash House Harriers)".
-    .replace(/\s*\([^)]*Hash House Harriers[^)]*\)/i, "")
-    // Strip the token itself + an optional trailing "and/& Harriettes".
-    .replace(/Hash House Harriers?(?: ?(?:and|&) ?Harriettes?)?/i, " ")
+    // Drop a parenthetical that wraps the token, e.g. "(South London Hash House
+    // Harriers)". Single- and double-t Harriet(te)s spellings both occur.
+    .replace(/\s*\([^)]*Hash House Harri(?:ers?|ett?e?s?)[^)]*\)/i, "")
+    // Strip "Hash House Harriers" + an optional trailing "and/& Harriet(te)s".
+    // The standalone women's "Hash House Harriettes" name is intentionally left
+    // verbatim (it's not the standard HHH suffix) — see test below.
+    .replace(/Hash House Harriers?(?: ?(?:and|&) ?Harriett?e?s?)?/i, " ")
     .replace(/\s+/g, " ")
     .trim();
   if (!friendly || friendly === shortName) return shortName;
