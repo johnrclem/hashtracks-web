@@ -308,6 +308,38 @@ describe("parseHarelineRow", () => {
     expect(result?.location).toBeUndefined();
   });
 
+  it("emits location=null (explicit clear) when anchor is non-CTA but cleans to placeholder", () => {
+    // Tri-state: a source that provided a location but it's non-venue text must
+    // emit null so the merge pipeline clears stale canonical location data, not
+    // undefined which would silently preserve it (merge.ts WS6 #1516).
+    const dirHtml = `
+      <h2>Mystery Trail</h2>
+      <a href="https://www.google.com/maps/place/foo">
+        <font color="#cc0000">Location TBD</font>
+      </a>
+    `;
+    const cells = ["Mon July 7", "6:30 PM", "2105"];
+    const result = parseHarelineRow(cells, HARE_SINGLE, dirHtml, SOURCE_URL);
+    expect(result?.location).toBeNull();
+    expect(result?.locationUrl).toBeUndefined();
+  });
+
+  it("preserves venue when start-sentence references a numbered street ('at 5th Ave')", () => {
+    // atTime regex must not fire on "at 5th Ave" — the digit is a street number,
+    // not a time marker. Without this fix, "the lot at 5th Ave" would truncate
+    // to "the lot" (Gemini code-review fix).
+    const dirHtml = `
+      <h2>Test Trail</h2>
+      We'll be starting from the parking lot at 5th Ave
+      <a href="https://www.google.com/maps/place/foo">
+        <font color="#cc0000">Go to 41.631488, -71.571204</font>
+      </a>
+    `;
+    const cells = ["Mon July 14", "6:30 PM", "2106"];
+    const result = parseHarelineRow(cells, HARE_SINGLE, dirHtml, SOURCE_URL);
+    expect(result?.location).toBe("parking lot at 5th Ave");
+  });
+
   it("normalizes H2 title with line breaks", () => {
     const cells = ["Mon March 23", "6:30 PM", "2091"];
     const result = parseHarelineRow(

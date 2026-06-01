@@ -132,25 +132,31 @@ describe("GeriatrixH3Adapter.fetch", () => {
   });
 
   it("strips ' - Maybe' / ' - Memorial Run' venue qualifiers from location (#1880)", async () => {
-    // Verbatim venue strings from live sporty.co.nz Geriatrix hareline.
-    const fixture = `<!DOCTYPE html><html><body>
-      <div class="richtext-editor">
-        <p><span>09/06/2026</span></p>
-        <p>Venue: Victoria Tavern, Petone - Maybe.</p>
-        <p>Hare: Pohutukawa</p>
-        <p><br></p>
-        <p><span>16/06/2026</span></p>
-        <p>Venue: The Co-Op Whitby - Memorial Run</p>
-        <p>Hare: Slippery</p>
-      </div>
-    </body></html>`;
-    mockedBrowserRender.mockResolvedValue(fixture);
-    const adapter = new GeriatrixH3Adapter();
-    const result = await adapter.fetch(makeSource(), { days: 365 });
-    expect(result.errors).toEqual([]);
-    expect(result.events.length).toBe(2);
-    expect(result.events[0].location).toBe("Victoria Tavern, Petone");
-    expect(result.events[1].location).toBe("The Co-Op Whitby");
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-01T12:00:00Z"));
+    try {
+      // Verbatim venue strings from live sporty.co.nz Geriatrix hareline.
+      const fixture = `<!DOCTYPE html><html><body>
+        <div class="richtext-editor">
+          <p><span>09/06/2026</span></p>
+          <p>Venue: Victoria Tavern, Petone - Maybe.</p>
+          <p>Hare: Pohutukawa</p>
+          <p><br></p>
+          <p><span>16/06/2026</span></p>
+          <p>Venue: The Co-Op Whitby - Memorial Run</p>
+          <p>Hare: Slippery</p>
+        </div>
+      </body></html>`;
+      mockedBrowserRender.mockResolvedValue(fixture);
+      const adapter = new GeriatrixH3Adapter();
+      const result = await adapter.fetch(makeSource(), { days: 365 });
+      expect(result.errors).toEqual([]);
+      expect(result.events.length).toBe(2);
+      expect(result.events[0].location).toBe("Victoria Tavern, Petone");
+      expect(result.events[1].location).toBe("The Co-Op Whitby");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("returns the fetch failure when browserRender errors", async () => {

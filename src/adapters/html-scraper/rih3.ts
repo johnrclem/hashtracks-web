@@ -192,7 +192,9 @@ function firstSentencePeriod(s: string): number {
     if (dot < 0) return -1;
     const before = s.slice(0, dot);
     const lastToken = before.split(/[^A-Za-z]+/).pop() ?? "";
-    if (!VENUE_ABBREVS.has(lastToken.toLowerCase())) return dot;
+    // Single-letter tokens are middle initials (e.g. "F." in "John F. Kennedy") —
+    // never a sentence end. Abbreviations must be 2+ chars to match VENUE_ABBREVS.
+    if (lastToken.length > 1 && !VENUE_ABBREVS.has(lastToken.toLowerCase())) return dot;
     from = dot + 2;
   }
   return -1;
@@ -208,7 +210,9 @@ function cutAtVenueTerminator(s: string): string {
   if (dot >= 0) end = Math.min(end, dot);
   const nl = s.search(/[\n\r]/);
   if (nl >= 0) end = Math.min(end, nl);
-  const atTime = /\bat\s+\d/i.exec(s);
+  // Require a colon (HH:MM) or am/pm suffix so "at 5th Ave" / "at 123 Main St"
+  // are NOT treated as time markers and the street address is preserved.
+  const atTime = /\bat\s+\d{1,2}(?::\d{2}|\s*[ap]m)\b/i.exec(s);
   if (atTime) end = Math.min(end, atTime.index);
   return s.slice(0, end);
 }
@@ -248,7 +252,7 @@ function extractStartVenueFromBody(dir$: cheerio.CheerioAPI): string | undefined
 function resolveRih3Location(
   dir$: cheerio.CheerioAPI,
   mapsLink: cheerio.Cheerio<AnyNode>,
-): { location: string | undefined; locationUrl: string | undefined } {
+): { location: string | null | undefined; locationUrl: string | undefined } {
   const addressLocation = findAddressInBody(dir$);
   if (addressLocation) {
     return { location: addressLocation, locationUrl: undefined };
@@ -259,14 +263,20 @@ function resolveRih3Location(
   const anchorText = cleanMapsLinkText(mapsLink);
   if (anchorText && !isDirectionsCta(anchorText)) {
     const cleaned = cleanLocationName(anchorText);
-    if (cleaned) return { location: cleaned, locationUrl: href };
+    if (cleaned !== null) return { location: cleaned, locationUrl: href };
+    // Anchor passed the CTA filter but cleaned to null (placeholder/non-venue
+    // text). Emit explicit null so the merge pipeline clears any stale location;
+    // do not fall through to the start-sentence (that fallback is for absent/CTA
+    // anchors, not placeholder ones). Preserves tri-state semantics from merge.ts.
+    return { location: null, locationUrl: undefined };
   }
 
   // Anchor missing or polluted — fall back to the start-sentence venue.
   const startVenue = extractStartVenueFromBody(dir$);
   if (startVenue) {
     const cleaned = cleanLocationName(startVenue);
-    if (cleaned) return { location: cleaned, locationUrl: href };
+    if (cleaned !== null) return { location: cleaned, locationUrl: href };
+    return { location: null, locationUrl: undefined };
   }
 
   return { location: undefined, locationUrl: href };
