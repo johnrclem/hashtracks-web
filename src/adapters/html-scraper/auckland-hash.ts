@@ -45,7 +45,10 @@ export function extractUpcomingText($: cheerio.CheerioAPI): string {
   let found = "";
   $(".public-DraftEditor-content").each((_, el) => {
     const text = $(el).text();
-    if (/Upcoming Runs/i.test(text)) found = text;
+    if (/Upcoming Runs/i.test(text)) {
+      found = text;
+      return false; // stop at the first matching block
+    }
   });
   return found || $.root().text();
 }
@@ -62,7 +65,7 @@ export function groupRunRows(text: string): string[] {
   let current = "";
   let canAppend = false;
 
-  for (const rawLine of text.split("\n")) {
+  for (const rawLine of text.split(/\r?\n/)) {
     const line = rawLine.trim();
     if (DATE_START_RE.test(line)) {
       if (current) rows.push(current);
@@ -173,7 +176,8 @@ export class AucklandHashAdapter implements SourceAdapter {
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
     const referenceDate = new Date();
-    const rows = groupRunRows(extractUpcomingText($));
+    const upcomingText = extractUpcomingText($);
+    const rows = groupRunRows(upcomingText);
 
     const addParseError = (row: number, error: string, rawText: string) => {
       errorDetails.parse = [
@@ -181,6 +185,18 @@ export class AucklandHashAdapter implements SourceAdapter {
         { row, section: "upcoming-runs", error, rawText: rawText.slice(0, 2000) },
       ];
     };
+
+    // Fail loud on an empty extraction. The "Upcoming Runs" block depends on the
+    // Rocketspark Draft.js layout keeping literal newlines; if the markup ever
+    // drifts to <br>-only rows (or the block disappears), groupRunRows returns
+    // [] and a successful-but-empty scrape would silently look healthy — the
+    // zero-event health alert only fires once a source's baseline is >0, so a
+    // brand-new source stuck at 0 may never alert. Surface it so reconcile is
+    // suppressed and the failure is visible.
+    if (rows.length === 0) {
+      errors.push("No run rows found in the Upcoming Runs block");
+      addParseError(0, "No run rows found in the Upcoming Runs block", upcomingText);
+    }
 
     rows.forEach((row, i) => {
       try {
