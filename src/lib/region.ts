@@ -1661,6 +1661,17 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: 8.68,
     aliases: ["Frankfurt, Germany", "Frankfurt am Main"],
   },
+  {
+    name: "Hamburg",
+    country: "Germany",
+    timezone: "Europe/Berlin",
+    abbrev: "HAM",
+    colorClasses: "bg-yellow-100 text-yellow-700",
+    pinColor: "#eab308",
+    centroidLat: 53.55,
+    centroidLng: 9.99,
+    aliases: ["Hamburg, Germany"],
+  },
   // ── Japan ──
   {
     name: "Japan",
@@ -3338,6 +3349,7 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Stuttgart": "Germany",
   "Munich": "Germany",
   "Frankfurt": "Germany",
+  "Hamburg": "Germany",
   // Japan
   "Tokyo": "Japan",
   "Kansai": "Japan",

@@ -62,6 +62,7 @@ export interface KennelSeed {
   logoUrl?: string;
   latitude?: number;
   longitude?: number;
+  walkersWelcome?: boolean; // null/undefined = unknown; surfaces the "walkers welcome" badge
 }
 
 export const KENNELS: KennelSeed[] = [
@@ -2747,6 +2748,17 @@ export const KENNELS: KennelSeed[] = [
       scheduleFrequency: "Irregular",
       description: "Frankfurt area bike hash.",
       latitude: 50.11, longitude: 8.68,
+    },
+    {
+      kennelCode: "h7", shortName: "H7", fullName: "Hansestadt Hamburg Hash House Harriers Hummel Hummel", region: "Hamburg", country: "Germany",
+      website: "https://hamburghash.blogspot.com/",
+      facebookUrl: "https://www.facebook.com/groups/280388972016079",
+      scheduleDayOfWeek: "Sunday", scheduleTime: "2:00 PM", scheduleFrequency: "Biweekly",
+      scheduleNotes: "1st & 3rd Sunday of the month",
+      walkersWelcome: true,
+      description: "We are a drinking club with a running problem, meeting every 1st and 3rd Sunday in Hamburg and surroundings. Join us for a run, for a beer, or both!",
+      logoUrl: "/kennel-logos/h7.png",
+      latitude: 53.5503, longitude: 9.992,
     },
 
     // ── Japan: Tokyo ──

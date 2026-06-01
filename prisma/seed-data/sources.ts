@@ -3361,6 +3361,26 @@ export const SOURCES = [
       },
       kennelCodes: ["ffmh3"],
     },
+    // Hamburg H7 — Harrier Central public API
+    {
+      name: "Hamburg H7 Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        // GUID is the most stable filter; cityNames:"Hamburg" and
+        // kennelUniqueShortName:"H7" both return the same H7 events (verified).
+        publicKennelId: "cfcbb91a-6a58-438e-a814-979e9ca6f024",
+        defaultKennelTag: "h7",
+        // #709 ("Hare needed") + #713-716 ("Placeholder event for H7") aren't
+        // real trail names → synthesize "Hamburg H7 Trail #N" (mirrors Tokyo #1166).
+        defaultTitle: "Hamburg H7 Trail",
+        staleTitleAliases: ["Placeholder event for H7", "Hare needed"],
+      },
+      kennelCodes: ["h7"],
+    },
 
     // ===== JAPAN =====
     // Tokyo H3 — Harrier Central public API

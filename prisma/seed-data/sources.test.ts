@@ -28,11 +28,15 @@ describe("SOURCES seed data invariants (#817 regression guard)", () => {
     const urls = new Set(hc.map((s) => s.url));
     expect(urls.size).toBe(1);
 
-    // But the discriminator lives in `config` — either cityNames or
-    // kennelUniqueShortName must be present and distinct per row.
+    // But the discriminator lives in `config` — cityNames, kennelUniqueShortName,
+    // or publicKennelId (GUID) must be present and distinct per row.
     const discriminators = hc.map((s) => {
-      const cfg = (s.config ?? {}) as { cityNames?: string; kennelUniqueShortName?: string };
-      return cfg.cityNames ?? cfg.kennelUniqueShortName ?? "";
+      const cfg = (s.config ?? {}) as {
+        cityNames?: string;
+        kennelUniqueShortName?: string;
+        publicKennelId?: string;
+      };
+      return cfg.cityNames ?? cfg.kennelUniqueShortName ?? cfg.publicKennelId ?? "";
     });
     expect(discriminators.every((d) => d.length > 0)).toBe(true);
     expect(new Set(discriminators).size).toBe(discriminators.length);
