@@ -94,10 +94,16 @@ export interface DetailPageData {
 // occurrence — no leading `\b`, so the no-space "MackOn Inn" boundary splits —
 // then drop any dangling trailing separator.
 const ON_INN_BOUNDARY_RE = /On\s+Inns?\b/i;
+// Trailing whitespace/punctuation stripped procedurally rather than via a
+// `[…]+$` regex, which Sonar flags as a ReDoS shape (S5852) even though it is
+// linear here.
+const HARE_TRAILING_CHARS = new Set([" ", "\t", "\n", "\r", ",", ";", "-"]);
 export function splitHareFromOnInn(hares: string): string {
   const m = ON_INN_BOUNDARY_RE.exec(hares);
   const clipped = m ? hares.slice(0, m.index) : hares;
-  return clipped.replace(/[\s,;-]+$/, "").trim();
+  let end = clipped.length;
+  while (end > 0 && HARE_TRAILING_CHARS.has(clipped[end - 1])) end--;
+  return clipped.slice(0, end).trim();
 }
 
 /**
@@ -152,9 +158,10 @@ export function parseDetailPage($: cheerio.CheerioAPI, detailUrl: string): Detai
     }
   }
 
-  // On Inn: text after "On Inn"
+  // On Inn: text after "On Inn" (also "On Inn will be - …", the live form that
+  // gets concatenated onto the hare line — captured here, not dropped, #1815).
   let onInn: string | undefined;
-  const onInnMatch = /On\s+Inn\s*[:\-–—]\s*(.+?)(?:\n|$)/i.exec(fullText);
+  const onInnMatch = /On\s+Inns?(?:\s+will\s+be)?\s*[:\-–—]\s*(.+?)(?:\n|$)/i.exec(fullText);
   if (onInnMatch) {
     const onInnText = onInnMatch[1].trim();
     if (!isPlaceholder(onInnText)) {

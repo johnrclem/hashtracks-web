@@ -150,13 +150,16 @@ export function cleanOfh3Title(title: string): string {
   let t = title.trim();
   // Strip the "OFH3 Trail #NNN -" boilerplate prefix.
   t = t.replace(/^OFH3\s+Trail\s+#\d+\s*-\s*/i, "");
-  // Strip a leading long-form date ("June 1, 2025 -" / "July 12, 2025-").
-  t = t.replace(/^[A-Za-z]+\s+\d{1,2},?\s+\d{4}\s*-?\s*/, "");
-  // Strip dot-form dates ("5.9.26", "12.20.25") wherever they appear.
-  t = t.replace(/\s*\d{1,2}\.\d{1,2}\.\d{2,4}\s*/g, " ");
+  // Strip a leading long-form date ("June 1, 2025" / "July 12, 2025"). Any
+  // dangling separator it leaves is cleaned by the trailing/leading-dash tidy
+  // below — kept out of this regex to avoid an `\s*-?\s*` ReDoS shape (S5852).
+  t = t.replace(/^[A-Za-z]+\s+\d{1,2},?\s+\d{4}/, "");
+  // Strip dot-form dates ("5.9.26", "12.20.25") wherever they appear. No
+  // surrounding `\s*` (S5852) — the whitespace collapse below tidies the gap.
+  t = t.replace(/\d{1,2}\.\d{1,2}\.\d{2,4}/g, " ");
   // Tidy: collapse internal whitespace, then drop any dangling leading/trailing
-  // separator left behind ("Foo - " after a stripped trailing date). Done with
-  // string ops rather than an `\s*`-adjacent-alternation regex (Sonar S5852).
+  // separator left behind ("- Foo" / "Foo - " after a stripped date). Done with
+  // string ops rather than an `\s*`-adjacent regex (Sonar S5852).
   t = t.replace(/\s{2,}/g, " ").trim();
   if (t.startsWith("-")) t = t.slice(1).trim();
   if (t.endsWith("-")) t = t.slice(0, -1).trim();

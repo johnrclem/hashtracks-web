@@ -591,10 +591,11 @@ export function coalesceEndpointDuplicates(events: RawEventData[]): RawEventData
     if (e.hares) twin.hares = e.hares;
     if (e.description) twin.description = e.description;
     if (e.cost) twin.cost = e.cost;
-    if (e.location) {
-      twin.location = e.location;
-      twin.locationUrl = e.locationUrl ?? twin.locationUrl;
-    }
+    if (e.location) twin.location = e.location;
+    // Preserve the events/ map link independently of the venue name: the twin
+    // can carry a Maps URL parsed from its description with no location name, so
+    // a name-gated copy would silently drop the only link.
+    if (e.locationUrl) twin.locationUrl = e.locationUrl;
     dropped.add(e);
   }
   return dropped.size > 0 ? events.filter((e) => !dropped.has(e)) : events;

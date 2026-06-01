@@ -424,7 +424,7 @@ describe("parseDetailPage — <br>-split Venue/Hare boundary (#1815, live DOM)",
       <br /><br /><strong>Run<strong style="color:rgb(29, 34, 40)">&nbsp;2002 - Monday 1st June at 19.30</strong><br /><strong style="color:rgb(29, 34, 40)">Venue:&nbsp; The Inn on the Pond, Nutfield Marsh Road, Redhill, RH1 4EU<br />Ha</strong></strong><strong>re:&nbsp; Jamie ' Phil the Greek' Wheadon</strong><br /><br />&#8203;</div>
     </body></html>`;
     const $ = cheerio.load(html);
-    const detail = parseDetailPage($, "http://www.och3.org.uk/next-run-details.html");
+    const detail = parseDetailPage($, "https://www.och3.org.uk/next-run-details.html");
     expect(detail!.runNumber).toBe(2002);
     expect(detail!.location).toBe("The Inn on the Pond, Nutfield Marsh Road, Redhill, RH1 4EU");
     expect(detail!.hares).toBe("Jamie ' Phil the Greek' Wheadon");
@@ -439,9 +439,11 @@ describe("parseDetailPage — hare/On Inn concatenation (#1815)", () => {
       <div class="paragraph">Hare: Phil 'Layby' MackOn Inn will be - The Skimmington Castle, Bonnys Road, Reigate, RH2 8R</div>
     </body></html>`;
     const $ = cheerio.load(html);
-    const detail = parseDetailPage($, "http://test.com/next-run-details.html");
+    const detail = parseDetailPage($, "https://test.com/next-run-details.html");
     expect(detail!.hares).toBe("Phil 'Layby' Mack");
     expect(detail!.location).toContain("The start car park");
+    // The "On Inn will be - …" tail is captured into onInn, not dropped.
+    expect(detail!.onInn).toBe("The Skimmington Castle, Bonnys Road, Reigate, RH2 8R");
   });
 });
 
@@ -474,7 +476,7 @@ describe("zero-width title prefix (#1814)", () => {
     const html = `<html><body><div class="paragraph"><strong>OCH3 Events</strong><ul>
       <li>​10th May 2026 - Memorial Run for Lawrence 'Dynorod' Pearce - The Red Lion, Betchworth</li>
     </ul></div></body></html>`;
-    const events = parseEventsPage(html, "http://test.com/eventslinks.html");
+    const events = parseEventsPage(html, "https://test.com/eventslinks.html");
     expect(events).toHaveLength(1);
     expect(events[0].date).toBe("2026-05-10");
     expect(events[0].title).toBe("Memorial Run for Lawrence 'Dynorod' Pearce");

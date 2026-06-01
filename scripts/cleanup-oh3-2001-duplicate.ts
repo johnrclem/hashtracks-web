@@ -41,27 +41,36 @@ async function main() {
   const endpointsOf = (e: (typeof events)[number]) =>
     e.rawEvents.map((r) => (r.rawData as RawData).sourceUrl ?? "");
 
-  // Survivor: the timed /runs/ event with the real run number 2001.
-  const survivor = events.find(
+  // Survivor: the timed /runs/ event with the real run number 2001. Require
+  // exactly one — a destructive cleanup must abort on any ambiguity.
+  const survivorCandidates = events.filter(
     (e) => e.runNumber === 2001 && endpointsOf(e).some((u) => RUNS_RE.test(u)),
   );
-  // Ghost: an /events/-only event with no run number (the all-day duplicate).
-  const ghost = events.find(
-    (e) => e.id !== survivor?.id && e.runNumber == null && endpointsOf(e).every((u) => EVENTS_RE.test(u)),
-  );
-
-  if (!survivor) {
-    console.error("✗ No /runs/ survivor (runNumber 2001) found on 2026-06-15. Aborting.");
-    process.exit(1);
+  if (survivorCandidates.length !== 1) {
+    console.error(`✗ Expected exactly one /runs/ survivor (runNumber 2001), found ${survivorCandidates.length}. Aborting.`);
+    process.exitCode = 1;
+    return;
   }
+  const survivor = survivorCandidates[0];
+
+  // Ghost: an /events/-only event with no run number (the all-day duplicate).
+  // Require at least one endpoint so an empty-rawEvents row can't pass the
+  // `.every()` vacuously, and abort if more than one matches.
+  const ghostCandidates = events.filter((e) => {
+    if (e.id === survivor.id || e.runNumber != null) return false;
+    const endpoints = endpointsOf(e);
+    return endpoints.length > 0 && endpoints.every((u) => EVENTS_RE.test(u));
+  });
+  if (ghostCandidates.length > 1) {
+    console.error(`✗ Expected at most one /events/ ghost, found ${ghostCandidates.length}. Aborting.`);
+    process.exitCode = 1;
+    return;
+  }
+  const ghost = ghostCandidates[0];
+
   if (!ghost) {
     console.log("✓ No /events/ ghost found — already coalesced. Nothing to do.");
     return;
-  }
-  // Guard (memory: real runNumber ≠ phantom): never delete a row carrying a run number.
-  if (ghost.runNumber != null) {
-    console.error(`✗ Candidate ghost ${ghost.id} carries runNumber ${ghost.runNumber} — refusing to delete.`);
-    process.exit(1);
   }
 
   const healedHares = ghost.haresText ?? survivor.haresText;
@@ -82,4 +91,11 @@ async function main() {
   console.log("✓ Healed survivor hares and deleted the /events/ ghost.");
 }
 
-main().then(() => process.exit(0)).catch((err) => { console.error(err); process.exit(1); });
+main()
+  .catch((err) => {
+    console.error(err);
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

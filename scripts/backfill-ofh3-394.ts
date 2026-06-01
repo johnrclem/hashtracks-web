@@ -16,24 +16,29 @@ import "dotenv/config";
 import { prisma } from "@/lib/db";
 
 const TARGET_DATE = "2026-01-10";
+const NEXT_DATE = "2026-01-11"; // exclusive upper bound = next midnight UTC
 const RUN_NUMBER = 394;
 
 async function main() {
   const events = await prisma.event.findMany({
     where: {
       eventKennels: { some: { kennel: { kennelCode: "ofh3" } } },
-      dateUtc: { gte: new Date(`${TARGET_DATE}T00:00:00Z`), lt: new Date(`${TARGET_DATE}T23:59:59Z`) },
+      // Half-open [TARGET, NEXT) so a row at exactly 23:59:59Z (or with
+      // fractional ms) is not missed by a 23:59:59Z upper bound.
+      dateUtc: { gte: new Date(`${TARGET_DATE}T00:00:00Z`), lt: new Date(`${NEXT_DATE}T00:00:00Z`) },
     },
     select: { id: true, status: true, runNumber: true, title: true, haresText: true },
   });
 
   if (events.length === 0) {
     console.error(`✗ No OFH3 event found on ${TARGET_DATE}. Aborting (expected the CANCELLED #394 row).`);
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
   if (events.length > 1) {
     console.error(`✗ Expected exactly one OFH3 event on ${TARGET_DATE}, found ${events.length}. Aborting.`);
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
 
   const e = events[0];
@@ -51,4 +56,11 @@ async function main() {
   console.log(`✓ Restored OFH3 #${RUN_NUMBER} (${TARGET_DATE}) → CONFIRMED, runNumber=${RUN_NUMBER}.`);
 }
 
-main().then(() => process.exit(0)).catch((err) => { console.error(err); process.exit(1); });
+main()
+  .catch((err) => {
+    console.error(err);
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

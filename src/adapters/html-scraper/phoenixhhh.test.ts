@@ -787,7 +787,11 @@ describe("PhoenixHHHAdapter.fetch — detail-fetch failures are visible", () => 
     expect(result.errorDetails?.fetch).toBeDefined();
     expect(result.errorDetails!.fetch!.length).toBeGreaterThan(0);
     expect(result.errorDetails!.fetch!.length).toBeLessThanOrEqual(5);
-    expect(result.errorDetails!.fetch![0].message).toMatch(/Detail fetch/i);
+    // A detail-fetch failure is present. Use `some` rather than `[0]` so the
+    // assertion is stable across the month boundary: near month-end the
+    // adapter's look-ahead also fetches next month's calendar, whose mocked 503
+    // sorts ahead of the detail error in the bounded sample.
+    expect(result.errorDetails!.fetch!.some((e) => /Detail fetch/i.test(e.message))).toBe(true);
     expect(result.diagnosticContext?.detailFetchFailures).toBeGreaterThan(0);
     expect(result.diagnosticContext?.detailsFetched).toBe(0);
   });
