@@ -41,20 +41,18 @@ interface DCFMH3Config {
   defaultDescription?: string;
 }
 
-const MONTHS =
-  "January|February|March|April|May|June|July|August|September|October|November|December";
-
 /**
  * One schedule line: `<Month> <Day>[-<Day2>][, <Year>] <sep> <title>` where the
  * first `:` or ` - ` after the date opens the title. The optional `-<Day2>` range
  * end is captured so a multi-day entry (`June 6-14: ¡Tour Duh Hash!`) emits a
  * single Event with `endDate` set (a campout — NOT a per-day series split).
  * Groups: 1=month, 2=startDay, 3=endDay?, 4=year?, 5=title.
+ *
+ * Written as a literal (not `new RegExp(...)`) so Codacy/Semgrep's
+ * detect-non-literal-regexp doesn't flag it — the month alternation is inlined.
  */
-const SCHEDULE_LINE_RE = new RegExp(
-  String.raw`^(${MONTHS})\s+(\d{1,2})(?:\s*-\s*(\d{1,2}))?(?:,?\s*(\d{4}))?\s*[:–-]\s*(\S.*)$`,
-  "i",
-);
+const SCHEDULE_LINE_RE =
+  /^(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2})(?:\s*-\s*(\d{1,2}))?(?:,?\s*(\d{4}))?\s*[:–-]\s*(\S.*)$/i;
 
 /**
  * Host kennel detection (#1400). Only seeded DC-area kennels are listed; the
