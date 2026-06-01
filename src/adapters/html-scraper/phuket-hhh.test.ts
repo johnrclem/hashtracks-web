@@ -46,6 +46,59 @@ describe("parsePhuketRow", () => {
     expect(event!.startTime).toBe("16:00");
     expect(event!.hares).toContain("B.C.");
     expect(event!.hares).toContain("FUNGUS");
+    // #1410: source-faithful title from name + run columns, no synthesized "Trail".
+    expect(event!.title).toBe("PHHH 2062");
+  });
+
+  // ── #1410: source-faithful title (kennel name + run number, no "Trail" word) ──
+  it.each([
+    { rowClass: "ironpussy", name: "Iron Pussy", run: "265", expected: "Iron Pussy 265" },
+    { rowClass: "tinmen", name: "Tinmen", run: "451", expected: "Tinmen 451" },
+    { rowClass: "pooying", name: "Pooying", run: "414", expected: "Pooying 414" },
+  ])(
+    "(#1410) emits '$expected' title without a synthesized Trail suffix",
+    ({ rowClass, name, run, expected }) => {
+      const cells = ["13 May 2026 @ 16:00 PM", name, run, "", ""];
+      const event = parsePhuketRow(cells, rowClass, DEFAULT_KENNEL_MAP, sourceUrl);
+      expect(event!.title).toBe(expected);
+    },
+  );
+
+  it("(#1410) leaves title undefined when the name cell is blank", () => {
+    const cells = ["13 May 2026 @ 16:00 PM", "", "265", "", ""];
+    const event = parsePhuketRow(cells, "ironpussy", DEFAULT_KENNEL_MAP, sourceUrl);
+    expect(event!.title).toBeUndefined();
+  });
+
+  // ── #1411: recruitment CTA in the HARES column → explicit clear (null) ──
+  // null (not undefined) so the merge pipeline OVERWRITES stale haresText
+  // instead of preserving it (merge.ts: undefined = preserve, null = clear).
+  it.each([
+    "Want to hare? Contact the Runmaster",
+    "want to hare",
+    "Hare needed",
+    "Looking for a hare",
+  ])("(#1411) maps CTA-only hares cell %s → null (explicit clear)", (cta) => {
+    const cells = ["10 May 2026 @ 16:00 PM", "Iron Pussy", "265", cta, ""];
+    const event = parsePhuketRow(cells, "ironpussy", DEFAULT_KENNEL_MAP, sourceUrl);
+    expect(event!.hares).toBeNull();
+  });
+
+  it("(#1411) a genuinely blank hares cell stays undefined (preserve, not clear)", () => {
+    const cells = ["10 May 2026 @ 16:00 PM", "Iron Pussy", "265", "", ""];
+    const event = parsePhuketRow(cells, "ironpussy", DEFAULT_KENNEL_MAP, sourceUrl);
+    expect(event!.hares).toBeUndefined();
+  });
+
+  it.each([
+    { cell: "FUNGUS, LUCKY LEK, B.C.", expected: "B.C., FUNGUS, LUCKY LEK" },
+    { cell: "PAPER", expected: "PAPER" },
+    { cell: "Slippery When Wet", expected: "Slippery When Wet" },
+    { cell: "BUNNYKEN PIS\nLA LASAGNA", expected: "BUNNYKEN PIS, LA LASAGNA" },
+  ])("(#1411) keeps real hare names $cell", ({ cell, expected }) => {
+    const cells = ["10 May 2026 @ 16:00 PM", "Iron Pussy", "265", cell, ""];
+    const event = parsePhuketRow(cells, "ironpussy", DEFAULT_KENNEL_MAP, sourceUrl);
+    expect(event!.hares).toBe(expected);
   });
 
   it("parses a Pooying row", () => {

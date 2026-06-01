@@ -4,6 +4,7 @@ import { hasAnyErrors } from "../types";
 import {
   applyDateWindow,
   chronoParseDate,
+  CTA_EMBEDDED_PATTERNS,
   decodeEntities,
   fetchHTMLPage,
   normalizeHaresField,
@@ -81,14 +82,36 @@ const PHUKET_DIRECTIONS_RE =
 /** Placeholder-only venue values that should resolve to undefined location. */
 const PHUKET_PLACEHOLDER_VENUE_RE = /^(?:location:\s*tbc|tbc|tbd)$/i;
 
-/** Hares cell → comma-joined sorted list (stable fingerprint per project rule). */
-function parsePhuketHares(cell: string | undefined): string | undefined {
-  if (!cell) return undefined;
-  const segments = splitCellSegments(cell);
-  if (segments.length === 0) return undefined;
-  return normalizeHaresField(
-    [...segments].sort((a, b) => a.localeCompare(b)).join(", "),
+/**
+ * Hare-recruitment CTA the source drops into the HARES column when no hare has
+ * signed up (#1411), e.g. "Want to hare? Contact the Runmaster". The shared
+ * `CTA_EMBEDDED_PATTERNS` cover the "hares needed / wanted" family; this adds the
+ * verb-form "want to hare" phrasing specific to this source.
+ */
+const PHUKET_HARE_CTA_RE = /\bwant\s+to\s+hare\b/i;
+
+/** True when a hares-cell segment is a recruitment CTA rather than a real hare name. */
+function isHareRecruitmentCta(segment: string): boolean {
+  return (
+    PHUKET_HARE_CTA_RE.test(segment) ||
+    CTA_EMBEDDED_PATTERNS.some((re) => re.test(segment))
   );
+}
+
+/** Hares cell → comma-joined sorted list (stable fingerprint per project rule).
+ *  Recruitment CTAs (#1411) are dropped. Tri-state per the merge contract
+ *  (RawEventData.hares — `null` overwrites stale haresText, `undefined` preserves):
+ *    - nullish / blank cell        → undefined (no signal; keep any existing value)
+ *    - cell that is ONLY a CTA     → null (explicit clear, so a previously stored
+ *                                    CTA / now-stale hare text is overwritten)
+ *    - real hare names present     → normalized list */
+function parsePhuketHares(cell: string | undefined): string | null | undefined {
+  if (!cell) return undefined;
+  const all = splitCellSegments(cell);
+  if (all.length === 0) return undefined;
+  const real = all.filter((s) => !isHareRecruitmentCta(s));
+  if (real.length === 0) return null;
+  return normalizeHaresField([...real].sort((a, b) => a.localeCompare(b)).join(", ")) ?? null;
 }
 
 /** Location cell → venue (first <br>-segment, directions stripped) + description (remaining segments). */
@@ -127,6 +150,16 @@ export function parsePhuketRow(
   const runNumberMatch = /(\d+)/.exec(cells[2] ?? "");
   const runNumber = runNumberMatch ? Number.parseInt(runNumberMatch[1], 10) : undefined;
 
+  // #1410: the source row carries the kennel name + run number ("Iron Pussy 265")
+  // and has no separate "Trail" word. Emit that source-faithful title explicitly so
+  // the merge pipeline does NOT synthesize its default "<Kennel> Trail #N" suffix.
+  // When the name cell is blank, leave title undefined and let merge fall back.
+  const kennelName = decodeEntities(cells[1] ?? "").trim();
+  let title: string | undefined;
+  if (kennelName) {
+    title = runNumber !== undefined ? `${kennelName} ${runNumber}` : kennelName;
+  }
+
   // Hares column (#1327): one hare per <br>-delimited line; sort + comma-join
   // for stable fingerprint per project rule.
   const hares = parsePhuketHares(cells[3]);
@@ -138,6 +171,7 @@ export function parsePhuketRow(
   return {
     date,
     kennelTags: [kennelTag],
+    title,
     runNumber,
     hares,
     location,

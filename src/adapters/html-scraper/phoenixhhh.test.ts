@@ -7,6 +7,11 @@ import {
   PHOENIX_HARE_PATTERNS,
   PhoenixHHHAdapter,
   extractVenueFromDescription,
+  parseTimeRangeEnd,
+  extractHashCash,
+  extractDogFriendly,
+  cleanPhoenixDescription,
+  normalizePhoenixDetailBlock,
 } from "./phoenixhhh";
 import { extractHashRunNumber } from "../utils";
 import { extractHares } from "../hare-extraction";
@@ -225,6 +230,25 @@ describe("parseEventFromItem", () => {
     const event = parseEventFromItem($item, $, DEFAULT_CONFIG, compiled);
 
     expect(event!.startTime).toBe("18:30");
+  });
+
+  it("extracts end time from the time range (#1348)", () => {
+    const $ = cheerio.load(SAMPLE_EVENT_WITH_IMAGE);
+    const $item = $(".em-item").first();
+    const compiled = makeCompiledPatterns(DEFAULT_CONFIG);
+    const event = parseEventFromItem($item, $, DEFAULT_CONFIG, compiled);
+
+    expect(event!.endTime).toBe("21:30");
+  });
+
+  it("leaves endTime undefined when the time meta has no range (#1348)", () => {
+    const $ = cheerio.load(SAMPLE_EVENT_COMPACT_DATE);
+    const $item = $(".em-item").first();
+    const compiled = makeCompiledPatterns(DEFAULT_CONFIG);
+    const event = parseEventFromItem($item, $, DEFAULT_CONFIG, compiled);
+
+    expect(event!.startTime).toBe("18:30");
+    expect(event!.endTime).toBeUndefined();
   });
 
   it("extracts location", () => {
@@ -817,5 +841,114 @@ describe("PhoenixHHHAdapter.fetch — detail-fetch failures are visible", () => 
     ).toBe(true);
     expect(result.diagnosticContext?.detailFetchFailures).toBeGreaterThan(0);
     expect(result.diagnosticContext?.detailsFetched).toBe(0);
+  });
+});
+
+// ── #1348/#1349/#1350: detail-block field extraction ──
+
+// Verbatim Hump D detail-page key:value block from #1350 (5/6 Taco Bell Cantina).
+const HUMP_D_DETAIL_BLOCK = [
+  "Hares: TBD",
+  "Where: Taco Bell Cantina Tempe (423 S Mill)",
+  "When: 5/6/26",
+  "Time: Meet at 6:30 PM, Hares off at 6:45, Hounds to follow at 7:00.",
+  "Bring: Proper illumination (BRING a Headlamp, it gets dark so be safe), a whistle, low morals, and even lower expectations.",
+  "Things you probably won't need: A drinking vessel",
+  "Hash Cash: $1",
+  "Cash Needed on Trail:? Always good to bring a few dollars for bail",
+  "Dog friendly: Usually not on humps",
+  "On-After: Usually The Same Place We Started from",
+].join("\n");
+
+describe("parseTimeRangeEnd (#1348)", () => {
+  it.each([
+    { input: "6:30 pm - 9:30 pm", expected: "21:30" },
+    { input: "2:00 pm - 5:00 pm", expected: "17:00" },
+    { input: "6:30 pm – 8:30 pm", expected: "20:30" }, // en-dash
+  ])("parses end time from $input", ({ input, expected }) => {
+    expect(parseTimeRangeEnd(input)).toBe(expected);
+  });
+
+  it.each(["6:30 pm", "", "TBD"])("returns undefined when no range in %s", (input) => {
+    expect(parseTimeRangeEnd(input)).toBeUndefined();
+  });
+});
+
+// Live "mashed" variant (#1350 — some Hump D detail pages run every field onto
+// one line with NO separator). Verbatim shape from phoenixhhh.org 4/15 TAX DAY.
+const HUMP_D_MASHED_BLOCK =
+  "Hares: TBDWhere: Gracie’s Tax BarWhen: 4/15/26Time: Meet at 6:30 PM, Hares off at 6:45, Hounds to follow at 7:00." +
+  "Bring: Proper illumination (BRING a Headlamp), a whistle, low morals.Things you probably won’t need: A drinking vessel" +
+  "Hash Cash: $1Cash Needed on Trail:? Always good to bring a few dollars for bailDog friendly: Usually not on humps" +
+  "On-After: Usually The Same Place We Started fromDrink responsibly so you don’t need a designated driver";
+
+describe("normalizePhoenixDetailBlock (#1350 mashed single-line variant)", () => {
+  it("injects newlines before each label so mashed fields become parseable", () => {
+    const normalized = normalizePhoenixDetailBlock(HUMP_D_MASHED_BLOCK);
+    expect(extractHashCash(normalized)).toBe("$1");
+    expect(extractDogFriendly(normalized)).toBe(false);
+  });
+
+  it("does not match 'Time' inside 'Date/Time' (no false split)", () => {
+    expect(normalizePhoenixDetailBlock("Date/Time\nDate(s) - Wed")).toBe("Date/Time\nDate(s) - Wed");
+  });
+});
+
+describe("extractHashCash (#1349)", () => {
+  it("extracts the cash value from the detail block", () => {
+    expect(extractHashCash(HUMP_D_DETAIL_BLOCK)).toBe("$1");
+  });
+
+  it("returns undefined when no Hash Cash line", () => {
+    expect(extractHashCash("Hares: TBD\nWhere: Somewhere")).toBeUndefined();
+  });
+});
+
+describe("extractDogFriendly (#1350)", () => {
+  it.each([
+    { value: "Dog friendly: Usually not on humps", expected: false },
+    { value: "Dog friendly: No", expected: false },
+    { value: "Dog friendly: Yes, leashed", expected: true },
+    { value: "Dog friendly: Dogs welcome", expected: true },
+  ])("classifies '$value' → $expected", ({ value, expected }) => {
+    expect(extractDogFriendly(value)).toBe(expected);
+  });
+
+  it("classifies the full Hump D block as not dog-friendly", () => {
+    expect(extractDogFriendly(HUMP_D_DETAIL_BLOCK)).toBe(false);
+  });
+
+  it("returns undefined when the line is absent", () => {
+    expect(extractDogFriendly("Hares: TBD")).toBeUndefined();
+  });
+});
+
+describe("cleanPhoenixDescription (#1350)", () => {
+  it("drops Hash Cash + Dog friendly lines but keeps Bring / On-After / Cash Needed", () => {
+    const out = cleanPhoenixDescription(HUMP_D_DETAIL_BLOCK, {
+      stripHashCash: true,
+      stripDogFriendly: true,
+    });
+    expect(out).not.toContain("Hash Cash:");
+    expect(out).not.toContain("Dog friendly:");
+    // Fields with no schema home stay in the description.
+    expect(out).toContain("Bring: Proper illumination");
+    expect(out).toContain("On-After: Usually The Same Place");
+    expect(out).toContain("Cash Needed on Trail");
+  });
+
+  it("keeps the Dog friendly line when not classified", () => {
+    const out = cleanPhoenixDescription(HUMP_D_DETAIL_BLOCK, {
+      stripHashCash: true,
+      stripDogFriendly: false,
+    });
+    expect(out).toContain("Dog friendly:");
+    expect(out).not.toContain("Hash Cash:");
+  });
+
+  it("returns undefined when stripping leaves nothing", () => {
+    expect(
+      cleanPhoenixDescription("Hash Cash: $1", { stripHashCash: true, stripDogFriendly: false }),
+    ).toBeUndefined();
   });
 });
