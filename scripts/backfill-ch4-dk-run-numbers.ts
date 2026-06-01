@@ -33,6 +33,7 @@
  */
 
 import "dotenv/config";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
@@ -41,26 +42,35 @@ import { createScriptPool } from "./lib/db-pool";
 const APPLY = process.argv.includes("--apply");
 const KENNEL_CODE = "ch4-dk";
 
-// Anchored: the run number must follow "CH4" directly (optionally a "#"). This
-// matches "CH4 376", "CH4 #376", "CH4 352 - …" but intentionally rejects
-// "CH4 Full Moon - 315", "CH4 run258" and "CH4 - Flagpole" — we do not guess
-// numbers that aren't in the canonical leading position.
-const RE_LEADING_RUN = /^\s*CH4\s*#?\s*(\d+)\b/i;
-
-/** Parse the leading "CH4 <NNN>" run number from an event title, or null. */
+/**
+ * Parse the leading "CH4 <NNN>" run number from an event title, or null.
+ *
+ * The number must follow "CH4" directly (optionally past a "#"): this matches
+ * "CH4 376", "CH4 #376", "CH4 352 - …" but intentionally rejects
+ * "CH4 Full Moon - 315", "CH4 run258" and "CH4 - Flagpole" — we do not guess
+ * numbers that aren't in the canonical leading position.
+ *
+ * Implemented with string ops + two trivially-linear regexes rather than one
+ * anchored pattern, to stay clear of Sonar S5852's ReDoS heuristic (which flags
+ * the "\s*#?\s*" quantifier bracketing even though it can't actually backtrack).
+ */
 export function parseCh4TitleRunNumber(title: string | null | undefined): number | null {
   if (!title) return null;
-  const m = RE_LEADING_RUN.exec(title);
-  return m ? Number.parseInt(m[1], 10) : null;
+  let rest = title.trimStart();
+  if (!/^ch4/i.test(rest)) return null;
+  rest = rest.slice(3).trimStart();
+  if (rest.startsWith("#")) rest = rest.slice(1).trimStart();
+  const m = /^\d+\b/.exec(rest);
+  return m ? Number.parseInt(m[0], 10) : null;
 }
 
-interface CanonicalEvent {
+export interface CanonicalEvent {
   id: string;
   title: string | null;
   runNumber: number | null;
 }
 
-interface BackfillPlan {
+export interface BackfillPlan {
   /** events whose runNumber will be set: { id, number } */
   toSet: { id: string; number: number }[];
   /** numbers skipped because they collide (internal dup or already taken) */
@@ -221,7 +231,8 @@ async function main() {
 }
 
 // Only auto-run when invoked directly (not when imported by the test file).
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+// Resolve argv[1] so a relative invocation (npx tsx scripts/…) still matches.
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   main().catch((err) => {
     console.error("\nFatal error:", err);
     process.exit(1);
