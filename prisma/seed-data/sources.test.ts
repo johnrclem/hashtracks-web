@@ -19,10 +19,10 @@ describe("SOURCES seed data invariants (#817 regression guard)", () => {
 
   it("HARRIER_CENTRAL sources stay distinct even though they share a base URL", () => {
     const hc = SOURCES.filter((s) => s.type === "HARRIER_CENTRAL");
-    // Three live sources today (Tokyo H3, Morgantown H3, Singapore Sunday H3).
-    // The count guard catches a regression where a seed edit accidentally
-    // drops one.
-    expect(hc.length).toBeGreaterThanOrEqual(3);
+    // Four live sources today (Tokyo H3, Morgantown H3, Singapore Sunday H3,
+    // Hamburg H7). The count guard catches a regression where a seed edit
+    // accidentally drops one.
+    expect(hc.length).toBeGreaterThanOrEqual(4);
 
     // They intentionally share a base URL (config-driven REST API).
     const urls = new Set(hc.map((s) => s.url));

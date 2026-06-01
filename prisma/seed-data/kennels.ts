@@ -2753,7 +2753,7 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "h7", shortName: "H7", fullName: "Hansestadt Hamburg Hash House Harriers Hummel Hummel", region: "Hamburg", country: "Germany",
       website: "https://hamburghash.blogspot.com/",
       facebookUrl: "https://www.facebook.com/groups/280388972016079",
-      scheduleDayOfWeek: "Sunday", scheduleTime: "2:00 PM", scheduleFrequency: "Biweekly",
+      scheduleDayOfWeek: "Sunday", scheduleTime: "2:00 PM", scheduleFrequency: "Biweekly (1st & 3rd Sundays)",
       scheduleNotes: "1st & 3rd Sunday of the month",
       walkersWelcome: true,
       foundedYear: 1993, // "30th Birthday run" was June 2023 (blog archive)
