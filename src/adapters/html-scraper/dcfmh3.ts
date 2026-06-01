@@ -58,13 +58,13 @@ const MONTH_NAMES = new Set([
  * Codacy/Semgrep detect-non-literal-regexp) while avoiding a 12-branch month
  * alternation that would blow Sonar's regex-complexity cap (S5843). The range
  * uses spaceless `-` (source ranges are `6-14`); the separator is the char class
- * `[-:]` — the two separators the source uses. Sonar wants a class here, not an
- * alternation (S6035); `[-:]` has no duplicate so S5869 is satisfied too (the
- * earlier S5869 was the en-dash variant `[-:–]`, where Sonar treats en-dash and
- * hyphen as duplicate dashes). The title is captured with `(.+)` and trimmed.
+ * `[-:]` (S6035 wants a class, not an alternation). The leading word uses
+ * `[A-Z]` (not `[A-Za-z]`) because the `i` flag already matches lowercase —
+ * `[A-Za-z]` under `/i` makes `a-z` a duplicate of `A-Z` (S5869). The title is
+ * captured with `(.+)` and trimmed.
  */
 const SCHEDULE_LINE_RE =
-  /^([A-Za-z]+)\s+(\d{1,2})(?:-(\d{1,2}))?(?:,\s*(\d{4}))?\s*[-:](.+)$/i;
+  /^([A-Z]+)\s+(\d{1,2})(?:-(\d{1,2}))?(?:,\s*(\d{4}))?\s*[-:](.+)$/i;
 
 /**
  * Host kennel detection (#1400). Only seeded DC-area kennels are listed; the
