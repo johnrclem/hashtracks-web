@@ -1063,7 +1063,11 @@ const VENUE_QUALIFIER_DASHES = [" - ", " – ", " — "];
 
 function isVenueQualifierSuffix(suffix: string): boolean {
   // Tolerate a trailing period the organizer leaves on the qualifier ("Maybe.").
-  const lower = suffix.replace(/\.+$/, "").trim().toLowerCase();
+  // Procedural trailing-dot strip (not `/\.+$/`) keeps clear of Sonar S5852's
+  // ReDoS heuristic, which flags the anchored `+` even though it's linear.
+  let trimmed = suffix.trim();
+  while (trimmed.endsWith(".")) trimmed = trimmed.slice(0, -1);
+  const lower = trimmed.trim().toLowerCase();
   if (!lower) return false;
   // LOCATION_QUALIFIER_TOKENS already includes "maybe" + the dotted T.B.x forms.
   if (LOCATION_QUALIFIER_TOKENS.includes(lower)) return true;

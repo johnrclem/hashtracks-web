@@ -179,12 +179,14 @@ const START_PHRASES = [
  *  venue like "St. Mary's Hall" / "Mt. Hope Farm" / "Ft. Adams" isn't truncated
  *  to "St" / "Mt" / "Ft". */
 const VENUE_ABBREVS = new Set([
-  "st", "rd", "ave", "mt", "dr", "ft", "blvd", "ln", "pl", "ste", "no", "jr", "sr", "pt",
+  "st", "rd", "ave", "mt", "dr", "ft", "blvd", "ln", "pl", "ste",
+  "no", "jr", "sr", "pt", "ct", "sq", "hwy", "rte",
 ]);
 
 /** Index of the first sentence-ending "." (followed by a space) that is not part
- *  of a known abbreviation, or -1. Procedural (no anchored `(\w+)$` capture) to
- *  stay clear of Sonar's regex-complexity heuristics. */
+ *  of a known abbreviation OR a single-letter middle initial ("John F. Kennedy
+ *  Blvd"), or -1. Procedural (no anchored `(\w+)$` capture) to stay clear of
+ *  Sonar's regex-complexity heuristics. */
 function firstSentencePeriod(s: string): number {
   let from = 0;
   while (from < s.length) {
@@ -192,7 +194,8 @@ function firstSentencePeriod(s: string): number {
     if (dot < 0) return -1;
     const before = s.slice(0, dot);
     const lastToken = before.split(/[^A-Za-z]+/).pop() ?? "";
-    if (!VENUE_ABBREVS.has(lastToken.toLowerCase())) return dot;
+    // Single letters are middle initials, not sentence ends.
+    if (lastToken.length > 1 && !VENUE_ABBREVS.has(lastToken.toLowerCase())) return dot;
     from = dot + 2;
   }
   return -1;
@@ -208,7 +211,10 @@ function cutAtVenueTerminator(s: string): string {
   if (dot >= 0) end = Math.min(end, dot);
   const nl = s.search(/[\n\r]/);
   if (nl >= 0) end = Math.min(end, nl);
-  const atTime = /\bat\s+\d/i.exec(s);
+  // Cut at an " at <time>" marker only when it's a real clock time (HH:MM or
+  // H[ap]m) — NOT "at 5th Avenue" / "at 123 Main St" (gemini review). `\s?`
+  // (bounded) rather than `\s*` keeps clear of Sonar S5852.
+  const atTime = /\bat\s+\d{1,2}(?::\d{2}|\s?[ap]\.?m)/i.exec(s);
   if (atTime) end = Math.min(end, atTime.index);
   return s.slice(0, end);
 }
@@ -248,7 +254,7 @@ function extractStartVenueFromBody(dir$: cheerio.CheerioAPI): string | undefined
 function resolveRih3Location(
   dir$: cheerio.CheerioAPI,
   mapsLink: cheerio.Cheerio<AnyNode>,
-): { location: string | undefined; locationUrl: string | undefined } {
+): { location: string | null | undefined; locationUrl: string | undefined } {
   const addressLocation = findAddressInBody(dir$);
   if (addressLocation) {
     return { location: addressLocation, locationUrl: undefined };
@@ -256,10 +262,18 @@ function resolveRih3Location(
 
   const href = mapsLink.length ? mapsLink.attr("href")?.trim() : undefined;
 
+  // Track whether a candidate provided venue-shaped text that cleaned away to a
+  // placeholder/non-venue (e.g. "Details to follow"). If so — and nothing else
+  // yields a real venue — emit `null` (explicit clear) so the merge tri-state
+  // wipes a stale canonical location, rather than `undefined` (preserve). Only
+  // when NO candidate had any text do we preserve via `undefined`.
+  let sawPlaceholder = false;
+
   const anchorText = cleanMapsLinkText(mapsLink);
   if (anchorText && !isDirectionsCta(anchorText)) {
     const cleaned = cleanLocationName(anchorText);
     if (cleaned) return { location: cleaned, locationUrl: href };
+    sawPlaceholder = true;
   }
 
   // Anchor missing or polluted — fall back to the start-sentence venue.
@@ -267,9 +281,10 @@ function resolveRih3Location(
   if (startVenue) {
     const cleaned = cleanLocationName(startVenue);
     if (cleaned) return { location: cleaned, locationUrl: href };
+    sawPlaceholder = true;
   }
 
-  return { location: undefined, locationUrl: href };
+  return { location: sawPlaceholder ? null : undefined, locationUrl: href };
 }
 
 /**

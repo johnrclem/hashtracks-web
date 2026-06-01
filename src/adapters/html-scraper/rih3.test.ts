@@ -294,6 +294,21 @@ describe("parseHarelineRow", () => {
     expect(result?.location).toBe("On Tap Sports Bar");
   });
 
+  it("clears location (null) when the anchor is venue-shaped but a placeholder (#1890 tri-state)", () => {
+    // "Details to follow" is not a CTA but cleans to a placeholder → emit an
+    // explicit null so the merge pipeline wipes any stale canonical location,
+    // rather than undefined (which would preserve it).
+    const dirHtml = `
+      <h2>Mystery Trail</h2>
+      <a href="https://www.google.com/maps/place/foo">
+        <font color="#cc0000">Details to follow</font>
+      </a>
+    `;
+    const cells = ["Mon June 29", "6:30 PM", "2105"];
+    const result = parseHarelineRow(cells, HARE_SINGLE, dirHtml, SOURCE_URL);
+    expect(result?.location).toBeNull();
+  });
+
   it("does not surface a coordinate-only / On-After maps anchor as the venue (#1890 negative)", () => {
     // No body start-sentence and no address — a polluted anchor must NOT become
     // the location (it falls through to undefined rather than leaking coords).
