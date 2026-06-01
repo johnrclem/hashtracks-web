@@ -19,20 +19,24 @@ describe("SOURCES seed data invariants (#817 regression guard)", () => {
 
   it("HARRIER_CENTRAL sources stay distinct even though they share a base URL", () => {
     const hc = SOURCES.filter((s) => s.type === "HARRIER_CENTRAL");
-    // Three live sources today (Tokyo H3, Morgantown H3, Singapore Sunday H3).
-    // The count guard catches a regression where a seed edit accidentally
-    // drops one.
-    expect(hc.length).toBeGreaterThanOrEqual(3);
+    // Four live sources today (Tokyo H3, Morgantown H3, Singapore Sunday H3,
+    // Hamburg H7). The count guard catches a regression where a seed edit
+    // accidentally drops one.
+    expect(hc.length).toBeGreaterThanOrEqual(4);
 
     // They intentionally share a base URL (config-driven REST API).
     const urls = new Set(hc.map((s) => s.url));
     expect(urls.size).toBe(1);
 
-    // But the discriminator lives in `config` — either cityNames or
-    // kennelUniqueShortName must be present and distinct per row.
+    // But the discriminator lives in `config` — cityNames, kennelUniqueShortName,
+    // or publicKennelId (GUID) must be present and distinct per row.
     const discriminators = hc.map((s) => {
-      const cfg = (s.config ?? {}) as { cityNames?: string; kennelUniqueShortName?: string };
-      return cfg.cityNames ?? cfg.kennelUniqueShortName ?? "";
+      const cfg = (s.config ?? {}) as {
+        cityNames?: string;
+        kennelUniqueShortName?: string;
+        publicKennelId?: string;
+      };
+      return cfg.cityNames ?? cfg.kennelUniqueShortName ?? cfg.publicKennelId ?? "";
     });
     expect(discriminators.every((d) => d.length > 0)).toBe(true);
     expect(new Set(discriminators).size).toBe(discriminators.length);

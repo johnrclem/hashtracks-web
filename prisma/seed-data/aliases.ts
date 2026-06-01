@@ -333,6 +333,7 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "shits-fra": ["SHITS Hash", "SHITS H3", "S.H.I.T.S."],
     "dom-fra": ["DOM Hash", "D.O.M. Hash", "DOM H3"],
     "bikeh3-fra": ["Frankfurt Bike Hash", "Bike Bash Frankfurt"],
+    "h7": ["Hamburg H7", "H7", "Hamburg Hash", "Hamburg Hash House Harriers", "Hummel Hummel", "Hamburg H3"],
 
     // ===== JAPAN =====
     // Tokyo

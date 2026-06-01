@@ -3361,6 +3361,43 @@ export const SOURCES = [
       },
       kennelCodes: ["ffmh3"],
     },
+    // Hamburg H7 — Harrier Central public API
+    {
+      name: "Hamburg H7 Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        // GUID is the most stable filter; cityNames:"Hamburg" and
+        // kennelUniqueShortName:"H7" both return the same H7 events (verified).
+        publicKennelId: "cfcbb91a-6a58-438e-a814-979e9ca6f024",
+        defaultKennelTag: "h7",
+        // #709 ("Hare needed") + #713-716 ("Placeholder event for H7") aren't
+        // real trail names → synthesize "Hamburg H7 Trail #N" (mirrors Tokyo #1166).
+        defaultTitle: "Hamburg H7 Trail",
+        staleTitleAliases: ["Placeholder event for H7", "Hare needed"],
+      },
+      kennelCodes: ["h7"],
+    },
+    {
+      // Backfill-only provenance for the pre-HC archive (runs #≤706, 2021-2026).
+      // Disabled: the kennel moved to Harrier Central, so there is no ongoing
+      // Blogspot scrape. Historical events were one-shot loaded via
+      // scripts/backfill-h7-history.ts (parser: scripts/lib/h7-blog-parser.ts).
+      name: "Hamburg H7 Blogspot Archive",
+      url: "https://hamburghash.blogspot.com/",
+      type: "HTML_SCRAPER" as const,
+      enabled: false,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        note: "Backfill-only Blogger archive; loaded once via scripts/backfill-h7-history.ts. Not scraped live (kennel is on Harrier Central).",
+      },
+      kennelCodes: ["h7"],
+    },
 
     // ===== JAPAN =====
     // Tokyo H3 — Harrier Central public API
