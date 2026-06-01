@@ -18,6 +18,7 @@ import { BaliHash2Adapter } from "./html-scraper/bali-hash-2";
 import { SHITH3Adapter } from "./html-scraper/shith3";
 import { BarnesHashAdapter } from "./html-scraper/barnes-hash";
 import { MijasHashAdapter } from "./html-scraper/mijas-hash";
+import { AucklandHashAdapter } from "./html-scraper/auckland-hash";
 import { OCH3Adapter } from "./html-scraper/och3";
 import { SlashHashAdapter } from "./html-scraper/slash-hash";
 import { EnfieldHashAdapter } from "./html-scraper/enfield-hash";
@@ -146,6 +147,7 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /westlondonhash/i,          name: "WestLondonHashAdapter", factory: () => new WestLondonHashAdapter() },
   { pattern: /barnesh3\.com/i,           name: "BarnesHashAdapter",   factory: () => new BarnesHashAdapter() },
   { pattern: /mijash3\.com/i,            name: "MijasHashAdapter",    factory: () => new MijasHashAdapter() },
+  { pattern: /aucklandhashhouseharriers\.co\.nz/i, name: "AucklandHashAdapter", factory: () => new AucklandHashAdapter() },
   { pattern: /och3\.org/i,              name: "OCH3Adapter",          factory: () => new OCH3Adapter() },
   { pattern: /londonhash\.org\/slah3/i, name: "SlashHashAdapter",     factory: () => new SlashHashAdapter() },
   { pattern: /londonhash\.org/i,        name: "LondonHashAdapter",    factory: () => new LondonHashAdapter() },

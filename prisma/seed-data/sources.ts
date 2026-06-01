@@ -5896,6 +5896,19 @@ export const SOURCES = [
       config: { kennelTag: "auckland-hussies" },
       kennelCodes: ["auckland-hussies"],
     },
+    // Auckland H3: Rocketspark homepage, rolling "Upcoming Runs" Draft.js block.
+    {
+      name: "Auckland H3 Website",
+      url: "http://www.aucklandhashhouseharriers.co.nz/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      // Rolling upcoming-runs list — events fall off once they pass, so the
+      // reconciler must restrict its window to future dates (no false-CANCEL).
+      config: { upcomingOnly: true },
+      kennelCodes: ["ah3-nz"],
+    },
     // ── New Zealand — sporty.co.nz CMS subsites (Wellington + Hamilton) ──
     // All three live behind Cloudflare Bot Fight Mode and are scraped via the
     // stealth-upgraded NAS browser-render service. Capital + Geriatrix expose
