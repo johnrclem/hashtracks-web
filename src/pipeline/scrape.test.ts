@@ -288,7 +288,7 @@ describe("scrapeSource", () => {
           events: [{ date: "2026-02-14", kennelTags: ["sch4"] }],
           errors: [],
         }),
-      } as never);
+      });
 
       await scrapeSource("src_hs");
 
@@ -321,7 +321,7 @@ describe("scrapeSource", () => {
           events: [{ date: "2026-02-14", kennelTags: ["sch4"] }],
           errors: [],
         }),
-      } as never);
+      });
 
       await scrapeSource("src_hs2");
 

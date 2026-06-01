@@ -148,7 +148,7 @@ export function mapHashStatsRow(
     date: parsed.date,
     kennelTags: [kennelTag],
     // title omitted on purpose — merge.ts synthesizes "<Kennel> Trail #N".
-    ...(runNumber !== undefined ? { runNumber } : {}),
+    ...(runNumber ? { runNumber } : {}),
     ...(parsed.startTime ? { startTime: parsed.startTime } : {}),
     description: normalizeDescription(row.SPECIAL_EVENT_DESCRIPTION),
     location: cleanLocationName(row.EVENT_LOCATION),
@@ -159,6 +159,77 @@ export function mapHashStatsRow(
   };
 
   return raw;
+}
+
+/** A single fetch/parse error for one kennel slug. */
+type KennelFetchError = { url: string; status?: number; message: string };
+
+/** Discriminated result of fetching one kennel's archive. */
+type KennelArchiveResult =
+  | { ok: true; rows: HashStatsRow[] }
+  | { ok: false; error: KennelFetchError };
+
+/**
+ * Fetch + validate one kennel's full archive. Fails loud (returns an error
+ * result, never throws) on non-OK HTTP, a non-array `aaData` body, or a
+ * server-capped page — each of which must block reconcile rather than be
+ * mistaken for a complete (possibly empty) archive.
+ */
+async function fetchKennelArchive(
+  baseUrl: string,
+  externalSlug: string,
+): Promise<KennelArchiveResult> {
+  const url = `${baseUrl}/${encodeURIComponent(externalSlug)}/listhashes2`;
+  let rows: unknown;
+  let reportedTotal: number;
+  try {
+    const res = await safeFetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "User-Agent": USER_AGENT,
+      },
+      body: LIST_BODY,
+    });
+    if (!res.ok) {
+      return { ok: false, error: { url, status: res.status, message: `HashStats ${externalSlug}: HTTP ${res.status}` } };
+    }
+    const json = (await res.json()) as {
+      aaData?: unknown;
+      iTotalRecords?: unknown;
+      iTotalDisplayRecords?: unknown;
+    };
+    rows = json?.aaData;
+    reportedTotal = Number(json?.iTotalRecords ?? json?.iTotalDisplayRecords);
+  } catch (err) {
+    return {
+      ok: false,
+      error: { url, message: `HashStats ${externalSlug}: fetch error: ${err instanceof Error ? err.message : String(err)}` },
+    };
+  }
+
+  // Runtime shape guard — never trust the cast. A 200 with a non-array body
+  // (auth HTML, error JSON) must fail loud rather than silently yield 0 events,
+  // which would let the reconciler cancel live canonical events.
+  if (!Array.isArray(rows)) {
+    return { ok: false, error: { url, message: `HashStats ${externalSlug}: response missing aaData array` } };
+  }
+
+  // DataTables reports the true row count in iTotalRecords. We request the
+  // whole archive in one shot (length=100000); if the server caps the page and
+  // returns fewer rows than the total, treating it as the complete archive
+  // would let the reconciler CANCEL the missing historical events (this
+  // source's scrapeDays spans the full 1995→present window). Fail loud — an
+  // error blocks reconcile (scrape.ts gates on errors.length===0) — and skip
+  // the partial page rather than emit a half-archive. (#1771)
+  if (Number.isFinite(reportedTotal) && reportedTotal > rows.length) {
+    return {
+      ok: false,
+      error: { url, message: `HashStats ${externalSlug}: partial archive — got ${rows.length} of ${reportedTotal} rows (server-capped); skipping to avoid false reconcile cancellations` },
+    };
+  }
+
+  return { ok: true, rows: rows as HashStatsRow[] };
 }
 
 export class HashStatsAdapter implements SourceAdapter {
@@ -186,76 +257,26 @@ export class HashStatsAdapter implements SourceAdapter {
     let apiRowsReturned = 0;
 
     for (const [kennelTag, externalSlug] of entries) {
-      const url = `${baseUrl}/${encodeURIComponent(externalSlug)}/listhashes2`;
-      let rows: unknown;
-      let reportedTotal = Number.NaN;
-      try {
-        const res = await safeFetch(url, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-            "User-Agent": USER_AGENT,
-          },
-          body: LIST_BODY,
-        });
-        if (!res.ok) {
-          const msg = `HashStats ${externalSlug}: HTTP ${res.status}`;
-          fetchErrors.push({ url, status: res.status, message: msg });
-          errors.push(msg);
-          continue;
-        }
-        const json = (await res.json()) as {
-          aaData?: unknown;
-          iTotalRecords?: unknown;
-          iTotalDisplayRecords?: unknown;
-        };
-        rows = json?.aaData;
-        reportedTotal = Number(json?.iTotalRecords ?? json?.iTotalDisplayRecords);
-      } catch (err) {
-        const msg = `HashStats ${externalSlug}: fetch error: ${err instanceof Error ? err.message : String(err)}`;
-        fetchErrors.push({ url, message: msg });
-        errors.push(msg);
+      const result = await fetchKennelArchive(baseUrl, externalSlug);
+      if (!result.ok) {
+        fetchErrors.push(result.error);
+        errors.push(result.error.message);
         continue;
       }
 
-      // Runtime shape guard — never trust the cast. A 200 with a non-array
-      // body (auth HTML, error JSON) must fail loud rather than silently yield
-      // 0 events, which would let the reconciler cancel live canonical events.
-      if (!Array.isArray(rows)) {
-        const msg = `HashStats ${externalSlug}: response missing aaData array`;
-        fetchErrors.push({ url, message: msg });
-        errors.push(msg);
-        continue;
-      }
+      apiRowsReturned += result.rows.length;
 
-      // DataTables reports the true row count in iTotalRecords. We request the
-      // whole archive in one shot (length=100000); if the server caps the page
-      // and returns fewer rows than the total, treating it as the complete
-      // archive would let the reconciler CANCEL the missing historical events
-      // (this source's scrapeDays spans the full 1995→present window). Fail
-      // loud — an error blocks reconcile (scrape.ts gates on errors.length===0)
-      // — and skip the partial page rather than emit a half-archive. (#1771)
-      if (Number.isFinite(reportedTotal) && reportedTotal > rows.length) {
-        const msg = `HashStats ${externalSlug}: partial archive — got ${rows.length} of ${reportedTotal} rows (server-capped); skipping to avoid false reconcile cancellations`;
-        fetchErrors.push({ url, message: msg });
-        errors.push(msg);
-        continue;
-      }
-
-      apiRowsReturned += rows.length;
-
-      rows.forEach((rawRow, index) => {
-        const row = rawRow as HashStatsRow;
+      for (const [index, row] of result.rows.entries()) {
         const mapped = mapHashStatsRow(row, kennelTag, baseUrl, externalSlug);
         if (!mapped) {
           const ref = row?.KENNEL_EVENT_NUMBER ?? "?";
           const msg = `HashStats ${externalSlug}: skipped event #${ref} — unparseable EVENT_DATE "${row?.EVENT_DATE ?? ""}"`;
           parseErrors.push({ row: index, section: externalSlug, field: "date", error: msg });
           errors.push(msg);
-          return;
+          continue;
         }
         events.push(mapped);
-      });
+      }
     }
 
     if (fetchErrors.length) errorDetails.fetch = fetchErrors;
