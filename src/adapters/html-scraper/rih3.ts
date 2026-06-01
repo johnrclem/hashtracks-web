@@ -194,7 +194,8 @@ function firstSentencePeriod(s: string): number {
     if (dot < 0) return -1;
     const before = s.slice(0, dot);
     const lastToken = before.split(/[^A-Za-z]+/).pop() ?? "";
-    // Single letters are middle initials, not sentence ends.
+    // Single-letter tokens are middle initials (e.g. "F." in "John F. Kennedy") —
+    // never a sentence end. Abbreviations must be 2+ chars to match VENUE_ABBREVS.
     if (lastToken.length > 1 && !VENUE_ABBREVS.has(lastToken.toLowerCase())) return dot;
     from = dot + 2;
   }
@@ -272,7 +273,11 @@ function resolveRih3Location(
   const anchorText = cleanMapsLinkText(mapsLink);
   if (anchorText && !isDirectionsCta(anchorText)) {
     const cleaned = cleanLocationName(anchorText);
-    if (cleaned) return { location: cleaned, locationUrl: href };
+    if (cleaned !== null) return { location: cleaned, locationUrl: href };
+    // Anchor passed the CTA filter but cleaned to a placeholder/non-venue.
+    // Remember it (→ explicit null clear) but still try the start-sentence
+    // fallback first: a placeholder anchor must not suppress a real
+    // "starting from <venue>" sentence elsewhere in the cell.
     sawPlaceholder = true;
   }
 
@@ -280,11 +285,16 @@ function resolveRih3Location(
   const startVenue = extractStartVenueFromBody(dir$);
   if (startVenue) {
     const cleaned = cleanLocationName(startVenue);
-    if (cleaned) return { location: cleaned, locationUrl: href };
+    if (cleaned !== null) return { location: cleaned, locationUrl: href };
     sawPlaceholder = true;
   }
 
-  return { location: sawPlaceholder ? null : undefined, locationUrl: href };
+  // Placeholder text seen but no venue resolved → clear (null) and don't push a
+  // maps URL we have no confidence in. No candidate text at all → preserve
+  // (undefined) and keep the href as a bare geocode pin.
+  return sawPlaceholder
+    ? { location: null, locationUrl: undefined }
+    : { location: undefined, locationUrl: href };
 }
 
 /**
