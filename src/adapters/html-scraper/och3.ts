@@ -160,12 +160,21 @@ export function parseDetailPage($: cheerio.CheerioAPI, detailUrl: string): Detai
 
   // On Inn: text after "On Inn" (also "On Inn will be - …", the live form that
   // gets concatenated onto the hare line — captured here, not dropped, #1815).
+  // Parsed procedurally rather than via one regex: an optional `(?:…)?\s*` group
+  // ahead of `\s*[:\-]\s*(.+?)` is a Sonar ReDoS shape (S5852).
   let onInn: string | undefined;
-  const onInnMatch = /On\s+Inns?(?:\s+will\s+be)?\s*[:\-–—]\s*(.+?)(?:\n|$)/i.exec(fullText);
-  if (onInnMatch) {
-    const onInnText = onInnMatch[1].trim();
-    if (!isPlaceholder(onInnText)) {
-      onInn = onInnText;
+  const onInnBoundary = ON_INN_BOUNDARY_RE.exec(fullText);
+  if (onInnBoundary) {
+    let rest = fullText.slice(onInnBoundary.index + onInnBoundary[0].length);
+    const nl = rest.indexOf("\n");
+    if (nl >= 0) rest = rest.slice(0, nl);
+    rest = rest.trimStart().replace(/^will\s+be\b/i, "").trimStart();
+    const delim = /^[:\-–—]\s*/.exec(rest);
+    if (delim) {
+      const onInnText = rest.slice(delim[0].length).trim();
+      if (onInnText && !isPlaceholder(onInnText)) {
+        onInn = onInnText;
+      }
     }
   }
 

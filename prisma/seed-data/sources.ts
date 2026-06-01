@@ -1621,6 +1621,29 @@ export const SOURCES = [
       },
       kennelCodes: ["o2h3"],
     },
+    {
+      // Previously DB-only; seeded here to fix seed/prod drift (#1846). Config
+      // mirrors prod exactly — kennelTagRules.default stays the "OKissMe H3"
+      // shortName (resolved via the kennel resolver) so RawEvent fingerprints
+      // don't churn. `description: 8` wires the "Trail Notes" column so future
+      // events get a real blurb instead of the city name the old config leaked.
+      name: "OKissMe H3 Hareline",
+      url: "https://docs.google.com/spreadsheets/d/1MMS96JayUN3TBITvmLyc-TQH9RvjzcHcPwjn2cGHoVs/edit?gid=223708191#gid=223708191",
+      type: "GOOGLE_SHEETS" as const,
+      trustLevel: 9,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        sheetId: "1MMS96JayUN3TBITvmLyc-TQH9RvjzcHcPwjn2cGHoVs",
+        tabs: ["OKissMeH3 Hareline"],
+        // Number,Date,Time,Location,Address,Primary Hare,Other Hare,Theme,Trail Notes,...
+        // (Time col 2 is repurposed as attendance count on past rows — not mapped.)
+        columns: { runNumber: 0, date: 1, location: 3, address: 4, hares: 5, title: 7, description: 8 },
+        kennelTagRules: { default: "OKissMe H3" },
+        startTimeRules: { byDayOfWeek: { Sun: "11:00" } },
+      },
+      kennelCodes: ["okissme-h3"],
+    },
     // --- WCFH Calendar (11 Tampa Bay kennels) ---
     {
       name: "West Central FL Hash Calendar",
@@ -2289,12 +2312,26 @@ export const SOURCES = [
           ["Cherry City|Cherry Cherry City", "cch3-or"],
         ],
         defaultKennelTag: "oh3",
-        // Drop N2H3 / NNH3 events that leak into this shared aggregator.
-        // N2H3 has its own No Name H3 Calendar source (trust 8), so skipping
-        // here avoids cross-kennel duplicates on the Oregon H3 hareline.
-        // Anchored so joint co-host titles with the local kennel stay put.
-        // Closes #584.
-        skipPatterns: ["^NNH3\\b", "^N2H3\\b", "^No Name\\b"],
+        // Drop sibling-kennel events that leak into this shared aggregator and
+        // already have their own dedicated calendar source, so they don't get
+        // dumped into the OH3 default bucket (cross-kennel misattribution):
+        //   - N2H3 / NNH3 → No Name H3 Calendar (trust 8). Closes #584.
+        //   - Kahuna / Ka3na / Katuna / Kah-Two-Na / Ka-Three-Na → Kahuna H3
+        //     Calendar (okh3, trust 8). The Oregon feed cross-posts Kahuna's
+        //     Monday runs ("Kahuna H3 #815 …", "Kahuna pick up hash!", etc.)
+        //     which were landing on oh3. #1867.
+        // Anchored so joint co-host titles led by the local kennel ("OH3 #1336
+        // / Kahuna combo") are NOT skipped — they stay on oh3.
+        skipPatterns: [
+          String.raw`^NNH3\b`,
+          String.raw`^N2H3\b`,
+          String.raw`^No Name\b`,
+          String.raw`^Kahuna\b`,
+          String.raw`^Ka3na\b`,
+          String.raw`^Katuna\b`,
+          String.raw`^Kah-Two-Na\b`,
+          String.raw`^Ka-Three-Na\b`,
+        ],
       },
       kennelCodes: ["oh3", "tgif", "cch3-or"],
     },

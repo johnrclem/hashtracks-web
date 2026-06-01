@@ -1,17 +1,19 @@
 /**
  * One-off overrides for the cycle-6 profile bundle PR (#1380, #1392, #1393).
  *
- * Background: prisma/seed.ts performs a fill-only merge for existing kennels
- * — it never overwrites an already-populated column (seed.ts:298-303), and
- * `fullName` is set only at create time (seed.ts:265, not in PROFILE_FIELDS).
- *
- * This script applies the rewrites that can't be expressed in seed:
+ * Background: prisma/seed.ts performs a fill-only merge for existing kennels —
+ * it never overwrites an already-populated column (seed.ts:296-301), and
+ * `fullName` is set only at create time (not in PROFILE_FIELDS). This script
+ * applies the rewrites that can't be expressed in seed:
  *   - gynoh3.fullName  → "Gyrls Night Out Hash House Harriers"     (#1393)
  *   - gynoh3.description → expanded blurb with founding details    (#1393)
  *   - kimchi-h3.description → expanded blurb with Korean lineage   (#1380)
  *
- * Idempotent and safe to re-run. Default mode is DRY-RUN; pass --execute
- * to actually write to the DB.
+ * Each rewrite carries the EXPECTED current value (captured from the cycle-6 PR
+ * Step 0 prod-state query) so the runner refuses to overwrite admin curations
+ * applied between merge and execution.
+ *
+ * Idempotent and safe to re-run. Default mode is DRY-RUN; pass --execute to apply.
  *
  * Usage:
  *   eval "$(fnm env)" && fnm use 20
@@ -21,30 +23,9 @@
  */
 
 import "dotenv/config";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "@/generated/prisma/client";
-import { createScriptPool } from "./lib/db-pool";
+import { runProfileOverrides, type ProfileOverride } from "./lib/profile-override-runner";
 
-const EXECUTE = process.argv.includes("--execute");
-
-type OverrideField = "fullName" | "description";
-interface FieldRewrite {
-  expected: string;
-  target: string;
-}
-interface Override {
-  kennelCode: string;
-  rewrites: Partial<Record<OverrideField, FieldRewrite>>;
-}
-interface RewriteEvaluation {
-  updateData: Partial<Record<OverrideField, string>>;
-  driftSkip: boolean;
-}
-
-// Each rewrite carries the EXPECTED current value so the script refuses to
-// overwrite admin curations applied between merge and execution. `expected`
-// is captured from the prod-state query in cycle-6 PR Step 0 — see PR body.
-const OVERRIDES: Override[] = [
+const OVERRIDES: ProfileOverride[] = [
   {
     kennelCode: "gynoh3",
     rewrites: {
@@ -73,95 +54,10 @@ const OVERRIDES: Override[] = [
   },
 ];
 
-type KennelRow = { id: string; kennelCode: string; fullName: string; description: string | null };
-
-function evaluateRewrites(
-  kennel: KennelRow,
-  rewrites: Override["rewrites"],
-): RewriteEvaluation {
-  const updateData: Partial<Record<OverrideField, string>> = {};
-  let driftSkip = false;
-  for (const field of Object.keys(rewrites) as OverrideField[]) {
-    const { expected, target } = rewrites[field]!;
-    const current = kennel[field];
-    if (current === target) {
-      console.log(`  · ${kennel.kennelCode}.${field} already correct.`);
-    } else if (current === expected) {
-      updateData[field] = target;
-      console.log(`  ~ ${kennel.kennelCode}.${field}`);
-      console.log(`      current: ${JSON.stringify(current)}`);
-      console.log(`      target:  ${JSON.stringify(target)}`);
-    } else {
-      console.warn(`  ⚠ ${kennel.kennelCode}.${field} drifted from expected — refusing to overwrite.`);
-      console.warn(`      expected: ${JSON.stringify(expected)}`);
-      console.warn(`      current:  ${JSON.stringify(current)}`);
-      console.warn(`      target:   ${JSON.stringify(target)}`);
-      driftSkip = true;
-    }
-  }
-  return { updateData, driftSkip };
-}
-
-async function processOverride(
-  prisma: PrismaClient,
-  override: Override,
-): Promise<"updated" | "skipped-drift" | "noop" | "missing"> {
-  const kennel = await prisma.kennel.findUnique({
-    where: { kennelCode: override.kennelCode },
-    select: { id: true, kennelCode: true, fullName: true, description: true },
-  });
-  if (!kennel) {
-    console.error(`✗ Kennel "${override.kennelCode}" not found — skipping.`);
-    return "missing";
-  }
-
-  const { updateData, driftSkip } = evaluateRewrites(kennel, override.rewrites);
-  if (driftSkip) return "skipped-drift";
-  if (Object.keys(updateData).length === 0) return "noop";
-  if (!EXECUTE) return "updated";
-
-  await prisma.kennel.update({ where: { id: kennel.id }, data: updateData });
-  console.log(`  ✓ Updated ${kennel.kennelCode} (${Object.keys(updateData).join(", ")})`);
-  return "updated";
-}
-
-function summarize(plannedUpdates: number, skippedDueToDrift: number) {
-  if (skippedDueToDrift > 0) {
-    console.warn(`\n⚠ Skipped ${skippedDueToDrift} kennel(s) due to drift from expected values — review manually.`);
-  }
-  if (plannedUpdates === 0 && skippedDueToDrift === 0) {
-    console.log("\nNothing to do — all overrides already applied.");
-  } else if (plannedUpdates > 0 && !EXECUTE) {
-    console.log(`\nDry-run complete. ${plannedUpdates} kennel(s) would be updated. Re-run with --execute to apply.`);
-  } else if (plannedUpdates > 0) {
-    console.log(`\nApplied overrides to ${plannedUpdates} kennel(s).`);
-  }
-}
-
-async function main() {
-  const mode = EXECUTE ? "EXECUTE (will update DB)" : "DRY-RUN (read-only)";
-  console.log(`\n=== cleanup-cycle6-profile-overrides ===`);
-  console.log(`Mode: ${mode}\n`);
-
-  const pool = createScriptPool();
-  const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
-
-  try {
-    let plannedUpdates = 0;
-    let skippedDueToDrift = 0;
-    for (const override of OVERRIDES) {
-      const outcome = await processOverride(prisma, override);
-      if (outcome === "updated") plannedUpdates++;
-      else if (outcome === "skipped-drift") skippedDueToDrift++;
-    }
-    summarize(plannedUpdates, skippedDueToDrift);
-  } finally {
-    await prisma.$disconnect();
-    await pool.end();
-  }
-}
-
-main().catch((err) => {
+runProfileOverrides(OVERRIDES, {
+  execute: process.argv.includes("--execute"),
+  scriptName: "cleanup-cycle6-profile-overrides",
+}).catch((err) => {
   console.error("\nFatal error:", err);
-  process.exit(1);
+  process.exitCode = 1;
 });

@@ -17,6 +17,7 @@ import {
   dedupGCalEvents,
   extractRunDescriptorTheme,
   splitTimedSummaryHareLocation,
+  stripGluedDescriptionEcho,
 } from "./adapter";
 import { compilePatterns } from "../utils";
 import type { RawEventData } from "../types";
@@ -176,6 +177,46 @@ describe("Oregon Hashing Calendar multi-kennel routing (#1023 step 4)", () => {
       config,
     );
     expect(result?.kennelTags).toEqual(["tgif"]);
+  });
+
+  // #1867 — Kahuna (okh3) cross-posts onto the Oregon aggregate but has its own
+  // dedicated calendar source, so it's dropped here via skipPatterns (same
+  // precedent as No Name H3). Compile the seed skip patterns and pass them in.
+  const skipCfg = oregonSource.config as { skipPatterns?: string[] };
+  const compiledSkipPatterns = compilePatterns(skipCfg.skipPatterns ?? [], "i");
+
+  it.each([
+    "Kahuna H3 #815 w/ Deaf Dick.",
+    "Kahuna pick up hash!",
+    "Kahuna Revival #??? - Amazon.cum!",
+    "Kah-Two-Na",
+    "Katuna: Hate Crime",
+    "Ka-Three-Na H3 - Gayzelle",
+  ])("skips Kahuna/okh3 cross-post %j", (summary) => {
+    const result = buildRawEventFromGCalItem(
+      { summary, start: { dateTime: "2025-07-07T18:30:00-07:00" }, status: "confirmed" },
+      config,
+      { compiledSkipPatterns },
+    );
+    expect(result).toBeNull();
+  });
+
+  it("does NOT skip a joint trail led by the local kennel (anchored)", () => {
+    const result = buildRawEventFromGCalItem(
+      { summary: "OH3 Full Moon #1336 / Kahuna Combo", start: { dateTime: "2025-06-11T18:30:00-07:00" }, status: "confirmed" },
+      config,
+      { compiledSkipPatterns },
+    );
+    expect(result?.kennelTags).toEqual(["oh3"]);
+  });
+
+  it("still routes the Cherry City + OH3 joint inaugural to both with skip patterns active", () => {
+    const result = buildRawEventFromGCalItem(
+      { summary: "Cherry City H3 #1 / OH3 # 1340", start: { dateTime: "2025-07-12T18:30:00-07:00" }, status: "confirmed" },
+      config,
+      { compiledSkipPatterns },
+    );
+    expect(result?.kennelTags).toEqual(["cch3-or", "oh3"]);
   });
 });
 
@@ -405,6 +446,148 @@ describe("buildRawEventFromGCalItem — placeholder summary promotion (#1761)", 
     );
     expect(result?.runNumber).toBe(449);
     expect(result?.title).toContain("Normal Run");
+  });
+});
+
+// ── #1843 — Maps-URL location with appended description text (OKH3/Kahuna) ──
+
+describe("buildRawEventFromGCalItem — Maps-URL location leak (#1843)", () => {
+  const config = { defaultKennelTag: "okh3", includeAllDayEvents: true };
+
+  it("clips a pre-built Maps URL when the description is appended after it", () => {
+    // The audit shape: LOCATION holds a Maps search URL and then a raw space +
+    // the run description (note the UNencoded '/' and spaces, proving it rode in
+    // as a URL value, not via mapsUrl() encoding).
+    const dirty =
+      "https://www.google.com/maps/search/?api=1&query=Burrito%20Azteca%2C%201942%20N%20Rosa%20Parks%20Way%2C%20Portland%2C%20OR%2097217%2C%20USA" +
+      " for Ka3Na/Morning Wood - Memorial Day Trail\nWho - We will be deflouring…";
+    const result = buildRawEventFromGCalItem(
+      {
+        summary: "Ka3na/Morningwood Combo - Street Meat and Bottom Dollar",
+        start: { date: "2026-05-25" },
+        status: "confirmed",
+        location: dirty,
+        description: "Detrails for Ka3Na/Morning Wood - Memorial Day Trail",
+      },
+      config,
+    );
+    expect(result?.locationUrl).toBe(
+      "https://www.google.com/maps/search/?api=1&query=Burrito%20Azteca%2C%201942%20N%20Rosa%20Parks%20Way%2C%20Portland%2C%20OR%2097217%2C%20USA",
+    );
+    expect(result?.locationUrl).not.toMatch(/\s/);
+    // The leaked detrails must NOT survive on the URL.
+    expect(result?.locationUrl).not.toContain("Morning Wood");
+  });
+
+  it("does NOT truncate a hand-pasted coordinate Maps URL with a raw space", () => {
+    const result = buildRawEventFromGCalItem(
+      {
+        summary: "Kahuna H3 - Coords",
+        start: { date: "2026-05-04" },
+        status: "confirmed",
+        // Raw space after the comma in a 'lat, lng' query — no prose follows,
+        // so the clip must leave the longitude intact.
+        location: "https://maps.google.com/?q=30.2, -97.7",
+      },
+      config,
+    );
+    expect(result?.locationUrl).toContain("-97.7");
+  });
+
+  it("leaves a clean plain-address location encoded normally", () => {
+    const result = buildRawEventFromGCalItem(
+      {
+        summary: "Kahuna H3 - CherryNova",
+        start: { date: "2026-05-04" },
+        status: "confirmed",
+        location: "Mad Hanna, 6129 NE Fremont St, Portland, OR 97213, USA",
+      },
+      config,
+    );
+    expect(result?.location).toBe("Mad Hanna, 6129 NE Fremont St, Portland, OR 97213, USA");
+    expect(result?.locationUrl).toBe(
+      "https://www.google.com/maps/search/?api=1&query=Mad%20Hanna%2C%206129%20NE%20Fremont%20St%2C%20Portland%2C%20OR%2097213%2C%20USA",
+    );
+  });
+});
+
+// ── #1827 — venue glued to parking note from the description (Austin H3) ──
+
+describe("stripGluedDescriptionEcho (#1827)", () => {
+  it.each([
+    [
+      "strips the no-separator parking-note glue",
+      "Holiday Inn Austin-Town Lake by IHGUnder I35 by Holiday Inn Townlake",
+      "This is a woman only trail-Bring money and ID. Park under I35 by Holiday Inn Townlake.",
+      "Holiday Inn Austin-Town Lake by IHG",
+    ],
+    [
+      "keeps a venue fully echoed in the description (space-separated)",
+      "Memorial Park",
+      "Meet at Memorial Park, bring water",
+      "Memorial Park",
+    ],
+    [
+      "keeps a coincidental sub-token overlap (n│ear the river)",
+      "Smith Park near the river",
+      "head down near the river to find us",
+      "Smith Park near the river",
+    ],
+    [
+      "keeps a single lowercase-continuing word (West│in is not a glue)",
+      "Westin Hotel Conference Room",
+      "Registration is in Hotel Conference Room downstairs",
+      "Westin Hotel Conference Room",
+    ],
+    [
+      "no-op when the description is empty",
+      "Joe's Bar, 12 Main St",
+      "",
+      "Joe's Bar, 12 Main St",
+    ],
+    [
+      "leaves a clean address whose words appear in prose untouched",
+      "Lutz Tavern, 4639 SE Woodstock Blvd, Portland, OR 97206, USA",
+      "Ka-three-na H3 - Amazon Lutz Tavern - 4639 SE Woodstock Blvd.",
+      "Lutz Tavern, 4639 SE Woodstock Blvd, Portland, OR 97206, USA",
+    ],
+  ])("%s", (_label, location, description, expected) => {
+    expect(stripGluedDescriptionEcho(location, description)).toBe(expected);
+  });
+
+  it("cleans the location end-to-end through buildRawEventFromGCalItem", () => {
+    const result = buildRawEventFromGCalItem(
+      {
+        summary: "OTR Resurrection",
+        start: { date: "2026-05-30" },
+        status: "confirmed",
+        location: "Holiday Inn Austin-Town Lake by IHGUnder I35 by Holiday Inn Townlake",
+        description: "This is a woman only trail-Bring money and ID. Park under I35 by Holiday Inn Townlake.",
+      },
+      { defaultKennelTag: "ah3", includeAllDayEvents: true },
+    );
+    expect(result?.location).toBe("Holiday Inn Austin-Town Lake by IHG");
+  });
+});
+
+// ── #1819 — sibling title independence (OCHHH stale-title regression) ──
+
+describe("buildRawEventFromGCalItem — no cross-event title bleed (#1819)", () => {
+  const config = { defaultKennelTag: "ochhh", includeAllDayEvents: true };
+  // Distinct gcalIds + distinct summaries on adjacent dates: each event must
+  // keep its OWN title. The dedup path keys on `id:`, and `title` is not a
+  // merge key, so a sibling's title can never overwrite another's.
+  it.each([
+    ["2026-04-18", "Celebration of Life hash run for Jeff “Walking Small” Miner."],
+    ["2026-05-02", "OCHHH - Cum Shui & Howdy Do Me"],
+    ["2026-07-11", "OCHHH - MUM & Repo"],
+    ["2026-08-01", "OCHHH - Twatermelon"],
+  ])("keeps the %s title from its own summary", (date, summary) => {
+    const result = buildRawEventFromGCalItem(
+      { summary, start: { date }, status: "confirmed" },
+      config,
+    );
+    expect(result?.title).toBe(summary);
   });
 });
 

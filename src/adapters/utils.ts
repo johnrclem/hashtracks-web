@@ -953,6 +953,21 @@ function trimTrailingWhitespace(s: string): string {
 }
 
 /**
+ * Trim leading/trailing characters that appear in `edgeChars` from a string,
+ * procedurally. Used by adapters to strip separator/decoration chars off a
+ * parsed title or theme segment without an anchored `^[…]+|[…]+$` regex, which
+ * SonarCloud flags as a ReDoS shape (S5852) even when linear. `edgeChars` is the
+ * per-caller set (e.g. `" \t\n.-–|"` for theme text, `" \t\n-–—:"` for titles).
+ */
+export function trimEdgeChars(value: string, edgeChars: string): string {
+  let lo = 0;
+  let hi = value.length;
+  while (lo < hi && edgeChars.includes(value[lo])) lo++;
+  while (hi > lo && edgeChars.includes(value[hi - 1])) hi--;
+  return value.slice(lo, hi);
+}
+
+/**
  * Strip a trailing Google-Maps "(Link)" or bare " Link" anchor (#1729 / #1258).
  * Procedural rather than a `\s*\(\s*link\s*\)\s*$` regex, which Sonar S5852
  * flags as ReDoS-prone (memory `feedback_sonar_s5852_procedural_over_regex`).

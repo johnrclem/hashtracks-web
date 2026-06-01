@@ -335,6 +335,11 @@ function extractVenueName($: CheerioAPI): string | undefined {
     if (DAY_PREFIX_PATTERN.test(text)) continue;
     // Skip kennel name headings
     if (KENNEL_NAME_PATTERNS.some((p) => p.test(text))) continue;
+    // Skip event-name headings carrying a hash signal — a heading that
+    // qualifies as a title is never a venue. The \b-anchored KENNEL_NAME_PATTERNS
+    // miss concatenated acronyms like "YAKH3" (no boundary between K-H-3), so
+    // without this the bare <h1>YAKH3</h1> leaked in as a venue prefix (#1826).
+    if (HASH_TITLE_PATTERNS.some((p) => p.test(text))) continue;
     // Skip run number headings
     if (/Hash Run No/i.test(text)) continue;
     return text;
