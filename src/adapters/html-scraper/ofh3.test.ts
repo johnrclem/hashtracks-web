@@ -5,6 +5,19 @@ import * as bloggerApi from "../blogger-api";
 
 vi.mock("../blogger-api");
 
+// Pin the clock so date-window-filtered fixtures don't rot. Adapter fetch()
+// filters events through a rolling ±days window (default 365), so fixtures with
+// a fixed past date silently age out once real time passes. Fake only Date
+// (not all timers) so awaited fetch/blogger mocks still resolve. 2026-03-01
+// keeps every fixture date in window: [2025-03-01, 2027-03-01].
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-03-01T12:00:00.000Z"));
+});
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 // Typed factory so tests can pass a partial Source without per-call
 // `as never` — Source has 14+ required fields the adapter never reads.
 function fakeSource(overrides: Partial<Source> & Pick<Source, "id" | "url">): Source {
