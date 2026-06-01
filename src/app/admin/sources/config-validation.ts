@@ -162,6 +162,28 @@ function validatePatternArray(
   }
 }
 
+/**
+ * Validate a field that accepts EITHER a single regex string OR an array of
+ * regex strings (titleHarePattern / titleLocationPattern). The adapter compiles
+ * both shapes via `compileMaybeArray`; the seed already ships arrays (Stuttgart,
+ * Copenhagen), so a string-only check here is a latent false-positive.
+ */
+function validateStringOrPatternArray(
+  obj: Record<string, unknown>,
+  fieldName: string,
+  errors: string[],
+): void {
+  if (!(fieldName in obj) || obj[fieldName] === undefined) return;
+  const value = obj[fieldName];
+  if (typeof value === "string") {
+    validateRegex(value, fieldName, errors);
+  } else if (Array.isArray(value)) {
+    validatePatternArray(obj, fieldName, errors); // reuse the array-of-regex validator
+  } else {
+    errors.push(`${fieldName} must be a string or an array of regex strings`);
+  }
+}
+
 /** Valid `field` values for a silentlySkipPatterns rule (#1739). */
 const SILENT_SKIP_FIELDS = new Set(["title", "description", "location", "hares"]);
 
@@ -524,14 +546,10 @@ export function validateSourceConfig(
   validatePatternArray(obj, "locationOmitIfMatches", errors, { rejectBroad: true });
   validateSilentlySkipPatterns(obj, errors);
 
-  // Single-pattern validation (titleHarePattern is a string, not an array)
-  if ("titleHarePattern" in obj && obj.titleHarePattern !== undefined) {
-    if (typeof obj.titleHarePattern !== "string") {
-      errors.push("titleHarePattern must be a string");
-    } else {
-      validateRegex(obj.titleHarePattern, "titleHarePattern", errors);
-    }
-  }
+  // titleHarePattern / titleLocationPattern accept string | string[] (the
+  // adapter compiles both shapes; seed data ships arrays).
+  validateStringOrPatternArray(obj, "titleHarePattern", errors);
+  validateStringOrPatternArray(obj, "titleLocationPattern", errors);
 
   // Type-specific validation
   runTypeValidator(type, obj, errors);

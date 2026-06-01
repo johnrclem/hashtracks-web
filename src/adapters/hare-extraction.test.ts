@@ -23,6 +23,9 @@ const EXPECTED_GROUPS: ExpectedGroup[] = [
     table: [
       ["Hare: line", "Details\nHare: Mudflap\nON-IN: Some Bar", "Mudflap"],
       ["Hares: line", "Hares: Alice & Bob", "Alice & Bob"],
+      // #1884 MH3-Mpls — space before the colon ("Hare : Butt Knuckles").
+      ["'Hare :' space-before-colon", "Hare : Butt Knuckles\nTheme: 1984", "Butt Knuckles"],
+      ["'Hares :' space-before-colon", "Hares : Alice & Bob", "Alice & Bob"],
       ["'Hare & Co-Hares:' (Voodoo H3 format)", "Hare & Co-Hares: Steven with a D\nStart Address: 123 Main", "Steven with a D"],
       ["'Hare & Co-Hares:' multiple names", "Hare & Co-Hares: Whordini & Mudflap", "Whordini & Mudflap"],
       ["Who: line", "Who: Charlie", "Charlie"],
