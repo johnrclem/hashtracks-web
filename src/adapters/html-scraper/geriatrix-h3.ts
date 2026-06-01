@@ -169,7 +169,7 @@ export class GeriatrixH3Adapter implements SourceAdapter {
           // no Venue field (placeholder already normalised away), otherwise the
           // cleaner's value or `null` (explicit clear) for non-venue text.
           const location =
-            row.venue !== undefined ? cleanLocationName(row.venue) : undefined;
+            row.venue === undefined ? undefined : cleanLocationName(row.venue);
           events.push({
             date: row.date,
             kennelTags: [kennelTag],
