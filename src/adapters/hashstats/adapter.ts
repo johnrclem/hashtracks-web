@@ -251,7 +251,9 @@ export class HashStatsAdapter implements SourceAdapter {
       return { events: [], errors: [msg], errorDetails: { fetch: [{ message: msg }] } };
     }
 
-    const baseUrl = (config.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, "");
+    // Strip trailing slashes procedurally (avoids a regex ReDoS hotspot).
+    let baseUrl = config.baseUrl ?? DEFAULT_BASE_URL;
+    while (baseUrl.endsWith("/")) baseUrl = baseUrl.slice(0, -1);
     const days = options?.days ?? source.scrapeDays ?? 365;
 
     let apiRowsReturned = 0;
