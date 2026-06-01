@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   parseHangoverTitle,
   parseHangoverDate,
@@ -7,6 +7,19 @@ import {
   cleanHangoverLocation,
   HangoverAdapter,
 } from "./hangover";
+
+// Pin the clock so date-window-filtered fixtures don't rot. Adapter fetch()
+// filters events through a rolling ±days window (default 365), so fixtures with
+// a fixed past date silently age out once real time passes. Fake only Date
+// (not all timers) so awaited fetch/Ghost-API mocks still resolve. 2026-03-01
+// keeps every fixture date in window: [2025-03-01, 2027-03-01].
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-03-01T12:00:00.000Z"));
+});
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe("parseHangoverTitle", () => {
   it("parses standard title", () => {
