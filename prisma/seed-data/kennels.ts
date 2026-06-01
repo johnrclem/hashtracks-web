@@ -2756,6 +2756,7 @@ export const KENNELS: KennelSeed[] = [
       scheduleDayOfWeek: "Sunday", scheduleTime: "2:00 PM", scheduleFrequency: "Biweekly",
       scheduleNotes: "1st & 3rd Sunday of the month",
       walkersWelcome: true,
+      foundedYear: 1993, // "30th Birthday run" was June 2023 (blog archive)
       description: "We are a drinking club with a running problem, meeting every 1st and 3rd Sunday in Hamburg and surroundings. Join us for a run, for a beer, or both!",
       logoUrl: "/kennel-logos/h7.png",
       latitude: 53.5503, longitude: 9.992,

@@ -3381,6 +3381,23 @@ export const SOURCES = [
       },
       kennelCodes: ["h7"],
     },
+    {
+      // Backfill-only provenance for the pre-HC archive (runs #≤706, 2021-2026).
+      // Disabled: the kennel moved to Harrier Central, so there is no ongoing
+      // Blogspot scrape. Historical events were one-shot loaded via
+      // scripts/backfill-h7-history.ts (parser: scripts/lib/h7-blog-parser.ts).
+      name: "Hamburg H7 Blogspot Archive",
+      url: "https://hamburghash.blogspot.com/",
+      type: "HTML_SCRAPER" as const,
+      enabled: false,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        note: "Backfill-only Blogger archive; loaded once via scripts/backfill-h7-history.ts. Not scraped live (kennel is on Harrier Central).",
+      },
+      kennelCodes: ["h7"],
+    },
 
     // ===== JAPAN =====
     // Tokyo H3 — Harrier Central public API
