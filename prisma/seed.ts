@@ -304,6 +304,21 @@ async function ensureKennelRecords(prisma: any, kennels: KennelSeed[], toSlugFn:
         if (kennel.slug && record.slug !== kennel.slug) {
           updates.slug = kennel.slug;
         }
+        // Propagate a shortName rename — the seed is the source of truth for it.
+        // The NULL-fill loop above only touches PROFILE_FIELDS, so without this a
+        // rename like "H7" → "Hamburg H7" (#1895) would never reach an existing
+        // row. Preserve the old value as an alias so resolution by the prior name
+        // survives; kennelCode is immutable and unaffected. (fullName is left
+        // alone deliberately — several rows carry admin-curated fullNames that
+        // diverge from seed and shouldn't be clobbered.)
+        if (kennel.shortName && record.shortName !== kennel.shortName) {
+          updates.shortName = kennel.shortName;
+          await prisma.kennelAlias.upsert({
+            where: { kennelId_alias: { kennelId: record.id, alias: record.shortName } },
+            update: {},
+            create: { kennelId: record.id, alias: record.shortName },
+          });
+        }
         if (Object.keys(updates).length > 0) {
           record = await prisma.kennel.update({
             where: { id: record.id },

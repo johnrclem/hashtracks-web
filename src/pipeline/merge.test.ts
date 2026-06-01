@@ -2448,6 +2448,26 @@ describe("friendlyKennelName", () => {
     expect(friendlyKennelName("HHH", "Hash House Harriers")).toBe("HHH");
   });
 
+  // Mid-string "Hash House Harriers" (not just suffix) must still be stripped —
+  // the old suffix-only regex left these fully verbose. (H7 follow-up)
+  it.each([
+    // shortName, fullName, expected
+    ["RH3C", "Renegade Hash House Harriers Columbus", "Renegade Columbus H3"],
+    ["HHHS", "Hash House Harriers Singapore", "Singapore H3"],
+    ["SOH4", "Syracuse On-On-Dog-A Hash House Harriers & Harriettes", "Syracuse On-On-Dog-A H3"],
+    ["SLH3", "SLASH (South London Hash House Harriers)", "SLASH H3"],
+    // Single-t "Harriets" trailing co-name (Gemini review #1895).
+    ["LH4", "Hong Kong Ladies Hash House Harriers & Harriets", "Hong Kong Ladies H3"],
+  ])("strips mid-string HHH: %s", (short, full, expected) => {
+    expect(friendlyKennelName(short, full as string)).toBe(expected);
+  });
+
+  it("returns the >4-char shortName verbatim for H7 (Hamburg H7), bypassing the verbose fullName", () => {
+    expect(
+      friendlyKennelName("Hamburg H7", "Hansestadt Hamburg Hash House Harriers Hummel Hummel"),
+    ).toBe("Hamburg H7");
+  });
+
   it("handles 'Hash House Harriers and Harriettes' suffix (DH4)", () => {
     expect(friendlyKennelName("DH4", "Dayton Hash House Harriers and Harriettes")).toBe("Dayton H3");
   });
