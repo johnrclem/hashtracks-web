@@ -122,12 +122,84 @@ export function planRunNumberBackfill(events: CanonicalEvent[]): BackfillPlan {
   };
 }
 
+/**
+ * Where-fragment matching events where ch4-dk is the PRIMARY kennel.
+ * Event.runNumber is a single kennel-specific field shared across co-hosts, so
+ * writing it on a row where ch4-dk is only a secondary co-host would leak CH4
+ * numbering into another kennel's display. CH4 has no co-hosts today, but this
+ * keeps the script correct if that ever changes.
+ */
+function primaryScopeFor(kennelId: string) {
+  return {
+    kennelId,
+    eventKennels: { some: { kennelId, isPrimary: true } },
+  };
+}
+
+/**
+ * Apply the planned writes and verify the result. Each update is predicate-
+ * guarded (still a primary, canonical, NULL-runNumber row), so a row that
+ * drifted since the snapshot is safely skipped rather than overwritten.
+ */
+async function applyBackfill(
+  prisma: PrismaClient,
+  kennelId: string,
+  toSet: { id: string; number: number }[],
+): Promise<void> {
+  console.log(`\n⚠️  APPLY mode — writing in 3s. Ctrl-C to abort.`);
+  await new Promise((r) => setTimeout(r, 3000));
+
+  const scope = primaryScopeFor(kennelId);
+  let written = 0;
+  let drifted = 0;
+  for (const { id, number } of toSet) {
+    const { count } = await prisma.event.updateMany({
+      where: { id, isCanonical: true, runNumber: null, ...scope },
+      data: { runNumber: number },
+    });
+    if (count === 1) written++;
+    else drifted++;
+  }
+  console.log(`\nSet runNumber on ${written} events.`);
+  if (drifted > 0) {
+    console.log(`Skipped ${drifted} events that changed since the snapshot (not overwritten).`);
+  }
+
+  // Verify: max run number now reflects the real latest run, and no non-NULL dups.
+  const afterEvents = await prisma.event.findMany({
+    where: { isCanonical: true, runNumber: { not: null }, ...scope },
+    select: { runNumber: true },
+  });
+  const maxRun = afterEvents.reduce((m, e) => Math.max(m, e.runNumber ?? 0), 0);
+  const counts = new Map<number, number>();
+  for (const e of afterEvents) {
+    if (e.runNumber != null) counts.set(e.runNumber, (counts.get(e.runNumber) ?? 0) + 1);
+  }
+  const dupNumbers = [...counts.entries()].filter(([, c]) => c > 1).map(([n]) => n);
+  dupNumbers.sort((a, b) => a - b);
+
+  console.log(`Max runNumber (canonical): ${maxRun}`);
+  console.log(
+    `Non-NULL duplicate run numbers: ${dupNumbers.length}` +
+      (dupNumbers.length ? ` → #${dupNumbers.join(", #")}` : ""),
+  );
+  if (dupNumbers.length > 0) {
+    console.error(`\nERROR: backfill introduced duplicate run numbers — investigate.`);
+    process.exit(1);
+  }
+  if (drifted > 0) {
+    console.error(`\nERROR: ${drifted} planned writes drifted — re-run to retry the skipped rows.`);
+    process.exit(1);
+  }
+  console.log(`\nDone. ✓`);
+}
+
 async function main() {
   console.log(`\n=== backfill-ch4-dk-run-numbers ===`);
   console.log(`Mode: ${APPLY ? "APPLY (will write to DB)" : "DRY-RUN (read-only)"}`);
 
   const pool = createScriptPool();
-  const prisma = new PrismaClient({ adapter: new PrismaPg(pool) } as never);
+  const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
 
   try {
     const kennel = await prisma.kennel.findUnique({
@@ -139,18 +211,8 @@ async function main() {
       process.exit(1);
     }
 
-    // Scope strictly to events where ch4-dk is the PRIMARY kennel. Event.runNumber
-    // is a single kennel-specific field shared across co-hosts, so writing it on a
-    // row where ch4-dk is only a secondary co-host would leak CH4 numbering into
-    // another kennel's display. CH4 has no co-hosts today, but this keeps the
-    // script correct if that ever changes.
-    const primaryScope = {
-      kennelId: kennel.id,
-      eventKennels: { some: { kennelId: kennel.id, isPrimary: true } },
-    } as const;
-
     const events: CanonicalEvent[] = await prisma.event.findMany({
-      where: { isCanonical: true, ...primaryScope },
+      where: { isCanonical: true, ...primaryScopeFor(kennel.id) },
       select: { id: true, title: true, runNumber: true },
     });
 
@@ -170,60 +232,12 @@ async function main() {
       console.log("\nNothing to set — already backfilled.");
       return;
     }
-
     if (!APPLY) {
       console.log(`\nDry-run complete. Re-run with --apply to set ${plan.toSet.length} run numbers.`);
       return;
     }
 
-    console.log(`\n⚠️  APPLY mode — writing in 3s. Ctrl-C to abort.`);
-    await new Promise((r) => setTimeout(r, 3000));
-
-    // Predicate-guarded writes: each update only fires if the row is STILL a
-    // primary, canonical, NULL-runNumber ch4-dk event. If a scrape or manual
-    // repair changed it between the snapshot and now, count comes back 0 and we
-    // safely skip rather than overwrite a stale assumption (fail-closed).
-    let written = 0;
-    let drifted = 0;
-    for (const { id, number } of plan.toSet) {
-      const { count } = await prisma.event.updateMany({
-        where: { id, isCanonical: true, runNumber: null, ...primaryScope },
-        data: { runNumber: number },
-      });
-      if (count === 1) written++;
-      else drifted++;
-    }
-    console.log(`\nSet runNumber on ${written} events.`);
-    if (drifted > 0) {
-      console.log(`Skipped ${drifted} events that changed since the snapshot (not overwritten).`);
-    }
-
-    // Verify: max run number now reflects the real latest run, and no non-NULL dups.
-    const afterEvents = await prisma.event.findMany({
-      where: { isCanonical: true, runNumber: { not: null }, ...primaryScope },
-      select: { runNumber: true },
-    });
-    const maxRun = afterEvents.reduce((m, e) => Math.max(m, e.runNumber ?? 0), 0);
-    const counts = new Map<number, number>();
-    for (const e of afterEvents) {
-      if (e.runNumber != null) counts.set(e.runNumber, (counts.get(e.runNumber) ?? 0) + 1);
-    }
-    const dupNumbers = [...counts.entries()].filter(([, c]) => c > 1).map(([n]) => n);
-
-    console.log(`Max runNumber (canonical): ${maxRun}`);
-    console.log(
-      `Non-NULL duplicate run numbers: ${dupNumbers.length}` +
-        (dupNumbers.length ? ` → #${dupNumbers.sort((a, b) => a - b).join(", #")}` : ""),
-    );
-    if (dupNumbers.length > 0) {
-      console.error(`\nERROR: backfill introduced duplicate run numbers — investigate.`);
-      process.exit(1);
-    }
-    if (drifted > 0) {
-      console.error(`\nERROR: ${drifted} planned writes drifted — re-run to retry the skipped rows.`);
-      process.exit(1);
-    }
-    console.log(`\nDone. ✓`);
+    await applyBackfill(prisma, kennel.id, plan.toSet);
   } finally {
     await prisma.$disconnect();
     await pool.end();
