@@ -530,6 +530,11 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "tokoroa-h3": ["Tokoroa H3", "Tokoroa HHH", "Tokoroa Hash"],
     "t3h3-nz": ["T3H3", "Thirsty Thursday Taniwha", "Wellington Thursday Hash", "Wellington Taniwha H3"],
     "auckland-hussies": ["Auckland Hussies", "Auckland Hash Hussies", "AK Hash Harriets", "Auckland Hussies HHH"],
+    // Bare "AH3" omitted (shared by ah3/ah3-hi/ah3-nl) and "AHHH" omitted
+    // (already ah4 Atlanta at line 206) — both would make the global findFirst
+    // alias fallback order-dependent. Events resolve via source kennelCodes, not
+    // fuzzy alias, so the omissions are safe.
+    "ah3-nz": ["Auckland H3", "Auckland Hash", "Auckland HHH", "AH3 NZ"],
     // New Zealand — sporty.co.nz subsites
     "capital-h3-nz": ["Capital H3", "Capital HHH", "Capital Hash", "Wellington Capital H3", "Capital Wellington H3"],
     "mooloo-h3": ["Mooloo H3", "Mooloo HHH", "Mooloo Hash", "Hamilton Mooloo H3", "Waikato Mooloo H3"],

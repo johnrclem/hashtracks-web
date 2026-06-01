@@ -4347,6 +4347,23 @@ export const KENNELS: KennelSeed[] = [
       description: "Auckland's women-founded hash, established 1978. Weekly Tuesday evening trails across Auckland with a published run list. Mixed attendance though women-led. Hash cash is $15 when starting from home or a park (pay-as-you-go at restaurants and pubs), plus $5 for drinks.",
       latitude: -36.8485, longitude: 174.7633,
     },
+    {
+      kennelCode: "ah3-nz", shortName: "Auckland H3", fullName: "Auckland Hash House Harriers",
+      region: "Auckland, NZ", country: "New Zealand", slug: "ah3-nz",
+      website: "http://www.aucklandhashhouseharriers.co.nz/",
+      logoUrl: "/kennel-logos/ah3-nz.webp",
+      scheduleDayOfWeek: "Monday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Weekly Monday evenings at 6:30 PM (occasional stated overrides, e.g. public-holiday 4pm starts). Separate runners' and walkers' trails. Upcoming runs posted on the homepage.",
+      hashCash: "$20",
+      foundedYear: 1970,
+      contactName: "Demon",
+      contactEmail: "djronson@gmail.com",
+      description:
+        "New Zealand's oldest hash kennel, founded 25 August 1970. Weekly Monday evening trails " +
+        "(6:30 PM) across Auckland with separate runners' and walkers' trails. Hash cash $20 covers " +
+        "drinks, food, and the raffle. Visitors always welcome.",
+      latitude: -36.8485, longitude: 174.7633,
+    },
     // ── sporty.co.nz CMS subsites — Wellington + Hamilton ──
     {
       // #1520: these fields are also UPDATE'd in
