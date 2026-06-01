@@ -156,11 +156,12 @@ export function normalizePhoenixDetailBlock(description: string): string {
 }
 
 /** "6:30 pm - 9:30 pm" → end time "21:30" (#1348). Returns undefined when the
- *  meta line has no range. `parse12HourTime` reads the first match, so slice
- *  after the dash to grab the closing time. */
+ *  meta line has no range. Locate the dash with a quantifier-free char class
+ *  (no ReDoS surface — Sonar S5852), then let `parse12HourTime` pull the closing
+ *  time from the trailing slice. */
 export function parseTimeRangeEnd(timeText: string): string | undefined {
-  const m = /[-–—]\s*(.+)$/.exec(timeText);
-  return m ? parse12HourTime(m[1]) : undefined;
+  const dashIdx = timeText.search(/[-–—]/);
+  return dashIdx < 0 ? undefined : parse12HourTime(timeText.slice(dashIdx + 1));
 }
 
 /** `Hash Cash: $1` → `$1` (#1349). Single labeled line; value to EOL. */

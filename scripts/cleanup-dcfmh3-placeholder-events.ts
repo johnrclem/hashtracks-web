@@ -99,6 +99,7 @@ async function main() {
 main()
   .catch((err) => {
     console.error(err);
-    process.exit(1);
+    // Set exitCode (don't process.exit) so the .finally() disconnect still runs.
+    process.exitCode = 1;
   })
   .finally(() => prisma.$disconnect());
