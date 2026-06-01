@@ -41,18 +41,25 @@ interface DCFMH3Config {
   defaultDescription?: string;
 }
 
+const MONTH_NAMES = new Set([
+  "january", "february", "march", "april", "may", "june",
+  "july", "august", "september", "october", "november", "december",
+]);
+
 /**
  * One schedule line: `<Month> <Day>[-<Day2>][, <Year>] <sep> <title>` where the
  * first `:` or ` - ` after the date opens the title. The optional `-<Day2>` range
  * end is captured so a multi-day entry (`June 6-14: ¡Tour Duh Hash!`) emits a
  * single Event with `endDate` set (a campout — NOT a per-day series split).
- * Groups: 1=month, 2=startDay, 3=endDay?, 4=year?, 5=title.
+ * Groups: 1=monthWord, 2=startDay, 3=endDay?, 4=year?, 5=title.
  *
- * Written as a literal (not `new RegExp(...)`) so Codacy/Semgrep's
- * detect-non-literal-regexp doesn't flag it — the month alternation is inlined.
+ * The leading word is matched generically (`[A-Za-z]+`) and validated against
+ * MONTH_NAMES in code — keeping the regex a literal (no `new RegExp` →
+ * Codacy/Semgrep detect-non-literal-regexp) while avoiding a 12-branch month
+ * alternation that would blow Sonar's regex-complexity cap (S5843).
  */
 const SCHEDULE_LINE_RE =
-  /^(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2})(?:\s*-\s*(\d{1,2}))?(?:,?\s*(\d{4}))?\s*[:–-]\s*(\S.*)$/i;
+  /^([A-Za-z]+)\s+(\d{1,2})(?:\s*-\s*(\d{1,2}))?(?:,?\s*(\d{4}))?\s*[:–-]\s*(\S.*)$/i;
 
 /**
  * Host kennel detection (#1400). Only seeded DC-area kennels are listed; the
@@ -107,6 +114,8 @@ export function parseDCFMH3Schedule(
     const m = SCHEDULE_LINE_RE.exec(line);
     if (!m) continue;
     const [, month, startDay, endDay, year, rawTitle] = m;
+    // The regex matches any leading word; only real month names are schedule rows.
+    if (!MONTH_NAMES.has(month.toLowerCase())) continue;
     const title = rawTitle.trim();
     if (!title) continue;
     const yr = year ?? fallbackYear;
