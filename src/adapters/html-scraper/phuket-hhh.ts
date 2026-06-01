@@ -157,7 +157,7 @@ export function parsePhuketRow(
   const kennelName = decodeEntities(cells[1] ?? "").trim();
   let title: string | undefined;
   if (kennelName) {
-    title = runNumber !== undefined ? `${kennelName} ${runNumber}` : kennelName;
+    title = runNumber === undefined ? kennelName : `${kennelName} ${runNumber}`;
   }
 
   // Hares column (#1327): one hare per <br>-delimited line; sort + comma-join

@@ -50,7 +50,7 @@ const MONTHS =
  * end is consumed before the separator so `June 6-14: …` parses (start day wins).
  */
 const SCHEDULE_LINE_RE = new RegExp(
-  `^(${MONTHS})\\s+(\\d{1,2})(?:\\s*-\\s*\\d{1,2})?(?:,?\\s*(\\d{4}))?\\s*[:\\u2013-]\\s*(\\S.*)$`,
+  String.raw`^(${MONTHS})\s+(\d{1,2})(?:\s*-\s*\d{1,2})?(?:,?\s*(\d{4}))?\s*[:–-]\s*(\S.*)$`,
   "i",
 );
 

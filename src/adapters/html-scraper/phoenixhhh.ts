@@ -140,15 +140,19 @@ export function extractVenueFromDescription(description: string): string | undef
 // Some detail pages separate the labeled fields with `<p>` boundaries
 // ("Hash Cash: $1\n\nDog friendly: …"); others mash them onto a single line
 // with NO separator ("…vesselHash Cash: $1Cash Needed…Dog friendly: Usually
-// not on humpsOn-After: …"). Inject a newline before each known label so the
+// not on humpsOn-After: …"). Insert a newline before each known label so the
 // line-anchored extractors + description cleaner work uniformly on both shapes
-// (mirrors the FIELD_LABEL_SPLIT_RE approach in seven-hills-h3.ts). Each
-// alternative carries its own literal colon — no `\s*` adjacent to the
-// alternation, so Sonar S5852 (ReDoS) doesn't fire.
-const PHOENIX_LABEL_BOUNDARY_RE =
-  /(?=Hares:|Where:|When:|Time:|Bring:|Hash Cash:|Cash Needed on Trail:|Dog[ -]?friendly:|On[- ]?On:|On-After:|Things you probably won['’]t need:)/gi;
+// (mirrors the FIELD_LABEL_SPLIT_RE approach in seven-hills-h3.ts). The label
+// set is split across two regexes so neither trips Sonar's regex-complexity cap
+// (S5843, threshold 20); each alternative carries its own literal colon, so no
+// `\s*` sits adjacent to the alternation (S5852 ReDoS) either.
+const PHOENIX_LABELS_A_RE = /(Hares:|Where:|When:|Time:|Bring:|Hash Cash:)/gi;
+const PHOENIX_LABELS_B_RE =
+  /(Cash Needed on Trail:|Dog[ -]?friendly:|On[- ]?On:|On-After:|Things you probably won['’]t need:)/gi;
 export function normalizePhoenixDetailBlock(description: string): string {
-  return description.replaceAll(PHOENIX_LABEL_BOUNDARY_RE, "\n");
+  return description
+    .replaceAll(PHOENIX_LABELS_A_RE, "\n$1")
+    .replaceAll(PHOENIX_LABELS_B_RE, "\n$1");
 }
 
 /** "6:30 pm - 9:30 pm" → end time "21:30" (#1348). Returns undefined when the
