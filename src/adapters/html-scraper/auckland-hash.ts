@@ -162,22 +162,19 @@ export function parseRunLine(
 export class AucklandHashAdapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
 
-  async fetch(
-    source: Source,
-    options?: { days?: number },
-  ): Promise<ScrapeResult> {
+  async fetch(source: Source, options?: { days?: number }): Promise<ScrapeResult> {
     const url = source.url || DEFAULT_URL;
-
     const page = await fetchHTMLPage(url);
     if (!page.ok) return page.result;
-
     const { $, structureHash, fetchDurationMs } = page;
-    const events: RawEventData[] = [];
-    const errors: string[] = [];
-    const errorDetails: ErrorDetails = {};
+
     const referenceDate = new Date();
     const upcomingText = extractUpcomingText($);
     const rows = groupRunRows(upcomingText);
+
+    const events: RawEventData[] = [];
+    const errors: string[] = [];
+    const errorDetails: ErrorDetails = {};
 
     const addParseError = (row: number, error: string, rawText: string) => {
       errorDetails.parse = [
