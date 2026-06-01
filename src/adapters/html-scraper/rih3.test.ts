@@ -244,6 +244,70 @@ describe("parseHarelineRow", () => {
     expect(result?.location).toBe("dog park at Melville Park, Portsmouth, RI");
   });
 
+  it("uses the 'starting from' sentence when the maps anchor is CTA/coords (#1890 Run #2101)", () => {
+    // Verbatim from live rih3.com: the maps-link anchor text is a CTA + raw
+    // coordinate dump + On-After venue, while the real start is in the body
+    // sentence. The maps href (correct pin) is kept.
+    const dirHtml = `
+      <p><h2>Shemale's Hash</h2>
+      Hope he doesn't send us down the rabbit hole again.
+      <br/>
+      We'll be starting from the Hopkins Hill Trailhead for Big River at 6:30pm
+      <br/><br/>
+      <a href="https://www.google.com/maps/place/Big+River+Hopkins+Hill+Area+Parking/@41.6322766,-71.5695437,1239m/data=foo" target="new"><br/>
+        <font color="#cc0000">You know the spot. Go to 41.631488, -71.571204
+        <br/>
+        On On at Tavern on the Hill????</font>
+      </a>
+    `;
+    const cells = ["Mon June 1", "6:30 PM", "2101"];
+    const result = parseHarelineRow(cells, HARE_SINGLE, dirHtml, SOURCE_URL);
+    expect(result?.location).toBe("Hopkins Hill Trailhead for Big River");
+    expect(result?.locationUrl).toContain("Big+River+Hopkins+Hill");
+  });
+
+  it("preserves abbreviation periods in a start-sentence venue (St./Mt.) (#1890)", () => {
+    // Anchor is a coordinate dump → falls back to the start sentence. The venue
+    // must NOT be truncated at the "St." abbreviation period.
+    const dirHtml = `
+      <h2>Holy Trail</h2>
+      We'll be starting from St. Mary's Hall. On-On at the pub afterward.
+      <br/>
+      <a href="https://www.google.com/maps/place/foo">
+        <font color="#cc0000">Go to 41.631488, -71.571204</font>
+      </a>
+    `;
+    const cells = ["Mon June 22", "6:30 PM", "2104"];
+    const result = parseHarelineRow(cells, HARE_SINGLE, dirHtml, SOURCE_URL);
+    expect(result?.location).toBe("St. Mary's Hall");
+  });
+
+  it("keeps a clean maps-anchor venue that merely begins with 'On' (#1890 negative)", () => {
+    const dirHtml = `
+      <h2>Test Run</h2>
+      <a href="https://www.google.com/maps/place/On+Tap">
+        <font color="#cc0000">On Tap Sports Bar</font>
+      </a>
+    `;
+    const cells = ["Mon June 8", "6:30 PM", "2102"];
+    const result = parseHarelineRow(cells, HARE_SINGLE, dirHtml, SOURCE_URL);
+    expect(result?.location).toBe("On Tap Sports Bar");
+  });
+
+  it("does not surface a coordinate-only / On-After maps anchor as the venue (#1890 negative)", () => {
+    // No body start-sentence and no address — a polluted anchor must NOT become
+    // the location (it falls through to undefined rather than leaking coords).
+    const dirHtml = `
+      <h2>Mystery Trail</h2>
+      <a href="https://www.google.com/maps/place/foo">
+        <font color="#cc0000">Go to 41.631488, -71.571204 On On at Tavern on the Hill????</font>
+      </a>
+    `;
+    const cells = ["Mon June 15", "6:30 PM", "2103"];
+    const result = parseHarelineRow(cells, HARE_SINGLE, dirHtml, SOURCE_URL);
+    expect(result?.location).toBeUndefined();
+  });
+
   it("normalizes H2 title with line breaks", () => {
     const cells = ["Mon March 23", "6:30 PM", "2091"];
     const result = parseHarelineRow(

@@ -48,8 +48,13 @@ const DEFAULT_START_TIME = "14:00";
 
 // ── Regex patterns ──
 
-/** Match run number: "Run 2412" or "Run 2410 (50+% run)" */
-const RUN_NUMBER_RE = /Run\s+(\d{4})/;
+/**
+ * Match run number: "Run 2412", "Run 2410 (50+% run)", or the colon form the
+ * site switched to — "Run: 2423" (#1888). The `[:\s]+` separator accepts both
+ * the legacy space form and the colon form without a nested quantifier (Sonar
+ * S5852-safe).
+ */
+const RUN_NUMBER_RE = /Run[:\s]+(\d{4})/;
 
 /**
  * Match the parenthetical theme that frequently follows the run number on the
@@ -58,7 +63,7 @@ const RUN_NUMBER_RE = /Run\s+(\d{4})/;
  * The /i flag is intentional — "Run" is alphabetic, so case-insensitivity
  * makes the match resilient if the source ever switches to lowercase "run".
  */
-const RUN_TITLE_PARENTHETICAL_RE = /Run\s+\d{4}\s*\(([^)]+)\)/i;
+const RUN_TITLE_PARENTHETICAL_RE = /Run[:\s]+\d{4}\s*\(([^)]+)\)/i;
 
 /** Match date line: "When: Sunday, March 29" or "When: Sunday Februari 22th" */
 const WHEN_RE = /When:\s*(.+)/i;
@@ -71,6 +76,23 @@ const WHERE_RE = /Where:\s*(.+)/i;
 
 /** Match hares: "Hares: ...", "Hare: ...", or "Hare(s): ..." */
 const HARES_RE = /Hare(?:s|\(s\))?:\s*(.+)/i;
+
+/** Lines that are event metadata / boilerplate, not a run theme. Used to find
+ *  the theme line that follows the run-number line (#1888). */
+const STRUCTURAL_LINE_PREFIX_RE = /^(?:OnOn|Link|Cost:|Inquiries|Contact:)/i;
+
+/** True when `line` is a labeled metadata line, the run-number line, or
+ *  boilerplate — i.e. NOT a candidate run theme/title. */
+function isStructuralLine(line: string): boolean {
+  return (
+    RUN_NUMBER_RE.test(line) ||
+    WHEN_RE.test(line) ||
+    TIME_RE.test(line) ||
+    WHERE_RE.test(line) ||
+    HARES_RE.test(line) ||
+    STRUCTURAL_LINE_PREFIX_RE.test(line)
+  );
+}
 
 // ── Exported helpers (for unit testing) ──
 
@@ -161,8 +183,11 @@ export function parseEventBlock(
   }
 
   // Extract title: prefer the parenthetical theme on the run-number line
-  // ("Run 2419 (How Original Run)" → "How Original Run", #1258). Otherwise
-  // fall back to the first non-blank line preceding the Run line.
+  // ("Run 2419 (How Original Run)" → "How Original Run", #1258). Otherwise look
+  // for a theme line BEFORE the Run line ("Windmill Poker Run"), then — for the
+  // colon format where the theme sits on its own line AFTER the run number
+  // ("Run: 2423" ⏎ "Rotte Dam Loop 10k", #1888) — take the first non-structural
+  // line immediately following the Run line.
   let title: string | undefined;
   const parenMatch = RUN_TITLE_PARENTHETICAL_RE.exec(text);
   if (parenMatch) {
@@ -172,11 +197,22 @@ export function parseEventBlock(
     title = parenMatch[1].replace(/\s+/g, " ").trim() || undefined;
   } else {
     const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+    const runLineIdx = lines.findIndex((l) => RUN_NUMBER_RE.test(l));
+
+    // Title before the Run line (e.g. "Windmill Poker Run" preceding "Run NNNN").
     for (const line of lines) {
       if (RUN_NUMBER_RE.test(line) || /^When:/i.test(line)) break;
       if (line.length > 2 && !/^OnOn/i.test(line)) {
         title = line;
         break;
+      }
+    }
+
+    // Theme line on its own line after the Run line (#1888 colon format).
+    if (!title && runLineIdx >= 0) {
+      const next = lines[runLineIdx + 1];
+      if (next && next.length > 2 && !isStructuralLine(next)) {
+        title = next;
       }
     }
   }

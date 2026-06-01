@@ -1,7 +1,7 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
-import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, EVENT_FIELD_LABEL_RE, EVENT_FIELD_LABEL_UPPERCASE_RE, CTA_EMBEDDED_PATTERNS, appendDescriptionSuffix, isPlaceholder, parse12HourTime, formatAmPmTime, stripNonEnglishCountry, extractHashRunNumber, hasPlaceholderRunNumber, normalizeCostSigil } from "../utils";
+import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, EVENT_FIELD_LABEL_RE, EVENT_FIELD_LABEL_UPPERCASE_RE, CTA_EMBEDDED_PATTERNS, appendDescriptionSuffix, dedupeRepeatedDescription, isPlaceholder, parse12HourTime, formatAmPmTime, stripNonEnglishCountry, extractHashRunNumber, hasPlaceholderRunNumber, normalizeCostSigil } from "../utils";
 import { matchKennelPatterns, matchCompiledKennelPatterns, compileKennelPatterns, type KennelPattern, type CompiledKennelPattern } from "../kennel-patterns";
 import { LOCATION_EMAIL_CTA_RE } from "@/pipeline/audit-checks";
 import { parseDMSFromLocation } from "@/lib/geo";
@@ -1165,6 +1165,10 @@ export function normalizeGCalDescription(rawDesc: string | undefined): { rawDesc
   // Strip Harrier Central auto-generated header from GCal-synced events:
   // "{KennelName}\nLocation: {venue}\nDescription: {actual text}" → "{actual text}"
   rawDescription = rawDescription.replace(/^[^\n]*\nLocation:[^\n]*\nDescription:\s*/i, "");
+  // Collapse a description whose body block is pasted verbatim twice (#1889
+  // Morgantown "National Repeat Day" — the source calendar entry duplicated the
+  // whole block). No-op for non-doubled descriptions.
+  rawDescription = dedupeRepeatedDescription(rawDescription) ?? rawDescription;
   const description = rawDescription
     ? rawDescription.replace(/[ \t]+/g, " ").trim().substring(0, 2000) || undefined
     : undefined;

@@ -28,6 +28,7 @@ import {
   parse12HourTime,
   isPlaceholder,
   stripHtmlTags,
+  cleanLocationName,
 } from "../utils";
 
 const DAY_PREFIX_RE = /^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\.?\s+/i;
@@ -146,10 +147,104 @@ function cleanMapsLinkText(mapsLink: cheerio.Cheerio<AnyNode>): string | undefin
   return cleaned;
 }
 
-/** Resolve location + locationUrl from a RIH3 directions cell. Prefers the
- *  address-shaped sentence in the body over the maps-link anchor text (#1427);
- *  drops the maps URL when the address path wins because the first maps link
- *  often points at the wrong place (Julia's Trail Parking vs the actual start). */
+/** A raw decimal lat/long pair ("41.631488, -71.571204") dumped into the
+ *  Directions text — geocode anchor, not a venue name. */
+const COORD_PAIR_RE = /-?\d{1,3}\.\d{3,}\s*,\s*-?\d{1,3}\.\d{3,}/;
+
+/** Reject a maps-anchor "venue" that is actually CTA flavor copy, a raw
+ *  coordinate dump, or an On-After (On-On) venue rather than the start (#1890,
+ *  Run #2101: "You know the spot. Go to 41.631488, -71.571204 On On at Tavern
+ *  on the Hill????"). Gated on the standalone "On On"/"On-On" token so real
+ *  venues that merely begin with "On" ("On Tap Sports Bar") are preserved. */
+function isDirectionsCta(text: string): boolean {
+  if (text.toLowerCase().startsWith("you know the spot")) return true;
+  if (COORD_PAIR_RE.test(text)) return true;
+  return /\bon[\s-]?on\b/i.test(text);
+}
+
+/** "starting from / start at / meeting at …" lead-ins that introduce the real
+ *  meeting point in a RIH3 directions narrative. */
+const START_PHRASES = [
+  "starting from",
+  "starting at",
+  "start from",
+  "start at",
+  "starts from",
+  "starts at",
+  "meeting at",
+  "meet at",
+];
+
+/** Street/title abbreviations whose trailing "." is NOT a sentence end — so a
+ *  venue like "St. Mary's Hall" / "Mt. Hope Farm" / "Ft. Adams" isn't truncated
+ *  to "St" / "Mt" / "Ft". */
+const VENUE_ABBREVS = new Set([
+  "st", "rd", "ave", "mt", "dr", "ft", "blvd", "ln", "pl", "ste", "no", "jr", "sr", "pt",
+]);
+
+/** Index of the first sentence-ending "." (followed by a space) that is not part
+ *  of a known abbreviation, or -1. Procedural (no anchored `(\w+)$` capture) to
+ *  stay clear of Sonar's regex-complexity heuristics. */
+function firstSentencePeriod(s: string): number {
+  let from = 0;
+  while (from < s.length) {
+    const dot = s.indexOf(". ", from);
+    if (dot < 0) return -1;
+    const before = s.slice(0, dot);
+    const lastToken = before.split(/[^A-Za-z]+/).pop() ?? "";
+    if (!VENUE_ABBREVS.has(lastToken.toLowerCase())) return dot;
+    from = dot + 2;
+  }
+  return -1;
+}
+
+/** Trim a captured start-venue at the first sentence/time terminator: a
+ *  sentence-ending period (abbreviation periods preserved), a line break, or an
+ *  " at <digit>" time marker ("… at 6:30pm"). Procedural to keep clear of Sonar
+ *  S5852 (no `\s*`-adjacent alternation). */
+function cutAtVenueTerminator(s: string): string {
+  let end = s.length;
+  const dot = firstSentencePeriod(s);
+  if (dot >= 0) end = Math.min(end, dot);
+  const nl = s.search(/[\n\r]/);
+  if (nl >= 0) end = Math.min(end, nl);
+  const atTime = /\bat\s+\d/i.exec(s);
+  if (atTime) end = Math.min(end, atTime.index);
+  return s.slice(0, end);
+}
+
+/** Extract the start venue from a "(we'll be) starting from/at <venue>" sentence
+ *  in the directions body — the actual meeting point. Preferred over a CTA /
+ *  coordinate maps anchor (#1890). Operates on the body with <h2>/<a> removed so
+ *  the title and link anchor text don't bleed in. */
+function extractStartVenueFromBody(dir$: cheerio.CheerioAPI): string | undefined {
+  const body = dir$("body").clone();
+  body.find("h2").remove();
+  body.find("a").remove();
+  const text = body.text().replace(/\s+/g, " ").trim();
+  const lower = text.toLowerCase();
+  for (const phrase of START_PHRASES) {
+    const idx = lower.indexOf(phrase);
+    if (idx < 0) continue;
+    let rest = text.slice(idx + phrase.length).trimStart().replace(/^the\s+/i, "");
+    rest = cutAtVenueTerminator(rest).trim();
+    if (rest.length >= 4 && !PROSE_LEAD_RE.test(rest)) return rest;
+  }
+  return undefined;
+}
+
+/** Resolve location + locationUrl from a RIH3 directions cell.
+ *
+ *  Precedence:
+ *   1. Address-shaped sentence in the body ("… 2203 Boston Neck Rd, …, RI") —
+ *      drops the maps URL because the first maps link often points at the wrong
+ *      place (#1427).
+ *   2. The maps-link anchor text, when it reads like a venue — but reject CTA
+ *      flavor copy, raw coordinate dumps, and On-After venues (#1890).
+ *   3. The explicit "starting from <venue>" sentence — the real meeting point,
+ *      used when the anchor is unusable (Run #2101's anchor was the polluted
+ *      "You know the spot. Go to <coords> On On at …").
+ *  Every venue candidate is passed through the shared cleanLocationName. */
 function resolveRih3Location(
   dir$: cheerio.CheerioAPI,
   mapsLink: cheerio.Cheerio<AnyNode>,
@@ -158,10 +253,23 @@ function resolveRih3Location(
   if (addressLocation) {
     return { location: addressLocation, locationUrl: undefined };
   }
-  return {
-    location: cleanMapsLinkText(mapsLink),
-    locationUrl: mapsLink.length ? mapsLink.attr("href")?.trim() : undefined,
-  };
+
+  const href = mapsLink.length ? mapsLink.attr("href")?.trim() : undefined;
+
+  const anchorText = cleanMapsLinkText(mapsLink);
+  if (anchorText && !isDirectionsCta(anchorText)) {
+    const cleaned = cleanLocationName(anchorText);
+    if (cleaned) return { location: cleaned, locationUrl: href };
+  }
+
+  // Anchor missing or polluted — fall back to the start-sentence venue.
+  const startVenue = extractStartVenueFromBody(dir$);
+  if (startVenue) {
+    const cleaned = cleanLocationName(startVenue);
+    if (cleaned) return { location: cleaned, locationUrl: href };
+  }
+
+  return { location: undefined, locationUrl: href };
 }
 
 /**

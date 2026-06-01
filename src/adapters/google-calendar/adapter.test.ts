@@ -3794,6 +3794,24 @@ describe("normalizeGCalDescription", () => {
     // No "Description:" label after Location:, so it is NOT the HC boilerplate pattern
     expect(result.description).toContain("Trail notes");
   });
+
+  it("collapses a body block pasted verbatim twice (#1889 Morgantown Run #136)", () => {
+    // Verbatim from the live morgantownh3@gmail.com calendar: the source entry
+    // duplicates the whole body block after the #724 boilerplate header.
+    const block = [
+      "All work and no play makes Jack a dull boy! Let's celebrate National Repeat Day!",
+      "",
+      "Time: June 3, 6 PM",
+      "Location TBA.",
+      "Hares: I Call the Shots and Attn: Ass Horse!",
+      "$5 Hash Cash.",
+    ].join("\n");
+    const raw = `Morgantown H3\nLocation: Genes Beer Garden\nDescription: ${block}\n\n${block}`;
+    const result = normalizeGCalDescription(raw);
+    expect(result.description).toBe(block);
+    // The duplicated copy is gone — "National Repeat Day" appears exactly once.
+    expect(result.description?.match(/National Repeat Day/g)).toHaveLength(1);
+  });
 });
 
 describe("buildRawEventFromGCalItem — trailing dash + defaultTitle (#756 Moooouston)", () => {
