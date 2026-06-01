@@ -6,7 +6,7 @@ import type {
   RawEventData,
   ScrapeResult,
 } from "../types";
-import { chronoParseDate, fetchHTMLPage, isPlaceholder } from "../utils";
+import { chronoParseDate, fetchHTMLPage, isPlaceholder, stripHtmlTags, stripZeroWidth } from "../utils";
 
 const DAYS_OF_WEEK = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
@@ -88,32 +88,41 @@ export interface DetailPageData {
   sourceUrl: string;
 }
 
+// The Weebly detail DOM sometimes packs the hare name and the on-after "On
+// Inn …" line into one text node with no separator ("Phil 'Layby' MackOn Inn
+// will be - The Skimmington…", #1815). Clip the hare at the first "On Inn"
+// occurrence — no leading `\b`, so the no-space "MackOn Inn" boundary splits —
+// then drop any dangling trailing separator.
+const ON_INN_BOUNDARY_RE = /On\s+Inns?\b/i;
+// Trailing whitespace/punctuation stripped procedurally rather than via a
+// `[…]+$` regex, which Sonar flags as a ReDoS shape (S5852) even though it is
+// linear here.
+const HARE_TRAILING_CHARS = new Set([" ", "\t", "\n", "\r", ",", ";", "-"]);
+export function splitHareFromOnInn(hares: string): string {
+  const m = ON_INN_BOUNDARY_RE.exec(hares);
+  const clipped = m ? hares.slice(0, m.index) : hares;
+  let end = clipped.length;
+  while (end > 0 && HARE_TRAILING_CHARS.has(clipped[end - 1])) end--;
+  return clipped.slice(0, end).trim();
+}
+
 /**
  * Parse the OCH3 next-run-details page into structured data.
  * Extracts run number, time, venue, hares, On Inn, and map coordinates.
  */
 export function parseDetailPage($: cheerio.CheerioAPI, detailUrl: string): DetailPageData | null {
-  // Iterate child nodes within each .paragraph to preserve logical line breaks.
-  // The site wraps all content in a single .paragraph div with inline <strong>/<span>/<b>
-  // tags — Cheerio .text() on the whole div produces one blob without newlines,
-  // causing regexes to capture across field boundaries.
+  // Convert each .paragraph to text with <br> rendered as a newline. The site
+  // wraps content in a single .paragraph div with inline <strong>/<span>/<b>
+  // tags AND hard <br> breaks, e.g. "…RH1 4EU<br/>Ha</strong><strong>re:…".
+  // Stripping tags after the <br>→\n substitution makes the break a real line
+  // boundary (so the Venue capture stops there instead of swallowing "Ha") while
+  // tag-split fragments rejoin with no separator ("<b>H</b>are:" → "Hare:"),
+  // keeping the field labels intact (#1815, live OCH3 detail page).
   const paragraphs = $("div.paragraph");
   const lines: string[] = [];
   paragraphs.each((_i, el) => {
-    $(el).contents().each((_j, node) => {
-      const rawText = $(node).text();
-      const text = rawText.trim();
-      if (!text) return;
-      // Rejoin fragments split across inline tags (e.g., <b>H</b>ares: → "H" + "ares:")
-      // If the previous line is a short fragment (≤2 chars), merge with this line.
-      // Use rawText (not fully trimmed) to preserve any leading whitespace between nodes,
-      // preventing words from running together (e.g., "<strong>I</strong> am" → "I am" not "Iam").
-      if (lines.length > 0 && lines[lines.length - 1].length <= 2) {
-        lines[lines.length - 1] += rawText.trimEnd();
-      } else {
-        lines.push(text);
-      }
-    });
+    const block = stripHtmlTags($(el).html() ?? "", "\n");
+    if (block) lines.push(block);
     lines.push(""); // blank line between paragraphs
   });
   const fullText = lines.join("\n");
@@ -143,19 +152,29 @@ export function parseDetailPage($: cheerio.CheerioAPI, detailUrl: string): Detai
   let hares: string | undefined;
   const hareMatch = /[Hh]ares?\s*[:\-–—]\s*(.+?)(?:\n|$)/i.exec(fullText);
   if (hareMatch) {
-    const haresText = hareMatch[1].trim();
-    if (!isPlaceholder(haresText)) {
+    const haresText = splitHareFromOnInn(hareMatch[1].trim());
+    if (haresText && !isPlaceholder(haresText)) {
       hares = haresText;
     }
   }
 
-  // On Inn: text after "On Inn"
+  // On Inn: text after "On Inn" (also "On Inn will be - …", the live form that
+  // gets concatenated onto the hare line — captured here, not dropped, #1815).
+  // Parsed procedurally rather than via one regex: an optional `(?:…)?\s*` group
+  // ahead of `\s*[:\-]\s*(.+?)` is a Sonar ReDoS shape (S5852).
   let onInn: string | undefined;
-  const onInnMatch = /On\s+Inn\s*[:\-–—]\s*(.+?)(?:\n|$)/i.exec(fullText);
-  if (onInnMatch) {
-    const onInnText = onInnMatch[1].trim();
-    if (!isPlaceholder(onInnText)) {
-      onInn = onInnText;
+  const onInnBoundary = ON_INN_BOUNDARY_RE.exec(fullText);
+  if (onInnBoundary) {
+    let rest = fullText.slice(onInnBoundary.index + onInnBoundary[0].length);
+    const nl = rest.indexOf("\n");
+    if (nl >= 0) rest = rest.slice(0, nl);
+    rest = rest.trimStart().replace(/^will\s+be\b/i, "").trimStart();
+    const delim = /^[:\-–—]\s*/.exec(rest);
+    if (delim) {
+      const onInnText = rest.slice(delim[0].length).trim();
+      if (onInnText && !isPlaceholder(onInnText)) {
+        onInn = onInnText;
+      }
     }
   }
 
@@ -234,7 +253,10 @@ export function parseEventsPage(html: string, baseUrl: string): RawEventData[] {
     /^OCH3 Events$/i.test($(el).find("strong").first().text().trim()),
   ).first();
   eventsPara.find("li").each((_i, el) => {
-    const fullText = $(el).text().trim();
+    // Strip zero-width chars Weebly injects (U+200B survives trim() and JS
+    // `\s`) so the anchored date-prefix strip below works and the date cell
+    // never leaks through as a title (#1814).
+    const fullText = stripZeroWidth($(el).text()).trim();
     if (!fullText) return;
 
     // Extract date from start of text
@@ -248,7 +270,12 @@ export function parseEventsPage(html: string, baseUrl: string): RawEventData[] {
 
     // Split on " - " to extract title and venue
     const segments = withoutDate.split(/\s+-\s+/).map(s => s.trim()).filter(Boolean);
-    const title = segments[0]?.replace(/\.\s*$/, "").trim() || undefined;
+    let title = segments[0]?.replace(/\.\s*$/, "").trim() || undefined;
+    // Belt-and-suspenders (#1814): if the only "title" text is itself a date,
+    // the row had no discrete title — never synthesize one from the date cell.
+    if (title && /^\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+/.test(title) && parseOCH3Date(title, currentYear)) {
+      title = undefined;
+    }
 
     // Try to find venue: "From [venue]" > last dash-segment > "at The [venue]" pattern
     let location: string | undefined;
@@ -288,7 +315,10 @@ export function parseEventsPage(html: string, baseUrl: string): RawEventData[] {
 
 /** Normalize raw text for line-based OCH3 parsing. */
 function normalizeOCH3Text(text: string): string {
-  return text
+  // Strip zero-width chars FIRST: Weebly injects U+200B which JS `\s` does not
+  // match, so a leading zero-width space defeats the anchored
+  // SECTION_DATE_PREFIX_RE and leaks the date cell through as a title (#1814).
+  return stripZeroWidth(text)
     .replace(/\r/g, "")
     .replace(/[–—]/g, "-")
     .replace(/\s+/g, " ")
@@ -307,18 +337,47 @@ interface ParsedSegments {
  * the canonical {hare}-{venue} order. Generalized to ≥3 digits so 10000th
  * runs etc. parse correctly (#1273).
  */
-const MILESTONE_RUN_RE = /^\d{3,}(?:st|nd|rd|th)?\s+Run\b/i;
+const MILESTONE_RUN_RE = /^(\d{3,})(?:st|nd|rd|th)?\s+Run\b/i;
+
+// A hash-name nickname in quotes — "Linda 'One in the Eye' Cooper",
+// "Jamie 'Phil the Greek' Wheadon". Matches straight and curly quote pairs.
+const QUOTED_NICKNAME_RE = /['‘’][^'‘’]+['‘’]/;
+// Event-title keywords. A titled hash event ("Memorial Run for Lawrence
+// 'Dynorod' Pearce", "'Chipmonk's last lay' Hash") carries one of these
+// OUTSIDE the quoted nickname; a real hare name ("Linda 'One in the Eye'
+// Cooper") does not. We strip the nickname before testing so a hash name like
+// 'Runs with Scissors' doesn't trip the keyword guard.
+const EVENT_KEYWORD_RE = /\b(?:runs?|hash|trail|party|memorial|anniversary|special|joint|invitational|bash)\b/i;
+/**
+ * A run-list segment is the hare when it carries a quoted hash-name, the quote
+ * is not segment-initial (that marks a titled event), and the surrounding text
+ * has no event keyword. Position-independent so both the hare-first and
+ * venue-first orderings resolve correctly (#1813).
+ */
+function isHareSegment(s: string): boolean {
+  const t = s.trim();
+  if (!QUOTED_NICKNAME_RE.test(t)) return false;
+  if (/^['‘’]/.test(t)) return false; // quote-initial → titled event, not a hare
+  return !EVENT_KEYWORD_RE.test(t.replace(QUOTED_NICKNAME_RE, " "));
+}
+/** A quoted segment that is NOT a hare is a discrete titled event. */
+function isTitledEventSegment(s: string): boolean {
+  return QUOTED_NICKNAME_RE.test(s) && !isHareSegment(s);
+}
 
 /**
  * Classify dash-delimited segments into title / location / hares.
  *
- *   Canonical row    "{date} - {hare} - {venue}"             → title=hare,
- *                                                              location=venue
- *   Milestone, 2-seg "{date} - {Nth Run <venue>} - {hare}"   → title=full first,
- *                                                              hares=last
- *   Milestone, 3+seg "{date} - {Nth Run} - {venue} - {hare}" → title=first,
- *                                                              location=middle,
- *                                                              hares=last
+ * OCH3's upcoming-run-list mixes two orderings depending on the editor:
+ *   hare-first   "{date} - {hare} - {venue}"
+ *   venue-first  "{date} - {venue} [- {town}] - {hare}"
+ * so the hare is detected by its quoted hash-name, position-independent
+ * (#1813), and stored in `hares` — the venue never leaks into `title`. Title
+ * is left undefined (merge synthesizes "Old Coulsdon H3 Trail #N") unless the
+ * row carries a discrete titled-event name.
+ *
+ * Milestone rows ("{date} - {Nth Run …} - {hare}") keep their existing
+ * title-bearing classification.
  */
 function classifySegments(segments: string[]): ParsedSegments {
   if (segments.length === 0) return {};
@@ -333,6 +392,19 @@ function classifySegments(segments: string[]): ParsedSegments {
       };
     }
     return { title: first, hares: segments[1] };
+  }
+
+  const hareIdx = segments.findIndex(isHareSegment);
+  if (hareIdx >= 0) {
+    const titleSeg = segments.find(isTitledEventSegment);
+    const venue = segments
+      .filter((s, i) => i !== hareIdx && s !== titleSeg && !/details to follow/i.test(s))
+      .join(", ");
+    return {
+      title: titleSeg,
+      hares: segments[hareIdx],
+      location: venue || undefined,
+    };
   }
 
   if (segments.length === 1) return { title: first };
@@ -439,8 +511,11 @@ function parseRunEntry(
     .map((s) => s.trim())
     .filter(Boolean);
 
-  const { title: rawTitle, location: rawLocation, hares } = classifySegments(segments);
+  const { title: rawTitle, location: rawLocation, hares: rawHares } = classifySegments(segments);
   const title = stripNavBleed(rawTitle);
+  // Run-list hares now flow into `hares` (not `title`), so apply the same
+  // nav/boilerplate strip that previously only guarded the title (#1813).
+  const hares = stripNavBleed(rawHares);
   // Defensive milestone-prefix strip (#1580): the 3+ segment branch of
   // classifySegments joins middle segments verbatim, which leaks "<N>th run
   // and overnight stay at …" description text into location when the source
@@ -448,10 +523,19 @@ function parseRunEntry(
   // that-mentions-venue> - <hares>".
   const location = cleanMilestoneLocation(rawLocation);
 
+  // Run number is exposed only on milestone rows ("2000th Run …"). For every
+  // other run-list row emit an explicit null (tri-state clear) so a stale
+  // number from a prior scrape is cleared rather than silently inherited from
+  // a sibling row (#1813). The detail-page merge still stamps the next run's
+  // real number via mergeDetailIntoEvent.
+  const milestoneMatch = rawTitle ? MILESTONE_RUN_RE.exec(rawTitle) : null;
+  const runNumber = milestoneMatch ? Number.parseInt(milestoneMatch[1], 10) : null;
+
   return {
     entry: {
       date,
       kennelTags: ["och3"],
+      runNumber,
       title,
       location,
       hares,

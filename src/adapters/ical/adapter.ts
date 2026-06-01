@@ -22,6 +22,7 @@ export interface ICalSourceConfig {
   enrichSFH3Details?: boolean;         // fetch sfh3.com/runs/{id} detail pages for canonical title + Comment field
   enrichBerlinH3Details?: boolean;     // fetch berlin-h3.eu event pages for Hares field from wp-event-manager
   allowEmptyBody?: boolean;            // treat an empty 200 body as an empty-success (0 events) instead of an error — The Events Calendar's ?ical=1 export returns 0 bytes when there are no upcoming events (ICH3 #1753)
+  coalesceEndpointDuplicates?: boolean; // collapse a same-date all-day /events/{n} VEVENT into its timed /runs/{m} twin, enriching hares/description/etc. — Oslo H3 publishes each run on both endpoints (#1828)
 }
 
 /**
@@ -513,9 +514,17 @@ function buildRawEventFromVEvent(
   const locationUrl = resolveLocationUrl(vevent.geo, location, description);
 
   // Run number: prefer summary extraction, fall back to description with custom patterns
-  let runNumber = parsed.runNumber;
+  let runNumber: number | null | undefined = parsed.runNumber;
   if (runNumber == null && description && compiledRunNumberPatterns?.length) {
     runNumber = extractRunNumberFromDescription(description, compiledRunNumberPatterns);
+  }
+  // A placeholder marker ("OH3 #20xx", "#TBD") must emit an explicit null clear
+  // so the merge tri-state wipes a stale runNumber from a prior scrape rather
+  // than preserving it via undefined (#1824). extractHashRunNumber already
+  // rejects "#20xx" (delimiter guard), so without this it would silently keep
+  // whatever was stored before the kennel switched to the placeholder.
+  if (runNumber == null && hasPlaceholderRunNumber(summary)) {
+    runNumber = null;
   }
 
   const cost = description ? extractCostFromDescription(description, compiledCostPatterns) : undefined;
@@ -548,6 +557,48 @@ function buildICalDiagnosticContext(vevent: VEvent): { rawText: string; summary:
   if (vevent.location) rawParts.push(`Location: ${paramValue(vevent.location) ?? ""}`);
   if (vevent.start) rawParts.push(`Start: ${String(vevent.start)}`);
   return { rawText: rawParts.join("\n").slice(0, 2000), summary };
+}
+
+const RUNS_ENDPOINT_RE = /\/runs\/\d+/i;
+const EVENTS_ENDPOINT_RE = /\/events\/\d+/i;
+
+/**
+ * Collapse cross-endpoint duplicates within a single feed (#1828).
+ *
+ * Oslo H3 publishes the same run twice in calendar.ics: a timed `/runs/{m}`
+ * VEVENT (has the start time, the "#NNNN" run number, and a title) and an
+ * all-day `/events/{n}` VEVENT (no time/number, but a richer description and
+ * the authoritative hares). Keyed on `kennelTag|date`, each `/events/` entry
+ * that shares a date with a `/runs/` twin enriches that twin in place
+ * (hares/description/cost/location win from the events listing) and is dropped;
+ * standalone `/events/` entries with no run twin are kept untouched.
+ */
+export function coalesceEndpointDuplicates(events: RawEventData[]): RawEventData[] {
+  const runByKey = new Map<string, RawEventData>();
+  for (const e of events) {
+    if (e.sourceUrl && RUNS_ENDPOINT_RE.test(e.sourceUrl)) {
+      const key = `${e.kennelTags.join(",")}|${e.date}`;
+      if (!runByKey.has(key)) runByKey.set(key, e);
+    }
+  }
+  if (runByKey.size === 0) return events;
+
+  const dropped = new Set<RawEventData>();
+  for (const e of events) {
+    if (!e.sourceUrl || !EVENTS_ENDPOINT_RE.test(e.sourceUrl)) continue;
+    const twin = runByKey.get(`${e.kennelTags.join(",")}|${e.date}`);
+    if (!twin) continue; // standalone special event — no run duplicate to merge
+    if (e.hares) twin.hares = e.hares;
+    if (e.description) twin.description = e.description;
+    if (e.cost) twin.cost = e.cost;
+    if (e.location) twin.location = e.location;
+    // Preserve the events/ map link independently of the venue name: the twin
+    // can carry a Maps URL parsed from its description with no location name, so
+    // a name-gated copy would silently drop the only link.
+    if (e.locationUrl) twin.locationUrl = e.locationUrl;
+    dropped.add(e);
+  }
+  return dropped.size > 0 ? events.filter((e) => !dropped.has(e)) : events;
 }
 
 /** iCal feed adapter. Parses .ics feeds using node-ical, supports kennel pattern matching and multi-kennel feeds. */
@@ -610,7 +661,7 @@ export class ICalAdapter implements SourceAdapter {
       ? compilePatterns([config.titleHarePattern], "i")[0]
       : undefined;
 
-    const events: RawEventData[] = [];
+    let events: RawEventData[] = [];
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
     let totalVEvents = 0;
@@ -665,6 +716,13 @@ export class ICalAdapter implements SourceAdapter {
 
     if (parseErrors.length > 0) {
       errorDetails.parse = parseErrors;
+    }
+
+    // Oslo H3 (#1828): the same run lands on both /runs/ and /events/ — collapse
+    // the all-day events/ duplicate into its timed runs/ twin before merge sees
+    // two RawEvents for one trail. No-op for feeds without both endpoint shapes.
+    if (config?.coalesceEndpointDuplicates) {
+      events = coalesceEndpointDuplicates(events);
     }
 
     // SFH3 publishes multi-day campouts as a /events/{n} umbrella VEVENT plus

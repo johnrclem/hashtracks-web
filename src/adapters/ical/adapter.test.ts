@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { ICalAdapter, parseICalSummary, extractHaresFromDescription, extractRunNumberFromDescription, extractLocationFromDescription, extractOnOnVenueFromDescription, extractCostFromDescription, extractMapsUrlFromDescription, paramValue } from "./adapter";
+import { ICalAdapter, parseICalSummary, extractHaresFromDescription, extractRunNumberFromDescription, extractLocationFromDescription, extractOnOnVenueFromDescription, extractCostFromDescription, extractMapsUrlFromDescription, coalesceEndpointDuplicates, paramValue } from "./adapter";
+import type { RawEventData } from "../types";
 import type { Source } from "@/generated/prisma/client";
 import type { ParameterValue } from "node-ical";
 
@@ -1163,5 +1164,129 @@ END:VCALENDAR`;
     result.events.forEach((e) => {
       expect(e.kennelTags[0]).toBe("UNKNOWN");
     });
+  });
+});
+
+const OH3_ICS = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Oslo H3//EN
+BEGIN:VEVENT
+UID:oh3.run-28368
+DTSTART;TZID=Europe/Oslo:20260615T183000
+SUMMARY:OH3 #2001: OH3 Run 2001- A Hash Odyssey
+DESCRIPTION:Hare: Mismanagement
+URL:https://www.oh3.no/runs/28368
+DTSTAMP:20260201T000000Z
+END:VEVENT
+BEGIN:VEVENT
+UID:oh3.event-24
+DTSTART;VALUE=DATE:20260615
+SUMMARY:OH3 run 2001: A Hash Odyssey
+DESCRIPTION:Hares: Altar Boy & Hot Shit\\n\\nMeet at the dock. Cost 250 NOK. Swim stop.
+URL:https://www.oh3.no/events/24
+DTSTAMP:20260201T000000Z
+END:VEVENT
+BEGIN:VEVENT
+UID:oh3.run-28409
+DTSTART;TZID=Europe/Oslo:20270116T143000
+SUMMARY:OH3 #20xx: Vicar Birthday Run
+URL:https://www.oh3.no/runs/28409
+DTSTAMP:20260201T000000Z
+END:VEVENT
+BEGIN:VEVENT
+UID:oh3.event-23
+DTSTART;VALUE=DATE:20260703
+SUMMARY:Hot Fun In The Summertime
+URL:https://www.oh3.no/events/23
+DTSTAMP:20260201T000000Z
+END:VEVENT
+END:VCALENDAR`;
+
+function buildOh3Source(): Source {
+  return buildMockSource({
+    name: "Oslo H3 iCal Feed",
+    url: "https://www.oh3.no/calendar.ics",
+    config: {
+      defaultKennelTag: "oh3-no",
+      coalesceEndpointDuplicates: true,
+    },
+  });
+}
+
+describe("ICalAdapter — Oslo H3 (#1824 placeholder, #1828 endpoint coalesce)", () => {
+  let adapter: ICalAdapter;
+  beforeEach(() => {
+    adapter = new ICalAdapter();
+    vi.restoreAllMocks();
+  });
+
+  it("collapses the /events/ all-day duplicate into its timed /runs/ twin", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(OH3_ICS, { status: 200 }));
+    const result = await adapter.fetch(buildOh3Source(), { days: 9999 });
+
+    const jun15 = result.events.filter((e) => e.date === "2026-06-15");
+    expect(jun15).toHaveLength(1);
+    const run = jun15[0];
+    // Time + run number survive from /runs/; hares + description win from /events/.
+    expect(run.runNumber).toBe(2001);
+    expect(run.startTime).toBe("18:30");
+    expect(run.hares).toBe("Altar Boy & Hot Shit");
+    expect(run.description).toContain("Swim stop");
+    expect(run.sourceUrl).toBe("https://www.oh3.no/runs/28368");
+  });
+
+  it("keeps a standalone /events/ entry with no /runs/ twin", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(OH3_ICS, { status: 200 }));
+    const result = await adapter.fetch(buildOh3Source(), { days: 9999 });
+
+    const summertime = result.events.find((e) => e.date === "2026-07-03");
+    expect(summertime).toBeDefined();
+    expect(summertime!.sourceUrl).toBe("https://www.oh3.no/events/23");
+  });
+
+  it("clears a stale runNumber for a '#20xx' placeholder (#1824)", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(OH3_ICS, { status: 200 }));
+    const result = await adapter.fetch(buildOh3Source(), { days: 9999 });
+
+    const vicar = result.events.find((e) => e.date === "2027-01-16");
+    expect(vicar).toBeDefined();
+    // Explicit null (not undefined) so the merge tri-state wipes the stale 20.
+    expect(vicar!.runNumber).toBeNull();
+    expect(vicar!.title).toBe("Vicar Birthday Run");
+  });
+});
+
+describe("coalesceEndpointDuplicates (unit, #1828)", () => {
+  const runEvent = (): RawEventData => ({
+    date: "2026-06-15",
+    kennelTags: ["oh3-no"],
+    runNumber: 2001,
+    title: "OH3 Run 2001",
+    hares: "Mismanagement",
+    startTime: "18:30",
+    sourceUrl: "https://www.oh3.no/runs/28368",
+  });
+  const eventsEvent = (): RawEventData => ({
+    date: "2026-06-15",
+    kennelTags: ["oh3-no"],
+    title: "A Hash Odyssey",
+    hares: "Altar Boy & Hot Shit",
+    description: "Meet at the dock",
+    sourceUrl: "https://www.oh3.no/events/24",
+  });
+
+  it("merges events/ hares+description into the runs/ twin and drops events/", () => {
+    const out = coalesceEndpointDuplicates([runEvent(), eventsEvent()]);
+    expect(out).toHaveLength(1);
+    expect(out[0].sourceUrl).toContain("/runs/");
+    expect(out[0].hares).toBe("Altar Boy & Hot Shit");
+    expect(out[0].description).toBe("Meet at the dock");
+    expect(out[0].startTime).toBe("18:30");
+    expect(out[0].runNumber).toBe(2001);
+  });
+
+  it("is a no-op when there is no /runs/ event", () => {
+    const only = [eventsEvent()];
+    expect(coalesceEndpointDuplicates(only)).toHaveLength(1);
   });
 });
