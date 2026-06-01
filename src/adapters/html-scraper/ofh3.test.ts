@@ -186,10 +186,14 @@ describe("OFH3Adapter title fallback", () => {
       fetchDurationMs: 100,
     });
 
-    const result = await adapter.fetch({
+    // Wide window so the fixed 2025 fixture never ages out of the ±365d
+    // default as the calendar rolls past it (boundary-flaky otherwise).
+    // Mirrors the year-rollover-guard block below.
+    const result = await adapter.fetch(fakeSource({
       id: "test-ofh3",
       url: "https://www.ofh3.com/",
-    } as never);
+      scrapeDays: 365 * 10,
+    }));
 
     expect(result.events).toHaveLength(1);
     expect(result.events[0].date).toBe("2025-06-01");
@@ -211,10 +215,11 @@ describe("OFH3Adapter title fallback", () => {
       fetchDurationMs: 100,
     });
 
-    const result = await adapter.fetch({
+    const result = await adapter.fetch(fakeSource({
       id: "test-ofh3",
       url: "https://www.ofh3.com/",
-    } as never);
+      scrapeDays: 365 * 10,
+    }));
 
     expect(result.events).toHaveLength(1);
     expect(result.events[0].date).toBe("2026-03-14");
