@@ -2759,7 +2759,7 @@ export const KENNELS: KennelSeed[] = [
       latitude: 50.11, longitude: 8.68,
     },
     {
-      kennelCode: "h7", shortName: "H7", fullName: "Hansestadt Hamburg Hash House Harriers Hummel Hummel", region: "Hamburg", country: "Germany",
+      kennelCode: "h7", shortName: "Hamburg H7", fullName: "Hansestadt Hamburg Hash House Harriers Hummel Hummel", region: "Hamburg", country: "Germany",
       website: "https://hamburghash.blogspot.com/",
       facebookUrl: "https://www.facebook.com/groups/280388972016079",
       scheduleDayOfWeek: "Sunday", scheduleTime: "2:00 PM", scheduleFrequency: "Biweekly (1st & 3rd Sundays)",

@@ -190,12 +190,25 @@ export function sanitizeHares(hares: string | undefined | null): string | null {
 /**
  * Derive a user-friendly kennel name for default event titles.
  * For short/cryptic codes (≤4 chars), derives a readable name from fullName.
- * Strips "Hash House Harriers" suffix and appends "H3" when appropriate.
+ * Strips the "Hash House Harriers" token (wherever it sits, not just the
+ * suffix) and appends "H3" when appropriate. Mid-string strip matters for
+ * kennels whose name wraps the token, e.g. "Renegade Hash House Harriers
+ * Columbus", "Hash House Harriers Singapore", or "SLASH (South London Hash
+ * House Harriers)" — the old suffix-only strip left those fully verbose.
+ *
+ * Spaces are written as literal ` ?` (not `\s*`) around the alternation to
+ * keep the pattern ReDoS-linear (Sonar S5852).
  */
 export function friendlyKennelName(shortName: string, fullName: string | null): string {
   if (shortName.length > 4) return shortName;
   if (!fullName) return shortName;
-  const friendly = fullName.replace(/\s*Hash House Harriers?(?:\s+and\s+Harriettes?)?\s*$/i, "").trim();
+  const friendly = fullName
+    // Drop a parenthetical that wraps the token, e.g. "(South London Hash House Harriers)".
+    .replace(/\s*\([^)]*Hash House Harriers[^)]*\)/i, "")
+    // Strip the token itself + an optional trailing "and/& Harriettes".
+    .replace(/Hash House Harriers?(?: ?(?:and|&) ?Harriettes?)?/i, " ")
+    .replace(/\s+/g, " ")
+    .trim();
   if (!friendly || friendly === shortName) return shortName;
   const hadHHH = /Hash House Harriers?/i.test(fullName);
   return hadHHH ? `${friendly} H3` : friendly;
