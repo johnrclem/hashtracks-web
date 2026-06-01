@@ -460,6 +460,43 @@ export async function scrapeSource(
       }
     }
 
+    // Config-driven slug-map sources (HashStats) scope their fetch to the
+    // kennels named in `config.kennelSlugMap`. Reconcile must be scoped the
+    // same way: without this, scrapedKennelIds stays undefined and reconcile
+    // evaluates EVERY linked kennel, so a map that omits a linked kennel would
+    // let reconcile false-cancel that kennel's sole-source events. HASHREGO is
+    // excluded explicitly (not just via `!scrapedKennelIds`) because its block
+    // above can legitimately leave scrapedKennelIds undefined — the
+    // zero-discoveries fallback path — so a HASHREGO source that also carried a
+    // kennelSlugMap must not fall through into this slug-map scoping. (#1771)
+    let slugMapScopeMismatch = false;
+    if (!scrapedKennelIds && source.type !== "HASHREGO") {
+      const slugMap = (source.config as { kennelSlugMap?: Record<string, string> } | null)
+        ?.kennelSlugMap;
+      if (slugMap && Object.keys(slugMap).length > 0) {
+        const mappedCodes = new Set(Object.keys(slugMap));
+        const sks = await prisma.sourceKennel.findMany({
+          where: { sourceId },
+          select: { kennelId: true, kennel: { select: { kennelCode: true } } },
+        });
+        scrapedKennelIds = sks
+          .filter((sk) => mappedCodes.has(sk.kennel.kennelCode))
+          .map((sk) => sk.kennelId);
+        // Fail closed on scope drift: if the map matched no linked SourceKennel
+        // (typo, missing link, stale seed), an EMPTY scrapedKennelIds would make
+        // reconcile fall back to ALL linked kennels (reconcile treats [] the same
+        // as undefined) — reopening the false-cancellation hazard. Block reconcile
+        // and surface it instead of silently reconciling everything. (#1771)
+        if (scrapedKennelIds.length === 0) {
+          slugMapScopeMismatch = true;
+          console.warn(
+            `[scrape] ${source.name}: kennelSlugMap matched no linked SourceKennel rows — ` +
+              `skipping reconcile to avoid false cancellations (check seed config/links)`,
+          );
+        }
+      }
+    }
+
     const fetchStart = Date.now();
     const scrapeResult = await adapter.fetch(source, { days, kennelSlugs });
     const fetchDurationMs = Date.now() - fetchStart;
@@ -495,7 +532,8 @@ export async function scrapeSource(
       scrapeResult.events.length > 0 &&
       scrapeResult.errors.length === 0 &&
       kennelPageErrors === 0 &&
-      !kennelPagesIncomplete
+      !kennelPagesIncomplete &&
+      !slugMapScopeMismatch
     ) {
       const upcomingOnly =
         (source.config as Record<string, unknown> | null)?.upcomingOnly === true;
@@ -535,6 +573,7 @@ export async function scrapeSource(
     const diagnosticContext = buildDiagnosticContext(scrapeResult.diagnosticContext, aiRecovery);
     diagnosticContext.scrapeDays = days;
     if (reconcileContext) diagnosticContext.reconciliation = reconcileContext;
+    if (slugMapScopeMismatch) diagnosticContext.slugMapScopeMismatch = true;
     if (mergeResult.restored > 0) diagnosticContext.eventsRestored = mergeResult.restored;
     if (silentSkip.skipped > 0) diagnosticContext.silentlySkipped = silentSkip;
 

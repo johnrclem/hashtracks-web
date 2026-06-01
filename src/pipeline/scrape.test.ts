@@ -5,6 +5,7 @@ vi.mock("@/lib/db", () => ({
     source: { findUnique: vi.fn(), update: vi.fn() },
     rawEvent: { deleteMany: vi.fn() },
     scrapeLog: { create: vi.fn(), update: vi.fn() },
+    sourceKennel: { findMany: vi.fn() },
   },
 }));
 
@@ -58,6 +59,7 @@ import { prisma } from "@/lib/db";
 import { getAdapter } from "@/adapters/registry";
 import { processRawEvents } from "./merge";
 import { analyzeHealth } from "./health";
+import { reconcileStaleEvents } from "./reconcile";
 import { scrapeSource } from "./scrape";
 import { revalidateTag } from "next/cache";
 import { after } from "next/server";
@@ -70,6 +72,8 @@ const mockLogUpdate = vi.mocked(prisma.scrapeLog.update);
 const mockGetAdapter = vi.mocked(getAdapter);
 const mockProcessRaw = vi.mocked(processRawEvents);
 const mockAnalyzeHealth = vi.mocked(analyzeHealth);
+const mockSourceKennelFind = vi.mocked(prisma.sourceKennel.findMany);
+const mockReconcile = vi.mocked(reconcileStaleEvents);
 
 const fakeSource = { id: "src_1", type: "HTML_SCRAPER", url: "https://test.com" };
 const fakeMergeResult = {
@@ -257,6 +261,73 @@ describe("scrapeSource", () => {
     const updateData = mockLogUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
     expect(updateData.data.sampleBlocked).toEqual(sampleBlocked);
     expect(updateData.data.sampleSkipped).toEqual(sampleSkipped);
+  });
+
+  // #1771 — config-driven slug-map sources (HashStats) must scope reconcile to
+  // the kennels named in kennelSlugMap. Otherwise scrapedKennelIds stays
+  // undefined and reconcile evaluates every linked kennel, false-cancelling the
+  // sole-source events of a linked kennel the map omits.
+  describe("kennelSlugMap reconcile scoping", () => {
+    const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    afterEach(() => consoleWarnSpy.mockClear());
+
+    it("scopes reconcile to mapped kennels, excluding omitted linked kennels", async () => {
+      const slugMapSource = {
+        id: "src_hs", type: "HTML_SCRAPER", url: "https://hashingstats.com/SCH4",
+        config: { kennelSlugMap: { sch4: "SCH4" } },
+      };
+      mockSourceFind.mockResolvedValue(slugMapSource as never);
+      // The source is linked to TWO kennels but the map only covers sch4.
+      mockSourceKennelFind.mockResolvedValue([
+        { kennelId: "k_sch4", kennel: { kennelCode: "sch4" } },
+        { kennelId: "k_qch4", kennel: { kennelCode: "qch4" } },
+      ] as never);
+      mockGetAdapter.mockReturnValue({
+        type: "HTML_SCRAPER",
+        fetch: vi.fn().mockResolvedValue({
+          events: [{ date: "2026-02-14", kennelTags: ["sch4"] }],
+          errors: [],
+        }),
+      } as never);
+
+      await scrapeSource("src_hs");
+
+      expect(mockSourceKennelFind).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { sourceId: "src_hs" } }),
+      );
+      // reconcile scoped to ONLY the mapped kennel (k_sch4), never k_qch4.
+      expect(mockReconcile).toHaveBeenCalledWith(
+        "src_hs",
+        expect.any(Array),
+        expect.any(Number),
+        ["k_sch4"],
+        false,
+      );
+    });
+
+    it("fails closed (skips reconcile) when the map matches no linked SourceKennel", async () => {
+      const slugMapSource = {
+        id: "src_hs2", type: "HTML_SCRAPER", url: "https://hashingstats.com/SCH4",
+        config: { kennelSlugMap: { sch4: "SCH4" } },
+      };
+      mockSourceFind.mockResolvedValue(slugMapSource as never);
+      // Drift: the only linked kennel's code doesn't appear in the map.
+      mockSourceKennelFind.mockResolvedValue([
+        { kennelId: "k_other", kennel: { kennelCode: "qch4" } },
+      ] as never);
+      mockGetAdapter.mockReturnValue({
+        type: "HTML_SCRAPER",
+        fetch: vi.fn().mockResolvedValue({
+          events: [{ date: "2026-02-14", kennelTags: ["sch4"] }],
+          errors: [],
+        }),
+      } as never);
+
+      await scrapeSource("src_hs2");
+
+      // An empty scope must NOT reconcile (that would fall back to all linked).
+      expect(mockReconcile).not.toHaveBeenCalled();
+    });
   });
 
   // #1739 — silentlySkipPatterns drops known source pollution at the ingest
