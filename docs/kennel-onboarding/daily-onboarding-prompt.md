@@ -773,7 +773,8 @@ events verified, and the backlog count remaining.
 
 - **Target already seeded (kennel + source)** → mark `done (already live)`, pick next.
 - **Existing kennel, missing source** → that's a valid source-add handoff, not a skip.
-- **Source dead / no upcoming events** → mark `blocked` with reason, pick next.
+- **Source genuinely dead / stale** (empty listing, NXDOMAIN, or no run within ~2× its cadence) → mark `blocked` with reason, pick next.
+- **0 upcoming but recently active** (live source, regular cadence, latest run within ~2× interval) → onboard as `recently-active` (ship `upcomingOnly` + a recent-history backfill), per Step 3's *recently-active* rule — NOT blocked.
 - **Source is JS-rendered and browserRender isn't available in this shell** → still write the
   handoff with everything you could gather, clearly flagging that Claude Code must pull/verify
   the live sample. Mark the queue row `handed-off (needs live-verify)`.

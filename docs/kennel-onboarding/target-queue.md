@@ -57,7 +57,7 @@ bar = a live dynamic source with recent-cadence activity — NOT necessarily an 
 the *recently-active* rule (daily-prompt Step 3): a regular-cadence kennel whose latest run is within
 ~2× its interval qualifies even at 0 upcoming (onboard with a recent-history backfill).
 
-- **B.I.T.CH H3** (Zurich, CH) — Meetup + run-list site; Tuesday hash. *Verify the source is live with recent runs (upcoming OR a last run within ~2× the weekly interval).*
+- **B.I.T.CH H3** (Zürich, CH) — Meetup + run-list site; Tuesday hash. *Verify the source is live with recent runs (upcoming OR a last run within ~2× the weekly interval).*
 - **Kampala H3 / KH3** (Uganda) — weekly Monday; active social signals, 2026 7 Hills Run coverage. *Find a clean dynamic source (FB-only is rejected); maybe source-add if a Meetup or HC listing surfaces.*
 - **Brasilia H3** (Brazil) — Blogspot + AllEvents sample for Mar 2026 (`brasiliah3.blogspot.com`). *Promote if the Blogspot shows a consistent recent cadence (latest post within ~2× interval) — a future-dated event is not required.*
 - **Asunción H3** (Paraguay) — WordPress run history through Apr 18, 2026 (`asuncionh3.wordpress.com/run-history/`). *Re-check the run-history cadence: if recent + consistent (within ~2× interval), promote and onboard with a backfill even at 0 upcoming.*
