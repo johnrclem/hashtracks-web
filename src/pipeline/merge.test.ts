@@ -635,6 +635,95 @@ describe("processRawEvents", () => {
     expect(data).not.toHaveProperty("locationAddress");
   });
 
+  it("does NOT backfill coords/map URL when the lower-trust venue differs from the existing name (#1919)", async () => {
+    // Venue-compatibility gate: a fuzzy/stale lower-trust match carrying a
+    // DIFFERENT venue must not pin its coords under the higher-trust venue name
+    // (silent map/name mismatch — Codex adversarial review). Coords are null
+    // here, so ONLY the venue gate can block the backfill.
+    mockSourceFind.mockResolvedValueOnce(sourceRow({
+      trustLevel: 5,
+      type: "HTML_SCRAPER",
+      kennels: [{ kennelId: "kennel_1" }],
+    }));
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([{
+      id: "evt_named",
+      trustLevel: 8,
+      locationName: "Higher-Trust Venue",
+      locationAddress: null,
+      locationCity: null,
+      latitude: null,
+      longitude: null,
+      description: null,
+    }] as never);
+    mockEventUpdate.mockResolvedValue(eventRow("evt_named"));
+
+    await processRawEvents("src_low", [buildRawEvent({
+      description: "fresh writeup",
+      location: "A Totally Different Place",
+      locationUrl: "https://maps.app.goo.gl/different",
+      latitude: 51.5,
+      longitude: -0.12,
+    })]);
+
+    const update = mockEventUpdate.mock.calls.find(
+      (c: unknown[]) => (c[0] as { where: { id: string } }).where.id === "evt_named",
+    );
+    expect(update).toBeDefined();
+    const data = (update![0] as { data: Record<string, unknown> }).data;
+    // Other null fields still enrich...
+    expect(data).toHaveProperty("description", "fresh writeup");
+    // ...but the mismatched venue's coords / map URL are NOT attached, and the
+    // higher-trust venue name is left untouched.
+    expect(data).not.toHaveProperty("latitude");
+    expect(data).not.toHaveProperty("longitude");
+    expect(data).not.toHaveProperty("locationAddress");
+    expect(data).not.toHaveProperty("locationName");
+  });
+
+  it("resolves coords by geocoding the venue (not direct lat/lng) + fills map URL & locationCity", async () => {
+    // Exercises the resolveCoords path that derives coords from the venue string
+    // via geocodeAddress (not raw lat/lng), the map-URL backfill, and the
+    // reverse-geocode locationCity fill (CodeRabbit nitpick). Venue is null on
+    // the canonical → venue-compatible, so name + pin fill from this source.
+    // (extractCoordsFromMapsUrl is stubbed to null in this file, so the goo.gl
+    // URL yields no coords — coords must come from geocodeAddress.)
+    const { geocodeAddress, reverseGeocode } = await import("@/lib/geo");
+    vi.mocked(geocodeAddress).mockResolvedValueOnce({ lat: 51.5, lng: -0.12, formattedAddress: "London, UK" } as never);
+    vi.mocked(reverseGeocode).mockResolvedValueOnce("London");
+    mockSourceFind.mockResolvedValueOnce(sourceRow({
+      trustLevel: 5,
+      type: "HTML_SCRAPER",
+      kennels: [{ kennelId: "kennel_1" }],
+    }));
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([{
+      id: "evt_urlcoords",
+      trustLevel: 8,
+      locationName: null,
+      locationAddress: null,
+      locationCity: null,
+      latitude: null,
+      longitude: null,
+    }] as never);
+    mockEventUpdate.mockResolvedValue(eventRow("evt_urlcoords"));
+
+    await processRawEvents("src_low", [buildRawEvent({
+      location: "Some Venue",
+      locationUrl: "https://maps.app.goo.gl/somewhere",
+    })]);
+
+    const update = mockEventUpdate.mock.calls.find(
+      (c: unknown[]) => (c[0] as { where: { id: string } }).where.id === "evt_urlcoords",
+    );
+    expect(update).toBeDefined();
+    const data = (update![0] as { data: Record<string, unknown> }).data;
+    expect(data).toHaveProperty("latitude", 51.5);
+    expect(data).toHaveProperty("longitude", -0.12);
+    expect(data.locationAddress).toContain("goo.gl");
+    expect(data).toHaveProperty("locationCity", "London");
+  });
+
   it("lower-trust enrichment recomposes dateUtc when backfilling startTime (#1654)", async () => {
     // SeaMon Trail #556 shape: higher-trust GSheets created the row without a
     // startTime (so dateUtc = eventDate = UTC noon). Lower-trust GCal later

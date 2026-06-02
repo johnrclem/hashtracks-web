@@ -1697,13 +1697,25 @@ async function upsertCanonicalEvent(
       // Fill-only — never overwrite an existing (higher-trust) coord. #1917 Codex
       // review caught the asymmetry where the website source had to out-trust the
       // sheet purely to dodge this gap; this lets enrichment carry the coords.
+      //
+      // Venue-compatibility gate (#1919 Codex review): only attach this source's
+      // coords/map URL when they won't contradict an EXISTING higher-trust venue
+      // name. Safe when the canonical has no venue yet (we're filling it from this
+      // same source just above, so name + pin agree by construction) OR when this
+      // source's venue matches the stored name. Otherwise a fuzzy/stale lower-trust
+      // match could pin a *different* venue's coords under a higher-trust venue
+      // name — a silent map/name mismatch. Strict equality is intentionally
+      // conservative: on any doubt we skip rather than risk a wrong pin.
+      const venueCompatible =
+        existingEvent.locationName == null ||
+        (event.location != null && sanitizeLocation(event.location) === existingEvent.locationName);
       // Only resolve when the canonical lacks coords AND this source carries a
       // coord signal (direct lat/lng, a maps URL, or a venue to geocode) — skip
       // the otherwise no-op async call. `existingCoords` is omitted: the null
       // guard means there's nothing cached to preserve.
       const eventHasCoordSignal =
         event.latitude != null || event.longitude != null || !!event.locationUrl || !!event.location;
-      if (existingEvent.latitude == null && existingEvent.longitude == null && eventHasCoordSignal) {
+      if (venueCompatible && existingEvent.latitude == null && existingEvent.longitude == null && eventHasCoordSignal) {
         const coords = await resolveCoords(
           event,
           undefined,
@@ -1726,8 +1738,9 @@ async function upsertCanonicalEvent(
         }
       }
       // Map URL backfill — independent of coords (a source may carry a maps link
-      // the canonical lacks even when coords don't resolve). Fill-only.
-      if (!existingEvent.locationAddress && event.locationUrl) {
+      // the canonical lacks even when coords don't resolve), but same venue gate:
+      // the URL is effectively the pin too, so don't attach a mismatched one.
+      if (venueCompatible && !existingEvent.locationAddress && event.locationUrl) {
         enrichData.locationAddress = sanitizeLocationUrl(event.locationUrl);
       }
       if (!existingEvent.startTime && event.startTime) {
