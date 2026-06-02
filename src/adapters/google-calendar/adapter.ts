@@ -482,6 +482,57 @@ const DATE_RANGE_PAREN_RE = /\b\d{1,2}\s*\/\s*\d{1,2}\b/;
 const MAX_HARE_PAREN_LENGTH = 40;
 
 /**
+ * A bare kennel-code token like "CH3", "SWH3", "MH3", "BH3" — the kennel's
+ * own abbreviation, never a hash name. Shape: starts with a letter, ends with
+ * "H<digit>" (the H3/H4/H5 hash-family marker). Deliberately tighter than a
+ * blanket all-caps reject: real 2-3-char hash names ("DJ", "MJ", "FBI") do NOT
+ * end in H+digit and still pass the gate. See #1882 (Capital H3 "CH3 - vacant").
+ */
+const BARE_KENNEL_CODE_RE = /^[A-Za-z][A-Za-z\d]*H\d$/;
+
+/**
+ * Narrow reject-gate applied wherever the adapter routes *title-derived* text
+ * into `haresText`. Rejects only what is unambiguously NOT a hash name:
+ * placeholders ("vacant", "TBD", "Hares Needed", …) and bare kennel-code
+ * tokens. It deliberately has NO fuzzy theme/word-count/punctuation heuristic —
+ * hash names are routinely multi-word, "&"/"and"/comma-joined, and exclamatory
+ * (e.g. "Jaba the Slut & Stop, Drop, and Puke", "Just the Tip!"), so any such
+ * heuristic would false-reject real names. Run themes that aren't hares (e.g.
+ * EWH3 "Autism Speaks for Deities & Friends!") are kept out of `haresText` by
+ * NOT configuring a `titleHarePattern` for that source, not by this gate.
+ *
+ * Not applied to description-derived hares (extractHares), which come from
+ * explicit "Hare:" labels already filtered in hare-extraction.ts.
+ */
+export function looksLikeHareName(text: string): boolean {
+  const t = text.trim();
+  if (!t) return false;
+  if (isPlaceholder(t)) return false;
+  if (BARE_KENNEL_CODE_RE.test(t)) return false;
+  return true;
+}
+
+/**
+ * A "this slot has no real value" token — used per-token inside a location
+ * candidate. Deliberately NARROW (only vacancy markers), NOT the full
+ * `isPlaceholder` vocabulary: that set includes ordinary venue words like
+ * "volunteer"/"registration" which appear in real place names ("Volunteer
+ * Park"). See the Codex review note on #1882.
+ */
+const VACANCY_TOKEN_RE = /^(?:vacant|tbd|tba|tbc|n\/a)$/i;
+
+/**
+ * True when any dash/whitespace-delimited token of `text` is a vacancy marker.
+ * Rejects titleLocationPattern / merge captures like "3 - vacant" (#1882
+ * Capital H3: the `(\d+\s+.+)` address pattern grabs the "3" out of
+ * "CH3 - vacant") and "Location TBD" — which the anchored whole-string
+ * `isPlaceholder` check misses — without dropping real multi-word venues.
+ */
+function containsPlaceholderToken(text: string): boolean {
+  return text.split(/[\s–—-]+/).some((tok) => VACANCY_TOKEN_RE.test(tok));
+}
+
+/**
  * #1444 Larryville: detect "initials wordplay" parentheticals like
  * `LH3 #670 DP (dirtier pickle)` where the parenthetical is a punning
  * lowercase expansion of the uppercase token immediately preceding it.
@@ -895,6 +946,15 @@ interface CalendarSourceConfig {
    *  hit wins. The matched span is stripped from the title. Candidates that
    *  trip `isPlaceholder()` (e.g. "venue TBC") are rejected (#1222). */
   titleLocationPattern?: string | string[];
+  /**
+   * When true, the `titleHarePattern` span is stripped from the title even when
+   * the canonical hare came from the description (#1884 MH3-Mpls: title
+   * "MH3 #1984 - B Knuckles" + description "Hare : Butt Knuckles" — keep the
+   * description hare, but still strip the "- B Knuckles" suffix off the title).
+   * Default (off) preserves the description-priority-keeps-title contract for
+   * every other titleHarePattern kennel.
+   */
+  alwaysStripTitleHareSpan?: boolean;
   /**
    * Regex strings applied as `title.replace(re, "")` in sequence after hare
    * extraction and before the `defaultTitle` fallback. Compiled with `i`
@@ -1324,7 +1384,12 @@ export function buildRawEventFromGCalItem(
   // matched so the downstream title-cleanup block uses the same regex span.
   let haresFromTitle = false;
   let matchedTitleHarePattern: RegExp | undefined;
-  if (!hares && compiledTitleHarePatterns?.length) {
+  // Run the title-hare patterns when hares are still missing, OR when the source
+  // opts into `alwaysStripTitleHareSpan` (#1884 MH3-Mpls): there the canonical
+  // hare comes from the description's "Hare:" line, but the title still carries a
+  // "- HareName" suffix that must be stripped. In that mode we record the matched
+  // span for the title-cleanup block below WITHOUT overwriting the description hare.
+  if (compiledTitleHarePatterns?.length && (!hares || sourceConfig?.alwaysStripTitleHareSpan === true)) {
     for (const re of compiledTitleHarePatterns) {
       const titleMatch = re.exec(summary);
       if (titleMatch?.[1]) {
@@ -1336,9 +1401,14 @@ export function buildRawEventFromGCalItem(
           .replace(/^\s*[-–—:]+\s*|\s*[-–—:]+\s*$/g, "") // NOSONAR — anchored char-class alternation
           .trim();
         if (cleaned) {
-          hares = cleaned;
-          haresFromTitle = true;
+          // Record the span so the title-cleanup block strips it regardless.
           matchedTitleHarePattern = re;
+          // Assign hares only when none yet AND the capture looks like a hash
+          // name (not a placeholder / bare kennel code, #1882).
+          if (!hares && looksLikeHareName(cleaned)) {
+            hares = cleaned;
+            haresFromTitle = true;
+          }
           break;
         }
       }
@@ -1526,7 +1596,7 @@ export function buildRawEventFromGCalItem(
   // and suffix patterns (hares at end: "AH3 #1833 - Location - Hare Name").
   // The prior code assumed prefix-only and did title.slice(captureGroup.length),
   // which mangled titles when the capture group was at the end.
-  if (haresFromTitle && matchedTitleHarePattern) {
+  if (matchedTitleHarePattern && (haresFromTitle || sourceConfig?.alwaysStripTitleHareSpan === true)) {
     const titleMatch = matchedTitleHarePattern.exec(title);
     if (titleMatch && titleMatch[1]) {
       const hareText = titleMatch[1];
@@ -1580,7 +1650,7 @@ export function buildRawEventFromGCalItem(
       const locMatch = re.exec(title);
       if (locMatch?.[1]) {
         const candidate = locMatch[1].trim().replace(/[.,;:\s]+$/, "").trim(); // NOSONAR — anchored end-of-string char-class
-        if (candidate && !isPlaceholder(candidate)) {
+        if (candidate && !isPlaceholder(candidate) && !containsPlaceholderToken(candidate)) {
           location = candidate;
           title = (title.slice(0, locMatch.index) + title.slice(locMatch.index + locMatch[0].length))
             .replaceAll(/^\s*[-–—:]+\s*|\s*[-–—:]+\s*$/g, "") // NOSONAR — anchored char-class alternation, mirrors title-hare strip
@@ -1601,7 +1671,7 @@ export function buildRawEventFromGCalItem(
     if (wMatch) {
       const wHares = wMatch[1].trim();
       const wLocation = wMatch[2].trim();
-      if (!hares && !isPlaceholder(wHares)) hares = wHares;
+      if (!hares && looksLikeHareName(wHares)) hares = wHares;
       if (!location && !isPlaceholder(wLocation)) location = wLocation;
       title = title.slice(0, wMatch.index).trim();
     }
@@ -1631,6 +1701,7 @@ export function buildRawEventFromGCalItem(
     // expansion). Real hash names — Title Case, lowercase-multi-word,
     // mixed-case — still pass through.
     const isNameLike =
+      looksLikeHareName(inner) &&
       !NON_NAME_PAREN_RE.test(inner) &&
       !ACRONYM_PAREN_RE.test(inner) &&
       !isInitialsWordplay(title, inner, parenMatch.index);
@@ -1645,14 +1716,16 @@ export function buildRawEventFromGCalItem(
   // Dash-separated hare suffix: "Title - Hare(s): Name" (H5, OCHHH)
   const dashHareMatch = TITLE_DASH_HARE_RE.exec(title);
   if (dashHareMatch) {
-    if (!hares) hares = dashHareMatch[1].trim();
+    const dashHare = dashHareMatch[1].trim();
+    if (!hares && looksLikeHareName(dashHare)) hares = dashHare;
     title = title.slice(0, dashHareMatch.index).trim();
   }
 
   // "hared by Name" suffix: "Voodoo Trail #1032 hared by The Iceman" (Voodoo H3)
   const haredByMatch = TITLE_HARED_BY_RE.exec(title);
   if (haredByMatch) {
-    if (!hares) hares = haredByMatch[1].trim();
+    const haredBy = haredByMatch[1].trim();
+    if (!hares && looksLikeHareName(haredBy)) hares = haredBy;
     title = title.slice(0, haredByMatch.index).trim();
   }
 
@@ -1992,8 +2065,14 @@ function applyDescriptorToTimed(
   summaryMap?: WeakMap<RawEventData, string>,
 ): void {
   const { hare, location } = splitTimedSummaryHareLocation(summaryMap?.get(timed) ?? timed.title ?? "");
-  if (!timed.hares && hare) timed.hares = hare;
-  if (!timed.location && location) timed.location = location;
+  // A placeholder slot like "6pm CH3 - vacant" / "CH3 - vacant - Restaurant run"
+  // is an unfilled run: the location half is a placeholder, so neither the
+  // "hare" ("6pm CH3") nor the "location" ("vacant…") is real. Drop both (#1882).
+  const slotVacant = !!location && (isPlaceholder(location) || containsPlaceholderToken(location));
+  if (!slotVacant) {
+    if (!timed.hares && hare && looksLikeHareName(hare)) timed.hares = hare;
+    if (!timed.location && location) timed.location = location;
+  }
   timed.runNumber ??= descriptor.runNumber;
   timed.title = descriptor.title ?? undefined;
 }

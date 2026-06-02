@@ -200,6 +200,11 @@ export const SOURCES = [
           ["Boston Moo[mn]|Full Moon|\\bMoo[mn]\\b", "bos-moon"],
           ["Boston H3|Boston Hash|BoH3|BH3", "boh3"],
         ],
+        // #1891: BH3 events carry a "BH3:" title prefix and stash the run
+        // number in the description ("BH #2805"). Strip the prefix; pull the
+        // run number from the description. (Same precedent as Morgantown #1726.)
+        titleStripPatterns: [String.raw`^BH3:\s*`],
+        runNumberPatterns: [String.raw`BH\s*#\s*(\d+)`],
       },
       kennelCodes: ["boh3", "bobbh3", "beantown", "bos-moon", "pink-taco", "zigzag", "e4b"],
     },
@@ -427,6 +432,13 @@ export const SOURCES = [
         includeAllDayEvents: true,
         defaultTitle: "EWH3 Trail",
         defaultStartTime: "18:45",
+        // #1892: summaries are "{theme} - {location}" (e.g. "Autism Speaks for
+        // Deities & Friends! - Dupont Circle"). Capture the post-dash location
+        // into locationName and strip it from the title. Deliberately NO
+        // titleHarePattern — the pre-dash text is a run theme, not hares.
+        // "… - Location TBD" is rejected by the adapter's placeholder-token
+        // guard (the "TBD" token), so it never becomes a location.
+        titleLocationPattern: String.raw`\s+-\s+(\S.*)$`,
       },
       kennelCodes: ["ewh3"],
     },
@@ -1499,7 +1511,16 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "every_6h",
       scrapeDays: 365,
-      config: { defaultKennelTag: "swh3" },
+      config: {
+        defaultKennelTag: "swh3",
+        // #1881: hare follows the LAST dash, with or without a run number:
+        // "SWH3 #1794 -Pukey", "SWH3- I Do Greek and Frau Farter",
+        // "SWH3- Bad Beer Hash- PITA" (→ PITA). Single-kennel source, so the
+        // un-anchored last-dash capture is safe; the looksLikeHareName gate
+        // rejects placeholder/kennel-code captures.
+        titleHarePattern: String.raw`-\s*([^-]+)$`,
+        defaultTitle: "SWH3 Trail",
+      },
       kennelCodes: ["swh3"],
     },
     {
@@ -2356,6 +2377,17 @@ export const SOURCES = [
           String.raw`^Kah-Two-Na\b`,
           String.raw`^Ka-Three-Na\b`,
         ],
+        // #1868: hares appear in the title suffix ("OH3 #1370 Boner Spur!",
+        // "OH3 #1366 w/ Mouthful") for events whose description has no "Who:"
+        // line (which DEFAULT_HARE_PATTERNS already handles). First pattern:
+        // "w/|with|featuring <hare>"; second: "OH3 #N <hare>". Char-class
+        // captures exclude "/" and "#" so co-host titles ("OH3 #1340 / Cherry
+        // City H3 #1") don't leak the sibling into hares; trailing "!" is
+        // absorbed by the span so the title cleans to "OH3 #N".
+        titleHarePattern: [
+          String.raw`(?:w/|with|featuring)\s+([^/#!]+)!*\s*$`,
+          String.raw`^OH3(?:\s+Full Moon)?\s*#\s*\d+\s+([^/#!]+)!*\s*$`,
+        ],
       },
       kennelCodes: ["oh3", "tgif", "cch3-or"],
     },
@@ -2554,6 +2586,14 @@ export const SOURCES = [
         // the all-day filter (#1021). strictKennelRouting bounds the blast radius —
         // anything not matching kennelPatterns is still discarded.
         includeAllDayEvents: true,
+        // #1406: HSWTF events whose summary is just the bare kennel code
+        // "HSWTFH3" fall through to a placeholder title. Map them to a real
+        // default and treat the bare code as a stale alias so the fallback
+        // fires. (#1407 — the "(2011)" year suffix on Analversary events is NOT
+        // a run number: extractHashRunNumber requires a "#", so it is already
+        // ignored; covered by a regression test.)
+        defaultTitles: { "hswtf-h3": "HSWTF Trail" },
+        staleTitleAliases: { "hswtf-h3": ["HSWTFH3"] },
       },
       kennelCodes: ["sh3-wa", "psh3", "nbh3-wa", "rch3-wa", "seamon-h3", "th3-wa", "ssh3-wa", "cunth3-wa", "taint-h3", "giggity-h3", "seh3-wa", "hswtf-h3", "leapyear-h3"],
     },
@@ -2783,6 +2823,14 @@ export const SOURCES = [
           ["\\bMH3\\b", "mh3-mn"]
         ],
         defaultKennelTag: "mh3-mn",
+        // #1884: title embeds the hare ("MH3 #1984 - B Knuckles") AND the
+        // description carries the canonical "Hare : Butt Knuckles" line. The
+        // description hare wins; alwaysStripTitleHareSpan still strips the
+        // "- B Knuckles" suffix off the title. Anchored to MH3+run so the
+        // shared T3H3 rows are untouched.
+        titleHarePattern: String.raw`^MH3\s*#?\s*\d+\s*-\s*(.+)$`,
+        alwaysStripTitleHareSpan: true,
+        defaultTitles: { "mh3-mn": "Minneapolis H3 Trail" },
       },
       kennelCodes: ["mh3-mn", "t3h3"],
     },

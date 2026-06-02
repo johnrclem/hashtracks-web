@@ -2869,6 +2869,13 @@ export const KENNELS: KennelSeed[] = [
       foundedYear: 1997,
       description: "Osaka hash kennel running in Japan's second-largest city and the Kansai region.",
       latitude: 34.69, longitude: 135.50,
+      // #1872 profile bundle (fields published on the kennel's site).
+      logoUrl: "https://kfmh3.github.io/Home/OsakaH3_Logo.png",
+      gm: "Ero Massage",
+      hareRaiser: "Blue Cherry Boy",
+      hashCash: "¥1,000",
+      scheduleFrequency: "Irregular",
+      scheduleNotes: "Runs are scheduled ad-hoc rather than on a fixed weekly slot; recent trails cluster on weekends. Check the kennel's site for the next run.",
     },
 
     // ── Belgium: Brussels ──

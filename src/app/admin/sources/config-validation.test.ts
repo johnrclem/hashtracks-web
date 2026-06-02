@@ -248,6 +248,62 @@ describe("validateSourceConfig", () => {
       expect(errors).toHaveLength(1);
       expect(errors[0]).toContain("must be a string");
     });
+
+    it("accepts an array of titleHarePattern strings (Stuttgart/Copenhagen shape)", () => {
+      expect(validateSourceConfig("GOOGLE_CALENDAR", {
+        titleHarePattern: [String.raw`^a(.+)$`, String.raw`^b(.+)$`],
+      })).toEqual([]);
+    });
+
+    it("rejects an array titleHarePattern with a non-string element", () => {
+      const errors = validateSourceConfig("GOOGLE_CALENDAR", {
+        titleHarePattern: ["ok", 123],
+      });
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toContain("titleHarePattern[1]");
+    });
+
+    it("rejects an array titleHarePattern with a ReDoS element", () => {
+      const errors = validateSourceConfig("GOOGLE_CALENDAR", {
+        titleHarePattern: ["(a+a+)+$"],
+      });
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toContain("catastrophic backtracking");
+    });
+  });
+
+  describe("titleLocationPattern validation", () => {
+    it("accepts a valid string titleLocationPattern", () => {
+      expect(validateSourceConfig("GOOGLE_CALENDAR", {
+        titleLocationPattern: String.raw`\s+-\s+(\S.*)$`,
+      })).toEqual([]);
+    });
+
+    it("accepts an array of titleLocationPattern strings", () => {
+      expect(validateSourceConfig("GOOGLE_CALENDAR", {
+        titleLocationPattern: [String.raw`\s+-\s+(\S.*)$`, String.raw`(\d+\s+.+)$`],
+      })).toEqual([]);
+    });
+
+    it("rejects an invalid regex titleLocationPattern", () => {
+      const errors = validateSourceConfig("GOOGLE_CALENDAR", {
+        titleLocationPattern: "[broken(",
+      });
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toContain("invalid regex");
+    });
+  });
+
+  describe("alwaysStripTitleHareSpan validation", () => {
+    it("accepts a boolean", () => {
+      expect(validateSourceConfig("GOOGLE_CALENDAR", { alwaysStripTitleHareSpan: true })).toEqual([]);
+    });
+
+    it("rejects a non-boolean", () => {
+      const errors = validateSourceConfig("GOOGLE_CALENDAR", { alwaysStripTitleHareSpan: "yes" });
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toContain("must be a boolean");
+    });
   });
 
   // ---------------------------------------------------------------------------

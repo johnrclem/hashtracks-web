@@ -31,7 +31,7 @@ export const PHONE_TRAILING_RE = new RegExp(String.raw`\s*(?:${PHONE_NUMBER_RE.s
 /** Default hare extraction patterns for Google Calendar descriptions. */
 /* eslint-disable -- security/detect-unsafe-regex (Codacy ESLint plugin not loaded locally); patterns operate on trusted GCal description fields with bounded line slicing in extractHares */
 const DEFAULT_HARE_PATTERNS = [
-  /(?:^|\n)[ \t]*H{1,3}are(?:\s*&\s*Co-Hares?)?\(?s?\)?:[ \t]*(.*)/im,  // Hare:, Hares:, HHHares: (Asheville's "HHH" = Hash House Harriers convention)
+  /(?:^|\n)[ \t]*H{1,3}are(?:\s*&\s*Co-Hares?)?\(?s?\)?[ \t]*:[ \t]*(.*)/im,  // Hare:, Hares:, "Hare :" (space before colon, #1884 MH3-Mpls), HHHares: (Asheville's "HHH" = Hash House Harriers convention)
   // "WHO ARE THE HARES:" template variant — must match before the generic
   // "Who:" pattern so the full label prefix is consumed. Non-greedy capture
   // with a section-label lookahead terminator handles concatenated descriptions
