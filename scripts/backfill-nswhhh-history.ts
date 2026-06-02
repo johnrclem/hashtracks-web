@@ -21,6 +21,7 @@ import "dotenv/config";
 import { runBackfillScript } from "./lib/backfill-runner";
 import { safeFetch } from "@/adapters/safe-fetch";
 import { parseCSV, parseDate } from "@/adapters/google-sheets/adapter";
+import { todayInTimezone } from "@/lib/timezone";
 import type { RawEventData } from "@/adapters/types";
 
 const SOURCE_NAME = "North Shore Wanderers H3 Hareline Sheet";
@@ -34,6 +35,9 @@ const COL = { date: 0, runNumber: 1, hares: 2, location: 3 } as const;
 async function fetchArchive(): Promise<RawEventData[]> {
   const res = await safeFetch(ARCHIVE_CSV_URL, {
     headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Backfill)" },
+    // safeFetch's direct-fetch path has no default timeout (only the proxy
+    // branch does) — guard this one-shot read against a hung connection.
+    signal: AbortSignal.timeout(30_000),
   });
   if (!res.ok) {
     throw new Error(`Archive CSV fetch failed: HTTP ${res.status}`);
@@ -41,6 +45,11 @@ async function fetchArchive(): Promise<RawEventData[]> {
   const rows = parseCSV(await res.text());
   const events: RawEventData[] = [];
   const today = new Date();
+  // Kennel-local cutoff. The shared runBackfillScript also partitions
+  // `date < today`, but filter here too so fetchArchive is self-contained and
+  // a future archive tab that ever carries current/upcoming rows can't leak
+  // live schedule data through the backfill path.
+  const todayStr = todayInTimezone(KENNEL_TIMEZONE);
 
   // Skip the header row (index 0).
   for (let i = 1; i < rows.length; i++) {
@@ -53,6 +62,7 @@ async function fetchArchive(): Promise<RawEventData[]> {
 
     const date = parseDate(row[COL.date]?.trim() ?? "", today);
     if (!date) continue;
+    if (date >= todayStr) continue; // past-only (defense in depth)
 
     const hares = row[COL.hares]?.trim() || undefined;
     const location = row[COL.location]?.trim() || undefined;
