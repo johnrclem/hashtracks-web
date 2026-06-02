@@ -14,6 +14,28 @@ Format:
 
 ---
 
+## 2026-06-02 — North Shore Wanderers H3 (Sydney, NSW) 🇦🇺 first dual-source onboard
+- Source: **2 sources** — (1) GOOGLE_SHEETS forward hareline (config-only via `config.csvUrl`, anonymous CSV export) + (2) NEW `NSWHHHAdapter` HTML_SCRAPER for the Google Sites home page (`nswhhh.info/home`, SSR, venue + map coords).
+- Outcome: **SHIPPED** → PR #1917 (merged). Live at https://www.hashtracks.xyz/kennels/north-shore-wanderers-h3 — **187 prod events**. Self-hosted logo (grabbed via browser — `sitesv` token 403s server-side). Made `GoogleSheetsConfig.columns.location` optional.
+- Dedup: full onboard — no `nsw*`/`wanderer*` slug in live sitemap (419 slugs, 4 other Sydney kennels live). kennelCode `nswhhh` clear. region `Sydney, NSW` + `Australia` already seeded (no `region.ts` edits).
+- Events verified: sheet → **28 forward** (#1065 1 Jun → #1092 21 Dec 2026, weekly Mon; the 2 "No Run" holiday rows dropped by `silentlySkipPatterns`); website → **1 current run** enriched with venue (Bay Road Reserve, Waverton) + coords. Both `upcomingOnly`. startTime default 18:30.
+- Historical backfill: **159 runs (#904 26 Sep 2022 → #1064 25 May 2026)** from the Google Sheet's *second tab* (`gid=360703890`) — handoff said "no history" (judged the website prose list, not the sheet's archive tab). One-shot `scripts/backfill-nswhhh-history.ts`.
+- Follow-ups: **dual-source trust ordering** — website bumped to trust 8 > sheet 7 so its coords aren't dropped by the merge's lower-trust enrichment path (Codex catch; merge regression test added). Spawned task: make that enrichment path backfill coords/`locationAddress` symmetrically with `locationName`. Retro at `handoffs/retros/2026-06-02-nswhhh-retro.md`: enumerate ALL sheet gids for history; trust ordering follows coord ownership; `csvUrl` bypasses the `GOOGLE_CALENDAR_API_KEY` gate; `sitesv` logos 403 server-side; query the real Sonar hotspot via REST (bots guessed the wrong regex line).
+
+## 2026-06-01 — Auckland H3 (Auckland, NZ) 🇳🇿 NZ's oldest hash (est. 1970)
+- Source: HTML_SCRAPER — `aucklandhashhouseharriers.co.nz` (Rocketspark; NEW `AucklandHashAdapter`, Draft.js TAB-delimited run list).
+- Outcome: **SHIPPED** → PR #1896 (merged). Live at https://www.hashtracks.xyz/kennels/ah3-nz — **7 prod events** (1 Jun → 13 Jul 2026, weekly Mon), all CONFIRMED. Auckland NZ + New Zealand regions already seeded (no `region.ts` edits).
+- Dedup: full onboard — only `auckland-hussies` was live. kennelCode `ah3-nz` (ah3/ah3-hi/ah3-nl/ah3-au all taken).
+- Historical backfill: **none** — single rolling page (correct).
+- Follow-ups: Retro `handoffs/retros/2026-06-01-ah3-nz-retro.md`: corrected the Rocketspark platform note (Draft.js TAB-delimited, not a table); Rocketspark `image_quad` logos are WebP; grep every proposed alias vs the full `aliases.ts` (`AHHH`→ah4 collision); single-block adapters need a `rows.length === 0` fail-loud guard.
+
+## 2026-05-31 — Hamburg H7 (Hamburg, DE) 🇩🇪 first Hamburg kennel, 5th German metro
+- Source: HARRIER_CENTRAL (config-only) — hashruns.org; history from `hamburghash.blogspot.com` (Blogger feed).
+- Outcome: **SHIPPED** → PRs #1886 (onboarding + Hamburg METRO region + HC source + backfill + `walkersWelcome` plumbing) + #1895 (title-quality follow-up). Live at https://www.hashtracks.xyz/kennels/hamburg-h7 — **111 prod events** (101 historical #594–#700 from Blogspot, 10 upcoming #707–#716 via Harrier Central through Sep 2026). `walkersWelcome` badge live.
+- Dedup: full onboard — no `hamburg*`/`h7` slug. kennelCode `hamburg-h7` (mind `h7` collision). Hamburg METRO region added.
+- Historical backfill: **101 runs (#594–#700)** — handoff initially called the Blogspot "free-form prose, defer"; it was actually structured announcement posts (93/105 with run #s) → backfilled in-PR.
+- Follow-ups: Retro `handoffs/retros/2026-05-31-h7-retro.md`: NEVER dismiss an archive as "too messy" without pulling a sample (Blogger feed `?alt=json&max-results=8`); milestone-run posts carry `foundedYear`; freeze a curated dataset + dumb loader for one-shot backfills.
+
 ## 2026-05-30 — Mijas H3 (Costa del Sol, Spain) 🇪🇸 first Spain kennel
 - Source: HTML_SCRAPER — `https://www.mijash3.com/hareline` (Squarespace *content-page* hareline, server-rendered; NEW ~150–220 LoC `MijasH3Adapter` — NOT the Events-JSON config-only path).
 - Outcome: **SHIPPED** → PR #1832 (onboarding: adapter + Spain/Costa del Sol regions + seed) + PR #1837 (historical backfill tooling). Live at https://www.hashtracks.xyz/kennels/mijash3 — **389 prod events**.

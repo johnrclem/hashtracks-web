@@ -32,7 +32,10 @@ whole file is the brief.
    Instagram, or flyer. The queue is pre-filtered — but re-confirm the source is live (Step 3).
    If the top target has no working dynamic source, mark it `blocked` and move to the next.
 3. **Verify the source is live before writing the handoff.** Fetch the real source and extract a
-   sample of real, upcoming events. A handoff built on an unverified source is worthless.
+   sample of real events — **upcoming if any, otherwise the recent past runs that prove the source
+   is still active.** 0 upcoming events is NOT an automatic skip: a live, regular-cadence kennel
+   that simply hasn't posted its next run yet should be onboarded (see Step 3's *recently-active*
+   rule). A handoff built on an unverified source is worthless.
 4. **Front-load the deep dive.** Capture logo, founded year, socials, hash cash, schedule,
    description, historical-backfill availability, end-times, coord sanity, pagination depth
    *now* — they go in the handoff.
@@ -207,6 +210,32 @@ fields the source exposes (date, time, title, hares, location, description, run 
 > Meetup was dead when it actually had 12 upcoming + 307 past). If you cannot show evidence,
 > say "I couldn't verify this" rather than asserting it. Retro Gap B.
 
+> 🟡 **0 upcoming events is NOT an automatic block — distinguish STALE from RECENTLY ACTIVE.**
+> A kennel whose source is live and that runs on a regular cadence often just hasn't posted its
+> next run yet (e.g. Mexico City: biweekly, run #732+, but the Meetup can show 0 upcoming between
+> postings). **Onboard it — don't skip — when ALL of:**
+> - the source is reachable and not erroring (not NXDOMAIN, not a dead/abandoned page), **AND**
+> - the most recent run is within **~2× the kennel's normal interval** (monthly → ≤ ~8 weeks ago;
+>   biweekly → ≤ ~4 weeks; weekly → ≤ ~2 weeks), **AND**
+> - it ran on a **consistent cadence over the last ~3–6 months** (e.g. a monthly kennel with runs
+>   in ≥3 of the last 4 months).
+>
+> **Evidence standard (same bar as the "dead" rule above):** capture the **last 3–5 past-run dates
+> + the cadence** as the handoff sample — those prove the source is active. A "0 upcoming" claim
+> needs the actual DOM/JSON excerpt, exactly like a "dead" claim.
+>
+> **What to produce — status `recently-active` (NOT `blocked`):** ship the
+> `config.upcomingOnly: true` source **AND** a **recent-history backfill**
+> (`scripts/backfill-<code>-history.ts`) so the kennel page shows schedule + recent runs
+> immediately; the daily scrape auto-adds the next run the moment the source posts it. Say so in
+> the handoff: *"0 upcoming at research time — onboarding on recent-cadence evidence; the next run
+> appears on the first scrape after it's posted."*
+>
+> **Genuinely stale → still skip (`blocked: stale`):** if the most recent run is well beyond ~2×
+> the interval (Mauritius: biweekly but last run ~6 weeks / 3 intervals past, archive renders
+> "Nothing Found"), or the source errors / hasn't updated in months. Re-check stale kennels when
+> the queue refills.
+
 > 🔴 **If you are overriding the queue's proposed source, the handoff must include evidence for
 > BOTH sides.** (a) Excerpt proving the original source is dead/stale/inferior, AND (b) a
 > working sample from the replacement source. Confident pivots with no evidence for the "dead"
@@ -255,9 +284,12 @@ archive (past runs) AND an advance schedule, recommend the **past/future split**
   ~4 weeks while the WordPress.com archive went back to 2019). Past-only vs future-only vs both
   matters for the adapter shape — don't conflate them.
 
-**If the source is genuinely dead / has no upcoming events** (HTML listing itself is empty/gone):
-mark the target `blocked` with the reason, fall back to the next `queued` target (return to
-Step 1). A feed you simply couldn't fetch from the sandbox is **not** "dead" — flag it instead.
+**If the source is genuinely dead** (the listing itself is empty/gone, the domain is NXDOMAIN, or
+the feed errors / hasn't updated in months): mark the target `blocked: stale` with the reason, fall
+back to the next `queued` target (return to Step 1). **But 0 upcoming events alone is NOT "dead"** —
+a live, regular-cadence source between postings is `recently-active`, not blocked (apply the Step 3
+*recently-active* rule: onboard with a recent-history backfill). A feed you simply couldn't fetch
+from the sandbox is **not** "dead" either — flag it instead.
 
 ## Step 4 — Full metadata harvest (onboarding + deep-dive in one pass)
 
@@ -268,7 +300,7 @@ date, **Half-Mind.com** for schedule/hash cash/contacts; playbook §3):
 Kennel profile (maps to the `Kennel` model): `fullName`, `shortName`, `kennelCode`
 (lowercase, URL-safe, **permanent**), `region`, `country`, `aliases`, `website`, `facebookUrl`,
 `instagramHandle`, `twitterHandle`, `discordUrl`, `scheduleDayOfWeek`, `scheduleTime`,
-`scheduleFrequency`, `foundedYear`, `hashCash`/payment, `dogFriendly`, `walkerFriendly`,
+`scheduleFrequency`, `foundedYear`, `hashCash`/payment, `dogFriendly`, `walkersWelcome`,
 `description` (short "about us"), **`logoUrl`**, and lat/lng if easily found.
 
 > 🔴 **Every metadata field must cite its source URL, and that URL must have passed the Step 3
@@ -366,6 +398,12 @@ Rego / hashruns.org); any secondary source worth adding; avoid stale placeholder
 >   `public-api.wordpress.com/wp/v2/sites/<host>/posts` patterns from the ONH3 onboarding.
 > - For Ghost / Blogger / generic blog: walk `/page/N` and report actual oldest reachable post
 >   (NOT current run number — see "Run-number ≠ archive depth" in Step 3 above).
+> - **For Google Sheets-backed sources (incl. Google Sites that embed a sheet): enumerate EVERY
+>   tab/gid.** The embed/link `gid` is usually just the *forward* hareline; a sibling tab often
+>   holds the archive. List tabs via `<sheet>/htmlview` (`grep -oE 'gid=[0-9]+'`) and confirm each
+>   tab's columns via `<sheet>/gviz/tq?tqx=out:json&gid=N`. The NSWHHH handoff judged "no history"
+>   from the website's prose list and never checked the sheet's other tab — `gid=360703890` held
+>   160 archived runs back to 2022 (retro `handoffs/retros/2026-06-02-nswhhh-retro.md` Gap A).
 >
 > Report the actual archive depth (count + date range + per-post field list) in the handoff so
 > the implementer can decide if a one-shot backfill is worth scripting. **The cost of finding a
@@ -451,7 +489,7 @@ Produce:
   "model on `src/adapters/html-scraper/onh3.ts` for WP.com REST; `hangover.ts` for Ghost"). Do
   **NOT** assert field names, function signatures, or import paths in the sketch as if they're
   canonical — the ONH3 sketch invented `kennelTag` (real type is `kennelTags: string[]`),
-  invented `walkerFriendly` (not on `Kennel`), used raw `fetch()` (must be `safeFetch`),
+  invented `walkerFriendly` (the real field is `walkersWelcome`), used raw `fetch()` (must be `safeFetch`),
   hardcoded a `title` (`merge.ts` synthesizes when undefined), and set
   `kennelPagesStopReason` in a way that would silently disable reconciliation. Include an
   explicit **"⚠️ Claude Code must verify against current types"** stanza listing exactly what
@@ -528,7 +566,7 @@ Create `docs/kennel-onboarding/handoffs/<YYYY-MM-DD>-<kennelCode>.md` with this 
 - aliases: [...]
 - website / facebook / instagram / twitter / discord
 - schedule: <day>, <time>, <frequency>  (+ scheduleRules: [...] if multi-pattern)
-- foundedYear / hashCash / dogFriendly / walkerFriendly
+- foundedYear / hashCash / dogFriendly / walkersWelcome
 - logoUrl: <stable URL | ⚠️ self-host to public/kennel-logos/<code>.<ext>>
 - description: "<short about-us>"
 - lat/lng: <if found>
@@ -587,9 +625,9 @@ Create `docs/kennel-onboarding/handoffs/<YYYY-MM-DD>-<kennelCode>.md` with this 
 
 **⚠️ Claude Code: verify before writing real code.** Any code snippet below is illustrative; the
 authority is the live repo. Before writing the adapter, confirm against current types/imports:
-- `RawEventData` field names — `kennelTags` is `string[]` (NOT `kennelTag`); there is no
-  `walkerFriendly` field on `Kennel`; check the actual `prisma/schema.prisma` for unexpected
-  invented fields.
+- `RawEventData` field names — `kennelTags` is `string[]` (NOT `kennelTag`); the walker-friendliness
+  field on `Kennel` is `walkersWelcome` (NOT `walkerFriendly`); check the actual
+  `prisma/schema.prisma` for the canonical names before using any field.
 - Imports — `safeFetch` from `@/adapters/safe-fetch` (NOT raw `fetch`); date/extract helpers from
   `@/adapters/utils`; browser-render via `browserRender` from `@/lib/browser-render`.
 - `kennelPagesStopReason` — set ONLY on genuine truncation (a full page left unfetched / HTTP or
