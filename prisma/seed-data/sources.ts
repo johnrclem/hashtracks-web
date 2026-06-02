@@ -877,30 +877,54 @@ export const SOURCES = [
       scrapeDays: 90,
       kennelCodes: ["h4"],
     },
-    // DC Full Moon Hash — anchor-mode lunar STATIC_SCHEDULE.
-    // DCFMH3 runs Friday/Saturday "near the full moon" rather than on the
-    // exact phase. `nearest` snaps each phase to the closest Saturday
-    // (forward on tie). Hash Rego covers individual registrations; this
-    // source provides forward-looking projections for Travel Mode + calendar.
+    // DC Full Moon Hash — Google Sites published annual schedule.
+    // DCFMH3 is a rotating umbrella: a different DC-area kennel hosts each
+    // monthly full-moon trail, and the source page publishes the moon name +
+    // host per date. The former STATIC_SCHEDULE (lunar) source only produced a
+    // generic "DCFMH3 Full Moon Run" placeholder title and drifted 1–3 days off
+    // the real dates (#1399); the DCFMH3Adapter parses the published schedule so
+    // titles + dates are source-faithful and the host rides as an EventKennel
+    // co-host where it maps to a seeded kennel (#1400). kennelCodes must include
+    // every host the parser can emit (HOST_KENNEL_PATTERNS in dcfmh3.ts) so the
+    // merge source-kennel guard doesn't reject co-hosts.
     {
-      name: "DCFMH3 Static Schedule (Lunar Anchor)",
-      url: "https://sites.google.com/site/dcfmh3/home",
-      type: "STATIC_SCHEDULE" as const,
+      name: "DCFMH3 Google Sites Calendar",
+      url: "https://sites.google.com/site/dcfmh3/home/dc-kennel-calendar",
+      type: "HTML_SCRAPER" as const,
       trustLevel: 5,
       scrapeFreq: "weekly",
       scrapeDays: 365,
       config: {
         kennelTag: "dcfmh3",
-        lunar: {
-          phase: "full",
-          timezone: "America/New_York",
-          anchorWeekday: "SA",
-          anchorRule: "nearest",
-        },
+        startTime: "18:30",
+        defaultLocation: "Washington, DC",
+        defaultDescription: "Monthly full-moon hash hosted by a rotating DC-area kennel. Check Hash Rego or the kennel website for hare and start details.",
+      },
+      kennelCodes: ["dcfmh3", "ewh3", "dch3", "dch4", "cch3", "mvh3", "fuh3", "h4"],
+    },
+    // Retired predecessor of the row above. Source identity in the seeder is
+    // (name, type), so the HTML_SCRAPER row above is a NEW source rather than an
+    // in-place migration of this STATIC_SCHEDULE one. Keep this row with
+    // `enabled: false` so a normal `prisma db seed` deterministically disables
+    // the old lunar generator (otherwise it stays enabled and keeps
+    // re-creating the "DCFMH3 Full Moon Run" placeholders the new scraper +
+    // cleanup script remove — Codex adversarial review). RawEvents/ScrapeLogs
+    // survive (soft-disable, not delete). Safe to remove once prod confirms it
+    // is disabled.
+    {
+      name: "DCFMH3 Static Schedule (Lunar Anchor)",
+      url: "https://sites.google.com/site/dcfmh3/home",
+      type: "STATIC_SCHEDULE" as const,
+      enabled: false,
+      trustLevel: 5,
+      scrapeFreq: "weekly",
+      scrapeDays: 365,
+      config: {
+        kennelTag: "dcfmh3",
+        lunar: { phase: "full", timezone: "America/New_York", anchorWeekday: "SA", anchorRule: "nearest" },
         startTime: "18:30",
         defaultTitle: "DCFMH3 Full Moon Run",
         defaultLocation: "Washington, DC",
-        defaultDescription: "Monthly full-moon hash, run on the Saturday nearest the full moon. Check Hash Rego or the kennel website for hare and start details.",
       },
       kennelCodes: ["dcfmh3"],
     },
@@ -2858,6 +2882,12 @@ export const SOURCES = [
           ["Dusk.*Down|FDTDD", "fdtdd"],
         ],
         defaultKennelTag: "wrong-way",
+        // Two-Tier Hash Cash (#1349): detail pages carry a `Hash Cash:` line on
+        // every event; promote it to Event.cost ONLY when it differs from these
+        // kennel standards. Hump D ($1) and LBH ($5) match their profile hashCash,
+        // so their per-event cost stays null. wrong-way/fdtdd have no seeded
+        // standard, so any cost on their pages surfaces verbatim.
+        kennelHashCash: { "hump-d": "$1", "lbh-phx": "$5" },
       },
       kennelCodes: ["lbh-phx", "hump-d", "wrong-way", "fdtdd"],
     },

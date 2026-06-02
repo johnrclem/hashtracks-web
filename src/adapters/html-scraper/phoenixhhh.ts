@@ -23,6 +23,14 @@ interface PhoenixHHHConfig {
   kennelPatterns: [string, string][];
   defaultKennelTag: string;
   pageId?: number; // defaults to 21
+  /**
+   * Per-kennel standard hash cash (Two-Tier Hash Cash Model). Keyed by
+   * kennelCode. The detail page carries a `Hash Cash:` line on every event;
+   * we only promote it to `Event.cost` when it DIFFERS from the kennel's
+   * standard here (#1349). When it matches, the kennel-profile `hashCash`
+   * already covers it, so a per-event override would be redundant noise.
+   */
+  kennelHashCash?: Record<string, string>;
 }
 
 // ── Exported helpers (for unit testing) ──
@@ -117,6 +125,94 @@ export function extractVenueFromDescription(description: string): string | undef
     }
   }
   return undefined;
+}
+
+// ── #1348/#1349/#1350: structured field extraction from the detail block ──
+// The Big Ass Calendar event detail page carries a labeled key:value block,
+// e.g.:
+//   Time: Meet at 6:30 PM, Hares off at 6:45, Hounds to follow at 7:00.
+//   Bring: Proper illumination...
+//   Hash Cash: $1
+//   Dog friendly: Usually not on humps
+//   On-After: Usually The Same Place We Started from
+// The list-view time meta ("6:30 pm - 9:30 pm") is the reliable end-time source.
+
+// Some detail pages separate the labeled fields with `<p>` boundaries
+// ("Hash Cash: $1\n\nDog friendly: …"); others mash them onto a single line
+// with NO separator ("…vesselHash Cash: $1Cash Needed…Dog friendly: Usually
+// not on humpsOn-After: …"). Insert a newline before each known label so the
+// line-anchored extractors + description cleaner work uniformly on both shapes
+// (mirrors the FIELD_LABEL_SPLIT_RE approach in seven-hills-h3.ts). The label
+// set is split across two regexes so neither trips Sonar's regex-complexity cap
+// (S5843, threshold 20); each alternative carries its own literal colon, so no
+// `\s*` sits adjacent to the alternation (S5852 ReDoS) either.
+const PHOENIX_LABELS_A_RE = /(Hares:|Where:|When:|Time:|Bring:|Hash Cash:)/gi;
+const PHOENIX_LABELS_B_RE =
+  /(Cash Needed on Trail:|Dog[ -]?friendly:|On[- ]?On:|On-After:|Things you probably won['’]t need:)/gi;
+export function normalizePhoenixDetailBlock(description: string): string {
+  return description
+    .replaceAll(PHOENIX_LABELS_A_RE, "\n$1")
+    .replaceAll(PHOENIX_LABELS_B_RE, "\n$1");
+}
+
+/** "6:30 pm - 9:30 pm" → end time "21:30" (#1348). Returns undefined when the
+ *  meta line has no range. Locate the dash with a quantifier-free char class
+ *  (no ReDoS surface — Sonar S5852), then let `parse12HourTime` pull the closing
+ *  time from the trailing slice. */
+export function parseTimeRangeEnd(timeText: string): string | undefined {
+  const dashIdx = timeText.search(/[-–—]/);
+  return dashIdx < 0 ? undefined : parse12HourTime(timeText.slice(dashIdx + 1));
+}
+
+/** `Hash Cash: $1` → `$1` (#1349). Single labeled line; value to EOL. */
+const HASH_CASH_LINE_RE = /(?:^|\n)[ \t]*Hash[ \t]*Cash[ \t]*:[ \t]*([^\n]+)/i;
+export function extractHashCash(description: string): string | undefined {
+  const m = HASH_CASH_LINE_RE.exec(description);
+  const value = m?.[1]?.trim();
+  return value || undefined;
+}
+
+/** Normalize a hash-cash string for equality (`"$1 "` == `"$1"`). */
+function normalizeCash(value: string): string {
+  return value.trim().toLowerCase().replaceAll(/\s+/g, "");
+}
+
+/** `Dog friendly: <value>` line → tri-state (#1350), per the RawEventData
+ *  explicit-clear contract (atomic-bundle semantics, adapter-patterns.md):
+ *    - label absent              → undefined (no signal; preserve existing)
+ *    - value classifiable        → true / false
+ *    - label present, unparseable → null (clear any stale Event.dogFriendly) */
+const DOG_LINE_RE = /(?:^|\n)[ \t]*Dog[\s-]?friendly[ \t]*:[ \t]*([^\n]*)/i;
+const DOG_NO_RE = /\b(?:no|not|never|none)\b/i;
+const DOG_YES_RE = /\b(?:yes|welcome|welcomed|ok|okay|sure|allowed|leash|leashed|friendly|encouraged|always)\b/i;
+export function extractDogFriendly(description: string): boolean | null | undefined {
+  const m = DOG_LINE_RE.exec(description);
+  if (m == null) return undefined;
+  const value = m[1].trim();
+  // Negative wins first — "Usually not on humps" must classify as false.
+  if (DOG_NO_RE.test(value)) return false;
+  if (DOG_YES_RE.test(value)) return true;
+  // Label present but the value is empty/blank or too hedged to classify →
+  // explicit clear so a stale boolean from a prior scrape doesn't linger.
+  return null;
+}
+
+/** Strip lines now promoted to structured fields so they don't duplicate in
+ *  the free-text description (#1350). `Hash Cash` is always dropped once seen
+ *  (it either became `Event.cost` or equals the kennel default); `Dog friendly`
+ *  is dropped only when we successfully classified it. */
+export function cleanPhoenixDescription(
+  description: string,
+  opts: { stripHashCash: boolean; stripDogFriendly: boolean },
+): string | undefined {
+  const kept = description.split("\n").filter((line) => {
+    const t = line.trim();
+    if (opts.stripHashCash && /^Hash[ \t]*Cash[ \t]*:/i.test(t)) return false;
+    if (opts.stripDogFriendly && /^Dog[\s-]?friendly[ \t]*:/i.test(t)) return false;
+    return true;
+  });
+  const out = kept.join("\n").replaceAll(/\n{3,}/g, "\n\n").trim();
+  return out || undefined;
 }
 
 /** Detail-page extraction result. Null fields mean "missing on the page"
@@ -229,9 +325,10 @@ export function parseEventFromItem(
     date = parsed;
   }
 
-  // Time extraction: "6:30 pm - 9:30 pm"
+  // Time extraction: "6:30 pm - 9:30 pm" → start + end (#1348)
   const timeText = $item.find(".em-item-meta-line.em-event-time").text().trim();
   const startTime = parse12HourTime(timeText);
+  const endTime = parseTimeRangeEnd(timeText);
 
   // Location — try link text first, fall back to plain text in meta line
   const locationMeta = $item.find(".em-item-meta-line.em-event-location");
@@ -287,6 +384,7 @@ export function parseEventFromItem(
     hares,
     location,
     startTime,
+    endTime,
     sourceUrl,
   };
 }
@@ -476,6 +574,38 @@ export class PhoenixHHHAdapter implements SourceAdapter {
         if (detail.description) batch[j].description = detail.description;
         if (detail.hares) batch[j].hares = detail.hares;
       }
+    }
+
+    // ── Structured field extraction from the (now detail-enriched) description ──
+    // cost (#1349), dogFriendly (#1350). Runs after detail enrichment so it
+    // reads the authoritative full body, and after kennel-tag re-resolution so
+    // the Two-Tier cost comparison uses the correct kennel default.
+    const kennelHashCash = config.kennelHashCash ?? {};
+    for (const e of allEvents) {
+      if (!e.description) continue;
+      // Normalize the two detail-block shapes (separated vs. single-line mashed)
+      // into one-label-per-line before extracting + cleaning.
+      const normalized = normalizePhoenixDetailBlock(e.description);
+      const rawCash = extractHashCash(normalized);
+      const dog = extractDogFriendly(normalized);
+      // Tri-state: undefined = no label (preserve), null = unparseable (clear),
+      // boolean = classified. null/boolean both propagate to the merge contract.
+      if (dog !== undefined) e.dogFriendly = dog;
+      // Two-Tier (#1349): when the detail page shows a Hash Cash line, persist a
+      // per-event cost only if it DIFFERS from the kennel's standard; when it
+      // matches, emit null (explicit clear) so a stale per-event override is
+      // wiped on re-scrape rather than preserved. Hump D ($1 == $1) → null.
+      const standard = kennelHashCash[e.kennelTags[0]];
+      if (rawCash !== undefined) {
+        e.cost =
+          standard && normalizeCash(rawCash) === normalizeCash(standard) ? null : rawCash;
+      }
+      e.description = cleanPhoenixDescription(normalized, {
+        stripHashCash: rawCash !== undefined,
+        // Keep the raw `Dog friendly:` line when it was unparseable (dog === null)
+        // so the hedged text stays visible; only strip once classified.
+        stripDogFriendly: typeof dog === "boolean",
+      });
     }
 
     if (allParseErrors.length > 0) {
