@@ -4729,8 +4729,9 @@ export const SOURCES = [
     {
       // Forward hareline tab (gid=0) of the NSWHHH Google Sheet — full
       // upcoming season (run #, date, hare). The sheet has no venue/coords
-      // column; the website source below enriches the current run with
-      // location + map coords. Both dedup on (kennel, date) at merge.
+      // column; the website source below carries those for the current run.
+      // Trust 7 < the website's 8 (see below) so the website owns the
+      // current-run venue/coords. Both dedup on (kennel, date) at merge.
       name: "North Shore Wanderers H3 Hareline Sheet",
       url: "https://docs.google.com/spreadsheets/d/14vp2bq4MYMLDGlxuIfZS8MeJpenzpBTOV2nWicrphSE/export?format=csv&gid=0",
       type: "GOOGLE_SHEETS" as const,
@@ -4763,10 +4764,22 @@ export const SOURCES = [
       // Google Sites home page — server-renders only the current week's run,
       // but with the venue + Google Maps coords the hareline sheet lacks.
       // Daily scrape + fingerprint dedup accumulates each week's trail.
+      //
+      // Trust 8 — ABOVE the hareline sheet's 7. This is deliberate: the website
+      // is the authoritative source for the current run's full detail (venue,
+      // map URL, lat/lng), while the sheet only supplies forward-schedule
+      // breadth (run #/date/hare, no location). The merge pipeline's lower-trust
+      // enrichment path backfills locationName but NOT locationAddress/lat/lng
+      // (merge.ts ~L1668), so if the website were *lower* trust than the sheet
+      // and the sheet's raw merged first, the website's coordinates would be
+      // silently dropped. Out-trusting the sheet makes the website take the
+      // full-update path, writing coords deterministically regardless of scrape
+      // order. Website and sheet never conflict on run #/hares (website = current
+      // week, sheet = forward weeks).
       name: "North Shore Wanderers H3 Website",
       url: "https://www.nswhhh.info/home",
       type: "HTML_SCRAPER" as const,
-      trustLevel: 5,
+      trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 90,
       // Home page shows only the current run → ages out weekly; protect reconcile.
