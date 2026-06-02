@@ -141,9 +141,19 @@ export function parseDCFMH3Schedule(
   return entries;
 }
 
-/** Pick the year that appears in most dated lines, for year-less rows. */
+/**
+ * Pick the year for year-less rows ("March 6") from the years that appear on
+ * actual SCHEDULE rows — not every `20xx` in the page source (script islands and
+ * Google Sites boilerplate would otherwise outvote the real schedule year).
+ */
 function inferScheduleYear(html: string): number {
-  const years = [...html.matchAll(/\b(20\d{2})\b/g)].map((m) => Number.parseInt(m[1], 10));
+  const years = stripHtmlTags(html, "\n")
+    .split("\n")
+    .map((line) => SCHEDULE_LINE_RE.exec(line.trim()))
+    .filter((m): m is RegExpExecArray => m != null && MONTH_NAMES.has(m[1].toLowerCase()))
+    .map((m) => m[4]) // group 4 = explicit year, if present
+    .filter((y): y is string => Boolean(y))
+    .map((y) => Number.parseInt(y, 10));
   if (years.length === 0) return new Date().getUTCFullYear();
   const counts = new Map<number, number>();
   for (const y of years) counts.set(y, (counts.get(y) ?? 0) + 1);

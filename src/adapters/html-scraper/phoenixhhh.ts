@@ -182,7 +182,7 @@ function normalizeCash(value: string): string {
  *    - label absent              → undefined (no signal; preserve existing)
  *    - value classifiable        → true / false
  *    - label present, unparseable → null (clear any stale Event.dogFriendly) */
-const DOG_LINE_RE = /(?:^|\n)[ \t]*Dog[\s-]?friendly[ \t]*:[ \t]*([^\n]+)/i;
+const DOG_LINE_RE = /(?:^|\n)[ \t]*Dog[\s-]?friendly[ \t]*:[ \t]*([^\n]*)/i;
 const DOG_NO_RE = /\b(?:no|not|never|none)\b/i;
 const DOG_YES_RE = /\b(?:yes|welcome|welcomed|ok|okay|sure|allowed|leash|leashed|friendly|encouraged|always)\b/i;
 export function extractDogFriendly(description: string): boolean | null | undefined {
@@ -192,8 +192,8 @@ export function extractDogFriendly(description: string): boolean | null | undefi
   // Negative wins first — "Usually not on humps" must classify as false.
   if (DOG_NO_RE.test(value)) return false;
   if (DOG_YES_RE.test(value)) return true;
-  // Label present but the value is empty or too hedged to classify → explicit
-  // clear so a stale boolean from a prior scrape doesn't linger.
+  // Label present but the value is empty/blank or too hedged to classify →
+  // explicit clear so a stale boolean from a prior scrape doesn't linger.
   return null;
 }
 
@@ -591,11 +591,14 @@ export class PhoenixHHHAdapter implements SourceAdapter {
       // Tri-state: undefined = no label (preserve), null = unparseable (clear),
       // boolean = classified. null/boolean both propagate to the merge contract.
       if (dog !== undefined) e.dogFriendly = dog;
-      // Two-Tier: only persist a per-event cost when it differs from the
-      // kennel's standard hash cash (#1349). Hump D ($1 == $1) → cost stays null.
+      // Two-Tier (#1349): when the detail page shows a Hash Cash line, persist a
+      // per-event cost only if it DIFFERS from the kennel's standard; when it
+      // matches, emit null (explicit clear) so a stale per-event override is
+      // wiped on re-scrape rather than preserved. Hump D ($1 == $1) → null.
       const standard = kennelHashCash[e.kennelTags[0]];
-      if (rawCash && (!standard || normalizeCash(rawCash) !== normalizeCash(standard))) {
-        e.cost = rawCash;
+      if (rawCash !== undefined) {
+        e.cost =
+          standard && normalizeCash(rawCash) === normalizeCash(standard) ? null : rawCash;
       }
       e.description = cleanPhoenixDescription(normalized, {
         stripHashCash: rawCash !== undefined,

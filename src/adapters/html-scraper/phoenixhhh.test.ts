@@ -925,7 +925,9 @@ describe("extractDogFriendly (#1350)", () => {
   it.each([
     "Dog friendly: Depends on the hare",
     "Dog friendly: Ask first",
-  ])("returns null (explicit clear) when present but unparseable: %s", (line) => {
+    "Dog friendly:",
+    "Dog friendly:   ",
+  ])("returns null (explicit clear) when present but blank/unparseable: %s", (line) => {
     expect(extractDogFriendly(line)).toBeNull();
   });
 });
