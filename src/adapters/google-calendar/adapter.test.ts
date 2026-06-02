@@ -5106,7 +5106,7 @@ describe("SWH3 title-embedded hare (#1881)", () => {
 
 describe("MH3-Mpls title hare + alwaysStripTitleHareSpan (#1884)", () => {
   const config = {
-    kennelPatterns: [["\\bT3H3\\b|Twin Titties", "t3h3"], ["\\bMH3\\b", "mh3-mn"]] as [string, string][],
+    kennelPatterns: [[String.raw`\bT3H3\b|Twin Titties`, "t3h3"], [String.raw`\bMH3\b`, "mh3-mn"]] as [string, string][],
     defaultKennelTag: "mh3-mn",
     titleHarePattern: String.raw`^MH3\s*#?\s*\d+\s*-\s*(.+)$`,
     alwaysStripTitleHareSpan: true,

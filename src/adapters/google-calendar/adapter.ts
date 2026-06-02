@@ -488,7 +488,7 @@ const MAX_HARE_PAREN_LENGTH = 40;
  * blanket all-caps reject: real 2-3-char hash names ("DJ", "MJ", "FBI") do NOT
  * end in H+digit and still pass the gate. See #1882 (Capital H3 "CH3 - vacant").
  */
-const BARE_KENNEL_CODE_RE = /^[A-Za-z][A-Za-z0-9]*H[0-9]$/;
+const BARE_KENNEL_CODE_RE = /^[A-Za-z][A-Za-z\d]*H\d$/;
 
 /**
  * Narrow reject-gate applied wherever the adapter routes *title-derived* text

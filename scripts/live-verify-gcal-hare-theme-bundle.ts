@@ -141,7 +141,8 @@ async function runTarget(adapter: GoogleCalendarAdapter, t: Target): Promise<num
     const result = await adapter.fetch(source, { days: 1500 });
     let events = result.events;
     if (t.kennelTag) events = events.filter((e) => e.kennelTags?.includes(t.kennelTag!));
-    console.log(`   events: ${events.length}${t.kennelTag ? ` (filtered to ${t.kennelTag})` : ""}`);
+    const scope = t.kennelTag ? ` (filtered to ${t.kennelTag})` : "";
+    console.log(`   events: ${events.length}${scope}`);
     for (const line of t.summary?.(events) ?? []) console.log(`   ${line}`);
     let failed = 0;
     for (const c of t.checks) {
