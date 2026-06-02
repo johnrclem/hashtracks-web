@@ -23,12 +23,17 @@ import { extractCoordsFromMapsUrl } from "@/lib/geo";
  */
 
 const STOP_RE = /Recent Runs/i;
-// "6.30pm", "6:30pm", "6.30 pm" — note NSWHHH uses a dot separator.
-const TIME_RE = /(\d{1,2})[.:](\d{2})\s*(am|pm)/i;
-const DATE_LABEL_RE = /^Date\s*:/i;
-const HARE_LABEL_RE = /^Hare(?:s)?\s*:/i;
-const CIRCLE_LABEL_RE = /^Circle up\s*:/i;
-const HARE_PLACEHOLDER_RE = /\bhare\s*(?:wanted|needed|tba|tbd)\b/i;
+// "6.30pm", "6:30pm", "6.30 pm" — note NSWHHH uses a dot separator. At most one
+// space before am/pm, so `\s?` (not `\s*`) — keeps the regex linear (Sonar S5852).
+const TIME_RE = /(\d{1,2})[.:](\d{2})\s?(am|pm)/i;
+// Labels render with the colon immediately after the word ("Date:", "Hare:",
+// "Circle up:") — no `\s*` needed, which also avoids ReDoS-shape lint flags.
+const DATE_LABEL_RE = /^Date:/i;
+const HARE_LABEL_RE = /^Hares?:/i;
+const CIRCLE_LABEL_RE = /^Circle up:/i;
+// Placeholder hare ("Hare Wanted", "Hare Needed", "TBA"). Plain alternation with
+// word boundaries — no whitespace quantifier adjacent to the group (Sonar S5852).
+const HARE_PLACEHOLDER_RE = /\b(?:wanted|needed|tba|tbd)\b/i;
 
 /** Parse the "Date: Monday, 1 June 2026 6.30pm" line into date + start time. */
 function parseDateTimeLine(line: string): { date: string | null; startTime: string | undefined } {
@@ -39,7 +44,7 @@ function parseDateTimeLine(line: string): { date: string | null; startTime: stri
     : undefined;
   // Strip the time fragment and the leading weekday so chrono sees a clean date.
   let dateText = timeMatch ? value.replace(timeMatch[0], "") : value;
-  dateText = dateText.replace(/^[A-Za-z]+,\s*/, "").trim();
+  dateText = dateText.replace(/^[A-Za-z]+,\s?/, "").trim();
   return { date: chronoParseDate(dateText, "en-GB"), startTime };
 }
 
@@ -117,7 +122,7 @@ export function parseNSWHHHPage(
     }
     // Drop the "Directions:" label and the bare directions URL (captured from
     // the DOM above); collect the rest ("Bring torches", "On Inn: …") as notes.
-    if (/^Directions\s*:/i.test(line) || /maps\.app\.goo\.gl/i.test(line)) {
+    if (/^Directions:/i.test(line) || /maps\.app\.goo\.gl/i.test(line)) {
       continue;
     }
     notes.push(line);
@@ -149,6 +154,10 @@ export function parseNSWHHHPage(
 export class NSWHHHAdapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
 
+  // `options.days` is intentionally ignored: the home page renders exactly one
+  // event (the current week's run) with no date-range concept, so there's no
+  // window to filter — analogous to the GOOGLE_CALENDAR "API caps its own
+  // window" exception in the adapter pitfalls checklist.
   async fetch(source: Source, _options?: { days?: number }): Promise<ScrapeResult> {
     const url = source.url || "https://www.nswhhh.info/home";
     const page = await fetchHTMLPage(url);
