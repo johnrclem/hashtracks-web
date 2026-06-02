@@ -123,6 +123,17 @@ genuinely **missing this dynamic source**. Only then proceed.
 
 ## Step 3 — Verify the dynamic source is LIVE (mandatory before drafting)
 
+> 🔴 **DNS check FIRST for any non-platform domain.** Before treating a proposed source as real,
+> if its domain is NOT a known platform (`meetup.com`, `calendar.google.com`, `hashruns.org`,
+> `hashrego.com`, `*.wordpress.com`, `*.blogspot.com`, etc.), you MUST resolve it. From Chrome:
+> ```js
+> (await (await fetch('https://dns.google/resolve?name=<domain>&type=A')).json()).Status
+> // 0 = OK, 3 = NXDOMAIN (domain does not exist).
+> ```
+> An NXDOMAIN result means no source exists there. **Do not write a handoff around a
+> non-existent domain.** This is the fix that would have caught the WSH3 `swisshash.ch`
+> fabrication (retro `2026-05-30-wsh3-retro.md` — Gap A).
+
 Fetch the source directly and **extract a real sample** of upcoming events. Capture the raw
 sample for the handoff. Use the right probe (playbook §1):
 
@@ -180,6 +191,38 @@ to approve it (Chrome works for already-approved domains like `hashtracks.xyz`).
 **Capture for the handoff:** event count seen, date range, and 3–5 sample events with whatever
 fields the source exposes (date, time, title, hares, location, description, run number).
 
+> 🔴 **Run numbers and event theme titles must be VERBATIM from the source. Do not construct
+> plausible-looking samples.** The WSH3 handoff invented `#412 — Schaffhausen Altstadt`, `#413`,
+> `#414` — the real Meetup titles were `WSH3 Summer Solstice Trail` and `WSH3 tbd` with no run
+> numbers at all. If the source has no run numbers, **say so explicitly** in the handoff. If
+> titles are generic ("tbd", "Saturday Trail"), say that too. Fabricated samples cause
+> downstream bugs: an adapter is written to extract run numbers that don't exist, and a fixture
+> is built around invented data. Retro `2026-05-30-wsh3-retro.md` — Gap E.
+
+> 🔴 **Negative results require the same evidence standard as positive ones.** A claim that a
+> source is "dead" or has "0 events" must include the **actual DOM text or JSON excerpt** you
+> read that proves it — visible page copy, Apollo state `apolloEventCount: 0`, the `curl`
+> response body, etc. "0 upcoming, verified via Chrome MCP" with no excerpt is **not acceptable**
+> — that pattern is exactly what caused the WSH3 source inversion (the handoff claimed the
+> Meetup was dead when it actually had 12 upcoming + 307 past). If you cannot show evidence,
+> say "I couldn't verify this" rather than asserting it. Retro Gap B.
+
+> 🔴 **If you are overriding the queue's proposed source, the handoff must include evidence for
+> BOTH sides.** (a) Excerpt proving the original source is dead/stale/inferior, AND (b) a
+> working sample from the replacement source. Confident pivots with no evidence for the "dead"
+> side are the failure mode that caused PR #1870's source inversion. Retro Gap C.
+
+> 🔴 **Platform-structure claims appended to `source-platform-notes.md` MUST be labeled
+> "UNVERIFIED" if not confirmed via real `curl`/`fetchHTMLPage` markup inspection.** The
+> AH3-NZ research run guessed Rocketspark's run list was a "table block with separate `<td>`
+> cells" and baked that into the platform notes; reality was a single Draft.js content block
+> with TAB-delimited text (`.public-DraftEditor-content`). The handoff itself correctly told
+> Claude Code to capture the real DOM (so the implementation pivoted), but the durable platform
+> note enshrined the guess as fact — a trap for the next Rocketspark onboarding. Rule: hypotheses
+> appended to platform notes carry "UNVERIFIED — confirm at implementation time"; the retro step
+> rewrites them based on what was actually built. Retro `handoffs/retros/2026-06-01-ah3-nz-retro.md`
+> — Gap A.
+
 **🔴 Fixtures must come from real `curl` output, not speculation.** When the handoff describes the
 source page structure, base it on actual `curl -s <url>` output (or `browserRender` output for
 JS-rendered sites). The Mijas H3 handoff described the page as "rendered text, not markup," which
@@ -228,6 +271,14 @@ Kennel profile (maps to the `Kennel` model): `fullName`, `shortName`, `kennelCod
 `scheduleFrequency`, `foundedYear`, `hashCash`/payment, `dogFriendly`, `walkerFriendly`,
 `description` (short "about us"), **`logoUrl`**, and lat/lng if easily found.
 
+> 🔴 **Every metadata field must cite its source URL, and that URL must have passed the Step 3
+> DNS check.** Format in the handoff: `foundedYear: 2003 (source: <url>)`,
+> `hashCash: "CHF 5" (source: meetup.com/<group>/about)`. The WSH3 handoff asserted
+> `foundedYear: 2003`, `hashCash: CHF 10`, `contactEmail: wschh3@gmail.com`, alternating Thu/Sat
+> schedule — **all from a domain that didn't exist** (`swisshash.ch` was NXDOMAIN). Metadata
+> from a non-existent domain is invented metadata. **Leave the field blank and flag
+> "unverifiable — no working source"** rather than filling it in. Retro Gap D.
+
 - **`hashCash` is the kennel-level *standard* (the typical per-run price; per-event variations live on `Event.cost`):** capture the amount a hasher normally pays at this kennel's runs into `Kennel.hashCash` (free-form, e.g. `"$5"`, `"Free"`, `"CHF 5"`, `"Members Rp.100,000 / Visitors Rp.150,000"`). Preserve the verbatim source nuance (tiers, payment methods) in the value or the `description`. Do NOT try to encode per-event price variations here — those (campouts, anniversary runs, visitor-only specials) belong on the event-level `Event.cost` field, populated by the adapter only when an event differs from this kennel default. The domain term is "hash cash" at both levels; the per-event column is named `cost` for historical reasons.
 - **`logoUrl` stability:** prefer a stable URL. If the only logo is a **tokenized/ephemeral CDN
   URL** (e.g. `images.squarespace-cdn.com/.../<hash>/...`, signed S3, Wix `static.wixstatic.com/media/<hash>~mv2.<ext>`),
@@ -250,6 +301,15 @@ Kennel profile (maps to the `Kennel` model): `fullName`, `shortName`, `kennelCod
   5. **`COUNTRY_INFERENCE_RULES`** — regex → country (e.g. `/\bbali\b|\bindonesia\b/i` → "Indonesia").
      **Without this, `inferCountry()` falls through to `"USA"`** for any text mentioning the new
      country. THE one that bit ONH3 in CI; do not omit.
+
+> 🔴 **New metro under an existing country ALSO needs `COUNTRY_INFERENCE_RULES` extended.** This
+> is the WSH3 retro Gap G — Switzerland's `COUNTRY_INFERENCE_RULES` regex already covered
+> `switzerland|zürich|…` from ZH3, but adding Winterthur as a new metro required appending
+> `winterthur|schaffhausen` to that same regex. A metro name that isn't in the pattern causes
+> `inferCountry()` to return `"USA"` for that city's kennels. Gemini caught this in PR #1870
+> review; it should be caught at research time. **For every new metro you propose: check the
+> country's existing `COUNTRY_INFERENCE_RULES` regex; if the metro's canonical name and aliases
+> (from the metro's `aliases` array) aren't covered, list the regex addition needed.**
   Also pick a **color palette consistent with the continent** for the COUNTRY + METRO records
   (Africa = amber per Kenya precedent; pick a similarly-distinct Asia palette by scanning
   existing Bangkok/Singapore/Tokyo entries rather than guessing).
@@ -312,6 +372,28 @@ Rego / hashruns.org); any secondary source worth adding; avoid stale placeholder
 > backfill source after a kennel ships is high** (cleaning up the gap + a separate follow-up PR
 > is what happened with Mijas — see retro `handoffs/retros/2026-05-30-mijash3-retro.md`).
 
+> 🔴 **NEVER dismiss an archive as "too messy to parse" without pulling a sample.** This is the
+> WSH3 failure mode at lower severity — confident claim with no evidence artifact. The H7 handoff
+> labeled `hamburghash.blogspot.com` "free-form prose recaps, low priority, defer" — reality
+> was **105 structured announcement posts, 93/105 with explicit run numbers in the title and a
+> stable labeled body** (`Hare : …  Where : …  When : …`); 101 events backfilled in the same PR
+> session. Probe before dismissing:
+> - **Blogger / Blogspot:** `curl '<blog>/feeds/posts/default?alt=json&max-results=8'` — inspect
+>   the first 8 entries for title/body structure.
+> - **WordPress / WP.com:** `curl '<wp>/wp-json/wp/v2/posts?per_page=8'` (or
+>   `public-api.wordpress.com/wp/v2/sites/<host>/posts?per_page=8`).
+> - **Ghost / Substack / other:** the platform-specific JSON endpoint from `source-platform-notes.md`.
+>
+> "I pulled 8 posts and they're free-form prose with no structured fields" is acceptable.
+> "Probably too messy" without a sample is not. Retro `handoffs/retros/2026-05-31-h7-retro.md` — Gap A.
+
+> 🟡 **Milestone-run posts often contain `foundedYear`.** When `foundedYear` is otherwise
+> unverifiable, scan the archive for posts like "30th Birthday run", "Run #500", "celebrates 25
+> years" — those are the most reliable founding-year signal and frequently appear in the same
+> archive that supplies the backfill. The H7 handoff flagged `foundedYear` unverifiable; the
+> Blogspot archive contained a "30th Birthday run — June 2023" post → 1993, high confidence,
+> recovered at implementation time. Check before declaring the field unverifiable. Retro Gap C.
+
 ## Step 5 — Choose kennelCode + check collisions
 
 ```bash
@@ -320,6 +402,13 @@ grep -i '"<proposed-code>"' prisma/seed-data/kennels.ts prisma/seed-data/aliases
 
 If taken, add a region suffix (`lvh3-nv`, `mh3-tn`, `bh3-bkk`, `ah3-nz`, …). Watch the
 collision-prone abbreviations in playbook §2. Resolve before drafting seed data.
+
+> 🟡 **ALSO grep every PROPOSED ALIAS against the full `aliases.ts`, not just the obvious short
+> code.** The AH3-NZ handoff correctly omitted bare `AH3` (claimed by `ah3`/`ah3-hi`/`ah3-nl`)
+> but proposed `AHHH` — which already belonged to `ah4` (Atlanta H4). Caught by Codex in CI;
+> dropped. Aliases resolve in a global namespace, so any global collision is a real conflict.
+> For each proposed alias, run `grep -in '"<alias>"' prisma/seed-data/aliases.ts` and omit (with
+> a one-line note) any global collision. Retro Gap C.
 
 ## Step 6 — Draft the implementation (seed + adapter plan)
 
@@ -450,6 +539,23 @@ Create `docs/kennel-onboarding/handoffs/<YYYY-MM-DD>-<kennelCode>.md` with this 
   (per the ONH3 pattern: future-only via adapter, past via one-shot; set source `config.upcomingOnly: true`
   if relevant to suppress stale-event reconciliation)
 
+> 🟢 **Preferred backfill pattern (from H7): freeze a curated dataset + dumb loader.** For
+> read-only historical archives (source disabled forever after), use a **throwaway parser**
+> as the extraction tool and **commit the curated output** as a frozen
+> `scripts/data/<code>-history.json` + dumb loader (`scripts/backfill-<code>-history.ts`). Don't
+> commit the parser. The H7 backfill initially committed a parser, then reverted to a frozen
+> dataset on review — that's the durable pattern now.
+>
+> **Frozen-dataset validation checklist (run before shipping):**
+> 1. **PII scrub** — grep for `@` (emails) and phone-like patterns; redact.
+> 2. **Run-number sequence continuity** — for numbered runs ~14 days apart, flag any
+>    `(gap-days / step-count) < 8.5d` or `> 40d` as a probable date misparse.
+> 3. **Gap sanity** — event date should sit within −1…+60d of the source post's `publishOn`;
+>    catches body-vs-title typos (the H7 `#690 2025-09-14 vs Sep-21` bug).
+> 4. **Monotonicity** — run numbers must not decrease over time.
+> 5. **Field bleed** — `hares` / `location` strings containing `:` may indicate a missed label
+>    boundary; inspect the raw text.
+
 ## Ready-to-paste seed
 
 > 🔴 **`aliases.ts` is `Record<string, string[]>`, NOT an object array.** Two consecutive runs
@@ -500,9 +606,6 @@ authority is the live repo. Before writing the adapter, confirm against current 
 - [x] logo (stable? else flag self-host)  [x] foundedYear  [x] socials  [x] schedule (+ scheduleRules if multi-pattern)  [x] hashCash
 - [x] description  [x] source live-verified (feed HEAD-checked)  [x] history depth/pagination assessed
 - [x] coord sanity checked  [x] end times noted  [x] kennelCode collision-checked  [x] kennelCodes (source guard) set
-- [x] **per-run title** extracted when the source carries one (theme/venue/post title) — NOT left on the synthesized `<Kennel> Trail #N` default
-- [x] **hares** populated from hareline table columns AND trail-post "Hare(s):" lines
-- [x] **sub-letter run numbers** (`1999a`/`1999b`) handled as distinct events (see gotcha below)
 
 ## Implementation gotchas (for Claude Code — repo knowledge, not source knowledge)
 Carry these into the build; they've each caused a follow-up fix before:
@@ -555,18 +658,37 @@ Carry these into the build; they've each caused a follow-up fix before:
   - **No negated ternaries.** `a ? b : c` (NOT `!a ? c : b`) — Sonar S3358.
 - **Self-host tokenized logos** into `public/kennel-logos/<code>.<ext>` rather than referencing an
   ephemeral CDN URL.
-- **Don't ship a kennel stuck on the synthesized `<Kennel> Trail #N` title.** If the source carries
-  a per-run descriptor — a trail-post theme, a hareline `Venue` column, or a structured post title
-  (Ghost: `… - #N - <location> - D-MMM-YY`) — extract it into `title`. Fall back to the synthesized
-  default only when the source row genuinely has none. The audit flags this as `stale-default-title`
-  (Bali #1838, ONH3 #1862). Same rule for `hares`: hareline tables put it in a dedicated column and
-  trail posts in a leading `Hare(s):` line — promote both to `RawEventData.hares` (#1863).
-- **Sub-letter run numbers (`1999a` / `1999b`) must produce DISTINCT events.** Some kennels append
-  `a`/`b` when two trails share a base run number on different dates (Mijas #1848). Keep the base
-  integer in `runNumber` and emit the suffix as `eventLabel` — do NOT silently drop it. Dropping it
-  leaves both rows at `(sourceUrl, runNumber)`, and the merge same-sourceUrl date-correction
-  (`merge.ts`) then "moves" one onto the other's date, deleting a real event. The date-correction
-  probe co-matches on `eventLabel`, so an emitted label keeps the pair separate.
+- **NEVER pre-fill the logo extension.** Use a literal `<ext>` placeholder in both `logoUrl` and
+  any download-path hint; confirm the real extension via `curl -sI` Content-Type AND magic bytes
+  (`file public/kennel-logos/<code>` or check the first 4 bytes — `RIFF` = WebP, `\x89PNG` = PNG,
+  `\xff\xd8` = JPEG). Rocketspark `image_quad` logos are **WebP**, not PNG (caught at AH3-NZ
+  build time after the handoff defaulted to `.png` in two places). Retro `2026-06-01-ah3-nz-retro.md`
+  — Gap B.
+- **If `shortName.length ≤ 4`, verify `friendlyKennelName(shortName, fullName)` before shipping.**
+  The function short-circuits to `shortName` directly only when it's >4 chars; otherwise it
+  derives from `fullName`, which can produce verbose / garbled output. H7's `shortName: "H7"` +
+  `fullName: "Hansestadt Hamburg Hash House Harriers Hummel Hummel"` synthesized 111 events with
+  the verbose title "Hansestadt Hamburg Hummel Hummel H3 Trail #N" — required PR #1895 + a
+  post-merge SQL cleanup. Run at implementation time:
+  ```bash
+  npx tsx -e 'import {friendlyKennelName} from "./src/pipeline/merge"; console.log(friendlyKennelName("<shortName>","<fullName>"));'
+  ```
+  If verbose, either (a) lengthen the shortName (e.g. "Hamburg H7") or (b) fix
+  `friendlyKennelName`. Retro `2026-05-31-h7-retro.md` — Gap B.
+- **Single-block / single-page adapters (no pagination, one content region) need an explicit
+  `rows.length === 0` fail-loud guard.** Otherwise a markup drift (e.g. Draft.js → `<br>`-only
+  rows) makes `groupRunRows()` return `[]`, the scrape "succeeds" with `events: []` / `errors: []`,
+  and the zero-event health alert never fires for a brand-new source (its baseline was already 0).
+  Pre-state in the adapter plan: `if (rows.length === 0) errors.push("…")` so reconcile is
+  suppressed and the failure surfaces. Retro `2026-06-01-ah3-nz-retro.md` — Gap D.
+- **http-only source → expect Sonar S5332 hotspots.** When the kennel's site serves only http
+  (no https), Sonar flags every literal URL. Resolution:
+  - **Test URLs:** use `https://` in mocked tests from the start (the URL is a dead label —
+    tests mock `safeFetch`). Drops most hotspots.
+  - **Real production literals** (kennel `website`, source `url`, adapter `DEFAULT_URL` — typically
+    exactly 3): mark **SAFE** via SonarCloud REST API with a justification. The MCP
+    `update_hotspot_status` tool is broken; use `POST api/hotspots/change_status` with
+    `SONARQUBE_TOKEN` from the *main repo* `.env` (not a worktree's). AH3-NZ retro — process learning.
 
 ---
 
@@ -583,6 +705,13 @@ piped in whole by an automated runner.
    `done (already live)`), add the handoff file path + today's date.
 2. Append an entry to `run-log.md`: date, kennel, source type, outcome (handoff path / blocked),
    events verified (count + range), historical backfill count, follow-ups.
+
+   > 🟠 **The run-log entry is written at research time — before implementation.** If the source,
+   > metadata, or outcome turned out to be wrong (e.g. the WSH3 entry recorded the GCal as the
+   > real source when it was actually the Meetup), Claude Code should append a one-line
+   > correction at the end of the entry during the post-merge runbook (Step 8 of the handoff
+   > directive). Format: `*(Corrected after implementation: source was actually MEETUP, not GCal — see PR #1870)*`.
+   > Retro Gap F.
 3. **Refill check:** count rows still `queued`. **If 5 or fewer remain, research and add new
    targets to ~20**, ranked by (a) hashing popularity/activity and (b) reliability of a
    *confirmed* dynamic source. **Dedup every candidate against LIVE production data** (the
