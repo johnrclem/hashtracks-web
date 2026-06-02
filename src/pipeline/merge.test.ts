@@ -510,12 +510,11 @@ describe("processRawEvents", () => {
 
   it("higher-trust enrichment source writes coords onto a no-coords canonical event (NSWHHH dual-source)", async () => {
     // NSWHHH ships two sources: the hareline sheet (trust 7, no venue/coords)
-    // and the website (trust 8, venue + map coords). If the sheet's raw merges
-    // first, the canonical Event is created without coordinates. The website
-    // must OUT-trust the sheet so it takes the full-update path and writes
-    // lat/lng — the lower-trust enrichment branch backfills locationName but
-    // NOT locationAddress/latitude/longitude (merge.ts ~L1668), so a lower-trust
-    // website would have its map pin silently dropped (Codex adversarial review).
+    // and the website (trust 8, venue + map coords). When the higher-trust
+    // website merges, it takes the full-update path and writes lat/lng. (As of
+    // the enrichment-coords fix the lower-trust path also backfills coords — see
+    // the "lower-trust enrichment backfills coords" test below — but the
+    // higher-trust write is still exercised here.)
     mockSourceFind.mockResolvedValueOnce(sourceRow({
       trustLevel: 8,
       type: "HTML_SCRAPER",
@@ -550,6 +549,90 @@ describe("processRawEvents", () => {
     expect(data.locationAddress).toContain("maps.app.goo.gl");
     // locationName lands too (sanitizeLocation may trim street fragments).
     expect(data.locationName).toContain("Bay Road Reserve");
+  });
+
+  it("lower-trust enrichment backfills coords/map URL onto a coordless canonical event", async () => {
+    // The enrichment branch fills NULL canonical fields from a lower-trust source.
+    // Coords + map URL must enrich like locationName: a coord-bearing secondary
+    // (trust 5) should fill lat/lng/locationAddress when the higher-trust primary
+    // (trust 8) created the event without them — so dual-source kennels no longer
+    // have to make the coord source out-trust the other (the #1917 workaround).
+    mockSourceFind.mockResolvedValueOnce(sourceRow({
+      trustLevel: 5,
+      type: "HTML_SCRAPER",
+      kennels: [{ kennelId: "kennel_1" }],
+    }));
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([{
+      id: "evt_coordless",
+      trustLevel: 8,
+      locationName: null,
+      locationAddress: null,
+      locationCity: null,
+      latitude: null,
+      longitude: null,
+    }] as never);
+    mockEventUpdate.mockResolvedValue(eventRow("evt_coordless"));
+
+    await processRawEvents("src_low", [buildRawEvent({
+      location: "Bay Road Reserve, Waverton",
+      locationUrl: "https://maps.app.goo.gl/iiY2q5avvkBvBchS6",
+      latitude: -33.837524,
+      longitude: 151.196929,
+    })]);
+
+    const update = mockEventUpdate.mock.calls.find(
+      (c: unknown[]) => (c[0] as { where: { id: string } }).where.id === "evt_coordless",
+    );
+    expect(update).toBeDefined();
+    const data = (update![0] as { data: Record<string, unknown> }).data;
+    expect(data).toHaveProperty("latitude", -33.837524);
+    expect(data).toHaveProperty("longitude", 151.196929);
+    expect(data.locationAddress).toContain("maps.app.goo.gl");
+    // reverseGeocode is mocked to null in this file → locationCity not asserted.
+  });
+
+  it("lower-trust enrichment does NOT overwrite existing coords / map URL", async () => {
+    // Fill-only: when the canonical Event already has coords (from a higher-trust
+    // source), a lower-trust source with *different* coords must not clobber them
+    // — but it may still fill a genuinely-null field (here, description).
+    mockSourceFind.mockResolvedValueOnce(sourceRow({
+      trustLevel: 5,
+      type: "HTML_SCRAPER",
+      kennels: [{ kennelId: "kennel_1" }],
+    }));
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([{
+      id: "evt_hascoords",
+      trustLevel: 8,
+      locationName: "Existing Venue",
+      locationAddress: "https://maps.example.com/existing",
+      locationCity: "Sydney",
+      latitude: -10,
+      longitude: 20,
+      description: null,
+    }] as never);
+    mockEventUpdate.mockResolvedValue(eventRow("evt_hascoords"));
+
+    await processRawEvents("src_low", [buildRawEvent({
+      description: "A fresh write-up",
+      location: "Different Place",
+      locationUrl: "https://maps.app.goo.gl/different",
+      latitude: 51.5,
+      longitude: -0.12,
+    })]);
+
+    const update = mockEventUpdate.mock.calls.find(
+      (c: unknown[]) => (c[0] as { where: { id: string } }).where.id === "evt_hascoords",
+    );
+    expect(update).toBeDefined();
+    const data = (update![0] as { data: Record<string, unknown> }).data;
+    // The fillable null field is enriched...
+    expect(data).toHaveProperty("description", "A fresh write-up");
+    // ...but the existing higher-trust coords / map URL are NOT touched.
+    expect(data).not.toHaveProperty("latitude");
+    expect(data).not.toHaveProperty("longitude");
+    expect(data).not.toHaveProperty("locationAddress");
   });
 
   it("lower-trust enrichment recomposes dateUtc when backfilling startTime (#1654)", async () => {

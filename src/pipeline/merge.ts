@@ -1692,6 +1692,44 @@ async function upsertCanonicalEvent(
       if (!existingEvent.locationStreet && event.locationStreet) {
         enrichData.locationStreet = event.locationStreet;
       }
+      // Coords + map URL enrich like locationName: a lower-trust source can carry
+      // the venue's pin when the higher-trust primary created the event with none.
+      // Fill-only — never overwrite an existing (higher-trust) coord. #1917 Codex
+      // review caught the asymmetry where the website source had to out-trust the
+      // sheet purely to dodge this gap; this lets enrichment carry the coords.
+      // Only resolve when the canonical lacks coords AND this source carries a
+      // coord signal (direct lat/lng, a maps URL, or a venue to geocode) — skip
+      // the otherwise no-op async call. `existingCoords` is omitted: the null
+      // guard means there's nothing cached to preserve.
+      const eventHasCoordSignal =
+        event.latitude != null || event.longitude != null || !!event.locationUrl || !!event.location;
+      if (existingEvent.latitude == null && existingEvent.longitude == null && eventHasCoordSignal) {
+        const coords = await resolveCoords(
+          event,
+          undefined,
+          ctx.shortUrlCache,
+          kennelData,
+          resolveRegionBias(event, kennelData.country),
+        );
+        if (coords.latitude != null && coords.longitude != null) {
+          enrichData.latitude = coords.latitude;
+          enrichData.longitude = coords.longitude;
+          // Reverse-geocode the city to match the full-update path: skip for
+          // canonical-location source types, and only when not already set.
+          if (!shouldSkipReverseGeocode(ctx.sourceType) && !existingEvent.locationCity) {
+            const city = suppressRedundantCity(
+              (enrichData.locationName as string | null | undefined) ?? existingEvent.locationName,
+              await reverseGeocode(coords.latitude, coords.longitude),
+            );
+            if (city) enrichData.locationCity = city;
+          }
+        }
+      }
+      // Map URL backfill — independent of coords (a source may carry a maps link
+      // the canonical lacks even when coords don't resolve). Fill-only.
+      if (!existingEvent.locationAddress && event.locationUrl) {
+        enrichData.locationAddress = sanitizeLocationUrl(event.locationUrl);
+      }
       if (!existingEvent.startTime && event.startTime) {
         enrichData.startTime = event.startTime;
         // #1654: keep dateUtc in sync with the newly-enriched startTime.
