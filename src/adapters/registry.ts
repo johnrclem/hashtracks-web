@@ -102,6 +102,7 @@ import { BangkokH3Adapter } from "./html-scraper/bangkok-h3";
 import { LVH3Adapter } from "./html-scraper/lvh3";
 import { BoulderH3Adapter } from "./html-scraper/boulder-h3";
 import { BoiseH3Adapter } from "./html-scraper/boiseh3";
+import { NSWHHHAdapter } from "./html-scraper/nswhhh";
 import { Ch4DkAdapter } from "./html-scraper/ch4-dk";
 import { MiteriHarelineAdapter } from "./html-scraper/miteri-hareline";
 import { AucklandHussiesAdapter } from "./html-scraper/auckland-hussies";
@@ -250,6 +251,7 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /lvh3\.org/i, name: "LVH3Adapter", factory: () => new LVH3Adapter() },
   // ── Idaho ──
   { pattern: /boiseh3\.org/i, name: "BoiseH3Adapter", factory: () => new BoiseH3Adapter() },
+  { pattern: /nswhhh\.info/i, name: "NSWHHHAdapter", factory: () => new NSWHHHAdapter() },
   // ── Colorado ──
   { pattern: /boulderh3\.com/i, name: "BoulderH3Adapter", factory: () => new BoulderH3Adapter() },
   // ── Denmark ──

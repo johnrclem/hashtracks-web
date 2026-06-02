@@ -3711,6 +3711,20 @@ export const KENNELS: KennelSeed[] = [
       description: "Sydney Thirsty H3 — the Thursday inner-city kennel. Weekly Thursday evening runs around Redfern, Camperdown, and the inner suburbs. Currently around Run #1842+.",
       latitude: -33.8688, longitude: 151.2093,
     },
+    {
+      kennelCode: "nswhhh", shortName: "North Shore Wanderers H3", fullName: "North Shore Wanderers Hash House Harriers",
+      region: "Sydney, NSW", country: "Australia",
+      website: "https://www.nswhhh.info/",
+      facebookUrl: "https://www.facebook.com/nswhash.flash",
+      logoUrl: "/kennel-logos/nswhhh.png",
+      scheduleDayOfWeek: "Monday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Weekly Monday 6:30pm hash around Sydney's North Shore & surrounds. ~4–5 km walk / 6 km run, ~1 hour; non-competitive, walkers & runners welcome. First run free, then $5. Run details posted on nswhhh.info each week.",
+      foundedYear: 2004,
+      hashCash: "$5 (first run free)",
+      walkersWelcome: true,
+      description: "North Shore Wanderers H3 (NSWHHH) is a non-competitive Sydney hash kennel founded in 2004, running every Monday at 6:30pm across Sydney's North Shore and surrounds. Walkers and runners welcome; first run free, then $5.",
+      latitude: -33.8375, longitude: 151.1969,
+    },
     // ===== AUSTRALIA — Victoria =====
     {
       kennelCode: "mel-new-moon", shortName: "Melbourne New Moon", fullName: "Melbourne New Moon Hash House Harriers",

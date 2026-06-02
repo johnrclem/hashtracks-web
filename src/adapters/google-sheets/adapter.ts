@@ -59,7 +59,15 @@ export interface GoogleSheetsConfig {
      * fingerprints stable when the underlying API reorders columns.
      */
     extraHares?: number[];
-    location: number;
+    /**
+     * Optional. Column index for the venue/location label. Most harelines
+     * carry a venue column, but some forward-schedule sheets list only
+     * date + run # + hare (e.g. NSWHHH, whose venue lives on the website
+     * source instead). When undefined, `location`/`locationStreet`/
+     * `locationUrl` are all left unset and a sibling source enriches them
+     * at merge.
+     */
+    location?: number;
     /**
      * Optional column index for a separate street-address column. Some sheets
      * split the location across two cells: a short venue/city label (e.g.
@@ -578,7 +586,8 @@ function resolveLocationFields(
   row: string[],
   config: GoogleSheetsConfig,
 ): { location: string | undefined; locationStreet: string | undefined; locationUrl: string | undefined } {
-  let location = stripPlaceholder(row[config.columns.location]);
+  const locationIdx = config.columns.location;
+  let location = locationIdx == null ? undefined : stripPlaceholder(row[locationIdx]);
   // Drop all-lowercase single-token "city shorthand" values (e.g. "sheperdstown")
   // that aren't real venue names. The merge pipeline still has the kennel's
   // region/country bias for geocoding. See #893.

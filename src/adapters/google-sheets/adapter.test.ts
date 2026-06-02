@@ -318,6 +318,25 @@ describe("buildEventFromSheetRow", () => {
     expect(event!.locationUrl).toBeUndefined();
   });
 
+  it("omits location/locationUrl when columns.location is unconfigured (NSWHHH forward sheet)", () => {
+    // Some forward-schedule harelines list only date + run # + hare; the venue
+    // lives on a sibling source. columns.location is optional — leave it unset
+    // and location/locationStreet/locationUrl all drop without crashing.
+    const config = {
+      sheetId: "nswhhh",
+      columns: { date: 0, runNumber: 1, hares: 2 },
+      kennelTagRules: { default: "nswhhh" },
+    };
+    const row = ["1-Jun-2026", "1065", "Lost Jewels"];
+    const event = buildEventFromSheetRow(row, config, "https://example.com", "2026-06-01");
+    expect(event).not.toBeNull();
+    expect(event!.runNumber).toBe(1065);
+    expect(event!.hares).toBe("Lost Jewels");
+    expect(event!.location).toBeUndefined();
+    expect(event!.locationStreet).toBeUndefined();
+    expect(event!.locationUrl).toBeUndefined();
+  });
+
   // #923 Munich H3: explicit startTime column overrides startTimeRules
   // inference. Empty / placeholder cells fall through to rules.
   describe("startTime column (#923)", () => {

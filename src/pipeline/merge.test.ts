@@ -508,6 +508,50 @@ describe("processRawEvents", () => {
     expect(enrichData).not.toHaveProperty("trustLevel");
   });
 
+  it("higher-trust enrichment source writes coords onto a no-coords canonical event (NSWHHH dual-source)", async () => {
+    // NSWHHH ships two sources: the hareline sheet (trust 7, no venue/coords)
+    // and the website (trust 8, venue + map coords). If the sheet's raw merges
+    // first, the canonical Event is created without coordinates. The website
+    // must OUT-trust the sheet so it takes the full-update path and writes
+    // lat/lng — the lower-trust enrichment branch backfills locationName but
+    // NOT locationAddress/latitude/longitude (merge.ts ~L1668), so a lower-trust
+    // website would have its map pin silently dropped (Codex adversarial review).
+    mockSourceFind.mockResolvedValueOnce(sourceRow({
+      trustLevel: 8,
+      type: "HTML_SCRAPER",
+      kennels: [{ kennelId: "kennel_1" }],
+    }));
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([{
+      id: "evt_nsw",
+      trustLevel: 7,
+      locationName: null,
+      locationAddress: null,
+      latitude: null,
+      longitude: null,
+    }] as never);
+    mockEventUpdate.mockResolvedValue(eventRow("evt_nsw"));
+
+    await processRawEvents("src_web", [buildRawEvent({
+      location: "Bay Road Reserve, Bay Rd, Waverton",
+      locationUrl: "https://maps.app.goo.gl/iiY2q5avvkBvBchS6",
+      latitude: -33.837524,
+      longitude: 151.196929,
+    })]);
+
+    const update = mockEventUpdate.mock.calls.find(
+      (c: unknown[]) => (c[0] as { where: { id: string } }).where.id === "evt_nsw",
+    );
+    expect(update).toBeDefined();
+    const data = (update![0] as { data: Record<string, unknown> }).data;
+    // Coords + map URL land (the whole point of the website source).
+    expect(data).toHaveProperty("latitude", -33.837524);
+    expect(data).toHaveProperty("longitude", 151.196929);
+    expect(data.locationAddress).toContain("maps.app.goo.gl");
+    // locationName lands too (sanitizeLocation may trim street fragments).
+    expect(data.locationName).toContain("Bay Road Reserve");
+  });
+
   it("lower-trust enrichment recomposes dateUtc when backfilling startTime (#1654)", async () => {
     // SeaMon Trail #556 shape: higher-trust GSheets created the row without a
     // startTime (so dateUtc = eventDate = UTC noon). Lower-trust GCal later

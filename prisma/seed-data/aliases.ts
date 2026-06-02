@@ -467,6 +467,7 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "gch3-au": ["Gold Coast H3", "Gold Coast Hash", "Gold Coast HHH", "Gold Coast Hash House Harriers", "GCH3", "GoldCoastHash"],
     "larrikins-au": ["Sydney Larrikins", "Larrikins H3", "Larrikins Hash", "Sydney South Harbour HHH", "SSHHHH", "Tuesday Beers", "Larrikin Run"],
     "sth3-au": ["Sydney Thirsty H3", "Sydney Thirsty", "Thirsty H3", "Thirsty Hash", "STH3", "Sydney Thirsty Hash House Harriers"],
+    "nswhhh": ["NSWHHH", "NSWH3", "North Shore Wanderers", "North Shore Wanderers H3", "North Shore Wanderers Hash", "North Shore Wanderers Hash House Harriers", "NSW Hash"],
     // Australia — Victoria
     "mel-new-moon": ["Melbourne New Moon H3", "Melbourne New Moon", "New Moon H3 Melbourne", "MNMH3", "Melbourne Moon Hash"],
     // #1617 — Melbourne sibling kennels routed off the shared Mel-NM Meetup
