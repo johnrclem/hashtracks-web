@@ -80,6 +80,46 @@ function extractMapData($: cheerio.CheerioAPI): {
   };
 }
 
+interface RunBlockFields {
+  date: string | null;
+  startTime: string | undefined;
+  hares: string | null | undefined;
+  location: string | undefined;
+  description: string | undefined;
+}
+
+/** Classify the labelled lines of a single run block into structured fields. */
+function parseRunBlock(block: string[]): RunBlockFields {
+  let date: string | null = null;
+  let startTime: string | undefined;
+  let hares: string | null | undefined;
+  let location: string | undefined;
+  const notes: string[] = [];
+
+  for (const line of block) {
+    if (DATE_LABEL_RE.test(line)) {
+      ({ date, startTime } = parseDateTimeLine(line));
+    } else if (HARE_LABEL_RE.test(line)) {
+      const value = line.replace(HARE_LABEL_RE, "").trim();
+      hares = HARE_PLACEHOLDER_RE.test(value) ? null : value || undefined;
+    } else if (CIRCLE_LABEL_RE.test(line)) {
+      location = extractVenue(line.replace(CIRCLE_LABEL_RE, "").trim());
+    } else if (!/^Directions:/i.test(line) && !/maps\.app\.goo\.gl/i.test(line)) {
+      // Not the "Directions:" label or the bare directions URL (captured from
+      // the DOM) — keep as a note ("Bring torches", "On Inn: …").
+      notes.push(line);
+    }
+  }
+
+  return {
+    date,
+    startTime,
+    hares,
+    location,
+    description: notes.length > 0 ? notes.join("\n") : undefined,
+  };
+}
+
 /**
  * Parse the current-run block from the NSWHHH home page.
  */
@@ -105,41 +145,13 @@ export function parseNSWHHHPage(
   const stopOffset = lines.slice(runIdx).findIndex((line) => STOP_RE.test(line));
   const stopIdx = stopOffset === -1 ? lines.length : runIdx + stopOffset;
   // Skip block[0] (the run header — its number is already extracted above).
-  const block = lines.slice(runIdx + 1, stopIdx);
-
-  let date: string | null = null;
-  let startTime: string | undefined;
-  let hares: string | null | undefined;
-  let location: string | undefined;
-  const notes: string[] = [];
-
-  for (const line of block) {
-    if (DATE_LABEL_RE.test(line)) {
-      ({ date, startTime } = parseDateTimeLine(line));
-      continue;
-    }
-    if (HARE_LABEL_RE.test(line)) {
-      const value = line.replace(HARE_LABEL_RE, "").trim();
-      hares = HARE_PLACEHOLDER_RE.test(value) ? null : value || undefined;
-      continue;
-    }
-    if (CIRCLE_LABEL_RE.test(line)) {
-      location = extractVenue(line.replace(CIRCLE_LABEL_RE, "").trim());
-      continue;
-    }
-    // Drop the "Directions:" label and the bare directions URL (captured from
-    // the DOM above); collect the rest ("Bring torches", "On Inn: …") as notes.
-    if (/^Directions:/i.test(line) || /maps\.app\.goo\.gl/i.test(line)) {
-      continue;
-    }
-    notes.push(line);
-  }
+  const { date, startTime, hares, location, description } = parseRunBlock(
+    lines.slice(runIdx + 1, stopIdx),
+  );
 
   if (!date) {
     return { event: null, error: `could not extract date for Run #${runNumber ?? "?"}` };
   }
-
-  const description = notes.length > 0 ? notes.join("\n") : undefined;
 
   return {
     event: {
