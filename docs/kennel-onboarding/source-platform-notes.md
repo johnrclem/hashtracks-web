@@ -141,3 +141,59 @@ hares, and a per-tier fee table.
   dedupe by run number keeping the first DOM occurrence so the correction wins.
 - **`hashCash`** is a per-tier fee table in every post body, not a single value — capture verbatim
   (`Members Rp.X / Non-drinkers Rp.Y / Visitors Rp.Z / Kids <15 Rp.W`).
+
+## Google Sites + embedded Google Sheet (learned from NSWHHH, 2026-06-02)
+
+New Google Sites (`*.info`, `sites.google.com`) kennels often pair a **server-rendered home page**
+(current run, rich) with an **embedded Google Sheet** (forward hareline + history). NSWHHH shipped
+both as two sources.
+
+- **The home page is fully SSR'd** — a plain `fetchHTMLPage`/`curl` returns the run details
+  (`Run #:`, `Date:`, `Hare:`, `Circle up:`, `On Inn:`, `Directions:`). **No `browserRender` needed.**
+- **Content blocks have rotating, opaque class names** (deeply nested divs). Key the parser on
+  **visible text**, not selectors: linearize via the shared `stripHtmlTags(html, "\n")` (same helper
+  DCFMH3 uses), split into lines, find the `Run #` line, walk to a stop sentinel (`Recent Runs/Walks`),
+  and classify each line by its label prefix. Labels render with the colon immediately after the
+  word (`Date:`, not `Date :`) — so label regexes need no `\s*` (which also keeps them S5852-clean).
+  `nswhhh.ts` is the reference.
+- **Coordinates** come from the embedded Maps `<iframe>` `src`, which carries both `q=<lat>,<lng>`
+  (the marker) and `ll=<lat>,<lng>` (the viewport center) — **prefer `q=`** (`extractCoordsFromMapsUrl`
+  already orders `q` before `ll`). The `Directions:` link is a `maps.app.goo.gl` shortlink (no coords).
+- **🔴 Tokenized `sitesv` logos 403 server-side.** The `og:image` is
+  `lh3.googleusercontent.com/sitesv/AA…=w16383` — a **session/referer-bound** token that returns
+  HTTP 403 to `curl`/`safeFetch` and **rotates per page load**. It loads fine in an authenticated
+  browser, so **grab it via Chrome MCP** (navigate to `/home`, read the rendered logo `<img>` /
+  `og:image`, fetch it in-page, download) and self-host to `public/kennel-logos/<code>.<ext>` (confirm
+  the extension via magic bytes). Extends the self-host-logo convention to a browser-only fetch.
+
+### The embedded Google Sheet (GOOGLE_SHEETS source)
+
+- **🔴 Enumerate ALL tabs/gids before declaring "no history."** The link/embed `gid` is usually just
+  the **forward** hareline; a sibling tab often holds a clean **archive**. NSWHHH's embed was `gid=0`
+  (28 forward runs); `gid=360703890` held 160 archived runs back to 2022. List tabs via
+  `…/htmlview` (`grep -oE 'gid=[0-9]+'`) and confirm columns via `…/gviz/tq?tqx=out:json&gid=N`.
+  (Generalizes the Mijas "probe other collections" lesson from Squarespace to Sheet tabs.)
+- **🔴 Use `config.csvUrl`, NOT `config.gid`, for anonymous public sheets.** `GoogleSheetsAdapter`
+  checks `GOOGLE_CALENDAR_API_KEY` **before** the `gid` branch (`adapter.ts` ~L726), so a `gid`-mode
+  source errors without the key even though gid-mode never calls the Sheets API. Seed the full
+  `…/export?format=csv&gid=N` URL as `config.csvUrl` (keep `sheetId` for `validateSourceConfig`) —
+  it routes through `fetchDirectCsv`, which skips the key gate. HEAD-check the export is
+  `content-type: text/csv` (not a login-redirect HTML page) at research time.
+- **`columns.location` is optional** — a `date | run # | hare` forward sheet with no venue column is
+  valid; omit it and let a sibling source supply the venue.
+- **"No Run" / holiday rows** carry a real date but an empty run # and a "No Run …" note in the hare
+  column — drop them with a `silentlySkipPatterns` entry matching `\bno\s+run\b` on the `hares` field
+  so they don't ingest as phantom runs.
+- **Backfill the archive tab** with a one-shot `scripts/backfill-<code>-history.ts` (require a numeric
+  run #, `date < today`), bound to the live source row. The forward source stays `upcomingOnly`.
+
+### Dual-source trust ordering follows COORD OWNERSHIP (not "primary vs enrichment")
+
+When a location-less primary (the sheet) is paired with a coord-bearing secondary (the website), the
+**coord-bearing source must be ≥ the other's trust.** The merge pipeline's lower-trust enrichment
+path (`merge.ts` ~L1668) backfills `locationName` but **NOT** `locationAddress`/`latitude`/`longitude`,
+so a *lower*-trust coord source has its map pin silently dropped whenever the higher-trust source's
+raw merges first (order is nondeterministic across two daily scrapes). NSWHHH: website → trust **8**,
+sheet → **7**. Pre-state trust by which source owns the coordinates, and add a merge-level regression
+test (sheet-first → website-second → assert coords land). (A follow-up to make the enrichment path
+backfill coords symmetrically is tracked separately.)
