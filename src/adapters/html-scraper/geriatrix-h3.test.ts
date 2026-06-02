@@ -131,6 +131,37 @@ describe("GeriatrixH3Adapter.fetch", () => {
     expect(result.events[1].hares).toBe("Hey Baby");
   });
 
+  it("strips ' - Maybe' / ' - Memorial Run' venue qualifiers from location (#1880)", async () => {
+    // Freeze the clock so the hard-coded 2026 fixture dates stay inside the
+    // rolling date window as real time advances (fake only Date — browserRender
+    // is mocked, so no real timers are in play).
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-06-01T12:00:00Z"));
+    try {
+      // Verbatim venue strings from live sporty.co.nz Geriatrix hareline.
+      const fixture = `<!DOCTYPE html><html><body>
+        <div class="richtext-editor">
+          <p><span>09/06/2026</span></p>
+          <p>Venue: Victoria Tavern, Petone - Maybe.</p>
+          <p>Hare: Pohutukawa</p>
+          <p><br></p>
+          <p><span>16/06/2026</span></p>
+          <p>Venue: The Co-Op Whitby - Memorial Run</p>
+          <p>Hare: Slippery</p>
+        </div>
+      </body></html>`;
+      mockedBrowserRender.mockResolvedValue(fixture);
+      const adapter = new GeriatrixH3Adapter();
+      const result = await adapter.fetch(makeSource(), { days: 365 });
+      expect(result.errors).toEqual([]);
+      expect(result.events.length).toBe(2);
+      expect(result.events[0].location).toBe("Victoria Tavern, Petone");
+      expect(result.events[1].location).toBe("The Co-Op Whitby");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("returns the fetch failure when browserRender errors", async () => {
     mockedBrowserRender.mockRejectedValueOnce(new Error("502 challenge"));
     const adapter = new GeriatrixH3Adapter();

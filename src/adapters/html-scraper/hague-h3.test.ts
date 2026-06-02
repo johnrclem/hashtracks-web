@@ -156,6 +156,44 @@ Where: Some place`;
     expect(parseEventBlock(text, SOURCE_URL)).toBeNull();
   });
 
+  it("extracts the colon run number and the theme line after it (#1888)", () => {
+    // Verbatim from live haguehash.nl (Run #2423): the site uses the "Run:"
+    // colon form and puts the theme on its own line after the run number.
+    const text = `Run: 2423
+Rotte Dam Loop 10k
+When: Wednesday, June 3
+Time: 19:00 hr
+Where: Zwembad Hillegersberg, Rotterdam
+Link
+Hare: Ironic Maiden
+Cost: non-members EUR 7.00 for a single run (includes beer and snacks)
+Inquiries?
+Contact: mismanagement@haguehash.nl`;
+
+    const event = parseEventBlock(text, SOURCE_URL);
+    expect(event).not.toBeNull();
+    expect(event!.runNumber).toBe(2423);
+    expect(event!.title).toBe("Hague H3 #2423 — Rotte Dam Loop 10k");
+    expect(event!.hares).toBe("Ironic Maiden");
+    expect(event!.location).toBe("Zwembad Hillegersberg, Rotterdam");
+  });
+
+  it("synthesizes a title when the colon run number has no theme line (#1888)", () => {
+    // Live Run #2422 — colon form, no separate theme line. The metadata line
+    // immediately after "Run: 2422" must NOT be promoted to a title.
+    const text = `Run: 2422
+When: Wednesday, May 27
+Time: 19:00 hr
+Where: Parking Elsenburgerbos (Lange Kleiweg), Rijswijk (Link)
+Hare: Balls on a Dyke`;
+
+    const event = parseEventBlock(text, SOURCE_URL);
+    expect(event).not.toBeNull();
+    expect(event!.runNumber).toBe(2422);
+    expect(event!.title).toBe("Hague H3 #2422");
+    expect(event!.location).toBe("Parking Elsenburgerbos (Lange Kleiweg), Rijswijk");
+  });
+
   it("captures parenthetical theme as title and strips emoji from location (#1258)", () => {
     // Verbatim from issue #1258 / live haguehash.nl source.
     const text = `Run 2419 (How Original Run)

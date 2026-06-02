@@ -9,6 +9,7 @@ import { hasAnyErrors } from "../types";
 import {
   buildDateWindow,
   chronoParseDate,
+  cleanLocationName,
   configString,
   fetchBrowserRenderedPage,
   normalizeHaresField,
@@ -162,10 +163,17 @@ export class GeriatrixH3Adapter implements SourceAdapter {
       try {
         const eventDate = new Date(`${row.date}T12:00:00Z`);
         if (eventDate >= minDate && eventDate <= maxDate) {
+          // Run the venue through the shared cleaner — strips appended source
+          // qualifiers like " - Maybe" / " - Memorial Run" (#1880) plus emoji/
+          // URL noise. Preserve the merge tri-state: `undefined` when there was
+          // no Venue field (placeholder already normalised away), otherwise the
+          // cleaner's value or `null` (explicit clear) for non-venue text.
+          const location =
+            row.venue === undefined ? undefined : cleanLocationName(row.venue);
           events.push({
             date: row.date,
             kennelTags: [kennelTag],
-            location: row.venue,
+            location,
             locationUrl: row.mapUrl,
             hares: normalizeHaresField(row.hare),
             sourceUrl,

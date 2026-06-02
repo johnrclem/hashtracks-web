@@ -1050,6 +1050,48 @@ function isContactToSetRunCta(lower: string): boolean {
   return lower.startsWith("contact ") && lower.includes(" to set this run");
 }
 
+// Venue-qualifier dash-suffixes (#1880). Organizers append a run-status or
+// run-type descriptor to the venue field with a " - " separator, e.g.
+// "Victoria Tavern, Petone - Maybe." (uncertainty flag) or "The Co-Op Whitby -
+// Memorial Run" (run-type descriptor). These degrade geocoding and aren't part
+// of the address. Only a SPACE-dash-SPACE separator counts, so a hyphenated
+// venue token like "Co-Op" (no surrounding spaces) is never bitten. The
+// qualifier must be a known uncertainty token ("maybe" / dotted T.B.x) or a
+// run-type descriptor (ends with the standalone word "run") — a generic
+// trailing segment like "- Restaurant" is preserved.
+const VENUE_QUALIFIER_DASHES = [" - ", " – ", " — "];
+
+function isVenueQualifierSuffix(suffix: string): boolean {
+  // Tolerate a trailing period the organizer leaves on the qualifier ("Maybe.").
+  // Procedural trailing-dot strip (not `/\.+$/`) keeps clear of Sonar S5852's
+  // ReDoS heuristic, which flags the anchored `+` even though it's linear.
+  let trimmed = suffix.trim();
+  while (trimmed.endsWith(".")) trimmed = trimmed.slice(0, -1);
+  const lower = trimmed.trim().toLowerCase();
+  if (!lower) return false;
+  // LOCATION_QUALIFIER_TOKENS already includes "maybe" + the dotted T.B.x forms.
+  if (LOCATION_QUALIFIER_TOKENS.includes(lower)) return true;
+  return lower === "run" || lower.endsWith(" run");
+}
+
+function stripVenueQualifierSuffix(input: string): string {
+  let s = input;
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const dash of VENUE_QUALIFIER_DASHES) {
+      const idx = s.lastIndexOf(dash);
+      if (idx < 0) continue;
+      if (isVenueQualifierSuffix(s.slice(idx + dash.length))) {
+        s = s.slice(0, idx).trim();
+        changed = true;
+        break;
+      }
+    }
+  }
+  return s;
+}
+
 /**
  * Clean a raw scraped location string into a real venue name, or return
  * `null` when the value is not a location at all.
@@ -1089,6 +1131,11 @@ export function cleanLocationName(raw: string | null | undefined): string | null
   //    "… to follow"). Bare-word prefixes ("TBC Park") are preserved.
   s = stripLeadingQualifiers(s);
   s = stripTrailingQualifiers(s);
+
+  // 4b. Strip a trailing " - <qualifier>" venue descriptor (#1880 Geriatrix:
+  //     "… - Maybe", "… - Memorial Run"). Space-dash-space only, so hyphenated
+  //     venue tokens ("Co-Op") and generic suffixes ("- Restaurant") survive.
+  s = stripVenueQualifierSuffix(s);
 
   // 5. Collapse internal whitespace + trim dangling separators.
   s = trimLocationSeparators(s.replace(/\s{2,}/g, " "));
@@ -1154,6 +1201,40 @@ export function appendDescriptionSuffix(
   const trimmedSuffix = suffix?.trim();
   if (!trimmedSuffix) return description ?? undefined;
   return description ? `${description}\n\n${trimmedSuffix}` : trimmedSuffix;
+}
+
+/**
+ * Collapse a description whose blank-line-separated blocks are the same
+ * sequence repeated twice back-to-back (#1889 Morgantown: a Google Calendar
+ * entry whose body block is pasted verbatim twice). Splits on blank lines into
+ * blocks; when there's an even number and the first half deep-equals the second
+ * half (whitespace-/case-insensitive), returns just the first half rejoined.
+ *
+ * Idempotent and conservative: any non-doubled description (odd block count, or
+ * halves that differ) is returned unchanged, so legitimately repetitive copy is
+ * never truncated. Tri-state preserving — passes `null`/`undefined`/empty
+ * through untouched so the merge pipeline's preserve/clear semantics hold.
+ */
+export function dedupeRepeatedDescription(
+  description: string | null | undefined,
+): string | null | undefined {
+  if (!description) return description;
+  const text = description.trim();
+  if (!text) return description;
+
+  const blocks = text
+    .split(/\n\s*\n/)
+    .map((b) => b.trim())
+    .filter((b) => b.length > 0);
+  if (blocks.length < 2 || blocks.length % 2 !== 0) return description;
+
+  const half = blocks.length / 2;
+  const norm = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
+  const isDoubled = blocks
+    .slice(0, half)
+    .every((b, i) => norm(b) === norm(blocks[half + i]));
+
+  return isDoubled ? blocks.slice(0, half).join("\n\n") : description;
 }
 
 /**

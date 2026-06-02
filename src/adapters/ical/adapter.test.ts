@@ -1290,3 +1290,83 @@ describe("coalesceEndpointDuplicates (unit, #1828)", () => {
     expect(coalesceEndpointDuplicates(only)).toHaveLength(1);
   });
 });
+
+// VEVENTs verbatim from the live Reading H3 Localendar feed
+// (localendar.com/public/readinghhh?style=X2). The upcoming runs are all the
+// "RH3: #120?" placeholder (run number not yet assigned); only past/numbered
+// runs carry a real "#NNNN".
+const READING_ICS = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//iCal4j 1.0//EN
+BEGIN:VEVENT
+UID:reading-1202@localendar.com
+DTSTART;TZID=America/New_York:20260531T120000
+SUMMARY:RH3 #1202: Clowning Around Hash
+DESCRIPTION:Hares: Sex Toys & Silence of the Goats On-On: Reading Regional Airport Hash Cash: $5 Note on out at 12pm Pre-lube at Klinger's by the Airport
+DTSTAMP:20260528T180347Z
+END:VEVENT
+BEGIN:VEVENT
+UID:reading-120a@localendar.com
+DTSTART;TZID=America/New_York:20260608T181500
+SUMMARY:RH3: #120?
+DESCRIPTION:Hare: Sex Toys for Everyone More details to cum
+DTSTAMP:20260516T003011Z
+END:VEVENT
+BEGIN:VEVENT
+UID:reading-120b@localendar.com
+DTSTART;TZID=America/New_York:20260920T120000
+SUMMARY:RH3: #120? Kegs & Eggs
+DESCRIPTION:Hares: Foot Fairy & Schmamazon Prime More details to cum
+DTSTAMP:20260516T004448Z
+END:VEVENT
+END:VCALENDAR`;
+
+function buildReadingSource(): Source {
+  return buildMockSource({
+    name: "Reading H3 Localendar",
+    url: "https://localendar.com/public/readinghhh?style=X2",
+    config: { defaultKennelTag: "rh3" },
+  });
+}
+
+describe("ICalAdapter — Reading H3 Localendar (#1883 placeholder run number)", () => {
+  let adapter: ICalAdapter;
+  beforeEach(() => {
+    adapter = new ICalAdapter();
+    vi.restoreAllMocks();
+  });
+
+  it("clears the run number for the 'RH3: #120?' placeholder (no stale 120)", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(READING_ICS, { status: 200 }));
+    const result = await adapter.fetch(buildReadingSource(), { days: 9999 });
+
+    const jun8 = result.events.find((e) => e.date === "2026-06-08");
+    expect(jun8).toBeDefined();
+    // Explicit null (not 120, not undefined) so the merge tri-state wipes the
+    // stale run number from a prior scrape.
+    expect(jun8!.runNumber).toBeNull();
+    // No theme + no venue in the source → both left for the merge synthesizer.
+    expect(jun8!.title).toBeUndefined();
+    expect(jun8!.location).toBeUndefined();
+  });
+
+  it("keeps the theme after a placeholder marker while still clearing the number", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(READING_ICS, { status: 200 }));
+    const result = await adapter.fetch(buildReadingSource(), { days: 9999 });
+
+    const sep20 = result.events.find((e) => e.date === "2026-09-20");
+    expect(sep20).toBeDefined();
+    expect(sep20!.runNumber).toBeNull();
+    expect(sep20!.title).toBe("Kegs & Eggs");
+  });
+
+  it("parses a real numbered run with its theme and On-On venue", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(READING_ICS, { status: 200 }));
+    const result = await adapter.fetch(buildReadingSource(), { days: 9999 });
+
+    const numbered = result.events.find((e) => e.runNumber === 1202);
+    expect(numbered).toBeDefined();
+    expect(numbered!.title).toBe("Clowning Around Hash");
+    expect(numbered!.location).toBe("Reading Regional Airport");
+  });
+});

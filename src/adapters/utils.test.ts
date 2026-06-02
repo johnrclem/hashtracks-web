@@ -23,6 +23,7 @@ import {
   normalizeCostSigil,
   cleanLocationName,
   stripClickHereForMap,
+  dedupeRepeatedDescription,
 } from "./utils";
 import { validateSourceUrlWithDns } from "./ssrf-dns";
 
@@ -1131,5 +1132,75 @@ describe("cleanLocationName", () => {
       expect(cleanLocationName(null)).toBeNull();
       expect(cleanLocationName(undefined)).toBeNull();
     });
+  });
+
+  describe("venue-qualifier dash-suffix (#1880 Geriatrix)", () => {
+    it.each([
+      [
+        "Victoria Tavern, Petone - Maybe.",
+        "Victoria Tavern, Petone",
+        "' - Maybe' uncertainty suffix (trailing period tolerated)",
+      ],
+      [
+        "The Co-Op Whitby - Memorial Run",
+        "The Co-Op Whitby",
+        "' - <X> Run' run-type descriptor suffix",
+      ],
+      [
+        "Lower Hutt Events Centre - Away Run",
+        "Lower Hutt Events Centre",
+        "another ' - <X> Run' descriptor",
+      ],
+    ])("strips: '%s' → '%s' (%s)", (input, expected) => {
+      expect(cleanLocationName(input)).toBe(expected);
+    });
+
+    it.each([
+      ["Memorial Hall", "Memorial Hall", "venue named like a descriptor — no dash separator"],
+      ["The Co-Op Whitby", "The Co-Op Whitby", "internal hyphen (no surrounding spaces) preserved"],
+      ["Bar - Restaurant", "Bar - Restaurant", "generic dash-suffix that isn't a qualifier preserved"],
+      ["Bear Run Tavern", "Bear Run Tavern", "interior 'Run' word without a dash preserved"],
+    ])("preserves: '%s' → '%s' (%s)", (input, expected) => {
+      expect(cleanLocationName(input)).toBe(expected);
+    });
+  });
+});
+
+describe("dedupeRepeatedDescription (#1889 Morgantown)", () => {
+  const REPEAT_BLOCK = [
+    "All work and no play makes Jack a dull boy! Let's celebrate National Repeat Day!",
+    "",
+    "Time: June 3, 6 PM",
+    "Location TBA.",
+    "Hares: I Call the Shots and Attn: Ass Horse!",
+    "$5 Hash Cash.",
+  ].join("\n");
+
+  it("collapses a body block pasted verbatim twice", () => {
+    const doubled = `${REPEAT_BLOCK}\n\n${REPEAT_BLOCK}`;
+    expect(dedupeRepeatedDescription(doubled)).toBe(REPEAT_BLOCK);
+  });
+
+  it("is idempotent on an already-deduped description", () => {
+    expect(dedupeRepeatedDescription(REPEAT_BLOCK)).toBe(REPEAT_BLOCK);
+  });
+
+  it("collapses a trailing-whitespace-only difference between copies", () => {
+    const doubled = `Hello world\n\nDetails here\n\nHello world\n\nDetails here `;
+    expect(dedupeRepeatedDescription(doubled)).toBe("Hello world\n\nDetails here");
+  });
+
+  it.each([
+    ["Single block, no repeat", "Single block, no repeat", "non-doubled single block"],
+    ["A\n\nB\n\nC", "A\n\nB\n\nC", "odd block count is never collapsed"],
+    ["A\n\nB\n\nA\n\nC", "A\n\nB\n\nA\n\nC", "even count but halves differ"],
+  ])("returns unchanged: %s (%s)", (input, expected) => {
+    expect(dedupeRepeatedDescription(input)).toBe(expected);
+  });
+
+  it("passes null/undefined/empty through untouched (tri-state)", () => {
+    expect(dedupeRepeatedDescription(null)).toBeNull();
+    expect(dedupeRepeatedDescription(undefined)).toBeUndefined();
+    expect(dedupeRepeatedDescription("")).toBe("");
   });
 });
