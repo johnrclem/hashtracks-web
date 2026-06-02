@@ -551,6 +551,12 @@ export function validateSourceConfig(
   validateStringOrPatternArray(obj, "titleHarePattern", errors);
   validateStringOrPatternArray(obj, "titleLocationPattern", errors);
 
+  if ("alwaysStripTitleHareSpan" in obj
+    && obj.alwaysStripTitleHareSpan !== undefined
+    && typeof obj.alwaysStripTitleHareSpan !== "boolean") {
+    errors.push("alwaysStripTitleHareSpan must be a boolean");
+  }
+
   // Type-specific validation
   runTypeValidator(type, obj, errors);
 

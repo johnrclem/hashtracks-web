@@ -25,9 +25,9 @@ function isThemeHares(title: string | null, hares: string): boolean {
   const t = title.trim();
   const h = hares.trim();
   if (t === h) return true;
-  const dash = t.search(/\s+-\s+/);
-  if (dash !== -1 && t.slice(0, dash).trim() === h) return true;
-  return false;
+  // pre-dash prefix (string op, not regex — avoids a Sonar ReDoS flag)
+  const dash = t.indexOf(" - ");
+  return dash !== -1 && t.slice(0, dash).trim() === h;
 }
 
 async function main() {
@@ -43,7 +43,6 @@ async function main() {
   }
   if (!APPLY) {
     console.log("\nDry run — re-run with ` -- --apply` to clear haresText on the above.");
-    await prisma.$disconnect();
     return;
   }
   let cleared = 0;
@@ -51,9 +50,9 @@ async function main() {
     await prisma.event.update({ where: { id: e.id }, data: { haresText: null } });
     cleared++;
   }
-  // Mirror into the structured EventHare rows if any were synthesized from the theme.
   console.log(`\nCleared haresText on ${cleared} EWH3 events.`);
-  await prisma.$disconnect();
 }
 
-main().catch((e) => { console.error(e); process.exit(1); });
+main()
+  .catch((e) => { console.error(e); process.exitCode = 1; })
+  .finally(() => prisma.$disconnect());

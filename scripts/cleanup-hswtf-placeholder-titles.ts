@@ -26,17 +26,21 @@ interface Rewrite { title: string; runNumber?: number }
 
 function rewriteTitle(raw: string): Rewrite | null {
   const t = raw.trim();
-  // #N (theme) — theme wins as the title; keep the run number.
-  let m = /^HSWTFH3\s*#\s*(\d+)\s*\((.+)\)\s*$/.exec(t);
+  if (!t.startsWith("HSWTFH3")) return null;
+  // Strip the kennel-code prefix and work on the remainder with anchored
+  // regexes that use bounded char classes (no `(.+)` / doubled `\s+` — those
+  // shapes trip Sonar's ReDoS hotspot, S5852).
+  const rest = t.slice("HSWTFH3".length).trim();
+  // "#N (theme)" — theme wins as the title; keep the run number.
+  let m = /^#\s*(\d+)\s*\(([^)]+)\)$/.exec(rest);
   if (m) return { title: m[2].trim(), runNumber: Number.parseInt(m[1], 10) };
-  // bare #N (optionally with a space-before-or-after #) → "HSWTF Trail #N"
-  m = /^HSWTFH3\s*#?\s*(\d+)\s*$/.exec(t);
+  // "#N" (optionally a space after #) → "HSWTF Trail #N"
+  m = /^#\s*(\d+)$/.exec(rest);
   if (m) return { title: `${DEFAULT_TITLE} #${m[1]}`, runNumber: Number.parseInt(m[1], 10) };
-  // bare code or unknown-run placeholder → generic default
-  if (/^HSWTFH3\s*(?:#\s*\?+)?\s*$/.test(t)) return { title: DEFAULT_TITLE };
-  // "HSWTFH3 <free text>" (no leading #) → use the free text as the title
-  m = /^HSWTFH3\s+(?!#)(\S.*)$/.exec(t);
-  if (m) return { title: m[1].trim() };
+  // empty remainder or unknown-run placeholder ("#?", "#??") → generic default
+  if (rest === "" || /^#\s*\?+$/.test(rest)) return { title: DEFAULT_TITLE };
+  // free text not starting with "#" → use it verbatim as the title
+  if (!rest.startsWith("#")) return { title: rest };
   return null; // leave anything unrecognized untouched
 }
 
@@ -63,7 +67,8 @@ async function main() {
   }
   console.log(`\n${APPLY ? "Applied" : "Planned"}: ${planned}; unchanged: ${skipped}`);
   if (!APPLY) console.log("Dry run — re-run with ` -- --apply` to write the above.");
-  await prisma.$disconnect();
 }
 
-main().catch((e) => { console.error(e); process.exit(1); });
+main()
+  .catch((e) => { console.error(e); process.exitCode = 1; })
+  .finally(() => prisma.$disconnect());

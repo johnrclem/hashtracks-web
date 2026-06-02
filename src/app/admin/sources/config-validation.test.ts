@@ -294,6 +294,18 @@ describe("validateSourceConfig", () => {
     });
   });
 
+  describe("alwaysStripTitleHareSpan validation", () => {
+    it("accepts a boolean", () => {
+      expect(validateSourceConfig("GOOGLE_CALENDAR", { alwaysStripTitleHareSpan: true })).toEqual([]);
+    });
+
+    it("rejects a non-boolean", () => {
+      const errors = validateSourceConfig("GOOGLE_CALENDAR", { alwaysStripTitleHareSpan: "yes" });
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toContain("must be a boolean");
+    });
+  });
+
   // ---------------------------------------------------------------------------
   // harePatterns validation
   // ---------------------------------------------------------------------------
