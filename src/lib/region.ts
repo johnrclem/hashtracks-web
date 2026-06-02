@@ -1766,6 +1766,30 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: -4.6,
     aliases: ["Mijas", "Costa del Sol, Spain", "Málaga"],
   },
+  // ── France ──
+  {
+    name: "France",
+    country: "France",
+    level: "COUNTRY",
+    timezone: "Europe/Paris",
+    abbrev: "FR",
+    colorClasses: "bg-blue-200 text-blue-800",
+    pinColor: "#2563eb",
+    centroidLat: 46.6,
+    centroidLng: 2.4,
+    aliases: ["FR", "République française"],
+  },
+  {
+    name: "Paris",
+    country: "France",
+    timezone: "Europe/Paris",
+    abbrev: "PAR",
+    colorClasses: "bg-blue-100 text-blue-700",
+    pinColor: "#3b82f6",
+    centroidLat: 48.8566,
+    centroidLng: 2.3522,
+    aliases: ["Paris, France", "Île-de-France"],
+  },
   // ── Switzerland ──
   {
     name: "Switzerland",
@@ -3169,6 +3193,7 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   [/\b(belgium|brussels|bruxelles|antwerp|ghent)\b/, "Belgium"],
   [/\b(spain|españa|espana|costa del sol|mijas|malaga|málaga|marbella|fuengirola|andalucia|andalucía|madrid|barcelona)\b/, "Spain"],
   [/\b(switzerland|schweiz|suisse|svizzera|zurich|zürich|geneva|bern|basel|winterthur|schaffhausen)\b/, "Switzerland"],
+  [/\b(france|paris|île-de-france|ile-de-france)\b/, "France"],
   [/\b(netherlands|amsterdam|rotterdam|den haag|the hague|holland)\b/, "Netherlands"],
   [/\b(denmark|copenhagen|københavn|aarhus)\b/, "Denmark"],
   [/\b(sweden|stockholm|göteborg|gothenburg|malmö)\b/, "Sweden"],
@@ -3367,6 +3392,8 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Brussels": "Belgium",
   // Spain
   "Costa del Sol": "Spain",
+  // France
+  "Paris": "France",
   // Louisiana
   "New Orleans, LA": "Louisiana",
   // Tennessee
@@ -3567,6 +3594,9 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   "Japan": "Japan",
   "Belgium": "Belgium",
   "Spain": "Spain",
+  // France — metro "Paris" resolves via STATE_GROUP_MAP first, so only the
+  // state-group key "France" is reachable here (mirrors the Spain precedent).
+  "France": "France",
   "Netherlands": "Netherlands",
   "Denmark": "Denmark",
   "Sweden": "Sweden",
@@ -3666,6 +3696,7 @@ const COUNTRY_CODE_TO_NAME: Record<string, string> = {
   JP: "Japan",
   BE: "Belgium",
   ES: "Spain",
+  FR: "France",
   NL: "Netherlands",
   DK: "Denmark",
   SE: "Sweden",
