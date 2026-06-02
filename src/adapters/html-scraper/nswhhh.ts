@@ -53,7 +53,14 @@ function extractVenue(rawValue: string): string | undefined {
   let venue = rawValue;
   const bringIdx = venue.search(/\bbring\b/i);
   if (bringIdx > 0) venue = venue.slice(0, bringIdx);
-  venue = venue.replace(/[\s,…]+$/u, "").trim();
+  // Procedural trailing-strip (commas/ellipsis left by the slice + whitespace).
+  // `trim()` clears surrounding whitespace incl. nbsp; the loop removes the
+  // trailing punctuation. Avoids the `[\s,…]+$` regex shape Sonar flags as
+  // ReDoS-prone (S5852).
+  venue = venue.trim();
+  while (venue.endsWith(",") || venue.endsWith("…")) {
+    venue = venue.slice(0, -1).trim();
+  }
   return venue || undefined;
 }
 
