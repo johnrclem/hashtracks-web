@@ -3716,6 +3716,7 @@ export const KENNELS: KennelSeed[] = [
       region: "Sydney, NSW", country: "Australia",
       website: "https://www.nswhhh.info/",
       facebookUrl: "https://www.facebook.com/nswhash.flash",
+      logoUrl: "/kennel-logos/nswhhh.png",
       scheduleDayOfWeek: "Monday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
       scheduleNotes: "Weekly Monday 6:30pm hash around Sydney's North Shore & surrounds. ~4–5 km walk / 6 km run, ~1 hour; non-competitive, walkers & runners welcome. First run free, then $5. Run details posted on nswhhh.info each week.",
       foundedYear: 2004,
