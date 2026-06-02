@@ -224,7 +224,9 @@ fields the source exposes (date, time, title, hares, location, description, run 
 > + the cadence** as the handoff sample — those prove the source is active. A "0 upcoming" claim
 > needs the actual DOM/JSON excerpt, exactly like a "dead" claim.
 >
-> **What to produce — status `recently-active` (NOT `blocked`):** ship the
+> **What to produce — hand off normally (do NOT mark `blocked`):** the queue row follows the usual
+> flow (`in_progress` → `handed-off`); record the recently-active rationale (0 upcoming + recent
+> cadence) as the row's outcome/evidence note — it's a research decision, not a new status. Ship the
 > `config.upcomingOnly: true` source **AND** a **recent-history backfill**
 > (`scripts/backfill-<code>-history.ts`) so the kennel page shows schedule + recent runs
 > immediately; the daily scrape auto-adds the next run the moment the source posts it. Say so in
@@ -287,7 +289,7 @@ archive (past runs) AND an advance schedule, recommend the **past/future split**
 **If the source is genuinely dead** (the listing itself is empty/gone, the domain is NXDOMAIN, or
 the feed errors / hasn't updated in months): mark the target `blocked: stale` with the reason, fall
 back to the next `queued` target (return to Step 1). **But 0 upcoming events alone is NOT "dead"** —
-a live, regular-cadence source between postings is `recently-active`, not blocked (apply the Step 3
+a live, regular-cadence source between postings is recently-active, not blocked (apply the Step 3
 *recently-active* rule: onboard with a recent-history backfill). A feed you simply couldn't fetch
 from the sandbox is **not** "dead" either — flag it instead.
 
@@ -774,7 +776,7 @@ events verified, and the backlog count remaining.
 - **Target already seeded (kennel + source)** → mark `done (already live)`, pick next.
 - **Existing kennel, missing source** → that's a valid source-add handoff, not a skip.
 - **Source genuinely dead / stale** (empty listing, NXDOMAIN, or no run within ~2× its cadence) → mark `blocked` with reason, pick next.
-- **0 upcoming but recently active** (live source, regular cadence, latest run within ~2× interval) → onboard as `recently-active` (ship `upcomingOnly` + a recent-history backfill), per Step 3's *recently-active* rule — NOT blocked.
+- **0 upcoming but recently active** (live source, regular cadence, latest run within ~2× interval) → hand off normally (status `handed-off`, NOT `blocked`); ship `upcomingOnly` + a recent-history backfill and record the recently-active rationale in the notes. Per Step 3's *recently-active* rule.
 - **Source is JS-rendered and browserRender isn't available in this shell** → still write the
   handoff with everything you could gather, clearly flagging that Claude Code must pull/verify
   the live sample. Mark the queue row `handed-off (needs live-verify)`.
