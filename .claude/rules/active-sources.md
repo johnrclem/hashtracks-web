@@ -7,7 +7,7 @@ globs:
   - src/pipeline/**
 ---
 
-# Active Sources (342)
+# Active Sources (343)
 
 Last synced from `prisma/seed-data/sources.ts` via the `/update-sources-rule` skill.
 
@@ -85,8 +85,9 @@ Last synced from `prisma/seed-data/sources.ts` via the `/update-sources-rule` sk
 - **Chicago Hash Website** -> HTML_SCRAPER -> ch3
 - **Thirstday Hash Website** -> HTML_SCRAPER -> th3
 
-### Cincinnati, OH (4)
+### Cincinnati, OH (5)
 - **SCH4 Google Calendar** -> GOOGLE_CALENDAR -> sch4
+- **SCH4 HashStats** -> HTML_SCRAPER (HashStats archive) -> sch4
 - **QCH4 Google Calendar** -> GOOGLE_CALENDAR -> qch4
 - **LVH3 Google Calendar** -> GOOGLE_CALENDAR -> lvh3-cin
 - **Licking Valley H3 Facebook Hosted Events** -> FACEBOOK_HOSTED_EVENTS -> lvh3-cin

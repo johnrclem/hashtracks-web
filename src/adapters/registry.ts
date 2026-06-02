@@ -119,6 +119,7 @@ import { RssAdapter } from "./rss/adapter";
 import { StaticScheduleAdapter } from "./static-schedule/adapter";
 import { HarrierCentralAdapter } from "./harrier-central/adapter";
 import { FacebookHostedEventsAdapter } from "./facebook-hosted-events/adapter";
+import { HashStatsAdapter } from "./hashstats/adapter";
 
 const adapters: Partial<Record<SourceType, () => SourceAdapter>> = {
   HTML_SCRAPER: () => new HashNYCAdapter(), // default HTML scraper
@@ -282,6 +283,12 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   // additional kennels just add a URL pattern + a Source row with
   // `kennelTag` in config.
   { pattern: /sach3\.beer/i, name: "SquarespaceEventsAdapter", factory: () => new SquarespaceEventsAdapter() },
+  // HashStats — multi-kennel historical stats archive served as JSON over
+  // POST {host}/{SLUG}/listhashes2 (DataTables shape). JSON-over-HTML_SCRAPER,
+  // like SHITH3/Seletar. Kennel slugs come from config.kennelSlugMap, so one
+  // Source row can drive many kennels. Only public hashingstats.com hosts
+  // serve logged-out JSON; *.hashstats.org subdomains redirect to /auth. (#1771)
+  { pattern: /hashingstats\.com/i, name: "HashStatsAdapter", factory: () => new HashStatsAdapter() },
 ];
 
 /** URL-based routing for HTML_SCRAPER — derived from htmlScraperEntries (single source of truth). */

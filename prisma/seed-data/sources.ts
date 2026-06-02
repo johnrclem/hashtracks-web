@@ -3243,6 +3243,24 @@ export const SOURCES = [
       },
       kennelCodes: ["lvh3-cin"],
     },
+    // HashStats historical archive (proof kennel, #1771). Retrospective stats
+    // platform — completed hashes only, no upcoming events; supplemental to the
+    // GCal source above. Public hashingstats.com JSON: POST /SCH4/listhashes2
+    // returns the full 1995→present archive. Routed via the registry URL-matcher
+    // (HashStatsAdapter); kennelSlugMap maps kennelCode → external slug, so the
+    // same adapter can drive QCH4/SWOT/LVH3/SCH4BASH once those are onboarded.
+    {
+      name: "SCH4 HashStats",
+      url: "https://hashingstats.com/SCH4",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "weekly",
+      scrapeDays: 20000,
+      config: {
+        kennelSlugMap: { sch4: "SCH4" },
+      },
+      kennelCodes: ["sch4"],
+    },
     // --- Columbus (Renegade H3 website) ---
     {
       name: "Renegade H3 Website",
