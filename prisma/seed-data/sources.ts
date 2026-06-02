@@ -4726,6 +4726,53 @@ export const SOURCES = [
       scrapeDays: 180,
       kennelCodes: ["sth3-au"],
     },
+    {
+      // Forward hareline tab (gid=0) of the NSWHHH Google Sheet — full
+      // upcoming season (run #, date, hare). The sheet has no venue/coords
+      // column; the website source below enriches the current run with
+      // location + map coords. Both dedup on (kennel, date) at merge.
+      name: "North Shore Wanderers H3 Hareline Sheet",
+      url: "https://docs.google.com/spreadsheets/d/14vp2bq4MYMLDGlxuIfZS8MeJpenzpBTOV2nWicrphSE/export?format=csv&gid=0",
+      type: "GOOGLE_SHEETS" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        sheetId: "14vp2bq4MYMLDGlxuIfZS8MeJpenzpBTOV2nWicrphSE",
+        // Direct CSV export (anonymously fetchable) — bypasses the Sheets API
+        // tab-discovery path, so no GOOGLE_CALENDAR_API_KEY is required.
+        csvUrl: "https://docs.google.com/spreadsheets/d/14vp2bq4MYMLDGlxuIfZS8MeJpenzpBTOV2nWicrphSE/export?format=csv&gid=0",
+        // Forward-only hareline: past runs move to a separate archive tab, so
+        // they age out of this feed. Without upcomingOnly the reconciler would
+        // false-CANCEL them the moment they drop off.
+        upcomingOnly: true,
+        columns: { date: 0, runNumber: 1, hares: 2 },
+        // "Start" column is empty; the kennel runs Monday 6:30pm every week.
+        startTimeRules: { default: "18:30" },
+        kennelTagRules: { default: "nswhhh" },
+        // Holiday rows carry a real date but an empty run # and a "No Run …"
+        // note in the Hare column (e.g. "No Run - Kings Birthday public
+        // holiday"). They'd otherwise ingest as phantom runs. A hare is never
+        // literally "no run", so this is false-positive-safe (#1739).
+        silentlySkipPatterns: [{ pattern: String.raw`\bno\s+run\b`, field: "hares" }],
+        // No defaultTitle — let merge.ts synthesize "North Shore Wanderers H3 Trail #N".
+      },
+      kennelCodes: ["nswhhh"],
+    },
+    {
+      // Google Sites home page — server-renders only the current week's run,
+      // but with the venue + Google Maps coords the hareline sheet lacks.
+      // Daily scrape + fingerprint dedup accumulates each week's trail.
+      name: "North Shore Wanderers H3 Website",
+      url: "https://www.nswhhh.info/home",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 5,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      // Home page shows only the current run → ages out weekly; protect reconcile.
+      config: { upcomingOnly: true },
+      kennelCodes: ["nswhhh"],
+    },
 
     // ===== AUSTRALIA — Victoria =====
     // Melbourne New Moon H3 — Meetup source (aggregator hosting 5 sibling
