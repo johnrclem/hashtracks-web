@@ -4524,8 +4524,9 @@ export const KENNELS: KennelSeed[] = [
       scheduleDayOfWeek: "Sunday",
       scheduleTime: "2:00 PM",
       scheduleFrequency: "Biweekly",
-      // Medium confidence: 25th birthday celebrated Apr 2018 (no primary club source). Confirm if a milestone post surfaces.
-      foundedYear: 1993,
+      // foundedYear unset: only a medium-confidence inference (~1993, from a 25th-birthday-Apr-2018
+      // mention, no primary club source). Add it once a milestone post or club source confirms it,
+      // rather than seeding an unverified year as canonical user-facing metadata.
       hashCash: "5 €",
       walkersWelcome: true,
       description:
