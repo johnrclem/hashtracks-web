@@ -50,7 +50,7 @@ const START_LINE_RE = /^(?:Start|Location|Meeting point)[A-Za-z ()]{0,14}:\s*(\S
 const COST_LINE_RE = /^Costs?[A-Za-z ]{0,10}:\s*(\S.*)$/i;
 // Google Maps embed iframe: `pb=…!2d<lng>!3d<lat>…`. The `!` arrive URL-encoded
 // as `%21`; we normalize them before matching. NOTE: 2d is LONGITUDE, 3d is LATITUDE.
-const EMBED_SRC_RE = /maps\/embed\?pb=([^"]+)/;
+const EMBED_SRC_RE = /maps\/embed\?pb=([^"'\s>]+)/;
 const EMBED_COORD_RE = /!2d(-?\d+\.\d+)!3d(-?\d+\.\d+)/;
 
 /** Month name → 1-based number. English + Spanish (the EN column occasionally uses a Spanish month). */
@@ -217,9 +217,13 @@ async function fetchPostsPage(page: number): Promise<PageResult> {
   }
 }
 
-/** Keep only "Run #N" posts (category 1) — the run announcements. */
+/**
+ * Keep only run announcements: a "Run #N" title in the "Runs" category (id 1).
+ * The category is a secondary guard against a non-run post that happens to carry
+ * "Run #" in its title; it falls open (`?? true`) if a post omits categories.
+ */
 function isRunPost(post: WPComPost): boolean {
-  return RUN_TITLE_RE.test(post.title.rendered);
+  return RUN_TITLE_RE.test(post.title.rendered) && (post.categories?.includes(1) ?? true);
 }
 
 export class AsuncionH3Adapter implements SourceAdapter {
