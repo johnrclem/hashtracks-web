@@ -960,10 +960,19 @@ export const SOURCES = [
       // umbrella's `**FRIDAY 6/26 —**` section header. Per-day kennel
       // attribution from section text routes Friday to ggfm while
       // Sat/Sun stay at nych3 (the host kennel for the umbrella).
-      kennelCodes: ["bfm", "ewh3", "wh4", "gfh3", "ch3", "dch4", "dcfmh3", "fch3", "oh3", "wsh3", "mrh3", "bfh3", "moa2h3", "nych3", "ggfm"],
+      //
+      // The Hash Rego "FCH3" account is Rochester's **Flour City** H3
+      // (host display name "Flour City Hash House Harriers", location ", NY"),
+      // NOT San Francisco's Fog City H3 (kennelCode `fch3`). The original
+      // `fch3: "FCH3"` mapping mis-routed Flour City's weekend trail onto the
+      // Fog City page (verified in prod: 2026-06-12 "Year of the Whorse").
+      // `FCH3` is an overloaded code (Fog City / Flour City / Fort Collins) —
+      // route it to `flour-city`. Fog City has no real Hash Rego presence (it's
+      // fed by the SFH3 feeds), so dropping its Hash Rego link is correct.
+      kennelCodes: ["bfm", "ewh3", "wh4", "gfh3", "ch3", "dch4", "dcfmh3", "flour-city", "oh3", "wsh3", "mrh3", "bfh3", "moa2h3", "nych3", "ggfm"],
       kennelSlugMap: {
         bfm: "BFMH3", ewh3: "EWH3", wh4: "WH4", gfh3: "GFH3",
-        ch3: "CH3", dch4: "DCH4", dcfmh3: "DCFMH3", fch3: "FCH3", oh3: "OregonH3",
+        ch3: "CH3", dch4: "DCH4", dcfmh3: "DCFMH3", "flour-city": "FCH3", oh3: "OregonH3",
         wsh3: "WSH3", mrh3: "MRH3", bfh3: "BFH3", moa2h3: "MoA2H3",
         nych3: "NYCH3", ggfm: "GGFM",
       },
