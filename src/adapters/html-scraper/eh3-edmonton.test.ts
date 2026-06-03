@@ -165,6 +165,23 @@ describe("parseEh3EventBlock", () => {
       expect(result!.hares).toBe("Somebody");
       expect(result!.startTime).toBe("14:00");
     });
+
+    it("extracts location from the 'Address:' label (#1899)", () => {
+      // The live OSH3 page (425) labels the meeting point "Address : 437
+      // Butchart Drive" (note the space before the colon) — run #1061.
+      const lines = [
+        "OSH3 #1061 – Frenchie's Annual Cheap Champagne Birthday Run",
+        "Sunday, March 22, 2026, at 2 PM",
+        "Hostess: Passion Pit",
+        "Address : 437 Butchart Drive",
+        "Hares: Smurf and the Smurphettes",
+      ];
+      const result = parseEh3EventBlock(lines, "osh3-ab", "14:00");
+      expect(result).not.toBeNull();
+      expect(result!.runNumber).toBe(1061);
+      expect(result!.location).toBe("437 Butchart Drive");
+      expect(result!.hares).toBe("Smurf and the Smurphettes");
+    });
   });
 
   describe("EFMH3 (efmh3)", () => {

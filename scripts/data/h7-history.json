@@ -1,1356 +1,1450 @@
 [
-  {
-    "date": "2021-08-01",
-    "kennelTags": [
-      "h7"
-    ],
-    "hares": "Knickerless",
-    "location": "U-Bahn station Kiwittsmoor (Line U1)",
-    "locationUrl": "https://goo.gl/maps/8fF2nAWZshg8dmm1A",
-    "startTime": "14:00",
-    "cost": "5€",
-    "description": "HHHi Halfminds, Our next run will be on Sunday August 1st in New Zealand Swamp, aka Kiwittsmoor.",
-    "sourceUrl": "https://hamburghash.blogspot.com/2021/07/hamburg-h7-run-in-kiwittsmoor-01082021.html"
-  },
-  {
-    "date": "2021-08-15",
-    "kennelTags": [
-      "h7"
-    ],
-    "hares": "Bull's Eye",
-    "location": "U-Bahn station Mümmelmannsberg (Line U2) - Exit south - Parking lot in front of Kandinskyallee 14-18,",
-    "locationUrl": "https://goo.gl/maps/TLpi9FfE4SHh5Vs4A",
-    "startTime": "14:00",
-    "cost": "5€",
-    "description": "HHHello Halfminds, Next Hansestadt Hamburg Hash House Harriers Hummel Hummel run will be in Mümmelmannsberg. (And if you tell me how many M&Ns there are in that sentence, you'll get a free beer on Sunday!)",
-    "sourceUrl": "https://hamburghash.blogspot.com/2021/08/hamburg-h7-run-in-mummelmannsberg.html"
-  },
-  {
-    "date": "2021-09-19",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 594,
-    "hares": "UB69",
-    "location": "Stadionbad (next to Weserstadion / Weser) Franz-Böhmert-Str. 13, 28205 Bremen",
-    "locationUrl": "https://goo.gl/maps/tXDehN331X51fsA18",
-    "startTime": "14:00",
-    "description": "HHHello Halfminds, Hope your brains are ready, because here is a shitload of info about the run in the very southern suburbs of Hamburg on Sunday:",
-    "sourceUrl": "https://hamburghash.blogspot.com/2021/09/hamburg-h7-run-594-in-bremen-september.html"
-  },
-  {
-    "date": "2021-10-03",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 595,
-    "hares": "23 'n Me & Just Jenna",
-    "location": "Bismarck Denkmal (im Alten Elbpark)",
-    "locationUrl": "https://goo.gl/maps/vAuBKsZp5xYidrc27",
-    "startTime": "14:00",
-    "description": "What better activity could there be for Germany's National day than getting pissed? At least that's what our hares seems to be planning with the 2 drinkstops I've heard of... You guys better start practicing the proper way to drink Lütt ‘n Lütt !!",
-    "sourceUrl": "https://hamburghash.blogspot.com/2021/09/hamburg-h7-run-595-lut-n-lut-hash-run.html"
-  },
-  {
-    "date": "2021-10-17",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 596,
-    "hares": "Bundeslicker",
-    "location": "Outside U-Bahn Überseequartier (line 4) - exit Hübenerstraße",
-    "locationUrl": "https://goo.gl/maps/Vg1Mrm6rgMS28oNz6",
-    "startTime": "14:00",
-    "cost": "5€",
-    "description": "HHHello Halfminds, Next run will take us oversees, exploring Hamburg's Hafencity and the new hash territory of Überseequartier. So my dear fellow Se(a)men, dig out your sailor costume, your pirate accessories, or the famous capitain's hat! We want you to cum (to the run) in your best maritime attire! Option B is to come dressed up as a d!ck... Your choice.",
-    "sourceUrl": "https://hamburghash.blogspot.com/2021/10/hamburg-h7-run-596-seamen-hash-run.html"
-  },
-  {
-    "date": "2021-11-07",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 597,
-    "hares": "Knickerless",
-    "location": "AKN Station Friedrichsgabe (line A2)",
-    "locationUrl": "https://goo.gl/maps/DZCEALh7NrqKHACT6",
-    "startTime": "14:00",
-    "cost": "5€",
-    "description": "HHHello Halfminds, Did you know that Friedrichsgabe was founded in 1820 by Danish King Frederik VI? Yes, the Danes are simply everywhere!! Let's see if we spot one on our next trail :",
-    "sourceUrl": "https://hamburghash.blogspot.com/2021/10/hamburg-h7-hash-run-597-in.html"
-  },
-  {
-    "date": "2021-11-21",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 598,
-    "hares": "Groin Biter",
-    "location": "Outside U-bahn station Langenhorn Nord (line U1), by the Croquehütte",
-    "locationUrl": "https://maps.app.goo.gl/LRdUQrXCTKPkWT4m7",
-    "startTime": "14:00",
-    "cost": "5€",
-    "description": "HHHello Halfminds, For our next run, we hope that the liquid element will flow from the bottle down our throats rather than pour from the sky down over our heads... (Who said head?)",
-    "sourceUrl": "https://hamburghash.blogspot.com/2021/11/hamburg-h7-hash-run-588-in-langenhorn.html"
-  },
-  {
-    "date": "2021-12-05",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 599,
-    "hares": "Wouldn't Chew",
-    "location": "Outside S-bahn station Blankenese (S1/S11) on Erik-Blumenfeld-Platz",
-    "locationUrl": "https://goo.gl/maps/3b4jDAM8HQcZSPbN8",
-    "startTime": "14:00",
-    "cost": "5€\nClosest parking is the Tiefgarage Blankenese P1",
-    "description": "HHHello Halfminds, Prof. Dr. Wouldn’t Chew Yes I Would invites you for a trip to the Riviera! Oh no, that’s too difficult with covid, so instead it will have to be Blankenese. The hare is somewhat half minded, but did mention there might be Belgian beer. And possibly some stairs. The hare has not checked the Weihnachtsmarkt Blankenese out yet, but according to their website there is a reduced but supposedly still ongoing Christmas market for the on-after. This may mean you cannot buy Christma...",
-    "sourceUrl": "https://hamburghash.blogspot.com/2021/11/hamburg-h7-run-599-blank-it-with-chew.html"
-  },
-  {
-    "date": "2021-12-19",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 600,
-    "hares": "Santa's little helpers (Booze, Squashed flat, Longshanks)",
-    "location": "In front of the Youth Hostel, U-Bahn Landungsbrücken",
-    "locationUrl": "https://www.google.com/maps/place/53°32'49.8\"N+9°58'19.4\"E/@53.5471708,9.9715075,151m",
-    "startTime": "14:00",
-    "cost": "10€",
-    "description": "HHHello Halfminds, This year's Christmasrun promises to be a very sexy one! Hamburg H7 is celebrating it's 600th run! (Get a life!). The hares spoke of not less than 2 Glühwein stops... they didn't mention if they intended to have them during the run, or while laying it though... And of course there will be some Hashmas Carrolls : it might be the right time to learn a few like this one.",
-    "sourceUrl": "https://hamburghash.blogspot.com/2021/12/h7-run-600-s1x-oh-oh-sunday-19th.html"
-  },
-  {
-    "date": "2022-01-02",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 601,
-    "hares": "Knickerless",
-    "location": "in front of Gaststätte Kult, Corner Krüsistraße/Hufnerstrasse, U-Bahn/S-Bahn Barmek exit Krüsistraße",
-    "locationUrl": "https://goo.gl/maps/R6YKhbiHk1QwgaBeA",
-    "startTime": "14:00",
-    "cost": "5€ And dates for your diaries: -Sunday January 16th 2022 - 2pm : run hared by Pant in the Country -Sunday February 6th 2022 - 2pm : HARES NEEDED -Sunday February 20th 2022 - 2pm : run hared by Eye of the Tiger and All love some Gangbang in HH-Harburg -Sunday March 6th 2022 - 2pm : run hared by the killer harriettes: Cruiser + I AM SCIENCE!! + Just Simone in Kiel -Sunday March 20th 2022 - 2pm : HARES NEEDED - Sunday April 3rd 2022 - 2pm :run hared by Just Oliver and Longshanks-",
-    "description": "HHHi Halfminds, Hope Santa was good to you boys and girls... Although \"it's just a question of perspective\" would say Longshanks in one of his wise moments... (see event picture on Facebook). I'm so looking forward to 2022 --> twenty two two... tutu... get it?! a whole year of tutus' run ahead!!!! (add hysterical jumping up and down here). Anyway, for those that might be sober enough after whatever New Year's Eve party you might attend, here the details of our next run:",
-    "sourceUrl": "https://hamburghash.blogspot.com/2022/04/hamburg-h7-new-years-run-601-jan-2nd.html"
-  },
-  {
-    "date": "2022-01-16",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 602,
-    "hares": "Pant in the Country + Highfly + Smelly Cat",
-    "location": "at U-Bahn/S-Bahn Ohlsdorf",
-    "locationUrl": "https://goo.gl/maps/HeLvS9LfUtBGTgZF9",
-    "startTime": "14:00",
-    "cost": "5€ And dates for your diaries: -Sunday February 6th 2022 - 2pm : HARES NEEDED -Sunday February 20th 2022 - 2pm : run hared by Eye of the Tiger and All love some Gangbang in HH-Harburg -Sunday March 6th 2022 - 2pm : run hared by the killer harriettes: Cruiser + I AM SCIENCE!! + Just Simone in Kiel -Sunday March 20th 2022 - 2pm : HARES NEEDED - Sunday April 3rd 2022 - 2pm :run hared by Just Oliver and Longshanks-",
-    "description": "HHHi Halfminds, Hashy New Beer to all those who missed the New Year's run! Does everybody have their New Year's resolutions yet? Hope you guys are in shape, because our hares' resolution is to run a full marathon in September 2022... so they want to start training now!! (I know... serious racism going on there, right??) Here the details of our next run:",
-    "sourceUrl": "https://hamburghash.blogspot.com/2022/01/hamburg-h7-run-602-jan-16th-2022.html"
-  },
-  {
-    "date": "2022-02-06",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 603,
-    "hares": "Wouldn't Chew",
-    "location": "at S-Bahn Klein Flottbek",
-    "locationUrl": "https://goo.gl/maps/4MvPQpKdA1a8vMiB6",
-    "startTime": "14:00",
-    "cost": "5€ And dates for your diaries: -Sunday February 20th 2022 - 2pm : run hared by Eye of the Tiger and All love some Gangbang in HH-Harburg -Sunday March 6th 2022 - 2pm : run hared by the killer harriettes: Cruiser + I AM SCIENCE!! + Just Simone in Kiel -Sunday March 20th 2022 - 2pm : St Patrick's run hared by Knickerless - Sunday April 3rd 2022 - 2pm :run hared by Just Oliver and Longshanks-",
-    "description": "HHHi Halfminds, After last run requiring 5 hares, with at least one of them being something in between a bitch and a pussy (true fact!), let's stop the nonsense for a while! Quality instead of quantity, that's what you are getting at our next trail! Here the details of next run:",
-    "sourceUrl": "https://hamburghash.blogspot.com/2022/01/hamburg-h7-run-603-feb-6th-2022-klein.html"
-  },
-  {
-    "date": "2022-02-20",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 604,
-    "hares": "Olaf some Gangbang+ Eye of the Tiger",
-    "location": "at Harburg Train station Exit to \"Parkhaus\"at Neuländer Platz",
-    "locationUrl": "https://goo.gl/maps/1FdtwL4MgxBbimuL9",
-    "startTime": "14:00",
-    "cost": "5€ A to A run Bag drop car available",
-    "description": "HHHi Halfminds, Next weekend, exceptionnaly for you, a run by the only H8 in the world!! Try and count it yourself if you don't believe me : Hansestadt Hamburg Harburg Hash House Harriers Hummel Hummel ! At last run, we were promised that the trail would be set by a blind dog... what could possibly go wrong??? Here the details of next run:",
-    "sourceUrl": "https://hamburghash.blogspot.com/2022/02/hamburg-h7-run-604-feb-20th-2022-harburg.html"
-  },
-  {
-    "date": "2022-03-06",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 605,
-    "hares": "I AM SIENCE!! + Cruiser",
-    "location": "Arkonastrasse 1, 24106 Kiel - Maritimes Viertel, Kultur am Kanal",
-    "locationUrl": "https://goo.gl/maps/brug6KKszsgrSW3L6",
-    "startTime": "14:00",
-    "cost": "5€ A to A run Bag drop and WC available at the start + Museum visit included! How to get there : From Kiel Station take one of the busses suggested in map attached. Party train from Hamburg\n: For those too stupid to read the documentation or just wanting to\ntravel with loudly singing fellow hashers, here is the plan: We are taking the 12:08 train from Hamburg Hauptbahnhof (don't miss it!), then the bus together. Tickets : we can use the Schleswig-Holstein Gruppen ticket.\nIf you want to be on those tickets, let me know before Friday, per mail\nor on the H7 Drinking practice WhatsApp group. (no, this is not gonna\nbe a big f#ck up at all...) And dates for your diaries: -Sunday March 20th 2022 - 2pm : St Patrick's run hared by Knickerless -",
-    "description": "HHHi Halfminds, Next run is gonna be a killer! hahaha... well, the joke works for a French person, but not sure it's translates well into other languages... at least I'm happy about it! We will be on the road again Sunday, traveling north to Kiel, where a very cultural and maritime trail has been plotted by our local harriettes. Another occasion to show up in your best seamen or sailor costume! Here the details :",
-    "sourceUrl": "https://hamburghash.blogspot.com/2022/02/hamburg-h7-run-605-march-6th-2022-in.html"
-  },
-  {
-    "date": "2022-03-20",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 606,
-    "hares": "Knickerless",
-    "location": "outside U-Bahn Hammerkirche (Line 2 or 4)",
-    "locationUrl": "https://goo.gl/maps/NX34SzwRDCAmcC6d8",
-    "startTime": "14:00",
-    "cost": "5€ A to A run",
-    "description": "HHHi Halfminds, Next Sunday might be a very wet one... our hare has a reputation of setting his best trails under the rain... But this time he can blame the weather on the Irish, as we will be celabrating St Patrick's day! So wear green or your best Irish costume! Here the details :",
-    "sourceUrl": "https://hamburghash.blogspot.com/2022/03/hamburg-h7-run-606-march-20th-2022-st.html"
-  },
-  {
-    "date": "2022-04-03",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 607,
-    "hares": "Hidden Asset",
-    "location": "in front of St Elisabeth Church, corner Oberstrasse/Hochallee Oberstrasse 67",
-    "locationUrl": "https://goo.gl/maps/D78HKURFVm1EybvM9",
-    "startTime": "14:00",
-    "cost": "5€ A to A run, bagdrop available",
-    "description": "HHHi Halfminds, So, big changes... you were expecting a nice run on the waterside in Övelgönne next Sunday?? F#ck that! You are instead gonna gather in front of a Church in Harvestehude! Blame Corona for it (yes, the virus or the beer, as you please). Here the details :",
-    "sourceUrl": "https://hamburghash.blogspot.com/2022/03/hamburg-h7-run-607-april-3rd-2022.html"
-  },
-  {
-    "date": "2022-04-17",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 608,
-    "hares": "Bundeslicker",
-    "location": "S-Bahn Station Neuwiedenthal (S-Bahn line S3 or S31)",
-    "locationUrl": "https://goo.gl/maps/3ZitJecQZfEDXMFn7",
-    "startTime": "14:00",
-    "cost": "5€ Bagdrop available Dates for your diaries: -Sunday May 1st 2022 - 2pm : run hared by Bull's Eye and Skalatonbugger -",
-    "description": "HHHi Halfminds, Are you ready for the Easter eggstravaganza? Our hare, (or is it an Easter bunny ?? ) has prepapared an eggscellent trail, with eggstremely well thought loops, checks and other eggsquisite tricks! Ok, enough bad egg's jokes, here the details :",
-    "sourceUrl": "https://hamburghash.blogspot.com/2022/04/hamburg-h7-run-608-april-17th-2022.html"
-  },
-  {
-    "date": "2022-05-01",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 609,
-    "hares": "Bull's Eye",
-    "location": "in front of Christuskirche Church, just outside U-Bahn Station Wandsbeck Markt (U-Bahn line U1)",
-    "locationUrl": "https://goo.gl/maps/E7bA4yiQbypTTAWQ6",
-    "startTime": "14:00",
-    "cost": "5€ Bagdrop available Dates for your diaries: -SATURDAY May 14th 2022 - South of the Elbe run by Spermdonor and Ale Zumba.",
-    "description": "HHHi Halfminds, Beware F-Hash-ion week is on again! Our guest co-hare for next run has a reputation of dressing up with the fanciest Hash-Tshirts ever (sic!), so if you want to be up to the standard, and make sure he feels welcome, wear your oldest, ugliest T-shirt next week. Yes, it's almost gonna be sexy... just like the number of this run... On a more serious note, we'll need Hares for June, July, August! Please volunteer! For the newbies, we are happy to help you and co-hare with you. Her...",
-    "sourceUrl": "https://hamburghash.blogspot.com/2022/04/hamburg-h7-run-609-may-1st-2022.html"
-  },
-  {
-    "date": "2022-05-14",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 610,
-    "hares": "Spermdonor + Ale Zumba",
-    "location": "at Lauenburg/Elbe train station",
-    "locationUrl": "https://goo.gl/maps/NEZhoFrDkzfkXsTm7",
-    "startTime": "14:00",
-    "cost": "5€ Bagdrop available A to B run (B 15 min walk from A) How to get there : Check it out on your little travel Apps. You can get there with an HVV ticket, zone A-E (or get the 9-Uhr day ticket). Here the latest connexion you should take, if departing from Hauptbahnhof : 12:57 RE train to Lueneburg (direction Hanover), then change there to get the 13:45 train to Lauenburg (direction Luebeck). Dates for your diaries: -Sunday June 5th 2022 - 2pm : run hared by Knickerless -",
-    "description": "HHHi Halfminds, Here comes another SOTE (South of the Elbe) run... but will it really start south of the river? It could also be a fantastic opportunity to run in 3 different Bundeslaender in 1 Hashtrail... but... should you trust the hares for that, when they are already trying to confuse the pack by setting a run on a Saturday!!??!! Still, here the details for next run:",
-    "sourceUrl": "https://hamburghash.blogspot.com/2022/05/hamburg-h7-run-610-saturday-may-14th.html"
-  },
-  {
-    "date": "2022-06-05",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 611,
-    "hares": "Knickerless and Topless Padler",
-    "location": "at Bergedorf train station (S-Bahn train S21 or RE1 regional train)",
-    "locationUrl": "https://goo.gl/maps/rTcVsKaYCUA9soKw7",
-    "startTime": "14:00",
-    "cost": "5€ Bagdrop available Dates for your diaries: -SATURDAY June 18th 2022 - 2pm : Kieler Woche Hash run hared by the Killer harriettes -",
-    "description": "HHHi Halfminds, It's so hot right now in Hamburg, that our hares have found the perfect theme for next hashrun : naked!! Wait? What? no? Well, when one has no knickers and the other one is topless... what is left then??? And wondering if FKK is gonna show up for this one... ;-) Still, here the details for next run:",
-    "sourceUrl": "https://hamburghash.blogspot.com/2022/05/hamburg-h7-run-611-sunday-june-5th-2022.html"
-  },
-  {
-    "date": "2022-06-18",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 612,
-    "hares": "Cruiser, I AM SCIENCE!! and Just Simone",
-    "location": "at Kiel train station",
-    "locationUrl": "https://goo.gl/maps/dhMX45CT1HQkrp7Z7",
-    "startTime": "14:00",
-    "cost": "5€ Bagdrop available at the station (lockers)",
-    "description": "HHHi Halfminds, Saturday is a hashing day! That's the new trend for Hamburg Hash it seems. We'll offer not one but 2 runs on Saturdays until the end of this month! One by our lovely killer harriettes to celebrate the start of the Kielerwoche (and to use that damn 9€ Ticket!) and the second one to welcome a mystery guest of honor. Stay tuned! Details for next run:",
-    "sourceUrl": "https://hamburghash.blogspot.com/2022/06/hamburg-h7-run-612-saturday-june-18th.html"
-  },
-  {
-    "date": "2022-07-03",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 613,
-    "hares": "Hidden Asset",
-    "location": "at Borgweg U-Bahn Station (U3)",
-    "locationUrl": "https://goo.gl/maps/T9DUWTonuP6D2TGX7",
-    "startTime": "14:00",
-    "cost": "5€",
-    "description": "HHHi Halfminds, Let's say that Bundeslicker's plan to hare a Canoe trail went by the board. But I hope to offer you other possibilities to get wet next Sunday, with a more classic trail around Stadtpark and endless beers at the on-after by Landhaus Walter. Back to basics! Details for next run:",
-    "sourceUrl": "https://hamburghash.blogspot.com/2022/06/hamburg-h7-run-613-saturday-june-25th.html"
-  },
-  {
-    "date": "2022-07-17",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 614,
-    "hares": "Booze + Squashed Flat",
-    "location": "at Meschensee AKN Station (change from U1 in Norderstedt)",
-    "locationUrl": "https://goo.gl/maps/LqL4SWmFbw4wQ2dw6",
-    "startTime": "14:00",
-    "cost": "5€ Bagdrop available Dates for your diaries: -Saturday July 23rd 2022 - 2pm : run hared by UB69 in Mexico city -Sunday August 7th 2022 - 2pm : run hared by BullsEye - Location TBA -Sunday August 21st - 2pm : Canoe run hared by Bundeslicker - Wilhelmsburg - Exact location TBA -Sunday September 4th - 2pm :\nhares needed -Please volunteer\n\n-Sunday September 18th - 2pm :\nhares needed -Please volunteer",
-    "description": "HHHi Halfminds, Don't let the name of the place fool you, there is no lake or sea at Meeschensee! You are welcome to run in your swimsuit or bikini though... A beautiful forest and a sneaky trail awaits you at this now traditional H7 run. Here the details for next hash trail:",
-    "sourceUrl": "https://hamburghash.blogspot.com/2022/07/hamburg-h7-run-614-sunday-july-17th.html"
-  },
-  {
-    "date": "2022-08-07",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 615,
-    "hares": "Bull's Eye",
-    "location": "at Mittlerer Landweg S-Bahn station ( S2 und S21)",
-    "locationUrl": "https://goo.gl/maps/KcWvw2RjDXYHFgFR9",
-    "startTime": "14:00",
-    "cost": "5€ Bring your swimgear! PLEASE LET THE HARE KNOW IF YOU INTEND TO JOIN (on Facebook, per email, per pigeon... ) If you don't, you may not get a beer at the beerstop (serious threat, right??) Dates for your diaries: -Sunday August 21st - 2pm : Canoe run hared by Bundeslicker - Wilhelmsburg - Exact location TBA -Sunday September 4th - 2pm : HARES NEEDED -Please volunteer -Sunday September 18th - 2pm : HARES NEEDED -Please volunteer",
-    "description": "HHHi Halfminds, It seems not enough hashers went overboard last Saturday during the \"Paddle party\" on the Alster, although there was plenty alcohol involved I've heard... Anyway, our hare for next run intends to correct this, by setting a proper swimmstop on trail and accurately test if hashers need beer to float or not... Here the details for next run:",
-    "sourceUrl": "https://hamburghash.blogspot.com/2022/07/hamburg-h7-run-615-sunday-august-7th.html"
-  },
-  {
-    "date": "2022-08-21",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 616,
-    "hares": "Bundeslicker",
-    "location": "Biergarten \"Zum Anleger\" Am Ernst-August-Kanal in Hamburg-Wilhelmsburg, Vogelhüttendeich 123, 21107 Hamburg",
-    "locationUrl": "https://maps.app.goo.gl/XLoav9KupoSAZ1NLA",
-    "startTime": "14:00",
-    "cost": "15€ for the Canoe rental + Pay as you go Beerstop and On Inn In order to reserve enough canoes, PLEASE LET US KNOW IF YOU'LL BE JOINING before Tuesday August 16th If not, you are still welcome to swim along... Dates for your diaries: -Sunday September 4th - 2pm : HARES NEEDED -Please volunteer... no hares no run... -Sunday September 18th - 2pm : HARES NEEDED -Please volunteer... no hares no run... -Sunday October 2nd - 2pm : HARES NEEDED -Please volunteer... no hares no run... -Sunday October 16th - 2pm : HARES NEEDED -Please volunteer... no hares no run...",
-    "description": "HHHi Halfminds, WE NEED HARES!! After that subtle subliminal message, back to the ground, or, more accurately back to the water. Yes, while France is burning and drying out to the last drop, it seems the Hamburg Hash finds it funny to get wet again and again. Bundeslicker is disorganizing a trail on the canals of Wilhelmsburg. Yes, holy harriette laying trail on water... Let's see how many mobilephones will die this time (you guys should know that technology on trail is bad...) Anyway, here t...",
-    "sourceUrl": "https://hamburghash.blogspot.com/2022/08/hamburg-h7-run-616-sunday-august-21st.html"
-  },
-  {
-    "date": "2022-09-04",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 617,
-    "hares": "Horse and Just Christian",
-    "location": "Rathaus Altona (Too many Public transport options to list them all here. Do your own research)",
-    "locationUrl": "https://goo.gl/maps/UyPk1sNz2fRUSrAa8",
-    "startTime": "14:00",
-    "cost": "5€ Dates for your diaries: -Sunday September 18th - 2pm : HARES NEEDED -Please volunteer... no hares no run... -Sunday October 2nd - 2pm : HARES NEEDED -Please volunteer... no hares no run... -Sunday October 16th - 2pm : HARES NEEDED -Please volunteer... no hares no run...",
-    "description": "HHHi Halfminds, Our hares for next run seem to have something to prove : after being recently defeated on the Alster and throw into the water by a danish harriette, they want to reconquer their lost pride and invade Danemark! Like Joan of Arc, a Virgin (hare) riding a Horse! [Insert epic music here] Maybe someone should tell them, that Altona doesn't belong to Danemark anymore since 1864... And here the details for next run:",
-    "sourceUrl": "https://hamburghash.blogspot.com/2022/08/hamburg-h7-run-617-sunday-september-4th.html"
-  },
-  {
-    "date": "2022-09-18",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 618,
-    "hares": "Topless Paddler",
-    "location": "Gustav-Falke strasse 8 - Schlump U-Bahn Schlump (Line U2 or U3)",
-    "locationUrl": "https://goo.gl/maps/XdXrj2PFTLB8h92k9",
-    "startTime": "14:00",
-    "cost": "5€ Dates for your diaries: -Sunday October 2nd - 2pm : HARES NEEDED -Please volunteer... no hares no run... -Sunday October 16th - 2pm : HARES NEEDED -Please volunteer... no hares no run... -Saturday October 22nd / Sunday October 23rd : Oktoberfest by Flensburg H3 -Sunday November 6th - 2pm : Maybe Der Slurpy in Bergedorf? TBC -Sunday November 20th - 2pm : Maybe UB69 and WD40 in Bremen? TBC -Sunday December 4th - 2pm :\nHARES NEEDED -Please volunteer... no hares no run... -SATURDAY December 17th - 1pm : Christmas run + dinner hared by Booze and Squashed Flat -Sunday December 18th... Hangover run anyone?",
-    "description": "HHHi Halfminds, Our lovely hare is pretty unlucky right now in a search for an internship (Anyone looking for a trainee/slave in Digital transformation management??) ... but that's good luck for us, as she has plenty time to scout, organise and lay trail!!! Here the details for next run:",
-    "sourceUrl": "https://hamburghash.blogspot.com/2022/09/hamburg-h7-run-618-sunday-september.html"
-  },
-  {
-    "date": "2022-10-02",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 619,
-    "hares": "Knickerless",
-    "location": "U-Bahn station Langenhorn Nord (Line U1)",
-    "locationUrl": "https://goo.gl/maps/wZ2KzAGEHYEHJiUz7",
-    "startTime": "14:00",
-    "cost": "5€ Dates for your diaries: -Sunday October 16th - 2pm : run hared by Bundeslicker - Location TBA -Saturday October 22nd / Sunday October 23rd : Oktoberfest by Flensburg H3 -Sunday November 6th - 2pm : Maybe Der Slurpy in Bergedorf- TBC -Sunday November 20th - 2pm : Maybe UB69 and WD40 in Bremen- TBC -Sunday December 4th - 2pm : HARES NEEDED -Please volunteer... no hares no run... -SATURDAY December 17th - 1pm : Christmas run + dinner hared by Booze and Squashed Flat -Sunday December 18th... Hangover run anyone? Volunteers welcome -Sunday January 1st 2023 - Happy hangover run : HARES NEEDED -Please volunteer...",
-    "description": "HHHi Halfmind, I could make jokes about size, lenght or how long the trail is gonna be next week... but I'll spare you those, and will go straight to the point : there will be beer! Here the details for next run:",
-    "sourceUrl": "https://hamburghash.blogspot.com/2022/09/hamburg-h7-run-619-sunday-october-2nd.html"
-  },
-  {
-    "date": "2022-10-16",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 620,
-    "hares": "Bundeslicker",
-    "location": "Spielplatz Stubbenhuk, Stubbenhuk 7 near U-Bahn station Baumwall (Line U3)",
-    "locationUrl": "https://goo.gl/maps/NdkKFdKhzXk3aATR7",
-    "startTime": "14:00",
-    "cost": "5€",
-    "description": "HHHi Halfminds, It's never too late to have a happy childhood! That's why our hare on Sunday has set the meeting point on a local playground. So swing by! Here the details for next run:",
-    "sourceUrl": "https://hamburghash.blogspot.com/2022/10/hamburg-h7-run-620-sunday-october-16th.html"
-  },
-  {
-    "date": "2022-11-06",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 621,
-    "hares": "Der Slurpy",
-    "location": "The carpark of the Observatory in Bergedorf (Sternwarte Bergedorf), Gojenbergsweg 112, 21029 Hamburg",
-    "locationUrl": "https://goo.gl/maps/8HEpT7YWAPLgmiXu5",
-    "startTime": "14:00",
-    "cost": "5€",
-    "description": "HHHi Halfminds, How far is it to the moon? Is there beer over there? No idea, but our hare next week might know. In any case he promised us a trail full of nature, stars, and shiggy! And if you survive that, there will also be a private tour of the Bergedorf observatory, where you might see the moon... (whose i don't know though...) Here the details for next run:",
-    "sourceUrl": "https://hamburghash.blogspot.com/2022/10/hamburg-h7-run-621-sunday-november-6th.html"
-  },
-  {
-    "date": "2022-11-20",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 622,
-    "hares": "WD40 & UB69",
-    "location": "Martinianleger (river Weser next to Bremen's town center)",
-    "startTime": "14:00",
-    "cost": "5€",
-    "description": "HHHi Halfminds, What do you get if you add 622 + 40 + 69 ? No, it's not the winning number for the lottery or an exotic sex position. It's just our next hashtrail in Bremen! Here the details for next run:",
-    "sourceUrl": "https://hamburghash.blogspot.com/2022/11/hamburg-h7-run-622-sunday-november-20th.html"
-  },
-  {
-    "date": "2022-12-04",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 623,
-    "hares": "Battery Operating Boyfriend and his son",
-    "location": "Hagendeel U-Bahn station (line U2)",
-    "locationUrl": "https://goo.gl/maps/T2VTDcWAiCSLbtUJ9",
-    "startTime": "14:00",
-    "cost": "5€ ************************************************************* H7 CHRISTMAS Run : On Saturday 17th December, starting at 1pm at Hotel Hafen (Landungsbruecken) followed by a dinner at Blocksbrau Brewery at 6pm. (Set food formula). Spots are limited, so register now here :",
-    "description": "HHHi Halfminds, Hashers are known to be big kids. Well our next trail is gonna be set by an actual kid! Child labour?? Sure, but monitored by the proud father. (+ read a bit further down to register to Christmas run) Here the details for next run:",
-    "sourceUrl": "https://hamburghash.blogspot.com/2022/11/hamburg-h7-run-623-sunday-december-4th.html"
-  },
-  {
-    "date": "2022-12-17",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 624,
-    "hares": "Booze Attack, Massive Shanks, Squashed Commer, Long Late and Flat",
-    "location": "In front of Hotel Hafen, Seewartenstraße 9 5 minutes walk from U-Bahn station Landungsbrücken",
-    "locationUrl": "https://goo.gl/maps/c7XQsehxdDCU4xCy9",
-    "startTime": "13:00",
-    "cost": "10€\nThe run will be followed by a dinner at Blocksbrau Brewery at 6pm. (Set food formula). Spots are limited, so register now here :",
-    "description": "HHHi Halfminds, Have you written your letter to Santa yet? If not, don't bother, hashers are usually too naughty to get anything nice... What??! No, don't deny it, I already have a list of down-downs as long as a ballbreaker trail ready for next run. Here the details of the festivities, and please register if you intend to be there :",
-    "sourceUrl": "https://hamburghash.blogspot.com/2022/12/hamburg-h7-run-624-saturday-december.html"
-  },
-  {
-    "date": "2023-01-15",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 625,
-    "hares": "Professor Doctor Wouldn’t Chew",
-    "location": "In front of the Museum der Arbeit : Wiesendamm 3, 22305 Hamburg U-Bahn/S-Bahn Barmbek",
-    "locationUrl": "https://goo.gl/maps/iNAzgaXPXS64hZyL7",
-    "startTime": "13:00",
-    "cost": "8,50€ for the museum ticket - Then pay for your own drinks at On-After",
-    "description": "HHHi Halfminds, And Hashy New Beer! We have all been there, some serious hashing has created Black Holes in our memory, or even worse: Dark Matter in our souls! They’re definitely a large part of hashing, and this has inspired Wouldn’t Chew to tell her minions to organise a special exhibition on Black Holes, Antimatter (that’s when the R.A. tries to make it look like what they say matters) and the Universe as a whole. This exhibition in the Hamburger Museum der Arbeit is intended for all ages...",
-    "sourceUrl": "https://hamburghash.blogspot.com/2023/01/hamburg-h7-run-625-sunday-january-15th.html"
-  },
-  {
-    "date": "2023-02-04",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 626,
-    "hares": "Topless Padler",
-    "location": "Outside of S-Bahn Klein Flottbek",
-    "locationUrl": "https://goo.gl/maps/anS31JSQh55RLcx48",
-    "startTime": "14:00",
-    "cost": "5€",
-    "description": "HHHi Halfminds, Freeeeeee!!! After months and months of covering our faces in public transport, we will be officialy able to take our masks off in Hamburg HVV from February 1st. !! To celebrate this, will our hare take her top off as well??? Come and find out at the next hash!! (Please note : it takes place on a SATURDAY) Here the details:",
-    "sourceUrl": "https://hamburghash.blogspot.com/2023/01/hamburg-h7-run-626-saturday-february.html"
-  },
-  {
-    "date": "2023-02-19",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 627,
-    "hares": "Bundeslicker + Horse",
-    "location": "Outside of S-Bahn Stellingen",
-    "locationUrl": "https://goo.gl/maps/WWoV9do3ZzCc7PjR8",
-    "startTime": "11:00",
-    "cost": "5€",
-    "description": "HHHi Halfminds, Balls, balls, balls! Yes, some of us love them. Small, big or oval-shaped... they are addicted to balls! That's why our hares next week have tried to combine the run and football. We will start trail at 11am, and then afterwards at 1pm go and watch the Hamburg HSV vs Bielefeld Football game at the stadium. (You will have to get your own tickets for that - read instructions below) Let's see how this is going to turn out... And before we get to the details, a short subtle messag...",
-    "sourceUrl": "https://hamburghash.blogspot.com/2023/02/hamburg-h7-run-627-sunday-february-19th.html"
-  },
-  {
-    "date": "2023-03-05",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 628,
-    "hares": "Bull´s Eye",
-    "location": "Outside of S-Bahn Wilhelmsburg",
-    "locationUrl": "https://goo.gl/maps/131iY8ruZ1utaLLp7",
-    "startTime": "14:00",
-    "cost": "5€ Dates for your diaries: -Sunday March 19th 2023 - St Patrick´s run, hared by Hidden Asset - Meeting Point TBA -Sunday April 2nd 2023 - HARES NEEDED -Please volunteer... -Sunday April 16th 2023 - HARES NEEDED -Please volunteer... -Saturday 6th - Sunday 7th May 2023 - Come and run in Flensburg with AH3 -Sunday May 21st 2023 - HARES NEEDED -Please volunteer... -Friday 2nd to Sunday 4th June 2023 - H7 30th anniversary weekend in Bremen - register here ! -Sunday June 18th 2023 - HARES NEEDED -Please volunteer...",
-    "description": "HHHi Halfminds, The 7th Wilhelmsburg Winterlaufseries will take place on Sunday March 5th, starting at 9 am, you´ll be able to choose a running distance from 5km to 20km... Ok, enough bullshit and serious running... we all know, hashers will be too hangover on a Sunday morning to take part to this very racist event. But to confuse everybody, our hare next week will lay a trail from the exact same starting spot, just a few hours later. That´s gonna be interesting! Here the details:",
-    "sourceUrl": "https://hamburghash.blogspot.com/2023/02/hamburg-h7-run-628-sunday-march-5th.html"
-  },
-  {
-    "date": "2023-03-19",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 629,
-    "hares": "Hidden Asset",
-    "location": "Outside of the Honorary Consulate of Ireland, Böttgerstraße 9, 20148 Hamburg",
-    "locationUrl": "https://goo.gl/maps/bY1RYNbxcxToS6787",
-    "startTime": "14:00",
-    "cost": "5€",
-    "description": "HHHi Halfminds, This is the time of the year, when everybody is happy and everything turns green again! No!... I don´t mean spring... St Patrick´s Day of course!! Even if your hare has never been to Ireland (so says the legend...), we´ll try to find the treasure of the Leprechauns, gold hidden at the feet of a rainbow, or more realisticaly, find the path to that famous dark brew... Here the details:",
-    "sourceUrl": "https://hamburghash.blogspot.com/2023/03/hamburg-h7-run-629-sunday-march-19th.html"
-  },
-  {
-    "date": "2023-04-02",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 630,
-    "hares": "Wouldn´t Chew",
-    "location": "Outside of S-Bahn Elbgaustrasse (S-Bahn 3 and 21)",
-    "locationUrl": "https://goo.gl/maps/CcKBiMyyexXfeVfb7",
-    "startTime": "14:00",
-    "cost": "5€ Dates for your diaries: -Sunday April 16th 2023 - Run in Poppenbüttel - 2pm - hared by Knickerless -Saturday 6th - Sunday 7th May 2023 - Come and run in Flensburg with AH3 -Sunday May 21st 2023 - Run hared by Pant in the Country - location TBA -Friday 2nd to Sunday 4th June 2023 - H7 30th anniversary weekend in Bremen - register here ! -Sunday June 18th 2023 - Run hared by Licken sie Hole - location TBA -Sunday July 2nd 2023 - Hare needed - Please volunteer -Sunday July 16th 2023 - Hare needed - Please volunteer",
-    "description": "HHHi Halfminds, Whhaaaaat? You are not signed up for H7 30th birthdayParty yet?? Do so quickly, and join us in Bremen June 2-4 2023 : https://hamburghash.blogspot.com/p/hamburg-h7-30th-anniversary-june-2nd.html Talking about foolishness, our next trail will take place the day after April 1st, and we will celebrate dicks...! Yes, April 2nd is Saint Richard´s day... Here the details for next run:",
-    "sourceUrl": "https://hamburghash.blogspot.com/2023/03/hamburg-h7-run-630-sunday-april-2nd.html"
-  },
-  {
-    "date": "2023-04-16",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 631,
-    "hares": "Knickerless",
-    "location": "Outside of S-Bahn Poppenbüttel (S-Bahn 1)",
-    "locationUrl": "https://goo.gl/maps/98HdkNgM3cNykLZQ8",
-    "startTime": "14:00",
-    "cost": "5€\n\nDates for your diaries:\n-Friday 5th - Sunday 7th May 2023 - Come and run in Flensburg with AH3 -Sunday May 21st 2023 - Run hared by Pant in the Country - location TBA -Friday 2nd to Sunday 4th June 2023 - H7 30th anniversary weekend in Bremen - register here ! -Sunday June 18th 2023 - Run hared by Licken sie Hole - location TBA -Sunday July 2nd 2023 - Hare needed - Please volunteer -Sunday July 16th 2023 - Hare needed - Please volunteer",
-    "description": "HHHi Halfminds, According to the tradition, next trail is supposed to be a very wet one, as our hare is renowned to (not) control the rain ... Anyway, let's get straight to the point (or is that shortcutting?). Here the details for next run:",
-    "sourceUrl": "https://hamburghash.blogspot.com/2023/04/hamburg-h7-run-631-sunday-april-16th.html"
-  },
-  {
-    "date": "2023-05-21",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 632,
-    "hares": "Pant in the Country, Bundeslicker, Smelly cat",
-    "location": "Outside of U-Bahn Hudtwalckerstrasse (U-Bahn line 1)",
-    "locationUrl": "https://goo.gl/maps/qzeaXQuseeckuz7a7?coh=178572&entry=tt",
-    "startTime": "14:00",
-    "cost": "5€\n\n************************************************************* Dates for your diaries: -Friday 2nd June 2023 - 7pm - Pubcrawl hared by Bundeslicker - in Bremen - Schüttinger Gastbrauerei\n-Saturday 3rd June 2023 - 1pm - Run hared by UB69 and WD40 - in Bremen - register here ! -Sunday 4th June 2023 - 11am - Hangover run hared by Pant in the Country - in Bremen -Sunday June 18th 2023 - run hared by Licken Sie Hole - Location : Tonndorf Station -Sunday July 2nd 2023 - The disappeared Railway Station run hared by Bull's Eye - Location : Aumühle S-Bahn Station -Sunday July 16th 2023 - run hared by Longshanks and Booze - Location : Meeschensee (TBC) -Sunday August 6th 2023 -\nHare needed - Please volunteer\n\n-Sunday August 20th 2023 -\nHare needed - Please volunteer\n\n-Sunday September 3rd 2023 - run hared by Longshanks - Special distillery tour - Location : S-Bahn Horneburg",
-    "description": "HHHi Halfminds, The weather is getting hotter and hotter! And what a coincidence, one of our hare next Sunday is also a hot bitch... Come and check it out! Here the details for next run:",
-    "sourceUrl": "https://hamburghash.blogspot.com/2023/05/hamburg-h7-run-632-sunday-may-21st-2023.html"
-  },
-  {
-    "date": "2023-06-03",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 634,
-    "hares": "WD40 and UB69",
-    "location": "in front of MS Aventura - Schlachte Anleger 5 - Bremen",
-    "locationUrl": "https://goo.gl/maps/CkSc4EizSopCfihh9",
-    "startTime": "13:00",
-    "cost": "15€ Please let us know if you are comming :",
-    "description": "HHHi Halfminds, In case you missed it, Hamburg Hash is turning 30! We are celebrating this with a full weekend of hashing in Bremen, including a pubcrawl on Friday night hared by Bundeslicker, a very nautical party on Saturday night and a hangover run on Sunday morning hared by Pant in the Country. But the main event will of course be the Saturday trail! Here are the details :",
-    "sourceUrl": "https://hamburghash.blogspot.com/2023/05/hamburg-h7-30th-birthday-run-saturday.html"
-  },
-  {
-    "date": "2023-06-18",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 636,
-    "hares": "Licken Sie Hole",
-    "location": "Outside of station Tonndorf",
-    "locationUrl": "https://goo.gl/maps/re7whjhWJXgJmENX6",
-    "startTime": "14:00",
-    "cost": "5€\n\n\nDates for your diaries: -Sunday July 2nd 2023 - The disappeared Railway Station run hared by Bull's Eye - Location : Aumühle S-Bahn Station -Sunday July 16th 2023 - run hared by Longshanks and Booze - Location : Meeschensee (TBC) -Sunday August 6th 2023 -\nHare needed - Please volunteer\n\n-Sunday August 20th 2023 - run hared by Knickerless - Location : U-Bahn Station Buckhorn -Sunday September 3rd 2023 - run hared by Longshanks - Special distillery tour - Location : S-Bahn Horneburg -Sunday September 17th 2023 -\nHare needed - Please volunteer",
-    "description": "HHHi Halfminds, Hot, hot, hot ! No, I'm not talking about our hare next Sunday, but about the weather. It's gonna be Licken Sie Hole first official trail in Hamburg, and I'm sure she's planned a lot of scenic loops. Here the details for next run :",
-    "sourceUrl": "https://hamburghash.blogspot.com/2023/06/hamburg-h7-run-636-sunday-june-18th.html"
-  },
-  {
-    "date": "2023-07-02",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 637,
-    "hares": "Bull's Eye",
-    "location": "Outside of station S-Bahn Aumühle",
-    "locationUrl": "https://goo.gl/maps/S52wKCA4Wb7zX2Jz7",
-    "startTime": "14:00",
-    "cost": "5€\n\n\nDates for your diaries: -Sunday July 16th 2023 - run hared by Longshanks, Booze, Late Commer and Massive Attack - Location : Meeschensee -Sunday August 6th 2023 -\nHare needed - Please volunteer\n\n-Sunday August 20th 2023 - run hared by Knickerless - Location : U-Bahn Station Buckhorn -Sunday September 3rd 2023 - run hared by Longshanks - Special distillery tour - Location : S-Bahn Horneburg -Sunday September 17th 2023 -\nHare needed - Please volunteer",
-    "description": "HHHi Halfminds, You better catch the right train to get to the next hashtrail, because according to the hare, at least one railway station is missing over there. Hope the hashmarkings will not vanish ... and the beer... what if it disappears as well ?!??!! Better drink it quickly then! Here the details for next run :",
-    "sourceUrl": "https://hamburghash.blogspot.com/2023/06/hamburg-h7-run-637-sunday-july-2nd-2023.html"
-  },
-  {
-    "date": "2023-07-16",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 638,
-    "hares": "Longshanks, Massive Attack, Late Comer, Booze and Squashed Flat",
-    "location": "at Meeschensee AKN Station (change from U1 to A2 in Norderstedt)",
-    "locationUrl": "https://goo.gl/maps/LqL4SWmFbw4wQ2dw6",
-    "startTime": "14:00",
-    "cost": "5€\n\nDates for your diaries: -Sunday August 6th 2023 -\nHare needed - Please volunteer - No hares = no trail -Sunday August 20th 2023 - run hared by Knickerless - Location : U-Bahn Station Buckhorn -Sunday September 3rd 2023 - run hared by Longshanks - Special distillery tour - Location : S-Bahn Horneburg -Sunday September 17th 2023 -\nHare needed - Please volunteer",
-    "description": "HHHi Halfminds, It's hot! Let's go north and hide in the shade of the forest! Maybe we'll even find trail there... and beer! Here the details for next run :",
-    "sourceUrl": "https://hamburghash.blogspot.com/2023/07/hhhi-halfminds-its-hot-lets-go-north.html"
-  },
-  {
-    "date": "2023-08-20",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 639,
-    "hares": "Knickerless",
-    "location": "at Buckhorn U-Bahn station (Line U1)",
-    "locationUrl": "https://goo.gl/maps/KKvGAZ3PhHQS3Zr29",
-    "startTime": "14:00",
-    "cost": "5€\n\n\nDates for your diaries: - Sunday September 3rd 2023 - run hared by Longshanks - Special distillery tour - Location : S-Bahn Horneburg - Sunday September 17th 2023 -\nHare needed - Please volunteer\n\n- Sunday October 1st 2023 -\nHare needed - Please volunteer\n\n- Sunday October 15th 2023 -\nHare needed - Please volunteer\n\n- Saturday October 21st 2023 - Flensburg H3 - Sunday November 5th 2023 -\nHare needed - Please volunteer",
-    "description": "HHHi Halfminds, Some of us are still hashing away, in one of the plenty hash events that are taking place this summer all over Europe. But our local hares are here in Hamburg for you, and have organised what seems to be a trail full of horny deers (or am I lost in translation here??). Antlers... or whaterver you call those things on their head... Head? Who said head? Here the details for next run :",
-    "sourceUrl": "https://hamburghash.blogspot.com/2023/08/hamburg-h7-run-639-sunday-august-20th.html"
-  },
-  {
-    "date": "2023-09-03",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 640,
-    "hares": "Longshanks",
-    "location": "at S-Bahn Station Horneburg (Line S3)",
-    "locationUrl": "https://goo.gl/maps/hgBK1mGqGUgSCMQo8",
-    "startTime": "14:00",
-    "cost": "5€ For those who want, the trail will be followed by a visit of the Nordik Distillery (drinks at your own cost - brink extra cash).\n\n\n************************************************************* Dates for your diaries: - Sunday September 17th 2023 -\nHare needed - Please volunteer\n\n- Sunday October 1st 2023 - run hared by CyberDonkey Sex - Location : Wandsbeckmarkt, on after at Wandsbeck Oktoberfest\n\n- Sunday October 15th 2023 - run hared by Just Ibrahim - location TBA\n\n- Saturday October 21st 2023 - Flensburg H3 - Sunday November 5th 2023 -\nHare needed - Please volunteer\n- Sunday November 19th 2023 -\nHare needed - Please volunteer",
-    "description": "HHHi Halfminds, It seems some of us like to lick her hard... i mean, hard liqueur! Well, luckily, that's the kind of spirits you can get at Nordik (no pun intended here) distillery in Horneburg, where our hare has planned a tour after the run next Sunday. Rum, Gin, Whisky and other Schnapps, expect you if you find the true trail to Horneburg! Here the details for next run :",
-    "sourceUrl": "https://hamburghash.blogspot.com/2023/08/hamburg-h7-run-640-sunday-september-3rd.html"
-  },
-  {
-    "date": "2023-09-17",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 641,
-    "hares": "Just Ibrahim",
-    "location": "In front of Immenöven 24, 200m from U-Bahn Station Langenhorn Nord (Line U1)",
-    "locationUrl": "https://goo.gl/maps/e2J6cb5bSV7uMyTo9",
-    "startTime": "14:00",
-    "cost": "5€",
-    "description": "HHHi Halfminds, Our newcommer Just Ibrahim has been quite eager to set his first ever trail. He is overprepared and overorganised... Let's see if all goes according to his plan... Here the details for next run :",
-    "sourceUrl": "https://hamburghash.blogspot.com/2023/09/hamburg-h7-run-641-sunday-september.html"
-  },
-  {
-    "date": "2023-10-01",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 642,
-    "hares": "Cyber Donkey Sex",
-    "location": "Outside of U-Bahn Station Wandsbek Markt (Line U1)",
-    "locationUrl": "https://maps.app.goo.gl/oa88qfznayY1fhNn7",
-    "startTime": "14:00",
-    "cost": "5€",
-    "description": "HHHi Halfminds, It's Oktoberfest season, and it smells like beer! If one does catch more flies with honey than vinegar, it seems you can catch a Berlin Hasher with Fishbrötchen and the perspective of a beertent full of loud sweety drunkheads. In any case, we are looking forward to our returning hare! Here the details for next run :",
-    "sourceUrl": "https://hamburghash.blogspot.com/2023/09/hamburg-h7-run-642-sunday-october-1st.html"
-  },
-  {
-    "date": "2023-10-15",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 643,
-    "hares": "Golden Shower + H2O",
-    "location": "Hittfeld train Station",
-    "locationUrl": "https://maps.app.goo.gl/FfNBRyJuh6oN5kTD7",
-    "startTime": "14:00",
-    "cost": "5€",
-    "description": "HHHi Halfminds, I never thought I would write that about the hash, but after quantity, we might have quality... Yes, after Oktoberfest last week, our hares next week have promised a selection of their homebrewed beers! I just hope those beers will taste better than the hashnames of those brewing it... Here the details for next run :",
-    "sourceUrl": "https://hamburghash.blogspot.com/2023/10/hamburg-h7-run-643-sunday-october-15th.html"
-  },
-  {
-    "date": "2023-11-05",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 644,
-    "hares": "Hidden Asset",
-    "location": "Wellingsbüttel S-Bahn Station",
-    "locationUrl": "https://maps.app.goo.gl/bwDjgRdTrLgSW6rT7",
-    "startTime": "14:00",
-    "cost": "5€",
-    "description": "HHHi Halfminds, you can´t write scrotum without scrum... that is my spelling homage to the New-Zealand rugby team, that came second ... in the worldcup finale yesterday... So if your Wellington Boots have dried since Flensburg last week, you might have to put them back on for our next trail in Wellies-büttel ! Here the details for next run :",
-    "sourceUrl": "https://hamburghash.blogspot.com/2023/10/hamburg-h7-run-644-sunday-december-5th.html"
-  },
-  {
-    "date": "2023-11-19",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 645,
-    "hares": "Bundeslicker",
-    "location": "S-Bahn Station Hasselbrook (lower exit to Hasselbrookstraße)",
-    "locationUrl": "https://maps.app.goo.gl/YidQc7KbwmEEebE1A?g_st=ic",
-    "startTime": "14:00",
-    "cost": "5€",
-    "description": "HHHi Halfminds, Don't forget to sign-up for H7 Christmas' Run on Saturday December 16th 2023. I've heard our leadhare is already testing all the Glühwein spots in town, to make sure you get the best ones! But I bet you guys don't believe in Santa anymore, do you? Well, our hare next weekend has promised some dancing unicorns on trail... do you believe in that????!! Or did she mean Uni-Korn ? In any case, it sounds like a lot of strong alcool was involved in the planning (sic!) of that trail. ...",
-    "sourceUrl": "https://hamburghash.blogspot.com/2023/11/hamburg-h7-run-645-sunday-november-19th.html"
-  },
-  {
-    "date": "2023-12-03",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 646,
-    "hares": "Just Sabine",
-    "location": "S-Bahn Station Alte Wöhr",
-    "locationUrl": "https://maps.app.goo.gl/1jdjt286uVeE7Hi57",
-    "startTime": "14:00",
-    "cost": "5€",
-    "description": "HHHi Halfminds, I know we promissed you fantastic creatures on trail last time, and all we saw instead of a unicorn was a wet hedgehog... But we'll keep hunting those mystical animals and we can now assure you, there will be a virgin hare on trail next Sunday! Even if she collided quite a lot recently at the CERN in Geneva, Just Sabine will set her first trail in Hamburg! Here the details for next run :",
-    "sourceUrl": "https://hamburghash.blogspot.com/2023/11/hamburg-h7-run-646-sunday-december-3rd.html"
-  },
-  {
-    "date": "2023-12-16",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 647,
-    "hares": "led by Wouldn't Chew",
-    "location": "S-Bahn Station Dammtor",
-    "locationUrl": "https://maps.app.goo.gl/nVFJDCF3hooBxso86",
-    "startTime": "13:00",
-    "cost": "10€ Dresscode : wear something Christmassy!",
-    "description": "HHHi Halfminds, Fun fact we learned on our way to Denmark last week : the noun for a group of puffins, is a circus of puffins; for crows, it's called a murder of crows... But how would you call the group of international hares that will set our Christmas trail? Well... I've done some research ... \"The collective nouns for Hares are derived from the behavior of the animals. A husk is a group of hares that live in a thicket, a warren is a group of Hares that live in a warren, a band is a group ...",
-    "sourceUrl": "https://hamburghash.blogspot.com/2023/12/hamburg-h7-run-647-saturday-december.html"
-  },
-  {
-    "date": "2024-01-07",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 648,
-    "hares": "Longshanks",
-    "location": "S-Bahn/U-Bahn Station Elbbrücken",
-    "locationUrl": "https://maps.app.goo.gl/ucP518xv886n4eqPA",
-    "startTime": "14:00",
-    "cost": "5€ ************************************************************* Dates for your diaries: - SATURDAY January 20th 2024 - Robbie Burns' run hared by Sexy LegMarch 3rd 2024 - Hare needed - Please volunteer - Sunday March 17th 2024 -St Patrick's run Hare needed - Please volunteer - Sunday April 7th 2024 - Hare needed - Please volunteer - Sunday April 21st 2024 - 30 years of hashing - run hared by Knickerless - location TBDs - 2pm Heimfeld - followed by Burns' night dinner - Sunday February 4th 2024 - Hare needed - Please volunteer - Sunday February 18th 2024 - Hare needed - Please volunteer - Sunday",
-    "description": "HHHi Halfminds, Thought about your new year's resolutions yet? How about haring a trail in 2024?? Rumor has it, quite a few hashers will enjoy the New Year celebrations tonight with bubbles and a view on the Elbe... Well, we'll stick with the Elbe for the first run of the year next Sunday! Wishing you all a hashy new beer!! Here the details :",
-    "sourceUrl": "https://hamburghash.blogspot.com/2023/12/hamburg-h7-run-648-sunday-january-7th.html"
-  },
-  {
-    "date": "2024-01-20",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 649,
-    "location": "S-Bahn Neuwiedenthal",
-    "locationUrl": "https://maps.app.goo.gl/nKM572nYZZXqhaUr9",
-    "startTime": "14:00",
-    "cost": "5€ for the run + 5€ for the dinner Dresscode : something Scottish (e.g. tartan, kilt, thistle, the famous (highland) cow costume, ...) – underwear accepted. Kilts may be worn and/or changed into after the run for the evening. The lack of proper dressing will be punished in the circle (if the RA is not too drunk by then) Program : 13:45 : Gather up at S-Bahn Neuwiedenthal 14:00 : run starts 16:00 – 16:30 Circle up 17:00-17:30 Arrive at Sexy Leg´s pad Hot cock-a-leekie soup upon arrival Showers and changing room available, bring towel + soap (Ed. note : don´t get accustomed to that luxury) All help to prepare the dinner 18:00 -18:30 Burns Supper - Selkirk grace – To be assigned on the evening. - Address to the Haggis – To be assigned on the evening. Haggis, Tatthies and Neeps (main course) - The Immortal Memory (Speech honoring Rabbie Burns ) – by Horse Something with custard (Desert) - Toast to the Laddies – by Hitman - Toast to the Lassies – by Bundeslicker Hashmasters (or acting Hasmaster’s) vote of thanks to the evening. Auld Lang Syne: (We sing the song before the first people leave). Beer, wine and whisky available, maybe some water. Possible entertainment ad-hoc during the evening. Here for you to prepare : - the lyrics to Auld Lang Syne - a german interpretation of the song (pretty hash accurate) ************************************************************* Dates for your diaries: - Sunday February 4th 2024 - hared by Bundeslicker - location TBD somewhere between Veddel and Wilhelmsburg - Sunday February 18th 2024 - Hare needed - Please volunteer - Sunday March 3rd 2024 - Hare needed - Please volunteer - Sunday March 17th 2024 -St Patrick's run Hare needed - Please volunteer - Sunday April 7th 2024 - Hare needed - Please volunteer - Sunday April 21st 2024 - 30 years of hashing - run hared by Knickerless - location TBD",
-    "description": "HHHi Halfminds, Anyone still dreaming of completing a Dry January?? Well, even if our next trail in gonna end in milk (you´ll get the joke if you make it to the end of the run), there is little hope that your good resolution is gonna survive the Burns´ hash. This trail is held in celebration of the great Scottish poet Robert Burns, born 20th January 1759, and Burns' night or Burns' supper is a tradition that our 2 half Scottish hashers want to share with you. Don´t disappoint them... Here the...",
-    "sourceUrl": "https://hamburghash.blogspot.com/2024/01/hamburg-h7-run-649-saturday-january.html"
-  },
-  {
-    "date": "2024-02-04",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 650,
-    "hares": "Bundeslicker",
-    "location": "S-Bahn Veddel",
-    "locationUrl": "https://maps.app.goo.gl/QCKYYgywsxtAhHwn7",
-    "startTime": "14:00",
-    "cost": "5€",
-    "description": "HHHi Halfminds, Survived the Haggis Ok? Never wanna see a Horse in a \"kilt\" again?? Well, there will be more of those \"funny\" H7 special events this year. Cumming up are St Patrick's run in March, a 30 years hash birthday in April or a trip to Hell (goland) in June . But for the time being, we are keeping Hamburg hash SOTE (South of the Elbe), or kind of. Here the details for next run :",
-    "sourceUrl": "https://hamburghash.blogspot.com/2024/01/hamburg-h7-run-650-sunday-february-4th.html"
-  },
-  {
-    "date": "2024-02-18",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 651,
-    "hares": "Titanic Seamen",
-    "location": "at the corner of Dehnhaide and Langenrehm (100m from U-Bahn station Dehnhaide)",
-    "locationUrl": "https://maps.app.goo.gl/xh4XFiryCnkC8mNM9",
-    "startTime": "14:00",
-    "cost": "5€",
-    "description": "HHHi Halfminds, It´s cold, grey and wet ... (and no, it´s not the start of a necrophile joke). That´s why we are so happy it´s carnival season all over the world! to bring us joy, colors and fun! Of course that was the perfect excuse : our local Brazilian was voluntold to hare! Here the details for next run :",
-    "sourceUrl": "https://hamburghash.blogspot.com/2024/02/hamburg-h7-run-651-sunday-february-18th.html"
-  },
-  {
-    "date": "2024-03-03",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 652,
-    "hares": "FKK Trail bitch, Licken Sie Hole",
-    "location": "Outside U-Bahn station Meiendorfer Weg (Line U1)",
-    "locationUrl": "https://maps.app.goo.gl/osjCCBDARXFtx5se8",
-    "startTime": "14:00",
-    "cost": "5€ ************************************************************* Dates for your diaries: - SATURDAY March 16th 2024 - St Patrick's run Hared by Sexy Legs - somewhere in Heimfeld - followed by St Patrick´s party - Sunday April 7th 2024 - hared by Perfect Mudder Sucker - location TBD - Sunday April 21st 2024 - 30 years of hashing - run hared by Knickerless - location TBD - Sunday May 5th 2024 - Cinco de Mayo - Hared by UB69 in Bremen - Sunday May 19th 2024 - hared needed - Please voulunteer! - Saturday June 1st 2024 - Go to Hell (goland) run, hared by It´s Complicated - in Helgoland (please register!) - Saturday June 15th 2024 - Joined Berlin Hamburg Hash hared by Cyber Donkey Sex + FKK?- in Schwerin - Sunday July 7th 2024 - hared needed - Please voulunteer!",
-    "description": "HHHi Halfminds, This week´s hashtrash is gonna be short and painless (and no, I´m not gonna make any jokes about that) : Here the details for next run :",
-    "sourceUrl": "https://hamburghash.blogspot.com/2024/02/hamburg-h7-run-652-sunday-march-3rd.html"
-  },
-  {
-    "date": "2024-03-16",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 653,
-    "hares": "Sexy Legs",
-    "location": "Outside S-Bahn station Heimfeld",
-    "locationUrl": "https://maps.app.goo.gl/KydCc8MnWA3V8eeh6",
-    "startTime": "14:00",
-    "cost": "5€ + 5€ for the food on after\nDresscode : choose your color wisely...",
-    "description": "HHHi Halfminds, We've witnessed a few weeks ago an attempt at scottish dances... Will those Sexy Legs be able to entertain us with some Irish dances this time? Or will the hare be too tired after setting the same trail 3 times in a row within 4 days? Here the details for next run :",
-    "sourceUrl": "https://hamburghash.blogspot.com/2024/03/hamburg-h7-run-653-saturday-march-16th.html"
-  },
-  {
-    "date": "2024-04-06",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 654,
-    "hares": "PMS",
-    "location": "Outside U-Bahn station Rauhes Haus",
-    "locationUrl": "https://maps.app.goo.gl/GksBT67KdFusxi776",
-    "startTime": "14:00",
-    "cost": "5€ + 5€ for the food on after",
-    "description": "HHHi Halfminds, When the pussy is away, the hashers will play... (or will celabrate a birthday?) Our dear Pork Sausage has been away in sunny Ghana for a long time now, and we still didn't have a housewarming party at his new place, maybe a too rough house? Well, as Perfect Mudder Sucker is turning 18 (for the second time), he decided to have a little run and birthday do there. Cake anyone? Here the details for next run :",
-    "sourceUrl": "https://hamburghash.blogspot.com/2024/03/hamburg-h7-run-654-saturday-april-6th.html"
-  },
-  {
-    "date": "2024-04-21",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 655,
-    "hares": "Knickerless + Cruiser",
-    "location": "Outside U-Bahn station Langenhorn Nord",
-    "locationUrl": "https://maps.app.goo.gl/9ckgVsy8eKVEJjzn8",
-    "startTime": "14:00",
-    "cost": "5€ + 15€ for the food at the on after",
-    "description": "HHHi Halfminds, Since you all liked last week's cake so much, we'll go on with birthdays and special celebrations : This month, give or take a few weeks, Knickerless will have been hashing for 30 years, and Cruiser for 42 years!! Fun fact, they both started hashing in a French speaking country... (où est le papier?). This brings me to the joke of the day: Why does a Frenchman only have one egg for breakfast? Because it's un oeuf. More bad jokes and mispronounciation coming up next Sunday. Her...",
-    "sourceUrl": "https://hamburghash.blogspot.com/2024/04/hamburg-h7-run-655-sunday-april-21st.html"
-  },
-  {
-    "date": "2024-05-05",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 656,
-    "hares": "UB69",
-    "location": "Findorffallee junction with Neukirchstraße (15 min. walk from Trainstation to Bürgerpark)",
-    "locationUrl": "https://maps.app.goo.gl/pRtLr5cfL7W1g4MT6",
-    "startTime": "14:00",
-    "cost": "5€ Dresscode : Come as Mexican, French, or like after a battle (see T-shirt illustration by the hare)",
-    "description": "HHHi Halfminds, Everybody made it back home from last run? Or are there still some hashers lost in one of the S-Bahn replacement bus?? As we are now all mastering the ups and (down-)downs of Hamburg transport system, let's attack the regional trains! See how well that Metronom line to Bremen works! Talking about attacking, next hash will celebrate the Cinco de Mayo, an obsucre battle between French and Mexicans in Puebla in 1862, that is celebrated... only in the USA... Who cares? Any excuse ...",
-    "sourceUrl": "https://hamburghash.blogspot.com/2024/04/hamburg-h7-run-656-sunday-may-5th-2024.html"
-  },
-  {
-    "date": "2024-05-19",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 657,
-    "hares": "Sexy Legs + Longshanks",
-    "location": "Outside S-Bahn station Heimfeld",
-    "locationUrl": "https://maps.app.goo.gl/KydCc8MnWA3V8eeh6",
-    "startTime": "14:00",
-    "cost": "5€ + 5€ for the BBQ on after",
-    "description": "HHHi Halfminds, After last weather and train drama, let's try again to cross the Elbe! Get those Sexy Shanks and Long legs out, and join the run and on after Bbq for a taste of summer! Here the details for next run :",
-    "sourceUrl": "https://hamburghash.blogspot.com/2024/05/hamburg-h7-run-657-sunday-may-19th-2024.html"
-  },
-  {
-    "date": "2024-05-31",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 658,
-    "location": "on the island Helgoland",
-    "startTime": "11:00",
-    "cost": "10€ - Saturday evening: 19:00 - dinner at the restaurant Helgoländer Fährhaus - (pay as you go) - Sunday morning : 11:00ish - hangover run hared by the Héraultics H3 - Starting from the Youth Hostel - Sunday afternoon : bugger off!",
-    "description": "Hamburg Hash and Toulouse Hash are disorganising a trip to Hell. Join us in Helgoland for a unique hashtrail on Saturday June 1st 2024 !!",
-    "sourceUrl": "https://hamburghash.blogspot.com/2024/05/go-to-hellgoland-joint-hashweekend.html"
-  },
-  {
-    "date": "2024-06-15",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 659,
-    "hares": "FKK + Cyber Donkey Sex",
-    "location": "Outside the main train station Schwerin Hbf",
-    "locationUrl": "https://maps.app.goo.gl/sTky57ffcLPxoztG9",
-    "startTime": "14:00",
-    "cost": "5€",
-    "description": "HHHi Halfminds, The month of June is a month of away hashes for H7. After joining Toulouse H3 in Hell(goland) last weekend, our next trail will be a joint one with Berlin H3. Plus I´ve heard that some of the drinks might have come all the way from Finland. Who doesn´t like a good mingle?! Here the details for next run :",
-    "sourceUrl": "https://hamburghash.blogspot.com/2024/06/hamburg-h7-run-659-saturday-june-15th.html"
-  },
-  {
-    "date": "2024-07-07",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 660,
-    "hares": "Bull's Eye",
-    "location": "Outside the S-Bahn station Reinbek",
-    "locationUrl": "https://maps.app.goo.gl/zeiwEGUcLAERhED56",
-    "startTime": "14:00",
-    "cost": "5€\n\n************************************************************* Dates for your diaries:\n\n\n\n- Sunday July 21st 2024 - 2pm - run hared by Pant in the Country and High Fly - from AKN station Meeschensee - Booze bd run - Saturday August 3rd - 10pm - Nightmare run hared by Knickerless, Spermdonor and PMS - from U-Bahn station Buckhorn\n\n- Sunday August 4th 2024 - 2pm - hare needed - Please voulunteer!\n- SATURDAY August 17th 2024 - 2pm - 20 Years H7 hashing in Bremen - run hared by UB69 and Dr poor Nelly - Sunday September 1st 2024 - 2pm-\nhare needed - Please voulunteer!\n\n\n\n\n\n\n\n\n\n- Sunday September 15th 2024 - 2pm- hare needed - Please voulunteer!",
-    "description": "HHHi Halfminds, After a month in Hell (goland to Helsingor), it's nice to be back in Hamburg for the summer ... when does it start again? Is it over already? One good advice we got from our encounter with the birdswatchers in Helgoland : in summer, if you go running in the bushes, don't forget to check for tits! (or did i get lost in translation again??) Here the details for next run :",
-    "sourceUrl": "https://hamburghash.blogspot.com/2024/07/hamburg-h7-run-660-sunday-july-7th-2024.html"
-  },
-  {
-    "date": "2024-07-21",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 661,
-    "hares": "Pant in the Country + High Fly",
-    "location": "at Meeschensee AKN Station (change from U1 to A2 in Norderstedt)",
-    "locationUrl": "https://goo.gl/maps/LqL4SWmFbw4wQ2dw6",
-    "startTime": "14:00",
-    "cost": "5€\n\n\n\n\n\n************************************************************* Dates for your diaries:\n\n\n\n- Sunday July 21st 2024 - 2pm - run hared by Pant in the Country and High Fly - from AKN station Meeschensee - Booze bd run - Saturday August 3rd - 10pm - Nightmare run hared by Knickerless, Spermdonor and PMS - from U-Bahn station Buckhorn\n\n- Sunday August 4th 2024 - 2pm - may be a run, maybe no run? volunteers?\n- SATURDAY August 17th 2024 - 2pm - 20 Years H7 hashing in Bremen - run hared by UB69 and Dr poor Nelly - Sunday September 1st 2024 - 2pm- run hared by Bitch Hiker from S-Bahn Station Sülldorf\n\n\n\n\n\n\n\n\n\n- Sunday September 15th 2024 - 2pm- hare needed - Please voulunteer!\n- Sunday October 6th 2024 - 2pm- hare needed - Please voulunteer!",
-    "description": "HHHi Halfminds, This is the time of the year when we celebrate Booze's birthday with the now traditional run in Meeschensee (where there is still no lake... but then, let them have cake!). Here the details for next run :",
-    "sourceUrl": "https://hamburghash.blogspot.com/2024/07/hamburg-h7-run-661-sunday-july-21st.html"
-  },
-  {
-    "date": "2024-08-03",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 662,
-    "hares": "PMS, Knickerless, Spermdonor, Dealer",
-    "location": "Buckhorn U-Bahn Station (Line U1)",
-    "locationUrl": "https://maps.app.goo.gl/78vvc5K7b9QqwQqr7",
-    "startTime": "22:00",
-    "cost": "5€ Sandwich and snacks will be provided for the long run and the circle Expect the run to finish after 2am.\n\n\n\n\n\nHow to go back home : from Buckhorn, the U1 line goes every 40 min at night + there will be 3 cars driving back to the city center\n\n\n************************************************************* Dates for your diaries:\n\n\n- Saturday August 3rd - 10pm - Nightmare run hared by Knickerless, Spermdonor, Dealer and PMS - from U-Bahn station Buckhorn\n\n\n- SATURDAY August 17th 2024 - 2pm - 20 Years H7 hashing in Bremen - run hared by UB69 and Dr poor Nelly - Sunday September 1st 2024 - 2pm- run hared by Bitch Hiker from S-Bahn Station Sülldorf\n\n\n\n\n\n\n\n\n\n- Sunday September 15th 2024 - 2pm- hare needed - Please voulunteer!\n- Sunday October 6th 2024 - 2pm- hare needed - Please voulunteer!",
-    "description": "HHHi Halfminds, The hares promessed it will be dark, wet, cold with a lot of shiggy. You will suffer. But at the end of the tunnel, there will be light... I mean, beer!! Please note this run takes place at night. Here the details for next run :",
-    "sourceUrl": "https://hamburghash.blogspot.com/2024/07/hamburg-h7-run-662-saturday-august-3rd.html"
-  },
-  {
-    "date": "2024-08-17",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 663,
-    "hares": "UB69 and Dr Poor Nelly",
-    "location": "Bremen - Corner Pagentornerstrasse / Lindhornstrasse",
-    "locationUrl": "https://maps.app.goo.gl/SMysNBt1f3M9Rp3L6",
-    "startTime": "14:00",
-    "cost": "5€ How to get there : From Hamburg Hbf, don't miss the 12:15 ME RE 4 Regional Partytrain to Bremen. Then from Bremen Hbf take Hashingbus 25 in the direction of Osterholz, stop at Klinikum Bremen Mitte, and walk 5 min to the start.",
-    "description": "HHHi Halfminds, This week we are celebrating the fact that everyone’s favourite movie “Princess Diaries 2 / Plötzlich Prinzessin 2: Royal Engagement” came out 20 years ago. And that H7 has been organising hash invasions to Bremen for 20 years! Our glorious hares UB69 and Dr Poor Nelly always put on an amazing trail. Also, it’s in Bremen! And there are rumors of a barbecue afterwards!",
-    "sourceUrl": "https://hamburghash.blogspot.com/2024/08/hamburg-h7-run-663-20-years-h7-hashing.html"
-  },
-  {
-    "date": "2024-08-31",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 664,
-    "hares": "Bitch Hiker",
-    "location": "S-Bahn Station Sülldorf",
-    "locationUrl": "https://maps.app.goo.gl/6XgqQR2SRLxsugxT8",
-    "startTime": "14:00",
-    "cost": "5€ How to get there : S-Bahn Station Sülldorf is on the Wedel line of the S1. It's the S1, the line is being worked on, and it is during the weekend, so plan accordingly.",
-    "description": "HHHi Halfminds, The first run of September will be in August because that is how we roll at H7. We will be exploring the West (and shiggy)! Our hare Bitch Hiker promised that this is going to be a \"Taiwan-style\" run, so definitely expect some shiggy. Bring good shoes (High heels or sandals are not recommended) and consider bringing your bikini, because we can swim afterwards.",
-    "sourceUrl": "https://hamburghash.blogspot.com/2024/08/h7-run-664-saturday-august-31th-2024.html"
-  },
-  {
-    "date": "2024-09-15",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 665,
-    "hares": "Just Heike, Nikolaus and friends",
-    "location": "Reinfeld Bahnhof, Holstein",
-    "locationUrl": "https://www.google.com/maps/search/?api=1&query=53.830491,10.4943901",
-    "startTime": "14:00",
-    "cost": "5€ How to get there : Public transit: RE80 to Lübeck Hbf departs Hamburg Hbf at 1:34 PM, arriving in Reinfeld at 2:10 PM. Or you can drive, use the google map to find your destination.",
-    "description": "HHHi Halfminds, Next weekend, we will be venturing deep into Sleswig-Holstein. You will enjoy exploring a small town with a surprise. Our run starts from the train station at Reinfeld and is about 7.5 km long. A shorter hiking trail is also offered. At the end of the run, we do the circle at Hasher Just Scott in a hall or in the garden, depending on the weather.",
-    "sourceUrl": "https://hamburghash.blogspot.com/2024/09/h7-run-665-reinfeld.html"
-  },
-  {
-    "date": "2024-10-06",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 666,
-    "location": "Niendorf Nord U-Bahn parking lot",
-    "locationUrl": "https://maps.app.goo.gl/YLFvvToMf5MLAnRh6",
-    "startTime": "14:00",
-    "cost": "5€ How to get there : Public transit: Niendorf Nord is the terminus of the U2 U-bahn. The ride takes about 25 minutes from central Hamburg. Car: Niendorf is very close to the A7 autobahn. There is parking at the station (called \"P+R Niendorf Nord\" so hashers won't get confused). Walk: Niendorf Nord is a 36-hour walk from Hannover.",
-    "description": "HHHi Halfminds, Toppless Peddler is taking us to Niendorf, so who knows, we might get to head into Sleswig-Holstein twice in one month! Dress like a devil, as this is run 666! Or Sexy, as it is run 666!",
-    "sourceUrl": "https://hamburghash.blogspot.com/2024/09/hamburg-h7-run-666-sunday-october-6th.html"
-  },
-  {
-    "date": "2024-11-02",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 667,
-    "location": "Heimfeld S Bahn (S3/S5) at 2PM (sharp), or meet at Sexy Legs place",
-    "locationUrl": "https://maps.app.goo.gl/6FPY3HcsYrVgt1ZH6",
-    "startTime": "14:00",
-    "cost": "5€ + 5€ for the BBQHow to get there : Public transit: Heimfeld is on the S3/S5 S-Bahn, just past Harburg. The ride takes about 20 minutes from Hamburg Hbf. Car: Park at Milchgrund 49, 21075 Hamburg",
-    "description": "HHHi Halfminds,On Saturday (!) 2 November, Sexy Legs and Just Brian will be haring a Halloween trail through the forests near Heimfeld, followed by a BBQ. Wear your best Halloween or BBQ outfit. The hare will pick us up at Heimfeld S Bahn, so be on time if you come by public transport (or just go directly to Sexy Leg's house instead).",
-    "sourceUrl": "https://hamburghash.blogspot.com/2024/10/hamburg-h7-run-667-saturday-november.html"
-  },
-  {
-    "date": "2024-11-17",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 668,
-    "location": "Betty-Levi-Passage, a small street just west of Altona Rathaus. It is a short walk from Bahnhof Altona.",
-    "locationUrl": "https://maps.app.goo.gl/gYaSbwCqxvuyeCCs7",
-    "startTime": "14:00",
-    "cost": "5€ How to get there : It's next to Altona Station, walk towards the Elbe until you see the Rathaus. The small road on the west side of the Rathaus is Betty-Levi-Passage.",
-    "description": "HHHi Halfminds, On Sunday 17 November we are exploring Altona! Our hare-du-jour is Longshanks (we are not worthy!).",
-    "sourceUrl": "https://hamburghash.blogspot.com/2024/11/hamburg-h7-run-668-sunday-17-november.html"
-  },
-  {
-    "date": "2024-12-01",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 669,
-    "location": "The parking lot of S Bahn station Wedel, Bahnhofstraße 1, 22880 Wedel",
-    "locationUrl": "https://maps.app.goo.gl/AsuKUKuT95m4YDf76",
-    "startTime": "14:00",
-    "cost": "5€ + bring cash for the Christmas market. How to get there : Public transport: Take the S1 to Wedel. It takes about 45 minutes from central Hamburg. Your hares have conveniently arranged an S bahn train that arrives at 13:59h, if the schedule is to be believed(departing Hbf at 13:18h)! Car: the park-and-ride of Wedel station is at Bahnhofstraße 1, 22880 Wedel:",
-    "description": "HHHi Halfminds, Who likes balls? Well, definitely the inhabitants of Wedel. They have a massive giant with balls and use it as the centerpiece of their Christmas market. Also, he has a sword to match his balls. So come check out those giant balls or swords. It is run 669, so obviously, that giant's family jewels need to be thoroughly inspected. And after that, enjoy some tasty warm drinks after a run through the technically-no-longer-Hamburg countryside. The hare confirmed that she will be ac...",
-    "sourceUrl": "https://hamburghash.blogspot.com/2024/11/hamburg-h7-run-669-sunday-17-november.html"
-  },
-  {
-    "date": "2024-12-15",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 670,
-    "location": "U2 Niendorf Markt",
-    "locationUrl": "https://maps.app.goo.gl/5BaNPy9ZWTy64JSE6",
-    "startTime": "14:00",
-    "cost": "5€ + bring cash for the Christmas market. How to get there : Public transport: Take the U2 to Niendorf Markt. This takes about 25 minutes from central Hamburg. Car: head to Niendorf Markt (warning: pedestrian zones around!) and find parking",
-    "description": "Santa Claus is coming to town... with his flight! Rudolph and the gang decided they deserved a well-earned break this year and have on holiday in Hamburg! Let’s make a stop to say “Moin” to his old friends (don’t be surprised if they’ve lost a few pounds), and then head to the airport to pick up Santa to the Christmas market. (Yes, we can never get enough of the Christmas markets and Glühwein in December!) Put on your Christmas outfit and your Christmas hat! Let's go confuse his reindeer and ...",
-    "sourceUrl": "https://hamburghash.blogspot.com/2024/12/hamburg-h7-run-670-sunday-15-december.html"
-  },
-  {
-    "date": "2025-01-05",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 671,
-    "location": "S1 Alte Wöhr (Stadtpark)",
-    "locationUrl": "https://maps.app.goo.gl/CqUAYVmbF62NPk1G6",
-    "startTime": "14:00",
-    "cost": "5€ How to get there : Public transport: S1 Alte Wöhr (Stadtpark) is about 15 minutes from central Hamburg",
-    "description": "The first run of the new year will be by Knickerless. Considering the location and the hare, a good quess will be that there will be a short, walker friendly, trail and beer.",
-    "sourceUrl": "https://hamburghash.blogspot.com/2024/12/hamburg-h7-run-671-sunday-5-january-2pm.html"
-  },
-  {
-    "date": "2025-01-18",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 672,
-    "location": "Heimfeld S Bahn (S3/S5) at 2PM (sharp), or meet at Sexy Legs' place",
-    "locationUrl": "https://maps.app.goo.gl/6FPY3HcsYrVgt1ZH6",
-    "startTime": "14:00",
-    "cost": "5€ + 10€ contribution to the Burns night dinner (let Sexy Legs know if you join!) How to get there : Public transit: Heimfeld is on the S3/S5 S-Bahn, just past Harburg. The ride takes about 20 minutes from Hamburg Hbf. Car: Park at Milchgrund 49, 21075 Hamburg",
-    "description": "HHHi Halfminds, On Saturday 18th January we are going Scottish, as it is Burns Night, when scots perform poems to their Haggis. There are rumors of Haggis at the Burns dinner, but anyway make sure you let Sexy Legs know if you are joining for dinner. Otherwise, you might end up like the Haggis below.",
-    "sourceUrl": "https://hamburghash.blogspot.com/2025/01/hamburg-h7-run-672-saturday-january.html"
-  },
-  {
-    "date": "2025-02-01",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 673,
-    "hares": "Bull's Eye",
-    "location": "Wellingbüttel S bahn. Wellingbüttel is on the S1 and it takes about 40 minutes from central Hamburg to get there.",
-    "locationUrl": "https://maps.app.goo.gl/mKB6vqdjg93jMu3S6",
-    "startTime": "14:00",
-    "cost": "5€ How to get there : Public transit: Wellingbüttel is on the S1 S-Bahn, it is the last stop before the Poppenbüttel terminus. The ride takes about 40 minutes from Hamburg Hbf. Car: park near the station, there is a parking",
-    "description": "HHHi Halfminds, On Saturday, 1st February, we celebrate the Chinese New Year with Bull's Eye in Wellingbüttel. It's the year of the snake. So, of course, you're welcome to dress like a snake. If that's too much, another tradition is to give red envelopes with money to your hasher friends. Organizational notice: could whoever wanted to hare the Carnival trail on 15-16 February contact the hare raiser? I forgot who said they would do it, and feel downdowns in my future.",
-    "sourceUrl": "https://hamburghash.blogspot.com/2025/01/hamburg-h7-run-673-saturday-february.html"
-  },
-  {
-    "date": "2025-02-15",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 674,
-    "hares": "Sexy Legs",
-    "location": "Alsterdorf U-bahn station, which is on the U1",
-    "locationUrl": "https://maps.app.goo.gl/ivfvCzabykTeYctY9",
-    "startTime": "14:00",
-    "cost": "5€ + 10€ for the on-after How to get there : take the U1 or drive to",
-    "description": "The second trail in February will be hared by hero last-minute hare Sexy Legs, with an on-after at Pant in the Country's place.",
-    "sourceUrl": "https://hamburghash.blogspot.com/2025/02/hamburg-h7-run-674-saturday-february.html"
-  },
-  {
-    "date": "2025-03-01",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 675,
-    "hares": "Sexy legs (+ virgin hares if they want, contact Sexy Legs!)",
-    "locationUrl": "https://maps.app.goo.gl/Tuu71mAKwSCyGPHz6",
-    "startTime": "14:00",
-    "description": "Dear Half-minds, Titanic Seaman has thankfully decided to return from sunny warm Brazil and inspire us with some wonderful carnival spirit next weekend. Don’t forget to Brazilian wax for the on after Carnival party at Sexy Legs.",
-    "sourceUrl": "https://hamburghash.blogspot.com/2025/02/hamburg-h7-run-675-saturday-march-1st.html"
-  },
-  {
-    "date": "2025-03-16",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 676,
-    "hares": "PMS (co-hare welcome)",
-    "location": "U1 Klein Borstel",
-    "locationUrl": "https://maps.app.goo.gl/BD64CzaSUKB1NYNA8",
-    "startTime": "14:00",
-    "description": "Be prepared from some Alster parkland riverside paths. The hare confirmed this will be an A to A run and explicitly would love to have a co-hare.",
-    "sourceUrl": "https://hamburghash.blogspot.com/2025/02/hamburg-h7-run-676-klein-borstel-u1.html"
-  },
-  {
-    "date": "2025-04-05",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 677,
-    "hares": "Bitch Hiker",
-    "location": "Lübeck Hauptbahnhof",
-    "startTime": "14:00",
-    "description": "Come and check out Lübeck. The hare has promised a historic adventure run.",
-    "sourceUrl": "https://hamburghash.blogspot.com/2025/03/hamburg-h7-run-677-saturday-5-april.html"
-  },
-  {
-    "date": "2025-04-20",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 678,
-    "hares": "Knickerless",
-    "location": "U Bahn Meiendorfer Weg",
-    "startTime": "14:00",
-    "description": "It's easter!",
-    "sourceUrl": "https://hamburghash.blogspot.com/2025/04/hamburg-h7-run-678-sunday-20-april.html"
-  },
-  {
-    "date": "2025-05-04",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 679,
-    "hares": "Horny Toddler",
-    "location": "S bahn Klein Flottbek (S1)",
-    "startTime": "14:00",
-    "description": "Fresh from Katmandu, new arrival Horny Toddler will take us around Klein Flottbek. Be prepared for immoporn and Elbe-views.",
-    "sourceUrl": "https://hamburghash.blogspot.com/2025/04/hamburg-h7-run-679-sunday-4-may-klein.html"
-  },
-  {
-    "date": "2025-05-18",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 680,
-    "hares": "PMS",
-    "location": "U Meßberg (U1)",
-    "locationUrl": "https://maps.app.goo.gl/4LuNRSY93NH3xq739",
-    "startTime": "14:00",
-    "description": "PMS chivalrously stepped up to replace our GM who has a family emergency.",
-    "sourceUrl": "https://hamburghash.blogspot.com/2025/05/hamburg-h7-run-680-sunday-18-may.html"
-  },
-  {
-    "date": "2025-06-08",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 681,
-    "hares": "Bull's Eye",
-    "location": "U Ohlstedt (U1)",
-    "locationUrl": "https://maps.app.goo.gl/5uV6jfr39bjLfUELA",
-    "startTime": "14:00",
-    "description": "Bull's eye is taking us to Ohlstedt. Note the change of weekend to avoid GNH in Bad Tölz!",
-    "sourceUrl": "https://hamburghash.blogspot.com/2025/05/hamburg-h7-run-681-sunday-8-june.html"
-  },
-  {
-    "date": "2025-07-19",
-    "kennelTags": [
-      "h7"
-    ],
-    "hares": "Moose Diver and guest visiting hare MeMe",
-    "location": "Hamburger Strasse (U3)",
-    "startTime": "15:00",
-    "description": "Lace up your shoes and grab your finest orange gear, because on 12th July, we’re celebrating the Battle of the Boyne… erm Elbe… the only way hashers know how: One week late, with beer, and questionable decisions! WSH3 joins H7 for a raucous romp through Barmbek with hare Moose Diver and maybe even a surprise hare from Schaffhausen as we honor history with hilarity, hydration, and just a hint of heresy. Orangemen, Orangewomen, and all who enjoy a good trail followed by a down-down. This is you...",
-    "sourceUrl": "https://hamburghash.blogspot.com/2025/06/hamburg-h7-extra-run-in-collaboration.html"
-  },
-  {
-    "date": "2025-08-03",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 687,
-    "hares": "Pant in the Country and Just Nadin",
-    "location": "Mittlerer Landweg (S2)",
-    "startTime": "14:00",
-    "sourceUrl": "https://hamburghash.blogspot.com/2025/07/h7-run-687ish-sunday-3-august-2pm.html"
-  },
-  {
-    "date": "2025-08-17",
-    "kennelTags": [
-      "h7"
-    ],
-    "hares": "Longshanks",
-    "location": "Veddel",
-    "locationUrl": "https://maps.app.goo.gl/WepWGqKPBx9VxGqq7",
-    "startTime": "14:00",
-    "sourceUrl": "https://hamburghash.blogspot.com/2025/08/hamburg-h7-run-sunday-17-august-2pm.html"
-  },
-  {
-    "date": "2025-09-07",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 689,
-    "hares": "Licken Sie Hole & Just Ewa",
-    "location": "Langenhorn Nord (U1)",
-    "locationUrl": "https://maps.app.goo.gl/hWvSskvPucZoBFWV6",
-    "startTime": "14:00",
-    "sourceUrl": "https://hamburghash.blogspot.com/2025/08/h7-run-689-langenhorn-nord-with-just.html"
-  },
-  {
-    "date": "2025-09-21",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 690,
-    "hares": "Knickerless",
-    "location": "Meiendorfer Weg (U1)",
-    "locationUrl": "https://maps.app.goo.gl/EcJbWdPiyhAatFth9",
-    "startTime": "14:00",
-    "sourceUrl": "https://hamburghash.blogspot.com/2025/09/h7-run-690-sunday-21-september.html"
-  },
-  {
-    "date": "2025-10-05",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 691,
-    "hares": "Just Kim",
-    "location": "Hamburg Airport S-Bahn",
-    "startTime": "14:00",
-    "sourceUrl": "https://hamburghash.blogspot.com/2025/09/h7-run-691-sunday-5-october-come-fly.html"
-  },
-  {
-    "date": "2025-10-19",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 692,
-    "hares": "Longshanks",
-    "location": "Wilhelmsburg S-Bahn",
-    "startTime": "14:00",
-    "sourceUrl": "https://hamburghash.blogspot.com/2025/10/h7-run-692-sunday-19-october.html"
-  },
-  {
-    "date": "2025-11-02",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 693,
-    "hares": "Horse",
-    "location": "Altona Rathaus (short walk from Altona where practically anything with wheels stops)",
-    "locationUrl": "https://maps.app.goo.gl/YMwSukdk1J7aXnqKA",
-    "startTime": "14:00",
-    "sourceUrl": "https://hamburghash.blogspot.com/2025/10/hare-horse-where-altona-rathaus-short.html"
-  },
-  {
-    "date": "2025-11-16",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 694,
-    "hares": "Pant in the Country and Horse",
-    "location": "S Bahn Alsterdorf (U1)",
-    "locationUrl": "https://maps.app.goo.gl/wRbiv9XfBYfT8U6WA",
-    "startTime": "14:00",
-    "sourceUrl": "https://hamburghash.blogspot.com/2025/11/hare-knickerless-where-s-bahn-sulldorf.html"
-  },
-  {
-    "date": "2025-12-06",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 695,
-    "hares": "Just Ewa and Sexy Legs",
-    "location": "Norderstedt Mitte U bahn",
-    "locationUrl": "https://maps.app.goo.gl/8Z9DhY77bdzRaX9N6",
-    "startTime": "14:00",
-    "sourceUrl": "https://hamburghash.blogspot.com/2025/11/blog-post.html"
-  },
-  {
-    "date": "2025-12-20",
-    "kennelTags": [
-      "h7"
-    ],
-    "startTime": "12:00",
-    "sourceUrl": "https://hamburghash.blogspot.com/2025/11/a-very-h7-hashmas-christmas-run-and.html"
-  },
-  {
-    "date": "2026-02-01",
-    "kennelTags": [
-      "h7"
-    ],
-    "runNumber": 699,
-    "hares": "Knickerless",
-    "location": "U Bahn Hagendeel (U2)",
-    "locationUrl": "https://maps.app.goo.gl/MBYB9hdJkVpoJow17",
-    "startTime": "14:00",
-    "sourceUrl": "https://hamburghash.blogspot.com/2026/01/h7-run-sunday-1-february-hagendeel-u2.html"
-  },
-  {
-    "date": "2026-02-14",
-    "kennelTags": [
-      "h7"
-    ],
-    "hares": "Bull's Eye",
-    "location": "U Bahn Olhstedt (U1)",
-    "locationUrl": "https://maps.app.goo.gl/BLDwYcQS2dt8dfzZ6",
-    "startTime": "14:00",
-    "description": "It's Chinese New Year and this year it is year of the Horse! Bull's Eye confirmed that this run is also Valentine's Day, and our GM confirms this is also Hamburg Run number 700. What's not to like, there will be romance, and red envelopes with goodies in them!",
-    "sourceUrl": "https://hamburghash.blogspot.com/2026/02/h7-run-saturday-february-14th-chinese.html",
-    "runNumber": 700
-  }
+ {
+  "date": "2021-08-01",
+  "kennelTags": [
+   "h7"
+  ],
+  "hares": "Knickerless",
+  "location": "U-Bahn station Kiwittsmoor (Line U1)",
+  "locationUrl": "https://goo.gl/maps/8fF2nAWZshg8dmm1A",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, Our next run will be on Sunday August 1st in New Zealand Swamp, aka Kiwittsmoor.",
+  "sourceUrl": "https://hamburghash.blogspot.com/2021/07/hamburg-h7-run-in-kiwittsmoor-01082021.html"
+ },
+ {
+  "date": "2021-08-15",
+  "kennelTags": [
+   "h7"
+  ],
+  "hares": "Bull's Eye",
+  "location": "U-Bahn station Mümmelmannsberg (Line U2) - Exit south - Parking lot in front of Kandinskyallee 14-18,",
+  "locationUrl": "https://goo.gl/maps/TLpi9FfE4SHh5Vs4A",
+  "startTime": "14:00",
+  "description": "HHHello Halfminds, Next Hansestadt Hamburg Hash House Harriers Hummel Hummel run will be in Mümmelmannsberg. (And if you tell me how many M&Ns there are in that sentence, you'll get a free beer on Sunday!)",
+  "sourceUrl": "https://hamburghash.blogspot.com/2021/08/hamburg-h7-run-in-mummelmannsberg.html"
+ },
+ {
+  "date": "2021-09-19",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 594,
+  "hares": "UB69",
+  "location": "Stadionbad (next to Weserstadion / Weser) Franz-Böhmert-Str. 13, 28205 Bremen",
+  "locationUrl": "https://goo.gl/maps/tXDehN331X51fsA18",
+  "startTime": "14:00",
+  "description": "HHHello Halfminds, Hope your brains are ready, because here is a shitload of info about the run in the very southern suburbs of Hamburg on Sunday:",
+  "sourceUrl": "https://hamburghash.blogspot.com/2021/09/hamburg-h7-run-594-in-bremen-september.html"
+ },
+ {
+  "date": "2021-10-03",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 595,
+  "hares": "23 'n Me & Just Jenna",
+  "location": "Bismarck Denkmal (im Alten Elbpark)",
+  "locationUrl": "https://goo.gl/maps/vAuBKsZp5xYidrc27",
+  "startTime": "14:00",
+  "description": "What better activity could there be for Germany's National day than getting pissed? At least that's what our hares seems to be planning with the 2 drinkstops I've heard of... You guys better start practicing the proper way to drink Lütt ‘n Lütt !!",
+  "sourceUrl": "https://hamburghash.blogspot.com/2021/09/hamburg-h7-run-595-lut-n-lut-hash-run.html"
+ },
+ {
+  "date": "2021-10-17",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 596,
+  "hares": "Bundeslicker",
+  "location": "Outside U-Bahn Überseequartier (line 4) - exit Hübenerstraße",
+  "locationUrl": "https://goo.gl/maps/Vg1Mrm6rgMS28oNz6",
+  "startTime": "14:00",
+  "description": "HHHello Halfminds, Next run will take us oversees, exploring Hamburg's Hafencity and the new hash territory of Überseequartier. So my dear fellow Se(a)men, dig out your sailor costume, your pirate accessories, or the famous capitain's hat! We want you to cum (to the run) in your best maritime attire! Option B is to come dressed up as a d!ck... Your choice.",
+  "sourceUrl": "https://hamburghash.blogspot.com/2021/10/hamburg-h7-run-596-seamen-hash-run.html",
+  "title": "Se(a)men Hash run"
+ },
+ {
+  "date": "2021-11-07",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 597,
+  "hares": "Knickerless",
+  "location": "AKN Station Friedrichsgabe (line A2)",
+  "locationUrl": "https://goo.gl/maps/DZCEALh7NrqKHACT6",
+  "startTime": "14:00",
+  "description": "HHHello Halfminds, Did you know that Friedrichsgabe was founded in 1820 by Danish King Frederik VI? Yes, the Danes are simply everywhere!! Let's see if we spot one on our next trail :",
+  "sourceUrl": "https://hamburghash.blogspot.com/2021/10/hamburg-h7-hash-run-597-in.html",
+  "title": "Friedrichsgabe"
+ },
+ {
+  "date": "2021-11-21",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 598,
+  "hares": "Groin Biter",
+  "location": "Outside U-bahn station Langenhorn Nord (line U1), by the Croquehütte",
+  "locationUrl": "https://maps.app.goo.gl/LRdUQrXCTKPkWT4m7",
+  "startTime": "14:00",
+  "description": "HHHello Halfminds, For our next run, we hope that the liquid element will flow from the bottle down our throats rather than pour from the sky down over our heads... (Who said head?)",
+  "sourceUrl": "https://hamburghash.blogspot.com/2021/11/hamburg-h7-hash-run-588-in-langenhorn.html",
+  "title": "Langenhorn Nord"
+ },
+ {
+  "date": "2021-12-05",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 599,
+  "hares": "Wouldn't Chew",
+  "location": "Outside S-bahn station Blankenese (S1/S11) on Erik-Blumenfeld-Platz",
+  "locationUrl": "https://goo.gl/maps/3b4jDAM8HQcZSPbN8",
+  "startTime": "14:00",
+  "description": "HHHello Halfminds, Prof. Dr. Wouldn’t Chew Yes I Would invites you for a trip to the Riviera! Oh no, that’s too difficult with covid, so instead it will have to be Blankenese. The hare is somewhat half minded, but did mention there might be Belgian beer. And possibly some stairs. The hare has not checked the Weihnachtsmarkt Blankenese out yet, but according to their website there is a reduced but supposedly still ongoing Christmas market for the on-after. This may mean you cannot buy Christma...",
+  "sourceUrl": "https://hamburghash.blogspot.com/2021/11/hamburg-h7-run-599-blank-it-with-chew.html",
+  "title": "Blank it with the Chew"
+ },
+ {
+  "date": "2021-12-19",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 600,
+  "hares": "Santa's little helpers (Booze, Squashed flat, Longshanks)",
+  "location": "In front of the Youth Hostel, U-Bahn Landungsbrücken",
+  "locationUrl": "https://www.google.com/maps/place/53°32'49.8\"N+9°58'19.4\"E/@53.5471708,9.9715075,151m",
+  "startTime": "14:00",
+  "cost": "10€",
+  "description": "HHHello Halfminds, This year's Christmasrun promises to be a very sexy one! Hamburg H7 is celebrating it's 600th run! (Get a life!). The hares spoke of not less than 2 Glühwein stops... they didn't mention if they intended to have them during the run, or while laying it though... And of course there will be some Hashmas Carrolls : it might be the right time to learn a few like this one.",
+  "sourceUrl": "https://hamburghash.blogspot.com/2021/12/h7-run-600-s1x-oh-oh-sunday-19th.html",
+  "title": "Christmas run Sex Oh Oh"
+ },
+ {
+  "date": "2022-01-02",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 601,
+  "hares": "Knickerless",
+  "location": "in front of Gaststätte Kult, Corner Krüsistraße/Hufnerstrasse, U-Bahn/S-Bahn Barmek exit Krüsistraße",
+  "locationUrl": "https://goo.gl/maps/R6YKhbiHk1QwgaBeA",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, Hope Santa was good to you boys and girls... Although \"it's just a question of perspective\" would say Longshanks in one of his wise moments... (see event picture on Facebook). I'm so looking forward to 2022 --> twenty two two... tutu... get it?! a whole year of tutus' run ahead!!!! (add hysterical jumping up and down here). Anyway, for those that might be sober enough after whatever New Year's Eve party you might attend, here the details of our next run:",
+  "sourceUrl": "https://hamburghash.blogspot.com/2022/04/hamburg-h7-new-years-run-601-jan-2nd.html",
+  "title": "New Year's Run – Barmbek"
+ },
+ {
+  "date": "2022-01-16",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 602,
+  "hares": "Pant in the Country + Highfly + Smelly Cat",
+  "location": "at U-Bahn/S-Bahn Ohlsdorf",
+  "locationUrl": "https://goo.gl/maps/HeLvS9LfUtBGTgZF9",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, Hashy New Beer to all those who missed the New Year's run! Does everybody have their New Year's resolutions yet? Hope you guys are in shape, because our hares' resolution is to run a full marathon in September 2022... so they want to start training now!! (I know... serious racism going on there, right??) Here the details of our next run:",
+  "sourceUrl": "https://hamburghash.blogspot.com/2022/01/hamburg-h7-run-602-jan-16th-2022.html",
+  "title": "Ohlsdorf"
+ },
+ {
+  "date": "2022-02-06",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 603,
+  "hares": "Wouldn't Chew",
+  "location": "at S-Bahn Klein Flottbek",
+  "locationUrl": "https://goo.gl/maps/4MvPQpKdA1a8vMiB6",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, After last run requiring 5 hares, with at least one of them being something in between a bitch and a pussy (true fact!), let's stop the nonsense for a while! Quality instead of quantity, that's what you are getting at our next trail! Here the details of next run:",
+  "sourceUrl": "https://hamburghash.blogspot.com/2022/01/hamburg-h7-run-603-feb-6th-2022-klein.html",
+  "title": "Klein Flottbek"
+ },
+ {
+  "date": "2022-02-20",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 604,
+  "hares": "Olaf some Gangbang+ Eye of the Tiger",
+  "location": "at Harburg Train station Exit to \"Parkhaus\"at Neuländer Platz",
+  "locationUrl": "https://goo.gl/maps/1FdtwL4MgxBbimuL9",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, Next weekend, exceptionnaly for you, a run by the only H8 in the world!! Try and count it yourself if you don't believe me : Hansestadt Hamburg Harburg Hash House Harriers Hummel Hummel ! At last run, we were promised that the trail would be set by a blind dog... what could possibly go wrong??? Here the details of next run:",
+  "sourceUrl": "https://hamburghash.blogspot.com/2022/02/hamburg-h7-run-604-feb-20th-2022-harburg.html",
+  "title": "Hamburg - Harburg"
+ },
+ {
+  "date": "2022-03-06",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 605,
+  "hares": "I AM SIENCE!! + Cruiser",
+  "location": "Arkonastrasse 1, 24106 Kiel - Maritimes Viertel, Kultur am Kanal",
+  "locationUrl": "https://goo.gl/maps/brug6KKszsgrSW3L6",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, Next run is gonna be a killer! hahaha... well, the joke works for a French person, but not sure it's translates well into other languages... at least I'm happy about it! We will be on the road again Sunday, traveling north to Kiel, where a very cultural and maritime trail has been plotted by our local harriettes. Another occasion to show up in your best seamen or sailor costume! Here the details :",
+  "sourceUrl": "https://hamburghash.blogspot.com/2022/02/hamburg-h7-run-605-march-6th-2022-in.html",
+  "title": "Kiel"
+ },
+ {
+  "date": "2022-03-20",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 606,
+  "hares": "Knickerless",
+  "location": "outside U-Bahn Hammerkirche (Line 2 or 4)",
+  "locationUrl": "https://goo.gl/maps/NX34SzwRDCAmcC6d8",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, Next Sunday might be a very wet one... our hare has a reputation of setting his best trails under the rain... But this time he can blame the weather on the Irish, as we will be celabrating St Patrick's day! So wear green or your best Irish costume! Here the details :",
+  "sourceUrl": "https://hamburghash.blogspot.com/2022/03/hamburg-h7-run-606-march-20th-2022-st.html",
+  "title": "St Patrick's run"
+ },
+ {
+  "date": "2022-04-03",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 607,
+  "hares": "Hidden Asset",
+  "location": "in front of St Elisabeth Church, corner Oberstrasse/Hochallee Oberstrasse 67",
+  "locationUrl": "https://goo.gl/maps/D78HKURFVm1EybvM9",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, So, big changes... you were expecting a nice run on the waterside in Övelgönne next Sunday?? F#ck that! You are instead gonna gather in front of a Church in Harvestehude! Blame Corona for it (yes, the virus or the beer, as you please). Here the details :",
+  "sourceUrl": "https://hamburghash.blogspot.com/2022/03/hamburg-h7-run-607-april-3rd-2022.html",
+  "title": "Harvestehude Church run"
+ },
+ {
+  "date": "2022-04-17",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 608,
+  "hares": "Bundeslicker",
+  "location": "S-Bahn Station Neuwiedenthal (S-Bahn line S3 or S31)",
+  "locationUrl": "https://goo.gl/maps/3ZitJecQZfEDXMFn7",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, Are you ready for the Easter eggstravaganza? Our hare, (or is it an Easter bunny ?? ) has prepapared an eggscellent trail, with eggstremely well thought loops, checks and other eggsquisite tricks! Ok, enough bad egg's jokes, here the details :",
+  "sourceUrl": "https://hamburghash.blogspot.com/2022/04/hamburg-h7-run-608-april-17th-2022.html",
+  "title": "Easterbeer run"
+ },
+ {
+  "date": "2022-05-01",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 609,
+  "hares": "Bull's Eye",
+  "location": "in front of Christuskirche Church, just outside U-Bahn Station Wandsbeck Markt (U-Bahn line U1)",
+  "locationUrl": "https://goo.gl/maps/E7bA4yiQbypTTAWQ6",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, Beware F-Hash-ion week is on again! Our guest co-hare for next run has a reputation of dressing up with the fanciest Hash-Tshirts ever (sic!), so if you want to be up to the standard, and make sure he feels welcome, wear your oldest, ugliest T-shirt next week. Yes, it's almost gonna be sexy... just like the number of this run... On a more serious note, we'll need Hares for June, July, August! Please volunteer! For the newbies, we are happy to help you and co-hare with you. Her...",
+  "sourceUrl": "https://hamburghash.blogspot.com/2022/04/hamburg-h7-run-609-may-1st-2022.html",
+  "title": "Wandsbekmarkt"
+ },
+ {
+  "date": "2022-05-14",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 610,
+  "hares": "Spermdonor + Ale Zumba",
+  "location": "at Lauenburg/Elbe train station",
+  "locationUrl": "https://goo.gl/maps/NEZhoFrDkzfkXsTm7",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, Here comes another SOTE (South of the Elbe) run... but will it really start south of the river? It could also be a fantastic opportunity to run in 3 different Bundeslaender in 1 Hashtrail... but... should you trust the hares for that, when they are already trying to confuse the pack by setting a run on a Saturday!!??!! Still, here the details for next run:",
+  "sourceUrl": "https://hamburghash.blogspot.com/2022/05/hamburg-h7-run-610-saturday-may-14th.html",
+  "title": "Lauenburg"
+ },
+ {
+  "date": "2022-06-05",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 611,
+  "hares": "Knickerless and Topless Padler",
+  "location": "at Bergedorf train station (S-Bahn train S21 or RE1 regional train)",
+  "locationUrl": "https://goo.gl/maps/rTcVsKaYCUA9soKw7",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, It's so hot right now in Hamburg, that our hares have found the perfect theme for next hashrun : naked!! Wait? What? no? Well, when one has no knickers and the other one is topless... what is left then??? And wondering if FKK is gonna show up for this one... ;-) Still, here the details for next run:",
+  "sourceUrl": "https://hamburghash.blogspot.com/2022/05/hamburg-h7-run-611-sunday-june-5th-2022.html",
+  "title": "Bergedorf"
+ },
+ {
+  "date": "2022-06-18",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 612,
+  "hares": "Cruiser, I AM SCIENCE!! and Just Simone",
+  "location": "at Kiel train station",
+  "locationUrl": "https://goo.gl/maps/dhMX45CT1HQkrp7Z7",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, Saturday is a hashing day! That's the new trend for Hamburg Hash it seems. We'll offer not one but 2 runs on Saturdays until the end of this month! One by our lovely killer harriettes to celebrate the start of the Kielerwoche (and to use that damn 9€ Ticket!) and the second one to welcome a mystery guest of honor. Stay tuned! Details for next run:",
+  "sourceUrl": "https://hamburghash.blogspot.com/2022/06/hamburg-h7-run-612-saturday-june-18th.html",
+  "title": "Kieler Woche Hash"
+ },
+ {
+  "date": "2022-07-03",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 613,
+  "hares": "Hidden Asset",
+  "location": "at Borgweg U-Bahn Station (U3)",
+  "locationUrl": "https://goo.gl/maps/T9DUWTonuP6D2TGX7",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, Let's say that Bundeslicker's plan to hare a Canoe trail went by the board. But I hope to offer you other possibilities to get wet next Sunday, with a more classic trail around Stadtpark and endless beers at the on-after by Landhaus Walter. Back to basics! Details for next run:",
+  "sourceUrl": "https://hamburghash.blogspot.com/2022/06/hamburg-h7-run-613-saturday-june-25th.html",
+  "title": "Stadtpark"
+ },
+ {
+  "date": "2022-07-17",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 614,
+  "hares": "Booze + Squashed Flat",
+  "location": "at Meschensee AKN Station (change from U1 in Norderstedt)",
+  "locationUrl": "https://goo.gl/maps/LqL4SWmFbw4wQ2dw6",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, Don't let the name of the place fool you, there is no lake or sea at Meeschensee! You are welcome to run in your swimsuit or bikini though... A beautiful forest and a sneaky trail awaits you at this now traditional H7 run. Here the details for next hash trail:",
+  "sourceUrl": "https://hamburghash.blogspot.com/2022/07/hamburg-h7-run-614-sunday-july-17th.html",
+  "title": "Meeschensee"
+ },
+ {
+  "date": "2022-08-07",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 615,
+  "hares": "Bull's Eye",
+  "location": "at Mittlerer Landweg S-Bahn station ( S2 und S21)",
+  "locationUrl": "https://goo.gl/maps/KcWvw2RjDXYHFgFR9",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, It seems not enough hashers went overboard last Saturday during the \"Paddle party\" on the Alster, although there was plenty alcohol involved I've heard... Anyway, our hare for next run intends to correct this, by setting a proper swimmstop on trail and accurately test if hashers need beer to float or not... Here the details for next run:",
+  "sourceUrl": "https://hamburghash.blogspot.com/2022/07/hamburg-h7-run-615-sunday-august-7th.html",
+  "title": "Mittlerer Landweg"
+ },
+ {
+  "date": "2022-08-21",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 616,
+  "hares": "Bundeslicker",
+  "location": "Biergarten \"Zum Anleger\" Am Ernst-August-Kanal in Hamburg-Wilhelmsburg, Vogelhüttendeich 123, 21107 Hamburg",
+  "locationUrl": "https://maps.app.goo.gl/XLoav9KupoSAZ1NLA",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, WE NEED HARES!! After that subtle subliminal message, back to the ground, or, more accurately back to the water. Yes, while France is burning and drying out to the last drop, it seems the Hamburg Hash finds it funny to get wet again and again. Bundeslicker is disorganizing a trail on the canals of Wilhelmsburg. Yes, holy harriette laying trail on water... Let's see how many mobilephones will die this time (you guys should know that technology on trail is bad...) Anyway, here t...",
+  "sourceUrl": "https://hamburghash.blogspot.com/2022/08/hamburg-h7-run-616-sunday-august-21st.html",
+  "title": "the Willy Wade"
+ },
+ {
+  "date": "2022-09-04",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 617,
+  "hares": "Horse and Just Christian",
+  "location": "Rathaus Altona (Too many Public transport options to list them all here. Do your own research)",
+  "locationUrl": "https://goo.gl/maps/UyPk1sNz2fRUSrAa8",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, Our hares for next run seem to have something to prove : after being recently defeated on the Alster and throw into the water by a danish harriette, they want to reconquer their lost pride and invade Danemark! Like Joan of Arc, a Virgin (hare) riding a Horse! [Insert epic music here] Maybe someone should tell them, that Altona doesn't belong to Danemark anymore since 1864... And here the details for next run:",
+  "sourceUrl": "https://hamburghash.blogspot.com/2022/08/hamburg-h7-run-617-sunday-september-4th.html",
+  "title": "Invading Altona"
+ },
+ {
+  "date": "2022-09-18",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 618,
+  "hares": "Topless Paddler",
+  "location": "Gustav-Falke strasse 8 - Schlump U-Bahn Schlump (Line U2 or U3)",
+  "locationUrl": "https://goo.gl/maps/XdXrj2PFTLB8h92k9",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, Our lovely hare is pretty unlucky right now in a search for an internship (Anyone looking for a trainee/slave in Digital transformation management??) ... but that's good luck for us, as she has plenty time to scout, organise and lay trail!!! Here the details for next run:",
+  "sourceUrl": "https://hamburghash.blogspot.com/2022/09/hamburg-h7-run-618-sunday-september.html",
+  "title": "Schlump !"
+ },
+ {
+  "date": "2022-10-02",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 619,
+  "hares": "Knickerless",
+  "location": "U-Bahn station Langenhorn Nord (Line U1)",
+  "locationUrl": "https://goo.gl/maps/wZ2KzAGEHYEHJiUz7",
+  "startTime": "14:00",
+  "description": "HHHi Halfmind, I could make jokes about size, lenght or how long the trail is gonna be next week... but I'll spare you those, and will go straight to the point : there will be beer! Here the details for next run:",
+  "sourceUrl": "https://hamburghash.blogspot.com/2022/09/hamburg-h7-run-619-sunday-october-2nd.html",
+  "title": "Langenhorn Nord... a long and h*rny one"
+ },
+ {
+  "date": "2022-10-16",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 620,
+  "hares": "Bundeslicker",
+  "location": "Spielplatz Stubbenhuk, Stubbenhuk 7 near U-Bahn station Baumwall (Line U3)",
+  "locationUrl": "https://goo.gl/maps/NdkKFdKhzXk3aATR7",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, It's never too late to have a happy childhood! That's why our hare on Sunday has set the meeting point on a local playground. So swing by! Here the details for next run:",
+  "sourceUrl": "https://hamburghash.blogspot.com/2022/10/hamburg-h7-run-620-sunday-october-16th.html",
+  "title": "Baumwall"
+ },
+ {
+  "date": "2022-11-06",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 621,
+  "hares": "Der Slurpy",
+  "location": "The carpark of the Observatory in Bergedorf (Sternwarte Bergedorf), Gojenbergsweg 112, 21029 Hamburg",
+  "locationUrl": "https://goo.gl/maps/8HEpT7YWAPLgmiXu5",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, How far is it to the moon? Is there beer over there? No idea, but our hare next week might know. In any case he promised us a trail full of nature, stars, and shiggy! And if you survive that, there will also be a private tour of the Bergedorf observatory, where you might see the moon... (whose i don't know though...) Here the details for next run:",
+  "sourceUrl": "https://hamburghash.blogspot.com/2022/10/hamburg-h7-run-621-sunday-november-6th.html",
+  "title": "To the moon and back - Sternwarte Bergedorf"
+ },
+ {
+  "date": "2022-11-20",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 622,
+  "hares": "WD40 & UB69",
+  "location": "Martinianleger (river Weser next to Bremen's town center)",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, What do you get if you add 622 + 40 + 69 ? No, it's not the winning number for the lottery or an exotic sex position. It's just our next hashtrail in Bremen! Here the details for next run:",
+  "sourceUrl": "https://hamburghash.blogspot.com/2022/11/hamburg-h7-run-622-sunday-november-20th.html",
+  "title": "Bremen"
+ },
+ {
+  "date": "2022-12-04",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 623,
+  "hares": "Battery Operating Boyfriend and his son",
+  "location": "Hagendeel U-Bahn station (line U2)",
+  "locationUrl": "https://goo.gl/maps/T2VTDcWAiCSLbtUJ9",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, Hashers are known to be big kids. Well our next trail is gonna be set by an actual kid! Child labour?? Sure, but monitored by the proud father. (+ read a bit further down to register to Christmas run) Here the details for next run:",
+  "sourceUrl": "https://hamburghash.blogspot.com/2022/11/hamburg-h7-run-623-sunday-december-4th.html",
+  "title": "Hagendeel"
+ },
+ {
+  "date": "2022-12-17",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 624,
+  "hares": "Booze Attack, Massive Shanks, Squashed Commer, Long Late and Flat",
+  "location": "In front of Hotel Hafen, Seewartenstraße 9 5 minutes walk from U-Bahn station Landungsbrücken",
+  "locationUrl": "https://goo.gl/maps/c7XQsehxdDCU4xCy9",
+  "startTime": "13:00",
+  "description": "HHHi Halfminds, Have you written your letter to Santa yet? If not, don't bother, hashers are usually too naughty to get anything nice... What??! No, don't deny it, I already have a list of down-downs as long as a ballbreaker trail ready for next run. Here the details of the festivities, and please register if you intend to be there :",
+  "sourceUrl": "https://hamburghash.blogspot.com/2022/12/hamburg-h7-run-624-saturday-december.html",
+  "title": "Christmas run"
+ },
+ {
+  "date": "2023-01-15",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 625,
+  "hares": "Professor Doctor Wouldn’t Chew",
+  "location": "In front of the Museum der Arbeit : Wiesendamm 3, 22305 Hamburg U-Bahn/S-Bahn Barmbek",
+  "locationUrl": "https://goo.gl/maps/iNAzgaXPXS64hZyL7",
+  "startTime": "13:00",
+  "description": "HHHi Halfminds, And Hashy New Beer! We have all been there, some serious hashing has created Black Holes in our memory, or even worse: Dark Matter in our souls! They’re definitely a large part of hashing, and this has inspired Wouldn’t Chew to tell her minions to organise a special exhibition on Black Holes, Antimatter (that’s when the R.A. tries to make it look like what they say matters) and the Universe as a whole. This exhibition in the Hamburger Museum der Arbeit is intended for all ages...",
+  "sourceUrl": "https://hamburghash.blogspot.com/2023/01/hamburg-h7-run-625-sunday-january-15th.html",
+  "title": "How it all started... in Barmbek"
+ },
+ {
+  "date": "2023-02-04",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 626,
+  "hares": "Topless Padler",
+  "location": "Outside of S-Bahn Klein Flottbek",
+  "locationUrl": "https://goo.gl/maps/anS31JSQh55RLcx48",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, Freeeeeee!!! After months and months of covering our faces in public transport, we will be officialy able to take our masks off in Hamburg HVV from February 1st. !! To celebrate this, will our hare take her top off as well??? Come and find out at the next hash!! (Please note : it takes place on a SATURDAY) Here the details:",
+  "sourceUrl": "https://hamburghash.blogspot.com/2023/01/hamburg-h7-run-626-saturday-february.html",
+  "title": "Klein Flottbek"
+ },
+ {
+  "date": "2023-02-19",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 627,
+  "hares": "Bundeslicker + Horse",
+  "location": "Outside of S-Bahn Stellingen",
+  "locationUrl": "https://goo.gl/maps/WWoV9do3ZzCc7PjR8",
+  "startTime": "11:00",
+  "description": "HHHi Halfminds, Balls, balls, balls! Yes, some of us love them. Small, big or oval-shaped... they are addicted to balls! That's why our hares next week have tried to combine the run and football. We will start trail at 11am, and then afterwards at 1pm go and watch the Hamburg HSV vs Bielefeld Football game at the stadium. (You will have to get your own tickets for that - read instructions below) Let's see how this is going to turn out... And before we get to the details, a short subtle messag...",
+  "sourceUrl": "https://hamburghash.blogspot.com/2023/02/hamburg-h7-run-627-sunday-february-19th.html",
+  "title": "The football run"
+ },
+ {
+  "date": "2023-03-05",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 628,
+  "hares": "Bull´s Eye",
+  "location": "Outside of S-Bahn Wilhelmsburg",
+  "locationUrl": "https://goo.gl/maps/131iY8ruZ1utaLLp7",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, The 7th Wilhelmsburg Winterlaufseries will take place on Sunday March 5th, starting at 9 am, you´ll be able to choose a running distance from 5km to 20km... Ok, enough bullshit and serious running... we all know, hashers will be too hangover on a Sunday morning to take part to this very racist event. But to confuse everybody, our hare next week will lay a trail from the exact same starting spot, just a few hours later. That´s gonna be interesting! Here the details:",
+  "sourceUrl": "https://hamburghash.blogspot.com/2023/02/hamburg-h7-run-628-sunday-march-5th.html",
+  "title": "Wilhelmsburg"
+ },
+ {
+  "date": "2023-03-19",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 629,
+  "hares": "Hidden Asset",
+  "location": "Outside of the Honorary Consulate of Ireland, Böttgerstraße 9, 20148 Hamburg",
+  "locationUrl": "https://goo.gl/maps/bY1RYNbxcxToS6787",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, This is the time of the year, when everybody is happy and everything turns green again! No!... I don´t mean spring... St Patrick´s Day of course!! Even if your hare has never been to Ireland (so says the legend...), we´ll try to find the treasure of the Leprechauns, gold hidden at the feet of a rainbow, or more realisticaly, find the path to that famous dark brew... Here the details:",
+  "sourceUrl": "https://hamburghash.blogspot.com/2023/03/hamburg-h7-run-629-sunday-march-19th.html",
+  "title": "St Patrick´s run"
+ },
+ {
+  "date": "2023-04-02",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 630,
+  "hares": "Wouldn´t Chew",
+  "location": "Outside of S-Bahn Elbgaustrasse (S-Bahn 3 and 21)",
+  "locationUrl": "https://goo.gl/maps/CcKBiMyyexXfeVfb7",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, Whhaaaaat? You are not signed up for H7 30th birthdayParty yet?? Do so quickly, and join us in Bremen June 2-4 2023 : https://hamburghash.blogspot.com/p/hamburg-h7-30th-anniversary-june-2nd.html Talking about foolishness, our next trail will take place the day after April 1st, and we will celebrate dicks...! Yes, April 2nd is Saint Richard´s day... Here the details for next run:",
+  "sourceUrl": "https://hamburghash.blogspot.com/2023/03/hamburg-h7-run-630-sunday-april-2nd.html",
+  "title": "Elbgaustrasse"
+ },
+ {
+  "date": "2023-04-16",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 631,
+  "hares": "Knickerless",
+  "location": "Outside of S-Bahn Poppenbüttel (S-Bahn 1)",
+  "locationUrl": "https://goo.gl/maps/98HdkNgM3cNykLZQ8",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, According to the tradition, next trail is supposed to be a very wet one, as our hare is renowned to (not) control the rain ... Anyway, let's get straight to the point (or is that shortcutting?). Here the details for next run:",
+  "sourceUrl": "https://hamburghash.blogspot.com/2023/04/hamburg-h7-run-631-sunday-april-16th.html",
+  "title": "Poppenbüttel"
+ },
+ {
+  "date": "2023-05-21",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 632,
+  "hares": "Pant in the Country, Bundeslicker, Smelly cat",
+  "location": "Outside of U-Bahn Hudtwalckerstrasse (U-Bahn line 1)",
+  "locationUrl": "https://goo.gl/maps/qzeaXQuseeckuz7a7?coh=178572&entry=tt",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, The weather is getting hotter and hotter! And what a coincidence, one of our hare next Sunday is also a hot bitch... Come and check it out! Here the details for next run:",
+  "sourceUrl": "https://hamburghash.blogspot.com/2023/05/hamburg-h7-run-632-sunday-may-21st-2023.html",
+  "title": "Hudtwalckerstrasse"
+ },
+ {
+  "date": "2023-06-03",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 634,
+  "hares": "WD40 and UB69",
+  "location": "in front of MS Aventura - Schlachte Anleger 5 - Bremen",
+  "locationUrl": "https://goo.gl/maps/CkSc4EizSopCfihh9",
+  "startTime": "13:00",
+  "description": "HHHi Halfminds, In case you missed it, Hamburg Hash is turning 30! We are celebrating this with a full weekend of hashing in Bremen, including a pubcrawl on Friday night hared by Bundeslicker, a very nautical party on Saturday night and a hangover run on Sunday morning hared by Pant in the Country. But the main event will of course be the Saturday trail! Here are the details :",
+  "sourceUrl": "https://hamburghash.blogspot.com/2023/05/hamburg-h7-30th-birthday-run-saturday.html",
+  "title": "H7 30th Birtday - saturday run #634"
+ },
+ {
+  "date": "2023-06-18",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 636,
+  "hares": "Licken Sie Hole",
+  "location": "Outside of station Tonndorf",
+  "locationUrl": "https://goo.gl/maps/re7whjhWJXgJmENX6",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, Hot, hot, hot ! No, I'm not talking about our hare next Sunday, but about the weather. It's gonna be Licken Sie Hole first official trail in Hamburg, and I'm sure she's planned a lot of scenic loops. Here the details for next run :",
+  "sourceUrl": "https://hamburghash.blogspot.com/2023/06/hamburg-h7-run-636-sunday-june-18th.html",
+  "title": "Tonndorf"
+ },
+ {
+  "date": "2023-07-02",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 637,
+  "hares": "Bull's Eye",
+  "location": "Outside of station S-Bahn Aumühle",
+  "locationUrl": "https://goo.gl/maps/S52wKCA4Wb7zX2Jz7",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, You better catch the right train to get to the next hashtrail, because according to the hare, at least one railway station is missing over there. Hope the hashmarkings will not vanish ... and the beer... what if it disappears as well ?!??!! Better drink it quickly then! Here the details for next run :",
+  "sourceUrl": "https://hamburghash.blogspot.com/2023/06/hamburg-h7-run-637-sunday-july-2nd-2023.html",
+  "title": "The disappeared Railway Station run - Aumühle"
+ },
+ {
+  "date": "2023-07-16",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 638,
+  "hares": "Longshanks, Massive Attack, Late Comer, Booze and Squashed Flat",
+  "location": "at Meeschensee AKN Station (change from U1 to A2 in Norderstedt)",
+  "locationUrl": "https://goo.gl/maps/LqL4SWmFbw4wQ2dw6",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, It's hot! Let's go north and hide in the shade of the forest! Maybe we'll even find trail there... and beer! Here the details for next run :",
+  "sourceUrl": "https://hamburghash.blogspot.com/2023/07/hhhi-halfminds-its-hot-lets-go-north.html",
+  "title": "Meeschensee"
+ },
+ {
+  "date": "2023-08-20",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 639,
+  "hares": "Knickerless",
+  "location": "at Buckhorn U-Bahn station (Line U1)",
+  "locationUrl": "https://goo.gl/maps/KKvGAZ3PhHQS3Zr29",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, Some of us are still hashing away, in one of the plenty hash events that are taking place this summer all over Europe. But our local hares are here in Hamburg for you, and have organised what seems to be a trail full of horny deers (or am I lost in translation here??). Antlers... or whaterver you call those things on their head... Head? Who said head? Here the details for next run :",
+  "sourceUrl": "https://hamburghash.blogspot.com/2023/08/hamburg-h7-run-639-sunday-august-20th.html",
+  "title": "Buckhorn"
+ },
+ {
+  "date": "2023-09-03",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 640,
+  "hares": "Longshanks",
+  "location": "at S-Bahn Station Horneburg (Line S3)",
+  "locationUrl": "https://goo.gl/maps/hgBK1mGqGUgSCMQo8",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, It seems some of us like to lick her hard... i mean, hard liqueur! Well, luckily, that's the kind of spirits you can get at Nordik (no pun intended here) distillery in Horneburg, where our hare has planned a tour after the run next Sunday. Rum, Gin, Whisky and other Schnapps, expect you if you find the true trail to Horneburg! Here the details for next run :",
+  "sourceUrl": "https://hamburghash.blogspot.com/2023/08/hamburg-h7-run-640-sunday-september-3rd.html",
+  "title": "Horneburg - The distillery run"
+ },
+ {
+  "date": "2023-09-17",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 641,
+  "hares": "Just Ibrahim",
+  "location": "In front of Immenöven 24, 200m from U-Bahn Station Langenhorn Nord (Line U1)",
+  "locationUrl": "https://goo.gl/maps/e2J6cb5bSV7uMyTo9",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, Our newcommer Just Ibrahim has been quite eager to set his first ever trail. He is overprepared and overorganised... Let's see if all goes according to his plan... Here the details for next run :",
+  "sourceUrl": "https://hamburghash.blogspot.com/2023/09/hamburg-h7-run-641-sunday-september.html",
+  "title": "Langenhorn Nord"
+ },
+ {
+  "date": "2023-10-01",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 642,
+  "hares": "Cyber Donkey Sex",
+  "location": "Outside of U-Bahn Station Wandsbek Markt (Line U1)",
+  "locationUrl": "https://maps.app.goo.gl/oa88qfznayY1fhNn7",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, It's Oktoberfest season, and it smells like beer! If one does catch more flies with honey than vinegar, it seems you can catch a Berlin Hasher with Fishbrötchen and the perspective of a beertent full of loud sweety drunkheads. In any case, we are looking forward to our returning hare! Here the details for next run :",
+  "sourceUrl": "https://hamburghash.blogspot.com/2023/09/hamburg-h7-run-642-sunday-october-1st.html",
+  "title": "Wandsbek Markt and Oktoberfest"
+ },
+ {
+  "date": "2023-10-15",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 643,
+  "hares": "Golden Shower + H2O",
+  "location": "Hittfeld train Station",
+  "locationUrl": "https://maps.app.goo.gl/FfNBRyJuh6oN5kTD7",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, I never thought I would write that about the hash, but after quantity, we might have quality... Yes, after Oktoberfest last week, our hares next week have promised a selection of their homebrewed beers! I just hope those beers will taste better than the hashnames of those brewing it... Here the details for next run :",
+  "sourceUrl": "https://hamburghash.blogspot.com/2023/10/hamburg-h7-run-643-sunday-october-15th.html",
+  "title": "Hittfeld Craftbeerfest"
+ },
+ {
+  "date": "2023-11-05",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 644,
+  "hares": "Hidden Asset",
+  "location": "Wellingsbüttel S-Bahn Station",
+  "locationUrl": "https://maps.app.goo.gl/bwDjgRdTrLgSW6rT7",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, you can´t write scrotum without scrum... that is my spelling homage to the New-Zealand rugby team, that came second ... in the worldcup finale yesterday... So if your Wellington Boots have dried since Flensburg last week, you might have to put them back on for our next trail in Wellies-büttel ! Here the details for next run :",
+  "sourceUrl": "https://hamburghash.blogspot.com/2023/10/hamburg-h7-run-644-sunday-december-5th.html",
+  "title": "Wellington Boots -büttel"
+ },
+ {
+  "date": "2023-11-19",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 645,
+  "hares": "Bundeslicker",
+  "location": "S-Bahn Station Hasselbrook (lower exit to Hasselbrookstraße)",
+  "locationUrl": "https://maps.app.goo.gl/YidQc7KbwmEEebE1A?g_st=ic",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, Don't forget to sign-up for H7 Christmas' Run on Saturday December 16th 2023. I've heard our leadhare is already testing all the Glühwein spots in town, to make sure you get the best ones! But I bet you guys don't believe in Santa anymore, do you? Well, our hare next weekend has promised some dancing unicorns on trail... do you believe in that????!! Or did she mean Uni-Korn ? In any case, it sounds like a lot of strong alcool was involved in the planning (sic!) of that trail. ...",
+  "sourceUrl": "https://hamburghash.blogspot.com/2023/11/hamburg-h7-run-645-sunday-november-19th.html",
+  "title": "🦄The Dancing Unicorn run 🦄"
+ },
+ {
+  "date": "2023-12-03",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 646,
+  "hares": "Just Sabine",
+  "location": "S-Bahn Station Alte Wöhr",
+  "locationUrl": "https://maps.app.goo.gl/1jdjt286uVeE7Hi57",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, I know we promissed you fantastic creatures on trail last time, and all we saw instead of a unicorn was a wet hedgehog... But we'll keep hunting those mystical animals and we can now assure you, there will be a virgin hare on trail next Sunday! Even if she collided quite a lot recently at the CERN in Geneva, Just Sabine will set her first trail in Hamburg! Here the details for next run :",
+  "sourceUrl": "https://hamburghash.blogspot.com/2023/11/hamburg-h7-run-646-sunday-december-3rd.html",
+  "title": "The vrgin hare run"
+ },
+ {
+  "date": "2023-12-16",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 647,
+  "hares": "led by Wouldn't Chew",
+  "location": "S-Bahn Station Dammtor",
+  "locationUrl": "https://maps.app.goo.gl/nVFJDCF3hooBxso86",
+  "startTime": "13:00",
+  "description": "HHHi Halfminds, Fun fact we learned on our way to Denmark last week : the noun for a group of puffins, is a circus of puffins; for crows, it's called a murder of crows... But how would you call the group of international hares that will set our Christmas trail? Well... I've done some research ... \"The collective nouns for Hares are derived from the behavior of the animals. A husk is a group of hares that live in a thicket, a warren is a group of Hares that live in a warren, a band is a group ...",
+  "sourceUrl": "https://hamburghash.blogspot.com/2023/12/hamburg-h7-run-647-saturday-december.html",
+  "title": "🎄Christmas run 🎄"
+ },
+ {
+  "date": "2024-01-07",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 648,
+  "hares": "Longshanks",
+  "location": "S-Bahn/U-Bahn Station Elbbrücken",
+  "locationUrl": "https://maps.app.goo.gl/ucP518xv886n4eqPA",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, Thought about your new year's resolutions yet? How about haring a trail in 2024?? Rumor has it, quite a few hashers will enjoy the New Year celebrations tonight with bubbles and a view on the Elbe... Well, we'll stick with the Elbe for the first run of the year next Sunday! Wishing you all a hashy new beer!! Here the details :",
+  "sourceUrl": "https://hamburghash.blogspot.com/2023/12/hamburg-h7-run-648-sunday-january-7th.html",
+  "title": "Elbbrücken"
+ },
+ {
+  "date": "2024-01-20",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 649,
+  "location": "S-Bahn Neuwiedenthal",
+  "locationUrl": "https://maps.app.goo.gl/nKM572nYZZXqhaUr9",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, Anyone still dreaming of completing a Dry January?? Well, even if our next trail in gonna end in milk (you´ll get the joke if you make it to the end of the run), there is little hope that your good resolution is gonna survive the Burns´ hash. This trail is held in celebration of the great Scottish poet Robert Burns, born 20th January 1759, and Burns' night or Burns' supper is a tradition that our 2 half Scottish hashers want to share with you. Don´t disappoint them... Here the...",
+  "sourceUrl": "https://hamburghash.blogspot.com/2024/01/hamburg-h7-run-649-saturday-january.html",
+  "title": "Burns´ Hash"
+ },
+ {
+  "date": "2024-02-04",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 650,
+  "hares": "Bundeslicker",
+  "location": "S-Bahn Veddel",
+  "locationUrl": "https://maps.app.goo.gl/QCKYYgywsxtAhHwn7",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, Survived the Haggis Ok? Never wanna see a Horse in a \"kilt\" again?? Well, there will be more of those \"funny\" H7 special events this year. Cumming up are St Patrick's run in March, a 30 years hash birthday in April or a trip to Hell (goland) in June . But for the time being, we are keeping Hamburg hash SOTE (South of the Elbe), or kind of. Here the details for next run :",
+  "sourceUrl": "https://hamburghash.blogspot.com/2024/01/hamburg-h7-run-650-sunday-february-4th.html",
+  "title": "Veddel"
+ },
+ {
+  "date": "2024-02-18",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 651,
+  "hares": "Titanic Seamen",
+  "location": "at the corner of Dehnhaide and Langenrehm (100m from U-Bahn station Dehnhaide)",
+  "locationUrl": "https://maps.app.goo.gl/xh4XFiryCnkC8mNM9",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, It´s cold, grey and wet ... (and no, it´s not the start of a necrophile joke). That´s why we are so happy it´s carnival season all over the world! to bring us joy, colors and fun! Of course that was the perfect excuse : our local Brazilian was voluntold to hare! Here the details for next run :",
+  "sourceUrl": "https://hamburghash.blogspot.com/2024/02/hamburg-h7-run-651-sunday-february-18th.html",
+  "title": "Dehnhaide Carnival"
+ },
+ {
+  "date": "2024-03-03",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 652,
+  "hares": "FKK Trail bitch, Licken Sie Hole",
+  "location": "Outside U-Bahn station Meiendorfer Weg (Line U1)",
+  "locationUrl": "https://maps.app.goo.gl/osjCCBDARXFtx5se8",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, This week´s hashtrash is gonna be short and painless (and no, I´m not gonna make any jokes about that) : Here the details for next run :",
+  "sourceUrl": "https://hamburghash.blogspot.com/2024/02/hamburg-h7-run-652-sunday-march-3rd.html",
+  "title": "Meiendorfer Weg"
+ },
+ {
+  "date": "2024-03-16",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 653,
+  "hares": "Sexy Legs",
+  "location": "Outside S-Bahn station Heimfeld",
+  "locationUrl": "https://maps.app.goo.gl/KydCc8MnWA3V8eeh6",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, We've witnessed a few weeks ago an attempt at scottish dances... Will those Sexy Legs be able to entertain us with some Irish dances this time? Or will the hare be too tired after setting the same trail 3 times in a row within 4 days? Here the details for next run :",
+  "sourceUrl": "https://hamburghash.blogspot.com/2024/03/hamburg-h7-run-653-saturday-march-16th.html",
+  "title": "St Patrick´s run"
+ },
+ {
+  "date": "2024-04-06",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 654,
+  "hares": "PMS",
+  "location": "Outside U-Bahn station Rauhes Haus",
+  "locationUrl": "https://maps.app.goo.gl/GksBT67KdFusxi776",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, When the pussy is away, the hashers will play... (or will celabrate a birthday?) Our dear Pork Sausage has been away in sunny Ghana for a long time now, and we still didn't have a housewarming party at his new place, maybe a too rough house? Well, as Perfect Mudder Sucker is turning 18 (for the second time), he decided to have a little run and birthday do there. Cake anyone? Here the details for next run :",
+  "sourceUrl": "https://hamburghash.blogspot.com/2024/03/hamburg-h7-run-654-saturday-april-6th.html",
+  "title": "\"When the pussy is away\" run - Rauhes Haus"
+ },
+ {
+  "date": "2024-04-21",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 655,
+  "hares": "Knickerless + Cruiser",
+  "location": "Outside U-Bahn station Langenhorn Nord",
+  "locationUrl": "https://maps.app.goo.gl/9ckgVsy8eKVEJjzn8",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, Since you all liked last week's cake so much, we'll go on with birthdays and special celebrations : This month, give or take a few weeks, Knickerless will have been hashing for 30 years, and Cruiser for 42 years!! Fun fact, they both started hashing in a French speaking country... (où est le papier?). This brings me to the joke of the day: Why does a Frenchman only have one egg for breakfast? Because it's un oeuf. More bad jokes and mispronounciation coming up next Sunday. Her...",
+  "sourceUrl": "https://hamburghash.blogspot.com/2024/04/hamburg-h7-run-655-sunday-april-21st.html",
+  "title": "30+42 years Hashing"
+ },
+ {
+  "date": "2024-05-05",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 656,
+  "hares": "UB69",
+  "location": "Findorffallee junction with Neukirchstraße (15 min. walk from Trainstation to Bürgerpark)",
+  "locationUrl": "https://maps.app.goo.gl/pRtLr5cfL7W1g4MT6",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, Everybody made it back home from last run? Or are there still some hashers lost in one of the S-Bahn replacement bus?? As we are now all mastering the ups and (down-)downs of Hamburg transport system, let's attack the regional trains! See how well that Metronom line to Bremen works! Talking about attacking, next hash will celebrate the Cinco de Mayo, an obsucre battle between French and Mexicans in Puebla in 1862, that is celebrated... only in the USA... Who cares? Any excuse ...",
+  "sourceUrl": "https://hamburghash.blogspot.com/2024/04/hamburg-h7-run-656-sunday-may-5th-2024.html",
+  "title": "Cinco de mayo - Bremen"
+ },
+ {
+  "date": "2024-05-19",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 657,
+  "hares": "Sexy Legs + Longshanks",
+  "location": "Outside S-Bahn station Heimfeld",
+  "locationUrl": "https://maps.app.goo.gl/KydCc8MnWA3V8eeh6",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, After last weather and train drama, let's try again to cross the Elbe! Get those Sexy Shanks and Long legs out, and join the run and on after Bbq for a taste of summer! Here the details for next run :",
+  "sourceUrl": "https://hamburghash.blogspot.com/2024/05/hamburg-h7-run-657-sunday-may-19th-2024.html",
+  "title": "Heimfeld BBQ"
+ },
+ {
+  "date": "2024-05-31",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 658,
+  "location": "on the island Helgoland",
+  "startTime": "11:00",
+  "cost": "10€",
+  "description": "Hamburg Hash and Toulouse Hash are disorganising a trip to Hell. Join us in Helgoland for a unique hashtrail on Saturday June 1st 2024 !!",
+  "sourceUrl": "https://hamburghash.blogspot.com/2024/05/go-to-hellgoland-joint-hashweekend.html",
+  "title": "Go to Hell (goland)!"
+ },
+ {
+  "date": "2024-06-15",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 659,
+  "hares": "FKK + Cyber Donkey Sex",
+  "location": "Outside the main train station Schwerin Hbf",
+  "locationUrl": "https://maps.app.goo.gl/sTky57ffcLPxoztG9",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, The month of June is a month of away hashes for H7. After joining Toulouse H3 in Hell(goland) last weekend, our next trail will be a joint one with Berlin H3. Plus I´ve heard that some of the drinks might have come all the way from Finland. Who doesn´t like a good mingle?! Here the details for next run :",
+  "sourceUrl": "https://hamburghash.blogspot.com/2024/06/hamburg-h7-run-659-saturday-june-15th.html",
+  "title": "Schwerin"
+ },
+ {
+  "date": "2024-07-07",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 660,
+  "hares": "Bull's Eye",
+  "location": "Outside the S-Bahn station Reinbek",
+  "locationUrl": "https://maps.app.goo.gl/zeiwEGUcLAERhED56",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, After a month in Hell (goland to Helsingor), it's nice to be back in Hamburg for the summer ... when does it start again? Is it over already? One good advice we got from our encounter with the birdswatchers in Helgoland : in summer, if you go running in the bushes, don't forget to check for tits! (or did i get lost in translation again??) Here the details for next run :",
+  "sourceUrl": "https://hamburghash.blogspot.com/2024/07/hamburg-h7-run-660-sunday-july-7th-2024.html",
+  "title": "Reinbek"
+ },
+ {
+  "date": "2024-07-21",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 661,
+  "hares": "Pant in the Country + High Fly",
+  "location": "at Meeschensee AKN Station (change from U1 to A2 in Norderstedt)",
+  "locationUrl": "https://goo.gl/maps/LqL4SWmFbw4wQ2dw6",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, This is the time of the year when we celebrate Booze's birthday with the now traditional run in Meeschensee (where there is still no lake... but then, let them have cake!). Here the details for next run :",
+  "sourceUrl": "https://hamburghash.blogspot.com/2024/07/hamburg-h7-run-661-sunday-july-21st.html"
+ },
+ {
+  "date": "2024-08-03",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 662,
+  "hares": "PMS, Knickerless, Spermdonor, Dealer",
+  "location": "Buckhorn U-Bahn Station (Line U1)",
+  "locationUrl": "https://maps.app.goo.gl/78vvc5K7b9QqwQqr7",
+  "startTime": "22:00",
+  "description": "HHHi Halfminds, The hares promessed it will be dark, wet, cold with a lot of shiggy. You will suffer. But at the end of the tunnel, there will be light... I mean, beer!! Please note this run takes place at night. Here the details for next run :",
+  "sourceUrl": "https://hamburghash.blogspot.com/2024/07/hamburg-h7-run-662-saturday-august-3rd.html",
+  "title": "H7 Nightmare run"
+ },
+ {
+  "date": "2024-08-17",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 663,
+  "hares": "UB69 and Dr Poor Nelly",
+  "location": "Bremen - Corner Pagentornerstrasse / Lindhornstrasse",
+  "locationUrl": "https://maps.app.goo.gl/SMysNBt1f3M9Rp3L6",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, This week we are celebrating the fact that everyone’s favourite movie “Princess Diaries 2 / Plötzlich Prinzessin 2: Royal Engagement” came out 20 years ago. And that H7 has been organising hash invasions to Bremen for 20 years! Our glorious hares UB69 and Dr Poor Nelly always put on an amazing trail. Also, it’s in Bremen! And there are rumors of a barbecue afterwards!",
+  "sourceUrl": "https://hamburghash.blogspot.com/2024/08/hamburg-h7-run-663-20-years-h7-hashing.html",
+  "title": "H7 20 years hashing in Bremen"
+ },
+ {
+  "date": "2024-08-31",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 664,
+  "hares": "Bitch Hiker",
+  "location": "S-Bahn Station Sülldorf",
+  "locationUrl": "https://maps.app.goo.gl/6XgqQR2SRLxsugxT8",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, The first run of September will be in August because that is how we roll at H7. We will be exploring the West (and shiggy)! Our hare Bitch Hiker promised that this is going to be a \"Taiwan-style\" run, so definitely expect some shiggy. Bring good shoes (High heels or sandals are not recommended) and consider bringing your bikini, because we can swim afterwards.",
+  "sourceUrl": "https://hamburghash.blogspot.com/2024/08/h7-run-664-saturday-august-31th-2024.html",
+  "title": "Taiwan style in Sülldorf"
+ },
+ {
+  "date": "2024-09-15",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 665,
+  "hares": "Just Heike, Nikolaus and friends",
+  "location": "Reinfeld Bahnhof, Holstein",
+  "locationUrl": "https://www.google.com/maps/search/?api=1&query=53.830491,10.4943901",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, Next weekend, we will be venturing deep into Sleswig-Holstein. You will enjoy exploring a small town with a surprise. Our run starts from the train station at Reinfeld and is about 7.5 km long. A shorter hiking trail is also offered. At the end of the run, we do the circle at Hasher Just Scott in a hall or in the garden, depending on the weather.",
+  "sourceUrl": "https://hamburghash.blogspot.com/2024/09/h7-run-665-reinfeld.html",
+  "title": "Reinfeld"
+ },
+ {
+  "date": "2024-10-06",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 666,
+  "location": "Niendorf Nord U-Bahn parking lot",
+  "locationUrl": "https://maps.app.goo.gl/YLFvvToMf5MLAnRh6",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, Toppless Peddler is taking us to Niendorf, so who knows, we might get to head into Sleswig-Holstein twice in one month! Dress like a devil, as this is run 666! Or Sexy, as it is run 666!",
+  "sourceUrl": "https://hamburghash.blogspot.com/2024/09/hamburg-h7-run-666-sunday-october-6th.html"
+ },
+ {
+  "date": "2024-11-02",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 667,
+  "location": "Heimfeld S Bahn (S3/S5) at 2PM (sharp), or meet at Sexy Legs place",
+  "locationUrl": "https://maps.app.goo.gl/6FPY3HcsYrVgt1ZH6",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds,On Saturday (!) 2 November, Sexy Legs and Just Brian will be haring a Halloween trail through the forests near Heimfeld, followed by a BBQ. Wear your best Halloween or BBQ outfit. The hare will pick us up at Heimfeld S Bahn, so be on time if you come by public transport (or just go directly to Sexy Leg's house instead).",
+  "sourceUrl": "https://hamburghash.blogspot.com/2024/10/hamburg-h7-run-667-saturday-november.html",
+  "title": "Heimfeld S Bahn - Heimfeld Halloween BBQ R*n"
+ },
+ {
+  "date": "2024-11-17",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 668,
+  "location": "Betty-Levi-Passage, a small street just west of Altona Rathaus. It is a short walk from Bahnhof Altona.",
+  "locationUrl": "https://maps.app.goo.gl/gYaSbwCqxvuyeCCs7",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, On Sunday 17 November we are exploring Altona! Our hare-du-jour is Longshanks (we are not worthy!).",
+  "sourceUrl": "https://hamburghash.blogspot.com/2024/11/hamburg-h7-run-668-sunday-17-november.html",
+  "title": "Altona"
+ },
+ {
+  "date": "2024-12-01",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 669,
+  "location": "The parking lot of S Bahn station Wedel, Bahnhofstraße 1, 22880 Wedel",
+  "locationUrl": "https://maps.app.goo.gl/AsuKUKuT95m4YDf76",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, Who likes balls? Well, definitely the inhabitants of Wedel. They have a massive giant with balls and use it as the centerpiece of their Christmas market. Also, he has a sword to match his balls. So come check out those giant balls or swords. It is run 669, so obviously, that giant's family jewels need to be thoroughly inspected. And after that, enjoy some tasty warm drinks after a run through the technically-no-longer-Hamburg countryside. The hare confirmed that she will be ac...",
+  "sourceUrl": "https://hamburghash.blogspot.com/2024/11/hamburg-h7-run-669-sunday-17-november.html",
+  "title": "Jingle Balls in Wedel"
+ },
+ {
+  "date": "2024-12-15",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 670,
+  "location": "U2 Niendorf Markt",
+  "locationUrl": "https://maps.app.goo.gl/5BaNPy9ZWTy64JSE6",
+  "startTime": "14:00",
+  "description": "Santa Claus is coming to town... with his flight! Rudolph and the gang decided they deserved a well-earned break this year and have on holiday in Hamburg! Let’s make a stop to say “Moin” to his old friends (don’t be surprised if they’ve lost a few pounds), and then head to the airport to pick up Santa to the Christmas market. (Yes, we can never get enough of the Christmas markets and Glühwein in December!) Put on your Christmas outfit and your Christmas hat! Let's go confuse his reindeer and ...",
+  "sourceUrl": "https://hamburghash.blogspot.com/2024/12/hamburg-h7-run-670-sunday-15-december.html"
+ },
+ {
+  "date": "2025-01-05",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 671,
+  "location": "S1 Alte Wöhr (Stadtpark)",
+  "locationUrl": "https://maps.app.goo.gl/CqUAYVmbF62NPk1G6",
+  "startTime": "14:00",
+  "description": "The first run of the new year will be by Knickerless. Considering the location and the hare, a good quess will be that there will be a short, walker friendly, trail and beer.",
+  "sourceUrl": "https://hamburghash.blogspot.com/2024/12/hamburg-h7-run-671-sunday-5-january-2pm.html"
+ },
+ {
+  "date": "2025-01-18",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 672,
+  "location": "Heimfeld S Bahn (S3/S5) at 2PM (sharp), or meet at Sexy Legs' place",
+  "locationUrl": "https://maps.app.goo.gl/6FPY3HcsYrVgt1ZH6",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, On Saturday 18th January we are going Scottish, as it is Burns Night, when scots perform poems to their Haggis. There are rumors of Haggis at the Burns dinner, but anyway make sure you let Sexy Legs know if you are joining for dinner. Otherwise, you might end up like the Haggis below.",
+  "sourceUrl": "https://hamburghash.blogspot.com/2025/01/hamburg-h7-run-672-saturday-january.html",
+  "title": "Burns night"
+ },
+ {
+  "date": "2025-02-01",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 673,
+  "hares": "Bull's Eye",
+  "location": "Wellingbüttel S bahn. Wellingbüttel is on the S1 and it takes about 40 minutes from central Hamburg to get there.",
+  "locationUrl": "https://maps.app.goo.gl/mKB6vqdjg93jMu3S6",
+  "startTime": "14:00",
+  "description": "HHHi Halfminds, On Saturday, 1st February, we celebrate the Chinese New Year with Bull's Eye in Wellingbüttel. It's the year of the snake. So, of course, you're welcome to dress like a snake. If that's too much, another tradition is to give red envelopes with money to your hasher friends. Organizational notice: could whoever wanted to hare the Carnival trail on 15-16 February contact the hare raiser? I forgot who said they would do it, and feel downdowns in my future.",
+  "sourceUrl": "https://hamburghash.blogspot.com/2025/01/hamburg-h7-run-673-saturday-february.html",
+  "title": "Chinese New Year with Bull's Eye"
+ },
+ {
+  "date": "2025-02-15",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 674,
+  "hares": "Sexy Legs",
+  "location": "Alsterdorf U-bahn station, which is on the U1",
+  "locationUrl": "https://maps.app.goo.gl/ivfvCzabykTeYctY9",
+  "startTime": "14:00",
+  "description": "The second trail in February will be hared by hero last-minute hare Sexy Legs, with an on-after at Pant in the Country's place.",
+  "sourceUrl": "https://hamburghash.blogspot.com/2025/02/hamburg-h7-run-674-saturday-february.html",
+  "title": "Alsterdorf with Sexy legs"
+ },
+ {
+  "date": "2025-03-01",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 675,
+  "hares": "Sexy legs (+ virgin hares if they want, contact Sexy Legs!)",
+  "locationUrl": "https://maps.app.goo.gl/Tuu71mAKwSCyGPHz6",
+  "startTime": "14:00",
+  "description": "Dear Half-minds, Titanic Seaman has thankfully decided to return from sunny warm Brazil and inspire us with some wonderful carnival spirit next weekend. Don’t forget to Brazilian wax for the on after Carnival party at Sexy Legs.",
+  "sourceUrl": "https://hamburghash.blogspot.com/2025/02/hamburg-h7-run-675-saturday-march-1st.html",
+  "title": "Brazillian Carnaval with Titanic Seaman"
+ },
+ {
+  "date": "2025-03-16",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 676,
+  "hares": "PMS (co-hare welcome)",
+  "location": "U1 Klein Borstel",
+  "locationUrl": "https://maps.app.goo.gl/BD64CzaSUKB1NYNA8",
+  "startTime": "14:00",
+  "description": "Be prepared from some Alster parkland riverside paths. The hare confirmed this will be an A to A run and explicitly would love to have a co-hare.",
+  "sourceUrl": "https://hamburghash.blogspot.com/2025/02/hamburg-h7-run-676-klein-borstel-u1.html",
+  "title": "Klein Borstel U1 with PMS"
+ },
+ {
+  "date": "2025-04-05",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 677,
+  "hares": "Bitch Hiker",
+  "location": "Lübeck Hauptbahnhof",
+  "startTime": "14:00",
+  "description": "Come and check out Lübeck. The hare has promised a historic adventure run.",
+  "sourceUrl": "https://hamburghash.blogspot.com/2025/03/hamburg-h7-run-677-saturday-5-april.html"
+ },
+ {
+  "date": "2025-04-20",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 678,
+  "hares": "Knickerless",
+  "location": "U Bahn Meiendorfer Weg",
+  "startTime": "14:00",
+  "description": "It's easter!",
+  "sourceUrl": "https://hamburghash.blogspot.com/2025/04/hamburg-h7-run-678-sunday-20-april.html",
+  "title": "Easter with Knickerleas"
+ },
+ {
+  "date": "2025-05-04",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 679,
+  "hares": "Horny Toddler",
+  "location": "S bahn Klein Flottbek (S1)",
+  "startTime": "14:00",
+  "description": "Fresh from Katmandu, new arrival Horny Toddler will take us around Klein Flottbek. Be prepared for immoporn and Elbe-views.",
+  "sourceUrl": "https://hamburghash.blogspot.com/2025/04/hamburg-h7-run-679-sunday-4-may-klein.html"
+ },
+ {
+  "date": "2025-05-18",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 680,
+  "hares": "PMS",
+  "location": "U Meßberg (U1)",
+  "locationUrl": "https://maps.app.goo.gl/4LuNRSY93NH3xq739",
+  "startTime": "14:00",
+  "description": "PMS chivalrously stepped up to replace our GM who has a family emergency.",
+  "sourceUrl": "https://hamburghash.blogspot.com/2025/05/hamburg-h7-run-680-sunday-18-may.html",
+  "title": "Hafengeburtstag at wouldn’t Chew"
+ },
+ {
+  "date": "2025-06-08",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 681,
+  "hares": "Bull's Eye",
+  "location": "U Ohlstedt (U1)",
+  "locationUrl": "https://maps.app.goo.gl/5uV6jfr39bjLfUELA",
+  "startTime": "14:00",
+  "description": "Bull's eye is taking us to Ohlstedt. Note the change of weekend to avoid GNH in Bad Tölz!",
+  "sourceUrl": "https://hamburghash.blogspot.com/2025/05/hamburg-h7-run-681-sunday-8-june.html",
+  "title": "H7 does Hafen City with PMS"
+ },
+ {
+  "date": "2025-07-19",
+  "kennelTags": [
+   "h7"
+  ],
+  "hares": "Moose Diver and guest visiting hare MeMe",
+  "location": "Hamburger Strasse (U3)",
+  "startTime": "15:00",
+  "description": "Lace up your shoes and grab your finest orange gear, because on 12th July, we’re celebrating the Battle of the Boyne… erm Elbe… the only way hashers know how: One week late, with beer, and questionable decisions! WSH3 joins H7 for a raucous romp through Barmbek with hare Moose Diver and maybe even a surprise hare from Schaffhausen as we honor history with hilarity, hydration, and just a hint of heresy. Orangemen, Orangewomen, and all who enjoy a good trail followed by a down-down. This is you...",
+  "sourceUrl": "https://hamburghash.blogspot.com/2025/06/hamburg-h7-extra-run-in-collaboration.html",
+  "title": "WSH3 surprise co-H7"
+ },
+ {
+  "date": "2025-08-03",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 687,
+  "hares": "Pant in the Country and Just Nadin",
+  "location": "Mittlerer Landweg (S2)",
+  "startTime": "14:00",
+  "sourceUrl": "https://hamburghash.blogspot.com/2025/07/h7-run-687ish-sunday-3-august-2pm.html",
+  "title": "Drinking practice!"
+ },
+ {
+  "date": "2025-08-17",
+  "kennelTags": [
+   "h7"
+  ],
+  "hares": "Longshanks",
+  "location": "Veddel",
+  "locationUrl": "https://maps.app.goo.gl/WepWGqKPBx9VxGqq7",
+  "startTime": "14:00",
+  "sourceUrl": "https://hamburghash.blogspot.com/2025/08/hamburg-h7-run-sunday-17-august-2pm.html",
+  "title": "Veddel"
+ },
+ {
+  "date": "2025-09-07",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 689,
+  "hares": "Licken Sie Hole & Just Ewa",
+  "location": "Langenhorn Nord (U1)",
+  "locationUrl": "https://maps.app.goo.gl/hWvSskvPucZoBFWV6",
+  "startTime": "14:00",
+  "sourceUrl": "https://hamburghash.blogspot.com/2025/08/h7-run-689-langenhorn-nord-with-just.html"
+ },
+ {
+  "date": "2025-09-21",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 690,
+  "hares": "Knickerless",
+  "location": "Meiendorfer Weg (U1)",
+  "locationUrl": "https://maps.app.goo.gl/EcJbWdPiyhAatFth9",
+  "startTime": "14:00",
+  "sourceUrl": "https://hamburghash.blogspot.com/2025/09/h7-run-690-sunday-21-september.html",
+  "title": "Meiendorfer Weg (U1), with Knickerless"
+ },
+ {
+  "date": "2025-10-05",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 691,
+  "hares": "Just Kim",
+  "location": "Hamburg Airport S-Bahn",
+  "startTime": "14:00",
+  "sourceUrl": "https://hamburghash.blogspot.com/2025/09/h7-run-691-sunday-5-october-come-fly.html",
+  "title": "Come fly with Just Kim"
+ },
+ {
+  "date": "2025-10-19",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 692,
+  "hares": "Longshanks",
+  "location": "Wilhelmsburg S-Bahn",
+  "startTime": "14:00",
+  "sourceUrl": "https://hamburghash.blogspot.com/2025/10/h7-run-692-sunday-19-october.html",
+  "title": "Wilhelmsburg with Longshanks"
+ },
+ {
+  "date": "2025-11-02",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 693,
+  "hares": "Horse",
+  "location": "Altona Rathaus (short walk from Altona where practically anything with wheels stops)",
+  "locationUrl": "https://maps.app.goo.gl/YMwSukdk1J7aXnqKA",
+  "startTime": "14:00",
+  "sourceUrl": "https://hamburghash.blogspot.com/2025/10/hare-horse-where-altona-rathaus-short.html",
+  "title": "MANDATORY FUN ALERT – MISMANAGEMENT E*ECTIONS 🍺",
+  "cost": "Free"
+ },
+ {
+  "date": "2025-11-16",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 694,
+  "hares": "Pant in the Country and Horse",
+  "location": "S Bahn Alsterdorf (U1)",
+  "locationUrl": "https://maps.app.goo.gl/wRbiv9XfBYfT8U6WA",
+  "startTime": "14:00",
+  "sourceUrl": "https://hamburghash.blogspot.com/2025/11/hare-knickerless-where-s-bahn-sulldorf.html",
+  "title": "Alsterdorf with PitC and Horse"
+ },
+ {
+  "date": "2025-12-06",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 695,
+  "hares": "Just Ewa and Sexy Legs",
+  "location": "Norderstedt Mitte U bahn",
+  "locationUrl": "https://maps.app.goo.gl/8Z9DhY77bdzRaX9N6",
+  "startTime": "14:00",
+  "sourceUrl": "https://hamburghash.blogspot.com/2025/11/blog-post.html",
+  "title": "Norderstedt Weihnachtsmarkt with Just Ewa and Sexy Legs"
+ },
+ {
+  "date": "2025-12-20",
+  "kennelTags": [
+   "h7"
+  ],
+  "startTime": "12:00",
+  "sourceUrl": "https://hamburghash.blogspot.com/2025/11/a-very-h7-hashmas-christmas-run-and.html",
+  "title": "A very H7 hashmas",
+  "cost": "10€"
+ },
+ {
+  "date": "2026-02-01",
+  "kennelTags": [
+   "h7"
+  ],
+  "runNumber": 699,
+  "hares": "Knickerless",
+  "location": "U Bahn Hagendeel (U2)",
+  "locationUrl": "https://maps.app.goo.gl/MBYB9hdJkVpoJow17",
+  "startTime": "14:00",
+  "sourceUrl": "https://hamburghash.blogspot.com/2026/01/h7-run-sunday-1-february-hagendeel-u2.html",
+  "title": "Knickerless"
+ },
+ {
+  "date": "2026-02-14",
+  "kennelTags": [
+   "h7"
+  ],
+  "hares": "Bull's Eye",
+  "location": "U Bahn Olhstedt (U1)",
+  "locationUrl": "https://maps.app.goo.gl/BLDwYcQS2dt8dfzZ6",
+  "startTime": "14:00",
+  "description": "It's Chinese New Year and this year it is year of the Horse! Bull's Eye confirmed that this run is also Valentine's Day, and our GM confirms this is also Hamburg Run number 700. What's not to like, there will be romance, and red envelopes with goodies in them!",
+  "sourceUrl": "https://hamburghash.blogspot.com/2026/02/h7-run-saturday-february-14th-chinese.html",
+  "runNumber": 700,
+  "title": "Chinese New Year with Bulls Eye"
+ },
+ {
+  "date": "2026-03-01",
+  "kennelTags": [
+   "h7"
+  ],
+  "title": "Hafencity with PMS",
+  "hares": "PMS",
+  "location": "U2 meßberg",
+  "startTime": "14:00",
+  "runNumber": 701,
+  "sourceUrl": "https://www.hashruns.org/H7/701",
+  "latitude": 53.54765638282494,
+  "longitude": 10.00077410319483
+ },
+ {
+  "date": "2026-03-15",
+  "kennelTags": [
+   "h7"
+  ],
+  "title": "Take the bus to Knickerless",
+  "hares": "Knickerless",
+  "location": "Bus Station Dernauer Straße. Bus 116.",
+  "startTime": "14:00",
+  "runNumber": 702,
+  "sourceUrl": "https://www.hashruns.org/H7/702",
+  "latitude": 53.62823068425758,
+  "longitude": 10.130904463735764
+ },
+ {
+  "date": "2026-04-05",
+  "kennelTags": [
+   "h7"
+  ],
+  "title": "Knickerless Easter run",
+  "hares": "Knickerless",
+  "location": "Hudtwalckerstraße (U1)",
+  "startTime": "14:00",
+  "runNumber": 703,
+  "sourceUrl": "https://www.hashruns.org/H7/703"
+ },
+ {
+  "date": "2026-04-19",
+  "kennelTags": [
+   "h7"
+  ],
+  "title": "Horner Rennbahn",
+  "hares": "Licken Sie Hole",
+  "location": "Horner Rennbahn (U2)",
+  "startTime": "14:00",
+  "runNumber": 704,
+  "sourceUrl": "https://www.hashruns.org/H7/704",
+  "latitude": 53.553904776964444,
+  "longitude": 10.08440401516552
+ },
+ {
+  "date": "2026-05-03",
+  "kennelTags": [
+   "h7"
+  ],
+  "title": "Knickerless steps up",
+  "hares": "Knickerless",
+  "location": "Hudtwalckerstraße (U1)",
+  "startTime": "14:00",
+  "runNumber": 705,
+  "sourceUrl": "https://www.hashruns.org/H7/705",
+  "latitude": 53.594506170640045,
+  "longitude": 9.996485497024802
+ },
+ {
+  "date": "2026-05-17",
+  "kennelTags": [
+   "h7"
+  ],
+  "title": "No hare so no trail? Think again!",
+  "location": "U3 St Pauli",
+  "startTime": "14:00",
+  "runNumber": 706,
+  "sourceUrl": "https://www.hashruns.org/H7/706"
+ }
 ]
