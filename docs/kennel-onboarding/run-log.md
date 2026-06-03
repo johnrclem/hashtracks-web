@@ -14,6 +14,15 @@ Format:
 
 ---
 
+## 2026-06-02 — Paris H3 + Sans Clue H3 (Paris, France) 🇫🇷 first France kennel(s)
+- Source: **MEETUP** (config-only, multi-kennel) — group `parish3-schhh` (`meetup.com/parish3-schhh`). One source feeds two kennels via `kennelPatterns`; weekly non-hash "Thursday Night Drinking Club" socials dropped via `silentlySkipPatterns`.
+- Outcome: **SHIPPED** → [PR #1920](https://github.com/johnrclem/hashtracks-web/pull/1920) (merged). Live at https://www.hashtracks.xyz/kennels/paris-h3 (Sat) + https://www.hashtracks.xyz/kennels/sans-clue-h3 (Sun) — **18 prod events** (8 Paris H3 + 10 Sans Clue H3), 0 unmatched/blocked/errors; the 21 "Thursday Night Drinking Club" socials dropped pre-RawEvent by `silentlySkipPatterns` (no `SOURCE_KENNEL_MISMATCH`), 0 TNDC leakage on either page. Config-only — no new adapter (France COUNTRY+Paris METRO region 5-edit + seed + 2 self-hosted JPEG logos).
+- Dedup: full onboard — 0 France/Paris/Sans Clue slugs in live sitemap (421 slugs, Chrome MCP 2026-06-02). kennelCodes `paris-h3` + `sans-clue-h3` both clear. Aliases "PH3" (→ph3-my/pattaya-h3) and "SCH3" (→sch3-atl/sch3-ca) OMITTED for global collisions; "SCHHH" clear.
+- Events verified: **30 upcoming** in Meetup Apollo `__NEXT_DATA__` (Chrome JS-render) — Paris H3 ×5 (biweekly Sat 14:00, #1136 13 Jun → #1137 27 Jun), Sans Clue H3 ×7 (biweekly Sun ~14:00, #1192 7 Jun → #1193 21 Jun), TNDC socials ×18 (skipped). 1,071 past events on Meetup. Hares + 5 € hash cash + venues in descriptions. Run numbers are censored "R*n NNNN" (no `#`) → default `extractHashRunNumber` won't capture; left off (optional `runNumberPattern` knob suggested).
+- **🔧 Correction of prior block:** Paris was marked `blocked` 2026-05-29 ("0 upcoming"). That was a **false negative** — the events-list SSR shell shows "Events 0" (the documented Meetup hydration artifact); reading with JS shows 30 live group events. Source is fully live with upcoming runs, not a 0-upcoming/recently-active case.
+- Historical backfill: **none** (ZH3 call — Meetup keeps only a recent window; deep past is JS-paginated, poor quality).
+- Follow-ups: **Sans Clue `foundedYear` dropped** — the medium-confidence 1993 (25th-birthday-Apr-2018 inference) went to a comment, not the field (CodeRabbit); Paris H3 1981 kept (primary-sourced, gotothehash.net). `île-de-france` `\b` non-ASCII regex bug fixed → `(?:^|\W)île-de-france\b` (Gemini + in-CI Claude). `COUNTRY_GROUP_MAP` metro key removed as unreachable (/simplify, Spain precedent). Logos self-hosted (shared Meetup JPEG, both codes). `MeetupAdapter.fetch()` live-verified for `parish3-schhh` (39 events, 21/21 TNDC matched). Retro at `handoffs/retros/2026-06-02-paris-h3-retro.md`: **always read Meetup Apollo `__NEXT_DATA__` before concluding 0-upcoming** (Paris's prior block was a false negative — platform note corrected); non-ASCII alias chars can't use `\b`; seed `foundedYear` only when primary-sourced; `COUNTRY_GROUP_MAP` needs only the country→country key (Spain model, not Indonesia's redundant metro key); `scheduleTime` 12-hour + capitalized frequency.
+
 ## 2026-06-02 — North Shore Wanderers H3 (Sydney, NSW) 🇦🇺 first dual-source onboard
 - Source: **2 sources** — (1) GOOGLE_SHEETS forward hareline (config-only via `config.csvUrl`, anonymous CSV export) + (2) NEW `NSWHHHAdapter` HTML_SCRAPER for the Google Sites home page (`nswhhh.info/home`, SSR, venue + map coords).
 - Outcome: **SHIPPED** → PR #1917 (merged). Live at https://www.hashtracks.xyz/kennels/north-shore-wanderers-h3 — **187 prod events**. Self-hosted logo (grabbed via browser — `sitesv` token 403s server-side). Made `GoogleSheetsConfig.columns.location` optional.
@@ -102,4 +111,4 @@ Format:
 - Outcome: **blocked — could not start.** Repo on `admin-ui-redesign` with 123 uncommitted changes, `main` occupied by another worktree, `.git/` writes broken from the sandbox (stale locks owned by another uid).
 - Lesson: this triggered the redesign to a write-only handoff workflow (no git from sandbox). Subsequent runs from this date onward never attempt git.
 
-_(latest successful onboarding: ONH3 2026-05-29. Daily cadence is working.)_
+_(latest successful onboarding: Paris H3 + Sans Clue H3 2026-06-02 — first 🇫🇷 France kennels, PR #1920. Daily cadence is working.)_
