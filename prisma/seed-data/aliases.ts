@@ -97,7 +97,11 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "dlh3": ["Duneland", "Duneland H3", "South Shore HHH"],
     "c2b3h4": ["C2B3H4", "C2B3", "Chicago Ballbusters", "Chicago Ballbuster H3", "Chicago BallBusters"],
     // DC / DMV area
-    "ewh3": ["Everyday is Wednesday", "Every Day is Wednesday"],
+    // "Everyday Is Wednesday H3" is the Host Kennel display name Hash Rego emits
+    // on EWH3 detail pages; without this alias the HASHREGO raws fail kennel
+    // resolution and never merge onto the EWH3 canonical (so the published cost
+    // never lands). See #1126.
+    "ewh3": ["Everyday is Wednesday", "Every Day is Wednesday", "Everyday Is Wednesday H3"],
     "shith3": ["SHIT H3", "S.H.I.T. H3", "So Happy It's Tuesday"],
     "cch3": ["Charm City", "Charm City Hash", "Charm City H3", "CCH3"],
     "w3h3": ["Wild and Wonderful Wednesday"],
