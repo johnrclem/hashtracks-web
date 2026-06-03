@@ -31,7 +31,13 @@ async function main() {
 
   const dates = events.map((e) => e.date).sort((a, b) => a.localeCompare(b));
   console.log("date range:", dates[0], "→", dates[dates.length - 1]);
-  const todayYmd = new Date().toISOString().slice(0, 10);
+  // Event dates are local to the site timezone (America/New_York). Compute
+  // "today" in that same zone — a UTC `toISOString().slice(0,10)` rolls over
+  // after ~8pm ET and would misclassify tonight's run as past, spuriously
+  // failing the future-event assertion.
+  const todayYmd = new Date().toLocaleDateString("en-CA", {
+    timeZone: "America/New_York",
+  });
   const future = events.filter((e) => e.date >= todayYmd);
   console.log("future events:", future.length);
 

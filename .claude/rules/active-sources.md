@@ -1,5 +1,5 @@
 ---
-description: Active data sources catalog — 342 sources across 17 countries
+description: Active data sources catalog — 344 sources across 17 countries
 globs:
   - src/adapters/**
   - prisma/seed.ts
