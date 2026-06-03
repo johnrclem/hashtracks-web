@@ -480,6 +480,13 @@ export function cleanMeetupTitle(raw: string | null | undefined): string | undef
   return t.replace(/[\s,:\-–—]+$/, "").trim() || undefined; // NOSONAR S5852 — single char class + `+` anchored to `$`, linear in input length
 }
 
+// #1270 — explicit "hare(s):" label for hares embedded in a Meetup *title*
+// (FEH3: "Trail 2578, hare: salty cliterature ..."). Colon-only on purpose: a
+// hyphen separator (as the description matcher allows) would misfire on themed
+// titles like "Hare-raising Halloween Hash". Optional space before the colon
+// covers "Hare : BBQ". ReDoS-safe: `(\S.*)`, no `$` anchor, no nested quantifier.
+const TITLE_HARE_RE = /\bhares?\s*:\s*(\S.*)/i;
+
 /** Build a RawEventData from an Apollo event entry. */
 export function buildRawEventFromApollo(
   ev: ApolloEvent,
@@ -518,15 +525,33 @@ export function buildRawEventFromApollo(
   // Try the colon-form helper first (matches DEFAULT_HARE_PATTERNS in
   // google-calendar/adapter.ts). Fall back to the Meetup-local dash-separator
   // pattern for kennels like CHH3 that always write "Hares - X". See #953.
-  const hares =
+  let hares =
     (descForHares ? extractHaresFromDescription(descForHares) : undefined)
     ?? extractHaresFromMeetupDescription(descForHares);
+
+  // Final fallback (#1270): some kennels (FEH3) embed the hare line directly in
+  // the Meetup *title* ("Trail 2578, hare: salty cliterature ...") and leave the
+  // description hare-less. Only when neither description path produced hares,
+  // run the shared extractHares against the title with the explicit colon
+  // label. Its cleanAndFilterHares rejects CTA/placeholder values ("hare:
+  // needed"); the colon-only label avoids themed-title false positives
+  // ("Hare-raising"). When it fires, strip the matched "hare:" span out of the
+  // title so the names don't appear twice (title + Hares field).
+  let titleForDisplay = ev.title;
+  if (!hares && ev.title) {
+    const titleHares = extractHaresFromDescription(ev.title, [TITLE_HARE_RE]);
+    if (titleHares) {
+      hares = titleHares;
+      const m = TITLE_HARE_RE.exec(ev.title);
+      if (m) titleForDisplay = ev.title.slice(0, m.index);
+    }
+  }
   const cleanedDesc = cleanMeetupDescription(ev.description, state);
 
   return {
     date,
     kennelTags: [resolvedKennelTag],
-    title: cleanMeetupTitle(ev.title),
+    title: cleanMeetupTitle(titleForDisplay),
     runNumber: extractRunNumber ? extractHashRunNumber(ev.title) : undefined,
     description: cleanedDesc,
     hares,

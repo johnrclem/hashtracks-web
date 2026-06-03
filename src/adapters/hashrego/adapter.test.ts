@@ -9,6 +9,7 @@ import {
   parseDayHeaderSections,
   detectVenueWeekendEndDate,
   stripDoubledKennelPrefix,
+  type ParsedEvent,
 } from "./parser";
 import { HashRegoAdapter, apiToIndexEntry, normalizeHashRegoPrice } from "./adapter";
 import { HashRegoApiError, type HashRegoKennelEvent } from "./api";
@@ -810,6 +811,54 @@ describe("parseEventDetail — Strategy 1 NYE year rollover (#1630 review)", () 
     const parsed = parseEventDetail(NYE_RANGE_HTML, "nye-campout-2026", NYE_INDEX_ENTRY);
     expect(parsed.isMultiDay).toBe(true);
     expect(parsed.dates).toEqual(["2026-12-31", "2027-01-01"]);
+  });
+});
+
+// #1126 — Hash Rego publishes a per-event registration cost; splitToRawEvents
+// must propagate ParsedEvent.cost onto every emitted RawEventData so the merge
+// pipeline writes it to Event.cost.
+describe("splitToRawEvents — cost propagation (#1126)", () => {
+  function buildParsed(overrides: Partial<ParsedEvent> = {}): ParsedEvent {
+    return {
+      title: "EWH3 #1516: Bugs Bunny's Cream Pie",
+      dates: ["2026-04-30"],
+      startTimes: ["18:45"],
+      kennelSlug: "EWH3",
+      hostKennelName: "EWH3",
+      isMultiDay: false,
+      cost: "$10",
+      ...overrides,
+    };
+  }
+
+  it("single-day event carries cost (EWH3 #1516)", () => {
+    const events = splitToRawEvents(buildParsed(), "ewh3-1516");
+    expect(events).toHaveLength(1);
+    expect(events[0].cost).toBe("$10");
+  });
+
+  it("emits undefined cost when the source has none (additive — preserve existing)", () => {
+    const events = splitToRawEvents(buildParsed({ cost: undefined }), "ewh3-1516");
+    expect(events[0].cost).toBeUndefined();
+  });
+
+  it("multi-day series puts cost on the umbrella parent only, not each day", () => {
+    const parsed = buildParsed({
+      title: "EWH3 Campout",
+      dates: ["2026-05-01", "2026-05-02", "2026-05-03"],
+      startTimes: ["18:00", "10:00", "10:00"],
+      isMultiDay: true,
+      cost: "$85",
+    });
+    const events = splitToRawEvents(parsed, "ewh3-campout");
+    expect(events).toHaveLength(3);
+    // Day 1 doubles as the series parent — it carries the single registration fee.
+    const parent = events.find((e) => e.seriesParent);
+    expect(parent?.cost).toBe("$85");
+    // Child days do NOT repeat the fee (would read as "$85/day").
+    const children = events.filter((e) => !e.seriesParent);
+    expect(children).toHaveLength(2);
+    expect(children.every((e) => e.cost === undefined)).toBe(true);
   });
 });
 

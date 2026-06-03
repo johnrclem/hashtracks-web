@@ -8,6 +8,7 @@ import type {
 } from "../types";
 import { hasAnyErrors } from "../types";
 import { safeFetch } from "../safe-fetch";
+import { normalizeCostSigil } from "../utils";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 import {
   parseEventsIndex,
@@ -502,6 +503,10 @@ function createFromIndex(entry: IndexEntry): RawEventData[] {
       date,
       kennelTags: [entry.kennelSlug],
       title: entry.title,
+      // #1126 — preserve the index-table cost ("$10") even when the detail
+      // fetch fails and we fall back to the index row. Normalize for parity
+      // with the detail-page path (parser.ts strips markdown bullets / `$$`).
+      cost: entry.cost ? normalizeCostSigil(entry.cost) : undefined,
       startTime: time || undefined,
       sourceUrl: hashRegoUrl,
       externalLinks: [{ url: hashRegoUrl, label: "Hash Rego" }],
