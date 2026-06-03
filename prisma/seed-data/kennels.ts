@@ -4584,5 +4584,29 @@ export const KENNELS: KennelSeed[] = [
       latitude: -25.2637,
       longitude: -57.5759,
     },
+    // ===== MEXICO =====
+    // First Mexico kennel — Mexico City H3 ("CDMX H3"), hashing since Oct 1983.
+    // foundedYear 1983 is the kennel founding (Mexico News Daily + Half-Mind), NOT the
+    // Meetup group's 2022 creation date. latitude/longitude is the CDMX centroid; per-run
+    // start coords come from the Meetup venue.lat/lng on each event.
+    {
+      kennelCode: "mch3",
+      shortName: "Mexico City H3",
+      fullName: "Mexico City Hash House Harriers",
+      region: "Mexico City",
+      country: "Mexico",
+      website: "https://www.meetup.com/mexico-city-hash-house-harriers/",
+      foundedYear: 1983,
+      hashCash: "MXN 100",
+      walkersWelcome: true,
+      scheduleDayOfWeek: "Saturday",
+      scheduleTime: "2:00 PM", // MND "gather at 2 p.m."; Meetup events start 13:30
+      scheduleFrequency: "Biweekly", // kennel's stated cadence; observed ~monthly 2025–2026
+      latitude: 19.4326,
+      longitude: -99.1332,
+      logoUrl: "/kennel-logos/mch3.jpg", // self-hosted from the Meetup cover (tokenized CDN rotates)
+      description:
+        "Mexico City's Hash House Harriers — a non-competitive social running club (\"the drinking club with a running problem\") that has hashed in and around CDMX since 1983. Trails run ~5–7 km with a beer stop along the way; runners and walkers both welcome. The pack meets roughly every other Saturday at a rotating venue (Polanco, Roma, Coyoacán and beyond), gathering at 2 p.m. before the Grand Master calls \"On On!\".",
+    },
   ];
 
