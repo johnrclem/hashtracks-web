@@ -137,16 +137,16 @@ describe("postToEvent", () => {
   });
 });
 
+function jsonResponse(body: unknown, status = 200): Response {
+  return { ok: status >= 200 && status < 300, status, json: async () => body } as Response;
+}
+
 describe("AsuncionH3Adapter.fetch", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
 
   const source = { id: "s1", url: "https://asuncionh3.wordpress.com/" } as Source;
-
-  function jsonResponse(body: unknown, status = 200): Response {
-    return { ok: status >= 200 && status < 300, status, json: async () => body } as Response;
-  }
 
   it("emits only future runs (the archive is handled by the one-shot backfill)", async () => {
     const future = "2999-01-04"; // far future so the test is date-stable

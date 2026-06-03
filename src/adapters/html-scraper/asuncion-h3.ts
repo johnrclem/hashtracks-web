@@ -46,8 +46,10 @@ const ANY_TIME_RE = /(\d{1,2}):(\d{2})/;
 // Per-line field labels (English column wins by document order). Bounded middles
 // (no unbounded quantifier next to ":") keep these out of the ReDoS heuristics.
 const HARE_LINE_RE = /^Hare\(s\)\s*:\s*(\S.*)$/i;
-const START_LINE_RE = /^(?:Start|Location|Meeting point)[A-Za-z ()]{0,14}:\s*(\S.*)$/i;
-const COST_LINE_RE = /^Costs?[A-Za-z ]{0,10}:\s*(\S.*)$/i;
+// Char classes use [A-Z …] (no a-z) because the /i flag already matches lowercase;
+// including both ranges trips Sonar S5869 (duplicate char class under case-insensitive).
+const START_LINE_RE = /^(?:Start|Location|Meeting point)[A-Z ()]{0,14}:\s*(\S.*)$/i;
+const COST_LINE_RE = /^Costs?[A-Z ]{0,10}:\s*(\S.*)$/i;
 // Google Maps embed iframe: `pb=…!2d<lng>!3d<lat>…`. The `!` arrive URL-encoded
 // as `%21`; we normalize them before matching. NOTE: 2d is LONGITUDE, 3d is LATITUDE.
 const EMBED_SRC_RE = /maps\/embed\?pb=([^"'\s>]+)/;
@@ -226,6 +228,17 @@ function isRunPost(post: WPComPost): boolean {
   return RUN_TITLE_RE.test(post.title.rendered) && (post.categories?.includes(1) ?? true);
 }
 
+/** Parse a page of posts into future-dated run events (the archive is backfilled separately). */
+function parseFuturePosts(posts: WPComPost[], today: string): RawEventData[] {
+  const events: RawEventData[] = [];
+  for (const post of posts) {
+    if (!isRunPost(post)) continue;
+    const event = postToEvent(post);
+    if (event && event.date >= today) events.push(event);
+  }
+  return events;
+}
+
 export class AsuncionH3Adapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
 
@@ -270,11 +283,7 @@ export class AsuncionH3Adapter implements SourceAdapter {
       }
       const { posts } = result;
       if (!Array.isArray(posts) || posts.length === 0) break; // empty page — clean end
-      for (const post of posts) {
-        if (!isRunPost(post)) continue;
-        const event = postToEvent(post);
-        if (event && event.date >= today) events.push(event); // future-only; archive is backfilled
-      }
+      events.push(...parseFuturePosts(posts, today));
       if (posts.length < PER_PAGE) break; // partial last page — clean end
       if (page === MAX_PAGES) kennelPagesStopReason = "max-pages-hit"; // full page left unfetched
     }
