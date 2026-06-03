@@ -140,5 +140,10 @@ describe("deleteLeakedEvent safety invariant", () => {
     await deleteLeakedEvent(prisma, "evt_1", ["attendances", "kennelAttendances"], "src_meetup");
     expect(tx.rawEvent.findFirst).toHaveBeenCalledTimes(1);
     expect(eventDelete).toHaveBeenCalledTimes(1);
+    // The provenance probe must run before any relation delete, or a foreign
+    // RawEvent could be destroyed before the guard sees it.
+    expect(tx.rawEvent.findFirst.mock.invocationCallOrder[0]).toBeLessThan(
+      tx.rawEvent.deleteMany.mock.invocationCallOrder[0],
+    );
   });
 });
