@@ -6190,5 +6190,31 @@ export const SOURCES = [
       config: { upcomingOnly: true },
       kennelCodes: ["mijash3"],
     },
+    // France — first France source: one Meetup group feeds both Paris H3 (Sat)
+    // and its sister Sans Clue H3 (Sun). Routed by title prefix via
+    // kennelPatterns; the group's weekly non-hash "Thursday Night Drinking Club"
+    // socials (18 of 30 upcoming) are dropped pipeline-side before RawEvent
+    // creation via silentlySkipPatterns (no SOURCE_KENNEL_MISMATCH alert).
+    {
+      name: "Paris & Sans Clue H3 Meetup",
+      url: "https://www.meetup.com/parish3-schhh/events/",
+      type: "MEETUP" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        groupUrlname: "parish3-schhh",
+        kennelTag: "paris-h3", // required fallback; rarely hit once skip + patterns apply
+        upcomingOnly: true, // Meetup ages past events off its window — protects reconcile
+        kennelPatterns: [
+          ["^Paris H3", "paris-h3"],
+          ["^Sans Clue H3", "sans-clue-h3"],
+        ],
+        silentlySkipPatterns: [
+          { pattern: "Thursday Night Drinking", field: "title" },
+        ],
+      },
+      kennelCodes: ["paris-h3", "sans-clue-h3"],
+    },
   ];
 

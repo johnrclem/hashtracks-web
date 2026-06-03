@@ -4492,5 +4492,49 @@ export const KENNELS: KennelSeed[] = [
       latitude: 36.5959,
       longitude: -4.6377,
     },
+    // France — first France kennels (Paris H3 + sister Sans Clue H3, one shared Meetup)
+    {
+      kennelCode: "paris-h3",
+      shortName: "Paris H3",
+      fullName: "Paris Hash House Harriers",
+      region: "Paris",
+      country: "France",
+      website: "https://sanscluehash.fr/",
+      facebookUrl: "https://www.facebook.com/groups/sanscluehhh",
+      scheduleDayOfWeek: "Saturday",
+      scheduleTime: "2:00 PM",
+      scheduleFrequency: "Biweekly",
+      foundedYear: 1981,
+      hashCash: "5 €",
+      walkersWelcome: true,
+      description:
+        "Paris's original hash, founded 1981 — France's first recorded H3. A drinking club with a running problem exploring Paris and its surroundings on alternating Saturdays, with at least one beer stop along the way. Most trails walker-friendly.",
+      logoUrl: "/kennel-logos/paris-h3.jpg",
+      latitude: 48.8566,
+      longitude: 2.3522,
+    },
+    {
+      kennelCode: "sans-clue-h3",
+      shortName: "Sans Clue H3",
+      fullName: "Sans Clue Hash House Harriers",
+      region: "Paris",
+      country: "France",
+      website: "https://sanscluehash.fr/",
+      facebookUrl: "https://www.facebook.com/groups/sanscluehhh",
+      scheduleDayOfWeek: "Sunday",
+      scheduleTime: "2:00 PM",
+      scheduleFrequency: "Biweekly",
+      // foundedYear unset: only a medium-confidence inference (~1993, from a 25th-birthday-Apr-2018
+      // mention, no primary club source). Add it once a milestone post or club source confirms it,
+      // rather than seeding an unverified year as canonical user-facing metadata.
+      hashCash: "5 €",
+      walkersWelcome: true,
+      description:
+        "Sister hash to Paris H3 (est. ~1993), running alternating Sundays around central Paris. A-to-B trails set by a hare, beer stops along the way, most trails walker-friendly. 'Sans Clue' = without a clue.",
+      // Shared club image (parish3-schhh Meetup group) — no distinct Sans Clue logo found on sanscluehash.fr.
+      logoUrl: "/kennel-logos/sans-clue-h3.jpg",
+      latitude: 48.8566,
+      longitude: 2.3522,
+    },
   ];
 
