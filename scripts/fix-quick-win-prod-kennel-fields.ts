@@ -42,8 +42,10 @@ const OVERRIDES: ProfileOverride[] = [
   {
     kennelCode: "pbh3",
     rewrites: {
-      // Dead GoDaddy parking page (#1921). Cleared to NULL.
-      website: { expected: "http://www.pbh3.org", target: null },
+      // Dead GoDaddy parking page (#1921). Cleared to NULL. Prod currently
+      // stores the http:// form (verified by dry-run against the live DB); the
+      // https:// form is accepted too so the clear works regardless of scheme.
+      website: { expected: ["http://www.pbh3.org", "https://www.pbh3.org"], target: null },
     },
   },
 ];
