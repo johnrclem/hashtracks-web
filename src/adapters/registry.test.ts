@@ -16,6 +16,7 @@ import { SlashHashAdapter } from "./html-scraper/slash-hash";
 import { EnfieldHashAdapter } from "./html-scraper/enfield-hash";
 import { SFH3Adapter } from "./html-scraper/sfh3";
 import { HHHSAdapter } from "./html-scraper/hhhs";
+import { SquarespaceEventsAdapter } from "./html-scraper/squarespace-events";
 import { RssAdapter } from "./rss/adapter";
 import { StaticScheduleAdapter } from "./static-schedule/adapter";
 
@@ -55,6 +56,14 @@ describe("getAdapter", () => {
   it("returns HHHSAdapter for hhhs.org.sg URL (not the HashNYCAdapter default)", () => {
     const adapter = getAdapter("HTML_SCRAPER", "https://www.hhhs.org.sg/hareline");
     expect(adapter).toBeInstanceOf(HHHSAdapter);
+    expect(adapter).not.toBeInstanceOf(HashNYCAdapter);
+  });
+
+  it("returns SquarespaceEventsAdapter for vontramph3.com (VTH3 #1941, not the default)", () => {
+    // Guards the new route from being silently darkened by a future import or
+    // ordering change — HTML_SCRAPER otherwise falls back to HashNYCAdapter.
+    const adapter = getAdapter("HTML_SCRAPER", "https://www.vontramph3.com");
+    expect(adapter).toBeInstanceOf(SquarespaceEventsAdapter);
     expect(adapter).not.toBeInstanceOf(HashNYCAdapter);
   });
 

@@ -2358,6 +2358,27 @@ export const SOURCES = [
       },
       kennelCodes: ["vth3"],
     },
+    // #1941: VTH3's rich primary source. The Meetup source (above) is dead and
+    // the FB Hosted Events source is blocked by the datacenter-IP checkpoint
+    // (#1939), so the kennel's own Squarespace hareline carries real events.
+    // Parsed by the shared SquarespaceEventsAdapter via `?format=json`. The
+    // Events collection lives at `/hareline` — `collectionPath` overrides the
+    // adapter's default `/events` (a base URL of vontramph3.com + default would
+    // resolve to the wrong `/events` collection). trustLevel 9 makes this the
+    // authoritative source: its structured run#/title/street/coords/times/
+    // description win over the sparser FB source when FB unblocks (merge
+    // field-fill is trust-gated). Wide window captures the full ~113-event
+    // archive back to 2022 (4 pages, under the adapter's default maxPages 20).
+    {
+      name: "Von Tramp H3 Squarespace Events",
+      url: "https://www.vontramph3.com",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 9,
+      scrapeFreq: "daily",
+      scrapeDays: 3650,
+      config: { kennelTag: "vth3", collectionPath: "/hareline" },
+      kennelCodes: ["vth3"],
+    },
     {
       name: "Burlington H3 Website Hareline",
       url: "https://www.burlingtonh3.com/hareline",

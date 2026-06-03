@@ -194,7 +194,7 @@ function trimTrailingSlashes(s: string): string {
  * path (e.g. a seed row that stores `https://example.com/events`), don't
  * double-append it. The collectionPath argument wins when present.
  */
-function resolveCollectionUrl(baseUrl: string, collectionPath: string): string {
+export function resolveCollectionUrl(baseUrl: string, collectionPath: string): string {
   const url = new URL(baseUrl);
   const basePath = trimTrailingSlashes(url.pathname);
   const cleanPath = collectionPath.startsWith("/")
