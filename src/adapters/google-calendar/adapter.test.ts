@@ -2331,6 +2331,13 @@ describe("buildRawEventFromGCalItem — skipPatterns", () => {
       "Erections Trail",
       "Pink Posada Hash",
       "21st BJ Anniversary Halloween Trail",
+      // themed runs sharing a holiday name must survive the anchored patterns
+      "St. Patrick's Day Hash",
+      "Cinco de Mayo Run",
+      "Mother's Day Trail",
+      "Father's Day Run",
+      "Flag Day Hash",
+      "Tax Day Hash",
     ])("admits the all-day run %j", (summary) => {
       const result = build(summary);
       expect(result).not.toBeNull();
