@@ -29,8 +29,8 @@ async function main() {
   console.log("diagnosticContext:", JSON.stringify(diagnosticContext, null, 2));
   console.log("event count:", events.length);
 
-  const dates = events.map((e) => e.date).sort((a, b) => a.localeCompare(b));
-  console.log("date range:", dates[0], "→", dates[dates.length - 1]);
+  const dates = events.map((e) => e.date).toSorted((a, b) => a.localeCompare(b));
+  console.log("date range:", dates[0], "→", dates.at(-1));
   // Event dates are local to the site timezone (America/New_York). Compute
   // "today" in that same zone — a UTC `toISOString().slice(0,10)` rolls over
   // after ~8pm ET and would misclassify tonight's run as past, spuriously
@@ -44,7 +44,7 @@ async function main() {
   const withRun = events.filter((e) => typeof e.runNumber === "number");
   console.log("events with runNumber:", withRun.length);
 
-  const sample = future.sort((a, b) => a.date.localeCompare(b.date))[0] ?? events[0];
+  const sample = future.toSorted((a, b) => a.date.localeCompare(b.date))[0] ?? events[0];
   console.log("\nsample (soonest upcoming):", JSON.stringify(sample, null, 2));
 
   // Assertions
