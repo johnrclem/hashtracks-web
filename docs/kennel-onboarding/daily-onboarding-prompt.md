@@ -106,6 +106,27 @@ the kennel names. So the authoritative full list comes from the **sitemap via th
   rules out that one slug, so without the sitemap you cannot safely treat a saturated-region
   candidate as new — skip it until the sitemap can confirm.
 
+> 🔴 **The page URL is the `slug`, and `slug = toSlug(shortName)` — NOT the kennelCode.** The route
+> is `/kennels/<slug>` (`prisma.kennel.findUnique({ where: { slug } })`), and the slug is the
+> slugified **shortName** (`src/lib/kennel-utils.ts toSlug`), e.g. shortName `"WSH3"` → `wsh3`. A
+> hand-set **kennelCode** — especially a collision-suffixed one like `wsh3-ch` / `swh3-or` — is
+> **not** the URL and may not appear in the sitemap at all. Two consequences for dedup:
+> - **Never check `/kennels/<the-kennelCode-you-plan-to-assign>`.** That code doesn't exist in prod
+>   yet and never becomes the URL. Search the sitemap for `toSlug(shortName)` (the bare shortName),
+>   and for region/name fragments.
+> - **A sitemap slug that matches your candidate's bare shortName is a *probable hit*, even if you
+>   "know" that slug belongs to a different kennel.** Open `/kennels/<that-slug>` and read the
+>   **rendered name + region** before concluding otherwise — a shortName collision is resolved on
+>   the *kennelCode*, while the slug can still land on your kennel. (WSH3 2026-06-03 false
+>   "404 / never-seeded" recovery: the run searched for `wsh3-ch`, saw `wsh3` in the sitemap and
+>   assumed it was Wandering Soul H3 — `wsh3` is *that* kennel's **kennelCode**, but its **slug** is
+>   `wandering-soul-h3` — so the real, already-live WSH3 Switzerland at **`/kennels/wsh3`** (21
+>   events, scraped daily) was missed and a no-op recovery handoff was written.)
+> - **Don't trust a bare `curl` status when deciding live-vs-404.** A CDN-cached shell can return
+>   HTTP **200** on a URL the browser renders as a real **404** (and vice-versa). Trust the
+>   Chrome-rendered page — or a direct prod-DB query of `slug` + `isHidden` when you have DB access —
+>   over `curl -o /dev/null -w '%{http_code}'`.
+
 **Secondary check — the seed files** (only to see whether a *source* / adapter config already
 exists in code for an already-live kennel):
 
@@ -276,6 +297,11 @@ field layouts (each `Date:`/`Hare:`/`Venue:` in its own `<p>` or `<h5>`), embedd
 vs `<table>`-format newer ones, and outright **source date typos** (a 2020 post may carry a 2019
 date label). Report every variant you see in the sample so the adapter is designed for the
 distribution, not the latest post. The ONH3 retro lists each of these specifically — start there.
+**Asunción H3 added three more (only ~10 of 120 posts used the "clean" form): ordinal + connector
+(`5th of December 2021`), a Spanish month name *in the English column* of a bilingual post
+(`14 marzo 2026`), and a recurring `Arpil` typo.** Sampling only the latest post would have missed
+all three and silently dropped 110/120 runs — sampling across years is not optional. See the
+Asunción addenda in `source-platform-notes.md` for the normalize-then-parse + EN/ES month-map recipe.
 
 **Past + schedule sources → call the split at research time.** If the source carries both an
 archive (past runs) AND an advance schedule, recommend the **past/future split** in the handoff:
@@ -449,6 +475,21 @@ collision-prone abbreviations in playbook §2. Resolve before drafting seed data
 > dropped. Aliases resolve in a global namespace, so any global collision is a real conflict.
 > For each proposed alias, run `grep -in '"<alias>"' prisma/seed-data/aliases.ts` and omit (with
 > a one-line note) any global collision. Retro Gap C.
+
+> 🔴 **The `aliases.ts` seed block is keyed by `kennelCode`, NOT the slug.** `prisma/seed.ts` builds
+> `kennelRecords` by `kennelCode` and `ensureAliases` looks the alias-map key up against it — a key
+> that isn't a kennelCode logs `⚠ Kennel code "<key>" not found, skipping aliases` and **silently
+> drops every alias** (no error). Emit `"<kennelCode>": [ ... ]` (e.g. `"asu-h3": [...]`), never
+> `"<slug>": [...]`. The slug only matters for the *page URL* (dedup, above); it is NOT the alias key.
+> This is invisible whenever kennelCode == slug (e.g. `onh3`/`onh3`), so it's easy to copy wrong from
+> such a template. Asunción H3 retro Gap A.
+
+> 🔴 **If the `shortName` has a non-ASCII character, emit an explicit `slug:` in the kennel seed row.**
+> `toSlug` (`src/lib/kennel-utils.ts`) only keeps `[a-z0-9]` and turns every other run into a dash —
+> it does **not** transliterate accents. So `toSlug("Asunción H3")` = **`asunci-n-h3`**, not
+> `asuncion-h3`. Pin the clean ASCII form (matching the no-accent alias) as `slug: "asuncion-h3"`; the
+> seeder honors it as an override (precedent: `nah3`). Don't generalize `toSlug` — that would churn
+> other accented kennels' URLs. Asunción H3 retro Gap C.
 
 ## Step 6 — Draft the implementation (seed + adapter plan)
 
