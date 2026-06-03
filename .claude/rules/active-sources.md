@@ -7,11 +7,11 @@ globs:
   - src/pipeline/**
 ---
 
-# Active Sources (343)
+# Active Sources (344)
 
 Last synced from `prisma/seed-data/sources.ts` via the `/update-sources-rule` skill.
 
-## United States (214 sources)
+## United States (215 sources)
 
 ### Akron, OH (1)
 - **Rubber City H3 Meetup** -> MEETUP -> rch3
@@ -419,8 +419,9 @@ Last synced from `prisma/seed-data/sources.ts` via the `/update-sources-rule` sk
 - **Mr. Happy's H3 Google Calendar** -> GOOGLE_CALENDAR -> mrhappy
 - **Pedal Files Bash Google Calendar** -> GOOGLE_CALENDAR -> pedalfiles
 
-### Vermont (4)
+### Vermont (5)
 - **Von Tramp H3 Meetup** -> MEETUP -> vth3
+- **Von Tramp H3 Squarespace Events** -> HTML_SCRAPER -> vth3
 - **Burlington H3 Website Hareline** -> HTML_SCRAPER -> burlyh3
 - **Burlington H3 Facebook Hosted Events** -> FACEBOOK_HOSTED_EVENTS -> burlyh3
 - **Von Tramp H3 Facebook Hosted Events** -> FACEBOOK_HOSTED_EVENTS -> vth3

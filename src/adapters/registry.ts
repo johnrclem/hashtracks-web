@@ -289,6 +289,12 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   // additional kennels just add a URL pattern + a Source row with
   // `kennelTag` in config.
   { pattern: /sach3\.beer/i, name: "SquarespaceEventsAdapter", factory: () => new SquarespaceEventsAdapter() },
+  // ── Von Tramp H3 (Burlington, VT) ──
+  // VTH3 — same shared SquarespaceEventsAdapter. The kennel's own hareline
+  // lives at the `/hareline` collection (config.collectionPath), not the
+  // default `/events`. Seeded as the rich primary source while the FB Hosted
+  // Events source is blocked (#1939) and the Meetup source is dead (#1144/#1459).
+  { pattern: /vontramph3\.com/i, name: "SquarespaceEventsAdapter", factory: () => new SquarespaceEventsAdapter() },
   // HashStats — multi-kennel historical stats archive served as JSON over
   // POST {host}/{SLUG}/listhashes2 (DataTables shape). JSON-over-HTML_SCRAPER,
   // like SHITH3/Seletar. Kennel slugs come from config.kennelSlugMap, so one

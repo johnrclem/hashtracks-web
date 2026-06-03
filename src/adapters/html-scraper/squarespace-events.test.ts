@@ -1,6 +1,7 @@
 import type { Source } from "@/generated/prisma/client";
 import {
   parseSquarespaceEvent,
+  resolveCollectionUrl,
   SquarespaceEventsAdapter,
   type SquarespaceEventsConfig,
 } from "./squarespace-events";
@@ -79,6 +80,33 @@ const NUMBERED_PAST_EVENT = {
   location: { addressTitle: "Johnson-Springview Park, Rocklin" },
   body: "",
 };
+
+describe("resolveCollectionUrl", () => {
+  it("appends a non-default collectionPath to a bare-domain base URL (VTH3 #1941)", () => {
+    // VTH3's Events collection lives at /hareline, not the adapter default
+    // /events. A bare-domain base URL + collectionPath must resolve to the
+    // hareline collection, never /events.
+    expect(resolveCollectionUrl("https://www.vontramph3.com", "/hareline")).toBe(
+      "https://www.vontramph3.com/hareline?format=json",
+    );
+  });
+
+  it("does not double-append when the base URL already includes the collection path", () => {
+    expect(
+      resolveCollectionUrl("https://www.vontramph3.com/hareline", "/hareline"),
+    ).toBe("https://www.vontramph3.com/hareline?format=json");
+    // Trailing slash on the base path is tolerated.
+    expect(
+      resolveCollectionUrl("https://www.vontramph3.com/hareline/", "/hareline"),
+    ).toBe("https://www.vontramph3.com/hareline?format=json");
+  });
+
+  it("falls back to the default /events collection (Sacramento)", () => {
+    expect(resolveCollectionUrl("https://sach3.beer", "/events")).toBe(
+      "https://sach3.beer/events?format=json",
+    );
+  });
+});
 
 describe("parseSquarespaceEvent", () => {
   it("converts epoch-ms startDate to local YYYY-MM-DD in the site timezone", () => {
