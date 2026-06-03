@@ -207,6 +207,9 @@ async function fetchPostsPage(page: number): Promise<PageResult> {
   try {
     const resp = await safeFetch(url, {
       headers: { "User-Agent": "HashTracks-Scraper", Accept: "application/json" },
+      // Direct-fetch path has no default timeout (only the residential-proxy
+      // branch does), so bound it explicitly or a hung connection blocks the scrape.
+      signal: AbortSignal.timeout(30_000),
     });
     if (resp.status === 400 || resp.status === 404) return { kind: "end" };
     if (!resp.ok) {
