@@ -1379,7 +1379,7 @@ describe("buildRawEventFromApollo — kennelPatterns", () => {
         // No description hares → title fallback must engage.
         description: "<p>Meet at the usual spot. On-after at the bar.</p>",
       };
-      const event = buildRawEventFromApollo(ev as never, emptyState, "feh3");
+      const event = buildRawEventFromApollo(ev, emptyState, "feh3");
       expect(event.hares).toBe("salty cliterature and this is Sharda white dress!!");
       // The "hare:" span is stripped out of the title so names don't appear twice.
       expect(event.title).toBe("Trail 2578");
@@ -1403,7 +1403,7 @@ describe("buildRawEventFromApollo — kennelPatterns", () => {
         dateTime: "2026-05-09T16:00:00-04:00",
         description: "<p>Just a regular trail with no hare info</p>",
       };
-      const event = buildRawEventFromApollo(ev as never, emptyState, "feh3");
+      const event = buildRawEventFromApollo(ev, emptyState, "feh3");
       expect(event.hares).toBeUndefined();
     });
 
@@ -1415,7 +1415,7 @@ describe("buildRawEventFromApollo — kennelPatterns", () => {
         dateTime: "2026-05-09T16:00:00-04:00",
         description: "<p>HARE: Description Hare</p>",
       };
-      const event = buildRawEventFromApollo(ev as never, emptyState, "feh3");
+      const event = buildRawEventFromApollo(ev, emptyState, "feh3");
       expect(event.hares).toBe("Description Hare");
     });
   });

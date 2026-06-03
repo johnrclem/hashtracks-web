@@ -599,7 +599,9 @@ describe("ICalAdapter", () => {
   // them again. (The original empty canonical was a transient — the run was
   // scraped before the kennel filled in details; it self-healed on re-scrape.)
   it("extracts location/hares/description from a dedicated EBH3 VEVENT (#1242)", async () => {
-    const EBH3_ICS = `BEGIN:VCALENDAR
+    // String.raw so the RFC 5545 escapes (\, and \n) are written as single
+    // backslashes without TS double-escaping; node-ical unescapes them.
+    const EBH3_ICS = String.raw`BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:icalendar-ruby
 CALSCALE:GREGORIAN
@@ -607,8 +609,8 @@ BEGIN:VEVENT
 UID:com.sfh3.calendar.run-6493-2
 DTSTART;TZID=America/Los_Angeles:20260510T130000
 DTEND;TZID=America/Los_Angeles:20260510T160000
-DESCRIPTION:Hares: Butt Plug FRED\\, Worst Bottom Ever\\, Cosmic Pussy\\, Litt
- le Johnson\\n\\nDirections: Use your phone!\\n\\nPrelube: Triple Rock Brewery
+DESCRIPTION:Hares: Butt Plug FRED\, Worst Bottom Ever\, Cosmic Pussy\, Litt
+ le Johnson\n\nDirections: Use your phone!\n\nPrelube: Triple Rock Brewery
 GEO:37.873416;-122.2687553
 LOCATION:Triple Rock Brewery
 SUMMARY:EBH3 #1164: Motherless Child Hash

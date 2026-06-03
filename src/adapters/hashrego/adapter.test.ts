@@ -817,19 +817,21 @@ describe("parseEventDetail — Strategy 1 NYE year rollover (#1630 review)", () 
 // #1126 — Hash Rego publishes a per-event registration cost; splitToRawEvents
 // must propagate ParsedEvent.cost onto every emitted RawEventData so the merge
 // pipeline writes it to Event.cost.
+function buildParsedHashRegoEvent(overrides: Partial<ParsedEvent> = {}): ParsedEvent {
+  return {
+    title: "EWH3 #1516: Bugs Bunny's Cream Pie",
+    dates: ["2026-04-30"],
+    startTimes: ["18:45"],
+    kennelSlug: "EWH3",
+    hostKennelName: "EWH3",
+    isMultiDay: false,
+    cost: "$10",
+    ...overrides,
+  };
+}
+
 describe("splitToRawEvents — cost propagation (#1126)", () => {
-  function buildParsed(overrides: Partial<ParsedEvent> = {}): ParsedEvent {
-    return {
-      title: "EWH3 #1516: Bugs Bunny's Cream Pie",
-      dates: ["2026-04-30"],
-      startTimes: ["18:45"],
-      kennelSlug: "EWH3",
-      hostKennelName: "EWH3",
-      isMultiDay: false,
-      cost: "$10",
-      ...overrides,
-    };
-  }
+  const buildParsed = buildParsedHashRegoEvent;
 
   it("single-day event carries cost (EWH3 #1516)", () => {
     const events = splitToRawEvents(buildParsed(), "ewh3-1516");

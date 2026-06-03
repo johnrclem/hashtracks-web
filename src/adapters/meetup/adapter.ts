@@ -487,6 +487,21 @@ export function cleanMeetupTitle(raw: string | null | undefined): string | undef
 // covers "Hare : BBQ". ReDoS-safe: `(\S.*)`, no `$` anchor, no nested quantifier.
 const TITLE_HARE_RE = /\bhares?\s*:\s*(\S.*)/i;
 
+/**
+ * #1270 — pull hares from a title's explicit "hare:" label and return both the
+ * hares and the title with that span removed (so names don't appear twice). The
+ * shared extractHares runs cleanAndFilterHares, which rejects CTA/placeholder
+ * values ("hare: needed"); the colon-only label avoids themed-title false
+ * positives ("Hare-raising"). Returns the title unchanged when no label matches.
+ */
+function extractTitleHares(title: string | undefined): { hares?: string; title?: string } {
+  if (!title) return { title };
+  const hares = extractHaresFromDescription(title, [TITLE_HARE_RE]);
+  if (!hares) return { title };
+  const m = TITLE_HARE_RE.exec(title);
+  return { hares, title: m ? title.slice(0, m.index) : title };
+}
+
 /** Build a RawEventData from an Apollo event entry. */
 export function buildRawEventFromApollo(
   ev: ApolloEvent,
@@ -525,27 +540,16 @@ export function buildRawEventFromApollo(
   // Try the colon-form helper first (matches DEFAULT_HARE_PATTERNS in
   // google-calendar/adapter.ts). Fall back to the Meetup-local dash-separator
   // pattern for kennels like CHH3 that always write "Hares - X". See #953.
-  let hares =
+  const descHares =
     (descForHares ? extractHaresFromDescription(descForHares) : undefined)
     ?? extractHaresFromMeetupDescription(descForHares);
 
   // Final fallback (#1270): some kennels (FEH3) embed the hare line directly in
-  // the Meetup *title* ("Trail 2578, hare: salty cliterature ...") and leave the
-  // description hare-less. Only when neither description path produced hares,
-  // run the shared extractHares against the title with the explicit colon
-  // label. Its cleanAndFilterHares rejects CTA/placeholder values ("hare:
-  // needed"); the colon-only label avoids themed-title false positives
-  // ("Hare-raising"). When it fires, strip the matched "hare:" span out of the
-  // title so the names don't appear twice (title + Hares field).
-  let titleForDisplay = ev.title;
-  if (!hares && ev.title) {
-    const titleHares = extractHaresFromDescription(ev.title, [TITLE_HARE_RE]);
-    if (titleHares) {
-      hares = titleHares;
-      const m = TITLE_HARE_RE.exec(ev.title);
-      if (m) titleForDisplay = ev.title.slice(0, m.index);
-    }
-  }
+  // the Meetup *title* and leave the description hare-less. Only consult the
+  // title when neither description path produced hares.
+  const fromTitle = descHares ? undefined : extractTitleHares(ev.title);
+  const hares = descHares ?? fromTitle?.hares;
+  const titleForDisplay = fromTitle?.title ?? ev.title;
   const cleanedDesc = cleanMeetupDescription(ev.description, state);
 
   return {
