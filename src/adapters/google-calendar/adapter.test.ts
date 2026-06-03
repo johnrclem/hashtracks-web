@@ -2300,6 +2300,63 @@ describe("buildRawEventFromGCalItem — skipPatterns", () => {
       expect(result!.kennelTags[0]).toBe("oh3");
     });
   });
+
+  // Regression for BJH3 (Border Jumper's, El Paso): the calendar publishes every
+  // run as an all-day event, so the source sets includeAllDayEvents — which makes
+  // its holiday skipPatterns live. The Halloween/Easter patterns MUST be anchored
+  // to the exact holiday titles so real runs ("Halloween Hash", "Easter Hash",
+  // "Easter Wookie") survive while the bulk-imported holidays are dropped.
+  describe("BJH3 all-day runs vs imported holidays (#1075 includeAllDayEvents + skipPatterns)", () => {
+    // Drive the regression off the REAL seed config so the test can't drift from
+    // production (same precedent as the Oregon/Kahuna skipPatterns test above).
+    const bjh3Source = SOURCES.find((s) => s.name === "BJH3 Google Calendar");
+    if (!bjh3Source?.config) throw new Error("BJH3 Google Calendar seed config missing");
+    const bjh3Config = bjh3Source.config as { defaultKennelTag: string; includeAllDayEvents: boolean; skipPatterns: string[] };
+    const BJH3_SKIP = compilePatterns(bjh3Config.skipPatterns, "i");
+
+    const build = (summary: string) =>
+      buildRawEventFromGCalItem(
+        { summary, start: { date: "2026-10-17" }, status: "confirmed" as const },
+        bjh3Config,
+        { compiledSkipPatterns: BJH3_SKIP },
+      );
+
+    it.each([
+      "Hash",
+      "Halloween Hash",
+      "Easter Hash",
+      "Easter Wookie",
+      "Jumping Chilis Campout!",
+      "30 Pack Marathon",
+      "Erections Trail",
+      "Pink Posada Hash",
+      "21st BJ Anniversary Halloween Trail",
+    ])("admits the all-day run %j", (summary) => {
+      const result = build(summary);
+      expect(result).not.toBeNull();
+      expect(result!.kennelTags[0]).toBe("bjh3");
+    });
+
+    it.each([
+      "Halloween",
+      "Easter Sunday",
+      "Easter Monday",
+      "Memorial Day",
+      "Independence Day",
+      "Father's Day",
+      "Mother's Day",
+      "Flag Day",
+      "Tax Day",
+      "Cinco de Mayo",
+      "St. Patrick's Day",
+      "Thanksgiving Day",
+      "Daylight Saving Time ends",
+      "Presidents' Day",
+      "Juneteenth",
+    ])("skips the imported holiday %j", (summary) => {
+      expect(build(summary)).toBeNull();
+    });
+  });
 });
 
 // ── extractTitleFromDescription ──
