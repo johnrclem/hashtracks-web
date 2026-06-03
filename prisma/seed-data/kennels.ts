@@ -2655,6 +2655,13 @@ export const KENNELS: KennelSeed[] = [
       description: "Monthly hash in Cincinnati and Northern Kentucky. Never cancels for weather.",
       latitude: 39.10, longitude: -84.51,
     },
+    {
+      // Sister kennel of Sin City H4 (sch4). Sole source is the retrospective
+      // HashStats archive (28 events, last run 2020-08-15) — currently dormant.
+      kennelCode: "sch4bash", shortName: "Sin City Bike Hash", fullName: "Sin City Bike Hash", region: "Cincinnati, OH",
+      description: "Cincinnati bike hash, sister kennel of Sin City H4. Currently dormant.",
+      latitude: 39.1, longitude: -84.51,
+    },
     // --- Cleveland ---
     {
       kennelCode: "cleh4", shortName: "Cleveland H4", fullName: "Cleveland Hash House Harriers and Harriettes", region: "Cleveland, OH",

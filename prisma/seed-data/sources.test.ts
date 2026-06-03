@@ -65,4 +65,35 @@ describe("SOURCES seed data invariants (#817 regression guard)", () => {
     expect(cfg.rrule).toBe(rrule);
     expect(cfg.startTime).toBe(startTime);
   });
+
+  // #1901: kennelSlugMap (kennelCode → external slug) appears in two shapes:
+  //  - HashStats reads `config.kennelSlugMap` at runtime; scrape.ts scopes
+  //    reconcile to those keys (#1771).
+  //  - HASHREGO carries a TOP-LEVEL `kennelSlugMap` that seed.ts destructures
+  //    into SourceKennel.externalSlug rows (seed.ts ~375).
+  // Both require the slug-map key set to match kennelCodes EXACTLY:
+  //  - a key not in kennelCodes is an unlinked SourceKennel — HashStats reconcile
+  //    then fails closed (skips reconcile), and HASHREGO writes no externalSlug;
+  //  - a kennelCode not in the map is a linked kennel this source can never
+  //    scrape/match/reconcile (dead link).
+  // Lock the bidirectional invariant across BOTH locations so either drift fails
+  // the build, never prod.
+  it("every source's kennelSlugMap key set (config or top-level) exactly matches its kennelCodes", () => {
+    const offenders: string[] = [];
+    for (const s of SOURCES) {
+      const slugMap =
+        (s.config as { kennelSlugMap?: Record<string, string> } | undefined)?.kennelSlugMap ??
+        (s as { kennelSlugMap?: Record<string, string> }).kennelSlugMap;
+      if (!slugMap) continue;
+      const codes = new Set(s.kennelCodes ?? []);
+      const keys = new Set(Object.keys(slugMap));
+      for (const key of keys) {
+        if (!codes.has(key)) offenders.push(`${s.name}: kennelSlugMap key "${key}" not in kennelCodes`);
+      }
+      for (const code of codes) {
+        if (!keys.has(code)) offenders.push(`${s.name}: kennelCodes entry "${code}" missing from kennelSlugMap`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
 });
