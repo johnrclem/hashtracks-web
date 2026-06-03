@@ -4570,6 +4570,7 @@ export const KENNELS: KennelSeed[] = [
     // Asunción city centroid; per-run start coords come from the adapter's embed-map parse.
     {
       kennelCode: "asu-h3", shortName: "Asunción H3", fullName: "Asunción Hash House Harriers",
+      slug: "asuncion-h3", // explicit: toSlug("Asunción H3") mangles the accented ó → "asunci-n-h3"
       region: "Asunción", country: "Paraguay",
       website: "https://asuncionh3.wordpress.com/",
       instagramHandle: "asuncionh3",
