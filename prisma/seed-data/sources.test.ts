@@ -65,4 +65,24 @@ describe("SOURCES seed data invariants (#817 regression guard)", () => {
     expect(cfg.rrule).toBe(rrule);
     expect(cfg.startTime).toBe(startTime);
   });
+
+  // #1901: HashStats (and any future config.kennelSlugMap source) routes its
+  // fetch by the map's kennelCode keys, and scrape.ts scopes reconcile to those
+  // same keys (#1771). If a mapped key is NOT a linked SourceKennel (i.e. not in
+  // the row's kennelCodes), the reconcile guard fails CLOSED — it skips reconcile
+  // entirely to avoid false cancellations. Lock the invariant at the seed layer
+  // so a typo'd slug-map key can never silently disable reconcile in prod.
+  it("every config.kennelSlugMap key is also in the source's kennelCodes", () => {
+    const offenders: string[] = [];
+    for (const s of SOURCES) {
+      const slugMap = (s.config as { kennelSlugMap?: Record<string, string> } | undefined)
+        ?.kennelSlugMap;
+      if (!slugMap) continue;
+      const codes = new Set(s.kennelCodes ?? []);
+      for (const key of Object.keys(slugMap)) {
+        if (!codes.has(key)) offenders.push(`${s.name}: kennelSlugMap key "${key}" not in kennelCodes`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
 });

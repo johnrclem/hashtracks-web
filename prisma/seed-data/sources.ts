@@ -3339,6 +3339,67 @@ export const SOURCES = [
       },
       kennelCodes: ["sch4"],
     },
+    // Remaining public hashingstats.com kennels (#1901). Per-kennel rows (not a
+    // single bundled multi-slug row) so a capped/failed fetch on one archive can't
+    // block reconcile for the others, and name↔url↔kennel provenance stays aligned.
+    // All trust 6 — historical-backfill secondaries behind each kennel's primary
+    // (QCH4/SWOT/LVH3 have GCal trust-7 primaries; SCH4BASH is sole-source/dormant).
+    // For every row kennelSlugMap keys === kennelCodes (reconcile fail-closed guard).
+    {
+      name: "QCH4 HashStats",
+      url: "https://hashingstats.com/QCH4",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "weekly",
+      scrapeDays: 20000,
+      config: {
+        kennelSlugMap: { qch4: "QCH4" },
+      },
+      kennelCodes: ["qch4"],
+    },
+    {
+      name: "SWOT HashStats",
+      url: "https://hashingstats.com/SWOT",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "weekly",
+      scrapeDays: 20000,
+      config: {
+        kennelSlugMap: { "swot-h3": "SWOT" },
+      },
+      kennelCodes: ["swot-h3"],
+    },
+    {
+      name: "LVH3 HashStats",
+      url: "https://hashingstats.com/LVH3",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "weekly",
+      scrapeDays: 20000,
+      config: {
+        kennelSlugMap: { "lvh3-cin": "LVH3" },
+      },
+      kennelCodes: ["lvh3-cin"],
+    },
+    {
+      // sch4bash (Sin City Bike Hash) is dormant and HashStats is its SOLE
+      // source. Reconcile is still safe: HashStats returns the COMPLETE archive
+      // every scrape, so its own canonical events are never missing/orphaned,
+      // and the adapter's capped-page guard blocks reconcile on any partial
+      // fetch. HashStats never emits future-dated rows, so if this kennel ever
+      // reactivates, add a live primary source (GCal/FB) — that restores
+      // another-source protection for upcoming events. (#1901 / Codex review)
+      name: "SCH4BASH HashStats",
+      url: "https://hashingstats.com/SCH4BASH",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "weekly",
+      scrapeDays: 20000,
+      config: {
+        kennelSlugMap: { sch4bash: "SCH4BASH" },
+      },
+      kennelCodes: ["sch4bash"],
+    },
     // --- Columbus (Renegade H3 website) ---
     {
       name: "Renegade H3 Website",
