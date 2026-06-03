@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-import { deleteLeakedEvent, DeleteSafetyViolationError } from "./delete-leaked-event";
+import {
+  deleteLeakedEvent,
+  DeleteSafetyViolationError,
+  ForeignRawSourceError,
+} from "./delete-leaked-event";
 import type { PrismaClient } from "@/generated/prisma/client";
 
 /**
@@ -18,7 +22,12 @@ type RelationCounts = {
   eventKennels?: number;
 };
 
-function buildPrisma(counts: RelationCounts, lockedRows: Array<{ id: string }> = [{ id: "evt_1" }]) {
+function buildPrisma(
+  counts: RelationCounts,
+  lockedRows: Array<{ id: string }> = [{ id: "evt_1" }],
+  /** When set, `rawEvent.findFirst` (the foreign-provenance probe) returns this. */
+  foreignRaw: { sourceId: string | null } | null = null,
+) {
   const eventDelete = vi.fn().mockResolvedValue({});
   const queryRaw = vi.fn().mockResolvedValue(lockedRows);
   const tx = {
@@ -28,7 +37,10 @@ function buildPrisma(counts: RelationCounts, lockedRows: Array<{ id: string }> =
     kennelAttendance: {
       deleteMany: vi.fn().mockResolvedValue({ count: counts.kennelAttendances ?? 0 }),
     },
-    rawEvent: { deleteMany: vi.fn().mockResolvedValue({ count: counts.rawEvents ?? 0 }) },
+    rawEvent: {
+      deleteMany: vi.fn().mockResolvedValue({ count: counts.rawEvents ?? 0 }),
+      findFirst: vi.fn().mockResolvedValue(foreignRaw),
+    },
     eventKennel: { deleteMany: vi.fn().mockResolvedValue({ count: counts.eventKennels ?? 0 }) },
     event: { delete: eventDelete },
   };
@@ -109,5 +121,29 @@ describe("deleteLeakedEvent safety invariant", () => {
     await deleteLeakedEvent(prisma, "evt_1", ["rawEvents"]);
     expect(eventDelete).not.toHaveBeenCalled();
     expect(tx.rawEvent.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("throws ForeignRawSourceError (and never deletes) when a foreign-source RawEvent is present", async () => {
+    // A different source merged onto the event after the caller's snapshot.
+    const { prisma, eventDelete, tx } = buildPrisma({}, [{ id: "evt_1" }], { sourceId: "src_other" });
+    await expect(
+      deleteLeakedEvent(prisma, "evt_1", ["attendances"], "src_meetup"),
+    ).rejects.toBeInstanceOf(ForeignRawSourceError);
+    expect(eventDelete).not.toHaveBeenCalled();
+    // The provenance probe must run under the lock, before any relation delete.
+    expect(tx.rawEvent.findFirst).toHaveBeenCalledTimes(1);
+    expect(tx.rawEvent.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("deletes when forbidForeignRawSourceId is set and no foreign RawEvent exists", async () => {
+    const { prisma, eventDelete, tx } = buildPrisma({ rawEvents: 2 }, [{ id: "evt_1" }], null);
+    await deleteLeakedEvent(prisma, "evt_1", ["attendances", "kennelAttendances"], "src_meetup");
+    expect(tx.rawEvent.findFirst).toHaveBeenCalledTimes(1);
+    expect(eventDelete).toHaveBeenCalledTimes(1);
+    // The provenance probe must run before any relation delete, or a foreign
+    // RawEvent could be destroyed before the guard sees it.
+    expect(tx.rawEvent.findFirst.mock.invocationCallOrder[0]).toBeLessThan(
+      tx.rawEvent.deleteMany.mock.invocationCallOrder[0],
+    );
   });
 });

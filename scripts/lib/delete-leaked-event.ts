@@ -44,10 +44,36 @@ export class DeleteSafetyViolationError extends Error {
   }
 }
 
+/**
+ * Thrown (rolling back the transaction) when `forbidForeignRawSourceId` is set
+ * and a RawEvent from a different source is attached to the Event at delete
+ * time. Checked AFTER the FOR UPDATE lock so a concurrent merge can't slip a
+ * foreign RawEvent in past the caller's provenance snapshot.
+ */
+export class ForeignRawSourceError extends Error {
+  constructor(
+    readonly eventId: string,
+    readonly foreignSourceId: string | null,
+  ) {
+    super(
+      `Refusing to delete Event ${eventId}: a RawEvent from a non-allowed source ` +
+        `(${foreignSourceId ?? "unknown"}) was present at delete time.`,
+    );
+    this.name = "ForeignRawSourceError";
+  }
+}
+
 export async function deleteLeakedEvent(
   prisma: PrismaClient,
   eventId: string,
   requireZeroCounts: RequireZeroCount[] = [],
+  /**
+   * When set, the delete proceeds only if every RawEvent on the Event belongs
+   * to this source id (no foreign-provenance RawEvent exists). Enforced under
+   * the row lock so it's race-proof — for provenance-scoped cleanups that must
+   * not hard-delete an event another source has since merged onto.
+   */
+  forbidForeignRawSourceId?: string,
 ): Promise<void> {
   const existing = await prisma.event.findUnique({
     where: { id: eventId },
@@ -85,6 +111,19 @@ export async function deleteLeakedEvent(
     if (locked.length === 0) {
       console.log(`Event ${eventId} vanished before lock — nothing to delete.`);
       return;
+    }
+
+    // Provenance guard (under the lock, before any delete): refuse if a
+    // RawEvent from a different source was attached after the caller's
+    // snapshot — i.e. another source has merged onto this event since.
+    if (forbidForeignRawSourceId) {
+      const foreign = await tx.rawEvent.findFirst({
+        where: { eventId, sourceId: { not: forbidForeignRawSourceId } },
+        select: { sourceId: true },
+      });
+      if (foreign) {
+        throw new ForeignRawSourceError(eventId, foreign.sourceId);
+      }
     }
 
     const hareDeleted = await tx.eventHare.deleteMany({ where: { eventId } });

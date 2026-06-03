@@ -2279,6 +2279,12 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 180,
+      // #1144 / #1459: Meetup group migrated off the platform — the URL returns
+      // "Group not found" and the adapter only ever ingested a recurring
+      // "Future VTH3 Run" placeholder slot. Disabled; the FB Hosted Events
+      // source (below) carries real events. Existing placeholder Events are
+      // cleaned up post-merge via scripts/cleanup-vth3-meetup-placeholders.ts.
+      enabled: false,
       config: {
         groupUrlname: "vontramph3",
         kennelTag: "vth3",
@@ -3134,6 +3140,11 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "every_6h",
       scrapeDays: 90,
+      // #1130: kennel is defunct/mis-registered — the only "source" is one
+      // ex-member's personal calendar (Wisconsin travel notes, no real trails)
+      // and no third-party trace of ELAH3 exists. Kennel hidden via migration;
+      // source disabled so we stop pulling personal-travel events.
+      enabled: false,
       config: { defaultKennelTag: "elah3" },
       kennelCodes: ["elah3"],
     },
@@ -5198,7 +5209,9 @@ export const SOURCES = [
     // --- HKFH3 (STATIC_SCHEDULE) ---
     {
       name: "HKFH3 Static Schedule",
-      url: "https://www.facebook.com/hkfullhousehash",
+      // #1374: kennel is "Hong Kong Friday Hash" (HKFH3), not "Full House"; the
+      // old hkfullhousehash handle 404s. Working FB group ("HK Friday Hash").
+      url: "https://www.facebook.com/groups/197105523127/",
       type: "STATIC_SCHEDULE" as const,
       trustLevel: 3,
       scrapeFreq: "weekly",
@@ -5210,7 +5223,7 @@ export const SOURCES = [
         startTime: "19:00",
         defaultTitle: "HKFH3 Monthly Run",
         defaultLocation: "Hong Kong",
-        defaultDescription: "Monthly Friday evening trail (exact cadence uncertain — at least monthly per available evidence). Check Facebook for run details and start location.",
+        defaultDescription: "Monthly Friday evening trail. Check the HK Friday Hash Facebook group for run details and start location.",
       },
       kennelCodes: ["hkfh3"],
     },
@@ -5236,7 +5249,8 @@ export const SOURCES = [
     // --- Hebe H3 (STATIC_SCHEDULE) ---
     {
       name: "Hebe H3 Static Schedule",
-      url: "https://www.facebook.com/hebehash",
+      // #1358: old hebehash Page handle 404s; real presence is the FB group.
+      url: "https://www.facebook.com/groups/HebeH3",
       type: "STATIC_SCHEDULE" as const,
       trustLevel: 3,
       scrapeFreq: "weekly",

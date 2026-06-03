@@ -3956,8 +3956,16 @@ export const KENNELS: KennelSeed[] = [
       latitude: 22.3200, longitude: 114.1700,
     },
     {
-      kennelCode: "hkfh3", shortName: "HKFH3", fullName: "Hong Kong Full House Hash House Harriers",
+      // #1374: "HKFH3" = Hong Kong Friday Hash (not "Full House"). This is the
+      // canonical name for fresh DBs (seed CREATE uses it); the existing prod
+      // row is renamed by the companion migration, since seed never updates
+      // fullName on existing rows. Profile fields below were NULL in prod and
+      // are filled by the migration (Vercel skips db seed).
+      kennelCode: "hkfh3", shortName: "HKFH3", fullName: "Hong Kong Friday Hash House Harriers",
       region: "Hong Kong", country: "Hong Kong",
+      facebookUrl: "https://www.facebook.com/groups/197105523127/",
+      contactEmail: "HKFridayHash@gmail.com",
+      founder: "Stash & Hopeless",
       scheduleDayOfWeek: "Friday", scheduleTime: "7:00 PM", scheduleFrequency: "Monthly",
       scheduleNotes: "At least monthly Friday evening trails around Hong Kong.",
       description: "Hong Kong's Friday hash. Runs at least monthly around Hong Kong.",
