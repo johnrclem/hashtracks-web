@@ -115,7 +115,7 @@ export function stripDMSFromLocation(location: string): string {
     .trim();
 }
 
-function isValidCoords(lat: number, lng: number): boolean {
+export function isValidCoords(lat: number, lng: number): boolean {
   if (lat === 0 && lng === 0) return false;
   return !Number.isNaN(lat) && !Number.isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
 }

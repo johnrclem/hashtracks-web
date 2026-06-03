@@ -6302,5 +6302,22 @@ export const SOURCES = [
       },
       kennelCodes: ["paris-h3", "sans-clue-h3"],
     },
+
+    // ===== SOUTH AMERICA =====
+    // --- Asunción, Paraguay (first South American kennel) ---
+    {
+      name: "Asunción H3 WordPress Run Posts",
+      url: "https://asuncionh3.wordpress.com/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      // Future-only adapter; the 120-run archive loads via the one-shot
+      // scripts/backfill-asu-h3-history.ts insert. upcomingOnly restricts
+      // reconciliation to future dates so past events are never false-cancelled
+      // when they age off the blog's first page (reconcile.ts timeMin guard).
+      config: { upcomingOnly: true },
+      kennelCodes: ["asu-h3"],
+    },
   ];
 
