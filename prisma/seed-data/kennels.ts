@@ -2660,7 +2660,7 @@ export const KENNELS: KennelSeed[] = [
       // HashStats archive (28 events, last run 2020-08-15) — currently dormant.
       kennelCode: "sch4bash", shortName: "Sin City Bike Hash", fullName: "Sin City Bike Hash", region: "Cincinnati, OH",
       description: "Cincinnati bike hash, sister kennel of Sin City H4. Currently dormant.",
-      latitude: 39.10, longitude: -84.51,
+      latitude: 39.1, longitude: -84.51,
     },
     // --- Cleveland ---
     {
