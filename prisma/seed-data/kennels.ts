@@ -4536,5 +4536,23 @@ export const KENNELS: KennelSeed[] = [
       latitude: 48.8566,
       longitude: 2.3522,
     },
+    // ===== SOUTH AMERICA =====
+    // First South American kennel — Asunción, Paraguay. latitude/longitude is the
+    // Asunción city centroid; per-run start coords come from the adapter's embed-map parse.
+    {
+      kennelCode: "asu-h3", shortName: "Asunción H3", fullName: "Asunción Hash House Harriers",
+      region: "Asunción", country: "Paraguay",
+      website: "https://asuncionh3.wordpress.com/",
+      instagramHandle: "asuncionh3",
+      logoUrl: "/kennel-logos/asu-h3.png",
+      foundedYear: 2021,
+      scheduleDayOfWeek: "Saturday", scheduleTime: "4:00 PM", scheduleFrequency: "Biweekly",
+      scheduleNotes: "Biweekly Saturday run/walk; start time shifts seasonally (~13:30–17:30 meet, southern-hemisphere winter/summer). Each post lists the exact meet and trail-start time.",
+      hashCash: "₲10,000 (PYG, cash only)",
+      walkersWelcome: true,
+      description: "Third iteration of the Asunción Hash House Harriers (founded 5 Dec 2021), a biweekly run/walk hash exploring the parks and streets in and around Paraguay's capital. \"Running, walking and socializing.\"",
+      latitude: -25.2637,
+      longitude: -57.5759,
+    },
   ];
 

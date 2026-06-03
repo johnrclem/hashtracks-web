@@ -2988,6 +2988,32 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: 115.19,
     aliases: ["Bali, Indonesia", "Denpasar", "Denpasar, Bali", "Bali, ID"],
   },
+  // ── South America — Paraguay (first South American country; country → metro,
+  // no state-province intermediate, mirroring Kenya/Indonesia). Purple palette
+  // keeps South America visually distinct from every other continent. ──
+  {
+    name: "Paraguay",
+    country: "Paraguay",
+    level: "COUNTRY",
+    timezone: "America/Asuncion",
+    abbrev: "PY",
+    colorClasses: "bg-purple-200 text-purple-800",
+    pinColor: "#9333ea",
+    centroidLat: -23.442,
+    centroidLng: -58.444,
+    aliases: ["PY"],
+  },
+  {
+    name: "Asunción",
+    country: "Paraguay",
+    timezone: "America/Asuncion",
+    abbrev: "ASU",
+    colorClasses: "bg-purple-100 text-purple-700",
+    pinColor: "#a855f7",
+    centroidLat: -25.264,
+    centroidLng: -57.576,
+    aliases: ["Asuncion", "Asunción, Paraguay"],
+  },
 ];
 
 // ── Sync fallback map (built from REGION_SEED_DATA at module load) ──
@@ -3206,6 +3232,7 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   [/\b(auckland|wellington|hamilton|nelson|napier|hastings|palmerston north|new plymouth),\s*nz\b/, "New Zealand"],
   [/\b(kenya|nairobi|mombasa|kisumu)\b/, "Kenya"],
   [/\b(bali|indonesia|denpasar)\b/, "Indonesia"],
+  [/\b(paraguay|asuncion|asunción|luque)\b/, "Paraguay"],
 ];
 
 /** Infer country from region name heuristics. Defaults to "USA". */
@@ -3486,6 +3513,8 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Nairobi": "Kenya",
   // Indonesia — country → metro (no state-province intermediate)
   "Bali": "Indonesia",
+  // Paraguay — country → metro (no state-province intermediate)
+  "Asunción": "Paraguay",
 };
 
 /** Get the state/country group for a region name (for kennel directory grouping). */
@@ -3656,6 +3685,9 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   // Indonesia — both the country-level region and its metro map to "Indonesia"
   "Indonesia": "Indonesia",
   "Bali": "Indonesia",
+  // Paraguay — both the country-level region and its metro map to "Paraguay"
+  "Paraguay": "Paraguay",
+  "Asunción": "Paraguay",
 };
 
 /** Get the country for a state group name (for 3-level region hierarchy). */
@@ -3711,6 +3743,7 @@ const COUNTRY_CODE_TO_NAME: Record<string, string> = {
   NZ: "New Zealand",
   KE: "Kenya",
   ID: "Indonesia",
+  PY: "Paraguay",
 };
 
 /** All canonical country names used in COUNTRY_GROUP_MAP values. */
