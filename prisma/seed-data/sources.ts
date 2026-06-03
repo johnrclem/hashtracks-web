@@ -2126,6 +2126,13 @@ export const SOURCES = [
       kennelCodes: ["sech3"],
     },
     {
+      // PalH3 runs the 2nd & 4th Saturday (#1903). RRULE can't express
+      // "2SA,4SA" in one rule, so the schedule is split across two STATIC
+      // rows. This row keeps the original name to update the existing prod
+      // source in place (seeder identity = name + type); the 4th-Saturday
+      // companion is a separate row below. Low-trust fallback only — the
+      // "Sumter Hasher Trail Info" Google Calendar (trust 7) supersedes it
+      // on any date it actually carries a trail.
       name: "Palmetto H3 Static Schedule",
       url: "https://www.facebook.com/PalmettoH3/",
       type: "STATIC_SCHEDULE" as const,
@@ -2134,12 +2141,63 @@ export const SOURCES = [
       scrapeDays: 90,
       config: {
         kennelTag: "palh3",
-        rrule: "FREQ=MONTHLY;BYDAY=3SA",
-        anchorDate: "2026-03-21",
+        rrule: "FREQ=MONTHLY;BYDAY=2SA",
+        anchorDate: "2026-03-14",
         startTime: "14:00",
-        defaultTitle: "PalH3 Monthly Run",
+        defaultTitle: "Palmetto H3 Trail",
         defaultLocation: "Sumter, SC",
-        defaultDescription: "Third Saturday monthly trail. Check Facebook for start location.",
+        defaultDescription: "2nd & 4th Saturday trail at 2pm. Check the Sumter Hasher Trail calendar or Facebook for the start location.",
+      },
+      kennelCodes: ["palh3"],
+    },
+    {
+      name: "Palmetto H3 Static Schedule (4th Saturday)",
+      url: "https://www.facebook.com/PalmettoH3/",
+      type: "STATIC_SCHEDULE" as const,
+      trustLevel: 3,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "palh3",
+        rrule: "FREQ=MONTHLY;BYDAY=4SA",
+        anchorDate: "2026-03-28",
+        startTime: "14:00",
+        defaultTitle: "Palmetto H3 Trail",
+        defaultLocation: "Sumter, SC",
+        defaultDescription: "2nd & 4th Saturday trail at 2pm. Check the Sumter Hasher Trail calendar or Facebook for the start location.",
+      },
+      kennelCodes: ["palh3"],
+    },
+    {
+      // "Sumter Hasher Trail Info" — the kennel's authoritative trail calendar
+      // (per-run titles/locations/hares, e.g. Trail #99-#120). Primary source
+      // when it carries near-term trails; currently it only holds an annual
+      // "G Day" placeholder upcoming, so the STATIC rows above remain the
+      // fallback until the kennel posts real upcoming trails (#1905).
+      name: "Sumter Hasher Trail Info Calendar",
+      url: "palmettoh3@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        defaultKennelTag: "palh3",
+        // Drop non-trail noise that lives on this calendar: the annual cross-
+        // kennel "G Day" placeholder, drinking practices, misman meetings,
+        // other kennels' events, and festival cross-posts. (No bare `5k`
+        // pattern — it would also drop a legitimately-named "...5K" trail; the
+        // Oktoberfest entry that carried "5k" is already covered below.)
+        skipPatterns: [
+          // The placeholder renders as `"G" Day` (literal quotes); tolerate the
+          // unquoted form too in case the kennel edits the title.
+          String.raw`\bG\b[\s"“”]*Day\b`,
+          "Drinking [Pp]ractice",
+          "MisMan",
+          "Beer mile",
+          "Grand Strand",
+          "Oktoberfest",
+        ],
+        runNumberPatterns: [String.raw`Trail\s*#?\s*(\d+)`],
       },
       kennelCodes: ["palh3"],
     },
@@ -3556,7 +3614,7 @@ export const SOURCES = [
         // #709 ("Hare needed") + #713-716 ("Placeholder event for H7") aren't
         // real trail names → synthesize "Hamburg H7 Trail #N" (mirrors Tokyo #1166).
         defaultTitle: "Hamburg H7 Trail",
-        staleTitleAliases: ["Placeholder event for H7", "Hare needed"],
+        staleTitleAliases: ["Placeholder event for H7", "Hare needed", "H7 run"],
       },
       kennelCodes: ["h7"],
     },

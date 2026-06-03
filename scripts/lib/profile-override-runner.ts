@@ -21,10 +21,14 @@ import { createScriptPool } from "./db-pool";
  */
 
 export interface FieldRewrite {
-  /** The value the field is expected to currently hold (captured at authoring). */
-  expected: string;
-  /** The value to write. */
-  target: string;
+  /**
+   * The value(s) the field is expected to currently hold (captured at
+   * authoring). An array accepts any of several equivalent current values —
+   * e.g. a dead URL that may be stored with either `http://` or `https://`.
+   */
+  expected: string | string[];
+  /** The value to write. `null` clears the column (e.g. a dead website URL). */
+  target: string | null;
 }
 
 export interface ProfileOverride {
@@ -43,18 +47,19 @@ export interface RunProfileOverridesOptions {
 type KennelRow = Record<string, unknown> & { id: string; kennelCode: string };
 
 interface RewriteEvaluation {
-  updateData: Record<string, string>;
+  updateData: Record<string, string | null>;
   driftSkip: boolean;
 }
 
 function evaluateRewrites(kennel: KennelRow, rewrites: ProfileOverride["rewrites"]): RewriteEvaluation {
-  const updateData: Record<string, string> = {};
+  const updateData: Record<string, string | null> = {};
   let driftSkip = false;
   for (const [field, { expected, target }] of Object.entries(rewrites)) {
     const current = kennel[field];
+    const accepted = Array.isArray(expected) ? expected : [expected];
     if (current === target) {
       console.log(`  · ${kennel.kennelCode}.${field} already correct.`);
-    } else if (current === expected) {
+    } else if (accepted.includes(current as string)) {
       updateData[field] = target;
       console.log(`  ~ ${kennel.kennelCode}.${field}`);
       console.log(`      current: ${JSON.stringify(current)}`);

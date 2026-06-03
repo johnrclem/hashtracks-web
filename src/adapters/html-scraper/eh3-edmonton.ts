@@ -234,7 +234,10 @@ export function parseEh3EventBlock(
     const h = extractField(line, "Hares?", "Hare");
     if (h) { hares = h; continue; }
 
-    const loc = extractField(line, "Location", "Start");
+    // OSH3 (page 425) labels the meeting point "Address: …" rather than
+    // "Location:"/"Start:" (#1899). Only the OSH3 page uses "Address:" — the
+    // other six EH3 pages use "Location"/"Start", so this is purely additive.
+    const loc = extractField(line, "Location", "Start", "Address");
     if (loc) {
       locationUrl = extractMapUrl(line);
       // Strip trailing "(<map url>)" or stray "(" left after the URL was extracted

@@ -1700,8 +1700,12 @@ export const KENNELS: KennelSeed[] = [
       description: "Weekly Friday evening runs in the Hollywood/Dania Beach/Hallandale area. BYOB.",
     },
     {
+      // website pbh3.org is a dead GoDaddy parking page (#1921) — intentionally
+      // omitted. The only run source is the private FB group, so the kennel is
+      // limited to the STATIC_SCHEDULE placeholder (no public per-run source
+      // exists — #1922/#1923, documented triage). No public logo found; founded
+      // year unknown (FB group created 2010 is only a lower bound).
       kennelCode: "pbh3", shortName: "Palm Beach H3", fullName: "Palm Beach Hash House Harriers", region: "Miami, FL",
-      website: "https://www.pbh3.org",
       facebookUrl: "https://www.facebook.com/groups/pbhhh/",
       scheduleDayOfWeek: "Wednesday", scheduleFrequency: "Weekly",
       description: "Weekly Wednesday runs in the Palm Beach County area.",
@@ -2086,10 +2090,15 @@ export const KENNELS: KennelSeed[] = [
     },
     {
       kennelCode: "palh3", shortName: "PalH3", fullName: "Palmetto Hash House Harriers", region: "Columbia, SC",
-      scheduleDayOfWeek: "Saturday", scheduleFrequency: "Monthly",
+      website: "https://sites.google.com/view/palmettoh3",
+      logoUrl: "/kennel-logos/palh3.jpg",
       facebookUrl: "https://www.facebook.com/PalmettoH3/",
+      contactEmail: "palmettoh3@gmail.com",
+      hashCash: "$10 (2nd trail free)",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Twice monthly",
+      scheduleNotes: "2nd & 4th Saturday",
       foundedYear: 2018,
-      description: "Monthly Saturday runs based in Sumter, SC. Small kennel from Columbia-area hashers.",
+      description: "Twice-monthly Saturday runs (2nd & 4th Saturday) based in Sumter, SC. Small kennel from Columbia-area hashers.",
     },
     // --- Greenville ---
     {
@@ -2769,6 +2778,8 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "h7", shortName: "Hamburg H7", fullName: "Hansestadt Hamburg Hash House Harriers Hummel Hummel", region: "Hamburg", country: "Germany",
       website: "https://hamburghash.blogspot.com/",
       facebookUrl: "https://www.facebook.com/groups/280388972016079",
+      contactEmail: "hamburghash@gmail.com",
+      hashCash: "5€",
       scheduleDayOfWeek: "Sunday", scheduleTime: "2:00 PM", scheduleFrequency: "Biweekly (1st & 3rd Sundays)",
       scheduleNotes: "1st & 3rd Sunday of the month",
       walkersWelcome: true,
@@ -3235,6 +3246,9 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "osh3-ab", shortName: "OSH3", fullName: "Old Strathcona Hash House Harriers", region: "Edmonton, AB", country: "Canada",
       website: "https://www.eh3.org/osh3/",
+      logoUrl: "/kennel-logos/osh3-ab.jpg",
+      contactEmail: "marg.golberg@gmail.com",
+      hashCash: "Free (no run fee)",
       scheduleDayOfWeek: "Sunday", scheduleTime: "2:00 PM", scheduleFrequency: "Monthly",
       foundedYear: 1994,
       description: "Monthly Sunday afternoon hash in the Edmonton area.",
