@@ -1134,14 +1134,19 @@ export const SOURCES = [
       scrapeDays: 365,
       config: {
         defaultKennelTag: "bjh3",
-        // BJH3's calendar imports US federal holidays as if they were trail events.
-        // The adapter's organizer-email filter handles Google's imported holiday
-        // calendars; this title list is a stopgap for holidays copied directly
-        // into the BJH3 calendar (no holiday-calendar organizer to detect).
+        // BJH3 publishes every run as an all-day event (no start times), so the
+        // adapter must opt in or it drops all of them by default (adapter.ts:1349).
+        includeAllDayEvents: true,
+        // The owner also bulk-added US holidays as plain all-day events (no Google
+        // holiday-calendar organizer, so the adapter's organizer-email filter at
+        // adapter.ts:1376 can't catch them). These title patterns strip the holidays.
+        // CAUTION: patterns must not match real runs — the calendar has runs named
+        // "Halloween Hash" and "Easter Hash"/"Easter Wookie", so the Halloween/Easter
+        // patterns are anchored to the exact holiday titles, not a bare ^prefix.
         skipPatterns: [
           String.raw`^Thanksgiving\b`,
           String.raw`^Veterans\s+Day\b`,
-          String.raw`^Halloween\b`,
+          String.raw`^Halloween$`,
           String.raw`^Indigenous\s+Peoples?'?s?\s+Day\b`,
           String.raw`Daylight\s+Saving`,
           String.raw`^Independence\s+Day\b`,
@@ -1152,8 +1157,14 @@ export const SOURCES = [
           String.raw`^Martin\s+Luther\s+King`,
           String.raw`^Columbus\s+Day\b`,
           String.raw`^Presidents?'?s?\s+Day\b`,
-          String.raw`^Easter\b`,
+          String.raw`^Easter\s+(?:Sunday|Monday)$`,
           String.raw`^Juneteenth\b`,
+          String.raw`^St\.?\s+Patrick'?s\s+Day$`,
+          String.raw`^Tax\s+Day$`,
+          String.raw`^Cinco\s+de\s+Mayo$`,
+          String.raw`^Mother'?s\s+Day$`,
+          String.raw`^Father'?s\s+Day$`,
+          String.raw`^Flag\s+Day$`,
         ],
       },
       kennelCodes: ["bjh3"],
