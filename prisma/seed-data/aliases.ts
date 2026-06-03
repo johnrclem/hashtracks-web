@@ -493,7 +493,9 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "lsw-h3": ["LSW", "Little Sai Wan H3", "Little Sai Wan Hash", "LSW H3", "LSWH3"],
     "lh4-hk": ["Ladies H4", "HK Ladies H4", "Ladies Hash HK", "HKLH4", "Hong Kong Ladies Hash"],
     "kowloon-h3": ["Kowloon H3", "Kowloon Hash", "KH3", "Kowloon HHH"],
-    "hkfh3": ["HKFH3", "HK Full House", "Full House H3", "Hong Kong Full House Hash"],
+    // #1374: kennel is "Hong Kong Friday Hash"; the "Full House" entries are the
+    // old-name aliases kept for rename safety.
+    "hkfh3": ["HKFH3", "HK Friday Hash", "Hong Kong Friday Hash", "HK Full House", "Full House H3", "Hong Kong Full House Hash"],
     "fch3-hk": ["Free China H3", "Free China Hash", "FCH3 HK", "Free China HHH"],
     "hebe-h3": ["Hebe H3", "Hebe Hash", "Hebe HHH", "Hebe Haven Hash"],
     // Thailand
