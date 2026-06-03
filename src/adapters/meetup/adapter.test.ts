@@ -1366,6 +1366,60 @@ describe("buildRawEventFromApollo — kennelPatterns", () => {
     expect(event.hares).toBeUndefined();
   });
 
+  // #1270 — FEH3 admins embed the hare line in the Meetup *title* and leave the
+  // description hare-less. The title fallback only fires when neither
+  // description path produced hares, so kennels that already work stay untouched.
+  describe("hares from title fallback (#1270)", () => {
+    it("extracts hares from a title with a hare: label and strips the span (FEH3 Trail 2578)", () => {
+      const ev = {
+        __typename: "Event",
+        id: "7",
+        title: "Trail 2578, hare: salty cliterature and this is Sharda white dress!!",
+        dateTime: "2026-05-09T16:00:00-04:00",
+        // No description hares → title fallback must engage.
+        description: "<p>Meet at the usual spot. On-after at the bar.</p>",
+      };
+      const event = buildRawEventFromApollo(ev, emptyState, "feh3");
+      expect(event.hares).toBe("salty cliterature and this is Sharda white dress!!");
+      // The "hare:" span is stripped out of the title so names don't appear twice.
+      expect(event.title).toBe("Trail 2578");
+    });
+
+    it.each([
+      // Other kennels' titles carry no hare: label → no change (additive guard).
+      ["SAVH3 Trail #1324!"],
+      ["BIBH3 Trail #246 - TITS HAVE EYES BDAY TRAIL"],
+      // CTA-shaped "Hares Needed" must NOT be mistaken for a hare label.
+      ["Trail 300 - Hares Needed - Claim This Trail!"],
+      // Themed title with a hyphen after "Hare" must NOT match (colon-only).
+      ["Welcome to the Hare-raising Halloween Hash"],
+      // Explicit "hare:" whose value is a CTA/placeholder → cleanAndFilterHares drops it.
+      ["Annual Red Dress, hare: needed badly"],
+    ])("does not invent hares from non-label title %s", (title) => {
+      const ev = {
+        __typename: "Event",
+        id: "8",
+        title,
+        dateTime: "2026-05-09T16:00:00-04:00",
+        description: "<p>Just a regular trail with no hare info</p>",
+      };
+      const event = buildRawEventFromApollo(ev, emptyState, "feh3");
+      expect(event.hares).toBeUndefined();
+    });
+
+    it("prefers description hares over the title (fallback not consulted)", () => {
+      const ev = {
+        __typename: "Event",
+        id: "9",
+        title: "Trail 99, hare: Title Hare",
+        dateTime: "2026-05-09T16:00:00-04:00",
+        description: "<p>HARE: Description Hare</p>",
+      };
+      const event = buildRawEventFromApollo(ev, emptyState, "feh3");
+      expect(event.hares).toBe("Description Hare");
+    });
+  });
+
   // #1617 — Mel-NM Meetup aggregator hosts events for 5 Melbourne kennels.
   // The seed config wires kennelPatterns to split them. Verify the routing
   // matches what `prisma/seed-data/sources.ts` ships.

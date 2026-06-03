@@ -480,6 +480,28 @@ export function cleanMeetupTitle(raw: string | null | undefined): string | undef
   return t.replace(/[\s,:\-–—]+$/, "").trim() || undefined; // NOSONAR S5852 — single char class + `+` anchored to `$`, linear in input length
 }
 
+// #1270 — explicit "hare(s):" label for hares embedded in a Meetup *title*
+// (FEH3: "Trail 2578, hare: salty cliterature ..."). Colon-only on purpose: a
+// hyphen separator (as the description matcher allows) would misfire on themed
+// titles like "Hare-raising Halloween Hash". Optional space before the colon
+// covers "Hare : BBQ". ReDoS-safe: `(\S.*)`, no `$` anchor, no nested quantifier.
+const TITLE_HARE_RE = /\bhares?\s*:\s*(\S.*)/i;
+
+/**
+ * #1270 — pull hares from a title's explicit "hare:" label and return both the
+ * hares and the title with that span removed (so names don't appear twice). The
+ * shared extractHares runs cleanAndFilterHares, which rejects CTA/placeholder
+ * values ("hare: needed"); the colon-only label avoids themed-title false
+ * positives ("Hare-raising"). Returns the title unchanged when no label matches.
+ */
+function extractTitleHares(title: string | undefined): { hares?: string; title?: string } {
+  if (!title) return { title };
+  const hares = extractHaresFromDescription(title, [TITLE_HARE_RE]);
+  if (!hares) return { title };
+  const m = TITLE_HARE_RE.exec(title);
+  return { hares, title: m ? title.slice(0, m.index) : title };
+}
+
 /** Build a RawEventData from an Apollo event entry. */
 export function buildRawEventFromApollo(
   ev: ApolloEvent,
@@ -518,15 +540,22 @@ export function buildRawEventFromApollo(
   // Try the colon-form helper first (matches DEFAULT_HARE_PATTERNS in
   // google-calendar/adapter.ts). Fall back to the Meetup-local dash-separator
   // pattern for kennels like CHH3 that always write "Hares - X". See #953.
-  const hares =
+  const descHares =
     (descForHares ? extractHaresFromDescription(descForHares) : undefined)
     ?? extractHaresFromMeetupDescription(descForHares);
+
+  // Final fallback (#1270): some kennels (FEH3) embed the hare line directly in
+  // the Meetup *title* and leave the description hare-less. Only consult the
+  // title when neither description path produced hares.
+  const fromTitle = descHares ? undefined : extractTitleHares(ev.title);
+  const hares = descHares ?? fromTitle?.hares;
+  const titleForDisplay = fromTitle?.title ?? ev.title;
   const cleanedDesc = cleanMeetupDescription(ev.description, state);
 
   return {
     date,
     kennelTags: [resolvedKennelTag],
-    title: cleanMeetupTitle(ev.title),
+    title: cleanMeetupTitle(titleForDisplay),
     runNumber: extractRunNumber ? extractHashRunNumber(ev.title) : undefined,
     description: cleanedDesc,
     hares,

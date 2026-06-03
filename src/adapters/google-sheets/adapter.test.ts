@@ -871,6 +871,81 @@ describe("GoogleSheetsAdapter.fetch — csvUrl", () => {
   });
 });
 
+// ── #1244 Kowloon H3 row alignment (off-by-one regression guard) ──
+//
+// The #1244 audit alleged the adapter pulled run N's hares/location/date from
+// row N+1. Code review proved the adapter reads every field from the same row
+// (buildEventFromSheetRow) and parseDate("10-May-26") → "2026-05-10" (no +1
+// shift); prod confirmed the canonical events self-healed (#2910 = TIMBITS /
+// Macau / May-10). This fixture locks in the exact Kowloon sheet shape — three
+// leading non-data rows ("hide me" / link / header), the real column layout,
+// CRLF line endings, and `extraHares` — so each run stays welded to its OWN
+// row's data and a future refactor can't reintroduce the drift.
+describe("GoogleSheetsAdapter.fetch — Kowloon row alignment (#1244)", () => {
+  beforeEach(() => {
+    vi.stubEnv("GOOGLE_CALENDAR_API_KEY", "test-key");
+    mockedSafeFetch.mockReset();
+  });
+
+  // D-Mon-YY (e.g. "10-May-26") for now + offset days, matching the live sheet.
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  function dMonYY(offsetDays: number): string {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() + offsetDays);
+    return `${d.getUTCDate()}-${MONTHS[d.getUTCMonth()]}-${String(d.getUTCFullYear()).slice(2)}`;
+  }
+
+  const kowloonConfig = {
+    sheetId: "kowloon",
+    csvUrl: "https://docs.google.com/spreadsheets/d/e/XXX/pub?output=csv",
+    columns: { date: 1, runNumber: 2, hares: 3, extraHares: [4], location: 7, title: 6 },
+    kennelTagRules: { default: "kowloon-h3" },
+    startTimeRules: { default: "18:00" },
+  };
+
+  it("welds each run to its own row's hares/location/date (no off-by-one)", async () => {
+    const d1 = dMonYY(7);
+    const d2 = dMonYY(8); // adjacent day — the Sun/Mon shape from the issue
+    const d3 = dMonYY(14);
+    // Col layout: tag, Date, Run no., Hare1, Hare2, Scribles, Headline, Location
+    const csv = [
+      ",hide me,232,,,,,",
+      ",Link to Run Notice,,WWW.KOWLOONHASH.COM,,,,",
+      ",Date,Run no.,Hare1,Hare2,Scribles,Headline,Location",
+      `LH13,${d1},2910,TIMBITS,,SCRIBE,,Macau`,
+      `LH14,${d2},2911,INFLATADATE,,SCRIBE,,Wong Tai Sin`,
+      `LH15,${d3},2912,WHORES DRAWERS,SECOND HARE,SCRIBE,Family Run,Tin Wan`,
+    ].join("\r\n"); // CRLF, as Google's published CSV emits
+
+    mockedSafeFetch.mockResolvedValueOnce(mockFetchResponse(csv));
+
+    const adapter = new GoogleSheetsAdapter();
+    const source = makeSource({ config: kowloonConfig as unknown as null });
+    const result = await adapter.fetch(source);
+
+    // Only the 3 data rows produce events — the "hide me" / link / header rows
+    // fail date parsing and are skipped (no skipRows configured upstream).
+    expect(result.events).toHaveLength(3);
+
+    const r2910 = result.events.find((e) => e.runNumber === 2910)!;
+    expect(r2910.hares).toBe("TIMBITS");
+    expect(r2910.location).toBe("Macau");
+    expect(r2910.date).toBe(parseDate(d1)!);
+
+    const r2911 = result.events.find((e) => e.runNumber === 2911)!;
+    expect(r2911.hares).toBe("INFLATADATE");
+    expect(r2911.location).toBe("Wong Tai Sin");
+    expect(r2911.date).toBe(parseDate(d2)!);
+
+    const r2912 = result.events.find((e) => e.runNumber === 2912)!;
+    // extraHares (col 4) merges with hares (col 3), sorted for fingerprint stability.
+    expect(r2912.hares).toBe("SECOND HARE / WHORES DRAWERS");
+    expect(r2912.location).toBe("Tin Wan");
+    expect(r2912.title).toBe("Family Run");
+    expect(r2912.date).toBe(parseDate(d3)!);
+  });
+});
+
 // ── #1542 group_filter: shared multi-kennel sheets ──
 
 describe("normalizeGroupFilter (#1542)", () => {

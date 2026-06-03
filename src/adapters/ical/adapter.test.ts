@@ -591,6 +591,51 @@ describe("ICalAdapter", () => {
     expect(descLoc!.hares).toBe("Test Runner");
   });
 
+  // #1242 — regression guard for the dedicated "East Bay H3 iCal Feed"
+  // (ebh3.com). The aggregator strips trail names from SUMMARY, but the
+  // kennel-owned subsite ICS carries LOCATION + a leading "Hares:" line +
+  // escaped commas. This is the exact #1164 VEVENT shape; assert the adapter
+  // extracts location/hares/description so a regression can't silently empty
+  // them again. (The original empty canonical was a transient — the run was
+  // scraped before the kennel filled in details; it self-healed on re-scrape.)
+  it("extracts location/hares/description from a dedicated EBH3 VEVENT (#1242)", async () => {
+    // String.raw so the RFC 5545 escapes (\, and \n) are written as single
+    // backslashes without TS double-escaping; node-ical unescapes them.
+    const EBH3_ICS = String.raw`BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:icalendar-ruby
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+UID:com.sfh3.calendar.run-6493-2
+DTSTART;TZID=America/Los_Angeles:20260510T130000
+DTEND;TZID=America/Los_Angeles:20260510T160000
+DESCRIPTION:Hares: Butt Plug FRED\, Worst Bottom Ever\, Cosmic Pussy\, Litt
+ le Johnson\n\nDirections: Use your phone!\n\nPrelube: Triple Rock Brewery
+GEO:37.873416;-122.2687553
+LOCATION:Triple Rock Brewery
+SUMMARY:EBH3 #1164: Motherless Child Hash
+URL;VALUE=URI:https://www.ebh3.com/runs/6493
+END:VEVENT
+END:VCALENDAR`;
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(EBH3_ICS, { status: 200 }),
+    );
+    const source = buildMockSource({
+      name: "East Bay H3 iCal Feed",
+      url: "https://www.ebh3.com/calendar.ics",
+      config: { kennelPatterns: [["^EBH3", "ebh3"]], defaultKennelTag: "ebh3" },
+    });
+    const result = await adapter.fetch(source, { days: 9999 });
+
+    const ebh3 = result.events.find((e) => e.runNumber === 1164);
+    expect(ebh3).toBeDefined();
+    expect(ebh3!.kennelTags[0]).toBe("ebh3");
+    expect(ebh3!.title).toBe("Motherless Child Hash");
+    expect(ebh3!.location).toBe("Triple Rock Brewery");
+    expect(ebh3!.hares).toBe("Butt Plug FRED, Worst Bottom Ever, Cosmic Pussy, Little Johnson");
+    expect(ebh3!.description).toContain("Directions: Use your phone!");
+  });
+
   it("returns diagnostic context", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       new Response(SAMPLE_ICS, { status: 200 }),

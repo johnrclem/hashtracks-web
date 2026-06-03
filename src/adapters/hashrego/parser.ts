@@ -452,6 +452,10 @@ export function splitToRawEvents(
         kennelTags: [parsed.hostKennelName || parsed.kennelSlug],
         title: parsed.title,
         description: parsed.description,
+        // #1126 — Hash Rego publishes a per-event registration cost ("$10");
+        // surface it onto Event.cost (merge maps RawEventData.cost). undefined
+        // when the source has no cost (tri-state: preserve existing).
+        cost: parsed.cost,
         hares: parsed.hares,
         location: parsed.location,
         locationUrl: parsed.locationAddress || parsed.locationUrl,
@@ -512,6 +516,9 @@ export function splitToRawEvents(
       kennelTags: [perDayCode ?? hostKennelTag],
       title: childTitle,
       description: parsed.description,
+      // #1126 — cost is a single registration fee for the whole series, so it
+      // lives on the parent/umbrella row only, NOT repeated onto each day
+      // (which would read as "$N per day").
       hares: parsed.hares,
       location: parsed.location,
       locationUrl: parsed.locationAddress || parsed.locationUrl,
@@ -533,6 +540,7 @@ export function splitToRawEvents(
       kennelTags: [hostKennelTag],
       title: parsed.title,
       description: parsed.description,
+      cost: parsed.cost, // #1126 — umbrella registration cost on the parent
       sourceUrl: hashRegoUrl,
       externalLinks,
       seriesId,
@@ -550,6 +558,7 @@ export function splitToRawEvents(
         kennelTags: [hostKennelTag],
         title: parsed.title,
         description: parsed.description,
+        cost: parsed.cost, // #1126 — registration cost on the Day-1 parent
         hares: parsed.hares,
         location: parsed.location,
         locationUrl: parsed.locationAddress || parsed.locationUrl,
