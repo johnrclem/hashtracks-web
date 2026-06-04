@@ -145,6 +145,25 @@ Decision matrix:
 Repeat until you land on a kennel that is genuinely **not live**, or a live kennel that's
 genuinely **missing this dynamic source**. Only then proceed.
 
+> 🔴 **Pre-onboarding admin-event check** (prevents duplicate-event issues post-ship). Even when
+> the *kennel* isn't live, an admin may have manually seeded a handful of `Event` rows under
+> that kennelCode via the admin UI. When the adapter later scrapes, its fingerprint
+> (`kennelTag + date + runNumber + title`) likely won't match the admin row (different title
+> format, missing runNumber, kennel-description leaked into event description), so the merge
+> pipeline can't dedup them. Two events ship to prod, the audit flags it.
+>
+> Before drafting the adapter, query/inspect prod for any existing `Event` records under this
+> kennelCode (admin UI, prod DB query, or `hashtracks.xyz/kennels/<slug>` past-events tab if
+> the kennel is partially live). If pre-existing admin-seeded events exist:
+> - **List them in the handoff** (date + runNumber + title) so Claude Code knows what to dedup
+>   against AND what to purge before first scrape.
+> - **Recommend purging admin rows before the adapter scrapes**, unless their format will
+>   fingerprint-match the adapter output exactly.
+>
+> Real examples (audit issues from 2026-06-04): Paris H3 #1976 (R*n 1136 dup admin+adapter,
+> same on Sans Clue R*n 1192); Auckland H3 #1967 (2026-06-08 dup + kennel-description leak on
+> the older row).
+
 ## Step 3 — Verify the dynamic source is LIVE (mandatory before drafting)
 
 > 🔴 **DNS check FIRST for any non-platform domain.** Before treating a proposed source as real,
@@ -339,6 +358,42 @@ Kennel profile (maps to the `Kennel` model): `fullName`, `shortName`, `kennelCod
 > from a non-existent domain is invented metadata. **Leave the field blank and flag
 > "unverifiable — no working source"** rather than filling it in. Retro Gap D.
 
+> 🔴 **When sources DISAGREE on a singular field — pick one canonical and list the alternatives.**
+> Multiple sources (kennel About page, Meetup About, Facebook, secondary aggregators) often
+> disagree on `foundedYear`, `hashCash`, founding stories, etc. The handoff must:
+> 1. **Pick canonical** by source priority: kennel's own About page > Meetup About >
+>    HHH Genealogy > Half-Mind > secondary aggregators.
+> 2. **List the alternatives explicitly** when the disagreement is > 5 years on foundedYear or
+>    > 20% on hashCash. Format: `foundedYear: 1983 (kennel About; Meetup About says 1980 — discrepancy noted)`.
+> 3. **Flag internal contradictions inside the SAME source.** If the kennel's About page text says
+>    "founded 1981" and a milestone-run post says "30th anniversary 2023" → 1993, that's a
+>    contradiction the handoff must surface, not bury. Don't pick one silently.
+>
+> **All numeric / currency fields must self-validate before commit.** Run a quick mental check:
+> no `"$$5"` (double-dollar typo, NSWHHH #1972), no `"CHF CHF 5"` (doubled prefix), no
+> `"$5/$5/$5"` (accidental repetition), no `"$5,000"` for a typical hash. If `hashCash` is more
+> than two-digit dollars / equivalent, sanity-check against the source. Reference: Paris #1974
+> (founding-year contradiction 1981 vs 1993), MCH3 #1970 (1983 vs 1980), NSWHHH #1972
+> (double-dollar typo).
+
+> 🔴 **Sibling-kennel sweep — enumerate every kennel the source COULD feed.** A single source
+> (Meetup group, Google Calendar, shared kennel site, Harrier Central listing) often hosts
+> multiple H3 kennels in the same area; missing siblings ship as "source coverage gaps" the
+> moment the kennel goes live. For each proposed source, sweep for siblings:
+> - **Meetup:** open the group's past+upcoming events and scan titles for distinct kennel
+>   patterns (e.g. a Paris H3 group also surfaces "Paris Full Moon H3" and "TNDC" events;
+>   a Chicagoland calendar carries 12+ Chicago kennels).
+> - **Google Calendar / shared kennel site:** look for known H3 sibling patterns hosted by the
+>   same kennel — Full Moon, Half-Mind, Bike Hash, Saturday-only, themed event series, etc.
+> - **Harrier Central / Hash Rego:** check the platform's kennel list for sister-clubs at the
+>   same lat/lng or city.
+>
+> Document what was found and explicitly state for each: (a) included via multi-kennel
+> `kennelPatterns` in the source config, (b) intentionally excluded with reason, or (c)
+> queued as a future target. **Don't ship a single-kennel source that quietly carries siblings**
+> — they'll surface as the next audit's "source coverage gap." Reference: Paris #1977 (Paris
+> Full Moon + TNDC on the same Meetup infrastructure, unmapped).
+
 - **`hashCash` is the kennel-level *standard* (the typical per-run price; per-event variations live on `Event.cost`):** capture the amount a hasher normally pays at this kennel's runs into `Kennel.hashCash` (free-form, e.g. `"$5"`, `"Free"`, `"CHF 5"`, `"Members Rp.100,000 / Visitors Rp.150,000"`). Preserve the verbatim source nuance (tiers, payment methods) in the value or the `description`. Do NOT try to encode per-event price variations here — those (campouts, anniversary runs, visitor-only specials) belong on the event-level `Event.cost` field, populated by the adapter only when an event differs from this kennel default. The domain term is "hash cash" at both levels; the per-event column is named `cost` for historical reasons.
 - **`logoUrl` stability:** prefer a stable URL. If the only logo is a **tokenized/ephemeral CDN
   URL** (e.g. `images.squarespace-cdn.com/.../<hash>/...`, signed S3, Wix `static.wixstatic.com/media/<hash>~mv2.<ext>`),
@@ -476,6 +531,21 @@ collision-prone abbreviations in playbook §2. Resolve before drafting seed data
 > For each proposed alias, run `grep -in '"<alias>"' prisma/seed-data/aliases.ts` and omit (with
 > a one-line note) any global collision. Retro Gap C.
 
+> 🔴 **Cross-platform shortcode collision sweep — search beyond `aliases.ts`.** A proposed
+> alias may already be a *kennelCode* under a different region — `AH3` could resolve to Austin
+> H3, Aloha H3 (Honolulu), Asheville H3, or Adelaide H3 long before it points at Auckland.
+> Run BOTH:
+>   - `grep -in '"<ALIAS>"' prisma/seed-data/aliases.ts prisma/seed-data/kennels.ts`
+>   - `grep -in 'kennelCode: "<alias-lower>' prisma/seed-data/kennels.ts`
+>
+> If the bare shortcode is taken anywhere in the global namespace, **the local kennel must
+> use the region-suffixed form as its primary public alias** (e.g. `AH3-NZ`, `AH3-AU`,
+> `BH3-CO`) and omit the bare collision. The kennel's own marketing may say "AH3" — the
+> handoff should call this out so the slug/short URL on hashtracks reflects the disambiguated
+> form. Reference: Auckland H3 #1968 (`AH3` shipped as alias even though it was already
+> bound to Austin H3 / Aloha H3 / multiple siblings — surfaced as the next audit's "wrong
+> kennel routed" risk).
+
 > 🔴 **The `aliases.ts` seed block is keyed by `kennelCode`, NOT the slug.** `prisma/seed.ts` builds
 > `kennelRecords` by `kennelCode` and `ensureAliases` looks the alias-map key up against it — a key
 > that isn't a kennelCode logs `⚠ Kennel code "<key>" not found, skipping aliases` and **silently
@@ -596,6 +666,14 @@ Create `docs/kennel-onboarding/handoffs/<YYYY-MM-DD>-<kennelCode>.md` with this 
 ## Live source verification  ✅ / ⚠️ needs Claude Code to confirm
 - Source: <TYPE> — <url/id>  (feed HEAD-check: <content-type seen | couldn't fetch — flag>)
 - Events seen: <count>, date range <… to …>
+- **Source-count parity** (catches under-paginated adapters): <platform UI says N total events;
+  feed yields M. If N > 0, ratio M/N must be ≥ 90% across the full reachable window OR a
+  pagination plan exists. If M < 90% × N, the handoff must include the pagination/offset/page-size
+  config to reach N before adapter ships. If N = 0 (platform UI shows no upcoming events), mark
+  parity as N/A and apply the Step 3 recently-active evidence rule instead — provide a recent-run
+  sample or cadence evidence before onboarding. Reference: MCH3 `#1971` — Meetup group's UI showed
+  85 upcoming events; first scrape returned 10 because default page size wasn't lifted in the
+  source config. Surfaced as the next audit's "where are my events?" complaint.>
 - Sample events:
   1. <date> — <title> — hares <…> — <location> — <time>
   2. …
@@ -603,6 +681,27 @@ Create `docs/kennel-onboarding/handoffs/<YYYY-MM-DD>-<kennelCode>.md` with this 
 - Coord sanity: <coords clean | ⚠️ X of N have default/duplicate pins → adapter must reject + dropCachedCoords:true>
 - End times: <none | same-day endTime available | multi-day endDate present>
 - Notes: <JS-rendered/browserRender needed? auth? platform quirks? see source-platform-notes.md>
+- **Field-fill assertion table** (use sample rows above; mark every cell, don't omit blanks):
+
+  | Field | n filled / n sampled | Plan if low |
+  |---|---|---|
+  | `title` | X / N | <map from `<element>` / stop-flag if 0> |
+  | `startTime` | X / N | <`HH:MM` parse from `<element>` / leave undefined> |
+  | `endTime` | X / N | <pair with start / accept absence> |
+  | `location` (venue name) | X / N | <`<element>` / leave undefined — don't synth> |
+  | `locationStreet` | X / N | <field on detail page / not in feed> |
+  | `locationUrl` (Maps) | X / N | <link in `<element>` / not in feed> |
+  | `hares` | X / N | <CSV from `<element>` / not in feed> |
+  | `cost` | X / N | <kennel default `<value>` / per-event override field> |
+  | `description` | X / N | <body text / leave undefined> |
+  | `trailLengthText` | X / N | <text + min/max parse / not in feed> |
+  | `coords` (lat/lng) | X / N | <from `<element>` / Maps URL parse / fallback to kennel centroid> |
+
+  Reference: Paris #1975 (location-on-detail-page only, not list view — adapter must
+  follow detail link), NSWHHH #1973 (events bear no `startTime` because all-day RSS;
+  required source-config `inferTimeFromSchedule: true`), Auckland #1965/#1966 (cost +
+  `dogFriendly` blank because adapter only read titles; kennel-level defaults exist but
+  weren't wired into the event-level fallback).
 
 ## Kennel metadata (deep-dive complete)
 - fullName / shortName / region / country
@@ -678,14 +777,6 @@ authority is the live repo. Before writing the adapter, confirm against current 
   pagination end (e.g. WP.com `page=N+1` returning 400 = expected end, leave it null).
 - `title` — leave `undefined` when no clean theme exists; `merge.ts` synthesizes
   `"<KennelName> Trail #N"`. Never let a labeled-field fragment or hare name become the title.
-  **🔴 MEETUP carve-out (mch3, 2026-06-03):** this rule does NOT apply to MEETUP sources —
-  `MeetupAdapter` always sets `title` to the cleaned Meetup event name and `merge.ts` keeps it
-  (the synthesize-`Trail #N` path is unreachable), with no config knob to suppress it. So don't
-  instruct a Meetup onboard to "leave title undefined," and a Meetup **historical backfill must
-  freeze the REAL cleaned Meetup titles** (capture them from a live `adapter.fetch(source,{days})`
-  against the `?type=past` page) — otherwise backfilled past runs render as `Trail #N` and clash
-  with the Meetup-named live runs (mixed titles + churn on the in-window overlap). See the Meetup
-  section of `source-platform-notes.md`.
 - For `kennelPatterns` (when this is a multi-kennel calendar/source): list the actual sampled
   titles you're matching against AND keep regexes `safe-regex2`-clean — single `\s` (not stacked
   `\s+`), no `(?:…\s+)?` optional groups stacked, no nested quantifiers. S5852 will reject the
