@@ -29,11 +29,13 @@ const DATE_RE = /(\d{1,2})(?:st|nd|rd|th)?\s+of\s+([A-Za-z]+)\b/;
  *    (the venue is on the same line; ~15% of posts)
  *  - heading-only form `📍 Start` / `Start` on its own line, with the venue on
  *    the NEXT line (the 📍 Start pattern used by recent posts, e.g. N+335)
- * Capture starts at a non-space char (Sonar S5852-safe). Posts with neither
+ * Capture starts at a non-space char. ` Location` is a literal (not `\s*Location`)
+ * and the colon is literal with no leading `\s*`, avoiding the adjacent-`\s*`
+ * quantifier shape Sonar S5852 flags as super-linear. Posts with neither form
  * leave `location` undefined (merge geocodes the kennel/region centroid).
  */
-const LOCATION_INLINE_RE = /^(?:📍\s*)?Start(?:\s*Location)?\s*:\s*(\S.*)/i;
-const LOCATION_HEADING_RE = /^(?:📍\s*)?Start(?:\s*Location)?\s*:?\s*$/i;
+const LOCATION_INLINE_RE = /^(?:📍\s*)?Start(?: Location)?:\s*(\S.*)/i;
+const LOCATION_HEADING_RE = /^(?:📍\s*)?Start(?: Location)?:?\s*$/i;
 
 const DEFAULT_BLOG_URL = "https://brasiliah3.blogspot.com/";
 
