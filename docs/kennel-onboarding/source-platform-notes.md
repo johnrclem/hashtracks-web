@@ -68,6 +68,18 @@ ASU H3 (`asuncionh3.wordpress.com`) is the *cleanest* WP.com case so far — **a
 - **Telling a dead kennel from a between-postings gap — the Apollo `Event` collection is the ONLY reliable signal.** A genuinely dormant group shows an *empty Apollo collection* AND a stale site with its most-recent event in the past. **Do not infer "dead" from the shell "0" + a stale site alone** — that exact combination produced the **false block on Paris** (its blog `parishash.wordpress.com` had been stale since 2024 *and* the group was very active). Read the Apollo state first; if it's genuinely empty and the signals point dormant, mark `blocked` (revisit). When Apollo carries a future event, it's live.
 - **The kennel's own site often *is* just a Meetup funnel** — `zh3.ch` / `parishash` both say "go to Meetup for the location." In that case Meetup is the right primary source even though a WordPress/blog URL also exists; the blog carries announcements, not per-run location/date.
 
+#### 🔴 `MeetupAdapter` SETS `title` — the generic "leave title undefined" rule does NOT apply to MEETUP (learned from Mexico City H3, 2026-06-03)
+
+The general handoff guidance is *"leave `title` undefined; `merge.ts` synthesizes `<KennelName> Trail #N`."* **That is wrong for MEETUP.** `MeetupAdapter.buildRawEventFromApollo` sets `title: cleanMeetupTitle(ev.title)` — the cleaned Meetup event name — for **every** Meetup source, and `merge.ts` (the `sanitizeTitle` branch) **keeps an adapter-provided title**, only synthesizing `Trail #N` when title is *absent*. There is **no `MeetupConfig` knob to suppress it**. So live-scraped Meetup events display the real Meetup names (e.g. `"HASH #756- SPRING HASH !"`, `"Run #749 – Octuber 25th"` [source typo], `"Hash House Harriers Mexico City - Run #748"`).
+
+- **Don't tell a MEETUP onboard to leave title undefined** — the adapter will set it regardless; the synthesized-`Trail #N` path is unreachable for MEETUP.
+- **MEETUP backfills MUST freeze the real cleaned Meetup titles.** If a one-shot backfill leaves `title` undefined (synthesizing `Trail #N`) while the live adapter sets the Meetup name, the kennel ends up with **mixed titles** (synthesized past runs vs Meetup-named live runs) **and title churn** on the in-window overlap the adapter re-scrapes (within `scrapeDays`). Capture the real titles from a live `adapter.fetch(source, {days})` against the **`?type=past`** page (the adapter fetches the past page too) and paste them verbatim into `scripts/data/<code>-history.json`. This still avoids the real anti-pattern (a bare theme as the title) because these are full event names. (Mexico City H3, [PR #1953](https://github.com/johnrclem/hashtracks-web/pull/1953); agent memory `reference_meetup_adapter_sets_title`.)
+
+#### Meetup `foundedDate` ≠ kennel founding; gather-time ≠ event start (Mexico City H3, 2026-06-03)
+
+- **Never use the Meetup group `foundedDate` for `foundedYear`** — it's the *group-creation* date (Mexico City H3's group = 2022-09-08, kennel founded **1983**; run #756 long predates the group). Use a primary/editorial source for the kennel founding.
+- **Seed the operational event start time, not an editorial "gather at ~X."** When a press/editorial blurb's gather time disagrees with the consistent Meetup event start (MND said "2 p.m." but every event started 13:30), seed the Meetup start (`scheduleTime: "1:30 PM"`). When stated cadence ("every other Saturday") disagrees with observed cadence (~monthly), keep the stated `scheduleFrequency` and record the observed reality in `scheduleNotes`.
+
 ---
 
 ## Squarespace — content-page harelines ≠ Events collections (learned from Mijas H3, 2026-05-30)

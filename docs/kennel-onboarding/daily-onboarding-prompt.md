@@ -678,6 +678,14 @@ authority is the live repo. Before writing the adapter, confirm against current 
   pagination end (e.g. WP.com `page=N+1` returning 400 = expected end, leave it null).
 - `title` — leave `undefined` when no clean theme exists; `merge.ts` synthesizes
   `"<KennelName> Trail #N"`. Never let a labeled-field fragment or hare name become the title.
+  **🔴 MEETUP carve-out (mch3, 2026-06-03):** this rule does NOT apply to MEETUP sources —
+  `MeetupAdapter` always sets `title` to the cleaned Meetup event name and `merge.ts` keeps it
+  (the synthesize-`Trail #N` path is unreachable), with no config knob to suppress it. So don't
+  instruct a Meetup onboard to "leave title undefined," and a Meetup **historical backfill must
+  freeze the REAL cleaned Meetup titles** (capture them from a live `adapter.fetch(source,{days})`
+  against the `?type=past` page) — otherwise backfilled past runs render as `Trail #N` and clash
+  with the Meetup-named live runs (mixed titles + churn on the in-window overlap). See the Meetup
+  section of `source-platform-notes.md`.
 - For `kennelPatterns` (when this is a multi-kennel calendar/source): list the actual sampled
   titles you're matching against AND keep regexes `safe-regex2`-clean — single `\s` (not stacked
   `\s+`), no `(?:…\s+)?` optional groups stacked, no nested quantifiers. S5852 will reject the
