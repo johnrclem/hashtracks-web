@@ -224,3 +224,57 @@ raw merges first (order is nondeterministic across two daily scrapes). NSWHHH: w
 sheet → **7**. Pre-state trust by which source owns the coordinates, and add a merge-level regression
 test (sheet-first → website-second → assert coords land). (A follow-up to make the enrichment path
 backfill coords symmetrically is tracked separately.)
+
+## Blogger / Blogspot — staleness check from the sandbox (learned 2026-06-03, LatAm leads)
+
+The Blogger JSON feed `https://<blog>.blogspot.com/feeds/posts/default?alt=json&max-results=N` **is fetchable from the research sandbox via `web_fetch`** (returns `application/json`, not stripped) — a reliable, fast recency probe for Blogspot-hosted kennels.
+
+- **🔴 The feed-level `updated` timestamp is NOT the latest post date.** Buenos Aires H3's feed showed `updated: 2025-02-12` but its newest *entry* was **Hash #739, March 2020** (the blog's metadata churns; the posts stopped). **Always read `entry[0].published`**, not `feed.updated`, to judge staleness. Santiago H3 feed `updated:2026-05-06` but newest entry was 2015.
+- `openSearch$totalResults` gives the archive depth (BA: 265 posts; Santiago: 121) — useful for sizing a historical backfill IF a live source ever surfaces. Many LatAm Blogspots are dead-since-COVID archives whose live activity (if any) moved to Meetup/FB — verify the *current* source separately before queueing.
+- **🔴 The public `/feeds/` endpoint CAPS at ~150 entries** even with `max-results=500` — it's a depth *probe*, not a full extractor. Brasília's public feed returned 150 of 186 posts (losing the oldest ~3 years / back to #154). For the actual backfill, use the **keyed Blogger API** (`fetchBloggerPosts(url, 200)`, Blogger API v3, `GOOGLE_CALENDAR_API_KEY`), which returns the complete archive.
+
+#### Brasília H3 addenda (verified via real feed + adapter run, 2026-06-04) — EMPTY-TITLE body parsing
+
+`brasiliah3.blogspot.com` (first Brazil kennel) is the **empty-title** Blogspot variant — UNLIKE
+Brass Monkey (titles carry `Brass Monkey #NNN`), **every post's `title.$t` is `""`**. All run data
+lives in the **post body**. Confirmed structure, stable April 2019 → June 2026:
+
+- **🔴 Detect run posts by a BODY match, not the title.** After `stripHtmlTags(content, "\n")`,
+  anchor on the **first** `Hash N+\d+` occurrence. Posts without it (Stammtisch socials, away-hash
+  weekends, "About" pages) are non-runs → skip. Because titles are empty you cannot classify by title
+  at all; pair the body detector with a `events.length === 0 && posts.length > 0` **fail-loud guard**
+  (a brand-new source has no fill-rate baseline, so a body-format drift won't otherwise alert).
+- **Body order:** heading `Hash N+NNN "<Theme> Hash"` → date line `Weekday, Dth of Month` → jokey
+  prose. **Anchor date + venue extraction to `body.slice(firstRunMatchIndex)`** — a previous-run photo
+  gallery is sometimes prepended (post edited after the run), so a first-match-over-the-whole-body
+  search can grab the wrong date/venue.
+- **🔴 Run number is `N+NNN`** — the `N+` is the kennel's post-reboot numbering. Store the bare
+  integer after `N+` as `runNumber` (e.g. `340`); don't pack `"N+"` into the numeric field. Leave
+  `title` undefined → merge synthesizes `"<Kennel> Trail #340"`. (`extractHashRunNumber` does NOT fit
+  — it keys on `#`, not `N+`; use a local `/Hash\s+N\+(\d+)/i`.)
+- **🔴 Date line has NO YEAR** (`Sunday, 7th of June`). Parse the in-body `Dth of Month` for day+month
+  (month via a `MONTHS` 3-letter-prefix lookup), then **infer the year as the candidate ∈
+  {publishYear−1, publishYear, publishYear+1} CLOSEST to `post.published`** — validating each candidate
+  first so an impossible date (31 Feb, non-leap 29 Feb) can't mask a valid sibling year.
+  ⚠️ **Do NOT use the naive "publishYear, +1 if the date is >7d before publish" rule** — it's wrong:
+  many posts are **recaps published days-to-weeks AFTER the run** (the prepended-gallery case), so the
+  run date is often *before* publish, and the naive +1 rolls those a full year forward (Brasília
+  dry-run: 5 mis-dated). Closest-to-publish handles Dec→Jan rollover AND recaps in one rule. Sample
+  dates from across the whole archive (oldest/middle/recent), not just the latest, before finalizing.
+- **Venue label has TWO forms** — both should be parsed, each anchored to the **whole line** so prose
+  that merely begins with "start …" can't false-match: (1) inline `Start: <venue>` /
+  `Start Location: <venue>` / `📍 Start: <venue>`; (2) a `📍 Start` (or `Start`) **heading on its own
+  line with the venue on the NEXT line** (recent posts, e.g. N+335 → `SQS 406, Bloco K`). Colon-only
+  matching silently drops ~40% of the venues that exist.
+- **No per-event coords or times** — `Start` is free-text venue only (no lat/lng, no map iframe). No
+  default-pin trap; `latitude`/`longitude` stay undefined and the merge geocodes the venue text (or
+  the region centroid for vague "Parking lot at …" strings). `startTime` undefined (not published).
+- **A multi-year archive carries source-author errors** — extract them **faithfully**. Brasília reused
+  `Hash N+252` for two different runs and copy-pasted a prior post's date line into six others (→ six
+  same-date collisions). The merge pipeline collapses same-`(kennel, date)` RawEvents into one
+  canonical Event; **never renumber or "correct" to satisfy a linter/bot** (a review bot flagged the
+  dup N+252 and proposed renumbering to 253 — declined with live-blog evidence; it agreed).
+- **No shared config-only Blogger adapter exists** — each Blogspot kennel is a bespoke ~180–240 LoC
+  adapter (`brass-monkey.ts` title-parse, `ofh3.ts`/`brasilia-h3.ts` body-parse). Register by URL
+  pattern in `htmlScrapersByUrl`. `fetchBloggerPosts(url, maxResults)` is the shared plumbing that
+  bypasses cloud-IP 403s.

@@ -14,6 +14,17 @@ Format:
 
 ---
 
+## 2026-06-04 — Brasília H3 (Brasília, Brazil) 🇧🇷 first Brazil kennel
+- Target picked: Rank 10 Brasília H3 (handoff `handoffs/2026-06-04-brasilia-h3.md`).
+- Source: **HTML_SCRAPER via Blogger API v3** — `brasiliah3.blogspot.com` (`fetchBloggerPosts`, `GOOGLE_CALENDAR_API_KEY`-keyed). **NEW `BrasiliaH3Adapter`** — the **empty-title Blogspot** variant (every post `title.$t = ""`); run data parsed from the post BODY. Modeled the Blogger plumbing on `brass-monkey.ts`, the body parsing on `ofh3.ts`.
+- Outcome: **SHIPPED** → [PR #1969](https://github.com/johnrclem/hashtracks-web/pull/1969) (merged). Live at https://www.hashtracks.xyz/kennels/brasilia-h3 — **175 prod events**: 174 backfilled (#154 2019-04-21 → #338 2026-05-10) + the upcoming **N+340 "Praça dos Orixás Hash" Sun 7 Jun 2026** ("Brasilia H3 Trail #340", CONFIRMED). Post-merge seed + backfill (created=174, 0 errors) + a triggered prod scrape (created=1) ran clean. Handoff `handoffs/2026-06-04-brasilia-h3.md` · retro `handoffs/retros/2026-06-04-brasilia-h3-retro.md`.
+- Dedup: full onboard — no `brasilia*`/`brazil`/`bsb` slug in live sitemap (424 slugs, Chrome MCP 2026-06-04). kennelCode `brasilia-h3` clear (**`bh3` taken** by Buffalo/Boulder); ASCII shortName "Brasilia H3" → `toSlug` = `brasilia-h3` (no accent-mangling, no slug override). Aliases `Brasilia H3`/`Brasília H3`/`Brasilia Hash`/`Brasilia HHH`; **`BH3` omitted** (global collision).
+- Events verified: live `adapter.fetch` returned the upcoming **N+340 / 2026-06-07** + 7 recent in-window runs; dates UTC-noon; `kennelTags:["brasilia-h3"]`, 0 unmatched; **N+339 genuinely absent → not synthesized**. `inferCountry("Brasília, Brazil")`/`("Brasilia H3")` both → **Brazil**.
+- Metadata: foundedYear **1989** (blog homepage); schedule **Sunday biweekly**; **scheduleTime/hashCash/logo unverified → flagged** (not published; do-not-invent); walkersWelcome **true**; FB page `facebook.com/BrasiliaHHH` + group; Brasília centroid -15.793/-47.882.
+- Historical backfill: **174 runs #154→#338** (frozen `scripts/data/brasilia-h3-history.json` + dumb loader `scripts/backfill-brasilia-h3-history.ts` per H7/Asunción); adapter future-only + `config.upcomingOnly:true`. Generated via the adapter's exported `parseBrasiliaPost` over the live keyed feed; committed JSON byte-identical to the parser. Applied post-merge: **created=174, 0 errors**.
+- 🔴 Key learnings (→ retro): **year-inference rule was WRONG** — the handoff/draft platform note's "naive +1 if >7d before publish" mis-dates recap posts (published days-to-weeks AFTER the run); corrected to **closest-to-publish over {pubY−1,pubY,pubY+1}** (dry-run 5 anomalies → 0). **Venue extraction needed the `📍 Start`-heading-then-next-line form** too, not just `Start:` (Codex; coverage 15→26/174). **Blogger PUBLIC feed caps ~150 posts → use the keyed Blogger API** (`fetchBloggerPosts`) which returned all 186. **Faithful source errors** (dup `N+252`, copy-pasted date lines → 6 same-date collisions) stored as-is; CodeRabbit's "renumber to 253" declined with live-blog evidence (it agreed). SonarCloud fixed at source: **S5852** venue-regex `\s*`-adjacency rewrite (no NOSONAR/SAFE) + **S4325** typed-source test helper. Process: 🔴 **worktree path gotcha** again (first `region.ts` edit landed in the main checkout — reverted + re-applied to the worktree).
+- **Refill check:** Brasília was a handed-off target (not in the `queued` count); no refill triggered by this ship.
+
 ## 2026-06-03 — Mexico City H3 (Mexico City, MX) 🇲🇽 first Mexico kennel
 - Target picked: Rank 8 Mexico City H3 (handoff `handoffs/2026-06-03-mch3.md`).
 - Source: **MEETUP (config-only)** — group `mexico-city-hash-house-harriers` (`meetup.com/mexico-city-hash-house-harriers/`). `MeetupAdapter` already exists — no new code.
@@ -142,4 +153,4 @@ Format:
 - Outcome: **blocked — could not start.** Repo on `admin-ui-redesign` with 123 uncommitted changes, `main` occupied by another worktree, `.git/` writes broken from the sandbox (stale locks owned by another uid).
 - Lesson: this triggered the redesign to a write-only handoff workflow (no git from sandbox). Subsequent runs from this date onward never attempt git.
 
-_(latest successful onboarding: Mexico City H3 2026-06-03 — first 🇲🇽 Mexico kennel, PR #1953, 10 events live. Daily cadence is working.)_
+_(latest successful onboarding: Brasília H3 2026-06-04 — first 🇧🇷 Brazil kennel, PR #1969, 175 events live. Daily cadence is working.)_
