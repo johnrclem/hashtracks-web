@@ -14,6 +14,16 @@ Format:
 
 ---
 
+## 2026-06-03 — Mexico City H3 (Mexico City, MX) 🇲🇽 first Mexico kennel
+- Target picked: Rank 8 Mexico City H3 (handoff `handoffs/2026-06-03-mch3.md`).
+- Source: **MEETUP (config-only)** — group `mexico-city-hash-house-harriers` (`meetup.com/mexico-city-hash-house-harriers/`). `MeetupAdapter` already exists — no new code.
+- Outcome: **SHIPPED** → [PR #1953](https://github.com/johnrclem/hashtracks-web/pull/1953) (merged). Live at https://www.hashtracks.xyz/kennels/mexico-city-h3 — **10 prod events #746–#756** (2025-07-26 → 2026-05-23) via the frozen backfill. Config-only MEETUP + Mexico COUNTRY/Mexico City METRO region (5-edit, fuchsia) + self-hosted logo. Retro `handoffs/retros/2026-06-03-mch3-retro.md`.
+- Dedup: full onboard — no `mexico*`/`cdmx*`/`mch3` slug in live sitemap (424 slugs, Chrome MCP 2026-06-03). kennelCode `mch3` clear (distinct from the many `mh3*` codes). Aliases MCH3 / CDMX H3 / Mexico City Hash / Hash House Harriers Mexico City all clear.
+- Events verified: **0 upcoming + 10 past** via `adapter.fetch(source,{days:400})` (clean, no throw) — recently-active (last run #756 **2026-05-23**, 11 days out; biweekly stated). Run numbers extracted from all three title shapes (`HASH #756-…`, `Run #749 – Octuber 25th` source typo, `Hash House Harriers Mexico City - Run #748`); `kennelTags:["mch3"]` resolved, 0 unmatched; start/end times `HH:MM`.
+- Historical backfill: **10 runs #746–#756** (frozen `scripts/data/mch3-history.json` + dumb loader `scripts/backfill-mch3-history.ts` per Asunción/H7); `#751` legitimately absent (winter gap). Applied post-merge: **created=10, 0 blocked, 0 errors.**
+- 🔴 **Key learning — MEETUP sets `title`** (cleaned Meetup name; merge keeps it, no `Trail #N` synthesis). The handoff's generic "leave title undefined" was WRONG for MEETUP → froze the **real cleaned Meetup titles** in the backfill (captured via live `?type=past`) so backfilled history matches live-scraped runs. Prompt + platform note + memory updated. Other catches: new-country needs a **`New Mexico`→USA inference guard** (before the Mexico rule); `scheduleTime` → operational `1:30 PM` (Meetup start) not editorial "2 PM" (MND); stated `Biweekly` + `scheduleNotes` for observed ~monthly; regex `\b` on all `|` alternatives. Process: 🔴 **worktree path gotcha** (first edits landed in main checkout on `docs/asu-h3-retro` — reverted + re-applied to worktree); post-merge seed+backfill ran from worktree after asserting byte-identical to `origin/main`.
+- **Refill check:** Mexico City was Rank 8 of the queued set; queue still has VH3, Anchorage, Brasília, Bangkok Monday, KL Junior + leads → no refill needed.
+
 ## 2026-06-03 — Asunción H3 (Asunción, Paraguay) 🇵🇾 first Paraguay / first South America kennel
 - Target picked: Rank 6 Asunción H3 (top `queued`).
 - Source: **HTML_SCRAPER (WordPress.com public REST)** — `public-api.wordpress.com/wp/v2/sites/asuncionh3.wordpress.com/posts` (site `asuncionh3.wordpress.com`). **NEW `AsuncionH3Adapter` ~180–240 LoC**, mirror `onh3.ts` (no shared WordPressCom base class yet). Simpler than ONH3 (clean `Run #N` titles, no Hareline tables, no embedded recaps).
@@ -132,4 +142,4 @@ Format:
 - Outcome: **blocked — could not start.** Repo on `admin-ui-redesign` with 123 uncommitted changes, `main` occupied by another worktree, `.git/` writes broken from the sandbox (stale locks owned by another uid).
 - Lesson: this triggered the redesign to a write-only handoff workflow (no git from sandbox). Subsequent runs from this date onward never attempt git.
 
-_(latest successful onboarding: Asunción H3 2026-06-03 — first 🇵🇾 Paraguay / first South America kennel, PRs #1944 + #1946, 120 events live. Daily cadence is working.)_
+_(latest successful onboarding: Mexico City H3 2026-06-03 — first 🇲🇽 Mexico kennel, PR #1953, 10 events live. Daily cadence is working.)_
