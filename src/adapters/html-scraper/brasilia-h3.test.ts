@@ -42,10 +42,22 @@ describe("parseBrasiliaPost", () => {
     expect(parseBrasiliaPost(body, "2026-02-20T12:00:00-03:00", "https://brasiliah3.blogspot.com/x")).toBeNull();
   });
 
-  it("extracts a clean `Start:`-labelled venue", () => {
+  it("extracts a clean `Start:`-labelled venue (inline form)", () => {
     const body = "Hash N+300\nSunday, 12th of April\nStart: SQN 107, Bloco C\nBring beer money.";
     const parsed = parseBrasiliaPost(body, "2025-04-07T12:00:00-03:00", "https://brasiliah3.blogspot.com/x");
     expect(parsed?.location).toBe("SQN 107, Bloco C");
+  });
+
+  it("extracts a venue from a `📍 Start` heading with the venue on the next line", () => {
+    const body = "Hash N+335 \"University Hash\"\nSunday, 29th of March\n📍 Start\nSQS 406, Bloco K\n🏃 Runners\n6 km";
+    const parsed = parseBrasiliaPost(body, "2026-03-24T12:00:00-03:00", "https://brasiliah3.blogspot.com/x");
+    expect(parsed?.location).toBe("SQS 406, Bloco K");
+  });
+
+  it("does not treat mid-prose 'start at …' as a venue label", () => {
+    const body = "Hash N+334 \"Richard Hash\"\nSunday, 15th of March\nWe start at the park at SQN 216, Bloco B, at the far end of Asa Norte.";
+    const parsed = parseBrasiliaPost(body, "2026-03-10T12:00:00-03:00", "https://brasiliah3.blogspot.com/x");
+    expect(parsed?.location).toBeUndefined();
   });
 
   it("ignores a placeholder venue", () => {
@@ -126,6 +138,7 @@ describe("BrasiliaH3Adapter.fetch", () => {
       postsFound: 2,
       eventsParsed: 2,
     });
+    expect(result.diagnosticContext?.eventsParsed).toBe(2);
   });
 
   it("skips non-run posts (away-hash socials) without erroring", async () => {

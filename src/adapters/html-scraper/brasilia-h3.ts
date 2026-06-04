@@ -14,19 +14,26 @@ const RUN_RE = /Hash\s+N\+(\d+)/i;
 
 /**
  * In-body date line: `Sunday, 7th of June` — ordinal day + "of" + month name,
- * with NO YEAR. No `/i` flag (Sonar S5869): in this source the month is always
- * a capitalised English name (resolved through the English-only MONTHS map) and
- * the ordinal suffix + "of" are lowercase, so the class never needs case-folding.
+ * with NO YEAR. Trailing `\b` so the month group can't eat a glued token
+ * ("February14th"). No `/i` flag (Sonar S5869): in this source the month is
+ * always a capitalised English name (resolved through the English-only MONTHS
+ * map) and the ordinal suffix + "of" are lowercase, so the class never needs
+ * case-folding.
  */
-const DATE_RE = /(\d{1,2})(?:st|nd|rd|th)?\s+of\s+([A-Za-z]+)/;
+const DATE_RE = /(\d{1,2})(?:st|nd|rd|th)?\s+of\s+([A-Za-z]+)\b/;
 
 /**
- * Clean inline venue label: `Start: <venue>`, `Start Location: <venue>`, or
- * `📍 Start: <venue>`. Capture starts at a non-space char (Sonar S5852-safe
- * alternative to a leading `(.+)`) and runs to end of line. Only ~15% of posts
- * carry this label; the rest leave `location` undefined (merge geocodes later).
+ * Venue labels, matched per-line (both anchored to the whole line so prose like
+ * "start at the park…" — no colon — can never match):
+ *  - inline form `Start: <venue>` / `Start Location: <venue>` / `📍 Start: <venue>`
+ *    (the venue is on the same line; ~15% of posts)
+ *  - heading-only form `📍 Start` / `Start` on its own line, with the venue on
+ *    the NEXT line (the 📍 Start pattern used by recent posts, e.g. N+335)
+ * Capture starts at a non-space char (Sonar S5852-safe). Posts with neither
+ * leave `location` undefined (merge geocodes the kennel/region centroid).
  */
-const LOCATION_RE = /(?:📍\s*)?Start(?:\s*Location)?\s*:\s*(\S.*)/i;
+const LOCATION_INLINE_RE = /^(?:📍\s*)?Start(?:\s*Location)?\s*:\s*(\S.*)/i;
+const LOCATION_HEADING_RE = /^(?:📍\s*)?Start(?:\s*Location)?\s*:?\s*$/i;
 
 const DEFAULT_BLOG_URL = "https://brasiliah3.blogspot.com/";
 
@@ -83,13 +90,24 @@ function parseRunDate(body: string, publishedIso: string): string | null {
   return inferDateString(day, month, publishedIso);
 }
 
-/** Extract a clean venue from a `Start:`-labelled line, or undefined. */
-function parseLocation(body: string): string | undefined {
-  const match = LOCATION_RE.exec(body);
-  if (!match) return undefined;
-  const venue = match[1].trim();
+/** Trim a candidate venue, rejecting empty/placeholder text. */
+function cleanVenue(text: string): string | undefined {
+  const venue = text.trim();
   if (!venue || isPlaceholder(venue)) return undefined;
   return venue;
+}
+
+/** Extract a clean venue from a `Start`-labelled line (inline or heading), or undefined. */
+function parseLocation(body: string): string | undefined {
+  const lines = body.split("\n").map((line) => line.trim()).filter(Boolean);
+  for (let i = 0; i < lines.length; i++) {
+    const inline = LOCATION_INLINE_RE.exec(lines[i]);
+    if (inline) return cleanVenue(inline[1]);
+    if (LOCATION_HEADING_RE.test(lines[i]) && i + 1 < lines.length) {
+      return cleanVenue(lines[i + 1]);
+    }
+  }
+  return undefined;
 }
 
 /**
@@ -151,6 +169,9 @@ export class BrasiliaH3Adapter implements SourceAdapter {
     const baseUrl = source.url || DEFAULT_BLOG_URL;
     const days = options?.days ?? source.scrapeDays ?? 90;
 
+    // 25 posts amply covers scrapeDays=90: at a biweekly cadence that's ~6-7
+    // runs plus the occasional social post per window. The full archive loads
+    // via the one-shot backfill, not this fetch — bump if scrapeDays grows.
     const bloggerResult = await fetchBloggerPosts(baseUrl, 25);
 
     const events: RawEventData[] = [];

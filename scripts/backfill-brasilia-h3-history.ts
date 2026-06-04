@@ -43,5 +43,7 @@ runBackfillScript({
   fetchEvents: async () => brasiliaHistory as RawEventData[],
 }).catch((err) => {
   console.error(err);
-  process.exit(1);
+  // Set exitCode (not process.exit) so the runner's Prisma disconnect / event
+  // loop can drain cleanly before the process terminates.
+  process.exitCode = 1;
 });

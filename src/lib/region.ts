@@ -3027,7 +3027,7 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     pinColor: "#059669",
     centroidLat: -14.235,
     centroidLng: -51.925,
-    aliases: ["BR"],
+    aliases: ["BR", "Brasil"],
   },
   {
     name: "Brasília",
