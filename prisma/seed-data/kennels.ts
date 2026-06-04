@@ -4584,6 +4584,24 @@ export const KENNELS: KennelSeed[] = [
       latitude: -25.2637,
       longitude: -57.5759,
     },
+    // ===== BRAZIL =====
+    // First Brazil kennel — Brasília H3, hashing since 1989. shortName is the
+    // ASCII "Brasilia H3" (the kennel writes it without the accent) → toSlug =
+    // "brasilia-h3", clean, no accent-mangling, so no explicit slug override.
+    // scheduleTime/hashCash/logoUrl intentionally omitted — unverified, do not invent.
+    // latitude/longitude is the Brasília city centroid; runs carry no per-event coords.
+    {
+      kennelCode: "brasilia-h3", shortName: "Brasilia H3", fullName: "Brasilia Hash House Harriers",
+      region: "Brasília, Brazil", country: "Brazil",
+      website: "https://brasiliah3.blogspot.com",
+      facebookUrl: "https://www.facebook.com/BrasiliaHHH",
+      foundedYear: 1989,
+      scheduleDayOfWeek: "Sunday", scheduleFrequency: "Biweekly",
+      walkersWelcome: true,
+      description: "Brasília's hash kennel — running and walking 5–7 km trails around Brazil's capital since 1989, with biweekly Sunday runs that always end at the beer stop.",
+      latitude: -15.793,
+      longitude: -47.882,
+    },
     // ===== MEXICO =====
     // First Mexico kennel — Mexico City H3 ("CDMX H3"), hashing since Oct 1983.
     // foundedYear 1983 is the kennel founding (Mexico News Daily + Half-Mind), NOT the

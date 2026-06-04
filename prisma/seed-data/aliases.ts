@@ -553,6 +553,8 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "bali-hash-2": ["Bali Hash 2", "Bali Hash House Harriers 2", "BH2", "Bali Hash 2 Next Run Map"],
     // Paraguay — first South American kennel (omit "ASS H3": collides with ass-h3 Atomic Shit Show)
     "asu-h3": ["Asunción H3", "Asuncion H3", "ASU H3", "ASUH3", "Asuncion Hash", "Asunción Hash House Harriers"],
+    // Brazil — first Brazil kennel ("BH3" omitted: globally taken by Boston/Buffalo/Bristol/Boulder)
+    "brasilia-h3": ["Brasilia H3", "Brasília H3", "Brasilia Hash", "Brasilia HHH"],
     // Spain — first Spain kennel ("MH3" alone collides with Memphis/Munich/Montreal)
     "mijash3": ["Mijas", "Mijas HHH", "MijasH3", "MH3 Spain", "Burro Hash", "Mijas Hash House Harriers"],
     // France — bare "PH3" omitted (collides with ph3-my/pattaya-h3); bare "SCH3" omitted (collides with sch3-atl/sch3-ca)

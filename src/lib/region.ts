@@ -3014,6 +3014,32 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: -57.576,
     aliases: ["Asuncion", "Asunción, Paraguay"],
   },
+  // ── South America — Brazil (first Brazilian country; country → metro, no
+  // state-province intermediate, mirroring Paraguay). Emerald palette keeps it
+  // visually distinct from Paraguay's purple within South America. ──
+  {
+    name: "Brazil",
+    country: "Brazil",
+    level: "COUNTRY",
+    timezone: "America/Sao_Paulo",
+    abbrev: "BR",
+    colorClasses: "bg-emerald-200 text-emerald-800",
+    pinColor: "#059669",
+    centroidLat: -14.235,
+    centroidLng: -51.925,
+    aliases: ["BR"],
+  },
+  {
+    name: "Brasília",
+    country: "Brazil",
+    timezone: "America/Sao_Paulo",
+    abbrev: "BSB",
+    colorClasses: "bg-emerald-100 text-emerald-700",
+    pinColor: "#10b981",
+    centroidLat: -15.793,
+    centroidLng: -47.882,
+    aliases: ["Brasilia", "Brasília, Brazil"],
+  },
   // ── North America — Mexico (first Mexican country; country → metro, no
   // state-province intermediate, mirroring Kenya/Indonesia/Paraguay). Fuchsia
   // palette keeps it distinct from South-America purple and the US/Canada hues. ──
@@ -3259,6 +3285,7 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   [/\b(kenya|nairobi|mombasa|kisumu)\b/, "Kenya"],
   [/\b(bali|indonesia|denpasar)\b/, "Indonesia"],
   [/\b(paraguay|asuncion|asunción|luque)\b/, "Paraguay"],
+  [/\b(brazil|brasil|bras[ií]lia)\b/, "Brazil"],
   // Mexico — guard "New Mexico" (US state, Albuquerque) to USA BEFORE the Mexico rule
   // fires (first-match-wins), since \bmexico\b would otherwise match "New Mexico".
   [/\bnew mexico\b/, "USA"],
@@ -3545,6 +3572,8 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Bali": "Indonesia",
   // Paraguay — country → metro (no state-province intermediate)
   "Asunción": "Paraguay",
+  // Brazil — country → metro (no state-province intermediate)
+  "Brasília": "Brazil",
   // Mexico — country → metro (no state-province intermediate)
   "Mexico City": "Mexico",
 };
@@ -3720,6 +3749,9 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   // Paraguay — both the country-level region and its metro map to "Paraguay"
   "Paraguay": "Paraguay",
   "Asunción": "Paraguay",
+  // Brazil — both the country-level region and its metro map to "Brazil"
+  "Brazil": "Brazil",
+  "Brasília": "Brazil",
   // Mexico — both the country-level region and its metro map to "Mexico"
   "Mexico": "Mexico",
   "Mexico City": "Mexico",
@@ -3779,6 +3811,7 @@ const COUNTRY_CODE_TO_NAME: Record<string, string> = {
   KE: "Kenya",
   ID: "Indonesia",
   PY: "Paraguay",
+  BR: "Brazil",
   MX: "Mexico",
 };
 

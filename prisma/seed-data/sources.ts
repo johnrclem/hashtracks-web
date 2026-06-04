@@ -6407,6 +6407,22 @@ export const SOURCES = [
       config: { upcomingOnly: true },
       kennelCodes: ["asu-h3"],
     },
+    // --- Brasília, Brazil (first Brazil kennel) ---
+    {
+      name: "Brasilia H3 Blogspot Trail Posts",
+      url: "https://brasiliah3.blogspot.com/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      // Future-only adapter (fetches a recent ~25-post window via the Blogger
+      // API); the ~186-post archive back to Apr 2019 loads via the one-shot
+      // scripts/backfill-brasilia-h3-history.ts insert. upcomingOnly restricts
+      // reconciliation to future dates so the aged archive is never
+      // false-cancelled as posts roll off the recent window (reconcile.ts guard).
+      config: { upcomingOnly: true },
+      kennelCodes: ["brasilia-h3"],
+    },
 
     // ===== MEXICO =====
     // --- Mexico City, Mexico (first Mexico kennel) ---
