@@ -15,7 +15,7 @@ Format:
 ---
 
 ## 2026-06-04 — Brasília H3 (Brasília, Brazil) 🇧🇷 first Brazil kennel
-- Target picked: Rank 2 Brasília H3 (handoff `handoffs/2026-06-04-brasilia-h3.md`).
+- Target picked: Rank 10 Brasília H3 (handoff `handoffs/2026-06-04-brasilia-h3.md`).
 - Source: **HTML_SCRAPER via Blogger API v3** — `brasiliah3.blogspot.com` (`fetchBloggerPosts`, `GOOGLE_CALENDAR_API_KEY`-keyed). **NEW `BrasiliaH3Adapter`** — the **empty-title Blogspot** variant (every post `title.$t = ""`); run data parsed from the post BODY. Modeled the Blogger plumbing on `brass-monkey.ts`, the body parsing on `ofh3.ts`.
 - Outcome: **SHIPPED** → [PR #1969](https://github.com/johnrclem/hashtracks-web/pull/1969) (merged). Live at https://www.hashtracks.xyz/kennels/brasilia-h3 — **175 prod events**: 174 backfilled (#154 2019-04-21 → #338 2026-05-10) + the upcoming **N+340 "Praça dos Orixás Hash" Sun 7 Jun 2026** ("Brasilia H3 Trail #340", CONFIRMED). Post-merge seed + backfill (created=174, 0 errors) + a triggered prod scrape (created=1) ran clean. Handoff `handoffs/2026-06-04-brasilia-h3.md` · retro `handoffs/retros/2026-06-04-brasilia-h3-retro.md`.
 - Dedup: full onboard — no `brasilia*`/`brazil`/`bsb` slug in live sitemap (424 slugs, Chrome MCP 2026-06-04). kennelCode `brasilia-h3` clear (**`bh3` taken** by Buffalo/Boulder); ASCII shortName "Brasilia H3" → `toSlug` = `brasilia-h3` (no accent-mangling, no slug override). Aliases `Brasilia H3`/`Brasília H3`/`Brasilia Hash`/`Brasilia HHH`; **`BH3` omitted** (global collision).
