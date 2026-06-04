@@ -1,9 +1,16 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import type { Source } from "@/generated/prisma/client";
 import { parseBrasiliaPost, BrasiliaH3Adapter } from "./brasilia-h3";
 import { stripHtmlTags } from "../utils";
 import * as bloggerApi from "../blogger-api";
 
 vi.mock("../blogger-api");
+
+// The adapter only reads source.url + source.scrapeDays. A single typed cast
+// here keeps the fetch() call sites assertion-free (Sonar S4325).
+function brasiliaSource(scrapeDays = 90): Source {
+  return { id: "test-bsb", url: "https://brasiliah3.blogspot.com/", scrapeDays } as unknown as Source;
+}
 
 // Real N+340 post body (Praça dos Orixás Hash), trimmed. Titles are empty on
 // this blog, so the run number + date live in the body. Published 2026-06-02,
@@ -116,7 +123,7 @@ describe("BrasiliaH3Adapter.fetch", () => {
       fetchDurationMs: 120,
     });
 
-    const result = await adapter.fetch({ id: "test-bsb", url: "https://brasiliah3.blogspot.com/", scrapeDays: 90 } as never);
+    const result = await adapter.fetch(brasiliaSource());
 
     expect(result.errors).toHaveLength(0);
     expect(result.events).toHaveLength(2);
@@ -161,7 +168,7 @@ describe("BrasiliaH3Adapter.fetch", () => {
       fetchDurationMs: 90,
     });
 
-    const result = await adapter.fetch({ id: "test-bsb", url: "https://brasiliah3.blogspot.com/", scrapeDays: 90 } as never);
+    const result = await adapter.fetch(brasiliaSource());
     expect(result.events).toHaveLength(1);
     expect(result.events[0].runNumber).toBe(340);
     expect(result.errors).toHaveLength(0);
@@ -181,7 +188,7 @@ describe("BrasiliaH3Adapter.fetch", () => {
       fetchDurationMs: 80,
     });
 
-    const result = await adapter.fetch({ id: "test-bsb", url: "https://brasiliah3.blogspot.com/", scrapeDays: 90 } as never);
+    const result = await adapter.fetch(brasiliaSource());
     expect(result.events).toHaveLength(0);
     expect(result.errors.some((e) => e.includes("parsed 0 run events"))).toBe(true);
   });
@@ -192,7 +199,7 @@ describe("BrasiliaH3Adapter.fetch", () => {
       error: { message: "Missing GOOGLE_CALENDAR_API_KEY environment variable" },
     });
 
-    const result = await adapter.fetch({ id: "test-bsb", url: "https://brasiliah3.blogspot.com/", scrapeDays: 90 } as never);
+    const result = await adapter.fetch(brasiliaSource());
     expect(result.events).toHaveLength(0);
     expect(result.errors[0]).toContain("Blogger API fetch failed");
     expect(result.errorDetails?.fetch?.[0].message).toContain("Blogger API fetch failed");
