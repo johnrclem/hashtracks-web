@@ -4600,8 +4600,10 @@ export const KENNELS: KennelSeed[] = [
       hashCash: "MXN 100",
       walkersWelcome: true,
       scheduleDayOfWeek: "Saturday",
-      scheduleTime: "2:00 PM", // MND "gather at 2 p.m."; Meetup events start 13:30
+      scheduleTime: "1:30 PM", // consistent Meetup start time (Mexico News Daily rounds it to "~2 p.m.")
       scheduleFrequency: "Biweekly", // kennel's stated cadence; observed ~monthly 2025–2026
+      scheduleNotes:
+        "Self-described as \"every other Saturday\", though the observed Meetup cadence in 2025–2026 ran roughly monthly. Start time occasionally shifts earlier (~11:30 AM) for away-trip runs.",
       latitude: 19.4326,
       longitude: -99.1332,
       logoUrl: "/kennel-logos/mch3.jpg", // self-hosted from the Meetup cover (tokenized CDN rotates)

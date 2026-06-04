@@ -3262,7 +3262,7 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   // Mexico — guard "New Mexico" (US state, Albuquerque) to USA BEFORE the Mexico rule
   // fires (first-match-wins), since \bmexico\b would otherwise match "New Mexico".
   [/\bnew mexico\b/, "USA"],
-  [/\bm[eé]xico\b|\bcdmx\b|ciudad de m[eé]xico/, "Mexico"],
+  [/\bm[eé]xico\b|\bcdmx\b|\bciudad de m[eé]xico\b/, "Mexico"],
 ];
 
 /** Infer country from region name heuristics. Defaults to "USA". */
