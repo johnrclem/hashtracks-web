@@ -6407,5 +6407,25 @@ export const SOURCES = [
       config: { upcomingOnly: true },
       kennelCodes: ["asu-h3"],
     },
+
+    // ===== MEXICO =====
+    // --- Mexico City, Mexico (first Mexico kennel) ---
+    {
+      name: "Mexico City H3 Meetup",
+      url: "https://www.meetup.com/mexico-city-hash-house-harriers/",
+      type: "MEETUP" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        groupUrlname: "mexico-city-hash-house-harriers",
+        kennelTag: "mch3",
+        extractRunNumber: true, // titles reliably carry "#NNN" (HASH #756 / Run #749 / …-Run #748)
+        // Meetup events page is a rolling upcoming-only window; upcomingOnly keeps
+        // reconcile.ts from CANCELling the backfilled past runs (#746–#756) as they age off.
+        upcomingOnly: true,
+      },
+      kennelCodes: ["mch3"],
+    },
   ];
 

@@ -558,5 +558,7 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     // France — bare "PH3" omitted (collides with ph3-my/pattaya-h3); bare "SCH3" omitted (collides with sch3-atl/sch3-ca)
     "paris-h3": ["Paris H3", "Paris Hash", "Paris Hash House Harriers"],
     "sans-clue-h3": ["Sans Clue H3", "Sans Clue Hash", "Sans Clue Hash House Harriers", "SCHHH"],
+    // ===== MEXICO ===== (first Mexico kennel; "MCH3"/"CDMX H3" self-styled in the kennel's own copy)
+    "mch3": ["MCH3", "CDMX H3", "Mexico City Hash", "Hash House Harriers Mexico City"],
   };
 

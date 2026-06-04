@@ -3014,6 +3014,32 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: -57.576,
     aliases: ["Asuncion", "Asunción, Paraguay"],
   },
+  // ── North America — Mexico (first Mexican country; country → metro, no
+  // state-province intermediate, mirroring Kenya/Indonesia/Paraguay). Fuchsia
+  // palette keeps it distinct from South-America purple and the US/Canada hues. ──
+  {
+    name: "Mexico",
+    country: "Mexico",
+    level: "COUNTRY",
+    timezone: "America/Mexico_City",
+    abbrev: "MX",
+    colorClasses: "bg-fuchsia-200 text-fuchsia-800",
+    pinColor: "#c026d3", // fuchsia-600
+    centroidLat: 23.6345,
+    centroidLng: -102.5528,
+    aliases: ["MX"],
+  },
+  {
+    name: "Mexico City",
+    country: "Mexico",
+    timezone: "America/Mexico_City",
+    abbrev: "CDMX",
+    colorClasses: "bg-fuchsia-100 text-fuchsia-700",
+    pinColor: "#d946ef", // fuchsia-500
+    centroidLat: 19.4326,
+    centroidLng: -99.1332,
+    aliases: ["CDMX", "Ciudad de México"],
+  },
 ];
 
 // ── Sync fallback map (built from REGION_SEED_DATA at module load) ──
@@ -3233,6 +3259,10 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   [/\b(kenya|nairobi|mombasa|kisumu)\b/, "Kenya"],
   [/\b(bali|indonesia|denpasar)\b/, "Indonesia"],
   [/\b(paraguay|asuncion|asunción|luque)\b/, "Paraguay"],
+  // Mexico — guard "New Mexico" (US state, Albuquerque) to USA BEFORE the Mexico rule
+  // fires (first-match-wins), since \bmexico\b would otherwise match "New Mexico".
+  [/\bnew mexico\b/, "USA"],
+  [/\bm[eé]xico\b|\bcdmx\b|\bciudad de m[eé]xico\b/, "Mexico"],
 ];
 
 /** Infer country from region name heuristics. Defaults to "USA". */
@@ -3515,6 +3545,8 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Bali": "Indonesia",
   // Paraguay — country → metro (no state-province intermediate)
   "Asunción": "Paraguay",
+  // Mexico — country → metro (no state-province intermediate)
+  "Mexico City": "Mexico",
 };
 
 /** Get the state/country group for a region name (for kennel directory grouping). */
@@ -3688,6 +3720,9 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   // Paraguay — both the country-level region and its metro map to "Paraguay"
   "Paraguay": "Paraguay",
   "Asunción": "Paraguay",
+  // Mexico — both the country-level region and its metro map to "Mexico"
+  "Mexico": "Mexico",
+  "Mexico City": "Mexico",
 };
 
 /** Get the country for a state group name (for 3-level region hierarchy). */
@@ -3744,6 +3779,7 @@ const COUNTRY_CODE_TO_NAME: Record<string, string> = {
   KE: "Kenya",
   ID: "Indonesia",
   PY: "Paraguay",
+  MX: "Mexico",
 };
 
 /** All canonical country names used in COUNTRY_GROUP_MAP values. */
