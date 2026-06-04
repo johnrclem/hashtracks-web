@@ -536,7 +536,7 @@ collision-prone abbreviations in playbook §2. Resolve before drafting seed data
 > H3, Aloha H3 (Honolulu), Asheville H3, or Adelaide H3 long before it points at Auckland.
 > Run BOTH:
 >   - `grep -in '"<ALIAS>"' prisma/seed-data/aliases.ts prisma/seed-data/kennels.ts`
->   - `grep -in 'kennelCode: "<alias-lower>"' prisma/seed-data/kennels.ts`
+>   - `grep -in 'kennelCode: "<alias-lower>' prisma/seed-data/kennels.ts`
 >
 > If the bare shortcode is taken anywhere in the global namespace, **the local kennel must
 > use the region-suffixed form as its primary public alias** (e.g. `AH3-NZ`, `AH3-AU`,
@@ -667,11 +667,13 @@ Create `docs/kennel-onboarding/handoffs/<YYYY-MM-DD>-<kennelCode>.md` with this 
 - Source: <TYPE> — <url/id>  (feed HEAD-check: <content-type seen | couldn't fetch — flag>)
 - Events seen: <count>, date range <… to …>
 - **Source-count parity** (catches under-paginated adapters): <platform UI says N total events;
-  feed yields M; ratio M/N must be ≥ 90% across full reachable window OR a pagination plan
-  exists. If M < 90% × N, the handoff must include the pagination/offset/page-size config to
-  reach N before adapter ships. Reference: MCH3 #1971 — Meetup group's UI showed 85 upcoming
-  events; first scrape returned 10 because default page size wasn't lifted in the source
-  config. Surfaced as the next audit's "where are my events?" complaint.>
+  feed yields M. If N > 0, ratio M/N must be ≥ 90% across the full reachable window OR a
+  pagination plan exists. If M < 90% × N, the handoff must include the pagination/offset/page-size
+  config to reach N before adapter ships. If N = 0 (platform UI shows no upcoming events), mark
+  parity as N/A and apply the Step 3 recently-active evidence rule instead — provide a recent-run
+  sample or cadence evidence before onboarding. Reference: MCH3 `#1971` — Meetup group's UI showed
+  85 upcoming events; first scrape returned 10 because default page size wasn't lifted in the
+  source config. Surfaced as the next audit's "where are my events?" complaint.>
 - Sample events:
   1. <date> — <title> — hares <…> — <location> — <time>
   2. …
@@ -692,7 +694,7 @@ Create `docs/kennel-onboarding/handoffs/<YYYY-MM-DD>-<kennelCode>.md` with this 
   | `hares` | X / N | <CSV from `<element>` / not in feed> |
   | `cost` | X / N | <kennel default `<value>` / per-event override field> |
   | `description` | X / N | <body text / leave undefined> |
-  | `trailLength` | X / N | <text + min/max parse / not in feed> |
+  | `trailLengthText` | X / N | <text + min/max parse / not in feed> |
   | `coords` (lat/lng) | X / N | <from `<element>` / Maps URL parse / fallback to kennel centroid> |
 
   Reference: Paris #1975 (location-on-detail-page only, not list view — adapter must
