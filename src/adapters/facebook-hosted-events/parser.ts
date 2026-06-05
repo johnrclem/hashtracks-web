@@ -614,9 +614,9 @@ export function extractFieldsFromFbDescription(description: string): FacebookDes
 // Deliberately narrow: only the unambiguous "hash cash" label. A bare "cash"
 // label would mis-fire on prose like "Cash: bring small bills" for any FB
 // kennel (this parser is shared across all FACEBOOK_HOSTED_EVENTS sources).
-const FB_COST_LABELS = ["hash cash"];
-const FB_SHIGGY_LABELS = ["shiggy", "shiggy level", "shiggy scale"];
-const FB_PRELUBE_LABELS = ["pre-lube", "prelube"];
+const FB_COST_LABELS = new Set(["hash cash"]);
+const FB_SHIGGY_LABELS = new Set(["shiggy", "shiggy level", "shiggy scale"]);
+const FB_PRELUBE_LABELS = new Set(["pre-lube", "prelube"]);
 
 /**
  * Validate a Shiggy Scale value: integer 1–5, else undefined. Mirrors
@@ -648,12 +648,12 @@ function extractCostShiggyPrelube(description: string): {
     const label = line.slice(0, colon).trim().toLowerCase();
     const value = line.slice(colon + 1).trim();
     if (!value) continue;
-    if (out.cost === undefined && FB_COST_LABELS.includes(label)) {
+    if (out.cost === undefined && FB_COST_LABELS.has(label)) {
       out.cost = value;
-    } else if (out.difficulty === undefined && FB_SHIGGY_LABELS.includes(label)) {
+    } else if (out.difficulty === undefined && FB_SHIGGY_LABELS.has(label)) {
       const n = parseFbShiggy(value);
       if (n !== undefined) out.difficulty = n;
-    } else if (out.prelube === undefined && FB_PRELUBE_LABELS.includes(label)) {
+    } else if (out.prelube === undefined && FB_PRELUBE_LABELS.has(label)) {
       out.prelube = value;
     }
   }
