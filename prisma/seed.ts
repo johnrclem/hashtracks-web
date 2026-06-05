@@ -28,7 +28,7 @@ const PROFILE_FIELDS = new Set([
   "twitterHandle", "discordUrl", "mailingListUrl", "contactEmail",
   "contactName", "gm", "hareRaiser", "signatureEvent", "founder", "parentKennelCode",
   "foundedYear", "description", "logoUrl", "latitude", "longitude",
-  "walkersWelcome",
+  "walkersWelcome", "dogFriendly",
 ]);
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -168,6 +168,7 @@ async function ensureRegionRecords(prisma: any) {
     "Quebec": ["Montreal, QC"],
     "Ontario": ["Ottawa, ON", "Toronto, ON"],
     "Alberta": ["Calgary, AB", "Edmonton, AB"],
+    "British Columbia": ["Victoria, BC"],
     // ── UK ──
     "Scotland": ["Edinburgh", "Glasgow"],
     // ── Australia (Phase 1a: Perth + Darwin + Canberra) ──

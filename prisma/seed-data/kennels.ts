@@ -63,6 +63,7 @@ export interface KennelSeed {
   latitude?: number;
   longitude?: number;
   walkersWelcome?: boolean; // null/undefined = unknown; surfaces the "walkers welcome" badge
+  dogFriendly?: boolean; // null/undefined = unknown; surfaces the "dog-friendly" badge
 }
 
 export const KENNELS: KennelSeed[] = [
@@ -3229,6 +3230,50 @@ export const KENNELS: KennelSeed[] = [
       foundedYear: 1983,
       description: "Canada's oldest hash. Weekly Monday evening trails in Calgary since 1983.",
       latitude: 51.04, longitude: -114.07,
+    },
+
+    // ── Canada: British Columbia — Victoria (3 kennels, vh3.ca) ──
+    {
+      kennelCode: "vh3", shortName: "VH3", fullName: "Victoria Hash House Harriers", region: "Victoria, BC", country: "Canada",
+      website: "https://vh3.ca",
+      logoUrl: "/kennel-logos/vh3.webp",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "2:30 PM", scheduleFrequency: "Biweekly",
+      scheduleRules: [
+        { rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA", startTime: "14:30", anchorDate: "2026-01-17", label: "Primary" },
+      ],
+      hashCash: "$10 CAD (first timers free)",
+      foundedYear: 1990,
+      facebookUrl: "https://www.facebook.com/groups/VictoriaH3/",
+      contactEmail: "contactusvh3@atomicmail.io",
+      dogFriendly: true, walkersWelcome: true,
+      description:
+        "Victoria BC's hash — \"a drinking club with a running (or walking) problem.\" " +
+        "Bi-weekly Saturday trails since ~1990, all fitness levels and ages welcome, " +
+        "dog-friendly, drinks and snacks included.",
+      latitude: 48.43, longitude: -123.37,
+    },
+    {
+      kennelCode: "dsmh3", shortName: "DSMH3", fullName: "Dark Side of the Moon Hash House Harriers", region: "Victoria, BC", country: "Canada",
+      website: "https://vh3.ca",
+      logoUrl: "/kennel-logos/dsmh3.jpg",
+      scheduleDayOfWeek: "Friday", scheduleTime: "7:00 PM", scheduleFrequency: "Monthly",
+      scheduleNotes: "Monthly Friday near the new moon.",
+      parentKennelCode: "vh3",
+      walkersWelcome: true,
+      description: "Victoria's monthly new-moon night hash — Friday trails under the dark side of the moon.",
+      latitude: 48.43, longitude: -123.37,
+    },
+    {
+      kennelCode: "vk9h3", shortName: "Victoria K9 H3", fullName: "Victoria K9 Hash House Harriers", region: "Victoria, BC", country: "Canada",
+      website: "https://vh3.ca",
+      logoUrl: "/kennel-logos/vk9h3.png",
+      scheduleFrequency: "Irregular",
+      scheduleNotes: "Runs on BC / Canadian statutory holidays (weekday varies), 2:30 PM.",
+      hashCash: "$5 CAD (dogs free)",
+      parentKennelCode: "vh3",
+      dogFriendly: true, walkersWelcome: true,
+      description: "Victoria's dog-friendly hash — trails with the hounds on statutory holidays.",
+      latitude: 48.43, longitude: -123.37,
     },
 
     // ── Canada: Alberta — Edmonton (9 kennels) ──

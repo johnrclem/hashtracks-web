@@ -15,6 +15,7 @@ import {
   groupRegionsByCountry,
   expandRegionSelections,
   resolveCountryName,
+  inferCountry,
 } from "./region";
 
 describe("regionSlug", () => {
@@ -238,5 +239,26 @@ describe("resolveCountryName", () => {
   it("returns null for unknown codes or names", () => {
     expect(resolveCountryName("XX")).toBeNull();
     expect(resolveCountryName("Atlantis")).toBeNull();
+  });
+});
+
+describe("inferCountry — Victoria, BC vs Victoria, Australia", () => {
+  // The Australia rule matches `\bvictoria\b`; the BC rule must precede it so
+  // Victoria, BC isn't mis-attributed to Australia (#1980).
+  it.each([
+    ["Victoria, BC", "Canada"],
+    ["British Columbia", "Canada"],
+    ["Saanich", "Canada"],
+    ["Vancouver Island", "Canada"],
+  ])("infers %s → Canada", (name, country) => {
+    expect(inferCountry(name)).toBe(country);
+  });
+
+  it.each([
+    ["Melbourne, VIC", "Australia"],
+    ["Sydney, NSW", "Australia"],
+    ["Victoria, Australia", "Australia"],
+  ])("still infers %s → Australia", (name, country) => {
+    expect(inferCountry(name)).toBe(country);
   });
 });

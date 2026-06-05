@@ -4669,6 +4669,24 @@ export const SOURCES = [
       kennelCodes: ["ch3-ab"],
     },
 
+    // --- Victoria, BC: VH3 + Dark Side of the Moon H3 + Victoria K9 H3 ---
+    {
+      // #1980: one Gamma-platform SSR page (vh3.ca) hosts all three Victoria
+      // kennels. The VictoriaH3Adapter routes runs to vh3/dsmh3/vk9h3 by their
+      // schedule-list prefixes and enriches near-term VH3 runs from the cards.
+      name: "Victoria H3 Gamma Site",
+      url: "https://vh3.ca/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      // Full-season page (past + future). Wide window so completed 2026 runs
+      // ingest on the first scrape; upcomingOnly keeps reconcile from cancelling
+      // them once the page rolls to the next season.
+      scrapeDays: 365,
+      config: { upcomingOnly: true },
+      kennelCodes: ["vh3", "dsmh3", "vk9h3"],
+    },
+
     // ===== NEW MEXICO =====
     {
       name: "ABQ H3 Google Calendar",
