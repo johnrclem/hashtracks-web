@@ -119,22 +119,32 @@ async function refreshOneSource(name: string, days: number): Promise<void> {
 
 async function refreshForwardEvents(): Promise<void> {
   console.log(`\n=== Pass 2: forward event refresh (current/future) ===`);
+  const failed: string[] = [];
   for (const { name, days } of FORWARD_SOURCES) {
     try {
       await refreshOneSource(name, days);
     } catch (err) {
       // Failure isolation: one source's adapter/network error shouldn't abort
-      // the refresh for the others.
+      // the refresh for the others — but record it so the run still fails loud.
       console.error(`  ❌ ${name}: refresh failed —`, err);
+      failed.push(name);
     }
+  }
+  // Surface a partial refresh as a non-zero exit so automation sees it.
+  if (failed.length > 0) {
+    throw new Error(`Forward refresh failed for source(s): ${failed.join(", ")}`);
   }
 }
 
 async function main(): Promise<void> {
   console.log(APPLY ? "APPLY MODE — writing to DB" : "DRY RUN — no writes (pass --apply to write)");
-  await updateProfiles();
-  await refreshForwardEvents();
-  await prisma.$disconnect();
+  try {
+    await updateProfiles();
+    await refreshForwardEvents();
+  } finally {
+    // Always disconnect, even if a pass throws.
+    await prisma.$disconnect();
+  }
 }
 
 main().catch((err) => {

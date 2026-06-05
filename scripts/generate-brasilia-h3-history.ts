@@ -52,7 +52,7 @@ async function main(): Promise<void> {
   rows.sort((a, b) => a.date.localeCompare(b.date) || (a.runNumber ?? 0) - (b.runNumber ?? 0));
   writeFileSync(OUT, `${JSON.stringify(rows, null, 2)}\n`);
 
-  const runs = rows.map((r) => r.runNumber ?? 0);
+  const runs = rows.map((r) => r.runNumber).filter((n): n is number => n != null);
   const withTitle = rows.filter((r) => r.title).length;
   const withHares = rows.filter((r) => r.hares).length;
   const withLoc = rows.filter((r) => r.location).length;
@@ -61,10 +61,16 @@ async function main(): Promise<void> {
   console.log(`  range: ${rows[0]?.date} (#${runs[0]}) → ${rows.at(-1)?.date} (#${runs.at(-1)})`);
   console.log(`  title=${withTitle}/${rows.length}  hares=${withHares}/${rows.length}  location=${withLoc}/${rows.length}`);
   // Report run-number gaps so #1985 (missing #339 etc.) is visible at a glance.
-  const present = new Set(runs);
-  const gaps: number[] = [];
-  for (let n = Math.min(...runs); n <= Math.max(...runs); n++) if (!present.has(n)) gaps.push(n);
-  console.log(`  run-number gaps (${gaps.length}): ${gaps.join(", ") || "none"}`);
+  // Only real run numbers count — coercing a missing one to 0 would fabricate a
+  // 0..min gap and bury the real diagnostic.
+  if (runs.length > 0) {
+    const present = new Set(runs);
+    const gaps: number[] = [];
+    for (let n = Math.min(...runs); n <= Math.max(...runs); n++) if (!present.has(n)) gaps.push(n);
+    console.log(`  run-number gaps (${gaps.length}): ${gaps.join(", ") || "none"}`);
+  } else {
+    console.log("  run-number gaps: unavailable (no parsed run numbers)");
+  }
 }
 
 main().catch((err) => {
