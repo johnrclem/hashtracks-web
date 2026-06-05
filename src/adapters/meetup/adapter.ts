@@ -515,6 +515,24 @@ function extractTitleHares(title: string | undefined): { hares?: string; title?:
   return { hares, title: m ? title.slice(0, m.index) : title };
 }
 
+/**
+ * Resolve a run number from a Meetup title. Off unless `extractRunNumber` is
+ * opted in per source. When a kennel stylizes its run number with a literal
+ * prefix instead of "#" (e.g. Paris/Sans Clue "R*n", #1975), that prefix is
+ * rewritten to "#" first — a literal `String.replaceAll`, not regex, so a `*`
+ * in the token needs no escaping — and the shared `extractHashRunNumber` does
+ * the parsing. Returns undefined when extraction is off or no number is found.
+ */
+function resolveRunNumber(
+  title: string | undefined,
+  extractRunNumber: boolean,
+  runNumberPrefix: string | undefined,
+): number | undefined {
+  if (!extractRunNumber) return undefined;
+  const normalized = runNumberPrefix && title ? title.replaceAll(runNumberPrefix, "#") : title;
+  return extractHashRunNumber(normalized);
+}
+
 /** Build a RawEventData from an Apollo event entry. */
 export function buildRawEventFromApollo(
   ev: ApolloEvent,
@@ -566,19 +584,14 @@ export function buildRawEventFromApollo(
   const titleForDisplay = fromTitle?.title ?? ev.title;
   const cleanedDesc = cleanMeetupDescription(ev.description, state);
 
-  // Normalize a kennel's stylized run-number prefix (e.g. "R*n") to "#" so the
-  // shared extractHashRunNumber helper parses it (#1975). Literal string
-  // replace — not regex — so "R*n" needs no escaping. Display title is left
-  // untouched (it keeps the kennel's "R*n 1136" stylization).
-  const runNumberTitle = runNumberPrefix && ev.title
-    ? ev.title.replaceAll(runNumberPrefix, "#")
-    : ev.title;
-
   return {
     date,
     kennelTags: [resolvedKennelTag],
     title: cleanMeetupTitle(titleForDisplay),
-    runNumber: extractRunNumber ? extractHashRunNumber(runNumberTitle) : undefined,
+    // Run-number extraction (with optional "R*n"-style prefix normalization)
+    // lives in resolveRunNumber so this builder stays under the cognitive-
+    // complexity budget. Display title keeps the kennel's stylization.
+    runNumber: resolveRunNumber(ev.title, extractRunNumber, runNumberPrefix),
     description: cleanedDesc,
     hares,
     location: venueInfo.location,
