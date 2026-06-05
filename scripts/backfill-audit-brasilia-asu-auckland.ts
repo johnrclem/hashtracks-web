@@ -85,35 +85,43 @@ async function updateProfiles(): Promise<void> {
   }
 }
 
+/**
+ * Forward-refresh one source's current/future events. `name` is not unique, so
+ * use findMany(take:2) + length check (mirrors mergeRawEventsForSource) — a
+ * duplicate fails loud rather than silently scraping whichever row findFirst
+ * picked. Pure upsert via processRawEvents (no reconcile → no cancels).
+ */
+async function refreshOneSource(name: string, days: number): Promise<void> {
+  const sources = await prisma.source.findMany({ where: { name }, take: 2 });
+  if (sources.length === 0) {
+    console.warn(`  ⚠ source "${name}" not found — skipping`);
+    return;
+  }
+  if (sources.length > 1) {
+    throw new Error(`Multiple sources named "${name}" — refusing to guess which to scrape`);
+  }
+  const source = sources[0];
+  const adapter = getAdapter(source.type, source.url, source.config as Record<string, unknown> | null);
+  const result = await adapter.fetch(source, { days });
+  const errNote = result.errors.length ? ` (errors: ${result.errors.length})` : "";
+  console.log(`  ${name}: fetched ${result.events.length} event(s)${errNote}`);
+  if (!APPLY) {
+    for (const e of result.events.slice(0, 5)) {
+      console.log(`     [dry] ${e.date} #${e.runNumber ?? "?"} title=${e.title ?? "—"} hares=${e.hares ?? "—"} loc=${e.location ?? "—"}`);
+    }
+    return;
+  }
+  if (result.events.length === 0) return;
+  const merged = await processRawEvents(source.id, result.events);
+  console.log(`     created=${merged.created} updated=${merged.updated} skipped=${merged.skipped} blocked=${merged.blocked} errors=${merged.eventErrors}`);
+  if (merged.blocked > 0) console.warn(`     ⚠ blocked tags: ${merged.blockedTags.join(", ")}`);
+}
+
 async function refreshForwardEvents(): Promise<void> {
   console.log(`\n=== Pass 2: forward event refresh (current/future) ===`);
   for (const { name, days } of FORWARD_SOURCES) {
     try {
-      // `name` is not unique — use findMany(take:2) + length check (mirrors
-      // mergeRawEventsForSource) so a duplicate fails loud instead of silently
-      // scraping whichever row findFirst happened to pick.
-      const sources = await prisma.source.findMany({ where: { name }, take: 2 });
-      if (sources.length === 0) {
-        console.warn(`  ⚠ source "${name}" not found — skipping`);
-        continue;
-      }
-      if (sources.length > 1) {
-        throw new Error(`Multiple sources named "${name}" — refusing to guess which to scrape`);
-      }
-      const source = sources[0];
-      const adapter = getAdapter(source.type, source.url, source.config as Record<string, unknown> | null);
-      const result = await adapter.fetch(source, { days });
-      console.log(`  ${name}: fetched ${result.events.length} event(s)${result.errors.length ? ` (errors: ${result.errors.length})` : ""}`);
-      if (!APPLY) {
-        for (const e of result.events.slice(0, 5)) {
-          console.log(`     [dry] ${e.date} #${e.runNumber ?? "?"} title=${e.title ?? "—"} hares=${e.hares ?? "—"} loc=${e.location ?? "—"}`);
-        }
-        continue;
-      }
-      if (result.events.length === 0) continue;
-      const merged = await processRawEvents(source.id, result.events);
-      console.log(`     created=${merged.created} updated=${merged.updated} skipped=${merged.skipped} blocked=${merged.blocked} errors=${merged.eventErrors}`);
-      if (merged.blocked > 0) console.warn(`     ⚠ blocked tags: ${merged.blockedTags.join(", ")}`);
+      await refreshOneSource(name, days);
     } catch (err) {
       // Failure isolation: one source's adapter/network error shouldn't abort
       // the refresh for the others.
