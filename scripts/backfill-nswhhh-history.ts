@@ -21,6 +21,7 @@ import "dotenv/config";
 import { runBackfillScript } from "./lib/backfill-runner";
 import { safeFetch } from "@/adapters/safe-fetch";
 import { parseCSV, parseDate } from "@/adapters/google-sheets/adapter";
+import { buildRunHareTitle } from "@/adapters/utils";
 import { todayInTimezone } from "@/lib/timezone";
 import type { RawEventData } from "@/adapters/types";
 
@@ -66,10 +67,15 @@ async function fetchArchive(): Promise<RawEventData[]> {
 
     const hares = row[COL.hares]?.trim() || undefined;
     const location = row[COL.location]?.trim() || undefined;
+    const runNumber = Number.parseInt(runCell, 10);
     events.push({
       date,
       kennelTags: ["nswhhh"],
-      runNumber: Number.parseInt(runCell, 10),
+      runNumber,
+      // Match the live GOOGLE_SHEETS source + HTML adapter title shape (#1973)
+      // so re-running this backfill re-titles the historical canonicals to
+      // "Run #<N> w/ <hare>" instead of the synthesized "… Trail #N".
+      title: buildRunHareTitle(runNumber, hares),
       hares,
       location,
       startTime: "18:30",

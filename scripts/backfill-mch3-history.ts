@@ -37,7 +37,10 @@ const KENNEL_TIMEZONE = "America/Mexico_City";
 const GROUP_URL = "https://www.meetup.com/mexico-city-hash-house-harriers/";
 
 interface FrozenRun {
-  runNumber: number;
+  // Optional: deep-archive thematic posts occasionally omit a "#NNN" / "Run #N"
+  // token in their title (e.g. a special event). Those rows still backfill
+  // (date + title + location), just without a runNumber.
+  runNumber?: number | null;
   date: string;
   startTime: string | null;
   endTime: string | null;
@@ -50,7 +53,7 @@ function toRawEvent(run: FrozenRun): RawEventData {
   return {
     date: run.date,
     kennelTags: ["mch3"],
-    runNumber: run.runNumber,
+    runNumber: run.runNumber ?? undefined,
     title: run.title,
     startTime: run.startTime ?? undefined,
     endTime: run.endTime ?? undefined,

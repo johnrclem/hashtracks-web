@@ -4945,7 +4945,10 @@ export const SOURCES = [
         // holiday"). They'd otherwise ingest as phantom runs. A hare is never
         // literally "no run", so this is false-positive-safe (#1739).
         silentlySkipPatterns: [{ pattern: String.raw`\bno\s+run\b`, field: "hares" }],
-        // No defaultTitle — let merge.ts synthesize "North Shore Wanderers H3 Trail #N".
+        // The sheet carries only date + run # + hare (no title column), so
+        // synthesize a source-anchored "Run #<N> w/ <hare>" title from the data
+        // we already capture, instead of a bare "… Trail #N" (#1973).
+        runHareTitle: true,
       },
       kennelCodes: ["nswhhh"],
     },
@@ -6387,6 +6390,13 @@ export const SOURCES = [
     // kennelPatterns; the group's weekly non-hash "Thursday Night Drinking Club"
     // socials (18 of 30 upcoming) are dropped pipeline-side before RawEvent
     // creation via silentlySkipPatterns (no SOURCE_KENNEL_MISMATCH alert).
+    //
+    // Umbrella structure (#1977 — documented, intentionally unmapped): the
+    // sanscluehash.fr site also lists (a) Paris Full Moon H3 — currently in
+    // hibernation per the Misman page, so no source until it announces a return
+    // (no-sourceless-kennels rule); and (b) the Thursday Night Drinking Club
+    // (TNDC) socials, which are NOT hash runs — they're dropped by the
+    // silentlySkipPatterns below and await a future social-event schema column.
     {
       name: "Paris & Sans Clue H3 Meetup",
       url: "https://www.meetup.com/parish3-schhh/events/",
@@ -6398,6 +6408,11 @@ export const SOURCES = [
         groupUrlname: "parish3-schhh",
         kennelTag: "paris-h3", // required fallback; rarely hit once skip + patterns apply
         upcomingOnly: true, // Meetup ages past events off its window — protects reconcile
+        // Both kennels stylize "Run" as "R*n" in every title (self-censorship),
+        // e.g. "Paris H3 R*n 1136 | TBD" (#1975). runNumberPrefix rewrites the
+        // literal "R*n" → "#" so the shared extractHashRunNumber helper parses it.
+        extractRunNumber: true,
+        runNumberPrefix: "R*n",
         kennelPatterns: [
           ["^Paris H3", "paris-h3"],
           ["^Sans Clue H3", "sans-clue-h3"],

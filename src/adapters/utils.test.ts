@@ -20,6 +20,7 @@ import {
   applyWeekdayShift,
   hasPlaceholderRunNumber,
   extractHashRunNumber,
+  buildRunHareTitle,
   normalizeCostSigil,
   cleanLocationName,
   stripClickHereForMap,
@@ -966,6 +967,31 @@ describe("extractHashRunNumber", () => {
     ["undefined", undefined, undefined],
   ])("%s: %j → %p", (_, input, expected) => {
     expect(extractHashRunNumber(input)).toBe(expected);
+  });
+});
+
+describe("buildRunHareTitle (#1973 NSWHHH)", () => {
+  it("builds 'Run #<N> w/ <hares>' when hares present", () => {
+    expect(buildRunHareTitle(1066, "He'll Do")).toBe("Run #1066 w/ He'll Do");
+  });
+
+  it("falls back to 'Run #<N>' when hares is null/undefined/blank", () => {
+    expect(buildRunHareTitle(933, null)).toBe("Run #933");
+    expect(buildRunHareTitle(934, undefined)).toBe("Run #934");
+    expect(buildRunHareTitle(936, "   ")).toBe("Run #936");
+  });
+
+  it("trims surrounding whitespace from hares", () => {
+    expect(buildRunHareTitle(1092, "  Minnie Mouse  ")).toBe("Run #1092 w/ Minnie Mouse");
+  });
+
+  it("returns undefined when there's no run number (merge synthesizes the default)", () => {
+    expect(buildRunHareTitle(undefined, "He'll Do")).toBeUndefined();
+  });
+
+  it("returns undefined for NaN (guards against an unguarded parseInt) rather than 'Run #NaN'", () => {
+    expect(buildRunHareTitle(Number.NaN, "He'll Do")).toBeUndefined();
+    expect(buildRunHareTitle(Number.parseInt("not-a-number", 10), null)).toBeUndefined();
   });
 });
 

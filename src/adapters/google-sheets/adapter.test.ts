@@ -337,6 +337,52 @@ describe("buildEventFromSheetRow", () => {
     expect(event!.locationUrl).toBeUndefined();
   });
 
+  // #1973 NSWHHH: opt-in runHareTitle synthesizes "Run #<N> w/ <hares>" from
+  // the data we already capture, instead of merge.ts's bare "… Trail #N".
+  describe("runHareTitle (#1973)", () => {
+    const config = {
+      sheetId: "nswhhh",
+      columns: { date: 0, runNumber: 1, hares: 2 },
+      kennelTagRules: { default: "nswhhh" },
+      runHareTitle: true,
+    };
+
+    it("builds 'Run #<N> w/ <hare>' when hares present", () => {
+      const row = ["1-Jun-2026", "1066", "He'll Do"];
+      const event = buildEventFromSheetRow(row, config, "https://example.com", "2026-06-01");
+      expect(event!.title).toBe("Run #1066 w/ He'll Do");
+    });
+
+    it("falls back to 'Run #<N>' when the hare cell is empty", () => {
+      const row = ["1-Jun-2026", "933", ""];
+      const event = buildEventFromSheetRow(row, config, "https://example.com", "2026-06-01");
+      expect(event!.title).toBe("Run #933");
+    });
+
+    it("leaves title undefined (merge synthesizes default) when there's no run number", () => {
+      const noRunConfig = {
+        sheetId: "nswhhh",
+        columns: { date: 0, hares: 2 },
+        kennelTagRules: { default: "nswhhh" },
+        runHareTitle: true,
+      };
+      const row = ["1-Jun-2026", "", "He'll Do"];
+      const event = buildEventFromSheetRow(row, noRunConfig, "https://example.com", "2026-06-01");
+      expect(event!.title).toBeUndefined();
+    });
+
+    it("does not synthesize a title when runHareTitle is off (default)", () => {
+      const offConfig = {
+        sheetId: "nswhhh",
+        columns: { date: 0, runNumber: 1, hares: 2 },
+        kennelTagRules: { default: "nswhhh" },
+      };
+      const row = ["1-Jun-2026", "1066", "He'll Do"];
+      const event = buildEventFromSheetRow(row, offConfig, "https://example.com", "2026-06-01");
+      expect(event!.title).toBeUndefined();
+    });
+  });
+
   // #923 Munich H3: explicit startTime column overrides startTimeRules
   // inference. Empty / placeholder cells fall through to rules.
   describe("startTime column (#923)", () => {

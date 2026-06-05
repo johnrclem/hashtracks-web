@@ -1598,6 +1598,47 @@ describe("buildRawEventFromApollo — runNumber (#1562 Miami H3)", () => {
   });
 });
 
+// ── buildRawEventFromApollo — runNumberPrefix (#1975 Paris / Sans Clue) ──
+
+describe("buildRawEventFromApollo — runNumberPrefix (#1975 Paris/Sans Clue 'R*n')", () => {
+  const emptyState = {} as Record<string, Record<string, unknown>>;
+  // 6th positional arg is `runNumberPrefix` — the literal token a kennel uses
+  // instead of "#". Paris H3 + Sans Clue H3 self-censor "Run" as "R*n".
+  const OPT_IN = true;
+  const PREFIX = "R*n";
+
+  it.each([
+    ["Paris H3 R*n 1136 | TBD", 1136],
+    ["Sans Clue H3 R*n 1192 | TBD", 1192],
+    ["Paris H3 R*n 1134 | ✨ Eurovision! ✨", 1134],
+    ["Sans Clue H3 R*n 1196", 1196],
+  ])("extracts runNumber from %j by normalizing the R*n prefix", (title, expected) => {
+    const ev = { __typename: "Event", id: "rxn", title, dateTime: "2026-06-06T14:00:00+02:00" };
+    const event = buildRawEventFromApollo(ev, emptyState, "paris-h3", undefined, OPT_IN, PREFIX);
+    expect(event.runNumber).toBe(expected);
+  });
+
+  it("keeps the kennel's 'R*n' stylization in the display title", () => {
+    const ev = { __typename: "Event", id: "disp", title: "Paris H3 R*n 1136 | TBD", dateTime: "2026-06-06T14:00:00+02:00" };
+    const event = buildRawEventFromApollo(ev, emptyState, "paris-h3", undefined, OPT_IN, PREFIX);
+    expect(event.title).toBe("Paris H3 R*n 1136 | TBD");
+  });
+
+  it("leaves runNumber undefined when the prefix is configured but extraction is off", () => {
+    const ev = { __typename: "Event", id: "off", title: "Paris H3 R*n 1136 | TBD", dateTime: "2026-06-06T14:00:00+02:00" };
+    const event = buildRawEventFromApollo(ev, emptyState, "paris-h3", undefined, false, PREFIX);
+    expect(event.runNumber).toBeUndefined();
+  });
+
+  it("leaves runNumber undefined for an 'R*n' title when no prefix is configured (no regression)", () => {
+    // Without runNumberPrefix the shared helper only matches '#NNN', so the
+    // bare "R*n 1136" form yields nothing — exactly what other Meetup kennels see.
+    const ev = { __typename: "Event", id: "norm", title: "Paris H3 R*n 1136 | TBD", dateTime: "2026-06-06T14:00:00+02:00" };
+    const event = buildRawEventFromApollo(ev, emptyState, "paris-h3", undefined, OPT_IN);
+    expect(event.runNumber).toBeUndefined();
+  });
+});
+
 describe("extractHaresFromMeetupDescription (#953 CHH3 dash separator)", () => {
   it("captures 'Hares - X and Y' (plural, dash, ASCII hyphen)", () => {
     expect(extractHaresFromMeetupDescription("Hares - FAW and Just Jim\n\nGo see the rail yards"))

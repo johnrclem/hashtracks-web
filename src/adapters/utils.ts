@@ -742,6 +742,28 @@ export function extractHashRunNumber(text: string | undefined): number | undefin
 }
 
 /**
+ * Build a source-anchored "Run #<N> w/ <hares>" event title for kennels whose
+ * source carries only run-number + hare (no separate title column). Folds the
+ * hares we already capture into the title instead of leaving the merge pipeline
+ * to synthesize a bare "<Kennel> Trail #N" (NSWHHH #1973). Falls back to
+ * "Run #<N>" when hares are absent, and `undefined` when there's no run number
+ * (so merge.ts still synthesizes the kennel-name default). Shared by the
+ * GOOGLE_SHEETS adapter, the NSWHHH HTML adapter, and the NSWHHH backfill so all
+ * three emit identical titles (no title churn on the in-window overlap).
+ */
+export function buildRunHareTitle(
+  runNumber: number | undefined,
+  hares: string | null | undefined,
+): string | undefined {
+  // `== null` covers null/undefined but NOT NaN (NaN == null is false), so a
+  // stray NaN would otherwise render "Run #NaN". Guard it explicitly — this is
+  // a shared helper and a future caller might pass an unguarded parseInt.
+  if (runNumber == null || Number.isNaN(runNumber)) return undefined;
+  const h = hares?.trim();
+  return h ? `Run #${runNumber} w/ ${h}` : `Run #${runNumber}`;
+}
+
+/**
  * Detect placeholder run-number markers like `#25XX`, `#208X`, `#30X?`,
  * `#30TBD`, `#2784 TBA`, plus digit-free variants like `#TBD`, `#?`, `#X`
  * — "next run, number not yet assigned" (#1272/#1274/#1275). Callers
