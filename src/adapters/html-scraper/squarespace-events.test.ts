@@ -71,6 +71,24 @@ const UNSET_PIN_EVENT = {
   body: "",
 };
 
+// #1933: Squarespace addressTitle (venue name) left blank but a real street
+// address entered. 15 of 37 SACH3 events shipped this shape — locationName
+// rendered null despite the street being populated. The composed street must
+// fall back into the displayable locationName.
+const BLANK_TITLE_WITH_STREET_EVENT = {
+  id: "shigfest",
+  title: "Summer Shigfest with Leglifter",
+  fullUrl: "/events/th5nnh7fd5wzmapnp9c8fs6cgd86wa",
+  startDate: Date.UTC(2026, 5, 4, 1, 30, 0), // 2026-06-03 18:30 PDT
+  endDate: Date.UTC(2026, 5, 4, 4, 30, 0),
+  location: {
+    addressTitle: "",
+    addressLine1: "520 North Sunrise Avenue",
+    addressLine2: "Roseville, California, 95661",
+  },
+  body: "",
+};
+
 const NUMBERED_PAST_EVENT = {
   id: "ghi",
   title: "Inky's Birthday Trail (#1726)",
@@ -127,6 +145,21 @@ describe("parseSquarespaceEvent", () => {
     const ev = parseSquarespaceEvent(CAMPOUT_EVENT, CONFIG, BASE, PT);
     expect(ev?.location).toBe("Black Miner Bar");
     expect(ev?.locationStreet).toBe("9875 Greenback Lane, Folsom, CA, 95630");
+  });
+
+  it("falls back to the composed street for locationName when addressTitle is blank (#1933)", () => {
+    const ev = parseSquarespaceEvent(
+      BLANK_TITLE_WITH_STREET_EVENT,
+      CONFIG,
+      BASE,
+      PT,
+    );
+    expect(ev?.location).toBe(
+      "520 North Sunrise Avenue, Roseville, California, 95661",
+    );
+    expect(ev?.locationStreet).toBe(
+      "520 North Sunrise Avenue, Roseville, California, 95661",
+    );
   });
 
   it("emits endDate for multi-day events when the end day is after the start day", () => {

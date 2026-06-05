@@ -334,6 +334,12 @@ export function parseSquarespaceEvent(
   // short-circuit preserves the stored Manhattan default forever (#957).
   const { latitude, longitude, defaultPinRejected } = extractVenueCoords(loc);
 
+  // #1933: when the venue title is blank but a street address is present, fall
+  // back to the composed street so the event still surfaces a displayable
+  // locationName instead of rendering "venue TBD". Computed once and reused
+  // for both fields so they can't diverge.
+  const street = composeLocationStreet(loc);
+
   return {
     date,
     endDate,
@@ -341,8 +347,8 @@ export function parseSquarespaceEvent(
     runNumber: extractHashRunNumber(title),
     title,
     description: description || undefined,
-    location: loc.addressTitle?.trim() || undefined,
-    locationStreet: composeLocationStreet(loc),
+    location: loc.addressTitle?.trim() || street || undefined,
+    locationStreet: street,
     latitude,
     longitude,
     startTime: formatLocalTime(startMs, timezone),

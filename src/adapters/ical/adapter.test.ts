@@ -215,6 +215,36 @@ describe("parseICalSummary", () => {
     expect(result.runNumber).toBeUndefined();
     expect(result.title).toBe("Kegs & Eggs");
   });
+
+  // #1955: with keepNonKennelTitlePrefix on, an event-type prefix is NOT a
+  // kennel prefix — it must not be stripped. "Hash Lunch" matches neither a
+  // run marker nor the resolved kennel tag, so parseICalSummary leaves `title`
+  // undefined and the caller keeps the full summary (asserted in the
+  // ICalAdapter integration test).
+  it("keeps an event-type prefix when keepNonKennelTitlePrefix is set (Perth Hash Lunch)", () => {
+    const result = parseICalSummary("Hash Lunch: Friday 5th June", [], "perth-h3", true);
+    expect(result.kennelTag).toBe("perth-h3");
+    expect(result.runNumber).toBeUndefined();
+    expect(result.title).toBeUndefined();
+  });
+
+  it("still strips a kennel prefix that matches the default tag when the flag is set", () => {
+    // Guard the boundary: a real kennel prefix on a default-tag source must
+    // keep stripping. "Perth H3" normalizes to the tag "perth-h3".
+    const result = parseICalSummary("Perth H3: Mismanagement Mingle", [], "perth-h3", true);
+    expect(result.title).toBe("Mismanagement Mingle");
+  });
+
+  it("strips ANY prefix by default (flag off) — preserves legacy multi-kennel feed behavior", () => {
+    // The Reading regional Localendar tags everything `rh3` but carries full
+    // kennel-name prefixes ("Lehigh Valley HHH: Mayfair Hash"). With the flag
+    // off these must keep stripping to a clean event title.
+    const result = parseICalSummary("Lehigh Valley HHH: Mayfair Hash", [], "rh3");
+    expect(result.title).toBe("Mayfair Hash");
+    // And the same summary is KEPT once the flag is on (kennel name ≠ tag).
+    const kept = parseICalSummary("Lehigh Valley HHH: Mayfair Hash", [], "rh3", true);
+    expect(kept.title).toBeUndefined();
+  });
 });
 
 describe("extractHaresFromDescription", () => {
@@ -589,6 +619,42 @@ describe("ICalAdapter", () => {
     expect(descLoc!.location).toBe("The Brass Tap");
     expect(descLoc!.locationUrl).toBe("https://www.google.com/maps/place/The+Brass+Tap");
     expect(descLoc!.hares).toBe("Test Runner");
+  });
+
+  // #1955 — Perth H3 (The Events Calendar iCal). A special event whose
+  // SUMMARY is "Hash Lunch: Friday 5th June" must keep its full title; the
+  // "Hash Lunch:" prefix is an event type, not a kennel prefix to strip.
+  it("keeps an event-type SUMMARY prefix as the full title (Perth Hash Lunch)", async () => {
+    const perthIcs = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//Test//EN",
+      "BEGIN:VEVENT",
+      "UID:perth-lunch-1",
+      "DTSTART;TZID=Australia/Perth:20260605T123000",
+      "DTEND;TZID=Australia/Perth:20260605T143000",
+      "SUMMARY:Hash Lunch: Friday 5th June",
+      "LOCATION:Quello Cafe, Subiaco",
+      "DTSTAMP:20260201T000000Z",
+      "END:VEVENT",
+      "END:VCALENDAR",
+    ].join("\r\n");
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(perthIcs, { status: 200 }),
+    );
+
+    const source = buildMockSource({
+      name: "Perth H3 Hareline",
+      url: "https://www.perthhash.com/?post_type=tribe_events&ical=1&eventDisplay=list",
+      config: { defaultKennelTag: "perth-h3", keepNonKennelTitlePrefix: true },
+    });
+    const result = await adapter.fetch(source, { days: 9999 });
+
+    const lunch = result.events.find((e) => e.date === "2026-06-05");
+    expect(lunch).toBeDefined();
+    expect(lunch!.kennelTags[0]).toBe("perth-h3");
+    expect(lunch!.title).toBe("Hash Lunch: Friday 5th June");
   });
 
   // #1242 — regression guard for the dedicated "East Bay H3 iCal Feed"
