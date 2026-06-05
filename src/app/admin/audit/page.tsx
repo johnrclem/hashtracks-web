@@ -19,6 +19,12 @@ import { AuditSyncStatus } from "./AuditSyncStatus";
 import { buildHarelinePrompt } from "@/lib/admin/hareline-prompt";
 import { mintQueueTokens } from "@/lib/queue-snapshot-token";
 
+// The "Re-sync now" server action (resyncAuditIssues) runs the full sync
+// on this route — GitHub fetch + a transaction up to SYNC_TX_TIMEOUT_MS
+// (120s). Lift the function budget above that (matching the sync cron) so
+// a manual catch-up of a large backlog isn't 504'd before Prisma finishes.
+export const maxDuration = 300;
+
 /** Build the daily hareline audit prompt at request time so the curated
  *  sections (recently-fixed, focus areas) reflect live data. Returns null on
  *  failure so the dashboard hides the copy button rather than rendering empty. */
