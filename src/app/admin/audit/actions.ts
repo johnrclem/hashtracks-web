@@ -991,8 +991,9 @@ export type ResyncAuditIssuesResult =
  * `GitHub API <status> on page <n>` prefix and drop the body; cap any
  * other message as a backstop. Full detail goes to Sentry.
  */
+const GITHUB_API_ERROR_PREFIX_RE = /^GitHub API \d+ on page \d+/;
 function sanitizeResyncError(message: string): string {
-  const githubPrefix = message.match(/^GitHub API \d+ on page \d+/);
+  const githubPrefix = GITHUB_API_ERROR_PREFIX_RE.exec(message);
   if (githubPrefix) return githubPrefix[0];
   return message.length > 200 ? `${message.slice(0, 200)}…` : message;
 }

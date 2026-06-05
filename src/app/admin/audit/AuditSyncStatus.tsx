@@ -21,10 +21,10 @@ import {
  */
 export function AuditSyncStatus({
   freshness,
-}: {
+}: Readonly<{
   /** Result of `getAuditSyncFreshness`; null when the probe itself failed. */
   freshness: AuditSyncFreshness | null;
-}) {
+}>) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<ResyncAuditIssuesResult | null>(null);
@@ -96,7 +96,7 @@ export function AuditSyncStatus({
 }
 
 /** Inline success/error feedback for the last re-sync attempt. */
-function ResyncFeedback({ result }: { result: ResyncAuditIssuesResult | null }) {
+function ResyncFeedback({ result }: Readonly<{ result: ResyncAuditIssuesResult | null }>) {
   if (!result) return null;
   if (result.ok) {
     const r = result.result;
@@ -134,9 +134,11 @@ function stalenessHeadline(freshness: AuditSyncFreshness | null): string {
     return "Audit mirror has never been synced.";
   }
   const days = Math.floor(freshness.ageHours / 24);
-  const age =
-    days >= 1
-      ? `${days} day${days === 1 ? "" : "s"}`
-      : `${Math.floor(freshness.ageHours)}h`;
+  let age: string;
+  if (days >= 1) {
+    age = `${days} day${days === 1 ? "" : "s"}`;
+  } else {
+    age = `${Math.floor(freshness.ageHours)}h`;
+  }
   return `Audit dashboard data is ${age} stale (last synced ${formatRelativeTime(freshness.lastSyncAt)}).`;
 }

@@ -58,7 +58,7 @@ vi.mock("@/generated/prisma/client", () => ({
 
 import { getAdminUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { syncAuditIssues } from "@/pipeline/audit-issue-sync";
+import { syncAuditIssues, type SyncResult } from "@/pipeline/audit-issue-sync";
 import { revalidatePath } from "next/cache";
 import { buildPrismaUniqueViolation } from "@/test/factories";
 import {
@@ -91,6 +91,14 @@ const mockSupDeleteMany = vi.mocked(prisma.auditSuppression.deleteMany);
 const mockIssueAggregate = vi.mocked(prisma.auditIssue.aggregate);
 const mockSync = vi.mocked(syncAuditIssues);
 const mockRevalidate = vi.mocked(revalidatePath);
+
+// getAuditSyncFreshness only reads `_max.syncedAt`, but Prisma's aggregate
+// return type also carries _count/_avg/_sum/_min. Build the minimal shape
+// the action uses and widen it once here rather than asserting per call.
+type AuditIssueAggregate = Awaited<ReturnType<typeof prisma.auditIssue.aggregate>>;
+function aggregateWithSyncedAt(syncedAt: Date | null): AuditIssueAggregate {
+  return { _max: { syncedAt } } as unknown as AuditIssueAggregate;
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -749,7 +757,7 @@ describe("getAuditSyncFreshness", () => {
     { label: "long-dead sync", hoursAgo: 240, stale: true },
   ])("marks a $label as stale=$stale", async ({ hoursAgo, stale }) => {
     const lastSyncAt = new Date(Date.now() - hoursAgo * 3_600_000);
-    mockIssueAggregate.mockResolvedValue({ _max: { syncedAt: lastSyncAt } } as never);
+    mockIssueAggregate.mockResolvedValue(aggregateWithSyncedAt(lastSyncAt));
 
     const result = await getAuditSyncFreshness();
 
@@ -759,7 +767,7 @@ describe("getAuditSyncFreshness", () => {
   });
 
   it("treats an empty mirror as stale with a null age", async () => {
-    mockIssueAggregate.mockResolvedValue({ _max: { syncedAt: null } } as never);
+    mockIssueAggregate.mockResolvedValue(aggregateWithSyncedAt(null));
     const result = await getAuditSyncFreshness();
     expect(result).toEqual({ lastSyncAt: null, ageHours: null, stale: true });
   });
@@ -772,7 +780,7 @@ describe("resyncAuditIssues", () => {
   });
 
   it("returns ok and revalidates the dashboard on a successful sync", async () => {
-    const syncResult = {
+    const syncResult: SyncResult = {
       scanned: 5,
       opened: 2,
       closed: 1,
@@ -781,7 +789,7 @@ describe("resyncAuditIssues", () => {
       delisted: 0,
       errors: [],
     };
-    mockSync.mockResolvedValue(syncResult as never);
+    mockSync.mockResolvedValue(syncResult);
 
     const result = await resyncAuditIssues();
 
@@ -811,7 +819,7 @@ describe("resyncAuditIssues", () => {
   });
 
   it("flags a partial sync (per-issue errors) without claiming a clean run", async () => {
-    const syncResult = {
+    const syncResult: SyncResult = {
       scanned: 10,
       opened: 3,
       closed: 1,
@@ -820,7 +828,7 @@ describe("resyncAuditIssues", () => {
       delisted: 0,
       errors: ["#42: multi-stream label conflict"],
     };
-    mockSync.mockResolvedValue(syncResult as never);
+    mockSync.mockResolvedValue(syncResult);
 
     const result = await resyncAuditIssues();
 
