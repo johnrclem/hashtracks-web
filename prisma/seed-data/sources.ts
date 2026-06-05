@@ -3904,6 +3904,26 @@ export const SOURCES = [
       kennelCodes: ["wsh3-ch"],
     },
 
+    // ===== AUSTRIA =====
+    {
+      // One source feeds BOTH Vienna kennels: `Hash #` rows → vindobona-h3,
+      // `FMH #` rows → vienna-fmh3 (routed by the VindobonaH3Adapter line prefix).
+      // Apex host only — www.viennahash.org returns an empty body.
+      name: "Vindobona H3 Hareline",
+      url: "https://viennahash.org/plans/futureruns.html",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        // Rolling forward hareline prunes past runs → suppress reconcile false-cancels.
+        upcomingOnly: true,
+        // Next-run enrichment page (GPS, start time, venue) merged by run number.
+        scheduleUrl: "https://viennahash.org/schedule.html",
+      },
+      kennelCodes: ["vindobona-h3", "vienna-fmh3"],
+    },
+
     // ===== NETHERLANDS =====
     {
       name: "Amsterdam H3 Website",

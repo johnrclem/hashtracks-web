@@ -102,6 +102,7 @@ import { PattayaH3Adapter } from "./html-scraper/pattaya-h3";
 import { BangkokBikersAdapter } from "./html-scraper/bangkok-bikers";
 import { BangkokH3Adapter } from "./html-scraper/bangkok-h3";
 import { BangkokMondayHashAdapter } from "./html-scraper/bangkok-monday-hash";
+import { VindobonaH3Adapter } from "./html-scraper/vindobona-h3";
 import { LVH3Adapter } from "./html-scraper/lvh3";
 import { BoulderH3Adapter } from "./html-scraper/boulder-h3";
 import { BoiseH3Adapter } from "./html-scraper/boiseh3";
@@ -260,6 +261,8 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /bangkokbikehash\.org/i, name: "BangkokBikersAdapter", factory: () => new BangkokBikersAdapter() },
   { pattern: /bangkokhhh\.org/i, name: "BangkokH3Adapter", factory: () => new BangkokH3Adapter() },
   { pattern: /bangkokmondayhhh\.com/i, name: "BangkokMondayHashAdapter", factory: () => new BangkokMondayHashAdapter() },
+  // ── Austria ──
+  { pattern: /viennahash\.org/i, name: "VindobonaH3Adapter", factory: () => new VindobonaH3Adapter() },
   // ── Nevada ──
   { pattern: /lvh3\.org/i, name: "LVH3Adapter", factory: () => new LVH3Adapter() },
   // ── Idaho ──

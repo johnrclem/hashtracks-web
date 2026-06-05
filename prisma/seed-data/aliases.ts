@@ -364,6 +364,11 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     // Keyed "wsh3-ch" (NOT "wsh3" → Wandering Soul H3). Bare "WSH3" alias omitted (claimed).
     "wsh3-ch": ["Winterthur & Schaffhausen Hash House Harriers", "Winterthur & Schaffhausen H3", "Winterthur Schaffhausen H3", "W&S H3", "WSH3 Switzerland"],
 
+    // ===== AUSTRIA =====
+    // Bare "VH3" alias omitted (claimed by Victoria H3, BC); "FMH" omitted (too generic).
+    "vindobona-h3": ["Vindobona", "Vindobona Hash", "Vindobona HHH", "Vienna Hash", "Vienna H3", "VH3 Vienna", "World's Wurst Hash"],
+    "vienna-fmh3": ["Vienna Full Moon", "Vienna Full Moon Hash", "Vindobona Full Moon", "Vienna FMH3", "VFMH3"],
+
     // ===== LOUISIANA =====
     "noh3": ["NOH3", "New Orleans Hash", "New Orleans HHH", "New Orleans H3", "NOLA Hash"],
     "voodoo-h3": ["Voodoo Hash", "Voodoo H3", "Voodoo HHH", "VoodooH3"],
