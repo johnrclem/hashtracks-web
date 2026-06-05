@@ -4137,6 +4137,19 @@ export const KENNELS: KennelSeed[] = [
       latitude: 13.76, longitude: 100.5,
     },
     {
+      kennelCode: "bmh3-bkk", shortName: "Bangkok Monday H3",
+      fullName: "Bangkok Monday Hash House Harriers",
+      region: "Bangkok", country: "Thailand",
+      website: "https://bangkokmondayhhh.com",
+      facebookUrl: "https://www.facebook.com/groups/376239262431489",
+      foundedYear: 1982,
+      scheduleDayOfWeek: "Monday", scheduleTime: "5:30 PM", scheduleFrequency: "Weekly",
+      hashCash: "฿250 men / ฿200 women (+฿50 non-members); ฿300 life membership",
+      description:
+        "Bangkok's Monday-night hash since 1982 — 7–8 km runs in a different spot around the city each week (usually the outskirts), followed by beers and a circle. Informal and visitor-friendly; Thai, foreign, resident, or visiting, all welcome.",
+      latitude: 13.7563, longitude: 100.5018,
+    },
+    {
       kennelCode: "bfmh3", shortName: "BFMH3", fullName: "Bangkok Full Moon Hash House Harriers",
       region: "Bangkok", country: "Thailand",
       website: "https://www.bangkokhash.com/fullmoon/index.php",
