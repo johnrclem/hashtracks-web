@@ -530,6 +530,12 @@ function bagToRawEvent(bag: EventBag, kennelTag: string, timezone: string): RawE
 export interface FacebookDescriptionFields {
   hares?: string;
   locationStreet?: string;
+  /** Run fee, free-form (`Hash Cash: $6` → `"$6"`). #1930. */
+  cost?: string;
+  /** Shiggy Scale 1–5 (`Shiggy: 3` → `3`); placeholder/non-numeric omitted. #1930. */
+  difficulty?: number;
+  /** Pre-event meetup venue/time (`Pre-lube: …`). #1930. */
+  prelube?: string;
 }
 
 // Address-block label tokens. Matched procedurally (`parseLocationLabel`) to
@@ -589,6 +595,68 @@ export function extractFieldsFromFbDescription(description: string): FacebookDes
     if (cleanedStreet.length > 0) out.locationStreet = cleanedStreet;
   }
 
+  // #1930: hash kennels (e.g. PCH3) embed `Hash Cash: $6`, `Shiggy: 3`,
+  // `Pre-lube: …` as `Label: value` lines in the post body. Map these onto
+  // the existing Event columns. Post-run venue lines (`On-after:`) and timing
+  // lines (`Gather:`, `Hares away:`) have no column and stay in the verbatim
+  // description, matching the SDH3 "On after → description" precedent.
+  const labeled = extractCostShiggyPrelube(trimmed);
+  if (labeled.cost !== undefined) out.cost = labeled.cost;
+  if (labeled.difficulty !== undefined) out.difficulty = labeled.difficulty;
+  if (labeled.prelube !== undefined) out.prelube = labeled.prelube;
+
+  return out;
+}
+
+// #1930 label sets. Matched as whole, case-insensitive labels (the part before
+// the first `:` on a line) via plain string ops — no regex, so Sonar S5852 is
+// moot. Kept narrow so unrelated lines (`Start:`, `Gather:`, `Pets:`) don't leak.
+// Deliberately narrow: only the unambiguous "hash cash" label. A bare "cash"
+// label would mis-fire on prose like "Cash: bring small bills" for any FB
+// kennel (this parser is shared across all FACEBOOK_HOSTED_EVENTS sources).
+const FB_COST_LABELS = new Set(["hash cash"]);
+const FB_SHIGGY_LABELS = new Set(["shiggy", "shiggy level", "shiggy scale"]);
+const FB_PRELUBE_LABELS = new Set(["pre-lube", "prelube"]);
+
+/**
+ * Validate a Shiggy Scale value: integer 1–5, else undefined. Mirrors
+ * `parseShiggyScale` in burlington-hash.ts (kept local to avoid coupling the
+ * FB parser to an HTML-scraper module). Placeholder values like `?` or prose
+ * (`hilly`) yield undefined so we never fabricate a difficulty.
+ */
+function parseFbShiggy(raw: string): number | undefined {
+  const match = /^(\d+)$/.exec(raw.trim());
+  if (!match) return undefined;
+  const n = Number.parseInt(match[1], 10);
+  return Number.isInteger(n) && n >= 1 && n <= 5 ? n : undefined;
+}
+
+/**
+ * Walk description lines once, pulling the first cost / shiggy / prelube
+ * `Label: value` line each. First-match-wins per field; empty values skipped.
+ */
+function extractCostShiggyPrelube(description: string): {
+  cost?: string;
+  difficulty?: number;
+  prelube?: string;
+} {
+  const out: { cost?: string; difficulty?: number; prelube?: string } = {};
+  for (const rawLine of description.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    const colon = line.indexOf(":");
+    if (colon <= 0) continue;
+    const label = line.slice(0, colon).trim().toLowerCase();
+    const value = line.slice(colon + 1).trim();
+    if (!value) continue;
+    if (out.cost === undefined && FB_COST_LABELS.has(label)) {
+      out.cost = value;
+    } else if (out.difficulty === undefined && FB_SHIGGY_LABELS.has(label)) {
+      const n = parseFbShiggy(value);
+      if (n !== undefined) out.difficulty = n;
+    } else if (out.prelube === undefined && FB_PRELUBE_LABELS.has(label)) {
+      out.prelube = value;
+    }
+  }
   return out;
 }
 

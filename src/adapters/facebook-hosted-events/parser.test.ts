@@ -525,6 +525,10 @@ describe("extractFieldsFromFbDescription (#1319)", () => {
     expect(extractFieldsFromFbDescription("   \n\n  ")).toEqual({});
   });
 
+  it("extracts prelube when present (Hollyweird MAY_15)", () => {
+    expect(extractFieldsFromFbDescription(MAY_15_DESCRIPTION).prelube).toBe("5ish");
+  });
+
   it("recognizes alternate location labels (Where, Address, Start, Meet)", () => {
     const desc = "Where: Some Bar\n123 Main St, Anytown, NY 10001";
     const fields = extractFieldsFromFbDescription(desc);
@@ -630,6 +634,78 @@ describe("extractFieldsFromFbDescription (#1319)", () => {
     ["Hare: Closed on Sunday Brunch", "Closed on Sunday Brunch"],
   ])("leaves the hare line untouched for %p (prose, not a date trailer)", (desc, expected) => {
     expect(extractFieldsFromFbDescription(desc).hares).toBe(expected);
+  });
+});
+
+describe("extractFieldsFromFbDescription — cost / shiggy / prelube (#1930)", () => {
+  // PCH3 Run #1004 — structured Label: value lines in the FB post body.
+  const PCH3_RUN_1004 = [
+    "Hash #1004",
+    "Inebriate DilToe's Birthday",
+    "",
+    "Hares: B-SH*t",
+    "Start: Past Idyll Hounds - continue past Idyll Hounds on Serenoa",
+    "",
+    "Gather: 6:00pm",
+    "Hares away: 6:30pm",
+    "Shiggy: ?",
+    "Hash Cash: $6",
+    "Pets: ?",
+    "Bring: Hash cash, whistle, light, bug spray, $ and ID",
+    "On-after: Idyll Hounds",
+  ].join("\n");
+
+  it("extracts cost from Hash Cash and leaves shiggy unset when it is a placeholder", () => {
+    const fields = extractFieldsFromFbDescription(PCH3_RUN_1004);
+    expect(fields.cost).toBe("$6");
+    // "Shiggy: ?" is a placeholder — never fabricate a difficulty.
+    expect(fields.difficulty).toBeUndefined();
+    // On-after / Gather / Hares away have no column — stay in the description.
+    expect(fields.prelube).toBeUndefined();
+  });
+
+  it.each([
+    ["Shiggy: 1", 1],
+    ["Shiggy: 3", 3],
+    ["Shiggy Level: 5", 5],
+    ["Shiggy Scale: 4", 4],
+  ])("parses a valid 1–5 shiggy value %p", (line, expected) => {
+    expect(extractFieldsFromFbDescription(`Hash Cash: $5\n${line}`).difficulty).toBe(expected);
+  });
+
+  it.each([
+    "Shiggy: ?",
+    "Shiggy: 0",
+    "Shiggy: 7",
+    "Shiggy: hilly",
+    "Shiggy: 3/5",
+  ])("omits difficulty for out-of-range/non-numeric %p", (line) => {
+    expect(extractFieldsFromFbDescription(line).difficulty).toBeUndefined();
+  });
+
+  it.each([
+    ["Hash Cash: $6", "$6"],
+    ["Hash Cash: $5 cash / $10 card", "$5 cash / $10 card"],
+  ])("extracts free-form cost from %p", (line, expected) => {
+    expect(extractFieldsFromFbDescription(line).cost).toBe(expected);
+  });
+
+  it("does NOT treat a bare 'Cash:' line as the run fee (avoids false positives across FB kennels)", () => {
+    expect(extractFieldsFromFbDescription("Cash: bring small bills, no cards").cost).toBeUndefined();
+  });
+
+  it("extracts prelube from a Pre-lube line", () => {
+    expect(extractFieldsFromFbDescription("Pre-lube: O'Malley's at 5pm").prelube).toBe(
+      "O'Malley's at 5pm",
+    );
+  });
+
+  it("ignores unrelated labeled lines (Gather, Pets, Bring)", () => {
+    const desc = "Gather: 5:30pm\nPets: yes\nBring: water";
+    const fields = extractFieldsFromFbDescription(desc);
+    expect(fields.cost).toBeUndefined();
+    expect(fields.difficulty).toBeUndefined();
+    expect(fields.prelube).toBeUndefined();
   });
 });
 
