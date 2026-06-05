@@ -251,6 +251,48 @@ function splitVenue(value: string): { location: string; street?: string } {
   return { location: value };
 }
 
+/** Apply a "Where:" value → location + street + optional maps URL. */
+function applyWhereValue(
+  card: CardData,
+  value: string,
+  venueUrlMap: Map<string, string>,
+): void {
+  if (!value || TBA_RE.test(value)) return;
+  const { location, street } = splitVenue(value);
+  card.location = location;
+  card.locationStreet = street;
+  const url = venueUrlMap.get(value);
+  if (url) card.locationUrl = url;
+}
+
+/** Apply a "Hare(s):" value → normalized name list, flagging "Hares needed". */
+function applyHareValue(card: CardData, value: string): void {
+  if (!value) {
+    card.haresNeeded = true;
+    return;
+  }
+  if (haresNeededIn(value)) card.haresNeeded = true;
+  // Split on "&" and Oxford commas into name tokens, then drop any
+  // "Hares needed/wanted" placeholder token so real names before it survive
+  // (e.g. "Goes Down Well & Hares needed" → "Goes Down Well"). All string
+  // ops + anchored regexes — no \s*-adjacent alternation (Sonar S5852).
+  const parts = value
+    .split("&")
+    .flatMap((p) => p.split(","))
+    .map((s) => s.trim())
+    .filter((t) => t && !haresNeededIn(t) && !NEEDED_ONLY_RE.test(t));
+  if (parts.length > 0) card.hares = parts.join(", ");
+}
+
+/** Apply a bare (label-less) body line → the card's date, if not already set. */
+function applyCardDateLine(card: CardData, line: string): void {
+  if (card.date) return;
+  const parsed = parseDateString(line);
+  if (!parsed) return;
+  card.date = parsed;
+  if (haresNeededIn(line)) card.haresNeeded = true;
+}
+
 /** Apply one card-body line to the in-progress card (mutates card + descParts). */
 function applyCardLine(
   card: CardData,
@@ -258,46 +300,21 @@ function applyCardLine(
   line: string,
   venueUrlMap: Map<string, string>,
 ): void {
+  const value = () => line.replace(LABEL_VALUE_RE, "").trim();
   if (WHERE_LABEL_RE.test(line)) {
-    const value = line.replace(LABEL_VALUE_RE, "").trim();
-    if (value && !TBA_RE.test(value)) {
-      const { location, street } = splitVenue(value);
-      card.location = location;
-      card.locationStreet = street;
-      const url = venueUrlMap.get(value);
-      if (url) card.locationUrl = url;
-    }
+    applyWhereValue(card, value(), venueUrlMap);
   } else if (HARE_LABEL_RE.test(line)) {
-    const value = line.replace(LABEL_VALUE_RE, "").trim();
-    if (!value) {
-      card.haresNeeded = true;
-    } else {
-      if (haresNeededIn(value)) card.haresNeeded = true;
-      // Split on "&" and Oxford commas into name tokens, then drop any
-      // "Hares needed/wanted" placeholder token so real names before it survive
-      // (e.g. "Goes Down Well & Hares needed" → "Goes Down Well"). All string
-      // ops + anchored regexes — no \s*-adjacent alternation (Sonar S5852).
-      const parts = value
-        .split("&")
-        .flatMap((p) => p.split(","))
-        .map((s) => s.trim())
-        .filter((t) => t && !haresNeededIn(t) && !NEEDED_ONLY_RE.test(t));
-      if (parts.length > 0) card.hares = parts.join(", ");
-    }
+    applyHareValue(card, value());
   } else if (COST_LABEL_RE.test(line)) {
-    const value = line.replace(LABEL_VALUE_RE, "").trim();
-    if (value) card.cost = value;
+    const cost = value();
+    if (cost) card.cost = cost;
   } else if (NOTE_LABEL_RE.test(line)) {
-    const value = line.replace(LABEL_VALUE_RE, "").trim();
-    if (value && !TBA_RE.test(value)) descParts.push(line);
+    const note = value();
+    if (note && !TBA_RE.test(note)) descParts.push(line);
   } else if (SUBTITLE_RE.test(line)) {
     descParts.push(line);
-  } else if (!card.date) {
-    const parsed = parseDateString(line);
-    if (parsed) {
-      card.date = parsed;
-      if (haresNeededIn(line)) card.haresNeeded = true;
-    }
+  } else {
+    applyCardDateLine(card, line);
   }
 }
 
@@ -327,22 +344,26 @@ function parseCards(
   venueUrlMap: Map<string, string>,
 ): Map<string, CardData> {
   const map = new Map<string, CardData>();
-  for (let i = 0; i < lines.length; i++) {
+  let i = 0;
+  while (i < lines.length) {
     const route = matchRoute(lines[i]);
-    if (!route || isScheduleRest(route.rest)) continue; // skip schedule lines; cards only
-
+    if (!route || isScheduleRest(route.rest)) {
+      i++; // skip schedule lines; cards only
+      continue;
+    }
     const body: string[] = [];
     let j = i + 1;
-    for (; j < lines.length; j++) {
+    while (j < lines.length) {
       const next = lines[j];
       if (SECTION_BREAK_RE.test(next) || matchRoute(next) || WRITEUP_HEAD_RE.test(next)) break;
       body.push(next);
+      j++;
     }
     const key = `${route.tag}#${route.runNumber}`;
     if (!map.has(key)) {
       map.set(key, buildCard(route.tag, route.runNumber, route.rest, body, venueUrlMap));
     }
-    i = j - 1;
+    i = j; // resume at the line that ended this card's body
   }
   return map;
 }
@@ -371,36 +392,41 @@ interface YearState {
 /** Resolve the calendar year for a run, rolling Dec→Jan forward within a list. */
 function resolveYear(pd: ParsedDate, baseYear: number, state: YearState): number {
   let year: number;
-  if (pd.explicitYear != null) {
-    year = pd.explicitYear;
-    state.yearOffset = year - baseYear;
-  } else {
+  if (pd.explicitYear == null) {
     if (state.prevMonth != null && pd.month < state.prevMonth) state.yearOffset++;
     year = baseYear + state.yearOffset;
+  } else {
+    year = pd.explicitYear;
+    state.yearOffset = year - baseYear;
   }
   state.prevMonth = pd.month;
   return year;
+}
+
+/** The three per-run lookup maps produced by the parse passes. */
+interface ParsedMaps {
+  scheduleMap: Map<string, ScheduleEntry>;
+  cardMap: Map<string, CardData>;
+  writeupMap: Map<number, string>;
 }
 
 /** Merge backbone + card + write-up data for a single run into a RawEventData. */
 function buildEvent(
   tag: KennelTag,
   run: number,
-  scheduleMap: Map<string, ScheduleEntry>,
-  cardMap: Map<string, CardData>,
-  writeupMap: Map<number, string>,
+  maps: ParsedMaps,
   year: number,
   pd: ParsedDate,
   sourceUrl: string,
 ): RawEventData {
   const key = `${tag}#${run}`;
-  const sched = scheduleMap.get(key);
-  const card = cardMap.get(key);
+  const sched = maps.scheduleMap.get(key);
+  const card = maps.cardMap.get(key);
 
   const realHare = card?.hares ? normalizeHaresField(card.hares) : undefined;
   const haresNeeded = sched?.haresNeeded || card?.haresNeeded;
   const hares = realHare ?? (haresNeeded ? null : undefined);
-  const title = card?.theme ?? (tag === "vh3" ? writeupMap.get(run) : undefined);
+  const title = card?.theme ?? (tag === "vh3" ? maps.writeupMap.get(run) : undefined);
 
   return {
     date: `${year}-${pad(pd.month)}-${pad(pd.day)}`,
@@ -422,9 +448,7 @@ function buildEvent(
 
 /** Assemble the final event list (union of schedule + card keys, year-resolved). */
 function assembleEvents(
-  scheduleMap: Map<string, ScheduleEntry>,
-  cardMap: Map<string, CardData>,
-  writeupMap: Map<number, string>,
+  maps: ParsedMaps,
   baseYear: number,
   sourceUrl: string,
 ): RawEventData[] {
@@ -433,8 +457,8 @@ function assembleEvents(
     dsmh3: new Set(),
     vk9h3: new Set(),
   };
-  for (const entry of scheduleMap.values()) runsByTag[entry.tag].add(entry.runNumber);
-  for (const card of cardMap.values()) runsByTag[card.tag].add(card.runNumber);
+  for (const entry of maps.scheduleMap.values()) runsByTag[entry.tag].add(entry.runNumber);
+  for (const card of maps.cardMap.values()) runsByTag[card.tag].add(card.runNumber);
 
   const events: RawEventData[] = [];
   for (const tag of Object.keys(runsByTag) as KennelTag[]) {
@@ -442,10 +466,10 @@ function assembleEvents(
     const state: YearState = { prevMonth: null, yearOffset: 0 };
     for (const run of runs) {
       // Card date wins (curated near-term view); schedule list is the fallback.
-      const pd = cardMap.get(`${tag}#${run}`)?.date ?? scheduleMap.get(`${tag}#${run}`);
+      const pd = maps.cardMap.get(`${tag}#${run}`)?.date ?? maps.scheduleMap.get(`${tag}#${run}`);
       if (!pd) continue; // no date anywhere — cannot emit
       const year = resolveYear(pd, baseYear, state);
-      events.push(buildEvent(tag, run, scheduleMap, cardMap, writeupMap, year, pd, sourceUrl));
+      events.push(buildEvent(tag, run, maps, year, pd, sourceUrl));
     }
   }
   return events;
@@ -461,10 +485,12 @@ export function parseVictoriaH3Page(
   const venueUrlMap = buildVenueUrlMap($);
   const baseYear = resolveBaseYear(lines);
 
-  const scheduleMap = parseScheduleMap(lines);
-  const cardMap = parseCards(lines, venueUrlMap);
-  const writeupMap = parseWriteups(lines);
-  const events = assembleEvents(scheduleMap, cardMap, writeupMap, baseYear, sourceUrl);
+  const maps: ParsedMaps = {
+    scheduleMap: parseScheduleMap(lines),
+    cardMap: parseCards(lines, venueUrlMap),
+    writeupMap: parseWriteups(lines),
+  };
+  const events = assembleEvents(maps, baseYear, sourceUrl);
 
   // Fail loud (and block reconcile) if any expected kennel produced no events —
   // a partial parse must not let reconcile cancel the broken kennel's future runs.
