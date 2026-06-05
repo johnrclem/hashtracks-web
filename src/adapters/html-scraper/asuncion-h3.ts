@@ -201,14 +201,14 @@ function runFromTitle(title: string): number | undefined {
   return m ? Number.parseInt(m[1], 10) : undefined;
 }
 
-// Defensive: strip a trailing site-name suffix if WP ever appends it to the
-// rendered post title (og:title is bare "Run #N", but <title> carries
-// " – Asunción Hash House Harriers"). Bounded literal, anchored to end.
-const TITLE_SUFFIX_RE = /\s*[–—-]\s*Asunci[oó]n Hash House Harriers\s*$/i;
-
-/** Source post title ("Run #120"), decoded + suffix-stripped, or undefined. */
+/**
+ * Source post title ("Run #120"), decoded + trimmed, or undefined. The WP REST
+ * `title.rendered` is the bare post title (the " – Asunción Hash House Harriers"
+ * site-name suffix only appears on the HTML `<title>` tag, never this field), so
+ * no suffix strip is needed.
+ */
 function cleanTitle(rendered: string): string | undefined {
-  const cleaned = decodeEntities(rendered).replace(TITLE_SUFFIX_RE, "").trim();
+  const cleaned = decodeEntities(rendered).trim();
   return cleaned.length > 0 ? cleaned : undefined;
 }
 

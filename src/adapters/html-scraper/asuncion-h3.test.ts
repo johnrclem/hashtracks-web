@@ -116,11 +116,6 @@ describe("postToEvent", () => {
     expect(ev!.title).toBe("Run #120");
   });
 
-  it("strips a trailing site-name suffix from the title if WP appends one", () => {
-    const ev = postToEvent(post("Run #118 – Asunción Hash House Harriers", RUN_120_HTML, 6311));
-    expect(ev!.title).toBe("Run #118");
-  });
-
   it.each([
     ["bare 'Hare:'", "Hare: Solo Hare", "Solo Hare"],
     ["plural 'Hares:'", "Hares: Alpha &amp; Beta", "Alpha & Beta"],
