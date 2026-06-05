@@ -42,7 +42,6 @@ const DEFAULT_SCHEDULE_URL = "https://viennahash.org/schedule.html";
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^\d{1,2}:\d{2}$/;
-const RUN_NO_RE = /^#\d+$/;
 /** GPS pin form on schedule.html: "GPS coordinates: N48.21903, E16.37094". */
 const GPS_RE = /N(\d+\.\d+),\s*E(\d+\.\d+)/;
 
@@ -131,7 +130,10 @@ export function parseScheduleNextRun($: CheerioAPI): NextRunInfo | null {
   $("tr").each((_i, el) => {
     if (result) return;
     const cells = extractCells($, el);
-    const runCell = cells.find((c) => RUN_NO_RE.test(c.trim()));
+    // The run cell may be bare (`#2363`) or prefixed (`Hash #2363`,
+    // `Full Moon Hash #299`); extractHashRunNumber matches either. No other cell
+    // in the run row carries a `#NNN`, so this won't grab the venue/date/time.
+    const runCell = cells.find((c) => extractHashRunNumber(c) !== undefined);
     const dateCell = cells.find((c) => ISO_DATE_RE.test(c.trim()));
     const timeCell = cells.find((c) => TIME_RE.test(c.trim()));
     if (!runCell || !dateCell) return;
@@ -205,7 +207,7 @@ export class VindobonaH3Adapter implements SourceAdapter {
     } else {
       structureHash = harelinePage.structureHash;
       const $ = harelinePage.$;
-      const rows = $("table tr");
+      const rows = $("#futuretable tr");
       rowsFound = rows.length;
       rows.each((i, el) => {
         try {
@@ -250,12 +252,14 @@ export class VindobonaH3Adapter implements SourceAdapter {
     // Per-kennel fail-loud zero guard. A markup drift that silently breaks the
     // `Hash #` prefix (or the whole table) must NOT let reconcile false-cancel a
     // kennel's future runs — any error here suppresses reconcile (scrape.ts:533).
+    // Measured on the raw parse (`events`), NOT the date-windowed subset: a
+    // narrow options.days could legitimately empty `windowed` without any drift.
     // Zero FMH rows is normal (full moons are occasional), so we don't guard it.
     if (harelinePage.ok) {
-      const vindobonaCount = windowed.filter((e) =>
+      const vindobonaCount = events.filter((e) =>
         e.kennelTags.includes(PRIMARY_KENNEL),
       ).length;
-      if (windowed.length === 0) {
+      if (events.length === 0) {
         errors.push("Vindobona H3: parsed 0 events from futureruns.html (markup drift?)");
       } else if (vindobonaCount === 0) {
         errors.push(

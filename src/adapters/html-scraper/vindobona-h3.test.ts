@@ -178,6 +178,16 @@ describe("parseScheduleNextRun", () => {
     expect(parseScheduleNextRun($)).toBeNull();
   });
 
+  it("reads a prefixed run-number cell (e.g. 'Hash #2363')", () => {
+    const $ = cheerio.load(
+      `<html><body><table class="runinfo">
+        <tr><td><strong>2026-06-08</strong></td><td>18:30</td><td>Hash #2363</td><td>Miss Piss</td>
+        <td>Venue GPS coordinates: N48.21903, E16.37094</td></tr>
+      </table></body></html>`,
+    );
+    expect(parseScheduleNextRun($)?.runNumber).toBe(2363);
+  });
+
   it("drops out-of-range GPS coords but keeps the rest of the detail", () => {
     const $ = cheerio.load(
       `<html><body><table class="runinfo">
@@ -238,6 +248,20 @@ describe("VindobonaH3Adapter.fetch", () => {
     const result = await new VindobonaH3Adapter().fetch(makeSource(), { days: 100000 });
     expect(result.events).toHaveLength(0);
     expect(result.errors.join(" ")).toMatch(/0 events/i);
+  });
+
+  it("fires the Hash# prefix-drift guard when only FMH rows parse", async () => {
+    const allFmh = `<html><head><table id="futuretable"><tbody>
+      <tr><td>2026-08-01</td><td>FMH #30?</td><td>Casting Couch</td><td></td></tr>
+      <tr><td>2026-09-01</td><td>FMH #31?</td><td>Someone</td><td></td></tr>
+    </tbody></table></head></html>`;
+    mockedSafeFetch.mockImplementation((url: string | URL) =>
+      Promise.resolve(String(url).includes("futureruns") ? htmlResponse(allFmh) : htmlResponse(SCHEDULE_HTML)),
+    );
+    const result = await new VindobonaH3Adapter().fetch(makeSource(), { days: 100000 });
+    expect(result.events).toHaveLength(2); // events still emit
+    expect(result.events.every((e) => e.kennelTags.includes("vienna-fmh3"))).toBe(true);
+    expect(result.errors.join(" ")).toMatch(/0 vindobona-h3 events/i);
   });
 
   it("reports a fetch error (and no events) when the hareline page fails", async () => {

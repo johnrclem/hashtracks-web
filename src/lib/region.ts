@@ -3323,7 +3323,9 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   [/\b(belgium|brussels|bruxelles|antwerp|ghent)\b/, "Belgium"],
   [/\b(spain|españa|espana|costa del sol|mijas|malaga|málaga|marbella|fuengirola|andalucia|andalucía|madrid|barcelona)\b/, "Spain"],
   [/\b(switzerland|schweiz|suisse|svizzera|zurich|zürich|geneva|bern|basel|winterthur|schaffhausen)\b/, "Switzerland"],
-  [/\b(austria|österreich|osterreich|vienna|wien|vindobona)\b/, "Austria"],
+  // `\b` is ASCII-only, so a leading `\bösterreich` boundary never matches the
+  // non-ASCII `ö`; anchor the diacritic form explicitly (mirrors île-de-france).
+  [/\b(austria|osterreich|vienna|wien|vindobona)\b|(?:^|\W)österreich\b/, "Austria"],
   [/\b(france|paris|ile-de-france)\b|(?:^|\W)île-de-france\b/, "France"],
   [/\b(netherlands|amsterdam|rotterdam|den haag|the hague|holland)\b/, "Netherlands"],
   [/\b(denmark|copenhagen|københavn|aarhus)\b/, "Denmark"],
