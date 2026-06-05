@@ -278,3 +278,65 @@ lives in the **post body**. Confirmed structure, stable April 2019 → June 2026
   adapter (`brass-monkey.ts` title-parse, `ofh3.ts`/`brasilia-h3.ts` body-parse). Register by URL
   pattern in `htmlScrapersByUrl`. `fetchBloggerPosts(url, maxResults)` is the shared plumbing that
   bypasses cloud-IP 403s.
+
+---
+
+## Gamma sites (gamma.app) — server-rendered card pages (learned from Victoria H3, 2026-06-04)
+
+Some kennels (Victoria H3 / `vh3.ca`) publish on **Gamma** (`gamma.app`), a slide/site builder. A
+published Gamma site is reachable on a custom domain (`vh3.ca`) and on `*.sites.gamma.app`
+(`www.vh3.ca` CNAMEs to `sites.gamma.app`).
+
+- **Detection:** footer link "Made with gamma.app"; `meta-og:image` / `meta-twitter:image` on
+  `assets.api.gamma.app`; all in-page images on `cdn.gamma.app/...` and `imgproxy.gamma.app/...`;
+  `meta-robots: noindex, nofollow`.
+- **Fully server-rendered.** A plain `web_fetch` / `fetchHTMLPage` returns the COMPLETE content
+  (every event, all text) — **no `browserRender` needed.** Use static Cheerio.
+- **🔴 Whole-document `.text()` / `stripHtmlTags()` STACK-OVERFLOWS.** Gamma nests each block in a
+  deep tree of divs; calling `$.text()` on the root (or `stripHtmlTags(html)`) blows the domutils
+  `textContent` recursion stack on a real page (vh3.ca is ~833 KB). `cheerio.load(html)` is fine —
+  the overflow is only in whole-tree text extraction. **Select the leaf text-block wrappers and read
+  each one's (shallow) `.text()` instead:**
+  `'[data-node-view-content-inner="paragraph"],[...="heading"],[...="title"]'`. Each paragraph
+  subtree is shallow, so per-node `.text()` is safe and yields clean lines in document order with
+  entities decoded. (Confirmed Victoria H3 / PR #1992 — the first thing to get right on any Gamma site.)
+- **Layout = "cards."** The page is a stack of Gamma cards anchored as `#card-<id>`. The content
+  Victoria H3 exposed has the kennel data **twice**: (a) rich per-event **cards** near the top
+  (image + bold heading `VH3 #929 The Double Sixth Festival` + `Where:`/`Hare:`/`Cost:`/`On-afters:`
+  lines, near-term events only), and (b) plain per-kennel **schedule lists** at the bottom
+  (`VH3 #918: Saturday, January 17, 2:30 pm.` … one line per run, the full season). **Parse the
+  bottom lists as the backbone** (complete + clean), enrich the nearest runs from the top cards,
+  match by (kennelTag, runNumber).
+- **Multi-kennel pages are common** — one Gamma site can host several sibling kennels (Victoria H3 +
+  Dark Side of the Moon H3 + Victoria K9 H3). Route by the run-line title prefix (`^VH3 #`,
+  `Dark Side of the Moon Run #`, `^Victoria K9 H3 #`); seed one HTML source with all `kennelCodes`.
+  **Emit a per-kennel fail-loud zero guard** (one error per expected tag, not just a total-zero
+  check) so a partial parse — one kennel's prefix breaks while the others parse — can't let
+  `reconcile` false-cancel the dropped kennel's future runs.
+- **🟡 Schedule-vs-card discriminator: key on a WEEKDAY prefix, NOT a month-name substring.** A
+  schedule-list line carries its date inline and its remainder after the run number starts with a
+  weekday (`VH3 #918: Saturday, …`); a card heading's remainder is a theme or empty. Discriminate on
+  `/^:?\s*(?:mon|tue|wed|thu|fri|sat|sun)/i` against the remainder — a month-name check would
+  misclassify a theme like **"May Day Madness"** (contains "May") as a schedule row. (Codex catch on
+  PR #1992.)
+- **A "Hash Write-ups" prose section** gives completed runs a real theme/title (`Hash#918 The Annual
+  New Year's Day Polar Bear Swim (Jan 1st)`). Parse it into a runNumber→theme map and use it as the
+  title for past runs that have no card.
+- **Rolling current-season page** — only the current year's runs are listed (no deep archive). Set
+  `config.upcomingOnly: true` so reconcile doesn't cancel completed runs when the page rolls to the
+  next year. Completed runs of the current season ingest on the first scrape (they're still listed).
+- **Dates often omit the year** (`Saturday, June 6, 2:30 pm`); some include it; a January run can be
+  next-year (`Friday January 1 (2027)`). Use `chronoParseDate` + a reference date + Dec→Jan rollover.
+- **Venues are `maps.app.goo.gl` shortlinks → no extractable coords.** Store as `locationUrl`; leave
+  lat/lng undefined (centroid fallback). No coord-corruption trap.
+- **Logos are tokenized `cdn.gamma.app/...` URLs → self-host** to `public/kennel-logos/<code>.<ext>`;
+  confirm the extension by **magic bytes, NOT Content-Type** — the VH3 logo is served `Content-Type:
+  image/png` but is actually **WebP** (`RIFF…WEBP`), so it saved as `vh3.webp`. The Gamma CDN
+  mislabels; trust the bytes.
+- **✅ CONFIRMED DOM (Victoria H3, PR #1992).** Every visible text block is its own node-view wrapper
+  `<div data-node-view-content-inner="paragraph|heading|title">…</div>`; one logical line = one
+  wrapper. Venue links are `<a href="https://maps.app.goo.gl/…"><span>Venue text</span></a>` — the
+  `.text()` of a paragraph loses the href, so build a venue-text→URL map separately via
+  `$('a[href*="maps.app.goo.gl"]')`. Reference adapter: `src/adapters/html-scraper/victoria-h3.ts`
+  (`linearize` = select the node-view leaves; two-pass parse = schedule backbone + card enrichment;
+  `parseVictoriaH3Page` exported for unit tests with a fixture built from this real markup).
