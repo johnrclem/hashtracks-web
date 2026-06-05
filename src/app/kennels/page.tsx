@@ -50,6 +50,7 @@ export default async function KennelsPage() {
         country: true,
         latitude: true,
         longitude: true,
+        logoUrl: true,
         description: true,
         foundedYear: true,
         scheduleDayOfWeek: true,
