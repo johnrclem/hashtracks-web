@@ -1,11 +1,13 @@
 "use server";
 
 import * as Sentry from "@sentry/nextjs";
+import { revalidatePath } from "next/cache";
 import { AuditStream, AuditIssueEventType } from "@/generated/prisma/client";
 import { isUniqueConstraintViolation } from "@/lib/prisma-errors";
 import { prisma } from "@/lib/db";
 import { getAdminUser } from "@/lib/auth";
 import { KNOWN_AUDIT_RULES, type AuditFinding } from "@/pipeline/audit-checks";
+import { syncAuditIssues, type SyncResult } from "@/pipeline/audit-issue-sync";
 import { DASHBOARD_STREAMS } from "@/lib/audit-stream-meta";
 import type {
   HarelinePromptInputs,
@@ -925,4 +927,94 @@ export async function getHarelinePromptInputs(): Promise<HarelinePromptInputs> {
   }));
 
   return { recentlyFixed, focusAreas };
+}
+
+// ── Sync freshness + manual re-sync (issue #1958) ───────────────────
+//
+// Every dashboard widget reads live from the AuditIssue / AuditIssueEvent
+// mirror, which a daily cron (`/api/cron/sync-audit-issues`, 12:30 UTC)
+// repopulates from GitHub. When that cron fails — e.g. an expired
+// GITHUB_TOKEN makes `fetchAllAuditIssues` throw a 401 before any write
+// (#1958) — the mirror silently freezes and the whole dashboard serves
+// stale snapshots with no visible signal. These two actions make the
+// freeze loud (freshness probe → banner) and one-click recoverable
+// (manual re-sync) without waiting for the next cron.
+
+/** Warn once the last sync write is older than this. Keep in step with
+ *  the cron cadence in `vercel.json` (`/api/cron/sync-audit-issues`,
+ *  `30 12 * * *` = daily 12:30 UTC): 24h interval + 6h slack for cron
+ *  jitter + render time, so a healthy daily cron never false-alarms but
+ *  a single missed run trips the banner. */
+const SYNC_STALENESS_WARN_HOURS = 30;
+
+export interface AuditSyncFreshness {
+  /** Timestamp of the most recent mirror write (max `AuditIssue.syncedAt`),
+   *  or null when the mirror is empty. `syncedAt` is `@updatedAt`, so the
+   *  full-pull sync bumps it across every row on each run — but the
+   *  recurrence-escalation / file-finding paths also write individual
+   *  rows. In practice both paths depend on a live GITHUB_TOKEN, so the
+   *  #1958 token-expiry freeze (sync throws before any write) still
+   *  surfaces here; a dedicated "last full sync" marker is a tracked
+   *  follow-up if finer accuracy is ever needed. */
+  lastSyncAt: Date | null;
+  /** Hours since `lastSyncAt`, or null when the mirror is empty. */
+  ageHours: number | null;
+  /** True when the mirror is older than the warn threshold, or empty. */
+  stale: boolean;
+}
+
+export async function getAuditSyncFreshness(): Promise<AuditSyncFreshness> {
+  await requireAdmin();
+  const agg = await prisma.auditIssue.aggregate({ _max: { syncedAt: true } });
+  const lastSyncAt = agg._max.syncedAt ?? null;
+  if (!lastSyncAt) {
+    // Empty mirror — treat as stale so a never-run sync is surfaced, not
+    // mistaken for a quiet-but-healthy day.
+    return { lastSyncAt: null, ageHours: null, stale: true };
+  }
+  const ageHours = (Date.now() - lastSyncAt.getTime()) / 3_600_000;
+  return { lastSyncAt, ageHours, stale: ageHours > SYNC_STALENESS_WARN_HOURS };
+}
+
+/** Discriminated result for the manual re-sync trigger. The error string
+ *  is surfaced verbatim in the UI so a 401 (dead token) is diagnosable
+ *  without a log dive. */
+export type ResyncAuditIssuesResult =
+  | { ok: true; result: SyncResult }
+  | { ok: false; error: string };
+
+/**
+ * Reduce a sync error to a short, body-free message safe to render in
+ * the browser. `fetchAllAuditIssues` embeds GitHub's raw response body
+ * (`await res.text()`) in its error — echoing that verbatim to the
+ * client would leak response headers/HTML. Keep the diagnostic
+ * `GitHub API <status> on page <n>` prefix and drop the body; cap any
+ * other message as a backstop. Full detail goes to Sentry.
+ */
+function sanitizeResyncError(message: string): string {
+  const githubPrefix = message.match(/^GitHub API \d+ on page \d+/);
+  if (githubPrefix) return githubPrefix[0];
+  return message.length > 200 ? `${message.slice(0, 200)}…` : message;
+}
+
+/**
+ * Manually run the GitHub→mirror sync from the dashboard. The operator's
+ * catch-up path after a sync outage (e.g. a rotated GITHUB_TOKEN) —
+ * avoids waiting for the next 12:30 UTC cron. Also a live diagnostic:
+ * while the token is invalid, the returned error surfaces `GitHub API
+ * 401` directly in the UI so the operator knows exactly what to fix.
+ * `result.errors` is preserved on success so the UI can distinguish a
+ * clean sync from a partial one (mirrors the cron's 207 semantics).
+ */
+export async function resyncAuditIssues(): Promise<ResyncAuditIssuesResult> {
+  await requireAdmin();
+  try {
+    const result = await syncAuditIssues();
+    revalidatePath("/admin/audit");
+    return { ok: true, result };
+  } catch (err) {
+    Sentry.captureException(err, { tags: { action: "resyncAuditIssues" } });
+    const message = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: sanitizeResyncError(message) };
+  }
 }
