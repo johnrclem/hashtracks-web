@@ -22,6 +22,7 @@ export interface ICalSourceConfig {
   enrichSFH3Details?: boolean;         // fetch sfh3.com/runs/{id} detail pages for canonical title + Comment field
   enrichBerlinH3Details?: boolean;     // fetch berlin-h3.eu event pages for Hares field from wp-event-manager
   allowEmptyBody?: boolean;            // treat an empty 200 body as an empty-success (0 events) instead of an error — The Events Calendar's ?ical=1 export returns 0 bytes when there are no upcoming events (ICH3 #1753)
+  keepNonKennelTitlePrefix?: boolean;  // #1955: only strip a "Prefix:" from the SUMMARY title when the prefix identifies the kennel (run marker or matching tag); keep event-type prefixes like "Hash Lunch:". Off by default — most feeds (e.g. the Reading regional Localendar) use full kennel-name prefixes that SHOULD be stripped.
   coalesceEndpointDuplicates?: boolean; // collapse a same-date all-day /events/{n} VEVENT into its timed /runs/{m} twin, enriching hares/description/etc. — Oslo H3 publishes each run on both endpoints (#1828)
 }
 
@@ -49,6 +50,7 @@ export function parseICalSummary(
   summary: string,
   kennelPatterns?: [string, string][],
   defaultKennelTag?: string,
+  keepNonKennelTitlePrefix = false,
 ): { kennelTag: string; runNumber?: number; title?: string } {
   let kennelTag: string | undefined;
   // Match against config patterns
@@ -74,19 +76,66 @@ export function parseICalSummary(
 
   // Extract title: everything after "#{number}: " or "{kennel}: " or "{kennel} #{number}: "
   let title: string | undefined;
-  // Try stripping "KENNEL #NUM: TITLE" or "KENNEL: TITLE" pattern
+  // Capture the pre-colon prefix (group 1), an optional run marker (group 2),
+  // and the title (group 3). Group 1 is greedy but its char class excludes
+  // both "#" and ":", so it always stops at the first run marker or colon —
+  // the same split point a lazy quantifier would find. No `\s*` quantifier sits
+  // adjacent to another (the post-colon whitespace is trimmed below instead),
+  // so there's no super-linear backtracking shape. The prefix is stripped only
+  // when it identifies the kennel — see below.
   const titleMatch = summary.match(
-    /^[A-Za-z0-9 .'-]+(?:\s*#[\d.A-Za-z]+)?:\s*(.+)$/,
+    /^([A-Za-z0-9 .'-]+)(#[\d.A-Za-z]+)?:(.+)$/,
   );
   if (titleMatch) {
-    // Drop a leading unconfirmed-run placeholder ("#120?") that the kennel
-    // uses in place of a real run number (#1785): "RH3: #120? Kegs & Eggs" →
-    // "Kegs & Eggs"; a bare "RH3: #120?" → undefined so the caller can
-    // synthesize a default rather than surfacing the placeholder marker.
-    title = titleMatch[1].replace(/^#\d+\?+\s*/, "").trim() || undefined;
+    // #1955: when `keepNonKennelTitlePrefix` is set, only strip the prefix
+    // when it is a kennel prefix — either it carries a "#<run>" marker
+    // ("SFH3 #2285: Title") or it matches the resolved kennel ("FHAC-U: BAWC
+    // 5", "RH3: #120? Kegs & Eggs"). An event-type prefix like "Hash Lunch:
+    // Friday 5th June" matches neither, so we leave `title` undefined and let
+    // the caller keep the full summary instead of surfacing a bare date.
+    // Default (flag off): strip any prefix — most feeds (e.g. the Reading
+    // regional Localendar) use full kennel-name prefixes that should go.
+    const prefix = titleMatch[1].trim();
+    const hasRunMarker = !!titleMatch[2];
+    const stripPrefix =
+      !keepNonKennelTitlePrefix || hasRunMarker || prefixMatchesKennel(prefix, kennelTag);
+    if (stripPrefix) {
+      // Drop a leading unconfirmed-run placeholder ("#120?") that the kennel
+      // uses in place of a real run number (#1785): "RH3: #120? Kegs & Eggs" →
+      // "Kegs & Eggs"; a bare "RH3: #120?" → undefined so the caller can
+      // synthesize a default rather than surfacing the placeholder marker.
+      // trimStart first because the regex no longer consumes post-colon space.
+      title = titleMatch[3].trimStart().replace(/^#\d+\?+\s*/, "").trim() || undefined;
+    }
   }
 
   return { kennelTag, runNumber, title };
+}
+
+/** Normalize a kennel token for loose comparison: lowercase, drop everything
+ *  that isn't a letter or digit ("FHAC-U" → "fhacu", "Marin H3" → "marinh3"). */
+function normalizeKennelToken(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+/**
+ * Does the pre-colon `prefix` identify the resolved `kennelTag`? Used by
+ * `parseICalSummary` to decide whether a "Prefix: Title" summary is a kennel
+ * prefix worth stripping. Because the resolved tag derives from the kennel's
+ * name/code, a genuine kennel prefix normalizes to exactly the tag —
+ * "SFH3"→"sfh3", "FHAC-U"→"fhacu", "Marin H3"→"marinh3". An event-type phrase
+ * like "Hash Lunch"→"hashlunch" matches no kennel tag, so it's kept.
+ *
+ * Exact equality only (no prefix/substring match): a looser `startsWith` would
+ * over-strip qualifiers that happen to share the kennel code, e.g. it would
+ * reduce "RH3 Social: Pub Night" to "Pub Night", dropping the "Social"
+ * qualifier the flag exists to preserve. Run-marker prefixes ("SFH3 #2285:")
+ * are handled separately by the caller's `hasRunMarker` check.
+ */
+function prefixMatchesKennel(prefix: string, kennelTag: string): boolean {
+  const np = normalizeKennelToken(prefix);
+  const nk = normalizeKennelToken(kennelTag);
+  return np !== "" && np === nk;
 }
 
 // Module-level patterns for description field extraction
@@ -465,6 +514,7 @@ function buildRawEventFromVEvent(
     summary,
     config?.kennelPatterns,
     config?.defaultKennelTag,
+    config?.keepNonKennelTitlePrefix,
   );
 
   const dateStr = formatDate(vevent.start);

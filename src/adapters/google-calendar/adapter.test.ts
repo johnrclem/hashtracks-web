@@ -100,6 +100,50 @@ describe("Colorado H3 Aggregator multi-kennel routing (#850)", () => {
   });
 });
 
+// ── Memphis H3 Google Calendar — GyNO sister-kennel routing (#1954) ──
+
+describe("Memphis H3 Google Calendar — GyNO routing (#1954)", () => {
+  const memphisSource = SOURCES.find((s) => s.name === "Memphis H3 Google Calendar");
+  if (!memphisSource?.config) throw new Error("Memphis H3 Google Calendar seed config missing");
+  const config = memphisSource.config as Parameters<typeof buildRawEventFromGCalItem>[1];
+
+  it.each([
+    // The GyNO pattern is listed first so it wins over the generic Memphis
+    // pattern (most-specific-wins ordering, cf. LVH3 #1479).
+    ["GyNO H3 - Harriette Happy Hour!", "gynoh3", "GyNO sister-kennel event"],
+    ["GyNO H3 #45", "gynoh3", "GyNO with run number"],
+    ["MH3 #1234", "mh3-tn", "Memphis abbrev"],
+    ["Memphis Thirstday Trail", "mh3-tn", "Memphis full name"],
+  ])("routes %j → %s (%s)", (summary, expectedTag) => {
+    const result = buildRawEventFromGCalItem(
+      { summary, start: { dateTime: "2026-06-04T18:00:00-05:00" }, status: "confirmed" },
+      config,
+    );
+    expect(result?.kennelTags[0]).toBe(expectedTag);
+  });
+});
+
+// ── Princeton NJ Hash Calendar — placeholder title substitution (#1934) ──
+
+describe("Princeton NJ Hash Calendar — placeholder title (#1934)", () => {
+  const princetonSource = SOURCES.find((s) => s.name === "Princeton NJ Hash Calendar");
+  if (!princetonSource?.config) throw new Error("Princeton NJ Hash Calendar seed config missing");
+  const config = princetonSource.config as Parameters<typeof buildRawEventFromGCalItem>[1];
+
+  it("substitutes the standing schedule-description placeholder with the default title", () => {
+    const result = buildRawEventFromGCalItem(
+      {
+        summary: "Regular Hash Day, 2nd Sunday, detail cuming",
+        start: { dateTime: "2026-06-14T14:00:00-04:00" },
+        status: "confirmed",
+      },
+      config,
+    );
+    expect(result?.kennelTags[0]).toBe("princeton-h3");
+    expect(result?.title).toBe("Princeton H3 Hash");
+  });
+});
+
 // ── Denver H3 Google Calendar cross-post routing (#1649) ──
 
 describe("Denver H3 Google Calendar — cross-post routing (#1649)", () => {

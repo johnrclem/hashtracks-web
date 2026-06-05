@@ -289,6 +289,14 @@ export const SOURCES = [
         kennelPatterns: [["^Regular Hash", "princeton-h3"], ["^MDL Hash", "princeton-h3"]],
         // null default so Summit/Rumson/other placeholders are skipped
         defaultKennelTag: null,
+        // #1934: every 2nd-Sunday event carries the standing schedule-description
+        // placeholder "Regular Hash Day, 2nd Sunday, detail cuming" as its title
+        // until the kennel posts run details. Substitute a clean default name so
+        // the event surfaces as a real run rather than a schedule blurb.
+        defaultTitle: "Princeton H3 Hash",
+        staleTitleAliases: {
+          "princeton-h3": ["Regular Hash Day, 2nd Sunday, detail cuming"],
+        },
       },
       kennelCodes: ["princeton-h3"],
     },
@@ -4812,6 +4820,11 @@ export const SOURCES = [
       scrapeDays: 180,
       config: {
         defaultKennelTag: "perth-h3",
+        // #1955: Perth publishes special events as "Hash Lunch: Friday 5th
+        // June" — keep the event-type prefix instead of stripping it down to a
+        // bare date. Perth uses no kennel-code title prefixes, so this only
+        // affects the colon-prefixed specials.
+        keepNonKennelTitlePrefix: true,
       },
       kennelCodes: ["perth-h3"],
     },
@@ -5714,6 +5727,11 @@ export const SOURCES = [
         pageHandle: "MemphisH3",
         timezone: "America/Chicago",
         upcomingOnly: true,
+        // #1954: the Memphis FB page hosts sister-kennel GyNO H3 events, which
+        // this adapter would hard-tag mh3-tn (no kennelPatterns support yet).
+        // GyNO already has its own GCal-fed `gynoh3` source, so drop the FB
+        // duplicate at the ingest boundary instead of mis-attributing it.
+        silentlySkipPatterns: [{ pattern: String.raw`\bGyNO\b`, field: "title" }],
       },
       kennelCodes: ["mh3-tn"],
     },
