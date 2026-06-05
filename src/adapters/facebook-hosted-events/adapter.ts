@@ -274,6 +274,15 @@ function applyDetailDescription(event: RawEventData, description: string): RawEv
     ...(event.locationStreet === undefined && extra.locationStreet
       ? { locationStreet: extra.locationStreet }
       : {}),
+    // #1930: cost / difficulty / prelube mined from the post body. Only
+    // backfill when the listing pass left them unset (it always does today).
+    ...(event.cost === undefined && extra.cost !== undefined ? { cost: extra.cost } : {}),
+    ...(event.difficulty === undefined && extra.difficulty !== undefined
+      ? { difficulty: extra.difficulty }
+      : {}),
+    ...(event.prelube === undefined && extra.prelube !== undefined
+      ? { prelube: extra.prelube }
+      : {}),
   };
 }
 
