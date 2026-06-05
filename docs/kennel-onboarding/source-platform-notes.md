@@ -389,3 +389,28 @@ though there's no SaaS platform behind it:
   page-year; `inferYear` is the bidirectional rule; `parseNextRunBlock` extracts the single pin via
   `extractCoordsFromMapsUrl`). Backfill loader `scripts/backfill-bmh3-bkk-history.ts` + frozen
   `scripts/data/bmh3-bkk-history.json`.
+
+#### Vindobona H3 addenda (verified via real web_fetch, 2026-06-05) — apex-not-www + ISO dates + N/E GPS
+
+`viennahash.org` (Vindobona HHH, Vienna — est. 1982, hand-maintained since the 90s) is another bespoke
+static club site but with three differences from Bangkok Monday, all confirmed by fetching the real pages:
+
+- **🔴 The `www.` host returns an EMPTY body; the bare apex returns full SSR'd HTML.** `https://www.viennahash.org/`
+  and `…/schedule.html` returned **nothing** to the sandbox fetcher, while `https://viennahash.org/schedule.html`
+  (and every other page) returned complete content. Seed and fetch the **apex** URL. (Chrome MCP also
+  auto-denied the brand-new domain with no user present — the apex web_fetch is what unblocked it.)
+- **🔴 Dates are already ISO `YYYY-MM-DD` — NO year inference needed** (unlike Bangkok's `DD MMM`). The
+  receding hareline `plans/futureruns.html` is a flat pipe/newline-delimited list:
+  `2026-06-08 | Hash #2363 | Miss Piss | <notes>`. Parse the ISO date straight to UTC noon.
+- **Dual-surface, merge by run number:** `plans/futureruns.html` = the forward backbone (run#, hares,
+  notes — far-future runs have **unfinalized numbers** like `Hash #23??` / `FMH #30?`: store `runNumber`
+  only for a clean `#\d+`, else undefined). `schedule.html` = the single **next run** with full detail
+  (time `18:30`, venue, on-after, and a **`GPS coordinates: N<lat>, E<lng>`** line — N/E-prefixed decimals,
+  NOT a Maps URL → parse `/N(\d+\.\d+),\s*E(\d+\.\d+)/` locally; `extractCoordsFromMapsUrl` won't match it).
+- **Multi-kennel by line prefix:** `Hash #` → the main kennel, `FMH #` → the Full Moon sibling. One HTML
+  source, all `kennelCodes`. FMH numbering on the source is unreliable (a `#30?` contradicts the dead
+  blog's `#241` from 2020) — never "correct" it.
+- **No clean historical archive:** the site's stats pages are per-hasher cumulative tables, `locations.html`
+  is per-year Google My-Maps links, `history.html` is milestone prose, and the Blogspot recap blog
+  (`whatcanisayaboutthiselixir.blogspot.com`) is **dead since 2020** (#2085, free-form prose, run# only in
+  category tags). For sites like this, the live forward hareline is the whole deliverable — no backfill.
