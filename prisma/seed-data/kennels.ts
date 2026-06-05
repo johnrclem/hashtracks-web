@@ -1222,6 +1222,42 @@ export const KENNELS: KennelSeed[] = [
       description: "Winterthur & Schaffhausen's English-speaking hash — 'a drinking club with a running problem.' WSH3 lays a flour trail on the third Saturday of each month around the Winterthur and Schaffhausen area of northern Switzerland, usually meeting at a public-transport-accessible point near Schaffhausen, and finishes with an On-After at a local restaurant. Runners and walkers of all abilities welcome.",
       latitude: 47.5, longitude: 8.72,
     },
+    // ===== AUSTRIA =====
+    // --- Vienna ---
+    {
+      kennelCode: "vindobona-h3", shortName: "Vindobona H3", fullName: "Vindobona Hash House Harriers",
+      region: "Vienna", country: "Austria",
+      website: "https://viennahash.org",
+      logoUrl: "/kennel-logos/vindobona-h3.png", // self-hosted; magic bytes confirm PNG
+      contactEmail: "webmaster@viennahash.at",
+      facebookUrl: "https://www.facebook.com/viennahash/",
+      hashCash: "€5",
+      // Legacy flat fields kept for fallback only — scheduleRules below are authoritative.
+      scheduleDayOfWeek: "Monday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
+      scheduleRules: [
+        { rrule: "FREQ=WEEKLY;BYDAY=MO", startTime: "18:30", label: "Summer (Monday evening)", displayOrder: 0 },
+        { rrule: "FREQ=WEEKLY;BYDAY=SU", startTime: "14:30", label: "Winter (Sunday afternoon)", displayOrder: 1 },
+      ],
+      scheduleNotes: "Roughly weekly. Monday 18:30 in summer, Sunday 14:30 in winter; dates shift, so trust the published hareline. The Full Moon Hash (sibling Vienna FMH3) runs Friday ~19:00 nearest the full moon.",
+      foundedYear: 1982,
+      dogFriendly: true, walkersWelcome: true,
+      description: "Founded 25 April 1982, Vindobona H3 is Vienna's original hash — 'the drinking club with a running problem' and self-styled 'World's Wurst Hash.' On Run #2363+ in 2026. Runs roughly weekly: Monday evenings (18:30) in summer, Sunday afternoons (14:30) in winter, plus a Full Moon Hash. Run fee €5; dogs and walkers welcome.",
+      latitude: 48.21, longitude: 16.37,
+    },
+    {
+      kennelCode: "vienna-fmh3", shortName: "Vienna FMH3", fullName: "Vienna Full Moon Hash House Harriers",
+      region: "Vienna", country: "Austria",
+      website: "https://viennahash.org",
+      logoUrl: "/kennel-logos/vienna-fmh3.jpg", // self-hosted; magic bytes confirm JPEG
+      contactEmail: "webmaster@viennahash.at",
+      hashCash: "€5",
+      scheduleDayOfWeek: "Friday", scheduleTime: "7:00 PM", scheduleFrequency: "Monthly",
+      scheduleNotes: "Full Moon Hash — Friday evening closest to each full moon, 19:00. Sub-chapter of Vindobona H3, sharing facilities.",
+      foundedYear: 2000,
+      dogFriendly: true, walkersWelcome: true,
+      description: "The Full Moon sub-chapter of Vindobona H3 (Vienna), founded 5 November 2000. Runs on the Friday evening closest to each full moon at 19:00, sharing all facilities with VH3.",
+      latitude: 48.21, longitude: 16.37,
+    },
     // ===== PENNSYLVANIA (outside Philly) =====
     // --- Pittsburgh ---
     {

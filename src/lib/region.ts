@@ -1825,6 +1825,30 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: 8.72,
     aliases: ["Winterthur, Switzerland", "Schaffhausen"],
   },
+  // ── Austria ──
+  {
+    name: "Austria",
+    country: "Austria",
+    level: "COUNTRY",
+    timezone: "Europe/Vienna",
+    abbrev: "AT",
+    colorClasses: "bg-teal-200 text-teal-800",
+    pinColor: "#0d9488",
+    centroidLat: 47.6,
+    centroidLng: 14.55,
+    aliases: ["AT", "Österreich"],
+  },
+  {
+    name: "Vienna",
+    country: "Austria",
+    timezone: "Europe/Vienna",
+    abbrev: "VIE",
+    colorClasses: "bg-teal-100 text-teal-700",
+    pinColor: "#14b8a6",
+    centroidLat: 48.21,
+    centroidLng: 16.37,
+    aliases: ["Wien", "Vienna, Austria"],
+  },
   // ── Louisiana ──
   {
     name: "Louisiana",
@@ -3299,6 +3323,7 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   [/\b(belgium|brussels|bruxelles|antwerp|ghent)\b/, "Belgium"],
   [/\b(spain|españa|espana|costa del sol|mijas|malaga|málaga|marbella|fuengirola|andalucia|andalucía|madrid|barcelona)\b/, "Spain"],
   [/\b(switzerland|schweiz|suisse|svizzera|zurich|zürich|geneva|bern|basel|winterthur|schaffhausen)\b/, "Switzerland"],
+  [/\b(austria|österreich|osterreich|vienna|wien|vindobona)\b/, "Austria"],
   [/\b(france|paris|ile-de-france)\b|(?:^|\W)île-de-france\b/, "France"],
   [/\b(netherlands|amsterdam|rotterdam|den haag|the hague|holland)\b/, "Netherlands"],
   [/\b(denmark|copenhagen|københavn|aarhus)\b/, "Denmark"],
@@ -3558,6 +3583,8 @@ const STATE_GROUP_MAP: Record<string, string> = {
   // Switzerland
   "Zürich": "Switzerland",
   "Winterthur": "Switzerland",
+  // Austria
+  "Vienna": "Austria",
   // Malaysia — Kuala Lumpur is a Federal Territory (state-equivalent),
   // NOT part of Selangor. Penang Island is a metro under Penang state.
   "Kuala Lumpur, MY": "Kuala Lumpur, MY",
@@ -3723,6 +3750,7 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   "Sweden": "Sweden",
   "Norway": "Norway",
   "Switzerland": "Switzerland",
+  "Austria": "Austria",
   "Singapore": "Singapore",
   "Thailand": "Thailand",
   "Bangkok": "Thailand",
@@ -3832,6 +3860,7 @@ const COUNTRY_CODE_TO_NAME: Record<string, string> = {
   SE: "Sweden",
   NO: "Norway",
   CH: "Switzerland",
+  AT: "Austria",
   AU: "Australia",
   CA: "Canada",
   SG: "Singapore",
