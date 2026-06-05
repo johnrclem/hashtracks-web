@@ -755,7 +755,10 @@ export function buildRunHareTitle(
   runNumber: number | undefined,
   hares: string | null | undefined,
 ): string | undefined {
-  if (runNumber == null) return undefined;
+  // `== null` covers null/undefined but NOT NaN (NaN == null is false), so a
+  // stray NaN would otherwise render "Run #NaN". Guard it explicitly — this is
+  // a shared helper and a future caller might pass an unguarded parseInt.
+  if (runNumber == null || Number.isNaN(runNumber)) return undefined;
   const h = hares?.trim();
   return h ? `Run #${runNumber} w/ ${h}` : `Run #${runNumber}`;
 }

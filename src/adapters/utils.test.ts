@@ -988,6 +988,11 @@ describe("buildRunHareTitle (#1973 NSWHHH)", () => {
   it("returns undefined when there's no run number (merge synthesizes the default)", () => {
     expect(buildRunHareTitle(undefined, "He'll Do")).toBeUndefined();
   });
+
+  it("returns undefined for NaN (guards against an unguarded parseInt) rather than 'Run #NaN'", () => {
+    expect(buildRunHareTitle(Number.NaN, "He'll Do")).toBeUndefined();
+    expect(buildRunHareTitle(Number.parseInt("not-a-number", 10), null)).toBeUndefined();
+  });
 });
 
 // #1272/#1274/#1275 — placeholder-runNumber detection. Kennel admins use
