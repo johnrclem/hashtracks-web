@@ -168,6 +168,7 @@ async function ensureRegionRecords(prisma: any) {
     "Quebec": ["Montreal, QC"],
     "Ontario": ["Ottawa, ON", "Toronto, ON"],
     "Alberta": ["Calgary, AB", "Edmonton, AB"],
+    "British Columbia": ["Victoria, BC"],
     // ── UK ──
     "Scotland": ["Edinburgh", "Glasgow"],
     // ── Australia (Phase 1a: Perth + Darwin + Canberra) ──

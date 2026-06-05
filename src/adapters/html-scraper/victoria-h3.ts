@@ -71,9 +71,10 @@ const HARES_WORD_RE = /\bhares?\b/i;
 const NEEDED_RE = /\b(?:needed|wanted)\b/i;
 const TBA_RE = /\b(?:TBA|TBD)\b/i;
 // Past-run write-up heading: "Hash#928 The Bifocals Run (May 23rd)". The theme
-// is everything up to the opening "(" of the trailing date — a negated class
-// keeps the match linear (avoids a lazy `.+?` ReDoS-shape flag, Sonar S5852).
-const WRITEUP_RE = /^Hash\s*#\s*(\d+)\s+([^(]+)\(/i;
+// sits between the run number and the trailing parenthetical date. We match
+// just the "Hash #NNN " prefix and find the "(" via indexOf to avoid a
+// negated-char-class quantifier that trips Sonar S5852.
+const WRITEUP_HEAD_RE = /^Hash\s*#\s*(\d+)\s+/i;
 const WHERE_LABEL_RE = /^where\s*:/i;
 const HARE_LABEL_RE = /^hares?\s*:/i;
 const COST_LABEL_RE = /^(?:cost|hash cash)\s*:/i;
@@ -265,10 +266,27 @@ function applyCardLine(
     }
   } else if (HARE_LABEL_RE.test(line)) {
     const value = line.replace(LABEL_VALUE_RE, "").trim();
-    if (!value || haresNeededIn(value)) card.haresNeeded = true;
-    // Normalize the Oxford-comma "& " co-hare conjunction to a plain comma so
-    // normalizeHaresField (comma-split) doesn't keep a leading "&" on a name.
-    else card.hares = value.replace(/,?\s*&\s*/g, ", ");
+    if (!value) {
+      card.haresNeeded = true;
+    } else {
+      if (haresNeededIn(value)) card.haresNeeded = true;
+      // Strip "Hares needed/wanted" placeholder fragment — real names before it
+      // survive (e.g. "Goes Down Well & Hares needed" → "Goes Down Well").
+      const cleaned = value
+        .replace(/,?\s*(?:&\s*)?hares?\s+(?:needed|wanted)/gi, "")
+        .replace(/,?\s*(?:&\s*)?(?:needed|wanted)/gi, "")
+        .trim();
+      if (cleaned) {
+        // Normalize "& " and Oxford-comma conjunctions to plain commas.
+        // Procedural split avoids \s*&\s* regex (Sonar S5852).
+        const parts = cleaned
+          .split("&")
+          .flatMap((p) => p.split(","))
+          .map((s) => s.trim())
+          .filter(Boolean);
+        card.hares = parts.join(", ");
+      }
+    }
   } else if (COST_LABEL_RE.test(line)) {
     const value = line.replace(LABEL_VALUE_RE, "").trim();
     if (value) card.cost = value;
@@ -320,7 +338,7 @@ function parseCards(
     let j = i + 1;
     for (; j < lines.length; j++) {
       const next = lines[j];
-      if (SECTION_BREAK_RE.test(next) || matchRoute(next) || WRITEUP_RE.test(next)) break;
+      if (SECTION_BREAK_RE.test(next) || matchRoute(next) || WRITEUP_HEAD_RE.test(next)) break;
       body.push(next);
     }
     const key = `${route.tag}#${route.runNumber}`;
@@ -336,10 +354,13 @@ function parseCards(
 function parseWriteups(lines: string[]): Map<number, string> {
   const map = new Map<number, string>();
   for (const line of lines) {
-    const match = WRITEUP_RE.exec(line);
+    const match = WRITEUP_HEAD_RE.exec(line);
     if (!match) continue;
     const run = Number.parseInt(match[1], 10);
-    const theme = match[2].replace(/[,;:]\s*$/, "").trim();
+    const rest = line.slice(match[0].length);
+    const parenIdx = rest.indexOf("(");
+    if (parenIdx === -1) continue;
+    const theme = rest.slice(0, parenIdx).replace(/[,;:]\s*$/, "").trim();
     if (theme && !map.has(run)) map.set(run, theme);
   }
   return map;
