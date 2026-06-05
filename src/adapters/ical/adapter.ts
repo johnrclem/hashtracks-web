@@ -77,10 +77,14 @@ export function parseICalSummary(
   // Extract title: everything after "#{number}: " or "{kennel}: " or "{kennel} #{number}: "
   let title: string | undefined;
   // Capture the pre-colon prefix (group 1), an optional run marker (group 2),
-  // and the title (group 3). The prefix is stripped only when it identifies
-  // the kennel — see below.
+  // and the title (group 3). Group 1 is greedy but its char class excludes
+  // both "#" and ":", so it always stops at the first run marker or colon —
+  // the same split point a lazy quantifier would find. No `\s*` quantifier sits
+  // adjacent to another (the post-colon whitespace is trimmed below instead),
+  // so there's no super-linear backtracking shape. The prefix is stripped only
+  // when it identifies the kennel — see below.
   const titleMatch = summary.match(
-    /^([A-Za-z0-9 .'-]+?)(\s*#[\d.A-Za-z]+)?:\s*(.+)$/,
+    /^([A-Za-z0-9 .'-]+)(#[\d.A-Za-z]+)?:(.+)$/,
   );
   if (titleMatch) {
     // #1955: when `keepNonKennelTitlePrefix` is set, only strip the prefix
@@ -100,7 +104,8 @@ export function parseICalSummary(
       // uses in place of a real run number (#1785): "RH3: #120? Kegs & Eggs" →
       // "Kegs & Eggs"; a bare "RH3: #120?" → undefined so the caller can
       // synthesize a default rather than surfacing the placeholder marker.
-      title = titleMatch[3].replace(/^#\d+\?+\s*/, "").trim() || undefined;
+      // trimStart first because the regex no longer consumes post-colon space.
+      title = titleMatch[3].trimStart().replace(/^#\d+\?+\s*/, "").trim() || undefined;
     }
   }
 
