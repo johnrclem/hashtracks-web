@@ -6,6 +6,7 @@ import {
   applyDateWindow,
   chronoParseDate,
   decodeEntities,
+  extractHashRunNumber,
   fetchHTMLPage,
   normalizeHaresField,
   stripHtmlTags,
@@ -179,14 +180,12 @@ export function parsePattayaRunReportRow(
   const left = decodeEntities(leftText).trim();
   const right = decodeEntities(rightText).trim();
 
-  let runNumber: number | undefined;
+  // The href carries the canonical run number (run_num=N); fall back to the
+  // "Run #N" link text via the shared #NNN parser (avoids a bespoke regex).
   const hrefMatch = href ? /run_num=(\d+)/i.exec(href) : null;
-  if (hrefMatch) {
-    runNumber = Number.parseInt(hrefMatch[1], 10);
-  } else {
-    const textMatch = /Run\s*#?\s*(\d+)/i.exec(left);
-    if (textMatch) runNumber = Number.parseInt(textMatch[1], 10);
-  }
+  const runNumber = hrefMatch
+    ? Number.parseInt(hrefMatch[1], 10)
+    : extractHashRunNumber(left);
 
   // First line is "DD Month"; the year is appended from the section heading.
   const dateLine = left.split("\n")[0].trim();
@@ -228,8 +227,14 @@ export function parsePattayaRunReports(html: string): RawEventData[] {
       const leftText = stripHtmlTags(cells.eq(0).html() ?? "", "\n");
       const rightText = stripHtmlTags(cells.eq(1).html() ?? "", "\n");
       const href = cells.eq(0).find("a").attr("href");
-      const event = parsePattayaRunReportRow(leftText, rightText, href, year);
-      if (event) events.push(event);
+      // Isolate per-row parse failures so one malformed row in the ~2000-run
+      // archive can't abort the whole backfill (mirrors the hareline adapter).
+      try {
+        const event = parsePattayaRunReportRow(leftText, rightText, href, year);
+        if (event) events.push(event);
+      } catch (err) {
+        console.warn(`PattayaH3 run-report row skipped (${year}): ${err}`);
+      }
     });
   });
 
