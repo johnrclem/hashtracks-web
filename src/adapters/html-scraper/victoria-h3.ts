@@ -69,6 +69,9 @@ const YEAR_PAREN_RE = /\((20\d{2})\)/;
 const YEAR_BARE_RE = /\b(20\d{2})\b/;
 const HARES_WORD_RE = /\bhares?\b/i;
 const NEEDED_RE = /\b(?:needed|wanted)\b/i;
+// A token that is *only* the word "needed"/"wanted" (a placeholder remnant left
+// after splitting "X & needed"). Anchored — no \s*-adjacent alternation (S5852).
+const NEEDED_ONLY_RE = /^(?:needed|wanted)$/i;
 const TBA_RE = /\b(?:TBA|TBD)\b/i;
 // Past-run write-up heading: "Hash#928 The Bifocals Run (May 23rd)". The theme
 // sits between the run number and the trailing parenthetical date. We match
@@ -270,22 +273,16 @@ function applyCardLine(
       card.haresNeeded = true;
     } else {
       if (haresNeededIn(value)) card.haresNeeded = true;
-      // Strip "Hares needed/wanted" placeholder fragment — real names before it
-      // survive (e.g. "Goes Down Well & Hares needed" → "Goes Down Well").
-      const cleaned = value
-        .replace(/,?\s*(?:&\s*)?hares?\s+(?:needed|wanted)/gi, "")
-        .replace(/,?\s*(?:&\s*)?(?:needed|wanted)/gi, "")
-        .trim();
-      if (cleaned) {
-        // Normalize "& " and Oxford-comma conjunctions to plain commas.
-        // Procedural split avoids \s*&\s* regex (Sonar S5852).
-        const parts = cleaned
-          .split("&")
-          .flatMap((p) => p.split(","))
-          .map((s) => s.trim())
-          .filter(Boolean);
-        card.hares = parts.join(", ");
-      }
+      // Split on "&" and Oxford commas into name tokens, then drop any
+      // "Hares needed/wanted" placeholder token so real names before it survive
+      // (e.g. "Goes Down Well & Hares needed" → "Goes Down Well"). All string
+      // ops + anchored regexes — no \s*-adjacent alternation (Sonar S5852).
+      const parts = value
+        .split("&")
+        .flatMap((p) => p.split(","))
+        .map((s) => s.trim())
+        .filter((t) => t && !haresNeededIn(t) && !NEEDED_ONLY_RE.test(t));
+      if (parts.length > 0) card.hares = parts.join(", ");
     }
   } else if (COST_LABEL_RE.test(line)) {
     const value = line.replace(LABEL_VALUE_RE, "").trim();
