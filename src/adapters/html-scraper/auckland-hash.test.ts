@@ -46,6 +46,7 @@ describe("parseRunLine", () => {
     expect(event!.hares).toBe("Revs");
     expect(event!.location).toBe("29i James street, Glenfield");
     expect(event!.startTime).toBe("18:30");
+    expect(event!.title).toBe("Run w/ Revs");
   });
 
   it("keeps multi-word hares intact via the tab delimiter (no greedy split)", () => {
@@ -78,9 +79,9 @@ describe("parseRunLine", () => {
     expect(event!.title).toBeUndefined();
   });
 
-  it("leaves title undefined (merge synthesizes; no run numbers on this source)", () => {
+  it("synthesizes a 'Run w/ <Hare>' title from the hare; no run number (#1964)", () => {
     const event = parseRunLine("13-Jul-26\tLoose Change\t37 Waimoko Glen, Swanson", REF);
-    expect(event!.title).toBeUndefined();
+    expect(event!.title).toBe("Run w/ Loose Change");
     expect(event!.runNumber).toBeUndefined();
   });
 

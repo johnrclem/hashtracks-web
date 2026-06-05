@@ -12,26 +12,56 @@ function brasiliaSource(scrapeDays = 90): Source {
   return { id: "test-bsb", url: "https://brasiliah3.blogspot.com/", scrapeDays } as unknown as Source;
 }
 
-// Real N+340 post body (Praça dos Orixás Hash), trimmed. Titles are empty on
-// this blog, so the run number + date live in the body. Published 2026-06-02,
-// run on Sunday 7 June 2026.
+// Real N+340 post body (Praça dos Orixás Hash), trimmed. The blog's run data
+// lives in the body: the heading line is the source title, the hare follows a
+// "🐾 The Hare / This week's perpetrator:" role-header (double-spaced in the
+// raw HTML — empty <p></p> reproduce the blank lines the adapter collapses),
+// and the venue is named only in the lede prose. Published 2026-06-02, run on
+// Sunday 7 June 2026.
 const N340_HTML = [
   "<div>Hash N+340 \"Pra&#231;a dos Orix&#225;s Hash\"</div>",
   "<div>Sunday, 7th of June</div>",
-  "<p>Welcome to Hash N+340: the lakeside edition.</p>",
-  "<p>This week we gather at Pra&#231;a dos Orix&#225;s.</p>",
+  "<p>🐾 The Hare</p>",
+  "<p></p>",
+  "<p></p>",
+  "<p>This week's perpetrator:</p>",
+  "<p></p>",
+  "<p></p>",
+  "<p>Sperm Bank</p>",
+  "<p></p>",
+  "<p>Sperm Bank has promised a beautiful lakeside trail with stunning views.</p>",
+  "<p>This week we gather at Pra&#231;a dos Orix&#225;s, where the lake meets the sky.</p>",
 ].join("");
 
 describe("parseBrasiliaPost", () => {
-  it("extracts run number and date from a post body (empty title, body-only)", () => {
+  it("extracts run number, date, source title, hares, and prose venue from a post body", () => {
     const body = stripHtmlTags(N340_HTML, "\n");
     const parsed = parseBrasiliaPost(body, "2026-06-02T17:29:24-03:00", "https://brasiliah3.blogspot.com/2026/06/n340.html");
     expect(parsed).not.toBeNull();
     expect(parsed?.runNumber).toBe(340);
     expect(parsed?.date).toBe("2026-06-07");
     expect(parsed?.sourceUrl).toBe("https://brasiliah3.blogspot.com/2026/06/n340.html");
-    // No `Start:` label in this post → location stays undefined (merge geocodes prose).
-    expect(parsed?.location).toBeUndefined();
+    // #1983 — the heading line is the source title (verbatim, with the theme).
+    expect(parsed?.title).toBe('Hash N+340 "Praça dos Orixás Hash"');
+    // #1981 — hare follows the "🐾 The Hare / This week's perpetrator:" header.
+    expect(parsed?.hares).toBe("Sperm Bank");
+    // #1982 — no `Start:` label, but the lede prose names the venue.
+    expect(parsed?.location).toBe("Praça dos Orixás");
+  });
+
+  it("prefers the body heading title even when the Blogger post title is set", () => {
+    const body = "Hash N+200 \"Mystery Hash\"\nSunday, 5th of May";
+    const parsed = parseBrasiliaPost(body, "2024-05-01T12:00:00-03:00", "https://brasiliah3.blogspot.com/x", "Some Blogger Title");
+    expect(parsed?.title).toBe('Hash N+200 "Mystery Hash"');
+  });
+
+  it.each([
+    ["inline 'The Hares:'", "Hash N+250\nSunday, 1st of June\nThe Hares: Alice & Bob", "Alice & Bob"],
+    ["inline 'Perpetrator(s):'", "Hash N+251\nSunday, 8th of June\nPerpetrator(s): Foghorn", "Foghorn"],
+    ["no hare line present", "Hash N+252\nSunday, 15th of June\nJust some prose about the weather.", undefined],
+  ])("extracts hares from %s", (_label, body, expected) => {
+    const parsed = parseBrasiliaPost(body, "2024-05-25T12:00:00-03:00", "https://brasiliah3.blogspot.com/x");
+    expect(parsed?.hares).toBe(expected);
   });
 
   it("returns null for a non-run post (no `Hash N+NNN` heading)", () => {
@@ -131,12 +161,15 @@ describe("BrasiliaH3Adapter.fetch", () => {
       date: "2026-06-07",
       kennelTags: ["brasilia-h3"],
       runNumber: 340,
+      title: 'Hash N+340 "Praça dos Orixás Hash"',
+      hares: "Sperm Bank",
+      location: "Praça dos Orixás",
     });
-    expect(result.events[0].title).toBeUndefined();
     expect(result.events[1]).toMatchObject({
       date: "2026-05-10",
       kennelTags: ["brasilia-h3"],
       runNumber: 338,
+      title: 'Hash N+338 "Farewell Hash"',
       location: "Road entrance to SQN 306, Asa Norte",
     });
     expect(result.diagnosticContext).toMatchObject({

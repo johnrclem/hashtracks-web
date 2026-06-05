@@ -182,7 +182,13 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /hockessinhash\.org/i,     name: "HockessinAdapter",         factory: () => new HockessinAdapter() },
   { pattern: /renegadeh3\.com/i,       name: "RenegadeH3Adapter",        factory: () => new RenegadeH3Adapter() },
   { pattern: /swh3\.wordpress\.com/i, name: "SWH3Adapter",              factory: () => new SWH3Adapter() },
-  { pattern: /onh3\.wordpress\.com/i, name: "ONH3Adapter",              factory: () => new ONH3Adapter() },
+  // `\b` anchor required: an unanchored `onh3\.wordpress\.com` matches the
+  // SUBSTRING inside `asunci‹onh3›.wordpress.com` (and `secessi‹onh3›…`), so it
+  // shadowed AsuncionH3Adapter — every Asunción cron scrape mis-routed to the
+  // Nairobi (ONH3) adapter and was silently dropped by the source-kennel guard.
+  // The boundary still matches ONH3's own `//onh3.wordpress.com`. (Same
+  // substring-collision class as #1869/#1968.)
+  { pattern: /\bonh3\.wordpress\.com/i, name: "ONH3Adapter",            factory: () => new ONH3Adapter() },
   { pattern: /asuncionh3\.wordpress\.com/i, name: "AsuncionH3Adapter",  factory: () => new AsuncionH3Adapter() },
   { pattern: /nch3\.com/i,            name: "NCH3Adapter",              factory: () => new NCH3Adapter() },
   { pattern: /sdh3\.com/i,            name: "SDH3Adapter",              factory: () => new SDH3Adapter() },

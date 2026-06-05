@@ -50,6 +50,14 @@ const DEFAULT_HARE_PATTERNS = [
   // match lowercase). The lazy `.+?` plus a sentence-end lookahead bound the
   // capture so we stop at the next sentence terminator or newline.
   /(?:^|\n|(?<=[.!?]\s))[ \t]*[Hh]ares?\s+are\s+([A-Z*].+?)(?=[.!?](?:\s|$)|\n|$)/m,  // NOSONAR — bounded non-greedy, anchored to sentence/line end
+  // Role-header template family (#1981 Brasilia, 6th cross-kennel instance).
+  // Each REQUIRES a colon so prose ("the hare set a cracking trail") can never
+  // match; the leading [^\nA-Za-z]{0,4} tolerates an emoji/symbol banner prefix
+  // (e.g. "🐾 The Hares:"). Header-only forms (name on the next line) flow
+  // through collectContinuationLines exactly like the bare "Hares:" pattern.
+  /(?:^|\n)[^\nA-Za-z]{0,4}The\s+Hares?\b[ \t]*:[ \t]*(.*)/im,  // NOSONAR — "The Hare:" / "The Hares:" label variant
+  /(?:^|\n)[^\nA-Za-z]{0,4}Perpetrators?(?:\(s\))?[ \t]*:[ \t]*(.*)/im,  // NOSONAR — "Perpetrator(s):" hash-slang synonym for hare
+  /(?:^|\n)[^\nA-Za-z]{0,4}This\s+week['’]s\s+(?:perpetrator|hare)s?[ \t]*:[ \t]*(.*)/im,  // NOSONAR — "This week's perpetrator:" (straight + curly apostrophe)
 ];
 /* eslint-enable */
 
@@ -158,6 +166,12 @@ function isContinuationTerminator(line: string): boolean {
  * label-only headers — text after an inline hare is almost always free-form
  * description, not a co-hare. Caps line count and per-line length, and
  * rejects sentence-shaped lines.
+ *
+ * Only a SINGLE leading blank line is skipped (the `\n` immediately after the
+ * label). Sources that double-space the role-header from the name must collapse
+ * those blanks before calling extractHares — keeping the skip at one preserves
+ * the blank-line terminator for every other consumer (a label followed by two
+ * blanks then prose must NOT bleed that prose into hares).
  */
 function collectContinuationLines(normalized: string, match: RegExpExecArray): string {
   // eslint-disable-next-line -- @typescript-eslint/no-unnecessary-condition: defensive against engines where match.index can be undefined

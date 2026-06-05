@@ -111,9 +111,19 @@ describe("postToEvent", () => {
     expect(ev!.sourceUrl).toContain("asuncionh3.wordpress.com");
   });
 
-  it("never sets a title (merge.ts synthesizes 'Asunción H3 Trail #N')", () => {
+  it("sets the source post title verbatim ('Run #N', #1960)", () => {
     const ev = postToEvent(post("Run #120", RUN_120_HTML, 6313));
-    expect(ev!.title).toBeUndefined();
+    expect(ev!.title).toBe("Run #120");
+  });
+
+  it.each([
+    ["bare 'Hare:'", "Hare: Solo Hare", "Solo Hare"],
+    ["plural 'Hares:'", "Hares: Alpha &amp; Beta", "Alpha & Beta"],
+    ["parenthesised 'Hare(s):'", "Hare(s): Ban the Cock", "Ban the Cock"],
+  ])("extracts hares via the shared helper for %s", (_label, hareLine, expected) => {
+    const html = `<h4>Run &amp; Walk #88</h4><p><strong>Saturday, 4 May 2024</strong><br>${hareLine}</p>`;
+    const ev = postToEvent(post("Run #88", html, 6088));
+    expect(ev!.hares).toBe(expected);
   });
 
   it("uses the in-body run date, not the post publish date (batch-posted runs)", () => {

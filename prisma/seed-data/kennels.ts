@@ -4640,9 +4640,11 @@ export const KENNELS: KennelSeed[] = [
       slug: "asuncion-h3", // explicit: toSlug("Asunción H3") mangles the accented ó → "asunci-n-h3"
       region: "Asunción", country: "Paraguay",
       website: "https://asuncionh3.wordpress.com/",
+      facebookUrl: "https://www.facebook.com/groups/1254316384994089", // footer "Facebook" link (#1959)
       instagramHandle: "asuncionh3",
       logoUrl: "/kennel-logos/asu-h3.png",
       foundedYear: 2021,
+      gm: "Ban The Cock (Eric)", // contact page header (#1959)
       scheduleDayOfWeek: "Saturday", scheduleTime: "4:00 PM", scheduleFrequency: "Biweekly",
       scheduleNotes: "Biweekly Saturday run/walk; start time shifts seasonally (~13:30–17:30 meet, southern-hemisphere winter/summer). Each post lists the exact meet and trail-start time.",
       hashCash: "₲10,000 (PYG, cash only)",
@@ -4661,7 +4663,10 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "brasilia-h3", shortName: "Brasilia H3", fullName: "Brasilia Hash House Harriers",
       region: "Brasília, Brazil", country: "Brazil",
       website: "https://brasiliah3.blogspot.com",
-      facebookUrl: "https://www.facebook.com/BrasiliaHHH",
+      // Sidebar "Brasilia H3 Facebook Page" link points to the groups URL, not
+      // the page URL HT previously had (#1980). Seed merge is fill-null only, so
+      // the existing prod value is corrected by the one-shot in the backfill.
+      facebookUrl: "https://www.facebook.com/groups/BrasiliaH3",
       foundedYear: 1989,
       scheduleDayOfWeek: "Sunday", scheduleFrequency: "Biweekly",
       walkersWelcome: true,
