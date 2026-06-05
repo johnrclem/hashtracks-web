@@ -67,9 +67,11 @@ const FORWARD_SOURCES: { name: string; days: number }[] = [
 async function updateProfiles(): Promise<void> {
   console.log(`\n=== Pass 1: kennel profiles ===`);
   for (const patch of PROFILE_PATCHES) {
+    // Fetch the whole row (no select): a selective projection would make any
+    // future PROFILE_PATCHES field read back as undefined (== null), forcing a
+    // redundant fill-null write every run. The Kennel row is tiny.
     const kennel = await prisma.kennel.findUnique({
       where: { kennelCode: patch.kennelCode },
-      select: { id: true, facebookUrl: true, gm: true },
     });
     if (!kennel) {
       console.warn(`  ⚠ kennel ${patch.kennelCode} not found — skipping`);
@@ -94,24 +96,37 @@ async function updateProfiles(): Promise<void> {
 async function refreshForwardEvents(): Promise<void> {
   console.log(`\n=== Pass 2: forward event refresh (current/future) ===`);
   for (const { name, days } of FORWARD_SOURCES) {
-    const source = await prisma.source.findFirst({ where: { name } });
-    if (!source) {
-      console.warn(`  ⚠ source "${name}" not found — skipping`);
-      continue;
-    }
-    const adapter = getAdapter(source.type, source.url, source.config as Record<string, unknown> | null);
-    const result = await adapter.fetch(source, { days });
-    console.log(`  ${name}: fetched ${result.events.length} event(s)${result.errors.length ? ` (errors: ${result.errors.length})` : ""}`);
-    if (!APPLY) {
-      for (const e of result.events.slice(0, 5)) {
-        console.log(`     [dry] ${e.date} #${e.runNumber ?? "?"} title=${e.title ?? "—"} hares=${e.hares ?? "—"} loc=${e.location ?? "—"}`);
+    try {
+      // `name` is not unique — use findMany(take:2) + length check (mirrors
+      // mergeRawEventsForSource) so a duplicate fails loud instead of silently
+      // scraping whichever row findFirst happened to pick.
+      const sources = await prisma.source.findMany({ where: { name }, take: 2 });
+      if (sources.length === 0) {
+        console.warn(`  ⚠ source "${name}" not found — skipping`);
+        continue;
       }
-      continue;
+      if (sources.length > 1) {
+        throw new Error(`Multiple sources named "${name}" — refusing to guess which to scrape`);
+      }
+      const source = sources[0];
+      const adapter = getAdapter(source.type, source.url, source.config as Record<string, unknown> | null);
+      const result = await adapter.fetch(source, { days });
+      console.log(`  ${name}: fetched ${result.events.length} event(s)${result.errors.length ? ` (errors: ${result.errors.length})` : ""}`);
+      if (!APPLY) {
+        for (const e of result.events.slice(0, 5)) {
+          console.log(`     [dry] ${e.date} #${e.runNumber ?? "?"} title=${e.title ?? "—"} hares=${e.hares ?? "—"} loc=${e.location ?? "—"}`);
+        }
+        continue;
+      }
+      if (result.events.length === 0) continue;
+      const merged = await processRawEvents(source.id, result.events);
+      console.log(`     created=${merged.created} updated=${merged.updated} skipped=${merged.skipped} blocked=${merged.blocked} errors=${merged.eventErrors}`);
+      if (merged.blocked > 0) console.warn(`     ⚠ blocked tags: ${merged.blockedTags.join(", ")}`);
+    } catch (err) {
+      // Failure isolation: one source's adapter/network error shouldn't abort
+      // the refresh for the others.
+      console.error(`  ❌ ${name}: refresh failed —`, err);
     }
-    if (result.events.length === 0) continue;
-    const merged = await processRawEvents(source.id, result.events);
-    console.log(`     created=${merged.created} updated=${merged.updated} skipped=${merged.skipped} blocked=${merged.blocked} errors=${merged.eventErrors}`);
-    if (merged.blocked > 0) console.warn(`     ⚠ blocked tags: ${merged.blockedTags.join(", ")}`);
   }
 }
 
