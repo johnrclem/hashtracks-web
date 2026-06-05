@@ -74,6 +74,7 @@ function makeSource(overrides?: Partial<Source>): Source {
     baselineResetAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
+    ...overrides,
   } as Source;
 }
 
@@ -87,6 +88,17 @@ function htmlResponse(html: string): Response {
   } as Response;
 }
 
+/** Route FutureHares → hareline fixture, everything else → homepage fixture. */
+function mockBothPages() {
+  mockedSafeFetch.mockImplementation((url: string | URL) =>
+    Promise.resolve(
+      String(url).includes("FutureHares")
+        ? htmlResponse(HARELINE_HTML)
+        : htmlResponse(HOME_HTML),
+    ),
+  );
+}
+
 beforeEach(() => {
   vi.restoreAllMocks();
 });
@@ -98,6 +110,15 @@ describe("inferYear (forward Dec→Jan rollover)", () => {
     ["future Nov stays current year", 10, 2, 2026],
   ])("%s", (_label, monthIndex, day, expected) => {
     expect(inferYear(monthIndex, day, REF)).toBe(expected);
+  });
+
+  it("rolls a stale Nov run back a year when scraped in January", () => {
+    // Homepage still shows a just-completed Nov 2026 run on 15 Jan 2027.
+    expect(inferYear(10, 2, new Date("2027-01-15T00:00:00Z"))).toBe(2026);
+  });
+
+  it("keeps a near-future January run in the reference year", () => {
+    expect(inferYear(0, 20, new Date("2027-01-15T00:00:00Z"))).toBe(2027);
   });
 });
 
@@ -194,16 +215,6 @@ describe("parseNextRunBlock", () => {
 });
 
 describe("BangkokMondayHashAdapter.fetch", () => {
-  function mockBothPages() {
-    mockedSafeFetch.mockImplementation((url: string | URL) =>
-      Promise.resolve(
-        String(url).includes("FutureHares")
-          ? htmlResponse(HARELINE_HTML)
-          : htmlResponse(HOME_HTML),
-      ),
-    );
-  }
-
   it("merges both pages, dedupes by run, and enriches the next run", async () => {
     mockBothPages();
     const result = await new BangkokMondayHashAdapter().fetch(makeSource());
@@ -242,6 +253,19 @@ describe("BangkokMondayHashAdapter.fetch", () => {
     expect(r2227?.location).toBeUndefined();
     expect(result.events.some((e) => e.runNumber === 2238)).toBe(false);
     expect(result.events.some((e) => e.runNumber === 2239)).toBe(false);
+  });
+
+  it("survives a partial fetch failure (hareline fails, homepage succeeds)", async () => {
+    mockedSafeFetch.mockImplementation((url: string | URL) =>
+      String(url).includes("FutureHares")
+        ? Promise.resolve({ ok: false, status: 503, statusText: "err" } as Response)
+        : Promise.resolve(htmlResponse(HOME_HTML)),
+    );
+    const result = await new BangkokMondayHashAdapter().fetch(makeSource());
+    expect(result.errors.length).toBeGreaterThan(0);
+    // Homepage rows (#2213, #2215, #2216) still parsed.
+    expect(result.events.length).toBeGreaterThan(0);
+    expect(result.events.some((e) => e.runNumber === 2215)).toBe(true);
   });
 
   it("honors the date window via options.days", async () => {

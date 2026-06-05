@@ -17,12 +17,14 @@
  */
 
 import type { CheerioAPI } from "cheerio";
+import type { Element } from "domhandler";
 import type { Source } from "@/generated/prisma/client";
 import type {
   SourceAdapter,
   RawEventData,
   ScrapeResult,
   ErrorDetails,
+  ParseError,
 } from "../types";
 import { hasAnyErrors } from "../types";
 import { chronoParseDate, fetchHTMLPage, buildDateWindow } from "../utils";
@@ -50,7 +52,15 @@ const MONTHS: Record<string, number> = {
 };
 
 const DATE_RE = /\b(\d{1,2})\s+([A-Za-z]{3,})/;
-const SIXTY_DAYS_MS = 60 * 24 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+const SIXTY_DAYS_MS = 60 * DAY_MS;
+/**
+ * Forward bound for year inference. The live forward hareline reaches ~6 months
+ * (≈180 days) ahead, so a candidate landing more than ~8 months out must be a
+ * stale prior-year run still shown on the homepage (e.g. a Dec run viewed in
+ * early Jan) and rolls back a year. A weekly club never schedules >8 months out.
+ */
+const EIGHT_MONTHS_MS = 240 * DAY_MS;
 
 /** Drop the `AGM` event marker that leaks into date and hare cells. */
 function stripAgm(value: string): string {
@@ -77,16 +87,18 @@ function parseMonthDay(
 }
 
 /**
- * Forward-hareline year inference. Year-less `DD MMM` cells belong to the
- * reference year unless the resulting date is more than ~60 days in the past
- * (a Jan/Feb row on a mid-year forward page), in which case it rolls to next
- * year. The 60-day margin keeps the 1–2 just-completed runs the homepage still
- * lists in the current year.
+ * Forward-hareline year inference for year-less `DD MMM` cells:
+ *  - more than ~60 days in the past → next year (a Jan/Feb row on a mid-year
+ *    forward page). The 60-day margin keeps the 1–2 just-completed runs the
+ *    homepage still lists in the current year.
+ *  - more than ~8 months in the future → prior year (a stale Nov/Dec run still
+ *    shown on the homepage when scraped in early Jan/Feb).
  */
 export function inferYear(monthIndex: number, day: number, refDate: Date): number {
   const refYear = refDate.getUTCFullYear();
-  const candidate = Date.UTC(refYear, monthIndex, day, 12, 0, 0);
-  if (candidate < refDate.getTime() - SIXTY_DAYS_MS) return refYear + 1;
+  const diff = Date.UTC(refYear, monthIndex, day, 12, 0, 0) - refDate.getTime();
+  if (diff < -SIXTY_DAYS_MS) return refYear + 1;
+  if (diff > EIGHT_MONTHS_MS) return refYear - 1;
   return refYear;
 }
 
@@ -185,6 +197,68 @@ function upsertEvent(map: Map<number, RawEventData>, event: RawEventData): void 
   if (!existing.location && event.location) map.set(runNumber, event);
 }
 
+/** Extract a row's `<td>` text (br→space), mirroring the dublin pattern. */
+function extractCells($: CheerioAPI, el: Element): string[] {
+  const cells: string[] = [];
+  $(el)
+    .find("td")
+    .each((_j, td) => {
+      const $td = $(td);
+      $td.find("br").replaceWith(" ");
+      cells.push($td.text().trim());
+    });
+  return cells;
+}
+
+interface PageCollector {
+  target: Map<number, RawEventData>;
+  errors: string[];
+  parseErrors: ParseError[];
+}
+
+/** Parse every table row on one page into `collector`; returns the row count. */
+function collectPageRows(
+  $: CheerioAPI,
+  url: string,
+  refDate: Date,
+  collector: PageCollector,
+): number {
+  const rows = $("table tr");
+  rows.each((i, el) => {
+    try {
+      const event = parseHarelineRow(extractCells($, el), (t) =>
+        parseForwardDate(t, refDate),
+      );
+      if (event) {
+        event.sourceUrl = url;
+        upsertEvent(collector.target, event);
+      }
+    } catch (err) {
+      collector.errors.push(`Error parsing row ${i} of ${url}: ${err}`);
+      collector.parseErrors.push({
+        row: i,
+        section: "hareline",
+        error: String(err),
+        rawText: $(el).text().trim().slice(0, 2000),
+      });
+    }
+  });
+  return rows.length;
+}
+
+/** Attach the single homepage next-run pin to its matching run, if present. */
+function applyNextRun(
+  map: Map<number, RawEventData>,
+  nextRun: NextRunInfo | null,
+): void {
+  if (!nextRun) return;
+  const target = map.get(nextRun.runNumber);
+  if (!target) return;
+  if (nextRun.locationUrl) target.locationUrl = nextRun.locationUrl;
+  if (nextRun.latitude !== undefined) target.latitude = nextRun.latitude;
+  if (nextRun.longitude !== undefined) target.longitude = nextRun.longitude;
+}
+
 export class BangkokMondayHashAdapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
 
@@ -195,7 +269,8 @@ export class BangkokMondayHashAdapter implements SourceAdapter {
 
     const eventsByRun = new Map<number, RawEventData>();
     const errors: string[] = [];
-    const errorDetails: ErrorDetails = {};
+    const parseErrors: ParseError[] = [];
+    const fetchErrors: NonNullable<ErrorDetails["fetch"]> = [];
     let structureHash: string | undefined;
     let nextRun: NextRunInfo | null = null;
     let rowsFound = 0;
@@ -206,51 +281,23 @@ export class BangkokMondayHashAdapter implements SourceAdapter {
       const page = await fetchHTMLPage(url);
       if (!page.ok) {
         errors.push(`Failed to fetch ${url}`);
-        (errorDetails.fetch ??= []).push({ url, message: "fetch failed" });
+        fetchErrors.push({ url, message: "fetch failed" });
         continue;
       }
-      const $ = page.$;
       if (url === harelineUrl) structureHash = page.structureHash;
-      if (url === HOMEPAGE_URL) nextRun = parseNextRunBlock($);
-
-      const rows = $("table tr");
-      rowsFound += rows.length;
-      rows.each((i, el) => {
-        try {
-          const cells: string[] = [];
-          $(el)
-            .find("td")
-            .each((_j, td) => {
-              const $td = $(td);
-              $td.find("br").replaceWith(" ");
-              cells.push($td.text().trim());
-            });
-          const event = parseHarelineRow(cells, (t) => parseForwardDate(t, refDate));
-          if (event) {
-            event.sourceUrl = url;
-            upsertEvent(eventsByRun, event);
-          }
-        } catch (err) {
-          errors.push(`Error parsing row ${i} of ${url}: ${err}`);
-          (errorDetails.parse ??= []).push({
-            row: i,
-            section: "hareline",
-            error: String(err),
-            rawText: $(el).text().trim().slice(0, 2000),
-          });
-        }
+      if (url === HOMEPAGE_URL) nextRun = parseNextRunBlock(page.$);
+      rowsFound += collectPageRows(page.$, url, refDate, {
+        target: eventsByRun,
+        errors,
+        parseErrors,
       });
     }
 
-    // Attach the single next-run pin to its matching run.
-    if (nextRun) {
-      const target = eventsByRun.get(nextRun.runNumber);
-      if (target) {
-        if (nextRun.locationUrl) target.locationUrl = nextRun.locationUrl;
-        if (nextRun.latitude !== undefined) target.latitude = nextRun.latitude;
-        if (nextRun.longitude !== undefined) target.longitude = nextRun.longitude;
-      }
-    }
+    applyNextRun(eventsByRun, nextRun);
+
+    const errorDetails: ErrorDetails = {};
+    if (fetchErrors.length > 0) errorDetails.fetch = fetchErrors;
+    if (parseErrors.length > 0) errorDetails.parse = parseErrors;
 
     const events = [...eventsByRun.values()]
       .filter((e) => {
