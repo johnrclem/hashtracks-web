@@ -1,7 +1,7 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails, ParseError } from "../types";
 import { hasAnyErrors } from "../types";
-import { googleMapsSearchUrl, validateSourceConfig, stripPlaceholder, parse12HourTime } from "../utils";
+import { googleMapsSearchUrl, validateSourceConfig, stripPlaceholder, parse12HourTime, buildRunHareTitle } from "../utils";
 import { safeFetch } from "../safe-fetch";
 
 /** Titles starting with these verbs are instructions/notes, not event names. */
@@ -116,6 +116,14 @@ export interface GoogleSheetsConfig {
   };
   /** Fallback title when title cell is empty/placeholder. Use with runNumber: "${defaultTitle} #${runNumber}" */
   defaultTitle?: string;
+  /**
+   * Opt-in: when the title cell is empty/absent, synthesize a source-anchored
+   * "Run #<N> w/ <hares>" title (falls back to "Run #<N>" when no hares) instead
+   * of letting merge.ts emit a bare "<Kennel> Trail #N". For harelines that
+   * carry only date + run # + hare (e.g. NSWHHH #1973). Takes precedence over
+   * `defaultTitle`. No-op when the row has no run number.
+   */
+  runHareTitle?: boolean;
   /** Rows to skip before the header row (title rows, notes). Default: 0 */
   skipRows?: number;
   /** Explicit Google Sheet tab gid (numeric). When set, uses export?format=csv&gid=X instead of gviz URL */
@@ -643,6 +651,12 @@ export function buildEventFromSheetRow(
 
   if (title && INSTRUCTION_TITLE_RE.test(title)) {
     title = undefined;
+  }
+
+  // Synthesize "Run #<N> w/ <hares>" when opted in and no title cell (#1973).
+  // Takes precedence over defaultTitle; no-op when the row lacks a run number.
+  if (!title && config.runHareTitle) {
+    title = buildRunHareTitle(resolved.runNumber, hares);
   }
 
   // Apply defaultTitle fallback when title is empty

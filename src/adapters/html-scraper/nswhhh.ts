@@ -1,7 +1,7 @@
 import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult } from "../types";
-import { fetchHTMLPage, chronoParseDate, extractHashRunNumber, formatAmPmTime, stripHtmlTags } from "../utils";
+import { fetchHTMLPage, chronoParseDate, extractHashRunNumber, formatAmPmTime, stripHtmlTags, buildRunHareTitle } from "../utils";
 import { extractCoordsFromMapsUrl } from "@/lib/geo";
 
 /**
@@ -158,6 +158,11 @@ export function parseNSWHHHPage(
       date,
       kennelTags: ["nswhhh"],
       runNumber,
+      // Source-anchored "Run #<N> w/ <hare>" title (#1973) — matches the
+      // GOOGLE_SHEETS source + backfill so the current-run event and the
+      // forward schedule share one title shape. Undefined when no run number,
+      // letting merge.ts synthesize the kennel-name default.
+      title: buildRunHareTitle(runNumber, hares),
       hares,
       location,
       locationUrl,

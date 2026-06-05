@@ -40,6 +40,7 @@ describe("parseNSWHHHPage", () => {
     expect(event).toMatchObject({
       date: "2026-06-01",
       runNumber: 1065,
+      title: "Run #1065 w/ Lost Jewels",
       hares: "Lost Jewels",
       location: "Bay Road Reserve, Bay Rd, Waverton",
       locationUrl: "https://maps.app.goo.gl/iiY2q5avvkBvBchS6",
@@ -47,6 +48,13 @@ describe("parseNSWHHHPage", () => {
       kennelTags: ["nswhhh"],
       sourceUrl: SOURCE_URL,
     });
+  });
+
+  it("synthesizes a 'Run #<N>' title (no hare) when the hare is a placeholder (#1973)", () => {
+    const html = FIXTURE.replace("<span>Hare: Lost Jewels</span>", "<span>Hare: Hare Wanted</span>");
+    const { event } = parseNSWHHHPage(html, SOURCE_URL);
+    expect(event?.hares).toBeNull();
+    expect(event?.title).toBe("Run #1065");
   });
 
   it("extracts coordinates from the embedded maps iframe (q= marker)", () => {

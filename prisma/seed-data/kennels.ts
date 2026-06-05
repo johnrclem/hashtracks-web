@@ -3738,9 +3738,17 @@ export const KENNELS: KennelSeed[] = [
       website: "https://www.nswhhh.info/",
       facebookUrl: "https://www.facebook.com/nswhash.flash",
       logoUrl: "/kennel-logos/nswhhh.png",
+      // gm + contactEmail per nswhhh.info homepage/about-us ("Call the Grand
+      // Master: Lost Jewels (Darren)"; about-us mailto). (#1972)
+      gm: "Lost Jewels",
+      contactEmail: "darrenkelly1@hotmail.com",
       scheduleDayOfWeek: "Monday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
       scheduleNotes: "Weekly Monday 6:30pm hash around Sydney's North Shore & surrounds. ~4–5 km walk / 6 km run, ~1 hour; non-competitive, walkers & runners welcome. First run free, then $5. Run details posted on nswhhh.info each week.",
       foundedYear: 2004,
+      // hashCash is the correct single-"$" form. The #1972 audit flagged a
+      // double-"$$5" artifact, but a prod query (2026-06-04) showed prod already
+      // holds "$5 (first run free)" — the one-shot override carries a
+      // drift-guarded no-op rewrite as a safety net. (#1972)
       hashCash: "$5 (first run free)",
       walkersWelcome: true,
       description: "North Shore Wanderers H3 (NSWHHH) is a non-competitive Sydney hash kennel founded in 2004, running every Monday at 6:30pm across Sydney's North Shore and surrounds. Walkers and runners welcome; first run free, then $5.",
@@ -4534,6 +4542,10 @@ export const KENNELS: KennelSeed[] = [
       scheduleTime: "2:00 PM",
       scheduleFrequency: "Biweekly",
       foundedYear: 1981,
+      // Jointly-held Grand Master per the 2026 sanscluehash.fr Misman page
+      // ("Grand Masters - Paris H3: Bearded Clam and Gasbag"). Joint Master
+      // (The Anarchist) and Hare Raisers ("Open!") are separate/vacant roles. (#1974)
+      gm: "Bearded Clam and Gasbag",
       hashCash: "5 €",
       walkersWelcome: true,
       description:
@@ -4558,8 +4570,12 @@ export const KENNELS: KennelSeed[] = [
       // rather than seeding an unverified year as canonical user-facing metadata.
       hashCash: "5 €",
       walkersWelcome: true,
+      // #1974: the "~1993" inference is Sans Clue's OWN founding year (25th
+      // birthday Apr 2018), not Paris H3's. The prior wording "Paris H3 (est.
+      // ~1993)" cross-wired it onto Paris H3 — which is the 1981 original.
+      // Reattributed here so the two records no longer contradict.
       description:
-        "Sister hash to Paris H3 (est. ~1993), running alternating Sundays around central Paris. A-to-B trails set by a hare, beer stops along the way, most trails walker-friendly. 'Sans Clue' = without a clue.",
+        "Sister hash to Paris H3 (France's original 1981 kennel), itself running alternating Sundays around central Paris since around 1993. A-to-B trails set by a hare, beer stops along the way, most trails walker-friendly. 'Sans Clue' = without a clue.",
       // Shared club image (parish3-schhh Meetup group) — no distinct Sans Clue logo found on sanscluehash.fr.
       logoUrl: "/kennel-logos/sans-clue-h3.jpg",
       latitude: 48.8566,
@@ -4607,6 +4623,9 @@ export const KENNELS: KennelSeed[] = [
     // foundedYear 1983 is the kennel founding (Mexico News Daily + Half-Mind), NOT the
     // Meetup group's 2022 creation date. latitude/longitude is the CDMX centroid; per-run
     // start coords come from the Meetup venue.lat/lng on each event.
+    // #1970: the Meetup About blurb says "since 1980"; reviewed and NOT adopted —
+    // the dual-sourced 1983 (Mexico News Daily + Half-Mind) is better-attributed,
+    // and foundedYear + description already agree at 1983 (no internal conflict).
     {
       kennelCode: "mch3",
       shortName: "Mexico City H3",

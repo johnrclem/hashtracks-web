@@ -1,12 +1,758 @@
 [
-  {"runNumber":756,"date":"2026-05-23","startTime":"13:30","endTime":"18:30","title":"HASH #756- SPRING HASH !","location":"HECOP San Angel - Metrobus la bombilla, Cerca del Monumento a Obregon","address":"Insurgentes Sur 2047 B. Col. San Angel Esq. Cracovia"},
-  {"runNumber":755,"date":"2026-04-25","startTime":"11:30","endTime":"18:30","title":"HASH #755- Cholula HASH !","location":"La Huerta Golf & Hotel","address":"Privada Juan Blanca 2501-A, Barrio de Sta Maria Xixitla, 72762 San Pedro Cholula, Pue."},
-  {"runNumber":754,"date":"2026-03-21","startTime":"13:30","endTime":"16:30","title":"HASH #754 - SPICY HASH !","location":"Plaza Morelia","address":"Circular de Morelia, Roma Nte., Cuauhtémoc, 06700 CDMX"},
-  {"runNumber":753,"date":"2026-02-21","startTime":"13:30","endTime":"16:30","title":"HASH #753 !","location":"Parque La Mexicana","address":"Paseo de los Arquitectos SN, Lomas de Santa Fe, Contadero, CDMX"},
-  {"runNumber":752,"date":"2026-01-31","startTime":"13:30","endTime":"16:30","title":"HASH #752 - First Hash of 2026!","location":"HECOP San Angel - Metrobus la bombilla","address":"Insurgentes Sur 2047 B. Col. San Angel"},
-  {"runNumber":750,"date":"2025-11-15","startTime":"11:30","endTime":null,"title":"HASH #750!","location":"Parque Ejidal San Nicolás Totolapan","address":null},
-  {"runNumber":749,"date":"2025-10-25","startTime":"13:30","endTime":null,"title":"Run #749 – Octuber 25th","location":"Monumento a la Revolución","address":null},
-  {"runNumber":748,"date":"2025-09-27","startTime":"13:30","endTime":null,"title":"Hash House Harriers Mexico City - Run #748","location":"Barril 23","address":null},
-  {"runNumber":747,"date":"2025-08-30","startTime":"13:30","endTime":null,"title":"Hash House Harriers Mexico City - Run #747","location":"Parque México","address":null},
-  {"runNumber":746,"date":"2025-07-26","startTime":"13:30","endTime":null,"title":"Hash House Harriers Mexico City - Run #746","location":"Erotika Polanco","address":null}
+  {
+    "runNumber": 756,
+    "date": "2026-05-23",
+    "startTime": "13:30",
+    "endTime": "18:30",
+    "title": "HASH #756- SPRING HASH !",
+    "location": "HECOP San Angel - Metrobus la bombilla, Cerca del Monumento a Obregon",
+    "address": "Insurgentes Sur 2047 B. Col. San Angel Esq. Cracovia"
+  },
+  {
+    "runNumber": 755,
+    "date": "2026-04-25",
+    "startTime": "11:30",
+    "endTime": "18:30",
+    "title": "HASH #755- Cholula HASH !",
+    "location": "La Huerta Golf & Hotel",
+    "address": "Privada Juan Blanca 2501-A, Barrio de Sta Maria Xixitla, 72762 San Pedro Cholula, Pue."
+  },
+  {
+    "runNumber": 754,
+    "date": "2026-03-21",
+    "startTime": "13:30",
+    "endTime": "16:30",
+    "title": "HASH #754 - SPICY HASH !",
+    "location": "Plaza Morelia",
+    "address": "Circular de Morelia, Roma Nte., Cuauhtémoc, 06700 CDMX"
+  },
+  {
+    "runNumber": 753,
+    "date": "2026-02-21",
+    "startTime": "13:30",
+    "endTime": "16:30",
+    "title": "HASH #753 !",
+    "location": "Parque La Mexicana",
+    "address": "Paseo de los Arquitectos SN, Lomas de Santa Fe, Contadero, CDMX"
+  },
+  {
+    "runNumber": 752,
+    "date": "2026-01-31",
+    "startTime": "13:30",
+    "endTime": "16:30",
+    "title": "HASH #752 - First Hash of 2026!",
+    "location": "HECOP San Angel - Metrobus la bombilla",
+    "address": "Insurgentes Sur 2047 B. Col. San Angel"
+  },
+  {
+    "runNumber": 750,
+    "date": "2025-11-15",
+    "startTime": "11:30",
+    "endTime": null,
+    "title": "HASH #750!",
+    "location": "Parque Ejidal San Nicolás Totolapan",
+    "address": null
+  },
+  {
+    "runNumber": 749,
+    "date": "2025-10-25",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Run #749 – Octuber 25th",
+    "location": "Monumento a la Revolución",
+    "address": null
+  },
+  {
+    "runNumber": 748,
+    "date": "2025-09-27",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Run #748",
+    "location": "Barril 23",
+    "address": null
+  },
+  {
+    "runNumber": 747,
+    "date": "2025-08-30",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Run #747",
+    "location": "Parque México",
+    "address": null
+  },
+  {
+    "runNumber": 746,
+    "date": "2025-07-26",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Run #746",
+    "location": "Erotika Polanco",
+    "address": null
+  },
+  {
+    "runNumber": 745,
+    "date": "2025-06-28",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Run #745 Chayanne’s Piss Off Farewell Hash!",
+    "location": "Metro Refineria, Mexico, MX",
+    "address": null
+  },
+  {
+    "runNumber": 744,
+    "date": "2025-05-17",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Run #744",
+    "location": "London Karaoke, Londres 169 Juárez, Cuauhtémoc, 06600 Ciudad de México, D.F.esquina florencias, México City, MX",
+    "address": null
+  },
+  {
+    "runNumber": 741,
+    "date": "2025-05-03",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Run #741",
+    "location": "Parque Protasio Tagle, Calle Arenal, Chimalistac, Álvaro Obregón ,, Ciudad de México, MX",
+    "address": null
+  },
+  {
+    "runNumber": 742,
+    "date": "2025-04-05",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Run #742",
+    "location": "Vips Town Center El Rosario, Town Center El Rosario,Cultura Norte 1025, El Rosario, Azapotzalco 02100 Ciudad de México, México City, MX",
+    "address": null
+  },
+  {
+    "runNumber": 742,
+    "date": "2025-03-22",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Hash #742: The Primavera Hash!",
+    "location": "metro auditorio, Mexico city, MX",
+    "address": null
+  },
+  {
+    "runNumber": 740,
+    "date": "2025-03-08",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Hash #740: International women's day!",
+    "location": "HASH #741, Av. Horacio 619, Polanco, Polanco IV Secc, Miguel Hidalgo, 11550 Ciudad de México, CDMX, Mexico City, MX",
+    "address": null
+  },
+  {
+    "runNumber": 739,
+    "date": "2025-02-22",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Run #739",
+    "location": "HASH #739, Cuauhtemoc 1017 03020, Narvarte Poniente, 03020 Ciudad de México, CDMX, Mexico City, MX",
+    "address": null
+  },
+  {
+    "runNumber": null,
+    "date": "2025-02-08",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Run #7**",
+    "location": "metro auditorio, Mexico city, MX",
+    "address": null
+  },
+  {
+    "runNumber": 728,
+    "date": "2025-01-25",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Run #728",
+    "location": "Anil's place, calle Issac Newton 82 Polanco, Mexico City, MX",
+    "address": null
+  },
+  {
+    "runNumber": 737,
+    "date": "2025-01-11",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Run #737",
+    "location": "Lucy, Iztaccihuatl 26 #701, Cuauhtemoc ,, Mexico city, MX",
+    "address": null
+  },
+  {
+    "runNumber": 736,
+    "date": "2024-12-28",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Run #736",
+    "location": "metro auditorio, Mexico city, MX",
+    "address": null
+  },
+  {
+    "runNumber": 735,
+    "date": "2024-12-14",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Run #735",
+    "location": "metro auditorio, Mexico city, MX",
+    "address": null
+  },
+  {
+    "runNumber": 734,
+    "date": "2024-12-01",
+    "startTime": "11:30",
+    "endTime": null,
+    "title": "!! NASH HASH !! Hash House Harriers Mexico City - Run #734 - Recovery Brunch",
+    "location": "Brunch, Iztaccihuatl 41, Hipódromo, Cuauhtémoc, 06100 Ciudad de México, CDMX, Mexico city, MX",
+    "address": null
+  },
+  {
+    "runNumber": 734,
+    "date": "2024-11-30",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "!! NASH HASH !! Hash House Harriers Mexico City - Run #734",
+    "location": "The Duke of Lisbon, Calle Lisboa 15, Juárez, Cuauhtémoc, 06600 Ciudad de México, CDMX, Mexico City, MX",
+    "address": null
+  },
+  {
+    "runNumber": 734,
+    "date": "2024-11-29",
+    "startTime": "06:30",
+    "endTime": null,
+    "title": "!! NASH HASH Pub Crawl!! Hash House Harriers Mexico City - Run #734",
+    "location": "Shakesprick's, Higuera 22, apartment 15, La Concepción, Coyoacán, 04000 Ciudad de México, CDMX, Mexico City, MX",
+    "address": null
+  },
+  {
+    "runNumber": 733,
+    "date": "2024-11-16",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Run #733",
+    "location": "Kate's, 30 Gral Aureliano Riviera, Mexico City, MX",
+    "address": null
+  },
+  {
+    "runNumber": 732,
+    "date": "2024-11-02",
+    "startTime": "10:30",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Run #732",
+    "location": "Instituto Nacional de Pediatría, Mexico City, MX",
+    "address": null
+  },
+  {
+    "runNumber": 731,
+    "date": "2024-10-19",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Run #731",
+    "location": "Metro la raza, Vallejo Poniente, Gustavo A. Madero, La Raza, Mexico City, MX",
+    "address": null
+  },
+  {
+    "runNumber": 730,
+    "date": "2024-10-05",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Run #730",
+    "location": "Lucy, Iztaccihuatl 26 #701, Cuauhtemoc ,, Mexico city, MX",
+    "address": null
+  },
+  {
+    "runNumber": 729,
+    "date": "2024-09-21",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Run #729",
+    "location": "shakes, Higuera 22, La Concepción, Coyoacán, 04000 Ciudad de México, CDMX, Mexico City, MX",
+    "address": null
+  },
+  {
+    "runNumber": 728,
+    "date": "2024-09-07",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Run #728",
+    "location": "Chimalistac, Paseo del Río, Chimalistac, Álvaro Obregon,, Mexico City, MX",
+    "address": null
+  },
+  {
+    "runNumber": 727,
+    "date": "2024-08-24",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Run #727",
+    "location": "Libra 159, Prado Churubusco, Mexico City, MX",
+    "address": null
+  },
+  {
+    "runNumber": 725,
+    "date": "2024-08-24",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Run #725 - Mineral del Chico Hash",
+    "location": "Mineral del Chico, MX",
+    "address": null
+  },
+  {
+    "runNumber": 726,
+    "date": "2024-08-10",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Run #726",
+    "location": "Quintana Roo 93-8, Roma, Mexico City, MX",
+    "address": null
+  },
+  {
+    "runNumber": 725,
+    "date": "2024-07-27",
+    "startTime": "10:00",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Run #725 - Mineral del Chico Hash",
+    "location": "Mineral del Chico, MX",
+    "address": null
+  },
+  {
+    "runNumber": 725,
+    "date": "2024-07-27",
+    "startTime": "09:00",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Run #725 Outa town hash",
+    "location": "Mineral del Chico, MX",
+    "address": null
+  },
+  {
+    "runNumber": 724,
+    "date": "2024-07-13",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Run #724",
+    "location": "Goguinara // Canta bar london Karaoke, Genova #20 local 3 entre Hamburgo y Paseo de la Reforma // Londres #167 3er piso, México City, MX",
+    "address": null
+  },
+  {
+    "runNumber": 723,
+    "date": "2024-06-29",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Run #723",
+    "location": "Metro Refinería, Ferrocarriles Nacionales de México Esquina, Ciudad de México, MX",
+    "address": null
+  },
+  {
+    "runNumber": 722,
+    "date": "2024-06-15",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Run #722",
+    "location": "Plaza San Jacinto, Pl. San Jacinto, Ciudad de México, MX",
+    "address": null
+  },
+  {
+    "runNumber": 721,
+    "date": "2024-06-01",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Run #721",
+    "location": "Metro Constituyentes., Parque Lira # 18., México City, MX",
+    "address": null
+  },
+  {
+    "runNumber": 720,
+    "date": "2024-05-18",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Run #720",
+    "location": "Hash start, Etna 82, Los Alpes, Álvaro Obregón, 01010 Ciudad de México, CDMX, Mexico City, IA, MX",
+    "address": null
+  },
+  {
+    "runNumber": 719,
+    "date": "2024-05-04",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Run #719",
+    "location": "C. 14 Bis 1, Ciudad de México, CD, MX",
+    "address": null
+  },
+  {
+    "runNumber": 718,
+    "date": "2024-04-20",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Run #718",
+    "location": "Hash start, Etna 82, Los Alpes, Álvaro Obregón, 01010 Ciudad de México, CDMX, Mexico City, IA, MX",
+    "address": null
+  },
+  {
+    "runNumber": 717,
+    "date": "2024-04-06",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Run #717",
+    "location": "Parque Lincoln, Av. Emilio Castelar 163, Ciudad de México, CD, MX",
+    "address": null
+  },
+  {
+    "runNumber": 716,
+    "date": "2024-03-23",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Run #716",
+    "location": "Plaza San Jacinto, Pl. San Jacinto, Ciudad de México, MX",
+    "address": null
+  },
+  {
+    "runNumber": 715,
+    "date": "2024-03-09",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Run #715",
+    "location": "Americas Park, Av. Horacio Col, Ciudad de México, CD, MX",
+    "address": null
+  },
+  {
+    "runNumber": 714,
+    "date": "2024-02-24",
+    "startTime": "13:00",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Run #714",
+    "location": "Entrada a Bosque de tlalpan, Camino Sta. Teresa S / N, Ciudad de México, MX",
+    "address": null
+  },
+  {
+    "runNumber": 713,
+    "date": "2024-02-10",
+    "startTime": "10:30",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Run #713",
+    "location": "Location not specified yet",
+    "address": null
+  },
+  {
+    "runNumber": null,
+    "date": "2024-02-03",
+    "startTime": "14:00",
+    "endTime": null,
+    "title": "Coyoacan Not a Full Moon Hash House Harriers, Run 1",
+    "location": "Location not specified yet",
+    "address": null
+  },
+  {
+    "runNumber": 712,
+    "date": "2024-01-27",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Run #712",
+    "location": "Location not specified yet",
+    "address": null
+  },
+  {
+    "runNumber": 711,
+    "date": "2024-01-13",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Run #711",
+    "location": "Location not specified yet",
+    "address": null
+  },
+  {
+    "runNumber": 709,
+    "date": "2023-12-16",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Run #709",
+    "location": "Location not specified yet",
+    "address": null
+  },
+  {
+    "runNumber": 708,
+    "date": "2023-12-02",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Run #708",
+    "location": "Location not specified yet",
+    "address": null
+  },
+  {
+    "runNumber": 707,
+    "date": "2023-11-18",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Run #707",
+    "location": "Location not specified yet",
+    "address": null
+  },
+  {
+    "runNumber": 706,
+    "date": "2023-11-04",
+    "startTime": "11:00",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Run #706",
+    "location": "Location not specified yet",
+    "address": null
+  },
+  {
+    "runNumber": 705,
+    "date": "2023-10-21",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Run #705 🎃 The Halloween Hash ☠️",
+    "location": "Location not specified yet",
+    "address": null
+  },
+  {
+    "runNumber": 704,
+    "date": "2023-10-07",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Run #704",
+    "location": "Location not specified yet",
+    "address": null
+  },
+  {
+    "runNumber": 703,
+    "date": "2023-09-23",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Hash #703",
+    "location": "Location not specified yet",
+    "address": null
+  },
+  {
+    "runNumber": 702,
+    "date": "2023-09-09",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Hash #702",
+    "location": "Location not specified yet",
+    "address": null
+  },
+  {
+    "runNumber": null,
+    "date": "2023-08-25",
+    "startTime": "21:00",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - 700th Hidalgo Cowboy Hash",
+    "location": "Location not specified yet",
+    "address": null
+  },
+  {
+    "runNumber": 699,
+    "date": "2023-08-12",
+    "startTime": "15:30",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Hash #699",
+    "location": "Location not specified yet",
+    "address": null
+  },
+  {
+    "runNumber": 698,
+    "date": "2023-07-29",
+    "startTime": "14:30",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Hash #698",
+    "location": "Location not specified yet",
+    "address": null
+  },
+  {
+    "runNumber": 697,
+    "date": "2023-07-15",
+    "startTime": "14:30",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Hash #697",
+    "location": "Parque Lincoln, Av. Emilio Castelar 163, Ciudad de México, CD, MX",
+    "address": null
+  },
+  {
+    "runNumber": 696,
+    "date": "2023-07-01",
+    "startTime": "14:30",
+    "endTime": null,
+    "title": "Hash House Harriers Mexico City - Hash #696",
+    "location": "Dre Coyoacan, Av. Miguel Ángel de Quevedo 992, Parque San Andrés,, Mexico City, MX",
+    "address": null
+  },
+  {
+    "runNumber": 695,
+    "date": "2023-06-17",
+    "startTime": "10:30",
+    "endTime": null,
+    "title": "CDMX H3 - Hash #695: Father's Day Shitty Tie Hash",
+    "location": "Americas Park, Av. Horacio Col, Ciudad de México, CD, MX",
+    "address": null
+  },
+  {
+    "runNumber": null,
+    "date": "2023-06-03",
+    "startTime": "14:30",
+    "endTime": null,
+    "title": "Mexico City Hash House Harriers: Hash!",
+    "location": "Parque Lincoln, Av. Emilio Castelar 163, Ciudad de México, CD, MX",
+    "address": null
+  },
+  {
+    "runNumber": 693,
+    "date": "2023-05-20",
+    "startTime": "14:30",
+    "endTime": null,
+    "title": "CDMX H3 Hash # 693 - Coyoacan",
+    "location": "DRE Coyoacan, Av. Miguel Ángel de Quevedo 992, Ciudad de México, CD, MX",
+    "address": null
+  },
+  {
+    "runNumber": null,
+    "date": "2023-05-06",
+    "startTime": "14:30",
+    "endTime": null,
+    "title": "Mexico City Hash House Harriers: Hash!",
+    "location": "METROBÚS LA PALMA - LÍNEA 7, Av. P.º de la Reforma, Ciudad de México, CD, MX",
+    "address": null
+  },
+  {
+    "runNumber": 691,
+    "date": "2023-04-22",
+    "startTime": "10:00",
+    "endTime": null,
+    "title": "Mexico City Hash House Harriers: Hash # 691 - 😈 The Satanic Hash 😈",
+    "location": "C. 14 Bis 1, Ciudad de México, CD, MX",
+    "address": null
+  },
+  {
+    "runNumber": null,
+    "date": "2023-04-08",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Mexico City Hash House Harriers:Easter Vigil Hash!",
+    "location": "Location not specified yet",
+    "address": null
+  },
+  {
+    "runNumber": null,
+    "date": "2023-03-25",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Mexico City Hash House Harriers: “Panama Mágico” Hash",
+    "location": "EKKO Hostel, Revolución de 1910 s/n, Tepoztlán, MO, MX",
+    "address": null
+  },
+  {
+    "runNumber": null,
+    "date": "2023-03-11",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Mexico City Hash House Harriers: “A Flash of Green” St Patrick’s Hash",
+    "location": "Preescolar Miguel Leon Portilla, Ciudad de México, CD, MX",
+    "address": null
+  },
+  {
+    "runNumber": null,
+    "date": "2023-02-25",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Mexico City Hash House Harriers: “Musical Treasure Hunt” - San Rafael",
+    "location": "Guau Tap, C. Guillermo Prieto 45, Ciudad de México, CD, MX",
+    "address": null
+  },
+  {
+    "runNumber": null,
+    "date": "2023-02-11",
+    "startTime": "13:45",
+    "endTime": null,
+    "title": "Mexico City Hash House Harriers: Valentine’s Hash in Lomas - Virreyes",
+    "location": "Avenida Prado Norte 310, Ciudad de México, CD, MX",
+    "address": null
+  },
+  {
+    "runNumber": null,
+    "date": "2023-01-28",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Mexico City Hash House Harriers: Farewell Hash - Zeppelin and Missing in Action",
+    "location": "Minatitlan 10, Ciudad de México, CD, MX",
+    "address": null
+  },
+  {
+    "runNumber": null,
+    "date": "2023-01-14",
+    "startTime": "14:00",
+    "endTime": null,
+    "title": "Mexico City Hash House Harriers: Parque Tamayo Jan 14, 2023",
+    "location": "Monumento a Gandhi, Ciudad de México, CD, MX",
+    "address": null
+  },
+  {
+    "runNumber": null,
+    "date": "2022-12-17",
+    "startTime": "14:00",
+    "endTime": null,
+    "title": "Mexico City Hash House Harriers: Coyoacan- Sat Dec 17, 2022",
+    "location": "DRE Coyoacan, Av. Miguel Ángel de Quevedo 992, Ciudad de México, CD, MX",
+    "address": null
+  },
+  {
+    "runNumber": null,
+    "date": "2022-12-03",
+    "startTime": "11:30",
+    "endTime": null,
+    "title": "Mexico City Hash House Harriers: Reforma Social - Sat Dec 03, 2022",
+    "location": "Reforma Social, C. 14 Bis 1, Reforma Soc, Miguel Hidalgo, 11650 Ciudad de México, CDMX, Mexico City, AL, MX",
+    "address": null
+  },
+  {
+    "runNumber": null,
+    "date": "2022-11-19",
+    "startTime": "09:30",
+    "endTime": null,
+    "title": "Mexico City Hash House Harriers: Hidalgo Ranch Hash - Sat Nov 19, 2022",
+    "location": "The Duke of Lisbon, Calle Lisboa 15, Ciudad de México, CD, MX",
+    "address": null
+  },
+  {
+    "runNumber": null,
+    "date": "2022-11-05",
+    "startTime": "11:00",
+    "endTime": null,
+    "title": "Mexico City Hash House Harriers: Ajusco Hash - Sat Nov 05, 2022",
+    "location": "El Abrevadero, Mexico City, MX",
+    "address": null
+  },
+  {
+    "runNumber": null,
+    "date": "2022-10-22",
+    "startTime": "13:30",
+    "endTime": null,
+    "title": "Mexico City Hash House Harriers: Insurgentes Sur Hash - Sat Oct 22, 2022",
+    "location": "Metrobus Parque Hundido, Av. Insurgentes Sur, Ciudad de México, CD, MX",
+    "address": null
+  },
+  {
+    "runNumber": null,
+    "date": "2022-10-08",
+    "startTime": "14:00",
+    "endTime": null,
+    "title": "Mexico City Hash House Harriers: Col. Juarez Hash - Sat Oct 08, 2022",
+    "location": "Abraham González 19, Ciudad de México, CD, MX",
+    "address": null
+  },
+  {
+    "runNumber": null,
+    "date": "2022-09-24",
+    "startTime": "12:30",
+    "endTime": null,
+    "title": "Mexico City Hash House Harriers: Polanco Hash - Sat Sep 24, 2022",
+    "location": "Presa Salinillas 264, Ciudad de México, CD, MX",
+    "address": null
+  },
+  {
+    "runNumber": null,
+    "date": "2022-09-10",
+    "startTime": "14:00",
+    "endTime": null,
+    "title": "Mexico City Hash House Harriers: Polanco Hash - Sat Sep 10, 2022",
+    "location": "Av. Horacio 1104, Ciudad de México, CD, MX",
+    "address": null
+  }
 ]

@@ -79,6 +79,19 @@ export interface MeetupConfig {
    * conventions are unambiguous (e.g. always "Miami H3 Trail #NNNN").
    */
   extractRunNumber?: boolean;
+  /**
+   * Optional literal prefix a kennel stylizes its run number with instead of
+   * the standard `#`. When set (and `extractRunNumber` is true), every literal
+   * occurrence is rewritten to `#` before `extractHashRunNumber` runs, so the
+   * shared helper does the actual parsing (no per-kennel run-number regex).
+   *
+   * Paris H3 + Sans Clue H3 self-censor "Run" as "R*n" — titles read
+   * `Paris H3 R*n 1136 | TBD` (#1975). With `runNumberPrefix: "R*n"`, that
+   * normalizes to `Paris H3 # 1136 | TBD` → `extractHashRunNumber` → 1136.
+   * Matched as a plain string via `String.prototype.replaceAll` (literal, not
+   * regex), so a `*` in the token needs no escaping.
+   */
+  runNumberPrefix?: string;
 }
 
 /** Shape of an event entry in Meetup's __NEXT_DATA__ Apollo state. */
@@ -509,6 +522,7 @@ export function buildRawEventFromApollo(
   kennelTag: string,
   compiledPatterns?: [RegExp, string][],
   extractRunNumber = false,
+  runNumberPrefix?: string,
 ): RawEventData {
   const { date, startTime } = ev.dateTime
     ? extractDateTime(ev.dateTime)
@@ -552,11 +566,19 @@ export function buildRawEventFromApollo(
   const titleForDisplay = fromTitle?.title ?? ev.title;
   const cleanedDesc = cleanMeetupDescription(ev.description, state);
 
+  // Normalize a kennel's stylized run-number prefix (e.g. "R*n") to "#" so the
+  // shared extractHashRunNumber helper parses it (#1975). Literal string
+  // replace — not regex — so "R*n" needs no escaping. Display title is left
+  // untouched (it keeps the kennel's "R*n 1136" stylization).
+  const runNumberTitle = runNumberPrefix && ev.title
+    ? ev.title.replaceAll(runNumberPrefix, "#")
+    : ev.title;
+
   return {
     date,
     kennelTags: [resolvedKennelTag],
     title: cleanMeetupTitle(titleForDisplay),
-    runNumber: extractRunNumber ? extractHashRunNumber(ev.title) : undefined,
+    runNumber: extractRunNumber ? extractHashRunNumber(runNumberTitle) : undefined,
     description: cleanedDesc,
     hares,
     location: venueInfo.location,
@@ -765,7 +787,7 @@ export class MeetupAdapter implements SourceAdapter {
         // hydrated from persisted JSON, where any truthy value would pass
         // through unintentionally. Only literal `true` opts in.
         const shouldExtractRunNumber = config.extractRunNumber === true;
-        events.push(buildRawEventFromApollo(ev, mergedState, config.kennelTag, compiledPatterns, shouldExtractRunNumber));
+        events.push(buildRawEventFromApollo(ev, mergedState, config.kennelTag, compiledPatterns, shouldExtractRunNumber, config.runNumberPrefix));
       } catch (err) {
         const msg = `Failed to parse event "${ev.id}": ${err instanceof Error ? err.message : String(err)}`;
         errors.push(msg);
