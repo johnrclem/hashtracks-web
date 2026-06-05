@@ -252,14 +252,25 @@ function isRunPost(post: WPComPost): boolean {
  * params (per_page, _fields, the category-1 rule) have one source of truth.
  * Used by the one-shot history generator; the recurring fetch() below keeps its
  * own future-only loop with diagnostics.
+ *
+ * **Throws on a non-clean stop** (HTTP error, or a 400/404 on page 1 = site/API
+ * unavailable) so a transient failure can't make the generator overwrite the
+ * committed archive with an empty/partial set. Only a real end-of-pages — a
+ * `kind:"end"` past page 1, or a short/partial page — stops cleanly.
  */
 export async function fetchAllRunPosts(maxPages = MAX_PAGES + 2): Promise<WPComPost[]> {
   const all: WPComPost[] = [];
   for (let page = 1; page <= maxPages; page++) {
     const result = await fetchPostsPage(page);
-    if (result.kind !== "posts") break; // "end" or "error" → stop
+    if (result.kind === "error") {
+      throw new Error(`Asunción WP fetch failed on page ${page}: ${result.message}`);
+    }
+    if (result.kind === "end") {
+      if (page === 1) throw new Error("Asunción WP API returned 400/404 for page 1 (site/API unavailable)");
+      break; // clean end: a page past the last
+    }
     all.push(...result.posts.filter(isRunPost));
-    if (result.posts.length < PER_PAGE) break; // partial last page
+    if (result.posts.length < PER_PAGE) break; // partial last page — clean end
   }
   return all;
 }

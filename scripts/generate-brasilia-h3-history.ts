@@ -43,6 +43,12 @@ async function main(): Promise<void> {
     });
   }
 
+  // Never overwrite the committed archive with an empty set. fetchBloggerPosts
+  // errors are already thrown above; this guards the parse-yield path.
+  if (rows.length === 0) {
+    throw new Error("Parsed 0 past rows — refusing to overwrite the committed archive");
+  }
+
   rows.sort((a, b) => a.date.localeCompare(b.date) || (a.runNumber ?? 0) - (b.runNumber ?? 0));
   writeFileSync(OUT, `${JSON.stringify(rows, null, 2)}\n`);
 
