@@ -444,6 +444,10 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "hogtownh3": ["Hogtown H3", "Hogtown Hash", "Hogtown HHH", "Toronto Hash"],
     // Alberta — Calgary
     "ch3-ab": ["Calgary Hash", "Calgary H3", "Calgary HHH", "CH3 Calgary"],
+    // British Columbia — Victoria (vh3.ca)
+    "vh3": ["VH3", "Victoria H3", "Victoria Hash", "Victoria Hash House Harriers"],
+    "dsmh3": ["DSMH3", "Dark Side of the Moon H3", "Dark Side of the Moon", "Dark Side of the Moon Hash House Harriers"],
+    "vk9h3": ["Victoria K9 H3", "VK9H3", "K9 H3", "Victoria K9 Hash House Harriers"],
     // Alberta — Edmonton
     "eh3-ab": ["Edmonton H3", "Edmonton HHH", "Edmonton Hash", "EdmONtON Hash House Harriers"],
     "osh3-ab": ["Old Strathcona H3", "Old Strathcona HHH", "OSH3"],

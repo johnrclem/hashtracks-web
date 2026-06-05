@@ -2322,6 +2322,30 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: -113.49,
     aliases: ["Edmonton"],
   },
+  // British Columbia (green — distinct from Quebec/Ontario/Alberta blue/red)
+  {
+    name: "British Columbia",
+    country: "Canada",
+    level: "STATE_PROVINCE",
+    timezone: "America/Vancouver",
+    abbrev: "BC",
+    colorClasses: "bg-green-200 text-green-800",
+    pinColor: "#16a34a",
+    centroidLat: 53.73,
+    centroidLng: -127.65,
+    aliases: ["BC"],
+  },
+  {
+    name: "Victoria, BC",
+    country: "Canada",
+    timezone: "America/Vancouver",
+    abbrev: "YYJ",
+    colorClasses: "bg-green-100 text-green-700",
+    pinColor: "#22c55e",
+    centroidLat: 48.43,
+    centroidLng: -123.37,
+    aliases: ["Victoria", "Saanich"],
+  },
   // ── Netherlands ──
   {
     name: "Netherlands",
@@ -3264,6 +3288,10 @@ export function regionNameToData(name: string): RegionData {
 const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   [/\b(ireland|dublin|cork|galway|limerick)\b/, "IE"],
   [/\b(uk|england|scotland|wales|london|surrey|sussex)\b/, "UK"],
+  // MUST precede the Australia rule: that rule matches `\bvictoria\b`, so
+  // without this qualified rule first, "Victoria, BC" would infer Australia
+  // (the Victoria/Melbourne analog of the Mexico-City "New Mexico" guard).
+  [/\b(british columbia|victoria,? bc|saanich|vancouver island)\b/, "Canada"],
   [/\b(australia|sydney|melbourne|brisbane|perth|adelaide|canberra|darwin|hobart|gold coast|newcastle|wollongong|geelong|tasmania|queensland|victoria|western australia|northern territory|australian capital territory|new south wales)\b/, "Australia"],
   [/\b(canada|toronto|vancouver|montreal|calgary|edmonton|ottawa|winnipeg)\b/, "Canada"],
   [/\b(germany|berlin|munich|münchen|muenchen|hamburg|stuttgart|frankfurt)\b/, "Germany"],
@@ -3517,6 +3545,7 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Toronto, ON": "Ontario",
   "Calgary, AB": "Alberta",
   "Edmonton, AB": "Alberta",
+  "Victoria, BC": "British Columbia",
   // Netherlands
   "Amsterdam": "Netherlands",
   "The Hague": "Netherlands",
@@ -3674,8 +3703,10 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   "Utah": "United States",
   // Canada
   "Alberta": "Canada",
+  "British Columbia": "Canada",
   "Ontario": "Canada",
   "Quebec": "Canada",
+  "Victoria, BC": "Canada",
   // International (state group name = country name)
   "United Kingdom": "United Kingdom",
   "Scotland": "United Kingdom",

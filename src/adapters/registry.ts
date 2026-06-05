@@ -105,6 +105,7 @@ import { LVH3Adapter } from "./html-scraper/lvh3";
 import { BoulderH3Adapter } from "./html-scraper/boulder-h3";
 import { BoiseH3Adapter } from "./html-scraper/boiseh3";
 import { NSWHHHAdapter } from "./html-scraper/nswhhh";
+import { VictoriaH3Adapter } from "./html-scraper/victoria-h3";
 import { Ch4DkAdapter } from "./html-scraper/ch4-dk";
 import { MiteriHarelineAdapter } from "./html-scraper/miteri-hareline";
 import { AucklandHussiesAdapter } from "./html-scraper/auckland-hussies";
@@ -285,6 +286,11 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   // the four bundled issues including a description-leak fix in the Meetup
   // adapter (#1659) that gated this PR.
   { pattern: /mhhh\.ca/i, name: "MhhhCaAdapter", factory: () => new MhhhCaAdapter() },
+  // ── Canada (Victoria, BC) ──
+  // Victoria H3 (#1980) — one Gamma-platform SSR page hosting three kennels
+  // (VH3 / Dark Side of the Moon H3 / Victoria K9 H3). Backbone = the per-kennel
+  // schedule lists; the "Up Cumming" cards + prose write-ups enrich by run #.
+  { pattern: /vh3\.ca/i, name: "VictoriaH3Adapter", factory: () => new VictoriaH3Adapter() },
   // ── Sacramento, CA ──
   // SACH3 — Squarespace events collection (?format=json). The shared
   // SquarespaceEventsAdapter parses any Squarespace-hosted Events tenant;
