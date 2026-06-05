@@ -340,3 +340,52 @@ published Gamma site is reachable on a custom domain (`vh3.ca`) and on `*.sites.
   `$('a[href*="maps.app.goo.gl"]')`. Reference adapter: `src/adapters/html-scraper/victoria-h3.ts`
   (`linearize` = select the node-view leaves; two-pass parse = schedule backbone + card enrichment;
   `parseVictoriaH3Page` exported for unit tests with a fixture built from this real markup).
+
+## Bespoke static club sites — forward hareline + per-year archive index (learned from Bangkok Monday H3, 2026-06-05)
+
+Old-school hash club sites (Bangkok Monday H3 / `bangkokmondayhhh.com`, est. 1982 — hand-maintained
+HTML, GIF banners, `index.php`) often follow a stable two-surface shape that's worth onboarding even
+though there's no SaaS platform behind it:
+
+- **Two pages, one table shape.** A **forward hareline** page (`FutureHares.html`) lists far-out runs
+  (mostly `TBA` venues), and the **homepage** repeats a near-term `Run | Date | Hare | Location` table
+  (the next ~8 runs, WITH venues) plus a **`#nextrun` block** that carries the single Google Maps pin +
+  confirmed start time. **Fetch both, merge by run number** (dedupe; prefer the row that has a
+  location), then attach the one next-run pin to its matching run. Plain `fetchHTMLPage` (static
+  Cheerio) — no browserRender. Iterate `$("table tr")` and let the row parser reject non-data rows
+  (header `<strong>`, decorative GIF rows, nav rows) by requiring a numeric first cell **and**
+  `cells.length >= 4` — that filters the nav-table rows whose first cell is e.g. `"2024 Archives"`
+  (note: `parseInt("2024 Archives")` = `2024`, so the cell-count guard, not the parseInt, is what
+  saves you).
+- **🔴 Year-less `DD MMM` dates need a BIDIRECTIONAL rollover, not just Dec→Jan.** These pages print
+  `8 Jun` / `2 Nov` with no year. The forward case is obvious (a Jan row on a mid-year page → next
+  year). The case the handoff missed (caught in review by Gemini + claude-review): the homepage's
+  near-term table also retains the **1–2 just-completed runs**, so scraped in early January it still
+  shows a **Nov/Dec run** — inferring the reference year would push it a year into the future. Rule
+  that handles both, anchored on the actual scrape date:
+  - candidate more than **~60 days in the past** → `refYear + 1` (margin keeps just-completed runs in
+    the current year),
+  - candidate more than **~8 months in the future** → `refYear − 1` (a stale prior-year run still on
+    the homepage; safe because a weekly club never schedules >8 months out, and the live forward
+    hareline only reaches ~6 months).
+
+  Gemini's first suggestion (a 300-day forward bound) is **too loose** — a November run scraped in
+  January is ~291 days out and slips through; 240 days catches it. Test both directions.
+- **Event markers leak into cells.** An AGM/special tag appears in the date cell (`2 Nov AGM`) and the
+  archive's hare cell (`AGM Codpiece`). Strip a standalone `\bAGM\b` token before parsing the date and
+  before storing the hare. `TBA` hare/location → `undefined` (never store the literal). Run-number
+  gaps (e.g. #2238/#2239 unassigned) are legitimate — emit the rows present, don't synthesize.
+- **Deep, clean per-year archive → frozen-dataset backfill.** `ArchiveIndex.html` links one page per
+  year (`History/Index20NN.html`, 2002→present) with the **same table shape** — here ~1,185 runs back
+  to #981 (2002). Reuse the adapter's exported row parser in a **throwaway** extractor (year comes from
+  the page filename, not inference), freeze the result to `scripts/data/<code>-history.json`, and ship
+  a dumb loader delegating to `runBackfillScript` (H7/Brasília/Asunción pattern). Set
+  `config.upcomingOnly: true` so reconcile doesn't false-cancel the archive once runs age off the
+  forward pages. The one PII pass to run on the curated JSON: drop write-up/FB permalinks and flag
+  `@`/long-digit strings (Bangkok's lone `@` hit was a venue name — `Fongfab Laundry@Vistagarden`, not
+  contact info — so keep it; just confirm).
+- **Reference adapter:** `src/adapters/html-scraper/bangkok-monday-hash.ts` (`parseHarelineRow` takes a
+  `resolveDate` callback so the live adapter passes forward-inference and the backfill passes
+  page-year; `inferYear` is the bidirectional rule; `parseNextRunBlock` extracts the single pin via
+  `extractCoordsFromMapsUrl`). Backfill loader `scripts/backfill-bmh3-bkk-history.ts` + frozen
+  `scripts/data/bmh3-bkk-history.json`.
