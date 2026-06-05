@@ -141,7 +141,7 @@ export function parseScheduleNextRun($: CheerioAPI): NextRunInfo | null {
     const runNumber = extractHashRunNumber(runCell);
     if (runNumber === undefined) return;
 
-    const gpsCell = cells.find((c) => GPS_RE.test(c)) ?? cells[cells.length - 1] ?? "";
+    const gpsCell = cells.find((c) => GPS_RE.test(c)) ?? cells.at(-1) ?? "";
     const gps = GPS_RE.exec(gpsCell);
 
     const info: NextRunInfo = { runNumber };
@@ -201,10 +201,7 @@ export class VindobonaH3Adapter implements SourceAdapter {
 
     // 1) Forward hareline — the canonical source of truth.
     const harelinePage = await fetchHTMLPage(harelineUrl);
-    if (!harelinePage.ok) {
-      errors.push(`Failed to fetch ${harelineUrl}`);
-      fetchErrors.push({ url: harelineUrl, message: "fetch failed" });
-    } else {
+    if (harelinePage.ok) {
       structureHash = harelinePage.structureHash;
       const $ = harelinePage.$;
       const rows = $("#futuretable tr");
@@ -226,6 +223,9 @@ export class VindobonaH3Adapter implements SourceAdapter {
           });
         }
       });
+    } else {
+      errors.push(`Failed to fetch ${harelineUrl}`);
+      fetchErrors.push({ url: harelineUrl, message: "fetch failed" });
     }
 
     // 2) Schedule detail page — optional enrichment of the single next run.
