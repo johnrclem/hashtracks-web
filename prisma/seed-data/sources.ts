@@ -5462,6 +5462,17 @@ export const SOURCES = [
       config: {},
       kennelCodes: ["bkk-harriettes"],
     },
+    // --- Bangkok Monday Hash (static HTML hareline) ---
+    {
+      name: "Bangkok Monday H3 Hareline",
+      url: "https://bangkokmondayhhh.com/FutureHares.html",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: { upcomingOnly: true },
+      kennelCodes: ["bmh3-bkk"],
+    },
     // --- Bangkok Thursday Hash (Joomla + PHP API) ---
     {
       name: "Bangkok Thursday Hash",
