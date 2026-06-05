@@ -663,6 +663,29 @@ function invalidateKennelEventCache(kennelId: string, ctx: MergeContext): void {
   ctx.eventBatch.fuzzyPoolByKennel.delete(kennelId);
 }
 
+/** Patch an already-cached canonical row in the shared per-batch pools after an
+ *  in-place UPDATE whose `date` is unchanged. A later event in the same batch
+ *  matching this canonical must read post-update values, not stale ones —
+ *  otherwise a same-batch re-match re-evaluates its fill-gates against the
+ *  pre-update row (the higher-trust matcher's "stale match → spurious create"
+ *  regression; for the lower-trust enrich branch, clobbering an earlier fill —
+ *  #1950 Codex review). No-op when the row isn't in the cache (e.g. a freshly
+ *  date-corrected row already invalidated). */
+function patchSharedEventCaches(kennelId: string, updated: EventRow, ctx: MergeContext): void {
+  const sharedPool = ctx.eventBatch.sameDayByKennel.get(kennelId);
+  if (sharedPool) {
+    const si = sharedPool.findIndex(e => e.id === updated.id);
+    if (si !== -1) sharedPool[si] = updated;
+  }
+  if (updated.parentEventId == null && !updated.isSeriesParent) {
+    const fuzzyPool = ctx.eventBatch.fuzzyPoolByKennel.get(kennelId);
+    if (fuzzyPool) {
+      const fi = fuzzyPool.findIndex(e => e.id === updated.id);
+      if (fi !== -1) fuzzyPool[fi] = updated;
+    }
+  }
+}
+
 /**
  * Refresh dateUtc/timezone on a canonical Event for a processed duplicate.
  * Only updates if the source has sufficient trust and values differ.
@@ -1643,18 +1666,7 @@ async function upsertCanonicalEvent(
         // this canonical row sees post-update values, not stale ones —
         // skipping this leaks the same "stale match → spurious create"
         // regression a fresh DB findMany would have avoided pre-#1287.
-        const sharedPool = ctx.eventBatch.sameDayByKennel.get(kennelId);
-        if (sharedPool) {
-          const si = sharedPool.findIndex(e => e.id === updated.id);
-          if (si !== -1) sharedPool[si] = updated;
-        }
-        if (updated.parentEventId == null && !updated.isSeriesParent) {
-          const fuzzyPool = ctx.eventBatch.fuzzyPoolByKennel.get(kennelId);
-          if (fuzzyPool) {
-            const fi = fuzzyPool.findIndex(e => e.id === updated.id);
-            if (fi !== -1) fuzzyPool[fi] = updated;
-          }
-        }
+        patchSharedEventCaches(kennelId, updated, ctx);
       }
     }
 
@@ -1769,6 +1781,23 @@ async function upsertCanonicalEvent(
           enrichData.timezone = timezone;
         }
       }
+      // #1950 — endTime + cost enrich like every other nullable display field.
+      // The lower-trust enrich branch had silently omitted these two (they are
+      // the only enrichable fields the higher-trust full-update branch writes
+      // — endTime ~L1562, cost ~L1565 — that weren't mirrored here), so a
+      // lower-trust enrichment source's cost/end-time was dropped whenever a
+      // higher-trust source co-covered the date without those fields (EWH3
+      // #1521: Hash Rego $10 never surfaced because trust-9 WordPress owned the
+      // canonical with no cost). Fill-only — a lower-trust source never clears;
+      // the tri-state clear stays owned by the higher-trust branch. endTime is
+      // a plain display string with no dateUtc coupling (only startTime anchors
+      // dateUtc), so no recompose is needed.
+      if (!existingEvent.endTime && event.endTime) {
+        enrichData.endTime = event.endTime;
+      }
+      if (!existingEvent.cost && event.cost) {
+        enrichData.cost = event.cost;
+      }
       // #890 — fill the trail-length bundle when the canonical event has
       // it unset, so a higher-trust primary that lacks these fields
       // doesn't drop a lower-trust source's parsed values on the floor.
@@ -1814,6 +1843,13 @@ async function upsertCanonicalEvent(
         });
         const idx = sameDayEvents.findIndex(e => e.id === existingEvent.id);
         if (idx !== -1) sameDayEvents[idx] = enriched;
+        // Mirror the fresh row into the shared per-batch caches (date unchanged
+        // in the enrich branch — it never sets crossWindowMatch). Without this a
+        // later same-batch row that re-matches this canonical would read the
+        // stale pre-enrich row and re-fire the fill-gates, clobbering the value
+        // just filled (#1950 Codex review — same patch the higher-trust branch
+        // applies above via patchSharedEventCaches).
+        patchSharedEventCaches(kennelId, enriched, ctx);
       }
     }
 

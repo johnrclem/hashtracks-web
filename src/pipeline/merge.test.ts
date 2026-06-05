@@ -635,6 +635,135 @@ describe("processRawEvents", () => {
     expect(data).not.toHaveProperty("locationAddress");
   });
 
+  // #1950 — endTime + cost were the last two enrichable fields the lower-trust
+  // enrich branch omitted (the higher-trust full-update branch always wrote
+  // them). A lower-trust co-covering source must fill them when the higher-trust
+  // owner left them NULL — EWH3 #1521: Hash Rego (trust 8) carried cost "$10"
+  // but the trust-9 WordPress source owned the canonical with cost=null, so the
+  // $10 never surfaced. Fill-only: a non-NULL canonical value is never clobbered.
+  it.each([
+    ["cost", { cost: "$10" } as const, "$10"],
+    ["endTime", { endTime: "21:30" } as const, "21:30"],
+  ])("lower-trust enrichment fills a NULL canonical %s (#1950)", async (field, override, expected) => {
+    mockSourceFind.mockResolvedValueOnce(sourceRow({
+      trustLevel: 5,
+      type: "HTML_SCRAPER",
+      kennels: [{ kennelId: "kennel_1" }],
+    }));
+    mockRawEventFind.mockResolvedValueOnce(null);
+    // Higher-trust owner (trust 8) left cost + endTime NULL; source is trust 5.
+    mockEventFindMany.mockResolvedValueOnce([{
+      id: "evt_fill",
+      trustLevel: 8,
+      cost: null,
+      endTime: null,
+    }] as never);
+    mockEventUpdate.mockResolvedValue(eventRow("evt_fill"));
+
+    await processRawEvents("src_low", [buildRawEvent(override)]);
+
+    const update = mockEventUpdate.mock.calls.find(
+      (c: unknown[]) => (c[0] as { where: { id: string } }).where.id === "evt_fill",
+    );
+    expect(update).toBeDefined();
+    const data = (update![0] as { data: Record<string, unknown> }).data;
+    expect(data).toHaveProperty(field, expected);
+  });
+
+  it.each([
+    ["cost", { cost: "$10" } as const],
+    ["endTime", { endTime: "21:30" } as const],
+  ])("lower-trust enrichment does NOT override a non-NULL canonical %s (#1950)", async (field, override) => {
+    mockSourceFind.mockResolvedValueOnce(sourceRow({
+      trustLevel: 5,
+      type: "HTML_SCRAPER",
+      kennels: [{ kennelId: "kennel_1" }],
+    }));
+    mockRawEventFind.mockResolvedValueOnce(null);
+    // Higher-trust owner (trust 8) already set cost + endTime; a NULL description
+    // guarantees the enrich update still fires so we can inspect its payload.
+    mockEventFindMany.mockResolvedValueOnce([{
+      id: "evt_keep",
+      trustLevel: 8,
+      cost: "$5",
+      endTime: "20:00",
+      description: null,
+    }] as never);
+    mockEventUpdate.mockResolvedValue(eventRow("evt_keep"));
+
+    await processRawEvents("src_low", [buildRawEvent(override)]);
+
+    const update = mockEventUpdate.mock.calls.find(
+      (c: unknown[]) => (c[0] as { where: { id: string } }).where.id === "evt_keep",
+    );
+    expect(update).toBeDefined();
+    const data = (update![0] as { data: Record<string, unknown> }).data;
+    // The fillable NULL field (description) enriches, proving the update fired...
+    expect(data).toHaveProperty("description");
+    // ...but the non-NULL higher-trust value is left untouched.
+    expect(data).not.toHaveProperty(field);
+  });
+
+  it("lower-trust enrichment does NOT clobber an earlier same-batch fill (#1950 shared-cache patch)", async () => {
+    // Two lower-trust raws in ONE batch both match the same canonical (shared
+    // runNumber + startTime → the matcher re-matches the second onto the first).
+    // The first fills cost+endTime onto the NULL canonical; the second carries
+    // DIFFERENT values. Without patching the shared per-batch cache after the
+    // enrich UPDATE, the second raw reads the stale pre-fill row and clobbers
+    // the value — patchSharedEventCaches keeps the fill-only invariant honest.
+    mockSourceFind.mockResolvedValue(sourceRow({
+      trustLevel: 5,
+      type: "HTML_SCRAPER",
+      kennels: [{ kennelId: "kennel_1" }],
+    }));
+    mockFingerprint.mockReturnValueOnce("fp_a").mockReturnValueOnce("fp_b");
+    mockRawEventFind.mockResolvedValue(null);
+    // Higher-trust owner (trust 8) left cost + endTime NULL.
+    mockEventFindMany.mockResolvedValueOnce([{
+      id: "evt_batch",
+      trustLevel: 8,
+      cost: null,
+      endTime: null,
+      startTime: "14:00",
+      runNumber: 2100,
+      sourceUrl: "https://example.com/#past",
+      title: "Trail",
+      description: null,
+      parentEventId: null,
+      isSeriesParent: false,
+    }] as never);
+    // Echo each enrich UPDATE back as the merged row so the shared-cache patch
+    // carries the filled value into the second raw's match.
+    mockEventUpdate.mockImplementation(((args: unknown) => {
+      const { where, data } = args as { where: { id: string }; data: Record<string, unknown> };
+      return eventRow(where.id, {
+        trustLevel: 8,
+        startTime: "14:00",
+        runNumber: 2100,
+        sourceUrl: "https://example.com/#past",
+        title: "Trail",
+        parentEventId: null,
+        isSeriesParent: false,
+        cost: null,
+        endTime: null,
+        description: null,
+        ...data,
+      });
+    }) as never);
+
+    await processRawEvents("src_low", [
+      buildRawEvent({ date: "2026-03-08", runNumber: 2100, startTime: "14:00", cost: "$10", endTime: "21:30", sourceUrl: "https://example.com/#past" }),
+      buildRawEvent({ date: "2026-03-08", runNumber: 2100, startTime: "14:00", cost: "$20", endTime: "22:30", sourceUrl: "https://example.com/#future" }),
+    ]);
+
+    const costWrites = mockEventUpdate.mock.calls.map(
+      (c: unknown[]) => (c[0] as { data: { cost?: unknown } }).data.cost,
+    );
+    // The first raw fills $10; the second's $20 must never reach the DB.
+    expect(costWrites).toContain("$10");
+    expect(costWrites).not.toContain("$20");
+  });
+
   it("does NOT backfill coords/map URL when the lower-trust venue differs from the existing name (#1919)", async () => {
     // Venue-compatibility gate: a fuzzy/stale lower-trust match carrying a
     // DIFFERENT venue must not pin its coords under the higher-trust venue name

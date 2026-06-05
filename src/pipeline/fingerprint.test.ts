@@ -75,6 +75,30 @@ describe("generateFingerprint", () => {
     expect(generateFingerprint(baseline)).toBe(generateFingerprint(withExplicitUndefined));
   });
 
+  // #1950 stability guard — the lower-trust enrich branch now fills cost +
+  // endTime onto the canonical. Both fields already participate in the
+  // fingerprint (cost/endTime are WS6 tokens), so a RawEvent that newly carries
+  // them re-fingerprints and the canonical UPDATE persists the enriched value.
+  // These assert that wiring stays intact: distinct values fork the fingerprint,
+  // and a baseline event with neither field is unaffected (no re-merge churn).
+  it.each([
+    ["cost", { cost: "$10" } as const],
+    ["endTime", { endTime: "21:30" } as const],
+  ])("different %s values produce different fingerprints (#1950)", (_field, override) => {
+    const a = generateFingerprint(buildRawEvent());
+    const b = generateFingerprint(buildRawEvent(override));
+    expect(a).not.toBe(b);
+  });
+
+  it.each([
+    ["cost", { cost: undefined } as const],
+    ["endTime", { endTime: undefined } as const],
+  ])("%s=undefined leaves the baseline fingerprint unchanged (#1950)", (_field, override) => {
+    expect(generateFingerprint(buildRawEvent())).toBe(
+      generateFingerprint(buildRawEvent(override)),
+    );
+  });
+
   // #1624 — eventLabel must participate in the fingerprint so a label edit
   // (e.g. "Birthday" → "Pink Moon") re-fingerprints and the canonical UPDATE
   // fires; otherwise the dedup map silently swallows the new label.
