@@ -20,8 +20,15 @@ vi.mock("@/lib/db", () => ({
     },
     auditIssue: {
       groupBy: vi.fn(),
+      aggregate: vi.fn(),
     },
   },
+}));
+vi.mock("@/pipeline/audit-issue-sync", () => ({
+  syncAuditIssues: vi.fn(),
+}));
+vi.mock("next/cache", () => ({
+  revalidatePath: vi.fn(),
 }));
 vi.mock("@/generated/prisma/client", () => ({
   Prisma: {
@@ -51,6 +58,8 @@ vi.mock("@/generated/prisma/client", () => ({
 
 import { getAdminUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { syncAuditIssues, type SyncResult } from "@/pipeline/audit-issue-sync";
+import { revalidatePath } from "next/cache";
 import { buildPrismaUniqueViolation } from "@/test/factories";
 import {
   getAuditTrends,
@@ -65,6 +74,8 @@ import {
   getCloseReasonRatiosByStream,
   getDeepDiveQueueToken,
   recordDeepDive,
+  getAuditSyncFreshness,
+  resyncAuditIssues,
 } from "./actions";
 import {
   computeQueueSnapshotId,
@@ -77,6 +88,17 @@ const mockLogFind = vi.mocked(prisma.auditLog.findMany);
 const mockSupFind = vi.mocked(prisma.auditSuppression.findMany);
 const mockSupCreate = vi.mocked(prisma.auditSuppression.create);
 const mockSupDeleteMany = vi.mocked(prisma.auditSuppression.deleteMany);
+const mockIssueAggregate = vi.mocked(prisma.auditIssue.aggregate);
+const mockSync = vi.mocked(syncAuditIssues);
+const mockRevalidate = vi.mocked(revalidatePath);
+
+// getAuditSyncFreshness only reads `_max.syncedAt`, but Prisma's aggregate
+// return type also carries _count/_avg/_sum/_min. Build the minimal shape
+// the action uses and widen it once here rather than asserting per call.
+type AuditIssueAggregate = Awaited<ReturnType<typeof prisma.auditIssue.aggregate>>;
+function aggregateWithSyncedAt(syncedAt: Date | null): AuditIssueAggregate {
+  return { _max: { syncedAt } } as unknown as AuditIssueAggregate;
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -715,5 +737,105 @@ describe("getCloseReasonRatiosByStream", () => {
     mockGroupBy.mockResolvedValue([] as never);
     const ratios = await getCloseReasonRatiosByStream(30);
     for (const r of ratios) expect(r.windowDays).toBe(30);
+  });
+});
+
+describe("getAuditSyncFreshness", () => {
+  it("rejects unauthenticated callers", async () => {
+    mockAdmin.mockResolvedValue(null);
+    await expect(getAuditSyncFreshness()).rejects.toThrow("Unauthorized");
+  });
+
+  // Threshold is SYNC_STALENESS_WARN_HOURS = 30 (daily cron + margin).
+  // lastSyncAt is derived from real `Date.now()` so the action's own
+  // `Date.now()` read lands a few ms later — ageHours is asserted with
+  // tolerance rather than faking the clock.
+  it.each([
+    { label: "recent sync", hoursAgo: 2, stale: false },
+    { label: "just inside the threshold", hoursAgo: 29, stale: false },
+    { label: "just past the threshold", hoursAgo: 31, stale: true },
+    { label: "long-dead sync", hoursAgo: 240, stale: true },
+  ])("marks a $label as stale=$stale", async ({ hoursAgo, stale }) => {
+    const lastSyncAt = new Date(Date.now() - hoursAgo * 3_600_000);
+    mockIssueAggregate.mockResolvedValue(aggregateWithSyncedAt(lastSyncAt));
+
+    const result = await getAuditSyncFreshness();
+
+    expect(result.lastSyncAt).toEqual(lastSyncAt);
+    expect(result.stale).toBe(stale);
+    expect(result.ageHours).toBeCloseTo(hoursAgo, 1);
+  });
+
+  it("treats an empty mirror as stale with a null age", async () => {
+    mockIssueAggregate.mockResolvedValue(aggregateWithSyncedAt(null));
+    const result = await getAuditSyncFreshness();
+    expect(result).toEqual({ lastSyncAt: null, ageHours: null, stale: true });
+  });
+});
+
+describe("resyncAuditIssues", () => {
+  it("rejects unauthenticated callers", async () => {
+    mockAdmin.mockResolvedValue(null);
+    await expect(resyncAuditIssues()).rejects.toThrow("Unauthorized");
+  });
+
+  it("returns ok and revalidates the dashboard on a successful sync", async () => {
+    const syncResult: SyncResult = {
+      scanned: 5,
+      opened: 2,
+      closed: 1,
+      reopened: 0,
+      relabeled: 0,
+      delisted: 0,
+      errors: [],
+    };
+    mockSync.mockResolvedValue(syncResult);
+
+    const result = await resyncAuditIssues();
+
+    expect(result).toEqual({ ok: true, result: syncResult });
+    expect(mockRevalidate).toHaveBeenCalledWith("/admin/audit");
+  });
+
+  it("sanitizes a GitHub error (drops the response body) and skips revalidation when the sync throws", async () => {
+    // fetchAllAuditIssues embeds GitHub's raw response body in the message;
+    // it must not reach the browser verbatim.
+    mockSync.mockRejectedValue(
+      new Error(
+        'GitHub API 401 on page 1: {"message":"Bad credentials","documentation_url":"https://..."}',
+      ),
+    );
+
+    const result = await resyncAuditIssues();
+
+    expect(result).toEqual({ ok: false, error: "GitHub API 401 on page 1" });
+    expect(mockRevalidate).not.toHaveBeenCalled();
+  });
+
+  it("passes through a non-GitHub error message (capped)", async () => {
+    mockSync.mockRejectedValue(new Error("GITHUB_TOKEN not set"));
+    const result = await resyncAuditIssues();
+    expect(result).toEqual({ ok: false, error: "GITHUB_TOKEN not set" });
+  });
+
+  it("flags a partial sync (per-issue errors) without claiming a clean run", async () => {
+    const syncResult: SyncResult = {
+      scanned: 10,
+      opened: 3,
+      closed: 1,
+      reopened: 0,
+      relabeled: 0,
+      delisted: 0,
+      errors: ["#42: multi-stream label conflict"],
+    };
+    mockSync.mockResolvedValue(syncResult);
+
+    const result = await resyncAuditIssues();
+
+    // Still ok:true (the sync ran) but errors[] is preserved so the UI can
+    // render the amber "partial" state rather than green success.
+    expect(result).toEqual({ ok: true, result: syncResult });
+    expect(result.ok && result.result.errors).toHaveLength(1);
+    expect(mockRevalidate).toHaveBeenCalledWith("/admin/audit");
   });
 });

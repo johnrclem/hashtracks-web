@@ -37,6 +37,17 @@ const FETCH_TIMEOUT_MS = 15_000;
 const PAGE_SIZE = 100;
 const MAX_PAGES = 20; // safety cap; ~2000 issues
 
+// The sync upserts the *entire* audit corpus in one advisory-locked
+// transaction (the lock is xact-scoped, so the work can't be split). At
+// ~950+ issues that's well past Prisma's 5 s interactive-transaction
+// default — and a catch-up run after an outage (e.g. a rotated
+// GITHUB_TOKEN draining a multi-hundred-issue backlog) is heavier still.
+// Without generous headroom the *first* sync after any gap times out with
+// P2028 and the mirror stays frozen (#1958). Bounded by MAX_PAGES*PAGE_SIZE
+// (~2000 issues) and well under Vercel's 300 s function limit.
+const SYNC_TX_TIMEOUT_MS = 120_000;
+const SYNC_TX_MAX_WAIT_MS = 15_000;
+
 /** Shape of a GitHub issue from the REST API (only the fields we use). */
 export interface GitHubIssue {
   number: number;
@@ -538,7 +549,7 @@ export async function syncAuditIssues(): Promise<SyncResult> {
       });
       result.delisted = staleIds.length;
     }
-  });
+  }, { maxWait: SYNC_TX_MAX_WAIT_MS, timeout: SYNC_TX_TIMEOUT_MS });
 
   console.log(
     `[audit-sync] scanned=${result.scanned} opened=${result.opened} closed=${result.closed} reopened=${result.reopened} relabeled=${result.relabeled} delisted=${result.delisted} errors=${result.errors.length}`,

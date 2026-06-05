@@ -3,6 +3,13 @@ import { verifyCronAuth } from "@/lib/cron-auth";
 import { syncAuditIssues } from "@/pipeline/audit-issue-sync";
 import { syncKennelLabels, summarizeLabelSync } from "@/pipeline/kennel-label-sync";
 
+// The audit sync upserts the full corpus in one transaction (up to
+// SYNC_TX_TIMEOUT_MS = 120s) plus the GitHub fetch — a catch-up run after
+// an outage drains a large backlog in a single pass. Give the function
+// the same 300s budget as the scrape cron so the platform doesn't 504
+// before Prisma finishes (matches src/app/api/cron/scrape/[sourceId]).
+export const maxDuration = 300;
+
 /**
  * Daily sync of GitHub `audit`-labeled issues into the AuditIssue mirror.
  * Runs two phases in order:

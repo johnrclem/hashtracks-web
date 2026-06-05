@@ -11,11 +11,19 @@ import {
   getCloseReasonRatiosByStream,
   getRecentOpenIssues,
   getHarelinePromptInputs,
+  getAuditSyncFreshness,
 } from "./actions";
 import { KNOWN_AUDIT_RULES } from "@/pipeline/audit-checks";
 import { AuditDashboard } from "@/components/admin/AuditDashboard";
+import { AuditSyncStatus } from "./AuditSyncStatus";
 import { buildHarelinePrompt } from "@/lib/admin/hareline-prompt";
 import { mintQueueTokens } from "@/lib/queue-snapshot-token";
+
+// The "Re-sync now" server action (resyncAuditIssues) runs the full sync
+// on this route — GitHub fetch + a transaction up to SYNC_TX_TIMEOUT_MS
+// (120s). Lift the function budget above that (matching the sync cron) so
+// a manual catch-up of a large backlog isn't 504'd before Prisma finishes.
+export const maxDuration = 300;
 
 /** Build the daily hareline audit prompt at request time so the curated
  *  sections (recently-fixed, focus areas) reflect live data. Returns null on
@@ -46,6 +54,7 @@ export default async function AuditPage() {
     streamOpenCountsResult,
     streamCloseReasonRatiosResult,
     recentOpenIssuesResult,
+    syncFreshnessResult,
   ] = await Promise.all([
     getAuditTrends().catch(() => []),
     getTopOffenders().catch(() => []),
@@ -66,6 +75,10 @@ export default async function AuditPage() {
     // hide schema skew / Prisma errors during rollout.
     getCloseReasonRatiosByStream().catch(() => null),
     getRecentOpenIssues().catch(() => []),
+    // `null` (not a fabricated "fresh" value) on failure so the banner
+    // renders the loud "status unavailable" state rather than masking a
+    // broken probe behind a false all-clear.
+    getAuditSyncFreshness().catch(() => null),
   ]);
 
   // Pre-mint a queue token per candidate at page render so the dialog
@@ -79,21 +92,24 @@ export default async function AuditPage() {
   );
 
   return (
-    <AuditDashboard
-      trends={trendsResult}
-      topOffenders={offendersResult}
-      recentRuns={runsResult}
-      suppressions={suppressionsResult}
-      kennels={kennels}
-      knownRules={[...KNOWN_AUDIT_RULES]}
-      deepDiveQueue={deepDiveQueueResult}
-      deepDiveCoverage={deepDiveCoverageResult}
-      deepDiveTokens={deepDiveTokens}
-      harelinePrompt={harelinePrompt}
-      streamTrends={streamTrendsResult}
-      streamOpenCounts={streamOpenCountsResult}
-      streamCloseReasonRatios={streamCloseReasonRatiosResult}
-      recentOpenIssues={recentOpenIssuesResult}
-    />
+    <>
+      <AuditSyncStatus freshness={syncFreshnessResult} />
+      <AuditDashboard
+        trends={trendsResult}
+        topOffenders={offendersResult}
+        recentRuns={runsResult}
+        suppressions={suppressionsResult}
+        kennels={kennels}
+        knownRules={[...KNOWN_AUDIT_RULES]}
+        deepDiveQueue={deepDiveQueueResult}
+        deepDiveCoverage={deepDiveCoverageResult}
+        deepDiveTokens={deepDiveTokens}
+        harelinePrompt={harelinePrompt}
+        streamTrends={streamTrendsResult}
+        streamOpenCounts={streamOpenCountsResult}
+        streamCloseReasonRatios={streamCloseReasonRatiosResult}
+        recentOpenIssues={recentOpenIssuesResult}
+      />
+    </>
   );
 }
