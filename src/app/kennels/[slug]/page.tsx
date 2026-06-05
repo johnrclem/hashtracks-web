@@ -275,9 +275,11 @@ export default async function KennelDetailPage({
   // Region color for theming
   const regionColor = kennel.region ? getRegionColor(kennel.region) : "#6b7280";
 
-  // Initials for logo fallback
+  // Initials for logo fallback. Unicode-aware (\p{L}\p{N} + u flag) so accented
+  // / non-Latin kennel names (München, Montréal) keep correct initials instead
+  // of being stripped to ASCII. Mirrored in KennelCard's directory-card avatar.
   const initials = kennel.shortName
-    .replace(/[^A-Z0-9]/gi, "")
+    .replace(/[^\p{L}\p{N}]/gu, "")
     .slice(0, 3)
     .toUpperCase();
 

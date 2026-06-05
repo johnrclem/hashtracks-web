@@ -13,6 +13,7 @@ export interface KennelCardData {
   country: string;
   latitude?: number | null;
   longitude?: number | null;
+  logoUrl?: string | null;
   description: string | null;
   foundedYear: number | null;
   scheduleDayOfWeek: string | null;
@@ -40,15 +41,35 @@ export function KennelCard({ kennel }: KennelCardProps) {
   return (
     <Link href={`/kennels/${kennel.slug}`}>
       <div className={`rounded-lg border bg-card p-4 transition-colors hover:border-primary/50 hover:shadow-sm h-full flex flex-col${!kennel.nextEvent ? " opacity-60" : ""}`}>
-        {/* Header: shortName + region badge */}
+        {/* Header: logo + shortName + region badge. Logo avatar mirrors the
+            profile-page hero (src/app/kennels/[slug]/page.tsx) at card scale;
+            initials are the null-logo fallback. */}
         <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <h3 className="text-base font-bold leading-tight truncate" title={kennel.fullName}>
-              {kennel.shortName}
-            </h3>
-            <p className="text-sm text-muted-foreground truncate">
-              {kennel.fullName}
-            </p>
+          <div className="flex items-start gap-2.5 min-w-0">
+            {kennel.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={kennel.logoUrl}
+                alt={`${kennel.shortName} logo`}
+                loading="lazy"
+                className="h-10 w-10 shrink-0 rounded-lg object-contain bg-white dark:bg-background ring-1 ring-border"
+              />
+            ) : (
+              <div
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-xs font-bold text-muted-foreground"
+                aria-hidden="true"
+              >
+                {kennel.shortName.replace(/[^\p{L}\p{N}]/gu, "").slice(0, 3).toUpperCase()}
+              </div>
+            )}
+            <div className="min-w-0">
+              <h3 className="text-base font-bold leading-tight truncate" title={kennel.fullName}>
+                {kennel.shortName}
+              </h3>
+              <p className="text-sm text-muted-foreground truncate">
+                {kennel.fullName}
+              </p>
+            </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             <ActivityStatusBadge lastEventDate={kennel.lastEventDate} hasUpcomingEvent={!!kennel.nextEvent} />
