@@ -122,7 +122,7 @@ function parseDateSpanFromHeading(heading: string): { start?: string; end?: stri
   if (dates.length === 0) return {};
   dates.sort((a, b) => a.localeCompare(b));
   const start = dates[0];
-  const end = dates[dates.length - 1];
+  const end = dates.at(-1)!;
   const spanDays = (Date.parse(`${end}T12:00:00Z`) - Date.parse(`${start}T12:00:00Z`)) / 86_400_000;
   if (spanDays > MAX_SPAN_DAYS) return {};
   return { start, end };

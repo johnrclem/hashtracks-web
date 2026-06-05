@@ -65,7 +65,7 @@ async function main() {
 
   for (const ghost of ghosts) {
     console.log(`\nDeleting mh3-tn ghost ${ghost.id} ...`);
-    await deleteLeakedEvent(prisma, ghost.id, ["attendances", "kennelAttendances"]);
+    await deleteLeakedEvent(prisma, ghost.id, ["hares", "attendances", "kennelAttendances"]);
   }
 
   const updated = await backfillLastEventDates();

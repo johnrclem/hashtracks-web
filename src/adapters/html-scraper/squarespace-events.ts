@@ -62,7 +62,7 @@ export interface SquarespaceEventsConfig {
   maxPages?: number;
 }
 
-interface SquarespaceLocation {
+export interface SquarespaceLocation {
   addressTitle?: string | null;
   addressLine1?: string | null;
   addressLine2?: string | null;
@@ -85,7 +85,7 @@ interface SquarespaceLocation {
   markerLng?: number | null;
 }
 
-interface SquarespaceEvent {
+export interface SquarespaceEvent {
   id?: string;
   urlId?: string;
   title?: string;
