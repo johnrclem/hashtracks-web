@@ -59,7 +59,7 @@ export function KennelCard({ kennel }: KennelCardProps) {
                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-xs font-bold text-muted-foreground"
                 aria-hidden="true"
               >
-                {kennel.shortName.replace(/[^A-Z0-9]/gi, "").slice(0, 3).toUpperCase()}
+                {kennel.shortName.replace(/[^\p{L}\p{N}]/gu, "").slice(0, 3).toUpperCase()}
               </div>
             )}
             <div className="min-w-0">
