@@ -34,27 +34,9 @@ import { processRawEvents } from "@/pipeline/merge";
 
 const APPLY = process.argv.includes("--apply");
 
-interface ProfilePatch {
-  kennelCode: string;
-  /** Fields to set only when the current prod value is null (mirrors seed fill-null). */
-  fillNull?: Record<string, string>;
-  /** Fields to overwrite unconditionally (a known-wrong existing value). */
-  overwrite?: Record<string, string>;
-}
-
-const PROFILE_PATCHES: ProfilePatch[] = [
-  {
-    kennelCode: "asu-h3",
-    fillNull: {
-      facebookUrl: "https://www.facebook.com/groups/1254316384994089",
-      gm: "Ban The Cock (Eric)",
-    },
-  },
-  {
-    kennelCode: "brasilia-h3",
-    overwrite: { facebookUrl: "https://www.facebook.com/groups/BrasiliaH3" },
-  },
-];
+const ASU_FACEBOOK = "https://www.facebook.com/groups/1254316384994089";
+const ASU_GM = "Ban The Cock (Eric)";
+const BRASILIA_FACEBOOK = "https://www.facebook.com/groups/BrasiliaH3";
 
 // Source NAME → forward scrape window (days). Asunción is future-only with no
 // upcoming events today, so its fetch returns nothing — harmless.
@@ -64,36 +46,42 @@ const FORWARD_SOURCES: { name: string; days: number }[] = [
   { name: "Auckland H3 Website", days: 365 },
 ];
 
+/**
+ * Apply a kennel profile patch (only the keys present in `data` are written).
+ * Logs + writes only when there's an actual change. Explicit typed fields — no
+ * dynamic key access — so there's no object-injection sink to flag.
+ */
+async function applyProfile(kennelCode: string, data: Record<string, string>): Promise<void> {
+  if (Object.keys(data).length === 0) {
+    console.log(`  ${kennelCode}: already correct, no change`);
+    return;
+  }
+  console.log(`  ${kennelCode}: ${APPLY ? "updating" : "would update"} ${JSON.stringify(data)}`);
+  if (APPLY) await prisma.kennel.update({ where: { kennelCode }, data });
+}
+
 async function updateProfiles(): Promise<void> {
   console.log(`\n=== Pass 1: kennel profiles ===`);
-  for (const patch of PROFILE_PATCHES) {
-    // Fetch the whole row (no select): a selective projection would make any
-    // future PROFILE_PATCHES field read back as undefined (== null), forcing a
-    // redundant fill-null write every run. The Kennel row is tiny.
-    const kennel = await prisma.kennel.findUnique({
-      where: { kennelCode: patch.kennelCode },
-    });
-    if (!kennel) {
-      console.warn(`  ⚠ kennel ${patch.kennelCode} not found — skipping`);
-      continue;
-    }
-    // Build the update via Reflect.get + Object.fromEntries rather than dynamic
-    // `kennel[k]` / `data[k] = …` bracket notation — the latter trips the
-    // object-injection-sink lint on computed keys.
-    const updates: [string, string][] = [];
-    for (const [k, v] of Object.entries(patch.fillNull ?? {})) {
-      if (Reflect.get(kennel, k) == null) updates.push([k, v]);
-    }
-    for (const [k, v] of Object.entries(patch.overwrite ?? {})) {
-      if (Reflect.get(kennel, k) !== v) updates.push([k, v]);
-    }
-    const data = Object.fromEntries(updates);
-    if (updates.length === 0) {
-      console.log(`  ${patch.kennelCode}: already correct, no change`);
-      continue;
-    }
-    console.log(`  ${patch.kennelCode}: ${APPLY ? "updating" : "would update"} ${JSON.stringify(data)}`);
-    if (APPLY) await prisma.kennel.update({ where: { id: kennel.id }, data });
+
+  // asu-h3: fill facebookUrl + gm only when null (mirrors seed fill-null, #1959).
+  const asu = await prisma.kennel.findUnique({ where: { kennelCode: "asu-h3" } });
+  if (asu) {
+    const data: Record<string, string> = {};
+    if (asu.facebookUrl == null) data.facebookUrl = ASU_FACEBOOK;
+    if (asu.gm == null) data.gm = ASU_GM;
+    await applyProfile("asu-h3", data);
+  } else {
+    console.warn("  ⚠ kennel asu-h3 not found — skipping");
+  }
+
+  // brasilia-h3: overwrite the wrong facebookUrl (BrasiliaHHH → groups, #1980).
+  const bra = await prisma.kennel.findUnique({ where: { kennelCode: "brasilia-h3" } });
+  if (bra) {
+    const data: Record<string, string> = {};
+    if (bra.facebookUrl !== BRASILIA_FACEBOOK) data.facebookUrl = BRASILIA_FACEBOOK;
+    await applyProfile("brasilia-h3", data);
+  } else {
+    console.warn("  ⚠ kennel brasilia-h3 not found — skipping");
   }
 }
 
