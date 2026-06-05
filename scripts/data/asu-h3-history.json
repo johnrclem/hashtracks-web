@@ -5,6 +5,7 @@
       "asu-h3"
     ],
     "runNumber": 1,
+    "title": "Run #1",
     "hares": "Ma Bouche & Ban the Cock",
     "startTime": "16:00",
     "latitude": -25.23663263795628,
@@ -17,6 +18,7 @@
       "asu-h3"
     ],
     "runNumber": 2,
+    "title": "Run #2",
     "hares": "Ban the Cock",
     "location": "Plaza 1ro de Mayo, San Lorenzo; pin is where the shop is.",
     "cost": "20,000.- PYG (cash only).",
@@ -31,6 +33,7 @@
       "asu-h3"
     ],
     "runNumber": 3,
+    "title": "Run #3",
     "hares": "Ban the Cock",
     "location": "Edificio Malutin Lofts, end of cul-de-sac, only reachable from Malutin.",
     "cost": "20,000.- PYG (cash only). The money will cover drinks and snacks.",
@@ -45,6 +48,7 @@
       "asu-h3"
     ],
     "runNumber": 4,
+    "title": "Run #4",
     "hares": "Orificio",
     "location": "Nueva Colombia (1 hour drive from Asunción), field at calle Profesor Mendez Mendoza. Look for hashers.",
     "cost": "20,000.- PYG (cash only). The money will cover drinks and snacks.",
@@ -59,6 +63,7 @@
       "asu-h3"
     ],
     "runNumber": 5,
+    "title": "Run #5",
     "hares": "Ban the Cock",
     "location": "Edificio LIFE Villa Morra sobre Alberto de Souza, entre Zotti y Bogarin.",
     "cost": "20,000.- PYG (cash only). The money will cover drinks and snacks.",
@@ -73,6 +78,7 @@
       "asu-h3"
     ],
     "runNumber": 6,
+    "title": "Run #6",
     "hares": "Ban the Cock",
     "location": "El Café de Acá Textilia, Av. Gral. Máximo Santos 1030, Asunción.",
     "cost": "20,000.- PYG (cash only). The money will cover drinks and snacks.",
@@ -87,6 +93,7 @@
       "asu-h3"
     ],
     "runNumber": 7,
+    "title": "Run #7",
     "hares": "Ban the Cock",
     "location": "Plaza 1ro de Mayo, San Lorenzo.",
     "cost": "20,000.- PYG (cash only). The money will cover drinks and snacks.",
@@ -101,6 +108,7 @@
       "asu-h3"
     ],
     "runNumber": 8,
+    "title": "Run #8",
     "hares": "As you like it & Ban the Cock",
     "location": "Curda Gym (in front of the black hut that says CURDA & HEINEKEN), Calle Jasy, entre Cap. Domingo Antonio Ortiz y Cap. Elias Ayala, Asunción.",
     "cost": "15,000.- PYG (cash only). The money will cover drinks and snacks.",
@@ -115,6 +123,7 @@
       "asu-h3"
     ],
     "runNumber": 9,
+    "title": "Run #9",
     "hares": "Ban the Cock",
     "location": "Plaza Pedro Juan Caballero, opposite Casa Rica Los Laureles.",
     "cost": "15,000.- PYG (cash only). The money will cover drinks and snacks.",
@@ -129,6 +138,7 @@
       "asu-h3"
     ],
     "runNumber": 10,
+    "title": "Run #10",
     "hares": "Just Uğur & Ban the Cock",
     "cost": "5,000.- PYG (cash only). The money will cover down down drinks and snacks in the circle.",
     "startTime": "15:00",
@@ -142,6 +152,7 @@
       "asu-h3"
     ],
     "runNumber": 11,
+    "title": "Run #11",
     "hares": "Ban the Cock",
     "cost": "5,000.- PYG (cash only). The money will cover down down drinks and snacks in the circle.",
     "startTime": "15:00",
@@ -155,6 +166,7 @@
       "asu-h3"
     ],
     "runNumber": 12,
+    "title": "Run #12",
     "hares": "Ban the Cock",
     "cost": "5,000.- PYG (cash only). The money will cover down down drinks and snacks in the circle.",
     "startTime": "15:00",
@@ -168,6 +180,7 @@
       "asu-h3"
     ],
     "runNumber": 13,
+    "title": "Run #13",
     "hares": "Ban the Cock",
     "cost": "5,000.- PYG (cash only). The money will cover down down drinks and snacks in the circle.",
     "startTime": "15:00",
@@ -181,6 +194,7 @@
       "asu-h3"
     ],
     "runNumber": 14,
+    "title": "Run #14",
     "hares": "Just Laura & Just Carolina",
     "cost": "5,000.- PYG (cash only). The money will cover down down drinks and snacks in the circle.",
     "startTime": "14:30",
@@ -194,6 +208,7 @@
       "asu-h3"
     ],
     "runNumber": 15,
+    "title": "Run #15",
     "hares": "Just Amydelle & Just Carolina",
     "cost": "see above.",
     "startTime": "14:00",
@@ -207,6 +222,7 @@
       "asu-h3"
     ],
     "runNumber": 16,
+    "title": "Run #16",
     "hares": "Trio: David, Amydelle, Carolina",
     "location": "Edificio Aurora, Caballero 223 c/ Eligio Ayala, depto. 21A",
     "cost": "5,000.- PYG (cash only). The money will cover down down drinks and snacks in the circle.",
@@ -221,6 +237,7 @@
       "asu-h3"
     ],
     "runNumber": 17,
+    "title": "Run #17",
     "hares": "Ban the Cock & Double Dutch Mountain",
     "location": "Supermarket on the corner of 12 de Junio and República de Colombia in Isla Bogado (Luque).",
     "cost": "5,000.- PYG (cash only). The money will cover down down drinks and snacks in the circle.",
@@ -235,6 +252,7 @@
       "asu-h3"
     ],
     "runNumber": 18,
+    "title": "Run #18",
     "hares": "Just Laura & Just Liz",
     "location": "Liz’ place, José del Rosario Miranda esquina Longino Santacruz",
     "cost": "5,000.- PYG (cash only). The money will cover down down drinks and snacks in the circle.",
@@ -249,6 +267,7 @@
       "asu-h3"
     ],
     "runNumber": 19,
+    "title": "Run #19",
     "hares": "Ban the Cock & Double Dutch Mountain",
     "location": "F&A Resto in Lambaré (opposite la Despensa), Mayor Alfaro Ramos (between Los Alpes & Martiniano Ortiz)",
     "cost": "5,000.- PYG (cash only). The money will cover down down drinks and snacks in the circle.",
@@ -263,6 +282,7 @@
       "asu-h3"
     ],
     "runNumber": 20,
+    "title": "Run #20",
     "hares": "Ban the Cock & Double Dutch Mountain",
     "location": "LomiToro’s in San Lorenzo, Aztecas c/ Rogelio Benitez.",
     "cost": "5,000.- PYG (cash only). The money will cover down down drinks and snacks in the circle.",
@@ -277,6 +297,7 @@
       "asu-h3"
     ],
     "runNumber": 21,
+    "title": "Run #21",
     "hares": "Ban the Cock",
     "location": "Cemetery Flower Shop (Floreria) on the corner of Quesada & L. Fragnaud.",
     "cost": "10,000.- PYG (cash only). The money will cover down down drinks and snacks in the circle.",
@@ -291,6 +312,7 @@
       "asu-h3"
     ],
     "runNumber": 22,
+    "title": "Run #22",
     "hares": "Ban the Cock & Double Dutch Mountain",
     "location": "Palo Santo Brewing Co., 2nd Pub is opposite, Poros Brewing Co. (we stay at Poros until ca. 19:30).",
     "cost": "Pay as you go (food & drinks).",
@@ -305,6 +327,7 @@
       "asu-h3"
     ],
     "runNumber": 23,
+    "title": "Run #23",
     "hares": "Ban the Cock",
     "location": "Quinta Divino Niño Jesús in Luque.",
     "cost": "100,000.- Gs pp (incl. BBQ & all drinks)",
@@ -319,6 +342,7 @@
       "asu-h3"
     ],
     "runNumber": 24,
+    "title": "Run #24",
     "hares": "Ban the Cock & Double Dutch Mountain",
     "location": "Main entrance Cerro Ko’i.",
     "cost": "50,000.- Gs pp return trip.",
@@ -333,6 +357,7 @@
       "asu-h3"
     ],
     "runNumber": 25,
+    "title": "Run #25",
     "hares": "Ban the Cock",
     "location": "Edificio Malutin Loft, Villa Morra. Location can only be reached from Calle Malutin, enter cul-de-sac on the corner where the THREE Bar is, it’s at the end on the left side.",
     "cost": "5,000.- PYG (cash only). The money will cover down down drinks and snacks in the circle.",
@@ -347,6 +372,7 @@
       "asu-h3"
     ],
     "runNumber": 26,
+    "title": "Run #26",
     "hares": "Ban the Cock",
     "location": "Jardín Botánico, parking lot on the left after passing the main entrance.",
     "cost": "10,000.- PYG (cash only). The money will cover down down drinks and snacks in the circle.",
@@ -361,6 +387,7 @@
       "asu-h3"
     ],
     "runNumber": 27,
+    "title": "Run #27",
     "hares": "Ban the Cock",
     "location": "Gas station Energy-Laurelty, Ave. Gral. Eugenio A. Garay with Palo Santo (opposite the restaurant Araceli La Mexicana).",
     "cost": "10,000.- PYG (cash only). The money will cover down down drinks and snacks in the circle.",
@@ -375,6 +402,7 @@
       "asu-h3"
     ],
     "runNumber": 28,
+    "title": "Run #28",
     "hares": "Ban the Cock",
     "location": "El Patio Resto-Bar, Epifanio Mendez Fleitas, corner of Cacique Lambare, Asunción.",
     "cost": "10,000.- PYG (cash only). The money will cover down down drinks and snacks in the circle.",
@@ -389,6 +417,7 @@
       "asu-h3"
     ],
     "runNumber": 29,
+    "title": "Run #29",
     "hares": "Christmas Carol and Long & Hard",
     "location": "Plaza Mburucuya",
     "cost": "10,000.- PYG (cash only). The money will cover down down drinks and snacks in the circle.",
@@ -403,6 +432,7 @@
       "asu-h3"
     ],
     "runNumber": 30,
+    "title": "Run #30",
     "hares": "Ban the Cock",
     "location": "Lomiteria 24 de diciembre, Natalicio Talavera, San Lorenzo.",
     "cost": "10,000.- PYG (cash only). The money will cover down down drinks and snacks in the circle.",
@@ -417,6 +447,7 @@
       "asu-h3"
     ],
     "runNumber": 31,
+    "title": "Run #31",
     "hares": "Slumdog & Just Lisa",
     "location": "Quincho Resto Bar in Nanawa (Puerto Elsa) on the border with Argentina.",
     "cost": "10,000.- PYG (cash only). The money will cover down down drinks and snacks in the circle.",
@@ -431,6 +462,7 @@
       "asu-h3"
     ],
     "runNumber": 32,
+    "title": "Run #32",
     "hares": "Blind Pussy, Christmas Carol + Long & Hard",
     "location": "Sajonia Brewery Co. Cervecería, Alejo García 2589, Asunción.",
     "cost": "10,000.- PYG (cash only). The money will cover down down drinks and snacks in the circle.",
@@ -445,6 +477,7 @@
       "asu-h3"
     ],
     "runNumber": 33,
+    "title": "Run #33",
     "hares": "Silent G-Spot",
     "location": "Jardin Urbano, Luís Alberto de Herrera 2299 con Vice Pdte. Sanchez, Asunción",
     "cost": "10,000.- PYG (cash only). The money will cover down down drinks and snacks in the circle.",
@@ -459,6 +492,7 @@
       "asu-h3"
     ],
     "runNumber": 34,
+    "title": "Run #34",
     "hares": "Just Andrea, Blind Pussy, and Just Daniel",
     "location": "Indigo Bar, Juan de Salazar 851, between Washington and Padre Cardozo.",
     "cost": "10,000.- PYG (cash only). The money will cover down down drinks and special awards.",
@@ -473,6 +507,7 @@
       "asu-h3"
     ],
     "runNumber": 35,
+    "title": "Run #35",
     "hares": "As you like it, Just Silvia & Long and Hard.",
     "cost": "10,000.- PYG (cash only). The money will cover down down drinks in the circle. Bring sunscreen, mosquito repellent, cash.",
     "startTime": "15:00",
@@ -486,6 +521,7 @@
       "asu-h3"
     ],
     "runNumber": 36,
+    "title": "Run #36",
     "hares": "Orificio",
     "cost": "10,000.- PYG (cash only). The money will cover down down drinks in the circle. Bring sunscreen, mosquito repellent, cash.",
     "startTime": "15:00",
@@ -499,6 +535,7 @@
       "asu-h3"
     ],
     "runNumber": 37,
+    "title": "Run #37",
     "hares": "Frosty Balls & Just Andrea",
     "location": "Parking Lot (Pin) on Denis Roa, close to Mariscal Antonio José Sucre.",
     "cost": "10,000.- PYG (cash only). The money will cover down down drinks in the circle. Bring sunscreen, mosquito repellent, cash.",
@@ -513,6 +550,7 @@
       "asu-h3"
     ],
     "runNumber": 38,
+    "title": "Run #38",
     "hares": "Feliz & Bedsheets",
     "location": "Javorai, América 486 with Avda. España, Asunción.",
     "cost": "10,000.- PYG (cash only). The money will cover down down drinks in the circle. Bring sunscreen, mosquito repellent, cash.",
@@ -527,6 +565,7 @@
       "asu-h3"
     ],
     "runNumber": 39,
+    "title": "Run #39",
     "cost": "10,000.- PYG (sólo en efectivo). El dinero servirá para cubrir las bebidas ‘down down’. Llevar repelente de mosquitos, dinero en efectivo.",
     "startTime": "15:00",
     "latitude": -25.28808851348442,
@@ -539,6 +578,7 @@
       "asu-h3"
     ],
     "runNumber": 40,
+    "title": "Run #40",
     "hares": "Ban the Cock",
     "location": "Hansel & Grettel, opposite Parroquia de Las Mercedes, Padre Egidio Cardozo between Intendentes Militares and Defensa Nacional.",
     "cost": "10,000.- PYG (cash only). The money will cover down down drinks in the circle.",
@@ -553,6 +593,7 @@
       "asu-h3"
     ],
     "runNumber": 41,
+    "title": "Run #41",
     "hares": "Frosty Balls, Dr. Cummm & Sugar Baby",
     "location": "Lomiteria Town & Owl, Carretera de López, Lambaré.",
     "cost": "10,000.- PYG (cash only). The money will cover down down drinks in the circle.",
@@ -567,6 +608,7 @@
       "asu-h3"
     ],
     "runNumber": 42,
+    "title": "Run #42",
     "hares": "The Village Idiot & Just John",
     "location": "Pizza Maui, Av. Acuña de Figueroa con Iturbe, Asunción",
     "cost": "10,000.- PYG (cash only). The money will cover down down drinks in the circle.",
@@ -581,6 +623,7 @@
       "asu-h3"
     ],
     "runNumber": 43,
+    "title": "Run #43",
     "hares": "Dr. Cummm",
     "location": "Kilkenny, Carmelitas Bar Area",
     "cost": "10,000.- PYG (cash only). The money will cover down down drinks in the circle.",
@@ -595,6 +638,7 @@
       "asu-h3"
     ],
     "runNumber": 44,
+    "title": "Run #44",
     "hares": "Long & Hard and Christmas Carol",
     "location": "American Bar Py, Atilio Peña Machain with Florida, Centro, Asunción",
     "cost": "10,000.- PYG (cash only). The money will cover down down drinks in the circle.",
@@ -609,6 +653,7 @@
       "asu-h3"
     ],
     "runNumber": 45,
+    "title": "Run #45",
     "hares": "Slumdog & Just Denisse",
     "location": "Escuela Primer Presidente (Velazquez and Alvarenga, very near Slumdog’s house) in Asunción.",
     "cost": "10,000.- PYG (cash only). The money will cover down down drinks in the circle.",
@@ -623,6 +668,7 @@
       "asu-h3"
     ],
     "runNumber": 46,
+    "title": "Run #46",
     "hares": "Just Andrei & Orificio",
     "cost": "10,000.- PYG (sólo en efectivo). El dinero servirá para cubrir las bebidas ‘down down’. Llevar repelente de mosquitos, dinero en efectivo.",
     "startTime": "13:00",
@@ -636,6 +682,7 @@
       "asu-h3"
     ],
     "runNumber": 47,
+    "title": "Run #47",
     "hares": "Ban the Cock",
     "location": "Mercado Don Francisco, Coronel Martínez, Luque.",
     "cost": "10,000.- PYG (cash only). The money will cover down down drinks in the circle.",
@@ -650,6 +697,7 @@
       "asu-h3"
     ],
     "runNumber": 48,
+    "title": "Run #48",
     "hares": "As You Like It & Long and Hard",
     "location": "Plaza Asunción, Asunción.",
     "cost": "10,000.- PYG (cash only). The money will cover down down drinks in the circle.",
@@ -664,6 +712,7 @@
       "asu-h3"
     ],
     "runNumber": 49,
+    "title": "Run #49",
     "hares": "FAB & Slumdog",
     "location": "A (start) is at Gomería Betel.",
     "cost": "10,000.- PYG (cash only). The money will cover down down drinks in the circle.",
@@ -673,25 +722,12 @@
     "sourceUrl": "https://asuncionh3.wordpress.com/2023/10/16/run-49/"
   },
   {
-    "date": "2023-11-18",
-    "kennelTags": [
-      "asu-h3"
-    ],
-    "runNumber": 50,
-    "hares": "Ban the Cock & Double Dutch Mountain",
-    "location": "See above.",
-    "cost": "150,000 Gs, incl. bus trip, boat, all drinks (incl. drink stops), and BBQ.",
-    "startTime": "15:30",
-    "latitude": -25.287943951382363,
-    "longitude": -57.58042010142985,
-    "sourceUrl": "https://asuncionh3.wordpress.com/2023/10/16/run-50/"
-  },
-  {
     "date": "2023-11-16",
     "kennelTags": [
       "asu-h3"
     ],
     "runNumber": 51,
+    "title": "Run #51",
     "hares": "Ban the Cock & Double Dutch Mountain",
     "location": "Plaza Manuel Ortiz Guerrero y José Asunción Flores, opposite the female prison. Meet at the furthest north-west corner of the park, next to Sta. Rosa street.",
     "cost": "10,000.- Gs (cash only).",
@@ -706,6 +742,7 @@
       "asu-h3"
     ],
     "runNumber": 52,
+    "title": "Run #52",
     "hares": "Blind Pussy & Ban the Cock",
     "location": "Mahatma Gandhi monument on the Costanera de Asunción (beach).",
     "cost": "Circle included in rego-fee.",
@@ -715,11 +752,27 @@
     "sourceUrl": "https://asuncionh3.wordpress.com/2023/10/16/run-52/"
   },
   {
+    "date": "2023-11-18",
+    "kennelTags": [
+      "asu-h3"
+    ],
+    "runNumber": 50,
+    "title": "Run #50",
+    "hares": "Ban the Cock & Double Dutch Mountain",
+    "location": "See above.",
+    "cost": "150,000 Gs, incl. bus trip, boat, all drinks (incl. drink stops), and BBQ.",
+    "startTime": "15:30",
+    "latitude": -25.287943951382363,
+    "longitude": -57.58042010142985,
+    "sourceUrl": "https://asuncionh3.wordpress.com/2023/10/16/run-50/"
+  },
+  {
     "date": "2023-11-19",
     "kennelTags": [
       "asu-h3"
     ],
     "runNumber": 53,
+    "title": "Run #53",
     "hares": "Ban the Cock & Double Dutch Mountain.",
     "location": "See above.",
     "cost": "100,000 Gs, incl. bus trip, drink stops and circle drinks.",
@@ -734,6 +787,7 @@
       "asu-h3"
     ],
     "runNumber": 54,
+    "title": "Run #54",
     "hares": "Ban the Cock & DDM",
     "location": "Los Guaraníes Square/Playground, meet at north side (calle San Mateo) at the playground.",
     "cost": "10,000.- Gs (cash only).",
@@ -748,6 +802,7 @@
       "asu-h3"
     ],
     "runNumber": 55,
+    "title": "Run #55",
     "hares": "Christmas Carol and Long & Hard",
     "location": "on the corner of Avenida República Argentina with Alfredo Seiferheld, Asunción.",
     "startTime": "16:30",
@@ -761,6 +816,7 @@
       "asu-h3"
     ],
     "runNumber": 56,
+    "title": "Run #56",
     "hares": "Just Jackie and BtC",
     "location": "Malutin Loft Quincho, cul-de-sac Callejon Comandante Cardenas with Malutin (entre Lillo & Sucre). Enter the cul-de-sac where the THREE Bar & Lounge is, entrance is at the end on your left. Ask for Harma or Eric, Bloque B, Dept. 2C.",
     "cost": "FREE",
@@ -775,6 +831,7 @@
       "asu-h3"
     ],
     "runNumber": 57,
+    "title": "Run #57",
     "hares": "Ban the Cock",
     "location": "Despensa Buen Día in San Blas",
     "cost": "10,000.- PYG (cash only). The money will cover down down drinks in the circle.",
@@ -789,6 +846,7 @@
       "asu-h3"
     ],
     "runNumber": 58,
+    "title": "Run #58",
     "hares": "Frosty Balls & Long and Hard",
     "location": "Plaza Zaragoza in Mariano Roque Alonso, Avenida Remanso with Zaragoza.",
     "cost": "10,000.- PYG (cash only). The money will cover down down drinks in the circle.",
@@ -803,6 +861,7 @@
       "asu-h3"
     ],
     "runNumber": 59,
+    "title": "Run #59",
     "hares": "PipiPupu & TVI",
     "location": "Plaza Carmen de Lara Castro",
     "cost": "10,000.- PYG (cash only). The money will cover down down drinks in the circle.",
@@ -817,6 +876,7 @@
       "asu-h3"
     ],
     "runNumber": 60,
+    "title": "Run #60",
     "hares": "The Norwegian",
     "location": "Guasu Metropolitan Park.",
     "cost": "10,000.- PYG (cash only). The money will cover down down drinks in the circle.",
@@ -831,6 +891,7 @@
       "asu-h3"
     ],
     "runNumber": 61,
+    "title": "Run #61",
     "hares": "Christmas Carol and Long & Hard",
     "location": "Let’s meet at the Fruteria next to “El Asadito Arroyense”",
     "cost": "10,000.- PYG (cash only). The money will cover down down drinks in the circle.",
@@ -845,6 +906,7 @@
       "asu-h3"
     ],
     "runNumber": 62,
+    "title": "Run #62",
     "hares": "Dr. Cummm & Sugar Baby",
     "location": "Nacion Sushi Bar",
     "cost": "10,000.- PYG (cash only). The money will cover down down drinks in the circle.",
@@ -859,6 +921,7 @@
       "asu-h3"
     ],
     "runNumber": 63,
+    "title": "Run #63",
     "hares": "Blind Pussy & Frosty Balls",
     "location": "Yaguarón, Museo Dr. Francia",
     "cost": "10,000.- PYG (cash only). The money will cover down down drinks in the circle.",
@@ -873,6 +936,7 @@
       "asu-h3"
     ],
     "runNumber": 64,
+    "title": "Run #64",
     "hares": "Bee on Top and Long & Hard",
     "location": "La Esquinita Bar, Tte. Jose Felix Lopez and Aztecas, San Pablo, Asunción.",
     "cost": "10,000.- PYG (cash only). The money will cover down down drinks in the circle.",
@@ -887,6 +951,7 @@
       "asu-h3"
     ],
     "runNumber": 65,
+    "title": "Run #65",
     "hares": "CC and Long & Hard",
     "location": "Edificio Nautilius, 25 de Mayo with Curupayty.",
     "cost": "10,000.- PYG (cash only). The money will cover down down drinks in the circle.",
@@ -901,6 +966,7 @@
       "asu-h3"
     ],
     "runNumber": 66,
+    "title": "Run #66",
     "hares": "Sugar Baby and Just Lui",
     "cost": "10,000.- PYG (cash only). The money will cover down down drinks in the circle.",
     "startTime": "13:15",
@@ -914,6 +980,7 @@
       "asu-h3"
     ],
     "runNumber": 67,
+    "title": "Run #67",
     "hares": "Bubbles & Ban the Cock",
     "location": "Mr. Boss, Victor Hugo 1746 (btw. Emilio Castelar and Cervantes Saavedra).",
     "cost": "10,000.- PYG (cash only). The money will cover down down drinks in the circle.",
@@ -928,6 +995,7 @@
       "asu-h3"
     ],
     "runNumber": 68,
+    "title": "Run #68",
     "hares": "Slumdog & Low Lay Lisa",
     "cost": "ca. 80,000.- PYG (cash only). The money will cover the bus and down down drinks in the circle.",
     "startTime": "12:30",
@@ -941,6 +1009,7 @@
       "asu-h3"
     ],
     "runNumber": 69,
+    "title": "Run #69",
     "hares": "Blind Pussy & Just Mariela",
     "location": "Mahatma Gandhi monument on the Costanera de Asunción (beach).",
     "cost": "10,000 Gs for the circle drinks.",
@@ -955,6 +1024,7 @@
       "asu-h3"
     ],
     "runNumber": 70,
+    "title": "Run #70",
     "hares": "Ban the Cock",
     "location": "Lomiteria 24 de diciembre, Natalicio Talavera, San Lorenzo.",
     "cost": "10,000 Gs for the circle drinks.",
@@ -969,6 +1039,7 @@
       "asu-h3"
     ],
     "runNumber": 71,
+    "title": "Run #71",
     "hares": "Long & Hard and Feliz",
     "location": "Gas Station – Copetrol in San Lorenzo, Ruta Departamental D027 with Calle Buenos Aires.",
     "cost": "25,000 Gs for the circle drinks and two drink stops.",
@@ -983,6 +1054,7 @@
       "asu-h3"
     ],
     "runNumber": 72,
+    "title": "Run #72",
     "hares": "Ban the Cock",
     "location": "Plaza Heroes Del Chaco, Avenida Santisima Trinidad, corner with Bodega “La Troya”.",
     "cost": "10,000 Gs for the circle drinks.",
@@ -997,6 +1069,7 @@
       "asu-h3"
     ],
     "runNumber": 73,
+    "title": "Run #73",
     "hares": "Uncut & Fartacus",
     "location": "Sinaloa Pizza & Mexican Food, Avenida José Félix Bogado with Campo Via, Asunción",
     "cost": "10,000 Gs for the circle drinks.",
@@ -1009,6 +1082,7 @@
       "asu-h3"
     ],
     "runNumber": 74,
+    "title": "Run #74",
     "hares": "Dr. Cummm",
     "location": "Residencia Irachet, between Santa Rosa de Lima and Constitución Nacional",
     "cost": "10,000 Gs for the circle drinks.",
@@ -1023,6 +1097,7 @@
       "asu-h3"
     ],
     "runNumber": 75,
+    "title": "Run #75",
     "hares": "Uncut and Long & Hard",
     "location": "El Comandante, Choferes del Chaco with Chaco Boreal, Asunción.",
     "cost": "10,000 Gs for the circle drinks.",
@@ -1037,6 +1112,7 @@
       "asu-h3"
     ],
     "runNumber": 76,
+    "title": "Run #76",
     "hares": "Blind Pussy & Just Mary",
     "location": "Far side of Heroes del Chaco Bridge.",
     "cost": "10,000 Gs for drink stops and circle drinks.",
@@ -1049,6 +1125,7 @@
       "asu-h3"
     ],
     "runNumber": 77,
+    "title": "Run #77",
     "hares": "Ban the Cock",
     "location": "Despensa Ña Berna, end of Cnel. Enrique García de Zuñiga, Asunción.",
     "cost": "0 Gs for drink stops and circle drinks.",
@@ -1063,6 +1140,7 @@
       "asu-h3"
     ],
     "runNumber": 78,
+    "title": "Run #78",
     "hares": "Uncut & Ban the Cock",
     "location": "Costanera Sur Gymnasium Area",
     "cost": "10,000.- Gs for the circle drinks.",
@@ -1077,6 +1155,7 @@
       "asu-h3"
     ],
     "runNumber": 79,
+    "title": "Run #79",
     "hares": "Long & Hard, Christmas Carol",
     "location": "Royal Container, Abdon Palacios with Mayor Alfredo Placita, Cd. del Este.",
     "cost": "10,000.- Gs for the circle drinks.",
@@ -1091,6 +1170,7 @@
       "asu-h3"
     ],
     "runNumber": 80,
+    "title": "Run #80",
     "hares": "Long & Hard",
     "location": "Saltos de Monday (entrance gate)",
     "cost": "10,000.- Gs for the circle drinks.",
@@ -1105,6 +1185,7 @@
       "asu-h3"
     ],
     "runNumber": 81,
+    "title": "Run #81",
     "hares": "Ban the Cock",
     "location": "Petrobras Station in Fernando de la Morra, meet at the small park in the back (see photo above).",
     "cost": "10,000.- Gs for the circle drinks.",
@@ -1119,6 +1200,7 @@
       "asu-h3"
     ],
     "runNumber": 82,
+    "title": "Run #82",
     "hares": "Long & Hard and Christmas Carol",
     "location": "Estacion de Servicio BR, Avenida Peru with Lomas Valentinas, Asunción.",
     "cost": "10,000.- Gs for the circle drinks.",
@@ -1133,6 +1215,7 @@
       "asu-h3"
     ],
     "runNumber": 83,
+    "title": "Run #83",
     "hares": "Uncut",
     "location": "Capilla de las Carmelitas Descalzas, Nuestra Señora del Carmen with San Rafael",
     "cost": "10,000.- Gs for the circle drinks. Bring sunscreen, mosquito repellent, cash.",
@@ -1147,6 +1230,7 @@
       "asu-h3"
     ],
     "runNumber": 84,
+    "title": "Run #84",
     "hares": "Ban the Cock",
     "location": "Barbakóa, Florida 1008 with Dr Pedro Ciancio, Jara, Asunción",
     "cost": "10,000.- Gs for the circle drinks. Bring sunscreen, mosquito repellent, cash.",
@@ -1161,6 +1245,7 @@
       "asu-h3"
     ],
     "runNumber": 85,
+    "title": "Run #85",
     "hares": "Ban the Cock & Faucet (partly)",
     "location": "All trails (M/L) start & end at Quinta “El Legendario” at 15:30.",
     "cost": "100,000.- Gs incl. all drinks & food at the quinta, swimming pool.",
@@ -1175,6 +1260,7 @@
       "asu-h3"
     ],
     "runNumber": 86,
+    "title": "Run #86",
     "hares": "Ban the Cock",
     "location": "ASUNCION sign",
     "cost": "10,000.- Gs for circle drinks.",
@@ -1189,6 +1275,7 @@
       "asu-h3"
     ],
     "runNumber": 87,
+    "title": "Run #87",
     "hares": "The Norwegian",
     "location": "Biggie Express – Molas López",
     "cost": "10,000.- Gs for circle drinks.",
@@ -1203,6 +1290,7 @@
       "asu-h3"
     ],
     "runNumber": 88,
+    "title": "Run #88",
     "hares": "Ban the Cock",
     "location": "Tronqui FC field in Luque. Picuiba & Yataity Cora.",
     "cost": "10,000.- Gs for circle drinks.",
@@ -1217,6 +1305,7 @@
       "asu-h3"
     ],
     "runNumber": 89,
+    "title": "Run #89",
     "hares": "Rum & Coke",
     "location": "Pizzeria Kevin, Vicente Iturbe and José de Antequera y Castro, Ñemby.",
     "cost": "10,000.- Gs for circle drinks.",
@@ -1231,6 +1320,7 @@
       "asu-h3"
     ],
     "runNumber": 90,
+    "title": "Run #90",
     "hares": "Uncut",
     "location": "Estatua De Las Residentas, Luque.",
     "cost": "10,000.- Gs for circle drinks.",
@@ -1245,6 +1335,7 @@
       "asu-h3"
     ],
     "runNumber": 91,
+    "title": "Run #91",
     "hares": "Blind Pussy & Just Mary",
     "location": "Mahatma Gandhi monument on the Costanera de Asunción (beach).",
     "cost": "10,000.- Gs for circle drinks at the last drink stop, incl. snacks. Bring sunscreen, mosquito repellent, cash.",
@@ -1259,6 +1350,7 @@
       "asu-h3"
     ],
     "runNumber": 92,
+    "title": "Run #92",
     "hares": "Ban the Cock & Baboon",
     "startTime": "13:30",
     "latitude": -25.287379569623624,
@@ -1271,6 +1363,7 @@
       "asu-h3"
     ],
     "runNumber": 93,
+    "title": "Run #93",
     "hares": "Ban the Cock",
     "startTime": "13:30",
     "latitude": -25.287379569623624,
@@ -1283,6 +1376,7 @@
       "asu-h3"
     ],
     "runNumber": 94,
+    "title": "Run #94",
     "hares": "Ban the Cock",
     "location": "Gazebo Bar, Acosta Ñu 365 with San Bernardino, Lambaré.",
     "cost": "10,000.- Gs for circle drinks.",
@@ -1297,6 +1391,7 @@
       "asu-h3"
     ],
     "runNumber": 95,
+    "title": "Run #95",
     "hares": "Uncut",
     "location": "Javorai Boggiani, Boggiani with R.I. 2 Ytororo, Asunción.",
     "cost": "10,000.- Gs for circle drinks.",
@@ -1311,6 +1406,7 @@
       "asu-h3"
     ],
     "runNumber": 96,
+    "title": "Run #96",
     "hares": "Long and Hard & As You Like It",
     "location": "Medialunas Calentitas in Luque.",
     "cost": "10,000.- Gs for circle drinks.",
@@ -1325,6 +1421,7 @@
       "asu-h3"
     ],
     "runNumber": 97,
+    "title": "Run #97",
     "hares": "Ban the Cock",
     "location": "Plaza Julio César Franco, corner of Capitán Figari and Rca. de Colombia, Asunción.",
     "cost": "10,000.- Gs for circle drinks.",
@@ -1339,6 +1436,7 @@
       "asu-h3"
     ],
     "runNumber": 98,
+    "title": "Run #98",
     "hares": "Blind Pussy and Just Mary",
     "location": "Bus stop on the D075 (Avda Primer Presidente).",
     "cost": "15,000.- Gs for circle drinks and the boat trip. Bring sunscreen, mosquito repellent, cash.",
@@ -1353,6 +1451,7 @@
       "asu-h3"
     ],
     "runNumber": 99,
+    "title": "Run #99",
     "hares": "As You Like It & Feliz",
     "location": "Lido Bar San Lorenzo",
     "cost": "10,000.- Gs for circle drinks and first private beer stop. Bring sunscreen, mosquito repellent, cash.",
@@ -1367,6 +1466,7 @@
       "asu-h3"
     ],
     "runNumber": 100,
+    "title": "Run #100",
     "hares": "Ban the Cock",
     "location": "Plaza Crispin Torres in Mora Kue, Luque.",
     "cost": "10,000.- Gs for circle drinks. Bring sunscreen, mosquito repellent, cash.",
@@ -1381,6 +1481,7 @@
       "asu-h3"
     ],
     "runNumber": 101,
+    "title": "Run #101",
     "hares": "Ban the Cock",
     "location": "BENTINO, Libertad (btw. Santa Lucía and Cristóbal Colón), San Lorenzo.",
     "cost": "10,000.- Gs for circle drinks. Bring sunscreen, mosquito repellent, cash.",
@@ -1395,6 +1496,7 @@
       "asu-h3"
     ],
     "runNumber": 102,
+    "title": "Run #102",
     "hares": "Ban the Cock",
     "location": "Lamora Burger, Andrés Barbero & Usher Rios, Fernando de la Mora.",
     "cost": "10,000.- Gs for circle drinks. Bring sunscreen, mosquito repellent, cash.",
@@ -1409,6 +1511,7 @@
       "asu-h3"
     ],
     "runNumber": 103,
+    "title": "Run #103",
     "hares": "Rum & Coke",
     "location": "Morphy Hamburguesas, Coronel Cabrera 554 (btw. Bertoni and 4 de Julio), Asunción.",
     "cost": "10,000.- Gs for circle drinks. Bring sunscreen, mosquito repellent, cash.",
@@ -1423,6 +1526,7 @@
       "asu-h3"
     ],
     "runNumber": 104,
+    "title": "Run #104",
     "hares": "Ban the Cock",
     "location": "Pyhare Pizzas, Luque, Felipe Gonzales & Washington.",
     "cost": "10,000.- Gs for circle drinks. Bring sunscreen, mosquito repellent, cash. Warm clothes for after the trail.",
@@ -1437,6 +1541,7 @@
       "asu-h3"
     ],
     "runNumber": 105,
+    "title": "Run #105",
     "hares": "The Norwegian",
     "location": "Biggie Express Molas Lopez, Asunción.",
     "cost": "10,000.- Gs for circle drinks. Bring sunscreen, mosquito repellent, cash. Warm clothes for after the trail.",
@@ -1451,6 +1556,7 @@
       "asu-h3"
     ],
     "runNumber": 106,
+    "title": "Run #106",
     "hares": "Blind Pussy & Just Mary",
     "location": "on Costanera at Entrance to Reserva de Banco San Miguel.",
     "cost": "10,000.- Gs for circle drinks. Bring sunscreen, mosquito repellent, cash.",
@@ -1465,6 +1571,7 @@
       "asu-h3"
     ],
     "runNumber": 107,
+    "title": "Run #107",
     "hares": "Just Rut & Just Fran",
     "location": "Cementerio Lambaré.",
     "cost": "10,000.- Gs for circle drinks. Bring sunscreen, mosquito repellent, cash.",
@@ -1479,6 +1586,7 @@
       "asu-h3"
     ],
     "runNumber": 108,
+    "title": "Run #108",
     "hares": "Long & Hard and As You Like It",
     "location": "Cafe next to Circo Hostel Bar.",
     "cost": "10,000.- Gs for circle drinks. Bring sunscreen, mosquito repellent, cash.",
@@ -1493,6 +1601,7 @@
       "asu-h3"
     ],
     "runNumber": 109,
+    "title": "Run #109",
     "hares": "Ban the Cock & Weeny Schnitzel",
     "location": "Quinta NR in Luque. Organise your own transport.",
     "cost": "100,000.- Gs for all drinks, food, and the quinta. Bring sunscreen, mosquito repellent, cash, swim gear, towel, change of clothes.",
@@ -1507,6 +1616,7 @@
       "asu-h3"
     ],
     "runNumber": 110,
+    "title": "Run #110",
     "hares": "Blind Pussy, Just Mary, Angry Pirate",
     "location": "Monumento de Hierro.",
     "cost": "10,000.- Gs for the circle drinks. Bring sunscreen, mosquito repellent, cash.",
@@ -1521,6 +1631,7 @@
       "asu-h3"
     ],
     "runNumber": 111,
+    "title": "Run #111",
     "hares": "DDM & Blind Pussy",
     "location": "Blind Pussy’s apartment, Ed. Aurora, Caballero 223 with Eligio Ayala, depto 21A",
     "cost": "10,000.- Gs for the circle drinks. Bring sunscreen, mosquito repellent, cash.",
@@ -1535,6 +1646,7 @@
       "asu-h3"
     ],
     "runNumber": 112,
+    "title": "Run #112",
     "hares": "Ban the Cock",
     "location": "Bodega LA TROYA, Avenida Santísima Trinidad and Vía Férrea, Asunción.",
     "cost": "10,000.- Gs for the circle drinks. Bring sunscreen, mosquito repellent, cash.",
@@ -1549,6 +1661,7 @@
       "asu-h3"
     ],
     "runNumber": 113,
+    "title": "Run #113",
     "hares": "The Addams Family",
     "location": "Biggie Express Pacheco.",
     "cost": "10,000.- Gs for the circle drinks. Bring sunscreen, mosquito repellent, cash.",
@@ -1563,6 +1676,7 @@
       "asu-h3"
     ],
     "runNumber": 114,
+    "title": "Run #114",
     "hares": "Uncut & Angry Pirate",
     "location": "❤️YO AMO ASU sign❤️on the Costanera.",
     "cost": "10,000.- Gs for the circle drinks. Bring sunscreen, mosquito repellent, cash.",
@@ -1577,6 +1691,7 @@
       "asu-h3"
     ],
     "runNumber": 115,
+    "title": "Run #115",
     "hares": "Christmas Carol & Dr. Cummm",
     "location": "Plaza Julio César Franco, barrio Pettirossi, Asunción",
     "cost": "10,000.- Gs for the circle drinks. Bring sunscreen, mosquito repellent, cash.",
@@ -1591,6 +1706,7 @@
       "asu-h3"
     ],
     "runNumber": 116,
+    "title": "Run #116",
     "hares": "Blind Pussy + mystery harriette(s)",
     "location": "Jardín Botánico parking lot. Point A.",
     "cost": "10,000.- Gs for the circle drinks.",
@@ -1605,6 +1721,7 @@
       "asu-h3"
     ],
     "runNumber": 117,
+    "title": "Run #117",
     "hares": "Dr. C. & As You Like It",
     "location": "La Cuadrita, Recoleta. Corner Alberto De Sousa con Cruz del Defensor.",
     "cost": "10,000.- Gs for the circle drinks.",
@@ -1619,6 +1736,7 @@
       "asu-h3"
     ],
     "runNumber": 118,
+    "title": "Run #118",
     "hares": "Joyful Elf & Just Gonzalo",
     "location": "Tatakua Alfajores, Avda. De Las Garzas and Concepción Leyes de Cháve. Close to the Costanera.",
     "cost": "10,000.- Gs for the circle drinks.",
@@ -1633,6 +1751,7 @@
       "asu-h3"
     ],
     "runNumber": 119,
+    "title": "Run #119",
     "hares": "The Norwegian",
     "location": "Biggie Express Molas López.",
     "cost": "10,000.- Gs for the circle drinks.",
@@ -1647,6 +1766,7 @@
       "asu-h3"
     ],
     "runNumber": 120,
+    "title": "Run #120",
     "hares": "Ban the Cock",
     "location": "Plaza Celsa Speratti, ASU H3 foundation stone",
     "cost": "Buy your own drinks at circle location (restaurant).",

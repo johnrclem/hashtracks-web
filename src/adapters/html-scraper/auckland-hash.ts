@@ -142,8 +142,11 @@ export function parseRunLine(
   return {
     date,
     kennelTags: [KENNEL_TAG],
-    // Leave title undefined — merge.ts synthesizes "Auckland H3 Trail". No run
-    // numbers exist on this source, so no runNumber is emitted.
+    // #1964 — the source has no per-event title or run number, so synthesize one
+    // from the hare ("Run w/ Loose Change"). When the hare is a placeholder
+    // ("Hare Wanted"), leave title undefined so merge falls back to the kennel
+    // default ("Auckland H3 Trail").
+    title: hares ? `Run w/ ${hares}` : undefined,
     hares,
     location,
     startTime: parseStartTime(venue),

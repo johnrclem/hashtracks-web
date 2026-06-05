@@ -3,6 +3,7 @@ import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "..
 import { hasAnyErrors } from "../types";
 import { fetchBloggerPosts } from "../blogger-api";
 import { applyDateWindow, isPlaceholder, MONTHS, stripHtmlTags } from "../utils";
+import { extractHares } from "../hare-extraction";
 
 /**
  * Run heading: `Hash N+340 "Praça dos Orixás Hash"`. The kennel's post-reboot
@@ -37,12 +38,25 @@ const DATE_RE = /(\d{1,2})(?:st|nd|rd|th)?\s+of\s+([A-Za-z]+)\b/;
 const LOCATION_INLINE_RE = /^(?:📍\s*)?Start(?: Location)?:\s*(\S.*)/i;
 const LOCATION_HEADING_RE = /^(?:📍\s*)?Start(?: Location)?:?\s*$/i;
 
+/**
+ * Conservative prose-location fallback (#1982). Recent posts bury the meeting
+ * point in the lede prose ("This week we gather at Praça dos Orixás, where…")
+ * instead of a structured `Start:` line. Anchor on a gather/meet verb + "at"
+ * and capture a proper-noun place (capitalised initial — no /i, so the `[A-Z]`
+ * guard genuinely rejects "…meet at the park"). Bounded to the place phrase by
+ * stopping at the first comma/period/semicolon. Used ONLY when no structured
+ * `Start:` form matched; ambiguous lower-case prose stays undefined.
+ */
+const PROSE_LOCATION_RE = /\b(?:[Gg]ather|[Mm]eet)(?:ing)?\s+(?:this\s+week\s+)?at\s+([A-Z][^,.;(\n]{2,60})/; // NOSONAR — single bounded char-class capture (stops at , . ; ( newline), linear
+
 const DEFAULT_BLOG_URL = "https://brasiliah3.blogspot.com/";
 
 /** Structured fields extracted from one Blogspot post body. */
 export interface ParsedBrasiliaPost {
   runNumber: number;
   date: string; // YYYY-MM-DD
+  title?: string;
+  hares?: string;
   location?: string;
   sourceUrl: string;
 }
@@ -92,6 +106,26 @@ function parseRunDate(body: string, publishedIso: string): string | null {
   return inferDateString(day, month, publishedIso);
 }
 
+/**
+ * Collapse blank lines that immediately follow a label line (one ending in
+ * `:`). The blog double-spaces its role-header from the hare name
+ * ("This week's perpetrator:\n\n\nSperm Bank"); bringing the name adjacent lets
+ * the shared extractHares continuation pick it up. Blank lines elsewhere — in
+ * particular AFTER the name — are preserved, so trailing prose still terminates
+ * collection. Pure string ops (no regex quantifiers) to stay ReDoS-clear.
+ */
+function collapseBlankLinesAfterLabel(text: string): string {
+  const lines = text.split("\n");
+  const out: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    out.push(lines[i]);
+    if (lines[i].trimEnd().endsWith(":")) {
+      while (i + 1 < lines.length && lines[i + 1].trim() === "") i++;
+    }
+  }
+  return out.join("\n");
+}
+
 /** Trim a candidate venue, rejecting empty/placeholder text. */
 function cleanVenue(text: string): string | undefined {
   const venue = text.trim();
@@ -99,7 +133,11 @@ function cleanVenue(text: string): string | undefined {
   return venue;
 }
 
-/** Extract a clean venue from a `Start`-labelled line (inline or heading), or undefined. */
+/**
+ * Extract a clean venue: prefer a structured `Start`-labelled line (inline or
+ * heading), then fall back to the conservative prose pattern (#1982). Returns
+ * undefined when neither matches.
+ */
 function parseLocation(body: string): string | undefined {
   const lines = body.split("\n").map((line) => line.trim()).filter(Boolean);
   for (let i = 0; i < lines.length; i++) {
@@ -109,26 +147,33 @@ function parseLocation(body: string): string | undefined {
       return cleanVenue(lines[i + 1]);
     }
   }
+  const prose = PROSE_LOCATION_RE.exec(body);
+  if (prose) return cleanVenue(prose[1]);
   return undefined;
 }
 
 /**
  * Parse a single Brasilia H3 Blogspot post body into structured fields.
  *
- * Post titles are empty on this blog — all run data lives in the flattened
- * body HTML. A post is a run only if it carries a `Hash N+NNN` heading AND a
- * parseable date line; otherwise it returns null (skipped). Hares are
- * deliberately NOT extracted: this blog never uses an inline `Hares:` label,
- * only buried jokey prose, so attempting it would risk field-bleed.
+ * A post is a run only if it carries a `Hash N+NNN` heading AND a parseable
+ * date line; otherwise it returns null (skipped). The heading line itself is
+ * the source title (`Hash N+340 "Praça dos Orixás Hash"`, #1983) — captured
+ * verbatim rather than letting merge synthesize a generic "Trail #N". Hares are
+ * read from the role-header template the blog uses ("🐾 The Hare / This week's
+ * perpetrator: <name>", "The Hares:", "Perpetrator(s):") via the shared
+ * extractHares helper (#1981) — blank lines are collapsed first so the header→
+ * name continuation is adjacent.
  *
  * Exported so the one-shot history backfill can reuse it as a throwaway
  * extractor over the full Blogger archive (the backfill itself commits the
- * curated JSON output, not this parser).
+ * curated JSON output, not this parser). `postTitle` is the Blogger post title
+ * (often empty on this blog); the body heading line is preferred when present.
  */
 export function parseBrasiliaPost(
   body: string,
   publishedIso: string,
   url: string,
+  postTitle = "",
 ): ParsedBrasiliaPost | null {
   const runMatch = RUN_RE.exec(body);
   if (!runMatch) return null;
@@ -147,9 +192,26 @@ export function parseBrasiliaPost(
   return {
     runNumber,
     date,
+    title: parseTitle(afterHeading, postTitle),
+    // Collapse blanks between the role-header and the name so extractHares'
+    // continuation reaches it; the blank AFTER the name is preserved, so the
+    // surrounding jokey prose never bleeds in (#1981).
+    hares: extractHares(collapseBlankLinesAfterLabel(afterHeading)),
     location: parseLocation(afterHeading),
     sourceUrl: url,
   };
+}
+
+/**
+ * The run heading line is the source title (carries the quoted theme). Prefer
+ * it; fall back to the Blogger post title if the heading is somehow malformed.
+ * Length-guarded so a stray un-split body never becomes a runaway title.
+ */
+function parseTitle(afterHeading: string, postTitle: string): string | undefined {
+  const headingLine = afterHeading.split("\n")[0].trim();
+  if (headingLine.includes("N+") && headingLine.length <= 120) return headingLine;
+  const fallback = postTitle.trim();
+  return fallback.length > 0 && fallback.length <= 120 ? fallback : undefined;
 }
 
 /**
@@ -157,12 +219,12 @@ export function parseBrasiliaPost(
  * kennel). Reads brasiliah3.blogspot.com trail announcements via the Blogger
  * API v3 (keyed by GOOGLE_CALENDAR_API_KEY to bypass cloud-IP 403s).
  *
- * Each post is one biweekly Sunday run. Post titles are empty, so run number,
- * date (year inferred from the publish date), and venue are parsed from the
- * post body. Title is intentionally left undefined — the merge pipeline
- * synthesizes "Brasilia H3 Trail #NNN". This adapter fetches a recent window
- * only; the ~186-post archive back to 2019 loads via the one-shot backfill,
- * and `Source.config.upcomingOnly` keeps reconciliation from cancelling it.
+ * Each post is one biweekly Sunday run. Run number, date (year inferred from
+ * the publish date), title (the `Hash N+NNN "<theme>"` heading), hares (the
+ * blog's role-header template), and venue are parsed from the post body. This
+ * adapter fetches a recent window only; the full archive back to 2019 loads via
+ * the one-shot backfill, and `Source.config.upcomingOnly` keeps reconciliation
+ * from cancelling it.
  */
 export class BrasiliaH3Adapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
@@ -189,12 +251,14 @@ export class BrasiliaH3Adapter implements SourceAdapter {
 
     for (const post of bloggerResult.posts) {
       const body = stripHtmlTags(post.content, "\n");
-      const parsed = parseBrasiliaPost(body, post.published, post.url);
+      const parsed = parseBrasiliaPost(body, post.published, post.url, post.title);
       if (!parsed) continue;
       events.push({
         date: parsed.date,
         kennelTags: ["brasilia-h3"],
         runNumber: parsed.runNumber,
+        title: parsed.title,
+        hares: parsed.hares,
         location: parsed.location,
         sourceUrl: parsed.sourceUrl,
       });

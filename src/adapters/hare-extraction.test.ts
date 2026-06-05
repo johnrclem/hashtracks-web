@@ -167,6 +167,30 @@ const EXPECTED_GROUPS: ExpectedGroup[] = [
       ["case-insensitive", "Who Are The Hares: Leeroy", "Leeroy"],
     ],
   },
+  {
+    // #1981 Brasilia / 6th cross-kennel instance — role-header template family.
+    // Real shapes drawn from brasiliah3.blogspot.com (Blogger bodies) plus the
+    // "The Hares:" / "Perpetrator(s):" historical variants.
+    describe: "extractHares — role-header template family (#1981)",
+    template: "%s",
+    table: [
+      ["'The Hares:' inline", "The Hares: Sperm Bank", "Sperm Bank"],
+      ["'The Hare:' inline", "The Hare: Just One Guy", "Just One Guy"],
+      ["emoji-prefixed 'The Hares:'", "🐾 The Hares: Sperm Bank", "Sperm Bank"],
+      ["'The Hares:' header + next line", "The Hares:\nAlice & Bob", "Alice & Bob"],
+      ["'Perpetrator(s):' inline", "Perpetrator(s): Foo & Bar", "Foo & Bar"],
+      ["'Perpetrators:' plural inline", "Perpetrators: Baz", "Baz"],
+      ["'This week's perpetrator:' inline", "This week's perpetrator: Sperm Bank", "Sperm Bank"],
+      ["curly-apostrophe 'This week's perpetrator:'", "This week’s perpetrator: Spunk Bubble", "Spunk Bubble"],
+      [
+        // The exact current-post shape (after the adapter collapses blank lines):
+        // a "🐾 The Hare" banner, then the perpetrator header, then the name.
+        "Brasilia banner + 'This week's perpetrator:' header + name",
+        "🐾 The Hare\nThis week's perpetrator:\nSperm Bank",
+        "Sperm Bank",
+      ],
+    ],
+  },
 ];
 
 const UNDEFINED_GROUPS: UndefinedGroup[] = [
@@ -207,6 +231,14 @@ const UNDEFINED_GROUPS: UndefinedGroup[] = [
       ["mid-sentence 'Hares are Needed'", "Sign up now! Hares are Needed for July."],
       ["mid-sentence 'Hares are Welcome'", "Bring friends. Hares are Welcome to the pool party."],
       ["mid-sentence lowercase 'the hares are bringing'", "Tonight the hares are bringing dogs and friends."],
+      // #1981 role-header family — prose that mentions "hare"/"perpetrator" but
+      // is NOT a labeled hare line (no colon) must NOT promote. Regression guard
+      // for the new The-Hare / Perpetrator patterns.
+      ["prose 'the hare set a cracking trail'", "Last week the hare set a cracking trail through the park."],
+      ["prose 'thanks to the hare'", "Big thanks to the hare from last week."],
+      ["prose 'we chased the hares'", "We chased the hares through the park for hours."],
+      ["prose 'Perpetrators of' (no colon)", "Perpetrators of the great beer theft remain at large."],
+      ["banner 'The Hare' with no name (no colon)", "🐾 The Hare"],
     ],
   },
   {

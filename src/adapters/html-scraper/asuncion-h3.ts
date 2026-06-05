@@ -2,6 +2,7 @@ import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
 import { stripHtmlTags, decodeEntities } from "../utils";
+import { extractHares } from "../hare-extraction";
 import { safeFetch } from "../safe-fetch";
 import { isValidCoords } from "@/lib/geo";
 
@@ -45,7 +46,9 @@ const START_TIME_RE = /(\d{1,2}):(\d{2})[^\n\d]{0,8}(?:start|inicio)/i;
 const ANY_TIME_RE = /(\d{1,2}):(\d{2})/;
 // Per-line field labels (English column wins by document order). Bounded middles
 // (no unbounded quantifier next to ":") keep these out of the ReDoS heuristics.
-const HARE_LINE_RE = /^Hare\(s\)\s*:\s*(\S.*)$/i;
+// Hares are extracted via the shared extractHares helper (covers Hare:/Hares:/
+// Hare(s):, #1961) — the English column is first in document order so the
+// helper's first-match wins, matching the historical firstLineField behaviour.
 // Char classes use [A-Z …] (no a-z) because the /i flag already matches lowercase;
 // including both ranges trips Sonar S5869 (duplicate char class under case-insensitive).
 const START_LINE_RE = /^(?:Start|Location|Meeting point)[A-Z ()]{0,14}:\s*(\S.*)$/i;
@@ -71,7 +74,7 @@ const MONTH_MAP: Record<string, number> = {
   dec: 12, december: 12, diciembre: 12,
 };
 
-interface WPComPost {
+export interface WPComPost {
   id: number;
   date: string;
   link: string;
@@ -179,9 +182,10 @@ export function postToEvent(post: WPComPost): RawEventData | null {
     date,
     kennelTags: [KENNEL_TAG],
     runNumber,
-    // Title left undefined — titles are bare "Run #N"; merge.ts synthesizes
-    // "Asunción H3 Trail #N" (a title must never be a hare name or field fragment).
-    hares: firstLineField(lines, HARE_LINE_RE),
+    // #1960 — store the source post title ("Run #N") verbatim rather than
+    // letting merge synthesize the generic "Asunción H3 Trail #N".
+    title: cleanTitle(post.title.rendered),
+    hares: extractHares(text),
     location: firstLineField(lines, START_LINE_RE),
     cost: firstLineField(lines, COST_LINE_RE),
     startTime: parseStartTime(text),
@@ -195,6 +199,17 @@ export function postToEvent(post: WPComPost): RawEventData | null {
 function runFromTitle(title: string): number | undefined {
   const m = RUN_TITLE_RE.exec(title);
   return m ? Number.parseInt(m[1], 10) : undefined;
+}
+
+// Defensive: strip a trailing site-name suffix if WP ever appends it to the
+// rendered post title (og:title is bare "Run #N", but <title> carries
+// " – Asunción Hash House Harriers"). Bounded literal, anchored to end.
+const TITLE_SUFFIX_RE = /\s*[–—-]\s*Asunci[oó]n Hash House Harriers\s*$/i;
+
+/** Source post title ("Run #120"), decoded + suffix-stripped, or undefined. */
+function cleanTitle(rendered: string): string | undefined {
+  const cleaned = decodeEntities(rendered).replace(TITLE_SUFFIX_RE, "").trim();
+  return cleaned.length > 0 ? cleaned : undefined;
 }
 
 type PageResult =
@@ -229,6 +244,24 @@ async function fetchPostsPage(page: number): Promise<PageResult> {
  */
 function isRunPost(post: WPComPost): boolean {
   return RUN_TITLE_RE.test(post.title.rendered) && (post.categories?.includes(1) ?? true);
+}
+
+/**
+ * Fetch EVERY run post (all pages, not future-filtered), reusing the same
+ * pagination + run-filter as the recurring scrape so the WordPress.com request
+ * params (per_page, _fields, the category-1 rule) have one source of truth.
+ * Used by the one-shot history generator; the recurring fetch() below keeps its
+ * own future-only loop with diagnostics.
+ */
+export async function fetchAllRunPosts(maxPages = MAX_PAGES + 2): Promise<WPComPost[]> {
+  const all: WPComPost[] = [];
+  for (let page = 1; page <= maxPages; page++) {
+    const result = await fetchPostsPage(page);
+    if (result.kind !== "posts") break; // "end" or "error" → stop
+    all.push(...result.posts.filter(isRunPost));
+    if (result.posts.length < PER_PAGE) break; // partial last page
+  }
+  return all;
 }
 
 /** Parse a page of posts into future-dated run events (the archive is backfilled separately). */
