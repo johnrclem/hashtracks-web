@@ -1289,6 +1289,10 @@ export const SOURCES = [
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
       scrapeFreq: "every_6h",
+      // #2009 — kept at 365 (NOT a backfill size): scrapeDays also bounds
+      // reconcile's cancellation window, which must match the adapter's 365-day
+      // future-fetch cap. The 2008→present archive (~900 events) is pulled
+      // out-of-band by scripts/backfill-gcal-history.ts — see its header.
       scrapeDays: 365,
       config: {
         defaultKennelTag: "pgh-h3",
@@ -3096,7 +3100,11 @@ export const SOURCES = [
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
       scrapeFreq: "every_6h",
-      scrapeDays: 90,
+      // #1989 — bumped 90 → 365 (the safe max — reconcile-window alignment, see
+      // the PGH H3 note above), which also surfaces the source's up-to-a-year-out
+      // recurring runs each scrape. Deeper 2018→present history is pulled
+      // out-of-band by scripts/backfill-gcal-history.ts.
+      scrapeDays: 365,
       config: { defaultKennelTag: "pedalfiles" },
       kennelCodes: ["pedalfiles"],
     },

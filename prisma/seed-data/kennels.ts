@@ -1264,9 +1264,18 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "pgh-h3", shortName: "PGH H3", fullName: "Pittsburgh Hash House Harriers", region: "Pittsburgh, PA",
       website: "https://pghh3.com/",
       contactEmail: "pghhashcalendar@gmail.com",
+      // Self-hosted because the upstream header logo is on a CDN with
+      // unconfirmed long-term durability. (#2006)
+      logoUrl: "/kennel-logos/pgh-h3.png",
       scheduleDayOfWeek: "Sunday", scheduleFrequency: "Weekly", scheduleTime: "2:00 PM",
       scheduleNotes: "Sundays 2 PM (winter); varies in summer. Sub-kennels run other days.",
-      hashCash: "$5", foundedYear: 1983,
+      // foundedYear 1980 per the kennel's own history page (pghh3.com/a-brief-kennel-
+      // history-of-pittsburgh/: "founded in 1980 … Run #1 was June 14, 1980");
+      // HashRego also says "Est. 1980". Prod still holds the wrong 1983 — fixed by
+      // the one-shot scripts/fix-pgh-h3-prod-profile.ts (seed merge is fill-NULL-only).
+      // hashCash already "$5" in prod (the audit "$$5" was a markdown-escape display
+      // artifact, same as NSWHHH #1972). (#2006)
+      hashCash: "$5", foundedYear: 1980,
       description: "Pittsburgh's main hash kennel with 2,200+ trails.",
       latitude: 40.44, longitude: -79.99,
     },
@@ -2617,6 +2626,10 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "pedalfiles", shortName: "Pedal Files", fullName: "Pedal Files Bash", region: "Tucson, AZ",
       website: "https://tucsonhash.com",
+      // contactEmail = the Google Calendar owner inbox (source-derivable). Remaining
+      // profile gaps (foundedYear, gm, hashCash, facebook/instagram, logo) need
+      // kennel contact — the calendar source doesn't expose them. (#1988)
+      contactEmail: "tucsonhhh@gmail.com",
       scheduleDayOfWeek: "Sunday", scheduleTime: "10:00 AM", scheduleFrequency: "Monthly",
       scheduleNotes: "3rd Sunday",
       description: "Tucson monthly Sunday morning bike hash.",
