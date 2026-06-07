@@ -1289,14 +1289,10 @@ export const SOURCES = [
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
       scrapeFreq: "every_6h",
-      // #2009 — kept at 365 (NOT widened to a backfill size). scrapeDays drives
-      // BOTH the adapter fetch window AND reconcile's cancellation window
-      // (scrape.ts → reconcile.ts:147 timeMax = now + days). The adapter caps its
-      // future fetch at 365 (futureHorizonDays), so 365 keeps reconcile aligned
-      // with what's actually fetched — a larger value would let reconcile cancel
-      // sole-source events in the unfetched [now+365d, now+9999d] gap. The full
-      // 2008→present archive (~900 events) is backfilled out-of-band via the
-      // one-shot scripts/backfill-gcal-history.ts (days=9999, single safe pass).
+      // #2009 — kept at 365 (NOT a backfill size): scrapeDays also bounds
+      // reconcile's cancellation window, which must match the adapter's 365-day
+      // future-fetch cap. The 2008→present archive (~900 events) is pulled
+      // out-of-band by scripts/backfill-gcal-history.ts — see its header.
       scrapeDays: 365,
       config: {
         defaultKennelTag: "pgh-h3",
@@ -3104,12 +3100,10 @@ export const SOURCES = [
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
       scrapeFreq: "every_6h",
-      // #1989 — bumped 90 → 365 (the safe max: scrapeDays also drives reconcile's
-      // cancellation window, and the adapter caps future fetch at 365, so 365
-      // keeps the two aligned — see the PGH H3 note above). 365 also surfaces the
-      // source's up-to-a-year-out recurring runs on each scrape. The deeper
-      // 2018→present archive is backfilled out-of-band via the one-shot
-      // scripts/backfill-gcal-history.ts (days=9999, single safe pass).
+      // #1989 — bumped 90 → 365 (the safe max — reconcile-window alignment, see
+      // the PGH H3 note above), which also surfaces the source's up-to-a-year-out
+      // recurring runs each scrape. Deeper 2018→present history is pulled
+      // out-of-band by scripts/backfill-gcal-history.ts.
       scrapeDays: 365,
       config: { defaultKennelTag: "pedalfiles" },
       kennelCodes: ["pedalfiles"],

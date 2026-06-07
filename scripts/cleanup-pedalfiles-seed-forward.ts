@@ -84,6 +84,16 @@ async function main() {
     // 1. Enumerate the LIVE source dates (read-only adapter use).
     const adapter = getAdapter(source.type, source.url, source.config as Record<string, unknown> | null);
     const result = await adapter.fetch(source, { days: SCRAPE_DAYS });
+    // The GCal adapter records API/HTTP failures in `result.errors` and returns
+    // whatever it collected rather than throwing. A quota/permission/outage error
+    // would yield an empty-or-partial event set, making source-backed events look
+    // "absent from live" and (under --execute) eligible for deletion. Abort loud
+    // before classifying anything.
+    if (result.errors.length > 0) {
+      throw new Error(
+        `Live source fetch reported errors — aborting before orphan classification:\n  ${result.errors.join("\n  ")}`,
+      );
+    }
     const liveDates = new Set(result.events.map((e) => e.date));
     const sortedDates = [...liveDates].sort((a, b) => a.localeCompare(b));
     console.log(

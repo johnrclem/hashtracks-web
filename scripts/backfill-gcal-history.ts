@@ -21,17 +21,19 @@
  * (it's gated on `!force`), letting us assert `cancelled === 0` as a real
  * regression check rather than a vacuous one.
  *
- * Targets (run PGH only AFTER WS1's PGH run-number parser fix is on main — see
- * the #2009 caveat; otherwise the `Hash NNNN:` variants re-import malformed):
- *   - "Pedal Files Bash Google Calendar"  (2018-03 → present, ~56→130 events)
- *   - "Pittsburgh Hash Calendar"          (2008-12 → present, ~900 events)
+ * Targets:
+ *   - "Pedal Files Bash Google Calendar"  (2018-03 → present, ~56→130 events) — default
+ *   - "Pittsburgh Hash Calendar"          (2008-12 → present, ~900 events)    — GATED
+ * PGH is gated OUT of the default run: pass it explicitly via --source, and only
+ * AFTER WS1's PGH run-number parser fix is on main (#2009 caveat) — otherwise the
+ * `Hash NNNN:` variants re-import malformed.
  *
  * Usage:
  *   eval "$(fnm env)" && fnm use 20
  *   set -a && source .env && set +a   # GOOGLE_CALENDAR_API_KEY + prod DATABASE_URL
- *   npx tsx scripts/backfill-gcal-history.ts                                  # dry-run (lists targets)
- *   npx tsx scripts/backfill-gcal-history.ts --execute                        # backfill all targets
- *   npx tsx scripts/backfill-gcal-history.ts --execute --source "Pedal Files Bash Google Calendar"
+ *   npx tsx scripts/backfill-gcal-history.ts                                  # dry-run (non-gated targets)
+ *   npx tsx scripts/backfill-gcal-history.ts --execute                        # backfill non-gated targets
+ *   npx tsx scripts/backfill-gcal-history.ts --execute --source "Pittsburgh Hash Calendar"  # gated, post-WS1
  *
  * IMPORTANT: .env must point at Railway prod for the backfill to land there.
  */
@@ -42,13 +44,26 @@ import { scrapeSource } from "@/pipeline/scrape";
 
 const EXECUTE = process.argv.includes("--execute");
 const sourceFlagIdx = process.argv.indexOf("--source");
+// Guard a value-less `--source` (last arg, or followed by another flag): without
+// this it falls through to SOURCE_FILTER=undefined → "run every default target",
+// the opposite of the operator's intent.
+if (sourceFlagIdx >= 0) {
+  const next = process.argv[sourceFlagIdx + 1];
+  if (!next || next.startsWith("-")) {
+    throw new Error("The --source flag requires a source name argument.");
+  }
+}
 const SOURCE_FILTER = sourceFlagIdx >= 0 ? process.argv[sourceFlagIdx + 1] : undefined;
 
 const BACKFILL_DAYS = 9999;
 
-const TARGETS = [
-  "Pedal Files Bash Google Calendar",
-  "Pittsburgh Hash Calendar",
+// `gated: true` targets are EXCLUDED from the default (no --source) run and only
+// execute when named explicitly via `--source`. PGH H3 is gated until WS1's
+// run-number parser fix lands — otherwise the default `--execute` path would
+// re-import the malformed `Hash NNNN:` variants the #2009 caveat warns about.
+const TARGETS: { name: string; gated: boolean }[] = [
+  { name: "Pedal Files Bash Google Calendar", gated: false },
+  { name: "Pittsburgh Hash Calendar", gated: true },
 ];
 
 async function main() {
@@ -59,7 +74,9 @@ async function main() {
   console.log(`Mode: ${EXECUTE ? "EXECUTE (will scrape + merge into the DB)" : "DRY-RUN"}`);
   console.log(`Window: days=${BACKFILL_DAYS} (future side still capped at 365 by the adapter)\n`);
 
-  const names = SOURCE_FILTER ? [SOURCE_FILTER] : TARGETS;
+  // Explicit --source runs exactly that source (including a gated one, e.g. PGH
+  // after the parser fix). The default run covers only non-gated targets.
+  const names = SOURCE_FILTER ? [SOURCE_FILTER] : TARGETS.filter((t) => !t.gated).map((t) => t.name);
   let hadError = false;
 
   for (const name of names) {

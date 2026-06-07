@@ -1264,8 +1264,8 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "pgh-h3", shortName: "PGH H3", fullName: "Pittsburgh Hash House Harriers", region: "Pittsburgh, PA",
       website: "https://pghh3.com/",
       contactEmail: "pghhashcalendar@gmail.com",
-      // Self-hosted from the Azure Front Door header logo (durability unconfirmed
-      // upstream — feedback_self_host_unstable_logos). (#2006)
+      // Self-hosted because the upstream header logo is on a CDN with
+      // unconfirmed long-term durability. (#2006)
       logoUrl: "/kennel-logos/pgh-h3.png",
       scheduleDayOfWeek: "Sunday", scheduleFrequency: "Weekly", scheduleTime: "2:00 PM",
       scheduleNotes: "Sundays 2 PM (winter); varies in summer. Sub-kennels run other days.",
