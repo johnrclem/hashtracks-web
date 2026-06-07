@@ -6447,6 +6447,21 @@ export const SOURCES = [
       config: { upcomingOnly: true },
       kennelCodes: ["mijash3"],
     },
+    // Spain — Madrid (2nd Spain kennel). Self-hosted WordPress REST: one run per
+    // post under "Run Directions", every datum labeled in the body. The forward
+    // adapter pulls the latest ~30 posts; the full ~550–600-run archive back to
+    // 2014 is owned by scripts/backfill-madrid-h3-history.ts. upcomingOnly keeps
+    // reconcile.ts from false-CANCELLING the aged backfilled archive.
+    {
+      name: "Madrid HHH WordPress Trail Directions",
+      url: "https://madridhhh.com/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: { upcomingOnly: true },
+      kennelCodes: ["madrid-h3"],
+    },
     // France — first France source: one Meetup group feeds both Paris H3 (Sat)
     // and its sister Sans Clue H3 (Sun). Routed by title prefix via
     // kennelPatterns; the group's weekly non-hash "Thursday Night Drinking Club"

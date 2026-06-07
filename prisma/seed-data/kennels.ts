@@ -4646,6 +4646,32 @@ export const KENNELS: KennelSeed[] = [
       latitude: 36.5959,
       longitude: -4.6377,
     },
+    // Spain — Madrid (2nd Spain kennel; bare "MH3" omitted — global collision)
+    {
+      kennelCode: "madrid-h3",
+      shortName: "Madrid H3",
+      fullName: "Madrid Hash House Harriers",
+      region: "Madrid",
+      country: "Spain",
+      website: "https://madridhhh.com",
+      facebookUrl: "https://www.facebook.com/MadridH3/",
+      instagramHandle: "madridh3",
+      foundedYear: 1984,
+      hashCash: "5€ (+2€ for a lift)",
+      // scheduleRules is authoritative; flat fields kept as legacy fallback.
+      scheduleDayOfWeek: "Sunday",
+      scheduleTime: "1:00 PM",
+      scheduleFrequency: "Weekly",
+      scheduleRules: [
+        { rrule: "FREQ=WEEKLY;BYDAY=SU", startTime: "13:00", label: "Sunday run", displayOrder: 0 },
+        { rrule: "FREQ=MONTHLY;BYDAY=1FR", startTime: "20:00", label: "Monthly Friday city run", displayOrder: 1 },
+      ],
+      logoUrl: "/kennel-logos/madrid-h3.png",
+      latitude: 40.4168,
+      longitude: -3.7038,
+      description:
+        "The drinking club with a running problem — Madrid's hash since 1984, running every Sunday at 13:00 in the countryside around Madrid plus a monthly Friday city run.",
+    },
     // France — first France kennels (Paris H3 + sister Sans Clue H3, one shared Meetup)
     {
       kennelCode: "paris-h3",
