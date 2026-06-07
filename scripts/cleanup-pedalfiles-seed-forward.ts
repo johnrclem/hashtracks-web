@@ -47,7 +47,7 @@
 
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "@/generated/prisma/client";
+import { PrismaClient, type Source } from "@/generated/prisma/client";
 import { getAdapter } from "@/adapters/registry";
 import { backfillLastEventDates } from "@/pipeline/backfill-last-event";
 import { createScriptPool } from "./lib/db-pool";
@@ -81,9 +81,9 @@ interface PedalEvent {
  * source-backed events look "absent from live" and (under --execute) eligible
  * for deletion.
  */
-async function enumerateLiveDates(source: { type: string; url: string; config: unknown }): Promise<Set<string>> {
-  const adapter = getAdapter(source.type as never, source.url, source.config as Record<string, unknown> | null);
-  const result = await adapter.fetch(source as never, { days: SCRAPE_DAYS });
+async function enumerateLiveDates(source: Source): Promise<Set<string>> {
+  const adapter = getAdapter(source.type, source.url, source.config as Record<string, unknown> | null);
+  const result = await adapter.fetch(source, { days: SCRAPE_DAYS });
   if (result.errors.length > 0) {
     throw new Error(
       `Live source fetch reported errors — aborting before orphan classification:\n  ${result.errors.join("\n  ")}`,
