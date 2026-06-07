@@ -132,10 +132,31 @@ describe("VictoriaH3Adapter parser", () => {
     });
   });
 
-  it("leaves a bare run without a theme and flags placeholder hares as null", () => {
+  it("titles a bare run from its run number and flags placeholder hares as null (#2013)", () => {
     const e = eventFor("vh3", 930);
-    expect(e?.title).toBeUndefined();
+    expect(e?.title).toBe("Run #930");
     expect(e?.hares).toBeNull();
+  });
+
+  it.each([
+    { label: "dsmh3 schedule-only run → bare Run #", tag: "dsmh3", run: 383, title: "Run #383" },
+    { label: "dsmh3 schedule-only run → bare Run #", tag: "dsmh3", run: 388, title: "Run #388" },
+  ])("emits a source-faithful title for $label (#2013)", ({ tag, run, title }) => {
+    expect(eventFor(tag, run)?.title).toBe(title);
+  });
+
+  it.each([
+    { label: "vh3 schedule section", tag: "vh3", run: 918, anchor: "card-lmli4jg2j066rob" },
+    { label: "dsmh3 schedule section", tag: "dsmh3", run: 388, anchor: "card-crvryp3aex0zqgj" },
+    { label: "vk9h3 schedule section", tag: "vk9h3", run: 79, anchor: "card-jdsydiqd0hrhaqt" },
+  ])("deep-links sourceUrl to the $label (#2014)", ({ tag, run, anchor }) => {
+    expect(eventFor(tag, run)?.sourceUrl).toBe(`https://vh3.ca/#${anchor}`);
+  });
+
+  it("deep-links a card-only run (no schedule entry) to the Up Cumming card (#2014)", () => {
+    // #944 lives only in the "Up Cumming" cards, not the VH3 schedule list, so
+    // it must NOT point at the bottom schedule section where it's absent.
+    expect(eventFor("vh3", 944)?.sourceUrl).toBe("https://vh3.ca/#card-bh9pp0f7dagcfyu");
   });
 
   it("normalizes the Oxford-comma co-hare conjunction", () => {

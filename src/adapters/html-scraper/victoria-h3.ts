@@ -7,6 +7,7 @@ import {
   formatAmPmTime,
   normalizeHaresField,
   applyDateWindow,
+  buildRunHareTitle,
 } from "../utils";
 
 /**
@@ -51,6 +52,29 @@ const ROUTES: { re: RegExp; tag: KennelTag }[] = [
 // error so scrape.ts skips reconcile — otherwise reconcile, scoped to all linked
 // kennels, would false-cancel that kennel's future events while the others parse.
 const EXPECTED_TAGS: readonly KennelTag[] = ["vh3", "dsmh3", "vk9h3"];
+
+// Per-kennel deep-link fragments → the run lands at that kennel's schedule
+// section instead of the bare site root (#2014). These are Gamma's stable
+// `#card-<id>` in-page nav anchors (the site's own "Back to…" links target
+// them and they persist across re-publishes). We hardcode them because Gamma's
+// deeply-nested SSR markup defeats cheerio's id resolution — `$("#card-…")` and
+// `closest()` both return nothing on this page (the same nesting that forces
+// the leaf-text linearize strategy above). An anchor that ever goes stale just
+// lands the visitor at the top of the page — the same UX as the bare root.
+const SECTION_ANCHORS: Record<KennelTag, string> = {
+  vh3: "card-lmli4jg2j066rob", // "Victoria H3 Runs"
+  dsmh3: "card-crvryp3aex0zqgj", // "Dark Side Runs"
+  vk9h3: "card-jdsydiqd0hrhaqt", // "Victoria K9 H3"
+};
+// The shared "Up Cumming Hashes" card at the top. Card-only runs (e.g. the lone
+// #944) appear here but NOT in any kennel's bottom schedule list, so they
+// deep-link here instead — "View source" lands where the run actually is.
+const UPCOMING_ANCHOR = "card-bh9pp0f7dagcfyu";
+
+/** Resolve a `#card-<id>` fragment against the source URL. */
+function fragmentUrl(anchor: string, baseUrl: string): string {
+  return new URL(`#${anchor}`, baseUrl).toString();
+}
 
 // Gamma renders each text block inside a node-view content wrapper. Selecting
 // these leaves and reading their text avoids a full-document `.text()`.
@@ -426,7 +450,11 @@ function buildEvent(
   const realHare = card?.hares ? normalizeHaresField(card.hares) : undefined;
   const haresNeeded = sched?.haresNeeded || card?.haresNeeded;
   const hares = realHare ?? (haresNeeded ? null : undefined);
-  const title = card?.theme ?? (tag === "vh3" ? maps.writeupMap.get(run) : undefined);
+  // A real card theme or completed-run write-up wins; otherwise emit a
+  // source-faithful "Run #<N> w/ <hares>" / "Run #<N>" title instead of letting
+  // the merge pipeline synthesize "<Kennel> Trail #<N>" (#2013).
+  const explicitTitle = card?.theme ?? (tag === "vh3" ? maps.writeupMap.get(run) : undefined);
+  const title = explicitTitle ?? buildRunHareTitle(run, hares);
 
   return {
     date: `${year}-${pad(pd.month)}-${pad(pd.day)}`,
@@ -442,7 +470,9 @@ function buildEvent(
     locationUrl: card?.locationUrl,
     cost: card?.cost,
     description: card?.description,
-    sourceUrl,
+    // Runs in the kennel's schedule list deep-link to that section; card-only
+    // runs (no schedule entry) deep-link to the shared "Up Cumming" card (#2014).
+    sourceUrl: fragmentUrl(sched ? SECTION_ANCHORS[tag] : UPCOMING_ANCHOR, sourceUrl),
   };
 }
 

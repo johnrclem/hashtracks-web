@@ -12,8 +12,10 @@
  * Date cells are `DD MMM` with NO year (e.g. "8 Jun", "2 Nov AGM"). The year is
  * inferred from a reference date with Dec→Jan rollover. The single next-run pin
  * is attached to its matching run; every other run falls back to the Bangkok
- * region centroid. Titles are left undefined so the merge pipeline synthesizes
- * "Bangkok Monday H3 Trail #N".
+ * region centroid. The source has no per-row title (only "Run No. <N>"), so each
+ * row gets a source-faithful `buildRunHareTitle` title ("Run #<N> w/ <hares>" /
+ * "Run #<N>") rather than the fabricated "Bangkok Monday H3 Trail #N" the merge
+ * pipeline would otherwise synthesize (#2016).
  */
 
 import type { CheerioAPI } from "cheerio";
@@ -27,7 +29,7 @@ import type {
   ParseError,
 } from "../types";
 import { hasAnyErrors } from "../types";
-import { chronoParseDate, fetchHTMLPage, buildDateWindow } from "../utils";
+import { chronoParseDate, fetchHTMLPage, buildDateWindow, buildRunHareTitle } from "../utils";
 import { extractCoordsFromMapsUrl } from "@/lib/geo";
 
 const KENNEL_TAG = "bmh3-bkk";
@@ -138,11 +140,15 @@ export function parseHarelineRow(
   const date = resolveDate(dateText);
   if (!date) return null;
 
+  const hares = cleanCell(cells[2]);
   return {
     date,
     kennelTags: [KENNEL_TAG],
     runNumber,
-    hares: cleanCell(cells[2]),
+    // Source-faithful title: the page has no per-row title, only "Run No. <N>".
+    // Fold in the hare we already capture so title + `hares` agree (#2016).
+    title: buildRunHareTitle(runNumber, hares),
+    hares,
     location: cleanCell(cells[3]),
     startTime: DEFAULT_START_TIME,
   };

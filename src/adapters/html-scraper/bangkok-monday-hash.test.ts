@@ -162,6 +162,7 @@ describe("parseHarelineRow", () => {
     expect(row).toMatchObject({
       date: "2026-11-30",
       runNumber: 2240,
+      title: "Run #2240 w/ Peter 'Maverick' L",
       hares: "Peter 'Maverick' L",
       location: "Onnut Soi 37",
       startTime: "17:30",
@@ -190,9 +191,14 @@ describe("parseHarelineRow", () => {
     expect(parseHarelineRow(["2240", "30 Nov"], resolve)).toBeNull();
   });
 
-  it("does not set a title (merge synthesizes it)", () => {
+  it("sets a source-faithful title folding in the hare (#2016)", () => {
     const row = parseHarelineRow(["2240", "30 Nov", "Hare", "Loc"], resolve);
-    expect(row?.title).toBeUndefined();
+    expect(row?.title).toBe("Run #2240 w/ Hare");
+  });
+
+  it("titles a TBA-hare row with the bare run number (#2016)", () => {
+    const row = parseHarelineRow(["2227", "31 Aug", "TBA", "TBA"], resolve);
+    expect(row?.title).toBe("Run #2227");
   });
 });
 

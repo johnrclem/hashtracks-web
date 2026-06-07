@@ -24,6 +24,7 @@
 import "dotenv/config";
 import { runBackfillScript } from "./lib/backfill-runner";
 import type { RawEventData } from "@/adapters/types";
+import { buildRunHareTitle } from "@/adapters/utils";
 import bmh3History from "./data/bmh3-bkk-history.json";
 
 const SOURCE_NAME = "Bangkok Monday H3 Hareline";
@@ -33,7 +34,16 @@ runBackfillScript({
   sourceName: SOURCE_NAME,
   kennelTimezone: KENNEL_TIMEZONE,
   label: "Loading curated bangkokmondayhhh.com run archive (2002→2026)",
-  fetchEvents: async () => bmh3History as RawEventData[],
+  // The frozen archive predates the source-faithful title (#2016) and carries no
+  // `title`. Reconstruct it here from the same runNumber + hares the live
+  // adapter uses (`buildRunHareTitle`) so a re-run re-fingerprints each row and
+  // the merge pipeline UPDATEs the canonical title in place — replacing the
+  // historical "Bangkok Monday H3 Trail #N" placeholders.
+  fetchEvents: async () =>
+    (bmh3History as RawEventData[]).map((r) => ({
+      ...r,
+      title: buildRunHareTitle(r.runNumber ?? undefined, r.hares),
+    })),
 }).catch((err) => {
   console.error(err);
   process.exit(1);
