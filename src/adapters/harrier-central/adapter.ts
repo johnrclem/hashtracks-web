@@ -248,6 +248,25 @@ function stripTba(value: string | undefined): string | undefined {
   return trimmed && !/^tba$/i.test(trimmed) ? trimmed : undefined;
 }
 
+// Placeholder location strings that HC surfaces when a kennel hasn't set a real
+// venue (per-run venues announced day-of). They are NOT geocodable, so HC's
+// accompanying syncLat/syncLong are its region-default fallback pin — the same
+// "bad coords" case as the place===resolvable duplicate below. Treated as
+// geocode failures so the merge pipeline re-geocodes from the kennel's region
+// centroid instead of storing the fake pin. Lisbon H3 ("No location provided",
+// "TBD", "ANNOUNCED LATER via Hares") motivated extending this beyond the
+// equality check. Set lookup (not regex) keeps Sonar S5843/S5852 clear.
+const GEOCODE_FAIL_SENTINELS = new Set([
+  "tbd",
+  "to be determined",
+  "no location provided",
+  "announced later via hares",
+]);
+
+function isGeocodeSentinel(value: string | undefined): boolean {
+  return value ? GEOCODE_FAIL_SENTINELS.has(value.trim().toLowerCase()) : false;
+}
+
 // Street-type tokens used by haresLooksLikeLocation to flag address-shaped
 // haresText. Stored as a Set + word-split (rather than a long regex
 // alternation) to keep Sonar S5843 regex complexity low and let us extend
@@ -332,6 +351,11 @@ export function hcGeocodeFailed(
 ): boolean {
   const place = stripTba(placeName);
   const full = stripTba(resolvable);
+  // A placeholder sentinel in either field means HC has no real venue (e.g.
+  // an empty place + resolvable "No location provided"); its coords are the
+  // region-default pin. Check before the both-non-empty guard so placeholder
+  // rows with an empty place still drop their coords.
+  if (isGeocodeSentinel(place) || isGeocodeSentinel(full)) return true;
   if (!place || !full) return false;
   return place.trim().toLowerCase() === full.trim().toLowerCase();
 }

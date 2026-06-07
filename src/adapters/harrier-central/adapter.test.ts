@@ -257,6 +257,28 @@ describe("hcGeocodeFailed", () => {
     // though it couldn't reverse-geocode a street name. Keep them.
     expect(hcGeocodeFailed("Waseda exit", "35.713, 139.704")).toBe(false);
   });
+
+  // Placeholder-venue sentinels: kennels that announce venues day-of (Lisbon
+  // H3) leave a placeholder in one or both location fields. HC pairs them with
+  // its region-default pin, so these must be treated as geocode failures even
+  // when the place field is empty (the equality check alone misses them).
+  it.each([
+    ["empty place + 'No location provided' resolvable", undefined, "No location provided"],
+    ["empty place + 'TBD' resolvable", "", "TBD"],
+    ["'ANNOUNCED LATER via Hares' (case/space-insensitive)", "  announced later via hares ", "ANNOUNCED LATER via Hares"],
+    ["matching 'TBD' on both", "TBD", "TBD"],
+    ["place 'To Be Determined' + bare coords resolvable", "To Be Determined", "38.722, -9.144"],
+  ])("returns true for placeholder sentinel: %s", (_label, place, resolvable) => {
+    expect(hcGeocodeFailed(place, resolvable)).toBe(true);
+  });
+
+  it("returns false for a real venue that is not a placeholder sentinel", () => {
+    // Regression guard: a genuine venue name distinct from the resolved
+    // address must keep its coords.
+    expect(
+      hcGeocodeFailed("Iron Horse Tavern", "140 High Street, Morgantown, 26505, WV, United States"),
+    ).toBe(false);
+  });
 });
 
 describe("generateAccessToken", () => {

@@ -340,6 +340,10 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "bikeh3-fra": ["Frankfurt Bike Hash", "Bike Bash Frankfurt"],
     "h7": ["Hamburg H7", "H7", "Hamburg Hash", "Hamburg Hash House Harriers", "Hummel Hummel", "Hamburg H3"],
 
+    // Bare "LH3" omitted — already maps to London H3 + Lakeland H3; a 3-way
+    // alias would be ambiguous. The HC source routes via defaultKennelTag.
+    "lh3-pt": ["LH3-PT", "Lisbon Hash House Harriers", "Lisboa Hash House Harriers", "Lisboa H3"],
+
     // ===== JAPAN =====
     // Tokyo
     "tokyo-h3": ["Tokyo Hash", "TH3", "Tokyo HHH", "Tokyo Hash House Harriers", "東京ハッシュ"],
