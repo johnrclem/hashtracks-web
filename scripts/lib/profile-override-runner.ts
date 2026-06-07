@@ -25,10 +25,11 @@ export interface FieldRewrite {
    * The value(s) the field is expected to currently hold (captured at
    * authoring). An array accepts any of several equivalent current values —
    * e.g. a dead URL that may be stored with either `http://` or `https://`.
+   * Numbers are supported for `Int` columns (e.g. `foundedYear`).
    */
-  expected: string | string[];
+  expected: string | number | (string | number)[];
   /** The value to write. `null` clears the column (e.g. a dead website URL). */
-  target: string | null;
+  target: string | number | null;
 }
 
 export interface ProfileOverride {
@@ -47,19 +48,19 @@ export interface RunProfileOverridesOptions {
 type KennelRow = Record<string, unknown> & { id: string; kennelCode: string };
 
 interface RewriteEvaluation {
-  updateData: Record<string, string | null>;
+  updateData: Record<string, string | number | null>;
   driftSkip: boolean;
 }
 
 function evaluateRewrites(kennel: KennelRow, rewrites: ProfileOverride["rewrites"]): RewriteEvaluation {
-  const updateData: Record<string, string | null> = {};
+  const updateData: Record<string, string | number | null> = {};
   let driftSkip = false;
   for (const [field, { expected, target }] of Object.entries(rewrites)) {
     const current = kennel[field];
-    const accepted = Array.isArray(expected) ? expected : [expected];
+    const accepted: (string | number)[] = Array.isArray(expected) ? expected : [expected];
     if (current === target) {
       console.log(`  · ${kennel.kennelCode}.${field} already correct.`);
-    } else if (accepted.includes(current as string)) {
+    } else if (accepted.includes(current as string | number)) {
       updateData[field] = target;
       console.log(`  ~ ${kennel.kennelCode}.${field}`);
       console.log(`      current: ${JSON.stringify(current)}`);
