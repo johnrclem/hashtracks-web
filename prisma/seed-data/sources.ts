@@ -5758,13 +5758,18 @@ export const SOURCES = [
         pageHandle: "MemphisH3",
         timezone: "America/Chicago",
         upcomingOnly: true,
-        // #1954: the Memphis FB page hosts sister-kennel GyNO H3 events, which
-        // this adapter would hard-tag mh3-tn (no kennelPatterns support yet).
-        // GyNO already has its own GCal-fed `gynoh3` source, so drop the FB
-        // duplicate at the ingest boundary instead of mis-attributing it.
-        silentlySkipPatterns: [{ pattern: String.raw`\bGyNO\b`, field: "title" }],
+        // #1996: the Memphis FB page hosts sister-kennel GyNO H3 events. Route
+        // them to `gynoh3` (they dedup against GyNO's own GCal source by
+        // kennel+date in the merge pipeline) and everything else to `mh3-tn`.
+        // Replaces the #1954 silentlySkipPatterns drop-it workaround. Mirrors
+        // the Memphis GCal config's kennelPatterns.
+        kennelPatterns: [
+          [String.raw`\bGyNO\b`, "gynoh3"],
+          [String.raw`^MH3\b|Memphis`, "mh3-tn"],
+        ],
+        defaultKennelTag: "mh3-tn",
       },
-      kennelCodes: ["mh3-tn"],
+      kennelCodes: ["mh3-tn", "gynoh3"],
     },
     {
       name: "SOH4 Facebook Hosted Events",

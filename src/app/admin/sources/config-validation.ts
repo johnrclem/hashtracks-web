@@ -53,7 +53,10 @@ function validateRegex(
  *
  * Add to this set when migrating an adapter to `matchKennelPatterns`.
  */
-const TYPES_SUPPORTING_MULTI_KENNEL_PATTERNS = new Set(["GOOGLE_CALENDAR"]);
+const TYPES_SUPPORTING_MULTI_KENNEL_PATTERNS = new Set([
+  "GOOGLE_CALENDAR",
+  "FACEBOOK_HOSTED_EVENTS", // #1996 — FB adapter routes per-event via matchKennelPatterns
+]);
 
 /** Per-entry tag-value validation for `validateKennelPatterns`. Extracted to
  *  keep the parent function's cognitive complexity below SonarCloud's

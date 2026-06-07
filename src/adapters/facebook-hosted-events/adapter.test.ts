@@ -210,6 +210,41 @@ describe("FacebookHostedEventsAdapter — fetch", () => {
     });
   });
 
+  it("routes events per-config kennelPatterns (#1996)", async () => {
+    // One GyNO-named event on the Memphis page should route to gynoh3 via
+    // config.kennelPatterns rather than the source's own mh3-tn kennelTag —
+    // proving the adapter threads kennelPatterns/defaultKennelTag into the parser.
+    const listing =
+      `<script type="application/json">{"require":[["RelayPrefetchedStreamCache","next",[],[]]]}</script>` +
+      `<script type="application/json">{
+        "rich":{"__typename":"Event","id":"100000000000099","name":"GyNO H3 Harriette Happy Hour #12"},
+        "time":{"id":"100000000000099","start_timestamp":1778353200}
+      }</script>`;
+    // 1st fetch = listing tab; 2nd = the event's detail page (empty body → no
+    // description merge, no sleep since there's only one event).
+    mockedFetch
+      .mockResolvedValueOnce(htmlResponse(listing))
+      .mockResolvedValueOnce(htmlResponse("<html></html>"));
+    const adapter = new FacebookHostedEventsAdapter();
+    const result = await adapter.fetch(
+      makeSource({
+        kennelTag: "mh3-tn",
+        pageHandle: "MemphisH3",
+        timezone: "America/Chicago",
+        upcomingOnly: true,
+        kennelPatterns: [
+          [String.raw`\bGyNO\b`, "gynoh3"],
+          [String.raw`^MH3\b|Memphis`, "mh3-tn"],
+        ],
+        defaultKennelTag: "mh3-tn",
+      }),
+      { days: 365 },
+    );
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].kennelTags).toEqual(["gynoh3"]);
+    expect(result.events[0].title).toBe("GyNO H3 Harriette Happy Hour #12");
+  });
+
   it("populates diagnosticContext via applyDateWindow", async () => {
     mockedFetch.mockResolvedValueOnce(htmlResponse(FIXTURE_HTML));
     const adapter = new FacebookHostedEventsAdapter();
