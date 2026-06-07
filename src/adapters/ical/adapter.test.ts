@@ -980,6 +980,109 @@ END:VCALENDAR`;
     expect(result.events[0].kennelTags[0]).toBe("CCH3");
   });
 
+  // #2003 / #2004 Perth H3 — "Run NNNN - <Hare>" SUMMARYs carry the run number
+  // (no `#`, summary-only) and the hare after the dash. runNumberPatterns now
+  // scans the SUMMARY; titleHarePattern captures the hare; a bare event-type
+  // theme ("…seasons run") is rejected.
+  it("extracts Perth H3 runNumber + hares from 'Run NNNN - Hare' summaries", async () => {
+    const perthIcs = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Test//Test//EN
+BEGIN:VEVENT
+UID:perth-1
+DTSTART;TZID=Australia/Perth:20260608T180000
+SUMMARY:Run 2927 - Phantom
+DTSTAMP:20260201T000000Z
+END:VEVENT
+BEGIN:VEVENT
+UID:perth-2
+DTSTART;TZID=Australia/Perth:20260615T180000
+SUMMARY:Run 2931- Deeply Boring and Notso Boring
+DTSTAMP:20260201T000000Z
+END:VEVENT
+BEGIN:VEVENT
+UID:perth-3
+DTSTART;TZID=Australia/Perth:20260622T180000
+SUMMARY:Run 2951 - Moses co-hare Prairie Dog @ Breckler Park\\, Dianella
+DTSTAMP:20260201T000000Z
+END:VEVENT
+BEGIN:VEVENT
+UID:perth-4
+DTSTART;TZID=Australia/Perth:20260629T180000
+SUMMARY:Run 2937 - West Coast 4 seasons run
+DTSTAMP:20260201T000000Z
+END:VEVENT
+BEGIN:VEVENT
+UID:perth-5
+DTSTART;TZID=Australia/Perth:20260614T100000
+SUMMARY:RockyCity HHH- Morning tea and raising money for Ovarian cancer
+DTSTAMP:20260201T000000Z
+END:VEVENT
+END:VCALENDAR`;
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(perthIcs, { status: 200 }));
+
+    const source = buildMockSource({
+      config: {
+        defaultKennelTag: "perth-h3",
+        keepNonKennelTitlePrefix: true,
+        runNumberPatterns: ["^Run\\s*#?\\s*(\\d+)\\b"],
+        titleHarePattern: "^Run\\s*#?\\s*\\d+\\s*-\\s*([^@]+?)\\s*(?:@.*)?$",
+        rejectTitleHareThemeSuffix: true,
+      },
+    });
+    const result = await adapter.fetch(source, { days: 9999 });
+
+    const phantom = result.events.find((e) => e.runNumber === 2927);
+    expect(phantom).toBeDefined();
+    expect(phantom!.hares).toBe("Phantom");
+
+    const noSpaceDash = result.events.find((e) => e.runNumber === 2931);
+    expect(noSpaceDash).toBeDefined();
+    expect(noSpaceDash!.hares).toBe("Deeply Boring and Notso Boring");
+
+    const atLocation = result.events.find((e) => e.runNumber === 2951);
+    expect(atLocation).toBeDefined();
+    expect(atLocation!.hares).toBe("Moses co-hare Prairie Dog");
+
+    // Theme, not a hare — rejected by the event-type suffix guard.
+    const theme = result.events.find((e) => e.runNumber === 2937);
+    expect(theme).toBeDefined();
+    expect(theme!.hares).toBeUndefined();
+
+    // Guest kennel without a "Run NNNN" prefix — no run number, no hares.
+    const guest = result.events.find((e) => e.title?.startsWith("RockyCity"));
+    expect(guest).toBeDefined();
+    expect(guest!.runNumber == null).toBe(true);
+    expect(guest!.hares).toBeUndefined();
+  });
+
+  // Codex review — a placeholder-shaped summary must clear (null) rather than
+  // letting the loose "^Run #?(\d+)" custom pattern parse "20" out of "20xx".
+  it("clears runNumber (null) on a placeholder summary despite a loose run pattern", async () => {
+    const placeholderIcs = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Test//Test//EN
+BEGIN:VEVENT
+UID:perth-placeholder
+DTSTART;TZID=Australia/Perth:20260706T180000
+SUMMARY:Run #20xx - TBD
+DTSTAMP:20260201T000000Z
+END:VEVENT
+END:VCALENDAR`;
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(placeholderIcs, { status: 200 }));
+    const source = buildMockSource({
+      config: {
+        defaultKennelTag: "perth-h3",
+        keepNonKennelTitlePrefix: true,
+        runNumberPatterns: ["^Run\\s*#?\\s*(\\d+)\\b"],
+      },
+    });
+    const result = await adapter.fetch(source, { days: 9999 });
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].runNumber).toBeNull();
+  });
+
   it("suppresses endTime when DTEND is on a different calendar day (overnight run)", async () => {
     const icsOvernight = `BEGIN:VCALENDAR
 VERSION:2.0

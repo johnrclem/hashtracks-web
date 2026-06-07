@@ -100,6 +100,19 @@ const TRAILING_LOWERCASE_COMMENTARY_RE = /\s+[-–—]\s+[a-z][^A-Z]*$/; // NOSO
 // hare extractor captured the whole string as `hares`. Real hare names don't
 // contain `<digits>/<digits>` slash-separated date tokens.
 const DATE_RANGE_RE = /\b\d{1,2}\s*\/\s*\d{1,2}\b/;
+// #1999 — defensive leading-label strip. extractHares's DEFAULT_HARE_PATTERNS
+// already consume the label, but a custom config pattern (or a future caller)
+// can capture the label along with the value. Strip a residual
+// "Hares:/Hare:/Who:/Sweep:/Hare Raiser:" prefix so it never surfaces.
+const LEADING_HARE_LABEL_RE = /^(?:hares?|who|sweep|hare\s*raiser)\s*:\s*/i; // NOSONAR — anchored, bounded literal alternation
+// #2008 PGH H3 — a bare kennel code ("PGHH3", "NYCH3") on a "Who:" line is the
+// kennel name, never a hash name. Same shape as the GCal adapter's
+// BARE_KENNEL_CODE_RE: starts with a letter, ends with the H<digit> hash-family
+// marker. Real short hash names ("DJ", "MJ") don't end in H+digit.
+const BARE_KENNEL_CODE_RE = /^[A-Za-z][A-Za-z\d]*H\d$/;
+// #2008 PGH H3 row 4 — a conversational "…and you, of course" tail is not part
+// of the hare list. Anchored to end-of-string; bounded literal alternation.
+const HARE_CONVERSATIONAL_TAIL_RE = /,?\s+and you,?\s+of course\.?$/i; // NOSONAR — anchored, literal tokens
 // Description-sentence leak (#1551 Wasatch): kennel uses "hare: NAME. event
 // description..." on one line. The greedy `(.*)` capture pulls the entire
 // remainder. Truncate at the first sentence-boundary `. ` when the tail is
@@ -197,6 +210,8 @@ function collectContinuationLines(normalized: string, match: RegExpExecArray): s
  */
 function cleanAndFilterHares(raw: string): string | undefined {
   let hares = raw
+    .replace(LEADING_HARE_LABEL_RE, "")
+    .trim()
     .replace(ASTERISK_TAIL_RE, "")
     .trim()
     .replace(COHARE_COMMENTARY_RE, "")
@@ -228,6 +243,11 @@ function cleanAndFilterHares(raw: string): string | undefined {
     hares = hares.replace(TRAILING_LOWERCASE_COMMENTARY_RE, "").trim();
   }
 
+  // Conversational "…and you, of course" tail strip (#2008 PGH H3). Runs as a
+  // dedicated pass because the trailing period has no following whitespace, so
+  // the sentence-boundary scan below never fires on it.
+  hares = hares.replace(HARE_CONVERSATIONAL_TAIL_RE, "").trim();
+
   // Description-sentence trailer strip (#1551 Wasatch). Truncate at first
   // non-honorific sentence boundary when the tail is sentence-shaped (3+
   // tokens, at least one starting with a lowercase letter). Preserves
@@ -245,6 +265,8 @@ function cleanAndFilterHares(raw: string): string | undefined {
   if (GENERIC_WHO_ANSWER_RE.test(hares)) return undefined;
   if (PROSE_PREFIX_RE.test(hares)) return undefined;
   if (HARES_ARE_PROSE_FIRST_WORD_RE.test(hares)) return undefined;
+  // Bare kennel-code reject (#2008 PGH H3 "Who: PGHH3").
+  if (BARE_KENNEL_CODE_RE.test(hares)) return undefined;
   // Date-range rejection (#1547 ABQ): "Friday 5/22-Monday 5/25" is a campout
   // date range, not a hare name.
   if (DATE_RANGE_RE.test(hares)) return undefined;
