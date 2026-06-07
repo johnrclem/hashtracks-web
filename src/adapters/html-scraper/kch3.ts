@@ -18,6 +18,7 @@ import { fetchWordPressPosts } from "../wordpress-api";
 import {
   applyDateWindow,
   chronoParseDate,
+  cleanLocationName,
   htmlToNewlineText,
   parsePublishDate,
 } from "../utils";
@@ -98,11 +99,15 @@ export function parseKCH3Body(text: string): {
   const hareMatch = /Hares?\s*(?:\([^)]*\))?\s*:?\s*(.+?)(?=\n|$)/i.exec(text);
   const hares = hareMatch ? hareMatch[1].trim() : undefined;
 
-  // Location: "Location: Macken Park 1002 Clark Ferguson Dr..." or address at "Start:"
+  // Location: "Location: Macken Park 1002 Clark Ferguson Dr..." or address at "Start:".
+  // Tolerate a parenthetical label between the keyword and the colon — e.g.
+  // "Location (also prelube and on-after): Helen's J.A.D. ..." — so the
+  // "(also prelube and on-after)" annotation doesn't leak into the venue (#2019).
+  // Mirrors the optional-parenthetical handling in the Hare regex above.
   const locMatch =
-    /Location:?\s*(.+?)(?=\n|$)/i.exec(text) ||
-    /Start:?\s*(.+?)(?=\n|$)/i.exec(text) ||
-    /Where:?\s*(.+?)(?=\n|$)/i.exec(text);
+    /Location\s*(?:\([^)]*\))?\s*:?\s*(.+?)(?=\n|$)/i.exec(text) ||
+    /Start\s*(?:\([^)]*\))?\s*:?\s*(.+?)(?=\n|$)/i.exec(text) ||
+    /Where\s*(?:\([^)]*\))?\s*:?\s*(.+?)(?=\n|$)/i.exec(text);
   const location = locMatch ? locMatch[1].trim() : undefined;
 
   return { time, hashCash, hares, location };
@@ -147,12 +152,19 @@ export function processKCH3Post(
     .replace(/^\d{1,2}\s+\w+\s*(?:\d{4}\s*)?/i, "")
     .trim() || titleText;
 
+  // Normalize the venue through the shared cleaner (strips residual labels,
+  // map anchors, qualifiers). `null` = explicit clear; preserve `undefined`
+  // when the post had no Location field so the merge UPDATE path keeps any
+  // existing value.
+  const location =
+    body.location !== undefined ? cleanLocationName(body.location) : undefined;
+
   return {
     date: dateStr,
     kennelTags: [kennelTag],
     title: trailName,
     hares: body.hares,
-    location: body.location,
+    location,
     startTime,
     sourceUrl: postUrl,
     description: body.hashCash ? `Hash Cash: ${body.hashCash}` : undefined,

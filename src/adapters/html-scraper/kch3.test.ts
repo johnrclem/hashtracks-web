@@ -125,6 +125,14 @@ Short-ish trail with possible Bar Audibles
     const body = "Where: Swope Park Woodchuck trailhead";
     expect(parseKCH3Body(body).location).toBe("Swope Park Woodchuck trailhead");
   });
+
+  it("strips a parenthetical label between 'Location' and the colon (#2019)", () => {
+    const body =
+      "Location (also prelube and on-after): Helen's J.A.D. – 2002 Armour Rd, North Kansas City, MO 64116";
+    expect(parseKCH3Body(body).location).toBe(
+      "Helen's J.A.D. – 2002 Armour Rd, North Kansas City, MO 64116",
+    );
+  });
 });
 
 describe("resolveKennelTag", () => {

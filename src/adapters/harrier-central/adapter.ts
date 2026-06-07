@@ -299,6 +299,15 @@ function haresLooksLikeLocation(hares: string, location: string): boolean {
   if (!h || !l) return false;
   if (h === l) return true;
   if (!l.includes(h)) return false;
+  // #2021: the location is exactly the hares value plus a trailing
+  // comma-separated suffix (the appended eventCityAndCountry). SG Sunday H3
+  // #799 had hares "CO Blk 317A Jurong East Str 31" and location
+  // "CO Blk 317A Jurong East Str 31, Singapore" — zero road-token signals
+  // (neither "blk" nor "str" are in ADDRESS_TOKENS), so the heuristic below
+  // missed it. Requiring the hares to be multi-word keeps single-word hash
+  // names ("Park", "George") safe: a multi-word hare being an exact
+  // comma-prefix of its own venue is effectively impossible.
+  if (h.includes(" ") && l.startsWith(h + ",")) return true;
   let signals = 0;
   if (h.includes(",")) signals++;
   if (/^\d/.test(h)) signals++;
