@@ -8,8 +8,18 @@ import {
   MadridHashAdapter,
 } from "./madrid-hash";
 import * as wordpressApi from "../wordpress-api";
+import type { Source } from "@/generated/prisma/client";
 
 vi.mock("../wordpress-api");
+
+/** Minimal Source for adapter.fetch() — one necessary cast, no per-callsite `as never`. */
+function madridSource(overrides: Partial<Source> = {}): Source {
+  return {
+    url: "https://madridhhh.com/",
+    scrapeDays: 365,
+    ...overrides,
+  } as Source;
+}
 
 /**
  * Mirror the adapter's cheerio transform so direct parseMadridRunBody tests
@@ -257,10 +267,7 @@ describe("MadridHashAdapter", () => {
     });
 
     // Wide window so the assertion never depends on the wall-clock run date.
-    const result = await adapter.fetch(
-      { url: "https://madridhhh.com/", scrapeDays: 365 } as never,
-      { days: 36500 },
-    );
+    const result = await adapter.fetch(madridSource(), { days: 36500 });
 
     expect(result.errors).toEqual([]);
     expect(result.events).toHaveLength(1);
@@ -284,7 +291,7 @@ describe("MadridHashAdapter", () => {
       fetchDurationMs: 80,
     });
 
-    const result = await adapter.fetch({ url: "https://madridhhh.com/" } as never);
+    const result = await adapter.fetch(madridSource());
     expect(result.events).toHaveLength(0);
     expect(result.errors.length).toBeGreaterThan(0);
     expect(result.errors[0]).toContain("parsed 0 run events");
@@ -297,7 +304,7 @@ describe("MadridHashAdapter", () => {
       fetchDurationMs: 50,
     });
 
-    const result = await adapter.fetch({ url: "https://madridhhh.com/" } as never);
+    const result = await adapter.fetch(madridSource());
     expect(result.events).toEqual([]);
     expect(result.errors).toEqual(["WordPress API HTTP 503"]);
   });
