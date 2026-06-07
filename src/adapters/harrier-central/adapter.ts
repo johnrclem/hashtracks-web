@@ -253,18 +253,30 @@ function stripTba(value: string | undefined): string | undefined {
 // accompanying syncLat/syncLong are its region-default fallback pin — the same
 // "bad coords" case as the place===resolvable duplicate below. Treated as
 // geocode failures so the merge pipeline re-geocodes from the kennel's region
-// centroid instead of storing the fake pin. Lisbon H3 ("No location provided",
-// "TBD", "ANNOUNCED LATER via Hares") motivated extending this beyond the
-// equality check. Set lookup (not regex) keeps Sonar S5843/S5852 clear.
+// centroid instead of storing the fake pin, AND dropped from the composed
+// location text (composeHcLocation) so the placeholder never reaches the UI or
+// the geocoder as meaningless input. Lisbon H3 ("No location provided", "TBD",
+// "ANNOUNCED LATER via Hares") motivated this; "tbc"/"to be confirmed"/"to be
+// announced" are included pre-emptively (ubiquitous on UK/Ireland HC kennels).
+// Set lookup (not regex) keeps Sonar S5843/S5852 clear.
 const GEOCODE_FAIL_SENTINELS = new Set([
   "tbd",
+  "tbc",
   "to be determined",
+  "to be confirmed",
+  "to be announced",
   "no location provided",
   "announced later via hares",
 ]);
 
 function isGeocodeSentinel(value: string | undefined): boolean {
   return value ? GEOCODE_FAIL_SENTINELS.has(value.trim().toLowerCase()) : false;
+}
+
+/** Trimmed value with TBA *and* placeholder sentinels dropped to undefined. */
+function stripPlaceholderLocation(value: string | undefined): string | undefined {
+  const trimmed = stripTba(value);
+  return isGeocodeSentinel(trimmed) ? undefined : trimmed;
 }
 
 // Street-type tokens used by haresLooksLikeLocation to flag address-shaped
@@ -417,8 +429,12 @@ export function composeHcLocation(
   resolvable: string | undefined,
   cityCountry?: string | undefined,
 ): string | undefined {
-  const place = stripTba(placeName);
-  const full = stripTba(resolvable);
+  // Drop TBA *and* placeholder sentinels ("No location provided", "TBD", etc.)
+  // so a non-venue never reaches event.location — otherwise the merge path
+  // stores it verbatim and the geocoder treats it as meaningless text (the
+  // Lisbon H3 case). Leaving it undefined lets the event render unlocated.
+  const place = stripPlaceholderLocation(placeName);
+  const full = stripPlaceholderLocation(resolvable);
 
   // resolvableLocation is a bare coordinate pair for venues Harrier Central
   // couldn't geocode — not useful as user-facing text.

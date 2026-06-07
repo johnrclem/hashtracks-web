@@ -165,6 +165,20 @@ describe("composeHcLocation", () => {
       composeHcLocation("Waseda exit", "35.713, 139.704", "Tokyo, Japan"),
     ).toBe("Waseda exit");
   });
+
+  // Placeholder sentinels must not leak into event.location — without this the
+  // merge path stores "No location provided" / "TBD, Lisbon, Portugal" and the
+  // geocoder treats them as meaningless text (Codex review, PR #2031).
+  it.each([
+    ["empty place + 'No location provided' resolvable", undefined, "No location provided", undefined],
+    ["'TBD' on both (no city append)", "TBD", "TBD", undefined],
+    ["'TBD' both + cityCountry (must not become 'TBD, Lisbon, Portugal')", "TBD", "TBD", "Lisbon, Portugal"],
+    ["'ANNOUNCED LATER via Hares'", "ANNOUNCED LATER via Hares", "ANNOUNCED LATER via Hares", undefined],
+    ["'TBC' resolvable, empty place", "", "TBC", undefined],
+    ["'To Be Announced'", "To Be Announced", "To Be Announced", "Lisbon, Portugal"],
+  ])("drops placeholder sentinel from location: %s", (_label, place, resolvable, cityCountry) => {
+    expect(composeHcLocation(place, resolvable, cityCountry)).toBeUndefined();
+  });
 });
 
 describe("applyTitleFallback (#1166)", () => {
@@ -268,6 +282,9 @@ describe("hcGeocodeFailed", () => {
     ["'ANNOUNCED LATER via Hares' (case/space-insensitive)", "  announced later via hares ", "ANNOUNCED LATER via Hares"],
     ["matching 'TBD' on both", "TBD", "TBD"],
     ["place 'To Be Determined' + bare coords resolvable", "To Be Determined", "38.722, -9.144"],
+    ["'TBC' resolvable (UK/Ireland variant)", undefined, "TBC"],
+    ["'To Be Confirmed'", "To Be Confirmed", "To Be Confirmed"],
+    ["'To Be Announced' resolvable", "", "To Be Announced"],
   ])("returns true for placeholder sentinel: %s", (_label, place, resolvable) => {
     expect(hcGeocodeFailed(place, resolvable)).toBe(true);
   });
