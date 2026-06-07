@@ -71,9 +71,13 @@ const SECTION_ANCHORS: Record<KennelTag, string> = {
 // deep-link here instead — "View source" lands where the run actually is.
 const UPCOMING_ANCHOR = "card-bh9pp0f7dagcfyu";
 
-/** Resolve a `#card-<id>` fragment against the source URL. */
+/**
+ * Append a `#card-<id>` fragment to the source URL, replacing any existing
+ * fragment. String ops (not `new URL`) so a malformed/relative `baseUrl` can't
+ * throw at scrape time — output is identical for the absolute URLs we pass.
+ */
 function fragmentUrl(anchor: string, baseUrl: string): string {
-  return new URL(`#${anchor}`, baseUrl).toString();
+  return `${baseUrl.split("#")[0]}#${anchor}`;
 }
 
 // Gamma renders each text block inside a node-view content wrapper. Selecting
