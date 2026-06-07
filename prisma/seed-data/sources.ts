@@ -4857,8 +4857,8 @@ export const SOURCES = [
         // any trailing "@ location" out of the capture. Both tolerate an
         // optional "#". rejectTitleHareThemeSuffix drops theme captures like
         // "West Coast 4 seasons run".
-        runNumberPatterns: [String.raw`^Run\s*#?\s*(\d+)\b`],
-        titleHarePattern: String.raw`^Run\s*#?\s*\d+\s*-\s*([^@]+?)\s*(?:@.*)?$`,
+        runNumberPatterns: [String.raw`^Run\s*(?:#\s*)?(\d+)\b`],
+        titleHarePattern: String.raw`^Run\s*(?:#\s*)?\d+\s*-\s*([^@]+?)\s*(?:@.*)?$`,
         rejectTitleHareThemeSuffix: true,
       },
       kennelCodes: ["perth-h3"],

@@ -17,6 +17,7 @@ import {
   EVENT_FIELD_LABEL_RE,
   EVENT_FIELD_LABEL_UPPERCASE_RE,
   HARE_BOILERPLATE_RE,
+  BARE_KENNEL_CODE_RE,
   compilePatterns,
 } from "./utils";
 
@@ -105,11 +106,8 @@ const DATE_RANGE_RE = /\b\d{1,2}\s*\/\s*\d{1,2}\b/;
 // can capture the label along with the value. Strip a residual
 // "Hares:/Hare:/Who:/Sweep:/Hare Raiser:" prefix so it never surfaces.
 const LEADING_HARE_LABEL_RE = /^(?:hares?|who|sweep|hare\s*raiser)\s*:\s*/i; // NOSONAR — anchored, bounded literal alternation
-// #2008 PGH H3 — a bare kennel code ("PGHH3", "NYCH3") on a "Who:" line is the
-// kennel name, never a hash name. Same shape as the GCal adapter's
-// BARE_KENNEL_CODE_RE: starts with a letter, ends with the H<digit> hash-family
-// marker. Real short hash names ("DJ", "MJ") don't end in H+digit.
-const BARE_KENNEL_CODE_RE = /^[A-Za-z][A-Za-z\d]*H\d$/;
+// #2008 PGH H3 — a bare kennel code ("Who: PGHH3") is the kennel name, never a
+// hash name. Rejected via the shared BARE_KENNEL_CODE_RE (imported from utils).
 // #2008 PGH H3 row 4 — a conversational "…and you, of course" tail is not part
 // of the hare list. Anchored to end-of-string; bounded literal alternation.
 const HARE_CONVERSATIONAL_TAIL_RE = /,?\s+and you,?\s+of course\.?$/i; // NOSONAR — anchored, literal tokens

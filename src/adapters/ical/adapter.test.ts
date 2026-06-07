@@ -985,7 +985,7 @@ END:VCALENDAR`;
   // scans the SUMMARY; titleHarePattern captures the hare; a bare event-type
   // theme ("…seasons run") is rejected.
   it("extracts Perth H3 runNumber + hares from 'Run NNNN - Hare' summaries", async () => {
-    const perthIcs = `BEGIN:VCALENDAR
+    const perthIcs = String.raw`BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//Test//Test//EN
 BEGIN:VEVENT
@@ -1003,7 +1003,7 @@ END:VEVENT
 BEGIN:VEVENT
 UID:perth-3
 DTSTART;TZID=Australia/Perth:20260622T180000
-SUMMARY:Run 2951 - Moses co-hare Prairie Dog @ Breckler Park\\, Dianella
+SUMMARY:Run 2951 - Moses co-hare Prairie Dog @ Breckler Park\, Dianella
 DTSTAMP:20260201T000000Z
 END:VEVENT
 BEGIN:VEVENT
@@ -1026,8 +1026,8 @@ END:VCALENDAR`;
       config: {
         defaultKennelTag: "perth-h3",
         keepNonKennelTitlePrefix: true,
-        runNumberPatterns: ["^Run\\s*#?\\s*(\\d+)\\b"],
-        titleHarePattern: "^Run\\s*#?\\s*\\d+\\s*-\\s*([^@]+?)\\s*(?:@.*)?$",
+        runNumberPatterns: [String.raw`^Run\s*(?:#\s*)?(\d+)\b`],
+        titleHarePattern: String.raw`^Run\s*(?:#\s*)?\d+\s*-\s*([^@]+?)\s*(?:@.*)?$`,
         rejectTitleHareThemeSuffix: true,
       },
     });
@@ -1075,7 +1075,7 @@ END:VCALENDAR`;
       config: {
         defaultKennelTag: "perth-h3",
         keepNonKennelTitlePrefix: true,
-        runNumberPatterns: ["^Run\\s*#?\\s*(\\d+)\\b"],
+        runNumberPatterns: [String.raw`^Run\s*(?:#\s*)?(\d+)\b`],
       },
     });
     const result = await adapter.fetch(source, { days: 9999 });

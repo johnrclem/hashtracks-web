@@ -1,7 +1,7 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
-import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, EVENT_FIELD_LABEL_RE, EVENT_FIELD_LABEL_UPPERCASE_RE, CTA_EMBEDDED_PATTERNS, appendDescriptionSuffix, dedupeRepeatedDescription, isPlaceholder, parse12HourTime, formatAmPmTime, stripNonEnglishCountry, extractHashRunNumber, hasPlaceholderRunNumber, normalizeCostSigil } from "../utils";
+import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, EVENT_FIELD_LABEL_RE, EVENT_FIELD_LABEL_UPPERCASE_RE, CTA_EMBEDDED_PATTERNS, appendDescriptionSuffix, dedupeRepeatedDescription, isPlaceholder, parse12HourTime, formatAmPmTime, stripNonEnglishCountry, extractHashRunNumber, hasPlaceholderRunNumber, normalizeCostSigil, BARE_KENNEL_CODE_RE } from "../utils";
 import { matchKennelPatterns, matchCompiledKennelPatterns, compileKennelPatterns, type KennelPattern, type CompiledKennelPattern } from "../kennel-patterns";
 import { LOCATION_EMAIL_CTA_RE } from "@/pipeline/audit-checks";
 import { parseDMSFromLocation } from "@/lib/geo";
@@ -42,7 +42,7 @@ const DEFAULT_RUN_NUMBER_PATTERNS = [
  * rare in practice — kennels overwhelmingly use "#" for run numbers — and the
  * blast radius is one spurious runNumber on an otherwise-correct event.
  */
-const LEADING_HASH_WORD_RE = /^Hash\s+#?\s*(\d{2,})\s*:/i; // NOSONAR — anchored, single-class \s quantifiers, no alternation; bounded input
+const LEADING_HASH_WORD_RE = /^Hash\s+(?:#\s*)?(\d{2,})\s*:/i;
 
 /**
  * Extract run number from summary (e.g. "#2781") or description.
@@ -526,15 +526,6 @@ function isEventTypeOrThemeParen(inner: string): boolean {
 // tokens. Mirrors the same DATE_RANGE_RE in hare-extraction.ts.
 const DATE_RANGE_PAREN_RE = /\b\d{1,2}\s*\/\s*\d{1,2}\b/;
 const MAX_HARE_PAREN_LENGTH = 40;
-
-/**
- * A bare kennel-code token like "CH3", "SWH3", "MH3", "BH3" — the kennel's
- * own abbreviation, never a hash name. Shape: starts with a letter, ends with
- * "H<digit>" (the H3/H4/H5 hash-family marker). Deliberately tighter than a
- * blanket all-caps reject: real 2-3-char hash names ("DJ", "MJ", "FBI") do NOT
- * end in H+digit and still pass the gate. See #1882 (Capital H3 "CH3 - vacant").
- */
-const BARE_KENNEL_CODE_RE = /^[A-Za-z][A-Za-z\d]*H\d$/;
 
 /**
  * Narrow reject-gate applied wherever the adapter routes *title-derived* text
