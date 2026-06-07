@@ -29,9 +29,20 @@ import { formatYmdInTimezone, formatTimeInZone, isValidTimezone } from "@/lib/ti
 import { FB_EVENT_ID_RE, isAdminNoticeTitle, isPlaceholderTitle } from "./constants";
 import { extractHashRunNumber, hasPlaceholderRunNumber } from "../utils";
 import { extractHares } from "../hare-extraction";
+import {
+  compileKennelPatterns,
+  matchCompiledKennelPatterns,
+  type KennelPattern,
+  type CompiledKennelPattern,
+} from "../kennel-patterns";
 
 export interface ParseFacebookOptions {
-  /** kennelTag (kennelCode) for all parsed events. */
+  /**
+   * Default kennelTag (kennelCode). Used for every event when no
+   * `kennelPatterns` are supplied (the single-kennel-per-source case), and
+   * as the fallback (alongside `defaultKennelTag`) for events that match no
+   * pattern when `kennelPatterns` are supplied.
+   */
   kennelTag: string;
   /**
    * IANA timezone for date/time interpretation. Defaults to UTC.
@@ -40,6 +51,45 @@ export interface ParseFacebookOptions {
    * the merge pipeline keys events by (kennelId, local-date).
    */
   timezone?: string;
+  /**
+   * Optional per-event routing for FB Pages that host multiple kennels'
+   * events (e.g. a page that lists a sister kennel's runs). Each event's
+   * name is matched against these patterns via the shared
+   * `matchCompiledKennelPatterns` engine — same grammar GOOGLE_CALENDAR uses
+   * (string tuple = most-specific-wins single kennel; array tuple = co-host
+   * union, spec §2 D15). Omit entirely for single-kennel sources; behavior
+   * is then identical to pre-#1996 (every event tagged `[kennelTag]`).
+   */
+  kennelPatterns?: KennelPattern[];
+  /**
+   * Fallback kennelTag for events that match no `kennelPatterns` entry.
+   * No-op without `kennelPatterns`. Defaults to `kennelTag` when unset.
+   */
+  defaultKennelTag?: string;
+}
+
+/** Resolves a parsed event title to its kennelTag(s). */
+type KennelTagResolver = (title: string) => string[];
+
+/**
+ * Build the per-event kennelTag resolver (#1996). With no compiled patterns
+ * this is the identity single-kennel mapping (`() => [kennelTag]`), so
+ * single-kennel sources are byte-for-byte unchanged. With patterns, each
+ * title routes via the shared engine, falling back to
+ * `defaultKennelTag ?? kennelTag` when nothing matches — mirrors the GCal
+ * adapter's `resolveKennelTagFromSummary` precedence.
+ */
+function buildKennelTagResolver(
+  kennelTag: string,
+  compiled: CompiledKennelPattern[] | null,
+  defaultKennelTag?: string,
+): KennelTagResolver {
+  if (!compiled || compiled.length === 0) return () => [kennelTag];
+  const fallback = defaultKennelTag ?? kennelTag;
+  return (title) => {
+    const matched = matchCompiledKennelPatterns(title, compiled);
+    return matched.length > 0 ? matched : [fallback];
+  };
 }
 
 /**
@@ -106,6 +156,14 @@ export function parseFacebookHostedEventsWithStats(
 ): ParseFacebookResult {
   const tz = options.timezone && isValidTimezone(options.timezone) ? options.timezone : "UTC";
 
+  // Compile kennelPatterns once per scrape (hot-path: O(patterns) per event,
+  // not per-event regex compilation). Null when single-kennel.
+  const compiled =
+    options.kennelPatterns && options.kennelPatterns.length > 0
+      ? compileKennelPatterns(options.kennelPatterns)
+      : null;
+  const resolveKennelTags = buildKennelTagResolver(options.kennelTag, compiled, options.defaultKennelTag);
+
   // Collect both halves of each event by id across all JSON islands.
   const byId = new Map<string, EventBag>();
   for (const json of extractJsonIslands(html)) {
@@ -117,7 +175,7 @@ export function parseFacebookHostedEventsWithStats(
   const events: RawEventData[] = [];
   const filtered = emptyFilteredCounts();
   for (const bag of byId.values()) {
-    const outcome = projectBag(bag, options.kennelTag, tz);
+    const outcome = projectBag(bag, resolveKennelTags, tz);
     if (outcome.kind === "event") {
       events.push(outcome.event);
     } else {
@@ -445,7 +503,7 @@ type BagOutcome =
 // adapter strip in `google-calendar/adapter.ts` (#756 / #1060).
 const TITLE_TRAILING_DELIMITER_RE = /\s*[-–—:]\s*$/; // NOSONAR — anchored end-of-string strip, single char class
 
-function projectBag(bag: EventBag, kennelTag: string, timezone: string): BagOutcome {
+function projectBag(bag: EventBag, resolveKennelTags: KennelTagResolver, timezone: string): BagOutcome {
   if (!bag.time || !bag.rich) return { kind: "rejected", reason: "missing-half" };
   if (bag.rich.is_canceled === true) return { kind: "rejected", reason: "cancelled" };
   // Inner `.trim()` is needed before the regex so the anchored `\s*$` strip
@@ -486,7 +544,7 @@ function projectBag(bag: EventBag, kennelTag: string, timezone: string): BagOutc
 
   const event: RawEventData = {
     date,
-    kennelTags: [kennelTag],
+    kennelTags: resolveKennelTags(title),
     title,
     startTime,
     sourceUrl: `https://www.facebook.com/events/${bag.id}/`,
@@ -513,9 +571,11 @@ function projectBag(bag: EventBag, kennelTag: string, timezone: string): BagOutc
   return { kind: "event", event };
 }
 
-/** Back-compat shim for the existing `facebookEventToRawEvent` external API. */
+/** Back-compat shim for the existing `facebookEventToRawEvent` external API.
+ *  The CIC pagination path is always single-kennel, so it resolves to a fixed
+ *  `[kennelTag]` regardless of title. */
 function bagToRawEvent(bag: EventBag, kennelTag: string, timezone: string): RawEventData | null {
-  const outcome = projectBag(bag, kennelTag, timezone);
+  const outcome = projectBag(bag, () => [kennelTag], timezone);
   return outcome.kind === "event" ? outcome.event : null;
 }
 

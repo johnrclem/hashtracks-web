@@ -29,6 +29,7 @@ import {
   extractFieldsFromFbDescription,
 } from "./parser";
 import { FB_PAGE_HANDLE_RE, isReservedFacebookHandle } from "./constants";
+import type { KennelPattern } from "../kennel-patterns";
 
 /**
  * Headers required to get a 200 from `/upcoming_hosted_events` logged out.
@@ -87,7 +88,11 @@ const DETAIL_FETCH_DELAY_MS = 200;
 
 /** Configuration shape for a FACEBOOK_HOSTED_EVENTS source. */
 export interface FacebookHostedEventsConfig {
-  /** Kennel shortName for all generated events (kennelCode). */
+  /**
+   * Default kennel shortName (kennelCode). Tags every event for a
+   * single-kennel source, and is the fallback for events matching no
+   * `kennelPatterns` entry (alongside `defaultKennelTag`).
+   */
   kennelTag: string;
   /**
    * Page handle — the part after `https://www.facebook.com/`. Restricted
@@ -110,12 +115,25 @@ export interface FacebookHostedEventsConfig {
    * runtime enforcement matches the admin-side `validateFacebookHostedEventsConfig`.
    */
   upcomingOnly: true;
+  /**
+   * Optional per-event kennel routing (#1996) for FB Pages that host a
+   * sister kennel's events. Each event's name is matched against these
+   * patterns via the shared `matchKennelPatterns` engine (same grammar
+   * GOOGLE_CALENDAR uses). Omit for single-kennel sources — every event is
+   * then tagged `kennelTag`, unchanged from pre-#1996 behavior.
+   */
+  kennelPatterns?: KennelPattern[];
+  /** Fallback kennelTag for events matching no `kennelPatterns` entry.
+   *  Defaults to `kennelTag`. No-op without `kennelPatterns`. */
+  defaultKennelTag?: string;
 }
 
 /**
- * Adapter for the FB Page hosted_events tab. Single-kennel-per-source for v1
- * — most FB Pages map 1:1 to a kennel. Multi-kennel routing via
- * `kennelPatterns` is a future extension.
+ * Adapter for the FB Page hosted_events tab. Most FB Pages map 1:1 to a
+ * kennel (just set `kennelTag`). Pages that host a sister kennel's events
+ * can route per-event via `config.kennelPatterns` (#1996), matched against
+ * each event name through the shared `matchKennelPatterns` engine — the same
+ * mechanism GOOGLE_CALENDAR uses.
  */
 export class FacebookHostedEventsAdapter implements SourceAdapter {
   type = "FACEBOOK_HOSTED_EVENTS" as const;
@@ -144,6 +162,9 @@ export class FacebookHostedEventsAdapter implements SourceAdapter {
     const parseResult = parseFacebookHostedEventsWithStats(html, {
       kennelTag: config.kennelTag,
       timezone: config.timezone,
+      // Optional routing — undefined when single-kennel, handled by the parser.
+      kennelPatterns: config.kennelPatterns,
+      defaultKennelTag: config.defaultKennelTag,
     });
     const allEvents = parseResult.events;
     const filteredCounts = parseResult.filtered;
