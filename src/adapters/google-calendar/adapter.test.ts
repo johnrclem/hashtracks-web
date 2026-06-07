@@ -445,6 +445,26 @@ describe("extractRunNumber", () => {
   it("does not over-match 'No Trail Left Behind' style titles", () => {
     expect(extractRunNumber("No Trail Left Behind Hash")).toBeUndefined();
   });
+
+  // #2007 PGH H3 — "Hash NNNN:" titles omit the `#`. The colon-anchored
+  // leading-word matcher parses these while staying tight (a digit run with no
+  // trailing colon — e.g. a year in prose — does not match).
+  it.each<[string, number]>([
+    ["Hash 2188: Squirreleo & Just Johnny", 2188],
+    ["Hash 2190: Noah Beerthday – F-Dis", 2190],
+    ["HASH 2182: Whiff", 2182],
+    ["Hash 2197: ICP & T-Boner", 2197],
+  ])("parses no-# leading 'Hash NNNN:' title %j → %d", (summary, expected) => {
+    expect(extractRunNumber(summary)).toBe(expected);
+  });
+
+  it("still parses the '#'-prefixed variant unchanged", () => {
+    expect(extractRunNumber("HASH #2169: Moon's beerthday!")).toBe(2169);
+  });
+
+  it("does not false-match a 'Hash' title with no numeric run", () => {
+    expect(extractRunNumber("Hash Bash Red Dress")).toBeUndefined();
+  });
 });
 
 // ── #1761 — placeholder-summary description promotion ──
@@ -2685,6 +2705,14 @@ describe("extractLocationFromDescription", () => {
   it("extracts Start: label with coordinates and place name (KAW!H3 format)", () => {
     const desc = "Hare: Gayzelle\nTrail: Mostly pavement\nStart: 30.290552, -97.772365, the corner of Enfield and Exposition\nBring: virgins";
     expect(extractLocationFromDescription(desc)).toBe("30.290552, -97.772365, the corner of Enfield and Exposition");
+  });
+
+  // #1999 BAH3 — the Start: venue carries a trailing "(lat, lng)" parenthetical.
+  // Strip it so the display name is the venue; the coords are captured
+  // separately by the structured/coord-only paths.
+  it("strips a trailing coordinate parenthetical from a Start: venue (#1999 BAH3)", () => {
+    const desc = "Hares: Princess Jizzmine, Blinded by the Spooge, PITA\nStart: Park in Branch Ave Metro (38.82660995778677, -76.9157443867748)";
+    expect(extractLocationFromDescription(desc)).toBe("Park in Branch Ave Metro");
   });
 
   it("returns undefined when Start: value is a time string", () => {
@@ -5350,5 +5378,76 @@ describe("HSWTF run-number guard — parenthetical year is not a run number (#14
       {},
     )!;
     expect(e.runNumber ?? undefined).toBeUndefined();
+  });
+});
+
+// ── #2000 / #2008 — event-type & theme parenthetical reject ──
+describe("trailing parenthetical: event-type / theme reject", () => {
+  it("does not extract '(Run/Walk)' event-type suffix as hares (#2000 DH4)", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "DH4 #1663 Hash Event (Run/Walk)", description: "This event is currently being planned." }),
+      { defaultKennelTag: "dh4" },
+    );
+    expect(result).not.toBeNull();
+    expect(result!.hares).toBeUndefined();
+    expect(result!.title).toBe("DH4 #1663 Hash Event");
+  });
+
+  it("does not extract '(Hangover trail)' theme suffix as hares (#2008 PGH)", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "HASH #2187: ICP (Hangover trail)" }),
+      { defaultKennelTag: "pgh-h3" },
+    );
+    expect(result).not.toBeNull();
+    expect(result!.hares).toBeUndefined();
+    expect(result!.title).toBe("HASH #2187: ICP");
+  });
+
+  it("still extracts a real parenthetical hare (regression guard)", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "Trail #5 (Just the Tip)" }),
+      { defaultKennelTag: "test-h3" },
+    );
+    expect(result).not.toBeNull();
+    expect(result!.hares).toBe("Just the Tip");
+  });
+
+  // Codex review — the trail-theme reject is lowercase-only ("(Hangover
+  // trail)"). A Title-Case hash name ending in "Trail" is NOT a theme.
+  it.each(["Trail #5 (Happy Trail)", "Trail #5 (Snail Trail)"])(
+    "keeps a Title-Case '… Trail' parenthetical hare: %s",
+    (summary) => {
+      const result = buildRawEventFromGCalItem(
+        testGCalEvent({ summary }),
+        { defaultKennelTag: "test-h3" },
+      );
+      expect(result).not.toBeNull();
+      expect(result!.hares).toBe(summary.slice(summary.indexOf("(") + 1, -1));
+    },
+  );
+});
+
+// ── #2022 NOH3 — location embedded in title via "Start @ {address}" ──
+describe("NOH3 titleLocationPattern — 'Start @ {address}' (#2022)", () => {
+  const noh3Source = SOURCES.find((s) => s.name === "NOH3 Google Calendar");
+  if (!noh3Source) throw new Error("NOH3 Google Calendar seed source missing");
+  const noh3Config = noh3Source.config as { defaultKennelTag: string; titleLocationPattern?: string };
+
+  it("seed config carries the Start @ titleLocationPattern", () => {
+    expect(noh3Config.titleLocationPattern).toBeDefined();
+  });
+
+  it("extracts locationName from the title and leaves a clean title", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        summary: "Hash #1961, Start @ Metairie Ave and Hesper Ave.",
+        description: "6pm show, 6:30pm go. $8 hash cash.",
+      }),
+      noh3Config,
+      { compiledTitleLocationPatterns: compilePatterns([noh3Config.titleLocationPattern as string], "i") },
+    );
+    expect(result).not.toBeNull();
+    expect(result!.location).toBe("Metairie Ave and Hesper Ave");
+    expect(result!.title).toBe("Hash #1961");
   });
 });

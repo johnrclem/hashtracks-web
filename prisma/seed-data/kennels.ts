@@ -3763,9 +3763,17 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "perth-h3", shortName: "Perth H3", fullName: "Perth Hash House Harriers",
       region: "Perth, WA", country: "Australia",
       website: "https://www.perthhash.com",
-      scheduleDayOfWeek: "Monday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
+      // #2002: homepage tagline "Established 1970 runs Monday 6.00pm" — the
+      // stored 6:30 PM was an onboarding typo (28/29 ICS events are T180000).
+      scheduleDayOfWeek: "Monday", scheduleTime: "6:00 PM", scheduleFrequency: "Weekly",
       scheduleNotes: "Weekly Monday hash around Perth metro.",
       description: "Perth's senior mixed hash kennel in Western Australia. Runs every Monday evening around the greater Perth metro area.",
+      foundedYear: 1970,
+      gm: "Pitt",
+      contactEmail: "gm@perthhash.com",
+      hashCash: "$3 token system, $200/yr membership",
+      facebookUrl: "https://www.facebook.com/groups/PerthHashHouseHarriers",
+      logoUrl: "/kennel-logos/perth-h3.jpg",
       latitude: -31.9523, longitude: 115.8613,
     },
     {

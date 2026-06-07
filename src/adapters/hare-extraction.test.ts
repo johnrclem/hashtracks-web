@@ -191,6 +191,20 @@ const EXPECTED_GROUPS: ExpectedGroup[] = [
       ],
     ],
   },
+  {
+    describe: "extractHares — defensive hardening (#1999/#2008)",
+    template: "%s",
+    table: [
+      // #1999 BAH3 — a real multi-name hare line still extracts cleanly (the
+      // "Hares:" label prefix is consumed, never surfaced).
+      ["BAH3 multi-name line keeps names, drops label", "Hares: Princess Jizzmine, Blinded by the Spooge, PITA\nStart: Park in Branch Ave Metro", "Princess Jizzmine, Blinded by the Spooge, PITA"],
+      // #2008 PGH H3 — a non-kennel-code "Who:" value is a real hare and passes.
+      ["non-kennel-code 'Who: ICP' passes", "Who: ICP", "ICP"],
+      // #2008 PGH H3 row 4 — strip a trailing "and you, of course" conversational
+      // tail rather than surfacing the whole sentence as hares.
+      ["strips 'and you, of course' tail", "Hares: Just Johnny, Honeynut Squirreleo and you, of course.", "Just Johnny, Honeynut Squirreleo"],
+    ],
+  },
 ];
 
 const UNDEFINED_GROUPS: UndefinedGroup[] = [
@@ -239,6 +253,11 @@ const UNDEFINED_GROUPS: UndefinedGroup[] = [
       ["prose 'we chased the hares'", "We chased the hares through the park for hours."],
       ["prose 'Perpetrators of' (no colon)", "Perpetrators of the great beer theft remain at large."],
       ["banner 'The Hare' with no name (no colon)", "🐾 The Hare"],
+      // #2008 PGH H3 — the calendar's "Who:" line carries the kennel code, not
+      // a hare ("Who: PGHH3"). A bare kennel-code token (ends in H<digit>) is
+      // never a hash name — reject it rather than surfacing "PGHH3" as hares.
+      ["bare kennel code 'Who: PGHH3'", "Who: PGHH3"],
+      ["bare kennel code 'Hares: NYCH3'", "Hares: NYCH3"],
     ],
   },
   {
@@ -277,6 +296,10 @@ describe("extractHares — custom patterns", () => {
     ["falls back to defaults when customPatterns is undefined", "Hare: DefaultMatch", undefined, "DefaultMatch"],
     ["falls back to defaults when customPatterns is empty array", "Hare: DefaultMatch", [], "DefaultMatch"],
     ["skips malformed custom patterns gracefully", "Laid by: Speedy", ["[invalid(", LAID_BY], "Speedy"],
+    // #1999 — a custom pattern that captures the label along with the value
+    // (e.g. a broad line grab) must not surface the "Hares:" prefix; the
+    // defensive leading-label strip removes it.
+    ["defensive label strip on label-inclusive capture", "Hares: Mudflap & Whordini", [String.raw`(?:^|\n)\s*(Hares:.+)`], "Mudflap & Whordini"],
   ] as const)("%s", (_label, desc, patterns, expected) => {
     expect(extractHares(desc, patterns as string[] | undefined)).toBe(expected);
   });

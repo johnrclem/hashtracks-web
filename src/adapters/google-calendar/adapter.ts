@@ -1,7 +1,7 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
-import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, EVENT_FIELD_LABEL_RE, EVENT_FIELD_LABEL_UPPERCASE_RE, CTA_EMBEDDED_PATTERNS, appendDescriptionSuffix, dedupeRepeatedDescription, isPlaceholder, parse12HourTime, formatAmPmTime, stripNonEnglishCountry, extractHashRunNumber, hasPlaceholderRunNumber, normalizeCostSigil } from "../utils";
+import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, EVENT_FIELD_LABEL_RE, EVENT_FIELD_LABEL_UPPERCASE_RE, CTA_EMBEDDED_PATTERNS, appendDescriptionSuffix, dedupeRepeatedDescription, isPlaceholder, parse12HourTime, formatAmPmTime, stripNonEnglishCountry, extractHashRunNumber, hasPlaceholderRunNumber, normalizeCostSigil, BARE_KENNEL_CODE_RE } from "../utils";
 import { matchKennelPatterns, matchCompiledKennelPatterns, compileKennelPatterns, type KennelPattern, type CompiledKennelPattern } from "../kennel-patterns";
 import { LOCATION_EMAIL_CTA_RE } from "@/pipeline/audit-checks";
 import { parseDMSFromLocation } from "@/lib/geo";
@@ -29,6 +29,22 @@ const DEFAULT_RUN_NUMBER_PATTERNS = [
 ];
 
 /**
+ * Leading "Hash NNNN:" run marker that omits the `#` (#2007 PGH H3 — "Hash
+ * 2188: Squirreleo"). Colon-anchored so it stays tight: a bare year in prose
+ * ("Hash 2024 was great") has no trailing colon and won't match. The `#` is
+ * tolerated but optional; the `#`-prefixed variant still routes through the
+ * shared `extractHashRunNumber` delimiter guard first.
+ *
+ * Known limitation: a year-labeled admin title in the exact "Hash YYYY: <text>"
+ * shape ("Hash 2026: AGM") would parse the year as a run number. This matcher
+ * is global (PGH's source row is owned by a parallel workstream and can't carry
+ * per-source config), so the shape can't be scoped to PGH. The collision is
+ * rare in practice — kennels overwhelmingly use "#" for run numbers — and the
+ * blast radius is one spurious runNumber on an otherwise-correct event.
+ */
+const LEADING_HASH_WORD_RE = /^Hash\s+(?:#\s*)?(\d{2,})\s*:/i;
+
+/**
  * Extract run number from summary (e.g. "#2781") or description.
  * Always checks summary first with `#(\d+)`. Then checks description with
  * custom patterns (if provided) or default patterns.
@@ -53,6 +69,14 @@ export function extractRunNumber(
   // rejects rather than parsing as 30.
   const fromSummary = extractHashRunNumber(summary);
   if (fromSummary !== undefined) return fromSummary;
+
+  // 1b. Leading "Hash NNNN:" without the `#` (#2007 PGH H3). Colon-anchored
+  // so a year-shaped digit run in prose can't false-match.
+  const leadingHashWord = LEADING_HASH_WORD_RE.exec(summary);
+  if (leadingHashWord) {
+    const n = Number.parseInt(leadingHashWord[1], 10);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
 
   // 2. Summary placeholder takes precedence over description fallback. A
   // partial retitle (`#30: …` → `#30X?: …` while description still says
@@ -435,6 +459,12 @@ const LOCATION_INSTRUCTION_RE = /\b(?:themed|slashie|costume|byo|don't forget|re
 const LOCATION_MAX_LENGTH = 100;
 const LOCATION_TRUNCATE_RE = new RegExp(`\\s+(?:${LABEL_NAMES})\\s*:.*`, "i");
 const LOCATION_URL_RE = /\s*https?:\/\/\S+.*/i;
+// #1999 BAH3: a Start: venue can carry a trailing "(lat, lng)" parenthetical
+// ("Park in Branch Ave Metro (38.82…, -76.91…)"). Strip the trailing coord
+// pair so the display name is the venue; the coords are captured separately by
+// the structured/coord-only paths. Anchored to end-of-string — leading bare
+// coords (KAW!H3 "30.29, -97.77, the corner of…") are untouched.
+const TRAILING_COORD_PAREN_RE = /\s*\(\s*-?\d{1,3}\.\d+\s*,\s*-?\d{1,3}\.\d+\s*\)\s*$/; // NOSONAR — anchored to `$`, single-class \s quantifiers, no alternation
 /** Google Maps short/full URL pattern — used to preserve Maps links as locationUrl for geocoding. */
 const MAPS_URL_RE = /^https?:\/\/(?:maps\.app\.goo\.gl|goo\.gl\/maps|google\.\w+\/maps)\//i;
 
@@ -474,21 +504,28 @@ const NON_NAME_PAREN_RE = /\b(?:to|from|no|not|only|all|free|via|and back|cancel
  * them.
  */
 const ACRONYM_PAREN_RE = /^(?:\d+\s*[a-z]{0,2}|AM|PM|BYOB|TBD|TBA|TBC|FYI|NSFW|DNF|DNS|RIP)$/i;
+/**
+ * Event-type / theme parentheticals that are never hare names: an event-type
+ * combo like "(Run/Walk)" or "(Run / Walk / Bike)" (#2000 Dayton H4), a single
+ * bare event-type word, or a theme ending in "trail" like "(Hangover trail)"
+ * (#2008 PGH H3). Two separate anchored alternations keep each below the Sonar
+ * S5843 regex-complexity threshold and avoid `\s*`-adjacent alternation.
+ */
+const EVENT_TYPE_PAREN_RE = /^(?:run|walk|jog|bike|ride|hike)(?:\s*[/&+]\s*(?:run|walk|jog|bike|ride|hike))*$/i; // NOSONAR — anchored, bounded literal alternation
+// Lowercase final "trail" only (case-SENSITIVE): the leaked PGH theme is
+// "(Hangover trail)" with a lowercase t. Title-Case hash names like "(Happy
+// Trail)" / "(Snail Trail)" capitalize "Trail" and must survive as hares.
+const THEME_TRAIL_PAREN_RE = /\btrail$/;
+function isEventTypeOrThemeParen(inner: string): boolean {
+  const t = inner.trim();
+  return EVENT_TYPE_PAREN_RE.test(t) || THEME_TRAIL_PAREN_RE.test(t);
+}
 // #1547 ABQ: parenthetical date-range strings like "(Friday 5/22-Monday 5/25)"
 // are multi-day campout date hints, not hare names. M/D digit pair is the
 // reliable signal — real hare names never contain slash-separated date
 // tokens. Mirrors the same DATE_RANGE_RE in hare-extraction.ts.
 const DATE_RANGE_PAREN_RE = /\b\d{1,2}\s*\/\s*\d{1,2}\b/;
 const MAX_HARE_PAREN_LENGTH = 40;
-
-/**
- * A bare kennel-code token like "CH3", "SWH3", "MH3", "BH3" — the kennel's
- * own abbreviation, never a hash name. Shape: starts with a letter, ends with
- * "H<digit>" (the H3/H4/H5 hash-family marker). Deliberately tighter than a
- * blanket all-caps reject: real 2-3-char hash names ("DJ", "MJ", "FBI") do NOT
- * end in H+digit and still pass the gate. See #1882 (Capital H3 "CH3 - vacant").
- */
-const BARE_KENNEL_CODE_RE = /^[A-Za-z][A-Za-z\d]*H\d$/;
 
 /**
  * Narrow reject-gate applied wherever the adapter routes *title-derived* text
@@ -710,6 +747,8 @@ export function extractLocationFromDescription(description: string): string | un
     return firstLine;
   }
   location = firstLine.replace(LOCATION_URL_RE, "").trim();
+  // Strip a trailing "(lat, lng)" coordinate parenthetical (#1999 BAH3).
+  location = location.replace(TRAILING_COORD_PAREN_RE, "").trim();
 
   if (location.length < 3) return undefined;
   if (location.length > LOCATION_MAX_LENGTH) return undefined;
@@ -1691,10 +1730,14 @@ export function buildRawEventFromGCalItem(
     // #1547: a parenthetical date-range like "(Friday 5/22-Monday 5/25)" is
     // a multi-day campout date hint, not a hare name OR a title element —
     // treat it as instructional ("(posted Sunday)" etc.) so it gets stripped.
+    // Event-type tags ("(Run/Walk)", #2000 DH4) and theme suffixes ending in
+    // "trail" ("(Hangover trail)", #2008 PGH) are stripped from the title like
+    // instructional parentheticals — never promoted to hares.
     const isInstructional =
       inner.length > MAX_HARE_PAREN_LENGTH ||
       INSTRUCTIONAL_PAREN_RE.test(inner) ||
-      DATE_RANGE_PAREN_RE.test(inner);
+      DATE_RANGE_PAREN_RE.test(inner) ||
+      isEventTypeOrThemeParen(inner);
     // #1444 — three independent reject checks. NON_NAME catches descriptive
     // and status words; ACRONYM catches CTAs/units; isInitialsWordplay
     // catches the Larryville pattern (preceding caps + matching lowercase

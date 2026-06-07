@@ -6,6 +6,7 @@ import {
   isPlatformDepartureTitle,
 } from "./skip-rules";
 import type { RawEventData } from "./types";
+import { SOURCES } from "../../prisma/seed-data/sources";
 
 /** Minimal RawEventData builder for matcher tests. */
 function ev(partial: Partial<RawEventData>): RawEventData {
@@ -146,5 +147,33 @@ describe("isPlatformDepartureTitle (retrofit built-in)", () => {
     "Red Dress Run #500",
   ])("keeps legitimate hash event: %s", (title) => {
     expect(isPlatformDepartureTitle(title)).toBe(false);
+  });
+});
+
+// #2023 — Capital H3's shared Google Calendar carries personal/admin entries.
+// Verify the seed config drops the non-hash entries but keeps real trails.
+describe("Capital Hash Calendar silentlySkipPatterns (#2023)", () => {
+  const capitalSource = SOURCES.find((s) => s.name === "Capital Hash Calendar");
+  if (!capitalSource) throw new Error("Capital Hash Calendar seed source missing");
+  const rules = compileSilentSkipRules(
+    (capitalSource.config as { silentlySkipPatterns?: unknown }).silentlySkipPatterns,
+  );
+
+  it("compiles both rules", () => {
+    expect(rules).toHaveLength(2);
+  });
+
+  it.each([
+    "Me Bank Interest 5.35%",
+    "Daylight savings starts. Clocks go forward.",
+  ])("drops non-hash entry: %s", (title) => {
+    expect(matchSilentSkip(ev({ title }), rules)).not.toBeNull();
+  });
+
+  it.each([
+    "Capital H3 Trail #2404",
+    "Kwine & Mitzi 68 Macleay Street Turner.",
+  ])("keeps real trail: %s", (title) => {
+    expect(matchSilentSkip(ev({ title }), rules)).toBeNull();
   });
 });

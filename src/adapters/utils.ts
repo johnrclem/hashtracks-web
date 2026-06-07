@@ -718,6 +718,16 @@ export function stripZeroWidth(s: string): string {
 }
 
 /**
+ * A bare kennel-code token like "CH3", "SWH3", "MH3", "BH3" — the kennel's own
+ * abbreviation, never a hash name. Shape: starts with a letter, ends with
+ * "H<digit>" (the H3/H4/H5 hash-family marker). Deliberately tighter than a
+ * blanket all-caps reject: real 2-3-char hash names ("DJ", "MJ", "FBI") do NOT
+ * end in H+digit and still pass. See #1882 (Capital H3 "CH3 - vacant"). Shared
+ * by the GCal adapter's `looksLikeHareName` and hare-extraction's hare reject.
+ */
+export const BARE_KENNEL_CODE_RE = /^[A-Za-z][A-Za-z\d]*H\d$/;
+
+/**
  * Match `#NNN` in free-form text and return the integer. Lookahead requires a
  * clean delimiter after the digits so ambiguous tokens like `#30X?` (kennel
  * signaling unknown run number) reject instead of being parsed as 30 (#1147).

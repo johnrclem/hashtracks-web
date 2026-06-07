@@ -24,6 +24,7 @@ export interface ICalSourceConfig {
   allowEmptyBody?: boolean;            // treat an empty 200 body as an empty-success (0 events) instead of an error — The Events Calendar's ?ical=1 export returns 0 bytes when there are no upcoming events (ICH3 #1753)
   keepNonKennelTitlePrefix?: boolean;  // #1955: only strip a "Prefix:" from the SUMMARY title when the prefix identifies the kennel (run marker or matching tag); keep event-type prefixes like "Hash Lunch:". Off by default — most feeds (e.g. the Reading regional Localendar) use full kennel-name prefixes that SHOULD be stripped.
   coalesceEndpointDuplicates?: boolean; // collapse a same-date all-day /events/{n} VEVENT into its timed /runs/{m} twin, enriching hares/description/etc. — Oslo H3 publishes each run on both endpoints (#1828)
+  rejectTitleHareThemeSuffix?: boolean; // #2004 Perth: drop a titleHarePattern capture that ends in an event-type word ("West Coast 4 seasons run") — it's a trail theme, not a hare. Opt-in so it never touches other titleHarePattern sources whose hares can legitimately end in such words.
 }
 
 /**
@@ -151,6 +152,10 @@ const LOCATION_PATTERNS = [
 const COST_PATTERNS = [
   /(?:^|\n)\s*Hash\s*Cash:\s*([^\n]+)/im,
 ];
+// #2004 Perth: a `titleHarePattern` capture that ends in an event-type word
+// ("West Coast 4 seasons run") is a trail theme, not a hare. "hash"/"trail" are
+// deliberately omitted so legit names like "Captain Hash" pass.
+const TITLE_HARE_THEME_SUFFIX_RE = /\b(?:run|walk|jog|ride|bike|hike)$/i;
 const MAPS_URL_PATTERN =
   /https?:\/\/(?:www\.)?(?:google\.com\/maps|maps\.google\.com|goo\.gl\/maps)\S*/i;
 
@@ -547,7 +552,13 @@ function buildRawEventFromVEvent(
   if (!hares && compiledTitleHarePattern) {
     const titleMatch = compiledTitleHarePattern.exec(summary);
     if (titleMatch?.[1]) {
-      hares = titleMatch[1].trim() || undefined;
+      const candidate = titleMatch[1].trim();
+      // Opt-in (#2004 Perth): reject a bare event-type theme ("West Coast 4
+      // seasons run") whose capture ends in a run/walk/ride-style word. Gated
+      // by `rejectTitleHareThemeSuffix` so other titleHarePattern sources —
+      // whose hares could legitimately end in such a word — are untouched.
+      const isTheme = config?.rejectTitleHareThemeSuffix === true && TITLE_HARE_THEME_SUFFIX_RE.test(candidate);
+      hares = candidate && !isTheme ? candidate : undefined;
     }
   }
 
@@ -563,18 +574,24 @@ function buildRawEventFromVEvent(
 
   const locationUrl = resolveLocationUrl(vevent.geo, location, description);
 
-  // Run number: prefer summary extraction, fall back to description with custom patterns
+  // Run number: prefer the shared `#`-delimited summary extraction (parsed),
+  // then custom patterns.
   let runNumber: number | null | undefined = parsed.runNumber;
-  if (runNumber == null && description && compiledRunNumberPatterns?.length) {
-    runNumber = extractRunNumberFromDescription(description, compiledRunNumberPatterns);
-  }
   // A placeholder marker ("OH3 #20xx", "#TBD") must emit an explicit null clear
   // so the merge tri-state wipes a stale runNumber from a prior scrape rather
   // than preserving it via undefined (#1824). extractHashRunNumber already
-  // rejects "#20xx" (delimiter guard), so without this it would silently keep
-  // whatever was stored before the kennel switched to the placeholder.
+  // rejects "#20xx" (delimiter guard); the explicit clear has to take
+  // precedence over the custom summary scan below, otherwise a loose custom
+  // pattern ("^Run #?(\d+)") would parse the "20" out of "Run #20xx" and
+  // defeat the clear.
   if (runNumber == null && hasPlaceholderRunNumber(summary)) {
     runNumber = null;
+  } else if (runNumber == null && compiledRunNumberPatterns?.length) {
+    // #2003 Perth publishes "Run NNNN" (no `#`) in the SUMMARY, so scan the
+    // summary with the custom patterns before the description.
+    runNumber =
+      extractRunNumberFromDescription(summary, compiledRunNumberPatterns) ??
+      (description ? extractRunNumberFromDescription(description, compiledRunNumberPatterns) : undefined);
   }
 
   const cost = description ? extractCostFromDescription(description, compiledCostPatterns) : undefined;

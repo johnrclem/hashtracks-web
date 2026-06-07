@@ -4089,6 +4089,11 @@ export const SOURCES = [
           String.raw`([A-Za-z0-9][A-Za-z0-9 ,'’&]+?)\s+are\s+(?:your |the |trusty )*hares\b`,
           String.raw`([A-Za-z0-9][A-Za-z0-9 ,'’&]+?)\s+are\s+taking\s+us\b`,
         ],
+        // NOH3 packs the start location into the title: "Hash #1961, Start @
+        // Metairie Ave and Hesper Ave." with an empty GCal LOCATION field
+        // (#2022). Capture the address after "Start @" into locationName and
+        // strip the span (incl. the leading comma) so the title is "Hash #1961".
+        titleLocationPattern: String.raw`,?\s*Start\s*@\s*(.+?)\.?\s*$`,
       },
       kennelCodes: ["noh3"],
     },
@@ -4872,6 +4877,16 @@ export const SOURCES = [
         // bare date. Perth uses no kennel-code title prefixes, so this only
         // affects the colon-prefixed specials.
         keepNonKennelTitlePrefix: true,
+        // #2003/#2004: SUMMARYs are "Run NNNN - Hare" (no `#`, run number +
+        // hare both in the title). runNumberPatterns scans the SUMMARY for the
+        // bare "Run NNNN" prefix (whitespace-tolerant before the dash — "Run
+        // 2931- …"); titleHarePattern captures the hare after the dash, routing
+        // any trailing "@ location" out of the capture. Both tolerate an
+        // optional "#". rejectTitleHareThemeSuffix drops theme captures like
+        // "West Coast 4 seasons run".
+        runNumberPatterns: [String.raw`^Run\s*(?:#\s*)?(\d+)\b`],
+        titleHarePattern: String.raw`^Run\s*(?:#\s*)?\d+\s*-\s*([^@]+?)\s*(?:@.*)?$`,
+        rejectTitleHareThemeSuffix: true,
       },
       kennelCodes: ["perth-h3"],
     },
@@ -4917,6 +4932,15 @@ export const SOURCES = [
         // descriptor; start time + hare live on a same-date timed event
         // ("3pm Scarlet"). Merge the pair into one event.
         mergeAllDayRunDescriptor: true,
+        // #2023: the kennel's shared Google Calendar carries personal/admin
+        // entries that aren't hash runs — a "Me Bank Interest 5.35%" banking
+        // reminder and the annual "Daylight savings starts" marker. Drop them
+        // at the ingest boundary (scrape.ts applies + logs the skips) so they
+        // never surface in the hareline. Whole-phrase titles, never a run.
+        silentlySkipPatterns: [
+          { pattern: String.raw`\bMe Bank Interest\b`, field: "title" },
+          { pattern: String.raw`\bDaylight savings\b`, field: "title" },
+        ],
       },
       kennelCodes: ["capital-h3-au"],
     },
