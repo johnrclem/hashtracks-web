@@ -260,29 +260,30 @@ describe("parseFacebookHostedEvents — edge cases", () => {
   });
 });
 
-describe("parseFacebookHostedEvents — kennelPatterns routing (#1996)", () => {
-  // Build a minimal split-payload island (rich + time node sharing one id).
-  // Mirrors the documented FB SSR field surface used everywhere else here.
-  function island(id: string, name: string, startTs = 1778353200): string {
-    return `<script type="application/json">{
+// Build a minimal split-payload island (rich + time node sharing one id).
+// Mirrors the documented FB SSR field surface used everywhere else here.
+function fbRoutingIsland(id: string, name: string, startTs = 1778353200): string {
+  return `<script type="application/json">{
       "rich":{"__typename":"Event","id":"${id}","name":${JSON.stringify(name)}},
       "time":{"id":"${id}","start_timestamp":${startTs}}
     }</script>`;
-  }
+}
+
+function tagsByTitle(events: { title?: string; kennelTags: string[] }[]): Record<string, string[]> {
+  return Object.fromEntries(events.map((e) => [e.title ?? "", e.kennelTags]));
+}
+
+describe("parseFacebookHostedEvents — kennelPatterns routing (#1996)", () => {
   // Memphis FB page hosts both MH3's own trails and sister-kennel GyNO's.
   const MEMPHIS_PATTERNS: [string, string | string[]][] = [
     [String.raw`\bGyNO\b`, "gynoh3"],
     [String.raw`^MH3\b|Memphis`, "mh3-tn"],
   ];
 
-  function tagsByTitle(events: { title?: string; kennelTags: string[] }[]): Record<string, string[]> {
-    return Object.fromEntries(events.map((e) => [e.title ?? "", e.kennelTags]));
-  }
-
   it("routes each event to the right kennel via string-tuple patterns", () => {
     const html =
-      island("100000000000001", "GyNO H3 Harriette Happy Hour #12") +
-      island("100000000000002", "MH3 Trail #850");
+      fbRoutingIsland("100000000000001", "GyNO H3 Harriette Happy Hour #12") +
+      fbRoutingIsland("100000000000002", "MH3 Trail #850");
     const events = parseFacebookHostedEvents(html, {
       kennelTag: "mh3-tn",
       kennelPatterns: MEMPHIS_PATTERNS,
@@ -294,7 +295,7 @@ describe("parseFacebookHostedEvents — kennelPatterns routing (#1996)", () => {
   });
 
   it("falls back to defaultKennelTag when no pattern matches", () => {
-    const html = island("100000000000003", "Surprise Joint Trail #1");
+    const html = fbRoutingIsland("100000000000003", "Surprise Joint Trail #1");
     const [event] = parseFacebookHostedEvents(html, {
       kennelTag: "mh3-tn",
       kennelPatterns: MEMPHIS_PATTERNS,
@@ -304,7 +305,7 @@ describe("parseFacebookHostedEvents — kennelPatterns routing (#1996)", () => {
   });
 
   it("falls back to kennelTag when no pattern matches and defaultKennelTag is unset", () => {
-    const html = island("100000000000004", "Surprise Joint Trail #1");
+    const html = fbRoutingIsland("100000000000004", "Surprise Joint Trail #1");
     const [event] = parseFacebookHostedEvents(html, {
       kennelTag: "mh3-tn",
       kennelPatterns: MEMPHIS_PATTERNS,
@@ -313,7 +314,7 @@ describe("parseFacebookHostedEvents — kennelPatterns routing (#1996)", () => {
   });
 
   it("emits the co-host union for an array-tuple pattern (spec §2 D15)", () => {
-    const html = island("100000000000005", "MH3 x GyNO Joint Trail #1");
+    const html = fbRoutingIsland("100000000000005", "MH3 x GyNO Joint Trail #1");
     const [event] = parseFacebookHostedEvents(html, {
       kennelTag: "mh3-tn",
       kennelPatterns: [[String.raw`Joint`, ["mh3-tn", "gynoh3"]]],
@@ -323,13 +324,13 @@ describe("parseFacebookHostedEvents — kennelPatterns routing (#1996)", () => {
 
   it("is unchanged for single-kennel sources (no kennelPatterns → [kennelTag])", () => {
     const html =
-      island("100000000000006", "GyNO H3 Trail #1") + island("100000000000007", "MH3 Trail #2");
+      fbRoutingIsland("100000000000006", "GyNO H3 Trail #1") + fbRoutingIsland("100000000000007", "MH3 Trail #2");
     const events = parseFacebookHostedEvents(html, { kennelTag: "mh3-tn" });
     expect(events.map((e) => e.kennelTags)).toEqual([["mh3-tn"], ["mh3-tn"]]);
   });
 
   it("ignores an empty kennelPatterns array (single-kennel behavior)", () => {
-    const html = island("100000000000008", "GyNO H3 Trail #1");
+    const html = fbRoutingIsland("100000000000008", "GyNO H3 Trail #1");
     const [event] = parseFacebookHostedEvents(html, { kennelTag: "mh3-tn", kennelPatterns: [] });
     expect(event.kennelTags).toEqual(["mh3-tn"]);
   });
