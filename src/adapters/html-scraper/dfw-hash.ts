@@ -417,10 +417,11 @@ function parseDogFriendly(value: string): boolean | undefined {
 /**
  * Trailing US "<state> <zip>" matcher (e.g. " Tx 76040"). The two-letter state
  * and 5-digit zip are the only unambiguous anchors in a comma-less address, so
- * we leave the street/city boundary alone. Single `\s` (not `\s*`) and no
- * leading `.*` keeps this linear and clear of the ReDoS-shape analyzers.
+ * we leave the street/city boundary alone. Every quantifier is bounded (`\s{1,4}`,
+ * no unbounded `\s+`/`.*`) so the match is provably linear — clear of the
+ * ReDoS-shape analyzer (Sonar S5852).
  */
-const STATE_ZIP_TAIL_RE = /\s([A-Za-z]{2})\s+(\d{5}(?:-\d{4})?)$/;
+const STATE_ZIP_TAIL_RE = /\s([A-Za-z]{2})\s{1,4}(\d{5}(?:-\d{4})?)$/;
 
 /**
  * Valid USPS state/territory codes. The matched two-letter token must be a real

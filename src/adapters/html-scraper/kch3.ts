@@ -103,11 +103,13 @@ export function parseKCH3Body(text: string): {
   // Tolerate a parenthetical label between the keyword and the colon — e.g.
   // "Location (also prelube and on-after): Helen's J.A.D. ..." — so the
   // "(also prelube and on-after)" annotation doesn't leak into the venue (#2019).
-  // Mirrors the optional-parenthetical handling in the Hare regex above.
+  // The optional `(?:\s*\(...\))?` then a single `[\s:]+` separator keeps the
+  // pattern linear — no adjacent optional-whitespace groups that trip the
+  // ReDoS-shape analyzer (Sonar S5852).
   const locMatch =
-    /Location\s*(?:\([^)]*\))?\s*:?\s*(.+?)(?=\n|$)/i.exec(text) ||
-    /Start\s*(?:\([^)]*\))?\s*:?\s*(.+?)(?=\n|$)/i.exec(text) ||
-    /Where\s*(?:\([^)]*\))?\s*:?\s*(.+?)(?=\n|$)/i.exec(text);
+    /Location(?:\s*\([^)]*\))?[\s:]+(.+?)(?=\n|$)/i.exec(text) ||
+    /Start(?:\s*\([^)]*\))?[\s:]+(.+?)(?=\n|$)/i.exec(text) ||
+    /Where(?:\s*\([^)]*\))?[\s:]+(.+?)(?=\n|$)/i.exec(text);
   const location = locMatch ? locMatch[1].trim() : undefined;
 
   return { time, hashCash, hares, location };

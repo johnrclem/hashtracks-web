@@ -43,7 +43,8 @@ const MAX_DIVERGENCE_KM = 15.0; // never relocate a pin further than this — gu
 
 const ZIP_RE = /\b(\d{5})(?:-\d{4})?\b/;
 const LEADING_NUMBER_RE = /\b(\d{1,6})\b/; // first house/street number in the address
-const EMBEDDED_COORDS_RE = /-?\d{1,3}\.\d{3,}|\d+°/;
+// Bounded quantifiers (no unbounded `\d{3,}`/`\d+`) keep this linear (Sonar S5852).
+const EMBEDDED_COORDS_RE = /-?\d{1,3}\.\d{3,9}|\d{1,3}°/;
 
 async function main() {
   const apply = process.argv.includes("--apply");

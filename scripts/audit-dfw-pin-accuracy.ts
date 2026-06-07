@@ -30,7 +30,8 @@ const DIVERGENCE_KM = 1.0; // pins further than this from the geocode are suspec
 const ZIP_RE = /\b(\d{5})(?:-\d{4})?\b/;
 // Embedded decimal/DMS coordinates in the address text (≥3 fraction digits or a
 // degree symbol) → the stored pin likely came from the text; don't second-guess it.
-const EMBEDDED_COORDS_RE = /-?\d{1,3}\.\d{3,}|\d+°/;
+// Bounded quantifiers (no unbounded `\d{3,}`/`\d+`) keep this linear (Sonar S5852).
+const EMBEDDED_COORDS_RE = /-?\d{1,3}\.\d{3,9}|\d{1,3}°/;
 
 interface Row {
   runNumber: number | null;
