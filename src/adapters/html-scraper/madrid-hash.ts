@@ -135,6 +135,12 @@ export function parseMadridRunBody(
   postTitle: string,
   url: string,
   publishDate?: string,
+  /**
+   * Google Maps URL pulled from the post's anchor `href` by the caller (more
+   * reliable than regex-matching the flattened body text). Falls back to the
+   * body scan when absent — e.g. direct unit tests.
+   */
+  hrefLocationUrl?: string,
 ): RawEventData | null {
   // Run marker (run / non-run filter). Require a leading digit so a stray
   // "Run No.: ." can't capture a bare dot → NaN run number.
@@ -150,7 +156,7 @@ export function parseMadridRunBody(
   // back to the first HH:MM for irregular lines that omit the "h" marker.
   const timeLine = labelValue(body, /\bTime:\s*(.+)/i) ?? "";
   const hhmm =
-    /(\d{1,2}):(\d{2})\s*h/i.exec(timeLine) ?? /(\d{1,2}):(\d{2})/.exec(timeLine);
+    /(\d{1,2}):(\d{2})\s?h/i.exec(timeLine) ?? /(\d{1,2}):(\d{2})/.exec(timeLine);
   const startTime = hhmm
     ? `${hhmm[1].padStart(2, "0")}:${hhmm[2]}`
     : undefined;
@@ -171,10 +177,17 @@ export function parseMadridRunBody(
   const coords = parseMadridGps(labelValue(body, /\bGPS:\s*(.+)/i));
 
   // Google Maps short link — newer posts use maps.app.goo.gl, older posts use
-  // the legacy goo.gl/maps form. Search the whole body (the link sits on the
-  // "Google Maps:" line on newer posts, the "GPS:" line on some older ones).
-  const locationUrl =
-    /https?:\/\/(?:maps\.app\.goo\.gl|goo\.gl\/maps)\/\S+/.exec(body)?.[0];
+  // the legacy goo.gl/maps form. Prefer the caller's anchor `href`; fall back
+  // to scanning the body (the link sits on the "Google Maps:" line on newer
+  // posts, the "GPS:" line on some older ones).
+  const rawLocationUrl =
+    hrefLocationUrl ??
+    // `[^\s).,;]+` (not `\S+`) so a trailing ")"/"."/"," in the prose after the
+    // short link isn't swallowed into the URL.
+    /https?:\/\/(?:maps\.app\.goo\.gl|goo\.gl\/maps)\/[^\s).,;]+/.exec(body)?.[0];
+  // Strip trailing punctuation a short link never ends in — some source hrefs
+  // carry a stray ")" (e.g. `…m9kQMeLyStp)`).
+  const locationUrl = rawLocationUrl?.replace(/[).,;]+$/, "") || undefined;
 
   // Theme carried in description; title left undefined so merge.ts synthesizes
   // "Madrid H3 Trail #N" (never let a stylized fragment become the title).
@@ -223,16 +236,38 @@ export class MadridHashAdapter implements SourceAdapter {
     }
 
     const events: RawEventData[] = [];
+    const errors: string[] = [];
     for (const post of wpResult.posts) {
-      const $ = cheerio.load(post.content);
-      // Insert newlines at block boundaries so labels don't run together.
-      $("p, br, h1, h2, h3, h4").before("\n");
-      const body = $.text();
-      const event = parseMadridRunBody(body, post.title, post.url, post.date);
-      if (event) events.push(event);
+      // Isolate each post: one malformed body must not abort the whole batch.
+      try {
+        const $ = cheerio.load(post.content);
+        // Pull the Maps link from the anchor href before flattening to text.
+        // Starts-with (not contains) so a Facebook `l.php?u=…goo.gl/maps…`
+        // tracking shim doesn't match — those fall back to the clean body URL.
+        const hrefLocationUrl =
+          $(
+            "a[href^='https://maps.app.goo.gl'], a[href^='https://goo.gl/maps'], a[href^='http://goo.gl/maps']",
+          )
+            .first()
+            .attr("href") || undefined;
+        // Insert newlines at block boundaries so labels don't run together.
+        $("p, br, h1, h2, h3, h4").before("\n");
+        const body = $.text();
+        const event = parseMadridRunBody(
+          body,
+          post.title,
+          post.url,
+          post.date,
+          hrefLocationUrl,
+        );
+        if (event) events.push(event);
+      } catch (err) {
+        errors.push(
+          `Madrid HHH: failed to parse ${post.url}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
     }
 
-    const errors: string[] = [];
     // Fail-loud guard: posts fetched but nothing parsed ⇒ body-format drift.
     if (wpResult.posts.length > 0 && events.length === 0) {
       errors.push(

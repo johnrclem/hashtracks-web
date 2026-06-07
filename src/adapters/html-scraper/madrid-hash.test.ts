@@ -187,6 +187,28 @@ describe("parseMadridRunBody", () => {
     ).toBeNull();
   });
 
+  it("prefers the caller's anchor href over a body-scanned Maps link", () => {
+    const event = parseMadridRunBody(
+      htmlToBody(POST_2713_CONTENT),
+      POST_2713_TITLE,
+      "https://madridhhh.com/the-habemus-papadam-rn/",
+      "2026-06-02T17:59:04",
+      "https://maps.app.goo.gl/HREF-WINS",
+    );
+    expect(event?.locationUrl).toBe("https://maps.app.goo.gl/HREF-WINS");
+  });
+
+  it("strips a stray trailing ')' from a source-malformed Maps href", () => {
+    const event = parseMadridRunBody(
+      htmlToBody(POST_2713_CONTENT),
+      POST_2713_TITLE,
+      "https://madridhhh.com/x/",
+      "2026-06-02T17:59:04",
+      "https://goo.gl/maps/m9kQMeLyStp)",
+    );
+    expect(event?.locationUrl).toBe("https://goo.gl/maps/m9kQMeLyStp");
+  });
+
   it("returns null for a malformed run number (bare dot, no digit)", () => {
     const body = htmlToBody(
       "<p><strong>Run No.</strong>: .<br /><strong>Date</strong>: Sunday 7 June 2026</p>",

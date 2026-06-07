@@ -156,6 +156,7 @@
     "startTime": "13:00",
     "latitude": 40.403036,
     "longitude": -3.875081,
+    "locationUrl": "https://goo.gl/maps/AH6F7yGCz2M2",
     "sourceUrl": "https://madridhhh.com/the-memorial-rn/"
   },
   {
@@ -169,6 +170,7 @@
     "startTime": "13:00",
     "latitude": 40.5345504,
     "longitude": -3.783641,
+    "locationUrl": "https://goo.gl/maps/9W1JHWVWUc32",
     "sourceUrl": "https://madridhhh.com/the-sex-mex-sets-every-rn-rn/",
     "description": "Sex Mex sets every r*n"
   },
@@ -681,7 +683,7 @@
     "startTime": "13:00",
     "latitude": 40.520333,
     "longitude": -3.941306,
-    "locationUrl": "https://goo.gl/maps/AvsiTc7QCfP2)",
+    "locationUrl": "https://goo.gl/maps/AvsiTc7QCfP2",
     "sourceUrl": "https://madridhhh.com/the-pied-piper-of-retamar/",
     "description": "Pied Pipers of Retamar"
   },
@@ -696,7 +698,7 @@
     "startTime": "13:00",
     "latitude": 40.601639,
     "longitude": -3.915111,
-    "locationUrl": "https://goo.gl/maps/m9kQMeLyStp)",
+    "locationUrl": "https://goo.gl/maps/m9kQMeLyStp",
     "sourceUrl": "https://madridhhh.com/sun-is-here-to-stay/",
     "description": "Sun Is Here To Stay"
   },
@@ -771,7 +773,7 @@
     "startTime": "13:00",
     "latitude": 40.704382,
     "longitude": -3.991434,
-    "locationUrl": "https://goo.gl/maps/4GeK5C56C2t)",
+    "locationUrl": "https://goo.gl/maps/4GeK5C56C2t",
     "sourceUrl": "https://madridhhh.com/2018-pool-party-run/",
     "description": "2018 Pool Party"
   },
@@ -830,6 +832,7 @@
     "startTime": "13:00",
     "latitude": 40.5345504,
     "longitude": -3.783641,
+    "locationUrl": "https://goo.gl/maps/pbRNUAeP5542",
     "sourceUrl": "https://madridhhh.com/twice-a-hare-run/",
     "description": "Twice A Hare"
   },
@@ -979,7 +982,7 @@
     "startTime": "13:00",
     "latitude": 40.673978,
     "longitude": -3.978153,
-    "locationUrl": "https://goo.gl/maps/3nkqMGrTtqu).",
+    "locationUrl": "https://goo.gl/maps/3nkqMGrTtqu",
     "sourceUrl": "https://madridhhh.com/hardest-village-to-pronounce-run/",
     "description": "Hardest Village To Pronounce"
   },
@@ -1009,7 +1012,7 @@
     "startTime": "13:00",
     "latitude": 40.5715,
     "longitude": -3.934389,
-    "locationUrl": "https://goo.gl/maps/SndY86wGJX42),",
+    "locationUrl": "https://goo.gl/maps/SndY86wGJX42",
     "sourceUrl": "https://madridhhh.com/the-oktoberfest-brings-lesbies-galore-rn/",
     "description": "Oktoberfest brings Lesbies Galore"
   },
@@ -1054,7 +1057,7 @@
     "startTime": "13:00",
     "latitude": 40.66642,
     "longitude": -4.132109,
-    "locationUrl": "https://goo.gl/maps/N1TBSxSWSWD2).",
+    "locationUrl": "https://goo.gl/maps/N1TBSxSWSWD2",
     "sourceUrl": "https://madridhhh.com/where-is-the-waterfall-run/",
     "description": "Where The #$@&%* Is The Waterfall"
   },
@@ -1099,7 +1102,7 @@
     "startTime": "13:00",
     "latitude": 40.69075,
     "longitude": -3.609972,
-    "locationUrl": "https://goo.gl/maps/xUzezPwuK4s).",
+    "locationUrl": "https://goo.gl/maps/xUzezPwuK4s",
     "sourceUrl": "https://madridhhh.com/dont-go-chasin-waterfalls/",
     "description": "Don’t Go Chasin’ Waterfalls"
   },
@@ -1306,7 +1309,7 @@
     "location": "Las Rozas, next to Retamar Bridge",
     "latitude": 40.520519,
     "longitude": -3.938951,
-    "locationUrl": "https://goo.gl/maps/AvsiTc7QCfP2)",
+    "locationUrl": "https://goo.gl/maps/AvsiTc7QCfP2",
     "sourceUrl": "https://madridhhh.com/refugee-wiz-run/",
     "description": "Refugee Wiz"
   },
@@ -1320,7 +1323,7 @@
     "location": "El Pardo – near “Restaurante el faro”",
     "latitude": 40.515307,
     "longitude": -3.763068,
-    "locationUrl": "https://goo.gl/maps/2XQCuFUUuMy.",
+    "locationUrl": "https://goo.gl/maps/2XQCuFUUuMy",
     "sourceUrl": "https://madridhhh.com/from-javea-to-el-pardo-run/",
     "description": "From Javea To El Pardo"
   },
@@ -1365,7 +1368,7 @@
     "startTime": "13:00",
     "latitude": 40.448861,
     "longitude": -3.765306,
-    "locationUrl": "https://goo.gl/maps/N21HTgMqeGS2)",
+    "locationUrl": "https://goo.gl/maps/N21HTgMqeGS2",
     "sourceUrl": "https://madridhhh.com/bs-run/",
     "description": "B.S."
   },
@@ -1395,7 +1398,7 @@
     "startTime": "13:00",
     "latitude": 40.56855,
     "longitude": -3.888166,
-    "locationUrl": "https://goo.gl/maps/2SNRXNAjft12)",
+    "locationUrl": "https://goo.gl/maps/2SNRXNAjft12",
     "sourceUrl": "https://madridhhh.com/last-minute-run/",
     "description": "Last Minute"
   },
@@ -1484,7 +1487,7 @@
     "startTime": "13:00",
     "latitude": 40.69075,
     "longitude": -3.609972,
-    "locationUrl": "https://goo.gl/maps/xUzezPwuK4s).",
+    "locationUrl": "https://goo.gl/maps/xUzezPwuK4s",
     "sourceUrl": "https://madridhhh.com/aqueducts-and-apple-pie-run/",
     "description": "Aqueducts and Apple Pie"
   },
@@ -1679,7 +1682,7 @@
     "startTime": "13:00",
     "latitude": 40.704382,
     "longitude": -3.991434,
-    "locationUrl": "https://goo.gl/maps/4GeK5C56C2t)",
+    "locationUrl": "https://goo.gl/maps/4GeK5C56C2t",
     "sourceUrl": "https://madridhhh.com/2019-pool-party-run/",
     "description": "2019 Pool Party"
   },
@@ -1709,7 +1712,7 @@
     "startTime": "13:00",
     "latitude": 40.584313,
     "longitude": -3.950749,
-    "locationUrl": "https://goo.gl/maps/WQxMRnxbhXcunpEH7).",
+    "locationUrl": "https://goo.gl/maps/WQxMRnxbhXcunpEH7",
     "sourceUrl": "https://madridhhh.com/las-meigas-bean-dip/",
     "description": "Las Meigas Bean Dip"
   },
@@ -1752,7 +1755,7 @@
     "hares": "Lesbie Friends, Snog the Goblin",
     "location": "Snog the Goblin´s Grotto, Calle Acueducto, 3 – DPDO (BLUE DOOR), 3rd Floor, 28039 Madrid",
     "startTime": "13:00",
-    "locationUrl": "https://goo.gl/maps/dp9kRbHwzx7C1CyZA",
+    "locationUrl": "https://goo.gl/maps/P3h5SFX7zj9Jykri9",
     "sourceUrl": "https://madridhhh.com/lesbies-last-snog-run/",
     "description": "Lesbie´s Last Snog"
   },
@@ -1837,6 +1840,7 @@
     "startTime": "13:00",
     "latitude": 40.5345504,
     "longitude": -3.783641,
+    "locationUrl": "https://goo.gl/maps/pbRNUAeP5542",
     "sourceUrl": "https://madridhhh.com/shooting-range-run/",
     "description": "Shooting Range"
   },
@@ -1851,7 +1855,7 @@
     "startTime": "13:00",
     "latitude": 40.730889,
     "longitude": -3.591056,
-    "locationUrl": "https://goo.gl/maps/53c9Loen7tYSbS8e8.",
+    "locationUrl": "https://goo.gl/maps/53c9Loen7tYSbS8e8",
     "sourceUrl": "https://madridhhh.com/look-out-for-the-lookout-run/",
     "description": "Look Out For The Lookout"
   },
@@ -1866,7 +1870,7 @@
     "startTime": "13:00",
     "latitude": 40.855148,
     "longitude": -3.730354,
-    "locationUrl": "https://goo.gl/maps/jt9CfFZu7knxqRvT6.",
+    "locationUrl": "https://goo.gl/maps/jt9CfFZu7knxqRvT6",
     "sourceUrl": "https://madridhhh.com/antipodean-run/",
     "description": "Antipodean"
   },
@@ -1911,7 +1915,7 @@
     "startTime": "13:00",
     "latitude": 40.42014,
     "longitude": -3.750001,
-    "locationUrl": "https://goo.gl/maps/4R33fWY9x53VRuU48)",
+    "locationUrl": "https://goo.gl/maps/4R33fWY9x53VRuU48",
     "sourceUrl": "https://madridhhh.com/back-end-of-casa-de-campo-run/",
     "description": "Back End Of Casa de Campo"
   },
@@ -1926,7 +1930,7 @@
     "startTime": "13:00",
     "latitude": 40.477889,
     "longitude": -3.516389,
-    "locationUrl": "https://goo.gl/maps/CQeHZovEUh8hFSQv6):",
+    "locationUrl": "https://goo.gl/maps/CQeHZovEUh8hFSQv6",
     "sourceUrl": "https://madridhhh.com/2400-1-run/",
     "description": "2400-1"
   },
@@ -2016,7 +2020,7 @@
     "startTime": "13:00",
     "latitude": 40.5345504,
     "longitude": -3.783641,
-    "locationUrl": "https://goo.gl/maps/uYKpAqNt9tzyKk8F)",
+    "locationUrl": "https://goo.gl/maps/uYKpAqNt9tzyKk8F",
     "sourceUrl": "https://madridhhh.com/memorial-run-2019/",
     "description": "Memorial"
   },
@@ -2166,7 +2170,7 @@
     "startTime": "13:00",
     "latitude": 40.837429,
     "longitude": -3.540774,
-    "locationUrl": "https://goo.gl/maps/FmB1FxUqeawYygjXA).",
+    "locationUrl": "https://goo.gl/maps/FmB1FxUqeawYygjXA",
     "sourceUrl": "https://madridhhh.com/ickys-gagging-over-the-lagoon-run/",
     "description": "Icky’s Gagging Over The Lagoon"
   },
@@ -2196,7 +2200,7 @@
     "startTime": "13:00",
     "latitude": 40.66642,
     "longitude": -4.132109,
-    "locationUrl": "https://goo.gl/maps/N1TBSxSWSWD2).",
+    "locationUrl": "https://goo.gl/maps/N1TBSxSWSWD2",
     "sourceUrl": "https://madridhhh.com/path-of-the-fallen-pine-run/",
     "description": "Path Of The Fallen Pine"
   },
@@ -2211,7 +2215,7 @@
     "startTime": "13:00",
     "latitude": 40.476448,
     "longitude": -3.362646,
-    "locationUrl": "https://goo.gl/maps/2dqbwx6xJoX9mTRs9)",
+    "locationUrl": "https://goo.gl/maps/2dqbwx6xJoX9mTRs9",
     "sourceUrl": "https://madridhhh.com/monumental-piss-up-run/",
     "description": "Monumental Piss Up"
   },
@@ -2271,7 +2275,7 @@
     "startTime": "13:00",
     "latitude": 40.507868,
     "longitude": -3.528609,
-    "locationUrl": "https://goo.gl/maps/hkDeevDT21PC3e6j7).",
+    "locationUrl": "https://goo.gl/maps/hkDeevDT21PC3e6j7",
     "sourceUrl": "https://madridhhh.com/not-so-filthy-run/",
     "description": "Not So Filthy"
   },
@@ -2285,7 +2289,7 @@
     "location": "Las Rozas, next to Retamar Bridge",
     "latitude": 40.520519,
     "longitude": -3.938951,
-    "locationUrl": "https://goo.gl/maps/AvsiTc7QCfP2)",
+    "locationUrl": "https://goo.gl/maps/AvsiTc7QCfP2",
     "sourceUrl": "https://madridhhh.com/leap-refugee-run/",
     "description": "Leap Refugee"
   },
@@ -2429,7 +2433,7 @@
     "startTime": "13:00",
     "latitude": 40.477889,
     "longitude": -3.516389,
-    "locationUrl": "https://goo.gl/maps/CQeHZovEUh8hFSQv6):",
+    "locationUrl": "https://goo.gl/maps/CQeHZovEUh8hFSQv6",
     "sourceUrl": "https://madridhhh.com/post-lock-down-down-down-run/"
   },
   {
@@ -2458,7 +2462,7 @@
     "startTime": "13:00",
     "latitude": 40.5345504,
     "longitude": -3.783641,
-    "locationUrl": "https://goo.gl/maps/uYKpAqNt9tzyKk8F)",
+    "locationUrl": "https://goo.gl/maps/uYKpAqNt9tzyKk8F",
     "sourceUrl": "https://madridhhh.com/virgin-is-gettin-sticky-with-it-run/",
     "description": "Virgin Is Gettin’ Sticky With It"
   },
@@ -2473,7 +2477,7 @@
     "startTime": "13:00",
     "latitude": 40.42014,
     "longitude": -3.750001,
-    "locationUrl": "https://goo.gl/maps/4R33fWY9x53VRuU48)",
+    "locationUrl": "https://goo.gl/maps/4R33fWY9x53VRuU48",
     "sourceUrl": "https://madridhhh.com/drums-that-make-you-smile-run/",
     "description": "Drums That Make You Smile"
   },
@@ -2488,7 +2492,7 @@
     "startTime": "13:00",
     "latitude": 40.69075,
     "longitude": -3.609972,
-    "locationUrl": "https://goo.gl/maps/xUzezPwuK4s).",
+    "locationUrl": "https://goo.gl/maps/xUzezPwuK4s",
     "sourceUrl": "https://madridhhh.com/the-get-your-kicks-in-guadalix-run/",
     "description": "Get your kicks in Guadalix"
   },
@@ -2518,7 +2522,7 @@
     "startTime": "13:00",
     "latitude": 40.730889,
     "longitude": -3.591056,
-    "locationUrl": "https://goo.gl/maps/53c9Loen7tYSbS8e8.",
+    "locationUrl": "https://goo.gl/maps/53c9Loen7tYSbS8e8",
     "sourceUrl": "https://madridhhh.com/double-dutch-mola-run/",
     "description": "Double Dutch Mola"
   },
@@ -2533,7 +2537,7 @@
     "startTime": "13:00",
     "latitude": 40.5345504,
     "longitude": -3.783641,
-    "locationUrl": "https://maps.app.goo.gl/ZD41QaasDBhW3V7GA)",
+    "locationUrl": "https://maps.app.goo.gl/ZD41QaasDBhW3V7GA",
     "sourceUrl": "https://madridhhh.com/the-francos-tomb-run/",
     "description": "Franco´s Tomb"
   },
@@ -2593,7 +2597,7 @@
     "startTime": "13:00",
     "latitude": 40.402546,
     "longitude": -3.875799,
-    "locationUrl": "https://goo.gl/maps/aA6WoCMLz1cuVnFG8).",
+    "locationUrl": "https://goo.gl/maps/aA6WoCMLz1cuVnFG8",
     "sourceUrl": "https://madridhhh.com/smile-like-youve-bee-screwed-run/",
     "description": "Smile Like You’ve Been Screwed"
   },
@@ -2608,7 +2612,7 @@
     "startTime": "13:00",
     "latitude": 40.44862,
     "longitude": -3.766446,
-    "locationUrl": "https://goo.gl/maps/9Sd8r3AGHAePcXRN7)",
+    "locationUrl": "https://goo.gl/maps/9Sd8r3AGHAePcXRN7",
     "sourceUrl": "https://madridhhh.com/the-run-where-smile-like-you-like-it-is-not-the-hare/",
     "description": "R*n Where Smile Like You Like It Is NOT The Hare"
   },
@@ -2728,7 +2732,7 @@
     "startTime": "13:00",
     "latitude": 40.533184,
     "longitude": -3.901709,
-    "locationUrl": "https://goo.gl/maps/qmX4GUMEF6GvPf436)",
+    "locationUrl": "https://goo.gl/maps/qmX4GUMEF6GvPf436",
     "sourceUrl": "https://madridhhh.com/the-gobble-it-twice-run/",
     "description": "Gobble It Twice"
   },
@@ -2788,7 +2792,7 @@
     "startTime": "13:00",
     "latitude": 40.403036,
     "longitude": -3.875081,
-    "locationUrl": "https://goo.gl/maps/nHQ3vpgCLoAhgQoB8).",
+    "locationUrl": "https://goo.gl/maps/nHQ3vpgCLoAhgQoB8",
     "sourceUrl": "https://madridhhh.com/coughlan-camino-run/",
     "description": "Coughlan Camino"
   },
@@ -2874,7 +2878,7 @@
     "location": "El Gurugú",
     "latitude": 40.456117,
     "longitude": -3.340271,
-    "locationUrl": "https://goo.gl/maps/uDhq1VtpsWwVfxrFA).",
+    "locationUrl": "https://goo.gl/maps/uDhq1VtpsWwVfxrFA",
     "sourceUrl": "https://madridhhh.com/re-return-to-el-gurugu/",
     "description": "Re-Return To El Gurugú"
   },
@@ -2994,7 +2998,7 @@
     "startTime": "13:00",
     "latitude": 40.477889,
     "longitude": -3.516389,
-    "locationUrl": "https://goo.gl/maps/CQeHZovEUh8hFSQv6):",
+    "locationUrl": "https://goo.gl/maps/CQeHZovEUh8hFSQv6",
     "sourceUrl": "https://madridhhh.com/bartels2-run/",
     "description": "Bartels²"
   },
@@ -3008,7 +3012,7 @@
     "location": "El Pardo – near “Restaurante lar de domingo”",
     "latitude": 40.515307,
     "longitude": -3.763068,
-    "locationUrl": "https://goo.gl/maps/2XQCuFUUuMy.",
+    "locationUrl": "https://goo.gl/maps/2XQCuFUUuMy",
     "sourceUrl": "https://madridhhh.com/last-time-i-came-in-a-taxi-run/",
     "description": "Last Time I Came In A Taxi"
   },
@@ -3127,7 +3131,7 @@
     "startTime": "13:00",
     "latitude": 40.553947,
     "longitude": -3.902984,
-    "locationUrl": "https://goo.gl/maps/5yDGmGD1U9kQTPyK6.",
+    "locationUrl": "https://goo.gl/maps/5yDGmGD1U9kQTPyK6",
     "sourceUrl": "https://madridhhh.com/square-roots-last-theorem-run/",
     "description": "Square Root’s Last Theorem"
   },
@@ -3172,7 +3176,7 @@
     "startTime": "13:00",
     "latitude": 40.585852,
     "longitude": -4.158583,
-    "locationUrl": "https://goo.gl/maps/PFguRyP6JYnBaZ7s5).",
+    "locationUrl": "https://goo.gl/maps/PFguRyP6JYnBaZ7s5",
     "sourceUrl": "https://madridhhh.com/ball-breaker-run/",
     "description": "Ball Breaker"
   },
@@ -3187,7 +3191,7 @@
     "startTime": "13:00",
     "latitude": 40.507868,
     "longitude": -3.528609,
-    "locationUrl": "https://goo.gl/maps/hkDeevDT21PC3e6j7).",
+    "locationUrl": "https://goo.gl/maps/hkDeevDT21PC3e6j7",
     "sourceUrl": "https://madridhhh.com/thewasherwomenwithvertigorun/",
     "description": "Washer Women With Vertigo"
   },
@@ -3217,7 +3221,7 @@
     "startTime": "13:00",
     "latitude": 40.5345504,
     "longitude": -3.783641,
-    "locationUrl": "https://maps.app.goo.gl/ZD41QaasDBhW3V7GA)",
+    "locationUrl": "https://maps.app.goo.gl/ZD41QaasDBhW3V7GA",
     "sourceUrl": "https://madridhhh.com/the-start-of-the-summer-run/",
     "description": "Start Of The Summer"
   },
@@ -3262,7 +3266,7 @@
     "startTime": "13:00",
     "latitude": 40.403036,
     "longitude": -3.875081,
-    "locationUrl": "https://goo.gl/maps/nHQ3vpgCLoAhgQoB8).",
+    "locationUrl": "https://goo.gl/maps/nHQ3vpgCLoAhgQoB8",
     "sourceUrl": "https://madridhhh.com/corkscrews-backyard-run/",
     "description": "Corkscrew’s Backyard"
   },
@@ -3277,7 +3281,7 @@
     "startTime": "13:00",
     "latitude": 40.540349,
     "longitude": -3.948559,
-    "locationUrl": "https://goo.gl/maps/VQYtNyHTXQZrGLbb9).",
+    "locationUrl": "https://goo.gl/maps/VQYtNyHTXQZrGLbb9",
     "sourceUrl": "https://madridhhh.com/dmw-george-w-bush-redeption-run/",
     "description": "DMW, George W Bush redemption"
   },
@@ -3337,7 +3341,7 @@
     "startTime": "13:00",
     "latitude": 40.450177,
     "longitude": -3.768069,
-    "locationUrl": "https://goo.gl/maps/9Sd8r3AGHAePcXRN7)",
+    "locationUrl": "https://goo.gl/maps/9Sd8r3AGHAePcXRN7",
     "sourceUrl": "https://madridhhh.com/blow-my-vag-run/",
     "description": "Blow My Vag"
   },
@@ -3382,7 +3386,7 @@
     "startTime": "13:00",
     "latitude": 40.53198,
     "longitude": -3.782172,
-    "locationUrl": "https://maps.app.goo.gl/ZD41QaasDBhW3V7GA),",
+    "locationUrl": "https://maps.app.goo.gl/ZD41QaasDBhW3V7GA",
     "sourceUrl": "https://madridhhh.com/prepare-to-get-wet-run/",
     "description": "Prepare To Get Wet"
   },
@@ -3442,7 +3446,7 @@
     "startTime": "13:00",
     "latitude": 40.704382,
     "longitude": -3.991434,
-    "locationUrl": "https://goo.gl/maps/4GeK5C56C2t)",
+    "locationUrl": "https://goo.gl/maps/4GeK5C56C2t",
     "sourceUrl": "https://madridhhh.com/2022-pool-party-run/",
     "description": "2022 Pool Party"
   },
@@ -3502,7 +3506,7 @@
     "startTime": "13:00",
     "latitude": 40.403036,
     "longitude": -3.875081,
-    "locationUrl": "https://goo.gl/maps/nHQ3vpgCLoAhgQoB8).",
+    "locationUrl": "https://goo.gl/maps/nHQ3vpgCLoAhgQoB8",
     "sourceUrl": "https://madridhhh.com/screw-it-like-you-like-it-run/",
     "description": "Screw Like You Like It"
   },
@@ -3517,7 +3521,7 @@
     "startTime": "13:00",
     "latitude": 40.584694,
     "longitude": -3.950722,
-    "locationUrl": "https://goo.gl/maps/jdGcGUWu5qXzEYnFA.(CTRA.A6-URB.LA",
+    "locationUrl": "https://goo.gl/maps/jdGcGUWu5qXzEYnFA",
     "sourceUrl": "https://madridhhh.com/2500th-pool-and-run/",
     "description": "2500th Pool & R*n"
   },
@@ -3532,7 +3536,7 @@
     "startTime": "13:00",
     "latitude": 40.625183,
     "longitude": -3.896002,
-    "locationUrl": "https://goo.gl/maps/wKJaUdsnpqsWhjXg7).",
+    "locationUrl": "https://goo.gl/maps/wKJaUdsnpqsWhjXg7",
     "sourceUrl": "https://madridhhh.com/fried-egg-run/",
     "description": "Fried Egg"
   },
@@ -3576,7 +3580,7 @@
     "location": "Las Rozas, next to Retamar Bridge",
     "latitude": 40.520519,
     "longitude": -3.938951,
-    "locationUrl": "https://goo.gl/maps/AvsiTc7QCfP2)",
+    "locationUrl": "https://goo.gl/maps/AvsiTc7QCfP2",
     "sourceUrl": "https://madridhhh.com/not-so-new-bridge-run/",
     "description": "Not-So-New Bridge"
   },
@@ -3591,7 +3595,7 @@
     "startTime": "13:00",
     "latitude": 40.855148,
     "longitude": -3.730354,
-    "locationUrl": "https://goo.gl/maps/jt9CfFZu7knxqRvT6.",
+    "locationUrl": "https://goo.gl/maps/jt9CfFZu7knxqRvT6",
     "sourceUrl": "https://madridhhh.com/french-english-belgian-went-to-the-forest/",
     "description": "A French, an English and a Belgian went to the forest"
   },
@@ -3681,7 +3685,7 @@
     "startTime": "13:00",
     "latitude": 40.571796,
     "longitude": -3.930457,
-    "locationUrl": "https://goo.gl/maps/WgGbmWCxRzVkY2c76.",
+    "locationUrl": "https://goo.gl/maps/WgGbmWCxRzVkY2c76",
     "sourceUrl": "https://madridhhh.com/bergen-drooled-here-run/",
     "description": "Bergen Drooled Here"
   },
@@ -3755,7 +3759,7 @@
     "startTime": "13:00",
     "latitude": 40.5345504,
     "longitude": -3.783641,
-    "locationUrl": "https://maps.app.goo.gl/ZD41QaasDBhW3V7GA)",
+    "locationUrl": "https://maps.app.goo.gl/ZD41QaasDBhW3V7GA",
     "sourceUrl": "https://madridhhh.com/2022-tinsel-run/",
     "description": "2022 Tinsel"
   },
@@ -3845,7 +3849,7 @@
     "startTime": "13:00",
     "latitude": 40.692696,
     "longitude": -3.612685,
-    "locationUrl": "https://goo.gl/maps/xUzezPwuK4s).",
+    "locationUrl": "https://goo.gl/maps/xUzezPwuK4s",
     "sourceUrl": "https://madridhhh.com/nameless-pussy-run/",
     "description": "Nameless Pussy"
   },
@@ -3860,7 +3864,7 @@
     "startTime": "13:00",
     "latitude": 40.507868,
     "longitude": -3.528609,
-    "locationUrl": "https://goo.gl/maps/hkDeevDT21PC3e6j7).",
+    "locationUrl": "https://goo.gl/maps/hkDeevDT21PC3e6j7",
     "sourceUrl": "https://madridhhh.com/dragophobia-and-bushmaniasis-run/"
   },
   {
@@ -3919,7 +3923,7 @@
     "startTime": "13:00",
     "latitude": 40.713289,
     "longitude": -3.999836,
-    "locationUrl": "https://goo.gl/maps/SdL8kK48CgQ86t2p9.",
+    "locationUrl": "https://goo.gl/maps/SdL8kK48CgQ86t2p9",
     "sourceUrl": "https://madridhhh.com/this-title-is-unbearably-long/",
     "description": "I Saw The Calf With No Name And Smiled"
   },
@@ -4024,7 +4028,7 @@
     "startTime": "13:00",
     "latitude": 40.686194,
     "longitude": -3.822056,
-    "locationUrl": "https://goo.gl/maps/LLmD4MfE1uV7L8jc9.",
+    "locationUrl": "https://goo.gl/maps/LLmD4MfE1uV7L8jc9",
     "sourceUrl": "https://madridhhh.com/three-billy-goats-gruff-run/",
     "description": "Three Billy Goats Gruff"
   },
@@ -4054,7 +4058,7 @@
     "startTime": "13:00",
     "latitude": 40.567778,
     "longitude": -3.887778,
-    "locationUrl": "https://goo.gl/maps/3JaxmStfnfR1Gf62A.",
+    "locationUrl": "https://goo.gl/maps/3JaxmStfnfR1Gf62A",
     "sourceUrl": "https://madridhhh.com/not-bad-gobble-run/",
     "description": "Not Bad Gobble"
   },
@@ -4099,7 +4103,7 @@
     "startTime": "13:00",
     "latitude": 40.477889,
     "longitude": -3.516389,
-    "locationUrl": "https://goo.gl/maps/CQeHZovEUh8hFSQv6):",
+    "locationUrl": "https://goo.gl/maps/CQeHZovEUh8hFSQv6",
     "sourceUrl": "https://madridhhh.com/knocking-on-heathens-door-run/",
     "description": "Knocking on Heathen’s Door"
   },
@@ -4114,7 +4118,7 @@
     "startTime": "13:00",
     "latitude": 40.403036,
     "longitude": -3.875081,
-    "locationUrl": "https://goo.gl/maps/nHQ3vpgCLoAhgQoB8).",
+    "locationUrl": "https://goo.gl/maps/nHQ3vpgCLoAhgQoB8",
     "sourceUrl": "https://madridhhh.com/virtually-screwed-run/",
     "description": "Virtually Screwed"
   },
@@ -4203,7 +4207,7 @@
     "startTime": "13:00",
     "latitude": 40.692869,
     "longitude": -3.612298,
-    "locationUrl": "https://goo.gl/maps/xUzezPwuK4s).",
+    "locationUrl": "https://goo.gl/maps/xUzezPwuK4s",
     "sourceUrl": "https://madridhhh.com/chatterproof-drums-run/",
     "description": "Chatterproof Drums"
   },
@@ -4233,7 +4237,7 @@
     "startTime": "13:00",
     "latitude": 40.704382,
     "longitude": -3.991434,
-    "locationUrl": "https://goo.gl/maps/4GeK5C56C2t)",
+    "locationUrl": "https://goo.gl/maps/4GeK5C56C2t",
     "sourceUrl": "https://madridhhh.com/2023-pool-party-run/",
     "description": "2023 Pool Party"
   },
@@ -4323,7 +4327,7 @@
     "startTime": "13:00",
     "latitude": 40.625183,
     "longitude": -3.896002,
-    "locationUrl": "https://goo.gl/maps/wKJaUdsnpqsWhjXg7).",
+    "locationUrl": "https://goo.gl/maps/wKJaUdsnpqsWhjXg7",
     "sourceUrl": "https://madridhhh.com/fried-egg-run-2023/",
     "description": "Fried Egg"
   },
@@ -4338,7 +4342,7 @@
     "startTime": "13:00",
     "latitude": 40.755822,
     "longitude": -4.047915,
-    "locationUrl": "https://maps.app.goo.gl/dfvDHnHC87xHEmt29)",
+    "locationUrl": "https://maps.app.goo.gl/dfvDHnHC87xHEmt29",
     "sourceUrl": "https://madridhhh.com/almost-cercedilla-run/",
     "description": "Almost Cercedilla"
   },
@@ -4353,7 +4357,7 @@
     "startTime": "13:00",
     "latitude": 40.66642,
     "longitude": -4.132109,
-    "locationUrl": "https://goo.gl/maps/N1TBSxSWSWD2).",
+    "locationUrl": "https://goo.gl/maps/N1TBSxSWSWD2",
     "sourceUrl": "https://madridhhh.com/its-never-too-late-run/",
     "description": "It’s Never Too Late"
   },
@@ -4425,7 +4429,7 @@
     "startTime": "13:00",
     "latitude": 40.402546,
     "longitude": -3.875799,
-    "locationUrl": "https://goo.gl/maps/aA6WoCMLz1cuVnFG8).",
+    "locationUrl": "https://goo.gl/maps/aA6WoCMLz1cuVnFG8",
     "sourceUrl": "https://madridhhh.com/not-quite-halloween-run/",
     "description": "Not Quite Halloween"
   },
@@ -4454,7 +4458,7 @@
     "location": "El Pardo – near “Restaurante lar de domingo”",
     "latitude": 40.515307,
     "longitude": -3.763068,
-    "locationUrl": "https://goo.gl/maps/2XQCuFUUuMy.",
+    "locationUrl": "https://goo.gl/maps/2XQCuFUUuMy",
     "sourceUrl": "https://madridhhh.com/picking-a-flower-run/",
     "description": "Picking A Flower"
   },
@@ -4483,7 +4487,7 @@
     "startTime": "13:00",
     "latitude": 40.855148,
     "longitude": -3.730354,
-    "locationUrl": "https://goo.gl/maps/jt9CfFZu7knxqRvT6.",
+    "locationUrl": "https://goo.gl/maps/jt9CfFZu7knxqRvT6",
     "sourceUrl": "https://madridhhh.com/2023-rememberance-and-erections-run/",
     "description": "2023 Rememberance & Erections"
   },
@@ -4497,7 +4501,7 @@
     "location": "Las Rozas, next to Retamar Bridge",
     "latitude": 40.520519,
     "longitude": -3.938951,
-    "locationUrl": "https://goo.gl/maps/AvsiTc7QCfP2)",
+    "locationUrl": "https://goo.gl/maps/AvsiTc7QCfP2",
     "sourceUrl": "https://madridhhh.com/guilded-gimmer-run/",
     "description": "Gilded Gimmer"
   },
@@ -4541,7 +4545,7 @@
     "location": "El Pardo – near “Restaurante lar de domingo”",
     "latitude": 40.515307,
     "longitude": -3.763068,
-    "locationUrl": "https://maps.app.goo.gl/VQSNoPgVWQVNADcd6.",
+    "locationUrl": "https://maps.app.goo.gl/VQSNoPgVWQVNADcd6",
     "sourceUrl": "https://madridhhh.com/2023-tinsel-run/",
     "description": "2023 Tinsel"
   },
@@ -4586,7 +4590,7 @@
     "startTime": "13:00",
     "latitude": 40.58154,
     "longitude": -4.017626,
-    "locationUrl": "https://maps.app.goo.gl/o4zpMPsbqhGixQqj8)",
+    "locationUrl": "https://maps.app.goo.gl/o4zpMPsbqhGixQqj8",
     "sourceUrl": "https://madridhhh.com/count-the-tinnies-run/",
     "description": "Count the Tinnies"
   },
@@ -4616,7 +4620,7 @@
     "startTime": "13:00",
     "latitude": 40.477889,
     "longitude": -3.516389,
-    "locationUrl": "https://goo.gl/maps/CQeHZovEUh8hFSQv6):",
+    "locationUrl": "https://goo.gl/maps/CQeHZovEUh8hFSQv6",
     "sourceUrl": "https://madridhhh.com/thirrrd-degrrree-burrrns-rrrun/",
     "description": "Thirrrd Degrrree Burrrns"
   },
@@ -4706,7 +4710,7 @@
     "startTime": "13:00",
     "latitude": 40.683778,
     "longitude": -4.104611,
-    "locationUrl": "https://maps.app.goo.gl/23RgAZBvzxcdhE9p8.",
+    "locationUrl": "https://maps.app.goo.gl/23RgAZBvzxcdhE9p8",
     "sourceUrl": "https://madridhhh.com/gobble-till-you-fit-to-wobble-run/",
     "description": "Gobble Till You Fit To Wobble"
   },
@@ -4751,7 +4755,7 @@
     "startTime": "13:00",
     "latitude": 40.285514,
     "longitude": -4.024518,
-    "locationUrl": "https://maps.app.goo.gl/Wk1sK8yyXCw1kC1h8)",
+    "locationUrl": "https://maps.app.goo.gl/Wk1sK8yyXCw1kC1h8",
     "sourceUrl": "https://madridhhh.com/virtually-the-first-smiling-summer-run/",
     "description": "Virtually The First Smiling Summer"
   },
@@ -4766,7 +4770,7 @@
     "startTime": "13:00",
     "latitude": 40.595567,
     "longitude": -3.955992,
-    "locationUrl": "https://maps.app.goo.gl/gTPgoxFH6NYjsAG76),",
+    "locationUrl": "https://maps.app.goo.gl/gTPgoxFH6NYjsAG76",
     "sourceUrl": "https://madridhhh.com/bunny-gobble-your-drum-run/",
     "description": "Bunny Gobble Your Drum"
   },
@@ -4826,7 +4830,7 @@
     "startTime": "13:00",
     "latitude": 40.501898,
     "longitude": -3.994337,
-    "locationUrl": "https://maps.app.goo.gl/c4QZo1NMsTgwCzjP6)",
+    "locationUrl": "https://maps.app.goo.gl/c4QZo1NMsTgwCzjP6",
     "sourceUrl": "https://madridhhh.com/sexy-goblins-flying-circus-run/"
   },
   {
@@ -4945,7 +4949,7 @@
     "startTime": "13:00",
     "latitude": 40.582028,
     "longitude": -3.505556,
-    "locationUrl": "https://maps.app.goo.gl/njjKE13qCSkhXreh8).",
+    "locationUrl": "https://maps.app.goo.gl/njjKE13qCSkhXreh8",
     "sourceUrl": "https://madridhhh.com/tripadvisor-does-corbena-run/",
     "description": "TripAdvisor Does Cobeña"
   },
@@ -4975,7 +4979,7 @@
     "startTime": "13:00",
     "latitude": 40.461071,
     "longitude": -3.859888,
-    "locationUrl": "https://maps.app.goo.gl/w5QTu6d4djTkE9i6A.",
+    "locationUrl": "https://maps.app.goo.gl/w5QTu6d4djTkE9i6A",
     "sourceUrl": "https://madridhhh.com/colchoneros-run/",
     "description": "Colchoneros"
   },
@@ -4990,7 +4994,7 @@
     "startTime": "13:00",
     "latitude": 40.704382,
     "longitude": -3.991434,
-    "locationUrl": "https://goo.gl/maps/4GeK5C56C2t)",
+    "locationUrl": "https://goo.gl/maps/4GeK5C56C2t",
     "sourceUrl": "https://madridhhh.com/pool-party-run-2024/",
     "description": "Pool Party"
   },
@@ -5017,7 +5021,7 @@
     "startTime": "13:00",
     "latitude": 40.510597,
     "longitude": -3.891807,
-    "locationUrl": "https://maps.app.goo.gl/ZAJw44k3yfyTww92A.",
+    "locationUrl": "https://maps.app.goo.gl/ZAJw44k3yfyTww92A",
     "sourceUrl": "https://madridhhh.com/lips-will-be-hot-run/",
     "description": "Lips Will Be Hot"
   },
@@ -5032,7 +5036,7 @@
     "startTime": "13:00",
     "latitude": 40.692762,
     "longitude": -3.612396,
-    "locationUrl": "https://goo.gl/maps/xUzezPwuK4s).",
+    "locationUrl": "https://goo.gl/maps/xUzezPwuK4s",
     "sourceUrl": "https://madridhhh.com/double-no-name-run/",
     "description": "Double No Name"
   },
@@ -5077,7 +5081,7 @@
     "startTime": "13:00",
     "latitude": 40.755822,
     "longitude": -4.047915,
-    "locationUrl": "https://maps.app.goo.gl/dfvDHnHC87xHEmt29)",
+    "locationUrl": "https://maps.app.goo.gl/dfvDHnHC87xHEmt29",
     "sourceUrl": "https://madridhhh.com/shady-seven-peaks-run/",
     "description": "Shady Seven Peaks"
   },
@@ -5092,7 +5096,7 @@
     "startTime": "13:00",
     "latitude": 40.584694,
     "longitude": -3.950722,
-    "locationUrl": "https://goo.gl/maps/jdGcGUWu5qXzEYnFA.(CTRA.A6-URB.LA",
+    "locationUrl": "https://goo.gl/maps/jdGcGUWu5qXzEYnFA",
     "sourceUrl": "https://madridhhh.com/bewitched-stunt-pool-party-run/",
     "description": "Bewitched Stunt Pool Party"
   },
@@ -5107,7 +5111,7 @@
     "startTime": "13:00",
     "latitude": 40.592038,
     "longitude": -3.696807,
-    "locationUrl": "https://maps.app.goo.gl/9pySuAkgQAqs2cDR6),",
+    "locationUrl": "https://maps.app.goo.gl/9pySuAkgQAqs2cDR6",
     "sourceUrl": "https://madridhhh.com/you-are-politely-requested-to-turn-up-run/",
     "description": "You Are Politely Requested To Turn Up"
   },
@@ -5212,7 +5216,7 @@
     "startTime": "13:00",
     "latitude": 40.739442,
     "longitude": -3.636774,
-    "locationUrl": "https://maps.app.goo.gl/xF2z4EwvJoBaFf1D7)",
+    "locationUrl": "https://maps.app.goo.gl/xF2z4EwvJoBaFf1D7",
     "sourceUrl": "https://madridhhh.com/cheesy-grins-and-country-trails-run/",
     "description": "Cheesy Grins And Country Trails"
   },
@@ -5227,7 +5231,7 @@
     "startTime": "13:00",
     "latitude": 40.646363,
     "longitude": -3.962885,
-    "locationUrl": "https://maps.app.goo.gl/6o5VM8jhHAgkfkZb7).",
+    "locationUrl": "https://maps.app.goo.gl/6o5VM8jhHAgkfkZb7",
     "sourceUrl": "https://madridhhh.com/fit-bottoms-run/",
     "description": "Fit Bottoms"
   },
@@ -5257,7 +5261,7 @@
     "startTime": "13:00",
     "latitude": 40.402546,
     "longitude": -3.875799,
-    "locationUrl": "https://goo.gl/maps/aA6WoCMLz1cuVnFG8).",
+    "locationUrl": "https://goo.gl/maps/aA6WoCMLz1cuVnFG8",
     "sourceUrl": "https://madridhhh.com/deaf-man-from-del-monte-run/",
     "description": "Deaf Man From Del Monte"
   },
@@ -5272,7 +5276,7 @@
     "startTime": "13:00",
     "latitude": 40.664919,
     "longitude": -3.785532,
-    "locationUrl": "https://maps.app.goo.gl/AFCoSJL1ru5EkcJy8).",
+    "locationUrl": "https://maps.app.goo.gl/AFCoSJL1ru5EkcJy8",
     "sourceUrl": "https://madridhhh.com/hare-is-switching-mushrooms-with-flour-run/",
     "description": "Hare Is Switching Mushrooms With Flour"
   },
@@ -5375,7 +5379,7 @@
     "startTime": "13:00",
     "latitude": 40.527673,
     "longitude": -3.777463,
-    "locationUrl": "https://maps.app.goo.gl/RFdSLnYd34nGRULx9),",
+    "locationUrl": "https://maps.app.goo.gl/RFdSLnYd34nGRULx9",
     "sourceUrl": "https://madridhhh.com/anything-vagitarian-run/",
     "description": "Anything Vagitarian"
   },
@@ -5478,7 +5482,7 @@
     "startTime": "13:00",
     "latitude": 40.624973,
     "longitude": -3.895785,
-    "locationUrl": "https://maps.app.goo.gl/mRALi3rzctuWDTkR9).",
+    "locationUrl": "https://maps.app.goo.gl/mRALi3rzctuWDTkR9",
     "sourceUrl": "https://madridhhh.com/town-country-part-ii-or-iii-run/",
     "description": "Town & Country Part II (or III)"
   },
@@ -5594,7 +5598,7 @@
     "hares": "El Sordo, Sir Sir Culchie",
     "location": "Hoyo de Manzanares, IES Francisco Ayala school",
     "startTime": "13:00",
-    "locationUrl": "https://goo.gl/maps/wKJaUdsnpqsWhjXg7).",
+    "locationUrl": "https://goo.gl/maps/wKJaUdsnpqsWhjXg7",
     "sourceUrl": "https://madridhhh.com/the-vags-wedding-rn/"
   },
   {
@@ -5727,7 +5731,7 @@
     "startTime": "13:00",
     "latitude": 40.461071,
     "longitude": -3.859888,
-    "locationUrl": "https://maps.app.goo.gl/w5QTu6d4djTkE9i6A.",
+    "locationUrl": "https://maps.app.goo.gl/w5QTu6d4djTkE9i6A",
     "sourceUrl": "https://madridhhh.com/the-sexy-grimm-rn/",
     "description": "Sexy Grimm"
   },
@@ -5757,7 +5761,7 @@
     "startTime": "13:00",
     "latitude": 40.402546,
     "longitude": -3.875799,
-    "locationUrl": "https://goo.gl/maps/aA6WoCMLz1cuVnFG8).",
+    "locationUrl": "https://goo.gl/maps/aA6WoCMLz1cuVnFG8",
     "sourceUrl": "https://madridhhh.com/the-screw-this-its-very-hot-rn/",
     "description": "Screw this it’s Very hot"
   },
@@ -5817,7 +5821,7 @@
     "startTime": "13:00",
     "latitude": 40.584694,
     "longitude": -3.950722,
-    "locationUrl": "https://goo.gl/maps/jdGcGUWu5qXzEYnFA.(CTRA.A6-URB.LA",
+    "locationUrl": "https://goo.gl/maps/jdGcGUWu5qXzEYnFA",
     "sourceUrl": "https://madridhhh.com/cool-down-at-the-pool-run/",
     "description": "Cool Down At The Pool"
   },
@@ -5847,7 +5851,7 @@
     "startTime": "13:00",
     "latitude": 40.585852,
     "longitude": -4.158583,
-    "locationUrl": "https://goo.gl/maps/PFguRyP6JYnBaZ7s5).",
+    "locationUrl": "https://goo.gl/maps/PFguRyP6JYnBaZ7s5",
     "sourceUrl": "https://madridhhh.com/the-escorgasm-rn/",
     "description": "Escorgasm"
   },
@@ -5967,7 +5971,7 @@
     "startTime": "13:00",
     "latitude": 40.402546,
     "longitude": -3.875799,
-    "locationUrl": "https://goo.gl/maps/aA6WoCMLz1cuVnFG8).",
+    "locationUrl": "https://goo.gl/maps/aA6WoCMLz1cuVnFG8",
     "sourceUrl": "https://madridhhh.com/the-dia-de-la-hispanigrimmidad-rn/",
     "description": "Dia de la Hispanigrimmidad"
   },
@@ -6250,7 +6254,7 @@
     "startTime": "13:00",
     "latitude": 40.135237,
     "longitude": -3.423318,
-    "locationUrl": "https://maps.app.goo.gl/7V27bWKAryvVYoN879",
+    "locationUrl": "https://maps.app.goo.gl/7V27bWKAryvVYoN87",
     "sourceUrl": "https://madridhhh.com/the-smile-if-it-fits-rn/",
     "description": "Smile if it Fits"
   },
@@ -6295,7 +6299,7 @@
     "startTime": "13:00",
     "latitude": 40.4104,
     "longitude": -3.908778,
-    "locationUrl": "https://goo.gl/maps/aA6WoCMLz1cuVnFG8).",
+    "locationUrl": "https://goo.gl/maps/aA6WoCMLz1cuVnFG8",
     "sourceUrl": "https://madridhhh.com/the-sexy-screw-rn/",
     "description": "Sexy Screw"
   },
