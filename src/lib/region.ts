@@ -1766,6 +1766,17 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: -4.6,
     aliases: ["Mijas", "Costa del Sol, Spain", "Málaga"],
   },
+  {
+    name: "Madrid",
+    country: "Spain",
+    timezone: "Europe/Madrid",
+    abbrev: "MAD",
+    colorClasses: "bg-rose-100 text-rose-700",
+    pinColor: "#f43f5e",
+    centroidLat: 40.4168,
+    centroidLng: -3.7038,
+    aliases: ["Madrid, Spain"],
+  },
   // ── France ──
   {
     name: "France",
@@ -3531,6 +3542,7 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Brussels": "Belgium",
   // Spain
   "Costa del Sol": "Spain",
+  "Madrid": "Spain",
   // France
   "Paris": "France",
   // Louisiana

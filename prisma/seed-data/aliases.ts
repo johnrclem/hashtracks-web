@@ -567,6 +567,8 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "brasilia-h3": ["Brasilia H3", "Brasília H3", "Brasilia Hash", "Brasilia HHH"],
     // Spain — first Spain kennel ("MH3" alone collides with Memphis/Munich/Montreal)
     "mijash3": ["Mijas", "Mijas HHH", "MijasH3", "MH3 Spain", "Burro Hash", "Mijas Hash House Harriers"],
+    // Madrid — 2nd Spain kennel (bare "MH3" omitted: collides with Memphis/Munich/Montreal/Miami/Minneapolis)
+    "madrid-h3": ["Madrid H3", "Madrid Hash", "Madrid HHH", "Madrid Hash House Harriers"],
     // France — bare "PH3" omitted (collides with ph3-my/pattaya-h3); bare "SCH3" omitted (collides with sch3-atl/sch3-ca)
     "paris-h3": ["Paris H3", "Paris Hash", "Paris Hash House Harriers"],
     "sans-clue-h3": ["Sans Clue H3", "Sans Clue Hash", "Sans Clue Hash House Harriers", "SCHHH"],
