@@ -74,6 +74,26 @@ export function parseKCH3Time(timeStr?: string): string {
 }
 
 /**
+ * Drop a leading parenthetical *label* from a captured location — but only when
+ * the parenthetical is immediately followed (after spaces) by a colon, i.e. it
+ * was a "Location (label): venue" annotation. A parenthetical that is part of
+ * the venue itself ("(near the fountain) Central Park", no following colon) is
+ * left intact. Procedural (no regex) so the location-matching regexes stay
+ * simple and linear (#2019).
+ */
+export function stripLeadingParenLabel(value: string): string {
+  if (value[0] !== "(") return value;
+  const close = value.indexOf(")");
+  if (close === -1) return value;
+  let i = close + 1;
+  while (i < value.length && (value[i] === " " || value[i] === "\t")) i++;
+  if (value[i] !== ":") return value; // not a label — leave the venue paren alone
+  i++; // skip the colon
+  while (i < value.length && (value[i] === " " || value[i] === "\t")) i++;
+  return value.slice(i).trim();
+}
+
+/**
  * Parse labeled fields from a KCH3 post body.
  *
  * Extracts meetup time, hash cash, hare(s), and location from the free-text
@@ -99,18 +119,17 @@ export function parseKCH3Body(text: string): {
   const hareMatch = /Hares?\s*(?:\([^)]*\))?\s*:?\s*(.+?)(?=\n|$)/i.exec(text);
   const hares = hareMatch ? hareMatch[1].trim() : undefined;
 
-  // Location: "Location: Macken Park 1002 Clark Ferguson Dr..." or address at "Start:".
-  // Tolerate a parenthetical label between the keyword and the colon — e.g.
-  // "Location (also prelube and on-after): Helen's J.A.D. ..." — so the
-  // "(also prelube and on-after)" annotation doesn't leak into the venue (#2019).
-  // The optional `(?:\s*\(...\))?` then a single `[\s:]+` separator keeps the
-  // pattern linear — no adjacent optional-whitespace groups that trip the
-  // ReDoS-shape analyzer (Sonar S5852).
+  // Location: "Location: Macken Park 1002 Clark Ferguson Dr..." or address at "Start:"
   const locMatch =
-    /Location(?:\s*\([^)]*\))?[\s:]+(.+?)(?=\n|$)/i.exec(text) ||
-    /Start(?:\s*\([^)]*\))?[\s:]+(.+?)(?=\n|$)/i.exec(text) ||
-    /Where(?:\s*\([^)]*\))?[\s:]+(.+?)(?=\n|$)/i.exec(text);
-  const location = locMatch ? locMatch[1].trim() : undefined;
+    /Location:?\s*(.+?)(?=\n|$)/i.exec(text) ||
+    /Start:?\s*(.+?)(?=\n|$)/i.exec(text) ||
+    /Where:?\s*(.+?)(?=\n|$)/i.exec(text);
+  // Strip a parenthetical label that precedes the colon — e.g.
+  // "Location (also prelube and on-after): Helen's J.A.D. ..." captures
+  // "(also prelube and on-after): Helen's …"; drop the leading label so it
+  // doesn't leak into the venue (#2019). Done procedurally to keep the regexes
+  // above unchanged (and linear — no ReDoS-shape groups).
+  const location = locMatch ? stripLeadingParenLabel(locMatch[1].trim()) : undefined;
 
   return { time, hashCash, hares, location };
 }

@@ -454,7 +454,11 @@ export function normalizeStateZipTail(location: string): string {
   if (!m) return loc;
   const state = m[1].toUpperCase();
   if (!US_STATE_CODES.has(state)) return loc;
-  const prefix = loc.slice(0, m.index).replace(/[\s,]+$/, "");
+  // Trim trailing spaces/commas procedurally (a regex `/[\s,]+$/` trips the
+  // ReDoS-shape analyzer even though it's linear — Sonar S5852).
+  let end = m.index;
+  while (end > 0 && " \t,".includes(loc[end - 1])) end--;
+  const prefix = loc.slice(0, end);
   if (!prefix) return loc;
   return `${prefix}, ${state} ${m[2]}`;
 }
