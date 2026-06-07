@@ -2841,6 +2841,22 @@ export const KENNELS: KennelSeed[] = [
       latitude: 53.5503, longitude: 9.992,
     },
 
+    // ── Portugal: Lisbon ──
+    {
+      kennelCode: "lh3-pt", shortName: "Lisbon H3", fullName: "Lisbon Hash House Harriers", region: "Lisbon", country: "Portugal",
+      foundedYear: 1987, // First run 06 Jun 1987 (genealogy.gotothehash.net; founders Kevin & Anne O'Neill, Jeff van Etten)
+      scheduleDayOfWeek: "Saturday", scheduleTime: "1:00 PM", scheduleFrequency: "Biweekly",
+      scheduleNotes: "Biweekly Saturday runs (~1:00 PM). Meeting point traditionally the semicircular car park behind the Estoril Casino, Praça de Almeida Garrett, Estoril. Per-run venues announced day-of by the hares. (Older sources list 2pm / Sunday — superseded by the live Harrier Central schedule.)",
+      description: "Lisbon Hash House Harriers (LH3) is a family hash founded in 1987, running fortnightly on Saturdays year-round around Lisbon and the Estoril coast. Rambos run, wimps walk, dogs run free — followed by the usual beer. On On!",
+      hashCash: "€5 (adults) / €2 (kids) / €12 (family); dogs free",
+      dogFriendly: true,
+      walkersWelcome: true,
+      logoUrl: "/kennel-logos/lh3-pt.png",
+      facebookUrl: "https://www.facebook.com/groups/lisbonh3/",
+      instagramHandle: "lisbon_hash_house_harriers",
+      latitude: 38.7223, longitude: -9.1393,
+    },
+
     // ── Japan: Tokyo ──
     {
       kennelCode: "tokyo-h3", shortName: "Tokyo H3", fullName: "Tokyo Hash House Harriers", region: "Tokyo", country: "Japan",

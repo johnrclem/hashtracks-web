@@ -3665,6 +3665,25 @@ export const SOURCES = [
       kennelCodes: ["h7"],
     },
     {
+      name: "Lisbon H3 Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        // GUID is the most stable filter; kennelUniqueShortName "LH3-PT" returns
+        // the identical 27-event set (both verified 2026-06-07).
+        publicKennelId: "102bca91-1821-402d-a852-c64a51a1a2a1",
+        defaultKennelTag: "lh3-pt",
+        // LH3 pre-creates biweekly slots as "Placeholder event for LH3" and
+        // renames them as hares sign up → synthesize "Lisbon H3 #N" (mirrors Hamburg H7 #1166).
+        defaultTitle: "Lisbon H3",
+        staleTitleAliases: ["Placeholder event for LH3"],
+      },
+      kennelCodes: ["lh3-pt"],
+    },
+    {
       // Backfill-only provenance for the pre-HC archive (runs #≤706, 2021-2026).
       // Disabled: the kennel moved to Harrier Central, so there is no ongoing
       // Blogspot scrape. Historical events were one-shot loaded via
