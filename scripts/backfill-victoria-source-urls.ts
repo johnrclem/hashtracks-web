@@ -23,15 +23,16 @@ import { prisma } from "@/lib/db";
 import { VictoriaH3Adapter } from "@/adapters/html-scraper/victoria-h3";
 
 const ROOT_URL = "https://vh3.ca/";
+const SOURCE_NAME = "Victoria H3 Gamma Site";
 const KENNEL_CODES = ["vh3", "dsmh3", "vk9h3"] as const;
 const APPLY = process.env.BACKFILL_APPLY === "1";
 
 async function main() {
-  // 1. Re-run the adapter → per-event sourceUrl keyed by (kennelCode, run, date).
-  const result = await new VictoriaH3Adapter().fetch(
-    { url: ROOT_URL } as never,
-    { days: 400 },
-  );
+  // 1. Re-run the adapter (against the real Source row) → per-event sourceUrl
+  //    keyed by (kennelCode, run, date).
+  const source = await prisma.source.findFirst({ where: { name: SOURCE_NAME } });
+  if (!source) throw new Error(`Source "${SOURCE_NAME}" not found — run \`npx prisma db seed\``);
+  const result = await new VictoriaH3Adapter().fetch(source, { days: 400 });
   if (result.errors.length > 0) {
     throw new Error(`Adapter returned errors, aborting: ${result.errors.join("; ")}`);
   }
