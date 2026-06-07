@@ -20,16 +20,20 @@ import { createScriptPool } from "./db-pool";
  * Idempotent: a field already at `target` is a no-op.
  */
 
+/** A profile column value the runner can compare or write. Number supports `Int` columns (e.g. `foundedYear`). */
+type FieldValue = string | number;
+/** A writable target — a value, or `null` to clear the column. */
+type WritableValue = FieldValue | null;
+
 export interface FieldRewrite {
   /**
    * The value(s) the field is expected to currently hold (captured at
    * authoring). An array accepts any of several equivalent current values —
    * e.g. a dead URL that may be stored with either `http://` or `https://`.
-   * Numbers are supported for `Int` columns (e.g. `foundedYear`).
    */
-  expected: string | number | (string | number)[];
+  expected: FieldValue | FieldValue[];
   /** The value to write. `null` clears the column (e.g. a dead website URL). */
-  target: string | number | null;
+  target: WritableValue;
 }
 
 export interface ProfileOverride {
@@ -48,19 +52,19 @@ export interface RunProfileOverridesOptions {
 type KennelRow = Record<string, unknown> & { id: string; kennelCode: string };
 
 interface RewriteEvaluation {
-  updateData: Record<string, string | number | null>;
+  updateData: Record<string, WritableValue>;
   driftSkip: boolean;
 }
 
 function evaluateRewrites(kennel: KennelRow, rewrites: ProfileOverride["rewrites"]): RewriteEvaluation {
-  const updateData: Record<string, string | number | null> = {};
+  const updateData: Record<string, WritableValue> = {};
   let driftSkip = false;
   for (const [field, { expected, target }] of Object.entries(rewrites)) {
     const current = kennel[field];
-    const accepted: (string | number)[] = Array.isArray(expected) ? expected : [expected];
+    const accepted: FieldValue[] = Array.isArray(expected) ? expected : [expected];
     if (current === target) {
       console.log(`  · ${kennel.kennelCode}.${field} already correct.`);
-    } else if (accepted.includes(current as string | number)) {
+    } else if (accepted.includes(current as FieldValue)) {
       updateData[field] = target;
       console.log(`  ~ ${kennel.kennelCode}.${field}`);
       console.log(`      current: ${JSON.stringify(current)}`);

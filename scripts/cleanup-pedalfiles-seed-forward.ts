@@ -65,6 +65,60 @@ function toUtcDateStr(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
+interface PedalEvent {
+  id: string;
+  date: Date;
+  title: string | null;
+  sourceUrl: string | null;
+  _count: { rawEvents: number; attendances: number; kennelAttendances: number; hares: number };
+}
+
+/**
+ * Enumerate the LIVE source event dates via the GCal adapter (read-only). Aborts
+ * loud on adapter errors: the GCal adapter records API/HTTP failures in
+ * `result.errors` and returns whatever it collected rather than throwing — a
+ * quota/permission/outage error would yield an empty-or-partial set, making
+ * source-backed events look "absent from live" and (under --execute) eligible
+ * for deletion.
+ */
+async function enumerateLiveDates(source: { type: string; url: string; config: unknown }): Promise<Set<string>> {
+  const adapter = getAdapter(source.type as never, source.url, source.config as Record<string, unknown> | null);
+  const result = await adapter.fetch(source as never, { days: SCRAPE_DAYS });
+  if (result.errors.length > 0) {
+    throw new Error(
+      `Live source fetch reported errors — aborting before orphan classification:\n  ${result.errors.join("\n  ")}`,
+    );
+  }
+  const liveDates = new Set(result.events.map((e) => e.date));
+  const sortedDates = [...liveDates].sort((a, b) => a.localeCompare(b));
+  console.log(
+    `Live source: ${result.events.length} event(s); date range ` +
+      `${sortedDates[0] ?? "—"} → ${sortedDates.at(-1) ?? "—"}\n`,
+  );
+  return liveDates;
+}
+
+/** Log every event's provenance/live-presence; return the deletable orphans. */
+function classifyEvents(events: PedalEvent[], liveDates: Set<string>): PedalEvent[] {
+  const orphans: PedalEvent[] = [];
+  console.log(`Pedal Files events (${events.length}):`);
+  for (const e of events) {
+    const dateStr = toUtcDateStr(e.date);
+    const inLive = liveDates.has(dateStr);
+    // A deletable orphan is seed-only (no sourceUrl, no RawEvents) AND absent
+    // from the live source.
+    const isOrphan = e.sourceUrl === null && e._count.rawEvents === 0 && !inLive;
+    if (isOrphan) orphans.push(e);
+    console.log(
+      `  ${dateStr}  ${isOrphan ? "ORPHAN " : "keep   "}` +
+        `sourceUrl=${e.sourceUrl ? "yes" : "no"} raws=${e._count.rawEvents} ` +
+        `inLiveSource=${inLive ? "yes" : "no"} ` +
+        `att=${e._count.attendances} ka=${e._count.kennelAttendances} hares=${e._count.hares}  "${e.title}"`,
+    );
+  }
+  return orphans;
+}
+
 async function main() {
   if (!process.env.GOOGLE_CALENDAR_API_KEY) {
     throw new Error("GOOGLE_CALENDAR_API_KEY not set — `set -a && source .env` first.");
@@ -81,27 +135,8 @@ async function main() {
     const source = await prisma.source.findFirst({ where: { name: SOURCE_NAME } });
     if (!source) throw new Error(`Source "${SOURCE_NAME}" not found.`);
 
-    // 1. Enumerate the LIVE source dates (read-only adapter use).
-    const adapter = getAdapter(source.type, source.url, source.config as Record<string, unknown> | null);
-    const result = await adapter.fetch(source, { days: SCRAPE_DAYS });
-    // The GCal adapter records API/HTTP failures in `result.errors` and returns
-    // whatever it collected rather than throwing. A quota/permission/outage error
-    // would yield an empty-or-partial event set, making source-backed events look
-    // "absent from live" and (under --execute) eligible for deletion. Abort loud
-    // before classifying anything.
-    if (result.errors.length > 0) {
-      throw new Error(
-        `Live source fetch reported errors — aborting before orphan classification:\n  ${result.errors.join("\n  ")}`,
-      );
-    }
-    const liveDates = new Set(result.events.map((e) => e.date));
-    const sortedDates = [...liveDates].sort((a, b) => a.localeCompare(b));
-    console.log(
-      `Live source: ${result.events.length} event(s); date range ` +
-        `${sortedDates[0] ?? "—"} → ${sortedDates.at(-1) ?? "—"}\n`,
-    );
+    const liveDates = await enumerateLiveDates(source);
 
-    // 2. Classify every pedalfiles Event by provenance + live presence.
     const events = await prisma.event.findMany({
       where: { kennelId: kennel.id },
       select: {
@@ -114,22 +149,7 @@ async function main() {
       orderBy: { date: "asc" },
     });
 
-    const orphans: typeof events = [];
-    console.log(`Pedal Files events (${events.length}):`);
-    for (const e of events) {
-      const dateStr = toUtcDateStr(e.date);
-      const inLive = liveDates.has(dateStr);
-      const seedOnly = e.sourceUrl === null && e._count.rawEvents === 0;
-      const isOrphan = seedOnly && !inLive;
-      if (isOrphan) orphans.push(e);
-      console.log(
-        `  ${dateStr}  ${isOrphan ? "ORPHAN " : "keep   "}` +
-          `sourceUrl=${e.sourceUrl ? "yes" : "no"} raws=${e._count.rawEvents} ` +
-          `inLiveSource=${inLive ? "yes" : "no"} ` +
-          `att=${e._count.attendances} ka=${e._count.kennelAttendances} hares=${e._count.hares}  "${e.title}"`,
-      );
-    }
-
+    const orphans = classifyEvents(events, liveDates);
     if (orphans.length === 0) {
       console.log(
         `\nNo deletable orphans — every event is either source-backed (sourceUrl/RawEvents) ` +
@@ -144,13 +164,11 @@ async function main() {
       return;
     }
 
-    // 3. Race-safe delete; refuse any orphan that has accrued user data.
-    let deleted = 0;
+    // Race-safe delete; refuse any orphan that has accrued user data.
     for (const e of orphans) {
       await deleteLeakedEvent(prisma, e.id, ["attendances", "kennelAttendances", "hares"]);
-      deleted++;
     }
-    console.log(`\nDeleted ${deleted} orphan event(s).`);
+    console.log(`\nDeleted ${orphans.length} orphan event(s).`);
 
     const refreshed = await backfillLastEventDates();
     console.log(`Recomputed lastEventDate (${refreshed} kennel row(s) updated).`);

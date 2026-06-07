@@ -66,6 +66,44 @@ const TARGETS: { name: string; gated: boolean }[] = [
   { name: "Pittsburgh Hash Calendar", gated: true },
 ];
 
+/** Backfill one source. Returns true on any error (caller tracks exit code). */
+async function backfillOne(name: string): Promise<boolean> {
+  const source = await prisma.source.findFirst({ where: { name } });
+  if (!source) {
+    console.error(`✗ Source "${name}" not found — skipping.`);
+    return true;
+  }
+  if (source.type !== "GOOGLE_CALENDAR") {
+    console.error(`✗ Source "${name}" is ${source.type}, not GOOGLE_CALENDAR — skipping.`);
+    return true;
+  }
+  if (!EXECUTE) {
+    console.log(`  • would backfill "${name}" (id=${source.id}) with days=${BACKFILL_DAYS}`);
+    return false;
+  }
+
+  console.log(`\n→ Backfilling "${name}" (id=${source.id})…`);
+  const result = await scrapeSource(source.id, { days: BACKFILL_DAYS });
+  console.log(
+    `  success=${result.success} eventsFound=${result.eventsFound} ` +
+      `created=${result.created} updated=${result.updated} ` +
+      `skipped=${result.skipped} cancelled=${result.cancelled}`,
+  );
+  if (result.errors.length > 0) {
+    console.error(`  errors: ${result.errors.join("; ")}`);
+  }
+  // A wide pass must never cancel: the fetch is a superset of any narrower one,
+  // so an existing CONFIRMED canonical going orphaned means a real fetch/merge
+  // regression — fail loud rather than let the archive get silently CANCELLED.
+  if (result.cancelled > 0) {
+    console.error(
+      `  ⚠ ${result.cancelled} event(s) CANCELLED during a wide backfill pass — ` +
+        `this should be 0. Investigate before trusting the run.`,
+    );
+  }
+  return result.errors.length > 0 || result.cancelled > 0;
+}
+
 async function main() {
   if (!process.env.GOOGLE_CALENDAR_API_KEY) {
     throw new Error("GOOGLE_CALENDAR_API_KEY not set — `set -a && source .env` first.");
@@ -77,47 +115,10 @@ async function main() {
   // Explicit --source runs exactly that source (including a gated one, e.g. PGH
   // after the parser fix). The default run covers only non-gated targets.
   const names = SOURCE_FILTER ? [SOURCE_FILTER] : TARGETS.filter((t) => !t.gated).map((t) => t.name);
+
   let hadError = false;
-
   for (const name of names) {
-    const source = await prisma.source.findFirst({ where: { name } });
-    if (!source) {
-      console.error(`✗ Source "${name}" not found — skipping.`);
-      hadError = true;
-      continue;
-    }
-    if (source.type !== "GOOGLE_CALENDAR") {
-      console.error(`✗ Source "${name}" is ${source.type}, not GOOGLE_CALENDAR — skipping.`);
-      hadError = true;
-      continue;
-    }
-
-    if (!EXECUTE) {
-      console.log(`  • would backfill "${name}" (id=${source.id}) with days=${BACKFILL_DAYS}`);
-      continue;
-    }
-
-    console.log(`\n→ Backfilling "${name}" (id=${source.id})…`);
-    const result = await scrapeSource(source.id, { days: BACKFILL_DAYS });
-    console.log(
-      `  success=${result.success} eventsFound=${result.eventsFound} ` +
-        `created=${result.created} updated=${result.updated} ` +
-        `skipped=${result.skipped} cancelled=${result.cancelled}`,
-    );
-    if (result.errors.length > 0) {
-      console.error(`  errors: ${result.errors.join("; ")}`);
-      hadError = true;
-    }
-    // A wide pass must never cancel: the fetch is a superset of any narrower one,
-    // so an existing CONFIRMED canonical going orphaned means a real fetch/merge
-    // regression — fail loud rather than let the archive get silently CANCELLED.
-    if (result.cancelled > 0) {
-      console.error(
-        `  ⚠ ${result.cancelled} event(s) CANCELLED during a wide backfill pass — ` +
-          `this should be 0. Investigate before trusting the run.`,
-      );
-      hadError = true;
-    }
+    if (await backfillOne(name)) hadError = true;
   }
 
   if (!EXECUTE) {
