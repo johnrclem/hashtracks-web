@@ -102,7 +102,8 @@ describe("SamuraiH3Adapter", () => {
       expect(run!.date).toBe("2026-03-28");
       expect(run!.startTime).toBe("14:00");
       expect(run!.location).toBe("Shibuya Station");
-      expect(run!.hares).toBe("Hashimoto; Sweep: Sake Bomb");
+      // Sweep joins as a co-hare with no leaking "Sweep:" label (#1998).
+      expect(run!.hares).toBe("Hashimoto, Sake Bomb");
       expect(run!.runNumber).toBe(123);
       expect(run!.fee).toBe("1500 yen");
       expect(run!.note).toBe("Spring run");
@@ -161,6 +162,8 @@ describe("SamuraiH3Adapter", () => {
       const run = parseSamuraiRow(cells, columnMap);
       expect(run).not.toBeNull();
       expect(run!.runNumber).toBeUndefined();
+      // Hare with no sweep → just the hare name, no trailing separator (#1998).
+      expect(run!.hares).toBe("Hashimoto");
     });
   });
 
@@ -223,7 +226,7 @@ describe("SamuraiH3Adapter", () => {
       expect(run123!.startTime).toBe("14:00");
       expect(run123!.title).toBe("Samurai H3 #123");
       expect(run123!.kennelTags[0]).toBe("samurai-h3");
-      expect(run123!.hares).toBe("Hashimoto; Sweep: Sake Bomb");
+      expect(run123!.hares).toBe("Hashimoto, Sake Bomb");
 
       const run124 = result.events.find((e) => e.runNumber === 124);
       expect(run124).toBeDefined();

@@ -378,6 +378,41 @@ describe("HarrierCentralAdapter", () => {
       );
     });
 
+    it("nulls hares when multi-word haresText is an exact comma-prefix of location (#2021)", async () => {
+      // SG Sunday H3 #799 reproduction: hares "CO Blk 317A Jurong East Str 31"
+      // and location "CO Blk 317A Jurong East Str 31, Singapore". The hares has
+      // zero road-token signals ("blk"/"str" aren't in ADDRESS_TOKENS), so the
+      // two-signal substring heuristic missed it — but the location is exactly
+      // the hares plus ", Singapore", which the comma-prefix path catches.
+      mockApiResponse([
+        buildHCEvent({
+          hares: "CO Blk 317A Jurong East Str 31",
+          locationOneLineDesc: "CO Blk 317A Jurong East Str 31",
+          eventCityAndCountry: "Singapore",
+        }),
+      ]);
+      const result = await adapter.fetch(makeSource({ defaultKennelTag: "sh3-sg" }));
+      expect(result.events).toHaveLength(1);
+      expect(result.events[0].hares).toBeUndefined();
+      expect(result.events[0].location).toContain(
+        "CO Blk 317A Jurong East Str 31",
+      );
+    });
+
+    it("keeps a multi-word hare that is only a non-comma substring of location", async () => {
+      // Defensive companion to #2021: a real two-word hash name embedded in a
+      // longer venue ("George Park Bar") must survive — it is NOT an exact
+      // comma-prefix of the location, so the new path does not fire.
+      mockApiResponse([
+        buildHCEvent({
+          hares: "George Park",
+          locationOneLineDesc: "George Park Bar and Grill",
+        }),
+      ]);
+      const result = await adapter.fetch(makeSource({ defaultKennelTag: "tokyo-h3" }));
+      expect(result.events[0].hares).toBe("George Park");
+    });
+
     it("keeps hares when value is a substring of location but lacks address signals", async () => {
       // Defensive: a hare named after a street tile ("George") must NOT be
       // nulled just because the location contains the same word. The

@@ -414,6 +414,55 @@ function parseDogFriendly(value: string): boolean | undefined {
  *   - Hash Run No NNN (in <h3>)
  *   - Canonical date in <h2> (e.g. "Wednesday, April 22, 2026") — see #1155
  */
+/**
+ * Trailing US "<state> <zip>" matcher (e.g. " Tx 76040"). The two-letter state
+ * and 5-digit zip are the only unambiguous anchors in a comma-less address, so
+ * we leave the street/city boundary alone. Every quantifier is bounded (`\s{1,4}`,
+ * no unbounded `\s+`/`.*`) so the match is provably linear — clear of the
+ * ReDoS-shape analyzer (Sonar S5852).
+ */
+const STATE_ZIP_TAIL_RE = /\s([A-Za-z]{2})\s{1,4}(\d{5}(?:-\d{4})?)$/;
+
+/**
+ * Valid USPS state/territory codes. The matched two-letter token must be a real
+ * state before we treat the tail as "City ST ZIP" — otherwise a stray two-letter
+ * word before a zip ("… in 90210", "PO Box 12 in 90210") would be miscapitalized
+ * into a bogus state (codex review).
+ */
+const US_STATE_CODES = new Set([
+  "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
+  "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD",
+  "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ",
+  "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC",
+  "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY",
+  "DC", "PR", "VI", "GU", "AS", "MP",
+]);
+
+/**
+ * Normalize an inline, comma-less, lowercase-state address tail so it reads
+ * ", ST 12345" — e.g. "309 Maloney Court Euless Tx 76040" →
+ * "309 Maloney Court Euless, TX 76040". DFW's source publishes some addresses
+ * this way; without the comma + uppercase state the downstream "complete US
+ * address" guards in `suppressRedundantCity` (merge.ts) and `getLocationDisplay`
+ * miss it, so a reverse-geocoded city ("Rowlett, TX") gets appended and the map
+ * pin lands ~20 mi away in the wrong DFW city (#2020). Idempotent on
+ * already-formatted "City, TX 12345" input.
+ */
+export function normalizeStateZipTail(location: string): string {
+  const loc = location.trim();
+  const m = STATE_ZIP_TAIL_RE.exec(loc);
+  if (!m) return loc;
+  const state = m[1].toUpperCase();
+  if (!US_STATE_CODES.has(state)) return loc;
+  // Trim trailing spaces/commas procedurally (a regex `/[\s,]+$/` trips the
+  // ReDoS-shape analyzer even though it's linear — Sonar S5852).
+  let end = m.index;
+  while (end > 0 && " \t,".includes(loc[end - 1])) end--;
+  const prefix = loc.slice(0, end);
+  if (!prefix) return loc;
+  return `${prefix}, ${state} ${m[2]}`;
+}
+
 export function parseDFWDetailPage($: CheerioAPI): {
   title?: string;
   startTime?: string;
@@ -517,6 +566,7 @@ export function parseDFWDetailPage($: CheerioAPI): {
         result.location = `${venueName}, ${result.location}`;
       }
     }
+    result.location = normalizeStateZipTail(result.location);
   }
 
   return result;

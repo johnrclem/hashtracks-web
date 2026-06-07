@@ -18,6 +18,7 @@ import { fetchWordPressPosts } from "../wordpress-api";
 import {
   applyDateWindow,
   chronoParseDate,
+  cleanLocationName,
   htmlToNewlineText,
   parsePublishDate,
 } from "../utils";
@@ -73,6 +74,26 @@ export function parseKCH3Time(timeStr?: string): string {
 }
 
 /**
+ * Drop a leading parenthetical *label* from a captured location — but only when
+ * the parenthetical is immediately followed (after spaces) by a colon, i.e. it
+ * was a "Location (label): venue" annotation. A parenthetical that is part of
+ * the venue itself ("(near the fountain) Central Park", no following colon) is
+ * left intact. Procedural (no regex) so the location-matching regexes stay
+ * simple and linear (#2019).
+ */
+export function stripLeadingParenLabel(value: string): string {
+  if (!value.startsWith("(")) return value;
+  const close = value.indexOf(")");
+  if (close === -1) return value;
+  let i = close + 1;
+  while (i < value.length && (value[i] === " " || value[i] === "\t")) i++;
+  if (value[i] !== ":") return value; // not a label — leave the venue paren alone
+  i++; // skip the colon
+  while (i < value.length && (value[i] === " " || value[i] === "\t")) i++;
+  return value.slice(i).trim();
+}
+
+/**
  * Parse labeled fields from a KCH3 post body.
  *
  * Extracts meetup time, hash cash, hare(s), and location from the free-text
@@ -103,7 +124,12 @@ export function parseKCH3Body(text: string): {
     /Location:?\s*(.+?)(?=\n|$)/i.exec(text) ||
     /Start:?\s*(.+?)(?=\n|$)/i.exec(text) ||
     /Where:?\s*(.+?)(?=\n|$)/i.exec(text);
-  const location = locMatch ? locMatch[1].trim() : undefined;
+  // Strip a parenthetical label that precedes the colon — e.g.
+  // "Location (also prelube and on-after): Helen's J.A.D. ..." captures
+  // "(also prelube and on-after): Helen's …"; drop the leading label so it
+  // doesn't leak into the venue (#2019). Done procedurally to keep the regexes
+  // above unchanged (and linear — no ReDoS-shape groups).
+  const location = locMatch ? stripLeadingParenLabel(locMatch[1].trim()) : undefined;
 
   return { time, hashCash, hares, location };
 }
@@ -147,12 +173,19 @@ export function processKCH3Post(
     .replace(/^\d{1,2}\s+\w+\s*(?:\d{4}\s*)?/i, "")
     .trim() || titleText;
 
+  // Normalize the venue through the shared cleaner (strips residual labels,
+  // map anchors, qualifiers). `null` = explicit clear; preserve `undefined`
+  // when the post had no Location field so the merge UPDATE path keeps any
+  // existing value.
+  const location =
+    body.location === undefined ? undefined : cleanLocationName(body.location);
+
   return {
     date: dateStr,
     kennelTags: [kennelTag],
     title: trailName,
     hares: body.hares,
-    location: body.location,
+    location,
     startTime,
     sourceUrl: postUrl,
     description: body.hashCash ? `Hash Cash: ${body.hashCash}` : undefined,

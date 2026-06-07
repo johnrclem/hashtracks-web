@@ -4,6 +4,7 @@ import {
   parseKCH3Body,
   resolveKennelTag,
   processKCH3Post,
+  stripLeadingParenLabel,
   KCH3Adapter,
 } from "./kch3";
 import * as wordpressApi from "../wordpress-api";
@@ -124,6 +125,34 @@ Short-ish trail with possible Bar Audibles
   it("extracts location from Where: label", () => {
     const body = "Where: Swope Park Woodchuck trailhead";
     expect(parseKCH3Body(body).location).toBe("Swope Park Woodchuck trailhead");
+  });
+
+  it("strips a parenthetical label between 'Location' and the colon (#2019)", () => {
+    const body =
+      "Location (also prelube and on-after): Helen's J.A.D. – 2002 Armour Rd, North Kansas City, MO 64116";
+    expect(parseKCH3Body(body).location).toBe(
+      "Helen's J.A.D. – 2002 Armour Rd, North Kansas City, MO 64116",
+    );
+  });
+});
+
+describe("stripLeadingParenLabel", () => {
+  it("strips a leading '(label):' annotation", () => {
+    expect(stripLeadingParenLabel("(also prelube and on-after): Helen's J.A.D.")).toBe(
+      "Helen's J.A.D.",
+    );
+  });
+
+  it("preserves a leading parenthetical that is part of the venue (no following colon)", () => {
+    expect(stripLeadingParenLabel("(near the fountain) Central Park")).toBe(
+      "(near the fountain) Central Park",
+    );
+  });
+
+  it("leaves a value with no leading parenthetical untouched", () => {
+    expect(stripLeadingParenLabel("Macken Park 1002 Clark Ferguson Dr")).toBe(
+      "Macken Park 1002 Clark Ferguson Dr",
+    );
   });
 });
 

@@ -132,14 +132,16 @@ export function parseSamuraiRow(
 
   const hareVal = getCell(cells, columnMap, "hare");
   const sweepVal = getCell(cells, columnMap, "sweep");
-  const hareParts = [hareVal, sweepVal ? `Sweep: ${sweepVal}` : null].filter(Boolean);
+  // The "Sweep:" column header is a UI label, not part of the name — emit the
+  // sweep as a co-hare without leaking the label into haresText (#1998).
+  const hareParts = [hareVal, sweepVal].filter(Boolean);
 
   return {
     date,
     startTime,
     runNumber: runNumber && !Number.isNaN(runNumber) ? runNumber : undefined,
     location: getCell(cells, columnMap, "venue"),
-    hares: hareParts.length > 0 ? hareParts.join("; ") : undefined,
+    hares: hareParts.length > 0 ? hareParts.join(", ") : undefined,
     fee: getCell(cells, columnMap, "fee"),
     note: getCell(cells, columnMap, "note"),
     train: getCell(cells, columnMap, "train"),

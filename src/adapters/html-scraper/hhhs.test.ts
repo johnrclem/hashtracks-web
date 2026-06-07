@@ -152,6 +152,18 @@ describe("HHHSAdapter", () => {
         }),
       ).toBe("HHHS Trail #3294");
     });
+
+    it("never emits the un-shortened 'Hash House Harriers Singapore' prefix (#2025)", () => {
+      // The 'Hash House Harriers Singapore H3 Trail #N' titles in #2025 were
+      // stale canonical ghosts, not live adapter output. buildTitle always
+      // uses the short 'HHHS' kennelCode prefix, which merge.ts rewrites to
+      // 'Singapore H3' via friendlyKennelName — so the banner form can never
+      // originate here. (Stuck rows were corrected by
+      // scripts/cleanup-hhhs-stale-title.ts.)
+      const title = buildTitle({ date: "2026-07-06", runNumber: 3310 });
+      expect(title).toBe("HHHS Trail #3310");
+      expect(title).not.toContain("Hash House Harriers");
+    });
   });
 
   describe("parseHHHSRow", () => {

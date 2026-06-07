@@ -758,6 +758,50 @@ describe("extractDetailPageDate", () => {
     expect(detail.location).toBe("123 Main St, Dallas");
   });
 
+  it("normalizes a comma-less lowercase-state address tail so no wrong city is appended (#2020)", () => {
+    // Fort Worth H3 run #1060: source publishes the Euless address inline with
+    // no comma before the state and a lowercase "Tx". Without the comma + zip
+    // tail, downstream guards miss it and ", Rowlett, TX" gets appended.
+    const html = `
+      <html><body>
+        <h3>Hash Run No 1060</h3>
+        <h5><em>Start address:</em> 309 Maloney Court Euless Tx 76040</h5>
+      </body></html>
+    `;
+    const $ = cheerio.load(html);
+    const detail = parseDFWDetailPage($);
+
+    expect(detail.location).toBe("309 Maloney Court Euless, TX 76040");
+  });
+
+  it("does not treat a trailing 2-letter non-state word as a state (#2020 hardening)", () => {
+    // A street ending in "St" with only a zip (no city/state) must be left
+    // alone — "St" is not a state, so it must not become ", ST 75001".
+    const html = `
+      <html><body>
+        <h3>Hash Run No 1062</h3>
+        <h5><em>Start address:</em> 123 Main St 75001</h5>
+      </body></html>
+    `;
+    const $ = cheerio.load(html);
+    const detail = parseDFWDetailPage($);
+
+    expect(detail.location).toBe("123 Main St 75001");
+  });
+
+  it("leaves an already comma-formatted state+zip tail unchanged (idempotent #2020)", () => {
+    const html = `
+      <html><body>
+        <h3>Hash Run No 1061</h3>
+        <h5><em>Start address:</em> 309 Maloney Court, Euless, TX 76040</h5>
+      </body></html>
+    `;
+    const $ = cheerio.load(html);
+    const detail = parseDFWDetailPage($);
+
+    expect(detail.location).toBe("309 Maloney Court, Euless, TX 76040");
+  });
+
   it("does not set venue as location when no address exists", () => {
     const html = `
       <html><body>
