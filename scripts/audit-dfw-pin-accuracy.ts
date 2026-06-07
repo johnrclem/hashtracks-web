@@ -36,8 +36,8 @@ import { normalizeStateZipTail } from "@/adapters/html-scraper/dfw-hash";
 import { suppressRedundantCity } from "@/pipeline/merge";
 
 const KENNEL_CODES = ["dh3-tx", "duhhh", "noduhhh", "fwh3", "yakh3"];
-const MIN_DIVERGENCE_KM = 1.0; // pins closer than this are accurate enough
-const MAX_DIVERGENCE_KM = 15.0; // never relocate a pin further than this (bad-geocode guard)
+const MIN_DIVERGENCE_KM = 1; // pins closer than this are accurate enough
+const MAX_DIVERGENCE_KM = 15; // never relocate a pin further than this (bad-geocode guard)
 
 const ZIP_RE = /\b(\d{5})(?:-\d{4})?\b/;
 const LEADING_NUMBER_RE = /\b(\d{1,6})\b/; // first house/street number in the address
@@ -58,6 +58,57 @@ interface Divergence {
   formattedAddress: string;
   zipConfirmed: boolean;
   streetConfirmed: boolean;
+}
+
+interface DfwEvent {
+  id: string;
+  kennelId: string;
+  runNumber: number | null;
+  dateUtc: Date | null;
+  locationName: string | null;
+  locationCity: string | null;
+  latitude: number | null;
+  longitude: number | null;
+}
+
+type EvalResult =
+  | { kind: "embedded" }
+  | { kind: "failed" }
+  | { kind: "below" }
+  | { kind: "flagged"; divergence: Divergence };
+
+/** Re-geocode one event's address and classify it against its stored pin. */
+async function evaluateEvent(e: DfwEvent, codeById: Map<string, string>): Promise<EvalResult> {
+  const loc = e.locationName ?? "";
+  if (EMBEDDED_COORDS_RE.test(loc)) return { kind: "embedded" };
+  const geo = await geocodeAddress(normalizeStateZipTail(loc), { regionBias: "us" });
+  if (!geo) return { kind: "failed" };
+  // The query filters latitude/longitude non-null; narrow without a `!` assertion.
+  const { latitude, longitude } = e;
+  if (latitude === null || longitude === null) return { kind: "failed" };
+  const dist = haversineDistance(latitude, longitude, geo.lat, geo.lng);
+  if (dist <= MIN_DIVERGENCE_KM) return { kind: "below" };
+
+  const fa = geo.formattedAddress ?? "";
+  const zip = ZIP_RE.exec(loc)?.[1];
+  const streetNo = LEADING_NUMBER_RE.exec(loc)?.[1];
+  return {
+    kind: "flagged",
+    divergence: {
+      eventId: e.id,
+      label: `${codeById.get(e.kennelId)} #${e.runNumber ?? "?"} ${e.dateUtc?.toISOString().slice(0, 10) ?? "?"}`,
+      locationName: loc,
+      storedCity: e.locationCity,
+      storedLat: latitude, storedLng: longitude,
+      freshLat: geo.lat, freshLng: geo.lng,
+      distanceKm: dist,
+      formattedAddress: fa,
+      zipConfirmed: !!zip && fa.includes(zip),
+      // Token-split (not RegExp(variable)) so the leading house number must
+      // appear as a standalone numeric token in the fresh address.
+      streetConfirmed: !!streetNo && fa.split(/\D+/).includes(streetNo),
+    },
+  };
 }
 
 async function main() {
@@ -93,32 +144,11 @@ async function main() {
     let checked = 0;
 
     for (const e of events) {
-      const loc = e.locationName ?? "";
-      if (EMBEDDED_COORDS_RE.test(loc)) { skippedEmbedded++; continue; }
-      const normalized = normalizeStateZipTail(loc);
-      const geo = await geocodeAddress(normalized, { regionBias: "us" });
+      const r = await evaluateEvent(e, codeById);
+      if (r.kind === "embedded") { skippedEmbedded++; continue; }
       checked++;
-      if (!geo) { geocodeFailed++; continue; }
-      const dist = haversineDistance(e.latitude!, e.longitude!, geo.lat, geo.lng);
-      if (dist <= MIN_DIVERGENCE_KM) continue;
-
-      const fa = geo.formattedAddress ?? "";
-      const zip = ZIP_RE.exec(loc)?.[1];
-      const streetNo = LEADING_NUMBER_RE.exec(loc)?.[1];
-      flagged.push({
-        eventId: e.id,
-        label: `${codeById.get(e.kennelId)} #${e.runNumber ?? "?"} ${e.dateUtc?.toISOString().slice(0, 10) ?? "?"}`,
-        locationName: loc,
-        storedCity: e.locationCity,
-        storedLat: e.latitude!, storedLng: e.longitude!,
-        freshLat: geo.lat, freshLng: geo.lng,
-        distanceKm: dist,
-        formattedAddress: fa,
-        zipConfirmed: !!zip && fa.includes(zip),
-        // Token-split (not RegExp(variable)) so the leading house number must
-        // appear as a standalone numeric token in the fresh address.
-        streetConfirmed: !!streetNo && fa.split(/\D+/).includes(streetNo),
-      });
+      if (r.kind === "failed") { geocodeFailed++; continue; }
+      if (r.kind === "flagged") flagged.push(r.divergence);
     }
 
     flagged.sort((a, b) => b.distanceKm - a.distanceKm);

@@ -82,7 +82,7 @@ export function parseKCH3Time(timeStr?: string): string {
  * simple and linear (#2019).
  */
 export function stripLeadingParenLabel(value: string): string {
-  if (value[0] !== "(") return value;
+  if (!value.startsWith("(")) return value;
   const close = value.indexOf(")");
   if (close === -1) return value;
   let i = close + 1;
@@ -178,7 +178,7 @@ export function processKCH3Post(
   // when the post had no Location field so the merge UPDATE path keeps any
   // existing value.
   const location =
-    body.location !== undefined ? cleanLocationName(body.location) : undefined;
+    body.location === undefined ? undefined : cleanLocationName(body.location);
 
   return {
     date: dateStr,
