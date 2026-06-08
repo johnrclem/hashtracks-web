@@ -701,6 +701,12 @@ export const SOURCES = [
         defaultKennelTag: "bogs-h3",
         defaultStartTime: "19:15",
         locationOmitIfMatches: BRISTOL_LOCATION_OMIT,
+        // Col 3 is "location + theme" — BOGS appends a day-name/theme to the
+        // venue ("T.B.A. World Orienteering Day", "World Brain Day Hare
+        // wanted"). Real venues always carry a UK postcode, so when none is
+        // present the cell is theme/CTA text, not a geocodable venue — clear it
+        // rather than letting it leak into locationName (#1259).
+        locationRequiresPostcode: true,
       },
       kennelCodes: ["bogs-h3"],
     },
@@ -789,12 +795,18 @@ export const SOURCES = [
       config: sfh3IcalConfig,
       kennelCodes: sfh3KennelCodes,
     },
-    // Bay Area HTML scraper (sfh3.com hareline — enrichment/fallback)
+    // Bay Area HTML scraper (sfh3.com hareline).
+    // trustLevel 9 (> the iCal feed's 8) so its richer "What"-column trail
+    // names win the canonical title. The kennels=all .ics SUMMARY strips trail
+    // names to a bare "GPH3 #1711" (no subsite exists for GPH3 — NXDOMAIN), so
+    // the hareline is the only source carrying e.g. "Just What You'd Expect From
+    // a Moron". This is the broader Option B of #1031 (the EBH3 fix used a
+    // kennel-owned subsite at trust 9; GPH3 has none) — see #1291.
     {
       name: "SFH3 MultiHash HTML Hareline",
       url: "https://www.sfh3.com/runs?kennels=all",
       type: "HTML_SCRAPER" as const,
-      trustLevel: 7,
+      trustLevel: 9,
       scrapeFreq: "daily",
       scrapeDays: 90,
       config: sfh3Config,

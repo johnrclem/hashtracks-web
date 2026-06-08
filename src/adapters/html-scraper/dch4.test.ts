@@ -6,8 +6,13 @@ import * as wordpressApi from "../wordpress-api";
 vi.mock("../wordpress-api");
 
 describe("parseDch4Title", () => {
+  // Representative publish dates for year-less titles (announcements post ~days
+  // before the run, so the publish month anchors the inferred year).
+  const febPub = new Date("2026-02-01T12:00:00Z");
+  const octPub = new Date("2026-10-01T12:00:00Z");
+
   it("parses standard title with 2-digit year", () => {
-    const result = parseDch4Title("DCH4 Trail# 2298 - 2/7/26 @ 2pm", 2026);
+    const result = parseDch4Title("DCH4 Trail# 2298 - 2/7/26 @ 2pm", febPub);
     expect(result).toEqual({
       runNumber: 2298,
       date: "2026-02-07",
@@ -16,8 +21,8 @@ describe("parseDch4Title", () => {
     });
   });
 
-  it("parses title without year (uses reference year)", () => {
-    const result = parseDch4Title("DCH4 Trail# 2299 - 2/14 @ 2pm", 2026);
+  it("parses title without year (infers from publish date)", () => {
+    const result = parseDch4Title("DCH4 Trail# 2299 - 2/14 @ 2pm", febPub);
     expect(result).toEqual({
       runNumber: 2299,
       date: "2026-02-14",
@@ -27,7 +32,7 @@ describe("parseDch4Title", () => {
   });
 
   it("parses title with theme suffix", () => {
-    const result = parseDch4Title("DCH4 Trail# 2224 - 2/17 @ 2pm - SWILL TEAM SIX!!", 2026);
+    const result = parseDch4Title("DCH4 Trail# 2224 - 2/17 @ 2pm - SWILL TEAM SIX!!", febPub);
     expect(result).toEqual({
       runNumber: 2224,
       date: "2026-02-17",
@@ -37,7 +42,7 @@ describe("parseDch4Title", () => {
   });
 
   it("parses title with 3pm summer time", () => {
-    const result = parseDch4Title("DCH4 Trail# 2243 - 8/24/24 @ 3pm", 2024);
+    const result = parseDch4Title("DCH4 Trail# 2243 - 8/24/24 @ 3pm", new Date("2024-08-01T12:00:00Z"));
     expect(result).toEqual({
       runNumber: 2243,
       date: "2024-08-24",
@@ -47,7 +52,7 @@ describe("parseDch4Title", () => {
   });
 
   it("parses title with 10am morning time", () => {
-    const result = parseDch4Title("DCH4 Trail# 1926 - 10/15 @ 10am", 2026);
+    const result = parseDch4Title("DCH4 Trail# 1926 - 10/15 @ 10am", octPub);
     expect(result).toEqual({
       runNumber: 1926,
       date: "2026-10-15",
@@ -56,9 +61,27 @@ describe("parseDch4Title", () => {
     });
   });
 
+  it("(#1074) a December run resurfacing in a Feb post resolves to the PRIOR December, not a future one", () => {
+    // The zombie: "DCH4 Trail# 2294 - 12/20 @ 5pm" posted 2026-02-22 was stamped
+    // 2026-12-20 (future) because the year defaulted to the current year. With
+    // publish-date inference it lands on 2025-12-20 (past), so it can't become a
+    // future zombie that outranks the real latest run (#2310).
+    const result = parseDch4Title("DCH4 Trail# 2294 - 12/20 @ 5pm", new Date("2026-02-22T12:00:00Z"));
+    expect(result).not.toBeNull();
+    expect(result!.runNumber).toBe(2294);
+    expect(result!.date).toBe("2025-12-20");
+  });
+
+  it("(#1074) a year-end run announced in late December rolls forward to January", () => {
+    // Closest-to-publish handles the rollover: a "1/4" run posted Dec 28 2026 is
+    // Jan 4 2027 (7 days later), not Jan 4 2026 (~358 days earlier).
+    const result = parseDch4Title("DCH4 Trail# 2400 - 1/4 @ 2pm", new Date("2026-12-28T12:00:00Z"));
+    expect(result!.date).toBe("2027-01-04");
+  });
+
   it("returns null for unparseable title", () => {
-    expect(parseDch4Title("Random post title", 2026)).toBeNull();
-    expect(parseDch4Title("Hash Trash Week 3", 2026)).toBeNull();
+    expect(parseDch4Title("Random post title", febPub)).toBeNull();
+    expect(parseDch4Title("Hash Trash Week 3", febPub)).toBeNull();
   });
 });
 

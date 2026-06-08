@@ -230,8 +230,10 @@ export function parseEh3EventBlock(
       }
     }
 
-    // Field extraction
-    const h = extractField(line, "Hares?", "Hare");
+    // Field extraction. DivaH3 (#1178) labels the hare row "Hostess and hare:"
+    // rather than "Hare(s):" — accept hostess/host variants so the hare isn't
+    // dropped. Order: try the explicit hare labels first, then the hostess forms.
+    const h = extractField(line, "Hares?", "Hare", "Hostess(?: and hare)?", "Host");
     if (h) { hares = h; continue; }
 
     // OSH3 (page 425) labels the meeting point "Address: …" rather than

@@ -31,6 +31,7 @@ export interface GenericHtmlConfig {
   defaultKennelTag: string;
   dateLocale?: DateLocale;    // "en-US" | "en-GB" — defaults to "en-US"
   locationTruncateAfter?: "uk-postcode";  // truncate location at first UK postcode match
+  locationRequiresPostcode?: boolean;      // with locationTruncateAfter="uk-postcode": when NO postcode is present, clear the location (it's theme/CTA text, not a geocodable venue — BOGS col 3, #1259)
   locationOmitIfMatches?: string[];        // regex strings; trimmed location matching any pattern is dropped (TBA, "Contact X to set this run", etc.)
   defaultStartTime?: string;               // "HH:MM" fallback when page doesn't have per-event times
   defaultStartTimeByKennel?: Record<string, string>; // per-kennelTag "HH:MM" map; takes precedence over defaultStartTime when the row's kennelTag matches a key

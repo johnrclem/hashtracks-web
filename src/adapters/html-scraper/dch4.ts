@@ -6,6 +6,41 @@ import { fetchWordPressPosts } from "../wordpress-api";
 import { applyDateWindow } from "../utils";
 
 /**
+ * Infer the run year for a year-less DCH4 title from the post's publish date.
+ *
+ * DCH4 trail announcements are posted shortly before the run, so the run's
+ * M/D lands closest to the publish date. We pick the candidate year
+ * (pubY-1 / pubY / pubY+1) whose date is nearest the publish date, skipping
+ * rolled-over candidates (e.g. Feb 29 in a non-leap year). This is the fix for
+ * the #1074 zombie: an old December run that resurfaces in a later post was
+ * being stamped into a *future* December because the year defaulted to the
+ * current year. See reference_yearless_date_infer_closest_to_publish.
+ */
+export function inferDch4Year(month: number, day: number, publishDate: Date): number {
+  const pubMs = publishDate.getTime();
+  const pubY = publishDate.getUTCFullYear();
+  let best = pubY;
+  let bestDiff = Number.POSITIVE_INFINITY;
+  for (const y of [pubY - 1, pubY, pubY + 1]) {
+    const cand = new Date(Date.UTC(y, month - 1, day, 12, 0, 0));
+    // Skip rolled-over candidates (JS Date silently rolls invalid dates forward).
+    if (
+      cand.getUTCFullYear() !== y ||
+      cand.getUTCMonth() !== month - 1 ||
+      cand.getUTCDate() !== day
+    ) {
+      continue;
+    }
+    const diff = Math.abs(cand.getTime() - pubMs);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      best = y;
+    }
+  }
+  return best;
+}
+
+/**
  * Parse a DCH4 post title into structured fields.
  *
  * Standard format: "DCH4 Trail# 2299 - 2/14 @ 2pm"
@@ -13,8 +48,11 @@ import { applyDateWindow } from "../utils";
  *   "DCH4 Trail# 2298 - 2/7/26 @ 2pm"
  *   "DCH4 Trail# 2224 - 2/17 @ 2pm - SWILL TEAM SIX!!"
  *   "DCH4 Trail 1926: 10/15 10am MD Renaissance Festival"
+ *
+ * `publishDate` is the post's publish date (WordPress API `date`); year-less
+ * titles infer their year from it (see `inferDch4Year`).
  */
-export function parseDch4Title(title: string, referenceYear: number): {
+export function parseDch4Title(title: string, publishDate: Date): {
   runNumber?: number;
   date?: string;
   startTime?: string;
@@ -31,7 +69,7 @@ export function parseDch4Title(title: string, referenceYear: number): {
     const runNumber = parseInt(standard[1], 10);
     const month = parseInt(standard[2], 10);
     const day = parseInt(standard[3], 10);
-    let year = standard[4] ? parseInt(standard[4], 10) : referenceYear;
+    let year = standard[4] ? parseInt(standard[4], 10) : inferDch4Year(month, day, publishDate);
     if (year < 100) year += 2000;
 
     let hours = parseInt(standard[5], 10);
@@ -114,9 +152,9 @@ function processPost(
   bodyText: string,
   postUrl: string,
   baseUrl: string,
-  currentYear: number,
+  publishDate: Date,
 ): RawEventData | null {
-  const parsed = parseDch4Title(titleText, currentYear);
+  const parsed = parseDch4Title(titleText, publishDate);
   if (!parsed || !parsed.date) return null;
 
   const bodyFields = parseDch4Body(bodyText);
@@ -190,12 +228,15 @@ export class DCH4Adapter implements SourceAdapter {
     if (wpResult.error) return null;
 
     const events: RawEventData[] = [];
-    const currentYear = new Date().getFullYear();
 
     for (const post of wpResult.posts) {
       const $ = cheerio.load(post.content);
       const bodyText = $.text();
-      const event = processPost(post.title, bodyText, post.url, baseUrl, currentYear);
+      // Year-less titles infer their year from the post's publish date (#1074).
+      // Fall back to "now" if the API omitted/garbled the date.
+      const parsedDate = post.date ? new Date(post.date) : new Date();
+      const publishDate = Number.isNaN(parsedDate.getTime()) ? new Date() : parsedDate;
+      const event = processPost(post.title, bodyText, post.url, baseUrl, publishDate);
       if (event) events.push(event);
     }
 
@@ -239,7 +280,9 @@ export class DCH4Adapter implements SourceAdapter {
 
     const structureHash = generateStructureHash(html);
     const $ = cheerio.load(html);
-    const currentYear = new Date().getFullYear();
+    // HTML fallback exposes no per-post publish date; anchor year inference to
+    // "now". The WordPress API path (primary) carries real publish dates.
+    const publishDate = new Date();
 
     // Find all article post entries
     const articles = $("article.post, article.type-post, article[class*='post-'], .hentry").toArray();
@@ -255,7 +298,7 @@ export class DCH4Adapter implements SourceAdapter {
 
       const contentEl = article.find(".entry-content, .post-content").first();
       const bodyText = contentEl.text() || "";
-      const event = processPost(titleText, bodyText, postUrl, baseUrl, currentYear);
+      const event = processPost(titleText, bodyText, postUrl, baseUrl, publishDate);
       if (event) events.push(event);
     }
 

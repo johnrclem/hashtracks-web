@@ -243,6 +243,23 @@ describe("parseEh3EventBlock", () => {
       expect(result!.date).toBe("2026-03-13");
       expect(result!.hares).toBe("Lucky Diva");
     });
+
+    it("extracts hares from the 'Hostess and hare:' label (#1178)", () => {
+      // The live DivaH3 page (437) labels the hare row "Hostess and hare: …"
+      // rather than "Hare(s):" — verbatim from www.eh3.org/divah3/ run on
+      // Friday March 13, 2026. Without the hostess label the hare was dropped.
+      const lines = [
+        "Friday, March 13, 2026 – Divas jump into Spring a bit early",
+        "Location: 437 Butchart drive",
+        "Hostess and hare: Passion Pit",
+        "Time: Gather 6:30 pm. Stroll 7 pm. Run like a March hare if you wish.",
+      ];
+      const result = parseEh3EventBlock(lines, "divah3-eh3", "19:00");
+      expect(result).not.toBeNull();
+      expect(result!.title).toBe("Divas jump into Spring a bit early");
+      expect(result!.date).toBe("2026-03-13");
+      expect(result!.hares).toBe("Passion Pit");
+    });
   });
 
   describe("RASH (rash-eh3)", () => {

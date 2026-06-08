@@ -143,12 +143,19 @@ export function parseEventRow(
   const title = extractText($, $row, columns.title);
   const rawHares = extractText($, $row, columns.hares);
   const hares = rawHares && !CTA_HARES_RE.test(rawHares) ? rawHares : undefined;
-  let location = extractText($, $row, columns.location);
+  let location: string | null | undefined = extractText($, $row, columns.location);
   // UK postcode truncation: strip driving directions after postcode
   if (config.locationTruncateAfter === "uk-postcode" && location) {
     const postcodeMatch = UK_POSTCODE_RE.exec(location);
     if (postcodeMatch) {
       location = location.slice(0, postcodeMatch.index! + postcodeMatch[0].length).trim();
+    } else if (config.locationRequiresPostcode) {
+      // No postcode → the cell is theme/day-name/CTA text rather than a
+      // geocodable venue (e.g. BOGS col 3 "T.B.A. World Orienteering Day",
+      // "World Brain Day Hare wanted" — #1259). Real venues on these sources
+      // always carry a UK postcode, so clear it. `null` = explicit clear so a
+      // previously-stored venue is overwritten, not preserved.
+      location = null;
     }
   }
   // Drop placeholder/CTA location strings (e.g., "T.B.A.", "Contact X to set this run")

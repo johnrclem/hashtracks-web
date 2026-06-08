@@ -4,6 +4,7 @@ import { hasAnyErrors } from "../types";
 import {
   applyDateWindow,
   chronoParseDate,
+  cleanLocationName,
   CTA_EMBEDDED_PATTERNS,
   decodeEntities,
   fetchHTMLPage,
@@ -79,8 +80,10 @@ function splitCellSegments(raw: string): string[] {
 const PHUKET_DIRECTIONS_RE =
   /(?:Coming from|From the|Heading|Head toward|Turn (?:left|right)|Go past|Continue|Follow|The run|GPS\s*:)[\s\S]*/i;
 
-/** Placeholder-only venue values that should resolve to undefined location. */
-const PHUKET_PLACEHOLDER_VENUE_RE = /^(?:location:\s*tbc|tbc|tbd)$/i;
+/** The source occasionally labels the venue cell "Location: <venue>" — strip the
+ * leading label so the cleaner sees the bare venue (and so a "Location: Tbc"
+ * placeholder resolves to a clear, not a literal string). */
+const PHUKET_LOCATION_LABEL_RE = /^location\s*:\s*/i;
 
 /**
  * Hare-recruitment CTA the source drops into the HARES column when no hare has
@@ -114,17 +117,24 @@ function parsePhuketHares(cell: string | undefined): string | null | undefined {
   return normalizeHaresField([...real].sort((a, b) => a.localeCompare(b)).join(", ")) ?? null;
 }
 
-/** Location cell → venue (first <br>-segment, directions stripped) + description (remaining segments). */
+/** Location cell → venue (first <br>-segment, directions stripped) + description (remaining segments).
+ *  The venue is run through the shared `cleanLocationName` (#1240): it strips
+ *  CTA/URL/emoji residue and returns `null` for placeholder-only values
+ *  (TBC/TBD/"Location: Tbc"), which the merge pipeline treats as an explicit
+ *  clear. The remaining <br>-segments (OnOn / theme / bus schedule) go to the
+ *  description. */
 function parsePhuketLocationCell(cell: string | undefined): {
-  location?: string;
+  location?: string | null;
   description?: string;
 } {
   if (!cell) return {};
   const segments = splitCellSegments(cell);
   if (segments.length === 0) return {};
-  const venue = segments[0].replace(PHUKET_DIRECTIONS_RE, "").trim();
-  const location =
-    venue.length > 0 && !PHUKET_PLACEHOLDER_VENUE_RE.test(venue) ? venue : undefined;
+  const venueRaw = segments[0]
+    .replace(PHUKET_DIRECTIONS_RE, "")
+    .replace(PHUKET_LOCATION_LABEL_RE, "")
+    .trim();
+  const location = cleanLocationName(venueRaw);
   const rest = segments.slice(1).filter(Boolean);
   const description = rest.length > 0 ? rest.join("\n") : undefined;
   return { location, description };
