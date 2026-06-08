@@ -28,7 +28,7 @@ import { runOneShot, findKennelId } from "./lib/one-shot";
 const KENNEL = { lat: 55.68, lng: 12.57 };
 const MAX_KM = 200;
 
-runOneShot(async ({ prisma, apply }) => {
+void runOneShot(async ({ prisma, apply }) => {
   const kennelId = await findKennelId(prisma, "ch4-dk");
   if (!kennelId) return;
 
@@ -44,7 +44,9 @@ runOneShot(async ({ prisma, apply }) => {
   for (const e of events) {
     try {
       // Prefer the fuller street address when present, else the venue name.
-      const address = e.locationStreet || e.locationName!;
+      // The query guarantees locationName is non-null; `|| ""` keeps the type
+      // `string` without a non-null assertion (geocodeAddress no-ops on "").
+      const address = e.locationStreet || e.locationName || "";
       const geo = await geocodeAddress(address, { regionBias: "dk" });
       if (!geo) {
         console.log(`  #${e.runNumber} ${e.id}: geocode null for ${JSON.stringify(address)} — skipping.`);

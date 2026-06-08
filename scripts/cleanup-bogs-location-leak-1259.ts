@@ -23,7 +23,7 @@ import { runOneShot, findKennelId } from "./lib/one-shot";
 // Same shape as UK_POSTCODE_RE in generic.ts.
 const UK_POSTCODE_RE = /[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}/i;
 
-runOneShot(async ({ prisma, apply }) => {
+void runOneShot(async ({ prisma, apply }) => {
   const kennelId = await findKennelId(prisma, "bogs-h3");
   if (!kennelId) return;
 

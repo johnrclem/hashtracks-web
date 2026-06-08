@@ -27,7 +27,7 @@ import { runOneShot, findKennelId } from "./lib/one-shot";
 const GENERIC_TITLE = "HK H3 Weekly Run";
 const GENERIC_LOCATION = "Hong Kong";
 
-runOneShot(async ({ prisma, apply }) => {
+void runOneShot(async ({ prisma, apply }) => {
   const kennelId = await findKennelId(prisma, "hkh3");
   if (!kennelId) return;
 

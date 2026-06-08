@@ -19,7 +19,7 @@ import { runOneShot, findKennelId } from "./lib/one-shot";
 
 const HARE = "Passion Pit";
 
-runOneShot(async ({ prisma, apply }) => {
+void runOneShot(async ({ prisma, apply }) => {
   const kennelId = await findKennelId(prisma, "divah3-eh3");
   if (!kennelId) return;
 

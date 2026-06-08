@@ -30,7 +30,7 @@ import { cascadeDeleteEvents } from "./lib/cascade-delete";
 import { backfillLastEventDates } from "@/pipeline/backfill-last-event";
 import { runOneShot, findKennelId } from "./lib/one-shot";
 
-runOneShot(async ({ prisma, apply }) => {
+void runOneShot(async ({ prisma, apply }) => {
   const kennelId = await findKennelId(prisma, "dch4");
   if (!kennelId) return;
 
