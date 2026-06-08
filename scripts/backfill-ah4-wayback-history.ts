@@ -202,11 +202,11 @@ export function hasExplicitEventDate(title: string, body: string, refDate: Date)
     }
   }
   // Step 2 — title date, after the same prefix/run-number stripping.
-  const normalized = title.replace(/·/g, "•");
+  const normalized = title.replaceAll("·", "•");
   const afterBullet = normalized.includes("•")
     ? normalized.split("•").pop()!.trim()
     : title;
-  const titleClean = afterBullet.replace(/#\d+/g, "").trim();
+  const titleClean = afterBullet.replaceAll(/#\d+/g, "").trim();
   return chronoParseDate(titleClean, "en-US", refDate, { forwardDate: true }) !== null;
 }
 
@@ -289,18 +289,14 @@ async function harvestTopic(snap: TopicSnapshot): Promise<HarvestResult> {
   return { isAh4: true, event: buildAh4Event(html) };
 }
 
-async function fetchEvents(): Promise<RawEventData[]> {
-  console.log("  Querying Wayback CDX for archived board.atlantahash.com topics...");
-  const cdx = await fetchText(CDX_URL);
-  if (!cdx) {
-    throw new Error("Wayback CDX query failed (no response after retries).");
-  }
-  const snapshots = parseViewtopicCdx(cdx);
-  console.log(
-    `  ${snapshots.length} distinct archived topic(s) across all forums — ` +
-      `filtering to AH4 (f=${AH4_FORUM_ID})...`,
-  );
+interface HarvestSummary {
+  events: RawEventData[];
+  /** Count of topics whose breadcrumb forum was AH4 (with or without a date). */
+  ah4Topics: number;
+}
 
+/** Fetch + parse every snapshot in politeness-delayed batches. */
+async function harvestAllTopics(snapshots: TopicSnapshot[]): Promise<HarvestSummary> {
   const events: RawEventData[] = [];
   let ah4Topics = 0;
   for (let i = 0; i < snapshots.length; i += BATCH_SIZE) {
@@ -313,17 +309,36 @@ async function fetchEvents(): Promise<RawEventData[]> {
     }
     await sleep(POLITENESS_DELAY_MS);
   }
+  return { events, ah4Topics };
+}
+
+/** BACKFILL_DUMP=1 prints every harvested row (date | #run | sourceUrl) — used
+ *  to diff a guarded run against what a prior run already wrote to prod. */
+function dumpEvents(events: RawEventData[]): void {
+  if (process.env.BACKFILL_DUMP !== "1") return;
+  for (const e of [...events].sort((a, b) => a.date.localeCompare(b.date))) {
+    console.log(`  DUMP ${e.date} | #${e.runNumber ?? "?"} | ${e.sourceUrl ?? "—"}`);
+  }
+}
+
+async function fetchEvents(): Promise<RawEventData[]> {
+  console.log("  Querying Wayback CDX for archived board.atlantahash.com topics...");
+  const cdx = await fetchText(CDX_URL);
+  if (!cdx) {
+    throw new Error("Wayback CDX query failed (no response after retries).");
+  }
+  const snapshots = parseViewtopicCdx(cdx);
+  console.log(
+    `  ${snapshots.length} distinct archived topic(s) across all forums — ` +
+      `filtering to AH4 (f=${AH4_FORUM_ID})...`,
+  );
+
+  const { events, ah4Topics } = await harvestAllTopics(snapshots);
   console.log(
     `  ${ah4Topics} archived AH4 topic(s); recovered ${events.length} with an explicit body/title date ` +
       `(${ah4Topics - events.length} skipped — no explicit date / reply / no first post).`,
   );
-  // BACKFILL_DUMP=1 prints every harvested row (date | #run | sourceUrl) — used
-  // to diff a guarded run against what a prior run already wrote to prod.
-  if (process.env.BACKFILL_DUMP === "1") {
-    for (const e of [...events].sort((a, b) => a.date.localeCompare(b.date))) {
-      console.log(`  DUMP ${e.date} | #${e.runNumber ?? "?"} | ${e.sourceUrl ?? "—"}`);
-    }
-  }
+  dumpEvents(events);
   return events;
 }
 
