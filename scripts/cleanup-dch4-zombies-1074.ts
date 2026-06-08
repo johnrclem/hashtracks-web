@@ -12,11 +12,15 @@
  * row the reconciler won't touch (HTML_SCRAPER reconcile against a wider window
  * would cancel legitimate past runs). This script removes it in place.
  *
- * Signature (re-runnable, not id-pinned): a future-dated DCH4 event whose run
- * number is absent OR <= the highest *past* run number. A genuine future run
- * always has a higher number than every past run, so this only ever matches
- * mis-dated rows. (Co-hosted events primary-owned by another kennel — e.g. the
- * DCFMH3 "Super Cold Moon" full-moon trail — are scoped out by Event.kennelId.)
+ * Signature (re-runnable, not id-pinned): a future-dated DCH4 event with a
+ * run number <= the highest *past* run number. A genuine future WordPress run
+ * always has a higher number than every past run, so this only matches
+ * mis-dated rows. We require a non-null runNumber on purpose: the dch4.org
+ * WordPress title regex always yields one, whereas the Hash Rego source
+ * (seeded for dch4) emits run-number-less registrations/campouts — those are
+ * legitimate future events and must NOT be swept up (Codex review). Co-hosted
+ * events primary-owned by another kennel (e.g. the DCFMH3 "Super Cold Moon"
+ * full-moon trail) are already scoped out by Event.kennelId.
  *
  * Run:
  *   Dry-run: set -a && source .env && set +a && BACKFILL_ALLOW_SELF_SIGNED_CERT=1 npx tsx scripts/cleanup-dch4-zombies-1074.ts
@@ -45,8 +49,8 @@ runOneShot(async ({ prisma, apply }) => {
     orderBy: { date: "asc" },
   });
 
-  const zombies = future.filter((e) => e.runNumber == null || e.runNumber <= maxPastRun);
-  console.log(`Future DCH4 events: ${future.length}; zombies (run# absent or <= #${maxPastRun}): ${zombies.length}`);
+  const zombies = future.filter((e) => e.runNumber != null && e.runNumber <= maxPastRun);
+  console.log(`Future DCH4 events: ${future.length}; zombies (run# present and <= #${maxPastRun}): ${zombies.length}`);
   for (const e of zombies) {
     console.log(
       `  DELETE  ${e.id}  ${e.date.toISOString().slice(0, 10)}  run=${e.runNumber ?? "—"}  ${JSON.stringify(e.title)}`,
