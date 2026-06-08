@@ -69,7 +69,7 @@ export function parseDch4Title(title: string, publishDate: Date): {
     const runNumber = parseInt(standard[1], 10);
     const month = parseInt(standard[2], 10);
     const day = parseInt(standard[3], 10);
-    let year = standard[4] ? parseInt(standard[4], 10) : inferDch4Year(month, day, publishDate);
+    let year = standard[4] ? Number.parseInt(standard[4], 10) : inferDch4Year(month, day, publishDate);
     if (year < 100) year += 2000;
 
     let hours = parseInt(standard[5], 10);

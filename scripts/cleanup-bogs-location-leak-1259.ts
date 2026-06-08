@@ -33,7 +33,7 @@ runOneShot(async ({ prisma, apply }) => {
     orderBy: { date: "asc" },
   });
 
-  const leaks = events.filter((e) => !UK_POSTCODE_RE.test(e.locationName!));
+  const leaks = events.filter((e) => e.locationName != null && !UK_POSTCODE_RE.test(e.locationName));
   console.log(`bogs-h3 events with a locationName: ${events.length}; non-postcode leaks: ${leaks.length}`);
   for (const e of leaks) {
     console.log(`  CLEAR  #${e.runNumber} ${e.id}  ${JSON.stringify(e.locationName)} → null`);

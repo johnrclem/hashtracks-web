@@ -40,13 +40,21 @@ runOneShot(async ({ prisma, apply }) => {
   // Run numbers that appear on more than one distinct date = duplicated.
   const datesByRun = new Map<number, Set<string>>();
   for (const e of events) {
+    const run = e.runNumber;
+    if (run == null) continue; // the query excludes nulls; this narrows the type
     const day = e.date.toISOString().slice(0, 10);
-    (datesByRun.get(e.runNumber!) ?? datesByRun.set(e.runNumber!, new Set()).get(e.runNumber!)!).add(day);
+    let days = datesByRun.get(run);
+    if (!days) {
+      days = new Set();
+      datesByRun.set(run, days);
+    }
+    days.add(day);
   }
   const dupRuns = new Set([...datesByRun].filter(([, days]) => days.size > 1).map(([run]) => run));
-  const toReset = events.filter((e) => dupRuns.has(e.runNumber!));
+  const toReset = events.filter((e) => e.runNumber != null && dupRuns.has(e.runNumber));
 
-  console.log(`Duplicated run numbers: ${[...dupRuns].map((r) => `#${r}`).join(", ") || "(none)"}`);
+  const dupLabel = [...dupRuns].map((r) => "#" + r).join(", ") || "(none)";
+  console.log(`Duplicated run numbers: ${dupLabel}`);
   console.log(`Events to reset to generic placeholder: ${toReset.length}`);
   for (const e of toReset) {
     console.log(
