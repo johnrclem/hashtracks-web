@@ -3,6 +3,10 @@ import { extractHares } from "./hare-extraction";
 
 type ExpectedRow = readonly [label: string, desc: string, expected: string];
 type UndefinedRow = readonly [label: string, desc: string];
+// A NullRow asserts the tri-state CLEAR signal: a candidate was captured but
+// recognized as a non-hare, so extractHares returns `null` (clear stale
+// canonical haresText) — distinct from `undefined` (no candidate at all).
+type NullRow = readonly [label: string, desc: string];
 
 interface ExpectedGroup {
   describe: string;
@@ -14,6 +18,12 @@ interface UndefinedGroup {
   describe: string;
   template: string;
   table: ReadonlyArray<UndefinedRow>;
+}
+
+interface NullGroup {
+  describe: string;
+  template: string;
+  table: ReadonlyArray<NullRow>;
 }
 
 const EXPECTED_GROUPS: ExpectedGroup[] = [
@@ -207,63 +217,82 @@ const EXPECTED_GROUPS: ExpectedGroup[] = [
   },
 ];
 
-const UNDEFINED_GROUPS: UndefinedGroup[] = [
+// CLEAR cases: a candidate WAS captured from a label/pattern but recognized as
+// a non-hare. extractHares returns `null` so the merge tri-state scrubs a stale
+// canonical haresText (self-heal — replaces the manual post-#2032 SQL cleanup).
+const NULL_GROUPS: NullGroup[] = [
   {
-    describe: "extractHares — negative / filtered cases",
-    template: "returns undefined for %s",
+    describe: "extractHares — captured-but-rejected non-hare cases (explicit clear, #2032)",
+    template: "returns null for %s",
     table: [
+      // Generic "who is the hare" answers (GENERIC_WHO_ANSWER_RE).
       ["generic 'that be you'", "Who: that be you"],
       ["'everyone'", "Who: everyone"],
-      ["no hare info present", "No hare info here"],
+      // Prepositional / verb prose leak after a real label (PROSE_PREFIX_RE).
       ["preposition 'at' prefix", "Hare: at the corner of 5th and Main"],
       ["preposition 'from' prefix", "Hare: from the old pub to the new one"],
-      ["false-match 'hare off at'", "Pack off at 7:30, hare off at 7:15"],
       ["song lyric after 'Hare drop'", "Some intro\nHare drop another for the prince of this\nMore lyrics"],
-      // #1584 — natural-language "Hares are X" pattern is liberal by design
-      // (Austin H3 #2278). These prose forms must NOT promote to a hare list.
-      // First-word denylist (HARES_ARE_PROSE_FIRST_WORD_RE) rejects each.
+      // #1584 — natural-language "Hares are X" placeholder forms. First-word
+      // denylist (HARES_ARE_PROSE_FIRST_WORD_RE) — these are "hare needed"
+      // placeholders, which types.ts says SHOULD clear stale hare text.
       ["'Hares are Needed for volunteers'", "Hares are Needed for July volunteers."],
       ["'Hares are Welcome'", "Hares are Welcome at the pool party."],
       ["'Hares are Wanted'", "Hares are Wanted — apply within."],
       ["'Hares are Going to set early'", "Hares are Going to set early."],
       ["'Hares are Looking for help'", "Hares are Looking for help."],
-      // Plural forms — Gemini PR #1612 review: `Volunteer\b` does NOT match
-      // "Volunteers" because `s` is a word char. Denylist now uses
-      // `Volunteers?` / `Needs?` to cover both singular + plural.
+      // Plural forms — Gemini PR #1612 review: `Volunteers?` / `Needs?`.
       ["'Hares are Volunteers for July'", "Hares are Volunteers for July."],
       ["'Hares are Needs more volunteers'", "Hares are Needs more volunteers."],
-      // Case-insensitive — Codex P2 review: all-caps "NEEDED" must reject
-      // too. Denylist regex now uses /i.
+      // Case-insensitive (Codex P2 review): all-caps placeholder forms.
       ["all-caps 'Hares are NEEDED for July'", "Hares are NEEDED for July."],
       ["all-caps 'Hares are WELCOME at the party'", "Hares are WELCOME at the party."],
-      // Verb-form lowercase rejection — the `[A-Z*]` regex anchor already
-      // bars these; this confirms it.
-      ["'Hares are getting ready'", "Hares are getting ready for the trail."],
-      ["'Hares are running tomorrow'", "Hares are running tomorrow."],
-      // #1615 mid-sentence follow-up — denylist must still reject prose
-      // forms after a sentence terminator + space.
+      // #1615 mid-sentence follow-up.
       ["mid-sentence 'Hares are Needed'", "Sign up now! Hares are Needed for July."],
       ["mid-sentence 'Hares are Welcome'", "Bring friends. Hares are Welcome to the pool party."],
+      // #2008 PGH H3 / #2032 — a bare kennel code (ends in H<digit>) is the
+      // kennel name, never a hash name (BARE_KENNEL_CODE_RE). These are the
+      // exact prod values scrubbed by hand after #2032; emitting null makes the
+      // next scrape self-heal them.
+      ["bare kennel code 'Who: PGHH3'", "Who: PGHH3"],
+      ["bare kennel code 'Hares: NYCH3'", "Hares: NYCH3"],
+      ["#2032 cfh3 'Hares: DTWH3'", "Hares: DTWH3"],
+      ["#2032 bjh3 'Who: EPH3'", "Who: EPH3"],
+      ["#2032 nah3 'Hares: DMCH3'", "Hares: DMCH3"],
+      ["#2032 nych3 'Who: NYH3'", "Who: NYH3"],
+      ["#2032 dh3 'Hares: DH3'", "Hares: DH3"],
+    ],
+  },
+];
+
+const UNDEFINED_GROUPS: UndefinedGroup[] = [
+  {
+    describe: "extractHares — no-candidate cases (preserve existing)",
+    template: "returns undefined for %s",
+    table: [
+      ["no hare info present", "No hare info here"],
+      // No label at line start, so no candidate is ever captured.
+      ["false-match 'hare off at'", "Pack off at 7:30, hare off at 7:15"],
+      // Verb-form lowercase — the `[A-Z*]` regex anchor bars the capture, so
+      // nothing is captured at all (no signal → preserve, NOT clear).
+      ["'Hares are getting ready'", "Hares are getting ready for the trail."],
+      ["'Hares are running tomorrow'", "Hares are running tomorrow."],
       ["mid-sentence lowercase 'the hares are bringing'", "Tonight the hares are bringing dogs and friends."],
       // #1981 role-header family — prose that mentions "hare"/"perpetrator" but
-      // is NOT a labeled hare line (no colon) must NOT promote. Regression guard
-      // for the new The-Hare / Perpetrator patterns.
+      // is NOT a labeled hare line (no colon). No capture → preserve.
       ["prose 'the hare set a cracking trail'", "Last week the hare set a cracking trail through the park."],
       ["prose 'thanks to the hare'", "Big thanks to the hare from last week."],
       ["prose 'we chased the hares'", "We chased the hares through the park for hours."],
       ["prose 'Perpetrators of' (no colon)", "Perpetrators of the great beer theft remain at large."],
       ["banner 'The Hare' with no name (no colon)", "🐾 The Hare"],
-      // #2008 PGH H3 — the calendar's "Who:" line carries the kennel code, not
-      // a hare ("Who: PGHH3"). A bare kennel-code token (ends in H<digit>) is
-      // never a hash name — reject it rather than surfacing "PGHH3" as hares.
-      ["bare kennel code 'Who: PGHH3'", "Who: PGHH3"],
-      ["bare kennel code 'Hares: NYCH3'", "Hares: NYCH3"],
     ],
   },
   {
     describe: "extractHares — adversarial prose protection under label-only header",
     template: "%s does not pollute hares",
     table: [
+      // Label-only header whose continuation is all prose/field-labels → the
+      // captured value is empty after cleaning → undefined (no candidate), not
+      // a clear: a blank "Hares:" header shouldn't wipe a hare another source set.
       ["sentence-like prose", "Hares:\nBring a flashlight.\nMeet at the park."],
       ["lines containing colons (unrecognized field labels)", "Hares:\nNote: see FB for details\nDistance: 5k"],
     ],
@@ -282,6 +311,14 @@ for (const group of UNDEFINED_GROUPS) {
   describe(group.describe, () => {
     it.each(group.table.map((row) => [...row]))(group.template, (_label, desc) => {
       expect(extractHares(desc as string)).toBeUndefined();
+    });
+  });
+}
+
+for (const group of NULL_GROUPS) {
+  describe(group.describe, () => {
+    it.each(group.table.map((row) => [...row]))(group.template, (_label, desc) => {
+      expect(extractHares(desc as string)).toBeNull();
     });
   });
 }
@@ -305,10 +342,18 @@ describe("extractHares — custom patterns", () => {
   });
 
   it.each([
+    // No custom pattern matches → no candidate captured → undefined (preserve).
     ["custom patterns replace defaults — Hare: no longer matches", "Hare: Mudflap", [LAID_BY]],
-    ["still filters generic answers with custom patterns", "Laid by: everyone", [LAID_BY]],
   ] as const)("%s", (_label, desc, patterns) => {
     expect(extractHares(desc, [...patterns])).toBeUndefined();
+  });
+
+  it.each([
+    // Custom pattern DOES match but the value is a generic non-hare answer →
+    // null (clear), same tri-state as the default patterns.
+    ["still filters generic answers with custom patterns", "Laid by: everyone", [LAID_BY]],
+  ] as const)("%s", (_label, desc, patterns) => {
+    expect(extractHares(desc, [...patterns])).toBeNull();
   });
 });
 
@@ -386,6 +431,8 @@ describe("extractHares — description-sentence trailer strip (#1551 Wasatch)", 
 });
 
 describe("extractHares — date-range rejection (#1547 ABQ)", () => {
+  // A captured value that is a campout date range is a recognized non-hare, so
+  // it returns null (clear) — the label matched, the value is junk.
   it.each([
     {
       name: "weekday + slash-date range rejected",
@@ -400,7 +447,7 @@ describe("extractHares — date-range rejection (#1547 ABQ)", () => {
       desc: "Who: 12/31 - 1/2",
     },
   ])("$name", ({ desc }) => {
-    expect(extractHares(desc)).toBeUndefined();
+    expect(extractHares(desc)).toBeNull();
   });
 });
 

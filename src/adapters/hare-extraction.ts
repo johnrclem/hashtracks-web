@@ -203,10 +203,15 @@ function collectContinuationLines(normalized: string, match: RegExpExecArray): s
 
 /**
  * Apply trimming, punctuation/asterisk truncation, boilerplate/phone/label
- * regexes, and the final prepositional/generic filters. Returns undefined if
- * the candidate fails a filter (caller should try the next pattern).
+ * regexes, and the final prepositional/generic filters. Tri-state return:
+ * - `string` — a usable hare candidate.
+ * - `null` — a candidate WAS captured but is a recognized non-hare (generic
+ *   answer, prose, placeholder, bare kennel code, date range). Signals the
+ *   merge pipeline to CLEAR a stale canonical `haresText` (self-healing).
+ * - `undefined` — no usable candidate (empty after cleaning, or an over-long
+ *   description leak). "No signal" — the merge pipeline preserves existing.
  */
-function cleanAndFilterHares(raw: string): string | undefined {
+function cleanAndFilterHares(raw: string): string | null | undefined {
   let hares = raw
     .replace(LEADING_HARE_LABEL_RE, "")
     .trim()
@@ -260,14 +265,21 @@ function cleanAndFilterHares(raw: string): string | undefined {
     }
   }
 
-  if (GENERIC_WHO_ANSWER_RE.test(hares)) return undefined;
-  if (PROSE_PREFIX_RE.test(hares)) return undefined;
-  if (HARES_ARE_PROSE_FIRST_WORD_RE.test(hares)) return undefined;
+  // Content-rejection filters: a candidate was captured but is a recognized
+  // non-hare. Return `null` (explicit clear) — not `undefined` — so a stale
+  // canonical `haresText` self-heals on the next scrape instead of needing a
+  // manual cleanup (the bare-kennel-code residue scrubbed by hand after #2032).
+  if (GENERIC_WHO_ANSWER_RE.test(hares)) return null;
+  if (PROSE_PREFIX_RE.test(hares)) return null;
+  if (HARES_ARE_PROSE_FIRST_WORD_RE.test(hares)) return null;
   // Bare kennel-code reject (#2008 PGH H3 "Who: PGHH3").
-  if (BARE_KENNEL_CODE_RE.test(hares)) return undefined;
+  if (BARE_KENNEL_CODE_RE.test(hares)) return null;
   // Date-range rejection (#1547 ABQ): "Friday 5/22-Monday 5/25" is a campout
   // date range, not a hare name.
-  if (DATE_RANGE_RE.test(hares)) return undefined;
+  if (DATE_RANGE_RE.test(hares)) return null;
+  // No usable candidate (empty after cleaning) or an over-long description leak:
+  // `undefined` = "no signal", so the merge pipeline preserves any existing hare
+  // rather than clearing it on a low-confidence parse artifact.
   if (hares.length === 0 || hares.length >= MAX_HARES_LEN) return undefined;
   return hares;
 }
@@ -277,10 +289,15 @@ function cleanAndFilterHares(raw: string): string | undefined {
  * Accepts pre-compiled RegExp[] or raw string[] (compiled on the fly for one-off use).
  * The adapter fetch() pre-compiles once per scrape for efficiency.
  */
-export function extractHares(description: string, customPatterns?: string[] | RegExp[]): string | undefined {
+export function extractHares(description: string, customPatterns?: string[] | RegExp[]): string | null | undefined {
   const normalized = description.replaceAll(LABEL_COLON_REJOIN_RE, "$1:");
   const patterns = selectPatterns(customPatterns);
 
+  // Tri-state: a real hare string wins immediately. A recognized non-hare
+  // candidate sets `sawRejection`, so we emit an explicit `null` (clear) only
+  // when no later pattern yields a real name; absent any candidate we return
+  // `undefined` (no signal — merge preserves existing). See RawEventData.hares.
+  let sawRejection = false;
   for (const pattern of patterns) {
     const match = pattern.exec(normalized);
     if (!match) continue;
@@ -290,10 +307,11 @@ export function extractHares(description: string, customPatterns?: string[] | Re
     if (!raw) raw = collectContinuationLines(normalized, match);
 
     const cleaned = cleanAndFilterHares(raw);
-    if (cleaned) return mergeCoHareIfPresent(cleaned, normalized);
+    if (typeof cleaned === "string") return mergeCoHareIfPresent(cleaned, normalized);
+    if (cleaned === null) sawRejection = true;
   }
 
-  return undefined;
+  return sawRejection ? null : undefined;
 }
 
 /** Token-set containment: every word in `b` already appears (case-insensitive)
