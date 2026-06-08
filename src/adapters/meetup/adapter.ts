@@ -574,19 +574,27 @@ export function buildRawEventFromApollo(
   // pattern for kennels like CHH3 that always write "Hares - X". See #953.
   // Shared extractor is tri-state: a string is a real hare, `null` is an
   // explicit "this field is a non-hare, clear it" signal (#2032 self-heal),
-  // `undefined` is no signal. The `??` chain below would swallow that `null`
-  // (treats it like `undefined`), so capture it separately and reinstate it as
-  // the last-resort result when no source yields a real name.
+  // `undefined` is no signal. Only fall through to the weaker Meetup-local
+  // parser when the shared extractor gives NO signal — it lacks the
+  // bare-kennel-code / placeholder filtering, so letting it run on a `null`
+  // (or string) verdict could resurrect a value the shared extractor
+  // deliberately rejected. `??` can't express this (it treats `null` as a
+  // fall-through), so branch on `!== undefined` explicitly.
   const sharedDescHares = descForHares ? extractHaresFromDescription(descForHares) : undefined;
-  const descHares = sharedDescHares ?? extractHaresFromMeetupDescription(descForHares);
+  const descHares =
+    sharedDescHares !== undefined
+      ? sharedDescHares
+      : extractHaresFromMeetupDescription(descForHares);
 
   // Final fallback (#1270): some kennels (FEH3) embed the hare line directly in
   // the Meetup *title* and leave the description hare-less. Only consult the
-  // title when neither description path produced hares.
-  const fromTitle = descHares ? undefined : extractTitleHares(ev.title);
-  // Real hare (any source) wins; otherwise preserve the shared extractor's
-  // explicit `null` clear; otherwise `undefined` (no signal).
-  const hares = descHares ?? fromTitle?.hares ?? sharedDescHares;
+  // title when the description parsers gave no signal at all — a real hare
+  // (string) and an explicit clear (null) both win over the title.
+  const fromTitle = descHares === undefined ? extractTitleHares(ev.title) : undefined;
+  // Preserve the description verdict verbatim (string OR null); only when it
+  // was `undefined` do we adopt the title hare. A plain `??` here would collapse
+  // the `null` clear back to `undefined` (clear lost — Gemini PR #2038 review).
+  const hares = descHares === undefined ? fromTitle?.hares : descHares;
   const titleForDisplay = fromTitle?.title ?? ev.title;
   const cleanedDesc = cleanMeetupDescription(ev.description, state);
 
