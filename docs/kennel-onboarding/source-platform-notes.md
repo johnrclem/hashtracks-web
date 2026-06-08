@@ -414,3 +414,43 @@ static club site but with three differences from Bangkok Monday, all confirmed b
   is per-year Google My-Maps links, `history.html` is milestone prose, and the Blogspot recap blog
   (`whatcanisayaboutthiselixir.blogspot.com`) is **dead since 2020** (#2085, free-form prose, run# only in
   category tags). For sites like this, the live forward hareline is the whole deliverable — no backfill.
+
+## Harrier Central — config-only onboard + placeholder-venue geocode sentinels (learned from Lisbon H3, 2026-06-07)
+
+The `HARRIER_CENTRAL` adapter already exists (`src/adapters/harrier-central/adapter.ts`, registered in
+`registry.ts`); onboarding an HC kennel is **config-only** — no new adapter code. Mirror the nearest
+existing HC source (Hamburg H7 `sources.ts`): `publicKennelId` GUID filter (more stable than
+`kennelUniqueShortName` or `cityNames`), `defaultKennelTag`, `defaultTitle` + `staleTitleAliases` for
+the kennel's placeholder-title rows, `trustLevel:8`, `scrapeFreq:"daily"`, `scrapeDays:365`, single
+`kennelCodes`. **`upcomingOnly` is OMITTED on every HC source** — HC `getEvents` returns future-only and
+the established HC kennels survive reconciliation without it; do not add it.
+
+- **`getEvents` is future-only — no backfill from HC.** The API exposes only upcoming events (earliest is
+  ~6 days out). A high run number (LH3's #1016) implies a deep history, but HC won't serve it — check for
+  a separate archive (Blogspot/WordPress/Sheet); if none, there is no backfill (LH3 had none).
+- **Sandbox can't resolve the Azure host.** `harriercentralpublicapi.azurewebsites.net` is allowlist-blocked
+  from the research sandbox (`EAI_AGAIN`); the daily run captures the verbatim event sample via a **browser
+  page-context fetch** (Chrome MCP) and flags "Claude Code: reconfirm `adapter.fetch(source)` from local
+  env" — where the host is reachable. Routine.
+- **🔴 Placeholder venues: dropping the default pin is a TWO-part change.** Kennels that announce venues
+  day-of pre-create slots with placeholder location strings ("TBD", "No location provided", "ANNOUNCED
+  LATER via Hares") and HC pairs them all with ONE region-default pin (LH3: all 27 events at
+  `38.7227,-9.1449`). Two independent code paths read those fields:
+  - **Coords** — `hcGeocodeFailed(place, resolvable)` gates whether the API lat/lng are dropped (+
+    `dropCachedCoords:true` so the merge re-geocodes). It originally only fired when `place === resolvable`
+    (catches `"TBD"=="TBD"` but NOT empty-place + `"No location provided"`).
+  - **Location text** — `composeHcLocation` builds `event.location` *independently* (never calls
+    `hcGeocodeFailed`); its `stripTba` drops only "TBA", not "TBD"/"No location provided"/etc.
+
+  So "extend the sentinels to drop coords" **alone is a half-fix** — coords get dropped but the placeholder
+  string still lands in `event.location` and the merge stores + geocodes it as meaningless text (the merge's
+  `sanitizeLocation` only filters generic TBA/TBD). The complete fix is a shared `GEOCODE_FAIL_SENTINELS`
+  set (normalized, exact-match, **Set lookup not regex** → Sonar-clean) driving BOTH paths: `hcGeocodeFailed`
+  (drop coords) AND `composeHcLocation` via `stripPlaceholderLocation` (drop the text → row renders
+  unlocated, map falls back to the region centroid). Result for LH3: 26/27 unlocated, 0 fake pins.
+- **Seed the sentinel set with the whole family**, not one kennel's literal:
+  `tbd`/`tbc`/`to be determined`/`to be confirmed`/`to be announced`/`no location provided`/`announced
+  later via hares` (UK/Ireland HC kennels use "TBC" heavily). It's a shared adapter concern and the
+  config-free path for the next HC kennel.
+- **Suppression is EXACT-MATCH** — a coarse-but-real location ("Portugal", a bare city name) must survive
+  (a country name geocodes to a country centroid; better than nothing). Don't broaden to substring/prefix.

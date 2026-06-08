@@ -50,7 +50,7 @@ sessions hit them; cloud routines can't. Live debugging is also faster locally.
 |---|---|
 | `daily-onboarding-prompt.md` | The operating manual the daily Cowork run executes. Edit to change the workflow. |
 | `target-queue.md` | Ranked backlog. **Cooperatively editable** — reorder/add/strike rows anytime. |
-| `source-platform-notes.md` | Self-improving platform memory. Daily run consults + appends. Currently covers Squarespace, Wix, WordPress.com. |
+| `source-platform-notes.md` | Self-improving platform memory. Daily run consults + appends. Covers Squarespace, Wix, WordPress.com, Meetup, Ghost, Google Sites + Sheets, Blogger/Blogspot, Gamma, bespoke static club sites, and Harrier Central. |
 | `handoffs/<date>-<kennel>.md` | One complete onboarding package per run, with the `▶ FOR CLAUDE CODE` directive at the top. |
 | `run-log.md` | Append-only log of each run's outcome. |
 | `claude-code-routine.md` | **Parked** alternate — cloud-hosted Claude Code routine. See its top note. |
