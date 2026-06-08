@@ -130,13 +130,28 @@ async function main() {
   console.log(`Fetching full WordPress archive from ${BASE_URL} …`);
   const posts = await fetchAllWordPressPosts(BASE_URL, { perPage: 100 });
   console.log(`  Fetched ${posts.length} posts (all categories).`);
+  // Abort BEFORE any processing if the fetch came back empty (API/network
+  // failure). Otherwise the curated extras alone would survive the later
+  // `events.length === 0` check and overwrite the frozen archive with 4 rows,
+  // wiping the 442 historical runs.
+  if (posts.length === 0) {
+    throw new Error(
+      "Fetched 0 posts from WordPress API — aborting to avoid overwriting the frozen history.",
+    );
+  }
 
   const events: RawEventData[] = [];
   let skipped = 0;
   for (const post of posts) {
-    const event = parsePost(post);
-    if (event) events.push(event);
-    else skipped++;
+    // Isolate each post: one malformed body must not abort the whole archive.
+    try {
+      const event = parsePost(post);
+      if (event) events.push(event);
+      else skipped++;
+    } catch (err) {
+      console.error(`  Failed to parse ${post.url}:`, err);
+      skipped++;
+    }
   }
   console.log(`  Parsed ${events.length} run events, skipped ${skipped} non-run/unlabeled posts.`);
 

@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import * as cheerio from "cheerio";
 import {
   parseMadridGps,
   cleanMadridTitle,
+  extractMadridPostBody,
   parseMadridRunBody,
   resolveRunDate,
   MadridHashAdapter,
@@ -22,13 +22,11 @@ function madridSource(overrides: Partial<Source> = {}): Source {
 }
 
 /**
- * Mirror the adapter's cheerio transform so direct parseMadridRunBody tests
- * exercise the real label-extraction path against real post.content.rendered.
+ * Reuse the adapter's exported transform so direct parseMadridRunBody tests
+ * exercise the real shared label-extraction path (and can't drift from it).
  */
 function htmlToBody(content: string): string {
-  const $ = cheerio.load(content);
-  $("p, br, h1, h2, h3, h4").before("\n");
-  return $.text();
+  return extractMadridPostBody(content).body;
 }
 
 // ── Real run-post markup captured live from madridhhh.com ───────────────────

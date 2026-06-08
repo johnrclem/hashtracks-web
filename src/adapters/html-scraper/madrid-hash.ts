@@ -43,10 +43,14 @@ export function parseMadridGps(
  * `"Madrid H3 Trail #N"`.
  */
 export function cleanMadridTitle(postTitle: string): string | undefined {
+  // Literal single spaces + a single dash char-class — no unbounded
+  // quantifiers, so the match is linear and can't trip Sonar S5852 (ReDoS).
+  // The real suffix is always exactly " - Madrid HHH"; over-flexible
+  // whitespace matching isn't needed for a defensive, rarely-hit strip.
   return (
     postTitle
       .trim()
-      .replace(/\s*[-–—]\s*Madrid\s+HHH\s*$/i, "")
+      .replace(/ [-–—] Madrid HHH$/i, "")
       .trim() || undefined
   );
 }
