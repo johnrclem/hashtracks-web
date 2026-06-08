@@ -2604,6 +2604,30 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: 99.83,
     aliases: ["Chiang Rai, Thailand", "Chiang Rai, TH"],
   },
+  // ── Philippines (first 🇵🇭 kennel: Manila H3) ──
+  {
+    name: "Philippines",
+    country: "Philippines",
+    level: "COUNTRY",
+    timezone: "Asia/Manila",
+    abbrev: "PH",
+    colorClasses: "bg-fuchsia-200 text-fuchsia-800",
+    pinColor: "#c026d3",
+    centroidLat: 12.8797,
+    centroidLng: 121.774,
+    aliases: ["PH", "Republic of the Philippines"],
+  },
+  {
+    name: "Manila",
+    country: "Philippines",
+    timezone: "Asia/Manila",
+    abbrev: "MNL",
+    colorClasses: "bg-fuchsia-100 text-fuchsia-700",
+    pinColor: "#d946ef",
+    centroidLat: 14.5995,
+    centroidLng: 120.9842,
+    aliases: ["Manila, Philippines", "Metro Manila", "Maynila"],
+  },
   // ── Hong Kong ──
   {
     name: "Hong Kong",
@@ -3369,6 +3393,9 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   [/\b(norway|oslo|bergen|stavanger)\b/, "Norway"],
   [/\b(singapore)\b/, "Singapore"],
   [/\b(thailand|bangkok|pattaya|chiang mai|chiang rai|phuket|hua hin|samui|krabi)\b/, "Thailand"],
+  // Include the venue city (Parañaque) so venue-derived inference resolves;
+  // without this, "Manila"/"Philippines" text falls through to "USA".
+  [/\b(philippines|manila|maynila|para[ñn]aque)\b/, "Philippines"],
   [/\b(hong kong|kowloon|lantau|new territories|wan\s?chai|sai kung|sek kong)\b/, "Hong Kong"],
   [/\b(malaysia|kuala lumpur|\bkl\b|petaling|penang|pulau pinang|george town|selangor|johor|sabah|sarawak|melaka|malacca|ipoh|kuching|kota kinabalu|miri|kelana jaya|butterworth|kluang)\b/, "Malaysia"],
   [/\b(new zealand|aotearoa|christchurch|otepoti|tokoroa|whangarei|whakatane|invercargill|dunedin|tauranga|rotorua|hibiscus coast|coromandel|manawat[uū])\b/, "New Zealand"],
@@ -3563,6 +3590,8 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Chiang Rai": "Thailand",
   "Koh Samui": "Thailand",
   "Krabi": "Thailand",
+  // Philippines
+  "Manila": "Philippines",
   // Belgium
   "Brussels": "Belgium",
   // Spain
@@ -3805,6 +3834,8 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   "Chiang Rai": "Thailand",
   "Koh Samui": "Thailand",
   "Krabi": "Thailand",
+  "Philippines": "Philippines",
+  "Manila": "Philippines",
   "Hong Kong": "Hong Kong",
   // Malaysia — state groups (per feedback_country_group_map memory: both
   // state names AND metro names need explicit entries).
@@ -3910,6 +3941,7 @@ const COUNTRY_CODE_TO_NAME: Record<string, string> = {
   CA: "Canada",
   SG: "Singapore",
   TH: "Thailand",
+  PH: "Philippines",
   HK: "Hong Kong",
   MY: "Malaysia",
   NZ: "New Zealand",

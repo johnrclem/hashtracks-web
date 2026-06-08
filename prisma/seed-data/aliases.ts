@@ -537,6 +537,9 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "bkk-h3": ["BKK H3", "Bangkok H3", "Bangkok Hash", "Bangkok HHH", "BH3 Bangkok"],
     "pattaya-h3": ["Pattaya H3", "PH3", "Pattaya Hash", "Pattaya HHH"],
     "bhhb": ["BHHB", "Bangkok Bikers", "Bangkok Bike Hash", "Bangkok Hash House Bikers"],
+    // Philippines — bare "MH3" intentionally OMITTED (global collision with
+    // Miami/Minneapolis/Montreal/Munich/Memphis).
+    "mh3-ph": ["Manila Hash House Harriers", "Manila Monday Hash", "MH3 Manila", "Manila Mens Hash"],
     // Nevada + Utah
     "lv-h3": ["Las Vegas H3", "Las Vegas Hash", "LVHHH", "Las Vegas HHH", "LV H3"],
     "ass-h3": ["ASS H3", "ASSH3", "Atomic Shit Show", "Atomic Shit Show H3", "Atomic Shit Show HHH"],

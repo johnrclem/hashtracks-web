@@ -4392,6 +4392,25 @@ export const KENNELS: KennelSeed[] = [
       description: "Bangkok's mountain bike hash. Monthly rides of 40-50km on trails laid by hares, followed by a beer circle.",
       latitude: 13.76, longitude: 100.5,
     },
+    // ── Philippines (first 🇵🇭 kennel) ──
+    {
+      // Monday men's hash, "since 1972" (first NUMBERED trail 28 Apr 1975 —
+      // run-number anchor). Bare "MH3" omitted (global collision with Miami/
+      // Minneapolis/Montreal/Munich/Memphis); slug pinned to dodge the `mh3`
+      // slug collision. toSlug("Manila H3") = "manila-h3".
+      kennelCode: "mh3-ph", shortName: "Manila H3", fullName: "Manila Hash House Harriers",
+      slug: "manila-h3",
+      region: "Manila", country: "Philippines",
+      website: "https://sites.google.com/site/manilah3/manila-hash-house-harriers",
+      scheduleDayOfWeek: "Monday", scheduleFrequency: "Weekly",
+      scheduleNotes:
+        "Men's Monday hash. Time not published on the current site (inaugural numbered trail 28 Apr 1975 was 6pm Mon). Run numbers anchored on the 28 Apr 1975 first numbered trail; the pack also dates 'since 1972' (Ratcatcher's first un-numbered trail, 21 May 1972).",
+      foundedYear: 1972,
+      logoUrl: "/kennel-logos/mh3-ph.png",
+      latitude: 14.5995, longitude: 120.9842,
+      description:
+        "The drinking club with a running problem — Manila's original Monday men's hash, trailing throughout Metro Manila and beyond since 1972 (first numbered trail 28 Apr 1975). Founded out of Jakarta H3 by 'Ratcatcher' from the Manila Nomad Sports Club.",
+    },
     // ── Nevada + Utah (US gap fill) ──
     {
       kennelCode: "lv-h3", shortName: "Las Vegas H3", fullName: "Las Vegas Hash House Harriers",

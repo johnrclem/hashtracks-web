@@ -108,6 +108,7 @@ import { LVH3Adapter } from "./html-scraper/lvh3";
 import { BoulderH3Adapter } from "./html-scraper/boulder-h3";
 import { BoiseH3Adapter } from "./html-scraper/boiseh3";
 import { NSWHHHAdapter } from "./html-scraper/nswhhh";
+import { ManilaH3Adapter } from "./html-scraper/manila-h3";
 import { VictoriaH3Adapter } from "./html-scraper/victoria-h3";
 import { Ch4DkAdapter } from "./html-scraper/ch4-dk";
 import { MiteriHarelineAdapter } from "./html-scraper/miteri-hareline";
@@ -270,6 +271,10 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   // ── Idaho ──
   { pattern: /boiseh3\.org/i, name: "BoiseH3Adapter", factory: () => new BoiseH3Adapter() },
   { pattern: /nswhhh\.info/i, name: "NSWHHHAdapter", factory: () => new NSWHHHAdapter() },
+  // ── Philippines ──
+  // Manila H3 (Monday men's, "since 1972") — Google Sites SSR home page; a single
+  // current "next run" block keyed on the bilingual labels ano/kailan/sino/saan.
+  { pattern: /sites\.google\.com\/site\/manilah3/i, name: "ManilaH3Adapter", factory: () => new ManilaH3Adapter() },
   // ── Colorado ──
   { pattern: /boulderh3\.com/i, name: "BoulderH3Adapter", factory: () => new BoulderH3Adapter() },
   // ── Denmark ──

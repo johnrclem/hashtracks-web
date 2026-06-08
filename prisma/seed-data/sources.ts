@@ -5688,6 +5688,22 @@ export const SOURCES = [
       kennelCodes: ["bhhb"],
     },
 
+    // ── Philippines ──
+    // --- Manila H3 (Google Sites SSR home page — NEW ManilaH3Adapter) ---
+    // Bespoke joke-laden Google Site that renders only the current Monday run
+    // (no archive, no pagination). upcomingOnly protects reconcile as the run
+    // ages off; the adapter fails loud on parse drift.
+    {
+      name: "Manila H3 Website",
+      url: "https://sites.google.com/site/manilah3/manila-hash-house-harriers",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: { upcomingOnly: true },
+      kennelCodes: ["mh3-ph"],
+    },
+
     // ── Nevada + Utah (US gap fill) ──
 
     // Las Vegas H3 — Tribe Events Calendar REST API at lvh3.org
