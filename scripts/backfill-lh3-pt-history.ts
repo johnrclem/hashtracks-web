@@ -72,7 +72,7 @@ type DatedSsrEvent = SsrEvent & { EventStartDatetime: string };
  * free, so the match is bounded to a single flat object and is ReDoS-safe.
  */
 function parseSsrEvents(pageText: string): DatedSsrEvent[] {
-  const unescaped = pageText.replaceAll('\\"', '"');
+  const unescaped = pageText.replaceAll(String.raw`\"`, '"');
   const matches = unescaped.match(/\{[^{}]*"EventNumber":[^{}]*\}/g) ?? [];
   const byId = new Map<string, DatedSsrEvent>();
   for (const raw of matches) {
@@ -105,13 +105,13 @@ function stripTba(value: string | undefined): string | undefined {
 
 function toRawEvent(e: DatedSsrEvent): RawEventData {
   const date = e.EventStartDatetime.slice(0, 10);
-  const timeMatch = e.EventStartDatetime.match(/T(\d{2}:\d{2})/);
+  const timeMatch = /T(\d{2}:\d{2})/.exec(e.EventStartDatetime);
   // composeHcLocation strips TBA + placeholder sentinels ("No location
   // provided", "TBD", …) internally, returning undefined for non-venues — apply
   // it to BOTH the venue and the street so an HC placeholder never persists as a
   // fake street fallback (merge/display treat locationStreet as a real address).
-  const location = composeHcLocation(e.LocationOneLineDesc, undefined, undefined);
-  const locationStreet = composeHcLocation(e.LocationStreet, undefined, undefined);
+  const location = composeHcLocation(e.LocationOneLineDesc, undefined);
+  const locationStreet = composeHcLocation(e.LocationStreet, undefined);
   // Drop HC's region-default fallback pin when there is no real venue, letting
   // the merge pipeline geocode from place text + country bias instead.
   const hasVenue = location !== undefined;

@@ -451,7 +451,7 @@ export class StaticScheduleAdapter implements SourceAdapter {
     // generator ignores anchorDate entirely, so occurrences still emit — guard
     // here so a NaN anchor never yields a `runNumber: NaN` written to the DB
     // (fail safe to the no-run-number default rather than silent corruption).
-    const anchorMs = computeRuns ? new Date((config.anchorDate as string) + "T12:00:00Z").getTime() : 0;
+    const anchorMs = computeRuns ? new Date(config.anchorDate + "T12:00:00Z").getTime() : 0;
     const intervalDays = computeRuns ? (rule as ParsedRRule).interval * 7 : 0;
     const emitRunNumbers = computeRuns && Number.isFinite(anchorMs);
 
@@ -464,7 +464,7 @@ export class StaticScheduleAdapter implements SourceAdapter {
       startTime,
       sourceUrl: source.url,
       ...(emitRunNumbers
-        ? { runNumber: computeRunNumber(date, anchorMs, startRunNumber as number, intervalDays) }
+        ? { runNumber: computeRunNumber(date, anchorMs, startRunNumber, intervalDays) }
         : {}),
     }));
 
