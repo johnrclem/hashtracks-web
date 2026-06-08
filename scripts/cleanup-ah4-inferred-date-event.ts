@@ -67,11 +67,22 @@ async function main() {
     return;
   }
 
-  const source = await prisma.source.findFirst({
+  // Resolve the source deterministically — `findFirst` could pick an arbitrary
+  // row if a legacy duplicate exists, weakening the provenance guard on this
+  // hard-delete. Require exactly one match (CodeRabbit review).
+  const sources = await prisma.source.findMany({
     where: { name: SOURCE_NAME },
     select: { id: true },
   });
-  if (!source) throw new Error(`Source "${SOURCE_NAME}" not found.`);
+  if (sources.length === 0) {
+    throw new Error(`Source "${SOURCE_NAME}" not found.`);
+  }
+  if (sources.length > 1) {
+    throw new Error(
+      `Multiple sources named "${SOURCE_NAME}" (${sources.length}) — aborting to avoid deleting against ambiguous provenance.`,
+    );
+  }
+  const source = sources[0];
 
   // requireZeroCounts guards user data (attendances); the Event's hares/raws
   // are hard-deleted. forbidForeignRawSourceId asserts only Atlanta Hash Board

@@ -81,10 +81,13 @@ const BATCH_SIZE = 3;
 const POLITENESS_DELAY_MS = 600;
 const USER_AGENT = "Mozilla/5.0 (compatible; HashTracks-Backfill)";
 
+/** Resolve after `ms` milliseconds (politeness delay between Wayback hits). */
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/** GET `url` via the SSRF-validated client, retrying 5xx/network errors with
+ *  backoff. Returns the body text, or null after `attempts` failures / on 4xx. */
 async function fetchText(url: string, attempts = 3): Promise<string | null> {
   for (let i = 0; i < attempts; i++) {
     try {
@@ -156,8 +159,8 @@ export function waybackRawUrl(timestamp: string, original: string): string {
  * `class="jumpbox-*"` and no `itemprop`, so it's excluded. Returns null when no
  * breadcrumb forum link is present. Exported for unit testing.
  */
-export function extractTopicForumId(html: string): number | null {
-  const $ = cheerio.load(html);
+export function extractTopicForumId(htmlOr$: string | cheerio.CheerioAPI): number | null {
+  const $ = typeof htmlOr$ === "string" ? cheerio.load(htmlOr$) : htmlOr$;
   let forumId: number | null = null;
   $('a[itemprop="item"]').each((_, el) => {
     const href = $(el).attr("href") ?? "";
@@ -167,9 +170,10 @@ export function extractTopicForumId(html: string): number | null {
   return forumId;
 }
 
-/** The topic title from the phpBB `<h2 class="topic-title">` heading. */
-export function extractTopicTitle(html: string): string | null {
-  const $ = cheerio.load(html);
+/** The topic title from the phpBB `<h2 class="topic-title">` heading. Accepts a
+ *  raw HTML string or an already-loaded Cheerio instance to avoid re-parsing. */
+export function extractTopicTitle(htmlOr$: string | cheerio.CheerioAPI): string | null {
+  const $ = typeof htmlOr$ === "string" ? cheerio.load(htmlOr$) : htmlOr$;
   const title =
     $("h2.topic-title a").first().text().trim() ||
     $("h2.topic-title").first().text().trim();
@@ -214,12 +218,17 @@ export function hasExplicitEventDate(title: string, body: string, refDate: Date)
  * Turn one archived AH4 topic page into a RawEventData, or null when it isn't
  * AH4, isn't a real topic, or has no EXPLICIT event date. The field-extraction
  * path mirrors the live forum-walker's `fetchTopicEvent` so backfill rows share
- * the recurring scrape's fingerprint surface.
+ * the recurring scrape's fingerprint surface. `preloaded$` lets `harvestTopic`
+ * reuse the page it already parsed for the forum check instead of re-loading.
  */
-export function buildAh4Event(html: string): RawEventData | null {
-  if (extractTopicForumId(html) !== AH4_FORUM_ID) return null;
+export function buildAh4Event(
+  html: string,
+  preloaded$?: cheerio.CheerioAPI,
+): RawEventData | null {
+  const $ = preloaded$ ?? cheerio.load(html);
+  if (extractTopicForumId($) !== AH4_FORUM_ID) return null;
 
-  const title = extractTopicTitle(html);
+  const title = extractTopicTitle($);
   if (!title || isReplyEntry(title)) return null;
 
   const bodyHtml = extractFirstPostHtml(html);
@@ -281,12 +290,14 @@ interface HarvestResult {
   event: RawEventData | null;
 }
 
+/** Fetch one archived topic and parse it. Parses the HTML ONCE and reuses that
+ *  Cheerio instance for the forum check + `buildAh4Event` (no redundant loads). */
 async function harvestTopic(snap: TopicSnapshot): Promise<HarvestResult> {
   const html = await fetchText(waybackRawUrl(snap.timestamp, snap.original));
   if (!html) return { isAh4: false, event: null };
-  const isAh4 = extractTopicForumId(html) === AH4_FORUM_ID;
-  if (!isAh4) return { isAh4: false, event: null };
-  return { isAh4: true, event: buildAh4Event(html) };
+  const $ = cheerio.load(html);
+  if (extractTopicForumId($) !== AH4_FORUM_ID) return { isAh4: false, event: null };
+  return { isAh4: true, event: buildAh4Event(html, $) };
 }
 
 interface HarvestSummary {
@@ -302,8 +313,14 @@ async function harvestAllTopics(snapshots: TopicSnapshot[]): Promise<HarvestSumm
   for (let i = 0; i < snapshots.length; i += BATCH_SIZE) {
     const batch = snapshots.slice(i, i + BATCH_SIZE);
     const results = await Promise.allSettled(batch.map(harvestTopic));
-    for (const r of results) {
-      if (r.status !== "fulfilled") continue;
+    for (let j = 0; j < results.length; j++) {
+      const r = results[j];
+      if (r.status === "rejected") {
+        // Surface transient fetch/parse crashes in the warning stream rather
+        // than silently undercounting (Gemini review).
+        console.warn(`  topic t=${batch[j].topicId}: harvest failed —`, r.reason);
+        continue;
+      }
       if (r.value.isAh4) ah4Topics++;
       if (r.value.event) events.push(r.value.event);
     }
@@ -321,6 +338,8 @@ function dumpEvents(events: RawEventData[]): void {
   }
 }
 
+/** Entry point handed to `runBackfillScript`: query CDX, harvest every AH4
+ *  topic, and return the explicit-date events for the merge pipeline. */
 async function fetchEvents(): Promise<RawEventData[]> {
   console.log("  Querying Wayback CDX for archived board.atlantahash.com topics...");
   const cdx = await fetchText(CDX_URL);
