@@ -10,6 +10,7 @@ import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult } from "../types";
 import { validateSourceConfig } from "../utils";
 import { parseRRule } from "./rrule-parser";
+import type { ParsedRRule } from "./rrule-parser";
 
 // Re-export the pure RRULE parser from its leaf module for callers that still
 // import from this file (Travel Mode projection, the existing test surface).
@@ -38,6 +39,15 @@ export interface StaticScheduleConfig {
   rrule?: string;              // RRULE string, e.g. "FREQ=WEEKLY;BYDAY=SA". XOR with `lunar`.
   lunar?: LunarConfig;         // Lunar-phase recurrence config. XOR with `rrule`.
   anchorDate?: string;         // YYYY-MM-DD — a known past occurrence, stabilizes INTERVAL > 1
+  /**
+   * Run number AT `anchorDate`. When set together with `anchorDate` on a
+   * WEEKLY rule, every generated occurrence gets a computed `runNumber`
+   * (`startRunNumber + steps` from the anchor). Opt-in and additive — sources
+   * without it emit no run number, exactly as before. Ignored for MONTHLY /
+   * lunar rules (a fixed day-delta can't map to a run count there). Reference:
+   * PFH3 anchored to Trail #1184 @ 2019-11-20 (#2043).
+   */
+  startRunNumber?: number;
   startTime?: string;          // "HH:MM" 24-hour format (e.g. "10:17", "19:00")
   defaultTitle?: string;       // e.g. "Rumson H3 Weekly Run"
   defaultLocation?: string;    // e.g. "Rumson, NJ"
@@ -304,6 +314,27 @@ function formatDateUTC(d: Date): string {
 }
 
 /**
+ * Compute a run number for a generated WEEKLY occurrence from a known anchor.
+ * `intervalDays` is the rule's `interval * 7` step, so `(date - anchor)` is an
+ * exact integer multiple — `Math.round` is unambiguous and immune to any
+ * sub-day drift. The occurrence parses at UTC noon (matching
+ * `generateWeeklyDates`); the anchor is pre-parsed to ms by the caller so it's
+ * computed once per scrape rather than once per occurrence.
+ *
+ * Used only when `startRunNumber` + `anchorDate` are configured on a WEEKLY
+ * rule; see `StaticScheduleConfig.startRunNumber`.
+ */
+export function computeRunNumber(
+  dateStr: string,
+  anchorMs: number,
+  startRunNumber: number,
+  intervalDays: number,
+): number {
+  const dateMs = new Date(dateStr + "T12:00:00Z").getTime();
+  return startRunNumber + Math.round((dateMs - anchorMs) / (intervalDays * 86_400_000));
+}
+
+/**
  * Validate a time string is in strict HH:MM 24-hour format.
  * Returns the time string if valid, undefined otherwise.
  */
@@ -401,6 +432,28 @@ export class StaticScheduleAdapter implements SourceAdapter {
     const titleTemplate =
       typeof rawTpl === "string" && rawTpl.trim().length > 0 ? rawTpl : undefined;
 
+    // Run-number computation is opt-in (`startRunNumber` + `anchorDate`) and
+    // WEEKLY-only — a fixed `interval * 7`-day step is what makes each
+    // occurrence an exact number of runs from the anchor. MONTHLY / lunar rules
+    // (no `rule` here, or non-WEEKLY freq) emit no run number, unchanged.
+    const rule = occurrencesResult.rule;
+    const startRunNumber = config.startRunNumber;
+    const computeRuns =
+      rule?.freq === "WEEKLY" &&
+      typeof config.anchorDate === "string" &&
+      typeof startRunNumber === "number" &&
+      Number.isFinite(startRunNumber);
+    // Anchor and interval are fixed for the whole batch — parse once here rather
+    // than per occurrence inside the map. A format-valid but semantically-invalid
+    // anchorDate (e.g. "2019-13-99", which passes the admin YYYY-MM-DD check but
+    // is not a real date) parses to NaN. For WEEKLY INTERVAL=1 rules the date
+    // generator ignores anchorDate entirely, so occurrences still emit — guard
+    // here so a NaN anchor never yields a `runNumber: NaN` written to the DB
+    // (fail safe to the no-run-number default rather than silent corruption).
+    const anchorMs = computeRuns ? new Date((config.anchorDate as string) + "T12:00:00Z").getTime() : 0;
+    const intervalDays = computeRuns ? (rule as ParsedRRule).interval * 7 : 0;
+    const emitRunNumbers = computeRuns && Number.isFinite(anchorMs);
+
     const events: RawEventData[] = occurrences.map((date) => ({
       date,
       kennelTags: [config.kennelTag],
@@ -409,6 +462,9 @@ export class StaticScheduleAdapter implements SourceAdapter {
       location: config.defaultLocation,
       startTime,
       sourceUrl: source.url,
+      ...(emitRunNumbers
+        ? { runNumber: computeRunNumber(date, anchorMs, startRunNumber as number, intervalDays) }
+        : {}),
     }));
 
     return {
@@ -492,7 +548,7 @@ function parseAdapterConfig(source: Source): ConfigParseResult {
 }
 
 type OccurrencesResult =
-  | { kind: "ok"; occurrences: string[]; diagnostic: DiagnosticRule }
+  | { kind: "ok"; occurrences: string[]; diagnostic: DiagnosticRule; rule?: ParsedRRule }
   | { kind: "off-season"; diagnostic: DiagnosticRule }
   | { kind: "error"; message: string };
 
@@ -535,7 +591,7 @@ function computeRruleOccurrences(
   }
   const occurrences = generateOccurrences(rule, window.start, window.end, anchorDate);
   const diagnostic: DiagnosticRule = { mode: "rrule", rrule: rruleStr };
-  if (occurrences.length > 0) return { kind: "ok", occurrences, diagnostic };
+  if (occurrences.length > 0) return { kind: "ok", occurrences, diagnostic, rule };
 
   // Off-season for a seasonal rule is expected, not a misconfiguration.
   const seasonalOffSeason =

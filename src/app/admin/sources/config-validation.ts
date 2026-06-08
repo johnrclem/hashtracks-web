@@ -402,6 +402,21 @@ function validateAnchorDateField(obj: Record<string, unknown>, errors: string[])
   }
 }
 
+/**
+ * Validate optional `startRunNumber` field. Must be a positive integer and is
+ * only meaningful alongside `anchorDate` (the adapter computes run numbers from
+ * the anchor); flag the lone case so a misconfig surfaces instead of silently
+ * emitting no run numbers. See `StaticScheduleConfig.startRunNumber` (#2043).
+ */
+function validateStartRunNumberField(obj: Record<string, unknown>, errors: string[]): void {
+  if (obj.startRunNumber === undefined) return;
+  if (typeof obj.startRunNumber !== "number" || !Number.isInteger(obj.startRunNumber) || obj.startRunNumber < 1) {
+    errors.push("Static Schedule config startRunNumber must be a positive integer");
+  } else if (obj.anchorDate === undefined) {
+    errors.push("Static Schedule config startRunNumber requires anchorDate (run numbers are computed from the anchor)");
+  }
+}
+
 function validateStaticScheduleConfig(obj: Record<string, unknown>, errors: string[]): void {
   if (typeof obj.kennelTag !== "string" || !obj.kennelTag.trim()) {
     errors.push("Static Schedule config requires a non-empty kennelTag");
@@ -409,6 +424,7 @@ function validateStaticScheduleConfig(obj: Record<string, unknown>, errors: stri
   validateRecurrenceBlock(obj, errors);
   validateStartTimeField(obj, errors);
   validateAnchorDateField(obj, errors);
+  validateStartRunNumberField(obj, errors);
 }
 
 /** Dangerous patterns blocked in CSS selectors (XSS prevention). */

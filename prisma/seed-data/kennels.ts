@@ -2052,8 +2052,16 @@ export const KENNELS: KennelSeed[] = [
     // --- Augusta ---
     {
       kennelCode: "pfh3", shortName: "Peach Fuzz H3", fullName: "Peach Fuzz Hash House Harriers", region: "Augusta, GA",
+      foundedYear: 2000, // "founded on June 9, 2000 in North Augusta, SC" (About page); first run 10 Jun 2000
       scheduleDayOfWeek: "Wednesday", scheduleTime: "6:30 PM", scheduleFrequency: "Biweekly",
       description: "Alternate Wednesday evening runs in Augusta.",
+      hashCash: "$5", // About page trail postings: "5 dollars hash cash"
+      signatureEvent: "Green Jacket Run", // About page: "Special Event & Date: Green Jacket Run, Masters Week"
+      website: "http://pfh3.blogspot.com/",
+      facebookUrl: "https://www.facebook.com/groups/peachfuzzh3",
+      // Self-hosted (Blogger CDN URLs are not guaranteed stable): blog header
+      // newpeach-header.png mirrored to public/kennel-logos/ (#2042).
+      logoUrl: "/kennel-logos/pfh3.png",
     },
     {
       kennelCode: "augh3", shortName: "AUGH3", fullName: "Augusta Underground Hash House Harriers", region: "Augusta, GA",

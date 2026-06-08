@@ -1922,7 +1922,12 @@ export const SOURCES = [
       config: {
         kennelTag: "pfh3",
         rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=WE",
-        anchorDate: "2026-03-04",
+        // Trail #1184 ran 2019-11-20 (per the kennel blog). It is congruent
+        // mod-14 with the prior anchor 2026-03-04, so the generated dates are
+        // unchanged — but pairing it with startRunNumber lets the adapter
+        // compute each occurrence's run number (#2043).
+        anchorDate: "2019-11-20",
+        startRunNumber: 1184,
         startTime: "18:30",
         defaultTitle: "PFH3 Biweekly Run",
         defaultLocation: "Augusta, GA",
