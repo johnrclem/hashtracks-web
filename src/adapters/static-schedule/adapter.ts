@@ -442,7 +442,8 @@ export class StaticScheduleAdapter implements SourceAdapter {
       rule?.freq === "WEEKLY" &&
       typeof config.anchorDate === "string" &&
       typeof startRunNumber === "number" &&
-      Number.isFinite(startRunNumber);
+      Number.isInteger(startRunNumber) &&
+      startRunNumber > 0;
     // Anchor and interval are fixed for the whole batch — parse once here rather
     // than per occurrence inside the map. A format-valid but semantically-invalid
     // anchorDate (e.g. "2019-13-99", which passes the admin YYYY-MM-DD check but

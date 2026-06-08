@@ -403,17 +403,24 @@ function validateAnchorDateField(obj: Record<string, unknown>, errors: string[])
 }
 
 /**
- * Validate optional `startRunNumber` field. Must be a positive integer and is
- * only meaningful alongside `anchorDate` (the adapter computes run numbers from
- * the anchor); flag the lone case so a misconfig surfaces instead of silently
- * emitting no run numbers. See `StaticScheduleConfig.startRunNumber` (#2043).
+ * Validate optional `startRunNumber` field. Must be a positive integer, paired
+ * with `anchorDate`, and used only on a WEEKLY RRULE — the adapter computes run
+ * numbers only for WEEKLY rules, so a monthly/lunar config with `startRunNumber`
+ * would silently produce nothing. Flag all three so a misconfig surfaces instead
+ * of being ignored. See `StaticScheduleConfig.startRunNumber` (#2043).
  */
 function validateStartRunNumberField(obj: Record<string, unknown>, errors: string[]): void {
   if (obj.startRunNumber === undefined) return;
   if (typeof obj.startRunNumber !== "number" || !Number.isInteger(obj.startRunNumber) || obj.startRunNumber < 1) {
     errors.push("Static Schedule config startRunNumber must be a positive integer");
-  } else if (obj.anchorDate === undefined) {
+    return;
+  }
+  if (obj.anchorDate === undefined) {
     errors.push("Static Schedule config startRunNumber requires anchorDate (run numbers are computed from the anchor)");
+  }
+  const rrule = typeof obj.rrule === "string" ? obj.rrule.toUpperCase().replace(/\s+/g, "") : "";
+  if (!rrule.includes("FREQ=WEEKLY")) {
+    errors.push("Static Schedule config startRunNumber requires a WEEKLY rrule (run numbers are only computed for WEEKLY rules)");
   }
 }
 

@@ -672,6 +672,26 @@ describe("validateSourceConfig", () => {
       expect(validateSourceConfig("STATIC_SCHEDULE", config)).toEqual([]);
     });
 
+    it("accepts valid startRunNumber with anchorDate on a WEEKLY rrule", () => {
+      const config = {
+        kennelTag: "pfh3",
+        rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=WE",
+        anchorDate: "2019-11-20",
+        startRunNumber: 1184,
+      };
+      expect(validateSourceConfig("STATIC_SCHEDULE", config)).toEqual([]);
+    });
+
+    it.each([
+      [{ kennelTag: "pfh3", rrule: "FREQ=WEEKLY;BYDAY=WE", anchorDate: "2019-11-20", startRunNumber: 0 }, "positive integer"],
+      [{ kennelTag: "pfh3", rrule: "FREQ=WEEKLY;BYDAY=WE", anchorDate: "2019-11-20", startRunNumber: 1.5 }, "positive integer"],
+      [{ kennelTag: "pfh3", rrule: "FREQ=WEEKLY;BYDAY=WE", startRunNumber: 1184 }, "requires anchorDate"],
+      [{ kennelTag: "pfh3", rrule: "FREQ=MONTHLY;BYDAY=2WE", anchorDate: "2019-11-20", startRunNumber: 1184 }, "WEEKLY rrule"],
+    ])("rejects invalid startRunNumber: expects error containing %s", (config, expectedField) => {
+      const errors = validateSourceConfig("STATIC_SCHEDULE", config);
+      expect(errors.some((e) => e.includes(expectedField as string))).toBe(true);
+    });
+
     it("reports both errors when both required fields are missing", () => {
       const errors = validateSourceConfig("STATIC_SCHEDULE", {});
       expect(errors).toHaveLength(2);

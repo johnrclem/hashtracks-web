@@ -2057,7 +2057,7 @@ export const KENNELS: KennelSeed[] = [
       description: "Alternate Wednesday evening runs in Augusta.",
       hashCash: "$5", // About page trail postings: "5 dollars hash cash"
       signatureEvent: "Green Jacket Run", // About page: "Special Event & Date: Green Jacket Run, Masters Week"
-      website: "http://pfh3.blogspot.com/",
+      website: "https://pfh3.blogspot.com/",
       facebookUrl: "https://www.facebook.com/groups/peachfuzzh3",
       // Self-hosted (Blogger CDN URLs are not guaranteed stable): blog header
       // newpeach-header.png mirrored to public/kennel-logos/ (#2042).
