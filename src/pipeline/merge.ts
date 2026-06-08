@@ -102,8 +102,13 @@ function sanitizeRawFields(event: RawEventData): void {
   if (event.location) event.location = decodeEntities(event.location);
   if (event.description) event.description = decodeEntities(event.description);
 
-  // Extract "Hared by X" from title to hares field (e.g., H5 Harrisburg calendar)
-  if (event.title && !event.hares) {
+  // Extract "Hared by X" from title to hares field (e.g., H5 Harrisburg calendar).
+  // Gate on `=== undefined` (no signal), NOT `!event.hares`: an adapter that
+  // emits `hares: null` is an EXPLICIT clear of a recognized non-hare (#2032
+  // self-heal). Treating that null like "missing" would let this generic,
+  // lower-context title fallback resurrect a hare and reintroduce the exact
+  // stale value the clear is meant to scrub, before fingerprint/merge.
+  if (event.title && event.hares === undefined) {
     const haredByMatch = event.title.match(/\s+Hared?\s+by\s+(.+)$/i);
     if (haredByMatch) {
       event.hares = haredByMatch[1].trim();

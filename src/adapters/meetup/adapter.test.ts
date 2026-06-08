@@ -1366,6 +1366,22 @@ describe("buildRawEventFromApollo — kennelPatterns", () => {
     expect(event.hares).toBeUndefined();
   });
 
+  it("emits null (clear) when the description hare is a bare kennel code — Meetup-local parser must not resurrect it (#2032, Gemini PR #2038 review)", () => {
+    // The shared extractor rejects "Hares: DTWH3" as a bare kennel code and
+    // returns null (explicit clear). The Meetup-local parser ALSO matches the
+    // colon form but lacks the bare-kennel-code filter, so a `??` fall-through
+    // would let it resurrect "DTWH3". The clear must win.
+    const ev = {
+      __typename: "Event",
+      id: "8",
+      title: "Regular Trail",
+      dateTime: "2026-04-05T18:30:00-04:00",
+      description: "<p>Hares: DTWH3</p><p>Trail details...</p>",
+    };
+    const event = buildRawEventFromApollo(ev, emptyState, "rch3");
+    expect(event.hares).toBeNull();
+  });
+
   // #1270 — FEH3 admins embed the hare line in the Meetup *title* and leave the
   // description hare-less. The title fallback only fires when neither
   // description path produced hares, so kennels that already work stay untouched.

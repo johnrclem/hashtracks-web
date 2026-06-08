@@ -1895,6 +1895,57 @@ describe("location preservation on update", () => {
     expect(updateCall.data).not.toHaveProperty("haresText");
   });
 
+  it("preserves existing haresText when a LOWER-trust source emits null hares (trust-gated clear, #2032)", async () => {
+    // The shared hare extractor now emits `null` (explicit clear) when a hare
+    // line is a recognized non-hare (bare kennel code, placeholder). The clear
+    // must be trust-gated: a lower-trust source's null must NOT wipe a hare set
+    // by a higher-trust source. Existing event trust 8; incoming source default
+    // trust 5 → enrich branch, which only fills NULL fields and can never clear.
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_1", trustLevel: 8, haresText: "Mudflap" },
+    ] as never);
+    mockEventUpdate.mockResolvedValue(eventRow("evt_1"));
+
+    await processRawEvents("src_1", [
+      // description present so the enrich path fires an update call we can
+      // inspect; hares: null must be ignored (not cleared) on this path.
+      buildRawEvent({ hares: null }),
+    ]);
+
+    // The enrich path ran (it backfills the NULL description)...
+    const enrichCall = mockEventUpdate.mock.calls.find(
+      (call: unknown[]) => (call[0] as { data?: { description?: string } })?.data?.description,
+    );
+    expect(enrichCall).toBeDefined();
+    // ...but no update call may touch haresText — the higher-trust hare survives.
+    for (const call of mockEventUpdate.mock.calls) {
+      const data = (call[0] as { data: Record<string, unknown> }).data;
+      expect(data).not.toHaveProperty("haresText");
+    }
+  });
+
+  it("explicit null hares survives the 'Hared by X' title fallback and clears stale haresText (#2032)", async () => {
+    // sanitizeRawFields runs BEFORE the merge update and lifts "Hared by X" out
+    // of the title into event.hares. It must NOT do that when the adapter sent
+    // an explicit `hares: null` (a recognized non-hare clear) — otherwise the
+    // generic title fallback resurrects a hare and reintroduces the exact stale
+    // value the clear is meant to scrub. Trust-winning source (equal trust 5).
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_1", trustLevel: 5, haresText: "Stale Kennel Code" },
+    ] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    await processRawEvents("src_1", [
+      buildRawEvent({ hares: null, title: "NYCH3 Trail Hared by Ghost Rider" }),
+    ]);
+
+    const updateCall = mockEventUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
+    // The clear survives: haresText is set to null, NOT "Ghost Rider".
+    expect(updateCall.data).toHaveProperty("haresText", null);
+  });
+
   it("preserves existing description when new source has undefined description", async () => {
     mockRawEventFind.mockResolvedValueOnce(null);
     mockEventFindMany.mockResolvedValueOnce([

@@ -291,7 +291,11 @@ function applyDetailDescription(event: RawEventData, description: string): RawEv
   return {
     ...event,
     description,
-    ...(event.hares === undefined && extra.hares ? { hares: extra.hares } : {}),
+    // `extra.hares` is tri-state: string (real), null (explicit clear, #2032
+    // self-heal), or undefined (no signal). Backfill when the listing pass left
+    // hares unset and the body produced any signal — `!== undefined` carries the
+    // null clear through, where a truthy check would drop it.
+    ...(event.hares === undefined && extra.hares !== undefined ? { hares: extra.hares } : {}),
     ...(event.locationStreet === undefined && extra.locationStreet
       ? { locationStreet: extra.locationStreet }
       : {}),

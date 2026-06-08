@@ -588,7 +588,13 @@ function bagToRawEvent(bag: EventBag, kennelTag: string, timezone: string): RawE
  * adapter's `enrichWithDetails` step fetches separately.
  */
 export interface FacebookDescriptionFields {
-  hares?: string;
+  /**
+   * Hare names. A string is a real hare; `null` is an explicit clear (the post
+   * body's hare line was a recognized non-hare — bare kennel code, placeholder
+   * — so a stale canonical `haresText` should self-heal, #2032); absent means
+   * no signal (preserve existing).
+   */
+  hares?: string | null;
   locationStreet?: string;
   /** Run fee, free-form (`Hash Cash: $6` → `"$6"`). #1930. */
   cost?: string;
@@ -644,6 +650,11 @@ export function extractFieldsFromFbDescription(description: string): FacebookDes
   if (haresRaw) {
     const cleaned = stripNextRunTrailer(stripLeadingDecoration(haresRaw).trim()).trim();
     if (cleaned.length > 0) out.hares = cleaned;
+  } else if (haresRaw === null) {
+    // Explicit clear: the body had a hare line but it was a recognized
+    // non-hare (bare kennel code / placeholder). Propagate `null` so the merge
+    // pipeline scrubs a stale canonical `haresText` (#2032 self-heal).
+    out.hares = null;
   }
 
   const street = extractStreetBlock(trimmed);

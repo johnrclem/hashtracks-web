@@ -56,7 +56,9 @@ export interface ParsedBrasiliaPost {
   runNumber: number;
   date: string; // YYYY-MM-DD
   title?: string;
-  hares?: string;
+  // Tri-state mirrors RawEventData.hares: string (real), null (explicit clear
+  // of a stale canonical haresText, #2032), undefined (no signal — preserve).
+  hares?: string | null;
   location?: string;
   sourceUrl: string;
 }
