@@ -516,6 +516,47 @@ function extractTitleHares(title: string | undefined): { hares?: string; title?:
 }
 
 /**
+ * Resolve hares + the display title from a Meetup event's description and title.
+ *
+ * Tri-state hares (mirrors RawEventData.hares): a string is a real hare, `null`
+ * is an explicit non-hare clear (bare kennel code — #2032 self-heal), and
+ * `undefined` is no signal (merge preserves any existing hare).
+ *
+ * The shared `extractHaresFromDescription` verdict is authoritative: a string OR
+ * a `null` is returned verbatim, and only its `undefined` (no signal) falls
+ * through to the weaker Meetup-local (#953 CHH3 "Hares - X") and title (#1270
+ * FEH3) parsers. Those lack the bare-kennel-code filter, so letting them run on
+ * a non-`undefined` verdict could resurrect a value the shared extractor
+ * deliberately rejected (Gemini/Codex PR #2038 review).
+ */
+function resolveMeetupHares(
+  description: string | undefined,
+  title: string | undefined,
+): { hares: string | null | undefined; titleForDisplay: string | undefined } {
+  // Meetup descriptions often use Markdown bold (**HHHARES**: ...) which
+  // survives stripHtmlTags; strip ** / ## markers so the label regex matches.
+  const descForHares = description
+    ? stripHtmlTags(description, "\n").replace(/\*{1,2}|#{1,3}\s*/g, "")
+    : undefined;
+
+  const sharedDescHares = descForHares ? extractHaresFromDescription(descForHares) : undefined;
+  if (sharedDescHares !== undefined) {
+    // Authoritative verdict — real hare (string) or explicit clear (null).
+    return { hares: sharedDescHares, titleForDisplay: title };
+  }
+
+  const localHares = extractHaresFromMeetupDescription(descForHares);
+  if (localHares !== undefined) {
+    return { hares: localHares, titleForDisplay: title };
+  }
+
+  // Final fallback: the hare line lives in the title; strip its span so names
+  // don't render twice.
+  const fromTitle = extractTitleHares(title);
+  return { hares: fromTitle.hares, titleForDisplay: fromTitle.title ?? title };
+}
+
+/**
  * Resolve a run number from a Meetup title. Off unless `extractRunNumber` is
  * opted in per source. When a kennel stylizes its run number with a literal
  * prefix instead of "#" (e.g. Paris/Sans Clue "R*n", #1975), that prefix is
@@ -562,40 +603,7 @@ export function buildRawEventFromApollo(
     }
   }
 
-  // Extract hares from description. Meetup descriptions often use Markdown
-  // bold (**HHHARES**: ...) which survives stripHtmlTags because it's not
-  // HTML. Strip ** and ## markers before feeding to extractHares so the
-  // label regex can match cleanly.
-  const descForHares = ev.description
-    ? stripHtmlTags(ev.description, "\n").replace(/\*{1,2}|#{1,3}\s*/g, "")
-    : undefined;
-  // Try the colon-form helper first (matches DEFAULT_HARE_PATTERNS in
-  // google-calendar/adapter.ts). Fall back to the Meetup-local dash-separator
-  // pattern for kennels like CHH3 that always write "Hares - X". See #953.
-  // Shared extractor is tri-state: a string is a real hare, `null` is an
-  // explicit "this field is a non-hare, clear it" signal (#2032 self-heal),
-  // `undefined` is no signal. Only fall through to the weaker Meetup-local
-  // parser when the shared extractor gives NO signal — it lacks the
-  // bare-kennel-code / placeholder filtering, so letting it run on a `null`
-  // (or string) verdict could resurrect a value the shared extractor
-  // deliberately rejected. `??` can't express this (it treats `null` as a
-  // fall-through), so branch on `!== undefined` explicitly.
-  const sharedDescHares = descForHares ? extractHaresFromDescription(descForHares) : undefined;
-  const descHares =
-    sharedDescHares !== undefined
-      ? sharedDescHares
-      : extractHaresFromMeetupDescription(descForHares);
-
-  // Final fallback (#1270): some kennels (FEH3) embed the hare line directly in
-  // the Meetup *title* and leave the description hare-less. Only consult the
-  // title when the description parsers gave no signal at all — a real hare
-  // (string) and an explicit clear (null) both win over the title.
-  const fromTitle = descHares === undefined ? extractTitleHares(ev.title) : undefined;
-  // Preserve the description verdict verbatim (string OR null); only when it
-  // was `undefined` do we adopt the title hare. A plain `??` here would collapse
-  // the `null` clear back to `undefined` (clear lost — Gemini PR #2038 review).
-  const hares = descHares === undefined ? fromTitle?.hares : descHares;
-  const titleForDisplay = fromTitle?.title ?? ev.title;
+  const { hares, titleForDisplay } = resolveMeetupHares(ev.description, ev.title);
   const cleanedDesc = cleanMeetupDescription(ev.description, state);
 
   return {

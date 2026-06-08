@@ -205,11 +205,12 @@ function collectContinuationLines(normalized: string, match: RegExpExecArray): s
  * Apply trimming, punctuation/asterisk truncation, boilerplate/phone/label
  * regexes, and the final prepositional/generic filters. Tri-state return:
  * - `string` — a usable hare candidate.
- * - `null` — a candidate WAS captured but is a recognized non-hare (generic
- *   answer, prose, placeholder, bare kennel code, date range). Signals the
- *   merge pipeline to CLEAR a stale canonical `haresText` (self-healing).
- * - `undefined` — no usable candidate (empty after cleaning, or an over-long
- *   description leak). "No signal" — the merge pipeline preserves existing.
+ * - `null` — the candidate is a bare kennel code (the one high-confidence
+ *   non-hare: the hare field holds the kennel's own code). Signals the merge
+ *   pipeline to CLEAR a stale canonical `haresText` (self-healing, #2032).
+ * - `undefined` — no usable candidate, OR a low-confidence/ambiguous reject
+ *   (generic "everyone", prose leak, date range, over-long text). "No signal"
+ *   — the merge pipeline preserves any existing hare.
  */
 function cleanAndFilterHares(raw: string): string | null | undefined {
   let hares = raw
@@ -265,21 +266,26 @@ function cleanAndFilterHares(raw: string): string | null | undefined {
     }
   }
 
-  // Content-rejection filters: a candidate was captured but is a recognized
-  // non-hare. Return `null` (explicit clear) — not `undefined` — so a stale
-  // canonical `haresText` self-heals on the next scrape instead of needing a
-  // manual cleanup (the bare-kennel-code residue scrubbed by hand after #2032).
-  if (GENERIC_WHO_ANSWER_RE.test(hares)) return null;
-  if (PROSE_PREFIX_RE.test(hares)) return null;
-  if (HARES_ARE_PROSE_FIRST_WORD_RE.test(hares)) return null;
-  // Bare kennel-code reject (#2008 PGH H3 "Who: PGHH3").
+  // Low-confidence rejects return `undefined` (no signal — merge PRESERVES any
+  // existing hare). These are ambiguous/mis-capture cases, NOT proof the event
+  // has no hare: a generic "Who: everyone" is an audience answer, a
+  // prepositional "Hare: at the corner" is a location leak, a "Hares are
+  // Welcome/Going" line can imply hares exist, and a date-range is a mis-field.
+  // Promoting any of these to an explicit clear could wipe a real haresText set
+  // by another field/source on a same-trust rescrape (Codex PR #2038 review).
+  if (GENERIC_WHO_ANSWER_RE.test(hares)) return undefined;
+  if (PROSE_PREFIX_RE.test(hares)) return undefined;
+  if (HARES_ARE_PROSE_FIRST_WORD_RE.test(hares)) return undefined;
+  // Bare kennel-code reject (#2008 PGH H3 "Who: PGHH3") returns `null` — an
+  // EXPLICIT clear. This is the one high-confidence non-hare: the hare field
+  // literally holds the kennel's own code, never a hash name. Emitting null
+  // self-heals the stale residue scrubbed by hand after #2032 instead of
+  // requiring a manual cleanup.
   if (BARE_KENNEL_CODE_RE.test(hares)) return null;
   // Date-range rejection (#1547 ABQ): "Friday 5/22-Monday 5/25" is a campout
-  // date range, not a hare name.
-  if (DATE_RANGE_RE.test(hares)) return null;
-  // No usable candidate (empty after cleaning) or an over-long description leak:
-  // `undefined` = "no signal", so the merge pipeline preserves any existing hare
-  // rather than clearing it on a low-confidence parse artifact.
+  // date range, not a hare name. Low-confidence mis-field → preserve, don't clear.
+  if (DATE_RANGE_RE.test(hares)) return undefined;
+  // No usable candidate (empty after cleaning) or an over-long description leak.
   if (hares.length === 0 || hares.length >= MAX_HARES_LEN) return undefined;
   return hares;
 }

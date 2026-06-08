@@ -1378,7 +1378,7 @@ describe("buildRawEventFromApollo — kennelPatterns", () => {
       dateTime: "2026-04-05T18:30:00-04:00",
       description: "<p>Hares: DTWH3</p><p>Trail details...</p>",
     };
-    const event = buildRawEventFromApollo(ev as never, emptyState, "rch3");
+    const event = buildRawEventFromApollo(ev, emptyState, "rch3");
     expect(event.hares).toBeNull();
   });
 

@@ -217,42 +217,21 @@ const EXPECTED_GROUPS: ExpectedGroup[] = [
   },
 ];
 
-// CLEAR cases: a candidate WAS captured from a label/pattern but recognized as
-// a non-hare. extractHares returns `null` so the merge tri-state scrubs a stale
-// canonical haresText (self-heal — replaces the manual post-#2032 SQL cleanup).
+// CLEAR cases: a candidate was captured and recognized as a bare kennel code —
+// the one high-confidence non-hare (the hare field holds the kennel's own code).
+// extractHares returns `null` so the merge tri-state scrubs a stale canonical
+// haresText (self-heal — replaces the manual post-#2032 SQL cleanup). Lower-
+// confidence rejects (generic answers, prose, date ranges) deliberately return
+// `undefined` instead — see the UNDEFINED group below (Codex PR #2038 review).
 const NULL_GROUPS: NullGroup[] = [
   {
-    describe: "extractHares — captured-but-rejected non-hare cases (explicit clear, #2032)",
+    describe: "extractHares — bare kennel code is an explicit clear (#2008/#2032)",
     template: "returns null for %s",
     table: [
-      // Generic "who is the hare" answers (GENERIC_WHO_ANSWER_RE).
-      ["generic 'that be you'", "Who: that be you"],
-      ["'everyone'", "Who: everyone"],
-      // Prepositional / verb prose leak after a real label (PROSE_PREFIX_RE).
-      ["preposition 'at' prefix", "Hare: at the corner of 5th and Main"],
-      ["preposition 'from' prefix", "Hare: from the old pub to the new one"],
-      ["song lyric after 'Hare drop'", "Some intro\nHare drop another for the prince of this\nMore lyrics"],
-      // #1584 — natural-language "Hares are X" placeholder forms. First-word
-      // denylist (HARES_ARE_PROSE_FIRST_WORD_RE) — these are "hare needed"
-      // placeholders, which types.ts says SHOULD clear stale hare text.
-      ["'Hares are Needed for volunteers'", "Hares are Needed for July volunteers."],
-      ["'Hares are Welcome'", "Hares are Welcome at the pool party."],
-      ["'Hares are Wanted'", "Hares are Wanted — apply within."],
-      ["'Hares are Going to set early'", "Hares are Going to set early."],
-      ["'Hares are Looking for help'", "Hares are Looking for help."],
-      // Plural forms — Gemini PR #1612 review: `Volunteers?` / `Needs?`.
-      ["'Hares are Volunteers for July'", "Hares are Volunteers for July."],
-      ["'Hares are Needs more volunteers'", "Hares are Needs more volunteers."],
-      // Case-insensitive (Codex P2 review): all-caps placeholder forms.
-      ["all-caps 'Hares are NEEDED for July'", "Hares are NEEDED for July."],
-      ["all-caps 'Hares are WELCOME at the party'", "Hares are WELCOME at the party."],
-      // #1615 mid-sentence follow-up.
-      ["mid-sentence 'Hares are Needed'", "Sign up now! Hares are Needed for July."],
-      ["mid-sentence 'Hares are Welcome'", "Bring friends. Hares are Welcome to the pool party."],
-      // #2008 PGH H3 / #2032 — a bare kennel code (ends in H<digit>) is the
-      // kennel name, never a hash name (BARE_KENNEL_CODE_RE). These are the
-      // exact prod values scrubbed by hand after #2032; emitting null makes the
-      // next scrape self-heal them.
+      // A bare kennel code (ends in H<digit>) is the kennel name, never a hash
+      // name (BARE_KENNEL_CODE_RE). The first two are the original #2008 case;
+      // the rest are the exact prod values scrubbed by hand after #2032 —
+      // emitting null makes the next scrape self-heal them.
       ["bare kennel code 'Who: PGHH3'", "Who: PGHH3"],
       ["bare kennel code 'Hares: NYCH3'", "Hares: NYCH3"],
       ["#2032 cfh3 'Hares: DTWH3'", "Hares: DTWH3"],
@@ -284,6 +263,41 @@ const UNDEFINED_GROUPS: UndefinedGroup[] = [
       ["prose 'we chased the hares'", "We chased the hares through the park for hours."],
       ["prose 'Perpetrators of' (no colon)", "Perpetrators of the great beer theft remain at large."],
       ["banner 'The Hare' with no name (no colon)", "🐾 The Hare"],
+    ],
+  },
+  {
+    // Captured-but-rejected LOW-confidence cases. A candidate WAS extracted but
+    // is ambiguous or a mis-capture, NOT proof the event has no hare — so these
+    // return `undefined` (preserve), never `null` (clear). Promoting them to a
+    // clear could wipe a real haresText set by another field/source on a
+    // same-trust rescrape (Codex PR #2038 review). Only bare kennel codes (the
+    // NULL group above) clear.
+    describe: "extractHares — low-confidence rejects preserve (do not clear)",
+    template: "returns undefined for %s",
+    table: [
+      // Generic "who is the hare" answers (GENERIC_WHO_ANSWER_RE) — "Who:" is an
+      // ambiguous audience field; "everyone" is not a statement of no-hare.
+      ["generic 'that be you'", "Who: that be you"],
+      ["'everyone'", "Who: everyone"],
+      // Prepositional / verb prose leak after a real label (PROSE_PREFIX_RE).
+      ["preposition 'at' prefix", "Hare: at the corner of 5th and Main"],
+      ["preposition 'from' prefix", "Hare: from the old pub to the new one"],
+      ["song lyric after 'Hare drop'", "Some intro\nHare drop another for the prince of this\nMore lyrics"],
+      // #1584 — natural-language "Hares are X". HARES_ARE_PROSE_FIRST_WORD_RE is
+      // a mixed bag: "Needed/Wanted" read as placeholders, but "Welcome/Going/
+      // Looking" can imply hares exist — too ambiguous to clear.
+      ["'Hares are Needed for volunteers'", "Hares are Needed for July volunteers."],
+      ["'Hares are Welcome'", "Hares are Welcome at the pool party."],
+      ["'Hares are Wanted'", "Hares are Wanted — apply within."],
+      ["'Hares are Going to set early'", "Hares are Going to set early."],
+      ["'Hares are Looking for help'", "Hares are Looking for help."],
+      ["'Hares are Volunteers for July'", "Hares are Volunteers for July."],
+      ["'Hares are Needs more volunteers'", "Hares are Needs more volunteers."],
+      ["all-caps 'Hares are NEEDED for July'", "Hares are NEEDED for July."],
+      ["all-caps 'Hares are WELCOME at the party'", "Hares are WELCOME at the party."],
+      ["mid-sentence 'Hares are Needed'", "Sign up now! Hares are Needed for July."],
+      ["mid-sentence 'Hares are Welcome'", "Bring friends. Hares are Welcome to the pool party."],
+      // (Date-range mis-fields are covered in their own describe block below.)
     ],
   },
   {
@@ -344,16 +358,11 @@ describe("extractHares — custom patterns", () => {
   it.each([
     // No custom pattern matches → no candidate captured → undefined (preserve).
     ["custom patterns replace defaults — Hare: no longer matches", "Hare: Mudflap", [LAID_BY]],
-  ] as const)("%s", (_label, desc, patterns) => {
-    expect(extractHares(desc, [...patterns])).toBeUndefined();
-  });
-
-  it.each([
-    // Custom pattern DOES match but the value is a generic non-hare answer →
-    // null (clear), same tri-state as the default patterns.
+    // Custom pattern matches but the value is a generic answer → undefined
+    // (low-confidence reject; only bare kennel codes clear).
     ["still filters generic answers with custom patterns", "Laid by: everyone", [LAID_BY]],
   ] as const)("%s", (_label, desc, patterns) => {
-    expect(extractHares(desc, [...patterns])).toBeNull();
+    expect(extractHares(desc, [...patterns])).toBeUndefined();
   });
 });
 
@@ -431,8 +440,9 @@ describe("extractHares — description-sentence trailer strip (#1551 Wasatch)", 
 });
 
 describe("extractHares — date-range rejection (#1547 ABQ)", () => {
-  // A captured value that is a campout date range is a recognized non-hare, so
-  // it returns null (clear) — the label matched, the value is junk.
+  // A captured value that is a campout date range is not a hare, but it's a
+  // low-confidence mis-field, so extractHares returns undefined (preserve), not
+  // null (clear) — only bare kennel codes clear (Codex PR #2038 review).
   it.each([
     {
       name: "weekday + slash-date range rejected",
@@ -447,7 +457,7 @@ describe("extractHares — date-range rejection (#1547 ABQ)", () => {
       desc: "Who: 12/31 - 1/2",
     },
   ])("$name", ({ desc }) => {
-    expect(extractHares(desc)).toBeNull();
+    expect(extractHares(desc)).toBeUndefined();
   });
 });
 
