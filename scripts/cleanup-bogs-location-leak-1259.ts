@@ -18,66 +18,41 @@
  *   Dry-run: set -a && source .env && set +a && BACKFILL_ALLOW_SELF_SIGNED_CERT=1 npx tsx scripts/cleanup-bogs-location-leak-1259.ts
  *   Apply:   BACKFILL_ALLOW_SELF_SIGNED_CERT=1 npx tsx scripts/cleanup-bogs-location-leak-1259.ts --apply
  */
-import "dotenv/config";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "@/generated/prisma/client";
-import { createScriptPool } from "./lib/db-pool";
+import { runOneShot, findKennelId } from "./lib/one-shot";
 
 // Same shape as UK_POSTCODE_RE in generic.ts.
 const UK_POSTCODE_RE = /[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}/i;
 
-async function main() {
-  const apply = process.argv.includes("--apply");
-  console.log(apply ? "✏️  APPLYING changes" : "🔍 DRY RUN — no changes will be made");
+runOneShot(async ({ prisma, apply }) => {
+  const kennelId = await findKennelId(prisma, "bogs-h3");
+  if (!kennelId) return;
 
-  const pool = createScriptPool();
-  try {
-    const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
-    const kennel = await prisma.kennel.findUnique({
-      where: { kennelCode: "bogs-h3" },
-      select: { id: true },
-    });
-    if (!kennel) {
-      console.log('Kennel "bogs-h3" not found — nothing to do.');
-      return;
-    }
+  const events = await prisma.event.findMany({
+    where: { kennelId, locationName: { not: null } },
+    select: { id: true, runNumber: true, locationName: true },
+    orderBy: { date: "asc" },
+  });
 
-    const events = await prisma.event.findMany({
-      where: { kennelId: kennel.id, locationName: { not: null } },
-      select: { id: true, runNumber: true, locationName: true },
-      orderBy: { date: "asc" },
-    });
-
-    const leaks = events.filter((e) => !UK_POSTCODE_RE.test(e.locationName!));
-    console.log(`bogs-h3 events with a locationName: ${events.length}; non-postcode leaks: ${leaks.length}`);
-    for (const e of leaks) {
-      console.log(`  CLEAR  #${e.runNumber} ${e.id}  ${JSON.stringify(e.locationName)} → null`);
-    }
-
-    if (apply && leaks.length > 0) {
-      for (const e of leaks) {
-        await prisma.event.update({
-          where: { id: e.id },
-          data: {
-            locationName: null,
-            locationStreet: null,
-            locationAddress: null,
-            locationCity: null,
-            latitude: null,
-            longitude: null,
-          },
-        });
-      }
-      console.log(`\n✓ Cleared location on ${leaks.length} event(s).`);
-    } else if (!apply) {
-      console.log("\nRun with --apply to commit changes.");
-    }
-  } finally {
-    await pool.end();
+  const leaks = events.filter((e) => !UK_POSTCODE_RE.test(e.locationName!));
+  console.log(`bogs-h3 events with a locationName: ${events.length}; non-postcode leaks: ${leaks.length}`);
+  for (const e of leaks) {
+    console.log(`  CLEAR  #${e.runNumber} ${e.id}  ${JSON.stringify(e.locationName)} → null`);
   }
-}
 
-main().catch((err) => {
-  console.error(err);
-  process.exitCode = 1;
+  if (apply && leaks.length > 0) {
+    await prisma.event.updateMany({
+      where: { id: { in: leaks.map((e) => e.id) } },
+      data: {
+        locationName: null,
+        locationStreet: null,
+        locationAddress: null,
+        locationCity: null,
+        latitude: null,
+        longitude: null,
+      },
+    });
+    console.log(`\n✓ Cleared location on ${leaks.length} event(s).`);
+  } else if (!apply) {
+    console.log("\nRun with --apply to commit changes.");
+  }
 });

@@ -13,6 +13,7 @@
  *   - Targets only ch4-dk events with a non-empty locationName and NULL coords.
  *   - Validates the geocode lands within ~200 km of the Copenhagen kennel
  *     centroid before writing (rejects a wild result, fail-loud).
+ *   - Per-event try/catch so one bad geocode/update doesn't abort the batch.
  *   - Idempotent: once coords are written the row no longer matches.
  *
  * Run (Railway proxy uses a self-signed cert):
@@ -20,47 +21,28 @@
  *   Apply:   BACKFILL_ALLOW_SELF_SIGNED_CERT=1 npx tsx scripts/backfill-ch4dk-geocode-1256.ts --apply
  *   Env:     DATABASE_URL, GOOGLE_CALENDAR_API_KEY
  */
-import "dotenv/config";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "@/generated/prisma/client";
-import { createScriptPool } from "./lib/db-pool";
 import { geocodeAddress, haversineDistance } from "@/lib/geo";
+import { runOneShot, findKennelId } from "./lib/one-shot";
 
 // Copenhagen kennel centroid — geocode results must land within this radius.
 const KENNEL = { lat: 55.68, lng: 12.57 };
 const MAX_KM = 200;
 
-async function main() {
-  const apply = process.argv.includes("--apply");
-  console.log(apply ? "✏️  APPLYING changes" : "🔍 DRY RUN — no changes will be made");
+runOneShot(async ({ prisma, apply }) => {
+  const kennelId = await findKennelId(prisma, "ch4-dk");
+  if (!kennelId) return;
 
-  const pool = createScriptPool();
-  try {
-    const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
-    const kennel = await prisma.kennel.findUnique({
-      where: { kennelCode: "ch4-dk" },
-      select: { id: true },
-    });
-    if (!kennel) {
-      console.log('Kennel "ch4-dk" not found — nothing to do.');
-      return;
-    }
+  const events = await prisma.event.findMany({
+    where: { kennelId, latitude: null, longitude: null, locationName: { not: null } },
+    select: { id: true, runNumber: true, locationName: true, locationStreet: true },
+    orderBy: { date: "asc" },
+  });
+  console.log(`Matched ${events.length} ch4-dk event(s) with a venue but no coords.`);
+  if (events.length === 0) return;
 
-    const events = await prisma.event.findMany({
-      where: {
-        kennelId: kennel.id,
-        latitude: null,
-        longitude: null,
-        locationName: { not: null },
-      },
-      select: { id: true, runNumber: true, locationName: true, locationStreet: true },
-      orderBy: { date: "asc" },
-    });
-    console.log(`Matched ${events.length} ch4-dk event(s) with a venue but no coords.`);
-    if (events.length === 0) return;
-
-    let written = 0;
-    for (const e of events) {
+  let written = 0;
+  for (const e of events) {
+    try {
       // Prefer the fuller street address when present, else the venue name.
       const address = e.locationStreet || e.locationName!;
       const geo = await geocodeAddress(address, { regionBias: "dk" });
@@ -75,21 +57,13 @@ async function main() {
           `(${dist.toFixed(0)}km from CPH; ${geo.formattedAddress ?? ""})${ok ? "" : "  ⚠️ >200km — refusing"}`,
       );
       if (ok && apply) {
-        await prisma.event.update({
-          where: { id: e.id },
-          data: { latitude: geo.lat, longitude: geo.lng },
-        });
+        await prisma.event.update({ where: { id: e.id }, data: { latitude: geo.lat, longitude: geo.lng } });
         written++;
       }
+    } catch (err) {
+      console.error(`  #${e.runNumber} ${e.id}: failed —`, err);
     }
-    if (apply) console.log(`\n✓ Wrote coords to ${written} event(s).`);
-    else console.log("\nRun with --apply to commit changes.");
-  } finally {
-    await pool.end();
   }
-}
-
-main().catch((err) => {
-  console.error(err);
-  process.exitCode = 1;
+  if (apply) console.log(`\n✓ Wrote coords to ${written} event(s).`);
+  else console.log("\nRun with --apply to commit changes.");
 });
