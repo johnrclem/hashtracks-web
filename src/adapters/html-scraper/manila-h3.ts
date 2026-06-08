@@ -19,8 +19,10 @@ import { fetchHTMLPage, stripHtmlTags, MONTHS } from "../utils";
  * class names AND splits words across inline <span>s (e.g. "mmd"+"ccxxviii",
  * "saan (whe"+"re)"). `stripHtmlTags(html, "\n")` only inserts separators at
  * block/<br> boundaries — not at </span> — so it re-joins each label+value
- * onto one logical line. The parser therefore keys entirely on the visible
- * bilingual label prefix, never on CSS selectors (same approach as nswhhh.ts).
+ * onto one logical line. To stay robust even if Google Sites ever inserts a
+ * stray space *inside* a label word, detection runs on a whitespace-collapsed
+ * copy of the line and the value is read after the label's closing ")", never
+ * via CSS selectors (mirrors nswhhh.ts's text-keyed approach).
  *
  * This is a single next-run-only page (no pagination, no reachable archive):
  * `config.upcomingOnly: true` protects reconcile as the run ages off, and a
@@ -29,13 +31,14 @@ import { fetchHTMLPage, stripHtmlTags, MONTHS } from "../utils";
  * brand-new source whose baseline is already 0).
  */
 
-// Bilingual label prefixes. `\s*` adjacent to a literal keeps each regex linear
-// (Sonar S5852). Note `saan (where)` has NO trailing colon on the live page.
-const ANO_RE = /ano\s*\(what\)/i; // run-number line (anchor)
-const KAILAN_RE = /kailan\s*\(when\)/i; // date line
-const SINO_RE = /sino\s*\(who\)/i; // hares line
-const SAAN_RE = /saan\s*\(where\)/i; // location line
-const MAPA_RE = /^mapa\s*:/i; // Maps shortlink line
+// Whitespace-collapsed, lowercased label keys. Detection matches these against
+// `compact(line)` so an arbitrary intra-word span split ("saan (whe re)") still
+// resolves; the value is then read after the label's closing ")".
+const ANO_KEY = "ano(what)";
+const KAILAN_KEY = "kailan(when)";
+const SINO_KEY = "sino(who)";
+const SAAN_KEY = "saan(where)";
+const MAPA_KEY = "mapa:";
 
 // "= 2728" — take the decimal after the equals sign (simple + linear).
 const RUN_RE = /=\s*(\d{2,5})\b/;
@@ -50,19 +53,40 @@ const URL_RE = /(https?:\/\/\S+)/i;
 // Leading " - " / ":" separator left after stripping a label.
 const LEADING_SEP_RE = /^\s*[-:]\s*/;
 
-const ROMAN_VALUES: Record<string, number> = {
-  i: 1, v: 5, x: 10, l: 50, c: 100, d: 500, m: 1000,
-};
+// Map (not a Record) so keyed lookups use `.get()` — avoids object-injection
+// sinks and returns `undefined` cleanly for out-of-alphabet characters.
+const ROMAN_VALUES = new Map<string, number>([
+  ["i", 1], ["v", 5], ["x", 10], ["l", 50], ["c", 100], ["d", 500], ["m", 1000],
+]);
+// Imported MONTHS Record → Map for the same reason (1-indexed month numbers).
+const MONTH_NUMBERS = new Map<string, number>(Object.entries(MONTHS));
 
-/** Convert a lowercase roman-numeral token to an integer (subtractive notation). */
+/** Whitespace-collapsed, lowercased copy of a line (for label detection). */
+function compact(line: string): string {
+  return line.replace(/\s+/g, "").toLowerCase();
+}
+
+/** First line whose collapsed form contains the label key. */
+function findLabelLine(lines: string[], key: string): string | undefined {
+  return lines.find((line) => compact(line).includes(key));
+}
+
+/** Value after the label's closing ")" — robust to span splits inside the label. */
+function valueAfterLabel(line: string): string {
+  const idx = line.indexOf(")");
+  const rest = idx === -1 ? line : line.slice(idx + 1);
+  return rest.replace(LEADING_SEP_RE, "").trim();
+}
+
+/** Convert a roman-numeral token to an integer (right-to-left subtractive). */
 function romanToInt(token: string): number | undefined {
-  const s = token.toLowerCase();
   let total = 0;
-  for (let i = 0; i < s.length; i++) {
-    const cur = ROMAN_VALUES[s[i]];
-    if (!cur) return undefined;
-    const next = ROMAN_VALUES[s[i + 1]];
-    total += next && cur < next ? -cur : cur;
+  let prevValue = 0;
+  for (const ch of [...token.toLowerCase()].reverse()) {
+    const value = ROMAN_VALUES.get(ch);
+    if (value === undefined) return undefined;
+    total += value < prevValue ? -value : value;
+    prevValue = value;
   }
   return total > 0 ? total : undefined;
 }
@@ -80,7 +104,7 @@ function parseRunDate(line: string): string | null {
   const m = DATE_CORE_RE.exec(line);
   if (!m) return null;
   const day = Number.parseInt(m[1], 10);
-  const month = MONTHS[m[2].toLowerCase()];
+  const month = MONTH_NUMBERS.get(m[2].toLowerCase());
   const year = 2000 + Number.parseInt(m[3], 10);
   if (!month || day < 1 || day > 31) return null;
   const utc = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
@@ -89,14 +113,9 @@ function parseRunDate(line: string): string | null {
   return utc.toISOString().slice(0, 10);
 }
 
-/** Strip a matched label prefix and the leading " - " / ":" separator. */
-function labelValue(line: string, labelRe: RegExp): string {
-  return line.replace(labelRe, "").replace(LEADING_SEP_RE, "").trim();
-}
-
 /** Maps shortlink from the "mapa:" line (raw URL is always visible text). */
 function extractMapUrl(block: string[]): string | undefined {
-  const mapaLine = block.find((l) => MAPA_RE.test(l));
+  const mapaLine = block.find((line) => compact(line).startsWith(MAPA_KEY));
   return mapaLine ? URL_RE.exec(mapaLine)?.[1] : undefined;
 }
 
@@ -112,24 +131,24 @@ export function parseManilaH3Page(
     .map((line) => line.trim())
     .filter(Boolean);
 
-  const anoIdx = lines.findIndex((line) => ANO_RE.test(line));
-  if (anoIdx === -1) {
+  const anoLine = findLabelLine(lines, ANO_KEY);
+  if (!anoLine) {
     return { event: null, error: "no 'ano (what)' run block found on page" };
   }
 
   // The sibling labels sit immediately below the run-number line; a bounded
   // window keeps prose/roster text (which never carries these labels) out.
-  const block = lines.slice(anoIdx, anoIdx + 15);
-  const runNumber = parseRunNumber(lines[anoIdx]);
+  const block = lines.slice(lines.indexOf(anoLine), lines.indexOf(anoLine) + 15);
+  const runNumber = parseRunNumber(anoLine);
 
-  const dateLine = block.find((line) => KAILAN_RE.test(line));
+  const dateLine = findLabelLine(block, KAILAN_KEY);
   const date = dateLine ? parseRunDate(dateLine) : null;
   if (!date) {
     return { event: null, error: `could not extract date for Run #${runNumber ?? "?"}` };
   }
 
-  const sinoLine = block.find((line) => SINO_RE.test(line));
-  const saanLine = block.find((line) => SAAN_RE.test(line));
+  const sinoLine = findLabelLine(block, SINO_KEY);
+  const saanLine = findLabelLine(block, SAAN_KEY);
 
   return {
     event: {
@@ -137,8 +156,8 @@ export function parseManilaH3Page(
       kennelTags: ["mh3-ph"],
       runNumber,
       // title intentionally undefined → merge.ts synthesizes "Manila H3 Trail #N".
-      hares: sinoLine ? labelValue(sinoLine, SINO_RE) || undefined : undefined,
-      location: saanLine ? labelValue(saanLine, SAAN_RE) || undefined : undefined,
+      hares: sinoLine ? valueAfterLabel(sinoLine) || undefined : undefined,
+      location: saanLine ? valueAfterLabel(saanLine) || undefined : undefined,
       locationUrl: extractMapUrl(block),
       sourceUrl,
     },

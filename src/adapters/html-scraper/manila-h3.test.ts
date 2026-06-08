@@ -57,6 +57,37 @@ describe("parseManilaH3Page", () => {
     expect(event?.location).not.toMatch(/ridikulist|hashtory|direksyon/i);
   });
 
+  it("still resolves hares + venue when Google Sites splits a space into a label word", () => {
+    // Defensive: simulate "si no (who)" / "saan (whe re)" intra-word spacing.
+    const html = FIXTURE.replace(
+      "<p><span>sino (who): </span><span>perverse arse likkr</span></p>",
+      "<p><span>si no (who): perverse arse likkr</span></p>",
+    ).replace(
+      "<p><span>saan (whe</span><span>re)</span><span> - ilokano garage, diosdado macapagal blvd cnr pacific ave, tambo, paranaque</span></p>",
+      "<p><span>saan (whe re) - ilokano garage, diosdado macapagal blvd cnr pacific ave, tambo, paranaque</span></p>",
+    );
+    const { event } = parseManilaH3Page(html, SOURCE_URL);
+    expect(event?.hares).toBe("perverse arse likkr");
+    expect(event?.location).toBe(
+      "ilokano garage, diosdado macapagal blvd cnr pacific ave, tambo, paranaque",
+    );
+  });
+
+  it("emits the event with undefined hares/location when those labels are absent", () => {
+    const html = FIXTURE.replace(
+      "<p><span>sino (who): </span><span>perverse arse likkr</span></p>",
+      "",
+    ).replace(
+      "<p><span>saan (whe</span><span>re)</span><span> - ilokano garage, diosdado macapagal blvd cnr pacific ave, tambo, paranaque</span></p>",
+      "",
+    );
+    const { event, error } = parseManilaH3Page(html, SOURCE_URL);
+    expect(error).toBeUndefined();
+    expect(event?.runNumber).toBe(2728);
+    expect(event?.hares).toBeUndefined();
+    expect(event?.location).toBeUndefined();
+  });
+
   it.each([
     { name: "padded day", token: "mon08jun26", expected: "2026-06-08" },
     { name: "single-digit day", token: "lok1jul26", expected: "2026-07-01" },
