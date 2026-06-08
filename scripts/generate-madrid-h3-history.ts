@@ -183,10 +183,12 @@ async function main() {
     );
   }
   // Faithful source quirks — confirm they survived the regeneration.
-  const quirk1 = events.find((e) => e.runNumber === 1);
-  const quirk2659 = events.find((e) => e.runNumber === 2659);
-  console.log(`\nQuirks: run #1 (COVID virtual) ${quirk1 ? `present @ ${quirk1.date}` : "ABSENT"}; ` +
-    `run #2659 (mistype) ${quirk2659 ? `present @ ${quirk2659.date}` : "ABSENT"}`);
+  const quirkStatus = (label: string, run?: RawEventData) =>
+    run ? `${label} present @ ${run.date}` : `${label} ABSENT`;
+  console.log(
+    `\nQuirks: ${quirkStatus("run #1 (COVID virtual)", events.find((e) => e.runNumber === 1))}; ` +
+      `${quirkStatus("run #2659 (mistype)", events.find((e) => e.runNumber === 2659))}`,
+  );
 
   if (dryRun) {
     console.log("\n--dry: not writing. Re-run without --dry to write the JSON.");
