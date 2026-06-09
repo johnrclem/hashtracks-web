@@ -1825,6 +1825,17 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: -9.1393,
     aliases: ["Lisboa", "Lisbon, Portugal"],
   },
+  {
+    name: "Porto",
+    country: "Portugal",
+    timezone: "Europe/Lisbon",
+    abbrev: "OPO",
+    colorClasses: "bg-green-100 text-green-700",
+    pinColor: "#22c55e",
+    centroidLat: 41.1579,
+    centroidLng: -8.6291,
+    aliases: ["Porto, Portugal", "Oporto"],
+  },
   // ── Switzerland ──
   {
     name: "Switzerland",
@@ -3386,7 +3397,7 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   // non-ASCII `ö`; anchor the diacritic form explicitly (mirrors île-de-france).
   [/\b(austria|osterreich|vienna|wien|vindobona)\b|(?:^|\W)österreich\b/, "Austria"],
   [/\b(france|paris|ile-de-france)\b|(?:^|\W)île-de-france\b/, "France"],
-  [/\b(portugal|lisbon|lisboa|estoril|cascais)\b/, "Portugal"],
+  [/\b(portugal|lisbon|lisboa|estoril|cascais|oporto|invicta)\b/, "Portugal"],
   [/\b(netherlands|amsterdam|rotterdam|den haag|the hague|holland)\b/, "Netherlands"],
   [/\b(denmark|copenhagen|københavn|aarhus)\b/, "Denmark"],
   [/\b(sweden|stockholm|göteborg|gothenburg|malmö)\b/, "Sweden"],
@@ -3601,6 +3612,7 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Paris": "France",
   // Portugal
   "Lisbon": "Portugal",
+  "Porto": "Portugal",
   // Louisiana
   "New Orleans, LA": "Louisiana",
   // Tennessee
