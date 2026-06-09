@@ -402,6 +402,28 @@ function validateAnchorDateField(obj: Record<string, unknown>, errors: string[])
   }
 }
 
+/**
+ * Validate optional `startRunNumber` field. Must be a positive integer, paired
+ * with `anchorDate`, and used only on a WEEKLY RRULE — the adapter computes run
+ * numbers only for WEEKLY rules, so a monthly/lunar config with `startRunNumber`
+ * would silently produce nothing. Flag all three so a misconfig surfaces instead
+ * of being ignored. See `StaticScheduleConfig.startRunNumber` (#2043).
+ */
+function validateStartRunNumberField(obj: Record<string, unknown>, errors: string[]): void {
+  if (obj.startRunNumber === undefined) return;
+  if (typeof obj.startRunNumber !== "number" || !Number.isInteger(obj.startRunNumber) || obj.startRunNumber < 1) {
+    errors.push("Static Schedule config startRunNumber must be a positive integer");
+    return;
+  }
+  if (obj.anchorDate === undefined) {
+    errors.push("Static Schedule config startRunNumber requires anchorDate (run numbers are computed from the anchor)");
+  }
+  const rrule = typeof obj.rrule === "string" ? obj.rrule.toUpperCase().replace(/\s+/g, "") : "";
+  if (!rrule.includes("FREQ=WEEKLY")) {
+    errors.push("Static Schedule config startRunNumber requires a WEEKLY rrule (run numbers are only computed for WEEKLY rules)");
+  }
+}
+
 function validateStaticScheduleConfig(obj: Record<string, unknown>, errors: string[]): void {
   if (typeof obj.kennelTag !== "string" || !obj.kennelTag.trim()) {
     errors.push("Static Schedule config requires a non-empty kennelTag");
@@ -409,6 +431,7 @@ function validateStaticScheduleConfig(obj: Record<string, unknown>, errors: stri
   validateRecurrenceBlock(obj, errors);
   validateStartTimeField(obj, errors);
   validateAnchorDateField(obj, errors);
+  validateStartRunNumberField(obj, errors);
 }
 
 /** Dangerous patterns blocked in CSS selectors (XSS prevention). */

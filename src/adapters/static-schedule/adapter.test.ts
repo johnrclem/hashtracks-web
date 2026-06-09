@@ -3,6 +3,7 @@ import {
   parseRRule,
   generateOccurrences,
   renderTitleTemplate,
+  computeRunNumber,
   DEFAULT_FUTURE_HORIZON_DAYS,
 } from "./adapter";
 import type { StaticScheduleConfig } from "./adapter";
@@ -843,5 +844,106 @@ describe("StaticScheduleAdapter forward-horizon cap", () => {
     const result = await adapter.fetch(moolooSource(), { days: 90 });
     expect(result.diagnosticContext?.forwardWindowDays).toBe(90);
     expect(result.diagnosticContext?.windowDays).toBe(90);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// computeRunNumber (pure helper)
+// ---------------------------------------------------------------------------
+
+describe("computeRunNumber", () => {
+  // PFH3 anchor: Trail #1184 ran 2019-11-20, biweekly (interval 2 → 14-day step).
+  const ANCHOR_MS = new Date("2019-11-20T12:00:00Z").getTime();
+  const ANCHOR_RUN = 1184;
+  const BIWEEKLY_DAYS = 14;
+
+  // Exact biweekly-Wednesday occurrences from the anchor (14-day multiples).
+  it.each([
+    ["2019-11-20", 1184], // anchor day itself
+    ["2019-12-04", 1185], // +1 step
+    ["2019-11-06", 1183], // -1 step (before the anchor)
+    ["2026-04-29", 1352],
+    ["2026-05-13", 1353],
+    ["2026-05-27", 1354],
+  ])("maps %s → run #%i from the PFH3 anchor", (date, expected) => {
+    expect(computeRunNumber(date, ANCHOR_MS, ANCHOR_RUN, BIWEEKLY_DAYS)).toBe(expected);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// StaticScheduleAdapter run-number emission (#2043)
+// ---------------------------------------------------------------------------
+
+describe("StaticScheduleAdapter run-number emission", () => {
+  const adapter = new StaticScheduleAdapter();
+  // Mirror the PFH3 seed row: biweekly Wednesday anchored to Trail #1184.
+  const PFH3_BIWEEKLY_WE = "FREQ=WEEKLY;INTERVAL=2;BYDAY=WE";
+  const pfh3Source = (extra: Record<string, unknown> = {}) =>
+    makeSource({
+      kennelTag: "pfh3",
+      rrule: PFH3_BIWEEKLY_WE,
+      anchorDate: "2019-11-20",
+      startRunNumber: 1184,
+      startTime: "18:30",
+      ...extra,
+    });
+
+  const eventByDate = (events: RawEventData[], date: string) =>
+    events.find((e) => e.date === date);
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-08T12:00:00Z"));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("computes run numbers from the anchor for each occurrence", async () => {
+    const result = await adapter.fetch(pfh3Source());
+    expect(result.errors).toHaveLength(0);
+    // Real biweekly-Wednesday occurrences inside the default ±90-day window.
+    expect(eventByDate(result.events, "2026-04-29")?.runNumber).toBe(1352);
+    expect(eventByDate(result.events, "2026-05-13")?.runNumber).toBe(1353);
+    expect(eventByDate(result.events, "2026-05-27")?.runNumber).toBe(1354);
+  });
+
+  it("emits a monotonic, gapless run-number sequence over the window", async () => {
+    const result = await adapter.fetch(pfh3Source());
+    const sorted = [...result.events].sort((a, b) => a.date.localeCompare(b.date));
+    for (let i = 1; i < sorted.length; i++) {
+      expect(sorted[i].runNumber).toBe((sorted[i - 1].runNumber as number) + 1);
+    }
+  });
+
+  it("does NOT emit run numbers without startRunNumber (additive regression guard)", async () => {
+    const result = await adapter.fetch(pfh3Source({ startRunNumber: undefined }));
+    expect(result.events.length).toBeGreaterThan(0);
+    expectAllEvents(result.events, "runNumber", undefined);
+  });
+
+  it("does NOT emit run numbers when anchorDate is absent", async () => {
+    const result = await adapter.fetch(pfh3Source({ anchorDate: undefined }));
+    expect(result.events.length).toBeGreaterThan(0);
+    expectAllEvents(result.events, "runNumber", undefined);
+  });
+
+  it("does NOT emit run numbers for MONTHLY rules (a day-delta can't map to a run count)", async () => {
+    const result = await adapter.fetch(
+      pfh3Source({ rrule: "FREQ=MONTHLY;BYDAY=2WE" }),
+    );
+    expect(result.events.length).toBeGreaterThan(0);
+    expectAllEvents(result.events, "runNumber", undefined);
+  });
+
+  it("never emits NaN run numbers for a semantically-invalid anchorDate", async () => {
+    // "2019-13-99" passes the admin YYYY-MM-DD format check but is not a real
+    // date → parses to NaN. A WEEKLY INTERVAL=1 rule ignores anchorDate for date
+    // generation, so events still emit; runNumber must fall back to absent, never NaN.
+    const result = await adapter.fetch(
+      pfh3Source({ rrule: "FREQ=WEEKLY;BYDAY=WE", anchorDate: "2019-13-99" }),
+    );
+    expect(result.events.length).toBeGreaterThan(0);
+    expectAllEvents(result.events, "runNumber", undefined);
   });
 });
