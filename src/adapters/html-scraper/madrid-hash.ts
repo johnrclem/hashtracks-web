@@ -35,14 +35,51 @@ export function parseMadridGps(
 }
 
 /**
- * Extract the run theme from a Madrid post title. Titles are stylized as
- *   `The “Habemus Papadam” R*n`
- * Return the bare quoted segment ("Habemus Papadam"). Handles curly and
- * straight quotes. Returns undefined when no quoted theme is present.
+ * Clean a Madrid post title for use as the canonical event `title`. The WP
+ * `title.rendered` is already the bare stylized header (`The “Habemus Papadam”
+ * R*n`); the trailing ` - Madrid HHH` site-name suffix only appears on
+ * `og_title`, but strip it defensively so either source shape is safe. Returns
+ * undefined for an empty title so the merge pipeline falls back to synthesizing
+ * `"Madrid H3 Trail #N"`.
  */
-export function parseMadridTheme(postTitle: string): string | undefined {
-  const m = /["“]([^"”]+)["”]/.exec(postTitle);
-  return m?.[1]?.trim() || undefined;
+export function cleanMadridTitle(postTitle: string): string | undefined {
+  // Literal single spaces + a single dash char-class — no unbounded
+  // quantifiers, so the match is linear and can't trip Sonar S5852 (ReDoS).
+  // The real suffix is always exactly " - Madrid HHH"; over-flexible
+  // whitespace matching isn't needed for a defensive, rarely-hit strip.
+  return (
+    postTitle
+      .trim()
+      .replace(/ [-–—] Madrid HHH$/i, "")
+      .trim() || undefined
+  );
+}
+
+/**
+ * Transform a WordPress post's `content.rendered` HTML into the flattened text
+ * body + Maps anchor href that `parseMadridRunBody` consumes. Shared by the
+ * live adapter and the one-shot archive generator
+ * (`scripts/generate-madrid-h3-history.ts`) so both produce byte-identical
+ * bodies — the frozen archive can never drift from what the recurring scrape
+ * sees.
+ */
+export function extractMadridPostBody(content: string): {
+  body: string;
+  hrefLocationUrl?: string;
+} {
+  const $ = cheerio.load(content);
+  // Pull the Maps link from the anchor href before flattening to text.
+  // Starts-with (not contains) so a Facebook `l.php?u=…goo.gl/maps…` tracking
+  // shim doesn't match — those fall back to the clean body URL.
+  const hrefLocationUrl =
+    $(
+      "a[href^='https://maps.app.goo.gl'], a[href^='https://goo.gl/maps'], a[href^='http://goo.gl/maps']",
+    )
+      .first()
+      .attr("href") || undefined;
+  // Insert newlines at block boundaries so labels don't run together.
+  $("p, br, h1, h2, h3, h4").before("\n");
+  return { body: $.text(), hrefLocationUrl };
 }
 
 /** First label-line value (`.+` stops at the inserted newline). */
@@ -189,15 +226,15 @@ export function parseMadridRunBody(
   // carry a stray ")" (e.g. `…m9kQMeLyStp)`).
   const locationUrl = rawLocationUrl?.replace(/[).,;]+$/, "") || undefined;
 
-  // Theme carried in description; title left undefined so merge.ts synthesizes
-  // "Madrid H3 Trail #N" (never let a stylized fragment become the title).
-  const theme = parseMadridTheme(postTitle);
-
+  // The source post title (`The “Habemus Papadam” R*n`) is the real per-event
+  // title — route it to `title`. `description` is explicitly cleared (the old
+  // behavior put a quoted theme fragment here, redundant with the title now);
+  // `null` clears any stale theme on existing canonicals via the merge pipeline.
   return {
     date,
     kennelTags: ["madrid-h3"],
     runNumber: Math.floor(Number.parseFloat(runNoRaw)),
-    title: undefined,
+    title: cleanMadridTitle(postTitle),
     hares,
     location,
     startTime,
@@ -205,7 +242,7 @@ export function parseMadridRunBody(
     longitude: coords?.lng,
     locationUrl,
     sourceUrl: url,
-    description: theme,
+    description: null,
   };
 }
 
@@ -240,19 +277,7 @@ export class MadridHashAdapter implements SourceAdapter {
     for (const post of wpResult.posts) {
       // Isolate each post: one malformed body must not abort the whole batch.
       try {
-        const $ = cheerio.load(post.content);
-        // Pull the Maps link from the anchor href before flattening to text.
-        // Starts-with (not contains) so a Facebook `l.php?u=…goo.gl/maps…`
-        // tracking shim doesn't match — those fall back to the clean body URL.
-        const hrefLocationUrl =
-          $(
-            "a[href^='https://maps.app.goo.gl'], a[href^='https://goo.gl/maps'], a[href^='http://goo.gl/maps']",
-          )
-            .first()
-            .attr("href") || undefined;
-        // Insert newlines at block boundaries so labels don't run together.
-        $("p, br, h1, h2, h3, h4").before("\n");
-        const body = $.text();
+        const { body, hrefLocationUrl } = extractMadridPostBody(post.content);
         const event = parseMadridRunBody(
           body,
           post.title,

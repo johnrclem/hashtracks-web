@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import * as cheerio from "cheerio";
 import {
   parseMadridGps,
-  parseMadridTheme,
+  cleanMadridTitle,
+  extractMadridPostBody,
   parseMadridRunBody,
   resolveRunDate,
   MadridHashAdapter,
@@ -22,13 +22,11 @@ function madridSource(overrides: Partial<Source> = {}): Source {
 }
 
 /**
- * Mirror the adapter's cheerio transform so direct parseMadridRunBody tests
- * exercise the real label-extraction path against real post.content.rendered.
+ * Reuse the adapter's exported transform so direct parseMadridRunBody tests
+ * exercise the real shared label-extraction path (and can't drift from it).
  */
 function htmlToBody(content: string): string {
-  const $ = cheerio.load(content);
-  $("p, br, h1, h2, h3, h4").before("\n");
-  return $.text();
+  return extractMadridPostBody(content).body;
 }
 
 // ── Real run-post markup captured live from madridhhh.com ───────────────────
@@ -88,17 +86,19 @@ describe("parseMadridGps", () => {
   });
 });
 
-describe("parseMadridTheme", () => {
+describe("cleanMadridTitle", () => {
   it.each([
-    ["The “Habemus Papadam” R*n", "Habemus Papadam"],
-    ['The "Cool Meadows" R*n', "Cool Meadows"],
-    ["The “8pm (At Night) Live-Hare” R*n", "8pm (At Night) Live-Hare"],
-  ])("extracts the quoted theme from %s", (title, expected) => {
-    expect(parseMadridTheme(title)).toBe(expected);
+    ["The “Habemus Papadam” R*n", "The “Habemus Papadam” R*n"],
+    ['The "Cool Meadows" R*n', 'The "Cool Meadows" R*n'],
+    // og_title carries a trailing site-name suffix — stripped defensively.
+    ["The “Habemus Papadam” R*n - Madrid HHH", "The “Habemus Papadam” R*n"],
+    ["The “Habemus Papadam” R*n – Madrid HHH", "The “Habemus Papadam” R*n"],
+  ])("returns the cleaned title for %s", (title, expected) => {
+    expect(cleanMadridTitle(title)).toBe(expected);
   });
 
-  it("returns undefined when there is no quoted theme", () => {
-    expect(parseMadridTheme("Annual General Mismanagement")).toBeUndefined();
+  it("returns undefined for an empty title (so merge synthesizes the placeholder)", () => {
+    expect(cleanMadridTitle("   ")).toBeUndefined();
   });
 });
 
@@ -161,16 +161,30 @@ describe("parseMadridRunBody", () => {
       date: "2026-06-07",
       kennelTags: ["madrid-h3"],
       runNumber: 2713,
-      title: undefined,
+      title: "The “Habemus Papadam” R*n", // source title, not a synthesized placeholder
       hares: "Bush Warmer, Sir Scrambled Dag", // & split + alpha sort
       startTime: "13:00",
       latitude: 40.454352,
       longitude: -3.629372,
       locationUrl: "https://maps.app.goo.gl/WJGZLk4YtjP36gw29",
-      description: "Habemus Papadam",
+      description: null, // theme no longer routed here (#2040)
       sourceUrl: "https://madridhhh.com/the-habemus-papadam-rn/",
     });
     expect(event?.location).toContain("Parque Juan Pablo II");
+  });
+
+  it("routes the source title to `title` (not `description`) — #2040 swap regression", () => {
+    const event = parseMadridRunBody(
+      htmlToBody(POST_2713_CONTENT),
+      POST_2713_TITLE,
+      "https://madridhhh.com/the-habemus-papadam-rn/",
+    );
+    // Pre-fix bug: title was undefined and the quoted theme ("Habemus Papadam")
+    // landed in description. The real per-event title must own `title`, and
+    // description must be the explicit clear so stale themes are wiped on merge.
+    expect(event?.title).toBe("The “Habemus Papadam” R*n");
+    expect(event?.description).toBeNull();
+    expect(event?.title).not.toContain("Trail #");
   });
 
   it("parses the older evening-run format (#2413) — ordinal date, 20:00, legacy goo.gl/maps link", () => {
@@ -187,7 +201,8 @@ describe("parseMadridRunBody", () => {
       longitude: -3.708695,
       hares: "Smile Like You Like It, Snog The Goblin",
       locationUrl: "https://goo.gl/maps/qZud3B28AZCc5Lp6A",
-      description: "8pm (At Night) Live-Hare",
+      title: "The “8pm (At Night) Live-Hare” R*n",
+      description: null,
     });
   });
 
