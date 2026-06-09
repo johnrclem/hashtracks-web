@@ -38,60 +38,61 @@ const INTERVAL_DAYS = 14; // biweekly
 const DAY_MS = 86_400_000;
 
 async function main(): Promise<void> {
-  const apply = process.env.BACKFILL_APPLY === "1";
-  console.log(`Mode: ${apply ? "APPLY (will write to DB)" : "DRY RUN (no writes)"}`);
+  try {
+    const apply = process.env.BACKFILL_APPLY === "1";
+    console.log(`Mode: ${apply ? "APPLY (will write to DB)" : "DRY RUN (no writes)"}`);
 
-  const events = await prisma.event.findMany({
-    where: {
-      eventKennels: { some: { kennel: { kennelCode: KENNEL_CODE } } },
-      runNumber: null,
-    },
-    select: { id: true, dateUtc: true, title: true },
-    orderBy: { dateUtc: "asc" },
-  });
+    const events = await prisma.event.findMany({
+      where: {
+        eventKennels: { some: { kennel: { kennelCode: KENNEL_CODE } } },
+        runNumber: null,
+      },
+      select: { id: true, dateUtc: true, title: true },
+      orderBy: { dateUtc: "asc" },
+    });
 
-  const toSet: { id: string; dateStr: string; runNumber: number; title: string | null }[] = [];
-  const skipped: { dateStr: string; title: string | null }[] = [];
+    const toSet: { id: string; dateStr: string; runNumber: number; title: string | null }[] = [];
+    const skipped: { dateStr: string; title: string | null }[] = [];
 
-  for (const e of events) {
-    const d = e.dateUtc;
-    const dateStr = d ? d.toISOString().slice(0, 10) : "(no date)";
-    if (!d) {
-      skipped.push({ dateStr, title: e.title });
-      continue;
+    for (const e of events) {
+      const d = e.dateUtc;
+      const dateStr = d ? d.toISOString().slice(0, 10) : "(no date)";
+      if (!d) {
+        skipped.push({ dateStr, title: e.title });
+        continue;
+      }
+      // Normalize to the calendar date at UTC noon — events are stored at their
+      // real UTC start time (e.g. 23:30 = 18:30 ET), so a raw diff carries a
+      // constant time-of-day offset that would defeat the integer-steps test.
+      const normMs = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 12, 0, 0);
+      const steps = (normMs - ANCHOR_MS) / (INTERVAL_DAYS * DAY_MS);
+      if (!Number.isInteger(steps)) {
+        skipped.push({ dateStr, title: e.title }); // off-cadence special — leave null
+        continue;
+      }
+      toSet.push({ id: e.id, dateStr, runNumber: computeRunNumber(dateStr, ANCHOR_MS, START_RUN_NUMBER, INTERVAL_DAYS), title: e.title });
     }
-    // Normalize to the calendar date at UTC noon — events are stored at their
-    // real UTC start time (e.g. 23:30 = 18:30 ET), so a raw diff carries a
-    // constant time-of-day offset that would defeat the integer-steps test.
-    const normMs = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 12, 0, 0);
-    const steps = (normMs - ANCHOR_MS) / (INTERVAL_DAYS * DAY_MS);
-    if (!Number.isInteger(steps)) {
-      skipped.push({ dateStr, title: e.title }); // off-cadence special — leave null
-      continue;
+
+    console.log(`\n${events.length} null-runNumber PFH3 events: ${toSet.length} on-cadence to fill, ${skipped.length} off-cadence skipped`);
+    for (const e of toSet) console.log(`  SET  #${e.runNumber}  ${e.dateStr}  | ${e.title ?? "—"}`);
+    for (const e of skipped) console.log(`  SKIP        ${e.dateStr}  | ${e.title ?? "—"}`);
+
+    if (!apply) {
+      console.log("\nDry run complete. Re-run with BACKFILL_APPLY=1 to write to DB.");
+      return;
     }
-    toSet.push({ id: e.id, dateStr, runNumber: computeRunNumber(dateStr, ANCHOR_MS, START_RUN_NUMBER, INTERVAL_DAYS), title: e.title });
-  }
+    if (toSet.length === 0) {
+      console.log("\nNothing to fill. Exiting.");
+      return;
+    }
 
-  console.log(`\n${events.length} null-runNumber PFH3 events: ${toSet.length} on-cadence to fill, ${skipped.length} off-cadence skipped`);
-  for (const e of toSet) console.log(`  SET  #${e.runNumber}  ${e.dateStr}  | ${e.title ?? "—"}`);
-  for (const e of skipped) console.log(`  SKIP        ${e.dateStr}  | ${e.title ?? "—"}`);
-
-  if (!apply) {
-    console.log("\nDry run complete. Re-run with BACKFILL_APPLY=1 to write to DB.");
+    for (const e of toSet) {
+      await prisma.event.update({ where: { id: e.id }, data: { runNumber: e.runNumber } });
+    }
+    console.log(`\nApplied: ${toSet.length} events updated.`);
+  } finally {
     await prisma.$disconnect();
-    return;
   }
-  if (toSet.length === 0) {
-    console.log("\nNothing to fill. Exiting.");
-    await prisma.$disconnect();
-    return;
-  }
-
-  for (const e of toSet) {
-    await prisma.event.update({ where: { id: e.id }, data: { runNumber: e.runNumber } });
-  }
-  console.log(`\nApplied: ${toSet.length} events updated.`);
-  await prisma.$disconnect();
 }
 
 main().catch((err) => {
