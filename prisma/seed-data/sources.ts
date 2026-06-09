@@ -4452,11 +4452,17 @@ export const SOURCES = [
       type: "HTML_SCRAPER" as const,
       trustLevel: 9,
       scrapeFreq: "daily",
-      scrapeDays: 180,
+      // Hareline publishes runs ~6 months out plus the year-end celebration;
+      // 180 clipped the two December runs. 365 captures the full upcoming set.
+      scrapeDays: 365,
       config: {
         kennelTag: "penangh3",
         startTime: "17:30",
         harelinePath: "/hareline/upcoming",
+        // /hareline/upcoming is the future-runs view — past rows drop off once
+        // the date passes. Reconciler must skip past events so the backfilled
+        // historical archive (#2072) isn't false-CANCELed. (#1263)
+        upcomingOnly: true,
       },
       kennelCodes: ["penangh3"],
     },

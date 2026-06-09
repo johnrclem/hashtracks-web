@@ -11,7 +11,7 @@ import { applyDateWindow, fetchHTMLPage, normalizeHaresField, validateSourceConf
  * containing the runs array. There is also a
  * `<script type="application/ld+json">` SportsEvent schema as a safety
  * net — we prefer `__INITIAL_STATE__` because it has richer fields
- * (run_number, runsite_url, runsite_links).
+ * (run_number, location_url, location_links, run_type_pricing, notes).
  *
  * Runs shape inside `__INITIAL_STATE__.runs.runs[]`:
  *
@@ -19,17 +19,20 @@ import { applyDateWindow, fetchHTMLPage, normalizeHaresField, validateSourceConf
  *       run_number: 3167,
  *       run_date: "2026-04-13",        // already ISO
  *       run_name: "..." | null,
- *       run_group: "..." | null,
- *       run_group_label: "..." | null,
+ *       run_group: "<uuid>" | null,    // opaque grouping id — NOT a title
+ *       run_group_label: "Founders" | null,
  *       hare: "5 Minutes",             // string (may contain commas)
- *       runsite: "Kali Corner",
- *       runsite_url: "https://maps.app.goo.gl/...",
- *       runsite_links: [{ kind: "google", url: "...", label: "Google Maps" }, ...],
+ *       location: "Kali Corner",
+ *       location_url: "https://maps.app.goo.gl/...",
+ *       location_links: [{ kind: "google", url: "...", label: "Google Maps" }, ...],
+ *       notes: "..." | null,
+ *       run_type_pricing: [{ label: "Guest", amount: 30 }] | null,
+ *       pricing_currency: "MYR",
  *     }
  *
  * **Config shape** (`source.config`):
  * ```ts
- * { kennelTags: ["penangh3"], startTime?: "17:30", harelinePath?: "/hareline/upcoming" }
+ * { kennelTag: "penangh3", startTime?: "17:30", harelinePath?: "/hareline/upcoming" }
  * ```
  * If `harelinePath` is omitted the adapter defaults to `/hareline/upcoming`
  * appended to `source.url`.
@@ -58,9 +61,10 @@ interface GoHashRun {
   run_group?: string | null;
   run_group_label?: string | null;
   hare?: string | null;
-  runsite?: string | null;
-  runsite_url?: string | null;
-  runsite_links?: GoHashRunSiteLink[] | null;
+  location?: string | null;
+  location_url?: string | null;
+  location_links?: GoHashRunSiteLink[] | null;
+  notes?: string | null;
 }
 
 interface GoHashInitialState {
@@ -153,12 +157,12 @@ export function parseGoHashRun(
 
   const hares = normalizeHaresField(run.hare);
 
-  const location = run.runsite?.trim() || undefined;
-  const locationUrl = run.runsite_url?.trim() || undefined;
+  const location = run.location?.trim() || undefined;
+  const locationUrl = run.location_url?.trim() || undefined;
 
   const externalLinks: { url: string; label: string }[] = [];
-  if (Array.isArray(run.runsite_links)) {
-    for (const link of run.runsite_links) {
+  if (Array.isArray(run.location_links)) {
+    for (const link of run.location_links) {
       if (!link?.url || typeof link.url !== "string") continue;
       // Skip the one that already landed in locationUrl
       if (link.url === locationUrl) continue;
@@ -169,9 +173,21 @@ export function parseGoHashRun(
     }
   }
 
-  const title = [run.run_name, run.run_group_label, run.run_group]
+  // `run_group` is an opaque UUID (e.g. "cda839a5-…") — only `run_name` and
+  // `run_group_label` are human-readable. Never let the UUID become a title;
+  // when both are empty, leave title undefined so merge.ts synthesizes
+  // "<Kennel> Trail #N".
+  const title = [run.run_name, run.run_group_label]
     .find((s) => typeof s === "string" && s.trim().length > 0)
     ?.trim();
+
+  const description = run.notes?.trim() || undefined;
+
+  // NOTE: `run_type_pricing` (e.g. [{ label: "Guest", amount: 30 }]) +
+  // `pricing_currency` are available here. We deliberately do NOT emit a
+  // per-event `cost` because the guest fee is a flat kennel-level amount that
+  // lives on Kennel.hashCash (two-tier cost convention). Wire per-event cost
+  // here only if a source starts varying the fee by run.
 
   return {
     date: rawDate,
@@ -181,6 +197,7 @@ export function parseGoHashRun(
     hares,
     location,
     locationUrl,
+    description,
     startTime: config.startTime,
     sourceUrl,
     externalLinks: externalLinks.length > 0 ? externalLinks : undefined,
