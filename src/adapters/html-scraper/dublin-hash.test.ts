@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Source } from "@/generated/prisma/client";
 import { parseHarelineRow, DublinHashAdapter, stripTruncatedPostalFragment } from "./dublin-hash";
+import { relativeDate } from "@/test/date-helpers";
 
 // Mock safeFetch (used by fetchHTMLPage)
 vi.mock("@/adapters/safe-fetch", () => ({
@@ -43,28 +44,11 @@ function mockFetchResponse(html: string) {
   } as Response);
 }
 
-// Build a date relative to "now" in both the parser's display format
-// ("D Month YYYY") and ISO ("YYYY-MM-DD"). The window-filter test below must
+// relativeDate (shared, @/test/date-helpers): the window-filter test below must
 // keep its "near-term" event inside buildDateWindow(90); pinning an absolute
 // date silently rots once the wall clock passes it (the same time-bomb that hit
 // atlanta-hash-board on 2026-06-08). Far-past/far-future rows can stay static —
 // 1990 and 2099 are outside ±90 days for any plausible run date.
-const MONTH_NAMES = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-];
-function relativeDate(daysFromNow: number): { display: string; iso: string } {
-  const d = new Date();
-  d.setUTCHours(12, 0, 0, 0);
-  d.setUTCDate(d.getUTCDate() + daysFromNow);
-  const yyyy = d.getUTCFullYear();
-  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const dd = String(d.getUTCDate()).padStart(2, "0");
-  return {
-    display: `${d.getUTCDate()} ${MONTH_NAMES[d.getUTCMonth()]} ${yyyy}`,
-    iso: `${yyyy}-${mm}-${dd}`,
-  };
-}
 
 describe("stripTruncatedPostalFragment", () => {
   it("strips trailing single-letter Dublin postal fragment", () => {
@@ -301,7 +285,7 @@ describe("DublinHashAdapter", () => {
     <td>Far Future Pub</td><td>FutureHare</td><td></td>
   </tr>
   <tr>
-    <td>Monday</td><td>${near.display}</td><td>19:30</td>
+    <td>Monday</td><td>${near.day} ${near.monthName} ${near.year}</td><td>19:30</td>
     <td><a href="/archive/${near.iso}-dublin-h3/">Dublin H3 #1668</a></td>
     <td>Dalkey DART Station</td><td>Polly</td><td></td>
   </tr>

@@ -9,6 +9,7 @@ import {
   parseHistoryEvents,
   SDH3Adapter,
 } from "./sdh3";
+import { relativeDate } from "@/test/date-helpers";
 
 // Mock safeFetch (used by fetchHTMLPage)
 vi.mock("@/adapters/safe-fetch", () => ({
@@ -74,36 +75,11 @@ function mockFetchResponse(html: string, bytes?: Uint8Array) {
   mockedSafeFetch.mockResolvedValue(fakeResponse(html, bytes));
 }
 
-// Build a date relative to "now" in both the hareline display format
-// ("Weekday, Month D, YYYY") and ISO ("YYYY-MM-DD"). The date-window-filter
-// test must keep its "near-term" event inside buildDateWindow(90); pinning an
-// absolute date silently rots once the wall clock passes it (the time-bomb that
-// hit atlanta-hash-board on 2026-06-08). chrono parses the explicit numeric
-// date, so the weekday label is decorative — we still compute it correctly.
-const WEEKDAY_NAMES = [
-  "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday",
-];
-const MONTH_NAMES = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-];
-function relativeDate(daysFromNow: number): {
-  display: string;
-  iso: string;
-  compact: string;
-} {
-  const d = new Date();
-  d.setUTCHours(12, 0, 0, 0);
-  d.setUTCDate(d.getUTCDate() + daysFromNow);
-  const yyyy = d.getUTCFullYear();
-  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const dd = String(d.getUTCDate()).padStart(2, "0");
-  return {
-    display: `${WEEKDAY_NAMES[d.getUTCDay()]}, ${MONTH_NAMES[d.getUTCMonth()]} ${d.getUTCDate()}, ${yyyy}`,
-    iso: `${yyyy}-${mm}-${dd}`,
-    compact: `${yyyy}${mm}${dd}`,
-  };
-}
+// relativeDate (shared, @/test/date-helpers): the date-window-filter test must
+// keep its "near-term" event inside buildDateWindow(90); pinning an absolute
+// date silently rots once the wall clock passes it (the time-bomb that hit
+// atlanta-hash-board on 2026-06-08). chrono parses the explicit numeric date,
+// so the weekday label is decorative — we still compute it correctly.
 
 // ── Inline HTML fixtures ──
 
@@ -731,7 +707,7 @@ describe("SDH3Adapter", () => {
       <a href="#">View Map</a>
     </span>
     <strong>San Diego H3</strong>
-    <span style="white-space:nowrap">${near.display} 6:00pm</span>
+    <span style="white-space:nowrap">${near.weekday}, ${near.monthName} ${near.day}, ${near.year} 6:00pm</span>
     <div><strong>Hare(s):</strong> Current Hare</div>
   </dt>
 </dl>
