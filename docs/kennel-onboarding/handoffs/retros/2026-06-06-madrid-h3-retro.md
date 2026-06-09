@@ -38,6 +38,15 @@ byte-for-byte: #2713 "Habemus Papadam", Sun 2026-06-07, 13:00, GPS `40.454352,-3
 3. **`title` left undefined; merge synthesizes.** The post titles are stylized themes (`The "Habemus
    Papadam" R*n`); the adapter carries the bare theme in `description` and never promotes it to `title`,
    so merge synthesizes `"Madrid H3 Trail #N"`. Confirmed in prod (#2713 title = "Madrid H3 Trail #2713").
+   > ⚠️ **REVERSED — this decision was a bug** ([PR #2050](https://github.com/johnrclem/hashtracks-web/pull/2050),
+   > audit #2040). A CHROME_KENNEL audit caught that this is a **title/description swap**: `The "Habemus
+   > Papadam" R*n` *is* the real per-event title and belongs in `title`; routing it to `description` as a
+   > bare quoted fragment hid it behind a generic `Trail #N` placeholder on 442/442 events. The fix routes
+   > the full post title to `title` and sets `description: null`. **Lesson for the next WP/Blogspot kennel:**
+   > a stylized post title (`The "X" R*n`) is still a real title — populate `title` and let merge synthesize
+   > *only* when the source genuinely has no per-event title (cf. joint-Gamma kennels DSMH3 #2013 / Bangkok
+   > Monday #2016, which truly have none). Don't pre-decide "synthesize + theme-in-description" for a source
+   > that has real titles.
 4. **Self-host the logo + confirm via magic bytes (self-host-unstable-logos).** Downloaded the candidate
    PNG, confirmed `\x89PNG` (1000×1000), referenced `/kennel-logos/madrid-h3.png`. The handoff's "verify
    bytes, the candidate is `.bmp` OR `.png`" instinct was right — the `.png` candidate was the real one.
@@ -65,6 +74,10 @@ byte-for-byte: #2713 "Habemus Papadam", Sun 2026-06-07, 13:00, GPS `40.454352,-3
    existed). Zero region guesswork — the Costa-del-Sol/Mijas precedent made it a level-less METRO.
 6. **Field-fill assertion table + the "synthesize vs theme title" decision** were both pre-made, so the
    `title: undefined` + theme-in-description choice was a one-line confirmation, not a design debate.
+   > ⚠️ **The pre-made title decision was wrong** — see item #3 above and [PR #2050](https://github.com/johnrclem/hashtracks-web/pull/2050).
+   > A pre-made handoff decision being "a one-line confirmation, not a design debate" is exactly how a wrong
+   > call ships unchallenged: the source had real per-event titles all along. Treat "synthesize the title"
+   > as needing positive evidence the source has *no* title, not as a default.
 
 ---
 
@@ -188,5 +201,6 @@ fragile (and the greedy `\S+` swallowed a trailing `)` from the prose). Reading 
    `.env`) to see and mark linear-regex false positives SAFE; clear `as never` S4325 smells with a typed
    factory.
 7. **Keep:** the labeled-body parse map, the decimal-coords / no-default-pin call, the
-   trust-in-body-date default, the single-kennel sibling sweep, the 2-edit Spain-metro region checklist,
-   and the synthesize-vs-theme title decision — all landed first-try.
+   trust-in-body-date default, the single-kennel sibling sweep, and the 2-edit Spain-metro region checklist
+   — all landed first-try. **Drop** the synthesize-vs-theme title decision: it shipped a swap bug (item #3,
+   [PR #2050](https://github.com/johnrclem/hashtracks-web/pull/2050)) — promote a real post title to `title`.
