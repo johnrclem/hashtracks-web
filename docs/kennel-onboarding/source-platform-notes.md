@@ -225,6 +225,45 @@ sheet → **7**. Pre-state trust by which source owns the coordinates, and add a
 test (sheet-first → website-second → assert coords land). (A follow-up to make the enrichment path
 backfill coords symmetrically is tracked separately.)
 
+### Single current-run home page (no embedded sheet) — learned from Manila H3, 2026-06-08
+
+Some Google Sites kennels render **only the current "next run"** as one label block, with no embedded
+sheet and no reachable archive (Manila H3: `ano (what) / kailan (when) / sino (who) / saan (where) /
+mapa:`). Treat these like Boise/NSWHHH's website surface:
+
+- **`config.upcomingOnly: true`** (the run ages off weekly) **+ a mandatory fail-loud guard**: if the
+  label block doesn't parse, push an `errors[]` entry so reconcile is suppressed — don't let the scrape
+  "succeed" with `events: []` (the zero-event health alert can't catch that on a brand-new source whose
+  baseline is already 0). No historical backfill.
+- 🔴 **Match labels on a whitespace-collapsed copy of the line, then read the value after the closing
+  `)` — NOT a label-prefix regex.** Google Sites splits words across inline `<span>`s; `stripHtmlTags`
+  re-joins them without separators *usually*, but a stray space inside a label (`si no (who)`,
+  `saan (whe re)`) makes a `/sino\s*\(who\)/` regex silently miss and **drop the hare/venue every
+  scrape** while the date/run still parse (the fail-loud guard, which checks the date, won't catch it).
+  Robust shape: `compact(line) = line.replace(/\s+/g,"").toLowerCase()`, detect via
+  `compact(line).includes("sino(who)")`, extract via `line.slice(line.indexOf(")")+1)`. Add a
+  regression test feeding the spaced-label variant.
+- **Encoded fields parse deterministically, not via chrono.** Manila's run number is roman+decimal
+  (`mmdccxxviii = 2728` → take the decimal after `=`) and its date is an encoded token
+  (`sikoklokmon08jun26` → `\d{1,2}[a-z]{3}\d{2}` core → UTC noon). Resolve month via a 3-letter map,
+  keep regexes simple (S5852/S5843).
+- **`title` undefined → merge synthesizes `"<Friendly> Trail #N"`.** Confirm `friendlyKennelName`
+  short-circuits on a >4-char shortName before relying on it.
+- 🟡 **Codacy runs `eslint-plugin-security` (local `npm run lint` doesn't).** `Record[var]` /
+  `arr[i]` / `str[i]` lookups are flagged `detect-object-injection` ("Object Injection Sink") — use
+  **`Map.get()` and `for…of`** in new adapter code instead (also fixes `noUncheckedIndexedAccess`).
+  The unavoidable `detect-non-literal-html-method` hits (`stripHtmlTags(html)`, passing `html` to the
+  parser) are the documented-accepted class — left unsuppressed per `.codacy.yml`. If Codacy freezes on
+  stale line numbers (0s run), verify clean + document; don't churn (it's non-blocking — `main`
+  unprotected).
+
+### `sitesv` logo — a `Referer` header often fetches it server-side (refines the NSWHHH note)
+
+The NSWHHH note said `lh3.googleusercontent.com/sitesv/…` logos 403 server-side → browser-grab. For
+Manila, **`curl -e https://sites.google.com/ <ogimage>` returned HTTP 200** (real PNG, magic-byte
+confirmed) — a `Referer` header was enough. The token still rotates per load, so a browser grab remains
+the fallback, but try a Referer'd `curl` first.
+
 ## Blogger / Blogspot — staleness check from the sandbox (learned 2026-06-03, LatAm leads)
 
 The Blogger JSON feed `https://<blog>.blogspot.com/feeds/posts/default?alt=json&max-results=N` **is fetchable from the research sandbox via `web_fetch`** (returns `application/json`, not stripped) — a reliable, fast recency probe for Blogspot-hosted kennels.
