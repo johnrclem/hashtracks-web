@@ -60,6 +60,63 @@ const SAMPLE_ATOM_FEED = `<?xml version="1.0" encoding="UTF-8"?>
   </entry>
 </feed>`;
 
+/**
+ * Build an Atom feed whose post dates are RECENT relative to the run, so the
+ * adapter's date-window filter (`buildDateWindow(days)`) never ages them out.
+ * The static `SAMPLE_ATOM_FEED` above pins absolute March-2026 dates — fine for
+ * the deterministic parse tests, but the window-filtered `fetch()` test must use
+ * dates relative to "now" or it goes red once wall-clock passes the 90-day mark
+ * (the fixtures silently aged out on 2026-06-08). Titles/bodies carry NO date
+ * token, so `extractEventDate` infers the next hash-day after the post date —
+ * always within the window.
+ */
+function isoDaysAgo(days: number): string {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - days);
+  return d.toISOString();
+}
+
+function buildRecentAtomFeed(): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Atlanta Hash Board - Atlanta Hash (Saturdays)</title>
+  <entry>
+    <title type="html"><![CDATA[Atlanta Hash (Saturdays) • Weekly Trail with Dr. PP & Big Bore]]></title>
+    <published>${isoDaysAgo(4)}</published>
+    <author><name><![CDATA[Headnurse]]></name></author>
+    <link href="https://board.atlantahash.com/viewtopic.php?p=1011#p1011"/>
+    <category term="Atlanta Hash (Saturdays)" label="Atlanta Hash (Saturdays)"/>
+    <content type="html"><![CDATA[
+      Hares: Dr PP &amp; Big Bore<br>
+      Start: Lake City, GA -- Parking lot off Main St<br>
+      Time: Gather 1:30 Hounds out at 2:00 PM<br>
+      Cost: $10 covers beer and food
+    ]]></content>
+  </entry>
+  <entry>
+    <title type="html"><![CDATA[Atlanta Hash (Saturdays) • Re: Last week's recap]]></title>
+    <published>${isoDaysAgo(5)}</published>
+    <author><name><![CDATA[SomeUser]]></name></author>
+    <link href="https://board.atlantahash.com/viewtopic.php?p=1010#p1010"/>
+    <category term="Atlanta Hash (Saturdays)" label="Atlanta Hash (Saturdays)"/>
+    <content type="html"><![CDATA[Great trail last week!]]></content>
+  </entry>
+  <entry>
+    <title type="html"><![CDATA[Moonlite H3 • Moonlite #1638 this week]]></title>
+    <published>${isoDaysAgo(4)}</published>
+    <author><name><![CDATA[LunarHare]]></name></author>
+    <link href="https://board.atlantahash.com/viewtopic.php?p=1012#p1012"/>
+    <category term="Moonlite H3" label="Moonlite H3"/>
+    <content type="html"><![CDATA[
+      Hares: Lunar Eclipse &amp; Stargazer<br>
+      Where: Piedmont Park, Atlanta<br>
+      Time: Meet at 6:30 PM, Trail at 7:00 PM<br>
+      Run #1638
+    ]]></content>
+  </entry>
+</feed>`;
+}
+
 // ── parseAtomFeed ──
 
 describe("parseAtomFeed", () => {
@@ -389,9 +446,11 @@ describe("AtlantaHashBoardAdapter", () => {
   });
 
   it("fetches and parses events from multiple forums", async () => {
+    // Recent (relative-to-now) post dates so the 90-day window filter doesn't
+    // age the fixtures out — see buildRecentAtomFeed.
     mockSafeFetch.mockResolvedValue(mockResponse({
       ok: true,
-      text: () => Promise.resolve(SAMPLE_ATOM_FEED),
+      text: () => Promise.resolve(buildRecentAtomFeed()),
     }));
 
     const adapter = new AtlantaHashBoardAdapter();
