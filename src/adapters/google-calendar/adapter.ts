@@ -549,6 +549,50 @@ export function looksLikeHareName(text: string): boolean {
   return true;
 }
 
+/** The placeholder run token that follows a `#` marker: "?", "X"/"X?", or a
+ *  "TBD"/"TBA"/"TBC" word. Anchored at start (caller trims first) so there's no
+ *  `\s*`-adjacent alternation for Sonar S5852 to flag. */
+const PLACEHOLDER_RUN_TOKEN_RE = /^(?:X+\??|TB[ADC]|\?+)/i;
+/** Trailing "(...)" parenthetical, used as the theme slot of a title. Distinct
+ *  from TITLE_TRAILING_PAREN_RE (which requires non-empty `[^)]+`): here `[^)]*`
+ *  intentionally captures an empty "()" as an empty theme. */
+const TRAILING_PAREN_RE = /\(([^)]*)\)$/;
+
+/**
+ * #2065 — true when a title is a pure placeholder shell: it carries a
+ * placeholder run marker ("#?", "#TBD") AND its theme (the trailing
+ * parenthetical, else whatever follows the last `#` after stripping the
+ * placeholder run token) is empty or itself a placeholder. Used to null such
+ * titles so merge.ts synthesizes a default or a richer secondary source wins.
+ *
+ *   "SH3 #? (TBD)"                         → true   (theme "TBD" is a placeholder)
+ *   "SH3 #?"                               → true   (no theme)
+ *   "SH3 #? (Catholic School Girl)"        → false  (real theme)
+ *   "NBH3/SH3 #?/#753 (Cross Dress …)"     → false  (real theme)
+ *   "TH3 #? (A Trail)"                     → false  (non-placeholder theme; kept)
+ *
+ * ReDoS-safe: the parenthetical capture is a single negated class and the
+ * post-marker theme is sliced with lastIndexOf, not a `\s*`-adjacent alternation.
+ */
+export function isThemelessPlaceholderTitle(title: string): boolean {
+  const trimmed = title.trim();
+  if (!hasPlaceholderRunNumber(trimmed)) return false;
+  // A real "#NNN" anywhere means a co-host carries a genuine run number — keep it
+  // regardless of marker ordering ("SH3/NBH3 #753/#?" must NOT be nulled). Reuses
+  // the delimiter-guarded shared parser so "#30X?" stays a placeholder, not "30".
+  if (extractHashRunNumber(trimmed) !== undefined) return false;
+  const paren = TRAILING_PAREN_RE.exec(trimmed);
+  let theme: string;
+  if (paren) {
+    theme = paren[1].trim();
+  } else {
+    const hashIdx = trimmed.lastIndexOf("#");
+    const afterHash = hashIdx === -1 ? trimmed : trimmed.slice(hashIdx + 1);
+    theme = afterHash.replace(PLACEHOLDER_RUN_TOKEN_RE, "").trim();
+  }
+  return theme === "" || isPlaceholder(theme);
+}
+
 /**
  * A "this slot has no real value" token — used per-token inside a location
  * candidate. Deliberately NARROW (only vacancy markers), NOT the full
@@ -1095,6 +1139,18 @@ interface CalendarSourceConfig {
    * the only path to a usable title.
    */
   preferDefaultTitleOverDescription?: boolean;
+  /**
+   * When true, the calendar SUMMARY is the canonical title and the adapter
+   * NEVER falls back to the description for a title (#2046 C2H3). Some kennels
+   * put the bare kennel code in SUMMARY and boilerplate marketing prose in
+   * DESCRIPTION; the generic "summary == kennelTag → use description" fallback
+   * then surfaces the boilerplate. Setting this leaves the title as the
+   * stripped summary so merge.ts keeps it (or synthesizes "<Kennel> Trail #N"
+   * when it collapses to the bare code). Off by default — the description
+   * fallback is correct for the many calendars that genuinely encode the trail
+   * name there (4X2 H4 / Chicagoland).
+   */
+  summaryIsCanonicalTitle?: boolean;
 }
 
 /**
@@ -1571,7 +1627,12 @@ export function buildRawEventFromGCalItem(
   // When the flag is set AND a per-kennel `defaultTitles` (or generic
   // `defaultTitle`) is configured, skip the description fallback so the
   // existing defaultTitle path (line ~1311) wins instead.
-  if (titleMatchesKennelTag(title, kennelTag) && rawDescription) {
+  // `summaryIsCanonicalTitle` (#2046 C2H3): trust the SUMMARY and never derive
+  // a title from the description. C2H3's calendar pairs a bare-kennel-code
+  // SUMMARY ("C2H3") with boilerplate marketing prose in DESCRIPTION; both
+  // fallbacks below would otherwise surface that prose as the title.
+  const trustSummaryTitle = sourceConfig?.summaryIsCanonicalTitle === true;
+  if (!trustSummaryTitle && titleMatchesKennelTag(title, kennelTag) && rawDescription) {
     // Strict-boolean check on `preferDefaultTitleOverDescription`: the
     // config is hydrated from persisted JSON, where any truthy value
     // would otherwise opt in unintentionally (same convention as the
@@ -1588,7 +1649,7 @@ export function buildRawEventFromGCalItem(
   }
   // If title looks like a bare kennel code (2-10 alphanumeric chars, no spaces),
   // try extracting a better title from the description
-  if (/^[A-Za-z0-9]{2,10}$/.test(title) && rawDescription) {
+  if (!trustSummaryTitle && /^[A-Za-z0-9]{2,10}$/.test(title) && rawDescription) {
     const descTitle = titleFromDescription(rawDescription);
     if (descTitle) title = descTitle;
   }
@@ -1811,6 +1872,20 @@ export function buildRawEventFromGCalItem(
     for (const re of compiledTitleStripPatterns) {
       title = title.replace(re, "").trim();
     }
+  }
+
+  // #2065 SH3 — a placeholder-run-number title with no real theme ("SH3 #? (TBD)",
+  // or a bare "SH3 #?" left after a "(theme)" was extracted to hares above)
+  // carries zero information. Null it so the defaultTitle path below, merge.ts's
+  // "<Kennel> Trail #N" synthesis, or a richer secondary source (the SH3 hareline
+  // sheet's "#1011 Catholic School Girl") wins instead of a higher-trust
+  // placeholder. Runs AFTER hare/parenthetical extraction so the theme is
+  // preserved as hares when present; narrow by design — a placeholder marker that
+  // still wraps a real theme ("SH3 #? (Catholic School Girl)") or a co-host with a
+  // real number ("NBH3/SH3 #?/#753") is untouched. Empty title still reads as a
+  // shell for the all-day collapse (isPlaceholderShell), so dedup is unaffected.
+  if (promotedRunNumber === undefined && isThemelessPlaceholderTitle(title)) {
+    title = "";
   }
 
   // defaultTitle fallback runs last, after all branches that may reset title to kennelTag.
