@@ -5451,3 +5451,31 @@ describe("NOH3 titleLocationPattern — 'Start @ {address}' (#2022)", () => {
     expect(result!.title).toBe("Hash #1961");
   });
 });
+
+// ── #2033 — DH4 hares fill-rate regression was a metric false-positive ──
+// The #2000/#2032 `(Run/Walk)` strip dropped the DH4 hares fill rate 91% → 55%.
+// Verdict B (prod-verified): the old 91% was inflated by `"Run/Walk"` counted as
+// hares on placeholder rows; no REAL DH4 hare was lost. DH4's real hares come
+// from the GCal description `Hares:` label, never a title parenthetical — these
+// tests lock that boundary so a future over-broad strip can't regress them. The
+// alert itself is resolved out-of-band via `Source.baselineResetAt`, not adapter
+// changes (`scripts/reset-dh4-hares-baseline.ts`).
+describe("DH4 hares survive the event-type strip (#2033 verdict B)", () => {
+  it("keeps a real description-derived hare on a themed DH4 run", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "DH4 #1661 Blue Full Moon Hash", description: "Hares: Dah Gimp" }),
+      { defaultKennelTag: "dh4" },
+    );
+    expect(result).not.toBeNull();
+    expect(result!.hares).toBe("Dah Gimp");
+  });
+
+  it("leaves a placeholder '(Run/Walk)' DH4 row with no hares", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "DH4 #1663 Hash Event (Run/Walk)", description: "This event is currently being planned." }),
+      { defaultKennelTag: "dh4" },
+    );
+    expect(result).not.toBeNull();
+    expect(result!.hares).toBeUndefined();
+  });
+});
