@@ -43,6 +43,29 @@ function mockFetchResponse(html: string) {
   } as Response);
 }
 
+// Build a date relative to "now" in both the parser's display format
+// ("D Month YYYY") and ISO ("YYYY-MM-DD"). The window-filter test below must
+// keep its "near-term" event inside buildDateWindow(90); pinning an absolute
+// date silently rots once the wall clock passes it (the same time-bomb that hit
+// atlanta-hash-board on 2026-06-08). Far-past/far-future rows can stay static —
+// 1990 and 2099 are outside ±90 days for any plausible run date.
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+function relativeDate(daysFromNow: number): { display: string; iso: string } {
+  const d = new Date();
+  d.setUTCHours(12, 0, 0, 0);
+  d.setUTCDate(d.getUTCDate() + daysFromNow);
+  const yyyy = d.getUTCFullYear();
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(d.getUTCDate()).padStart(2, "0");
+  return {
+    display: `${d.getUTCDate()} ${MONTH_NAMES[d.getUTCMonth()]} ${yyyy}`,
+    iso: `${yyyy}-${mm}-${dd}`,
+  };
+}
+
 describe("stripTruncatedPostalFragment", () => {
   it("strips trailing single-letter Dublin postal fragment", () => {
     expect(stripTruncatedPostalFragment("51 Bar, Haddington Rd, Dublin, D")).toBe(
@@ -265,7 +288,10 @@ describe("DublinHashAdapter", () => {
     });
 
     it("filters events outside the date window", async () => {
-      // Table with one far-future event (2099) and one near-term event (2026)
+      // Near-term date is relative to "now" so it never ages out of the
+      // ±90-day window (see relativeDate helper). Far-future (2099) and
+      // far-past (1990) rows stay static — always outside ±90 days.
+      const near = relativeDate(7);
       const html = `<html><body>
 <table>
   <tr><th>Day</th><th>Date</th><th>Time</th><th>Hash</th><th>Location</th><th>Hares</th><th>Notes</th></tr>
@@ -275,8 +301,8 @@ describe("DublinHashAdapter", () => {
     <td>Far Future Pub</td><td>FutureHare</td><td></td>
   </tr>
   <tr>
-    <td>Monday</td><td>16 March 2026</td><td>19:30</td>
-    <td><a href="/archive/2026-03-16-dublin-h3/">Dublin H3 #1668</a></td>
+    <td>Monday</td><td>${near.display}</td><td>19:30</td>
+    <td><a href="/archive/${near.iso}-dublin-h3/">Dublin H3 #1668</a></td>
     <td>Dalkey DART Station</td><td>Polly</td><td></td>
   </tr>
   <tr>
@@ -300,8 +326,8 @@ describe("DublinHashAdapter", () => {
       const pastEvent = result.events.find((e) => e.date === "1990-03-16");
       expect(pastEvent).toBeUndefined();
 
-      // Near-term event (2026) should be included
-      const currentEvent = result.events.find((e) => e.date === "2026-03-16");
+      // Near-term event should be included
+      const currentEvent = result.events.find((e) => e.date === near.iso);
       expect(currentEvent).toBeDefined();
       expect(currentEvent!.title).toBe("Dublin H3 #1668");
     });

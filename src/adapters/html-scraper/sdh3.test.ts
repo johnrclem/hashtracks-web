@@ -74,6 +74,37 @@ function mockFetchResponse(html: string, bytes?: Uint8Array) {
   mockedSafeFetch.mockResolvedValue(fakeResponse(html, bytes));
 }
 
+// Build a date relative to "now" in both the hareline display format
+// ("Weekday, Month D, YYYY") and ISO ("YYYY-MM-DD"). The date-window-filter
+// test must keep its "near-term" event inside buildDateWindow(90); pinning an
+// absolute date silently rots once the wall clock passes it (the time-bomb that
+// hit atlanta-hash-board on 2026-06-08). chrono parses the explicit numeric
+// date, so the weekday label is decorative — we still compute it correctly.
+const WEEKDAY_NAMES = [
+  "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday",
+];
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+function relativeDate(daysFromNow: number): {
+  display: string;
+  iso: string;
+  compact: string;
+} {
+  const d = new Date();
+  d.setUTCHours(12, 0, 0, 0);
+  d.setUTCDate(d.getUTCDate() + daysFromNow);
+  const yyyy = d.getUTCFullYear();
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(d.getUTCDate()).padStart(2, "0");
+  return {
+    display: `${WEEKDAY_NAMES[d.getUTCDay()]}, ${MONTH_NAMES[d.getUTCMonth()]} ${d.getUTCDate()}, ${yyyy}`,
+    iso: `${yyyy}-${mm}-${dd}`,
+    compact: `${yyyy}${mm}${dd}`,
+  };
+}
+
 // ── Inline HTML fixtures ──
 
 const HARELINE_HTML = `<html><body>
@@ -564,7 +595,11 @@ describe("SDH3Adapter", () => {
     mockFetchResponse(HARELINE_HTML);
 
     const source = makeSource();
-    const result = await adapter.fetch(source, { days: 365 });
+    // All-time window: HARELINE_HTML carries fixed March-2026 dates (pinned by the
+    // parser-direct tests above), so a finite ±N-day window would age these out and
+    // redlight CI once the wall clock passes them. The window is incidental here —
+    // this test only asserts that parsing yields events.
+    const result = await adapter.fetch(source, { days: 36500 });
 
     expect(result.events.length).toBeGreaterThan(0);
     expect(result.structureHash).toBe("mock-hash-sdh3");
@@ -600,7 +635,9 @@ describe("SDH3Adapter", () => {
     } as Response);
 
     const source = makeSource();
-    const result = await adapter.fetch(source, { days: 365 });
+    // All-time window — see "fetches and parses hareline events": the fixture's
+    // fixed March-2026 dates must not age out of a finite window.
+    const result = await adapter.fetch(source, { days: 36500 });
     const sdh3Event = result.events.find((e) => e.kennelTags[0] === "sdh3");
     expect(sdh3Event?.description).toContain("🌮");
     expect(sdh3Event?.description).not.toContain("ðŸŒ®");
@@ -696,7 +733,9 @@ describe("SDH3Adapter", () => {
   });
 
   it("filters events by date window", async () => {
-    // Create events spanning a wide range — only those within the window should remain
+    // Near-term date is relative to "now" so it never ages out of the ±90-day
+    // window (see relativeDate helper). Far-future (2099) row stays static.
+    const near = relativeDate(7);
     const farFutureHareline = `<html><body>
 <dl>
   <dt class="hashEvent SDH3">
@@ -710,11 +749,11 @@ describe("SDH3Adapter", () => {
   </dt>
   <dt class="hashEvent SDH3">
     <span style="float:right;margin-right:5px;white-space:nowrap">
-      <a href="/e/event-20260320180000.shtml"><img src="/site_images/event.png"></a>
+      <a href="/e/event-${near.compact}180000.shtml"><img src="/site_images/event.png"></a>
       <a href="#">View Map</a>
     </span>
     <strong>San Diego H3</strong>
-    <span style="white-space:nowrap">Friday, March 20, 2026 6:00pm</span>
+    <span style="white-space:nowrap">${near.display} 6:00pm</span>
     <div><strong>Hare(s):</strong> Current Hare</div>
   </dt>
 </dl>
@@ -730,7 +769,7 @@ describe("SDH3Adapter", () => {
     expect(futureEvent).toBeUndefined();
 
     // Near-term event should be included
-    const currentEvent = result.events.find((e) => e.date === "2026-03-20");
+    const currentEvent = result.events.find((e) => e.date === near.iso);
     expect(currentEvent).toBeDefined();
   });
 });
