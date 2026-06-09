@@ -2865,6 +2865,23 @@ export const KENNELS: KennelSeed[] = [
       latitude: 38.7223, longitude: -9.1393,
     },
 
+    // ── Portugal: Porto ──
+    {
+      kennelCode: "pih3", shortName: "Porto Invicta H3", fullName: "Porto Invicta Hash House Harriers", region: "Porto", country: "Portugal",
+      foundedYear: 2025, // ononinvicta.club: "Serving Porto's running and social community since 2025" (a few 2024 soft-launch photos noted)
+      scheduleDayOfWeek: "Saturday", scheduleTime: "3:00 PM", scheduleFrequency: "Biweekly",
+      scheduleNotes: "Alternate (biweekly) Saturday afternoons around Porto and Northern Portugal, reachable by metro/urban rail. 5–10km trails (60–90 min) for runners and walkers, with a mid-run refreshment 'Pitstop'. Exact start time varies and is announced per-run via Harrier Central / Facebook (seeded ~3:00 PM from photo timestamps; HC per-event times are authoritative). Per-run venues announced day-of by the hares.",
+      description: "Porto Invicta Hash House Harriers (PIH3) is Porto's social running and walking club, founded in 2025 and part of the global Hash House Harriers network. It hashes on alternate Saturday afternoons around Porto and Northern Portugal — 5–10km trails for runners and walkers, easily reached by metro or urban rail, followed by beer, food and the usual circle. On On!",
+      hashCash: "€5",
+      dogFriendly: true,
+      walkersWelcome: true,
+      logoUrl: "/kennel-logos/pih3.png",
+      facebookUrl: "https://www.facebook.com/groups/1237115737373498",
+      instagramHandle: "portoinvictah3",
+      website: "https://www.ononinvicta.club/",
+      latitude: 41.15, longitude: -8.62,
+    },
+
     // ── Japan: Tokyo ──
     {
       kennelCode: "tokyo-h3", shortName: "Tokyo H3", fullName: "Tokyo Hash House Harriers", region: "Tokyo", country: "Japan",

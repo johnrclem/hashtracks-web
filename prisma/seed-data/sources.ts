@@ -3701,6 +3701,26 @@ export const SOURCES = [
       kennelCodes: ["lh3-pt"],
     },
     {
+      name: "Porto Invicta H3 Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        // GUID is the most stable filter; cityNames:"Porto" and
+        // kennelUniqueShortName:"PIH3" both returned the identical single-event
+        // set (all three verified 2026-06-09).
+        publicKennelId: "c4a3b093-3e4b-4add-91c0-21ed3fa76322",
+        defaultKennelTag: "pih3",
+        // Young kennel that pre-creates slots — synthesize "Porto Invicta H3 #N"
+        // if a "Placeholder event for PIH3" row appears (mirrors Lisbon H3 / Hamburg H7 #1166).
+        defaultTitle: "Porto Invicta H3",
+        staleTitleAliases: ["Placeholder event for PIH3"],
+      },
+      kennelCodes: ["pih3"],
+    },
+    {
       // Backfill-only provenance for the pre-HC archive (runs #≤706, 2021-2026).
       // Disabled: the kennel moved to Harrier Central, so there is no ongoing
       // Blogspot scrape. Historical events were one-shot loaded via
