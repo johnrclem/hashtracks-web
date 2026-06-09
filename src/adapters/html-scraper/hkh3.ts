@@ -35,25 +35,42 @@ import { generateStructureHash } from "@/pipeline/structure-hash";
 
 const KENNEL_TAG = "hkh3";
 const DEFAULT_START_TIME = "18:00";
+/** Hong Kong is UTC+8 year-round (no DST). */
+const HK_UTC_OFFSET_MS = 8 * 60 * 60 * 1000;
+/** The Monday run starts at 18:00 HK time. */
+const RUN_HOUR_HK = 18;
 
 /**
- * Compute the next Monday on-or-after `from` (UTC). If `from` is itself a
- * Monday, returns `from` — STATIC_SCHEDULE alignment relies on identical
- * Date selection so the two sources fingerprint to the same canonical event.
+ * Compute the upcoming Monday for the homepage's "Next H4 Run" block, resolved
+ * in **Hong Kong local time** (UTC+8). The kennel runs every Monday at 18:00 HK.
  *
- * Known edge case: a scrape that runs Monday evening after the 18:00 run will
- * still emit "today" rather than next Monday. The event becomes a (recently)
- * past event for ~6h until the next daily scrape rolls it forward. Acceptable
- * given the daily cadence; a clock-time check would couple the adapter to
- * server timezone semantics that aren't worth the complexity for this gap.
+ * Once the current Monday's 18:00 HK run has passed, we roll forward to the
+ * next Monday — so the scraped "Next" run never lands on an already-past
+ * Monday. This is the #1284 fix: previously a Monday-evening / mid-week scrape
+ * could stamp the run number onto a past Monday, and because the homepage's
+ * "Next H4 Run" block carries no explicit date, the same number ended up on two
+ * (or more) consecutive Mondays.
+ *
+ * STATIC_SCHEDULE alignment relies on this returning the same calendar Monday
+ * (HK wall-clock) the schedule generates, so the two sources fingerprint to the
+ * same canonical event.
+ *
+ * NOTE: a non-updating homepage (the run number stays stale for weeks) can
+ * still re-stamp the same number onto successive upcoming Mondays — that's a
+ * source-freshness limitation the adapter can't detect statelessly.
  */
 export function nextMondayOnOrAfter(from: Date): string {
-  const day = from.getUTCDay(); // 0 = Sun, 1 = Mon, ... 6 = Sat
-  const daysUntilMon = (1 - day + 7) % 7; // 0 if already Mon
+  // Shift into HK local time, then read the wall-clock via getUTC* accessors.
+  const hk = new Date(from.getTime() + HK_UTC_OFFSET_MS);
+  const day = hk.getUTCDay(); // 0 = Sun, 1 = Mon, ... 6 = Sat (HK weekday)
+  let daysUntilMon = (1 - day + 7) % 7; // 0 if HK-today is Monday
+  if (daysUntilMon === 0 && hk.getUTCHours() >= RUN_HOUR_HK) {
+    daysUntilMon = 7; // this Monday's 18:00 HK run already happened
+  }
   const mon = new Date(Date.UTC(
-    from.getUTCFullYear(),
-    from.getUTCMonth(),
-    from.getUTCDate() + daysUntilMon,
+    hk.getUTCFullYear(),
+    hk.getUTCMonth(),
+    hk.getUTCDate() + daysUntilMon,
   ));
   return `${mon.getUTCFullYear()}-${String(mon.getUTCMonth() + 1).padStart(2, "0")}-${String(mon.getUTCDate()).padStart(2, "0")}`;
 }

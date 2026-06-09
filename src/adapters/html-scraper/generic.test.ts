@@ -212,6 +212,37 @@ describe("parseEventRow", () => {
     expect(event?.location).toBe(fullLocation);
   });
 
+  // ── #1259: locationRequiresPostcode (BOGS theme/CTA leak) ──
+  describe("locationRequiresPostcode", () => {
+    const bogsConfig: GenericHtmlConfig = {
+      containerSelector: "table",
+      rowSelector: "tr",
+      columns: { date: "td:nth-child(1)", location: "td:nth-child(2)" },
+      defaultKennelTag: "bogs-h3",
+      dateLocale: "en-GB",
+      locationTruncateAfter: "uk-postcode",
+      locationRequiresPostcode: true,
+    };
+
+    function loc(text: string) {
+      const $ = cheerio.load(`<table><tr><td>25th June 2026</td><td>${text}</td></tr></table>`);
+      return parseEventRow($, $("tr").first(), bogsConfig, "https://example.com")?.location;
+    }
+
+    it("clears a no-postcode theme/CTA cell (null = explicit clear)", () => {
+      expect(loc("T.B.A. World Orienteering Day")).toBeNull();
+      expect(loc("World Brain Day Hare wanted")).toBeNull();
+      expect(loc("National Toilet Paper Day Hare wanted")).toBeNull();
+    });
+
+    it("keeps a real venue that carries a UK postcode (truncating trailing theme)", () => {
+      expect(loc("The Failand Inn, Failand BS8 3TU")).toBe("The Failand Inn, Failand BS8 3TU");
+      expect(loc("117 Old Park Road, Clevedon BS21 7EY. International No Diet Day")).toBe(
+        "117 Old Park Road, Clevedon BS21 7EY",
+      );
+    });
+  });
+
   it("uses defaultStartTime when no per-event time exists", () => {
     const html = `<table><tr><td>March 15, 2026</td></tr></table>`;
     const $t = cheerio.load(html);

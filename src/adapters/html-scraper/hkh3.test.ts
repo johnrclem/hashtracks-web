@@ -40,6 +40,27 @@ describe("nextMondayOnOrAfter", () => {
     // 2026-04-30 (Thu) → 2026-05-04 (Mon)
     expect(nextMondayOnOrAfter(new Date(Date.UTC(2026, 3, 30)))).toBe("2026-05-04");
   });
+
+  // ── #1284: HK-timezone + 18:00 run-time awareness ──
+  it("(#1284) Monday before 18:00 HK → that Monday", () => {
+    // 09:00 UTC on Mon 2026-04-27 = 17:00 HK (run hasn't happened yet).
+    expect(nextMondayOnOrAfter(new Date(Date.UTC(2026, 3, 27, 9, 0)))).toBe("2026-04-27");
+  });
+
+  it("(#1284) Monday after 18:00 HK → next Monday (run already happened)", () => {
+    // 11:00 UTC on Mon 2026-04-27 = 19:00 HK — past the run, so roll forward.
+    expect(nextMondayOnOrAfter(new Date(Date.UTC(2026, 3, 27, 11, 0)))).toBe("2026-05-04");
+  });
+
+  it("(#1284) Monday exactly at 18:00 HK rolls forward", () => {
+    // 10:00 UTC on Mon 2026-04-27 = 18:00 HK (run start).
+    expect(nextMondayOnOrAfter(new Date(Date.UTC(2026, 3, 27, 10, 0)))).toBe("2026-05-04");
+  });
+
+  it("(#1284) Sunday-evening UTC that is already Monday in HK resolves to that HK Monday", () => {
+    // Sun 2026-05-03 17:00 UTC = Mon 2026-05-04 01:00 HK.
+    expect(nextMondayOnOrAfter(new Date(Date.UTC(2026, 4, 3, 17, 0)))).toBe("2026-05-04");
+  });
 });
 
 describe("parseHkh3Homepage", () => {

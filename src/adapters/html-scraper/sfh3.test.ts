@@ -258,6 +258,33 @@ describe("parseHarelineRows", () => {
     expect(rows[2].kennelTag).toBe("Hand Pump Workday");
   });
 
+  it("(#1291) extracts the GPH3 trail name from unquoted class= attributes (live markup)", () => {
+    // The live sfh3.com/runs?kennels=all emits UNQUOTED class attributes
+    // (`<td class=kennel>`), verified 2026-06-08. The "What" column carries the
+    // trail name the kennels=all .ics SUMMARY strips — this is the title the
+    // higher-trust hareline source surfaces on the canonical event (#1291).
+    const html = `
+      <table><tbody>
+        <tr>
+          <td class=kennel>GPH3</td>
+          <td class=number><a href="/runs/6558">#1711</a></td>
+          <td class=time>Thu, Jun 11, 6:15 pm</td>
+          <td class=hare>Udder Moron</td>
+          <td class=location>San Francisco Lawn Bowling Club parking lot Golden Gate Park</td>
+          <td class=name>Just What You'd Expect From a Moron</td>
+        </tr>
+      </tbody></table>
+    `;
+    const rows = parseHarelineRows(html);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      kennelTag: "GPH3",
+      runNumber: 1711,
+      title: "Just What You'd Expect From a Moron",
+      detailUrl: "/runs/6558",
+    });
+  });
+
   it("skips rows with fewer than 5 cells", () => {
     const html = `
       <table>

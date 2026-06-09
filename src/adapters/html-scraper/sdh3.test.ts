@@ -266,6 +266,28 @@ describe("parseEventFields", () => {
     expect(result.hares).toBe("Solo Runner");
   });
 
+  it("(#1069) extracts hare + multi-line Mexico address for the CLH3 Larrikins campout", () => {
+    // Verbatim from sdh3.com/hareline.shtml (Fri Jul 31, 2026), <br> → \n.
+    // Earlier this surfaced with no hares + a generic "CLH3 start location";
+    // the SDH3 hareline carries the real hare ("Larrikins MM") and a venue +
+    // multi-line foreign address that parseEventFields pulls through.
+    const text = [
+      "Larrikins Campout 2026 Mexican Mardi Gras",
+      "Hare(s): Larrikins MM",
+      "Address: Balneario Las Palmas",
+      "Carre. Libre Tijuana Km. 64 1/2, 22710 La Mision, B.C., Mexico",
+      "Map Link: https://maps.app.goo.gl/Nv5u9wpoDweA6nWJ7",
+      "Run Fee: $110",
+    ].join("\n");
+    const result = parseEventFields(text);
+    expect(result.hares).toBe("Larrikins MM");
+    expect(result.location).toBe("Balneario Las Palmas");
+    expect(result.locationStreet).toBe(
+      "Balneario Las Palmas, Carre. Libre Tijuana Km. 64 1/2, 22710 La Mision, B.C., Mexico",
+    );
+    expect(result.cost).toBe("$110");
+  });
+
   it("returns undefined for empty/no fields", () => {
     const result = parseEventFields("Just a title line with no labels");
     expect(result.hares).toBeUndefined();
