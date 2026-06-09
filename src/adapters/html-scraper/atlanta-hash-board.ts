@@ -13,7 +13,7 @@ import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails, ParseError } from "../types";
 import { safeFetch } from "../safe-fetch";
-import { parse12HourTime, validateSourceConfig, decodeEntities, stripHtmlTags, chronoParseDate, buildDateWindow } from "../utils";
+import { parse12HourTime, validateSourceConfig, decodeEntities, stripHtmlTags, chronoParseDate, buildDateWindow, cleanLocationName } from "../utils";
 
 // ── Config shape ──
 
@@ -268,12 +268,22 @@ export function extractEventFields(
   }
   if (locationCandidate) {
     let loc = locationCandidate;
+    // Truncate the phpBB "Statistics: Posted by … — <timestamp>" footer that
+    // bleeds onto the address line when the post body and the forum stats row
+    // share a line after HTML flattening (#2045). Use indexOf, not `\b`: there
+    // is no word boundary in "…30341Statistics" (digit→letter, both word chars).
+    const statsIdx = loc.search(/Statistics:/i);
+    if (statsIdx >= 0) loc = loc.slice(0, statsIdx).trim();
     // Strip embedded time patterns: "bankhead station at 1:30" → "bankhead station"
     loc = loc.replace(/\s+at\s+\d{1,2}:\d{2}(?:\s*[AP]M)?/i, "").trim();
     // Insert comma between venue name and street number when concatenated:
     // "Constitution Lakes 1305 S River Industrial Blvd" → "Constitution Lakes, 1305 S River Industrial Blvd"
     loc = loc.replace(/^([A-Z][A-Za-z\s']+?)\s+(\d{2,5}\s+\w)/, "$1, $2");
-    fields.location = loc;
+    // Final pass through the shared cleaner (URL/emoji/CTA/placeholder strip).
+    // Preserve its null tri-state: when the source provided a location label
+    // that cleans to non-venue text, emit null (explicit clear) rather than
+    // `?? undefined` (preserve). cleanLocationName returns `string | null`.
+    fields.location = cleanLocationName(loc);
   }
 
   // Google Maps URL from HTML

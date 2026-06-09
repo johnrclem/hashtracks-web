@@ -1160,28 +1160,28 @@ describe("cleanLocationName", () => {
     });
   });
 
-  describe("venue-qualifier dash-suffix (#1880 Geriatrix)", () => {
+  describe("venue-qualifier dash-suffix (#1880 Geriatrix, narrowed #2057)", () => {
     it.each([
       [
         "Victoria Tavern, Petone - Maybe.",
         "Victoria Tavern, Petone",
         "' - Maybe' uncertainty suffix (trailing period tolerated)",
       ],
-      [
-        "The Co-Op Whitby - Memorial Run",
-        "The Co-Op Whitby",
-        "' - <X> Run' run-type descriptor suffix",
-      ],
-      [
-        "Lower Hutt Events Centre - Away Run",
-        "Lower Hutt Events Centre",
-        "another ' - <X> Run' descriptor",
-      ],
     ])("strips: '%s' → '%s' (%s)", (input, expected) => {
       expect(cleanLocationName(input)).toBe(expected);
     });
 
     it.each([
+      [
+        "The Co-Op Whitby - Memorial Run",
+        "The Co-Op Whitby - Memorial Run",
+        "' - <X> Run' run-type descriptor preserved (#2057 — carries meaning)",
+      ],
+      [
+        "Lower Hutt Events Centre - Away Run",
+        "Lower Hutt Events Centre - Away Run",
+        "another ' - <X> Run' descriptor preserved (#2057)",
+      ],
       ["Memorial Hall", "Memorial Hall", "venue named like a descriptor — no dash separator"],
       ["The Co-Op Whitby", "The Co-Op Whitby", "internal hyphen (no surrounding spaces) preserved"],
       ["Bar - Restaurant", "Bar - Restaurant", "generic dash-suffix that isn't a qualifier preserved"],

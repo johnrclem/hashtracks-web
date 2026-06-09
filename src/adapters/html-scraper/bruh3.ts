@@ -198,14 +198,17 @@ export function parseFutureDates(
     // Use the currentYear from the page context, not chrono's inferred year
     const date = `${currentYear}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 
-    // Skip "reserved" entries — they have a hare placeholder
-    const isReserved = /^reserved$/i.test(hare);
+    // Drop availability-status placeholders — these are date-slot states, not
+    // hare names. "reserved" = a volunteer claimed the date; "available" (often
+    // "available!!!") = no volunteer yet (#2064). The date is still a real
+    // upcoming run, so emit the event with no hares rather than the status text.
+    const isPlaceholderHare = /^(?:reserved|available)\b/i.test(hare);
 
     events.push({
       date,
       kennelTags: [KENNEL_TAG],
       title: `BruH3 — ${dateStr}`,
-      hares: isReserved ? undefined : hare,
+      hares: isPlaceholderHare ? undefined : hare,
       startTime: DEFAULT_START_TIME,
       sourceUrl,
     });

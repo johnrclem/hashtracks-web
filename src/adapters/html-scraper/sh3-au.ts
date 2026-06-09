@@ -135,8 +135,15 @@ function findFirstPromoIndex(text: string): number {
 
 const TRAILING_PUNCT = new Set(["-", "–", "—", " "]);
 
+// Joint-run metadata the editors sometimes type into the Hares field instead
+// of hare names (#2056 — run #3078: "Larrikins Joint Run 2500 – wear a tutu").
+// A joint run lists the partner kennel + their run number + dress code, not
+// trail-setters, so there are no real hares to recover — drop the whole field.
+const JOINT_RUN_RE = /\bjoint\s+run\b/i;
+
 function cleanHares(raw: string | undefined): string | undefined {
   if (!raw) return undefined;
+  if (JOINT_RUN_RE.test(raw)) return undefined;
   const cutoff = findFirstPromoIndex(raw);
   let cleaned = (cutoff !== -1 ? raw.slice(0, cutoff) : raw).trimEnd();
   // Collapse trailing punctuation left behind by truncation (en-dash, hyphen).

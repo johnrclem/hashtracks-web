@@ -14,6 +14,7 @@ import {
   fetchBrowserRenderedPage,
   normalizeHaresField,
   stripPlaceholder,
+  stripZeroWidth,
 } from "../utils";
 
 /**
@@ -39,6 +40,12 @@ import {
 
 const SPORTY_READY_SELECTOR = ".cms-nav-link, .richtext-editor";
 const DDMMYYYY_RE = /^\d{1,2}\/\d{1,2}\/\d{4}$/;
+// Detector for a run-row whose date failed to anchor: the paragraph STARTS with
+// a DD/MM/YYYY token but isn't EXACTLY a date (e.g. the date drifted onto the
+// venue line — "09/06/2026 Venue: …"). Anchored at ^ so benign editor prose that
+// merely mentions a date ("Updated 09/06/2026", "see you on 09/06/2026") is NOT
+// flagged — only paragraphs shaped like a date-led run row. See fetch() (#2044).
+const LEADING_DATE_RE = /^\d{1,2}\/\d{1,2}\/\d{4}\b/;
 
 /** Pull the value out of a "Label: value" paragraph; returns undefined if
  *  the label is missing OR the value is a placeholder/empty. Sporty's editors
@@ -136,7 +143,16 @@ export class GeriatrixH3Adapter implements SourceAdapter {
     const editorFound = $editor.length > 0;
     if (editorFound) {
       $editor.find("p").each((_i, el) => {
-        const text = $(el).text().replaceAll("\u00a0", " ").replace(/\s+/g, " ").trim();
+        // Strip zero-width characters BEFORE collapsing whitespace: the
+        // sporty.co.nz CKEditor sprinkles leading zero-width spaces onto date
+        // paragraphs, and neither `\s` nor `.trim()` removes them, so the
+        // anchored DD/MM/YYYY gate would otherwise fail and the whole run-row
+        // would silently drop (#2044; Memory wix_zero_width). stripZeroWidth is
+        // the shared site-builder cleaner (covers U+200B\u2013200F + U+FEFF).
+        const text = stripZeroWidth($(el).text())
+          .replaceAll("\u00a0", " ")
+          .replace(/\s+/g, " ")
+          .trim();
         const firstHref = $(el).find("a").first().attr("href");
         paragraphs.push({ text, firstHref });
       });
@@ -158,14 +174,42 @@ export class GeriatrixH3Adapter implements SourceAdapter {
       errors.push("Geriatrix H3: .richtext-editor container not found on page");
     }
 
+    // Fail loud on a dropped run-row (#2044). parseGeriatrixParagraphs only
+    // anchors a row on a paragraph that is EXACTLY "DD/MM/YYYY". If a date-led
+    // run row drifts — the date merged into the venue line ("09/06/2026 Venue:
+    // …"), a trailing note, etc. — the paragraph fails the anchored regex, no
+    // row is created, and that run silently vanishes. The reconciler then sees
+    // the run "removed from source" and CANCELs the live event. Surfacing an
+    // error makes scrape.ts suppress destructive reconcile + raise a health
+    // alert instead of letting a parse miss masquerade as a cancellation
+    // (Memory reference_reconcile_blind_to_dropped_rows). Reconcile.ts is left
+    // untouched — this is the adapter-side fail-loud fix. The guard is anchored
+    // to date-LED paragraphs (LEADING_DATE_RE) so benign prose that merely
+    // mentions a date ("Updated 09/06/2026") never trips a healthy scrape.
+    for (const p of paragraphs) {
+      if (LEADING_DATE_RE.test(p.text) && !DDMMYYYY_RE.test(p.text)) {
+        const snippet = p.text.slice(0, 120);
+        errors.push(
+          `Geriatrix H3: date-bearing paragraph did not parse as a run-date row (possible dropped row): "${snippet}"`,
+        );
+        parseErrors.push({
+          row: -1,
+          section: "hareline",
+          error: "date-bearing paragraph did not anchor as a DD/MM/YYYY run-row",
+          rawText: p.text.slice(0, 500),
+        });
+      }
+    }
+
     let i = 0;
     for (const row of rows) {
       try {
         const eventDate = new Date(`${row.date}T12:00:00Z`);
         if (eventDate >= minDate && eventDate <= maxDate) {
           // Run the venue through the shared cleaner — strips appended source
-          // qualifiers like " - Maybe" / " - Memorial Run" (#1880) plus emoji/
-          // URL noise. Preserve the merge tri-state: `undefined` when there was
+          // uncertainty qualifiers like " - Maybe" (#1880) plus emoji/URL noise.
+          // Run-type descriptors (" - Memorial Run") are preserved (#2057).
+          // Preserve the merge tri-state: `undefined` when there was
           // no Venue field (placeholder already normalised away), otherwise the
           // cleaner's value or `null` (explicit clear) for non-venue text.
           const location =

@@ -56,26 +56,38 @@ describe("sh3-au parseSh3Paragraph", () => {
     expect(e!.location).toBe("Forest Hotel Parking Lot, Frenchs Forest Rd");
   });
 
-  // #1644 — JotForm promo URL bleeds into haresText (run #3078)
+  // #1644 — JotForm promo URL bleeds into haresText
   it("strips promotional Tshirt + JotForm URL from hares (#1644)", () => {
     const text =
-      "Run #3078Date: 9th JuneHares: Larrikins Joint Run 2500 Special Tshirt – order here https://form.jotform.com/261247879266067Start: TBA";
+      "Run #3079Date: 16th JuneHares: Dingo Special Tshirt – order here https://form.jotform.com/261247879266067Start: TBA";
     const e = parseSh3Paragraph(text, URL, REF);
     expect(e).not.toBeNull();
-    expect(e!.hares).toBe("Larrikins Joint Run 2500");
+    expect(e!.hares).toBe("Dingo");
+  });
+
+  // #2056 — joint-run metadata typed into the Hares field (run #3078). A joint
+  // run names the partner kennel + run number + dress code, not trail-setters,
+  // so the whole field is dropped rather than stored as a fake hare name.
+  it("drops joint-run metadata from hares (#2056)", () => {
+    const text =
+      "Run #3078Date: 9th JuneHares: Larrikins Joint Run 2500 – wear a tutuStart: St Thomas Rest Park, West St, Crows Nest";
+    const e = parseSh3Paragraph(text, URL, REF);
+    expect(e).not.toBeNull();
+    expect(e!.runNumber).toBe(3078);
+    expect(e!.hares).toBeUndefined();
   });
 
   // #1731 — blank Start: lets the non-greedy capture spill into the trailing
   // "CLICK HERE FOR MAP" anchor; the Hares value must NOT become the location.
   it("yields no location when Start: is blank, keeping the Hares value out of locationName (#1731)", () => {
     const text =
-      "Run #3078Date: 9th June 2026 @ 6:30pm TUESDAYHares: Larrikins Joint Run 2500Special Tshirt – order here https://form.jotform.com/261247879266067Start: CLICK HERE FOR MAPOn On:";
+      "Run #3085Date: 9th June 2026 @ 6:30pm TUESDAYHares: DingoSpecial Tshirt – order here https://form.jotform.com/261247879266067Start: CLICK HERE FOR MAPOn On:";
     const e = parseSh3Paragraph(text, URL, REF);
     expect(e).not.toBeNull();
     // Start: label present but blank → explicit clear (null), so a venue that
     // disappears between scrapes wipes the stale canonical value (#1731).
     expect(e!.location).toBeNull();
-    expect(e!.hares).toBe("Larrikins Joint Run 2500");
+    expect(e!.hares).toBe("Dingo");
   });
 
   it("strips bare http URL from hares without preceding keyword (#1644)", () => {

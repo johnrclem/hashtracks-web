@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { Source } from "@/generated/prisma/client";
 import {
   parseEventBlock,
@@ -288,6 +288,31 @@ May 09 - reserved
     expect(events[1].hares).toBeUndefined();
   });
 
+  it("treats 'available' availability status as no hare, not a hare name (#2064)", () => {
+    // "available" / "available!!!" is the site's slot-status for a date with no
+    // volunteer yet — it must not leak into haresText. The date is still a real
+    // upcoming run, so the event is emitted with hares undefined.
+    const text = `Future Dates: these dates are available!!!
+
+2026
+
+June 13 - available
+June 20 - available!!!
+June 27 - Julian R.
+`;
+
+    const events = parseFutureDates(text, SOURCE_URL, 2026);
+
+    expect(events).toHaveLength(3);
+    expect(events[0].date).toBe("2026-06-13");
+    expect(events[0].hares).toBeUndefined();
+    expect(events[1].date).toBe("2026-06-20");
+    expect(events[1].hares).toBeUndefined();
+    // A genuine hare name on the same kind of line still comes through.
+    expect(events[2].date).toBe("2026-06-27");
+    expect(events[2].hares).toBe("Julian R.");
+  });
+
   it("uses referenceYear when no year header is present", () => {
     const text = `Future Dates:
 
@@ -439,8 +464,19 @@ describe("BruH3Adapter", () => {
   let adapter: BruH3Adapter;
 
   beforeEach(() => {
+    // Freeze the clock so the static 2026 fixture dates stay inside
+    // buildDateWindow(scrapeDays ?? 365) as real time advances — otherwise
+    // these windowed fetch tests age out and go red on every PR mid-2027
+    // (feedback_windowed_adapter_test_needs_relative_dates). Fake only Date;
+    // safeFetch is mocked, so no real timers are in play.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-04-01T12:00:00Z"));
     adapter = new BruH3Adapter();
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("fetches both pages, deduplicates by run number", async () => {

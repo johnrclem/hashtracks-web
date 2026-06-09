@@ -262,6 +262,17 @@ describe("extractEventFields", () => {
     expect(fields.location).toBe("Midtown Park");
   });
 
+  it("strips trailing phpBB 'Statistics: Posted by' footer from location (#2045)", () => {
+    // MLH4: the forum stats footer bleeds onto the address line (no separator)
+    // when the post body and the topic's last-post stats row flatten together.
+    // The "—" em-dash means isBannerLine (which keys on "»") doesn't catch it,
+    // so it survives to the location extractor and breaks geocoding.
+    const fields = extractEventFields(
+      "Start: 5255 Peachtree Blvd Suite 103, Chamblee, GA 30341Statistics: Posted by HMATBITWArfArf — Sun Jun 07, 2026 7:26 pm",
+    );
+    expect(fields.location).toBe("5255 Peachtree Blvd Suite 103, Chamblee, GA 30341");
+  });
+
   it("handles content with no structured fields", () => {
     const fields = extractEventFields("Just some random text about hashing");
     expect(fields.hares).toBeUndefined();

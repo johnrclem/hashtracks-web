@@ -119,19 +119,121 @@ describe("GeriatrixH3Adapter.fetch", () => {
   </body></html>`;
 
   it("parses two future runs from the richtext editor", async () => {
-    mockedBrowserRender.mockResolvedValue(FIXTURE);
-    const adapter = new GeriatrixH3Adapter();
-    const result = await adapter.fetch(makeSource(), { days: 365 });
-    expect(result.errors).toEqual([]);
-    expect(result.events.length).toBe(2);
-    expect(result.events[0].date).toBe("2026-05-05");
-    expect(result.events[0].location).toBe("Chapman Taylor Cafe, Molesworth St., Thorndon.");
-    expect(result.events[0].hares).toBe("GATECRASHER");
-    expect(result.events[0].locationUrl).toBe("https://maps.app.goo.gl/gAyPedAcE4ibedU49");
-    expect(result.events[1].hares).toBe("Hey Baby");
+    // Freeze the clock so the static 2026 fixture dates stay inside the rolling
+    // {days:365} window as real time advances — otherwise this windowed fetch
+    // test ages out and goes red on every PR mid-2027
+    // (feedback_windowed_adapter_test_needs_relative_dates).
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-06-01T12:00:00Z"));
+    try {
+      mockedBrowserRender.mockResolvedValue(FIXTURE);
+      const adapter = new GeriatrixH3Adapter();
+      const result = await adapter.fetch(makeSource(), { days: 365 });
+      expect(result.errors).toEqual([]);
+      expect(result.events.length).toBe(2);
+      expect(result.events[0].date).toBe("2026-05-05");
+      expect(result.events[0].location).toBe("Chapman Taylor Cafe, Molesworth St., Thorndon.");
+      expect(result.events[0].hares).toBe("GATECRASHER");
+      expect(result.events[0].locationUrl).toBe("https://maps.app.goo.gl/gAyPedAcE4ibedU49");
+      expect(result.events[1].hares).toBe("Hey Baby");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
-  it("strips ' - Maybe' / ' - Memorial Run' venue qualifiers from location (#1880)", async () => {
+  it("recovers a run whose date paragraph carries leading zero-width spaces (#2044)", async () => {
+    // Live root cause of the Jun 9 false-cancellation: sporty.co.nz's CKEditor
+    // prefixed the date with U+200B zero-width spaces ("\u200b\u200b09/06/2026"),
+    // which `\s` / `.trim()` don't strip, so the anchored DD/MM/YYYY gate failed,
+    // the row dropped, and reconcile CANCELLED the live event. The adapter now
+    // strips zero-width chars at extraction so the run parses and emits normally.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-06-01T12:00:00Z"));
+    try {
+      const fixture = `<!DOCTYPE html><html><body>
+        <div class="richtext-editor">
+          <p><span>\u200b\u200b09/06/2026</span></p>
+          <p>Venue: Victoria Tavern, 140 Jackson Street, Petone</p>
+          <p>Hare: Oggy</p>
+          <p><br></p>
+          <p><span>16/06/2026</span></p>
+          <p>Venue: The Co-Op Whitby - Memorial Run</p>
+          <p>Hare: Slippery</p>
+        </div>
+      </body></html>`;
+      mockedBrowserRender.mockResolvedValue(fixture);
+      const adapter = new GeriatrixH3Adapter();
+      const result = await adapter.fetch(makeSource(), { days: 365 });
+      expect(result.errors).toEqual([]);
+      expect(result.events.length).toBe(2);
+      const jun9 = result.events.find((e) => e.date === "2026-06-09");
+      expect(jun9).toBeDefined();
+      expect(jun9!.location).toBe("Victoria Tavern, 140 Jackson Street, Petone");
+      expect(jun9!.hares).toBe("Oggy");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not flag benign prose that merely mentions a date (#2044 false-positive guard)", async () => {
+    // The fail-loud guard is anchored to date-LED paragraphs, so editor prose
+    // like "Updated 09/06/2026" or "see you on 09/06/2026" must NOT be treated
+    // as a dropped run-row — otherwise a healthy page reads as degraded and
+    // reconciliation is needlessly suppressed.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-06-01T12:00:00Z"));
+    try {
+      const fixture = `<!DOCTYPE html><html><body>
+        <div class="richtext-editor">
+          <p>Hareline updated 09/06/2026 — see you on the trail!</p>
+          <p><span>16/06/2026</span></p>
+          <p>Venue: The Co-Op Whitby - Memorial Run</p>
+          <p>Hare: Slippery</p>
+        </div>
+      </body></html>`;
+      mockedBrowserRender.mockResolvedValue(fixture);
+      const adapter = new GeriatrixH3Adapter();
+      const result = await adapter.fetch(makeSource(), { days: 365 });
+      expect(result.errors).toEqual([]);
+      expect(result.events.length).toBe(1);
+      expect(result.events[0].date).toBe("2026-06-16");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("fails loud (no silent drop) when a run-date paragraph drifts beyond recovery (#2044)", async () => {
+    // Defense in depth for drift the zero-width strip can't repair — e.g. the
+    // date merged onto the venue line ("09/06/2026 Venue: …") so no row anchors.
+    // The adapter must surface an error (suppressing destructive reconcile)
+    // rather than silently drop the row (reference_reconcile_blind_to_dropped_rows).
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-06-01T12:00:00Z"));
+    try {
+      const fixture = `<!DOCTYPE html><html><body>
+        <div class="richtext-editor">
+          <p><span>09/06/2026 Venue: Victoria Tavern, 140 Jackson Street, Petone</span></p>
+          <p>Hare: Oggy</p>
+          <p><br></p>
+          <p><span>16/06/2026</span></p>
+          <p>Venue: The Co-Op Whitby - Memorial Run</p>
+          <p>Hare: Slippery</p>
+        </div>
+      </body></html>`;
+      mockedBrowserRender.mockResolvedValue(fixture);
+      const adapter = new GeriatrixH3Adapter();
+      const result = await adapter.fetch(makeSource(), { days: 365 });
+      // The drifted Jun 9 paragraph is flagged loud …
+      expect(result.errors.length).toBeGreaterThan(0);
+      expect(result.errors.some((e) => /did not parse as a run-date row/.test(e))).toBe(true);
+      // … while the clean Jun 16 row still parses (descriptor preserved).
+      expect(result.events.some((e) => e.location === "The Co-Op Whitby - Memorial Run")).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("strips ' - Maybe' uncertainty but preserves ' - Memorial Run' descriptor (#1880, #2057)", async () => {
     // Freeze the clock so the hard-coded 2026 fixture dates stay inside the
     // rolling date window as real time advances (fake only Date — browserRender
     // is mocked, so no real timers are in play).
@@ -155,8 +257,10 @@ describe("GeriatrixH3Adapter.fetch", () => {
       const result = await adapter.fetch(makeSource(), { days: 365 });
       expect(result.errors).toEqual([]);
       expect(result.events.length).toBe(2);
+      // " - Maybe." uncertainty flag is stripped …
       expect(result.events[0].location).toBe("Victoria Tavern, Petone");
-      expect(result.events[1].location).toBe("The Co-Op Whitby");
+      // … but the " - Memorial Run" run-type descriptor is preserved (#2057).
+      expect(result.events[1].location).toBe("The Co-Op Whitby - Memorial Run");
     } finally {
       vi.useRealTimers();
     }

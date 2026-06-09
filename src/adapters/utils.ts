@@ -1082,15 +1082,15 @@ function isContactToSetRunCta(lower: string): boolean {
   return lower.startsWith("contact ") && lower.includes(" to set this run");
 }
 
-// Venue-qualifier dash-suffixes (#1880). Organizers append a run-status or
-// run-type descriptor to the venue field with a " - " separator, e.g.
-// "Victoria Tavern, Petone - Maybe." (uncertainty flag) or "The Co-Op Whitby -
-// Memorial Run" (run-type descriptor). These degrade geocoding and aren't part
-// of the address. Only a SPACE-dash-SPACE separator counts, so a hyphenated
-// venue token like "Co-Op" (no surrounding spaces) is never bitten. The
-// qualifier must be a known uncertainty token ("maybe" / dotted T.B.x) or a
-// run-type descriptor (ends with the standalone word "run") — a generic
-// trailing segment like "- Restaurant" is preserved.
+// Venue-qualifier dash-suffixes (#1880, narrowed #2057). Organizers append an
+// uncertainty flag to the venue field with a " - " separator, e.g.
+// "Victoria Tavern, Petone - Maybe." — that degrades geocoding and isn't part of
+// the address, so it's stripped. Run-type descriptors like "The Co-Op Whitby -
+// Memorial Run" or "… - Away Run" carry real meaning (this is a memorial/away
+// trail) and are PRESERVED — #2057 reversed the original #1880 behaviour, which
+// truncated any "… run" suffix. Only a SPACE-dash-SPACE separator counts, so a
+// hyphenated venue token like "Co-Op" (no surrounding spaces) is never bitten;
+// generic suffixes like "- Restaurant" were always preserved.
 const VENUE_QUALIFIER_DASHES = [" - ", " – ", " — "];
 
 function isVenueQualifierSuffix(suffix: string): boolean {
@@ -1101,9 +1101,9 @@ function isVenueQualifierSuffix(suffix: string): boolean {
   while (trimmed.endsWith(".")) trimmed = trimmed.slice(0, -1);
   const lower = trimmed.trim().toLowerCase();
   if (!lower) return false;
-  // LOCATION_QUALIFIER_TOKENS already includes "maybe" + the dotted T.B.x forms.
-  if (LOCATION_QUALIFIER_TOKENS.includes(lower)) return true;
-  return lower === "run" || lower.endsWith(" run");
+  // Only uncertainty markers ("maybe" / dotted T.B.x) qualify. Run-type
+  // descriptors ("Memorial Run", "Away Run") are intentionally NOT matched (#2057).
+  return LOCATION_QUALIFIER_TOKENS.includes(lower);
 }
 
 function stripVenueQualifierSuffix(input: string): string {
@@ -1164,9 +1164,9 @@ export function cleanLocationName(raw: string | null | undefined): string | null
   s = stripLeadingQualifiers(s);
   s = stripTrailingQualifiers(s);
 
-  // 4b. Strip a trailing " - <qualifier>" venue descriptor (#1880 Geriatrix:
-  //     "… - Maybe", "… - Memorial Run"). Space-dash-space only, so hyphenated
-  //     venue tokens ("Co-Op") and generic suffixes ("- Restaurant") survive.
+  // 4b. Strip a trailing " - <uncertainty>" venue qualifier (#1880 Geriatrix:
+  //     "… - Maybe"). Space-dash-space only, so hyphenated venue tokens ("Co-Op")
+  //     survive. Run-type descriptors ("… - Memorial Run") are preserved (#2057).
   s = stripVenueQualifierSuffix(s);
 
   // 5. Collapse internal whitespace + trim dangling separators.
