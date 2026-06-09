@@ -125,14 +125,22 @@ describe("RssAdapter", () => {
     });
 
     it("preserves local date from non-UTC ISO timestamp (P1 regression)", async () => {
-      // "2026-02-22T00:30:00+10:00" = Feb 21 UTC — must stay Feb 22 (publisher's local day)
+      // A +10:00 timestamp at 00:30 local is the PRIOR day in UTC — the adapter
+      // must keep the publisher's LOCAL day. Build the fixture relative to now so
+      // it never ages out of the date window and red-lights CI in a future year (#2066).
+      const localDay = new Date();
+      localDay.setUTCDate(localDay.getUTCDate() + 5);
+      const yyyy = localDay.getUTCFullYear();
+      const mm = String(localDay.getUTCMonth() + 1).padStart(2, "0");
+      const dd = String(localDay.getUTCDate()).padStart(2, "0");
+      const localDate = `${yyyy}-${mm}-${dd}`;
       mockParseURL.mockResolvedValueOnce({
         title: "Feed",
-        items: [{ title: "Night trail", isoDate: "2026-02-22T00:30:00+10:00", link: "https://x.com/1" }],
+        items: [{ title: "Night trail", isoDate: `${localDate}T00:30:00+10:00`, link: "https://x.com/1" }],
       });
       const adapter = new RssAdapter();
       const result = await adapter.fetch(makeSource(), { days: 365 });
-      expect(result.events[0].date).toBe("2026-02-22");
+      expect(result.events[0].date).toBe(localDate);
     });
 
     it("falls back to pubDate when isoDate is absent", async () => {

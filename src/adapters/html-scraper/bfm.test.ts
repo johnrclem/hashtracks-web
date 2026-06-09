@@ -1,3 +1,4 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { parseBfmDate, BFMAdapter, extractFunPart } from "./bfm";
 
 describe("parseBfmDate", () => {
@@ -48,7 +49,14 @@ const SAMPLE_HTML = `
 `;
 
 describe("BFMAdapter.fetch", () => {
+  // Freeze the clock at the fixtures' era so the windowed/year-inferred assertions never age out (#2066).
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-04-01T12:00:00Z"));
+  });
+
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 

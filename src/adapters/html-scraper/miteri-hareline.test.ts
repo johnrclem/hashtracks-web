@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import {
@@ -281,6 +281,15 @@ describe("parseNextRunPanel (GCH3 Next Run widget)", () => {
 });
 
 describe("MiteriHarelineAdapter.fetch (GCH3-style page)", () => {
+  // Freeze the clock at the fixtures' era so the windowed/year-inferred assertions never age out (#2066).
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-05-15T12:00:00Z"));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("emits a Next-Run-panel event ahead of the table (#1503)", async () => {
     const html = `<!DOCTYPE html><html><body>
       <div class="entry-content">
@@ -366,6 +375,15 @@ describe("MiteriHarelineAdapter.fetch (GCH3-style page)", () => {
 });
 
 describe("MiteriHarelineAdapter.fetch (GCH3-style page) — legacy", () => {
+  // Freeze the clock at the fixtures' era so the windowed/year-inferred assertions never age out (#2066).
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-05-15T12:00:00Z"));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("returns ordered RawEventData for visible runs and skips placeholders", async () => {
     const html = `<!DOCTYPE html><html><body>
       <div class="panel-grid">

@@ -1,3 +1,4 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { ChiangMaiHHHAdapter, parseChiangMaiLine } from "./chiangmai-hhh";
 import * as utils from "../utils";
 import * as cheerio from "cheerio";
@@ -9,6 +10,15 @@ const SOURCE_URL = "http://www.chiangmaihhh.com/ch3-hareline/";
 const CBH3_URL = "http://www.chiangmaihhh.com/cbh3-hareline/"; // NOSONAR
 
 describe("parseChiangMaiLine", () => {
+  // Freeze the clock at the fixtures' era so the windowed/year-inferred assertions never age out (#2066).
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-04-01T12:00:00Z"));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("parses CH3 format: 'Monday 6th April CH3 Run # 1631 Suckit'", () => {
     const event = parseChiangMaiLine(
       "Monday 6th April CH3  Run # 1631 Suckit",
@@ -202,7 +212,10 @@ describe("ChiangMaiHHHAdapter \u2014 year attribution from <b>Month YYYY</b> hea
 </div>
 `;
 
+  // Freeze the clock at the fixtures' era so the windowed/year-inferred assertions never age out (#2066).
   beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-04-01T12:00:00Z"));
     vi.spyOn(utils, "fetchHTMLPage").mockResolvedValue({
       ok: true,
       html: CBH3_FIXTURE,
@@ -214,6 +227,7 @@ describe("ChiangMaiHHHAdapter \u2014 year attribution from <b>Month YYYY</b> hea
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.useRealTimers();
   });
 
   it("stamps every event with year 2026, including July\u2013December", async () => {

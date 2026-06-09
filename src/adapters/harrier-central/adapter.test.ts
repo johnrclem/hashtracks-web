@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   HarrierCentralAdapter,
   applyTitleFallback,
@@ -318,9 +318,16 @@ describe("generateAccessToken", () => {
 describe("HarrierCentralAdapter", () => {
   let adapter: HarrierCentralAdapter;
 
+  // Freeze the clock at the fixtures' era so the windowed/year-inferred assertions never age out (#2066).
   beforeEach(() => {
     vi.clearAllMocks();
     adapter = new HarrierCentralAdapter();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-04-01T12:00:00Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("has correct type", () => {

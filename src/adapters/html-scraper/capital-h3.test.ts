@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { Source } from "@/generated/prisma/client";
 import { CapitalH3Adapter, parseCapitalRunLine } from "./capital-h3";
 
@@ -85,6 +85,16 @@ describe("parseCapitalRunLine", () => {
 });
 
 describe("CapitalH3Adapter.fetch", () => {
+  // Freeze the clock at the fixtures' era so the windowed/year-inferred assertions never age out (#2066).
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-05-01T12:00:00Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   const FIXTURE = `<!DOCTYPE html><html><body>
     <div class="panel-body-text">
       <div id="notices-prevContent-242832">

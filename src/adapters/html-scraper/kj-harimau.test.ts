@@ -137,11 +137,15 @@ Details at khhhkj.blogspot.com
 describe("KjHarimauAdapter.fetch dedup (#1446)", () => {
   let adapter: KjHarimauAdapter;
 
+  // Freeze the clock at the fixtures' era so the windowed/year-inferred assertions never age out (#2066).
   beforeEach(() => {
     adapter = new KjHarimauAdapter();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-05-01T12:00:00Z"));
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 

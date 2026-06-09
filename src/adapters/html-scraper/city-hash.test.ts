@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { readFileSync } from "node:fs";
 import * as cheerio from "cheerio";
 import { parseMakesweatEvent, extractMakesweatId } from "./city-hash";
@@ -102,6 +102,16 @@ Pub - The Eagle</div>
 `;
 
 describe("parseMakesweatEvent", () => {
+  // Freeze the clock at the fixtures' era so the windowed/year-inferred assertions never age out (#2066).
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-03-01T12:00:00Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   const $ = cheerio.load(SAMPLE_HTML);
   const cards = $(".ms_event");
 

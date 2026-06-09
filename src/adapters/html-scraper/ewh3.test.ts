@@ -177,12 +177,16 @@ const SAMPLE_HTML = `
 describe("EWH3Adapter (WordPress API path)", () => {
   let adapter: EWH3Adapter;
 
+  // Freeze the clock at the fixtures' era so the windowed/year-inferred assertions never age out (#2066).
   beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-02-01T12:00:00Z"));
     adapter = new EWH3Adapter();
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.useRealTimers();
   });
 
   it("uses WordPress API when available and parses events", async () => {
@@ -266,7 +270,10 @@ describe("EWH3Adapter (WordPress API path)", () => {
 describe("EWH3Adapter (HTML fallback path)", () => {
   let adapter: EWH3Adapter;
 
+  // Freeze the clock at the fixtures' era so the windowed/year-inferred assertions never age out (#2066).
   beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-02-01T12:00:00Z"));
     adapter = new EWH3Adapter();
     // Make WordPress API return error to trigger HTML fallback
     vi.mocked(wordpressApi.fetchWordPressPosts).mockResolvedValue({
@@ -277,6 +284,7 @@ describe("EWH3Adapter (HTML fallback path)", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.useRealTimers();
   });
 
   it("falls back to HTML scrape and parses events", async () => {

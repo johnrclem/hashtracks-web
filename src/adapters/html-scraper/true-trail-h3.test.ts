@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { parseTrueTrailHeading, extractHares } from "./true-trail-h3";
 import type { Source } from "@/generated/prisma/client";
 
@@ -120,8 +120,11 @@ vi.mock("../utils", async () => {
 });
 
 describe("TrueTrailH3Adapter", () => {
+  // Freeze the clock at the fixtures' era so the windowed/year-inferred assertions never age out (#2066).
   beforeEach(async () => {
     vi.restoreAllMocks();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-03-15T12:00:00Z"));
     const { fetchHTMLPage } = await import("../utils");
     const cheerio = await import("cheerio");
     vi.mocked(fetchHTMLPage).mockResolvedValue({
@@ -131,6 +134,10 @@ describe("TrueTrailH3Adapter", () => {
       structureHash: "test-hash",
       fetchDurationMs: 100,
     });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("parses events from fixture HTML", async () => {

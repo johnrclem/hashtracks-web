@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // fetchHTMLPage (real) calls safeFetch, which does a DNS SSRF check — mock the
 // safe-fetch seam so the fetch() tests stay offline (matches atlanta-hash-board).
@@ -158,6 +158,16 @@ const SAMPLE_HTML = `
 `;
 
 describe("MijasHashAdapter.fetch", () => {
+  // Freeze the clock at the fixtures' era so the windowed/year-inferred assertions never age out (#2066).
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-05-15T12:00:00Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("parses sample HTML, ignores nav <li>, and resolves all to mijash3", async () => {
     mockSafeFetch.mockResolvedValueOnce(
       new Response(SAMPLE_HTML, { status: 200 }),

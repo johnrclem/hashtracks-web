@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { Source } from "@/generated/prisma/client";
 import { parseDateTime, parseTitle, parseDetails, BrewCityH3Adapter } from "./brew-city-h3";
 
@@ -175,8 +175,15 @@ describe("parseDetails", () => {
 describe("BrewCityH3Adapter", () => {
   const adapter = new BrewCityH3Adapter();
 
+  // Freeze the clock at the fixtures' era so the windowed/year-inferred assertions never age out (#2066).
   beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-04-01T12:00:00Z"));
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("parses events from Wix repeater HTML", async () => {

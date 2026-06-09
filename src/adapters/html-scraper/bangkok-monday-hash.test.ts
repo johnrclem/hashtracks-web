@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import {
@@ -221,6 +221,15 @@ describe("parseNextRunBlock", () => {
 });
 
 describe("BangkokMondayHashAdapter.fetch", () => {
+  // Freeze the clock at the fixtures' era (REF) so the windowed/year-inferred assertions never age out (#2066).
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-06-05T12:00:00Z"));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("merges both pages, dedupes by run, and enriches the next run", async () => {
     mockBothPages();
     const result = await new BangkokMondayHashAdapter().fetch(makeSource());

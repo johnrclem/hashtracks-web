@@ -174,11 +174,15 @@ const SAMPLE_HTML = `
 describe("DCH4Adapter (WordPress API path)", () => {
   let adapter: DCH4Adapter;
 
+  // Freeze the clock at the fixtures' era so the windowed/year-inferred assertions never age out (#2066).
   beforeEach(() => {
     adapter = new DCH4Adapter();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-02-01T12:00:00Z"));
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
@@ -261,8 +265,11 @@ describe("DCH4Adapter (WordPress API path)", () => {
 describe("DCH4Adapter (HTML fallback path)", () => {
   let adapter: DCH4Adapter;
 
+  // Freeze the clock at the fixtures' era so the windowed/year-inferred assertions never age out (#2066).
   beforeEach(() => {
     adapter = new DCH4Adapter();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-02-01T12:00:00Z"));
     // Make WordPress API return error to trigger HTML fallback
     vi.mocked(wordpressApi.fetchWordPressPosts).mockResolvedValue({
       posts: [],
@@ -271,6 +278,7 @@ describe("DCH4Adapter (HTML fallback path)", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 

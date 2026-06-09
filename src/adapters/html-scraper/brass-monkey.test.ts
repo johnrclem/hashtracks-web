@@ -138,12 +138,16 @@ describe("parseBrassMonkeyBody", () => {
 describe("BrassMonkeyAdapter.fetch (Blogger API path)", () => {
   let adapter: BrassMonkeyAdapter;
 
+  // Freeze the clock at the fixtures' era so the windowed/year-inferred assertions never age out (#2066).
   beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-03-01T12:00:00Z"));
     adapter = new BrassMonkeyAdapter();
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.useRealTimers();
   });
 
   it("parses events from Blogger API posts", async () => {
