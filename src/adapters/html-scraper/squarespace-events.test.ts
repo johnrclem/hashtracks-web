@@ -331,6 +331,18 @@ describe("SquarespaceEventsAdapter.fetch", () => {
   // history and any queued `mockResolvedValueOnce` responses.
   beforeEach(() => {
     vi.restoreAllMocks();
+    // Freeze "now" inside the fixtures' date span (2026-04-29 → 2026-07-10) so the
+    // adapter's ±days window (applyDateWindow) never ages the hardcoded fixture
+    // dates out and redlights CI — the same time-bomb that hit atlanta-hash-board
+    // on 2026-06-08. Every test here asserts events flow THROUGH the window (none
+    // test now-relative exclusion), so a fixed reference date is safe. Date-only
+    // faking keeps setTimeout real so the awaited fetch mocks still resolve.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-06-01T12:00:00Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("parses upcoming + past arrays into RawEvents", async () => {
