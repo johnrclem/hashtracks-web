@@ -174,14 +174,26 @@ async function main() {
 
   // Do NOT mutate RawEvent.rawData (immutable audit trail). We only rewrite the
   // canonical UI value; the next in-window scrape re-applies the same strip.
+  // Each update is independent and the script is idempotent (a re-run skips
+  // already-cleared rows via the provenance guard), so a single failing row is
+  // logged and the rest proceed rather than aborting the whole batch.
+  let updated = 0;
+  let failed = 0;
   if (APPLY) {
     for (const u of updates) {
-      await prisma.event.update({ where: { id: u.id }, data: { description: u.after } });
+      try {
+        await prisma.event.update({ where: { id: u.id }, data: { description: u.after } });
+        updated++;
+      } catch (err) {
+        failed++;
+        console.error(`  FAILED ${u.kennelCode} ${u.id}: ${err instanceof Error ? err.message : String(err)}`);
+      }
     }
   }
 
   const verb = APPLY ? "Updated" : "Would update";
-  console.log(`\n${verb} ${updates.length} canonical Event.description value(s).`);
+  console.log(`\n${verb} ${APPLY ? updated : updates.length} canonical Event.description value(s).`);
+  if (APPLY && failed > 0) console.log(`${failed} update(s) failed — re-run to retry (idempotent).`);
   if (!APPLY) console.log("Dry-run only. Re-run with --apply to write changes.");
   await prisma.$disconnect();
 }

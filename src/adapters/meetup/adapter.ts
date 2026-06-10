@@ -646,6 +646,11 @@ export function buildRawEventFromApollo(
   extractRunNumber = false,
   runNumberPrefix?: string,
   boilerplateBlocks?: Set<string>,
+  // Pre-cleaned description from fetch()'s detection pre-pass, wrapped so a
+  // legitimately-`undefined` cleaned value (event with no description) is
+  // distinguishable from "not supplied" (the wrapper is absent → recompute).
+  // Avoids a second heavy cleanMeetupDescription (cheerio) pass per event.
+  preCleaned?: { value: string | undefined },
 ): RawEventData {
   const { date, startTime } = ev.dateTime
     ? extractDateTime(ev.dateTime)
@@ -668,7 +673,7 @@ export function buildRawEventFromApollo(
   }
 
   const { hares, titleForDisplay } = resolveMeetupHares(ev.description, ev.title);
-  const cleanedDesc = cleanMeetupDescription(ev.description, state);
+  const cleanedDesc = preCleaned ? preCleaned.value : cleanMeetupDescription(ev.description, state);
   // Group-template boilerplate (#2058/#2059/#2062): strip paragraph blocks the
   // group reuses verbatim across >= 2 events (the standing recurring-event
   // template), keeping any run-specific blocks. A fully templated description
@@ -676,9 +681,10 @@ export function buildRawEventFromApollo(
   // stored boilerplate is wiped; a description with no boilerplate is returned
   // untouched. Hare extraction above still runs on the raw description — only
   // the stored `description` field is affected. `boilerplateBlocks` is undefined
-  // when called outside fetch() (unit tests), preserving prior behavior.
+  // (or empty) when called outside fetch() / with no detected template, so the
+  // strip is skipped entirely and prior behavior is preserved.
   const finalDesc =
-    cleanedDesc !== undefined && boilerplateBlocks
+    cleanedDesc !== undefined && boilerplateBlocks && boilerplateBlocks.size > 0
       ? stripBoilerplateBlocks(cleanedDesc, boilerplateBlocks)
       : cleanedDesc;
 
@@ -912,10 +918,12 @@ export class MeetupAdapter implements SourceAdapter {
         // hydrated from persisted JSON, where any truthy value would pass
         // through unintentionally. Only literal `true` opts in.
         const shouldExtractRunNumber = config.extractRunNumber === true;
-        const rawEvent = buildRawEventFromApollo(ev, mergedState, config.kennelTag, compiledPatterns, shouldExtractRunNumber, config.runNumberPrefix, boilerplateBlocks);
-        // Count events whose description had boilerplate removed (fully nulled
-        // or partially stripped) vs. its pre-strip cleaned value (index-aligned).
+        // Reuse the pre-pass cleaned value (index-aligned) so the builder
+        // doesn't re-run the heavy cleanMeetupDescription/cheerio parse.
         const cleanedBefore = cleanedDescriptions[i];
+        const rawEvent = buildRawEventFromApollo(ev, mergedState, config.kennelTag, compiledPatterns, shouldExtractRunNumber, config.runNumberPrefix, boilerplateBlocks, { value: cleanedBefore });
+        // Count events whose description had boilerplate removed (fully nulled
+        // or partially stripped) vs. its pre-strip cleaned value.
         if (cleanedBefore !== undefined && rawEvent.description !== cleanedBefore) {
           boilerplateDescriptionsDropped++;
         }
