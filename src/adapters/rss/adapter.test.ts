@@ -130,10 +130,7 @@ describe("RssAdapter", () => {
       // it never ages out of the date window and red-lights CI in a future year (#2066).
       const localDay = new Date();
       localDay.setUTCDate(localDay.getUTCDate() + 5);
-      const yyyy = localDay.getUTCFullYear();
-      const mm = String(localDay.getUTCMonth() + 1).padStart(2, "0");
-      const dd = String(localDay.getUTCDate()).padStart(2, "0");
-      const localDate = `${yyyy}-${mm}-${dd}`;
+      const localDate = localDay.toISOString().split("T")[0];
       mockParseURL.mockResolvedValueOnce({
         title: "Feed",
         items: [{ title: "Night trail", isoDate: `${localDate}T00:30:00+10:00`, link: "https://x.com/1" }],
