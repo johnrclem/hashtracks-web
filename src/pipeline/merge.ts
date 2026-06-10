@@ -8,7 +8,7 @@ import { composeUtcStart } from "@/lib/timezone";
 import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag, resolveKennelTags, clearResolverCache } from "./kennel-resolver";
 import { extractCoordsFromMapsUrl, geocodeAddress, resolveShortMapsUrl, reverseGeocode, haversineDistance, parseDMSFromLocation, stripDMSFromLocation } from "@/lib/geo";
-import { isPlaceholder, decodeEntities, HARE_BOILERPLATE_RE, CTA_EMBEDDED_PATTERNS } from "@/adapters/utils";
+import { isPlaceholder, isThemelessPlaceholderTitle, decodeEntities, HARE_BOILERPLATE_RE, CTA_EMBEDDED_PATTERNS } from "@/adapters/utils";
 import { LOCATION_EMAIL_CTA_RE } from "./audit-checks";
 import { levenshtein } from "@/lib/fuzzy";
 import { createEventWithKennel } from "@/lib/event-write";
@@ -936,6 +936,42 @@ export function sanitizeTitle(title: string | undefined): string | null {
   return cleaned || null;
 }
 
+/** Minimal kennel display fields needed to synthesize a default title. */
+interface TitleKennelData {
+  kennelCode: string;
+  shortName: string;
+  fullName: string | null;
+  aliases: string[];
+}
+
+/**
+ * Resolve the title to write when updating an existing canonical Event.
+ *
+ * Priority: (1) a real incoming title; (2) the existing title — UNLESS it's a
+ * stale placeholder shell ("SH3 #? (TBD)") that a pre-#2065 scrape persisted, in
+ * which case we (3) re-synthesize the "<Kennel> Trail #N" default. Without (3) an
+ * incoming empty title (the #2065 adapter clears placeholder titles to "") would
+ * fall back to `existingEvent.title` and the stale placeholder would stick
+ * forever, since the lower-trust enrichment branch never backfills titles.
+ */
+export function resolveUpdatedTitle(
+  incomingTitle: string | undefined,
+  existingTitle: string | null,
+  kennelData: TitleKennelData,
+  runNumber: number | null | undefined,
+  fallbackTag: string,
+): string {
+  const incoming = sanitizeTitle(incomingTitle);
+  if (incoming) {
+    return rewriteStaleDefaultTitle(incoming, kennelData.kennelCode, kennelData.shortName, kennelData.fullName, kennelData.aliases);
+  }
+  if (existingTitle && !isThemelessPlaceholderTitle(existingTitle)) {
+    return rewriteStaleDefaultTitle(existingTitle, kennelData.kennelCode, kennelData.shortName, kennelData.fullName, kennelData.aliases);
+  }
+  const displayName = friendlyKennelName(kennelData.shortName, kennelData.fullName) || fallbackTag;
+  return runNumber ? `${displayName} Trail #${runNumber}` : `${displayName} Trail`;
+}
+
 /** Abbreviation map for address normalization (used by deduplicateAddressPrefix). */
 /** Pre-compiled address abbreviation patterns (avoids RegExp allocation per call). */
 const ADDR_PATTERNS = Object.entries({
@@ -1554,10 +1590,13 @@ async function upsertCanonicalEvent(
           ...(event.runNumber !== undefined
             ? { runNumber: event.runNumber }
             : {}),
-          title: (() => {
-            const nextTitle = sanitizeTitle(event.title) ?? existingEvent.title;
-            return nextTitle ? rewriteStaleDefaultTitle(nextTitle, kennelData.kennelCode, kennelData.shortName, kennelData.fullName, kennelData.aliases) : nextTitle;
-          })(),
+          title: resolveUpdatedTitle(
+            event.title,
+            existingEvent.title,
+            kennelData,
+            event.runNumber,
+            event.kennelTags[0],
+          ),
           // Preserve existing fields when source doesn't provide them (undefined)
           ...(event.description !== undefined
             ? { description: event.description ?? null }

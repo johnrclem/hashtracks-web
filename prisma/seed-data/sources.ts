@@ -1212,6 +1212,11 @@ export const SOURCES = [
         // slice misreads the UTC hour as local and trips event-improbable-time
         // on every Thursday run (#964 + 15 daily duplicates).
         timezone: "America/Chicago",
+        // #2046 — the SUMMARY is the title. Some C2H3 events pair a bare-code
+        // SUMMARY ("C2H3") with boilerplate marketing prose in DESCRIPTION;
+        // without this the generic description fallback surfaced that prose as
+        // the title.
+        summaryIsCanonicalTitle: true,
       },
       kennelCodes: ["c2h3"],
     },

@@ -20,7 +20,7 @@ import {
   stripGluedDescriptionEcho,
   looksLikeHareName,
 } from "./adapter";
-import { compilePatterns } from "../utils";
+import { compilePatterns, isThemelessPlaceholderTitle } from "../utils";
 import type { RawEventData } from "../types";
 import { SOURCES } from "../../../prisma/seed-data/sources";
 
@@ -5477,5 +5477,95 @@ describe("DH4 hares survive the event-type strip (#2033 verdict B)", () => {
     );
     expect(result).not.toBeNull();
     expect(result!.hares).toBeUndefined();
+  });
+});
+
+// ── #2046 C2H3: summaryIsCanonicalTitle (title from SUMMARY, never description) ──
+
+describe("summaryIsCanonicalTitle — title comes from SUMMARY, not DESCRIPTION (#2046 C2H3)", () => {
+  const C2H3_BOILERPLATE =
+    "A fun way to get exercise, meet up with friends, and have some adult beverages and shenanigans.";
+
+  it("keeps the bare kennel-code SUMMARY instead of the boilerplate description", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "C2H3", description: C2H3_BOILERPLATE }),
+      { defaultKennelTag: "c2h3", summaryIsCanonicalTitle: true },
+    );
+    expect(result).not.toBeNull();
+    expect(result!.title).toBe("C2H3");
+    expect(result!.title).not.toContain("A fun way");
+  });
+
+  it("regression: WITHOUT the flag the boilerplate description leaks as the title", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "C2H3", description: C2H3_BOILERPLATE }),
+      { defaultKennelTag: "c2h3" },
+    );
+    expect(result).not.toBeNull();
+    expect(result!.title).toContain("A fun way");
+  });
+
+  it("leaves a real theme SUMMARY untouched under the flag", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "Cinco de Mayo May Trail", description: C2H3_BOILERPLATE }),
+      { defaultKennelTag: "c2h3", summaryIsCanonicalTitle: true },
+    );
+    expect(result).not.toBeNull();
+    expect(result!.title).toBe("Cinco de Mayo May Trail");
+  });
+
+  it("keeps a rich numbered SUMMARY (and its run number) under the flag", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "C2H3 - Trail #477", description: C2H3_BOILERPLATE }),
+      { defaultKennelTag: "c2h3", summaryIsCanonicalTitle: true },
+    );
+    expect(result).not.toBeNull();
+    expect(result!.title).toContain("Trail #477");
+    expect(result!.title).not.toContain("A fun way");
+    expect(result!.runNumber).toBe(477);
+  });
+});
+
+// ── #2065 SH3: themeless placeholder titles are nulled so a richer source wins ──
+
+describe("isThemelessPlaceholderTitle (#2065)", () => {
+  it.each([
+    ["SH3 #? (TBD)", true],
+    // Separator before the placeholder theme (no paren) — must still be caught.
+    ["SH3 #? - TBD", true],
+    ["SH3 #?: TBD", true],
+    ["SH3 #?", true],
+    ["SH3 #? (TBA)", true],
+    ["SH3 #? (Catholic School Girl)", false],
+    ["NBH3/SH3 #?/#753 (Cross Dress Trail #25: Cunt and Cock Tease)", false],
+    // Real run number FIRST, placeholder last, no paren — must NOT be nulled.
+    ["SH3/NBH3 #753/#?", false],
+    ["TH3 #? (A Trail)", false],
+    ["SH3 #804 (OPERATION DICKCHEESE)", false],
+    ["Cinco de Mayo May Trail", false],
+  ])("%s → %s", (title, expected) => {
+    expect(isThemelessPlaceholderTitle(title)).toBe(expected);
+  });
+});
+
+describe("themeless placeholder titles are nulled in buildRawEventFromGCalItem (#2065 SH3)", () => {
+  it("nulls 'SH3 #? (TBD)' (title empty, runNumber cleared) so merge/secondary wins", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "SH3 #? (TBD)" }),
+      { defaultKennelTag: "sh3-wa" },
+    );
+    expect(result).not.toBeNull();
+    expect(result!.title ?? "").toBe("");
+    expect(result!.runNumber).toBeNull();
+  });
+
+  it("does NOT null a real numbered event sharing the calendar (run number preserved)", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "SH3 #804 (OPERATION DICKCHEESE)" }),
+      { defaultKennelTag: "sh3-wa" },
+    );
+    expect(result).not.toBeNull();
+    expect(result!.title).toBe("SH3 #804");
+    expect(result!.runNumber).toBe(804);
   });
 });

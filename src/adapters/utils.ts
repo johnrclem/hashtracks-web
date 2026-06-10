@@ -853,6 +853,64 @@ export function isPlaceholder(value: string): boolean {
   return isPlaceholderText(value.trim());
 }
 
+// Placeholder run token immediately after a "#" marker — the non-word markers:
+// a bounded run of "X" (optionally with a trailing "?"), or a bounded run of
+// "?". Bounded quantifiers keep it linear (no Sonar S5852 ReDoS shape). The
+// "TBD"/"TBA"/"TBC" word markers don't need stripping here — isPlaceholder
+// catches them on the residual theme.
+const LEADING_PLACEHOLDER_TOKEN_RE = /^(?:x{1,8}\?{0,3}|\?{1,4})/i;
+// Leading connector punctuation/whitespace left after the marker is stripped
+// (e.g. "? - TBD" → " - TBD" → "TBD"). Single char class — linear.
+const LEADING_CONNECTOR_RE = /^[\s:.\-–—/]+/;
+
+/**
+ * Content of a trailing "(...)" theme slot, or null when the title doesn't end
+ * in a parenthetical. Pure string ops (no regex) to avoid a Sonar S5852
+ * ReDoS false-positive on the equivalent `/\(([^)]*)\)$/`. An empty "()" yields
+ * an empty string (still a themeless slot).
+ */
+function trailingParenContent(s: string): string | null {
+  if (!s.endsWith(")")) return null;
+  const open = s.lastIndexOf("(", s.length - 1);
+  return open === -1 ? null : s.slice(open + 1, -1);
+}
+
+/**
+ * True when a title is a pure placeholder shell: it carries a placeholder run
+ * marker ("#?", "#TBD") AND its theme (the trailing parenthetical, else whatever
+ * follows the last "#" after stripping the placeholder token + leading
+ * connectors) is empty or itself a placeholder. Used to null such titles so the
+ * merge pipeline synthesizes a "<Kennel> Trail #N" default or a richer secondary
+ * source wins (#2065).
+ *
+ *   "SH3 #? (TBD)"  / "SH3 #? - TBD" / "SH3 #?: TBD" / "SH3 #?"  → true
+ *   "SH3 #? (Catholic School Girl)"                              → false (real theme)
+ *   "NBH3/SH3 #?/#753 (…)"  / "SH3/NBH3 #753/#?"                 → false (real run #)
+ *   "TH3 #? (A Trail)"                                           → false (non-placeholder theme)
+ *
+ * ReDoS-safe: bounded/char-class regexes only; the post-marker theme is sliced
+ * with lastIndexOf, not a `\s*`-adjacent alternation.
+ */
+export function isThemelessPlaceholderTitle(title: string): boolean {
+  const trimmed = title.trim();
+  if (!hasPlaceholderRunNumber(trimmed)) return false;
+  // A real "#NNN" anywhere means a co-host carries a genuine run number — keep it
+  // regardless of marker ordering. Reuses the delimiter-guarded shared parser so
+  // an ambiguous "#30X?" stays a placeholder, not "30".
+  if (extractHashRunNumber(trimmed) !== undefined) return false;
+  const paren = trailingParenContent(trimmed);
+  let theme: string;
+  if (paren === null) {
+    const hashIdx = trimmed.lastIndexOf("#");
+    const afterHash = hashIdx === -1 ? trimmed : trimmed.slice(hashIdx + 1);
+    theme = afterHash.replace(LEADING_PLACEHOLDER_TOKEN_RE, "");
+  } else {
+    theme = paren;
+  }
+  theme = theme.replace(LEADING_CONNECTOR_RE, "").trim();
+  return theme === "" || isPlaceholder(theme);
+}
+
 /**
  * Read a string field off a Source's JSON `config`, falling back to the
  * provided default if the field is missing, non-string, or the config

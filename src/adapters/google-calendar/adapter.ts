@@ -1,7 +1,7 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
-import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, EVENT_FIELD_LABEL_RE, EVENT_FIELD_LABEL_UPPERCASE_RE, CTA_EMBEDDED_PATTERNS, appendDescriptionSuffix, dedupeRepeatedDescription, isPlaceholder, parse12HourTime, formatAmPmTime, stripNonEnglishCountry, extractHashRunNumber, hasPlaceholderRunNumber, normalizeCostSigil, BARE_KENNEL_CODE_RE } from "../utils";
+import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, EVENT_FIELD_LABEL_RE, EVENT_FIELD_LABEL_UPPERCASE_RE, CTA_EMBEDDED_PATTERNS, appendDescriptionSuffix, dedupeRepeatedDescription, isPlaceholder, parse12HourTime, formatAmPmTime, stripNonEnglishCountry, extractHashRunNumber, hasPlaceholderRunNumber, isThemelessPlaceholderTitle, normalizeCostSigil, BARE_KENNEL_CODE_RE } from "../utils";
 import { matchKennelPatterns, matchCompiledKennelPatterns, compileKennelPatterns, type KennelPattern, type CompiledKennelPattern } from "../kennel-patterns";
 import { LOCATION_EMAIL_CTA_RE } from "@/pipeline/audit-checks";
 import { parseDMSFromLocation } from "@/lib/geo";
@@ -1095,6 +1095,18 @@ interface CalendarSourceConfig {
    * the only path to a usable title.
    */
   preferDefaultTitleOverDescription?: boolean;
+  /**
+   * When true, the calendar SUMMARY is the canonical title and the adapter
+   * NEVER falls back to the description for a title (#2046 C2H3). Some kennels
+   * put the bare kennel code in SUMMARY and boilerplate marketing prose in
+   * DESCRIPTION; the generic "summary == kennelTag → use description" fallback
+   * then surfaces the boilerplate. Setting this leaves the title as the
+   * stripped summary so merge.ts keeps it (or synthesizes "<Kennel> Trail #N"
+   * when it collapses to the bare code). Off by default — the description
+   * fallback is correct for the many calendars that genuinely encode the trail
+   * name there (4X2 H4 / Chicagoland).
+   */
+  summaryIsCanonicalTitle?: boolean;
 }
 
 /**
@@ -1571,7 +1583,12 @@ export function buildRawEventFromGCalItem(
   // When the flag is set AND a per-kennel `defaultTitles` (or generic
   // `defaultTitle`) is configured, skip the description fallback so the
   // existing defaultTitle path (line ~1311) wins instead.
-  if (titleMatchesKennelTag(title, kennelTag) && rawDescription) {
+  // `summaryIsCanonicalTitle` (#2046 C2H3): trust the SUMMARY and never derive
+  // a title from the description. C2H3's calendar pairs a bare-kennel-code
+  // SUMMARY ("C2H3") with boilerplate marketing prose in DESCRIPTION; both
+  // fallbacks below would otherwise surface that prose as the title.
+  const trustSummaryTitle = sourceConfig?.summaryIsCanonicalTitle === true;
+  if (!trustSummaryTitle && titleMatchesKennelTag(title, kennelTag) && rawDescription) {
     // Strict-boolean check on `preferDefaultTitleOverDescription`: the
     // config is hydrated from persisted JSON, where any truthy value
     // would otherwise opt in unintentionally (same convention as the
@@ -1588,7 +1605,7 @@ export function buildRawEventFromGCalItem(
   }
   // If title looks like a bare kennel code (2-10 alphanumeric chars, no spaces),
   // try extracting a better title from the description
-  if (/^[A-Za-z0-9]{2,10}$/.test(title) && rawDescription) {
+  if (!trustSummaryTitle && /^[A-Za-z0-9]{2,10}$/.test(title) && rawDescription) {
     const descTitle = titleFromDescription(rawDescription);
     if (descTitle) title = descTitle;
   }
@@ -1811,6 +1828,20 @@ export function buildRawEventFromGCalItem(
     for (const re of compiledTitleStripPatterns) {
       title = title.replace(re, "").trim();
     }
+  }
+
+  // #2065 SH3 — a placeholder-run-number title with no real theme ("SH3 #? (TBD)",
+  // or a bare "SH3 #?" left after a "(theme)" was extracted to hares above)
+  // carries zero information. Null it so the defaultTitle path below, merge.ts's
+  // "<Kennel> Trail #N" synthesis, or a richer secondary source (the SH3 hareline
+  // sheet's "#1011 Catholic School Girl") wins instead of a higher-trust
+  // placeholder. Runs AFTER hare/parenthetical extraction so the theme is
+  // preserved as hares when present; narrow by design — a placeholder marker that
+  // still wraps a real theme ("SH3 #? (Catholic School Girl)") or a co-host with a
+  // real number ("NBH3/SH3 #?/#753") is untouched. Empty title still reads as a
+  // shell for the all-day collapse (isPlaceholderShell), so dedup is unaffected.
+  if (promotedRunNumber === undefined && isThemelessPlaceholderTitle(title)) {
+    title = "";
   }
 
   // defaultTitle fallback runs last, after all branches that may reset title to kennelTag.
