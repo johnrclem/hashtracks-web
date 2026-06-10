@@ -88,7 +88,7 @@ All candidates below confirmed **absent from the live sitemap** (Chrome MCP, 423
 - **Kampala H3 / KH3** (Uganda) — weekly Monday; active social signals. *Find a clean dynamic source (FB-only rejected); source-add if a Meetup/HC listing surfaces.*
 - **Guadalajara H3** (MX) — likely Meetup/HTML; source not yet confirmed.
 - **OKC H3** (OK) — likely Meetup; confirm a live source.
-- **Madrid H3 / Lisbon H3 / Vienna H3 / Prague H3 / Budapest H3** (Europe) — large well-known city hashes, all sitemap-absent; *identify + verify a live dynamic source (Meetup or website) before queueing.*
+- **Prague H3** (Europe, 🇨🇿) — sitemap-absent, but currently **blocked/dormant** (Meetup "Group not found", `praguehash.cz` NXDOMAIN, FB "No events", last activity Sept 2023). Revisit as first Czechia when revived. *(The rest of this 2026-06-05 Europe batch — Madrid H3, Lisbon H3, Vienna H3, Budapest H3 — have since **shipped**; removed from leads.)*
 - **Bogotá H3 / Montevideo H3 / Panama H3** (LatAm) — sitemap-absent; Blogspot/FB signals from regional blogrolls; *confirm a clean dynamic source.*
 - **Cape Town H3 / Jo'burg H3** (South Africa) — sitemap-absent; *identify a live source (Africa expansion after ONH3/Nairobi).*
 
