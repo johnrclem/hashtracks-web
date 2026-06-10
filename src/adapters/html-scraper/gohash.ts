@@ -37,7 +37,7 @@ import { applyDateWindow, fetchHTMLPage, normalizeHaresField, validateSourceConf
  * If `harelinePath` is omitted the adapter defaults to `/hareline/upcoming`
  * appended to `source.url`.
  *
- * Used by: Penang H3 (penanghash3.org, 1965, 3rd-oldest in the world) and
+ * Used by: Penang H3 (penanghash3.org, 1965, 7th-oldest in the world) and
  * Hash House Harriets Penang (hashhouseharrietspenang.com, 1972).
  */
 
@@ -47,14 +47,19 @@ export interface GoHashConfig {
   harelinePath?: string;
 }
 
-interface GoHashRunSiteLink {
+export interface GoHashRunSiteLink {
   id?: string;
   label?: string;
   kind?: string;
   url?: string;
 }
 
-interface GoHashRun {
+export interface GoHashRunPricing {
+  label?: string;
+  amount?: number;
+}
+
+export interface GoHashRun {
   run_number?: number;
   run_date?: string;
   run_name?: string | null;
@@ -65,6 +70,10 @@ interface GoHashRun {
   location_url?: string | null;
   location_links?: GoHashRunSiteLink[] | null;
   notes?: string | null;
+  // Present in the payload but intentionally NOT extracted (flat guest fee
+  // lives on Kennel.hashCash — see parseGoHashRun). Typed for completeness.
+  run_type_pricing?: GoHashRunPricing[] | null;
+  pricing_currency?: string | null;
 }
 
 interface GoHashInitialState {

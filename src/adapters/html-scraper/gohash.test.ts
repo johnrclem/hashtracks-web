@@ -1,4 +1,5 @@
 import { extractInitialState, parseGoHashRun } from "./gohash";
+import type { GoHashRun } from "./gohash";
 
 // Fixtures mirror the LIVE goHash `__INITIAL_STATE__.runs.runs[]` shape:
 // `location` / `location_url` / `location_links` (NOT the legacy
@@ -118,7 +119,7 @@ describe("parseGoHashRun", () => {
   // when both readable fields are empty). Shapes drawn from the real Penang H3
   // archive (Run #1 "First Run"/"Founders", #3200 "Angmohs").
   const RUN_GROUP_UUID = "cda839a5-13f9-4d70-9aab-a4c4c9a13b2e";
-  it.each<{ label: string; run: Parameters<typeof parseGoHashRun>[0]; expected: string | undefined }>([
+  it.each<{ label: string; run: GoHashRun; expected: string | undefined }>([
     { label: "run_name wins", run: { run_name: "First Run", run_group_label: "Founders", run_group: RUN_GROUP_UUID }, expected: "First Run" },
     { label: "falls back to run_group_label", run: { run_name: null, run_group_label: "Angmohs", run_group: RUN_GROUP_UUID }, expected: "Angmohs" },
     { label: "never leaks a run_group UUID", run: { run_group: RUN_GROUP_UUID }, expected: undefined },

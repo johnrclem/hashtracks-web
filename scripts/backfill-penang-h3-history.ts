@@ -20,7 +20,7 @@
  */
 
 import "dotenv/config";
-import { reportAndApplyBackfill } from "./lib/backfill-runner";
+import { runBackfillScript } from "./lib/backfill-runner";
 import { safeFetch } from "@/adapters/safe-fetch";
 import { extractInitialState, parseGoHashRun } from "@/adapters/html-scraper/gohash";
 import type { RawEventData } from "@/adapters/types";
@@ -31,6 +31,8 @@ const PAST_URL = "https://www.penanghash3.org/hareline/past";
 const CONFIG = { kennelTag: "penangh3", startTime: "17:30" } as const;
 
 async function fetchArchive(): Promise<RawEventData[]> {
+  // safeFetch enforces a default request timeout (AbortSignal), so no manual
+  // timeout wiring is needed here.
   const res = await safeFetch(PAST_URL, {
     headers: {
       "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Backfill)",
@@ -48,6 +50,11 @@ async function fetchArchive(): Promise<RawEventData[]> {
   }
 
   const runs = state.runs?.runs ?? [];
+  // Fail loud on an empty archive — a 200 with no runs (parser drift, partial
+  // fetch, or HTML error page) must not be treated as a valid empty backfill.
+  if (runs.length === 0) {
+    throw new Error("No runs found in __INITIAL_STATE__ — aborting to prevent empty backfill");
+  }
   console.log(`  Found ${runs.length} runs in __INITIAL_STATE__`);
 
   const events: RawEventData[] = [];
@@ -61,23 +68,12 @@ async function fetchArchive(): Promise<RawEventData[]> {
   return events;
 }
 
-async function main() {
-  const apply = process.env.BACKFILL_APPLY === "1";
-  console.log(`Mode: ${apply ? "APPLY (will write to DB)" : "DRY RUN (no writes)"}`);
-
-  console.log("\n[1/2] Fetching penanghash3.org/hareline/past archive...");
-  const events = await fetchArchive();
-
-  console.log("\n[2/2] Reporting + applying...");
-  await reportAndApplyBackfill({
-    apply,
-    sourceName: SOURCE_NAME,
-    events,
-    kennelTimezone: KENNEL_TIMEZONE,
-  });
-}
-
-main().catch((err) => {
+runBackfillScript({
+  sourceName: SOURCE_NAME,
+  kennelTimezone: KENNEL_TIMEZONE,
+  label: "Fetching penanghash3.org/hareline/past archive",
+  fetchEvents: fetchArchive,
+}).catch((err) => {
   console.error(err);
   process.exit(1);
 });
