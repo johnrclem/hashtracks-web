@@ -1717,6 +1717,21 @@ export const KENNELS: KennelSeed[] = [
       description: "Bi-weekly Thursday-evening hash in Corpus Christi, with occasional Saturday runs.",
       latitude: 27.80, longitude: -97.40,
     },
+    // Bay Area Larrikins + Coastal Bend share the Corpus Christi area calendar
+    // (c2h3hash@gmail.com) and are routed off it via kennelPatterns. kennelCode
+    // "cbh3" is taken by Miami's Corned Beef Hash, so Coastal Bend uses "cbh3-cc".
+    {
+      kennelCode: "balh3", shortName: "BALH3", fullName: "Bay Area Larrikins Hash House Harriers", region: "Corpus Christi, TX",
+      scheduleTime: "6:30 PM",
+      hashCash: "$5",
+      description: "Bay Area Larrikins hash in the Corpus Christi, TX area.",
+      latitude: 27.80, longitude: -97.40,
+    },
+    {
+      kennelCode: "cbh3-cc", shortName: "Coastal Bend H3", fullName: "Coastal Bend Hash House Harriers", region: "Corpus Christi, TX",
+      description: "Coastal Bend hash in the Corpus Christi, TX area.",
+      latitude: 27.80, longitude: -97.40,
+    },
     // ===== FLORIDA =====
     // --- Miami / South Florida ---
     {

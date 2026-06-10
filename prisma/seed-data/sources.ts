@@ -1207,7 +1207,23 @@ export const SOURCES = [
       scrapeFreq: "every_6h",
       scrapeDays: 365,
       config: {
+        // This is the shared Corpus Christi-area calendar: ~70% of its events
+        // are Bay Area Larrikins (BALH3) or Coastal Bend (CBH3) runs, not C2H3.
+        // Route each prefix to its own kennel; prefix-less themed trails fall to
+        // the C2H3 default (the calendar owner). Specific patterns precede
+        // generic. NOT strictKennelRouting: legit C2H3 trails are frequently
+        // posted without a kennel prefix ("Cinco de Mayo May Trail").
+        kennelPatterns: [
+          ["^BALH3\\b|Bay Area Larrikin", "balh3"],
+          ["^CBH3\\b", "cbh3-cc"],
+          ["^C2H3\\b|^Corpus Christi", "c2h3"],
+        ],
         defaultKennelTag: "c2h3",
+        // Coastal Bend (CBH3) posts ~all of its runs as all-day entries, so
+        // they're invisible without this. Trades in a handful of all-day
+        // personal/admin one-offs (routed to the C2H3 default), which is an
+        // acceptable cost for capturing the CBH3 kennel.
+        includeAllDayEvents: true,
         // Calendar feed publishes dateTime as UTC; without this the wall-clock
         // slice misreads the UTC hour as local and trips event-improbable-time
         // on every Thursday run (#964 + 15 daily duplicates).
@@ -1218,7 +1234,7 @@ export const SOURCES = [
         // the title.
         summaryIsCanonicalTitle: true,
       },
-      kennelCodes: ["c2h3"],
+      kennelCodes: ["c2h3", "balh3", "cbh3-cc"],
     },
     // ===== UPSTATE NEW YORK =====
     // --- Rochester (Google Calendar) ---

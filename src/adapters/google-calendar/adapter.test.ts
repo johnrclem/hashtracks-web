@@ -63,6 +63,34 @@ describe("Boston Hash Calendar multi-kennel routing (#789)", () => {
   });
 });
 
+// ── Corpus Christi area multi-kennel routing via seed config (#2046 follow-up) ──
+
+describe("Corpus Christi area calendar multi-kennel routing", () => {
+  const ccSource = SOURCES.find((s) => s.name === "Corpus Christi H3 Calendar");
+  if (!ccSource?.config) throw new Error("Corpus Christi H3 Calendar seed config missing");
+  const config = ccSource.config as { kennelPatterns: [string, string][]; defaultKennelTag: string };
+
+  it.each([
+    // [summary, expected kennelTag, description]
+    ["BALH3 - Trail #988", "balh3", "Bay Area Larrikins prefixed"],
+    ['BALH3 - "The Great Gaspy" Hash', "balh3", "BALH3 themed"],
+    ["Bay Area Larrikin", "balh3", "Bay Area Larrikins full name"],
+    ["CBH3-4th Anal Bikini R*n", "cbh3-cc", "Coastal Bend (collision-safe code)"],
+    ["CBH3", "cbh3-cc", "bare CBH3"],
+    ["CBH3 - Cancelled", "cbh3-cc", "CBH3 with suffix"],
+    ["C2H3 Trail #485", "c2h3", "Corpus Christi prefixed"],
+    ["C2H3-#503", "c2h3", "C2H3 dash-number"],
+    ["Corpus Christi Hash house Harriers presents", "c2h3", "Corpus Christi full name"],
+    ["Cinco de Mayo May Trail", "c2h3", "prefix-less owner trail → default"],
+  ])("routes %j → %s (%s)", (summary, expectedTag) => {
+    const result = buildRawEventFromGCalItem(
+      { summary, start: { dateTime: "2026-04-15T19:00:00-05:00" }, status: "confirmed" },
+      config,
+    );
+    expect(result?.kennelTags[0]).toBe(expectedTag);
+  });
+});
+
 // ── Colorado H3 Aggregator multi-kennel routing via seed config (#850) ──
 
 describe("Colorado H3 Aggregator multi-kennel routing (#850)", () => {
