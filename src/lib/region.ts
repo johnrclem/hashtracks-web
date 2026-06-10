@@ -3421,7 +3421,7 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   // non-ASCII `ö`; anchor the diacritic form explicitly (mirrors île-de-france).
   [/\b(austria|osterreich|vienna|wien|vindobona)\b|(?:^|\W)österreich\b/, "Austria"],
   [/\b(france|paris|ile-de-france)\b|(?:^|\W)île-de-france\b/, "France"],
-  [/\b(hungary|budapest|magyar)\b/, "Hungary"],
+  [/\b(hungary|budapest|magyar|magyarorszag|magyarország)\b/, "Hungary"],
   [/\b(portugal|lisbon|lisboa|estoril|cascais|oporto|invicta)\b/, "Portugal"],
   [/\b(netherlands|amsterdam|rotterdam|den haag|the hague|holland)\b/, "Netherlands"],
   [/\b(denmark|copenhagen|københavn|aarhus)\b/, "Denmark"],
