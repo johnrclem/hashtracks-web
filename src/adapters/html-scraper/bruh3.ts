@@ -200,15 +200,18 @@ export function parseFutureDates(
 
     // Drop availability-status placeholders — these are date-slot states, not
     // hare names. "reserved" = a volunteer claimed the date; "available" (often
-    // "available!!!") = no volunteer yet (#2064). The date is still a real
-    // upcoming run, so emit the event with no hares rather than the status text.
-    const isPlaceholderHare = /^(?:reserved|available)\b/i.test(hare);
+    // "available!!!") = no volunteer yet (#2064). Anchored to end-of-string
+    // (optional trailing ! / whitespace) so a real hare that merely starts with
+    // the word — "Available Andy" — is NOT dropped. Emit `null`, not `undefined`:
+    // the merge tri-state treats null as an explicit clear, wiping any stale hare
+    // stored for this date from an earlier scrape; undefined would preserve it.
+    const isPlaceholderHare = /^(?:reserved|available)[!\s]*$/i.test(hare);
 
     events.push({
       date,
       kennelTags: [KENNEL_TAG],
       title: `BruH3 — ${dateStr}`,
-      hares: isPlaceholderHare ? undefined : hare,
+      hares: isPlaceholderHare ? null : hare,
       startTime: DEFAULT_START_TIME,
       sourceUrl,
     });

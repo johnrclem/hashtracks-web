@@ -141,9 +141,12 @@ const TRAILING_PUNCT = new Set(["-", "–", "—", " "]);
 // trail-setters, so there are no real hares to recover — drop the whole field.
 const JOINT_RUN_RE = /\bjoint\s+run\b/i;
 
-function cleanHares(raw: string | undefined): string | undefined {
+function cleanHares(raw: string | undefined): string | null | undefined {
   if (!raw) return undefined;
-  if (JOINT_RUN_RE.test(raw)) return undefined;
+  // Recognized non-hare content → null (explicit clear), so a stale hare stored
+  // for this run from an earlier scrape is wiped rather than preserved. The
+  // merge tri-state reads undefined as "keep existing", null as "clear" (#2056).
+  if (JOINT_RUN_RE.test(raw)) return null;
   const cutoff = findFirstPromoIndex(raw);
   let cleaned = (cutoff !== -1 ? raw.slice(0, cutoff) : raw).trimEnd();
   // Collapse trailing punctuation left behind by truncation (en-dash, hyphen).

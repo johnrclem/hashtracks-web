@@ -68,13 +68,14 @@ describe("sh3-au parseSh3Paragraph", () => {
   // #2056 — joint-run metadata typed into the Hares field (run #3078). A joint
   // run names the partner kennel + run number + dress code, not trail-setters,
   // so the whole field is dropped rather than stored as a fake hare name.
-  it("drops joint-run metadata from hares (#2056)", () => {
+  it("clears joint-run metadata from hares to null (explicit clear) (#2056)", () => {
     const text =
       "Run #3078Date: 9th JuneHares: Larrikins Joint Run 2500 – wear a tutuStart: St Thomas Rest Park, West St, Crows Nest";
     const e = parseSh3Paragraph(text, URL, REF);
     expect(e).not.toBeNull();
     expect(e!.runNumber).toBe(3078);
-    expect(e!.hares).toBeUndefined();
+    // null, not undefined: an explicit clear that wipes any stale stored hare.
+    expect(e!.hares).toBeNull();
   });
 
   // #1731 — blank Start: lets the non-greedy capture spill into the trailing

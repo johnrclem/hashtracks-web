@@ -270,7 +270,7 @@ April 25 - Julian O.
     expect(events[2].hares).toBe("Julian O.");
   });
 
-  it("handles 'reserved' hares as undefined", () => {
+  it("clears 'reserved' hares to null (explicit clear, not preserve) (#2064)", () => {
     const text = `Future Dates:
 
 2026
@@ -283,15 +283,16 @@ May 09 - reserved
 
     expect(events).toHaveLength(2);
     expect(events[0].date).toBe("2026-05-02");
-    expect(events[0].hares).toBeUndefined();
+    expect(events[0].hares).toBeNull();
     expect(events[1].date).toBe("2026-05-09");
-    expect(events[1].hares).toBeUndefined();
+    expect(events[1].hares).toBeNull();
   });
 
   it("treats 'available' availability status as no hare, not a hare name (#2064)", () => {
     // "available" / "available!!!" is the site's slot-status for a date with no
     // volunteer yet — it must not leak into haresText. The date is still a real
-    // upcoming run, so the event is emitted with hares undefined.
+    // upcoming run, so the event is emitted with hares null (explicit clear of
+    // any stale hare; merge tri-state treats null as clear, undefined as keep).
     const text = `Future Dates: these dates are available!!!
 
 2026
@@ -305,9 +306,9 @@ June 27 - Julian R.
 
     expect(events).toHaveLength(3);
     expect(events[0].date).toBe("2026-06-13");
-    expect(events[0].hares).toBeUndefined();
+    expect(events[0].hares).toBeNull();
     expect(events[1].date).toBe("2026-06-20");
-    expect(events[1].hares).toBeUndefined();
+    expect(events[1].hares).toBeNull();
     // A genuine hare name on the same kind of line still comes through.
     expect(events[2].date).toBe("2026-06-27");
     expect(events[2].hares).toBe("Julian R.");

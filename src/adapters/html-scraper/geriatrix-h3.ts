@@ -118,6 +118,42 @@ export function parseGeriatrixParagraphs(
   return out;
 }
 
+/**
+ * Fail loud on a dropped run-row (#2044). parseGeriatrixParagraphs only anchors
+ * a row on a paragraph that is EXACTLY "DD/MM/YYYY". If a date-led run row
+ * drifts — the date merged into the venue line ("09/06/2026 Venue: …"), a
+ * trailing note, etc. — the paragraph fails the anchored regex, no row is
+ * created, and that run silently vanishes. The reconciler then sees the run
+ * "removed from source" and CANCELs the live event. Surfacing an error makes
+ * scrape.ts suppress destructive reconcile + raise a health alert instead of
+ * letting a parse miss masquerade as a cancellation (Memory
+ * reference_reconcile_blind_to_dropped_rows). Reconcile.ts is left untouched —
+ * this is the adapter-side fail-loud fix. The guard is anchored to date-LED
+ * paragraphs (LEADING_DATE_RE) so benign prose that merely mentions a date
+ * ("Updated 09/06/2026") never trips a healthy scrape. Extracted from fetch()
+ * to keep it under Sonar S3776.
+ */
+function buildDroppedRowErrors(
+  paragraphs: { text: string }[],
+): { errors: string[]; parseErrors: NonNullable<ErrorDetails["parse"]> } {
+  const errors: string[] = [];
+  const parseErrors: NonNullable<ErrorDetails["parse"]> = [];
+  for (const p of paragraphs) {
+    if (LEADING_DATE_RE.test(p.text) && !DDMMYYYY_RE.test(p.text)) {
+      errors.push(
+        `Geriatrix H3: date-bearing paragraph did not parse as a run-date row (possible dropped row): "${p.text.slice(0, 120)}"`,
+      );
+      parseErrors.push({
+        row: -1,
+        section: "hareline",
+        error: "date-bearing paragraph did not anchor as a DD/MM/YYYY run-row",
+        rawText: p.text.slice(0, 500),
+      });
+    }
+  }
+  return { errors, parseErrors };
+}
+
 export class GeriatrixH3Adapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
 
@@ -174,32 +210,10 @@ export class GeriatrixH3Adapter implements SourceAdapter {
       errors.push("Geriatrix H3: .richtext-editor container not found on page");
     }
 
-    // Fail loud on a dropped run-row (#2044). parseGeriatrixParagraphs only
-    // anchors a row on a paragraph that is EXACTLY "DD/MM/YYYY". If a date-led
-    // run row drifts — the date merged into the venue line ("09/06/2026 Venue:
-    // …"), a trailing note, etc. — the paragraph fails the anchored regex, no
-    // row is created, and that run silently vanishes. The reconciler then sees
-    // the run "removed from source" and CANCELs the live event. Surfacing an
-    // error makes scrape.ts suppress destructive reconcile + raise a health
-    // alert instead of letting a parse miss masquerade as a cancellation
-    // (Memory reference_reconcile_blind_to_dropped_rows). Reconcile.ts is left
-    // untouched — this is the adapter-side fail-loud fix. The guard is anchored
-    // to date-LED paragraphs (LEADING_DATE_RE) so benign prose that merely
-    // mentions a date ("Updated 09/06/2026") never trips a healthy scrape.
-    for (const p of paragraphs) {
-      if (LEADING_DATE_RE.test(p.text) && !DDMMYYYY_RE.test(p.text)) {
-        const snippet = p.text.slice(0, 120);
-        errors.push(
-          `Geriatrix H3: date-bearing paragraph did not parse as a run-date row (possible dropped row): "${snippet}"`,
-        );
-        parseErrors.push({
-          row: -1,
-          section: "hareline",
-          error: "date-bearing paragraph did not anchor as a DD/MM/YYYY run-row",
-          rawText: p.text.slice(0, 500),
-        });
-      }
-    }
+    // Fail loud on a dropped run-row (#2044) — see buildDroppedRowErrors.
+    const dropped = buildDroppedRowErrors(paragraphs);
+    errors.push(...dropped.errors);
+    parseErrors.push(...dropped.parseErrors);
 
     let i = 0;
     for (const row of rows) {
