@@ -198,14 +198,20 @@ export function parseFutureDates(
     // Use the currentYear from the page context, not chrono's inferred year
     const date = `${currentYear}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 
-    // Skip "reserved" entries — they have a hare placeholder
-    const isReserved = /^reserved$/i.test(hare);
+    // Drop availability-status placeholders — these are date-slot states, not
+    // hare names. "reserved" = a volunteer claimed the date; "available" (often
+    // "available!!!") = no volunteer yet (#2064). Anchored to end-of-string
+    // (optional trailing ! / whitespace) so a real hare that merely starts with
+    // the word — "Available Andy" — is NOT dropped. Emit `null`, not `undefined`:
+    // the merge tri-state treats null as an explicit clear, wiping any stale hare
+    // stored for this date from an earlier scrape; undefined would preserve it.
+    const isPlaceholderHare = /^(?:reserved|available)[!\s]*$/i.test(hare);
 
     events.push({
       date,
       kennelTags: [KENNEL_TAG],
       title: `BruH3 — ${dateStr}`,
-      hares: isReserved ? undefined : hare,
+      hares: isPlaceholderHare ? null : hare,
       startTime: DEFAULT_START_TIME,
       sourceUrl,
     });
