@@ -3755,10 +3755,17 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "penangh3", shortName: "Penang H3", fullName: "Penang Hash House Harriers",
       region: "Penang Island, MY", country: "Malaysia",
       website: "https://www.penanghash3.org",
+      // Self-hosted from goHash assets — the upstream assets.gohash.app URL is
+      // tokenized/expiring (#2070, self-host-unstable-logos convention).
+      logoUrl: "/kennel-logos/penangh3.webp",
+      hashCash: "MYR 30",
       scheduleDayOfWeek: "Monday", scheduleTime: "5:30 PM", scheduleFrequency: "Weekly",
       scheduleNotes: "Weekly Monday evening hash. Men-only kennel with 100+ active members.",
       foundedYear: 1965,
-      description: "Founded 10 May 1965 in Penang — the 7th-oldest hash kennel in the world. Men-only kennel, 100+ active members, 3,000+ runs since founding. Celebrated the 60th anniversary (Diamond Jubilee) in 2025.",
+      // Founding date: goHash structured `foundedDate` (1965-04-10) and the Run #1
+      // archive date (1965-04-10) both indicate 10 April 1965; some prose sources
+      // say May. April is the better-sourced date (two structured fields agree). (#2070)
+      description: "Founded 10 April 1965 in Penang — the 7th-oldest hash kennel in the world. Men-only kennel, 100+ active members, 3,000+ runs since founding. Celebrated the 60th anniversary (Diamond Jubilee) in 2025.",
       latitude: 5.4164, longitude: 100.3327,
     },
     {
