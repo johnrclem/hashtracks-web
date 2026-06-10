@@ -182,7 +182,10 @@ two different fields, two formats; don't conflate them.
 3. **`Kennel.scheduleTime` is 12-hour ("11:30 AM"); STATIC_SCHEDULE `config.startTime` is 24-hour
    ("11:30").** Two fields, two formats — don't conflate.
 4. **Keep:** the source-pivot evidence package (prove queued sources dead before pivoting), the
-   new-country 5-edit checklist with the `COUNTRY_INFERENCE_RULES` edit (apply `\b` consistently — and to
-   the native name token, `magyar` ≠ `magyarország`), kennelCode collision discipline, the `<ext>` logo
+   new-country 5-edit checklist with the `COUNTRY_INFERENCE_RULES` edit (include the native name token —
+   `magyar` ≠ `magyarország`. `\b` is safe only when the token is ASCII-bounded; `magyarország` starts/ends
+   with `m`/`g` so `\b` works, but a token that starts or ends with a non-ASCII letter — `österreich`,
+   `írország` — needs `(?:^|\W)…\b`/`\b…(?:\W|$)`, per the existing Austria/France rules), kennelCode
+   collision discipline, the `<ext>` logo
    placeholder + magic-byte verify, the recently-active-evidence framing for generated sources, and the
    split adapter-verify / post-merge-seed runbook.
