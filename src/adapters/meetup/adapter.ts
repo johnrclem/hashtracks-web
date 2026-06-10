@@ -645,12 +645,13 @@ export function buildRawEventFromApollo(
   compiledPatterns?: [RegExp, string][],
   extractRunNumber = false,
   runNumberPrefix?: string,
-  boilerplateBlocks?: Set<string>,
-  // Pre-cleaned description from fetch()'s detection pre-pass, wrapped so a
-  // legitimately-`undefined` cleaned value (event with no description) is
-  // distinguishable from "not supplied" (the wrapper is absent → recompute).
-  // Avoids a second heavy cleanMeetupDescription (cheerio) pass per event.
-  preCleaned?: { value: string | undefined },
+  // Boilerplate-processing context from fetch()'s detection pre-pass. `blocks`
+  // are the group-template paragraph keys to strip. `preCleaned` carries the
+  // already-computed cleaned description (wrapped so a legitimately-`undefined`
+  // value is distinguishable from "not supplied" → recompute) to avoid a second
+  // heavy cleanMeetupDescription (cheerio) pass per event. Bundled into one
+  // object so the signature stays within the param-count budget.
+  boilerplate?: { blocks?: Set<string>; preCleaned?: { value: string | undefined } },
 ): RawEventData {
   const { date, startTime } = ev.dateTime
     ? extractDateTime(ev.dateTime)
@@ -673,19 +674,22 @@ export function buildRawEventFromApollo(
   }
 
   const { hares, titleForDisplay } = resolveMeetupHares(ev.description, ev.title);
-  const cleanedDesc = preCleaned ? preCleaned.value : cleanMeetupDescription(ev.description, state);
+  const cleanedDesc = boilerplate?.preCleaned
+    ? boilerplate.preCleaned.value
+    : cleanMeetupDescription(ev.description, state);
   // Group-template boilerplate (#2058/#2059/#2062): strip paragraph blocks the
   // group reuses verbatim across >= 2 events (the standing recurring-event
   // template), keeping any run-specific blocks. A fully templated description
   // collapses to `null` (explicit clear, per merge.ts UPDATE contract) so the
   // stored boilerplate is wiped; a description with no boilerplate is returned
   // untouched. Hare extraction above still runs on the raw description — only
-  // the stored `description` field is affected. `boilerplateBlocks` is undefined
-  // (or empty) when called outside fetch() / with no detected template, so the
-  // strip is skipped entirely and prior behavior is preserved.
+  // the stored `description` field is affected. `blocks` is undefined (or empty)
+  // when called outside fetch() / with no detected template, so the strip is
+  // skipped entirely and prior behavior is preserved.
+  const blocks = boilerplate?.blocks;
   const finalDesc =
-    cleanedDesc !== undefined && boilerplateBlocks && boilerplateBlocks.size > 0
-      ? stripBoilerplateBlocks(cleanedDesc, boilerplateBlocks)
+    cleanedDesc !== undefined && blocks && blocks.size > 0
+      ? stripBoilerplateBlocks(cleanedDesc, blocks)
       : cleanedDesc;
 
   return {
@@ -921,7 +925,7 @@ export class MeetupAdapter implements SourceAdapter {
         // Reuse the pre-pass cleaned value (index-aligned) so the builder
         // doesn't re-run the heavy cleanMeetupDescription/cheerio parse.
         const cleanedBefore = cleanedDescriptions[i];
-        const rawEvent = buildRawEventFromApollo(ev, mergedState, config.kennelTag, compiledPatterns, shouldExtractRunNumber, config.runNumberPrefix, boilerplateBlocks, { value: cleanedBefore });
+        const rawEvent = buildRawEventFromApollo(ev, mergedState, config.kennelTag, compiledPatterns, shouldExtractRunNumber, config.runNumberPrefix, { blocks: boilerplateBlocks, preCleaned: { value: cleanedBefore } });
         // Count events whose description had boilerplate removed (fully nulled
         // or partially stripped) vs. its pre-strip cleaned value.
         if (cleanedBefore !== undefined && rawEvent.description !== cleanedBefore) {
