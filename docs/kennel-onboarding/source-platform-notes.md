@@ -517,9 +517,11 @@ the established HC kennels survive reconciliation without it; do not add it.
   The English `eventCityAndCountry` ("Taipei, Taiwan") matches the ASCII-`\b` rule, but a Chinese-only
   location field (`新北市, 台灣`, which TwH3's #2662 actually carries) is invisible to `\b` and defaulted to
   **"USA"**. `\b` is ASCII-only, so it never anchors against CJK. Append a CJK alternation to the same rule:
-  `[/\b(taiwan|taipei|new taipei|formosa|kaohsiung|taichung|tainan)\b|[台臺][灣北中南]|新北|高雄/, "Taiwan"]`.
+  `[/\b(taiwan|taipei|new taipei|formosa|kaohsiung|taichung|tainan|taoyuan)\b|[台臺][灣北中南]|新北|高雄|桃園/, "Taiwan"]`.
   The `[台臺]` class unifies the common (台) / formal (臺) Tai- forms in one token. (`inferCountry` lowercases
   input first, but `toLowerCase()` is a no-op on CJK, so the literal Chinese tokens match as written.)
+  Cover all six **special municipalities** (Taipei/New Taipei/Taoyuan/Taichung/Tainan/Kaohsiung) up front —
+  each hosts or may host a kennel (Taoyuan = TyMH3); a municipality-only field would otherwise default to "USA". (Gemini, PR #2113.)
 - **⚠️ Single-character alternations trip SonarCloud S6035 — use a character class.** The first cut wrote
   `[台臺](灣|北|中|南)`; S6035 ("Replace this alternation with a character class") flagged the `(灣|北|中|南)`
   group → `[灣北中南]`. Reach for a char class, not `(a|b|c)`, for any all-single-char alternation (same rule

@@ -3456,7 +3456,7 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   // CJK branch: `\b` is ASCII-only, so Chinese-only location text (e.g. the
   // "新北市, 台灣" venue field on TwH3 events) needs explicit token matching.
   // `[台臺]` unifies the common/formal Tai- forms (台灣/臺灣, 台北/臺北, etc.).
-  [/\b(taiwan|taipei|new taipei|formosa|kaohsiung|taichung|tainan)\b|[台臺][灣北中南]|新北|高雄/, "Taiwan"],
+  [/\b(taiwan|taipei|new taipei|formosa|kaohsiung|taichung|tainan|taoyuan)\b|[台臺][灣北中南]|新北|高雄|桃園/, "Taiwan"],
   [/\b(thailand|bangkok|pattaya|chiang mai|chiang rai|phuket|hua hin|samui|krabi)\b/, "Thailand"],
   // Include the venue city (Parañaque) so venue-derived inference resolves;
   // without this, "Manila"/"Philippines" text falls through to "USA".
