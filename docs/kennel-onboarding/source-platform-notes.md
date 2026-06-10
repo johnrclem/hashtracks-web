@@ -493,3 +493,55 @@ the established HC kennels survive reconciliation without it; do not add it.
   config-free path for the next HC kennel.
 - **Suppression is EXACT-MATCH** — a coarse-but-real location ("Portugal", a bare city name) must survive
   (a country name geocodes to a country centroid; better than nothing). Don't broaden to substring/prefix.
+
+## STATIC_SCHEDULE — seasonal (summer/winter) kennels need `scheduleRules`, not just flat fields (learned from Budapest H3, 2026-06-10)
+
+A "Facebook-funnel" kennel (per-run details members-only, but a published fixed weekly cadence) is a
+valid **config-only STATIC_SCHEDULE** onboard — two rows with disjoint `BYMONTH` for the summer/winter
+split (mirror NOSE Hash: summer Apr–Oct, winter Nov–Mar). That part is well-trodden. **The trap is the
+kennel-record schedule fields.**
+
+- If the kennel seed carries only the flat `scheduleDayOfWeek/scheduleTime/scheduleFrequency` fields,
+  `scripts/backfill-schedule-rules.ts` (run by `prisma db seed`) **Pass 2** parses them into a bare
+  `FREQ=WEEKLY;BYDAY=<day>` rule. Its "already covered by Pass 1" check is **exact-string**, so it never
+  matches the BYMONTH-bearing rules Pass 1 emits from the STATIC_SCHEDULE sources → Pass 2 emits a
+  **stale all-year rule at the SUMMER time** that mis-projects the summer time in winter (Codex P2 on
+  Budapest, [PR #2096](https://github.com/johnrclem/hashtracks-web/pull/2096)).
+- **Fix:** declare seasonal `scheduleRules` on the kennel seed (mirror **LBH3**, itself shaped by Codex on
+  PR #1684) — one entry per season with `label` / `validFrom` / `validUntil` ("MM-DD") / `startTime`.
+  Declaring `scheduleRules` **structurally opts the kennel out of Pass 2**, and Pass 3 absorbs the
+  overlapping Pass 1 rows. Keep the flat fields as legacy fallback.
+- **Same-day-different-time seasons gotcha:** when both seasons run the *same weekday* (Budapest = Sunday,
+  11:30 summer / 10:30 winter) the `scheduleRules` rrules must **retain `BYMONTH`**
+  (`FREQ=WEEKLY;BYDAY=SU;BYMONTH=4,5,…` vs `…BYMONTH=11,12,1,2,3`). Two identical rrules would collide on
+  the `(kennelId, rrule, source)` upsert key; and matching the source rrules *exactly* is what lets Pass 3
+  absorb Pass 1. LBH3 dodges this only because its seasons are *different days* (TH vs SU). Verify both
+  rrules `parseRRule`-parse and `normalizeRRule` is identity. Prod should show **exactly N seasonal rules,
+  no stale all-year rule** (`SELECT rrule, startTime, label FROM "ScheduleRule" WHERE "kennelId"=… AND
+  "isActive"`).
+- **This is latent in every existing flat-fields-only seasonal STATIC_SCHEDULE kennel** (NOSE / Tidewater /
+  Rumson). For a NEW seasonal kennel, the handoff should specify `scheduleRules` up front.
+
+## Recovering a logo (and content) when the canonical site is NXDOMAIN at build (learned from Budapest H3, 2026-06-10)
+
+A domain the daily research run verified live can be **NXDOMAIN by build time** — Budapest's
+`budapesthashhouseharriers.org` lapsed in the <24h research→build gap (confirmed across Google DNS,
+Cloudflare DNS, and the fetch infra — apex + www, A + NS, `.org` SOA in authority = a real registration
+lapse, not a sandbox quirk). When the origin is unreachable but the kennel is real:
+
+- **Always DNS-resolve the handoff's named website/source at build time** before trusting it as live (a
+  new variant of the WSH3 "verify the source actually exists" rule — here the source went dead *after*
+  research).
+- **Recover the logo from the Wayback Machine** instead of shipping without one:
+  1. List real captures: `curl "http://web.archive.org/cdx/search/cdx?url=<domain>*&output=text&filter=statuscode:200"`
+     and grep for `logo`/`cropped`/`wp-content/uploads` (WordPress sites expose `cropped-logo.png`).
+  2. Pull the **raw archived bytes** via the identity modifier (no Wayback toolbar/rewrite):
+     `https://web.archive.org/web/<timestamp>id_/<original-asset-url>`.
+  3. **Magic-byte verify** (`file` / first bytes) — never trust the URL suffix or Content-Type.
+- **Confirm flagged metadata from the search-index snapshot** when the live page is gone (Budapest's
+  `foundedYear: 1982` and the schedule were confirmed verbatim from the cached home-page text in search
+  results).
+- **Keep the canonical URL as `website`** if the lapse looks recoverable (live <24h prior, fully in
+  search index + Wayback) and document it as a re-check item — the kennel page still surfaces the live
+  `facebookUrl`. A review bot will flag the broken link; declining with this rationale is legitimate
+  (CodeRabbit accepted it on Budapest as an intentional reversible exception).
