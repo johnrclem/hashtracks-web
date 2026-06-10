@@ -3742,6 +3742,27 @@ export const SOURCES = [
       kennelCodes: ["pih3"],
     },
     {
+      name: "Taiwan H3 Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        // GUID is the most stable filter; cityNames:"Taipei" and
+        // kennelUniqueShortName:"TwH3" both returned the identical 3-event set
+        // (all three verified 2026-06-10).
+        publicKennelId: "f1330d14-e3b4-427a-9bea-639f18218804",
+        defaultKennelTag: "twh3-tw",
+        // The kennel names events "TwH³ <N>" (real names, kept). defaultTitle
+        // synthesizes "Taiwan H3 #N" only if an event name is empty or a known
+        // placeholder appears (mirrors Lisbon H3 / Porto Invicta H3 #1166).
+        defaultTitle: "Taiwan H3",
+        staleTitleAliases: ["Placeholder event for TwH3"],
+      },
+      kennelCodes: ["twh3-tw"],
+    },
+    {
       // Backfill-only provenance for the pre-HC archive (runs #≤706, 2021-2026).
       // Disabled: the kennel moved to Harrier Central, so there is no ongoing
       // Blogspot scrape. Historical events were one-shot loaded via

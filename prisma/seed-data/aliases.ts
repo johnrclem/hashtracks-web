@@ -361,6 +361,12 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "kyoto-h3": ["Kyoto Hash", "Kyoto HHH", "Kyoto H3"],
     "osaka-h3": ["Osaka Hash", "Osaka HHH", "Osaka H3"],
 
+    // ===== TAIWAN =====
+    // Bare "TwH3"/"TWH3" omitted — lowercases to "twh3" (Tidewater H3's kennelCode)
+    // and would mis-route via kennelCode-exact-match. Former name "China Hash House
+    // Harriers" omitted — globally ambiguous (mainland-China kennels exist).
+    "twh3-tw": ["TwH3-TW", "Taiwan Hash House Harriers", "Taiwan H3", "Taiwan Hash", "台灣健龍捷兔"],
+
     // ===== BELGIUM =====
     "bmph3-be": ["BMPH3", "Brussels Manneke Piss", "Manneke Piss Hash", "BMP H3"],
     "bbmh3": ["BBMH3", "Brussels Blue Moon", "Blue Moon Hash", "Brussels Blue Moon H3"],
