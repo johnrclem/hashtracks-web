@@ -4883,9 +4883,22 @@ export const KENNELS: KennelSeed[] = [
       // canonical URL since the schedule/metadata are otherwise corroborated.
       website: "https://www.budapesthashhouseharriers.org",
       facebookUrl: "https://www.facebook.com/groups/1014178591932185",
+      // Legacy flat fields kept for fallback only — scheduleRules below are
+      // authoritative for display + Travel Mode (mirrors LBH3; Codex on PR #2096).
+      // Without scheduleRules, backfill Pass 2 would emit a stale all-year
+      // FREQ=WEEKLY;BYDAY=SU @11:30 rule that mis-projects 11:30 in winter.
       scheduleDayOfWeek: "Sunday",
-      scheduleTime: "11:30 AM", // summer; winter shifts to 10:30 AM (see STATIC_SCHEDULE sources)
+      scheduleTime: "11:30 AM",
       scheduleFrequency: "Weekly",
+      // Both seasons run Sunday, so (unlike LBH3's TH/SU split) the rrules must
+      // retain BYMONTH to stay distinct on the (kennelId, rrule, source) upsert
+      // key — and these match the two STATIC_SCHEDULE source rrules exactly, so
+      // backfill Pass 3 absorbs the Pass 1 rows cleanly (no duplicate projection).
+      scheduleRules: [
+        { rrule: "FREQ=WEEKLY;BYDAY=SU;BYMONTH=4,5,6,7,8,9,10", startTime: "11:30", label: "Summer", validFrom: "04-01", validUntil: "10-31", displayOrder: 0 },
+        { rrule: "FREQ=WEEKLY;BYDAY=SU;BYMONTH=11,12,1,2,3", startTime: "10:30", label: "Winter", validFrom: "11-01", validUntil: "03-31", displayOrder: 1 },
+      ],
+      scheduleNotes: "Sundays year-round; meet 11:30am in summer (Apr–Oct), 10:30am in winter (Nov–Mar).",
       foundedYear: 1982, // confirmed from the kennel's own copy ("founded in 1982 … almost 1,700 runs")
       hashCash: "HUF 1,000",
       walkersWelcome: true,
