@@ -872,7 +872,7 @@ const LEADING_CONNECTOR_RE = /^[\s:.\-–—/]+/;
 function trailingParenContent(s: string): string | null {
   if (!s.endsWith(")")) return null;
   const open = s.lastIndexOf("(", s.length - 1);
-  return open === -1 ? null : s.slice(open + 1, s.length - 1);
+  return open === -1 ? null : s.slice(open + 1, -1);
 }
 
 /**
@@ -900,12 +900,12 @@ export function isThemelessPlaceholderTitle(title: string): boolean {
   if (extractHashRunNumber(trimmed) !== undefined) return false;
   const paren = trailingParenContent(trimmed);
   let theme: string;
-  if (paren !== null) {
-    theme = paren;
-  } else {
+  if (paren === null) {
     const hashIdx = trimmed.lastIndexOf("#");
     const afterHash = hashIdx === -1 ? trimmed : trimmed.slice(hashIdx + 1);
     theme = afterHash.replace(LEADING_PLACEHOLDER_TOKEN_RE, "");
+  } else {
+    theme = paren;
   }
   theme = theme.replace(LEADING_CONNECTOR_RE, "").trim();
   return theme === "" || isPlaceholder(theme);
