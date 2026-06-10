@@ -149,8 +149,13 @@ async function reassignEvents(anchors: Anchors, routedByUrl: Map<string, RoutedE
     );
     console.log(`  REASSIGN ${ev.id} (${day}) c2h3 → ${routed.tag} | "${ev.title ?? ""}" → "${newTitle}"`);
     if (apply) {
-      await prisma.eventKennel.updateMany({ where: { eventId: ev.id, kennelId: anchors.c2h3Id }, data: { kennelId: target.id } });
-      await prisma.event.update({ where: { id: ev.id }, data: { kennelId: target.id, title: newTitle } });
+      // Atomic per-event: the EventKennel re-point and the Event.kennelId/title
+      // update must both land or neither, so a mid-failure can't leave the
+      // primary EventKennel on balh3 while Event.kennelId stays c2h3.
+      await prisma.$transaction([
+        prisma.eventKennel.updateMany({ where: { eventId: ev.id, kennelId: anchors.c2h3Id }, data: { kennelId: target.id } }),
+        prisma.event.update({ where: { id: ev.id }, data: { kennelId: target.id, title: newTitle } }),
+      ]);
     }
     reassigned++;
     byTag.set(routed.tag, (byTag.get(routed.tag) ?? 0) + 1);
