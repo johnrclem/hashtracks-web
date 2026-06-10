@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { MeetupAdapter, extractApolloEvents, resolveVenue, isNumericId, dedupByDate, stripTrailingState, deduplicateWords, isStateFullName, buildRawEventFromApollo, extractHaresFromMeetupDescription, cleanMeetupTitle } from "./adapter";
+import { MeetupAdapter, extractApolloEvents, resolveVenue, isNumericId, dedupByDate, stripTrailingState, deduplicateWords, isStateFullName, buildRawEventFromApollo, extractHaresFromMeetupDescription, cleanMeetupTitle, detectBoilerplateBlocks, stripBoilerplateBlocks } from "./adapter";
+import { normalizeDescriptionKey } from "../utils";
 import type { Source } from "@/generated/prisma/client";
 
 vi.mock("../safe-fetch", () => ({
@@ -18,14 +19,38 @@ function makeSource(config: unknown): Source {
   } as unknown as Source;
 }
 
+// `.fetch()` tests filter events through buildDateWindow (symmetric ±days), so
+// static fixture dates eventually age out of the lower bound and turn main red
+// on a rolling calendar date (Memory: feedback_windowed_adapter_test_needs_relative_dates).
+// Use these now-relative helpers for any event a fetch test expects to survive
+// the window. Pure-parse tests (buildRawEventFromApollo, dedupByDate, etc.) keep
+// static dates — they never hit the window.
+function isoDaysFromNow(days: number, time = "18:00", offset = "-05:00"): string {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() + days);
+  return `${d.toISOString().slice(0, 10)}T${time}:00${offset}`;
+}
+function dateDaysFromNow(days: number): string {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+// Shared near-future date for the default fixture so the date-asserting test can
+// recompute the expected value without re-deriving the offset.
+const DEFAULT_EVENT_DAYS = 10;
+// Shared near-future timestamp for the recurring-template / same-day dedup
+// enrichment fetch tests (template + customized occurrence must land on the
+// SAME calendar day for dedupByDate to collapse them).
+const ENRICH_DAY = isoDaysFromNow(20, "11:00", "-04:00");
+
 /** Build a minimal Apollo event object. */
 function buildApolloEvent(overrides: Record<string, unknown> = {}) {
   return {
     __typename: "Event",
     id: "313348941",
     title: "Trail #42 — Central Park",
-    dateTime: "2026-03-15T18:00:00-05:00",
-    endTime: "2026-03-15T21:00:00-05:00",
+    dateTime: isoDaysFromNow(DEFAULT_EVENT_DAYS, "18:00"),
+    endTime: isoDaysFromNow(DEFAULT_EVENT_DAYS, "21:00"),
     status: "ACTIVE",
     description: "<p>Join us for a fun trail!</p>",
     eventUrl: "https://www.meetup.com/test-hash/events/313348941/",
@@ -364,13 +389,13 @@ describe("MeetupAdapter", () => {
       "Event:cancelled": buildApolloEvent({
         id: "1235-cancelled",
         title: "Charlotte H3 Trail #1235 - Erections (Elections) & SOUP Cook off",
-        dateTime: "2026-01-10T14:00:00-05:00",
+        dateTime: isoDaysFromNow(20, "14:00"),
         status: "CANCELLED",
       }),
       "Event:active": buildApolloEvent({
         id: "1235-active",
         title: "Charlotte H3 Trail #1235 - An East Charlotte Snow Melt Trail!",
-        dateTime: "2026-02-07T14:00:00-05:00",
+        dateTime: isoDaysFromNow(30, "14:00"),
         status: "ACTIVE",
       }),
       "Venue:123": VENUE_ENTRY,
@@ -398,13 +423,13 @@ describe("MeetupAdapter", () => {
       "Event:admin": buildApolloEvent({
         id: "313638944",
         title: "Moving to a new website site - Last day in Meetup is March 10th",
-        dateTime: "2026-03-10T07:00:00-05:00",
+        dateTime: isoDaysFromNow(20, "07:00"),
         status: "ACTIVE",
       }),
       "Event:trail": buildApolloEvent({
         id: "real-trail",
         title: "Narwhal H3 #54 - Real Trail",
-        dateTime: "2026-03-08T13:00:00-05:00",
+        dateTime: isoDaysFromNow(25, "13:00"),
         status: "ACTIVE",
       }),
       "Venue:123": VENUE_ENTRY,
@@ -431,13 +456,13 @@ describe("MeetupAdapter", () => {
       "Event:departure": buildApolloEvent({
         id: "314543422",
         title: "MIAMI HASH HOUSE HARRIERS ARE LEAVING MEETUP",
-        dateTime: "2026-06-01T18:00:00-04:00",
+        dateTime: isoDaysFromNow(20, "18:00", "-04:00"),
         status: "ACTIVE",
       }),
       "Event:leavingLasVegas": buildApolloEvent({
         id: "real-trail",
         title: "Leaving Las Vegas Trail #42",
-        dateTime: "2026-06-03T18:00:00-04:00",
+        dateTime: isoDaysFromNow(25, "18:00", "-04:00"),
         status: "ACTIVE",
       }),
       "Venue:123": VENUE_ENTRY,
@@ -469,13 +494,13 @@ describe("MeetupAdapter", () => {
       "Event:farewell": buildApolloEvent({
         id: "fw1",
         title: "Farewell Run Trail #42",
-        dateTime: "2026-06-10T18:00:00-04:00",
+        dateTime: isoDaysFromNow(20, "18:00", "-04:00"),
         status: "ACTIVE",
       }),
       "Event:goodbye": buildApolloEvent({
         id: "gb1",
         title: "Goodbye Trail #138",
-        dateTime: "2026-06-12T18:00:00-04:00",
+        dateTime: isoDaysFromNow(25, "18:00", "-04:00"),
         status: "ACTIVE",
       }),
       "Venue:123": VENUE_ENTRY,
@@ -494,6 +519,167 @@ describe("MeetupAdapter", () => {
     expect(result.diagnosticContext?.adminNoticeSkipped).toBe(0);
   });
 
+  // ── #2058/#2059/#2062: group-template boilerplate leak ──
+  // Meetup stores a kennel's standing recurring-event template as EVERY
+  // occurrence's description, displacing run-specific notes. The structural
+  // signal is verbatim repetition across the group's events; genuine per-event
+  // notes appear once. Boilerplate → `description: null` (explicit clear);
+  // unique content survives untouched.
+
+  it("drops group-template boilerplate description repeated across events (#2058/#2059/#2062)", async () => {
+    // Montreal-style standing template reused verbatim on every occurrence.
+    const TEMPLATE =
+      "<p>Structure: This event will be a run/walk, followed by a social gathering with food and drinks. Don't Arrive Late! What Are The Hash House Harriers?</p>";
+    const html = buildMeetupHtml({
+      "Event:1683": buildApolloEvent({
+        id: "1683",
+        title: "MH3 Run #1683",
+        dateTime: isoDaysFromNow(20, "13:00"),
+        description: TEMPLATE,
+      }),
+      "Event:1684": buildApolloEvent({
+        id: "1684",
+        title: "MH3 Run #1684",
+        dateTime: isoDaysFromNow(27, "13:00"),
+        description: TEMPLATE,
+      }),
+      "Event:1685": buildApolloEvent({
+        id: "1685",
+        title: "MH3 Run #1685",
+        dateTime: isoDaysFromNow(34, "13:00"),
+        description: TEMPLATE,
+      }),
+      "Venue:123": VENUE_ENTRY,
+    });
+    mockHtmlResponse(html);
+
+    const adapter = new MeetupAdapter();
+    const result = await adapter.fetch(
+      makeSource({ groupUrlname: "montreal-hash-house-harriers", kennelTag: "mh3-ca" }),
+      { days: 365 },
+    );
+
+    expect(result.events).toHaveLength(3);
+    // Every event's boilerplate description is cleared to null (explicit clear,
+    // per merge.ts UPDATE contract — wipes the stored template).
+    for (const ev of result.events) {
+      expect(ev.description).toBeNull();
+    }
+    expect(result.diagnosticContext?.boilerplateDescriptionsDropped).toBe(3);
+  });
+
+  it("keeps a genuine per-event description while dropping the repeated template (negative fixture)", async () => {
+    const TEMPLATE =
+      "<p>Join us for our weekly hashing trail! Event details are posted by Thursday before trail. Savannah Hash House Harriers is a social running club.</p>";
+    const html = buildMeetupHtml({
+      // Two occurrences carry the standing template verbatim → boilerplate.
+      "Event:t1": buildApolloEvent({
+        id: "t1",
+        title: "Saturday Trail!",
+        dateTime: isoDaysFromNow(14, "15:00"),
+        description: TEMPLATE,
+      }),
+      "Event:t2": buildApolloEvent({
+        id: "t2",
+        title: "Saturday Trail!",
+        dateTime: isoDaysFromNow(21, "15:00"),
+        description: TEMPLATE,
+      }),
+      // One occurrence has real run-specific notes → must survive untouched.
+      "Event:real": buildApolloEvent({
+        id: "real",
+        title: "SAVH3 Trail #1324!",
+        dateTime: isoDaysFromNow(28, "15:00"),
+        description: "<p>Meet at Forsyth Park. Theme: pirates. On-after at the Rail Pub.</p>",
+      }),
+      "Venue:123": VENUE_ENTRY,
+    });
+    mockHtmlResponse(html);
+
+    const adapter = new MeetupAdapter();
+    const result = await adapter.fetch(
+      makeSource({ groupUrlname: "savannah-hash-house-harriers", kennelTag: "savh3" }),
+      { days: 365 },
+    );
+
+    expect(result.events).toHaveLength(3);
+    const real = result.events.find((e) => e.title === "SAVH3 Trail #1324!");
+    expect(real?.description).toBe(
+      "Meet at Forsyth Park. Theme: pirates. On-after at the Rail Pub.",
+    );
+    const templated = result.events.filter((e) => e.title === "Saturday Trail!");
+    expect(templated).toHaveLength(2);
+    for (const ev of templated) expect(ev.description).toBeNull();
+    expect(result.diagnosticContext?.boilerplateDescriptionsDropped).toBe(2);
+  });
+
+  it("keeps a one-off description that never repeats (no false positive)", async () => {
+    const html = buildMeetupHtml({
+      "Event:a": buildApolloEvent({
+        id: "a",
+        title: "Trail A",
+        dateTime: isoDaysFromNow(14, "18:00"),
+        description: "<p>Unique notes for trail A — bring a headlamp.</p>",
+      }),
+      "Event:b": buildApolloEvent({
+        id: "b",
+        title: "Trail B",
+        dateTime: isoDaysFromNow(21, "18:00"),
+        description: "<p>Different notes for trail B — wear costumes.</p>",
+      }),
+      "Venue:123": VENUE_ENTRY,
+    });
+    mockHtmlResponse(html);
+
+    const adapter = new MeetupAdapter();
+    const result = await adapter.fetch(
+      makeSource({ groupUrlname: "test-hash", kennelTag: "NYCH3" }),
+      { days: 365 },
+    );
+
+    expect(result.events).toHaveLength(2);
+    expect(result.events.every((e) => e.description !== null && e.description !== undefined)).toBe(true);
+    expect(result.diagnosticContext?.boilerplateDescriptionsDropped).toBe(0);
+  });
+
+  it("strips a shared club paragraph but keeps the per-event logistics stanza (#2059 Hogtown)", async () => {
+    // Hogtown prepends the same club blurb to a per-event Date/Cost stanza, so
+    // the WHOLE description differs per event but the club paragraph repeats.
+    const CLUB =
+      "Hogtown Hash House Harriers (HH3) is a Toronto social running and beer drinking group. New members welcome!";
+    const html = buildMeetupHtml({
+      "Event:h1": buildApolloEvent({
+        id: "h1",
+        title: "Thursday run/walk with HH3",
+        dateTime: isoDaysFromNow(14, "19:00", "-04:00"),
+        description: `${CLUB}\n\nDate / Time: Thursday @ 7pm. Start: Christie Pits. Cost: $10.`,
+      }),
+      "Event:h2": buildApolloEvent({
+        id: "h2",
+        title: "Saturday run/walk with HH3",
+        dateTime: isoDaysFromNow(23, "15:00", "-04:00"),
+        description: `${CLUB}\n\nDate / Time: Saturday @ 3pm. Start: High Park. Cost: $15.`,
+      }),
+      "Venue:123": VENUE_ENTRY,
+    });
+    mockHtmlResponse(html);
+
+    const adapter = new MeetupAdapter();
+    const result = await adapter.fetch(
+      makeSource({ groupUrlname: "meetup-group-pyrddkbc", kennelTag: "hogtownh3" }),
+      { days: 365 },
+    );
+
+    expect(result.events).toHaveLength(2);
+    const h1 = result.events.find((e) => e.title === "Thursday run/walk with HH3");
+    const h2 = result.events.find((e) => e.title === "Saturday run/walk with HH3");
+    // Club blurb removed; per-event logistics survive.
+    expect(h1?.description).toBe("Date / Time: Thursday @ 7pm. Start: Christie Pits. Cost: $10.");
+    expect(h2?.description).toBe("Date / Time: Saturday @ 3pm. Start: High Park. Cost: $15.");
+    expect(h1?.description).not.toContain("social running");
+    expect(result.diagnosticContext?.boilerplateDescriptionsDropped).toBe(2);
+  });
+
   it("parses events and assigns kennelTag", async () => {
     const html = buildMeetupHtml({
       "Event:1": buildApolloEvent(),
@@ -509,7 +695,7 @@ describe("MeetupAdapter", () => {
     expect(result.events.length).toBe(1);
     expect(result.events[0].kennelTags[0]).toBe("NYCH3");
     expect(result.events[0].title).toBe("Trail #42 — Central Park");
-    expect(result.events[0].date).toBe("2026-03-15");
+    expect(result.events[0].date).toBe(dateDaysFromNow(DEFAULT_EVENT_DAYS));
     expect(result.events[0].startTime).toBe("18:00");
     expect(result.events[0].endTime).toBe("21:00");
   });
@@ -824,8 +1010,8 @@ describe("MeetupAdapter", () => {
   });
 
   it("combines events from both upcoming and past pages", async () => {
-    const futureEvent = buildApolloEvent({ id: "future-1", title: "Upcoming Run", dateTime: "2026-03-20T18:00:00-05:00" });
-    const pastEvent = buildApolloEvent({ id: "past-1", title: "Past Run", dateTime: "2026-02-15T18:00:00-05:00" });
+    const futureEvent = buildApolloEvent({ id: "future-1", title: "Upcoming Run", dateTime: isoDaysFromNow(20) });
+    const pastEvent = buildApolloEvent({ id: "past-1", title: "Past Run", dateTime: isoDaysFromNow(-20) });
 
     const upcomingHtml = buildMeetupHtml({ "Event:future-1": futureEvent, "Venue:123": VENUE_ENTRY });
     const pastHtml = buildMeetupHtml({ "Event:past-1": pastEvent, "Venue:123": VENUE_ENTRY });
@@ -913,8 +1099,8 @@ describe("MeetupAdapter", () => {
   });
 
   it("includes per-page counts in diagnosticContext", async () => {
-    const futureEvent = buildApolloEvent({ id: "future-1", dateTime: "2026-03-20T18:00:00-05:00" });
-    const pastEvent = buildApolloEvent({ id: "past-1", dateTime: "2026-02-15T18:00:00-05:00" });
+    const futureEvent = buildApolloEvent({ id: "future-1", dateTime: isoDaysFromNow(20) });
+    const pastEvent = buildApolloEvent({ id: "past-1", dateTime: isoDaysFromNow(-20) });
 
     const upcomingHtml = buildMeetupHtml({ "Event:future-1": futureEvent, "Venue:123": VENUE_ENTRY });
     const pastHtml = buildMeetupHtml({ "Event:past-1": pastEvent, "Venue:123": VENUE_ENTRY });
@@ -932,8 +1118,8 @@ describe("MeetupAdapter", () => {
   });
 
   it("deduplicates template and customized occurrence on same date", async () => {
-    const template = buildRecurringTemplate({ dateTime: "2026-03-14T11:00:00-04:00" });
-    const customized = buildCustomizedOccurrence({ dateTime: "2026-03-14T11:00:00-04:00" });
+    const template = buildRecurringTemplate({ dateTime: ENRICH_DAY });
+    const customized = buildCustomizedOccurrence({ dateTime: ENRICH_DAY });
 
     const upcomingHtml = buildMeetupHtml({
       "Event:fpchvtyjcfbsb": template,
@@ -952,12 +1138,12 @@ describe("MeetupAdapter", () => {
   });
 
   it("enriches recurring event from detail page", async () => {
-    const template = buildRecurringTemplate({ dateTime: "2026-03-14T11:00:00-04:00" });
+    const template = buildRecurringTemplate({ dateTime: ENRICH_DAY });
     const detailEvent = buildApolloEvent({
       id: "fpchvtyjcfbsb",
       title: "SAVH3 Trail #1324 — Forsyth Park!",
       description: "<p>Detailed hare info and shiggy level</p>",
-      dateTime: "2026-03-14T11:00:00-04:00",
+      dateTime: ENRICH_DAY,
     });
 
     const upcomingHtml = buildMeetupHtml({
@@ -983,13 +1169,13 @@ describe("MeetupAdapter", () => {
   });
 
   it("does not enrich from detail page when event ID does not match", async () => {
-    const template = buildRecurringTemplate({ dateTime: "2026-03-14T11:00:00-04:00" });
+    const template = buildRecurringTemplate({ dateTime: ENRICH_DAY });
     // Detail page contains a different event ID — should NOT be used for enrichment
     const unrelatedEvent = buildApolloEvent({
       id: "unrelated-999",
       title: "Wrong Event Title",
       description: "<p>Wrong event data</p>",
-      dateTime: "2026-03-14T11:00:00-04:00",
+      dateTime: ENRICH_DAY,
     });
 
     const upcomingHtml = buildMeetupHtml({
@@ -1016,7 +1202,7 @@ describe("MeetupAdapter", () => {
   });
 
   it("falls back to list data when detail page fetch fails", async () => {
-    const template = buildRecurringTemplate({ dateTime: "2026-03-14T11:00:00-04:00" });
+    const template = buildRecurringTemplate({ dateTime: ENRICH_DAY });
 
     const upcomingHtml = buildMeetupHtml({
       "Event:fpchvtyjcfbsb": template,
@@ -1044,7 +1230,7 @@ describe("MeetupAdapter", () => {
   });
 
   it("skips detail page fetch for non-recurring events", async () => {
-    const normalEvent = buildApolloEvent({ dateTime: "2026-03-14T11:00:00-04:00" });
+    const normalEvent = buildApolloEvent({ dateTime: ENRICH_DAY });
 
     const upcomingHtml = buildMeetupHtml({
       "Event:1": normalEvent,
@@ -1165,8 +1351,8 @@ describe("MeetupAdapter", () => {
   });
 
   it("includes dedup and enrichment stats in diagnosticContext", async () => {
-    const template = buildRecurringTemplate({ dateTime: "2026-03-14T11:00:00-04:00" });
-    const customized = buildCustomizedOccurrence({ dateTime: "2026-03-14T11:00:00-04:00" });
+    const template = buildRecurringTemplate({ dateTime: ENRICH_DAY });
+    const customized = buildCustomizedOccurrence({ dateTime: ENRICH_DAY });
 
     const upcomingHtml = buildMeetupHtml({
       "Event:fpchvtyjcfbsb": template,
@@ -1243,10 +1429,124 @@ describe("dedupByDate", () => {
   });
 });
 
+// ── group-template boilerplate detection (#2058/#2059/#2062) ──
+
+describe("normalizeDescriptionKey", () => {
+  it("collapses whitespace and lowercases", () => {
+    expect(normalizeDescriptionKey("  Hello   World \n FOO ")).toBe("hello world foo");
+  });
+
+  it("matches templates that differ only in spacing/case", () => {
+    expect(normalizeDescriptionKey("Run/Walk\n\nThen Beer")).toBe(
+      normalizeDescriptionKey("run/walk then beer"),
+    );
+  });
+});
+
+describe("detectBoilerplateBlocks", () => {
+  it("returns empty set for an empty corpus", () => {
+    expect(detectBoilerplateBlocks([]).size).toBe(0);
+  });
+
+  it("returns empty set when every description is unique", () => {
+    const set = detectBoilerplateBlocks(["alpha notes", "beta notes", "gamma notes"]);
+    expect(set.size).toBe(0);
+  });
+
+  it("flags a whole single-block description that repeats across >= 2 events", () => {
+    const tmpl = "Structure / This event will be a run/walk";
+    const set = detectBoilerplateBlocks([tmpl, tmpl, "real per-event notes"]);
+    expect(set.has(normalizeDescriptionKey(tmpl))).toBe(true);
+    expect(set.has(normalizeDescriptionKey("real per-event notes"))).toBe(false);
+  });
+
+  it("flags a shared paragraph block even when the per-event tail differs (#2059)", () => {
+    const club = "Hogtown HH3 is a Toronto social running group.";
+    const a = `${club}\n\nDate: Fri June 12. Cost: $15.`;
+    const b = `${club}\n\nDate: Thu June 25. Cost: $10.`;
+    const set = detectBoilerplateBlocks([a, b]);
+    expect(set.has(normalizeDescriptionKey(club))).toBe(true);
+    // The per-event logistics stanzas differ → not boilerplate.
+    expect(set.has(normalizeDescriptionKey("Date: Fri June 12. Cost: $15."))).toBe(false);
+  });
+
+  it("ignores undefined and empty/whitespace-only descriptions (cannot be a template)", () => {
+    const set = detectBoilerplateBlocks([undefined, "   ", undefined, ""]);
+    expect(set.size).toBe(0);
+  });
+
+  it("does not self-promote a block a single event repeats internally", () => {
+    // One event with the same paragraph twice must NOT count as >= 2 events.
+    const set = detectBoilerplateBlocks(["dup para\n\ndup para", "other"]);
+    expect(set.size).toBe(0);
+  });
+});
+
+describe("stripBoilerplateBlocks", () => {
+  const club = "Hogtown HH3 is a Toronto social running group.";
+  const blocks = new Set([normalizeDescriptionKey(club)]);
+
+  it("returns null when every block is boilerplate", () => {
+    expect(stripBoilerplateBlocks(club, blocks)).toBeNull();
+  });
+
+  it("strips the boilerplate block and keeps the per-event tail", () => {
+    const desc = `${club}\n\nDate: Thu June 25. Cost: $10.`;
+    expect(stripBoilerplateBlocks(desc, blocks)).toBe("Date: Thu June 25. Cost: $10.");
+  });
+
+  it("returns the original string verbatim when nothing is boilerplate", () => {
+    const desc = "Real notes line 1\n\nReal notes line 2";
+    expect(stripBoilerplateBlocks(desc, blocks)).toBe(desc);
+  });
+});
+
 // ── buildRawEventFromApollo — kennelPatterns ──
 
 describe("buildRawEventFromApollo — kennelPatterns", () => {
   const emptyState = {} as Record<string, Record<string, unknown>>;
+
+  it("clears description to null when the whole description is boilerplate (#2058/#2059/#2062)", () => {
+    const ev = {
+      __typename: "Event",
+      id: "bp",
+      title: "MH3 Run #1683",
+      dateTime: "2026-04-01T18:30:00-04:00",
+      description: "<p>Structure / standing club template</p>",
+    };
+    const boilerplate = new Set([normalizeDescriptionKey("Structure / standing club template")]);
+    const event = buildRawEventFromApollo(ev, emptyState, "mh3-ca", undefined, false, undefined, { blocks: boilerplate });
+    expect(event.description).toBeNull();
+  });
+
+  it("strips the boilerplate block but keeps the per-event tail (#2059 Hogtown)", () => {
+    // Real Meetup descriptions are markdown with literal blank-line paragraph
+    // breaks (the club blurb and the logistics stanza are separate paragraphs).
+    const club = "Hogtown HH3 is a Toronto social running group.";
+    const ev = {
+      __typename: "Event",
+      id: "ht",
+      title: "Thursday run",
+      dateTime: "2026-04-01T18:30:00-04:00",
+      description: `${club}\n\nDate: Thu. Cost: $10.`,
+    };
+    const boilerplate = new Set([normalizeDescriptionKey(club)]);
+    const event = buildRawEventFromApollo(ev, emptyState, "hogtownh3", undefined, false, undefined, { blocks: boilerplate });
+    expect(event.description).toBe("Date: Thu. Cost: $10.");
+  });
+
+  it("keeps description untouched when no block is boilerplate", () => {
+    const ev = {
+      __typename: "Event",
+      id: "ok",
+      title: "MH3 Run #1683",
+      dateTime: "2026-04-01T18:30:00-04:00",
+      description: "<p>Real per-event notes: meet at the park</p>",
+    };
+    const boilerplate = new Set([normalizeDescriptionKey("some other template")]);
+    const event = buildRawEventFromApollo(ev, emptyState, "mh3-ca", undefined, false, undefined, { blocks: boilerplate });
+    expect(event.description).toBe("Real per-event notes: meet at the park");
+  });
 
   it("suppresses endTime when end is on a different calendar day (overnight run)", () => {
     const ev = {
