@@ -3004,6 +3004,22 @@ export const KENNELS: KennelSeed[] = [
       scheduleNotes: "Runs are scheduled ad-hoc rather than on a fixed weekly slot; recent trails cluster on weekends. Check the kennel's site for the next run.",
     },
 
+    // ── Taiwan: Taipei ──
+    {
+      kennelCode: "twh3-tw", shortName: "Taiwan H3", fullName: "Taiwan Hash House Harriers",
+      region: "Taipei", country: "Taiwan",
+      foundedYear: 1975,
+      scheduleDayOfWeek: "Sunday", scheduleTime: "2:30 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Weekly Sunday around the Taipei / New Taipei area. Hares off at 14:30 (pack off ~3:00pm). Per-run venues announced day-of by the hares via Harrier Central / Facebook; HC per-event start times are authoritative. Run #2664 as of June 2026 (running since 1975). Hash cash is gender-tiered and varies per run (typically ~NT$250 men / NT$200 women; special/joint runs differ — see Event.cost).",
+      description: "Taiwan Hash House Harriers (台灣健龍捷兔, 'TwH³') is one of Asia's oldest hashes — a mixed, English-and-Chinese-speaking 'drinking club with a running problem' that has run every Sunday afternoon around the Taipei / New Taipei area since 1975 (run #2664 as of June 2026). Founded out of the 1973 Taipei Hash, it ran as the China Hash House Harriers until December 2020, when it was renamed to reflect its Taiwanese identity. Hares off at 14:30; trails are followed by down-downs and the usual circle. On On!",
+      hashCash: "Approx. NT$250 (men) / NT$200 (women) per run (gender-tiered; varies per run)",
+      logoUrl: "/kennel-logos/twh3-tw.png",
+      facebookUrl: "https://www.facebook.com/groups/taiwanhash/",
+      twitterHandle: "hashtaiwan",
+      website: "https://taiwanhash.com/",
+      latitude: 25.0375, longitude: 121.5637,
+    },
+
     // ── Belgium: Brussels ──
     {
       kennelCode: "bmph3-be", shortName: "BMPH3", fullName: "Brussels Manneke Piss Hash House Harriers", region: "Brussels", country: "Belgium",

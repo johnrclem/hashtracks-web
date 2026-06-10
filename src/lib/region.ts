@@ -1718,6 +1718,31 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: 127.77,
     aliases: ["Okinawa, Japan", "沖縄"],
   },
+  // ── Taiwan (country → metro, like Singapore / Hong Kong / NZ; sky palette
+  // keeps it distinct from the red/orange/green East-Asian neighbors). ──
+  {
+    name: "Taiwan",
+    country: "Taiwan",
+    level: "COUNTRY",
+    timezone: "Asia/Taipei",
+    abbrev: "TW",
+    colorClasses: "bg-sky-200 text-sky-800",
+    pinColor: "#0284c7",
+    centroidLat: 23.97,
+    centroidLng: 120.97,
+    aliases: ["TW", "台灣"],
+  },
+  {
+    name: "Taipei",
+    country: "Taiwan",
+    timezone: "Asia/Taipei",
+    abbrev: "TPE",
+    colorClasses: "bg-sky-100 text-sky-700",
+    pinColor: "#0ea5e9",
+    centroidLat: 25.0375,
+    centroidLng: 121.5637,
+    aliases: ["Taipei, Taiwan", "台北", "New Taipei"],
+  },
   // ── Belgium ──
   {
     name: "Belgium",
@@ -3428,6 +3453,7 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   [/\b(sweden|stockholm|göteborg|gothenburg|malmö)\b/, "Sweden"],
   [/\b(norway|oslo|bergen|stavanger)\b/, "Norway"],
   [/\b(singapore)\b/, "Singapore"],
+  [/\b(taiwan|taipei|new taipei|formosa|kaohsiung|taichung|tainan)\b/, "Taiwan"],
   [/\b(thailand|bangkok|pattaya|chiang mai|chiang rai|phuket|hua hin|samui|krabi)\b/, "Thailand"],
   // Include the venue city (Parañaque) so venue-derived inference resolves;
   // without this, "Manila"/"Philippines" text falls through to "USA".
@@ -3617,6 +3643,8 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Tokyo": "Japan",
   "Kansai": "Japan",
   "Okinawa": "Japan",
+  // Taiwan (country → metro)
+  "Taipei": "Taiwan",
   // Thailand
   "Bangkok": "Thailand",
   "Pattaya": "Thailand",
@@ -3867,6 +3895,7 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   "Switzerland": "Switzerland",
   "Austria": "Austria",
   "Singapore": "Singapore",
+  "Taiwan": "Taiwan",
   "Thailand": "Thailand",
   "Bangkok": "Thailand",
   "Pattaya": "Thailand",
@@ -3983,6 +4012,7 @@ const COUNTRY_CODE_TO_NAME: Record<string, string> = {
   AU: "Australia",
   CA: "Canada",
   SG: "Singapore",
+  TW: "Taiwan",
   TH: "Thailand",
   PH: "Philippines",
   HK: "Hong Kong",
