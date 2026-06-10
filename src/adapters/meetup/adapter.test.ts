@@ -1515,7 +1515,7 @@ describe("buildRawEventFromApollo — kennelPatterns", () => {
       description: "<p>Structure / standing club template</p>",
     };
     const boilerplate = new Set([normalizeDescriptionKey("Structure / standing club template")]);
-    const event = buildRawEventFromApollo(ev as never, emptyState, "mh3-ca", undefined, false, undefined, boilerplate);
+    const event = buildRawEventFromApollo(ev, emptyState, "mh3-ca", undefined, false, undefined, boilerplate);
     expect(event.description).toBeNull();
   });
 
@@ -1531,7 +1531,7 @@ describe("buildRawEventFromApollo — kennelPatterns", () => {
       description: `${club}\n\nDate: Thu. Cost: $10.`,
     };
     const boilerplate = new Set([normalizeDescriptionKey(club)]);
-    const event = buildRawEventFromApollo(ev as never, emptyState, "hogtownh3", undefined, false, undefined, boilerplate);
+    const event = buildRawEventFromApollo(ev, emptyState, "hogtownh3", undefined, false, undefined, boilerplate);
     expect(event.description).toBe("Date: Thu. Cost: $10.");
   });
 
@@ -1544,7 +1544,7 @@ describe("buildRawEventFromApollo — kennelPatterns", () => {
       description: "<p>Real per-event notes: meet at the park</p>",
     };
     const boilerplate = new Set([normalizeDescriptionKey("some other template")]);
-    const event = buildRawEventFromApollo(ev as never, emptyState, "mh3-ca", undefined, false, undefined, boilerplate);
+    const event = buildRawEventFromApollo(ev, emptyState, "mh3-ca", undefined, false, undefined, boilerplate);
     expect(event.description).toBe("Real per-event notes: meet at the park");
   });
 

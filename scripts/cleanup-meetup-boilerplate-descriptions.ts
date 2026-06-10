@@ -55,6 +55,74 @@ const APPLY = process.argv.includes("--apply");
 const ALL = process.argv.includes("--all");
 const AFFECTED_KENNELS = new Set(["savh3", "hogtownh3", "mh3-ca"]);
 
+interface ProvEvent {
+  rawData: unknown;
+  event: { id: string; description: string | null; kennel: { kennelCode: string } | null } | null;
+}
+interface Update {
+  id: string;
+  kennelCode: string;
+  after: string | null;
+}
+
+/**
+ * Group provenance-matched events by kennel (eventId → description). An event is
+ * provenance-matched when its canonical description exactly equals a Meetup raw
+ * snapshot AND (unless `--all`) it belongs to an affected kennel. De-dupes to
+ * one record per event. Returns the grouping and the skipped-row count.
+ */
+function groupProvenancedByKennel(rawEvents: ProvEvent[]): {
+  byKennel: Map<string, Map<string, string>>;
+  skipped: number;
+} {
+  const byKennel = new Map<string, Map<string, string>>();
+  let skipped = 0;
+  for (const re of rawEvents) {
+    const description = re.event?.description ?? null;
+    const raw = re.rawData as { description?: unknown } | null;
+    const rawDescription = typeof raw?.description === "string" ? raw.description : null;
+    const kennelCode = re.event?.kennel?.kennelCode ?? "?";
+    const scoped = ALL || AFFECTED_KENNELS.has(kennelCode);
+    if (!re.event || description === null || description !== rawDescription || !scoped) {
+      skipped++;
+      continue;
+    }
+    let group = byKennel.get(kennelCode);
+    if (!group) {
+      group = new Map();
+      byKennel.set(kennelCode, group);
+    }
+    group.set(re.event.id, description);
+  }
+  return { byKennel, skipped };
+}
+
+/** Detect boilerplate per kennel and collect the events whose description changes. */
+function computeUpdates(byKennel: Map<string, Map<string, string>>): {
+  updates: Update[];
+  provenancedCount: number;
+} {
+  const updates: Update[] = [];
+  let provenancedCount = 0;
+  for (const [kennelCode, events] of byKennel) {
+    provenancedCount += events.size;
+    const boilerplateBlocks = detectBoilerplateBlocks([...events.values()]);
+    if (boilerplateBlocks.size === 0) continue;
+    for (const [id, description] of events) {
+      const after = stripBoilerplateBlocks(description, boilerplateBlocks);
+      if (after !== description) updates.push({ id, kennelCode, after });
+    }
+  }
+  return { updates, provenancedCount };
+}
+
+/** One-line preview of what an update would write. */
+function describeUpdate(after: string | null): string {
+  if (after === null) return "NULL";
+  const preview = after.length > 60 ? `${after.slice(0, 60)}...` : after;
+  return `-> "${preview}"`;
+}
+
 async function main() {
   const meetupSources = await prisma.source.findMany({
     where: { type: "MEETUP" },
@@ -72,8 +140,8 @@ async function main() {
   );
 
   // Canonical Events with a Meetup-provenance description, linked through
-  // RawEvent. An Event may have several Meetup RawEvents — we de-dupe to one
-  // record per Event below.
+  // RawEvent. An Event may have several Meetup RawEvents — de-duped to one
+  // record per Event in groupProvenancedByKennel.
   const rawEvents = await prisma.rawEvent.findMany({
     where: {
       sourceId: { in: meetupSources.map((s) => s.id) },
@@ -92,54 +160,11 @@ async function main() {
     },
   });
 
-  // Provenance-matched events grouped by kennel (eventId → description), so the
-  // block detector runs over one kennel's corpus at a time.
-  const byKennel = new Map<string, Map<string, string>>();
-  let skipped = 0;
-
-  for (const re of rawEvents) {
-    if (!re.event || re.event.description === null) {
-      skipped++;
-      continue;
-    }
-    const raw = re.rawData as { description?: unknown } | null;
-    const rawDescription = typeof raw?.description === "string" ? raw.description : null;
-    // Provenance: canonical Event.description must equal this Meetup raw's
-    // stored description.
-    if (rawDescription === null || re.event.description !== rawDescription) {
-      skipped++;
-      continue;
-    }
-    const kennelCode = re.event.kennel?.kennelCode ?? "?";
-    if (!ALL && !AFFECTED_KENNELS.has(kennelCode)) {
-      skipped++;
-      continue;
-    }
-    let group = byKennel.get(kennelCode);
-    if (!group) {
-      group = new Map();
-      byKennel.set(kennelCode, group);
-    }
-    group.set(re.event.id, re.event.description);
-  }
-
-  // For each kennel, detect boilerplate blocks across its descriptions and strip
-  // them from each event. Collect the resulting writes (null or shortened).
-  const updates: { id: string; kennelCode: string; after: string | null }[] = [];
-  let provenancedCount = 0;
-  for (const [kennelCode, events] of byKennel) {
-    provenancedCount += events.size;
-    const boilerplateBlocks = detectBoilerplateBlocks([...events.values()]);
-    if (boilerplateBlocks.size === 0) continue;
-    for (const [id, description] of events) {
-      const after = stripBoilerplateBlocks(description, boilerplateBlocks);
-      if (after !== description) updates.push({ id, kennelCode, after });
-    }
-  }
+  const { byKennel, skipped } = groupProvenancedByKennel(rawEvents);
+  const { updates, provenancedCount } = computeUpdates(byKennel);
 
   for (const u of updates) {
-    const what = u.after === null ? "NULL" : `-> "${u.after.slice(0, 60)}${u.after.length > 60 ? "..." : ""}"`;
-    console.log(`  ${u.kennelCode} ${u.id}: ${what}`);
+    console.log(`  ${u.kennelCode} ${u.id}: ${describeUpdate(u.after)}`);
   }
 
   console.log(
@@ -149,16 +174,14 @@ async function main() {
 
   // Do NOT mutate RawEvent.rawData (immutable audit trail). We only rewrite the
   // canonical UI value; the next in-window scrape re-applies the same strip.
-  let cleared = 0;
   if (APPLY) {
     for (const u of updates) {
       await prisma.event.update({ where: { id: u.id }, data: { description: u.after } });
-      cleared++;
     }
   }
 
   const verb = APPLY ? "Updated" : "Would update";
-  console.log(`\n${verb} ${APPLY ? cleared : updates.length} canonical Event.description value(s).`);
+  console.log(`\n${verb} ${updates.length} canonical Event.description value(s).`);
   if (!APPLY) console.log("Dry-run only. Re-run with --apply to write changes.");
   await prisma.$disconnect();
 }
