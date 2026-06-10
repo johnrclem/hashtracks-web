@@ -862,9 +862,18 @@ const LEADING_PLACEHOLDER_TOKEN_RE = /^(?:x{1,8}\?{0,3}|\?{1,4})/i;
 // Leading connector punctuation/whitespace left after the marker is stripped
 // (e.g. "? - TBD" → " - TBD" → "TBD"). Single char class — linear.
 const LEADING_CONNECTOR_RE = /^[\s:.\-–—/]+/;
-// Trailing "(...)" parenthetical theme slot; `[^)]*` intentionally also matches
-// an empty "()" as an empty theme.
-const TITLE_THEME_PAREN_RE = /\(([^)]*)\)$/;
+
+/**
+ * Content of a trailing "(...)" theme slot, or null when the title doesn't end
+ * in a parenthetical. Pure string ops (no regex) to avoid a Sonar S5852
+ * ReDoS false-positive on the equivalent `/\(([^)]*)\)$/`. An empty "()" yields
+ * an empty string (still a themeless slot).
+ */
+function trailingParenContent(s: string): string | null {
+  if (!s.endsWith(")")) return null;
+  const open = s.lastIndexOf("(", s.length - 1);
+  return open === -1 ? null : s.slice(open + 1, s.length - 1);
+}
 
 /**
  * True when a title is a pure placeholder shell: it carries a placeholder run
@@ -889,10 +898,10 @@ export function isThemelessPlaceholderTitle(title: string): boolean {
   // regardless of marker ordering. Reuses the delimiter-guarded shared parser so
   // an ambiguous "#30X?" stays a placeholder, not "30".
   if (extractHashRunNumber(trimmed) !== undefined) return false;
-  const paren = TITLE_THEME_PAREN_RE.exec(trimmed);
+  const paren = trailingParenContent(trimmed);
   let theme: string;
-  if (paren) {
-    theme = paren[1];
+  if (paren !== null) {
+    theme = paren;
   } else {
     const hashIdx = trimmed.lastIndexOf("#");
     const afterHash = hashIdx === -1 ? trimmed : trimmed.slice(hashIdx + 1);
