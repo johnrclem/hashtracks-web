@@ -31,13 +31,15 @@ const PAST_URL = "https://www.penanghash3.org/hareline/past";
 const CONFIG = { kennelTag: "penangh3", startTime: "17:30" } as const;
 
 async function fetchArchive(): Promise<RawEventData[]> {
-  // safeFetch enforces a default request timeout (AbortSignal), so no manual
-  // timeout wiring is needed here.
+  // safeFetch's built-in timeout only guards the residential-proxy branch; the
+  // direct-fetch path (used here, no proxy) has none, so pass an explicit
+  // AbortSignal to bound the request and avoid an indefinite hang.
   const res = await safeFetch(PAST_URL, {
     headers: {
       "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Backfill)",
       Accept: "text/html",
     },
+    signal: AbortSignal.timeout(30_000),
   });
   if (!res.ok) {
     throw new Error(`Fetch ${PAST_URL} failed: HTTP ${res.status}`);
