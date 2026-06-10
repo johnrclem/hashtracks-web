@@ -4885,5 +4885,43 @@ export const KENNELS: KennelSeed[] = [
       description:
         "Mexico City's Hash House Harriers — a non-competitive social running club (\"the drinking club with a running problem\") that has hashed in and around CDMX since 1983. Trails run ~5–7 km with a beer stop along the way; runners and walkers both welcome. The pack meets roughly every other Saturday at a rotating venue (Polanco, Roma, Coyoacán and beyond), gathering at 2 p.m. before the Grand Master calls \"On On!\".",
     },
+
+    // ===== HUNGARY ===== (first Hungary kennel; bare "BH3"/"BHHH" omitted — globally taken)
+    {
+      kennelCode: "budapest-h3",
+      shortName: "Budapest H3",
+      fullName: "The Budapest Hash House Harriers",
+      region: "Budapest", // matches the new Budapest METRO region (mirrors Lisbon)
+      country: "Hungary",
+      // Canonical site was NXDOMAIN as of 2026-06-10 (live <24h earlier, fully in
+      // search index + Wayback) — most likely a renewal-grace lapse; kept as the
+      // canonical URL since the schedule/metadata are otherwise corroborated.
+      website: "https://www.budapesthashhouseharriers.org",
+      facebookUrl: "https://www.facebook.com/groups/1014178591932185",
+      // Legacy flat fields kept for fallback only — scheduleRules below are
+      // authoritative for display + Travel Mode (mirrors LBH3; Codex on PR #2096).
+      // Without scheduleRules, backfill Pass 2 would emit a stale all-year
+      // FREQ=WEEKLY;BYDAY=SU @11:30 rule that mis-projects 11:30 in winter.
+      scheduleDayOfWeek: "Sunday",
+      scheduleTime: "11:30 AM",
+      scheduleFrequency: "Weekly",
+      // Both seasons run Sunday, so (unlike LBH3's TH/SU split) the rrules must
+      // retain BYMONTH to stay distinct on the (kennelId, rrule, source) upsert
+      // key — and these match the two STATIC_SCHEDULE source rrules exactly, so
+      // backfill Pass 3 absorbs the Pass 1 rows cleanly (no duplicate projection).
+      scheduleRules: [
+        { rrule: "FREQ=WEEKLY;BYDAY=SU;BYMONTH=4,5,6,7,8,9,10", startTime: "11:30", label: "Summer", validFrom: "04-01", validUntil: "10-31", displayOrder: 0 },
+        { rrule: "FREQ=WEEKLY;BYDAY=SU;BYMONTH=11,12,1,2,3", startTime: "10:30", label: "Winter", validFrom: "11-01", validUntil: "03-31", displayOrder: 1 },
+      ],
+      scheduleNotes: "Sundays year-round; meet 11:30am in summer (Apr–Oct), 10:30am in winter (Nov–Mar).",
+      foundedYear: 1982, // confirmed from the kennel's own copy ("founded in 1982 … almost 1,700 runs")
+      hashCash: "HUF 1,000",
+      walkersWelcome: true,
+      latitude: 47.4979,
+      longitude: 19.0402,
+      logoUrl: "/kennel-logos/budapest-h3.png", // self-hosted from the Wayback-archived Astra-theme logo
+      description:
+        "The Budapest chapter of the Hash House Harriers (est. 1982), a non-competitive running/hiking and social club. Runs every Sunday — usually meeting at Batthyány tér on the Buda side — followed by drinks at the Ganz Bar. Run fee HUF 1,000; trails ~12–15 km. Per-run details are posted to the members' Facebook group.",
+    },
   ];
 

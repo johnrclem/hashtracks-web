@@ -1801,6 +1801,30 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: 2.3522,
     aliases: ["Paris, France", "Île-de-France"],
   },
+  // ── Hungary ──
+  {
+    name: "Hungary",
+    country: "Hungary",
+    level: "COUNTRY",
+    timezone: "Europe/Budapest",
+    abbrev: "HU",
+    colorClasses: "bg-orange-200 text-orange-800",
+    pinColor: "#ea580c",
+    centroidLat: 47.16,
+    centroidLng: 19.5,
+    aliases: ["HU", "Magyarország"],
+  },
+  {
+    name: "Budapest",
+    country: "Hungary",
+    timezone: "Europe/Budapest",
+    abbrev: "BUD",
+    colorClasses: "bg-orange-100 text-orange-700",
+    pinColor: "#f97316",
+    centroidLat: 47.4979,
+    centroidLng: 19.0402,
+    aliases: ["Budapest, Hungary"],
+  },
   // ── Portugal ──
   {
     name: "Portugal",
@@ -3397,6 +3421,7 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   // non-ASCII `ö`; anchor the diacritic form explicitly (mirrors île-de-france).
   [/\b(austria|osterreich|vienna|wien|vindobona)\b|(?:^|\W)österreich\b/, "Austria"],
   [/\b(france|paris|ile-de-france)\b|(?:^|\W)île-de-france\b/, "France"],
+  [/\b(hungary|budapest|magyar|magyarorszag|magyarország)\b/, "Hungary"],
   [/\b(portugal|lisbon|lisboa|estoril|cascais|oporto|invicta)\b/, "Portugal"],
   [/\b(netherlands|amsterdam|rotterdam|den haag|the hague|holland)\b/, "Netherlands"],
   [/\b(denmark|copenhagen|københavn|aarhus)\b/, "Denmark"],
@@ -3610,6 +3635,8 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Madrid": "Spain",
   // France
   "Paris": "France",
+  // Hungary
+  "Budapest": "Hungary",
   // Portugal
   "Lisbon": "Portugal",
   "Porto": "Portugal",
@@ -3827,6 +3854,9 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   // France — metro "Paris" resolves via STATE_GROUP_MAP first, so only the
   // state-group key "France" is reachable here (mirrors the Spain precedent).
   "France": "France",
+  // Hungary — metro "Budapest" resolves via STATE_GROUP_MAP first, so only the
+  // country-group key "Hungary" is reachable here (mirrors the Portugal precedent).
+  "Hungary": "Hungary",
   // Portugal — metro "Lisbon" resolves via STATE_GROUP_MAP first, so only the
   // country-group key "Portugal" is reachable here (mirrors the Spain/France precedent).
   "Portugal": "Portugal",
@@ -3942,6 +3972,7 @@ const COUNTRY_CODE_TO_NAME: Record<string, string> = {
   BE: "Belgium",
   ES: "Spain",
   FR: "France",
+  HU: "Hungary",
   PT: "Portugal",
   NL: "Netherlands",
   DK: "Denmark",

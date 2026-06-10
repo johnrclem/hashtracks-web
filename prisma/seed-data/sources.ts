@@ -6676,5 +6676,48 @@ export const SOURCES = [
       },
       kennelCodes: ["mch3"],
     },
+
+    // ===== HUNGARY =====
+    // --- Budapest, Hungary (first Hungary kennel) ---
+    // Per-run start point + hares live only on the membership-gated FB group; the
+    // kennel publishes a fixed weekly-Sunday cadence (summer 11:30 / winter 10:30),
+    // so STATIC_SCHEDULE is the right config-only path (mirrors the NOSE Hash split).
+    // Disjoint BYMONTH on the two rows means no Sunday is double-generated.
+    {
+      name: "Budapest H3 Static Schedule (Summer Sundays)",
+      url: "https://www.budapesthashhouseharriers.org",
+      type: "STATIC_SCHEDULE" as const,
+      trustLevel: 3,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "budapest-h3",
+        rrule: "FREQ=WEEKLY;BYDAY=SU;BYMONTH=4,5,6,7,8,9,10",
+        startTime: "11:30",
+        defaultTitle: "Budapest H3 Weekly Run",
+        defaultLocation: "Batthyány tér, Budapest",
+        defaultDescription:
+          "Summer schedule: Sundays 11:30am, usually meeting at Batthyány tér (Bem rakpart, Buda side). HUF 1,000 run fee. Per-run start point and hares are posted to the members' Facebook group: https://www.facebook.com/groups/1014178591932185",
+      },
+      kennelCodes: ["budapest-h3"],
+    },
+    {
+      name: "Budapest H3 Static Schedule (Winter Sundays)",
+      url: "https://www.budapesthashhouseharriers.org/#winter",
+      type: "STATIC_SCHEDULE" as const,
+      trustLevel: 3,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "budapest-h3",
+        rrule: "FREQ=WEEKLY;BYDAY=SU;BYMONTH=11,12,1,2,3",
+        startTime: "10:30",
+        defaultTitle: "Budapest H3 Weekly Run",
+        defaultLocation: "Batthyány tér, Budapest",
+        defaultDescription:
+          "Winter schedule: Sundays 10:30am, usually meeting at Batthyány tér (Bem rakpart, Buda side). HUF 1,000 run fee. Per-run start point and hares are posted to the members' Facebook group: https://www.facebook.com/groups/1014178591932185",
+      },
+      kennelCodes: ["budapest-h3"],
+    },
   ];
 

@@ -584,5 +584,8 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "sans-clue-h3": ["Sans Clue H3", "Sans Clue Hash", "Sans Clue Hash House Harriers", "SCHHH"],
     // ===== MEXICO ===== (first Mexico kennel; "MCH3"/"CDMX H3" self-styled in the kennel's own copy)
     "mch3": ["MCH3", "CDMX H3", "Mexico City Hash", "Hash House Harriers Mexico City"],
+
+    // ===== HUNGARY ===== (first Hungary kennel; bare "BH3"/"BHHH" omitted — globally taken)
+    "budapest-h3": ["Budapest H3", "Budapest Hash", "Budapest HHH", "BPH3", "Budapest, Hungary"],
   };
 
