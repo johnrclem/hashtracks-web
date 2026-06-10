@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   parseSubtitleTime,
   extractLocationFromMapsUrl,
@@ -150,8 +150,15 @@ describe("StlH3Adapter", () => {
     url: "https://www.stlh3.com/",
   } as never;
 
+  // Freeze the clock at the fixtures' era so the windowed/year-inferred assertions never age out (#2066).
   beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-03-15T12:00:00Z"));
     vi.resetAllMocks();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("parses events from archive and detail pages", async () => {

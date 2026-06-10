@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { ICalAdapter, parseICalSummary, extractHaresFromDescription, extractRunNumberFromDescription, extractLocationFromDescription, extractOnOnVenueFromDescription, extractCostFromDescription, extractMapsUrlFromDescription, coalesceEndpointDuplicates, paramValue } from "./adapter";
 import type { RawEventData } from "../types";
 import type { Source } from "@/generated/prisma/client";
@@ -547,6 +547,14 @@ describe("ICalAdapter", () => {
     vi.restoreAllMocks();
   });
 
+  // Safety net: several tests in this describe install fake timers inline
+  // (vi.useFakeTimers/setSystemTime) and restore at the end of the test body.
+  // Restore here too so a throwing assertion can't leak a frozen clock into
+  // subsequent tests (#2066).
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("has correct type", () => {
     expect(adapter.type).toBe("ICAL_FEED");
   });
@@ -822,6 +830,11 @@ END:VCALENDAR`;
     // reconciler would cancel everything in the gap as "missing from scrape"
     // — a critical data-loss risk during admin one-shot wide-window scrapes
     // (e.g. #1339 ICH3 historical recovery).
+    // Freeze the clock at the fixtures' era (2023 = ~3yr back, 2028 = ~2yr
+    // forward) so the ±1500-day window keeps both events inside it forever
+    // and the "3 years back" row never ages out of the past edge (#2066).
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-06-01T12:00:00Z"));
     const wideWindowIcs = `BEGIN:VCALENDAR
 VERSION:2.0
 BEGIN:VEVENT

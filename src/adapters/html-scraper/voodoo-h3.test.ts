@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   parseVoodooTitle,
   parseVoodooBody,
@@ -240,8 +240,15 @@ describe("VoodooH3Adapter", () => {
     url: "https://www.voodoohash.com/",
   } as Parameters<typeof adapter.fetch>[0];
 
+  // Freeze the clock at the fixtures' era so the windowed/year-inferred assertions never age out (#2066).
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-04-01T12:00:00Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("returns events from WordPress API", async () => {

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   extractRunNumber,
   parseNorfolkDate,
@@ -456,8 +456,15 @@ describe("NorfolkH3Adapter", () => {
   });
 
   describe("adapter integration", () => {
+    // Freeze the clock at the fixtures' era so the windowed/year-inferred assertions never age out (#2066).
     beforeEach(() => {
       vi.restoreAllMocks();
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-03-15T12:00:00Z"));
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
     });
 
     it("has correct type", () => {

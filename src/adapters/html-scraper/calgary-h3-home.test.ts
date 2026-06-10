@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import * as cheerio from "cheerio";
 import {
   parseCalgaryRunNumber,
@@ -93,8 +93,15 @@ describe("CalgaryH3HomeAdapter", () => {
     url: "https://home.onon.org/upcumming-runs",
   } as Parameters<typeof adapter.fetch>[0];
 
+  // Freeze the clock at the fixtures' era so the windowed/year-inferred assertions never age out (#2066).
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-04-01T12:00:00Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("parses events from Events Manager HTML", async () => {

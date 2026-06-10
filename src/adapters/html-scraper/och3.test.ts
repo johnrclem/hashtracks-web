@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   parseOCH3Date,
   extractDayOfWeek,
@@ -15,6 +15,15 @@ import * as cheerio from "cheerio";
 import type { RawEventData } from "../types";
 
 describe("parseOCH3Date", () => {
+  // Freeze the clock at the fixtures' era so the windowed/year-inferred assertions never age out (#2066).
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-02-01T12:00:00Z"));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("parses ordinal date with day name", () => {
     expect(parseOCH3Date("Sunday 22nd February 2026")).toBe("2026-02-22");
   });
@@ -484,6 +493,15 @@ describe("zero-width title prefix (#1814)", () => {
 });
 
 describe("OCH3Adapter.fetch", () => {
+  // Freeze the clock at the fixtures' era so the windowed/year-inferred assertions never age out (#2066).
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-03-01T12:00:00Z"));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("parses multiple upcoming runs from compact line block", async () => {
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(new Response(SAMPLE_UPCOMING_RUNS_BLOCK_HTML, { status: 200 }))

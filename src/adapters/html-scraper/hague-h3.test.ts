@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import {
@@ -46,6 +46,16 @@ function makeSource(overrides?: Partial<Source>): Source {
 // ── Unit tests: parseEventBlock ──
 
 describe("parseEventBlock", () => {
+  // Freeze the clock at the fixtures' era so the windowed/year-inferred assertions never age out (#2066).
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-03-01T12:00:00Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("parses a standard event block", () => {
     const text = `Run 2412
 When: Sunday, March 29

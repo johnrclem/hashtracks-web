@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   parseKCH3Time,
   parseKCH3Body,
@@ -290,8 +290,15 @@ describe("KCH3Adapter", () => {
     url: "https://kansascityh3.com/",
   } as never;
 
+  // Freeze the clock at the fixtures' era so the windowed/year-inferred assertions never age out (#2066).
   beforeEach(() => {
     vi.resetAllMocks();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-03-01T12:00:00Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("returns events from WordPress posts", async () => {

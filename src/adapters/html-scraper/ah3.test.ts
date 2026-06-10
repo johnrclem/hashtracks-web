@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import {
@@ -306,8 +306,15 @@ describe("special events without Run №", () => {
 describe("AH3Adapter", () => {
   const adapter = new AH3Adapter();
 
+  // Freeze the clock at the fixtures' era so the windowed/year-inferred assertions never age out (#2066).
   beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-04-01T12:00:00Z"));
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("fetches upcoming + previous pages and deduplicates by run number", async () => {
