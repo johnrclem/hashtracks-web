@@ -1214,9 +1214,9 @@ export const SOURCES = [
         // generic. NOT strictKennelRouting: legit C2H3 trails are frequently
         // posted without a kennel prefix ("Cinco de Mayo May Trail").
         kennelPatterns: [
-          ["^BALH3\\b|Bay Area Larrikin", "balh3"],
-          ["^CBH3\\b", "cbh3-cc"],
-          ["^C2H3\\b|^Corpus Christi", "c2h3"],
+          [String.raw`^BALH3\b|^Bay Area Larrikin`, "balh3"],
+          [String.raw`^CBH3\b`, "cbh3-cc"],
+          [String.raw`^C2H3\b|^Corpus Christi`, "c2h3"],
         ],
         defaultKennelTag: "c2h3",
         // Coastal Bend (CBH3) posts ~all of its runs as all-day entries, so
