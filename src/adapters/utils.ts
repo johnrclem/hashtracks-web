@@ -1236,6 +1236,28 @@ export function appendDescriptionSuffix(
 }
 
 /**
+ * Split a description into blank-line-delimited paragraph blocks (trimmed,
+ * empties dropped). Shared by `dedupeRepeatedDescription` and the Meetup
+ * boilerplate detector — both key off paragraph boundaries, so the split lives
+ * here to avoid drift between them.
+ */
+export function splitDescriptionBlocks(desc: string): string[] {
+  return desc
+    .split(/\n\s*\n/)
+    .map((b) => b.trim())
+    .filter((b) => b.length > 0);
+}
+
+/**
+ * Normalize a description (or block) for whitespace-/case-insensitive equality:
+ * collapse all whitespace runs to a single space, trim, lowercase. Used as a
+ * comparison key only — never stored.
+ */
+export function normalizeDescriptionKey(desc: string): string {
+  return desc.replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+/**
  * Collapse a description whose blank-line-separated blocks are the same
  * sequence repeated twice back-to-back (#1889 Morgantown: a Google Calendar
  * entry whose body block is pasted verbatim twice). Splits on blank lines into
@@ -1254,17 +1276,13 @@ export function dedupeRepeatedDescription(
   const text = description.trim();
   if (!text) return description;
 
-  const blocks = text
-    .split(/\n\s*\n/)
-    .map((b) => b.trim())
-    .filter((b) => b.length > 0);
+  const blocks = splitDescriptionBlocks(text);
   if (blocks.length < 2 || blocks.length % 2 !== 0) return description;
 
   const half = blocks.length / 2;
-  const norm = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
   const isDoubled = blocks
     .slice(0, half)
-    .every((b, i) => norm(b) === norm(blocks[half + i]));
+    .every((b, i) => normalizeDescriptionKey(b) === normalizeDescriptionKey(blocks[half + i]));
 
   return isDoubled ? blocks.slice(0, half).join("\n\n") : description;
 }

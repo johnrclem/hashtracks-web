@@ -2,7 +2,7 @@ import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
-import { validateSourceConfig, stripHtmlTags, buildDateWindow, extractHashRunNumber, HARE_BOILERPLATE_RE, CTA_EMBEDDED_PATTERNS } from "../utils";
+import { validateSourceConfig, stripHtmlTags, buildDateWindow, extractHashRunNumber, HARE_BOILERPLATE_RE, CTA_EMBEDDED_PATTERNS, splitDescriptionBlocks, normalizeDescriptionKey } from "../utils";
 import { safeFetch } from "../safe-fetch";
 import { extractHares as extractHaresFromDescription } from "../hare-extraction";
 import { isPlatformDepartureTitle } from "../skip-rules";
@@ -362,6 +362,69 @@ function cleanMeetupDescription(
 }
 
 /**
+ * Detect group-template boilerplate structurally (#2058/#2059/#2062): Meetup
+ * stores a kennel's standing recurring-event template as part of *every*
+ * occurrence's description, displacing run-specific notes. The structural
+ * fingerprint of a template paragraph is that it appears verbatim across
+ * multiple events in a single fetch; genuine per-event notes appear once.
+ *
+ * Returns the set of normalized *paragraph-block* keys that occur in >= 2
+ * distinct events. Block granularity (not whole-string) is required because
+ * some kennels (Hogtown H3, #2059) prepend the standing club blurb to a
+ * per-event logistics stanza — the whole description differs per event, but the
+ * club paragraph repeats and must be stripped while the logistics stanza
+ * survives. Blocks are deduped within a single event so one event repeating a
+ * paragraph doesn't self-promote it to boilerplate. Empty/whitespace-only
+ * blocks carry no key and never count.
+ *
+ * Block boundary = blank line. `cleanMeetupDescription` strips HTML with a
+ * SPACE separator, so paragraph blocks survive only when the source carries
+ * literal markdown `\n\n` — which is how real Meetup descriptions arrive
+ * (verified live for all three incident kennels). A purely-HTML `<p>…</p><p>…</p>`
+ * description collapses to one block and degrades to whole-string matching: a
+ * fully-repeated template still nulls, only the partial club-blurb strip won't
+ * fire. That's a graceful degradation, not a silent failure of the core goal.
+ */
+export function detectBoilerplateBlocks(
+  cleanedDescriptions: (string | undefined)[],
+): Set<string> {
+  const counts = new Map<string, number>();
+  for (const desc of cleanedDescriptions) {
+    if (!desc) continue;
+    const seen = new Set<string>();
+    for (const block of splitDescriptionBlocks(desc)) {
+      const key = normalizeDescriptionKey(block);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+  }
+  const boilerplate = new Set<string>();
+  for (const [key, count] of counts) {
+    if (count >= 2) boilerplate.add(key);
+  }
+  return boilerplate;
+}
+
+/**
+ * Remove boilerplate paragraph blocks from a cleaned description. Returns the
+ * surviving blocks rejoined with `\n\n`; `null` (explicit clear, per merge.ts
+ * UPDATE contract) when every block was boilerplate — that wipes a fully
+ * templated description (Savannah/Montreal). When NO block is boilerplate the
+ * original string is returned **verbatim** (not re-joined), so a genuine
+ * per-event description survives byte-for-byte untouched.
+ */
+export function stripBoilerplateBlocks(
+  desc: string,
+  boilerplateBlocks: Set<string>,
+): string | null {
+  const blocks = splitDescriptionBlocks(desc);
+  const kept = blocks.filter((b) => !boilerplateBlocks.has(normalizeDescriptionKey(b)));
+  if (kept.length === blocks.length) return desc;
+  return kept.length > 0 ? kept.join("\n\n") : null;
+}
+
+/**
  * Extract local date and time from an ISO 8601 dateTime string.
  * "2026-03-05T18:30:00-05:00" → { date: "2026-03-05", startTime: "18:30" }
  * Uses the local portion of the string (not UTC conversion).
@@ -582,6 +645,7 @@ export function buildRawEventFromApollo(
   compiledPatterns?: [RegExp, string][],
   extractRunNumber = false,
   runNumberPrefix?: string,
+  boilerplateBlocks?: Set<string>,
 ): RawEventData {
   const { date, startTime } = ev.dateTime
     ? extractDateTime(ev.dateTime)
@@ -605,6 +669,18 @@ export function buildRawEventFromApollo(
 
   const { hares, titleForDisplay } = resolveMeetupHares(ev.description, ev.title);
   const cleanedDesc = cleanMeetupDescription(ev.description, state);
+  // Group-template boilerplate (#2058/#2059/#2062): strip paragraph blocks the
+  // group reuses verbatim across >= 2 events (the standing recurring-event
+  // template), keeping any run-specific blocks. A fully templated description
+  // collapses to `null` (explicit clear, per merge.ts UPDATE contract) so the
+  // stored boilerplate is wiped; a description with no boilerplate is returned
+  // untouched. Hare extraction above still runs on the raw description — only
+  // the stored `description` field is affected. `boilerplateBlocks` is undefined
+  // when called outside fetch() (unit tests), preserving prior behavior.
+  const finalDesc =
+    cleanedDesc !== undefined && boilerplateBlocks
+      ? stripBoilerplateBlocks(cleanedDesc, boilerplateBlocks)
+      : cleanedDesc;
 
   return {
     date,
@@ -614,7 +690,7 @@ export function buildRawEventFromApollo(
     // lives in resolveRunNumber so this builder stays under the cognitive-
     // complexity budget. Display title keeps the kennel's stylization.
     runNumber: resolveRunNumber(ev.title, extractRunNumber, runNumberPrefix),
-    description: cleanedDesc,
+    description: finalDesc,
     hares,
     location: venueInfo.location,
     latitude: venueInfo.latitude,
@@ -785,9 +861,23 @@ export class MeetupAdapter implements SourceAdapter {
       errorDetails.parse = [{ row: 0, error: message }];
     }
 
+    // Detect group-template boilerplate structurally: a paragraph block the
+    // group reuses verbatim across >= 2 events is part of its standing
+    // recurring-event template, not run-specific notes (#2058/#2059/#2062).
+    // Computed once over the post-enrichment event set (index-aligned with
+    // allApolloEvents) so per-occurrence detail-page overrides are reflected.
+    // The pre-cleaned values back the per-event "was boilerplate stripped?"
+    // diagnostic below; the builder recomputes cleanMeetupDescription so both
+    // stay consistent.
+    const cleanedDescriptions = allApolloEvents.map((ev) =>
+      cleanMeetupDescription(ev.description, mergedState),
+    );
+    const boilerplateBlocks = detectBoilerplateBlocks(cleanedDescriptions);
+
     const compiledPatterns = compileKennelPatterns(config.kennelPatterns);
     let cancelledSkipped = 0;
     let adminNoticeSkipped = 0;
+    let boilerplateDescriptionsDropped = 0;
     // Collect the titles we drop as admin notices so admins can audit
     // false positives in the scrape diagnostics (#1728).
     const adminNoticeTitles: string[] = [];
@@ -822,7 +912,14 @@ export class MeetupAdapter implements SourceAdapter {
         // hydrated from persisted JSON, where any truthy value would pass
         // through unintentionally. Only literal `true` opts in.
         const shouldExtractRunNumber = config.extractRunNumber === true;
-        events.push(buildRawEventFromApollo(ev, mergedState, config.kennelTag, compiledPatterns, shouldExtractRunNumber, config.runNumberPrefix));
+        const rawEvent = buildRawEventFromApollo(ev, mergedState, config.kennelTag, compiledPatterns, shouldExtractRunNumber, config.runNumberPrefix, boilerplateBlocks);
+        // Count events whose description had boilerplate removed (fully nulled
+        // or partially stripped) vs. its pre-strip cleaned value (index-aligned).
+        const cleanedBefore = cleanedDescriptions[i];
+        if (cleanedBefore !== undefined && rawEvent.description !== cleanedBefore) {
+          boilerplateDescriptionsDropped++;
+        }
+        events.push(rawEvent);
       } catch (err) {
         const msg = `Failed to parse event "${ev.id}": ${err instanceof Error ? err.message : String(err)}`;
         errors.push(msg);
@@ -846,6 +943,7 @@ export class MeetupAdapter implements SourceAdapter {
         cancelledSkipped,
         adminNoticeSkipped,
         adminNoticeTitles,
+        boilerplateDescriptionsDropped,
         detailPagesFetched,
         detailPagesEnriched,
       },
