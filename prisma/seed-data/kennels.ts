@@ -1725,12 +1725,12 @@ export const KENNELS: KennelSeed[] = [
       scheduleTime: "6:30 PM",
       hashCash: "$5",
       description: "Bay Area Larrikins hash in the Corpus Christi, TX area.",
-      latitude: 27.80, longitude: -97.40,
+      latitude: 27.8, longitude: -97.4,
     },
     {
       kennelCode: "cbh3-cc", shortName: "Coastal Bend H3", fullName: "Coastal Bend Hash House Harriers", region: "Corpus Christi, TX",
       description: "Coastal Bend hash in the Corpus Christi, TX area.",
-      latitude: 27.80, longitude: -97.40,
+      latitude: 27.8, longitude: -97.4,
     },
     // ===== FLORIDA =====
     // --- Miami / South Florida ---

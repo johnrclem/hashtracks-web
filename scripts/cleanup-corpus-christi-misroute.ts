@@ -42,15 +42,19 @@ import { GoogleCalendarAdapter } from "@/adapters/google-calendar/adapter";
 import type { Source } from "@/generated/prisma/client";
 import { deleteLeakedEvent } from "./lib/delete-leaked-event";
 
+interface Anchors {
+  c2h3Id: string;
+  source: Source;
+  /** kennelTag → kennel id, for the kennels we reassign INTO. */
+  targetByTag: Map<string, string>;
+}
+
 function utcDayBounds(date: Date): { gte: Date; lte: Date } {
   const d = date.toISOString().slice(0, 10);
   return { gte: new Date(`${d}T00:00:00.000Z`), lte: new Date(`${d}T23:59:59.999Z`) };
 }
 
-async function main() {
-  const apply = process.argv.includes("--apply");
-  console.log(`Mode: ${apply ? "APPLY" : "DRY-RUN"}`);
-
+async function loadAnchors(): Promise<Anchors | null> {
   const [c2h3, balh3, cbh3cc, source] = await Promise.all([
     prisma.kennel.findUnique({ where: { kennelCode: "c2h3" }, select: { id: true } }),
     prisma.kennel.findUnique({ where: { kennelCode: "balh3" }, select: { id: true } }),
@@ -60,56 +64,85 @@ async function main() {
   if (!c2h3 || !balh3 || !cbh3cc || !source) {
     console.error(`Missing anchor(s): c2h3=${!!c2h3} balh3=${!!balh3} cbh3-cc=${!!cbh3cc} source=${!!source}`);
     console.error("Run `npx prisma db seed` first so the new kennels + routing exist.");
-    process.exitCode = 1;
-    return;
+    return null;
   }
-  const targetByTag: Record<string, string> = { balh3: balh3.id, "cbh3-cc": cbh3cc.id };
+  return {
+    c2h3Id: c2h3.id,
+    source,
+    targetByTag: new Map([["balh3", balh3.id], ["cbh3-cc", cbh3cc.id]]),
+  };
+}
 
-  // Re-route the live calendar with the SEEDED config (same routing the scrape
-  // uses) → stable sourceUrl ⇒ correct kennelTag.
-  const res = await new GoogleCalendarAdapter().fetch(source as Source, { days: 3650 });
+/**
+ * Re-route the live calendar with the seeded config (the same routing the scrape
+ * uses) and map each stable sourceUrl → the kennelTag we reassign INTO. Throws on
+ * a failed/empty fetch so a bad API response can't be mistaken for "nothing to do".
+ */
+async function buildUrlToTagMap(source: Source, targetByTag: Map<string, string>): Promise<Map<string, string>> {
+  const res = await new GoogleCalendarAdapter().fetch(source, { days: 3650 });
+  if (res.errors.length > 0) {
+    throw new Error(`Calendar fetch returned errors; aborting: ${JSON.stringify(res.errors)}`);
+  }
+  if (res.events.length === 0) {
+    throw new Error("Calendar fetch returned zero events; aborting (likely a failed fetch, not an empty calendar).");
+  }
   const urlToTag = new Map<string, string>();
   for (const e of res.events) {
     const tag = e.kennelTags[0];
-    if (e.sourceUrl && (tag === "balh3" || tag === "cbh3-cc")) urlToTag.set(e.sourceUrl, tag);
+    if (e.sourceUrl && targetByTag.has(tag)) urlToTag.set(e.sourceUrl, tag);
   }
-  console.log(`Live re-route: ${urlToTag.size} sourceUrls map to balh3 / cbh3-cc`);
+  return urlToTag;
+}
 
+async function reassignEvents(anchors: Anchors, urlToTag: Map<string, string>, apply: boolean) {
+  const { c2h3Id, targetByTag } = anchors;
   const events = await prisma.event.findMany({
-    where: { kennelId: c2h3.id },
+    where: { kennelId: c2h3Id },
     select: { id: true, date: true, title: true, sourceUrl: true },
   });
   console.log(`c2h3 canonical events: ${events.length}`);
 
   let reassigned = 0, deleted = 0;
-  const byTag: Record<string, number> = { balh3: 0, "cbh3-cc": 0 };
+  const byTag = new Map<string, number>();
   for (const ev of events) {
-    if (!ev.sourceUrl) continue;
-    const tag = urlToTag.get(ev.sourceUrl);
-    if (!tag) continue; // stays c2h3 — real C2H3, noise, or outside the fetch window
-    const targetId = targetByTag[tag];
+    const tag = ev.sourceUrl ? urlToTag.get(ev.sourceUrl) : undefined;
+    const targetId = tag ? targetByTag.get(tag) : undefined;
+    if (!tag || !targetId) continue; // stays c2h3 — real C2H3, noise, or outside the window
+    const day = ev.date.toISOString().slice(0, 10);
     const { gte, lte } = utcDayBounds(ev.date);
     const existing = await prisma.event.findFirst({
       where: { kennelId: targetId, date: { gte, lte }, id: { not: ev.id } },
       select: { id: true },
     });
-
     if (existing) {
-      console.log(`  DELETE stale dup ${ev.id} (${ev.date.toISOString().slice(0, 10)} "${ev.title ?? ""}") — ${tag} ${existing.id} already canonical`);
+      console.log(`  DELETE stale dup ${ev.id} (${day} "${ev.title ?? ""}") — ${tag} ${existing.id} already canonical`);
       if (apply) await deleteLeakedEvent(prisma, ev.id, ["attendances", "kennelAttendances"]);
       deleted++;
     } else {
-      console.log(`  REASSIGN ${ev.id} (${ev.date.toISOString().slice(0, 10)} "${ev.title ?? ""}") c2h3 → ${tag}`);
+      console.log(`  REASSIGN ${ev.id} (${day} "${ev.title ?? ""}") c2h3 → ${tag}`);
       if (apply) {
-        await prisma.eventKennel.updateMany({ where: { eventId: ev.id, kennelId: c2h3.id }, data: { kennelId: targetId } });
+        await prisma.eventKennel.updateMany({ where: { eventId: ev.id, kennelId: c2h3Id }, data: { kennelId: targetId } });
         await prisma.event.update({ where: { id: ev.id }, data: { kennelId: targetId } });
       }
       reassigned++;
-      byTag[tag]++;
+      byTag.set(tag, (byTag.get(tag) ?? 0) + 1);
     }
   }
+  return { reassigned, deleted, byTag };
+}
 
-  console.log(`\n${apply ? "Applied" : "Would"}: reassign ${reassigned} (balh3 ${byTag.balh3}, cbh3-cc ${byTag["cbh3-cc"]}), delete ${deleted}`);
+async function main() {
+  const apply = process.argv.includes("--apply");
+  console.log(`Mode: ${apply ? "APPLY" : "DRY-RUN"}`);
+
+  const anchors = await loadAnchors();
+  if (!anchors) { process.exitCode = 1; return; }
+
+  const urlToTag = await buildUrlToTagMap(anchors.source, anchors.targetByTag);
+  console.log(`Live re-route: ${urlToTag.size} sourceUrls map to balh3 / cbh3-cc`);
+
+  const { reassigned, deleted, byTag } = await reassignEvents(anchors, urlToTag, apply);
+  console.log(`\n${apply ? "Applied" : "Would"}: reassign ${reassigned} (balh3 ${byTag.get("balh3") ?? 0}, cbh3-cc ${byTag.get("cbh3-cc") ?? 0}), delete ${deleted}`);
   if (apply && (reassigned > 0 || deleted > 0)) {
     const n = await backfillLastEventDates();
     console.log(`Recomputed lastEventDate for ${n} kennel(s).`);
