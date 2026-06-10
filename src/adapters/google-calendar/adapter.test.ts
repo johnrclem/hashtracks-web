@@ -19,9 +19,8 @@ import {
   splitTimedSummaryHareLocation,
   stripGluedDescriptionEcho,
   looksLikeHareName,
-  isThemelessPlaceholderTitle,
 } from "./adapter";
-import { compilePatterns } from "../utils";
+import { compilePatterns, isThemelessPlaceholderTitle } from "../utils";
 import type { RawEventData } from "../types";
 import { SOURCES } from "../../../prisma/seed-data/sources";
 
@@ -5532,6 +5531,9 @@ describe("summaryIsCanonicalTitle — title comes from SUMMARY, not DESCRIPTION 
 describe("isThemelessPlaceholderTitle (#2065)", () => {
   it.each([
     ["SH3 #? (TBD)", true],
+    // Separator before the placeholder theme (no paren) — must still be caught.
+    ["SH3 #? - TBD", true],
+    ["SH3 #?: TBD", true],
     ["SH3 #?", true],
     ["SH3 #? (TBA)", true],
     ["SH3 #? (Catholic School Girl)", false],

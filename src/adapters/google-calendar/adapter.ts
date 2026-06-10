@@ -1,7 +1,7 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
-import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, EVENT_FIELD_LABEL_RE, EVENT_FIELD_LABEL_UPPERCASE_RE, CTA_EMBEDDED_PATTERNS, appendDescriptionSuffix, dedupeRepeatedDescription, isPlaceholder, parse12HourTime, formatAmPmTime, stripNonEnglishCountry, extractHashRunNumber, hasPlaceholderRunNumber, normalizeCostSigil, BARE_KENNEL_CODE_RE } from "../utils";
+import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, EVENT_FIELD_LABEL_RE, EVENT_FIELD_LABEL_UPPERCASE_RE, CTA_EMBEDDED_PATTERNS, appendDescriptionSuffix, dedupeRepeatedDescription, isPlaceholder, parse12HourTime, formatAmPmTime, stripNonEnglishCountry, extractHashRunNumber, hasPlaceholderRunNumber, isThemelessPlaceholderTitle, normalizeCostSigil, BARE_KENNEL_CODE_RE } from "../utils";
 import { matchKennelPatterns, matchCompiledKennelPatterns, compileKennelPatterns, type KennelPattern, type CompiledKennelPattern } from "../kennel-patterns";
 import { LOCATION_EMAIL_CTA_RE } from "@/pipeline/audit-checks";
 import { parseDMSFromLocation } from "@/lib/geo";
@@ -547,50 +547,6 @@ export function looksLikeHareName(text: string): boolean {
   if (isPlaceholder(t)) return false;
   if (BARE_KENNEL_CODE_RE.test(t)) return false;
   return true;
-}
-
-/** The placeholder run token that follows a `#` marker: "?", "X"/"X?", or a
- *  "TBD"/"TBA"/"TBC" word. Anchored at start (caller trims first) so there's no
- *  `\s*`-adjacent alternation for Sonar S5852 to flag. */
-const PLACEHOLDER_RUN_TOKEN_RE = /^(?:X+\??|TB[ADC]|\?+)/i;
-/** Trailing "(...)" parenthetical, used as the theme slot of a title. Distinct
- *  from TITLE_TRAILING_PAREN_RE (which requires non-empty `[^)]+`): here `[^)]*`
- *  intentionally captures an empty "()" as an empty theme. */
-const TRAILING_PAREN_RE = /\(([^)]*)\)$/;
-
-/**
- * #2065 — true when a title is a pure placeholder shell: it carries a
- * placeholder run marker ("#?", "#TBD") AND its theme (the trailing
- * parenthetical, else whatever follows the last `#` after stripping the
- * placeholder run token) is empty or itself a placeholder. Used to null such
- * titles so merge.ts synthesizes a default or a richer secondary source wins.
- *
- *   "SH3 #? (TBD)"                         → true   (theme "TBD" is a placeholder)
- *   "SH3 #?"                               → true   (no theme)
- *   "SH3 #? (Catholic School Girl)"        → false  (real theme)
- *   "NBH3/SH3 #?/#753 (Cross Dress …)"     → false  (real theme)
- *   "TH3 #? (A Trail)"                     → false  (non-placeholder theme; kept)
- *
- * ReDoS-safe: the parenthetical capture is a single negated class and the
- * post-marker theme is sliced with lastIndexOf, not a `\s*`-adjacent alternation.
- */
-export function isThemelessPlaceholderTitle(title: string): boolean {
-  const trimmed = title.trim();
-  if (!hasPlaceholderRunNumber(trimmed)) return false;
-  // A real "#NNN" anywhere means a co-host carries a genuine run number — keep it
-  // regardless of marker ordering ("SH3/NBH3 #753/#?" must NOT be nulled). Reuses
-  // the delimiter-guarded shared parser so "#30X?" stays a placeholder, not "30".
-  if (extractHashRunNumber(trimmed) !== undefined) return false;
-  const paren = TRAILING_PAREN_RE.exec(trimmed);
-  let theme: string;
-  if (paren) {
-    theme = paren[1].trim();
-  } else {
-    const hashIdx = trimmed.lastIndexOf("#");
-    const afterHash = hashIdx === -1 ? trimmed : trimmed.slice(hashIdx + 1);
-    theme = afterHash.replace(PLACEHOLDER_RUN_TOKEN_RE, "").trim();
-  }
-  return theme === "" || isPlaceholder(theme);
 }
 
 /**

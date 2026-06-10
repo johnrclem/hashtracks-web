@@ -49,7 +49,7 @@ import { prisma } from "@/lib/db";
 import { Prisma } from "@/generated/prisma/client";
 import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag } from "./kennel-resolver";
-import { processRawEvents, sanitizeTitle, sanitizeLocation, sanitizeHares, friendlyKennelName, rewriteStaleDefaultTitle, suppressRedundantCity, NON_ENGLISH_GEO_RE, completenessScore, pickCanonicalEventId, pickCanonicalEventIds, isAdminLocked } from "./merge";
+import { processRawEvents, sanitizeTitle, sanitizeLocation, sanitizeHares, friendlyKennelName, rewriteStaleDefaultTitle, resolveUpdatedTitle, suppressRedundantCity, NON_ENGLISH_GEO_RE, completenessScore, pickCanonicalEventId, pickCanonicalEventIds, isAdminLocked } from "./merge";
 
 const mockSourceFind = vi.mocked(prisma.source.findUnique);
 const _mockSourceUpdate = vi.mocked(prisma.source.update);
@@ -3020,6 +3020,35 @@ describe("rewriteStaleDefaultTitle", () => {
       expect(rewriteStaleDefaultTitle("KWH3 Trail", "kwh3", "Key West H3", "Key West Hash House Harriers"))
         .toBe("Key West H3 Trail");
     });
+  });
+});
+
+// ── resolveUpdatedTitle (#2065 — heal stale placeholder titles on update) ──
+
+describe("resolveUpdatedTitle", () => {
+  const sh3 = { kennelCode: "sh3-wa", shortName: "SH3", fullName: "Seattle Hash House Harriers", aliases: [] };
+
+  it("re-synthesizes the default when incoming is empty and existing is a stale placeholder", () => {
+    // The #2065 adapter clears "SH3 #? (TBD)" to "". On update the old logic
+    // preserved the stale placeholder via `?? existingEvent.title`; now it heals.
+    expect(resolveUpdatedTitle("", "SH3 #? (TBD)", sh3, null, "sh3-wa")).toBe("Seattle H3 Trail");
+    expect(resolveUpdatedTitle("", "SH3 #? (TBD)", sh3, 1011, "sh3-wa")).toBe("Seattle H3 Trail #1011");
+  });
+
+  it("preserves a real existing title when incoming is empty", () => {
+    expect(resolveUpdatedTitle("", "Catholic School Girl", sh3, 1011, "sh3-wa")).toBe("Catholic School Girl");
+  });
+
+  it("uses a real incoming title over the existing one", () => {
+    expect(resolveUpdatedTitle("Operation Dickcheese", "SH3 #? (TBD)", sh3, null, "sh3-wa")).toBe("Operation Dickcheese");
+  });
+
+  it("rewrites a stale kennelCode prefix on the incoming title", () => {
+    expect(resolveUpdatedTitle("sh3-wa Trail #5", null, sh3, 5, "sh3-wa")).toBe("Seattle H3 Trail #5");
+  });
+
+  it("synthesizes when both incoming and existing are absent", () => {
+    expect(resolveUpdatedTitle(undefined, null, sh3, 7, "sh3-wa")).toBe("Seattle H3 Trail #7");
   });
 });
 
