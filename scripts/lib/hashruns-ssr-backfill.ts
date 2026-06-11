@@ -67,13 +67,18 @@ export function parseSsrEvents(pageText: string): DatedSsrEvent[] {
   const matches = unescaped.match(/\{[^{}]*"EventNumber":[^{}]*\}/g) ?? [];
   const byId = new Map<string, DatedSsrEvent>();
   for (const raw of matches) {
-    let obj: SsrEvent;
+    let parsed: unknown;
     try {
-      obj = JSON.parse(raw) as SsrEvent;
+      parsed = JSON.parse(raw);
     } catch {
       continue; // partial/garbled fragment — skip
     }
-    if (!obj.EventStartDatetime) continue;
+    // Don't trust the `as` cast: the regex only matches `{…}`, but validate the
+    // shape before reading fields so a malformed island never throws (skip, in
+    // keeping with the garbled-fragment handling above).
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) continue;
+    const obj = parsed as SsrEvent;
+    if (typeof obj.EventStartDatetime !== "string") continue;
     const dated = obj as DatedSsrEvent;
     const key = dated.PublicEventId ?? `${dated.EventNumber}-${dated.EventStartDatetime}`;
     if (!byId.has(key)) byId.set(key, dated);

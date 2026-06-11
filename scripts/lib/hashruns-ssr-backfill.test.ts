@@ -43,7 +43,7 @@ describe("parseSsrEvents", () => {
     const page = `prefix ${escaped(e1)} mid ${escaped(e1)} ${escaped(e2)} suffix`;
     const events = parseSsrEvents(page);
     expect(events).toHaveLength(2);
-    expect(events.map((e) => e.EventNumber).sort()).toEqual([1, 2]);
+    expect(events.map((e) => e.EventNumber).sort((a, b) => (a ?? 0) - (b ?? 0))).toEqual([1, 2]);
   });
 
   it("skips objects without a start datetime and garbled fragments", () => {
