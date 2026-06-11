@@ -350,8 +350,8 @@ describe("fetchAllWordPressPosts", () => {
     );
 
     vi.mocked(fetch)
-      .mockResolvedValueOnce(new Response(JSON.stringify(inWindow), { status: 200 }) as never)
-      .mockResolvedValueOnce(new Response(JSON.stringify(outOfWindow), { status: 200 }) as never);
+      .mockResolvedValueOnce(new Response(JSON.stringify(inWindow), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(outOfWindow), { status: 200 }));
 
     const posts = await fetchAllWordPressPosts("https://example.com", {
       stopBefore: new Date("2026-01-01T00:00:00Z"),
@@ -369,8 +369,8 @@ describe("fetchAllWordPressPosts", () => {
     const page2 = Array.from({ length: 10 }, (_, i) => makePost(i + 101));
 
     vi.mocked(fetch)
-      .mockResolvedValueOnce(new Response(JSON.stringify(page1), { status: 200 }) as never)
-      .mockResolvedValueOnce(new Response(JSON.stringify(page2), { status: 200 }) as never);
+      .mockResolvedValueOnce(new Response(JSON.stringify(page1), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(page2), { status: 200 }));
 
     const posts = await fetchAllWordPressPosts("https://example.com", {
       stopBefore: new Date("not-a-date"),
