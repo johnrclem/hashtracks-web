@@ -120,11 +120,23 @@ export function parseKCH3Body(text: string): {
   const hareMatch = /Hares?\s*(?:\([^)]*\))?\s*:?\s*(.+?)(?=\n|$)/i.exec(text);
   const hares = hareMatch ? hareMatch[1].trim() : undefined;
 
-  // Location: "Location: Macken Park 1002 Clark Ferguson Dr..." or address at "Start:"
+  // Location: "Location: Macken Park…", "Location KC Bier Company…" (no colon),
+  // "Start Location: Hidden Valley Park…", or address at "Start:" / "Where:".
+  // Match each label only at the START of a line and capture same-line text.
+  // The old unanchored `:?\s*` form matched the bare word in prose (e.g. "just
+  // in time for the start of the winter Olympics") AND let `\s*` span the
+  // newline into the next line's cost/time text (#2110 follow-up).
+  //   - The Location label keeps an OPTIONAL colon (the site often writes
+  //     "Location <venue>" / "Location <venue>" with no colon) and accepts an
+  //     optional "Start " prefix; stripLeadingParenLabel still handles the
+  //     "Location (also prelube): venue" shape (#2019).
+  //   - Bare "Start" and "Where" REQUIRE the colon, which is what rejects
+  //     "Start Time 3 p.m." and "Start @ Private Home:" (address on the next
+  //     line) without swallowing them as a venue.
   const locMatch =
-    /Location:?\s*(.+?)(?=\n|$)/i.exec(text) ||
-    /Start:?\s*(.+?)(?=\n|$)/i.exec(text) ||
-    /Where:?\s*(.+?)(?=\n|$)/i.exec(text);
+    /^[ \t]*(?:Start[ \t]+)?Location[ \t]*:?[ \t]*(.+)$/im.exec(text) ||
+    /^[ \t]*Where[ \t]*:[ \t]*(.+)$/im.exec(text) ||
+    /^[ \t]*Start[ \t]*:[ \t]*(.+)$/im.exec(text);
   // Strip a parenthetical label that precedes the colon — e.g.
   // "Location (also prelube and on-after): Helen's J.A.D. ..." captures
   // "(also prelube and on-after): Helen's …"; drop the leading label so it

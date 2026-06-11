@@ -1148,6 +1148,11 @@ describe("cleanLocationName", () => {
       ["Hare wanted", "hares-needed CTA"],
       ["???", "question-mark placeholder"],
       ["TBD", "placeholder"],
+      ["Hash Cash: $5", "#2110 cost label captured as location"],
+      ["Cost: $10", "#2110 cost label"],
+      ["Time: 1400", "#2110 time label"],
+      ["Meetup: 2 p.m.", "#2110 meetup label"],
+      ["Pack away: 2:30 p.m.", "#2110 pack-away label"],
       ["", "empty string"],
       ["   ", "whitespace only"],
     ])("'%s' → null (%s)", (input) => {
