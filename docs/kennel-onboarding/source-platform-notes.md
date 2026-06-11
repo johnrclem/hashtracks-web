@@ -494,6 +494,39 @@ the established HC kennels survive reconciliation without it; do not add it.
 - **Suppression is EXACT-MATCH** — a coarse-but-real location ("Portugal", a bare city name) must survive
   (a country name geocodes to a country centroid; better than nothing). Don't broaden to substring/prefix.
 
+#### Taiwan H3 addenda (verified via browser page-context fetch, 2026-06-10)
+
+- **HC kennels often name events `<ShortName> <N>` (a real name), so `staleTitleAliases` never fires.**
+  Taiwan H3's `eventName` is `"TwH³ 2664"` (or `"TwH³ 2662 - <theme>"`) — NOT the `"Placeholder event for X"`
+  string Lisbon/Porto use. `applyTitleFallback` passes a non-placeholder name through verbatim, so the kennel
+  page shows the kennel's own `<ShortName> <N>` titles. Still seed `defaultTitle` + a `staleTitleAliases`
+  placeholder defensively (cheap insurance for empty-name rows), but don't expect it to fire — the kennel's
+  event names are the titles. (This is faithful, not a bug.)
+- **🔴 kennelCode-collision (not just alias-collision) → suffix the kennelCode AND drop the bare alias.**
+  A new HC kennel's `kennelUniqueShortName` can collide with an existing kennel's **kennelCode** (Taiwan's
+  "TwH3" → `twh3` is already **Tidewater H3**). Because kennel resolution does kennelCode-exact-match BEFORE
+  alias-match, a bare `TwH3` alias on the new kennel would silently route to Tidewater. Use a region-suffixed
+  kennelCode (`twh3-tw`) and **omit the bare shortcode from aliases** (publish `TwH3-TW` instead). Stronger
+  than the Lisbon bare-`LH3` rule — there the collision was only an alias; here it's a live kennelCode.
+- **Coord default-pin sentinel `"no location provided"` already in `GEOCODE_FAIL_SENTINELS`** handles
+  Taiwan H3's `#2663`/`#2664` (Taipei region-default pin dropped + re-geocoded); `#2662` with a real venue
+  keeps its real coords. No new config — the Lisbon-era sentinel set covers it.
+- **CJK is fine in seeds.** Taiwan's aliases/fullName carry `台灣健龍捷兔`/`台灣`/`台北` — valid UTF-8 TS
+  string literals (Japan/HK already do this).
+- **🔴 `COUNTRY_INFERENCE_RULES` for a CJK-locale country needs a CJK branch — NOT optional (build, CodeRabbit).**
+  The English `eventCityAndCountry` ("Taipei, Taiwan") matches the ASCII-`\b` rule, but a Chinese-only
+  location field (`新北市, 台灣`, which TwH3's #2662 actually carries) is invisible to `\b` and defaulted to
+  **"USA"**. `\b` is ASCII-only, so it never anchors against CJK. Append a CJK alternation to the same rule:
+  `[/\b(taiwan|taipei|new taipei|formosa|kaohsiung|taichung|tainan|taoyuan)\b|[台臺][灣北中南]|新北|高雄|桃園/, "Taiwan"]`.
+  The `[台臺]` class unifies the common (台) / formal (臺) Tai- forms in one token. (`inferCountry` lowercases
+  input first, but `toLowerCase()` is a no-op on CJK, so the literal Chinese tokens match as written.)
+  Cover all six **special municipalities** (Taipei/New Taipei/Taoyuan/Taichung/Tainan/Kaohsiung) up front —
+  each hosts or may host a kennel (Taoyuan = TyMH3); a municipality-only field would otherwise default to "USA". (Gemini, PR #2113.)
+- **⚠️ Single-character alternations trip SonarCloud S6035 — use a character class.** The first cut wrote
+  `[台臺](灣|北|中|南)`; S6035 ("Replace this alternation with a character class") flagged the `(灣|北|中|南)`
+  group → `[灣北中南]`. Reach for a char class, not `(a|b|c)`, for any all-single-char alternation (same rule
+  that prefers `[-:]` over `(?:-|:)`).
+
 ## STATIC_SCHEDULE — seasonal (summer/winter) kennels need `scheduleRules`, not just flat fields (learned from Budapest H3, 2026-06-10)
 
 A "Facebook-funnel" kennel (per-run details members-only, but a published fixed weekly cadence) is a
