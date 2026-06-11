@@ -56,6 +56,18 @@ describe("parseSevenHillsPage", () => {
     expect(result?.title).toBe("Fall Classic");
   });
 
+  it("leaves an all-emoji title undefined so merge synthesizes the default (#2080, run #2013)", () => {
+    // Live page wrapped "TRAIL #2013" in emoji on both sides. The slice after
+    // the run number is "🌧️🍺~ 🌤️" — all emoji + a trailing U+FE0F variation
+    // selector. Stripping must collapse it to undefined (not an orphaned, blank
+    // but truthy "️") so merge.ts synthesizes "7H4 Trail #2013" rather than
+    // rendering an invisible title.
+    const body = "🌤️~ 🍺🌧️TRAIL #2013🌧️🍺~ 🌤️When: Wednesday June 10, 2026 @ 6:30pmStart: Magnolia foods Parking Lot, Lynchburg, VA";
+    const result = parseSevenHillsPage(`<html><body>${body}</body></html>`);
+    expect(result?.runNumber).toBe(2013);
+    expect(result?.title).toBeUndefined();
+  });
+
   it("preserves day names that appear in the trail title", () => {
     // DATE_SPLIT_RE injects \n before weekday words — a split-at-first-\n approach
     // would truncate "Saturday Night Fever Trail" to nothing.

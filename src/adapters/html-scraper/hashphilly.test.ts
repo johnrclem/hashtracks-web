@@ -46,6 +46,15 @@ const SAMPLE_HTML_NO_DATE = `
 </body></html>
 `;
 
+const SAMPLE_HTML_NO_TRAILNUM = `
+<html><body>
+<div>
+<p>Date: Sat, Feb 14, 2026</p>
+<p>Location: Love Park, Philadelphia PA</p>
+</div>
+</body></html>
+`;
+
 describe("HashPhillyAdapter.fetch", () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -72,7 +81,27 @@ describe("HashPhillyAdapter.fetch", () => {
     expect(event.startTime).toBe("15:00");
     expect(event.location).toBe("Love Park, Philadelphia PA");
     expect(event.locationUrl).toBeDefined();
+    // Title synthesized from the run number, matching the GCal sibling (#2098).
+    expect(event.title).toBe("Philly H3 Trail #1234");
     expect(result.structureHash).toBeDefined();
+  });
+
+  it("leaves title undefined when no trail number is present (#2098)", async () => {
+    // Without a run number there is no readable title on the page, so the
+    // adapter defers to merge.ts's default synthesis rather than inventing one.
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(SAMPLE_HTML_NO_TRAILNUM, { status: 200 }),
+    );
+
+    const adapter = new HashPhillyAdapter();
+    const result = await adapter.fetch({
+      id: "test",
+      url: "https://hashphilly.com/nexthash/",
+    } as never);
+
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].runNumber).toBeUndefined();
+    expect(result.events[0].title).toBeUndefined();
   });
 
   it("returns error when no date field found", async () => {

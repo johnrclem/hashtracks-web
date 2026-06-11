@@ -37,6 +37,7 @@ import { fetchHTMLPage, stripHtmlTags, MONTHS } from "../utils";
 const ANO_KEY = "ano(what)";
 const KAILAN_KEY = "kailan(when)";
 const SINO_KEY = "sino(who)";
+const BAKIT_KEY = "bakit(why)";
 const SAAN_KEY = "saan(where)";
 const MAPA_KEY = "mapa:";
 
@@ -148,6 +149,7 @@ export function parseManilaH3Page(
   }
 
   const sinoLine = findLabelLine(block, SINO_KEY);
+  const bakitLine = findLabelLine(block, BAKIT_KEY);
   const saanLine = findLabelLine(block, SAAN_KEY);
 
   return {
@@ -157,6 +159,8 @@ export function parseManilaH3Page(
       runNumber,
       // title intentionally undefined → merge.ts synthesizes "Manila H3 Trail #N".
       hares: sinoLine ? valueAfterLabel(sinoLine) || undefined : undefined,
+      // "bakit (why)" carries the trail blurb/tagline → description (#2075).
+      description: bakitLine ? valueAfterLabel(bakitLine) || undefined : undefined,
       location: saanLine ? valueAfterLabel(saanLine) || undefined : undefined,
       locationUrl: extractMapUrl(block),
       sourceUrl,

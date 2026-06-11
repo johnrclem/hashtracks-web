@@ -76,6 +76,12 @@ export class HashPhillyAdapter implements SourceAdapter {
       date: dateStr,
       kennelTags: ["philly-h3"],
       runNumber,
+      // The nexthash page has no event-specific theme (heading is just the
+      // kennel name), so synthesize the canonical "Philly H3 Trail #N" title to
+      // match the Google Calendar sibling source (#2098). Leave undefined when
+      // the run number is absent → merge.ts synthesizes the default; never emit
+      // the bare heading or hare name as the title.
+      title: runNumber ? `Philly H3 Trail #${runNumber}` : undefined,
       location,
       locationUrl: location ? mapsUrl(location) : undefined,
       startTime,

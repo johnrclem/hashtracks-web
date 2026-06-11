@@ -369,10 +369,11 @@ function parseWordPressBatch(raw: string, page: number): WordPressBatchItem[] {
 
 export async function fetchAllWordPressPosts(
   siteUrl: string,
-  options: { perPage?: number; maxPages?: number } = {},
+  options: { perPage?: number; maxPages?: number; stopBefore?: Date } = {},
 ): Promise<WordPressPost[]> {
   const perPage = options.perPage ?? 100;
   const maxPages = options.maxPages ?? 100;
+  const stopBeforeMs = options.stopBefore?.getTime();
   // Procedural trim avoids the Sonar S5852 ReDoS hotspot that `/\/+$/` trips.
   let base = siteUrl;
   while (base.endsWith("/")) base = base.slice(0, -1);
@@ -412,6 +413,19 @@ export async function fetchAllWordPressPosts(
     if (batch.length === 0) return posts;
     posts.push(...batch.map(toWordPressPost));
     if (batch.length < perPage) return posts;
+    // Posts come newest-first. Once an entire page predates the caller's window
+    // floor, every later page does too — stop early so a recurring scrape walks
+    // only ~1-2 pages instead of the full archive. A page with any in-window (or
+    // undated/unparseable) post keeps paginating, so nothing in range is missed.
+    if (
+      stopBeforeMs !== undefined &&
+      batch.every((item) => {
+        const t = Date.parse(item.date ?? "");
+        return Number.isFinite(t) && t < stopBeforeMs;
+      })
+    ) {
+      return posts;
+    }
   }
 
   // Hit maxPages with a full final batch — more pages exist. Fail loud

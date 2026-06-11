@@ -14,9 +14,10 @@
 
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult } from "../types";
-import { fetchWordPressPosts } from "../wordpress-api";
+import { fetchAllWordPressPosts, type WordPressPost } from "../wordpress-api";
 import {
   applyDateWindow,
+  buildDateWindow,
   chronoParseDate,
   cleanLocationName,
   htmlToNewlineText,
@@ -136,10 +137,16 @@ export function parseKCH3Body(text: string): {
 
 /**
  * Determine kennel tag from post title.
- * Returns "pnh3" for Pearl Necklace events, "kch3" otherwise.
+ * Returns "pnh3" for the ladies' sister kennel, "kch3" otherwise.
+ *
+ * PNH3 (Pearl Necklace H3) trails post to the same global KCH3 feed and are
+ * titled either "Pearl Necklace …" or, more often, "Ladies Only …" /
+ * "Ladies-Only …" (#2110). KCH3's own trails never carry the "Ladies Only"
+ * marker, so matching it is a safe per-kennel discriminator. "Ladies" alone is
+ * deliberately NOT matched — it appears in KCH3 trail themes.
  */
 export function resolveKennelTag(title: string): string {
-  if (/PNH3|Pearl\s*Necklace/i.test(title)) return "pnh3";
+  if (/PNH3|Pearl\s*Necklace|Ladies[\s-]*Only/i.test(title)) return "pnh3";
   return "kch3";
 }
 
@@ -209,27 +216,31 @@ export class KCH3Adapter implements SourceAdapter {
     const baseUrl = source.url || "https://kansascityh3.com/";
     const days = options?.days ?? source.scrapeDays ?? 365;
 
-    const wpResult = await fetchWordPressPosts(baseUrl);
-
-    if (wpResult.error) {
+    // Paginate the shared KCH3 feed instead of grabbing only the latest 10
+    // posts. PNH3 ("Ladies Only") trails are infrequent and posted to the same
+    // global feed, so a single page drops them within ~2 weeks (#2110). Stop
+    // once a page falls entirely outside the window so a recurring 365-day
+    // scrape walks ~1-2 pages; a wide one-shot `days` walks back to the archive
+    // root. Returning the full window keeps reconcile safe.
+    let posts: WordPressPost[];
+    try {
+      posts = await fetchAllWordPressPosts(baseUrl, {
+        perPage: 100,
+        maxPages: 50,
+        stopBefore: buildDateWindow(days).minDate,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
       return {
         events: [],
-        errors: [wpResult.error.message],
-        errorDetails: {
-          fetch: [
-            {
-              url: baseUrl,
-              status: wpResult.error.status,
-              message: wpResult.error.message,
-            },
-          ],
-        },
+        errors: [message],
+        errorDetails: { fetch: [{ url: baseUrl, message }] },
       };
     }
 
     const events: RawEventData[] = [];
 
-    for (const post of wpResult.posts) {
+    for (const post of posts) {
       const bodyText = htmlToNewlineText(post.content);
       const event = processKCH3Post(post.title, bodyText, post.url, post.date);
       if (event) events.push(event);
@@ -239,9 +250,8 @@ export class KCH3Adapter implements SourceAdapter {
       events,
       errors: [],
       diagnosticContext: {
-        fetchMethod: "wordpress-api",
-        postsFound: wpResult.posts.length,
-        fetchDurationMs: wpResult.fetchDurationMs,
+        fetchMethod: "wordpress-api-paginated",
+        postsFound: posts.length,
       },
     }, days);
   }

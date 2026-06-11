@@ -107,11 +107,17 @@ export function parseSevenHillsPage(html: string): ParsedTrail | null {
       .replaceAll(/\s+/g, " ")
       .replace(/\s+(?:When|Start|Hares?|Beer\s*Meister|Cost|Shiggy\s*Level|Special\s*Instructions|On[\s-]*On):\s*$/i, "")
       .trim();
-    title = rawName
+    // An all-emoji title (#2080, run #2013: "🌧️🍺~ 🌤️") can leave orphaned
+    // combining marks — e.g. a lone U+FE0F variation selector — that survive
+    // the emoji strip and trim() as a blank-but-truthy title. Rather than chase
+    // every combiner codepoint, treat a title with no letter or digit as empty
+    // → undefined, so merge.ts synthesizes "7H4 Trail #N" (never the hare name).
+    const stripped = rawName
       .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, "")
       .replace(/[~\-!]+/g, " ")
       .replaceAll(/\s+/g, " ")
-      .trim() || undefined;
+      .trim();
+    title = /[\p{L}\p{N}]/u.test(stripped) ? stripped : undefined;
   }
 
   return { runNumber, title, date, startTime, hares, location };

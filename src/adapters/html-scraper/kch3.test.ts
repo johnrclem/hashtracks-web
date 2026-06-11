@@ -161,10 +161,16 @@ describe("resolveKennelTag", () => {
     expect(resolveKennelTag("14 March Snake Saturday Trail")).toBe("kch3");
   });
 
-  it("returns kch3 for a non-PNH3 ladies trail title", () => {
-    expect(
-      resolveKennelTag("8 February 2026 Ladies Only Olympic Trials Trail"),
-    ).toBe("kch3");
+  it.each([
+    "8 February 2026 Ladies Only Olympic Trials Trail",
+    "8 June 2025 LADIES ONLY Pride Trail",
+    "Bangers and BABES Ladies-only Pearl Necklace Trail",
+  ])("returns pnh3 for a 'Ladies Only' title: %s (#2110)", (title) => {
+    expect(resolveKennelTag(title)).toBe("pnh3");
+  });
+
+  it("keeps a bare 'Ladies' (no 'Only') KCH3 theme on kch3", () => {
+    expect(resolveKennelTag("14 March Ladies Night Theme Trail")).toBe("kch3");
   });
 
   it("returns pnh3 when title contains PNH3", () => {
@@ -302,18 +308,15 @@ describe("KCH3Adapter", () => {
   });
 
   it("returns events from WordPress posts", async () => {
-    vi.mocked(wordpressApi.fetchWordPressPosts).mockResolvedValue({
-      posts: [
-        {
-          title: "21 March 2026 SHHHHHHH Trail",
-          content:
-            "<p>Meetup: 2 p.m.<br>Hash Cash: $5<br>Location: Williams Grant Park<br>Hare: Shhhhhhhh</p>",
-          url: "https://kansascityh3.com/21-march-2026-shhhhhhh-trail/",
-          date: "2026-03-18T16:50:59",
-        },
-      ],
-      fetchDurationMs: 100,
-    });
+    vi.mocked(wordpressApi.fetchAllWordPressPosts).mockResolvedValue([
+      {
+        title: "21 March 2026 SHHHHHHH Trail",
+        content:
+          "<p>Meetup: 2 p.m.<br>Hash Cash: $5<br>Location: Williams Grant Park<br>Hare: Shhhhhhhh</p>",
+        url: "https://kansascityh3.com/21-march-2026-shhhhhhh-trail/",
+        date: "2026-03-18T16:50:59",
+      },
+    ]);
 
     const result = await adapter.fetch(mockSource);
     expect(result.events).toHaveLength(1);
@@ -322,15 +325,53 @@ describe("KCH3Adapter", () => {
     expect(result.events[0].hares).toBe("Shhhhhhhh");
   });
 
-  it("returns errors on fetch failure", async () => {
-    vi.mocked(wordpressApi.fetchWordPressPosts).mockResolvedValue({
-      posts: [],
-      error: { message: "HTTP 403", status: 403 },
-      fetchDurationMs: 50,
-    });
+  it("paginates the feed, routes Ladies-Only to pnh3, and trims out-of-window posts (#2110)", async () => {
+    vi.mocked(wordpressApi.fetchAllWordPressPosts).mockResolvedValue([
+      {
+        title: "8 February 2026 Ladies Only Olympic Trials Trail",
+        content: "<p>Meetup: 2 p.m.<br>Hash Cash: $10<br>Hare: Just Jane</p>",
+        url: "https://kansascityh3.com/ladies-only-olympic/",
+        date: "2026-02-04T12:00:00",
+      },
+      {
+        title: "21 February 2026 SHHHHHHH Trail",
+        content: "<p>Meetup: 2 p.m.<br>Hare: Shhhhhhhh</p>",
+        url: "https://kansascityh3.com/shhhhhhh/",
+        date: "2026-02-18T12:00:00",
+      },
+      {
+        // Far outside the ±365d window (clock frozen at 2026-03-01) — trimmed.
+        title: "20 August 2023 Ladies Only: Do You Play Croquet?",
+        content: "<p>Meetup: 2 p.m.<br>Hare: Old Hare</p>",
+        url: "https://kansascityh3.com/croquet/",
+        date: "2023-08-17T12:00:00",
+      },
+    ]);
+
+    const result = await adapter.fetch(mockSource);
+    expect(result.events).toHaveLength(2);
+    const byTag = (tag: string) => result.events.filter((e) => e.kennelTags[0] === tag);
+    expect(byTag("pnh3")).toHaveLength(1);
+    expect(byTag("pnh3")[0].date).toBe("2026-02-08");
+    expect(byTag("kch3")).toHaveLength(1);
+    // The 2023 post is outside the window → dropped by applyDateWindow.
+    expect(result.events.some((e) => e.date.startsWith("2023"))).toBe(false);
+
+    // The recurring scrape bounds pagination to the date-window floor.
+    expect(wordpressApi.fetchAllWordPressPosts).toHaveBeenCalledWith(
+      "https://kansascityh3.com/",
+      expect.objectContaining({ stopBefore: expect.any(Date) }),
+    );
+  });
+
+  it("surfaces a graceful error when the paginator throws", async () => {
+    vi.mocked(wordpressApi.fetchAllWordPressPosts).mockRejectedValue(
+      new Error("WordPress paginator page 2: HTTP 403"),
+    );
 
     const result = await adapter.fetch(mockSource);
     expect(result.events).toHaveLength(0);
-    expect(result.errors).toContain("HTTP 403");
+    expect(result.errors[0]).toContain("HTTP 403");
+    expect(result.errorDetails?.fetch).toHaveLength(1);
   });
 });
