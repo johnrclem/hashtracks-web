@@ -22,6 +22,9 @@ import {
 } from "@/adapters/harrier-central/adapter";
 import type { RawEventData } from "@/adapters/types";
 
+/** Abort the live SSR fetch if hashruns.org stalls, so the backfill can't hang. */
+const FETCH_TIMEOUT_MS = 30_000;
+
 /** Shape of an event object in the hashruns.org SSR flight data (PascalCase). */
 export interface SsrEvent {
   PublicEventId?: string;
@@ -146,6 +149,7 @@ export function hashrunsSsrBackfill(config: HashrunsSsrBackfillConfig): Promise<
     label: `Fetching + parsing hashruns.org/${config.slug} SSR archive`,
     fetchEvents: async () => {
       const res = await fetch(runsUrl, {
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
         headers: {
           "User-Agent":
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
