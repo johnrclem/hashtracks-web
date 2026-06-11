@@ -2,10 +2,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { Source } from "@/generated/prisma/client";
 import {
   parseBaliDate,
-  parseBaliTitle,
   parseListingCards,
   parseDetailFields,
   dedupeByRunNumber,
+  buildEvent,
   BaliHash2Adapter,
 } from "./bali-hash-2";
 import * as safeFetchModule from "../safe-fetch";
@@ -79,6 +79,13 @@ const DETAIL_FIXTURE = `<!doctype html><html><body><article><section class="gh-c
 <hr><h1 id="run-fees">RUN FEES</h1><h2 id="visitors">VISITORS</h2><p><em>Run with us 5 times and you automatically become a member of Bali Hash 2</em></p>
 </section></article></body></html>`;
 
+/** A detail page whose `Occasion:` carries a real per-run theme (#2116, run
+ *  #1749 "Made in USSR") rather than the club slogan. */
+const THEMED_DETAIL_FIXTURE = `<!doctype html><html><body><article><section class="gh-content">
+<hr><p>Run: 1749<br>Date: 13-Jun-26<br>Our runs start promptly at: 4:00 PM.</p>
+<ul><li>Location: Pohen Hill Camp, Candikuning, Tabanan</li><li>GPS: <a href="x">-8.302931, 115.156899</a></li><li>Occasion: Made in USSR</li><li>Hares: Horny Rabbit, Sir Gay</li></ul>
+</section></article></body></html>`;
+
 /** Mock safeFetch to serve the home fixture for the listing URL and the detail
  *  fixture for everything else. */
 function mockFetch() {
@@ -111,30 +118,6 @@ describe("parseBaliDate", () => {
   });
 });
 
-describe("parseBaliTitle", () => {
-  it.each([
-    [
-      "Bali Hash 2 Next Run Map - #1747 - Pura Pekemitan / Prajapati, Kediri, Tabanan - 30-May-26",
-      "Pura Pekemitan / Prajapati, Kediri, Tabanan",
-    ],
-    [
-      "Bali Hash 2 Next Run Map - #1746 - Lapangan Sepak Bola Perean, Baturiti - 23-May-26",
-      "Lapangan Sepak Bola Perean, Baturiti",
-    ],
-    // Single-digit day in the trailing date is still stripped.
-    [
-      "Bali Hash 2 Next Run Map - #1739 - Lapangan Mamed, Sindu Wati, Sidemen - 4-Apr-26",
-      "Lapangan Mamed, Sindu Wati, Sidemen",
-    ],
-  ])("strips the prefix + trailing date from %s", (title, expected) => {
-    expect(parseBaliTitle(title)).toBe(expected);
-  });
-
-  it("returns undefined when the title carries no run-number token", () => {
-    expect(parseBaliTitle("Bali Hash 2 About Us")).toBeUndefined();
-  });
-});
-
 describe("parseListingCards", () => {
   const entries = parseListingCards(HOME_FIXTURE);
 
@@ -149,7 +132,6 @@ describe("parseListingCards", () => {
     expect(e.date).toBe("2026-05-30");
     expect(e.startTime).toBe("16:00");
     expect(e.location).toBe("Pura Pekemitan / Prajapati, Kediri, Tabanan");
-    expect(e.title).toBe("Pura Pekemitan / Prajapati, Kediri, Tabanan");
     expect(e.url).toBe(
       "https://balihash2.com/bali-hash-2-next-run-map-1747-pura-pekemitan-prajapati-kediri-tabanan-30-may-26/",
     );
@@ -189,6 +171,46 @@ describe("parseDetailFields", () => {
   it("parses the detail-page date", () => {
     expect(fields.date).toBe("2026-05-30");
   });
+
+  it("filters the club slogan out of the Occasion line (#2116)", () => {
+    // DETAIL_FIXTURE's Occasion is "WE START TOGETHER - WE DRINK TOGETHER".
+    expect(fields.occasion).toBeUndefined();
+  });
+
+  it("extracts a real per-run theme from the Occasion line (#2116)", () => {
+    const themed = parseDetailFields(THEMED_DETAIL_FIXTURE);
+    expect(themed.occasion).toBe("Made in USSR");
+    // Venue is NOT promoted to title — it stays in `location`.
+    expect(themed.location).toBe("Pohen Hill Camp, Candikuning, Tabanan");
+  });
+});
+
+describe("buildEvent", () => {
+  const entry = {
+    runNumber: 1749,
+    date: "2026-06-13",
+    location: "Pohen Hill Camp, Candikuning, Tabanan",
+    url: "https://balihash2.com/bali-hash-2-next-run-map-1749-x/",
+    domIndex: 0,
+  };
+
+  it("uses the Occasion theme as title and keeps the venue as location (#2116)", () => {
+    const event = buildEvent(entry, parseDetailFields(THEMED_DETAIL_FIXTURE));
+    expect(event.title).toBe("Made in USSR");
+    expect(event.location).toBe("Pohen Hill Camp, Candikuning, Tabanan");
+  });
+
+  it("leaves title undefined when there is no real Occasion (slogan/missing)", () => {
+    const event = buildEvent(entry, parseDetailFields(DETAIL_FIXTURE));
+    expect(event.title).toBeUndefined();
+    expect(event.location).toBe("Pura Pekemitan / Prajapati, Kediri, Tabanan");
+  });
+
+  it("leaves title undefined for a listing-only entry (no detail page)", () => {
+    const event = buildEvent(entry, null);
+    expect(event.title).toBeUndefined();
+    expect(event.location).toBe("Pohen Hill Camp, Candikuning, Tabanan");
+  });
 });
 
 describe("BaliHash2Adapter.fetch", () => {
@@ -206,7 +228,7 @@ describe("BaliHash2Adapter.fetch", () => {
     vi.restoreAllMocks();
   });
 
-  it("emits deduped events with detail-enriched coords and synthesized-able titles", async () => {
+  it("emits deduped events with detail-enriched coords and slogan-filtered titles", async () => {
     mockFetch();
     const result = await new BaliHash2Adapter().fetch(source);
 
@@ -222,8 +244,10 @@ describe("BaliHash2Adapter.fetch", () => {
     expect(run1747.latitude).toBeCloseTo(-8.5835, 4);
     expect(run1747.longitude).toBeCloseTo(115.1270571, 4);
     expect(run1747.hares).toBe("Exit/Re Entry & Popoff Monster");
-    // Title parsed from the post title (#1838), not the synthesized placeholder.
-    expect(run1747.title).toBe("Pura Pekemitan / Prajapati, Kediri, Tabanan");
+    // Occasion is the club slogan in the fixture → filtered → title undefined,
+    // so merge.ts synthesizes "Bali Hash 2 Trail #N". The venue is NOT the title.
+    expect(run1747.title).toBeUndefined();
+    expect(run1747.location).toBe("Pura Pekemitan / Prajapati, Kediri, Tabanan");
     expect(run1747.locationUrl).toContain("google.com/maps");
   });
 

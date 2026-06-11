@@ -8,6 +8,7 @@ import {
   decodeEntities,
   fetchHTMLPage,
   MONTHS,
+  stripHtmlTags,
   validateSourceConfig,
 } from "../utils";
 
@@ -111,6 +112,123 @@ export function extractMaxYiiPage(html: string): number {
 }
 
 /**
+ * Split a hareline "Occasion" cell into title vs. description.
+ *
+ * The Occasion column mixes two kinds of content (#2084): short event labels
+ * ("Christmas Run", "CNY Run", "Silver Centum Run") that read as titles, and
+ * prose / instructions ("Torchlight Run - Run Starts at 7pm!!!", "JM's Run -
+ * headtorch is mandatory!", "The X Run (Guest Fee Rm80 including On-On)") that
+ * belong in the description. Dumping the whole string into `title` produced
+ * ugly multi-clause titles and never populated `description`.
+ *
+ * Heuristic:
+ *   - A cell is "rich" (prose/instruction) if it contains a separator — a
+ *     space-padded dash ("&nbsp;-&nbsp;", "&nbsp;–&nbsp;", "&nbsp;—&nbsp;"), an
+ *     opening paren "(", or "!" — or is >= 60 chars. (Comma is deliberately NOT
+ *     a separator: legit short titles routinely contain commas, e.g. "New Year,
+ *     Belated Birthday Run" and place names, so splitting on it would truncate
+ *     good titles.)
+ *   - Not rich → the whole cell is a clean label → `{ title }`.
+ *   - Rich → `{ description: <full cell>, title: <leading label if clean> }`.
+ *     The leading label is the segment before the separator; it's only used as
+ *     a title when it passes `isCleanLabel` (2–50 chars, no `!`/`?`, no time
+ *     like `7:30`), otherwise title is left undefined and merge.ts synthesizes
+ *     the "<Kennel> Trail #N" default.
+ *
+ * **Tri-state `description` clear signal** (`columnPresent`): the merge pipeline
+ * treats `description: undefined` as "preserve existing" and `null` as "explicit
+ * clear" (see `feedback_backfill_clear_field_needs_explicit_null` + fingerprint
+ * tri-state). When the Occasion column is PRESENT on the row but yields no rich
+ * description (a clean label or a blank cell), we must emit `null` — otherwise a
+ * source edit from `"Torchlight Run - Run Starts at 7pm!!!"` to `"Torchlight
+ * Run"` (or a cleared cell) would update the title but leave the stale
+ * instruction text on the canonical Event forever. `undefined` is reserved for
+ * the genuinely-absent-column case (a row/columnMap with no Occasion at all).
+ *
+ * Exported for unit testing.
+ */
+const RICH_OCCASION_SEPARATOR = /\s[-–—]\s|\(|!/;
+/** Sentence/instruction punctuation that disqualifies a string as a title. */
+const LABEL_REJECT_PUNCT = /[!?]/;
+/** A time like "7:30" — an instruction, not a title. */
+const LABEL_REJECT_TIME = /\d{1,2}:\d{2}/;
+
+function isCleanLabel(s: string): boolean {
+  return (
+    s.length >= 2 &&
+    s.length <= 50 &&
+    !LABEL_REJECT_PUNCT.test(s) &&
+    !LABEL_REJECT_TIME.test(s)
+  );
+}
+
+export function splitOccasion(
+  raw: string | undefined,
+  columnPresent = true,
+): { title?: string; description?: string | null } {
+  // No rich description from this cell → explicit-clear (null) when the column
+  // is present, preserve (undefined) only when the column is genuinely absent.
+  const emptyDescription = columnPresent ? null : undefined;
+  const occ = raw?.trim();
+  if (!occ) return { title: undefined, description: emptyDescription };
+
+  const sep = RICH_OCCASION_SEPARATOR.exec(occ);
+  const isRich = sep !== null || occ.length >= 60;
+  if (!isRich) return { title: occ, description: emptyDescription };
+
+  const label = (sep ? occ.slice(0, sep.index) : occ).trim();
+  return { title: isCleanLabel(label) ? label : undefined, description: occ };
+}
+
+/**
+ * Recover the true total page count from Yii's "Showing X-Y of TOTAL items"
+ * summary. Yii's LinkPager only renders a windowed set of page links, so on a
+ * long hareline the visible `?page=N` links can stop one short of the real last
+ * page — PH3's page-1 links top out at 89 even though there are 90 pages, so
+ * runs 2498-2500 (page 90) were never fetched (#2085). Per-page = the size of a
+ * full page (Y - X + 1); pages = ceil(TOTAL / perPage). Returns null when the
+ * summary is absent or unparseable, so the caller falls back to the link scan.
+ *
+ * Exported for unit testing.
+ */
+export function extractTotalPagesFromSummary(html: string): number | null {
+  // Strip tags via the shared cheerio-based helper (not a regex) so the match
+  // is independent of the <b>…</b> markup Yii wraps the numbers in
+  // ("Showing <b>1-13</b> of <b>1,160</b> items").
+  const text = stripHtmlTags(html);
+  const m = /Showing\s+([\d,]+)\s*[-–]\s*([\d,]+)\s+of\s+([\d,]+)\s+items/i.exec(text);
+  if (!m) return null;
+  const toNum = (s: string) => Number.parseInt(s.replaceAll(",", ""), 10);
+  const from = toNum(m[1]);
+  const to = toNum(m[2]);
+  const total = toNum(m[3]);
+  // Self-enforce the page-1 contract: per-page is only inferable from a FULL
+  // page, and the only page guaranteed full is the first (`from === 1`). On a
+  // partial last page `to - from + 1` would be the remainder, badly inflating
+  // the page count — so bail to null and let the caller fall back to the link
+  // scan instead.
+  if (from !== 1) return null;
+  const perPage = to - from + 1;
+  if (!Number.isFinite(perPage) || perPage <= 0 || !Number.isFinite(total) || total <= 0) {
+    return null;
+  }
+  return Math.ceil(total / perPage);
+}
+
+/**
+ * Discover the true last page of a Yii hareline from page-1 HTML, taking the
+ * larger of the visible `?page=N` links and the item-count summary (the links
+ * alone can under-count — see `extractTotalPagesFromSummary`).
+ *
+ * Exported for unit testing + the historical backfill script.
+ */
+export function discoverMaxYiiPage(page1Html: string): number {
+  const fromLinks = extractMaxYiiPage(page1Html);
+  const fromSummary = extractTotalPagesFromSummary(page1Html) ?? 0;
+  return Math.max(fromLinks, fromSummary);
+}
+
+/**
  * Parse a single Yii hareline table row into a RawEventData. Returns null
  * when the row is a header row, an empty placeholder, or missing the
  * required run-number + date fields.
@@ -143,7 +261,11 @@ export function parseYiiHarelineRow(
     : rawHare || undefined;
 
   const location = cells[cols.location]?.trim() || undefined;
+  // `columnPresent` distinguishes a blank Occasion cell (clear stale description)
+  // from a row that has no Occasion column at all (preserve) — see splitOccasion.
+  const occasionPresent = cols.occasion < cells.length;
   const occasion = cells[cols.occasion]?.trim() || undefined;
+  const { title, description } = splitOccasion(occasion, occasionPresent);
 
   return {
     date,
@@ -151,7 +273,8 @@ export function parseYiiHarelineRow(
     runNumber,
     hares,
     location,
-    title: occasion && occasion.length > 0 ? occasion : undefined,
+    title,
+    description,
     startTime: config.startTime,
     sourceUrl,
   };
@@ -183,6 +306,26 @@ export function parseYiiHarelinePage(
   });
 
   return events;
+}
+
+/**
+ * Dedupe parsed events by `(runNumber, date)` — runs are unique on that pair
+ * per the Yii schema. Adjacent page tails can overlap if the kennel adds a row
+ * between the page-1 discovery fetch and a later page fetch. Shared by the
+ * recurring adapter and the historical backfill so both dedupe identically.
+ *
+ * Exported for unit testing + the historical backfill script.
+ */
+export function dedupeYiiEvents(events: RawEventData[]): RawEventData[] {
+  const seen = new Set<string>();
+  const deduped: RawEventData[] = [];
+  for (const e of events) {
+    const key = `${e.runNumber ?? ""}|${e.date}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(e);
+  }
+  return deduped;
 }
 
 /**
@@ -223,7 +366,7 @@ export class YiiHarelineAdapter implements SourceAdapter {
     const page1 = await fetchHTMLPage(baseUrl);
     if (!page1.ok) return page1.result;
 
-    const maxPage = extractMaxYiiPage(page1.html);
+    const maxPage = discoverMaxYiiPage(page1.html);
     // Scale pages-to-fetch with the configured window. Yii GridView
     // pages default to 13 rows; weekly kennels produce ~1 run/week
     // so 180 days ≈ 26 runs ≈ 2 pages and 365 days ≈ 52 runs ≈ 4 pages.
@@ -265,17 +408,7 @@ export class YiiHarelineAdapter implements SourceAdapter {
       pagesFetched.push(pageNum);
     }
 
-    // Dedupe by (runNumber, date) — adjacent page tails can overlap if the
-    // kennel adds a row between the page-1 discovery fetch and the last-page
-    // fetch. Runs are unique on (runNumber + date) per Yii schema.
-    const seen = new Set<string>();
-    const deduped: RawEventData[] = [];
-    for (const e of allEvents) {
-      const key = `${e.runNumber ?? ""}|${e.date}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      deduped.push(e);
-    }
+    const deduped = dedupeYiiEvents(allEvents);
 
     return applyDateWindow(
       {
