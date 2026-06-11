@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { generateAliases } from "@/lib/auto-aliases";
+import { checkLogoUrl } from "@/lib/logo-url";
 import { GeocodeButton } from "./GeocodeButton";
 import { geocodeAction } from "@/app/admin/geocode-action";
 
@@ -64,26 +65,20 @@ function triStateDefault(value: boolean | null): string {
 }
 
 /**
- * Client-side mirror of the server `validateLogoUrl` (#1414) — surfaces a
- * warning before submit. Empty or `/relative` is fine; otherwise it must parse
- * as an https URL (http → mixed-content).
+ * Surfaces a logo-URL warning before submit (#1414). Shares the rule with the
+ * server action via `checkLogoUrl`; only the copy is form-specific.
  */
 function logoUrlWarning(value: string): string | null {
-  const trimmed = value.trim();
-  if (!trimmed || trimmed.startsWith("/")) return null;
-  let parsed: URL;
-  try {
-    parsed = new URL(trimmed);
-  } catch {
-    return "Enter a full https:// URL or a site-relative /path";
+  switch (checkLogoUrl(value)) {
+    case "unparseable":
+      return "Enter a full https:// URL or a site-relative /path";
+    case "insecure-http":
+      return "Use https:// — http logos are blocked to avoid mixed-content warnings";
+    case "non-https":
+      return "Only https:// URLs are allowed";
+    default:
+      return null;
   }
-  if (parsed.protocol === "http:") {
-    return "Use https:// — http logos are blocked to avoid mixed-content warnings";
-  }
-  if (parsed.protocol !== "https:") {
-    return "Only https:// URLs are allowed";
-  }
-  return null;
 }
 
 /** Collapsible section used in the kennel form. */
@@ -169,6 +164,7 @@ export function KennelForm({ kennel, regions, trigger }: Readonly<KennelFormProp
   const router = useRouter();
 
   const selectedRegion = regions.find((r) => r.id === selectedRegionId);
+  const logoWarning = logoUrlWarning(logoUrl);
 
   function addAlias() {
     const trimmed = aliasInput.trim();
@@ -713,9 +709,9 @@ export function KennelForm({ kennel, regions, trigger }: Readonly<KennelFormProp
                     </Button>
                   )}
                 </div>
-                {logoUrlWarning(logoUrl) && (
+                {logoWarning && (
                   <p className="text-xs text-yellow-600 dark:text-yellow-500">
-                    {logoUrlWarning(logoUrl)}
+                    {logoWarning}
                   </p>
                 )}
               </div>

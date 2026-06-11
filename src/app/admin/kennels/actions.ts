@@ -10,6 +10,7 @@ import { toSlug, toKennelCode } from "@/lib/kennel-utils";
 import { generateAliases } from "@/lib/auto-aliases";
 import { ensureKennelLabel, deleteKennelLabel } from "@/pipeline/kennel-label-sync";
 import { regionNameToSlug, regionSlug } from "@/lib/region";
+import { checkLogoUrl } from "@/lib/logo-url";
 
 /**
  * Bust the ISR-cached region landing page (`/kennels/region/[slug]`, which sets
@@ -83,20 +84,18 @@ function extractProfileFields(formData: FormData) {
  * must be a site-relative `/path` or a full `https://` URL — `http://` and other
  * schemes are rejected so the public profile (served over https) never shows a
  * mixed-content/broken logo. Returns an error message, or null when valid.
+ * Shares the underlying rule with the admin form via `checkLogoUrl`.
  */
 function validateLogoUrl(value: unknown): string | null {
-  if (typeof value !== "string" || value.length === 0) return null;
-  if (value.startsWith("/")) return null;
-  let parsed: URL;
-  try {
-    parsed = new URL(value);
-  } catch {
-    return "Logo URL must be a full https:// URL or a site-relative /path";
+  if (typeof value !== "string") return null;
+  switch (checkLogoUrl(value)) {
+    case "ok":
+      return null;
+    case "unparseable":
+      return "Logo URL must be a full https:// URL or a site-relative /path";
+    default:
+      return "Logo URL must use https:// (http is blocked to avoid mixed-content warnings)";
   }
-  if (parsed.protocol !== "https:") {
-    return "Logo URL must use https:// (http is blocked to avoid mixed-content warnings)";
-  }
-  return null;
 }
 
 /** Resolve region name from regionId, falling back to the raw form value. */
