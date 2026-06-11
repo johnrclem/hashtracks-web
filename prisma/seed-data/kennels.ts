@@ -216,6 +216,12 @@ export const KENNELS: KennelSeed[] = [
       contactEmail: "flourcitymismanagement@gmail.com",
       scheduleDayOfWeek: "Sunday", scheduleFrequency: "Weekly", scheduleTime: "1:09 PM",
       scheduleNotes: "Thursdays 6:09 PM (Apr-Sep); Sundays 1:09 PM (Oct-Mar).",
+      // Travel-prediction fix: seasonal swap (summer Thu / winter Sun) per the note + independent
+      // history; the prior flat Sunday rule mis-projected the summer Thursday season.
+      scheduleRules: [
+        { rrule: "FREQ=WEEKLY;BYDAY=TH", startTime: "18:09", label: "Summer", validFrom: "04-01", validUntil: "09-30", displayOrder: 0 },
+        { rrule: "FREQ=WEEKLY;BYDAY=SU", startTime: "13:09", label: "Winter", validFrom: "10-01", validUntil: "03-31", displayOrder: 1 },
+      ],
       hashCash: "$5", foundedYear: 1988,
       description: "Weekly hash in Rochester with seasonal schedule: Thursday evenings in summer, Sunday afternoons in winter.",
       latitude: 43.16, longitude: -77.61,
@@ -256,7 +262,13 @@ export const KENNELS: KennelSeed[] = [
       instagramHandle: "bostonh3",
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Monthly",
     },
-    { kennelCode: "beantown", shortName: "Beantown", fullName: "Beantown City Hash House Harriers", region: "Boston, MA", hashCash: "$5", contactEmail: "HashCash@beantown.cityhash.org" },
+    {
+      kennelCode: "beantown", shortName: "Beantown", fullName: "Beantown City Hash House Harriers", region: "Boston, MA", hashCash: "$5", contactEmail: "HashCash@beantown.cityhash.org",
+      // Travel-prediction fix: previously dark (no rule). Independent history is ~weekly Sunday
+      // (recently shifted from Wednesday). Revisit if it reverts.
+      scheduleDayOfWeek: "Sunday", scheduleFrequency: "Weekly",
+      scheduleRules: [{ rrule: "FREQ=WEEKLY;BYDAY=SU" }],
+    },
     {
       kennelCode: "bos-moon", shortName: "Boston Moon", fullName: "Boston Moon Hash House Harriers", region: "Boston, MA",
       scheduleFrequency: "Full Moon",
@@ -371,8 +383,11 @@ export const KENNELS: KennelSeed[] = [
     // New Jersey
     {
       kennelCode: "summit", shortName: "Summit", fullName: "Summit Hash House Harriers", region: "North NJ",
-      scheduleDayOfWeek: "Monday", scheduleTime: "7:00 PM", scheduleFrequency: "Weekly",
-      scheduleNotes: "Summer: Mondays 7pm. Winter: Saturdays 3pm.",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "3:00 PM", scheduleFrequency: "Weekly",
+      // Travel-prediction fix: independent history is ~weekly Saturday year-round (23/24 recent
+      // runs); the old "summer Monday" note was stale. Was scheduleDayOfWeek "Monday".
+      scheduleRules: [{ rrule: "FREQ=WEEKLY;BYDAY=SA", startTime: "15:00" }],
+      scheduleNotes: "Saturdays, ~3 PM.",
     },
     {
       kennelCode: "sfm", shortName: "Summit Full Moon", fullName: "Summit Full Moon H3", region: "North NJ",
@@ -685,6 +700,7 @@ export const KENNELS: KennelSeed[] = [
       contactEmail: "hareraiser@ebh3.com",
       mailingListUrl: "https://mail.ebh3.com/mailman/listinfo/ebh3-hashers",
       scheduleDayOfWeek: "Sunday", scheduleTime: "1:00 PM", scheduleFrequency: "Biweekly",
+      scheduleRules: [{ rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SU", anchorDate: "2026-06-07", startTime: "13:00" }],
       hashCash: "$6",
       foundedYear: 1979,
       description: "One of the longest-running active hashes in the U.S., founded in 1979 (originally as the Alamo H3). Biweekly Sunday afternoon runs through East Bay open-space and parks, usually live trails, with circle and on-on-on at a nearby pub afterwards.",
@@ -962,6 +978,7 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "sloh3", shortName: "SLOH3", fullName: "San Luis Obispo Hash House Harriers", region: "San Luis Obispo, CA",
       scheduleDayOfWeek: "Saturday", scheduleTime: "2:15 PM", scheduleFrequency: "Biweekly",
+      scheduleRules: [{ rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA", anchorDate: "2026-05-30", startTime: "14:15" }],
       description: "San Luis Obispo biweekly Saturday afternoon hash.",
       latitude: 35.28, longitude: -120.66,
     },
@@ -1174,6 +1191,7 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "sh3-de", shortName: "Stuttgart H3", fullName: "Stuttgart Hash House Harriers", region: "Stuttgart", country: "Germany",
       website: "https://www.stuttgarthash.de",
       scheduleDayOfWeek: "Sunday", scheduleTime: "2:00 PM", scheduleFrequency: "Biweekly",
+      scheduleRules: [{ rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SU", anchorDate: "2026-05-31", startTime: "14:00" }],
       description: "Stuttgart's biweekly Sunday afternoon hash.",
       latitude: 48.78, longitude: 9.18,
     },
@@ -1416,6 +1434,7 @@ export const KENNELS: KennelSeed[] = [
       website: "https://sites.google.com/view/ft-eustis-h3/",
       facebookUrl: "https://www.facebook.com/groups/forteustish3/",
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly", scheduleTime: "3:00 PM",
+      scheduleRules: [{ rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA", anchorDate: "2026-06-06", startTime: "15:00" }],
       hashCash: "$5", foundedYear: 1971,
       description: "Oldest continuously running hash in the US, est. 1971. Biweekly Saturdays in the Hampton Roads area.",
       latitude: 37.09, longitude: -76.43,
@@ -1500,6 +1519,7 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "ch3-nc", shortName: "Charlotte H3", fullName: "Charlotte Hash House Harriers", region: "Charlotte, NC",
       facebookUrl: "https://www.facebook.com/groups/CharlotteH3/",
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly", scheduleTime: "2:00 PM",
+      scheduleRules: [{ rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA", anchorDate: "2026-05-30", startTime: "14:00" }],
       hashCash: "$10", foundedYear: 1992,
       description: "Biweekly Saturday runs in Charlotte.",
       latitude: 35.23, longitude: -80.84,
@@ -1590,6 +1610,7 @@ export const KENNELS: KennelSeed[] = [
       facebookUrl: "https://www.facebook.com/groups/teambrassmonkey/",
       foundedYear: 2010,
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly",
+      scheduleRules: [{ rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA", anchorDate: "2026-06-06" }],
       description: "Biweekly Saturday runs in the Houston area.",
       latitude: 30.04, longitude: -95.46,
     },
@@ -1626,7 +1647,9 @@ export const KENNELS: KennelSeed[] = [
     },
     {
       kennelCode: "space-city-h3", shortName: "Space City H3", fullName: "Space City Hash House Harriers", region: "Houston, TX",
-      scheduleFrequency: "Irregular",
+      scheduleDayOfWeek: "Tuesday", scheduleFrequency: "Biweekly",
+      // Travel-prediction fix: dark kennel (no rule) → biweekly Tuesday from independent history.
+      scheduleRules: [{ rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=TU", anchorDate: "2026-06-09" }],
       description: "Houston area Space City hash.",
       latitude: 29.76, longitude: -95.37,
     },
@@ -1663,6 +1686,7 @@ export const KENNELS: KennelSeed[] = [
       facebookUrl: "https://www.facebook.com/groups/1645429635716687",
       contactName: "Martha F. Stewart",
       scheduleDayOfWeek: "Monday", scheduleFrequency: "Biweekly",
+      scheduleRules: [{ rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=MO", anchorDate: "2026-06-01" }],
       hashCash: "$7.00",
       description: "Biweekly Monday runs north of Dallas.",
       latitude: 33.02, longitude: -96.70,
@@ -1671,6 +1695,7 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "fwh3", shortName: "Fort Worth H3", fullName: "Fort Worth Hash House Harriers", region: "Dallas-Fort Worth, TX",
       website: "http://www.dfwhhh.org",
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly",
+      scheduleRules: [{ rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA", anchorDate: "2026-06-06" }],
       scheduleNotes: "Every other Saturday afternoon; 3 PM during DST, 2 PM in winter. A beer stop is provided on trail.",
       hashCash: "$7 drinkers / $5 non-drinkers",
       foundedYear: 1987,
@@ -2001,6 +2026,7 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "ph3-atl", shortName: "Pinelake H3", fullName: "Pinelake Hash House Harriers", region: "Atlanta, GA",
       scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Biweekly",
+      scheduleRules: [{ rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA", anchorDate: "2026-06-06", startTime: "14:00" }],
       description: "Alternate Saturday runs in the Atlanta metro area.",
     },
     {
@@ -2011,6 +2037,7 @@ export const KENNELS: KennelSeed[] = [
       // parking) — leaving website blank rather than pointing at the umbrella site.
       kennelCode: "bsh3", shortName: "Black Sheep", fullName: "Black Sheep Hash House Harriers", region: "Atlanta, GA",
       scheduleDayOfWeek: "Sunday", scheduleTime: "1:00 PM", scheduleFrequency: "Biweekly",
+      scheduleRules: [{ rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SU", anchorDate: "2026-05-31", startTime: "13:00" }],
       hashCash: "$10",
       description: "Alternate Sunday high-shiggy trails in Atlanta — also known as Rainbow Sheep, where any color of the rainbow is fine as long as it's black. Come for the shiggy; stay for more shiggy. Hash cash $10.",
     },
@@ -2265,6 +2292,7 @@ export const KENNELS: KennelSeed[] = [
       website: "https://stumptownh3.wordpress.com/",
       facebookUrl: "https://www.facebook.com/groups/stumptownh3",
       scheduleDayOfWeek: "Tuesday", scheduleTime: "6:30 PM", scheduleFrequency: "Biweekly",
+      scheduleRules: [{ rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=TU", anchorDate: "2026-06-02", startTime: "18:30" }],
       description: "Portland's bi-weekly Tuesday evening hash. Gather at 6:30, hares away at 7, pack follows at 7:15.",
       latitude: 45.52, longitude: -122.68,
     },
@@ -2402,6 +2430,7 @@ export const KENNELS: KennelSeed[] = [
       contactEmail: "cnthh3@gmail.com",
       logoUrl: "https://wh3.org/img/icons/CUNTHH3.png",
       scheduleDayOfWeek: "Thursday", scheduleFrequency: "Biweekly",
+      scheduleRules: [{ rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=TH", anchorDate: "2026-06-04" }],
       scheduleNotes: "Twice monthly Thursday. Transit-friendly, light shiggy.",
       hashCash: "$7", foundedYear: 2022,
       description: "Seattle-area transit-friendly hash with light shiggy. Runs twice monthly on Thursdays.",
@@ -2545,6 +2574,7 @@ export const KENNELS: KennelSeed[] = [
       website: "http://www.cspringsh3.com", // NOSONAR — source is HTTP-only; HTTPS returns ERR_SSL_VERSION_OR_CIPHER_MISMATCH (#1380)
       facebookUrl: "https://www.facebook.com/groups/2147541855493092/",
       scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Biweekly",
+      scheduleRules: [{ rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA", anchorDate: "2026-05-30", startTime: "14:00" }],
       scheduleNotes: "Alternating Saturdays with PPH4",
       foundedYear: 2002,
       description: "Colorado Springs biweekly Saturday afternoon hash, alternating weeks with Pikes Peak. Founded in 2002 by Yongsan Kimchi H3 (Korea) alumni to offset PPH4 with a Saturday hash; name lineage from the original Seoul Kimchi kennel.",
@@ -2637,6 +2667,7 @@ export const KENNELS: KennelSeed[] = [
       hashCash: "$1",
       foundedYear: 2006,
       scheduleDayOfWeek: "Wednesday", scheduleTime: "6:30 PM", scheduleFrequency: "Biweekly",
+      scheduleRules: [{ rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=WE", anchorDate: "2026-06-03", startTime: "18:30" }],
       scheduleNotes: "1st & 3rd Wednesdays. Start time varies seasonally (6:36 PM fall/winter, 6:54 PM spring/summer). 21+ only.",
       description: "Phoenix biweekly Wednesday evening hash.",
       latitude: 33.45, longitude: -112.07,
@@ -2765,6 +2796,7 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "qch4", shortName: "Queen City H4", fullName: "Queen City Hash House Harriers and Harriettes", region: "Cincinnati, OH",
       facebookUrl: "https://www.facebook.com/groups/795791177265728/",
       scheduleDayOfWeek: "Tuesday", scheduleFrequency: "Biweekly", scheduleTime: "7:00 PM",
+      scheduleRules: [{ rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=TU", anchorDate: "2026-06-02", startTime: "19:00" }],
       description: "Cincinnati secondary kennel. Biweekly Tuesday evening runs.",
       latitude: 39.10, longitude: -84.51,
     },
@@ -2822,6 +2854,9 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "mh3-de", shortName: "MH3", fullName: "Munich Hash House Harriers", region: "Munich", country: "Germany",
       website: "https://mh3.beer",
       scheduleDayOfWeek: "Saturday", scheduleTime: "3:00 PM", scheduleFrequency: "Biweekly",
+      // Travel-prediction fix: promote biweekly LOW sentinel → anchored projectable rule.
+      // Anchor = most recent independent Saturday run (prod). See docs/audits/rule-fix-proposals-2026-06-11.
+      scheduleRules: [{ rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA", anchorDate: "2026-06-06", startTime: "15:00" }],
       hashCash: "€5",
       description: "Munich's biweekly Saturday afternoon hash.",
       latitude: 48.14, longitude: 11.58,
@@ -2848,7 +2883,10 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "fh3", shortName: "FH3", fullName: "Frankfurt Hash House Harriers", region: "Frankfurt", country: "Germany",
       website: "https://frankfurt-hash.de",
-      scheduleDayOfWeek: "Sunday", scheduleTime: "2:30 PM", scheduleFrequency: "Biweekly",
+      scheduleDayOfWeek: "Thursday", scheduleFrequency: "Weekly",
+      // Travel-prediction fix: schedule changed Sun(biweekly)→Thu(weekly) in summer 2026 per
+      // independent history (was scheduleDayOfWeek "Sunday", Biweekly). Revisit if it reverts in winter.
+      scheduleRules: [{ rrule: "FREQ=WEEKLY;BYDAY=TH" }],
       hashCash: "€5",
       description: "Frankfurt's biweekly Sunday afternoon hash. Run #2114+ and counting.",
       latitude: 50.11, longitude: 8.68,
@@ -3089,7 +3127,9 @@ export const KENNELS: KennelSeed[] = [
       logoUrl: "/kennel-logos/bmph3.jpg",
       facebookUrl: "https://www.facebook.com/groups/BMPH3",
       contactEmail: "bmph3.onon@gmail.com",
-      scheduleDayOfWeek: "Sunday", scheduleTime: "3:00 PM", scheduleFrequency: "Weekly",
+      scheduleDayOfWeek: "Friday", scheduleFrequency: "Weekly",
+      // Travel-prediction fix: independent history is ~weekly Friday (was scheduleDayOfWeek "Sunday").
+      scheduleRules: [{ rrule: "FREQ=WEEKLY;BYDAY=FR" }],
       scheduleNotes: "14:00 winter / 15:00 summer",
       foundedYear: 1980,
       description: "Brussels' weekly Sunday hash. Meets year-round at 14:00 (winter) or 15:00 (summer) for pre-laid trails in and around Brussels.",
@@ -3288,6 +3328,12 @@ export const KENNELS: KennelSeed[] = [
       contactEmail: "mismanagement@haguehash.nl",
       scheduleFrequency: "Weekly",
       scheduleNotes: "Winter: Sunday 14:00, Summer: Wednesday 19:00",
+      // Travel-prediction fix: previously dark (no rule). Seasonal swap per the note + independent
+      // history (summer Wed / winter Sun).
+      scheduleRules: [
+        { rrule: "FREQ=WEEKLY;BYDAY=WE", startTime: "19:00", label: "Summer", validFrom: "04-01", validUntil: "09-30", displayOrder: 0 },
+        { rrule: "FREQ=WEEKLY;BYDAY=SU", startTime: "14:00", label: "Winter", validFrom: "10-01", validUntil: "03-31", displayOrder: 1 },
+      ],
       hashCash: "€7",
       description: "The Hague's weekly hash — Sundays at 14:00 in winter, Wednesdays at 19:00 in summer. Run fee includes beer and snacks.",
       latitude: 52.08, longitude: 4.30,
@@ -3806,6 +3852,7 @@ export const KENNELS: KennelSeed[] = [
       scheduleDayOfWeek: "Sunday",
       scheduleFrequency: "Biweekly",
       scheduleTime: "4:30 PM",
+      scheduleRules: [{ rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SU", anchorDate: "2026-05-31", startTime: "16:30" }],
       scheduleNotes: "Alternate Sundays at 4:30 PM. The kids' hash — families run together with the children leading the pack. Schedule maintained on the hareline page at hashhousehorrors.com/hareline.",
       foundedYear: 1993,
       description: "Singapore's children's hash. Families bring their kids out to chase flour around Singapore parks and forests every other Sunday afternoon. Founded in the early 1990s; celebrated its 1000th hash on September 21, 2025.",
@@ -4625,6 +4672,7 @@ export const KENNELS: KennelSeed[] = [
       website: "https://www.whoremanh3.com",
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly",
       scheduleTime: "10:45 AM",
+      scheduleRules: [{ rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA", anchorDate: "2026-05-30", startTime: "10:45" }],
       scheduleNotes: "Every other Saturday at 10:45 AM. Part of the Whoreman H3 umbrella in SLC.",
       description: "Salt Lake City's biweekly Saturday hash. Part of the Whoreman H3 network covering all SLC hashing.",
       latitude: 40.76, longitude: -111.89,
