@@ -245,8 +245,11 @@ describe("parseYiiHarelinePage", () => {
 });
 
 describe("dedupeYiiEvents", () => {
-  const ev = (runNumber: number, date: string): RawEventData =>
-    ({ runNumber, date, kennelTags: ["ph3-my"] }) as RawEventData;
+  const ev = (runNumber: number, date: string): RawEventData => ({
+    runNumber,
+    date,
+    kennelTags: ["ph3-my"],
+  });
 
   it("drops duplicate (runNumber, date) pairs, keeping the first", () => {
     const out = dedupeYiiEvents([ev(2479, "2026-04-11"), ev(2479, "2026-04-11"), ev(2480, "2026-04-18")]);

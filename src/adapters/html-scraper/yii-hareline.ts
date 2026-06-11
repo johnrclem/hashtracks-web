@@ -198,7 +198,7 @@ export function extractTotalPagesFromSummary(html: string): number | null {
   const text = stripHtmlTags(html);
   const m = /Showing\s+([\d,]+)\s*[-–]\s*([\d,]+)\s+of\s+([\d,]+)\s+items/i.exec(text);
   if (!m) return null;
-  const toNum = (s: string) => Number.parseInt(s.replace(/,/g, ""), 10);
+  const toNum = (s: string) => Number.parseInt(s.replaceAll(",", ""), 10);
   const from = toNum(m[1]);
   const to = toNum(m[2]);
   const total = toNum(m[3]);
