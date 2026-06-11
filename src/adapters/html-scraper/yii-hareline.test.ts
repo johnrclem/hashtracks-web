@@ -1,11 +1,16 @@
 import * as cheerio from "cheerio";
 import {
   buildYiiPageUrl,
+  dedupeYiiEvents,
+  discoverMaxYiiPage,
   extractMaxYiiPage,
+  extractTotalPagesFromSummary,
   parseYiiHarelineDate,
   parseYiiHarelinePage,
   parseYiiHarelineRow,
+  splitOccasion,
 } from "./yii-hareline";
+import type { RawEventData } from "../types";
 
 describe("parseYiiHarelineDate", () => {
   it("parses 04 Jan 2003", () => {
@@ -41,6 +46,82 @@ describe("extractMaxYiiPage", () => {
   });
 });
 
+describe("extractTotalPagesFromSummary", () => {
+  // Contract: called on PAGE 1, where the X-Y range is a full page so per-page
+  // is inferred correctly. (On a partial last page the inference would be off,
+  // but the adapter + backfill always pass page-1 HTML.)
+  it("computes pages from the 'Showing X-Y of TOTAL items' summary", () => {
+    // PH3: 13 per page, 1,160 items → 90 pages (links alone stop at 89, #2085).
+    expect(
+      extractTotalPagesFromSummary(`<div>Showing <b>1-13</b> of <b>1,160</b> items</div>`),
+    ).toBe(90);
+  });
+  it("handles a plain-text (un-bolded) summary", () => {
+    // 12 per page, 144 items → 12 pages (KL Full Moon scale).
+    expect(extractTotalPagesFromSummary(`Showing 1-12 of 144 items`)).toBe(12);
+  });
+  it("returns null when no summary present", () => {
+    expect(extractTotalPagesFromSummary("<html></html>")).toBeNull();
+  });
+});
+
+describe("discoverMaxYiiPage", () => {
+  it("takes the summary count when it exceeds the visible page links (#2085)", () => {
+    // Links top out at 89 but the summary says 90 pages.
+    const html = `<a href="?r=site/hareline&page=89">89</a>
+      <div>Showing <b>1-13</b> of <b>1,160</b> items</div>`;
+    expect(discoverMaxYiiPage(html)).toBe(90);
+  });
+  it("falls back to link scan when no summary is present", () => {
+    expect(discoverMaxYiiPage(`<a href="?page=14">14</a>`)).toBe(14);
+  });
+});
+
+describe("splitOccasion", () => {
+  it("returns {} for empty / whitespace", () => {
+    expect(splitOccasion(undefined)).toEqual({});
+    expect(splitOccasion("")).toEqual({});
+    expect(splitOccasion("   ")).toEqual({});
+  });
+
+  it.each([
+    // [occasion, expectedTitle] — short clean labels → title only, no description
+    ["Christmas Run", "Christmas Run"],
+    ["CNY Run", "CNY Run"],
+    ["Silver Centum Run", "Silver Centum Run"],
+    ["Merdeka Run", "Merdeka Run"],
+    ["New Year & Belated Birthday Run", "New Year & Belated Birthday Run"],
+    ["7-Eleven Run", "7-Eleven Run"], // bare hyphen (no spaces) is not a separator
+    ["St. George's Day", "St. George's Day"],
+    ["Interhowl / SHOT", "Interhowl / SHOT"], // KLFM — slash is not a separator
+    ["Mother's 80th preamble", "Mother's 80th preamble"], // KLFM
+  ])("treats %j as a pure label title", (occasion, expected) => {
+    expect(splitOccasion(occasion)).toEqual({ title: expected });
+  });
+
+  it.each([
+    // [occasion, expectedTitle] — prose/instructions: full string → description,
+    // leading clean label → title
+    ["Torchlight Run - Run Starts at 7pm!!!", "Torchlight Run"],
+    ["The X Run (Guest Fee Rm80 including On-On)", "The X Run"],
+    ["JM's Run - Run starts at 5:30pm - headtorch is mandatory!", "JM's Run"],
+    ["Outstation Run - there is NO LOCAL RUN this weekend", "Outstation Run"],
+  ])("splits rich occasion %j into title + description", (occasion, expectedTitle) => {
+    expect(splitOccasion(occasion)).toEqual({ title: expectedTitle, description: occasion });
+  });
+
+  it("leaves title undefined when the leading label is not clean (time-only)", () => {
+    const occ = "Run starts at 5:30pm - headtorch is mandatory!";
+    expect(splitOccasion(occ)).toEqual({ title: undefined, description: occ });
+  });
+
+  it("treats a >=60-char label-shaped cell as description only (no title)", () => {
+    const occ = "A very long single-clause occasion string that is well over sixty chars";
+    expect(occ.length).toBeGreaterThanOrEqual(60);
+    expect(splitOccasion(occ)).toEqual({ title: undefined, description: occ });
+  });
+});
+
 describe("parseYiiHarelineRow", () => {
   const config = {
     kennelTag: "ph3-my",
@@ -67,10 +148,35 @@ describe("parseYiiHarelineRow", () => {
     expect(event?.kennelTags[0]).toBe("ph3-my");
   });
 
-  it("extracts title from Occasion column", () => {
+  it("extracts a clean label Occasion into title (no description)", () => {
     const cells = ["2480", "18 Apr 2026", "Barry Sage", "Bukit Bayu", "St. George's Day"];
     const event = parseYiiHarelineRow(cells, config, "x");
     expect(event?.title).toBe("St. George's Day");
+    expect(event?.description).toBeUndefined();
+  });
+
+  it("routes a prose/instruction Occasion into description with a label title", () => {
+    const cells = ["2485", "23 May 2026", "Wim", "Somewhere", "Torchlight Run - Run Starts at 7pm!!!"];
+    const event = parseYiiHarelineRow(cells, config, "x");
+    expect(event?.title).toBe("Torchlight Run");
+    expect(event?.description).toBe("Torchlight Run - Run Starts at 7pm!!!");
+  });
+
+  it("leaves title + description undefined when Occasion is blank", () => {
+    const cells = ["2479", "11 Apr 2026", "Raymond Lai", "Pantai Remis", ""];
+    const event = parseYiiHarelineRow(cells, config, "x");
+    expect(event?.title).toBeUndefined();
+    expect(event?.description).toBeUndefined();
+  });
+
+  it("parses a KL Full Moon row (Occasion → title, additive)", () => {
+    const klfm = { kennelTag: "klfmh3", startTime: "18:00" };
+    const cells = ["144", "12 Sep 2026", "Cougar", "Kuala Lumpur", "Interhowl / SHOT"];
+    const event = parseYiiHarelineRow(cells, klfm, "https://klfullmoonhash.com/index.php?r=site/hareline");
+    expect(event?.runNumber).toBe(144);
+    expect(event?.kennelTags[0]).toBe("klfmh3");
+    expect(event?.title).toBe("Interhowl / SHOT");
+    expect(event?.description).toBeUndefined();
   });
 
   it("drops placeholder rows with run number 0", () => {
@@ -119,6 +225,21 @@ describe("parseYiiHarelinePage", () => {
     const events = parseYiiHarelinePage($, { kennelTag: "ph3-my" }, "https://ph3.org");
     expect(events).toHaveLength(2);
     expect(events.map((e) => e.runNumber)).toEqual([2479, 2480]);
+  });
+});
+
+describe("dedupeYiiEvents", () => {
+  const ev = (runNumber: number, date: string): RawEventData =>
+    ({ runNumber, date, kennelTags: ["ph3-my"] }) as RawEventData;
+
+  it("drops duplicate (runNumber, date) pairs, keeping the first", () => {
+    const out = dedupeYiiEvents([ev(2479, "2026-04-11"), ev(2479, "2026-04-11"), ev(2480, "2026-04-18")]);
+    expect(out.map((e) => e.runNumber)).toEqual([2479, 2480]);
+  });
+
+  it("keeps same run number on different dates (re-run / reschedule)", () => {
+    const out = dedupeYiiEvents([ev(2479, "2026-04-11"), ev(2479, "2026-04-18")]);
+    expect(out).toHaveLength(2);
   });
 });
 

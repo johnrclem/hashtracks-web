@@ -12,7 +12,6 @@ import {
   normalizeHaresField,
   parse12HourTime,
   stripHtmlTags,
-  trimEdgeChars,
 } from "../utils";
 
 /**
@@ -20,10 +19,12 @@ import {
  *
  * Each weekly run is a "Bali Hash 2 Next Run Map - #NNNN - <location> - D-MMM-YY"
  * post. The home-page listing card carries Run / Date / start time / Location in
- * its excerpt; the detail page additionally exposes `GPS:` coords and `Hares:`.
- * The `Occasion:` line is the club slogan ("WE START TOGETHER - WE DRINK
- * TOGETHER"), never a per-run theme, so it is deliberately ignored — titles are
- * left undefined for merge.ts to synthesize `Bali Hash 2 Trail #N`.
+ * its excerpt; the detail page additionally exposes `GPS:` coords, `Hares:`, and
+ * an `Occasion:` line. The `Occasion:` is the per-run theme ("Made in USSR") and
+ * is used as the event `title` (#2116). Some runs carry the club slogan
+ * ("WE START TOGETHER - WE DRINK TOGETHER") there instead — those are filtered
+ * out, leaving `title` undefined for merge.ts to synthesize `Bali Hash 2 Trail
+ * #N`. The location is NOT used as a title — it stays in `locationName` only.
  *
  * Parsing is split into pure exported helpers (`parseListingCards`,
  * `parseDetailFields`) so the one-shot history backfill
@@ -62,46 +63,9 @@ export interface BaliListingEntry {
   date?: string;
   startTime?: string;
   location?: string;
-  /** Run descriptor from the post title (the location name the source titles
-   *  the post with) — `undefined` when the title doesn't parse. See #1838. */
-  title?: string;
   url: string;
   /** DOM order on the listing (0 = newest, reverse-chronological). */
   domIndex: number;
-}
-
-/** Edge characters trimmed off a parsed title segment (separators + space). */
-const TITLE_EDGE_CHARS = " \t\n-–—:";
-
-/**
- * Parse the descriptive run title from a post title of the form
- *   `Bali Hash 2 Next Run Map - #NNNN - <location> - D-MMM-YY`
- * Returns the `<location>` middle segment (the source's own per-run descriptor)
- * or undefined. Without this the adapter discards the title and merge.ts
- * synthesizes the placeholder "Bali Hash 2 Trail #N" (#1838). Implemented with
- * index slicing + `RUN_DATE_RE` (no `.*?`/`\s*` alternation) to stay S5852-safe.
- */
-export function parseBaliTitle(postTitle: string): string | undefined {
-  const hash = /#\d+/.exec(postTitle);
-  if (hash?.index === undefined) return undefined;
-  let rest = postTitle.slice(hash.index + hash[0].length);
-  // Drop the trailing ` - D-MMM-YY` date the source appends. Two guards so a
-  // location containing a date-like token (e.g. "Pura 12-Marching-26 …") can't
-  // be wrongly truncated: (1) the matched month must be a real month
-  // (VALID_MONTHS — same check as parseBaliDate), and (2) the match must be the
-  // trailing token (nothing but separators after it), since the date is always
-  // last in the post title.
-  const date = RUN_DATE_RE.exec(rest);
-  if (
-    date &&
-    date.index !== undefined &&
-    VALID_MONTHS.has(date[2].toLowerCase()) &&
-    rest.slice(date.index + date[0].length).trim() === ""
-  ) {
-    rest = rest.slice(0, date.index);
-  }
-  const cleaned = trimEdgeChars(rest, TITLE_EDGE_CHARS);
-  return cleaned.length > 0 ? cleaned : undefined;
 }
 
 /** Detail-page enrichment fields. */
@@ -112,7 +76,14 @@ export interface BaliDetailFields {
   location?: string;
   startTime?: string;
   date?: string;
+  /** Per-run theme from the `Occasion:` line → event title (#2116). The club
+   *  slogan is filtered out, leaving this undefined. */
+  occasion?: string;
 }
+
+/** The club motto that appears on the `Occasion:` line of some posts — it is a
+ *  slogan, not a per-run theme, so it must never become a title (#2116). */
+const BALI_SLOGAN_RE = /we start together|we drink together/i;
 
 /** Parse `30-May-26` → `2026-05-30`. Normalizes hyphens to spaces so the
  *  chrono `D MMM YY` fast-path fires (avoids the single-digit-day mis-parse). */
@@ -181,7 +152,6 @@ export function parseListingCards(html: string): BaliListingEntry[] {
       date: parseBaliDate(excerpt) ?? parseBaliDate(title),
       startTime: parseStartTime(excerpt),
       location: parseLocation(excerpt),
-      title: parseBaliTitle(title),
       url,
       domIndex: domIndex++,
     });
@@ -214,6 +184,15 @@ export function parseDetailFields(html: string): BaliDetailFields {
   if (hareMatch) {
     const hares = normalizeHaresField(hareMatch[1].trim());
     if (hares) fields.hares = hares;
+  }
+
+  // Occasion → title (#2116). Skip the club slogan and any too-short fragment.
+  const occasionMatch = /Occasion:\s*([^\n]+)/i.exec(text);
+  if (occasionMatch) {
+    const occasion = occasionMatch[1].trim();
+    if (occasion.length >= 2 && !BALI_SLOGAN_RE.test(occasion)) {
+      fields.occasion = occasion;
+    }
   }
 
   const gps = /GPS:\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/i.exec(text);
@@ -269,9 +248,11 @@ export function buildEvent(entry: BaliListingEntry, detail: BaliDetailFields | n
     date: entry.date!,
     kennelTags: [KENNEL_TAG],
     runNumber: entry.runNumber,
-    // Descriptor from the post title (#1838); undefined → merge.ts synthesizes
-    // "Bali Hash 2 Trail #N".
-    title: entry.title,
+    // Per-run theme from the detail page `Occasion:` line (#2116). Only the
+    // detail page carries it, so listing-only entries (beyond the detail-fetch
+    // cap, or no/slogan Occasion) leave this undefined → merge.ts synthesizes
+    // "Bali Hash 2 Trail #N". The venue is never used as a title.
+    title: detail?.occasion,
     startTime: detail?.startTime ?? entry.startTime,
     location,
     locationUrl: location ? googleMapsSearchUrl(location) : undefined,
