@@ -78,14 +78,21 @@ describe("discoverMaxYiiPage", () => {
 });
 
 describe("splitOccasion", () => {
-  it("returns {} for empty / whitespace", () => {
-    expect(splitOccasion(undefined)).toEqual({});
-    expect(splitOccasion("")).toEqual({});
-    expect(splitOccasion("   ")).toEqual({});
+  it("emits description:null for a blank cell when the column is PRESENT (clear stale)", () => {
+    // Column present but empty → explicit clear so a prior scrape's description
+    // can't linger after the source removes the Occasion.
+    expect(splitOccasion("")).toEqual({ title: undefined, description: null });
+    expect(splitOccasion("   ")).toEqual({ title: undefined, description: null });
+    expect(splitOccasion(undefined)).toEqual({ title: undefined, description: null });
+  });
+
+  it("emits description:undefined when the column is genuinely ABSENT (preserve)", () => {
+    expect(splitOccasion(undefined, false)).toEqual({ title: undefined, description: undefined });
+    expect(splitOccasion("", false)).toEqual({ title: undefined, description: undefined });
   });
 
   it.each([
-    // [occasion, expectedTitle] — short clean labels → title only, no description
+    // [occasion, expectedTitle] — short clean labels → title + description cleared
     ["Christmas Run", "Christmas Run"],
     ["CNY Run", "CNY Run"],
     ["Silver Centum Run", "Silver Centum Run"],
@@ -95,8 +102,9 @@ describe("splitOccasion", () => {
     ["St. George's Day", "St. George's Day"],
     ["Interhowl / SHOT", "Interhowl / SHOT"], // KLFM — slash is not a separator
     ["Mother's 80th preamble", "Mother's 80th preamble"], // KLFM
-  ])("treats %j as a pure label title", (occasion, expected) => {
-    expect(splitOccasion(occasion)).toEqual({ title: expected });
+  ])("treats %j as a pure label title (description cleared)", (occasion, expected) => {
+    // A clean label carries no prose, so description is cleared (null), not stale.
+    expect(splitOccasion(occasion)).toEqual({ title: expected, description: null });
   });
 
   it.each([
@@ -148,11 +156,12 @@ describe("parseYiiHarelineRow", () => {
     expect(event?.kennelTags[0]).toBe("ph3-my");
   });
 
-  it("extracts a clean label Occasion into title (no description)", () => {
+  it("extracts a clean label Occasion into title (description cleared to null)", () => {
     const cells = ["2480", "18 Apr 2026", "Barry Sage", "Bukit Bayu", "St. George's Day"];
     const event = parseYiiHarelineRow(cells, config, "x");
     expect(event?.title).toBe("St. George's Day");
-    expect(event?.description).toBeUndefined();
+    // Column present, no prose → explicit clear so stale descriptions don't linger.
+    expect(event?.description).toBeNull();
   });
 
   it("routes a prose/instruction Occasion into description with a label title", () => {
@@ -162,10 +171,17 @@ describe("parseYiiHarelineRow", () => {
     expect(event?.description).toBe("Torchlight Run - Run Starts at 7pm!!!");
   });
 
-  it("leaves title + description undefined when Occasion is blank", () => {
+  it("clears description (null) when the Occasion cell is blank but present", () => {
     const cells = ["2479", "11 Apr 2026", "Raymond Lai", "Pantai Remis", ""];
     const event = parseYiiHarelineRow(cells, config, "x");
     expect(event?.title).toBeUndefined();
+    expect(event?.description).toBeNull();
+  });
+
+  it("preserves description (undefined) when the row has no Occasion column at all", () => {
+    // Only 4 cells — index 4 (occasion) is absent, so preserve rather than clear.
+    const cells = ["2479", "11 Apr 2026", "Raymond Lai", "Pantai Remis"];
+    const event = parseYiiHarelineRow(cells, config, "x");
     expect(event?.description).toBeUndefined();
   });
 
@@ -176,7 +192,7 @@ describe("parseYiiHarelineRow", () => {
     expect(event?.runNumber).toBe(144);
     expect(event?.kennelTags[0]).toBe("klfmh3");
     expect(event?.title).toBe("Interhowl / SHOT");
-    expect(event?.description).toBeUndefined();
+    expect(event?.description).toBeNull();
   });
 
   it("drops placeholder rows with run number 0", () => {

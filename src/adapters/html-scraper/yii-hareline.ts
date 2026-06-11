@@ -130,6 +130,16 @@ export function extractMaxYiiPage(html: string): number {
  *     like `7:30`), otherwise title is left undefined and merge.ts synthesizes
  *     the "<Kennel> Trail #N" default.
  *
+ * **Tri-state `description` clear signal** (`columnPresent`): the merge pipeline
+ * treats `description: undefined` as "preserve existing" and `null` as "explicit
+ * clear" (see `feedback_backfill_clear_field_needs_explicit_null` + fingerprint
+ * tri-state). When the Occasion column is PRESENT on the row but yields no rich
+ * description (a clean label or a blank cell), we must emit `null` — otherwise a
+ * source edit from `"Torchlight Run - Run Starts at 7pm!!!"` to `"Torchlight
+ * Run"` (or a cleared cell) would update the title but leave the stale
+ * instruction text on the canonical Event forever. `undefined` is reserved for
+ * the genuinely-absent-column case (a row/columnMap with no Occasion at all).
+ *
  * Exported for unit testing.
  */
 const RICH_OCCASION_SEPARATOR = /\s[-–—]\s|\(|!/;
@@ -147,13 +157,19 @@ function isCleanLabel(s: string): boolean {
   );
 }
 
-export function splitOccasion(raw?: string): { title?: string; description?: string } {
+export function splitOccasion(
+  raw: string | undefined,
+  columnPresent = true,
+): { title?: string; description?: string | null } {
+  // No rich description from this cell → explicit-clear (null) when the column
+  // is present, preserve (undefined) only when the column is genuinely absent.
+  const emptyDescription = columnPresent ? null : undefined;
   const occ = raw?.trim();
-  if (!occ) return {};
+  if (!occ) return { title: undefined, description: emptyDescription };
 
   const sep = RICH_OCCASION_SEPARATOR.exec(occ);
   const isRich = sep !== null || occ.length >= 60;
-  if (!isRich) return { title: occ };
+  if (!isRich) return { title: occ, description: emptyDescription };
 
   const label = (sep ? occ.slice(0, sep.index) : occ).trim();
   return { title: isCleanLabel(label) ? label : undefined, description: occ };
@@ -239,8 +255,11 @@ export function parseYiiHarelineRow(
     : rawHare || undefined;
 
   const location = cells[cols.location]?.trim() || undefined;
+  // `columnPresent` distinguishes a blank Occasion cell (clear stale description)
+  // from a row that has no Occasion column at all (preserve) — see splitOccasion.
+  const occasionPresent = cols.occasion < cells.length;
   const occasion = cells[cols.occasion]?.trim() || undefined;
-  const { title, description } = splitOccasion(occasion);
+  const { title, description } = splitOccasion(occasion, occasionPresent);
 
   return {
     date,
