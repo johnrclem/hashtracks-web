@@ -3625,7 +3625,7 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "pormeh3", shortName: "PorMEH3", fullName: "Portland Maine Hash House Harriers",
       region: "Portland, ME",
-      // scheduleTime "5:30 PM" is the modal weekly-hash DTSTART (special-event
+      // scheduleTime "5:30 PM" is the modal regular-hash DTSTART (special-event
       // times vary). hashCash "$5" is the base value across event DESCRIPTIONs
       // (theme/special events run higher). foundedYear left NULL — the iCal only
       // enumerates events from 2025; an inferred ~2009 founding is too speculative
