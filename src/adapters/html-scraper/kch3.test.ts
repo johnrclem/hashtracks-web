@@ -154,7 +154,7 @@ Short-ish trail with possible Bar Audibles
     expect(parseKCH3Body(body).location).toBe("1601 N 98th St, Kansas City, KS 66111");
   });
 
-  it("does not let \\s* span a newline from a prose 'location' word into the next line (Chili: Hash Cash)", () => {
+  it("does not let whitespace span a newline from a prose 'location' word into the next line (Chili: Hash Cash)", () => {
     const body =
       "Meetup: 1:00 p.m.\n" +
       "Pack away shortly thereafter – shuttling to the trail start location\n" +

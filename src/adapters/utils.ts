@@ -1013,11 +1013,13 @@ export function stripClickHereForMap(s: string): string {
 // Hares Needed", #1731 "Hares: …" captured when Start: was blank). "Start:"
 // is intentionally absent: it IS a location label, so its prefix is stripped
 // and the address kept (see cleanLocationName step 2).
-// Whole-value labels that are never a venue. Extended (#2110 follow-up) to drop
-// cost/time/meetup/pack-out label lines that a loose source parse can capture
-// into a location field — e.g. "Hash Cash: $5", "Time: 1400", "Meetup: 2 p.m.".
-const NON_LOCATION_LABEL_RE =
-  /^(?:hares?|hare\(s\)|on[\s-]?on|map|hash\s*cash|cost|meet\s*up|pack\s*(?:away|up|out)|time)\s*:/i;
+// Whole-value labels that are never a venue. Split across two regexes (each
+// under Sonar S5843's complexity budget) and OR'd at the call site: the
+// original hare/on-on/map set, plus the cost/time/meetup/pack-out set added in
+// the #2110 follow-up ("Hash Cash: $5", "Time: 1400", "Meetup: 2 p.m.").
+const NON_LOCATION_LABEL_RE = /^(?:hares?|hare\(s\)|on[\s-]?on|map)\s*:/i;
+const NON_LOCATION_META_LABEL_RE =
+  /^(?:hash\s*cash|cost|meet\s*up|pack\s*(?:away|up|out)|time)\s*:/i;
 const START_LABEL_RE = /^start\s*:\s*/i;
 
 // Segment-separator characters. Includes "/" because Norfolk venue blocks use
@@ -1210,7 +1212,7 @@ export function cleanLocationName(raw: string | null | undefined): string | null
   if (!s) return null;
 
   // 1. Reject whole-value non-location labeled fields ("Hares: …", "Map: …").
-  if (NON_LOCATION_LABEL_RE.test(s)) return null;
+  if (NON_LOCATION_LABEL_RE.test(s) || NON_LOCATION_META_LABEL_RE.test(s)) return null;
 
   // 2. "Start:" is a location label — drop the prefix, keep the address.
   s = s.replace(START_LABEL_RE, "").trim();
