@@ -8,6 +8,7 @@ import {
   decodeEntities,
   fetchHTMLPage,
   MONTHS,
+  stripHtmlTags,
   validateSourceConfig,
 } from "../utils";
 
@@ -187,9 +188,10 @@ export function splitOccasion(
  * Exported for unit testing.
  */
 export function extractTotalPagesFromSummary(html: string): number | null {
-  // Strip tags first so the match is independent of the <b>…</b> markup Yii
-  // wraps the numbers in ("Showing <b>1-13</b> of <b>1,160</b> items").
-  const text = html.replace(/<[^>]+>/g, "");
+  // Strip tags via the shared cheerio-based helper (not a regex) so the match
+  // is independent of the <b>…</b> markup Yii wraps the numbers in
+  // ("Showing <b>1-13</b> of <b>1,160</b> items").
+  const text = stripHtmlTags(html);
   const m = /Showing\s+([\d,]+)\s*[-–]\s*([\d,]+)\s+of\s+([\d,]+)\s+items/i.exec(text);
   if (!m) return null;
   const toNum = (s: string) => Number.parseInt(s.replace(/,/g, ""), 10);
