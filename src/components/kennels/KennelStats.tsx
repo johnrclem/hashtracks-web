@@ -50,15 +50,40 @@ function formatLastRun(lastEventDate: string): string {
   });
 }
 
-function computeYearsActive(
+interface YearsActive {
+  /** Whole years between `sinceYear` and now. */
+  years: number;
+  /** First year we can attribute activity to (founding year, or earliest known run). */
+  sinceYear: number;
+  /**
+   * `true` when derived from the earliest *known* run rather than a real
+   * `foundedYear` — i.e. a lower bound, not an exact founding figure. The
+   * renderer surfaces this as a `title` hint so a kennel whose data only goes
+   * back one scrape ("Year Active: 1") doesn't masquerade as a one-year-old
+   * kennel. See #1290.
+   */
+  approximate: boolean;
+}
+
+/**
+ * Single source of truth for the Year(s) Active tile (#1290). Previously the
+ * two `foundedYear IS NULL` outcomes looked like distinct bugs — one rendered a
+ * bare "Year Active: 1" (event-derived), the other suppressed the tile (no
+ * data). They are one branch: prefer the real `foundedYear`; otherwise fall
+ * back to the earliest known run as an explicitly-`approximate` lower bound;
+ * otherwise return null so the tile is suppressed.
+ */
+export function computeYearsActive(
   foundedYear: number | null | undefined,
   oldestEventDate: string | null,
-): number | null {
+): YearsActive | null {
   const currentYear = new Date().getUTCFullYear();
-  if (foundedYear) return currentYear - foundedYear;
+  if (foundedYear) {
+    return { years: currentYear - foundedYear, sinceYear: foundedYear, approximate: false };
+  }
   if (oldestEventDate) {
     const year = new Date(oldestEventDate).getUTCFullYear();
-    return currentYear - year;
+    return { years: currentYear - year, sinceYear: year, approximate: true };
   }
   return null;
 }
@@ -85,6 +110,7 @@ export function KennelStats({
     icon: React.ReactNode;
     value: React.ReactNode;
     label: string;
+    hint?: string;
   }[] = [];
 
   if (currentRunNumber) {
@@ -102,11 +128,14 @@ export function KennelStats({
     });
   }
 
-  if (yearsActive !== null && yearsActive > 0) {
+  if (yearsActive !== null && yearsActive.years > 0) {
     stats.push({
       icon: <Clock className="h-5 w-5" />,
-      value: <AnimatedCounter target={yearsActive} />,
-      label: yearsActive === 1 ? "Year Active" : "Years Active",
+      value: <AnimatedCounter target={yearsActive.years} />,
+      label: yearsActive.years === 1 ? "Year Active" : "Years Active",
+      hint: yearsActive.approximate
+        ? `Since first known run in ${yearsActive.sinceYear}`
+        : undefined,
     });
   }
 
@@ -137,6 +166,7 @@ export function KennelStats({
       {stats.map((stat) => (
         <div
           key={stat.label}
+          title={stat.hint}
           className="rounded-xl border border-border/50 bg-card p-4 text-center"
         >
           <div

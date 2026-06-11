@@ -87,6 +87,7 @@ logbook + kennel directory.
 - SENTRY_AUTH_TOKEN=     # Sentry auth token (build-time only, source map upload to Vercel)
 - SENTRY_ORG=            # Sentry organization slug (build-time)
 - SENTRY_PROJECT=        # Sentry project slug (build-time)
+- BLOB_READ_WRITE_TOKEN= # Vercel Blob store token — server-only, powers the kennel logo upload route (`/api/admin/kennels/logo/upload`, #1414). Without it the admin logo *URL* field still works; only the file-upload button is inert.
 - INDEXNOW_KEY=           # IndexNow API key (production only) — also served at /<key>.txt for ownership verification
 - BING_SITE_VERIFICATION= # Bing Webmaster Tools msvalidate.01 token (optional, fallback if not DNS-verified)
 - GOOGLE_SITE_VERIFICATION= # Google Search Console verification token (optional, fallback if not DNS-verified)

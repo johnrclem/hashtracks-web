@@ -26,6 +26,15 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["node-ical"],
+  images: {
+    // Kennel logos (#1301) come from open-ended third-party hosts — WordPress
+    // origins, assets.gohash.app, gravatar.com, Vercel Blob, etc. An enumerated
+    // allowlist would silently break every newly-added logo, so we allow any
+    // https origin through the optimizer (WebP/resize/lazy). Non-resolvable or
+    // http-only assets are caught by KennelLogo's onError → initials fallback
+    // (#1300). SVGs stay disabled (Next.js default) to avoid the XSS surface.
+    remotePatterns: [{ protocol: "https", hostname: "**" }],
+  },
   async redirects() {
     return [
       // Disambiguate /kennels/ah3 slug collision between Aloha H3 (HI) and Amsterdam H3 (NL)

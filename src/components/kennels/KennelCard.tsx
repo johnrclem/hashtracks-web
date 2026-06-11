@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { RegionBadge } from "@/components/hareline/RegionBadge";
 import { ActivityStatusBadge } from "@/components/kennels/ActivityStatusBadge";
+import { KennelLogo } from "@/components/kennels/KennelLogo";
 import { formatSchedule, formatDateShort, type ScheduleSlot } from "@/lib/format";
 
 export interface KennelCardData {
@@ -46,22 +47,21 @@ export function KennelCard({ kennel }: KennelCardProps) {
             initials are the null-logo fallback. */}
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-start gap-2.5 min-w-0">
-            {kennel.logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={kennel.logoUrl}
-                alt={`${kennel.shortName} logo`}
-                loading="lazy"
-                className="h-10 w-10 shrink-0 rounded-lg object-contain bg-white dark:bg-background ring-1 ring-border"
-              />
-            ) : (
-              <div
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-xs font-bold text-muted-foreground"
-                aria-hidden="true"
-              >
-                {kennel.shortName.replace(/[^\p{L}\p{N}]/gu, "").slice(0, 3).toUpperCase()}
-              </div>
-            )}
+            <KennelLogo
+              logoUrl={kennel.logoUrl}
+              alt={`${kennel.shortName} logo`}
+              width={40}
+              height={40}
+              className="h-10 w-10 shrink-0 rounded-lg object-contain bg-white dark:bg-background ring-1 ring-border"
+              fallback={
+                <div
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-xs font-bold text-muted-foreground"
+                  aria-hidden="true"
+                >
+                  {kennel.shortName.replace(/[^\p{L}\p{N}]/gu, "").slice(0, 3).toUpperCase()}
+                </div>
+              }
+            />
             <div className="min-w-0">
               <h3 className="text-base font-bold leading-tight truncate" title={kennel.fullName}>
                 {kennel.shortName}

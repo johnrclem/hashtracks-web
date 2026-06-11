@@ -193,31 +193,37 @@ export function FilterBar({
 
         {/* Region + Near Me + Filters button */}
         <div className="flex items-center gap-2">
-          <RegionFilterPopover
-            regions={regions}
-            selectedRegions={selectedRegions}
-            onRegionsChange={onRegionsChange}
-            enableCountryGrouping
-            trigger={
-              <Button
-                variant={selectedRegions.length > 0 ? "secondary" : "outline"}
-                size="sm"
-                className={`h-8 text-xs ${selectedRegions.length > 0 ? "border-primary/50" : ""}`}
-              >
-                {selectedRegions.length === 1
-                  ? regionDisplayName(selectedRegions[0])
-                  : "Region"}
-                {selectedRegions.length > 1 && (
-                  <Badge variant="secondary" className="ml-1 text-xs">
-                    {selectedRegions.length}
-                  </Badge>
-                )}
-                {selectedRegions.length > 0 && (
-                  <ClearFilterButton onClick={() => onRegionsChange([])} label="Clear region filter" />
-                )}
-              </Button>
-            }
-          />
+          <div className="relative inline-flex items-center">
+            <RegionFilterPopover
+              regions={regions}
+              selectedRegions={selectedRegions}
+              onRegionsChange={onRegionsChange}
+              enableCountryGrouping
+              trigger={
+                <Button
+                  variant={selectedRegions.length > 0 ? "secondary" : "outline"}
+                  size="sm"
+                  className={`h-8 text-xs ${selectedRegions.length > 0 ? "border-primary/50 pr-7" : ""}`}
+                >
+                  {selectedRegions.length === 1
+                    ? regionDisplayName(selectedRegions[0])
+                    : "Region"}
+                  {selectedRegions.length > 1 && (
+                    <Badge variant="secondary" className="ml-1 text-xs">
+                      {selectedRegions.length}
+                    </Badge>
+                  )}
+                </Button>
+              }
+            />
+            {selectedRegions.length > 0 && (
+              <ClearFilterButton
+                onClick={() => onRegionsChange([])}
+                label="Clear region filter"
+                className="absolute right-1 top-1/2 -translate-y-1/2"
+              />
+            )}
+          </div>
 
           <NearMeFilter
             nearMeDistance={nearMeDistance}
@@ -267,18 +273,24 @@ export function FilterBar({
             <>
               <div className="hidden sm:block w-px h-5 bg-border" />
               <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant={selectedFrequency ? "secondary" : "outline"}
-                    size="sm"
-                    className={`h-8 text-xs ${selectedFrequency ? "border-primary/50" : ""}`}
-                  >
-                    {selectedFrequency || "Frequency"}
-                    {selectedFrequency && (
-                      <ClearFilterButton onClick={() => onFrequencyChange?.("")} label="Clear frequency filter" />
-                    )}
-                  </Button>
-                </PopoverTrigger>
+                <div className="relative inline-flex items-center">
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={selectedFrequency ? "secondary" : "outline"}
+                      size="sm"
+                      className={`h-8 text-xs ${selectedFrequency ? "border-primary/50 pr-7" : ""}`}
+                    >
+                      {selectedFrequency || "Frequency"}
+                    </Button>
+                  </PopoverTrigger>
+                  {selectedFrequency && (
+                    <ClearFilterButton
+                      onClick={() => onFrequencyChange?.("")}
+                      label="Clear frequency filter"
+                      className="absolute right-1 top-1/2 -translate-y-1/2"
+                    />
+                  )}
+                </div>
                 <PopoverContent className="w-44 p-0" align="start">
                   <Command>
                     <CommandList>
@@ -325,23 +337,29 @@ export function FilterBar({
             <>
               <div className="hidden sm:block w-px h-5 bg-border" />
               <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant={selectedKennels && selectedKennels.length > 0 ? "secondary" : "outline"}
-                    size="sm"
-                    className={`h-8 text-xs ${selectedKennels && selectedKennels.length > 0 ? "border-primary/50" : ""}`}
-                  >
-                    Kennel
-                    {selectedKennels && selectedKennels.length > 0 && (
-                      <Badge variant="secondary" className="ml-1 text-xs">
-                        {selectedKennels.length}
-                      </Badge>
-                    )}
-                    {selectedKennels && selectedKennels.length > 0 && (
-                      <ClearFilterButton onClick={() => onKennelsChange?.([])} label="Clear kennel filter" />
-                    )}
-                  </Button>
-                </PopoverTrigger>
+                <div className="relative inline-flex items-center">
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={selectedKennels && selectedKennels.length > 0 ? "secondary" : "outline"}
+                      size="sm"
+                      className={`h-8 text-xs ${selectedKennels && selectedKennels.length > 0 ? "border-primary/50 pr-7" : ""}`}
+                    >
+                      Kennel
+                      {selectedKennels && selectedKennels.length > 0 && (
+                        <Badge variant="secondary" className="ml-1 text-xs">
+                          {selectedKennels.length}
+                        </Badge>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  {selectedKennels && selectedKennels.length > 0 && (
+                    <ClearFilterButton
+                      onClick={() => onKennelsChange?.([])}
+                      label="Clear kennel filter"
+                      className="absolute right-1 top-1/2 -translate-y-1/2"
+                    />
+                  )}
+                </div>
                 <PopoverContent className="w-72 p-0" align="start">
                   <Command>
                     <CommandInput placeholder="Search kennels..." />

@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronRight } from "lucide-react";
+import { upload } from "@vercel/blob/client";
 import { createKennel, updateKennel } from "@/app/admin/kennels/actions";
 import {
   Dialog,
@@ -60,6 +61,29 @@ function triStateDefault(value: boolean | null): string {
   if (value === true) return "true";
   if (value === false) return "false";
   return "";
+}
+
+/**
+ * Client-side mirror of the server `validateLogoUrl` (#1414) — surfaces a
+ * warning before submit. Empty or `/relative` is fine; otherwise it must parse
+ * as an https URL (http → mixed-content).
+ */
+function logoUrlWarning(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.startsWith("/")) return null;
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return "Enter a full https:// URL or a site-relative /path";
+  }
+  if (parsed.protocol === "http:") {
+    return "Use https:// — http logos are blocked to avoid mixed-content warnings";
+  }
+  if (parsed.protocol !== "https:") {
+    return "Only https:// URLs are allowed";
+  }
+  return null;
 }
 
 /** Collapsible section used in the kennel form. */
@@ -137,8 +161,11 @@ export function KennelForm({ kennel, regions, trigger }: Readonly<KennelFormProp
   const [pendingFormData, setPendingFormData] = useState<FormData | null>(null);
   const [selectedRegionId, setSelectedRegionId] = useState<string>(kennel?.regionId ?? "");
   const [isHidden, setIsHidden] = useState(kennel?.isHidden ?? false);
+  const [logoUrl, setLogoUrl] = useState(kennel?.logoUrl ?? "");
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const shortNameRef = useRef<HTMLInputElement>(null);
   const fullNameRef = useRef<HTMLInputElement>(null);
+  const logoFileRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
   const selectedRegion = regions.find((r) => r.id === selectedRegionId);
@@ -153,6 +180,26 @@ export function KennelForm({ kennel, regions, trigger }: Readonly<KennelFormProp
 
   function removeAlias(alias: string) {
     setAliases(aliases.filter((a) => a !== alias));
+  }
+
+  async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file after an error
+    if (!file) return;
+    setUploadingLogo(true);
+    try {
+      // Streams directly to Vercel Blob; the route only mints a scoped token.
+      const blob = await upload(file.name, file, {
+        access: "public",
+        handleUploadUrl: "/api/admin/kennels/logo/upload",
+      });
+      setLogoUrl(blob.url);
+      toast.success("Logo uploaded");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Logo upload failed");
+    } finally {
+      setUploadingLogo(false);
+    }
   }
 
   function handleGenerateAliases() {
@@ -235,6 +282,7 @@ export function KennelForm({ kennel, regions, trigger }: Readonly<KennelFormProp
         setAliases(kennel?.aliases ?? []);
         setSelectedRegionId(kennel?.regionId ?? "");
         setIsHidden(kennel?.isHidden ?? false);
+        setLogoUrl(kennel?.logoUrl ?? "");
       }
     }}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
@@ -612,14 +660,64 @@ export function KennelForm({ kennel, regions, trigger }: Readonly<KennelFormProp
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="logoUrl">Logo URL</Label>
-                <Input
-                  id="logoUrl"
-                  name="logoUrl"
-                  type="url"
-                  defaultValue={kennel?.logoUrl ?? ""}
-                  placeholder="https://example.com/logo.png"
-                />
+                <Label htmlFor="logoUrl">Logo</Label>
+                <div className="flex items-center gap-2">
+                  {logoUrl.trim() ? (
+                    // Live preview — a plain <img> (not next/image) so admins
+                    // see exactly what they pasted, including not-yet-valid URLs.
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={logoUrl}
+                      alt="Logo preview"
+                      className="h-10 w-10 shrink-0 rounded-md object-contain bg-white ring-1 ring-border"
+                    />
+                  ) : (
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-muted text-[10px] text-muted-foreground ring-1 ring-border">
+                      none
+                    </div>
+                  )}
+                  <Input
+                    id="logoUrl"
+                    name="logoUrl"
+                    type="url"
+                    value={logoUrl}
+                    onChange={(e) => setLogoUrl(e.target.value)}
+                    placeholder="https://example.com/logo.png"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={uploadingLogo}
+                    onClick={() => logoFileRef.current?.click()}
+                  >
+                    {uploadingLogo ? "Uploading…" : "Upload image"}
+                  </Button>
+                  <input
+                    ref={logoFileRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/gif"
+                    className="hidden"
+                    onChange={handleLogoUpload}
+                  />
+                  {logoUrl.trim() && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setLogoUrl("")}
+                    >
+                      Clear
+                    </Button>
+                  )}
+                </div>
+                {logoUrlWarning(logoUrl) && (
+                  <p className="text-xs text-yellow-600 dark:text-yellow-500">
+                    {logoUrlWarning(logoUrl)}
+                  </p>
+                )}
               </div>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">

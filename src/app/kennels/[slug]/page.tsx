@@ -12,6 +12,7 @@ import type { HarelineEvent } from "@/components/hareline/EventCard";
 import { MismanManagementSection } from "@/components/kennels/MismanManagementSection";
 import { QuickInfoCard } from "@/components/kennels/QuickInfoCard";
 import { KennelStats } from "@/components/kennels/KennelStats";
+import { KennelLogo } from "@/components/kennels/KennelLogo";
 import { TrailLocationMapClient } from "@/components/kennels/TrailLocationMapClient";
 import { EventTabs } from "@/components/kennels/EventTabs";
 import { RegionBadge } from "@/components/hareline/RegionBadge";
@@ -311,22 +312,23 @@ export default async function KennelDetailPage({
         }}
       >
         <div className="flex items-start gap-4 sm:gap-5">
-          {/* Logo or initials */}
-          {kennel.logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={kennel.logoUrl}
-              alt={`${kennel.shortName} logo`}
-              className="h-20 w-20 rounded-xl object-contain bg-white dark:bg-background ring-2 ring-white dark:ring-white/20 shadow-md sm:h-24 sm:w-24"
-            />
-          ) : (
-            <div
-              className="flex h-20 w-20 items-center justify-center rounded-xl text-xl font-bold text-white shadow-md ring-2 ring-white/80 dark:ring-white/20 sm:h-24 sm:w-24 sm:text-2xl"
-              style={{ backgroundColor: regionColor }}
-            >
-              {initials}
-            </div>
-          )}
+          {/* Logo (next/image, #1301) or initials fallback (#1300) */}
+          <KennelLogo
+            logoUrl={kennel.logoUrl}
+            alt={`${kennel.shortName} logo`}
+            width={96}
+            height={96}
+            loading="eager"
+            className="h-20 w-20 rounded-xl object-contain bg-white dark:bg-background ring-2 ring-white dark:ring-white/20 shadow-md sm:h-24 sm:w-24"
+            fallback={
+              <div
+                className="flex h-20 w-20 items-center justify-center rounded-xl text-xl font-bold text-white shadow-md ring-2 ring-white/80 dark:ring-white/20 sm:h-24 sm:w-24 sm:text-2xl"
+                style={{ backgroundColor: regionColor }}
+              >
+                {initials}
+              </div>
+            }
+          />
 
           <div className="min-w-0 flex-1">
             <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
