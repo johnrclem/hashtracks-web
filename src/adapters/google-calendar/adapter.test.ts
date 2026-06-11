@@ -5815,4 +5815,15 @@ describe("Colorado Springs H3 Calendar — PPH4 description-hare preference (#21
     expect(result).not.toBeNull();
     expect(result!.hares).toBe("Slippery Nipple");
   });
+
+  it("runs the shared cleanAndFilterHares passes on the capture, e.g. trailing phone (#2122 review)", () => {
+    // The old subset-of-replaces did not strip phone numbers; cleanAndFilterHares
+    // truncates at a mid-string phone run, so the same-line tail can't persist.
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "PPH4 Some Trail", description: "Hare: Slug 2406185563 CALL for same day" }),
+      config,
+    );
+    expect(result).not.toBeNull();
+    expect(result!.hares).toBe("Slug");
+  });
 });

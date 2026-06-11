@@ -4966,7 +4966,7 @@ export const SOURCES = [
           // Episode 2"). The generic "\bKV(?![A-Za-z])" below rejects it (the
           // trailing "H" trips the negative lookahead), so it leaked to the
           // default pormeh3. Most-specific-first.
-          ["\\bKVH3\\b", "knightvillian"],
+          [String.raw`\bKVH3\b`, "knightvillian"],
           // Matches "KV", "KV484", "KV 478" but NOT "KVR", "Kevin", etc.
           // (\bKV not followed by another letter)
           ["\\bKV(?![A-Za-z])", "knightvillian"],

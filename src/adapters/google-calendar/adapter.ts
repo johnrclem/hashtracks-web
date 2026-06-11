@@ -1,11 +1,11 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
-import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, EVENT_FIELD_LABEL_RE, EVENT_FIELD_LABEL_UPPERCASE_RE, HARE_BOILERPLATE_RE, CTA_EMBEDDED_PATTERNS, appendDescriptionSuffix, dedupeRepeatedDescription, isPlaceholder, parse12HourTime, formatAmPmTime, stripNonEnglishCountry, extractHashRunNumber, hasPlaceholderRunNumber, isThemelessPlaceholderTitle, normalizeCostSigil, BARE_KENNEL_CODE_RE } from "../utils";
+import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, EVENT_FIELD_LABEL_RE, EVENT_FIELD_LABEL_UPPERCASE_RE, CTA_EMBEDDED_PATTERNS, appendDescriptionSuffix, dedupeRepeatedDescription, isPlaceholder, parse12HourTime, formatAmPmTime, stripNonEnglishCountry, extractHashRunNumber, hasPlaceholderRunNumber, isThemelessPlaceholderTitle, normalizeCostSigil, BARE_KENNEL_CODE_RE } from "../utils";
 import { matchKennelPatterns, matchCompiledKennelPatterns, compileKennelPatterns, type KennelPattern, type CompiledKennelPattern } from "../kennel-patterns";
 import { LOCATION_EMAIL_CTA_RE } from "@/pipeline/audit-checks";
 import { parseDMSFromLocation } from "@/lib/geo";
-import { extractHares, PHONE_TRAILING_RE } from "../hare-extraction";
+import { extractHares, PHONE_TRAILING_RE, cleanAndFilterHares } from "../hare-extraction";
 import { MEDICAL_SKIP_RES } from "../skip-rules";
 
 /**
@@ -74,7 +74,7 @@ export function extractRunNumber(
   // first pass already saw a clean run, and "#30X?" still falls through to the
   // placeholder check below.
   const fromSummary = extractHashRunNumber(summary)
-    ?? (summary.includes("!") ? extractHashRunNumber(summary.replace(/!/g, " ")) : undefined);
+    ?? (summary.includes("!") ? extractHashRunNumber(summary.replaceAll("!", " ")) : undefined);
   if (fromSummary !== undefined) return fromSummary;
 
   // 1b. Leading "Hash NNNN:" without the `#` (#2007 PGH H3). Colon-anchored
@@ -934,20 +934,21 @@ export function extractCostFromDescription(description: string): string | undefi
  *
  * Requires a literal capital `Hare`/`Hares` preceded by whitespace/`(`/start
  * and a capture starting with an uppercase letter or `*`, so lowercase
- * lookalikes ("…we share: cookies", "welfare: …") can't match. The capture is
- * line-bounded, then truncated at any embedded field label / boilerplate marker
- * and only returned when it still looks like a hash name.
+ * lookalikes ("…we share: cookies", "welfare: …") can't match. The line-bounded
+ * capture is run through the shared {@link cleanAndFilterHares} (phone strip,
+ * sentence-boundary truncation, conversational-tail strip, etc. — the same
+ * cleaner `extractHares` uses) so a same-line prose tail can't persist as a
+ * hare, then through `looksLikeHareName` as a final placeholder/kennel-code gate
+ * (cleanAndFilterHares passes "TBD" through; this rejects it). A null/undefined
+ * cleaner result means "no usable hare" → undefined.
  */
 const INLINE_HARE_LABEL_RE = /(?:^|[\s(])Hares?\s*:\s*([A-Z*][^\n]*)/;
 export function extractInlineHareFromDescription(description: string): string | undefined {
   const match = INLINE_HARE_LABEL_RE.exec(description);
   if (!match?.[1]) return undefined;
-  const candidate = match[1]
-    .replace(EVENT_FIELD_LABEL_RE, "")
-    .replace(EVENT_FIELD_LABEL_UPPERCASE_RE, "")
-    .replace(HARE_BOILERPLATE_RE, "")
-    .trim();
-  return candidate && looksLikeHareName(candidate) ? candidate : undefined;
+  const cleaned = cleanAndFilterHares(match[1]);
+  if (typeof cleaned !== "string" || !cleaned) return undefined;
+  return looksLikeHareName(cleaned) ? cleaned : undefined;
 }
 
 const mapsUrl = googleMapsSearchUrl;
