@@ -122,8 +122,12 @@ export function extractMaxYiiPage(html: string): number {
  * ugly multi-clause titles and never populated `description`.
  *
  * Heuristic:
- *   - A cell is "rich" (prose/instruction) if it contains a separator
- *     (` - `/` – `/` — `, `(`, or `!`) or is >= 60 chars.
+ *   - A cell is "rich" (prose/instruction) if it contains a separator — a
+ *     space-padded dash ("&nbsp;-&nbsp;", "&nbsp;–&nbsp;", "&nbsp;—&nbsp;"), an
+ *     opening paren "(", or "!" — or is >= 60 chars. (Comma is deliberately NOT
+ *     a separator: legit short titles routinely contain commas, e.g. "New Year,
+ *     Belated Birthday Run" and place names, so splitting on it would truncate
+ *     good titles.)
  *   - Not rich → the whole cell is a clean label → `{ title }`.
  *   - Rich → `{ description: <full cell>, title: <leading label if clean> }`.
  *     The leading label is the segment before the separator; it's only used as
