@@ -4,9 +4,10 @@ import type {
   RawEventData,
   ScrapeResult,
   ErrorDetails,
+  SourceConfig,
 } from "../types";
 import { hasAnyErrors } from "../types";
-import { chronoParseDate, buildDateWindow, stripPlaceholder, fetchBrowserRenderedPage } from "../utils";
+import { applyWeekdayShift, chronoParseDate, buildDateWindow, stripPlaceholder, fetchBrowserRenderedPage } from "../utils";
 
 /**
  * Parse time from the Wix date heading, e.g. "Friday, April 3, 2026 AT 8 PM"
@@ -147,13 +148,18 @@ export class BrewCityH3Adapter implements SourceAdapter {
   ): Promise<ScrapeResult> {
     const calendarUrl = source.url || "https://www.brewcityh3.com/calendar";
 
-    // BCH3 is Wisconsin (Milwaukee) — America/Chicago. Wix renders calendar
-    // dates client-side via Intl.DateTimeFormat, so the rendering browser's
-    // timezone determines what string we see. Without this, Playwright's UTC
-    // default produced "Friday, May 1, AT 12 AM" for what the kennel
-    // authored as "Thursday, April 30, AT 8 PM CDT" — the date label was
-    // rounded forward across midnight UTC and the time degenerated to the
-    // 12 AM placeholder branch. See #960.
+    // Opt-in weekday remap (#1006/#1134). BCH3 publishes Friday-midnight
+    // placeholders on Wix but actually runs Thursday 8 PM CDT (#960/#694), so
+    // its source config sets `weekdayShift: { from: "Friday", to: "Thursday",
+    // defaultStartTime: "20:00" }`. Sources without the knob are unaffected.
+    const weekdayShift = (source.config as SourceConfig | null)?.weekdayShift;
+
+    // BCH3 is Wisconsin (Milwaukee) — America/Chicago. Render in the kennel's
+    // zone as a defensive hint, but note (live-verified #1134): this Wix page
+    // serves *literal* placeholder strings ("Friday, … AT 12 AM"), not
+    // client-rendered Intl.DateTimeFormat output, so timezoneId does NOT move
+    // the published day/time — the `weekdayShift` config above is what corrects
+    // Friday-midnight placeholders to the real Thursday 8 PM run. See #960/#1006.
     const page = await fetchBrowserRenderedPage(calendarUrl, {
       waitFor: '[role="listitem"]',
       timeout: 20000,
@@ -186,6 +192,19 @@ export class BrewCityH3Adapter implements SourceAdapter {
           ];
           return;
         }
+
+        // Remap the published weekday to the actual run weekday for placeholder
+        // rows only (#960/#1134). BCH3's Wix placeholders are the *timeless*
+        // "Friday … AT 12 AM" rows: parseDateTime collapses 12 AM to an
+        // `undefined` startTime, so after a successful date parse an undefined
+        // startTime IS the placeholder signal. Gating the shift on it means a
+        // genuinely-timed Friday event (e.g. "Friday … AT 7 PM" → "19:00") is
+        // trusted and left on Friday — never silently moved to Thursday. Throws
+        // on malformed config — caught by the per-item try/catch below.
+        const resolved =
+          weekdayShift && startTime === undefined
+            ? applyWeekdayShift(date, startTime, weekdayShift)
+            : { date, startTime };
 
         // 2. Title from h2 (skip header h2 elements outside repeater items)
         const titleText = $item.find("h2").first().text().trim();
@@ -241,14 +260,14 @@ export class BrewCityH3Adapter implements SourceAdapter {
             : undefined;
 
         const event: RawEventData = {
-          date,
+          date: resolved.date,
           kennelTags: ["bch3"],
           title,
           runNumber,
           hares: details.hares,
           location,
           locationStreet,
-          startTime,
+          startTime: resolved.startTime,
           description: details.description,
           sourceUrl: calendarUrl,
           externalLinks: externalLinks.length > 0 ? externalLinks : undefined,

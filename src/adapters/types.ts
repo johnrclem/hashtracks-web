@@ -1,4 +1,5 @@
 import type { SourceType, Source } from "@/generated/prisma/client";
+import type { WeekdayShiftConfig } from "./utils";
 
 /** Raw event data extracted from a source before kennel resolution or deduplication */
 export interface RawEventData {
@@ -104,6 +105,21 @@ export interface RawEventData {
    * since the adapter has no `locationUrl` to differ on (#957).
    */
   dropCachedCoords?: boolean;
+}
+
+/**
+ * Opt-in per-source config knobs read off `Source.config` (a JSON column).
+ * This is a partial, additive view — adapters read only the fields they
+ * support, so unrelated config keys (kennelPatterns, columns, etc.) coexist.
+ */
+export interface SourceConfig {
+  /**
+   * Remap a scraped occurrence from the weekday the source *publishes* to the
+   * weekday the kennel *actually* runs (#1006/#960). Consumed by the BCH3
+   * adapter via {@link applyWeekdayShift}; gated per-source — sources that
+   * don't set it are unaffected.
+   */
+  weekdayShift?: WeekdayShiftConfig;
 }
 
 /**
