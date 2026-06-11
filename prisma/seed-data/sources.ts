@@ -349,8 +349,8 @@ export const SOURCES = [
         // collapse. Exact anchors (`^…$`) stop generic words like "Trail"/"Circle"
         // from shadowing real run titles elsewhere.
         skipPatterns: [
-          "^Ben Franklin Mob H3\\b",
-          "^BFM\\b",
+          String.raw`^Ben Franklin Mob H3\b`,
+          String.raw`^BFM\b`,
           "^Event Check In$",
           "^Chalk Talk$",
           "^Trail$",
