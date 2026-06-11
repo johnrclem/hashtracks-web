@@ -417,6 +417,27 @@ describe("extractRunNumber", () => {
     expect(extractRunNumber("CUNTh 66ish Hiidea's Bday")).toBeUndefined();
   });
 
+  // #2089 PH4 (Portland Humpin') — the source embeds the run number as #NNNN in
+  // a handful of shapes; all must parse via the shared extractHashRunNumber path
+  // (incl. the bang-terminated form the read-only delimiter guard misses).
+  it.each([
+    ["PH4 #1315 - Gay!Gay!Gay! Hash!!!", 1315, "space after #"],
+    ["#1314 PH4 - Chubby Chaser", 1314, "leading #NNNN"],
+    ["PH4 #1283 Deaf Dick - Zombie Hash", 1283, "suffix word after #"],
+    ["PH4 - #1269! Can't Finish's XXX-MAS IN JULY", 1269, "bang-terminated #NNNN (#2089)"],
+    ["PH4 #1284/OH3 Full Moon Combo Trail", 1284, "slash-terminated #NNNN"],
+  ])("PH4 summary %j → run %i (%s)", (summary, expected) => {
+    expect(extractRunNumber(summary)).toBe(expected);
+  });
+
+  it("does not invent a run number for themed PH4 titles (no #)", () => {
+    expect(extractRunNumber("PH4 - Taco Flavored Pisses")).toBeUndefined();
+  });
+
+  it("bang normalization does not defeat the #30X? placeholder guard (#2089)", () => {
+    expect(extractRunNumber("FCH3 #30X?!: Frisky Whisk-her")).toBeNull();
+  });
+
   // Summary placeholder must beat description fallback (Codex adversarial
   // review #1297). A partial retitle (kennel admin updates the title to
   // `#30X?` but leaves the prior `BH3 #30` reference in the description)
@@ -1332,6 +1353,10 @@ describe("non-address location detection", () => {
     ["When: 5:69", "template-field text"],
     ["Hare: Bob McHash", "field label in location"],
     ["Cost: $5.00", "cost label in location"],
+    // #2081 Morgantown — kennel types this placeholder into the GCal LOCATION
+    // field instead of leaving it blank; any-case must be rejected.
+    ["No location provided", "literal placeholder phrase"],
+    ["NO LOCATION PROVIDED", "uppercase placeholder phrase"],
   ])("rejects non-address location %s (%s)", (location) => {
     const result = buildRawEventFromGCalItem(
       testGCalEvent({ description: "Some description", location }),
@@ -1339,6 +1364,17 @@ describe("non-address location detection", () => {
     );
     expect(result).not.toBeNull();
     expect(result!.location).toBeUndefined();
+  });
+
+  it.each([
+    ["Provided Park, 100 Main St", "venue containing the word 'provided'"],
+    ["No Name Saloon, Park City, UT", "venue starting with 'No'"],
+  ])("preserves real venue %j (#2081 anchored guard)", (location) => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ description: "Some description", location }),
+      { defaultKennelTag: "test" },
+    );
+    expect(result!.location).toBe(location);
   });
 
   it("preserves normal address in location field", () => {
@@ -2183,6 +2219,46 @@ describe("buildRawEventFromGCalItem — all-day events", () => {
     );
     expect(result).not.toBeNull();
     expect(result!.startTime).toBeUndefined();
+  });
+
+  // #2099 Philly H3 — marquee weekend runs are posted as all-day VEVENTs. With
+  // includeAllDayEvents the same extractor must populate title/location/desc.
+  it("admits an all-day event and extracts SUMMARY/LOCATION/DESCRIPTION (#2099)", () => {
+    const phillySource = SOURCES.find((s) => s.name === "Philly H3 Google Calendar");
+    if (!phillySource?.config) throw new Error("Philly H3 Google Calendar seed config missing");
+    const result = buildRawEventFromGCalItem(
+      {
+        summary: "PHILLY GREEN DRESS RUN",
+        start: { date: "2026-03-14" },
+        end: { date: "2026-03-15" },
+        location: "Ruba, 416 Green St, Philadelphia, PA 19123, USA",
+        description: "It's GREEN DRESS WEEKEND 2026! For more info go to www.hashphilly.com",
+        status: "confirmed",
+      },
+      phillySource.config as Record<string, unknown>,
+    );
+    expect(result).not.toBeNull();
+    expect(result!.kennelTags[0]).toBe("philly-h3");
+    expect(result!.title).toBe("PHILLY GREEN DRESS RUN");
+    expect(result!.location).toBe("Ruba, 416 Green St, Philadelphia, PA 19123, USA");
+    expect(result!.description).toContain("GREEN DRESS WEEKEND 2026");
+    expect(result!.startTime).toBeUndefined();
+    expect(result!.date).toBe("2026-03-14");
+  });
+
+  it("still drops the same all-day event when a source has not opted in (#2099)", () => {
+    const result = buildRawEventFromGCalItem(
+      {
+        summary: "PHILLY GREEN DRESS RUN",
+        start: { date: "2026-03-14" },
+        end: { date: "2026-03-15" },
+        location: "Ruba, 416 Green St, Philadelphia, PA 19123, USA",
+        description: "It's GREEN DRESS WEEKEND 2026!",
+        status: "confirmed",
+      },
+      { defaultKennelTag: "philly-h3" },
+    );
+    expect(result).toBeNull();
   });
 });
 
@@ -5595,5 +5671,159 @@ describe("themeless placeholder titles are nulled in buildRawEventFromGCalItem (
     expect(result).not.toBeNull();
     expect(result!.title).toBe("SH3 #804");
     expect(result!.runNumber).toBe(804);
+  });
+});
+
+// ── #2112 PorMEH3 — KVH3 / Kink-and-Pickle routing on the shared calendar ──
+
+describe("PorMe H3 Google Calendar — sister-kennel routing (#2112)", () => {
+  const pormeSource = SOURCES.find((s) => s.name === "PorMe H3 Google Calendar");
+  if (!pormeSource?.config) throw new Error("PorMe H3 Google Calendar seed config missing");
+  const config = pormeSource.config as { kennelPatterns: [string, string][]; skipPatterns?: string[] };
+
+  it.each([
+    ["KVH3 - Space Team Episode 2", "knightvillian", "KVH3 kennel-code form (#2112)"],
+    ["Knightvillain H3 #496 - Space Team!", "knightvillian", "full Knightvillain name"],
+    ["KV478 Onesies", "knightvillian", "bare KV + digits"],
+    ["PorMe H3 Hash Tutu on 22s", "pormeh3", "PorMe own event → default"],
+    ["PorMeH3 Kinks-giving", "pormeh3", "'Kinks-' must not trip the Kink-and-Pickle skip"],
+  ])("routes %j → %s (%s)", (summary, expectedTag) => {
+    const result = buildRawEventFromGCalItem(
+      { summary, start: { dateTime: "2026-04-15T18:30:00-04:00" }, status: "confirmed" },
+      config,
+    );
+    expect(result?.kennelTags[0]).toBe(expectedTag);
+  });
+
+  it("drops Kink and Pickle events (no HashTracks record) via skipPatterns (#2112)", () => {
+    const compiledSkipPatterns = compilePatterns(config.skipPatterns ?? [], "i");
+    const result = buildRawEventFromGCalItem(
+      { summary: "Kink and Pickle Falmouth Hash Placeholder", start: { dateTime: "2026-04-15T18:30:00-04:00" }, status: "confirmed" },
+      config,
+      { compiledSkipPatterns },
+    );
+    expect(result).toBeNull();
+  });
+
+  it("does not skip a PorMe event whose title merely contains 'Kink' (#2112)", () => {
+    const compiledSkipPatterns = compilePatterns(config.skipPatterns ?? [], "i");
+    const result = buildRawEventFromGCalItem(
+      { summary: "PorMeH3 Kinks-giving", start: { dateTime: "2026-04-15T18:30:00-04:00" }, status: "confirmed" },
+      config,
+      { compiledSkipPatterns },
+    );
+    expect(result?.kennelTags[0]).toBe("pormeh3");
+  });
+});
+
+// ── #2091 PHH — title must NOT truncate at '&' (literal or entity) ──
+
+describe("Aloha H3 Google Calendar — PHH '&' title integrity (#2091)", () => {
+  const alohaSource = SOURCES.find((s) => s.name === "Aloha H3 Google Calendar");
+  if (!alohaSource?.config) throw new Error("Aloha H3 Google Calendar seed config missing");
+  const config = alohaSource.config as Record<string, unknown>;
+
+  it.each([
+    ["Open MisMan Meeting & Hump Night PHH - Ruby Tuesday Moanalua", "literal &"],
+    ["Open MisMan Meeting &amp; Hump Night PHH - Ruby Tuesday Moanalua", "HTML entity &amp;"],
+  ])("keeps the full title past the '&' (%s)", (summary) => {
+    const result = buildRawEventFromGCalItem(
+      { summary, start: { dateTime: "2026-02-04T17:30:00-10:00", timeZone: "Pacific/Honolulu" }, status: "confirmed" },
+      config,
+    );
+    expect(result).not.toBeNull();
+    expect(result!.kennelTags[0]).toBe("phh-hi");
+    // Decoded title carries the literal '&' and everything after it — no
+    // split-on-'&' truncation to "Open MisMan Meeting ".
+    expect(result!.title).toBe("Open MisMan Meeting & Hump Night PHH - Ruby Tuesday Moanalua");
+  });
+});
+
+// ── #2115 Houston — offset dateTime must keep PM; title is the SUMMARY ──
+
+describe("Houston Hash Calendar — evening startTime + SUMMARY title (#2115)", () => {
+  const houstonSource = SOURCES.find((s) => s.name === "Houston Hash Calendar");
+  if (!houstonSource?.config) throw new Error("Houston Hash Calendar seed config missing");
+  const config = houstonSource.config as Record<string, unknown>;
+
+  it("keeps a 4:15pm offset dateTime as 16:15 (no AM/PM flip) and uses the SUMMARY as title", () => {
+    const result = buildRawEventFromGCalItem(
+      {
+        summary: "Running & Riding The Ho' - Memorial Park",
+        start: { dateTime: "2026-06-11T16:15:00-05:00" },
+        location: "https://maps.app.goo.gl/aBhVXbSyqd1vfNsY9",
+        status: "confirmed",
+      },
+      config,
+    );
+    expect(result).not.toBeNull();
+    expect(result!.startTime).toBe("16:15");
+    expect(result!.title).toBe("Running & Riding The Ho' - Memorial Park");
+    // The goo.gl link routes to locationUrl for downstream geocoding; it must
+    // never become the display title/location.
+    expect(result!.location).toBeUndefined();
+  });
+});
+
+// ── #2122 PPH4 — hares come from the description 'Hare:' line, not the paren ──
+
+describe("Colorado Springs H3 Calendar — PPH4 description-hare preference (#2122)", () => {
+  const csSource = SOURCES.find((s) => s.name === "Colorado Springs H3 Calendar");
+  if (!csSource?.config) throw new Error("Colorado Springs H3 Calendar seed config missing");
+  const config = csSource.config as Record<string, unknown>;
+
+  it("prefers the mid-line 'Hare: NIPS' over the title parenthetical (#2122)", () => {
+    const result = buildRawEventFromGCalItem(
+      {
+        summary: "PPH4 Iron Girth #5 (Last Trail for the week)",
+        start: { dateTime: "2026-04-25T14:00:00-06:00" },
+        description: "P2H4\nIron Girth with your Hare: NIPS\nNo Girth's Birthday party\nBring: whistle, $5",
+        status: "confirmed",
+      },
+      config,
+    );
+    expect(result).not.toBeNull();
+    expect(result!.kennelTags[0]).toBe("pph4");
+    expect(result!.runNumber).toBe(5);
+    expect(result!.hares).toBe("NIPS");
+    expect(result!.title).toContain("Iron Girth #5");
+  });
+
+  it("does not mistake a lowercase 'share:' for a hare label (#2122 negative)", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "PPH4 Some Trail", description: "Come along and we share: cookies and beer" }),
+      config,
+    );
+    expect(result).not.toBeNull();
+    expect(result!.hares).toBeUndefined();
+  });
+
+  it("rejects a 'Hare: TBD' placeholder rather than storing it (#2122 negative)", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "PPH4 Some Trail", description: "Iron Girth with your Hare: TBD" }),
+      config,
+    );
+    expect(result).not.toBeNull();
+    expect(result!.hares).toBeUndefined();
+  });
+
+  it("still promotes a real '(Hare Name)' parenthetical when the description has no Hare label (#2122 guard)", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "PPH4 Trail (Slippery Nipple)", description: "Come run with us, bring water" }),
+      config,
+    );
+    expect(result).not.toBeNull();
+    expect(result!.hares).toBe("Slippery Nipple");
+  });
+
+  it("runs the shared cleanAndFilterHares passes on the capture, e.g. trailing phone (#2122 review)", () => {
+    // The old subset-of-replaces did not strip phone numbers; cleanAndFilterHares
+    // truncates at a mid-string phone run, so the same-line tail can't persist.
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "PPH4 Some Trail", description: "Hare: Slug 2406185563 CALL for same day" }),
+      config,
+    );
+    expect(result).not.toBeNull();
+    expect(result!.hares).toBe("Slug");
   });
 });

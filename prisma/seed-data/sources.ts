@@ -337,6 +337,12 @@ export const SOURCES = [
         // joint trail like "Philly H3 & BFM co-host" is still kept here.
         // Closes #582.
         skipPatterns: ["^Ben Franklin Mob H3\\b", "^BFM\\b"],
+        // #2099: the kennel posts marquee weekend runs (Green Dress Run, etc.)
+        // as all-day VEVENTs (DTSTART;VALUE=DATE). The adapter skips all-day
+        // events by default; opt in so their SUMMARY/LOCATION/DESCRIPTION are
+        // ingested instead of dropped. Single-kennel curated calendar — the
+        // imported-holiday filter already screens junk all-day rows.
+        includeAllDayEvents: true,
       },
       kennelCodes: ["philly-h3"],
     },
@@ -4956,10 +4962,19 @@ export const SOURCES = [
         kennelPatterns: [
           // Handles both spellings: correct "Knightvillian" (ian) and common misspelling "Knightvillain" (ain)
           ["Knightvill(ian|ain)", "knightvillian"],
+          // #2112: the kennel-code form "KVH3" (e.g. "KVH3 - Space Team
+          // Episode 2"). The generic "\bKV(?![A-Za-z])" below rejects it (the
+          // trailing "H" trips the negative lookahead), so it leaked to the
+          // default pormeh3. Most-specific-first.
+          [String.raw`\bKVH3\b`, "knightvillian"],
           // Matches "KV", "KV484", "KV 478" but NOT "KVR", "Kevin", etc.
           // (\bKV not followed by another letter)
           ["\\bKV(?![A-Za-z])", "knightvillian"],
         ],
+        // #2112: "Kink and Pickle Falmouth Hash" is a sibling kennel with no
+        // HashTracks record (no sourceless kennels). Drop its events rather
+        // than letting them fall through to the default pormeh3 kennel.
+        skipPatterns: ["Kink and Pickle"],
       },
       kennelCodes: ["pormeh3", "knightvillian"],
     },

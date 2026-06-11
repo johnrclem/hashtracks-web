@@ -5,7 +5,7 @@ import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, EV
 import { matchKennelPatterns, matchCompiledKennelPatterns, compileKennelPatterns, type KennelPattern, type CompiledKennelPattern } from "../kennel-patterns";
 import { LOCATION_EMAIL_CTA_RE } from "@/pipeline/audit-checks";
 import { parseDMSFromLocation } from "@/lib/geo";
-import { extractHares, PHONE_TRAILING_RE } from "../hare-extraction";
+import { extractHares, PHONE_TRAILING_RE, cleanAndFilterHares } from "../hare-extraction";
 import { MEDICAL_SKIP_RES } from "../skip-rules";
 
 /**
@@ -66,8 +66,15 @@ export function extractRunNumber(
 ): number | null | undefined {
   // 1. Check summary first (e.g., "Beantown #255: ...", "BH3: ... #2781", "Cunth # 40: ...").
   // Shared `extractHashRunNumber` enforces the delimiter guard (#1147) — "#30X?"
-  // rejects rather than parsing as 30.
-  const fromSummary = extractHashRunNumber(summary);
+  // rejects rather than parsing as 30. The fallback re-runs the same parser with
+  // "!" normalized to whitespace so a bang-terminated run number ("PH4 - #1269!",
+  // and the numerology "#1322 Centum!" titles) still parses — "!" isn't in the
+  // shared lookahead delimiter set (utils.ts is read-only) (#2089). Normalizing
+  // "!"→space only helps the lookahead; it can't manufacture a number where the
+  // first pass already saw a clean run, and "#30X?" still falls through to the
+  // placeholder check below.
+  const fromSummary = extractHashRunNumber(summary)
+    ?? (summary.includes("!") ? extractHashRunNumber(summary.replaceAll("!", " ")) : undefined);
   if (fromSummary !== undefined) return fromSummary;
 
   // 1b. Leading "Hash NNNN:" without the `#` (#2007 PGH H3). Colon-anchored
@@ -918,6 +925,32 @@ export function extractCostFromDescription(description: string): string | undefi
   return undefined;
 }
 
+/**
+ * Last-resort hare extraction for a mid-line `Hare: Name` label that the shared
+ * line-anchored `extractHares` patterns miss (#2122 PPH4 — description
+ * "Iron Girth with your Hare: NIPS"). Only used when description + title hare
+ * extraction yielded nothing; without it the title parenthetical
+ * ("(Last Trail for the week)") gets wrongly promoted to hares.
+ *
+ * Requires a literal capital `Hare`/`Hares` preceded by whitespace/`(`/start
+ * and a capture starting with an uppercase letter or `*`, so lowercase
+ * lookalikes ("…we share: cookies", "welfare: …") can't match. The line-bounded
+ * capture is run through the shared {@link cleanAndFilterHares} (phone strip,
+ * sentence-boundary truncation, conversational-tail strip, etc. — the same
+ * cleaner `extractHares` uses) so a same-line prose tail can't persist as a
+ * hare, then through `looksLikeHareName` as a final placeholder/kennel-code gate
+ * (cleanAndFilterHares passes "TBD" through; this rejects it). A null/undefined
+ * cleaner result means "no usable hare" → undefined.
+ */
+const INLINE_HARE_LABEL_RE = /(?:^|[\s(])Hares?\s*:\s*([A-Z*][^\n]*)/;
+export function extractInlineHareFromDescription(description: string): string | undefined {
+  const match = INLINE_HARE_LABEL_RE.exec(description);
+  if (!match?.[1]) return undefined;
+  const cleaned = cleanAndFilterHares(match[1]);
+  if (typeof cleaned !== "string" || !cleaned) return undefined;
+  return looksLikeHareName(cleaned) ? cleaned : undefined;
+}
+
 const mapsUrl = googleMapsSearchUrl;
 
 /** Instruction phrases that indicate a GCal location field is direction text. */
@@ -935,6 +968,10 @@ const NON_ADDRESS_LABEL_TRAIL_RE = /^(?:pack\s*meet|pre[\s-]?lube|trail\s*(?:typ
 const NON_ADDRESS_PAYMENT_RE = /^(?:venmo|pay\s*pal|cash\s*app|zelle)\b/i;
 /** Suffix phrase indicating the field is a placeholder like "DST start location". */
 const NON_ADDRESS_SUFFIX_RE = /\bstart\s+location\s*$/i;
+/** Literal "No location provided" placeholder some kennels type into the GCal
+ *  LOCATION field instead of leaving it blank (#2081 Morgantown). Anchored
+ *  whole-string so a real venue containing the word "provided" survives. */
+const NON_ADDRESS_NO_LOCATION_RE = /^no location provided$/i;
 
 /** Returns true if text starts with instruction phrasing rather than an address.
  *  Patterns are split across multiple small regexes so each stays under
@@ -947,7 +984,8 @@ function isNonAddressText(text: string): boolean {
     NON_ADDRESS_LABEL_CASH_RE.test(t) ||
     NON_ADDRESS_LABEL_TRAIL_RE.test(t) ||
     NON_ADDRESS_PAYMENT_RE.test(t) ||
-    NON_ADDRESS_SUFFIX_RE.test(t)
+    NON_ADDRESS_SUFFIX_RE.test(t) ||
+    NON_ADDRESS_NO_LOCATION_RE.test(t)
   );
 }
 
@@ -1430,6 +1468,13 @@ export function buildRawEventFromGCalItem(
   }
   const { rawDescription, description } = normalizeGCalDescription(item.description);
   let hares = rawDescription ? extractHares(rawDescription, compiledHarePatterns) : undefined;
+  // #2122 — fall back to a mid-line "Hare: Name" label that the line-anchored
+  // extractHares patterns miss (PPH4 "…with your Hare: NIPS"). Prefer this real
+  // description hare over the title parenthetical that would otherwise be
+  // promoted further below.
+  if (!hares && rawDescription) {
+    hares = extractInlineHareFromDescription(rawDescription);
+  }
   // Fall back to extracting hares from title when description has none. Try
   // each pattern in order; first capture-group hit wins. Track which pattern
   // matched so the downstream title-cleanup block uses the same regex span.

@@ -211,8 +211,12 @@ function collectContinuationLines(normalized: string, match: RegExpExecArray): s
  * - `undefined` — no usable candidate, OR a low-confidence/ambiguous reject
  *   (generic "everyone", prose leak, date range, over-long text). "No signal"
  *   — the merge pipeline preserves any existing hare.
+ *
+ * Exported so adapters with a bespoke capture (e.g. the Google Calendar
+ * mid-line `Hare:` fallback, #2122) reuse this robust cleaner instead of
+ * re-implementing a weaker subset of its passes.
  */
-function cleanAndFilterHares(raw: string): string | null | undefined {
+export function cleanAndFilterHares(raw: string): string | null | undefined {
   let hares = raw
     .replace(LEADING_HARE_LABEL_RE, "")
     .trim()
