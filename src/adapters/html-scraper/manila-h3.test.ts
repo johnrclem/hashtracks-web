@@ -39,11 +39,23 @@ describe("parseManilaH3Page", () => {
       date: "2026-06-08",
       runNumber: 2728,
       hares: "perverse arse likkr",
+      description: "laging masmasaya sa mh3 - always more fun with mh3",
       location: "ilokano garage, diosdado macapagal blvd cnr pacific ave, tambo, paranaque",
       locationUrl: "https://tinyurl.com/5b7xvkt3",
       kennelTags: ["mh3-ph"],
       sourceUrl: SOURCE_URL,
     });
+  });
+
+  it("captures the 'bakit (why)' blurb as description, undefined when absent (#2075)", () => {
+    expect(parseManilaH3Page(FIXTURE, SOURCE_URL).event?.description).toBe(
+      "laging masmasaya sa mh3 - always more fun with mh3",
+    );
+    const noBakit = FIXTURE.replace(
+      "<p><span>bakit (why): laging masmasaya sa mh3 - always more fun with mh3</span></p>",
+      "",
+    );
+    expect(parseManilaH3Page(noBakit, SOURCE_URL).event?.description).toBeUndefined();
   });
 
   it("leaves title undefined so merge.ts synthesizes 'Manila H3 Trail #N'", () => {

@@ -106,6 +106,17 @@ describe("parseChiangMaiLine", () => {
     expect(event!.hares).toBe("HRA");
   });
 
+  it("strips a stray 'HARE' label prefix typed before the names (#2082, CH4 run #1108)", () => {
+    const event = parseChiangMaiLine(
+      "Thursday 11th June – CH4 Run # 1108 – HARE Anal Vice & ABB",
+      "ch4-cm",
+      SOURCE_URL,
+    );
+    expect(event).not.toBeNull();
+    expect(event!.runNumber).toBe(1108);
+    expect(event!.hares).toBe("Anal Vice & ABB");
+  });
+
   it("parses CBH3 format: 'Sunday 26 April – CBH3 – Run # 281 – Misfortune and Bare Bum'", () => {
     const event = parseChiangMaiLine(
       "Sunday 26 April \u2013 CBH3 \u2013 Run # 281 \u2013 Misfortune and Bare Bum",

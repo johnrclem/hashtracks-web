@@ -335,6 +335,50 @@ describe("fetchAllWordPressPosts", () => {
     expect(fetch).toHaveBeenCalledTimes(2);
   });
 
+  it("stops once a full page predates stopBefore, without appending it", async () => {
+    const datedPost = (label: string, date: string) => ({
+      title: { rendered: label },
+      content: { rendered: "<p>body</p>" },
+      link: `https://example.com/${label}/`,
+      date,
+    });
+    const inWindow = Array.from({ length: 100 }, (_, i) =>
+      datedPost(`New-${i}`, "2026-02-15T00:00:00"),
+    );
+    const outOfWindow = Array.from({ length: 100 }, (_, i) =>
+      datedPost(`Old-${i}`, "2020-01-01T00:00:00"),
+    );
+
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(new Response(JSON.stringify(inWindow), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(outOfWindow), { status: 200 }));
+
+    const posts = await fetchAllWordPressPosts("https://example.com", {
+      stopBefore: new Date("2026-01-01T00:00:00Z"),
+    });
+
+    // Page 2 is entirely before the floor → fetched but neither appended nor
+    // walked past.
+    expect(posts).toHaveLength(100);
+    expect(posts.every((p) => p.title.startsWith("New-"))).toBe(true);
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("treats an invalid stopBefore Date as no bound (walks normally)", async () => {
+    const page1 = Array.from({ length: 100 }, (_, i) => makePost(i + 1));
+    const page2 = Array.from({ length: 10 }, (_, i) => makePost(i + 101));
+
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(new Response(JSON.stringify(page1), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(page2), { status: 200 }));
+
+    const posts = await fetchAllWordPressPosts("https://example.com", {
+      stopBefore: new Date("not-a-date"),
+    });
+
+    expect(posts).toHaveLength(110);
+  });
+
 
   // Bodies the WP REST API (or a misconfigured WAF in front of it) might
   // return alongside HTTP 400.

@@ -83,7 +83,10 @@ export function parseChiangMaiLine(
     .replace(/^Hares?\s*[.:]\s*/i, "")
     .trim();
   if (harePart && !/^HARE NEEDED$/i.test(harePart) && !/^\?+$/.test(harePart)) {
-    hares = normalizeHaresField(harePart);
+    // Strip a stray "HARE " label a setter typed before the names (#2082, run
+    // #1108: "HARE Anal Vice & ABB"). Done AFTER the HARE-NEEDED guard so the
+    // CTA row "HARE NEEDED" isn't reduced to "NEEDED" and emitted as a hare.
+    hares = normalizeHaresField(harePart.replace(/^HARE\s+/i, ""));
   }
 
   const beforeRun = cleaned.slice(0, runMatch.index).trim();
