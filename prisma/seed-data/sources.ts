@@ -356,7 +356,7 @@ export const SOURCES = [
           "^Trail$",
           "^Circle$",
           "^Dinner$",
-          "^Dancing with DJ",
+          "^Dancing with DJ Trishylicious$",
           "^Ruba After Hours$",
         ],
         // #2099: the kennel posts marquee weekend runs (Green Dress Run, etc.)
