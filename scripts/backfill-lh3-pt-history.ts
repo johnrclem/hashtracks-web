@@ -23,6 +23,9 @@
  * fingerprint on every re-run. Rows bind to the live "Lisbon H3 Harrier Central"
  * source (same data provider — provenance-correct; no separate archive source).
  *
+ * Parsing + mapping live in the shared `hashruns-ssr-backfill` helper (extracted
+ * in #2119 so Porto Invicta reuses the same logic).
+ *
  * Usage:
  *   Dry run:  npx tsx scripts/backfill-lh3-pt-history.ts
  *   Apply:    BACKFILL_APPLY=1 npx tsx scripts/backfill-lh3-pt-history.ts
@@ -30,132 +33,20 @@
  * Requires the "Lisbon H3 Harrier Central" source to exist (run `npx prisma db seed`).
  */
 import "dotenv/config";
-import { runBackfillScript } from "./lib/backfill-runner";
-import { applyTitleFallback, composeHcLocation } from "@/adapters/harrier-central/adapter";
-import type { RawEventData } from "@/adapters/types";
+import { hashrunsSsrBackfill } from "./lib/hashruns-ssr-backfill";
 
-const SOURCE_NAME = "Lisbon H3 Harrier Central";
-const KENNEL_TIMEZONE = "Europe/Lisbon";
-const KENNEL_TAG = "lh3-pt";
-const RUNS_URL = "https://www.hashruns.org/LH3-PT/runs";
-
-// Mirror the live adapter's title synthesis so backfilled titles match what HC
-// would have produced (placeholder slots → "Lisbon H3 #N"). Same shape as the
-// seed config for this source.
-const TITLE_CONFIG = {
-  defaultTitle: "Lisbon H3",
-  staleTitleAliases: ["Placeholder event for LH3"],
-} as const;
-
-/** Shape of an event object in the hashruns.org SSR flight data (PascalCase). */
-interface SsrEvent {
-  PublicEventId?: string;
-  EventNumber?: number;
-  EventName?: string;
-  EventStartDatetime?: string; // "2026-05-30T13:00:00" (kennel-local wall time)
-  Hares?: string;
-  LocationOneLineDesc?: string;
-  LocationStreet?: string;
-  Latitude?: number;
-  Longitude?: number;
-}
-
-/** An SSR event known to carry a start datetime (the only required field). */
-type DatedSsrEvent = SsrEvent & { EventStartDatetime: string };
-
-/**
- * Parse the SSR flight data into event objects. The page embeds each run as a
- * flat JSON object (no nested braces — `tags` is an array, images are strings),
- * escaped as `\"` inside `self.__next_f.push([...])`. Unescape, then match each
- * `{…}` carrying an `"EventNumber"`, JSON.parse, and dedupe by PublicEventId
- * (events appear twice — card + schedule list). The `[^{}]*` class is brace-
- * free, so the match is bounded to a single flat object and is ReDoS-safe.
- */
-function parseSsrEvents(pageText: string): DatedSsrEvent[] {
-  const unescaped = pageText.replaceAll(String.raw`\"`, '"');
-  const matches = unescaped.match(/\{[^{}]*"EventNumber":[^{}]*\}/g) ?? [];
-  const byId = new Map<string, DatedSsrEvent>();
-  for (const raw of matches) {
-    let obj: SsrEvent;
-    try {
-      obj = JSON.parse(raw) as SsrEvent;
-    } catch {
-      continue; // partial/garbled fragment — skip
-    }
-    if (!obj.EventStartDatetime) continue;
-    const dated = obj as DatedSsrEvent;
-    const key = dated.PublicEventId ?? `${dated.EventNumber}-${dated.EventStartDatetime}`;
-    if (!byId.has(key)) byId.set(key, dated);
-  }
-  return [...byId.values()];
-}
-
-/** HC eventNumber tri-state (mirrors the read-only adapter's normalizeHcEventNumber). */
-function normalizeRunNumber(n: number | undefined): number | null | undefined {
-  if (n === 0) return null; // social / drinking practice
-  if (typeof n === "number" && n > 0) return n;
-  return undefined;
-}
-
-/** Trim + drop padded/case-variant "TBA" placeholders (mirrors adapter stripTba). */
-function stripTba(value: string | undefined): string | undefined {
-  const trimmed = value?.trim();
-  return trimmed && !/^tba$/i.test(trimmed) ? trimmed : undefined;
-}
-
-function toRawEvent(e: DatedSsrEvent): RawEventData {
-  const date = e.EventStartDatetime.slice(0, 10);
-  const timeMatch = /T(\d{2}:\d{2})/.exec(e.EventStartDatetime);
-  // composeHcLocation strips TBA + placeholder sentinels ("No location
-  // provided", "TBD", …) internally, returning undefined for non-venues — apply
-  // it to BOTH the venue and the street so an HC placeholder never persists as a
-  // fake street fallback (merge/display treat locationStreet as a real address).
-  const location = composeHcLocation(e.LocationOneLineDesc, undefined);
-  const locationStreet = composeHcLocation(e.LocationStreet, undefined);
-  // Drop HC's region-default fallback pin when there is no real venue, letting
-  // the merge pipeline geocode from place text + country bias instead.
-  const hasVenue = location !== undefined;
-  return {
-    date,
-    kennelTags: [KENNEL_TAG],
-    title: applyTitleFallback(e.EventName, e.EventNumber, TITLE_CONFIG),
-    runNumber: normalizeRunNumber(e.EventNumber),
-    startTime: timeMatch ? timeMatch[1] : undefined,
-    hares: stripTba(e.Hares),
-    location,
-    locationStreet,
-    latitude: hasVenue && typeof e.Latitude === "number" ? e.Latitude : undefined,
-    longitude: hasVenue && typeof e.Longitude === "number" ? e.Longitude : undefined,
-  };
-}
-
-async function fetchEvents(): Promise<RawEventData[]> {
-  const res = await fetch(RUNS_URL, {
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
-      Accept: "text/html",
-    },
-  });
-  if (!res.ok) {
-    throw new Error(`hashruns.org returned HTTP ${res.status} for ${RUNS_URL}`);
-  }
-  const body = await res.text();
-  const ssr = parseSsrEvents(body);
-  if (ssr.length === 0) {
-    throw new Error(
-      `Parsed 0 events from ${RUNS_URL} — the SSR flight-data shape may have changed.`,
-    );
-  }
-  console.log(`  Parsed ${ssr.length} SSR events (run #${Math.min(...ssr.map((s) => s.EventNumber ?? 0))}–${Math.max(...ssr.map((s) => s.EventNumber ?? 0))})`);
-  return ssr.map(toRawEvent);
-}
-
-runBackfillScript({
-  sourceName: SOURCE_NAME,
-  kennelTimezone: KENNEL_TIMEZONE,
-  label: "Fetching + parsing hashruns.org/LH3-PT SSR archive",
-  fetchEvents,
+hashrunsSsrBackfill({
+  slug: "LH3-PT",
+  kennelTag: "lh3-pt",
+  kennelTimezone: "Europe/Lisbon",
+  sourceName: "Lisbon H3 Harrier Central",
+  // Mirror the live adapter's title synthesis so backfilled titles match what HC
+  // would have produced (placeholder slots → "Lisbon H3 #N"). Same shape as the
+  // seed config for this source.
+  titleConfig: {
+    defaultTitle: "Lisbon H3",
+    staleTitleAliases: ["Placeholder event for LH3"],
+  },
 }).catch((err) => {
   console.error(err);
   process.exit(1);
