@@ -527,6 +527,47 @@ the established HC kennels survive reconciliation without it; do not add it.
   group → `[灣北中南]`. Reach for a char class, not `(a|b|c)`, for any all-single-char alternation (same rule
   that prefers `[-:]` over `(?:-|:)`).
 
+### HC `getEvents` is a live-kennel FINDER — city-name sweep (learned from Shanghai H3, 2026-06-11)
+
+When the queue runs dry, turn the existing HARRIER_CENTRAL adapter into a discovery tool. Replicate the
+`generateAccessToken("getEvents")` token (`src/adapters/harrier-central/token.ts`) in a browser
+page-context `fetch` (the Azure host is allowlist-blocked from the research sandbox, reachable locally)
+and POST `{publicHasherId, accessToken, queryType:"getEvents", cityNames:"<City>"}` to the PortalApi. It
+returns `[[events]]` with `publicKennelId`, `kennelName`, `kennelUniqueShortName`, city, dates, coords,
+and logo — i.e. a **ready-to-paste config-only source for any HC kennel in an uncovered city**. Sweeping
+~120 uncovered cities surfaced Shanghai H3 (`63e3cccd-…`). Notes: the unfiltered call errors ("No query
+constraints") — you must pass `cityNames` (or a kennel/GUID filter); most HC kennels are in
+already-covered cities, so a sweep yields a handful of hits, not dozens (the 2026-06-10 sweep was already
+"HC exhausted" for then-uncovered cities — re-run only after new cities enter the backlog).
+
+#### Shanghai H3 addenda (config-only HC, first mainland-China kennel, 2026-06-11)
+
+- **`stripTba` strips only `"TBA"`, NOT `"TBC"` — and the placeholder filters are FIELD-SCOPED.** Three
+  different filters clean three different fields: `stripTba` (`/^tba$/i`) runs on hares *and* location but
+  only catches bare "TBA"; the `GEOCODE_FAIL_SENTINELS` set (`tbc`/`tbd`/`to be confirmed`/…) is applied
+  **only to location** (`stripPlaceholderLocation`/`hcGeocodeFailed`), never to hares. So an HC event with
+  `hares:"TBC"` reaches the adapter output **verbatim**. It still surfaces clean because the **merge
+  pipeline's** own hare sanitization drops the "TBC" placeholder (canonical `hares: null`, no hare line on
+  the card). Lesson for handoff field-fill tables: name the *filter and the field*, not just "it gets
+  nulled" — and for HC placeholder hares, expect the **merge** to clean them, so don't propose an
+  adapter change.
+- **Coarse city location (`"SHANGHAI"`) → coords dropped + re-geocoded, same as Lisbon/Porto.**
+  `placeName === resolvable === "SHANGHAI"` → `hcGeocodeFailed` fires → `dropCachedCoords:true` → merge
+  re-geocodes the city text (+ country bias) to the metro centroid. Third HC kennel where the Lisbon
+  coord work made the pin automatic with no adapter change. Don't pre-empt it with a `dropCachedCoords`
+  config — it's already the default behavior.
+- **First-in-metro alias: avoid the bare city/metro name.** The handoff seeded a bare `"上海"` alias;
+  every future Shanghai sibling (DOGS H3, POSH, Full Moon, Taiping) would equally match it → mis-route in
+  the resolver. Use the **kennel-specific** local-language name instead — `"上海捷兔"` (Shanghai Hash; 捷兔 =
+  the standard Chinese for "hash", as in Taiwan's `台灣健龍捷兔`), mirroring Tokyo's `東京ハッシュ`. Keep the
+  bare city token in `COUNTRY_INFERENCE_RULES` (city→country is correct there), NOT as an alias. Same
+  discipline as the bare-`SHH3`/`TwH3`/`LH3` omissions, extended to CJK city names.
+- **`COUNTRY_INFERENCE_RULES`: use bare CJK tokens (match the adjacent rule's convention).** A review nit
+  proposed wrapping `上海|中国` in `(?:^|\W)…(?:\W|$)`; declined — the neighboring Taiwan rule uses bare CJK
+  alternatives (`[台臺][灣北中南]|新北|高雄|桃園`), `\b`/`\W` are ASCII-only and don't bound CJK, and a
+  substring match on `上海`/`中国` is exactly what country inference wants. Place the China rule AFTER the
+  Hong Kong/Taiwan rules so those tokens resolve to their own regions first.
+
 ## STATIC_SCHEDULE — seasonal (summer/winter) kennels need `scheduleRules`, not just flat fields (learned from Budapest H3, 2026-06-10)
 
 A "Facebook-funnel" kennel (per-run details members-only, but a published fixed weekly cadence) is a
