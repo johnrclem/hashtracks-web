@@ -336,7 +336,29 @@ export const SOURCES = [
         // the Philly hareline. Anchored to start-of-title so a hypothetical
         // joint trail like "Philly H3 & BFM co-host" is still kept here.
         // Closes #582.
-        skipPatterns: ["^Ben Franklin Mob H3\\b", "^BFM\\b"],
+        //
+        // #2099 follow-up: the Green Dress weekend is posted as the all-day
+        // "PHILLY GREEN DRESS RUN" umbrella event PLUS a string of timed agenda
+        // segments on the same date ("Event Check In", "Chalk Talk", "Trail",
+        // "Circle", "Dinner", "Dancing with DJ …", "Ruba After Hours"). Each of
+        // those segment titles occurs EXACTLY ONCE in the whole calendar (verified
+        // 2024–2027), so anchored whole-title skips drop the agenda noise without
+        // touching the recurring "Philly Hash" run (22×). With the segments gone,
+        // the all-day umbrella is the sole raw for that (kennel, date) so its real
+        // title + Ruba location surface instead of a null-title "Event Check In"
+        // collapse. Exact anchors (`^…$`) stop generic words like "Trail"/"Circle"
+        // from shadowing real run titles elsewhere.
+        skipPatterns: [
+          "^Ben Franklin Mob H3\\b",
+          "^BFM\\b",
+          "^Event Check In$",
+          "^Chalk Talk$",
+          "^Trail$",
+          "^Circle$",
+          "^Dinner$",
+          "^Dancing with DJ",
+          "^Ruba After Hours$",
+        ],
         // #2099: the kennel posts marquee weekend runs (Green Dress Run, etc.)
         // as all-day VEVENTs (DTSTART;VALUE=DATE). The adapter skips all-day
         // events by default; opt in so their SUMMARY/LOCATION/DESCRIPTION are
