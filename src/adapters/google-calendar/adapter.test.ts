@@ -2260,6 +2260,42 @@ describe("buildRawEventFromGCalItem — all-day events", () => {
     );
     expect(result).toBeNull();
   });
+
+  // #2099 follow-up: Green Dress weekend agenda segments are dropped so the
+  // all-day umbrella run is the sole event for that (kennel, date), while the
+  // recurring "Philly Hash" run is untouched.
+  it("skips Green Dress agenda segments but keeps the run + regular Philly Hash (#2099)", () => {
+    const phillySource = SOURCES.find((s) => s.name === "Philly H3 Google Calendar");
+    if (!phillySource?.config) throw new Error("Philly H3 Google Calendar seed config missing");
+    const config = phillySource.config as { skipPatterns?: string[] };
+    const compiledSkipPatterns = compilePatterns(config.skipPatterns ?? [], "i");
+
+    for (const seg of ["Event Check In", "Chalk Talk", "Trail", "Circle", "Dinner", "Dancing with DJ Trishylicious", "Ruba After Hours"]) {
+      const r = buildRawEventFromGCalItem(
+        { summary: seg, start: { dateTime: "2026-03-14T14:30:00-04:00" }, status: "confirmed" },
+        phillySource.config as Record<string, unknown>,
+        { compiledSkipPatterns },
+      );
+      expect(r, `agenda segment "${seg}" should be skipped`).toBeNull();
+    }
+
+    // The all-day umbrella run survives.
+    const gd = buildRawEventFromGCalItem(
+      { summary: "PHILLY GREEN DRESS RUN", start: { date: "2026-03-14" }, end: { date: "2026-03-15" }, location: "Ruba, 416 Green St, Philadelphia, PA 19123, USA", status: "confirmed" },
+      phillySource.config as Record<string, unknown>,
+      { compiledSkipPatterns },
+    );
+    expect(gd?.title).toBe("PHILLY GREEN DRESS RUN");
+    expect(gd?.location).toBe("Ruba, 416 Green St, Philadelphia, PA 19123, USA");
+
+    // The recurring weekly run is NOT shadowed by the anchored skips.
+    const regular = buildRawEventFromGCalItem(
+      { summary: "Philly Hash", start: { dateTime: "2026-04-25T15:00:00-04:00" }, status: "confirmed" },
+      phillySource.config as Record<string, unknown>,
+      { compiledSkipPatterns },
+    );
+    expect(regular?.kennelTags[0]).toBe("philly-h3");
+  });
 });
 
 // ── buildRawEventFromGCalItem — timezone-aware extraction (#964 / C2H3) ──
