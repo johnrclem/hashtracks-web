@@ -3175,7 +3175,11 @@ export const SOURCES = [
           // "Pau Hana", which legit AH3 socials use generically ("Cinco de Mayo
           // Pau Hana", "Karaoke … Pau Hana"). Also not "Pearl Harbor" as a
           // location — an AH3 run at Pearl Harbor must not misroute here.
-          [String.raw`\bPHH\b|Pau Hana Hui`, "phh-hi"],
+          // Trailing \b only on the "Pau Hana Hui" arm: it blocks suffix
+          // partial-matches (e.g. "Pau Hana Huipil") per review, but a LEADING
+          // \b is omitted on purpose — a real PHH title has a missing-space
+          // typo ("…ChristmasPau Hana Hui") that a leading boundary would drop.
+          [String.raw`\bPHH\b|Pau Hana Hui\b`, "phh-hi"],
           ["\\bH5\\b|Honolulu H[45]", "h5-hi"],
         ],
         defaultKennelTag: "ah3-hi",
