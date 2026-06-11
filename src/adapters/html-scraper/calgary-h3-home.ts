@@ -1,8 +1,10 @@
 /**
  * Calgary H3 Upcoming Runs Scraper (Events Manager HTML)
  *
- * Scrapes https://home.onon.org/upcumming-runs which uses the WordPress
- * Events Manager plugin. Event items have CSS classes:
+ * Scrapes https://home.onon.org/events (the unfiltered Events Manager
+ * listing — /upcumming-runs is "Hash"-category-only and drops TGIF/social
+ * events, see #895) which uses the WordPress Events Manager plugin. Event
+ * items have CSS classes:
  *   .em-event.em-item — event container
  *   .em-item-title a — event title + link
  *   .em-event-date — date string (e.g., "April 2, 2026")
@@ -72,7 +74,7 @@ export class CalgaryH3HomeAdapter implements SourceAdapter {
     source: Source,
     options?: { days?: number },
   ): Promise<ScrapeResult> {
-    const url = source.url || "https://home.onon.org/upcumming-runs";
+    const url = source.url || "https://home.onon.org/events";
 
     const page = await fetchBrowserRenderedPage(url, {
       waitFor: ".em-event.em-item",
