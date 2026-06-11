@@ -133,10 +133,14 @@ export function parseKCH3Body(text: string): {
   //   - Bare "Start" and "Where" REQUIRE the colon, which is what rejects
   //     "Start Time 3 p.m." and "Start @ Private Home:" (address on the next
   //     line) without swallowing them as a venue.
+  // Capture starts at the first non-space (`\S`) so the leading `[ \t]*` and the
+  // value never overlap on whitespace, and the optional colon is wrapped as
+  // `(?::[ \t]*)?` rather than `:?[ \t]*` so two `[ \t]*` are never adjacent —
+  // both keep these clear of Sonar S5852 (ReDoS backtracking).
   const locMatch =
-    /^[ \t]*(?:Start[ \t]+)?Location[ \t]*:?[ \t]*(.+)$/im.exec(text) ||
-    /^[ \t]*Where[ \t]*:[ \t]*(.+)$/im.exec(text) ||
-    /^[ \t]*Start[ \t]*:[ \t]*(.+)$/im.exec(text);
+    /^[ \t]*(?:Start[ \t]+)?Location[ \t]*(?::[ \t]*)?(\S.*)$/im.exec(text) ||
+    /^[ \t]*Where:[ \t]*(\S.*)$/im.exec(text) ||
+    /^[ \t]*Start:[ \t]*(\S.*)$/im.exec(text);
   // Strip a parenthetical label that precedes the colon — e.g.
   // "Location (also prelube and on-after): Helen's J.A.D. ..." captures
   // "(also prelube and on-after): Helen's …"; drop the leading label so it

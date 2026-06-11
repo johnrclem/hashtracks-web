@@ -172,6 +172,14 @@ Short-ish trail with possible Bar Audibles
     expect(parseKCH3Body("Start @ Private Home:\n3013 New Lawrence Rd").location).toBeUndefined();
     expect(parseKCH3Body("Start Time 3 p.m.\nHares: Naked Rider").location).toBeUndefined();
   });
+
+  it.each([
+    ["Location KC Bier Company 310 W 79th St, Kansas City, MO 64114", "KC Bier Company 310 W 79th St, Kansas City, MO 64114", "no-colon Location"],
+    ["Location Strang Hall 7313 W 80th St, Overland Park, KS 66204", "Strang Hall 7313 W 80th St, Overland Park, KS 66204", "no-colon Location"],
+    ["Start Location: Hidden Valley Park, 4029 Bellaire Ave, KC, MO", "Hidden Valley Park, 4029 Bellaire Ave, KC, MO", "Start Location: prefix"],
+  ])("captures the venue from '%s' (%s)", (body, expected) => {
+    expect(parseKCH3Body(body).location).toBe(expected);
+  });
 });
 
 describe("stripLeadingParenLabel", () => {
