@@ -373,7 +373,13 @@ export async function fetchAllWordPressPosts(
 ): Promise<WordPressPost[]> {
   const perPage = options.perPage ?? 100;
   const maxPages = options.maxPages ?? 100;
-  const stopBeforeMs = options.stopBefore?.getTime();
+  // Treat an invalid `stopBefore` (NaN getTime) as "no bound" rather than
+  // letting NaN comparisons silently disable the early-stop and walk the
+  // whole archive.
+  const stopBeforeMs =
+    options.stopBefore && Number.isFinite(options.stopBefore.getTime())
+      ? options.stopBefore.getTime()
+      : undefined;
   // Procedural trim avoids the Sonar S5852 ReDoS hotspot that `/\/+$/` trips.
   let base = siteUrl;
   while (base.endsWith("/")) base = base.slice(0, -1);
@@ -411,12 +417,11 @@ export async function fetchAllWordPressPosts(
     const batch = parseWordPressBatch(await response.text(), page);
     lastBatchSize = batch.length;
     if (batch.length === 0) return posts;
-    posts.push(...batch.map(toWordPressPost));
-    if (batch.length < perPage) return posts;
     // Posts come newest-first. Once an entire page predates the caller's window
-    // floor, every later page does too — stop early so a recurring scrape walks
-    // only ~1-2 pages instead of the full archive. A page with any in-window (or
-    // undated/unparseable) post keeps paginating, so nothing in range is missed.
+    // floor, every later page does too — stop before pushing it, so a recurring
+    // scrape walks only ~1-2 pages and out-of-window posts aren't appended just
+    // to be trimmed downstream. A page with any in-window (or undated/
+    // unparseable) post keeps paginating, so nothing in range is missed.
     if (
       stopBeforeMs !== undefined &&
       batch.every((item) => {
@@ -426,6 +431,8 @@ export async function fetchAllWordPressPosts(
     ) {
       return posts;
     }
+    posts.push(...batch.map(toWordPressPost));
+    if (batch.length < perPage) return posts;
   }
 
   // Hit maxPages with a full final batch — more pages exist. Fail loud
