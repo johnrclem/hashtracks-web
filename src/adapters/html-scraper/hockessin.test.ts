@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { parseHockessinEvent } from "./hockessin";
+import { generateFingerprint } from "@/pipeline/fingerprint";
 
 describe("HockessinAdapter", () => {
   describe("parseHockessinEvent", () => {
@@ -171,6 +172,42 @@ describe("HockessinAdapter", () => {
       expect(event).not.toBeNull();
       expect(event!.title).toBeUndefined();
       expect(event!.hares).toBeUndefined();
+    });
+
+    it("#1748: a source-duplicated run number on two dates stays distinct", () => {
+      // Verbatim from hockessinhash.org on 2026-05-28: the kennel assigned the
+      // same run number (#1668) to two different Wednesday runs. The adapter
+      // faithfully scrapes both; distinctness is guaranteed downstream by the
+      // event date (the first field of the merge fingerprint), so the two never
+      // merge or collapse into one canonical Event. No renumbering — we don't
+      // fabricate data the source didn't provide.
+      const jun10 = parseHockessinEvent(
+        "Hash #1668: HARE(S) NEEDED?!",
+        "WEDNESDAY, June 10, 2026, 6:30pm, TBA",
+        "https://www.hockessinhash.org/",
+      );
+      const jun17 = parseHockessinEvent(
+        "Hash #1668: 7th Hole",
+        "WEDNESDAY, June 17, 2026, 6:30pm, TBA",
+        "https://www.hockessinhash.org/",
+      );
+
+      expect(jun10).not.toBeNull();
+      expect(jun17).not.toBeNull();
+
+      // Same (duplicated) run number, faithfully preserved on both.
+      expect(jun10!.runNumber).toBe(1668);
+      expect(jun17!.runNumber).toBe(1668);
+
+      // Distinct dates and hares keep them apart.
+      expect(jun10!.date).toBe("2026-06-10");
+      expect(jun17!.date).toBe("2026-06-17");
+      expect(jun10!.hares).toBe("HARE(S) NEEDED?!");
+      expect(jun17!.hares).toBe("7th Hole");
+
+      // The merge fingerprint differs (date is its first component), so the two
+      // RawEvents never dedup into one — this is the actual no-collapse guard.
+      expect(generateFingerprint(jun10!)).not.toBe(generateFingerprint(jun17!));
     });
   });
 });

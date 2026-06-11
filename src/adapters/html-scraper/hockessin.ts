@@ -95,6 +95,11 @@ export function parseHockessinEvent(
   return {
     date,
     kennelTags: ["hockessin"],
+    // #1748 — the kennel sometimes assigns the SAME run number to two different
+    // dates (source data-entry error, e.g. #1668 on Jun 10 AND Jun 17 2026). We
+    // scrape it faithfully rather than renumbering; the two events stay distinct
+    // because `date` is the first field of the merge fingerprint, so they never
+    // collapse into one canonical Event.
     runNumber: !Number.isNaN(runNumber) ? runNumber : undefined,
     // Title is populated only when the source has a distinct theme separated
     // from the hares by " - " (#1493); the bare `Hash #N: <hares>` shape leaves
