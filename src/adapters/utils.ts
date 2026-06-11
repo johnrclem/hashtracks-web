@@ -1013,7 +1013,11 @@ export function stripClickHereForMap(s: string): string {
 // Hares Needed", #1731 "Hares: …" captured when Start: was blank). "Start:"
 // is intentionally absent: it IS a location label, so its prefix is stripped
 // and the address kept (see cleanLocationName step 2).
-const NON_LOCATION_LABEL_RE = /^(?:hares?|hare\(s\)|on[\s-]?on|map)\s*:/i;
+// Whole-value labels that are never a venue. Extended (#2110 follow-up) to drop
+// cost/time/meetup/pack-out label lines that a loose source parse can capture
+// into a location field — e.g. "Hash Cash: $5", "Time: 1400", "Meetup: 2 p.m.".
+const NON_LOCATION_LABEL_RE =
+  /^(?:hares?|hare\(s\)|on[\s-]?on|map|hash\s*cash|cost|meet\s*up|pack\s*(?:away|up|out)|time)\s*:/i;
 const START_LABEL_RE = /^start\s*:\s*/i;
 
 // Segment-separator characters. Includes "/" because Norfolk venue blocks use
