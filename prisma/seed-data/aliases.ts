@@ -370,7 +370,10 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     // ===== CHINA =====
     // Bare "SHH3" omitted — already claimed by Singapore Harriets (sgharriets) and would
     // shadow it via text match in the resolver. Region-suffixed "SHH3-CN" used instead.
-    "shh3-cn": ["Shanghai H3", "Shanghai HHH", "Shanghai Hash House Harriers", "SHH3-CN", "上海"],
+    // "上海捷兔" (Shanghai Hash, kennel-specific — mirrors Tokyo "東京ハッシュ" / Taiwan
+    // "台灣健龍捷兔"). Bare "上海" (just the city) omitted — every future Shanghai kennel
+    // (DOGS H3, POSH, …) would equally match it and mis-route in the resolver.
+    "shh3-cn": ["Shanghai H3", "Shanghai HHH", "Shanghai Hash House Harriers", "SHH3-CN", "上海捷兔"],
 
     // ===== BELGIUM =====
     "bmph3-be": ["BMPH3", "Brussels Manneke Piss", "Manneke Piss Hash", "BMP H3"],

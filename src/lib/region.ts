@@ -3487,8 +3487,10 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   [/\b(philippines|manila|maynila|para[ñn]aque)\b/, "Philippines"],
   [/\b(hong kong|kowloon|lantau|new territories|wan\s?chai|sai kung|sek kong)\b/, "Hong Kong"],
   // Placed AFTER Hong Kong / Taiwan so HK and Taiwan tokens resolve to their own
-  // regions first. "Republic of China" (=Taiwan) lacks a taiwan/台 token and would match
-  // here, but real Taiwan events carry "Taiwan"/台 and hit the earlier Taiwan rule.
+  // regions first. "Republic of China" (=Taiwan) contains "China" and would match
+  // here, but real Taiwan events carry "Taiwan"/台 tokens and resolve via the earlier
+  // Taiwan rule. Bare CJK tokens (no \W boundaries) match the adjacent Taiwan rule's
+  // convention; \b is ASCII-only so it can't bound CJK anyway.
   [/\b(china|shanghai|beijing|guangzhou|shenzhen)\b|上海|中国/, "China"],
   [/\b(malaysia|kuala lumpur|\bkl\b|petaling|penang|pulau pinang|george town|selangor|johor|sabah|sarawak|melaka|malacca|ipoh|kuching|kota kinabalu|miri|kelana jaya|butterworth|kluang)\b/, "Malaysia"],
   [/\b(new zealand|aotearoa|christchurch|otepoti|tokoroa|whangarei|whakatane|invercargill|dunedin|tauranga|rotorua|hibiscus coast|coromandel|manawat[uū])\b/, "New Zealand"],
