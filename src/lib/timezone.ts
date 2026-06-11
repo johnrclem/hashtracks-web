@@ -1,5 +1,6 @@
 import { tz } from "@date-fns/tz";
 import { format, parse } from "date-fns";
+import { formatTime } from "@/lib/format";
 
 /**
  * Creates an exact global UTC Date representing the start time of an event.
@@ -56,6 +57,23 @@ export function formatTimeInZone(date: Date, timezone: string, fmt = "h:mm a"): 
     } catch {
         return format(date, fmt); // Fallback to system local if error
     }
+}
+
+/**
+ * Format a local "HH:MM" time for display in `displayTz`, anchored to the
+ * event's date. Composes an absolute instant from (date, time, eventTimezone)
+ * and renders it in `displayTz`; falls back to plain HH:MM AM/PM formatting
+ * when timezone data is unavailable. Shared by the card, detail panel, and full
+ * detail page so the start–end range renders consistently (#2135).
+ */
+export function formatLocalTimeForDisplay(
+    dateUtcNoon: string,
+    time: string,
+    eventTimezone: string | null,
+    displayTz: string | null,
+): string {
+    const composed = eventTimezone ? composeUtcStart(new Date(dateUtcNoon), time, eventTimezone) : null;
+    return composed && displayTz ? formatTimeInZone(composed, displayTz) : formatTime(time);
 }
 
 /**

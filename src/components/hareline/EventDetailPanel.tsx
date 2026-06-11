@@ -10,13 +10,14 @@ import {
   TooltipTrigger,
   TooltipContent,
 } from "@/components/ui/tooltip";
-import { formatTime, formatDateLong, formatDateRange, getLabelForUrl, stripMarkdown, stripUrlsFromText } from "@/lib/format";
+import { formatTimeRange, formatDateLong, formatDateRange, getLabelForUrl, stripMarkdown, stripUrlsFromText } from "@/lib/format";
 import { getFullLocationDisplay } from "@/lib/event-display";
 import type { HarelineEvent } from "./EventCard";
+import { computeDisplayTime } from "./EventCard";
 import { SeriesChildTimeline } from "./SeriesChildTimeline";
 import { ShiggyLevelFlames, TrailLengthLine, formatTrailLength } from "./TrailDifficulty";
 import { useTimePreference } from "@/components/providers/time-preference-provider";
-import { formatTimeInZone, getTimezoneAbbreviation, getBrowserTimezone } from "@/lib/timezone";
+import { getBrowserTimezone } from "@/lib/timezone";
 import { CheckInButton } from "@/components/logbook/CheckInButton";
 import type { AttendanceData } from "@/components/logbook/CheckInButton";
 import { CalendarExportButton } from "./CalendarExportButton";
@@ -78,13 +79,10 @@ export function EventDetailPanel({ event, attendance, isAuthenticated, onDismiss
   // #1522). Time line below still uses `displayTz`. (#1502)
   const displayDateStr = computeHeadingDate(event);
 
-  const displayTimeStr = (event.dateUtc && event.startTime)
-    ? formatTimeInZone(event.dateUtc, displayTz)
-    : (event.startTime ? formatTime(event.startTime) : null);
-
-  const tzAbbrev = (event.dateUtc && event.startTime)
-    ? getTimezoneAbbreviation(event.dateUtc, displayTz)
-    : "";
+  // #2135 — reuse the card's canonical time derivation so the start anchor
+  // recomposes from startTime+timezone (#1654) and the start/end range share
+  // one anchor (avoids a stale-dateUtc start paired with a recomposed end).
+  const { displayTimeStr, endTimeStr, tzAbbrev } = computeDisplayTime(event, displayTz);
 
   const regionColor = event.kennel?.region ? getRegionColor(event.kennel.region) : "#6b7280";
   const trailLengthDisplay = formatTrailLength(event);
@@ -235,9 +233,9 @@ export function EventDetailPanel({ event, attendance, isAuthenticated, onDismiss
           )}
           {displayTimeStr && (
             <div>
-              <dt className="font-medium text-muted-foreground">Start Time</dt>
+              <dt className="font-medium text-muted-foreground">{endTimeStr ? "Time" : "Start Time"}</dt>
               <dd className="flex items-center gap-1" suppressHydrationWarning>
-                {displayTimeStr}
+                {formatTimeRange(displayTimeStr, endTimeStr)}
                 {tzAbbrev && <span className="text-xs font-medium opacity-70" suppressHydrationWarning>{tzAbbrev}</span>}
               </dd>
             </div>

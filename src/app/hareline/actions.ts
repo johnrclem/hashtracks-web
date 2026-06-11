@@ -47,6 +47,9 @@ export interface HarelineListEvent {
   title: string | null;
   haresText: string | null;
   startTime: string | null;
+  /** #2135 — local end time "HH:MM" (same convention as startTime); null when
+   *  the source has no DTEND or the run wraps past midnight. */
+  endTime: string | null;
   locationName: string | null;
   locationCity: string | null;
   status: string;
@@ -249,6 +252,7 @@ const fetchSlimEventsCached = unstable_cache(
         eventLabel: true,
         haresText: true,
         startTime: true,
+        endTime: true,
         locationName: true,
         locationCity: true,
         status: true,
@@ -336,6 +340,7 @@ const fetchSlimEventsCached = unstable_cache(
       eventLabel: e.eventLabel,
       haresText: e.haresText,
       startTime: e.startTime,
+      endTime: e.endTime,
       locationName: e.locationName,
       locationCity: e.locationCity,
       status: e.status,

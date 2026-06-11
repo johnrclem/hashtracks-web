@@ -215,6 +215,7 @@ export default async function KennelDetailPage({
     eventLabel: e.eventLabel,
     haresText: e.haresText,
     startTime: e.startTime,
+    endTime: e.endTime,
     locationName: e.locationName,
     locationStreet: e.locationStreet,
     locationCity: e.locationCity,

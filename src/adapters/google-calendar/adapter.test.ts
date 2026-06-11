@@ -153,12 +153,12 @@ describe("Memphis H3 Google Calendar — GyNO routing (#1954)", () => {
 
 // ── Princeton NJ Hash Calendar — placeholder title substitution (#1934) ──
 
-describe("Princeton NJ Hash Calendar — placeholder title (#1934)", () => {
+describe("Princeton NJ Hash Calendar — title from SUMMARY (#2125, reverses #1934)", () => {
   const princetonSource = SOURCES.find((s) => s.name === "Princeton NJ Hash Calendar");
   if (!princetonSource?.config) throw new Error("Princeton NJ Hash Calendar seed config missing");
   const config = princetonSource.config as Parameters<typeof buildRawEventFromGCalItem>[1];
 
-  it("substitutes the standing schedule-description placeholder with the default title", () => {
+  it("surfaces the real GCal SUMMARY as the title (no staleTitleAliases substitution)", () => {
     const result = buildRawEventFromGCalItem(
       {
         summary: "Regular Hash Day, 2nd Sunday, detail cuming",
@@ -168,7 +168,94 @@ describe("Princeton NJ Hash Calendar — placeholder title (#1934)", () => {
       config,
     );
     expect(result?.kennelTags[0]).toBe("princeton-h3");
-    expect(result?.title).toBe("Princeton H3 Hash");
+    expect(result?.title).toBe("Regular Hash Day, 2nd Sunday, detail cuming");
+  });
+
+  it("still routes MDL Hash events to princeton-h3 with their own title", () => {
+    const result = buildRawEventFromGCalItem(
+      {
+        summary: "MDL Hash (4th Sunday except when it is 3rd Sunday or other)",
+        start: { dateTime: "2026-06-28T14:00:00-04:00" },
+        status: "confirmed",
+      },
+      config,
+    );
+    expect(result?.kennelTags[0]).toBe("princeton-h3");
+    expect(result?.title).toContain("MDL Hash");
+  });
+
+  it("does not route unmatched Summit/Rumson placeholder events to princeton-h3 (defaultKennelTag: null)", () => {
+    // With kennelPatterns set + a null default, an unmatched summary passes
+    // through verbatim as its own tag (kennel resolution then drops it
+    // downstream — no Princeton attribution).
+    const result = buildRawEventFromGCalItem(
+      {
+        summary: "Summit H3 placeholder",
+        start: { dateTime: "2026-06-21T14:00:00-04:00" },
+        status: "confirmed",
+      },
+      config,
+    );
+    expect(result?.kennelTags[0]).not.toBe("princeton-h3");
+  });
+});
+
+// ── MoA2H3 Google Calendar sister-kennel routing (#1738) ──
+
+describe("MoA2H3 Google Calendar — sister-kennel routing (#1738)", () => {
+  const moaSource = SOURCES.find((s) => s.name === "MoA2H3 Google Calendar");
+  if (!moaSource?.config) throw new Error("MoA2H3 Google Calendar seed config missing");
+  const config = moaSource.config as Parameters<typeof buildRawEventFromGCalItem>[1];
+
+  it.each([
+    // [summary, expected kennelTag, description]
+    ["DeMonH3 - Belle Isle Be Damned", "demon-h3", "DeMonH3 glued form"],
+    ["DeMonH3 Inaugural Trail", "demon-h3", "DeMonH3 inaugural"],
+    ["DeMon H3 Monday Run", "demon-h3", "DeMon H3 spaced form"],
+    ["GLH3 HashMas", "glh3", "GLH3 token"],
+    ["Greater Lansing H3 Holiday Trail", "glh3", "Greater Lansing full name"],
+    ["MoA2H3 Red Dress Run", "moa2h3", "host run falls through to default"],
+    ["MoA2H3 MoA2H3 Red Dress Run", "moa2h3", "doubled-prefix host run still routes to host"],
+  ])("routes %j → %s (%s)", (summary, expectedTag) => {
+    const result = buildRawEventFromGCalItem(
+      { summary, start: { dateTime: "2025-11-24T18:30:00-05:00" }, status: "confirmed" },
+      config,
+    );
+    expect(result?.kennelTags[0]).toBe(expectedTag);
+  });
+
+  it("links the sister kennels to the source so the merge guard passes (no SOURCE_KENNEL_MISMATCH)", () => {
+    expect(moaSource.kennelCodes).toEqual(
+      expect.arrayContaining(["moa2h3", "demon-h3", "glh3"]),
+    );
+  });
+});
+
+// ── BJH3 Google Calendar timezone normalization (#775) ──
+
+describe("BJH3 Google Calendar — El Paso (Mountain) timezone normalization (#775)", () => {
+  const bjSource = SOURCES.find((s) => s.name === "BJH3 Google Calendar");
+  if (!bjSource?.config) throw new Error("BJH3 Google Calendar seed config missing");
+  const config = bjSource.config as Parameters<typeof buildRawEventFromGCalItem>[1];
+
+  it("pins the El Paso IANA zone in the seed config", () => {
+    expect((config as { timezone?: string }).timezone).toBe("America/Denver");
+  });
+
+  it("normalizes a UTC dateTime authored elsewhere to El Paso wall-clock (the Turkey Puke EST outlier)", () => {
+    // 2025-11-28 (MST, UTC-7): 19:00Z → 12:00 local; 21:00Z → 14:00 local.
+    const result = buildRawEventFromGCalItem(
+      {
+        summary: "EPH3 Turkey Puke Hash",
+        start: { dateTime: "2025-11-28T19:00:00Z" },
+        end: { dateTime: "2025-11-28T21:00:00Z" },
+        status: "confirmed",
+      },
+      config,
+    );
+    expect(result?.kennelTags[0]).toBe("bjh3");
+    expect(result?.startTime).toBe("12:00");
+    expect(result?.endTime).toBe("14:00");
   });
 });
 
