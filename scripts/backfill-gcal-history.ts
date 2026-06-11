@@ -23,10 +23,30 @@
  *
  * Targets:
  *   - "Pedal Files Bash Google Calendar"  (2018-03 → present, ~56→130 events) — default
+ *   - "Portland Humpin' Hash Calendar"    (2024-10 → 2026-09, ~101 events, single-kennel ph4, #2088) — default
+ *   - "Aloha H3 Google Calendar"          (2011-12 → present, ~2,187 events, MULTI-kennel, #2093)    — default
  *   - "Pittsburgh Hash Calendar"          (2008-12 → present, ~900 events)    — GATED
  * PGH is gated OUT of the default run: pass it explicitly via --source, and only
  * AFTER WS1's PGH run-number parser fix is on main (#2009 caveat) — otherwise the
- * `Hash NNNN:` variants re-import malformed.
+ * `Hash NNNN:` variants re-import malformed. PH4 + Aloha are NOT gated: WS1's PH4
+ * run-number (#2089) and PHH "&"-truncation (#2091) fixes are already on main
+ * (PR #2126), so the historical rows parse correctly the first time.
+ *
+ * MULTI-KENNEL CAVEAT (Aloha H3 Google Calendar): this one source feeds THREE
+ * kennels — ah3-hi / h5-hi / phh-hi — via `config.kennelPatterns`. A wide pass
+ * re-fetches + re-routes ALL ~2,187 events and backfills all three kennels'
+ * history (you cannot fetch only PHH from a GCal); that is expected and benign.
+ * Per the PR #2055 caveat, a deep-history multi-kennel pass CAN cancel sibling
+ * events when the merge RE-ROUTES an event to a different kennel (the old slot
+ * orphans) or when GCal's far-past RRULE expansion is not reproducible run-to-
+ * run — the `cancelled > 0` warning below is the fail-loud guard. It is NOT
+ * automatically a regression: for #2093 the phh-hi pattern was widened to match
+ * "Pau Hana Hui", so a corrective re-scrape intentionally cancels the ~467 stale
+ * ah3-hi rows those events used to mis-route to. INVESTIGATE every cancellation
+ * before trusting OR restoring: confirm each cancelled row is a genuine re-route
+ * (a CONFIRMED counterpart now exists under the correct kennel) rather than a
+ * real orphan. Restore only true orphans (durable: deep-history rows predate the
+ * recurring now-365d reconcile floor, so the daily cron won't re-cancel them).
  *
  * Usage:
  *   eval "$(fnm env)" && fnm use 20
@@ -63,6 +83,8 @@ const BACKFILL_DAYS = 9999;
 // re-import the malformed `Hash NNNN:` variants the #2009 caveat warns about.
 const TARGETS: { name: string; gated: boolean }[] = [
   { name: "Pedal Files Bash Google Calendar", gated: false },
+  { name: "Portland Humpin' Hash Calendar", gated: false },
+  { name: "Aloha H3 Google Calendar", gated: false },
   { name: "Pittsburgh Hash Calendar", gated: true },
 ];
 
