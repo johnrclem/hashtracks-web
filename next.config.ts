@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
+import { LOGO_REMOTE_PATTERNS } from "./src/lib/image-remote-patterns";
 
 const securityHeaders = [
   {
@@ -27,13 +28,11 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   serverExternalPackages: ["node-ical"],
   images: {
-    // Kennel logos (#1301) come from open-ended third-party hosts — WordPress
-    // origins, assets.gohash.app, gravatar.com, Vercel Blob, etc. An enumerated
-    // allowlist would silently break every newly-added logo, so we allow any
-    // https origin through the optimizer (WebP/resize/lazy). Non-resolvable or
-    // http-only assets are caught by KennelLogo's onError → initials fallback
-    // (#1300). SVGs stay disabled (Next.js default) to avoid the XSS surface.
-    remotePatterns: [{ protocol: "https", hostname: "**" }],
+    // FIRST-PARTY ONLY. The public `/_next/image` optimizer fetches whatever
+    // URL it's handed, so a wildcard host would expose an arbitrary-HTTPS
+    // fetch/resize proxy (SSRF + amplification). Third-party kennel logos
+    // render `unoptimized` in KennelLogo instead. See image-remote-patterns.ts.
+    remotePatterns: LOGO_REMOTE_PATTERNS,
   },
   async redirects() {
     return [

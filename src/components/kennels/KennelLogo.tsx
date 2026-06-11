@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useState, type ReactNode } from "react";
+import { isOptimizableLogo } from "@/lib/image-remote-patterns";
 
 interface KennelLogoProps {
   /** Logo URL, or null/undefined when the kennel has no logo. */
@@ -25,6 +26,10 @@ interface KennelLogoProps {
  * load — a non-resolvable/404/http-only logo shows initials, never a broken
  * image icon (#1300). `onError` requires a client boundary, hence this small
  * client wrapper used by both the kennel hero and the directory card.
+ *
+ * Only first-party assets (local paths + Vercel Blob) go through the `/_next/
+ * image` optimizer; arbitrary third-party logos render `unoptimized` so the
+ * public optimizer is never used as a fetch proxy (see image-remote-patterns).
  */
 export function KennelLogo({
   logoUrl,
@@ -48,6 +53,7 @@ export function KennelLogo({
       width={width}
       height={height}
       loading={loading}
+      unoptimized={!isOptimizableLogo(logoUrl)}
       className={className}
       onError={() => setErrored(true)}
     />
