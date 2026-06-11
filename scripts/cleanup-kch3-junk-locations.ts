@@ -35,7 +35,7 @@ const KENNEL_CODES = ["kch3", "pnh3"];
 const JUNK_PATTERNS: RegExp[] = [
   /^(?:hash\s*cash|cost|time|meet\s*up|pack\s*(?:away|up|out))\b/i, // cost/time/meetup labels
   /^@\s/, // "@ Private Home:"
-  /^\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)\.?$/i, // bare time ("3 p.m.", "2:00pm")
+  /^\d{1,2}(?::\d{2})?\s?(?:a\.?m\.?|p\.?m\.?)\.?$/i, // bare time ("3 p.m.", "2:00pm")
   /!!|come dressed|bring your|going for gold/i, // theme prose
   /\bapproximately\b/i, // "… – approximately 5pm."
 ];
@@ -50,6 +50,12 @@ async function main() {
 
   // 1. Re-derive location from the live source with the fixed parser.
   const posts = await fetchAllWordPressPosts(BASE_URL, { perPage: 100, maxPages: 50 });
+  // Abort on an empty fetch: treating a failed/empty pull as "no source venues"
+  // would null every junk row (and overwrite none). fetchAllWordPressPosts
+  // throws on a real error; an empty array means the archive vanished, so stop.
+  if (posts.length === 0) {
+    throw new Error("KCH3 WordPress archive returned 0 posts — aborting to avoid nulling on a bad fetch.");
+  }
   const freshByKey = new Map<string, string | null>(); // `${kennelCode}|${YYYY-MM-DD}` → location
   for (const post of posts) {
     const ev = processKCH3Post(post.title, htmlToNewlineText(post.content), post.url, post.date);
