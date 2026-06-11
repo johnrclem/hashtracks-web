@@ -134,6 +134,52 @@ Short-ish trail with possible Bar Audibles
       "Helen's J.A.D. – 2002 Armour Rd, North Kansas City, MO 64116",
     );
   });
+
+  // #2110 follow-up: the location label must only match at the start of a line,
+  // with its colon, capturing same-line text — never the bare word in prose or
+  // the next line's content.
+  it("does not capture theme prose containing the word 'start' (Olympic Trials leak)", () => {
+    const body =
+      "Meetup: 10:00 a.m. Just outside The Dub KC 105 W 9th St, Kansas City, MO 64105\n" +
+      "Hare(s): Black to the Cooter and HoMo\n" +
+      "The first PN trail of 2026 and just in time for the start of the winter Olympics!!! Come dressed as your favorite Olympian";
+    expect(parseKCH3Body(body).location).toBeUndefined();
+  });
+
+  it("prefers a real WHERE: line over a prose 'start' later in the body (Drinksgiving)", () => {
+    const body =
+      "Meetup 2pm / Pack away 2:30pm\n" +
+      "WHERE: 1601 N 98th St, Kansas City, KS 66111\n" +
+      "ON-AFTER continues at Casa de EZ Odor, a hop skip from trail start – approximately 5pm.";
+    expect(parseKCH3Body(body).location).toBe("1601 N 98th St, Kansas City, KS 66111");
+  });
+
+  it("does not let whitespace span a newline from a prose 'location' word into the next line (Chili: Hash Cash)", () => {
+    const body =
+      "Meetup: 1:00 p.m.\n" +
+      "Pack away shortly thereafter – shuttling to the trail start location\n" +
+      "Hash Cash: $5\n" +
+      "Location: 7103 Harvard Ave, Raytown, MO 64133";
+    expect(parseKCH3Body(body).location).toBe("7103 Harvard Ave, Raytown, MO 64133");
+  });
+
+  it("ignores a 'Start' line whose colon belongs to a time, not a label (Spock 5:00pm)", () => {
+    const body = "Start at Tuckers, hares away 5:00pm.\nHare: Spock";
+    expect(parseKCH3Body(body).location).toBeUndefined();
+  });
+
+  it("ignores 'Start @ Private Home:' / 'Start Time …' non-label lines", () => {
+    expect(parseKCH3Body("Start @ Private Home:\n3013 New Lawrence Rd").location).toBeUndefined();
+    expect(parseKCH3Body("Start Time 3 p.m.\nHares: Naked Rider").location).toBeUndefined();
+  });
+
+  it.each([
+    ["Location KC Bier Company 310 W 79th St, Kansas City, MO 64114", "KC Bier Company 310 W 79th St, Kansas City, MO 64114", "no-colon Location"],
+    ["Location Strang Hall 7313 W 80th St, Overland Park, KS 66204", "Strang Hall 7313 W 80th St, Overland Park, KS 66204", "no-colon Location"],
+    ["Start Location: Hidden Valley Park, 4029 Bellaire Ave, KC, MO", "Hidden Valley Park, 4029 Bellaire Ave, KC, MO", "Start Location: prefix"],
+  ])("captures the venue from '%s' (%s)", (body, expected) => {
+    expect(parseKCH3Body(body).location).toBe(expected);
+  });
 });
 
 describe("stripLeadingParenLabel", () => {
