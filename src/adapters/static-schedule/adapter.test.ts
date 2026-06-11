@@ -868,6 +868,22 @@ describe("computeRunNumber", () => {
   ])("maps %s → run #%i from the PFH3 anchor", (date, expected) => {
     expect(computeRunNumber(date, ANCHOR_MS, ANCHOR_RUN, BIWEEKLY_DAYS)).toBe(expected);
   });
+
+  // Budapest H3 anchor (#2105): Run #1883 ran Sun 2026-05-17, weekly (interval 1
+  // → 7-day step). Exercises the WEEKLY INTERVAL=1 path (PFH3 above is biweekly).
+  const BUDAPEST_MS = new Date("2026-05-17T12:00:00Z").getTime();
+  const BUDAPEST_RUN = 1883;
+  const WEEKLY_DAYS = 7;
+
+  it.each([
+    ["2026-05-17", 1883], // anchor day itself
+    ["2026-05-24", 1884], // +1 step
+    ["2026-05-10", 1882], // -1 step (before the anchor)
+    ["2026-06-14", 1887], // +4 weeks — first Sunday in the active window
+    ["2025-11-30", 1859], // back to the verified Google Group reference run
+  ])("maps %s → run #%i from the Budapest anchor", (date, expected) => {
+    expect(computeRunNumber(date, BUDAPEST_MS, BUDAPEST_RUN, WEEKLY_DAYS)).toBe(expected);
+  });
 });
 
 // ---------------------------------------------------------------------------
