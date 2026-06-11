@@ -44,7 +44,7 @@ function isJunkLocation(value: string): boolean {
   return JUNK_PATTERNS.some((re) => re.test(value.trim()));
 }
 
-interface EventRow {
+export interface EventRow {
   id: string;
   date: Date;
   kennelId: string;
@@ -77,7 +77,7 @@ function buildFreshLocationMap(posts: WordPressPost[]): Map<string, string | nul
  * For a junk value: overwrite with the re-parsed venue when one is recovered,
  * else null it.
  */
-function classifyJunkEvents(
+export function classifyJunkEvents(
   events: EventRow[],
   codeById: Map<string, string>,
   freshByKey: Map<string, string | null>,
@@ -88,7 +88,13 @@ function classifyJunkEvents(
     const old = e.locationName;
     if (old == null || !isJunkLocation(old)) continue;
     const dateStr = e.date.toISOString().slice(0, 10);
-    const fresh = freshByKey.get(`${codeById.get(e.kennelId)}|${dateStr}`) ?? null;
+    const key = `${codeById.get(e.kennelId)}|${dateStr}`;
+    // No matching source post → leave untouched. Must check `.has()` before
+    // `.get() ?? null`, else an unfetched post (key absent → undefined → null)
+    // is indistinguishable from a fetched post with no location, and the junk
+    // row would be wrongly nulled (gemini, PR #2136).
+    if (!freshByKey.has(key)) continue;
+    const fresh = freshByKey.get(key) ?? null;
     if (fresh === old) continue; // fresh is never junk, but guard anyway
     (fresh ? overwrite : nulled).push({ id: e.id, date: dateStr, old, fresh });
   }
@@ -149,7 +155,11 @@ async function main() {
   await prisma.$disconnect();
 }
 
-main().catch((e) => {
-  console.error("FAILED:", e instanceof Error ? e.message : String(e));
-  process.exit(1);
-});
+// Guard the entrypoint so importing this module (e.g. from the unit test for
+// classifyJunkEvents) doesn't fire main() and hit the live DB.
+if (process.argv[1]?.endsWith("cleanup-kch3-junk-locations.ts")) {
+  main().catch((e) => {
+    console.error("FAILED:", e instanceof Error ? e.message : String(e));
+    process.exit(1);
+  });
+}
