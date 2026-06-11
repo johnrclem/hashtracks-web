@@ -264,7 +264,14 @@ export const KENNELS: KennelSeed[] = [
       twitterHandle: "bostonhash",
       description: "Boston Moon (BMH3) runs once a month on or around the full moon — or some other time of the month. Wear a cranium cover to avoid moon burn!",
     },
-    { kennelCode: "pink-taco", shortName: "Pink Taco Trotters", fullName: "Pink Taco Hash House Harriers", region: "Boston, MA" },
+    {
+      kennelCode: "pink-taco", shortName: "Pink Taco Trotters", fullName: "Pink Taco Hash House Harriers", region: "Boston, MA",
+      // foundedYear from the Boston Hash iCal: first event SUMMARY "PT2H3 (Ladies
+      // Only Hash) #1" on DTSTART 20120514. hashCash "$5" from the 2025-04-15
+      // event DESCRIPTION ("Hash Cash: $5"). No live website (the old Google Sites
+      // page 404s) and no fixed run day (events fall on varied weekdays). (#2108)
+      foundedYear: 2012, hashCash: "$5",
+    },
     // Massachusetts (non-Boston)
     {
       kennelCode: "hvh3", shortName: "HVH3", fullName: "Happy Valley Hash House Harriers", region: "Pioneer Valley, MA",
@@ -411,6 +418,11 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "philly-h3", shortName: "Philly H3", fullName: "Philly Hash House Harriers", region: "Philadelphia, PA",
       website: "https://hashphilly.com/nexthash/",
+      // foundedYear + facebookUrl from the hashphilly.com homepage ("Since 1977";
+      // sole social link is the FB group). No card-usable logo (homepage exposes
+      // only a low-res favicon) and no standing hashCash ("Hash Cash: TBD"). (#2097)
+      foundedYear: 1977,
+      facebookUrl: "https://www.facebook.com/groups/4054701031522819",
       scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Weekly",
     },
     // Chicago area (Chicagoland Google Calendar aggregator)
@@ -1722,7 +1734,17 @@ export const KENNELS: KennelSeed[] = [
     // "cbh3" is taken by Miami's Corned Beef Hash, so Coastal Bend uses "cbh3-cc".
     {
       kennelCode: "balh3", shortName: "BALH3", fullName: "Bay Area Larrikins Hash House Harriers", region: "Corpus Christi, TX",
-      scheduleTime: "6:30 PM",
+      // scheduleDayOfWeek from the shared c2h3hash@gmail.com calendar (all 369
+      // stored BALH3 events use BYDAY=TH). contactEmail is the HashRego "Email MM"
+      // address, shared with C2H3/CBH3 (the three co-administer the calendar) but
+      // still the right kennel-admin mailbox. Website skipped — HashRego is the
+      // only structured profile and a HashRego URL isn't a real kennel site. (#2100)
+      scheduleDayOfWeek: "Thursday", scheduleTime: "6:30 PM",
+      contactEmail: "c2h3hash@gmail.com",
+      // hashCash is the correct single-"$" form. The #2101 audit flagged a
+      // double-"$$5" artifact (the 3rd such finding after PGH-H3 #2006 and
+      // NSWHHH #1972), but a prod query (2026-06-11) showed prod already holds
+      // "$5" — the "$$5" is a markdown-escape display artifact, not stored data.
       hashCash: "$5",
       description: "Bay Area Larrikins hash in the Corpus Christi, TX area.",
       latitude: 27.8, longitude: -97.4,
@@ -2229,6 +2251,10 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "ph4", shortName: "PH4", fullName: "Portland Humpin' Hash House Harriers",
       region: "Portland, OR",
+      // contactEmail is the HashRego "Email MM" role address (GM), safe to publish.
+      // Caveat: portlandhumpinhash.org is parked at GoDaddy, but MX can route
+      // independently of web hosting — left as-is, worth a ping before relying. (#2090)
+      contactEmail: "gm@portlandhumpinhash.org",
       scheduleDayOfWeek: "Wednesday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
       description: "Portland's Wednesday evening hump day hash. Meets at 6:30, hare off at 7.",
       latitude: 45.52, longitude: -122.68,
@@ -2505,6 +2531,11 @@ export const KENNELS: KennelSeed[] = [
     // Colorado Springs (3 sub-kennels on one calendar)
     {
       kennelCode: "pph4", shortName: "PPH4", fullName: "Pikes Peak Hash House Harriers", region: "Colorado Springs, CO",
+      // contactEmail is the registered Google Calendar owner (the shared Colorado
+      // Springs hash address, also feeding Kimchi/DIM). hashCash "$5" repeated
+      // across event descriptions ("Bring: $5 hash cash"). No logo/FB/foundedYear
+      // surfaceable from the calendar source. (#2121)
+      contactEmail: "cspringsh3@gmail.com", hashCash: "$5",
       scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Biweekly",
       description: "Colorado Springs biweekly Saturday afternoon hash.",
       latitude: 38.83, longitude: -104.82,
@@ -2681,9 +2712,15 @@ export const KENNELS: KennelSeed[] = [
       latitude: 21.31, longitude: -157.86,
     },
     {
-      kennelCode: "phh-hi", shortName: "PHH", fullName: "Pearl Harbor Hash", region: "Honolulu, HI",
+      // PHH = Pau Hana Hui ("after-work gathering"), the social arm of Aloha H3 —
+      // NOT "Pearl Harbor Hash" and not a hash itself. Every PHH event DESCRIPTION
+      // self-defines: "PHH is not a hash, but an after-work social for hashers (and
+      // the bold uninitiated)." Old name/description corrected in prod via the
+      // one-shot scripts/fix-phh-pau-hana-hui-prod.ts (seed merge is fill-NULL-only
+      // and won't overwrite the existing values). Slug stays "phh". (#2092)
+      kennelCode: "phh-hi", shortName: "PHH", fullName: "Pau Hana Hui", region: "Honolulu, HI",
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Monthly",
-      description: "Pearl Harbor-area hash kennel. Events cross-posted on Aloha H3's shared calendar.",
+      description: "Pau Hana Hui (PHH) is the after-work social arm of Aloha H3, Honolulu. Not a hash itself — no trails, no hares — but a regular gathering for hashers and the bold uninitiated. Events range from museum nights and burlesque festivals to monthly MisManagement meetings at local restaurants.",
       latitude: 21.35, longitude: -157.95,
     },
     // ===== OHIO =====
@@ -2883,6 +2920,8 @@ export const KENNELS: KennelSeed[] = [
     // ── Portugal: Porto ──
     {
       kennelCode: "pih3", shortName: "Porto Invicta H3", fullName: "Porto Invicta Hash House Harriers", region: "Porto", country: "Portugal",
+      // contactEmail from the ononinvicta.club footer ("ADVENTURE / invictahash@gmail.com"). (#2114/#2118)
+      contactEmail: "invictahash@gmail.com",
       foundedYear: 2025, // ononinvicta.club: "Serving Porto's running and social community since 2025" (a few 2024 soft-launch photos noted)
       scheduleDayOfWeek: "Saturday", scheduleTime: "3:00 PM", scheduleFrequency: "Biweekly",
       scheduleNotes: "Alternate (biweekly) Saturday afternoons around Porto and Northern Portugal, reachable by metro/urban rail. 5–10km trails (60–90 min) for runners and walkers, with a mid-run refreshment 'Pitstop'. Exact start time varies and is announced per-run via Harrier Central / Facebook (seeded ~3:00 PM from photo timestamps; HC per-event times are authoritative). Per-run venues announced day-of by the hares.",
@@ -3167,7 +3206,16 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "pnh3", shortName: "PNH3", fullName: "Pearl Necklace Hash House Harriettes", region: "Kansas City, MO",
       website: "https://kansascityh3.com/pnh3/",
-      scheduleFrequency: "Monthly",
+      // All sourced from kansascityh3.com/pnh3/ + HashRego "PNH3 (Est. 2016)":
+      // logo is the PNH3-specific banner (og:image), FB group from page body,
+      // "$10" confirmed three ways, "one Sunday a month at 10 a.m. (usually the
+      // 4th Sunday)", contact pearlnh3@gmail.com (HashRego "Email MM"). (#2109)
+      foundedYear: 2016,
+      logoUrl: "https://kansascityh3.com/wp-content/uploads/2018/05/PNH3Banner.jpg",
+      facebookUrl: "https://www.facebook.com/groups/kcpnh3",
+      contactEmail: "pearlnh3@gmail.com",
+      hashCash: "$10",
+      scheduleDayOfWeek: "Sunday", scheduleTime: "10:00 AM", scheduleFrequency: "Monthly",
       description: "Kansas City's femme-only sister kennel of KCH3. Events appear on the KCH3 hareline.",
       latitude: 39.10, longitude: -94.58,
     },
@@ -3577,7 +3625,14 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "pormeh3", shortName: "PorMEH3", fullName: "Portland Maine Hash House Harriers",
       region: "Portland, ME",
+      // scheduleTime "5:30 PM" is the modal weekly-hash DTSTART (special-event
+      // times vary). hashCash "$5" is the base value across event DESCRIPTIONs
+      // (theme/special events run higher). foundedYear left NULL — the iCal only
+      // enumerates events from 2025; an inferred ~2009 founding is too speculative
+      // to store without a kennel-historian confirmation. (#2111)
       scheduleDayOfWeek: "Saturday",
+      scheduleTime: "5:30 PM",
+      hashCash: "$5",
       scheduleFrequency: "Biweekly",
       scheduleNotes: "Saturday trails — usually around noon, sometimes later. Check the calendar, show up thirsty.",
       description: "Portland, Maine's flagship hash. Beer, trail, and a whole lot of bad decisions along the rocky coast.",
@@ -3776,6 +3831,9 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "ph3-my", shortName: "PH3", fullName: "Petaling Hash House Harriers",
       region: "Kuala Lumpur, MY", country: "Malaysia",
       website: "https://ph3.org",
+      // logoUrl intentionally left NULL (#2086): the only image asset on ph3.org is
+      // a 16x16 favicon.ico (verified 2026-06-11) — too low-res to render as a card
+      // logo, same call as Philly #2097. The navbar is text-only ("Petaling HHH").
       scheduleDayOfWeek: "Saturday", scheduleTime: "4:00 PM", scheduleFrequency: "Weekly",
       scheduleNotes: "Weekly Saturday afternoon hash. Klang Valley's largest Saturday hash with 200+ active members. Hareline at ph3.org/index.php?r=site/hareline.",
       foundedYear: 1977,
@@ -4338,6 +4396,14 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "phhh", shortName: "PHHH", fullName: "Phuket Hash House Harriers",
       region: "Phuket", country: "Thailand",
       website: "https://www.phuket-hhh.com",
+      // logoUrl + facebookUrl are the shared phuket-hhh.com umbrella assets (the
+      // header-logo.gif is a stable same-domain file, not a CDN/session URL; the
+      // sub-kennels Tinmen/Pooying reuse the same pair). foundedYear 1986 and the
+      // 900-baht registration fee are PHHH-specific (history.php / hareline.php). (#2095)
+      logoUrl: "https://www.phuket-hhh.com/images/header-logo.gif",
+      facebookUrl: "https://www.facebook.com/PhuketHashHouseHarriers/",
+      foundedYear: 1986,
+      hashCash: "900 baht",
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Weekly",
       scheduleTime: "4:00 PM",
       scheduleNotes: "Weekly Saturday runs. Shared hareline at phuket-hhh.com covers PHHH, Pooying, Tinmen, Iron Pussy, Bike Hash, and Kamala Koma.",
@@ -4348,6 +4414,12 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "phuket-tinmen", shortName: "Phuket Tin Men", fullName: "Phuket Tin Men Hash House Harriers",
       region: "Phuket", country: "Thailand",
       website: "https://www.phuket-hhh.com",
+      // logoUrl + facebookUrl shared with parent PHHH (#2095). foundedYear 1991 is
+      // the Tin Men chapter's own founding ("21 May 1991 saw the first run of the
+      // Tinmen", history.php) — distinct from parent PHHH's 1986. (#2106)
+      logoUrl: "https://www.phuket-hhh.com/images/header-logo.gif",
+      facebookUrl: "https://www.facebook.com/PhuketHashHouseHarriers/",
+      foundedYear: 1991,
       scheduleDayOfWeek: "Wednesday", scheduleFrequency: "Monthly",
       scheduleTime: "3:00 PM",
       scheduleNotes: "1st Wednesday monthly. Listed on the shared phuket-hhh.com hareline.",
@@ -4368,6 +4440,12 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "phuket-pooying", shortName: "Phuket Pooying", fullName: "Phuket Pooying Picnic Hash",
       region: "Phuket", country: "Thailand",
       website: "https://www.phuket-hhh.com",
+      // logoUrl + facebookUrl shared with parent PHHH (#2095). hashCash 900 baht is
+      // Pooying-specific (information.php run #416: "Registration on the day: 900
+      // baht"). No Pooying-specific founding date published. (#2103)
+      logoUrl: "https://www.phuket-hhh.com/images/header-logo.gif",
+      facebookUrl: "https://www.facebook.com/PhuketHashHouseHarriers/",
+      hashCash: "900 baht",
       scheduleDayOfWeek: "Sunday", scheduleFrequency: "Monthly",
       scheduleTime: "3:00 PM",
       scheduleNotes: "2nd/3rd Sunday monthly. 'The most dangerous hash on the island.' Listed on shared phuket-hhh.com hareline.",
