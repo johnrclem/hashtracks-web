@@ -3763,6 +3763,27 @@ export const SOURCES = [
       kennelCodes: ["twh3-tw"],
     },
     {
+      name: "Shanghai H3 Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        // GUID is the most stable filter; cityNames:"Shanghai" returned the identical
+        // single-event set (verified 2026-06-11 via HC getEvents).
+        publicKennelId: "63e3cccd-3c0a-46a3-bf52-03d31dd41be1",
+        defaultKennelTag: "shh3-cn",
+        // Events carry real names (e.g. "26th All China Nash Hash + 40th … Anniversary");
+        // defaultTitle synthesizes "Shanghai H3 #N" only when an event name is empty or a
+        // known placeholder appears (mirrors Taiwan H3 / Lisbon H3 #1166).
+        defaultTitle: "Shanghai H3",
+        staleTitleAliases: ["Placeholder event for SHH3"],
+        // upcomingOnly OMITTED — HC convention (getEvents is future-only).
+      },
+      kennelCodes: ["shh3-cn"],
+    },
+    {
       // Backfill-only provenance for the pre-HC archive (runs #≤706, 2021-2026).
       // Disabled: the kennel moved to Harrier Central, so there is no ongoing
       // Blogspot scrape. Historical events were one-shot loaded via

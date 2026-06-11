@@ -1743,6 +1743,30 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: 121.5637,
     aliases: ["Taipei, Taiwan", "台北", "New Taipei"],
   },
+  // ── China (country → metro, like Singapore / Hong Kong / Taiwan; red palette) ──
+  {
+    name: "China",
+    country: "China",
+    level: "COUNTRY",
+    timezone: "Asia/Shanghai",
+    abbrev: "CN",
+    colorClasses: "bg-red-200 text-red-800",
+    pinColor: "#dc2626",
+    centroidLat: 35.86,
+    centroidLng: 104.2,
+    aliases: ["CN", "中国", "PRC"],
+  },
+  {
+    name: "Shanghai",
+    country: "China",
+    timezone: "Asia/Shanghai",
+    abbrev: "SHA",
+    colorClasses: "bg-red-100 text-red-700",
+    pinColor: "#ef4444",
+    centroidLat: 31.2304,
+    centroidLng: 121.4737,
+    aliases: ["Shanghai, China", "上海"],
+  },
   // ── Belgium ──
   {
     name: "Belgium",
@@ -3462,6 +3486,12 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   // without this, "Manila"/"Philippines" text falls through to "USA".
   [/\b(philippines|manila|maynila|para[ñn]aque)\b/, "Philippines"],
   [/\b(hong kong|kowloon|lantau|new territories|wan\s?chai|sai kung|sek kong)\b/, "Hong Kong"],
+  // Placed AFTER Hong Kong / Taiwan so HK and Taiwan tokens resolve to their own
+  // regions first. "Republic of China" (=Taiwan) contains "China" and would match
+  // here, but real Taiwan events carry "Taiwan"/台 tokens and resolve via the earlier
+  // Taiwan rule. Bare CJK tokens (no \W boundaries) match the adjacent Taiwan rule's
+  // convention; \b is ASCII-only so it can't bound CJK anyway.
+  [/\b(china|shanghai|beijing|guangzhou|shenzhen)\b|上海|中国/, "China"],
   [/\b(malaysia|kuala lumpur|\bkl\b|petaling|penang|pulau pinang|george town|selangor|johor|sabah|sarawak|melaka|malacca|ipoh|kuching|kota kinabalu|miri|kelana jaya|butterworth|kluang)\b/, "Malaysia"],
   [/\b(new zealand|aotearoa|christchurch|otepoti|tokoroa|whangarei|whakatane|invercargill|dunedin|tauranga|rotorua|hibiscus coast|coromandel|manawat[uū])\b/, "New Zealand"],
   [/\b(auckland|wellington|hamilton|nelson|napier|hastings|palmerston north|new plymouth),\s*nz\b/, "New Zealand"],
@@ -3648,6 +3678,8 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Okinawa": "Japan",
   // Taiwan (country → metro)
   "Taipei": "Taiwan",
+  // China (country → metro)
+  "Shanghai": "China",
   // Thailand
   "Bangkok": "Thailand",
   "Pattaya": "Thailand",
@@ -3899,6 +3931,9 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   "Austria": "Austria",
   "Singapore": "Singapore",
   "Taiwan": "Taiwan",
+  // China — country → metro (both names map to the China group)
+  "China": "China",
+  "Shanghai": "China",
   "Thailand": "Thailand",
   "Bangkok": "Thailand",
   "Pattaya": "Thailand",
@@ -4016,6 +4051,7 @@ const COUNTRY_CODE_TO_NAME: Record<string, string> = {
   CA: "Canada",
   SG: "Singapore",
   TW: "Taiwan",
+  CN: "China",
   TH: "Thailand",
   PH: "Philippines",
   HK: "Hong Kong",

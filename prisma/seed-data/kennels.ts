@@ -3020,6 +3020,29 @@ export const KENNELS: KennelSeed[] = [
       latitude: 25.0375, longitude: 121.5637,
     },
 
+    // ── China: Shanghai (HashTracks' first mainland-China kennel) ──
+    {
+      kennelCode: "shh3-cn", shortName: "Shanghai H3", fullName: "Shanghai Hash House Harriers",
+      region: "Shanghai", country: "China",
+      foundedYear: 1986,
+      // Legacy flat fields kept as fallback; scheduleRules below are authoritative for display.
+      scheduleDayOfWeek: "Sunday", scheduleTime: "3:00 PM", scheduleFrequency: "Weekly",
+      scheduleRules: [
+        // Same weekday both seasons → BYMONTH MUST stay disjoint on each rule so the two
+        // rrules don't collide on the (kennelId, rrule, source) upsert key, and so Pass-2 of
+        // backfill-schedule-rules is structurally skipped (Budapest #2096).
+        { rrule: "FREQ=WEEKLY;BYDAY=SU;BYMONTH=6,7,8", startTime: "16:00", label: "Summer", displayOrder: 0 },
+        { rrule: "FREQ=WEEKLY;BYDAY=SU;BYMONTH=1,2,3,4,5,9,10,11,12", startTime: "15:00", label: "Autumn/Winter/Spring", displayOrder: 1 },
+      ],
+      scheduleNotes: "Weekly Sunday afternoon around Shanghai. ~3:00pm autumn/winter/spring, ~4:00pm summer (summer months approximate — refine). Weekly runs are organised via shanghai-h3.com / WeChat, not Harrier Central; HC currently lists only the Oct 2026 anniversary / 26th All China Nash Hash. Weekly hash cash not published.",
+      description: "Shanghai Hash House Harriers (SHH3) is mainland China's original hash — a 'drinking club with a running problem' founded on 4 October 1986. It runs every Sunday afternoon around Shanghai (3pm autumn-spring, 4pm summer) and anchors a large local kennel network. In October 2026 it hosts the 26th All China Nash Hash alongside its 40th Anniversary. On On!",
+      // hashCash intentionally omitted — weekly price unverified (homepage shows only ACNH 2026 event fees).
+      logoUrl: "/kennel-logos/shh3-cn.png",
+      facebookUrl: "https://www.facebook.com/shanghaih3/",
+      website: "https://shanghai-h3.com/",
+      latitude: 31.2304, longitude: 121.4737,
+    },
+
     // ── Belgium: Brussels ──
     {
       kennelCode: "bmph3-be", shortName: "BMPH3", fullName: "Brussels Manneke Piss Hash House Harriers", region: "Brussels", country: "Belgium",
