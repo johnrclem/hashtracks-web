@@ -2589,6 +2589,11 @@ export const SOURCES = [
       config: {
         calendarId: "e42428cbbecf52a48618c36aa1654ec0186aa307eb6d608641ef3a9e5c243128@group.calendar.google.com",
         defaultKennelTag: "ph4",
+        // PH4 publishes ~half its runs as all-day events (55 of 101 VEVENTs:
+        // "PH4 #1291 - Bottom Dollar", "PH4 #1305 & OH3 Full Moon Combo", …).
+        // The GCal adapter drops all-day events by default, so without this the
+        // timed half is the only thing fetched — the root cause of #2088's gap.
+        includeAllDayEvents: true,
       },
       kennelCodes: ["ph4"],
     },
@@ -3163,9 +3168,14 @@ export const SOURCES = [
       config: {
         kennelPatterns: [
           // PHH must come before H5 (kennelPatterns resolve first-match-wins).
-          // Match only the kennel tag PHH — not "Pearl Harbor" as a location,
-          // since an AH3 run at Pearl Harbor would otherwise be misrouted.
-          [String.raw`\bPHH\b`, "phh-hi"],
+          // PHH (Pau Hana Hui) is the after-work social arm of Aloha H3. Its
+          // events carry EITHER the literal "PHH" token OR the full "Pau Hana
+          // Hui" name (the historical 2011→ archive titles are bare "Pau Hana
+          // Hui" with no PHH token — #2093). Match both; deliberately NOT bare
+          // "Pau Hana", which legit AH3 socials use generically ("Cinco de Mayo
+          // Pau Hana", "Karaoke … Pau Hana"). Also not "Pearl Harbor" as a
+          // location — an AH3 run at Pearl Harbor must not misroute here.
+          [String.raw`\bPHH\b|Pau Hana Hui`, "phh-hi"],
           ["\\bH5\\b|Honolulu H[45]", "h5-hi"],
         ],
         defaultKennelTag: "ah3-hi",
