@@ -2915,7 +2915,7 @@ export const KENNELS: KennelSeed[] = [
         { rrule: "FREQ=WEEKLY;BYDAY=SU", startTime: "14:30", label: "Winter", validFrom: "09-01", validUntil: "04-30", displayOrder: 1 },
       ],
       hashCash: "€5",
-      description: "Frankfurt's biweekly Sunday afternoon hash. Run #2114+ and counting.",
+      description: "Frankfurt's weekly hash — summer Thursdays, winter Sunday afternoons. Run #2114+ and counting.",
       latitude: 50.11, longitude: 8.68,
     },
     {
