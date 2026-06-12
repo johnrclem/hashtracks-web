@@ -81,10 +81,12 @@ async function main() {
     const timed = result.events.filter((e) => !!e.startTime);
     console.log(`   events: ${result.events.length}; timed: ${timed.length}`);
     for (const e of timed.slice(0, 8)) {
-      console.log(`   • ${e.date} ${e.startTime}${e.endTime ? `–${e.endTime}` : ""}  ${e.title ?? ""}`);
+      const endPart = e.endTime ? `–${e.endTime}` : "";
+      console.log(`   • ${e.date} ${e.startTime}${endPart}  ${e.title ?? ""}`);
     }
     const turkey = result.events.find((e) => /turkey puke/i.test(e.title ?? ""));
-    console.log(`   Turkey Puke: ${turkey ? `${turkey.date} ${turkey.startTime} (expect ~12:00 MST)` : "not in window"}`);
+    const turkeyInfo = turkey ? `${turkey.date} ${turkey.startTime} (expect ~12:00 MST)` : "not in window";
+    console.log(`   Turkey Puke: ${turkeyInfo}`);
   }
 
   // ── #2133 Aloha hares: recurring (365) vs wide (9999) fill rate ──

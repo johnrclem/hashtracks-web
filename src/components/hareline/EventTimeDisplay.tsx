@@ -24,7 +24,7 @@ interface EventTimeDisplayProps {
  * Respects the user's time preference (event local vs. browser local).
  * Falls back to plain HH:MM AM/PM formatting if timezone data is unavailable.
  */
-export function EventTimeDisplay({ startTime, endTime, date, timezone }: EventTimeDisplayProps) {
+export function EventTimeDisplay({ startTime, endTime, date, timezone }: Readonly<EventTimeDisplayProps>) {
   const { preference } = useTimePreference();
   const isUserLocal = preference === "USER_LOCAL";
   const displayTz = isUserLocal ? getBrowserTimezone() : (timezone ?? null);
