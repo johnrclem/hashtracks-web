@@ -167,7 +167,11 @@ export async function runPredictionLedger(
   prisma: PrismaClient,
   now: Date = new Date(),
 ): Promise<LedgerRunResult> {
-  const maturityCutoff = new Date(now.getTime() - MATURITY_LAG_DAYS * DAY_MS);
+  // predictedDate is stored at UTC noon; normalize the cutoff to the same convention so a
+  // sub-day wall-clock skew can't leave a just-matured snapshot PENDING for a whole extra
+  // weekly cycle (CodeRabbit review on PR #2164).
+  const nowNoonMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12);
+  const maturityCutoff = new Date(nowNoonMs - MATURITY_LAG_DAYS * DAY_MS);
 
   // Matured snapshots can be arbitrarily old after a long cron outage; the event window
   // must reach back to the OLDEST pending matured target (− observe tol) or scoring would

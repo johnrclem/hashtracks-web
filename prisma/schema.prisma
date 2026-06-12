@@ -1172,7 +1172,7 @@ model PredictionSnapshot {
   preexistingEventId  String? // the already-on-books event that made it PRECONFIRMED
   // Frozen provenance: the independent (non-STATIC_SCHEDULE) source ids that existed
   // for this kennel at snapshot time — scoring decides observability from these.
-  independentSourceIds String[]
+  independentSourceIds String[]          @default([])
   outcome             PredictionOutcome @default(PENDING)
   scoredAt            DateTime?
   matchedEventId      String? // independent event that confirmed it (±tol)

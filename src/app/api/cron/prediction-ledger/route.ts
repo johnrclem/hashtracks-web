@@ -9,9 +9,9 @@ import { runPredictionLedger } from "@/pipeline/prediction-ledger";
  *
  * Each run: scores matured snapshots against independent reality (HIT/MISS/
  * UNOBSERVED, with already-confirmed rows finalized as PRECONFIRMED), then freezes
- * the engine's current forward HIGH/MEDIUM predictions at 180/90/30-day bands and
- * records the observation census for the recall denominator. Over months this yields
- * a drift-proof forward-calibration scorecard (see scripts/score-prediction-ledger.ts).
+ * the engine's current forward HIGH/MEDIUM predictions into 180/90/30-day bands. Over
+ * months this yields a drift-proof forward-calibration scorecard (precision; recall is
+ * a deferred follow-up — see scripts/score-prediction-ledger.ts).
  *
  * Triggered by Vercel Cron (GET) or QStash (POST) or manually with Bearer CRON_SECRET.
  */

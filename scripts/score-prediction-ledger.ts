@@ -132,7 +132,7 @@ async function run(prisma: PrismaClient): Promise<void> {
 
 async function main(): Promise<void> {
   const pool = createScriptPool();
-  const prisma = new PrismaClient({ adapter: new PrismaPg(pool) } as never);
+  const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
   try {
     await run(prisma);
   } finally {
