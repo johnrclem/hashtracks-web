@@ -437,7 +437,7 @@ See [config-driven-onboarding-plan.md](config-driven-onboarding-plan.md) for ful
 - [x] Config: `rrule`, `defaultTitle`, `defaultLocation`, `defaultStartTime`, `defaultKennelTag`
 - [x] Supports complex RRULE patterns (1st/3rd Sunday, every other Saturday, etc.)
 - [x] Moon-phase gap: lunar recurrence (full/new moon kennels) cannot be expressed as RRULE — added as kennel-only records
-- [ ] Seasonal schedule switching: many kennels change day/time seasonally (e.g., SAH3: Friday 6:30 PM summer / Sunday 3:30 PM winter) — needs RRULE enhancement or `seasonalSchedule` config with date ranges
+- [x] Seasonal schedule switching: kennels that change day/time by season author two-slot (or monthly-ordinal) `scheduleRules[]` with `validFrom`/`validUntil` MM-DD windows; `projectTrails` honors the active season. Shipped for ~9 kennels (Summit, FH3, Beantown, Boston, Copenhagen, Brew City, Canberra, Reading, PSH3). The weekly rule-drift cron self-surfaces new switchers.
 
 ### Meetup Adapter Live — COMPLETE
 - [x] 17+ live Meetup sources across FL, GA, SC, NY, VA, NC, VT, CT
@@ -536,7 +536,7 @@ See [config-driven-onboarding-plan.md](config-driven-onboarding-plan.md) for ful
 ### Current Stats
 - 290 kennels (with rich profiles), ~950 aliases, 185 sources, 137 regions (4 countries: US, UK, Ireland, Germany)
 - 9 live adapter types: STATIC_SCHEDULE, HTML_SCRAPER, GOOGLE_CALENDAR, MEETUP, ICAL_FEED, GOOGLE_SHEETS, HASHREGO, BLOGGER_API, RSS_ICAL
-- 27 models, 20 enums in Prisma schema
+- 38 models, 29 enums in Prisma schema
 - 128 test files
 
 ---
@@ -679,6 +679,17 @@ See "Source Onboarding Wizard" in What's Built section above. The wizard support
 - [ ] **Phase 7:** Saved trips dashboard (`/travel/saved` + SavedTripCard)
 - [ ] **Phase 8:** Public route registration + analytics events + sign-in banner
 - [ ] Pairs with Log Unlisted Run for runs found while traveling (separate effort)
+
+### Travel Mode prediction quality (SHIPPED)
+
+A layered system that measures and self-heals the confidence-scored projections that power Travel Mode (engine: `src/lib/travel/projections.ts`).
+
+- [x] **Evaluation harness** — `scripts/audit-travel-predictions.ts`: per-kennel × horizon coverage census + backtest precision/recall per confidence tier (excludes STATIC_SCHEDULE-generated events as circular). `scoreConfidence` gained an optional `now` for as-of-past backtesting.
+- [x] **Phase 1 rule fixes** — `scripts/propose-rule-fixes.ts` derives corrected rules from independent history (holds out the recent 4 weeks); fixed 25 kennels (biweekly anchors, weekday corrections).
+- [x] **Phase 2 prospective ledger** — `PredictionSnapshot` model + `src/pipeline/prediction-ledger.ts` + weekly cron: freezes forward HIGH/MEDIUM predictions at 180/90/30-day bands and scores them HIT/MISS/PRECONFIRMED/UNOBSERVED against real events as dates mature (frozen-source, drift-proof). Scorecard: `scripts/score-prediction-ledger.ts`. Precision accrues over weeks; recall is a deferred follow-up.
+- [x] **Rule-drift self-healing** — `src/pipeline/rule-drift.ts` + weekly cron flags kennels whose active rule projects a different weekday than recent independent events (season-aware) and files one deduped GitHub issue. Authoring guardrail in `propose-rule-fixes.ts` blocks confident flat rules derived from <1yr of history.
+- [x] **Seasonal scheduling** — see the checked "Seasonal schedule switching" item above; `scripts/validate-seasonal-candidates.ts` confirms a season split before authoring.
+- [ ] **Recall metric** in the ledger scorecard (deferred until cohorts mature, ~weeks out).
 
 ### Travel Mode follow-ups (deferred from polish passes)
 

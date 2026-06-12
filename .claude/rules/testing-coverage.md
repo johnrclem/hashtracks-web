@@ -17,7 +17,7 @@ globs:
 
 ## Coverage Areas
 - **Adapters:** hashnyc, Google Calendar, Google Sheets, iCal, Blogger API, London scrapers (CityH3, WLH3, LH3, BarnesH3, OCH3, SLH3, EH3), Chicago (CH3, TH3), DC (EWH3, DCH4, OFH3, Hangover), SF Bay (SFH3), Philly (BFM, HashPhilly), Texas (Brass Monkey, DFW), Upstate NY (SOH4, Halve Mein, IH3), Hockessin, Northboro, Hash Rego, Meetup, WordPress API, GenericHtml, shared utils
-- **Pipeline:** merge dedup + trust levels + source-kennel guard, kennel resolution (4-stage), fingerprinting, scrape orchestration, health analysis + alerts, reconciliation, auto-issue filing, post-merge verification
+- **Pipeline:** merge dedup + trust levels + source-kennel guard, kennel resolution (4-stage), fingerprinting, scrape orchestration, health analysis + alerts, reconciliation, auto-issue filing, post-merge verification, prediction-ledger (band capture + outcome classification, frozen-source), rule-drift (dominant-weekday + season-aware drift judgement)
 - **AI:** Gemini wrapper (caching, rate-limits, grounding), parse recovery, HTML structure analysis
 - **Research:** source research pipeline, server actions, HTML analysis extraction
 - **Server actions:** logbook, profile, kennel subscriptions, admin CRUD, misman attendance/roster/history

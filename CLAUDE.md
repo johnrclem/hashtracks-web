@@ -93,7 +93,7 @@ logbook + kennel directory.
 - GOOGLE_SITE_VERIFICATION= # Google Search Console verification token (optional, fallback if not DNS-verified)
 
 ## Important Files
-- `prisma/schema.prisma` — Full data model, 27 models + 20 enums (THE source of truth for types)
+- `prisma/schema.prisma` — Full data model, 38 models + 29 enums (THE source of truth for types)
 - `prisma/seed.ts` — 430 kennels, 1660 aliases, 330 enabled sources (first-class model with hierarchy)
 - `prisma.config.ts` — Prisma 7 config (datasource URL, seed command)
 - `src/lib/db.ts` — PrismaClient singleton (PrismaPg adapter + SSL)
@@ -162,6 +162,10 @@ logbook + kennel directory.
 - `src/pipeline/verify-fixes.ts` — Post-merge fix verification (removes pending-verification label, posts confirmation comment)
 - `src/pipeline/html-analysis.ts` — Reusable HTML event analysis + Gemini column mapping (no auth, used by research pipeline)
 - `src/pipeline/source-research.ts` — Autonomous source research pipeline (URL discovery, classification, analysis, proposal persistence)
+- `src/pipeline/prediction-ledger.ts` — Travel Mode prospective prediction ledger: snapshots forward HIGH/MEDIUM predictions weekly, scores matured ones HIT/MISS/PRECONFIRMED/UNOBSERVED against real events (frozen-source, drift-proof)
+- `src/pipeline/rule-drift.ts` — Weekly schedule-rule drift detector: flags kennels whose active rule projects a different weekday than recent independent events (season-aware via projectTrails); files one deduped GitHub issue
+- `src/lib/travel/projections.ts` — Travel Mode projection engine (`projectTrails` + `scoreConfidence`); `scoreConfidence` takes an optional `now` for backtesting
+- `src/lib/event-eligibility.ts` — `isEligibleActual`/`EVENT_ELIGIBILITY_SELECT`: a canonical CONFIRMED event backed by ≥1 non-STATIC_SCHEDULE RawEvent (independent ground truth for prediction scoring)
 - `src/app/admin/alerts/actions.ts` — Alert repair actions (re-scrape, create alias/kennel, link kennel to source, file GitHub issue)
 - `src/app/admin/regions/actions.ts` — Region CRUD, merge, AI suggestions (rule-based + Gemini), hierarchy validation
 - `src/app/admin/regions/page.tsx` — Admin region management page (RegionTable + RegionSuggestionsPanel)
@@ -239,12 +243,14 @@ logbook + kennel directory.
 - `src/app/admin/analytics/actions.ts` — Server actions for community health, user engagement, operational metrics
 - `src/app/admin/analytics/page.tsx` — Admin analytics dashboard (recharts)
 - `src/components/admin/AnalyticsDashboard.tsx` — Dashboard UI: charts, stat cards, tables (community/engagement/operational)
-- `vercel.json` — Vercel Cron config (triggers QStash dispatch at 6:00 AM UTC)
+- `vercel.json` — Vercel Cron config (QStash scrape dispatch 06:00 UTC; daily audit + audit-issue sync + travel-draft GC; weekly Mon prediction-ledger 08:00 + rule-drift 09:00 UTC)
 - `src/lib/qstash.ts` — QStash Client + Receiver singletons (Upstash fan-out queue)
 - `src/lib/cron-auth.ts` — Dual auth: QStash signature verification → Bearer CRON_SECRET fallback
 - `src/pipeline/schedule.ts` — Shared scheduling logic (shouldScrape, frequency intervals)
 - `src/app/api/cron/dispatch/route.ts` — Fan-out dispatcher: queries due sources, publishes QStash messages
 - `src/app/api/cron/scrape/[sourceId]/route.ts` — Per-source scrape endpoint (called by QStash)
+- `src/app/api/cron/prediction-ledger/route.ts` — Weekly (Mon 08:00 UTC) prediction-ledger run (snapshot + score matured predictions)
+- `src/app/api/cron/rule-drift/route.ts` — Weekly (Mon 09:00 UTC) rule-drift check; files a deduped GitHub issue (label `rule-drift`) on wrong-weekday predictions
 - `vitest.config.ts` — Test runner config (globals, path aliases)
 - `src/test/factories.ts` — Shared test data builders
 - `.github/workflows/ci.yml` — CI gate: type check, lint, tests on all PRs + push to main
