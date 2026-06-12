@@ -4,7 +4,7 @@
  * Hits each affected calendar's public API with the freshly-edited adapter +
  * seed config and reports a verification digest per source.
  *
- * Run: `set -a && source /Users/johnclem/Developer/hashtracks-web/.env && set +a && npx tsx scripts/live-verify-gcal-round3.ts`
+ * Run: `set -a && source .env && set +a && npx tsx scripts/live-verify-gcal-round3.ts`
  *
  * Read-only — does not mutate the DB.
  */
@@ -21,12 +21,14 @@ function pctHares(events: RawEventData[]): string {
 }
 
 function tagCounts(events: RawEventData[]): Record<string, number> {
-  const m: Record<string, number> = {};
+  // Map (not a plain object) avoids prototype-pollution / object-injection if a
+  // kennel tag is ever "__proto__"/"constructor" from an uncleaned GCal summary.
+  const m = new Map<string, number>();
   for (const e of events) {
     const tag = e.kennelTags[0] ?? "(none)";
-    m[tag] = (m[tag] ?? 0) + 1;
+    m.set(tag, (m.get(tag) ?? 0) + 1);
   }
-  return m;
+  return Object.fromEntries(m);
 }
 
 async function fetchSource(adapter: GoogleCalendarAdapter, name: string, days: number) {
