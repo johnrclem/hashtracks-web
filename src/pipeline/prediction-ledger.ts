@@ -41,8 +41,14 @@ const STATIC = "STATIC_SCHEDULE";
 
 // ── Pure helpers (exported for tests) ─────────────────────────────────────────
 
+/** UTC calendar-midnight epoch ms — normalizes away time-of-day so day math is exact. */
+function utcMidnightMs(d: Date): number {
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+}
+
+/** Whole CALENDAR days from→to (UTC), robust to non-noon event/run timestamps. */
 export function daysBetween(from: Date, to: Date): number {
-  return Math.floor((to.getTime() - from.getTime()) / DAY_MS);
+  return Math.round((utcMidnightMs(to) - utcMidnightMs(from)) / DAY_MS);
 }
 
 /**
@@ -63,6 +69,24 @@ export function shouldCaptureBand(
     return true; // date jumped over the window during a missed-run gap
   }
   return false;
+}
+
+/**
+ * The single band a projection is captured into this run, or null. Normally a descending
+ * date is near exactly one band. After a LONG outage `shouldCaptureBand` is true for several
+ * bands at once (prev=190, now=20 → 180/90/30) — capturing all of them would fabricate
+ * multiple prospective observations from one late model state and triple-count it in the
+ * scorecard's actual-days-out bin (Codex review on PR #2164). We capture only the SMALLEST
+ * (nearest-crossed) candidate; the stored `daysOutAtSnapshot` reports the honest horizon.
+ */
+export function captureBandFor(nowDaysOut: number, prevDaysOut: number | null): number | null {
+  let chosen: number | null = null;
+  for (const band of LEDGER_BANDS) {
+    if (shouldCaptureBand(nowDaysOut, prevDaysOut, band) && (chosen === null || band < chosen)) {
+      chosen = band;
+    }
+  }
+  return chosen;
 }
 
 export type Outcome = "PENDING" | "HIT" | "MISS" | "PRECONFIRMED" | "UNOBSERVED";
@@ -88,12 +112,12 @@ export function classifyOutcome(
   frozenSourceIds: ReadonlySet<string>,
 ): { outcome: Exclude<Outcome, "PENDING">; matchedEventId: string | null } {
   if (confirmedAtSnapshot) return { outcome: "PRECONFIRMED", matchedEventId: null };
-  const t = predictedDate.getTime();
+  const t = utcMidnightMs(predictedDate);
   let observed = false;
   let hit: string | null = null;
   for (const e of events) {
     if (!e.sourceIds.some((sid) => frozenSourceIds.has(sid))) continue; // frozen-provenance gate
-    const diff = Math.abs(e.date.getTime() - t) / DAY_MS;
+    const diff = Math.abs(utcMidnightMs(e.date) - t) / DAY_MS;
     if (diff <= OBSERVE_TOL_DAYS) observed = true;
     if (diff <= MATCH_TOL_DAYS && hit === null) hit = e.id;
   }
@@ -282,29 +306,29 @@ export async function runPredictionLedger(
       if (confidence !== "high" && confidence !== "medium") continue;
       const nowDaysOut = daysBetween(now, proj.date);
       const prevDaysOut = lastSuccessfulRunAt ? daysBetween(lastSuccessfulRunAt, proj.date) : null;
+      const band = captureBandFor(nowDaysOut, prevDaysOut);
+      if (band === null) continue;
       // confirmed-at-snapshot: a current independent-source event within ±tol of the date
       // (same gate as scoring, frozen sources = current indep sources at snapshot time).
+      const projMidnight = utcMidnightMs(proj.date);
       let preexistingEventId: string | null = null;
       for (const e of kEvents) {
         if (!e.sourceIds.some((sid) => indepSet.has(sid))) continue;
-        if (Math.abs(e.date.getTime() - proj.date.getTime()) / DAY_MS <= MATCH_TOL_DAYS) { preexistingEventId = e.id; break; }
+        if (Math.abs(utcMidnightMs(e.date) - projMidnight) / DAY_MS <= MATCH_TOL_DAYS) { preexistingEventId = e.id; break; }
       }
-      for (const band of LEDGER_BANDS) {
-        if (!shouldCaptureBand(nowDaysOut, prevDaysOut, band)) continue;
-        snapshotRows.push({
-          kennelId: k.id,
-          scheduleRuleId: proj.scheduleRuleId,
-          predictedDate: proj.date,
-          startTimeKey: proj.startTime ?? "",
-          startTime: proj.startTime,
-          confidence: confidence === "high" ? "HIGH" : "MEDIUM",
-          horizonBucket: band,
-          daysOutAtSnapshot: nowDaysOut,
-          confirmedAtSnapshot: preexistingEventId !== null,
-          preexistingEventId,
-          independentSourceIds: indepSources,
-        });
-      }
+      snapshotRows.push({
+        kennelId: k.id,
+        scheduleRuleId: proj.scheduleRuleId,
+        predictedDate: proj.date,
+        startTimeKey: proj.startTime ?? "",
+        startTime: proj.startTime,
+        confidence: confidence === "high" ? "HIGH" : "MEDIUM",
+        horizonBucket: band,
+        daysOutAtSnapshot: nowDaysOut,
+        confirmedAtSnapshot: preexistingEventId !== null,
+        preexistingEventId,
+        independentSourceIds: indepSources,
+      });
     }
   }
 

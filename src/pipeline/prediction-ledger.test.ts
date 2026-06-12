@@ -1,6 +1,7 @@
 import {
   daysBetween,
   shouldCaptureBand,
+  captureBandFor,
   classifyOutcome,
   type ScorableEvent,
 } from "./prediction-ledger";
@@ -34,6 +35,25 @@ describe("shouldCaptureBand", () => {
     expect(shouldCaptureBand(90, null, 90)).toBe(true);
     expect(shouldCaptureBand(28, null, 30)).toBe(true);
     expect(shouldCaptureBand(20, 40, 30)).toBe(true); // missed-run recovery
+  });
+});
+
+describe("captureBandFor (exactly one band per run)", () => {
+  it("assigns a descending date to its single nearby band", () => {
+    expect(captureBandFor(180, null)).toBe(180);
+    expect(captureBandFor(90, null)).toBe(90);
+    expect(captureBandFor(30, null)).toBe(30);
+    expect(captureBandFor(100, null)).toBeNull(); // between bands, no window
+  });
+  it("after a LONG outage picks ONLY the smallest crossed band — no triple-count (Codex)", () => {
+    // prev=190, now=20 → shouldCaptureBand is true for 180, 90 AND 30; capture only 30.
+    expect(shouldCaptureBand(20, 190, 180)).toBe(true);
+    expect(shouldCaptureBand(20, 190, 90)).toBe(true);
+    expect(shouldCaptureBand(20, 190, 30)).toBe(true);
+    expect(captureBandFor(20, 190)).toBe(30);
+  });
+  it("recovery that only skipped the 180 window captures 180 alone", () => {
+    expect(captureBandFor(100, 190)).toBe(180); // crossed 180 only (100 still > 90)
   });
 });
 

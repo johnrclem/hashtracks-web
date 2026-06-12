@@ -69,8 +69,12 @@ async function run(prisma: PrismaClient): Promise<void> {
   }
 
   // Pending maturity: earliest PENDING predictedDate = when the first scores arrive.
-  const pendingDates = snaps.filter((s) => s.outcome === "PENDING").map((s) => s.predictedDate.getTime());
-  const firstMaturity = pendingDates.length ? new Date(Math.min(...pendingDates)) : null;
+  // reduce (not Math.min(...array)) — the pending set can grow large and the spread would
+  // risk a max-call-stack overflow (Gemini review on PR #2164).
+  const firstMaturity = snaps.reduce<Date | null>((earliest, s) => {
+    if (s.outcome !== "PENDING") return earliest;
+    return !earliest || s.predictedDate < earliest ? s.predictedDate : earliest;
+  }, null);
 
   // ── Render ──
   const date = fmtDate(today);
