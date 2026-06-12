@@ -39,6 +39,7 @@ interface QuickInfoCardProps {
     twitterHandle: string | null;
     discordUrl: string | null;
     mailingListUrl: string | null;
+    whatsappUrl: string | null;
     contactEmail: string | null;
     contactName: string | null;
     // Profile fields (#1415)
@@ -89,6 +90,7 @@ export function QuickInfoCard({ kennel, parentKennel, regionColor }: Readonly<Qu
     kennel.instagramHandle ||
     kennel.twitterHandle ||
     kennel.discordUrl ||
+    kennel.whatsappUrl ||
     kennel.mailingListUrl ||
     kennel.contactEmail ||
     kennel.contactName;

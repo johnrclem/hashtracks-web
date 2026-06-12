@@ -36,6 +36,7 @@ export default async function SettingsPage({ params }: Props) {
       twitterHandle: true,
       discordUrl: true,
       mailingListUrl: true,
+      whatsappUrl: true,
       contactEmail: true,
       contactName: true,
       hashCash: true,

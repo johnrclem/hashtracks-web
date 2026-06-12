@@ -49,6 +49,7 @@ export default async function AdminKennelsPage() {
     twitterHandle: k.twitterHandle,
     discordUrl: k.discordUrl,
     mailingListUrl: k.mailingListUrl,
+    whatsappUrl: k.whatsappUrl,
     contactEmail: k.contactEmail,
     contactName: k.contactName,
     // Profile fields (#1415)

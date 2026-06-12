@@ -2,7 +2,7 @@
 
 import { getMismanUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { safeUrl } from "@/lib/safe-url";
+import { safeUrl, safeImageSrc } from "@/lib/safe-url";
 import type { ActionResult } from "@/lib/actions";
 import { revalidatePath } from "next/cache";
 
@@ -59,8 +59,12 @@ export async function updateKennelSettings(
         facebookUrl: safeUrl(formData.get("facebookUrl") as string),
         discordUrl: safeUrl(formData.get("discordUrl") as string),
         mailingListUrl: safeUrl(formData.get("mailingListUrl") as string),
+        whatsappUrl: safeUrl(formData.get("whatsappUrl") as string),
         paymentLink: safeUrl(formData.get("paymentLink") as string),
-        logoUrl: safeUrl(formData.get("logoUrl") as string),
+        // logoUrl renders as an <img src> and self-hosted logos are stored as
+        // same-origin relative paths ("/kennel-logos/x.png") — safeUrl rejects
+        // those, so use safeImageSrc to avoid silently clearing the logo.
+        logoUrl: safeImageSrc(formData.get("logoUrl") as string),
         // Typed fields
         foundedYear: intInRange("foundedYear", 1938, currentYear),
         dogFriendly: triState("dogFriendly"),

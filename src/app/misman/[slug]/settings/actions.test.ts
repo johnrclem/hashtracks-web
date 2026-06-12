@@ -104,6 +104,38 @@ describe("updateKennelSettings", () => {
     expect(updateCall.data.paymentLink).toBe("https://venmo.com/testh3");
   });
 
+  it("sanitizes whatsappUrl and preserves a relative self-hosted logoUrl", async () => {
+    vi.mocked(getMismanUser).mockResolvedValue(mockMisman as never);
+    vi.mocked(prisma.kennel.findUnique).mockResolvedValue({ slug: "test-h3" } as never);
+    vi.mocked(prisma.kennel.update).mockResolvedValue({} as never);
+
+    const fd = buildFormData({
+      whatsappUrl: "https://whatsapp.com/channel/abc123",
+      // Self-hosted logos are same-origin relative paths — must survive the save
+      // (safeUrl would have nulled this; safeImageSrc keeps it).
+      logoUrl: "/kennel-logos/rih3.gif",
+    });
+
+    await updateKennelSettings("kennel_1", fd);
+
+    const updateCall = vi.mocked(prisma.kennel.update).mock.calls[0][0];
+    expect(updateCall.data.whatsappUrl).toBe("https://whatsapp.com/channel/abc123");
+    expect(updateCall.data.logoUrl).toBe("/kennel-logos/rih3.gif");
+  });
+
+  it("rejects an unsafe javascript: logoUrl", async () => {
+    vi.mocked(getMismanUser).mockResolvedValue(mockMisman as never);
+    vi.mocked(prisma.kennel.findUnique).mockResolvedValue({ slug: "test-h3" } as never);
+    vi.mocked(prisma.kennel.update).mockResolvedValue({} as never);
+
+    const fd = buildFormData({ logoUrl: "javascript:alert(1)" });
+
+    await updateKennelSettings("kennel_1", fd);
+
+    const updateCall = vi.mocked(prisma.kennel.update).mock.calls[0][0];
+    expect(updateCall.data.logoUrl).toBeNull();
+  });
+
   it("rejects out-of-range foundedYear values", async () => {
     vi.mocked(getMismanUser).mockResolvedValue(mockMisman as never);
     vi.mocked(prisma.kennel.findUnique).mockResolvedValue({ slug: "test-h3" } as never);

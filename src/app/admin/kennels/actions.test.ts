@@ -217,6 +217,61 @@ describe("updateKennel", () => {
       error: 'A kennel named "NYCH3" already exists in New York City, NY',
     });
   });
+
+  // #1541: whatsappUrl is a public external link rendered as an href, so the
+  // admin editor must be able to set and clear it AND must protocol-validate it
+  // (safeUrl) — an unsafe scheme like javascript: must not survive to the public
+  // page. It flows through extractProfileFields → the kennel.update data.
+  it.each([
+    { desc: "persists a provided value", input: "https://whatsapp.com/channel/abc123", expected: "https://whatsapp.com/channel/abc123" },
+    { desc: "clears to null when blank", input: "", expected: null },
+    { desc: "rejects a javascript: scheme", input: "javascript:alert(1)", expected: null },
+  ])("updateKennel $desc for whatsappUrl", async ({ input, expected }) => {
+    mockKennelFindFirst
+      .mockResolvedValueOnce(null)  // slug check passes
+      .mockResolvedValueOnce(null); // region check passes
+    mockKennelFindUnique.mockResolvedValueOnce({ shortName: "NYCH3" } as never); // current shortName
+    const fd = new FormData();
+    fd.set("shortName", "NYCH3");
+    fd.set("fullName", "NYC Hash");
+    fd.set("region", "NYC");
+    fd.set("regionId", "region_1");
+    fd.set("whatsappUrl", input);
+    const result = await updateKennel("k1", fd);
+    expect(result).toEqual({ success: true });
+    expect(prisma.kennel.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "k1" },
+        data: expect.objectContaining({ whatsappUrl: expected }),
+      }),
+    );
+  });
+
+  // All admin-managed fields rendered as an href in SocialLinks are protocol-
+  // validated, not just whatsappUrl — an unsafe scheme must not reach the public
+  // page via a direct FormData post.
+  it.each(["facebookUrl", "discordUrl", "mailingListUrl", "whatsappUrl"])(
+    "updateKennel rejects an unsafe %s scheme",
+    async (field) => {
+      mockKennelFindFirst
+        .mockResolvedValueOnce(null)  // slug check passes
+        .mockResolvedValueOnce(null); // region check passes
+      mockKennelFindUnique.mockResolvedValueOnce({ shortName: "NYCH3" } as never);
+      const fd = new FormData();
+      fd.set("shortName", "NYCH3");
+      fd.set("fullName", "NYC Hash");
+      fd.set("region", "NYC");
+      fd.set("regionId", "region_1");
+      fd.set(field, "javascript:alert(1)");
+      const result = await updateKennel("k1", fd);
+      expect(result).toEqual({ success: true });
+      expect(prisma.kennel.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ [field]: null }),
+        }),
+      );
+    },
+  );
 });
 
 describe("deleteKennel", () => {

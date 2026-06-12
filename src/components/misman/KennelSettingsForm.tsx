@@ -30,6 +30,7 @@ interface KennelData {
   twitterHandle: string | null;
   discordUrl: string | null;
   mailingListUrl: string | null;
+  whatsappUrl: string | null;
   contactEmail: string | null;
   contactName: string | null;
   hashCash: string | null;
@@ -204,6 +205,16 @@ export function KennelSettingsForm({ kennel, currentYear }: KennelSettingsFormPr
               type="url"
               defaultValue={kennel.mailingListUrl ?? ""}
               placeholder="https://groups.google.com/…"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="whatsappUrl">WhatsApp URL</Label>
+            <Input
+              id="whatsappUrl"
+              name="whatsappUrl"
+              type="url"
+              defaultValue={kennel.whatsappUrl ?? ""}
+              placeholder="https://whatsapp.com/channel/…"
             />
           </div>
           <div className="space-y-2">

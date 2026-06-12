@@ -44,11 +44,13 @@ export interface KennelSeed {
   // fields above remain for legacy kennels that haven't been migrated.
   scheduleRules?: KennelScheduleRuleSeed[];
   hashCash?: string;
+  paymentLink?: string;        // Venmo/PayPal/CashApp URL
   facebookUrl?: string;
   instagramHandle?: string;
   twitterHandle?: string;
   discordUrl?: string;
   mailingListUrl?: string;
+  whatsappUrl?: string;        // WhatsApp group/broadcast-channel URL (#1541)
   contactEmail?: string;
   contactName?: string;        // #1337
   // Profile fields surfaced from chrome-kennel audits (#1415).
@@ -364,6 +366,8 @@ export const KENNELS: KennelSeed[] = [
       website: "https://rih3.com/",
       facebookUrl: "https://www.facebook.com/groups/120140164667510/",
       contactEmail: "basket@rih3.com",
+      foundedYear: 1986,
+      logoUrl: "/kennel-logos/rih3.gif",
       scheduleDayOfWeek: "Monday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
       description: "Weekly Monday evening trails across Rhode Island. Year-round, all weather.",
       latitude: 41.824, longitude: -71.413,
@@ -399,6 +403,9 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "princeton-h3", shortName: "Princeton H3", fullName: "Princeton Hash House Harriers",
       region: "New Jersey",
       website: "https://princetonol.com/groups/phhh/",
+      facebookUrl: "https://www.facebook.com/groups/PrincetonHHH",
+      contactEmail: "charlessnellings@gmail.com",
+      foundedYear: 1979,
       scheduleDayOfWeek: "Sunday", scheduleFrequency: "Biweekly",
       description: "Central New Jersey's hash kennel. Runs on the 2nd Sunday (Regular Hash) and 4th Sunday (MDL Hash) of each month.",
     },
@@ -2139,6 +2146,7 @@ export const KENNELS: KennelSeed[] = [
     // --- Rome ---
     {
       kennelCode: "r2h3", shortName: "R2H3", fullName: "Rumblin' Roman Hash House Harriers", region: "Rome, GA",
+      facebookUrl: "https://www.facebook.com/groups/r2h3rome",
       scheduleFrequency: "Monthly", scheduleNotes: "2nd Saturday, 2:30 PM.",
       description: "Monthly Saturday runs in Rome, GA.",
     },
@@ -2383,6 +2391,10 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "rch3-wa", shortName: "Rain City H3", fullName: "Rain City Hash House Harriers", region: "Seattle, WA",
       website: "https://wh3.org",
       facebookUrl: "https://www.facebook.com/groups/25456554474/",
+      contactEmail: "RCH3MM@googlegroups.com",
+      foundedYear: 1995,
+      hashCash: "$5–$7",
+      paymentLink: "https://www.paypal.me/rch3",
       scheduleDayOfWeek: "Sunday", scheduleTime: "12:00 PM", scheduleFrequency: "Monthly",
       scheduleNotes: "Last Sunday. Shiggy hash.",
       description: "Seattle's shiggy hash. Last Sunday of the month at noon. Known for muddy, off-trail adventures.",
@@ -2764,6 +2776,7 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "qch4", shortName: "Queen City H4", fullName: "Queen City Hash House Harriers and Harriettes", region: "Cincinnati, OH",
       facebookUrl: "https://www.facebook.com/groups/795791177265728/",
+      foundedYear: 2017,
       scheduleDayOfWeek: "Tuesday", scheduleFrequency: "Biweekly", scheduleTime: "7:00 PM",
       description: "Cincinnati secondary kennel. Biweekly Tuesday evening runs.",
       latitude: 39.10, longitude: -84.51,
@@ -2821,6 +2834,10 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "mh3-de", shortName: "MH3", fullName: "Munich Hash House Harriers", region: "Munich", country: "Germany",
       website: "https://mh3.beer",
+      facebookUrl: "https://www.facebook.com/groups/6131679774",
+      twitterHandle: "@MunichH3",
+      whatsappUrl: "https://whatsapp.com/channel/0029Vb6Lfxb84Om2WtQ9Wo3n",
+      logoUrl: "/kennel-logos/mh3-de.png",
       scheduleDayOfWeek: "Saturday", scheduleTime: "3:00 PM", scheduleFrequency: "Biweekly",
       hashCash: "€5",
       description: "Munich's biweekly Saturday afternoon hash.",
@@ -3707,6 +3724,7 @@ export const KENNELS: KennelSeed[] = [
       region: "Little Rock, AR",
       website: "https://lrhash.com",
       facebookUrl: "https://www.facebook.com/littlerockhashhouseharriers",
+      contactEmail: "info@lrhash.com",
       scheduleDayOfWeek: "Sunday",
       scheduleFrequency: "Weekly",
       scheduleNotes: "Weekly Sunday afternoons around 3–4 PM and weekly Wednesday evenings at 7 PM. Trail locations are posted on Facebook the day of each run — or call the hotline 501-666-HASH at noon on Sundays.",
