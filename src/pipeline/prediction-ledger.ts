@@ -38,6 +38,8 @@ const SNAPSHOT_HORIZON_DAYS = 200;
 const MATURITY_LAG_DAYS = 1;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const STATIC = "STATIC_SCHEDULE";
+/** Max concurrent snapshot UPDATEs when flushing Pass-1 scores (bounds pool pressure). */
+const SCORE_UPDATE_CHUNK = 25;
 
 // ── Pure helpers (exported for tests) ─────────────────────────────────────────
 
@@ -167,11 +169,14 @@ export async function runPredictionLedger(
   prisma: PrismaClient,
   now: Date = new Date(),
 ): Promise<LedgerRunResult> {
-  // predictedDate is stored at UTC noon; normalize the cutoff to the same convention so a
-  // sub-day wall-clock skew can't leave a just-matured snapshot PENDING for a whole extra
-  // weekly cycle (CodeRabbit review on PR #2164).
-  const nowNoonMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12);
-  const maturityCutoff = new Date(nowNoonMs - MATURITY_LAG_DAYS * DAY_MS);
+  // predictedDate is stored at UTC noon. Anchor the cutoff to today's UTC midnight (not the
+  // wall-clock now, nor yesterday-noon) so any noon-stored date that has already passed satisfies
+  // the `lt` check regardless of the cron's wall-clock hour. With MATURITY_LAG_DAYS=1 this is
+  // today's midnight, so a Sunday-noon prediction is scored on Monday instead of slipping a full
+  // extra weekly cycle (`Sun noon < Mon midnight`). The earlier yesterday-noon form left exactly-
+  // yesterday predictions PENDING for a week (`Sun noon < Sun noon` is false). claude review on PR #2164.
+  const todayMidnightMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const maturityCutoff = new Date(todayMidnightMs - (MATURITY_LAG_DAYS - 1) * DAY_MS);
 
   // Matured snapshots can be arbitrarily old after a long cron outage; the event window
   // must reach back to the OLDEST pending matured target (− observe tol) or scoring would
@@ -266,16 +271,35 @@ export async function runPredictionLedger(
   };
 
   // ── Pass 1: score matured snapshots against their FROZEN sources ────────────
-  for (const snap of matured) {
-    const events = eventsByKennel.get(snap.kennelId) ?? [];
+  // Classify in memory first, then flush updates in bounded-concurrency chunks. A multi-week
+  // cron outage (or the first run after migration) can leave hundreds–thousands of matured rows;
+  // a sequential await-per-row N+1 risks the 300s timeout, while an unbounded Promise.all over
+  // the whole backlog could exhaust the connection pool. Chunking gets the parallel speedup with
+  // a bounded pool footprint (claude review on PR #2164).
+  const scoredUpdates = matured.map((snap) => {
+    const kennelEvents = eventsByKennel.get(snap.kennelId) ?? [];
     const frozen = new Set(snap.independentSourceIds);
-    const { outcome, matchedEventId } = classifyOutcome(snap.predictedDate, snap.confirmedAtSnapshot, events, frozen);
-    await prisma.predictionSnapshot.update({
-      where: { id: snap.id },
-      data: { outcome, matchedEventId, matchToleranceDays: MATCH_TOL_DAYS, scoredAt: now },
-    });
+    const { outcome, matchedEventId } = classifyOutcome(
+      snap.predictedDate,
+      snap.confirmedAtSnapshot,
+      kennelEvents,
+      frozen,
+    );
+    return { id: snap.id, outcome, matchedEventId };
+  });
+  for (let i = 0; i < scoredUpdates.length; i += SCORE_UPDATE_CHUNK) {
+    await Promise.all(
+      scoredUpdates.slice(i, i + SCORE_UPDATE_CHUNK).map((u) =>
+        prisma.predictionSnapshot.update({
+          where: { id: u.id },
+          data: { outcome: u.outcome, matchedEventId: u.matchedEventId, matchToleranceDays: MATCH_TOL_DAYS, scoredAt: now },
+        }),
+      ),
+    );
+  }
+  for (const u of scoredUpdates) {
     result.scored++;
-    result.outcomes[outcome]++;
+    result.outcomes[u.outcome]++;
   }
 
   // ── Pass 2: snapshot current predictions ───────────────────────────────────
