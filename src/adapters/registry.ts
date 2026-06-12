@@ -266,7 +266,7 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /bangkokhhh\.org/i, name: "BangkokH3Adapter", factory: () => new BangkokH3Adapter() },
   { pattern: /bangkokmondayhhh\.com/i, name: "BangkokMondayHashAdapter", factory: () => new BangkokMondayHashAdapter() },
   // ── Taiwan ──
-  { pattern: /(?:^|\.)taipeihash\.com\.tw/i, name: "TaipeiHashAdapter", factory: () => new TaipeiHashAdapter() },
+  { pattern: /^https?:\/\/(?:[^/]+\.)?taipeihash\.com\.tw(?:[/?#:]|$)/i, name: "TaipeiHashAdapter", factory: () => new TaipeiHashAdapter() },
   // ── Austria ──
   { pattern: /viennahash\.org/i, name: "VindobonaH3Adapter", factory: () => new VindobonaH3Adapter() },
   // ── Nevada ──

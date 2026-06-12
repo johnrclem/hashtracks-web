@@ -40,6 +40,13 @@ const PHONE_RE = /0\d[\d\s-]{6,15}/g;
 // cheap forward-resilience against a future markup change.
 const MAPS_HREF =
   "a[href*='maps.app.goo.gl'], a[href*='goo.gl/maps'], a[href*='google.com/maps']";
+const MAPS_HOSTS = new Set([
+  "maps.app.goo.gl",
+  "goo.gl",
+  "google.com",
+  "www.google.com",
+  "maps.google.com",
+]);
 
 /** A parsed table row before its year-less date has been resolved. */
 interface ParsedRow {
@@ -87,10 +94,21 @@ function parseHares(hareCell: Cheerio<Element>): string | undefined {
   return normalizeHaresField(text);
 }
 
-/** Google Maps shortlink from the 記號起點 cell, stored verbatim (no coords). */
+/**
+ * Google Maps shortlink from the 記號起點 cell, stored verbatim (no coords).
+ * Validates scheme (https) + host against an allowlist so a malformed/hostile
+ * href that merely *contains* a Maps substring can't be persisted + rendered.
+ */
 function parseMapsUrl(marksCell: Cheerio<Element>): string | undefined {
-  const href = marksCell.find(MAPS_HREF).first().attr("href");
-  return href && href.trim().length > 0 ? href.trim() : undefined;
+  const href = marksCell.find(MAPS_HREF).first().attr("href")?.trim();
+  if (!href) return undefined;
+  try {
+    const parsed = new URL(href);
+    if (parsed.protocol !== "https:") return undefined;
+    return MAPS_HOSTS.has(parsed.hostname.toLowerCase()) ? href : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /** Round-trip-validated UTC-noon ms for a given year, or null if impossible. */
@@ -136,7 +154,20 @@ function parseRows(
       if (tds.length < 5) return; // header / spacer row
       const runNumber = parseRunNumber(tds.eq(0));
       const md = parseMonthDay(tds.eq(1));
-      if (runNumber === null || md === null) return;
+      if (runNumber === null || md === null) {
+        // A 5-cell row that can't yield a run number + MM/DD is a real anomaly
+        // (header/spacer rows were already filtered by the <5 cell guard) —
+        // surface it so partial markup drift doesn't undercount silently.
+        const message = `Unparseable row ${i}: missing run number or date`;
+        errors.push(message);
+        parseErrors.push({
+          row: i,
+          section: "run_site",
+          error: message,
+          rawText: $(tr).text().trim().slice(0, 2000),
+        });
+        return;
+      }
       rows.push({
         runNumber,
         month: md.month,

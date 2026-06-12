@@ -135,6 +135,18 @@ describe("parseTaipeiHash", () => {
     }
   });
 
+  it("rejects a non-Maps / non-https locationUrl", () => {
+    const hostile = `<table class="events-table"><tbody>
+      <tr><td class="run-number"><strong>2779</strong></td><td class="event-date"><strong>06/13</strong></td><td class="hare-info"><strong>A</strong></td><td class="location-info"><strong>X</strong></td><td class="marks-info"><a href="https://evil.example.com/?ref=maps.app.goo.gl/x">📍</a></td></tr>
+      <tr><td class="run-number"><strong>2778</strong></td><td class="event-date"><strong>06/06</strong></td><td class="hare-info"><strong>B</strong></td><td class="location-info"><strong>Y</strong></td><td class="marks-info"><a href="https://maps.app.goo.gl/Good123">📍</a></td></tr>
+    </tbody></table>`;
+    const $ = cheerio.load(hostile);
+    const { events } = parseTaipeiHash($, "url", REF);
+    const byRun = new Map(events.map((e) => [e.runNumber, e]));
+    expect(byRun.get(2779)?.locationUrl).toBeUndefined(); // evil.example.com rejected
+    expect(byRun.get(2778)?.locationUrl).toBe("https://maps.app.goo.gl/Good123");
+  });
+
   it("resolves the Dec→Jan boundary by run number, not by today's year", () => {
     // Current run on 01/03; the prior week's run on 12/27 belongs to the
     // PREVIOUS calendar year. refDate early January.
