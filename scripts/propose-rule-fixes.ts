@@ -85,12 +85,22 @@ function weekdayStats(dates: Date[]): { hist: number[]; dom: number; share: numb
   return { hist, dom, share: hist[dom] / total };
 }
 
-/** Median gap (days) between consecutive sorted dates → cadence label. */
+/**
+ * Median gap (days) between consecutive run DATES → cadence label.
+ *
+ * Collapses same-date events to distinct run days first. Many kennels publish
+ * two (or more) events per run day — Walkers @10:00 / Runners @11:00 pace
+ * splits, A-to-B legs, etc. (RDH3 does this on ~90% of its run days). Event
+ * dates are stored as UTC noon, so co-day rows share an identical getTime();
+ * without the dedupe they contribute 0-day gaps and a monthly kennel's median
+ * cadence collapses to "weekly" — the spurious "~0d median gap" anomaly.
+ * Cadence is a property of run days, not event rows.
+ */
 function cadenceOf(dates: Date[]): { medianGap: number; cadence: "weekly" | "biweekly" | "monthly" | "irregular" } {
-  if (dates.length < 2) return { medianGap: 0, cadence: "irregular" };
-  const sorted = [...dates].sort((a, b) => a.getTime() - b.getTime());
+  const distinct = [...new Set(dates.map((d) => d.getTime()))].sort((a, b) => a - b);
+  if (distinct.length < 2) return { medianGap: 0, cadence: "irregular" };
   const gaps: number[] = [];
-  for (let i = 1; i < sorted.length; i++) gaps.push((sorted[i].getTime() - sorted[i - 1].getTime()) / DAY_MS);
+  for (let i = 1; i < distinct.length; i++) gaps.push((distinct[i] - distinct[i - 1]) / DAY_MS);
   const g = median(gaps);
   let cadence: "weekly" | "biweekly" | "monthly" | "irregular";
   if (g <= 10) cadence = "weekly";
