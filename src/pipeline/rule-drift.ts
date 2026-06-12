@@ -87,6 +87,74 @@ interface RuleRow {
   validFrom: string | null; validUntil: string | null;
 }
 
+/** Append `val` to the array at `key`, creating the bucket if absent. */
+function pushToMap<K, V>(map: Map<K, V[]>, key: K, val: V): void {
+  const arr = map.get(key);
+  if (arr) arr.push(val);
+  else map.set(key, [val]);
+}
+
+/** Group eligible (independent) event dates by every participating kennel. */
+function groupRecentEventDates<E extends { kennelId: string; date: Date; eventKennels: { kennelId: string }[] }>(
+  events: E[],
+  isEligible: (e: E) => boolean,
+): Map<string, Date[]> {
+  const map = new Map<string, Date[]>();
+  for (const e of events) {
+    if (!isEligible(e)) continue;
+    for (const kid of new Set<string>([e.kennelId, ...e.eventKennels.map((ek) => ek.kennelId)])) {
+      pushToMap(map, kid, e.date);
+    }
+  }
+  return map;
+}
+
+/** "[from..until]" season-window suffix for a rule (∞ for an open end); "" if year-round. */
+function formatRuleWindow(r: { validFrom: string | null; validUntil: string | null }): string {
+  if (!r.validFrom && !r.validUntil) return "";
+  return ` [${r.validFrom ?? "∞"}..${r.validUntil ?? "∞"}]`;
+}
+
+/**
+ * Drift finding for one kennel, or null if its active rules agree with reality.
+ *
+ * Season-aware predicted weekdays. Project over the FULL observed-plus-upcoming span
+ * [recentStart, projectEnd] — not just the forward window — so a correctly-seasonal kennel that
+ * just crossed a validFrom/validUntil boundary keeps its OLD-season weekday in the set while the
+ * recent actuals still lean that way. Otherwise the 42d actuals (prior season) would be compared
+ * against only the next 28d projections (new season) and false-fire for weeks after every switch
+ * (Codex review on PR #2166). A genuinely stale rule still projects only its wrong weekday across
+ * the whole span, so real drift is unaffected.
+ */
+function computeKennelDrift(
+  k: KennelRow,
+  kRules: RuleRow[],
+  recent: Date[],
+  recentStart: Date,
+  projectEnd: Date,
+): DriftFinding | null {
+  const ruleInputs: ScheduleRuleInput[] = kRules.map((r) => ({
+    id: r.id, kennelId: r.kennelId, rrule: r.rrule, anchorDate: r.anchorDate, startTime: r.startTime,
+    confidence: r.confidence, notes: r.notes, label: r.label, validFrom: r.validFrom, validUntil: r.validUntil,
+  }));
+  const predictedDays = new Set<number>();
+  for (const proj of projectTrails(ruleInputs, recentStart, projectEnd)) {
+    if (proj.date) predictedDays.add(proj.date.getUTCDay());
+  }
+  const drift = judgeDrift(predictedDays, recent);
+  if (!drift) return null;
+  return {
+    kennelCode: k.kennelCode,
+    shortName: k.shortName,
+    region: k.region,
+    predictedWeekdays: [...predictedDays].sort((a, b) => a - b).map(weekdayName),
+    actualWeekday: weekdayName(drift.actualDay),
+    actualShare: drift.actualShare,
+    recentEventCount: drift.count,
+    activeRules: kRules.map((r) => r.rrule + formatRuleWindow(r)).join(" | "),
+  };
+}
+
 export async function detectRuleDrift(prisma: PrismaClient, now: Date = new Date()): Promise<DriftFinding[]> {
   const recentStart = new Date(now.getTime() - DRIFT_RECENT_DAYS * DAY_MS);
   const projectEnd = new Date(now.getTime() + DRIFT_PROJECT_DAYS * DAY_MS);
@@ -103,22 +171,9 @@ export async function detectRuleDrift(prisma: PrismaClient, now: Date = new Date
     }),
   ]);
 
-  const recentByKennel = new Map<string, Date[]>();
-  for (const e of events) {
-    if (!isEligibleActual(e)) continue;
-    const kids = new Set<string>([e.kennelId, ...e.eventKennels.map((ek) => ek.kennelId)]);
-    for (const kid of kids) {
-      const arr = recentByKennel.get(kid);
-      if (arr) arr.push(e.date);
-      else recentByKennel.set(kid, [e.date]);
-    }
-  }
+  const recentByKennel = groupRecentEventDates(events, isEligibleActual);
   const rulesByKennel = new Map<string, RuleRow[]>();
-  for (const r of rules) {
-    const arr = rulesByKennel.get(r.kennelId);
-    if (arr) arr.push(r);
-    else rulesByKennel.set(r.kennelId, [r]);
-  }
+  for (const r of rules) pushToMap(rulesByKennel, r.kennelId, r);
 
   const findings: DriftFinding[] = [];
   for (const k of kennels) {
@@ -126,35 +181,8 @@ export async function detectRuleDrift(prisma: PrismaClient, now: Date = new Date
     if (kRules.length === 0) continue;
     const recent = recentByKennel.get(k.id) ?? [];
     if (recent.length < DRIFT_MIN_EVENTS) continue;
-
-    // Season-aware predicted weekdays. Project over the FULL observed-plus-upcoming span
-    // [recentStart, projectEnd] — not just the forward window — so a correctly-seasonal kennel
-    // that just crossed a validFrom/validUntil boundary keeps its OLD-season weekday in the set
-    // while the recent actuals still lean that way. Otherwise the 42d actuals (prior season)
-    // would be compared against only the next 28d projections (new season) and false-fire for
-    // weeks after every switch (Codex review on PR #2166). A genuinely stale rule still projects
-    // only its wrong weekday across the whole span, so real drift is unaffected.
-    const ruleInputs: ScheduleRuleInput[] = kRules.map((r) => ({
-      id: r.id, kennelId: r.kennelId, rrule: r.rrule, anchorDate: r.anchorDate, startTime: r.startTime,
-      confidence: r.confidence, notes: r.notes, label: r.label, validFrom: r.validFrom, validUntil: r.validUntil,
-    }));
-    const predictedDays = new Set<number>();
-    for (const proj of projectTrails(ruleInputs, recentStart, projectEnd)) {
-      if (proj.date) predictedDays.add(proj.date.getUTCDay());
-    }
-
-    const drift = judgeDrift(predictedDays, recent);
-    if (!drift) continue;
-    findings.push({
-      kennelCode: k.kennelCode,
-      shortName: k.shortName,
-      region: k.region,
-      predictedWeekdays: [...predictedDays].sort((a, b) => a - b).map(weekdayName),
-      actualWeekday: weekdayName(drift.actualDay),
-      actualShare: drift.actualShare,
-      recentEventCount: drift.count,
-      activeRules: kRules.map((r) => r.rrule + (r.validFrom ? ` [${r.validFrom}..${r.validUntil}]` : "")).join(" | "),
-    });
+    const finding = computeKennelDrift(k, kRules, recent, recentStart, projectEnd);
+    if (finding) findings.push(finding);
   }
   findings.sort((a, b) => a.shortName.localeCompare(b.shortName));
   return findings;

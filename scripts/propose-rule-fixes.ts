@@ -128,12 +128,12 @@ function seasonalitySplit(dates: Date[]): { seasonal: boolean; summerDay: number
 
 /** Days spanned by the independent history — used to gate confident flat rules (<1yr = risky). */
 function historySpanDays(dates: Date[]): number {
-  if (dates.length < 2) return 0;
   // `dates` arrives sorted ascending from the caller (buildProposal's `allIndependent`), so the
   // span is just last − first — no need to scan for min/max.
-  const min = dates[0].getTime();
-  const max = dates[dates.length - 1].getTime();
-  return Math.round((max - min) / (24 * 60 * 60 * 1000));
+  const first = dates[0];
+  const last = dates.at(-1);
+  if (!first || !last) return 0;
+  return Math.round((last.getTime() - first.getTime()) / (24 * 60 * 60 * 1000));
 }
 /** Below this much history, a flat weekly rule might be hiding an unseen season. */
 const MIN_SPAN_FOR_FLAT_RULE = 330;
@@ -391,7 +391,13 @@ async function run(prisma: PrismaClient): Promise<void> {
     },
   })) as RuleRow[];
 
-  const loadStart = addDays(today, -(DERIV_START_DAYS_AGO + 5));
+  // Load enough history that the flat-weekly span guardrail can actually be satisfied. The ~205d
+  // derivation window alone caps spanDays below MIN_SPAN_FOR_FLAT_RULE (330d), so every flat-weekly
+  // proposal would be flagged "<1yr" regardless of real history (CodeRabbit review on PR #2166).
+  // Extra-old events fall outside the derivation (28–200d) and holdout (0–28d) windows, so loading
+  // them only widens the span measurement — derivation/holdout are unaffected.
+  const requiredHistoryDays = Math.max(DERIV_START_DAYS_AGO + 5, MIN_SPAN_FOR_FLAT_RULE + HOLDOUT_DAYS);
+  const loadStart = addDays(today, -requiredHistoryDays);
   const events = await prisma.event.findMany({
     where: {
       ...CANONICAL_EVENT_WHERE,

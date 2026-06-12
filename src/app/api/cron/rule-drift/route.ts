@@ -45,19 +45,20 @@ async function fileDriftIssue(findings: DriftFinding[]): Promise<{ filed: boolea
   const repo = getValidatedRepo();
   const headers = { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json", "Content-Type": "application/json" };
 
-  // Dedup: skip if an open rule-drift issue already exists.
+  // Dedup: skip if an open rule-drift issue already exists. Bail out (don't file) if the check
+  // itself fails — a transient non-2xx must NOT fall through to POSTing a possibly-duplicate issue.
   const existing = await fetch(
     `https://api.github.com/repos/${repo}/issues?state=open&labels=${encodeURIComponent(DRIFT_LABEL)}&per_page=1`,
-    { headers },
+    { headers, signal: AbortSignal.timeout(15_000) },
   );
-  if (existing.ok) {
-    const open = (await existing.json()) as unknown[];
-    if (Array.isArray(open) && open.length > 0) return { filed: false, reason: "open rule-drift issue exists" };
-  }
+  if (!existing.ok) return { filed: false, reason: `github dedup check failed: ${existing.status}` };
+  const open = (await existing.json()) as unknown[];
+  if (Array.isArray(open) && open.length > 0) return { filed: false, reason: "open rule-drift issue exists" };
 
   const res = await fetch(`https://api.github.com/repos/${repo}/issues`, {
     method: "POST",
     headers,
+    signal: AbortSignal.timeout(15_000),
     body: JSON.stringify({
       title: `Schedule-rule drift: ${findings.length} kennel(s) predicting the wrong weekday`,
       body: renderIssueBody(findings),
