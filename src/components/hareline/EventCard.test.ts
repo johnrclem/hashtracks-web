@@ -139,3 +139,43 @@ describe("EventCard time derivation — SeaMon stale-dateUtc regression (#1654)"
     expect(tzAbbrev).toBe("");
   });
 });
+
+describe("EventCard endTime range derivation (#2135)", () => {
+  const EDT = "America/New_York";
+  // QCH4 Run #220 — Jun 13 2026, 3:00–7:00 PM Eastern.
+  const QCH4_220 = {
+    date: "2026-06-13T12:00:00.000Z",
+    startTime: "15:00",
+    endTime: "19:00",
+    timezone: EDT,
+    dateUtc: new Date("2026-06-13T19:00:00.000Z"),
+  };
+
+  it("renders a start–end range in the event's zone", () => {
+    const { displayTimeStr, endTimeStr, tzAbbrev } = computeDisplayTime(QCH4_220, EDT);
+    expect(displayTimeStr).toBe("3:00 PM");
+    expect(endTimeStr).toBe("7:00 PM");
+    expect(tzAbbrev).toBe("EDT");
+  });
+
+  it("leaves endTimeStr null when there is no endTime (negative case)", () => {
+    const startOnly = { ...QCH4_220, endTime: null };
+    const { displayTimeStr, endTimeStr } = computeDisplayTime(startOnly, EDT);
+    expect(displayTimeStr).toBe("3:00 PM");
+    expect(endTimeStr).toBeNull();
+  });
+
+  it("does not render an endTime when the start time is absent", () => {
+    const endNoStart = { ...QCH4_220, startTime: null };
+    const { displayTimeStr, endTimeStr } = computeDisplayTime(endNoStart, EDT);
+    expect(displayTimeStr).toBeNull();
+    expect(endTimeStr).toBeNull();
+  });
+
+  it("formats endTime via plain HH:MM fallback when timezone is missing", () => {
+    const noTz = { ...QCH4_220, timezone: null, dateUtc: null };
+    const { displayTimeStr, endTimeStr } = computeDisplayTime(noTz, EDT);
+    expect(displayTimeStr).toBe("3:00 PM");
+    expect(endTimeStr).toBe("7:00 PM");
+  });
+});

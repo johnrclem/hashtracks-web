@@ -457,10 +457,13 @@ export default async function EventDetailPage({
                 )}
                 {event.startTime && (
                   <div>
-                    <dt className="text-sm font-medium text-muted-foreground">Start Time</dt>
+                    <dt className="text-sm font-medium text-muted-foreground">
+                      {event.endTime ? "Time" : "Start Time"}
+                    </dt>
                     <dd className="mt-0.5">
                       <EventTimeDisplay
                         startTime={event.startTime}
+                        endTime={event.endTime}
                         date={event.date.toISOString()}
                         timezone={event.timezone}
                       />

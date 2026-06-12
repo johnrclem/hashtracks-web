@@ -289,14 +289,12 @@ export const SOURCES = [
         kennelPatterns: [["^Regular Hash", "princeton-h3"], ["^MDL Hash", "princeton-h3"]],
         // null default so Summit/Rumson/other placeholders are skipped
         defaultKennelTag: null,
-        // #1934: every 2nd-Sunday event carries the standing schedule-description
-        // placeholder "Regular Hash Day, 2nd Sunday, detail cuming" as its title
-        // until the kennel posts run details. Substitute a clean default name so
-        // the event surfaces as a real run rather than a schedule blurb.
+        // #2125: the 2nd-Sunday SUMMARY "Regular Hash Day, 2nd Sunday, detail
+        // cuming" IS the intended run title (reverses #1934, which had treated
+        // it as a placeholder blurb and substituted a default). Prefer the real
+        // GCal SUMMARY (cf. #2046 C2H3). `defaultTitle` is retained only as a
+        // genuine-empty fallback; a non-empty SUMMARY no longer triggers it.
         defaultTitle: "Princeton H3 Hash",
-        staleTitleAliases: {
-          "princeton-h3": ["Regular Hash Day, 2nd Sunday, detail cuming"],
-        },
       },
       kennelCodes: ["princeton-h3"],
     },
@@ -1191,6 +1189,12 @@ export const SOURCES = [
       scrapeDays: 365,
       config: {
         defaultKennelTag: "bjh3",
+        // #775 — BJH3 is El Paso, TX (Mountain Time). Pin the IANA zone so any
+        // timed event whose source DTSTART was authored in another zone is
+        // normalized to El Paso wall-clock at extraction (the "EPH3 Turkey Puke"
+        // event was created in Eastern and surfaced "2:00 PM EST"). All-day
+        // events carry no dateTime, so this is a no-op for them.
+        timezone: "America/Denver",
         // BJH3 publishes every run as an all-day event (no start times), so the
         // adapter must opt in or it drops all of them by default (adapter.ts:1349).
         includeAllDayEvents: true,
@@ -3039,25 +3043,25 @@ export const SOURCES = [
       // scrape route.
       scrapeDays: 800,
       config: {
+        // #1738 — most-specific-first: the MoA2H3 calendar carries a handful of
+        // sister-kennel events (DeMon H3 inaugural trail Nov 2025; GLH3 HashMas
+        // Jan 2025). Route them to the sister codes rather than silent-skipping
+        // (#1739). The sister codes are added to `kennelCodes` below so the merge
+        // source-kennel guard passes (no recurring `SOURCE_KENNEL_MISMATCH` — the
+        // #1739 noise that drove the original silent-skip). DeMon/GLH3 own sources
+        // stay at scrapeDays:90 and can't reach these historical dates, so no
+        // duplicate Events arise (the Codex #1719 dedup concern is moot here).
+        kennelPatterns: [
+          [String.raw`^DeMon\s*H?3?\b`, "demon-h3"],
+          [String.raw`^GLH3\b|^Greater\s+Lansing`, "glh3"],
+        ],
         defaultKennelTag: "moa2h3",
         // #1458 — kennel admins double-paste "MoA2H3" into event titles on
         // the source side. Opt in to the doubled-prefix strip so titles
         // like "MoA2H3 MoA2H3 Red Dress Run" surface as a single prefix.
         stripDoubledKennelPrefix: true,
-        // #1671 / #1739 — the MoA2H3 calendar carries a handful of sister-kennel
-        // events (DeMon H3 inaugural trail Nov 2025; GLH3 HashMas Jan 2025).
-        // DeMon H3 and GLH3 each have their OWN Google Calendar source, so these
-        // rows are pure pollution here. The original fix routed them to the
-        // sister codes, which then fired recurring `SOURCE_KENNEL_MISMATCH`
-        // alerts every 6h (intentional but noisy). Drop them silently instead
-        // (#1739) — no alert, no duplicate Events against the sisters' own
-        // sources, no kennel-page pollution.
-        silentlySkipPatterns: [
-          { pattern: String.raw`^DeMon\s*H?3?\b` },
-          { pattern: String.raw`^GLH3\b|^Greater\s+Lansing` },
-        ],
       },
-      kennelCodes: ["moa2h3"],
+      kennelCodes: ["moa2h3", "demon-h3", "glh3"],
     },
     {
       name: "DeMon H3 Google Calendar",

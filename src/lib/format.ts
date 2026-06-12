@@ -18,6 +18,16 @@ export function formatTime(time: string): string {
 }
 
 /**
+ * Render an already-formatted start time, optionally as a "start – end" range
+ * (#2135). Shared by the event card, detail panel, and full detail page so the
+ * range punctuation stays consistent. `end` is null/empty when the source has
+ * no end time.
+ */
+export function formatTimeRange(start: string, end: string | null): string {
+  return end ? `${start} – ${end}` : start;
+}
+
+/**
  * Parse "HH:MM" into minutes since midnight. Returns null if unparseable
  * or out of range. Promoted from src/lib/strava/match-score.ts so the
  * pipeline can share the same parser without depending on Strava.

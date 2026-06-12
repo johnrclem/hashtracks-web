@@ -10,13 +10,13 @@ import {
   TooltipTrigger,
   TooltipContent,
 } from "@/components/ui/tooltip";
-import { formatTime, formatDateRange } from "@/lib/format";
+import { formatTime, formatTimeRange, formatDateRange } from "@/lib/format";
 import { AttendanceBadge } from "@/components/logbook/AttendanceBadge";
 import type { AttendanceData } from "@/components/logbook/CheckInButton";
 import { RegionBadge } from "./RegionBadge";
 import { useTimePreference } from "@/components/providers/time-preference-provider";
 import { getRegionColor } from "@/lib/region";
-import { composeUtcStart, formatTimeInZone, getTimezoneAbbreviation, getBrowserTimezone } from "@/lib/timezone";
+import { composeUtcStart, formatTimeInZone, formatLocalTimeForDisplay, getTimezoneAbbreviation, getBrowserTimezone } from "@/lib/timezone";
 import { useUnitsPreference } from "@/components/providers/units-preference-provider";
 import type { DailyWeather } from "@/lib/weather";
 import { getConditionEmoji, cToF } from "@/lib/weather-display";
@@ -69,6 +69,9 @@ export type HarelineEvent = {
   eventLabel?: string | null;
   haresText: string | null;
   startTime: string | null;
+  /** #2135 — local end time "HH:MM" (same convention as startTime); null when
+   *  the source has no DTEND or the run wraps past midnight. */
+  endTime?: string | null;
   locationName: string | null;
   locationCity: string | null;
   status: string;
@@ -194,9 +197,9 @@ export function computeChipDate(event: { date: string }): string {
  * renders.
  */
 export function computeDisplayTime(
-  event: { date: string; startTime: string | null; timezone: string | null; dateUtc: Date | null },
+  event: { date: string; startTime: string | null; endTime?: string | null; timezone: string | null; dateUtc: Date | null },
   displayTz: string,
-): { displayTimeStr: string | null; tzAbbrev: string } {
+): { displayTimeStr: string | null; endTimeStr: string | null; tzAbbrev: string } {
   const composedAnchor =
     event.startTime && event.timezone
       ? composeUtcStart(new Date(event.date), event.startTime, event.timezone)
@@ -208,8 +211,13 @@ export function computeDisplayTime(
   } else if (event.startTime) {
     displayTimeStr = formatTime(event.startTime);
   }
+  // #2135 — only render an end time alongside a shown start time.
+  const endTimeStr =
+    displayTimeStr && event.endTime
+      ? formatLocalTimeForDisplay(event.date, event.endTime, event.timezone, displayTz)
+      : null;
   const tzAbbrev = timeAnchor ? getTimezoneAbbreviation(timeAnchor, displayTz) : "";
-  return { displayTimeStr, tzAbbrev };
+  return { displayTimeStr, endTimeStr, tzAbbrev };
 }
 
 /**
@@ -298,7 +306,12 @@ function buildAriaLabel(event: HarelineEvent, attendance?: AttendanceData | null
   // (per claude[bot] PR #1566 review).
   parts.push(computeChipDate(event));
   if (event.runNumber) parts.push(`Run #${event.runNumber}`);
-  if (event.startTime) parts.push(formatTime(event.startTime));
+  // #2135 — voice the full start–end range so screen readers reach parity with
+  // the visually-rendered "3:00 PM – 7:00 PM".
+  if (event.startTime) {
+    const startStr = formatTime(event.startTime);
+    parts.push(event.endTime ? `${startStr} to ${formatTime(event.endTime)}` : startStr);
+  }
   // #1316 — surface card-visible structured fields to screen readers.
   if (event.trailType) parts.push(`Trail type ${event.trailType}`);
   if (event.dogFriendly === true) parts.push("dog friendly");
@@ -358,7 +371,7 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
   const rangeDisplay = isMultiDay ? formatDateRange(event.date, event.endDate) : displayDateStr;
   const [seriesExpanded, setSeriesExpanded] = useState(false);
 
-  const { displayTimeStr, tzAbbrev } = computeDisplayTime(event, displayTz);
+  const { displayTimeStr, endTimeStr, tzAbbrev } = computeDisplayTime(event, displayTz);
 
   function handleClick() {
     // On desktop (lg+), select the event for the detail panel
@@ -520,7 +533,7 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
 
             {displayTimeStr && (
               <span className="flex items-center gap-1 text-xs font-semibold tabular-nums text-foreground/70" suppressHydrationWarning>
-                {displayTimeStr}
+                {formatTimeRange(displayTimeStr, endTimeStr)}
                 {tzAbbrev && <span className="text-[10px] font-medium opacity-60" suppressHydrationWarning>{tzAbbrev}</span>}
               </span>
             )}
@@ -699,7 +712,7 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
                 suppressHydrationWarning
               >
                 <Clock className="h-3 w-3 text-muted-foreground/40" />
-                <span className="text-sm font-bold tabular-nums text-foreground/85">{displayTimeStr}</span>
+                <span className="text-sm font-bold tabular-nums text-foreground/85">{formatTimeRange(displayTimeStr, endTimeStr)}</span>
                 {tzAbbrev && (
                   <span className="text-[10px] text-muted-foreground/40 font-semibold" suppressHydrationWarning>
                     {tzAbbrev}
