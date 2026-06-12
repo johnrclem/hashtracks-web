@@ -2420,6 +2420,14 @@ export const KENNELS: KennelSeed[] = [
       website: "https://wh3.org", foundedYear: 1981,
       scheduleFrequency: "Biweekly",
       scheduleNotes: "Men's hash. 1st/3rd Saturday 10:30am (winter Nov-Mar), 1st/3rd Thursday 6:30pm (summer Apr-Oct)",
+      // Seasonal + monthly-ordinal (matches the note + 2yr history: summer Thu 82%, winter Sat 89%).
+      // 1st/3rd weekday → two ordinal rules per season; month ordinals self-anchor (no anchorDate).
+      scheduleRules: [
+        { rrule: "FREQ=MONTHLY;BYDAY=1TH", startTime: "18:30", label: "Summer", validFrom: "04-01", validUntil: "10-31", displayOrder: 0 },
+        { rrule: "FREQ=MONTHLY;BYDAY=3TH", startTime: "18:30", label: "Summer", validFrom: "04-01", validUntil: "10-31", displayOrder: 1 },
+        { rrule: "FREQ=MONTHLY;BYDAY=1SA", startTime: "10:30", label: "Winter", validFrom: "11-01", validUntil: "03-31", displayOrder: 2 },
+        { rrule: "FREQ=MONTHLY;BYDAY=3SA", startTime: "10:30", label: "Winter", validFrom: "11-01", validUntil: "03-31", displayOrder: 3 },
+      ],
       description: "Men's hash running biweekly across the Puget Sound region. Founded 1981, the oldest kennel in Washington state.",
       latitude: 47.50, longitude: -122.17,
     },
