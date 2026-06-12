@@ -42,6 +42,48 @@ function binOf(daysOut: number): string {
   return DAYSOUT_BINS.find((b) => daysOut >= b.lo && daysOut <= b.hi)?.label ?? "200+";
 }
 
+type Cell = { hit: number; miss: number };
+
+/** Precision cells keyed `${confidence}|${bin}`, over HIT/MISS rows only. */
+function buildPrecisionMap(snaps: SnapRow[]): Map<string, Cell> {
+  const precision = new Map<string, Cell>();
+  for (const s of snaps) {
+    if (s.outcome !== "HIT" && s.outcome !== "MISS") continue;
+    const key = `${s.confidence}|${binOf(s.daysOutAtSnapshot)}`;
+    const cell = precision.get(key) ?? { hit: 0, miss: 0 };
+    if (s.outcome === "HIT") cell.hit++;
+    else cell.miss++;
+    precision.set(key, cell);
+  }
+  return precision;
+}
+
+/** Render the Precision markdown section (placeholder until matured rows exist). */
+function renderPrecisionSection(scored: number, precision: Map<string, Cell>, firstMaturity: Date | null): string[] {
+  if (scored === 0) {
+    return [
+      "## Precision",
+      "",
+      "*No matured HIT/MISS rows yet — the ledger is still accumulating.* " +
+        (firstMaturity ? `First scores arrive ~**${fmtDate(firstMaturity)}** (earliest pending target date).` : ""),
+      "",
+    ];
+  }
+  const out: string[] = [
+    "## Precision — HIT / (HIT+MISS), by confidence × actual days-out", "",
+    "| Confidence | Bin (days out) | HIT | MISS | Precision |", "|---|---|---|---|---|",
+  ];
+  for (const conf of ["HIGH", "MEDIUM"] as const) {
+    for (const b of DAYSOUT_BINS) {
+      const cell = precision.get(`${conf}|${b.label}`);
+      if (!cell) continue;
+      out.push(`| ${conf} | ${b.label} | ${cell.hit} | ${cell.miss} | ${pct(cell.hit, cell.hit + cell.miss)} |`);
+    }
+  }
+  out.push("", "PRECONFIRMED + UNOBSERVED are excluded. **Recall is a deferred follow-up** (computed from actual events vs snapshot coverage, not from snapshot rows).", "");
+  return out;
+}
+
 async function run(prisma: PrismaClient): Promise<void> {
   const today = utcNoon(new Date());
   console.log("📈 Prediction-ledger scorecard (read-only)\n");
@@ -58,15 +100,7 @@ async function run(prisma: PrismaClient): Promise<void> {
   for (const s of snaps) byOutcome[s.outcome]++;
 
   // Precision per confidence × days-out bin (HIT/MISS only).
-  type Cell = { hit: number; miss: number };
-  const precision = new Map<string, Cell>(); // key = `${confidence}|${bin}`
-  for (const s of snaps) {
-    if (s.outcome !== "HIT" && s.outcome !== "MISS") continue;
-    const key = `${s.confidence}|${binOf(s.daysOutAtSnapshot)}`;
-    const cell = precision.get(key) ?? { hit: 0, miss: 0 };
-    if (s.outcome === "HIT") cell.hit++; else cell.miss++;
-    precision.set(key, cell);
-  }
+  const precision = buildPrecisionMap(snaps);
 
   // Pending maturity: earliest PENDING predictedDate = when the first scores arrive.
   // reduce (not Math.min(...array)) — the pending set can grow large and the spread would
@@ -100,25 +134,7 @@ async function run(prisma: PrismaClient): Promise<void> {
   ];
 
   const scored = byOutcome.HIT + byOutcome.MISS;
-  if (scored === 0) {
-    md.push(
-      "## Precision",
-      "",
-      "*No matured HIT/MISS rows yet — the ledger is still accumulating.* " +
-        (firstMaturity ? `First scores arrive ~**${fmtDate(firstMaturity)}** (earliest pending target date).` : ""),
-      "",
-    );
-  } else {
-    md.push("## Precision — HIT / (HIT+MISS), by confidence × actual days-out", "", "| Confidence | Bin (days out) | HIT | MISS | Precision |", "|---|---|---|---|---|");
-    for (const conf of ["HIGH", "MEDIUM"] as const) {
-      for (const b of DAYSOUT_BINS) {
-        const cell = precision.get(`${conf}|${b.label}`);
-        if (!cell) continue;
-        md.push(`| ${conf} | ${b.label} | ${cell.hit} | ${cell.miss} | ${pct(cell.hit, cell.hit + cell.miss)} |`);
-      }
-    }
-    md.push("", "PRECONFIRMED + UNOBSERVED are excluded. **Recall is a deferred follow-up** (computed from actual events vs snapshot coverage, not from snapshot rows).", "");
-  }
+  md.push(...renderPrecisionSection(scored, precision, firstMaturity));
 
   md.push("---", "", "*Re-run: `npx tsx scripts/score-prediction-ledger.ts`.*", "");
 

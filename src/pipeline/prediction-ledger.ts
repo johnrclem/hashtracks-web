@@ -164,6 +164,116 @@ export interface LedgerRunResult {
   lastSuccessfulRunAt: Date | null;
 }
 
+/** Append `val` to the array at `key`, creating the bucket if absent. */
+function pushToMap<K, V>(map: Map<K, V[]>, key: K, val: V): void {
+  const arr = map.get(key);
+  if (arr) arr.push(val);
+  else map.set(key, [val]);
+}
+
+interface EventRow {
+  id: string;
+  kennelId: string;
+  date: Date;
+  eventKennels: { kennelId: string }[];
+  rawEvents: { source: { id: string; type: string } }[];
+}
+interface LedgerIndexes {
+  eventsByKennel: Map<string, ScorableEvent[]>;
+  rulesByKennel: Map<string, RuleRow[]>;
+  indepSourcesByKennel: Map<string, string[]>;
+}
+
+/** Group events / rules / independent source-links by kennel id for O(1) per-kennel lookup. */
+function indexLedgerInputs(
+  events: EventRow[],
+  rules: RuleRow[],
+  sourceLinks: { kennelId: string; sourceId: string }[],
+): LedgerIndexes {
+  const eventsByKennel = new Map<string, ScorableEvent[]>();
+  for (const e of events) {
+    const sourceIds = [...new Set(e.rawEvents.filter((re) => re.source.type !== STATIC).map((re) => re.source.id))];
+    if (sourceIds.length === 0) continue; // not independent ground truth
+    const ev: ScorableEvent = { id: e.id, date: e.date, sourceIds };
+    for (const kid of new Set<string>([e.kennelId, ...e.eventKennels.map((ek) => ek.kennelId)])) {
+      pushToMap(eventsByKennel, kid, ev);
+    }
+  }
+  const rulesByKennel = new Map<string, RuleRow[]>();
+  for (const r of rules) pushToMap(rulesByKennel, r.kennelId, r);
+  const indepSourcesByKennel = new Map<string, string[]>();
+  for (const sk of sourceLinks) pushToMap(indepSourcesByKennel, sk.kennelId, sk.sourceId);
+  return { eventsByKennel, rulesByKennel, indepSourcesByKennel };
+}
+
+/** First independent (current-source) event within ±MATCH_TOL of the predicted date, or null. */
+function findPreexistingEvent(
+  kEvents: ScorableEvent[],
+  indepSet: ReadonlySet<string>,
+  projMidnight: number,
+): string | null {
+  for (const e of kEvents) {
+    if (!e.sourceIds.some((sid) => indepSet.has(sid))) continue;
+    if (Math.abs(utcMidnightMs(e.date) - projMidnight) / DAY_MS <= MATCH_TOL_DAYS) return e.id;
+  }
+  return null;
+}
+
+/** Freeze one kennel's HIGH/MEDIUM dated projections into snapshot rows at their crossed band. */
+function buildKennelSnapshotRows(
+  k: KennelRow,
+  kRules: RuleRow[],
+  indepSources: string[],
+  kEvents: ScorableEvent[],
+  lastSuccessfulRunAt: Date | null,
+  now: Date,
+  windowEnd: Date,
+): Prisma.PredictionSnapshotCreateManyInput[] {
+  const indepSet = new Set(indepSources);
+  const ruleInputs: ScheduleRuleInput[] = kRules.map((r) => ({
+    id: r.id, kennelId: r.kennelId, rrule: r.rrule, anchorDate: r.anchorDate,
+    startTime: r.startTime, confidence: r.confidence, notes: r.notes,
+    label: r.label, validFrom: r.validFrom, validUntil: r.validUntil,
+  }));
+  const projections = projectTrails(ruleInputs, now, windowEnd);
+  const evidenceCount = kEvents.filter(
+    (e) => e.date.getTime() >= now.getTime() - EVIDENCE_WINDOW_DAYS * DAY_MS && e.date.getTime() <= now.getTime(),
+  ).length;
+  const ruleValidation = new Map(kRules.map((r) => [r.id, r.lastValidatedAt]));
+  const ctx: KennelContext = {
+    id: k.id, shortName: k.shortName, scheduleDayOfWeek: k.scheduleDayOfWeek,
+    scheduleTime: k.scheduleTime, scheduleFrequency: k.scheduleFrequency, lastEventDate: k.lastEventDate,
+  };
+
+  const rows: Prisma.PredictionSnapshotCreateManyInput[] = [];
+  for (const proj of projections) {
+    if (!proj.date) continue; // LOW/possible — not date-scorable
+    const confidence = scoreConfidence(proj.confidence, ctx, evidenceCount, ruleValidation.get(proj.scheduleRuleId) ?? null, now.getTime());
+    if (confidence !== "high" && confidence !== "medium") continue;
+    const nowDaysOut = daysBetween(now, proj.date);
+    const prevDaysOut = lastSuccessfulRunAt ? daysBetween(lastSuccessfulRunAt, proj.date) : null;
+    const band = captureBandFor(nowDaysOut, prevDaysOut);
+    if (band === null) continue;
+    // confirmed-at-snapshot: a current independent-source event within ±tol of the date
+    // (same gate as scoring; current indep sources are the frozen set at snapshot time).
+    const preexistingEventId = findPreexistingEvent(kEvents, indepSet, utcMidnightMs(proj.date));
+    rows.push({
+      kennelId: k.id,
+      scheduleRuleId: proj.scheduleRuleId,
+      predictedDate: proj.date,
+      startTimeKey: proj.startTime ?? "",
+      startTime: proj.startTime,
+      confidence: confidence === "high" ? "HIGH" : "MEDIUM",
+      horizonBucket: band,
+      daysOutAtSnapshot: nowDaysOut,
+      confirmedAtSnapshot: preexistingEventId !== null,
+      preexistingEventId,
+      independentSourceIds: indepSources,
+    });
+  }
+  return rows;
+}
+
 // ── Orchestrator ──────────────────────────────────────────────────────────────
 export async function runPredictionLedger(
   prisma: PrismaClient,
@@ -237,31 +347,8 @@ export async function runPredictionLedger(
 
   const lastSuccessfulRunAt = lastSnap?.snapshotAt ?? null;
 
-  // Index events by participating kennel, tagged with their INDEPENDENT source ids.
-  const eventsByKennel = new Map<string, ScorableEvent[]>();
-  for (const e of events) {
-    const sourceIds = [...new Set(e.rawEvents.filter((re) => re.source.type !== STATIC).map((re) => re.source.id))];
-    if (sourceIds.length === 0) continue; // not independent ground truth
-    const ev: ScorableEvent = { id: e.id, date: e.date, sourceIds };
-    const kids = new Set<string>([e.kennelId, ...e.eventKennels.map((ek) => ek.kennelId)]);
-    for (const kid of kids) {
-      const arr = eventsByKennel.get(kid);
-      if (arr) arr.push(ev);
-      else eventsByKennel.set(kid, [ev]);
-    }
-  }
-  const rulesByKennel = new Map<string, RuleRow[]>();
-  for (const r of rules) {
-    const arr = rulesByKennel.get(r.kennelId);
-    if (arr) arr.push(r);
-    else rulesByKennel.set(r.kennelId, [r]);
-  }
-  const indepSourcesByKennel = new Map<string, string[]>();
-  for (const sk of sourceLinks) {
-    const arr = indepSourcesByKennel.get(sk.kennelId);
-    if (arr) arr.push(sk.sourceId);
-    else indepSourcesByKennel.set(sk.kennelId, [sk.sourceId]);
-  }
+  // Index events (tagged with their INDEPENDENT source ids), rules, and indep source-links by kennel.
+  const { eventsByKennel, rulesByKennel, indepSourcesByKennel } = indexLedgerInputs(events, rules, sourceLinks);
 
   const result: LedgerRunResult = {
     scored: 0,
@@ -309,55 +396,17 @@ export async function runPredictionLedger(
   for (const k of kennels) {
     const kRules = rulesByKennel.get(k.id) ?? [];
     if (kRules.length === 0) continue;
-    const indepSources = indepSourcesByKennel.get(k.id) ?? [];
-    const indepSet = new Set(indepSources);
-    const kEvents = eventsByKennel.get(k.id) ?? [];
-
-    const ruleInputs: ScheduleRuleInput[] = kRules.map((r) => ({
-      id: r.id, kennelId: r.kennelId, rrule: r.rrule, anchorDate: r.anchorDate,
-      startTime: r.startTime, confidence: r.confidence, notes: r.notes,
-      label: r.label, validFrom: r.validFrom, validUntil: r.validUntil,
-    }));
-    const projections = projectTrails(ruleInputs, now, windowEnd);
-    const evidenceCount = kEvents.filter(
-      (e) => e.date.getTime() >= now.getTime() - EVIDENCE_WINDOW_DAYS * DAY_MS && e.date.getTime() <= now.getTime(),
-    ).length;
-    const ruleValidation = new Map(kRules.map((r) => [r.id, r.lastValidatedAt]));
-    const ctx: KennelContext = {
-      id: k.id, shortName: k.shortName, scheduleDayOfWeek: k.scheduleDayOfWeek,
-      scheduleTime: k.scheduleTime, scheduleFrequency: k.scheduleFrequency, lastEventDate: k.lastEventDate,
-    };
-
-    for (const proj of projections) {
-      if (!proj.date) continue; // LOW/possible — not date-scorable
-      const confidence = scoreConfidence(proj.confidence, ctx, evidenceCount, ruleValidation.get(proj.scheduleRuleId) ?? null, now.getTime());
-      if (confidence !== "high" && confidence !== "medium") continue;
-      const nowDaysOut = daysBetween(now, proj.date);
-      const prevDaysOut = lastSuccessfulRunAt ? daysBetween(lastSuccessfulRunAt, proj.date) : null;
-      const band = captureBandFor(nowDaysOut, prevDaysOut);
-      if (band === null) continue;
-      // confirmed-at-snapshot: a current independent-source event within ±tol of the date
-      // (same gate as scoring, frozen sources = current indep sources at snapshot time).
-      const projMidnight = utcMidnightMs(proj.date);
-      let preexistingEventId: string | null = null;
-      for (const e of kEvents) {
-        if (!e.sourceIds.some((sid) => indepSet.has(sid))) continue;
-        if (Math.abs(utcMidnightMs(e.date) - projMidnight) / DAY_MS <= MATCH_TOL_DAYS) { preexistingEventId = e.id; break; }
-      }
-      snapshotRows.push({
-        kennelId: k.id,
-        scheduleRuleId: proj.scheduleRuleId,
-        predictedDate: proj.date,
-        startTimeKey: proj.startTime ?? "",
-        startTime: proj.startTime,
-        confidence: confidence === "high" ? "HIGH" : "MEDIUM",
-        horizonBucket: band,
-        daysOutAtSnapshot: nowDaysOut,
-        confirmedAtSnapshot: preexistingEventId !== null,
-        preexistingEventId,
-        independentSourceIds: indepSources,
-      });
-    }
+    snapshotRows.push(
+      ...buildKennelSnapshotRows(
+        k,
+        kRules,
+        indepSourcesByKennel.get(k.id) ?? [],
+        eventsByKennel.get(k.id) ?? [],
+        lastSuccessfulRunAt,
+        now,
+        windowEnd,
+      ),
+    );
   }
 
   // Dedup in-batch by the unique identity (two rules projecting the same date+time+band)
