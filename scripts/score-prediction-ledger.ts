@@ -1,0 +1,164 @@
+/**
+ * Prediction-ledger scorecard (Travel Mode evaluation, Phase 2 — read-only).
+ *
+ * Reads the PredictionSnapshot table the weekly cron (/api/cron/prediction-ledger)
+ * accumulates and reports drift-proof forward PRECISION per confidence × actual-days-out
+ * bin, over HIT/MISS rows only (PRECONFIRMED + UNOBSERVED excluded — contamination /
+ * unobserved, not model signal), plus the pending inventory + first-maturity date.
+ *
+ * Recall (real runs we failed to predict) is a deferred follow-up — it is computed from
+ * actual events vs snapshot coverage, not from snapshot rows, and needs matured cohorts
+ * to be meaningful. See the pipeline doc.
+ *
+ * Until cohorts mature (~weeks/months after the cron starts) most rows are PENDING, so
+ * precision is sparse by design. Output: docs/audits/prediction-ledger-<date>.md.
+ *
+ * Usage: npx tsx scripts/score-prediction-ledger.ts
+ */
+import "dotenv/config";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaClient } from "@/generated/prisma/client";
+import { createScriptPool } from "./lib/db-pool";
+import { utcNoon, fmtDate, pct, writeAuditReport } from "./lib/audit-shared";
+
+// Actual-days-out bins for precision (report by real horizon, not the nominal band).
+const DAYSOUT_BINS: { label: string; lo: number; hi: number }[] = [
+  { label: "0–45", lo: 0, hi: 45 },
+  { label: "46–120", lo: 46, hi: 120 },
+  { label: "121–200", lo: 121, hi: 200 },
+];
+
+type Outcome = "PENDING" | "HIT" | "MISS" | "PRECONFIRMED" | "UNOBSERVED";
+
+interface SnapRow {
+  confidence: "HIGH" | "MEDIUM";
+  horizonBucket: number;
+  daysOutAtSnapshot: number;
+  outcome: Outcome;
+  predictedDate: Date;
+}
+
+function binOf(daysOut: number): string {
+  return DAYSOUT_BINS.find((b) => daysOut >= b.lo && daysOut <= b.hi)?.label ?? "200+";
+}
+
+type Cell = { hit: number; miss: number };
+
+/** Precision cells keyed `${confidence}|${bin}`, over HIT/MISS rows only. */
+function buildPrecisionMap(snaps: SnapRow[]): Map<string, Cell> {
+  const precision = new Map<string, Cell>();
+  for (const s of snaps) {
+    if (s.outcome !== "HIT" && s.outcome !== "MISS") continue;
+    const key = `${s.confidence}|${binOf(s.daysOutAtSnapshot)}`;
+    const cell = precision.get(key) ?? { hit: 0, miss: 0 };
+    if (s.outcome === "HIT") cell.hit++;
+    else cell.miss++;
+    precision.set(key, cell);
+  }
+  return precision;
+}
+
+/** Render the Precision markdown section (placeholder until matured rows exist). */
+function renderPrecisionSection(scored: number, precision: Map<string, Cell>, firstMaturity: Date | null): string[] {
+  if (scored === 0) {
+    return [
+      "## Precision",
+      "",
+      "*No matured HIT/MISS rows yet — the ledger is still accumulating.* " +
+        (firstMaturity ? `First scores arrive ~**${fmtDate(firstMaturity)}** (earliest pending target date).` : ""),
+      "",
+    ];
+  }
+  const out: string[] = [
+    "## Precision — HIT / (HIT+MISS), by confidence × actual days-out", "",
+    "| Confidence | Bin (days out) | HIT | MISS | Precision |", "|---|---|---|---|---|",
+  ];
+  for (const conf of ["HIGH", "MEDIUM"] as const) {
+    for (const b of DAYSOUT_BINS) {
+      const cell = precision.get(`${conf}|${b.label}`);
+      if (!cell) continue;
+      out.push(`| ${conf} | ${b.label} | ${cell.hit} | ${cell.miss} | ${pct(cell.hit, cell.hit + cell.miss)} |`);
+    }
+  }
+  out.push("", "PRECONFIRMED + UNOBSERVED are excluded. **Recall is a deferred follow-up** (computed from actual events vs snapshot coverage, not from snapshot rows).", "");
+  return out;
+}
+
+async function run(prisma: PrismaClient): Promise<void> {
+  const today = utcNoon(new Date());
+  console.log("📈 Prediction-ledger scorecard (read-only)\n");
+
+  const snaps = (await prisma.predictionSnapshot.findMany({
+    select: { confidence: true, horizonBucket: true, daysOutAtSnapshot: true, outcome: true, predictedDate: true },
+  })) as SnapRow[];
+  const cohortWeeks = await prisma.predictionSnapshot.findMany({
+    select: { snapshotAt: true }, orderBy: { snapshotAt: "asc" }, take: 1,
+  });
+
+  const total = snaps.length;
+  const byOutcome: Record<Outcome, number> = { PENDING: 0, HIT: 0, MISS: 0, PRECONFIRMED: 0, UNOBSERVED: 0 };
+  for (const s of snaps) byOutcome[s.outcome]++;
+
+  // Precision per confidence × days-out bin (HIT/MISS only).
+  const precision = buildPrecisionMap(snaps);
+
+  // Pending maturity: earliest PENDING predictedDate = when the first scores arrive.
+  // reduce (not Math.min(...array)) — the pending set can grow large and the spread would
+  // risk a max-call-stack overflow (Gemini review on PR #2164).
+  const firstMaturity = snaps.reduce<Date | null>((earliest, s) => {
+    if (s.outcome !== "PENDING") return earliest;
+    return !earliest || s.predictedDate < earliest ? s.predictedDate : earliest;
+  }, null);
+
+  // ── Render ──
+  const date = fmtDate(today);
+  const md: string[] = [
+    `# Prediction-ledger scorecard — ${date}`,
+    "",
+    "Generated by `scripts/score-prediction-ledger.ts` (read-only) from the prospective ledger",
+    "(`/api/cron/prediction-ledger`). Forward calibration accumulates as cohorts mature.",
+    "",
+    `Snapshots: **${total}**` +
+      (cohortWeeks[0] ? ` · first snapshot ${fmtDate(cohortWeeks[0].snapshotAt)}` : ""),
+    "",
+    "## Outcome inventory",
+    "",
+    "| Outcome | Count | Note |",
+    "|---|---|---|",
+    `| PENDING | ${byOutcome.PENDING} | target date not yet matured |`,
+    `| HIT | ${byOutcome.HIT} | independent event landed within ±1d |`,
+    `| MISS | ${byOutcome.MISS} | observed nearby but no event |`,
+    `| PRECONFIRMED | ${byOutcome.PRECONFIRMED} | already on the books at snapshot (excluded) |`,
+    `| UNOBSERVED | ${byOutcome.UNOBSERVED} | no independent source covered the date (excluded) |`,
+    "",
+  ];
+
+  const scored = byOutcome.HIT + byOutcome.MISS;
+  md.push(
+    ...renderPrecisionSection(scored, precision, firstMaturity),
+    "---", "", "*Re-run: `npx tsx scripts/score-prediction-ledger.ts`.*", "",
+  );
+
+  const { mdPath } = writeAuditReport(`prediction-ledger-${date}`, md.join("\n"), {
+    generatedAt: new Date().toISOString(), total, byOutcome,
+    firstMaturity: firstMaturity ? fmtDate(firstMaturity) : null,
+  });
+  console.log(`Outcomes: ${JSON.stringify(byOutcome)}`);
+  console.log(`Wrote ${mdPath}`);
+}
+
+async function main(): Promise<void> {
+  const pool = createScriptPool();
+  const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
+  try {
+    await run(prisma);
+  } finally {
+    await prisma.$disconnect().catch(() => undefined);
+    await pool.end().catch(() => undefined);
+  }
+}
+
+main().catch((err) => {
+  console.error("Fatal error:", err);
+  process.exitCode = 1;
+});

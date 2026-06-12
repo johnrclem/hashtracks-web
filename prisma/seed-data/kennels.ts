@@ -266,10 +266,13 @@ export const KENNELS: KennelSeed[] = [
     },
     {
       kennelCode: "beantown", shortName: "Beantown", fullName: "Beantown City Hash House Harriers", region: "Boston, MA", hashCash: "$5", contactEmail: "HashCash@beantown.cityhash.org",
-      // Travel-prediction fix: previously dark (no rule). Independent history is ~weekly Sunday
-      // (recently shifted from Wednesday). Revisit if it reverts.
+      // Seasonal (corrected — a prior fix wrongly flattened this to year-round Sunday):
+      // summer Sundays (May–Sep), winter Wednesdays (Oct–Apr) per 2yr independent history.
       scheduleDayOfWeek: "Sunday", scheduleFrequency: "Weekly",
-      scheduleRules: [{ rrule: "FREQ=WEEKLY;BYDAY=SU" }],
+      scheduleRules: [
+        { rrule: "FREQ=WEEKLY;BYDAY=SU", label: "Summer", validFrom: "05-01", validUntil: "09-30", displayOrder: 0 },
+        { rrule: "FREQ=WEEKLY;BYDAY=WE", label: "Winter", validFrom: "10-01", validUntil: "04-30", displayOrder: 1 },
+      ],
     },
     {
       kennelCode: "bos-moon", shortName: "Boston Moon", fullName: "Boston Moon Hash House Harriers", region: "Boston, MA",
@@ -388,10 +391,14 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "summit", shortName: "Summit", fullName: "Summit Hash House Harriers", region: "North NJ",
       scheduleDayOfWeek: "Saturday", scheduleTime: "3:00 PM", scheduleFrequency: "Weekly",
-      // Travel-prediction fix: independent history is ~weekly Saturday year-round (23/24 recent
-      // runs); the old "summer Monday" note was stale. Was scheduleDayOfWeek "Monday".
-      scheduleRules: [{ rrule: "FREQ=WEEKLY;BYDAY=SA", startTime: "15:00" }],
-      scheduleNotes: "Saturdays, ~3 PM.",
+      // Seasonal (corrected — a prior fix wrongly flattened this to year-round Saturday):
+      // summer Mondays 7 PM (Jun–Aug), winter Saturdays 3 PM (Sep–May). 2yr independent history is
+      // Monday-dominant Jun–Aug, Saturday-dominant Sep–May.
+      scheduleRules: [
+        { rrule: "FREQ=WEEKLY;BYDAY=MO", startTime: "19:00", label: "Summer", validFrom: "06-01", validUntil: "08-31", displayOrder: 0 },
+        { rrule: "FREQ=WEEKLY;BYDAY=SA", startTime: "15:00", label: "Winter", validFrom: "09-01", validUntil: "05-31", displayOrder: 1 },
+      ],
+      scheduleNotes: "Summer: Mondays 7 PM (Jun–Aug). Winter: Saturdays 3 PM (Sep–May).",
     },
     {
       kennelCode: "sfm", shortName: "Summit Full Moon", fullName: "Summit Full Moon H3", region: "North NJ",
@@ -2900,12 +2907,15 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "fh3", shortName: "FH3", fullName: "Frankfurt Hash House Harriers", region: "Frankfurt", country: "Germany",
       website: "https://frankfurt-hash.de",
-      scheduleDayOfWeek: "Thursday", scheduleFrequency: "Weekly",
-      // Travel-prediction fix: schedule changed Sun(biweekly)→Thu(weekly) in summer 2026 per
-      // independent history (was scheduleDayOfWeek "Sunday", Biweekly). Revisit if it reverts in winter.
-      scheduleRules: [{ rrule: "FREQ=WEEKLY;BYDAY=TH" }],
+      scheduleDayOfWeek: "Sunday", scheduleFrequency: "Weekly",
+      // Seasonal (corrected — a prior fix wrongly flattened this to year-round Thursday):
+      // summer Thursdays (May–Aug), winter Sundays (Sep–Apr); weekly both seasons per 2yr history.
+      scheduleRules: [
+        { rrule: "FREQ=WEEKLY;BYDAY=TH", label: "Summer", validFrom: "05-01", validUntil: "08-31", displayOrder: 0 },
+        { rrule: "FREQ=WEEKLY;BYDAY=SU", startTime: "14:30", label: "Winter", validFrom: "09-01", validUntil: "04-30", displayOrder: 1 },
+      ],
       hashCash: "€5",
-      description: "Frankfurt's biweekly Sunday afternoon hash. Run #2114+ and counting.",
+      description: "Frankfurt's weekly hash — summer Thursdays, winter Sunday afternoons. Run #2114+ and counting.",
       latitude: 50.11, longitude: 8.68,
     },
     {

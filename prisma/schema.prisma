@@ -177,7 +177,8 @@ model Kennel {
   auditSuppressions AuditSuppression[]  @relation("AuditSuppressionKennel")
   auditIssues       AuditIssue[]        @relation("AuditIssueKennel")
   // Travel Mode
-  scheduleRules     ScheduleRule[]
+  scheduleRules       ScheduleRule[]
+  predictionSnapshots PredictionSnapshot[]
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
 
@@ -1137,6 +1138,52 @@ model ScheduleRule {
   @@unique([kennelId, rrule, source], name: "ScheduleRule_kennel_rrule_source_key")
   @@index([kennelId])
   @@index([isActive, confidence])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Prospective prediction ledger (Travel Mode evaluation, Phase 2).
+// Freezes the model's forward predictions on a weekly cadence and scores each
+// once its target date passes against INDEPENDENT (non-STATIC_SCHEDULE) reality —
+// a drift-proof forward-calibration measure that complements the retrospective
+// backtest in scripts/audit-travel-predictions.ts.
+// ────────────────────────────────────────────────────────────────────────────
+
+enum PredictionOutcome {
+  PENDING // target date not yet matured
+  HIT // an eligible independent event landed within ±tol of the predicted date
+  MISS // the date was OBSERVED (source active nearby) but no event materialized
+  PRECONFIRMED // a real event (±tol) was already on the books at snapshot time → contamination, excluded from precision/recall
+  UNOBSERVED // matured but no independent source covered the date → neither hit nor model miss
+}
+
+model PredictionSnapshot {
+  id                  String            @id @default(cuid())
+  kennelId            String
+  scheduleRuleId      String? // rule that produced it (nullable if later removed)
+  predictedDate       DateTime // UTC noon target date
+  startTimeKey        String // startTime or "" sentinel — part of identity (NULL-safe)
+  startTime           String? // display value
+  confidence          ScheduleConfidence // FROZEN at snapshot time
+  horizonBucket       Int // nominal target band: 180 | 90 | 30
+  daysOutAtSnapshot   Int // ACTUAL days-out when captured — report by this, not the nominal band
+  snapshotAt          DateTime          @default(now())
+  // Contamination gate, computed with the SAME ±tol as scoring (not exact-date):
+  confirmedAtSnapshot Boolean
+  preexistingEventId  String? // the already-on-books event that made it PRECONFIRMED
+  // Frozen provenance: the independent (non-STATIC_SCHEDULE) source ids that existed
+  // for this kennel at snapshot time — scoring decides observability from these.
+  independentSourceIds String[]          @default([])
+  outcome             PredictionOutcome @default(PENDING)
+  scoredAt            DateTime?
+  matchedEventId      String? // independent event that confirmed it (±tol)
+  matchToleranceDays  Int?
+  kennel              Kennel            @relation(fields: [kennelId], references: [id], onDelete: Cascade)
+
+  // startTimeKey in the identity so a morning + evening run on the same date/band
+  // are two rows, scored independently (Codex review on PR #2154).
+  @@unique([kennelId, predictedDate, startTimeKey, horizonBucket], map: "PredictionSnapshot_identity_key")
+  @@index([outcome, predictedDate])
+  @@index([snapshotAt])
 }
 
 enum TravelSearchStatus {
