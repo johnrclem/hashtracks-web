@@ -111,18 +111,31 @@ function cadenceOf(dates: Date[]): { medianGap: number; cadence: "weekly" | "biw
 }
 
 /**
- * Seasonality probe: split the derivation events into two half-years (Apr–Sep vs Oct–Mar) and
- * compare the dominant weekday in each. Different dominant days with enough support → seasonal.
+ * Seasonality probe: compare CORE summer (May–Aug) vs CORE winter (Nov–Feb), skipping the shoulder
+ * months (Mar/Apr, Sep/Oct) where the switch happens — half-year buckets blur the boundary and miss
+ * real switchers (the Summit/FH3/Beantown class). Matches the seasonal-detector SQL.
  */
 function seasonalitySplit(dates: Date[]): { seasonal: boolean; summerDay: number | null; winterDay: number | null } {
-  const summer = dates.filter((d) => d.getUTCMonth() >= 3 && d.getUTCMonth() <= 8);
-  const winter = dates.filter((d) => d.getUTCMonth() < 3 || d.getUTCMonth() > 8);
+  const inMonths = (d: Date, months: number[]) => months.includes(d.getUTCMonth());
+  const summer = dates.filter((d) => inMonths(d, [4, 5, 6, 7])); // May–Aug
+  const winter = dates.filter((d) => inMonths(d, [10, 11, 0, 1])); // Nov–Feb
   if (summer.length < 3 || winter.length < 3) return { seasonal: false, summerDay: null, winterDay: null };
   const s = weekdayStats(summer);
   const w = weekdayStats(winter);
   const seasonal = s.dom !== w.dom && s.share >= MIN_DOMINANT_SHARE && w.share >= MIN_DOMINANT_SHARE;
   return { seasonal, summerDay: s.dom, winterDay: w.dom };
 }
+
+/** Days spanned by the independent history — used to gate confident flat rules (<1yr = risky). */
+function historySpanDays(dates: Date[]): number {
+  if (dates.length < 2) return 0;
+  let min = dates[0].getTime();
+  let max = dates[0].getTime();
+  for (const dt of dates) { const t = dt.getTime(); if (t < min) min = t; if (t > max) max = t; }
+  return Math.round((max - min) / (24 * 60 * 60 * 1000));
+}
+/** Below this much history, a flat weekly rule might be hiding an unseen season. */
+const MIN_SPAN_FOR_FLAT_RULE = 330;
 
 /** Current rule's BYDAY weekday index, if the rrule encodes a single weekday. */
 function ruleWeekday(rrule: string): number | null {
@@ -263,6 +276,14 @@ function buildProposal(
   // A recent day-change makes the derivation-based weekday stale → flag for the reviewer.
   if (changed && recentDomDay !== null) {
     const tail = `⚠ recent 4w runs are ${DAY_NAME[recentDomDay]} (${recent.length} ev), not ${DAY_NAME[dom]} — schedule likely changed; trust recent.`;
+    manualNote = manualNote ? `${manualNote} ${tail}` : tail;
+  }
+
+  // Guardrail (anti-Summit): never lock in a confident flat weekly rule from <1 full annual cycle —
+  // the unseen season may switch the weekday. Flag it for review instead of flattening.
+  const spanDays = historySpanDays(allIndependent);
+  if (kind === "flat-weekly" && spanDays < MIN_SPAN_FOR_FLAT_RULE) {
+    const tail = `⚠ only ${spanDays}d of history (<1yr) — could be seasonal; verify a full annual cycle before locking a flat rule.`;
     manualNote = manualNote ? `${manualNote} ${tail}` : tail;
   }
 
