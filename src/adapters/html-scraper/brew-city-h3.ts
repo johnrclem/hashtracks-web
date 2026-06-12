@@ -7,7 +7,27 @@ import type {
   SourceConfig,
 } from "../types";
 import { hasAnyErrors } from "../types";
+import type { WeekdayShiftConfig } from "../utils";
 import { applyWeekdayShift, chronoParseDate, buildDateWindow, stripPlaceholder, fetchBrowserRenderedPage } from "../utils";
+
+/**
+ * Apply the configured weekday remap to a parsed (date, startTime) pair, gated
+ * on a *timeless* row. parseDateTime collapses the Wix 12 AM placeholder to an
+ * undefined startTime, so an undefined startTime after a successful date parse
+ * is the placeholder signal — a genuinely-timed Friday event ("19:00") is
+ * trusted and left untouched. Returns the resolved pair plus whether the shift
+ * fired (for diagnostics). See #960/#1006/#1134.
+ */
+function resolveWeekdayShift(
+  date: string,
+  startTime: string | undefined,
+  weekdayShift: WeekdayShiftConfig | undefined,
+): { date: string; startTime: string | undefined; shifted: boolean } {
+  if (weekdayShift && startTime === undefined) {
+    return applyWeekdayShift(date, startTime, weekdayShift);
+  }
+  return { date, startTime, shifted: false };
+}
 
 /**
  * Parse time from the Wix date heading, e.g. "Friday, April 3, 2026 AT 8 PM"
@@ -195,17 +215,9 @@ export class BrewCityH3Adapter implements SourceAdapter {
         }
 
         // Remap the published weekday to the actual run weekday for placeholder
-        // rows only (#960/#1134). BCH3's Wix placeholders are the *timeless*
-        // "Friday … AT 12 AM" rows: parseDateTime collapses 12 AM to an
-        // `undefined` startTime, so after a successful date parse an undefined
-        // startTime IS the placeholder signal. Gating the shift on it means a
-        // genuinely-timed Friday event (e.g. "Friday … AT 7 PM" → "19:00") is
-        // trusted and left on Friday — never silently moved to Thursday. Throws
-        // on malformed config — caught by the per-item try/catch below.
-        const resolved =
-          weekdayShift && startTime === undefined
-            ? applyWeekdayShift(date, startTime, weekdayShift)
-            : { date, startTime, shifted: false };
+        // rows only (#960/#1134) — see resolveWeekdayShift. Throws on malformed
+        // config, caught by the per-item try/catch below.
+        const resolved = resolveWeekdayShift(date, startTime, weekdayShift);
         if (resolved.shifted) weekdayShifted++;
 
         // 2. Title from h2 (skip header h2 elements outside repeater items)
