@@ -3816,6 +3816,19 @@ export const SOURCES = [
       kennelCodes: ["twh3-tw"],
     },
     {
+      name: "Taipei Hash Run List",
+      url: "https://www.taipeihash.com.tw/run_site.php",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      // run_site.php is a rolling ~6-month window (current + 3 future + ~23
+      // history rows). upcomingOnly keeps reconcile.ts from false-CANCELLing the
+      // history rows as they age off the page (they still ingest on first scrape).
+      config: { upcomingOnly: true },
+      kennelCodes: ["taipei-h3"],
+    },
+    {
       name: "Shanghai H3 Harrier Central",
       url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
       type: "HARRIER_CENTRAL" as const,

@@ -366,6 +366,9 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     // and would mis-route via kennelCode-exact-match. Former name "China Hash House
     // Harriers" omitted — globally ambiguous (mainland-China kennels exist).
     "twh3-tw": ["TwH3-TW", "Taiwan Hash House Harriers", "Taiwan H3", "Taiwan Hash", "台灣健龍捷兔"],
+    // Bare "TH3" omitted — globally taken (Tidewater twh3 / Thirstday th3 / Tacoma
+    // th3-wa / Tokyo tokyo-h3) and would mis-route via text match in the resolver.
+    "taipei-h3": ["Taipei Hash", "Taipei Hash House Harriers", "Taipei HHH", "台北捷兔", "台北捷兔俱樂部"],
 
     // ===== CHINA =====
     // Bare "SHH3" omitted — already claimed by Singapore Harriets (sgharriets) and would
