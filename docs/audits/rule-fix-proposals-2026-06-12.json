@@ -1,0 +1,2211 @@
+{
+  "generatedAt": "2026-06-12T02:03:53.906Z",
+  "counts": {
+    "C3": 5,
+    "C2": 51,
+    "C1": 15
+  },
+  "proposals": [
+    {
+      "bucket": "C1",
+      "kennel": {
+        "id": "cmneuxw6m000bfjhn0uh5lmmx",
+        "shortName": "CH3",
+        "region": "Copenhagen",
+        "scheduleNotes": "Monday evenings (Apr-Sep), Saturday afternoons (Oct-Mar)"
+      },
+      "derivEvents": 31,
+      "domDay": 6,
+      "domShare": 0.6129032258064516,
+      "medianGap": 7,
+      "cadence": "weekly",
+      "seasonal": true,
+      "recentEvents": 5,
+      "recentDomDay": 1,
+      "changed": true,
+      "anchorDate": "2026-05-11",
+      "currentRules": "(none)",
+      "proposedRrule": "Apr–Sep FREQ=WEEKLY;BYDAY=MO | Oct–Mar FREQ=WEEKLY;BYDAY=SA",
+      "proposedKind": "seasonal",
+      "manualReviewNote": "Seasonal split — author as scheduleRules[] with validFrom/validUntil; verify boundaries. ⚠ recent 4w runs are Mon (5 ev), not Sat — schedule likely changed; trust recent.",
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 0,
+        "hits": 0
+      }
+    },
+    {
+      "bucket": "C1",
+      "kennel": {
+        "id": "cmneuxwdk000dfjhnpi86gqhj",
+        "shortName": "RDH3",
+        "region": "Copenhagen",
+        "scheduleNotes": "Sunday mornings, 15+ km"
+      },
+      "derivEvents": 12,
+      "domDay": 0,
+      "domShare": 1,
+      "medianGap": 0,
+      "cadence": "weekly",
+      "seasonal": false,
+      "recentEvents": 0,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-05-10",
+      "currentRules": "(none)",
+      "proposedRrule": "FREQ=WEEKLY;BYDAY=SU",
+      "proposedKind": "flat-weekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 4,
+        "hits": 0
+      }
+    },
+    {
+      "bucket": "C1",
+      "kennel": {
+        "id": "cmneuxw3m000afjhn15fiolat",
+        "shortName": "Hague H3",
+        "region": "The Hague",
+        "scheduleNotes": "Winter: Sunday 14:00, Summer: Wednesday 19:00"
+      },
+      "derivEvents": 6,
+      "domDay": 3,
+      "domShare": 0.8333333333333334,
+      "medianGap": 7,
+      "cadence": "weekly",
+      "seasonal": false,
+      "recentEvents": 4,
+      "recentDomDay": 3,
+      "changed": false,
+      "anchorDate": "2026-05-13",
+      "currentRules": "(none)",
+      "proposedRrule": "FREQ=WEEKLY;BYDAY=WE",
+      "proposedKind": "flat-weekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 4,
+        "hits": 4
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmn65cskj000bmfm9zoquu4jz",
+        "shortName": "MH3",
+        "region": "Munich",
+        "scheduleNotes": null
+      },
+      "derivEvents": 11,
+      "domDay": 6,
+      "domShare": 1,
+      "medianGap": 14,
+      "cadence": "biweekly",
+      "seasonal": false,
+      "recentEvents": 2,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-05-09",
+      "currentRules": "CADENCE=BIWEEKLY;BYDAY=SA",
+      "proposedRrule": "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA",
+      "proposedKind": "anchored-biweekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 2,
+        "hits": 2
+      }
+    },
+    {
+      "bucket": "C3",
+      "kennel": {
+        "id": "cmlehnxda000h9cm9g5md000i",
+        "shortName": "Summit",
+        "region": "North NJ",
+        "scheduleNotes": "Summer: Mondays 7pm. Winter: Saturdays 3pm."
+      },
+      "derivEvents": 24,
+      "domDay": 6,
+      "domShare": 0.7916666666666666,
+      "medianGap": 7,
+      "cadence": "weekly",
+      "seasonal": false,
+      "recentEvents": 6,
+      "recentDomDay": 6,
+      "changed": false,
+      "anchorDate": "2026-05-09",
+      "currentRules": "FREQ=WEEKLY;BYDAY=MO",
+      "proposedRrule": "FREQ=WEEKLY;BYDAY=SA",
+      "proposedKind": "flat-weekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 4,
+        "hits": 1
+      },
+      "holdoutProposed": {
+        "predicted": 4,
+        "hits": 4
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmmzbikut000ms9m92rg6f9dr",
+        "shortName": "OCHHH",
+        "region": "Orange County, CA",
+        "scheduleNotes": null
+      },
+      "derivEvents": 8,
+      "domDay": 6,
+      "domShare": 1,
+      "medianGap": 14,
+      "cadence": "biweekly",
+      "seasonal": false,
+      "recentEvents": 1,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-05-02",
+      "currentRules": "CADENCE=BIWEEKLY;BYDAY=SA",
+      "proposedRrule": "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA",
+      "proposedKind": "anchored-biweekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 2,
+        "hits": 0
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmlrfet4x001cucm98970ja2a",
+        "shortName": "East Bay H3",
+        "region": "Oakland, CA",
+        "scheduleNotes": null
+      },
+      "derivEvents": 8,
+      "domDay": 0,
+      "domShare": 1,
+      "medianGap": 14,
+      "cadence": "biweekly",
+      "seasonal": false,
+      "recentEvents": 2,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-05-10",
+      "currentRules": "CADENCE=BIWEEKLY;BYDAY=SU",
+      "proposedRrule": "FREQ=WEEKLY;INTERVAL=2;BYDAY=SU",
+      "proposedKind": "anchored-biweekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 2,
+        "hits": 2
+      }
+    },
+    {
+      "bucket": "C1",
+      "kennel": {
+        "id": "cmlrhm9t9001eszm9qxjn6h1r",
+        "shortName": "Hangover H3",
+        "region": "Washington, DC",
+        "scheduleNotes": "Sunday 10:00 AM"
+      },
+      "derivEvents": 6,
+      "domDay": 0,
+      "domShare": 0.8333333333333334,
+      "medianGap": 21,
+      "cadence": "biweekly",
+      "seasonal": false,
+      "recentEvents": 1,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-04-12",
+      "currentRules": "(none)",
+      "proposedRrule": "FREQ=WEEKLY;INTERVAL=2;BYDAY=SU",
+      "proposedKind": "anchored-biweekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 2,
+        "hits": 0
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmmz095b70007zzm9gy08lhs6",
+        "shortName": "StumpH3",
+        "region": "Portland, OR",
+        "scheduleNotes": null
+      },
+      "derivEvents": 13,
+      "domDay": 2,
+      "domShare": 0.9230769230769231,
+      "medianGap": 14,
+      "cadence": "biweekly",
+      "seasonal": false,
+      "recentEvents": 2,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-05-05",
+      "currentRules": "CADENCE=BIWEEKLY;BYDAY=TU",
+      "proposedRrule": "FREQ=WEEKLY;INTERVAL=2;BYDAY=TU",
+      "proposedKind": "anchored-biweekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 2,
+        "hits": 2
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmlrfesqc000vucm9rpv2arqa",
+        "shortName": "4X2H4",
+        "region": "Chicago, IL",
+        "scheduleNotes": "1st Tuesday. $2 hash cash, 4 miles, 2 beers."
+      },
+      "derivEvents": 6,
+      "domDay": 2,
+      "domShare": 1,
+      "medianGap": 28,
+      "cadence": "monthly",
+      "seasonal": false,
+      "recentEvents": 1,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-05-05",
+      "currentRules": "CADENCE=MONTHLY;BYDAY=TU",
+      "proposedRrule": "(monthly, Tue) — gap≈28d",
+      "proposedKind": "manual-review",
+      "manualReviewNote": "Monthly cadence — needs an ordinal (nth weekday) or BYMONTHDAY; author by hand.",
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 0,
+        "hits": 0
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmmse2yn6000avkm9aypxi65u",
+        "shortName": "Fort Eustis H3",
+        "region": "Hampton Roads, VA",
+        "scheduleNotes": null
+      },
+      "derivEvents": 13,
+      "domDay": 6,
+      "domShare": 0.9230769230769231,
+      "medianGap": 14,
+      "cadence": "biweekly",
+      "seasonal": false,
+      "recentEvents": 2,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-05-09",
+      "currentRules": "CADENCE=BIWEEKLY;BYDAY=SA",
+      "proposedRrule": "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA",
+      "proposedKind": "anchored-biweekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 2,
+        "hits": 2
+      }
+    },
+    {
+      "bucket": "C3",
+      "kennel": {
+        "id": "cmmrt4f6d000a4um9nv0gcrxw",
+        "shortName": "NVHHH",
+        "region": "State College, PA",
+        "scheduleNotes": "Mondays 6:30 PM (summer); Sundays 3 PM (winter)."
+      },
+      "derivEvents": 26,
+      "domDay": 0,
+      "domShare": 0.8461538461538461,
+      "medianGap": 7,
+      "cadence": "weekly",
+      "seasonal": false,
+      "recentEvents": 3,
+      "recentDomDay": 1,
+      "changed": true,
+      "anchorDate": "2026-05-10",
+      "currentRules": "FREQ=WEEKLY;BYDAY=MO",
+      "proposedRrule": "FREQ=WEEKLY;BYDAY=SU",
+      "proposedKind": "flat-weekly",
+      "manualReviewNote": "⚠ recent 4w runs are Mon (3 ev), not Sun — schedule likely changed; trust recent.",
+      "holdoutCurrent": {
+        "predicted": 4,
+        "hits": 3
+      },
+      "holdoutProposed": {
+        "predicted": 4,
+        "hits": 3
+      }
+    },
+    {
+      "bucket": "C1",
+      "kennel": {
+        "id": "cmlrfeslh000pucm9oujed3ea",
+        "shortName": "CFMH3",
+        "region": "Chicago, IL",
+        "scheduleNotes": "Evenings near the full moon"
+      },
+      "derivEvents": 6,
+      "domDay": 5,
+      "domShare": 0.6666666666666666,
+      "medianGap": 31,
+      "cadence": "monthly",
+      "seasonal": false,
+      "recentEvents": 0,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-05-04",
+      "currentRules": "(none)",
+      "proposedRrule": "(monthly, Fri) — gap≈31d",
+      "proposedKind": "manual-review",
+      "manualReviewNote": "Monthly cadence — needs an ordinal (nth weekday) or BYMONTHDAY; author by hand.",
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 0,
+        "hits": 0
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmmks1rm10006jgm9dq016ti4",
+        "shortName": "Dublin H3",
+        "region": "Dublin",
+        "scheduleNotes": null
+      },
+      "derivEvents": 26,
+      "domDay": 1,
+      "domShare": 0.9615384615384616,
+      "medianGap": 7,
+      "cadence": "weekly",
+      "seasonal": false,
+      "recentEvents": 4,
+      "recentDomDay": 1,
+      "changed": false,
+      "anchorDate": "2026-05-11",
+      "currentRules": "CADENCE=BIWEEKLY;BYDAY=MO",
+      "proposedRrule": "FREQ=WEEKLY;BYDAY=MO",
+      "proposedKind": "flat-weekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 4,
+        "hits": 4
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmmqb4dbn000euom9eg1lsdmd",
+        "shortName": "C2H3",
+        "region": "Corpus Christi, TX",
+        "scheduleNotes": "Bi-weekly Thursday evenings, plus occasional second-Saturday-of-the-month runs."
+      },
+      "derivEvents": 13,
+      "domDay": 6,
+      "domShare": 0.6153846153846154,
+      "medianGap": 11,
+      "cadence": "biweekly",
+      "seasonal": false,
+      "recentEvents": 0,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-05-09",
+      "currentRules": "CADENCE=BIWEEKLY;BYDAY=TH",
+      "proposedRrule": "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA",
+      "proposedKind": "anchored-biweekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 2,
+        "hits": 0
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmmqb4d4h000buom9mjrvjfo6",
+        "shortName": "NODUHHH",
+        "region": "Dallas-Fort Worth, TX",
+        "scheduleNotes": null
+      },
+      "derivEvents": 13,
+      "domDay": 1,
+      "domShare": 1,
+      "medianGap": 14,
+      "cadence": "biweekly",
+      "seasonal": false,
+      "recentEvents": 2,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-05-04",
+      "currentRules": "CADENCE=BIWEEKLY;BYDAY=MO",
+      "proposedRrule": "FREQ=WEEKLY;INTERVAL=2;BYDAY=MO",
+      "proposedKind": "anchored-biweekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 2,
+        "hits": 2
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmmrt4fcz000d4um90cpzb5y3",
+        "shortName": "H5",
+        "region": "Harrisburg, PA",
+        "scheduleNotes": "Biweekly Saturdays. Also runs TMI full moon hashes."
+      },
+      "derivEvents": 24,
+      "domDay": 6,
+      "domShare": 0.7083333333333334,
+      "medianGap": 7,
+      "cadence": "weekly",
+      "seasonal": false,
+      "recentEvents": 4,
+      "recentDomDay": 6,
+      "changed": false,
+      "anchorDate": "2026-05-09",
+      "currentRules": "CADENCE=BIWEEKLY;BYDAY=SA",
+      "proposedRrule": "FREQ=WEEKLY;BYDAY=SA",
+      "proposedKind": "flat-weekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 4,
+        "hits": 3
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmn0t3fe90009kym9ymmdicnk",
+        "shortName": "CUNTh",
+        "region": "Seattle, WA",
+        "scheduleNotes": "Twice monthly Thursday. Transit-friendly, light shiggy."
+      },
+      "derivEvents": 12,
+      "domDay": 4,
+      "domShare": 1,
+      "medianGap": 14,
+      "cadence": "biweekly",
+      "seasonal": false,
+      "recentEvents": 2,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-05-07",
+      "currentRules": "CADENCE=BIWEEKLY;BYDAY=TH",
+      "proposedRrule": "FREQ=WEEKLY;INTERVAL=2;BYDAY=TH",
+      "proposedKind": "anchored-biweekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 2,
+        "hits": 2
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmn65cnop0007mfm9iseu3wy0",
+        "shortName": "Stuttgart H3",
+        "region": "Stuttgart",
+        "scheduleNotes": null
+      },
+      "derivEvents": 12,
+      "domDay": 0,
+      "domShare": 0.9166666666666666,
+      "medianGap": 14,
+      "cadence": "biweekly",
+      "seasonal": false,
+      "recentEvents": 2,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-05-03",
+      "currentRules": "CADENCE=BIWEEKLY;BYDAY=SU",
+      "proposedRrule": "FREQ=WEEKLY;INTERVAL=2;BYDAY=SU",
+      "proposedKind": "anchored-biweekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 2,
+        "hits": 2
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmmqb4d6r000cuom9niimekxz",
+        "shortName": "Fort Worth H3",
+        "region": "Dallas-Fort Worth, TX",
+        "scheduleNotes": "Every other Saturday afternoon; 3 PM during DST, 2 PM in winter. A beer stop is provided on trail."
+      },
+      "derivEvents": 8,
+      "domDay": 6,
+      "domShare": 1,
+      "medianGap": 14,
+      "cadence": "biweekly",
+      "seasonal": false,
+      "recentEvents": 2,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-05-09",
+      "currentRules": "CADENCE=BIWEEKLY;BYDAY=SA",
+      "proposedRrule": "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA",
+      "proposedKind": "anchored-biweekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 2,
+        "hits": 2
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmmukj1do00094km9n4uz0jhr",
+        "shortName": "Sin City H4",
+        "region": "Cincinnati, OH",
+        "scheduleNotes": "Every other Saturday 3-4 PM + 3rd Thursday 7 PM."
+      },
+      "derivEvents": 15,
+      "domDay": 6,
+      "domShare": 0.8,
+      "medianGap": 9,
+      "cadence": "weekly",
+      "seasonal": false,
+      "recentEvents": 3,
+      "recentDomDay": 6,
+      "changed": false,
+      "anchorDate": "2026-05-09",
+      "currentRules": "CADENCE=BIWEEKLY;BYDAY=SA",
+      "proposedRrule": "FREQ=WEEKLY;BYDAY=SA",
+      "proposedKind": "flat-weekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 4,
+        "hits": 2
+      }
+    },
+    {
+      "bucket": "C3",
+      "kennel": {
+        "id": "cmneo3zxs0002e0hncr6jxsrm",
+        "shortName": "BMPH3",
+        "region": "Brussels",
+        "scheduleNotes": "14:00 winter / 15:00 summer"
+      },
+      "derivEvents": 35,
+      "domDay": 5,
+      "domShare": 0.7428571428571429,
+      "medianGap": 5,
+      "cadence": "weekly",
+      "seasonal": false,
+      "recentEvents": 9,
+      "recentDomDay": 5,
+      "changed": false,
+      "anchorDate": "2026-05-15",
+      "currentRules": "FREQ=WEEKLY;BYDAY=SU",
+      "proposedRrule": "FREQ=WEEKLY;BYDAY=FR",
+      "proposedKind": "flat-weekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 4,
+        "hits": 4
+      },
+      "holdoutProposed": {
+        "predicted": 5,
+        "hits": 5
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmmqb4cvd0007uom9njbbgtto",
+        "shortName": "BMH3",
+        "region": "Houston, TX",
+        "scheduleNotes": null
+      },
+      "derivEvents": 13,
+      "domDay": 6,
+      "domShare": 0.9230769230769231,
+      "medianGap": 14,
+      "cadence": "biweekly",
+      "seasonal": false,
+      "recentEvents": 2,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-05-09",
+      "currentRules": "CADENCE=BIWEEKLY;BYDAY=SA",
+      "proposedRrule": "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA",
+      "proposedKind": "anchored-biweekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 2,
+        "hits": 2
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmn65csrf000emfm96uzjp6dj",
+        "shortName": "FH3",
+        "region": "Frankfurt",
+        "scheduleNotes": null
+      },
+      "derivEvents": 27,
+      "domDay": 0,
+      "domShare": 0.8518518518518519,
+      "medianGap": 7,
+      "cadence": "weekly",
+      "seasonal": false,
+      "recentEvents": 4,
+      "recentDomDay": 4,
+      "changed": true,
+      "anchorDate": "2026-05-14",
+      "currentRules": "CADENCE=BIWEEKLY;BYDAY=SU",
+      "proposedRrule": "FREQ=WEEKLY;BYDAY=SU",
+      "proposedKind": "flat-weekly",
+      "manualReviewNote": "⚠ recent 4w runs are Thu (4 ev), not Sun — schedule likely changed; trust recent.",
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 4,
+        "hits": 0
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmmukj1g9000a4km9nvtt0pq0",
+        "shortName": "Queen City H4",
+        "region": "Cincinnati, OH",
+        "scheduleNotes": null
+      },
+      "derivEvents": 12,
+      "domDay": 2,
+      "domShare": 1,
+      "medianGap": 14,
+      "cadence": "biweekly",
+      "seasonal": false,
+      "recentEvents": 2,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-05-05",
+      "currentRules": "CADENCE=BIWEEKLY;BYDAY=TU",
+      "proposedRrule": "FREQ=WEEKLY;INTERVAL=2;BYDAY=TU",
+      "proposedKind": "anchored-biweekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 2,
+        "hits": 2
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmmse2yzr000fvkm9ofgt02y3",
+        "shortName": "Charlotte H3",
+        "region": "Charlotte, NC",
+        "scheduleNotes": null
+      },
+      "derivEvents": 13,
+      "domDay": 6,
+      "domShare": 0.6923076923076923,
+      "medianGap": 14,
+      "cadence": "biweekly",
+      "seasonal": false,
+      "recentEvents": 2,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-05-03",
+      "currentRules": "CADENCE=BIWEEKLY;BYDAY=SA",
+      "proposedRrule": "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA",
+      "proposedKind": "anchored-biweekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 2,
+        "hits": 2
+      }
+    },
+    {
+      "bucket": "C1",
+      "kennel": {
+        "id": "cmmt69rzg000104jxgqewxdpr",
+        "shortName": "Space City H3",
+        "region": "Houston, TX",
+        "scheduleNotes": null
+      },
+      "derivEvents": 16,
+      "domDay": 2,
+      "domShare": 1,
+      "medianGap": 14,
+      "cadence": "biweekly",
+      "seasonal": false,
+      "recentEvents": 3,
+      "recentDomDay": 2,
+      "changed": false,
+      "anchorDate": "2026-05-12",
+      "currentRules": "(none)",
+      "proposedRrule": "FREQ=WEEKLY;INTERVAL=2;BYDAY=TU",
+      "proposedKind": "anchored-biweekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 2,
+        "hits": 2
+      }
+    },
+    {
+      "bucket": "C1",
+      "kennel": {
+        "id": "cmmgffbzj000runm9xocl96xs",
+        "shortName": "SoCo",
+        "region": "Atlanta, GA",
+        "scheduleNotes": "3rd Friday."
+      },
+      "derivEvents": 6,
+      "domDay": 5,
+      "domShare": 1,
+      "medianGap": 28,
+      "cadence": "monthly",
+      "seasonal": false,
+      "recentEvents": 1,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-05-15",
+      "currentRules": "(none)",
+      "proposedRrule": "(monthly, Fri) — gap≈28d",
+      "proposedKind": "manual-review",
+      "manualReviewNote": "Monthly cadence — needs an ordinal (nth weekday) or BYMONTHDAY; author by hand.",
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 0,
+        "hits": 0
+      }
+    },
+    {
+      "bucket": "C1",
+      "kennel": {
+        "id": "cmmgffbtk000punm9w1jjzdj1",
+        "shortName": "SLUT H3",
+        "region": "Atlanta, GA",
+        "scheduleNotes": "1st Thursday, 7:00 PM."
+      },
+      "derivEvents": 6,
+      "domDay": 4,
+      "domShare": 1,
+      "medianGap": 28,
+      "cadence": "monthly",
+      "seasonal": false,
+      "recentEvents": 1,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-05-07",
+      "currentRules": "(none)",
+      "proposedRrule": "(monthly, Thu) — gap≈28d",
+      "proposedKind": "manual-review",
+      "manualReviewNote": "Monthly cadence — needs an ordinal (nth weekday) or BYMONTHDAY; author by hand.",
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 0,
+        "hits": 0
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmmqb4czu0009uom9bi8d3lwh",
+        "shortName": "Dallas H3",
+        "region": "Dallas-Fort Worth, TX",
+        "scheduleNotes": null
+      },
+      "derivEvents": 11,
+      "domDay": 6,
+      "domShare": 0.9090909090909091,
+      "medianGap": 14,
+      "cadence": "biweekly",
+      "seasonal": false,
+      "recentEvents": 0,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-05-02",
+      "currentRules": "CADENCE=BIWEEKLY;BYDAY=SA",
+      "proposedRrule": "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA",
+      "proposedKind": "anchored-biweekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 2,
+        "hits": 0
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmn0t3f280004kym9za13uneh",
+        "shortName": "Seattle H3",
+        "region": "Seattle, WA",
+        "scheduleNotes": "2nd and 4th Saturday"
+      },
+      "derivEvents": 38,
+      "domDay": 5,
+      "domShare": 0.6578947368421053,
+      "medianGap": 6,
+      "cadence": "weekly",
+      "seasonal": false,
+      "recentEvents": 6,
+      "recentDomDay": 5,
+      "changed": false,
+      "anchorDate": "2026-05-15",
+      "currentRules": "CADENCE=BIWEEKLY;BYDAY=SA",
+      "proposedRrule": "FREQ=WEEKLY;BYDAY=FR",
+      "proposedKind": "flat-weekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 5,
+        "hits": 5
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmmzbikhd000gs9m9k5bqd3t8",
+        "shortName": "IRH3",
+        "region": "San Diego, CA",
+        "scheduleNotes": null
+      },
+      "derivEvents": 8,
+      "domDay": 5,
+      "domShare": 0.875,
+      "medianGap": 14,
+      "cadence": "biweekly",
+      "seasonal": false,
+      "recentEvents": 1,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-04-17",
+      "currentRules": "CADENCE=BIWEEKLY;BYDAY=FR",
+      "proposedRrule": "FREQ=WEEKLY;INTERVAL=2;BYDAY=FR",
+      "proposedKind": "anchored-biweekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 3,
+        "hits": 1
+      }
+    },
+    {
+      "bucket": "C3",
+      "kennel": {
+        "id": "cmmr1w4850009fcm9htd00cbz",
+        "shortName": "Flour City H3",
+        "region": "Rochester, NY",
+        "scheduleNotes": "Thursdays 6:09 PM (Apr-Sep); Sundays 1:09 PM (Oct-Mar)."
+      },
+      "derivEvents": 25,
+      "domDay": 0,
+      "domShare": 0.64,
+      "medianGap": 7,
+      "cadence": "weekly",
+      "seasonal": true,
+      "recentEvents": 4,
+      "recentDomDay": 4,
+      "changed": true,
+      "anchorDate": "2026-05-14",
+      "currentRules": "FREQ=WEEKLY;BYDAY=SU",
+      "proposedRrule": "Apr–Sep FREQ=WEEKLY;BYDAY=TH | Oct–Mar FREQ=WEEKLY;BYDAY=SU",
+      "proposedKind": "seasonal",
+      "manualReviewNote": "Seasonal split — author as scheduleRules[] with validFrom/validUntil; verify boundaries. ⚠ recent 4w runs are Thu (4 ev), not Sun — schedule likely changed; trust recent.",
+      "holdoutCurrent": {
+        "predicted": 4,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 0,
+        "hits": 0
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmno3u2fn0005dshn9k9d3y1u",
+        "shortName": "Gulf Coast H3",
+        "region": "Mobile, AL",
+        "scheduleNotes": "Approximately monthly, typically the 3rd Saturday"
+      },
+      "derivEvents": 15,
+      "domDay": 6,
+      "domShare": 0.6,
+      "medianGap": 9,
+      "cadence": "weekly",
+      "seasonal": false,
+      "recentEvents": 1,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-05-02",
+      "currentRules": "CADENCE=MONTHLY;BYDAY=SA",
+      "proposedRrule": "FREQ=WEEKLY;BYDAY=SA",
+      "proposedKind": "flat-weekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 4,
+        "hits": 1
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmmgffbi8000lunm9yjesfoth",
+        "shortName": "Black Sheep",
+        "region": "Atlanta, GA",
+        "scheduleNotes": null
+      },
+      "derivEvents": 8,
+      "domDay": 0,
+      "domShare": 0.875,
+      "medianGap": 14,
+      "cadence": "biweekly",
+      "seasonal": false,
+      "recentEvents": 2,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-05-03",
+      "currentRules": "CADENCE=BIWEEKLY;BYDAY=SU",
+      "proposedRrule": "FREQ=WEEKLY;INTERVAL=2;BYDAY=SU",
+      "proposedKind": "anchored-biweekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 2,
+        "hits": 2
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmlehnx6h00099cm9fylabnjy",
+        "shortName": "GGFM",
+        "region": "New York City, NY",
+        "scheduleNotes": "Friday night closest to the full moon"
+      },
+      "derivEvents": 6,
+      "domDay": 5,
+      "domShare": 1,
+      "medianGap": 28,
+      "cadence": "monthly",
+      "seasonal": false,
+      "recentEvents": 1,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-05-01",
+      "currentRules": "FREQ=LUNAR",
+      "proposedRrule": "(monthly, Fri) — gap≈28d",
+      "proposedKind": "manual-review",
+      "manualReviewNote": "Monthly cadence — needs an ordinal (nth weekday) or BYMONTHDAY; author by hand.",
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 0,
+        "hits": 0
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmnvy68rr00079ohndyuk7mok",
+        "shortName": "BSSH3",
+        "region": "Bangkok",
+        "scheduleNotes": "Monthly Saturday runs. Trail details posted on Meetup (Bangkok Weekend Walk Run Adventure Group)."
+      },
+      "derivEvents": 6,
+      "domDay": 6,
+      "domShare": 1,
+      "medianGap": 28,
+      "cadence": "monthly",
+      "seasonal": false,
+      "recentEvents": 1,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-04-25",
+      "currentRules": "CADENCE=MONTHLY;BYDAY=SA",
+      "proposedRrule": "(monthly, Sat) — gap≈28d",
+      "proposedKind": "manual-review",
+      "manualReviewNote": "Monthly cadence — needs an ordinal (nth weekday) or BYMONTHDAY; author by hand.",
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 0,
+        "hits": 0
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmmukj11g00064km9iagpb836",
+        "shortName": "Dayton H4",
+        "region": "Dayton, OH",
+        "scheduleNotes": "Every other Saturday afternoon plus full moon evenings at 7 PM."
+      },
+      "derivEvents": 19,
+      "domDay": 6,
+      "domShare": 0.631578947368421,
+      "medianGap": 10,
+      "cadence": "weekly",
+      "seasonal": false,
+      "recentEvents": 3,
+      "recentDomDay": 6,
+      "changed": false,
+      "anchorDate": "2026-05-09",
+      "currentRules": "CADENCE=BIWEEKLY;BYDAY=SA",
+      "proposedRrule": "FREQ=WEEKLY;BYDAY=SA",
+      "proposedKind": "flat-weekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 4,
+        "hits": 3
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmljzsdkv0001vam9j5ewrllf",
+        "shortName": "Brooklyn H3",
+        "region": "New York City, NY",
+        "scheduleNotes": "Every other Monday; exceptions for Memorial Day Weekend, Polar Bear Hash, and AGM"
+      },
+      "derivEvents": 13,
+      "domDay": 1,
+      "domShare": 0.7692307692307693,
+      "medianGap": 14,
+      "cadence": "biweekly",
+      "seasonal": false,
+      "recentEvents": 3,
+      "recentDomDay": 1,
+      "changed": false,
+      "anchorDate": "2026-05-11",
+      "currentRules": "CADENCE=BIWEEKLY;BYDAY=MO",
+      "proposedRrule": "FREQ=WEEKLY;INTERVAL=2;BYDAY=MO",
+      "proposedKind": "anchored-biweekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 2,
+        "hits": 2
+      }
+    },
+    {
+      "bucket": "C1",
+      "kennel": {
+        "id": "cmlrfesn8000rucm9xepsz00r",
+        "shortName": "Big Dogs H3",
+        "region": "Chicago, IL",
+        "scheduleNotes": "2nd Saturday afternoon"
+      },
+      "derivEvents": 6,
+      "domDay": 6,
+      "domShare": 1,
+      "medianGap": 35,
+      "cadence": "monthly",
+      "seasonal": false,
+      "recentEvents": 0,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-05-09",
+      "currentRules": "(none)",
+      "proposedRrule": "(monthly, Sat) — gap≈35d",
+      "proposedKind": "manual-review",
+      "manualReviewNote": "Monthly cadence — needs an ordinal (nth weekday) or BYMONTHDAY; author by hand.",
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 0,
+        "hits": 0
+      }
+    },
+    {
+      "bucket": "C1",
+      "kennel": {
+        "id": "cmmr1w42m0007fcm9uoxuit7y",
+        "shortName": "Halve Mein",
+        "region": "Capital District, NY",
+        "scheduleNotes": "Every other Wednesday 6 PM (summer), 1 PM (winter), with special events on weekends."
+      },
+      "derivEvents": 11,
+      "domDay": 5,
+      "domShare": 0.6363636363636364,
+      "medianGap": 14,
+      "cadence": "biweekly",
+      "seasonal": true,
+      "recentEvents": 2,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-05-13",
+      "currentRules": "(none)",
+      "proposedRrule": "Apr–Sep FREQ=WEEKLY;BYDAY=WE | Oct–Mar FREQ=WEEKLY;BYDAY=FR",
+      "proposedKind": "seasonal",
+      "manualReviewNote": "Seasonal split — author as scheduleRules[] with validFrom/validUntil; verify boundaries.",
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 0,
+        "hits": 0
+      }
+    },
+    {
+      "bucket": "C3",
+      "kennel": {
+        "id": "cmmzbijpf0005s9m9husm3t2x",
+        "shortName": "Long Beach H3",
+        "region": "Long Beach, CA",
+        "scheduleNotes": "Thursday evening during Spring/Summer & Sunday morning in the Fall/Winter."
+      },
+      "derivEvents": 25,
+      "domDay": 0,
+      "domShare": 0.8,
+      "medianGap": 7,
+      "cadence": "weekly",
+      "seasonal": true,
+      "recentEvents": 4,
+      "recentDomDay": 4,
+      "changed": true,
+      "anchorDate": "2026-05-14",
+      "currentRules": "FREQ=WEEKLY;BYDAY=SU | FREQ=WEEKLY;BYDAY=TH",
+      "proposedRrule": "Apr–Sep FREQ=WEEKLY;BYDAY=TH | Oct–Mar FREQ=WEEKLY;BYDAY=SU",
+      "proposedKind": "seasonal",
+      "manualReviewNote": "Seasonal split — author as scheduleRules[] with validFrom/validUntil; verify boundaries. ⚠ recent 4w runs are Thu (4 ev), not Sun — schedule likely changed; trust recent.",
+      "holdoutCurrent": {
+        "predicted": 4,
+        "hits": 4
+      },
+      "holdoutProposed": {
+        "predicted": 0,
+        "hits": 0
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmn0t3fr2000fkym9fnokfu1w",
+        "shortName": "Giggity",
+        "region": "Bremerton, WA",
+        "scheduleNotes": "1st Wednesday. Gig Harbor area."
+      },
+      "derivEvents": 6,
+      "domDay": 3,
+      "domShare": 1,
+      "medianGap": 28,
+      "cadence": "monthly",
+      "seasonal": false,
+      "recentEvents": 1,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-05-06",
+      "currentRules": "CADENCE=MONTHLY;BYDAY=WE",
+      "proposedRrule": "(monthly, Wed) — gap≈28d",
+      "proposedKind": "manual-review",
+      "manualReviewNote": "Monthly cadence — needs an ordinal (nth weekday) or BYMONTHDAY; author by hand.",
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 0,
+        "hits": 0
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmnwa0r8x0008tphnj3iz2sh1",
+        "shortName": "Wasatch H3",
+        "region": "Salt Lake City, UT",
+        "scheduleNotes": "Every other Saturday at 10:45 AM. Part of the Whoreman H3 umbrella in SLC."
+      },
+      "derivEvents": 10,
+      "domDay": 6,
+      "domShare": 0.9,
+      "medianGap": 14,
+      "cadence": "biweekly",
+      "seasonal": false,
+      "recentEvents": 2,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-05-02",
+      "currentRules": "CADENCE=BIWEEKLY;BYDAY=SA",
+      "proposedRrule": "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA",
+      "proposedKind": "anchored-biweekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 2,
+        "hits": 2
+      }
+    },
+    {
+      "bucket": "C1",
+      "kennel": {
+        "id": "cmmz095wc000fzzm9vksjvfuz",
+        "shortName": "COH3",
+        "region": "Bend, OR",
+        "scheduleNotes": "Monthly, usually Saturdays. Annual themes: Sn(h)ash (Jan/Feb), Easter Beer Hunt (Mar), Red Dress (Jun), Spl(h)ash (Jul), September campout, World Peace through Beer + Halloween (Oct), costume pubcrawl (Dec)."
+      },
+      "derivEvents": 6,
+      "domDay": 6,
+      "domShare": 1,
+      "medianGap": 28,
+      "cadence": "monthly",
+      "seasonal": false,
+      "recentEvents": 0,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-05-09",
+      "currentRules": "(none)",
+      "proposedRrule": "(monthly, Sat) — gap≈28d",
+      "proposedKind": "manual-review",
+      "manualReviewNote": "Monthly cadence — needs an ordinal (nth weekday) or BYMONTHDAY; author by hand.",
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 0,
+        "hits": 0
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmnpk401s00015ehn0qogxwnv",
+        "shortName": "Hash House Horrors",
+        "region": "Singapore",
+        "scheduleNotes": "Alternate Sundays at 4:30 PM. The kids' hash — families run together with the children leading the pack. Schedule maintained on the hareline page at hashhousehorrors.com/hareline."
+      },
+      "derivEvents": 11,
+      "domDay": 0,
+      "domShare": 1,
+      "medianGap": 14,
+      "cadence": "biweekly",
+      "seasonal": false,
+      "recentEvents": 2,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-05-03",
+      "currentRules": "CADENCE=BIWEEKLY;BYDAY=SU",
+      "proposedRrule": "FREQ=WEEKLY;INTERVAL=2;BYDAY=SU",
+      "proposedKind": "anchored-biweekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 2,
+        "hits": 2
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmmzbikno000js9m9xt2wxf9l",
+        "shortName": "HAH3",
+        "region": "San Diego, CA",
+        "scheduleNotes": "Saturdays when no other San Diego hash event is happening — irregular cadence, not a fixed week-of-month."
+      },
+      "derivEvents": 7,
+      "domDay": 6,
+      "domShare": 0.7142857142857143,
+      "medianGap": 28,
+      "cadence": "monthly",
+      "seasonal": false,
+      "recentEvents": 0,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-05-09",
+      "currentRules": "CADENCE=MONTHLY;BYDAY=SA",
+      "proposedRrule": "(monthly, Sat) — gap≈28d",
+      "proposedKind": "manual-review",
+      "manualReviewNote": "Monthly cadence — needs an ordinal (nth weekday) or BYMONTHDAY; author by hand.",
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 0,
+        "hits": 0
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmmzbikzi000os9m9o60bd0ev",
+        "shortName": "SLOH3",
+        "region": "San Luis Obispo, CA",
+        "scheduleNotes": null
+      },
+      "derivEvents": 9,
+      "domDay": 6,
+      "domShare": 1,
+      "medianGap": 14,
+      "cadence": "biweekly",
+      "seasonal": false,
+      "recentEvents": 2,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-05-02",
+      "currentRules": "CADENCE=BIWEEKLY;BYDAY=SA",
+      "proposedRrule": "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA",
+      "proposedKind": "anchored-biweekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 2,
+        "hits": 2
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmnqgsula0008xshnbp22g0q1",
+        "shortName": "KLJ H3",
+        "region": "Kuala Lumpur, MY",
+        "scheduleNotes": "First Sunday of every month. Family-oriented hash — kids lead the pack."
+      },
+      "derivEvents": 6,
+      "domDay": 0,
+      "domShare": 1,
+      "medianGap": 28,
+      "cadence": "monthly",
+      "seasonal": false,
+      "recentEvents": 1,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-05-03",
+      "currentRules": "CADENCE=MONTHLY;BYDAY=SU",
+      "proposedRrule": "(monthly, Sun) — gap≈28d",
+      "proposedKind": "manual-review",
+      "manualReviewNote": "Monthly cadence — needs an ordinal (nth weekday) or BYMONTHDAY; author by hand.",
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 0,
+        "hits": 0
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmmgjdccv0006i5m9gedqosqz",
+        "shortName": "CHH3",
+        "region": "Charleston, SC",
+        "scheduleNotes": "2nd & 4th Saturdays, 2:00 PM winter / 4:00 PM summer."
+      },
+      "derivEvents": 7,
+      "domDay": 6,
+      "domShare": 1,
+      "medianGap": 18,
+      "cadence": "biweekly",
+      "seasonal": false,
+      "recentEvents": 0,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-05-09",
+      "currentRules": "CADENCE=BIWEEKLY;BYDAY=SA",
+      "proposedRrule": "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA",
+      "proposedKind": "anchored-biweekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 2,
+        "hits": 0
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmnx9b97q0000adhnmp8efm1x",
+        "shortName": "Princeton H3",
+        "region": "New Jersey",
+        "scheduleNotes": null
+      },
+      "derivEvents": 8,
+      "domDay": 0,
+      "domShare": 1,
+      "medianGap": 14,
+      "cadence": "biweekly",
+      "seasonal": false,
+      "recentEvents": 1,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-05-10",
+      "currentRules": "CADENCE=BIWEEKLY;BYDAY=SU",
+      "proposedRrule": "FREQ=WEEKLY;INTERVAL=2;BYDAY=SU",
+      "proposedKind": "anchored-biweekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 2,
+        "hits": 1
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmnqgsuid0007xshn2eoot3jn",
+        "shortName": "KL Full Moon",
+        "region": "Kuala Lumpur, MY",
+        "scheduleNotes": "Runs once per lunar month on the Sunday closest to the full moon. Hareline at klfullmoonhash.com/index.php?r=site/hareline."
+      },
+      "derivEvents": 6,
+      "domDay": 0,
+      "domShare": 1,
+      "medianGap": 35,
+      "cadence": "monthly",
+      "seasonal": false,
+      "recentEvents": 1,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-05-10",
+      "currentRules": "CADENCE=MONTHLY;BYDAY=SU",
+      "proposedRrule": "(monthly, Sun) — gap≈35d",
+      "proposedKind": "manual-review",
+      "manualReviewNote": "Monthly cadence — needs an ordinal (nth weekday) or BYMONTHDAY; author by hand.",
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 0,
+        "hits": 0
+      }
+    },
+    {
+      "bucket": "C1",
+      "kennel": {
+        "id": "cmlehnxax000e9cm9f36nkw2o",
+        "shortName": "Beantown",
+        "region": "Boston, MA",
+        "scheduleNotes": "Wednesdays in fall/winter, Sundays in spring/summer"
+      },
+      "derivEvents": 24,
+      "domDay": 3,
+      "domShare": 0.8333333333333334,
+      "medianGap": 7,
+      "cadence": "weekly",
+      "seasonal": false,
+      "recentEvents": 4,
+      "recentDomDay": 0,
+      "changed": true,
+      "anchorDate": "2026-05-10",
+      "currentRules": "(none)",
+      "proposedRrule": "FREQ=WEEKLY;BYDAY=WE",
+      "proposedKind": "flat-weekly",
+      "manualReviewNote": "⚠ recent 4w runs are Sun (4 ev), not Wed — schedule likely changed; trust recent.",
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 4,
+        "hits": 0
+      }
+    },
+    {
+      "bucket": "C1",
+      "kennel": {
+        "id": "cmndkckuy000bt6hnxted4sqy",
+        "shortName": "KFMH3",
+        "region": "Kansai",
+        "scheduleNotes": "Sunday nearest full moon"
+      },
+      "derivEvents": 7,
+      "domDay": 0,
+      "domShare": 0.8571428571428571,
+      "medianGap": 28,
+      "cadence": "monthly",
+      "seasonal": false,
+      "recentEvents": 1,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-05-03",
+      "currentRules": "(none)",
+      "proposedRrule": "(monthly, Sun) — gap≈28d",
+      "proposedKind": "manual-review",
+      "manualReviewNote": "Monthly cadence — needs an ordinal (nth weekday) or BYMONTHDAY; author by hand.",
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 0,
+        "hits": 0
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmmukj1qx000d4km9sq0d6q1y",
+        "shortName": "Rubber City H3",
+        "region": "Akron, OH",
+        "scheduleNotes": "2nd & 4th Saturday 3 PM + 1st & 3rd Thursday 6:30 PM (summer)."
+      },
+      "derivEvents": 16,
+      "domDay": 6,
+      "domShare": 0.875,
+      "medianGap": 10,
+      "cadence": "weekly",
+      "seasonal": false,
+      "recentEvents": 3,
+      "recentDomDay": 6,
+      "changed": false,
+      "anchorDate": "2026-05-09",
+      "currentRules": "CADENCE=BIWEEKLY;BYDAY=SA",
+      "proposedRrule": "FREQ=WEEKLY;BYDAY=SA",
+      "proposedKind": "flat-weekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 4,
+        "hits": 2
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmncmu7e2000322m9j59ekyfa",
+        "shortName": "Bull Moon",
+        "region": "Birmingham",
+        "scheduleNotes": "Two event series: (1) Bull Moon — monthly Saturday near full moon at 12pm; (2) T3 (Thirsty This Thursday) — weekly Thursday at 6:45pm. Run fee £2.50, first-timers free."
+      },
+      "derivEvents": 28,
+      "domDay": 4,
+      "domShare": 0.7142857142857143,
+      "medianGap": 7,
+      "cadence": "weekly",
+      "seasonal": false,
+      "recentEvents": 5,
+      "recentDomDay": 4,
+      "changed": false,
+      "anchorDate": "2026-05-14",
+      "currentRules": "CADENCE=MONTHLY;BYDAY=SA",
+      "proposedRrule": "FREQ=WEEKLY;BYDAY=TH",
+      "proposedKind": "flat-weekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 4,
+        "hits": 4
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmncmu7bf000222m9od1h8c7c",
+        "shortName": "MTH3",
+        "region": "Liverpool",
+        "scheduleNotes": "Every other Thursday at 7pm. Occasional deviations around holidays."
+      },
+      "derivEvents": 11,
+      "domDay": 4,
+      "domShare": 1,
+      "medianGap": 14,
+      "cadence": "biweekly",
+      "seasonal": false,
+      "recentEvents": 1,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-05-14",
+      "currentRules": "CADENCE=BIWEEKLY;BYDAY=TH",
+      "proposedRrule": "FREQ=WEEKLY;INTERVAL=2;BYDAY=TH",
+      "proposedKind": "anchored-biweekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 2,
+        "hits": 1
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmo38a1zm0000twhnzdjk9lo4",
+        "shortName": "PHH",
+        "region": "Honolulu, HI",
+        "scheduleNotes": null
+      },
+      "derivEvents": 9,
+      "domDay": 5,
+      "domShare": 0.6666666666666666,
+      "medianGap": 11,
+      "cadence": "biweekly",
+      "seasonal": false,
+      "recentEvents": 1,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-04-24",
+      "currentRules": "CADENCE=MONTHLY;BYDAY=SA",
+      "proposedRrule": "FREQ=WEEKLY;INTERVAL=2;BYDAY=FR",
+      "proposedKind": "anchored-biweekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 2,
+        "hits": 1
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmmzbikxb000ns9m96r6u3eik",
+        "shortName": "OC Hump",
+        "region": "Orange County, CA",
+        "scheduleNotes": "Every other Wednesday at 6:30 PM in Orange County, with occasional Friday 6:30 PM trails and special runs."
+      },
+      "derivEvents": 8,
+      "domDay": 5,
+      "domShare": 0.625,
+      "medianGap": 20,
+      "cadence": "biweekly",
+      "seasonal": false,
+      "recentEvents": 1,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-04-17",
+      "currentRules": "CADENCE=BIWEEKLY;BYDAY=WE",
+      "proposedRrule": "FREQ=WEEKLY;INTERVAL=2;BYDAY=FR",
+      "proposedKind": "anchored-biweekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 3,
+        "hits": 1
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmn0t3fa20007kym9mdl0zx62",
+        "shortName": "Rain City H3",
+        "region": "Seattle, WA",
+        "scheduleNotes": "Last Sunday. Shiggy hash."
+      },
+      "derivEvents": 7,
+      "domDay": 0,
+      "domShare": 0.8571428571428571,
+      "medianGap": 20,
+      "cadence": "biweekly",
+      "seasonal": false,
+      "recentEvents": 1,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-04-26",
+      "currentRules": "CADENCE=MONTHLY;BYDAY=SU",
+      "proposedRrule": "FREQ=WEEKLY;INTERVAL=2;BYDAY=SU",
+      "proposedKind": "anchored-biweekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 2,
+        "hits": 0
+      }
+    },
+    {
+      "bucket": "C1",
+      "kennel": {
+        "id": "cmn0t3fiq000bkym9kvgkm185",
+        "shortName": "SEH3",
+        "region": "Seattle, WA",
+        "scheduleNotes": null
+      },
+      "derivEvents": 19,
+      "domDay": 4,
+      "domShare": 1,
+      "medianGap": 7,
+      "cadence": "weekly",
+      "seasonal": false,
+      "recentEvents": 2,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-05-14",
+      "currentRules": "(none)",
+      "proposedRrule": "FREQ=WEEKLY;BYDAY=TH",
+      "proposedKind": "flat-weekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 4,
+        "hits": 2
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmn0t3fms000dkym9se32ivdg",
+        "shortName": "Tacoma H3",
+        "region": "Tacoma, WA",
+        "scheduleNotes": "1st Saturday"
+      },
+      "derivEvents": 7,
+      "domDay": 6,
+      "domShare": 1,
+      "medianGap": 28,
+      "cadence": "monthly",
+      "seasonal": false,
+      "recentEvents": 1,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-05-02",
+      "currentRules": "CADENCE=MONTHLY;BYDAY=SA",
+      "proposedRrule": "(monthly, Sat) — gap≈28d",
+      "proposedKind": "manual-review",
+      "manualReviewNote": "Monthly cadence — needs an ordinal (nth weekday) or BYMONTHDAY; author by hand.",
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 0,
+        "hits": 0
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmn0t3f7d0006kym9vapxfkaq",
+        "shortName": "NBH3",
+        "region": "Seattle, WA",
+        "scheduleNotes": "Last Wednesday of the month. Women only."
+      },
+      "derivEvents": 8,
+      "domDay": 3,
+      "domShare": 1,
+      "medianGap": 28,
+      "cadence": "monthly",
+      "seasonal": false,
+      "recentEvents": 1,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-04-29",
+      "currentRules": "CADENCE=MONTHLY;BYDAY=WE",
+      "proposedRrule": "(monthly, Wed) — gap≈28d",
+      "proposedKind": "manual-review",
+      "manualReviewNote": "Monthly cadence — needs an ordinal (nth weekday) or BYMONTHDAY; author by hand.",
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 0,
+        "hits": 0
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmn2cr0w30009ldm9vrs2yhu5",
+        "shortName": "Pedal Files",
+        "region": "Tucson, AZ",
+        "scheduleNotes": "3rd Sunday"
+      },
+      "derivEvents": 7,
+      "domDay": 0,
+      "domShare": 0.8571428571428571,
+      "medianGap": 21,
+      "cadence": "biweekly",
+      "seasonal": false,
+      "recentEvents": 1,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-04-19",
+      "currentRules": "CADENCE=MONTHLY;BYDAY=SU",
+      "proposedRrule": "FREQ=WEEKLY;INTERVAL=2;BYDAY=SU",
+      "proposedKind": "anchored-biweekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 2,
+        "hits": 1
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmn2cr0ib0004ldm9gzj5yhs3",
+        "shortName": "Hump D",
+        "region": "Phoenix, AZ",
+        "scheduleNotes": "1st & 3rd Wednesdays. Start time varies seasonally (6:36 PM fall/winter, 6:54 PM spring/summer). 21+ only."
+      },
+      "derivEvents": 11,
+      "domDay": 3,
+      "domShare": 1,
+      "medianGap": 14,
+      "cadence": "biweekly",
+      "seasonal": false,
+      "recentEvents": 2,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-05-06",
+      "currentRules": "CADENCE=BIWEEKLY;BYDAY=WE",
+      "proposedRrule": "FREQ=WEEKLY;INTERVAL=2;BYDAY=WE",
+      "proposedKind": "anchored-biweekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 2,
+        "hits": 2
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmn0vy0vd0009k0m9nixc4pi7",
+        "shortName": "Kimchi",
+        "region": "Colorado Springs, CO",
+        "scheduleNotes": "Alternating Saturdays with PPH4"
+      },
+      "derivEvents": 9,
+      "domDay": 6,
+      "domShare": 1,
+      "medianGap": 14,
+      "cadence": "biweekly",
+      "seasonal": false,
+      "recentEvents": 2,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-05-02",
+      "currentRules": "CADENCE=BIWEEKLY;BYDAY=SA",
+      "proposedRrule": "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA",
+      "proposedKind": "anchored-biweekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 2,
+        "hits": 2
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmmgffbfb000kunm9v4p5fdpp",
+        "shortName": "Pinelake H3",
+        "region": "Atlanta, GA",
+        "scheduleNotes": null
+      },
+      "derivEvents": 9,
+      "domDay": 6,
+      "domShare": 0.7777777777777778,
+      "medianGap": 14,
+      "cadence": "biweekly",
+      "seasonal": false,
+      "recentEvents": 2,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-05-09",
+      "currentRules": "CADENCE=BIWEEKLY;BYDAY=SA",
+      "proposedRrule": "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA",
+      "proposedKind": "anchored-biweekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 2,
+        "hits": 2
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmndkckk20008t6hnbxrw81vg",
+        "shortName": "Y2H3",
+        "region": "Tokyo",
+        "scheduleNotes": null
+      },
+      "derivEvents": 6,
+      "domDay": 5,
+      "domShare": 1,
+      "medianGap": 35,
+      "cadence": "monthly",
+      "seasonal": false,
+      "recentEvents": 1,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-05-08",
+      "currentRules": "CADENCE=MONTHLY;BYDAY=FR",
+      "proposedRrule": "(monthly, Fri) — gap≈35d",
+      "proposedKind": "manual-review",
+      "manualReviewNote": "Monthly cadence — needs an ordinal (nth weekday) or BYMONTHDAY; author by hand.",
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 0,
+        "hits": 0
+      }
+    },
+    {
+      "bucket": "C1",
+      "kennel": {
+        "id": "cmq8c01ot0000i8hn6b1xand7",
+        "shortName": "BALH3",
+        "region": "Corpus Christi, TX",
+        "scheduleNotes": null
+      },
+      "derivEvents": 17,
+      "domDay": 4,
+      "domShare": 1,
+      "medianGap": 7,
+      "cadence": "weekly",
+      "seasonal": false,
+      "recentEvents": 2,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-05-07",
+      "currentRules": "(none)",
+      "proposedRrule": "FREQ=WEEKLY;BYDAY=TH",
+      "proposedKind": "flat-weekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 4,
+        "hits": 2
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmpy755kb00029ahncylz4azj",
+        "shortName": "Asunción H3",
+        "region": "Asunción",
+        "scheduleNotes": "Biweekly Saturday run/walk; start time shifts seasonally (~13:30–17:30 meet, southern-hemisphere winter/summer). Each post lists the exact meet and trail-start time."
+      },
+      "derivEvents": 10,
+      "domDay": 6,
+      "domShare": 1,
+      "medianGap": 14,
+      "cadence": "biweekly",
+      "seasonal": false,
+      "recentEvents": 2,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-05-02",
+      "currentRules": "CADENCE=BIWEEKLY;BYDAY=SA",
+      "proposedRrule": "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA",
+      "proposedKind": "anchored-biweekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 2,
+        "hits": 1
+      }
+    },
+    {
+      "bucket": "C2",
+      "kennel": {
+        "id": "cmpzqx76p0002rshnt4xvo1q1",
+        "shortName": "Brasilia H3",
+        "region": "Brasília, Brazil",
+        "scheduleNotes": null
+      },
+      "derivEvents": 11,
+      "domDay": 0,
+      "domShare": 1,
+      "medianGap": 14,
+      "cadence": "biweekly",
+      "seasonal": false,
+      "recentEvents": 1,
+      "recentDomDay": null,
+      "changed": false,
+      "anchorDate": "2026-05-10",
+      "currentRules": "CADENCE=BIWEEKLY;BYDAY=SU",
+      "proposedRrule": "FREQ=WEEKLY;INTERVAL=2;BYDAY=SU",
+      "proposedKind": "anchored-biweekly",
+      "manualReviewNote": null,
+      "holdoutCurrent": {
+        "predicted": 0,
+        "hits": 0
+      },
+      "holdoutProposed": {
+        "predicted": 2,
+        "hits": 1
+      }
+    }
+  ]
+}

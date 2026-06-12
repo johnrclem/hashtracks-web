@@ -276,11 +276,14 @@ export function scoreConfidence(
   kennel: KennelContext,
   confirmedEventCount: number,
   lastValidatedAt: Date | null,
+  // Reference "now" in epoch ms. Defaults to the wall clock so production
+  // callers are unaffected; the prediction-evaluation harness injects a past
+  // reference date to backtest the model as-of that point in time.
+  now: number = Date.now(),
 ): "high" | "medium" | "low" {
   // LOW is terminal — never upgrade possible-activity rules
   if (baseConfidence === "low") return "low";
 
-  const now = Date.now();
   const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000;
   const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
   const ONE_EIGHTY_DAYS_MS = 180 * 24 * 60 * 60 * 1000;

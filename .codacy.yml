@@ -10,7 +10,14 @@
 # S7724 "Specify the rules you want to disable" (we can't name an unknown
 # rule without breaking local ESLint). Excluding tests entirely is the
 # cleaner trade-off — production code is still fully covered.
+#
+# scripts/lib/audit-shared.ts is the dated-report writer for the local-only
+# audit scripts. Codacy's security/detect-non-literal-fs-filename flags its
+# fs.writeFileSync/mkdirSync calls, but the path is a fixed repo-relative dir
+# (docs/audits) + a basename built from our own clock — never user input. Same
+# inline-suppression limitation as above, so we exclude the single helper file.
 exclude_paths:
   - "prisma/migrations/**"
   - "**/*.test.ts"
   - "**/*.test.tsx"
+  - "scripts/lib/audit-shared.ts"
