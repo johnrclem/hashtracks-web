@@ -1211,6 +1211,36 @@ describe("parseScheduleTabs (#875)", () => {
     expect(tabs[4].venue).toBeUndefined();
     expect(tabs[4].hares).toBeUndefined();
   });
+
+  it("takes the maps URL from the anchor href, skips a When: line after Where:, and handles hyphenated paren codes", () => {
+    // Edge cases flagged in review: (1) maps link wrapped in <a> (text-stripped
+    // → only the href survives); (2) `When:` follows `Where:` and carries a digit
+    // that must NOT be mistaken for the address; (3) a hyphenated kennel code in
+    // the paren-acronym position.
+    const html = `
+<div class="schedule">
+  <ul class="nav-tabs">
+    <li><a>Saturday</a></li>
+    <li><a>Sunday</a></li>
+  </ul>
+  <div class="tab-content">
+    <div class="tab-pane">
+      <p>The (D-Bag) H3 will host tonight.</p>
+      <p>Where: The Pub<br />When: 6:30 PM<br />100 Main St, Town, PA 19000<br /><a href="https://maps.app.goo.gl/abc123">Get Directions</a></p>
+    </div>
+    <div class="tab-pane">
+      <p>Recovery brunch.</p>
+    </div>
+  </div>
+</div>`;
+    const tabs = parseScheduleTabs(cheerioLoad(html));
+    expect(tabs[0]).toMatchObject({
+      venue: "The Pub",
+      address: "100 Main St, Town, PA 19000", // NOT "When: 6:30 PM"
+      mapsUrl: "https://maps.app.goo.gl/abc123", // from href, not body text
+      hares: "D-Bag H3", // hyphenated paren acronym
+    });
+  });
 });
 
 describe("parseEventDetail + splitToRawEvents — NFL Draft schedule tabs (#875)", () => {

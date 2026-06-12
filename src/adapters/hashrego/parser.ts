@@ -461,10 +461,18 @@ function perDayLocationFields(
   parsed: ParsedEvent,
   i: number,
 ): { location?: string; locationStreet?: string; locationUrl?: string; hares?: string } {
+  const dayVenue = parsed.perDayLocations?.[i];
+  const dayStreet = parsed.perDayAddresses?.[i];
+  const dayMapsUrl = parsed.perDayMapsUrls?.[i];
+  // When the day has its OWN venue/street, do NOT inherit the umbrella's maps URL
+  // — that would pin this day's geocoding to a different venue (Codex P2). Use
+  // the day's own maps URL (or none, letting the street geocode). Only days with
+  // no per-day location at all fall back to the whole-event values.
+  const hasDayLocation = dayVenue !== undefined || dayStreet !== undefined;
   return {
-    location: parsed.perDayLocations?.[i] ?? parsed.location,
-    locationStreet: parsed.perDayAddresses?.[i],
-    locationUrl: parsed.perDayMapsUrls?.[i] ?? (parsed.locationAddress || parsed.locationUrl),
+    location: dayVenue ?? (hasDayLocation ? undefined : parsed.location),
+    locationStreet: dayStreet,
+    locationUrl: dayMapsUrl ?? (hasDayLocation ? undefined : (parsed.locationAddress || parsed.locationUrl)),
     hares: parsed.perDayHares?.[i] ?? parsed.hares,
   };
 }
@@ -567,7 +575,7 @@ export function splitToRawEvents(
       hares,
       location,
       ...(locationStreet ? { locationStreet } : {}),
-      locationUrl,
+      ...(locationUrl ? { locationUrl } : {}),
       startTime: parsed.startTimes[i] || parsed.startTimes[0] || undefined,
       sourceUrl: hashRegoUrl,
       externalLinks,
@@ -612,7 +620,7 @@ export function splitToRawEvents(
         hares,
         location,
         ...(locationStreet ? { locationStreet } : {}),
-        locationUrl,
+        ...(locationUrl ? { locationUrl } : {}),
         startTime: parsed.startTimes[0] || undefined,
         sourceUrl: hashRegoUrl,
         externalLinks,
@@ -1369,6 +1377,23 @@ const HARE_PROSE_STOPWORDS: ReadonlySet<string> = new Set([
   "our", "the", "a", "an", "with", "join", "this", "we", "your", "will", "is", "it",
 ]);
 
+/** Single-char name-token test (no quantifier — not a ReDoS shape). */
+const NAME_CHAR_RE = /[A-Za-z0-9@]/;
+
+/**
+ * Trim leading/trailing punctuation off a prose token ("Darkside," → "Darkside").
+ * Procedural rather than a `/[^…]+$/` regex — that anchored `+$` form trips
+ * Sonar S5852's ReDoS heuristic even though it's linear (cf. memory
+ * `feedback_sonar_s5852_false_positives`).
+ */
+function trimEdgePunctuation(token: string): string {
+  let start = 0;
+  let end = token.length;
+  while (start < end && !NAME_CHAR_RE.test(token[start])) start++;
+  while (end > start && !NAME_CHAR_RE.test(token[end - 1])) end--;
+  return token.slice(start, end);
+}
+
 /**
  * Conservatively extract the host kennel named in a tab's lead prose, to surface
  * as that day's hares ("Our Darkside H3 kennel…" → "Darkside H3"; "…Thursday
@@ -1391,12 +1416,14 @@ function extractScheduleTabHares(prose: string | undefined): string | undefined 
   }
   if (hIdx <= 0) return undefined; // need a preceding name token
   // A parenthesized acronym immediately before the suffix IS the kennel code.
-  const paren = /^\(([A-Za-z0-9@&]{2,})\)$/.exec(tokens[hIdx - 1]);
+  // Hyphen last in the class so it's a literal, not a range (kennel codes like
+  // "PGH-H3", "EW-H3" carry hyphens).
+  const paren = /^\(([A-Za-z0-9@&-]{2,})\)$/.exec(tokens[hIdx - 1]);
   if (paren) return `${paren[1]} ${suffix}`;
   // Otherwise collect up to 2 consecutive name-like tokens, stopping at a stopword.
   const name: string[] = [];
   for (let i = hIdx - 1; i >= 0 && name.length < 2; i--) {
-    const clean = tokens[i].replace(/^[^A-Za-z0-9@]+/, "").replace(/[^A-Za-z0-9@]+$/, "");
+    const clean = trimEdgePunctuation(tokens[i]);
     if (!clean || HARE_PROSE_STOPWORDS.has(clean.toLowerCase())) break;
     const nameLike = /^[A-Z]/.test(clean) || /[@0-9]/.test(clean) || clean === clean.toUpperCase();
     if (!nameLike) break;
@@ -1420,12 +1447,17 @@ function parseScheduleTabFields(lines: string[]): Omit<ScheduleTab, "weekday"> {
     }
     if (mapsUrl === undefined && MAPS_URL_RE.test(line)) mapsUrl = line;
   }
-  // Address = first line after `Where:` that carries a street number and isn't a URL.
+  // Address = first line after `Where:` that carries a street number and isn't a
+  // URL or another labelled field. The label skip guards against a `When:`/`Cost:`
+  // line that happens to follow `Where:` and contains a digit (e.g. "When: 6:30").
   let address: string | undefined;
   if (whereIdx >= 0) {
     for (let i = whereIdx + 1; i < lines.length; i++) {
       const line = lines[i];
-      if (/^https?:\/\//i.test(line) || /^after\s+party/i.test(line)) continue;
+      if (/^https?:\/\//i.test(line)) continue;
+      // Skip other labelled lines (After Party / When / Cost …) — no `\s+` in the
+      // alternation, to stay clear of Sonar S5852's ReDoS heuristic.
+      if (/^(?:after|when|where|cost|hares?|time|start)\b/i.test(line)) continue;
       if (/\d/.test(line)) {
         address = line;
         break;
@@ -1453,8 +1485,18 @@ export function parseScheduleTabs($: cheerio.CheerioAPI): ScheduleTab[] {
   panes.each((i, pane) => {
     const label = labels[i];
     if (!label || weekdayLabelToDow(label) === null) return;
-    const lines = scheduleTabLines($(pane).html() ?? "");
-    tabs.push({ weekday: label, ...parseScheduleTabFields(lines) });
+    const $pane = $(pane);
+    const fields = parseScheduleTabFields(scheduleTabLines($pane.html() ?? ""));
+    // Prefer the maps link straight off the anchor href — survives a future
+    // template change that wraps the URL in `<a>` (text-stripping would lose it)
+    // and avoids capturing trailing prose punctuation. Falls back to the
+    // text-scraped URL for the current bare-text markup.
+    const href = $pane
+      .find("a[href*='maps.app.goo.gl'], a[href*='maps.google'], a[href*='google.com/maps']")
+      .first()
+      .attr("href");
+    if (href) fields.mapsUrl = href;
+    tabs.push({ weekday: label, ...fields });
   });
   // ≥2 weekday-labelled days required — single-day events / non-schedule blocks
   // must not trip the multi-day path (keeps Strategy 3 additive).
