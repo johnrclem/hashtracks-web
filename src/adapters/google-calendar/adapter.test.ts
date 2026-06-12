@@ -196,7 +196,10 @@ describe("Princeton NJ Hash Calendar — title from SUMMARY (#2125, reverses #19
       },
       config,
     );
-    expect(result?.kennelTags[0]).not.toBe("princeton-h3");
+    // Passes through verbatim (not dropped, not rerouted to princeton-h3);
+    // downstream kennel resolution is what drops it.
+    expect(result).not.toBeNull();
+    expect(result!.kennelTags[0]).toBe("Summit H3 placeholder");
   });
 });
 

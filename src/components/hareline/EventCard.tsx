@@ -306,7 +306,12 @@ function buildAriaLabel(event: HarelineEvent, attendance?: AttendanceData | null
   // (per claude[bot] PR #1566 review).
   parts.push(computeChipDate(event));
   if (event.runNumber) parts.push(`Run #${event.runNumber}`);
-  if (event.startTime) parts.push(formatTime(event.startTime));
+  // #2135 — voice the full start–end range so screen readers reach parity with
+  // the visually-rendered "3:00 PM – 7:00 PM".
+  if (event.startTime) {
+    const startStr = formatTime(event.startTime);
+    parts.push(event.endTime ? `${startStr} to ${formatTime(event.endTime)}` : startStr);
+  }
   // #1316 — surface card-visible structured fields to screen readers.
   if (event.trailType) parts.push(`Trail type ${event.trailType}`);
   if (event.dogFriendly === true) parts.push("dog friendly");
