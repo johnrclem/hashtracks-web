@@ -3043,25 +3043,26 @@ export const SOURCES = [
       // scrape route.
       scrapeDays: 800,
       config: {
-        // #1738 — most-specific-first: the MoA2H3 calendar carries a handful of
-        // sister-kennel events (DeMon H3 inaugural trail Nov 2025; GLH3 HashMas
-        // Jan 2025). Route them to the sister codes rather than silent-skipping
-        // (#1739). The sister codes are added to `kennelCodes` below so the merge
-        // source-kennel guard passes (no recurring `SOURCE_KENNEL_MISMATCH` — the
-        // #1739 noise that drove the original silent-skip). DeMon/GLH3 own sources
-        // stay at scrapeDays:90 and can't reach these historical dates, so no
-        // duplicate Events arise (the Codex #1719 dedup concern is moot here).
-        kennelPatterns: [
-          [String.raw`^DeMon\s*H?3?\b`, "demon-h3"],
-          [String.raw`^GLH3\b|^Greater\s+Lansing`, "glh3"],
-        ],
         defaultKennelTag: "moa2h3",
         // #1458 — kennel admins double-paste "MoA2H3" into event titles on
         // the source side. Opt in to the doubled-prefix strip so titles
         // like "MoA2H3 MoA2H3 Red Dress Run" surface as a single prefix.
         stripDoubledKennelPrefix: true,
+        // #1739 / #1738 (reverted from #2152's Option B) — the MoA2H3 calendar
+        // carries a handful of sister-kennel events (DeMon H3 inaugural Nov 2025;
+        // GLH3 HashMas Jan 2025). DeMon H3 and GLH3 each have their OWN Google
+        // Calendar source whose archive DOES contain these events (verified:
+        // demonhashhouseharriers@gmail.com → 82 events to 2027, GLH3 → 169 events
+        // 2020→2027), so they're pure pollution here. Routing them through MoA2H3
+        // (Option B) made MoA2H3's reconcile own demon-h3/glh3 and cancel their
+        // own legitimate runs every 6h. Drop them silently instead; the sisters
+        // are surfaced by their OWN sources (scrapeDays bumped to 365 below).
+        silentlySkipPatterns: [
+          { pattern: String.raw`^DeMon\s*H?3?\b` },
+          { pattern: String.raw`^GLH3\b|^Greater\s+Lansing` },
+        ],
       },
-      kennelCodes: ["moa2h3", "demon-h3", "glh3"],
+      kennelCodes: ["moa2h3"],
     },
     {
       name: "DeMon H3 Google Calendar",
@@ -3069,7 +3070,11 @@ export const SOURCES = [
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
       scrapeFreq: "every_6h",
-      scrapeDays: 90,
+      // #1738 — 90 → 365 so the recurring scrape covers DeMon's full calendar
+      // (2025-11 inaugural → 2027-06), letting demon-h3 own its events from its
+      // OWN source rather than relying on MoA2H3 routing. 365 keeps reconcile's
+      // window aligned with the adapter's futureHorizonDays cap (no future gap).
+      scrapeDays: 365,
       config: {
         defaultKennelTag: "demon-h3",
         harePatterns: [String.raw`(?:^|\n)\s*WHO\s*\(?(?:hares?)?\)?\s*:?\s*(.+)`],
@@ -3082,7 +3087,9 @@ export const SOURCES = [
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
       scrapeFreq: "every_6h",
-      scrapeDays: 90,
+      // #1738 — 90 → 365 so the recurring scrape covers GLH3's ongoing calendar
+      // from its own source (deep 2020→2024 history backfilled out-of-band).
+      scrapeDays: 365,
       config: { defaultKennelTag: "glh3" },
       kennelCodes: ["glh3"],
     },

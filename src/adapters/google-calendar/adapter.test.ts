@@ -203,34 +203,40 @@ describe("Princeton NJ Hash Calendar — title from SUMMARY (#2125, reverses #19
   });
 });
 
-// ── MoA2H3 Google Calendar sister-kennel routing (#1738) ──
+// ── MoA2H3 Google Calendar sister-kennel handling (#1738, Option A) ──
 
-describe("MoA2H3 Google Calendar — sister-kennel routing (#1738)", () => {
+describe("MoA2H3 Google Calendar — sister kennels silently skipped, owned by their own sources (#1738)", () => {
   const moaSource = SOURCES.find((s) => s.name === "MoA2H3 Google Calendar");
   if (!moaSource?.config) throw new Error("MoA2H3 Google Calendar seed config missing");
-  const config = moaSource.config as Parameters<typeof buildRawEventFromGCalItem>[1];
+  const config = moaSource.config as {
+    silentlySkipPatterns?: { pattern: string }[];
+    kennelPatterns?: unknown;
+    defaultKennelTag?: string;
+  };
 
-  it.each([
-    // [summary, expected kennelTag, description]
-    ["DeMonH3 - Belle Isle Be Damned", "demon-h3", "DeMonH3 glued form"],
-    ["DeMonH3 Inaugural Trail", "demon-h3", "DeMonH3 inaugural"],
-    ["DeMon H3 Monday Run", "demon-h3", "DeMon H3 spaced form"],
-    ["GLH3 HashMas", "glh3", "GLH3 token"],
-    ["Greater Lansing H3 Holiday Trail", "glh3", "Greater Lansing full name"],
-    ["MoA2H3 Red Dress Run", "moa2h3", "host run falls through to default"],
-    ["MoA2H3 MoA2H3 Red Dress Run", "moa2h3", "doubled-prefix host run still routes to host"],
-  ])("routes %j → %s (%s)", (summary, expectedTag) => {
-    const result = buildRawEventFromGCalItem(
-      { summary, start: { dateTime: "2025-11-24T18:30:00-05:00" }, status: "confirmed" },
-      config,
-    );
-    expect(result?.kennelTags[0]).toBe(expectedTag);
+  it("does NOT own demon-h3/glh3 — only moa2h3 in kennelCodes (no reconcile over sister kennels)", () => {
+    // Routing sisters through MoA2H3 (the reverted Option B) made its reconcile
+    // cancel demon-h3/glh3's own legitimate runs. They're silently skipped here
+    // and surfaced by their own sources instead.
+    expect(moaSource.kennelCodes).toEqual(["moa2h3"]);
+    expect(config.kennelPatterns).toBeUndefined();
   });
 
-  it("links the sister kennels to the source so the merge guard passes (no SOURCE_KENNEL_MISMATCH)", () => {
-    expect(moaSource.kennelCodes).toEqual(
-      expect.arrayContaining(["moa2h3", "demon-h3", "glh3"]),
-    );
+  it("silently skips the DeMon/GLH3 sister-event summaries", () => {
+    const patterns = (config.silentlySkipPatterns ?? []).map((p) => new RegExp(p.pattern));
+    const skips = (s: string) => patterns.some((re) => re.test(s));
+    expect(skips("DeMonH3 - Belle Isle Be Damned")).toBe(true);
+    expect(skips("DeMon H3 Monday Run")).toBe(true);
+    expect(skips("GLH3 HashMas")).toBe(true);
+    expect(skips("Greater Lansing H3 Holiday Trail")).toBe(true);
+    expect(skips("MoA2H3 Red Dress Run")).toBe(false);
+  });
+
+  it("bumps demon-h3 + glh3 scrapeDays to 365 so each owns its own calendar", () => {
+    for (const name of ["DeMon H3 Google Calendar", "GLH3 Google Calendar"]) {
+      const src = SOURCES.find((s) => s.name === name);
+      expect(src?.scrapeDays).toBe(365);
+    }
   });
 });
 
