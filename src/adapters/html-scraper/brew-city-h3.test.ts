@@ -1,6 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { Source } from "@/generated/prisma/client";
+import { composeUtcStart, formatDateInZone } from "@/lib/timezone";
 import { parseDateTime, parseTitle, parseDetails, BrewCityH3Adapter } from "./brew-city-h3";
+
+/** BCH3's production weekdayShift config (Friday-published → Thursday-actual). */
+const BCH3_WEEKDAY_SHIFT = {
+  from: "Friday",
+  to: "Thursday",
+  defaultStartTime: "20:00",
+} as const;
 
 // Mock browserRender
 vi.mock("@/lib/browser-render", () => ({
@@ -78,6 +86,31 @@ describe("parseDateTime", () => {
     const result = parseDateTime("Thursday, April 30, 2026 AT 8 PM");
     expect(result.date).toBe("2026-04-30");
     expect(result.startTime).toBe("20:00");
+  });
+});
+
+// ── #960: timezone correctness — Thursday-evening must STAY Thursday ──
+// BCH3 runs Thursday 8 PM CDT (America/Chicago). The merge pipeline composes
+// the stored UTC start via composeUtcStart(date, startTime, timezone) and the
+// card re-composes + renders in the kennel's zone. This guards the round-trip:
+// the absolute instant rolls into the next UTC day, but rendered in
+// America/Chicago it is still Thursday. Uses the real composeUtcStart helper —
+// no hand-rolled tz math.
+describe("BCH3 timezone correctness (#960)", () => {
+  const BCH3_TZ = "America/Chicago";
+
+  it("Thursday 8 PM CDT composes to a UTC instant that still renders Thursday", () => {
+    // What the adapter emits for "Thursday, April 30, 2026 AT 8 PM".
+    const dateUtcNoon = new Date("2026-04-30T12:00:00Z");
+    const composed = composeUtcStart(dateUtcNoon, "20:00", BCH3_TZ);
+
+    expect(composed).not.toBeNull();
+    // 8 PM CDT (UTC-5) = 01:00 UTC the next calendar day — the day-roll #960
+    // reported. It is contained by the timezone, not lost.
+    expect(composed!.toISOString()).toBe("2026-05-01T01:00:00.000Z");
+    // Rendered back in BCH3's zone, the day is still Thursday April 30.
+    expect(formatDateInZone(composed!, BCH3_TZ, "EEEE")).toBe("Thursday");
+    expect(formatDateInZone(composed!, BCH3_TZ, "yyyy-MM-dd")).toBe("2026-04-30");
   });
 });
 
@@ -230,6 +263,69 @@ describe("BrewCityH3Adapter", () => {
     ]);
   });
 
+  it("does NOT shift when weekdayShift config is absent (#359 stays Friday)", async () => {
+    mockedBrowserRender.mockResolvedValue(buildTestHtml());
+
+    // makeSource() has config: null — the fixture's "Friday, April 3, 2026
+    // AT 12 AM" placeholder is left untouched.
+    const result = await adapter.fetch(makeSource());
+    const trail359 = result.events.find(e => e.runNumber === 359);
+    expect(trail359!.date).toBe("2026-04-03");
+    expect(trail359!.startTime).toBeUndefined();
+  });
+
+  it("applies weekdayShift: Friday-midnight placeholder → Thursday 20:00 (#1134)", async () => {
+    mockedBrowserRender.mockResolvedValue(buildTestHtml());
+
+    const result = await adapter.fetch(
+      makeSource({ config: { weekdayShift: BCH3_WEEKDAY_SHIFT } }),
+    );
+
+    // #359 published as "Friday, April 3, 2026 AT 12 AM" back-shifts one day to
+    // Thursday April 2 and gets the kennel's real 8 PM start.
+    const trail359 = result.events.find(e => e.runNumber === 359);
+    expect(trail359).toBeDefined();
+    expect(trail359!.date).toBe("2026-04-02");
+    expect(trail359!.startTime).toBe("20:00");
+
+    // Only the Friday placeholder shifts; the Saturday event does not.
+    expect(result.diagnosticContext?.weekdayShifted).toBe(1);
+  });
+
+  it("weekdayShift leaves a real non-Friday event unchanged (Saturday)", async () => {
+    mockedBrowserRender.mockResolvedValue(buildTestHtml());
+
+    const result = await adapter.fetch(
+      makeSource({ config: { weekdayShift: BCH3_WEEKDAY_SHIFT } }),
+    );
+
+    // "Easter Hash" is "Saturday, April 4, 2026 AT 7 PM" — weekday ≠ Friday, so
+    // the from:Friday gate doesn't fire. Date + time untouched.
+    const easterHash = result.events.find(e => e.title === "Easter Hash");
+    expect(easterHash).toBeDefined();
+    expect(easterHash!.date).toBe("2026-04-04");
+    expect(easterHash!.startTime).toBe("19:00");
+  });
+
+  it("weekdayShift does NOT touch a genuinely-timed Friday event (placeholder-only gate)", async () => {
+    // A real "Friday, April 10, 2026 AT 7 PM" event has a parsed startTime
+    // (19:00), not the 12 AM placeholder's undefined — so the gate skips it and
+    // it stays Friday 19:00 even under the from:Friday config. Guards against
+    // silently corrupting a legitimate Friday special trail.
+    mockedBrowserRender.mockResolvedValue(buildSingleEventHtml(
+      "Friday, April 10, 2026 AT 7 PM",
+      "BCH3 Trail #364: Friday Special",
+    ));
+
+    const result = await adapter.fetch(
+      makeSource({ config: { weekdayShift: BCH3_WEEKDAY_SHIFT } }),
+    );
+    const event = result.events.find(e => e.runNumber === 364);
+    expect(event).toBeDefined();
+    expect(event!.date).toBe("2026-04-10");
+    expect(event!.startTime).toBe("19:00");
+  });
+
   it("returns fetch error when browser render fails", async () => {
     mockedBrowserRender.mockRejectedValue(new Error("Browser render service not configured: set BROWSER_RENDER_URL and BROWSER_RENDER_KEY"));
 
@@ -248,6 +344,21 @@ describe("BrewCityH3Adapter", () => {
     expect(result.errors).toHaveLength(0);
   });
 });
+
+/** Build a minimal single-event Wix repeater item with a given date heading + title. */
+function buildSingleEventHtml(dateHeading: string, title: string): string {
+  return `<!DOCTYPE html><html><body>
+<div id="SITE_CONTAINER">
+  <div class="Exmq9">
+    <div role="listitem" class="_FiCX">
+      <div data-testid="richTextElement"><h6 class="font_6">${dateHeading}</h6></div>
+      <div data-testid="richTextElement"><h2 class="font_2">${title}</h2></div>
+      <div data-testid="richTextElement"><p class="font_7">\u{1F430} Hare: Solo Hare</p></div>
+    </div>
+  </div>
+</div>
+</body></html>`;
+}
 
 /** Build minimal Wix-like HTML for testing */
 function buildTestHtml(): string {
