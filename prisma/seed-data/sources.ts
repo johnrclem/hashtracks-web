@@ -3058,8 +3058,8 @@ export const SOURCES = [
         // own legitimate runs every 6h. Drop them silently instead; the sisters
         // are surfaced by their OWN sources (scrapeDays bumped to 365 below).
         silentlySkipPatterns: [
-          { pattern: String.raw`^DeMon\s*H?3?\b` },
-          { pattern: String.raw`^GLH3\b|^Greater\s+Lansing` },
+          { pattern: String.raw`^DeMon\s*H?3?\b`, field: "title" },
+          { pattern: String.raw`^GLH3\b|^Greater\s+Lansing`, field: "title" },
         ],
       },
       kennelCodes: ["moa2h3"],
