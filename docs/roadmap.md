@@ -534,10 +534,10 @@ See [config-driven-onboarding-plan.md](config-driven-onboarding-plan.md) for ful
 - [x] Admin event deletion now properly cascades to orphaned RawEvent records
 
 ### Current Stats
-- 290 kennels (with rich profiles), ~950 aliases, 185 sources, 137 regions (4 countries: US, UK, Ireland, Germany)
-- 9 live adapter types: STATIC_SCHEDULE, HTML_SCRAPER, GOOGLE_CALENDAR, MEETUP, ICAL_FEED, GOOGLE_SHEETS, HASHREGO, BLOGGER_API, RSS_ICAL
+- ~465 kennels (with rich profiles), ~2000 aliases, ~373 enabled sources (390 total), ~279 regions across 31 countries
+- 9 live adapter types (enabled SourceTypes): HTML_SCRAPER, GOOGLE_CALENDAR, GOOGLE_SHEETS, ICAL_FEED, MEETUP, HASHREGO, HARRIER_CENTRAL, STATIC_SCHEDULE, FACEBOOK_HOSTED_EVENTS
 - 38 models, 29 enums in Prisma schema
-- 128 test files
+- 300+ test files
 
 ---
 

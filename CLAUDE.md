@@ -8,7 +8,7 @@ logbook + kennel directory.
 ## Quick Commands
 - `npm run dev` — Start local dev server (http://localhost:3000)
 - `npm run build` — Production build
-- `npm test` — Run test suite (Vitest, 115 test files)
+- `npm test` — Run test suite (Vitest, 300+ test files)
 - `npx prisma studio` — Visual database browser
 - `npm run prisma -- db push` — Push schema changes to dev DB (**local only** — wrapper refuses to run against non-local hosts; Vercel runs `migrate deploy`)
 - `npm run prisma -- migrate dev --name <change>` — Author a new versioned migration (wrapper refuses to run against prod `DATABASE_URL`; review SQL before committing)
@@ -498,7 +498,7 @@ See `docs/roadmap.md` for implementation roadmap.
 ## Testing
 - **Framework:** Vitest with `globals: true` (no explicit imports needed)
 - **Config:** `vitest.config.ts` — path alias `@/` maps to `./src`
-- **Run:** `npm test` (115 test files)
+- **Run:** `npm test` (300+ test files)
 - **Factories:** `src/test/factories.ts` — shared builders (`buildRawEvent`, `buildCalendarEvent`, `mockUser`)
 - **Mocking pattern:** `vi.mock("@/lib/db")` + `vi.mocked(prisma.model.method)` with `as never` for partial returns
 - **Convention:** Test files live next to source files as `*.test.ts`
