@@ -1581,6 +1581,26 @@ function parseScheduleTabRange(
   };
 }
 
+const EMPTY_RANGE: DateRangeResult = { dates: [], startTimes: [], isMultiDay: false };
+
+/**
+ * Single-day fallback from the index entry. Applies the venue-weekend campout
+ * heuristic (#1560 PR C) so a single registration row can still carry an
+ * inclusive `endDate` (Madison-style "Jan 16 – 18" pill, no child expansion).
+ */
+function singleDayRange(description: string, indexEntry: IndexEntry, title?: string): DateRangeResult {
+  const date = parseHashRegoDate(indexEntry.startDate);
+  if (!date) return EMPTY_RANGE;
+  const time = parseHashRegoTime(indexEntry.startTime);
+  const endDate = detectVenueWeekendEndDate(description, title ?? "", date);
+  return {
+    dates: [date],
+    startTimes: time ? [time] : [],
+    isMultiDay: false,
+    ...(endDate ? { endDate } : {}),
+  };
+}
+
 /** Extract dates and detect multi-day events */
 function extractDates(
   description: string,
@@ -1589,36 +1609,19 @@ function extractDates(
   kennelPatterns?: KennelPatternConfig,
   scheduleTabs?: ScheduleTab[],
 ): DateRangeResult {
-  if (indexEntry) {
-    const rangeResult = parseDateRangeFromDescription(description, indexEntry, kennelPatterns);
-    if (rangeResult) return rangeResult;
+  if (!indexEntry) return EMPTY_RANGE;
 
-    // Strategy 3 (#875): per-day schedule tabs in the page body. Only after the
-    // description-based strategies found nothing AND ≥2 weekday tabs exist.
-    if (scheduleTabs && scheduleTabs.length >= 2) {
-      const tabResult = parseScheduleTabRange(indexEntry, scheduleTabs);
-      if (tabResult) return tabResult;
-    }
+  const rangeResult = parseDateRangeFromDescription(description, indexEntry, kennelPatterns);
+  if (rangeResult) return rangeResult;
 
-    const date = parseHashRegoDate(indexEntry.startDate);
-    const time = parseHashRegoTime(indexEntry.startTime);
-    if (date) {
-      // Try the venue-weekend campout heuristic (#1560 PR C) before
-      // committing to a single-day result. When it fires, the row stays
-      // single (no children) but carries an `endDate` so the UI renders
-      // a date-range pill — Madison-style "Jan 16 – 18" without the
-      // "+ N trails" expansion.
-      const endDate = detectVenueWeekendEndDate(description, title ?? "", date);
-      return {
-        dates: [date],
-        startTimes: time ? [time] : [],
-        isMultiDay: false,
-        ...(endDate ? { endDate } : {}),
-      };
-    }
+  // Strategy 3 (#875): per-day schedule tabs in the page body. Only after the
+  // description-based strategies found nothing AND ≥2 weekday tabs exist.
+  if (scheduleTabs && scheduleTabs.length >= 2) {
+    const tabResult = parseScheduleTabRange(indexEntry, scheduleTabs);
+    if (tabResult) return tabResult;
   }
 
-  return { dates: [], startTimes: [], isMultiDay: false };
+  return singleDayRange(description, indexEntry, title);
 }
 
 /** Extract year from "MM/DD/YY" format */
