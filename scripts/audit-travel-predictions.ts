@@ -52,8 +52,7 @@ import {
   type ProjectedTrail,
   type KennelContext,
 } from "@/lib/travel/projections";
-import fs from "node:fs";
-import path from "node:path";
+import { utcNoon, addDays, fmtDate, pct, writeAuditReport } from "./lib/audit-shared";
 
 // ──────────────────────────────────────────────────────────────────────────
 // Tunables
@@ -107,21 +106,8 @@ interface RuleRow {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// Small helpers
+// Small helpers (utcNoon/addDays/fmtDate/pct shared via ./lib/audit-shared)
 // ──────────────────────────────────────────────────────────────────────────
-function utcNoon(d: Date): Date {
-  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 12, 0, 0));
-}
-function addDays(d: Date, days: number): Date {
-  return new Date(d.getTime() + days * DAY_MS);
-}
-function fmtDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
-function pct(n: number, d: number): string {
-  if (d === 0) return "—";
-  return `${((100 * n) / d).toFixed(1)}%`;
-}
 function ruleToInput(r: RuleRow): ScheduleRuleInput {
   return {
     id: r.id,
@@ -844,11 +830,6 @@ async function runAudit(prisma: PrismaClient): Promise<void> {
     "",
   );
 
-  const outDir = path.join("docs", "audits");
-  fs.mkdirSync(outDir, { recursive: true });
-  const mdPath = path.join(outDir, `travel-predictions-${date}.md`);
-  fs.writeFileSync(mdPath, md.join("\n"));
-
   // JSON sidecar of raw counts.
   const json = {
     generatedAt: new Date().toISOString(),
@@ -871,8 +852,7 @@ async function runAudit(prisma: PrismaClient): Promise<void> {
       contradicted: contradicted.length,
     },
   };
-  const jsonPath = path.join(outDir, `travel-predictions-${date}.json`);
-  fs.writeFileSync(jsonPath, JSON.stringify(json, null, 2));
+  const { mdPath, jsonPath } = writeAuditReport(`travel-predictions-${date}`, md.join("\n"), json);
 
   console.log(`\nWrote report → ${mdPath}`);
   console.log(`Wrote JSON   → ${jsonPath}`);

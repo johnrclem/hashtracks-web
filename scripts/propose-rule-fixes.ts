@@ -28,8 +28,7 @@ import { createScriptPool } from "./lib/db-pool";
 import { CANONICAL_EVENT_WHERE } from "@/lib/event-filters";
 import { EVENT_ELIGIBILITY_SELECT, isEligibleActual } from "@/lib/event-eligibility";
 import { projectTrails, type ScheduleRuleInput } from "@/lib/travel/projections";
-import fs from "node:fs";
-import path from "node:path";
+import { utcNoon, addDays, fmtDate, pct, writeAuditReport } from "./lib/audit-shared";
 
 // ──────────────────────────────────────────────────────────────────────────
 // Tunables
@@ -67,20 +66,8 @@ interface RuleRow {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// Helpers
+// Helpers (utcNoon/addDays/fmtDate/pct shared via ./lib/audit-shared)
 // ──────────────────────────────────────────────────────────────────────────
-function utcNoon(d: Date): Date {
-  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 12, 0, 0));
-}
-function addDays(d: Date, n: number): Date {
-  return new Date(d.getTime() + n * DAY_MS);
-}
-function fmtDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
-function pct(n: number, d: number): string {
-  return d === 0 ? "—" : `${((100 * n) / d).toFixed(0)}%`;
-}
 function median(xs: number[]): number {
   if (xs.length === 0) return 0;
   const s = [...xs].sort((a, b) => a - b);
@@ -337,7 +324,7 @@ function renderBucket(bucket: Bucket, proposals: Proposal[]): string {
     "|---|---|---|---|---|---|---|",
   ];
   for (const p of rows) {
-    const hist = `${p.derivEvents} ev, ${DAY_NAME[p.domDay]} ${pct(p.domShare * (p.derivEvents || 1), p.derivEvents || 1)}, ${p.cadence} (~${p.medianGap}d)${p.seasonal ? ", seasonal" : ""}`;
+    const hist = `${p.derivEvents} ev, ${DAY_NAME[p.domDay]} ${pct(p.domShare * (p.derivEvents || 1), p.derivEvents || 1, 0)}, ${p.cadence} (~${p.medianGap}d)${p.seasonal ? ", seasonal" : ""}`;
     const cur = `${p.holdoutCurrent.hits}/${p.holdoutCurrent.predicted || 0}`;
     const prop = p.proposedKind === "flat-weekly" || p.proposedKind === "anchored-biweekly"
       ? `${p.holdoutProposed.hits}/${p.holdoutProposed.predicted || 0}`
@@ -441,12 +428,11 @@ async function run(prisma: PrismaClient): Promise<void> {
     "",
   ].join("\n");
 
-  const outDir = path.join("docs", "audits");
-  fs.mkdirSync(outDir, { recursive: true });
-  const mdPath = path.join(outDir, `rule-fix-proposals-${date}.md`);
-  fs.writeFileSync(mdPath, md);
-  const jsonPath = path.join(outDir, `rule-fix-proposals-${date}.json`);
-  fs.writeFileSync(jsonPath, JSON.stringify({ generatedAt: new Date().toISOString(), counts, proposals }, null, 2));
+  const { mdPath, jsonPath } = writeAuditReport(
+    `rule-fix-proposals-${date}`,
+    md,
+    { generatedAt: new Date().toISOString(), counts, proposals },
+  );
 
   console.log(`\nWrote ${mdPath}`);
   console.log(`Wrote ${jsonPath}`);
