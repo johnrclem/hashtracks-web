@@ -55,8 +55,9 @@ const CHH3_CONFIG: GenericHtmlConfig = {
   defaultKennelTag: "christchurch-h3",
   dateLocale: "en-GB",
   maxPastDays: 7,
+  maxFutureDays: 70,
   defaultStartTime: "18:30",
-  locationOmitIfMatches: ["^TBA$", "Winter Camp"],
+  locationOmitIfMatches: ["^TBA$", "^Winter Camp"],
 };
 
 const source = {
@@ -84,7 +85,7 @@ describe("CHH3 receding hareline (GenericHtmlAdapter)", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-06-11T12:00:00Z"));
-    vi.mocked(fetchHTMLPage).mockReset();
+    mockFetchHTMLPage.mockReset();
     mockPage();
   });
 
@@ -137,5 +138,17 @@ describe("CHH3 receding hareline (GenericHtmlAdapter)", () => {
     const result = await adapter.fetch(source);
     expect(result.events).toHaveLength(0);
     expect(result.events.some((e) => e.date.startsWith("2027"))).toBe(false);
+  });
+
+  it("does NOT emit far-future rows from a stale source (maxFutureDays guard)", async () => {
+    // Regression for the forwardDate phantom (#1533 review, Codex P1): freeze
+    // the clock BEFORE the rows so the year-less DD/MM dates resolve to the
+    // current year but land >70 days out — the same shape as last year's stale
+    // table whose December rows resolve to this December. maxFutureDays must
+    // drop them so they never become phantom future runs.
+    vi.setSystemTime(new Date("2026-03-01T12:00:00Z")); // rows are ~106–132 days out
+    mockPage();
+    const result = await adapter.fetch(source);
+    expect(result.events).toHaveLength(0);
   });
 });

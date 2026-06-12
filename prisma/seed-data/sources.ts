@@ -6449,7 +6449,7 @@ export const SOURCES = [
       type: "HTML_SCRAPER" as const,
       trustLevel: 6, // > STATIC's 4 → real run#/hare enrich the canonical
       scrapeFreq: "daily",
-      scrapeDays: 120,
+      scrapeDays: 90,
       config: {
         containerSelector: "table", // exactly one table on the page
         rowSelector: "tr",
@@ -6471,8 +6471,16 @@ export const SOURCES = [
         // cost is a few real January rows showing as STATIC placeholders for
         // ~3 weeks each December. Mirrors the Glasgow H3 generic config.
         maxPastDays: 7, // bound passed rows at the adapter layer (defense-in-depth)
+        // Bound the future side too: the hareline only runs ~5-8 weeks out, so
+        // anything beyond 70 days is a stale-source artifact (e.g. last year's
+        // December table still served in June, which year-less parsing resolves
+        // to this December) — drop it before it becomes a phantom run (#1533).
+        maxFutureDays: 70,
         defaultStartTime: "18:30",
-        locationOmitIfMatches: ["^TBA$", "Winter Camp"],
+        // "^Winter Camp" is start-anchored so it catches the camp label and its
+        // "Winter Camp 2026" variants without nuking a venue that merely
+        // contains the words mid-string. "^TBA$" is fully anchored.
+        locationOmitIfMatches: ["^TBA$", "^Winter Camp"],
         upcomingOnly: true, // receding hareline is future-only → no false reconcile cancels
       },
       kennelCodes: ["christchurch-h3"],

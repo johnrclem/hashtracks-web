@@ -261,6 +261,15 @@ export class GenericHtmlAdapter implements SourceAdapter {
       ? new Date(Date.now() - config.maxPastDays * 86_400_000).toISOString().split("T")[0]
       : undefined;
 
+    // Pre-compute future-date cutoff if maxFutureDays is configured. Bounds a
+    // short rolling hareline so a stale source's future-dated rows (e.g. last
+    // year's December table still served in June, which year-less parsing
+    // resolves to this December) can't be inserted as phantom future runs —
+    // GenericHtmlAdapter has no implicit future window. See #1533.
+    const futureCutoff = config.maxFutureDays != null
+      ? new Date(Date.now() + config.maxFutureDays * 86_400_000).toISOString().split("T")[0]
+      : undefined;
+
     let lastRunNumber: number | undefined;
     let stopParsing = false;
 
@@ -275,6 +284,8 @@ export class GenericHtmlAdapter implements SourceAdapter {
         if (event) {
           // Skip events too far in the past
           if (pastCutoff && event.date < pastCutoff) return;
+          // Skip events too far in the future (stale-source phantom guard)
+          if (futureCutoff && event.date > futureCutoff) return;
           // Stop when run numbers decrease (e.g., Cape Fear receding hareline)
           if (config.stopWhenRunNumberDecreases && event.runNumber != null) {
             if (lastRunNumber != null && event.runNumber < lastRunNumber) {
@@ -305,6 +316,9 @@ export class GenericHtmlAdapter implements SourceAdapter {
       events = fixYearMonotonicity(events);
       if (pastCutoff) {
         events = events.filter(e => e.date >= pastCutoff);
+      }
+      if (futureCutoff) {
+        events = events.filter(e => e.date <= futureCutoff);
       }
     }
 
