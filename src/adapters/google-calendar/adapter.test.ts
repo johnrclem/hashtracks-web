@@ -209,7 +209,7 @@ describe("MoA2H3 Google Calendar — sister kennels silently skipped, owned by t
   const moaSource = SOURCES.find((s) => s.name === "MoA2H3 Google Calendar");
   if (!moaSource?.config) throw new Error("MoA2H3 Google Calendar seed config missing");
   const config = moaSource.config as {
-    silentlySkipPatterns?: { pattern: string }[];
+    silentlySkipPatterns?: { pattern: string; field?: string }[];
     kennelPatterns?: unknown;
     defaultKennelTag?: string;
   };
@@ -223,6 +223,10 @@ describe("MoA2H3 Google Calendar — sister kennels silently skipped, owned by t
   });
 
   it("silently skips the DeMon/GLH3 sister-event summaries", () => {
+    // Field must target the title — a misconfig (e.g. "location") would let the
+    // sister summaries through and re-introduce SOURCE_KENNEL_MISMATCH noise.
+    expect(config.silentlySkipPatterns?.length).toBeGreaterThan(0);
+    expect(config.silentlySkipPatterns?.every((p) => (p.field ?? "title") === "title")).toBe(true);
     const patterns = (config.silentlySkipPatterns ?? []).map((p) => new RegExp(p.pattern));
     const skips = (s: string) => patterns.some((re) => re.test(s));
     expect(skips("DeMonH3 - Belle Isle Be Damned")).toBe(true);
