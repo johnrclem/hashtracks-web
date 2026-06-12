@@ -158,13 +158,9 @@ function buildSource(): Source {
 }
 
 function mockFetchHtml(html: string): void {
-  // Partial Response shape — the adapter only reads ok/status/text().
-  vi.mocked(safeFetch).mockResolvedValue({
-    ok: true,
-    status: 200,
-    statusText: "OK",
-    text: async () => html,
-  } as unknown as Response);
+  // A real Response (ok/status/text() all satisfied) — avoids a partial-shape
+  // type assertion that tsc requires but Sonar flags as redundant (S4325).
+  vi.mocked(safeFetch).mockResolvedValue(new Response(html, { status: 200 }));
 }
 
 describe("TaipeiHashAdapter.fetch", () => {
