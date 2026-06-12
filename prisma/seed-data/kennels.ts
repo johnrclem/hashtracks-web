@@ -3134,6 +3134,19 @@ export const KENNELS: KennelSeed[] = [
       website: "https://taiwanhash.com/",
       latitude: 25.0375, longitude: 121.5637,
     },
+    {
+      kennelCode: "taipei-h3", shortName: "Taipei H3", fullName: "Taipei Hash House Harriers",
+      region: "Taipei", country: "Taiwan",
+      foundedYear: 1973,
+      scheduleDayOfWeek: "Saturday", scheduleTime: "3:00 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Weekly Saturday 3:00 PM on mountain trails around greater Taipei. NT$200 per run (beer included, no membership fee). Per-run venue + hares announced on the kennel's run_site.php hareline; meeting points are Google Maps pins. Run #2779 as of June 2026 (running since 1973). NOTE: some editorial directories list Sunday, but the kennel's own current hareline and live run dates are Saturday — Saturday is authoritative.",
+      description: "Taipei Hash House Harriers (台北捷兔) is Taiwan's oldest hash — founded 13 March 1973, the pioneering kennel from which every other Taiwanese hash descends (including the sibling Taiwan H3, the former China Hash). A mixed 'drinking club with a running problem' that runs every Saturday afternoon at 3:00pm on mountain trails around greater Taipei, rain, hail, snow or typhoon. NT$200 a run, beer included; trails end with down-downs and the circle. Run #2779 as of June 2026. On On!",
+      hashCash: "NT$200 (beer included; no membership fee)",
+      logoUrl: "/kennel-logos/taipei-h3.jpg",
+      facebookUrl: "https://www.facebook.com/groups/TaipeiHash/",
+      website: "https://www.taipeihash.com.tw",
+      latitude: 25.0375, longitude: 121.5637,
+    },
 
     // ── China: Shanghai (HashTracks' first mainland-China kennel) ──
     {
