@@ -75,6 +75,32 @@ const UK_POSTCODE_RE = /([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})/i;
 
 const SIX_MONTHS_MS = 6 * 30 * 24 * 60 * 60 * 1000;
 
+const DAY_MS = 86_400_000;
+
+/**
+ * Resolve a `YYYY-MM-DD` cutoff `days` from now. `direction` is `-1` for a
+ * past cutoff (maxPastDays) or `1` for a future cutoff (maxFutureDays).
+ * Returns undefined when the bound is not configured.
+ */
+function resolveCutoff(
+  days: number | null | undefined,
+  direction: 1 | -1,
+): string | undefined {
+  if (days == null) return undefined;
+  return new Date(Date.now() + direction * days * DAY_MS).toISOString().split("T")[0];
+}
+
+/** True when `date` (YYYY-MM-DD) falls outside the optional [past, future] window. */
+function isOutsideDateWindow(
+  date: string,
+  pastCutoff: string | undefined,
+  futureCutoff: string | undefined,
+): boolean {
+  if (pastCutoff && date < pastCutoff) return true;
+  if (futureCutoff && date > futureCutoff) return true;
+  return false;
+}
+
 /**
  * Fix year-resolution errors caused by `forwardDate: true` on year-less dates.
  * Uses run-number ordering as a monotonicity constraint: if ascending run numbers
@@ -256,10 +282,13 @@ export class GenericHtmlAdapter implements SourceAdapter {
       ? container.find(config.rowSelector)
       : $(config.rowSelector); // fallback: try rowSelector directly
 
-    // Pre-compute past-date cutoff if maxPastDays is configured
-    const pastCutoff = config.maxPastDays != null
-      ? new Date(Date.now() - config.maxPastDays * 86_400_000).toISOString().split("T")[0]
-      : undefined;
+    // Pre-compute optional date-window cutoffs. maxFutureDays bounds a short
+    // rolling hareline so a stale source's future-dated rows (e.g. last year's
+    // December table still served in June, which year-less parsing resolves to
+    // this December) can't be inserted as phantom future runs — GenericHtmlAdapter
+    // has no implicit future window. See #1533.
+    const pastCutoff = resolveCutoff(config.maxPastDays, -1);
+    const futureCutoff = resolveCutoff(config.maxFutureDays, 1);
 
     let lastRunNumber: number | undefined;
     let stopParsing = false;
@@ -273,8 +302,8 @@ export class GenericHtmlAdapter implements SourceAdapter {
       try {
         const event = parseEventRow($, $(el), config, sourceUrl, omitPatterns);
         if (event) {
-          // Skip events too far in the past
-          if (pastCutoff && event.date < pastCutoff) return;
+          // Skip events outside the configured [past, future] date window
+          if (isOutsideDateWindow(event.date, pastCutoff, futureCutoff)) return;
           // Stop when run numbers decrease (e.g., Cape Fear receding hareline)
           if (config.stopWhenRunNumberDecreases && event.runNumber != null) {
             if (lastRunNumber != null && event.runNumber < lastRunNumber) {
@@ -302,10 +331,9 @@ export class GenericHtmlAdapter implements SourceAdapter {
 
     // Fix year-resolution errors from forwardDate before returning
     if (config.forwardDate) {
-      events = fixYearMonotonicity(events);
-      if (pastCutoff) {
-        events = events.filter(e => e.date >= pastCutoff);
-      }
+      events = fixYearMonotonicity(events).filter(
+        e => !isOutsideDateWindow(e.date, pastCutoff, futureCutoff),
+      );
     }
 
     const hasErrors = hasAnyErrors(errorDetails);

@@ -37,6 +37,7 @@ export interface GenericHtmlConfig {
   defaultStartTimeByKennel?: Record<string, string>; // per-kennelTag "HH:MM" map; takes precedence over defaultStartTime when the row's kennelTag matches a key
   forwardDate?: boolean;                   // resolve year-less dates to next future occurrence
   maxPastDays?: number;                    // skip events with dates more than N days in the past
+  maxFutureDays?: number;                  // skip events with dates more than N days in the future — bounds a short rolling hareline so a stale source's future-dated rows can't become phantom runs (#1533)
   stopWhenRunNumberDecreases?: boolean;    // stop parsing when run number drops (e.g., Cape Fear receding hareline)
 }
 

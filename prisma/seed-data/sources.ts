@@ -4857,9 +4857,12 @@ export const SOURCES = [
       kennelCodes: ["oh3-ca"],
     },
     // --- Calgary: CH3 Upcoming Runs ---
+    // Source URL is the unfiltered /events listing (not /upcumming-runs, which
+    // returns only the "Hash" category and drops TGIF / social events). /events
+    // is a superset, so reconcile never loses a previously-returned run (#895).
     {
       name: "Calgary H3 Upcoming Runs",
-      url: "https://home.onon.org/upcumming-runs",
+      url: "https://home.onon.org/events",
       type: "HTML_SCRAPER" as const,
       trustLevel: 8,
       scrapeFreq: "daily",
@@ -6435,12 +6438,57 @@ export const SOURCES = [
       config: { kennelTag: "garden-city-h3" },
       kennelCodes: ["garden-city-h3"],
     },
-    // CHH3 homepage HTML source intentionally omitted from Phase 1: the
-    // homepage Miteri table is empty (CHH3 maintains their special events
-    // on /events/ as plain <ul>/<li>, not in the homepage table). Special-
-    // event scraping needs a dedicated /events/ parser — scoped as Phase 2
-    // follow-up. STATIC weekly Monday baseline below covers the recurring
-    // cadence.
+    // CHH3 publishes a populated "Receding Hareline (Upcumming Runs)" <table>
+    // on the homepage (Run # / Date / Hare / Address columns) — the single
+    // table on the page, so a flat GenericHtmlAdapter config (no bespoke code,
+    // no registry change) ingests real run numbers + hare names for the next
+    // ~5 weeks. The current-run free-text <p> block above it (full street
+    // address + exact time) and the /events/ camp <ul>/<li> are intentionally
+    // out of scope (free-text parse would be flaky; #1533). The STATIC weekly
+    // Monday baseline below is RETAINED as the far-future fallback for weeks
+    // the hareline hasn't reached yet (mirrors the RIH3 STATIC+HTML pattern).
+    {
+      name: "Christchurch H3 Website Hareline",
+      url: "https://christchurchhash.net.nz/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6, // > STATIC's 4 → real run#/hare enrich the canonical
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        containerSelector: "table", // exactly one table on the page
+        rowSelector: "tr",
+        columns: {
+          runNumber: "td:nth-child(1)",
+          date: "td:nth-child(2)",
+          hares: "td:nth-child(3)",
+          location: "td:nth-child(4)",
+        },
+        defaultKennelTag: "christchurch-h3",
+        dateLocale: "en-GB", // DD/MM (e.g. "15/06") → resolves to current year
+        // NO forwardDate: this is a short (~5-week) rolling hareline. With
+        // forwardDate, once a listed row's date passes, a stale (un-updated)
+        // site would roll it ~11 months forward into next year — a perpetual
+        // phantom future event upcomingOnly can't suppress (it gates
+        // cancellation, not insertion). Without it, passed rows resolve to a
+        // current-year past date and are dropped by maxPastDays/upcomingOnly.
+        // The STATIC schedule below is the year-boundary fallback, so the only
+        // cost is a few real January rows showing as STATIC placeholders for
+        // ~3 weeks each December. Mirrors the Glasgow H3 generic config.
+        maxPastDays: 7, // bound passed rows at the adapter layer (defense-in-depth)
+        // Bound the future side too: the hareline only runs ~5-8 weeks out, so
+        // anything beyond 70 days is a stale-source artifact (e.g. last year's
+        // December table still served in June, which year-less parsing resolves
+        // to this December) — drop it before it becomes a phantom run (#1533).
+        maxFutureDays: 70,
+        defaultStartTime: "18:30",
+        // "^Winter Camp" is start-anchored so it catches the camp label and its
+        // "Winter Camp 2026" variants without nuking a venue that merely
+        // contains the words mid-string. "^TBA$" is fully anchored.
+        locationOmitIfMatches: ["^TBA$", "^Winter Camp"],
+        upcomingOnly: true, // receding hareline is future-only → no false reconcile cancels
+      },
+      kennelCodes: ["christchurch-h3"],
+    },
     staticScheduleSource({
       name: "Christchurch H3 Static Schedule",
       url: "https://christchurchhash.net.nz/",
