@@ -24,8 +24,8 @@ function stableStringify(obj: unknown): string {
 
 const PROFILE_FIELDS = new Set([
   "website", "scheduleDayOfWeek", "scheduleTime", "scheduleFrequency",
-  "scheduleNotes", "hashCash", "facebookUrl", "instagramHandle",
-  "twitterHandle", "discordUrl", "mailingListUrl", "contactEmail",
+  "scheduleNotes", "hashCash", "paymentLink", "facebookUrl", "instagramHandle",
+  "twitterHandle", "discordUrl", "mailingListUrl", "whatsappUrl", "contactEmail",
   "contactName", "gm", "hareRaiser", "signatureEvent", "founder", "parentKennelCode",
   "foundedYear", "description", "logoUrl", "latitude", "longitude",
   "walkersWelcome", "dogFriendly",

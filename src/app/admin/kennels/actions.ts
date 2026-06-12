@@ -8,6 +8,7 @@ import { HARELINE_EVENTS_TAG } from "@/lib/cache-tags";
 import { fuzzyMatch } from "@/lib/fuzzy";
 import { toSlug, toKennelCode } from "@/lib/kennel-utils";
 import { generateAliases } from "@/lib/auto-aliases";
+import { safeUrl } from "@/lib/safe-url";
 import { ensureKennelLabel, deleteKennelLabel } from "@/pipeline/kennel-label-sync";
 
 function extractProfileFields(formData: FormData) {
@@ -15,6 +16,16 @@ function extractProfileFields(formData: FormData) {
   const str = (name: string) => {
     if (!formData.has(name)) return;
     result[name] = (formData.get(name) as string)?.trim() || null;
+  };
+  // For URL fields rendered as an `href` on the public profile: protocol-validate
+  // so an admin can't persist a `javascript:` (or other non-http) scheme that
+  // SocialLinks would render as a live link. NOTE: do not use this for logoUrl —
+  // that field legitimately accepts relative paths like "/kennel-logos/x.png",
+  // which safeUrl rejects (logoUrl renders as an <img src>, where a relative
+  // path is both valid and same-origin-safe).
+  const url = (name: string) => {
+    if (!formData.has(name)) return;
+    result[name] = safeUrl(formData.get(name) as string);
   };
   const triState = (name: string) => {
     if (!formData.has(name)) return;
@@ -35,11 +46,12 @@ function extractProfileFields(formData: FormData) {
   str("scheduleTime");
   str("scheduleFrequency");
   str("scheduleNotes");
-  str("facebookUrl");
+  url("facebookUrl");
   str("instagramHandle");
   str("twitterHandle");
-  str("discordUrl");
-  str("mailingListUrl");
+  url("discordUrl");
+  url("mailingListUrl");
+  url("whatsappUrl");
   str("contactEmail");
   str("contactName");
   // #1415: Profile fields surfaced from chrome-kennel audits.

@@ -23,6 +23,7 @@ export type AdminKennelData = {
   twitterHandle: string | null;
   discordUrl: string | null;
   mailingListUrl: string | null;
+  whatsappUrl: string | null;
   contactEmail: string | null;
   contactName: string | null;
   // Profile fields (#1415)

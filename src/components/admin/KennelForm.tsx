@@ -528,6 +528,18 @@ export function KennelForm({ kennel, regions, trigger }: Readonly<KennelFormProp
                 />
               </div>
               <div className="space-y-2">
+                <Label htmlFor="whatsappUrl">WhatsApp URL</Label>
+                <Input
+                  id="whatsappUrl"
+                  name="whatsappUrl"
+                  type="url"
+                  defaultValue={kennel?.whatsappUrl ?? ""}
+                  placeholder="https://whatsapp.com/channel/..."
+                />
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
                 <Label htmlFor="contactEmail">Contact Email</Label>
                 <Input
                   id="contactEmail"
@@ -537,15 +549,15 @@ export function KennelForm({ kennel, regions, trigger }: Readonly<KennelFormProp
                   placeholder="gm@kennel.com"
                 />
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="contactName">Contact Name</Label>
-              <Input
-                id="contactName"
-                name="contactName"
-                defaultValue={kennel?.contactName ?? ""}
-                placeholder="Grand Master: Mudflap"
-              />
+              <div className="space-y-2">
+                <Label htmlFor="contactName">Contact Name</Label>
+                <Input
+                  id="contactName"
+                  name="contactName"
+                  defaultValue={kennel?.contactName ?? ""}
+                  placeholder="Grand Master: Mudflap"
+                />
+              </div>
             </div>
           </FormSection>
 

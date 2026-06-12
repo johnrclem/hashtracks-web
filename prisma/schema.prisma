@@ -135,6 +135,7 @@ model Kennel {
   twitterHandle   String? // Handle only: "@sfh3"
   discordUrl      String?
   mailingListUrl  String?
+  whatsappUrl     String? // WhatsApp group/broadcast-channel URL (#1541)
   contactEmail    String?
   contactName     String? // "Grand Master: Mudflap"
 
