@@ -9,6 +9,19 @@ import { fuzzyMatch } from "@/lib/fuzzy";
 import { toSlug, toKennelCode } from "@/lib/kennel-utils";
 import { generateAliases } from "@/lib/auto-aliases";
 import { ensureKennelLabel, deleteKennelLabel } from "@/pipeline/kennel-label-sync";
+import { regionNameToSlug, regionSlug } from "@/lib/region";
+import { checkLogoUrl } from "@/lib/logo-url";
+
+/**
+ * Bust the ISR-cached region landing page (`/kennels/region/[slug]`, which sets
+ * `revalidate = 3600`) for a kennel's region. Without this, creating, editing,
+ * hiding, deleting, or moving a kennel between regions left both region pages
+ * stale for up to an hour (#1461). No-op for a null/unknown region name.
+ */
+function revalidateRegion(name?: string | null) {
+  if (!name) return;
+  revalidatePath(`/kennels/region/${regionNameToSlug(name) ?? regionSlug(name)}`);
+}
 
 function extractProfileFields(formData: FormData) {
   const result: Record<string, string | number | boolean | null> = {};
@@ -64,6 +77,25 @@ function extractProfileFields(formData: FormData) {
   result.isHidden = formData.get("isHidden") === "true";
 
   return result;
+}
+
+/**
+ * Validate a kennel `logoUrl` (#1414). Empty is fine (cleared). Otherwise it
+ * must be a site-relative `/path` or a full `https://` URL — `http://` and other
+ * schemes are rejected so the public profile (served over https) never shows a
+ * mixed-content/broken logo. Returns an error message, or null when valid.
+ * Shares the underlying rule with the admin form via `checkLogoUrl`.
+ */
+function validateLogoUrl(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  switch (checkLogoUrl(value)) {
+    case "ok":
+      return null;
+    case "unparseable":
+      return "Logo URL must be a full https:// URL or a site-relative /path";
+    default:
+      return "Logo URL must use https:// (http is blocked to avoid mixed-content warnings)";
+  }
 }
 
 /** Resolve region name from regionId, falling back to the raw form value. */
@@ -187,6 +219,8 @@ export async function createKennel(formData: FormData, force: boolean = false) {
   }
 
   const profileFields = extractProfileFields(formData);
+  const logoError = validateLogoUrl(profileFields.logoUrl);
+  if (logoError) return { error: logoError };
 
   // Parse kennel coordinates
   const latRaw = (formData.get("latitude") as string)?.trim();
@@ -227,6 +261,7 @@ export async function createKennel(formData: FormData, force: boolean = false) {
 
   revalidatePath("/admin/kennels");
   revalidatePath("/kennels");
+  revalidateRegion(region);
   return { success: true };
 }
 
@@ -275,7 +310,7 @@ export async function updateKennel(kennelId: string, formData: FormData) {
   // If shortName changed, auto-add the old name as an alias so the resolver can still match it
   const current = await prisma.kennel.findUnique({
     where: { id: kennelId },
-    select: { shortName: true },
+    select: { shortName: true, region: true },
   });
 
   const newAliases = aliasesRaw
@@ -292,6 +327,8 @@ export async function updateKennel(kennelId: string, formData: FormData) {
   }
 
   const profileFields = extractProfileFields(formData);
+  const logoError = validateLogoUrl(profileFields.logoUrl);
+  if (logoError) return { error: logoError };
 
   // Parse kennel coordinates (only update if form provided values)
   const latRaw = (formData.get("latitude") as string)?.trim();
@@ -325,6 +362,9 @@ export async function updateKennel(kennelId: string, formData: FormData) {
 
   revalidatePath("/admin/kennels");
   revalidatePath("/kennels");
+  // Bust both the new region page and — if the kennel moved — the old one (#1461).
+  revalidateRegion(region);
+  if (current?.region && current.region !== region) revalidateRegion(current.region);
   // Kennel display fields (shortName/fullName/slug/region/country) are
   // denormalized into the cached Hareline event list via a nested
   // `kennel` select, so any mutation here can leave stale labels/routes
@@ -423,6 +463,7 @@ export async function deleteKennel(kennelId: string) {
 
   revalidatePath("/admin/kennels");
   revalidatePath("/kennels");
+  revalidateRegion(kennel.region);
   revalidateTag(HARELINE_EVENTS_TAG, { expire: 0 });
   return { success: true };
 }
@@ -674,7 +715,7 @@ export async function mergeKennels(
 
   const targetKennel = await prisma.kennel.findUnique({
     where: { id: targetKennelId },
-    select: { id: true, shortName: true, slug: true },
+    select: { id: true, shortName: true, slug: true, region: true },
   });
 
   if (!sourceKennel) return { error: "Source kennel not found" };
@@ -812,6 +853,12 @@ export async function mergeKennels(
   revalidatePath("/admin/kennels");
   revalidatePath("/kennels");
   revalidatePath(`/kennels/${targetKennel.slug}`);
+  // The source kennel is deleted and its events move to the target — bust both
+  // region landing pages (#1461).
+  revalidateRegion(sourceKennel.region);
+  if (targetKennel.region && targetKennel.region !== sourceKennel.region) {
+    revalidateRegion(targetKennel.region);
+  }
   // Merge reassigns events to the target kennel, so their cached kennel
   // display fields (shortName/slug/region) go stale until tag bust.
   revalidateTag(HARELINE_EVENTS_TAG, { expire: 0 });
@@ -827,7 +874,7 @@ export async function toggleKennelVisibility(kennelId: string) {
 
   const kennel = await prisma.kennel.findUnique({
     where: { id: kennelId },
-    select: { isHidden: true, shortName: true, slug: true },
+    select: { isHidden: true, shortName: true, slug: true, region: true },
   });
   if (!kennel) return { error: "Kennel not found" };
 
@@ -849,6 +896,7 @@ export async function toggleKennelVisibility(kennelId: string) {
   revalidatePath("/admin/sources/coverage");
   revalidatePath("/kennels");
   revalidatePath(`/kennels/${kennel.slug}`);
+  revalidateRegion(kennel.region);
   revalidatePath("/hareline");
   revalidatePath("/misman");
   // Hareline's cached event list filters on `kennel.isHidden`; without a

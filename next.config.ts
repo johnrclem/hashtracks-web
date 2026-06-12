@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
+import { LOGO_REMOTE_PATTERNS } from "./src/lib/image-remote-patterns";
 
 const securityHeaders = [
   {
@@ -26,6 +27,13 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["node-ical"],
+  images: {
+    // FIRST-PARTY ONLY. The public `/_next/image` optimizer fetches whatever
+    // URL it's handed, so a wildcard host would expose an arbitrary-HTTPS
+    // fetch/resize proxy (SSRF + amplification). Third-party kennel logos
+    // render `unoptimized` in KennelLogo instead. See image-remote-patterns.ts.
+    remotePatterns: LOGO_REMOTE_PATTERNS,
+  },
   async redirects() {
     return [
       // Disambiguate /kennels/ah3 slug collision between Aloha H3 (HI) and Amsterdam H3 (NL)

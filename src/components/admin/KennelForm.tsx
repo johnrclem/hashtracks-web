@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronRight } from "lucide-react";
+import { upload } from "@vercel/blob/client";
 import { createKennel, updateKennel } from "@/app/admin/kennels/actions";
 import {
   Dialog,
@@ -20,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { generateAliases } from "@/lib/auto-aliases";
+import { checkLogoUrl } from "@/lib/logo-url";
 import { GeocodeButton } from "./GeocodeButton";
 import { geocodeAction } from "@/app/admin/geocode-action";
 
@@ -60,6 +62,23 @@ function triStateDefault(value: boolean | null): string {
   if (value === true) return "true";
   if (value === false) return "false";
   return "";
+}
+
+/**
+ * Surfaces a logo-URL warning before submit (#1414). Shares the rule with the
+ * server action via `checkLogoUrl`; only the copy is form-specific.
+ */
+function logoUrlWarning(value: string): string | null {
+  switch (checkLogoUrl(value)) {
+    case "unparseable":
+      return "Enter a full https:// URL or a site-relative /path";
+    case "insecure-http":
+      return "Use https:// — http logos are blocked to avoid mixed-content warnings";
+    case "non-https":
+      return "Only https:// URLs are allowed";
+    default:
+      return null;
+  }
 }
 
 /** Collapsible section used in the kennel form. */
@@ -137,11 +156,15 @@ export function KennelForm({ kennel, regions, trigger }: Readonly<KennelFormProp
   const [pendingFormData, setPendingFormData] = useState<FormData | null>(null);
   const [selectedRegionId, setSelectedRegionId] = useState<string>(kennel?.regionId ?? "");
   const [isHidden, setIsHidden] = useState(kennel?.isHidden ?? false);
+  const [logoUrl, setLogoUrl] = useState(kennel?.logoUrl ?? "");
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const shortNameRef = useRef<HTMLInputElement>(null);
   const fullNameRef = useRef<HTMLInputElement>(null);
+  const logoFileRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
   const selectedRegion = regions.find((r) => r.id === selectedRegionId);
+  const logoWarning = logoUrlWarning(logoUrl);
 
   function addAlias() {
     const trimmed = aliasInput.trim();
@@ -153,6 +176,36 @@ export function KennelForm({ kennel, regions, trigger }: Readonly<KennelFormProp
 
   function removeAlias(alias: string) {
     setAliases(aliases.filter((a) => a !== alias));
+  }
+
+  async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file after an error
+    if (!file) return;
+    // Validate client-side to match the route's onBeforeGenerateToken limits,
+    // so an oversized/wrong file fails instantly instead of round-tripping.
+    if (!["image/png", "image/jpeg", "image/webp", "image/gif"].includes(file.type)) {
+      toast.error("Logo must be a PNG, JPEG, WebP, or GIF image");
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Logo must be under 2 MB");
+      return;
+    }
+    setUploadingLogo(true);
+    try {
+      // Streams directly to Vercel Blob; the route only mints a scoped token.
+      const blob = await upload(file.name, file, {
+        access: "public",
+        handleUploadUrl: "/api/admin/kennels/logo/upload",
+      });
+      setLogoUrl(blob.url);
+      toast.success("Logo uploaded");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Logo upload failed");
+    } finally {
+      setUploadingLogo(false);
+    }
   }
 
   function handleGenerateAliases() {
@@ -235,6 +288,7 @@ export function KennelForm({ kennel, regions, trigger }: Readonly<KennelFormProp
         setAliases(kennel?.aliases ?? []);
         setSelectedRegionId(kennel?.regionId ?? "");
         setIsHidden(kennel?.isHidden ?? false);
+        setLogoUrl(kennel?.logoUrl ?? "");
       }
     }}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
@@ -612,14 +666,67 @@ export function KennelForm({ kennel, regions, trigger }: Readonly<KennelFormProp
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="logoUrl">Logo URL</Label>
-                <Input
-                  id="logoUrl"
-                  name="logoUrl"
-                  type="url"
-                  defaultValue={kennel?.logoUrl ?? ""}
-                  placeholder="https://example.com/logo.png"
-                />
+                <Label htmlFor="logoUrl">Logo</Label>
+                <div className="flex items-center gap-2">
+                  {logoUrl.trim() ? (
+                    // Live preview — a plain <img> (not next/image) so admins
+                    // see exactly what they pasted, including not-yet-valid URLs.
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={logoUrl}
+                      alt="Logo preview"
+                      className="h-10 w-10 shrink-0 rounded-md object-contain bg-white ring-1 ring-border"
+                    />
+                  ) : (
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-muted text-[10px] text-muted-foreground ring-1 ring-border">
+                      none
+                    </div>
+                  )}
+                  <Input
+                    id="logoUrl"
+                    name="logoUrl"
+                    // Plain text (not type="url"): native URL validation rejects
+                    // the site-relative `/kennel-logos/*` paths the server allows
+                    // — the custom checkLogoUrl rule (+ warning below) governs.
+                    type="text"
+                    value={logoUrl}
+                    onChange={(e) => setLogoUrl(e.target.value)}
+                    placeholder="https://example.com/logo.png or /kennel-logos/foo.png"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={uploadingLogo}
+                    onClick={() => logoFileRef.current?.click()}
+                  >
+                    {uploadingLogo ? "Uploading…" : "Upload image"}
+                  </Button>
+                  <input
+                    ref={logoFileRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/gif"
+                    className="hidden"
+                    onChange={handleLogoUpload}
+                  />
+                  {logoUrl.trim() && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setLogoUrl("")}
+                    >
+                      Clear
+                    </Button>
+                  )}
+                </div>
+                {logoWarning && (
+                  <p className="text-xs text-yellow-600 dark:text-yellow-500">
+                    {logoWarning}
+                  </p>
+                )}
               </div>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">

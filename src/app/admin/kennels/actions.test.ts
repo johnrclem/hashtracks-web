@@ -28,10 +28,13 @@ vi.mock("next/cache", () => ({
 
 import { getAdminUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { revalidatePath } from "next/cache";
+import { regionNameToSlug, regionSlug } from "@/lib/region";
 import {
   createKennel,
   updateKennel,
   deleteKennel,
+  toggleKennelVisibility,
   assignMismanRole,
   revokeMismanRole,
   deduplicateEventKennels,
@@ -42,6 +45,9 @@ const mockKennelFindFirst = vi.mocked(prisma.kennel.findFirst);
 const mockKennelFindUnique = vi.mocked(prisma.kennel.findUnique);
 const mockKennelFindMany = vi.mocked(prisma.kennel.findMany);
 const mockKennelCreate = vi.mocked(prisma.kennel.create);
+const mockRevalidatePath = vi.mocked(revalidatePath);
+const regionPath = (name: string) =>
+  `/kennels/region/${regionNameToSlug(name) ?? regionSlug(name)}`;
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -441,5 +447,70 @@ describe("revokeMismanRole", () => {
       where: { userId_kennelId: { userId: "u1", kennelId: "k1" } },
       data: { role: "MEMBER" },
     });
+  });
+});
+
+describe("region ISR revalidation (#1461)", () => {
+  it("createKennel busts the new region landing page", async () => {
+    mockKennelFindUnique
+      .mockResolvedValueOnce(null)  // kennelCode check
+      .mockResolvedValueOnce(null); // slug check
+    mockKennelFindFirst.mockResolvedValueOnce(null);
+    mockKennelCreate.mockResolvedValueOnce({} as never);
+    const fd = new FormData();
+    fd.set("shortName", "TestH3");
+    fd.set("fullName", "Test Hash");
+    fd.set("region", "NYC");
+    fd.set("regionId", "region_1");
+    await createKennel(fd);
+    expect(mockRevalidatePath).toHaveBeenCalledWith(regionPath("NYC"));
+  });
+
+  it("updateKennel busts BOTH the old and new region pages when a kennel moves", async () => {
+    vi.mocked(prisma.region.findUnique).mockResolvedValueOnce({ id: "region_1", name: "NYC" } as never);
+    mockKennelFindFirst
+      .mockResolvedValueOnce(null)  // slug check
+      .mockResolvedValueOnce(null); // shortName+region check
+    // current kennel lives in a different region (the move source)
+    mockKennelFindUnique.mockResolvedValueOnce({ shortName: "TestH3", region: "Boston, MA" } as never);
+    const fd = new FormData();
+    fd.set("shortName", "TestH3");
+    fd.set("fullName", "Test Hash");
+    fd.set("region", "NYC");
+    fd.set("regionId", "region_1");
+
+    const result = await updateKennel("k1", fd);
+    expect(result).toEqual({ success: true });
+    expect(mockRevalidatePath).toHaveBeenCalledWith(regionPath("NYC"));         // new region
+    expect(mockRevalidatePath).toHaveBeenCalledWith(regionPath("Boston, MA"));  // old region
+  });
+
+  it("deleteKennel busts the deleted kennel's region page", async () => {
+    mockKennelFindUnique.mockResolvedValueOnce({
+      id: "k1",
+      kennelCode: "testh3",
+      region: "Chicago, IL",
+      _count: { events: 0, members: 0 },
+    } as never);
+    vi.mocked(prisma.eventKennel.count).mockResolvedValueOnce(0);
+    vi.mocked(prisma.kennelAttendance.count).mockResolvedValueOnce(0);
+
+    const result = await deleteKennel("k1");
+    expect(result).toEqual({ success: true });
+    expect(mockRevalidatePath).toHaveBeenCalledWith(regionPath("Chicago, IL"));
+  });
+
+  it("toggleKennelVisibility busts the kennel's region page", async () => {
+    mockKennelFindUnique.mockResolvedValueOnce({
+      isHidden: false,
+      shortName: "TestH3",
+      slug: "testh3",
+      region: "Boston, MA",
+    } as never);
+    vi.mocked(prisma.kennel.update).mockResolvedValueOnce({} as never);
+
+    const result = await toggleKennelVisibility("k1");
+    expect(result).toEqual({ success: true, isHidden: true });
+    expect(mockRevalidatePath).toHaveBeenCalledWith(regionPath("Boston, MA"));
   });
 });

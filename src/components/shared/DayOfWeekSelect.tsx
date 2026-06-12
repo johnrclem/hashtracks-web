@@ -25,23 +25,29 @@ interface DayOfWeekSelectProps {
 export function DayOfWeekSelect({ selectedDays, onDaysChange }: DayOfWeekSelectProps) {
   return (
     <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          variant={selectedDays.length > 0 ? "secondary" : "outline"}
-          size="sm"
-          className={`h-8 text-xs ${selectedDays.length > 0 ? "border-primary/50" : ""}`}
-        >
-          {selectedDays.length > 0 ? selectedDays.join(", ") : "Run Day"}
-          {selectedDays.length > 1 && (
-            <Badge variant="secondary" className="ml-1 text-xs">
-              {selectedDays.length}
-            </Badge>
-          )}
-          {selectedDays.length > 0 && (
-            <ClearFilterButton onClick={() => onDaysChange([])} label="Clear day filter" />
-          )}
-        </Button>
-      </PopoverTrigger>
+      <div className="relative inline-flex items-center">
+        <PopoverTrigger asChild>
+          <Button
+            variant={selectedDays.length > 0 ? "secondary" : "outline"}
+            size="sm"
+            className={`h-8 text-xs ${selectedDays.length > 0 ? "border-primary/50 pr-7" : ""}`}
+          >
+            {selectedDays.length > 0 ? selectedDays.join(", ") : "Run Day"}
+            {selectedDays.length > 1 && (
+              <Badge variant="secondary" className="ml-1 text-xs">
+                {selectedDays.length}
+              </Badge>
+            )}
+          </Button>
+        </PopoverTrigger>
+        {selectedDays.length > 0 && (
+          <ClearFilterButton
+            onClick={() => onDaysChange([])}
+            label="Clear day filter"
+            className="absolute right-1 top-1/2 -translate-y-1/2"
+          />
+        )}
+      </div>
       <PopoverContent className="w-44 p-0" align="start">
         <Command>
           <CommandList>
