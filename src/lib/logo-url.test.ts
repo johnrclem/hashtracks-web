@@ -26,4 +26,9 @@ describe("checkLogoUrl (#1414 shared logo-url rule)", () => {
   it("flags unparseable values", () => {
     expect(checkLogoUrl("not a url")).toBe("unparseable");
   });
+
+  it("does not accept protocol-relative URLs as a site-relative path", () => {
+    // `//host` would resolve to http on an http page — must not pass as "ok".
+    expect(checkLogoUrl("//cdn.example.com/logo.png")).not.toBe("ok");
+  });
 });

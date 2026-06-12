@@ -11,9 +11,10 @@ export type LogoUrlCheck = "ok" | "unparseable" | "insecure-http" | "non-https";
 
 export function checkLogoUrl(value: string): LogoUrlCheck {
   const trimmed = value.trim();
-  // Empty or site-relative (incl. protocol-relative `//`, matching the existing
-  // callers) is treated as valid here; emptiness is filtered upstream.
-  if (!trimmed || trimmed.startsWith("/")) return "ok";
+  // Empty or a true site-relative path (`/foo`, not protocol-relative `//host`,
+  // which would resolve to http on an http page) is valid. This matches the
+  // optimizer gate in `isOptimizableLogo`. Emptiness is filtered upstream.
+  if (!trimmed || (trimmed.startsWith("/") && !trimmed.startsWith("//"))) return "ok";
   let parsed: URL;
   try {
     parsed = new URL(trimmed);

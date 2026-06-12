@@ -182,6 +182,16 @@ export function KennelForm({ kennel, regions, trigger }: Readonly<KennelFormProp
     const file = e.target.files?.[0];
     e.target.value = ""; // allow re-selecting the same file after an error
     if (!file) return;
+    // Validate client-side to match the route's onBeforeGenerateToken limits,
+    // so an oversized/wrong file fails instantly instead of round-tripping.
+    if (!["image/png", "image/jpeg", "image/webp", "image/gif"].includes(file.type)) {
+      toast.error("Logo must be a PNG, JPEG, WebP, or GIF image");
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Logo must be under 2 MB");
+      return;
+    }
     setUploadingLogo(true);
     try {
       // Streams directly to Vercel Blob; the route only mints a scoped token.
@@ -675,10 +685,13 @@ export function KennelForm({ kennel, regions, trigger }: Readonly<KennelFormProp
                   <Input
                     id="logoUrl"
                     name="logoUrl"
-                    type="url"
+                    // Plain text (not type="url"): native URL validation rejects
+                    // the site-relative `/kennel-logos/*` paths the server allows
+                    // — the custom checkLogoUrl rule (+ warning below) governs.
+                    type="text"
                     value={logoUrl}
                     onChange={(e) => setLogoUrl(e.target.value)}
-                    placeholder="https://example.com/logo.png"
+                    placeholder="https://example.com/logo.png or /kennel-logos/foo.png"
                   />
                 </div>
                 <div className="flex items-center gap-2">

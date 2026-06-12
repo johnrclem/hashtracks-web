@@ -76,8 +76,8 @@ interface YearsActive {
 export function computeYearsActive(
   foundedYear: number | null | undefined,
   oldestEventDate: string | null,
+  currentYear: number = new Date().getUTCFullYear(),
 ): YearsActive | null {
-  const currentYear = new Date().getUTCFullYear();
   if (foundedYear) {
     return { years: currentYear - foundedYear, sinceYear: foundedYear, approximate: false };
   }

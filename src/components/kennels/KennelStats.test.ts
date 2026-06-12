@@ -39,4 +39,17 @@ describe("computeYearsActive (#1290)", () => {
     expect(result?.sinceYear).toBe(CURRENT_YEAR - 25);
     expect(result?.approximate).toBe(false);
   });
+
+  it("is pure when given an explicit currentYear (deterministic, no clock dependency)", () => {
+    expect(computeYearsActive(1990, null, 2026)).toEqual({
+      years: 36,
+      sinceYear: 1990,
+      approximate: false,
+    });
+    expect(computeYearsActive(null, utcNoon(2020), 2026)).toEqual({
+      years: 6,
+      sinceYear: 2020,
+      approximate: true,
+    });
+  });
 });

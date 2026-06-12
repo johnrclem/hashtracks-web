@@ -22,6 +22,13 @@ export function ClearFilterButton({
       )}
       onClick={(e) => {
         e.stopPropagation();
+        // Clearing the filter unmounts this button; move focus back to the
+        // sibling trigger first so keyboard users aren't dumped on <body> (#1140).
+        const prev = e.currentTarget.previousElementSibling;
+        if (prev instanceof HTMLElement) {
+          const trigger = prev.tagName === "BUTTON" ? prev : prev.querySelector("button");
+          trigger?.focus();
+        }
         onClick();
       }}
       aria-label={label}
