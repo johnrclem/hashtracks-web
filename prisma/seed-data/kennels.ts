@@ -3362,11 +3362,11 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "bch3", shortName: "BCH3", fullName: "Brew City Hash House Harriers", region: "Milwaukee, WI",
       website: "https://www.brewcityh3.com",
       facebookUrl: "https://www.facebook.com/groups/BrewCityH3/",
-      scheduleDayOfWeek: "Friday", scheduleFrequency: "Weekly",
+      scheduleDayOfWeek: "Thursday", scheduleFrequency: "Weekly",
       hashCash: "$7-8",
       contactEmail: "Fido@BrewCityH3.com",
       logoUrl: "https://static.wixstatic.com/media/5b98c7_0b8ba7cdd4114a479765ea7e0d64d4ea~mv2.png/v1/fill/w_657,h_534,al_c/5b98c7_0b8ba7cdd4114a479765ea7e0d64d4ea~mv2.png",
-      description: "Milwaukee's weekly Friday evening hash. Trail #359+.",
+      description: "Milwaukee's weekly Thursday evening hash. Trail #359+.",
       latitude: 43.04, longitude: -87.91,
     },
 
