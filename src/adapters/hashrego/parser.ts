@@ -1,7 +1,7 @@
 import * as cheerio from "cheerio";
 import isSafeRegex from "safe-regex2";
 import type { RawEventData } from "../types";
-import { normalizeCostSigil } from "../utils";
+import { normalizeCostSigil, parse12HourTime, stripHtmlTags } from "../utils";
 import { detectVenueWeekendEndDate } from "@/pipeline/venue-weekend";
 
 const BASE_URL = "https://hashrego.com";
@@ -61,6 +61,19 @@ export interface ParsedEvent {
    * `"${title} (Day N)"` for those days (the pre-E.1 behavior).
    */
   perDayTitles?: ReadonlyArray<string | undefined>;
+  /**
+   * Per-day venue / street-address / Google-Maps URL / hares, populated by the
+   * schedule-tab strategy (#875 — PGH H3 NFL Draft weekend). hashrego renders a
+   * per-day `Schedule of Events` tab block (`div.schedule .tab-pane`) whose
+   * venue + hares live in the page body, NOT in og:description. Aligned with
+   * `dates` by index; entries are `undefined` for days the tab didn't supply.
+   * `splitToRawEvents` falls back to the whole-event `location`/`hares` when a
+   * per-day entry is absent.
+   */
+  perDayLocations?: ReadonlyArray<string | undefined>;
+  perDayAddresses?: ReadonlyArray<string | undefined>;
+  perDayMapsUrls?: ReadonlyArray<string | undefined>;
+  perDayHares?: ReadonlyArray<string | undefined>;
 }
 
 /**
@@ -273,13 +286,23 @@ export function parseEventDetail(
   const locationAddress = descAddress || domLocation.address;
   const locationUrl = descLocationUrl || domLocation.mapsUrl;
 
-  // Parse dates from the description or index entry
-  const { dates, startTimes, isMultiDay, endDate, perDayKennelCodes, perDayTitles } = extractDates(
-    rawDescription,
-    indexEntry,
-    title,
-    kennelPatterns,
-  );
+  // Per-day `Schedule of Events` tabs from the page body (#875). Empty for the
+  // vast majority of events; only multi-day weekend pages carry them.
+  const scheduleTabs = parseScheduleTabs($);
+
+  // Parse dates from the description, schedule tabs, or index entry
+  const {
+    dates,
+    startTimes,
+    isMultiDay,
+    endDate,
+    perDayKennelCodes,
+    perDayTitles,
+    perDayLocations,
+    perDayAddresses,
+    perDayMapsUrls,
+    perDayHares,
+  } = extractDates(rawDescription, indexEntry, title, kennelPatterns, scheduleTabs);
 
   // Clean description: remove structured fields we already extracted
   const description = cleanDescription(rawDescription);
@@ -300,6 +323,10 @@ export function parseEventDetail(
     endDate,
     perDayKennelCodes,
     perDayTitles,
+    perDayLocations,
+    perDayAddresses,
+    perDayMapsUrls,
+    perDayHares,
   };
 }
 
@@ -426,6 +453,31 @@ function extractLocationFromDom(
 }
 
 /**
+ * Per-day location/hares for a multi-day row (#875). Prefers the schedule-tab
+ * per-day values when present, falling back to the whole-event values so events
+ * without per-day tabs (every existing multi-day kennel) behave identically.
+ */
+function perDayLocationFields(
+  parsed: ParsedEvent,
+  i: number,
+): { location?: string; locationStreet?: string; locationUrl?: string; hares?: string } {
+  const dayVenue = parsed.perDayLocations?.[i];
+  const dayStreet = parsed.perDayAddresses?.[i];
+  const dayMapsUrl = parsed.perDayMapsUrls?.[i];
+  // When the day has its OWN venue/street, do NOT inherit the umbrella's maps URL
+  // — that would pin this day's geocoding to a different venue (Codex P2). Use
+  // the day's own maps URL (or none, letting the street geocode). Only days with
+  // no per-day location at all fall back to the whole-event values.
+  const hasDayLocation = dayVenue !== undefined || dayStreet !== undefined;
+  return {
+    location: dayVenue ?? (hasDayLocation ? undefined : parsed.location),
+    locationStreet: dayStreet,
+    locationUrl: dayMapsUrl ?? (hasDayLocation ? undefined : (parsed.locationAddress || parsed.locationUrl)),
+    hares: parsed.perDayHares?.[i] ?? parsed.hares,
+  };
+}
+
+/**
  * Split a parsed event into per-day RawEventData entries.
  * For single-day events, returns one entry.
  * For multi-day events, returns one per date with seriesId set.
@@ -511,6 +563,7 @@ export function splitToRawEvents(
     // fallback when the description had no parseable section title.
     const sectionTitle = parsed.perDayTitles?.[i];
     const childTitle = sectionTitle ?? `${parsed.title} (${dayLabel})`;
+    const { location, locationStreet, locationUrl, hares } = perDayLocationFields(parsed, i);
     return {
       date,
       kennelTags: [perDayCode ?? hostKennelTag],
@@ -519,9 +572,10 @@ export function splitToRawEvents(
       // #1126 — cost is a single registration fee for the whole series, so it
       // lives on the parent/umbrella row only, NOT repeated onto each day
       // (which would read as "$N per day").
-      hares: parsed.hares,
-      location: parsed.location,
-      locationUrl: parsed.locationAddress || parsed.locationUrl,
+      hares,
+      location,
+      ...(locationStreet ? { locationStreet } : {}),
+      ...(locationUrl ? { locationUrl } : {}),
       startTime: parsed.startTimes[i] || parsed.startTimes[0] || undefined,
       sourceUrl: hashRegoUrl,
       externalLinks,
@@ -553,15 +607,20 @@ export function splitToRawEvents(
   // Shape (1): Day 1 doubles as parent (original PR B behavior).
   return parsed.dates.map((date, i) => {
     if (i === 0) {
+      // #875 — the Day-1 parent also carries that day's per-day venue/hares
+      // (e.g. NFL Draft Wednesday = Hop's Place / Darkside H3), not just the
+      // umbrella defaults.
+      const { location, locationStreet, locationUrl, hares } = perDayLocationFields(parsed, 0);
       return {
         date,
         kennelTags: [hostKennelTag],
         title: parsed.title,
         description: parsed.description,
         cost: parsed.cost, // #1126 — registration cost on the Day-1 parent
-        hares: parsed.hares,
-        location: parsed.location,
-        locationUrl: parsed.locationAddress || parsed.locationUrl,
+        hares,
+        location,
+        ...(locationStreet ? { locationStreet } : {}),
+        ...(locationUrl ? { locationUrl } : {}),
         startTime: parsed.startTimes[0] || undefined,
         sourceUrl: hashRegoUrl,
         externalLinks,
@@ -670,10 +729,7 @@ function generateDatesInRange(startDate: Date, endDate: Date): string[] {
   const dates: string[] = [];
   const current = new Date(startDate);
   while (current <= endDate) {
-    const m = current.getUTCMonth() + 1;
-    const d = current.getUTCDate();
-    const y = current.getUTCFullYear();
-    dates.push(`${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`);
+    dates.push(isoUtcDate(current));
     current.setUTCDate(current.getUTCDate() + 1);
   }
   return dates;
@@ -1176,6 +1232,11 @@ type DateRangeResult = {
   perDayKennelCodes?: ReadonlyArray<string | undefined>;
   /** Per-day section-header titles (PR E.1). Aligned with `dates` by index. */
   perDayTitles?: ReadonlyArray<string | undefined>;
+  /** Per-day venue / address / maps URL / hares (#875 schedule tabs). */
+  perDayLocations?: ReadonlyArray<string | undefined>;
+  perDayAddresses?: ReadonlyArray<string | undefined>;
+  perDayMapsUrls?: ReadonlyArray<string | undefined>;
+  perDayHares?: ReadonlyArray<string | undefined>;
 };
 
 /** Try to parse a date range from the description and index entry. */
@@ -1236,36 +1297,331 @@ function parseDateRangeFromDescription(
 // adapter import `detectVenueWeekendEndDate` from `./parser`.
 export { detectVenueWeekendEndDate };
 
+// ── #875: per-day `Schedule of Events` tabs (PGH H3 NFL Draft weekend) ──
+//
+// Some multi-day hashrego events publish per-day venue/hares in a `div.schedule`
+// tab block in the PAGE BODY (one `.tab-pane` per weekday) rather than in
+// og:description. The umbrella og:description carries no dates or venues, so the
+// description-based strategies (1 & 2) return nothing. Strategy 3 below reads
+// these tabs, anchors each weekday label to the index start date, and emits a
+// per-day split. It is strictly additive: it only fires when Strategies 1 & 2
+// found nothing AND ≥2 weekday-labelled tabs exist.
+
+/** One day of a hashrego `Schedule of Events` tab block. */
+export interface ScheduleTab {
+  /** Weekday label from the tab nav (e.g. "Wednesday"). */
+  weekday: string;
+  venue?: string;
+  address?: string;
+  mapsUrl?: string;
+  /** "HH:MM" local start time parsed from the tab's `When:` line. */
+  startTime?: string;
+  /** Host kennel named in the tab prose, surfaced as the day's hares. */
+  hares?: string;
+}
+
+/** Weekday label → UTC day index (Sun=0). Mirrors `WEEKDAY_NAMES` coverage. */
+const WEEKDAY_DOW: ReadonlyMap<string, number> = new Map([
+  ["sun", 0], ["sunday", 0],
+  ["mon", 1], ["monday", 1],
+  ["tue", 2], ["tues", 2], ["tuesday", 2],
+  ["wed", 3], ["weds", 3], ["wednesday", 3],
+  ["thu", 4], ["thur", 4], ["thurs", 4], ["thursday", 4],
+  ["fri", 5], ["friday", 5],
+  ["sat", 6], ["saturday", 6],
+]);
+
+function weekdayLabelToDow(label: string): number | null {
+  return WEEKDAY_DOW.get(label.trim().toLowerCase()) ?? null;
+}
+
+function isoUtcDate(d: Date): string {
+  const y = d.getUTCFullYear();
+  const m = d.getUTCMonth() + 1;
+  const day = d.getUTCDate();
+  return `${y}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+/**
+ * Parse a start time from a schedule-tab `When:` line. Mismanagement writes
+ * these free-form ("630pm gather 7pm on out", "6:30pm", "7 pm"), so try the
+ * shared colon-form parser first, then a procedural no-colon fallback. No
+ * nested-quantifier regex (keeps Sonar S5852 calm).
+ */
+function parseScheduleTime(line: string): string | undefined {
+  const colon = parse12HourTime(line);
+  if (colon) return colon;
+  const m = /\b(\d{1,2})(\d{2})?\s*(am|pm)\b/i.exec(line);
+  if (!m) return undefined;
+  let hours = Number.parseInt(m[1], 10);
+  const mins = m[2] ? Number.parseInt(m[2], 10) : 0;
+  if (hours > 12 || mins >= 60) return undefined;
+  const pm = m[3].toLowerCase() === "pm";
+  if (pm && hours !== 12) hours += 12;
+  if (!pm && hours === 12) hours = 0;
+  return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
+}
+
+const MAPS_URL_RE = /maps\.app\.goo\.gl|maps\.google|google\.com\/maps|goo\.gl/i;
+
+/** Split a tab pane's inner HTML into trimmed, non-empty lines (br/p = breaks). */
+function scheduleTabLines(rawHtml: string): string[] {
+  // Reuse the shared HTML→text helper: it converts `<br>`/closing block tags to
+  // the separator, strips script/style, decodes entities, and trims — exactly
+  // the line model we want here.
+  return stripHtmlTags(rawHtml, "\n").split("\n").filter(Boolean);
+}
+
+/** Stopwords that bound the backward host-kennel scan in `extractScheduleTabHares`. */
+const HARE_PROSE_STOPWORDS: ReadonlySet<string> = new Set([
+  "our", "the", "a", "an", "with", "join", "this", "we", "your", "will", "is", "it",
+]);
+
+/** Single-char name-token test (no quantifier — not a ReDoS shape). */
+const NAME_CHAR_RE = /[A-Za-z0-9@]/;
+
+/**
+ * Trim leading/trailing punctuation off a prose token ("Darkside," → "Darkside").
+ * Procedural rather than a `/[^…]+$/` regex — that anchored `+$` form trips
+ * Sonar S5852's ReDoS heuristic even though it's linear (cf. memory
+ * `feedback_sonar_s5852_false_positives`).
+ */
+function trimEdgePunctuation(token: string): string {
+  let start = 0;
+  let end = token.length;
+  while (start < end && !NAME_CHAR_RE.test(token[start])) start++;
+  while (end > start && !NAME_CHAR_RE.test(token[end - 1])) end--;
+  return token.slice(start, end);
+}
+
+/**
+ * Conservatively extract the host kennel named in a tab's lead prose, to surface
+ * as that day's hares ("Our Darkside H3 kennel…" → "Darkside H3"; "…Thursday
+ * (PITT) H3…" → "PITT H3"). Returns undefined when no confident match — free
+ * prose is fuzzy, so we never leak a sentence into the hares field. Procedural
+ * (split on whitespace, scan backward from the H3/H4/HHH token) — no ReDoS.
+ */
+function extractScheduleTabHares(prose: string | undefined): string | undefined {
+  if (!prose) return undefined;
+  const tokens = prose.split(/\s+/).filter(Boolean);
+  let hIdx = -1;
+  let suffix = "";
+  for (let i = 0; i < tokens.length; i++) {
+    const bare = tokens[i].replace(/[^A-Za-z0-9@]/g, "").toUpperCase();
+    if (bare === "H3" || bare === "H4" || bare === "HHH") {
+      hIdx = i;
+      suffix = bare;
+      break;
+    }
+  }
+  if (hIdx <= 0) return undefined; // need a preceding name token
+  // A parenthesized acronym immediately before the suffix IS the kennel code.
+  // Hyphen last in the class so it's a literal, not a range (kennel codes like
+  // "PGH-H3", "EW-H3" carry hyphens).
+  const paren = /^\(([A-Za-z0-9@&-]{2,})\)$/.exec(tokens[hIdx - 1]);
+  if (paren) return `${paren[1]} ${suffix}`;
+  // Otherwise collect up to 2 consecutive name-like tokens, stopping at a stopword.
+  const name: string[] = [];
+  for (let i = hIdx - 1; i >= 0 && name.length < 2; i--) {
+    const clean = trimEdgePunctuation(tokens[i]);
+    if (!clean || HARE_PROSE_STOPWORDS.has(clean.toLowerCase())) break;
+    const nameLike = /^[A-Z]/.test(clean) || /[@0-9]/.test(clean) || clean === clean.toUpperCase();
+    if (!nameLike) break;
+    name.unshift(clean);
+  }
+  return name.length > 0 ? `${name.join(" ")} ${suffix}` : undefined;
+}
+
+/** Lines that should never be read as a street address (URLs and labelled fields). */
+const NON_ADDRESS_LINE_RE = /^(?:https?:\/\/|after|when|where|cost|hares?|time|start)\b/i;
+
+/** Scan a tab's lines for the `When:` time, the `Where:` venue, and a maps URL. */
+function scanScheduleTabHeader(
+  lines: string[],
+): { venue?: string; mapsUrl?: string; startTime?: string; whereIdx: number } {
+  let venue: string | undefined;
+  let mapsUrl: string | undefined;
+  let startTime: string | undefined;
+  let whereIdx = -1;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (startTime === undefined && /^when\b/i.test(line)) startTime = parseScheduleTime(line);
+    if (whereIdx === -1 && /^where\b/i.test(line)) {
+      venue = line.replace(/^where\s*:?\s*/i, "").trim() || undefined;
+      whereIdx = i;
+    }
+    if (mapsUrl === undefined && MAPS_URL_RE.test(line)) mapsUrl = line;
+  }
+  return { venue, mapsUrl, startTime, whereIdx };
+}
+
+/**
+ * First line after `Where:` that carries a street number and isn't a URL or
+ * another labelled field. The label skip guards against a `When:`/`Cost:` line
+ * that follows `Where:` and contains a digit (e.g. "When: 6:30").
+ */
+function findScheduleTabAddress(lines: string[], whereIdx: number): string | undefined {
+  if (whereIdx < 0) return undefined;
+  for (let i = whereIdx + 1; i < lines.length; i++) {
+    const line = lines[i];
+    if (!NON_ADDRESS_LINE_RE.test(line) && /\d/.test(line)) return line;
+  }
+  return undefined;
+}
+
+/** Extract structured fields from one tab pane's text lines. */
+function parseScheduleTabFields(lines: string[]): Omit<ScheduleTab, "weekday"> {
+  const { venue, mapsUrl, startTime, whereIdx } = scanScheduleTabHeader(lines);
+  return {
+    venue,
+    address: findScheduleTabAddress(lines, whereIdx),
+    mapsUrl,
+    startTime,
+    hares: extractScheduleTabHares(lines[0]),
+  };
+}
+
+/**
+ * Parse the per-day `Schedule of Events` tabs from a detail page. Returns the
+ * weekday-labelled days in document order. Empty unless ≥2 weekday tabs exist.
+ */
+export function parseScheduleTabs($: cheerio.CheerioAPI): ScheduleTab[] {
+  const sched = $(".schedule").first();
+  if (sched.length === 0) return [];
+  const labels: string[] = [];
+  sched.find(".nav-tabs li a").each((_i, a) => {
+    labels.push($(a).text().trim());
+  });
+  const panes = sched.find(".tab-content .tab-pane");
+  if (labels.length < 2 || panes.length === 0) return [];
+
+  const tabs: ScheduleTab[] = [];
+  panes.each((i, pane) => {
+    const label = labels[i];
+    if (!label || weekdayLabelToDow(label) === null) return;
+    const $pane = $(pane);
+    const fields = parseScheduleTabFields(scheduleTabLines($pane.html() ?? ""));
+    // Prefer the maps link straight off the anchor href — survives a future
+    // template change that wraps the URL in `<a>` (text-stripping would lose it)
+    // and avoids capturing trailing prose punctuation. Falls back to the
+    // text-scraped URL for the current bare-text markup.
+    const href = $pane
+      .find("a[href*='maps.app.goo.gl'], a[href*='maps.google'], a[href*='google.com/maps']")
+      .first()
+      .attr("href");
+    if (href) fields.mapsUrl = href;
+    tabs.push({ weekday: label, ...fields });
+  });
+  // ≥2 weekday-labelled days required — single-day events / non-schedule blocks
+  // must not trip the multi-day path (keeps Strategy 3 additive).
+  return tabs.length >= 2 ? tabs : [];
+}
+
+/**
+ * Strategy 3 (#875): build a per-day date range from schedule tabs. Day 0 is
+ * anchored to the index start date (authoritative); each later day advances the
+ * cursor to the next date matching that tab's weekday label.
+ */
+/** First UTC date ≥ `fromMs` whose day-of-week is `dow` (within a week), else null. */
+function nextUtcDateForDow(fromMs: number, dow: number): Date | null {
+  const d = new Date(fromMs);
+  for (let guard = 0; guard < 7 && d.getUTCDay() !== dow; guard++) {
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return d.getUTCDay() === dow ? d : null;
+}
+
+/**
+ * Build the per-day date list: day 0 is the anchor, each later day advances to
+ * the next date matching that tab's weekday. Returns null on any unmappable or
+ * unreachable weekday.
+ */
+function buildScheduleTabDates(startDateStr: string, startMs: number, tabs: ScheduleTab[]): string[] | null {
+  const dates: string[] = [startDateStr];
+  let cursor = startMs + 86_400_000;
+  for (let i = 1; i < tabs.length; i++) {
+    const dow = weekdayLabelToDow(tabs[i].weekday);
+    if (dow === null) return null;
+    const d = nextUtcDateForDow(cursor, dow);
+    if (!d) return null;
+    dates.push(isoUtcDate(d));
+    cursor = d.getTime() + 86_400_000;
+  }
+  return dates;
+}
+
+function parseScheduleTabRange(
+  indexEntry: IndexEntry,
+  tabs: ScheduleTab[],
+): DateRangeResult | null {
+  const startDateStr = parseHashRegoDate(indexEntry.startDate);
+  if (!startDateStr) return null;
+
+  // Day 0 IS the index start date, so its weekday MUST match the first tab's
+  // label. If it doesn't, the index date is stale/shifted and anchoring the
+  // tabs to it would pair each day's venue/hares with the wrong date — bail to
+  // the single-day path rather than publish misaligned data (Codex review).
+  const startMs = Date.parse(`${startDateStr}T00:00:00Z`);
+  const firstDow = weekdayLabelToDow(tabs[0].weekday);
+  if (firstDow === null || firstDow !== new Date(startMs).getUTCDay()) return null;
+
+  const dates = buildScheduleTabDates(startDateStr, startMs, tabs);
+  if (!dates) return null;
+
+  const firstTime = tabs.find((t) => t.startTime)?.startTime ?? "";
+  return {
+    dates,
+    startTimes: tabs.map((t) => t.startTime ?? firstTime),
+    isMultiDay: true,
+    endDate: dates.at(-1),
+    perDayLocations: tabs.map((t) => t.venue),
+    perDayAddresses: tabs.map((t) => t.address),
+    perDayMapsUrls: tabs.map((t) => t.mapsUrl),
+    perDayHares: tabs.map((t) => t.hares),
+  };
+}
+
+const EMPTY_RANGE: DateRangeResult = { dates: [], startTimes: [], isMultiDay: false };
+
+/**
+ * Single-day fallback from the index entry. Applies the venue-weekend campout
+ * heuristic (#1560 PR C) so a single registration row can still carry an
+ * inclusive `endDate` (Madison-style "Jan 16 – 18" pill, no child expansion).
+ */
+function singleDayRange(description: string, indexEntry: IndexEntry, title?: string): DateRangeResult {
+  const date = parseHashRegoDate(indexEntry.startDate);
+  if (!date) return EMPTY_RANGE;
+  const time = parseHashRegoTime(indexEntry.startTime);
+  const endDate = detectVenueWeekendEndDate(description, title ?? "", date);
+  return {
+    dates: [date],
+    startTimes: time ? [time] : [],
+    isMultiDay: false,
+    ...(endDate ? { endDate } : {}),
+  };
+}
+
 /** Extract dates and detect multi-day events */
 function extractDates(
   description: string,
   indexEntry?: IndexEntry,
   title?: string,
   kennelPatterns?: KennelPatternConfig,
+  scheduleTabs?: ScheduleTab[],
 ): DateRangeResult {
-  if (indexEntry) {
-    const rangeResult = parseDateRangeFromDescription(description, indexEntry, kennelPatterns);
-    if (rangeResult) return rangeResult;
+  if (!indexEntry) return EMPTY_RANGE;
 
-    const date = parseHashRegoDate(indexEntry.startDate);
-    const time = parseHashRegoTime(indexEntry.startTime);
-    if (date) {
-      // Try the venue-weekend campout heuristic (#1560 PR C) before
-      // committing to a single-day result. When it fires, the row stays
-      // single (no children) but carries an `endDate` so the UI renders
-      // a date-range pill — Madison-style "Jan 16 – 18" without the
-      // "+ N trails" expansion.
-      const endDate = detectVenueWeekendEndDate(description, title ?? "", date);
-      return {
-        dates: [date],
-        startTimes: time ? [time] : [],
-        isMultiDay: false,
-        ...(endDate ? { endDate } : {}),
-      };
-    }
+  const rangeResult = parseDateRangeFromDescription(description, indexEntry, kennelPatterns);
+  if (rangeResult) return rangeResult;
+
+  // Strategy 3 (#875): per-day schedule tabs in the page body. Only after the
+  // description-based strategies found nothing AND ≥2 weekday tabs exist.
+  if (scheduleTabs && scheduleTabs.length >= 2) {
+    const tabResult = parseScheduleTabRange(indexEntry, scheduleTabs);
+    if (tabResult) return tabResult;
   }
 
-  return { dates: [], startTimes: [], isMultiDay: false };
+  return singleDayRange(description, indexEntry, title);
 }
 
 /** Extract year from "MM/DD/YY" format */

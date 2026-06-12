@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { load as cheerioLoad } from "cheerio";
 import {
   parseEventsIndex,
   parseKennelEventsPage,
@@ -7,6 +8,7 @@ import {
   parseEventDetail,
   splitToRawEvents,
   parseDayHeaderSections,
+  parseScheduleTabs,
   detectVenueWeekendEndDate,
   stripDoubledKennelPrefix,
   type ParsedEvent,
@@ -529,6 +531,39 @@ describe("parseEventDetail", () => {
   it("extracts kennel slug from sidebar link", () => {
     const parsed = parseEventDetail(SINGLE_DAY_HTML, "bfmh3-agm-2026", BFMH3_INDEX_ENTRY);
     expect(parsed.kennelSlug).toBe("BFMH3");
+  });
+
+  it("#1460: title comes from og:title, never the URL slug", () => {
+    // San Antonio H3's hashrego slug carries a doubled kennel prefix
+    // ("sah3-sah3-2026") because the event was registered with a doubled
+    // name. A naive slug→title-case would yield "SAH3 SAH3 2026". The adapter
+    // must instead read the real event title from og:title. The #1669
+    // doubled-prefix stripper is a NO-OP here because the real title's second
+    // token ("Summer") isn't a repeat of the kennel code.
+    const html = `
+<html>
+<head>
+  <title>SAH3 Summer Campout 2026</title>
+  <meta property="og:title" content="06/19 SAH3 Summer Campout 2026" />
+  <meta property="og:description" content='SAH3 Campout' />
+</head>
+<body>
+  <a href="/kennels/SAH3/">SAH3</a>
+</body>
+</html>`;
+    const entry = {
+      slug: "sah3-sah3-2026",
+      kennelSlug: "SAH3",
+      title: "SAH3 SAH3 2026", // slug-derived index title — must NOT win
+      startDate: "06/19/26",
+      startTime: "",
+      type: "Hash Campout",
+      cost: "",
+    };
+
+    const parsed = parseEventDetail(html, "sah3-sah3-2026", entry);
+    expect(parsed.title).toBe("SAH3 Summer Campout 2026");
+    expect(parsed.title).not.toContain("SAH3 SAH3");
   });
 
   it("extracts hares", () => {
@@ -1085,6 +1120,196 @@ Recovery day.' />
     expect(events[0].date).toBe("2026-06-26");
     // No duplicate Day 1 row.
     expect(events.filter((e) => e.date === "2026-06-26")).toHaveLength(1);
+  });
+});
+
+// #875 — PGH H3 NFL Draft Hash Weekend. Per-day venue/hares live in a
+// `div.schedule` tab block in the page BODY (one `.tab-pane` per weekday), NOT
+// in og:description (which carries only the umbrella blurb). Trimmed from the
+// live page (hashrego.com/events/nfl-draft-hash-weekend-spectacular-2026,
+// verified 2026-06-11), preserving the messy nested `<p><p><p>` markup.
+const NFL_DRAFT_HTML = `
+<html>
+<head>
+  <title>NFL Draft Hash Weekend Spectacular 2026</title>
+  <meta property="og:title" content="04/22 NFL Draft Hash Weekend Spectacular 2026" />
+  <meta property="og:description" content='The NFL draft is happening in Pittsburgh and all the kennels are coming together. Your rego includes all the events listed in the tabs below.' />
+</head>
+<body>
+  <a href="/kennels/PGH-H3/">PGH H3</a>
+  <div class="col-sm-6 schedule">
+    <h4 class="text-center"><strong>Schedule of Events</strong></h4>
+    <ul class="nav nav-tabs" role="tablist">
+      <li class="active"><a href="#schedule-tab-2895" role="tab" data-toggle="tab">Wednesday</a></li>
+      <li><a href="#schedule-tab-2896" role="tab" data-toggle="tab">Thursday</a></li>
+      <li><a href="#schedule-tab-2897" role="tab" data-toggle="tab">Friday</a></li>
+      <li><a href="#schedule-tab-2898" role="tab" data-toggle="tab">Saturday</a></li>
+      <li><a href="#schedule-tab-2899" role="tab" data-toggle="tab">Sunday</a></li>
+    </ul>
+    <div class="tab-content">
+      <div class="tab-pane active" id="schedule-tab-2895">
+        <p><p><p>Our Darkside H3 kennel will kick things off with a longer harder run. Trail $5 for those who didn't rego for the whole week.</p></p>
+        <p><p>When: 630pm gather 7pm on out<br />Where: Hop's Place<br />3037 Shadeland Ave, Pittsburgh, PA 15212<br />https://maps.app.goo.gl/cSPk3bJunnxN29Xu8</p><br /></p></p>
+      </div>
+      <div class="tab-pane" id="schedule-tab-2896">
+        <p><p><p>Pittsburgh Inebriated Thirsty Thursday (PITT) H3 will take us on a scenic jaunt. Trail $5 for those who didn't rego for the whole week.</p></p>
+        <p><p>When: 630pm gather 7pm on out<br />Where: Burghers at the Highline<br />46 S 4th St, Pittsburgh, PA 15219</p><br /></p></p>
+      </div>
+      <div class="tab-pane" id="schedule-tab-2897">
+        <p><p><p>Tn@ H3 our ladies and non-binary kennel will be hosting an all gender run. Trail $5 for those who didn't rego for the whole week.</p></p>
+        <p><p>When: 630pm gather 7pm on out<br />Where: Lorelei<br />124 S Highland Ave, Pittsburgh, PA 15206</p></p>
+        <p><p>After Party:<br />6391 Stanton Ave</p><br /></p></p>
+      </div>
+      <div class="tab-pane" id="schedule-tab-2898">
+        <p><p><p>PGH H3 the kennel you all know and love will be hosting a chaotic hash through the draft.</p></p>
+        <p><p>When: 630pm gather 7pm on out<br />Where: The YMR<br />631 Suismon St, Pittsburgh, PA 15212</p><br /></p></p>
+      </div>
+      <div class="tab-pane" id="schedule-tab-2899">
+        <p><p><p>Recovery brunch and farewells. Details on Discord.</p></p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+const NFL_DRAFT_INDEX_ENTRY = {
+  slug: "nfl-draft-hash-weekend-spectacular-2026",
+  kennelSlug: "PGH-H3",
+  title: "NFL Draft Hash Weekend Spectacular 2026",
+  startDate: "04/22/26", // Wednesday
+  startTime: "06:30 PM",
+  type: "Hash Weekend",
+  cost: "$85",
+};
+
+describe("parseScheduleTabs (#875)", () => {
+  it("extracts per-day venue / street / maps / hares from schedule tabs", () => {
+    const $ = cheerioLoad(NFL_DRAFT_HTML);
+    const tabs = parseScheduleTabs($);
+    expect(tabs.map((t) => t.weekday)).toEqual([
+      "Wednesday", "Thursday", "Friday", "Saturday", "Sunday",
+    ]);
+    expect(tabs[0]).toMatchObject({
+      venue: "Hop's Place",
+      address: "3037 Shadeland Ave, Pittsburgh, PA 15212",
+      mapsUrl: "https://maps.app.goo.gl/cSPk3bJunnxN29Xu8",
+      startTime: "18:30",
+      hares: "Darkside H3",
+    });
+    // Parenthesized acronym immediately before the suffix wins ("(PITT) H3").
+    expect(tabs[1].hares).toBe("PITT H3");
+    expect(tabs[1].venue).toBe("Burghers at the Highline");
+    expect(tabs[1].mapsUrl).toBeUndefined();
+    // Special-char kennel token survives.
+    expect(tabs[2].hares).toBe("Tn@ H3");
+    expect(tabs[2].venue).toBe("Lorelei");
+    // First address after `Where:` wins — the After-Party line is ignored.
+    expect(tabs[2].address).toBe("124 S Highland Ave, Pittsburgh, PA 15206");
+    expect(tabs[3].hares).toBe("PGH H3");
+    expect(tabs[3].venue).toBe("The YMR");
+    // Sunday tab has no When/Where/H3 → all fields undefined (no leakage).
+    expect(tabs[4].venue).toBeUndefined();
+    expect(tabs[4].hares).toBeUndefined();
+  });
+
+  it("takes the maps URL from the anchor href, skips a When: line after Where:, and handles hyphenated paren codes", () => {
+    // Edge cases flagged in review: (1) maps link wrapped in <a> (text-stripped
+    // → only the href survives); (2) `When:` follows `Where:` and carries a digit
+    // that must NOT be mistaken for the address; (3) a hyphenated kennel code in
+    // the paren-acronym position.
+    const html = `
+<div class="schedule">
+  <ul class="nav-tabs">
+    <li><a>Saturday</a></li>
+    <li><a>Sunday</a></li>
+  </ul>
+  <div class="tab-content">
+    <div class="tab-pane">
+      <p>The (D-Bag) H3 will host tonight.</p>
+      <p>Where: The Pub<br />When: 6:30 PM<br />100 Main St, Town, PA 19000<br /><a href="https://maps.app.goo.gl/abc123">Get Directions</a></p>
+    </div>
+    <div class="tab-pane">
+      <p>Recovery brunch.</p>
+    </div>
+  </div>
+</div>`;
+    const tabs = parseScheduleTabs(cheerioLoad(html));
+    expect(tabs[0]).toMatchObject({
+      venue: "The Pub",
+      address: "100 Main St, Town, PA 19000", // NOT "When: 6:30 PM"
+      mapsUrl: "https://maps.app.goo.gl/abc123", // from href, not body text
+      hares: "D-Bag H3", // hyphenated paren acronym
+    });
+  });
+});
+
+describe("parseEventDetail + splitToRawEvents — NFL Draft schedule tabs (#875)", () => {
+  it("derives the 5 consecutive dates by anchoring weekday tabs to the start date", () => {
+    const parsed = parseEventDetail(
+      NFL_DRAFT_HTML,
+      "nfl-draft-hash-weekend-spectacular-2026",
+      NFL_DRAFT_INDEX_ENTRY,
+    );
+    expect(parsed.isMultiDay).toBe(true);
+    expect(parsed.dates).toEqual([
+      "2026-04-22", "2026-04-23", "2026-04-24", "2026-04-25", "2026-04-26",
+    ]);
+    expect(parsed.endDate).toBe("2026-04-26");
+  });
+
+  it("emits a Day-1 parent + 4 children, each with its own venue/street/hares", () => {
+    const parsed = parseEventDetail(
+      NFL_DRAFT_HTML,
+      "nfl-draft-hash-weekend-spectacular-2026",
+      NFL_DRAFT_INDEX_ENTRY,
+    );
+    const events = splitToRawEvents(parsed, "nfl-draft-hash-weekend-spectacular-2026");
+    expect(events).toHaveLength(5);
+
+    // Day 1 (Wednesday) doubles as the series parent AND carries Wednesday's
+    // per-day venue/hares (#875) — not just the umbrella defaults.
+    expect(events[0].date).toBe("2026-04-22");
+    expect(events[0].seriesParent).toBe(true);
+    expect(events[0].endDate).toBe("2026-04-26");
+    expect(events[0].title).toBe("NFL Draft Hash Weekend Spectacular 2026");
+    expect(events[0].kennelTags).toEqual(["PGH-H3"]);
+    expect(events[0].location).toBe("Hop's Place");
+    expect(events[0].locationStreet).toBe("3037 Shadeland Ave, Pittsburgh, PA 15212");
+    expect(events[0].locationUrl).toBe("https://maps.app.goo.gl/cSPk3bJunnxN29Xu8");
+    expect(events[0].hares).toBe("Darkside H3");
+    expect(events[0].cost).toBe("$85"); // registration cost on the umbrella only
+
+    // Thursday child.
+    expect(events[1].date).toBe("2026-04-23");
+    expect(events[1].seriesParent).toBeUndefined();
+    expect(events[1].location).toBe("Burghers at the Highline");
+    expect(events[1].locationStreet).toBe("46 S 4th St, Pittsburgh, PA 15219");
+    expect(events[1].hares).toBe("PITT H3");
+    expect(events[1].kennelTags).toEqual(["PGH-H3"]); // host kennel — hares ≠ kennelTag
+    expect(events[1].cost).toBeUndefined(); // not repeated per day
+
+    // Friday + Saturday children.
+    expect(events[2].location).toBe("Lorelei");
+    expect(events[2].hares).toBe("Tn@ H3");
+    expect(events[3].location).toBe("The YMR");
+    expect(events[3].hares).toBe("PGH H3");
+
+    // Sunday child — sparse tab → falls back to whole-event (undefined here).
+    expect(events[4].date).toBe("2026-04-26");
+    expect(events[4].location).toBeUndefined();
+    expect(events[4].hares).toBeUndefined();
+  });
+
+  it("refuses the tab split when the first tab weekday ≠ the index start date", () => {
+    // Guard against a stale/shifted index date: if Day 0's weekday (Wednesday)
+    // doesn't match the indexed start date (here a Tuesday), anchoring the tabs
+    // would pair every day's venue/hares with the wrong date. The parser must
+    // bail to the single indexed event rather than publish misaligned data.
+    const entry = { ...NFL_DRAFT_INDEX_ENTRY, startDate: "04/21/26" }; // Tuesday
+    const parsed = parseEventDetail(NFL_DRAFT_HTML, NFL_DRAFT_INDEX_ENTRY.slug, entry);
+    expect(parsed.isMultiDay).toBe(false);
+    expect(parsed.dates).toEqual(["2026-04-21"]);
+    expect(parsed.perDayLocations).toBeUndefined();
   });
 });
 
