@@ -12,8 +12,8 @@ globs:
 # Important Files
 
 ## Core
-- `prisma/schema.prisma` — Full data model, 27 models + 20 enums (THE source of truth for types)
-- `prisma/seed.ts` — 152 kennels, 481 aliases, 69 sources, 64 regions (first-class model with hierarchy)
+- `prisma/schema.prisma` — Full data model, 38 models + 29 enums (THE source of truth for types)
+- `prisma/seed.ts` — ~465 kennels, ~2000 aliases, ~373 enabled sources (390 total), ~279 regions (first-class model with hierarchy)
 - `prisma.config.ts` — Prisma 7 config (datasource URL, seed command)
 - `src/lib/db.ts` — PrismaClient singleton (PrismaPg adapter + SSL)
 - `src/lib/auth.ts` — `getOrCreateUser()` + `getAdminUser()` + `getMismanUser()` + `getRosterGroupId()` (Clerk→DB sync + admin/misman role checks)
@@ -79,6 +79,10 @@ globs:
 - `src/pipeline/verify-fixes.ts` — Post-merge fix verification (removes pending-verification label, posts confirmation comment)
 - `src/pipeline/html-analysis.ts` — Reusable HTML event analysis + Gemini column mapping (no auth, used by research pipeline)
 - `src/pipeline/source-research.ts` — Autonomous source research pipeline (URL discovery, classification, analysis, proposal persistence)
+- `src/pipeline/prediction-ledger.ts` — Travel Mode prospective prediction ledger (snapshot weekly + score matured HIT/MISS/PRECONFIRMED/UNOBSERVED, frozen-source)
+- `src/pipeline/rule-drift.ts` — Weekly season-aware schedule-rule drift detector (wrong-weekday → deduped GitHub issue)
+- `src/lib/travel/projections.ts` — Travel Mode projection engine (`projectTrails` + `scoreConfidence`, optional `now` for backtest)
+- `src/lib/event-eligibility.ts` — `isEligibleActual` / `EVENT_ELIGIBILITY_SELECT` (independent non-STATIC_SCHEDULE ground truth)
 
 ## Admin
 - `src/app/admin/alerts/actions.ts` — Alert repair actions (re-scrape, create alias/kennel, link kennel to source, file GitHub issue)
@@ -170,12 +174,17 @@ globs:
 - `src/components/admin/AnalyticsDashboard.tsx` — Dashboard UI: charts, stat cards, tables (community/engagement/operational)
 
 ## Infrastructure & CI
-- `vercel.json` — Vercel Cron config (triggers QStash dispatch at 6:00 AM UTC)
+- `vercel.json` — Vercel Cron config (QStash scrape dispatch 06:00 UTC; daily audit + audit-issue sync + travel-draft GC; weekly Mon prediction-ledger 08:00 + rule-drift 09:00 UTC)
 - `src/lib/qstash.ts` — QStash Client + Receiver singletons (Upstash fan-out queue)
 - `src/lib/cron-auth.ts` — Dual auth: QStash signature verification → Bearer CRON_SECRET fallback
 - `src/pipeline/schedule.ts` — Shared scheduling logic (shouldScrape, frequency intervals)
 - `src/app/api/cron/dispatch/route.ts` — Fan-out dispatcher: queries due sources, publishes QStash messages
 - `src/app/api/cron/scrape/[sourceId]/route.ts` — Per-source scrape endpoint (called by QStash)
+- `src/app/api/cron/audit/route.ts` — Daily data-quality audit run
+- `src/app/api/cron/sync-audit-issues/route.ts` — Daily sync of the AuditIssue mirror with GitHub
+- `src/app/api/cron/travel-draft-gc/route.ts` — Daily garbage collection of expired travel drafts
+- `src/app/api/cron/prediction-ledger/route.ts` — Weekly prediction-ledger run (snapshot + score matured predictions)
+- `src/app/api/cron/rule-drift/route.ts` — Weekly rule-drift check (wrong-weekday → deduped GitHub issue)
 - `vitest.config.ts` — Test runner config (globals, path aliases)
 - `src/test/factories.ts` — Shared test data builders
 - `.github/workflows/ci.yml` — CI gate: type check, lint, tests on all PRs + push to main

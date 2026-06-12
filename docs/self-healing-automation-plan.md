@@ -493,6 +493,8 @@ The agent assigns a confidence score during triage. Score determines the action 
 | File | Role in Self-Healing |
 |------|---------------------|
 | `src/pipeline/health.ts` | Alert generation — triggers the loop |
+| `src/pipeline/rule-drift.ts` | Second producer: weekly schedule-rule drift detection (wrong-weekday predictions) → deduped GitHub issue (label `rule-drift`), independent of the alert/health path |
+| `src/app/api/cron/rule-drift/route.ts` | Weekly cron (Mon 09:00 UTC) that runs `detectRuleDrift` + files the issue |
 | `src/pipeline/scrape.ts` | Scrape orchestration — where auto-issue filing + verification hooks in |
 | `src/pipeline/auto-issue.ts` | Auto-file GitHub issues from alerts (rate limiting, cooldown, dedup) |
 | `src/pipeline/verify-fixes.ts` | Post-merge fix verification (removes pending-verification label on success) |
