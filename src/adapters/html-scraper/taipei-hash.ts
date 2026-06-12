@@ -36,7 +36,10 @@ const RUN_RE = /(\d+)/;
 // Strip a trailing phone number if the dedicated <span class="phone"> was absent
 // (markup-drift fallback). Single char class, bounded — ReDoS-safe.
 const PHONE_RE = /0\d[\d\s-]{6,15}/g;
-const MAPS_HREF = "a[href*='maps.app.goo.gl']";
+// The site uses maps.app.goo.gl shortlinks today (27/27); the extra formats are
+// cheap forward-resilience against a future markup change.
+const MAPS_HREF =
+  "a[href*='maps.app.goo.gl'], a[href*='goo.gl/maps'], a[href*='google.com/maps']";
 
 /** A parsed table row before its year-less date has been resolved. */
 interface ParsedRow {
