@@ -7,6 +7,16 @@ const WED = "2026-06-03";
 const SAT = "2026-06-06"; // Sat
 const d = (iso: string) => new Date(iso + "T12:00:00Z");
 
+// Guard: every test below assumes these calendar weekdays. Fail fast if a constant is edited.
+describe("fixture sanity", () => {
+  it("date constants fall on their labelled weekdays", () => {
+    expect(d(MON).getUTCDay()).toBe(1);
+    expect(d(TUE).getUTCDay()).toBe(2);
+    expect(d(WED).getUTCDay()).toBe(3);
+    expect(d(SAT).getUTCDay()).toBe(6);
+  });
+});
+
 describe("dominantWeekday", () => {
   it("finds the most common weekday + share", () => {
     const r = dominantWeekday([d(SAT), d(SAT), d(SAT), d(MON)]);
