@@ -34,9 +34,11 @@ const AUDIT_DIR = path.join("docs", "audits");
  * Write a dated audit report (markdown + JSON sidecar) under docs/audits/.
  * `basename` already carries the date, e.g. "travel-predictions-2026-06-11".
  *
- * The fs path is built from a fixed repo-relative dir + a basename composed from
- * our own clock (never user input), so the security/detect-non-literal-fs-filename
- * flags here are false positives — suppressed inline.
+ * The fs path is built from a fixed repo-relative dir (docs/audits) + a basename
+ * composed from our own clock (never user input). Codacy's
+ * security/detect-non-literal-fs-filename flags the fs calls below as false
+ * positives; this file is excluded in .codacy.yml (inline suppression doesn't
+ * apply cleanly — see that file's comment).
  */
 export function writeAuditReport(
   basename: string,
@@ -45,11 +47,8 @@ export function writeAuditReport(
 ): { mdPath: string; jsonPath: string } {
   const mdPath = path.join(AUDIT_DIR, `${basename}.md`);
   const jsonPath = path.join(AUDIT_DIR, `${basename}.json`);
-  // nosemgrep: detect-non-literal-fs-filename -- fixed dir + clock-derived basename, not user input
   fs.mkdirSync(AUDIT_DIR, { recursive: true });
-  // nosemgrep: detect-non-literal-fs-filename -- see above
   fs.writeFileSync(mdPath, markdown);
-  // nosemgrep: detect-non-literal-fs-filename -- see above
   fs.writeFileSync(jsonPath, JSON.stringify(json, null, 2));
   return { mdPath, jsonPath };
 }
