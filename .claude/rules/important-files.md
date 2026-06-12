@@ -13,7 +13,7 @@ globs:
 
 ## Core
 - `prisma/schema.prisma` — Full data model, 38 models + 29 enums (THE source of truth for types)
-- `prisma/seed.ts` — 152 kennels, 481 aliases, 69 sources, 64 regions (first-class model with hierarchy)
+- `prisma/seed.ts` — ~465 kennels, ~2000 aliases, ~373 enabled sources (390 total), ~279 regions (first-class model with hierarchy)
 - `prisma.config.ts` — Prisma 7 config (datasource URL, seed command)
 - `src/lib/db.ts` — PrismaClient singleton (PrismaPg adapter + SSL)
 - `src/lib/auth.ts` — `getOrCreateUser()` + `getAdminUser()` + `getMismanUser()` + `getRosterGroupId()` (Clerk→DB sync + admin/misman role checks)
@@ -180,6 +180,9 @@ globs:
 - `src/pipeline/schedule.ts` — Shared scheduling logic (shouldScrape, frequency intervals)
 - `src/app/api/cron/dispatch/route.ts` — Fan-out dispatcher: queries due sources, publishes QStash messages
 - `src/app/api/cron/scrape/[sourceId]/route.ts` — Per-source scrape endpoint (called by QStash)
+- `src/app/api/cron/audit/route.ts` — Daily data-quality audit run
+- `src/app/api/cron/sync-audit-issues/route.ts` — Daily sync of the AuditIssue mirror with GitHub
+- `src/app/api/cron/travel-draft-gc/route.ts` — Daily garbage collection of expired travel drafts
 - `src/app/api/cron/prediction-ledger/route.ts` — Weekly prediction-ledger run (snapshot + score matured predictions)
 - `src/app/api/cron/rule-drift/route.ts` — Weekly rule-drift check (wrong-weekday → deduped GitHub issue)
 - `vitest.config.ts` — Test runner config (globals, path aliases)
