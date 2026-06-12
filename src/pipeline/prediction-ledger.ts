@@ -2,22 +2,22 @@
  * Prospective prediction ledger (Travel Mode evaluation, Phase 2).
  *
  * Weekly job that:
- *  1. SCORES matured snapshots — once a predicted date passes, check it against
- *     INDEPENDENT (non-STATIC_SCHEDULE) reality: HIT / MISS / UNOBSERVED, with
- *     already-confirmed rows finalized as PRECONFIRMED (contamination, excluded).
- *  2. SNAPSHOTS current predictions — freezes the engine's forward HIGH/MEDIUM
- *     projections at narrow 180/90/30-day bands (resilient to a missed run), storing
- *     the ACTUAL days-out so calibration is reported by real horizon, not the band.
- *  3. Writes the OBSERVATION census — one row per observable rule-bearing kennel per
- *     band per cohort week, INDEPENDENT of whether the model predicted anything, so
- *     recall has a population that includes never-predicted kennels (Codex review #2154).
+ *  1. SCORES matured snapshots — once a predicted date passes, check it against the
+ *     snapshot's FROZEN independent sources: HIT / MISS / UNOBSERVED, with already-on-books
+ *     rows finalized as PRECONFIRMED (contamination, excluded from metrics).
+ *  2. SNAPSHOTS current predictions — freezes the engine's forward HIGH/MEDIUM projections
+ *     at narrow 180/90/30-day bands (resilient to a missed run), storing the ACTUAL days-out
+ *     so calibration is reported by real horizon, not the nominal band.
  *
- * Reuses the REAL engine (projectTrails/scoreConfidence) and isEligibleActual so the
- * ledger measures exactly what production would have predicted.
+ * Recall is computed at report time (scripts/score-prediction-ledger.ts) from actual events
+ * vs snapshot coverage — a never-predicted kennel's real run is in the events with no covering
+ * snapshot → false negative — so no separate observation census is needed.
+ *
+ * Reuses the REAL engine (projectTrails/scoreConfidence) so the ledger measures exactly what
+ * production would have predicted.
  */
 import type { PrismaClient, Prisma, ScheduleConfidence } from "@/generated/prisma/client";
 import { CANONICAL_EVENT_WHERE } from "@/lib/event-filters";
-import { EVENT_ELIGIBILITY_SELECT, isEligibleActual } from "@/lib/event-eligibility";
 import {
   projectTrails,
   scoreConfidence,
@@ -40,13 +40,6 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const STATIC = "STATIC_SCHEDULE";
 
 // ── Pure helpers (exported for tests) ─────────────────────────────────────────
-
-/** Monday 00:00 UTC of the week containing `d` — the stable cohort key. */
-export function weekStartUtc(d: Date): Date {
-  const day = d.getUTCDay(); // 0=Sun..6=Sat
-  const mondayOffset = (day + 6) % 7; // days since Monday
-  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - mondayOffset));
-}
 
 export function daysBetween(from: Date, to: Date): number {
   return Math.floor((to.getTime() - from.getTime()) / DAY_MS);
@@ -74,22 +67,32 @@ export function shouldCaptureBand(
 
 export type Outcome = "PENDING" | "HIT" | "MISS" | "PRECONFIRMED" | "UNOBSERVED";
 
+/** An event with the Source ids of its independent (non-STATIC_SCHEDULE) RawEvents. */
+export interface ScorableEvent {
+  id: string;
+  date: Date;
+  sourceIds: string[];
+}
+
 /**
  * Classify a matured snapshot. `confirmedAtSnapshot` short-circuits to PRECONFIRMED
- * (contamination). Otherwise observability is decided from the immutable Event history
- * (±OBSERVE_TOL): no eligible event nearby → UNOBSERVED; else HIT within ±MATCH_TOL,
- * else MISS (observed-but-absent).
+ * (contamination). Otherwise observability is decided from events restricted to the
+ * snapshot's FROZEN independent sources — a source added/removed after capture must not
+ * retroactively change an old outcome (Codex review on PR #2164). No frozen-source event
+ * within ±OBSERVE_TOL → UNOBSERVED; else HIT within ±MATCH_TOL, else MISS.
  */
 export function classifyOutcome(
   predictedDate: Date,
   confirmedAtSnapshot: boolean,
-  eligibleEvents: { id: string; date: Date }[],
+  events: ScorableEvent[],
+  frozenSourceIds: ReadonlySet<string>,
 ): { outcome: Exclude<Outcome, "PENDING">; matchedEventId: string | null } {
   if (confirmedAtSnapshot) return { outcome: "PRECONFIRMED", matchedEventId: null };
   const t = predictedDate.getTime();
   let observed = false;
   let hit: string | null = null;
-  for (const e of eligibleEvents) {
+  for (const e of events) {
+    if (!e.sourceIds.some((sid) => frozenSourceIds.has(sid))) continue; // frozen-provenance gate
     const diff = Math.abs(e.date.getTime() - t) / DAY_MS;
     if (diff <= OBSERVE_TOL_DAYS) observed = true;
     if (diff <= MATCH_TOL_DAYS && hit === null) hit = e.id;
@@ -97,6 +100,12 @@ export function classifyOutcome(
   if (hit !== null) return { outcome: "HIT", matchedEventId: hit };
   if (!observed) return { outcome: "UNOBSERVED", matchedEventId: null };
   return { outcome: "MISS", matchedEventId: null };
+}
+
+/** Identity key matching the PredictionSnapshot unique constraint (for in-batch dedup). */
+function snapshotKey(r: { kennelId: string; predictedDate: Date | string; startTimeKey: string; horizonBucket: number }): string {
+  const iso = r.predictedDate instanceof Date ? r.predictedDate.toISOString() : new Date(r.predictedDate).toISOString();
+  return `${r.kennelId}:${iso.slice(0, 10)}:${r.startTimeKey}:${r.horizonBucket}`;
 }
 
 // ── Internal data shapes ──────────────────────────────────────────────────────
@@ -121,17 +130,11 @@ interface RuleRow {
   validUntil: string | null;
   lastValidatedAt: Date | null;
 }
-interface EvDate {
-  id: string;
-  date: Date;
-  eligible: boolean;
-}
 
 export interface LedgerRunResult {
   scored: number;
   outcomes: Record<Exclude<Outcome, "PENDING">, number>;
   snapshotsCreated: number;
-  observationsCreated: number;
   lastSuccessfulRunAt: Date | null;
 }
 
@@ -140,7 +143,27 @@ export async function runPredictionLedger(
   prisma: PrismaClient,
   now: Date = new Date(),
 ): Promise<LedgerRunResult> {
-  const loadStart = new Date(now.getTime() - (SNAPSHOT_HORIZON_DAYS + 30) * DAY_MS);
+  const maturityCutoff = new Date(now.getTime() - MATURITY_LAG_DAYS * DAY_MS);
+
+  // Matured snapshots can be arbitrarily old after a long cron outage; the event window
+  // must reach back to the OLDEST pending matured target (− observe tol) or scoring would
+  // see no events and wrongly mark them UNOBSERVED (Codex review on PR #2164).
+  const [oldestPending, matured] = await Promise.all([
+    prisma.predictionSnapshot.aggregate({
+      where: { outcome: "PENDING", predictedDate: { lt: maturityCutoff } },
+      _min: { predictedDate: true },
+    }),
+    prisma.predictionSnapshot.findMany({
+      where: { outcome: "PENDING", predictedDate: { lt: maturityCutoff } },
+      select: { id: true, kennelId: true, predictedDate: true, confirmedAtSnapshot: true, independentSourceIds: true },
+    }),
+  ]);
+
+  const defaultStart = now.getTime() - (SNAPSHOT_HORIZON_DAYS + 30) * DAY_MS;
+  const oldestPendingMs = oldestPending._min.predictedDate
+    ? oldestPending._min.predictedDate.getTime() - (OBSERVE_TOL_DAYS + 1) * DAY_MS
+    : defaultStart;
+  const loadStart = new Date(Math.min(defaultStart, oldestPendingMs));
   const loadEnd = new Date(now.getTime() + (SNAPSHOT_HORIZON_DAYS + 10) * DAY_MS);
 
   const [kennels, rules, events, sourceLinks, lastSnap] = await Promise.all([
@@ -166,7 +189,11 @@ export async function runPredictionLedger(
         date: { gte: loadStart, lte: loadEnd },
         kennel: { isHidden: false },
       },
-      select: { id: true, kennelId: true, date: true, eventKennels: { select: { kennelId: true } }, ...EVENT_ELIGIBILITY_SELECT },
+      select: {
+        id: true, kennelId: true, date: true,
+        eventKennels: { select: { kennelId: true } },
+        rawEvents: { select: { source: { select: { id: true, type: true } } } },
+      },
     }),
     prisma.sourceKennel.findMany({
       where: { source: { type: { not: STATIC } } },
@@ -177,16 +204,17 @@ export async function runPredictionLedger(
 
   const lastSuccessfulRunAt = lastSnap?.snapshotAt ?? null;
 
-  // Index events by participating kennel.
-  const eventsByKennel = new Map<string, EvDate[]>();
+  // Index events by participating kennel, tagged with their INDEPENDENT source ids.
+  const eventsByKennel = new Map<string, ScorableEvent[]>();
   for (const e of events) {
-    const eligible = isEligibleActual(e);
-    const ev: EvDate = { id: e.id, date: e.date, eligible };
+    const sourceIds = [...new Set(e.rawEvents.filter((re) => re.source.type !== STATIC).map((re) => re.source.id))];
+    if (sourceIds.length === 0) continue; // not independent ground truth
+    const ev: ScorableEvent = { id: e.id, date: e.date, sourceIds };
     const kids = new Set<string>([e.kennelId, ...e.eventKennels.map((ek) => ek.kennelId)]);
     for (const kid of kids) {
-      const arr = eventsByKennel.get(kid) ?? [];
-      arr.push(ev);
-      eventsByKennel.set(kid, arr);
+      const arr = eventsByKennel.get(kid);
+      if (arr) arr.push(ev);
+      else eventsByKennel.set(kid, [ev]);
     }
   }
   const rulesByKennel = new Map<string, RuleRow[]>();
@@ -206,18 +234,14 @@ export async function runPredictionLedger(
     scored: 0,
     outcomes: { HIT: 0, MISS: 0, PRECONFIRMED: 0, UNOBSERVED: 0 },
     snapshotsCreated: 0,
-    observationsCreated: 0,
     lastSuccessfulRunAt,
   };
 
-  // ── Pass 1: score matured snapshots ────────────────────────────────────────
-  const matured = await prisma.predictionSnapshot.findMany({
-    where: { outcome: "PENDING", predictedDate: { lt: new Date(now.getTime() - MATURITY_LAG_DAYS * DAY_MS) } },
-    select: { id: true, kennelId: true, predictedDate: true, confirmedAtSnapshot: true },
-  });
+  // ── Pass 1: score matured snapshots against their FROZEN sources ────────────
   for (const snap of matured) {
-    const eligible = (eventsByKennel.get(snap.kennelId) ?? []).filter((e) => e.eligible);
-    const { outcome, matchedEventId } = classifyOutcome(snap.predictedDate, snap.confirmedAtSnapshot, eligible);
+    const events = eventsByKennel.get(snap.kennelId) ?? [];
+    const frozen = new Set(snap.independentSourceIds);
+    const { outcome, matchedEventId } = classifyOutcome(snap.predictedDate, snap.confirmedAtSnapshot, events, frozen);
     await prisma.predictionSnapshot.update({
       where: { id: snap.id },
       data: { outcome, matchedEventId, matchToleranceDays: MATCH_TOL_DAYS, scoredAt: now },
@@ -226,37 +250,24 @@ export async function runPredictionLedger(
     result.outcomes[outcome]++;
   }
 
-  // ── Pass 2 + 3: snapshot predictions + observation census ──────────────────
+  // ── Pass 2: snapshot current predictions ───────────────────────────────────
   const snapshotRows: Prisma.PredictionSnapshotCreateManyInput[] = [];
-  const observationRows: Prisma.LedgerObservationCreateManyInput[] = [];
-  const cohortWeek = weekStartUtc(now);
   const windowEnd = new Date(now.getTime() + SNAPSHOT_HORIZON_DAYS * DAY_MS);
 
   for (const k of kennels) {
     const kRules = rulesByKennel.get(k.id) ?? [];
     if (kRules.length === 0) continue;
     const indepSources = indepSourcesByKennel.get(k.id) ?? [];
+    const indepSet = new Set(indepSources);
     const kEvents = eventsByKennel.get(k.id) ?? [];
-    const eligible = kEvents.filter((e) => e.eligible);
 
-    // Observation census: rule-bearing AND observable (has an independent source).
-    if (indepSources.length > 0) {
-      for (const band of LEDGER_BANDS) {
-        observationRows.push({
-          kennelId: k.id, horizonBucket: band, cohortWeek,
-          daysOutAtSnapshot: band, independentSourceIds: indepSources, hadRuleAtSnapshot: true,
-        });
-      }
-    }
-
-    // Score projections as-of now.
     const ruleInputs: ScheduleRuleInput[] = kRules.map((r) => ({
       id: r.id, kennelId: r.kennelId, rrule: r.rrule, anchorDate: r.anchorDate,
       startTime: r.startTime, confidence: r.confidence, notes: r.notes,
       label: r.label, validFrom: r.validFrom, validUntil: r.validUntil,
     }));
     const projections = projectTrails(ruleInputs, now, windowEnd);
-    const evidenceCount = eligible.filter(
+    const evidenceCount = kEvents.filter(
       (e) => e.date.getTime() >= now.getTime() - EVIDENCE_WINDOW_DAYS * DAY_MS && e.date.getTime() <= now.getTime(),
     ).length;
     const ruleValidation = new Map(kRules.map((r) => [r.id, r.lastValidatedAt]));
@@ -271,9 +282,11 @@ export async function runPredictionLedger(
       if (confidence !== "high" && confidence !== "medium") continue;
       const nowDaysOut = daysBetween(now, proj.date);
       const prevDaysOut = lastSuccessfulRunAt ? daysBetween(lastSuccessfulRunAt, proj.date) : null;
-      // confirmed-at-snapshot uses the SAME ±tol as scoring (contamination gate).
+      // confirmed-at-snapshot: a current independent-source event within ±tol of the date
+      // (same gate as scoring, frozen sources = current indep sources at snapshot time).
       let preexistingEventId: string | null = null;
-      for (const e of eligible) {
+      for (const e of kEvents) {
+        if (!e.sourceIds.some((sid) => indepSet.has(sid))) continue;
         if (Math.abs(e.date.getTime() - proj.date.getTime()) / DAY_MS <= MATCH_TOL_DAYS) { preexistingEventId = e.id; break; }
       }
       for (const band of LEDGER_BANDS) {
@@ -295,14 +308,19 @@ export async function runPredictionLedger(
     }
   }
 
-  // Idempotent inserts — unique constraints make re-runs within a cohort no-ops.
-  if (snapshotRows.length > 0) {
-    const r = await prisma.predictionSnapshot.createMany({ data: snapshotRows, skipDuplicates: true });
+  // Dedup in-batch by the unique identity (two rules projecting the same date+time+band)
+  // before createMany — Postgres bulk insert can still error on intra-batch dup keys even
+  // with skipDuplicates (Codex review on PR #2164). skipDuplicates then covers existing rows.
+  const seen = new Set<string>();
+  const deduped = snapshotRows.filter((r) => {
+    const key = snapshotKey(r);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  if (deduped.length > 0) {
+    const r = await prisma.predictionSnapshot.createMany({ data: deduped, skipDuplicates: true });
     result.snapshotsCreated = r.count;
-  }
-  if (observationRows.length > 0) {
-    const r = await prisma.ledgerObservation.createMany({ data: observationRows, skipDuplicates: true });
-    result.observationsCreated = r.count;
   }
 
   return result;

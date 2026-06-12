@@ -179,7 +179,6 @@ model Kennel {
   // Travel Mode
   scheduleRules       ScheduleRule[]
   predictionSnapshots PredictionSnapshot[]
-  ledgerObservations  LedgerObservation[]
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
 
@@ -1185,26 +1184,6 @@ model PredictionSnapshot {
   @@unique([kennelId, predictedDate, startTimeKey, horizonBucket], map: "PredictionSnapshot_identity_key")
   @@index([outcome, predictedDate])
   @@index([snapshotAt])
-}
-
-// Observation census — the frozen population for the RECALL denominator, written
-// for EVERY observable rule-bearing kennel per band cohort, INDEPENDENT of whether
-// the model predicted anything. Without this a kennel the model never predicted has
-// no PredictionSnapshot row, so its real runs would vanish from the false-negative
-// count and inflate recall (Codex review on PR #2154).
-model LedgerObservation {
-  id                   String   @id @default(cuid())
-  kennelId             String
-  horizonBucket        Int // 180 | 90 | 30
-  cohortWeek           DateTime // ISO week the band target was crossed — stable cohort key
-  daysOutAtSnapshot    Int
-  independentSourceIds String[] // frozen at observation time
-  hadRuleAtSnapshot    Boolean // ≥1 active rule when observed (model could have predicted)
-  snapshotAt           DateTime @default(now())
-  kennel               Kennel   @relation(fields: [kennelId], references: [id], onDelete: Cascade)
-
-  @@unique([kennelId, horizonBucket, cohortWeek])
-  @@index([horizonBucket, cohortWeek])
 }
 
 enum TravelSearchStatus {
