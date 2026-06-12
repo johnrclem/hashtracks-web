@@ -88,6 +88,13 @@ export function computeYearsActive(
   return null;
 }
 
+/** Tailwind grid-columns class for the stat tiles (1–3 tiles). */
+function statsGridClass(count: number): string {
+  if (count === 3) return "grid-cols-3";
+  if (count === 2) return "grid-cols-2";
+  return "grid-cols-1 max-w-[200px]";
+}
+
 export function KennelStats({
   currentRunNumber,
   totalEvents,
@@ -155,13 +162,7 @@ export function KennelStats({
 
   return (
     <div
-      className={`grid gap-3 ${
-        stats.length === 3
-          ? "grid-cols-3"
-          : stats.length === 2
-            ? "grid-cols-2"
-            : "grid-cols-1 max-w-[200px]"
-      }`}
+      className={`grid gap-3 ${statsGridClass(stats.length)}`}
     >
       {stats.map((stat) => (
         <div

@@ -462,7 +462,6 @@ describe("region ISR revalidation (#1461)", () => {
     fd.set("fullName", "Test Hash");
     fd.set("region", "NYC");
     fd.set("regionId", "region_1");
-
     await createKennel(fd);
     expect(mockRevalidatePath).toHaveBeenCalledWith(regionPath("NYC"));
   });
