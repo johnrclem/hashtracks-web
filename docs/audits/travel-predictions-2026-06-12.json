@@ -1,0 +1,103 @@
+{
+  "generatedAt": "2026-06-12T02:03:29.753Z",
+  "referenceDate": "2026-06-12",
+  "totalVisibleKennels": 441,
+  "census": {
+    "30": {
+      "CONFIRMED": 278,
+      "HIGH": 42,
+      "MEDIUM": 9,
+      "POSSIBLE": 64,
+      "DARK": 48
+    },
+    "60": {
+      "CONFIRMED": 283,
+      "HIGH": 42,
+      "MEDIUM": 8,
+      "POSSIBLE": 60,
+      "DARK": 48
+    },
+    "90": {
+      "CONFIRMED": 285,
+      "HIGH": 42,
+      "MEDIUM": 8,
+      "POSSIBLE": 59,
+      "DARK": 47
+    },
+    "180": {
+      "CONFIRMED": 289,
+      "HIGH": 41,
+      "MEDIUM": 8,
+      "POSSIBLE": 58,
+      "DARK": 45
+    },
+    "365": {
+      "CONFIRMED": 291,
+      "HIGH": 41,
+      "MEDIUM": 7,
+      "POSSIBLE": 57,
+      "DARK": 45
+    }
+  },
+  "backtests": [
+    {
+      "referenceDaysAgo": 90,
+      "window": [
+        "2026-03-14",
+        "2026-04-28"
+      ],
+      "verifiableKennels": 221,
+      "unverifiableKennels": 133,
+      "high": {
+        "predictions": 78,
+        "matchStrict": 56,
+        "matchLoose": 56
+      },
+      "medium": {
+        "predictions": 547,
+        "matchStrict": 460,
+        "matchLoose": 486
+      },
+      "recall": {
+        "covered": 560,
+        "total": 1091
+      },
+      "rulelessGap": {
+        "kennels": 44,
+        "eligibleActuals": 122
+      }
+    },
+    {
+      "referenceDaysAgo": 180,
+      "window": [
+        "2025-12-14",
+        "2026-01-28"
+      ],
+      "verifiableKennels": 164,
+      "unverifiableKennels": 190,
+      "high": {
+        "predictions": 46,
+        "matchStrict": 31,
+        "matchLoose": 32
+      },
+      "medium": {
+        "predictions": 419,
+        "matchStrict": 327,
+        "matchLoose": 343
+      },
+      "recall": {
+        "covered": 385,
+        "total": 728
+      },
+      "rulelessGap": {
+        "kennels": 35,
+        "eligibleActuals": 104
+      }
+    }
+  ],
+  "gaps": {
+    "predictableButDark": 7,
+    "underRated": 26,
+    "contradicted": 7
+  }
+}

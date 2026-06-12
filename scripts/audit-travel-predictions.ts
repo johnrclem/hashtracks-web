@@ -178,10 +178,20 @@ function scoreProjectionsAsOf(
 function eventsInRange(events: EvDate[], start: Date, end: Date): EvDate[] {
   return events.filter((e) => e.date >= start && e.date <= end);
 }
-function lastEventOnOrBefore(events: EvDate[], ref: Date): Date | null {
+/**
+ * Independent-only events in range (Codex review on PR #2154). A STATIC_SCHEDULE
+ * source *generates* its events by projecting a rule, so those rows are not
+ * independent ground truth — treating them as "confirmed" or as scoring evidence
+ * is circular. Used for the CONFIRMED bucket, dedup-against-confirmed, and the
+ * scoreConfidence evidence count so the report separates KNOWN from PREDICTED.
+ */
+function eligibleInRange(events: EvDate[], start: Date, end: Date): EvDate[] {
+  return events.filter((e) => e.eligible && e.date >= start && e.date <= end);
+}
+function lastEligibleOnOrBefore(events: EvDate[], ref: Date): Date | null {
   let best: Date | null = null;
   for (const e of events) {
-    if (e.date <= ref && (best === null || e.date > best)) best = e.date;
+    if (e.eligible && e.date <= ref && (best === null || e.date > best)) best = e.date;
   }
   return best;
 }
@@ -212,7 +222,7 @@ function censusForKennel(
     const ruleValidation = new Map<string, Date | null>(
       rules.map((r) => [r.id, r.lastValidatedAt]),
     );
-    const evidenceCount = eventsInRange(
+    const evidenceCount = eligibleInRange(
       events,
       addDays(today, -EVIDENCE_WINDOW_DAYS),
       today,
@@ -225,7 +235,10 @@ function censusForKennel(
       ruleValidation,
       kennel.lastEventDate,
     );
-    const confirmedRefs = eventsInRange(events, today, maxHorizonEnd).map((e) => ({
+    // Dedup only against INDEPENDENT confirmed events — otherwise a STATIC_SCHEDULE
+    // source's own materialized future events would suppress the very projection
+    // they came from, pushing the kennel to POSSIBLE instead of HIGH.
+    const confirmedRefs = eligibleInRange(events, today, maxHorizonEnd).map((e) => ({
       kennelId: kennel.id,
       date: e.date,
       startTime: e.startTime,
@@ -237,7 +250,11 @@ function censusForKennel(
   const buckets: Record<number, Bucket> = {};
   for (const H of HORIZONS) {
     const end = addDays(today, H);
-    const confirmedInWindow = eventsInRange(events, today, end).length > 0;
+    // CONFIRMED = an INDEPENDENT real event in window (Codex review). A future
+    // event materialized only by a STATIC_SCHEDULE source is a rule projection,
+    // not independent ground truth — it falls through to the HIGH bucket via its
+    // own rule rather than overstating "known" coverage here.
+    const confirmedInWindow = eligibleInRange(events, today, end).length > 0;
     if (confirmedInWindow) {
       buckets[H] = "CONFIRMED";
       continue;
@@ -346,12 +363,15 @@ function backtest(
       // Treat validation as unknown as-of R — don't assume future validation existed.
       rules.map((r) => [r.id, null]),
     );
-    const evidenceCount = eventsInRange(
+    // Independent-only evidence (Codex review): counting a rule's own
+    // STATIC_SCHEDULE-generated history as evidence is circular and would keep a
+    // MEDIUM rule dated instead of demoting it, inflating Part B's tiers.
+    const evidenceCount = eligibleInRange(
       events,
       addDays(reference, -EVIDENCE_WINDOW_DAYS),
       reference,
     ).length;
-    const lastEventAsOf = lastEventOnOrBefore(events, reference);
+    const lastEventAsOf = lastEligibleOnOrBefore(events, reference);
     const scored = scoreProjectionsAsOf(
       raw,
       k,
@@ -489,17 +509,15 @@ function buildContradicted(
     for (const daysAgo of BACKTEST_REFERENCES_DAYS_AGO) {
       const reference = addDays(today, -daysAgo);
       const windowEnd = addDays(reference, BACKTEST_WINDOW_DAYS);
-      const eligible = eventsInRange(events, reference, windowEnd)
-        .filter((e) => e.eligible)
-        .map((e) => e.date);
+      const eligible = eligibleInRange(events, reference, windowEnd).map((e) => e.date);
       if (eligible.length === 0) continue; // unverifiable in this window
       const raw = projectTrails(rules.map(ruleToInput), reference, windowEnd);
-      const evidenceCount = eventsInRange(
+      const evidenceCount = eligibleInRange(
         events,
         addDays(reference, -EVIDENCE_WINDOW_DAYS),
         reference,
       ).length;
-      const lastEventAsOf = lastEventOnOrBefore(events, reference);
+      const lastEventAsOf = lastEligibleOnOrBefore(events, reference);
       const ruleValidation = new Map<string, Date | null>(rules.map((r) => [r.id, null]));
       const scored = scoreProjectionsAsOf(
         raw,
@@ -790,7 +808,9 @@ async function runAudit(prisma: PrismaClient): Promise<void> {
     "## Part A — Coverage census",
     "",
     `Each of the **${total}** visible kennels classified into its single best forward signal at each horizon.`,
-    "Buckets: **Confirmed** (real event in window) · **High/Medium** (confident dated prediction) ·",
+    "Buckets: **Confirmed** (an INDEPENDENT real event in window — STATIC_SCHEDULE-generated future",
+    "events are rule projections, not ground truth, and surface as High instead) · **High/Medium**",
+    "(confident dated prediction) ·",
     "**Possible** (has a schedule rule but no confident hit in window) · **Dark** (no rule + no event → travel mode shows nothing).",
     "",
     renderCensusTable(tally, total),
