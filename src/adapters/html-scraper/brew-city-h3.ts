@@ -173,6 +173,7 @@ export class BrewCityH3Adapter implements SourceAdapter {
     const events: RawEventData[] = [];
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
+    let weekdayShifted = 0; // how many events the weekdayShift remapped (observability)
 
     // Each event is in a Wix repeater item (role="listitem")
     const listItems = $('[role="listitem"]');
@@ -204,7 +205,8 @@ export class BrewCityH3Adapter implements SourceAdapter {
         const resolved =
           weekdayShift && startTime === undefined
             ? applyWeekdayShift(date, startTime, weekdayShift)
-            : { date, startTime };
+            : { date, startTime, shifted: false };
+        if (resolved.shifted) weekdayShifted++;
 
         // 2. Title from h2 (skip header h2 elements outside repeater items)
         const titleText = $item.find("h2").first().text().trim();
@@ -314,6 +316,7 @@ export class BrewCityH3Adapter implements SourceAdapter {
       diagnosticContext: {
         listItemsFound: listItems.length,
         eventsParsed: dedupedEvents.length,
+        weekdayShifted,
         fetchDurationMs,
       },
     };

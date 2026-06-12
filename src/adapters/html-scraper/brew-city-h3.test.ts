@@ -287,6 +287,9 @@ describe("BrewCityH3Adapter", () => {
     expect(trail359).toBeDefined();
     expect(trail359!.date).toBe("2026-04-02");
     expect(trail359!.startTime).toBe("20:00");
+
+    // Only the Friday placeholder shifts; the Saturday event does not.
+    expect(result.diagnosticContext?.weekdayShifted).toBe(1);
   });
 
   it("weekdayShift leaves a real non-Friday event unchanged (Saturday)", async () => {
