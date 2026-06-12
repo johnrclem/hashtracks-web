@@ -255,6 +255,12 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "boh3", shortName: "Boston H3", fullName: "Boston Hash House Harriers", region: "Boston, MA",
       website: "https://bostonhash.com",
       scheduleDayOfWeek: "Sunday", scheduleTime: "2:30 PM", scheduleFrequency: "Weekly",
+      // Seasonal: summer Wednesdays (May–Oct), winter Sundays 2:30 PM (Nov–Apr) per 2yr history.
+      scheduleRules: [
+        { rrule: "FREQ=WEEKLY;BYDAY=WE", label: "Summer", validFrom: "05-01", validUntil: "10-31", displayOrder: 0 },
+        { rrule: "FREQ=WEEKLY;BYDAY=SU", startTime: "14:30", label: "Winter", validFrom: "11-01", validUntil: "04-30", displayOrder: 1 },
+      ],
+      scheduleNotes: "Summer: Wednesdays (May–Oct). Winter: Sundays 2:30 PM (Nov–Apr).",
       logoUrl: "/kennel-logos/boh3.jpg",
       contactEmail: "bostonhash@gmail.com",
     },
@@ -1363,6 +1369,11 @@ export const KENNELS: KennelSeed[] = [
       website: "https://readinghhh.blogspot.com/",
       scheduleDayOfWeek: "Monday", scheduleFrequency: "Weekly",
       scheduleNotes: "Mondays (summer); Sundays (winter).",
+      // Seasonal (matches the note + 2yr history): summer Mondays (Apr–Sep), winter Sundays (Oct–Mar).
+      scheduleRules: [
+        { rrule: "FREQ=WEEKLY;BYDAY=MO", label: "Summer", validFrom: "04-01", validUntil: "09-30", displayOrder: 0 },
+        { rrule: "FREQ=WEEKLY;BYDAY=SU", label: "Winter", validFrom: "10-01", validUntil: "03-31", displayOrder: 1 },
+      ],
       hashCash: "$6", foundedYear: 1990,
       description: "Weekly hash in Reading/Berks County with 1,194+ trails.",
       latitude: 40.34, longitude: -75.93,
@@ -3376,6 +3387,11 @@ export const KENNELS: KennelSeed[] = [
       hashCash: "50 DKK / run, 299 DKK / quarter (first run free)",
       scheduleFrequency: "Weekly",
       scheduleNotes: "Monday evenings (Apr-Sep), Saturday afternoons (Oct-Mar)",
+      // Seasonal (matches the note + 2yr history): summer Mondays (Apr–Sep), winter Saturdays (Oct–Mar).
+      scheduleRules: [
+        { rrule: "FREQ=WEEKLY;BYDAY=MO", label: "Summer", validFrom: "04-01", validUntil: "09-30", displayOrder: 0 },
+        { rrule: "FREQ=WEEKLY;BYDAY=SA", label: "Winter", validFrom: "10-01", validUntil: "03-31", displayOrder: 1 },
+      ],
       foundedYear: 1980,
       description: "Copenhagen's weekly hash — Monday evenings in summer, Saturday afternoons in winter. Runs from S-Tog stations around the city.",
       latitude: 55.68, longitude: 12.57,
@@ -3436,6 +3452,11 @@ export const KENNELS: KennelSeed[] = [
       website: "https://www.brewcityh3.com",
       facebookUrl: "https://www.facebook.com/groups/BrewCityH3/",
       scheduleDayOfWeek: "Thursday", scheduleFrequency: "Weekly",
+      // Seasonal: summer Thursdays (Jun–Oct), winter Fridays (Nov–May) per 2yr history.
+      scheduleRules: [
+        { rrule: "FREQ=WEEKLY;BYDAY=TH", label: "Summer", validFrom: "06-01", validUntil: "10-31", displayOrder: 0 },
+        { rrule: "FREQ=WEEKLY;BYDAY=FR", label: "Winter", validFrom: "11-01", validUntil: "05-31", displayOrder: 1 },
+      ],
       hashCash: "$7-8",
       contactEmail: "Fido@BrewCityH3.com",
       logoUrl: "https://static.wixstatic.com/media/5b98c7_0b8ba7cdd4114a479765ea7e0d64d4ea~mv2.png/v1/fill/w_657,h_534,al_c/5b98c7_0b8ba7cdd4114a479765ea7e0d64d4ea~mv2.png",
@@ -4013,7 +4034,12 @@ export const KENNELS: KennelSeed[] = [
       contactEmail: "capitalhash82@gmail.com",
       hashCash: "$10 AUD",
       scheduleDayOfWeek: "Monday", scheduleTime: "6:00 PM", scheduleFrequency: "Weekly",
-      scheduleNotes: "Weekly Monday evening runs. Schedule and trail details posted on capitalhash.com.",
+      scheduleNotes: "Mondays 6 PM most of the year; Sundays in the austral winter (May–Aug).",
+      // Seasonal (southern hemisphere): austral-winter Sundays (May–Aug), Mondays 6 PM otherwise (Sep–Apr).
+      scheduleRules: [
+        { rrule: "FREQ=WEEKLY;BYDAY=SU", label: "Austral winter", validFrom: "05-01", validUntil: "08-31", displayOrder: 0 },
+        { rrule: "FREQ=WEEKLY;BYDAY=MO", startTime: "18:00", label: "Austral summer", validFrom: "09-01", validUntil: "04-30", displayOrder: 1 },
+      ],
       foundedYear: 1982,
       description: "Canberra's senior hash kennel, meeting in and around the national capital and the Australian Capital Territory. Mixed kennel with weekly Monday evening runs.",
       latitude: -35.2809, longitude: 149.1300,
