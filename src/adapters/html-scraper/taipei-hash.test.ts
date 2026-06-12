@@ -150,25 +150,30 @@ describe("parseTaipeiHash", () => {
   });
 });
 
+function buildSource(): Source {
+  return {
+    id: "src-taipei",
+    url: "https://www.taipeihash.com.tw/run_site.php",
+  } as Source;
+}
+
+function mockFetchHtml(html: string): void {
+  // Partial Response shape — the adapter only reads ok/status/text().
+  vi.mocked(safeFetch).mockResolvedValue({
+    ok: true,
+    status: 200,
+    statusText: "OK",
+    text: async () => html,
+  } as unknown as Response);
+}
+
 describe("TaipeiHashAdapter.fetch", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  function buildSource(): Source {
-    return {
-      id: "src-taipei",
-      url: "https://www.taipeihash.com.tw/run_site.php",
-    } as Source;
-  }
-
   it("returns events from the live-shaped page", async () => {
-    vi.mocked(safeFetch).mockResolvedValue({
-      ok: true,
-      status: 200,
-      statusText: "OK",
-      text: async () => FIXTURE,
-    } as Response);
+    mockFetchHtml(FIXTURE);
 
     const result = await new TaipeiHashAdapter().fetch(buildSource(), { days: 365 });
     expect(result.errors).toHaveLength(0);
@@ -178,12 +183,7 @@ describe("TaipeiHashAdapter.fetch", () => {
   });
 
   it("fails loud when a clean fetch yields zero events (markup drift)", async () => {
-    vi.mocked(safeFetch).mockResolvedValue({
-      ok: true,
-      status: 200,
-      statusText: "OK",
-      text: async () => "<html><body><p>redesigned, no tables</p></body></html>",
-    } as Response);
+    mockFetchHtml("<html><body><p>redesigned, no tables</p></body></html>");
 
     const result = await new TaipeiHashAdapter().fetch(buildSource());
     expect(result.events).toHaveLength(0);
