@@ -134,9 +134,10 @@ async function run(prisma: PrismaClient): Promise<void> {
   ];
 
   const scored = byOutcome.HIT + byOutcome.MISS;
-  md.push(...renderPrecisionSection(scored, precision, firstMaturity));
-
-  md.push("---", "", "*Re-run: `npx tsx scripts/score-prediction-ledger.ts`.*", "");
+  md.push(
+    ...renderPrecisionSection(scored, precision, firstMaturity),
+    "---", "", "*Re-run: `npx tsx scripts/score-prediction-ledger.ts`.*", "",
+  );
 
   const { mdPath } = writeAuditReport(`prediction-ledger-${date}`, md.join("\n"), {
     generatedAt: new Date().toISOString(), total, byOutcome,
