@@ -8,10 +8,12 @@
  *   - a permanent schedule change, AND
  *   - a rule that was authored from a partial-year window and flattened a seasonal kennel.
  *
- * Crucially it is SEASON-AWARE: the "predicted weekday" comes from projectTrails over the
- * next few weeks, so the rule's validFrom/validUntil gating is honored — a correctly-seasonal
- * kennel predicts the right day for *now* and never drifts. The detector only fires when the
- * live rule disagrees with reality, regardless of why.
+ * Crucially it is SEASON-AWARE: the "predicted weekday(s)" come from projectTrails over the
+ * observed-plus-upcoming span (the same 42d we read actuals from, through the next few weeks),
+ * so the rule's validFrom/validUntil gating is honored AND a kennel sitting right on a season
+ * boundary keeps its old-season weekday in the predicted set while the recent actuals still lean
+ * that way — it never false-fires across the switch. The detector only fires when the live rule
+ * disagrees with reality, regardless of why.
  *
  * Reuses the real engine (projectTrails) + isEligibleActual so detection matches production.
  */
@@ -119,20 +121,25 @@ export async function detectRuleDrift(prisma: PrismaClient, now: Date = new Date
   }
 
   const findings: DriftFinding[] = [];
-  const kennelByCode = new Map(kennels.map((k) => [k.id, k]));
   for (const k of kennels) {
     const kRules = rulesByKennel.get(k.id) ?? [];
     if (kRules.length === 0) continue;
     const recent = recentByKennel.get(k.id) ?? [];
     if (recent.length < DRIFT_MIN_EVENTS) continue;
 
-    // Season-aware predicted weekdays: project the rule over the near window and collect days.
+    // Season-aware predicted weekdays. Project over the FULL observed-plus-upcoming span
+    // [recentStart, projectEnd] — not just the forward window — so a correctly-seasonal kennel
+    // that just crossed a validFrom/validUntil boundary keeps its OLD-season weekday in the set
+    // while the recent actuals still lean that way. Otherwise the 42d actuals (prior season)
+    // would be compared against only the next 28d projections (new season) and false-fire for
+    // weeks after every switch (Codex review on PR #2166). A genuinely stale rule still projects
+    // only its wrong weekday across the whole span, so real drift is unaffected.
     const ruleInputs: ScheduleRuleInput[] = kRules.map((r) => ({
       id: r.id, kennelId: r.kennelId, rrule: r.rrule, anchorDate: r.anchorDate, startTime: r.startTime,
       confidence: r.confidence, notes: r.notes, label: r.label, validFrom: r.validFrom, validUntil: r.validUntil,
     }));
     const predictedDays = new Set<number>();
-    for (const proj of projectTrails(ruleInputs, now, projectEnd)) {
+    for (const proj of projectTrails(ruleInputs, recentStart, projectEnd)) {
       if (proj.date) predictedDays.add(proj.date.getUTCDay());
     }
 
@@ -140,7 +147,7 @@ export async function detectRuleDrift(prisma: PrismaClient, now: Date = new Date
     if (!drift) continue;
     findings.push({
       kennelCode: k.kennelCode,
-      shortName: kennelByCode.get(k.id)?.shortName ?? k.shortName,
+      shortName: k.shortName,
       region: k.region,
       predictedWeekdays: [...predictedDays].sort((a, b) => a - b).map(weekdayName),
       actualWeekday: weekdayName(drift.actualDay),

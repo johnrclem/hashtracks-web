@@ -129,9 +129,10 @@ function seasonalitySplit(dates: Date[]): { seasonal: boolean; summerDay: number
 /** Days spanned by the independent history — used to gate confident flat rules (<1yr = risky). */
 function historySpanDays(dates: Date[]): number {
   if (dates.length < 2) return 0;
-  let min = dates[0].getTime();
-  let max = dates[0].getTime();
-  for (const dt of dates) { const t = dt.getTime(); if (t < min) min = t; if (t > max) max = t; }
+  // `dates` arrives sorted ascending from the caller (buildProposal's `allIndependent`), so the
+  // span is just last − first — no need to scan for min/max.
+  const min = dates[0].getTime();
+  const max = dates[dates.length - 1].getTime();
   return Math.round((max - min) / (24 * 60 * 60 * 1000));
 }
 /** Below this much history, a flat weekly rule might be hiding an unseen season. */
