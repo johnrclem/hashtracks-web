@@ -1432,8 +1432,13 @@ function extractScheduleTabHares(prose: string | undefined): string | undefined 
   return name.length > 0 ? `${name.join(" ")} ${suffix}` : undefined;
 }
 
-/** Extract structured fields from one tab pane's text lines. */
-function parseScheduleTabFields(lines: string[]): Omit<ScheduleTab, "weekday"> {
+/** Lines that should never be read as a street address (URLs and labelled fields). */
+const NON_ADDRESS_LINE_RE = /^(?:https?:\/\/|after|when|where|cost|hares?|time|start)\b/i;
+
+/** Scan a tab's lines for the `When:` time, the `Where:` venue, and a maps URL. */
+function scanScheduleTabHeader(
+  lines: string[],
+): { venue?: string; mapsUrl?: string; startTime?: string; whereIdx: number } {
   let venue: string | undefined;
   let mapsUrl: string | undefined;
   let startTime: string | undefined;
@@ -1447,24 +1452,33 @@ function parseScheduleTabFields(lines: string[]): Omit<ScheduleTab, "weekday"> {
     }
     if (mapsUrl === undefined && MAPS_URL_RE.test(line)) mapsUrl = line;
   }
-  // Address = first line after `Where:` that carries a street number and isn't a
-  // URL or another labelled field. The label skip guards against a `When:`/`Cost:`
-  // line that happens to follow `Where:` and contains a digit (e.g. "When: 6:30").
-  let address: string | undefined;
-  if (whereIdx >= 0) {
-    for (let i = whereIdx + 1; i < lines.length; i++) {
-      const line = lines[i];
-      if (/^https?:\/\//i.test(line)) continue;
-      // Skip other labelled lines (After Party / When / Cost …) — no `\s+` in the
-      // alternation, to stay clear of Sonar S5852's ReDoS heuristic.
-      if (/^(?:after|when|where|cost|hares?|time|start)\b/i.test(line)) continue;
-      if (/\d/.test(line)) {
-        address = line;
-        break;
-      }
-    }
+  return { venue, mapsUrl, startTime, whereIdx };
+}
+
+/**
+ * First line after `Where:` that carries a street number and isn't a URL or
+ * another labelled field. The label skip guards against a `When:`/`Cost:` line
+ * that follows `Where:` and contains a digit (e.g. "When: 6:30").
+ */
+function findScheduleTabAddress(lines: string[], whereIdx: number): string | undefined {
+  if (whereIdx < 0) return undefined;
+  for (let i = whereIdx + 1; i < lines.length; i++) {
+    const line = lines[i];
+    if (!NON_ADDRESS_LINE_RE.test(line) && /\d/.test(line)) return line;
   }
-  return { venue, address, mapsUrl, startTime, hares: extractScheduleTabHares(lines[0]) };
+  return undefined;
+}
+
+/** Extract structured fields from one tab pane's text lines. */
+function parseScheduleTabFields(lines: string[]): Omit<ScheduleTab, "weekday"> {
+  const { venue, mapsUrl, startTime, whereIdx } = scanScheduleTabHeader(lines);
+  return {
+    venue,
+    address: findScheduleTabAddress(lines, whereIdx),
+    mapsUrl,
+    startTime,
+    hares: extractScheduleTabHares(lines[0]),
+  };
 }
 
 /**
@@ -1508,6 +1522,34 @@ export function parseScheduleTabs($: cheerio.CheerioAPI): ScheduleTab[] {
  * anchored to the index start date (authoritative); each later day advances the
  * cursor to the next date matching that tab's weekday label.
  */
+/** First UTC date ≥ `fromMs` whose day-of-week is `dow` (within a week), else null. */
+function nextUtcDateForDow(fromMs: number, dow: number): Date | null {
+  const d = new Date(fromMs);
+  for (let guard = 0; guard < 7 && d.getUTCDay() !== dow; guard++) {
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return d.getUTCDay() === dow ? d : null;
+}
+
+/**
+ * Build the per-day date list: day 0 is the anchor, each later day advances to
+ * the next date matching that tab's weekday. Returns null on any unmappable or
+ * unreachable weekday.
+ */
+function buildScheduleTabDates(startDateStr: string, startMs: number, tabs: ScheduleTab[]): string[] | null {
+  const dates: string[] = [startDateStr];
+  let cursor = startMs + 86_400_000;
+  for (let i = 1; i < tabs.length; i++) {
+    const dow = weekdayLabelToDow(tabs[i].weekday);
+    if (dow === null) return null;
+    const d = nextUtcDateForDow(cursor, dow);
+    if (!d) return null;
+    dates.push(isoUtcDate(d));
+    cursor = d.getTime() + 86_400_000;
+  }
+  return dates;
+}
+
 function parseScheduleTabRange(
   indexEntry: IndexEntry,
   tabs: ScheduleTab[],
@@ -1523,19 +1565,8 @@ function parseScheduleTabRange(
   const firstDow = weekdayLabelToDow(tabs[0].weekday);
   if (firstDow === null || firstDow !== new Date(startMs).getUTCDay()) return null;
 
-  const dates: string[] = [startDateStr];
-  let cursor = startMs + 86_400_000;
-  for (let i = 1; i < tabs.length; i++) {
-    const dow = weekdayLabelToDow(tabs[i].weekday);
-    if (dow === null) return null;
-    const d = new Date(cursor);
-    for (let guard = 0; guard < 7 && d.getUTCDay() !== dow; guard++) {
-      d.setUTCDate(d.getUTCDate() + 1);
-    }
-    if (d.getUTCDay() !== dow) return null;
-    dates.push(isoUtcDate(d));
-    cursor = d.getTime() + 86_400_000;
-  }
+  const dates = buildScheduleTabDates(startDateStr, startMs, tabs);
+  if (!dates) return null;
 
   const firstTime = tabs.find((t) => t.startTime)?.startTime ?? "";
   return {
