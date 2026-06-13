@@ -17,7 +17,7 @@
  *
  * Reuses the real engine (projectTrails) + isEligibleActual so detection matches production.
  */
-import type { PrismaClient, ScheduleConfidence } from "@/generated/prisma/client";
+import type { Prisma, PrismaClient, ScheduleConfidence } from "@/generated/prisma/client";
 import { CANONICAL_EVENT_WHERE } from "@/lib/event-filters";
 import { EVENT_ELIGIBILITY_SELECT, isEligibleActual } from "@/lib/event-eligibility";
 import { projectTrails, type ScheduleRuleInput } from "@/lib/travel/projections";
@@ -186,4 +186,15 @@ export async function detectRuleDrift(prisma: PrismaClient, now: Date = new Date
   }
   findings.sort((a, b) => a.shortName.localeCompare(b.shortName));
   return findings;
+}
+
+/**
+ * Persist a drift run (findings + count + `ranAt`) so `/admin/predictions` can render it from a
+ * fast single-row read instead of re-running the heavy live sweep on the page path. Called by the
+ * weekly cron and the admin recompute action.
+ */
+export async function writeRuleDriftSnapshot(prisma: PrismaClient, findings: DriftFinding[]): Promise<void> {
+  await prisma.ruleDriftSnapshot.create({
+    data: { driftCount: findings.length, findings: findings as unknown as Prisma.InputJsonValue },
+  });
 }
