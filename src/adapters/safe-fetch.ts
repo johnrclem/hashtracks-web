@@ -90,8 +90,14 @@ export async function safeFetch(
   let currentUrl = url;
   let redirectCount = 0;
 
+  // Default timeout so a slow / non-responding endpoint can't hang the scrape
+  // indefinitely (mirrors the residential-proxy branch). One signal is shared
+  // across every redirect hop, so it bounds the *total* request time rather
+  // than resetting per hop; a caller-supplied signal takes precedence.
+  const signal = init?.signal ?? AbortSignal.timeout(45_000);
+
   while (redirectCount < MAX_REDIRECTS) {
-    const response = await fetch(currentUrl, { ...init, redirect: "manual" });
+    const response = await fetch(currentUrl, { ...init, redirect: "manual", signal });
     if (response.status >= 300 && response.status < 400) {
       const location = response.headers.get("location");
       if (!location) return response;
