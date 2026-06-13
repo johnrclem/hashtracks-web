@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs";
 import { loadLedgerScorecard, loadRuleDriftSnapshot, loadRuleCoverage } from "./data";
 import { PredictionsDashboard } from "@/components/admin/PredictionsDashboard";
 
@@ -11,6 +12,11 @@ export default async function PredictionsPage() {
     loadRuleDriftSnapshot(),
     loadRuleCoverage(),
   ]);
+
+  // Don't let allSettled silently swallow a failing section — surface it for debugging.
+  if (ledger.status === "rejected") Sentry.captureException(ledger.reason);
+  if (drift.status === "rejected") Sentry.captureException(drift.reason);
+  if (coverage.status === "rejected") Sentry.captureException(coverage.reason);
 
   return (
     <PredictionsDashboard

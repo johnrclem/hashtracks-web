@@ -10,9 +10,7 @@ import { prisma } from "@/lib/db";
 import type { DriftFinding } from "@/pipeline/rule-drift";
 import {
   DAYSOUT_BINS,
-  buildPrecisionMap,
-  tallyOutcomes,
-  firstMaturityDate,
+  binOf,
   type OutcomeTally,
 } from "@/lib/travel/ledger-scorecard";
 
@@ -47,12 +45,40 @@ function weekStart(d: Date): string {
 }
 
 export async function loadLedgerScorecard(): Promise<LedgerScorecard> {
-  const snaps = await prisma.predictionSnapshot.findMany({
-    select: { confidence: true, daysOutAtSnapshot: true, outcome: true, predictedDate: true, snapshotAt: true, kennelId: true },
-  });
+  // Aggregate in the DB (not by fetching every row) — PredictionSnapshot grows ~weekly forever,
+  // so an in-memory tally would balloon and risk OOM in serverless (gemini review). The grouped
+  // results are bounded: outcomes (≤5), precision by confidence×daysOut×outcome (≤~800),
+  // confidence (≤3), and snapshots-by-snapshotAt (≈1 row per weekly cron run via createMany).
+  const [outcomeGroups, precisionGroups, earliestPending, earliestSnapshot, confidenceGroups, weeklyGroups, distinctKennels] =
+    await Promise.all([
+      prisma.predictionSnapshot.groupBy({ by: ["outcome"], _count: true }),
+      prisma.predictionSnapshot.groupBy({
+        by: ["confidence", "daysOutAtSnapshot", "outcome"],
+        where: { outcome: { in: ["HIT", "MISS"] } },
+        _count: true,
+      }),
+      prisma.predictionSnapshot.aggregate({ where: { outcome: "PENDING" }, _min: { predictedDate: true } }),
+      prisma.predictionSnapshot.aggregate({ _min: { snapshotAt: true } }),
+      prisma.predictionSnapshot.groupBy({ by: ["confidence"], _count: true }),
+      prisma.predictionSnapshot.groupBy({ by: ["snapshotAt"], _count: true }),
+      prisma.predictionSnapshot.findMany({ select: { kennelId: true }, distinct: ["kennelId"] }),
+    ]);
 
-  const outcomes = tallyOutcomes(snaps);
-  const precisionMap = buildPrecisionMap(snaps);
+  const outcomes: OutcomeTally = { PENDING: 0, HIT: 0, MISS: 0, PRECONFIRMED: 0, UNOBSERVED: 0, total: 0 };
+  for (const g of outcomeGroups) {
+    outcomes[g.outcome] = g._count;
+    outcomes.total += g._count;
+  }
+
+  const precisionMap = new Map<string, { hit: number; miss: number }>();
+  for (const g of precisionGroups) {
+    if (g.confidence !== "HIGH" && g.confidence !== "MEDIUM") continue;
+    const key = `${g.confidence}|${binOf(g.daysOutAtSnapshot)}`;
+    const cell = precisionMap.get(key) ?? { hit: 0, miss: 0 };
+    if (g.outcome === "HIT") cell.hit += g._count;
+    else cell.miss += g._count;
+    precisionMap.set(key, cell);
+  }
   const precision: PrecisionCellView[] = [];
   for (const confidence of ["HIGH", "MEDIUM"] as const) {
     for (const b of DAYSOUT_BINS) {
@@ -62,14 +88,15 @@ export async function loadLedgerScorecard(): Promise<LedgerScorecard> {
     }
   }
 
-  const firstMaturity = firstMaturityDate(snaps);
-  const firstSnapshot = snaps.reduce<Date | null>((e, s) => (!e || s.snapshotAt < e ? s.snapshotAt : e), null);
   const confidenceSplit = { HIGH: 0, MEDIUM: 0 };
+  for (const g of confidenceGroups) {
+    if (g.confidence === "HIGH" || g.confidence === "MEDIUM") confidenceSplit[g.confidence] = g._count;
+  }
+
   const weekCounts = new Map<string, number>();
-  for (const s of snaps) {
-    if (s.confidence === "HIGH" || s.confidence === "MEDIUM") confidenceSplit[s.confidence]++;
-    const w = weekStart(s.snapshotAt);
-    weekCounts.set(w, (weekCounts.get(w) ?? 0) + 1);
+  for (const g of weeklyGroups) {
+    const w = weekStart(g.snapshotAt);
+    weekCounts.set(w, (weekCounts.get(w) ?? 0) + g._count);
   }
   const weekly = [...weekCounts.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([week, count]) => ({ week, count }));
 
@@ -78,9 +105,9 @@ export async function loadLedgerScorecard(): Promise<LedgerScorecard> {
     outcomes,
     scored: outcomes.HIT + outcomes.MISS,
     precision,
-    firstMaturityISO: firstMaturity?.toISOString() ?? null,
-    firstSnapshotISO: firstSnapshot?.toISOString() ?? null,
-    kennelsCovered: new Set(snaps.map((s) => s.kennelId)).size,
+    firstMaturityISO: earliestPending._min.predictedDate?.toISOString() ?? null,
+    firstSnapshotISO: earliestSnapshot._min.snapshotAt?.toISOString() ?? null,
+    kennelsCovered: distinctKennels.length,
     confidenceSplit,
     weekly,
   };
