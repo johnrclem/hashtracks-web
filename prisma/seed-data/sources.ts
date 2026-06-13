@@ -4362,15 +4362,17 @@ export const SOURCES = [
     // in feedback_sourceless_kennels memory. Description fields link to their FB
     // page so users can check the actual trail location day-of.
     //
-    // The two records below share the same Facebook page but are kept as
-    // separate seed rows by their distinct `name` values — the seed upsert
-    // identity is `(name, type)` per `prisma/schema.prisma:221` and
-    // `prisma/seed.ts:364`. The `#sunday` / `#wednesday` URL fragments are
-    // only for human readability; identical names with different URLs would
-    // collapse to a single row on seed.
+    // The `url` fields point at the kennel's own contact page (publicly readable,
+    // no login wall) rather than the Facebook page, so an audit / manual cross-
+    // check / future-Claude verification pass can actually load the source (#1553).
+    // The two records below are kept as separate seed rows by their distinct
+    // `name` values — the seed upsert identity is `(name, type)` per
+    // `prisma/schema.prisma:221` and `prisma/seed.ts:364`. The `#sunday` /
+    // `#wednesday` URL fragments are only for human readability; identical names
+    // with different URLs would collapse to a single row on seed.
     {
       name: "Little Rock H3 Static Schedule (Sunday)",
-      url: "https://www.facebook.com/littlerockhashhouseharriers#sunday",
+      url: "https://lrhash.com/contact#sunday",
       type: "STATIC_SCHEDULE" as const,
       trustLevel: 3,
       scrapeFreq: "weekly",
@@ -4387,7 +4389,7 @@ export const SOURCES = [
     },
     {
       name: "Little Rock H3 Static Schedule (Wednesday)",
-      url: "https://www.facebook.com/littlerockhashhouseharriers#wednesday",
+      url: "https://lrhash.com/contact#wednesday",
       type: "STATIC_SCHEDULE" as const,
       trustLevel: 3,
       scrapeFreq: "weekly",
