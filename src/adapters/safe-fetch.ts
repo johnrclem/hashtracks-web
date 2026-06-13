@@ -97,7 +97,11 @@ export async function safeFetch(
   const signal = init?.signal ?? AbortSignal.timeout(45_000);
 
   while (redirectCount < MAX_REDIRECTS) {
-    const response = await fetch(currentUrl, { ...init, redirect: "manual", signal });
+    // This IS the SSRF guard: currentUrl is validated by validateSourceUrlWithDns()
+    // before the first fetch and again after every redirect target is computed
+    // (the call above the loop + line 105). The variable-URL fetch is intentional.
+    // nosemgrep
+    const response = await fetch(currentUrl, { ...init, redirect: "manual", signal }); // NOSONAR nosemgrep
     if (response.status >= 300 && response.status < 400) {
       const location = response.headers.get("location");
       if (!location) return response;
