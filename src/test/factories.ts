@@ -99,6 +99,7 @@ export const mockUser = {
   hashName: null,
   nerdName: "Test User",
   bio: null,
+  timeDisplayPref: "EVENT_LOCAL" as const,
   createdAt: new Date("2026-01-01"),
   updatedAt: new Date("2026-01-01"),
 };

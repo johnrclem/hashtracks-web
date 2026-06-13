@@ -17,7 +17,7 @@ describe("requireAdmin", () => {
   });
 
   it("returns the admin user when the caller is an admin", async () => {
-    vi.mocked(getAdminUser).mockResolvedValue(mockAdminUser as never);
+    vi.mocked(getAdminUser).mockResolvedValue(mockAdminUser);
     await expect(requireAdmin()).resolves.toBe(mockAdminUser);
   });
 });

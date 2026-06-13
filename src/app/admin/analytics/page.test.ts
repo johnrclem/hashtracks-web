@@ -20,6 +20,7 @@ vi.mock("./actions", () => ({
 }));
 
 import { requireAdmin } from "@/lib/admin/require-admin";
+import { mockAdminUser } from "@/test/factories";
 import AnalyticsPage from "./page";
 import {
   getCommunityHealthMetrics,
@@ -47,7 +48,7 @@ describe("AnalyticsPage auth boundary", () => {
   });
 
   it("renders for an authorized admin", async () => {
-    mockRequireAdmin.mockResolvedValueOnce({ id: "admin_1" } as never);
+    mockRequireAdmin.mockResolvedValueOnce(mockAdminUser);
 
     await expect(AnalyticsPage()).resolves.toBeDefined();
     expect(getCommunityHealthMetrics).toHaveBeenCalled();
