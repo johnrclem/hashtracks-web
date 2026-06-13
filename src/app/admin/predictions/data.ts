@@ -8,6 +8,7 @@
  */
 import { prisma } from "@/lib/db";
 import type { DriftFinding } from "@/pipeline/rule-drift";
+import type { PredictionOutcome, ScheduleConfidence } from "@/generated/prisma/client";
 import {
   DAYSOUT_BINS,
   binOf,
@@ -44,6 +45,58 @@ function weekStart(d: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
+// — groupBy result processors (kept out of the loader to bound its cognitive complexity) —
+type OutcomeGroup = { outcome: PredictionOutcome; _count: number };
+type PrecisionGroup = { confidence: ScheduleConfidence; daysOutAtSnapshot: number; outcome: PredictionOutcome; _count: number };
+type ConfidenceGroup = { confidence: ScheduleConfidence; _count: number };
+type WeeklyGroup = { snapshotAt: Date; _count: number };
+
+function tallyOutcomeGroups(groups: OutcomeGroup[]): OutcomeTally {
+  const t: OutcomeTally = { PENDING: 0, HIT: 0, MISS: 0, PRECONFIRMED: 0, UNOBSERVED: 0, total: 0 };
+  for (const g of groups) {
+    t[g.outcome] = g._count;
+    t.total += g._count;
+  }
+  return t;
+}
+
+function precisionFromGroups(groups: PrecisionGroup[]): PrecisionCellView[] {
+  const map = new Map<string, { hit: number; miss: number }>();
+  for (const g of groups) {
+    if (g.confidence !== "HIGH" && g.confidence !== "MEDIUM") continue;
+    const cell = map.get(`${g.confidence}|${binOf(g.daysOutAtSnapshot)}`) ?? { hit: 0, miss: 0 };
+    if (g.outcome === "HIT") cell.hit += g._count;
+    else cell.miss += g._count;
+    map.set(`${g.confidence}|${binOf(g.daysOutAtSnapshot)}`, cell);
+  }
+  const out: PrecisionCellView[] = [];
+  for (const confidence of ["HIGH", "MEDIUM"] as const) {
+    for (const b of DAYSOUT_BINS) {
+      const cell = map.get(`${confidence}|${b.label}`) ?? { hit: 0, miss: 0 };
+      const scored = cell.hit + cell.miss;
+      out.push({ confidence, bin: b.label, hit: cell.hit, miss: cell.miss, precision: scored > 0 ? cell.hit / scored : null });
+    }
+  }
+  return out;
+}
+
+function splitConfidence(groups: ConfidenceGroup[]): { HIGH: number; MEDIUM: number } {
+  const split = { HIGH: 0, MEDIUM: 0 };
+  for (const g of groups) {
+    if (g.confidence === "HIGH" || g.confidence === "MEDIUM") split[g.confidence] = g._count;
+  }
+  return split;
+}
+
+function bucketWeekly(groups: WeeklyGroup[]): { week: string; count: number }[] {
+  const weekCounts = new Map<string, number>();
+  for (const g of groups) {
+    const w = weekStart(g.snapshotAt);
+    weekCounts.set(w, (weekCounts.get(w) ?? 0) + g._count);
+  }
+  return [...weekCounts.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([week, count]) => ({ week, count }));
+}
+
 export async function loadLedgerScorecard(): Promise<LedgerScorecard> {
   // Aggregate in the DB (not by fetching every row) — PredictionSnapshot grows ~weekly forever,
   // so an in-memory tally would balloon and risk OOM in serverless (gemini review). The grouped
@@ -64,52 +117,17 @@ export async function loadLedgerScorecard(): Promise<LedgerScorecard> {
       prisma.predictionSnapshot.findMany({ select: { kennelId: true }, distinct: ["kennelId"] }),
     ]);
 
-  const outcomes: OutcomeTally = { PENDING: 0, HIT: 0, MISS: 0, PRECONFIRMED: 0, UNOBSERVED: 0, total: 0 };
-  for (const g of outcomeGroups) {
-    outcomes[g.outcome] = g._count;
-    outcomes.total += g._count;
-  }
-
-  const precisionMap = new Map<string, { hit: number; miss: number }>();
-  for (const g of precisionGroups) {
-    if (g.confidence !== "HIGH" && g.confidence !== "MEDIUM") continue;
-    const key = `${g.confidence}|${binOf(g.daysOutAtSnapshot)}`;
-    const cell = precisionMap.get(key) ?? { hit: 0, miss: 0 };
-    if (g.outcome === "HIT") cell.hit += g._count;
-    else cell.miss += g._count;
-    precisionMap.set(key, cell);
-  }
-  const precision: PrecisionCellView[] = [];
-  for (const confidence of ["HIGH", "MEDIUM"] as const) {
-    for (const b of DAYSOUT_BINS) {
-      const cell = precisionMap.get(`${confidence}|${b.label}`) ?? { hit: 0, miss: 0 };
-      const scored = cell.hit + cell.miss;
-      precision.push({ confidence, bin: b.label, hit: cell.hit, miss: cell.miss, precision: scored > 0 ? cell.hit / scored : null });
-    }
-  }
-
-  const confidenceSplit = { HIGH: 0, MEDIUM: 0 };
-  for (const g of confidenceGroups) {
-    if (g.confidence === "HIGH" || g.confidence === "MEDIUM") confidenceSplit[g.confidence] = g._count;
-  }
-
-  const weekCounts = new Map<string, number>();
-  for (const g of weeklyGroups) {
-    const w = weekStart(g.snapshotAt);
-    weekCounts.set(w, (weekCounts.get(w) ?? 0) + g._count);
-  }
-  const weekly = [...weekCounts.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([week, count]) => ({ week, count }));
-
+  const outcomes = tallyOutcomeGroups(outcomeGroups);
   return {
     total: outcomes.total,
     outcomes,
     scored: outcomes.HIT + outcomes.MISS,
-    precision,
+    precision: precisionFromGroups(precisionGroups),
     firstMaturityISO: earliestPending._min.predictedDate?.toISOString() ?? null,
     firstSnapshotISO: earliestSnapshot._min.snapshotAt?.toISOString() ?? null,
     kennelsCovered: distinctKennels.length,
-    confidenceSplit,
-    weekly,
+    confidenceSplit: splitConfidence(confidenceGroups),
+    weekly: bucketWeekly(weeklyGroups),
   };
 }
 
