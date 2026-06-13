@@ -72,8 +72,9 @@ const PHONE_PAREN_RE = /\(0\d\)\d{3,4}-?\d{3,4}/g;
 const PHONE_DASHED_RE = /0\d{1,3}-?\d{3,4}-?\d{3,4}/g;
 
 // Distinct hares are separated by & / ＆ / 、 ; a single hare's CN/EN names are
-// joined by "/" and must stay together.
-const HARE_SEPARATOR_RE = /\s*[&＆、]\s*/g;
+// joined by "/" and must stay together. No surrounding `\s*` (S5852/ReDoS) —
+// normalizeHaresField trims each comma-split part anyway.
+const HARE_SEPARATOR_RE = /[&＆、]/g;
 
 const MAPS_HREF =
   "a[href*='maps.app.goo.gl'], a[href*='goo.gl/maps'], a[href*='google.com/maps']";
