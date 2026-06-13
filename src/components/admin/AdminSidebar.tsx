@@ -18,7 +18,7 @@ const NAV_GROUPS = [
   },
   {
     label: "Operations",
-    tabs: ["alerts", "discovery", "research"],
+    tabs: ["alerts", "discovery", "research", "predictions"],
   },
   {
     label: "Access",

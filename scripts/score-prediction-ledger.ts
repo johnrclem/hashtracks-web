@@ -20,46 +20,16 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
 import { createScriptPool } from "./lib/db-pool";
 import { utcNoon, fmtDate, pct, writeAuditReport } from "./lib/audit-shared";
-
-// Actual-days-out bins for precision (report by real horizon, not the nominal band).
-const DAYSOUT_BINS: { label: string; lo: number; hi: number }[] = [
-  { label: "0–45", lo: 0, hi: 45 },
-  { label: "46–120", lo: 46, hi: 120 },
-  { label: "121–200", lo: 121, hi: 200 },
-];
-
-type Outcome = "PENDING" | "HIT" | "MISS" | "PRECONFIRMED" | "UNOBSERVED";
-
-interface SnapRow {
-  confidence: "HIGH" | "MEDIUM";
-  horizonBucket: number;
-  daysOutAtSnapshot: number;
-  outcome: Outcome;
-  predictedDate: Date;
-}
-
-function binOf(daysOut: number): string {
-  return DAYSOUT_BINS.find((b) => daysOut >= b.lo && daysOut <= b.hi)?.label ?? "200+";
-}
-
-type Cell = { hit: number; miss: number };
-
-/** Precision cells keyed `${confidence}|${bin}`, over HIT/MISS rows only. */
-function buildPrecisionMap(snaps: SnapRow[]): Map<string, Cell> {
-  const precision = new Map<string, Cell>();
-  for (const s of snaps) {
-    if (s.outcome !== "HIT" && s.outcome !== "MISS") continue;
-    const key = `${s.confidence}|${binOf(s.daysOutAtSnapshot)}`;
-    const cell = precision.get(key) ?? { hit: 0, miss: 0 };
-    if (s.outcome === "HIT") cell.hit++;
-    else cell.miss++;
-    precision.set(key, cell);
-  }
-  return precision;
-}
+import {
+  DAYSOUT_BINS,
+  buildPrecisionMap,
+  tallyOutcomes,
+  firstMaturityDate,
+  type PrecisionCell,
+} from "@/lib/travel/ledger-scorecard";
 
 /** Render the Precision markdown section (placeholder until matured rows exist). */
-function renderPrecisionSection(scored: number, precision: Map<string, Cell>, firstMaturity: Date | null): string[] {
+function renderPrecisionSection(scored: number, precision: Map<string, PrecisionCell>, firstMaturity: Date | null): string[] {
   if (scored === 0) {
     return [
       "## Precision",
@@ -88,27 +58,21 @@ async function run(prisma: PrismaClient): Promise<void> {
   const today = utcNoon(new Date());
   console.log("📈 Prediction-ledger scorecard (read-only)\n");
 
-  const snaps = (await prisma.predictionSnapshot.findMany({
-    select: { confidence: true, horizonBucket: true, daysOutAtSnapshot: true, outcome: true, predictedDate: true },
-  })) as SnapRow[];
+  const snaps = await prisma.predictionSnapshot.findMany({
+    select: { confidence: true, daysOutAtSnapshot: true, outcome: true, predictedDate: true },
+  });
   const cohortWeeks = await prisma.predictionSnapshot.findMany({
     select: { snapshotAt: true }, orderBy: { snapshotAt: "asc" }, take: 1,
   });
 
-  const total = snaps.length;
-  const byOutcome: Record<Outcome, number> = { PENDING: 0, HIT: 0, MISS: 0, PRECONFIRMED: 0, UNOBSERVED: 0 };
-  for (const s of snaps) byOutcome[s.outcome]++;
+  const byOutcome = tallyOutcomes(snaps);
+  const total = byOutcome.total;
 
   // Precision per confidence × days-out bin (HIT/MISS only).
   const precision = buildPrecisionMap(snaps);
 
   // Pending maturity: earliest PENDING predictedDate = when the first scores arrive.
-  // reduce (not Math.min(...array)) — the pending set can grow large and the spread would
-  // risk a max-call-stack overflow (Gemini review on PR #2164).
-  const firstMaturity = snaps.reduce<Date | null>((earliest, s) => {
-    if (s.outcome !== "PENDING") return earliest;
-    return !earliest || s.predictedDate < earliest ? s.predictedDate : earliest;
-  }, null);
+  const firstMaturity = firstMaturityDate(snaps);
 
   // ── Render ──
   const date = fmtDate(today);

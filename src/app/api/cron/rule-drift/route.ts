@@ -3,7 +3,7 @@ import * as Sentry from "@sentry/nextjs";
 import { verifyCronAuth } from "@/lib/cron-auth";
 import { prisma } from "@/lib/db";
 import { getValidatedRepo } from "@/lib/github-repo";
-import { detectRuleDrift, type DriftFinding } from "@/pipeline/rule-drift";
+import { detectRuleDrift, writeRuleDriftSnapshot, type DriftFinding } from "@/pipeline/rule-drift";
 
 /**
  * Weekly schedule-rule drift check.
@@ -83,6 +83,9 @@ export async function POST(request: Request) {
   }
   try {
     const findings = await detectRuleDrift(prisma);
+    // Persist every run (even 0 drift) so /admin/predictions shows "last checked" + findings
+    // without re-running the heavy sweep on the page path.
+    await writeRuleDriftSnapshot(prisma, findings);
     let issue = { filed: false, reason: "no drift" };
     if (findings.length > 0) issue = await fileDriftIssue(findings);
     console.log(`[rule-drift] ${findings.length} drifted kennel(s); issue: ${issue.reason}`);

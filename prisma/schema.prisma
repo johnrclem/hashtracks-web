@@ -1186,6 +1186,18 @@ model PredictionSnapshot {
   @@index([snapshotAt])
 }
 
+/// One row per rule-drift run (weekly cron or admin recompute): the season-aware
+/// schedule-rule drift findings as of `ranAt`. Read by /admin/predictions so the page
+/// never runs the heavy live sweep; written by /api/cron/rule-drift + the recompute action.
+model RuleDriftSnapshot {
+  id         String   @id @default(cuid())
+  ranAt      DateTime @default(now())
+  driftCount Int
+  findings   Json // DriftFinding[] from src/pipeline/rule-drift.ts
+
+  @@index([ranAt])
+}
+
 enum TravelSearchStatus {
   DRAFT    // Multi-dest trips auto-save as DRAFT once the user adds leg 2. Invisible
            // from /travel/saved; reachable by URL; converts to ACTIVE on explicit Save.
