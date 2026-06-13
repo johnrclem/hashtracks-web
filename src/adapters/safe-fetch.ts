@@ -90,8 +90,18 @@ export async function safeFetch(
   let currentUrl = url;
   let redirectCount = 0;
 
+  // Default timeout so a slow / non-responding endpoint can't hang the scrape
+  // indefinitely (mirrors the residential-proxy branch). One signal is shared
+  // across every redirect hop, so it bounds the *total* request time rather
+  // than resetting per hop; a caller-supplied signal takes precedence.
+  const signal = init?.signal ?? AbortSignal.timeout(45_000);
+
   while (redirectCount < MAX_REDIRECTS) {
-    const response = await fetch(currentUrl, { ...init, redirect: "manual" });
+    // This IS the SSRF guard: currentUrl is validated by validateSourceUrlWithDns()
+    // before the first fetch and again after every redirect target is computed
+    // (the call above the loop + line 105). The variable-URL fetch is intentional.
+    // nosemgrep
+    const response = await fetch(currentUrl, { ...init, redirect: "manual", signal }); // NOSONAR nosemgrep
     if (response.status >= 300 && response.status < 400) {
       const location = response.headers.get("location");
       if (!location) return response;
