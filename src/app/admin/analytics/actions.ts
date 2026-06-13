@@ -1,6 +1,9 @@
-"use server";
-
+// NOT a "use server" module: these loaders are imported only by the gated
+// analytics server-component page. Keeping them as plain server-side functions
+// (rather than server actions) means they are never POST endpoints a logged-out
+// caller could hit. `requireAdmin()` is a belt-and-suspenders guard.
 import { Prisma } from "@/generated/prisma/client";
+import { requireAdmin } from "@/lib/admin/require-admin";
 import { prisma } from "@/lib/db";
 
 export type TimePeriod = "7d" | "30d" | "90d" | "all";
@@ -42,6 +45,7 @@ export interface CommunityHealthMetrics {
 export async function getCommunityHealthMetrics(
   period: TimePeriod = "30d",
 ): Promise<CommunityHealthMetrics> {
+  await requireAdmin();
   const since = periodStart(period);
   const today = new Date();
   today.setUTCHours(12, 0, 0, 0);
@@ -144,6 +148,7 @@ export interface UserEngagementMetrics {
 }
 
 export async function getUserEngagementMetrics(): Promise<UserEngagementMetrics> {
+  await requireAdmin();
   const now = new Date();
   const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
@@ -232,6 +237,7 @@ export interface OperationalHealthMetrics {
 }
 
 export async function getOperationalHealthMetrics(): Promise<OperationalHealthMetrics> {
+  await requireAdmin();
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
   const [sourceHealthByRegion, scrapeSuccessRates, staleSources, totalEnabledSources, totalHealthySources] =
