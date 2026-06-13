@@ -369,6 +369,8 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     // Bare "TH3" omitted — globally taken (Tidewater twh3 / Thirstday th3 / Tacoma
     // th3-wa / Tokyo tokyo-h3) and would mis-route via text match in the resolver.
     "taipei-h3": ["Taipei Hash", "Taipei Hash House Harriers", "Taipei HHH", "台北捷兔", "台北捷兔俱樂部"],
+    // Bare "NTH3" is free (only n2th3 carries "N2TH3"/"NNTH3"; no plain "NTH3").
+    "nth3-tw": ["New Taipei Hash", "New Taipei Hash House Harriers", "New Taipei HHH", "NTH3", "NewTaipei Hash House Harriers", "新北捷兔"],
 
     // ===== CHINA =====
     // Bare "SHH3" omitted — already claimed by Singapore Harriets (sgharriets) and would

@@ -619,3 +619,46 @@ lapse, not a sandbox quirk). When the origin is unreachable but the kennel is re
   search index + Wayback) and document it as a re-check item — the kennel page still surfaces the live
   `facebookUrl`. A review bot will flag the broken link; declining with this rationale is legitimate
   (CodeRabbit accepted it on Budapest as an intentional reversible exception).
+
+## Big5 / legacy `.htm` club sites (learned from New Taipei H3, 2026-06-13)
+
+HashTracks' **first Big5-encoded source**. `newtaipeihash.com/run_site_<YYYY>.htm` is a Word "Save as
+HTML" export that serves **legacy Big5 bytes with no charset declared** (no `<meta charset>`, no charset
+in the HTTP `Content-Type`). The queued Kaohsiung / Taoyuan Taiwanese siblings are the same shape; reuse
+this. Reference adapter: `src/adapters/html-scraper/new-taipei-hash.ts`.
+
+- **Decode Big5 before `cheerio.load`.** `fetchHTMLPage` / `response.text()` assume UTF-8 and mojibake
+  every Chinese venue/hare. Fetch raw bytes (`safeFetch(...).arrayBuffer()` → `Uint8Array`) and decode
+  with **`new TextDecoder("big5")`** — native in Node, **no `iconv-lite` dependency**. Force `big5` (don't
+  sniff a meta tag — there isn't one). Unit-test a known string round-trips (e.g. `新北捷兔` =
+  Big5 `b773a55fb1b6a8df`). The byte-fetch + size-cap scaffold is shared with `auckland-hussies.ts`
+  (which sniffs windows-1252); this adapter just pins the label.
+- **A `Mozilla`-prefixed `User-Agent` is mandatory.** The Apache origin returns **HTTP 500** to a bare
+  `curl/*` UA but 200 to any `Mozilla/...` UA (incl. `"Mozilla/5.0 (compatible; HashTracks-Scraper)"`).
+- **Year is in the URL filename, not the rows.** Dates are bare `MM/DD`; the year is `run_site_2026.htm`.
+  Derive the **current** year at fetch time and build `run_site_${year}.htm` so a daily scraper never
+  pins to a stale page after New Year. Keep the seed `url` on the current year for first-scrape
+  determinism; the adapter overrides it. (Simpler than the year-less Taipei H3 cousin's run-number
+  anchoring — here the year is free.)
+- **Word export quirks:** `<style><!--td {...}--></style>` leaks *inside* table cells (cheerio `.text()`
+  includes it) — strip `style, script` per cell. Multi-value specials stack siblings
+  (`<p>647</p><p>648</p>`, `<p>08/23</p><p>08/24</p>`); `.text()` mashes them ("647648"), so insert a
+  space at block boundaries (`p, div, li`) and take the *first* run#/date (a 2-day overseas special is one
+  event on day 1).
+- **Seasonal `startTime`, not per-row.** The page header is authoritative (summer 15:00 / winter 14:30);
+  the in-table season-marker rows even had a typo (both said 14:30). Month-based season (Apr–Sep vs
+  Oct–Mar) matched the real marker boundaries exactly — use it, and mirror it in the kennel's
+  `scheduleRules` (disjoint BYMONTH, like `shh3-cn`).
+- **PII phones in hare cells** (`0920-946-035`, `(02)2883-2383`) — strip with two narrow bounded regexes
+  (no nested `\s*`/alternation, ReDoS-safe).
+- **Cancellations have no run number.** COVID rows use run cell `"X"` + venue `"…三級疫情取消"`; treat any
+  row with a non-numeric run cell as a non-run and **skip it silently** (don't push a parse error) — only
+  a *numbered* run with an unparseable date is a genuine anomaly worth surfacing.
+- **Per-run Facebook event links → `externalLinks`, not `locationUrl`.** `locationUrl` is stored as the
+  canonical `Event.locationAddress` and drives the static-map click-through; an `fb.me/e/…` there makes
+  the map link to Facebook. Route FB links to `externalLinks` (they render as labelled EventLinks) and
+  reserve `locationUrl` for genuine `goo.gl/maps` links.
+- **Deep clean archive → frozen backfill.** 13 yearly pages (`run_site_2013…2025.htm`, index
+  `run_site_all_list.htm`) share the structure → one-shot `scripts/backfill-nth3-tw-history.ts` +
+  frozen `scripts/data/nth3-tw-history.json` (663 runs, #1 2013-01-06 → #666 2025-12-27). Source
+  `config.upcomingOnly: true` keeps `reconcile.ts` from cancelling the aged-off history.
