@@ -54,7 +54,7 @@ function addDaysISO(iso: string, days: number): string {
   return new Date(new Date(iso).getTime() + days * DAY_MS).toISOString();
 }
 
-function ErrorCard({ what }: { what: string }) {
+function ErrorCard({ what }: Readonly<{ what: string }>) {
   return (
     <div className="rounded-xl border border-red-500/30 bg-red-500/[0.06] p-4 text-sm text-red-500">
       <AlertTriangle className="mb-1 inline h-4 w-4" /> Failed to load {what}.
@@ -69,7 +69,18 @@ const BANDS: { band: number; bin: string }[] = [
   { band: 180, bin: "121–200" },
 ];
 
-function MaturityTimeline({ ledger }: { ledger: LedgerScorecard }) {
+type BandStatus = "scoring" | "maturing" | "idle";
+function bandStatus(total: number, scored: boolean): BandStatus {
+  if (total === 0) return "idle";
+  return scored ? "scoring" : "maturing";
+}
+function bandMeta(status: BandStatus): { tone: string; label: string } {
+  if (status === "scoring") return { tone: "border-emerald-500/40 bg-emerald-500/[0.07] text-emerald-500", label: "Scoring" };
+  if (status === "maturing") return { tone: "border-amber-500/40 bg-amber-500/[0.07] text-amber-500", label: "Maturing" };
+  return { tone: "border-border/60 bg-muted/30 text-muted-foreground", label: "Not started" };
+}
+
+function MaturityTimeline({ ledger }: Readonly<{ ledger: LedgerScorecard }>) {
   const scoredBins = new Set(
     ledger.precision.filter((c) => c.hit + c.miss > 0).map((c) => c.bin),
   );
@@ -77,14 +88,8 @@ function MaturityTimeline({ ledger }: { ledger: LedgerScorecard }) {
     <div className="grid gap-3 sm:grid-cols-3">
       {BANDS.map(({ band, bin }) => {
         const eta = ledger.firstSnapshotISO ? addDaysISO(ledger.firstSnapshotISO, band) : null;
-        const status = ledger.total === 0 ? "idle" : scoredBins.has(bin) ? "scoring" : "maturing";
-        const tone =
-          status === "scoring"
-            ? "border-emerald-500/40 bg-emerald-500/[0.07] text-emerald-500"
-            : status === "maturing"
-              ? "border-amber-500/40 bg-amber-500/[0.07] text-amber-500"
-              : "border-border/60 bg-muted/30 text-muted-foreground";
-        const label = status === "scoring" ? "Scoring" : status === "maturing" ? "Maturing" : "Not started";
+        const status = bandStatus(ledger.total, scoredBins.has(bin));
+        const { tone, label } = bandMeta(status);
         return (
           <div key={band} className={`rounded-xl border p-4 transition-colors ${tone}`}>
             <div className="flex items-center justify-between">
@@ -113,7 +118,7 @@ function precisionBg(p: number | null): string {
   return `rgba(16, 185, 129, ${(0.08 + p * 0.5).toFixed(3)})`;
 }
 
-function PrecisionHeatmap({ ledger }: { ledger: LedgerScorecard }) {
+function PrecisionHeatmap({ ledger }: Readonly<{ ledger: LedgerScorecard }>) {
   const cell = (conf: "HIGH" | "MEDIUM", bin: string) =>
     ledger.precision.find((c) => c.confidence === conf && c.bin === bin);
   return (
@@ -160,7 +165,7 @@ function PrecisionHeatmap({ ledger }: { ledger: LedgerScorecard }) {
 }
 
 // ── Rule-drift section ───────────────────────────────────────────────────────
-function DriftSection({ drift }: { drift: RuleDriftView }) {
+function DriftSection({ drift }: Readonly<{ drift: RuleDriftView }>) {
   const [isPending, startTransition] = useTransition();
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -173,6 +178,53 @@ function DriftSection({ drift }: { drift: RuleDriftView }) {
   };
 
   const { findings, ranAtISO, everRun } = drift;
+
+  const body = () => {
+    if (!everRun) {
+      return (
+        <div className="rounded-xl border border-border/60 bg-muted/30 p-4 text-sm text-muted-foreground">
+          The weekly rule-drift check hasn&apos;t run yet — it runs Mondays, or use “Re-run now”.
+        </div>
+      );
+    }
+    if (findings.length === 0) {
+      return (
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/[0.06] p-4 text-sm text-emerald-600">
+          <CheckCircle className="mb-0.5 mr-1 inline h-4 w-4" /> No drift — every active rule agrees with recent reality.
+        </div>
+      );
+    }
+    return (
+      <div className="overflow-x-auto rounded-xl border border-border/50">
+        <table className="w-full text-sm">
+          <thead className="bg-muted/40 text-[11px] uppercase tracking-wider text-muted-foreground">
+            <tr>
+              <th className="px-3 py-2 text-left">Kennel</th>
+              <th className="px-3 py-2 text-left">Region</th>
+              <th className="px-3 py-2 text-left">Rule predicts</th>
+              <th className="px-3 py-2 text-left">Recent actual</th>
+              <th className="px-3 py-2 text-left">Active rule(s)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {findings.map((f) => (
+              <tr key={f.kennelCode} className="border-t border-border/40 hover:bg-muted/20">
+                <td className="px-3 py-2 font-medium">{f.shortName} <span className="text-muted-foreground">({f.kennelCode})</span></td>
+                <td className="px-3 py-2 text-muted-foreground">{f.region}</td>
+                <td className="px-3 py-2">{f.predictedWeekdays.join("/")}</td>
+                <td className="px-3 py-2">
+                  <span className="font-semibold text-amber-600">{f.actualWeekday}</span>{" "}
+                  <span className="text-muted-foreground">({Math.round(f.actualShare * 100)}%, {f.recentEventCount} ev)</span>
+                </td>
+                <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{f.activeRules}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
   return (
     <section className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -196,43 +248,7 @@ function DriftSection({ drift }: { drift: RuleDriftView }) {
         </div>
       )}
 
-      {!everRun ? (
-        <div className="rounded-xl border border-border/60 bg-muted/30 p-4 text-sm text-muted-foreground">
-          The weekly rule-drift check hasn&apos;t run yet — it runs Mondays, or use “Re-run now”.
-        </div>
-      ) : findings.length === 0 ? (
-        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/[0.06] p-4 text-sm text-emerald-600">
-          <CheckCircle className="mb-0.5 mr-1 inline h-4 w-4" /> No drift — every active rule agrees with recent reality.
-        </div>
-      ) : (
-        <div className="overflow-x-auto rounded-xl border border-border/50">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/40 text-[11px] uppercase tracking-wider text-muted-foreground">
-              <tr>
-                <th className="px-3 py-2 text-left">Kennel</th>
-                <th className="px-3 py-2 text-left">Region</th>
-                <th className="px-3 py-2 text-left">Rule predicts</th>
-                <th className="px-3 py-2 text-left">Recent actual</th>
-                <th className="px-3 py-2 text-left">Active rule(s)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {findings.map((f) => (
-                <tr key={f.kennelCode} className="border-t border-border/40 hover:bg-muted/20">
-                  <td className="px-3 py-2 font-medium">{f.shortName} <span className="text-muted-foreground">({f.kennelCode})</span></td>
-                  <td className="px-3 py-2 text-muted-foreground">{f.region}</td>
-                  <td className="px-3 py-2">{f.predictedWeekdays.join("/")}</td>
-                  <td className="px-3 py-2">
-                    <span className="font-semibold text-amber-600">{f.actualWeekday}</span>{" "}
-                    <span className="text-muted-foreground">({Math.round(f.actualShare * 100)}%, {f.recentEventCount} ev)</span>
-                  </td>
-                  <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{f.activeRules}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      {body()}
       <a
         href="https://github.com/johnrclem/hashtracks-web/issues?q=is%3Aissue+label%3Arule-drift"
         target="_blank"
@@ -246,7 +262,7 @@ function DriftSection({ drift }: { drift: RuleDriftView }) {
 }
 
 // ── Dashboard ────────────────────────────────────────────────────────────────
-export function PredictionsDashboard({ ledger, drift, coverage }: Props) {
+export function PredictionsDashboard({ ledger, drift, coverage }: Readonly<Props>) {
   return (
     <div className="space-y-10">
       <div>
@@ -259,9 +275,7 @@ export function PredictionsDashboard({ ledger, drift, coverage }: Props) {
       {/* ── Ledger ── */}
       <section className="space-y-5">
         <SectionHeader icon={Activity} title="Forward-prediction ledger" color="bg-blue-500/10 text-blue-500" />
-        {!ledger.ok ? (
-          <ErrorCard what="the prediction ledger" />
-        ) : (
+        {ledger.ok ? (
           <>
             <MaturityTimeline ledger={ledger.data} />
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
@@ -308,18 +322,18 @@ export function PredictionsDashboard({ ledger, drift, coverage }: Props) {
               </div>
             )}
           </>
+        ) : (
+          <ErrorCard what="the prediction ledger" />
         )}
       </section>
 
       {/* ── Rule-drift ── */}
-      {!drift.ok ? <ErrorCard what="rule-drift findings" /> : <DriftSection drift={drift.data} />}
+      {drift.ok ? <DriftSection drift={drift.data} /> : <ErrorCard what="rule-drift findings" />}
 
       {/* ── Coverage ── */}
       <section className="space-y-5">
         <SectionHeader icon={CalendarRange} title="Schedule-rule coverage" color="bg-purple-500/10 text-purple-500" />
-        {!coverage.ok ? (
-          <ErrorCard what="schedule-rule coverage" />
-        ) : (
+        {coverage.ok ? (
           <>
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
               <StatCard label="Active rules" value={coverage.data.activeRules} icon={Hash} color="purple" />
@@ -361,6 +375,8 @@ export function PredictionsDashboard({ ledger, drift, coverage }: Props) {
               </div>
             </div>
           </>
+        ) : (
+          <ErrorCard what="schedule-rule coverage" />
         )}
       </section>
     </div>

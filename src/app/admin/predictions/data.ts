@@ -93,12 +93,17 @@ export interface RuleDriftView {
   everRun: boolean;
 }
 
+/** The findings JSON column is `DriftFinding[]`; guard against a non-array value defensively. */
+function asFindings(json: unknown): DriftFinding[] {
+  return Array.isArray(json) ? (json as DriftFinding[]) : [];
+}
+
 export async function loadRuleDriftSnapshot(): Promise<RuleDriftView> {
   const latest = await prisma.ruleDriftSnapshot.findFirst({ orderBy: { ranAt: "desc" } });
   if (!latest) return { ranAtISO: null, findings: [], everRun: false };
   return {
     ranAtISO: latest.ranAt.toISOString(),
-    findings: (latest.findings as unknown as DriftFinding[]) ?? [],
+    findings: asFindings(latest.findings),
     everRun: true,
   };
 }
