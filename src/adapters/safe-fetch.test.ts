@@ -1,12 +1,10 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-
 // SSRF/DNS validation is exercised elsewhere — stub it so these tests focus on
 // the timeout-signal wiring of the direct-fetch path.
-vi.mock("./ssrf-dns", () => ({
+vi.mock("@/adapters/ssrf-dns", () => ({
   validateSourceUrlWithDns: vi.fn().mockResolvedValue(undefined),
 }));
 
-import { safeFetch } from "./safe-fetch";
+import { safeFetch } from "@/adapters/safe-fetch";
 
 describe("safeFetch direct-fetch timeout", () => {
   let fetchSpy: ReturnType<typeof vi.spyOn>;
