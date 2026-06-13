@@ -620,45 +620,82 @@ lapse, not a sandbox quirk). When the origin is unreachable but the kennel is re
   `facebookUrl`. A review bot will flag the broken link; declining with this rationale is legitimate
   (CodeRabbit accepted it on Budapest as an intentional reversible exception).
 
-## Big5 / legacy `.htm` club sites (learned from New Taipei H3, 2026-06-13)
+---
 
-HashTracks' **first Big5-encoded source**. `newtaipeihash.com/run_site_<YYYY>.htm` is a Word "Save as
-HTML" export that serves **legacy Big5 bytes with no charset declared** (no `<meta charset>`, no charset
-in the HTTP `Content-Type`). The queued Kaohsiung / Taoyuan Taiwanese siblings are the same shape; reuse
-this. Reference adapter: `src/adapters/html-scraper/new-taipei-hash.ts`.
+## UTF-8 SSR PHP run tables + run-number-anchored year inference (learned from Taipei H3, 2026-06-12, SHIPPED)
 
-- **Decode Big5 before `cheerio.load`.** `fetchHTMLPage` / `response.text()` assume UTF-8 and mojibake
-  every Chinese venue/hare. Fetch raw bytes (`safeFetch(...).arrayBuffer()` → `Uint8Array`) and decode
-  with **`new TextDecoder("big5")`** — native in Node, **no `iconv-lite` dependency**. Force `big5` (don't
-  sniff a meta tag — there isn't one). Unit-test a known string round-trips (e.g. `新北捷兔` =
-  Big5 `b773a55fb1b6a8df`). The byte-fetch + size-cap scaffold is shared with `auckland-hussies.ts`
-  (which sniffs windows-1252); this adapter just pins the label.
-- **A `Mozilla`-prefixed `User-Agent` is mandatory.** The Apache origin returns **HTTP 500** to a bare
+**Taipei H3 / 台北捷兔** (`taipeihash.com.tw/run_site.php`, [PR #2170](https://github.com/johnrclem/hashtracks-web/pull/2170)) — Taiwan's oldest hash. A fully **server-rendered, UTF-8** PHP run table (contrast the Big5 `.htm` cousins below — this one has no charset trap). Static Cheerio, no browserRender. The reusable win here is the **year-inference algorithm**, which applies to *any* year-less-date hareline that exposes deep history on one page.
+
+**Confirmed (real `run_site.php` DOM, captured at build via `curl`):**
+- **Three `<table class="events-table">` blocks on one page:** 本週活動 (this week, 1 row) → 未來預告 (future, ~3) → 歷史足跡 (history, ~23). Total ~27 runs, ~6-month rolling window.
+- **Parse `<table>` rows ONLY.** The page also re-renders every run as a `<div class="mobile-event-card">` for mobile — a *different* DOM shape, so iterating `table.events-table tbody tr` naturally skips the duplicates. (This resolves the "UNVERIFIED — do mobile card duplicates exist?" caveat in the Big5 note below: **yes they exist**, but only as `div`s, not `<td>` rows.) Keep a dedupe-by-run-number `Map` as belt-and-suspenders.
+- **5-col rows:** `跑次 (Run No.) | 日期 (Date, MM/DD) | 兔子 (Hare) | 地點 (Run Site) | 記號起點 (Marks/Start)`. Run# sits in a `<strong>` with the `NEW`/`預告` badge in a **sibling `<span>`**; the date `MM/DD` sits in a `<strong>` with any event tag (`生日`/`特跑`/`家庭特跑`/`A.I.R.`/`全島特跑`) in a **sibling `<span>`** — read the `<strong>`, ignore the badge span (and `DATE_RE = /(\d{1,2})\/(\d{1,2})/` ignores a trailing tag anyway).
+- **🔴 Year-less `MM/DD` + deep history → run-number-anchored year inference, NOT a today-anchored rollover.** Because 歷史足跡 deliberately shows ~23 PAST runs, a naive "candidate >60d in the past → +1 year" rule pushes the Jan/Feb rows a full year into the *future*. Instead: pick the **anchor** = the row whose today-nearest date is closest to today (= the current run, for a strictly-weekly kennel); for every other row compute `expectedMs = anchorMs + (runNumber − anchorRun) × 7d`; resolve its year to the candidate `y ∈ {expectedY−1, expectedY, expectedY+1}` whose `MM/DD` lands closest to `expectedMs`, validating each with a `Date.UTC` round-trip (so an impossible date can't mask a valid sibling year). Exact for any weekly kennel; handles Dec→Jan cleanly. Reference impl: `src/adapters/html-scraper/taipei-hash.ts` (`resolveDate`/`pickAnchor`/`buildEvents`).
+- **PII phone in a dedicated `<span class="phone">`** → `$cell.clone().find(".phone").remove()` is precise and beats a regex (keep a bounded `/0\d[\d\s-]{6,15}/g` only as a markup-drift fallback).
+- **Bilingual ZH/EN cells:** location is `中文<br>English` (`<br>`→space → `"猴硐 Houtong"`); hare is `[Chinese name]<br>[English hash name]` (`"李志勇 R.P.M"`). Keep both.
+- **Maps links are `maps.app.goo.gl` shortlinks** (no extractable coords) → store verbatim as `locationUrl` (after validating `https:` + a host allowlist — Codacy flags variable-URL fetches), leave lat/lng undefined → merge geocodes the bilingual place text with Taiwan/Taipei bias. No default-pin trap.
+- **`title` left undefined** → `merge.ts` synthesizes `"Taipei H3 Trail #N"` (`shortName` >4 chars short-circuits `friendlyKennelName` cleanly).
+- **`config.upcomingOnly: true`** (rolling window → history ages off; protects it from `reconcile` false-cancel). Single data surface → add a **fail-loud `events.length === 0` guard** (a brand-new source has a 0 baseline the zero-event health alert misses).
+- **No machine-readable deeper archive** — the page's own 歷史足跡 ships ~23 past runs on the first scrape; older history is Google-Drive PDF weekly reports → no backfill script.
+
+---
+
+## Legacy Big5 Taiwanese run-site pages (`.htm`) — New Taipei H3 (SHIPPED 2026-06-13)
+
+HashTracks' **first Big5-encoded source**, shipped onboarding **New Taipei H3 / 新北捷兔**
+(`newtaipeihash.com`, [PR #2186](https://github.com/johnrclem/hashtracks-web/pull/2186)). Several older
+Taiwanese kennels run hand-maintained static `.htm` sites with one **`run_site_<YYYY>.htm` page per
+year** plus a `run_site_all_list.htm` index that links every year and encodes the founding year (New
+Taipei's index labels years `2013(1st) … 2026(14th)`, so the "(1st)" page = founding year). Reference
+adapter + tests: `src/adapters/html-scraper/new-taipei-hash.ts`.
+
+**Confirmed (real Big5 DOM captured at build via `curl -s <url> | iconv -f BIG5 -t UTF-8`):**
+- **Charset is Big5, no declaration** — no `<meta charset>` and no charset in the HTTP `Content-Type`. A
+  UTF-8 string fetch (`fetchHTMLPage` / `response.text()`) mojibakes every Chinese cell. **Fetch raw
+  bytes (`safeFetch(...).arrayBuffer()` → `Uint8Array`) and decode with `new TextDecoder("big5")` before
+  `cheerio.load`** — native in Node, **no `iconv-lite` dependency**. Force `big5` (don't sniff a meta tag
+  — there isn't one). Unit-test a known string round-trips (`新北捷兔` = Big5 `b773a55fb1b6a8df`). The
+  byte-fetch + size-cap scaffold mirrors `auckland-hussies.ts` (which sniffs windows-1252).
+- **A `Mozilla`-prefixed `User-Agent` is mandatory** — the Apache origin returns **HTTP 500** to a bare
   `curl/*` UA but 200 to any `Mozilla/...` UA (incl. `"Mozilla/5.0 (compatible; HashTracks-Scraper)"`).
-- **Year is in the URL filename, not the rows.** Dates are bare `MM/DD`; the year is `run_site_2026.htm`.
-  Derive the **current** year at fetch time and build `run_site_${year}.htm` so a daily scraper never
-  pins to a stale page after New Year. Keep the seed `url` on the current year for first-scrape
-  determinism; the adapter overrides it. (Simpler than the year-less Taipei H3 cousin's run-number
-  anchoring — here the year is free.)
-- **Word export quirks:** `<style><!--td {...}--></style>` leaks *inside* table cells (cheerio `.text()`
-  includes it) — strip `style, script` per cell. Multi-value specials stack siblings
-  (`<p>647</p><p>648</p>`, `<p>08/23</p><p>08/24</p>`); `.text()` mashes them ("647648"), so insert a
-  space at block boundaries (`p, div, li`) and take the *first* run#/date (a 2-day overseas special is one
-  event on day 1).
-- **Seasonal `startTime`, not per-row.** The page header is authoritative (summer 15:00 / winter 14:30);
-  the in-table season-marker rows even had a typo (both said 14:30). Month-based season (Apr–Sep vs
-  Oct–Mar) matched the real marker boundaries exactly — use it, and mirror it in the kennel's
-  `scheduleRules` (disjoint BYMONTH, like `shh3-cn`).
-- **PII phones in hare cells** (`0920-946-035`, `(02)2883-2383`) — strip with two narrow bounded regexes
-  (no nested `\s*`/alternation, ReDoS-safe).
-- **Cancellations have no run number.** COVID rows use run cell `"X"` + venue `"…三級疫情取消"`; treat any
-  row with a non-numeric run cell as a non-run and **skip it silently** (don't push a parse error) — only
-  a *numbered* run with an unparseable date is a genuine anomaly worth surfacing.
-- **Per-run Facebook event links → `externalLinks`, not `locationUrl`.** `locationUrl` is stored as the
-  canonical `Event.locationAddress` and drives the static-map click-through; an `fb.me/e/…` there makes
-  the map link to Facebook. Route FB links to `externalLinks` (they render as labelled EventLinks) and
-  reserve `locationUrl` for genuine `goo.gl/maps` links.
-- **Deep clean archive → frozen backfill.** 13 yearly pages (`run_site_2013…2025.htm`, index
-  `run_site_all_list.htm`) share the structure → one-shot `scripts/backfill-nth3-tw-history.ts` +
-  frozen `scripts/data/nth3-tw-history.json` (663 runs, #1 2013-01-06 → #666 2025-12-27). Source
-  `config.upcomingOnly: true` keeps `reconcile.ts` from cancelling the aged-off history.
+- **Whole-year hareline on one SSR page** (no pagination / browserRender). Single `<table>`; section
+  bands are 1-cell `<tr>`s, data rows are 5-cell. Bands: 本週活動 (this week) → 重要活動預告 (highlighted
+  specials — **duplicates** of weekly rows, dedupe by run number, last-wins keeps the richer weekly row)
+  → 每週活動預告 (the weekly list, descending run#) with interleaved **season-marker rows** (開始夏令/冬令時間…)
+  and a mid-year 以上/以下 divider. **Mobile "card" duplicates do NOT exist on this page** (the Taipei H3
+  sibling has them as `<div>`s, not `<td>` rows); a dedupe-by-run-number `Map` is belt-and-suspenders.
+- **5-column data rows:** `跑次 (Run No.) | 日期 (MM/DD) | 兔子 (Hare) | 地點 (Run Site) | 記號起點&詳細資訊`.
+- **Year is in the URL filename** (`run_site_2026.htm`) → trivial date resolution (no run-number anchoring,
+  unlike the Taipei H3 `run_site.php` cousin). **But the source URL embeds the year** — the adapter must
+  build `run_site_${currentYear}.htm` from `new Date()` or it silently scrapes a stale page after Dec 31.
+- **Word "Save as HTML" quirks:** `<style><!--td {...}--></style>` leaks *inside* table cells (cheerio
+  `.text()` includes it) → strip `style, script` per cell. Multi-value specials stack siblings
+  (`<p>647</p><p>648</p>`, `<p>08/23</p><p>08/24</p>`); `.text()` mashes them → insert a space at block
+  boundaries (`p, div, li`) and take the **first** run#/date (a 2-day overseas special is one event).
+- **`startTime` is NOT per-row** — the page header is authoritative (summer 15:00 / winter 14:30); the
+  in-table season-marker rows even had a typo (both said 14:30). Month-based season (Apr–Sep / Oct–Mar)
+  matched the real marker boundaries (winter from run #706=10/04, summer from #680=04/05) exactly — use
+  it, and mirror it in the kennel's `scheduleRules` (disjoint BYMONTH, like `shh3-cn`).
+- **PII phones in the Hare cell** (`0920-946-035`, landline `(02)2883-2383`) — strip with narrow bounded
+  regexes. Keep the hare-separator split as a bare `[&＆、]` char class (no surrounding `\s*` — that trips
+  Sonar S5852; `normalizeHaresField` trims the comma-split parts anyway).
+- **Cancellations have no run number** — COVID rows use run cell `"X"` + venue `"…三級疫情取消"` / `"大雨取消"`;
+  treat any non-numeric run cell as a non-run and **skip it silently** (only a *numbered* run with an
+  unparseable date is a genuine anomaly worth an `errors[]` entry).
+- **Multi-day specials** appear as a `MM/DD~DD` range (e.g. archive #46 `11/15~17`) — take the first day.
+- **No coords** — venues are Chinese place names; the detail cell carries a per-run Facebook event link
+  (`fb.me/e/…` newer, `facebook.com/events/<id>` older) and occasional `goo.gl/maps/…`. **Route FB links
+  to `externalLinks` (labelled EventLinks), NOT `locationUrl`** — `locationUrl` → canonical
+  `Event.locationAddress` drives the static-map click-through, so an `fb.me` there points the "map" at
+  Facebook; reserve `locationUrl` for genuine maps links. Leave lat/lng undefined → merge geocodes the
+  decoded place text. No default-pin trap.
+- **Deep clean archive → frozen backfill.** 13 yearly pages (`run_site_2013…2025.htm`) share the
+  structure → one-shot `scripts/backfill-nth3-tw-history.ts` + frozen `scripts/data/nth3-tw-history.json`
+  (663 runs, #1 2013-01-06 → #666 2025-12-27; PII scrubbed, COVID cancellations excluded, the 2-day
+  Chiang Mai special folded to one run). `config.upcomingOnly: true` keeps `reconcile.ts` from cancelling
+  the aged-off history.
+- **http-only** → 7 Sonar S5332 hotspots on the `http://` literals (kennel website, source URL, adapter
+  default base, test fixtures); mark SAFE (the origin serves no https).
+
+**Siblings:** the queued **Kaohsiung** and **Taoyuan** kennels are **Wix**, NOT this legacy `.htm` recipe
+— don't assume the Big5 recipe applies to them.
