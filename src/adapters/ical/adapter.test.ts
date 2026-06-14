@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { ICalAdapter, parseICalSummary, extractHaresFromDescription, extractRunNumberFromDescription, extractLocationFromDescription, extractOnOnVenueFromDescription, extractCostFromDescription, extractMapsUrlFromDescription, coalesceEndpointDuplicates, paramValue } from "./adapter";
+import { ICalAdapter, parseICalSummary, extractHaresFromDescription, extractRunNumberFromDescription, extractLocationFromDescription, extractOnOnVenueFromDescription, extractCostFromDescription, extractMapsUrlFromDescription, coalesceEndpointDuplicates, stripTitleKennelRunPrefix, paramValue } from "./adapter";
 import type { RawEventData } from "../types";
 import type { Source } from "@/generated/prisma/client";
 import type { ParameterValue } from "node-ical";
@@ -244,6 +244,50 @@ describe("parseICalSummary", () => {
     // And the same summary is KEPT once the flag is on (kennel name ≠ tag).
     const kept = parseICalSummary("Lehigh Valley HHH: Mayfair Hash", [], "rh3", true);
     expect(kept.title).toBeUndefined();
+  });
+});
+
+describe("stripTitleKennelRunPrefix (#2148 Reading / #2160 ICH3)", () => {
+  const READING = ["RH3", "ReadingH3"];
+
+  it("strips a double-colon run marker left after the kennel label (#1203)", () => {
+    // parseICalSummary already consumed "RH3:"; the residual "#1203: …" leaks.
+    expect(stripTitleKennelRunPrefix("#1203: Deja FuckYou Hash", READING)).toBe("Deja FuckYou Hash");
+  });
+
+  it("strips kennel + space-separated run marker (no colon)", () => {
+    expect(stripTitleKennelRunPrefix("RH3 #1201 Some Bitches Be Getting Married Hash", READING))
+      .toBe("Some Bitches Be Getting Married Hash");
+  });
+
+  it("strips a kennel-only prefix (no run number)", () => {
+    expect(stripTitleKennelRunPrefix("RH3 Pigs' Head Social", READING)).toBe("Pigs' Head Social");
+  });
+
+  it("strips kennel + run + slash connector", () => {
+    expect(stripTitleKennelRunPrefix("RH3 #1197 / Rogue North H3 Joint Trail", READING))
+      .toBe("Rogue North H3 Joint Trail");
+  });
+
+  it("keeps a letter-suffix run marker out of the title (#1191A)", () => {
+    expect(stripTitleKennelRunPrefix("RH3 #1191A: Groundhog Day Hash AGAIN", READING))
+      .toBe("Groundhog Day Hash AGAIN");
+  });
+
+  it("strips the ICH3 spaced '# 60' prefix (#2160)", () => {
+    expect(stripTitleKennelRunPrefix("ICH3# 60 Plea Barkin", ["ICH3"])).toBe("Plea Barkin");
+  });
+
+  it("leaves a non-matching kennel row untouched (Philadelphia HHH)", () => {
+    expect(stripTitleKennelRunPrefix("Philadelphia HHH", READING)).toBe("Philadelphia HHH");
+  });
+
+  it("does not eat a sibling code that merely starts with the alias (boundary guard)", () => {
+    expect(stripTitleKennelRunPrefix("RH3FM Full Moon", READING)).toBe("RH3FM Full Moon");
+  });
+
+  it("returns undefined when nothing real remains", () => {
+    expect(stripTitleKennelRunPrefix("RH3 #1203", READING)).toBeUndefined();
   });
 });
 
@@ -1595,5 +1639,306 @@ describe("ICalAdapter — Reading H3 Localendar (#1883 placeholder run number)",
     expect(numbered).toBeDefined();
     expect(numbered!.title).toBe("Clowning Around Hash");
     expect(numbered!.location).toBe("Reading Regional Airport");
+  });
+});
+
+// VEVENTs verbatim from the live Reading H3 Localendar feed — the run-number
+// prefix shapes the title parser must strip (#2148).
+const READING_PREFIX_ICS = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//iCal4j 1.0//EN
+BEGIN:VEVENT
+UID:reading-1203@localendar.com
+DTSTART;TZID=America/New_York:20260608T181500
+SUMMARY:RH3: #1203: Deja FuckYou Hash
+DTSTAMP:20260528T180347Z
+END:VEVENT
+BEGIN:VEVENT
+UID:reading-1201@localendar.com
+DTSTART;TZID=America/New_York:20260517T140000
+SUMMARY:RH3 #1201 Some Bitches Be Getting Married Hash
+DTSTAMP:20260516T003011Z
+END:VEVENT
+BEGIN:VEVENT
+UID:reading-social@localendar.com
+DTSTART;TZID=America/New_York:20260601T180000
+SUMMARY:RH3 Pigs' Head Social
+DTSTAMP:20260516T004448Z
+END:VEVENT
+BEGIN:VEVENT
+UID:reading-phl@localendar.com
+DTSTART;TZID=America/New_York:20260615T183000
+SUMMARY:Philadelphia HHH
+DTSTAMP:20260516T004448Z
+END:VEVENT
+END:VCALENDAR`;
+
+function buildReadingPrefixSource(): Source {
+  return buildMockSource({
+    name: "Reading H3 Localendar",
+    url: "https://localendar.com/public/readinghhh?style=X2",
+    config: { defaultKennelTag: "rh3", titleStripPrefixAliases: ["RH3", "ReadingH3"] },
+  });
+}
+
+describe("ICalAdapter — Reading H3 title prefix strip (#2148)", () => {
+  let adapter: ICalAdapter;
+  beforeEach(() => {
+    adapter = new ICalAdapter();
+    vi.restoreAllMocks();
+  });
+
+  it("strips the double-colon 'RH3: #1203:' prefix from the title", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(READING_PREFIX_ICS, { status: 200 }));
+    const result = await adapter.fetch(buildReadingPrefixSource(), { days: 9999 });
+
+    const e = result.events.find((x) => x.runNumber === 1203);
+    expect(e).toBeDefined();
+    expect(e!.title).toBe("Deja FuckYou Hash");
+  });
+
+  it("strips the no-colon 'RH3 #1201 …' prefix from the title", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(READING_PREFIX_ICS, { status: 200 }));
+    const result = await adapter.fetch(buildReadingPrefixSource(), { days: 9999 });
+
+    const e = result.events.find((x) => x.runNumber === 1201);
+    expect(e).toBeDefined();
+    expect(e!.title).toBe("Some Bitches Be Getting Married Hash");
+  });
+
+  it("strips a kennel-only prefix (no run number)", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(READING_PREFIX_ICS, { status: 200 }));
+    const result = await adapter.fetch(buildReadingPrefixSource(), { days: 9999 });
+
+    const e = result.events.find((x) => x.date === "2026-06-01");
+    expect(e).toBeDefined();
+    expect(e!.title).toBe("Pigs' Head Social");
+  });
+
+  it("leaves a non-RH3 row on the same feed untouched (negative)", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(READING_PREFIX_ICS, { status: 200 }));
+    const result = await adapter.fetch(buildReadingPrefixSource(), { days: 9999 });
+
+    const e = result.events.find((x) => x.date === "2026-06-15");
+    expect(e).toBeDefined();
+    expect(e!.title).toBe("Philadelphia HHH");
+  });
+});
+
+// VEVENTs verbatim from the live Charm City ai1ec WordPress export
+// (charmcityh3.com/?plugin=all-in-one-event-calendar…). Hares + venue live in
+// the DESCRIPTION body; a #TBD placeholder carries a junk 03:02 DTSTART (#2175).
+const CHARM_CITY_ICS = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//ai1ec//EN
+BEGIN:VEVENT
+UID:ai1ec-1216@charmcityh3.com
+DTSTART;TZID=America/New_York:20260617T160000
+DTEND;TZID=America/New_York:20260617T220000
+SUMMARY:CCH3 Trail #340 Luau Trail
+DESCRIPTION:Hash cash: $11\\nHares: G-Spotify\\, Facial Profiling\\, MoreMen Pukes Tonight\\, and Cum Scene Investigator\\nLocation\\nCanton Waterfront Park\\nhttps://maps.app.goo.gl/xCR6VhwnfNHUJi4h8
+DTSTAMP:20260201T000000Z
+END:VEVENT
+BEGIN:VEVENT
+UID:ai1ec-1542@charmcityh3.com
+DTSTART;VALUE=DATE:20260907
+DTEND;VALUE=DATE:20260908
+SUMMARY:CCH3 Brewery Bike Tour
+DESCRIPTION:Bike to your favorite local breweries on Labor Day! Details to cum.\\nHares~ Facial Profiling and Just Mike
+DTSTAMP:20260201T000000Z
+END:VEVENT
+BEGIN:VEVENT
+UID:ai1ec-1205@charmcityh3.com
+DTSTART;TZID=America/New_York:20260623T190000
+DTEND;TZID=America/New_York:20260624T000000
+SUMMARY:CCH3 Trail #341 Pride Prelube
+DESCRIPTION:Hare: My Big Fat Greek Orgy\\nStart: Baltimore Eagle (2022 N Charles St\\, Baltimore\\, MD 21218)\\nWhen: June 23rd @ 7pm
+DTSTAMP:20260201T000000Z
+END:VEVENT
+BEGIN:VEVENT
+UID:ai1ec-1504@charmcityh3.com
+DTSTART;TZID=America/New_York:20260911T030200
+SUMMARY:CCH3 #TBD- A phone Gerbile  and. around the world in 80 lays
+DTSTAMP:20260201T000000Z
+END:VEVENT
+END:VCALENDAR`;
+
+function buildCharmCitySource(): Source {
+  return buildMockSource({
+    name: "Charm City H3 iCal Feed",
+    url: "https://charmcityh3.com/?plugin=all-in-one-event-calendar",
+    config: {
+      kennelPatterns: [["^CCH3", "cch3"], ["^Trail\\s*#", "cch3"]],
+      defaultKennelTag: "cch3",
+      titleHarePattern: "~\\s*(.+)$",
+      harePatterns: ["(?:^|\\n)\\s*Hares?\\s*[:~]\\s*([^\\n]+)"],
+      locationPatterns: [
+        "(?:^|\\n)\\s*Where:\\s*([^\\n]+)",
+        "(?:^|\\n)\\s*Start:\\s*([^\\n]+)",
+        "(?:^|\\n)\\s*Location:\\s*([^\\n]+)",
+        "(?:^|\\n)\\s*Location\\s*\\n\\s*([^\\n]+)",
+      ],
+      cleanDescriptionLocation: true,
+      dropImprobablePlaceholderTime: true,
+    },
+  });
+}
+
+describe("ICalAdapter — Charm City H3 description parsing (#2159 / #2175)", () => {
+  let adapter: ICalAdapter;
+  beforeEach(() => {
+    adapter = new ICalAdapter();
+    vi.restoreAllMocks();
+  });
+
+  it("parses hares and the next-line Location heading (#340)", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(CHARM_CITY_ICS, { status: 200 }));
+    const result = await adapter.fetch(buildCharmCitySource(), { days: 9999 });
+
+    const e = result.events.find((x) => x.runNumber === 340);
+    expect(e).toBeDefined();
+    expect(e!.hares).toBe("G-Spotify, Facial Profiling, MoreMen Pukes Tonight, and Cum Scene Investigator");
+    // Next-line "Location\n<value>" form, URL on the following line stripped.
+    expect(e!.location).toBe("Canton Waterfront Park");
+  });
+
+  it("parses the 'Hares~' tilde label", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(CHARM_CITY_ICS, { status: 200 }));
+    const result = await adapter.fetch(buildCharmCitySource(), { days: 9999 });
+
+    const e = result.events.find((x) => x.date === "2026-09-07");
+    expect(e).toBeDefined();
+    expect(e!.hares).toBe("Facial Profiling and Just Mike");
+  });
+
+  it("parses 'Hare:' and 'Start:' venue with a parenthetical address", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(CHARM_CITY_ICS, { status: 200 }));
+    const result = await adapter.fetch(buildCharmCitySource(), { days: 9999 });
+
+    const e = result.events.find((x) => x.runNumber === 341);
+    expect(e).toBeDefined();
+    expect(e!.hares).toBe("My Big Fat Greek Orgy");
+    expect(e!.location).toBe("Baltimore Eagle (2022 N Charles St, Baltimore, MD 21218)");
+  });
+
+  it("clears the junk 03:02 time + run number on the #TBD placeholder (#2175)", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(CHARM_CITY_ICS, { status: 200 }));
+    const result = await adapter.fetch(buildCharmCitySource(), { days: 9999 });
+
+    const e = result.events.find((x) => x.date === "2026-09-11");
+    expect(e).toBeDefined();
+    // null (explicit clear), not undefined — so merge wipes a junk time already
+    // persisted on an existing row rather than preserving it.
+    expect(e!.startTime).toBeNull();
+    expect(e!.endTime).toBeNull();
+    expect(e!.runNumber).toBeNull();
+  });
+
+  it("keeps a real daytime start time on a confirmed-run event (negative)", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(CHARM_CITY_ICS, { status: 200 }));
+    const result = await adapter.fetch(buildCharmCitySource(), { days: 9999 });
+
+    const e = result.events.find((x) => x.runNumber === 340);
+    expect(e!.startTime).toBe("16:00");
+  });
+
+  it("does NOT clear a placeholder late-night time without the opt-in flag (negative)", async () => {
+    // Same TBD/03:02 event, but a source that did not opt into the cleanup must
+    // keep the time — guards the #2175 gate against affecting other iCal feeds.
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(CHARM_CITY_ICS, { status: 200 }));
+    const source = buildCharmCitySource();
+    (source.config as Record<string, unknown>).dropImprobablePlaceholderTime = false;
+    const result = await adapter.fetch(source, { days: 9999 });
+
+    const e = result.events.find((x) => x.date === "2026-09-11");
+    expect(e!.startTime).toBe("03:02");
+  });
+
+  it("emits location: null (explicit clear) when a matched venue cleans to a placeholder", async () => {
+    const ics = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//ai1ec//EN
+BEGIN:VEVENT
+UID:ai1ec-tbd-loc@charmcityh3.com
+DTSTART;TZID=America/New_York:20260704T160000
+SUMMARY:CCH3 Trail #342 Placeholder Venue
+DESCRIPTION:Hares: Just Someone\\nLocation\\nTBD
+DTSTAMP:20260201T000000Z
+END:VEVENT
+END:VCALENDAR`;
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(ics, { status: 200 }));
+    const result = await adapter.fetch(buildCharmCitySource(), { days: 9999 });
+
+    const e = result.events.find((x) => x.runNumber === 342);
+    expect(e).toBeDefined();
+    // Matched "Location\nTBD" → cleanLocationName rejects it → null clears stale
+    // venue (tri-state), NOT undefined (which would preserve a prior venue).
+    expect(e!.location).toBeNull();
+    expect(e!.hares).toBe("Just Someone");
+  });
+});
+
+// Verbatim from the live Iron City feed (ironcityh3.com/?post_type=tribe_events).
+const ICH3_ICS = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//The Events Calendar//EN
+BEGIN:VEVENT
+UID:ich3-60@ironcityh3.com
+DTSTART;TZID=America/New_York:20260612T183000
+DTEND;TZID=America/New_York:20260612T213000
+SUMMARY:ICH3# 60 Plea Barkin
+DESCRIPTION: ICH3 #60 Hared by: Plea Barkin\\nGet ready to stretch those legs.
+LOCATION:Hitchhiker Brewing\\, 1500 S Canal St #2541\\, Sharpsburg\\, PA\\, 15215\\, United States
+URL:https://ironcityh3.com/event/ich3-60-plea-barkin/
+DTSTAMP:20260201T000000Z
+END:VEVENT
+END:VCALENDAR`;
+
+function buildICH3Source(): Source {
+  return buildMockSource({
+    name: "Iron City H3 iCal Feed",
+    url: "https://ironcityh3.com/?post_type=tribe_events&ical=1&eventDisplay=list",
+    config: {
+      defaultKennelTag: "ich3",
+      upcomingOnly: true,
+      allowEmptyBody: true,
+      titleHarePattern: "^ICH3#?\\s*\\d+\\s+(.+)$",
+      titleStripPrefixAliases: ["ICH3"],
+    },
+  });
+}
+
+describe("ICalAdapter — Iron City (ICH3) SUMMARY split (#2160)", () => {
+  let adapter: ICalAdapter;
+  beforeEach(() => {
+    adapter = new ICalAdapter();
+    vi.restoreAllMocks();
+  });
+
+  it("moves the hare out of the title and drops the title to the merge default", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(ICH3_ICS, { status: 200 }));
+    const result = await adapter.fetch(buildICH3Source(), { days: 9999 });
+
+    const e = result.events.find((x) => x.runNumber === 60);
+    expect(e).toBeDefined();
+    expect(e!.hares).toBe("Plea Barkin");
+    // title must NEVER be the hare name (#2160 hard rule) → undefined.
+    expect(e!.title).toBeUndefined();
+    // LOCATION field still wins for the venue.
+    expect(e!.location).toContain("Hitchhiker Brewing");
+  });
+
+  it("does not strip prefixes or blank titles for a source without the new config (negative)", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(ICH3_ICS, { status: 200 }));
+    const plainSource = buildMockSource({
+      url: "https://ironcityh3.com/?post_type=tribe_events&ical=1&eventDisplay=list",
+      config: { defaultKennelTag: "ich3" },
+    });
+    const result = await adapter.fetch(plainSource, { days: 9999 });
+
+    const e = result.events[0];
+    // No titleHarePattern / aliases → verbatim summary title, no hare extracted.
+    expect(e.title).toBe("ICH3# 60 Plea Barkin");
+    expect(e.hares).toBeUndefined();
   });
 });
