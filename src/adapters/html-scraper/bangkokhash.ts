@@ -73,6 +73,54 @@ function isFieldLabel(val: string): boolean {
   return FIELD_LABELS.has(normalized);
 }
 
+/** Run-headline matcher ("Run #657", "Run 657"). No `g` flag → safe to reuse
+ *  across `.test()` and `.exec()` (those are stateful only with `g`). The
+ *  `\s*(?:#\s*)?` form avoids adjacent overlapping `\s*` quantifiers (ReDoS
+ *  hygiene per the repo regex rule). */
+const RUN_NUMBER_RE = /Run\s*(?:#\s*)?(\d+)/i;
+
+/**
+ * True when a "Run #NNN …" heading carries a trail name beyond the bare run
+ * number (e.g. "Run #657, Suan Eden"). A bare "Run #519" returns false so the
+ * caller falls back to the synthesized "<Kennel> Trail #N" instead of
+ * persisting a run-number-only title — downstream consumers (e.g.
+ * `calendar.ts` `buildTitle`) prepend the run number themselves and would
+ * otherwise render it twice.
+ */
+function runHeadlineHasName(heading: string): boolean {
+  const m = RUN_NUMBER_RE.exec(heading);
+  if (!m) return false;
+  const rest = heading.slice(0, m.index) + heading.slice(m.index + m[0].length);
+  // Anything left after stripping separators is a trail name (Latin or Thai).
+  return rest.replaceAll(/[\s,.:#@–—-]+/g, "").length > 0;
+}
+
+const HTTP_URL_RE = /^https?:\/\//i;
+
+/**
+ * Resolve the display location + maps URL from the candidate venue fields.
+ * Prefers an explicit Location/Run Site/Station/Restaurant venue name; a
+ * "Google Map" label on Run Site is dropped (it's not a venue). Some archive
+ * pages put a maps URL directly in the `Location:` field — that's salvaged into
+ * `locationUrl` rather than leaking as the venue label.
+ */
+function resolveLocation(
+  locationRaw: string | undefined,
+  runSite: string | undefined,
+  station: string | undefined,
+  restaurant: string | undefined,
+  googleMap: string | undefined,
+): { location: string | undefined; locationUrl: string | undefined } {
+  const runSiteClean = runSite && !/^Google\s*Map/i.test(runSite) ? runSite : undefined;
+  const candidate = locationRaw ?? runSiteClean ?? station ?? restaurant;
+  const candidateIsUrl = !!candidate && HTTP_URL_RE.test(candidate);
+  const location =
+    candidate && !candidateIsUrl && candidate.length > 1 ? candidate : undefined;
+  const mapUrl = googleMap && HTTP_URL_RE.test(googleMap) ? googleMap : undefined;
+  const locationUrl = mapUrl ?? (candidateIsUrl ? candidate : undefined);
+  return { location, locationUrl };
+}
+
 /**
  * Parse the Joomla next-run article. This has labeled fields in
  * `<strong>Label</strong>: Value` format within `.item-content`.
@@ -124,33 +172,58 @@ export function parseNextRunArticle(
 
   // #802: the labeled `Hares:` field sometimes carries filler like "On On Q"
   // instead of a real name. Mirror the API-path boilerplate guard so we don't
-  // ship "On On Q" as a hare name.
-  const hareRaw = grab("Hares?");
-  const hare = hareRaw && !HARE_BOILERPLATE_RE.test(hareRaw) ? hareRaw : undefined;
+  // ship "On On Q" as a hare name. #2189: fold the co-hare into the hares field
+  // (the source lists `Hare:` and `Cohare:` on separate lines) so it stops
+  // being dropped. `normalizeHaresField` sorts + dedupes, keeping the joined
+  // value stable for fingerprinting regardless of source line order.
+  const hareParts = [grab("Hares?"), grab("Cohares?")].filter(
+    (v): v is string => !!v && !HARE_BOILERPLATE_RE.test(v),
+  );
+  const hare = hareParts.length > 0 ? hareParts.join(", ") : undefined;
   const station = grab("Station");
   const runSite = grab("Run\\s*Site");
   const restaurant = grab("Restaurant");
   const locationRaw = grab("Location") ?? grab("Where");
   const googleMap = grab("Google\\s*(?:maps?|Map)\\s*(?:Link)?");
 
-  // Extract run number from the article title
-  const titleMatch = /Run\s*#?\s*(\d+)/i.exec(text);
-  const runNumber = titleMatch ? Number.parseInt(titleMatch[1], 10) : undefined;
+  // #2189: the source headlines each run "Run #NNN, <Location>" in the article
+  // heading. Use it as the event title instead of letting merge.ts synthesize
+  // "<Kennel> Trail #N". The homepage nests `.item-title` INSIDE the parsed
+  // `.item-content` article, so scope the lookup there to avoid grabbing a
+  // sibling article's title on multi-article pages; archive detail pages put
+  // the headline in a page-level `.page-header` OUTSIDE
+  // `.com-content-article__body`, so fall back to that (one per detail page).
+  // cheerio `.text()` already decodes entities, so no decodeEntities needed.
+  const headingRaw = (
+    article.find(".item-title").first().text() ||
+    $(".page-header h1, .page-header h2").first().text()
+  )
+    .replaceAll(/\s+/g, " ")
+    .trim();
+  const title = runHeadlineHasName(headingRaw) ? headingRaw : undefined;
 
-  // Strip "Google Map:" prefix from runSite — when the kennel uses that as the label it's not
-  // a useful venue name. Fall back to station (BTS stop etc.) when runSite is just a map label.
-  const runSiteClean = runSite && !/^Google\s*Map/i.test(runSite) ? runSite : undefined;
-  const locationCandidate = locationRaw ?? runSiteClean ?? station ?? restaurant ?? undefined;
-  // Filter out empty/placeholder values
-  const location = locationCandidate && locationCandidate.length > 1 ? locationCandidate : undefined;
-  const locationUrl = googleMap && /^https?:\/\//.test(googleMap) ? googleMap : undefined;
+  // Extract the run number. On the homepage the heading lives inside
+  // `.item-content` so it's in `text` too; on archive detail pages the
+  // "Run #NNN" is ONLY in the page-header heading — so check the heading
+  // first, then the body.
+  const runMatch = RUN_NUMBER_RE.exec(headingRaw) ?? RUN_NUMBER_RE.exec(text);
+  const runNumber = runMatch ? Number.parseInt(runMatch[1], 10) : undefined;
+
+  const { location, locationUrl } = resolveLocation(
+    locationRaw,
+    runSite,
+    station,
+    restaurant,
+    googleMap,
+  );
 
   return {
     date,
     kennelTags: [kennelTag],
     runNumber,
+    title,
     hares: normalizeHaresField(hare),
-    location: location || undefined,
+    location,
     locationUrl,
     startTime,
     sourceUrl,
@@ -215,7 +288,7 @@ export function parseHarelineApiHtml(
     }
 
     // Regular run entry: "Run #519" followed by hare name
-    const runMatch = /Run\s*#?\s*(\d+)/i.exec(infoText);
+    const runMatch = RUN_NUMBER_RE.exec(infoText);
     const runNumber = runMatch ? Number.parseInt(runMatch[1], 10) : undefined;
 
     let hares: string | undefined;

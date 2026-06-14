@@ -36,6 +36,10 @@ describe("parseNextRunArticle", () => {
     expect(event!.kennelTags[0]).toBe("bth3");
     expect(event!.runNumber).toBe(519);
     expect(event!.startTime).toBe("18:30");
+    // Bare "Run #519" heading (no trail name) → leave title undefined so merge
+    // synthesizes "<Kennel> Trail #519"; persisting "Run #519" would double up
+    // with consumers that prepend the run number (#2189 / Codex review).
+    expect(event!.title).toBeUndefined();
     expect(event!.hares).toBe("Jessticles");
     expect(event!.location).toBe("Silom Road");
     expect(event!.locationUrl).toBe("https://maps.app.goo.gl/abc123");
@@ -49,8 +53,48 @@ describe("parseNextRunArticle", () => {
     expect(event!.runNumber).toBe(653);
     expect(event!.startTime).toBe("16:30");
     expect(event!.hares).toBe("Horny Viking");
+    // #2189: the run headline from `.item-title` becomes the event title
+    // instead of the synthesized "Siam Sunday H3 Trail #653" default.
+    expect(event!.title).toBe("Run #653. On Nut 37");
     expect(event!.location).toBe("On Nut 37");
     expect(event!.locationUrl).toBe("https://maps.app.goo.gl/LF88EQZtSPZkdt826");
+  });
+
+  it("leaves title undefined when the heading is a bare run number (#2189 / Codex)", () => {
+    // BTH3 archive page whose heading carries no trail name beyond "Run #300".
+    const html = `
+<div class="page-header"><h1>Run #300</h1></div>
+<div class="com-content-article__body">
+  <p><strong>Date</strong>: 03-Apr-2026<br>
+  <strong>Start Time</strong>: 18:30<br>
+  <strong>Hare</strong>: Jessticles<br>
+  <strong>Station</strong>: BTS Asok</p>
+</div>`;
+    const event = parseNextRunArticle(html, "bth3", "18:30", "https://www.bangkokhash.com/thursday/index.php/run-archives-bth3/9-run-300");
+    expect(event).not.toBeNull();
+    expect(event!.runNumber).toBe(300);
+    expect(event!.title).toBeUndefined();
+  });
+
+  it("merges Cohare into the hares field, sorted (#2189)", () => {
+    // The Siam Sunday next-run article lists `Hare:` and `Cohare:` on separate
+    // lines; both belong in the hares field. normalizeHaresField sorts them so
+    // the joined value is fingerprint-stable regardless of source order.
+    const html = `
+<div class="item-content">
+  <h2 class="item-title">
+    <a href="/siamsunday/index.php/run-archives-s2h3/236-run-657">Run #657, Suan Eden</a>
+  </h2>
+  <p><strong>Date</strong>: 14-June-2026<br>
+  <strong>Start Time</strong>: 16:30<br>
+  <strong>Hare</strong>: Hot Lips<br>
+  <strong>Cohare</strong>: Patpom<br>
+  <strong>Location</strong>: Suan Eden, Nonthaburi</p>
+</div>`;
+    const event = parseNextRunArticle(html, "s2h3", "16:30", "https://www.bangkokhash.com/siamsunday/index.php");
+    expect(event).not.toBeNull();
+    expect(event!.title).toBe("Run #657, Suan Eden");
+    expect(event!.hares).toBe("Hot Lips, Patpom");
   });
 
   it("falls back to Station when Run Site starts with 'Google Map:'", () => {
@@ -63,6 +107,9 @@ describe("parseNextRunArticle", () => {
 </div>`;
     const event = parseNextRunArticle(html, "bth3", "18:30", "https://www.bangkokhash.com/thursday/index.php");
     expect(event!.location).toBe("BTS Chong Nonsi");
+    // No `.item-title` / `.page-header` heading → title stays undefined so
+    // merge.ts synthesizes the "<Kennel> Trail #N" default (#2189 guard).
+    expect(event!.title).toBeUndefined();
   });
 
   it("returns null for empty article", () => {
@@ -132,6 +179,10 @@ describe("parseNextRunArticle", () => {
     expect(event).not.toBeNull();
     expect(event!.date).toBe("2026-04-03");
     expect(event!.kennelTags[0]).toBe("bfmh3");
+    // Archive detail pages carry the headline in `.page-header h1` (#2189) —
+    // both the title and the run number come from there (the body lacks "Run #").
+    expect(event!.title).toBe("Run #254, BTS Asok");
+    expect(event!.runNumber).toBe(254);
     expect(event!.hares).toBe("Patpom");
     expect(event!.location).toBe("BTS Asok");
     expect(event!.locationUrl).toBe("https://maps.app.goo.gl/v5yucg6jKmXALUf59");
@@ -153,6 +204,26 @@ describe("parseNextRunArticle", () => {
     expect(event!.date).toBe("2020-01-10");
     expect(event!.hares).toBe("Soi Squatter");
     expect(event!.location).toBe("On Nut BTS, Car park behind Cheap Charlies");
+  });
+
+  it("salvages a maps URL in the Location field into locationUrl (#2190 archive)", () => {
+    // Older S2H3 archive pages put the Google Maps link directly in the
+    // `Location:` field with no separate Googlemaps row. It must surface as
+    // locationUrl, never as the venue label.
+    const html = `
+<div class="page-header"><h1>Run #520, Talin Chan</h1></div>
+<div class="com-content-article__body">
+  <p><strong>Date</strong>: 12-Jan-2020<br>
+  <strong>Start Time</strong>: 16:30<br>
+  <strong>Hare</strong>: Boob-a-lube<br>
+  <strong>Location</strong>: https://goo.gl/maps/p3zCf2va3RjKc96x7</p>
+</div>`;
+    const event = parseNextRunArticle(html, "s2h3", "16:30", "https://www.bangkokhash.com/siamsunday/index.php/run-archives-s2h3/99-run-520");
+    expect(event).not.toBeNull();
+    expect(event!.runNumber).toBe(520);
+    expect(event!.title).toBe("Run #520, Talin Chan");
+    expect(event!.location).toBeUndefined();
+    expect(event!.locationUrl).toBe("https://goo.gl/maps/p3zCf2va3RjKc96x7");
   });
 
   it("returns null when the Date field lacks a 4-digit year", () => {
