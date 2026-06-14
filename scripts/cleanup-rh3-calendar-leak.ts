@@ -54,6 +54,41 @@ const RVAH3 = "rvah3";
 /** RH3's own events carry this token; leaks (BIBH3/Chain Gang/TMFMH3/FAKE…) don't. */
 const RH3_TOKEN_RE = /\b(?:RH3|RVAH3)\b/i;
 
+interface LeakEvent {
+  id: string;
+  title: string | null;
+  date: Date;
+}
+
+/** Delete (or, in dry-run, count) one leaked event, classifying the keep-it
+ *  cases. Returns which bucket the event fell into. */
+async function processLeak(
+  ev: LeakEvent,
+  sourceId: string,
+  apply: boolean,
+): Promise<"deleted" | "keptForeign" | "keptUnsafe"> {
+  const label = `${ev.id} (${ev.date.toISOString().slice(0, 10)} "${ev.title ?? ""}")`;
+  if (!apply) {
+    console.log(`  WOULD DELETE ${label}`);
+    return "deleted";
+  }
+  try {
+    await deleteLeakedEvent(prisma, ev.id, ["attendances", "kennelAttendances"], sourceId);
+    console.log(`  DELETED ${label}`);
+    return "deleted";
+  } catch (err) {
+    if (err instanceof ForeignRawSourceError) {
+      console.log(`  KEPT (another source merged onto it) ${label}`);
+      return "keptForeign";
+    }
+    if (err instanceof DeleteSafetyViolationError) {
+      console.log(`  KEPT (has attendances/hares — review manually) ${label}`);
+      return "keptUnsafe";
+    }
+    throw err;
+  }
+}
+
 async function main() {
   const apply = process.argv.includes("--apply");
   console.log(`Mode: ${apply ? "APPLY" : "DRY-RUN"}`);
@@ -82,37 +117,16 @@ async function main() {
   const leaks = events.filter((e) => !RH3_TOKEN_RE.test(e.title ?? ""));
   console.log(`Non-RH3 leaks to remove: ${leaks.length}`);
 
-  let deleted = 0, keptForeign = 0, keptUnsafe = 0;
+  const counts = { deleted: 0, keptForeign: 0, keptUnsafe: 0 };
   for (const ev of leaks) {
-    const day = ev.date.toISOString().slice(0, 10);
-    const label = `${ev.id} (${day} "${ev.title ?? ""}")`;
-    if (!apply) {
-      console.log(`  WOULD DELETE ${label}`);
-      deleted++;
-      continue;
-    }
-    try {
-      await deleteLeakedEvent(prisma, ev.id, ["attendances", "kennelAttendances"], source.id);
-      console.log(`  DELETED ${label}`);
-      deleted++;
-    } catch (err) {
-      if (err instanceof ForeignRawSourceError) {
-        console.log(`  KEPT (another source merged onto it) ${label}`);
-        keptForeign++;
-      } else if (err instanceof DeleteSafetyViolationError) {
-        console.log(`  KEPT (has attendances/hares — review manually) ${label}`);
-        keptUnsafe++;
-      } else {
-        throw err;
-      }
-    }
+    counts[await processLeak(ev, source.id, apply)]++;
   }
 
   console.log(
-    `\n${apply ? "Applied" : "Would"}: delete ${deleted}` +
-      (apply ? `, kept-foreign ${keptForeign}, kept-unsafe ${keptUnsafe}` : ""),
+    `\n${apply ? "Applied" : "Would"}: delete ${counts.deleted}` +
+      (apply ? `, kept-foreign ${counts.keptForeign}, kept-unsafe ${counts.keptUnsafe}` : ""),
   );
-  if (apply && deleted > 0) {
+  if (apply && counts.deleted > 0) {
     const n = await backfillLastEventDates();
     console.log(`Recomputed lastEventDate for ${n} kennel(s).`);
   }

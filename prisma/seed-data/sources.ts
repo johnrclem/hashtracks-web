@@ -1473,7 +1473,7 @@ export const SOURCES = [
       // source-kennel-guard alerts). The sisters are served by the Meetup source.
       config: {
         defaultKennelTag: "rvah3",
-        kennelPatterns: [["\\b(?:RH3|RVAH3)\\b", "rvah3"]],
+        kennelPatterns: [[String.raw`\b(?:RH3|RVAH3)\b`, "rvah3"]],
         strictKennelRouting: true,
       },
       kennelCodes: ["rvah3"],
