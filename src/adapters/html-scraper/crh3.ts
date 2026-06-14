@@ -142,7 +142,10 @@ export function parseCrh3Body(bodyHtml: string, publishDateIso: string): {
   // to "20251112" and chrono picked Nov 16 instead of the title's Nov 22).
   const refDate = parsePublishDate(publishDateIso);
   const dateLine = grab("Date") ?? findWeekdayDateLine(text);
-  const cleanedDateLine = dateLine?.replaceAll(/\([^)]*\)/g, " ").trim();
+  // Drop the trailing parenthetical aside ("(next Saturday)") — date tokens
+  // never contain "(", so truncating at the first "(" is safe and avoids a
+  // backtracking-prone regex (Sonar S5852).
+  const cleanedDateLine = dateLine?.split("(")[0].trim();
   const fromDateLine = cleanedDateLine
     ? chronoParseDate(cleanedDateLine, "en-GB", refDate, { forwardDate: true })
     : null;
@@ -213,19 +216,26 @@ function extractDescription(text: string): string | undefined {
   return joined.length > 240 ? `${joined.slice(0, 239)}…` : joined;
 }
 
-/** A line beginning with a weekday name (full or abbreviated). CRH3 bodies
- * put the run date on such a line ("Saturday 28th Mar 26"). */
-const WEEKDAY_LINE_RE = /^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*\b/i;
+/** Lowercased weekday names + 3-letter abbreviations. CRH3 bodies put the run
+ * date on a line whose first word is one of these ("Saturday 28th Mar 26"). */
+const WEEKDAYS = new Set([
+  "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
+  "mon", "tue", "wed", "thu", "fri", "sat", "sun",
+]);
 
 /**
- * Find the first body line that begins with a weekday name and also contains a
- * digit — CRH3's bare run-date line ("Saturday 28th Mar 26"), used when there
- * is no labelled "Date -" line (#220). Returns undefined when none matches.
+ * Find the first body line whose first word is a weekday name and which also
+ * contains a digit — CRH3's bare run-date line ("Saturday 28th Mar 26"), used
+ * when there is no labelled "Date -" line (#220). Matching the whole first word
+ * against a Set (rather than a prefix regex) avoids false hits on words that
+ * merely start with a weekday prefix ("Mongrel", "Sunscreen") and keeps the
+ * scan ReDoS-free. Returns undefined when none matches.
  */
 function findWeekdayDateLine(text: string): string | undefined {
   for (const raw of text.split("\n")) {
     const line = raw.trim();
-    if (WEEKDAY_LINE_RE.test(line) && /\d/.test(line)) return line;
+    const firstWord = /^[A-Za-z]+/.exec(line)?.[0]?.toLowerCase();
+    if (firstWord && WEEKDAYS.has(firstWord) && /\d/.test(line)) return line;
   }
   return undefined;
 }

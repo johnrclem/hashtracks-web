@@ -629,7 +629,7 @@ function resolveMeetupHares(
  */
 function resolveRunNumber(
   title: string | undefined,
-  description: string | undefined,
+  description: string | null | undefined,
   extractRunNumber: boolean,
   runNumberPrefix: string | undefined,
 ): number | undefined {
@@ -667,9 +667,14 @@ const TRAIL_RUN_ANCHOR_RE = /\btrail\b\s*#/i; // NOSONAR S5852 — linear, no al
  * "**Trail # 1244**" matches too). Parses from the anchor onward via the shared
  * `extractHashRunNumber` so a leading "#3" elsewhere on the line can't win.
  * Returns undefined when no trail-anchored number is present.
+ *
+ * Callers pass the already-resolved, boilerplate-stripped description
+ * (`finalDesc`) — never a raw Apollo back-reference ("$44") and never a stale
+ * group-template block — so neither unresolved refs nor recycled template run
+ * numbers reach this parser (Codex/Gemini PR #2200 review).
  */
 export function extractRunNumberFromMeetupDescription(
-  description: string | undefined,
+  description: string | null | undefined,
 ): number | undefined {
   if (!description) return undefined;
   for (const line of stripHtmlTags(description, "\n").split("\n")) {
@@ -743,7 +748,10 @@ export function buildRawEventFromApollo(
     // Run-number extraction (with optional "R*n"-style prefix normalization)
     // lives in resolveRunNumber so this builder stays under the cognitive-
     // complexity budget. Display title keeps the kennel's stylization.
-    runNumber: resolveRunNumber(ev.title, ev.description, extractRunNumber, runNumberPrefix),
+    // Use finalDesc (Apollo-ref-resolved + boilerplate-stripped), not the raw
+    // ev.description, so a "$44" cache ref or a stale group-template "Trail #N"
+    // can't drive the run number (#2200 review).
+    runNumber: resolveRunNumber(ev.title, finalDesc, extractRunNumber, runNumberPrefix),
     description: finalDesc,
     hares,
     location: venueInfo.location,
