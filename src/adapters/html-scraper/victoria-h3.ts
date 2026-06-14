@@ -112,34 +112,45 @@ const SECTION_BREAK_RE = /^(?:next page|back to)/i;
 
 // Card-body fields are detected by their `Label: value` prefix. DSMH3 publishes
 // bilingual slash-labels (`Location/Emplacement:`, `Hare/Lièvre & Host/Hôte:`,
-// `Cost/Prix:`) the old English-only regexes never matched (#2156). We split on
-// the first colon and keyword-match the lowercased label via `startsWith` — no
-// complex bilingual alternation regex (Sonar S5852/S5843 safe), and a value like
-// "Thursday … 2:30 pm" matches no field keyword so it falls through to the date
-// parser, exactly as before.
+// `Cost/Prix:`) the old English-only regexes never matched (#2156). Rather than a
+// complex bilingual alternation regex (Sonar S5852/S5843), we tokenize the label
+// on `/` and `&` and keyword-match each token via `startsWith`. Tokenizing makes
+// the match order-independent (`Emplacement/Location` works too) and `&nbsp;`-safe
+// (HTML editors emit ` `). A value like "Thursday … 2:30 pm" tokenizes to a
+// single non-keyword token, so it falls through to the date parser as before.
+function getLabelTokens(label: string): string[] {
+  return label
+    .replace(/\u00a0/g, " ")
+    .toLowerCase()
+    .split(/[/&]/)
+    .map((t) => t.trim());
+}
 function isWhereLabel(label: string): boolean {
-  return (
-    label === "where" ||
-    label.startsWith("location") ||
-    label.startsWith("emplacement")
+  return getLabelTokens(label).some(
+    (t) => t === "where" || t.startsWith("location") || t.startsWith("emplacement"),
   );
 }
 function isHareLabel(label: string): boolean {
-  return label.startsWith("hare") || label.startsWith("lièvre");
+  return getLabelTokens(label).some(
+    (t) =>
+      t.startsWith("hare") ||
+      t.startsWith("lièvre") ||
+      t.startsWith("host") ||
+      t.startsWith("hôte"),
+  );
 }
 function isCostLabel(label: string): boolean {
-  return (
-    label.startsWith("cost") ||
-    label === "hash cash" ||
-    label.startsWith("prix") ||
-    label.startsWith("coût")
+  return getLabelTokens(label).some(
+    (t) =>
+      t.startsWith("cost") ||
+      t === "hash cash" ||
+      t.startsWith("prix") ||
+      t.startsWith("coût"),
   );
 }
 function isNoteLabel(label: string): boolean {
-  return (
-    label.startsWith("on-after") ||
-    label.startsWith("onafter") ||
-    label.startsWith("note")
+  return getLabelTokens(label).some(
+    (t) => t.startsWith("on-after") || t.startsWith("onafter") || t.startsWith("note"),
   );
 }
 
@@ -364,17 +375,20 @@ function applyCardLine(
   // field keyword routes the value; anything else (incl. label-less date lines
   // whose only colon is in a time like "2:30 pm") falls through to the date/
   // subtitle handling below.
+  // Empty label (no colon, or only a time colon) matches no keyword helper, so
+  // the chain falls through to the date/subtitle handling — no `label &&` guard
+  // needed (keeps cognitive complexity under the Sonar S3776 threshold).
   const colonIdx = line.indexOf(":");
-  const label = colonIdx >= 0 ? line.slice(0, colonIdx).trim().toLowerCase() : "";
+  const label = colonIdx >= 0 ? line.slice(0, colonIdx).trim() : "";
   const value = colonIdx >= 0 ? line.slice(colonIdx + 1).trim() : "";
 
-  if (label && isWhereLabel(label)) {
+  if (isWhereLabel(label)) {
     applyWhereValue(card, value, venueUrlMap);
-  } else if (label && isHareLabel(label)) {
+  } else if (isHareLabel(label)) {
     applyHareValue(card, value);
-  } else if (label && isCostLabel(label)) {
+  } else if (isCostLabel(label)) {
     if (value) card.cost = value;
-  } else if (label && isNoteLabel(label)) {
+  } else if (isNoteLabel(label)) {
     if (value && !TBA_RE.test(value)) descParts.push(line);
   } else if (SUBTITLE_RE.test(line)) {
     descParts.push(line);

@@ -556,22 +556,22 @@ describe("bagToRawEvent — runNumber extraction (#1319)", () => {
   });
 });
 
+// Hollyweird's seed config strips its self-prefixed kennel name and the
+// redundant trailing run marker.
+const HOLLYWEIRD_STRIPS = [
+  String.raw`^Hollyweird Hash House Harriers,?\s*`,
+  String.raw`\s*~\s*(?:aka:\s*)?H6\b.*$`,
+];
+
+function rawFromTitleWithStrips(title: string, titleStripPatterns?: string[]) {
+  const html = `<script type="application/json">{
+    "rich":{"__typename":"Event","id":"123456789012345","name":${JSON.stringify(title)}},
+    "time":{"id":"123456789012345","start_timestamp":1778353200}
+  }</script>`;
+  return parseFacebookHostedEvents(html, { kennelTag: "h6", titleStripPatterns })[0];
+}
+
 describe("title strip patterns (#2158)", () => {
-  // Hollyweird's seed config strips its self-prefixed kennel name and the
-  // redundant trailing run marker.
-  const HOLLYWEIRD_STRIPS = [
-    String.raw`^Hollyweird Hash House Harriers,?\s*`,
-    String.raw`\s*~\s*(?:aka:\s*)?H6\b.*$`,
-  ];
-
-  function rawFromTitleWithStrips(title: string, titleStripPatterns?: string[]) {
-    const html = `<script type="application/json">{
-      "rich":{"__typename":"Event","id":"123456789012345","name":${JSON.stringify(title)}},
-      "time":{"id":"123456789012345","start_timestamp":1778353200}
-    }</script>`;
-    return parseFacebookHostedEvents(html, { kennelTag: "h6", titleStripPatterns })[0];
-  }
-
   it("strips the kennel-name prefix and trailing `~ aka: H6#NNN` (issue example)", () => {
     const raw = rawFromTitleWithStrips(
       "Hollyweird Hash House Harriers, HapPy Hour 4 Starlight Musical w/ WaCondom ForNever ~ aka: H6#311",
