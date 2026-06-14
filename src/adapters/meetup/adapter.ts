@@ -629,12 +629,56 @@ function resolveMeetupHares(
  */
 function resolveRunNumber(
   title: string | undefined,
+  description: string | undefined,
   extractRunNumber: boolean,
   runNumberPrefix: string | undefined,
 ): number | undefined {
-  if (!extractRunNumber) return undefined;
-  const normalized = runNumberPrefix && title ? title.replaceAll(runNumberPrefix, "#") : title;
-  return extractHashRunNumber(normalized);
+  // Title extraction stays opt-in (#1562): free-form Meetup titles can promote
+  // non-hash tokens ("Pub Crawl #2") into a runNumber that then poisons
+  // fingerprinting. Only sources that confirm unambiguous title conventions
+  // set `extractRunNumber: true`.
+  if (extractRunNumber) {
+    const normalized = runNumberPrefix && title ? title.replaceAll(runNumberPrefix, "#") : title;
+    const fromTitle = extractHashRunNumber(normalized);
+    if (fromTitle !== undefined) return fromTitle;
+  }
+  // Description extraction is default-on but anchored to a "trail" line so it
+  // only fires on the hash-canonical "Trail #N" shape (#2167 Savannah, whose
+  // titles are generic "Saturday Trail!" and carry the number in the body).
+  // The per-line "trail" anchor keeps stray "#3" tokens in free prose from
+  // promoting a bogus run number; no parallel run-number regex.
+  return extractRunNumberFromMeetupDescription(description);
+}
+
+// Anchor for the hash-canonical "Trail #N" shape: the word "trail" (word
+// boundary — so "Trailhead" / "trailing" don't match) immediately followed by
+// "#" (whitespace allowed). This restricts description run-number extraction to
+// a real run-number label, NOT any line that merely contains "trail" — prose
+// like "Meet at Trailhead gate #3" or "choose trail option #2" must not promote
+// a bogus number (Codex review). The shared `extractHashRunNumber` still parses
+// the digits from the anchor position; this is only a locator, not a parser.
+// ReDoS-safe: single `\s*`, no alternation (Sonar S5852).
+const TRAIL_RUN_ANCHOR_RE = /\btrail\b\s*#/i; // NOSONAR S5852 — linear, no alternation
+
+/**
+ * Extract a hash run number from a Meetup event description. Scans each line for
+ * the "Trail #N" anchor (#2167 Savannah: "Savannah H3 trail # 1338",
+ * "Savannah H3 Trail #: 1334", "What: Trail #1335"; Charlotte's Markdown bold
+ * "**Trail # 1244**" matches too). Parses from the anchor onward via the shared
+ * `extractHashRunNumber` so a leading "#3" elsewhere on the line can't win.
+ * Returns undefined when no trail-anchored number is present.
+ */
+export function extractRunNumberFromMeetupDescription(
+  description: string | undefined,
+): number | undefined {
+  if (!description) return undefined;
+  for (const line of stripHtmlTags(description, "\n").split("\n")) {
+    const anchor = TRAIL_RUN_ANCHOR_RE.exec(line);
+    if (!anchor) continue;
+    const n = extractHashRunNumber(line.slice(anchor.index));
+    if (n !== undefined) return n;
+  }
+  return undefined;
 }
 
 /** Build a RawEventData from an Apollo event entry. */
@@ -699,7 +743,7 @@ export function buildRawEventFromApollo(
     // Run-number extraction (with optional "R*n"-style prefix normalization)
     // lives in resolveRunNumber so this builder stays under the cognitive-
     // complexity budget. Display title keeps the kennel's stylization.
-    runNumber: resolveRunNumber(ev.title, extractRunNumber, runNumberPrefix),
+    runNumber: resolveRunNumber(ev.title, ev.description, extractRunNumber, runNumberPrefix),
     description: finalDesc,
     hares,
     location: venueInfo.location,
