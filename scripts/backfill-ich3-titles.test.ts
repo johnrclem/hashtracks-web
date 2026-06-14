@@ -1,32 +1,33 @@
 import { describe, it, expect } from "vitest";
-import { parseIch3LeakedTitle } from "./backfill-ich3-titles";
+import { stripIch3TitlePrefix } from "./backfill-ich3-titles";
 
-describe("parseIch3LeakedTitle (#2160 historical retitle)", () => {
-  it("parses the canonical leaked shape 'ICH3# 60 Plea Barkin'", () => {
-    expect(parseIch3LeakedTitle("ICH3# 60 Plea Barkin")).toEqual({ runNumber: 60, hares: "Plea Barkin" });
+describe("stripIch3TitlePrefix (#2160 follow-up — title prefix only, never hares)", () => {
+  it("strips the 'ICH3# 60' prefix, keeping a hare-name remainder as the title", () => {
+    expect(stripIch3TitlePrefix("ICH3# 60 Plea Barkin")).toBe("Plea Barkin");
   });
 
-  it("parses the spaced 'ICH3 #60 Plea Barkin' variant", () => {
-    expect(parseIch3LeakedTitle("ICH3 #60 Plea Barkin")).toEqual({ runNumber: 60, hares: "Plea Barkin" });
+  it("strips the prefix from a theme title without corrupting it", () => {
+    expect(stripIch3TitlePrefix("ICH3#45 Dancin' the Night Away")).toBe("Dancin' the Night Away");
   });
 
-  it("is case-insensitive and trims", () => {
-    expect(parseIch3LeakedTitle("  ich3# 59 Two Hares  ")).toEqual({ runNumber: 59, hares: "Two Hares" });
+  it("strips a 'ICH3 #40 - ' prefix with a dash connector", () => {
+    expect(stripIch3TitlePrefix("ICH3 #40 - Forty's and Shorty's")).toBe("Forty's and Shorty's");
   });
 
-  it("returns null for a title with no run-marker prefix (themed, leave untouched)", () => {
-    expect(parseIch3LeakedTitle("Red Dress Run")).toBeNull();
+  it("leaves an emoji-decorated title untouched (prefix not at the start)", () => {
+    expect(stripIch3TitlePrefix("☠️ ICH3 #57: “Manhole’s Malicious March” ☠️")).toBeNull();
   });
 
-  it("returns null for an already-synthesized default title", () => {
-    expect(parseIch3LeakedTitle("Iron City H3 Trail #60")).toBeNull();
+  it("leaves the IC-Lite sub-series untouched", () => {
+    expect(stripIch3TitlePrefix("IC-Lite#25")).toBeNull();
+    expect(stripIch3TitlePrefix("ICLiteH3 #17")).toBeNull();
   });
 
-  it("returns null when there is a run number but no hare", () => {
-    expect(parseIch3LeakedTitle("ICH3# 60")).toBeNull();
+  it("returns null when stripping would leave nothing", () => {
+    expect(stripIch3TitlePrefix("ICH3#42")).toBeNull();
   });
 
-  it("does not match a different kennel's title", () => {
-    expect(parseIch3LeakedTitle("RICH3# 60 Someone")).toBeNull();
+  it("returns null for a title with no ICH3 prefix", () => {
+    expect(stripIch3TitlePrefix("Sticky's Superbowl Surprise")).toBeNull();
   });
 });
