@@ -1427,7 +1427,7 @@ export const SOURCES = [
         // phrasing, which the default Hare:/Hares: parser misses), not the title.
         // Unanchored so it matches mid-line ("ICH3 #60 Hared by: Plea Barkin");
         // the standard "Hares:" form is kept as a fallback.
-        harePatterns: ["Hared\\s+by:\\s*([^\\n]+)", "(?:^|\\n)\\s*Hares?:\\s*([^\\n]+)"],
+        harePatterns: [String.raw`Hared\s+by:\s*([^\n]+)`, String.raw`(?:^|\n)\s*Hares?:\s*([^\n]+)`],
       },
       kennelCodes: ["ich3"],
     },

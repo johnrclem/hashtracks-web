@@ -1912,7 +1912,7 @@ function buildICH3Source(): Source {
       upcomingOnly: true,
       allowEmptyBody: true,
       titleStripPrefixAliases: ["ICH3"],
-      harePatterns: ["Hared\\s+by:\\s*([^\\n]+)", "(?:^|\\n)\\s*Hares?:\\s*([^\\n]+)"],
+      harePatterns: [String.raw`Hared\s+by:\s*([^\n]+)`, String.raw`(?:^|\n)\s*Hares?:\s*([^\n]+)`],
     },
   });
 }
