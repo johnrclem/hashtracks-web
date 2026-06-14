@@ -77,6 +77,32 @@ function isFieldLabel(val: string): boolean {
  *  across `.test()` and `.exec()` (those are stateful only with `g`). */
 const RUN_NUMBER_RE = /Run\s*#?\s*(\d+)/i;
 
+const HTTP_URL_RE = /^https?:\/\//i;
+
+/**
+ * Resolve the display location + maps URL from the candidate venue fields.
+ * Prefers an explicit Location/Run Site/Station/Restaurant venue name; a
+ * "Google Map" label on Run Site is dropped (it's not a venue). Some archive
+ * pages put a maps URL directly in the `Location:` field — that's salvaged into
+ * `locationUrl` rather than leaking as the venue label.
+ */
+function resolveLocation(
+  locationRaw: string | undefined,
+  runSite: string | undefined,
+  station: string | undefined,
+  restaurant: string | undefined,
+  googleMap: string | undefined,
+): { location: string | undefined; locationUrl: string | undefined } {
+  const runSiteClean = runSite && !/^Google\s*Map/i.test(runSite) ? runSite : undefined;
+  const candidate = locationRaw ?? runSiteClean ?? station ?? restaurant;
+  const candidateIsUrl = !!candidate && HTTP_URL_RE.test(candidate);
+  const location =
+    candidate && !candidateIsUrl && candidate.length > 1 ? candidate : undefined;
+  const mapUrl = googleMap && HTTP_URL_RE.test(googleMap) ? googleMap : undefined;
+  const locationUrl = mapUrl ?? (candidateIsUrl ? candidate : undefined);
+  return { location, locationUrl };
+}
+
 /**
  * Parse the Joomla next-run article. This has labeled fields in
  * `<strong>Label</strong>: Value` format within `.item-content`.
@@ -165,21 +191,13 @@ export function parseNextRunArticle(
   const runMatch = RUN_NUMBER_RE.exec(headingRaw) ?? RUN_NUMBER_RE.exec(text);
   const runNumber = runMatch ? Number.parseInt(runMatch[1], 10) : undefined;
 
-  // Strip "Google Map:" prefix from runSite — when the kennel uses that as the label it's not
-  // a useful venue name. Fall back to station (BTS stop etc.) when runSite is just a map label.
-  const runSiteClean = runSite && !/^Google\s*Map/i.test(runSite) ? runSite : undefined;
-  const locationCandidate = locationRaw ?? runSiteClean ?? station ?? restaurant ?? undefined;
-  // Some older archive pages put a maps URL directly in the `Location:` field —
-  // that's a link, not a venue name. Keep `location` to venue text only and
-  // salvage the URL into `locationUrl` so it never renders as the venue label.
-  const candidateIsUrl = !!locationCandidate && /^https?:\/\//i.test(locationCandidate);
-  const location =
-    locationCandidate && !candidateIsUrl && locationCandidate.length > 1
-      ? locationCandidate
-      : undefined;
-  const locationUrl =
-    (googleMap && /^https?:\/\//i.test(googleMap) ? googleMap : undefined) ??
-    (candidateIsUrl ? locationCandidate : undefined);
+  const { location, locationUrl } = resolveLocation(
+    locationRaw,
+    runSite,
+    station,
+    restaurant,
+    googleMap,
+  );
 
   return {
     date,
@@ -187,7 +205,7 @@ export function parseNextRunArticle(
     runNumber,
     title,
     hares: normalizeHaresField(hare),
-    location: location || undefined,
+    location,
     locationUrl,
     startTime,
     sourceUrl,
