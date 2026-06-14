@@ -3155,6 +3155,28 @@ export const KENNELS: KennelSeed[] = [
       website: "https://www.taipeihash.com.tw",
       latitude: 25.0375, longitude: 121.5637,
     },
+    {
+      kennelCode: "nth3-tw", shortName: "New Taipei H3", fullName: "New Taipei Hash House Harriers",
+      region: "Taipei", country: "Taiwan",
+      foundedYear: 2013,
+      // Legacy flat fields kept as fallback; scheduleRules below are authoritative for display.
+      scheduleDayOfWeek: "Sunday", scheduleTime: "3:00 PM", scheduleFrequency: "Weekly",
+      scheduleRules: [
+        // Same weekday both seasons → BYMONTH MUST stay disjoint on each rule so the two
+        // rrules don't collide on the (kennelId, rrule, source) upsert key (mirror shh3-cn).
+        // Boundaries verified from the page's season-marker rows: summer from run #680 (04/05),
+        // winter from run #706 (10/04) → Apr–Sep vs Oct–Mar.
+        { rrule: "FREQ=WEEKLY;BYDAY=SU;BYMONTH=4,5,6,7,8,9", startTime: "15:00", label: "Summer (Apr–Sep)", displayOrder: 0 },
+        { rrule: "FREQ=WEEKLY;BYDAY=SU;BYMONTH=1,2,3,10,11,12", startTime: "14:30", label: "Winter (Oct–Mar)", displayOrder: 1 },
+      ],
+      scheduleNotes: "Weekly Sunday afternoon around greater Taipei / New Taipei. Summer (≈Apr–Sep) 15:00 start, winter (≈Oct–Mar) 14:30 start. Family-friendly; per-run venue + hares are pre-assigned for the year on run_site_YYYY.htm, with route detail on the kennel's Facebook group. Hash cash NT$200 men / NT$150 women / NT$50 youth (6–17); women bringing a man free. Run #690 as of June 2026 (running since run #1 on 6 Jan 2013).",
+      description: "New Taipei Hash House Harriers (新北捷兔) is a family-friendly New Taipei City kennel, founded 2013 (its 14th year in 2026), that runs every Sunday afternoon on trails around greater Taipei and New Taipei. A 'drinking club with a running problem' — youth-priced and welcoming to families (NT$200 men / NT$150 women / NT$50 youth; women bringing a man go free). Hares are pre-assigned for the whole year; per-run meeting points and route detail are posted on the kennel's Facebook group. Run #690 as of June 2026 (running weekly since run #1 on 6 January 2013). On On!",
+      hashCash: "NT$200 men / NT$150 women / NT$50 youth (6–17); women bringing a man free",
+      logoUrl: "/kennel-logos/nth3-tw.jpg",
+      facebookUrl: "https://www.facebook.com/groups/NewTaipeiHash/",
+      website: "http://www.newtaipeihash.com",
+      // latitude/longitude omitted — Taipei METRO centroid drives the map.
+    },
 
     // ── China: Shanghai (HashTracks' first mainland-China kennel) ──
     {

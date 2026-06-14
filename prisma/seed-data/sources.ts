@@ -3829,6 +3829,22 @@ export const SOURCES = [
       kennelCodes: ["taipei-h3"],
     },
     {
+      name: "New Taipei Hash Run List",
+      // Big5-encoded legacy .htm; the year is in the filename and the adapter
+      // derives the current year at fetch time (run_site_<YYYY>.htm). The seed
+      // URL is pinned to 2026 only for first-scrape determinism.
+      url: "http://www.newtaipeihash.com/run_site_2026.htm",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      // The page is a whole-year rolling hareline (past + future on one page) and
+      // the one-shot backfill loads 2013–2025; upcomingOnly keeps reconcile.ts from
+      // false-CANCELLing the past rows as the year progresses.
+      config: { upcomingOnly: true },
+      kennelCodes: ["nth3-tw"],
+    },
+    {
       name: "Shanghai H3 Harrier Central",
       url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
       type: "HARRIER_CENTRAL" as const,
