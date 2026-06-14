@@ -1912,6 +1912,7 @@ function buildICH3Source(): Source {
       upcomingOnly: true,
       allowEmptyBody: true,
       titleStripPrefixAliases: ["ICH3"],
+      harePatterns: ["Hared\\s+by:\\s*([^\\n]+)", "(?:^|\\n)\\s*Hares?:\\s*([^\\n]+)"],
     },
   });
 }
@@ -1923,21 +1924,21 @@ describe("ICalAdapter — Iron City (ICH3) title prefix strip (#2160)", () => {
     vi.restoreAllMocks();
   });
 
-  it("strips the 'ICH3# 60' prefix, keeps the remainder as the title, extracts no hare", async () => {
+  it("strips the 'ICH3# 60' prefix into the title and reads the hare from 'Hared by:'", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(ICH3_ICS, { status: 200 }));
     const result = await adapter.fetch(buildICH3Source(), { days: 9999 });
 
     const e = result.events.find((x) => x.runNumber === 60);
     expect(e).toBeDefined();
-    // Remainder kept as the title (it's the kennel's chosen name), NOT moved to
-    // haresText — the archive shows the remainder is usually a theme.
+    // Remainder kept as the title (it's the kennel's chosen name), NOT derived
+    // from the hare. The hare comes from the DESCRIPTION's "Hared by:" label.
     expect(e!.title).toBe("Plea Barkin");
-    expect(e!.hares).toBeUndefined();
+    expect(e!.hares).toBe("Plea Barkin");
     // LOCATION field still wins for the venue.
     expect(e!.location).toContain("Hitchhiker Brewing");
   });
 
-  it("keeps a theme remainder as the title (does not corrupt it into a hare)", async () => {
+  it("keeps a theme remainder as the title and extracts no hare when the description lacks one", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(ICH3_ICS, { status: 200 }));
     const result = await adapter.fetch(buildICH3Source(), { days: 9999 });
 

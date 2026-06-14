@@ -1423,6 +1423,11 @@ export const SOURCES = [
         // most remainders are themes, not hares, so extracting them into
         // haresText corrupted the data; the title field is the right home.
         titleStripPrefixAliases: ["ICH3"],
+        // Real hares come from the DESCRIPTION's "Hared by:" label (ICH3's
+        // phrasing, which the default Hare:/Hares: parser misses), not the title.
+        // Unanchored so it matches mid-line ("ICH3 #60 Hared by: Plea Barkin");
+        // the standard "Hares:" form is kept as a fallback.
+        harePatterns: ["Hared\\s+by:\\s*([^\\n]+)", "(?:^|\\n)\\s*Hares?:\\s*([^\\n]+)"],
       },
       kennelCodes: ["ich3"],
     },
