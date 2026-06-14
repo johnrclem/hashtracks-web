@@ -274,7 +274,7 @@ export function parseNewTaipeiHash(
         externalLinks: fbLink ? [{ url: fbLink, label: "Facebook Event" }] : undefined,
         // Overseas specials ("日本 沖繩", "泰國 清邁") — bypass merge's 200km
         // centroid guard so the foreign geocode isn't dropped (PR #2186 review).
-        ...(countryOverride !== undefined ? { countryOverride } : {}),
+        ...(countryOverride === undefined ? {} : { countryOverride }),
         sourceUrl,
       });
     } catch (err) {

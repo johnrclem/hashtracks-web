@@ -38,12 +38,12 @@ function makeSource(overrides: Partial<Source> = {}): Source {
   } as Source;
 }
 
-function mockFetchBytes(bytes: Uint8Array, init: ResponseInit = { status: 200 }) {
+function mockFetchBytes(bytes: Uint8Array) {
   const buffer = bytes.buffer.slice(
     bytes.byteOffset,
     bytes.byteOffset + bytes.byteLength,
   ) as ArrayBuffer;
-  mockedSafeFetch.mockResolvedValue(new Response(buffer, init));
+  mockedSafeFetch.mockResolvedValue(new Response(buffer, { status: 200 }));
 }
 
 // A hand-crafted fixture modelled verbatim on the live run_site_2026.htm DOM:
