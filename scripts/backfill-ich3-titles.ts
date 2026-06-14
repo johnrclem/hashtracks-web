@@ -28,18 +28,21 @@ import { createScriptPool } from "./lib/db-pool";
 
 const dryRun = !process.argv.includes("--apply");
 
-// Single char class `[#\s]*` (no adjacent `\s*` around an optional literal) so
-// the analyzer sees a provably linear pattern. Matches "ICH3# 60 Plea Barkin"
-// and "ICH3 #60 Plea Barkin"; requires a real run number + a non-empty hare.
-const ICH3_LEAKED_TITLE_RE = /^ICH3[#\s]*(\d+)\s+(.+)$/i;
+// Match only the kennel label + run marker: `[#\s]*` and `\d+` are disjoint
+// char classes, so the pattern is provably linear (no `\s+`-adjacent-`.+`
+// backtracking shape Sonar S5852 flags). The hare is taken by slicing the
+// remainder, not a second greedy capture. Matches "ICH3# 60 …" and "ICH3 #60 …".
+const ICH3_RUN_PREFIX_RE = /^ICH3[#\s]*(\d+)/i;
 
 /** Parse a leaked ICH3 title into `{ runNumber, hares }`, or null when it isn't the leaked shape. */
 export function parseIch3LeakedTitle(title: string): { runNumber: number; hares: string } | null {
-  const m = ICH3_LEAKED_TITLE_RE.exec(title.trim());
+  const trimmed = title.trim();
+  const m = ICH3_RUN_PREFIX_RE.exec(trimmed);
   if (!m) return null;
   const runNumber = Number.parseInt(m[1], 10);
-  const hares = m[2].trim();
-  if (!Number.isFinite(runNumber) || runNumber <= 0 || !hares) return null;
+  if (!Number.isFinite(runNumber) || runNumber <= 0) return null;
+  const hares = trimmed.slice(m[0].length).trim();
+  if (!hares) return null;
   return { runNumber, hares };
 }
 
