@@ -22,16 +22,30 @@ const RUN_RE = /#\s*(\d{3,5})\b/;
 // Full names listed before abbreviations (longest-first) and no trailing
 // quantifier after the alternation, so there is no backtracking shape.
 const MONTH_RE =
-  /\b(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/i;
+  /\b(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)\b/i;
 const DAY_RE = /^\s*(\d{1,2})\b/;
-const MONTH_INDEX: Record<string, number> = {
-  jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
-  jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11,
-};
+// Keyed by both full name and abbreviation so the matched month text is looked
+// up exactly (no prefix-slicing that could mis-key). A Map avoids object-key
+// injection on a computed lookup (flagged by Gemini / detect-object-injection).
+const MONTH_INDEX = new Map<string, number>([
+  ["january", 0], ["jan", 0],
+  ["february", 1], ["feb", 1],
+  ["march", 2], ["mar", 2],
+  ["april", 3], ["apr", 3],
+  ["may", 4],
+  ["june", 5], ["jun", 5],
+  ["july", 6], ["jul", 6],
+  ["august", 7], ["aug", 7],
+  ["september", 8], ["sep", 8],
+  ["october", 9], ["oct", 9],
+  ["november", 10], ["nov", 10],
+  ["december", 11], ["dec", 11],
+]);
 
 // Time prose: a 12-hour clock ("6:30PM", "7PM") or a bare 24-hour clock
 // ("around 19:00"). Two separate patterns, scanned in priority order.
-const TIME_12H_RE = /\b(\d{1,2})(?::([0-5]\d))?\s*([AaPp][Mm])\b/;
+// `\s?` (not `\s*`) keeps the AM/PM join free of the S5852 backtracking shape.
+const TIME_12H_RE = /\b(\d{1,2})(?::([0-5]\d))?\s?([AaPp][Mm])\b/;
 const TIME_24H_RE = /\b([01]?\d|2[0-3]):([0-5]\d)\b/;
 
 // Cost prose: "Run Costs are NTD300 per person".
@@ -94,7 +108,7 @@ function resolveForwardDate(monthIdx: number, day: number, now: Date): string {
 function parseHeadingDate(afterRun: string, now: Date): { date: string; title?: string } | null {
   const mm = MONTH_RE.exec(afterRun);
   if (!mm) return null;
-  const monthIdx = MONTH_INDEX[mm[1].slice(0, 3).toLowerCase()];
+  const monthIdx = MONTH_INDEX.get(mm[1].toLowerCase());
   if (monthIdx === undefined) return null;
 
   const afterMonth = afterRun.slice(mm.index + mm[0].length);
@@ -145,11 +159,14 @@ function parseStartTime(prose: string, title: string | undefined): string | unde
   return undefined;
 }
 
+// Venue cue. The `\b` word boundary avoids false positives inside a larger
+// word ("timeet at"); `\s+` absorbs arbitrary spacing before the venue text.
+const MEET_AT_RE = /\bmeet at\s+/i;
+
 function parseLocation(prose: string): string | undefined {
-  const lower = prose.toLowerCase();
-  const idx = lower.indexOf("meet at ");
-  if (idx < 0) return undefined;
-  let rest = prose.slice(idx + "meet at ".length);
+  const m = MEET_AT_RE.exec(prose);
+  if (!m) return undefined;
+  let rest = prose.slice(m.index + m[0].length);
   const dot = rest.indexOf(".");
   if (dot >= 0) rest = rest.slice(0, dot);
   rest = rest.trim();
