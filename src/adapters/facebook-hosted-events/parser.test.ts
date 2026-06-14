@@ -556,6 +556,82 @@ describe("bagToRawEvent — runNumber extraction (#1319)", () => {
   });
 });
 
+// Hollyweird's seed config strips its self-prefixed kennel name and the
+// redundant trailing run marker.
+const HOLLYWEIRD_STRIPS = [
+  String.raw`^Hollyweird Hash House Harriers,?\s*`,
+  String.raw`\s*~\s*(?:aka:\s*)?H6\s*#\s*\d+\b.*$`,
+];
+
+function rawFromTitleWithStrips(title: string, titleStripPatterns?: string[]) {
+  const html = `<script type="application/json">{
+    "rich":{"__typename":"Event","id":"123456789012345","name":${JSON.stringify(title)}},
+    "time":{"id":"123456789012345","start_timestamp":1778353200}
+  }</script>`;
+  return parseFacebookHostedEvents(html, { kennelTag: "h6", titleStripPatterns })[0];
+}
+
+describe("title strip patterns (#2158)", () => {
+  it("strips the kennel-name prefix and trailing `~ aka: H6#NNN` (issue example)", () => {
+    const raw = rawFromTitleWithStrips(
+      "Hollyweird Hash House Harriers, HapPy Hour 4 Starlight Musical w/ WaCondom ForNever ~ aka: H6#311",
+      HOLLYWEIRD_STRIPS,
+    );
+    expect(raw.title).toBe("HapPy Hour 4 Starlight Musical w/ WaCondom ForNever");
+    // Run number still parsed from the pre-strip title.
+    expect(raw.runNumber).toBe(311);
+  });
+
+  it("strips the older space-form prefix and bare `~ H6#NNN` marker", () => {
+    const raw = rawFromTitleWithStrips(
+      "Hollyweird Hash House Harriers HapPy Hour w/ Shane Duncan Band ~ H6#308",
+      HOLLYWEIRD_STRIPS,
+    );
+    expect(raw.title).toBe("HapPy Hour w/ Shane Duncan Band");
+    expect(raw.runNumber).toBe(308);
+  });
+
+  it("leaves titles untouched when no titleStripPatterns are configured (additive)", () => {
+    const name =
+      "Hollyweird Hash House Harriers HapPy Hour w/ Shane Duncan Band ~ H6#308";
+    const raw = rawFromTitleWithStrips(name);
+    expect(raw.title).toBe(name);
+    expect(raw.runNumber).toBe(308);
+  });
+
+  it("runs the placeholder filter on the STRIPPED title so a prefixed 'Test' is dropped", () => {
+    // Without normalizing before the filter, the prefix hides the placeholder
+    // and "Test" would persist. The event has no run number / location, so the
+    // stripped "Test" must be rejected as a placeholder (empty result).
+    const html = `<script type="application/json">{
+      "rich":{"__typename":"Event","id":"123456789012345","name":"Hollyweird Hash House Harriers, Test"},
+      "time":{"id":"123456789012345","start_timestamp":1778353200}
+    }</script>`;
+    const events = parseFacebookHostedEvents(html, {
+      kennelTag: "h6",
+      titleStripPatterns: HOLLYWEIRD_STRIPS,
+    });
+    expect(events).toEqual([]);
+  });
+
+  it("routes kennelPatterns on the ORIGINAL title while stripping the display title", () => {
+    // Co-host routing must see the raw FB name; the stored title is still
+    // stripped, and the run number is parsed from the pre-strip suffix.
+    const html = `<script type="application/json">{
+      "rich":{"__typename":"Event","id":"123456789012345","name":"Hollyweird Hash House Harriers, GyNO Joint Trail ~ aka: H6#320"},
+      "time":{"id":"123456789012345","start_timestamp":1778353200}
+    }</script>`;
+    const [event] = parseFacebookHostedEvents(html, {
+      kennelTag: "h6",
+      kennelPatterns: [[String.raw`\bGyNO\b`, ["h6", "gynoh3"]]],
+      titleStripPatterns: HOLLYWEIRD_STRIPS,
+    });
+    expect(event.kennelTags).toEqual(["h6", "gynoh3"]);
+    expect(event.title).toBe("GyNO Joint Trail");
+    expect(event.runNumber).toBe(320);
+  });
+});
+
 describe("extractFieldsFromFbDescription (#1319)", () => {
   const MAY_15_DESCRIPTION = [
     "Hollyweird Hash House Harriers HapPy Hour ~ Boston Johnny's May's Birthday Party ~ H6#307",

@@ -126,6 +126,15 @@ export interface FacebookHostedEventsConfig {
   /** Fallback kennelTag for events matching no `kennelPatterns` entry.
    *  Defaults to `kennelTag`. No-op without `kennelPatterns`. */
   defaultKennelTag?: string;
+  /**
+   * Optional per-source title strips (#2158) for Pages whose FB event names
+   * carry a fixed kennel-name prefix / templated suffix that isn't part of the
+   * actual title (e.g. Hollyweird's `Hollyweird Hash House Harriers, … ~ aka:
+   * H6#311`). Same grammar GOOGLE_CALENDAR uses; each pattern is `.replace()`-d
+   * out of the stored title. Applied after run-number extraction, so an embedded
+   * `H6#311` still yields a runNumber. Omit for sources without the issue.
+   */
+  titleStripPatterns?: string[];
 }
 
 /**
@@ -165,6 +174,7 @@ export class FacebookHostedEventsAdapter implements SourceAdapter {
       // Optional routing — undefined when single-kennel, handled by the parser.
       kennelPatterns: config.kennelPatterns,
       defaultKennelTag: config.defaultKennelTag,
+      titleStripPatterns: config.titleStripPatterns,
     });
     const allEvents = parseResult.events;
     const filteredCounts = parseResult.filtered;

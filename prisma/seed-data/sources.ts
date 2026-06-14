@@ -6078,6 +6078,15 @@ export const SOURCES = [
         pageHandle: "HollyweirdH6",
         timezone: "America/New_York",
         upcomingOnly: true,
+        // #2158: the Page prefixes every event name with its full kennel name
+        // and appends a redundant trailing run marker ("~ aka: H6#311" in the
+        // current form; bare "~ H6#308" / "~ H6 #308" in older captures). Strip
+        // both from the stored title — the run number is still parsed from the
+        // pre-strip name, so the trailing strip never costs the runNumber.
+        titleStripPatterns: [
+          String.raw`^Hollyweird Hash House Harriers,?\s*`,
+          String.raw`\s*~\s*(?:aka:\s*)?H6\s*#\s*\d+\b.*$`,
+        ],
       },
       kennelCodes: ["h6"],
     },
