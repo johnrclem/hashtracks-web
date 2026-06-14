@@ -1464,7 +1464,18 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "every_6h",
       scrapeDays: 365,
-      config: { defaultKennelTag: "rvah3" },
+      // #2180 — this is the shared "Richmond, BIB, Titanic, Chain Gang H3"
+      // calendar. Without kennelPatterns every event routed to RH3, leaking
+      // sister-kennel runs (BIBH3, Chain Gang, TMFMH3) and a test entry
+      // ("FAKE HASH #12673") onto the RH3 page. RH3's own events consistently
+      // carry the "RH3" token; whitelist it and drop everything else via
+      // strictKennelRouting (returns null before kennelTag assignment, so no
+      // source-kennel-guard alerts). The sisters are served by the Meetup source.
+      config: {
+        defaultKennelTag: "rvah3",
+        kennelPatterns: [["\\b(?:RH3|RVAH3)\\b", "rvah3"]],
+        strictKennelRouting: true,
+      },
       kennelCodes: ["rvah3"],
     },
     {
@@ -4201,6 +4212,11 @@ export const SOURCES = [
           String.raw`[.]\s*Hare:\s*(.+)$`,
           String.raw`^CH3\s+\d+\s+-\s+[^-]+\s+-\s+(.+)$`,
         ],
+        // #2146 — RDH3 TBA rows ("RDH3 XX Walkers. Hare: ") carry an empty hare,
+        // so titleHarePattern (which needs a non-empty capture) never fires and
+        // the dangling ". Hare:" label stays on the title. Strip it when no hare
+        // was extracted.
+        stripDanglingHareLabel: true,
       },
       kennelCodes: ["ch3-dk", "ch4-dk", "rdh3"],
     },

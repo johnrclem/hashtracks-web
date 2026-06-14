@@ -259,10 +259,16 @@ export default async function KennelDetailPage({
   // Stats — use unique date count for resilience against duplicate canonical events
   const uniqueDates = new Set(events.map(e => e.date.toISOString().split("T")[0]));
   const totalEvents = uniqueDates.size;
-  const currentRunNumber =
-    upcoming.find((e) => e.runNumber != null)?.runNumber ??
-    past.find((e) => e.runNumber != null)?.runNumber ??
-    null;
+  // "Latest Run" = highest run number among recent events (upcoming + the most
+  // recent past), so a low-numbered side-series ("Sloppy Trail #46") doesn't
+  // override the main sequence ("Trail 802") just by being the most recent date
+  // (#2184). Windowed to bound stale-outlier risk; CANCELLED events are already
+  // excluded by the events query above.
+  const RECENT_PAST_FOR_RUN = 12;
+  const recentRunNumbers = [...upcoming, ...past.slice(0, RECENT_PAST_FOR_RUN)]
+    .map((e) => e.runNumber)
+    .filter((n): n is number => n != null);
+  const currentRunNumber = recentRunNumbers.length ? Math.max(...recentRunNumbers) : null;
   const oldestEventDate = events.length > 0 ? events[0].date.toISOString() : null;
   const nextRunDate = upcoming.length > 0 ? upcoming[0].date : null;
 

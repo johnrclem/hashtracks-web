@@ -244,6 +244,47 @@ describe("MoA2H3 Google Calendar — sister kennels silently skipped, owned by t
   });
 });
 
+// ── Richmond H3 Google Calendar — shared-calendar leak (#2180) ──
+
+describe("Richmond H3 Google Calendar — RH3-only whitelist (#2180)", () => {
+  const rvaSource = SOURCES.find((s) => s.name === "Richmond H3 Google Calendar");
+  if (!rvaSource?.config) throw new Error("Richmond H3 Google Calendar seed config missing");
+  const config = rvaSource.config as Parameters<typeof buildRawEventFromGCalItem>[1];
+
+  it("only links rvah3 — sisters are served by the Meetup source", () => {
+    expect(rvaSource.kennelCodes).toEqual(["rvah3"]);
+    expect((config as { strictKennelRouting?: boolean }).strictKennelRouting).toBe(true);
+  });
+
+  it.each([
+    ["RH3 trail #1599 - You’re gonna die, we're following Tinder!", "RH3 trail w/ run number"],
+    ["RH3 trail", "bare RH3 trail"],
+    ["RH3 trail. Special start time.", "RH3 trail with note"],
+    ["RH3 Medley of Mud #3", "RH3 themed trail"],
+  ])("routes RH3 event %j → rvah3 (%s)", (summary) => {
+    const result = buildRawEventFromGCalItem(
+      { summary, start: { dateTime: "2026-05-25T13:00:00-04:00" }, status: "confirmed" },
+      config,
+    );
+    expect(result?.kennelTags[0]).toBe("rvah3");
+  });
+
+  it.each([
+    ["BIBH3: they're all food!", "Belle Isle Babes sister"],
+    ["BIB trail", "BIB sister"],
+    ["Chain Gang", "Chain Gang sister"],
+    ["TMFMH3", "Titanic Memorial FM sister"],
+    ["CHHH trail", "CHHH sister"],
+    ["FAKE HASH #12673: Test Trail 101", "test/junk entry polluting Latest Run"],
+  ])("drops non-RH3 event %j (%s)", (summary) => {
+    const result = buildRawEventFromGCalItem(
+      { summary, start: { dateTime: "2025-10-26T21:00:00-04:00" }, status: "confirmed" },
+      config,
+    );
+    expect(result).toBeNull();
+  });
+});
+
 // ── BJH3 Google Calendar timezone normalization (#775) ──
 
 describe("BJH3 Google Calendar — El Paso (Mountain) timezone normalization (#775)", () => {
@@ -532,6 +573,22 @@ describe("extractRunNumber", () => {
 
   it("does not invent a run number for themed PH4 titles (no #)", () => {
     expect(extractRunNumber("PH4 - Taco Flavored Pisses")).toBeUndefined();
+  });
+
+  // #2184 Reno H3 — dominant title form is "Trail NNN:" with no `#`. The `#`
+  // forms still resolve via extractHashRunNumber first.
+  it.each([
+    ["Trail 802: Sir Rubs a lot's short n sweet trail", 802, "Trail NNN:"],
+    ["Trail 796: Queef's Easter Trail", 796, "Trail NNN:"],
+    ["Trail #802: With the hash", 802, "Trail #NNN: (via # path)"],
+    ["Sloppy Trail #46 Kings Canyon", 46, "mid-title #NN (via # path)"],
+  ])("Reno summary %j → run %i (%s)", (summary, expected) => {
+    expect(extractRunNumber(summary)).toBe(expected);
+  });
+
+  it("does not match 'Trail' titles without a leading 'Trail NNN:' (#2184)", () => {
+    expect(extractRunNumber("Truckee trail with Beastie Ality & Bullshitwhistle")).toBeUndefined();
+    expect(extractRunNumber("A Queef-tastic trail")).toBeUndefined();
   });
 
   it("bang normalization does not defeat the #30X? placeholder guard (#2089)", () => {
@@ -1756,6 +1813,59 @@ describe("titleHarePattern array — multi-pattern fallback (#1208/#1209/#1221)"
     );
     expect(result).not.toBeNull();
     expect(result!.hares).toBe("Lust Jucie");
+  });
+
+  // #2146 — RDH3 TBA rows ("RDH3 XX Walkers. Hare: ") carry an empty hare, so
+  // the titleHarePattern (non-empty capture) never fires. stripDanglingHareLabel
+  // removes the dangling ". Hare:" label and leaves hares empty.
+  it.each([
+    ["RDH3 XX Walkers. Hare: ", "RDH3 XX Walkers", "Walkers TBA"],
+    ["RDH3 xx Runners. Hare: ", "RDH3 xx Runners", "Runners TBA"],
+  ])("Copenhagen: RDH3 empty-hare %j → title %j (%s)", (summary, expectedTitle) => {
+    const patterns = [
+      /[.]\s*Hare:\s*(.+)$/i, // NOSONAR — anchored, single capture, test fixture
+      /^CH3\s+\d+\s+-\s+[^-]+\s+-\s+(.+)$/i, // NOSONAR — anchored, char-class delimited, test fixture
+    ];
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary, start: { dateTime: "2026-09-13T10:00:00+02:00" } }),
+      {
+        defaultKennelTag: "ch3-dk",
+        kennelPatterns: [["RDH3|Rabid", "rdh3"]],
+        stripDanglingHareLabel: true,
+      },
+      {
+        compiledTitleHarePatterns: patterns,
+        compiledKennelPatterns: [[/RDH3|Rabid/i, "rdh3"] as const],
+      },
+    );
+    expect(result).not.toBeNull();
+    expect(result!.title).toBe(expectedTitle);
+    expect(result!.hares).toBeUndefined();
+  });
+
+  it("Copenhagen: stripDanglingHareLabel leaves filled-hare RDH3 titles intact (#2146)", () => {
+    const patterns = [
+      /[.]\s*Hare:\s*(.+)$/i, // NOSONAR — anchored, single capture, test fixture
+      /^CH3\s+\d+\s+-\s+[^-]+\s+-\s+(.+)$/i, // NOSONAR — anchored, char-class delimited, test fixture
+    ];
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        summary: "RDH3 136 Runners. Hare: Captain Shitshow",
+        start: { dateTime: "2026-06-14T11:00:00+02:00" },
+      }),
+      {
+        defaultKennelTag: "ch3-dk",
+        kennelPatterns: [["RDH3|Rabid", "rdh3"]],
+        stripDanglingHareLabel: true,
+      },
+      {
+        compiledTitleHarePatterns: patterns,
+        compiledKennelPatterns: [[/RDH3|Rabid/i, "rdh3"] as const],
+      },
+    );
+    expect(result).not.toBeNull();
+    expect(result!.title).toBe("RDH3 136 Runners");
+    expect(result!.hares).toBe("Captain Shitshow");
   });
 });
 
