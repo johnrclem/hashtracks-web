@@ -471,12 +471,15 @@ function compileKennelPatterns(
  */
 function compileRunNumberTitlePattern(pattern?: string): RegExp | undefined {
   if (!pattern) return undefined;
-  // nosemgrep: detect-non-literal-regexp — protected by isSafeRegex() below
-  if (!isSafeRegex(pattern)) {
-    console.warn(`Unsafe runNumberTitlePattern skipped (ReDoS): "${pattern}"`);
-    return undefined;
-  }
+  // isSafeRegex compiles the pattern internally, so a syntactically invalid
+  // string throws here too — keep the check inside the try so a malformed config
+  // degrades to the generic parser instead of crashing the fetch.
   try {
+    // nosemgrep: detect-non-literal-regexp — protected by isSafeRegex() below
+    if (!isSafeRegex(pattern)) {
+      console.warn(`Unsafe runNumberTitlePattern skipped (ReDoS): "${pattern}"`);
+      return undefined;
+    }
     // nosemgrep: detect-non-literal-regexp — validated ReDoS-safe immediately above
     return new RegExp(pattern, "i");
   } catch (e) {
@@ -663,6 +666,29 @@ function resolveMeetupHares(
  * in the token needs no escaping — and the shared `extractHashRunNumber` does
  * the parsing. Returns undefined when extraction is off or no number is found.
  */
+/**
+ * Extract a run number from a Meetup title. With `runNumberTitleRe` (aggregate
+ * feeds) only a trail-context "#N" in capture group 1 counts — a no-match
+ * returns undefined so the caller falls through to the description path rather
+ * than the unanchored generic parser (the anchor is the whole point). Without
+ * it, the generic `extractHashRunNumber` runs, after normalizing any
+ * `runNumberPrefix` ("R*n", #1975) to "#".
+ */
+function runNumberFromTitle(
+  title: string | undefined,
+  runNumberTitleRe: RegExp | undefined,
+  runNumberPrefix: string | undefined,
+): number | undefined {
+  if (runNumberTitleRe) {
+    const m = title ? runNumberTitleRe.exec(title) : null;
+    if (!m?.[1]) return undefined;
+    const n = Number.parseInt(m[1], 10);
+    return Number.isFinite(n) && n > 0 ? n : undefined;
+  }
+  const normalized = runNumberPrefix && title ? title.replaceAll(runNumberPrefix, "#") : title;
+  return extractHashRunNumber(normalized);
+}
+
 function resolveRunNumber(
   title: string | undefined,
   description: string | null | undefined,
@@ -675,20 +701,8 @@ function resolveRunNumber(
   // fingerprinting. Only sources that confirm unambiguous title conventions
   // set `extractRunNumber: true`.
   if (extractRunNumber) {
-    if (runNumberTitleRe) {
-      // Anchored extraction (aggregate feeds): only a trail-context "#N" counts.
-      // On no-match we deliberately fall through to the description path rather
-      // than the unanchored generic parser — that anchor is the whole point.
-      const m = title ? runNumberTitleRe.exec(title) : null;
-      if (m?.[1]) {
-        const n = Number.parseInt(m[1], 10);
-        if (Number.isFinite(n) && n > 0) return n;
-      }
-    } else {
-      const normalized = runNumberPrefix && title ? title.replaceAll(runNumberPrefix, "#") : title;
-      const fromTitle = extractHashRunNumber(normalized);
-      if (fromTitle !== undefined) return fromTitle;
-    }
+    const fromTitle = runNumberFromTitle(title, runNumberTitleRe, runNumberPrefix);
+    if (fromTitle !== undefined) return fromTitle;
   }
   // Description extraction is default-on but anchored to a "trail" line so it
   // only fires on the hash-canonical "Trail #N" shape (#2167 Savannah, whose
