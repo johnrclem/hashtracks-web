@@ -3177,6 +3177,21 @@ export const KENNELS: KennelSeed[] = [
       website: "http://www.newtaipeihash.com",
       // latitude/longitude omitted — Taipei METRO centroid drives the map.
     },
+    {
+      kennelCode: "kaohsiung-h3", shortName: "Kaohsiung H3", fullName: "Kaohsiung Hash House Harriers",
+      region: "Kaohsiung", country: "Taiwan",
+      foundedYear: 1973,
+      scheduleDayOfWeek: "Saturday", scheduleTime: "7:00 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Mixed run types around Kaohsiung. Per the kennel: Saturday afternoon runs meet ~1:00pm, Saturday night runs ~7:00pm, and Sunday family runs ~9:00am (runner, walker, and stroller trails). Per-run venue/time/hares posted on the Wix /run-information page; meeting points are Google Maps pins. Run #2732 as of June 2026 (running since 1973). Standard hash cash not published online (a NT$300 cost appeared only on a special 7/11 joint run).",
+      description: "Kaohsiung Hash House Harriers (高雄捷兔) is southern Taiwan's oldest hash — the Kaohsiung chapter of the Hash House Harriers, founded 16 September 1973. A self-described 'drinking club with a running problem' running trails around the island and the city: Saturday afternoon runs (~1:00pm), Saturday night runs (~7:00pm), and Sunday family runs (~9:00am) with runner, walker, and stroller trails. Run #2732 as of June 2026. On On!",
+      // hashCash omitted — standard per-run price not published (follow up); NT$300 seen only on a special joint run.
+      walkersWelcome: true,
+      logoUrl: "/kennel-logos/kaohsiung-h3.png",
+      facebookUrl: "https://www.facebook.com/KaohsiungH3",
+      instagramHandle: "kaohsiunghash",
+      website: "https://www.kaohsiunghash.com",
+      latitude: 22.6273, longitude: 120.3014,
+    },
 
     // ── China: Shanghai (HashTracks' first mainland-China kennel) ──
     {

@@ -3845,6 +3845,19 @@ export const SOURCES = [
       kennelCodes: ["nth3-tw"],
     },
     {
+      name: "Kaohsiung H3 Run Information",
+      url: "https://www.kaohsiunghash.com/run-information",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 5,
+      scrapeFreq: "daily",
+      scrapeDays: 90, // narrow rolling forward window (next ~2–3 runs)
+      // The Wix page shows only the next few numbered runs (full schedule is an
+      // image, no archive). upcomingOnly keeps reconcile.ts from false-CANCELLing
+      // runs as they age off the page.
+      config: { upcomingOnly: true },
+      kennelCodes: ["kaohsiung-h3"],
+    },
+    {
       name: "Shanghai H3 Harrier Central",
       url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
       type: "HARRIER_CENTRAL" as const,
