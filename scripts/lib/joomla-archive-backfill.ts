@@ -68,7 +68,9 @@ export async function walkJoomlaArchive(
   console.log(`  Fetching index: ${indexUrl}`);
   const indexHtml = await fetchText(indexUrl);
   if (!indexHtml) throw new Error(`Failed to fetch archive index: ${indexUrl}`);
-  const matches = indexHtml.match(detailUrlRe) ?? [];
+  // detailUrlRe is global — matchAll gathers every detail path (and satisfies
+  // Sonar S6594's preference for exec-family methods over String.match).
+  const matches = [...indexHtml.matchAll(detailUrlRe)].map((m) => m[0]);
   const urls = [...new Set(matches)]
     .sort((a, b) => a.localeCompare(b))
     .map((path) => `${baseUrl}${path}`);
