@@ -50,7 +50,7 @@ export function stripIch3TitlePrefix(title: string): string | null {
 
 async function main() {
   const pool = createScriptPool();
-  const prisma = new PrismaClient({ adapter: new PrismaPg(pool) } as never);
+  const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
 
   console.log(dryRun ? "🔍 DRY RUN — no changes will be made\n" : "✏️  APPLYING changes\n");
 
