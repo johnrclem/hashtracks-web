@@ -6,6 +6,7 @@ import {
   chronoParseDate,
   formatAmPmTime,
   normalizeHaresField,
+  cleanLocationName,
   applyDateWindow,
   buildRunHareTitle,
 } from "../utils";
@@ -106,13 +107,41 @@ const TBA_RE = /\b(?:TBA|TBD)\b/i;
 // just the "Hash #NNN " prefix and find the "(" via indexOf to avoid a
 // negated-char-class quantifier that trips Sonar S5852.
 const WRITEUP_HEAD_RE = /^Hash\s*#\s*(\d+)\s+/i;
-const WHERE_LABEL_RE = /^where\s*:/i;
-const HARE_LABEL_RE = /^hares?\s*:/i;
-const COST_LABEL_RE = /^(?:cost|hash cash)\s*:/i;
-const NOTE_LABEL_RE = /^(?:on-?afters?|note)\s*:/i;
 const SUBTITLE_RE = /^\(.*\)$/;
 const SECTION_BREAK_RE = /^(?:next page|back to)/i;
-const LABEL_VALUE_RE = /^[^:]*:\s*/;
+
+// Card-body fields are detected by their `Label: value` prefix. DSMH3 publishes
+// bilingual slash-labels (`Location/Emplacement:`, `Hare/Lièvre & Host/Hôte:`,
+// `Cost/Prix:`) the old English-only regexes never matched (#2156). We split on
+// the first colon and keyword-match the lowercased label via `startsWith` — no
+// complex bilingual alternation regex (Sonar S5852/S5843 safe), and a value like
+// "Thursday … 2:30 pm" matches no field keyword so it falls through to the date
+// parser, exactly as before.
+function isWhereLabel(label: string): boolean {
+  return (
+    label === "where" ||
+    label.startsWith("location") ||
+    label.startsWith("emplacement")
+  );
+}
+function isHareLabel(label: string): boolean {
+  return label.startsWith("hare") || label.startsWith("lièvre");
+}
+function isCostLabel(label: string): boolean {
+  return (
+    label.startsWith("cost") ||
+    label === "hash cash" ||
+    label.startsWith("prix") ||
+    label.startsWith("coût")
+  );
+}
+function isNoteLabel(label: string): boolean {
+  return (
+    label.startsWith("on-after") ||
+    label.startsWith("onafter") ||
+    label.startsWith("note")
+  );
+}
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -279,15 +308,18 @@ function splitVenue(value: string): { location: string; street?: string } {
   return { location: value };
 }
 
-/** Apply a "Where:" value → location + street + optional maps URL. */
+/** Apply a "Where:" / "Location/Emplacement:" value → location + street + maps URL. */
 function applyWhereValue(
   card: CardData,
   value: string,
   venueUrlMap: Map<string, string>,
 ): void {
-  if (!value || TBA_RE.test(value)) return;
+  if (!value) return;
   const { location, street } = splitVenue(value);
-  card.location = location;
+  // Drop TBA/emoji/URL noise uniformly (also covers the old `TBA_RE` guard).
+  const cleaned = cleanLocationName(location);
+  if (!cleaned) return;
+  card.location = cleaned;
   card.locationStreet = street;
   const url = venueUrlMap.get(value);
   if (url) card.locationUrl = url;
@@ -328,17 +360,22 @@ function applyCardLine(
   line: string,
   venueUrlMap: Map<string, string>,
 ): void {
-  const value = () => line.replace(LABEL_VALUE_RE, "").trim();
-  if (WHERE_LABEL_RE.test(line)) {
-    applyWhereValue(card, value(), venueUrlMap);
-  } else if (HARE_LABEL_RE.test(line)) {
-    applyHareValue(card, value());
-  } else if (COST_LABEL_RE.test(line)) {
-    const cost = value();
-    if (cost) card.cost = cost;
-  } else if (NOTE_LABEL_RE.test(line)) {
-    const note = value();
-    if (note && !TBA_RE.test(note)) descParts.push(line);
+  // Split on the first colon → label + value. A label that matches a known
+  // field keyword routes the value; anything else (incl. label-less date lines
+  // whose only colon is in a time like "2:30 pm") falls through to the date/
+  // subtitle handling below.
+  const colonIdx = line.indexOf(":");
+  const label = colonIdx >= 0 ? line.slice(0, colonIdx).trim().toLowerCase() : "";
+  const value = colonIdx >= 0 ? line.slice(colonIdx + 1).trim() : "";
+
+  if (label && isWhereLabel(label)) {
+    applyWhereValue(card, value, venueUrlMap);
+  } else if (label && isHareLabel(label)) {
+    applyHareValue(card, value);
+  } else if (label && isCostLabel(label)) {
+    if (value) card.cost = value;
+  } else if (label && isNoteLabel(label)) {
+    if (value && !TBA_RE.test(value)) descParts.push(line);
   } else if (SUBTITLE_RE.test(line)) {
     descParts.push(line);
   } else {

@@ -119,6 +119,20 @@ Basket says, "Check out the Receding Hareline..."
 <p><a href="https://www.facebook.com/groups/120140164667510">See the RIH3 facebook Page for updates</a></p>
 `;
 
+// #2141: the source hand-codes anchor markup ENTITY-ENCODED in the Directions
+// cell. cheerio decodes `&lt;a&gt;` into literal-text tags (not DOM elements),
+// so they survive `.text()` and dodge the real-anchor song-link removal. Mirrors
+// the two documented malformations: a doubled-quote `Songs/` link not wrapped in
+// `<p>` (#2103) and a mid-text `</a href>` closing tag (#2104).
+const DIRECTION_ENCODED_MARKUP = `
+<h2><strong>Encoded Markup Hash</strong></h2>
+<strong>
+Trail starts at the dirt lot singing Just Pat's tune&lt;/a href&gt; See the RIH3 facebook Page for updates.
+<br/><br/>
+&lt;a href="Songs/Favorites/irianjaya.txt"" target="new"&gt;His song of the Week: Irian Jaya
+</strong>
+`;
+
 // --- Tests ---
 
 describe("extractHares", () => {
@@ -460,6 +474,26 @@ describe("parseHarelineRow", () => {
 
     expect(result?.description).not.toContain("Santa Claus");
     expect(result?.description).not.toContain("Song of the Week");
+  });
+
+  it("strips entity-encoded anchor markup from description (#2141)", () => {
+    const cells = ["Mon June 15", "6:30 PM", "2103"];
+    const result = parseHarelineRow(
+      cells,
+      HARE_SINGLE,
+      DIRECTION_ENCODED_MARKUP,
+      SOURCE_URL,
+    );
+
+    // No raw tags / attributes leak through.
+    expect(result?.description).not.toContain("<");
+    expect(result?.description).not.toContain(">");
+    expect(result?.description).not.toContain("href");
+    expect(result?.description).not.toContain("/a ");
+    // Visible link text is preserved (issue: "keep visible link text, drop the tag").
+    expect(result?.description).toContain("singing Just Pat's tune");
+    expect(result?.description).toContain("See the RIH3 facebook Page for updates");
+    expect(result?.description).toContain("His song of the Week: Irian Jaya");
   });
 
   it("strips leading comma from description (Bug #3)", () => {

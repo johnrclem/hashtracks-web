@@ -366,9 +366,17 @@ export function parseHarelineRow(
     const text = $a.text().trim();
     $a.replaceWith(`${text} (${href})`);
   });
+  // The source hand-codes anchor markup ENTITY-ENCODED in the Directions cell
+  // (`&lt;a href="Songs/…"&gt;…&lt;/a href&gt;`). `cheerio.load()` decoded those
+  // entities into plain text nodes, so the literal tags survive `.text()` and the
+  // song-link removal above can't target them (#2141). A second pass through the
+  // shared `stripHtmlTags()` helper re-parses the now-literal `<a>`/`</a href>`
+  // fragments as real tags and drops them, keeping the visible link text.
   const description =
-    descRoot.text().replace(/\s+/g, " ").trim().replace(/^[,\s]+/, "") ||
-    undefined;
+    stripHtmlTags(descRoot.text())
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(/^[,\s]+/, "") || undefined;
 
   return {
     date,

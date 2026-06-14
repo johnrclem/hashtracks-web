@@ -27,7 +27,7 @@
 import type { RawEventData } from "../types";
 import { formatYmdInTimezone, formatTimeInZone, isValidTimezone } from "@/lib/timezone";
 import { FB_EVENT_ID_RE, isAdminNoticeTitle, isPlaceholderTitle } from "./constants";
-import { extractHashRunNumber, hasPlaceholderRunNumber } from "../utils";
+import { extractHashRunNumber, hasPlaceholderRunNumber, compilePatterns } from "../utils";
 import { extractHares } from "../hare-extraction";
 import {
   compileKennelPatterns,
@@ -66,6 +66,14 @@ export interface ParseFacebookOptions {
    * No-op without `kennelPatterns`. Defaults to `kennelTag` when unset.
    */
   defaultKennelTag?: string;
+  /**
+   * Per-source title strips (#2158) — same grammar the GOOGLE_CALENDAR adapter
+   * uses. Each pattern is `.replace()`-d out of the stored display title (e.g.
+   * a kennel that prefixes every FB event name with its full name). Applied
+   * AFTER run-number extraction so an embedded `H6#311` still yields a
+   * runNumber. Omit for sources without the issue — titles are then unchanged.
+   */
+  titleStripPatterns?: string[];
 }
 
 /** Resolves a parsed event title to its kennelTag(s). */
@@ -164,6 +172,15 @@ export function parseFacebookHostedEventsWithStats(
       : null;
   const resolveKennelTags = buildKennelTagResolver(options.kennelTag, compiled, options.defaultKennelTag);
 
+  // Compile per-source title strips once (#2158). Empty when unconfigured, so
+  // non-configured sources keep byte-identical titles. Case-insensitive only
+  // (no `m`/`g`) — same flags the GOOGLE_CALENDAR adapter uses, so `^`/`$`
+  // anchor the whole title, not individual lines of a multi-line FB name.
+  const titleStripRes =
+    options.titleStripPatterns && options.titleStripPatterns.length > 0
+      ? compilePatterns(options.titleStripPatterns, "i")
+      : [];
+
   // Collect both halves of each event by id across all JSON islands.
   const byId = new Map<string, EventBag>();
   for (const json of extractJsonIslands(html)) {
@@ -175,7 +192,7 @@ export function parseFacebookHostedEventsWithStats(
   const events: RawEventData[] = [];
   const filtered = emptyFilteredCounts();
   for (const bag of byId.values()) {
-    const outcome = projectBag(bag, resolveKennelTags, tz);
+    const outcome = projectBag(bag, resolveKennelTags, tz, titleStripRes);
     if (outcome.kind === "event") {
       events.push(outcome.event);
     } else {
@@ -503,7 +520,12 @@ type BagOutcome =
 // adapter strip in `google-calendar/adapter.ts` (#756 / #1060).
 const TITLE_TRAILING_DELIMITER_RE = /\s*[-–—:]\s*$/; // NOSONAR — anchored end-of-string strip, single char class
 
-function projectBag(bag: EventBag, resolveKennelTags: KennelTagResolver, timezone: string): BagOutcome {
+function projectBag(
+  bag: EventBag,
+  resolveKennelTags: KennelTagResolver,
+  timezone: string,
+  titleStripRes: RegExp[] = [],
+): BagOutcome {
   if (!bag.time || !bag.rich) return { kind: "rejected", reason: "missing-half" };
   if (bag.rich.is_canceled === true) return { kind: "rejected", reason: "cancelled" };
   // Inner `.trim()` is needed before the regex so the anchored `\s*$` strip
@@ -542,10 +564,20 @@ function projectBag(bag: EventBag, resolveKennelTags: KennelTagResolver, timezon
   const date = formatYmdInTimezone(instant, timezone);
   const startTime = formatTimeInZone(instant, timezone, "HH:mm");
 
+  // Strip the kennel-name prefix / templated suffix from the STORED title only
+  // (#2158), after run-number extraction so an embedded `H6#311` already gave us
+  // the runNumber. Kennel routing still keys on the original FB name. Fall back
+  // to the original title if a pattern strips it to nothing — stripping must
+  // only ever improve the title, never drop an otherwise-valid event. No-op
+  // when the source sets no `titleStripPatterns`.
+  let stripped = title;
+  for (const re of titleStripRes) stripped = stripped.replace(re, "").trim();
+  const displayTitle = stripped || title;
+
   const event: RawEventData = {
     date,
     kennelTags: resolveKennelTags(title),
-    title,
+    title: displayTitle,
     startTime,
     sourceUrl: `https://www.facebook.com/events/${bag.id}/`,
     externalLinks: [

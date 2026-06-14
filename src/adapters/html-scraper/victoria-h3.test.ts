@@ -22,7 +22,11 @@ ${p("Hare: Goes Down Well")}
 ${p("Cost: $10 (includes two beverages, first timers free)")}
 ${p("On-afters: Little Thai Place Royal Oak")}
 ${p("Dark Side of the Moon Run #388")}
-${p("Friday June 12th at 7 pm")}
+${p("Course Dark Side of the Moon n° 388")}
+${p("Friday June 12th at 7 pm/Vendredi 12 juin à 19h")}
+${p("Location/Emplacement: Songhees Point Park - 45 Songhees Road off/hors de Tyee Road/Esquimalt Road")}
+${p("Hare/Lièvre & Host/Hôte: Mustapha & Turkish Delight")}
+${p("Cost/Prix: $7.00 +$ donation for dinner")}
 ${p("Next page")}
 ${p("VH3 #930")}
 ${p("Saturday, June 20, 2:30 pm Hares needed.")}
@@ -132,6 +136,16 @@ describe("VictoriaH3Adapter parser", () => {
     });
   });
 
+  it("extracts location + hares + cost from DSMH3 bilingual slash-labels (#2156)", () => {
+    const e = eventFor("dsmh3", 388);
+    expect(e?.location).toContain("Songhees Point Park");
+    expect(e?.hares).toBe("Mustapha, Turkish Delight");
+    expect(e?.cost).toBe("$7.00 +$ donation for dinner");
+    // Bilingual date line still parses (English half) → unchanged start time.
+    expect(e?.startTime).toBe("19:00");
+    expect(e?.date).toBe("2026-06-12");
+  });
+
   it("titles a bare run from its run number and flags placeholder hares as null (#2013)", () => {
     const e = eventFor("vh3", 930);
     expect(e?.title).toBe("Run #930");
@@ -140,7 +154,7 @@ describe("VictoriaH3Adapter parser", () => {
 
   it.each([
     { label: "dsmh3 schedule-only run → bare Run #", tag: "dsmh3", run: 383, title: "Run #383" },
-    { label: "dsmh3 schedule-only run → bare Run #", tag: "dsmh3", run: 388, title: "Run #388" },
+    { label: "dsmh3 schedule-only run → bare Run #", tag: "dsmh3", run: 387, title: "Run #387" },
   ])("emits a source-faithful title for $label (#2013)", ({ tag, run, title }) => {
     expect(eventFor(tag, run)?.title).toBe(title);
   });
