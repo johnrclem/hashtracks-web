@@ -1515,6 +1515,17 @@ export const SOURCES = [
       config: {
         groupUrlname: "richmond-hash-house-harriers",
         kennelTag: "rvah3",
+        // RH3 + its sisters title their trails "RH3 # 1704", "BIBH3 Trail #251",
+        // "Chain Gang Trail #42" — opt into run-number extraction so the kennel
+        // "Latest Run" stat populates. This is an aggregate feed that also carries
+        // non-trail socials ("Inter-Kennel Drinking Practice #15"), so anchor the
+        // extractor to trail context (a leading kennel-code token before "#", or
+        // "Trail #") via runNumberTitlePattern — the generic first-`#` parser
+        // would otherwise mint run #15 from the social, and runNumber feeds
+        // same-day merge identity, not just the stat. TMFMH3's "Trail 299" form
+        // (no `#`) stays null either way — no regression.
+        extractRunNumber: true,
+        runNumberTitlePattern: String.raw`(?:^\s*[A-Za-z0-9]{2,8}\s*#|\btrail\b\s*#)\s*(\d+)`,
         // Word-boundary patterns (not anchored) so prefixed Meetup titles like
         // "ANNUAL GENERAL MEEING: Chain Gang ... Trail #40" route correctly.
         // Closes #992. Alt names (Belle Isle, Titanic) included since the same

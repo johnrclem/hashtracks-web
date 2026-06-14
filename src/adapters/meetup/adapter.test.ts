@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { MeetupAdapter, extractApolloEvents, resolveVenue, isNumericId, dedupByDate, stripTrailingState, deduplicateWords, isStateFullName, buildRawEventFromApollo, extractHaresFromMeetupDescription, cleanMeetupTitle, detectBoilerplateBlocks, stripBoilerplateBlocks, extractRunNumberFromMeetupDescription } from "./adapter";
 import { normalizeDescriptionKey } from "../utils";
+import { SOURCES } from "../../../prisma/seed-data/sources";
 import type { Source } from "@/generated/prisma/client";
 
 vi.mock("../safe-fetch", () => ({
@@ -1911,6 +1912,59 @@ describe("buildRawEventFromApollo — runNumber (#1562 Miami H3)", () => {
     };
     const event = buildRawEventFromApollo(ev, emptyState, "mia-h3");
     expect(event.runNumber).toBeUndefined();
+  });
+});
+
+// ── buildRawEventFromApollo — runNumber (Richmond H3 + sisters) ──
+
+describe("buildRawEventFromApollo — runNumber (Richmond H3 rvah3, anchored)", () => {
+  const emptyState = {} as Record<string, Record<string, unknown>>;
+  const OPT_IN = true;
+  // The exact anchor Richmond's seed config ships: a leading kennel-code token
+  // before "#", or "Trail #". Excludes non-trail "#N" tokens.
+  const richmondCfg = (SOURCES.find((s) => s.name === "Richmond H3 Meetup")?.config ?? {}) as {
+    runNumberTitlePattern?: string;
+    extractRunNumber?: boolean;
+  };
+  const titleRe = new RegExp(richmondCfg.runNumberTitlePattern ?? "(?!)", "i");
+  const build = (title: string, tag: string) =>
+    buildRawEventFromApollo(
+      { __typename: "Event", id: title, title, dateTime: "2026-06-28T13:00:00-04:00" },
+      emptyState, tag, undefined, OPT_IN, undefined, { runNumberTitleRe: titleRe },
+    );
+
+  it.each([
+    ["RH3 # 1704 - Medley of Mud #3 I-Feel Tower, Biff!", 1704],
+    ["RH3 # 1700 NASA", 1700],
+    ["RH3 # 1703", 1703],
+    ["RH3 Trail #1696: Rock N Roll Don't Die Doh", 1696],
+    ["RH3 Trail # 1694: Gladiater", 1694],
+    // Anchor captures the "RH3 #" run number, not the trailing theme "#3"/"#2".
+    ["RH3 # 1702 - MEDLEY OF MUD #2 BananTa", 1702],
+  ])("extracts the RH3 trail run number from %j", (title, expected) => {
+    expect(build(title, "rvah3").runNumber).toBe(expected);
+  });
+
+  it("extracts sister-kennel run numbers (BIBH3 / Chain Gang)", () => {
+    expect(build("BIBH3 Trail #251 - DRAG RACE!!", "bibh3").runNumber).toBe(251);
+    expect(build("Chain Gang Trail #42", "chain-gang-hhh").runNumber).toBe(42);
+  });
+
+  it("does NOT mint a run number for the non-trail 'Drinking Practice #15' social", () => {
+    // The whole reason for the anchor: runNumber feeds same-day merge identity,
+    // so a non-trail "#15" must not become a canonical run number. Without the
+    // anchor the generic parser would grab 15 (asserted below).
+    expect(build("Inter-Kennel Drinking Practice #15 hosted by RH3!", "rvah3").runNumber).toBeUndefined();
+  });
+
+  it("the unanchored generic parser WOULD grab the bogus 15 — confirming the anchor is load-bearing", () => {
+    const ev = { __typename: "Event", id: "dp", title: "Inter-Kennel Drinking Practice #15 hosted by RH3!", dateTime: "2026-06-15T18:30:00-04:00" };
+    expect(buildRawEventFromApollo(ev, emptyState, "rvah3", undefined, OPT_IN).runNumber).toBe(15);
+  });
+
+  it("the Richmond H3 Meetup seed source opts in with a trail-anchored pattern", () => {
+    expect(richmondCfg.extractRunNumber).toBe(true);
+    expect(typeof richmondCfg.runNumberTitlePattern).toBe("string");
   });
 });
 
