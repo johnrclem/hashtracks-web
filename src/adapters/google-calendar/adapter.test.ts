@@ -591,6 +591,12 @@ describe("extractRunNumber", () => {
     expect(extractRunNumber("A Queef-tastic trail")).toBeUndefined();
   });
 
+  it("does not mine a clock time as a 'Trail NNN' run number (#2184 codex)", () => {
+    // The colon here is an HH:MM separator, not the run-number delimiter.
+    expect(extractRunNumber("Trail 10:00 AM from the park")).toBeUndefined();
+    expect(extractRunNumber("Trail 11:30 meet at the bar")).toBeUndefined();
+  });
+
   it("bang normalization does not defeat the #30X? placeholder guard (#2089)", () => {
     expect(extractRunNumber("FCH3 #30X?!: Frisky Whisk-her")).toBeNull();
   });

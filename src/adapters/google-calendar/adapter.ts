@@ -50,11 +50,14 @@ const LEADING_HASH_WORD_RE = /^Hash\s+(?:#\s*)?(\d{2,})\s*:/i;
  * the parser only saw the `#NN` shape, so every "Trail NNN" event extracted no
  * run number. Colon-anchored and start-anchored — the same tight shape as
  * LEADING_HASH_WORD_RE — so it stays additive across the ~40 GCal sources: only
- * a title that literally starts with "Trail NNN:" matches. The `#`-prefixed
- * variants ("Trail #802:", "Sloppy Trail #46") already resolve through the
- * shared `extractHashRunNumber` delimiter guard before this is reached.
+ * a title that literally starts with "Trail NNN:" matches. The trailing
+ * `(?!\d)` rejects a clock time ("Trail 10:00 AM …") — the colon there is a
+ * time separator, not the run-number delimiter — so the global pattern can't
+ * mine an hour as a run number. The `#`-prefixed variants ("Trail #802:",
+ * "Sloppy Trail #46") already resolve through the shared `extractHashRunNumber`
+ * delimiter guard before this is reached.
  */
-const LEADING_TRAIL_WORD_RE = /^Trail\s+(?:#\s*)?(\d{2,})\s*:/i;
+const LEADING_TRAIL_WORD_RE = /^Trail\s+(?:#\s*)?(\d{2,})\s*:(?!\d)/i;
 
 /** Run the capture-group-1 digits of a leading-word run-number regex (e.g.
  *  LEADING_HASH_WORD_RE / LEADING_TRAIL_WORD_RE) against `summary`, returning the
