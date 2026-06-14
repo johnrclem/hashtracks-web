@@ -184,7 +184,7 @@ export function stripTitleKennelRunPrefix(
       // Boundary guard: the char after the alias must NOT be alphanumeric, so
       // "RH3" never eats the "RH3" inside a sibling code like "RH3FM".
       const next = s.charAt(alias.length);
-      if (next === "" || !/[A-Za-z0-9]/.test(next)) {
+      if (next === "" || !/[\p{L}\p{N}]/u.test(next)) {
         s = s.slice(alias.length);
         break;
       }
@@ -205,7 +205,7 @@ function titleEqualsHare(title: string, hares: string): boolean {
 // (03:02) — the audit's `event-improbable-time` window is 23:00–04:00. Used
 // only in combination with hasPlaceholderRunNumber so real late/early runs with
 // a confirmed run number keep their time.
-function isImprobableHashTime(hhmm: string | undefined): boolean {
+function isImprobableHashTime(hhmm: string | null | undefined): boolean {
   if (!hhmm) return false;
   const hour = Number.parseInt(hhmm.slice(0, 2), 10);
   if (Number.isNaN(hour)) return false;
@@ -600,10 +600,12 @@ function buildRawEventFromVEvent(
   const hasPlaceholderRun = hasPlaceholderRunNumber(summary);
 
   const dateStr = formatDate(vevent.start);
-  let startTime = formatTime(vevent.start);
+  // Tri-state: `undefined` = preserve, `null` = explicit clear (merge.ts only
+  // writes startTime/endTime when the field is not `undefined`).
+  let startTime: string | null | undefined = formatTime(vevent.start);
   // endTime is HH:MM only, so cross-date DTEND values (overnight runs) are dropped.
   const endDt = vevent.end as DateWithTimeZone | undefined;
-  let endTime = endDt && formatDate(endDt) === dateStr ? formatTime(endDt) : undefined;
+  let endTime: string | null | undefined = endDt && formatDate(endDt) === dateStr ? formatTime(endDt) : undefined;
   // endDate (#1560) — populated only for multi-day ALL-DAY VEVENTs (DTSTART
   // and DTEND both VALUE=DATE, spanning >1 day). RFC 5545 makes all-day DTEND
   // exclusive (an event May 14–17 has DTEND=May 18), so the inclusive last day
@@ -645,9 +647,12 @@ function buildRawEventFromVEvent(
   }
 
   // Tri-state: `undefined` = preserve, `null` = explicit clear (merge.ts #1516).
+  // A placeholder LOCATION ("TBD") is the source actively saying "no venue yet",
+  // so emit `null` to wipe a stale venue — the description fallback below still
+  // runs (null is falsy) and overwrites it when a real venue is present.
   let location: string | null | undefined = paramValue(vevent.location);
   if (location && isPlaceholder(location)) {
-    location = undefined;
+    location = null;
   }
 
   if (!location && description) {
@@ -655,13 +660,12 @@ function buildRawEventFromVEvent(
       ?? extractOnOnVenueFromDescription(description);
     // #2159 Charm City: scrub a DESCRIPTION-derived venue (trailing labels,
     // URLs, CTA residue) and reject placeholders. Opt-in so other feeds' venue
-    // paths are untouched. Preserve cleanLocationName's `null` (a "Location\nTBD"
-    // venue) as an explicit clear so merge wipes a stale venue rather than
-    // pinning the old one — only when a venue line actually matched.
-    if (rawDescLocation && config?.cleanDescriptionLocation) {
-      location = cleanLocationName(rawDescLocation);
-    } else {
-      location = rawDescLocation;
+    // paths are untouched. cleanLocationName's `null` (a "Location\nTBD" venue)
+    // is preserved as an explicit clear. Only overwrite when a venue line
+    // actually matched — otherwise leave `location` as the prior value (a `null`
+    // clear from a placeholder LOCATION, or `undefined` = preserve).
+    if (rawDescLocation) {
+      location = config?.cleanDescriptionLocation ? cleanLocationName(rawDescLocation) : rawDescLocation;
     }
   }
 
@@ -695,8 +699,10 @@ function buildRawEventFromVEvent(
   // so a confirmed-run late/early trail (or another feed's placeholder event at
   // a real late time) keeps its time.
   if (config?.dropImprobablePlaceholderTime && hasPlaceholderRun && isImprobableHashTime(startTime)) {
-    startTime = undefined;
-    endTime = undefined;
+    // `null` (not `undefined`) so the merge tri-state wipes a junk time already
+    // persisted on an existing row, instead of preserving it (#2175).
+    startTime = null;
+    endTime = null;
   }
 
   // A summary that is only kennel + an unconfirmed-run placeholder ("RH3: #120?")

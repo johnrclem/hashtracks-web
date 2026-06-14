@@ -1827,7 +1827,10 @@ describe("ICalAdapter — Charm City H3 description parsing (#2159 / #2175)", ()
 
     const e = result.events.find((x) => x.date === "2026-09-11");
     expect(e).toBeDefined();
-    expect(e!.startTime).toBeUndefined();
+    // null (explicit clear), not undefined — so merge wipes a junk time already
+    // persisted on an existing row rather than preserving it.
+    expect(e!.startTime).toBeNull();
+    expect(e!.endTime).toBeNull();
     expect(e!.runNumber).toBeNull();
   });
 
