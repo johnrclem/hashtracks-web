@@ -19,14 +19,14 @@ const RUN_RE = /#\s*(\d{3,5})\b/;
 
 // Month + day parsed in two simple passes (avoids a single ReDoS-shaped regex
 // per the Sonar S5852/S5843 guidance and the boiseh3 two-pass precedent).
-// Full names listed before abbreviations (longest-first) and no trailing
-// quantifier after the alternation, so there is no backtracking shape.
-const MONTH_RE =
-  /\b(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)\b/i;
+// MONTH_WORD_RE only yields candidate alphabetic words (no month alternation,
+// so no regex-complexity bump); each candidate is validated by exact lookup in
+// MONTH_INDEX, which also rules out near-words like "Maybe".
+const MONTH_WORD_RE = /\b[a-z]{3,9}\b/gi;
 const DAY_RE = /^\s*(\d{1,2})\b/;
-// Keyed by both full name and abbreviation so the matched month text is looked
-// up exactly (no prefix-slicing that could mis-key). A Map avoids object-key
-// injection on a computed lookup (flagged by Gemini / detect-object-injection).
+// Keyed by both full name and abbreviation so the matched month word is looked
+// up exactly. A Map avoids object-key injection on a computed lookup (flagged
+// by Gemini / detect-object-injection).
 const MONTH_INDEX = new Map<string, number>([
   ["january", 0], ["jan", 0],
   ["february", 1], ["feb", 1],
@@ -82,7 +82,7 @@ interface ParsedRun {
 }
 
 function normalizeText(raw: string): string {
-  return stripZeroWidth(raw).replace(/ /g, " ").replace(/\s+/g, " ").trim();
+  return stripZeroWidth(raw).replaceAll(/\s+/g, " ").trim();
 }
 
 function isValidMapsUrl(href: string): boolean {
@@ -105,13 +105,21 @@ function resolveForwardDate(monthIdx: number, day: number, now: Date): string {
   return new Date(ms).toISOString().slice(0, 10);
 }
 
-function parseHeadingDate(afterRun: string, now: Date): { date: string; title?: string } | null {
-  const mm = MONTH_RE.exec(afterRun);
-  if (!mm) return null;
-  const monthIdx = MONTH_INDEX.get(mm[1].toLowerCase());
-  if (monthIdx === undefined) return null;
+function findMonth(afterRun: string): { monthIdx: number; afterMonth: string } | null {
+  for (const m of afterRun.matchAll(MONTH_WORD_RE)) {
+    const monthIdx = MONTH_INDEX.get(m[0].toLowerCase());
+    if (monthIdx !== undefined) {
+      return { monthIdx, afterMonth: afterRun.slice(m.index + m[0].length) };
+    }
+  }
+  return null;
+}
 
-  const afterMonth = afterRun.slice(mm.index + mm[0].length);
+function parseHeadingDate(afterRun: string, now: Date): { date: string; title?: string } | null {
+  const month = findMonth(afterRun);
+  if (!month) return null;
+  const { monthIdx, afterMonth } = month;
+
   const dm = DAY_RE.exec(afterMonth);
   if (!dm) return null;
   const day = Number.parseInt(dm[1], 10);
@@ -186,10 +194,8 @@ function parseCost(prose: string): string | undefined {
  * "Your Hares:" label, then the hare names. Blocks are walked in document
  * order and grouped by run heading.
  */
-export function parseKaohsiungHashPage(
-  html: string,
-  now: Date,
-): { runs: ParsedRun[]; blockCount: number; parseErrors: ParseError[] } {
+/** Flatten the Wix rich-text blocks (text + first valid maps link) in order. */
+function collectBlocks(html: string): Block[] {
   const $ = cheerio.load(html);
   const blocks: Block[] = [];
   $('[data-testid="richTextElement"]').each((_i, el) => {
@@ -204,78 +210,107 @@ export function parseKaohsiungHashPage(
     });
     blocks.push({ text, mapsUrl });
   });
+  return blocks;
+}
 
-  // Find run-heading block indices.
-  const runStarts: number[] = [];
-  blocks.forEach((b, i) => {
-    if (RUN_RE.test(b.text)) runStarts.push(i);
-  });
+const HARES_LABEL_RE = /^your hares:?$/i;
+
+/** Collect a run's body blocks: hares (after a "Your Hares:" label) + prose. */
+function parseRunBody(
+  blocks: Block[],
+  start: number,
+  end: number,
+): { hares?: string; locationUrl?: string; prose: string } {
+  let hares: string | undefined;
+  let locationUrl: string | undefined;
+  const proseParts: string[] = [];
+  for (let i = start + 1; i < end; i++) {
+    const block = blocks[i];
+    if (HARES_LABEL_RE.test(block.text)) {
+      const next = blocks[i + 1];
+      if (next && i + 1 < end) hares = normalizeHaresField(next.text);
+      i += 1; // consume the hares value block
+      continue;
+    }
+    proseParts.push(block.text);
+    locationUrl ??= block.mapsUrl;
+  }
+  return { hares, locationUrl, prose: proseParts.join(" ") };
+}
+
+/** Build one run from its heading block + body, or a parse error on drift. */
+function buildRun(
+  blocks: Block[],
+  start: number,
+  end: number,
+  now: Date,
+): { run?: ParsedRun; error?: ParseError } {
+  const heading = blocks[start].text;
+  const rm = RUN_RE.exec(heading);
+  if (!rm) return {};
+  const runNumber = Number.parseInt(rm[1], 10);
+
+  const afterRun = heading.slice(rm.index + rm[0].length).trim();
+  const dateParsed = parseHeadingDate(afterRun, now);
+  if (!dateParsed) {
+    // A numbered run whose date no longer parses is markup drift, NOT a
+    // legitimately-absent run. Record a parse error so fetch() suppresses
+    // reconcile.ts — silently dropping it would let the reconciler false-CANCEL
+    // this run's sole-source canonical even though the page still lists it (the
+    // windowed-empty guard alone misses partial drift).
+    return {
+      error: {
+        row: start,
+        section: "run_information",
+        field: "date",
+        error: `Kaohsiung H3: could not parse date for run #${runNumber}`,
+        rawText: heading.slice(0, 200),
+      },
+    };
+  }
+
+  const rawTitle = dateParsed.title;
+  const { hares, locationUrl, prose } = parseRunBody(blocks, start, end);
+  return {
+    run: {
+      runNumber,
+      date: dateParsed.date,
+      title: rawTitle && !isBareRunLabel(rawTitle) ? rawTitle : undefined,
+      hares,
+      location: parseLocation(prose),
+      locationUrl,
+      startTime: parseStartTime(prose, rawTitle),
+      cost: parseCost(prose),
+      description: prose || undefined,
+    },
+  };
+}
+
+/**
+ * Parse the Kaohsiung H3 /run-information page. Each run is a sequence of
+ * Wix `[data-testid="richTextElement"]` blocks: a "#NNNN Month Day Title"
+ * heading, free-form prose (time, cost, "Meet at …", a maps link), a
+ * "Your Hares:" label, then the hare names. Blocks are walked in document
+ * order and grouped by run heading.
+ */
+export function parseKaohsiungHashPage(
+  html: string,
+  now: Date,
+): { runs: ParsedRun[]; blockCount: number; parseErrors: ParseError[] } {
+  const blocks = collectBlocks(html);
+  const runStarts = blocks.reduce<number[]>((acc, b, i) => {
+    if (RUN_RE.test(b.text)) acc.push(i);
+    return acc;
+  }, []);
 
   const runs: ParsedRun[] = [];
   const parseErrors: ParseError[] = [];
   for (let s = 0; s < runStarts.length; s++) {
     const start = runStarts[s];
     const end = s + 1 < runStarts.length ? runStarts[s + 1] : blocks.length;
-    const heading = blocks[start].text;
-
-    const rm = RUN_RE.exec(heading);
-    if (!rm) continue;
-    const runNumber = Number.parseInt(rm[1], 10);
-
-    const afterRun = heading.slice(rm.index + rm[0].length).trim();
-    const dateParsed = parseHeadingDate(afterRun, now);
-    if (!dateParsed) {
-      // A numbered run whose date no longer parses is markup drift, NOT a
-      // legitimately-absent run. Record it as a parse error so fetch() can
-      // suppress reconcile.ts — silently dropping it would let the reconciler
-      // false-CANCEL this run's sole-source canonical even though the page
-      // still lists it (the windowed-empty guard alone misses partial drift).
-      parseErrors.push({
-        row: start,
-        section: "run_information",
-        field: "date",
-        error: `Kaohsiung H3: could not parse date for run #${runNumber}`,
-        rawText: heading.slice(0, 200),
-      });
-      continue;
-    }
-
-    const rawTitle = dateParsed.title;
-    const title = rawTitle && !isBareRunLabel(rawTitle) ? rawTitle : undefined;
-
-    // Body blocks: hares (after a "Your Hares:" label) + prose.
-    let hares: string | undefined;
-    let locationUrl: string | undefined;
-    const proseParts: string[] = [];
-    for (let i = start + 1; i < end; i++) {
-      const block = blocks[i];
-      if (/^your hares:?$/i.test(block.text)) {
-        const next = blocks[i + 1];
-        if (next && i + 1 < end) hares = normalizeHaresField(next.text);
-        i += 1; // consume the hares block
-        continue;
-      }
-      proseParts.push(block.text);
-      if (!locationUrl && block.mapsUrl) locationUrl = block.mapsUrl;
-    }
-
-    const prose = proseParts.join(" ");
-    const startTime = parseStartTime(prose, rawTitle);
-    const location = parseLocation(prose);
-    const cost = parseCost(prose);
-    const description = prose || undefined;
-
-    runs.push({
-      runNumber,
-      date: dateParsed.date,
-      title,
-      hares,
-      location,
-      locationUrl,
-      startTime,
-      cost,
-      description,
-    });
+    const { run, error } = buildRun(blocks, start, end, now);
+    if (run) runs.push(run);
+    else if (error) parseErrors.push(error);
   }
 
   return { runs, blockCount: blocks.length, parseErrors };
