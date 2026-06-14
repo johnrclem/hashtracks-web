@@ -992,6 +992,133 @@ describe("GoogleSheetsAdapter.fetch — Kowloon row alignment (#1244)", () => {
   });
 });
 
+// ── #2157 Munich H3 row alignment — two runs on one date, blank vs filled
+// location. The audit alleged run #938's location was pulled from the adjacent
+// row #939. Code proves the adapter reads every field from the SAME row
+// (buildEventFromSheetRow); #938's blank Location cell must stay blank. This
+// fixture locks alignment across a header offset (skipRows) AND an interleaved
+// fully-blank row — neither may shift cell N off row N. (The cross-event bleed
+// that produced the audit lives in the merge pipeline, not the adapter; guarded
+// separately in merge.test.ts.)
+describe("GoogleSheetsAdapter.fetch — Munich row alignment, two runs/date (#2157)", () => {
+  beforeEach(() => {
+    vi.stubEnv("GOOGLE_CALENDAR_API_KEY", "test-key");
+    mockedSafeFetch.mockReset();
+  });
+
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  function dMonYY(offsetDays: number): string {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() + offsetDays);
+    return `${d.getUTCDate()}-${MONTHS[d.getUTCMonth()]}-${String(d.getUTCFullYear()).slice(2)}`;
+  }
+
+  // Real Munich layout: #(0) Date(1) Group(2) Start time(3) Hared by(4) Location(5) Notes(6)
+  const munichConfig = {
+    sheetId: "anonymous",
+    csvUrl: "https://docs.google.com/spreadsheets/d/e/XXX/pub?output=csv",
+    skipRows: 1, // exercise the header-offset path (one banner row above header)
+    columns: { runNumber: 0, date: 1, hares: 4, location: 5, description: 6, startTime: 3, group: 2 },
+    groupFilter: "MH3",
+    kennelTagRules: { default: "mh3-de" },
+  };
+
+  it("keeps #938's blank Location blank while #939 (same date) keeps its own", async () => {
+    const d936 = dMonYY(5);
+    const dSame = dMonYY(7); // #938 + #939 share this date
+    const csv = [
+      "Munich Hareline banner,,,,,,,,",
+      "#,Date,Group,Start time,Hared by,Location,Notes,,",
+      `936,${d936},MH3,16:00,Cherry Kicker,Gräfeling,Irregular time,,`,
+      ",,,,,,,,", // fully-blank row — must NOT shift the rows below it
+      `938,${dSame},MH3,17:00,Loose Nutz & Motörmouth,,"MH3 has two trails that day, one in Munich and one at Hashathon.",,`,
+      `939,${dSame},MH3/ Hashathon,,Muddy Rucker,"Gerlaser Forsthaus, 95138 Bad Steben",Hashathon Rego open!,,`,
+    ].join("\r\n");
+
+    mockedSafeFetch.mockResolvedValueOnce(mockFetchResponse(csv));
+
+    const adapter = new GoogleSheetsAdapter();
+    const source = makeSource({ config: munichConfig as unknown as null });
+    const result = await adapter.fetch(source);
+
+    // 3 data rows produce events; banner is skipRows'd, header + blank row skip.
+    expect(result.events).toHaveLength(3);
+
+    const r938 = result.events.find((e) => e.runNumber === 938)!;
+    expect(r938.hares).toBe("Loose Nutz & Motörmouth");
+    expect(r938.startTime).toBe("17:00");
+    // The whole point of #2157: a blank Location cell must NOT borrow the
+    // neighbouring row's value.
+    expect(r938.location).toBeUndefined();
+    expect(r938.date).toBe(parseDate(dSame)!);
+
+    const r939 = result.events.find((e) => e.runNumber === 939)!;
+    expect(r939.hares).toBe("Muddy Rucker");
+    expect(r939.location).toBe("Gerlaser Forsthaus, 95138 Bad Steben");
+    expect(r939.date).toBe(parseDate(dSame)!);
+
+    // The blank row neither produced an event nor shifted #936's columns.
+    const r936 = result.events.find((e) => e.runNumber === 936)!;
+    expect(r936.location).toBe("Gräfeling");
+    expect(r936.startTime).toBe("16:00");
+  });
+});
+
+// ── #2130 PSH3 column mapping: hares from col 4 (not the Day col 3), Theme
+// from col 5 → title. The old config pointed hares at Day and title at Hare(s).
+describe("PSH3 column mapping (#2130)", () => {
+  const psh3Config = {
+    sheetId: "psh3",
+    columns: { runNumber: 0, date: 2, hares: 4, title: 5 },
+    kennelTagRules: { default: "psh3" },
+  } as GoogleSheetsConfig;
+
+  it("reads hares from col 4 and Theme from col 5 into the title", () => {
+    // Run#(0) Year(1) Date(2) Day(3) Hare(s)(4) Theme?(5)
+    const row = ["1228", "46", "07/16/2026", "Thursday", "Where's & Corn on the Cock", "West Seattle"];
+    const e = buildEventFromSheetRow(row, psh3Config, "https://example.com", "2026-07-16")!;
+    expect(e.runNumber).toBe(1228);
+    expect(e.hares).toBe("Where's & Corn on the Cock");
+    expect(e.title).toBe("West Seattle");
+    expect(e.kennelTags[0]).toBe("psh3");
+  });
+
+  it("leaves title undefined when Theme is blank (merge synthesizes the default)", () => {
+    const row = ["1226", "46", "06/18/2026", "Thursday", "Gallopin & Jolly", ""];
+    const e = buildEventFromSheetRow(row, psh3Config, "https://example.com", "2026-06-18")!;
+    expect(e.runNumber).toBe(1226);
+    expect(e.hares).toBe("Gallopin & Jolly");
+    expect(e.title).toBeUndefined();
+  });
+});
+
+// ── #2191 RS2H3: the Headline column is the run name → map to title (was
+// mapped to description, leaving the generic default winning).
+describe("RS2H3 Headline → title (#2191)", () => {
+  const rs2Config = {
+    sheetId: "rs2h3",
+    columns: { date: 0, runNumber: 1, hares: 2, title: 3 },
+    kennelTagRules: { default: "rs2h3" },
+  } as GoogleSheetsConfig;
+
+  it("maps the Headline column to the event title", () => {
+    // Date(0) Run#(1) Hare(2) Headline(3)
+    const row = ["Thu 9 Jul", "2836", "Ain't Bernard", "Nine Freibier"];
+    const e = buildEventFromSheetRow(row, rs2Config, "https://example.com", "2026-07-09")!;
+    expect(e.runNumber).toBe(2836);
+    expect(e.hares).toBe("Ain't Bernard");
+    expect(e.title).toBe("Nine Freibier");
+    expect(e.description).toBeUndefined();
+  });
+
+  it("leaves title undefined when Headline is blank (default fallback)", () => {
+    const row = ["Thu 25 Jun", "2834", "", ""];
+    const e = buildEventFromSheetRow(row, rs2Config, "https://example.com", "2026-06-25")!;
+    expect(e.runNumber).toBe(2834);
+    expect(e.title).toBeUndefined();
+  });
+});
+
 // ── #1542 group_filter: shared multi-kennel sheets ──
 
 describe("normalizeGroupFilter (#1542)", () => {

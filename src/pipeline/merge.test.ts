@@ -49,7 +49,7 @@ import { prisma } from "@/lib/db";
 import { Prisma } from "@/generated/prisma/client";
 import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag } from "./kennel-resolver";
-import { processRawEvents, sanitizeTitle, sanitizeLocation, sanitizeHares, friendlyKennelName, rewriteStaleDefaultTitle, resolveUpdatedTitle, suppressRedundantCity, NON_ENGLISH_GEO_RE, completenessScore, pickCanonicalEventId, pickCanonicalEventIds, isAdminLocked } from "./merge";
+import { processRawEvents, sanitizeTitle, sanitizeLocation, sanitizeHares, friendlyKennelName, rewriteStaleDefaultTitle, resolveUpdatedTitle, isReplaceableDefaultTitle, suppressRedundantCity, NON_ENGLISH_GEO_RE, completenessScore, pickCanonicalEventId, pickCanonicalEventIds, isAdminLocked } from "./merge";
 
 const mockSourceFind = vi.mocked(prisma.source.findUnique);
 const _mockSourceUpdate = vi.mocked(prisma.source.update);
@@ -495,16 +495,19 @@ describe("processRawEvents", () => {
     // updated is 1 (the matched-event counter at line 850). The enrichment
     // path fires an update call but doesn't double-count.
     expect(result.updated).toBe(1);
-    // The enrichment update should contain description/hares/location/startTime
-    // but NOT title, runNumber, or other full-update-only fields.
+    // The enrichment update fills NULL canonical fields: description/hares/
+    // location/startTime, and — since #2130 — title + runNumber when the
+    // canonical lacks them (the existing event here has null title/runNumber).
+    // It must still NOT do a full-update write like `trustLevel`.
     const enrichCall = mockEventUpdate.mock.calls.find(
       (call: unknown[]) => (call[0] as { data?: { description?: string } })?.data?.description,
     );
     expect(enrichCall).toBeDefined();
     const enrichData = (enrichCall![0] as { data: Record<string, unknown> }).data;
     expect(enrichData).toHaveProperty("description");
-    expect(enrichData).not.toHaveProperty("title");
-    expect(enrichData).not.toHaveProperty("runNumber");
+    // #2130 — title + runNumber backfill when the canonical's are null.
+    expect(enrichData).toHaveProperty("title", "Valentine's Day Trail");
+    expect(enrichData).toHaveProperty("runNumber", 2100);
     expect(enrichData).not.toHaveProperty("trustLevel");
   });
 
@@ -5465,5 +5468,153 @@ describe("same-sourceUrl date-correction dedup (#1613 / #1648)", () => {
       where: { eventLabel: string | null };
     }).where;
     expect(probeWhere.eventLabel).toBeNull(); // undefined → null preserves legacy match
+  });
+});
+
+// ── #2130 / #2145 — lower-trust enrichment can replace a generic default/
+// placeholder title and backfill a missing run number, so a hareline sheet's
+// Theme/Headline + run # surface even when a higher-trust GCal owns the canonical.
+describe("isReplaceableDefaultTitle (#2130 / #2145)", () => {
+  const rcKennel = {
+    kennelCode: "rch3-wa",
+    shortName: "Rain City H3",
+    fullName: "Rain City Hash House Harriers",
+    aliases: ["RCH3"],
+  };
+
+  it("treats empty / placeholder / synthesized-default titles as replaceable", () => {
+    expect(isReplaceableDefaultTitle(null, rcKennel)).toBe(true);
+    expect(isReplaceableDefaultTitle("", rcKennel)).toBe(true);
+    expect(isReplaceableDefaultTitle("   ", rcKennel)).toBe(true);
+    // Themeless placeholder shell (kennel-independent).
+    expect(isReplaceableDefaultTitle("PSH3 #? (TBD)", rcKennel)).toBe(true);
+    // Synthesized "<Kennel> Trail [#N]" default.
+    expect(isReplaceableDefaultTitle("Rain City H3 Trail", rcKennel)).toBe(true);
+    expect(isReplaceableDefaultTitle("Rain City H3 Trail #371", rcKennel)).toBe(true);
+    // Stale kennelCode/alias-prefixed default normalizes to the same default.
+    expect(isReplaceableDefaultTitle("RCH3 Trail #371", rcKennel)).toBe(true);
+  });
+
+  it("treats real human-authored titles as NOT replaceable", () => {
+    expect(isReplaceableDefaultTitle("Green Riverhash XIV", rcKennel)).toBe(false);
+    expect(isReplaceableDefaultTitle("RCH3 #369 - Better than One", rcKennel)).toBe(false);
+    // Not a "Trail"-suffixed default — a real venue/theme that merely contains the word.
+    expect(isReplaceableDefaultTitle("The Posset Cup", rcKennel)).toBe(false);
+  });
+});
+
+describe("lower-trust enrichment title/runNumber backfill (#2130 / #2145)", () => {
+  beforeEach(() => {
+    mockSourceFind.mockResolvedValue(sourceRow({
+      trustLevel: 5,
+      type: "GOOGLE_SHEETS",
+      kennels: [{ kennelId: "kennel_1" }],
+    }));
+  });
+
+  it("backfills title + runNumber when the canonical holds only a placeholder", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_psh3", trustLevel: 7, title: "PSH3 #? (TBD)", runNumber: null, haresText: null, locationName: null },
+    ] as never);
+    mockEventUpdate.mockResolvedValue(eventRow("evt_psh3"));
+
+    await processRawEvents("src_sheet", [
+      buildRawEvent({ title: "West Seattle", runNumber: 1228, hares: "Where's & Corn on the Cock" }),
+    ]);
+
+    const call = mockEventUpdate.mock.calls.find(
+      (c: unknown[]) => (c[0] as { where: { id: string } }).where.id === "evt_psh3",
+    );
+    expect(call).toBeDefined();
+    const data = (call![0] as { data: Record<string, unknown> }).data;
+    expect(data.title).toBe("West Seattle");
+    expect(data.runNumber).toBe(1228);
+  });
+
+  it("does NOT overwrite a real canonical title during enrichment", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_real", trustLevel: 7, title: "RCH3 #369 - Better than One", runNumber: 369, haresText: null },
+    ] as never);
+    mockEventUpdate.mockResolvedValue(eventRow("evt_real"));
+
+    await processRawEvents("src_sheet", [
+      buildRawEvent({ title: "Spam Theme", runNumber: 369, hares: "Cougar Rican" }),
+    ]);
+
+    const call = mockEventUpdate.mock.calls.find(
+      (c: unknown[]) => (c[0] as { where: { id: string } }).where.id === "evt_real",
+    );
+    // The enrich update still fires (haresText was null) but must not touch title.
+    expect(call).toBeDefined();
+    const data = (call![0] as { data: Record<string, unknown> }).data;
+    expect(data).not.toHaveProperty("title");
+    // runNumber already present on the canonical → not backfilled.
+    expect(data).not.toHaveProperty("runNumber");
+  });
+});
+
+// ── #2157 — a hareline sheet emitting two runs on one date (Munich #938 + #939)
+// makes every row share the source's URL. The matcher must co-match runNumber so
+// one run's location can't bleed onto the other's canonical via the wrong match.
+describe("same-date multi-run matcher (#2157)", () => {
+  beforeEach(() => {
+    mockSourceFind.mockResolvedValue(sourceRow({
+      trustLevel: 7,
+      type: "GOOGLE_SHEETS",
+      kennels: [{ kennelId: "kennel_1" }],
+    }));
+  });
+
+  it("routes a same-date raw to its OWN run's canonical when several share the sourceUrl", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_938", trustLevel: 7, sourceUrl: "https://sheet/pub", runNumber: 938, locationName: null },
+      { id: "evt_939", trustLevel: 7, sourceUrl: "https://sheet/pub", runNumber: 939, locationName: "Gerlaser Forsthaus, 95138 Bad Steben" },
+    ] as never);
+    mockEventUpdate.mockResolvedValue({} as never);
+
+    await processRawEvents("src_sheet", [
+      buildRawEvent({ date: "2026-06-20", runNumber: 939, location: "Gerlaser Forsthaus, 95138 Bad Steben", sourceUrl: "https://sheet/pub" }),
+    ]);
+
+    // Lands on evt_939 (runNumber co-match) — never evt_938.
+    expect(mockEventUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "evt_939" } }),
+    );
+    expect(
+      mockEventUpdate.mock.calls.every(
+        (c: unknown[]) => (c[0] as { where: { id: string } }).where.id !== "evt_938",
+      ),
+    ).toBe(true);
+  });
+
+  it("a blank-location raw stays on its own run and never borrows the sibling's location", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_938", trustLevel: 7, sourceUrl: "https://sheet/pub", runNumber: 938, locationName: null },
+      { id: "evt_939", trustLevel: 7, sourceUrl: "https://sheet/pub", runNumber: 939, locationName: "Gerlaser Forsthaus, 95138 Bad Steben" },
+    ] as never);
+    mockEventUpdate.mockResolvedValue({} as never);
+
+    await processRawEvents("src_sheet", [
+      // #938's Location cell is blank → location undefined.
+      buildRawEvent({ date: "2026-06-20", runNumber: 938, location: undefined, sourceUrl: "https://sheet/pub" }),
+    ]);
+
+    const call = mockEventUpdate.mock.calls.find(
+      (c: unknown[]) => (c[0] as { where: { id: string } }).where.id === "evt_938",
+    );
+    expect(call).toBeDefined();
+    // A blank incoming location must not write locationName at all (preserve null),
+    // and the match must be evt_938, never evt_939.
+    const data = (call![0] as { data: Record<string, unknown> }).data;
+    expect(data).not.toHaveProperty("locationName");
+    expect(
+      mockEventUpdate.mock.calls.every(
+        (c: unknown[]) => (c[0] as { where: { id: string } }).where.id !== "evt_939",
+      ),
+    ).toBe(true);
   });
 });
