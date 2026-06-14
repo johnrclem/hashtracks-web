@@ -83,9 +83,32 @@ describe("parseKaohsiungHashPage", () => {
     expect(runs[0].date).toBe("2027-01-10");
   });
 
+  it("emits no parse errors for clean markup", () => {
+    const { parseErrors } = parseKaohsiungHashPage(FIXTURE, NOW);
+    expect(parseErrors).toHaveLength(0);
+  });
+
   it("returns no runs for markup with no '#NNNN' headings (fail-loud upstream)", () => {
     const empty = `<div data-testid="richTextElement"><p><span>No runs scheduled.</span></p></div>`;
-    const { runs } = parseKaohsiungHashPage(empty, NOW);
+    const { runs, parseErrors } = parseKaohsiungHashPage(empty, NOW);
     expect(runs).toHaveLength(0);
+    expect(parseErrors).toHaveLength(0);
+  });
+
+  it("flags a numbered run whose date drifted while still returning the parseable one", () => {
+    // Partial markup drift: #2901's heading lost its month/day. The good run
+    // must still be returned, AND the drifted run must surface a parse error so
+    // fetch() suppresses reconcile.ts (otherwise the reconciler false-CANCELs
+    // #2901's sole-source canonical even though the page still lists it).
+    const drift = `
+      <div data-testid="richTextElement"><h2><span>#2900 June 27 Saturday Night Run</span></h2></div>
+      <div data-testid="richTextElement"><p><span>Night run, around 19:00.</span></p></div>
+      <div data-testid="richTextElement"><h2><span>#2901 Mystery Run — details soon</span></h2></div>
+      <div data-testid="richTextElement"><p><span>To be announced.</span></p></div>`;
+    const { runs, parseErrors } = parseKaohsiungHashPage(drift, NOW);
+    expect(runs.map((r) => r.runNumber)).toEqual([2900]);
+    expect(parseErrors).toHaveLength(1);
+    expect(parseErrors[0].error).toContain("2901");
+    expect(parseErrors[0].field).toBe("date");
   });
 });

@@ -1,6 +1,6 @@
 import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
-import type { SourceAdapter, RawEventData, ScrapeResult } from "../types";
+import type { SourceAdapter, RawEventData, ScrapeResult, ParseError } from "../types";
 import {
   fetchHTMLPage,
   filterEventsByWindow,
@@ -172,7 +172,7 @@ function parseCost(prose: string): string | undefined {
 export function parseKaohsiungHashPage(
   html: string,
   now: Date,
-): { runs: ParsedRun[]; blockCount: number } {
+): { runs: ParsedRun[]; blockCount: number; parseErrors: ParseError[] } {
   const $ = cheerio.load(html);
   const blocks: Block[] = [];
   $('[data-testid="richTextElement"]').each((_i, el) => {
@@ -195,6 +195,7 @@ export function parseKaohsiungHashPage(
   });
 
   const runs: ParsedRun[] = [];
+  const parseErrors: ParseError[] = [];
   for (let s = 0; s < runStarts.length; s++) {
     const start = runStarts[s];
     const end = s + 1 < runStarts.length ? runStarts[s + 1] : blocks.length;
@@ -206,7 +207,21 @@ export function parseKaohsiungHashPage(
 
     const afterRun = heading.slice(rm.index + rm[0].length).trim();
     const dateParsed = parseHeadingDate(afterRun, now);
-    if (!dateParsed) continue; // unparseable date → skip this run (counts toward fail-loud)
+    if (!dateParsed) {
+      // A numbered run whose date no longer parses is markup drift, NOT a
+      // legitimately-absent run. Record it as a parse error so fetch() can
+      // suppress reconcile.ts — silently dropping it would let the reconciler
+      // false-CANCEL this run's sole-source canonical even though the page
+      // still lists it (the windowed-empty guard alone misses partial drift).
+      parseErrors.push({
+        row: start,
+        section: "run_information",
+        field: "date",
+        error: `Kaohsiung H3: could not parse date for run #${runNumber}`,
+        rawText: heading.slice(0, 200),
+      });
+      continue;
+    }
 
     const rawTitle = dateParsed.title;
     const title = rawTitle && !isBareRunLabel(rawTitle) ? rawTitle : undefined;
@@ -246,7 +261,7 @@ export function parseKaohsiungHashPage(
     });
   }
 
-  return { runs, blockCount: blocks.length };
+  return { runs, blockCount: blocks.length, parseErrors };
 }
 
 function toRawEvent(run: ParsedRun, sourceUrl: string): RawEventData {
@@ -283,17 +298,23 @@ export class KaohsiungHashAdapter implements SourceAdapter {
     if (!page.ok) return page.result;
 
     const { html, structureHash, fetchDurationMs } = page;
-    const { runs, blockCount } = parseKaohsiungHashPage(html, new Date());
+    const { runs, blockCount, parseErrors } = parseKaohsiungHashPage(html, new Date());
 
     const events = runs.map((run) => toRawEvent(run, url));
     const windowed = filterEventsByWindow(events, options?.days ?? 90);
+
+    // Any numbered block that failed to fully parse is markup drift: surface it
+    // so scrape.ts suppresses stale reconciliation even when OTHER runs parsed
+    // fine (partial drift). Without this, a single drifted heading would let the
+    // reconciler false-CANCEL that run's sole-source canonical while the page
+    // still lists it.
+    const errors: string[] = parseErrors.map((p) => p.error);
 
     // Fail-loud: a single SSR surface with a 0-event baseline can't rely on the
     // zero-event health alert. This is a weekly kennel, so an empty result —
     // whether from markup drift (nothing parsed) or every run falling outside
     // the window — means we have nothing to publish; surface an error so
     // reconcile.ts is suppressed (don't false-CANCEL) and the drift is visible.
-    const errors: string[] = [];
     if (windowed.length === 0) {
       errors.push(
         `Kaohsiung H3: no upcoming runs from ${url} ` +
@@ -304,11 +325,13 @@ export class KaohsiungHashAdapter implements SourceAdapter {
     return {
       events: windowed,
       errors,
+      errorDetails: parseErrors.length > 0 ? { parse: parseErrors } : undefined,
       structureHash,
       diagnosticContext: {
         eventsParsed: windowed.length,
         totalBeforeFilter: events.length,
         blockCount,
+        skippedNumbered: parseErrors.length,
         fetchDurationMs,
       },
     };
