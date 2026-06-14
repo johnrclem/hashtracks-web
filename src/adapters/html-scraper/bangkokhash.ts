@@ -74,8 +74,26 @@ function isFieldLabel(val: string): boolean {
 }
 
 /** Run-headline matcher ("Run #657", "Run 657"). No `g` flag → safe to reuse
- *  across `.test()` and `.exec()` (those are stateful only with `g`). */
-const RUN_NUMBER_RE = /Run\s*#?\s*(\d+)/i;
+ *  across `.test()` and `.exec()` (those are stateful only with `g`). The
+ *  `\s*(?:#\s*)?` form avoids adjacent overlapping `\s*` quantifiers (ReDoS
+ *  hygiene per the repo regex rule). */
+const RUN_NUMBER_RE = /Run\s*(?:#\s*)?(\d+)/i;
+
+/**
+ * True when a "Run #NNN …" heading carries a trail name beyond the bare run
+ * number (e.g. "Run #657, Suan Eden"). A bare "Run #519" returns false so the
+ * caller falls back to the synthesized "<Kennel> Trail #N" instead of
+ * persisting a run-number-only title — downstream consumers (e.g.
+ * `calendar.ts` `buildTitle`) prepend the run number themselves and would
+ * otherwise render it twice.
+ */
+function runHeadlineHasName(heading: string): boolean {
+  const m = RUN_NUMBER_RE.exec(heading);
+  if (!m) return false;
+  const rest = heading.slice(0, m.index) + heading.slice(m.index + m[0].length);
+  // Anything left after stripping separators is a trail name (Latin or Thai).
+  return rest.replaceAll(/[\s,.:#@–—-]+/g, "").length > 0;
+}
 
 const HTTP_URL_RE = /^https?:\/\//i;
 
@@ -182,7 +200,7 @@ export function parseNextRunArticle(
   )
     .replaceAll(/\s+/g, " ")
     .trim();
-  const title = RUN_NUMBER_RE.test(headingRaw) ? headingRaw : undefined;
+  const title = runHeadlineHasName(headingRaw) ? headingRaw : undefined;
 
   // Extract the run number. On the homepage the heading lives inside
   // `.item-content` so it's in `text` too; on archive detail pages the
@@ -270,7 +288,7 @@ export function parseHarelineApiHtml(
     }
 
     // Regular run entry: "Run #519" followed by hare name
-    const runMatch = /Run\s*#?\s*(\d+)/i.exec(infoText);
+    const runMatch = RUN_NUMBER_RE.exec(infoText);
     const runNumber = runMatch ? Number.parseInt(runMatch[1], 10) : undefined;
 
     let hares: string | undefined;

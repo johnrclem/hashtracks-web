@@ -48,13 +48,21 @@ export async function walkJoomlaArchive(
   const concurrency = opts.concurrency ?? 4;
   const maxFailures = opts.maxFailures ?? 10;
 
+  // Return null on any failure (non-OK status OR a thrown network/stream error)
+  // so transient errors count toward maxFailures instead of rejecting the whole
+  // run on the first hiccup. `await res.text()` keeps stream errors inside the try.
   async function fetchText(url: string): Promise<string | null> {
-    const res = await safeFetch(url, { headers });
-    if (!res.ok) {
-      console.warn(`  HTTP ${res.status} for ${url}`);
+    try {
+      const res = await safeFetch(url, { headers });
+      if (!res.ok) {
+        console.warn(`  HTTP ${res.status} for ${url}`);
+        return null;
+      }
+      return await res.text();
+    } catch (err) {
+      console.warn(`  Failed to fetch ${url}: ${err instanceof Error ? err.message : String(err)}`);
       return null;
     }
-    return res.text();
   }
 
   console.log(`  Fetching index: ${indexUrl}`);
@@ -65,6 +73,14 @@ export async function walkJoomlaArchive(
     .sort((a, b) => a.localeCompare(b))
     .map((path) => `${baseUrl}${path}`);
   console.log(`  Discovered ${urls.length} detail URLs`);
+  // A successful index fetch that yields zero detail links means the layout
+  // changed (the regex no longer matches) — fail loud rather than silently
+  // backfilling nothing and exiting 0.
+  if (urls.length === 0) {
+    throw new Error(
+      `No detail URLs discovered at ${indexUrl} — index layout may have changed (regex matched nothing)`,
+    );
+  }
 
   const events: RawEventData[] = [];
   let failures = 0;

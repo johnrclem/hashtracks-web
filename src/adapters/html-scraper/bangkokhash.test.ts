@@ -36,7 +36,10 @@ describe("parseNextRunArticle", () => {
     expect(event!.kennelTags[0]).toBe("bth3");
     expect(event!.runNumber).toBe(519);
     expect(event!.startTime).toBe("18:30");
-    expect(event!.title).toBe("Run #519");
+    // Bare "Run #519" heading (no trail name) → leave title undefined so merge
+    // synthesizes "<Kennel> Trail #519"; persisting "Run #519" would double up
+    // with consumers that prepend the run number (#2189 / Codex review).
+    expect(event!.title).toBeUndefined();
     expect(event!.hares).toBe("Jessticles");
     expect(event!.location).toBe("Silom Road");
     expect(event!.locationUrl).toBe("https://maps.app.goo.gl/abc123");
@@ -55,6 +58,22 @@ describe("parseNextRunArticle", () => {
     expect(event!.title).toBe("Run #653. On Nut 37");
     expect(event!.location).toBe("On Nut 37");
     expect(event!.locationUrl).toBe("https://maps.app.goo.gl/LF88EQZtSPZkdt826");
+  });
+
+  it("leaves title undefined when the heading is a bare run number (#2189 / Codex)", () => {
+    // BTH3 archive page whose heading carries no trail name beyond "Run #300".
+    const html = `
+<div class="page-header"><h1>Run #300</h1></div>
+<div class="com-content-article__body">
+  <p><strong>Date</strong>: 03-Apr-2026<br>
+  <strong>Start Time</strong>: 18:30<br>
+  <strong>Hare</strong>: Jessticles<br>
+  <strong>Station</strong>: BTS Asok</p>
+</div>`;
+    const event = parseNextRunArticle(html, "bth3", "18:30", "https://www.bangkokhash.com/thursday/index.php/run-archives-bth3/9-run-300");
+    expect(event).not.toBeNull();
+    expect(event!.runNumber).toBe(300);
+    expect(event!.title).toBeUndefined();
   });
 
   it("merges Cohare into the hares field, sorted (#2189)", () => {
