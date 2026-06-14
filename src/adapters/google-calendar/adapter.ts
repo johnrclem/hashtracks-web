@@ -45,6 +45,31 @@ const DEFAULT_RUN_NUMBER_PATTERNS = [
 const LEADING_HASH_WORD_RE = /^Hash\s+(?:#\s*)?(\d{2,})\s*:/i;
 
 /**
+ * Leading "Trail NNN:" run marker that omits the `#` (#2184 Reno H3 — "Trail
+ * 802: Sir Rubs a lot's short n sweet trail"). Reno's dominant title form, but
+ * the parser only saw the `#NN` shape, so every "Trail NNN" event extracted no
+ * run number. Colon-anchored and start-anchored — the same tight shape as
+ * LEADING_HASH_WORD_RE — so it stays additive across the ~40 GCal sources: only
+ * a title that literally starts with "Trail NNN:" matches. The trailing
+ * `(?!\d)` rejects a clock time ("Trail 10:00 AM …") — the colon there is a
+ * time separator, not the run-number delimiter — so the global pattern can't
+ * mine an hour as a run number. The `#`-prefixed variants ("Trail #802:",
+ * "Sloppy Trail #46") already resolve through the shared `extractHashRunNumber`
+ * delimiter guard before this is reached.
+ */
+const LEADING_TRAIL_WORD_RE = /^Trail\s+(?:#\s*)?(\d{2,})\s*:(?!\d)/i;
+
+/** Run the capture-group-1 digits of a leading-word run-number regex (e.g.
+ *  LEADING_HASH_WORD_RE / LEADING_TRAIL_WORD_RE) against `summary`, returning the
+ *  positive integer or `undefined`. */
+function matchLeadingWordRunNumber(re: RegExp, summary: string): number | undefined {
+  const m = re.exec(summary);
+  if (!m) return undefined;
+  const n = Number.parseInt(m[1], 10);
+  return Number.isFinite(n) && n > 0 ? n : undefined;
+}
+
+/**
  * Extract run number from summary (e.g. "#2781") or description.
  * Always checks summary first with `#(\d+)`. Then checks description with
  * custom patterns (if provided) or default patterns.
@@ -77,13 +102,13 @@ export function extractRunNumber(
     ?? (summary.includes("!") ? extractHashRunNumber(summary.replaceAll("!", " ")) : undefined);
   if (fromSummary !== undefined) return fromSummary;
 
-  // 1b. Leading "Hash NNNN:" without the `#` (#2007 PGH H3). Colon-anchored
-  // so a year-shaped digit run in prose can't false-match.
-  const leadingHashWord = LEADING_HASH_WORD_RE.exec(summary);
-  if (leadingHashWord) {
-    const n = Number.parseInt(leadingHashWord[1], 10);
-    if (Number.isFinite(n) && n > 0) return n;
-  }
+  // 1b/1c. Leading "<word> NNNN:" run markers that omit the `#`, colon-anchored
+  // so a year-shaped digit run in prose can't false-match: "Hash NNNN:" (#2007
+  // PGH H3) and "Trail NNN:" (#2184 Reno H3).
+  const fromLeadingWord =
+    matchLeadingWordRunNumber(LEADING_HASH_WORD_RE, summary)
+    ?? matchLeadingWordRunNumber(LEADING_TRAIL_WORD_RE, summary);
+  if (fromLeadingWord !== undefined) return fromLeadingWord;
 
   // 2. Summary placeholder takes precedence over description fallback. A
   // partial retitle (`#30: …` → `#30X?: …` while description still says
@@ -620,6 +645,14 @@ const TITLE_DASH_HARE_RE = /\s+-\s+Hares?:\s*(.+)$/i;
 const TITLE_DASH_LOCATION_TBD_RE = /^(.+?)\s+-\s+Location\s+(?:TBD|TBA|TBC)$/i;
 /** "hared by Name" suffix in title (Voodoo H3 format) */
 const TITLE_HARED_BY_RE = /\s+hared by\s+(.+)$/i;
+/**
+ * Trailing dangling hare label with no name ("…Walkers. Hare:" / "…Walkers.
+ * Hare") — stripped only under `stripDanglingHareLabel` when no hare was
+ * extracted (#2146 RDH3). The leading `\.` is required so a title that simply
+ * ends in the word "Hare" (no period separator) is never truncated.
+ * `(?::\s*)?` groups the colon+trailing-space as an atomic optional so the
+ * two `\s*` on either side of `:?` are never adjacent (fixes ReDoS S5852). */
+const TRAILING_EMPTY_HARE_LABEL_RE = /\s*\.\s*Hares?\s*(?::\s*)?$/i;
 /** Detect address-like titles (street number + road type + city) */
 const ADDRESS_AS_TITLE_RE = /^\d+\s+\w+.+?(?:Road|Rd|Street|St|Avenue|Ave|Drive|Dr|Boulevard|Blvd|Way|Lane|Ln|Court|Ct|Place|Pl|Parkway|Pkwy|Highway|Hwy),/i;
 /** Detect email addresses in titles (recruitment/placeholder summaries) */
@@ -1032,6 +1065,16 @@ interface CalendarSourceConfig {
    * every other titleHarePattern kennel.
    */
   alwaysStripTitleHareSpan?: boolean;
+  /**
+   * When true, strip a trailing dangling hare label ("…Walkers. Hare:" /
+   * "…Walkers. Hare") from the title when NO hare was extracted (#2146 RDH3:
+   * TBA rows are "RDH3 XX Walkers. Hare: " with an empty hare, so the
+   * `titleHarePattern` — which requires a non-empty capture — never fires and
+   * leaves the label behind). Opt-in per source; the strip requires a literal
+   * period before "Hare" so a title that genuinely ends in the word "Hare"
+   * isn't truncated.
+   */
+  stripDanglingHareLabel?: boolean;
   /**
    * Regex strings applied as `title.replace(re, "")` in sequence after hare
    * extraction and before the `defaultTitle` fallback. Compiled with `i`
@@ -1832,6 +1875,13 @@ export function buildRawEventFromGCalItem(
     const haredBy = haredByMatch[1].trim();
     if (!hares && looksLikeHareName(haredBy)) hares = haredBy;
     title = title.slice(0, haredByMatch.index).trim();
+  }
+
+  // #2146 RDH3 — TBA rows ("RDH3 XX Walkers. Hare: ") leave a dangling ". Hare:"
+  // label: the titleHarePattern requires a non-empty capture so it never fires.
+  // Strip the trailing label only when no hare was extracted (opt-in per source).
+  if (sourceConfig?.stripDanglingHareLabel && !hares) {
+    title = title.replace(TRAILING_EMPTY_HARE_LABEL_RE, "").trim();
   }
 
   // " - Location TBD" suffix: "<title> - Location TBD" (EWH3 placeholder events).
