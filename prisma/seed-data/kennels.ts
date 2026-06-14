@@ -1348,6 +1348,14 @@ export const KENNELS: KennelSeed[] = [
       contactEmail: "hareraiser@nvhhh.com", twitterHandle: "nvhhh",
       scheduleDayOfWeek: "Monday", scheduleFrequency: "Weekly", scheduleTime: "6:30 PM",
       scheduleNotes: "Mondays 6:30 PM (summer); Sundays 3 PM (winter).",
+      // Seasonal switcher confirmed against event history (#2181): summer is
+      // Monday evenings (Jun–Aug; Jun 2026 = Mon), winter is Sunday afternoons
+      // (Sep–May; Sep 2025 & May 2026 all Sun). The flat Monday rule the
+      // backfill derived projected Monday year-round and mis-fired in winter.
+      scheduleRules: [
+        { rrule: "FREQ=WEEKLY;BYDAY=MO", startTime: "18:30", label: "Summer", validFrom: "06-01", validUntil: "08-31", displayOrder: 0 },
+        { rrule: "FREQ=WEEKLY;BYDAY=SU", startTime: "15:00", label: "Winter", validFrom: "09-01", validUntil: "05-31", displayOrder: 1 },
+      ],
       hashCash: "$5", foundedYear: 1990,
       description: "Weekly hash in Centre County around Penn State.",
       latitude: 40.79, longitude: -77.86,
@@ -1426,6 +1434,7 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "rvah3", shortName: "RH3", fullName: "Richmond Hash House Harriers", region: "Richmond, VA",
       website: "https://rh3.run/",
+      logoUrl: "/kennel-logos/rvah3.png",
       scheduleDayOfWeek: "Sunday", scheduleFrequency: "Weekly", scheduleTime: "1:00 PM",
       foundedYear: 1992,
       description: "Weekly Sunday runs in Richmond since 1992 with 1,685+ trails.",
@@ -1513,6 +1522,13 @@ export const KENNELS: KennelSeed[] = [
       website: "https://swh3.wordpress.com/",
       facebookUrl: "https://www.facebook.com/sirwaltersh3/",
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Weekly", scheduleTime: "2:00 PM",
+      // Saturday confirmed dominant against event history (#2181): 22 Sat vs 11
+      // Sun non-cancelled, winter 18 Sat / 6 Sun. The Sunday cluster that tripped
+      // the drift detector (mid-May–early-Jun 2026) reverted to Saturday by
+      // mid-June. Pinned as an explicit HIGH rule rather than a seasonal slot.
+      scheduleRules: [
+        { rrule: "FREQ=WEEKLY;BYDAY=SA", startTime: "14:00", displayOrder: 0 },
+      ],
       hashCash: "$5",
       description: "The Triangle's main hash kennel. Weekly Saturday runs in the Raleigh-Durham-Chapel Hill area.",
       latitude: 35.78, longitude: -78.64,
@@ -4340,7 +4356,9 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "rs2h3", shortName: "RS2H3", fullName: "Royal Southside Hash House Harriers",
       region: "Hong Kong", country: "Hong Kong",
-      scheduleDayOfWeek: "Thursday", scheduleFrequency: "Weekly",
+      website: "https://www.rs2h3.hk",
+      logoUrl: "/kennel-logos/rs2h3.jpg",
+      scheduleDayOfWeek: "Thursday", scheduleFrequency: "Weekly", scheduleTime: "6:45 PM",
       description: "Hong Kong's Royal Southside hash, running trails on Hong Kong Island and Kowloon.",
       latitude: 22.2700, longitude: 114.1500,
     },
@@ -4530,9 +4548,13 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "s2h3", shortName: "S2H3", fullName: "Siam Sunday Hash House Harriers",
       region: "Bangkok", country: "Thailand",
       website: "https://www.bangkokhash.com/siamsunday/index.php",
+      logoUrl: "/kennel-logos/s2h3.jpg",
+      facebookUrl: "https://www.facebook.com/SiamSundayHashHouseHarriers",
       scheduleDayOfWeek: "Sunday", scheduleFrequency: "Biweekly",
       scheduleTime: "4:30 PM",
       scheduleNotes: "2nd and 4th Sundays of each month. Bus pickup details announced weekly on the Bangkok Hash website.",
+      hashCash: "250฿ members (120฿ non-drinkers), 300฿ visitors (170฿ non-drinkers)",
+      foundedYear: 1997,
       description: "Bangkok's biweekly Sunday hash, running on the 2nd and 4th Sundays. Part of the bangkokhash.com network.",
       latitude: 13.76, longitude: 100.5,
     },
