@@ -13,6 +13,7 @@ import { hasAnyErrors } from "../types";
 import { filterEventsByWindow, normalizeHaresField } from "../utils";
 import { safeFetch } from "../safe-fetch";
 import { generateStructureHash } from "@/pipeline/structure-hash";
+import { todayInTimezone } from "@/lib/timezone";
 
 /**
  * New Taipei Hash House Harriers (新北捷兔) — `nth3-tw`.
@@ -45,6 +46,7 @@ import { generateStructureHash } from "@/pipeline/structure-hash";
  */
 
 const KENNEL_TAG = "nth3-tw";
+const KENNEL_TIMEZONE = "Asia/Taipei";
 const DEFAULT_BASE = "http://www.newtaipeihash.com";
 const NOON_HOUR = 12;
 const SUMMER_START = "15:00"; // Apr–Sep
@@ -349,8 +351,11 @@ export class NewTaipeiHashAdapter implements SourceAdapter {
 
   async fetch(source: Source, options?: { days?: number }): Promise<ScrapeResult> {
     // Year lives in the filename — derive the *current* year so a daily scraper
-    // doesn't pin to a stale page after the year rolls over.
-    const year = new Date().getUTCFullYear();
+    // doesn't pin to a stale page after the year rolls over. Use the kennel's
+    // local (Taiwan) date so the rollover happens at Taiwan midnight, not the
+    // ~8h-earlier UTC New Year (a stale-page window the zero-event guard would
+    // otherwise trip around Jan 1).
+    const year = Number(todayInTimezone(KENNEL_TIMEZONE).slice(0, 4));
     const url = resolvePageUrl(source.url, year);
 
     const page = await fetchBig5Page(url);
