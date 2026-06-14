@@ -5573,7 +5573,7 @@ describe("same-date multi-run matcher (#2157)", () => {
       { id: "evt_938", trustLevel: 7, sourceUrl: "https://sheet/pub", runNumber: 938, locationName: null },
       { id: "evt_939", trustLevel: 7, sourceUrl: "https://sheet/pub", runNumber: 939, locationName: "Gerlaser Forsthaus, 95138 Bad Steben" },
     ] as never);
-    mockEventUpdate.mockResolvedValue({} as never);
+    mockEventUpdate.mockResolvedValue(eventRow("evt_939"));
 
     await processRawEvents("src_sheet", [
       buildRawEvent({ date: "2026-06-20", runNumber: 939, location: "Gerlaser Forsthaus, 95138 Bad Steben", sourceUrl: "https://sheet/pub" }),
@@ -5596,7 +5596,7 @@ describe("same-date multi-run matcher (#2157)", () => {
       { id: "evt_938", trustLevel: 7, sourceUrl: "https://sheet/pub", runNumber: 938, locationName: null },
       { id: "evt_939", trustLevel: 7, sourceUrl: "https://sheet/pub", runNumber: 939, locationName: "Gerlaser Forsthaus, 95138 Bad Steben" },
     ] as never);
-    mockEventUpdate.mockResolvedValue({} as never);
+    mockEventUpdate.mockResolvedValue(eventRow("evt_938"));
 
     await processRawEvents("src_sheet", [
       // #938's Location cell is blank → location undefined.

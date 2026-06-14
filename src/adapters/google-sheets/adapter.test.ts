@@ -735,6 +735,15 @@ const sheetConfig = {
   kennelTagRules: { default: "TestH3" },
 };
 
+// D-Mon-YY (e.g. "10-May-26") for `now + offsetDays`, matching the live hareline
+// sheets. Relative so fixtures stay inside the adapter's date window over time.
+const TEST_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function dMonYY(offsetDays: number): string {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() + offsetDays);
+  return `${d.getUTCDate()}-${TEST_MONTHS[d.getUTCMonth()]}-${String(d.getUTCFullYear()).slice(2)}`;
+}
+
 describe("GoogleSheetsAdapter.fetch — skipRows", () => {
   beforeEach(() => {
     vi.stubEnv("GOOGLE_CALENDAR_API_KEY", "test-key");
@@ -933,14 +942,6 @@ describe("GoogleSheetsAdapter.fetch — Kowloon row alignment (#1244)", () => {
     mockedSafeFetch.mockReset();
   });
 
-  // D-Mon-YY (e.g. "10-May-26") for now + offset days, matching the live sheet.
-  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  function dMonYY(offsetDays: number): string {
-    const d = new Date();
-    d.setUTCDate(d.getUTCDate() + offsetDays);
-    return `${d.getUTCDate()}-${MONTHS[d.getUTCMonth()]}-${String(d.getUTCFullYear()).slice(2)}`;
-  }
-
   const kowloonConfig = {
     sheetId: "kowloon",
     csvUrl: "https://docs.google.com/spreadsheets/d/e/XXX/pub?output=csv",
@@ -1005,13 +1006,6 @@ describe("GoogleSheetsAdapter.fetch — Munich row alignment, two runs/date (#21
     vi.stubEnv("GOOGLE_CALENDAR_API_KEY", "test-key");
     mockedSafeFetch.mockReset();
   });
-
-  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  function dMonYY(offsetDays: number): string {
-    const d = new Date();
-    d.setUTCDate(d.getUTCDate() + offsetDays);
-    return `${d.getUTCDate()}-${MONTHS[d.getUTCMonth()]}-${String(d.getUTCFullYear()).slice(2)}`;
-  }
 
   // Real Munich layout: #(0) Date(1) Group(2) Start time(3) Hared by(4) Location(5) Notes(6)
   const munichConfig = {
