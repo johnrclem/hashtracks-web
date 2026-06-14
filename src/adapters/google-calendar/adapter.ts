@@ -646,9 +646,10 @@ const TITLE_HARED_BY_RE = /\s+hared by\s+(.+)$/i;
  * Trailing dangling hare label with no name ("…Walkers. Hare:" / "…Walkers.
  * Hare") — stripped only under `stripDanglingHareLabel` when no hare was
  * extracted (#2146 RDH3). The leading `\.` is required so a title that simply
- * ends in the word "Hare" (no period separator) is never truncated. ReDoS-safe:
- * each `\s*` sits between literals, no alternation adjacency. */
-const TRAILING_EMPTY_HARE_LABEL_RE = /\s*\.\s*Hares?\s*:?\s*$/i;
+ * ends in the word "Hare" (no period separator) is never truncated.
+ * `(?::\s*)?` groups the colon+trailing-space as an atomic optional so the
+ * two `\s*` on either side of `:?` are never adjacent (fixes ReDoS S5852). */
+const TRAILING_EMPTY_HARE_LABEL_RE = /\s*\.\s*Hares?\s*(?::\s*)?$/i;
 /** Detect address-like titles (street number + road type + city) */
 const ADDRESS_AS_TITLE_RE = /^\d+\s+\w+.+?(?:Road|Rd|Street|St|Avenue|Ave|Drive|Dr|Boulevard|Blvd|Way|Lane|Ln|Court|Ct|Place|Pl|Parkway|Pkwy|Highway|Hwy),/i;
 /** Detect email addresses in titles (recruitment/placeholder summaries) */
