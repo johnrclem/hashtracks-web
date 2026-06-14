@@ -530,22 +530,34 @@ function projectBag(
   if (bag.rich.is_canceled === true) return { kind: "rejected", reason: "cancelled" };
   // Inner `.trim()` is needed before the regex so the anchored `\s*$` strip
   // sees a delimiter at the end; the regex itself absorbs surrounding spaces.
-  const title = bag.rich.name?.trim().replace(TITLE_TRAILING_DELIMITER_RE, "") || undefined;
-  if (!title) return { kind: "rejected", reason: "no-title" };
+  const rawTitle = bag.rich.name?.trim().replace(TITLE_TRAILING_DELIMITER_RE, "") || undefined;
+  if (!rawTitle) return { kind: "rejected", reason: "no-title" };
   const ms = bag.time.start_timestamp * 1000;
   const instant = new Date(ms);
   if (Number.isNaN(instant.getTime())) return { kind: "rejected", reason: "invalid-time" };
 
+  // Normalize the STORED/display title up front (#2158): strip the kennel-name
+  // prefix / templated suffix so the content-quality filters below run against
+  // the real title — otherwise a prefixed placeholder ("Hollyweird … , Test")
+  // would slip past `isPlaceholderTitle` and persist as "Test". Run-number
+  // extraction and kennel routing deliberately stay on the RAW FB name (the run
+  // marker lives in the stripped suffix; routing keys on the original). Fall back
+  // to the raw title if a pattern empties it — stripping only improves, never
+  // drops. No-op when the source sets no `titleStripPatterns`.
+  let stripped = rawTitle;
+  for (const re of titleStripRes) stripped = stripped.replace(re, "").trim();
+  const displayTitle = stripped || rawTitle;
+
   // Admin-notice filter (#1500): titles like "Moving to a new website" are
   // Page-admin announcements, not trails. Drop unconditionally — no field
   // combo can rehabilitate a notice into a real run.
-  if (isAdminNoticeTitle(title)) return { kind: "rejected", reason: "admin-notice" };
+  if (isAdminNoticeTitle(displayTitle)) return { kind: "rejected", reason: "admin-notice" };
 
   const location = bag.rich.event_place?.contextual_name?.trim() || undefined;
   const lat = bag.rich.event_place?.location?.latitude;
   const lng = bag.rich.event_place?.location?.longitude;
-  const parsedRunNumber = extractHashRunNumber(title);
-  const placeholderRun = parsedRunNumber === undefined && hasPlaceholderRunNumber(title);
+  const parsedRunNumber = extractHashRunNumber(rawTitle);
+  const placeholderRun = parsedRunNumber === undefined && hasPlaceholderRunNumber(rawTitle);
 
   // Placeholder-event filter (#1497): single-word titles like "Test" with
   // no run number AND no location AND no parseable run marker. Hares come
@@ -553,7 +565,7 @@ function projectBag(
   // we deliberately don't require their absence — a real test event would
   // not have hares either.
   if (
-    isPlaceholderTitle(title) &&
+    isPlaceholderTitle(displayTitle) &&
     parsedRunNumber === undefined &&
     !placeholderRun &&
     !location
@@ -564,19 +576,9 @@ function projectBag(
   const date = formatYmdInTimezone(instant, timezone);
   const startTime = formatTimeInZone(instant, timezone, "HH:mm");
 
-  // Strip the kennel-name prefix / templated suffix from the STORED title only
-  // (#2158), after run-number extraction so an embedded `H6#311` already gave us
-  // the runNumber. Kennel routing still keys on the original FB name. Fall back
-  // to the original title if a pattern strips it to nothing — stripping must
-  // only ever improve the title, never drop an otherwise-valid event. No-op
-  // when the source sets no `titleStripPatterns`.
-  let stripped = title;
-  for (const re of titleStripRes) stripped = stripped.replace(re, "").trim();
-  const displayTitle = stripped || title;
-
   const event: RawEventData = {
     date,
-    kennelTags: resolveKennelTags(title),
+    kennelTags: resolveKennelTags(rawTitle),
     title: displayTitle,
     startTime,
     sourceUrl: `https://www.facebook.com/events/${bag.id}/`,

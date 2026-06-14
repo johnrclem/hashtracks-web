@@ -6029,7 +6029,7 @@ export const SOURCES = [
         // pre-strip name, so the trailing strip never costs the runNumber.
         titleStripPatterns: [
           String.raw`^Hollyweird Hash House Harriers,?\s*`,
-          String.raw`\s*~\s*(?:aka:\s*)?H6\b.*$`,
+          String.raw`\s*~\s*(?:aka:\s*)?H6\s*#\s*\d+\b.*$`,
         ],
       },
       kennelCodes: ["h6"],

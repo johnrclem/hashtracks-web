@@ -560,7 +560,7 @@ describe("bagToRawEvent — runNumber extraction (#1319)", () => {
 // redundant trailing run marker.
 const HOLLYWEIRD_STRIPS = [
   String.raw`^Hollyweird Hash House Harriers,?\s*`,
-  String.raw`\s*~\s*(?:aka:\s*)?H6\b.*$`,
+  String.raw`\s*~\s*(?:aka:\s*)?H6\s*#\s*\d+\b.*$`,
 ];
 
 function rawFromTitleWithStrips(title: string, titleStripPatterns?: string[]) {
@@ -597,6 +597,38 @@ describe("title strip patterns (#2158)", () => {
     const raw = rawFromTitleWithStrips(name);
     expect(raw.title).toBe(name);
     expect(raw.runNumber).toBe(308);
+  });
+
+  it("runs the placeholder filter on the STRIPPED title so a prefixed 'Test' is dropped", () => {
+    // Without normalizing before the filter, the prefix hides the placeholder
+    // and "Test" would persist. The event has no run number / location, so the
+    // stripped "Test" must be rejected as a placeholder (empty result).
+    const html = `<script type="application/json">{
+      "rich":{"__typename":"Event","id":"123456789012345","name":"Hollyweird Hash House Harriers, Test"},
+      "time":{"id":"123456789012345","start_timestamp":1778353200}
+    }</script>`;
+    const events = parseFacebookHostedEvents(html, {
+      kennelTag: "h6",
+      titleStripPatterns: HOLLYWEIRD_STRIPS,
+    });
+    expect(events).toEqual([]);
+  });
+
+  it("routes kennelPatterns on the ORIGINAL title while stripping the display title", () => {
+    // Co-host routing must see the raw FB name; the stored title is still
+    // stripped, and the run number is parsed from the pre-strip suffix.
+    const html = `<script type="application/json">{
+      "rich":{"__typename":"Event","id":"123456789012345","name":"Hollyweird Hash House Harriers, GyNO Joint Trail ~ aka: H6#320"},
+      "time":{"id":"123456789012345","start_timestamp":1778353200}
+    }</script>`;
+    const [event] = parseFacebookHostedEvents(html, {
+      kennelTag: "h6",
+      kennelPatterns: [[String.raw`\bGyNO\b`, ["h6", "gynoh3"]]],
+      titleStripPatterns: HOLLYWEIRD_STRIPS,
+    });
+    expect(event.kennelTags).toEqual(["h6", "gynoh3"]);
+    expect(event.title).toBe("GyNO Joint Trail");
+    expect(event.runNumber).toBe(320);
   });
 });
 
