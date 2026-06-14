@@ -119,7 +119,9 @@ async function main() {
 }
 
 main()
-  .then(() => process.exit(0))
+  // Preserve any exit code main() set (e.g. 1 when an anchor is missing) instead
+  // of hard-coding 0 — otherwise a prerequisite failure would report success.
+  .then(() => process.exit(process.exitCode ?? 0))
   .catch((err) => {
     console.error(err);
     process.exit(1);
