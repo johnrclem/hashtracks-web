@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { MeetupAdapter, extractApolloEvents, resolveVenue, isNumericId, dedupByDate, stripTrailingState, deduplicateWords, isStateFullName, buildRawEventFromApollo, extractHaresFromMeetupDescription, cleanMeetupTitle, detectBoilerplateBlocks, stripBoilerplateBlocks } from "./adapter";
+import { MeetupAdapter, extractApolloEvents, resolveVenue, isNumericId, dedupByDate, stripTrailingState, deduplicateWords, isStateFullName, buildRawEventFromApollo, extractHaresFromMeetupDescription, cleanMeetupTitle, detectBoilerplateBlocks, stripBoilerplateBlocks, extractRunNumberFromMeetupDescription } from "./adapter";
 import { normalizeDescriptionKey } from "../utils";
 import type { Source } from "@/generated/prisma/client";
 
@@ -1951,6 +1951,85 @@ describe("buildRawEventFromApollo — runNumberPrefix (#1975 Paris/Sans Clue 'R*
     // bare "R*n 1136" form yields nothing — exactly what other Meetup kennels see.
     const ev = { __typename: "Event", id: "norm", title: "Paris H3 R*n 1136 | TBD", dateTime: "2026-06-06T14:00:00+02:00" };
     const event = buildRawEventFromApollo(ev, emptyState, "paris-h3", undefined, OPT_IN);
+    expect(event.runNumber).toBeUndefined();
+  });
+});
+
+// ── runNumber from description (#2167 Savannah H3) ──
+
+describe("extractRunNumberFromMeetupDescription (#2167 Savannah)", () => {
+  it.each([
+    ["Savannah H3 trail # 1338", 1338],
+    ["Savannah H3 Trail #: 1334", 1334],
+    ["What: Trail #1335", 1335],
+    ["Savannah H3 Trail #1333", 1333],
+  ])("extracts the run number from a 'Trail #N' description line: %j", (desc, expected) => {
+    expect(extractRunNumberFromMeetupDescription(desc)).toBe(expected);
+  });
+
+  it("tolerates Markdown bold around the trail line (Charlotte '**Trail # 1244**')", () => {
+    expect(extractRunNumberFromMeetupDescription("**Trail # 1244 - There's a Latta Animals Trail**")).toBe(1244);
+  });
+
+  it("finds the trail line inside a multi-line boilerplate description", () => {
+    const desc = "Savannah H3 trail # 1338\n\n**Structure**\n\nThis event will be a run/walk...";
+    expect(extractRunNumberFromMeetupDescription(desc)).toBe(1338);
+  });
+
+  it("returns undefined when no line pairs 'trail' with a number (boilerplate-only)", () => {
+    // Montreal's standing template mentions "trail" many times but carries no
+    // per-run number — must NOT promote a bogus value.
+    const desc = "Note that if a trail has been set, the hash WILL run it!\n\nOur runs usually have a split trail for walkers.";
+    expect(extractRunNumberFromMeetupDescription(desc)).toBeUndefined();
+  });
+
+  it("returns undefined for a stray '#3' not sharing a line with 'trail'", () => {
+    expect(extractRunNumberFromMeetupDescription("Meet at gate #3.\nBring water.")).toBeUndefined();
+  });
+
+  it.each([
+    // "trail" must be directly anchored to "#N" — substring/adjacency prose
+    // must NOT promote a number (Codex adversarial review).
+    "Meet at Trailhead gate #3",
+    "choose trail option #2",
+    "follow the trail, then find marker #5",
+  ])("returns undefined for non-run trail prose: %j", (desc) => {
+    expect(extractRunNumberFromMeetupDescription(desc)).toBeUndefined();
+  });
+
+  it("returns undefined for empty/undefined input", () => {
+    expect(extractRunNumberFromMeetupDescription(undefined)).toBeUndefined();
+    expect(extractRunNumberFromMeetupDescription("")).toBeUndefined();
+  });
+});
+
+describe("buildRawEventFromApollo — runNumber from description (#2167 Savannah)", () => {
+  const emptyState = {} as Record<string, Record<string, unknown>>;
+
+  it("extracts the run number from the description even with a generic title and extraction off", () => {
+    // Savannah's titles are the generic "Saturday Trail!"; the real number
+    // lives in the body. Default-on description extraction (trail-anchored)
+    // backfills it without the per-source opt-in title flag.
+    const ev = {
+      __typename: "Event",
+      id: "savh3",
+      title: "Saturday Trail!",
+      description: "Savannah H3 trail # 1338\n\nMeet at the park.",
+      dateTime: "2026-06-20T14:00:00-04:00",
+    };
+    const event = buildRawEventFromApollo(ev, emptyState, "savh3");
+    expect(event.runNumber).toBe(1338);
+  });
+
+  it("leaves runNumber undefined when the description has no trail-anchored number", () => {
+    const ev = {
+      __typename: "Event",
+      id: "tt",
+      title: "Thirsty Thursday / Drinking Practice",
+      description: "Join us for drinks! No run tonight.",
+      dateTime: "2026-06-18T18:30:00-04:00",
+    };
+    const event = buildRawEventFromApollo(ev, emptyState, "savh3");
     expect(event.runNumber).toBeUndefined();
   });
 });

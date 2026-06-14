@@ -113,6 +113,32 @@ A to A flat trail - no hazards.
     expect(result.date).toBe("2026-03-28");
   });
 
+  // Real body from CRH3 #222 (live-verified 2026-06-14). The "🗓 Date -" line
+  // carries a "(next Saturday)" aside; passing the whole body to chrono made it
+  // resolve that relative phrase to the publish-week Saturday (Jun 13) instead
+  // of the literal Jun 20 — the #2161 bug.
+  const body222 = `🏃‍♂️Next Run  #222🏃‍♀️
+🗓 Date - Saturday 20 June 26 (next Saturday)
+▶️Hare: Get a Grip / Where's the paper
+📍Starting Location -Happy City Golf
+🕞EARLY TIME - 3 for 3:30 pm start.
+💲Price - All attendees 250 Baht.`;
+
+  it("parses the labelled '🗓 Date -' line, ignoring the '(next Saturday)' aside (#2161)", () => {
+    // Publish date is Jun 13 (a Saturday). The whole-body parse resolved
+    // "next Saturday" to Jun 13; isolating the date line yields the real Jun 20.
+    const result = parseCrh3Body(body222, "2026-06-13T18:00:00+07:00");
+    expect(result.date).toBe("2026-06-20");
+  });
+
+  it("infers the year on a year-less labelled Date line via forwardDate (#2161)", () => {
+    const body = `🏃‍♂️Next Run #223🏃‍♀️
+🗓 Date - Saturday 20 June (next Saturday)
+▶️Hare: Test`;
+    const result = parseCrh3Body(body, "2026-06-13T18:00:00+07:00");
+    expect(result.date).toBe("2026-06-20");
+  });
+
   it("returns undefined for freeform text without labels", () => {
     const body = "<p>Come join us for a great hash!</p>";
     const result = parseCrh3Body(body, "2025-02-01T00:00:00");
@@ -180,6 +206,27 @@ Saturday 28th Mar 26 (This coming Saturday)
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.event.date).toBe("2026-03-28");
+    }
+  });
+
+  it("uses the body's '🗓 Date -' line as the event date, not the publish date (#2161)", () => {
+    // Stored Jun 13 (publish-week Saturday) before the fix; body says Jun 20.
+    const result = parseCrh3Post({
+      title: "CRH3 #222 Saturday 20 June",
+      content: `🏃‍♂️Next Run  #222🏃‍♀️
+🗓 Date - Saturday 20 June 26 (next Saturday)
+▶️Hare: Get a Grip / Where's the paper
+📍Starting Location -Happy City Golf
+🕞EARLY TIME - 3 for 3:30 pm start.
+💲Price - All attendees 250 Baht.`,
+      url: "https://chiangraihhh.blogspot.com/2026/06/crh3-222-saturday-20-june.html",
+      published: "2026-06-13T18:00:00+07:00",
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.event.date).toBe("2026-06-20");
+      expect(result.event.runNumber).toBe(222);
+      expect(result.event.startTime).toBe("15:30");
     }
   });
 

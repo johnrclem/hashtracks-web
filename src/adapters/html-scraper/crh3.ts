@@ -129,12 +129,30 @@ export function parseCrh3Body(bodyHtml: string, publishDateIso: string): {
   const earlyLine = grab(String.raw`EARLY\s*TIME|Start(?:\s*Time)?|Time`);
   const startTime = parseStartTime(earlyLine);
 
-  // Strip URLs before chrono — Google Maps short-link base64 fragments
-  // contain digit sequences that chrono mis-parses as dates (verified
-  // live: #216 had `g_ep=EgoyMDI1MTExMi4w` decode to "20251112" and
-  // chrono picked Nov 16 instead of the title's Nov 22).
+  // Isolate the run-date line before chrono. The body's date sits on either a
+  // labelled "🗓 Date -" line (#2161) or a bare weekday-prefixed line
+  // ("Saturday 28th Mar 26", #220). Passing the WHOLE body to chrono makes it
+  // latch onto the "(next Saturday)" relative aside, which resolves to the
+  // publish-week Saturday — #2161 stored Jun 13 instead of the body's Jun 20.
+  // Strip the parenthetical aside for the same reason, then parse just that
+  // line. Fall back to the legacy whole-text parse only when no date line is
+  // found, so freeform posts still parse. URLs are stripped in the fallback —
+  // Google Maps short-link base64 fragments contain digit sequences chrono
+  // mis-parses as dates (verified live: #216 `g_ep=EgoyMDI1MTExMi4w` decoded
+  // to "20251112" and chrono picked Nov 16 instead of the title's Nov 22).
   const refDate = parsePublishDate(publishDateIso);
-  const date = chronoParseDate(stripUrls(text), "en-GB", refDate, { forwardDate: true }) ?? undefined;
+  const dateLine = grab("Date") ?? findWeekdayDateLine(text);
+  // Drop the trailing parenthetical aside ("(next Saturday)") — date tokens
+  // never contain "(", so truncating at the first "(" is safe and avoids a
+  // backtracking-prone regex (Sonar S5852).
+  const cleanedDateLine = dateLine?.split("(")[0].trim();
+  const fromDateLine = cleanedDateLine
+    ? chronoParseDate(cleanedDateLine, "en-GB", refDate, { forwardDate: true })
+    : null;
+  const date =
+    fromDateLine ??
+    chronoParseDate(stripUrls(text), "en-GB", refDate, { forwardDate: true }) ??
+    undefined;
 
   const description = extractDescription(text);
 
@@ -196,6 +214,30 @@ function extractDescription(text: string): string | undefined {
   if (desc.length === 0) return undefined;
   const joined = desc.join(" ");
   return joined.length > 240 ? `${joined.slice(0, 239)}…` : joined;
+}
+
+/** Lowercased weekday names + 3-letter abbreviations. CRH3 bodies put the run
+ * date on a line whose first word is one of these ("Saturday 28th Mar 26"). */
+const WEEKDAYS = new Set([
+  "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
+  "mon", "tue", "wed", "thu", "fri", "sat", "sun",
+]);
+
+/**
+ * Find the first body line whose first word is a weekday name and which also
+ * contains a digit — CRH3's bare run-date line ("Saturday 28th Mar 26"), used
+ * when there is no labelled "Date -" line (#220). Matching the whole first word
+ * against a Set (rather than a prefix regex) avoids false hits on words that
+ * merely start with a weekday prefix ("Mongrel", "Sunscreen") and keeps the
+ * scan ReDoS-free. Returns undefined when none matches.
+ */
+function findWeekdayDateLine(text: string): string | undefined {
+  for (const raw of text.split("\n")) {
+    const line = raw.trim();
+    const firstWord = /^[A-Za-z]+/.exec(line)?.[0]?.toLowerCase();
+    if (firstWord && WEEKDAYS.has(firstWord) && /\d/.test(line)) return line;
+  }
+  return undefined;
 }
 
 /** A minimal Blogger post shape for parsePost. */
