@@ -120,7 +120,7 @@ const SECTION_BREAK_RE = /^(?:next page|back to)/i;
 // single non-keyword token, so it falls through to the date parser as before.
 function getLabelTokens(label: string): string[] {
   return label
-    .replace(/\u00a0/g, " ")
+    .replaceAll("\u00a0", " ")
     .toLowerCase()
     .split(/[/&]/)
     .map((t) => t.trim());
