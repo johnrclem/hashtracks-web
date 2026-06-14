@@ -894,6 +894,21 @@ export const SOURCES = [
         ],
         defaultKennelTag: "cch3",
         titleHarePattern: "~\\s*(.+)$",
+        // #2159: hares + venue live in the DESCRIPTION body, not structured
+        // fields. The ai1ec WordPress export labels hares "Hares:" / "Hares~"
+        // / "Hare:" and the venue "Where:" / "Start:" / "Location:" (inline) or
+        // a "Location\n<value>" heading (the #340 form).
+        harePatterns: ["(?:^|\\n)\\s*Hares?\\s*[:~]\\s*([^\\n]+)"],
+        locationPatterns: [
+          "(?:^|\\n)\\s*Where:\\s*([^\\n]+)",
+          "(?:^|\\n)\\s*Start:\\s*([^\\n]+)",
+          "(?:^|\\n)\\s*Location:\\s*([^\\n]+)",
+          "(?:^|\\n)\\s*Location\\s*\\n\\s*([^\\n]+)",
+        ],
+        cleanDescriptionLocation: true,
+        // #2175: a `#TBD` placeholder run with a junk 03:02 DTSTART trips the
+        // event-improbable-time audit — clear the throwaway time.
+        dropImprobablePlaceholderTime: true,
       },
       kennelCodes: ["cch3"],
     },
@@ -1400,6 +1415,12 @@ export const SOURCES = [
         // Safe because upcomingOnly:true stops reconcile from cancelling the
         // backfilled past events on an empty scrape.
         allowEmptyBody: true,
+        // #2160: ICH3 names every event "ICH3# {N} {HareName}" (no theme), e.g.
+        // "ICH3# 60 Plea Barkin". Capture the hare from the SUMMARY and strip
+        // the "ICH3# 60" prefix; the title-is-hare guard then drops the title
+        // to the merge default so the hare never doubles as the event title.
+        titleHarePattern: "^ICH3#?\\s*\\d+\\s+(.+)$",
+        titleStripPrefixAliases: ["ICH3"],
       },
       kennelCodes: ["ich3"],
     },
@@ -1427,6 +1448,12 @@ export const SOURCES = [
       scrapeDays: 180,
       config: {
         defaultKennelTag: "rh3",
+        // #2148: the Localendar SUMMARY bakes the kennel label + run marker into
+        // the title ("RH3: #1203: Deja FuckYou Hash", "RH3 #1201 …", "RH3 Pigs'
+        // Head Social"). The run number is already extracted, so strip the
+        // redundant prefix. Non-RH3 rows on this regional feed ("Philadelphia
+        // HHH") match no alias and are left untouched.
+        titleStripPrefixAliases: ["RH3", "ReadingH3"],
       },
       kennelCodes: ["rh3"],
     },

@@ -1,7 +1,7 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails, ParseError } from "../types";
 import { hasAnyErrors } from "../types";
-import { googleMapsSearchUrl, compilePatterns, appendDescriptionSuffix, isPlaceholder, extractHashRunNumber, hasPlaceholderRunNumber, EVENT_FIELD_LABEL_RE, EVENT_FIELD_LABEL_UPPERCASE_RE } from "../utils";
+import { googleMapsSearchUrl, compilePatterns, appendDescriptionSuffix, isPlaceholder, extractHashRunNumber, hasPlaceholderRunNumber, cleanLocationName, EVENT_FIELD_LABEL_RE, EVENT_FIELD_LABEL_UPPERCASE_RE } from "../utils";
 import { safeFetch } from "../safe-fetch";
 import { enrichSFH3Events, markSFH3SeriesMembership } from "../html-scraper/sfh3-detail-enrichment";
 import { enrichBerlinH3Events } from "../html-scraper/berlin-h3-detail-enrichment";
@@ -25,6 +25,9 @@ export interface ICalSourceConfig {
   keepNonKennelTitlePrefix?: boolean;  // #1955: only strip a "Prefix:" from the SUMMARY title when the prefix identifies the kennel (run marker or matching tag); keep event-type prefixes like "Hash Lunch:". Off by default — most feeds (e.g. the Reading regional Localendar) use full kennel-name prefixes that SHOULD be stripped.
   coalesceEndpointDuplicates?: boolean; // collapse a same-date all-day /events/{n} VEVENT into its timed /runs/{m} twin, enriching hares/description/etc. — Oslo H3 publishes each run on both endpoints (#1828)
   rejectTitleHareThemeSuffix?: boolean; // #2004 Perth: drop a titleHarePattern capture that ends in an event-type word ("West Coast 4 seasons run") — it's a trail theme, not a hare. Opt-in so it never touches other titleHarePattern sources whose hares can legitimately end in such words.
+  titleStripPrefixAliases?: string[];  // #2148 Reading / #2160 ICH3: kennel-label variants ("RH3"/"ReadingH3", "ICH3") to strip from the START of the resolved title together with an immediately-following run marker ("#1203:", "# 60"). Opt-in per source — the run number is already extracted into its own field, so the prefix is pure noise. See stripTitleKennelRunPrefix.
+  cleanDescriptionLocation?: boolean;  // #2159 Charm City: run a DESCRIPTION-derived location (not the VEVENT LOCATION field) through cleanLocationName — strips URLs/labels/CTA residue and rejects placeholders. Opt-in so feeds whose On-On venue path already emits clean names are untouched.
+  dropImprobablePlaceholderTime?: boolean; // #2175 Charm City: clear startTime/endTime when a `#TBD`-style placeholder run also carries a junk late-night DTSTART (23:00–03:59) — the hare entered a throwaway time before the trail was scheduled. Opt-in so a legitimately late/early-morning trail on another feed that still uses a placeholder run number keeps its time.
 }
 
 /**
@@ -137,6 +140,76 @@ function prefixMatchesKennel(prefix: string, kennelTag: string): boolean {
   const np = normalizeKennelToken(prefix);
   const nk = normalizeKennelToken(kennelTag);
   return np !== "" && np === nk;
+}
+
+// #2148 / #2160 — leading-prefix tokenizer for `stripTitleKennelRunPrefix`.
+// Each regex carries at most one zero-or-more quantifier over a single bounded
+// char class, so the analyzer (Sonar S5852/S5843) sees them as provably linear
+// — the same multi-pass shape the file uses elsewhere (cleanHaresValue,
+// extractOnOnVenueFromDescription) instead of one mega-regex with adjacent
+// `\s*`-after-alternation.
+const TITLE_PREFIX_CONNECTOR_RE = /^[\s:/.\-–—]+/;
+// Run marker: "#1203", "# 60" (spaced), "#1191A" (letter suffix), "#120?"
+// (unconfirmed). `[ \t]*` then `\d+` are distinct classes — no adjacency.
+const TITLE_PREFIX_RUN_MARKER_RE = /^[#＃][ \t]*\d+[A-Za-z]?\??/;
+
+/**
+ * Strip a leading kennel label + run marker from a title (#2148 Reading, #2160
+ * ICH3). The run number is already captured in its own field, so the prefix is
+ * redundant noise the source bakes into the SUMMARY:
+ *   "RH3: #1203: Deja FuckYou Hash" → "Deja FuckYou Hash"
+ *   "RH3 #1201 Some Bitches Be Getting Married Hash" → "Some Bitches…"
+ *   "RH3 Pigs' Head Social" → "Pigs' Head Social"
+ *   "RH3 #1197 / Rogue North H3 Joint Trail" → "Rogue North H3 Joint Trail"
+ *   "ICH3# 60 Plea Barkin" → "Plea Barkin"
+ *
+ * Opt-in via `titleStripPrefixAliases`: only the listed kennel labels are
+ * stripped, and only at the very start. A row from another kennel on the same
+ * feed ("Philadelphia HHH" on Reading's regional Localendar) matches no alias
+ * and is returned untouched. Returns `undefined` when nothing real remains so
+ * the caller leaves the title for the merge synthesizer.
+ *
+ * Procedural single-pass-per-token (no mega-regex) to stay ReDoS-clean.
+ */
+export function stripTitleKennelRunPrefix(
+  title: string,
+  aliases: string[],
+): string | undefined {
+  let s = title.trim();
+  // Longest alias first so "ReadingH3" wins over a hypothetical "Reading".
+  const ordered = [...aliases].sort((a, b) => b.length - a.length);
+  for (const alias of ordered) {
+    if (!alias) continue;
+    if (s.toLowerCase().startsWith(alias.toLowerCase())) {
+      // Boundary guard: the char after the alias must NOT be alphanumeric, so
+      // "RH3" never eats the "RH3" inside a sibling code like "RH3FM".
+      const next = s.charAt(alias.length);
+      if (next === "" || !/[A-Za-z0-9]/.test(next)) {
+        s = s.slice(alias.length);
+        break;
+      }
+    }
+  }
+  s = s.replace(TITLE_PREFIX_CONNECTOR_RE, "");
+  s = s.replace(TITLE_PREFIX_RUN_MARKER_RE, "");
+  s = s.replace(TITLE_PREFIX_CONNECTOR_RE, "");
+  return s.trim() || undefined;
+}
+
+/** Loose equality for the #2160 title-is-hare check: trimmed, case-insensitive. */
+function titleEqualsHare(title: string, hares: string): boolean {
+  return title.trim().toLowerCase() === hares.trim().toLowerCase();
+}
+
+// #2175 Charm City: a `#TBD` placeholder VEVENT carries a junk DTSTART time
+// (03:02) — the audit's `event-improbable-time` window is 23:00–04:00. Used
+// only in combination with hasPlaceholderRunNumber so real late/early runs with
+// a confirmed run number keep their time.
+function isImprobableHashTime(hhmm: string | undefined): boolean {
+  if (!hhmm) return false;
+  const hour = Number.parseInt(hhmm.slice(0, 2), 10);
+  if (Number.isNaN(hour)) return false;
+  return hour >= 23 || hour < 4;
 }
 
 // Module-level patterns for description field extraction
@@ -522,11 +595,15 @@ function buildRawEventFromVEvent(
     config?.keepNonKennelTitlePrefix,
   );
 
+  // Computed once and reused across the run-number, junk-time, and title
+  // branches below (the summary doesn't change within this event).
+  const hasPlaceholderRun = hasPlaceholderRunNumber(summary);
+
   const dateStr = formatDate(vevent.start);
-  const startTime = formatTime(vevent.start);
+  let startTime = formatTime(vevent.start);
   // endTime is HH:MM only, so cross-date DTEND values (overnight runs) are dropped.
   const endDt = vevent.end as DateWithTimeZone | undefined;
-  const endTime = endDt && formatDate(endDt) === dateStr ? formatTime(endDt) : undefined;
+  let endTime = endDt && formatDate(endDt) === dateStr ? formatTime(endDt) : undefined;
   // endDate (#1560) — populated only for multi-day ALL-DAY VEVENTs (DTSTART
   // and DTEND both VALUE=DATE, spanning >1 day). RFC 5545 makes all-day DTEND
   // exclusive (an event May 14–17 has DTEND=May 18), so the inclusive last day
@@ -547,6 +624,10 @@ function buildRawEventFromVEvent(
   }
   const description = paramValue(vevent.description);
   let hares = description ? extractHaresFromDescription(description, compiledHarePatterns) : undefined;
+  // Track whether the hare came from the SUMMARY (titleHarePattern) vs the
+  // description — the #2160 title-is-hare suppression below only fires for
+  // title-sourced hares, so a description hare can never blank a real theme.
+  let hareFromTitle = false;
 
   // Fall back to extracting hares from title when description has none
   if (!hares && compiledTitleHarePattern) {
@@ -559,20 +640,32 @@ function buildRawEventFromVEvent(
       // whose hares could legitimately end in such a word — are untouched.
       const isTheme = config?.rejectTitleHareThemeSuffix === true && TITLE_HARE_THEME_SUFFIX_RE.test(candidate);
       hares = candidate && !isTheme ? candidate : undefined;
+      if (hares) hareFromTitle = true;
     }
   }
 
-  let location = paramValue(vevent.location);
+  // Tri-state: `undefined` = preserve, `null` = explicit clear (merge.ts #1516).
+  let location: string | null | undefined = paramValue(vevent.location);
   if (location && isPlaceholder(location)) {
     location = undefined;
   }
 
   if (!location && description) {
-    location = extractLocationFromDescription(description, compiledLocationPatterns)
+    const rawDescLocation = extractLocationFromDescription(description, compiledLocationPatterns)
       ?? extractOnOnVenueFromDescription(description);
+    // #2159 Charm City: scrub a DESCRIPTION-derived venue (trailing labels,
+    // URLs, CTA residue) and reject placeholders. Opt-in so other feeds' venue
+    // paths are untouched. Preserve cleanLocationName's `null` (a "Location\nTBD"
+    // venue) as an explicit clear so merge wipes a stale venue rather than
+    // pinning the old one — only when a venue line actually matched.
+    if (rawDescLocation && config?.cleanDescriptionLocation) {
+      location = cleanLocationName(rawDescLocation);
+    } else {
+      location = rawDescLocation;
+    }
   }
 
-  const locationUrl = resolveLocationUrl(vevent.geo, location, description);
+  const locationUrl = resolveLocationUrl(vevent.geo, location ?? undefined, description);
 
   // Run number: prefer the shared `#`-delimited summary extraction (parsed),
   // then custom patterns.
@@ -584,7 +677,7 @@ function buildRawEventFromVEvent(
   // precedence over the custom summary scan below, otherwise a loose custom
   // pattern ("^Run #?(\d+)") would parse the "20" out of "Run #20xx" and
   // defeat the clear.
-  if (runNumber == null && hasPlaceholderRunNumber(summary)) {
+  if (runNumber == null && hasPlaceholderRun) {
     runNumber = null;
   } else if (runNumber == null && compiledRunNumberPatterns?.length) {
     // #2003 Perth publishes "Run NNNN" (no `#`) in the SUMMARY, so scan the
@@ -596,14 +689,38 @@ function buildRawEventFromVEvent(
 
   const cost = description ? extractCostFromDescription(description, compiledCostPatterns) : undefined;
 
+  // #2175 Charm City: a `#TBD` placeholder run carries a junk late-night DTSTART
+  // (03:02) the hare entered before the trail was scheduled. Drop the time when
+  // all three signals fire — opt-in flag + placeholder run + improbable window —
+  // so a confirmed-run late/early trail (or another feed's placeholder event at
+  // a real late time) keeps its time.
+  if (config?.dropImprobablePlaceholderTime && hasPlaceholderRun && isImprobableHashTime(startTime)) {
+    startTime = undefined;
+    endTime = undefined;
+  }
+
+  // A summary that is only kennel + an unconfirmed-run placeholder ("RH3: #120?")
+  // has no real title — leave it undefined so the merge pipeline synthesizes a
+  // default rather than surfacing the marker (#1785).
+  let title = parsed.title ?? (hasPlaceholderRun ? undefined : summary);
+  // #2148 Reading / #2160 ICH3: strip a leading kennel label + run marker the
+  // source bakes into the title ("RH3: #1203:", "ICH3# 60"). Opt-in per source.
+  if (title && config?.titleStripPrefixAliases?.length) {
+    title = stripTitleKennelRunPrefix(title, config.titleStripPrefixAliases);
+  }
+  // #2160 hard rule — the title must NEVER be the hare name. When the hare was
+  // pulled from the SUMMARY (titleHarePattern) and the stripped title is just
+  // that hare (ICH3 "ICH3# 60 Plea Barkin" → title "Plea Barkin" == hare), drop
+  // the title so merge synthesizes "<Kennel> Trail #N" instead.
+  if (hareFromTitle && title && hares && titleEqualsHare(title, hares)) {
+    title = undefined;
+  }
+
   return {
     date: dateStr,
     kennelTags: [parsed.kennelTag],
     runNumber,
-    // A summary that is only kennel + an unconfirmed-run placeholder
-    // ("RH3: #120?") has no real title — leave it undefined so the merge
-    // pipeline synthesizes a default rather than surfacing the marker (#1785).
-    title: parsed.title ?? (hasPlaceholderRunNumber(summary) ? undefined : summary),
+    title,
     description: appendDescriptionSuffix(description?.substring(0, 2000) || undefined, config?.descriptionSuffix),
     hares,
     location,
