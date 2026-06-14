@@ -105,6 +105,22 @@ function seasonalStartTime(month: number): string {
   return SUMMER_MONTHS.has(month) ? SUMMER_START : WINTER_START;
 }
 
+// Overseas-special venues prefix the country in Chinese (e.g. "泰國 清邁",
+// "日本 沖繩"). The merge pipeline drops geocoded results >200km from the
+// kennel/region centroid unless `countryOverride` is set, which would throw
+// away the (correct) foreign pin. Setting countryOverride="" bypasses that
+// guard with no geocode bias — the venue text already names the country.
+// Mirrors new-tokyo-katch.ts's overseas handling. Set-membership check (not a
+// big alternation regex) to keep clear of Sonar S5843.
+const FOREIGN_COUNTRY_TOKENS = [
+  "泰國", "日本", "越南", "馬來西亞", "菲律賓", "韓國", "香港",
+  "新加坡", "中國", "柬埔寨", "印尼", "寮國", "緬甸",
+];
+function foreignCountryOverride(location: string | undefined): string | undefined {
+  if (!location) return undefined;
+  return FOREIGN_COUNTRY_TOKENS.some((t) => location.includes(t)) ? "" : undefined;
+}
+
 /** Big5 → string, falling back to UTF-8 only if the runtime lacks Big5. */
 export function decodeBig5(bytes: Uint8Array): string {
   try {
@@ -245,15 +261,20 @@ export function parseNewTaipeiHash(
       }
       rowsFound++;
       const fbLink = parseFbLink(tds.eq(4));
+      const location = cellText(tds.eq(3)) || undefined;
+      const countryOverride = foreignCountryOverride(location);
       byRun.set(runNumber, {
         date: `${year}-${pad2(md.month)}-${pad2(md.day)}`,
         kennelTags: [KENNEL_TAG],
         runNumber,
         startTime: seasonalStartTime(md.month),
         hares: parseHares(tds.eq(2)),
-        location: cellText(tds.eq(3)) || undefined,
+        location,
         locationUrl: parseMapsUrl(tds.eq(4)),
         externalLinks: fbLink ? [{ url: fbLink, label: "Facebook Event" }] : undefined,
+        // Overseas specials ("日本 沖繩", "泰國 清邁") — bypass merge's 200km
+        // centroid guard so the foreign geocode isn't dropped (PR #2186 review).
+        ...(countryOverride !== undefined ? { countryOverride } : {}),
         sourceUrl,
       });
     } catch (err) {
@@ -281,7 +302,10 @@ type Big5FetchOutcome = Big5FetchSuccess | { ok: false; result: ScrapeResult };
 /** Fetch raw bytes and decode Big5 before loading into cheerio. */
 export async function fetchBig5Page(url: string): Promise<Big5FetchOutcome> {
   try {
-    const response = await safeFetch(url, { headers: { "User-Agent": USER_AGENT } });
+    const response = await safeFetch(url, {
+      headers: { "User-Agent": USER_AGENT },
+      signal: AbortSignal.timeout(30_000),
+    });
     if (!response.ok) {
       const message = `HTTP ${response.status}: ${response.statusText}`;
       return {

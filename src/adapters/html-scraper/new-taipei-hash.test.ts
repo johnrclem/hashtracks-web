@@ -235,6 +235,32 @@ describe("parseNewTaipeiHash — structural quirks", () => {
   });
 });
 
+// Overseas-special venues prefix the country in Chinese.
+const OVERSEAS_FIXTURE_HTML = `
+<table>
+  <tr><td>跑次 (Run No.)</td><td>日期 (Date)</td><td>兔子 (Hare)</td><td>地點 (Run Site)</td><td>詳細</td></tr>
+  <tr><td>647</td><td>08/23</td><td>清邁特跑</td><td>泰國 清邁</td><td>詳細</td></tr>
+  <tr><td>543</td><td>09/03</td><td>沖繩特跑</td><td>日本 沖繩</td><td>詳細</td></tr>
+  <tr><td>690</td><td>06/14</td><td>爛死了</td><td>萬芳醫院站</td><td>詳細</td></tr>
+</table>
+`;
+
+describe("parseNewTaipeiHash — overseas specials", () => {
+  const $ = cheerio.load(OVERSEAS_FIXTURE_HTML);
+  const { events } = parseNewTaipeiHash($, SOURCE_URL, 2025);
+  const byRun = new Map(events.map((e) => [e.runNumber, e]));
+
+  it("sets countryOverride on foreign-country venues (bypasses merge's 200km guard)", () => {
+    expect(byRun.get(647)?.countryOverride).toBe(""); // 泰國 (Thailand)
+    expect(byRun.get(543)?.countryOverride).toBe(""); // 日本 (Japan)
+  });
+
+  it("leaves countryOverride undefined for domestic Taiwan venues", () => {
+    expect(byRun.get(690)?.countryOverride).toBeUndefined();
+    expect("countryOverride" in (byRun.get(690) ?? {})).toBe(false);
+  });
+});
+
 describe("NewTaipeiHashAdapter.fetch (Big5 end-to-end)", () => {
   it("decodes the live Big5 fixture and parses without errors", () => {
     // Read the real committed Big5 page bytes, decode + parse with a fixed year
