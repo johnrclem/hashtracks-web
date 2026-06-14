@@ -2846,8 +2846,14 @@ export const SOURCES = [
       config: {
         sheetId: "1XTN-ivc5NClSt4Z1HVYf0ddEzF3aXcnd1ZH0JFpLXm4",
         gid: 237970172,
-        skipRows: 2,
-        columns: { runNumber: 0, date: 2, hares: 3, title: 4, location: -1 },
+        // #2130: sheet layout is Run#(0) Year(1) Date(2) Day(3) Hare(s)(4) Theme?(5).
+        // The old mapping pointed `hares` at the Day column and `title` at the
+        // Hare(s) column, so run #/hares/theme never reached the canonical event.
+        // skipRows is 1, not 2 — there is exactly one banner row above the header;
+        // processRows already treats the post-splice row 0 as the header, so
+        // skipRows:2 silently dropped the first data row (run 1221).
+        skipRows: 1,
+        columns: { runNumber: 0, date: 2, hares: 4, title: 5 },
         kennelTagRules: { default: "psh3" },
       },
       kennelCodes: ["psh3"],
@@ -2865,8 +2871,13 @@ export const SOURCES = [
       config: {
         sheetId: "1UOzHLGytOdlzjet7VE25gXAMcuU4oc8fi8gY-4cQUkA",
         gid: 0,
-        skipRows: 2,
-        columns: { runNumber: 0, date: 1, hares: 2, title: 3, location: -1 },
+        // #2145: layout is Run#(0) Date(1) Hare(s)(2) Theme?(3); columns are correct
+        // and Theme already maps to `title`. The theme→title only surfaces once the
+        // merge enrichment branch backfills placeholder/default titles (the WA Hash
+        // GCal out-trusts this sheet). skipRows:1 — one banner row above the header;
+        // skipRows:2 dropped the first data row (run 368).
+        skipRows: 1,
+        columns: { runNumber: 0, date: 1, hares: 2, title: 3 },
         kennelTagRules: { default: "rch3-wa" },
       },
       kennelCodes: ["rch3-wa"],
@@ -5540,7 +5551,12 @@ export const SOURCES = [
       config: {
         sheetId: "1ActKq1DoLoUA2WfUM7Q4JF3SASG7SEG-lGjy4byIf_Q",
         gid: 425141890,
-        columns: { date: 0, runNumber: 1, hares: 2, description: 3 },
+        // #2191: layout is Date(0) Run#(1) Hare(2) Headline(3). The Headline is the
+        // event's run name, so map it to `title` (was mapped to `description`, which
+        // left the generic "RS2H3 Trail #N" default winning). Blank headline → title
+        // undefined → merge synthesizes the default. RS2H3 is single-source, so the
+        // sheet title surfaces directly (no GCal to out-trust it).
+        columns: { date: 0, runNumber: 1, hares: 2, title: 3 },
         kennelTagRules: { default: "rs2h3" },
       },
       kennelCodes: ["rs2h3"],

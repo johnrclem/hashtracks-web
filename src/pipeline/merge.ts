@@ -972,6 +972,41 @@ export function resolveUpdatedTitle(
   return runNumber ? `${displayName} Trail #${runNumber}` : `${displayName} Trail`;
 }
 
+/**
+ * Whether an existing canonical title is a generic default that a richer
+ * lower-trust secondary source may replace during enrichment.
+ *
+ * True when the title is empty, a themeless placeholder shell ("PSH3 #? (TBD)"),
+ * or the synthesized "<Kennel> Trail [#N]" default — including stale
+ * kennelCode/alias-prefixed variants ("psh3 Trail #1226"), which are normalized
+ * to the current display name via `rewriteStaleDefaultTitle` before comparison.
+ * False for any real, human-authored title so enrichment never clobbers it.
+ * (#2130 / #2145 — the enrich branch otherwise never fills titles, so a sheet's
+ * Theme/Headline could never replace the synthesized default when the WA Hash
+ * Google Calendar out-trusts the hareline sheet.)
+ */
+export function isReplaceableDefaultTitle(
+  title: string | null,
+  kennelData: TitleKennelData,
+): boolean {
+  if (!title?.trim()) return true;
+  if (isThemelessPlaceholderTitle(title)) return true;
+  const displayName = friendlyKennelName(kennelData.shortName, kennelData.fullName) || kennelData.kennelCode;
+  if (!displayName) return false;
+  const normalized = rewriteStaleDefaultTitle(
+    title.trim(),
+    kennelData.kennelCode,
+    kennelData.shortName,
+    kennelData.fullName,
+    kennelData.aliases,
+  ).toLowerCase();
+  const base = `${displayName.toLowerCase()} trail`;
+  // Accept the bare default and the "<base> #<run>" variant. Stripping a
+  // trailing " #<run>" is a no-op on the bare default, so this one comparison
+  // covers both.
+  return normalized.replace(/\s+#\d+$/, "") === base;
+}
+
 /** Abbreviation map for address normalization (used by deduplicateAddressPrefix). */
 /** Pre-compiled address abbreviation patterns (avoids RegExp allocation per call). */
 const ADDR_PATTERNS = Object.entries({
@@ -1356,8 +1391,19 @@ async function upsertCanonicalEvent(
       existingEvent = sole; // Cross-source or first match — backward-compatible
     }
   } else if (sameDayEvents.length > 1) {
-    if (event.sourceUrl) {
-      existingEvent = sameDayEvents.find(e => e.sourceUrl === event.sourceUrl) ?? null;
+    // #2157 — a hareline sheet can legitimately emit two runs on one date
+    // (Munich #938 + #939 both on 2026-06-20), so EVERY row shares this source's
+    // URL. A bare first-URL match would weld both raws onto the same canonical,
+    // letting one run's field (e.g. #939's location) enrich the other run's
+    // canonical whose cell is blank. So a UNIQUE URL match wins immediately, but
+    // an ambiguous same-URL group defers to runNumber (then startTime/title)
+    // disambiguation below — and only falls back to the first URL match when no
+    // signal separates them (preserving the prior behavior as a strict refinement).
+    const urlMatches = event.sourceUrl
+      ? sameDayEvents.filter(e => e.sourceUrl === event.sourceUrl)
+      : [];
+    if (urlMatches.length === 1) {
+      existingEvent = urlMatches[0];
     }
     if (!existingEvent && event.runNumber != null) {
       // Only match when runNumber resolves to exactly one row. Ambiguous
@@ -1371,6 +1417,17 @@ async function upsertCanonicalEvent(
     }
     if (!existingEvent && event.title) {
       existingEvent = sameDayEvents.find(e => e.title === event.title) ?? null;
+    }
+    // Degenerate fallback — multiple rows share this URL and the incoming row
+    // carries NO disambiguating signal at all (no runNumber/startTime/title), so
+    // we genuinely can't tell it apart: preserve the prior first-URL-match
+    // behavior. A row that DID carry a signal which simply matched nothing is a
+    // distinct run (e.g. a newly-added third same-date run) — leave existingEvent
+    // null so it creates its own canonical rather than welding onto an arbitrary
+    // sibling and re-opening the cross-row bleed (#2157 Codex review).
+    if (!existingEvent && urlMatches.length > 1
+        && event.runNumber == null && !event.startTime && !event.title) {
+      existingEvent = urlMatches[0];
     }
   }
 
@@ -1733,6 +1790,28 @@ async function upsertCanonicalEvent(
       // empty — lower-trust sources cannot overwrite an existing label.
       if (!existingEvent.eventLabel && event.eventLabel) {
         enrichData.eventLabel = event.eventLabel;
+      }
+      // #2130 — backfill the run number from a lower-trust secondary when the
+      // higher-trust primary created the canonical without one. The WA Hash
+      // Google Calendar lists future PSH3 events as "#? (TBD)" placeholders
+      // (no run number), while the hareline sheet already carries the real #.
+      // Fill-only; never overwrites an existing run number.
+      if (existingEvent.runNumber == null && event.runNumber != null) {
+        enrichData.runNumber = event.runNumber;
+      }
+      // #2130 / #2145 — backfill the title when the canonical holds only a
+      // generic default/placeholder and this source carries a real run name
+      // (the sheet's Theme / Headline column). Gated via isReplaceableDefaultTitle
+      // so a real, human-authored primary title is never clobbered.
+      if (event.title && isReplaceableDefaultTitle(existingEvent.title, kennelData)) {
+        const newTitle = resolveUpdatedTitle(
+          event.title,
+          existingEvent.title,
+          kennelData,
+          event.runNumber ?? existingEvent.runNumber,
+          event.kennelTags[0],
+        );
+        if (newTitle !== existingEvent.title) enrichData.title = newTitle;
       }
       if (!existingEvent.haresText && event.hares) {
         const sanitized = sanitizeHares(event.hares);
