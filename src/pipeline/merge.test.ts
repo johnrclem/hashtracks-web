@@ -5617,4 +5617,33 @@ describe("same-date multi-run matcher (#2157)", () => {
       ),
     ).toBe(true);
   });
+
+  it("a NEW same-date run whose runNumber matches nothing creates its own canonical, not welded onto a sibling (#2157 Codex review)", async () => {
+    // Two existing same-URL canonicals on the date; a third run (#940) arrives.
+    // Its runNumber matches neither existing row — it must NOT fall back to
+    // welding onto urlMatches[0] (which would re-open the cross-run bleed); it
+    // creates its own canonical instead.
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_938", trustLevel: 7, sourceUrl: "https://sheet/pub", runNumber: 938, locationName: null },
+      { id: "evt_939", trustLevel: 7, sourceUrl: "https://sheet/pub", runNumber: 939, locationName: "Gerlaser Forsthaus, 95138 Bad Steben" },
+    ] as never);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_940"));
+
+    const result = await processRawEvents("src_sheet", [
+      // No startTime/title signal either → only runNumber 940 to go on.
+      buildRawEvent({ date: "2026-06-20", runNumber: 940, startTime: undefined, title: undefined, location: "New Venue", sourceUrl: "https://sheet/pub" }),
+    ]);
+
+    expect(result.created).toBe(1);
+    // Never welded onto an existing sibling.
+    expect(
+      mockEventUpdate.mock.calls.every(
+        (c: unknown[]) => {
+          const id = (c[0] as { where: { id: string } }).where.id;
+          return id !== "evt_938" && id !== "evt_939";
+        },
+      ),
+    ).toBe(true);
+  });
 });

@@ -1418,10 +1418,15 @@ async function upsertCanonicalEvent(
     if (!existingEvent && event.title) {
       existingEvent = sameDayEvents.find(e => e.title === event.title) ?? null;
     }
-    // Degenerate fallback — multiple rows share this URL and nothing above
-    // disambiguated (no runNumber/startTime/title signal). Preserve the prior
-    // first-URL-match behavior so this change is a strict refinement.
-    if (!existingEvent && urlMatches.length > 1) {
+    // Degenerate fallback — multiple rows share this URL and the incoming row
+    // carries NO disambiguating signal at all (no runNumber/startTime/title), so
+    // we genuinely can't tell it apart: preserve the prior first-URL-match
+    // behavior. A row that DID carry a signal which simply matched nothing is a
+    // distinct run (e.g. a newly-added third same-date run) — leave existingEvent
+    // null so it creates its own canonical rather than welding onto an arbitrary
+    // sibling and re-opening the cross-row bleed (#2157 Codex review).
+    if (!existingEvent && urlMatches.length > 1
+        && event.runNumber == null && !event.startTime && !event.title) {
       existingEvent = urlMatches[0];
     }
   }
