@@ -1920,17 +1920,16 @@ describe("buildRawEventFromApollo — runNumber (#1562 Miami H3)", () => {
 describe("buildRawEventFromApollo — runNumber (Richmond H3 rvah3, anchored)", () => {
   const emptyState = {} as Record<string, Record<string, unknown>>;
   const OPT_IN = true;
-  // The exact anchor Richmond's seed config ships: a leading kennel-code token
-  // before "#", or "Trail #". Excludes non-trail "#N" tokens.
+  // Richmond opts into the trail-context anchor (a leading kennel-code token
+  // before "#", or "Trail #"); non-trail "#N" tokens are excluded.
   const richmondCfg = (SOURCES.find((s) => s.name === "Richmond H3 Meetup")?.config ?? {}) as {
-    runNumberTitlePattern?: string;
+    anchorTrailRunNumber?: boolean;
     extractRunNumber?: boolean;
   };
-  const titleRe = new RegExp(richmondCfg.runNumberTitlePattern ?? "(?!)", "i");
   const build = (title: string, tag: string) =>
     buildRawEventFromApollo(
       { __typename: "Event", id: title, title, dateTime: "2026-06-28T13:00:00-04:00" },
-      emptyState, tag, undefined, OPT_IN, undefined, { runNumberTitleRe: titleRe },
+      emptyState, tag, undefined, OPT_IN, undefined, { anchorTrail: true },
     );
 
   it.each([
@@ -1962,9 +1961,9 @@ describe("buildRawEventFromApollo — runNumber (Richmond H3 rvah3, anchored)", 
     expect(buildRawEventFromApollo(ev, emptyState, "rvah3", undefined, OPT_IN).runNumber).toBe(15);
   });
 
-  it("the Richmond H3 Meetup seed source opts in with a trail-anchored pattern", () => {
+  it("the Richmond H3 Meetup seed source opts in with the trail anchor", () => {
     expect(richmondCfg.extractRunNumber).toBe(true);
-    expect(typeof richmondCfg.runNumberTitlePattern).toBe("string");
+    expect(richmondCfg.anchorTrailRunNumber).toBe(true);
   });
 });
 

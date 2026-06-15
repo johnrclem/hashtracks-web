@@ -2,7 +2,6 @@ import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
-import isSafeRegex from "safe-regex2";
 import { validateSourceConfig, stripHtmlTags, buildDateWindow, extractHashRunNumber, HARE_BOILERPLATE_RE, CTA_EMBEDDED_PATTERNS, splitDescriptionBlocks, normalizeDescriptionKey } from "../utils";
 import { safeFetch } from "../safe-fetch";
 import { extractHares as extractHaresFromDescription } from "../hare-extraction";
@@ -94,19 +93,17 @@ export interface MeetupConfig {
    */
   runNumberPrefix?: string;
   /**
-   * Optional title run-number anchor for aggregate feeds. When set (and
-   * `extractRunNumber` is true), the run number is read from capture group 1 of
-   * this pattern instead of the generic first-`#NNN`. Lets a source that mixes
-   * trail titles with non-trail socials extract only anchored trail forms and
-   * skip stray "#N" tokens that would otherwise become a bogus runNumber — and
-   * runNumber participates in same-day matching / fuzzy dedup, not just the
-   * kennel-page stat. Richmond H3's feed carries "RH3 # 1704" / "BIBH3 Trail
-   * #251" trails alongside "Inter-Kennel Drinking Practice #15"; the anchor
-   * keeps the social from minting run #15. Compiled case-insensitively and
-   * validated for ReDoS safety; an unsafe/malformed pattern is ignored (falls
-   * back to the generic parser).
+   * Restrict title run-number extraction to trail context (requires
+   * `extractRunNumber`). When set, the number is read from `TITLE_TRAIL_RUN_RE`
+   * — a leading kennel-code token before "#", or "Trail #" — instead of the
+   * generic first-`#NNN`, then falls through to the description path on no
+   * match. For aggregate feeds that mix trail titles with non-trail socials:
+   * Richmond H3 carries "RH3 # 1704" / "BIBH3 Trail #251" trails alongside
+   * "Inter-Kennel Drinking Practice #15", and runNumber participates in same-day
+   * matching / fuzzy dedup (not just the kennel-page stat), so the social must
+   * not mint run #15.
    */
-  runNumberTitlePattern?: string;
+  anchorTrailRunNumber?: boolean;
 }
 
 /** Shape of an event entry in Meetup's __NEXT_DATA__ Apollo state. */
@@ -465,28 +462,13 @@ function compileKennelPatterns(
 }
 
 /**
- * Compile the optional per-source `runNumberTitlePattern`. Validated for ReDoS
- * safety (config can be admin-edited in the DB) and skipped if unsafe/malformed
- * so a bad pattern degrades to the generic parser rather than throwing.
- */
-function compileRunNumberTitlePattern(pattern?: string): RegExp | undefined {
-  if (!pattern) return undefined;
-  // isSafeRegex compiles the pattern internally, so a syntactically invalid
-  // string throws here too — keep the check inside the try so a malformed config
-  // degrades to the generic parser instead of crashing the fetch.
-  try {
-    // nosemgrep: detect-non-literal-regexp — protected by isSafeRegex() below
-    if (!isSafeRegex(pattern)) {
-      console.warn(`Unsafe runNumberTitlePattern skipped (ReDoS): "${pattern}"`);
-      return undefined;
-    }
-    // nosemgrep: detect-non-literal-regexp — validated ReDoS-safe immediately above
-    return new RegExp(pattern, "i");
-  } catch (e) {
-    console.warn(`Malformed runNumberTitlePattern skipped: "${pattern}"`, e);
-    return undefined;
-  }
-}
+ * Trail-context run-number anchor for aggregate Meetup feeds (opt in via
+ * `anchorTrailRunNumber`). Capture group 1 is the run number when it follows
+ * either a leading kennel-code token + "#" ("RH3 # 1704") or "Trail #"
+ * ("BIBH3 Trail #251"). A non-trail social ("Inter-Kennel Drinking Practice
+ * #15") matches neither, so it mints no run number. A module-level literal
+ * (not compiled from config) so it's ReDoS-safe by construction. */
+const TITLE_TRAIL_RUN_RE = /(?:^\s*[A-Za-z0-9]{2,8}\s*#|\btrail\b\s*#)\s*(\d+)/i; // NOSONAR S5852/S5843 — literal, bounded {2,8}, no overlapping quantifiers
 
 /**
  * Meetup-style hare-line fallback: scan the first few description lines for
@@ -667,20 +649,20 @@ function resolveMeetupHares(
  * the parsing. Returns undefined when extraction is off or no number is found.
  */
 /**
- * Extract a run number from a Meetup title. With `runNumberTitleRe` (aggregate
- * feeds) only a trail-context "#N" in capture group 1 counts — a no-match
- * returns undefined so the caller falls through to the description path rather
- * than the unanchored generic parser (the anchor is the whole point). Without
- * it, the generic `extractHashRunNumber` runs, after normalizing any
+ * Extract a run number from a Meetup title. With `anchorTrail` (aggregate feeds)
+ * only a trail-context "#N" (capture group 1 of `TITLE_TRAIL_RUN_RE`) counts — a
+ * no-match returns undefined so the caller falls through to the description path
+ * rather than the unanchored generic parser (the anchor is the whole point).
+ * Without it, the generic `extractHashRunNumber` runs, after normalizing any
  * `runNumberPrefix` ("R*n", #1975) to "#".
  */
 function runNumberFromTitle(
   title: string | undefined,
-  runNumberTitleRe: RegExp | undefined,
+  anchorTrail: boolean,
   runNumberPrefix: string | undefined,
 ): number | undefined {
-  if (runNumberTitleRe) {
-    const m = title ? runNumberTitleRe.exec(title) : null;
+  if (anchorTrail) {
+    const m = title ? TITLE_TRAIL_RUN_RE.exec(title) : null;
     if (!m?.[1]) return undefined;
     const n = Number.parseInt(m[1], 10);
     return Number.isFinite(n) && n > 0 ? n : undefined;
@@ -694,14 +676,14 @@ function resolveRunNumber(
   description: string | null | undefined,
   extractRunNumber: boolean,
   runNumberPrefix: string | undefined,
-  runNumberTitleRe?: RegExp,
+  anchorTrail = false,
 ): number | undefined {
   // Title extraction stays opt-in (#1562): free-form Meetup titles can promote
   // non-hash tokens ("Pub Crawl #2") into a runNumber that then poisons
   // fingerprinting. Only sources that confirm unambiguous title conventions
   // set `extractRunNumber: true`.
   if (extractRunNumber) {
-    const fromTitle = runNumberFromTitle(title, runNumberTitleRe, runNumberPrefix);
+    const fromTitle = runNumberFromTitle(title, anchorTrail, runNumberPrefix);
     if (fromTitle !== undefined) return fromTitle;
   }
   // Description extraction is default-on but anchored to a "trail" line so it
@@ -761,10 +743,9 @@ export function buildRawEventFromApollo(
   // and `preCleaned` carries the already-computed cleaned description (wrapped so
   // a legitimately-`undefined` value is distinguishable from "not supplied" →
   // recompute) to avoid a second heavy cleanMeetupDescription (cheerio) pass per
-  // event. `runNumberTitleRe` is the compiled per-source title run-number anchor
-  // (see `runNumberTitlePattern`), passed in pre-compiled so it isn't rebuilt per
-  // event.
-  opts?: { blocks?: Set<string>; preCleaned?: { value: string | undefined }; runNumberTitleRe?: RegExp },
+  // event. `anchorTrail` opts the title run-number extractor into the
+  // trail-context anchor (see `anchorTrailRunNumber`).
+  opts?: { blocks?: Set<string>; preCleaned?: { value: string | undefined }; anchorTrail?: boolean },
 ): RawEventData {
   const { date, startTime } = ev.dateTime
     ? extractDateTime(ev.dateTime)
@@ -815,7 +796,7 @@ export function buildRawEventFromApollo(
     // Use finalDesc (Apollo-ref-resolved + boilerplate-stripped), not the raw
     // ev.description, so a "$44" cache ref or a stale group-template "Trail #N"
     // can't drive the run number (#2200 review).
-    runNumber: resolveRunNumber(ev.title, finalDesc, extractRunNumber, runNumberPrefix, opts?.runNumberTitleRe),
+    runNumber: resolveRunNumber(ev.title, finalDesc, extractRunNumber, runNumberPrefix, opts?.anchorTrail),
     description: finalDesc,
     hares,
     location: venueInfo.location,
@@ -1001,7 +982,7 @@ export class MeetupAdapter implements SourceAdapter {
     const boilerplateBlocks = detectBoilerplateBlocks(cleanedDescriptions);
 
     const compiledPatterns = compileKennelPatterns(config.kennelPatterns);
-    const compiledRunNumberTitleRe = compileRunNumberTitlePattern(config.runNumberTitlePattern);
+    const anchorTrailRunNumber = config.anchorTrailRunNumber === true;
     let cancelledSkipped = 0;
     let adminNoticeSkipped = 0;
     let boilerplateDescriptionsDropped = 0;
@@ -1042,7 +1023,7 @@ export class MeetupAdapter implements SourceAdapter {
         // Reuse the pre-pass cleaned value (index-aligned) so the builder
         // doesn't re-run the heavy cleanMeetupDescription/cheerio parse.
         const cleanedBefore = cleanedDescriptions[i];
-        const rawEvent = buildRawEventFromApollo(ev, mergedState, config.kennelTag, compiledPatterns, shouldExtractRunNumber, config.runNumberPrefix, { blocks: boilerplateBlocks, preCleaned: { value: cleanedBefore }, runNumberTitleRe: compiledRunNumberTitleRe });
+        const rawEvent = buildRawEventFromApollo(ev, mergedState, config.kennelTag, compiledPatterns, shouldExtractRunNumber, config.runNumberPrefix, { blocks: boilerplateBlocks, preCleaned: { value: cleanedBefore }, anchorTrail: anchorTrailRunNumber });
         // Count events whose description had boilerplate removed (fully nulled
         // or partially stripped) vs. its pre-strip cleaned value.
         if (cleanedBefore !== undefined && rawEvent.description !== cleanedBefore) {
