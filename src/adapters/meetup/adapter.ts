@@ -92,6 +92,18 @@ export interface MeetupConfig {
    * regex), so a `*` in the token needs no escaping.
    */
   runNumberPrefix?: string;
+  /**
+   * Restrict title run-number extraction to trail context (requires
+   * `extractRunNumber`). When set, the number is read from `TITLE_TRAIL_RUN_RE`
+   * — a leading kennel-code token before "#", or "Trail #" — instead of the
+   * generic first-`#NNN`, then falls through to the description path on no
+   * match. For aggregate feeds that mix trail titles with non-trail socials:
+   * Richmond H3 carries "RH3 # 1704" / "BIBH3 Trail #251" trails alongside
+   * "Inter-Kennel Drinking Practice #15", and runNumber participates in same-day
+   * matching / fuzzy dedup (not just the kennel-page stat), so the social must
+   * not mint run #15.
+   */
+  anchorTrailRunNumber?: boolean;
 }
 
 /** Shape of an event entry in Meetup's __NEXT_DATA__ Apollo state. */
@@ -450,6 +462,19 @@ function compileKennelPatterns(
 }
 
 /**
+ * Trail-context run-number *locator* for aggregate Meetup feeds (opt in via
+ * `anchorTrailRunNumber`). Matches the prefix up to and including the "#" when it
+ * follows either a leading kennel-code token ("RH3 # 1704") or "Trail #"
+ * ("BIBH3 Trail #251") — a non-trail social ("Inter-Kennel Drinking Practice
+ * #15") matches neither. Like the description path's TRAIL_RUN_ANCHOR_RE this is
+ * only a locator: the digits are parsed from the matched slice via the shared
+ * `extractHashRunNumber`, so its delimiter guard still rejects placeholder
+ * suffixes ("RH3 #1704TBD", "Trail #30X?") instead of minting a false run that
+ * would also pollute merge identity (Codex PR #2207 review). Module-level
+ * literal (not compiled from config) so it's ReDoS-safe by construction. */
+const TITLE_TRAIL_RUN_ANCHOR_RE = /(?:^\s*[A-Za-z0-9]{2,8}\s*#|\btrail\b\s*#)/i; // NOSONAR S5852/S5843 — literal, bounded {2,8}, no overlapping quantifiers
+
+/**
  * Meetup-style hare-line fallback: scan the first few description lines for
  * `Hare(s)` followed by a colon or dash separator.
  *
@@ -627,19 +652,42 @@ function resolveMeetupHares(
  * in the token needs no escaping — and the shared `extractHashRunNumber` does
  * the parsing. Returns undefined when extraction is off or no number is found.
  */
+/**
+ * Extract a run number from a Meetup title. With `anchorTrail` (aggregate feeds)
+ * only a trail-context "#N" counts: the `TITLE_TRAIL_RUN_ANCHOR_RE` locator
+ * finds the trail "#", then the shared `extractHashRunNumber` parses the slice
+ * (keeping its delimiter/placeholder guard). A no-match returns undefined so the
+ * caller falls through to the description path rather than the unanchored generic
+ * parser (the anchor is the whole point). Without `anchorTrail`, the generic
+ * `extractHashRunNumber` runs over the whole title, after normalizing any
+ * `runNumberPrefix` ("R*n", #1975) to "#".
+ */
+function runNumberFromTitle(
+  title: string | undefined,
+  anchorTrail: boolean,
+  runNumberPrefix: string | undefined,
+): number | undefined {
+  if (anchorTrail) {
+    const anchor = title ? TITLE_TRAIL_RUN_ANCHOR_RE.exec(title) : null;
+    return anchor ? extractHashRunNumber(title!.slice(anchor.index)) : undefined;
+  }
+  const normalized = runNumberPrefix && title ? title.replaceAll(runNumberPrefix, "#") : title;
+  return extractHashRunNumber(normalized);
+}
+
 function resolveRunNumber(
   title: string | undefined,
   description: string | null | undefined,
   extractRunNumber: boolean,
   runNumberPrefix: string | undefined,
+  anchorTrail = false,
 ): number | undefined {
   // Title extraction stays opt-in (#1562): free-form Meetup titles can promote
   // non-hash tokens ("Pub Crawl #2") into a runNumber that then poisons
   // fingerprinting. Only sources that confirm unambiguous title conventions
   // set `extractRunNumber: true`.
   if (extractRunNumber) {
-    const normalized = runNumberPrefix && title ? title.replaceAll(runNumberPrefix, "#") : title;
-    const fromTitle = extractHashRunNumber(normalized);
+    const fromTitle = runNumberFromTitle(title, anchorTrail, runNumberPrefix);
     if (fromTitle !== undefined) return fromTitle;
   }
   // Description extraction is default-on but anchored to a "trail" line so it
@@ -694,13 +742,14 @@ export function buildRawEventFromApollo(
   compiledPatterns?: [RegExp, string][],
   extractRunNumber = false,
   runNumberPrefix?: string,
-  // Boilerplate-processing context from fetch()'s detection pre-pass. `blocks`
-  // are the group-template paragraph keys to strip. `preCleaned` carries the
-  // already-computed cleaned description (wrapped so a legitimately-`undefined`
-  // value is distinguishable from "not supplied" → recompute) to avoid a second
-  // heavy cleanMeetupDescription (cheerio) pass per event. Bundled into one
-  // object so the signature stays within the param-count budget.
-  boilerplate?: { blocks?: Set<string>; preCleaned?: { value: string | undefined } },
+  // Per-fetch context, bundled into one object so the signature stays within the
+  // param-count budget. `blocks` are the group-template paragraph keys to strip
+  // and `preCleaned` carries the already-computed cleaned description (wrapped so
+  // a legitimately-`undefined` value is distinguishable from "not supplied" →
+  // recompute) to avoid a second heavy cleanMeetupDescription (cheerio) pass per
+  // event. `anchorTrail` opts the title run-number extractor into the
+  // trail-context anchor (see `anchorTrailRunNumber`).
+  opts?: { blocks?: Set<string>; preCleaned?: { value: string | undefined }; anchorTrail?: boolean },
 ): RawEventData {
   const { date, startTime } = ev.dateTime
     ? extractDateTime(ev.dateTime)
@@ -723,8 +772,8 @@ export function buildRawEventFromApollo(
   }
 
   const { hares, titleForDisplay } = resolveMeetupHares(ev.description, ev.title);
-  const cleanedDesc = boilerplate?.preCleaned
-    ? boilerplate.preCleaned.value
+  const cleanedDesc = opts?.preCleaned
+    ? opts.preCleaned.value
     : cleanMeetupDescription(ev.description, state);
   // Group-template boilerplate (#2058/#2059/#2062): strip paragraph blocks the
   // group reuses verbatim across >= 2 events (the standing recurring-event
@@ -735,7 +784,7 @@ export function buildRawEventFromApollo(
   // the stored `description` field is affected. `blocks` is undefined (or empty)
   // when called outside fetch() / with no detected template, so the strip is
   // skipped entirely and prior behavior is preserved.
-  const blocks = boilerplate?.blocks;
+  const blocks = opts?.blocks;
   const finalDesc =
     cleanedDesc !== undefined && blocks && blocks.size > 0
       ? stripBoilerplateBlocks(cleanedDesc, blocks)
@@ -751,7 +800,7 @@ export function buildRawEventFromApollo(
     // Use finalDesc (Apollo-ref-resolved + boilerplate-stripped), not the raw
     // ev.description, so a "$44" cache ref or a stale group-template "Trail #N"
     // can't drive the run number (#2200 review).
-    runNumber: resolveRunNumber(ev.title, finalDesc, extractRunNumber, runNumberPrefix),
+    runNumber: resolveRunNumber(ev.title, finalDesc, extractRunNumber, runNumberPrefix, opts?.anchorTrail),
     description: finalDesc,
     hares,
     location: venueInfo.location,
@@ -937,6 +986,7 @@ export class MeetupAdapter implements SourceAdapter {
     const boilerplateBlocks = detectBoilerplateBlocks(cleanedDescriptions);
 
     const compiledPatterns = compileKennelPatterns(config.kennelPatterns);
+    const anchorTrailRunNumber = config.anchorTrailRunNumber === true;
     let cancelledSkipped = 0;
     let adminNoticeSkipped = 0;
     let boilerplateDescriptionsDropped = 0;
@@ -977,7 +1027,7 @@ export class MeetupAdapter implements SourceAdapter {
         // Reuse the pre-pass cleaned value (index-aligned) so the builder
         // doesn't re-run the heavy cleanMeetupDescription/cheerio parse.
         const cleanedBefore = cleanedDescriptions[i];
-        const rawEvent = buildRawEventFromApollo(ev, mergedState, config.kennelTag, compiledPatterns, shouldExtractRunNumber, config.runNumberPrefix, { blocks: boilerplateBlocks, preCleaned: { value: cleanedBefore } });
+        const rawEvent = buildRawEventFromApollo(ev, mergedState, config.kennelTag, compiledPatterns, shouldExtractRunNumber, config.runNumberPrefix, { blocks: boilerplateBlocks, preCleaned: { value: cleanedBefore }, anchorTrail: anchorTrailRunNumber });
         // Count events whose description had boilerplate removed (fully nulled
         // or partially stripped) vs. its pre-strip cleaned value.
         if (cleanedBefore !== undefined && rawEvent.description !== cleanedBefore) {
