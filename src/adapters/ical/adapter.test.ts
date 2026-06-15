@@ -1879,6 +1879,9 @@ END:VCALENDAR`;
 });
 
 // Verbatim from the live Iron City feed (ironcityh3.com/?post_type=tribe_events).
+// The archive shows the SUMMARY remainder is usually a THEME, sometimes a hare —
+// so the kennel+run prefix is stripped but the remainder is kept as the title,
+// never extracted into haresText (#2160 follow-up: titleHarePattern reverted).
 const ICH3_ICS = `BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//The Events Calendar//EN
@@ -1892,6 +1895,12 @@ LOCATION:Hitchhiker Brewing\\, 1500 S Canal St #2541\\, Sharpsburg\\, PA\\, 1521
 URL:https://ironcityh3.com/event/ich3-60-plea-barkin/
 DTSTAMP:20260201T000000Z
 END:VEVENT
+BEGIN:VEVENT
+UID:ich3-45@ironcityh3.com
+DTSTART;TZID=America/New_York:20250425T183000
+SUMMARY:ICH3#45 Dancin' the Night Away
+DTSTAMP:20250201T000000Z
+END:VEVENT
 END:VCALENDAR`;
 
 function buildICH3Source(): Source {
@@ -1902,30 +1911,41 @@ function buildICH3Source(): Source {
       defaultKennelTag: "ich3",
       upcomingOnly: true,
       allowEmptyBody: true,
-      titleHarePattern: "^ICH3#?\\s*\\d+\\s+(.+)$",
       titleStripPrefixAliases: ["ICH3"],
+      harePatterns: [String.raw`Hared\s+by:\s*([^\n]+)`, String.raw`(?:^|\n)\s*Hares?:\s*([^\n]+)`],
     },
   });
 }
 
-describe("ICalAdapter — Iron City (ICH3) SUMMARY split (#2160)", () => {
+describe("ICalAdapter — Iron City (ICH3) title prefix strip (#2160)", () => {
   let adapter: ICalAdapter;
   beforeEach(() => {
     adapter = new ICalAdapter();
     vi.restoreAllMocks();
   });
 
-  it("moves the hare out of the title and drops the title to the merge default", async () => {
+  it("strips the 'ICH3# 60' prefix into the title and reads the hare from 'Hared by:'", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(ICH3_ICS, { status: 200 }));
     const result = await adapter.fetch(buildICH3Source(), { days: 9999 });
 
     const e = result.events.find((x) => x.runNumber === 60);
     expect(e).toBeDefined();
+    // Remainder kept as the title (it's the kennel's chosen name), NOT derived
+    // from the hare. The hare comes from the DESCRIPTION's "Hared by:" label.
+    expect(e!.title).toBe("Plea Barkin");
     expect(e!.hares).toBe("Plea Barkin");
-    // title must NEVER be the hare name (#2160 hard rule) → undefined.
-    expect(e!.title).toBeUndefined();
     // LOCATION field still wins for the venue.
     expect(e!.location).toContain("Hitchhiker Brewing");
+  });
+
+  it("keeps a theme remainder as the title and extracts no hare when the description lacks one", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(ICH3_ICS, { status: 200 }));
+    const result = await adapter.fetch(buildICH3Source(), { days: 9999 });
+
+    const e = result.events.find((x) => x.runNumber === 45);
+    expect(e).toBeDefined();
+    expect(e!.title).toBe("Dancin' the Night Away");
+    expect(e!.hares).toBeUndefined();
   });
 
   it("does not strip prefixes or blank titles for a source without the new config (negative)", async () => {
@@ -1936,9 +1956,9 @@ describe("ICalAdapter — Iron City (ICH3) SUMMARY split (#2160)", () => {
     });
     const result = await adapter.fetch(plainSource, { days: 9999 });
 
-    const e = result.events[0];
-    // No titleHarePattern / aliases → verbatim summary title, no hare extracted.
-    expect(e.title).toBe("ICH3# 60 Plea Barkin");
-    expect(e.hares).toBeUndefined();
+    const e = result.events.find((x) => x.runNumber === 60);
+    // No aliases → verbatim summary title, no hare extracted.
+    expect(e!.title).toBe("ICH3# 60 Plea Barkin");
+    expect(e!.hares).toBeUndefined();
   });
 });

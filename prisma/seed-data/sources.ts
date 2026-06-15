@@ -1415,12 +1415,19 @@ export const SOURCES = [
         // Safe because upcomingOnly:true stops reconcile from cancelling the
         // backfilled past events on an empty scrape.
         allowEmptyBody: true,
-        // #2160: ICH3 names every event "ICH3# {N} {HareName}" (no theme), e.g.
-        // "ICH3# 60 Plea Barkin". Capture the hare from the SUMMARY and strip
-        // the "ICH3# 60" prefix; the title-is-hare guard then drops the title
-        // to the merge default so the hare never doubles as the event title.
-        titleHarePattern: "^ICH3#?\\s*\\d+\\s+(.+)$",
+        // #2160: ICH3 bakes the redundant "ICH3# {N}" kennel+run prefix into the
+        // SUMMARY title (e.g. "ICH3# 60 Plea Barkin", "ICH3#45 Dancin' the Night
+        // Away"). Strip just that prefix — the remainder is the kennel's chosen
+        // title, usually a THEME (and sometimes a hare name). The original
+        // titleHarePattern was reverted (cycle follow-up): the real archive shows
+        // most remainders are themes, not hares, so extracting them into
+        // haresText corrupted the data; the title field is the right home.
         titleStripPrefixAliases: ["ICH3"],
+        // Real hares come from the DESCRIPTION's "Hared by:" label (ICH3's
+        // phrasing, which the default Hare:/Hares: parser misses), not the title.
+        // Unanchored so it matches mid-line ("ICH3 #60 Hared by: Plea Barkin");
+        // the standard "Hares:" form is kept as a fallback.
+        harePatterns: [String.raw`Hared\s+by:\s*([^\n]+)`, String.raw`(?:^|\n)\s*Hares?:\s*([^\n]+)`],
       },
       kennelCodes: ["ich3"],
     },

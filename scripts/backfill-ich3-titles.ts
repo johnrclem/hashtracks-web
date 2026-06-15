@@ -1,20 +1,21 @@
 /**
- * One-time backfill: fix ICH3 events whose title leaked the
- * `ICH3# {N} {HareName}` SUMMARY shape (#2160). The adapter now strips this
- * forward, but the merge pipeline preserves a non-placeholder existing title
- * (`resolveUpdatedTitle` keeps `ICH3# 60 Plea Barkin` because it isn't a
- * themeless placeholder), so already-ingested rows — the #1339 historical
- * backfill plus any pre-fix live runs — need this one-shot.
+ * One-time backfill: strip the redundant `ICH3# {N}` kennel+run prefix that
+ * leaked into ICH3 event titles (#2160). The adapter now strips this forward
+ * via `titleStripPrefixAliases`, but the merge pipeline preserves a
+ * non-placeholder existing title, so already-ingested rows (the #1339
+ * historical backfill plus pre-fix live runs) keep the prefix.
  *
- * For each matched row:
- *   - move the hare name into `haresText` when that field is empty (never
- *     clobber a real value), and
- *   - rewrite the title to the canonical merge default
- *     `<displayName> Trail #N` so the hare no longer doubles as the title.
+ * IMPORTANT — title only, never hares. The real ICH3 archive shows the SUMMARY
+ * remainder is usually a THEME ("Dancin' the Night Away", "IFT & the magic 8
+ * ball from hell"), sometimes a hare name. An earlier version of this script
+ * moved the remainder into `haresText`; that would corrupt the majority theme
+ * case, so we only strip the prefix and keep the remainder as the title —
+ * exactly what the live adapter now does (reusing `stripTitleKennelRunPrefix`
+ * keeps the two in lockstep).
  *
- * Conservative match: only the `ICH3[# ]*N HareName` shape is touched. A real
- * themed ICH3 title (if one ever exists) has no run-marker prefix and is left
- * untouched.
+ * Conservative match: only titles that actually start with the `ICH3[# ]*N`
+ * prefix are touched. Emoji-decorated titles ("☠️ ICH3 #57: …") and the
+ * `IC-Lite#NN` sub-series match nothing and are left untouched.
  *
  * Usage:
  *   npx tsx scripts/backfill-ich3-titles.ts          # dry run (default)
@@ -23,39 +24,39 @@
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
-import { friendlyKennelName } from "../src/pipeline/merge";
+import { stripTitleKennelRunPrefix } from "../src/adapters/ical/adapter";
 import { createScriptPool } from "./lib/db-pool";
 
 const dryRun = !process.argv.includes("--apply");
 
-// Match only the kennel label + run marker: `[#\s]*` and `\d+` are disjoint
-// char classes, so the pattern is provably linear (no `\s+`-adjacent-`.+`
-// backtracking shape Sonar S5852 flags). The hare is taken by slicing the
-// remainder, not a second greedy capture. Matches "ICH3# 60 …" and "ICH3 #60 …".
-const ICH3_RUN_PREFIX_RE = /^ICH3[#\s]*(\d+)/i;
+const ICH3_ALIASES = ["ICH3"];
+// Only a title that actually leads with the "ICH3[# ]*<digits>" prefix is a
+// candidate. Single char class `[#\s]*` adjacent to `\d+` (disjoint classes) —
+// provably linear, no ReDoS shape.
+const ICH3_PREFIX_RE = /^ICH3[#\s]*\d+/i;
 
-/** Parse a leaked ICH3 title into `{ runNumber, hares }`, or null when it isn't the leaked shape. */
-export function parseIch3LeakedTitle(title: string): { runNumber: number; hares: string } | null {
+/**
+ * Strip the `ICH3# N` prefix from a title, returning the cleaned title — or
+ * null when the title doesn't carry the prefix (leave it untouched) or nothing
+ * would change. Never extracts hares.
+ */
+export function stripIch3TitlePrefix(title: string): string | null {
   const trimmed = title.trim();
-  const m = ICH3_RUN_PREFIX_RE.exec(trimmed);
-  if (!m) return null;
-  const runNumber = Number.parseInt(m[1], 10);
-  if (!Number.isFinite(runNumber) || runNumber <= 0) return null;
-  const hares = trimmed.slice(m[0].length).trim();
-  if (!hares) return null;
-  return { runNumber, hares };
+  if (!ICH3_PREFIX_RE.test(trimmed)) return null;
+  const stripped = stripTitleKennelRunPrefix(trimmed, ICH3_ALIASES);
+  if (!stripped || stripped === trimmed) return null;
+  return stripped;
 }
 
 async function main() {
   const pool = createScriptPool();
-  const adapter = new PrismaPg(pool);
-  const prisma = new PrismaClient({ adapter } as never);
+  const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
 
   console.log(dryRun ? "🔍 DRY RUN — no changes will be made\n" : "✏️  APPLYING changes\n");
 
   const kennel = await prisma.kennel.findFirst({
     where: { kennelCode: "ich3" },
-    select: { id: true, kennelCode: true, shortName: true, fullName: true },
+    select: { id: true, shortName: true },
   });
   if (!kennel) {
     console.error("ICH3 kennel not found — nothing to do.");
@@ -64,42 +65,30 @@ async function main() {
     return;
   }
 
-  const displayName = friendlyKennelName(kennel.shortName, kennel.fullName) || kennel.kennelCode;
-
   const events = await prisma.event.findMany({
     where: { kennelId: kennel.id, title: { not: null } },
-    select: { id: true, title: true, haresText: true },
+    select: { id: true, title: true },
   });
 
-  const updates: { id: string; oldTitle: string; newTitle: string; setHares: string | null }[] = [];
+  const updates: { id: string; oldTitle: string; newTitle: string }[] = [];
   for (const ev of events) {
     if (!ev.title) continue;
-    const parsed = parseIch3LeakedTitle(ev.title);
-    if (!parsed) continue;
-    const newTitle = `${displayName} Trail #${parsed.runNumber}`;
-    if (newTitle === ev.title) continue;
-    // Only seed haresText when it's currently empty — never overwrite a value
-    // a misman or richer source already supplied.
-    const setHares = ev.haresText?.trim() ? null : parsed.hares;
-    updates.push({ id: ev.id, oldTitle: ev.title, newTitle, setHares });
+    const newTitle = stripIch3TitlePrefix(ev.title);
+    if (newTitle) updates.push({ id: ev.id, oldTitle: ev.title, newTitle });
   }
 
-  console.log(`ICH3 (${kennel.shortName}): ${updates.length} event(s) to fix`);
-  for (const u of updates.slice(0, 10)) {
-    console.log(`  ${u.id}: "${u.oldTitle}" → "${u.newTitle}"${u.setHares ? ` | hares="${u.setHares}"` : ""}`);
+  console.log(`ICH3 (${kennel.shortName}): ${updates.length} title(s) to strip`);
+  for (const u of updates) {
+    console.log(`  ${u.id}: "${u.oldTitle}" → "${u.newTitle}"`);
   }
-  if (updates.length > 10) console.log(`  ... and ${updates.length - 10} more`);
 
   if (!dryRun) {
     for (const u of updates) {
-      await prisma.event.update({
-        where: { id: u.id },
-        data: { title: u.newTitle, ...(u.setHares ? { haresText: u.setHares } : {}) },
-      });
+      await prisma.event.update({ where: { id: u.id }, data: { title: u.newTitle } });
     }
   }
 
-  console.log(`\n${dryRun ? "Would fix" : "Fixed"} ${updates.length} ICH3 title(s).`);
+  console.log(`\n${dryRun ? "Would strip" : "Stripped"} ${updates.length} ICH3 title prefix(es).`);
   if (dryRun && updates.length > 0) console.log("Run with --apply to make changes.");
 
   await prisma.$disconnect();
