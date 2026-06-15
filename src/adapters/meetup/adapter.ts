@@ -462,13 +462,17 @@ function compileKennelPatterns(
 }
 
 /**
- * Trail-context run-number anchor for aggregate Meetup feeds (opt in via
- * `anchorTrailRunNumber`). Capture group 1 is the run number when it follows
- * either a leading kennel-code token + "#" ("RH3 # 1704") or "Trail #"
- * ("BIBH3 Trail #251"). A non-trail social ("Inter-Kennel Drinking Practice
- * #15") matches neither, so it mints no run number. A module-level literal
- * (not compiled from config) so it's ReDoS-safe by construction. */
-const TITLE_TRAIL_RUN_RE = /(?:^\s*[A-Za-z0-9]{2,8}\s*#|\btrail\b\s*#)\s*(\d+)/i; // NOSONAR S5852/S5843 — literal, bounded {2,8}, no overlapping quantifiers
+ * Trail-context run-number *locator* for aggregate Meetup feeds (opt in via
+ * `anchorTrailRunNumber`). Matches the prefix up to and including the "#" when it
+ * follows either a leading kennel-code token ("RH3 # 1704") or "Trail #"
+ * ("BIBH3 Trail #251") — a non-trail social ("Inter-Kennel Drinking Practice
+ * #15") matches neither. Like the description path's TRAIL_RUN_ANCHOR_RE this is
+ * only a locator: the digits are parsed from the matched slice via the shared
+ * `extractHashRunNumber`, so its delimiter guard still rejects placeholder
+ * suffixes ("RH3 #1704TBD", "Trail #30X?") instead of minting a false run that
+ * would also pollute merge identity (Codex PR #2207 review). Module-level
+ * literal (not compiled from config) so it's ReDoS-safe by construction. */
+const TITLE_TRAIL_RUN_ANCHOR_RE = /(?:^\s*[A-Za-z0-9]{2,8}\s*#|\btrail\b\s*#)/i; // NOSONAR S5852/S5843 — literal, bounded {2,8}, no overlapping quantifiers
 
 /**
  * Meetup-style hare-line fallback: scan the first few description lines for
@@ -650,10 +654,12 @@ function resolveMeetupHares(
  */
 /**
  * Extract a run number from a Meetup title. With `anchorTrail` (aggregate feeds)
- * only a trail-context "#N" (capture group 1 of `TITLE_TRAIL_RUN_RE`) counts — a
- * no-match returns undefined so the caller falls through to the description path
- * rather than the unanchored generic parser (the anchor is the whole point).
- * Without it, the generic `extractHashRunNumber` runs, after normalizing any
+ * only a trail-context "#N" counts: the `TITLE_TRAIL_RUN_ANCHOR_RE` locator
+ * finds the trail "#", then the shared `extractHashRunNumber` parses the slice
+ * (keeping its delimiter/placeholder guard). A no-match returns undefined so the
+ * caller falls through to the description path rather than the unanchored generic
+ * parser (the anchor is the whole point). Without `anchorTrail`, the generic
+ * `extractHashRunNumber` runs over the whole title, after normalizing any
  * `runNumberPrefix` ("R*n", #1975) to "#".
  */
 function runNumberFromTitle(
@@ -662,10 +668,8 @@ function runNumberFromTitle(
   runNumberPrefix: string | undefined,
 ): number | undefined {
   if (anchorTrail) {
-    const m = title ? TITLE_TRAIL_RUN_RE.exec(title) : null;
-    if (!m?.[1]) return undefined;
-    const n = Number.parseInt(m[1], 10);
-    return Number.isFinite(n) && n > 0 ? n : undefined;
+    const anchor = title ? TITLE_TRAIL_RUN_ANCHOR_RE.exec(title) : null;
+    return anchor ? extractHashRunNumber(title!.slice(anchor.index)) : undefined;
   }
   const normalized = runNumberPrefix && title ? title.replaceAll(runNumberPrefix, "#") : title;
   return extractHashRunNumber(normalized);

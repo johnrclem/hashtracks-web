@@ -1949,6 +1949,15 @@ describe("buildRawEventFromApollo — runNumber (Richmond H3 rvah3, anchored)", 
     expect(build("Chain Gang Trail #42", "chain-gang-hhh").runNumber).toBe(42);
   });
 
+  it.each([
+    "RH3 #1704TBD",   // placeholder suffix glued to digits
+    "RH3 Trail #30X?", // explicit unknown-run marker
+  ])("rejects placeholder/ambiguous run tokens via the shared delimiter guard: %j", (title) => {
+    // The anchor only locates the "#"; extractHashRunNumber parses the slice, so
+    // its delimiter guard still drops these (Codex PR #2207 review).
+    expect(build(title, "rvah3").runNumber).toBeUndefined();
+  });
+
   it("does NOT mint a run number for the non-trail 'Drinking Practice #15' social", () => {
     // The whole reason for the anchor: runNumber feeds same-day merge identity,
     // so a non-trail "#15" must not become a canonical run number. Without the
