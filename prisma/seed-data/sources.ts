@@ -2910,8 +2910,11 @@ export const SOURCES = [
       config: {
         sheetId: "12Ajped8oyheVayDmHs0d8glLVo23VOg8gRKCe4yQP-g",
         gid: 0,
+        // Layout: banner "SeaMon H3 Hareline"(0) → header(1) → data(2+), so
+        // skipRows:1 (one banner above the header) is correct. Columns are
+        // Run#(0) Date(1) Hare(s)(2) Theme/Name(3); no location column.
         skipRows: 1,
-        columns: { runNumber: 0, date: 1, hares: 2, title: 3, location: -1 },
+        columns: { runNumber: 0, date: 1, hares: 2, title: 3 },
         kennelTagRules: { default: "seamon-h3" },
       },
       kennelCodes: ["seamon-h3"],
@@ -2932,8 +2935,13 @@ export const SOURCES = [
       config: {
         sheetId: "anonymous",
         csvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ_z30ZkQNOwcAka4qU22bAGYIVjJFc5NyICst9OeUWPvi27lNK8ICkZllzLI0gjLwQDjVvlt3mMlDM/pub?output=csv",
+        // skipRows:2 is correct here (verified live): TWO banner rows sit above
+        // the header — "Leap Year H3 - Hareline"(0) + a "Leap years occur on…"
+        // description(1) → header(2) → data(3+). Unlike PSH3/Rain City (#2202),
+        // this is NOT the first-data-row-drop bug; do not lower it to 1.
+        // Columns: Run#(0) Date (Day)(1) Hare(s)(2) Theme?(3); no location column.
         skipRows: 2,
-        columns: { runNumber: 0, date: 1, hares: 2, title: 3, location: -1 },
+        columns: { runNumber: 0, date: 1, hares: 2, title: 3 },
         kennelTagRules: { default: "leapyear-h3" },
       },
       kennelCodes: ["leapyear-h3"],
