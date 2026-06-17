@@ -75,6 +75,15 @@ describe("parseSeoulH3Events (index.php)", () => {
     expect(events[0].description).toContain("Apres: Local Craft Beer place");
   });
 
+  it("scrubs phone numbers the live page embeds in hare names", () => {
+    const withPhone = INDEX_FIXTURE.replace(
+      "GM Professor D'Erections",
+      "GM Professor D'Erections +82 10-1234-5678",
+    );
+    const [event] = parseSeoulH3Events(withPhone, SOURCE_URL);
+    expect(event.hares).toBe("GM Professor D'Erections");
+  });
+
   it("does not fabricate coords or store the bare /maps/place/ stub", () => {
     const [event] = parseSeoulH3Events(INDEX_FIXTURE, SOURCE_URL);
     expect(event.latitude).toBeUndefined();

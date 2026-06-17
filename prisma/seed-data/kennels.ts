@@ -4767,7 +4767,7 @@ export const KENNELS: KennelSeed[] = [
       website: "https://seoulhash.com",
       scheduleDayOfWeek: "Saturday", scheduleTime: "4:00 PM", scheduleFrequency: "Weekly",
       scheduleNotes:
-        "Korea's Mother Hash, men-only. Historically a Wednesday-evening hash (1979 Arirang article); current runs are Saturday afternoon (~16:00) with a seasonally-shifting start time. Run #2897 as of Jun 2026.",
+        "Korea's Mother Hash, men-only. Historically a Wednesday-evening hash (1979 Arirang article); current runs are Saturday afternoon (~16:00) with a seasonally-shifting start time. Run #2898 as of Jun 2026.",
       foundedYear: 1972,
       hashCash: "₩10,000",
       logoUrl: "/kennel-logos/sh3-kr.png",

@@ -4,6 +4,7 @@ import type { Element } from "domhandler";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult } from "../types";
 import { fetchHTMLPage } from "../utils";
+import { scrubHarePii } from "./sh3-pii";
 
 /**
  * Seoul Hash House Harriers (SH3) — Seoul, South Korea.
@@ -55,7 +56,7 @@ function labelKey(label: string): string {
 
 /** Date (UTC noon) + "HH:MM" from "2026/06/13 16:00", or null on drift. */
 function parseMeetingTime(value: string): { date: string; startTime: string } | null {
-  const m = MEETING_TIME_RE.exec(value.trim());
+  const m = value.trim().match(MEETING_TIME_RE);
   if (!m) return null;
   const year = Number.parseInt(m[1], 10);
   const month = Number.parseInt(m[2], 10);
@@ -100,7 +101,9 @@ function parseEventBlock($: CheerioAPI, el: Element, sourceUrl: string): RawEven
   const title = $ev.find(".title").first().text().trim() || undefined;
 
   const location = labels.get("location") || undefined;
-  const hares = labels.get("hares") || undefined;
+  // Scrub phone numbers / emails the live page may embed in hare names — the
+  // merge pipeline's sanitizeHares does not strip mid-string PII (#2227).
+  const hares = scrubHarePii(labels.get("hares"));
 
   const hashCash = labels.get("hash cash");
   const cost = hashCash && hashCash !== DEFAULT_HASH_CASH ? hashCash : undefined;

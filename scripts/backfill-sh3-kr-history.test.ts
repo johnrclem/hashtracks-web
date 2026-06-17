@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import seoulHistory from "./data/sh3-kr-history.json";
-import { scrubHarePii, HARE_PII_RES } from "./lib/sh3-pii";
+import { scrubHarePii, containsHarePii } from "@/adapters/html-scraper/sh3-pii";
 
 /**
  * Regression guard for the frozen Seoul H3 archive. Codex flagged (PR #2227)
@@ -18,7 +18,7 @@ describe("sh3-kr-history.json (committed archive)", () => {
       for (const field of PII_FIELDS) {
         const value = row[field];
         if (typeof value !== "string") continue;
-        if (HARE_PII_RES.some((re) => re.test(value))) {
+        if (containsHarePii(value)) {
           leaks.push(`${String(row.date)} ${field}: ${value}`);
         }
       }
