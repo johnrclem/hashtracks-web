@@ -262,3 +262,24 @@ describe("inferCountry — Victoria, BC vs Victoria, Australia", () => {
     expect(inferCountry(name)).toBe(country);
   });
 });
+
+describe("inferCountry — Warsaw, Poland vs Warsaw, USA", () => {
+  // Bare "warsaw" must NOT infer Poland — it's a common US place name and
+  // inferCountry defaults to USA (#2234). Poland needs a qualifier.
+  it.each([
+    ["Warsaw, Poland", "Poland"],
+    ["Warszawa", "Poland"],
+    ["Polska", "Poland"],
+    ["Krakow, Poland", "Poland"],
+  ])("infers %s → Poland", (name, country) => {
+    expect(inferCountry(name)).toBe(country);
+  });
+
+  it.each([
+    ["Warsaw, IN", "USA"],
+    ["Warsaw, Indiana", "USA"],
+    ["Warsaw", "USA"],
+  ])("does not mis-attribute %s to Poland (→ USA)", (name, country) => {
+    expect(inferCountry(name)).toBe(country);
+  });
+});

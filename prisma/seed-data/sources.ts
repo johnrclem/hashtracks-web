@@ -7054,5 +7054,22 @@ export const SOURCES = [
       },
       kennelCodes: ["budapest-h3"],
     },
+
+    // ── Poland ──
+
+    // Warsaw H3 (first Poland kennel, est. 1983) — static Mobirise home page that
+    // SSRs the next run (full detail) + an upcoming-runs list. WarsawH3Adapter
+    // merges the two shapes by run number; `upcomingOnly` protects reconcile as
+    // the rolling forward feed ages runs off (no on-site archive).
+    {
+      name: "Warsaw H3 Website",
+      url: "https://warsawh3.com/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: { upcomingOnly: true },
+      kennelCodes: ["warsaw-h3"],
+    },
   ];
 

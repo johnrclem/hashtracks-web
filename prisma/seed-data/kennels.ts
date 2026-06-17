@@ -5241,5 +5241,35 @@ export const KENNELS: KennelSeed[] = [
       description:
         "The Budapest chapter of the Hash House Harriers (est. 1982), a non-competitive running/hiking and social club. Runs every Sunday — usually meeting at Batthyány tér on the Buda side — followed by drinks at the Ganz Bar. Run fee HUF 1,000; trails ~12–15 km. Per-run details are posted to the members' Facebook group.",
     },
+
+    // ===== POLAND ===== (first Poland kennel; bare "WH3" omitted — globally taken)
+    {
+      kennelCode: "warsaw-h3",
+      shortName: "Warsaw H3",
+      fullName: "Warsaw Hash House Harriers",
+      region: "Warsaw",
+      country: "Poland",
+      website: "https://warsawh3.com/",
+      facebookUrl: "https://www.facebook.com/WarsawH3",
+      foundedYear: 1983,
+      hashCash: "PLN20", // first run free
+      walkersWelcome: true,
+      scheduleDayOfWeek: "Saturday",
+      scheduleTime: "2:00 PM", // 12-hr seed format; scheduleRules.startTime stays "14:00"
+      scheduleFrequency: "Biweekly",
+      scheduleRules: [
+        {
+          rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA",
+          anchorDate: "2026-06-20", // run #1643 — phases the INTERVAL=2 cadence
+          startTime: "14:00",
+          label: "Primary",
+        },
+      ],
+      description:
+        "Warsaw Hash House Harriers (WH3), established 1983 — 'the drinking club with a running problem.' A relaxed, sociable hash that meets every second Saturday for a run or a stroll along a flour trail, followed by beers. Runners and walkers equally welcome.",
+      logoUrl: "/kennel-logos/warsaw-h3.jpg", // self-hosted; ext confirmed by magic bytes
+      latitude: 52.2297,
+      longitude: 21.0122,
+    },
   ];
 
