@@ -148,7 +148,7 @@ describe("WarsawH3Adapter", () => {
       $: cheerio.load(FIXTURE),
       structureHash: "hash",
       fetchDurationMs: 1,
-    } as never);
+    });
 
     const result = await new WarsawH3Adapter().fetch({ url: SOURCE_URL } as Source);
     expect(result.errors).toEqual([]);
@@ -163,7 +163,7 @@ describe("WarsawH3Adapter", () => {
       $: cheerio.load("<html></html>"),
       structureHash: "hash",
       fetchDurationMs: 1,
-    } as never);
+    });
 
     const result = await new WarsawH3Adapter().fetch({ url: SOURCE_URL } as Source);
     expect(result.events).toEqual([]);

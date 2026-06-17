@@ -188,17 +188,13 @@ function parseUpcomingList(lines: string[], sourceUrl: string): RawEventData[] {
   return events;
 }
 
-/** Defined incoming value wins (incl. an explicit `null` clear); `undefined` keeps existing. */
-function keep<T>(next: T | undefined, prev: T | undefined): T | undefined {
-  return next !== undefined ? next : prev;
-}
-
 /**
  * Merge two rows for the same run (the next-run detail block vs an upcoming-list
  * row). Field-by-field rather than winner-take-all, preserving the merge
- * pipeline's tri-state so neither shape's data is dropped: a richer next-run
- * row's venue/time survive a later list row that omits them, and a list row's
- * explicit `null` hare clear still wins.
+ * pipeline's tri-state so neither shape's data is dropped: only the incoming
+ * row's *defined* fields override, so a richer next-run row's venue/time survive
+ * a later list row that omits them, while an explicit `null` hare-clear (which is
+ * defined) still wins. `undefined` fields are dropped so existing values stay.
  */
 function upsertEvent(map: Map<number, RawEventData>, event: RawEventData): void {
   const runNumber = event.runNumber;
@@ -208,13 +204,8 @@ function upsertEvent(map: Map<number, RawEventData>, event: RawEventData): void 
     map.set(runNumber, event);
     return;
   }
-  map.set(runNumber, {
-    ...existing,
-    hares: keep(event.hares, existing.hares),
-    location: keep(event.location, existing.location),
-    startTime: keep(event.startTime, existing.startTime),
-    sourceUrl: keep(event.sourceUrl, existing.sourceUrl),
-  });
+  const defined = Object.entries(event).filter(([, value]) => value !== undefined);
+  map.set(runNumber, { ...existing, ...Object.fromEntries(defined) });
 }
 
 /**
