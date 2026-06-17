@@ -756,10 +756,21 @@ exit 56 — so the raw wrapper markup must be re-captured at build; the *content
 - **🔴 Hare placeholders → `null` (explicit clear), NOT `undefined`.** Common jokes — `???`, `It Could Be
   You!`, `TBA`, `Hare needed`. The merge pipeline treats `hares: undefined` as *preserve-existing* and
   `null` as *explicit clear* (#2032); emitting `undefined` for a placeholder lets a stale hare survive a
-  source correction (Codex caught this on Warsaw). Use the reference shape `placeholder ? null : value ||
-  undefined` (`stripPlaceholder` from `adapters/utils.ts` handles the universal ones — `???`/`TBA`/`Hare
-  needed` — keep only a kennel-specific in-joke like "It Could Be You!" local). A genuinely *missing* hare
-  field stays `undefined`.
+  source correction (Codex caught this on Warsaw). ⚠️ `stripPlaceholder` (from `adapters/utils.ts`) only
+  **detects** the universal placeholders (`???`/`TBA`/`Hare needed`) — it **returns `undefined`** (it can't
+  distinguish "present placeholder" from "absent"), so converting it straight (`const h =
+  stripPlaceholder(x)`) would wrongly *preserve* a stale hare. Map it explicitly — the shipped Warsaw shape:
+  ```ts
+  function cleanHare(value: string | undefined): string | null | undefined {
+    const trimmed = value?.trim();
+    if (!trimmed) return undefined;                              // field absent → no signal (preserve)
+    const hare = stripPlaceholder(trimmed);
+    if (!hare || KENNEL_PLACEHOLDER_RE.test(hare)) return null;  // present placeholder → explicit clear
+    return hare;
+  }
+  ```
+  Keep only a kennel-specific in-joke (e.g. `It Could Be You!`) in the local `KENNEL_PLACEHOLDER_RE`; the
+  universal ones live in `stripPlaceholder`.
 - **No per-run coords / no archive.** Venue is free text only (no lat/lng, no Maps link) → leave coords
   undefined, merge geocodes the venue or falls back to the region centroid. The other nav pages
   (`Events.html` = special events, `news.html` = prose, `picsdocs.html` = photos) carry **no run history**
